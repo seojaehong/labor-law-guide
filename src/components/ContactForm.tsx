@@ -6,26 +6,30 @@ import { Send, CheckCircle } from 'lucide-react';
 export default function ContactForm() {
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setLoading(true);
-    // formspree or custom endpoint
-    const form = e.currentTarget;
-    const data = new FormData(form);
+    setError('');
 
-    // mailto 방식으로 전송
-    const name = data.get('name') as string;
-    const phone = data.get('phone') as string;
-    const email = data.get('email') as string;
-    const type = data.get('type') as string;
-    const message = data.get('message') as string;
+    try {
+      const res = await fetch('https://formspree.io/f/mzdjpvzy', {
+        method: 'POST',
+        body: new FormData(e.currentTarget),
+        headers: { Accept: 'application/json' },
+      });
 
-    const subject = encodeURIComponent(`[노란봉투법 가이드] ${type} - ${name}`);
-    const body = encodeURIComponent(`이름: ${name}\n연락처: ${phone}\n이메일: ${email}\n문의유형: ${type}\n\n${message}`);
-    window.open(`mailto:abc@winhr.co.kr?subject=${subject}&body=${body}`, '_self');
-    setSubmitted(true);
-    setLoading(false);
+      if (res.ok) {
+        setSubmitted(true);
+      } else {
+        setError('전송에 실패했습니다. 잠시 후 다시 시도해 주세요.');
+      }
+    } catch {
+      setError('네트워크 오류가 발생했습니다.');
+    } finally {
+      setLoading(false);
+    }
   }
 
   if (submitted) {
@@ -40,6 +44,9 @@ export default function ContactForm() {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
+      {/* Formspree에서 회신할 이메일 지정 */}
+      <input type="hidden" name="_subject" value="[노란봉투법 가이드] 새 문의" />
+
       <div className="grid gap-5 md:grid-cols-2">
         <div>
           <label className="mb-1 block text-sm font-medium" style={{ color: 'var(--grey-700)' }}>이름 *</label>
@@ -68,6 +75,9 @@ export default function ContactForm() {
         <label className="mb-1 block text-sm font-medium" style={{ color: 'var(--grey-700)' }}>문의 내용 *</label>
         <textarea name="message" required rows={5} className="w-full rounded-lg border px-4 py-2.5 text-[15px] outline-none transition-colors focus:border-[var(--color-accent)]" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }} placeholder="문의하실 내용을 자세히 적어주세요." />
       </div>
+
+      {error && <p className="text-sm" style={{ color: '#dc2626' }}>{error}</p>}
+
       <button
         type="submit"
         disabled={loading}
