@@ -53,6 +53,8 @@ export default function RootLayout({
   return (
     <html lang="ko">
       <head>
+        <script async src="https://www.googletagmanager.com/gtag/js?id=G-GKKFCZ235H" />
+        <script dangerouslySetInnerHTML={{ __html: `window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}gtag('js',new Date());gtag('config','G-GKKFCZ235H');` }} />
         <meta name="theme-color" content="#1d4ed8" />
         <link rel="icon" href="/favicon.ico" />
         <link
