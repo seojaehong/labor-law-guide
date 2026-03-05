@@ -64,14 +64,19 @@ def upload_admin():
 
     rows = []
     for a in admins:
+        # 필드명 매핑: question_summary→summary, answer_summary+reasoning→holding_points
+        summary = a.get('question_summary') or a.get('summary', '') or ''
+        answer = a.get('answer_summary', '') or ''
+        reasoning = a.get('reasoning', '') or ''
+        holding = f"{answer}\n{reasoning}".strip() if (answer or reasoning) else (a.get('holding_points', '') or '')
         rows.append({
             'id': a.get('id', ''),
             'title': a.get('title', ''),
-            'doc_number': a.get('doc_number', ''),
-            'decision_date': a.get('decision_date') or None,
+            'doc_number': a.get('agenda_number') or a.get('doc_number', ''),
+            'decision_date': a.get('interpretation_date') or a.get('decision_date') or None,
             'keywords_matched': parse_keywords(a.get('keywords_matched', [])),
-            'summary': (a.get('summary', '') or '')[:2000],
-            'holding_points': (a.get('holding_points', '') or '')[:2000],
+            'summary': summary[:2000],
+            'holding_points': holding[:2000],
             'url': a.get('url', ''),
         })
 
@@ -90,12 +95,18 @@ def upload_news():
 
     rows = []
     for n in news:
+        import hashlib
+        # 뉴스: link→url, summary 없으면 빈값, id 없으면 URL 해시
+        url = n.get('link') or n.get('url', '')
+        news_id = n.get('id', '')
+        if not news_id and url:
+            news_id = f"news_{hashlib.md5(url.encode()).hexdigest()[:16]}"
         rows.append({
-            'id': n.get('id', ''),
+            'id': news_id,
             'title': n.get('title', ''),
             'source': n.get('source', ''),
             'published_at': n.get('published_at') or n.get('published_date') or None,
-            'url': n.get('url', ''),
+            'url': url,
             'summary': (n.get('summary', '') or '')[:1000],
             'keywords_matched': parse_keywords(n.get('keywords_matched', [])),
         })
