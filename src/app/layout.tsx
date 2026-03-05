@@ -34,8 +34,7 @@ export const metadata: Metadata = {
   verification: {
     google: 'LBQPkEpc1Dd33Z69iOtHpXKmdIyaR1yFmyDpS0StKhM',
     other: {
-      // TODO: Replace NAVER_VERIFICATION_CODE with actual value from Naver Search Advisor
-      'naver-site-verification': 'NAVER_VERIFICATION_CODE',
+      'naver-site-verification': '688ae188787a9183146fae7236c947ce6b0d828a',
     },
   },
   other: {
