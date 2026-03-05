@@ -31,7 +31,13 @@ export const metadata: Metadata = {
     description: '사용자 범위 확대·노동쟁의·원하청 교섭절차·AI 상담',
   },
   robots: { index: true, follow: true, 'max-snippet': -1, 'max-image-preview': 'large' as const },
-  verification: {},
+  verification: {
+    google: 'LBQPkEpc1Dd33Z69iOtHpXKmdIyaR1yFmyDpS0StKhM',
+    other: {
+      // TODO: Replace NAVER_VERIFICATION_CODE with actual value from Naver Search Advisor
+      'naver-site-verification': 'NAVER_VERIFICATION_CODE',
+    },
+  },
   other: {
     'geo.region': 'KR-11',
     'geo.placename': 'Seoul, Seocho-gu',
@@ -48,6 +54,8 @@ export default function RootLayout({
   return (
     <html lang="ko">
       <head>
+        <meta name="theme-color" content="#1d4ed8" />
+        <link rel="icon" href="/favicon.ico" />
         <link
           rel="stylesheet"
           as="style"
