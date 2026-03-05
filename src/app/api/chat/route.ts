@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { SYSTEM_PROMPT, searchQA } from '@/content/ai-knowledge';
+import { supabase } from '@/lib/supabase';
 
 export async function POST(req: NextRequest) {
   try {
@@ -21,6 +22,25 @@ export async function POST(req: NextRequest) {
         systemPrompt += `\nQ: ${faq.question}\nA: ${faq.answer}\n${faq.relatedArticle ? `관련조문: ${faq.relatedArticle}` : ''}\n`;
       }
       systemPrompt += '\n위 DB 내용을 참고하되, 질문에 맞게 자연스럽게 재구성하여 답변하세요.';
+    }
+
+    // 관련 뉴스 검색 (최신 5건)
+    if (lastUserMsg) {
+      const q = lastUserMsg.content.slice(0, 50);
+      const pattern = `%${q}%`;
+      const { data: newsData } = await supabase
+        .from('news')
+        .select('title, source, published_at, summary')
+        .or(`title.ilike.${pattern},summary.ilike.${pattern}`)
+        .order('published_at', { ascending: false })
+        .limit(5);
+
+      if (newsData && newsData.length > 0) {
+        systemPrompt += '\n\n═══ 관련 최신 뉴스 (참고용, 출처 명시하여 답변) ═══\n';
+        for (const n of newsData) {
+          systemPrompt += `\n[${n.published_at?.slice(0, 10)}] ${n.title} (${n.source || '뉴스'})\n${n.summary?.slice(0, 150) || ''}\n`;
+        }
+      }
     }
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
