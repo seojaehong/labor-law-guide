@@ -1,218 +1,152 @@
-"use client";
+'use client';
 
-import { useState, useMemo } from "react";
-import data1 from "@/data/개정_노동조합법_해석지침_perfect.json";
-import data2 from "@/data/원·하청_상생_교섭절차_매뉴얼_perfect.json";
-import { Search, Book, FileText, ChevronLeft, ExternalLink } from "lucide-react";
-import { Input } from "@/components/ui/input";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/components/ui/accordion";
+import Link from 'next/link';
+import { ArrowRight, Scale, Users, FileText, MessageSquare, Shield, ClipboardCheck } from 'lucide-react';
+import { motion } from 'framer-motion';
 
-const documents = [data1, data2];
+const features = [
+  {
+    icon: Users,
+    title: '사용자 범위 확대',
+    description: '근로계약 당사자가 아니더라도 근로조건을 실질적·구체적으로 지배·결정하는 자는 사용자로 인정',
+    href: '/guide#employer-scope',
+    color: 'var(--blue-500)',
+    bg: 'var(--blue-50)',
+  },
+  {
+    icon: Scale,
+    title: '노동쟁의 범위 확대',
+    description: '계약외사용자와의 분쟁도 노동쟁의에 포함. 원청에 대한 쟁의행위 정당성 근거 마련',
+    href: '/guide#labor-dispute',
+    color: '#8b5cf6',
+    bg: '#f5f3ff',
+  },
+  {
+    icon: ClipboardCheck,
+    title: '교섭 의무 자가진단',
+    description: '하청이 교섭을 요구했을 때, 우리가 응해야 하는지 체크리스트로 자가진단',
+    href: '/checklist',
+    color: '#dc2626',
+    bg: '#fef2f2',
+  },
+  {
+    icon: FileText,
+    title: '교섭절차 가이드',
+    description: '교섭요구부터 단체교섭까지 6단계 절차를 스텝 다이어그램으로 한눈에 파악',
+    href: '/manual',
+    color: '#059669',
+    bg: '#ecfdf5',
+  },
+];
 
-export default function DocumentViewer() {
-  const [activeDocIndex, setActiveDocIndex] = useState(0);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [sidebarOpen, setSidebarOpen] = useState(true);
-
-  const activeDoc = documents[activeDocIndex];
-
-  const filteredSections = useMemo(() => {
-    if (!searchQuery.trim()) return activeDoc.sections;
-    const q = searchQuery.toLowerCase();
-    return activeDoc.sections.filter(
-      (section: { header: string; content: string }) =>
-        section.header.toLowerCase().includes(q) ||
-        section.content.toLowerCase().includes(q)
-    );
-  }, [activeDoc, searchQuery]);
-
+export default function Home() {
   return (
-    <div className="flex h-screen bg-stone-50">
-      {/* Sidebar */}
-      <aside
-        className={`${
-          sidebarOpen ? "w-[280px]" : "w-0"
-        } transition-all duration-300 overflow-hidden border-r border-stone-200 bg-white flex flex-col shrink-0`}
-      >
-        <div className="p-5 border-b border-stone-100">
-          <div className="flex items-center gap-2.5 mb-1">
-            <div className="p-2 bg-blue-600 text-white rounded-lg">
-              <Book size={18} />
-            </div>
-            <div>
-              <h1 className="text-base font-bold text-stone-900 tracking-tight">
-                노동법 가이드
-              </h1>
-              <p className="text-[11px] text-stone-400 tracking-wide">
-                Labor Law Reference
-              </p>
-            </div>
+    <div>
+      {/* Hero */}
+      <section className="relative overflow-hidden px-5 py-20 text-center md:py-32">
+        <motion.div
+          className="mx-auto max-w-3xl"
+          initial={{ opacity: 0, y: 30 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+        >
+          <div
+            className="mb-4 inline-flex items-center gap-2 rounded-full border px-4 py-1.5 text-sm"
+            style={{ borderColor: 'var(--blue-200)', backgroundColor: 'var(--blue-50)', color: 'var(--blue-600)' }}
+          >
+            <Shield size={14} />
+            2026.3.10. 시행
           </div>
-        </div>
-
-        <div className="flex-1 overflow-y-auto p-3">
-          <p className="text-[11px] font-semibold text-stone-400 uppercase tracking-widest px-3 mb-2">
-            Documents
+          <h1 className="mb-6 font-bold tracking-tight" style={{ fontSize: 'var(--text-hero)', lineHeight: 1.1, color: 'var(--grey-900)' }}>
+            노란봉투법,<br />
+            <span style={{ color: 'var(--color-accent)' }}>무엇이 달라졌나?</span>
+          </h1>
+          <p className="mx-auto mb-10 max-w-xl" style={{ fontSize: 'var(--text-lg)', color: 'var(--color-text-secondary)', lineHeight: 1.6 }}>
+            개정 노동조합법의 핵심 변화를 해석지침과 교섭절차 매뉴얼 기반으로 정리했습니다. AI 상담으로 궁금한 점을 바로 해결하세요.
           </p>
-          {documents.map((doc, idx) => (
-            <button
-              key={idx}
-              onClick={() => {
-                setActiveDocIndex(idx);
-                setSearchQuery("");
-              }}
-              className={`w-full text-left p-3 rounded-lg transition-all duration-200 flex items-start gap-3 mb-1 ${
-                activeDocIndex === idx
-                  ? "bg-blue-50 border border-blue-200 text-blue-900"
-                  : "hover:bg-stone-50 border border-transparent text-stone-600 hover:text-stone-800"
-              }`}
+          <div className="flex flex-wrap items-center justify-center gap-3">
+            <Link
+              href="/guide"
+              className="flex items-center gap-2 rounded-lg px-6 py-3 font-medium text-white transition-transform hover:scale-105"
+              style={{ backgroundColor: 'var(--color-accent)' }}
             >
-              <FileText
-                size={16}
-                className={`mt-0.5 shrink-0 ${
-                  activeDocIndex === idx
-                    ? "text-blue-600"
-                    : "text-stone-400"
-                }`}
-              />
-              <div className="min-w-0">
-                <h3 className="font-medium text-[13px] leading-snug">
-                  {doc.title}
-                </h3>
-                <div className="flex gap-1 mt-1.5 flex-wrap">
-                  {doc.tags.slice(0, 2).map((tag: string, i: number) => (
-                    <span
-                      key={i}
-                      className={`text-[10px] px-1.5 py-0.5 rounded ${
-                        activeDocIndex === idx
-                          ? "bg-blue-100 text-blue-700"
-                          : "bg-stone-100 text-stone-500"
-                      }`}
-                    >
-                      {tag}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            </button>
-          ))}
-        </div>
-
-        <div className="p-3 border-t border-stone-100 text-[11px] text-stone-400 text-center">
-          {activeDoc.sections.length}개 섹션 · AI-Ready
-        </div>
-      </aside>
-
-      {/* Main */}
-      <main className="flex-1 flex flex-col min-w-0">
-        {/* Top bar */}
-        <header className="border-b border-stone-200 bg-white px-6 py-4 flex items-center gap-4">
-          <button
-            onClick={() => setSidebarOpen(!sidebarOpen)}
-            className="p-1.5 rounded-md hover:bg-stone-100 text-stone-500 transition-colors"
-            title={sidebarOpen ? "사이드바 접기" : "사이드바 열기"}
-          >
-            <ChevronLeft
-              size={18}
-              className={`transition-transform duration-300 ${
-                sidebarOpen ? "" : "rotate-180"
-              }`}
-            />
-          </button>
-
-          <div className="flex-1 min-w-0">
-            <h2 className="text-lg font-bold text-stone-900 truncate">
-              {activeDoc.title}
-            </h2>
+              해석지침 보기 <ArrowRight size={16} />
+            </Link>
+            <Link
+              href="/ai"
+              className="flex items-center gap-2 rounded-lg border px-6 py-3 font-medium transition-transform hover:scale-105"
+              style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-primary)' }}
+            >
+              <MessageSquare size={16} />
+              AI에게 질문하기
+            </Link>
           </div>
+        </motion.div>
+      </section>
 
-          <a
-            href={activeDoc.source}
-            target="_blank"
-            className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 hover:underline shrink-0"
-          >
-            원문 보기 <ExternalLink size={12} />
-          </a>
-        </header>
-
-        {/* Search */}
-        <div className="px-6 py-3 bg-white border-b border-stone-100">
-          <div className="relative max-w-2xl">
-            <Search
-              className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400"
-              size={16}
-            />
-            <Input
-              type="text"
-              placeholder="검색어 입력 (장, 절, 조문, 키워드...)"
-              className="pl-9 pr-4 py-2 bg-stone-50 border-stone-200 text-sm rounded-lg focus-visible:ring-blue-500/30 focus-visible:border-blue-300 text-stone-800 placeholder:text-stone-400"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-            {searchQuery && (
-              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] text-stone-400">
-                {filteredSections.length}건
+      {/* Features */}
+      <section className="px-5 pb-20">
+        <motion.div
+          className="mx-auto grid max-w-[1100px] gap-6 md:grid-cols-3"
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true, margin: '-50px' }}
+          variants={{ hidden: {}, visible: { transition: { staggerChildren: 0.1 } } }}
+        >
+          {features.map((f) => (
+            <motion.div
+              key={f.title}
+              variants={{ hidden: { opacity: 0, y: 24 }, visible: { opacity: 1, y: 0, transition: { duration: 0.5, ease: [0.16, 1, 0.3, 1] } } }}
+            >
+            <Link href={f.href} className="feature-card block rounded-2xl border bg-white p-7" style={{ borderColor: 'var(--color-border)', boxShadow: 'var(--shadow-sm)' }}>
+              <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl" style={{ backgroundColor: f.bg }}>
+                <f.icon size={22} style={{ color: f.color }} />
+              </div>
+              <h3 className="mb-2 text-lg font-bold" style={{ color: 'var(--grey-900)' }}>{f.title}</h3>
+              <p className="text-[15px] leading-relaxed" style={{ color: 'var(--color-text-secondary)' }}>{f.description}</p>
+              <span className="mt-4 inline-flex items-center gap-1 text-sm font-medium" style={{ color: 'var(--color-accent)' }}>
+                자세히 보기 <ArrowRight size={14} />
               </span>
-            )}
-          </div>
-        </div>
+            </Link>
+            </motion.div>
+          ))}
+        </motion.div>
+      </section>
 
-        {/* Content */}
-        <ScrollArea className="flex-1">
-          <div className="px-6 py-6 max-w-4xl">
-            {filteredSections.length > 0 ? (
-              <Accordion
-                type="multiple"
-                className="w-full space-y-2"
-                defaultValue={filteredSections
-                  .slice(0, 1)
-                  .map((_: { header: string; content: string }, i: number) => `item-${i}`)}
-              >
-                {filteredSections.map((section: { header: string; content: string }, idx: number) => (
-                  <AccordionItem
-                    value={`item-${idx}`}
-                    key={idx}
-                    className="border border-stone-200 bg-white rounded-lg overflow-hidden data-[state=open]:border-blue-300 data-[state=open]:shadow-sm"
-                  >
-                    <AccordionTrigger className="px-5 py-4 hover:no-underline hover:bg-stone-50 transition-colors text-left">
-                      <span className="font-semibold text-[15px] text-stone-800">
-                        {section.header}
-                      </span>
-                    </AccordionTrigger>
-                    <AccordionContent className="px-5 pb-6 pt-1">
-                      <div className="text-stone-700 leading-[1.85] text-[14.5px] whitespace-pre-wrap break-words">
-                        {section.content}
-                      </div>
-                    </AccordionContent>
-                  </AccordionItem>
-                ))}
-              </Accordion>
-            ) : (
-              <div className="flex flex-col items-center justify-center py-24 text-stone-400">
-                <Search size={40} className="mb-4 text-stone-300" />
-                <p className="text-base font-medium text-stone-600 mb-1">
-                  &ldquo;{searchQuery}&rdquo; 검색 결과 없음
-                </p>
-                <p className="text-sm text-stone-400 mb-4">
-                  다른 키워드로 검색해보세요
-                </p>
-                <button
-                  onClick={() => setSearchQuery("")}
-                  className="px-4 py-2 text-sm bg-stone-100 text-stone-600 rounded-lg hover:bg-stone-200 transition-colors"
-                >
-                  검색 초기화
-                </button>
-              </div>
-            )}
-          </div>
-        </ScrollArea>
-      </main>
+      {/* AI Preview */}
+      <section className="px-5 pb-20">
+        <div className="mx-auto max-w-[700px] rounded-2xl border p-8 text-center" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)', boxShadow: 'var(--shadow-md)' }}>
+          <MessageSquare size={32} className="mx-auto mb-4" style={{ color: 'var(--color-accent)' }} />
+          <h2 className="mb-2 text-xl font-bold" style={{ color: 'var(--grey-900)' }}>AI에게 노동법 질문하기</h2>
+          <p className="mb-6 text-sm" style={{ color: 'var(--color-text-secondary)' }}>
+            개정 노동조합법에 대한 궁금증을 AI가 즉시 답변해 드립니다
+          </p>
+          <Link
+            href="/ai"
+            className="inline-flex items-center gap-2 rounded-lg px-6 py-3 font-medium text-white"
+            style={{ backgroundColor: 'var(--color-accent)' }}
+          >
+            AI 상담 시작하기 <ArrowRight size={16} />
+          </Link>
+        </div>
+      </section>
+
+      {/* CTA */}
+      <section className="px-5 pb-20">
+        <div className="mx-auto max-w-[700px] rounded-2xl p-8 text-center" style={{ backgroundColor: 'var(--grey-900)' }}>
+          <h2 className="mb-3 text-xl font-bold text-white">노무법인 위너스와 상담하세요</h2>
+          <p className="mb-6 text-sm text-white/70">
+            사용자성 판단, 교섭 대응, 노동쟁의 등 노사관계 전문가가 직접 자문합니다.
+          </p>
+          <Link
+            href="/contact"
+            className="inline-flex items-center gap-2 rounded-lg px-6 py-3 font-medium"
+            style={{ backgroundColor: 'white', color: 'var(--grey-900)' }}
+          >
+            상담 문의하기 <ArrowRight size={16} />
+          </Link>
+        </div>
+      </section>
     </div>
   );
 }
