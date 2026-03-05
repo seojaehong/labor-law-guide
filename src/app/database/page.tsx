@@ -1,10 +1,10 @@
 'use client';
 
 import { useState, useCallback } from 'react';
-import { Search, Scale, FileText, Newspaper, ChevronDown, ChevronUp, ExternalLink, Loader2 } from 'lucide-react';
+import { Search, Scale, FileText, ChevronDown, ChevronUp, Loader2 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 
-type TabType = 'cases' | 'admin' | 'news';
+type TabType = 'cases' | 'admin';
 
 interface CaseResult {
   id: string;
@@ -29,20 +29,9 @@ interface AdminResult {
   holding_points: string;
 }
 
-interface NewsResult {
-  id: string;
-  title: string;
-  source: string;
-  published_at: string;
-  url: string;
-  summary: string;
-  keywords_matched: string[];
-}
-
 const TABS: { key: TabType; label: string; icon: React.ReactNode }[] = [
   { key: 'cases', label: '판례', icon: <Scale size={16} /> },
   { key: 'admin', label: '행정해석', icon: <FileText size={16} /> },
-  { key: 'news', label: '뉴스', icon: <Newspaper size={16} /> },
 ];
 
 const PAGE_SIZE = 20;
@@ -53,7 +42,6 @@ export default function DatabasePage() {
   const [loading, setLoading] = useState(false);
   const [cases, setCases] = useState<CaseResult[]>([]);
   const [admins, setAdmins] = useState<AdminResult[]>([]);
-  const [news, setNews] = useState<NewsResult[]>([]);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(false);
   const [searched, setSearched] = useState(false);
@@ -91,18 +79,6 @@ export default function DatabasePage() {
           setHasMore(data.length > PAGE_SIZE);
           setAdmins(data.slice(0, PAGE_SIZE));
         }
-      } else {
-        const pattern = `%${q}%`;
-        const { data, error } = await supabase
-          .from('news')
-          .select('*')
-          .or(`title.ilike.${pattern},summary.ilike.${pattern}`)
-          .order('published_at', { ascending: false })
-          .range(offset, offset + PAGE_SIZE);
-        if (!error && data) {
-          setHasMore(data.length > PAGE_SIZE);
-          setNews((data as NewsResult[]).slice(0, PAGE_SIZE));
-        }
       }
     } finally {
       setLoading(false);
@@ -135,7 +111,7 @@ export default function DatabasePage() {
     return d.slice(0, 10);
   };
 
-  const currentResults = activeTab === 'cases' ? cases : activeTab === 'admin' ? admins : news;
+  const currentResults = activeTab === 'cases' ? cases : admins;
 
   return (
     <div className="mx-auto max-w-[1000px] px-5 py-10">
@@ -143,7 +119,7 @@ export default function DatabasePage() {
         판례·행정해석·뉴스 검색
       </h1>
       <p className="mt-2 text-[15px]" style={{ color: 'var(--color-text-secondary)' }}>
-        노동조합법 관련 판례 2,900+건, 행정해석 890+건, 최신 뉴스를 검색하세요.
+        노동조합법 관련 판례 2,900+건, 행정해석 890+건을 검색하세요.
       </p>
 
       {/* 검색바 */}
@@ -208,9 +184,6 @@ export default function DatabasePage() {
             ))}
             {activeTab === 'admin' && admins.map((a) => (
               <AdminCard key={a.id} item={a} expanded={expandedIds.has(a.id)} onToggle={() => toggleExpand(a.id)} />
-            ))}
-            {activeTab === 'news' && news.map((n) => (
-              <NewsCard key={n.id} item={n} />
             ))}
           </div>
         )}
@@ -321,31 +294,3 @@ function AdminCard({ item, expanded, onToggle }: { item: AdminResult; expanded: 
   );
 }
 
-/* ── 뉴스 카드 ── */
-function NewsCard({ item }: { item: NewsResult }) {
-  return (
-    <a
-      href={item.url}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="block rounded-xl border p-4 transition-shadow hover:shadow-md"
-      style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }}
-    >
-      <div className="flex flex-wrap items-center gap-2 text-xs">
-        <span className="rounded-md px-2 py-0.5 font-medium" style={{ backgroundColor: '#fef3c7', color: '#92400e' }}>
-          {item.source || '뉴스'}
-        </span>
-        <span style={{ color: 'var(--color-text-tertiary)' }}>{item.published_at?.slice(0, 10)}</span>
-        <ExternalLink size={12} style={{ color: 'var(--color-text-tertiary)' }} />
-      </div>
-      <h3 className="mt-1.5 text-[15px] font-semibold leading-snug" style={{ color: 'var(--color-text-primary)' }}>
-        {item.title}
-      </h3>
-      {item.summary && (
-        <p className="mt-1 text-[13px] leading-relaxed" style={{ color: 'var(--color-text-secondary)' }}>
-          {item.summary.slice(0, 150)}{item.summary.length > 150 ? '...' : ''}
-        </p>
-      )}
-    </a>
-  );
-}
