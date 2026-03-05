@@ -13,17 +13,21 @@ export default function ContactForm() {
     setLoading(true);
     setError('');
 
+    const form = e.currentTarget;
+    const data = Object.fromEntries(new FormData(form));
+
     try {
-      const res = await fetch('https://formspree.io/f/mzdjpvzy', {
+      const res = await fetch('/api/contact', {
         method: 'POST',
-        body: new FormData(e.currentTarget),
-        headers: { Accept: 'application/json' },
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
       });
 
       if (res.ok) {
         setSubmitted(true);
       } else {
-        setError('전송에 실패했습니다. 잠시 후 다시 시도해 주세요.');
+        const result = await res.json();
+        setError(result.error || '전송에 실패했습니다.');
       }
     } catch {
       setError('네트워크 오류가 발생했습니다.');
@@ -38,15 +42,13 @@ export default function ContactForm() {
         <CheckCircle size={48} style={{ color: 'var(--color-accent)' }} />
         <h2 className="text-xl font-bold">문의가 접수되었습니다</h2>
         <p style={{ color: 'var(--color-text-secondary)' }}>빠른 시일 내에 연락드리겠습니다.</p>
+        <p className="text-sm" style={{ color: 'var(--grey-400)' }}>입력하신 이메일로 접수 확인 메일이 발송되었습니다.</p>
       </div>
     );
   }
 
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
-      {/* Formspree에서 회신할 이메일 지정 */}
-      <input type="hidden" name="_subject" value="[노란봉투법 가이드] 새 문의" />
-
       <div className="grid gap-5 md:grid-cols-2">
         <div>
           <label className="mb-1 block text-sm font-medium" style={{ color: 'var(--grey-700)' }}>이름 *</label>
@@ -58,8 +60,8 @@ export default function ContactForm() {
         </div>
       </div>
       <div>
-        <label className="mb-1 block text-sm font-medium" style={{ color: 'var(--grey-700)' }}>이메일</label>
-        <input name="email" type="email" className="w-full rounded-lg border px-4 py-2.5 text-[15px] outline-none transition-colors focus:border-[var(--color-accent)]" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }} />
+        <label className="mb-1 block text-sm font-medium" style={{ color: 'var(--grey-700)' }}>이메일 (자동 회신용)</label>
+        <input name="email" type="email" className="w-full rounded-lg border px-4 py-2.5 text-[15px] outline-none transition-colors focus:border-[var(--color-accent)]" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }} placeholder="입력하시면 접수 확인 메일을 보내드립니다" />
       </div>
       <div>
         <label className="mb-1 block text-sm font-medium" style={{ color: 'var(--grey-700)' }}>문의 유형</label>
