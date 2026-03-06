@@ -248,17 +248,21 @@ function CaseCard({ item, expanded, onToggle }: { item: CaseResult; expanded: bo
         </div>
       )}
 
-      {/* 요지 펼치기 */}
-      <button onClick={onToggle} className="mt-2 flex items-center gap-1 text-xs font-medium" style={{ color: 'var(--color-accent)' }}>
-        {expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-        {expanded ? '접기' : '요지 보기'}
-      </button>
+      {/* 요지 펼치기 — 내용 있을 때만 표시 */}
+      {(item.summary || item.holding_points) && (
+        <>
+          <button onClick={onToggle} className="mt-2 flex items-center gap-1 text-xs font-medium" style={{ color: 'var(--color-accent)' }}>
+            {expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+            {expanded ? '접기' : '요지 보기'}
+          </button>
 
-      {expanded && (
-        <div className="mt-2 space-y-2 rounded-lg p-3 text-[13px] leading-relaxed" style={{ backgroundColor: 'var(--grey-50)', color: 'var(--color-text-secondary)' }}>
-          {item.summary && <p><strong>요지:</strong> {item.summary}</p>}
-          {item.holding_points && <p><strong>판시사항:</strong> {item.holding_points}</p>}
-        </div>
+          {expanded && (
+            <div className="mt-2 space-y-2 rounded-lg p-3 text-[13px] leading-relaxed" style={{ backgroundColor: 'var(--grey-50)', color: 'var(--color-text-secondary)' }}>
+              {item.summary && <p><strong>요지:</strong> {item.summary}</p>}
+              {item.holding_points && <p><strong>판시사항:</strong> {item.holding_points}</p>}
+            </div>
+          )}
+        </>
       )}
     </div>
   );
