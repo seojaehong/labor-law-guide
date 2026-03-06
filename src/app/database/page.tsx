@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Search, Scale, FileText, ChevronDown, ChevronUp, Loader2 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 
@@ -36,16 +37,46 @@ const TABS: { key: TabType; label: string; icon: React.ReactNode }[] = [
 
 const PAGE_SIZE = 20;
 
+function highlightText(text: string, query: string) {
+  if (!query || query.length < 2 || !text) return text;
+  const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const parts = text.split(new RegExp(`(${escaped})`, 'gi'));
+  return parts.map((part, i) =>
+    part.toLowerCase() === query.toLowerCase()
+      ? <mark key={i} style={{ backgroundColor: 'var(--yellow-100, #fef9c3)', color: 'inherit', borderRadius: '2px', padding: '0 1px' }}>{part}</mark>
+      : part
+  );
+}
+
 export default function DatabasePage() {
-  const [query, setQuery] = useState('');
-  const [activeTab, setActiveTab] = useState<TabType>('cases');
+  return (
+    <Suspense fallback={<div className="flex items-center justify-center py-20"><Loader2 size={20} className="animate-spin" style={{ color: 'var(--color-accent)' }} /></div>}>
+      <DatabaseContent />
+    </Suspense>
+  );
+}
+
+function DatabaseContent() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
+  const [query, setQuery] = useState(searchParams.get('q') || '');
+  const [activeTab, setActiveTab] = useState<TabType>((searchParams.get('tab') as TabType) || 'cases');
   const [loading, setLoading] = useState(false);
   const [cases, setCases] = useState<CaseResult[]>([]);
   const [admins, setAdmins] = useState<AdminResult[]>([]);
-  const [page, setPage] = useState(1);
+  const [page, setPage] = useState(Number(searchParams.get('p')) || 1);
   const [hasMore, setHasMore] = useState(false);
   const [searched, setSearched] = useState(false);
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+  const [totalCases, setTotalCases] = useState<number | null>(null);
+  const [totalAdmin, setTotalAdmin] = useState<number | null>(null);
+
+  // 초기 건수 로드
+  useEffect(() => {
+    supabase.from('cases').select('id', { count: 'exact', head: true }).then(({ count }) => setTotalCases(count));
+    supabase.from('admin_interpretations').select('id', { count: 'exact', head: true }).then(({ count }) => setTotalAdmin(count));
+  }, []);
 
   const toggleExpand = (id: string) => {
     setExpandedIds((prev) => {
@@ -55,6 +86,15 @@ export default function DatabasePage() {
       return next;
     });
   };
+
+  const updateUrl = useCallback((q: string, tab: TabType, p: number) => {
+    const params = new URLSearchParams();
+    if (q) params.set('q', q);
+    if (tab !== 'cases') params.set('tab', tab);
+    if (p > 1) params.set('p', String(p));
+    const qs = params.toString();
+    router.replace(qs ? `/database?${qs}` : '/database', { scroll: false });
+  }, [router]);
 
   const search = useCallback(async (q: string, tab: TabType, p: number) => {
     if (!q || q.length < 2) return;
@@ -85,10 +125,22 @@ export default function DatabasePage() {
     }
   }, []);
 
+  // URL 파라미터로 초기 검색
+  useEffect(() => {
+    const q = searchParams.get('q');
+    const tab = (searchParams.get('tab') as TabType) || 'cases';
+    const p = Number(searchParams.get('p')) || 1;
+    if (q && q.length >= 2) {
+      search(q, tab, p);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     setPage(1);
     setExpandedIds(new Set());
+    updateUrl(query, activeTab, 1);
     search(query, activeTab, 1);
   };
 
@@ -96,19 +148,16 @@ export default function DatabasePage() {
     setActiveTab(tab);
     setPage(1);
     setExpandedIds(new Set());
+    updateUrl(query, tab, 1);
     if (query.length >= 2) search(query, tab, 1);
   };
 
   const handlePage = (p: number) => {
     setPage(p);
     setExpandedIds(new Set());
+    updateUrl(query, activeTab, p);
     search(query, activeTab, p);
     window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
-
-  const formatDate = (d: string | null) => {
-    if (!d) return '';
-    return d.slice(0, 10);
   };
 
   const currentResults = activeTab === 'cases' ? cases : admins;
@@ -116,10 +165,10 @@ export default function DatabasePage() {
   return (
     <div className="mx-auto max-w-[1000px] px-5 py-10">
       <h1 className="text-2xl font-bold md:text-3xl" style={{ color: 'var(--color-text-primary)' }}>
-        판례·행정해석·뉴스 검색
+        판례·행정해석 검색
       </h1>
       <p className="mt-2 text-[15px]" style={{ color: 'var(--color-text-secondary)' }}>
-        노동조합법 관련 판례 2,900+건, 행정해석 890+건을 검색하세요.
+        노동조합법 관련 판례 {totalCases !== null ? totalCases.toLocaleString() : '...'}건, 행정해석 {totalAdmin !== null ? totalAdmin.toLocaleString() : '...'}건을 검색하세요.
       </p>
 
       {/* 검색바 */}
@@ -139,21 +188,29 @@ export default function DatabasePage() {
 
       {/* 탭 */}
       <div className="mt-5 flex gap-2">
-        {TABS.map((tab) => (
-          <button
-            key={tab.key}
-            onClick={() => handleTabChange(tab.key)}
-            className="flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-medium transition-colors"
-            style={{
-              backgroundColor: activeTab === tab.key ? 'var(--color-accent)' : 'var(--color-bg-surface)',
-              color: activeTab === tab.key ? '#fff' : 'var(--color-text-secondary)',
-              border: activeTab === tab.key ? 'none' : '1px solid var(--color-border)',
-            }}
-          >
-            {tab.icon}
-            {tab.label}
-          </button>
-        ))}
+        {TABS.map((tab) => {
+          const count = tab.key === 'cases' ? totalCases : totalAdmin;
+          return (
+            <button
+              key={tab.key}
+              onClick={() => handleTabChange(tab.key)}
+              className="flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-medium transition-colors"
+              style={{
+                backgroundColor: activeTab === tab.key ? 'var(--color-accent)' : 'var(--color-bg-surface)',
+                color: activeTab === tab.key ? '#fff' : 'var(--color-text-secondary)',
+                border: activeTab === tab.key ? 'none' : '1px solid var(--color-border)',
+              }}
+            >
+              {tab.icon}
+              {tab.label}
+              {count !== null && (
+                <span className="ml-1 text-xs opacity-80">
+                  {count.toLocaleString()}
+                </span>
+              )}
+            </button>
+          );
+        })}
       </div>
 
       {/* 결과 */}
@@ -167,23 +224,43 @@ export default function DatabasePage() {
 
         {!loading && searched && currentResults.length === 0 && (
           <div className="py-20 text-center" style={{ color: 'var(--color-text-tertiary)' }}>
-            검색 결과가 없습니다.
+            <p className="text-lg">검색 결과가 없습니다.</p>
+            <p className="mt-2 text-sm">다른 검색어를 시도해보세요.</p>
           </div>
         )}
 
         {!loading && !searched && (
           <div className="py-20 text-center" style={{ color: 'var(--color-text-tertiary)' }}>
-            검색어를 입력하고 Enter를 눌러주세요.
+            <Search size={40} className="mx-auto mb-3 opacity-30" />
+            <p>검색어를 입력하고 Enter를 눌러주세요.</p>
+            <div className="mt-4 flex flex-wrap justify-center gap-2">
+              {['사용자성', '단체교섭', '부당노동행위', '파견', '손해배상'].map((kw) => (
+                <button
+                  key={kw}
+                  onClick={() => { setQuery(kw); setPage(1); updateUrl(kw, activeTab, 1); search(kw, activeTab, 1); }}
+                  className="rounded-full border px-3 py-1 text-sm transition-colors hover:border-[var(--color-accent)] hover:text-[var(--color-accent)]"
+                  style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-secondary)' }}
+                >
+                  {kw}
+                </button>
+              ))}
+            </div>
           </div>
+        )}
+
+        {!loading && searched && currentResults.length > 0 && (
+          <p className="mb-3 text-sm" style={{ color: 'var(--color-text-tertiary)' }}>
+            {page > 1 && `${page}페이지 · `}검색 결과 {currentResults.length}건{hasMore ? '+' : ''} 표시
+          </p>
         )}
 
         {!loading && currentResults.length > 0 && (
           <div className="space-y-3">
             {activeTab === 'cases' && cases.map((c) => (
-              <CaseCard key={c.id} item={c} expanded={expandedIds.has(c.id)} onToggle={() => toggleExpand(c.id)} />
+              <CaseCard key={c.id} item={c} query={query} expanded={expandedIds.has(c.id)} onToggle={() => toggleExpand(c.id)} />
             ))}
             {activeTab === 'admin' && admins.map((a) => (
-              <AdminCard key={a.id} item={a} expanded={expandedIds.has(a.id)} onToggle={() => toggleExpand(a.id)} />
+              <AdminCard key={a.id} item={a} query={query} expanded={expandedIds.has(a.id)} onToggle={() => toggleExpand(a.id)} />
             ))}
           </div>
         )}
@@ -218,7 +295,7 @@ export default function DatabasePage() {
 }
 
 /* ── 판례 카드 ── */
-function CaseCard({ item, expanded, onToggle }: { item: CaseResult; expanded: boolean; onToggle: () => void }) {
+function CaseCard({ item, query, expanded, onToggle }: { item: CaseResult; query: string; expanded: boolean; onToggle: () => void }) {
   return (
     <div className="rounded-xl border p-4 transition-shadow hover:shadow-md" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }}>
       <div className="flex items-start justify-between gap-2">
@@ -232,7 +309,7 @@ function CaseCard({ item, expanded, onToggle }: { item: CaseResult; expanded: bo
             {item.case_type && <span style={{ color: 'var(--color-text-tertiary)' }}>{item.case_type}</span>}
           </div>
           <h3 className="mt-1.5 text-[15px] font-semibold leading-snug" style={{ color: 'var(--color-text-primary)' }}>
-            {item.title}
+            {highlightText(item.title, query)}
           </h3>
         </div>
       </div>
@@ -248,7 +325,7 @@ function CaseCard({ item, expanded, onToggle }: { item: CaseResult; expanded: bo
         </div>
       )}
 
-      {/* 요지 펼치기 — 내용 있을 때만 표시 */}
+      {/* 요지 펼치기 */}
       {(item.summary || item.holding_points) && (
         <>
           <button onClick={onToggle} className="mt-2 flex items-center gap-1 text-xs font-medium" style={{ color: 'var(--color-accent)' }}>
@@ -258,8 +335,8 @@ function CaseCard({ item, expanded, onToggle }: { item: CaseResult; expanded: bo
 
           {expanded && (
             <div className="mt-2 space-y-2 rounded-lg p-3 text-[13px] leading-relaxed" style={{ backgroundColor: 'var(--grey-50)', color: 'var(--color-text-secondary)' }}>
-              {item.summary && <p><strong>요지:</strong> {item.summary}</p>}
-              {item.holding_points && <p><strong>판시사항:</strong> {item.holding_points}</p>}
+              {item.summary && <p><strong>요지:</strong> {highlightText(item.summary, query)}</p>}
+              {item.holding_points && <p><strong>판시사항:</strong> {highlightText(item.holding_points, query)}</p>}
             </div>
           )}
         </>
@@ -269,7 +346,8 @@ function CaseCard({ item, expanded, onToggle }: { item: CaseResult; expanded: bo
 }
 
 /* ── 행정해석 카드 ── */
-function AdminCard({ item, expanded, onToggle }: { item: AdminResult; expanded: boolean; onToggle: () => void }) {
+function AdminCard({ item, query, expanded, onToggle }: { item: AdminResult; query: string; expanded: boolean; onToggle: () => void }) {
+  const hasContent = !!(item.summary || item.holding_points);
   return (
     <div className="rounded-xl border p-4 transition-shadow hover:shadow-md" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }}>
       <div className="flex flex-wrap items-center gap-2 text-xs">
@@ -280,21 +358,24 @@ function AdminCard({ item, expanded, onToggle }: { item: AdminResult; expanded: 
         <span style={{ color: 'var(--color-text-tertiary)' }}>{item.decision_date?.slice(0, 10)}</span>
       </div>
       <h3 className="mt-1.5 text-[15px] font-semibold leading-snug" style={{ color: 'var(--color-text-primary)' }}>
-        {item.title}
+        {highlightText(item.title, query)}
       </h3>
 
-      <button onClick={onToggle} className="mt-2 flex items-center gap-1 text-xs font-medium" style={{ color: 'var(--color-accent)' }}>
-        {expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-        {expanded ? '접기' : '요약 보기'}
-      </button>
+      {hasContent && (
+        <>
+          <button onClick={onToggle} className="mt-2 flex items-center gap-1 text-xs font-medium" style={{ color: 'var(--color-accent)' }}>
+            {expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+            {expanded ? '접기' : '요약 보기'}
+          </button>
 
-      {expanded && (
-        <div className="mt-2 rounded-lg p-3 text-[13px] leading-relaxed" style={{ backgroundColor: 'var(--grey-50)', color: 'var(--color-text-secondary)' }}>
-          {item.summary && <p><strong>요약:</strong> {item.summary}</p>}
-          {item.holding_points && <p className="mt-1"><strong>판단요지:</strong> {item.holding_points}</p>}
-        </div>
+          {expanded && (
+            <div className="mt-2 rounded-lg p-3 text-[13px] leading-relaxed" style={{ backgroundColor: 'var(--grey-50)', color: 'var(--color-text-secondary)' }}>
+              {item.summary && <p><strong>요약:</strong> {highlightText(item.summary, query)}</p>}
+              {item.holding_points && <p className="mt-1"><strong>판단요지:</strong> {highlightText(item.holding_points, query)}</p>}
+            </div>
+          )}
+        </>
       )}
     </div>
   );
 }
-
