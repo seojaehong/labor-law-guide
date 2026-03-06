@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Search, Scale, FileText, ChevronDown, ChevronUp, Loader2 } from 'lucide-react';
+import { Search, Scale, FileText, ChevronDown, ChevronUp, Loader2, ExternalLink } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 
 type TabType = 'cases' | 'admin';
@@ -17,6 +17,7 @@ interface CaseResult {
   keywords_matched: string[];
   summary: string;
   holding_points: string;
+  url?: string;
   relevance?: number;
 }
 
@@ -28,6 +29,7 @@ interface AdminResult {
   keywords_matched: string[];
   summary: string;
   holding_points: string;
+  url?: string;
 }
 
 const TABS: { key: TabType; label: string; icon: React.ReactNode }[] = [
@@ -325,21 +327,26 @@ function CaseCard({ item, query, expanded, onToggle }: { item: CaseResult; query
         </div>
       )}
 
-      {/* 요지 펼치기 */}
-      {(item.summary || item.holding_points) && (
-        <>
-          <button onClick={onToggle} className="mt-2 flex items-center gap-1 text-xs font-medium" style={{ color: 'var(--color-accent)' }}>
+      {/* 액션 버튼 */}
+      <div className="mt-2 flex items-center gap-3">
+        {(item.summary || item.holding_points) && (
+          <button onClick={onToggle} className="flex items-center gap-1 text-xs font-medium" style={{ color: 'var(--color-accent)' }}>
             {expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
             {expanded ? '접기' : '요지 보기'}
           </button>
+        )}
+        {item.url && (
+          <a href={item.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-xs font-medium" style={{ color: 'var(--color-text-tertiary)' }}>
+            <ExternalLink size={12} /> 원문
+          </a>
+        )}
+      </div>
 
-          {expanded && (
-            <div className="mt-2 space-y-2 rounded-lg p-3 text-[13px] leading-relaxed" style={{ backgroundColor: 'var(--grey-50)', color: 'var(--color-text-secondary)' }}>
-              {item.summary && <p><strong>요지:</strong> {highlightText(item.summary, query)}</p>}
-              {item.holding_points && <p><strong>판시사항:</strong> {highlightText(item.holding_points, query)}</p>}
-            </div>
-          )}
-        </>
+      {expanded && (item.summary || item.holding_points) && (
+        <div className="mt-2 space-y-2 rounded-lg p-3 text-[13px] leading-relaxed" style={{ backgroundColor: 'var(--grey-50)', color: 'var(--color-text-secondary)' }}>
+          {item.summary && <p><strong>요지:</strong> {highlightText(item.summary, query)}</p>}
+          {item.holding_points && <p><strong>판시사항:</strong> {highlightText(item.holding_points, query)}</p>}
+        </div>
       )}
     </div>
   );
@@ -361,20 +368,25 @@ function AdminCard({ item, query, expanded, onToggle }: { item: AdminResult; que
         {highlightText(item.title, query)}
       </h3>
 
-      {hasContent && (
-        <>
-          <button onClick={onToggle} className="mt-2 flex items-center gap-1 text-xs font-medium" style={{ color: 'var(--color-accent)' }}>
+      <div className="mt-2 flex items-center gap-3">
+        {hasContent && (
+          <button onClick={onToggle} className="flex items-center gap-1 text-xs font-medium" style={{ color: 'var(--color-accent)' }}>
             {expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
             {expanded ? '접기' : '요약 보기'}
           </button>
+        )}
+        {item.url && (
+          <a href={item.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-xs font-medium" style={{ color: 'var(--color-text-tertiary)' }}>
+            <ExternalLink size={12} /> 원문
+          </a>
+        )}
+      </div>
 
-          {expanded && (
-            <div className="mt-2 rounded-lg p-3 text-[13px] leading-relaxed" style={{ backgroundColor: 'var(--grey-50)', color: 'var(--color-text-secondary)' }}>
-              {item.summary && <p><strong>요약:</strong> {highlightText(item.summary, query)}</p>}
-              {item.holding_points && <p className="mt-1"><strong>판단요지:</strong> {highlightText(item.holding_points, query)}</p>}
-            </div>
-          )}
-        </>
+      {expanded && hasContent && (
+        <div className="mt-2 rounded-lg p-3 text-[13px] leading-relaxed" style={{ backgroundColor: 'var(--grey-50)', color: 'var(--color-text-secondary)' }}>
+          {item.summary && <p><strong>요약:</strong> {highlightText(item.summary, query)}</p>}
+          {item.holding_points && <p className="mt-1"><strong>판단요지:</strong> {highlightText(item.holding_points, query)}</p>}
+        </div>
       )}
     </div>
   );

@@ -14,9 +14,19 @@ from googlenewsdecoder import new_decoderv1
 
 sys.stdout.reconfigure(encoding='utf-8')
 
+# .env 파일 로드 (python-dotenv 없이)
+_env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '.env')
+if os.path.exists(_env_path):
+    with open(_env_path) as _f:
+        for _line in _f:
+            _line = _line.strip()
+            if _line and not _line.startswith('#') and '=' in _line:
+                _k, _v = _line.split('=', 1)
+                os.environ.setdefault(_k.strip(), _v.strip())
+
 SUPABASE_URL = 'https://mewqgevgdgghhatqtuos.supabase.co'
-SUPABASE_KEY = os.environ.get('SUPABASE_SERVICE_KEY') or 'sb_secret_yEJ4_-YHalLfWZgPVFvgeQ_s8SkR-mX'
-OPENAI_KEY = os.environ.get('OPENAI_API_KEY') or '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'
+SUPABASE_KEY = os.environ.get('SUPABASE_SERVICE_KEY', '')
+OPENAI_KEY = os.environ.get('OPENAI_API_KEY', '')
 
 sb = create_client(SUPABASE_URL, SUPABASE_KEY)
 

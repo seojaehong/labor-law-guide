@@ -10,7 +10,7 @@ from supabase import create_client
 sys.stdout.reconfigure(encoding='utf-8')
 
 SUPABASE_URL = 'https://mewqgevgdgghhatqtuos.supabase.co'
-SUPABASE_KEY = os.environ.get('SUPABASE_SERVICE_KEY') or 'sb_secret_yEJ4_-YHalLfWZgPVFvgeQ_s8SkR-mX'
+SUPABASE_KEY = os.environ.get('SUPABASE_SERVICE_KEY', '')
 
 sb = create_client(SUPABASE_URL, SUPABASE_KEY)
 
