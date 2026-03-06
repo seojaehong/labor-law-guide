@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { ArrowRight, Scale, Users, FileText, MessageSquare, Shield, ClipboardCheck } from 'lucide-react';
+import { ArrowRight, Scale, Users, FileText, MessageSquare, Shield, ClipboardCheck, Search } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 const features = [
@@ -36,6 +36,14 @@ const features = [
     href: '/manual',
     color: '#059669',
     bg: '#ecfdf5',
+  },
+  {
+    icon: Search,
+    title: '판례·행정해석 검색',
+    description: '노동조합법 관련 판례 2,900+건, 행정해석 890+건, 최신 뉴스를 통합 검색',
+    href: '/database',
+    color: '#7c3aed',
+    bg: '#f5f3ff',
   },
 ];
 

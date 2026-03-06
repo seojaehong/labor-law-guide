@@ -10,6 +10,8 @@ const links = [
   { href: '/guide', label: '해석지침' },
   { href: '/checklist', label: '자가진단' },
   { href: '/manual', label: '교섭절차' },
+  { href: '/database', label: '판례검색' },
+  { href: '/news', label: '뉴스' },
   { href: '/ai', label: 'AI 상담' },
   { href: '/contact', label: '문의' },
 ];

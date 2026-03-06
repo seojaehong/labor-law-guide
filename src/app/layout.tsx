@@ -118,8 +118,10 @@ export default function RootLayout({
                     { '@type': 'ListItem', position: 2, name: '해석지침', item: `${SITE_URL}/guide` },
                     { '@type': 'ListItem', position: 3, name: '자가진단', item: `${SITE_URL}/checklist` },
                     { '@type': 'ListItem', position: 4, name: '교섭절차', item: `${SITE_URL}/manual` },
-                    { '@type': 'ListItem', position: 5, name: 'AI 상담', item: `${SITE_URL}/ai` },
-                    { '@type': 'ListItem', position: 6, name: '문의', item: `${SITE_URL}/contact` },
+                    { '@type': 'ListItem', position: 5, name: '판례검색', item: `${SITE_URL}/database` },
+                    { '@type': 'ListItem', position: 6, name: '뉴스', item: `${SITE_URL}/news` },
+                    { '@type': 'ListItem', position: 7, name: 'AI 상담', item: `${SITE_URL}/ai` },
+                    { '@type': 'ListItem', position: 8, name: '문의', item: `${SITE_URL}/contact` },
                   ],
                 },
                 {
