@@ -1,8 +1,8 @@
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: '해석지침 | 노란봉투법 가이드',
-  description: '개정 노동조합법 사용자 범위 확대, 노동쟁의 확대 해석지침. 조문 해설, 판례, 자가진단 체크리스트.',
+  title: '노란봉투법 해석지침 | 뜻·내용·사용자 범위 확대·하도급·공공기관 해설',
+  description: '노란봉투법 뜻과 핵심 내용 정리. 사용자 범위 확대, 노동쟁의 확대, 손해배상 제한 조문별 해설. 공공기관·하도급·원하청 실무 적용 가이드.',
   alternates: { canonical: 'https://yellow-envelope.vercel.app/guide' },
 };
 

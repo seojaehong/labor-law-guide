@@ -1,8 +1,8 @@
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: '자가진단 체크리스트 | 노란봉투법 — 교섭 의무·사용자성 진단',
-  description: '하청 교섭 요구 시 원청의 교섭 의무 가능성과 사용자성을 자가진단하세요. 개정 노동조합법 기반.',
+  title: '노란봉투법 자가진단 체크리스트 | 사용자성·교섭 의무 무료 진단',
+  description: '노란봉투법 대응 첫걸음: 우리 회사도 교섭에 응해야 하나? 약식(체크박스)·심층(18항목) 2-트랙 자가진단. 원청 사용자성, 하도급·공공기관 교섭 의무 판단.',
   alternates: { canonical: 'https://yellow-envelope.vercel.app/checklist' },
 };
 
