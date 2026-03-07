@@ -2,72 +2,165 @@
 
 import { useState } from 'react';
 import ChecklistWidget from '@/components/ChecklistWidget';
+import SimpleChecklistWidget from '@/components/SimpleChecklistWidget';
+import DeepChecklistWidget from '@/components/DeepChecklistWidget';
 import {
   subcontractChecklist, subcontractChecklistResults, subcontractChecklistTitle, subcontractChecklistDescription,
   employerChecklist, employerChecklistResults, employerChecklistTitle, employerChecklistDescription,
+  deepChecklist, deepChecklistResults, deepChecklistTitle, deepChecklistDescription,
 } from '@/content/checklist-data';
-import { ClipboardCheck, Building2 } from 'lucide-react';
+import { ClipboardCheck, Building2, Zap, Search } from 'lucide-react';
 
-const tabs = [
-  { key: 'subcontract' as const, label: '교섭 의무 진단', icon: Building2, description: '하청이 교섭을 요구해 왔을 때' },
-  { key: 'employer' as const, label: '사용자성 진단', icon: ClipboardCheck, description: '원청의 사용자 해당 가능성' },
-];
+type MainTab = 'simple' | 'deep';
+type SubTab = 'subcontract' | 'employer';
 
 export default function ChecklistPage() {
-  const [active, setActive] = useState<'subcontract' | 'employer'>('subcontract');
+  const [mainTab, setMainTab] = useState<MainTab>('simple');
+  const [subTab, setSubTab] = useState<SubTab>('subcontract');
 
   return (
     <div className="mx-auto max-w-[800px] px-5 py-10">
       <h1 className="mb-2 font-bold" style={{ fontSize: 'var(--text-2xl)', color: 'var(--grey-900)' }}>
         자가진단 체크리스트
       </h1>
-      <p className="mb-8 text-sm" style={{ color: 'var(--grey-500)' }}>
+      <p className="mb-6 text-sm" style={{ color: 'var(--grey-500)' }}>
         개정 노동조합법에 따른 귀사의 교섭 의무와 사용자성을 자가진단해 보세요. (법적 판단이 아닌 참고용입니다)
       </p>
 
-      {/* Tab selector */}
-      <div className="mb-8 grid gap-3 sm:grid-cols-2">
-        {tabs.map((t) => (
-          <button
-            key={t.key}
-            onClick={() => setActive(t.key)}
-            className="flex items-center gap-3 rounded-xl border p-4 text-left transition-all"
-            style={{
-              borderColor: active === t.key ? 'var(--color-accent)' : 'var(--color-border)',
-              backgroundColor: active === t.key ? 'var(--blue-50)' : 'var(--color-bg-surface)',
-              boxShadow: active === t.key ? '0 0 0 2px var(--color-accent)' : 'none',
-            }}
-          >
-            <div
-              className="flex h-10 w-10 items-center justify-center rounded-lg"
-              style={{ backgroundColor: active === t.key ? 'var(--color-accent)' : 'var(--grey-100)' }}
-            >
-              <t.icon size={18} style={{ color: active === t.key ? 'white' : 'var(--grey-500)' }} />
-            </div>
-            <div>
-              <div className="text-sm font-bold" style={{ color: active === t.key ? 'var(--color-accent)' : 'var(--grey-800)' }}>{t.label}</div>
-              <div className="text-xs" style={{ color: 'var(--grey-500)' }}>{t.description}</div>
-            </div>
-          </button>
-        ))}
+      {/* 메인 탭: 약식 / 심층 */}
+      <div className="mb-6 grid grid-cols-2 gap-3">
+        <button
+          onClick={() => setMainTab('simple')}
+          className="flex items-center gap-3 rounded-xl border p-4 text-left transition-all"
+          style={{
+            borderColor: mainTab === 'simple' ? 'var(--color-accent)' : 'var(--color-border)',
+            backgroundColor: mainTab === 'simple' ? 'var(--blue-50)' : 'var(--color-bg-surface)',
+            boxShadow: mainTab === 'simple' ? '0 0 0 2px var(--color-accent)' : 'none',
+          }}
+        >
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg" style={{ backgroundColor: mainTab === 'simple' ? 'var(--color-accent)' : 'var(--grey-100)' }}>
+            <Zap size={18} style={{ color: mainTab === 'simple' ? 'white' : 'var(--grey-500)' }} />
+          </div>
+          <div>
+            <div className="text-sm font-bold" style={{ color: mainTab === 'simple' ? 'var(--color-accent)' : 'var(--grey-800)' }}>약식 진단</div>
+            <div className="text-xs" style={{ color: 'var(--grey-500)' }}>체크박스로 빠르게</div>
+          </div>
+        </button>
+        <button
+          onClick={() => setMainTab('deep')}
+          className="flex items-center gap-3 rounded-xl border p-4 text-left transition-all"
+          style={{
+            borderColor: mainTab === 'deep' ? 'var(--color-accent)' : 'var(--color-border)',
+            backgroundColor: mainTab === 'deep' ? 'var(--blue-50)' : 'var(--color-bg-surface)',
+            boxShadow: mainTab === 'deep' ? '0 0 0 2px var(--color-accent)' : 'none',
+          }}
+        >
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg" style={{ backgroundColor: mainTab === 'deep' ? 'var(--color-accent)' : 'var(--grey-100)' }}>
+            <Search size={18} style={{ color: mainTab === 'deep' ? 'white' : 'var(--grey-500)' }} />
+          </div>
+          <div>
+            <div className="text-sm font-bold" style={{ color: mainTab === 'deep' ? 'var(--color-accent)' : 'var(--grey-800)' }}>심층 진단</div>
+            <div className="text-xs" style={{ color: 'var(--grey-500)' }}>18항목 4단계 평가</div>
+          </div>
+        </button>
       </div>
 
-      {active === 'subcontract' && (
-        <ChecklistWidget
-          title={subcontractChecklistTitle}
-          description={subcontractChecklistDescription}
-          items={subcontractChecklist}
-          results={subcontractChecklistResults}
-        />
+      {mainTab === 'simple' && (
+        <>
+          {/* 서브탭: 교섭의무 / 사용자성 */}
+          <div className="mb-6 grid gap-3 sm:grid-cols-2">
+            <button
+              onClick={() => setSubTab('subcontract')}
+              className="flex items-center gap-3 rounded-xl border p-4 text-left transition-all"
+              style={{
+                borderColor: subTab === 'subcontract' ? 'var(--color-accent)' : 'var(--color-border)',
+                backgroundColor: subTab === 'subcontract' ? 'var(--blue-50)' : 'var(--color-bg-surface)',
+                boxShadow: subTab === 'subcontract' ? '0 0 0 2px var(--color-accent)' : 'none',
+              }}
+            >
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg" style={{ backgroundColor: subTab === 'subcontract' ? 'var(--color-accent)' : 'var(--grey-100)' }}>
+                <Building2 size={18} style={{ color: subTab === 'subcontract' ? 'white' : 'var(--grey-500)' }} />
+              </div>
+              <div>
+                <div className="text-sm font-bold" style={{ color: subTab === 'subcontract' ? 'var(--color-accent)' : 'var(--grey-800)' }}>교섭 의무 진단</div>
+                <div className="text-xs" style={{ color: 'var(--grey-500)' }}>하청이 교섭을 요구해 왔을 때</div>
+              </div>
+            </button>
+            <button
+              onClick={() => setSubTab('employer')}
+              className="flex items-center gap-3 rounded-xl border p-4 text-left transition-all"
+              style={{
+                borderColor: subTab === 'employer' ? 'var(--color-accent)' : 'var(--color-border)',
+                backgroundColor: subTab === 'employer' ? 'var(--blue-50)' : 'var(--color-bg-surface)',
+                boxShadow: subTab === 'employer' ? '0 0 0 2px var(--color-accent)' : 'none',
+              }}
+            >
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg" style={{ backgroundColor: subTab === 'employer' ? 'var(--color-accent)' : 'var(--grey-100)' }}>
+                <ClipboardCheck size={18} style={{ color: subTab === 'employer' ? 'white' : 'var(--grey-500)' }} />
+              </div>
+              <div>
+                <div className="text-sm font-bold" style={{ color: subTab === 'employer' ? 'var(--color-accent)' : 'var(--grey-800)' }}>사용자성 진단</div>
+                <div className="text-xs" style={{ color: 'var(--grey-500)' }}>원청의 사용자 해당 가능성</div>
+              </div>
+            </button>
+          </div>
+
+          {subTab === 'subcontract' && (
+            <SimpleChecklistWidget title={subcontractChecklistTitle} description={subcontractChecklistDescription} items={subcontractChecklist} results={subcontractChecklistResults} />
+          )}
+          {subTab === 'employer' && (
+            <SimpleChecklistWidget title={employerChecklistTitle} description={employerChecklistDescription} items={employerChecklist} results={employerChecklistResults} />
+          )}
+        </>
       )}
 
-      {active === 'employer' && (
-        <ChecklistWidget
-          title={employerChecklistTitle}
-          description={employerChecklistDescription}
-          items={employerChecklist}
-          results={employerChecklistResults}
-        />
+      {mainTab === 'deep' && (
+        <>
+          {/* 서브탭: 교섭의무 / 사용자성 */}
+          <div className="mb-6 grid gap-3 sm:grid-cols-2">
+            <button
+              onClick={() => setSubTab('subcontract')}
+              className="flex items-center gap-3 rounded-xl border p-4 text-left transition-all"
+              style={{
+                borderColor: subTab === 'subcontract' ? 'var(--color-accent)' : 'var(--color-border)',
+                backgroundColor: subTab === 'subcontract' ? 'var(--blue-50)' : 'var(--color-bg-surface)',
+                boxShadow: subTab === 'subcontract' ? '0 0 0 2px var(--color-accent)' : 'none',
+              }}
+            >
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg" style={{ backgroundColor: subTab === 'subcontract' ? 'var(--color-accent)' : 'var(--grey-100)' }}>
+                <Building2 size={18} style={{ color: subTab === 'subcontract' ? 'white' : 'var(--grey-500)' }} />
+              </div>
+              <div>
+                <div className="text-sm font-bold" style={{ color: subTab === 'subcontract' ? 'var(--color-accent)' : 'var(--grey-800)' }}>교섭 의무 진단</div>
+                <div className="text-xs" style={{ color: 'var(--grey-500)' }}>하청이 교섭을 요구해 왔을 때</div>
+              </div>
+            </button>
+            <button
+              onClick={() => setSubTab('employer')}
+              className="flex items-center gap-3 rounded-xl border p-4 text-left transition-all"
+              style={{
+                borderColor: subTab === 'employer' ? 'var(--color-accent)' : 'var(--color-border)',
+                backgroundColor: subTab === 'employer' ? 'var(--blue-50)' : 'var(--color-bg-surface)',
+                boxShadow: subTab === 'employer' ? '0 0 0 2px var(--color-accent)' : 'none',
+              }}
+            >
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg" style={{ backgroundColor: subTab === 'employer' ? 'var(--color-accent)' : 'var(--grey-100)' }}>
+                <ClipboardCheck size={18} style={{ color: subTab === 'employer' ? 'white' : 'var(--grey-500)' }} />
+              </div>
+              <div>
+                <div className="text-sm font-bold" style={{ color: subTab === 'employer' ? 'var(--color-accent)' : 'var(--grey-800)' }}>사용자성 진단</div>
+                <div className="text-xs" style={{ color: 'var(--grey-500)' }}>원청의 사용자 해당 가능성</div>
+              </div>
+            </button>
+          </div>
+
+          {subTab === 'subcontract' && (
+            <ChecklistWidget title={subcontractChecklistTitle} description={subcontractChecklistDescription} items={subcontractChecklist} results={subcontractChecklistResults} />
+          )}
+          {subTab === 'employer' && (
+            <DeepChecklistWidget />
+          )}
+        </>
       )}
     </div>
   );

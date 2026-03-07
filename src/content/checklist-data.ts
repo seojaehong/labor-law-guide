@@ -117,23 +117,23 @@ export const employerChecklist: ChecklistItem[] = [
 export const employerChecklistResults: ChecklistResult[] = [
   {
     minScore: 0,
-    maxScore: 3,
+    maxScore: 30,
     level: 'low',
     title: '사용자성 인정 가능성 낮음',
     description: '현재 확인된 요소만으로는 원청의 사용자성이 인정되기 어려울 수 있습니다.',
     recommendation: '다만 실제 판단은 개별 사안의 구체적 사정에 따르므로, 변경 사항이 있으면 재진단하세요.',
   },
   {
-    minScore: 4,
-    maxScore: 7,
+    minScore: 31,
+    maxScore: 60,
     level: 'medium',
     title: '사용자성 인정 가능성 있음',
     description: '일부 근로조건에 대해 원청의 실질적 지배력이 인정될 가능성이 있습니다.',
     recommendation: '전문가 상담을 통해 구체적인 사용자성 인정 범위를 확인하시기 바랍니다.',
   },
   {
-    minScore: 8,
-    maxScore: 12,
+    minScore: 61,
+    maxScore: 100,
     level: 'high',
     title: '사용자성 인정 가능성 높음',
     description: '여러 근로조건에 대해 원청의 실질적·구체적 지배력이 인정될 가능성이 높습니다.',
@@ -249,7 +249,7 @@ export const subcontractChecklist: ChecklistItem[] = [
 export const subcontractChecklistResults: ChecklistResult[] = [
   {
     minScore: 0,
-    maxScore: 4,
+    maxScore: 30,
     level: 'low',
     title: '교섭 의무 가능성 낮음 — 적법 도급',
     description:
@@ -258,8 +258,8 @@ export const subcontractChecklistResults: ChecklistResult[] = [
       '다만 교섭 요구를 무조건 거부하기보다, 전문가 검토를 통해 리스크를 확인하세요.',
   },
   {
-    minScore: 5,
-    maxScore: 10,
+    minScore: 31,
+    maxScore: 60,
     level: 'medium',
     title: '교섭 의무 가능성 있음 — 위장도급 의심 요소',
     description:
@@ -268,8 +268,8 @@ export const subcontractChecklistResults: ChecklistResult[] = [
       '교섭 범위를 파악하고, 응할 부분과 거부할 부분을 전문가와 함께 전략적으로 준비하세요.',
   },
   {
-    minScore: 11,
-    maxScore: 20,
+    minScore: 61,
+    maxScore: 100,
     level: 'high',
     title: '교섭 의무 가능성 높음 — 즉각 대응 필요',
     description:
@@ -277,6 +277,63 @@ export const subcontractChecklistResults: ChecklistResult[] = [
     recommendation:
       '교섭 거부 시 부당노동행위(형사처벌 대상)에 해당할 수 있습니다. 즉시 전문가 상담을 받으시기 바랍니다.',
   },
+];
+
+// ─── 2-1. 심층진단 체크리스트 (코트라 점검표 18개 항목) ───
+
+export interface DeepChecklistItem {
+  id: string;
+  question: string;
+  helpText: string;
+  category: string;
+}
+
+export interface DeepChecklistResult {
+  minCount: number;
+  maxCount: number;
+  level: string;
+  title: string;
+  description: string;
+  tag: string;
+}
+
+export const deepChecklistTitle = '심층 사용자성 진단 (18항목)';
+export const deepChecklistDescription =
+  '코트라 점검표 기반 18개 항목을 4단계로 평가합니다. 점수 합산 후 리스크 등급을 산출합니다.';
+
+export const deepChecklist: DeepChecklistItem[] = [
+  // I. 구조적 통제
+  { id: 'deep-1', question: '채용 시 사전승인 및 이력서 검토 여부', helpText: '수행사의 고유 권한인 인사권(채용·배치)에 대한 원청의 지배력 행사 여부', category: 'I. 구조적 통제' },
+  { id: 'deep-2', question: '근로시간·일정에 대한 직접 결정 여부', helpText: '원청이 개별 근로자의 출퇴근 및 근무 시간대를 실질적으로 결정하거나 승인하는지', category: 'I. 구조적 통제' },
+  { id: 'deep-3', question: '업무지시 방식 (직접지시/결과확인)', helpText: '원청이 업무수행 과정에 직접 개입하는지, 결과물 확인에 그치는지', category: 'I. 구조적 통제' },
+  { id: 'deep-4', question: '복무규율 설정 여부', helpText: '원청이 친절·청결·복장 등 복무기준을 직접 설정·강제하는지', category: 'I. 구조적 통제' },
+  { id: 'deep-5', question: '보고체계 (직접보고/PM경유)', helpText: '원청과 개별 근로자 간 직접적 보고 구조 존재 여부', category: 'I. 구조적 통제' },
+  // II. 설비·장소 통제
+  { id: 'deep-6', question: '원청 사업장 상주 여부', helpText: '하청 인력이 원청 사옥 내에서 상시 근무하는지', category: 'II. 설비·장소 통제' },
+  { id: 'deep-7', question: '원청 장비·시스템 운용 여부', helpText: '원청 소유 IT인프라·설비를 직접 운용하는지', category: 'II. 설비·장소 통제' },
+  { id: 'deep-8', question: '보안규정 직접 적용 여부', helpText: '원청 보안규정이 하청 근로자에게 직접 적용되는지', category: 'II. 설비·장소 통제' },
+  // III. 간접적 결정력
+  { id: 'deep-9', question: '인력교체 요구권 보유 여부', helpText: '원청이 "부적당한 인력" 등 포괄적 기준으로 교체를 요구할 수 있는지', category: 'III. 간접적 결정력' },
+  { id: 'deep-10', question: '인력변경 사전승인 여부', helpText: '하청의 인력 배치·변경에 원청의 사전 승인이 필요한지', category: 'III. 간접적 결정력' },
+  { id: 'deep-11', question: '평가 연동 해지권 보유 여부', helpText: '서비스 평가 결과에 따른 즉시 해지권이 인력 퇴출 압박으로 기능하는지', category: 'III. 간접적 결정력' },
+  { id: 'deep-12', question: '고용사항 제출 요구 여부', helpText: '원청이 하청 근로자의 인사정보(이력서, 고용사항 등)를 요구하는지', category: 'III. 간접적 결정력' },
+  // IV. 조직 편입
+  { id: 'deep-13', question: '핵심업무(복리후생·IT·보안) 수행 여부', helpText: '하청의 업무가 원청 사업 수행에 상시적·필수적인 업무인지', category: 'IV. 조직 편입' },
+  { id: 'deep-14', question: '보안서약서 원청 직접 징구 여부', helpText: '원청이 하청 근로자에게 직접적인 법적 의무를 부과하는 행위인지', category: 'IV. 조직 편입' },
+  { id: 'deep-15', question: '장기·반복 계약 여부', helpText: '일시적 프로젝트가 아닌 상시적·계속적 편입을 의미하는지', category: 'IV. 조직 편입' },
+  // V. 경제적 종속성
+  { id: 'deep-16', question: '인건비 연동 대금구조 여부', helpText: '대금이 투입 인력 수에 비례하여 산정되는지 (파견의 징표)', category: 'V. 경제적 종속성' },
+  { id: 'deep-17', question: '단일거래처 의존 여부', helpText: '원청 외 다른 사업 기회를 탐색할 수 있는 독립적 사업자인지', category: 'V. 경제적 종속성' },
+  { id: 'deep-18', question: '전속적 관계 여부', helpText: '매출의 대부분이 원청에 의존하여 계약 해지 시 기업 존속이 불투명한지', category: 'V. 경제적 종속성' },
+];
+
+export const deepChecklistResults: DeepChecklistResult[] = [
+  { minCount: 14, maxCount: 18, level: 'critical', title: '사용자 가능성 매우 높음', tag: '긴급', description: '사실상의 직접 고용 관계로 확정될 확률이 높습니다. 계약서의 전면 개정과 지휘 체계의 단절이 필요합니다.' },
+  { minCount: 10, maxCount: 13, level: 'high', title: '사용자 가능성 높음', tag: '심각', description: '노조법상 실질적 사용자로 인정될 가능성이 농후합니다. \'승인\' 권한 삭제 및 \'지휘 체계\' 단일화가 필요합니다.' },
+  { minCount: 6, maxCount: 9, level: 'medium', title: '사용자 가능성 있음', tag: '경고', description: '일부 독소 조항이 지배력의 근거가 됩니다. \'결과 중심 정산\'으로의 전환이 필요합니다.' },
+  { minCount: 3, maxCount: 5, level: 'caution', title: '사용자 가능성 의심', tag: '주의', description: '관리 편의상 도입한 조항들이 문제가 될 수 있습니다. 모호한 표현을 삭제하여 독립성을 보완해야 합니다.' },
+  { minCount: 1, maxCount: 2, level: 'low', title: '사용자 가능성 낮음', tag: '안전', description: '진성 도급의 외관을 잘 갖추고 있습니다. 정기적인 현장 실태 점검을 통해 관행적 개입이 발생하지 않도록 관리가 필요합니다.' },
+  { minCount: 0, maxCount: 0, level: 'safe', title: '사용자 가능성 매우 낮음', tag: '완벽', description: '수행사의 독립적 경영이 상당히 보장된 상태입니다. 현재의 계약 구조와 관리 모델을 표준으로 유지하셔도 좋습니다.' },
 ];
 
 // ─── 3. 교섭절차 준비 체크리스트 (노조용) ───
