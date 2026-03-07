@@ -279,7 +279,7 @@ export const subcontractChecklistResults: ChecklistResult[] = [
   },
 ];
 
-// ─── 2-1. 심층진단 체크리스트 (코트라 점검표 18개 항목) ───
+// ─── 2-1. 심층진단 체크리스트 (18개 항목) ───
 
 export interface DeepChecklistItem {
   id: string;
@@ -297,9 +297,9 @@ export interface DeepChecklistResult {
   tag: string;
 }
 
-export const deepChecklistTitle = '심층 사용자성 진단 (18항목)';
+export const deepChecklistTitle = '심층 사용자성 진단';
 export const deepChecklistDescription =
-  '코트라 점검표 기반 18개 항목을 4단계로 평가합니다. 점수 합산 후 리스크 등급을 산출합니다.';
+  '고용노동부 해석지침 기반 18개 항목을 4단계로 평가합니다. 점수 합산 후 리스크 등급을 산출합니다.';
 
 export const deepChecklist: DeepChecklistItem[] = [
   // I. 구조적 통제

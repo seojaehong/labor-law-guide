@@ -136,8 +136,8 @@ export default function DeepChecklistWidget() {
 function DeepCheckItemRow({ item, selected, onSelect }: { item: DeepChecklistItem; selected: Answer | null; onSelect: (v: Answer) => void }) {
   return (
     <div className="rounded-lg p-3" style={{ backgroundColor: selected ? 'var(--grey-50)' : 'transparent' }}>
-      <div className="mb-1 text-[15px] font-medium" style={{ color: 'var(--color-text-primary)' }}>{item.question}</div>
-      <div className="mb-2 text-xs" style={{ color: 'var(--color-text-primary)' }}>{item.helpText}</div>
+      <div className="mb-1 text-[15px] font-medium" style={{ color: 'var(--grey-800)' }}>{item.question}</div>
+      <div className="mb-2 text-xs" style={{ color: 'var(--grey-500)' }}>{item.helpText}</div>
       <div className="flex flex-wrap gap-1.5">
         {ANSWER_OPTIONS.map((opt) => {
           const isActive = selected === opt.value;
