@@ -137,7 +137,7 @@ function DeepCheckItemRow({ item, selected, onSelect }: { item: DeepChecklistIte
   return (
     <div className="rounded-lg p-3" style={{ backgroundColor: selected ? 'var(--grey-50)' : 'transparent' }}>
       <div className="mb-1 text-[15px] font-medium" style={{ color: 'var(--color-text-primary)' }}>{item.question}</div>
-      <div className="mb-2 text-xs" style={{ color: 'var(--color-text-secondary)' }}>{item.helpText}</div>
+      <div className="mb-2 text-xs" style={{ color: 'var(--color-text-primary)' }}>{item.helpText}</div>
       <div className="flex flex-wrap gap-1.5">
         {ANSWER_OPTIONS.map((opt) => {
           const isActive = selected === opt.value;
