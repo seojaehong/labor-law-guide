@@ -1,0 +1,20 @@
+# 노란봉투법 완벽 가이드
+
+> 2026년 3월 10일 시행 개정 노동조합법(노란봉투법) 해석지침, 교섭절차 매뉴얼, 자가진단 체크리스트, 핵심판례, AI 상담 제공 사이트입니다.
+> 노무법인 위너스 운영.
+
+## 사이트 구조
+
+- [홈](https://yellow-envelope.vercel.app/): 노란봉투법 핵심 변화 요약
+- [해석지침](https://yellow-envelope.vercel.app/guide): 사용자 범위 확대, 노동쟁의 확대, 손해배상 제한 조문별 해설
+- [자가진단](https://yellow-envelope.vercel.app/checklist): 약식(체크박스) + 심층(18항목 4단계) 2-트랙 사용자성·교섭의무 자가진단
+- [교섭절차](https://yellow-envelope.vercel.app/manual): 원·하청 교섭절차 6단계 매뉴얼
+- [핵심판례](https://yellow-envelope.vercel.app/cases): 사용자성 판단 핵심 판례 6건 쟁점별 정리
+- [판례검색](https://yellow-envelope.vercel.app/database): 판례 2,900+건, 행정해석 890+건 통합검색
+- [뉴스](https://yellow-envelope.vercel.app/news): 노란봉투법 관련 최신 뉴스
+- [AI 상담](https://yellow-envelope.vercel.app/ai): 노란봉투법 관련 AI 즉시 질의응답
+- [전문가 상담](https://yellow-envelope.vercel.app/contact): 노무법인 위너스 전문가 상담 문의
+
+## 상세 콘텐츠
+
+- [llms-full.txt](https://yellow-envelope.vercel.app/llms-full.txt): 사이트 전체 콘텐츠 (마크다운)
