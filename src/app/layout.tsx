@@ -1,8 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import GlassNav from "@/components/GlassNav";
-
-const SITE_URL = 'https://yellow-envelope.vercel.app';
+import { SITE_URL } from "@/lib/constants";
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),

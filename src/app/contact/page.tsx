@@ -1,11 +1,12 @@
 import type { Metadata } from 'next';
 import ContactForm from '@/components/ContactForm';
 import { Mail, MapPin, ExternalLink } from 'lucide-react';
+import { SITE_URL } from '@/lib/constants';
 
 export const metadata: Metadata = {
   title: '전문가 상담 문의',
   description: '사용자성 판단, 교섭 대응, 노동쟁의 등 노무법인 위너스의 전문가 자문이 필요하시면 문의해 주세요.',
-  alternates: { canonical: 'https://yellow-envelope.vercel.app/contact' },
+  alternates: { canonical: `${SITE_URL}/contact` },
 };
 
 export default function ContactPage() {

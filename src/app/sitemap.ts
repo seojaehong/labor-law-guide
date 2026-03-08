@@ -1,17 +1,16 @@
 import type { MetadataRoute } from 'next';
+import { SITE_URL } from '@/lib/constants';
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  const baseUrl = 'https://yellow-envelope.vercel.app';
-
   return [
-    { url: baseUrl, lastModified: new Date(), changeFrequency: 'weekly', priority: 1 },
-    { url: `${baseUrl}/guide`, lastModified: new Date(), changeFrequency: 'monthly', priority: 0.9 },
-    { url: `${baseUrl}/checklist`, lastModified: new Date(), changeFrequency: 'monthly', priority: 0.9 },
-    { url: `${baseUrl}/manual`, lastModified: new Date(), changeFrequency: 'monthly', priority: 0.9 },
-    { url: `${baseUrl}/cases`, lastModified: new Date(), changeFrequency: 'monthly', priority: 0.85 },
-    { url: `${baseUrl}/database`, lastModified: new Date(), changeFrequency: 'daily', priority: 0.85 },
-    { url: `${baseUrl}/news`, lastModified: new Date(), changeFrequency: 'daily', priority: 0.8 },
-    { url: `${baseUrl}/ai`, lastModified: new Date(), changeFrequency: 'weekly', priority: 0.8 },
-    { url: `${baseUrl}/contact`, lastModified: new Date(), changeFrequency: 'monthly', priority: 0.7 },
+    { url: SITE_URL, lastModified: new Date(), changeFrequency: 'weekly', priority: 1 },
+    { url: `${SITE_URL}/guide`, lastModified: new Date(), changeFrequency: 'monthly', priority: 0.9 },
+    { url: `${SITE_URL}/checklist`, lastModified: new Date(), changeFrequency: 'monthly', priority: 0.9 },
+    { url: `${SITE_URL}/manual`, lastModified: new Date(), changeFrequency: 'monthly', priority: 0.9 },
+    { url: `${SITE_URL}/cases`, lastModified: new Date(), changeFrequency: 'monthly', priority: 0.85 },
+    { url: `${SITE_URL}/database`, lastModified: new Date(), changeFrequency: 'daily', priority: 0.85 },
+    { url: `${SITE_URL}/news`, lastModified: new Date(), changeFrequency: 'daily', priority: 0.8 },
+    { url: `${SITE_URL}/ai`, lastModified: new Date(), changeFrequency: 'weekly', priority: 0.8 },
+    { url: `${SITE_URL}/contact`, lastModified: new Date(), changeFrequency: 'monthly', priority: 0.7 },
   ];
 }
