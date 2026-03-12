@@ -1,160 +1,120 @@
-'use client';
+import { SITE_URL } from '@/lib/constants';
+import { supabaseServer } from '@/lib/supabase-server';
+import HomeClient from './HomeClient';
 
-import Link from 'next/link';
-import { ArrowRight, Scale, Users, FileText, MessageSquare, Shield, ClipboardCheck, Search } from 'lucide-react';
-import { motion } from 'framer-motion';
+export const revalidate = 3600;
 
-const features = [
-  {
-    icon: Users,
-    title: '사용자 범위 확대',
-    description: '근로계약 당사자가 아니더라도 근로조건을 실질적·구체적으로 지배·결정하는 자는 사용자로 인정',
-    href: '/guide#employer-scope',
-    color: 'var(--blue-500)',
-    bg: 'var(--blue-50)',
-  },
-  {
-    icon: Scale,
-    title: '노동쟁의 범위 확대',
-    description: '계약외사용자와의 분쟁도 노동쟁의에 포함. 원청에 대한 쟁의행위 정당성 근거 마련',
-    href: '/guide#labor-dispute',
-    color: '#8b5cf6',
-    bg: '#f5f3ff',
-  },
-  {
-    icon: ClipboardCheck,
-    title: '교섭 의무 자가진단',
-    description: '하청이 교섭을 요구했을 때, 우리가 응해야 하는지 체크리스트로 자가진단',
-    href: '/checklist',
-    color: '#dc2626',
-    bg: '#fef2f2',
-  },
-  {
-    icon: FileText,
-    title: '교섭절차 가이드',
-    description: '교섭요구부터 단체교섭까지 6단계 절차를 스텝 다이어그램으로 한눈에 파악',
-    href: '/manual',
-    color: '#059669',
-    bg: '#ecfdf5',
-  },
-  {
-    icon: Search,
-    title: '판례·행정해석 검색',
-    description: '노동조합법 관련 판례 2,900+건, 행정해석 890+건, 최신 뉴스를 통합 검색',
-    href: '/database',
-    color: '#7c3aed',
-    bg: '#f5f3ff',
-  },
-];
+async function getHomeStats() {
+  const [casesResult, adminResult, newsResult] = await Promise.all([
+    supabaseServer.from('cases').select('id', { count: 'exact', head: true }),
+    supabaseServer.from('admin_interpretations').select('id', { count: 'exact', head: true }),
+    supabaseServer.from('news').select('id', { count: 'exact', head: true }),
+  ]);
 
-export default function Home() {
+  return {
+    totalCases: casesResult.count || 0,
+    totalAdmin: adminResult.count || 0,
+    totalNews: newsResult.count || 0,
+  };
+}
+
+export default async function Home() {
+  const { totalCases, totalAdmin, totalNews } = await getHomeStats();
+  const jsonLd = {
+    '@context': 'https://schema.org',
+    '@graph': [
+      {
+        '@type': 'WebPage',
+        '@id': `${SITE_URL}/#webpage`,
+        url: SITE_URL,
+        name: '노란봉투법 완벽 가이드',
+        isPartOf: { '@id': `${SITE_URL}/#website` },
+        about: {
+          '@type': 'Article',
+          name: '개정 노동조합법(노란봉투법)',
+          datePublished: '2026-03-10',
+        },
+        breadcrumb: { '@id': `${SITE_URL}/#breadcrumb` },
+      },
+      {
+        '@type': 'BreadcrumbList',
+        '@id': `${SITE_URL}/#breadcrumb`,
+        itemListElement: [
+          { '@type': 'ListItem', position: 1, name: '홈', item: SITE_URL },
+        ],
+      },
+      {
+        '@type': 'FAQPage',
+        '@id': `${SITE_URL}/#faq`,
+        mainEntity: [
+          {
+            '@type': 'Question',
+            name: '노란봉투법이란?',
+            acceptedAnswer: {
+              '@type': 'Answer',
+              text: '2026년 3월 10일 시행 개정 노동조합법의 별칭으로, 사용자 범위를 확대하고 노동쟁의 범위를 넓힌 법률입니다. 근로계약 당사자가 아니더라도 근로조건을 실질적·구체적으로 지배·결정하는 자도 사용자로 보게 됩니다.',
+            },
+          },
+          {
+            '@type': 'Question',
+            name: '원청도 사용자에 해당하나요?',
+            acceptedAnswer: {
+              '@type': 'Answer',
+              text: '원청이 하청 근로자의 채용·해고, 임금, 근로시간, 업무지시 등 근로조건을 실질적·구체적으로 지배·결정하는 경우 개정법상 사용자에 해당할 수 있습니다. 자가진단 체크리스트로 대략적인 판단이 가능합니다.',
+            },
+          },
+          {
+            '@type': 'Question',
+            name: '하청이 교섭을 요구하면 반드시 응해야 하나요?',
+            acceptedAnswer: {
+              '@type': 'Answer',
+              text: '사용자성이 인정되는 범위 내에서는 교섭에 응할 의무가 있으며, 정당한 이유 없는 거부는 부당노동행위(형사처벌 대상)에 해당합니다.',
+            },
+          },
+          {
+            '@type': 'Question',
+            name: '노란봉투법 시행일은 언제인가요?',
+            acceptedAnswer: {
+              '@type': 'Answer',
+              text: '2026년 3월 10일부터 시행됩니다. 시행 즉시 하청 노동조합이 원청에 교섭을 요구할 수 있습니다.',
+            },
+          },
+          {
+            '@type': 'Question',
+            name: '사용자성은 전부 인정되나요 일부만 인정되나요?',
+            acceptedAnswer: {
+              '@type': 'Answer',
+              text: '일부 근로조건에 대해서만 사용자성이 인정될 수 있습니다. 원청은 실질적 지배력이 미치는 범위 내에서만 사용자로서의 의무를 부담합니다.',
+            },
+          },
+          {
+            '@type': 'Question',
+            name: '교섭요구 사실 공고를 안 하면 어떻게 되나요?',
+            acceptedAnswer: {
+              '@type': 'Answer',
+              text: '하청노동조합이 노동위원회에 시정신청을 할 수 있고, 노동위원회가 공고를 명할 수 있습니다. 시정명령에도 불응하면 교섭 거부·해태의 부당노동행위로 처벌될 수 있습니다.',
+            },
+          },
+          {
+            '@type': 'Question',
+            name: '교섭단위 분리는 어떻게 하나요?',
+            acceptedAnswer: {
+              '@type': 'Answer',
+              text: '노동위원회에 교섭단위 분리 신청을 할 수 있습니다. 직무별, 상급단체별, 하청기업 특성별 등 다양한 형태로 분리가 가능하며, 노동위원회가 여러 요소를 종합 고려하여 결정합니다.',
+            },
+          },
+        ],
+      },
+    ],
+  };
+
   return (
-    <div>
-      {/* Hero */}
-      <section className="relative overflow-hidden px-5 py-20 text-center md:py-32">
-        <motion.div
-          className="mx-auto max-w-3xl"
-          initial={{ opacity: 0, y: 30 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
-        >
-          <div
-            className="mb-4 inline-flex items-center gap-2 rounded-full border px-4 py-1.5 text-sm"
-            style={{ borderColor: 'var(--blue-200)', backgroundColor: 'var(--blue-50)', color: 'var(--blue-600)' }}
-          >
-            <Shield size={14} />
-            2026.3.10. 시행
-          </div>
-          <h1 className="mb-6 font-bold tracking-tight" style={{ fontSize: 'var(--text-hero)', lineHeight: 1.1, color: 'var(--grey-900)' }}>
-            노란봉투법,<br />
-            <span style={{ color: 'var(--color-accent)' }}>무엇이 달라졌나?</span>
-          </h1>
-          <p className="mx-auto mb-10 max-w-xl" style={{ fontSize: 'var(--text-lg)', color: 'var(--color-text-secondary)', lineHeight: 1.6 }}>
-            개정 노동조합법의 핵심 변화를 해석지침과 교섭절차 매뉴얼 기반으로 정리했습니다. AI 상담으로 궁금한 점을 바로 해결하세요.
-          </p>
-          <div className="flex flex-wrap items-center justify-center gap-3">
-            <Link
-              href="/guide"
-              className="flex items-center gap-2 rounded-lg px-6 py-3 font-medium text-white transition-transform hover:scale-105"
-              style={{ backgroundColor: 'var(--color-accent)' }}
-            >
-              해석지침 보기 <ArrowRight size={16} />
-            </Link>
-            <Link
-              href="/ai"
-              className="flex items-center gap-2 rounded-lg border px-6 py-3 font-medium transition-transform hover:scale-105"
-              style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-primary)' }}
-            >
-              <MessageSquare size={16} />
-              AI에게 질문하기
-            </Link>
-          </div>
-        </motion.div>
-      </section>
-
-      {/* Features */}
-      <section className="px-5 pb-20">
-        <motion.div
-          className="mx-auto grid max-w-[1100px] gap-6 md:grid-cols-3"
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true, margin: '-50px' }}
-          variants={{ hidden: {}, visible: { transition: { staggerChildren: 0.1 } } }}
-        >
-          {features.map((f) => (
-            <motion.div
-              key={f.title}
-              variants={{ hidden: { opacity: 0, y: 24 }, visible: { opacity: 1, y: 0, transition: { duration: 0.5, ease: [0.16, 1, 0.3, 1] } } }}
-            >
-            <Link href={f.href} className="feature-card block rounded-2xl border bg-white p-7" style={{ borderColor: 'var(--color-border)', boxShadow: 'var(--shadow-sm)' }}>
-              <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl" style={{ backgroundColor: f.bg }}>
-                <f.icon size={22} style={{ color: f.color }} />
-              </div>
-              <h3 className="mb-2 text-lg font-bold" style={{ color: 'var(--grey-900)' }}>{f.title}</h3>
-              <p className="text-[15px] leading-relaxed" style={{ color: 'var(--color-text-secondary)' }}>{f.description}</p>
-              <span className="mt-4 inline-flex items-center gap-1 text-sm font-medium" style={{ color: 'var(--color-accent)' }}>
-                자세히 보기 <ArrowRight size={14} />
-              </span>
-            </Link>
-            </motion.div>
-          ))}
-        </motion.div>
-      </section>
-
-      {/* AI Preview */}
-      <section className="px-5 pb-20">
-        <div className="mx-auto max-w-[700px] rounded-2xl border p-8 text-center" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)', boxShadow: 'var(--shadow-md)' }}>
-          <MessageSquare size={32} className="mx-auto mb-4" style={{ color: 'var(--color-accent)' }} />
-          <h2 className="mb-2 text-xl font-bold" style={{ color: 'var(--grey-900)' }}>AI에게 노동법 질문하기</h2>
-          <p className="mb-6 text-sm" style={{ color: 'var(--color-text-secondary)' }}>
-            개정 노동조합법에 대한 궁금증을 AI가 즉시 답변해 드립니다
-          </p>
-          <Link
-            href="/ai"
-            className="inline-flex items-center gap-2 rounded-lg px-6 py-3 font-medium text-white"
-            style={{ backgroundColor: 'var(--color-accent)' }}
-          >
-            AI 상담 시작하기 <ArrowRight size={16} />
-          </Link>
-        </div>
-      </section>
-
-      {/* CTA */}
-      <section className="px-5 pb-20">
-        <div className="mx-auto max-w-[700px] rounded-2xl p-8 text-center" style={{ backgroundColor: 'var(--grey-900)' }}>
-          <h2 className="mb-3 text-xl font-bold text-white">노무법인 위너스와 상담하세요</h2>
-          <p className="mb-6 text-sm text-white/70">
-            사용자성 판단, 교섭 대응, 노동쟁의 등 노사관계 전문가가 직접 자문합니다.
-          </p>
-          <Link
-            href="/contact"
-            className="inline-flex items-center gap-2 rounded-lg px-6 py-3 font-medium"
-            style={{ backgroundColor: 'white', color: 'var(--grey-900)' }}
-          >
-            상담 문의하기 <ArrowRight size={16} />
-          </Link>
-        </div>
-      </section>
-    </div>
+    <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
+      <HomeClient totalCases={totalCases} totalAdmin={totalAdmin} totalNews={totalNews} />
+    </>
   );
 }

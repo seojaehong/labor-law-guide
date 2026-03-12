@@ -119,8 +119,44 @@ def upload_news():
 
     print(f'✅ 뉴스 {len(rows)}건 완료')
 
+def upload_nlrc():
+    nlrc_path = os.path.join(DATA_DIR, 'yellow_envelope_nlrc_decisions.json')
+    if not os.path.exists(nlrc_path):
+        print('⏭️ 노동위결정문 파일 없음, 스킵')
+        return
+
+    print('📂 노동위결정문 로딩...')
+    with open(nlrc_path, 'r', encoding='utf-8') as f:
+        nlrc = json.load(f)
+
+    rows = []
+    for n in nlrc:
+        rows.append({
+            'id': n['id'],
+            'serial_number': n.get('serial_number', ''),
+            'case_number': n.get('case_number', ''),
+            'title': n.get('title', ''),
+            'department': n.get('department', ''),
+            'decision_date': n.get('decision_date') or None,
+            'case_type': n.get('case_type', ''),
+            'decision_result': n.get('decision_result', ''),
+            'keywords_matched': parse_keywords(n.get('keywords_matched', [])),
+            'holding_points': (n.get('holding_points', '') or '')[:2000],
+            'summary': (n.get('summary', '') or '')[:2000],
+            'url': n.get('url', ''),
+        })
+
+    batch_size = 500
+    for i in range(0, len(rows), batch_size):
+        batch = rows[i:i+batch_size]
+        supabase.table('nlrc_decisions').upsert(batch).execute()
+        print(f'  노동위결정문 {i+len(batch)}/{len(rows)} 업로드')
+
+    print(f'✅ 노동위결정문 {len(rows)}건 완료')
+
 if __name__ == '__main__':
     upload_cases()
     upload_admin()
+    upload_nlrc()
     upload_news()
     print('\n🎉 전체 업로드 완료!')

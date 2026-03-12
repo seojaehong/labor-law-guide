@@ -1,0 +1,19 @@
+
+> labor-law-guide@0.1.0 dev
+> next dev --hostname 127.0.0.1 --port 3005
+
+▲ Next.js 16.1.6 (Turbopack)
+- Local:         http://127.0.0.1:3005
+- Network:       http://127.0.0.1:3005
+- Environments: .env.local
+
+✓ Starting...
+✓ Ready in 2.6s
+ GET / 200 in 3.2s (compile: 1676ms, render: 1523ms)
+ GET /database 200 in 1400ms (compile: 811ms, render: 588ms)
+ GET /cases 200 in 807ms (compile: 626ms, render: 181ms)
+ GET /cases 200 in 139ms (compile: 4ms, render: 135ms)
+ GET / 200 in 447ms (compile: 8ms, render: 439ms)
+ GET /database 200 in 405ms (compile: 17ms, render: 389ms)
+ GET /cases 200 in 138ms (compile: 9ms, render: 129ms)
+[?25h

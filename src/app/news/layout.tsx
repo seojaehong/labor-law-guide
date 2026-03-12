@@ -26,6 +26,11 @@ export async function generateMetadata(): Promise<Metadata> {
       type: 'website',
       url: `${SITE_URL}/news`,
     },
+    twitter: {
+      card: 'summary_large_image',
+      title: '노란봉투법 최신 뉴스',
+      description: `${today} 기준 ${totalCount.toLocaleString()}건의 노동법 뉴스 매일 업데이트`,
+    },
   };
 }
 

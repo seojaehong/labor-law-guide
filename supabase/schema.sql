@@ -43,7 +43,24 @@ CREATE TABLE IF NOT EXISTS news (
   collected_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 4. 한국어 검색을 위한 인덱스 (GIN trigram)
+-- 4. 노동위결정문 테이블
+CREATE TABLE IF NOT EXISTS nlrc_decisions (
+  id TEXT PRIMARY KEY,
+  serial_number TEXT,
+  case_number TEXT NOT NULL,
+  title TEXT NOT NULL,
+  department TEXT,
+  decision_date DATE,
+  case_type TEXT,
+  decision_result TEXT,
+  keywords_matched TEXT[],
+  holding_points TEXT,
+  summary TEXT,
+  url TEXT,
+  collected_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 5. 한국어 검색을 위한 인덱스 (GIN trigram)
 CREATE EXTENSION IF NOT EXISTS pg_trgm;
 
 CREATE INDEX IF NOT EXISTS idx_cases_title_trgm ON cases USING GIN (title gin_trgm_ops);
@@ -56,6 +73,12 @@ CREATE INDEX IF NOT EXISTS idx_admin_summary_trgm ON admin_interpretations USING
 
 CREATE INDEX IF NOT EXISTS idx_news_title_trgm ON news USING GIN (title gin_trgm_ops);
 CREATE INDEX IF NOT EXISTS idx_news_published ON news (published_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_nlrc_title_trgm ON nlrc_decisions USING GIN (title gin_trgm_ops);
+CREATE INDEX IF NOT EXISTS idx_nlrc_summary_trgm ON nlrc_decisions USING GIN (summary gin_trgm_ops);
+CREATE INDEX IF NOT EXISTS idx_nlrc_holding_trgm ON nlrc_decisions USING GIN (holding_points gin_trgm_ops);
+CREATE INDEX IF NOT EXISTS idx_nlrc_date ON nlrc_decisions (decision_date DESC);
+CREATE INDEX IF NOT EXISTS idx_nlrc_case_type ON nlrc_decisions (case_type);
 
 -- 5. RPC 함수: 판례 검색 (trigram similarity)
 CREATE OR REPLACE FUNCTION search_cases(query TEXT, result_limit INT DEFAULT 20, page_offset INT DEFAULT 0)
@@ -128,11 +151,55 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- 7. RLS (Row Level Security) - 읽기만 허용
+-- 8. RPC 함수: 노동위결정문 검색
+CREATE OR REPLACE FUNCTION search_nlrc(query TEXT, result_limit INT DEFAULT 20, page_offset INT DEFAULT 0)
+RETURNS TABLE (
+  id TEXT,
+  serial_number TEXT,
+  case_number TEXT,
+  title TEXT,
+  department TEXT,
+  decision_date DATE,
+  case_type TEXT,
+  decision_result TEXT,
+  keywords_matched TEXT[],
+  holding_points TEXT,
+  summary TEXT,
+  url TEXT,
+  relevance REAL
+) AS $$
+BEGIN
+  RETURN QUERY
+  SELECT
+    n.id, n.serial_number, n.case_number, n.title, n.department, n.decision_date,
+    n.case_type, n.decision_result, n.keywords_matched, n.holding_points, n.summary, n.url,
+    GREATEST(
+      similarity(n.title, query),
+      similarity(COALESCE(n.summary, ''), query),
+      similarity(COALESCE(n.holding_points, ''), query)
+    ) AS relevance
+  FROM nlrc_decisions n
+  WHERE
+    n.title ILIKE '%' || query || '%'
+    OR n.summary ILIKE '%' || query || '%'
+    OR n.holding_points ILIKE '%' || query || '%'
+    OR n.case_number ILIKE '%' || query || '%'
+    OR n.case_type ILIKE '%' || query || '%'
+    OR query = ANY(n.keywords_matched)
+  ORDER BY relevance DESC, n.decision_date DESC
+  LIMIT result_limit
+  OFFSET page_offset;
+END;
+$$ LANGUAGE plpgsql;
+
+-- 9. RLS (Row Level Security) - 읽기만 허용
 ALTER TABLE cases ENABLE ROW LEVEL SECURITY;
 ALTER TABLE admin_interpretations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE news ENABLE ROW LEVEL SECURITY;
 
+ALTER TABLE nlrc_decisions ENABLE ROW LEVEL SECURITY;
+
 CREATE POLICY "Public read cases" ON cases FOR SELECT USING (true);
 CREATE POLICY "Public read admin" ON admin_interpretations FOR SELECT USING (true);
 CREATE POLICY "Public read news" ON news FOR SELECT USING (true);
+CREATE POLICY "Public read nlrc" ON nlrc_decisions FOR SELECT USING (true);

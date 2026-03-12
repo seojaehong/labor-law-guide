@@ -1,393 +1,284 @@
-'use client';
+import Link from 'next/link';
+import { ArrowRight, FileText, Scale, Search } from 'lucide-react';
+import DatabaseClient from './DatabaseClient';
+import { SITE_URL } from '@/lib/constants';
+import { supabaseServer } from '@/lib/supabase-server';
 
-import { useState, useCallback, useEffect, Suspense } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
-import { Search, Scale, FileText, ChevronDown, ChevronUp, Loader2, ExternalLink } from 'lucide-react';
-import { supabase } from '@/lib/supabase';
+export const revalidate = 3600;
 
-type TabType = 'cases' | 'admin';
-
-interface CaseResult {
+type FeaturedCase = {
   id: string;
-  case_number: string;
-  court: string;
   title: string;
-  decision_date: string;
-  case_type: string;
-  keywords_matched: string[];
-  summary: string;
-  holding_points: string;
-  url?: string;
-  relevance?: number;
-}
+  court: string;
+  case_number: string;
+  decision_date: string | null;
+  summary: string | null;
+  url: string | null;
+};
 
-interface AdminResult {
+type FeaturedAdmin = {
   id: string;
   title: string;
   doc_number: string;
-  decision_date: string;
-  keywords_matched: string[];
-  summary: string;
-  holding_points: string;
-  url?: string;
-}
+  decision_date: string | null;
+  summary: string | null;
+  url: string | null;
+};
 
-const TABS: { key: TabType; label: string; icon: React.ReactNode }[] = [
-  { key: 'cases', label: '판례', icon: <Scale size={16} /> },
-  { key: 'admin', label: '행정해석', icon: <FileText size={16} /> },
+const FEATURED_CASE_NUMBERS = ['2007두8881', '2010다106436', '2023누34646'];
+const FEATURED_ADMIN_DOC_NUMBERS = ['10-0445', '17-0557', '10-0181'];
+const RECOMMENDED_QUERIES = [
+  { label: '사용자성', href: '/database?q=사용자성' },
+  { label: '단체교섭', href: '/database?q=단체교섭' },
+  { label: '부당노동행위', href: '/database?q=부당노동행위' },
+  { label: '파견', href: '/database?q=파견' },
+  { label: '손해배상', href: '/database?q=손해배상' },
+  { label: '교섭창구', href: '/database?q=교섭창구&tab=admin' },
+  { label: '행정해석 보기', href: '/database?q=단체교섭&tab=admin' },
+  { label: '노동위결정문', href: '/database?q=부당노동행위&tab=nlrc' },
 ];
 
-const PAGE_SIZE = 20;
-
-function highlightText(text: string, query: string) {
-  if (!query || query.length < 2 || !text) return text;
-  const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const parts = text.split(new RegExp(`(${escaped})`, 'gi'));
-  return parts.map((part, i) =>
-    part.toLowerCase() === query.toLowerCase()
-      ? <mark key={i} style={{ backgroundColor: 'var(--yellow-100, #fef9c3)', color: 'inherit', borderRadius: '2px', padding: '0 1px' }}>{part}</mark>
-      : part
-  );
+function summarize(text: string | null, maxLength = 180) {
+  if (!text) return '';
+  const compact = text.replace(/\s+/g, ' ').trim();
+  return compact.length > maxLength ? `${compact.slice(0, maxLength)}...` : compact;
 }
 
-export default function DatabasePage() {
-  return (
-    <Suspense fallback={<div className="flex items-center justify-center py-20"><Loader2 size={20} className="animate-spin" style={{ color: 'var(--color-accent)' }} /></div>}>
-      <DatabaseContent />
-    </Suspense>
-  );
+async function getDatabaseLandingData() {
+  const [casesCountResult, adminCountResult, nlrcCountResult, featuredCasesResult, featuredAdminResult] = await Promise.all([
+    supabaseServer.from('cases').select('id', { count: 'exact', head: true }),
+    supabaseServer.from('admin_interpretations').select('id', { count: 'exact', head: true }),
+    supabaseServer.from('nlrc_decisions').select('id', { count: 'exact', head: true }),
+    supabaseServer
+      .from('cases')
+      .select('id, title, court, case_number, decision_date, summary, url')
+      .in('case_number', FEATURED_CASE_NUMBERS),
+    supabaseServer
+      .from('admin_interpretations')
+      .select('id, title, doc_number, decision_date, summary, url')
+      .in('doc_number', FEATURED_ADMIN_DOC_NUMBERS),
+  ]);
+
+  const caseMap = new Map((featuredCasesResult.data || []).map((item) => [item.case_number, item]));
+  const adminMap = new Map((featuredAdminResult.data || []).map((item) => [item.doc_number, item]));
+
+  return {
+    totalCases: casesCountResult.count || 0,
+    totalAdmin: adminCountResult.count || 0,
+    totalNlrc: nlrcCountResult.count || 0,
+    featuredCases: FEATURED_CASE_NUMBERS.map((caseNumber) => caseMap.get(caseNumber)).filter(Boolean) as FeaturedCase[],
+    featuredAdmins: FEATURED_ADMIN_DOC_NUMBERS.map((docNumber) => adminMap.get(docNumber)).filter(Boolean) as FeaturedAdmin[],
+  };
 }
 
-function DatabaseContent() {
-  const router = useRouter();
-  const searchParams = useSearchParams();
-
-  const [query, setQuery] = useState(searchParams.get('q') || '');
-  const [activeTab, setActiveTab] = useState<TabType>((searchParams.get('tab') as TabType) || 'cases');
-  const [loading, setLoading] = useState(false);
-  const [cases, setCases] = useState<CaseResult[]>([]);
-  const [admins, setAdmins] = useState<AdminResult[]>([]);
-  const [page, setPage] = useState(Number(searchParams.get('p')) || 1);
-  const [hasMore, setHasMore] = useState(false);
-  const [searched, setSearched] = useState(false);
-  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
-  const [totalCases, setTotalCases] = useState<number | null>(null);
-  const [totalAdmin, setTotalAdmin] = useState<number | null>(null);
-
-  // 초기 건수 로드
-  useEffect(() => {
-    supabase.from('cases').select('id', { count: 'exact', head: true }).then(({ count }) => setTotalCases(count));
-    supabase.from('admin_interpretations').select('id', { count: 'exact', head: true }).then(({ count }) => setTotalAdmin(count));
-  }, []);
-
-  const toggleExpand = (id: string) => {
-    setExpandedIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
+export default async function DatabasePage() {
+  const { totalCases, totalAdmin, totalNlrc, featuredCases, featuredAdmins } = await getDatabaseLandingData();
+  const pageUrl = `${SITE_URL}/database`;
+  const featuredItems = [
+    ...featuredCases.map((item, index) => ({
+      '@type': 'ListItem',
+      position: index + 1,
+      item: {
+        '@type': 'Article',
+        name: item.title,
+        description: summarize(item.summary, 140),
+        datePublished: item.decision_date || undefined,
+        identifier: item.case_number,
+        url: `${pageUrl}?q=${encodeURIComponent(item.case_number)}`,
+      },
+    })),
+    ...featuredAdmins.map((item, index) => ({
+      '@type': 'ListItem',
+      position: featuredCases.length + index + 1,
+      item: {
+        '@type': 'Article',
+        name: item.title,
+        description: summarize(item.summary, 140),
+        datePublished: item.decision_date || undefined,
+        identifier: item.doc_number,
+        url: `${pageUrl}?q=${encodeURIComponent(item.doc_number)}&tab=admin`,
+      },
+    })),
+  ];
+  const jsonLd = {
+    '@context': 'https://schema.org',
+    '@graph': [
+      {
+        '@type': 'CollectionPage',
+        '@id': `${pageUrl}#webpage`,
+        url: pageUrl,
+        name: '노란봉투법 판례·행정해석 검색',
+        description: `판례 ${totalCases.toLocaleString()}건, 행정해석 ${totalAdmin.toLocaleString()}건, 노동위결정문 ${totalNlrc.toLocaleString()}건을 탐색하는 검색 페이지`,
+        isPartOf: { '@id': `${SITE_URL}/#website` },
+        breadcrumb: { '@id': `${pageUrl}#breadcrumb` },
+      },
+      {
+        '@type': 'BreadcrumbList',
+        '@id': `${pageUrl}#breadcrumb`,
+        itemListElement: [
+          { '@type': 'ListItem', position: 1, name: '홈', item: SITE_URL },
+          { '@type': 'ListItem', position: 2, name: '판례·행정해석 검색', item: pageUrl },
+        ],
+      },
+      {
+        '@type': 'ItemList',
+        '@id': `${pageUrl}#featured`,
+        name: '대표 판례 및 행정해석',
+        itemListElement: featuredItems,
+      },
+    ],
   };
-
-  const updateUrl = useCallback((q: string, tab: TabType, p: number) => {
-    const params = new URLSearchParams();
-    if (q) params.set('q', q);
-    if (tab !== 'cases') params.set('tab', tab);
-    if (p > 1) params.set('p', String(p));
-    const qs = params.toString();
-    router.replace(qs ? `/database?${qs}` : '/database', { scroll: false });
-  }, [router]);
-
-  const search = useCallback(async (q: string, tab: TabType, p: number) => {
-    if (!q || q.length < 2) return;
-    setLoading(true);
-    setSearched(true);
-    const offset = (p - 1) * PAGE_SIZE;
-
-    try {
-      if (tab === 'cases') {
-        const { data, error } = await supabase.rpc('search_cases', {
-          query: q, result_limit: PAGE_SIZE + 1, page_offset: offset,
-        });
-        if (!error && data) {
-          setHasMore(data.length > PAGE_SIZE);
-          setCases(data.slice(0, PAGE_SIZE));
-        }
-      } else if (tab === 'admin') {
-        const { data, error } = await supabase.rpc('search_admin', {
-          query: q, result_limit: PAGE_SIZE + 1, page_offset: offset,
-        });
-        if (!error && data) {
-          setHasMore(data.length > PAGE_SIZE);
-          setAdmins(data.slice(0, PAGE_SIZE));
-        }
-      }
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  // URL 파라미터로 초기 검색
-  useEffect(() => {
-    const q = searchParams.get('q');
-    const tab = (searchParams.get('tab') as TabType) || 'cases';
-    const p = Number(searchParams.get('p')) || 1;
-    if (q && q.length >= 2) {
-      search(q, tab, p);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    setPage(1);
-    setExpandedIds(new Set());
-    updateUrl(query, activeTab, 1);
-    search(query, activeTab, 1);
-  };
-
-  const handleTabChange = (tab: TabType) => {
-    setActiveTab(tab);
-    setPage(1);
-    setExpandedIds(new Set());
-    updateUrl(query, tab, 1);
-    if (query.length >= 2) search(query, tab, 1);
-  };
-
-  const handlePage = (p: number) => {
-    setPage(p);
-    setExpandedIds(new Set());
-    updateUrl(query, activeTab, p);
-    search(query, activeTab, p);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
-
-  const currentResults = activeTab === 'cases' ? cases : admins;
 
   return (
-    <div className="mx-auto max-w-[1000px] px-5 py-10">
-      <h1 className="text-2xl font-bold md:text-3xl" style={{ color: 'var(--color-text-primary)' }}>
-        판례·행정해석 검색
-      </h1>
-      <p className="mt-2 text-[15px]" style={{ color: 'var(--color-text-secondary)' }}>
-        노동조합법 관련 판례 {totalCases !== null ? totalCases.toLocaleString() : '...'}건, 행정해석 {totalAdmin !== null ? totalAdmin.toLocaleString() : '...'}건을 검색하세요.
-      </p>
-
-      {/* 검색바 */}
-      <form onSubmit={handleSearch} className="mt-6">
-        <div className="relative">
-          <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2" style={{ color: 'var(--grey-400)' }} />
-          <input
-            type="text"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="검색어를 입력하세요 (예: 사용자성, 단체교섭, 파견)"
-            className="w-full rounded-xl border py-3 pl-11 pr-4 text-[15px] outline-none transition-colors focus:border-[var(--color-accent)]"
-            style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }}
-          />
+    <div className="mx-auto max-w-[1100px] px-5 py-10">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
+      <section className="max-w-[860px]">
+        <div className="inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-medium" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--grey-50)', color: 'var(--color-text-secondary)' }}>
+          <Search size={14} />
+          실무형 판례·행정해석 검색
         </div>
-      </form>
+        <h1 className="mt-4 text-3xl font-bold tracking-tight md:text-4xl" style={{ color: 'var(--color-text-primary)' }}>
+          판례와 행정해석을
+          <br />
+          검색보다 이해 중심으로 찾는 페이지
+        </h1>
+        <p className="mt-4 text-[15px] leading-7 md:text-[16px]" style={{ color: 'var(--color-text-secondary)' }}>
+          이 페이지는 노란봉투법과 직접 맞닿는 쟁점인 사용자성, 단체교섭, 부당노동행위, 파견·도급, 손해배상 관련 자료를 빠르게 찾을 수 있도록 구성했습니다.
+          판례 {totalCases.toLocaleString()}건, 행정해석 {totalAdmin.toLocaleString()}건, 노동위결정문 {totalNlrc.toLocaleString()}건을 검색할 수 있고, 먼저 대표 사례를 읽은 뒤 바로 유사 자료로 확장해볼 수 있습니다.
+        </p>
+      </section>
 
-      {/* 탭 */}
-      <div className="mt-5 flex gap-2">
-        {TABS.map((tab) => {
-          const count = tab.key === 'cases' ? totalCases : totalAdmin;
-          return (
-            <button
-              key={tab.key}
-              onClick={() => handleTabChange(tab.key)}
-              className="flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-medium transition-colors"
-              style={{
-                backgroundColor: activeTab === tab.key ? 'var(--color-accent)' : 'var(--color-bg-surface)',
-                color: activeTab === tab.key ? '#fff' : 'var(--color-text-secondary)',
-                border: activeTab === tab.key ? 'none' : '1px solid var(--color-border)',
-              }}
+      <section className="mt-8 rounded-3xl border p-5 md:p-7" style={{ borderColor: 'var(--color-border)', backgroundColor: 'white' }}>
+        <h2 className="text-lg font-bold" style={{ color: 'var(--color-text-primary)' }}>추천 검색</h2>
+        <p className="mt-1 text-sm" style={{ color: 'var(--color-text-secondary)' }}>
+          사람들이 실제로 많이 찾는 질문형 키워드부터 시작하면 원하는 자료에 더 빨리 닿습니다.
+        </p>
+        <div className="mt-4 flex flex-wrap gap-2">
+          {RECOMMENDED_QUERIES.map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              className="rounded-full border px-3 py-1.5 text-sm transition-colors hover:border-[var(--color-accent)] hover:text-[var(--color-accent)]"
+              style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-secondary)' }}
             >
-              {tab.icon}
-              {tab.label}
-              {count !== null && (
-                <span className="ml-1 text-xs opacity-80">
-                  {count.toLocaleString()}
-                </span>
-              )}
-            </button>
-          );
-        })}
-      </div>
-
-      {/* 결과 */}
-      <div className="mt-6">
-        {loading && (
-          <div className="flex items-center justify-center gap-2 py-20">
-            <Loader2 size={20} className="animate-spin" style={{ color: 'var(--color-accent)' }} />
-            <span style={{ color: 'var(--color-text-secondary)' }}>검색 중...</span>
-          </div>
-        )}
-
-        {!loading && searched && currentResults.length === 0 && (
-          <div className="py-20 text-center" style={{ color: 'var(--color-text-tertiary)' }}>
-            <p className="text-lg">검색 결과가 없습니다.</p>
-            <p className="mt-2 text-sm">다른 검색어를 시도해보세요.</p>
-          </div>
-        )}
-
-        {!loading && !searched && (
-          <div className="py-20 text-center" style={{ color: 'var(--color-text-tertiary)' }}>
-            <Search size={40} className="mx-auto mb-3 opacity-30" />
-            <p>검색어를 입력하고 Enter를 눌러주세요.</p>
-            <div className="mt-4 flex flex-wrap justify-center gap-2">
-              {['사용자성', '단체교섭', '부당노동행위', '파견', '손해배상'].map((kw) => (
-                <button
-                  key={kw}
-                  onClick={() => { setQuery(kw); setPage(1); updateUrl(kw, activeTab, 1); search(kw, activeTab, 1); }}
-                  className="rounded-full border px-3 py-1 text-sm transition-colors hover:border-[var(--color-accent)] hover:text-[var(--color-accent)]"
-                  style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-secondary)' }}
-                >
-                  {kw}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {!loading && searched && currentResults.length > 0 && (
-          <p className="mb-3 text-sm" style={{ color: 'var(--color-text-tertiary)' }}>
-            {page > 1 && `${page}페이지 · `}검색 결과 {currentResults.length}건{hasMore ? '+' : ''} 표시
-          </p>
-        )}
-
-        {!loading && currentResults.length > 0 && (
-          <div className="space-y-3">
-            {activeTab === 'cases' && cases.map((c) => (
-              <CaseCard key={c.id} item={c} query={query} expanded={expandedIds.has(c.id)} onToggle={() => toggleExpand(c.id)} />
-            ))}
-            {activeTab === 'admin' && admins.map((a) => (
-              <AdminCard key={a.id} item={a} query={query} expanded={expandedIds.has(a.id)} onToggle={() => toggleExpand(a.id)} />
-            ))}
-          </div>
-        )}
-
-        {/* 페이지네이션 */}
-        {!loading && currentResults.length > 0 && (
-          <div className="mt-6 flex items-center justify-center gap-3">
-            <button
-              disabled={page <= 1}
-              onClick={() => handlePage(page - 1)}
-              className="rounded-lg border px-4 py-2 text-sm transition-colors hover:bg-[var(--grey-50)] disabled:opacity-40"
-              style={{ borderColor: 'var(--color-border)' }}
-            >
-              이전
-            </button>
-            <span className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
-              {page} 페이지
-            </span>
-            <button
-              disabled={!hasMore}
-              onClick={() => handlePage(page + 1)}
-              className="rounded-lg border px-4 py-2 text-sm transition-colors hover:bg-[var(--grey-50)] disabled:opacity-40"
-              style={{ borderColor: 'var(--color-border)' }}
-            >
-              다음
-            </button>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-/* ── 판례 카드 ── */
-function CaseCard({ item, query, expanded, onToggle }: { item: CaseResult; query: string; expanded: boolean; onToggle: () => void }) {
-  return (
-    <div className="rounded-xl border p-4 transition-shadow hover:shadow-md" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }}>
-      <div className="flex items-start justify-between gap-2">
-        <div className="flex-1">
-          <div className="flex flex-wrap items-center gap-2 text-xs">
-            <span className="rounded-md px-2 py-0.5 font-medium" style={{ backgroundColor: 'var(--blue-50)', color: 'var(--blue-600)' }}>
-              {item.court}
-            </span>
-            <span style={{ color: 'var(--color-text-tertiary)' }}>{item.case_number}</span>
-            <span style={{ color: 'var(--color-text-tertiary)' }}>{item.decision_date?.slice(0, 10)}</span>
-            {item.case_type && <span style={{ color: 'var(--color-text-tertiary)' }}>{item.case_type}</span>}
-          </div>
-          <h3 className="mt-1.5 text-[15px] font-semibold leading-snug" style={{ color: 'var(--color-text-primary)' }}>
-            {highlightText(item.title, query)}
-          </h3>
-        </div>
-      </div>
-
-      {/* 키워드 태그 */}
-      {item.keywords_matched && item.keywords_matched.length > 0 && (
-        <div className="mt-2 flex flex-wrap gap-1">
-          {item.keywords_matched.slice(0, 5).map((kw) => (
-            <span key={kw} className="rounded-full px-2 py-0.5 text-[11px]" style={{ backgroundColor: 'var(--grey-100)', color: 'var(--grey-600)' }}>
-              {kw}
-            </span>
+              {item.label}
+            </Link>
           ))}
         </div>
-      )}
+      </section>
 
-      {/* 액션 버튼 */}
-      <div className="mt-2 flex items-center gap-3">
-        {(item.summary || item.holding_points) && (
-          <button onClick={onToggle} className="flex items-center gap-1 text-xs font-medium" style={{ color: 'var(--color-accent)' }}>
-            {expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-            {expanded ? '접기' : '요지 보기'}
-          </button>
-        )}
-        {item.url && (
-          <a href={item.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-xs font-medium" style={{ color: 'var(--color-text-tertiary)' }}>
-            <ExternalLink size={12} /> 원문
-          </a>
-        )}
-      </div>
-
-      {expanded && (item.summary || item.holding_points) && (
-        <div className="mt-2 space-y-2 rounded-lg p-3 text-[13px] leading-relaxed" style={{ backgroundColor: 'var(--grey-50)', color: 'var(--color-text-secondary)' }}>
-          {item.summary && <p><strong>요지:</strong> {highlightText(item.summary, query)}</p>}
-          {item.holding_points && <p><strong>판시사항:</strong> {highlightText(item.holding_points, query)}</p>}
+      <section className="mt-8 grid gap-6 lg:grid-cols-2">
+        <div className="rounded-3xl border p-5 md:p-6" style={{ borderColor: 'var(--color-border)', backgroundColor: 'white' }}>
+          <div className="flex items-center gap-2">
+            <Scale size={18} style={{ color: 'var(--color-accent)' }} />
+            <h2 className="text-lg font-bold" style={{ color: 'var(--color-text-primary)' }}>대표 판례 미리 보기</h2>
+          </div>
+          <p className="mt-1 text-sm" style={{ color: 'var(--color-text-secondary)' }}>
+            원청 사용자성, 도급·파견 구별, 간접 통제 같은 핵심 논리를 먼저 읽어보면 검색 정확도가 올라갑니다.
+          </p>
+          <div className="mt-4 space-y-3">
+            {featuredCases.map((item) => (
+              <article key={item.id} className="rounded-2xl border p-4" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--grey-50)' }}>
+                <div className="flex flex-wrap items-center gap-2 text-xs" style={{ color: 'var(--color-text-tertiary)' }}>
+                  <span className="rounded-md px-2 py-0.5 font-medium" style={{ backgroundColor: 'var(--blue-50)', color: 'var(--blue-600)' }}>
+                    {item.court}
+                  </span>
+                  <span>{item.case_number}</span>
+                  {item.decision_date && <span>{item.decision_date}</span>}
+                </div>
+                <h3 className="mt-2 text-[15px] font-semibold leading-snug" style={{ color: 'var(--color-text-primary)' }}>
+                  {item.title}
+                </h3>
+                {item.summary && (
+                  <p className="mt-2 text-[13px] leading-relaxed" style={{ color: 'var(--color-text-secondary)' }}>
+                    {summarize(item.summary)}
+                  </p>
+                )}
+                <div className="mt-3 flex flex-wrap gap-3">
+                  <Link href={`/database?q=${encodeURIComponent(item.case_number)}`} className="text-sm font-medium" style={{ color: 'var(--color-accent)' }}>
+                    유사 판례 검색
+                  </Link>
+                  {item.url && (
+                    <a href={item.url} target="_blank" rel="noopener noreferrer" className="text-sm font-medium" style={{ color: 'var(--color-text-secondary)' }}>
+                      원문 보기
+                    </a>
+                  )}
+                </div>
+              </article>
+            ))}
+          </div>
+          <Link href="/cases" className="mt-4 inline-flex items-center gap-2 text-sm font-medium" style={{ color: 'var(--color-accent)' }}>
+            핵심판례 6선 전체 보기 <ArrowRight size={14} />
+          </Link>
         </div>
-      )}
-    </div>
-  );
-}
 
-/* ── 행정해석 카드 ── */
-function AdminCard({ item, query, expanded, onToggle }: { item: AdminResult; query: string; expanded: boolean; onToggle: () => void }) {
-  const hasContent = !!(item.summary || item.holding_points);
-  return (
-    <div className="rounded-xl border p-4 transition-shadow hover:shadow-md" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }}>
-      <div className="flex flex-wrap items-center gap-2 text-xs">
-        <span className="rounded-md px-2 py-0.5 font-medium" style={{ backgroundColor: 'var(--color-accent-light)', color: 'var(--color-accent)' }}>
-          행정해석
-        </span>
-        {item.doc_number && <span style={{ color: 'var(--color-text-tertiary)' }}>{item.doc_number}</span>}
-        <span style={{ color: 'var(--color-text-tertiary)' }}>{item.decision_date?.slice(0, 10)}</span>
-      </div>
-      <h3 className="mt-1.5 text-[15px] font-semibold leading-snug" style={{ color: 'var(--color-text-primary)' }}>
-        {highlightText(item.title, query)}
-      </h3>
-
-      <div className="mt-2 flex items-center gap-3">
-        {hasContent && (
-          <button onClick={onToggle} className="flex items-center gap-1 text-xs font-medium" style={{ color: 'var(--color-accent)' }}>
-            {expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-            {expanded ? '접기' : '요약 보기'}
-          </button>
-        )}
-        {item.url && (
-          <a href={item.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-xs font-medium" style={{ color: 'var(--color-text-tertiary)' }}>
-            <ExternalLink size={12} /> 원문
-          </a>
-        )}
-      </div>
-
-      {expanded && hasContent && (
-        <div className="mt-2 rounded-lg p-3 text-[13px] leading-relaxed" style={{ backgroundColor: 'var(--grey-50)', color: 'var(--color-text-secondary)' }}>
-          {item.summary && <p><strong>요약:</strong> {highlightText(item.summary, query)}</p>}
-          {item.holding_points && <p className="mt-1"><strong>판단요지:</strong> {highlightText(item.holding_points, query)}</p>}
+        <div className="rounded-3xl border p-5 md:p-6" style={{ borderColor: 'var(--color-border)', backgroundColor: 'white' }}>
+          <div className="flex items-center gap-2">
+            <FileText size={18} style={{ color: 'var(--color-accent)' }} />
+            <h2 className="text-lg font-bold" style={{ color: 'var(--color-text-primary)' }}>대표 행정해석 미리 보기</h2>
+          </div>
+          <p className="mt-1 text-sm" style={{ color: 'var(--color-text-secondary)' }}>
+            행정해석은 법원이 보기 전에 현장에서 먼저 부딪히는 운영 이슈를 정리해주는 경우가 많습니다. 교섭 범위와 노동위원회 절차를 함께 보세요.
+          </p>
+          <div className="mt-4 space-y-3">
+            {featuredAdmins.map((item) => (
+              <article key={item.id} className="rounded-2xl border p-4" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--grey-50)' }}>
+                <div className="flex flex-wrap items-center gap-2 text-xs" style={{ color: 'var(--color-text-tertiary)' }}>
+                  <span className="rounded-md px-2 py-0.5 font-medium" style={{ backgroundColor: 'var(--color-accent-light)', color: 'var(--color-accent)' }}>
+                    행정해석
+                  </span>
+                  <span>{item.doc_number}</span>
+                  {item.decision_date && <span>{item.decision_date}</span>}
+                </div>
+                <h3 className="mt-2 text-[15px] font-semibold leading-snug" style={{ color: 'var(--color-text-primary)' }}>
+                  {item.title}
+                </h3>
+                {item.summary && (
+                  <p className="mt-2 text-[13px] leading-relaxed" style={{ color: 'var(--color-text-secondary)' }}>
+                    {summarize(item.summary)}
+                  </p>
+                )}
+                <div className="mt-3 flex flex-wrap gap-3">
+                  <Link href={`/database?q=${encodeURIComponent(item.doc_number)}&tab=admin`} className="text-sm font-medium" style={{ color: 'var(--color-accent)' }}>
+                    유사 해석 검색
+                  </Link>
+                  {item.url && (
+                    <a href={item.url} target="_blank" rel="noopener noreferrer" className="text-sm font-medium" style={{ color: 'var(--color-text-secondary)' }}>
+                      원문 보기
+                    </a>
+                  )}
+                </div>
+              </article>
+            ))}
+          </div>
         </div>
-      )}
+      </section>
+
+      <section className="mt-8 grid gap-4 md:grid-cols-3">
+        <div className="rounded-2xl border p-5" style={{ borderColor: 'var(--color-border)', backgroundColor: 'white' }}>
+          <h2 className="text-sm font-bold" style={{ color: 'var(--color-text-primary)' }}>판례 검색 팁</h2>
+          <p className="mt-2 text-sm leading-6" style={{ color: 'var(--color-text-secondary)' }}>
+            회사 유형보다 쟁점 단어를 먼저 넣는 편이 좋습니다. 예: 사용자성, 원청, 파견, 손해배상, 교섭 거부.
+          </p>
+        </div>
+        <div className="rounded-2xl border p-5" style={{ borderColor: 'var(--color-border)', backgroundColor: 'white' }}>
+          <h2 className="text-sm font-bold" style={{ color: 'var(--color-text-primary)' }}>행정해석 읽는 법</h2>
+          <p className="mt-2 text-sm leading-6" style={{ color: 'var(--color-text-secondary)' }}>
+            현재 공개된 행정해석은 노조법과 인접 노동관계 법령 자료가 중심입니다. 사용자성보다 단체교섭, 교섭창구, 부당노동행위 같은 제도 키워드로 더 잘 찾을 수 있습니다.
+          </p>
+        </div>
+        <div className="rounded-2xl border p-5" style={{ borderColor: 'var(--color-border)', backgroundColor: 'white' }}>
+          <h2 className="text-sm font-bold" style={{ color: 'var(--color-text-primary)' }}>이 페이지의 한계</h2>
+          <p className="mt-2 text-sm leading-6" style={{ color: 'var(--color-text-secondary)' }}>
+            검색 결과에는 노조법 일반 자료가 섞이거나, 같은 사건번호가 다른 요약 품질로 중복될 수 있습니다. 대표 사례를 먼저 읽고, 이어서 관련 키워드로 좁혀가면 정확도가 올라갑니다.
+          </p>
+        </div>
+      </section>
+
+      <DatabaseClient initialTotalCases={totalCases} initialTotalAdmin={totalAdmin} initialTotalNlrc={totalNlrc} />
     </div>
   );
 }

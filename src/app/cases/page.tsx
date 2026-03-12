@@ -1,77 +1,104 @@
-'use client';
-
-import { useState } from 'react';
 import { keyCases } from '@/content/key-cases-data';
-import { ChevronDown, ChevronUp, Gavel, ArrowRight } from 'lucide-react';
+import { ArrowRight, BookOpenText } from 'lucide-react';
 import Link from 'next/link';
+import { SITE_URL } from '@/lib/constants';
+import CasesClient from './CasesClient';
 
 export default function CasesPage() {
-  const [openId, setOpenId] = useState<string | null>(null);
+  const pageUrl = `${SITE_URL}/cases`;
+  const jsonLd = {
+    '@context': 'https://schema.org',
+    '@graph': [
+      {
+        '@type': 'CollectionPage',
+        '@id': `${pageUrl}#webpage`,
+        url: pageUrl,
+        name: '노란봉투법 핵심판례 6선',
+        description: '노란봉투법 시행과 사용자성 판단에 활용되는 핵심 판례 6건 요약',
+        isPartOf: { '@id': `${SITE_URL}/#website` },
+        breadcrumb: { '@id': `${pageUrl}#breadcrumb` },
+      },
+      {
+        '@type': 'BreadcrumbList',
+        '@id': `${pageUrl}#breadcrumb`,
+        itemListElement: [
+          { '@type': 'ListItem', position: 1, name: '홈', item: SITE_URL },
+          { '@type': 'ListItem', position: 2, name: '핵심판례', item: pageUrl },
+        ],
+      },
+      {
+        '@type': 'ItemList',
+        '@id': `${pageUrl}#cases`,
+        name: '노란봉투법 핵심판례 6선',
+        itemListElement: keyCases.map((item, index) => ({
+          '@type': 'ListItem',
+          position: index + 1,
+          item: {
+            '@type': 'Article',
+            name: `${item.court} ${item.caseNumber} ${item.title}`,
+            description: item.keyHolding,
+            datePublished: item.date.replace(/\./g, '-'),
+            url: `${SITE_URL}/database?q=${encodeURIComponent(item.databaseQuery)}`,
+          },
+        })),
+      },
+    ],
+  };
 
   return (
-    <div className="mx-auto max-w-[800px] px-5 py-10">
-      <h1 className="mb-2 font-bold" style={{ fontSize: 'var(--text-2xl)', color: 'var(--grey-900)' }}>
-        핵심판례
-      </h1>
-      <p className="mb-8 text-sm" style={{ color: 'var(--grey-500)' }}>
-        개정 노동조합법 사용자성 판단에 활용된 핵심 판례 6건을 쟁점별로 정리했습니다.
-      </p>
+    <div className="mx-auto max-w-[920px] px-5 py-10">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
+      <section>
+        <div className="inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-medium" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--grey-50)', color: 'var(--color-text-secondary)' }}>
+          <BookOpenText size={14} />
+          사용자성·파견·경제적 종속성 핵심 판례
+        </div>
+        <h1 className="mb-2 mt-4 font-bold" style={{ fontSize: 'var(--text-2xl)', color: 'var(--grey-900)' }}>
+          노란봉투법 핵심판례 6선
+        </h1>
+        <p className="max-w-[760px] text-sm leading-7 md:text-[15px]" style={{ color: 'var(--grey-500)' }}>
+          개정 노동조합법의 사용자성 판단과 원하청 교섭 의무는 갑자기 생긴 개념이 아니라, 대법원과 행정법원이 축적해 온 판례 법리 위에 서 있습니다.
+          먼저 각 판결의 쟁점과 한 줄 요지를 훑어보고, 이어서 상세 해설과 유사 판례 검색으로 넓혀가면 실무 판단 속도가 빨라집니다.
+        </p>
+      </section>
 
-      <div className="space-y-4">
-        {keyCases.map((c) => {
-          const isOpen = openId === c.id;
-          return (
-            <div key={c.id} className="rounded-xl border overflow-hidden" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }}>
-              <button
-                onClick={() => setOpenId(isOpen ? null : c.id)}
-                className="flex w-full items-center gap-3 p-4 text-left"
-              >
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg" style={{ backgroundColor: 'var(--color-accent-light)' }}>
-                  <Gavel size={16} style={{ color: 'var(--color-accent)' }} />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="rounded-full px-2 py-0.5 text-[11px] font-medium" style={{ backgroundColor: 'var(--color-accent-light)', color: 'var(--color-accent)' }}>
-                      {c.issue}
-                    </span>
-                    <span className="text-xs" style={{ color: 'var(--grey-400)' }}>{c.court} {c.caseNumber}</span>
-                  </div>
-                  <div className="mt-1 text-[15px] font-medium" style={{ color: 'var(--grey-900)' }}>{c.title}</div>
-                  <div className="mt-0.5 text-xs" style={{ color: 'var(--grey-500)' }}>{c.significance}</div>
-                </div>
-                {isOpen ? <ChevronUp size={18} style={{ color: 'var(--grey-400)' }} /> : <ChevronDown size={18} style={{ color: 'var(--grey-400)' }} />}
-              </button>
-
-              {isOpen && (
-                <div className="border-t px-4 pb-4 pt-3 space-y-3" style={{ borderColor: 'var(--color-border)' }}>
-                  <Section label="핵심 판시" text={c.keyHolding} />
-                  <Section label="개정법과의 연결" text={c.connectionToAct} />
-                  <Section label="실무 시사점" text={c.kotraImplication} />
-                </div>
-              )}
+      <section className="mt-8 grid gap-4">
+        {keyCases.map((c) => (
+          <article key={c.id} className="rounded-2xl border p-5" style={{ borderColor: 'var(--color-border)', backgroundColor: 'white' }}>
+            <div className="flex flex-wrap items-center gap-2 text-xs" style={{ color: 'var(--grey-400)' }}>
+              <span className="rounded-full px-2 py-0.5 font-medium" style={{ backgroundColor: 'var(--color-accent-light)', color: 'var(--color-accent)' }}>
+                {c.issue}
+              </span>
+              <span>{c.court}</span>
+              <span>{c.caseNumber}</span>
+              <span>{c.date}</span>
             </div>
-          );
-        })}
-      </div>
+            <h2 className="mt-2 text-lg font-semibold" style={{ color: 'var(--grey-900)' }}>{c.title}</h2>
+            <p className="mt-1 text-sm font-medium" style={{ color: 'var(--color-accent)' }}>{c.significance}</p>
+            <p className="mt-3 text-sm leading-7" style={{ color: 'var(--grey-700)' }}>{c.keyHolding}</p>
+            <div className="mt-4 flex flex-wrap gap-3">
+              <Link
+                href={`/database?q=${encodeURIComponent(c.databaseQuery)}`}
+                className="inline-flex items-center gap-1 text-sm font-medium"
+                style={{ color: 'var(--color-accent)' }}
+              >
+                유사 판례 검색 <ArrowRight size={14} />
+              </Link>
+            </div>
+          </article>
+        ))}
+      </section>
 
-      <div className="mt-10 text-center">
-        <Link
-          href="/database"
-          className="inline-flex items-center gap-2 rounded-lg px-5 py-2.5 text-sm font-medium text-white"
-          style={{ backgroundColor: 'var(--color-accent)' }}
-        >
-          더 많은 판례 검색하기 <ArrowRight size={16} />
-        </Link>
-      </div>
-    </div>
-  );
-}
-
-function Section({ label, text }: { label: string; text: string }) {
-  return (
-    <div>
-      <div className="mb-1 text-xs font-bold" style={{ color: 'var(--grey-500)' }}>{label}</div>
-      <p className="text-sm leading-relaxed" style={{ color: 'var(--grey-700)' }}>{text}</p>
+      <section className="mt-10">
+        <h2 className="text-lg font-bold" style={{ color: 'var(--grey-900)' }}>상세 해설 보기</h2>
+        <p className="mb-4 mt-1 text-sm" style={{ color: 'var(--grey-500)' }}>
+          각 판례를 열어 핵심 판시, 개정법과의 연결, 실무 시사점을 한 번에 확인할 수 있습니다.
+        </p>
+        <CasesClient />
+      </section>
     </div>
   );
 }
