@@ -141,6 +141,7 @@ function DatabaseContent({ initialTotalCases, initialTotalAdmin, initialTotalNlr
   const [nlrcResults, setNlrcResults] = useState<NlrcResult[]>([]);
   const [page, setPage] = useState(Number(searchParams.get('p')) || 1);
   const [hasMore, setHasMore] = useState(false);
+  const [searchTotal, setSearchTotal] = useState<number | null>(null);
   const [searched, setSearched] = useState(false);
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   const [totalCases, setTotalCases] = useState<number | null>(initialTotalCases);
@@ -183,7 +184,16 @@ function DatabaseContent({ initialTotalCases, initialTotalAdmin, initialTotalNlr
     if (!q || q.length < 2) return;
     setLoading(true);
     setSearched(true);
+    setSearchTotal(null);
     const offset = (p - 1) * PAGE_SIZE;
+
+    // 총 건수 조회 (ILIKE 기반, 병렬 실행)
+    const tableMap = { cases: 'cases', admin: 'admin_interpretations', nlrc: 'nlrc_decisions' } as const;
+    const countPromise = supabase
+      .from(tableMap[tab])
+      .select('id', { count: 'exact', head: true })
+      .or(`title.ilike.%${q}%,summary.ilike.%${q}%,holding_points.ilike.%${q}%`)
+      .then(({ count }) => setSearchTotal(count));
 
     try {
       if (tab === 'cases') {
@@ -217,6 +227,7 @@ function DatabaseContent({ initialTotalCases, initialTotalAdmin, initialTotalNlr
           setNlrcResults(deduped.slice(0, PAGE_SIZE));
         }
       }
+      await countPromise;
     } finally {
       setLoading(false);
     }
@@ -389,7 +400,11 @@ function DatabaseContent({ initialTotalCases, initialTotalAdmin, initialTotalNlr
 
         {!loading && searched && currentResults.length > 0 && (
           <p className="mb-3 text-sm" style={{ color: 'var(--color-text-tertiary)' }}>
-            {page > 1 && `${page}페이지 · `}검색 결과 {currentResults.length}건{hasMore ? '+' : ''} 표시
+            {searchTotal !== null ? (
+              <>총 <strong>{searchTotal.toLocaleString()}</strong>건 중 {((page - 1) * PAGE_SIZE + 1)}~{((page - 1) * PAGE_SIZE + currentResults.length)}건 표시</>
+            ) : (
+              <>검색 결과 {currentResults.length}건 표시</>
+            )}
           </p>
         )}
 
@@ -407,7 +422,7 @@ function DatabaseContent({ initialTotalCases, initialTotalAdmin, initialTotalNlr
           </div>
         )}
 
-        {!loading && currentResults.length > 0 && (
+        {!loading && currentResults.length > 0 && (page > 1 || hasMore) && (
           <div className="mt-6 flex items-center justify-center gap-3">
             <button
               disabled={page <= 1}
@@ -415,10 +430,10 @@ function DatabaseContent({ initialTotalCases, initialTotalAdmin, initialTotalNlr
               className="rounded-lg border px-4 py-2 text-sm transition-colors hover:bg-[var(--grey-50)] disabled:opacity-40"
               style={{ borderColor: 'var(--color-border)' }}
             >
-              이전
+              ← 이전
             </button>
-            <span className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
-              {page} 페이지
+            <span className="text-sm tabular-nums" style={{ color: 'var(--color-text-secondary)' }}>
+              {page}{searchTotal !== null && ` / ${Math.max(1, Math.ceil(searchTotal / PAGE_SIZE))}`} 페이지
             </span>
             <button
               disabled={!hasMore}
@@ -426,7 +441,7 @@ function DatabaseContent({ initialTotalCases, initialTotalAdmin, initialTotalNlr
               className="rounded-lg border px-4 py-2 text-sm transition-colors hover:bg-[var(--grey-50)] disabled:opacity-40"
               style={{ borderColor: 'var(--color-border)' }}
             >
-              다음
+              다음 →
             </button>
           </div>
         )}
