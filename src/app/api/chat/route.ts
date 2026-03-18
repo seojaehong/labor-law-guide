@@ -5,10 +5,10 @@ import { supabase } from '@/lib/supabase';
 export async function POST(req: NextRequest) {
   try {
     const { messages } = await req.json();
-    const apiKey = process.env.OPENAI_API_KEY;
+    const apiKey = process.env.GLM_API_KEY;
 
     if (!apiKey) {
-      return NextResponse.json({ content: 'OPENAI_API_KEY가 설정되지 않았습니다.' });
+      return NextResponse.json({ content: 'GLM_API_KEY가 설정되지 않았습니다.' });
     }
 
     // FAQ DB 매칭으로 컨텍스트 보강
@@ -43,19 +43,19 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    const response = await fetch('https://api.z.ai/api/paas/v4/chat/completions', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model: 'gpt-4o-mini',
+        model: 'GLM-4.7-Flash',
         messages: [
           { role: 'system', content: systemPrompt },
           ...messages,
         ],
-        max_tokens: 1500,
+        max_tokens: 2048,
         temperature: 0.3,
       }),
     });
