@@ -111,6 +111,12 @@ function isNonProseBlock(block: string): boolean {
 
 function sanitizeLeadText(text: string): string {
   return text
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')  // [텍스트](URL) → 텍스트
+    .replace(/<a[^>]*>([^<]*)<\/a>/g, '$1')    // <a href>텍스트</a> → 텍스트
+    .replace(/<[^>]+>/g, '')                     // 기타 HTML 태그 제거
+    .replace(/\*\*([^*]+)\*\*/g, '$1')          // **굵게** → 굵게
+    .replace(/\*([^*]+)\*/g, '$1')              // *기울임* → 기울임
+    .replace(/`([^`]+)`/g, '$1')                // `코드` → 코드
     .replace(/\s+/g, ' ')
     .replace(/^["']([^"']+)["']\s*/, '$1 ')
     .trim()
