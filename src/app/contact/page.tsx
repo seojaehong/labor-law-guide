@@ -5,7 +5,7 @@ import { SITE_URL } from '@/lib/constants';
 
 export const metadata: Metadata = {
   title: '전문가 상담 문의',
-  description: '사용자성 판단, 교섭 대응, 노동쟁의 등 노무법인 위너스의 전문가 자문이 필요하시면 문의해 주세요.',
+  description: '부당해고, 징계, 퇴직금, 직장내괴롭힘, 노란봉투법 등 노무법인 위너스의 전문가 자문이 필요하시면 문의해 주세요.',
   alternates: { canonical: `${SITE_URL}/contact` },
 };
 
@@ -16,7 +16,7 @@ export default function ContactPage() {
         전문가 상담 문의
       </h1>
       <p className="mb-10 text-sm" style={{ color: 'var(--grey-500)' }}>
-        사용자성 판단, 교섭 대응, 노동쟁의 등 전문가의 자문이 필요하시면 문의해 주세요.
+        부당해고, 징계, 퇴직금, 직장내괴롭힘, 노란봉투법 등 전문가의 자문이 필요하시면 문의해 주세요.
       </p>
 
       <div className="grid gap-10 lg:grid-cols-[1fr_300px]">
@@ -53,13 +53,13 @@ export default function ContactPage() {
           <div className="rounded-2xl p-6" style={{ backgroundColor: 'var(--blue-50)' }}>
             <h3 className="mb-2 font-bold text-sm" style={{ color: 'var(--blue-700)' }}>상담 분야</h3>
             <ul className="space-y-1.5 text-sm" style={{ color: 'var(--blue-600)' }}>
-              <li>• 사용자성 판단 자문</li>
+              <li>• 노란봉투법(개정 노조법) 문의</li>
               <li>• 부당해고/징계 대응</li>
               <li>• 퇴직금/임금 문제</li>
               <li>• 직장내괴롭힘/성희롱</li>
               <li>• 고용지원금 상담</li>
-              <li>• 교섭절차 대응 전략</li>
-              <li>• 단체교섭 대행</li>
+              <li>• 교섭절차/단체교섭</li>
+              <li>• 기타 노무 상담</li>
             </ul>
           </div>
         </div>
