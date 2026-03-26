@@ -1,13 +1,13 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { supabaseServer } from '@/lib/supabase-server';
 import { SITE_URL } from '@/lib/constants';
-
-export const dynamicParams = true;
-export const revalidate = 1800;
 import { ArrowLeft, Calendar, User, Tag, BookOpen, ArrowRight } from 'lucide-react';
 
+export const dynamicParams = true;
 export const revalidate = 1800;
 
 interface BlogArticleFull {
@@ -117,98 +117,6 @@ export async function generateMetadata({
   };
 }
 
-function renderMarkdown(md: string): string {
-  // Extract markdown links first, replace with placeholders
-  const links: string[] = [];
-  let html = md.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_m, text, url) => {
-    const idx = links.length;
-    links.push(`<a href="${url}" target="_blank" rel="noopener noreferrer" class="blog-link">${text}</a>`);
-    return `%%LINK${idx}%%`;
-  });
-
-  // Escape HTML (safe now because links are placeholders)
-  html = html
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
-
-  // Restore links
-  links.forEach((link, idx) => {
-    html = html.replace(`%%LINK${idx}%%`, link);
-  });
-
-  // Process inline formatting
-  html = html
-    .replace(/\*\*(.+?)\*\*/g, '<strong class="blog-strong">$1</strong>')
-    .replace(/\*(.+?)\*/g, '<em>$1</em>')
-    .replace(/`(.+?)`/g, '<code class="blog-code">$1</code>');
-
-  // Split into lines for block-level processing
-  const lines = html.split('\n');
-  const result: string[] = [];
-  let i = 0;
-
-  while (i < lines.length) {
-    const line = lines[i];
-    const trimmed = line.trim();
-
-    if (!trimmed) {
-      result.push('');
-      i++;
-      continue;
-    }
-
-    // Headers
-    if (trimmed.startsWith('#### ')) {
-      result.push(`<h4 class="blog-h4">${trimmed.slice(5)}</h4>`);
-      i++;
-    } else if (trimmed.startsWith('### ')) {
-      result.push(`<h3 class="blog-h3">${trimmed.slice(4)}</h3>`);
-      i++;
-    } else if (trimmed.startsWith('## ')) {
-      result.push(`<h2 class="blog-h2">${trimmed.slice(3)}</h2>`);
-      i++;
-    } else if (trimmed.startsWith('# ')) {
-      result.push(`<h2 class="blog-h2">${trimmed.slice(2)}</h2>`);
-      i++;
-    } else if (trimmed === '---') {
-      result.push('<hr class="blog-hr" />');
-      i++;
-    } else if (trimmed.startsWith('> ')) {
-      result.push(`<blockquote class="blog-blockquote">${trimmed.slice(2)}</blockquote>`);
-      i++;
-    } else if (/^- /.test(trimmed)) {
-      // Collect consecutive bullet list items
-      const items: string[] = [];
-      while (i < lines.length && /^- /.test(lines[i].trim())) {
-        items.push(`<li class="blog-li">${lines[i].trim().slice(2)}</li>`);
-        i++;
-      }
-      result.push(`<ul class="blog-ul">${items.join('')}</ul>`);
-    } else if (/^\d+\. /.test(trimmed)) {
-      // Collect consecutive ordered list items
-      const items: string[] = [];
-      while (i < lines.length && /^\d+\. /.test(lines[i].trim())) {
-        items.push(`<li class="blog-li blog-li-ordered">${lines[i].trim().replace(/^\d+\. /, '')}</li>`);
-        i++;
-      }
-      result.push(`<ol class="blog-ol">${items.join('')}</ol>`);
-    } else {
-      // Regular paragraph — collect until blank line
-      const paraLines: string[] = [];
-      while (i < lines.length && lines[i].trim() !== '' && !lines[i].trim().startsWith('#') && !lines[i].trim().startsWith('> ') && !lines[i].trim().startsWith('- ') && !/^\d+\. /.test(lines[i].trim()) && lines[i].trim() !== '---') {
-        paraLines.push(lines[i].trim());
-        i++;
-      }
-      if (paraLines.length > 0) {
-        result.push(`<p class="blog-p">${paraLines.join(' ')}</p>`);
-      }
-    }
-  }
-
-  return result.filter(l => l !== '').join('\n');
-}
-
 function formatDate(dateStr: string) {
   const d = new Date(dateStr);
   return `${d.getFullYear()}년 ${d.getMonth() + 1}월 ${d.getDate()}일`;
@@ -281,8 +189,6 @@ export default async function BlogArticlePage({
       },
     ],
   };
-
-  const htmlContent = renderMarkdown(article.content);
 
   return (
     <>
@@ -373,8 +279,32 @@ export default async function BlogArticlePage({
             {/* Article Content */}
             <div
               className="blog-content"
-              dangerouslySetInnerHTML={{ __html: htmlContent }}
-            />
+            >
+              <ReactMarkdown
+                remarkPlugins={[remarkGfm]}
+                components={{
+                  h1: ({ children }) => <h1 className="blog-h1">{children}</h1>,
+                  h2: ({ children }) => <h2 className="blog-h2">{children}</h2>,
+                  h3: ({ children }) => <h3 className="blog-h3">{children}</h3>,
+                  h4: ({ children }) => <h4 className="blog-h4">{children}</h4>,
+                  p: ({ children }) => <p className="blog-p">{children}</p>,
+                  ul: ({ children }) => <ul className="blog-ul">{children}</ul>,
+                  ol: ({ children }) => <ol className="blog-ol">{children}</ol>,
+                  li: ({ children }) => <li className="blog-li">{children}</li>,
+                  a: ({ href, children }) => (
+                    <a href={href} target="_blank" rel="noopener noreferrer" className="blog-link">
+                      {children}
+                    </a>
+                  ),
+                  strong: ({ children }) => <strong className="blog-strong">{children}</strong>,
+                  code: ({ children }) => <code className="blog-code">{children}</code>,
+                  blockquote: ({ children }) => <blockquote className="blog-blockquote">{children}</blockquote>,
+                  hr: () => <hr className="blog-hr" />,
+                }}
+              >
+                {article.content}
+              </ReactMarkdown>
+            </div>
 
             {/* More Articles */}
             {latest.length > 0 && (
@@ -480,23 +410,6 @@ export default async function BlogArticlePage({
           </aside>
         </div>
       </div>
-
-      <style>{`
-        .blog-content { color: var(--color-text-primary); font-size: 15px; line-height: 1.75; word-break: keep-all; }
-        .blog-content .blog-p { margin-bottom: 1.25em; }
-        .blog-content .blog-h1 { font-size: 1.6em; font-weight: 700; margin: 1.5em 0 0.6em; color: var(--grey-900); }
-        .blog-content .blog-h2 { font-size: 1.35em; font-weight: 700; margin: 1.4em 0 0.5em; color: var(--grey-900); padding-bottom: 0.3em; border-bottom: 1px solid var(--color-border); }
-        .blog-content .blog-h3 { font-size: 1.15em; font-weight: 700; margin: 1.2em 0 0.4em; color: var(--grey-800); }
-        .blog-content .blog-h4 { font-size: 1em; font-weight: 700; margin: 1em 0 0.3em; color: var(--grey-700); }
-        .blog-content .blog-strong { font-weight: 700; color: var(--grey-900); }
-        .blog-content .blog-code { font-family: monospace; font-size: 0.88em; padding: 0.15em 0.4em; border-radius: 4px; background: var(--grey-100); color: var(--grey-800); }
-        .blog-content .blog-hr { margin: 2em 0; border: none; border-top: 1px solid var(--color-border); }
-        .blog-content .blog-blockquote { margin: 1.2em 0; padding: 0.8em 1em; border-left: 3px solid var(--color-accent); background: var(--blue-50); border-radius: 0 8px 8px 0; color: var(--color-text-secondary); }
-        .blog-content .blog-ul { margin: 0.8em 0 1em 1.5em; padding: 0; list-style: disc; }
-        .blog-content .blog-ol { margin: 0.8em 0 1em 1.5em; padding: 0; list-style: decimal; }
-        .blog-content .blog-li { margin-bottom: 0.4em; display: list-item; }
-        .blog-content .blog-li-ordered { display: list-item; }
-      `}</style>
     </>
   );
 }

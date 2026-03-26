@@ -363,4 +363,102 @@
   ::-webkit-scrollbar-thumb:hover {
     background: var(--grey-400);
   }
+
+  .blog-content {
+    color: var(--color-text-primary);
+    font-size: 15px;
+    line-height: 1.75;
+    word-break: keep-all;
+    overflow-wrap: break-word;
+  }
+
+  .blog-content .blog-p {
+    margin-bottom: 1.25em;
+  }
+
+  .blog-content .blog-h1 {
+    font-size: 1.6em;
+    font-weight: 700;
+    margin: 1.5em 0 0.6em;
+    color: var(--grey-900);
+  }
+
+  .blog-content .blog-h2 {
+    font-size: 1.35em;
+    font-weight: 700;
+    margin: 1.4em 0 0.5em;
+    color: var(--grey-900);
+    padding-bottom: 0.3em;
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  .blog-content .blog-h3 {
+    font-size: 1.15em;
+    font-weight: 700;
+    margin: 1.2em 0 0.4em;
+    color: var(--grey-800);
+  }
+
+  .blog-content .blog-h4 {
+    font-size: 1em;
+    font-weight: 700;
+    margin: 1em 0 0.3em;
+    color: var(--grey-700);
+  }
+
+  .blog-content .blog-strong {
+    font-weight: 700;
+    color: var(--grey-900);
+  }
+
+  .blog-content .blog-code {
+    font-family: monospace;
+    font-size: 0.88em;
+    padding: 0.15em 0.4em;
+    border-radius: 4px;
+    background: var(--grey-100);
+    color: var(--grey-800);
+  }
+
+  .blog-content .blog-hr {
+    margin: 2em 0;
+    border: none;
+    border-top: 1px solid var(--color-border);
+  }
+
+  .blog-content .blog-blockquote {
+    margin: 1.2em 0;
+    padding: 0.8em 1em;
+    border-left: 3px solid var(--color-accent);
+    background: var(--blue-50);
+    border-radius: 0 8px 8px 0;
+    color: var(--color-text-secondary);
+  }
+
+  .blog-content .blog-ul {
+    margin: 0.8em 0 1em 1.5em;
+    padding: 0;
+    list-style: disc;
+  }
+
+  .blog-content .blog-ol {
+    margin: 0.8em 0 1em 1.5em;
+    padding: 0;
+    list-style: decimal;
+  }
+
+  .blog-content .blog-li {
+    margin-bottom: 0.4em;
+    display: list-item;
+  }
+
+  .blog-content .blog-link {
+    color: var(--color-accent);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+
+  .blog-content .blog-link:hover {
+    color: var(--color-accent-hover);
+  }
 }
