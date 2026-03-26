@@ -1,16 +1,20 @@
 export function cleanBlogSummary(summary: string | null | undefined, content?: string | null): string | null {
   const normalizedSummary = normalizeSummary(summary, { maxLength: 220, preferredLength: 180 })
+  const contentLead = extractLeadFromMarkdown(content, { maxLength: 240, preferredLength: 200 })
+
+  if (shouldPreferContentLead(normalizedSummary, contentLead)) {
+    return contentLead
+  }
 
   if (normalizedSummary) {
     return normalizedSummary
   }
 
-  const normalizedContent = normalizeSummary(content, { maxLength: 220, preferredLength: 180 })
-  return normalizedContent
+  return contentLead
 }
 
 export function extractBlogLead(content: string | null | undefined): string | null {
-  return normalizeSummary(content, { maxLength: 420, preferredLength: 320 })
+  return extractLeadFromMarkdown(content, { maxLength: 520, preferredLength: 360 })
 }
 
 function normalizeSummary(
@@ -60,4 +64,64 @@ function normalizeSummary(
 
   const fallback = stripped.slice(0, options.maxLength - 3).trimEnd()
   return `${fallback}...`
+}
+
+function extractLeadFromMarkdown(
+  source: string | null | undefined,
+  options: { maxLength: number; preferredLength: number }
+): string | null {
+  if (!source) return null
+
+  const blocks = source
+    .replace(/\r/g, '')
+    .split(/\n\s*\n/)
+    .map((block) => block.trim())
+    .filter(Boolean)
+    .filter((block) => !isNonProseBlock(block))
+    .map((block) => sanitizeLeadText(block))
+
+  if (blocks.length === 0) {
+    return normalizeSummary(source, options)
+  }
+
+  let assembled = ''
+
+  for (const block of blocks) {
+    const candidate = assembled ? `${assembled} ${block}` : block
+    if (candidate.length > options.maxLength) {
+      if (!assembled) {
+        return normalizeSummary(block, options)
+      }
+      break
+    }
+
+    assembled = candidate
+
+    if (assembled.length >= options.preferredLength) {
+      return assembled
+    }
+  }
+
+  return assembled || null
+}
+
+function isNonProseBlock(block: string): boolean {
+  return /^(#{1,6}\s|[-*]\s|\d+\.\s|>\s|```)/.test(block)
+}
+
+function sanitizeLeadText(text: string): string {
+  return text
+    .replace(/\s+/g, ' ')
+    .replace(/^["']([^"']+)["']\s*/, '$1 ')
+    .trim()
+}
+
+function shouldPreferContentLead(summary: string | null, contentLead: string | null): boolean {
+  if (!contentLead) return false
+  if (!summary) return true
+  if (summary.includes('...')) return true
+  if (summary.includes('##') || summary.includes('###')) return true
+  if (summary.includes('「근로자퇴')) return true
+  if (summary.length < 160 && contentLead.length > summary.length + 40) return true
+  return false
 }

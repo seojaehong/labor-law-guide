@@ -35,11 +35,15 @@ export interface BlogArticle {
   seo_description: string | null;
 }
 
+interface BlogArticleRow extends BlogArticle {
+  content: string | null;
+}
+
 async function getArticles() {
   const { data, error } = await supabaseServer
     .from('blog_articles')
     .select(
-      'slug, title, subtitle, summary, category, tags, author, published_at, seo_title, seo_description'
+      'slug, title, subtitle, summary, content, category, tags, author, published_at, seo_title, seo_description'
     )
     .order('published_at', { ascending: false });
 
@@ -48,9 +52,9 @@ async function getArticles() {
     return [];
   }
 
-  return ((data || []) as BlogArticle[]).map((article) => ({
+  return ((data || []) as BlogArticleRow[]).map((article) => ({
     ...article,
-    summary: cleanBlogSummary(article.summary),
+    summary: cleanBlogSummary(article.summary, article.content),
   }));
 }
 
