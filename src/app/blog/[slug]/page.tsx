@@ -3,6 +3,9 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { supabaseServer } from '@/lib/supabase-server';
 import { SITE_URL } from '@/lib/constants';
+
+export const dynamicParams = true;
+export const revalidate = 1800;
 import { ArrowLeft, Calendar, User, Tag, BookOpen, ArrowRight } from 'lucide-react';
 
 export const revalidate = 1800;
