@@ -210,6 +210,141 @@
     box-shadow: var(--shadow-xl);
   }
 
+  /* ── GlassNav: shared nav link ── */
+  .nav-link {
+    display: inline-flex;
+    align-items: center;
+    border-radius: 8px;
+    padding: 6px 12px;
+    font-size: var(--text-sm);
+    transition: color var(--transition-fast) ease,
+                background-color var(--transition-fast) ease;
+    cursor: pointer;
+    border: none;
+    background: none;
+    line-height: 1;
+    white-space: nowrap;
+  }
+
+  .nav-link:hover {
+    color: var(--color-text-primary) !important;
+    background-color: var(--grey-100) !important;
+  }
+
+  /* ── GlassNav: CTA button (상담) ── */
+  .nav-cta {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-left: 8px;
+    border-radius: 8px;
+    padding: 6px 16px;
+    font-size: var(--text-sm);
+    font-weight: 600;
+    color: #ffffff !important;
+    background-color: var(--color-accent);
+    transition: background-color var(--transition-fast) ease,
+                transform var(--transition-fast) ease;
+    white-space: nowrap;
+    cursor: pointer;
+    border: none;
+    text-decoration: none;
+  }
+
+  .nav-cta:hover {
+    background-color: var(--color-accent-hover) !important;
+    transform: translateY(-1px);
+  }
+
+  .nav-cta:active {
+    transform: translateY(0);
+  }
+
+  /* ── GlassNav: desktop dropdown panel ── */
+  .nav-dropdown {
+    position: absolute;
+    top: calc(100% + 8px);
+    left: 50%;
+    transform: translateX(-50%);
+    min-width: 220px;
+    background: rgba(255, 255, 255, 0.82);
+    backdrop-filter: blur(24px) saturate(180%);
+    -webkit-backdrop-filter: blur(24px) saturate(180%);
+    border: 1px solid rgba(255, 255, 255, 0.65);
+    border-radius: 14px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.8);
+    padding: 6px;
+    z-index: 100;
+  }
+
+  .nav-dropdown-item {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 10px 12px;
+    border-radius: 8px;
+    text-decoration: none;
+    transition: background-color var(--transition-fast) ease,
+                color var(--transition-fast) ease;
+    cursor: pointer;
+  }
+
+  .nav-dropdown-item:hover {
+    background-color: var(--grey-100) !important;
+    color: var(--color-text-primary) !important;
+  }
+
+  .nav-dropdown-item-label {
+    font-size: var(--text-sm);
+    font-weight: 500;
+    line-height: 1.3;
+  }
+
+  .nav-dropdown-item-desc {
+    font-size: var(--text-xs);
+    color: var(--color-text-tertiary);
+    line-height: 1.4;
+  }
+
+  /* ── GlassNav: mobile menu rows ── */
+  .mobile-nav-row {
+    display: flex;
+    align-items: center;
+    padding: 11px 8px;
+    border-radius: 8px;
+    font-size: var(--text-sm);
+    cursor: pointer;
+    text-decoration: none;
+    transition: background-color var(--transition-fast) ease;
+    border: none;
+    background: none;
+    width: 100%;
+    text-align: left;
+  }
+
+  .mobile-nav-row:hover {
+    background-color: var(--grey-100) !important;
+  }
+
+  .mobile-nav-sub {
+    padding: 4px 0 4px 16px;
+    border-left: 2px solid var(--grey-200);
+    margin: 0 8px 6px 16px;
+  }
+
+  .mobile-nav-sub-item {
+    display: block;
+    padding: 8px 10px;
+    border-radius: 8px;
+    font-size: var(--text-sm);
+    text-decoration: none;
+    transition: background-color var(--transition-fast) ease;
+  }
+
+  .mobile-nav-sub-item:hover {
+    background-color: var(--grey-100) !important;
+  }
+
   /* Scrollbar Customization */
   ::-webkit-scrollbar {
     width: 6px;
