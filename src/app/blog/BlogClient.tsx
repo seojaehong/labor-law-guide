@@ -20,11 +20,10 @@ const CATEGORIES = [
 const PAGE_SIZE = 12;
 
 function formatDate(dateStr: string) {
-  const d = new Date(dateStr);
-  const yyyy = d.getFullYear();
-  const mm = String(d.getMonth() + 1).padStart(2, '0');
-  const dd = String(d.getDate()).padStart(2, '0');
-  return `${yyyy}.${mm}.${dd}`;
+  // timezone 차이로 인한 hydration mismatch 방지 — Date 객체 대신 문자열 직접 파싱
+  const match = dateStr.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (match) return `${match[1]}.${match[2]}.${match[3]}`;
+  return dateStr.slice(0, 10).replace(/-/g, '.');
 }
 
 function CategoryBadge({ category }: { category: string }) {

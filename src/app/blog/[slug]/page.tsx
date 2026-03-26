@@ -5,7 +5,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { supabaseServer } from '@/lib/supabase-server';
 import { SITE_URL } from '@/lib/constants';
-import { cleanBlogSummary } from '@/lib/blog-summary';
+import { cleanBlogSummary, extractBlogLead } from '@/lib/blog-summary';
 import { ArrowLeft, Calendar, User, Tag, BookOpen, ArrowRight } from 'lucide-react';
 
 export const dynamicParams = true;
@@ -119,8 +119,9 @@ export async function generateMetadata({
 }
 
 function formatDate(dateStr: string) {
-  const d = new Date(dateStr);
-  return `${d.getFullYear()}년 ${d.getMonth() + 1}월 ${d.getDate()}일`;
+  const match = dateStr.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (match) return `${match[1]}년 ${parseInt(match[2])}월 ${parseInt(match[3])}일`;
+  return dateStr.slice(0, 10);
 }
 
 function CategoryBadge({ category }: { category: string }) {
@@ -158,7 +159,7 @@ export default async function BlogArticlePage({
     getRelatedArticles(article.slug, article.category),
     getLatestArticles(article.slug),
   ]);
-  const displaySummary = cleanBlogSummary(article.summary, article.content);
+  const displaySummary = extractBlogLead(article.content) || cleanBlogSummary(article.summary, article.content);
 
   const jsonLd = {
     '@context': 'https://schema.org',

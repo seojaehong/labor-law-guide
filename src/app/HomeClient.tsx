@@ -22,11 +22,9 @@ type HomeClientProps = {
 };
 
 function formatDate(dateStr: string) {
-  const d = new Date(dateStr);
-  const yyyy = d.getFullYear();
-  const mm = String(d.getMonth() + 1).padStart(2, '0');
-  const dd = String(d.getDate()).padStart(2, '0');
-  return `${yyyy}.${mm}.${dd}`;
+  const match = dateStr.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (match) return `${match[1]}.${match[2]}.${match[3]}`;
+  return dateStr.slice(0, 10).replace(/-/g, '.');
 }
 
 function BlogCategoryBadge({ category }: { category: string }) {
