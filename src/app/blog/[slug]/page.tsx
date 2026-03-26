@@ -115,11 +115,24 @@ export async function generateMetadata({
 }
 
 function renderMarkdown(md: string): string {
-  // Escape HTML
-  let html = md
+  // Extract markdown links first, replace with placeholders
+  const links: string[] = [];
+  let html = md.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_m, text, url) => {
+    const idx = links.length;
+    links.push(`<a href="${url}" target="_blank" rel="noopener noreferrer" class="blog-link">${text}</a>`);
+    return `%%LINK${idx}%%`;
+  });
+
+  // Escape HTML (safe now because links are placeholders)
+  html = html
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;');
+
+  // Restore links
+  links.forEach((link, idx) => {
+    html = html.replace(`%%LINK${idx}%%`, link);
+  });
 
   // Process inline formatting
   html = html
