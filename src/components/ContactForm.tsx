@@ -67,10 +67,11 @@ export default function ContactForm() {
         <label className="mb-1 block text-sm font-medium" style={{ color: 'var(--grey-700)' }}>문의 유형</label>
         <select name="type" className="w-full rounded-lg border px-4 py-2.5 text-[15px] outline-none" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }}>
           <option>사용자성 판단 상담</option>
-          <option>교섭절차 자문</option>
-          <option>단체교섭 대행</option>
-          <option>노동쟁의 대응</option>
-          <option>기타</option>
+          <option>부당해고/징계 상담</option>
+          <option>퇴직금/임금 상담</option>
+          <option>직장내괴롭힘/성희롱 상담</option>
+          <option>고용지원금 상담</option>
+          <option>기타 노무 상담</option>
         </select>
       </div>
       <div>

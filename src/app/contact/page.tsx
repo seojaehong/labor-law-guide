@@ -54,10 +54,12 @@ export default function ContactPage() {
             <h3 className="mb-2 font-bold text-sm" style={{ color: 'var(--blue-700)' }}>상담 분야</h3>
             <ul className="space-y-1.5 text-sm" style={{ color: 'var(--blue-600)' }}>
               <li>• 사용자성 판단 자문</li>
+              <li>• 부당해고/징계 대응</li>
+              <li>• 퇴직금/임금 문제</li>
+              <li>• 직장내괴롭힘/성희롱</li>
+              <li>• 고용지원금 상담</li>
               <li>• 교섭절차 대응 전략</li>
               <li>• 단체교섭 대행</li>
-              <li>• 노동쟁의 대응</li>
-              <li>• 부당노동행위 구제</li>
             </ul>
           </div>
         </div>
