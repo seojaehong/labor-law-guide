@@ -73,7 +73,7 @@ function ArticleCard({ article }: { article: BlogArticle }) {
 
       {article.summary && (
         <p className="text-[13px] leading-relaxed flex-1" style={{ color: 'var(--color-text-secondary)' }}>
-          {article.summary.length > 200 ? `${article.summary.slice(0, 200)}...` : article.summary}
+          {article.summary}
         </p>
       )}
 

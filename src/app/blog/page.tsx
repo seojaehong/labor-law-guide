@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { supabaseServer } from '@/lib/supabase-server';
 import { SITE_URL } from '@/lib/constants';
+import { cleanBlogSummary } from '@/lib/blog-summary';
 import BlogClient from './BlogClient';
 
 export const revalidate = 1800; // ISR: 30분마다 재생성
@@ -47,7 +48,10 @@ async function getArticles() {
     return [];
   }
 
-  return (data || []) as BlogArticle[];
+  return ((data || []) as BlogArticle[]).map((article) => ({
+    ...article,
+    summary: cleanBlogSummary(article.summary),
+  }));
 }
 
 export default async function BlogPage() {

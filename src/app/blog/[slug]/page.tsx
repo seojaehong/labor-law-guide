@@ -5,6 +5,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { supabaseServer } from '@/lib/supabase-server';
 import { SITE_URL } from '@/lib/constants';
+import { cleanBlogSummary } from '@/lib/blog-summary';
 import { ArrowLeft, Calendar, User, Tag, BookOpen, ArrowRight } from 'lucide-react';
 
 export const dynamicParams = true;
@@ -157,6 +158,7 @@ export default async function BlogArticlePage({
     getRelatedArticles(article.slug, article.category),
     getLatestArticles(article.slug),
   ]);
+  const displaySummary = cleanBlogSummary(article.summary, article.content);
 
   const jsonLd = {
     '@context': 'https://schema.org',
@@ -247,7 +249,7 @@ export default async function BlogArticlePage({
                 </p>
               )}
 
-              {article.summary && (
+              {displaySummary && (
                 <p
                   className="text-[15px] leading-relaxed rounded-xl p-4"
                   style={{
@@ -256,7 +258,7 @@ export default async function BlogArticlePage({
                     borderLeft: '3px solid var(--color-accent)',
                   }}
                 >
-                  {article.summary}
+                  {displaySummary}
                 </p>
               )}
 
