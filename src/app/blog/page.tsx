@@ -38,9 +38,8 @@ async function getArticles() {
   const { data, error } = await supabaseServer
     .from('blog_articles')
     .select(
-      'id, slug, title, subtitle, summary, category, tags, author, cover_image, published_at, updated_at, view_count, seo_title, seo_description'
+      'slug, title, subtitle, summary, category, tags, author, published_at, seo_title, seo_description'
     )
-    .eq('is_published', true)
     .order('published_at', { ascending: false });
 
   if (error) {

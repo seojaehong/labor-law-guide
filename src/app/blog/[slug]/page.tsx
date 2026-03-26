@@ -39,32 +39,29 @@ async function getArticle(slug: string): Promise<BlogArticleFull | null> {
     .from('blog_articles')
     .select('*')
     .eq('slug', slug)
-    .eq('is_published', true)
     .single();
 
   if (error || !data) return null;
   return data as BlogArticleFull;
 }
 
-async function getRelatedArticles(currentId: string, category: string): Promise<RelatedArticle[]> {
+async function getRelatedArticles(currentSlug: string, category: string): Promise<RelatedArticle[]> {
   const { data } = await supabaseServer
     .from('blog_articles')
-    .select('id, slug, title, subtitle, category, published_at')
-    .eq('is_published', true)
+    .select('slug, title, subtitle, category, published_at')
     .eq('category', category)
-    .neq('id', currentId)
+    .neq('slug', currentSlug)
     .order('published_at', { ascending: false })
     .limit(3);
 
   return (data || []) as RelatedArticle[];
 }
 
-async function getLatestArticles(currentId: string): Promise<RelatedArticle[]> {
+async function getLatestArticles(currentSlug: string): Promise<RelatedArticle[]> {
   const { data } = await supabaseServer
     .from('blog_articles')
-    .select('id, slug, title, subtitle, category, published_at')
-    .eq('is_published', true)
-    .neq('id', currentId)
+    .select('slug, title, subtitle, category, published_at')
+    .neq('slug', currentSlug)
     .order('published_at', { ascending: false })
     .limit(4);
 
@@ -75,7 +72,6 @@ export async function generateStaticParams() {
   const { data } = await supabaseServer
     .from('blog_articles')
     .select('slug')
-    .eq('is_published', true);
 
   return (data || []).map((row: { slug: string }) => ({ slug: row.slug }));
 }
@@ -178,8 +174,8 @@ export default async function BlogArticlePage({
   }
 
   const [related, latest] = await Promise.all([
-    getRelatedArticles(article.id, article.category),
-    getLatestArticles(article.id),
+    getRelatedArticles(article.slug, article.category),
+    getLatestArticles(article.slug),
   ]);
 
   const jsonLd = {

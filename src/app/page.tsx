@@ -21,8 +21,7 @@ async function getHomeStats() {
     supabaseServer.from('news').select('id', { count: 'exact', head: true }),
     supabaseServer
       .from('blog_articles')
-      .select('id, slug, title, subtitle, summary, category, published_at')
-      .eq('is_published', true)
+      .select('slug, title, subtitle, summary, category, published_at')
       .order('published_at', { ascending: false })
       .limit(3),
   ]);
