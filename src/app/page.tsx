@@ -2,24 +2,41 @@ import { SITE_URL } from '@/lib/constants';
 import { supabaseServer } from '@/lib/supabase-server';
 import HomeClient from './HomeClient';
 
-export const revalidate = 3600;
+export const revalidate = 1800;
+
+interface LatestBlogArticle {
+  id: string;
+  slug: string;
+  title: string;
+  subtitle: string | null;
+  summary: string | null;
+  category: string;
+  published_at: string;
+}
 
 async function getHomeStats() {
-  const [casesResult, adminResult, newsResult] = await Promise.all([
+  const [casesResult, adminResult, newsResult, blogResult] = await Promise.all([
     supabaseServer.from('cases').select('id', { count: 'exact', head: true }),
     supabaseServer.from('admin_interpretations').select('id', { count: 'exact', head: true }),
     supabaseServer.from('news').select('id', { count: 'exact', head: true }),
+    supabaseServer
+      .from('blog_articles')
+      .select('id, slug, title, subtitle, summary, category, published_at')
+      .eq('is_published', true)
+      .order('published_at', { ascending: false })
+      .limit(3),
   ]);
 
   return {
     totalCases: casesResult.count || 0,
     totalAdmin: adminResult.count || 0,
     totalNews: newsResult.count || 0,
+    latestBlogArticles: (blogResult.data || []) as LatestBlogArticle[],
   };
 }
 
 export default async function Home() {
-  const { totalCases, totalAdmin, totalNews } = await getHomeStats();
+  const { totalCases, totalAdmin, totalNews, latestBlogArticles } = await getHomeStats();
   const jsonLd = {
     '@context': 'https://schema.org',
     '@graph': [
@@ -114,7 +131,7 @@ export default async function Home() {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
-      <HomeClient totalCases={totalCases} totalAdmin={totalAdmin} totalNews={totalNews} />
+      <HomeClient totalCases={totalCases} totalAdmin={totalAdmin} totalNews={totalNews} latestBlogArticles={latestBlogArticles} />
     </>
   );
 }

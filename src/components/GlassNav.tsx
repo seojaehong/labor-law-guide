@@ -13,6 +13,7 @@ const links = [
   { href: '/cases', label: '핵심판례' },
   { href: '/database', label: '판례검색' },
   { href: '/news', label: '뉴스' },
+  { href: '/blog', label: '블로그' },
   { href: '/ai', label: 'AI 상담' },
   { href: '/contact', label: '문의' },
 ];

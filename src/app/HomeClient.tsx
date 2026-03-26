@@ -1,16 +1,54 @@
 'use client';
 
 import Link from 'next/link';
-import { ArrowRight, Scale, Users, FileText, MessageSquare, Shield, ClipboardCheck, Search } from 'lucide-react';
+import { ArrowRight, Scale, Users, FileText, MessageSquare, Shield, ClipboardCheck, Search, BookOpen, Calendar } from 'lucide-react';
 import { motion } from 'framer-motion';
+
+interface LatestBlogArticle {
+  id: string;
+  slug: string;
+  title: string;
+  subtitle: string | null;
+  summary: string | null;
+  category: string;
+  published_at: string;
+}
 
 type HomeClientProps = {
   totalCases: number;
   totalAdmin: number;
   totalNews: number;
+  latestBlogArticles: LatestBlogArticle[];
 };
 
-export default function HomeClient({ totalCases, totalAdmin, totalNews }: HomeClientProps) {
+function formatDate(dateStr: string) {
+  const d = new Date(dateStr);
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${yyyy}.${mm}.${dd}`;
+}
+
+function BlogCategoryBadge({ category }: { category: string }) {
+  const colorMap: Record<string, { bg: string; text: string }> = {
+    '노동법': { bg: '#e8f3ff', text: '#1b64da' },
+    '판례분석': { bg: '#f5f3ff', text: '#6d28d9' },
+    '뉴스해설': { bg: '#fef3c7', text: '#92400e' },
+    '실무가이드': { bg: '#ecfdf5', text: '#065f46' },
+    'general': { bg: 'var(--grey-100)', text: 'var(--grey-600)' },
+  };
+  const color = colorMap[category] || colorMap['general'];
+  return (
+    <span
+      className="rounded-full px-2.5 py-0.5 text-[11px] font-semibold"
+      style={{ backgroundColor: color.bg, color: color.text }}
+    >
+      {category === 'general' ? '일반' : category}
+    </span>
+  );
+}
+
+export default function HomeClient({ totalCases, totalAdmin, totalNews, latestBlogArticles }: HomeClientProps) {
   const features = [
     {
       icon: Users,
@@ -140,6 +178,67 @@ export default function HomeClient({ totalCases, totalAdmin, totalNews }: HomeCl
           ))}
         </motion.div>
       </section>
+
+      {/* 최신 딥다이브 */}
+      {latestBlogArticles.length > 0 && (
+        <section className="px-5 pb-20">
+          <motion.div
+            className="mx-auto max-w-[1100px]"
+            initial={{ opacity: 0, y: 24 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: '-50px' }}
+            transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+          >
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center gap-2">
+                <BookOpen size={22} style={{ color: 'var(--color-accent)' }} />
+                <h2 className="text-xl font-bold" style={{ color: 'var(--grey-900)' }}>최신 딥다이브</h2>
+              </div>
+              <Link
+                href="/blog"
+                className="flex items-center gap-1 text-[13px] font-medium"
+                style={{ color: 'var(--color-accent)' }}
+              >
+                전체 보기 <ArrowRight size={13} />
+              </Link>
+            </div>
+            <div className="grid gap-5 md:grid-cols-3">
+              {latestBlogArticles.map((article) => (
+                <Link
+                  key={article.id}
+                  href={`/blog/${article.slug}`}
+                  className="feature-card block rounded-2xl border bg-white p-6"
+                  style={{ borderColor: 'var(--color-border)', boxShadow: 'var(--shadow-sm)' }}
+                >
+                  <div className="flex items-center gap-2 mb-3">
+                    <BlogCategoryBadge category={article.category} />
+                    <span className="flex items-center gap-1 text-[11px]" style={{ color: 'var(--color-text-tertiary)' }}>
+                      <Calendar size={10} />
+                      {formatDate(article.published_at)}
+                    </span>
+                  </div>
+                  <h3 className="text-[15px] font-bold leading-snug mb-1" style={{ color: 'var(--grey-900)' }}>
+                    {article.title}
+                  </h3>
+                  {article.subtitle && (
+                    <p className="text-[12px] font-medium mb-2" style={{ color: 'var(--color-accent)' }}>
+                      {article.subtitle}
+                    </p>
+                  )}
+                  {article.summary && (
+                    <p className="text-[13px] leading-relaxed" style={{ color: 'var(--color-text-secondary)' }}>
+                      {article.summary.length > 100 ? `${article.summary.slice(0, 100)}...` : article.summary}
+                    </p>
+                  )}
+                  <span className="mt-3 inline-flex items-center gap-1 text-[12px] font-medium" style={{ color: 'var(--color-accent)' }}>
+                    읽기 <ArrowRight size={12} />
+                  </span>
+                </Link>
+              ))}
+            </div>
+          </motion.div>
+        </section>
+      )}
 
       <section className="px-5 pb-20">
         <div className="mx-auto max-w-[700px] rounded-2xl border p-8 text-center" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)', boxShadow: 'var(--shadow-md)' }}>
