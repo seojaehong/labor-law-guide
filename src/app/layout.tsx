@@ -61,6 +61,7 @@ export default function RootLayout({
         <script async src="https://www.googletagmanager.com/gtag/js?id=G-GKKFCZ235H" />
         <script dangerouslySetInnerHTML={{ __html: `window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}gtag('js',new Date());gtag('config','G-GKKFCZ235H');` }} />
         <meta name="theme-color" content="#1d4ed8" />
+        <meta name="naver-site-verification" content="c89b751804581b955b057019a880f48e94927f95" />
         <link rel="icon" href="/favicon.ico" />
         <link
           rel="stylesheet"
