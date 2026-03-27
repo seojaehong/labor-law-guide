@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import rehypeRaw from 'rehype-raw';
 import { supabaseServer } from '@/lib/supabase-server';
 import { SITE_URL } from '@/lib/constants';
 import { cleanBlogSummary, extractBlogLead } from '@/lib/blog-summary';
@@ -285,6 +286,7 @@ export default async function BlogArticlePage({
             >
               <ReactMarkdown
                 remarkPlugins={[remarkGfm]}
+                rehypePlugins={[rehypeRaw]}
                 components={{
                   h1: ({ children }) => <h1 className="blog-h1">{children}</h1>,
                   h2: ({ children }) => <h2 className="blog-h2">{children}</h2>,
