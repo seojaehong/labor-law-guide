@@ -10,10 +10,9 @@ export default function manifest(): MetadataRoute.Manifest {
     display: 'standalone',
     start_url: '/',
     icons: [
-      // TODO: Add actual icon files to /public and update paths below
-      // { src: '/icon-192.png', sizes: '192x192', type: 'image/png' },
-      // { src: '/icon-512.png', sizes: '512x512', type: 'image/png' },
-      // { src: '/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
+      { src: '/icon-192.png', sizes: '192x192', type: 'image/png' },
+      { src: '/icon-512.png', sizes: '512x512', type: 'image/png' },
+      { src: '/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
     ],
   };
 }
