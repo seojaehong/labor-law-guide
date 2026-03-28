@@ -31,7 +31,8 @@ const NAV_ITEMS: NavItem[] = [
     label: '판례·법령',
     items: [
       { href: '/database', label: '판례 검색', description: '전문 판례 DB 검색' },
-      { href: '/ai', label: 'AI 비교분석', description: 'AI로 판례·조항 비교' },
+      { href: '/sanction', label: 'AI 비교분석', description: 'AI로 유사 판례 비교분석' },
+      { href: '/search', label: '판정례 검색', description: '63,000건+ 판정례 검색' },
       { href: '/news', label: '뉴스', description: '최신 노동법 뉴스' },
     ],
   },
