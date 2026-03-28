@@ -15,6 +15,13 @@ export const metadata: Metadata = {
     description: '노동법 심층 분석 콘텐츠. 판례분석, 뉴스해설, 실무가이드.',
     url: `${SITE_URL}/blog`,
     type: 'website',
+    locale: 'ko_KR',
+    images: [{ url: `${SITE_URL}/opengraph-image` }],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: '노동 딥다이브 | 노란봉투법 가이드',
+    description: '노동법 심층 분석 콘텐츠. 판례분석, 뉴스해설, 실무가이드.',
   },
 };
 

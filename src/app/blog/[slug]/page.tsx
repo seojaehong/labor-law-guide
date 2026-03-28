@@ -109,7 +109,7 @@ export async function generateMetadata({
       modifiedTime: article.updated_at,
       authors: [article.author],
       locale: 'ko_KR',
-      ...(article.cover_image ? { images: [{ url: article.cover_image }] } : {}),
+      images: [{ url: article.cover_image || `${SITE_URL}/opengraph-image` }],
     },
     twitter: {
       card: 'summary_large_image',
@@ -189,7 +189,7 @@ export default async function BlogArticlePage({
         mainEntityOfPage: `${SITE_URL}/blog/${slug}`,
         inLanguage: 'ko',
         keywords: article.tags?.join(', ') || '',
-        ...(article.cover_image ? { image: article.cover_image } : {}),
+        image: article.cover_image || `${SITE_URL}/opengraph-image`,
       },
     ],
   };
