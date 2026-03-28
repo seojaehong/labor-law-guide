@@ -19,19 +19,28 @@ export default function SubsidyPage() {
       </p>
 
       <div className="rounded-2xl border p-8 text-center" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }}>
-        <div className="mb-4" style={{ fontSize: '48px' }}>🏗️</div>
+        <div className="mb-4" style={{ fontSize: '48px' }}>📋</div>
         <h2 className="mb-3 font-bold" style={{ fontSize: 'var(--text-xl)', color: 'var(--grey-900)' }}>
-          서비스 준비 중입니다
+          고용지원금 자격 확인
         </h2>
         <p className="mb-6" style={{ color: 'var(--grey-500)', lineHeight: '1.7' }}>
           고용촉진장려금, 고용안정장려금, 직업능력개발훈련 지원금 등<br />
-          사업주가 받을 수 있는 고용지원금 정보를 곧 제공합니다.
+          사업주가 받을 수 있는 고용지원금 정보와 자격 확인 서비스를 제공합니다.
         </p>
         <div className="flex justify-center gap-3">
-          <Link
-            href="/blog"
+          <a
+            href="https://employment-subsidy-guide.vercel.app"
+            target="_blank"
+            rel="noopener noreferrer"
             className="rounded-xl px-5 py-2.5 text-sm font-medium transition-colors"
             style={{ backgroundColor: 'var(--color-accent)', color: '#fff' }}
+          >
+            지원금 자격 확인하기 →
+          </a>
+          <Link
+            href="/blog"
+            className="rounded-xl border px-5 py-2.5 text-sm font-medium transition-colors"
+            style={{ borderColor: 'var(--color-border)', color: 'var(--grey-700)' }}
           >
             블로그 보기
           </Link>
