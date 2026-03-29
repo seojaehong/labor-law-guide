@@ -106,7 +106,11 @@ function extractLeadFromMarkdown(
 }
 
 function isNonProseBlock(block: string): boolean {
-  return /^(#{1,6}\s|[-*]\s|\d+\.\s|>\s|```)/.test(block)
+  // Markdown patterns
+  if (/^(#{1,6}\s|[-*]\s|\d+\.\s|>\s|```)/.test(block)) return true
+  // HTML block elements (headings, lists, tables, etc.)
+  if (/^<(h[1-6]|ul|ol|li|table|blockquote|pre|hr|div|figure|details|summary)[\s>]/i.test(block)) return true
+  return false
 }
 
 function sanitizeLeadText(text: string): string {
