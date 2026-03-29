@@ -160,7 +160,7 @@ export default async function BlogArticlePage({
     getRelatedArticles(article.slug, article.category),
     getLatestArticles(article.slug),
   ]);
-  const displaySummary = extractBlogLead(article.content) || cleanBlogSummary(article.summary, article.content);
+  const displaySummary = cleanBlogSummary(article.summary, article.content) || extractBlogLead(article.content);
 
   const jsonLd = {
     '@context': 'https://schema.org',
