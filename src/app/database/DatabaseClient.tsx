@@ -189,10 +189,11 @@ function DatabaseContent({ initialTotalCases, initialTotalAdmin, initialTotalNlr
 
     // 총 건수 조회 (ILIKE 기반, 병렬 실행)
     const tableMap = { cases: 'cases', admin: 'admin_interpretations', nlrc: 'nlrc_decisions' } as const;
+    const summaryCol = tab === 'nlrc' ? 'holding_summary' : 'summary';
     const countPromise = supabase
       .from(tableMap[tab])
       .select('id', { count: 'exact', head: true })
-      .or(`title.ilike.%${q}%,summary.ilike.%${q}%,holding_points.ilike.%${q}%`)
+      .or(`title.ilike.%${q}%,${summaryCol}.ilike.%${q}%,holding_points.ilike.%${q}%`)
       .then(({ count }) => setSearchTotal(count));
 
     try {
