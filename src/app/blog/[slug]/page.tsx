@@ -31,7 +31,6 @@ interface BlogArticleFull {
 }
 
 interface RelatedArticle {
-  id: string;
   slug: string;
   title: string;
   subtitle: string | null;
@@ -330,7 +329,7 @@ export default async function BlogArticlePage({
                 <div className="grid gap-4 sm:grid-cols-2">
                   {latest.map((a) => (
                     <Link
-                      key={a.id}
+                      key={a.slug}
                       href={`/blog/${a.slug}`}
                       className="rounded-xl border p-4 transition-shadow hover:shadow-md"
                       style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }}
@@ -372,7 +371,7 @@ export default async function BlogArticlePage({
                   <div className="space-y-3">
                     {related.map((a) => (
                       <Link
-                        key={a.id}
+                        key={a.slug}
                         href={`/blog/${a.slug}`}
                         className="block group"
                       >

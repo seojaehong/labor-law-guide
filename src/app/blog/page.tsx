@@ -26,7 +26,6 @@ export const metadata: Metadata = {
 };
 
 export interface BlogArticle {
-  id: string;
   slug: string;
   title: string;
   subtitle: string | null;
@@ -34,10 +33,7 @@ export interface BlogArticle {
   category: string;
   tags: string[];
   author: string;
-  cover_image: string | null;
   published_at: string;
-  updated_at: string;
-  view_count: number;
   seo_title: string | null;
   seo_description: string | null;
 }
