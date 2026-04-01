@@ -44,7 +44,7 @@ export async function POST(req: NextRequest) {
               <p style="margin:4px 0"><strong>문의 내용:</strong></p>
               <p style="margin:4px 0;white-space:pre-line">${message}</p>
             </div>
-            <p>긴급 문의는 <a href="mailto:abc@winhr.co.kr">abc@winhr.co.kr</a>로 직접 메일 주시기 바랍니다.</p>
+            <p>추가 자료나 정정사항이 있으면 <a href="https://www.xn--o80bk8isxeinax68f.com/contact">문의 페이지</a>에 다시 남겨 주세요.</p>
             <hr style="border:none;border-top:1px solid #e2e8f0;margin:24px 0"/>
             <p style="color:#94a3b8;font-size:13px">
               노무법인 위너스 | 서울시 서초구 나루터로 61, 402호<br/>

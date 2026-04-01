@@ -61,7 +61,6 @@ export default function RootLayout({
         <script async src="https://www.googletagmanager.com/gtag/js?id=G-GKKFCZ235H" />
         <script dangerouslySetInnerHTML={{ __html: `window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}gtag('js',new Date());gtag('config','G-GKKFCZ235H');` }} />
         <meta name="theme-color" content="#1d4ed8" />
-        <meta name="naver-site-verification" content="c89b751804581b955b057019a880f48e94927f95" />
         <link rel="icon" href="/favicon.ico" />
         <link
           rel="stylesheet"
@@ -97,7 +96,6 @@ export default function RootLayout({
                   '@id': `${SITE_URL}/#organization`,
                   name: '노무법인 위너스',
                   url: 'https://winhr.co.kr',
-                  email: 'abc@winhr.co.kr',
                   address: {
                     '@type': 'PostalAddress',
                     streetAddress: '나루터로 61, 402호(태승빌딩)',
@@ -107,6 +105,14 @@ export default function RootLayout({
                     addressCountry: 'KR',
                   },
                   areaServed: { '@type': 'Country', name: 'KR' },
+                  contactPoint: [
+                    {
+                      '@type': 'ContactPoint',
+                      contactType: 'customer support',
+                      availableLanguage: ['Korean'],
+                      url: `${SITE_URL}/contact`,
+                    },
+                  ],
                 },
               ],
             }),
@@ -122,9 +128,7 @@ export default function RootLayout({
             <p className="mt-1 text-xs" style={{ color: 'var(--color-text-tertiary)' }}>
               <a href="https://winhr.co.kr" target="_blank" rel="noopener noreferrer" className="hover:underline" style={{ color: 'var(--color-accent)' }}>노무법인 위너스</a>
               {' '}| 서울시 서초구 나루터로 61, 402호 |{' '}
-              <a href="mailto:abc@winhr.co.kr" style={{ color: 'var(--color-accent)' }}>abc@winhr.co.kr</a>
-              {' '}|{' '}
-              <a href="/contact" style={{ color: 'var(--color-accent)' }}>문의하기</a>
+              <a href="/contact" style={{ color: 'var(--color-accent)' }}>온라인 상담 접수</a>
             </p>
           </div>
         </footer>

@@ -226,11 +226,6 @@ export default function GlassNav() {
     setMobileOpen(false);
   }
 
-  // Close mobile menu on route change
-  useEffect(() => {
-    closeMobile();
-  }, [pathname]);
-
   return (
     <nav className="glass-nav sticky top-0 z-50">
       <div className="mx-auto flex h-14 max-w-[1400px] items-center justify-between px-5">
