@@ -45,6 +45,24 @@ function CategoryBadge({ category }: { category: string }) {
   );
 }
 
+function SubtypeBadge({ subtype }: { subtype: string | null }) {
+  if (!subtype) return null;
+  const labelMap: Record<string, { label: string; bg: string; text: string }> = {
+    'deep-dive': { label: '딥다이브', bg: '#fff7ed', text: '#c2410c' },
+    'briefing': { label: '브리핑', bg: '#f0fdf4', text: '#15803d' },
+  };
+  const info = labelMap[subtype];
+  if (!info) return null;
+  return (
+    <span
+      className="rounded-full px-2 py-0.5 text-[10px] font-medium"
+      style={{ backgroundColor: info.bg, color: info.text }}
+    >
+      {info.label}
+    </span>
+  );
+}
+
 function ArticleCard({ article }: { article: BlogArticle }) {
   return (
     <Link
@@ -54,6 +72,7 @@ function ArticleCard({ article }: { article: BlogArticle }) {
     >
       <div className="flex items-center gap-2 mb-3">
         <CategoryBadge category={article.category} />
+        <SubtypeBadge subtype={article.subtype} />
         <span className="flex items-center gap-1 text-[11px]" style={{ color: 'var(--color-text-tertiary)' }}>
           <Calendar size={10} />
           {formatDate(article.published_at)}
@@ -106,6 +125,7 @@ function SkeletonCard() {
 
 export default function BlogClient({ initialArticles }: BlogClientProps) {
   const [activeCategory, setActiveCategory] = useState('all');
+  const [activeSubtype, setActiveSubtype] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [page, setPage] = useState(1);
 
@@ -114,6 +134,10 @@ export default function BlogClient({ initialArticles }: BlogClientProps) {
 
     if (activeCategory !== 'all') {
       result = result.filter((a) => a.category === activeCategory);
+    }
+
+    if (activeSubtype) {
+      result = result.filter((a) => a.subtype === activeSubtype);
     }
 
     if (searchQuery.trim()) {
@@ -127,7 +151,7 @@ export default function BlogClient({ initialArticles }: BlogClientProps) {
     }
 
     return result;
-  }, [initialArticles, activeCategory, searchQuery]);
+  }, [initialArticles, activeCategory, activeSubtype, searchQuery]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const currentPage = Math.min(page, totalPages);
@@ -135,6 +159,12 @@ export default function BlogClient({ initialArticles }: BlogClientProps) {
 
   const handleCategoryChange = (cat: string) => {
     setActiveCategory(cat);
+    setActiveSubtype(null);
+    setPage(1);
+  };
+
+  const handleSubtypeChange = (sub: string | null) => {
+    setActiveSubtype(sub);
     setPage(1);
   };
 
@@ -198,6 +228,30 @@ export default function BlogClient({ initialArticles }: BlogClientProps) {
           </button>
         ))}
       </div>
+
+      {/* Subtype Filter (뉴스해설 only) */}
+      {activeCategory === '뉴스해설' && (
+        <div className="flex gap-2 mb-6 -mt-4">
+          {[
+            { value: null, label: '전체' },
+            { value: 'deep-dive', label: '딥다이브' },
+            { value: 'briefing', label: '브리핑' },
+          ].map((sub) => (
+            <button
+              key={sub.value ?? 'all'}
+              onClick={() => handleSubtypeChange(sub.value)}
+              className="rounded-full px-3 py-1 text-[12px] font-medium transition-colors border"
+              style={
+                activeSubtype === sub.value
+                  ? { backgroundColor: '#92400e', color: '#fff', borderColor: '#92400e' }
+                  : { backgroundColor: 'var(--color-bg-surface)', color: 'var(--grey-500)', borderColor: 'var(--color-border)' }
+              }
+            >
+              {sub.label}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* Article Grid */}
       {initialArticles.length === 0 ? (

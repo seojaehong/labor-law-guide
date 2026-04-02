@@ -31,6 +31,7 @@ export interface BlogArticle {
   subtitle: string | null;
   summary: string | null;
   category: string;
+  subtype: string | null;
   tags: string[];
   author: string;
   published_at: string;
@@ -40,13 +41,14 @@ export interface BlogArticle {
 
 interface BlogArticleRow extends BlogArticle {
   content: string | null;
+  subtype: string | null;
 }
 
 async function getArticles() {
   const { data, error } = await supabaseServer
     .from('blog_articles')
     .select(
-      'slug, title, subtitle, summary, content, category, tags, author, published_at, seo_title, seo_description'
+      'slug, title, subtitle, summary, content, category, subtype, tags, author, published_at, seo_title, seo_description'
     )
     .order('published_at', { ascending: false });
 
