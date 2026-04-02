@@ -14,11 +14,17 @@ interface LatestBlogArticle {
   published_at: string;
 }
 
+interface HomeFaqItem {
+  question: string;
+  answer: string;
+}
+
 type HomeClientProps = {
   totalCases: number;
   totalAdmin: number;
   totalNews: number;
   latestBlogArticles: LatestBlogArticle[];
+  faqItems: readonly HomeFaqItem[];
 };
 
 function formatDate(dateStr: string) {
@@ -46,7 +52,7 @@ function BlogCategoryBadge({ category }: { category: string }) {
   );
 }
 
-export default function HomeClient({ totalCases, totalAdmin, totalNews, latestBlogArticles }: HomeClientProps) {
+export default function HomeClient({ totalCases, totalAdmin, totalNews, latestBlogArticles, faqItems }: HomeClientProps) {
   const features = [
     {
       icon: Users,
@@ -237,6 +243,48 @@ export default function HomeClient({ totalCases, totalAdmin, totalNews, latestBl
           </motion.div>
         </section>
       )}
+
+      <section className="px-5 pb-20">
+        <div className="mx-auto max-w-[1100px] rounded-3xl border p-8 md:p-10" style={{ borderColor: 'var(--color-border)', backgroundColor: 'white', boxShadow: 'var(--shadow-sm)' }}>
+          <div className="max-w-[760px]">
+            <p className="text-sm font-medium" style={{ color: 'var(--color-accent)' }}>자주 묻는 질문</p>
+            <h2 className="mt-2 text-2xl font-bold tracking-tight" style={{ color: 'var(--grey-900)' }}>
+              노란봉투법, 원청 사용자성, 하청 교섭요구 대응에서 많이 묻는 핵심 질문
+            </h2>
+            <p className="mt-3 text-sm leading-6" style={{ color: 'var(--color-text-secondary)' }}>
+              검색으로 많이 들어오는 질문을 먼저 정리했습니다. 바로 판단이 어려우면 체크리스트로 1차 진단 후 상담 문의로 이어가면 됩니다.
+            </p>
+          </div>
+          <div className="mt-8 grid gap-4 md:grid-cols-2">
+            {faqItems.map((item) => (
+              <div
+                key={item.question}
+                className="rounded-2xl border p-5"
+                style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }}
+              >
+                <h3 className="text-[15px] font-bold leading-6" style={{ color: 'var(--grey-900)' }}>{item.question}</h3>
+                <p className="mt-2 text-sm leading-6" style={{ color: 'var(--color-text-secondary)' }}>{item.answer}</p>
+              </div>
+            ))}
+          </div>
+          <div className="mt-8 flex flex-wrap gap-3">
+            <Link
+              href="/checklist"
+              className="inline-flex items-center gap-2 rounded-lg px-5 py-3 font-medium text-white"
+              style={{ backgroundColor: 'var(--color-accent)' }}
+            >
+              교섭 의무 체크리스트 보기 <ArrowRight size={16} />
+            </Link>
+            <Link
+              href="/contact"
+              className="inline-flex items-center gap-2 rounded-lg border px-5 py-3 font-medium"
+              style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-primary)' }}
+            >
+              노란봉투법 상담 문의 <ArrowRight size={16} />
+            </Link>
+          </div>
+        </div>
+      </section>
 
       <section className="px-5 pb-20">
         <div className="mx-auto max-w-[700px] rounded-2xl border p-8 text-center" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)', boxShadow: 'var(--shadow-md)' }}>

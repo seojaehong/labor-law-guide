@@ -45,9 +45,45 @@ const quickLinks = [
   },
 ];
 
+const contactJsonLd = {
+  '@context': 'https://schema.org',
+  '@graph': [
+    {
+      '@type': 'ContactPage',
+      '@id': `${CONTACT_URL}/#webpage`,
+      url: CONTACT_URL,
+      name: '노란봉투법 전문가 상담 문의',
+      description: DESCRIPTION,
+      isPartOf: { '@id': `${SITE_URL}/#website` },
+      about: {
+        '@type': 'Service',
+        name: '노란봉투법 전문가 상담',
+        serviceType: '노란봉투법 사용자성 판단 및 교섭 대응 자문',
+        provider: { '@id': `${SITE_URL}/#organization` },
+        areaServed: { '@type': 'Country', name: 'KR' },
+        availableChannel: {
+          '@type': 'ServiceChannel',
+          serviceUrl: CONTACT_URL,
+        },
+      },
+      breadcrumb: { '@id': `${CONTACT_URL}/#breadcrumb` },
+    },
+    {
+      '@type': 'BreadcrumbList',
+      '@id': `${CONTACT_URL}/#breadcrumb`,
+      itemListElement: [
+        { '@type': 'ListItem', position: 1, name: '홈', item: SITE_URL },
+        { '@type': 'ListItem', position: 2, name: '노란봉투법 전문가 상담 문의', item: CONTACT_URL },
+      ],
+    },
+  ],
+};
+
 export default function ContactPage() {
   return (
-    <div className="mx-auto max-w-[980px] px-5 py-10">
+    <>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(contactJsonLd) }} />
+      <div className="mx-auto max-w-[980px] px-5 py-10">
       <h1 className="mb-2 font-bold" style={{ fontSize: 'var(--text-2xl)', color: 'var(--grey-900)' }}>
         노란봉투법 전문가 상담 문의
       </h1>
@@ -144,6 +180,7 @@ export default function ContactPage() {
           </div>
         </div>
       </div>
-    </div>
+      </div>
+    </>
   );
 }
