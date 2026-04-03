@@ -58,6 +58,7 @@ export async function POST(req: NextRequest) {
         max_tokens: 2048,
         temperature: 0.3,
       }),
+      signal: AbortSignal.timeout(30000),
     });
 
     if (!response.ok) {
@@ -72,7 +73,7 @@ export async function POST(req: NextRequest) {
   } catch (error) {
     return NextResponse.json(
       { content: `오류: ${error instanceof Error ? error.message : '알 수 없는 오류'}` },
-      { status: 200 }
+      { status: 500 }
     );
   }
 }

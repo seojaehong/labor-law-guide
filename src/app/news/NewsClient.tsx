@@ -274,7 +274,7 @@ export default function NewsClient({ initialNews, initialTotalCount, initialBrie
               <div
                 className="briefing-content text-[14px] leading-relaxed"
                 style={{ color: 'var(--color-text-secondary)' }}
-                dangerouslySetInnerHTML={{ __html: renderMarkdown(briefing.content) }}
+                dangerouslySetInnerHTML={{ __html: renderMarkdown(briefing.content || '') }}
               />
               {briefing.top_keywords && briefing.top_keywords.length > 0 && (
                 <div className="mt-3 flex flex-wrap gap-1.5 pt-3" style={{ borderTop: '1px solid var(--color-border)' }}>

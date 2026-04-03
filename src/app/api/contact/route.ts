@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Resend } from 'resend';
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+function getResend() {
+  const key = process.env.RESEND_API_KEY;
+  if (!key) throw new Error('RESEND_API_KEY가 설정되지 않았습니다.');
+  return new Resend(key);
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -11,10 +15,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: '필수 항목을 입력해주세요.' }, { status: 400 });
     }
 
+    const resend = getResend();
+
     // 1. 관리자에게 문의 알림
     await resend.emails.send({
       from: '노란봉투법 가이드 <onboarding@resend.dev>',
-      to: 'iceamericano9@gmail.com',
+      to: process.env.CONTACT_ADMIN_EMAIL || 'iceamericano9@gmail.com',
       subject: `[노란봉투법] ${type} - ${name}`,
       html: `
         <h2>새 문의가 접수되었습니다</h2>
