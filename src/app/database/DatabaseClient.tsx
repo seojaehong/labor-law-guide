@@ -77,11 +77,11 @@ const TABS: { key: TabType; label: string; icon: React.ReactNode }[] = [
 const PAGE_SIZE = 20;
 const SEARCH_LIMIT = PAGE_SIZE * 3;
 const REASON_CATEGORY_LABELS: Record<string, string> = {
-  absence: '무단결근',
+  absence: '무단결근/태만',
   workplace_bullying: '직장내괴롭힘',
-  probation: '수습',
-  incompetence: '근무태만/저성과',
-  contract_expiry: '갱신기대권',
+  probation: '수습해고',
+  incompetence: '업무능력부족',
+  contract_expiry: '갱신기대권/계약만료',
   transfer: '전보/인사이동',
   violence: '폭언/폭행',
   worker_status: '근로자성',
@@ -89,9 +89,9 @@ const REASON_CATEGORY_LABELS: Record<string, string> = {
   embezzlement: '횡령/배임',
   misconduct: '비위행위',
   redundancy: '경영상해고',
-  no_dismissal: '해고부존재',
-  discrimination: '차별',
-  union_activity: '노조활동',
+  no_dismissal: '해고부존재/사직',
+  discrimination: '차별시정',
+  union_activity: '부당노동행위',
   other: '기타',
 };
 const SUGGESTED_KEYWORDS: Record<TabType, string[]> = {
