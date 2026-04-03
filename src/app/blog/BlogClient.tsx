@@ -255,8 +255,9 @@ export default function BlogClient({ initialArticles }: BlogClientProps) {
 
       {/* Article Grid */}
       {initialArticles.length === 0 ? (
-        <div className="space-y-4">
-          {[...Array(6)].map((_, i) => <SkeletonCard key={i} />)}
+        <div className="py-20 text-center" style={{ color: 'var(--color-text-tertiary)' }}>
+          <p className="text-lg font-medium mb-1">등록된 글이 없습니다</p>
+          <p className="text-sm">새로운 콘텐츠가 곧 게시될 예정입니다.</p>
         </div>
       ) : filtered.length === 0 ? (
         <div className="py-20 text-center" style={{ color: 'var(--color-text-tertiary)' }}>

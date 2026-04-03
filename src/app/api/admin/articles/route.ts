@@ -36,7 +36,8 @@ export async function GET(req: NextRequest) {
     query = query.lte('published_at', `${dateTo}T23:59:59+09:00`);
   }
   if (search) {
-    query = query.or(`title.ilike.%${search}%,slug.ilike.%${search}%`);
+    const safeSearch = search.replace(/[%_\\,().]/g, '');
+    query = query.or(`title.ilike.%${safeSearch}%,slug.ilike.%${safeSearch}%`);
   }
 
   const { data, error, count } = await query;
@@ -52,13 +53,17 @@ export async function PATCH(req: NextRequest) {
   const authError = checkAdminAuth(req);
   if (authError) return authError;
   const body = await req.json();
-  const { id, ...updates } = body;
+  const { id } = body;
 
   if (!id) {
     return NextResponse.json({ error: 'id is required' }, { status: 400 });
   }
 
-  updates.updated_at = new Date().toISOString();
+  const ALLOWED_FIELDS = ['title', 'subtitle', 'content', 'summary', 'category', 'tags', 'seo_title', 'seo_description', 'is_published'] as const;
+  const updates: Record<string, unknown> = { updated_at: new Date().toISOString() };
+  for (const key of ALLOWED_FIELDS) {
+    if (key in body) updates[key] = body[key];
+  }
 
   const { data, error } = await db
     .from('blog_articles')

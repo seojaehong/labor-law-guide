@@ -43,7 +43,8 @@ export async function GET(req: NextRequest) {
   }
 
   if (type === 'all' || type === 'news') {
-    const pattern = `%${q}%`;
+    const safeQ = q.replace(/[%_\\,().]/g, '');
+    const pattern = `%${safeQ}%`;
     const { data, error } = await supabase
       .from('news')
       .select('*')

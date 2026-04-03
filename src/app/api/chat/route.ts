@@ -4,11 +4,17 @@ import { supabase } from '@/lib/supabase';
 
 export async function POST(req: NextRequest) {
   try {
-    const { messages } = await req.json();
+    const body = await req.json();
+    const messages = body?.messages;
+
+    if (!Array.isArray(messages) || messages.length === 0 || messages.length > 50) {
+      return NextResponse.json({ content: '올바른 메시지 형식이 아닙니다.' }, { status: 400 });
+    }
+
     const apiKey = process.env.GLM_API_KEY;
 
     if (!apiKey) {
-      return NextResponse.json({ content: 'GLM_API_KEY가 설정되지 않았습니다.' });
+      return NextResponse.json({ content: 'AI 서비스가 준비되지 않았습니다.' }, { status: 503 });
     }
 
     // FAQ DB 매칭으로 컨텍스트 보강
@@ -26,7 +32,7 @@ export async function POST(req: NextRequest) {
 
     // 관련 뉴스 검색 (최신 5건)
     if (lastUserMsg) {
-      const q = lastUserMsg.content.slice(0, 50);
+      const q = lastUserMsg.content.slice(0, 50).replace(/[%_\\,().]/g, '');
       const pattern = `%${q}%`;
       const { data: newsData } = await supabase
         .from('news')

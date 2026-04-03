@@ -141,7 +141,8 @@ export default function NewsClient({ initialNews, initialTotalCount, initialBrie
         .order('published_at', { ascending: false });
 
       if (q.trim()) {
-        const pattern = `%${q.trim()}%`;
+        const safeQ = q.trim().replace(/[%_\\,().]/g, '');
+        const pattern = `%${safeQ}%`;
         query = query.or(`title.ilike.${pattern},summary.ilike.${pattern}`);
       }
 

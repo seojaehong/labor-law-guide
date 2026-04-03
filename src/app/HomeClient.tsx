@@ -209,7 +209,7 @@ export default function HomeClient({ totalCases, totalAdmin, totalNews, latestBl
             <div className="grid gap-5 md:grid-cols-3">
               {latestBlogArticles.map((article) => (
                 <Link
-                  key={article.id}
+                  key={article.slug}
                   href={`/blog/${article.slug}`}
                   className="feature-card block rounded-2xl border bg-white p-6"
                   style={{ borderColor: 'var(--color-border)', boxShadow: 'var(--shadow-sm)' }}
