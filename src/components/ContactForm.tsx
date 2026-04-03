@@ -52,16 +52,16 @@ export default function ContactForm() {
       <div className="grid gap-5 md:grid-cols-2">
         <div>
           <label className="mb-1 block text-sm font-medium" style={{ color: 'var(--grey-700)' }}>이름 *</label>
-          <input name="name" required className="w-full rounded-lg border px-4 py-2.5 text-[15px] outline-none transition-colors focus:border-[var(--color-accent)]" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }} />
+          <input name="name" required autoComplete="name" placeholder="담당자 성함" className="w-full rounded-lg border px-4 py-2.5 text-[15px] outline-none transition-colors focus:border-[var(--color-accent)]" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }} />
         </div>
         <div>
           <label className="mb-1 block text-sm font-medium" style={{ color: 'var(--grey-700)' }}>연락처 *</label>
-          <input name="phone" required className="w-full rounded-lg border px-4 py-2.5 text-[15px] outline-none transition-colors focus:border-[var(--color-accent)]" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }} />
+          <input name="phone" required autoComplete="tel" placeholder="휴대전화 또는 유선번호" className="w-full rounded-lg border px-4 py-2.5 text-[15px] outline-none transition-colors focus:border-[var(--color-accent)]" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }} />
         </div>
       </div>
       <div>
         <label className="mb-1 block text-sm font-medium" style={{ color: 'var(--grey-700)' }}>이메일 (자동 회신용)</label>
-        <input name="email" type="email" className="w-full rounded-lg border px-4 py-2.5 text-[15px] outline-none transition-colors focus:border-[var(--color-accent)]" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }} placeholder="입력하시면 접수 확인 메일을 보내드립니다" />
+        <input name="email" type="email" autoComplete="email" className="w-full rounded-lg border px-4 py-2.5 text-[15px] outline-none transition-colors focus:border-[var(--color-accent)]" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }} placeholder="입력하시면 접수 확인 메일을 보내드립니다" />
       </div>
       <div>
         <label className="mb-1 block text-sm font-medium" style={{ color: 'var(--grey-700)' }}>문의 유형</label>
@@ -76,7 +76,7 @@ export default function ContactForm() {
       </div>
       <div>
         <label className="mb-1 block text-sm font-medium" style={{ color: 'var(--grey-700)' }}>문의 내용 *</label>
-        <textarea name="message" required rows={5} className="w-full rounded-lg border px-4 py-2.5 text-[15px] outline-none transition-colors focus:border-[var(--color-accent)]" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }} placeholder="문의하실 내용을 자세히 적어주세요." />
+        <textarea name="message" required rows={6} className="w-full rounded-lg border px-4 py-2.5 text-[15px] outline-none transition-colors focus:border-[var(--color-accent)]" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }} placeholder="회사명, 원청/하청/발주처 중 위치, 교섭요구서 또는 노조 연락 수령 여부, 급한 일정(회의·공고·노동위 대응), 궁금한 쟁점을 적어주세요." />
       </div>
 
       {error && <p className="text-sm" style={{ color: '#dc2626' }}>{error}</p>}

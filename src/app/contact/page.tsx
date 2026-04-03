@@ -45,6 +45,21 @@ const quickLinks = [
   },
 ];
 
+const contactFaqItems = [
+  {
+    question: '언제 바로 상담 문의하는 편이 좋나요?',
+    answer: '하청 노동조합이 원청·발주처에 직접 교섭을 요구했거나, 교섭요구 사실 공고·교섭대표노조 확정·노동위원회 대응 일정이 이미 잡혀 있다면 바로 문의하는 편이 안전합니다.',
+  },
+  {
+    question: '문의 폼에는 어떤 내용을 적으면 좋나요?',
+    answer: '회사명, 원청·하청·발주처 중 위치, 교섭요구서 또는 노조 연락 수령 여부, 현재 쟁점(사용자성·교섭절차·부당노동행위·도급/파견), 급한 일정이 있으면 함께 적는 편이 좋습니다.',
+  },
+  {
+    question: '체크리스트만 먼저 해도 되나요?',
+    answer: '가능합니다. 다만 자가진단에서 사용자성 가능성이 높게 나오거나 이미 교섭요구를 받은 상태라면 체크리스트 확인 후 바로 전문가 상담으로 이어가는 편이 대응 누락을 줄이는 데 도움이 됩니다.',
+  },
+] as const;
+
 const contactJsonLd = {
   '@context': 'https://schema.org',
   '@graph': [
@@ -76,6 +91,18 @@ const contactJsonLd = {
         { '@type': 'ListItem', position: 2, name: '노란봉투법 전문가 상담 문의', item: CONTACT_URL },
       ],
     },
+    {
+      '@type': 'FAQPage',
+      '@id': `${CONTACT_URL}/#faq`,
+      mainEntity: contactFaqItems.map((item) => ({
+        '@type': 'Question',
+        name: item.question,
+        acceptedAnswer: {
+          '@type': 'Answer',
+          text: item.answer,
+        },
+      })),
+    },
   ],
 };
 
@@ -89,7 +116,7 @@ export default function ContactPage() {
         </h1>
         <p className="mb-10 max-w-[760px] text-sm leading-6" style={{ color: 'var(--grey-500)' }}>
           원청 사용자성 판단, 하청 노조 교섭요구 대응, 교섭창구 단일화, 노동위원회 절차, 부당노동행위 리스크 점검이 필요하면 아래 폼으로 내용을 남겨 주세요.
-          노무법인 위너스가 확인 후 순차적으로 검토합니다.
+          교섭요구서 수령 여부, 현재 일정, 원청·하청 구조를 함께 적어주시면 분류와 회신 준비가 빨라집니다.
         </p>
 
         <div className="grid gap-10 lg:grid-cols-[1fr_320px]">
@@ -117,6 +144,18 @@ export default function ContactPage() {
                 <li>• 교섭요구 공고, 교섭대표노조 확정, 교섭단위 분리 대응이 필요한 경우</li>
                 <li>• 부당노동행위, 손해배상, 파견·도급 구조 리스크를 함께 봐야 하는 경우</li>
               </ul>
+            </section>
+
+            <section className="rounded-2xl border p-6" style={{ borderColor: 'var(--color-border)', backgroundColor: 'white' }}>
+              <h2 className="mb-3 text-lg font-bold" style={{ color: 'var(--grey-900)' }}>상담 전 많이 묻는 질문</h2>
+              <div className="space-y-4">
+                {contactFaqItems.map((item) => (
+                  <div key={item.question} className="rounded-xl border p-4" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }}>
+                    <h3 className="text-sm font-bold leading-6" style={{ color: 'var(--grey-900)' }}>{item.question}</h3>
+                    <p className="mt-2 text-sm leading-6" style={{ color: 'var(--grey-600)' }}>{item.answer}</p>
+                  </div>
+                ))}
+              </div>
             </section>
 
             <section className="rounded-2xl border p-6" style={{ borderColor: 'var(--color-border)', backgroundColor: 'white' }}>
