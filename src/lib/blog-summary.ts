@@ -23,7 +23,9 @@ function normalizeSummary(
 ): string | null {
   if (!source) return null
 
-  const beforeHeading = source.split(/\n(?=#+\s)/, 1)[0] ?? source
+  // Strip markdown heading markers (# 서론 → 서론) before processing
+  const headingStripped = source.replace(/^#{1,6}\s+/gm, '')
+  const beforeHeading = headingStripped.split(/\n(?=#{1,6}\s)/, 1)[0] ?? headingStripped
   const firstParagraph = beforeHeading
     .split(/\n\s*\n/, 1)[0]
     ?.replace(/\r/g, '')
@@ -121,6 +123,7 @@ function sanitizeLeadText(text: string): string {
     .replace(/\*\*([^*]+)\*\*/g, '$1')          // **굵게** → 굵게
     .replace(/\*([^*]+)\*/g, '$1')              // *기울임* → 기울임
     .replace(/`([^`]+)`/g, '$1')                // `코드` → 코드
+    .replace(/^#{1,6}\s+/gm, '')                 // # 제목 → 제목
     .replace(/\s+/g, ' ')
     .replace(/^["']([^"']+)["']\s*/, '$1 ')
     .trim()
@@ -130,7 +133,7 @@ function shouldPreferContentLead(summary: string | null, contentLead: string | n
   if (!contentLead) return false
   if (!summary) return true
   if (summary.includes('...')) return true
-  if (summary.includes('##') || summary.includes('###')) return true
+  if (/(?:^|\n)#{1,6}\s/.test(summary)) return true
   if (summary.includes('「근로자퇴')) return true
   if (summary.length < 160 && contentLead.length > summary.length + 40) return true
   return false
