@@ -33,7 +33,7 @@ interface NewsClientProps {
 const PAGE_SIZE = 20;
 
 function renderMarkdown(md: string): string {
-  return md
+  const html = md
     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
     .replace(/^### (.+)$/gm, '<h4 style="font-weight:700;font-size:14px;margin:12px 0 4px;color:var(--color-text-primary)">$1</h4>')
     .replace(/^## (.+)$/gm, '<h3 style="font-weight:700;font-size:15px;margin:14px 0 6px;color:var(--color-text-primary)">$1</h3>')
@@ -41,6 +41,8 @@ function renderMarkdown(md: string): string {
     .replace(/^- (.+)$/gm, '<li style="margin-left:16px;list-style:disc;margin-bottom:2px">$1</li>')
     .replace(/\n\n/g, '<br/>')
     .replace(/\n/g, ' ');
+  // Wrap consecutive <li> runs in <ul>
+  return html.replace(/((?:<li[^>]*>.*?<\/li>\s*)+)/g, '<ul style="margin:4px 0;padding:0">$1</ul>');
 }
 
 const KEYWORD_CHIPS = [
