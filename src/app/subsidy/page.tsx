@@ -28,15 +28,13 @@ export default function SubsidyPage() {
           사업주가 받을 수 있는 고용지원금 정보와 자격 확인 서비스를 제공합니다.
         </p>
         <div className="flex justify-center gap-3">
-          <a
-            href="https://reporeview.vercel.app"
-            target="_blank"
-            rel="noopener noreferrer"
+          <Link
+            href="/guide"
             className="rounded-xl px-5 py-2.5 text-sm font-medium transition-colors"
             style={{ backgroundColor: 'var(--color-accent)', color: '#fff' }}
           >
-            지원금 자격 확인하기 →
-          </a>
+            노란봉투법 가이드 보기 →
+          </Link>
           <Link
             href="/blog"
             className="rounded-xl border px-5 py-2.5 text-sm font-medium transition-colors"
