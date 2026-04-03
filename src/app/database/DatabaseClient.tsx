@@ -158,20 +158,42 @@ function getPreferredDetail(item: {
   return item.holding_points || item.key_issue || '';
 }
 
+function normalizeSnippetMarkdown(raw: string): string {
+  return raw
+    // Strip markdown headers → bold inline text
+    .replace(/^#{1,4}\s+(.+)$/gm, '**$1**')
+    // Add line break before Korean outline markers that run together (가. 나. 다. / ①②③)
+    .replace(/([^\n])([가-힣]\.\s)/g, '$1\n\n$2')
+    .replace(/([^\n])(①|②|③|④|⑤|⑥|⑦|⑧|⑨|⑩)/g, '$1\n$2')
+    // Add line break before □ markers (used in nlrc decisions)
+    .replace(/([^\n])(□\s)/g, '$1\n\n$2')
+    // Collapse triple+ newlines to double
+    .replace(/\n{3,}/g, '\n\n')
+    // Remove leading/trailing whitespace per line (spacing fix)
+    .replace(/^[ \t]+/gm, '')
+    .trim();
+}
+
 function MarkdownSnippet({ value }: { value: string }) {
+  const cleaned = normalizeSnippetMarkdown(value);
   return (
-    <div className="break-words text-[13px] leading-6 [&_h1]:mt-2 [&_h1]:text-[14px] [&_h1]:font-semibold [&_h2]:mt-2 [&_h2]:text-[14px] [&_h2]:font-semibold [&_h3]:mt-2 [&_h3]:text-[13px] [&_h3]:font-semibold [&_li]:ml-4 [&_li]:list-disc [&_ol]:ml-4 [&_ol]:list-decimal">
+    <div className="break-words text-[13px] leading-6 [&_p]:mb-1.5 [&_p:last-child]:mb-0 [&_li]:ml-4 [&_li]:list-disc [&_ol]:ml-4 [&_ol]:list-decimal">
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         components={{
-          a: ({ ...props }) => <a {...props} target="_blank" rel="noopener noreferrer" className="underline" />,
+          a: ({ ...props }) => <a {...props} target="_blank" rel="noopener noreferrer" className="underline" style={{ color: 'var(--color-accent)' }} />,
           p: ({ children }) => <p>{children}</p>,
           ul: ({ children }) => <ul className="space-y-1">{children}</ul>,
           ol: ({ children }) => <ol className="space-y-1">{children}</ol>,
+          h1: ({ children }) => <p className="font-semibold" style={{ color: 'var(--color-text-primary)' }}>{children}</p>,
+          h2: ({ children }) => <p className="font-semibold" style={{ color: 'var(--color-text-primary)' }}>{children}</p>,
+          h3: ({ children }) => <p className="font-semibold" style={{ color: 'var(--color-text-primary)' }}>{children}</p>,
+          h4: ({ children }) => <p className="font-semibold" style={{ color: 'var(--color-text-primary)' }}>{children}</p>,
           strong: ({ children }) => <strong className="font-semibold" style={{ color: 'var(--color-text-primary)' }}>{children}</strong>,
+          hr: () => <hr className="my-2 border-t" style={{ borderColor: 'var(--color-border)' }} />,
         }}
       >
-        {value}
+        {cleaned}
       </ReactMarkdown>
     </div>
   );
