@@ -160,7 +160,7 @@ function getPreferredDetail(item: {
 
 function MarkdownSnippet({ value }: { value: string }) {
   return (
-    <div className="break-words text-[13px] leading-6 [&_h1]:mt-2 [&_h1]:text-[14px] [&_h1]:font-semibold [&_h2]:mt-2 [&_h2]:text-[14px] [&_h2]:font-semibold [&_h3]:mt-2 [&_h3]:text-[13px] [&_h3]:font-semibold [&_li]:ml-4 [&_li]:list-disc [&_ol]:ml-4 [&_ol]:list-decimal [&_p]:whitespace-pre-wrap">
+    <div className="break-words text-[13px] leading-6 [&_h1]:mt-2 [&_h1]:text-[14px] [&_h1]:font-semibold [&_h2]:mt-2 [&_h2]:text-[14px] [&_h2]:font-semibold [&_h3]:mt-2 [&_h3]:text-[13px] [&_h3]:font-semibold [&_li]:ml-4 [&_li]:list-disc [&_ol]:ml-4 [&_ol]:list-decimal">
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         components={{
@@ -179,8 +179,10 @@ function MarkdownSnippet({ value }: { value: string }) {
 
 function TagRow({ reasonCategory, keywordsMatched }: { reasonCategory?: string[] | null; keywordsMatched?: string[] | null }) {
   const translatedReasons = (reasonCategory || []).map(translateReasonCategory);
+  const filteredKeywords = (keywordsMatched || []).filter((keyword) => !translatedReasons.includes(keyword));
   const visibleReasons = translatedReasons.slice(0, 4);
-  const visibleKeywords = (keywordsMatched || []).filter((keyword) => !translatedReasons.includes(keyword)).slice(0, 4);
+  const visibleKeywords = filteredKeywords.slice(0, 4);
+  const hiddenCount = (translatedReasons.length - visibleReasons.length) + (filteredKeywords.length - visibleKeywords.length);
 
   if (visibleReasons.length === 0 && visibleKeywords.length === 0) {
     return null;
@@ -198,6 +200,11 @@ function TagRow({ reasonCategory, keywordsMatched }: { reasonCategory?: string[]
           {keyword}
         </span>
       ))}
+      {hiddenCount > 0 && (
+        <span className="rounded-full px-2 py-0.5 text-[11px]" style={{ backgroundColor: 'var(--grey-50)', color: 'var(--grey-400)' }}>
+          +{hiddenCount}
+        </span>
+      )}
     </div>
   );
 }
@@ -406,7 +413,7 @@ function DatabaseContent({ initialTotalCases, initialTotalAdmin, initialTotalNlr
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="검색어를 입력하세요 (예: 사용자성, 단체교섭, 파견)"
-            className="w-full rounded-xl border py-3 pl-11 pr-4 text-[15px] outline-none transition-colors focus:border-[var(--color-accent)]"
+            className="w-full rounded-xl border py-3 pl-11 pr-4 text-[15px] outline-none transition-all focus:border-[var(--color-accent)] focus:ring-2 focus:ring-[var(--color-accent)]/20"
             style={{ borderColor: 'var(--color-border)', backgroundColor: 'white' }}
           />
         </div>
@@ -451,9 +458,19 @@ function DatabaseContent({ initialTotalCases, initialTotalAdmin, initialTotalNlr
 
       <div className="mt-6">
         {loading && (
-          <div className="flex items-center justify-center gap-2 py-20">
-            <Loader2 size={20} className="animate-spin" style={{ color: 'var(--color-accent)' }} />
-            <span style={{ color: 'var(--color-text-secondary)' }}>검색 중...</span>
+          <div className="space-y-3">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="animate-pulse rounded-xl border p-4" style={{ borderColor: 'var(--color-border)' }}>
+                <div className="h-4 w-3/4 rounded" style={{ backgroundColor: 'var(--grey-100)' }} />
+                <div className="mt-3 h-3 w-1/2 rounded" style={{ backgroundColor: 'var(--grey-50)' }} />
+                <div className="mt-2 h-3 w-full rounded" style={{ backgroundColor: 'var(--grey-50)' }} />
+                <div className="mt-2 h-3 w-5/6 rounded" style={{ backgroundColor: 'var(--grey-50)' }} />
+                <div className="mt-3 flex gap-1">
+                  <div className="h-5 w-16 rounded-full" style={{ backgroundColor: 'var(--grey-100)' }} />
+                  <div className="h-5 w-12 rounded-full" style={{ backgroundColor: 'var(--grey-100)' }} />
+                </div>
+              </div>
+            ))}
           </div>
         )}
 
@@ -538,7 +555,7 @@ function DatabaseContent({ initialTotalCases, initialTotalAdmin, initialTotalNlr
             <button
               disabled={page <= 1}
               onClick={() => handlePage(page - 1)}
-              className="rounded-lg border px-4 py-2 text-sm transition-colors hover:bg-[var(--grey-50)] disabled:opacity-40"
+              className="rounded-lg border px-4 py-2 text-sm transition-colors hover:bg-[var(--grey-50)] disabled:opacity-40 disabled:cursor-not-allowed"
               style={{ borderColor: 'var(--color-border)' }}
             >
               ← 이전
@@ -549,7 +566,7 @@ function DatabaseContent({ initialTotalCases, initialTotalAdmin, initialTotalNlr
             <button
               disabled={!hasMore}
               onClick={() => handlePage(page + 1)}
-              className="rounded-lg border px-4 py-2 text-sm transition-colors hover:bg-[var(--grey-50)] disabled:opacity-40"
+              className="rounded-lg border px-4 py-2 text-sm transition-colors hover:bg-[var(--grey-50)] disabled:opacity-40 disabled:cursor-not-allowed"
               style={{ borderColor: 'var(--color-border)' }}
             >
               다음 →
