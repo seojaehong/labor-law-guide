@@ -9,6 +9,9 @@ export async function GET(req: NextRequest) {
   if (authError) return authError;
   const { searchParams } = new URL(req.url);
   const category = searchParams.get('category');
+  const authorParam = searchParams.get('author');
+  const dateFrom = searchParams.get('from');
+  const dateTo = searchParams.get('to');
   const search = searchParams.get('search');
   const page = parseInt(searchParams.get('page') || '1');
   const limit = 20;
@@ -22,6 +25,15 @@ export async function GET(req: NextRequest) {
 
   if (category && category !== 'all') {
     query = query.eq('category', category);
+  }
+  if (authorParam && authorParam !== 'all') {
+    query = query.eq('author', authorParam);
+  }
+  if (dateFrom) {
+    query = query.gte('published_at', `${dateFrom}T00:00:00+09:00`);
+  }
+  if (dateTo) {
+    query = query.lte('published_at', `${dateTo}T23:59:59+09:00`);
   }
   if (search) {
     query = query.or(`title.ilike.%${search}%,slug.ilike.%${search}%`);

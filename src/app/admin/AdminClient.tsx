@@ -104,6 +104,9 @@ export default function AdminClient() {
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [category, setCategory] = useState('all');
+  const [author, setAuthor] = useState('all');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
   const [search, setSearch] = useState('');
   const [searchInput, setSearchInput] = useState('');
   const [loading, setLoading] = useState(false);
@@ -153,13 +156,16 @@ export default function AdminClient() {
     setLoading(true);
     const params = new URLSearchParams({ page: String(page) });
     if (category !== 'all') params.set('category', category);
+    if (author !== 'all') params.set('author', author);
+    if (dateFrom) params.set('from', dateFrom);
+    if (dateTo) params.set('to', dateTo);
     if (search) params.set('search', search);
     const res = await adminFetch(`/api/admin/articles?${params}`);
     const data = await res.json();
     setArticles(data.articles || []);
     setTotal(data.total || 0);
     setLoading(false);
-  }, [authed, page, category, search]);
+  }, [authed, page, category, author, dateFrom, dateTo, search]);
 
   useEffect(() => { loadStats(); }, [loadStats]);
   useEffect(() => { loadArticles(); }, [loadArticles]);
@@ -414,42 +420,101 @@ export default function AdminClient() {
       {tab === 'articles' && (
         <div className="space-y-4">
           {/* Filters */}
-          <div className="flex flex-wrap gap-3 items-center">
-            <div className="flex items-center gap-1 rounded-lg border px-3 py-1.5 flex-1 min-w-[200px]" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }}>
-              <Search size={14} style={{ color: 'var(--color-text-tertiary)' }} />
-              <input
-                className="flex-1 text-sm outline-none bg-transparent"
-                placeholder="제목 또는 slug 검색..."
-                value={searchInput}
-                onChange={(e) => setSearchInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    setSearch(searchInput);
-                    setPage(1);
-                  }
-                }}
-                style={{ color: 'var(--color-text-primary)' }}
-              />
-              {searchInput && (
-                <button onClick={() => { setSearchInput(''); setSearch(''); setPage(1); }}>
-                  <X size={14} style={{ color: 'var(--color-text-tertiary)' }} />
-                </button>
-              )}
+          <div
+            className="rounded-xl border p-4 space-y-3"
+            style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }}
+          >
+            {/* Row 1: Search + Category + Author */}
+            <div className="flex flex-wrap gap-3 items-center">
+              <div className="flex items-center gap-1 rounded-lg border px-3 py-1.5 flex-1 min-w-[200px]" style={{ borderColor: 'var(--color-border)' }}>
+                <Search size={14} style={{ color: 'var(--color-text-tertiary)' }} />
+                <input
+                  className="flex-1 text-sm outline-none bg-transparent"
+                  placeholder="제목 또는 slug 검색..."
+                  value={searchInput}
+                  onChange={(e) => setSearchInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      setSearch(searchInput);
+                      setPage(1);
+                    }
+                  }}
+                  style={{ color: 'var(--color-text-primary)' }}
+                />
+                {searchInput && (
+                  <button onClick={() => { setSearchInput(''); setSearch(''); setPage(1); }}>
+                    <X size={14} style={{ color: 'var(--color-text-tertiary)' }} />
+                  </button>
+                )}
+              </div>
+              <select
+                className="rounded-lg border px-3 py-1.5 text-sm outline-none"
+                style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-primary)' }}
+                value={category}
+                onChange={(e) => { setCategory(e.target.value); setPage(1); }}
+              >
+                <option value="all">전체 카테고리</option>
+                {categories.map((c) => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </select>
+              <select
+                className="rounded-lg border px-3 py-1.5 text-sm outline-none"
+                style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-primary)' }}
+                value={author}
+                onChange={(e) => { setAuthor(e.target.value); setPage(1); }}
+              >
+                <option value="all">전체 필자</option>
+                {['뉴스룸', '위너스 에디터', '판례 분석팀', '실무 가이드', '데일리 브리핑', '노무법인 위너스'].map((a) => (
+                  <option key={a} value={a}>{a}</option>
+                ))}
+              </select>
             </div>
-            <select
-              className="rounded-lg border px-3 py-1.5 text-sm outline-none"
-              style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)', color: 'var(--color-text-primary)' }}
-              value={category}
-              onChange={(e) => { setCategory(e.target.value); setPage(1); }}
-            >
-              <option value="all">전체 카테고리</option>
-              {categories.map((c) => (
-                <option key={c} value={c}>{c}</option>
+
+            {/* Row 2: Date filters + Quick buttons */}
+            <div className="flex flex-wrap gap-2 items-center">
+              <span className="text-xs font-medium" style={{ color: 'var(--color-text-tertiary)' }}>날짜:</span>
+              {[
+                { label: '오늘', fn: () => { const t = new Date(); t.setHours(t.getHours()+9); const s = t.toISOString().slice(0,10); setDateFrom(s); setDateTo(s); setPage(1); }},
+                { label: '어제', fn: () => { const t = new Date(); t.setHours(t.getHours()+9); t.setDate(t.getDate()-1); const s = t.toISOString().slice(0,10); setDateFrom(s); setDateTo(s); setPage(1); }},
+                { label: '이번 주', fn: () => { const t = new Date(); t.setHours(t.getHours()+9); const to = t.toISOString().slice(0,10); t.setDate(t.getDate()-t.getDay()); const from = t.toISOString().slice(0,10); setDateFrom(from); setDateTo(to); setPage(1); }},
+                { label: '최근 7일', fn: () => { const t = new Date(); t.setHours(t.getHours()+9); const to = t.toISOString().slice(0,10); t.setDate(t.getDate()-6); const from = t.toISOString().slice(0,10); setDateFrom(from); setDateTo(to); setPage(1); }},
+                { label: '최근 30일', fn: () => { const t = new Date(); t.setHours(t.getHours()+9); const to = t.toISOString().slice(0,10); t.setDate(t.getDate()-29); const from = t.toISOString().slice(0,10); setDateFrom(from); setDateTo(to); setPage(1); }},
+                { label: '전체', fn: () => { setDateFrom(''); setDateTo(''); setPage(1); }},
+              ].map(({ label, fn }) => (
+                <button
+                  key={label}
+                  onClick={fn}
+                  className="rounded-md px-2.5 py-1 text-[12px] font-medium transition-colors hover:bg-[var(--blue-50)]"
+                  style={{
+                    color: label === '전체' && !dateFrom ? 'var(--blue-500)' : 'var(--color-text-secondary)',
+                    backgroundColor: label === '전체' && !dateFrom ? 'var(--blue-50)' : 'transparent',
+                  }}
+                >
+                  {label}
+                </button>
               ))}
-            </select>
-            <span className="text-xs" style={{ color: 'var(--color-text-tertiary)' }}>
-              총 {total}건
-            </span>
+              <div className="flex items-center gap-1 ml-2">
+                <input
+                  type="date"
+                  className="rounded-md border px-2 py-1 text-[12px] outline-none"
+                  style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-primary)' }}
+                  value={dateFrom}
+                  onChange={(e) => { setDateFrom(e.target.value); setPage(1); }}
+                />
+                <span className="text-[11px]" style={{ color: 'var(--color-text-tertiary)' }}>~</span>
+                <input
+                  type="date"
+                  className="rounded-md border px-2 py-1 text-[12px] outline-none"
+                  style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-primary)' }}
+                  value={dateTo}
+                  onChange={(e) => { setDateTo(e.target.value); setPage(1); }}
+                />
+              </div>
+              <span className="text-xs ml-auto" style={{ color: 'var(--color-text-tertiary)' }}>
+                {total}건
+              </span>
+            </div>
           </div>
 
           {/* Article List */}
