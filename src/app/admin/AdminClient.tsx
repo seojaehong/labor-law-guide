@@ -4,8 +4,6 @@ import { useCallback, useEffect, useState } from 'react';
 import {
   BarChart3,
   FileText,
-  Eye,
-  EyeOff,
   Trash2,
   ExternalLink,
   Search,
@@ -32,7 +30,6 @@ function adminFetch(url: string, opts: RequestInit = {}) {
 
 /* ───── types ───── */
 interface Article {
-  id: string;
   slug: string;
   title: string;
   subtitle: string | null;
@@ -40,8 +37,6 @@ interface Article {
   author: string;
   published_at: string;
   updated_at: string;
-  is_published: boolean;
-  view_count: number;
   tags: string[];
 }
 
@@ -57,7 +52,7 @@ interface Stats {
   today: number;
   byCategory: Record<string, number>;
   trend: { date: string; count: number }[];
-  recent: { slug: string; title: string; category: string; author: string; published_at: string; is_published: boolean }[];
+  recent: { slug: string; title: string; category: string; author: string; published_at: string }[];
 }
 
 const CATEGORY_COLORS: Record<string, { bg: string; text: string }> = {
@@ -171,22 +166,9 @@ export default function AdminClient() {
   useEffect(() => { loadArticles(); }, [loadArticles]);
 
   /* actions */
-  const togglePublish = async (article: Article) => {
-    const res = await adminFetch('/api/admin/articles', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id: article.id, is_published: !article.is_published }),
-    });
-    if (res.ok) {
-      showToast(article.is_published ? '비공개 처리됨' : '공개 처리됨');
-      loadArticles();
-      loadStats();
-    }
-  };
-
   const deleteArticle = async (article: Article) => {
     if (!confirm(`"${article.title}" 글을 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다.`)) return;
-    const res = await adminFetch(`/api/admin/articles?id=${article.id}`, { method: 'DELETE' });
+    const res = await adminFetch(`/api/admin/articles?slug=${article.slug}`, { method: 'DELETE' });
     if (res.ok) {
       showToast('삭제됨');
       loadArticles();
@@ -194,8 +176,8 @@ export default function AdminClient() {
     }
   };
 
-  const openEditor = async (id: string) => {
-    const res = await adminFetch(`/api/admin/articles/${id}`);
+  const openEditor = async (slug: string) => {
+    const res = await adminFetch(`/api/admin/articles/${slug}`);
     const data = await res.json();
     setEditArticle(data.article);
   };
@@ -203,11 +185,11 @@ export default function AdminClient() {
   const saveEdit = async () => {
     if (!editArticle) return;
     setSaving(true);
-    const { id, title, subtitle, content, summary, category: cat, tags, seo_title, seo_description, is_published } = editArticle;
+    const { slug, title, subtitle, content, summary, category: cat, tags, seo_title, seo_description } = editArticle;
     const res = await adminFetch('/api/admin/articles', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id, title, subtitle, content, summary, category: cat, tags, seo_title, seo_description, is_published }),
+      body: JSON.stringify({ slug, title, subtitle, content, summary, category: cat, tags, seo_title, seo_description }),
     });
     setSaving(false);
     if (res.ok) {
@@ -397,18 +379,13 @@ export default function AdminClient() {
                   <Badge category={a.category} />
                   <span
                     className="flex-1 text-sm font-medium truncate"
-                    style={{ color: a.is_published ? 'var(--color-text-primary)' : 'var(--color-text-tertiary)' }}
+                    style={{ color: 'var(--color-text-primary)' }}
                   >
                     {a.title}
                   </span>
                   <span className="text-[11px] whitespace-nowrap" style={{ color: 'var(--color-text-tertiary)' }}>
                     {fmtDate(a.published_at)}
                   </span>
-                  {!a.is_published && (
-                    <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded" style={{ backgroundColor: '#fef2f2', color: '#dc2626' }}>
-                      비공개
-                    </span>
-                  )}
                 </div>
               ))}
             </div>
@@ -535,21 +512,20 @@ export default function AdminClient() {
                     <th className="text-left px-3 py-2.5 font-semibold w-24 hidden md:table-cell" style={{ color: 'var(--color-text-secondary)' }}>카테고리</th>
                     <th className="text-left px-3 py-2.5 font-semibold w-20 hidden md:table-cell" style={{ color: 'var(--color-text-secondary)' }}>필자</th>
                     <th className="text-center px-3 py-2.5 font-semibold w-16 hidden md:table-cell" style={{ color: 'var(--color-text-secondary)' }}>상태</th>
-                    <th className="text-center px-3 py-2.5 font-semibold w-16 hidden md:table-cell" style={{ color: 'var(--color-text-secondary)' }}>조회</th>
                     <th className="text-right px-4 py-2.5 font-semibold w-28" style={{ color: 'var(--color-text-secondary)' }}>액션</th>
                   </tr>
                 </thead>
                 <tbody>
                   {articles.map((a) => (
                     <tr
-                      key={a.id}
+                      key={a.slug}
                       className="group hover:bg-[var(--grey-50)] transition-colors"
                       style={{ borderBottom: '1px solid var(--color-border)' }}
                     >
                       <td className="px-4 py-3">
                         <p
                           className="font-medium leading-snug line-clamp-1"
-                          style={{ color: a.is_published ? 'var(--color-text-primary)' : 'var(--color-text-tertiary)' }}
+                          style={{ color: 'var(--color-text-primary)' }}
                         >
                           {a.title}
                         </p>
@@ -564,33 +540,16 @@ export default function AdminClient() {
                         {a.author}
                       </td>
                       <td className="px-3 py-3 text-center hidden md:table-cell">
-                        {a.is_published ? (
-                          <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded" style={{ backgroundColor: '#ecfdf5', color: '#059669' }}>공개</span>
-                        ) : (
-                          <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded" style={{ backgroundColor: '#fef2f2', color: '#dc2626' }}>비공개</span>
-                        )}
-                      </td>
-                      <td className="px-3 py-3 text-center text-xs hidden md:table-cell" style={{ color: 'var(--color-text-tertiary)' }}>
-                        {a.view_count}
+                        <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded" style={{ backgroundColor: '#ecfdf5', color: '#059669' }}>공개</span>
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex items-center justify-end gap-1">
                           <button
-                            onClick={() => openEditor(a.id)}
+                            onClick={() => openEditor(a.slug)}
                             className="rounded-md p-1.5 hover:bg-[var(--grey-100)] transition-colors"
                             title="수정"
                           >
                             <Pencil size={14} style={{ color: 'var(--blue-500)' }} />
-                          </button>
-                          <button
-                            onClick={() => togglePublish(a)}
-                            className="rounded-md p-1.5 hover:bg-[var(--grey-100)] transition-colors"
-                            title={a.is_published ? '비공개로' : '공개로'}
-                          >
-                            {a.is_published
-                              ? <EyeOff size={14} style={{ color: 'var(--grey-500)' }} />
-                              : <Eye size={14} style={{ color: '#059669' }} />
-                            }
                           </button>
                           <a
                             href={`/blog/${a.slug}`}
@@ -695,17 +654,6 @@ export default function AdminClient() {
                       <option key={c} value={c}>{c}</option>
                     ))}
                   </select>
-                </div>
-                <div>
-                  <label className="text-xs font-semibold mb-1 block" style={{ color: 'var(--color-text-secondary)' }}>공개 상태</label>
-                  <button
-                    className="flex items-center gap-2 rounded-lg border px-3 py-2 text-sm w-full"
-                    style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-primary)' }}
-                    onClick={() => setEditArticle({ ...editArticle, is_published: !editArticle.is_published })}
-                  >
-                    {editArticle.is_published ? <Eye size={14} style={{ color: '#059669' }} /> : <EyeOff size={14} style={{ color: '#dc2626' }} />}
-                    {editArticle.is_published ? '공개' : '비공개'}
-                  </button>
                 </div>
               </div>
 

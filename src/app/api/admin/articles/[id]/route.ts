@@ -16,7 +16,7 @@ export async function GET(
   const { data, error } = await db
     .from('blog_articles')
     .select('*')
-    .eq('id', id)
+    .eq('slug', id)
     .single();
 
   if (error) {

@@ -12,13 +12,13 @@ export async function GET(req: NextRequest) {
   const todayStr = today.toISOString().slice(0, 10);
 
   const [totalRes, todayRes, categoryRes, recentRes] = await Promise.all([
-    db.from('blog_articles').select('id', { count: 'exact', head: true }),
-    db.from('blog_articles').select('id', { count: 'exact', head: true })
+    db.from('blog_articles').select('slug', { count: 'exact', head: true }),
+    db.from('blog_articles').select('slug', { count: 'exact', head: true })
       .gte('published_at', `${todayStr}T00:00:00+09:00`)
       .lte('published_at', `${todayStr}T23:59:59+09:00`),
     db.from('blog_articles').select('category'),
     db.from('blog_articles')
-      .select('slug, title, category, author, published_at, is_published')
+      .select('slug, title, category, author, published_at')
       .order('published_at', { ascending: false })
       .limit(7),
   ]);
@@ -40,7 +40,7 @@ export async function GET(req: NextRequest) {
     const dateStr = d.toISOString().slice(0, 10);
     const { count } = await db
       .from('blog_articles')
-      .select('id', { count: 'exact', head: true })
+      .select('slug', { count: 'exact', head: true })
       .gte('published_at', `${dateStr}T00:00:00+09:00`)
       .lte('published_at', `${dateStr}T23:59:59+09:00`);
     days.push({ date: dateStr, count: count || 0 });

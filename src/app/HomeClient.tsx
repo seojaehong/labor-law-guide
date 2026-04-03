@@ -129,12 +129,31 @@ export default function HomeClient({ totalCases, totalAdmin, totalNews, latestBl
               해석지침 보기 <ArrowRight size={16} />
             </Link>
             <Link
+              href="/contact"
+              className="flex items-center gap-2 rounded-lg border px-6 py-3 font-medium transition-transform hover:scale-105"
+              style={{ borderColor: 'var(--color-accent)', color: 'var(--color-accent)', backgroundColor: 'white' }}
+            >
+              전문가 상담 문의 <ArrowRight size={16} />
+            </Link>
+            <Link
               href="/ai"
               className="flex items-center gap-2 rounded-lg border px-6 py-3 font-medium transition-transform hover:scale-105"
               style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-primary)' }}
             >
               <MessageSquare size={16} />
               AI에게 질문하기
+            </Link>
+          </div>
+          <div className="mt-4 flex flex-wrap items-center justify-center gap-2 text-sm" style={{ color: 'var(--color-text-secondary)' }}>
+            <span className="font-medium" style={{ color: 'var(--grey-700)' }}>바로 가기</span>
+            <Link href="/checklist" className="rounded-full border px-3 py-1.5 hover:border-[var(--color-accent)] hover:text-[var(--color-accent)]" style={{ borderColor: 'var(--color-border)' }}>
+              원청 사용자성 자가진단
+            </Link>
+            <Link href="/manual" className="rounded-full border px-3 py-1.5 hover:border-[var(--color-accent)] hover:text-[var(--color-accent)]" style={{ borderColor: 'var(--color-border)' }}>
+              교섭요구 대응 절차 보기
+            </Link>
+            <Link href="/contact" className="rounded-full border px-3 py-1.5 hover:border-[var(--color-accent)] hover:text-[var(--color-accent)]" style={{ borderColor: 'var(--color-border)' }}>
+              교섭요구서 받았다면 상담 문의
             </Link>
           </div>
           <div className="mt-6 flex flex-wrap items-center justify-center gap-2">

@@ -19,7 +19,7 @@ export async function GET(req: NextRequest) {
 
   let query = db
     .from('blog_articles')
-    .select('id, slug, title, subtitle, category, author, published_at, updated_at, is_published, view_count, tags', { count: 'exact' })
+    .select('slug, title, subtitle, category, author, published_at, updated_at, tags', { count: 'exact' })
     .order('published_at', { ascending: false })
     .range(offset, offset + limit - 1);
 
@@ -53,13 +53,13 @@ export async function PATCH(req: NextRequest) {
   const authError = checkAdminAuth(req);
   if (authError) return authError;
   const body = await req.json();
-  const { id } = body;
+  const slug = body.slug || body.id;
 
-  if (!id) {
-    return NextResponse.json({ error: 'id is required' }, { status: 400 });
+  if (!slug) {
+    return NextResponse.json({ error: 'slug is required' }, { status: 400 });
   }
 
-  const ALLOWED_FIELDS = ['title', 'subtitle', 'content', 'summary', 'category', 'tags', 'seo_title', 'seo_description', 'is_published'] as const;
+  const ALLOWED_FIELDS = ['title', 'subtitle', 'content', 'summary', 'category', 'tags', 'seo_title', 'seo_description', 'author', 'subtype'] as const;
   const updates: Record<string, unknown> = { updated_at: new Date().toISOString() };
   for (const key of ALLOWED_FIELDS) {
     if (key in body) updates[key] = body[key];
@@ -68,7 +68,7 @@ export async function PATCH(req: NextRequest) {
   const { data, error } = await db
     .from('blog_articles')
     .update(updates)
-    .eq('id', id)
+    .eq('slug', slug)
     .select()
     .single();
 
@@ -83,16 +83,16 @@ export async function DELETE(req: NextRequest) {
   const authError = checkAdminAuth(req);
   if (authError) return authError;
   const { searchParams } = new URL(req.url);
-  const id = searchParams.get('id');
+  const slug = searchParams.get('slug') || searchParams.get('id');
 
-  if (!id) {
-    return NextResponse.json({ error: 'id is required' }, { status: 400 });
+  if (!slug) {
+    return NextResponse.json({ error: 'slug is required' }, { status: 400 });
   }
 
   const { error } = await db
     .from('blog_articles')
     .delete()
-    .eq('id', id);
+    .eq('slug', slug);
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
