@@ -37,7 +37,7 @@ const NAV_ITEMS: NavItem[] = [
     ],
   },
   { kind: 'link', href: '/blog', label: '블로그' },
-  { kind: 'link', href: 'https://reporeview.vercel.app/', label: '지원금' },
+  { kind: 'link', href: '/subsidy', label: '지원금' },
   { kind: 'cta', href: '/contact', label: '상담' },
 ];
 
