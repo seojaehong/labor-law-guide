@@ -6,12 +6,17 @@ export const revalidate = 3600;
 
 const FALLBACK_BLOG_DATE = new Date('2026-03-29T00:00:00.000Z');
 const FALLBACK_NEWS_DATE = new Date('2026-03-31T00:00:00.000Z');
-const CONTACT_LAST_MODIFIED = new Date('2026-04-03T00:00:00.000Z');
+const CONTACT_LAST_MODIFIED = new Date('2026-04-04T00:00:00.000Z');
+
+function clampToNow(date: Date) {
+  const now = new Date();
+  return date.getTime() > now.getTime() ? now : date;
+}
 
 function parseDate(value: string | null | undefined, fallback: Date) {
-  if (!value) return fallback;
+  if (!value) return clampToNow(fallback);
   const parsed = new Date(value);
-  return Number.isNaN(parsed.getTime()) ? fallback : parsed;
+  return Number.isNaN(parsed.getTime()) ? clampToNow(fallback) : clampToNow(parsed);
 }
 
 function maxDate(...dates: Date[]) {

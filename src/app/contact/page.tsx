@@ -5,21 +5,22 @@ import { Mail, MapPin, ExternalLink, FileText, ClipboardCheck, Scale } from 'luc
 import { SITE_URL } from '@/lib/constants';
 
 const CONTACT_URL = `${SITE_URL}/contact`;
-const DESCRIPTION = '부당해고, 임금체불, 직장내괴롭힘, 노란봉투법, 4대보험까지 — 노무법인 위너스에 온라인으로 노무 상담을 접수하세요. 공인노무사가 직접 검토합니다.';
+const TITLE = '노란봉투법 상담 문의 | 원청 사용자성·교섭요구 대응 | 노무법인 위너스';
+const DESCRIPTION = '노란봉투법 상담 문의 페이지입니다. 원청 사용자성 판단, 하청 노조 교섭요구 대응, 교섭단위 분리, 부당노동행위 리스크를 노무법인 위너스가 검토합니다.';
 
 export const metadata: Metadata = {
-  title: '노무 상담 문의 | 부당해고·임금체불·괴롭힘·노란봉투법 | 노무법인 위너스',
+  title: { absolute: TITLE },
   description: DESCRIPTION,
   alternates: { canonical: CONTACT_URL },
   openGraph: {
-    title: '노무법인 위너스 종합 상담 문의',
+    title: TITLE,
     description: DESCRIPTION,
     type: 'website',
     url: CONTACT_URL,
   },
   twitter: {
     card: 'summary_large_image',
-    title: '노무법인 위너스 종합 상담 문의',
+    title: TITLE,
     description: DESCRIPTION,
   },
 };
@@ -27,19 +28,19 @@ export const metadata: Metadata = {
 const quickLinks = [
   {
     href: '/guide',
-    label: '핵심 가이드 보기',
-    description: '사용자 범위 확대와 쟁점 구조를 먼저 정리합니다.',
+    label: '노란봉투법 핵심 가이드',
+    description: '사용자 범위 확대와 원청 쟁점을 먼저 정리합니다.',
     icon: FileText,
   },
   {
     href: '/checklist',
-    label: '자가진단 체크리스트',
+    label: '원청 사용자성 체크리스트',
     description: '우리 사업장에 교섭 의무 가능성이 있는지 빠르게 점검합니다.',
     icon: ClipboardCheck,
   },
   {
     href: '/manual',
-    label: '교섭절차 가이드',
+    label: '노란봉투법 교섭절차 가이드',
     description: '교섭요구 공고부터 단체교섭까지 절차를 단계별로 봅니다.',
     icon: Scale,
   },
@@ -116,16 +117,38 @@ export default function ContactPage() {
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(contactJsonLd) }} />
       <div className="mx-auto max-w-[980px] px-5 py-10">
         <h1 className="mb-2 font-bold" style={{ fontSize: 'var(--text-2xl)', color: 'var(--grey-900)' }}>
-          노무법인 위너스 종합 상담 문의
+          노란봉투법 상담 문의
         </h1>
-        <p className="mb-10 max-w-[760px] text-sm leading-6" style={{ color: 'var(--grey-500)' }}>
-          부당해고·징계, 임금체불·퇴직금, 직장내괴롭힘·성희롱, 노란봉투법(원청 교섭), 4대보험, 고용지원금까지 — 노동법 전반에 걸친 상담을 접수할 수 있습니다.
-          회사명, 현재 쟁점, 급한 일정이 있으면 함께 적어 주세요. 공인노무사가 직접 검토합니다.
+        <p className="max-w-[760px] text-sm leading-6" style={{ color: 'var(--grey-500)' }}>
+          원청 사용자성 판단, 하청 노조 교섭요구 대응, 교섭요구 사실 공고, 교섭단위 분리, 노동위원회 대응이 급하면 이 페이지로 바로 접수해 주세요.
+          회사명, 현재 쟁점, 교섭요구서·공문 수령 여부, 급한 일정이 있으면 함께 적어 주시면 분류가 빨라집니다. 부당해고·임금체불 등 일반 노무 문의도 함께 접수 가능합니다.
         </p>
+        <div className="mb-10 mt-5 flex flex-wrap gap-3 text-sm">
+          <Link
+            href="/checklist"
+            className="rounded-full border px-3 py-1.5 hover:border-[var(--color-accent)] hover:text-[var(--color-accent)]"
+            style={{ borderColor: 'var(--color-border)' }}
+          >
+            원청 사용자성 체크리스트
+          </Link>
+          <Link
+            href="/manual"
+            className="rounded-full border px-3 py-1.5 hover:border-[var(--color-accent)] hover:text-[var(--color-accent)]"
+            style={{ borderColor: 'var(--color-border)' }}
+          >
+            교섭요구 대응 절차 보기
+          </Link>
+          <span
+            className="rounded-full px-3 py-1.5"
+            style={{ backgroundColor: 'var(--blue-50)', color: 'var(--blue-700)' }}
+          >
+            영업일 기준 1일 이내 1차 회신
+          </span>
+        </div>
 
         <div className="grid gap-10 lg:grid-cols-[1fr_320px]">
           <div className="space-y-8">
-            <div className="rounded-2xl border p-6" style={{ borderColor: 'var(--color-border)', backgroundColor: 'white' }}>
+            <div id="consult-form" className="rounded-2xl border p-6" style={{ borderColor: 'var(--color-border)', backgroundColor: 'white' }}>
               <div className="mb-5 flex items-start justify-between gap-4">
                 <div>
                   <h2 className="text-lg font-bold" style={{ color: 'var(--grey-900)' }}>온라인 상담 접수</h2>
