@@ -461,4 +461,37 @@
   .blog-content .blog-link:hover {
     color: var(--color-accent-hover);
   }
+
+  .blog-content table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1em 0 1.5em;
+    font-size: 0.93em;
+  }
+
+  .blog-content th,
+  .blog-content td {
+    border: 1px solid var(--color-border);
+    padding: 10px 12px;
+    text-align: left;
+  }
+
+  .blog-content thead tr {
+    background: var(--color-bg-surface);
+  }
+
+  .blog-content th {
+    font-weight: 700;
+    color: var(--grey-900);
+  }
+
+  .blog-content td strong {
+    font-weight: 700;
+    color: var(--grey-900);
+  }
+
+  .blog-content input[type="checkbox"] {
+    margin-right: 8px;
+    accent-color: var(--color-accent);
+  }
 }
