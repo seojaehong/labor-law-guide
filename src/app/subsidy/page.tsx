@@ -5,10 +5,10 @@ import { SITE_URL } from '@/lib/constants';
 
 const SUBSIDY_URL = `${SITE_URL}/subsidy`;
 const EXTERNAL_GUIDE_URL = 'https://reporeview.vercel.app/';
-const DESCRIPTION = '고용지원금 종류·신청 요건·절차를 한눈에 확인하세요. 두루누리, 일자리안정자금, 고용촉진장려금 등 우리 사업장에 맞는 지원금을 찾아드립니다.';
+const DESCRIPTION = '고용지원금 종류·신청 요건·절차를 한눈에 확인하세요. 두루누리, 출산육아기 고용안정장려금, 서울시 워라밸 포인트제, 고용촉진장려금 등 우리 사업장에 맞는 지원금을 찾아드립니다.';
 
 export const metadata: Metadata = {
-  title: '고용지원금 가이드 | 두루누리·일자리안정자금·고용촉진장려금 | 노무법인 위너스',
+  title: '고용지원금 가이드 | 두루누리·출산육아기지원금·워라밸포인트제 | 노무법인 위너스',
   description: DESCRIPTION,
   alternates: { canonical: SUBSIDY_URL },
   openGraph: {
@@ -49,7 +49,8 @@ const subsidyJsonLd = {
 
 const highlights = [
   { icon: BadgeCheck, title: '두루누리 사회보험료 지원', desc: '10인 미만 사업장, 월 260만원 미만 근로자 보험료 80% 지원' },
-  { icon: BadgeCheck, title: '일자리안정자금', desc: '30인 미만 사업장, 최저임금 120% 이하 근로자 1인당 월 최대 13만원' },
+  { icon: BadgeCheck, title: '출산육아기 고용안정장려금', desc: '육아휴직 부여 시 월 30~100만원, 대체인력 채용 시 월 최대 140만원 (사업주 지급)' },
+  { icon: BadgeCheck, title: '서울시 워라밸 포인트제', desc: '서울 소재 중소기업 대상 — 대체인력 월 20만원, 동료응원수당 월 10만원, 출산휴가급여 최대 90만원' },
   { icon: BadgeCheck, title: '고용촉진장려금', desc: '취업 취약계층 고용 시 최대 1년간 월 60만원 지원' },
 ];
 
