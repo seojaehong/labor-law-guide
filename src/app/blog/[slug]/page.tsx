@@ -9,6 +9,7 @@ import { supabaseServer } from '@/lib/supabase-server';
 import { SITE_URL } from '@/lib/constants';
 import { cleanBlogSummary, extractBlogLead } from '@/lib/blog-summary';
 import { ArrowLeft, Calendar, User, Tag, BookOpen, ArrowRight } from 'lucide-react';
+import { getCategoryColor } from '@/lib/category-colors';
 
 export const dynamicParams = true;
 export const revalidate = 1800;
@@ -126,14 +127,7 @@ function formatDate(dateStr: string) {
 }
 
 function CategoryBadge({ category }: { category: string }) {
-  const colorMap: Record<string, { bg: string; text: string }> = {
-    '노동법': { bg: '#e8f3ff', text: '#1b64da' },
-    '판례분석': { bg: '#f5f3ff', text: '#6d28d9' },
-    '뉴스해설': { bg: '#fef3c7', text: '#92400e' },
-    '실무가이드': { bg: '#ecfdf5', text: '#065f46' },
-    'general': { bg: 'var(--grey-100)', text: 'var(--grey-600)' },
-  };
-  const color = colorMap[category] || colorMap['general'];
+  const color = getCategoryColor(category);
   return (
     <span
       className="rounded-full px-3 py-1 text-[12px] font-semibold"
@@ -364,6 +358,26 @@ export default async function BlogArticlePage({
                 </div>
               </section>
             )}
+
+            {/* 상담 CTA */}
+            <section
+              className="mt-12 rounded-2xl border p-6 sm:p-8 text-center"
+              style={{ borderColor: 'var(--color-accent)', backgroundColor: 'var(--blue-50)' }}
+            >
+              <p className="text-lg font-bold" style={{ color: 'var(--color-text-primary)' }}>
+                이 주제에 대해 전문가 상담이 필요하신가요?
+              </p>
+              <p className="mt-2 text-sm" style={{ color: 'var(--color-text-secondary)' }}>
+                노무법인 위너스에서 사업장 맞춤 상담을 제공합니다.
+              </p>
+              <Link
+                href="/contact"
+                className="mt-4 inline-block rounded-xl px-6 py-3 text-sm font-semibold text-white transition-colors hover:opacity-90"
+                style={{ backgroundColor: 'var(--color-accent)' }}
+              >
+                무료 상담 신청하기
+              </Link>
+            </section>
           </article>
 
           {/* Sidebar */}

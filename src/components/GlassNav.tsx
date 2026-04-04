@@ -36,6 +36,7 @@ const NAV_ITEMS: NavItem[] = [
       { href: '/news', label: '뉴스', description: '최신 노동법 뉴스' },
     ],
   },
+  { kind: 'link', href: '/ai', label: 'AI 상담' },
   { kind: 'link', href: '/blog', label: '블로그' },
   { kind: 'link', href: '/subsidy', label: '지원금' },
   { kind: 'cta', href: '/contact', label: '상담' },

@@ -282,6 +282,7 @@ function DatabaseContent({ initialTotalCases, initialTotalAdmin, initialTotalNlr
   const [hasMore, setHasMore] = useState(false);
   const [searchTotal, setSearchTotal] = useState<number | null>(null);
   const [searched, setSearched] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   const [totalCases, setTotalCases] = useState<number | null>(initialTotalCases);
   const [totalAdmin, setTotalAdmin] = useState<number | null>(initialTotalAdmin);
@@ -337,11 +338,13 @@ function DatabaseContent({ initialTotalCases, initialTotalAdmin, initialTotalNlr
       .then(({ count }) => setSearchTotal(count));
 
     try {
+      setSearchError(null);
       if (tab === 'cases') {
         const { data, error } = await supabase.rpc('search_cases', {
           query: q, result_limit: SEARCH_LIMIT + 1, page_offset: offset,
         });
-        if (!error && data) {
+        if (error) throw error;
+        if (data) {
           const typed = data as unknown as CaseResult[];
           const deduped = dedupeResults(typed, (item) => item.case_number || item.id);
           setHasMore(typed.length > SEARCH_LIMIT || deduped.length > PAGE_SIZE);
@@ -351,7 +354,8 @@ function DatabaseContent({ initialTotalCases, initialTotalAdmin, initialTotalNlr
         const { data, error } = await supabase.rpc('search_admin', {
           query: q, result_limit: SEARCH_LIMIT + 1, page_offset: offset,
         });
-        if (!error && data) {
+        if (error) throw error;
+        if (data) {
           const typed = data as unknown as AdminResult[];
           const deduped = dedupeResults(typed, (item) => item.doc_number || item.id);
           setHasMore(typed.length > SEARCH_LIMIT || deduped.length > PAGE_SIZE);
@@ -361,7 +365,8 @@ function DatabaseContent({ initialTotalCases, initialTotalAdmin, initialTotalNlr
         const { data, error } = await supabase.rpc('search_nlrc', {
           query: q, result_limit: SEARCH_LIMIT + 1, page_offset: offset,
         });
-        if (!error && data) {
+        if (error) throw error;
+        if (data) {
           const typed = data as unknown as NlrcResult[];
           const deduped = dedupeResults(typed, (item) => item.case_number || item.id);
           setHasMore(typed.length > SEARCH_LIMIT || deduped.length > PAGE_SIZE);
@@ -369,6 +374,8 @@ function DatabaseContent({ initialTotalCases, initialTotalAdmin, initialTotalNlr
         }
       }
       await countPromise;
+    } catch {
+      setSearchError('검색 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.');
     } finally {
       setLoading(false);
     }
@@ -497,7 +504,20 @@ function DatabaseContent({ initialTotalCases, initialTotalAdmin, initialTotalNlr
           </div>
         )}
 
-        {!loading && searched && currentResults.length === 0 && (
+        {searchError && (
+          <div className="py-12 text-center">
+            <p className="text-lg" style={{ color: 'var(--color-text-secondary)' }}>{searchError}</p>
+            <button
+              onClick={() => search(query, activeTab, page)}
+              className="mt-4 rounded-lg px-5 py-2.5 text-sm font-medium text-white transition-colors"
+              style={{ backgroundColor: 'var(--color-accent)' }}
+            >
+              다시 시도
+            </button>
+          </div>
+        )}
+
+        {!loading && !searchError && searched && currentResults.length === 0 && (
           <div className="py-20 text-center" style={{ color: 'var(--color-text-tertiary)' }}>
             <p className="text-lg">검색 결과가 없습니다.</p>
             <p className="mt-2 text-sm">

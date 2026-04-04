@@ -420,6 +420,26 @@
     color: var(--grey-800);
   }
 
+  .blog-content pre {
+    margin: 1.2em 0;
+    padding: 1em 1.2em;
+    border-radius: 8px;
+    background: var(--grey-900);
+    color: var(--grey-100);
+    font-family: monospace;
+    font-size: 0.88em;
+    line-height: 1.6;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .blog-content pre code {
+    background: none;
+    padding: 0;
+    color: inherit;
+    font-size: inherit;
+  }
+
   .blog-content .blog-hr {
     margin: 2em 0;
     border: none;
