@@ -37,7 +37,7 @@ const NAV_ITEMS: NavItem[] = [
     ],
   },
   { kind: 'link', href: '/blog', label: '블로그' },
-  { kind: 'link', href: '/subsidy', label: '지원금' },
+  { kind: 'link', href: 'https://reporeview.vercel.app/', label: '지원금' },
   { kind: 'cta', href: '/contact', label: '상담' },
 ];
 
@@ -256,11 +256,13 @@ export default function GlassNav() {
 
             // plain link
             const active = pathname === item.href;
+            const isExternal = item.href.startsWith('http');
             return (
               <Link
                 key={item.href}
                 href={item.href}
                 className="nav-link"
+                {...(isExternal ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
                 style={{
                   fontWeight: active ? 600 : 400,
                   color: active ? 'var(--color-accent)' : 'var(--color-text-secondary)',
@@ -322,11 +324,13 @@ export default function GlassNav() {
                 }
 
                 const active = pathname === item.href;
+                const isExternal = item.href.startsWith('http');
                 return (
                   <Link
                     key={item.href}
                     href={item.href}
                     onClick={closeMobile}
+                    {...(isExternal ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
                     className="mobile-nav-row"
                     style={{
                       fontWeight: active ? 600 : 400,
