@@ -5,21 +5,21 @@ import { Mail, MapPin, ExternalLink, FileText, ClipboardCheck, Scale } from 'luc
 import { SITE_URL } from '@/lib/constants';
 
 const CONTACT_URL = `${SITE_URL}/contact`;
-const DESCRIPTION = '노란봉투법 전문가 상담 문의 페이지. 사용자성 판단, 원청 교섭 의무, 하도급·공공기관 교섭 대응, 부당노동행위 리스크 점검을 노무법인 위너스에 온라인으로 접수하세요.';
+const DESCRIPTION = '부당해고, 임금체불, 직장내괴롭힘, 노란봉투법, 4대보험까지 — 노무법인 위너스에 온라인으로 노무 상담을 접수하세요. 공인노무사가 직접 검토합니다.';
 
 export const metadata: Metadata = {
-  title: '노란봉투법 전문가 상담 문의 | 사용자성·교섭 대응·하도급 자문',
+  title: '노무 상담 문의 | 부당해고·임금체불·괴롭힘·노란봉투법 | 노무법인 위너스',
   description: DESCRIPTION,
   alternates: { canonical: CONTACT_URL },
   openGraph: {
-    title: '노란봉투법 전문가 상담 문의',
+    title: '노무법인 위너스 종합 상담 문의',
     description: DESCRIPTION,
     type: 'website',
     url: CONTACT_URL,
   },
   twitter: {
     card: 'summary_large_image',
-    title: '노란봉투법 전문가 상담 문의',
+    title: '노무법인 위너스 종합 상담 문의',
     description: DESCRIPTION,
   },
 };
@@ -47,16 +47,20 @@ const quickLinks = [
 
 const contactFaqItems = [
   {
-    question: '언제 바로 상담 문의하는 편이 좋나요?',
-    answer: '하청 노동조합이 원청·발주처에 직접 교섭을 요구했거나, 교섭요구 사실 공고·교섭대표노조 확정·노동위원회 대응 일정이 이미 잡혀 있다면 바로 문의하는 편이 안전합니다.',
+    question: '어떤 상담을 받을 수 있나요?',
+    answer: '부당해고·징계, 임금체불·퇴직금, 직장내괴롭힘·성희롱, 노란봉투법(원청 교섭), 4대보험, 고용지원금 등 노동법 전반에 걸친 상담이 가능합니다. 문의 유형을 선택해 주시면 담당 노무사가 배정됩니다.',
   },
   {
     question: '문의 폼에는 어떤 내용을 적으면 좋나요?',
-    answer: '회사명, 원청·하청·발주처 중 위치, 교섭요구서 또는 노조 연락 수령 여부, 현재 쟁점(사용자성·교섭절차·부당노동행위·도급/파견), 급한 일정이 있으면 함께 적는 편이 좋습니다.',
+    answer: '회사명, 근로자/사업주 입장, 현재 쟁점(해고·임금·괴롭힘·교섭 등), 급한 일정이 있으면 함께 적어 주세요. 구체적일수록 첫 회신이 빨라집니다.',
   },
   {
-    question: '체크리스트만 먼저 해도 되나요?',
-    answer: '가능합니다. 다만 자가진단에서 사용자성 가능성이 높게 나오거나 이미 교섭요구를 받은 상태라면 체크리스트 확인 후 바로 전문가 상담으로 이어가는 편이 대응 누락을 줄이는 데 도움이 됩니다.',
+    question: '상담 비용이 있나요?',
+    answer: '초기 문의 접수와 간단한 방향 안내는 무료입니다. 사건 수임이나 서면 검토가 필요한 경우 별도 안내드립니다.',
+  },
+  {
+    question: '얼마나 빨리 회신 받을 수 있나요?',
+    answer: '영업일 기준 1일 이내 1차 회신을 드립니다. 긴급한 일정(노동위원회 출석, 해고 통보 등)이 있으면 폼에 꼭 적어 주세요.',
   },
 ] as const;
 
@@ -67,13 +71,13 @@ const contactJsonLd = {
       '@type': 'ContactPage',
       '@id': `${CONTACT_URL}/#webpage`,
       url: CONTACT_URL,
-      name: '노란봉투법 전문가 상담 문의',
+      name: '노무법인 위너스 종합 상담 문의',
       description: DESCRIPTION,
       isPartOf: { '@id': `${SITE_URL}/#website` },
       about: {
         '@type': 'Service',
-        name: '노란봉투법 전문가 상담',
-        serviceType: '노란봉투법 사용자성 판단 및 교섭 대응 자문',
+        name: '노무법인 위너스 노동법 종합 상담',
+        serviceType: '부당해고·임금체불·괴롭힘·노란봉투법·4대보험 자문',
         provider: { '@id': `${SITE_URL}/#organization` },
         areaServed: { '@type': 'Country', name: 'KR' },
         availableChannel: {
@@ -88,7 +92,7 @@ const contactJsonLd = {
       '@id': `${CONTACT_URL}/#breadcrumb`,
       itemListElement: [
         { '@type': 'ListItem', position: 1, name: '홈', item: SITE_URL },
-        { '@type': 'ListItem', position: 2, name: '노란봉투법 전문가 상담 문의', item: CONTACT_URL },
+        { '@type': 'ListItem', position: 2, name: '노무법인 위너스 종합 상담 문의', item: CONTACT_URL },
       ],
     },
     {
@@ -112,11 +116,11 @@ export default function ContactPage() {
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(contactJsonLd) }} />
       <div className="mx-auto max-w-[980px] px-5 py-10">
         <h1 className="mb-2 font-bold" style={{ fontSize: 'var(--text-2xl)', color: 'var(--grey-900)' }}>
-          노란봉투법 전문가 상담 문의
+          노무법인 위너스 종합 상담 문의
         </h1>
         <p className="mb-10 max-w-[760px] text-sm leading-6" style={{ color: 'var(--grey-500)' }}>
-          원청 사용자성 판단, 하청 노조 교섭요구 대응, 교섭창구 단일화, 노동위원회 절차, 부당노동행위 리스크 점검이 필요하면 아래 폼으로 내용을 남겨 주세요.
-          교섭요구서 수령 여부, 현재 일정, 원청·하청 구조를 함께 적어주시면 분류와 회신 준비가 빨라집니다.
+          부당해고·징계, 임금체불·퇴직금, 직장내괴롭힘·성희롱, 노란봉투법(원청 교섭), 4대보험, 고용지원금까지 — 노동법 전반에 걸친 상담을 접수할 수 있습니다.
+          회사명, 현재 쟁점, 급한 일정이 있으면 함께 적어 주세요. 공인노무사가 직접 검토합니다.
         </p>
 
         <div className="grid gap-10 lg:grid-cols-[1fr_320px]">
@@ -139,10 +143,11 @@ export default function ContactPage() {
             <section className="rounded-2xl border p-6" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }}>
               <h2 className="mb-3 text-lg font-bold" style={{ color: 'var(--grey-900)' }}>이런 경우 바로 문의하는 편이 좋습니다</h2>
               <ul className="space-y-2 text-sm leading-6" style={{ color: 'var(--grey-600)' }}>
-                <li>• 하청 노동조합이 원청 또는 발주처에 직접 교섭을 요구한 경우</li>
-                <li>• 우리 회사가 개정 노조법상 사용자에 해당하는지 애매한 경우</li>
-                <li>• 교섭요구 공고, 교섭대표노조 확정, 교섭단위 분리 대응이 필요한 경우</li>
-                <li>• 부당노동행위, 손해배상, 파견·도급 구조 리스크를 함께 봐야 하는 경우</li>
+                <li>• 해고·징계 통보를 받았거나 예고 없이 퇴사 처리된 경우</li>
+                <li>• 퇴직금·연장수당·주휴수당 등 임금이 체불되고 있는 경우</li>
+                <li>• 직장내괴롭힘·성희롱 피해를 입었거나 사내 조사가 진행 중인 경우</li>
+                <li>• 하청 노조가 원청에 교섭을 요구해 노란봉투법 대응이 필요한 경우</li>
+                <li>• 4대보험 취득·상실, 고용지원금 신청을 검토하고 있는 경우</li>
               </ul>
             </section>
 
@@ -211,10 +216,10 @@ export default function ContactPage() {
             <div className="rounded-2xl p-6" style={{ backgroundColor: 'var(--blue-50)' }}>
               <h2 className="mb-2 text-sm font-bold" style={{ color: 'var(--blue-700)' }}>상담 메모에 같이 남기면 좋은 정보</h2>
               <ul className="space-y-1.5 text-sm" style={{ color: 'var(--blue-600)' }}>
-                <li>• 원청/하청/발주처 중 어느 위치인지</li>
-                <li>• 교섭요구서 또는 노조 연락을 이미 받았는지</li>
-                <li>• 쟁점이 사용자성, 교섭절차, 손해배상, 도급·파견 중 무엇인지</li>
-                <li>• 검토가 급한 날짜나 예정된 회의 일정이 있는지</li>
+                <li>• 근로자 / 사업주 중 어느 입장인지</li>
+                <li>• 현재 쟁점 (해고·임금·괴롭힘·교섭·보험 등)</li>
+                <li>• 회사 규모와 근속 기간</li>
+                <li>• 검토가 급한 날짜나 예정된 일정이 있는지</li>
               </ul>
             </div>
           </div>
