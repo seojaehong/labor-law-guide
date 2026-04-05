@@ -321,7 +321,8 @@ function DatabaseContent({ initialTotalCases, initialTotalAdmin, initialTotalNlr
   }, [router]);
 
   const search = useCallback(async (q: string, tab: TabType, p: number) => {
-    if (!q || q.length < 2) return;
+    const trimmed = q.trim();
+    if (!trimmed || trimmed.length < 2 || /^[%_\\]+$/.test(trimmed)) return;
     setLoading(true);
     setSearched(true);
     setSearchTotal(null);
@@ -330,7 +331,7 @@ function DatabaseContent({ initialTotalCases, initialTotalAdmin, initialTotalNlr
     // 총 건수 조회 (ILIKE 기반, 병렬 실행)
     const tableMap = { cases: 'cases', admin: 'admin_interpretations', nlrc: 'nlrc_decisions' } as const;
     const summaryCol = tab === 'nlrc' ? 'holding_summary' : 'summary';
-    const safeQ = q.replace(/[%_\\,().]/g, '');
+    const safeQ = trimmed.replace(/[%_\\,().]/g, '');
     const countPromise = supabase
       .from(tableMap[tab])
       .select('id', { count: 'exact', head: true })

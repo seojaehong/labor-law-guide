@@ -2,6 +2,8 @@
 
 import { useState, useRef, useEffect, type FormEvent } from 'react';
 import { Send, Bot, User, Loader2 } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -83,13 +85,17 @@ export default function ChatInterface({ injectedQuestion }: { injectedQuestion?:
               {msg.role === 'user' ? <User size={14} style={{ color: 'var(--blue-500)' }} /> : <Bot size={14} style={{ color: 'var(--grey-600)' }} />}
             </div>
             <div
-              className="max-w-[80%] rounded-2xl px-4 py-3 text-[15px] leading-relaxed"
+              className={`max-w-[80%] rounded-2xl px-4 py-3 text-[15px] leading-relaxed${msg.role === 'assistant' ? ' chat-markdown' : ''}`}
               style={{
                 backgroundColor: msg.role === 'user' ? 'var(--blue-50)' : 'var(--grey-50)',
                 color: 'var(--grey-800)',
               }}
             >
-              {msg.content}
+              {msg.role === 'assistant' ? (
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content}</ReactMarkdown>
+              ) : (
+                msg.content
+              )}
             </div>
           </div>
         ))}

@@ -114,6 +114,7 @@ function DesktopDropdown({ item, pathname }: { item: Extract<NavItem, { kind: 'd
         {open && (
           <motion.div
             className="nav-dropdown"
+            role="menu"
             initial={{ opacity: 0, y: -6, scale: 0.97 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -6, scale: 0.97 }}
@@ -125,6 +126,7 @@ function DesktopDropdown({ item, pathname }: { item: Extract<NavItem, { kind: 'd
                 <Link
                   key={child.href}
                   href={child.href}
+                  role="menuitem"
                   className="nav-dropdown-item"
                   style={{
                     color: childActive ? 'var(--color-accent)' : 'var(--color-text-primary)',
@@ -190,13 +192,14 @@ function MobileDropdown({
             transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
             style={{ overflow: 'hidden' }}
           >
-            <div className="mobile-nav-sub">
+            <div className="mobile-nav-sub" role="menu">
               {item.items.map((child) => {
                 const childActive = pathname === child.href || pathname.startsWith(child.href + '/');
                 return (
                   <Link
                     key={child.href}
                     href={child.href}
+                    role="menuitem"
                     onClick={onNavigate}
                     className="mobile-nav-sub-item"
                     style={{

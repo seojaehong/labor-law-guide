@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { ArrowRight, Scale, Users, FileText, MessageSquare, Shield, ClipboardCheck, Search, BookOpen, Calendar } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { getCategoryColor } from '@/lib/category-colors';
 
 interface LatestBlogArticle {
   id: string;
@@ -34,14 +35,7 @@ function formatDate(dateStr: string) {
 }
 
 function BlogCategoryBadge({ category }: { category: string }) {
-  const colorMap: Record<string, { bg: string; text: string }> = {
-    '노동법': { bg: '#e8f3ff', text: '#1b64da' },
-    '판례분석': { bg: '#f5f3ff', text: '#6d28d9' },
-    '뉴스해설': { bg: '#fef3c7', text: '#92400e' },
-    '실무가이드': { bg: '#ecfdf5', text: '#065f46' },
-    'general': { bg: 'var(--grey-100)', text: 'var(--grey-600)' },
-  };
-  const color = colorMap[category] || colorMap['general'];
+  const color = getCategoryColor(category);
   return (
     <span
       className="rounded-full px-2.5 py-0.5 text-[11px] font-semibold"
