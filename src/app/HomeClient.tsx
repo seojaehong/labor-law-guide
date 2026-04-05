@@ -129,11 +129,11 @@ export default function HomeClient({ totalCases, totalAdmin, totalNews, latestBl
               해석지침 보기 <ArrowRight size={16} />
             </Link>
             <Link
-              href="/contact#consult-form"
+              href="/contact"
               className="flex items-center gap-2 rounded-lg border px-6 py-3 font-medium transition-transform hover:scale-105"
               style={{ borderColor: 'var(--color-accent)', color: 'var(--color-accent)', backgroundColor: 'white' }}
             >
-              노란봉투법 상담 문의 <ArrowRight size={16} />
+              전문가 상담 문의 <ArrowRight size={16} />
             </Link>
             <Link
               href="/ai"
@@ -152,8 +152,8 @@ export default function HomeClient({ totalCases, totalAdmin, totalNews, latestBl
             <Link href="/manual" className="rounded-full border px-3 py-1.5 hover:border-[var(--color-accent)] hover:text-[var(--color-accent)]" style={{ borderColor: 'var(--color-border)' }}>
               교섭요구 대응 절차 보기
             </Link>
-            <Link href="/contact#consult-form" className="rounded-full border px-3 py-1.5 hover:border-[var(--color-accent)] hover:text-[var(--color-accent)]" style={{ borderColor: 'var(--color-border)' }}>
-              교섭요구서 받았다면 노란봉투법 상담 문의
+            <Link href="/contact" className="rounded-full border px-3 py-1.5 hover:border-[var(--color-accent)] hover:text-[var(--color-accent)]" style={{ borderColor: 'var(--color-border)' }}>
+              교섭요구서 받았다면 상담 문의
             </Link>
           </div>
           <div className="mt-6 flex flex-wrap items-center justify-center gap-2">
@@ -171,13 +171,6 @@ export default function HomeClient({ totalCases, totalAdmin, totalNews, latestBl
               </span>
             ))}
           </div>
-          <p className="mt-4 text-sm" style={{ color: 'var(--color-text-secondary)' }}>
-            교섭요구서·공고문·노동위 일정이 잡혀 있다면{' '}
-            <Link href="/contact#consult-form" className="font-medium hover:underline" style={{ color: 'var(--color-accent)' }}>
-              노란봉투법 상담 문의 폼
-            </Link>
-            에 함께 적어 주세요. 영업일 기준 1일 이내 1차 회신을 목표로 분류합니다.
-          </p>
         </motion.div>
       </section>
 
@@ -302,11 +295,11 @@ export default function HomeClient({ totalCases, totalAdmin, totalNews, latestBl
               교섭 의무 체크리스트 보기 <ArrowRight size={16} />
             </Link>
             <Link
-              href="/contact#consult-form"
+              href="/contact"
               className="inline-flex items-center gap-2 rounded-lg border px-5 py-3 font-medium"
               style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-primary)' }}
             >
-              원청·하청 교섭 상담 문의 <ArrowRight size={16} />
+              노란봉투법 상담 문의 <ArrowRight size={16} />
             </Link>
           </div>
         </div>
@@ -331,19 +324,19 @@ export default function HomeClient({ totalCases, totalAdmin, totalNews, latestBl
 
       <section className="px-5 pb-20">
         <div className="mx-auto max-w-[700px] rounded-2xl p-8 text-center" style={{ backgroundColor: 'var(--grey-900)' }}>
-          <h2 className="mb-3 text-xl font-bold text-white">교섭요구서·공고문·노동위 일정이 잡혔다면 바로 상담하세요</h2>
+          <h2 className="mb-3 text-xl font-bold text-white">노란봉투법 실무 자문이 필요하면 바로 상담하세요</h2>
           <p className="mb-3 text-sm text-white/70">
             원청 사용자성 판단, 하청 노조 교섭요구 대응, 노동위원회 절차, 부당노동행위 리스크 점검까지 노무법인 위너스가 직접 봅니다.
           </p>
           <p className="mb-6 text-xs text-white/55">
-            공문 수령 여부와 급한 일정을 함께 남겨주시면 영업일 기준 1일 이내 1차 회신을 목표로 분류합니다.
+            상황을 남겨주시면 내용을 검토한 뒤 순차적으로 회신합니다.
           </p>
           <Link
-            href="/contact#consult-form"
+            href="/contact"
             className="inline-flex items-center gap-2 rounded-lg px-6 py-3 font-medium"
             style={{ backgroundColor: 'white', color: 'var(--grey-900)' }}
           >
-            교섭요구 대응 상담 문의 <ArrowRight size={16} />
+            노란봉투법 전문가 상담 문의 <ArrowRight size={16} />
           </Link>
         </div>
       </section>
