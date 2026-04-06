@@ -115,7 +115,8 @@ export default function ChatInterface({ injectedQuestion }: { injectedQuestion?:
           value={input}
           onChange={(e) => setInput(e.target.value)}
           placeholder="노란봉투법에 대해 질문해 주세요..."
-          className="flex-1 rounded-lg border px-4 py-2.5 text-[15px] outline-none transition-colors focus:border-[var(--color-accent)]"
+          aria-label="노란봉투법에 대한 질문 입력"
+          className="flex-1 rounded-lg border px-4 py-2.5 text-[15px] outline-none transition-colors focus-visible:outline-2 focus-visible:outline-[var(--color-accent)] focus-visible:outline-offset-2 focus:border-[var(--color-accent)]"
           style={{ borderColor: 'var(--color-border)' }}
         />
         <button

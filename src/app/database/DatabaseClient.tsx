@@ -448,18 +448,22 @@ function DatabaseContent({ initialTotalCases, initialTotalAdmin, initialTotalNlr
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="검색어를 입력하세요 (예: 사용자성, 단체교섭, 파견)"
-            className="w-full rounded-xl border py-3 pl-11 pr-4 text-[15px] outline-none transition-all focus:border-[var(--color-accent)] focus:ring-2 focus:ring-[var(--color-accent)]/20"
+            aria-label="판례·행정해석·노동위결정문 검색"
+            className="w-full rounded-xl border py-3 pl-11 pr-4 text-[15px] outline-none transition-all focus-visible:outline-2 focus-visible:outline-[var(--color-accent)] focus-visible:outline-offset-2 focus:border-[var(--color-accent)] focus:ring-2 focus:ring-[var(--color-accent)]/20"
             style={{ borderColor: 'var(--color-border)', backgroundColor: 'white' }}
           />
         </div>
       </form>
 
-      <div className="mt-5 flex gap-2">
+      <div className="mt-5 flex gap-2" role="tablist" aria-label="검색 데이터 유형">
         {TABS.map((tab) => {
           const count = tab.key === 'cases' ? totalCases : tab.key === 'admin' ? totalAdmin : totalNlrc;
           return (
             <button
               key={tab.key}
+              role="tab"
+              aria-selected={activeTab === tab.key}
+              aria-controls={`tabpanel-${tab.key}`}
               onClick={() => handleTabChange(tab.key)}
               className="flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-medium transition-colors"
               style={{

@@ -25,7 +25,7 @@ export default function AIPage() {
       </p>
 
       {/* Tabs */}
-      <div className="mb-6 flex gap-2">
+      <div className="mb-6 flex gap-2" role="tablist" aria-label="AI 상담 메뉴">
         {[
           { key: 'chat' as const, label: 'AI 채팅', icon: Search },
           { key: 'faq' as const, label: `FAQ (${qaDatabase.length})`, icon: MessageCircleQuestion },
@@ -33,6 +33,9 @@ export default function AIPage() {
         ].map((t) => (
           <button
             key={t.key}
+            role="tab"
+            aria-selected={tab === t.key}
+            aria-controls={`ai-tabpanel-${t.key}`}
             onClick={() => setTab(t.key)}
             className="flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-medium transition-colors"
             style={{
@@ -46,7 +49,7 @@ export default function AIPage() {
         ))}
       </div>
 
-      {tab === 'chat' && (
+      <div id="ai-tabpanel-chat" role="tabpanel" style={{ display: tab === 'chat' ? undefined : 'none' }}>
         <div className="grid gap-6 lg:grid-cols-[1fr_380px]">
           <ChatInterface injectedQuestion={pendingQuestion} />
           <div className="space-y-4">
@@ -66,10 +69,10 @@ export default function AIPage() {
             ))}
           </div>
         </div>
-      )}
+      </div>
 
       {tab === 'faq' && (
-        <div className="max-w-[800px]">
+        <div id="ai-tabpanel-faq" role="tabpanel" className="max-w-[800px]">
           {/* Category filter */}
           <div className="mb-6 flex flex-wrap gap-2">
             {categories.map((cat) => (
@@ -103,7 +106,7 @@ export default function AIPage() {
       )}
 
       {tab === 'glossary' && (
-        <div className="max-w-[800px]">
+        <div id="ai-tabpanel-glossary" role="tabpanel" className="max-w-[800px]">
           <div className="rounded-xl border overflow-hidden" style={{ borderColor: 'var(--color-border)' }}>
             {glossary.map((item, i) => (
               <div

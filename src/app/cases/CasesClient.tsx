@@ -17,6 +17,8 @@ export default function CasesClient() {
             <div key={c.id} className="overflow-hidden rounded-xl border" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }}>
               <button
                 onClick={() => setOpenId(isOpen ? null : c.id)}
+                aria-expanded={isOpen}
+                aria-controls={`case-panel-${c.id}`}
                 className="flex w-full items-center gap-3 p-4 text-left"
               >
                 <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg" style={{ backgroundColor: 'var(--color-accent-light)' }}>
@@ -37,7 +39,7 @@ export default function CasesClient() {
               </button>
 
               {isOpen && (
-                <div className="space-y-3 border-t px-4 pb-4 pt-3" style={{ borderColor: 'var(--color-border)' }}>
+                <div id={`case-panel-${c.id}`} role="region" className="space-y-3 border-t px-4 pb-4 pt-3" style={{ borderColor: 'var(--color-border)' }}>
                   <Section label="핵심 판시" text={c.keyHolding} />
                   <Section label="개정법과의 연결" text={c.connectionToAct} />
                   <Section label="실무 시사점" text={c.kotraImplication} />

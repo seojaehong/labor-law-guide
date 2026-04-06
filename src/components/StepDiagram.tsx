@@ -39,7 +39,12 @@ export default function StepDiagram({ steps }: { steps: Step[] }) {
                 className="rounded-xl border p-5 transition-shadow"
                 style={{ backgroundColor: 'var(--color-bg-surface)', borderColor: 'var(--color-border)', boxShadow: 'var(--shadow-sm)' }}
               >
-                <button onClick={() => setExpanded(isOpen ? null : step.id)} className="flex w-full items-center justify-between text-left">
+                <button
+                onClick={() => setExpanded(isOpen ? null : step.id)}
+                aria-expanded={isOpen}
+                aria-controls={`step-panel-${step.id}`}
+                className="flex w-full items-center justify-between text-left"
+              >
                   <div>
                     <div className="flex items-center gap-2">
                       <span
@@ -58,7 +63,7 @@ export default function StepDiagram({ steps }: { steps: Step[] }) {
                 <p className="mt-2 text-[15px]" style={{ color: 'var(--grey-600)' }}>{step.description}</p>
 
                 {isOpen && (
-                  <div className="mt-4 space-y-3">
+                  <div id={`step-panel-${step.id}`} role="region" className="mt-4 space-y-3">
                     <ul className="space-y-2">
                       {step.details.map((d, i) => (
                         <li key={i} className="flex gap-2 text-[15px]" style={{ color: 'var(--grey-700)' }}>

@@ -57,29 +57,27 @@ export default function ChecklistPageClient() {
         </button>
       </div>
 
-      {mainTab === 'simple' && (
-        <>
-          <SubTabSelector subTab={subTab} setSubTab={setSubTab} />
-          {subTab === 'subcontract' && (
-            <SimpleChecklistWidget title={subcontractChecklistTitle} description={subcontractChecklistDescription} items={subcontractChecklist} results={subcontractChecklistResults} />
-          )}
-          {subTab === 'employer' && (
-            <SimpleChecklistWidget title={employerChecklistTitle} description={employerChecklistDescription} items={employerChecklist} results={employerChecklistResults} />
-          )}
-        </>
-      )}
+      <SubTabSelector subTab={subTab} setSubTab={setSubTab} />
 
-      {mainTab === 'deep' && (
-        <>
-          <SubTabSelector subTab={subTab} setSubTab={setSubTab} />
-          {subTab === 'subcontract' && (
-            <ChecklistWidget title={subcontractChecklistTitle} description={subcontractChecklistDescription} items={subcontractChecklist} results={subcontractChecklistResults} />
-          )}
-          {subTab === 'employer' && (
-            <DeepChecklistWidget />
-          )}
-        </>
-      )}
+      {/* 약식 진단 — display:none으로 상태 보존 */}
+      <div style={{ display: mainTab === 'simple' ? undefined : 'none' }}>
+        <div style={{ display: subTab === 'subcontract' ? undefined : 'none' }}>
+          <SimpleChecklistWidget title={subcontractChecklistTitle} description={subcontractChecklistDescription} items={subcontractChecklist} results={subcontractChecklistResults} />
+        </div>
+        <div style={{ display: subTab === 'employer' ? undefined : 'none' }}>
+          <SimpleChecklistWidget title={employerChecklistTitle} description={employerChecklistDescription} items={employerChecklist} results={employerChecklistResults} />
+        </div>
+      </div>
+
+      {/* 심층 진단 — display:none으로 상태 보존 */}
+      <div style={{ display: mainTab === 'deep' ? undefined : 'none' }}>
+        <div style={{ display: subTab === 'subcontract' ? undefined : 'none' }}>
+          <ChecklistWidget title={subcontractChecklistTitle} description={subcontractChecklistDescription} items={subcontractChecklist} results={subcontractChecklistResults} />
+        </div>
+        <div style={{ display: subTab === 'employer' ? undefined : 'none' }}>
+          <DeepChecklistWidget />
+        </div>
+      </div>
     </>
   );
 }

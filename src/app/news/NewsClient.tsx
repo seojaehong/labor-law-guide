@@ -302,7 +302,8 @@ export default function NewsClient({ initialNews, initialTotalCount, initialBrie
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="뉴스 검색..."
-            className="w-full rounded-xl border py-2.5 pl-10 pr-4 text-[14px] outline-none transition-colors focus:border-[var(--color-accent)]"
+            aria-label="뉴스 검색"
+            className="w-full rounded-xl border py-2.5 pl-10 pr-4 text-[14px] outline-none transition-colors focus-visible:outline-2 focus-visible:outline-[var(--color-accent)] focus-visible:outline-offset-2 focus:border-[var(--color-accent)]"
             style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }}
           />
         </div>

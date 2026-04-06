@@ -62,7 +62,7 @@ export default function SimpleChecklistWidget({ title, description, items, resul
       <p className="mb-2 text-sm" style={{ color: 'var(--grey-500)' }}>{description}</p>
 
       <div className="mb-6 flex items-center gap-3">
-        <div className="h-2 flex-1 rounded-full" style={{ backgroundColor: 'var(--grey-100)' }}>
+        <div className="h-2 flex-1 rounded-full" style={{ backgroundColor: 'var(--grey-100)' }} role="progressbar" aria-valuenow={checkedCount} aria-valuemin={0} aria-valuemax={totalCount} aria-label={`${checkedCount}/${totalCount} 체크 완료`}>
           <div className="h-2 rounded-full transition-all" style={{ width: `${(checkedCount / totalCount) * 100}%`, backgroundColor: 'var(--color-accent)' }} />
         </div>
         <span className="shrink-0 text-xs font-medium" style={{ color: 'var(--grey-500)' }}>{checkedCount}/{totalCount} 체크</span>

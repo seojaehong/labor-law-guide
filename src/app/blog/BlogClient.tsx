@@ -200,7 +200,8 @@ export default function BlogClient({ initialArticles }: BlogClientProps) {
           value={searchQuery}
           onChange={handleSearch}
           placeholder="제목, 요약으로 검색..."
-          className="w-full rounded-xl border py-2.5 pl-10 pr-4 text-[14px] outline-none transition-colors focus:border-[var(--color-accent)]"
+          aria-label="블로그 글 검색"
+          className="w-full rounded-xl border py-2.5 pl-10 pr-4 text-[14px] outline-none transition-colors focus-visible:outline-2 focus-visible:outline-[var(--color-accent)] focus-visible:outline-offset-2 focus:border-[var(--color-accent)]"
           style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }}
         />
       </div>

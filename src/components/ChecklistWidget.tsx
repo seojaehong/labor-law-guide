@@ -80,7 +80,7 @@ export default function ChecklistWidget({ title, description, items, results }: 
 
       {/* 진행률 */}
       <div className="mb-6 flex items-center gap-3">
-        <div className="h-2 flex-1 rounded-full" style={{ backgroundColor: 'var(--grey-100)' }}>
+        <div className="h-2 flex-1 rounded-full" style={{ backgroundColor: 'var(--grey-100)' }} role="progressbar" aria-valuenow={answeredCount} aria-valuemin={0} aria-valuemax={totalCount} aria-label={`${answeredCount}/${totalCount} 응답 완료`}>
           <div
             className="h-2 rounded-full transition-all"
             style={{ width: `${(answeredCount / totalCount) * 100}%`, backgroundColor: 'var(--color-accent)' }}
@@ -181,6 +181,7 @@ function CheckItemRow({ item, selected, onSelect }: { item: ChecklistItem; selec
             <button
               key={opt.value}
               onClick={() => onSelect(opt.value)}
+              aria-pressed={isActive}
               className="rounded-md px-2.5 py-1 text-xs font-medium transition-colors"
               style={{
                 backgroundColor: isActive ? opt.activeBg : 'var(--grey-100)',
