@@ -1,8 +1,5 @@
-'use client';
-
-import { useState, useEffect } from 'react';
 import { guideSections } from '@/content/guide-data';
-import SectionNav from '@/components/SectionNav';
+import GuideScrollTracker from '@/components/GuideScrollTracker';
 import ArticleCard from '@/components/ArticleCard';
 import CaseCard from '@/components/CaseCard';
 import ComparisonTable from '@/components/ComparisonTable';
@@ -12,34 +9,15 @@ import { timeline } from '@/content/checklist-data';
 import { ListChecks, BookOpen, Clock } from 'lucide-react';
 
 export default function GuidePage() {
-  const [activeId, setActiveId] = useState(guideSections[0]?.id || '');
-
-  useEffect(() => {
-    const observer = new IntersectionObserver(
-      (entries) => {
-        for (const entry of entries) {
-          if (entry.isIntersecting) {
-            setActiveId(entry.target.id);
-          }
-        }
-      },
-      { rootMargin: '-80px 0px -60% 0px' }
-    );
-    for (const s of guideSections) {
-      const el = document.getElementById(s.id);
-      if (el) observer.observe(el);
-    }
-    return () => observer.disconnect();
-  }, []);
-
   const navSections = guideSections.map((s) => ({ id: s.id, title: s.title }));
+  const tocSections = [...navSections, { id: 'checklist', title: '자가진단' }, { id: 'timeline', title: '입법 경과' }];
 
   return (
     <div className="docs-layout">
       {/* Left sidebar */}
       <aside className="docs-sidebar sticky top-14 h-[calc(100vh-56px)] overflow-y-auto border-r p-5" style={{ borderColor: 'var(--color-border)' }}>
         <h2 className="mb-4 text-sm font-bold" style={{ color: 'var(--grey-500)' }}>해석지침</h2>
-        <SectionNav sections={navSections} activeId={activeId} />
+        <GuideScrollTracker sections={navSections} />
         <div className="mt-6 border-t pt-4" style={{ borderColor: 'var(--color-border)' }}>
           <a href="#checklist" className="toc-link flex items-center gap-2">
             <ListChecks size={14} />
@@ -174,7 +152,7 @@ export default function GuidePage() {
       {/* Right TOC */}
       <aside className="docs-toc sticky top-14 hidden h-[calc(100vh-56px)] overflow-y-auto p-5 xl:block">
         <h3 className="mb-3 text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--grey-400)' }}>목차</h3>
-        <SectionNav sections={[...navSections, { id: 'checklist', title: '자가진단' }, { id: 'timeline', title: '입법 경과' }]} activeId={activeId} />
+        <GuideScrollTracker sections={tocSections} />
       </aside>
     </div>
   );

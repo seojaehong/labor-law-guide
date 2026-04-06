@@ -1,5 +1,3 @@
-'use client';
-
 import StepDiagram from '@/components/StepDiagram';
 import { negotiationSteps, unitSeparation } from '@/content/manual-data';
 import { unionPrepChecklist, employerPrepChecklist } from '@/content/checklist-data';
