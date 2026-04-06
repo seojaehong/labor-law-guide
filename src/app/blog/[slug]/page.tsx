@@ -8,7 +8,7 @@ import rehypeSanitize, { defaultSchema } from 'rehype-sanitize';
 import { supabaseServer } from '@/lib/supabase-server';
 import { SITE_URL } from '@/lib/constants';
 import { cleanBlogSummary, extractBlogLead } from '@/lib/blog-summary';
-import { ArrowLeft, Calendar, User, Tag, BookOpen, ArrowRight } from 'lucide-react';
+import { ArrowLeft, Calendar, User, Tag, BookOpen, ArrowRight, MessageSquare, ClipboardCheck } from 'lucide-react';
 import { getCategoryColor } from '@/lib/category-colors';
 
 export const dynamicParams = true;
@@ -359,24 +359,54 @@ export default async function BlogArticlePage({
               </section>
             )}
 
-            {/* 상담 CTA */}
-            <section
-              className="mt-12 rounded-2xl border p-6 sm:p-8 text-center"
-              style={{ borderColor: 'var(--color-accent)', backgroundColor: 'var(--blue-50)' }}
-            >
-              <p className="text-lg font-bold" style={{ color: 'var(--color-text-primary)' }}>
-                이 주제에 대해 전문가 상담이 필요하신가요?
-              </p>
-              <p className="mt-2 text-sm" style={{ color: 'var(--color-text-secondary)' }}>
-                노무법인 위너스에서 사업장 맞춤 상담을 제공합니다.
-              </p>
-              <Link
-                href="/contact"
-                className="mt-4 inline-block rounded-xl px-6 py-3 text-sm font-semibold text-white transition-colors hover:opacity-90"
-                style={{ backgroundColor: 'var(--color-accent)' }}
+            {/* 전환 CTA — AI + 자가진단 + 전문가 상담 */}
+            <section className="mt-12 space-y-4">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Link
+                  href="/ai"
+                  className="flex items-center gap-3 rounded-xl border p-5 transition-shadow hover:shadow-md"
+                  style={{ borderColor: 'var(--color-accent)', backgroundColor: 'var(--blue-50)' }}
+                >
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg" style={{ backgroundColor: 'var(--color-accent)' }}>
+                    <MessageSquare size={18} style={{ color: 'white' }} />
+                  </div>
+                  <div>
+                    <p className="text-sm font-bold" style={{ color: 'var(--color-text-primary)' }}>AI에게 질문하기</p>
+                    <p className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>이 글의 내용이 우리 사업장에도 해당되는지 확인</p>
+                  </div>
+                </Link>
+                <Link
+                  href="/checklist"
+                  className="flex items-center gap-3 rounded-xl border p-5 transition-shadow hover:shadow-md"
+                  style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }}
+                >
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg" style={{ backgroundColor: '#059669' }}>
+                    <ClipboardCheck size={18} style={{ color: 'white' }} />
+                  </div>
+                  <div>
+                    <p className="text-sm font-bold" style={{ color: 'var(--color-text-primary)' }}>자가진단 체크리스트</p>
+                    <p className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>교섭 의무 · 사용자성 해당 여부 1분 진단</p>
+                  </div>
+                </Link>
+              </div>
+              <div
+                className="rounded-2xl p-6 sm:p-8 text-center"
+                style={{ backgroundColor: 'var(--grey-900)' }}
               >
-                무료 상담 신청하기
-              </Link>
+                <p className="text-lg font-bold text-white">
+                  전문가 상담이 필요하신가요?
+                </p>
+                <p className="mt-2 text-sm text-white/70">
+                  노무법인 위너스에서 사업장 맞춤 상담을 제공합니다.
+                </p>
+                <Link
+                  href="/contact"
+                  className="mt-4 inline-flex items-center gap-2 rounded-xl px-6 py-3 text-sm font-semibold transition-colors hover:opacity-90"
+                  style={{ backgroundColor: 'white', color: 'var(--grey-900)' }}
+                >
+                  무료 상담 신청하기 <ArrowRight size={14} />
+                </Link>
+              </div>
             </section>
           </article>
 

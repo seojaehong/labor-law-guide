@@ -3,7 +3,7 @@
 import { useState, useCallback, useEffect, Suspense } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Search, Scale, FileText, Landmark, ChevronDown, ChevronUp, Loader2, ExternalLink, ArrowRight } from 'lucide-react';
+import { Search, Scale, FileText, Landmark, ChevronDown, ChevronUp, Loader2, ExternalLink, ArrowRight, MessageSquare } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { supabase } from '@/lib/supabase';
@@ -340,9 +340,13 @@ function DatabaseContent({ initialTotalCases, initialTotalAdmin, initialTotalNlr
 
     try {
       setSearchError(null);
+      // RPC에도 특수문자 이스케이프 적용
+      const rpcQuery = trimmed.replace(/[%_\\'"();]/g, '');
+      if (!rpcQuery || rpcQuery.length < 2) return;
+
       if (tab === 'cases') {
         const { data, error } = await supabase.rpc('search_cases', {
-          query: q, result_limit: SEARCH_LIMIT + 1, page_offset: offset,
+          query: rpcQuery, result_limit: SEARCH_LIMIT + 1, page_offset: offset,
         });
         if (error) throw error;
         if (data) {
@@ -353,7 +357,7 @@ function DatabaseContent({ initialTotalCases, initialTotalAdmin, initialTotalNlr
         }
       } else if (tab === 'admin') {
         const { data, error } = await supabase.rpc('search_admin', {
-          query: q, result_limit: SEARCH_LIMIT + 1, page_offset: offset,
+          query: rpcQuery, result_limit: SEARCH_LIMIT + 1, page_offset: offset,
         });
         if (error) throw error;
         if (data) {
@@ -364,7 +368,7 @@ function DatabaseContent({ initialTotalCases, initialTotalAdmin, initialTotalNlr
         }
       } else {
         const { data, error } = await supabase.rpc('search_nlrc', {
-          query: q, result_limit: SEARCH_LIMIT + 1, page_offset: offset,
+          query: rpcQuery, result_limit: SEARCH_LIMIT + 1, page_offset: offset,
         });
         if (error) throw error;
         if (data) {
@@ -615,6 +619,38 @@ function DatabaseContent({ initialTotalCases, initialTotalAdmin, initialTotalNlr
             >
               다음 →
             </button>
+          </div>
+        )}
+
+        {/* AI 상담 + 전문가 상담 CTA */}
+        {searched && currentResults.length > 0 && (
+          <div className="mt-8 grid gap-4 sm:grid-cols-2">
+            <Link
+              href={`/ai?q=${encodeURIComponent(query)}`}
+              className="flex items-center gap-3 rounded-xl border p-5 transition-shadow hover:shadow-md"
+              style={{ borderColor: 'var(--color-accent)', backgroundColor: 'var(--blue-50)' }}
+            >
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg" style={{ backgroundColor: 'var(--color-accent)' }}>
+                <MessageSquare size={18} style={{ color: 'white' }} />
+              </div>
+              <div>
+                <p className="text-sm font-bold" style={{ color: 'var(--color-text-primary)' }}>AI에게 해석 물어보기</p>
+                <p className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>검색 결과를 기반으로 AI가 쉽게 풀어드립니다</p>
+              </div>
+            </Link>
+            <Link
+              href="/contact"
+              className="flex items-center gap-3 rounded-xl border p-5 transition-shadow hover:shadow-md"
+              style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }}
+            >
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg" style={{ backgroundColor: 'var(--grey-900)' }}>
+                <ArrowRight size={18} style={{ color: 'white' }} />
+              </div>
+              <div>
+                <p className="text-sm font-bold" style={{ color: 'var(--color-text-primary)' }}>전문가에게 직접 상담</p>
+                <p className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>구체적인 사안은 노무법인 위너스가 직접 봅니다</p>
+              </div>
+            </Link>
           </div>
         )}
       </div>
