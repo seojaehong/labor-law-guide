@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import ChatInterface from '@/components/ChatInterface';
 import { glossary } from '@/content/checklist-data';
 import { qaDatabase } from '@/content/ai-knowledge';
@@ -9,9 +10,18 @@ import { Search, BookOpen, MessageCircleQuestion } from 'lucide-react';
 const categories = ['전체', '일반', '사용자성', '교섭절차', '노동쟁의', '실무'] as const;
 
 export default function AIPage() {
+  const searchParams = useSearchParams();
   const [tab, setTab] = useState<'chat' | 'faq' | 'glossary'>('chat');
   const [faqFilter, setFaqFilter] = useState<string>('전체');
   const [pendingQuestion, setPendingQuestion] = useState<string | undefined>();
+
+  useEffect(() => {
+    const handoffQuestion = searchParams.get('q')?.trim();
+    if (!handoffQuestion) return;
+
+    setTab('chat');
+    setPendingQuestion(`${handoffQuestion}_${Date.now()}`);
+  }, [searchParams]);
 
   const filteredFaq = faqFilter === '전체' ? qaDatabase : qaDatabase.filter((q) => q.category === faqFilter);
 

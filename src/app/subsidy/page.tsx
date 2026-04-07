@@ -1,10 +1,9 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { ExternalLink, BadgeCheck, BookOpen, MessageSquare } from 'lucide-react';
-import { SITE_URL } from '@/lib/constants';
+import { SITE_URL, SUBSIDY_GUIDE_URL } from '@/lib/constants';
 
 const SUBSIDY_URL = `${SITE_URL}/subsidy`;
-const EXTERNAL_GUIDE_URL = 'https://reporeview.vercel.app/';
 const DESCRIPTION = '고용지원금 종류·신청 요건·절차를 한눈에 확인하세요. 두루누리, 출산육아기 고용안정장려금, 서울시 워라밸 포인트제, 고용촉진장려금 등 우리 사업장에 맞는 지원금을 찾아드립니다.';
 
 export const metadata: Metadata = {
@@ -87,14 +86,14 @@ export default function SubsidyPage() {
             </section>
 
             <a
-              href={EXTERNAL_GUIDE_URL}
+              href={SUBSIDY_GUIDE_URL}
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center justify-center gap-2 rounded-2xl px-6 py-4 text-sm font-bold text-white transition-opacity hover:opacity-90"
               style={{ backgroundColor: 'var(--color-accent)' }}
             >
               <BookOpen size={18} />
-              고용지원금 상세 가이드 보기
+              고용지원금 앱 열기
               <ExternalLink size={14} />
             </a>
           </div>
