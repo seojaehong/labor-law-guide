@@ -173,7 +173,7 @@ A: 네. 공공기관도 하청 근로자에 대해 실질적 지배력을 행사
 
 ## 운영
 
-- 사이트: https://yellow-envelope.vercel.app
+- 사이트: https://노란봉투법.com
 - 운영: 노무법인 위너스
 - 소재지: 서울시 서초구 나루터로 61, 402호
 - 이메일: abc@winhr.co.kr

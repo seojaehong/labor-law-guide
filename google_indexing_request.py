@@ -12,15 +12,15 @@ SERVICE_ACCOUNT_FILE = r'C:\Users\iceam\Downloads\gen-lang-client-0672540876-ad7
 SCOPES = ['https://www.googleapis.com/auth/indexing']
 
 URLS = [
-    'https://yellow-envelope.vercel.app/',
-    'https://yellow-envelope.vercel.app/guide',
-    'https://yellow-envelope.vercel.app/checklist',
-    'https://yellow-envelope.vercel.app/manual',
-    'https://yellow-envelope.vercel.app/cases',
-    'https://yellow-envelope.vercel.app/database',
-    'https://yellow-envelope.vercel.app/news',
-    'https://yellow-envelope.vercel.app/ai',
-    'https://yellow-envelope.vercel.app/contact',
+    'https://노란봉투법.com/',
+    'https://노란봉투법.com/guide',
+    'https://노란봉투법.com/checklist',
+    'https://노란봉투법.com/manual',
+    'https://노란봉투법.com/cases',
+    'https://노란봉투법.com/database',
+    'https://노란봉투법.com/news',
+    'https://노란봉투법.com/ai',
+    'https://노란봉투법.com/contact',
 ]
 
 def main():
