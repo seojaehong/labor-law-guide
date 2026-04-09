@@ -10,6 +10,7 @@ import { SITE_URL } from '@/lib/constants';
 import { cleanBlogSummary, extractBlogLead } from '@/lib/blog-summary';
 import { ArrowLeft, Calendar, User, Tag, BookOpen, ArrowRight, MessageSquare, ClipboardCheck } from 'lucide-react';
 import { getCategoryColor } from '@/lib/category-colors';
+import { extractFaqFromContent } from '@/lib/faq-extractor';
 
 export const dynamicParams = true;
 export const revalidate = 1800;
@@ -187,6 +188,22 @@ export default async function BlogArticlePage({
       },
     ],
   };
+
+  // FAQ 스키마 자동 추출 (AEO 최적화)
+  const faqs = extractFaqFromContent(article.content);
+  if (faqs.length > 0) {
+    (jsonLd['@graph'] as Record<string, unknown>[]).push({
+      '@type': 'FAQPage',
+      mainEntity: faqs.map(({ question, answer }) => ({
+        '@type': 'Question',
+        name: question,
+        acceptedAnswer: {
+          '@type': 'Answer',
+          text: answer,
+        },
+      })),
+    });
+  }
 
   return (
     <>
