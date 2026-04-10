@@ -55,7 +55,7 @@
   --text-lg: clamp(1.125rem, 1rem + 0.5vw, 1.25rem);
   --text-xl: clamp(1.25rem, 1.1rem + 0.6vw, 1.5rem);
   --text-2xl: clamp(1.5rem, 1.2rem + 1vw, 2rem);
-  --text-hero: clamp(2.5rem, 1.5rem + 4vw, 5rem);
+  --text-hero: clamp(1.75rem, 1rem + 4vw, 5rem);
 
   /* Animations & Shadows */
   --ease-expo-out: cubic-bezier(0.16, 1, 0.3, 1);
@@ -249,6 +249,10 @@
       opacity: 1;
       transform: translateY(0);
     }
+  }
+
+  .animate-fade-in {
+    animation: fade-in-up 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
   }
 
   .content-block {

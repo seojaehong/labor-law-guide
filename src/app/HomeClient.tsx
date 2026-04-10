@@ -2,7 +2,6 @@
 
 import Link from 'next/link';
 import { ArrowRight, Scale, Users, FileText, MessageSquare, Shield, ClipboardCheck, Search, BookOpen, Calendar } from 'lucide-react';
-import { motion } from 'framer-motion';
 import { getCategoryColor } from '@/lib/category-colors';
 
 interface LatestBlogArticle {
@@ -92,13 +91,8 @@ export default function HomeClient({ totalCases, totalAdmin, totalNews, latestBl
 
   return (
     <div>
-      <section className="relative overflow-hidden px-5 py-20 text-center md:py-32">
-        <motion.div
-          className="mx-auto max-w-3xl"
-          initial={{ opacity: 0, y: 30 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
-        >
+      <section className="relative overflow-hidden px-5 py-14 text-center sm:py-20 md:py-32">
+        <div className="mx-auto max-w-3xl animate-fade-in">
           <div
             className="mb-4 inline-flex items-center gap-2 rounded-full border px-4 py-1.5 text-sm"
             style={{ borderColor: 'var(--blue-200)', backgroundColor: 'var(--blue-50)', color: 'var(--blue-600)' }}
@@ -111,27 +105,27 @@ export default function HomeClient({ totalCases, totalAdmin, totalNews, latestBl
             <br />
             <span style={{ color: 'var(--color-accent)' }}>무엇이 달라졌나?</span>
           </h1>
-          <p className="mx-auto mb-10 max-w-xl" style={{ fontSize: 'var(--text-lg)', color: 'var(--color-text-secondary)', lineHeight: 1.6 }}>
+          <p className="mx-auto mb-8 max-w-xl sm:mb-10" style={{ fontSize: 'var(--text-lg)', color: 'var(--color-text-secondary)', lineHeight: 1.6 }}>
             개정 노동조합법의 핵심 변화를 해석지침과 교섭절차 매뉴얼 기반으로 정리했습니다. AI 상담으로 궁금한 점을 바로 해결하세요.
           </p>
-          <div className="flex flex-wrap items-center justify-center gap-3">
+          <div className="flex flex-col items-center gap-3 sm:flex-row sm:flex-wrap sm:justify-center">
             <Link
               href="/guide"
-              className="flex items-center gap-2 rounded-lg px-6 py-3 font-medium text-white transition-transform hover:scale-105"
+              className="flex w-full items-center justify-center gap-2 rounded-lg px-6 py-3 font-medium text-white transition-transform hover:scale-105 sm:w-auto"
               style={{ backgroundColor: 'var(--color-accent)' }}
             >
               해석지침 보기 <ArrowRight size={16} />
             </Link>
             <Link
               href="/contact"
-              className="flex items-center gap-2 rounded-lg border px-6 py-3 font-medium transition-transform hover:scale-105"
+              className="flex w-full items-center justify-center gap-2 rounded-lg border px-6 py-3 font-medium transition-transform hover:scale-105 sm:w-auto"
               style={{ borderColor: 'var(--color-accent)', color: 'var(--color-accent)', backgroundColor: 'white' }}
             >
               전문가 상담 문의 <ArrowRight size={16} />
             </Link>
             <Link
               href="/ai"
-              className="flex items-center gap-2 rounded-lg border px-6 py-3 font-medium transition-transform hover:scale-105"
+              className="flex w-full items-center justify-center gap-2 rounded-lg border px-6 py-3 font-medium transition-transform hover:scale-105 sm:w-auto"
               style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-primary)' }}
             >
               <MessageSquare size={16} />
@@ -165,47 +159,30 @@ export default function HomeClient({ totalCases, totalAdmin, totalNews, latestBl
               </span>
             ))}
           </div>
-        </motion.div>
+        </div>
       </section>
 
-      <section className="px-5 pb-20">
-        <motion.div
-          className="mx-auto grid max-w-[1100px] gap-6 md:grid-cols-3"
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true, margin: '-50px' }}
-          variants={{ hidden: {}, visible: { transition: { staggerChildren: 0.1 } } }}
-        >
+      <section className="px-5 pb-16 sm:pb-20">
+        <div className="mx-auto grid max-w-[1100px] gap-4 sm:gap-6 sm:grid-cols-2 md:grid-cols-3">
           {features.map((feature) => (
-            <motion.div
-              key={feature.title}
-              variants={{ hidden: { opacity: 0, y: 24 }, visible: { opacity: 1, y: 0, transition: { duration: 0.5, ease: [0.16, 1, 0.3, 1] } } }}
-            >
-              <Link href={feature.href} className="feature-card block rounded-2xl border bg-white p-7" style={{ borderColor: 'var(--color-border)', boxShadow: 'var(--shadow-sm)' }}>
-                <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl" style={{ backgroundColor: feature.bg }}>
-                  <feature.icon size={22} style={{ color: feature.color }} />
-                </div>
-                <h3 className="mb-2 text-lg font-bold" style={{ color: 'var(--grey-900)' }}>{feature.title}</h3>
-                <p className="text-[15px] leading-relaxed" style={{ color: 'var(--color-text-secondary)' }}>{feature.description}</p>
-                <span className="mt-4 inline-flex items-center gap-1 text-sm font-medium" style={{ color: 'var(--color-accent)' }}>
-                  자세히 보기 <ArrowRight size={14} />
-                </span>
-              </Link>
-            </motion.div>
+            <Link key={feature.title} href={feature.href} className="feature-card block rounded-2xl border bg-white p-5 sm:p-7" style={{ borderColor: 'var(--color-border)', boxShadow: 'var(--shadow-sm)' }}>
+              <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl" style={{ backgroundColor: feature.bg }}>
+                <feature.icon size={22} style={{ color: feature.color }} />
+              </div>
+              <h3 className="mb-2 text-lg font-bold" style={{ color: 'var(--grey-900)' }}>{feature.title}</h3>
+              <p className="text-[15px] leading-relaxed" style={{ color: 'var(--color-text-secondary)' }}>{feature.description}</p>
+              <span className="mt-4 inline-flex items-center gap-1 text-sm font-medium" style={{ color: 'var(--color-accent)' }}>
+                자세히 보기 <ArrowRight size={14} />
+              </span>
+            </Link>
           ))}
-        </motion.div>
+        </div>
       </section>
 
       {/* 최신 딥다이브 */}
       {latestBlogArticles.length > 0 && (
-        <section className="px-5 pb-20">
-          <motion.div
-            className="mx-auto max-w-[1100px]"
-            initial={{ opacity: 0, y: 24 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: '-50px' }}
-            transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-          >
+        <section className="px-5 pb-16 sm:pb-20">
+          <div className="mx-auto max-w-[1100px]">
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center gap-2">
                 <BookOpen size={22} style={{ color: 'var(--color-accent)' }} />
@@ -219,12 +196,12 @@ export default function HomeClient({ totalCases, totalAdmin, totalNews, latestBl
                 전체 보기 <ArrowRight size={13} />
               </Link>
             </div>
-            <div className="grid gap-5 md:grid-cols-3">
+            <div className="grid gap-4 sm:gap-5 sm:grid-cols-2 md:grid-cols-3">
               {latestBlogArticles.map((article) => (
                 <Link
                   key={article.slug}
                   href={`/blog/${article.slug}`}
-                  className="feature-card block rounded-2xl border bg-white p-6"
+                  className="feature-card block rounded-2xl border bg-white p-5 sm:p-6"
                   style={{ borderColor: 'var(--color-border)', boxShadow: 'var(--shadow-sm)' }}
                 >
                   <div className="flex items-center gap-2 mb-3">
@@ -253,26 +230,26 @@ export default function HomeClient({ totalCases, totalAdmin, totalNews, latestBl
                 </Link>
               ))}
             </div>
-          </motion.div>
+          </div>
         </section>
       )}
 
-      <section className="px-5 pb-20">
-        <div className="mx-auto max-w-[1100px] rounded-3xl border p-8 md:p-10" style={{ borderColor: 'var(--color-border)', backgroundColor: 'white', boxShadow: 'var(--shadow-sm)' }}>
+      <section className="px-5 pb-16 sm:pb-20">
+        <div className="mx-auto max-w-[1100px] rounded-3xl border p-5 sm:p-8 md:p-10" style={{ borderColor: 'var(--color-border)', backgroundColor: 'white', boxShadow: 'var(--shadow-sm)' }}>
           <div className="max-w-[760px]">
             <p className="text-sm font-medium" style={{ color: 'var(--color-accent)' }}>자주 묻는 질문</p>
-            <h2 className="mt-2 text-2xl font-bold tracking-tight" style={{ color: 'var(--grey-900)' }}>
+            <h2 className="mt-2 text-xl sm:text-2xl font-bold tracking-tight" style={{ color: 'var(--grey-900)' }}>
               노란봉투법, 원청 사용자성, 하청 교섭요구 대응에서 많이 묻는 핵심 질문
             </h2>
             <p className="mt-3 text-sm leading-6" style={{ color: 'var(--color-text-secondary)' }}>
               검색으로 많이 들어오는 질문을 먼저 정리했습니다. 바로 판단이 어려우면 체크리스트로 1차 진단 후 상담 문의로 이어가면 됩니다.
             </p>
           </div>
-          <div className="mt-8 grid gap-4 md:grid-cols-2">
+          <div className="mt-6 sm:mt-8 grid gap-4 md:grid-cols-2">
             {faqItems.map((item) => (
               <div
                 key={item.question}
-                className="rounded-2xl border p-5"
+                className="rounded-2xl border p-4 sm:p-5"
                 style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }}
               >
                 <h3 className="text-[15px] font-bold leading-6" style={{ color: 'var(--grey-900)' }}>{item.question}</h3>
@@ -280,17 +257,17 @@ export default function HomeClient({ totalCases, totalAdmin, totalNews, latestBl
               </div>
             ))}
           </div>
-          <div className="mt-8 flex flex-wrap gap-3">
+          <div className="mt-6 sm:mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
             <Link
               href="/checklist"
-              className="inline-flex items-center gap-2 rounded-lg px-5 py-3 font-medium text-white"
+              className="inline-flex items-center justify-center gap-2 rounded-lg px-5 py-3 font-medium text-white"
               style={{ backgroundColor: 'var(--color-accent)' }}
             >
               교섭 의무 체크리스트 보기 <ArrowRight size={16} />
             </Link>
             <Link
               href="/contact"
-              className="inline-flex items-center gap-2 rounded-lg border px-5 py-3 font-medium"
+              className="inline-flex items-center justify-center gap-2 rounded-lg border px-5 py-3 font-medium"
               style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-primary)' }}
             >
               노란봉투법 상담 문의 <ArrowRight size={16} />
@@ -299,8 +276,8 @@ export default function HomeClient({ totalCases, totalAdmin, totalNews, latestBl
         </div>
       </section>
 
-      <section className="px-5 pb-20">
-        <div className="mx-auto max-w-[700px] rounded-2xl border p-8 text-center" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)', boxShadow: 'var(--shadow-md)' }}>
+      <section className="px-5 pb-16 sm:pb-20">
+        <div className="mx-auto max-w-[700px] rounded-2xl border p-6 sm:p-8 text-center" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)', boxShadow: 'var(--shadow-md)' }}>
           <MessageSquare size={32} className="mx-auto mb-4" style={{ color: 'var(--color-accent)' }} />
           <h2 className="mb-2 text-xl font-bold" style={{ color: 'var(--grey-900)' }}>AI에게 노동법 질문하기</h2>
           <p className="mb-6 text-sm" style={{ color: 'var(--color-text-secondary)' }}>
@@ -316,9 +293,9 @@ export default function HomeClient({ totalCases, totalAdmin, totalNews, latestBl
         </div>
       </section>
 
-      <section className="px-5 pb-20">
-        <div className="mx-auto max-w-[700px] rounded-2xl p-8 text-center" style={{ backgroundColor: 'var(--grey-900)' }}>
-          <h2 className="mb-3 text-xl font-bold text-white">노란봉투법 실무 자문이 필요하면 바로 상담하세요</h2>
+      <section className="px-5 pb-16 sm:pb-20">
+        <div className="mx-auto max-w-[700px] rounded-2xl p-6 sm:p-8 text-center" style={{ backgroundColor: 'var(--grey-900)' }}>
+          <h2 className="mb-3 text-lg sm:text-xl font-bold text-white">노란봉투법 실무 자문이 필요하면 바로 상담하세요</h2>
           <p className="mb-3 text-sm text-white/70">
             원청 사용자성 판단, 하청 노조 교섭요구 대응, 노동위원회 절차, 부당노동행위 리스크 점검까지 노무법인 위너스가 직접 봅니다.
           </p>

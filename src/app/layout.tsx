@@ -58,16 +58,22 @@ export default function RootLayout({
   return (
     <html lang="ko">
       <head>
-        <script async src="https://www.googletagmanager.com/gtag/js?id=G-GKKFCZ235H" />
-        <script dangerouslySetInnerHTML={{ __html: `window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}gtag('js',new Date());gtag('config','G-GKKFCZ235H');` }} />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
         <meta name="theme-color" content="#1d4ed8" />
         <link rel="icon" href="/favicon.ico" />
         <link
-          rel="stylesheet"
+          rel="preload"
           as="style"
           crossOrigin="anonymous"
           href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css"
         />
+        <link
+          rel="stylesheet"
+          crossOrigin="anonymous"
+          href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css"
+        />
+        <script async src="https://www.googletagmanager.com/gtag/js?id=G-GKKFCZ235H" />
+        <script dangerouslySetInnerHTML={{ __html: `window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}gtag('js',new Date());gtag('config','G-GKKFCZ235H');` }} />
       </head>
       <body>
         {/* WebSite + Organization JSON-LD */}
