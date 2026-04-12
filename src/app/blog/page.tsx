@@ -4,7 +4,7 @@ import { SITE_URL } from '@/lib/constants';
 import { cleanBlogSummary } from '@/lib/blog-summary';
 import BlogClient from './BlogClient';
 
-export const revalidate = 1800; // ISR: 30분마다 재생성
+export const revalidate = 3600; // ISR: 1시간 — 새 글 발행 반영 주기
 
 export const metadata: Metadata = {
   title: '노동 딥다이브',

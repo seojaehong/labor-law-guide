@@ -2,7 +2,7 @@ import { SITE_URL } from '@/lib/constants';
 import { supabaseServer } from '@/lib/supabase-server';
 import HomeClient from './HomeClient';
 
-export const revalidate = 1800;
+export const revalidate = 3600; // ISR: 1시간
 
 interface LatestBlogArticle {
   id: string;

@@ -13,7 +13,7 @@ import { getCategoryColor } from '@/lib/category-colors';
 import { extractFaqFromContent } from '@/lib/faq-extractor';
 
 export const dynamicParams = true;
-export const revalidate = 1800;
+export const revalidate = 86400; // ISR: 24시간 — 개별 글은 거의 안 바뀜
 
 interface BlogArticleFull {
   id: string;
