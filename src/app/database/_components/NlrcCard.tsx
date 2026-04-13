@@ -20,7 +20,7 @@ export default function NlrcCard({ item, query, expanded, onToggle }: { item: Nl
     : { bg: 'var(--color-accent-light)', fg: 'var(--color-accent)' };
 
   return (
-    <div className="rounded-xl border p-4 transition-shadow hover:shadow-md" style={{ borderColor: 'var(--color-border)', backgroundColor: 'white' }}>
+    <div className="rounded-xl border p-4 transition-shadow hover:shadow-md" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }}>
       <div className="flex flex-wrap items-center gap-2 text-xs">
         <span className="rounded-md px-2 py-0.5 font-medium" style={{ backgroundColor: 'var(--color-accent-light)', color: 'var(--color-accent)' }}>
           {item.case_type}

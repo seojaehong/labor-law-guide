@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Menu, X, Scale, ChevronDown } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
+import ThemeToggle from './ThemeToggle';
 
 // ─── Navigation structure ───────────────────────────────────────────────────
 
@@ -252,9 +253,12 @@ export default function GlassNav() {
 
             if (item.kind === 'cta') {
               return (
-                <Link key={item.href} href={item.href} className="nav-cta">
-                  {item.label}
-                </Link>
+                <span key={item.href} className="flex items-center gap-1">
+                  <ThemeToggle />
+                  <Link href={item.href} className="nav-cta">
+                    {item.label}
+                  </Link>
+                </span>
               );
             }
 

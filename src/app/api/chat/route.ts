@@ -1,6 +1,8 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { SYSTEM_PROMPT, searchQA } from '@/content/ai-knowledge';
 import { supabase } from '@/lib/supabase';
+
+export const maxDuration = 60;
 
 export async function POST(req: NextRequest) {
   try {
@@ -8,13 +10,13 @@ export async function POST(req: NextRequest) {
     const messages = body?.messages;
 
     if (!Array.isArray(messages) || messages.length === 0 || messages.length > 50) {
-      return NextResponse.json({ content: '올바른 메시지 형식이 아닙니다.' }, { status: 400 });
+      return new Response(JSON.stringify({ error: '올바른 메시지 형식이 아닙니다.' }), { status: 400 });
     }
 
     const apiKey = process.env.GLM_API_KEY;
 
     if (!apiKey) {
-      return NextResponse.json({ content: 'AI 서비스가 준비되지 않았습니다.' }, { status: 503 });
+      return new Response(JSON.stringify({ error: 'AI 서비스가 준비되지 않았습니다.' }), { status: 503 });
     }
 
     // FAQ DB 매칭으로 컨텍스트 보강
@@ -63,8 +65,9 @@ export async function POST(req: NextRequest) {
         ],
         max_tokens: 2048,
         temperature: 0.3,
+        stream: true,
       }),
-      signal: AbortSignal.timeout(30000),
+      signal: AbortSignal.timeout(55000),
     });
 
     if (!response.ok) {
@@ -72,14 +75,68 @@ export async function POST(req: NextRequest) {
       throw new Error(error);
     }
 
-    const data = await response.json();
-    const content = data.choices?.[0]?.message?.content || '응답을 생성할 수 없습니다.';
+    // SSE streaming: pipe through to client
+    const encoder = new TextEncoder();
+    const decoder = new TextDecoder();
 
-    return NextResponse.json({ content });
+    const stream = new ReadableStream({
+      async start(controller) {
+        const reader = response.body?.getReader();
+        if (!reader) {
+          controller.close();
+          return;
+        }
+
+        let buffer = '';
+
+        try {
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split('\n');
+            buffer = lines.pop() || '';
+
+            for (const line of lines) {
+              const trimmed = line.trim();
+              if (!trimmed || !trimmed.startsWith('data: ')) continue;
+              const data = trimmed.slice(6);
+              if (data === '[DONE]') continue;
+
+              try {
+                const parsed = JSON.parse(data);
+                const content = parsed.choices?.[0]?.delta?.content;
+                if (content) {
+                  controller.enqueue(encoder.encode(`data: ${JSON.stringify({ content })}\n\n`));
+                }
+              } catch {
+                // skip malformed chunks
+              }
+            }
+          }
+        } catch (err) {
+          controller.enqueue(
+            encoder.encode(`data: ${JSON.stringify({ error: '스트리밍 중 오류가 발생했습니다.' })}\n\n`)
+          );
+        } finally {
+          controller.enqueue(encoder.encode('data: [DONE]\n\n'));
+          controller.close();
+        }
+      },
+    });
+
+    return new Response(stream, {
+      headers: {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        Connection: 'keep-alive',
+      },
+    });
   } catch (error) {
-    return NextResponse.json(
-      { content: `오류: ${error instanceof Error ? error.message : '알 수 없는 오류'}` },
-      { status: 500 }
+    return new Response(
+      JSON.stringify({ error: `오류: ${error instanceof Error ? error.message : '알 수 없는 오류'}` }),
+      { status: 500, headers: { 'Content-Type': 'application/json' } }
     );
   }
 }

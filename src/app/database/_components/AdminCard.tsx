@@ -13,7 +13,7 @@ export default function AdminCard({ item, query, expanded, onToggle }: { item: A
   const titleContent = highlightText(item.title, query);
 
   return (
-    <div className="rounded-xl border p-4 transition-shadow hover:shadow-md" style={{ borderColor: 'var(--color-border)', backgroundColor: 'white' }}>
+    <div className="rounded-xl border p-4 transition-shadow hover:shadow-md" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }}>
       <div className="flex flex-wrap items-center gap-2 text-xs">
         <span className="rounded-md px-2 py-0.5 font-medium" style={{ backgroundColor: 'var(--color-accent-light)', color: 'var(--color-accent)' }}>
           행정해석

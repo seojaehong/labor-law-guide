@@ -14,7 +14,7 @@ export default function CaseCard({ item, query, expanded, onToggle }: { item: Ca
   const titleContent = highlightText(item.title, query);
 
   return (
-    <div className="rounded-xl border p-4 transition-shadow hover:shadow-md" style={{ borderColor: 'var(--color-border)', backgroundColor: 'white' }}>
+    <div className="rounded-xl border p-4 transition-shadow hover:shadow-md" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }}>
       <div className="flex items-start justify-between gap-2">
         <div className="flex-1">
           <div className="flex flex-wrap items-center gap-2 text-xs">

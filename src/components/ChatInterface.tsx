@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect, type FormEvent } from 'react';
+import { useState, useRef, useEffect, useCallback, type FormEvent } from 'react';
 import { Send, Bot, User, Loader2 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -8,6 +8,64 @@ import remarkGfm from 'remark-gfm';
 interface Message {
   role: 'user' | 'assistant';
   content: string;
+}
+
+async function streamChat(messages: Message[], onChunk: (text: string) => void, onDone: () => void, onError: (msg: string) => void) {
+  const res = await fetch('/api/chat', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ messages }),
+  });
+
+  if (!res.ok) {
+    onError('API 오류가 발생했습니다.');
+    return;
+  }
+
+  const contentType = res.headers.get('content-type') || '';
+
+  // Fallback: non-streaming JSON response
+  if (contentType.includes('application/json')) {
+    const data = await res.json();
+    onChunk(data.content || data.error || '응답을 생성할 수 없습니다.');
+    onDone();
+    return;
+  }
+
+  // SSE streaming
+  const reader = res.body?.getReader();
+  if (!reader) { onError('스트리밍을 시작할 수 없습니다.'); return; }
+
+  const decoder = new TextDecoder();
+  let buffer = '';
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || '';
+
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed || !trimmed.startsWith('data: ')) continue;
+        const data = trimmed.slice(6);
+        if (data === '[DONE]') { onDone(); return; }
+
+        try {
+          const parsed = JSON.parse(data);
+          if (parsed.content) onChunk(parsed.content);
+          if (parsed.error) onError(parsed.error);
+        } catch {
+          // skip malformed
+        }
+      }
+    }
+  } finally {
+    onDone();
+  }
 }
 
 export default function ChatInterface({ injectedQuestion }: { injectedQuestion?: string }) {
@@ -22,22 +80,49 @@ export default function ChatInterface({ injectedQuestion }: { injectedQuestion?:
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
   }, [messages]);
 
+  const sendMessage = useCallback(async (userContent: string) => {
+    if (loading) return;
+
+    const userMsg: Message = { role: 'user', content: userContent };
+    const newMessages = [...messages, userMsg];
+    setMessages(newMessages);
+    setLoading(true);
+
+    // Add empty assistant message for streaming
+    setMessages(prev => [...prev, { role: 'assistant', content: '' }]);
+
+    await streamChat(
+      newMessages,
+      (chunk) => {
+        setMessages(prev => {
+          const updated = [...prev];
+          const last = updated[updated.length - 1];
+          if (last.role === 'assistant') {
+            updated[updated.length - 1] = { ...last, content: last.content + chunk };
+          }
+          return updated;
+        });
+      },
+      () => setLoading(false),
+      (errorMsg) => {
+        setMessages(prev => {
+          const updated = [...prev];
+          const last = updated[updated.length - 1];
+          if (last.role === 'assistant' && !last.content) {
+            updated[updated.length - 1] = { ...last, content: errorMsg };
+          }
+          return updated;
+        });
+        setLoading(false);
+      },
+    );
+  }, [messages, loading]);
+
   // 외부에서 질문 주입
   useEffect(() => {
     if (injectedQuestion && !loading) {
       const question = injectedQuestion.replace(/_\d+$/, '');
-      const userMsg: Message = { role: 'user', content: question };
-      setMessages((prev) => [...prev, userMsg]);
-      setLoading(true);
-      fetch('/api/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: [...messages, userMsg] }),
-      })
-        .then((res) => res.json())
-        .then((data) => setMessages((prev) => [...prev, { role: 'assistant', content: data.content }]))
-        .catch(() => setMessages((prev) => [...prev, { role: 'assistant', content: '오류가 발생했습니다. 다시 시도해 주세요.' }]))
-        .finally(() => setLoading(false));
+      sendMessage(question);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [injectedQuestion]);
@@ -45,31 +130,9 @@ export default function ChatInterface({ injectedQuestion }: { injectedQuestion?:
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     if (!input.trim() || loading) return;
-
-    const userMsg: Message = { role: 'user', content: input.trim() };
-    setMessages((prev) => [...prev, userMsg]);
+    const text = input.trim();
     setInput('');
-    setLoading(true);
-
-    try {
-      const res = await fetch('/api/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: [...messages, userMsg] }),
-      });
-
-      if (!res.ok) throw new Error('API error');
-
-      const data = await res.json();
-      setMessages((prev) => [...prev, { role: 'assistant', content: data.content }]);
-    } catch {
-      setMessages((prev) => [
-        ...prev,
-        { role: 'assistant', content: 'API 키가 설정되지 않았거나 서버 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.' },
-      ]);
-    } finally {
-      setLoading(false);
-    }
+    await sendMessage(text);
   }
 
   return (
@@ -88,25 +151,24 @@ export default function ChatInterface({ injectedQuestion }: { injectedQuestion?:
               className={`max-w-[80%] rounded-2xl px-4 py-3 text-[15px] leading-relaxed${msg.role === 'assistant' ? ' chat-markdown' : ''}`}
               style={{
                 backgroundColor: msg.role === 'user' ? 'var(--blue-50)' : 'var(--grey-50)',
-                color: 'var(--grey-800)',
+                color: 'var(--color-text-primary)',
               }}
             >
               {msg.role === 'assistant' ? (
-                <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content}</ReactMarkdown>
+                msg.content ? (
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content}</ReactMarkdown>
+                ) : (
+                  <span className="inline-flex items-center gap-2 text-sm" style={{ color: 'var(--color-text-tertiary)' }}>
+                    <Loader2 size={14} className="animate-spin" />
+                    답변 생성 중...
+                  </span>
+                )
               ) : (
                 msg.content
               )}
             </div>
           </div>
         ))}
-        {loading && (
-          <div className="flex gap-3">
-            <div className="flex h-8 w-8 items-center justify-center rounded-full" style={{ backgroundColor: 'var(--grey-100)' }}>
-              <Loader2 size={14} className="animate-spin" style={{ color: 'var(--grey-600)' }} />
-            </div>
-            <div className="rounded-2xl px-4 py-3 text-sm" style={{ backgroundColor: 'var(--grey-50)', color: 'var(--grey-500)' }}>답변 생성 중...</div>
-          </div>
-        )}
       </div>
 
       {/* Input */}
@@ -117,7 +179,7 @@ export default function ChatInterface({ injectedQuestion }: { injectedQuestion?:
           placeholder="노란봉투법에 대해 질문해 주세요..."
           aria-label="노란봉투법에 대한 질문 입력"
           className="flex-1 rounded-lg border px-4 py-2.5 text-[15px] outline-none transition-colors focus-visible:outline-2 focus-visible:outline-[var(--color-accent)] focus-visible:outline-offset-2 focus:border-[var(--color-accent)]"
-          style={{ borderColor: 'var(--color-border)' }}
+          style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)', color: 'var(--color-text-primary)' }}
         />
         <button
           type="submit"

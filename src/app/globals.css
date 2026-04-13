@@ -2,10 +2,16 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 
+@font-face {
+  font-family: "Pretendard Variable Fallback";
+  src: local("Apple SD Gothic Neo"), local("Malgun Gothic"), local("sans-serif");
+  font-display: swap;
+}
+
 @theme inline {
   --color-background: var(--color-bg-primary);
   --color-foreground: var(--color-text-primary);
-  --font-sans: "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, system-ui, Roboto, "Helvetica Neue", "Segoe UI", "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", sans-serif;
+  --font-sans: "Pretendard Variable", "Pretendard Variable Fallback", Pretendard, -apple-system, BlinkMacSystemFont, system-ui, Roboto, "Helvetica Neue", "Segoe UI", "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", sans-serif;
 }
 
 :root {
@@ -57,6 +63,9 @@
   --text-2xl: clamp(1.5rem, 1.2rem + 1vw, 2rem);
   --text-hero: clamp(1.75rem, 1rem + 4vw, 5rem);
 
+  /* Yellow accent for highlights */
+  --yellow-100: #fef9c3;
+
   /* Animations & Shadows */
   --ease-expo-out: cubic-bezier(0.16, 1, 0.3, 1);
   --transition-fast: 150ms;
@@ -67,6 +76,66 @@
   --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.07), 0 2px 4px -1px rgba(0, 0, 0, 0.04), 0 0 0 1px rgba(0, 0, 0, 0.03);
   --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -2px rgba(0, 0, 0, 0.04), 0 0 0 1px rgba(0, 0, 0, 0.03);
   --shadow-xl: 0 20px 40px -8px rgba(0, 0, 0, 0.1), 0 8px 16px -4px rgba(0, 0, 0, 0.06);
+}
+
+.dark {
+  --grey-50: #191f28;
+  --grey-100: #1e2530;
+  --grey-200: #2a3140;
+  --grey-300: #3a4250;
+  --grey-400: #6b7684;
+  --grey-500: #8b95a1;
+  --grey-600: #b0b8c1;
+  --grey-700: #d1d6db;
+  --grey-800: #e5e8eb;
+  --grey-900: #f2f4f6;
+
+  --blue-50: rgba(49, 130, 246, 0.12);
+
+  --color-bg-primary: #0f1117;
+  --color-bg-surface: #191f28;
+  --color-bg-elevated: #1e2530;
+
+  --color-text-primary: #f2f4f6;
+  --color-text-secondary: #b0b8c1;
+  --color-text-tertiary: #6b7684;
+
+  --color-border: #2a3140;
+  --color-border-subtle: rgba(255, 255, 255, 0.06);
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.03);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.4), 0 2px 4px -1px rgba(0, 0, 0, 0.2);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.4);
+  --shadow-xl: 0 20px 40px -8px rgba(0, 0, 0, 0.5);
+
+  --yellow-100: #422006;
+}
+
+.dark body {
+  background-image:
+    radial-gradient(ellipse 80% 60% at 20% 30%, rgba(49, 130, 246, 0.08) 0%, transparent 50%),
+    radial-gradient(ellipse 60% 80% at 80% 20%, rgba(99, 102, 241, 0.06) 0%, transparent 50%),
+    radial-gradient(ellipse 70% 50% at 50% 80%, rgba(16, 185, 129, 0.04) 0%, transparent 50%);
+}
+
+.dark .glass-nav {
+  background: rgba(15, 17, 23, 0.82);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.dark .glass-panel {
+  background: rgba(25, 31, 40, 0.65);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.dark .glass-elevated {
+  background: rgba(30, 37, 48, 0.75);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.dark .nav-dropdown {
+  background: rgba(25, 31, 40, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 @layer base {
