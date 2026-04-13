@@ -1,4 +1,5 @@
-import { ChevronDown, ChevronUp, ExternalLink } from 'lucide-react';
+import Link from 'next/link';
+import { ChevronDown, ChevronUp, ExternalLink, ArrowRight } from 'lucide-react';
 import type { NlrcResult } from './types';
 import { highlightText, formatDecisionDate, getPreferredSummary, getPreferredDetail } from './utils';
 import MarkdownSnippet from './MarkdownSnippet';
@@ -10,12 +11,7 @@ export default function NlrcCard({ item, query, expanded, onToggle }: { item: Nl
   const detailText = getPreferredDetail(item);
   const hasContent = !!(summaryText || detailText);
 
-  const highlighted = highlightText(item.title, query);
-  const titleContent = Array.isArray(highlighted)
-    ? highlighted.map((part) => typeof part === 'object' && part.__highlight
-        ? <mark key={part.key} style={{ backgroundColor: 'var(--yellow-100, #fef9c3)', color: 'inherit', borderRadius: '2px', padding: '0 1px' }}>{part.text}</mark>
-        : part)
-    : highlighted;
+  const titleContent = highlightText(item.title, query);
 
   const resultColor = item.decision_result?.includes('인정')
     ? { bg: 'var(--blue-50)', fg: 'var(--blue-600)' }
@@ -51,6 +47,9 @@ export default function NlrcCard({ item, query, expanded, onToggle }: { item: Nl
             {expanded ? '접기' : '판정요지 보기'}
           </button>
         )}
+        <Link href={`/decisions/${encodeURIComponent(item.id)}`} className="flex items-center gap-1 text-xs font-medium" style={{ color: 'var(--color-accent)' }}>
+          <ArrowRight size={12} /> 상세 보기
+        </Link>
         {item.url && (
           <a href={item.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-xs font-medium" style={{ color: 'var(--color-text-tertiary)' }}>
             <ExternalLink size={12} /> 원문 참고

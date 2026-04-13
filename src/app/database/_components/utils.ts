@@ -1,12 +1,13 @@
 import { REASON_CATEGORY_LABELS } from './types';
+import { createElement, type ReactNode } from 'react';
 
-export function highlightText(text: string, query: string) {
+export function highlightText(text: string, query: string): ReactNode {
   if (!query || query.length < 2 || !text) return text;
   const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const parts = text.split(new RegExp(`(${escaped})`, 'gi'));
   return parts.map((part, i) =>
     part.toLowerCase() === query.toLowerCase()
-      ? { __highlight: true, key: i, text: part }
+      ? createElement('mark', { key: i, style: { backgroundColor: 'var(--yellow-100, #fef9c3)', color: 'inherit', borderRadius: '2px', padding: '0 1px' } }, part)
       : part
   );
 }

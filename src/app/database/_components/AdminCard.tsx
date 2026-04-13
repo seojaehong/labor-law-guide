@@ -10,12 +10,7 @@ export default function AdminCard({ item, query, expanded, onToggle }: { item: A
   const detailText = getPreferredDetail(item);
   const hasContent = !!(summaryText || detailText);
 
-  const highlighted = highlightText(item.title, query);
-  const titleContent = Array.isArray(highlighted)
-    ? highlighted.map((part) => typeof part === 'object' && part.__highlight
-        ? <mark key={part.key} style={{ backgroundColor: 'var(--yellow-100, #fef9c3)', color: 'inherit', borderRadius: '2px', padding: '0 1px' }}>{part.text}</mark>
-        : part)
-    : highlighted;
+  const titleContent = highlightText(item.title, query);
 
   return (
     <div className="rounded-xl border p-4 transition-shadow hover:shadow-md" style={{ borderColor: 'var(--color-border)', backgroundColor: 'white' }}>
