@@ -23,8 +23,8 @@ function normalizeSummary(
 ): string | null {
   if (!source) return null
 
-  // Strip markdown heading markers (# 서론 → 서론) before processing
-  const headingStripped = source.replace(/^#{1,6}\s+/gm, '')
+  // Strip markdown heading lines entirely (# 도입부 → removed, not just marker)
+  const headingStripped = source.replace(/^#{1,6}\s+.*$/gm, '').trim()
   const beforeHeading = headingStripped.split(/\n(?=#{1,6}\s)/, 1)[0] ?? headingStripped
   const firstParagraph = beforeHeading
     .split(/\n\s*\n/, 1)[0]

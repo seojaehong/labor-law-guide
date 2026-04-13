@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Script from "next/script";
 import "./globals.css";
 import GlassNav from "@/components/GlassNav";
 import { SITE_URL } from "@/lib/constants";
@@ -72,8 +73,8 @@ export default function RootLayout({
           crossOrigin="anonymous"
           href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css"
         />
-        <script async src="https://www.googletagmanager.com/gtag/js?id=G-GKKFCZ235H" />
-        <script dangerouslySetInnerHTML={{ __html: `window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}gtag('js',new Date());gtag('config','G-GKKFCZ235H');` }} />
+        <Script src="https://www.googletagmanager.com/gtag/js?id=G-GKKFCZ235H" strategy="afterInteractive" />
+        <Script id="gtag-init" strategy="afterInteractive">{`window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}gtag('js',new Date());gtag('config','G-GKKFCZ235H');`}</Script>
       </head>
       <body>
         {/* WebSite + Organization JSON-LD */}
