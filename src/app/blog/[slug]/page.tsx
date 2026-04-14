@@ -408,7 +408,7 @@ export default async function BlogArticlePage({
               </div>
               <div
                 className="rounded-2xl p-6 sm:p-8 text-center"
-                style={{ backgroundColor: 'var(--grey-900)' }}
+                style={{ backgroundColor: '#191f28' }}
               >
                 <p className="text-lg font-bold text-white">
                   전문가 상담이 필요하신가요?
@@ -470,7 +470,7 @@ export default async function BlogArticlePage({
               {/* CTA */}
               <div
                 className="rounded-2xl p-5"
-                style={{ backgroundColor: 'var(--grey-900)' }}
+                style={{ backgroundColor: '#191f28' }}
               >
                 <p className="text-[14px] font-bold text-white mb-2">전문가 상담</p>
                 <p className="text-[12px] text-white/70 mb-4 leading-relaxed">

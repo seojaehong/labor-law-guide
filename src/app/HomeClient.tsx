@@ -294,18 +294,18 @@ export default function HomeClient({ totalCases, totalAdmin, totalNews, latestBl
       </section>
 
       <section className="px-5 pb-16 sm:pb-20">
-        <div className="mx-auto max-w-[700px] rounded-2xl p-6 sm:p-8 text-center" style={{ backgroundColor: 'var(--grey-900)' }}>
-          <h2 className="mb-3 text-lg sm:text-xl font-bold text-white">노란봉투법 실무 자문이 필요하면 바로 상담하세요</h2>
-          <p className="mb-3 text-sm text-white/70">
+        <div className="mx-auto max-w-[700px] rounded-2xl p-6 sm:p-8 text-center" style={{ backgroundColor: '#191f28' }}>
+          <h2 className="mb-3 text-lg sm:text-xl font-bold" style={{ color: '#f2f4f6' }}>노란봉투법 실무 자문이 필요하면 바로 상담하세요</h2>
+          <p className="mb-3 text-sm" style={{ color: 'rgba(242, 244, 246, 0.7)' }}>
             원청 사용자성 판단, 하청 노조 교섭요구 대응, 노동위원회 절차, 부당노동행위 리스크 점검까지 노무법인 위너스가 직접 봅니다.
           </p>
-          <p className="mb-6 text-xs text-white/55">
+          <p className="mb-6 text-xs" style={{ color: 'rgba(242, 244, 246, 0.55)' }}>
             상황을 남겨주시면 내용을 검토한 뒤 순차적으로 회신합니다.
           </p>
           <Link
             href="/contact"
             className="inline-flex items-center gap-2 rounded-lg px-6 py-3 font-medium"
-            style={{ backgroundColor: 'var(--color-bg-surface)', color: 'var(--grey-900)' }}
+            style={{ backgroundColor: '#f2f4f6', color: '#191f28' }}
           >
             노란봉투법 전문가 상담 문의 <ArrowRight size={16} />
           </Link>

@@ -370,7 +370,7 @@ function DatabaseContent({ initialTotalCases, initialTotalAdmin, initialTotalNlr
               className="flex items-center gap-3 rounded-xl border p-5 transition-shadow hover:shadow-md"
               style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }}
             >
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg" style={{ backgroundColor: 'var(--grey-900)' }}>
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg" style={{ backgroundColor: '#191f28' }}>
                 <ArrowRight size={18} style={{ color: 'white' }} />
               </div>
               <div>

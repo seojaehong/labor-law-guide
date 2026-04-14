@@ -755,7 +755,7 @@ export default function AdminClient() {
       {toast && (
         <div
           className="fixed bottom-6 right-6 z-50 rounded-xl px-4 py-3 text-sm font-medium text-white shadow-lg animate-in slide-in-from-bottom-4"
-          style={{ backgroundColor: 'var(--grey-900)' }}
+          style={{ backgroundColor: '#191f28' }}
         >
           {toast}
         </div>
