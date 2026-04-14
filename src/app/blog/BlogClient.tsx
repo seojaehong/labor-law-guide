@@ -61,7 +61,7 @@ function ArticleCard({ article }: { article: BlogArticle }) {
   return (
     <Link
       href={`/blog/${article.slug}`}
-      className="feature-card flex flex-col rounded-2xl border bg-white p-6 transition-shadow hover:shadow-md"
+      className="feature-card flex flex-col rounded-2xl border bg-[var(--color-bg-surface)] p-6 transition-shadow hover:shadow-md"
       style={{ borderColor: 'var(--color-border)', boxShadow: 'var(--shadow-sm)' }}
     >
       <div className="flex items-center gap-2 mb-3">

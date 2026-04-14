@@ -119,7 +119,7 @@ export default function HomeClient({ totalCases, totalAdmin, totalNews, latestBl
             <Link
               href="/contact"
               className="flex w-full items-center justify-center gap-2 rounded-lg border px-6 py-3 font-medium transition-transform hover:scale-105 sm:w-auto"
-              style={{ borderColor: 'var(--color-accent)', color: 'var(--color-accent)', backgroundColor: 'white' }}
+              style={{ borderColor: 'var(--color-accent)', color: 'var(--color-accent)', backgroundColor: 'var(--color-bg-surface)' }}
             >
               전문가 상담 문의 <ArrowRight size={16} />
             </Link>
@@ -153,7 +153,7 @@ export default function HomeClient({ totalCases, totalAdmin, totalNews, latestBl
               <span
                 key={item}
                 className="rounded-full border px-3 py-1.5 text-sm"
-                style={{ borderColor: 'var(--color-border)', backgroundColor: 'white', color: 'var(--color-text-secondary)' }}
+                style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)', color: 'var(--color-text-secondary)' }}
               >
                 {item}
               </span>
@@ -165,7 +165,7 @@ export default function HomeClient({ totalCases, totalAdmin, totalNews, latestBl
       <section className="px-5 pb-16 sm:pb-20">
         <div className="mx-auto grid max-w-[1100px] gap-4 sm:gap-6 sm:grid-cols-2 md:grid-cols-3">
           {features.map((feature) => (
-            <Link key={feature.title} href={feature.href} className="feature-card block rounded-2xl border bg-white p-5 sm:p-7" style={{ borderColor: 'var(--color-border)', boxShadow: 'var(--shadow-sm)' }}>
+            <Link key={feature.title} href={feature.href} className="feature-card block rounded-2xl border bg-[var(--color-bg-surface)] p-5 sm:p-7" style={{ borderColor: 'var(--color-border)', boxShadow: 'var(--shadow-sm)' }}>
               <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl" style={{ backgroundColor: feature.bg }}>
                 <feature.icon size={22} style={{ color: feature.color }} />
               </div>
@@ -201,7 +201,7 @@ export default function HomeClient({ totalCases, totalAdmin, totalNews, latestBl
                 <Link
                   key={article.slug}
                   href={`/blog/${article.slug}`}
-                  className="feature-card block rounded-2xl border bg-white p-5 sm:p-6"
+                  className="feature-card block rounded-2xl border bg-[var(--color-bg-surface)] p-5 sm:p-6"
                   style={{ borderColor: 'var(--color-border)', boxShadow: 'var(--shadow-sm)' }}
                 >
                   <div className="flex items-center gap-2 mb-3">
@@ -235,7 +235,7 @@ export default function HomeClient({ totalCases, totalAdmin, totalNews, latestBl
       )}
 
       <section className="px-5 pb-16 sm:pb-20">
-        <div className="mx-auto max-w-[1100px] rounded-3xl border p-5 sm:p-8 md:p-10" style={{ borderColor: 'var(--color-border)', backgroundColor: 'white', boxShadow: 'var(--shadow-sm)' }}>
+        <div className="mx-auto max-w-[1100px] rounded-3xl border p-5 sm:p-8 md:p-10" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)', boxShadow: 'var(--shadow-sm)' }}>
           <div className="max-w-[760px]">
             <p className="text-sm font-medium" style={{ color: 'var(--color-accent)' }}>자주 묻는 질문</p>
             <h2 className="mt-2 text-xl sm:text-2xl font-bold tracking-tight" style={{ color: 'var(--grey-900)' }}>
@@ -305,7 +305,7 @@ export default function HomeClient({ totalCases, totalAdmin, totalNews, latestBl
           <Link
             href="/contact"
             className="inline-flex items-center gap-2 rounded-lg px-6 py-3 font-medium"
-            style={{ backgroundColor: 'white', color: 'var(--grey-900)' }}
+            style={{ backgroundColor: 'var(--color-bg-surface)', color: 'var(--grey-900)' }}
           >
             노란봉투법 전문가 상담 문의 <ArrowRight size={16} />
           </Link>

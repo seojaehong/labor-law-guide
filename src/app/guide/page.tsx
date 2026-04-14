@@ -68,7 +68,7 @@ export default function GuidePage() {
                   );
                 case 'criteria':
                   return (
-                    <div key={i} className="my-6 rounded-xl border bg-white p-5" style={{ borderColor: 'var(--grey-200)' }}>
+                    <div key={i} className="my-6 rounded-xl border bg-[var(--color-bg-surface)] p-5" style={{ borderColor: 'var(--grey-200)' }}>
                       <div className="mb-3 flex items-center gap-2">
                         <ListChecks size={16} style={{ color: '#059669' }} />
                         <span className="text-sm font-bold" style={{ color: '#166534' }}>{block.title}</span>

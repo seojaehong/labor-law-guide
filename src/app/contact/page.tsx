@@ -125,7 +125,7 @@ export default function ContactPage() {
 
         <div className="grid gap-10 lg:grid-cols-[1fr_320px]">
           <div className="space-y-8">
-            <div className="rounded-2xl border p-6" style={{ borderColor: 'var(--color-border)', backgroundColor: 'white' }}>
+            <div className="rounded-2xl border p-6" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }}>
               <div className="mb-5 flex items-start justify-between gap-4">
                 <div>
                   <h2 className="text-lg font-bold" style={{ color: 'var(--grey-900)' }}>온라인 상담 접수</h2>
@@ -151,7 +151,7 @@ export default function ContactPage() {
               </ul>
             </section>
 
-            <section className="rounded-2xl border p-6" style={{ borderColor: 'var(--color-border)', backgroundColor: 'white' }}>
+            <section className="rounded-2xl border p-6" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }}>
               <h2 className="mb-3 text-lg font-bold" style={{ color: 'var(--grey-900)' }}>상담 전 많이 묻는 질문</h2>
               <div className="space-y-4">
                 {contactFaqItems.map((item) => (
@@ -163,7 +163,7 @@ export default function ContactPage() {
               </div>
             </section>
 
-            <section className="rounded-2xl border p-6" style={{ borderColor: 'var(--color-border)', backgroundColor: 'white' }}>
+            <section className="rounded-2xl border p-6" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }}>
               <h2 className="mb-4 text-lg font-bold" style={{ color: 'var(--grey-900)' }}>먼저 읽어보면 상담이 빨라지는 자료</h2>
               <div className="grid gap-3 md:grid-cols-3">
                 {quickLinks.map((item) => {

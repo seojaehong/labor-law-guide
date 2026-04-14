@@ -67,7 +67,7 @@ export default function CasesPage() {
 
       <section className="mt-8 grid gap-4">
         {keyCases.map((c) => (
-          <article key={c.id} className="rounded-2xl border p-5" style={{ borderColor: 'var(--color-border)', backgroundColor: 'white' }}>
+          <article key={c.id} className="rounded-2xl border p-5" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }}>
             <div className="flex flex-wrap items-center gap-2 text-xs" style={{ color: 'var(--grey-400)' }}>
               <span className="rounded-full px-2 py-0.5 font-medium" style={{ backgroundColor: 'var(--color-accent-light)', color: 'var(--color-accent)' }}>
                 {c.issue}

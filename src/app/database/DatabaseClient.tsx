@@ -206,7 +206,7 @@ function DatabaseContent({ initialTotalCases, initialTotalAdmin, initialTotalNlr
             placeholder="검색어를 입력하세요 (예: 사용자성, 단체교섭, 파견)"
             aria-label="판례·행정해석·노동위결정문 검색"
             className="w-full rounded-xl border py-3 pl-11 pr-4 text-[15px] outline-none transition-all focus-visible:outline-2 focus-visible:outline-[var(--color-accent)] focus-visible:outline-offset-2 focus:border-[var(--color-accent)] focus:ring-2 focus:ring-[var(--color-accent)]/20"
-            style={{ borderColor: 'var(--color-border)', backgroundColor: 'white' }}
+            style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }}
           />
         </div>
       </form>

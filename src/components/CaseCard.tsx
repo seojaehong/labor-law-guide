@@ -13,7 +13,7 @@ export default function CaseCard({ caseNumber, court, summary }: Props) {
   const [open, setOpen] = useState(false);
 
   return (
-    <div className="my-4 rounded-xl border-l-4 bg-white p-5" style={{ borderLeftColor: 'var(--blue-500)', boxShadow: 'var(--shadow-sm)' }}>
+    <div className="my-4 rounded-xl border-l-4 bg-[var(--color-bg-surface)] p-5" style={{ borderLeftColor: 'var(--blue-500)', boxShadow: 'var(--shadow-sm)' }}>
       <button onClick={() => setOpen(!open)} className="flex w-full items-center justify-between text-left">
         <div className="flex items-center gap-2">
           <Gavel size={16} style={{ color: 'var(--blue-600)' }} />

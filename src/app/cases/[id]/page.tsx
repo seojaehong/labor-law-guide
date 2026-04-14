@@ -372,7 +372,7 @@ export default async function CaseDetailPage({
                 <Link
                   href="/contact"
                   className="mt-4 inline-flex items-center gap-2 rounded-xl px-6 py-3 text-sm font-semibold transition-colors hover:opacity-90"
-                  style={{ backgroundColor: 'white', color: 'var(--grey-900)' }}
+                  style={{ backgroundColor: 'var(--color-bg-surface)', color: 'var(--grey-900)' }}
                 >
                   무료 상담 신청하기 <ArrowRight size={14} />
                 </Link>
@@ -430,7 +430,7 @@ export default async function CaseDetailPage({
                 <Link
                   href="/contact"
                   className="inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-[13px] font-medium"
-                  style={{ backgroundColor: 'white', color: 'var(--grey-900)' }}
+                  style={{ backgroundColor: 'var(--color-bg-surface)', color: 'var(--grey-900)' }}
                 >
                   상담 문의 <ArrowRight size={12} />
                 </Link>
