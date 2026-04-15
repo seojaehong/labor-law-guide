@@ -31,7 +31,10 @@ export async function POST(req: NextRequest) {
         query: lastUserMsg.content,
         result_limit: 5,
       });
-      if (!dbErr && dbFaq && dbFaq.length > 0) {
+      const faqMatched = !dbErr && dbFaq && dbFaq.length > 0;
+      const faqCategories = faqMatched ? [...new Set(dbFaq.map((f: { category: string }) => f.category))] : [];
+
+      if (faqMatched) {
         faqContext = '\n\n═══ 관련 지식DB 매칭 결과 (참고하여 답변) ═══\n';
         for (const faq of dbFaq) {
           faqContext += `\n[${faq.category}] Q: ${faq.question}\nA: ${faq.answer}\n`;
@@ -48,6 +51,14 @@ export async function POST(req: NextRequest) {
           faqContext += '\n위 DB 내용을 참고하되, 질문에 맞게 자연스럽게 재구성하여 답변하세요.';
         }
       }
+
+      // 비동기 로깅 (fire-and-forget, 응답 지연 없음)
+      db.from('chat_logs').insert({
+        question: lastUserMsg.content.slice(0, 500),
+        faq_matched: faqMatched,
+        faq_count: faqMatched ? dbFaq.length : 0,
+        faq_categories: faqCategories,
+      }).then(null, () => {});
     }
 
     let systemPrompt = SYSTEM_PROMPT + faqContext;
