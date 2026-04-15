@@ -70,7 +70,7 @@ async function streamChat(messages: Message[], onChunk: (text: string) => void, 
 
 export default function ChatInterface({ injectedQuestion }: { injectedQuestion?: string }) {
   const [messages, setMessages] = useState<Message[]>([
-    { role: 'assistant', content: '안녕하세요! 개정 노동조합법(노란봉투법)에 대해 궁금한 점을 질문해 주세요. 사용자 범위, 교섭절차, 노동쟁의 등에 대해 답변해 드립니다.' },
+    { role: 'assistant', content: '안녕하세요! 노동법에 대해 궁금한 점을 질문해 주세요.\n부당해고·징계, 임금체불·퇴직금, 직장내괴롭힘, 노란봉투법, 4대보험, 고용지원금, 근로계약 등 노동법 전반에 대해 답변해 드립니다.' },
   ]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
@@ -176,8 +176,8 @@ export default function ChatInterface({ injectedQuestion }: { injectedQuestion?:
         <input
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          placeholder="노란봉투법에 대해 질문해 주세요..."
-          aria-label="노란봉투법에 대한 질문 입력"
+          placeholder="노동법에 대해 질문해 주세요..."
+          aria-label="노동법에 대한 질문 입력"
           className="flex-1 rounded-lg border px-4 py-2.5 text-[15px] outline-none transition-colors focus-visible:outline-2 focus-visible:outline-[var(--color-accent)] focus-visible:outline-offset-2 focus:border-[var(--color-accent)]"
           style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)', color: 'var(--color-text-primary)' }}
         />
