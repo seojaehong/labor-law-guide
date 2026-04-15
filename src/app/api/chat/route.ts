@@ -1,8 +1,11 @@
 import { NextRequest } from 'next/server';
 import { SYSTEM_PROMPT, searchQA } from '@/content/ai-knowledge';
 import { supabase } from '@/lib/supabase';
+import { supabaseAdmin } from '@/lib/supabase-server';
 
 export const maxDuration = 60;
+
+const db = supabaseAdmin || supabase;
 
 export async function POST(req: NextRequest) {
   try {
@@ -19,18 +22,35 @@ export async function POST(req: NextRequest) {
       return new Response(JSON.stringify({ error: 'AI 서비스가 준비되지 않았습니다.' }), { status: 503 });
     }
 
-    // FAQ DB 매칭으로 컨텍스트 보강
     const lastUserMsg = [...messages].reverse().find((m: { role: string }) => m.role === 'user');
-    const faqMatches = lastUserMsg ? searchQA(lastUserMsg.content) : [];
 
-    let systemPrompt = SYSTEM_PROMPT;
-    if (faqMatches.length > 0) {
-      systemPrompt += '\n\n═══ 관련 예상질문 DB 매칭 결과 (참고하여 답변) ═══\n';
-      for (const faq of faqMatches.slice(0, 3)) {
-        systemPrompt += `\nQ: ${faq.question}\nA: ${faq.answer}\n${faq.relatedArticle ? `관련조문: ${faq.relatedArticle}` : ''}\n`;
+    // FAQ DB 매칭 — Supabase RPC(search_faq) 우선, 인라인 fallback
+    let faqContext = '';
+    if (lastUserMsg) {
+      const { data: dbFaq, error: dbErr } = await db.rpc('search_faq', {
+        query: lastUserMsg.content,
+        result_limit: 5,
+      });
+      if (!dbErr && dbFaq && dbFaq.length > 0) {
+        faqContext = '\n\n═══ 관련 지식DB 매칭 결과 (참고하여 답변) ═══\n';
+        for (const faq of dbFaq) {
+          faqContext += `\n[${faq.category}] Q: ${faq.question}\nA: ${faq.answer}\n`;
+        }
+        faqContext += '\n위 DB 내용을 참고하되, 질문에 맞게 자연스럽게 재구성하여 답변하세요.';
+      } else {
+        // Supabase 미응답 시 인라인 FAQ fallback
+        const inlineFaq = searchQA(lastUserMsg.content);
+        if (inlineFaq.length > 0) {
+          faqContext = '\n\n═══ 관련 예상질문 DB 매칭 결과 (참고하여 답변) ═══\n';
+          for (const faq of inlineFaq.slice(0, 3)) {
+            faqContext += `\nQ: ${faq.question}\nA: ${faq.answer}\n${faq.relatedArticle ? `관련조문: ${faq.relatedArticle}` : ''}\n`;
+          }
+          faqContext += '\n위 DB 내용을 참고하되, 질문에 맞게 자연스럽게 재구성하여 답변하세요.';
+        }
       }
-      systemPrompt += '\n위 DB 내용을 참고하되, 질문에 맞게 자연스럽게 재구성하여 답변하세요.';
     }
+
+    let systemPrompt = SYSTEM_PROMPT + faqContext;
 
     // 관련 뉴스 검색 (최신 5건)
     if (lastUserMsg) {
