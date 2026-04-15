@@ -13,7 +13,7 @@ export async function POST(req: NextRequest) {
       return new Response(JSON.stringify({ error: '올바른 메시지 형식이 아닙니다.' }), { status: 400 });
     }
 
-    const apiKey = process.env.GLM_API_KEY;
+    const apiKey = process.env.GEMINI_API_KEY;
 
     if (!apiKey) {
       return new Response(JSON.stringify({ error: 'AI 서비스가 준비되지 않았습니다.' }), { status: 503 });
@@ -51,19 +51,19 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const response = await fetch('https://api.z.ai/api/paas/v4/chat/completions', {
+    const response = await fetch('https://generativelanguage.googleapis.com/v1beta/openai/chat/completions', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model: 'GLM-4.7-Flash',
+        model: 'gemini-2.5-flash',
         messages: [
           { role: 'system', content: systemPrompt },
           ...messages,
         ],
-        max_tokens: 2048,
+        max_completion_tokens: 4096,
         temperature: 0.3,
         stream: true,
       }),
