@@ -38,7 +38,7 @@ export default function NlrcCard({ item, query, expanded, onToggle }: { item: Nl
         {titleContent}
       </h3>
 
-      <TagRow reasonCategory={item.reason_category} keywordsMatched={item.keywords_matched} />
+      <TagRow reasonCategory={item.reason_category} />
 
       <div className="mt-2 flex items-center gap-3">
         {hasContent && (

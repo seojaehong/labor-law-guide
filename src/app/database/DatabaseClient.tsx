@@ -80,12 +80,14 @@ function DatabaseContent({ initialTotalCases, initialTotalAdmin, initialTotalNlr
     const offset = (p - 1) * PAGE_SIZE;
 
     const tableMap = { cases: 'cases', admin: 'admin_interpretations', nlrc: 'nlrc_decisions' } as const;
-    const summaryCol = tab === 'nlrc' ? 'holding_summary' : 'summary';
     const safeQ = trimmed.replace(/[%_\\,().]/g, '');
+    const countFilter = tab === 'nlrc'
+      ? `title.ilike.%${safeQ}%,holding_summary.ilike.%${safeQ}%,key_issue.ilike.%${safeQ}%`
+      : `title.ilike.%${safeQ}%,summary.ilike.%${safeQ}%,holding_points.ilike.%${safeQ}%`;
     const countPromise = supabase
       .from(tableMap[tab])
       .select('id', { count: 'exact', head: true })
-      .or(`title.ilike.%${safeQ}%,${summaryCol}.ilike.%${safeQ}%,holding_points.ilike.%${safeQ}%`)
+      .or(countFilter)
       .then(({ count }) => setSearchTotal(count));
 
     try {
@@ -223,7 +225,7 @@ function DatabaseContent({ initialTotalCases, initialTotalAdmin, initialTotalNlr
               onClick={() => handleTabChange(tab.key)}
               className="flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-medium transition-colors"
               style={{
-                backgroundColor: activeTab === tab.key ? 'var(--color-accent)' : 'white',
+                backgroundColor: activeTab === tab.key ? 'var(--color-accent)' : 'var(--color-bg-surface)',
                 color: activeTab === tab.key ? '#fff' : 'var(--color-text-secondary)',
                 border: activeTab === tab.key ? 'none' : '1px solid var(--color-border)',
               }}

@@ -37,18 +37,15 @@ export interface AdminResult {
 
 export interface NlrcResult {
   id: string;
-  serial_number: string;
   case_number: string;
   title: string;
   department: string;
   decision_date: string;
   case_type: string;
   decision_result: string;
-  keywords_matched?: string[] | null;
   reason_category?: string[] | null;
   holding_points?: string | null;
   holding_summary?: string | null;
-  summary?: string | null;
   summary_short?: string | null;
   key_issue?: string | null;
   url?: string;

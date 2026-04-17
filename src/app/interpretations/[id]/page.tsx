@@ -3,72 +3,63 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { supabaseServer } from '@/lib/supabase-server';
 import { SITE_URL } from '@/lib/constants';
-import { formatDecisionDate, getPreferredSummary, getPreferredDetail, translateReasonCategory } from '@/app/database/_components/utils';
+import { formatDecisionDate, getPreferredSummary, getPreferredDetail } from '@/app/database/_components/utils';
 import TagRow from '@/app/database/_components/TagRow';
 import MarkdownSnippet from '@/app/database/_components/MarkdownSnippet';
 import {
   ArrowLeft,
   ArrowRight,
   Calendar,
-  Landmark,
+  FileText,
   ExternalLink,
   MessageSquare,
   Search,
-  CheckCircle,
-  XCircle,
 } from 'lucide-react';
 
 export const dynamicParams = true;
 export const revalidate = 86400;
 
-interface NlrcDetail {
+interface AdminDetail {
   id: string;
-  case_number: string;
   title: string;
-  department: string;
+  doc_number: string | null;
   decision_date: string | null;
-  case_type: string | null;
-  decision_result: string | null;
-  reason_category: string[] | null;
+  keywords_matched: string[] | null;
+  summary: string | null;
   holding_points: string | null;
-  holding_summary: string | null;
-  summary_short: string | null;
-  key_issue: string | null;
   url: string | null;
 }
 
-interface RelatedDecision {
+interface RelatedAdmin {
   id: string;
-  case_number: string;
   title: string;
-  department: string;
+  doc_number: string | null;
   decision_date: string | null;
-  decision_result: string | null;
 }
 
-async function getDecision(id: string): Promise<NlrcDetail | null> {
+async function getInterpretation(id: string): Promise<AdminDetail | null> {
   const { data, error } = await supabaseServer
-    .from('nlrc_decisions')
-    .select('id, case_number, title, department, decision_date, case_type, decision_result, reason_category, holding_points, holding_summary, summary_short, key_issue, url')
+    .from('admin_interpretations')
+    .select('id, title, doc_number, decision_date, keywords_matched, summary, holding_points, url')
     .eq('id', id)
     .single();
 
   if (error || !data) return null;
-  return data as NlrcDetail;
+  return data as AdminDetail;
 }
 
-async function getRelatedDecisions(currentId: string, reasonCategory: string[] | null): Promise<RelatedDecision[]> {
-  if (!reasonCategory || reasonCategory.length === 0) return [];
+async function getRelatedInterpretations(currentId: string, keywords: string[] | null): Promise<RelatedAdmin[]> {
+  if (!keywords || keywords.length === 0) return [];
 
   const { data } = await supabaseServer
-    .from('nlrc_decisions')
-    .select('id, case_number, title, department, decision_date, decision_result')
+    .from('admin_interpretations')
+    .select('id, title, doc_number, decision_date')
     .neq('id', currentId)
-    .contains('reason_category', [reasonCategory[0]])
+    .contains('keywords_matched', [keywords[0]])
     .order('decision_date', { ascending: false })
     .limit(4);
 
-  return (data || []) as RelatedDecision[];
+  return (data || []) as RelatedAdmin[];
 }
 
 export async function generateMetadata({
@@ -77,21 +68,19 @@ export async function generateMetadata({
   params: Promise<{ id: string }>;
 }): Promise<Metadata> {
   const { id } = await params;
-  const item = await getDecision(decodeURIComponent(id));
+  const item = await getInterpretation(decodeURIComponent(id));
 
   if (!item) {
-    return { title: '판정례를 찾을 수 없습니다' };
+    return { title: '행정해석을 찾을 수 없습니다' };
   }
 
   const dateStr = formatDecisionDate(item.decision_date) || '';
-  const categories = (item.reason_category || []).map(translateReasonCategory).join(', ');
-  const title = `${item.case_number} | ${item.department} ${item.decision_result || ''} 판정`;
-  const descSource = item.holding_summary || item.summary_short || item.key_issue;
-  const description = descSource
-    ? descSource.slice(0, 160)
-    : `${item.department} ${item.case_number} ${categories} — ${item.title}`;
+  const title = `${item.doc_number || '행정해석'} | ${item.title}`;
+  const description = item.summary
+    ? item.summary.slice(0, 160)
+    : `${item.doc_number || ''} ${item.title}`;
 
-  const pageUrl = `${SITE_URL}/decisions/${encodeURIComponent(item.id)}`;
+  const pageUrl = `${SITE_URL}/interpretations/${encodeURIComponent(item.id)}`;
 
   return {
     title,
@@ -105,48 +94,27 @@ export async function generateMetadata({
       ...(item.decision_date && { publishedTime: item.decision_date }),
       locale: 'ko_KR',
     },
-    twitter: {
-      card: 'summary',
-      title,
-      description,
-    },
+    twitter: { card: 'summary', title, description },
   };
 }
 
-function DecisionResultBadge({ result }: { result: string | null }) {
-  if (!result) return null;
-  const isPositive = result.includes('인정') || result.includes('구제');
-  return (
-    <span
-      className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-medium"
-      style={{
-        backgroundColor: isPositive ? 'var(--blue-50)' : 'var(--grey-100)',
-        color: isPositive ? 'var(--blue-600)' : 'var(--grey-600)',
-      }}
-    >
-      {isPositive ? <CheckCircle size={11} /> : <XCircle size={11} />}
-      {result}
-    </span>
-  );
-}
-
-export default async function DecisionDetailPage({
+export default async function InterpretationDetailPage({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const item = await getDecision(decodeURIComponent(id));
+  const item = await getInterpretation(decodeURIComponent(id));
 
   if (!item) {
     notFound();
   }
 
-  const related = await getRelatedDecisions(item.id, item.reason_category);
+  const related = await getRelatedInterpretations(item.id, item.keywords_matched);
   const summary = getPreferredSummary(item);
   const detail = getPreferredDetail(item);
   const dateStr = formatDecisionDate(item.decision_date);
-  const pageUrl = `${SITE_URL}/decisions/${encodeURIComponent(item.id)}`;
+  const pageUrl = `${SITE_URL}/interpretations/${encodeURIComponent(item.id)}`;
 
   const jsonLd = {
     '@context': 'https://schema.org',
@@ -155,21 +123,21 @@ export default async function DecisionDetailPage({
         '@type': 'BreadcrumbList',
         itemListElement: [
           { '@type': 'ListItem', position: 1, name: '홈', item: SITE_URL },
-          { '@type': 'ListItem', position: 2, name: '판정례 검색', item: `${SITE_URL}/database` },
-          { '@type': 'ListItem', position: 3, name: item.case_number, item: pageUrl },
+          { '@type': 'ListItem', position: 2, name: '행정해석 검색', item: `${SITE_URL}/database?tab=admin` },
+          { '@type': 'ListItem', position: 3, name: item.doc_number || item.title, item: pageUrl },
         ],
       },
       {
         '@type': 'Article',
         '@id': pageUrl,
-        headline: `${item.case_number} ${item.title}`,
-        description: item.holding_summary || item.summary_short || item.title,
+        headline: item.title,
+        description: item.summary || item.title,
         ...(item.decision_date && { datePublished: item.decision_date }),
-        author: { '@type': 'Organization', name: item.department },
+        author: { '@type': 'Organization', name: '고용노동부' },
         publisher: { '@id': `${SITE_URL}/#organization` },
         mainEntityOfPage: pageUrl,
         inLanguage: 'ko',
-        keywords: (item.reason_category || []).map(translateReasonCategory).join(', '),
+        keywords: item.keywords_matched?.join(', ') || '',
       },
     ],
   };
@@ -183,29 +151,25 @@ export default async function DecisionDetailPage({
 
       <div className="mx-auto max-w-[1100px] px-5 py-10">
         <div className="lg:grid lg:grid-cols-[1fr_280px] lg:gap-10">
-          {/* Main Content */}
           <article>
-            {/* Back link */}
             <Link
-              href="/database"
+              href="/database?tab=admin"
               className="mb-6 inline-flex items-center gap-1.5 text-[13px] transition-colors hover:opacity-70"
               style={{ color: 'var(--color-text-secondary)' }}
             >
               <ArrowLeft size={14} />
-              판정례 검색
+              행정해석 검색
             </Link>
 
-            {/* Header */}
             <header className="mb-8">
               <div className="flex flex-wrap items-center gap-2 mb-3">
                 <span
                   className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-medium"
-                  style={{ backgroundColor: '#f3e8ff', color: '#7c3aed' }}
+                  style={{ backgroundColor: 'var(--color-accent-light)', color: 'var(--color-accent)' }}
                 >
-                  <Landmark size={11} />
-                  노동위원회
+                  <FileText size={11} />
+                  행정해석
                 </span>
-                <DecisionResultBadge result={item.decision_result} />
                 {dateStr && (
                   <span
                     className="flex items-center gap-1 text-[12px]"
@@ -217,15 +181,14 @@ export default async function DecisionDetailPage({
                 )}
               </div>
 
-              <div className="flex items-center gap-2 mb-2">
-                <Landmark size={14} style={{ color: 'var(--color-text-tertiary)' }} />
-                <span className="text-[13px] font-medium" style={{ color: 'var(--color-text-secondary)' }}>
-                  {item.department}
-                </span>
-                <span className="text-[13px]" style={{ color: 'var(--color-text-tertiary)' }}>
-                  {item.case_number}
-                </span>
-              </div>
+              {item.doc_number && (
+                <div className="flex items-center gap-2 mb-2">
+                  <FileText size={14} style={{ color: 'var(--color-text-tertiary)' }} />
+                  <span className="text-[13px]" style={{ color: 'var(--color-text-tertiary)' }}>
+                    {item.doc_number}
+                  </span>
+                </div>
+              )}
 
               <h1
                 className="text-xl font-bold leading-tight mb-3 md:text-2xl"
@@ -234,33 +197,13 @@ export default async function DecisionDetailPage({
                 {item.title}
               </h1>
 
-              <TagRow reasonCategory={item.reason_category} />
+              <TagRow keywordsMatched={item.keywords_matched} />
             </header>
 
-            {/* Key Issue */}
-            {item.key_issue && (
+            {summary && (
               <section className="mb-8">
                 <h2 className="text-[15px] font-bold mb-3" style={{ color: 'var(--color-text-primary)' }}>
-                  핵심 쟁점
-                </h2>
-                <div
-                  className="rounded-xl p-5 text-[14px] leading-7"
-                  style={{
-                    backgroundColor: '#f3e8ff',
-                    borderLeft: '3px solid #7c3aed',
-                    color: 'var(--color-text-secondary)',
-                  }}
-                >
-                  <MarkdownSnippet value={item.key_issue} />
-                </div>
-              </section>
-            )}
-
-            {/* Summary */}
-            {summary && summary !== item.key_issue && (
-              <section className="mb-8">
-                <h2 className="text-[15px] font-bold mb-3" style={{ color: 'var(--color-text-primary)' }}>
-                  판정 요지
+                  해석 요지
                 </h2>
                 <div
                   className="rounded-xl p-5 text-[14px] leading-7"
@@ -275,11 +218,10 @@ export default async function DecisionDetailPage({
               </section>
             )}
 
-            {/* Holding Points / Detail */}
-            {detail && detail !== summary && detail !== item.key_issue && (
+            {detail && detail !== summary && (
               <section className="mb-8">
                 <h2 className="text-[15px] font-bold mb-3" style={{ color: 'var(--color-text-primary)' }}>
-                  판정 상세
+                  판단 요지
                 </h2>
                 <div
                   className="rounded-xl border p-5 text-[14px] leading-7"
@@ -290,7 +232,6 @@ export default async function DecisionDetailPage({
               </section>
             )}
 
-            {/* Source link */}
             {item.url && (
               <div className="mb-8">
                 <a
@@ -306,24 +247,22 @@ export default async function DecisionDetailPage({
               </div>
             )}
 
-            {/* Related Decisions */}
             {related.length > 0 && (
               <section className="mt-10 pt-8" style={{ borderTop: '1px solid var(--color-border)' }}>
                 <h2 className="flex items-center gap-2 text-[17px] font-bold mb-5" style={{ color: 'var(--color-text-primary)' }}>
-                  <Landmark size={18} style={{ color: '#7c3aed' }} />
-                  유사 판정례
+                  <FileText size={18} style={{ color: 'var(--color-accent)' }} />
+                  관련 행정해석
                 </h2>
                 <div className="grid gap-3 sm:grid-cols-2">
                   {related.map((r) => (
                     <Link
                       key={r.id}
-                      href={`/decisions/${encodeURIComponent(r.id)}`}
+                      href={`/interpretations/${encodeURIComponent(r.id)}`}
                       className="rounded-xl border p-4 transition-shadow hover:shadow-md"
                       style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }}
                     >
-                      <div className="flex items-center gap-2 text-[11px] mb-1" style={{ color: 'var(--color-text-tertiary)' }}>
-                        <span>{r.department}</span>
-                        <DecisionResultBadge result={r.decision_result} />
+                      <div className="text-[11px] mb-1" style={{ color: 'var(--color-text-tertiary)' }}>
+                        {r.doc_number}
                       </div>
                       <p className="text-[13px] font-medium leading-snug" style={{ color: 'var(--color-text-primary)' }}>
                         {r.title}
@@ -339,15 +278,10 @@ export default async function DecisionDetailPage({
               </section>
             )}
 
-            {/* CTA Section */}
             <section className="mt-10 space-y-4">
               <div className="grid gap-4 sm:grid-cols-2">
                 <Link
-                  href={`/database?q=${encodeURIComponent(
-                    item.reason_category?.[0]
-                      ? translateReasonCategory(item.reason_category[0])
-                      : item.case_number
-                  )}`}
+                  href={`/database?tab=admin&q=${encodeURIComponent(item.keywords_matched?.[0] || item.title.split(' ')[0])}`}
                   className="flex items-center gap-3 rounded-xl border p-5 transition-shadow hover:shadow-md"
                   style={{ borderColor: 'var(--color-accent)', backgroundColor: 'var(--blue-50)' }}
                 >
@@ -355,8 +289,8 @@ export default async function DecisionDetailPage({
                     <Search size={18} style={{ color: 'white' }} />
                   </div>
                   <div>
-                    <p className="text-sm font-bold" style={{ color: 'var(--color-text-primary)' }}>유사 판정례 검색</p>
-                    <p className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>같은 유형의 다른 판정 사례 확인</p>
+                    <p className="text-sm font-bold" style={{ color: 'var(--color-text-primary)' }}>관련 해석 검색</p>
+                    <p className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>같은 주제의 다른 행정해석 확인</p>
                   </div>
                 </Link>
                 <Link
@@ -369,7 +303,7 @@ export default async function DecisionDetailPage({
                   </div>
                   <div>
                     <p className="text-sm font-bold" style={{ color: 'var(--color-text-primary)' }}>AI에게 질문하기</p>
-                    <p className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>이 판정례가 우리 사안에 적용되는지 확인</p>
+                    <p className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>이 해석이 우리 상황에 적용되는지 확인</p>
                   </div>
                 </Link>
               </div>
@@ -387,60 +321,43 @@ export default async function DecisionDetailPage({
             </section>
           </article>
 
-          {/* Sidebar */}
           <aside className="hidden lg:block">
             <div className="sticky top-24 space-y-6">
-              {/* Decision Info Card */}
               <div
                 className="rounded-2xl border p-5"
                 style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)', boxShadow: 'var(--shadow-sm)' }}
               >
                 <h3 className="text-[14px] font-bold mb-3" style={{ color: 'var(--color-text-primary)' }}>
-                  사건 정보
+                  문서 정보
                 </h3>
                 <dl className="space-y-2 text-[13px]">
-                  <div>
-                    <dt style={{ color: 'var(--color-text-tertiary)' }}>판정기관</dt>
-                    <dd className="font-medium" style={{ color: 'var(--color-text-primary)' }}>{item.department}</dd>
-                  </div>
-                  <div>
-                    <dt style={{ color: 'var(--color-text-tertiary)' }}>사건번호</dt>
-                    <dd className="font-medium" style={{ color: 'var(--color-text-primary)' }}>{item.case_number}</dd>
-                  </div>
+                  {item.doc_number && (
+                    <div>
+                      <dt style={{ color: 'var(--color-text-tertiary)' }}>문서번호</dt>
+                      <dd className="font-medium" style={{ color: 'var(--color-text-primary)' }}>{item.doc_number}</dd>
+                    </div>
+                  )}
                   {dateStr && (
                     <div>
-                      <dt style={{ color: 'var(--color-text-tertiary)' }}>판정일</dt>
+                      <dt style={{ color: 'var(--color-text-tertiary)' }}>회신일</dt>
                       <dd className="font-medium" style={{ color: 'var(--color-text-primary)' }}>{dateStr}</dd>
                     </div>
                   )}
-                  {item.decision_result && (
+                  {item.keywords_matched && item.keywords_matched.length > 0 && (
                     <div>
-                      <dt style={{ color: 'var(--color-text-tertiary)' }}>판정결과</dt>
-                      <dd className="font-medium" style={{ color: 'var(--color-text-primary)' }}>{item.decision_result}</dd>
-                    </div>
-                  )}
-                  {item.case_type && (
-                    <div>
-                      <dt style={{ color: 'var(--color-text-tertiary)' }}>사건유형</dt>
-                      <dd className="font-medium" style={{ color: 'var(--color-text-primary)' }}>{item.case_type}</dd>
-                    </div>
-                  )}
-                  {item.reason_category && item.reason_category.length > 0 && (
-                    <div>
-                      <dt style={{ color: 'var(--color-text-tertiary)' }}>분류</dt>
+                      <dt style={{ color: 'var(--color-text-tertiary)' }}>키워드</dt>
                       <dd className="font-medium" style={{ color: 'var(--color-text-primary)' }}>
-                        {item.reason_category.map(translateReasonCategory).join(', ')}
+                        {item.keywords_matched.join(', ')}
                       </dd>
                     </div>
                   )}
                 </dl>
               </div>
 
-              {/* CTA Sidebar */}
               <div className="rounded-2xl p-5" style={{ backgroundColor: '#191f28' }}>
                 <p className="text-[14px] font-bold text-white mb-2">전문가 상담</p>
                 <p className="text-[12px] text-white/70 mb-4 leading-relaxed">
-                  이 판정례와 유사한 사안이라면 노무법인 위너스에 문의하세요.
+                  이 행정해석의 적용 여부가 궁금하시면 노무법인 위너스에 문의하세요.
                 </p>
                 <Link
                   href="/contact"

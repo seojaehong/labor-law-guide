@@ -1,4 +1,5 @@
-import { ChevronDown, ChevronUp, ExternalLink } from 'lucide-react';
+import Link from 'next/link';
+import { ChevronDown, ChevronUp, ExternalLink, ArrowRight } from 'lucide-react';
 import type { AdminResult } from './types';
 import { highlightText, formatDecisionDate, getPreferredSummary, getPreferredDetail } from './utils';
 import MarkdownSnippet from './MarkdownSnippet';
@@ -34,6 +35,9 @@ export default function AdminCard({ item, query, expanded, onToggle }: { item: A
             {expanded ? '접기' : '요약 보기'}
           </button>
         )}
+        <Link href={`/interpretations/${encodeURIComponent(item.id)}`} className="flex items-center gap-1 text-xs font-medium" style={{ color: 'var(--color-accent)' }}>
+          <ArrowRight size={12} /> 상세 보기
+        </Link>
         {item.url && (
           <a href={item.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-xs font-medium" style={{ color: 'var(--color-text-tertiary)' }}>
             <ExternalLink size={12} /> 원문 참고
