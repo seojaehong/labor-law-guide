@@ -33,6 +33,7 @@ interface CaseDetail {
   holding_points: string | null;
   law_references: string | null;
   url: string | null;
+  original_url: string | null;
 }
 
 interface RelatedCase {
@@ -47,7 +48,7 @@ interface RelatedCase {
 async function getCase(id: string): Promise<CaseDetail | null> {
   const { data, error } = await supabaseServer
     .from('cases')
-    .select('id, case_number, court, title, decision_date, case_type, verdict_type, keywords_matched, summary, holding_points, law_references, url')
+    .select('id, case_number, court, title, decision_date, case_type, verdict_type, keywords_matched, summary, holding_points, law_references, url, original_url')
     .eq('id', id)
     .single();
 
@@ -287,10 +288,10 @@ export default async function CaseDetailPage({
             )}
 
             {/* Source link */}
-            {item.url && (
+            {item.original_url && (
               <div className="mb-8">
                 <a
-                  href={item.url}
+                  href={item.original_url}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-1.5 text-[13px] font-medium transition-colors hover:opacity-70"

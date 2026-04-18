@@ -19,6 +19,7 @@ export interface CaseResult {
   holding_summary?: string | null;
   holding_points?: string | null;
   url?: string;
+  original_url?: string | null;
   relevance?: number;
 }
 
@@ -33,6 +34,7 @@ export interface AdminResult {
   key_issue?: string | null;
   holding_points?: string | null;
   url?: string;
+  original_url?: string | null;
 }
 
 export interface NlrcResult {
@@ -49,6 +51,7 @@ export interface NlrcResult {
   summary_short?: string | null;
   key_issue?: string | null;
   url?: string;
+  original_url?: string | null;
   relevance?: number;
 }
 

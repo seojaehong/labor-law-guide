@@ -28,6 +28,7 @@ interface AdminDetail {
   summary: string | null;
   holding_points: string | null;
   url: string | null;
+  original_url: string | null;
 }
 
 interface RelatedAdmin {
@@ -40,7 +41,7 @@ interface RelatedAdmin {
 async function getInterpretation(id: string): Promise<AdminDetail | null> {
   const { data, error } = await supabaseServer
     .from('admin_interpretations')
-    .select('id, title, doc_number, decision_date, keywords_matched, summary, holding_points, url')
+    .select('id, title, doc_number, decision_date, keywords_matched, summary, holding_points, url, original_url')
     .eq('id', id)
     .single();
 
@@ -232,10 +233,10 @@ export default async function InterpretationDetailPage({
               </section>
             )}
 
-            {item.url && (
+            {item.original_url && (
               <div className="mb-8">
                 <a
-                  href={item.url}
+                  href={item.original_url}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-1.5 text-[13px] font-medium transition-colors hover:opacity-70"

@@ -50,8 +50,8 @@ export default function NlrcCard({ item, query, expanded, onToggle }: { item: Nl
         <Link href={`/decisions/${encodeURIComponent(item.id)}`} className="flex items-center gap-1 text-xs font-medium" style={{ color: 'var(--color-accent)' }}>
           <ArrowRight size={12} /> 상세 보기
         </Link>
-        {item.url && (
-          <a href={item.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-xs font-medium" style={{ color: 'var(--color-text-tertiary)' }}>
+        {item.original_url && (
+          <a href={item.original_url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-xs font-medium" style={{ color: 'var(--color-text-tertiary)' }}>
             <ExternalLink size={12} /> 원문 참고
           </a>
         )}

@@ -35,6 +35,7 @@ interface NlrcDetail {
   summary_short: string | null;
   key_issue: string | null;
   url: string | null;
+  original_url: string | null;
 }
 
 interface RelatedDecision {
@@ -49,7 +50,7 @@ interface RelatedDecision {
 async function getDecision(id: string): Promise<NlrcDetail | null> {
   const { data, error } = await supabaseServer
     .from('nlrc_decisions')
-    .select('id, case_number, title, department, decision_date, case_type, decision_result, reason_category, holding_points, holding_summary, summary_short, key_issue, url')
+    .select('id, case_number, title, department, decision_date, case_type, decision_result, reason_category, holding_points, holding_summary, summary_short, key_issue, url, original_url')
     .eq('id', id)
     .single();
 
@@ -291,10 +292,10 @@ export default async function DecisionDetailPage({
             )}
 
             {/* Source link */}
-            {item.url && (
+            {item.original_url && (
               <div className="mb-8">
                 <a
-                  href={item.url}
+                  href={item.original_url}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-1.5 text-[13px] font-medium transition-colors hover:opacity-70"

@@ -51,11 +51,11 @@ async function getDatabaseLandingData() {
     supabaseServer.from('nlrc_decisions').select('id', { count: 'exact', head: true }),
     supabaseServer
       .from('cases')
-      .select('id, title, court, case_number, decision_date, summary, url')
+      .select('id, title, court, case_number, decision_date, summary, url, original_url')
       .in('case_number', FEATURED_CASE_NUMBERS),
     supabaseServer
       .from('admin_interpretations')
-      .select('id, title, doc_number, decision_date, summary, url')
+      .select('id, title, doc_number, decision_date, summary, url, original_url')
       .in('doc_number', FEATURED_ADMIN_DOC_NUMBERS),
   ]);
 
