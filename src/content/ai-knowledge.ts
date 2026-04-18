@@ -162,18 +162,31 @@ HR 담당자, 경영진, 사업주, 근로자 모두 상담 대상입니다.
 - 8시간 초과 시: 통상임금의 100% 가산
 - 관공서 휴일에 대해서는 적용되므로, 근로기준법상 공휴일 관련 규정과 혼동 주의`;
 
-// ═══ 예상질문 DB (의견서 작성 스킬 기반 체계화) ═══
+// 예상질문 DB는 Supabase faq 테이블(11,539건)로 이전 완료.
+// SYSTEM_PROMPT만 유지. qaDatabase/searchQA는 하위 호환용 빈 배열로 export.
 
 export interface QAPair {
   id: string;
-  category: '사용자성' | '교섭절차' | '노동쟁의' | '실무' | '일반';
+  category: string;
   question: string;
   answer: string;
   relatedArticle?: string;
   keywords: string[];
 }
 
-export const qaDatabase: QAPair[] = [
+export const qaDatabase: QAPair[] = [];
+
+// 카테고리별 그룹핑 유틸
+export function getQAByCategory(category: QAPair['category']) {
+  return qaDatabase.filter((qa) => qa.category === category);
+}
+
+// 키워드 검색 — Supabase faq 테이블(11,539건)이 주 소스. 이 함수는 하위 호환용.
+export function searchQA(_query: string): QAPair[] {
+  return [];
+}
+
+/* 아래는 기존 qaDatabase 원본 (Supabase faq 테이블로 이전 완료, 삭제)
   // ═══════════════════════════════════════
   // 일반 (10개)
   // ═══════════════════════════════════════
@@ -264,26 +277,4 @@ export const qaDatabase: QAPair[] = [
   { id: 'p-14', category: '실무', question: '교섭 중 비밀유지 의무가 있나요?', answer: '**법적 비밀유지 의무는 명시되어 있지 않지만, 실무적으로 중요합니다.**\n\n**권장 사항:**\n- 교섭 내용의 외부 공개 범위를 노사 합의로 정하기\n- 영업비밀, 경영정보는 교섭 과정에서도 보호 가능\n- 교섭 의사록 작성·관리\n\n**주의:** 노조가 교섭 내용을 조합원에게 보고하는 것은 정당한 노조 활동이므로 이를 제한하기 어렵습니다. 민감한 정보는 공개 범위를 사전에 합의하세요.', keywords: ['비밀', '기밀', '유지', '정보', '공개'] },
   { id: 'p-15', category: '실무', question: '우리 회사 상황에 맞는 구체적 자문을 받으려면?', answer: '**노무법인 위너스에서 원·하청 교섭 전문 자문을 제공합니다.**\n\n**자문 범위:**\n- 사용자성 해당 여부 정밀 분석\n- 교섭 대응 전략 수립\n- 교섭 대리·동행\n- 단체협약 검토·작성\n- 부당노동행위 예방\n- 하도급 구조 적법성 점검\n\n**문의:** 노란봉투법 가이드 문의 페이지(/contact)\n**홈페이지:** winhr.co.kr\n**주소:** 서울시 서초구 나루터로 61, 402호(태승빌딩)\n\n회사 상황과 일정, 현재 받은 교섭요구 또는 쟁점을 함께 남기면 더 빠르게 검토할 수 있습니다.', keywords: ['자문', '상담', '위너스', '문의', '연락'] },
 ];
-
-// 카테고리별 그룹핑 유틸
-export function getQAByCategory(category: QAPair['category']) {
-  return qaDatabase.filter((qa) => qa.category === category);
-}
-
-// 키워드 검색
-export function searchQA(query: string): QAPair[] {
-  const q = query.toLowerCase();
-  return qaDatabase
-    .map((qa) => {
-      let score = 0;
-      if (qa.question.toLowerCase().includes(q)) score += 10;
-      for (const kw of qa.keywords) {
-        if (q.includes(kw)) score += 5;
-      }
-      if (qa.answer.toLowerCase().includes(q)) score += 1;
-      return { ...qa, score };
-    })
-    .filter((qa) => qa.score > 0)
-    .sort((a, b) => b.score - a.score)
-    .slice(0, 5);
-}
+*/
