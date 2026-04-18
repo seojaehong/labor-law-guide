@@ -3,12 +3,26 @@
 import { useState, useCallback, useEffect, Suspense } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Search, Loader2, ArrowRight, MessageSquare } from 'lucide-react';
+import { Search, Loader2, ArrowRight, MessageSquare, Filter, X } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 
 import type { TabType, CaseResult, AdminResult, NlrcResult, DatabaseClientProps } from './_components/types';
-import { TABS, PAGE_SIZE, SEARCH_LIMIT, SUGGESTED_KEYWORDS } from './_components/types';
+import { TABS, PAGE_SIZE, SEARCH_LIMIT, SUGGESTED_KEYWORDS, REASON_CATEGORY_LABELS } from './_components/types';
 import { dedupeResults } from './_components/utils';
+
+const COURT_LEVELS = [
+  { key: '대법원', label: '대법원' },
+  { key: '고등법원', label: '고등법원' },
+  { key: '지방법원', label: '지방법원' },
+] as const;
+
+const NLRC_CASE_TYPES = [
+  { key: '부당해고', label: '부당해고' },
+  { key: '행정', label: '행정' },
+  { key: '민사', label: '민사' },
+  { key: '형사', label: '형사' },
+  { key: '부당노동', label: '부당노동행위' },
+] as const;
 import CaseCard from './_components/CaseCard';
 import AdminCard from './_components/AdminCard';
 import NlrcCard from './_components/NlrcCard';
@@ -40,6 +54,10 @@ function DatabaseContent({ initialTotalCases, initialTotalAdmin, initialTotalNlr
   const [totalCases, setTotalCases] = useState<number | null>(initialTotalCases);
   const [totalAdmin, setTotalAdmin] = useState<number | null>(initialTotalAdmin);
   const [totalNlrc, setTotalNlrc] = useState<number | null>(initialTotalNlrc ?? null);
+  const [filterCategory, setFilterCategory] = useState<string | null>(null);
+  const [filterCourt, setFilterCourt] = useState<string | null>(null);
+  const [filterCaseType, setFilterCaseType] = useState<string | null>(null);
+  const [browsing, setBrowsing] = useState(false);
 
   useEffect(() => {
     if (totalCases === null) {
@@ -137,6 +155,56 @@ function DatabaseContent({ initialTotalCases, initialTotalAdmin, initialTotalNlr
     }
   }, []);
 
+  const browse = useCallback(async (tab: TabType, p: number, opts: { category?: string | null; court?: string | null; caseType?: string | null } = {}) => {
+    setLoading(true);
+    setBrowsing(true);
+    setSearched(true);
+    setSearchTotal(null);
+    setSearchError(null);
+    const offset = (p - 1) * PAGE_SIZE;
+
+    try {
+      if (tab === 'nlrc') {
+        let q = supabase.from('nlrc_decisions')
+          .select('id, case_number, title, department, decision_date, case_type, decision_result, reason_category, holding_points, holding_summary, summary_short, key_issue', { count: 'exact' })
+          .order('decision_date', { ascending: false })
+          .range(offset, offset + PAGE_SIZE - 1);
+        if (opts.category) q = q.contains('reason_category', [opts.category]);
+        if (opts.caseType) q = q.eq('case_type', opts.caseType);
+        const { data, count, error } = await q;
+        if (error) throw error;
+        setNlrcResults((data || []) as unknown as NlrcResult[]);
+        setSearchTotal(count);
+        setHasMore((count || 0) > offset + PAGE_SIZE);
+      } else if (tab === 'cases') {
+        let q = supabase.from('cases')
+          .select('id, case_number, court, title, decision_date, case_type, verdict_type, summary, summary_short, key_issue, holding_summary, holding_points', { count: 'exact' })
+          .order('decision_date', { ascending: false })
+          .range(offset, offset + PAGE_SIZE - 1);
+        if (opts.court) q = q.ilike('court', `%${opts.court}%`);
+        const { data, count, error } = await q;
+        if (error) throw error;
+        setCases((data || []) as unknown as CaseResult[]);
+        setSearchTotal(count);
+        setHasMore((count || 0) > offset + PAGE_SIZE);
+      } else {
+        let q = supabase.from('admin_interpretations')
+          .select('id, title, doc_number, decision_date, summary, summary_short, key_issue, holding_points', { count: 'exact' })
+          .order('decision_date', { ascending: false })
+          .range(offset, offset + PAGE_SIZE - 1);
+        const { data, count, error } = await q;
+        if (error) throw error;
+        setAdmins((data || []) as unknown as AdminResult[]);
+        setSearchTotal(count);
+        setHasMore((count || 0) > offset + PAGE_SIZE);
+      }
+    } catch {
+      setSearchError('조회 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     const q = searchParams.get('q');
     const tab = (searchParams.get('tab') as TabType) || 'cases';
@@ -158,15 +226,71 @@ function DatabaseContent({ initialTotalCases, initialTotalAdmin, initialTotalNlr
     setActiveTab(tab);
     setPage(1);
     setExpandedIds(new Set());
+    setFilterCategory(null);
+    setFilterCourt(null);
+    setFilterCaseType(null);
+    setBrowsing(false);
+    setSearched(false);
     updateUrl(query, tab, 1);
     if (query.length >= 2) search(query, tab, 1);
+  };
+
+  const handleFilterCategory = (cat: string) => {
+    const next = filterCategory === cat ? null : cat;
+    setFilterCategory(next);
+    setPage(1);
+    setExpandedIds(new Set());
+    if (next || filterCaseType) {
+      browse(activeTab, 1, { category: next, caseType: filterCaseType });
+    } else {
+      setSearched(false);
+      setBrowsing(false);
+    }
+  };
+
+  const handleFilterCourt = (court: string) => {
+    const next = filterCourt === court ? null : court;
+    setFilterCourt(next);
+    setPage(1);
+    setExpandedIds(new Set());
+    if (next) {
+      browse(activeTab, 1, { court: next });
+    } else {
+      setSearched(false);
+      setBrowsing(false);
+    }
+  };
+
+  const handleFilterCaseType = (ct: string) => {
+    const next = filterCaseType === ct ? null : ct;
+    setFilterCaseType(next);
+    setPage(1);
+    setExpandedIds(new Set());
+    if (next || filterCategory) {
+      browse(activeTab, 1, { category: filterCategory, caseType: next });
+    } else {
+      setSearched(false);
+      setBrowsing(false);
+    }
+  };
+
+  const clearFilters = () => {
+    setFilterCategory(null);
+    setFilterCourt(null);
+    setFilterCaseType(null);
+    setBrowsing(false);
+    setSearched(false);
   };
 
   const handlePage = (nextPage: number) => {
     setPage(nextPage);
     setExpandedIds(new Set());
-    updateUrl(query, activeTab, nextPage);
-    search(query, activeTab, nextPage);
+    if (browsing) {
+      browse(activeTab, nextPage, { category: filterCategory, court: filterCourt, caseType: filterCaseType });
+    } else {
+      updateUrl(query, activeTab, nextPage);
+      search(query, activeTab, nextPage);
+    }
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -242,6 +366,83 @@ function DatabaseContent({ initialTotalCases, initialTotalAdmin, initialTotalNlr
         })}
       </div>
 
+      {activeTab === 'nlrc' && (
+        <div className="mt-4 space-y-2">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="flex items-center gap-1 text-xs font-medium" style={{ color: 'var(--color-text-tertiary)' }}>
+              <Filter size={12} /> 유형별
+            </span>
+            {Object.entries(REASON_CATEGORY_LABELS).map(([key, label]) => (
+              <button
+                key={key}
+                onClick={() => handleFilterCategory(key)}
+                className="rounded-full px-2.5 py-1 text-xs font-medium transition-colors"
+                style={{
+                  backgroundColor: filterCategory === key ? 'var(--color-accent)' : 'transparent',
+                  color: filterCategory === key ? '#fff' : 'var(--color-text-secondary)',
+                  border: `1px solid ${filterCategory === key ? 'var(--color-accent)' : 'var(--color-border)'}`,
+                }}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="flex items-center gap-1 text-xs font-medium" style={{ color: 'var(--color-text-tertiary)' }}>
+              <Filter size={12} /> 사건유형
+            </span>
+            {NLRC_CASE_TYPES.map(({ key, label }) => (
+              <button
+                key={key}
+                onClick={() => handleFilterCaseType(key)}
+                className="rounded-full px-2.5 py-1 text-xs font-medium transition-colors"
+                style={{
+                  backgroundColor: filterCaseType === key ? 'var(--color-accent)' : 'transparent',
+                  color: filterCaseType === key ? '#fff' : 'var(--color-text-secondary)',
+                  border: `1px solid ${filterCaseType === key ? 'var(--color-accent)' : 'var(--color-border)'}`,
+                }}
+              >
+                {label}
+              </button>
+            ))}
+            {(filterCategory || filterCaseType) && (
+              <button onClick={clearFilters} className="flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium" style={{ color: 'var(--color-text-tertiary)' }}>
+                <X size={12} /> 초기화
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'cases' && (
+        <div className="mt-4">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="flex items-center gap-1 text-xs font-medium" style={{ color: 'var(--color-text-tertiary)' }}>
+              <Filter size={12} /> 법원급
+            </span>
+            {COURT_LEVELS.map(({ key, label }) => (
+              <button
+                key={key}
+                onClick={() => handleFilterCourt(key)}
+                className="rounded-full px-2.5 py-1 text-xs font-medium transition-colors"
+                style={{
+                  backgroundColor: filterCourt === key ? 'var(--color-accent)' : 'transparent',
+                  color: filterCourt === key ? '#fff' : 'var(--color-text-secondary)',
+                  border: `1px solid ${filterCourt === key ? 'var(--color-accent)' : 'var(--color-border)'}`,
+                }}
+              >
+                {label}
+              </button>
+            ))}
+            {filterCourt && (
+              <button onClick={clearFilters} className="flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium" style={{ color: 'var(--color-text-tertiary)' }}>
+                <X size={12} /> 초기화
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
       {activeTab === 'admin' && (
         <p className="mt-3 text-sm leading-6" style={{ color: 'var(--color-text-secondary)' }}>
           공개 행정해석은 현재 제도 중심 자료가 많아 &apos;사용자성&apos;, &apos;원청&apos;보다 &apos;단체교섭&apos;, &apos;교섭창구&apos;, &apos;부당노동행위&apos; 같은 키워드에서 더 안정적으로 결과가 나옵니다.
@@ -299,7 +500,7 @@ function DatabaseContent({ initialTotalCases, initialTotalAdmin, initialTotalNlr
         {!loading && !searched && (
           <div className="py-16 text-center" style={{ color: 'var(--color-text-tertiary)' }}>
             <Search size={40} className="mx-auto mb-3 opacity-30" />
-            <p>검색어를 입력하고 Enter를 눌러주세요.</p>
+            <p>검색어를 입력하거나 위 필터를 선택해 탐색하세요.</p>
             <KeywordSuggestions keywords={suggestedKeywords} onClick={handleKeywordClick} />
           </div>
         )}
