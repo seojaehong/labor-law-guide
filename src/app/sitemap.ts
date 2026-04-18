@@ -7,7 +7,7 @@ export const revalidate = 3600;
 const FALLBACK_BLOG_DATE = new Date('2026-03-29T00:00:00.000Z');
 const FALLBACK_NEWS_DATE = new Date('2026-03-31T00:00:00.000Z');
 const CONTACT_LAST_MODIFIED = new Date('2026-04-04T00:00:00.000Z');
-const NLRC_CHUNK_SIZE = 25000;
+const PAGE_SIZE = 1000;
 
 function clampToNow(date: Date) {
   const now = new Date();
@@ -24,101 +24,90 @@ function maxDate(...dates: Date[]) {
   return new Date(Math.max(...dates.map((date) => date.getTime())));
 }
 
-// Sitemap index: split large dataset into multiple sitemaps
-// id 0 = static + blog
-// id 1 = cases (3,997)
-// id 2+ = nlrc_decisions chunks (25,000 each)
-export async function generateSitemaps() {
-  const { count } = await supabaseServer
-    .from('nlrc_decisions')
-    .select('id', { count: 'exact', head: true });
+type CaseRow = { id: string; decision_date: string | null };
+type DecisionRow = { id: string; decision_date: string | null };
 
-  const nlrcCount = count || 0;
-  const nlrcChunks = Math.ceil(nlrcCount / NLRC_CHUNK_SIZE);
+type TableName = 'cases' | 'nlrc_decisions';
 
-  const sitemaps = [
-    { id: 0 }, // static + blog
-    { id: 1 }, // cases
-  ];
+async function fetchAllRows<T extends CaseRow | DecisionRow>(
+  table: TableName,
+  columns: string,
+  orderBy: 'id' | 'decision_date',
+  ascending: boolean,
+) {
+  const rows: T[] = [];
+  let from = 0;
 
-  for (let i = 0; i < nlrcChunks; i++) {
-    sitemaps.push({ id: 2 + i });
+  while (true) {
+    const to = from + PAGE_SIZE - 1;
+    const { data } = await supabaseServer
+      .from(table)
+      .select(columns)
+      .order(orderBy, { ascending })
+      .range(from, to);
+
+    const chunk = (data || []) as unknown as T[];
+    rows.push(...chunk);
+
+    if (chunk.length < PAGE_SIZE) break;
+    from += PAGE_SIZE;
   }
 
-  return sitemaps;
+  return rows;
 }
 
-export default async function sitemap({ id }: { id: number }): Promise<MetadataRoute.Sitemap> {
-  // Sitemap 0: static pages + blog articles
-  if (id === 0) {
-    const [{ data: blogArticles }, { data: latestNewsRows }] = await Promise.all([
-      supabaseServer
-        .from('blog_articles')
-        .select('slug, updated_at')
-        .order('published_at', { ascending: false }),
-      supabaseServer
-        .from('news')
-        .select('published_at')
-        .order('published_at', { ascending: false })
-        .limit(1),
-    ]);
+export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
+  const [{ data: blogArticles }, { data: latestNewsRows }, cases, decisions] = await Promise.all([
+    supabaseServer
+      .from('blog_articles')
+      .select('slug, updated_at')
+      .order('published_at', { ascending: false }),
+    supabaseServer
+      .from('news')
+      .select('published_at')
+      .order('published_at', { ascending: false })
+      .limit(1),
+    fetchAllRows<CaseRow>('cases', 'id, decision_date', 'decision_date', false),
+    fetchAllRows<DecisionRow>('nlrc_decisions', 'id, decision_date', 'id', true),
+  ]);
 
-    const latestBlogDate = parseDate(blogArticles?.[0]?.updated_at, FALLBACK_BLOG_DATE);
-    const latestNewsDate = parseDate(latestNewsRows?.[0]?.published_at, FALLBACK_NEWS_DATE);
-    const latestContentDate = maxDate(latestBlogDate, latestNewsDate);
+  const latestBlogDate = parseDate(blogArticles?.[0]?.updated_at, FALLBACK_BLOG_DATE);
+  const latestNewsDate = parseDate(latestNewsRows?.[0]?.published_at, FALLBACK_NEWS_DATE);
+  const latestContentDate = maxDate(latestBlogDate, latestNewsDate);
 
-    const staticRoutes: MetadataRoute.Sitemap = [
-      { url: SITE_URL, lastModified: latestContentDate, changeFrequency: 'weekly', priority: 1 },
-      { url: `${SITE_URL}/guide`, lastModified: new Date('2026-03-15T00:00:00.000Z'), changeFrequency: 'monthly', priority: 0.9 },
-      { url: `${SITE_URL}/checklist`, lastModified: new Date('2026-03-15T00:00:00.000Z'), changeFrequency: 'monthly', priority: 0.9 },
-      { url: `${SITE_URL}/manual`, lastModified: new Date('2026-03-15T00:00:00.000Z'), changeFrequency: 'monthly', priority: 0.9 },
-      { url: `${SITE_URL}/cases`, lastModified: new Date('2026-03-26T00:00:00.000Z'), changeFrequency: 'monthly', priority: 0.85 },
-      { url: `${SITE_URL}/database`, lastModified: latestNewsDate, changeFrequency: 'daily', priority: 0.85 },
-      { url: `${SITE_URL}/news`, lastModified: latestNewsDate, changeFrequency: 'daily', priority: 0.8 },
-      { url: `${SITE_URL}/blog`, lastModified: latestBlogDate, changeFrequency: 'weekly', priority: 0.85 },
-      { url: `${SITE_URL}/ai`, lastModified: new Date('2026-03-20T00:00:00.000Z'), changeFrequency: 'weekly', priority: 0.8 },
-      { url: `${SITE_URL}/contact`, lastModified: CONTACT_LAST_MODIFIED, changeFrequency: 'monthly', priority: 0.75 },
-    ];
+  const staticRoutes: MetadataRoute.Sitemap = [
+    { url: SITE_URL, lastModified: latestContentDate, changeFrequency: 'weekly', priority: 1 },
+    { url: `${SITE_URL}/guide`, lastModified: new Date('2026-03-15T00:00:00.000Z'), changeFrequency: 'monthly', priority: 0.9 },
+    { url: `${SITE_URL}/checklist`, lastModified: new Date('2026-03-15T00:00:00.000Z'), changeFrequency: 'monthly', priority: 0.9 },
+    { url: `${SITE_URL}/manual`, lastModified: new Date('2026-03-15T00:00:00.000Z'), changeFrequency: 'monthly', priority: 0.9 },
+    { url: `${SITE_URL}/cases`, lastModified: new Date('2026-03-26T00:00:00.000Z'), changeFrequency: 'monthly', priority: 0.85 },
+    { url: `${SITE_URL}/database`, lastModified: latestNewsDate, changeFrequency: 'daily', priority: 0.85 },
+    { url: `${SITE_URL}/news`, lastModified: latestNewsDate, changeFrequency: 'daily', priority: 0.8 },
+    { url: `${SITE_URL}/blog`, lastModified: latestBlogDate, changeFrequency: 'weekly', priority: 0.85 },
+    { url: `${SITE_URL}/ai`, lastModified: new Date('2026-03-20T00:00:00.000Z'), changeFrequency: 'weekly', priority: 0.8 },
+    { url: `${SITE_URL}/contact`, lastModified: CONTACT_LAST_MODIFIED, changeFrequency: 'monthly', priority: 0.75 },
+  ];
 
-    const blogRoutes: MetadataRoute.Sitemap = (blogArticles || []).map((article: { slug: string; updated_at: string | null }) => ({
-      url: `${SITE_URL}/blog/${article.slug}`,
-      lastModified: parseDate(article.updated_at, latestBlogDate),
-      changeFrequency: 'weekly' as const,
-      priority: 0.8,
-    }));
+  const blogRoutes: MetadataRoute.Sitemap = (blogArticles || []).map((article: { slug: string; updated_at: string | null }) => ({
+    url: `${SITE_URL}/blog/${article.slug}`,
+    lastModified: parseDate(article.updated_at, latestBlogDate),
+    changeFrequency: 'weekly' as const,
+    priority: 0.8,
+  }));
 
-    return [...staticRoutes, ...blogRoutes];
-  }
+  const caseRoutes: MetadataRoute.Sitemap = cases.map((item) => ({
+    url: `${SITE_URL}/cases/${encodeURIComponent(item.id)}`,
+    lastModified: parseDate(item.decision_date, new Date('2026-01-01')),
+    changeFrequency: 'monthly' as const,
+    priority: 0.7,
+  }));
 
-  // Sitemap 1: cases (법원 판례)
-  if (id === 1) {
-    const { data: cases } = await supabaseServer
-      .from('cases')
-      .select('id, decision_date')
-      .order('decision_date', { ascending: false });
-
-    return (cases || []).map((c: { id: string; decision_date: string | null }) => ({
-      url: `${SITE_URL}/cases/${encodeURIComponent(c.id)}`,
-      lastModified: parseDate(c.decision_date, new Date('2026-01-01')),
-      changeFrequency: 'monthly' as const,
-      priority: 0.7,
-    }));
-  }
-
-  // Sitemap 2+: nlrc_decisions chunks
-  const chunkIndex = id - 2;
-  const offset = chunkIndex * NLRC_CHUNK_SIZE;
-
-  const { data: decisions } = await supabaseServer
-    .from('nlrc_decisions')
-    .select('id, decision_date')
-    .order('id', { ascending: true })
-    .range(offset, offset + NLRC_CHUNK_SIZE - 1);
-
-  return (decisions || []).map((d: { id: string; decision_date: string | null }) => ({
-    url: `${SITE_URL}/decisions/${encodeURIComponent(d.id)}`,
-    lastModified: parseDate(d.decision_date, new Date('2026-01-01')),
+  const decisionRoutes: MetadataRoute.Sitemap = decisions.map((item) => ({
+    url: `${SITE_URL}/decisions/${encodeURIComponent(item.id)}`,
+    lastModified: parseDate(item.decision_date, new Date('2026-01-01')),
     changeFrequency: 'monthly' as const,
     priority: 0.65,
   }));
+
+  return [...staticRoutes, ...blogRoutes, ...caseRoutes, ...decisionRoutes];
 }
