@@ -76,6 +76,26 @@ export default function RootLayout({
         />
         <Script src="https://www.googletagmanager.com/gtag/js?id=G-GKKFCZ235H" strategy="afterInteractive" />
         <Script id="gtag-init" strategy="afterInteractive">{`window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}gtag('js',new Date());gtag('config','G-GKKFCZ235H');`}</Script>
+        <Script id="webmcp-init" strategy="afterInteractive">{`
+          if (typeof navigator !== 'undefined' && navigator.modelContext) {
+            navigator.modelContext.provideContext({
+              tools: [
+                {
+                  name: 'search-labor-law',
+                  description: '노동법 관련 정보를 검색합니다. 노란봉투법, 부당해고, 임금체불, 직장내괴롭힘, 4대보험 등.',
+                  inputSchema: { type: 'object', properties: { query: { type: 'string', description: '검색 키워드' } }, required: ['query'] },
+                  execute: async (input) => { window.location.href = '/database?q=' + encodeURIComponent(input.query); return { success: true }; }
+                },
+                {
+                  name: 'ai-consultation',
+                  description: 'AI 노동법 상담을 시작합니다.',
+                  inputSchema: { type: 'object', properties: { question: { type: 'string', description: '질문 내용' } }, required: ['question'] },
+                  execute: async (input) => { window.location.href = '/ai?q=' + encodeURIComponent(input.question); return { success: true }; }
+                }
+              ]
+            });
+          }
+        `}</Script>
       </head>
       <body>
         {/* WebSite + Organization JSON-LD */}
