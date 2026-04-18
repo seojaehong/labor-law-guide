@@ -4,6 +4,18 @@ const nextConfig: NextConfig = {
   images: {
     formats: ['image/avif', 'image/webp'],
   },
+  async rewrites() {
+    return [
+      { source: '/mcp/server-card.json', destination: '/.well-known/mcp/server-card.json' },
+      { source: '/agent-skills/index.json', destination: '/.well-known/agent-skills/index.json' },
+      { source: '/agent-skills/:path*', destination: '/.well-known/agent-skills/:path*' },
+      { source: '/api-catalog', destination: '/.well-known/api-catalog' },
+      { source: '/openapi.json', destination: '/.well-known/openapi.json' },
+      { source: '/oauth-authorization-server', destination: '/.well-known/oauth-authorization-server' },
+      { source: '/oauth-protected-resource', destination: '/.well-known/oauth-protected-resource' },
+      { source: '/agent-card.json', destination: '/.well-known/agent-card.json' },
+    ];
+  },
   async headers() {
     return [
       {
@@ -14,6 +26,30 @@ const nextConfig: NextConfig = {
           { key: 'X-XSS-Protection', value: '1; mode=block' },
           { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
         ],
+      },
+      {
+        source: '/api-catalog',
+        headers: [{ key: 'Content-Type', value: 'application/json; charset=utf-8' }],
+      },
+      {
+        source: '/oauth-authorization-server',
+        headers: [{ key: 'Content-Type', value: 'application/json; charset=utf-8' }],
+      },
+      {
+        source: '/oauth-protected-resource',
+        headers: [{ key: 'Content-Type', value: 'application/json; charset=utf-8' }],
+      },
+      {
+        source: '/.well-known/api-catalog',
+        headers: [{ key: 'Content-Type', value: 'application/json; charset=utf-8' }],
+      },
+      {
+        source: '/.well-known/oauth-authorization-server',
+        headers: [{ key: 'Content-Type', value: 'application/json; charset=utf-8' }],
+      },
+      {
+        source: '/.well-known/oauth-protected-resource',
+        headers: [{ key: 'Content-Type', value: 'application/json; charset=utf-8' }],
       },
       {
         source: '/',
