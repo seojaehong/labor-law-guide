@@ -1,0 +1,16 @@
+{
+  "skills": [
+    {
+      "name": "labor-law-guide",
+      "type": "skill",
+      "description": "노동법 실무 가이드 — 노란봉투법(개정 노동조합법) 해설, 사용자성 자가진단, 교섭절차, FAQ 50개, 상황별 가이드 6개",
+      "url": "/.well-known/agent-skills/labor-law-guide/SKILL.md"
+    },
+    {
+      "name": "case-search",
+      "type": "skill",
+      "description": "노동위원회 판정례 29,622건 검색 — 부당해고, 부당징계, 성희롱, 직장내괴롭힘 등 16개 카테고리",
+      "url": "/.well-known/agent-skills/case-search/SKILL.md"
+    }
+  ]
+}

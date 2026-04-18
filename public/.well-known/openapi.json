@@ -1,0 +1,60 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "노란봉투법 가이드 API",
+    "description": "노동법 실무 가이드 및 AI 상담 API",
+    "version": "1.0.0",
+    "contact": {
+      "name": "노무법인 위너스",
+      "url": "https://www.xn--o80bk8isxeinax68f.com"
+    }
+  },
+  "servers": [
+    {
+      "url": "https://www.xn--o80bk8isxeinax68f.com",
+      "description": "Production"
+    }
+  ],
+  "paths": {
+    "/api/chat": {
+      "post": {
+        "operationId": "aiChat",
+        "summary": "AI 노동법 상담",
+        "description": "노동법 관련 질의에 대해 AI가 근거 기반으로 답변합니다. 확률/점수 출력 없음.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["messages"],
+                "properties": {
+                  "messages": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "role": { "type": "string", "enum": ["user", "assistant"] },
+                        "content": { "type": "string" }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "AI 상담 응답 (스트리밍)",
+            "content": {
+              "text/event-stream": {
+                "schema": { "type": "string" }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

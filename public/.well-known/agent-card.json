@@ -1,0 +1,32 @@
+{
+  "name": "노란봉투법 가이드 에이전트",
+  "version": "1.0.0",
+  "description": "대한민국 노동법 실무 가이드 에이전트. 노란봉투법, 부당해고, 임금체불, 직장내괴롭힘, 4대보험, 고용지원금 정보 제공. 확률/점수 출력 없이 근거 기반 안내.",
+  "url": "https://www.xn--o80bk8isxeinax68f.com",
+  "provider": {
+    "organization": "노무법인 위너스",
+    "url": "https://www.xn--o80bk8isxeinax68f.com"
+  },
+  "supportedInterfaces": [
+    {
+      "url": "https://www.xn--o80bk8isxeinax68f.com/api",
+      "transport": "https"
+    }
+  ],
+  "capabilities": {
+    "streaming": true,
+    "pushNotifications": false
+  },
+  "skills": [
+    {
+      "id": "labor-law-guide",
+      "name": "노동법 실무 가이드",
+      "description": "노란봉투법 해설, FAQ, 교섭절차, 자가진단"
+    },
+    {
+      "id": "ai-consultation",
+      "name": "AI 노동법 상담",
+      "description": "노동법 전반 질의응답"
+    }
+  ]
+}

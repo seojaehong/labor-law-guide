@@ -1,0 +1,19 @@
+{
+  "linkset": [
+    {
+      "anchor": "https://www.xn--o80bk8isxeinax68f.com",
+      "service-desc": [
+        {
+          "href": "/.well-known/openapi.json",
+          "type": "application/openapi+json"
+        }
+      ],
+      "service-doc": [
+        {
+          "href": "/llms.txt",
+          "type": "text/plain"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,5 @@
+{
+  "resource": "https://www.xn--o80bk8isxeinax68f.com",
+  "authorization_servers": ["https://www.xn--o80bk8isxeinax68f.com"],
+  "scopes_supported": ["read:cases", "analyze:sanction"]
+}

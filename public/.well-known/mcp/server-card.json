@@ -1,0 +1,23 @@
+{
+  "serverInfo": {
+    "name": "노란봉투법 가이드",
+    "version": "1.0.0",
+    "description": "노동법 실무 가이드 — 노란봉투법, 부당해고, 임금체불, 직장내괴롭힘, 4대보험, 고용지원금, AI 판례분석"
+  },
+  "transport": {
+    "type": "https",
+    "url": "https://www.xn--o80bk8isxeinax68f.com/api"
+  },
+  "capabilities": {
+    "tools": [
+      {
+        "name": "labor-law-guide",
+        "description": "노동법 실무 가이드 — 노란봉투법 해설, FAQ, 교섭절차, 자가진단"
+      },
+      {
+        "name": "ai-consultation",
+        "description": "AI 노동법 상담 — 노동법 전반 질의응답 (확률/점수 없이 근거 기반)"
+      }
+    ]
+  }
+}

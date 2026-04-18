@@ -1,0 +1,20 @@
+{
+  "protocol": {
+    "name": "acp",
+    "version": "1.0"
+  },
+  "api_base_url": "https://www.xn--o80bk8isxeinax68f.com/api",
+  "transports": ["https"],
+  "capabilities": {
+    "services": [
+      {
+        "name": "labor-case-search",
+        "description": "노동위원회 판정례 검색 (무료)"
+      },
+      {
+        "name": "sanction-analysis",
+        "description": "AI 징계양정 비교분석 (무료)"
+      }
+    ]
+  }
+}
