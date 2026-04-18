@@ -185,6 +185,8 @@ export default async function BlogArticlePage({
         inLanguage: 'ko',
         keywords: article.tags?.join(', ') || '',
         image: article.cover_image || `${SITE_URL}/opengraph-image`,
+        wordCount: article.content?.length || 0,
+        articleSection: article.category,
       },
     ],
   };

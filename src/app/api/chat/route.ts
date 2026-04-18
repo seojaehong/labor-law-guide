@@ -24,24 +24,23 @@ export async function POST(req: NextRequest) {
 
     const lastUserMsg = [...messages].reverse().find((m: { role: string }) => m.role === 'user');
 
-    // FAQ DB 매칭 — Supabase RPC(search_faq) 우선, 인라인 fallback
+    // FAQ DB 매칭 — Supabase RPC(search_faq) 11,539건 + 33개 통합 카테고리
     let faqContext = '';
     if (lastUserMsg) {
       const { data: dbFaq, error: dbErr } = await db.rpc('search_faq', {
         query: lastUserMsg.content,
-        result_limit: 5,
+        result_limit: 8,
       });
       const faqMatched = !dbErr && dbFaq && dbFaq.length > 0;
-      const faqCategories = faqMatched ? [...new Set(dbFaq.map((f: { category: string }) => f.category))] : [];
+      const faqCategories = faqMatched ? [...new Set(dbFaq.map((f: { unified_category: string }) => f.unified_category))] : [];
 
       if (faqMatched) {
         faqContext = '\n\n═══ 관련 지식DB 매칭 결과 (참고하여 답변) ═══\n';
         for (const faq of dbFaq) {
-          faqContext += `\n[${faq.category}] Q: ${faq.question}\nA: ${faq.answer}\n`;
+          faqContext += `\n[${faq.unified_category || faq.category}] Q: ${faq.question}\nA: ${faq.answer}\n`;
         }
         faqContext += '\n위 DB 내용을 참고하되, 질문에 맞게 자연스럽게 재구성하여 답변하세요.';
       } else {
-        // Supabase 미응답 시 인라인 FAQ fallback
         const inlineFaq = searchQA(lastUserMsg.content);
         if (inlineFaq.length > 0) {
           faqContext = '\n\n═══ 관련 예상질문 DB 매칭 결과 (참고하여 답변) ═══\n';
@@ -52,7 +51,6 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      // 비동기 로깅 (fire-and-forget, 응답 지연 없음)
       db.from('chat_logs').insert({
         question: lastUserMsg.content.slice(0, 500),
         faq_matched: faqMatched,

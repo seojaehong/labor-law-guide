@@ -1,6 +1,7 @@
 import type { MetadataRoute } from 'next';
 import { SITE_URL } from '@/lib/constants';
 import { supabaseServer } from '@/lib/supabase-server';
+import { FAQ_CATEGORIES, categoryToSlug } from '@/lib/faq-categories';
 
 export const revalidate = 3600;
 
@@ -86,7 +87,22 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${SITE_URL}/blog`, lastModified: latestBlogDate, changeFrequency: 'weekly', priority: 0.85 },
     { url: `${SITE_URL}/ai`, lastModified: new Date('2026-03-20T00:00:00.000Z'), changeFrequency: 'weekly', priority: 0.8 },
     { url: `${SITE_URL}/contact`, lastModified: CONTACT_LAST_MODIFIED, changeFrequency: 'monthly', priority: 0.75 },
+    { url: `${SITE_URL}/faq`, lastModified: latestContentDate, changeFrequency: 'weekly', priority: 0.85 },
   ];
+
+  const faqCategoryRoutes: MetadataRoute.Sitemap = FAQ_CATEGORIES.map((cat) => ({
+    url: `${SITE_URL}/faq/${categoryToSlug(cat)}`,
+    lastModified: latestContentDate,
+    changeFrequency: 'weekly' as const,
+    priority: 0.75,
+  }));
+
+  const blogCategoryRoutes: MetadataRoute.Sitemap = ['노동법', '판례분석', '뉴스해설', '실무가이드'].map((cat) => ({
+    url: `${SITE_URL}/blog/category/${encodeURIComponent(cat)}`,
+    lastModified: latestBlogDate,
+    changeFrequency: 'weekly' as const,
+    priority: 0.75,
+  }));
 
   const blogRoutes: MetadataRoute.Sitemap = (blogArticles || []).map((article: { slug: string; updated_at: string | null }) => ({
     url: `${SITE_URL}/blog/${article.slug}`,
@@ -109,5 +125,5 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: 0.65,
   }));
 
-  return [...staticRoutes, ...blogRoutes, ...caseRoutes, ...decisionRoutes];
+  return [...staticRoutes, ...faqCategoryRoutes, ...blogCategoryRoutes, ...blogRoutes, ...caseRoutes, ...decisionRoutes];
 }
