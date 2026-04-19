@@ -17,6 +17,7 @@ export async function GET(req: NextRequest) {
     page_size: size,
     page_offset: offset,
     search_query: query,
+    canonical_only: !query,
   });
 
   if (error) {

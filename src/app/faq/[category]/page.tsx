@@ -39,8 +39,9 @@ export default async function FaqCategoryPage({ params }: { params: Promise<{ ca
       page_size: 20,
       page_offset: 0,
       search_query: null,
+      canonical_only: true,
     }),
-    supabaseServer.rpc('get_faq_category_counts'),
+    supabaseServer.rpc('get_faq_category_counts', { canonical_only: true }),
   ]);
 
   const faqs = (faqResult.data || []).map((r: { id: number; unified_category: string; question: string; answer: string }) => ({

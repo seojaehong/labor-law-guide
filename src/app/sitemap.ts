@@ -5,60 +5,94 @@ import { FAQ_CATEGORIES, categoryToSlug } from '@/lib/faq-categories';
 
 export const revalidate = 3600;
 
+const CHUNK_SIZE = 10_000;
 const FALLBACK_BLOG_DATE = new Date('2026-03-29T00:00:00.000Z');
 const FALLBACK_NEWS_DATE = new Date('2026-03-31T00:00:00.000Z');
 const CONTACT_LAST_MODIFIED = new Date('2026-04-04T00:00:00.000Z');
-const PAGE_SIZE = 1000;
+const MIN_VALID_DATE = new Date('2000-01-01T00:00:00.000Z');
+
+// ── Helpers ──
 
 function clampToNow(date: Date) {
   const now = new Date();
   return date.getTime() > now.getTime() ? now : date;
 }
 
-function parseDate(value: string | null | undefined, fallback: Date) {
+function parseDate(value: string | null | undefined, fallback: Date): Date {
   if (!value) return clampToNow(fallback);
   const parsed = new Date(value);
-  return Number.isNaN(parsed.getTime()) ? clampToNow(fallback) : clampToNow(parsed);
+  if (Number.isNaN(parsed.getTime())) return clampToNow(fallback);
+  // Reject dates before 2000 — these are likely data errors
+  if (parsed.getTime() < MIN_VALID_DATE.getTime()) return clampToNow(fallback);
+  return clampToNow(parsed);
 }
 
 function maxDate(...dates: Date[]) {
-  return new Date(Math.max(...dates.map((date) => date.getTime())));
+  return new Date(Math.max(...dates.map((d) => d.getTime())));
 }
 
-type CaseRow = { id: string; decision_date: string | null };
-type DecisionRow = { id: string; decision_date: string | null };
+// ── Chunk layout ──
+// id=0  → static pages + FAQ + blog categories + blog articles
+// id=1+ → cases (ordered by id), then nlrc_decisions (ordered by id)
 
-type TableName = 'cases' | 'nlrc_decisions';
+async function getTableCount(table: 'cases' | 'nlrc_decisions'): Promise<number> {
+  const { count } = await supabaseServer
+    .from(table)
+    .select('id', { count: 'exact', head: true });
+  return count ?? 0;
+}
 
-async function fetchAllRows<T extends CaseRow | DecisionRow>(
-  table: TableName,
-  columns: string,
-  orderBy: 'id' | 'decision_date',
-  ascending: boolean,
-) {
-  const rows: T[] = [];
-  let from = 0;
+export async function generateSitemaps() {
+  const [casesCount, decisionsCount] = await Promise.all([
+    getTableCount('cases'),
+    getTableCount('nlrc_decisions'),
+  ]);
 
-  while (true) {
-    const to = from + PAGE_SIZE - 1;
-    const { data } = await supabaseServer
-      .from(table)
-      .select(columns)
-      .order(orderBy, { ascending })
-      .range(from, to);
+  const casesChunks = Math.max(1, Math.ceil(casesCount / CHUNK_SIZE));
+  const decisionsChunks = Math.max(1, Math.ceil(decisionsCount / CHUNK_SIZE));
 
-    const chunk = (data || []) as unknown as T[];
-    rows.push(...chunk);
+  // id 0 = static + blog, id 1..casesChunks = cases, then decisions
+  const total = 1 + casesChunks + decisionsChunks;
+  return Array.from({ length: total }, (_, i) => ({ id: i }));
+}
 
-    if (chunk.length < PAGE_SIZE) break;
-    from += PAGE_SIZE;
+export default async function sitemap({
+  id,
+}: {
+  id: number;
+}): Promise<MetadataRoute.Sitemap> {
+  // Compute chunk boundaries
+  const [casesCount, decisionsCount] = await Promise.all([
+    getTableCount('cases'),
+    getTableCount('nlrc_decisions'),
+  ]);
+  const casesChunks = Math.max(1, Math.ceil(casesCount / CHUNK_SIZE));
+
+  // ── Chunk 0: static pages + blog ──
+  if (id === 0) {
+    return buildStaticAndBlogSitemap();
   }
 
-  return rows;
+  // ── Chunks 1..casesChunks: cases ──
+  if (id <= casesChunks) {
+    const chunkIndex = id - 1; // 0-based within cases
+    return buildCasesSitemap(chunkIndex);
+  }
+
+  // ── Remaining chunks: nlrc_decisions ──
+  const decisionChunkIndex = id - 1 - casesChunks; // 0-based within decisions
+  const maxDecisionChunks = Math.max(1, Math.ceil(decisionsCount / CHUNK_SIZE));
+  if (decisionChunkIndex < maxDecisionChunks) {
+    return buildDecisionsSitemap(decisionChunkIndex);
+  }
+
+  return [];
 }
 
-export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const [{ data: blogArticles }, { data: latestNewsRows }, cases, decisions] = await Promise.all([
+// ── Builders ──
+
+async function buildStaticAndBlogSitemap(): Promise<MetadataRoute.Sitemap> {
+  const [{ data: blogArticles }, { data: latestNewsRows }] = await Promise.all([
     supabaseServer
       .from('blog_articles')
       .select('slug, updated_at')
@@ -68,8 +102,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       .select('published_at')
       .order('published_at', { ascending: false })
       .limit(1),
-    fetchAllRows<CaseRow>('cases', 'id, decision_date', 'decision_date', false),
-    fetchAllRows<DecisionRow>('nlrc_decisions', 'id, decision_date', 'id', true),
   ]);
 
   const latestBlogDate = parseDate(blogArticles?.[0]?.updated_at, FALLBACK_BLOG_DATE);
@@ -104,26 +136,50 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: 0.75,
   }));
 
-  const blogRoutes: MetadataRoute.Sitemap = (blogArticles || []).map((article: { slug: string; updated_at: string | null }) => ({
-    url: `${SITE_URL}/blog/${article.slug}`,
-    lastModified: parseDate(article.updated_at, latestBlogDate),
-    changeFrequency: 'weekly' as const,
-    priority: 0.8,
-  }));
+  const blogRoutes: MetadataRoute.Sitemap = (blogArticles || []).map(
+    (article: { slug: string; updated_at: string | null }) => ({
+      url: `${SITE_URL}/blog/${article.slug}`,
+      lastModified: parseDate(article.updated_at, latestBlogDate),
+      changeFrequency: 'weekly' as const,
+      priority: 0.8,
+    }),
+  );
 
-  const caseRoutes: MetadataRoute.Sitemap = cases.map((item) => ({
+  return [...staticRoutes, ...faqCategoryRoutes, ...blogCategoryRoutes, ...blogRoutes];
+}
+
+async function buildCasesSitemap(chunkIndex: number): Promise<MetadataRoute.Sitemap> {
+  const from = chunkIndex * CHUNK_SIZE;
+  const to = from + CHUNK_SIZE - 1;
+
+  const { data } = await supabaseServer
+    .from('cases')
+    .select('id, decision_date')
+    .order('id', { ascending: true })
+    .range(from, to);
+
+  return (data || []).map((item: { id: string; decision_date: string | null }) => ({
     url: `${SITE_URL}/cases/${encodeURIComponent(item.id)}`,
     lastModified: parseDate(item.decision_date, new Date('2026-01-01')),
     changeFrequency: 'monthly' as const,
     priority: 0.7,
   }));
+}
 
-  const decisionRoutes: MetadataRoute.Sitemap = decisions.map((item) => ({
+async function buildDecisionsSitemap(chunkIndex: number): Promise<MetadataRoute.Sitemap> {
+  const from = chunkIndex * CHUNK_SIZE;
+  const to = from + CHUNK_SIZE - 1;
+
+  const { data } = await supabaseServer
+    .from('nlrc_decisions')
+    .select('id, decision_date')
+    .order('id', { ascending: true })
+    .range(from, to);
+
+  return (data || []).map((item: { id: string; decision_date: string | null }) => ({
     url: `${SITE_URL}/decisions/${encodeURIComponent(item.id)}`,
     lastModified: parseDate(item.decision_date, new Date('2026-01-01')),
     changeFrequency: 'monthly' as const,
     priority: 0.65,
   }));
-
-  return [...staticRoutes, ...faqCategoryRoutes, ...blogCategoryRoutes, ...blogRoutes, ...caseRoutes, ...decisionRoutes];
 }

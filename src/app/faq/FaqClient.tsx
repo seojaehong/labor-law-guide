@@ -101,7 +101,7 @@ export default function FaqClient({ initialFaqs, categoryCounts, totalCount, ini
         </span>
       </div>
       <p className="mb-8 text-[15px]" style={{ color: 'var(--color-text-secondary)' }}>
-        임금, 해고, 근로시간, 퇴직금 등 33개 카테고리별 노동법 FAQ를 검색하고 확인하세요.
+        임금, 해고, 근로시간, 퇴직금 등 30개 카테고리별 핵심 노동법 FAQ를 검색하고 확인하세요.
       </p>
 
       <div className="grid gap-8 lg:grid-cols-[260px_1fr]">
