@@ -157,6 +157,8 @@ export default function RootLayout({
               <a href="https://winhr.co.kr" target="_blank" rel="noopener noreferrer" className="hover:underline" style={{ color: 'var(--color-accent)' }}>노무법인 위너스</a>
               {' '}| 서울시 서초구 나루터로 61, 402호 |{' '}
               <a href="/contact" style={{ color: 'var(--color-accent)' }}>온라인 상담 접수</a>
+              {' '}| <a href="/privacy" style={{ color: 'var(--color-accent)' }}>개인정보처리방침</a>
+              {' '}| <a href="/terms" style={{ color: 'var(--color-accent)' }}>이용약관</a>
             </p>
           </div>
         </footer>

@@ -119,6 +119,8 @@ async function buildStaticAndBlogSitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${SITE_URL}/blog`, lastModified: latestBlogDate, changeFrequency: 'weekly', priority: 0.85 },
     { url: `${SITE_URL}/ai`, lastModified: new Date('2026-03-20T00:00:00.000Z'), changeFrequency: 'weekly', priority: 0.8 },
     { url: `${SITE_URL}/contact`, lastModified: CONTACT_LAST_MODIFIED, changeFrequency: 'monthly', priority: 0.75 },
+    { url: `${SITE_URL}/privacy`, lastModified: CONTACT_LAST_MODIFIED, changeFrequency: 'yearly', priority: 0.5 },
+    { url: `${SITE_URL}/terms`, lastModified: CONTACT_LAST_MODIFIED, changeFrequency: 'yearly', priority: 0.5 },
     { url: `${SITE_URL}/faq`, lastModified: latestContentDate, changeFrequency: 'weekly', priority: 0.85 },
   ];
 

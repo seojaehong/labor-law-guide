@@ -6,6 +6,8 @@ const nextConfig: NextConfig = {
   },
   async rewrites() {
     return [
+      { source: '/sitemap_index.xml', destination: '/sitemap.xml' },
+      { source: '/wp-sitemap.xml', destination: '/sitemap.xml' },
       { source: '/mcp/server-card.json', destination: '/.well-known/mcp/server-card.json' },
       { source: '/agent-skills/index.json', destination: '/.well-known/agent-skills/index.json' },
       { source: '/agent-skills/:path*', destination: '/.well-known/agent-skills/:path*' },
