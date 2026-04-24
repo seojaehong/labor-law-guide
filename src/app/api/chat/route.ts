@@ -24,34 +24,69 @@ export async function POST(req: NextRequest) {
 
     const lastUserMsg = [...messages].reverse().find((m: { role: string }) => m.role === 'user');
 
-    // FAQ DB 매칭 — Supabase RPC(search_faq) 11,539건 + 33개 통합 카테고리
+    // FAQ DB 매칭 — 3-layer: semantic(embedding) + hybrid(tsvector+trigram+ILIKE) + legacy
     let faqContext = '';
     if (lastUserMsg) {
-      // search_faq_hybrid — tsvector + trigram + ILIKE 가중치 결합 (구어체↔학술어 gap 커버)
       let dbFaq: Array<{ id: number; unified_category?: string; category?: string; question: string; answer: string }> | null = null;
       let dbErr: { message: string } | null = null;
 
-      const hybrid = await db.rpc('search_faq_hybrid', {
-        query_text: lastUserMsg.content,
-        max_results: 8,
-      });
-      if (!hybrid.error && hybrid.data && hybrid.data.length > 0) {
-        dbFaq = hybrid.data;
-      } else {
-        // fallback to old search_faq
-        const legacy = await db.rpc('search_faq', {
-          query: lastUserMsg.content,
-          result_limit: 8,
-        });
-        dbFaq = legacy.data;
-        dbErr = legacy.error;
+      // 1) OpenAI 임베딩 생성 시도 (OPENAI_API_KEY 있을 때만)
+      let queryEmbedding: number[] | null = null;
+      const openaiKey = process.env.OPENAI_API_KEY;
+      if (openaiKey) {
+        try {
+          const embResp = await fetch('https://api.openai.com/v1/embeddings', {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${openaiKey}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ input: lastUserMsg.content, model: 'text-embedding-3-small' }),
+            signal: AbortSignal.timeout(5000),
+          });
+          if (embResp.ok) {
+            const j = await embResp.json();
+            queryEmbedding = j.data?.[0]?.embedding ?? null;
+          }
+        } catch {
+          // embedding 실패 시 hybrid only로 fallback
+        }
       }
-      const faqMatched = !dbErr && dbFaq && dbFaq.length > 0;
-      const faqCategories = faqMatched ? [...new Set(dbFaq.map((f: { unified_category: string }) => f.unified_category))] : [];
+
+      // 2) search_faq_combined (임베딩 있으면 hybrid + semantic, 없으면 hybrid only)
+      const combined = await db.rpc('search_faq_combined', {
+        query_text: lastUserMsg.content,
+        query_embedding: queryEmbedding,
+        max_results: 8,
+        canonical_only: false,
+      });
+      if (!combined.error && combined.data && combined.data.length > 0) {
+        dbFaq = combined.data;
+      } else if (combined.error) {
+        // 3) combined RPC 에러 시 hybrid 단독 시도
+        const hybrid = await db.rpc('search_faq_hybrid', {
+          query_text: lastUserMsg.content,
+          max_results: 8,
+        });
+        if (!hybrid.error && hybrid.data && hybrid.data.length > 0) {
+          dbFaq = hybrid.data;
+        } else {
+          // 4) 최종 레거시 search_faq
+          const legacy = await db.rpc('search_faq', {
+            query: lastUserMsg.content,
+            result_limit: 8,
+          });
+          dbFaq = legacy.data;
+          dbErr = legacy.error;
+        }
+      }
+      const faqMatched = !dbErr && dbFaq !== null && dbFaq.length > 0;
+      const matchedFaqs = faqMatched && dbFaq ? dbFaq : [];
+      const faqCategories = [...new Set(matchedFaqs.map((f) => f.unified_category || f.category || ''))].filter(Boolean);
 
       if (faqMatched) {
         faqContext = '\n\n═══ 관련 지식DB 매칭 결과 (참고하여 답변) ═══\n';
-        for (const faq of dbFaq) {
+        for (const faq of matchedFaqs) {
           faqContext += `\n[${faq.unified_category || faq.category}] Q: ${faq.question}\nA: ${faq.answer}\n`;
         }
         faqContext += '\n위 DB 내용을 참고하되, 질문에 맞게 자연스럽게 재구성하여 답변하세요.';
@@ -69,7 +104,7 @@ export async function POST(req: NextRequest) {
       db.from('chat_logs').insert({
         question: lastUserMsg.content.slice(0, 500),
         faq_matched: faqMatched,
-        faq_count: faqMatched ? dbFaq.length : 0,
+        faq_count: matchedFaqs.length,
         faq_categories: faqCategories,
       }).then(null, () => {});
     }
