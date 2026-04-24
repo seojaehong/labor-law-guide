@@ -4,7 +4,7 @@ import { supabaseServer } from '@/lib/supabase-server';
 
 export const revalidate = 3600;
 
-const CHUNK_SIZE = 10_000;
+const CHUNK_SIZE = 1_000;
 
 async function getTableCount(table: string, quality: boolean = false): Promise<number> {
   try {
