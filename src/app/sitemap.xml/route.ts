@@ -6,17 +6,23 @@ export const revalidate = 3600;
 
 const CHUNK_SIZE = 10_000;
 
-async function getTableCount(table: 'cases' | 'nlrc_decisions'): Promise<number> {
-  const { count } = await supabaseServer
-    .from(table)
-    .select('id', { count: 'exact', head: true });
-  return count ?? 0;
+async function getTableCount(table: string, quality: boolean = false): Promise<number> {
+  try {
+    let q = supabaseServer.from(table).select('id', { count: 'exact', head: true });
+    if (quality) {
+      q = q.in('tier', ['standard', 'premium']).not('is_non_labor', 'is', true).gte('confidence_level', 0.8);
+    }
+    const { count } = await q;
+    return count ?? 0;
+  } catch {
+    return 0;
+  }
 }
 
 export async function GET() {
   const [casesCount, decisionsCount] = await Promise.all([
     getTableCount('cases'),
-    getTableCount('nlrc_decisions'),
+    getTableCount('nlrc_decisions', true),
   ]);
 
   const casesChunks = Math.max(1, Math.ceil(casesCount / CHUNK_SIZE));
@@ -34,7 +40,7 @@ ${entries}
 
   return new NextResponse(xml, {
     headers: {
-      'Content-Type': 'application/xml',
+      'Content-Type': 'application/xml; charset=utf-8',
       'Cache-Control': 'public, max-age=3600, s-maxage=3600',
     },
   });
