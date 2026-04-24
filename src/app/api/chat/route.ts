@@ -27,10 +27,25 @@ export async function POST(req: NextRequest) {
     // FAQ DB 매칭 — Supabase RPC(search_faq) 11,539건 + 33개 통합 카테고리
     let faqContext = '';
     if (lastUserMsg) {
-      const { data: dbFaq, error: dbErr } = await db.rpc('search_faq', {
-        query: lastUserMsg.content,
-        result_limit: 8,
+      // search_faq_hybrid — tsvector + trigram + ILIKE 가중치 결합 (구어체↔학술어 gap 커버)
+      let dbFaq: Array<{ id: number; unified_category?: string; category?: string; question: string; answer: string }> | null = null;
+      let dbErr: { message: string } | null = null;
+
+      const hybrid = await db.rpc('search_faq_hybrid', {
+        query_text: lastUserMsg.content,
+        max_results: 8,
       });
+      if (!hybrid.error && hybrid.data && hybrid.data.length > 0) {
+        dbFaq = hybrid.data;
+      } else {
+        // fallback to old search_faq
+        const legacy = await db.rpc('search_faq', {
+          query: lastUserMsg.content,
+          result_limit: 8,
+        });
+        dbFaq = legacy.data;
+        dbErr = legacy.error;
+      }
       const faqMatched = !dbErr && dbFaq && dbFaq.length > 0;
       const faqCategories = faqMatched ? [...new Set(dbFaq.map((f: { unified_category: string }) => f.unified_category))] : [];
 
