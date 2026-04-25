@@ -152,10 +152,10 @@ export async function POST(req: NextRequest) {
         const delta = await extractDelta(lastUserMsg.content, prevProfile, apiKey);
         mergedProfile = { ...prevProfile, ...delta };
         situationContext = formatSituationForPrompt(mergedProfile);
-        // 응답과 병행해서 upsert (블로킹 X)
-        upsertSituation(sessionId, prevProfile, delta, 1).catch(() => {});
+        // upsert를 동기로 await (Vercel 응답 종료 후 fire-and-forget 미완료 방지)
+        await upsertSituation(sessionId, prevProfile, delta, 1);
       } catch {
-        // 추출 실패해도 답변은 진행
+        // 추출/저장 실패해도 답변은 진행
       }
     }
 
