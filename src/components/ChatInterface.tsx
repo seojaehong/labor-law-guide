@@ -30,8 +30,10 @@ function linkifyFaqCitations(text: string): string {
     if (!ids || ids.length === 0) return match;
     return ids.map((id) => `[FAQ#${id}](/faq?id=${id})`).join(' ');
   });
-  // [CASE#id] → [CASE#id](/decisions/id) (id는 영숫자/언더스코어/하이픈)
+  // [CASE#id] → [CASE#id](/decisions/id) (nlrc id는 영숫자/언더스코어/하이픈)
   out = out.replace(/\[CASE#([A-Za-z0-9_\-]+)\]/g, (_, id) => `[CASE#${id}](/decisions/${id})`);
+  // [COURT#id] → [COURT#id](/cases/encoded) (cases id는 한글/숫자/특수기호 포함 가능)
+  out = out.replace(/\[COURT#([^\]]+)\]/g, (_, id) => `[COURT#${id}](/cases/${encodeURIComponent(id)})`);
   return out;
 }
 

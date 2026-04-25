@@ -134,8 +134,7 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      // Phase 2.1: 노동위 판례 검색 (search_similar_cases_hybrid)
-      // 임베딩이 있으면 의미 검색까지 결합, 없으면 trigram만
+      // Phase 2.1: 노동위 판정례 (nlrc) 검색
       if (queryEmbedding) {
         try {
           const caseResult = await db.rpc('search_similar_cases_hybrid', {
@@ -153,7 +152,6 @@ export async function POST(req: NextRequest) {
               holding_summary?: string;
               key_issue?: string;
               decision_date?: string;
-              relevance?: number;
             }>;
             caseContext = '\n\n═══ 관련 노동위 판정례 (3건, 답변 시 [CASE#id] 형식 인용) ═══\n';
             for (const c of cases) {
@@ -162,12 +160,38 @@ export async function POST(req: NextRequest) {
               caseContext += `\n#${c.id} [${date}${c.decision_result ? ' / ' + c.decision_result : ''}] ${c.title}\n  ${summary}\n`;
             }
             caseContext +=
-              '\n[판례 인용 규칙]\n' +
-              '- 답변에서 위 판례를 인용할 때 `[CASE#id]` 형식 사용 (예: "노동위는 ~~한 사실관계에서 부당해고로 판정 [CASE#12345].").\n' +
-              '- 판례 사실관계가 사용자 케이스와 다르면 차이점을 짚어 설명.';
+              '\n[판정례 인용 규칙] 답변에서 위 노동위 판정례 인용 시 `[CASE#id]` 형식 사용. 사용자 케이스와 사실관계가 다르면 차이점 명시.';
           }
         } catch {
           // 판례 검색 실패해도 답변 진행
+        }
+
+        // Phase 2.1-C: 법원 판례 (cases) 시맨틱 검색
+        try {
+          const courtResult = await db.rpc('search_cases_semantic', {
+            query_embedding: queryEmbedding,
+            max_results: 2,
+            min_similarity: 0.5,
+          });
+          if (!courtResult.error && Array.isArray(courtResult.data) && courtResult.data.length > 0) {
+            const courts = courtResult.data as Array<{
+              id: string;
+              title: string;
+              court?: string;
+              decision_date?: string;
+              verdict_type?: string;
+              summary?: string;
+            }>;
+            caseContext += '\n\n═══ 관련 법원 판례 (최대 2건, 답변 시 [COURT#id] 형식 인용) ═══\n';
+            for (const c of courts) {
+              const date = c.decision_date && c.decision_date !== '0001-01-01' ? c.decision_date : '';
+              const summary = (c.summary || '').slice(0, 280);
+              caseContext += `\n#${c.id} [${c.court || ''} ${date}${c.verdict_type ? ' / ' + c.verdict_type : ''}] ${c.title}\n  ${summary}\n`;
+            }
+            caseContext += '\n[법원 판례 인용 규칙] 답변에서 인용 시 `[COURT#id]` 형식. 대법원·고법 판시는 결정적 근거로 활용.';
+          }
+        } catch {
+          // 법원 판례 실패해도 답변 진행
         }
       }
 
@@ -307,7 +331,7 @@ export async function POST(req: NextRequest) {
           );
         } finally {
           // Phase 1.4-B: 인용 누락 자동 보정 — DB 매칭이 있었는데 [FAQ#] 0건이면 footer 첨부
-          const hasCitation = /\[FAQ#\d+|\[CASE#[A-Za-z0-9_\-]+/.test(assembledAnswer);
+          const hasCitation = /\[FAQ#\d+|\[CASE#[A-Za-z0-9_\-]+|\[COURT#[^\]]+\]/.test(assembledAnswer);
           if (!hasCitation && topFaqIds.length > 0) {
             const footer = `\n\n---\n참고 FAQ: ${topFaqIds.map((id) => `[FAQ#${id}]`).join(', ')}`;
             controller.enqueue(encoder.encode(`data: ${JSON.stringify({ content: footer })}\n\n`));
