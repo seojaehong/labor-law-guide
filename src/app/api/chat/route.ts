@@ -11,6 +11,9 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const messages = body?.messages;
+    const rawSessionId: string | undefined = typeof body?.sessionId === 'string' ? body.sessionId : undefined;
+    // session id 검증 (UUID 또는 s_타임스탬프 형식만 허용, 길이 12-64)
+    const sessionId = rawSessionId && /^[a-z0-9_-]{12,64}$/i.test(rawSessionId) ? rawSessionId : null;
 
     if (!Array.isArray(messages) || messages.length === 0 || messages.length > 50) {
       return new Response(JSON.stringify({ error: '올바른 메시지 형식이 아닙니다.' }), { status: 400 });
@@ -23,6 +26,23 @@ export async function POST(req: NextRequest) {
     }
 
     const lastUserMsg = [...messages].reverse().find((m: { role: string }) => m.role === 'user');
+
+    // 멀티턴 컨텍스트 보강: 직전 user 메시지가 짧은 follow-up일 가능성 → 이전 user 메시지 키워드 합쳐 FAQ 검색
+    let searchQuery = lastUserMsg?.content || '';
+    if (lastUserMsg && messages.length > 1) {
+      const isShortFollowup = lastUserMsg.content.length < 30 ||
+        /^(그럼|그러면|그건|이건|그건|왜|어떻게|네\?|뭐|아|그|이)\s/.test(lastUserMsg.content);
+      if (isShortFollowup) {
+        // 직전 user 메시지 (현재 제외) 찾기
+        const prevUsers = messages
+          .slice(0, -1)
+          .filter((m: { role: string; content: string }) => m.role === 'user')
+          .slice(-1);
+        if (prevUsers.length > 0) {
+          searchQuery = `${prevUsers[0].content} ${lastUserMsg.content}`.slice(0, 300);
+        }
+      }
+    }
 
     // FAQ DB 매칭 — 3-layer: semantic(embedding) + hybrid(tsvector+trigram+ILIKE) + legacy
     let faqContext = '';
@@ -41,7 +61,7 @@ export async function POST(req: NextRequest) {
               Authorization: `Bearer ${openaiKey}`,
               'Content-Type': 'application/json',
             },
-            body: JSON.stringify({ input: lastUserMsg.content, model: 'text-embedding-3-small' }),
+            body: JSON.stringify({ input: searchQuery, model: 'text-embedding-3-small' }),
             signal: AbortSignal.timeout(5000),
           });
           if (embResp.ok) {
@@ -55,7 +75,7 @@ export async function POST(req: NextRequest) {
 
       // 2) search_faq_combined (임베딩 있으면 hybrid + semantic, 없으면 hybrid only)
       const combined = await db.rpc('search_faq_combined', {
-        query_text: lastUserMsg.content,
+        query_text: searchQuery,
         query_embedding: queryEmbedding,
         max_results: 8,
         canonical_only: false,
@@ -65,7 +85,7 @@ export async function POST(req: NextRequest) {
       } else if (combined.error) {
         // 3) combined RPC 에러 시 hybrid 단독 시도
         const hybrid = await db.rpc('search_faq_hybrid', {
-          query_text: lastUserMsg.content,
+          query_text: searchQuery,
           max_results: 8,
         });
         if (!hybrid.error && hybrid.data && hybrid.data.length > 0) {
@@ -73,7 +93,7 @@ export async function POST(req: NextRequest) {
         } else {
           // 4) 최종 레거시 search_faq
           const legacy = await db.rpc('search_faq', {
-            query: lastUserMsg.content,
+            query: searchQuery,
             result_limit: 8,
           });
           dbFaq = legacy.data;
@@ -106,10 +126,16 @@ export async function POST(req: NextRequest) {
         faq_matched: faqMatched,
         faq_count: matchedFaqs.length,
         faq_categories: faqCategories,
+        session_id: sessionId,
       }).then(null, () => {});
     }
 
-    let systemPrompt = SYSTEM_PROMPT + faqContext;
+    // 멀티턴 안내 — 후속 질문에서 이전 대화 참조하도록
+    const multiturnHint = messages.length > 2
+      ? '\n\n═══ 멀티턴 대화 안내 ═══\n사용자의 직전 질문과 답변을 반드시 참조하여 후속 질문을 해석하세요. "그럼", "이건", "그건" 같은 지시어가 무엇을 가리키는지 이전 맥락에서 추론. 사용자 상황(회사 규모·근속기간·임금 등)이 이전 턴에 나왔다면 이를 토대로 맞춤 답변.'
+      : '';
+
+    let systemPrompt = SYSTEM_PROMPT + faqContext + multiturnHint;
 
     // 관련 뉴스 검색 (최신 5건)
     if (lastUserMsg) {

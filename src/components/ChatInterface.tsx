@@ -10,11 +10,22 @@ interface Message {
   content: string;
 }
 
+function getSessionId(): string {
+  if (typeof window === 'undefined') return '';
+  let sid = window.localStorage.getItem('yebot_session_id');
+  if (!sid) {
+    sid = (crypto?.randomUUID?.() ?? `s_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`);
+    window.localStorage.setItem('yebot_session_id', sid);
+  }
+  return sid;
+}
+
 async function streamChat(messages: Message[], onChunk: (text: string) => void, onDone: () => void, onError: (msg: string) => void) {
+  const sessionId = getSessionId();
   const res = await fetch('/api/chat', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ messages }),
+    body: JSON.stringify({ messages, sessionId }),
   });
 
   if (!res.ok) {
