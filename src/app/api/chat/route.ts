@@ -117,11 +117,11 @@ export async function POST(req: NextRequest) {
           faqContext += `\n#${faq.id} [${faq.unified_category || faq.category}] Q: ${faq.question}\nA: ${faq.answer}\n`;
         }
         faqContext +=
-          '\n[인용 규칙]\n' +
-          '- 위 DB 내용을 그대로 옮겨 적지 말고, 사용자 질문 맥락에 맞춰 재구성해 답변하세요.\n' +
-          '- 답변에 인용한 항목은 해당 문장 끝에 `[FAQ#숫자]` 형식으로 출처를 표기하세요. 예: "5인 미만 사업장은 부당해고 구제신청 대상이 아닙니다 [FAQ#12345].".\n' +
-          '- 여러 항목을 종합한 경우 `[FAQ#123, FAQ#456]`처럼 콤마로 나열할 수 있습니다.\n' +
-          '- DB에 없는 일반 법률 상식은 굳이 인용하지 않아도 됩니다. 인용 강요 X.';
+          '\n[인용 규칙 — 반드시 준수]\n' +
+          '1) 위 DB 내용을 토대로 답변하세요. 그대로 복사 X, 질문 맥락에 맞춰 재구성.\n' +
+          '2) DB 매칭이 있는 경우(=위에 항목들이 보일 때) 답변에 최소 1건 이상 `[FAQ#숫자]` 형식 출처를 반드시 포함하세요. 예: "5인 미만 사업장은 부당해고 구제신청 대상이 아닙니다 [FAQ#12345].".\n' +
+          '3) 여러 항목을 종합한 경우 `[FAQ#123, FAQ#456]` 콤마로 나열.\n' +
+          '4) 출처 표기를 빼면 사용자가 답변을 검증할 수 없으므로 출처 표기는 신뢰 최우선 사항입니다.';
       } else {
         const inlineFaq = searchQA(lastUserMsg.content);
         if (inlineFaq.length > 0) {
