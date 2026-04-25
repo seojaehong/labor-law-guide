@@ -10,6 +10,123 @@ import {
   type UserSituation,
 } from '@/lib/user-situation';
 import { verifyCitations } from '@/lib/legal-verify';
+import {
+  checkMinWage,
+  calcOrdinaryWage,
+  calcOvertime,
+  calcSeverance,
+  lookupLawArticle,
+} from '@/lib/labor-calc';
+
+// Phase 3.1-B: 노무 계산 도구 정의 (OpenAI tools format)
+const TOOLS = [
+  {
+    type: 'function' as const,
+    function: {
+      name: 'calc_severance',
+      description:
+        '퇴직금 계산. 사용자가 입사일·퇴사일·직전 3개월 임금을 알려준 경우 호출. 추측 X.',
+      parameters: {
+        type: 'object',
+        properties: {
+          hire_date: { type: 'string', description: 'YYYY-MM-DD 입사일' },
+          last_work_date: { type: 'string', description: 'YYYY-MM-DD 마지막 근무일' },
+          wages_3months: {
+            type: 'array',
+            items: { type: 'integer' },
+            description: '[전3개월급, 전2개월급, 전1개월급] 세전 원',
+          },
+          annual_bonus: { type: 'integer', description: '연간 상여금 총액 (원)' },
+          unused_annual_leave_days: { type: 'integer' },
+          annual_leave_daily_wage: { type: 'integer' },
+        },
+        required: ['hire_date', 'last_work_date', 'wages_3months'],
+      },
+    },
+  },
+  {
+    type: 'function' as const,
+    function: {
+      name: 'calc_ordinary_wage',
+      description: '통상임금(시급/일급) 산정. 정기·일률·고정 임금 월액을 받아 시급/일급 환산.',
+      parameters: {
+        type: 'object',
+        properties: {
+          monthly_fixed_pay: { type: 'integer', description: '매월 정기·일률 임금 합계 (원)' },
+          monthly_hours: { type: 'integer', description: '월 소정근로시간 (기본 209)' },
+        },
+        required: ['monthly_fixed_pay'],
+      },
+    },
+  },
+  {
+    type: 'function' as const,
+    function: {
+      name: 'calc_overtime',
+      description: '연장·야간·휴일근로 가산수당 계산.',
+      parameters: {
+        type: 'object',
+        properties: {
+          ordinary_hourly: { type: 'integer', description: '통상시급 (원)' },
+          overtime_hours: { type: 'number', description: '연장근로 시간' },
+          night_hours: { type: 'number', description: '야간근로 시간 (22:00~06:00)' },
+          holiday_hours_within_8: { type: 'number', description: '휴일 8h 이내' },
+          holiday_hours_over_8: { type: 'number', description: '휴일 8h 초과' },
+        },
+        required: ['ordinary_hourly'],
+      },
+    },
+  },
+  {
+    type: 'function' as const,
+    function: {
+      name: 'check_min_wage',
+      description: '최저임금 위반 여부 검증. 기본급 + 고정수당 합계가 월 최저임금 이상인지.',
+      parameters: {
+        type: 'object',
+        properties: {
+          base_pay: { type: 'integer', description: '기본급 (원)' },
+          fixed_allowances: { type: 'integer', description: '매월 고정 지급 수당 합계' },
+          year: { type: 'integer', description: '연도 (기본 2026)' },
+          monthly_hours: { type: 'integer', description: '월 소정근로시간 (기본 209)' },
+        },
+        required: ['base_pay'],
+      },
+    },
+  },
+  {
+    type: 'function' as const,
+    function: {
+      name: 'lookup_law_article',
+      description: '법조항 존재 여부와 제목 조회 (법제처 캐시).',
+      parameters: {
+        type: 'object',
+        properties: {
+          law: { type: 'string', description: '예: 근로기준법, 노동조합 및 노동관계조정법' },
+          article: { type: 'integer', description: '조항 번호' },
+        },
+        required: ['law', 'article'],
+      },
+    },
+  },
+];
+
+async function executeTool(name: string, args: Record<string, unknown>): Promise<unknown> {
+  switch (name) {
+    case 'calc_severance':
+      return calcSeverance(args as Parameters<typeof calcSeverance>[0]);
+    case 'calc_ordinary_wage':
+      return calcOrdinaryWage(args as Parameters<typeof calcOrdinaryWage>[0]);
+    case 'calc_overtime':
+      return calcOvertime(args as Parameters<typeof calcOvertime>[0]);
+    case 'check_min_wage':
+      return checkMinWage(args as Parameters<typeof checkMinWage>[0]);
+    case 'lookup_law_article':
+      return await lookupLawArticle(args as Parameters<typeof lookupLawArticle>[0]);
+    default:
+      return { error: `unknown tool: ${name}` };
+  }
+}
 
 export const maxDuration = 60;
 
@@ -282,33 +399,33 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const response = await fetch('https://generativelanguage.googleapis.com/v1beta/openai/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
+    const encoder = new TextEncoder();
+    const decoder = new TextDecoder();
+
+    // Phase 3.1-B: 멀티라운드 LLM 호출 (tool_calls 지원)
+    // 도구 사용을 유도하는 키워드가 있으면 1라운드에서 tools 활성화
+    const toolHint = /퇴직금|통상임금|연장수당|야간수당|휴일수당|최저임금|시급.*환산|월급.*환산|얼마.*받|계산해/.test(
+      lastUserMsg?.content || ''
+    );
+    const callLLM = async (msgs: unknown[], withTools: boolean) => {
+      const reqBody: Record<string, unknown> = {
         model: 'gemini-2.5-flash',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          ...messages,
-        ],
+        messages: msgs,
         max_completion_tokens: 4096,
         temperature: 0.3,
         stream: true,
-      }),
-      signal: AbortSignal.timeout(55000),
-    });
-
-    if (!response.ok) {
-      const error = await response.text();
-      throw new Error(error);
-    }
-
-    // SSE streaming: pipe through to client
-    const encoder = new TextEncoder();
-    const decoder = new TextDecoder();
+      };
+      if (withTools) {
+        reqBody.tools = TOOLS;
+        reqBody.tool_choice = 'auto';
+      }
+      return fetch('https://generativelanguage.googleapis.com/v1beta/openai/chat/completions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+        body: JSON.stringify(reqBody),
+        signal: AbortSignal.timeout(50000),
+      });
+    };
 
     // Phase 1.4-B: 인용 누락 시 자동 footer 첨부용 — top FAQ id 보관
     const topFaqIds = (() => {
@@ -323,43 +440,96 @@ export async function POST(req: NextRequest) {
       return ids;
     })();
 
-    const stream = new ReadableStream({
-      async start(controller) {
-        const reader = response.body?.getReader();
-        if (!reader) {
-          controller.close();
-          return;
-        }
-
-        let buffer = '';
-        let assembledAnswer = '';
-
-        try {
-          while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-
-            buffer += decoder.decode(value, { stream: true });
-            const lines = buffer.split('\n');
-            buffer = lines.pop() || '';
-
-            for (const line of lines) {
-              const trimmed = line.trim();
-              if (!trimmed || !trimmed.startsWith('data: ')) continue;
-              const data = trimmed.slice(6);
-              if (data === '[DONE]') continue;
-
-              try {
-                const parsed = JSON.parse(data);
-                const content = parsed.choices?.[0]?.delta?.content;
-                if (content) {
-                  assembledAnswer += content;
-                  controller.enqueue(encoder.encode(`data: ${JSON.stringify({ content })}\n\n`));
-                }
-              } catch {
-                // skip malformed chunks
+    type ToolCallAcc = { id: string; name: string; arguments: string };
+    const streamRound = async (
+      controller: ReadableStreamDefaultController<Uint8Array>,
+      msgs: unknown[],
+      withTools: boolean
+    ): Promise<{ content: string; toolCalls: ToolCallAcc[] }> => {
+      const resp = await callLLM(msgs, withTools);
+      if (!resp.ok) throw new Error(await resp.text());
+      const reader = resp.body?.getReader();
+      if (!reader) return { content: '', toolCalls: [] };
+      let buffer = '';
+      let content = '';
+      const toolCallsMap: Record<number, ToolCallAcc> = {};
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
+        for (const line of lines) {
+          const t = line.trim();
+          if (!t || !t.startsWith('data: ')) continue;
+          const d = t.slice(6);
+          if (d === '[DONE]') continue;
+          try {
+            const p = JSON.parse(d);
+            const delta = p.choices?.[0]?.delta;
+            if (!delta) continue;
+            if (delta.content) {
+              content += delta.content;
+              controller.enqueue(encoder.encode(`data: ${JSON.stringify({ content: delta.content })}\n\n`));
+            }
+            if (Array.isArray(delta.tool_calls)) {
+              for (const tc of delta.tool_calls) {
+                const idx = tc.index ?? 0;
+                if (!toolCallsMap[idx]) toolCallsMap[idx] = { id: tc.id || `call_${idx}`, name: '', arguments: '' };
+                if (tc.id) toolCallsMap[idx].id = tc.id;
+                if (tc.function?.name) toolCallsMap[idx].name = tc.function.name;
+                if (tc.function?.arguments) toolCallsMap[idx].arguments += tc.function.arguments;
               }
             }
+          } catch {
+            // skip malformed
+          }
+        }
+      }
+      return { content, toolCalls: Object.values(toolCallsMap) };
+    };
+
+    const stream = new ReadableStream({
+      async start(controller) {
+        let assembledAnswer = '';
+        const baseMsgs: unknown[] = [
+          { role: 'system', content: systemPrompt },
+          ...messages,
+        ];
+
+        try {
+          // Round 1 — tools enabled if hint
+          const r1 = await streamRound(controller, baseMsgs, toolHint);
+          assembledAnswer += r1.content;
+
+          // 도구 호출이 있으면 실행 + 라운드 2 (tools 없이)
+          if (r1.toolCalls.length > 0) {
+            controller.enqueue(
+              encoder.encode(`data: ${JSON.stringify({ content: '\n\n💡 노무 계산 중...' })}\n\n`)
+            );
+            const round2Msgs: unknown[] = [...baseMsgs];
+            // assistant tool_calls message
+            round2Msgs.push({
+              role: 'assistant',
+              content: r1.content || null,
+              tool_calls: r1.toolCalls.map((tc) => ({
+                id: tc.id,
+                type: 'function',
+                function: { name: tc.name, arguments: tc.arguments },
+              })),
+            });
+            // tool result messages
+            for (const tc of r1.toolCalls) {
+              let parsedArgs: Record<string, unknown> = {};
+              try { parsedArgs = JSON.parse(tc.arguments || '{}'); } catch {}
+              const result = await executeTool(tc.name, parsedArgs);
+              round2Msgs.push({ role: 'tool', tool_call_id: tc.id, content: JSON.stringify(result) });
+            }
+            controller.enqueue(
+              encoder.encode(`data: ${JSON.stringify({ content: ' 완료\n\n' })}\n\n`)
+            );
+            const r2 = await streamRound(controller, round2Msgs, false);
+            assembledAnswer += r2.content;
           }
         } catch (err) {
           controller.enqueue(
