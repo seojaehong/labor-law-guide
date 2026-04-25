@@ -1,13 +1,44 @@
 'use client';
 
 import { useState, useRef, useEffect, useCallback, type FormEvent } from 'react';
-import { Send, Bot, User, Loader2 } from 'lucide-react';
+import { Send, Bot, User, Loader2, X, Info } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
 interface Message {
   role: 'user' | 'assistant';
   content: string;
+}
+
+type ProfileMap = Record<string, unknown>;
+
+const PROFILE_LABELS: Record<string, string> = {
+  company_size: '회사규모',
+  tenure_months: '근속',
+  monthly_salary: '월급',
+  job_type: '고용형태',
+  issue_category: '주요이슈',
+  employment_status: '재직상태',
+  timeline: '시점',
+};
+
+function formatProfileValue(key: string, value: unknown): string {
+  if (value == null) return '';
+  if (key === 'company_size') {
+    const n = Number(value);
+    return n < 5 ? `상시 ${n}명 (5인 미만)` : `상시 ${n}명`;
+  }
+  if (key === 'tenure_months') {
+    const n = Number(value);
+    const y = Math.floor(n / 12);
+    const m = n % 12;
+    return y > 0 ? `${y}년${m > 0 ? ` ${m}개월` : ''}` : `${m}개월`;
+  }
+  if (key === 'monthly_salary') {
+    const n = Number(value);
+    return `${n.toLocaleString('ko-KR')}원`;
+  }
+  return String(value);
 }
 
 function getSessionId(): string {
@@ -85,7 +116,40 @@ export default function ChatInterface({ injectedQuestion }: { injectedQuestion?:
   ]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
+  const [profile, setProfile] = useState<ProfileMap>({});
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  const refreshProfile = useCallback(async () => {
+    if (typeof window === 'undefined') return;
+    const sid = window.localStorage.getItem('yebot_session_id');
+    if (!sid) return;
+    try {
+      const r = await fetch(`/api/chat/situation?sessionId=${encodeURIComponent(sid)}`);
+      if (!r.ok) return;
+      const d = await r.json();
+      setProfile(d?.profile || {});
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  const removeProfileKey = useCallback(async (key: string) => {
+    const sid = window.localStorage.getItem('yebot_session_id');
+    if (!sid) return;
+    try {
+      const r = await fetch('/api/chat/situation', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sessionId: sid, op: 'remove', updates: [key] }),
+      });
+      if (r.ok) {
+        const d = await r.json();
+        setProfile(d?.profile || {});
+      }
+    } catch {
+      // ignore
+    }
+  }, []);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
@@ -114,7 +178,11 @@ export default function ChatInterface({ injectedQuestion }: { injectedQuestion?:
           return updated;
         });
       },
-      () => setLoading(false),
+      () => {
+        setLoading(false);
+        // 답변 종료 직후 프로필 갱신 시도 (서버 추출 완료 시점 보정 위해 약간 지연)
+        setTimeout(() => { void refreshProfile(); }, 1500);
+      },
       (errorMsg) => {
         setMessages(prev => {
           const updated = [...prev];
@@ -127,7 +195,10 @@ export default function ChatInterface({ injectedQuestion }: { injectedQuestion?:
         setLoading(false);
       },
     );
-  }, [messages, loading]);
+  }, [messages, loading, refreshProfile]);
+
+  // 마운트 시 1회 프로필 로드
+  useEffect(() => { void refreshProfile(); }, [refreshProfile]);
 
   // 외부에서 질문 주입
   useEffect(() => {
@@ -148,6 +219,40 @@ export default function ChatInterface({ injectedQuestion }: { injectedQuestion?:
 
   return (
     <div className="flex h-[600px] flex-col rounded-2xl border" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }}>
+      {/* 확인된 사용자 상황 띠 */}
+      {Object.keys(profile).length > 0 && (
+        <div
+          className="flex flex-wrap items-center gap-1.5 border-b px-4 py-2 text-xs"
+          style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--blue-50)' }}
+        >
+          <Info size={12} style={{ color: 'var(--blue-500)' }} />
+          <span style={{ color: 'var(--color-text-secondary)' }}>확인된 정보:</span>
+          {Object.entries(profile).map(([k, v]) => {
+            const label = PROFILE_LABELS[k] || k;
+            const val = formatProfileValue(k, v);
+            if (!val) return null;
+            return (
+              <span
+                key={k}
+                className="inline-flex items-center gap-1 rounded-full px-2 py-0.5"
+                style={{ backgroundColor: 'white', color: 'var(--color-text-primary)' }}
+              >
+                {label}: {val}
+                <button
+                  type="button"
+                  onClick={() => removeProfileKey(k)}
+                  className="rounded-full hover:bg-gray-100"
+                  aria-label={`${label} 제거`}
+                  title="잘못 추출됐다면 클릭해 제거"
+                >
+                  <X size={11} style={{ color: 'var(--color-text-tertiary)' }} />
+                </button>
+              </span>
+            );
+          })}
+        </div>
+      )}
+
       {/* Messages */}
       <div ref={scrollRef} className="flex-1 space-y-4 overflow-y-auto p-5">
         {messages.map((msg, i) => (

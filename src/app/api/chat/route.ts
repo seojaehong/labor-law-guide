@@ -2,6 +2,13 @@ import { NextRequest } from 'next/server';
 import { SYSTEM_PROMPT, searchQA } from '@/content/ai-knowledge';
 import { supabase } from '@/lib/supabase';
 import { supabaseAdmin } from '@/lib/supabase-server';
+import {
+  getSituation,
+  upsertSituation,
+  formatSituationForPrompt,
+  extractDelta,
+  type UserSituation,
+} from '@/lib/user-situation';
 
 export const maxDuration = 60;
 
@@ -135,7 +142,19 @@ export async function POST(req: NextRequest) {
       ? '\n\n═══ 멀티턴 대화 안내 ═══\n사용자의 직전 질문과 답변을 반드시 참조하여 후속 질문을 해석하세요. "그럼", "이건", "그건" 같은 지시어가 무엇을 가리키는지 이전 맥락에서 추론. 사용자 상황(회사 규모·근속기간·임금 등)이 이전 턴에 나왔다면 이를 토대로 맞춤 답변.'
       : '';
 
-    let systemPrompt = SYSTEM_PROMPT + faqContext + multiturnHint;
+    // Phase 1.2: 사용자 상황 조회 (sessionId가 유효할 때만)
+    let situationContext = '';
+    let prevProfile: UserSituation = {};
+    if (sessionId) {
+      try {
+        prevProfile = await getSituation(sessionId);
+        situationContext = formatSituationForPrompt(prevProfile);
+      } catch {
+        // 상황 조회 실패해도 답변은 진행
+      }
+    }
+
+    let systemPrompt = SYSTEM_PROMPT + faqContext + situationContext + multiturnHint;
 
     // 관련 뉴스 검색 (최신 5건)
     if (lastUserMsg) {
@@ -227,6 +246,12 @@ export async function POST(req: NextRequest) {
         } finally {
           controller.enqueue(encoder.encode('data: [DONE]\n\n'));
           controller.close();
+          // Phase 1.2: 답변 종료 후 백그라운드로 user_situation 추출 + 업서트
+          if (sessionId && lastUserMsg) {
+            extractDelta(lastUserMsg.content, prevProfile, apiKey)
+              .then((delta) => upsertSituation(sessionId, prevProfile, delta, 1))
+              .catch(() => {});
+          }
         }
       },
     });
