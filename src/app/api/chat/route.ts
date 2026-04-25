@@ -250,6 +250,19 @@ export async function POST(req: NextRequest) {
     const encoder = new TextEncoder();
     const decoder = new TextDecoder();
 
+    // Phase 1.4-B: 인용 누락 시 자동 footer 첨부용 — top FAQ id 보관
+    const topFaqIds = (() => {
+      const faqMatch = faqContext.match(/^#(\d+)\s/m);
+      const ids: number[] = [];
+      const re = /^#(\d+)\s/gm;
+      let m: RegExpExecArray | null;
+      while ((m = re.exec(faqContext)) !== null) {
+        ids.push(parseInt(m[1], 10));
+        if (ids.length >= 3) break;
+      }
+      return ids;
+    })();
+
     const stream = new ReadableStream({
       async start(controller) {
         const reader = response.body?.getReader();
@@ -259,6 +272,7 @@ export async function POST(req: NextRequest) {
         }
 
         let buffer = '';
+        let assembledAnswer = '';
 
         try {
           while (true) {
@@ -279,6 +293,7 @@ export async function POST(req: NextRequest) {
                 const parsed = JSON.parse(data);
                 const content = parsed.choices?.[0]?.delta?.content;
                 if (content) {
+                  assembledAnswer += content;
                   controller.enqueue(encoder.encode(`data: ${JSON.stringify({ content })}\n\n`));
                 }
               } catch {
@@ -291,6 +306,12 @@ export async function POST(req: NextRequest) {
             encoder.encode(`data: ${JSON.stringify({ error: '스트리밍 중 오류가 발생했습니다.' })}\n\n`)
           );
         } finally {
+          // Phase 1.4-B: 인용 누락 자동 보정 — DB 매칭이 있었는데 [FAQ#] 0건이면 footer 첨부
+          const hasCitation = /\[FAQ#\d+|\[CASE#[A-Za-z0-9_\-]+/.test(assembledAnswer);
+          if (!hasCitation && topFaqIds.length > 0) {
+            const footer = `\n\n---\n참고 FAQ: ${topFaqIds.map((id) => `[FAQ#${id}]`).join(', ')}`;
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ content: footer })}\n\n`));
+          }
           controller.enqueue(encoder.encode('data: [DONE]\n\n'));
           controller.close();
         }
