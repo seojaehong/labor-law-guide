@@ -9,6 +9,7 @@ import {
   extractDelta,
   type UserSituation,
 } from '@/lib/user-situation';
+import { verifyCitations } from '@/lib/legal-verify';
 
 export const maxDuration = 60;
 
@@ -199,6 +200,7 @@ export async function POST(req: NextRequest) {
         question: lastUserMsg.content.slice(0, 500),
         faq_matched: faqMatched,
         faq_count: matchedFaqs.length,
+        // legal_citations / hallucinated_citations는 stream 종료 후 update
         faq_categories: faqCategories,
         session_id: sessionId,
       }).then(null, () => {});
@@ -336,6 +338,21 @@ export async function POST(req: NextRequest) {
             const footer = `\n\n---\n참고 FAQ: ${topFaqIds.map((id) => `[FAQ#${id}]`).join(', ')}`;
             controller.enqueue(encoder.encode(`data: ${JSON.stringify({ content: footer })}\n\n`));
           }
+
+          // Phase 2.3: 법조항 실시간 검증 (캐시 lookup, ~100-200ms)
+          try {
+            const { hallucinated } = await verifyCitations(assembledAnswer);
+            if (hallucinated.length > 0) {
+              const warning =
+                '\n\n⚠️ **검증 경고**: 답변에 인용된 일부 법조항이 현재 시점에서 확인되지 않았습니다 (' +
+                hallucinated.map((h) => `${h.law} 제${h.article}조`).join(', ') +
+                '). 정확한 조항은 법제처(law.go.kr)에서 재확인 권장합니다.';
+              controller.enqueue(encoder.encode(`data: ${JSON.stringify({ content: warning })}\n\n`));
+            }
+          } catch {
+            // 검증 실패해도 답변 자체는 영향 없음
+          }
+
           controller.enqueue(encoder.encode('data: [DONE]\n\n'));
           controller.close();
         }
