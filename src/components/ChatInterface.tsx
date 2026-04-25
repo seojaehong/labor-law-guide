@@ -25,11 +25,14 @@ const PROFILE_LABELS: Record<string, string> = {
 // [FAQ#nnnn] / [FAQ#123, FAQ#456] 패턴을 마크다운 링크로 치환
 function linkifyFaqCitations(text: string): string {
   // [FAQ#123, FAQ#456] → [FAQ#123](/faq?id=123) [FAQ#456](/faq?id=456)
-  return text.replace(/\[FAQ#([\d,\sFAQ#]+)\]/g, (match) => {
+  let out = text.replace(/\[FAQ#([\d,\sFAQ#]+)\]/g, (match) => {
     const ids = match.match(/\d+/g);
     if (!ids || ids.length === 0) return match;
     return ids.map((id) => `[FAQ#${id}](/faq?id=${id})`).join(' ');
   });
+  // [CASE#id] → [CASE#id](/decisions/id) (id는 영숫자/언더스코어/하이픈)
+  out = out.replace(/\[CASE#([A-Za-z0-9_\-]+)\]/g, (_, id) => `[CASE#${id}](/decisions/${id})`);
+  return out;
 }
 
 function formatProfileValue(key: string, value: unknown): string {

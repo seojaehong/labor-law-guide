@@ -51,6 +51,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    let caseContext = '';
     // FAQ DB 매칭 — 3-layer: semantic(embedding) + hybrid(tsvector+trigram+ILIKE) + legacy
     let faqContext = '';
     if (lastUserMsg) {
@@ -133,6 +134,43 @@ export async function POST(req: NextRequest) {
         }
       }
 
+      // Phase 2.1: 노동위 판례 검색 (search_similar_cases_hybrid)
+      // 임베딩이 있으면 의미 검색까지 결합, 없으면 trigram만
+      if (queryEmbedding) {
+        try {
+          const caseResult = await db.rpc('search_similar_cases_hybrid', {
+            query_text: searchQuery.slice(0, 500),
+            query_embedding: queryEmbedding,
+            category: '',
+            match_count: 3,
+            semantic_weight: 0.6,
+          });
+          if (!caseResult.error && Array.isArray(caseResult.data) && caseResult.data.length > 0) {
+            const cases = caseResult.data as Array<{
+              id: string;
+              title: string;
+              decision_result?: string;
+              holding_summary?: string;
+              key_issue?: string;
+              decision_date?: string;
+              relevance?: number;
+            }>;
+            caseContext = '\n\n═══ 관련 노동위 판정례 (3건, 답변 시 [CASE#id] 형식 인용) ═══\n';
+            for (const c of cases) {
+              const date = c.decision_date ? c.decision_date.slice(0, 10) : '';
+              const summary = (c.holding_summary || c.key_issue || '').slice(0, 280);
+              caseContext += `\n#${c.id} [${date}${c.decision_result ? ' / ' + c.decision_result : ''}] ${c.title}\n  ${summary}\n`;
+            }
+            caseContext +=
+              '\n[판례 인용 규칙]\n' +
+              '- 답변에서 위 판례를 인용할 때 `[CASE#id]` 형식 사용 (예: "노동위는 ~~한 사실관계에서 부당해고로 판정 [CASE#12345].").\n' +
+              '- 판례 사실관계가 사용자 케이스와 다르면 차이점을 짚어 설명.';
+          }
+        } catch {
+          // 판례 검색 실패해도 답변 진행
+        }
+      }
+
       db.from('chat_logs').insert({
         question: lastUserMsg.content.slice(0, 500),
         faq_matched: faqMatched,
@@ -163,7 +201,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    let systemPrompt = SYSTEM_PROMPT + faqContext + situationContext + multiturnHint;
+    let systemPrompt = SYSTEM_PROMPT + faqContext + caseContext + situationContext + multiturnHint;
 
     // 관련 뉴스 검색 (최신 5건)
     if (lastUserMsg) {
