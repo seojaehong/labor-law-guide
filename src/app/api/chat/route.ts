@@ -172,7 +172,7 @@ export async function POST(req: NextRequest) {
           const courtResult = await db.rpc('search_cases_semantic', {
             query_embedding: queryEmbedding,
             max_results: 2,
-            min_similarity: 0.4,
+            min_similarity: 0.35,
           });
           if (!courtResult.error && Array.isArray(courtResult.data) && courtResult.data.length > 0) {
             const courts = courtResult.data as Array<{
