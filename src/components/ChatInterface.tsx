@@ -34,6 +34,8 @@ function linkifyFaqCitations(text: string): string {
   out = out.replace(/\[CASE#([A-Za-z0-9_\-]+)\]/g, (_, id) => `[CASE#${id}](/decisions/${id})`);
   // [COURT#id] → [COURT#id](/cases/encoded) (cases id는 한글/숫자/특수기호 포함 가능)
   out = out.replace(/\[COURT#([^\]]+)\]/g, (_, id) => `[COURT#${id}](/cases/${encodeURIComponent(id)})`);
+  // [INTERP#id] → [INTERP#id](/interpretations/encoded) (행정해석 회신번호)
+  out = out.replace(/\[INTERP#([^\]]+)\]/g, (_, id) => `[INTERP#${id}](/interpretations/${encodeURIComponent(id)})`);
   return out;
 }
 

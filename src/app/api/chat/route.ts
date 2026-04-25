@@ -167,6 +167,36 @@ export async function POST(req: NextRequest) {
           // 판례 검색 실패해도 답변 진행
         }
 
+        // Phase 2.2: 행정해석 시맨틱 검색
+        try {
+          const interpResult = await db.rpc('search_interpretation_semantic', {
+            query_embedding: queryEmbedding,
+            max_results: 3,
+            min_similarity: 0.35,
+          });
+          if (!interpResult.error && Array.isArray(interpResult.data) && interpResult.data.length > 0) {
+            const interps = interpResult.data as Array<{
+              id: string;
+              doc_number?: string;
+              title: string;
+              summary?: string;
+              holding_points?: string;
+              agency?: string;
+              decision_date?: string;
+            }>;
+            caseContext += '\n\n═══ 관련 행정해석 (3건, 답변 시 [INTERP#id] 인용) ═══\n';
+            for (const it of interps) {
+              const date = it.decision_date || '';
+              const summary = (it.holding_points || it.summary || '').slice(0, 280);
+              caseContext += `\n#${it.id} [${it.agency || ''} ${date}] ${it.title}\n  ${summary}\n`;
+            }
+            caseContext +=
+              '\n[행정해석 인용 규칙] 답변 시 위 회신을 인용할 때 `[INTERP#id]` 형식 (id는 회신번호 그대로). 행정해석은 노동부 공식 입장.';
+          }
+        } catch {
+          // 행정해석 검색 실패해도 답변 진행
+        }
+
         // Phase 2.1-C: 법원 판례 (cases) 시맨틱 검색
         try {
           const courtResult = await db.rpc('search_cases_semantic', {
@@ -337,7 +367,7 @@ export async function POST(req: NextRequest) {
           );
         } finally {
           // Phase 1.4-B: 인용 누락 자동 보정 — DB 매칭이 있었는데 [FAQ#] 0건이면 footer 첨부
-          const hasCitation = /\[FAQ#\d+|\[CASE#[A-Za-z0-9_\-]+|\[COURT#[^\]]+\]/.test(assembledAnswer);
+          const hasCitation = /\[FAQ#\d+|\[CASE#[A-Za-z0-9_\-]+|\[COURT#[^\]]+\]|\[INTERP#[^\]]+\]/.test(assembledAnswer);
           if (!hasCitation && topFaqIds.length > 0) {
             const footer = `\n\n---\n참고 FAQ: ${topFaqIds.map((id) => `[FAQ#${id}]`).join(', ')}`;
             controller.enqueue(encoder.encode(`data: ${JSON.stringify({ content: footer })}\n\n`));
