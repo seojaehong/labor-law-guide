@@ -228,7 +228,9 @@ export default function ChatInterface({ injectedQuestion }: { injectedQuestion?:
           <Info size={12} style={{ color: 'var(--blue-500)' }} />
           <span style={{ color: 'var(--color-text-secondary)' }}>확인된 정보:</span>
           {Object.entries(profile).map(([k, v]) => {
-            const label = PROFILE_LABELS[k] || k;
+            if (k.startsWith('_')) return null;
+            if (!PROFILE_LABELS[k]) return null;
+            const label = PROFILE_LABELS[k];
             const val = formatProfileValue(k, v);
             if (!val) return null;
             return (

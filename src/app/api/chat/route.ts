@@ -147,32 +147,15 @@ export async function POST(req: NextRequest) {
     let prevProfile: UserSituation = {};
     let mergedProfile: UserSituation = {};
     if (sessionId && lastUserMsg) {
-      const stepLog: string[] = [];
       try {
         prevProfile = await getSituation(sessionId);
-        stepLog.push(`prev_keys=${Object.keys(prevProfile).length}`);
         const delta = await extractDelta(lastUserMsg.content, prevProfile, apiKey);
-        stepLog.push(`delta_keys=${Object.keys(delta).length}`);
         mergedProfile = { ...prevProfile, ...delta };
         situationContext = formatSituationForPrompt(mergedProfile);
         await upsertSituation(sessionId, prevProfile, delta, 1);
-        stepLog.push('upsert_ok');
-      } catch (e) {
-        stepLog.push(`error=${e instanceof Error ? e.message.slice(0, 80) : 'unknown'}`);
+      } catch {
+        // 추출/저장 실패해도 답변은 진행
       }
-      // 디버그: 마지막 단계 기록을 user_situation.profile._debug에 보관
-      try {
-        const dbg = db;
-        await dbg
-          .from('user_situation')
-          .upsert(
-            {
-              session_id: sessionId,
-              profile: { ...mergedProfile, _debug: stepLog.join('|') },
-            },
-            { onConflict: 'session_id' }
-          );
-      } catch {}
     }
 
     let systemPrompt = SYSTEM_PROMPT + faqContext + situationContext + multiturnHint;
