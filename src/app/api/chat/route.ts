@@ -1,4 +1,4 @@
-import { NextRequest, after } from 'next/server';
+import { NextRequest } from 'next/server';
 import { SYSTEM_PROMPT, searchQA } from '@/content/ai-knowledge';
 import { supabase } from '@/lib/supabase';
 import { supabaseAdmin } from '@/lib/supabase-server';
@@ -142,15 +142,20 @@ export async function POST(req: NextRequest) {
       ? '\n\n═══ 멀티턴 대화 안내 ═══\n사용자의 직전 질문과 답변을 반드시 참조하여 후속 질문을 해석하세요. "그럼", "이건", "그건" 같은 지시어가 무엇을 가리키는지 이전 맥락에서 추론. 사용자 상황(회사 규모·근속기간·임금 등)이 이전 턴에 나왔다면 이를 토대로 맞춤 답변.'
       : '';
 
-    // Phase 1.2: 사용자 상황 조회 (sessionId가 유효할 때만)
+    // Phase 1.2: 사용자 상황 조회 + 현재 메시지 동기 추출 (sessionId 유효할 때만)
     let situationContext = '';
     let prevProfile: UserSituation = {};
-    if (sessionId) {
+    let mergedProfile: UserSituation = {};
+    if (sessionId && lastUserMsg) {
       try {
         prevProfile = await getSituation(sessionId);
-        situationContext = formatSituationForPrompt(prevProfile);
+        const delta = await extractDelta(lastUserMsg.content, prevProfile, apiKey);
+        mergedProfile = { ...prevProfile, ...delta };
+        situationContext = formatSituationForPrompt(mergedProfile);
+        // 응답과 병행해서 upsert (블로킹 X)
+        upsertSituation(sessionId, prevProfile, delta, 1).catch(() => {});
       } catch {
-        // 상황 조회 실패해도 답변은 진행
+        // 추출 실패해도 답변은 진행
       }
     }
 
@@ -249,18 +254,6 @@ export async function POST(req: NextRequest) {
         }
       },
     });
-
-    // Phase 1.2: Next.js after()로 응답 종료 후 user_situation 추출 + 업서트 (보장 실행)
-    if (sessionId && lastUserMsg) {
-      after(async () => {
-        try {
-          const delta = await extractDelta(lastUserMsg.content, prevProfile, apiKey);
-          await upsertSituation(sessionId, prevProfile, delta, 1);
-        } catch {
-          // 추출 실패해도 답변 자체는 영향 없음
-        }
-      });
-    }
 
     return new Response(stream, {
       headers: {
