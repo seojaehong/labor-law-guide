@@ -254,13 +254,13 @@ export default function ChatInterface({ injectedQuestion }: { injectedQuestion?:
               <span
                 key={k}
                 className="inline-flex items-center gap-1 rounded-full px-2 py-0.5"
-                style={{ backgroundColor: 'white', color: 'var(--color-text-primary)' }}
+                style={{ backgroundColor: 'var(--color-bg-surface)', color: 'var(--color-text-primary)' }}
               >
                 {label}: {val}
                 <button
                   type="button"
                   onClick={() => removeProfileKey(k)}
-                  className="rounded-full hover:bg-gray-100"
+                  className="rounded-full hover:opacity-80"
                   aria-label={`${label} 제거`}
                   title="잘못 추출됐다면 클릭해 제거"
                 >
