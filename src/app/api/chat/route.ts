@@ -1,4 +1,4 @@
-import { NextRequest } from 'next/server';
+import { NextRequest, after } from 'next/server';
 import { SYSTEM_PROMPT, searchQA } from '@/content/ai-knowledge';
 import { supabase } from '@/lib/supabase';
 import { supabaseAdmin } from '@/lib/supabase-server';
@@ -246,15 +246,21 @@ export async function POST(req: NextRequest) {
         } finally {
           controller.enqueue(encoder.encode('data: [DONE]\n\n'));
           controller.close();
-          // Phase 1.2: 답변 종료 후 백그라운드로 user_situation 추출 + 업서트
-          if (sessionId && lastUserMsg) {
-            extractDelta(lastUserMsg.content, prevProfile, apiKey)
-              .then((delta) => upsertSituation(sessionId, prevProfile, delta, 1))
-              .catch(() => {});
-          }
         }
       },
     });
+
+    // Phase 1.2: Next.js after()로 응답 종료 후 user_situation 추출 + 업서트 (보장 실행)
+    if (sessionId && lastUserMsg) {
+      after(async () => {
+        try {
+          const delta = await extractDelta(lastUserMsg.content, prevProfile, apiKey);
+          await upsertSituation(sessionId, prevProfile, delta, 1);
+        } catch {
+          // 추출 실패해도 답변 자체는 영향 없음
+        }
+      });
+    }
 
     return new Response(stream, {
       headers: {

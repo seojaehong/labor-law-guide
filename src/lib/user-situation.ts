@@ -142,15 +142,17 @@ export async function extractDelta(
         messages: [{ role: 'user', content: prompt }],
         max_completion_tokens: 256,
         temperature: 0.0,
-        response_format: { type: 'json_object' },
       }),
       signal: AbortSignal.timeout(10000),
     });
     if (!resp.ok) return {};
     const j = await resp.json();
     const text: string = j?.choices?.[0]?.message?.content || '{}';
-    const cleaned = text.replace(/^```json\s*/i, '').replace(/```$/g, '').trim();
-    const parsed = JSON.parse(cleaned);
+    // 1) ```json ... ``` 블록 제거 2) 첫 번째 { ... } 매칭
+    const stripped = text.replace(/```json\s*/gi, '').replace(/```/g, '').trim();
+    const m = stripped.match(/\{[\s\S]*\}/);
+    if (!m) return {};
+    const parsed = JSON.parse(m[0]);
     if (typeof parsed !== 'object' || parsed === null) return {};
     const result: UserSituation = {};
     for (const k of KEYS) {
