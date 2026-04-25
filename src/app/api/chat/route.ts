@@ -171,7 +171,7 @@ export async function POST(req: NextRequest) {
         try {
           const courtResult = await db.rpc('search_cases_semantic', {
             query_embedding: queryEmbedding,
-            max_results: 2,
+            max_results: 5,
             min_similarity: 0.35,
           });
           if (!courtResult.error && Array.isArray(courtResult.data) && courtResult.data.length > 0) {
@@ -183,13 +183,17 @@ export async function POST(req: NextRequest) {
               verdict_type?: string;
               summary?: string;
             }>;
-            caseContext += '\n\n═══ 관련 법원 판례 (최대 2건, 답변 시 [COURT#id] 형식 인용) ═══\n';
+            caseContext += '\n\n═══ 관련 법원 판례 (최대 5건) ═══\n';
             for (const c of courts) {
               const date = c.decision_date && c.decision_date !== '0001-01-01' ? c.decision_date : '';
               const summary = (c.summary || '').slice(0, 280);
               caseContext += `\n#${c.id} [${c.court || ''} ${date}${c.verdict_type ? ' / ' + c.verdict_type : ''}] ${c.title}\n  ${summary}\n`;
             }
-            caseContext += '\n[법원 판례 인용 규칙] 답변에서 인용 시 `[COURT#id]` 형식. 대법원·고법 판시는 결정적 근거로 활용.';
+            caseContext +=
+              '\n[법원 판례 인용 규칙 — 반드시 준수]\n' +
+              '1) 답변에서 위 판례 중 관련된 것을 인용할 때 반드시 `[COURT#id]` 형식 사용 (id는 위 #뒤 문자열 그대로). 예: "대법원은 정기상여금이 통상임금 요건을 충족하면 인정한다고 판시 [COURT#대법원_2023다302838].".\n' +
+              '2) 일반적인 "대법원은 ... 라고 판시" 식으로 답변하지 말고 위 DB의 구체적 판례 id를 사용하세요.\n' +
+              '3) 학습 데이터에 있는 판례번호("2020다247190" 등)를 임의로 인용하지 말고, 반드시 위 DB에 있는 id만 인용하세요.';
           }
         } catch {
           // 법원 판례 실패해도 답변 진행
