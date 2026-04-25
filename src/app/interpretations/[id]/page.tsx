@@ -39,12 +39,42 @@ interface RelatedAdmin {
 }
 
 async function getInterpretation(id: string): Promise<AdminDetail | null> {
+  // 1차: molab_interpretations (Phase 2.2 메인 테이블, 9573건)
+  const ml = await supabaseServer
+    .from('molab_interpretations')
+    .select('id, title, case_number, decision_date, keywords_matched, inquiry_summary, answer_summary, full_text, url')
+    .eq('id', id)
+    .maybeSingle();
+  if (ml.data) {
+    const r = ml.data as {
+      id: string;
+      title: string;
+      case_number: string | null;
+      decision_date: string | null;
+      keywords_matched: string[] | null;
+      inquiry_summary: string | null;
+      answer_summary: string | null;
+      full_text: string | null;
+      url: string | null;
+    };
+    return {
+      id: r.id,
+      title: r.title,
+      doc_number: r.case_number,
+      decision_date: r.decision_date,
+      keywords_matched: r.keywords_matched,
+      summary: r.inquiry_summary,
+      holding_points: r.answer_summary || r.full_text,
+      url: r.url,
+      original_url: r.url,
+    };
+  }
+  // 2차: admin_interpretations (이전 import)
   const { data, error } = await supabaseServer
     .from('admin_interpretations')
     .select('id, title, doc_number, decision_date, keywords_matched, summary, holding_points, url, original_url')
     .eq('id', id)
     .single();
-
   if (error || !data) return null;
   return data as AdminDetail;
 }
@@ -53,14 +83,19 @@ async function getRelatedInterpretations(currentId: string, keywords: string[] |
   if (!keywords || keywords.length === 0) return [];
 
   const { data } = await supabaseServer
-    .from('admin_interpretations')
-    .select('id, title, doc_number, decision_date')
+    .from('molab_interpretations')
+    .select('id, title, case_number, decision_date')
     .neq('id', currentId)
     .contains('keywords_matched', [keywords[0]])
     .order('decision_date', { ascending: false })
     .limit(4);
 
-  return (data || []) as RelatedAdmin[];
+  return ((data || []) as Array<{ id: string; title: string; case_number: string | null; decision_date: string | null }>).map((r) => ({
+    id: r.id,
+    title: r.title,
+    doc_number: r.case_number,
+    decision_date: r.decision_date,
+  }));
 }
 
 export async function generateMetadata({

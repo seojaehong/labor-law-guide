@@ -167,7 +167,7 @@ export async function POST(req: NextRequest) {
           // 판례 검색 실패해도 답변 진행
         }
 
-        // Phase 2.2: 행정해석 시맨틱 검색
+        // Phase 2.2: 행정해석 시맨틱 검색 (molab_interpretations)
         try {
           const interpResult = await db.rpc('search_interpretation_semantic', {
             query_embedding: queryEmbedding,
@@ -177,21 +177,21 @@ export async function POST(req: NextRequest) {
           if (!interpResult.error && Array.isArray(interpResult.data) && interpResult.data.length > 0) {
             const interps = interpResult.data as Array<{
               id: string;
-              doc_number?: string;
+              case_number?: string;
               title: string;
-              summary?: string;
-              holding_points?: string;
-              agency?: string;
+              inquiry_summary?: string;
+              answer_summary?: string;
               decision_date?: string;
+              url?: string;
             }>;
             caseContext += '\n\n═══ 관련 행정해석 (3건, 답변 시 [INTERP#id] 인용) ═══\n';
             for (const it of interps) {
               const date = it.decision_date || '';
-              const summary = (it.holding_points || it.summary || '').slice(0, 280);
-              caseContext += `\n#${it.id} [${it.agency || ''} ${date}] ${it.title}\n  ${summary}\n`;
+              const summary = (it.answer_summary || it.inquiry_summary || '').slice(0, 280);
+              caseContext += `\n#${it.id} [${it.case_number || ''} ${date}] ${it.title}\n  ${summary}\n`;
             }
             caseContext +=
-              '\n[행정해석 인용 규칙] 답변 시 위 회신을 인용할 때 `[INTERP#id]` 형식 (id는 회신번호 그대로). 행정해석은 노동부 공식 입장.';
+              '\n[행정해석 인용 규칙] 답변 시 위 회신을 인용할 때 `[INTERP#id]` 형식 (id는 위 #뒤 ml_xxxx 그대로). 행정해석은 노동부 공식 입장.';
           }
         } catch {
           // 행정해석 검색 실패해도 답변 진행
