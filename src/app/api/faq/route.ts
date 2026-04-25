@@ -6,11 +6,35 @@ const db = supabaseAdmin || supabase;
 
 export async function GET(req: NextRequest) {
   const searchParams = req.nextUrl.searchParams;
+  const idParam = searchParams.get('id');
   const category = searchParams.get('category') || null;
   const query = searchParams.get('q') || null;
   const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10));
   const size = Math.min(50, Math.max(1, parseInt(searchParams.get('size') || '20', 10)));
   const offset = (page - 1) * size;
+
+  // 단일 FAQ id 조회 (Phase 1.3 인용 링크용)
+  if (idParam && /^\d+$/.test(idParam)) {
+    const { data, error } = await db
+      .from('faq')
+      .select('id, unified_category, category, question, answer')
+      .eq('id', parseInt(idParam, 10))
+      .maybeSingle();
+    if (error || !data) {
+      return NextResponse.json({ faqs: [], total: 0 }, { status: error ? 500 : 200 });
+    }
+    return NextResponse.json({
+      faqs: [
+        {
+          id: data.id,
+          unified_category: data.unified_category || data.category,
+          question: data.question,
+          answer: data.answer,
+        },
+      ],
+      total: 1,
+    });
+  }
 
   // 검색어 있고 카테고리 없으면 hybrid 사용 (구어체↔학술어 gap 커버)
   if (query && !category) {

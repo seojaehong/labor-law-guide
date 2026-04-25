@@ -87,6 +87,36 @@ export default function FaqClient({ initialFaqs, categoryCounts, totalCount, ini
     return () => { if (searchTimerRef.current) clearTimeout(searchTimerRef.current); };
   }, []);
 
+  // Phase 1.3: ?id=N 인용 링크 진입 시 단일 FAQ 우선 표시 + 펼침
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    const idStr = params.get('id');
+    if (!idStr || !/^\d+$/.test(idStr)) return;
+    const fid = parseInt(idStr, 10);
+    (async () => {
+      try {
+        const r = await fetch(`/api/faq?id=${fid}`);
+        if (!r.ok) return;
+        const d = await r.json();
+        if (d?.faqs?.[0]) {
+          // 기존 목록 위에 인용된 FAQ를 prepend, 펼친 상태로
+          setFaqs((prev) => {
+            const exists = prev.some((f) => f.id === fid);
+            return exists ? prev : [d.faqs[0], ...prev];
+          });
+          setExpandedId(fid);
+          setTimeout(() => {
+            const el = document.querySelector(`[data-faq-id="${fid}"]`);
+            el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }, 100);
+        }
+      } catch {
+        // ignore
+      }
+    })();
+  }, []);
+
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   return (
@@ -230,6 +260,7 @@ export default function FaqClient({ initialFaqs, categoryCounts, totalCount, ini
               {faqs.map((faq) => (
                 <div
                   key={faq.id}
+                  data-faq-id={faq.id}
                   className="rounded-xl border overflow-hidden transition-colors"
                   style={{ borderColor: expandedId === faq.id ? 'var(--color-accent)' : 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }}
                 >

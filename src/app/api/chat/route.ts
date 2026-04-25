@@ -114,9 +114,14 @@ export async function POST(req: NextRequest) {
       if (faqMatched) {
         faqContext = '\n\n═══ 관련 지식DB 매칭 결과 (참고하여 답변) ═══\n';
         for (const faq of matchedFaqs) {
-          faqContext += `\n[${faq.unified_category || faq.category}] Q: ${faq.question}\nA: ${faq.answer}\n`;
+          faqContext += `\n#${faq.id} [${faq.unified_category || faq.category}] Q: ${faq.question}\nA: ${faq.answer}\n`;
         }
-        faqContext += '\n위 DB 내용을 참고하되, 질문에 맞게 자연스럽게 재구성하여 답변하세요.';
+        faqContext +=
+          '\n[인용 규칙]\n' +
+          '- 위 DB 내용을 그대로 옮겨 적지 말고, 사용자 질문 맥락에 맞춰 재구성해 답변하세요.\n' +
+          '- 답변에 인용한 항목은 해당 문장 끝에 `[FAQ#숫자]` 형식으로 출처를 표기하세요. 예: "5인 미만 사업장은 부당해고 구제신청 대상이 아닙니다 [FAQ#12345].".\n' +
+          '- 여러 항목을 종합한 경우 `[FAQ#123, FAQ#456]`처럼 콤마로 나열할 수 있습니다.\n' +
+          '- DB에 없는 일반 법률 상식은 굳이 인용하지 않아도 됩니다. 인용 강요 X.';
       } else {
         const inlineFaq = searchQA(lastUserMsg.content);
         if (inlineFaq.length > 0) {

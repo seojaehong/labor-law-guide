@@ -22,6 +22,16 @@ const PROFILE_LABELS: Record<string, string> = {
   timeline: '시점',
 };
 
+// [FAQ#nnnn] / [FAQ#123, FAQ#456] 패턴을 마크다운 링크로 치환
+function linkifyFaqCitations(text: string): string {
+  // [FAQ#123, FAQ#456] → [FAQ#123](/faq?id=123) [FAQ#456](/faq?id=456)
+  return text.replace(/\[FAQ#([\d,\sFAQ#]+)\]/g, (match) => {
+    const ids = match.match(/\d+/g);
+    if (!ids || ids.length === 0) return match;
+    return ids.map((id) => `[FAQ#${id}](/faq?id=${id})`).join(' ');
+  });
+}
+
 function formatProfileValue(key: string, value: unknown): string {
   if (value == null) return '';
   if (key === 'company_size') {
@@ -274,7 +284,7 @@ export default function ChatInterface({ injectedQuestion }: { injectedQuestion?:
             >
               {msg.role === 'assistant' ? (
                 msg.content ? (
-                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content}</ReactMarkdown>
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{linkifyFaqCitations(msg.content)}</ReactMarkdown>
                 ) : (
                   <span className="inline-flex items-center gap-2 text-sm" style={{ color: 'var(--color-text-tertiary)' }}>
                     <Loader2 size={14} className="animate-spin" />
