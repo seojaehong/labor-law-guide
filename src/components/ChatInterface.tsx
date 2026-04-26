@@ -22,20 +22,80 @@ const PROFILE_LABELS: Record<string, string> = {
   timeline: '시점',
 };
 
-// [FAQ#nnnn] / [FAQ#123, FAQ#456] 패턴을 마크다운 링크로 치환
+// 인용 마크 본문에서 제거 + 답변 끝에 깔끔한 "참고 자료" footer 1개로 통합
+type Citation = { type: 'FAQ' | 'CASE' | 'COURT' | 'INTERP'; id: string; href: string };
+
 function linkifyFaqCitations(text: string): string {
-  // [FAQ#123, FAQ#456] → [FAQ#123](/faq?id=123) [FAQ#456](/faq?id=456)
-  let out = text.replace(/\[FAQ#([\d,\sFAQ#]+)\]/g, (match) => {
-    const ids = match.match(/\d+/g);
-    if (!ids || ids.length === 0) return match;
-    return ids.map((id) => `[FAQ#${id}](/faq?id=${id})`).join(' ');
+  const cited: Citation[] = [];
+  const seen = new Set<string>();
+  const push = (type: Citation['type'], id: string, href: string) => {
+    const key = `${type}-${id}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    cited.push({ type, id, href });
+  };
+
+  // 1) 괄호 형태: [FAQ#123, FAQ#456] / [CASE#id] / [COURT#id] / [INTERP#id]
+  let out = text.replace(/\[FAQ#[\d,\sFAQ#]+\]/g, (m) => {
+    const ids = m.match(/\d+/g) || [];
+    ids.forEach((id) => push('FAQ', id, `/faq?id=${id}`));
+    return '';
   });
-  // [CASE#id] → [CASE#id](/decisions/id) (nlrc id는 영숫자/언더스코어/하이픈)
-  out = out.replace(/\[CASE#([A-Za-z0-9_\-]+)\]/g, (_, id) => `[CASE#${id}](/decisions/${id})`);
-  // [COURT#id] → [COURT#id](/cases/encoded) (cases id는 한글/숫자/특수기호 포함 가능)
-  out = out.replace(/\[COURT#([^\]]+)\]/g, (_, id) => `[COURT#${id}](/cases/${encodeURIComponent(id)})`);
-  // [INTERP#id] → [INTERP#id](/interpretations/encoded) (행정해석 회신번호)
-  out = out.replace(/\[INTERP#([^\]]+)\]/g, (_, id) => `[INTERP#${id}](/interpretations/${encodeURIComponent(id)})`);
+  out = out.replace(/\[CASE#([A-Za-z0-9_\-]+)\]/g, (_, id) => {
+    push('CASE', id, `/decisions/${id}`);
+    return '';
+  });
+  out = out.replace(/\[COURT#([^\]]+)\]/g, (_, id) => {
+    push('COURT', id, `/cases/${encodeURIComponent(id)}`);
+    return '';
+  });
+  out = out.replace(/\[INTERP#([^\]]+)\]/g, (_, id) => {
+    push('INTERP', id, `/interpretations/${encodeURIComponent(id)}`);
+    return '';
+  });
+
+  // 2) 괄호 빠진 형태 (LLM이 형식 무시): FAQ#123 / CASE#xxx / COURT#xxx / INTERP#ml_xxx
+  // 한글/공백 사이에 끼어 있어도 매칭. 단어 경계는 한글에서 안 먹으니 "non-letter 좌측 + ID + 우측"
+  out = out.replace(/(?<![A-Za-z])FAQ#(\d+)/g, (_, id) => {
+    push('FAQ', id, `/faq?id=${id}`);
+    return '';
+  });
+  out = out.replace(/(?<![A-Za-z])CASE#([A-Za-z0-9_\-]+)/g, (_, id) => {
+    push('CASE', id, `/decisions/${id}`);
+    return '';
+  });
+  out = out.replace(/(?<![A-Za-z])COURT#([A-Za-z0-9_가-힣\-]+)/g, (_, id) => {
+    push('COURT', id, `/cases/${encodeURIComponent(id)}`);
+    return '';
+  });
+  out = out.replace(/(?<![A-Za-z])INTERP#([A-Za-z0-9_\-]+)/g, (_, id) => {
+    push('INTERP', id, `/interpretations/${encodeURIComponent(id)}`);
+    return '';
+  });
+
+  // 빈 인용으로 인해 남은 ", " ", ," "( )" 같은 잔여 정리
+  out = out.replace(/\s*,\s*,\s*/g, ', ').replace(/\(\s*,?\s*\)/g, '').replace(/\s+([,.])/g, '$1');
+
+  // 자동 footer: "참고 FAQ: ..." 서버 측 footer가 이미 있으면 중복 추가하지 않음
+  if (cited.length > 0 && !/참고\s*(FAQ|자료)/.test(out)) {
+    const labels: Record<Citation['type'], string> = {
+      FAQ: 'FAQ',
+      CASE: '판정례',
+      COURT: '판례',
+      INTERP: '행정해석',
+    };
+    const groups = new Map<Citation['type'], Citation[]>();
+    for (const c of cited) {
+      if (!groups.has(c.type)) groups.set(c.type, []);
+      groups.get(c.type)!.push(c);
+    }
+    const footer = ['', '', '---', '**참고 자료**'];
+    for (const [type, list] of groups) {
+      const items = list.map((c, i) => `[${labels[type]} ${i + 1}](${c.href})`).join(' · ');
+      footer.push(`- ${labels[type]}: ${items}`);
+    }
+    out = out.trimEnd() + '\n' + footer.join('\n');
+  }
   return out;
 }
 
