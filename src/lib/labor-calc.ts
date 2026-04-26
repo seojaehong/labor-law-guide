@@ -100,6 +100,106 @@ function _diffDays(later: Date, earlier: Date): number {
   return Math.round((later.getTime() - earlier.getTime()) / 86400000);
 }
 
+// 윤년 고려 정밀 재직 fraction — HTML calcPreciseServiceFraction 동치
+function _preciseServiceFraction(start: Date, end: Date) {
+  let fullYears = 0;
+  const cur = new Date(start);
+  while (true) {
+    const next = new Date(cur);
+    next.setFullYear(next.getFullYear() + 1);
+    if (next <= end) {
+      fullYears++;
+      cur.setTime(next.getTime());
+    } else break;
+  }
+  const remainDays = Math.round((end.getTime() - cur.getTime()) / 86400000);
+  const nextAnniv = new Date(cur);
+  nextAnniv.setFullYear(nextAnniv.getFullYear() + 1);
+  const daysInYear = Math.round((nextAnniv.getTime() - cur.getTime()) / 86400000);
+  return { fullYears, remainDays, daysInYear, fraction: fullYears + remainDays / daysInYear };
+}
+
+// 1년 미만 올림 근속연수 — HTML calcServiceYears 동치 (퇴직소득세용)
+function _ceilServiceYears(start: Date, end: Date): number {
+  let years = 0;
+  const t = new Date(start);
+  while (true) {
+    t.setFullYear(t.getFullYear() + 1);
+    if (t <= end) years++;
+    else break;
+  }
+  const exact = new Date(start);
+  exact.setFullYear(exact.getFullYear() + years);
+  if (exact.getTime() < end.getTime()) years++;
+  return Math.max(years, 1);
+}
+
+// ────────────── 4-tax. 퇴직소득세 (소득세법 시행령 제203조의5/6 + 제55조) ──────────────
+const _TAX_RATES = [
+  { limit: 14_000_000, rate: 0.06, cumulative: 0 },
+  { limit: 50_000_000, rate: 0.15, cumulative: 840_000 },
+  { limit: 88_000_000, rate: 0.24, cumulative: 6_240_000 },
+  { limit: 150_000_000, rate: 0.35, cumulative: 15_360_000 },
+  { limit: 300_000_000, rate: 0.38, cumulative: 37_060_000 },
+  { limit: 500_000_000, rate: 0.40, cumulative: 94_060_000 },
+  { limit: 1_000_000_000, rate: 0.42, cumulative: 174_060_000 },
+  { limit: Number.POSITIVE_INFINITY, rate: 0.45, cumulative: 384_060_000 },
+];
+
+function _serviceYearDeduction(years: number): number {
+  if (years <= 5) return 1_000_000 * years;
+  if (years <= 10) return 5_000_000 + 2_000_000 * (years - 5);
+  if (years <= 20) return 15_000_000 + 2_500_000 * (years - 10);
+  return 40_000_000 + 3_000_000 * (years - 20);
+}
+
+function _convertedWageDeduction(cw: number): number {
+  if (cw <= 0) return 0;
+  if (cw <= 8_000_000) return cw;
+  if (cw <= 70_000_000) return 8_000_000 + (cw - 8_000_000) * 0.6;
+  if (cw <= 100_000_000) return 45_200_000 + (cw - 70_000_000) * 0.55;
+  if (cw <= 300_000_000) return 61_700_000 + (cw - 100_000_000) * 0.45;
+  return 151_700_000 + (cw - 300_000_000) * 0.35;
+}
+
+function _incomeTaxByRate(taxBase: number): number {
+  if (taxBase <= 0) return 0;
+  for (let i = 0; i < _TAX_RATES.length; i++) {
+    if (taxBase <= _TAX_RATES[i].limit) {
+      const prev = i === 0 ? 0 : _TAX_RATES[i - 1].limit;
+      return _TAX_RATES[i].cumulative + (taxBase - prev) * _TAX_RATES[i].rate;
+    }
+  }
+  return 0;
+}
+
+export function calcRetirementTax(severance_pay: number, service_years: number) {
+  const svc_deduction = _serviceYearDeduction(service_years);
+  const after_deduction = Math.max(severance_pay - svc_deduction, 0);
+  const converted_wage = service_years > 0 ? Math.floor((after_deduction * 12) / service_years) : 0;
+  const cw_deduction = Math.floor(_convertedWageDeduction(converted_wage));
+  const tax_base = Math.max(converted_wage - cw_deduction, 0);
+  const converted_tax = Math.floor(_incomeTaxByRate(tax_base));
+  const income_tax = Math.floor(Math.floor((converted_tax * service_years) / 12) / 10) * 10;
+  const local_tax = Math.floor(Math.floor(income_tax * 0.1) / 10) * 10;
+  return {
+    severance_pay,
+    service_years,
+    svc_deduction,
+    after_deduction,
+    converted_wage,
+    cw_deduction,
+    tax_base,
+    converted_tax,
+    income_tax,
+    local_tax,
+    total_tax: income_tax + local_tax,
+    legal_basis:
+      '소득세법 시행령 제203조의5(근속연수공제) · 제203조의6(환산급여공제) · 소득세법 제55조(기본세율) / ' +
+      '환산급여 = (퇴직급여 - 근속연수공제) × 12 / 근속연수 / 산출세액 × 근속연수/12 = 소득세 / 지방소득세 = 소득세 × 10%',
+  };
+}
+
 export function calcSeverance(input: {
   hire_date: string; // YYYY-MM-DD
   last_work_date: string;
@@ -108,6 +208,7 @@ export function calcSeverance(input: {
   unused_annual_leave_days?: number;
   annual_leave_daily_wage?: number;
   ordinary_daily_wage?: number;
+  include_tax?: boolean; // true 시 퇴직소득세 함께 계산
 }) {
   const hire = new Date(input.hire_date);
   const last_work = new Date(input.last_work_date);
@@ -132,14 +233,40 @@ export function calcSeverance(input: {
     wage_type = '통상임금';
   }
 
-  const severance_raw = (applied_daily_wage * 30 * service_days) / 365;
+  // 정밀 재직 fraction (윤년 고려) — last_work 기준
+  const svc = _preciseServiceFraction(hire, last_work);
+  const severance_raw = applied_daily_wage * 30 * svc.fraction;
   const severance_pay = Math.floor(severance_raw);
 
-  return {
+  const result: {
+    hire_date: string;
+    last_work_date: string;
+    retirement_date: string;
+    service_days: number;
+    service_full_years: number;
+    service_remain_days: number;
+    service_fraction: number;
+    three_months_start: string;
+    total_days_3m: number;
+    wage_total: number;
+    bonus_addition: number;
+    annual_leave_addition: number;
+    avg_wage_base: number;
+    daily_avg_wage: number;
+    applied_daily_wage: number;
+    wage_type: string;
+    severance_pay: number;
+    legal_basis: string;
+    tax?: ReturnType<typeof calcRetirementTax>;
+    net_severance?: number;
+  } = {
     hire_date: input.hire_date,
     last_work_date: input.last_work_date,
     retirement_date: retirement.toISOString().slice(0, 10),
     service_days,
+    service_full_years: svc.fullYears,
+    service_remain_days: svc.remainDays,
+    service_fraction: Number(svc.fraction.toFixed(6)),
     three_months_start: three_months_start.toISOString().slice(0, 10),
     total_days_3m,
     wage_total,
@@ -152,9 +279,17 @@ export function calcSeverance(input: {
     severance_pay,
     legal_basis:
       '근로자퇴직급여 보장법 제8조 + 시행령 제3조 / ' +
-      '퇴직금 = 1일평균임금 × 30 × (재직일수/365) / ' +
+      '퇴직금 = 1일평균임금 × 30 × 재직 fraction (윤년 고려: fullYears + remainDays/daysInYear) / ' +
       '평균임금 = 퇴직 직전 3개월 임금총액 / 총일수 (상여금·연차수당 가산) / 통상임금이 더 높으면 통상임금 사용',
   };
+
+  if (input.include_tax) {
+    const service_years = _ceilServiceYears(hire, last_work);
+    const tax = calcRetirementTax(severance_pay, service_years);
+    result.tax = tax;
+    result.net_severance = severance_pay - tax.total_tax;
+  }
+  return result;
 }
 
 // ────────────── 5. 법조항 lookup ──────────────

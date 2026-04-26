@@ -25,7 +25,7 @@ const TOOLS = [
     function: {
       name: 'calc_severance',
       description:
-        '퇴직금 계산. 사용자가 입사일·퇴사일·직전 3개월 임금을 알려준 경우 호출. 추측 X.',
+        '퇴직금 계산 (윤년 고려 정밀 재직 fraction). 사용자가 입사일·퇴사일·직전 3개월 임금을 알려준 경우 호출. 추측 X. include_tax=true로 호출하면 퇴직소득세까지 동시 산출.',
       parameters: {
         type: 'object',
         properties: {
@@ -39,6 +39,7 @@ const TOOLS = [
           annual_bonus: { type: 'integer', description: '연간 상여금 총액 (원)' },
           unused_annual_leave_days: { type: 'integer' },
           annual_leave_daily_wage: { type: 'integer' },
+          include_tax: { type: 'boolean', description: '퇴직소득세까지 함께 계산 (기본 false)' },
         },
         required: ['hire_date', 'last_work_date', 'wages_3months'],
       },
