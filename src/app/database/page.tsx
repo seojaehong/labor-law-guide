@@ -48,7 +48,7 @@ async function getDatabaseLandingData() {
   const [casesCountResult, adminCountResult, nlrcCountResult, featuredCasesResult, featuredAdminResult] = await Promise.all([
     supabaseServer.from('cases').select('id', { count: 'exact', head: true }),
     supabaseServer.from('admin_interpretations').select('id', { count: 'exact', head: true }),
-    supabaseServer.from('nlrc_decisions').select('id', { count: 'exact', head: true }),
+    supabaseServer.from('nlrc_decisions').select('id', { count: 'estimated', head: true }),
     supabaseServer
       .from('cases')
       .select('id, title, court, case_number, decision_date, summary, url, original_url')

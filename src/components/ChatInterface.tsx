@@ -55,22 +55,22 @@ function linkifyFaqCitations(text: string): string {
   });
 
   // 2) 괄호 빠진 형태 (LLM이 형식 무시): FAQ#123 / CASE#xxx / COURT#xxx / INTERP#ml_xxx
-  // 한글/공백 사이에 끼어 있어도 매칭. 단어 경계는 한글에서 안 먹으니 "non-letter 좌측 + ID + 우측"
-  out = out.replace(/(?<![A-Za-z])FAQ#(\d+)/g, (_, id) => {
+  // iOS Safari < 16.4 호환: lookbehind 사용 금지 → 선행 문자 캡처 후 보존 방식
+  out = out.replace(/(^|[^A-Za-z])FAQ#(\d+)/g, (_, prefix, id) => {
     push('FAQ', id, `/faq?id=${id}`);
-    return '';
+    return prefix;
   });
-  out = out.replace(/(?<![A-Za-z])CASE#([A-Za-z0-9_\-]+)/g, (_, id) => {
+  out = out.replace(/(^|[^A-Za-z])CASE#([A-Za-z0-9_\-]+)/g, (_, prefix, id) => {
     push('CASE', id, `/decisions/${id}`);
-    return '';
+    return prefix;
   });
-  out = out.replace(/(?<![A-Za-z])COURT#([A-Za-z0-9_가-힣\-]+)/g, (_, id) => {
+  out = out.replace(/(^|[^A-Za-z])COURT#([A-Za-z0-9_가-힣\-]+)/g, (_, prefix, id) => {
     push('COURT', id, `/cases/${encodeURIComponent(id)}`);
-    return '';
+    return prefix;
   });
-  out = out.replace(/(?<![A-Za-z])INTERP#([A-Za-z0-9_\-]+)/g, (_, id) => {
+  out = out.replace(/(^|[^A-Za-z])INTERP#([A-Za-z0-9_\-]+)/g, (_, prefix, id) => {
     push('INTERP', id, `/interpretations/${encodeURIComponent(id)}`);
-    return '';
+    return prefix;
   });
 
   // 빈 인용으로 인해 남은 ", " ", ," "( )" 같은 잔여 정리

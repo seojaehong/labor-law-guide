@@ -67,7 +67,7 @@ function DatabaseContent({ initialTotalCases, initialTotalAdmin, initialTotalNlr
       supabase.from('admin_interpretations').select('id', { count: 'exact', head: true }).then(({ count }) => setTotalAdmin(count));
     }
     if (totalNlrc === null) {
-      supabase.from('nlrc_decisions').select('id', { count: 'exact', head: true }).then(({ count }) => setTotalNlrc(count));
+      supabase.from('nlrc_decisions').select('id', { count: 'estimated', head: true }).then(({ count }) => setTotalNlrc(count));
     }
   }, [totalAdmin, totalCases, totalNlrc]);
 
