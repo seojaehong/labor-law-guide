@@ -492,6 +492,7 @@ export async function POST(req: NextRequest) {
     const stream = new ReadableStream({
       async start(controller) {
         let assembledAnswer = '';
+        let lastSeveranceArgs: Record<string, unknown> | null = null;
         const baseMsgs: unknown[] = [
           { role: 'system', content: systemPrompt },
           ...messages,
@@ -501,6 +502,12 @@ export async function POST(req: NextRequest) {
           // Round 1 — tools enabled if hint
           const r1 = await streamRound(controller, baseMsgs, toolHint);
           assembledAnswer += r1.content;
+          // calc_severance 호출 인자가 있으면 보관 (계산기 링크용)
+          for (const tc of r1.toolCalls) {
+            if (tc.name === 'calc_severance') {
+              try { lastSeveranceArgs = JSON.parse(tc.arguments || '{}'); } catch {}
+            }
+          }
 
           // 도구 호출이 있으면 실행 + 라운드 2 (tools 없이)
           if (r1.toolCalls.length > 0) {
@@ -541,6 +548,24 @@ export async function POST(req: NextRequest) {
           if (!hasCitation && topFaqIds.length > 0) {
             const footer = `\n\n---\n참고 FAQ: ${topFaqIds.map((id) => `[FAQ#${id}]`).join(', ')}`;
             controller.enqueue(encoder.encode(`data: ${JSON.stringify({ content: footer })}\n\n`));
+          }
+
+          // 계산기 페이지 링크 자동 첨부 (calc_severance 호출 인자가 있을 때)
+          if (lastSeveranceArgs) {
+            const a = lastSeveranceArgs as Record<string, unknown>;
+            const params = new URLSearchParams();
+            if (typeof a.hire_date === 'string') params.set('start', a.hire_date);
+            if (typeof a.last_work_date === 'string') params.set('end', a.last_work_date);
+            const wages = Array.isArray(a.wages_3months) ? a.wages_3months : null;
+            if (wages) {
+              if (wages[0] != null) params.set('w1', String(wages[0]));
+              if (wages[1] != null) params.set('w2', String(wages[1]));
+              if (wages[2] != null) params.set('w3', String(wages[2]));
+            }
+            if (typeof a.annual_bonus === 'number' && a.annual_bonus > 0) params.set('bonusTotal', String(a.annual_bonus));
+            params.set('run', '1');
+            const link = `\n\n👉 [퇴직금 계산기에서 직접 확인 (퇴직소득세 포함)](/tools/severance.html?${params.toString()})`;
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ content: link })}\n\n`));
           }
 
           // Phase 2.3: 법조항 실시간 검증 (캐시 lookup, ~100-200ms)

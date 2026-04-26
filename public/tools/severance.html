@@ -1,0 +1,1998 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>퇴직금 계산 프로그램 — 평균임금 및 퇴직금 산정서</title>
+    <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+    <style>
+        /* ========================================
+           1. CSS 변수 및 기본 설정
+           ======================================== */
+        :root {
+            --primary: #1B2A4A;
+            --primary-light: #2C3E6B;
+            --accent: #C49B3C;
+            --accent-light: #D4AF5C;
+            --bg: #F0F2F5;
+            --card-bg: #FFFFFF;
+            --text: #333333;
+            --text-light: #666666;
+            --border: #D0D5DD;
+            --border-light: #E8ECF0;
+            --success: #27AE60;
+            --warning: #E74C3C;
+            --info: #3498DB;
+            --radius: 8px;
+            --shadow: 0 2px 8px rgba(0,0,0,0.08);
+            --shadow-lg: 0 4px 16px rgba(0,0,0,0.12);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Pretendard', 'Noto Sans KR', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.6;
+            font-size: 14px;
+        }
+
+        .container {
+            max-width: 960px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        /* ========================================
+           2. 헤더
+           ======================================== */
+        header {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
+            color: white;
+            padding: 24px 32px;
+            border-radius: var(--radius);
+            margin-bottom: 20px;
+            box-shadow: var(--shadow-lg);
+            position: relative;
+        }
+        header h1 {
+            font-size: 22px;
+            font-weight: 700;
+            margin-bottom: 4px;
+        }
+        header p {
+            font-size: 13px;
+            opacity: 0.85;
+        }
+        .header-credit {
+            position: absolute;
+            top: 16px;
+            right: 24px;
+            font-size: 12px;
+            opacity: 0.9;
+        }
+        .header-credit a {
+            color: var(--accent-light);
+            text-decoration: none;
+            font-weight: 600;
+        }
+        .header-credit a:hover {
+            text-decoration: underline;
+            color: white;
+        }
+        .guide-toggle {
+            display: inline-block;
+            margin-left: 12px;
+            padding: 2px 10px;
+            background: rgba(255,255,255,0.15);
+            border: 1px solid rgba(255,255,255,0.3);
+            border-radius: 4px;
+            color: white;
+            font-size: 11px;
+            cursor: pointer;
+            font-family: inherit;
+            vertical-align: middle;
+        }
+        .guide-toggle:hover {
+            background: rgba(255,255,255,0.25);
+        }
+        .guide-box {
+            background: var(--card-bg);
+            border-radius: var(--radius);
+            padding: 20px 24px;
+            margin-bottom: 16px;
+            box-shadow: var(--shadow);
+            border: 1px solid var(--border-light);
+            border-left: 4px solid var(--accent);
+            display: none;
+            font-size: 13px;
+            line-height: 1.8;
+            color: var(--text);
+        }
+        .guide-box.show { display: block; }
+        .guide-box h3 {
+            font-size: 15px;
+            font-weight: 700;
+            color: var(--primary);
+            margin-bottom: 12px;
+        }
+        .guide-box h4 {
+            font-size: 13px;
+            font-weight: 700;
+            color: var(--primary);
+            margin: 12px 0 4px;
+        }
+        .guide-box ol {
+            padding-left: 20px;
+            margin: 4px 0;
+        }
+        .guide-box li {
+            margin-bottom: 4px;
+        }
+        .guide-box .guide-tip {
+            background: #FFFDE7;
+            border-radius: 4px;
+            padding: 8px 12px;
+            margin-top: 10px;
+            font-size: 12px;
+            border: 1px solid #F0E68C;
+        }
+
+        /* ========================================
+           3. 근로자 탭
+           ======================================== */
+        .tabs-container {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            margin-bottom: 16px;
+            flex-wrap: wrap;
+        }
+        .tab-btn {
+            padding: 8px 20px;
+            border: 2px solid var(--border);
+            background: var(--card-bg);
+            color: var(--text-light);
+            border-radius: var(--radius) var(--radius) 0 0;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 600;
+            font-family: inherit;
+            transition: all 0.2s;
+            position: relative;
+        }
+        .tab-btn:hover { border-color: var(--accent); color: var(--primary); }
+        .tab-btn.active {
+            background: var(--primary);
+            color: white;
+            border-color: var(--primary);
+        }
+        .tab-btn .tab-name {
+            max-width: 100px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            display: inline-block;
+            vertical-align: middle;
+        }
+        .tab-btn .tab-remove {
+            margin-left: 6px;
+            font-size: 14px;
+            opacity: 0.6;
+            vertical-align: middle;
+        }
+        .tab-btn .tab-remove:hover { opacity: 1; color: var(--warning); }
+        .tab-add {
+            padding: 8px 14px;
+            border: 2px dashed var(--border);
+            background: transparent;
+            color: var(--text-light);
+            border-radius: var(--radius) var(--radius) 0 0;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 700;
+            font-family: inherit;
+            transition: all 0.2s;
+        }
+        .tab-add:hover { border-color: var(--accent); color: var(--accent); }
+
+        /* ========================================
+           4. 카드 / 섹션
+           ======================================== */
+        .card {
+            background: var(--card-bg);
+            border-radius: var(--radius);
+            padding: 24px;
+            margin-bottom: 16px;
+            box-shadow: var(--shadow);
+            border: 1px solid var(--border-light);
+        }
+        .card h3 {
+            font-size: 15px;
+            font-weight: 700;
+            color: var(--primary);
+            margin-bottom: 16px;
+            padding-bottom: 8px;
+            border-bottom: 2px solid var(--accent);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .card h3::before {
+            content: '';
+            width: 4px;
+            height: 18px;
+            background: var(--accent);
+            border-radius: 2px;
+            display: inline-block;
+        }
+
+        /* ========================================
+           5. 입력 폼
+           ======================================== */
+        .form-grid {
+            display: grid;
+            grid-template-columns: 120px 1fr 120px 1fr;
+            gap: 10px 12px;
+            align-items: center;
+        }
+        .form-grid label {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text);
+            text-align: right;
+            padding-right: 8px;
+        }
+        .form-grid input,
+        .form-grid select {
+            width: 100%;
+            padding: 8px 10px;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            font-size: 13px;
+            font-family: inherit;
+            color: var(--text);
+            transition: border-color 0.2s;
+        }
+        .form-grid input:focus,
+        .form-grid select:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px rgba(196,155,60,0.15);
+        }
+        .form-grid input.date-input {
+            letter-spacing: 1px;
+            font-variant-numeric: tabular-nums;
+        }
+        .form-grid input[readonly] {
+            background: #F8F9FA;
+            color: var(--primary);
+            font-weight: 700;
+        }
+        .form-grid .full-row {
+            grid-column: 1 / -1;
+        }
+        .form-grid .span-3 {
+            grid-column: span 3;
+        }
+        /* ========================================
+           6. 임금 정보 테이블
+           ======================================== */
+        .wage-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 8px;
+            font-size: 13px;
+        }
+        .wage-table th,
+        .wage-table td {
+            border: 1px solid var(--border);
+            padding: 8px 10px;
+            text-align: center;
+        }
+        .wage-table th {
+            background: var(--primary);
+            color: white;
+            font-weight: 600;
+            font-size: 12px;
+        }
+        .wage-table td.label-cell {
+            background: #F8F9FA;
+            font-weight: 600;
+            width: 90px;
+            text-align: center;
+        }
+        .wage-table input {
+            width: 100%;
+            padding: 6px 8px;
+            border: 1px solid var(--border-light);
+            border-radius: 3px;
+            font-size: 13px;
+            font-family: inherit;
+            text-align: right;
+        }
+        .wage-table input:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+
+        .period4-col {
+            transition: opacity 0.3s;
+        }
+        .period4-col.hidden {
+            display: none;
+        }
+
+        .extra-wage-grid {
+            display: grid;
+            grid-template-columns: 140px 1fr 140px 1fr;
+            gap: 10px 12px;
+            align-items: center;
+            margin-top: 12px;
+        }
+        .extra-wage-grid label {
+            font-size: 13px;
+            font-weight: 600;
+            text-align: right;
+            padding-right: 8px;
+        }
+        .extra-wage-grid input {
+            width: 100%;
+            padding: 8px 10px;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            font-size: 13px;
+            font-family: inherit;
+            text-align: right;
+        }
+        .extra-wage-grid input:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+        .tax-auto-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .tax-auto-row input[type="text"] {
+            flex: 1;
+        }
+        .tax-auto-row label {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 12px;
+            white-space: nowrap;
+            cursor: pointer;
+            text-align: left;
+            padding-right: 0;
+        }
+        .tax-auto-row input[type="checkbox"] { width: auto; }
+
+        /* ========================================
+           7. 버튼
+           ======================================== */
+        .button-area {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin: 20px 0;
+        }
+        .btn {
+            padding: 12px 28px;
+            border: none;
+            border-radius: var(--radius);
+            font-size: 14px;
+            font-weight: 700;
+            font-family: inherit;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .btn-primary {
+            background: var(--accent);
+            color: white;
+        }
+        .btn-primary:hover {
+            background: var(--accent-light);
+            box-shadow: var(--shadow);
+        }
+        .btn-secondary {
+            background: var(--primary);
+            color: white;
+        }
+        .btn-secondary:hover {
+            background: var(--primary-light);
+        }
+        .btn-outline {
+            background: white;
+            color: var(--text);
+            border: 2px solid var(--border);
+        }
+        .btn-outline:hover {
+            border-color: var(--primary);
+            color: var(--primary);
+        }
+        .btn-danger {
+            background: white;
+            color: var(--warning);
+            border: 2px solid var(--warning);
+        }
+        .btn-danger:hover {
+            background: var(--warning);
+            color: white;
+        }
+        .btn-sm {
+            padding: 8px 16px;
+            font-size: 12px;
+        }
+
+        /* ========================================
+           8. 결과 영역 (산정서)
+           ======================================== */
+        .result-area {
+            margin-top: 24px;
+        }
+        .statement {
+            background: white;
+            border: 2px solid var(--primary);
+            border-radius: var(--radius);
+            padding: 32px;
+            box-shadow: var(--shadow-lg);
+        }
+        .statement h2 {
+            text-align: center;
+            font-size: 20px;
+            font-weight: 800;
+            color: var(--primary);
+            margin-bottom: 24px;
+            letter-spacing: 4px;
+        }
+        .stmt-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+            margin-bottom: 16px;
+        }
+        .stmt-table th,
+        .stmt-table td {
+            border: 1px solid #999;
+            padding: 7px 10px;
+        }
+        .stmt-table th {
+            background: #E8ECF0;
+            font-weight: 600;
+            text-align: center;
+            white-space: nowrap;
+        }
+        .stmt-table td {
+            text-align: center;
+        }
+        .stmt-table td.right { text-align: right; }
+        .stmt-table td.left { text-align: left; }
+        .stmt-table td.bold { font-weight: 700; }
+        .stmt-table .highlight {
+            background: #FFFDE7;
+        }
+        .stmt-table .total-row {
+            background: #E3F2FD;
+            font-weight: 700;
+        }
+        .stmt-table .result-row {
+            background: #FFF3E0;
+            font-weight: 800;
+            font-size: 14px;
+        }
+        .stmt-table .final-row {
+            background: var(--primary);
+            color: white;
+            font-weight: 800;
+            font-size: 15px;
+        }
+
+        .stmt-signature {
+            margin-top: 24px;
+            text-align: center;
+            font-size: 13px;
+            color: var(--text-light);
+        }
+        .stmt-signature .date-line {
+            margin-bottom: 16px;
+            font-size: 14px;
+        }
+        .stmt-signature .sign-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            max-width: 500px;
+            margin: 0 auto;
+        }
+        .stmt-signature .sign-item {
+            display: flex;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        /* ========================================
+           9. 푸터
+           ======================================== */
+        footer {
+            text-align: center;
+            padding: 16px;
+            color: var(--text-light);
+            font-size: 12px;
+            margin-top: 20px;
+        }
+
+        /* ========================================
+           10. 알림 메시지
+           ======================================== */
+        .toast {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 12px 20px;
+            border-radius: var(--radius);
+            color: white;
+            font-size: 13px;
+            font-weight: 600;
+            z-index: 9999;
+            opacity: 0;
+            transform: translateY(-10px);
+            transition: all 0.3s;
+            box-shadow: var(--shadow-lg);
+        }
+        .toast.show {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        .toast.success { background: var(--success); }
+        .toast.error { background: var(--warning); }
+        .toast.info { background: var(--info); }
+
+        /* ========================================
+           11. 반응형
+           ======================================== */
+        @media (max-width: 768px) {
+            .container { padding: 12px; }
+            header { padding: 16px 20px; }
+            header h1 { font-size: 18px; }
+            .card { padding: 16px; }
+            .form-grid {
+                grid-template-columns: 100px 1fr;
+            }
+            .extra-wage-grid {
+                grid-template-columns: 120px 1fr;
+            }
+            .wage-table { font-size: 12px; }
+            .wage-table th, .wage-table td { padding: 6px 4px; }
+            .button-area { flex-direction: column; align-items: stretch; }
+            .btn { justify-content: center; }
+            .statement { padding: 16px; }
+            .stmt-table { font-size: 11px; }
+            .stmt-table th, .stmt-table td { padding: 5px 4px; }
+        }
+
+        /* ========================================
+           12. 인쇄 스타일
+           ======================================== */
+        @media print {
+            body {
+                background: white;
+                font-size: 10pt;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+                margin: 0;
+                padding: 0;
+            }
+            .container {
+                max-width: 100%;
+                padding: 0;
+                margin: 0;
+            }
+            header, .tabs-container, .input-area,
+            .button-area, footer, .toast,
+            .no-print { display: none !important; }
+
+            .result-area {
+                display: block !important;
+                margin: 0;
+                padding: 0;
+            }
+            .statement {
+                border: none;
+                box-shadow: none;
+                padding: 0;
+                border-radius: 0;
+                width: 100%;
+                /* A4 한 장에 꽉 차도록 flex 배치 */
+                display: flex;
+                flex-direction: column;
+                justify-content: space-between;
+                min-height: calc(297mm - 20mm); /* A4 높이 - 상하 여백 */
+            }
+            .statement h2 {
+                font-size: 20pt;
+                margin-top: 0;
+                margin-bottom: 0;
+                padding: 12px 0;
+            }
+            .stmt-table {
+                font-size: 10pt;
+                page-break-inside: avoid;
+                width: 100%;
+                margin-bottom: 0;
+            }
+            .stmt-table th, .stmt-table td {
+                border-color: #333;
+                padding: 6px 8px;
+            }
+            .stmt-table th {
+                background: #DDD !important;
+                color: #000 !important;
+                font-size: 10pt;
+            }
+            .stmt-table .final-row {
+                background: #333 !important;
+                color: white !important;
+                font-size: 12pt;
+            }
+            .stmt-table .result-row {
+                font-size: 11pt;
+            }
+            .stmt-signature {
+                margin-top: auto;
+                padding-top: 20px;
+                font-size: 11pt;
+            }
+            .stmt-signature .date-line {
+                font-size: 12pt;
+                margin-bottom: 16px;
+            }
+            .stmt-signature .sign-grid {
+                font-size: 11pt;
+                max-width: 100%;
+            }
+            @page {
+                size: A4;
+                margin: 10mm 15mm;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <!-- 헤더 -->
+    <header>
+        <h1>퇴직금 계산 프로그램 ※</h1>
+        <p style="margin-bottom:6px">근로자퇴직급여보장법 제8조 · 근로기준법 제2조에 따른 평균임금 및 퇴직금 산정서 생성기</p>
+        <p style="font-size:12px;color:#FFD700;margin-top:2px">※ 이 프로그램은 오류가 있을 수 있으니 참고용으로 사용하시기 바랍니다. 전문적인 노동법 상담은 가까운 <span style="font-weight:800;color:#FFFFFF;background:rgba(255,215,0,0.3);padding:1px 6px;border-radius:3px">공인노무사</span>에게 상담을 받길 권해드립니다.</p>
+        <div class="header-credit">제작자: <a href="https://search.naver.com/search.naver?where=nexearch&sm=tab_etc&mra=bjky&x_csa=%7B%22fromUi%22%3A%22kb%22%7D&pkid=1&os=34303933&qvt=0&query=%EC%9D%B4%EA%B2%BD%EC%84%9D%20%EB%85%B8%EB%AC%B4%EC%82%AC%20%ED%94%84%EB%A1%9C%ED%95%84" target="_blank" rel="noopener">공인노무사 이경석</a>
+            <button class="guide-toggle" onclick="document.getElementById('guideBox').classList.toggle('show')">사용설명서</button>
+        </div>
+    </header>
+
+    <!-- 사용설명서 -->
+    <div id="guideBox" class="guide-box no-print">
+        <h3>사용설명서</h3>
+
+        <h4>1. 기본 정보 입력</h4>
+        <ol>
+            <li><b>사업장명 / 사업주성명</b>을 입력합니다. 근로자를 추가하면 자동으로 같은 값이 입력됩니다.</li>
+            <li><b>근로자성명 / 생년월일</b>을 입력합니다. 날짜는 숫자만 입력하면 자동으로 YYYY-MM-DD 형식이 됩니다.</li>
+        </ol>
+
+        <h4>2. 근무 기간 입력</h4>
+        <ol>
+            <li><b>채용년월일(입사일)</b>과 <b>산정사유발생일(퇴사일)</b>을 입력합니다.</li>
+            <li>입력 즉시 <b>재직일수</b>와 <b>근속연수</b>가 자동 계산되고, 아래 임금 정보의 월 구간이 자동 설정됩니다.</li>
+            <li>퇴사일이 월 1일이면 3구간, 월 중도이면 4구간이 자동으로 나타납니다.</li>
+        </ol>
+
+        <h4>3. 임금 정보 입력</h4>
+        <ol>
+            <li>퇴직 전 3개월 각 구간의 <b>월급여</b>를 입력합니다. 금액은 숫자만 입력하면 자동으로 콤마가 붙습니다.</li>
+            <li>해당되는 경우 <b>1년분 상여금 총액</b>, <b>연월차수당</b>을 입력합니다.</li>
+            <li>기존에 중간정산 받은 퇴직금이 있으면 <b>퇴직금 중간정산</b>에 입력합니다.</li>
+            <li><b>퇴직소득세</b>는 기본적으로 자동 계산됩니다. 직접 입력하려면 "자동" 체크를 해제하세요.</li>
+            <li><b>1일 통상임금</b>을 알고 있다면 입력할 수 있습니다. 통상임금이 평균임금보다 높으면 <b>적용임금 선택</b>에서 어떤 임금을 기준으로 퇴직금을 산정할지 선택하세요.</li>
+            <li>"자동" 선택 시, 근로기준법 제2조 제2항에 따라 평균임금 &lt; 통상임금이면 통상임금이 자동 적용됩니다.</li>
+        </ol>
+
+        <h4>4. 계산 및 출력</h4>
+        <ol>
+            <li><b>[계산하기]</b> 버튼을 누르면 평균임금, 퇴직금, 퇴직소득세가 자동 산출됩니다.</li>
+            <li>아래에 <b>평균임금 및 퇴직금 산정서</b>가 표시됩니다.</li>
+            <li><b>[인쇄하기]</b> 버튼을 누르면 산정서를 A4 용지에 인쇄하거나 PDF로 저장할 수 있습니다.</li>
+            <li><b>[저장]</b> 버튼을 누르면 입력 데이터가 브라우저에 저장되어, 다음에 접속해도 복원됩니다.</li>
+        </ol>
+
+        <h4>5. 다수 근로자 관리</h4>
+        <ol>
+            <li>상단 탭의 <b>[+]</b> 버튼으로 근로자를 추가할 수 있습니다 (최대 4명).</li>
+            <li>탭을 클릭하면 해당 근로자의 데이터로 전환됩니다.</li>
+            <li>탭의 <b>[×]</b> 버튼으로 근로자를 삭제할 수 있습니다.</li>
+        </ol>
+
+        <div class="guide-tip">
+            <b>참고:</b> 퇴직금 계산은 윤년을 고려한 정밀 재직연수로 산출됩니다. 계산 결과는 근로자퇴직급여보장법 제8조 및 근로기준법 제2조에 따릅니다.
+        </div>
+    </div>
+
+    <!-- 근로자 탭 -->
+    <div class="tabs-container" id="tabsContainer"></div>
+
+    <!-- 입력 영역 -->
+    <div class="input-area">
+        <!-- 기본 정보 -->
+        <div class="card">
+            <h3>기본 정보</h3>
+            <div class="form-grid">
+                <label for="businessName">사업장명</label>
+                <input type="text" id="businessName" placeholder="예: 00회사">
+                <label for="ownerName">사업주성명</label>
+                <input type="text" id="ownerName" placeholder="사업주 이름">
+
+                <label for="workerName">근로자성명</label>
+                <input type="text" id="workerName" placeholder="근로자 이름">
+                <label for="birthDate">생년월일</label>
+                <input type="text" id="birthDate" class="date-input" placeholder="YYYY-MM-DD" maxlength="10">
+            </div>
+        </div>
+
+        <!-- 근무 기간 -->
+        <div class="card">
+            <h3>근무 기간</h3>
+            <div class="form-grid">
+                <label for="startDate">채용년월일(입사일)</label>
+                <input type="text" id="startDate" class="date-input" placeholder="YYYY-MM-DD" maxlength="10">
+                <label for="endDate">산정사유발생일(퇴사일)</label>
+                <input type="text" id="endDate" class="date-input" placeholder="YYYY-MM-DD" maxlength="10">
+
+                <label>재직일수</label>
+                <input type="text" id="serviceDays" readonly value="-">
+                <label>근속연수</label>
+                <input type="text" id="serviceYears" readonly value="-">
+            </div>
+        </div>
+
+        <!-- 임금 정보 -->
+        <div class="card">
+            <h3>임금 정보 (퇴직 전 3개월)</h3>
+            <table class="wage-table">
+                <thead>
+                    <tr>
+                        <th style="width:90px">구분</th>
+                        <th id="monthLabel1">1구간</th>
+                        <th id="monthLabel2">2구간</th>
+                        <th id="monthLabel3">3구간</th>
+                        <th id="monthLabel4" class="period4-col">4구간</th>
+                        <th style="width:100px">합계</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td class="label-cell">기간</td>
+                        <td id="periodText1">-</td>
+                        <td id="periodText2">-</td>
+                        <td id="periodText3">-</td>
+                        <td id="periodText4" class="period4-col">-</td>
+                        <td>-</td>
+                    </tr>
+                    <tr>
+                        <td class="label-cell">일수</td>
+                        <td id="daysText1">-</td>
+                        <td id="daysText2">-</td>
+                        <td id="daysText3">-</td>
+                        <td id="daysText4" class="period4-col">-</td>
+                        <td id="totalDaysText" style="font-weight:700">-</td>
+                    </tr>
+                    <tr>
+                        <td class="label-cell">월급여(원)</td>
+                        <td><input type="text" id="wage1" class="money-input" placeholder="0"></td>
+                        <td><input type="text" id="wage2" class="money-input" placeholder="0"></td>
+                        <td><input type="text" id="wage3" class="money-input" placeholder="0"></td>
+                        <td class="period4-col"><input type="text" id="wage4" class="money-input" placeholder="0"></td>
+                        <td id="wageTotal" style="font-weight:700">0</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <div class="extra-wage-grid">
+                <label for="bonusTotal">1년분 상여금 총액</label>
+                <input type="text" id="bonusTotal" class="money-input" placeholder="0" value="0">
+                <label for="annualLeave">연월차수당</label>
+                <input type="text" id="annualLeave" class="money-input" placeholder="0" value="0">
+
+                <label for="priorSeverance">퇴직금 중간정산</label>
+                <input type="text" id="priorSeverance" class="money-input" placeholder="0" value="0">
+                <label for="retirementTax">퇴직소득세</label>
+                <div class="tax-auto-row">
+                    <input type="text" id="retirementTax" class="money-input" placeholder="자동계산" value="0" readonly>
+                    <label><input type="checkbox" id="autoCalcTax" checked> 자동</label>
+                </div>
+
+                <label for="dailyOrdinaryWage">1일 통상임금</label>
+                <input type="text" id="dailyOrdinaryWage" class="money-input" placeholder="미입력 시 평균임금만 적용">
+                <label for="wageType">적용임금 선택</label>
+                <select id="wageType" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:4px;font-size:13px;font-family:inherit;color:var(--text);">
+                    <option value="auto">자동 (근로기준법 제2조 제2항)</option>
+                    <option value="average">평균임금으로 계산</option>
+                    <option value="ordinary">통상임금으로 계산</option>
+                </select>
+                <div class="full-row" style="grid-column:1/-1;font-size:11px;color:var(--text-light);margin-top:2px;padding-left:4px;">
+                    ※ 근로기준법 제2조 제2항: 평균임금이 그 근로자의 통상임금보다 적으면 그 통상임금액을 평균임금으로 한다.
+                    <br>※ "자동" 선택 시, 평균임금 &lt; 통상임금이면 통상임금을 적용합니다.
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 버튼 영역 -->
+    <div class="button-area">
+        <button class="btn btn-primary" onclick="onCalculate()">계산하기</button>
+        <button class="btn btn-danger" onclick="onReset()">초기화</button>
+        <button class="btn btn-secondary" onclick="onPrint()">인쇄하기</button>
+        <button class="btn btn-outline" onclick="onSave()">저장</button>
+    </div>
+
+    <!-- 결과 영역 (산정서) -->
+    <div id="resultArea" class="result-area" style="display:none"></div>
+
+    <!-- 푸터 -->
+    <footer>
+        퇴직금 계산 프로그램 &copy; 2026 | 근로자퇴직급여보장법 제8조, 근로기준법 제2조 기반
+    </footer>
+</div>
+
+<!-- 알림 토스트 -->
+<div id="toast" class="toast"></div>
+
+<script>
+'use strict';
+
+/* ================================================================
+   1. 상수 정의
+   ================================================================ */
+
+/** 소득세 기본세율 (소득세법 제55조) */
+const TAX_RATES = [
+    { limit: 14_000_000, rate: 0.06, cumulative: 0 },
+    { limit: 50_000_000, rate: 0.15, cumulative: 840_000 },
+    { limit: 88_000_000, rate: 0.24, cumulative: 6_240_000 },
+    { limit: 150_000_000, rate: 0.35, cumulative: 15_360_000 },
+    { limit: 300_000_000, rate: 0.38, cumulative: 37_060_000 },
+    { limit: 500_000_000, rate: 0.40, cumulative: 57_060_000 },
+    { limit: 1_000_000_000, rate: 0.42, cumulative: 97_060_000 },
+    { limit: Infinity, rate: 0.45, cumulative: 127_060_000 }
+];
+
+const STORAGE_KEY = 'severanceCalcData_v3';
+const MAX_WORKERS = 4;
+
+/* ================================================================
+   2. 상태 관리
+   ================================================================ */
+
+function createDefaultWorker() {
+    return {
+        businessName: '',
+        ownerName: '',
+        workerName: '',
+        birthDate: '',
+        startDate: '',
+        endDate: '',
+        wage1: '',
+        wage2: '',
+        wage3: '',
+        wage4: '',
+        bonusTotal: '0',
+        annualLeave: '0',
+        priorSeverance: '0',
+        autoCalcTax: true,
+        retirementTax: '0',
+        dailyOrdinaryWage: '',
+        wageType: 'auto',
+        result: null
+    };
+}
+
+let state = {
+    currentIndex: 0,
+    workers: [createDefaultWorker()]
+};
+
+/* ================================================================
+   3. 유틸리티 함수
+   ================================================================ */
+
+/** 숫자를 천단위 콤마 문자열로 변환 */
+function formatMoney(num) {
+    if (num === null || num === undefined || isNaN(num)) return '0';
+    const isNeg = num < 0;
+    const abs = Math.abs(num);
+    const intPart = Math.floor(abs);
+    const decPart = abs - intPart;
+    let str = intPart.toLocaleString('ko-KR');
+    if (decPart > 0.0001) {
+        const decStr = decPart.toFixed(2).substring(1);
+        str += decStr;
+    }
+    return isNeg ? '-' + str : str;
+}
+
+/** 콤마가 포함된 문자열에서 숫자 추출 */
+function parseMoney(str) {
+    if (!str) return 0;
+    return parseFloat(String(str).replace(/,/g, '')) || 0;
+}
+
+/** 해당 월의 일수 반환 (1~12월) */
+function getDaysInMonth(year, month) {
+    return new Date(year, month, 0).getDate();
+}
+
+/** 두 날짜 사이의 일수 차이 (달력일수) */
+function dateDiffDays(startStr, endStr) {
+    const s = new Date(startStr);
+    const e = new Date(endStr);
+    return Math.round((e - s) / (1000 * 60 * 60 * 24));
+}
+
+/** 근속연수 계산 (1년 미만 올림) */
+function calcServiceYears(startStr, endStr) {
+    const start = new Date(startStr);
+    const end = new Date(endStr);
+    let years = 0;
+    const temp = new Date(start);
+    while (true) {
+        temp.setFullYear(temp.getFullYear() + 1);
+        if (temp <= end) {
+            years++;
+        } else {
+            break;
+        }
+    }
+    /* 정확히 N년인 경우와 나머지가 있는 경우 구분 */
+    const exact = new Date(start);
+    exact.setFullYear(exact.getFullYear() + years);
+    if (exact < end) {
+        years++;
+    }
+    return Math.max(years, 1);
+}
+
+/**
+ * 정밀 재직연수 계산 (윤년 고려)
+ * 입사일부터 퇴사일까지 실제 역년 기준으로 연수 산출
+ * @returns {object} { fullYears, remainDays, daysInYear, fraction }
+ */
+function calcPreciseServiceFraction(startStr, endStr) {
+    const start = new Date(startStr);
+    const end = new Date(endStr);
+
+    let fullYears = 0;
+    let current = new Date(start);
+
+    while (true) {
+        const next = new Date(current);
+        next.setFullYear(next.getFullYear() + 1);
+        if (next <= end) {
+            fullYears++;
+            current = next;
+        } else {
+            break;
+        }
+    }
+
+    /* current = 입사일 + fullYears년 */
+    const remainDays = Math.round((end - current) / (1000 * 60 * 60 * 24));
+
+    /* 현재 시점에서 다음 주년까지의 일수 (365 또는 366) */
+    const nextAnniv = new Date(current);
+    nextAnniv.setFullYear(nextAnniv.getFullYear() + 1);
+    const daysInYear = Math.round((nextAnniv - current) / (1000 * 60 * 60 * 24));
+
+    return {
+        fullYears,
+        remainDays,
+        daysInYear,
+        fraction: fullYears + (remainDays / daysInYear)
+    };
+}
+
+/**
+ * 퇴사일 기준 직전 3개월 계산기간 산출
+ * - 1일 퇴사: 직전 3개월 완전월 → 3구간
+ * - 중도 퇴사: 역산 3개월 → 4구간 (첫/끝 월 일할)
+ */
+function calc3MonthPeriod(endStr) {
+    const end = new Date(endStr);
+    const endYear = end.getFullYear();
+    const endMonth = end.getMonth() + 1;
+    const endDay = end.getDate();
+
+    const periods = [];
+
+    if (endDay === 1) {
+        /* 1일 퇴사: 직전 3개월 완전월 (3구간) */
+        for (let i = 3; i >= 1; i--) {
+            let m = endMonth - i;
+            let y = endYear;
+            if (m <= 0) { m += 12; y--; }
+            const days = getDaysInMonth(y, m);
+            periods.push({
+                year: y, month: m,
+                startDay: 1, endDay: days, days: days,
+                label: `${y}년 ${m}월`,
+                periodText: `${m}.1~${m}.${days}`
+            });
+        }
+    } else {
+        /* 중도 퇴사: 역산 3개월 → 4구간 */
+        /* 3개월 전 같은 날부터 퇴사일 전일까지 */
+        let startMonth = endMonth - 3;
+        let startYear = endYear;
+        if (startMonth <= 0) { startMonth += 12; startYear--; }
+        /* 시작월의 마지막날 보정 */
+        const startMonthDays = getDaysInMonth(startYear, startMonth);
+        const actualStartDay = Math.min(endDay, startMonthDays);
+
+        /* 구간 1: 시작월 (일할) */
+        const p1Days = startMonthDays - actualStartDay + 1;
+        periods.push({
+            year: startYear, month: startMonth,
+            startDay: actualStartDay, endDay: startMonthDays, days: p1Days,
+            label: `${startYear}년 ${startMonth}월`,
+            periodText: `${startMonth}.${actualStartDay}~${startMonth}.${startMonthDays}`
+        });
+
+        /* 구간 2, 3: 중간 완전월 */
+        for (let i = 2; i >= 1; i--) {
+            let m = endMonth - i;
+            let y = endYear;
+            if (m <= 0) { m += 12; y--; }
+            const days = getDaysInMonth(y, m);
+            periods.push({
+                year: y, month: m,
+                startDay: 1, endDay: days, days: days,
+                label: `${y}년 ${m}월`,
+                periodText: `${m}.1~${m}.${days}`
+            });
+        }
+
+        /* 구간 4: 퇴사월 (일할, 퇴사일 전일까지) */
+        const p4EndDay = endDay - 1;
+        if (p4EndDay >= 1) {
+            periods.push({
+                year: endYear, month: endMonth,
+                startDay: 1, endDay: p4EndDay, days: p4EndDay,
+                label: `${endYear}년 ${endMonth}월`,
+                periodText: `${endMonth}.1~${endMonth}.${p4EndDay}`
+            });
+        }
+    }
+    return periods;
+}
+
+/** 알림 토스트 표시 */
+function showToast(message, type) {
+    const toast = document.getElementById('toast');
+    toast.textContent = message;
+    toast.className = 'toast ' + (type || 'info');
+    toast.classList.add('show');
+    setTimeout(() => toast.classList.remove('show'), 2500);
+}
+
+/* ================================================================
+   4. 계산 엔진 — 평균임금 & 퇴직금
+   ================================================================ */
+
+/**
+ * 평균임금 및 퇴직금 계산
+ * @returns {object} 계산 결과 객체
+ */
+function calculateSeverance(data) {
+    const startDate = data.startDate;
+    const endDate = data.endDate;
+
+    if (!startDate || !endDate) return null;
+
+    const serviceDays = dateDiffDays(startDate, endDate);
+    if (serviceDays <= 0) return null;
+
+    const serviceYears = calcServiceYears(startDate, endDate);
+    const periods = calc3MonthPeriod(endDate);
+    const totalCalcDays = periods.reduce((s, p) => s + p.days, 0);
+
+    const w1 = parseMoney(data.wage1);
+    const w2 = parseMoney(data.wage2);
+    const w3 = parseMoney(data.wage3);
+    const w4 = parseMoney(data.wage4);
+    const wageSum = w1 + w2 + w3 + w4;
+
+    const bonus = parseMoney(data.bonusTotal);
+    const annual = parseMoney(data.annualLeave);
+    const bonusAdd = bonus * 3 / 12;
+    const annualAdd = annual * 3 / 12;
+
+    const total3Month = wageSum + bonusAdd + annualAdd;
+    const avgWage = total3Month / totalCalcDays;
+
+    /* 통상임금 비교 및 적용임금 결정 (근로기준법 제2조 제2항) */
+    const dailyOrdinaryWage = parseMoney(data.dailyOrdinaryWage);
+    let appliedWage = avgWage;
+    let wageTypeApplied = 'average';
+
+    if (dailyOrdinaryWage > 0) {
+        if (data.wageType === 'auto') {
+            if (dailyOrdinaryWage > avgWage) {
+                appliedWage = dailyOrdinaryWage;
+                wageTypeApplied = 'ordinary';
+            }
+        } else if (data.wageType === 'ordinary') {
+            appliedWage = dailyOrdinaryWage;
+            wageTypeApplied = 'ordinary';
+        }
+    }
+
+    /* 정밀 재직연수 (윤년 고려) */
+    const svcFraction = calcPreciseServiceFraction(startDate, endDate);
+    const severancePay = appliedWage * 30 * svcFraction.fraction;
+
+    const priorSev = parseMoney(data.priorSeverance);
+
+    /* 퇴직소득세 계산 */
+    let taxResult = null;
+    let retirementTax = 0;
+    let localTax = 0;
+
+    if (data.autoCalcTax) {
+        taxResult = calcRetirementTax(Math.floor(severancePay), serviceYears);
+        retirementTax = taxResult.incomeTax;
+        localTax = taxResult.localTax;
+    } else {
+        retirementTax = Math.floor(parseMoney(data.retirementTax) / 10) * 10;
+        localTax = Math.floor(Math.floor(retirementTax * 0.1) / 10) * 10;
+    }
+
+    const totalTax = retirementTax + localTax;
+    const totalDeduction = totalTax + priorSev;
+    const netSeverance = Math.floor(severancePay) - totalDeduction;
+
+    return {
+        /* 기본 정보 */
+        serviceDays,
+        serviceYears,
+        svcFraction,
+        periods,
+        totalCalcDays,
+        /* 임금 */
+        wages: [w1, w2, w3, w4],
+        wageSum,
+        bonus,
+        annual,
+        bonusAdd,
+        annualAdd,
+        total3Month,
+        /* 평균임금 & 퇴직금 */
+        avgWage,
+        dailyOrdinaryWage,
+        appliedWage,
+        wageTypeApplied,
+        severancePay: Math.floor(severancePay),
+        severancePayRaw: severancePay,
+        /* 공제 */
+        priorSev,
+        retirementTax,
+        localTax,
+        totalTax,
+        netSeverance,
+        /* 세금 상세 */
+        taxResult,
+        autoCalcTax: data.autoCalcTax
+    };
+}
+
+/* ================================================================
+   5. 계산 엔진 — 퇴직소득세
+   ================================================================ */
+
+/**
+ * 근속연수공제 계산 (소득세법 시행령 제203조의5)
+ */
+function calcServiceYearDeduction(years) {
+    if (years <= 5) {
+        return 1_000_000 * years;
+    } else if (years <= 10) {
+        return 5_000_000 + 2_000_000 * (years - 5);
+    } else if (years <= 20) {
+        return 15_000_000 + 2_500_000 * (years - 10);
+    } else {
+        return 40_000_000 + 3_000_000 * (years - 20);
+    }
+}
+
+/**
+ * 환산급여공제 계산 (소득세법 시행령 제203조의6)
+ */
+function calcConvertedWageDeduction(convertedWage) {
+    if (convertedWage <= 0) return 0;
+    if (convertedWage <= 8_000_000) {
+        return convertedWage;
+    } else if (convertedWage <= 70_000_000) {
+        return 8_000_000 + (convertedWage - 8_000_000) * 0.6;
+    } else if (convertedWage <= 100_000_000) {
+        return 45_200_000 + (convertedWage - 70_000_000) * 0.55;
+    } else if (convertedWage <= 300_000_000) {
+        return 61_700_000 + (convertedWage - 100_000_000) * 0.45;
+    } else {
+        return 151_700_000 + (convertedWage - 300_000_000) * 0.35;
+    }
+}
+
+/**
+ * 기본세율 적용 세액 계산 (소득세법 제55조)
+ */
+function calcIncomeTaxByRate(taxBase) {
+    if (taxBase <= 0) return 0;
+    for (let i = 0; i < TAX_RATES.length; i++) {
+        if (taxBase <= TAX_RATES[i].limit) {
+            const prevLimit = i === 0 ? 0 : TAX_RATES[i - 1].limit;
+            return TAX_RATES[i].cumulative + (taxBase - prevLimit) * TAX_RATES[i].rate;
+        }
+    }
+    return 0;
+}
+
+/**
+ * 퇴직소득세 전체 계산
+ * @param {number} severancePay - 퇴직급여액 (원 단위 정수)
+ * @param {number} serviceYears - 근속연수
+ * @returns {object} 세금 계산 상세 결과
+ */
+function calcRetirementTax(severancePay, serviceYears) {
+    /* 1. 근속연수공제 */
+    const svcDeduction = calcServiceYearDeduction(serviceYears);
+
+    /* 2. 환산급여 = (퇴직급여 - 근속연수공제) × 12 / 근속연수 */
+    const afterDeduction = Math.max(severancePay - svcDeduction, 0);
+    const convertedWage = Math.floor(afterDeduction * 12 / serviceYears);
+
+    /* 3. 환산급여공제 */
+    const cwDeduction = Math.floor(calcConvertedWageDeduction(convertedWage));
+
+    /* 4. 과세표준 */
+    const taxBase = Math.max(convertedWage - cwDeduction, 0);
+
+    /* 5. 환산산출세액 */
+    const convertedTax = Math.floor(calcIncomeTaxByRate(taxBase));
+
+    /* 6. 산출세액 = 환산산출세액 × 근속연수 / 12 (원단위 절사: 10원 미만 절사) */
+    const incomeTax = Math.floor(Math.floor(convertedTax * serviceYears / 12) / 10) * 10;
+
+    /* 7. 지방소득세 = 퇴직소득세 × 10% (원단위 절사: 10원 미만 절사) */
+    const localTax = Math.floor(Math.floor(incomeTax * 0.1) / 10) * 10;
+
+    return {
+        severancePay,
+        serviceYears,
+        svcDeduction,
+        afterDeduction,
+        convertedWage,
+        cwDeduction,
+        taxBase,
+        convertedTax,
+        incomeTax,
+        localTax,
+        totalTax: incomeTax + localTax
+    };
+}
+
+/* ================================================================
+   6. UI — 탭 관리
+   ================================================================ */
+
+function renderTabs() {
+    const container = document.getElementById('tabsContainer');
+    let html = '';
+    state.workers.forEach((w, i) => {
+        const name = w.workerName || `근로자 ${i + 1}`;
+        const active = i === state.currentIndex ? ' active' : '';
+        html += `<button class="tab-btn${active}" onclick="switchWorker(${i})">`;
+        html += `<span class="tab-name">${name}</span>`;
+        if (state.workers.length > 1) {
+            html += `<span class="tab-remove" onclick="event.stopPropagation();removeWorker(${i})">×</span>`;
+        }
+        html += `</button>`;
+    });
+    if (state.workers.length < MAX_WORKERS) {
+        html += `<button class="tab-add" onclick="addWorker()" title="근로자 추가 (최대 ${MAX_WORKERS}명)">+</button>`;
+    }
+    container.innerHTML = html;
+}
+
+function switchWorker(index) {
+    saveFormToState();
+    state.currentIndex = index;
+    loadFormFromState();
+    renderTabs();
+    updateDateInfo();
+    autoSave();
+
+    /* 해당 근로자의 기존 결과가 있으면 표시, 없으면 숨김 */
+    const w = state.workers[index];
+    if (w.result) {
+        renderResult(w.result);
+    } else {
+        document.getElementById('resultArea').style.display = 'none';
+    }
+}
+
+function addWorker() {
+    if (state.workers.length >= MAX_WORKERS) {
+        showToast(`최대 ${MAX_WORKERS}명까지 추가할 수 있습니다.`, 'error');
+        return;
+    }
+    saveFormToState();
+    const newWorker = createDefaultWorker();
+    /* 첫 번째 근로자의 사업장명/사업주명 자동 복사 */
+    newWorker.businessName = state.workers[0].businessName;
+    newWorker.ownerName = state.workers[0].ownerName;
+    state.workers.push(newWorker);
+    state.currentIndex = state.workers.length - 1;
+    loadFormFromState();
+    renderTabs();
+    updateDateInfo();
+    document.getElementById('resultArea').style.display = 'none';
+    showToast(`근로자 ${state.workers.length} 추가됨`, 'success');
+    autoSave();
+}
+
+function removeWorker(index) {
+    if (state.workers.length <= 1) return;
+    if (!confirm(`근로자 ${index + 1} (${state.workers[index].workerName || '이름 없음'})의 데이터를 삭제하시겠습니까?`)) return;
+    state.workers.splice(index, 1);
+    if (state.currentIndex >= state.workers.length) {
+        state.currentIndex = state.workers.length - 1;
+    }
+    loadFormFromState();
+    renderTabs();
+    updateDateInfo();
+    document.getElementById('resultArea').style.display = 'none';
+    showToast('근로자 삭제됨', 'info');
+    autoSave();
+}
+
+/* ================================================================
+   7. UI — 폼 ↔ 상태 동기화
+   ================================================================ */
+
+function saveFormToState() {
+    const w = state.workers[state.currentIndex];
+    w.businessName = document.getElementById('businessName').value;
+    w.ownerName = document.getElementById('ownerName').value;
+    w.workerName = document.getElementById('workerName').value;
+    w.birthDate = document.getElementById('birthDate').value;
+    w.startDate = document.getElementById('startDate').value;
+    w.endDate = document.getElementById('endDate').value;
+    w.wage1 = document.getElementById('wage1').value;
+    w.wage2 = document.getElementById('wage2').value;
+    w.wage3 = document.getElementById('wage3').value;
+    w.wage4 = document.getElementById('wage4').value;
+    w.bonusTotal = document.getElementById('bonusTotal').value;
+    w.annualLeave = document.getElementById('annualLeave').value;
+    w.priorSeverance = document.getElementById('priorSeverance').value;
+    w.autoCalcTax = document.getElementById('autoCalcTax').checked;
+    w.retirementTax = document.getElementById('retirementTax').value;
+    w.dailyOrdinaryWage = document.getElementById('dailyOrdinaryWage').value;
+    w.wageType = document.getElementById('wageType').value;
+}
+
+function loadFormFromState() {
+    const w = state.workers[state.currentIndex];
+    document.getElementById('businessName').value = w.businessName;
+    document.getElementById('ownerName').value = w.ownerName;
+    document.getElementById('workerName').value = w.workerName;
+    document.getElementById('birthDate').value = w.birthDate;
+    document.getElementById('startDate').value = w.startDate;
+    document.getElementById('endDate').value = w.endDate;
+    document.getElementById('wage1').value = w.wage1;
+    document.getElementById('wage2').value = w.wage2;
+    document.getElementById('wage3').value = w.wage3;
+    document.getElementById('wage4').value = w.wage4 || '';
+    document.getElementById('bonusTotal').value = w.bonusTotal;
+    document.getElementById('annualLeave').value = w.annualLeave;
+    document.getElementById('priorSeverance').value = w.priorSeverance;
+    document.getElementById('autoCalcTax').checked = w.autoCalcTax;
+    document.getElementById('retirementTax').value = w.retirementTax;
+    document.getElementById('retirementTax').readOnly = w.autoCalcTax;
+    document.getElementById('dailyOrdinaryWage').value = w.dailyOrdinaryWage || '';
+    document.getElementById('wageType').value = w.wageType || 'auto';
+    updateWageTotal();
+}
+
+/* ================================================================
+   8. UI — 날짜 및 기간 자동 업데이트
+   ================================================================ */
+
+function updateDateInfo() {
+    const startStr = document.getElementById('startDate').value;
+    const endStr = document.getElementById('endDate').value;
+    const sdEl = document.getElementById('serviceDays');
+    const syEl = document.getElementById('serviceYears');
+
+    if (!startStr || !endStr) {
+        sdEl.value = '-';
+        syEl.value = '-';
+        clearPeriodLabels();
+        return;
+    }
+
+    const days = dateDiffDays(startStr, endStr);
+    if (days <= 0) {
+        sdEl.value = '날짜 오류';
+        syEl.value = '-';
+        clearPeriodLabels();
+        return;
+    }
+
+    sdEl.value = formatMoney(days) + '일';
+    const years = calcServiceYears(startStr, endStr);
+    syEl.value = years + '년';
+
+    /* 3개월 기간 레이블 업데이트 */
+    const periods = calc3MonthPeriod(endStr);
+    const has4 = periods.length === 4;
+
+    for (let i = 0; i < Math.min(periods.length, 4); i++) {
+        const p = periods[i];
+        document.getElementById('monthLabel' + (i + 1)).textContent = p.label;
+        document.getElementById('periodText' + (i + 1)).textContent = p.periodText;
+        document.getElementById('daysText' + (i + 1)).textContent = p.days + '일';
+    }
+
+    /* 4구간 열 표시/숨김 */
+    togglePeriod4(has4);
+
+    if (!has4) {
+        document.getElementById('monthLabel4').textContent = '4구간';
+        document.getElementById('periodText4').textContent = '-';
+        document.getElementById('daysText4').textContent = '-';
+        document.getElementById('wage4').value = '';
+    }
+
+    document.getElementById('totalDaysText').textContent = periods.reduce((s, p) => s + p.days, 0) + '일';
+}
+
+function togglePeriod4(show) {
+    document.querySelectorAll('.period4-col').forEach(el => {
+        el.classList.toggle('hidden', !show);
+    });
+}
+
+function clearPeriodLabels() {
+    for (let i = 1; i <= 4; i++) {
+        document.getElementById('monthLabel' + i).textContent = i + '구간';
+        document.getElementById('periodText' + i).textContent = '-';
+        document.getElementById('daysText' + i).textContent = '-';
+    }
+    document.getElementById('totalDaysText').textContent = '-';
+    togglePeriod4(false);
+}
+
+function updateWageTotal() {
+    const w1 = parseMoney(document.getElementById('wage1').value);
+    const w2 = parseMoney(document.getElementById('wage2').value);
+    const w3 = parseMoney(document.getElementById('wage3').value);
+    const w4 = parseMoney(document.getElementById('wage4').value);
+    document.getElementById('wageTotal').textContent = formatMoney(w1 + w2 + w3 + w4);
+}
+
+/* ================================================================
+   9-1. UI — 날짜 입력 자동포맷 (YYYY-MM-DD)
+   ================================================================ */
+
+/**
+ * 날짜 입력 필드에 자동 하이픈 삽입 및 자릿수 제어
+ * 4자리 입력 → 자동 "-" 삽입 → 월로 이동
+ * 6자리(YYYYMM) → 자동 "-" 삽입 → 일로 이동
+ */
+function setupDateInputs() {
+    document.querySelectorAll('.date-input').forEach(input => {
+        input.addEventListener('input', function (e) {
+            let v = this.value.replace(/[^\d]/g, '');
+            if (v.length > 8) v = v.slice(0, 8);
+
+            let formatted = '';
+            if (v.length <= 4) {
+                formatted = v;
+            } else if (v.length <= 6) {
+                formatted = v.slice(0, 4) + '-' + v.slice(4);
+            } else {
+                formatted = v.slice(0, 4) + '-' + v.slice(4, 6) + '-' + v.slice(6);
+            }
+            this.value = formatted;
+
+            /* 완성된 날짜(10자리)면 다음 필드로 이동 또는 기간 자동갱신 */
+            if (formatted.length === 10) {
+                updateDateInfo();
+                autoSave();
+            }
+        });
+
+        input.addEventListener('keydown', function (e) {
+            /* Backspace로 하이픈 앞의 숫자 삭제 시 하이픈도 함께 제거 */
+            if (e.key === 'Backspace') {
+                const pos = this.selectionStart;
+                if (pos > 0 && this.value[pos - 1] === '-') {
+                    e.preventDefault();
+                    this.value = this.value.slice(0, pos - 2) + this.value.slice(pos);
+                    this.setSelectionRange(pos - 2, pos - 2);
+                }
+            }
+        });
+
+        input.addEventListener('blur', function () {
+            /* blur 시 유효한 날짜인지 간단 검증 */
+            if (this.value && this.value.length === 10) {
+                const d = new Date(this.value);
+                if (isNaN(d.getTime())) {
+                    this.style.borderColor = 'var(--warning)';
+                } else {
+                    this.style.borderColor = '';
+                }
+            }
+            updateDateInfo();
+            autoSave();
+        });
+    });
+}
+
+/* ================================================================
+   9-2. UI — 금액 입력 포맷팅
+   ================================================================ */
+
+function setupMoneyInputs() {
+    document.querySelectorAll('.money-input').forEach(input => {
+        input.addEventListener('blur', function () {
+            const val = parseMoney(this.value);
+            if (val === 0 && this.value === '') return;
+            this.value = formatMoney(val);
+        });
+        input.addEventListener('focus', function () {
+            const val = parseMoney(this.value);
+            if (val === 0) {
+                this.value = '';
+            } else {
+                this.value = String(val);
+            }
+            this.select();
+        });
+    });
+}
+
+/* ================================================================
+   10. UI — 산정서 결과 렌더링
+   ================================================================ */
+
+function renderResult(result) {
+    const w = state.workers[state.currentIndex];
+    const p = result.periods;
+    const endDate = new Date(w.endDate);
+    const startDate = new Date(w.startDate);
+
+    const formatDate = (d) => `${d.getFullYear()}. ${String(d.getMonth()+1).padStart(2,'0')}. ${String(d.getDate()).padStart(2,'0')}.`;
+
+    const totalDeduction = result.retirementTax + result.localTax + result.priorSev;
+
+    /* svcFraction 호환: 구버전 저장 데이터에 없을 수 있음 */
+    const svcF = result.svcFraction || {
+        fullYears: 0,
+        remainDays: result.serviceDays,
+        daysInYear: 365,
+        fraction: result.serviceDays / 365
+    };
+
+    /* 동적 구간 수에 따른 산정서 테이블 생성 */
+    const periodCount = p.length;
+    const colSpanPer = 2;
+    const totalDataCols = periodCount * colSpanPer;
+
+    let periodHeaders = '';
+    let periodSubHeaders = '';
+    let periodCalcRow = '';
+    let wageRow = '';
+    let subtotalRow = '';
+    for (let i = 0; i < periodCount; i++) {
+        periodHeaders += `<th colspan="${colSpanPer}">${p[i].label}</th>`;
+        periodSubHeaders += `<th>기간</th><th>일수</th>`;
+        periodCalcRow += `<td>${p[i].periodText}</td><td>${p[i].days}일</td>`;
+        wageRow += `<td colspan="${colSpanPer}" class="right">${formatMoney(result.wages[i] || 0)}</td>`;
+        subtotalRow += `<td colspan="${colSpanPer}" class="right">${formatMoney(result.wages[i] || 0)}</td>`;
+    }
+    /* 상여금·연월차 행: "구분" 열 제외 나머지(데이터+합계)를 두 칸으로 분할 */
+    const totalSpan = totalDataCols + 1; /* 데이터 칸 + 합계 칸 */
+    const bonusColSpan = Math.ceil(totalSpan / 2);
+    const bonusRestSpan = totalSpan - bonusColSpan;
+
+    const html = `
+    <div class="statement">
+        <h2>평균임금 및 퇴직금 산정서</h2>
+
+        <!-- 기본 정보 -->
+        <table class="stmt-table">
+            <tr>
+                <th>사업장명</th><td colspan="2">${w.businessName || '-'}</td>
+                <th>근로자성명</th><td colspan="2">${w.workerName || '-'}</td>
+            </tr>
+            <tr>
+                <th>생년월일</th><td colspan="2">${w.birthDate || '-'}</td>
+                <th>사업주성명</th><td colspan="2">${w.ownerName || '-'}</td>
+            </tr>
+            <tr>
+                <th>산정사유발생일</th><td>${formatDate(endDate)}</td>
+                <th>채용년월일</th><td>${formatDate(startDate)}</td>
+                <th>재직일수</th><td class="bold">${formatMoney(result.serviceDays)}일</td>
+            </tr>
+        </table>
+
+        <!-- 계산 과정 -->
+        <table class="stmt-table" style="margin-top:16px">
+            <tr>
+                <th rowspan="2">구분</th>
+                ${periodHeaders}
+                <th rowspan="2">합계</th>
+            </tr>
+            <tr>${periodSubHeaders}</tr>
+            <tr>
+                <td class="label-cell">계산기간</td>
+                ${periodCalcRow}
+                <td class="bold">${result.totalCalcDays}일</td>
+            </tr>
+            <tr>
+                <td class="label-cell">월급여</td>
+                ${wageRow}
+                <td class="right bold">${formatMoney(result.wageSum)}</td>
+            </tr>
+            <tr>
+                <td class="label-cell">소계</td>
+                ${subtotalRow}
+                <td class="right bold">${formatMoney(result.wageSum)}</td>
+            </tr>
+            <tr>
+                <td class="label-cell">상여금</td>
+                <td colspan="${bonusColSpan}" class="right">${formatMoney(result.bonus)} × 3 / 12 =</td>
+                <td colspan="${bonusRestSpan}" class="right">${formatMoney(result.bonusAdd)}</td>
+            </tr>
+            <tr>
+                <td class="label-cell">연월차수당</td>
+                <td colspan="${bonusColSpan}" class="right">${formatMoney(result.annual)} × 3 / 12 =</td>
+                <td colspan="${bonusRestSpan}" class="right">${formatMoney(result.annualAdd)}</td>
+            </tr>
+            <tr class="total-row">
+                <td>3개월 임금 총액</td>
+                <td colspan="${totalDataCols + 1}" class="right">${formatMoney(result.total3Month)}원</td>
+            </tr>
+        </table>
+
+        <!-- 평균임금 & 퇴직금 -->
+        <table class="stmt-table" style="margin-top:16px">
+            <tr class="highlight">
+                <th style="width:140px">1일 평균임금</th>
+                <td colspan="3" class="left">
+                    ${formatMoney(result.total3Month)} ÷ ${result.totalCalcDays} = <strong>${formatMoney(Math.round(result.avgWage * 100) / 100)}원</strong>
+                </td>
+            </tr>
+            ${result.dailyOrdinaryWage > 0 ? `
+            <tr class="highlight">
+                <th>1일 통상임금</th>
+                <td colspan="3" class="left">
+                    <strong>${formatMoney(Math.round(result.dailyOrdinaryWage * 100) / 100)}원</strong>
+                    ${result.dailyOrdinaryWage > result.avgWage
+                        ? ' <span style="color:#E74C3C;font-size:12px">(통상임금 > 평균임금)</span>'
+                        : ' <span style="color:#3498DB;font-size:12px">(평균임금 ≥ 통상임금)</span>'}
+                </td>
+            </tr>
+            <tr style="background:#FFF8E1">
+                <th>적용임금</th>
+                <td colspan="3" class="left" style="font-weight:700;color:var(--primary)">
+                    ${result.wageTypeApplied === 'ordinary'
+                        ? `1일 통상임금 ${formatMoney(Math.round(result.appliedWage * 100) / 100)}원 적용 <span style="font-weight:400;font-size:11px;color:var(--text-light)">(근로기준법 제2조 제2항)</span>`
+                        : `1일 평균임금 ${formatMoney(Math.round(result.appliedWage * 100) / 100)}원 적용`}
+                </td>
+            </tr>
+            ` : ''}
+            <tr class="result-row">
+                <th>퇴직금</th>
+                <td colspan="3" class="left">
+                    ${formatMoney(Math.round(result.appliedWage * 100) / 100)} × 30 × (${svcF.fullYears}년 + ${svcF.remainDays}일/${svcF.daysInYear}일) = <strong>${formatMoney(result.severancePay)}원</strong>
+                </td>
+            </tr>
+            <tr style="background:#F5F5F5">
+                <td colspan="4" class="left bold" style="font-size:13px;color:var(--primary);letter-spacing:2px">[ 공제 항목 ]</td>
+            </tr>
+            <tr>
+                <th>퇴직소득세</th>
+                <td colspan="3" class="right">${formatMoney(result.retirementTax)}원</td>
+            </tr>
+            <tr>
+                <th>지방소득세</th>
+                <td colspan="3" class="right">${formatMoney(result.localTax)}원</td>
+            </tr>
+            <tr>
+                <th>퇴직금 중간정산</th>
+                <td colspan="3" class="right">${formatMoney(result.priorSev)}원</td>
+            </tr>
+            <tr class="total-row">
+                <th>공제액 합계</th>
+                <td colspan="3" class="right">${formatMoney(totalDeduction)}원</td>
+            </tr>
+            <tr class="final-row">
+                <td colspan="2" style="text-align:center">실수령 퇴직금</td>
+                <td colspan="2" style="text-align:right;font-size:16px">${formatMoney(result.netSeverance)}원</td>
+            </tr>
+        </table>
+
+        <!-- 서명 영역 -->
+        <div class="stmt-signature">
+            <div class="date-line">위와 같이 확인합니다.</div>
+            <div class="date-line">20____년 ____월 ____일</div>
+            <div class="sign-grid">
+                <div class="sign-item">사업주 : ${w.ownerName || '____________'} (인)</div>
+                <div class="sign-item">근로자 : ${w.workerName || '____________'} (인)</div>
+            </div>
+        </div>
+    </div>`;
+
+    const area = document.getElementById('resultArea');
+    area.innerHTML = html;
+    area.style.display = 'block';
+    area.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+/* ================================================================
+   11. 이벤트 핸들러
+   ================================================================ */
+
+/** 계산하기 */
+function onCalculate() {
+    saveFormToState();
+    const w = state.workers[state.currentIndex];
+
+    /* 유효성 검증 */
+    if (!w.startDate || !w.endDate) {
+        showToast('입사일과 퇴사일을 입력해 주세요.', 'error');
+        return;
+    }
+    const days = dateDiffDays(w.startDate, w.endDate);
+    if (days <= 0) {
+        showToast('퇴사일이 입사일보다 이후여야 합니다.', 'error');
+        return;
+    }
+    if (days < 365) {
+        if (!confirm(`재직일수가 ${days}일로 1년 미만입니다.\n퇴직금 지급 대상이 아닐 수 있습니다.\n계속 계산하시겠습니까?`)) return;
+    }
+    const w1 = parseMoney(w.wage1);
+    const w2 = parseMoney(w.wage2);
+    const w3 = parseMoney(w.wage3);
+    const w4 = parseMoney(w.wage4);
+    if (w1 === 0 && w2 === 0 && w3 === 0 && w4 === 0) {
+        showToast('월급여를 1개 이상 입력해 주세요.', 'error');
+        return;
+    }
+    if (w.wageType === 'ordinary' && parseMoney(w.dailyOrdinaryWage) <= 0) {
+        showToast('통상임금으로 계산하려면 1일 통상임금을 입력해 주세요.', 'error');
+        return;
+    }
+
+    const result = calculateSeverance(w);
+    if (!result) {
+        showToast('계산 중 오류가 발생했습니다.', 'error');
+        return;
+    }
+
+    /* 결과 저장 및 표시 */
+    w.result = result;
+    if (w.autoCalcTax && result.taxResult) {
+        w.retirementTax = formatMoney(result.retirementTax);
+        document.getElementById('retirementTax').value = w.retirementTax;
+    }
+
+    renderResult(result);
+    autoSave();
+    showToast('계산 완료!', 'success');
+}
+
+/** 초기화 */
+function onReset() {
+    if (!confirm('현재 근로자의 모든 입력값을 초기화하시겠습니까?')) return;
+    const biz = state.workers[0].businessName;
+    const owner = state.workers[0].ownerName;
+    state.workers[state.currentIndex] = createDefaultWorker();
+    state.workers[state.currentIndex].businessName = biz;
+    state.workers[state.currentIndex].ownerName = owner;
+    loadFormFromState();
+    updateDateInfo();
+    document.getElementById('resultArea').style.display = 'none';
+    autoSave();
+    showToast('초기화 완료', 'info');
+}
+
+/** 인쇄하기 */
+function onPrint() {
+    const w = state.workers[state.currentIndex];
+    if (!w.result) {
+        showToast('먼저 계산을 실행해 주세요.', 'error');
+        return;
+    }
+    window.print();
+}
+
+/** 수동 저장 */
+function onSave() {
+    saveFormToState();
+    saveToStorage();
+    showToast('저장 완료!', 'success');
+}
+
+/* ================================================================
+   12. 저장/불러오기 (LocalStorage)
+   ================================================================ */
+
+let saveTimer = null;
+function autoSave() {
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(saveToStorage, 500);
+}
+
+function saveToStorage() {
+    try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    } catch (e) {
+        /* LocalStorage 용량 초과 등 무시 */
+    }
+}
+
+function loadFromStorage() {
+    try {
+        const saved = localStorage.getItem(STORAGE_KEY);
+        if (saved) {
+            const parsed = JSON.parse(saved);
+            if (parsed.workers && Array.isArray(parsed.workers) && parsed.workers.length > 0) {
+                state = parsed;
+                state.currentIndex = Math.min(state.currentIndex || 0, state.workers.length - 1);
+                return true;
+            }
+        }
+    } catch (e) { /* 파싱 실패 무시 */ }
+    return false;
+}
+
+/* ================================================================
+   13. 초기화
+   ================================================================ */
+
+function init() {
+    /* LocalStorage에서 데이터 복원 */
+    const restored = loadFromStorage();
+    loadFormFromState();
+    renderTabs();
+    updateDateInfo();
+    setupDateInputs();
+    setupMoneyInputs();
+
+    /* 복원된 결과 있으면 표시 */
+    if (restored) {
+        const w = state.workers[state.currentIndex];
+        if (w.result) {
+            try {
+                renderResult(w.result);
+            } catch (e) {
+                /* 구버전 데이터 호환 실패 시 결과 초기화 */
+                w.result = null;
+                document.getElementById('resultArea').style.display = 'none';
+            }
+        }
+    }
+
+    /* 근로자명 변경 시 탭 이름 갱신 */
+    document.getElementById('workerName').addEventListener('input', () => {
+        saveFormToState();
+        renderTabs();
+        autoSave();
+    });
+
+    /* 월급여 변경 시 합계 자동 갱신 */
+    ['wage1', 'wage2', 'wage3', 'wage4'].forEach(id => {
+        document.getElementById(id).addEventListener('input', updateWageTotal);
+    });
+
+    /* 퇴직소득세 자동계산 토글 */
+    document.getElementById('autoCalcTax').addEventListener('change', function () {
+        const taxInput = document.getElementById('retirementTax');
+        taxInput.readOnly = this.checked;
+        if (this.checked) {
+            taxInput.value = '자동계산';
+            taxInput.placeholder = '자동계산';
+        } else {
+            taxInput.value = '0';
+            taxInput.placeholder = '직접 입력';
+        }
+    });
+
+    /* 전체 폼 입력/변경 시 자동 저장 (라디오, 셀렉트 포함) */
+    document.querySelector('.input-area').addEventListener('input', () => {
+        saveFormToState();
+        autoSave();
+    });
+    document.querySelector('.input-area').addEventListener('change', () => {
+        saveFormToState();
+        autoSave();
+    });
+
+    /* URL 쿼리 파라미터 → 자동 입력 + 자동 계산 (챗봇 답변 링크 등에서 활용) */
+    try {
+        const params = new URLSearchParams(window.location.search);
+        const setVal = (id, v) => {
+            const el = document.getElementById(id);
+            if (el && v != null && v !== '') el.value = v;
+        };
+        const setMoney = (id, v) => {
+            if (v == null || v === '') return;
+            const num = String(v).replace(/[^\d]/g, '');
+            if (!num) return;
+            const el = document.getElementById(id);
+            if (el) el.value = Number(num).toLocaleString('ko-KR');
+        };
+        let any = false;
+        const map = {
+            startDate: 'startDate', start: 'startDate',
+            endDate: 'endDate', end: 'endDate',
+            workerName: 'workerName', name: 'workerName',
+            businessName: 'businessName', biz: 'businessName',
+            ownerName: 'ownerName', owner: 'ownerName',
+            birthDate: 'birthDate', birth: 'birthDate',
+        };
+        for (const [k, target] of Object.entries(map)) {
+            const v = params.get(k);
+            if (v != null) { setVal(target, v); any = true; }
+        }
+        // 임금 4구간: ?wage1=... 또는 ?w1=...
+        for (let i = 1; i <= 4; i++) {
+            const v = params.get(`wage${i}`) || params.get(`w${i}`);
+            if (v != null) { setMoney(`wage${i}`, v); any = true; }
+        }
+        for (const k of ['bonusTotal', 'annualLeave', 'priorSeverance', 'dailyOrdinaryWage']) {
+            const v = params.get(k);
+            if (v != null) { setMoney(k, v); any = true; }
+        }
+        const wageType = params.get('wageType');
+        if (wageType) {
+            const sel = document.getElementById('wageType');
+            if (sel) sel.value = wageType;
+        }
+        // autocalc=1 또는 ?run=1 — 입력 후 자동 계산
+        if (any && (params.get('run') === '1' || params.get('autocalc') === '1')) {
+            saveFormToState();
+            setTimeout(() => {
+                if (typeof calculate === 'function') calculate();
+            }, 100);
+        } else if (any) {
+            saveFormToState();
+        }
+    } catch (e) {
+        // ignore
+    }
+}
+
+document.addEventListener('DOMContentLoaded', init);
+</script>
+
+</body>
+</html>
