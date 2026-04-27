@@ -13,7 +13,14 @@ export async function buildNlrcCasesContext(
       limit: 3,
       semantic_weight: 0.6,
     });
-    if (caseResult.error || !Array.isArray(caseResult.data) || caseResult.data.length === 0) return '';
+    if (caseResult.error) {
+      console.error('[cases.ts] search_similar_cases_hybrid error:', JSON.stringify(caseResult.error));
+      return '';
+    }
+    if (!Array.isArray(caseResult.data) || caseResult.data.length === 0) {
+      console.warn('[cases.ts] search_similar_cases_hybrid returned 0 rows for query:', searchQuery.slice(0, 80));
+      return '';
+    }
     const cases = caseResult.data as Array<{
       id: string;
       title: string;
