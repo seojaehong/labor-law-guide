@@ -165,15 +165,25 @@ const URL_WHITELIST = [
 ];
 
 function scrubFakeUrls(text: string): string {
-  // 마크다운 링크 [텍스트](URL) 형식에서 URL이 화이트리스트 외면 텍스트만 남김
+  // 1) 완전 마크다운 링크 [텍스트](URL) → URL이 화이트리스트 외면 텍스트만 남김
   text = text.replace(/\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g, (full, label, url) => {
     const ok = URL_WHITELIST.some((w) => url.startsWith(w));
     return ok ? full : label;
   });
-  // 베어 URL 형태 — winhr.co.kr/blog/* 패턴 제거 (회사 블로그 가짜 링크 방지)
+  // 2) 베어 URL — winhr.co.kr/blog/* 패턴 제거
   text = text.replace(/https?:\/\/[^\s)]*winhr\.co\.kr\/blog\/[^\s)]+/g, '');
-  // /blog/숫자 형태 fake slug 제거
+  // 3) /blog/숫자 fake slug 제거 (괄호 포함/제외 모두)
   text = text.replace(/\(\/blog\/\d{1,5}\)/g, '');
+  // 4) 청크 분할 잔여물 정리
+  // 4-1) [라벨]() — URL이 비어버린 빈 링크
+  text = text.replace(/\]\(\s*\)/g, ']');
+  // 4-2) 끝부분 단편 [라벨]([incomplete URL pointing to fake]
+  text = text.replace(/\]\(https?:\/\/[^)\s]*(?:winhr|blog\/\d)[^)\s]*$/g, ']');
+  // 4-3) 시작부분 단편 (이전 청크에서 [라벨]( 까지 보낸 후 URL 단편)
+  text = text.replace(/^[a-zA-Z0-9./_:-]*winhr\.co\.kr[^\s)]*\)?/g, '');
+  text = text.replace(/^blog\/\d{1,5}\)?/g, '');
+  // 4-4) 빈 ] + 닫는 괄호만 남은 단편
+  text = text.replace(/^\)+\s*\n?/g, '');
   return text;
 }
 
