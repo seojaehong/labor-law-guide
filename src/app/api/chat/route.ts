@@ -154,6 +154,29 @@ const TOOLS = [
 const SITE_DOMAIN = 'https://노란봉투법.com';
 const SANCTION_DOMAIN = 'https://labor-decisions-search.vercel.app';
 
+// 환각 URL 차단 — 화이트리스트 외 도메인은 스트리밍 중 자동 제거
+// LLM이 도구 호출 안 하고 블로그/사이트 URL을 임의 생성하는 경우 방어
+const URL_WHITELIST = [
+  'https://노란봉투법.com',
+  'http://노란봉투법.com',
+  'https://www.xn--o80bk8isxeinax68f.com',
+  'https://labor-decisions-search.vercel.app',
+  'https://winhr.co.kr', // 회사 홈페이지 루트만 OK (서브경로 안내는 절대 금지)
+];
+
+function scrubFakeUrls(text: string): string {
+  // 마크다운 링크 [텍스트](URL) 형식에서 URL이 화이트리스트 외면 텍스트만 남김
+  text = text.replace(/\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g, (full, label, url) => {
+    const ok = URL_WHITELIST.some((w) => url.startsWith(w));
+    return ok ? full : label;
+  });
+  // 베어 URL 형태 — winhr.co.kr/blog/* 패턴 제거 (회사 블로그 가짜 링크 방지)
+  text = text.replace(/https?:\/\/[^\s)]*winhr\.co\.kr\/blog\/[^\s)]+/g, '');
+  // /blog/숫자 형태 fake slug 제거
+  text = text.replace(/\(\/blog\/\d{1,5}\)/g, '');
+  return text;
+}
+
 async function searchBlogTool(args: { query: string; category?: string; limit?: number }) {
   const limit = Math.min(args.limit ?? 3, 5);
   const q = (args.query || '').trim().slice(0, 80);
@@ -552,8 +575,11 @@ export async function POST(req: NextRequest) {
             const delta = p.choices?.[0]?.delta;
             if (!delta) continue;
             if (delta.content) {
-              content += delta.content;
-              controller.enqueue(encoder.encode(`data: ${JSON.stringify({ content: delta.content })}\n\n`));
+              const scrubbed = scrubFakeUrls(delta.content);
+              content += scrubbed;
+              if (scrubbed) {
+                controller.enqueue(encoder.encode(`data: ${JSON.stringify({ content: scrubbed })}\n\n`));
+              }
             }
             if (Array.isArray(delta.tool_calls)) {
               for (const tc of delta.tool_calls) {
