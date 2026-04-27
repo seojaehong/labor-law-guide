@@ -13,7 +13,6 @@ import { verifyCitations } from '@/lib/legal-verify';
 import { checkChatRateLimit, extractIp, hashIp } from '@/lib/rate-limit';
 import { getChatKillSwitch } from '@/lib/kill-switch';
 import { verifyTurnstile, isTurnstileEnabled } from '@/lib/turnstile';
-import { CHAT_MAX_DURATION } from '@/lib/chat/config';
 import { executeTool } from '@/lib/chat/tools/execute';
 import { streamRound, type ToolCallAcc } from '@/lib/chat/stream-round';
 import { buildFaqContext } from '@/lib/chat/context/faq';
@@ -21,7 +20,8 @@ import { buildNlrcCasesContext, buildCourtCasesContext } from '@/lib/chat/contex
 import { buildInterpretationsContext } from '@/lib/chat/context/interpretations';
 import { buildNewsContext } from '@/lib/chat/context/news';
 
-export const maxDuration = CHAT_MAX_DURATION;
+// Next.js segment config: literal value 필수 (import const 불가)
+export const maxDuration = 60;
 
 const db = supabaseAdmin || supabase;
 
