@@ -101,21 +101,33 @@ export async function POST(req: NextRequest) {
       faqContext = faq.context;
       topFaqIds = faq.topIds;
 
+      let nlrcLen = 0, interpLen = 0, courtLen = 0;
       if (queryEmbedding) {
         const [nlrc, interp, court] = await Promise.all([
           buildNlrcCasesContext(db, searchQuery, queryEmbedding),
           buildInterpretationsContext(db, queryEmbedding),
           buildCourtCasesContext(db, queryEmbedding),
         ]);
+        nlrcLen = nlrc.length;
+        interpLen = interp.length;
+        courtLen = court.length;
         caseContext = nlrc + interp + court;
       }
+
+      // 디버그: cases/interp/court 컨텍스트 길이를 categories 끝에 임시 marker로 저장 (silent fail 추적)
+      const debugMarkers = [
+        `_nlrc_len=${nlrcLen}`,
+        `_interp_len=${interpLen}`,
+        `_court_len=${courtLen}`,
+        `_emb=${queryEmbedding ? 1 : 0}`,
+      ];
 
       db.from('chat_logs')
         .insert({
           question: lastUserMsg.content.slice(0, 500),
           faq_matched: faq.matched,
           faq_count: faq.count,
-          faq_categories: faq.categories,
+          faq_categories: [...faq.categories, ...debugMarkers],
           session_id: sessionId,
         })
         .then(null, () => {});
