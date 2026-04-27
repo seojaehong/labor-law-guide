@@ -7,10 +7,10 @@ export async function buildNlrcCasesContext(
 ): Promise<string> {
   try {
     const caseResult = await db.rpc('search_similar_cases_hybrid', {
-      query_text: searchQuery.slice(0, 500),
+      query: searchQuery.slice(0, 500),
       query_embedding: queryEmbedding,
       category: '',
-      match_count: 3,
+      limit: 3,
       semantic_weight: 0.6,
     });
     if (caseResult.error || !Array.isArray(caseResult.data) || caseResult.data.length === 0) return '';

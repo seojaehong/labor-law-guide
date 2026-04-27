@@ -325,10 +325,10 @@ export async function lookupLawArticle(input: { law: string; article: number }) 
 export async function searchSimilarCases(input: { query_text: string; embedding: number[]; max_count?: number }) {
   const max_count = input.max_count || 3;
   const { data, error } = await db.rpc('search_similar_cases_hybrid', {
-    query_text: input.query_text.slice(0, 500),
+    query: input.query_text.slice(0, 500),
     query_embedding: input.embedding,
     category: '',
-    match_count: max_count,
+    limit: max_count,
     semantic_weight: 0.6,
   });
   if (error || !Array.isArray(data)) return { count: 0, cases: [] };
