@@ -5,6 +5,7 @@ import { Send, Bot, User, Loader2, X, Info } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import BetaSignupForm from './BetaSignupForm';
+import TurnstileWidget from './TurnstileWidget';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -133,13 +134,14 @@ async function streamChat(
   messages: Message[],
   onChunk: (text: string) => void,
   onDone: () => void,
-  onError: (msg: string, info?: { status?: number; scope?: string }) => void
+  onError: (msg: string, info?: { status?: number; scope?: string }) => void,
+  turnstileToken: string | null
 ) {
   const sessionId = getSessionId();
   const res = await fetch('/api/chat', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ messages, sessionId }),
+    body: JSON.stringify({ messages, sessionId, turnstileToken }),
   });
 
   if (!res.ok) {
@@ -210,6 +212,7 @@ export default function ChatInterface({ injectedQuestion }: { injectedQuestion?:
   const [loading, setLoading] = useState(false);
   const [profile, setProfile] = useState<ProfileMap>({});
   const [showBetaCta, setShowBetaCta] = useState(false);
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const refreshProfile = useCallback(async () => {
@@ -291,8 +294,11 @@ export default function ChatInterface({ injectedQuestion }: { injectedQuestion?:
           setShowBetaCta(true);
         }
       },
+      turnstileToken,
     );
-  }, [messages, loading, refreshProfile]);
+    // 토큰은 1회용 — 사용 후 비워서 다음 요청 시 재발급 받도록
+    setTurnstileToken(null);
+  }, [messages, loading, refreshProfile, turnstileToken]);
 
   // 마운트 시 1회 프로필 로드
   useEffect(() => { void refreshProfile(); }, [refreshProfile]);
@@ -397,6 +403,9 @@ export default function ChatInterface({ injectedQuestion }: { injectedQuestion?:
           />
         </div>
       )}
+
+      {/* Cloudflare Turnstile (env 미설정 시 자동 미렌더) */}
+      <TurnstileWidget onToken={setTurnstileToken} />
 
       {/* Input */}
       <form onSubmit={handleSubmit} className="flex gap-2 border-t p-4" style={{ borderColor: 'var(--color-border)' }}>
