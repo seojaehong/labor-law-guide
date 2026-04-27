@@ -97,7 +97,7 @@ export async function POST(req: NextRequest) {
     if (lastUserMsg) {
       const queryEmbedding = await getQueryEmbedding(searchQuery);
 
-      const faq = await buildFaqContext(db, searchQuery, queryEmbedding, lastUserMsg.content);
+      const faq = await buildFaqContext(db, searchQuery, queryEmbedding);
       faqContext = faq.context;
       topFaqIds = faq.topIds;
 

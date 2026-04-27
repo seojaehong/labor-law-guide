@@ -1,5 +1,4 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { searchQA } from '@/content/ai-knowledge';
 
 type FaqRow = {
   id: number;
@@ -27,8 +26,7 @@ const CITATION_GUIDE =
 export async function buildFaqContext(
   db: SupabaseClient,
   searchQuery: string,
-  queryEmbedding: number[] | null,
-  fallbackQuery: string
+  queryEmbedding: number[] | null
 ): Promise<FaqContextResult> {
   let dbFaq: FaqRow[] | null = null;
   let dbErr: { message: string } | null = null;
@@ -75,15 +73,6 @@ export async function buildFaqContext(
     }
     context += CITATION_GUIDE;
     topIds = matchedFaqs.slice(0, 3).map((f) => f.id);
-  } else {
-    const inlineFaq = searchQA(fallbackQuery);
-    if (inlineFaq.length > 0) {
-      context = '\n\n═══ 관련 예상질문 DB 매칭 결과 (참고하여 답변) ═══\n';
-      for (const faq of inlineFaq.slice(0, 3)) {
-        context += `\nQ: ${faq.question}\nA: ${faq.answer}\n${faq.relatedArticle ? `관련조문: ${faq.relatedArticle}` : ''}\n`;
-      }
-      context += '\n위 DB 내용을 참고하되, 질문에 맞게 자연스럽게 재구성하여 답변하세요.';
-    }
   }
 
   return { context, matched, count: matchedFaqs.length, categories, topIds };
