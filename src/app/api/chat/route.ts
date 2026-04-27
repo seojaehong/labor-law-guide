@@ -10,6 +10,9 @@ import {
   type UserSituation,
 } from '@/lib/user-situation';
 import { verifyCitations } from '@/lib/legal-verify';
+import { checkChatRateLimit, extractIp, hashIp } from '@/lib/rate-limit';
+import { getChatKillSwitch } from '@/lib/kill-switch';
+import { verifyTurnstile, isTurnstileEnabled } from '@/lib/turnstile';
 import { CHAT_MAX_DURATION } from '@/lib/chat/config';
 import { executeTool } from '@/lib/chat/tools/execute';
 import { streamRound, type ToolCallAcc } from '@/lib/chat/stream-round';
@@ -68,6 +71,20 @@ async function getQueryEmbedding(text: string): Promise<number[] | null> {
 
 export async function POST(req: NextRequest) {
   try {
+    // === Phase 0.1 비용 방어 게이트 ===
+    // 1) 킬 스위치 (cost monitor가 임계 도달 시 자동 ON)
+    const kill = await getChatKillSwitch();
+    if (kill.disabled) {
+      return new Response(
+        JSON.stringify({
+          error:
+            '현재 AI 챗 서비스가 일시 중단되었습니다. 잠시 후 다시 시도해주세요. (베타 일일 한도 도달)',
+          reason: kill.reason || 'kill_switch',
+        }),
+        { status: 503, headers: { 'Retry-After': '3600' } }
+      );
+    }
+
     const body = await req.json();
     const messages = body?.messages;
     const rawSessionId: string | undefined =
@@ -80,6 +97,46 @@ export async function POST(req: NextRequest) {
         status: 400,
       });
     }
+
+    const ip = extractIp(req);
+    const ipHashed = hashIp(ip);
+
+    // 2) Turnstile (env 미설정 시 자동 패스)
+    if (isTurnstileEnabled()) {
+      const tsToken: string | null =
+        typeof body?.turnstileToken === 'string' ? body.turnstileToken : null;
+      const tsResult = await verifyTurnstile(tsToken, ip);
+      if (!tsResult.skipped && !tsResult.success) {
+        return new Response(
+          JSON.stringify({
+            error: '봇 검증에 실패했습니다. 페이지를 새로고침 후 다시 시도해주세요.',
+            reason: tsResult.reason,
+          }),
+          { status: 403 }
+        );
+      }
+    }
+
+    // 3) 일일 rate limit (Global → IP → Session)
+    const rl = await checkChatRateLimit({ ip: ipHashed, sessionId });
+    if (!rl.allowed) {
+      const msgByScope: Record<string, string> = {
+        global:
+          '오늘 베타 전체 무료 사용 한도를 모두 사용했습니다. 내일 다시 이용해주세요. 정식 출시 시 알림을 받으시려면 결제의향 폼을 이용해주세요.',
+        ip: `오늘 IP 기준 무료 베타 한도(${rl.reason.max}건)를 모두 사용했습니다. 내일 다시 이용해주세요.`,
+        session: `오늘 세션 기준 무료 베타 한도(${rl.reason.max}건)를 모두 사용했습니다. 정식 출시 시 알림을 받으시려면 결제의향 폼을 이용해주세요.`,
+      };
+      return new Response(
+        JSON.stringify({
+          error: msgByScope[rl.reason.scope] || '오늘 베타 한도를 초과했습니다.',
+          scope: rl.reason.scope,
+          count: rl.reason.count,
+          max: rl.reason.max,
+        }),
+        { status: 429, headers: { 'Retry-After': '3600' } }
+      );
+    }
+    // === 게이트 끝 ===
 
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
@@ -129,6 +186,7 @@ export async function POST(req: NextRequest) {
           faq_count: faq.count,
           faq_categories: [...faq.categories, ...debugMarkers],
           session_id: sessionId,
+          ip_hash: ipHashed,
         })
         .then(null, () => {});
     }
