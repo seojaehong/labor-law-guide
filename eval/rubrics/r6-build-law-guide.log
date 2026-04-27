@@ -1,0 +1,79 @@
+
+> labor-law-guide@0.1.0 build
+> next build
+
+▲ Next.js 16.1.6 (Turbopack)
+- Environments: .env.production.local, .env.local
+
+⚠ The "middleware" file convention is deprecated. Please use "proxy" instead. Learn more: https://nextjs.org/docs/messages/middleware-to-proxy
+  Creating an optimized production build ...
+✓ Compiled successfully in 5.2min
+  Running TypeScript ...
+  Collecting page data using 1 worker ...
+⚠ Using edge runtime on a page currently disables static generation for that page
+  Generating static pages using 1 worker (0/411) ...
+  Generating static pages using 1 worker (102/411) 
+  Generating static pages using 1 worker (205/411) 
+  Generating static pages using 1 worker (308/411) 
+✓ Generating static pages using 1 worker (411/411) in 85s
+  Finalizing page optimization ...
+
+Route (app)                                                                             Revalidate  Expire
+┌ ○ /                                                                                           1h      1y
+├ ○ /_not-found
+├ ○ /admin
+├ ○ /ai
+├ ƒ /api/admin/articles
+├ ƒ /api/admin/articles/[id]
+├ ƒ /api/admin/stats
+├ ƒ /api/analyze
+├ ƒ /api/cases
+├ ƒ /api/chat
+├ ƒ /api/chat/situation
+├ ƒ /api/contact
+├ ƒ /api/faq
+├ ƒ /api/markdown
+├ ƒ /api/tools/calc
+├ ○ /blog                                                                                       1h      1y
+├ ● /blog/[slug]                                                                                1d      1y
+│ ├ /blog/20260210-1                                                                            1d      1y
+│ ├ /blog/20260211-1                                                                            1d      1y
+│ ├ /blog/20260213-1                                                                            1d      1y
+│ └ [+345 more paths]
+├ ● /blog/category/[category]                                                                   1h      1y
+│ ├ /blog/category/노동법                                                                          1h      1y
+│ ├ /blog/category/판례분석                                                                         1h      1y
+│ ├ /blog/category/뉴스해설                                                                         1h      1y
+│ └ /blog/category/실무가이드                                                                        1h      1y
+├ ○ /cases
+├ ƒ /cases/[id]
+├ ○ /checklist
+├ ○ /contact
+├ ○ /database                                                                                   1h      1y
+├ ƒ /decisions/[id]
+├ ○ /faq                                                                                        1h      1y
+├ ● /faq/[category]                                                                             1h      1y
+│ ├ /faq/%EC%97%B0%EC%B0%A8%EC%9C%A0%EA%B8%89%ED%9C%B4%EA%B0%80                                 1h      1y
+│ ├ /faq/%ED%87%B4%EC%A7%81%EA%B8%88                                                            1h      1y
+│ ├ /faq/%EC%8B%A4%EC%97%85%EA%B8%89%EC%97%AC%252F%EA%B3%A0%EC%9A%A9%EB%B3%B4%ED%97%98          1h      1y
+│ └ [+27 more paths]
+├ ○ /guide
+├ ƒ /interpretations/[id]
+├ ○ /manifest.webmanifest
+├ ○ /manual
+├ ○ /news                                                                                       1h      1y
+├ ƒ /opengraph-image
+├ ○ /privacy
+├ ○ /robots.txt
+├ ○ /sitemap.xml                                                                                1h      1y
+├ ƒ /sitemap/[id]
+├ ○ /subsidy
+└ ○ /terms
+
+
+ƒ Proxy (Middleware)
+
+○  (Static)   prerendered as static content
+●  (SSG)      prerendered as static HTML (uses generateStaticParams)
+ƒ  (Dynamic)  server-rendered on demand
+

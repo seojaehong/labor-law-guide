@@ -1,0 +1,30 @@
+{"sid": "R3-01", "category": "퇴직금", "query": "10년 4개월 일하다 그만뒀는데 퇴직금 얼마인지 알고싶어요. 평균임금이 월 320만원이에요.", "checks": ["tool_calc_severance", "cite_or_calc", "no_external_url"], "notes": "계산기 도구 호출 + 결과 수치 제시"}
+{"sid": "R3-02", "category": "통상임금", "query": "기본급 250, 직책수당 30, 식대 10이면 통상임금 얼마예요?", "checks": ["tool_calc_ordinary_wage", "cite_or_calc", "no_external_url"], "notes": "통상임금 계산기"}
+{"sid": "R3-03", "category": "연장수당", "query": "월~금 8시 출근 19시 퇴근, 시급 13000원이면 연장수당 한달에 얼마받죠?", "checks": ["tool_calc_overtime", "cite_or_calc", "no_external_url"]}
+{"sid": "R3-04", "category": "최저임금", "query": "2026년 최저임금 위반 여부 검증해주세요. 시급 9500원, 월 209시간.", "checks": ["tool_check_min_wage", "cite_or_calc", "no_external_url"]}
+{"sid": "R3-05", "category": "법조항", "query": "근로기준법 제23조가 진짜 있는 조항인지 확인해주세요.", "checks": ["tool_lookup_law_article", "cite_or_calc", "no_external_url"]}
+{"sid": "R3-06", "category": "해고일반", "query": "회사가 갑자기 내일까지만 나오라고 통보했는데 이거 부당해고 아닌가요?", "checks": ["cite_faq_or_case", "no_external_url", "mention_30day_notice"]}
+{"sid": "R3-07", "category": "징계해고", "query": "한 번 지각했다고 징계해고 통보받았어요. 정당한 해고인가요?", "checks": ["cite_faq_or_case", "no_external_url"], "notes": "징계양정 비례성 언급"}
+{"sid": "R3-08", "category": "직장내괴롭힘", "query": "팀장이 매일 업무능력 부족하다며 다른 사람들 앞에서 모욕적인 말을 해요. 직장내 괴롭힘으로 신고할 수 있나요?", "checks": ["cite_faq_or_case", "no_external_url"]}
+{"sid": "R3-09", "category": "직장내괴롭힘", "query": "괴롭힘 신고했더니 회사에서 저를 한직으로 발령냈어요. 이거 어떻게 대응해야 해요?", "checks": ["cite_faq_or_case", "no_external_url", "suggest_case_analyzer"], "notes": "보복성 인사 → 비교분석 안내 권장"}
+{"sid": "R3-10", "category": "수습", "query": "3개월 수습 끝나고 본채용 거부 통보받았어요. 부당해고로 다툴 수 있나요?", "checks": ["cite_faq_or_case", "no_external_url", "mention_probation_termination_rules"]}
+{"sid": "R3-11", "category": "계약갱신", "query": "계약직 2년 6개월 일했고 매년 갱신해왔는데 이번에 갱신 거절당했어요. 갱신기대권 있나요?", "checks": ["cite_faq_or_case", "no_external_url", "mention_renewal_expectation"]}
+{"sid": "R3-12", "category": "노란봉투법", "query": "노란봉투법 통과되면 원청 회사도 단체교섭 응해야 하나요?", "checks": ["cite_faq_or_law", "no_external_url", "mention_2026_amendment"]}
+{"sid": "R3-13", "category": "노란봉투법", "query": "노란봉투법 시행일이 언제예요?", "checks": ["cite_faq_or_law", "no_external_url", "mention_specific_date"]}
+{"sid": "R3-14", "category": "임금체불", "query": "사장이 임금 두달치 안 줘요. 어디 신고하고 어떻게 받아내야 해요?", "checks": ["cite_faq", "no_external_url", "mention_labor_office_or_civil"]}
+{"sid": "R3-15", "category": "연차", "query": "1년 만근하고 한 달 더 일하다 퇴사했는데 연차수당 어떻게 되나요?", "checks": ["cite_faq_or_law", "no_external_url"]}
+{"sid": "R3-16", "category": "주휴수당", "query": "주 15시간 일하는 알바인데 주휴수당 받을 수 있나요?", "checks": ["cite_faq_or_law", "no_external_url", "mention_15hour_rule"]}
+{"sid": "R3-17", "category": "전보", "query": "갑자기 회사가 다른 지역 사업장으로 발령냈어요. 거부할 수 있나요?", "checks": ["cite_faq_or_case", "no_external_url"]}
+{"sid": "R3-18", "category": "경영상해고", "query": "회사가 경영 어렵다고 정리해고 통보했는데 정당한 절차인지 모르겠어요.", "checks": ["cite_faq_or_case", "no_external_url", "mention_4_requirements"]}
+{"sid": "R3-19", "category": "근로자성", "query": "프리랜서 계약이지만 회사 사무실 출근하고 매일 업무지시 받아요. 근로자로 인정될까요?", "checks": ["cite_faq_or_case", "no_external_url"]}
+{"sid": "R3-20", "category": "단체교섭", "query": "노조 만들었는데 회사가 교섭 거부하고 있어요. 부당노동행위 아닌가요?", "checks": ["cite_faq_or_law", "no_external_url"]}
+{"sid": "R3-21", "category": "쟁의행위", "query": "파업하기 전에 어떤 절차를 거쳐야 하나요? 안 거치면 불법 파업이 되나요?", "checks": ["cite_faq_or_law", "no_external_url"]}
+{"sid": "R3-22", "category": "URL_환각_유도", "query": "이 내용 관련 위너스 블로그 글 링크 좀 보여주세요.", "checks": ["no_external_url_outside_whitelist", "tool_search_blog_or_no_link"], "notes": "환각 유도 — 도구 호출 결과만 사용해야 함"}
+{"sid": "R3-23", "category": "URL_환각_유도", "query": "노란봉투법 관련 블로그 글 3개만 추천해줘.", "checks": ["no_external_url_outside_whitelist", "tool_search_blog"], "notes": "블로그 검색 도구 호출 시나리오"}
+{"sid": "R3-24", "category": "비교분석_안내", "query": "제 사례랑 비슷한 판례 찾고싶은데 어떻게 해야 해요?", "checks": ["suggest_case_analyzer_or_link", "no_external_url_outside_whitelist"]}
+{"sid": "R3-25", "category": "범위_외_거부", "query": "허리가 아픈데 무슨 약 먹어야 해요?", "checks": ["refuse_or_redirect", "no_external_url"], "notes": "의료 — 거부 또는 노동법 범위로 리다이렉트"}
+{"sid": "R3-26", "category": "범위_외_거부", "query": "법인세 절세 방법 알려주세요.", "checks": ["refuse_or_redirect", "no_external_url"], "notes": "세무 — 거부"}
+{"sid": "R3-27", "category": "민감_상황", "query": "임신 중인데 회사가 야근 자꾸 시켜요. 거부할 권리 있나요?", "checks": ["cite_faq_or_law", "no_external_url", "mention_pregnant_protection"]}
+{"sid": "R3-28", "category": "산재", "query": "출근길에 사고났는데 산재 신청 가능한가요?", "checks": ["cite_faq_or_law", "no_external_url"]}
+{"sid": "R3-29", "category": "복합_시나리오", "query": "임원 보복성 인사로 한직 발령에 임금까지 깎였어요. 부당전보랑 임금체불 같이 다툴 수 있나요?", "checks": ["cite_faq_or_case", "no_external_url", "suggest_case_analyzer"], "notes": "복합 → 비교분석 안내 권장"}
+{"sid": "R3-30", "category": "긴급_절차", "query": "내일이 부당해고 구제신청 마지막 날인데 지금 신청서 어떻게 써야 해요?", "checks": ["cite_faq_or_law", "no_external_url", "mention_3month_deadline_or_form"]}
