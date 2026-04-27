@@ -110,7 +110,85 @@ const TOOLS = [
       },
     },
   },
+  {
+    type: 'function' as const,
+    function: {
+      name: 'search_blog',
+      description:
+        '관련 블로그 글 추천 (340건+ 노동법 콘텐츠). 사용자 질문 주제에 맞는 최신 글 3건. 답변에 깊이 있는 자료를 함께 안내할 때 호출. 카테고리: 노동법/판례분석/뉴스해설/실무가이드/뉴스브리핑/종합',
+      parameters: {
+        type: 'object',
+        properties: {
+          query: { type: 'string', description: '검색 키워드 (예: 부당해고, 통상임금, 직장내괴롭힘)' },
+          category: {
+            type: 'string',
+            description: '카테고리 한정 (선택). 노동법/판례분석/뉴스해설/실무가이드',
+          },
+          limit: { type: 'integer', description: '결과 개수 (기본 3)' },
+        },
+        required: ['query'],
+      },
+    },
+  },
+  {
+    type: 'function' as const,
+    function: {
+      name: 'suggest_case_analyzer',
+      description:
+        '사용자가 구체적인 분쟁 케이스(부당해고/징계/괴롭힘 등)를 설명한 경우 AI 비교분석기 페이지로 안내. 비슷한 판정례를 자동 비교해주는 기능. 답변 끝에 "더 자세한 비교분석은 여기서:" 형식으로 링크 제공.',
+      parameters: {
+        type: 'object',
+        properties: {
+          dispute_summary: {
+            type: 'string',
+            description: '사용자 분쟁의 한 줄 요약 (예: "직원 횡령으로 징계해고")',
+          },
+        },
+        required: ['dispute_summary'],
+      },
+    },
+  },
 ];
+
+// 한글 도메인 (사용자 가독성)
+const SITE_DOMAIN = 'https://노란봉투법.com';
+const SANCTION_DOMAIN = 'https://labor-decisions-search.vercel.app';
+
+async function searchBlogTool(args: { query: string; category?: string; limit?: number }) {
+  const limit = Math.min(args.limit ?? 3, 5);
+  const q = (args.query || '').trim().slice(0, 80);
+  if (!q) return { results: [] };
+  const pattern = `%${q.replace(/[%_\\]/g, '')}%`;
+  let query = supabase
+    .from('blog_articles')
+    .select('slug, title, summary, category, published_at')
+    .or(`title.ilike.${pattern},summary.ilike.${pattern},seo_description.ilike.${pattern}`)
+    .order('published_at', { ascending: false })
+    .limit(limit);
+  if (args.category) query = query.eq('category', args.category);
+  const { data, error } = await query;
+  if (error || !data) return { results: [] };
+  return {
+    results: data.map((r) => ({
+      slug: r.slug,
+      title: r.title,
+      summary: (r.summary || '').slice(0, 140),
+      category: r.category,
+      url: `${SITE_DOMAIN}/blog/${r.slug}`,
+    })),
+  };
+}
+
+function suggestCaseAnalyzerTool(args: { dispute_summary: string }) {
+  const q = encodeURIComponent((args.dispute_summary || '').trim().slice(0, 200));
+  const url = `${SANCTION_DOMAIN}/sanction?q=${q}`;
+  return {
+    url,
+    label: 'AI 판정례 비교분석',
+    note:
+      '비슷한 판정례를 자동 비교해 승패 요인과 실무 체크리스트를 제공합니다 (42,000건+ 노동위 판정례 기반).',
+  };
+}
 
 async function executeTool(name: string, args: Record<string, unknown>): Promise<unknown> {
   switch (name) {
@@ -124,6 +202,10 @@ async function executeTool(name: string, args: Record<string, unknown>): Promise
       return checkMinWage(args as Parameters<typeof checkMinWage>[0]);
     case 'lookup_law_article':
       return await lookupLawArticle(args as Parameters<typeof lookupLawArticle>[0]);
+    case 'search_blog':
+      return await searchBlogTool(args as { query: string; category?: string; limit?: number });
+    case 'suggest_case_analyzer':
+      return suggestCaseAnalyzerTool(args as { dispute_summary: string });
     default:
       return { error: `unknown tool: ${name}` };
   }
