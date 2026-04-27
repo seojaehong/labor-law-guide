@@ -12,6 +12,16 @@ export async function verifyTurnstile(token: string | null, ip: string): Promise
   if (!secret) return { skipped: true };
   if (!token) return { skipped: false, success: false, reason: 'token_missing' };
 
+  // 평가/측정 스크립트 우회: TURNSTILE_BYPASS_TOKEN과 일치하면 skip (timing-safe 비교)
+  const bypass = process.env.TURNSTILE_BYPASS_TOKEN;
+  if (bypass && token.length === bypass.length) {
+    let diff = 0;
+    for (let i = 0; i < bypass.length; i++) {
+      diff |= bypass.charCodeAt(i) ^ token.charCodeAt(i);
+    }
+    if (diff === 0) return { skipped: true };
+  }
+
   try {
     const body = new URLSearchParams();
     body.set('secret', secret);
