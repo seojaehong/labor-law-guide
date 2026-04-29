@@ -8,7 +8,7 @@ import type { BlogArticle } from '../../page';
 export const revalidate = 3600;
 export const dynamicParams = true;
 
-const BLOG_CATEGORIES = ['노동법', '판례분석', '뉴스해설', '실무가이드'];
+const BLOG_CATEGORIES = ['노동법', '판례분석', '뉴스해설', '뉴스브리핑', '실무가이드'];
 
 export async function generateStaticParams() {
   return BLOG_CATEGORIES.map((cat) => ({ category: cat }));

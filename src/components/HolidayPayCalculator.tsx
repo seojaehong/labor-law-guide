@@ -395,7 +395,7 @@ export default function HolidayPayCalculator() {
     return (
       <div>
         <StepHeader current={1} />
-        <h2 className="mb-1 text-xl font-bold">1단계 — 사업장 규모를 선택하세요</h2>
+        <h2 className="mb-1 text-xl font-bold text-slate-900 dark:text-slate-100">1단계 — 사업장 규모를 선택하세요</h2>
         <p className="mb-6 text-sm" style={{ color: '#64748b' }}>
           상시 근로자 수에 따라 가산수당 적용 여부가 달라집니다.
         </p>
@@ -411,11 +411,13 @@ export default function HolidayPayCalculator() {
                 setStep('holiday');
               }}
               className={`rounded-xl border-2 p-5 text-left transition-all hover:shadow-lg ${
-                siteSize === opt.key ? 'border-yellow-400 bg-yellow-50' : 'border-slate-200 hover:border-yellow-300'
+                siteSize === opt.key
+                  ? 'border-yellow-400 bg-yellow-50 dark:bg-yellow-900/30'
+                  : 'border-slate-200 bg-white hover:border-yellow-300 dark:bg-slate-800 dark:border-slate-700'
               }`}
             >
-              <div className="mb-2 text-lg font-bold">{opt.title}</div>
-              <div className="text-sm leading-relaxed" style={{ color: '#475569' }}>
+              <div className="mb-2 text-lg font-bold text-slate-900 dark:text-slate-100">{opt.title}</div>
+              <div className="text-sm leading-relaxed text-slate-600 dark:text-slate-300">
                 {opt.desc}
               </div>
             </button>
@@ -430,7 +432,7 @@ export default function HolidayPayCalculator() {
     return (
       <div>
         <StepHeader current={2} />
-        <h2 className="mb-1 text-xl font-bold">2단계 — 어떤 휴일인가요?</h2>
+        <h2 className="mb-1 text-xl font-bold text-slate-900 dark:text-slate-100">2단계 — 어떤 휴일인가요?</h2>
         <p className="mb-6 text-sm" style={{ color: '#64748b' }}>
           노동절은 모든 사업장에 적용되고, 관공서 공휴일(빨간날)은 5인 이상 사업장만 유급휴일로 적용됩니다.
         </p>
@@ -446,11 +448,13 @@ export default function HolidayPayCalculator() {
                 setStep('worker');
               }}
               className={`rounded-xl border-2 p-5 text-left transition-all hover:shadow-lg ${
-                holidayKind === opt.key ? 'border-yellow-400 bg-yellow-50' : 'border-slate-200 hover:border-yellow-300'
+                holidayKind === opt.key
+                  ? 'border-yellow-400 bg-yellow-50 dark:bg-yellow-900/30'
+                  : 'border-slate-200 bg-white hover:border-yellow-300 dark:bg-slate-800 dark:border-slate-700'
               }`}
             >
-              <div className="mb-2 text-lg font-bold">{opt.title}</div>
-              <div className="text-sm leading-relaxed" style={{ color: '#475569' }}>
+              <div className="mb-2 text-lg font-bold text-slate-900 dark:text-slate-100">{opt.title}</div>
+              <div className="text-sm leading-relaxed text-slate-600 dark:text-slate-300">
                 {opt.desc}
               </div>
             </button>
@@ -468,7 +472,7 @@ export default function HolidayPayCalculator() {
     return (
       <div>
         <StepHeader current={3} />
-        <h2 className="mb-1 text-xl font-bold">3단계 — 근로 유형을 선택하세요</h2>
+        <h2 className="mb-1 text-xl font-bold text-slate-900 dark:text-slate-100">3단계 — 근로 유형을 선택하세요</h2>
         <p className="mb-6 text-sm" style={{ color: '#64748b' }}>
           유형에 따라 통상임금 산정 방식이 다릅니다.
         </p>
@@ -485,11 +489,13 @@ export default function HolidayPayCalculator() {
                 setStep('input');
               }}
               className={`rounded-xl border-2 p-5 text-left transition-all hover:shadow-lg ${
-                workerType === opt.key ? 'border-yellow-400 bg-yellow-50' : 'border-slate-200 hover:border-yellow-300'
+                workerType === opt.key
+                  ? 'border-yellow-400 bg-yellow-50 dark:bg-yellow-900/30'
+                  : 'border-slate-200 bg-white hover:border-yellow-300 dark:bg-slate-800 dark:border-slate-700'
               }`}
             >
-              <div className="mb-2 text-lg font-bold">{opt.title}</div>
-              <div className="text-sm leading-relaxed" style={{ color: '#475569' }}>
+              <div className="mb-2 text-lg font-bold text-slate-900 dark:text-slate-100">{opt.title}</div>
+              <div className="text-sm leading-relaxed text-slate-600 dark:text-slate-300">
                 {opt.desc}
               </div>
             </button>
@@ -507,12 +513,12 @@ export default function HolidayPayCalculator() {
     return (
       <div>
         <StepHeader current={4} />
-        <h2 className="mb-1 text-xl font-bold">4단계 — 근로 정보를 입력하세요</h2>
+        <h2 className="mb-1 text-xl font-bold text-slate-900 dark:text-slate-100">4단계 — 근로 정보를 입력하세요</h2>
         <p className="mb-6 text-sm" style={{ color: '#64748b' }}>
           정확한 통상시급 산정을 위해 모든 항목을 입력해주세요.
         </p>
 
-        <div className="space-y-5 rounded-xl border-2 border-slate-200 p-5">
+        <div className="space-y-5 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-5">
           {workerType === 'monthly' && (
             <>
               <Field label="월 통상임금 항목 합계" hint="기본급 + 정기·일률·고정 지급되는 수당 (식대·직책수당 등)">

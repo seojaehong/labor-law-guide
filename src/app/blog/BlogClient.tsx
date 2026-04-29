@@ -15,6 +15,7 @@ const CATEGORIES = [
   { value: '노동법', label: '노동법' },
   { value: '판례분석', label: '판례분석' },
   { value: '뉴스해설', label: '뉴스해설' },
+  { value: '뉴스브리핑', label: '뉴스브리핑' },
   { value: '실무가이드', label: '실무가이드' },
 ];
 
@@ -43,7 +44,7 @@ function SubtypeBadge({ subtype }: { subtype: string | null }) {
   if (!subtype) return null;
   const labelMap: Record<string, { label: string; bg: string; text: string }> = {
     'deep-dive': { label: '딥다이브', bg: '#fff7ed', text: '#c2410c' },
-    'briefing': { label: '브리핑', bg: '#f0fdf4', text: '#15803d' },
+    // briefing subtype은 카테고리=뉴스브리핑으로 통합되어 사용 중단 (2026-04-29)
   };
   const info = labelMap[subtype];
   if (!info) return null;
@@ -224,13 +225,12 @@ export default function BlogClient({ initialArticles }: BlogClientProps) {
         ))}
       </div>
 
-      {/* Subtype Filter (뉴스해설 only) */}
+      {/* Subtype Filter (뉴스해설 only) — 브리핑 카테고리 분리 후 딥다이브만 노출 */}
       {activeCategory === '뉴스해설' && (
         <div className="flex gap-2 mb-6 -mt-4">
           {[
             { value: null, label: '전체' },
             { value: 'deep-dive', label: '딥다이브' },
-            { value: 'briefing', label: '브리핑' },
           ].map((sub) => (
             <button
               key={sub.value ?? 'all'}

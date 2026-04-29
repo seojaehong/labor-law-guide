@@ -26,11 +26,11 @@ export default function HolidayPayPage() {
 
       <HolidayPayCalculator />
 
-      <div className="mt-10 rounded-xl bg-slate-50 p-5 text-sm leading-relaxed">
-        <div className="mb-2 font-semibold" style={{ color: '#334155' }}>
+      <div className="mt-10 rounded-xl bg-slate-50 dark:bg-slate-800 p-5 text-sm leading-relaxed">
+        <div className="mb-2 font-semibold text-slate-700 dark:text-slate-200">
           📚 더 자세히 알아보기
         </div>
-        <ul className="space-y-1.5" style={{ color: '#475569' }}>
+        <ul className="space-y-1.5 text-slate-600 dark:text-slate-300">
           <li>
             <Link href="/blog/guide-20260428-04" className="text-yellow-700 hover:underline">
               [실무가이드] 노동절 수당 — 정규직·파트·일용직 사례별 완전 정복
