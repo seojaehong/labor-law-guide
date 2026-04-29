@@ -97,6 +97,7 @@ export default function HolidayPayCalculator() {
   // 입력 값
   const [monthlyPay, setMonthlyPay] = useState('');
   const [monthlyHours, setMonthlyHours] = useState('209');
+  const [inclusivePay, setInclusivePay] = useState(false);
   const [dailyWage, setDailyWage] = useState('');
   const [dailyHours, setDailyHours] = useState('8');
   const [paidContinuously, setPaidContinuously] = useState(true);
@@ -134,6 +135,7 @@ export default function HolidayPayCalculator() {
         monthly_hours: mh,
         worked_hours: wh,
         night_hours: nh,
+        inclusive_pay: inclusivePay,
       });
     } else if (workerType === 'daily') {
       const dw = parseFloat(dailyWage.replace(/[,\s]/g, '')) || 0;
@@ -180,7 +182,7 @@ export default function HolidayPayCalculator() {
   const buildShareText = useCallback(() => {
     if (!result) return '';
     const sizeLabel = siteSize === 'large' ? '5인 이상' : '5인 미만';
-    const holidayLabel = holidayKind === 'labor_day' ? '근로자의 날(5/1)' : '관공서 공휴일';
+    const holidayLabel = holidayKind === 'labor_day' ? '노동절(5/1)' : '관공서 공휴일';
     const typeLabel = workerType === 'monthly' ? '월급제' : workerType === 'daily' ? '일용직' : '시급제';
     const lines = [
       `[공휴일 수당 계산 결과]`,
@@ -232,7 +234,7 @@ export default function HolidayPayCalculator() {
     if (!result) return;
     const url = 'https://www.xn--o80bk8isxeinax68f.com/tools/holiday-pay';
     const sizeLabel = siteSize === 'large' ? '5인 이상' : '5인 미만';
-    const holidayLabel = holidayKind === 'labor_day' ? '근로자의 날(5/1)' : '관공서 공휴일';
+    const holidayLabel = holidayKind === 'labor_day' ? '노동절(5/1)' : '관공서 공휴일';
     const typeLabel = workerType === 'monthly' ? '월급제' : workerType === 'daily' ? '일용직' : '시급제';
     const desc =
       `[${sizeLabel} | ${holidayLabel} | ${typeLabel}]\n` +
@@ -279,7 +281,7 @@ export default function HolidayPayCalculator() {
       canvas.height = 200; // 측정 후 다시 설정
 
       const sizeLabel = siteSize === 'large' ? '5인 이상' : '5인 미만';
-      const holidayLabel = holidayKind === 'labor_day' ? '근로자의 날(5/1)' : '관공서 공휴일';
+      const holidayLabel = holidayKind === 'labor_day' ? '노동절(5/1)' : '관공서 공휴일';
       const typeLabel = workerType === 'monthly' ? '월급제' : workerType === 'daily' ? '일용직' : '시급제';
 
       const lines: { text: string; size: number; bold?: boolean; color?: string }[] = [];
@@ -430,11 +432,11 @@ export default function HolidayPayCalculator() {
         <StepHeader current={2} />
         <h2 className="mb-1 text-xl font-bold">2단계 — 어떤 휴일인가요?</h2>
         <p className="mb-6 text-sm" style={{ color: '#64748b' }}>
-          근로자의 날과 관공서 공휴일은 적용 법령이 다릅니다.
+          노동절은 모든 사업장에 적용되고, 관공서 공휴일(빨간날)은 5인 이상 사업장만 유급휴일로 적용됩니다.
         </p>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           {([
-            { key: 'labor_day', title: '근로자의 날 (5/1)', desc: '「근로자의 날 제정에 관한 법률」 — 5인 미만 포함 모든 사업장 유급휴일' },
+            { key: 'labor_day', title: '노동절 (5/1)', desc: '「노동절 제정에 관한 법률」 — 5인 미만 포함 모든 사업장 유급휴일' },
             { key: 'public_holiday', title: '관공서 공휴일', desc: '근로기준법 제55조·시행령 제30조 — 5인 이상 사업장만 유급휴일' },
           ] as const).map((opt) => (
             <button
@@ -519,6 +521,22 @@ export default function HolidayPayCalculator() {
               <Field label="월 소정근로시간" hint="주 40시간 + 주휴 8시간 = 월 209시간 (기본값)">
                 <NumInput value={monthlyHours} onChange={setMonthlyHours} placeholder="209" suffix="시간" />
               </Field>
+              <label className="flex items-start gap-3 rounded-lg bg-amber-50 p-3 text-sm">
+                <input
+                  type="checkbox"
+                  checked={inclusivePay}
+                  onChange={(e) => setInclusivePay(e.target.checked)}
+                  className="mt-0.5 h-4 w-4"
+                />
+                <span>
+                  <span className="font-semibold">포괄임금 약정</span>이 있습니다 (연장·휴일·야간 가산이 월급에 포함된다는 약정)
+                  <br />
+                  <span className="text-slate-700">
+                    체크하면 결과 화면에 별도 안내가 표시됩니다. 단, 근로시간 산정이 어려운 업종이 아닌 경우
+                    포괄임금 약정 자체가 무효일 수 있습니다 (대법원 2010다91046 등).
+                  </span>
+                </span>
+              </label>
             </>
           )}
 
@@ -612,11 +630,38 @@ export default function HolidayPayCalculator() {
             계산 결과
           </div>
           <div className="mb-2 text-sm" style={{ color: '#64748b' }}>
-            추가 지급액
+            추가 지급액 {result.already_in_monthly_pay && <span className="text-xs">(가산수당만 — 월급 외)</span>}
           </div>
-          <div className="mb-6 text-4xl font-bold" style={{ color: '#0f172a' }}>
+          <div className="mb-2 text-4xl font-bold" style={{ color: '#0f172a' }}>
             {formatNumber(result.total)}
             <span className="ml-1 text-2xl">원</span>
+          </div>
+
+          {/* 환산 총액 안내 */}
+          <div className="mb-6 rounded-lg bg-white/60 p-3 text-xs" style={{ color: '#475569' }}>
+            <div className="mb-1 font-semibold text-slate-700">노동절 8시간 임금 환산 (참고)</div>
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+              <span>
+                휴일근로 임금(1.0배):{' '}
+                <strong style={{ color: '#0f172a' }}>{formatNumber(result.regular_pay_equivalent)}원</strong>
+                {result.already_in_monthly_pay && <span className="text-slate-500"> (월급에 포함)</span>}
+                {!result.already_in_monthly_pay && workerType === 'hourly' && hourlyIncludesWeekly && (
+                  <span className="text-slate-500"> (통상시급 기준 — 주휴분 별도)</span>
+                )}
+              </span>
+              <span>+</span>
+              <span>
+                가산수당:{' '}
+                <strong style={{ color: '#0f172a' }}>
+                  {formatNumber(result.gross_holiday_pay - result.regular_pay_equivalent)}원
+                </strong>
+              </span>
+              <span>=</span>
+              <span>
+                환산 총액:{' '}
+                <strong style={{ color: '#0f172a' }}>{formatNumber(result.gross_holiday_pay)}원</strong>
+              </span>
+            </div>
           </div>
 
           <div className="mb-4 rounded-lg bg-white/70 p-4 text-sm">

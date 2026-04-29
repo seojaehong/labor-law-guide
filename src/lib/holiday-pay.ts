@@ -4,7 +4,7 @@
 //   - 근로기준법 제56조 (휴일근로수당)
 //   - 근로기준법 제55조 (유급휴일)
 //   - 근로기준법 시행령 제30조 (관공서 공휴일 → 5인 이상 사업장 유급휴일)
-//   - 근로자의 날 제정에 관한 법률 (모든 사업장 5/1 유급휴일)
+//   - 노동절 제정에 관한 법률 (모든 사업장 5/1 유급휴일)
 //   - 행정해석 임금근로시간과-956 (2026.4. — 휴일대체)
 //   - 행정해석 근기 68207-2508 (일용직 통상임금)
 //   - 대법원 2024.12.19. 전합 2020다247190 (통상임금 고정성 요건 폐기)
@@ -19,7 +19,7 @@ export type WorkerType = 'monthly' | 'daily' | 'hourly';
 // hourly: 파트 시급제
 
 export type HolidayKind = 'labor_day' | 'public_holiday';
-// labor_day: 근로자의 날 (5/1) — 모든 사업장 유급
+// labor_day: 노동절 (5/1) — 「노동절 제정에 관한 법률」에 따라 모든 사업장(5인 미만 포함) 유급
 // public_holiday: 관공서 공휴일 — 5인 이상만 유급
 
 export interface MonthlyInput {
@@ -30,6 +30,7 @@ export interface MonthlyInput {
   monthly_hours?: number;       // 월 소정근로시간 (기본 209h)
   worked_hours: number;         // 공휴일에 실제 근무한 시간
   night_hours?: number;         // 22:00~06:00 야간근로 시간
+  inclusive_pay?: boolean;      // 포괄임금 약정 (휴일·연장 가산이 월급에 포함되어 있다는 약정)
 }
 
 export interface DailyInput {
@@ -63,13 +64,16 @@ export interface BreakdownLine {
 }
 
 export interface Result {
-  total: number;
+  total: number;                // 추가 지급액 (월급제는 가산만, 시급/일용은 1.0배+가산)
+  regular_pay_equivalent: number; // 휴일근로 1.0배 환산금액 (참고: 월급제는 월급에 포함된 분)
+  gross_holiday_pay: number;    // 노동절 환산 총액 = regular_pay_equivalent + 가산수당 (참고용)
   base_hourly: number;          // 통상시급
   ordinary_hourly_displayed: number; // 입력된 시급 (참고용 — hourly만)
   breakdown: BreakdownLine[];
   notes: string[];
   legal_basis: string[];
   warning?: string;             // 5인 미만 등 주의사항
+  already_in_monthly_pay: boolean; // 1.0배가 월급에 이미 포함되어 있는지
 }
 
 const DEFAULT_MONTHLY_HOURS = 209;
@@ -127,7 +131,7 @@ export function calcHolidayPay(input: Input): Result {
   const legal: string[] = [
     '근로기준법 제56조(연장·야간 및 휴일 근로) — 휴일 8h 이내 1.5배, 8h 초과 2.0배',
     '근로기준법 제55조 + 시행령 제30조 — 관공서 공휴일은 5인 이상 사업장 유급휴일',
-    '근로자의 날 제정에 관한 법률 — 5/1은 모든 사업장 유급휴일',
+    '노동절 제정에 관한 법률 — 5/1은 모든 사업장 유급휴일',
   ];
   let warning: string | undefined;
 
@@ -153,6 +157,14 @@ export function calcHolidayPay(input: Input): Result {
     notes.push(
       '월급제는 월급에 유급휴일 임금(1.0배)이 이미 포함되어 있어, 휴일근로 시 가산분(8h 이내 0.5배 / 8h 초과 1.0배)만 추가 지급합니다.'
     );
+    if (input.inclusive_pay) {
+      notes.push(
+        '⚠️ 포괄임금 약정 표시: 휴일·야간 가산수당이 월급에 포함된다는 약정이 있으나, 근로시간 산정이 어려운 업종이 아닌 경우 ' +
+        '포괄임금 약정 자체가 무효로 보는 것이 판례 경향입니다(대법원 2010다91046 등). ' +
+        '아래 계산은 통상의 법정 가산수당 기준이며, 분쟁 시 약정의 유효성·실수령액 합산 비교가 별도 필요합니다.'
+      );
+      legal.push('대법원 2010다91046 — 포괄임금 약정 유효성 판단 기준');
+    }
   } else if (input.worker_type === 'daily') {
     const daily_hours = input.daily_hours || DEFAULT_DAILY_HOURS;
     base_hourly = ordinaryHourlyDaily(input.daily_wage, daily_hours);
@@ -178,12 +190,15 @@ export function calcHolidayPay(input: Input): Result {
       const total_warn = breakdown.reduce((s, b) => s + b.amount, 0);
       return {
         total: total_warn,
+        regular_pay_equivalent: total_warn,
+        gross_holiday_pay: total_warn,
         base_hourly,
         ordinary_hourly_displayed,
         breakdown,
         notes,
         legal_basis: legal,
         warning,
+        already_in_monthly_pay: false,
       };
     } else {
       notes.push(
@@ -222,10 +237,10 @@ export function calcHolidayPay(input: Input): Result {
     legal.push('근로기준법 제11조·시행령 제7조 — 5인 미만 사업장은 제56조(가산수당) 적용 제외');
   }
 
-  // ── 5인 미만 + 근로자의 날 케이스 ──
+  // ── 5인 미만 + 노동절 케이스 ──
   if (input.site_size === 'small' && input.holiday_kind === 'labor_day') {
     notes.push(
-      '근로자의 날(5/1)은 「근로자의 날 제정에 관한 법률」에 따라 5인 미만 사업장에도 적용되는 유급휴일입니다.'
+      '노동절(5/1)은 「노동절 제정에 관한 법률」에 따라 5인 미만 사업장에도 적용되는 유급휴일입니다.'
     );
     notes.push(
       '단, 가산수당(1.5배/2배)은 근로기준법 제56조 사항으로 5인 미만 사업장은 의무가 없습니다. ' +
@@ -285,15 +300,22 @@ export function calcHolidayPay(input: Input): Result {
   }
 
   const total = breakdown.reduce((s, b) => s + b.amount, 0);
+  const regular_pay_equivalent = Math.floor(base_hourly * input.worked_hours);
+  // 가산수당 합계 (월급제: total = 가산만 / 시급·일용: total = 1.0배 + 가산이므로 가산만 = total - regular)
+  const premium_only = already_includes_holiday_pay ? total : total - regular_pay_equivalent;
+  const gross_holiday_pay = regular_pay_equivalent + premium_only;
 
   return {
     total,
+    regular_pay_equivalent,
+    gross_holiday_pay,
     base_hourly,
     ordinary_hourly_displayed,
     breakdown,
     notes,
     legal_basis: legal,
     warning,
+    already_in_monthly_pay: already_includes_holiday_pay,
   };
 }
 

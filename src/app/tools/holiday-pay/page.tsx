@@ -16,7 +16,7 @@ export default function HolidayPayPage() {
         공휴일 수당 계산기
       </h1>
       <p className="mb-6 text-sm leading-relaxed" style={{ color: 'var(--grey-500)' }}>
-        근로자의 날(5/1)·관공서 공휴일에 일하면 얼마를 더 받을 수 있는지 계산합니다.
+        노동절(5/1)·관공서 공휴일에 일하면 얼마를 더 받을 수 있는지 계산합니다.
         사업장 규모(5인 이상/미만), 근로 유형(월급제·일용직·시급제)에 따라 정확하게 산정합니다.
         <br />
         <span className="text-xs">

@@ -38,7 +38,14 @@ const NAV_ITEMS: NavItem[] = [
     ],
   },
   { kind: 'link', href: '/ai', label: 'AI 상담' },
-  { kind: 'link', href: '/tools/severance.html', label: '계산기' },
+  {
+    kind: 'dropdown',
+    label: '계산기',
+    items: [
+      { href: '/tools/holiday-pay', label: '공휴일·노동절 수당', description: '5인 이상/미만 × 월급·일용·시급 6분기' },
+      { href: '/tools/severance.html', label: '퇴직금 계산기', description: '평균임금·통상임금 + 퇴직소득세' },
+    ],
+  },
   { kind: 'link', href: '/faq', label: 'FAQ' },
   { kind: 'link', href: '/blog', label: '블로그' },
   { kind: 'link', href: '/subsidy', label: '지원금' },
