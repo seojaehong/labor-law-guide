@@ -6,7 +6,8 @@ import { calcHolidayPay, type Result, type SiteSize, type WorkerType, type Holid
 
 type Step = 'site' | 'holiday' | 'worker' | 'input' | 'result';
 
-const KAKAO_JS_KEY = process.env.NEXT_PUBLIC_KAKAO_JS_KEY || '';
+// JavaScript Key (도메인 화이트리스트로 보호 — 노란봉투법.com / yellowenvelope.kr)
+const KAKAO_JS_KEY = process.env.NEXT_PUBLIC_KAKAO_JS_KEY || '731d7a8f615167cb1133f51db40bb515';
 
 declare global {
   interface Window {
