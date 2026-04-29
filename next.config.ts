@@ -5,6 +5,7 @@ const nextConfig: NextConfig = {
     formats: ['image/avif', 'image/webp'],
   },
   async rewrites() {
+    const DECISIONS_HOST = process.env.DECISIONS_HOST || 'https://labor-decisions-search.vercel.app';
     return [
       { source: '/sitemap_index.xml', destination: '/sitemap.xml' },
       { source: '/wp-sitemap.xml', destination: '/sitemap.xml' },
@@ -16,6 +17,15 @@ const nextConfig: NextConfig = {
       { source: '/oauth-authorization-server', destination: '/.well-known/oauth-authorization-server' },
       { source: '/oauth-protected-resource', destination: '/.well-known/oauth-protected-resource' },
       { source: '/agent-card.json', destination: '/.well-known/agent-card.json' },
+      // labor-decisions-search 라우트 메인 도메인 프록시 (#45)
+      { source: '/sanction', destination: `${DECISIONS_HOST}/sanction` },
+      { source: '/sanction/:path*', destination: `${DECISIONS_HOST}/sanction/:path*` },
+      { source: '/search', destination: `${DECISIONS_HOST}/search` },
+      { source: '/search/:path*', destination: `${DECISIONS_HOST}/search/:path*` },
+      { source: '/api/sanction', destination: `${DECISIONS_HOST}/api/sanction` },
+      { source: '/api/sanction/:path*', destination: `${DECISIONS_HOST}/api/sanction/:path*` },
+      { source: '/api/search', destination: `${DECISIONS_HOST}/api/search` },
+      { source: '/api/search/:path*', destination: `${DECISIONS_HOST}/api/search/:path*` },
     ];
   },
   async headers() {
