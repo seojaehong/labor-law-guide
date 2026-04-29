@@ -45,7 +45,7 @@ function StepHeader({ current }: { current: number }) {
             style={
               i + 1 === current
                 ? { fontWeight: 600, color: 'var(--color-text-primary)' }
-                : { color: 'var(--color-text-tertiary)' }
+                : { color: 'var(--color-text-secondary)', fontWeight: 500 }
             }
           >
             {label}
@@ -311,21 +311,21 @@ export default function HolidayPayCalculator() {
       const typeLabel = workerType === 'monthly' ? '월급제' : workerType === 'daily' ? '일용직' : '시급제';
 
       const lines: { text: string; size: number; bold?: boolean; color?: string }[] = [];
-      lines.push({ text: '공휴일 수당 계산 결과', size: 28, bold: true, color: '#0f172a' });
-      lines.push({ text: `${sizeLabel} | ${holidayLabel} | ${typeLabel}`, size: 16, color: '#64748b' });
-      lines.push({ text: '', size: 8 });
-      lines.push({ text: `통상시급  ${formatNumber(result.base_hourly)}원`, size: 18, color: '#475569' });
-      lines.push({ text: `휴일 근로  ${workedHours}시간` + (parseFloat(nightHours) > 0 ? `  (야간 ${nightHours}h)` : ''), size: 18, color: '#475569' });
-      lines.push({ text: '', size: 16 });
-      lines.push({ text: '💰 추가 지급액', size: 16, color: '#92400e' });
-      lines.push({ text: `${formatNumber(result.total)}원`, size: 40, bold: true, color: '#0f172a' });
-      lines.push({ text: '', size: 16 });
+      lines.push({ text: '공휴일 수당 계산 결과', size: 30, bold: true, color: '#0f172a' });
+      lines.push({ text: `${sizeLabel}  ·  ${holidayLabel}  ·  ${typeLabel}`, size: 16, color: '#475569' });
+      lines.push({ text: '', size: 10 });
+      lines.push({ text: `통상시급  ${formatNumber(result.base_hourly)}원`, size: 18, bold: true, color: '#1e293b' });
+      lines.push({ text: `휴일 근로  ${workedHours}시간` + (parseFloat(nightHours) > 0 ? `  (야간 ${nightHours}h 포함)` : ''), size: 18, color: '#334155' });
+      lines.push({ text: '', size: 18 });
+      lines.push({ text: '추가 지급액', size: 18, bold: true, color: '#1e293b' });
+      lines.push({ text: `${formatNumber(result.total)}원`, size: 44, bold: true, color: '#0f172a' });
+      lines.push({ text: '', size: 18 });
       for (const b of result.breakdown) {
-        lines.push({ text: `▸ ${b.label}`, size: 14, color: '#334155' });
-        lines.push({ text: `   ${formatNumber(b.amount)}원`, size: 16, bold: true, color: '#0f172a' });
+        lines.push({ text: `· ${b.label}`, size: 14, color: '#475569' });
+        lines.push({ text: `   ${formatNumber(b.amount)}원`, size: 18, bold: true, color: '#0f172a' });
       }
-      lines.push({ text: '', size: 16 });
-      lines.push({ text: '노란봉투법.com/tools/holiday-pay', size: 14, color: '#94a3b8' });
+      lines.push({ text: '', size: 18 });
+      lines.push({ text: '노란봉투법.com/tools/holiday-pay', size: 14, bold: true, color: '#1957c2' });
 
       // 높이 계산
       let totalH = padding * 2;
@@ -443,7 +443,7 @@ export default function HolidayPayCalculator() {
               }}
             >
               <div className="mb-2 text-lg font-bold" style={{ color: 'var(--color-text-primary)' }}>{opt.title}</div>
-              <div className="text-sm leading-relaxed" style={{ color: 'var(--color-accent)' }}>
+              <div className="text-sm leading-relaxed" style={{ color: 'var(--blue-700, #1957c2)' }}>
                 {opt.desc}
               </div>
             </button>
