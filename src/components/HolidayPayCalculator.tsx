@@ -22,17 +22,29 @@ declare global {
 
 function StepHeader({ current }: { current: number }) {
   return (
-    <div className="mb-6 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs" style={{ color: '#64748b' }}>
+    <div className="mb-6 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-500 dark:text-slate-400">
       {['사업장', '휴일', '유형', '입력', '결과'].map((label, i) => (
         <div key={label} className="flex items-center gap-2">
           <span
             className={`flex h-6 w-6 items-center justify-center rounded-full font-semibold ${
-              i + 1 < current ? 'bg-yellow-400 text-white' : i + 1 === current ? 'bg-slate-900 text-white' : 'bg-slate-200'
+              i + 1 < current
+                ? 'bg-yellow-400 text-white'
+                : i + 1 === current
+                ? 'bg-slate-900 text-white dark:bg-yellow-300 dark:text-slate-900'
+                : 'bg-slate-200 text-slate-500 dark:bg-slate-700 dark:text-slate-400'
             }`}
           >
             {i + 1}
           </span>
-          <span className={i + 1 === current ? 'font-semibold text-slate-900' : ''}>{label}</span>
+          <span
+            className={
+              i + 1 === current
+                ? 'font-semibold text-slate-900 dark:text-slate-100'
+                : 'text-slate-500 dark:text-slate-400'
+            }
+          >
+            {label}
+          </span>
           {i < 4 && <ChevronRight className="h-3 w-3" />}
         </div>
       ))}
