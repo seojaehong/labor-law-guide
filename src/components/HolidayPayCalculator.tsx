@@ -442,7 +442,7 @@ export default function HolidayPayCalculator() {
               }}
             >
               <div className="mb-2 text-lg font-bold" style={{ color: 'var(--color-text-primary)' }}>{opt.title}</div>
-              <div className="text-sm leading-relaxed" style={{ color: 'var(--color-text-secondary)' }}>
+              <div className="text-sm leading-relaxed" style={{ color: 'var(--color-accent)' }}>
                 {opt.desc}
               </div>
             </button>
