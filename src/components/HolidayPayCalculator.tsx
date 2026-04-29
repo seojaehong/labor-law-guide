@@ -22,25 +22,29 @@ declare global {
 
 function StepHeader({ current }: { current: number }) {
   return (
-    <div className="mb-6 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-500 dark:text-slate-400">
+    <div
+      className="mb-6 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs"
+      style={{ color: 'var(--color-text-tertiary)' }}
+    >
       {['사업장', '휴일', '유형', '입력', '결과'].map((label, i) => (
         <div key={label} className="flex items-center gap-2">
           <span
-            className={`flex h-6 w-6 items-center justify-center rounded-full font-semibold ${
+            className="flex h-6 w-6 items-center justify-center rounded-full font-semibold"
+            style={
               i + 1 < current
-                ? 'bg-yellow-400 text-white'
+                ? { backgroundColor: '#facc15', color: '#fff' }
                 : i + 1 === current
-                ? 'bg-slate-900 text-white dark:bg-yellow-300 dark:text-slate-900'
-                : 'bg-slate-200 text-slate-500 dark:bg-slate-700 dark:text-slate-400'
-            }`}
+                ? { backgroundColor: 'var(--color-text-primary)', color: 'var(--color-bg-primary)' }
+                : { backgroundColor: 'var(--color-border)', color: 'var(--color-text-tertiary)' }
+            }
           >
             {i + 1}
           </span>
           <span
-            className={
+            style={
               i + 1 === current
-                ? 'font-semibold text-slate-900 dark:text-slate-100'
-                : 'text-slate-500 dark:text-slate-400'
+                ? { fontWeight: 600, color: 'var(--color-text-primary)' }
+                : { color: 'var(--color-text-tertiary)' }
             }
           >
             {label}
@@ -55,11 +59,11 @@ function StepHeader({ current }: { current: number }) {
 function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
   return (
     <div>
-      <label className="mb-1 block text-sm font-semibold" style={{ color: '#334155' }}>
+      <label className="mb-1 block text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>
         {label}
       </label>
       {hint && (
-        <div className="mb-2 text-xs" style={{ color: '#64748b' }}>
+        <div className="mb-2 text-xs" style={{ color: 'var(--color-text-secondary)' }}>
           {hint}
         </div>
       )}
@@ -93,9 +97,18 @@ function NumInput({
         value={formatted}
         onChange={(e) => onChange(e.target.value.replace(/[^\d.,]/g, ''))}
         placeholder={placeholder}
-        className="w-full rounded-lg border border-slate-300 px-3 py-2 text-base focus:border-yellow-400 focus:outline-none focus:ring-2 focus:ring-yellow-200"
+        className="w-full rounded-lg border px-3 py-2 text-base focus:border-yellow-400 focus:outline-none focus:ring-2 focus:ring-yellow-200"
+        style={{
+          borderColor: 'var(--color-border)',
+          backgroundColor: 'var(--color-bg-surface)',
+          color: 'var(--color-text-primary)',
+        }}
       />
-      {suffix && <span className="text-sm text-slate-600">{suffix}</span>}
+      {suffix && (
+        <span className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
+          {suffix}
+        </span>
+      )}
     </div>
   );
 }
@@ -407,8 +420,8 @@ export default function HolidayPayCalculator() {
     return (
       <div>
         <StepHeader current={1} />
-        <h2 className="mb-1 text-xl font-bold text-slate-900 dark:text-slate-100">1단계 — 사업장 규모를 선택하세요</h2>
-        <p className="mb-6 text-sm" style={{ color: '#64748b' }}>
+        <h2 className="mb-1 text-xl font-bold" style={{ color: "var(--color-text-primary)" }}>1단계 — 사업장 규모를 선택하세요</h2>
+        <p className="mb-6 text-sm" style={{ color: 'var(--color-text-secondary)' }}>
           상시 근로자 수에 따라 가산수당 적용 여부가 달라집니다.
         </p>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -422,14 +435,14 @@ export default function HolidayPayCalculator() {
                 setSiteSize(opt.key);
                 setStep('holiday');
               }}
-              className={`rounded-xl border-2 p-5 text-left transition-all hover:shadow-lg ${
-                siteSize === opt.key
-                  ? 'border-yellow-400 bg-yellow-50 dark:bg-yellow-900/30'
-                  : 'border-slate-200 bg-white hover:border-yellow-300 dark:bg-slate-800 dark:border-slate-700'
-              }`}
+              className="rounded-xl border-2 p-5 text-left transition-all hover:shadow-lg"
+              style={{
+                borderColor: siteSize === opt.key ? '#facc15' : 'var(--color-border)',
+                backgroundColor: siteSize === opt.key ? 'rgba(250, 204, 21, 0.12)' : 'var(--color-bg-surface)',
+              }}
             >
-              <div className="mb-2 text-lg font-bold text-slate-900 dark:text-slate-100">{opt.title}</div>
-              <div className="text-sm leading-relaxed text-slate-600 dark:text-slate-300">
+              <div className="mb-2 text-lg font-bold" style={{ color: 'var(--color-text-primary)' }}>{opt.title}</div>
+              <div className="text-sm leading-relaxed" style={{ color: 'var(--color-text-secondary)' }}>
                 {opt.desc}
               </div>
             </button>
@@ -444,8 +457,8 @@ export default function HolidayPayCalculator() {
     return (
       <div>
         <StepHeader current={2} />
-        <h2 className="mb-1 text-xl font-bold text-slate-900 dark:text-slate-100">2단계 — 어떤 휴일인가요?</h2>
-        <p className="mb-6 text-sm" style={{ color: '#64748b' }}>
+        <h2 className="mb-1 text-xl font-bold" style={{ color: "var(--color-text-primary)" }}>2단계 — 어떤 휴일인가요?</h2>
+        <p className="mb-6 text-sm" style={{ color: 'var(--color-text-secondary)' }}>
           노동절은 모든 사업장에 적용되고, 관공서 공휴일(빨간날)은 5인 이상 사업장만 유급휴일로 적용됩니다.
         </p>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -459,13 +472,13 @@ export default function HolidayPayCalculator() {
                 setHolidayKind(opt.key);
                 setStep('worker');
               }}
-              className={`rounded-xl border-2 p-5 text-left transition-all hover:shadow-lg ${
-                holidayKind === opt.key
-                  ? 'border-yellow-400 bg-yellow-50 dark:bg-yellow-900/30'
-                  : 'border-slate-200 bg-white hover:border-yellow-300 dark:bg-slate-800 dark:border-slate-700'
-              }`}
+              className="rounded-xl border-2 p-5 text-left transition-all hover:shadow-lg"
+              style={{
+                borderColor: holidayKind === opt.key ? '#facc15' : 'var(--color-border)',
+                backgroundColor: holidayKind === opt.key ? 'rgba(250, 204, 21, 0.12)' : 'var(--color-bg-surface)',
+              }}
             >
-              <div className="mb-2 text-lg font-bold text-slate-900 dark:text-slate-100">{opt.title}</div>
+              <div className="mb-2 text-lg font-bold" style={{ color: 'var(--color-text-primary)' }}>{opt.title}</div>
               <div className="text-sm leading-relaxed text-slate-600 dark:text-slate-300">
                 {opt.desc}
               </div>
@@ -484,8 +497,8 @@ export default function HolidayPayCalculator() {
     return (
       <div>
         <StepHeader current={3} />
-        <h2 className="mb-1 text-xl font-bold text-slate-900 dark:text-slate-100">3단계 — 근로 유형을 선택하세요</h2>
-        <p className="mb-6 text-sm" style={{ color: '#64748b' }}>
+        <h2 className="mb-1 text-xl font-bold" style={{ color: "var(--color-text-primary)" }}>3단계 — 근로 유형을 선택하세요</h2>
+        <p className="mb-6 text-sm" style={{ color: 'var(--color-text-secondary)' }}>
           유형에 따라 통상임금 산정 방식이 다릅니다.
         </p>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
@@ -500,13 +513,13 @@ export default function HolidayPayCalculator() {
                 setWorkerType(opt.key);
                 setStep('input');
               }}
-              className={`rounded-xl border-2 p-5 text-left transition-all hover:shadow-lg ${
-                workerType === opt.key
-                  ? 'border-yellow-400 bg-yellow-50 dark:bg-yellow-900/30'
-                  : 'border-slate-200 bg-white hover:border-yellow-300 dark:bg-slate-800 dark:border-slate-700'
-              }`}
+              className="rounded-xl border-2 p-5 text-left transition-all hover:shadow-lg"
+              style={{
+                borderColor: workerType === opt.key ? '#facc15' : 'var(--color-border)',
+                backgroundColor: workerType === opt.key ? 'rgba(250, 204, 21, 0.12)' : 'var(--color-bg-surface)',
+              }}
             >
-              <div className="mb-2 text-lg font-bold text-slate-900 dark:text-slate-100">{opt.title}</div>
+              <div className="mb-2 text-lg font-bold" style={{ color: 'var(--color-text-primary)' }}>{opt.title}</div>
               <div className="text-sm leading-relaxed text-slate-600 dark:text-slate-300">
                 {opt.desc}
               </div>
@@ -525,12 +538,15 @@ export default function HolidayPayCalculator() {
     return (
       <div>
         <StepHeader current={4} />
-        <h2 className="mb-1 text-xl font-bold text-slate-900 dark:text-slate-100">4단계 — 근로 정보를 입력하세요</h2>
-        <p className="mb-6 text-sm" style={{ color: '#64748b' }}>
+        <h2 className="mb-1 text-xl font-bold" style={{ color: "var(--color-text-primary)" }}>4단계 — 근로 정보를 입력하세요</h2>
+        <p className="mb-6 text-sm" style={{ color: 'var(--color-text-secondary)' }}>
           정확한 통상시급 산정을 위해 모든 항목을 입력해주세요.
         </p>
 
-        <div className="space-y-5 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-5">
+        <div
+          className="space-y-5 rounded-xl border-2 p-5"
+          style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }}
+        >
           {workerType === 'monthly' && (
             <>
               <Field label="월 통상임금 항목 합계" hint="기본급 + 정기·일률·고정 지급되는 수당 (식대·직책수당 등)">
@@ -539,7 +555,7 @@ export default function HolidayPayCalculator() {
               <Field label="월 소정근로시간" hint="주 40시간 + 주휴 8시간 = 월 209시간 (기본값)">
                 <NumInput value={monthlyHours} onChange={setMonthlyHours} placeholder="209" suffix="시간" />
               </Field>
-              <label className="flex items-start gap-3 rounded-lg bg-amber-50 p-3 text-sm">
+              <label className="flex items-start gap-3 rounded-lg p-3 text-sm" style={{ backgroundColor: "rgba(250, 204, 21, 0.10)" }}>
                 <input
                   type="checkbox"
                   checked={inclusivePay}
@@ -566,7 +582,7 @@ export default function HolidayPayCalculator() {
               <Field label="1일 소정근로시간" hint="일반적으로 8시간">
                 <NumInput value={dailyHours} onChange={setDailyHours} placeholder="8" suffix="시간" />
               </Field>
-              <label className="flex items-start gap-3 rounded-lg bg-slate-50 p-3 text-sm">
+              <label className="flex items-start gap-3 rounded-lg p-3 text-sm" style={{ backgroundColor: "var(--color-bg-elevated)" }}>
                 <input
                   type="checkbox"
                   checked={paidContinuously}
@@ -592,7 +608,7 @@ export default function HolidayPayCalculator() {
               <Field label="주 소정근로시간" hint="주휴수당 발생 여부 판단 (15시간 이상 발생)">
                 <NumInput value={weeklyHours} onChange={setWeeklyHours} placeholder="40" suffix="시간" />
               </Field>
-              <label className="flex items-start gap-3 rounded-lg bg-amber-50 p-3 text-sm">
+              <label className="flex items-start gap-3 rounded-lg p-3 text-sm" style={{ backgroundColor: "rgba(250, 204, 21, 0.10)" }}>
                 <input
                   type="checkbox"
                   checked={hourlyIncludesWeekly}
@@ -755,14 +771,24 @@ export default function HolidayPayCalculator() {
           </button>
           <button
             onClick={handleDownloadImage}
-            className="flex items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-3 font-semibold text-slate-900 hover:bg-slate-50"
+            className="flex items-center justify-center gap-2 rounded-lg border px-4 py-3 font-semibold hover:opacity-90"
+            style={{
+              borderColor: 'var(--color-border)',
+              backgroundColor: 'var(--color-bg-surface)',
+              color: 'var(--color-text-primary)',
+            }}
           >
             <Download className="h-4 w-4" />
             이미지 저장
           </button>
           <button
             onClick={handleCopy}
-            className="flex items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-3 font-semibold text-slate-900 hover:bg-slate-50"
+            className="flex items-center justify-center gap-2 rounded-lg border px-4 py-3 font-semibold hover:opacity-90"
+            style={{
+              borderColor: 'var(--color-border)',
+              backgroundColor: 'var(--color-bg-surface)',
+              color: 'var(--color-text-primary)',
+            }}
           >
             {copied ? <Check className="h-4 w-4 text-emerald-600" /> : <Copy className="h-4 w-4" />}
             {copied ? '복사됨' : '결과 복사'}
