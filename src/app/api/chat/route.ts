@@ -309,7 +309,7 @@ export async function POST(req: NextRequest) {
             if (typeof a.annual_bonus === 'number' && a.annual_bonus > 0)
               params.set('bonusTotal', String(a.annual_bonus));
             params.set('run', '1');
-            const link = `\n\n👉 [퇴직금 계산기에서 직접 확인 (퇴직소득세 포함)](https://노란봉투법.com/tools/severance.html?${params.toString()})`;
+            const link = `\n\n👉 [퇴직금 계산기에서 직접 확인 (퇴직소득세 포함)](https://yellowenvelope.kr/tools/severance.html?${params.toString()})`;
             controller.enqueue(encoder.encode(`data: ${JSON.stringify({ content: link })}\n\n`));
           }
 

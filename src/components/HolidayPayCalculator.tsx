@@ -220,7 +220,7 @@ export default function HolidayPayCalculator() {
       ``,
       ...result.breakdown.map((b) => `  - ${b.label}: ${formatNumber(b.amount)}원`),
       ``,
-      `🔍 자세한 계산: 노란봉투법.com/tools/holiday-pay`,
+      `🔍 자세한 계산: yellowenvelope.kr/tools/holiday-pay`,
     ];
     return lines.join('\n');
   }, [result, siteSize, holidayKind, workerType, workedHours, nightHours]);
@@ -239,7 +239,7 @@ export default function HolidayPayCalculator() {
   const handleNativeShare = async () => {
     if (!result) return;
     const text = buildShareText();
-    const url = 'https://www.xn--o80bk8isxeinax68f.com/tools/holiday-pay';
+    const url = 'https://yellowenvelope.kr/tools/holiday-pay';
     if (typeof navigator !== 'undefined' && 'share' in navigator) {
       try {
         await navigator.share({
@@ -258,7 +258,7 @@ export default function HolidayPayCalculator() {
 
   const handleKakaoShare = () => {
     if (!result) return;
-    const url = 'https://www.xn--o80bk8isxeinax68f.com/tools/holiday-pay';
+    const url = 'https://yellowenvelope.kr/tools/holiday-pay';
     const sizeLabel = siteSize === 'large' ? '5인 이상' : '5인 미만';
     const holidayLabel = holidayKind === 'labor_day' ? '노동절(5/1)' : '관공서 공휴일';
     const typeLabel = workerType === 'monthly' ? '월급제' : workerType === 'daily' ? '일용직' : '시급제';
@@ -273,7 +273,7 @@ export default function HolidayPayCalculator() {
           content: {
             title: '공휴일 수당 계산 결과',
             description: desc,
-            imageUrl: 'https://www.xn--o80bk8isxeinax68f.com/opengraph-image',
+            imageUrl: 'https://yellowenvelope.kr/opengraph-image',
             link: { mobileWebUrl: url, webUrl: url },
           },
           buttons: [
@@ -325,7 +325,7 @@ export default function HolidayPayCalculator() {
         lines.push({ text: `   ${formatNumber(b.amount)}원`, size: 18, bold: true, color: '#0f172a' });
       }
       lines.push({ text: '', size: 18 });
-      lines.push({ text: '노란봉투법.com/tools/holiday-pay', size: 14, bold: true, color: '#1957c2' });
+      lines.push({ text: 'yellowenvelope.kr/tools/holiday-pay', size: 14, bold: true, color: '#1957c2' });
 
       // 높이 계산
       let totalH = padding * 2;

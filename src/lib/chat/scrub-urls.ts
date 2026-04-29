@@ -1,5 +1,6 @@
 // 화이트리스트: 정확한 매칭 (path 포함). winhr.co.kr는 챗봇 응답에서 완전 차단.
 const STRICT_WHITELIST: Array<RegExp> = [
+  /^https?:\/\/(www\.)?yellowenvelope\.kr(\/[^\s)]*)?$/,
   /^https?:\/\/(www\.)?노란봉투법\.com(\/[^\s)]*)?$/,
   /^https?:\/\/(www\.)?xn--o80bk8isxeinax68f\.com(\/[^\s)]*)?$/,
   /^https?:\/\/labor-decisions-search\.vercel\.app(\/[^\s)]*)?$/,
