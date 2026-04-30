@@ -673,7 +673,7 @@ export default function HolidayPayCalculator() {
           </div>
 
           {/* 환산 총액 안내 */}
-          <div className="mb-6 rounded-lg bg-white/60 p-3 text-xs" style={{ color: '#475569' }}>
+          <div className="mb-6 rounded-lg p-3 text-xs" style={{ color: '#475569', backgroundColor: 'color-mix(in srgb, var(--color-bg-surface) 60%, transparent)' }}>
             <div className="mb-1 font-semibold text-slate-700">노동절 8시간 임금 환산 (참고)</div>
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
               <span>
@@ -699,7 +699,7 @@ export default function HolidayPayCalculator() {
             </div>
           </div>
 
-          <div className="mb-4 rounded-lg bg-white/70 p-4 text-sm">
+          <div className="mb-4 rounded-lg p-4 text-sm" style={{ backgroundColor: 'color-mix(in srgb, var(--color-bg-surface) 70%, transparent)' }}>
             <div className="mb-2 font-semibold" style={{ color: '#334155' }}>
               통상시급 {formatNumber(result.base_hourly)}원
             </div>
@@ -730,7 +730,7 @@ export default function HolidayPayCalculator() {
           )}
 
           {result.notes.length > 0 && (
-            <div className="mb-3 rounded-lg bg-white/50 p-3 text-xs" style={{ color: '#475569' }}>
+            <div className="mb-3 rounded-lg p-3 text-xs" style={{ color: '#475569', backgroundColor: 'color-mix(in srgb, var(--color-bg-surface) 50%, transparent)' }}>
               <div className="mb-1 flex items-center gap-1 font-semibold">
                 <Info className="h-3 w-3" />
                 설명
