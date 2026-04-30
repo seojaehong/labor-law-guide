@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import Link from 'next/link';
-import { BookOpen, Search, ChevronLeft, ChevronRight, Calendar, Tag } from 'lucide-react';
+import { BookOpen, Search, ChevronLeft, ChevronRight, Calendar, Tag, LayoutGrid, List } from 'lucide-react';
 import type { BlogArticle } from './page';
 import { getCategoryColor } from '@/lib/category-colors';
 
@@ -104,6 +104,40 @@ function ArticleCard({ article }: { article: BlogArticle }) {
   );
 }
 
+function ArticleRow({ article }: { article: BlogArticle }) {
+  return (
+    <Link
+      href={`/blog/${article.slug}`}
+      className="grid grid-cols-[100px_minmax(0,1fr)_120px] sm:grid-cols-[110px_120px_minmax(0,1fr)_140px] items-center gap-3 border-b py-3 px-2 transition-colors hover:bg-[var(--grey-50)]"
+      style={{ borderColor: 'var(--color-border)' }}
+    >
+      <span className="text-[12px] tabular-nums" style={{ color: 'var(--color-text-tertiary)' }}>
+        {formatDate(article.published_at)}
+      </span>
+      <div className="hidden sm:block">
+        <CategoryBadge category={article.category} />
+      </div>
+      <div className="min-w-0">
+        <h3 className="truncate text-[14px] font-semibold" style={{ color: 'var(--color-text-primary)' }}>
+          {article.title}
+        </h3>
+        {article.subtitle && (
+          <p className="truncate text-[12px]" style={{ color: 'var(--color-text-secondary)' }}>
+            {article.subtitle}
+          </p>
+        )}
+      </div>
+      <div className="hidden sm:flex flex-wrap gap-1 justify-end overflow-hidden">
+        {article.tags?.slice(0, 2).map((tag) => (
+          <span key={tag} className="text-[11px] truncate" style={{ color: 'var(--color-text-tertiary)' }}>
+            #{tag}
+          </span>
+        ))}
+      </div>
+    </Link>
+  );
+}
+
 function SkeletonCard() {
   return (
     <div className="rounded-2xl border p-6 animate-pulse" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }}>
@@ -123,6 +157,17 @@ export default function BlogClient({ initialArticles }: BlogClientProps) {
   const [activeSubtype, setActiveSubtype] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [page, setPage] = useState(1);
+  const [viewMode, setViewMode] = useState<'card' | 'list'>('card');
+
+  useEffect(() => {
+    const saved = typeof window !== 'undefined' ? window.localStorage.getItem('blog_view_mode') : null;
+    if (saved === 'list' || saved === 'card') setViewMode(saved);
+  }, []);
+
+  const handleViewMode = (mode: 'card' | 'list') => {
+    setViewMode(mode);
+    if (typeof window !== 'undefined') window.localStorage.setItem('blog_view_mode', mode);
+  };
 
   const filtered = useMemo(() => {
     let result = initialArticles;
@@ -248,7 +293,44 @@ export default function BlogClient({ initialArticles }: BlogClientProps) {
         </div>
       )}
 
-      {/* Article Grid */}
+      {/* View mode toggle (카드 ↔ 표) + 결과 카운트 */}
+      {filtered.length > 0 && (
+        <div className="mb-4 flex items-center justify-between">
+          <span className="text-[13px]" style={{ color: 'var(--color-text-tertiary)' }}>
+            총 {filtered.length}편
+          </span>
+          <div className="inline-flex rounded-lg border overflow-hidden" style={{ borderColor: 'var(--color-border)' }}>
+            <button
+              onClick={() => handleViewMode('card')}
+              aria-label="카드 보기"
+              className="flex items-center gap-1 px-3 py-1.5 text-[12px] font-medium transition-colors"
+              style={
+                viewMode === 'card'
+                  ? { backgroundColor: 'var(--color-accent)', color: '#fff' }
+                  : { backgroundColor: 'var(--color-bg-surface)', color: 'var(--grey-600)' }
+              }
+            >
+              <LayoutGrid size={13} />
+              카드
+            </button>
+            <button
+              onClick={() => handleViewMode('list')}
+              aria-label="표 보기"
+              className="flex items-center gap-1 px-3 py-1.5 text-[12px] font-medium transition-colors border-l"
+              style={
+                viewMode === 'list'
+                  ? { backgroundColor: 'var(--color-accent)', color: '#fff', borderColor: 'var(--color-accent)' }
+                  : { backgroundColor: 'var(--color-bg-surface)', color: 'var(--grey-600)', borderColor: 'var(--color-border)' }
+              }
+            >
+              <List size={13} />
+              표
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Article Grid / List */}
       {initialArticles.length === 0 ? (
         <div className="py-20 text-center" style={{ color: 'var(--color-text-tertiary)' }}>
           <p className="text-lg font-medium mb-1">등록된 글이 없습니다</p>
@@ -258,10 +340,23 @@ export default function BlogClient({ initialArticles }: BlogClientProps) {
         <div className="py-20 text-center" style={{ color: 'var(--color-text-tertiary)' }}>
           검색 결과가 없습니다.
         </div>
-      ) : (
+      ) : viewMode === 'card' ? (
         <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
           {paginated.map((article) => (
             <ArticleCard key={article.slug} article={article} />
+          ))}
+        </div>
+      ) : (
+        <div className="rounded-xl border overflow-hidden" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }}>
+          <div className="hidden sm:grid grid-cols-[110px_120px_minmax(0,1fr)_140px] items-center gap-3 border-b px-2 py-2 text-[11px] font-semibold uppercase tracking-wide"
+               style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-tertiary)', backgroundColor: 'var(--grey-50)' }}>
+            <span>날짜</span>
+            <span>카테고리</span>
+            <span>제목</span>
+            <span className="text-right">태그</span>
+          </div>
+          {paginated.map((article) => (
+            <ArticleRow key={article.slug} article={article} />
           ))}
         </div>
       )}
