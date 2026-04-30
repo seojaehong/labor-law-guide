@@ -10,7 +10,7 @@ interface SubscribeFormProps {
 }
 
 const CONSENT_TEXT =
-  '뉴스레터 수신에 동의합니다. 노란봉투법 가이드는 노동법 신규 콘텐츠와 행정해석 변경 알림을 주 1~2회 보내드립니다. 언제든 1-click으로 구독 해지할 수 있습니다.';
+  '노란봉투법 가이드의 노동법 인사이트(주 1~2회 발송) 수신에 동의합니다. 메일 하단의 해지 버튼을 한 번만 눌러도 즉시 해지돼요.';
 
 export default function SubscribeForm({ source, sourceSlug, variant = 'full' }: SubscribeFormProps) {
   const [email, setEmail] = useState('');
@@ -25,7 +25,7 @@ export default function SubscribeForm({ source, sourceSlug, variant = 'full' }: 
     setError('');
 
     if (!consent) {
-      setError('수신 동의에 체크해주세요 (정통망법 의무).');
+      setError('수신 동의에 체크해주셔야 신청할 수 있어요.');
       return;
     }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
@@ -69,10 +69,10 @@ export default function SubscribeForm({ source, sourceSlug, variant = 'full' }: 
         <Check size={20} style={{ color: '#16a34a', marginTop: 2 }} />
         <div>
           <p className="text-[14px] font-semibold" style={{ color: 'var(--color-text-primary)' }}>
-            확인 메일을 보냈어요
+            구독 신청 완료, 감사합니다 🙏
           </p>
           <p className="mt-1 text-[12px]" style={{ color: 'var(--color-text-secondary)' }}>
-            받은 편지함에서 확인 링크를 눌러주세요. 정통망법에 따라 double opt-in으로 처리됩니다.
+            첫 메일은 5월 둘째 주부터 보내드릴 예정이에요. 받은편지함이나 스팸함에서 확인해주세요.
           </p>
         </div>
       </div>
@@ -124,9 +124,7 @@ export default function SubscribeForm({ source, sourceSlug, variant = 'full' }: 
           onChange={(e) => setConsent(e.target.checked)}
           className="mt-0.5 cursor-pointer"
         />
-        <span>
-          [필수] {CONSENT_TEXT}
-        </span>
+        <span>{CONSENT_TEXT}</span>
       </label>
 
       {error && (

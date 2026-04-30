@@ -70,7 +70,7 @@ export async function POST(req: Request) {
     // TODO (5/3 sprint): Resend로 confirm_token 포함 인증 메일 발송
     return NextResponse.json({
       success: true,
-      message: '확인 메일을 보냈습니다. (현재 발송 시스템 준비 중 — 실제 메일은 5/3 이후 도착)',
+      message: '구독 신청을 받았어요. 첫 메일은 5월 둘째 주부터 보내드립니다.',
     });
   }
 
