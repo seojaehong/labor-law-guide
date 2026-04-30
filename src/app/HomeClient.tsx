@@ -89,6 +89,41 @@ export default function HomeClient({ totalCases, totalAdmin, totalNews, latestBl
     },
   ];
 
+  const moreFeatures = [
+    {
+      icon: MessageSquare,
+      title: 'AI 노동법 상담',
+      description: '24시간 즉시 답변. 노란봉투법·해고·임금체불·직장내괴롭힘 등 노동법 전반에 대한 AI 챗봇 상담.',
+      href: '/ai',
+      color: '#0ea5e9',
+      bg: '#f0f9ff',
+    },
+    {
+      icon: BookOpen,
+      title: '노동·HR 딥다이브 블로그',
+      description: '판례분석·뉴스해설·실무가이드. 10년차 노무사가 매일 업데이트하는 현장 콘텐츠.',
+      href: '/blog',
+      color: '#0284c7',
+      bg: '#e0f2fe',
+    },
+    {
+      icon: Calendar,
+      title: '계산기 도구',
+      description: '퇴직금·연차수당·통상임금 등 즉시 계산. 본문에 적용 근거 법령 함께 표시.',
+      href: '/tools/severance.html',
+      color: '#16a34a',
+      bg: '#f0fdf4',
+    },
+    {
+      icon: Shield,
+      title: '고용·창업 지원금',
+      description: '청년·중소기업·신중년 등 정부 고용지원금 가이드. 신청 자격·서류·기한 한번에 정리.',
+      href: '/subsidy',
+      color: '#ca8a04',
+      bg: '#fefce8',
+    },
+  ];
+
   return (
     <div>
       <section className="relative overflow-hidden px-5 py-14 text-center sm:py-20 md:py-32">
@@ -176,6 +211,32 @@ export default function HomeClient({ totalCases, totalAdmin, totalNews, latestBl
               </span>
             </Link>
           ))}
+        </div>
+      </section>
+
+      {/* 부가 도구 — 노란봉투법 외 */}
+      <section className="px-5 pb-16 sm:pb-20">
+        <div className="mx-auto max-w-[1100px]">
+          <div className="mb-6 text-center">
+            <p className="text-[13px] font-semibold tracking-widest uppercase mb-2" style={{ color: 'var(--color-accent)' }}>MORE TOOLS</p>
+            <h2 className="text-xl sm:text-2xl font-bold tracking-tight" style={{ color: 'var(--grey-900)' }}>
+              노동법·HR 실무 종합 도구
+            </h2>
+            <p className="mt-2 text-[14px]" style={{ color: 'var(--color-text-secondary)' }}>
+              노란봉투법 외에도 일상 노무 실무 전반을 다룹니다.
+            </p>
+          </div>
+          <div className="grid gap-4 sm:gap-5 sm:grid-cols-2 md:grid-cols-4">
+            {moreFeatures.map((feature) => (
+              <Link key={feature.title} href={feature.href} className="feature-card block rounded-2xl border bg-[var(--color-bg-surface)] p-5" style={{ borderColor: 'var(--color-border)', boxShadow: 'var(--shadow-sm)' }}>
+                <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-lg" style={{ backgroundColor: feature.bg }}>
+                  <feature.icon size={18} style={{ color: feature.color }} />
+                </div>
+                <h3 className="mb-1.5 text-[15px] font-bold" style={{ color: 'var(--grey-900)' }}>{feature.title}</h3>
+                <p className="text-[13px] leading-relaxed" style={{ color: 'var(--color-text-secondary)' }}>{feature.description}</p>
+              </Link>
+            ))}
+          </div>
         </div>
       </section>
 
