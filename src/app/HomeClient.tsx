@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { ArrowRight, Scale, Users, FileText, MessageSquare, Shield, ClipboardCheck, Search, BookOpen, Calendar } from 'lucide-react';
 import { getCategoryColor } from '@/lib/category-colors';
+import SubscribeForm from '@/components/SubscribeForm';
 
 interface LatestBlogArticle {
   id: string;
@@ -374,6 +375,13 @@ export default function HomeClient({ totalCases, totalAdmin, totalNews, latestBl
           >
             노란봉투법 전문가 상담 문의 <ArrowRight size={16} />
           </Link>
+        </div>
+      </section>
+
+      {/* 뉴스레터 구독 폼 — 홈 하단 인지 노출 */}
+      <section className="px-5 pb-16 sm:pb-20">
+        <div className="mx-auto max-w-[700px]">
+          <SubscribeForm source="home-bottom" />
         </div>
       </section>
     </div>
