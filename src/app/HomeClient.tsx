@@ -143,6 +143,10 @@ export default function HomeClient({ totalCases, totalAdmin, totalNews, latestBl
           <p className="mx-auto mb-8 max-w-xl sm:mb-10" style={{ fontSize: 'var(--text-lg)', color: 'var(--color-text-secondary)', lineHeight: 1.6 }}>
             개정 노동조합법의 핵심 변화를 해석지침과 교섭절차 매뉴얼 기반으로 정리했습니다. AI 상담으로 궁금한 점을 바로 해결하세요.
           </p>
+          <p className="mx-auto mb-8 inline-flex items-center gap-1.5 rounded-full border px-4 py-1.5 text-[13px] sm:mb-10" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)', color: 'var(--color-text-secondary)' }}>
+            <Shield size={13} style={{ color: 'var(--color-accent)' }} />
+            공인노무사 서재홍이 직접 운영하고 검수합니다 · 노무법인 위너스
+          </p>
           <div className="flex flex-col items-center gap-3 sm:flex-row sm:flex-wrap sm:justify-center">
             <Link
               href="/guide"
