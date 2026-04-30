@@ -37,18 +37,18 @@ const NAV_ITEMS: NavItem[] = [
       { href: '/news', label: '뉴스', description: '최신 노동법 뉴스' },
     ],
   },
-  { kind: 'link', href: '/ai', label: 'AI 상담' },
   {
     kind: 'dropdown',
-    label: '계산기',
+    label: '도구',
     items: [
-      { href: '/tools/holiday-pay', label: '공휴일·노동절 수당', description: '5인 이상/미만 × 월급·일용·시급 6분기' },
+      { href: '/ai', label: 'AI 상담', description: '24시간 노동법 AI 챗봇' },
+      { href: '/tools/holiday-pay', label: '공휴일·노동절 수당', description: '5인 이상/미만 × 월급·일용·시급' },
       { href: '/tools/severance.html', label: '퇴직금 계산기', description: '평균임금·통상임금 + 퇴직소득세' },
+      { href: '/subsidy', label: '지원금', description: '고용·창업 지원금 가이드' },
+      { href: '/faq', label: 'FAQ', description: '자주 묻는 질문' },
     ],
   },
-  { kind: 'link', href: '/faq', label: 'FAQ' },
   { kind: 'link', href: '/blog', label: '블로그' },
-  { kind: 'link', href: '/subsidy', label: '지원금' },
   { kind: 'cta', href: '/contact', label: '상담' },
 ];
 
