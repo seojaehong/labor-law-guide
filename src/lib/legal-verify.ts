@@ -64,12 +64,26 @@ export async function verifyCitations(text: string): Promise<CitationVerifyResul
   if (error || !data) return { citations, hallucinated: [] };
 
   const existsSet = new Set<string>();
+  const lawCounts = new Map<string, number>();
   for (const row of data as Array<{ law_name: string; article_number: number }>) {
     existsSet.add(`${row.law_name}-${row.article_number}`);
+    lawCounts.set(row.law_name, (lawCounts.get(row.law_name) ?? 0) + 1);
   }
+
+  // 검증 데이터가 5건 미만인 법령은 skip — false positive 방지.
+  // 2026-04-30 발견: law_articles 테이블이 근기법(84)·노조법(15) 외에는 거의 비어 있음.
+  // 정확한 답변(고용보험법 제40조 등)이 hallucinated로 잘못 분류되는 문제.
+  // 장기적으론 법제처 API에서 13개 주요 법령 backfill 필요.
+  const VERIFIABLE_THRESHOLD = 5;
+  const verifiableLaws = new Set(
+    Array.from(lawCounts.entries())
+      .filter(([, n]) => n >= VERIFIABLE_THRESHOLD)
+      .map(([k]) => k)
+  );
 
   const hallucinated: LawCitation[] = [];
   for (const c of verifyTargets) {
+    if (!verifiableLaws.has(c.law)) continue; // 검증 데이터 부족 — skip
     if (!existsSet.has(`${c.law}-${c.article}`)) {
       hallucinated.push(c);
     }
