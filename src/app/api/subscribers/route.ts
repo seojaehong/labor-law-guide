@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-server';
 import { extractIp, hashIp } from '@/lib/rate-limit';
+import { sendConfirmEmail } from '@/lib/newsletter-mail';
 
 const EMAIL_RX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -53,8 +54,8 @@ export async function POST(req: Request) {
         message: '이미 구독 중인 이메일입니다.',
       });
     }
-    // pending or unsubscribed → pending으로 갱신, confirm_token 새로 발급은 DB 트리거 X (기존 토큰 유지하거나 새로)
-    await supabaseAdmin
+    // pending or unsubscribed → pending으로 갱신
+    const { data: updated } = await supabaseAdmin
       .from('subscribers')
       .update({
         status: 'pending',
@@ -65,33 +66,53 @@ export async function POST(req: Request) {
         consent_at: new Date().toISOString(),
         consent_text,
       })
-      .eq('id', existing.id);
+      .eq('id', existing.id)
+      .select('confirm_token')
+      .maybeSingle();
 
-    // TODO (5/3 sprint): Resend로 confirm_token 포함 인증 메일 발송
+    const token = updated?.confirm_token || existing.confirm_token;
+    if (token) {
+      try {
+        await sendConfirmEmail({ to: normalized, confirmToken: token });
+      } catch (err) {
+        console.error('[subscribers] confirm email send failed:', err);
+      }
+    }
     return NextResponse.json({
       success: true,
-      message: '구독 신청을 받았어요. 첫 메일은 5월 둘째 주부터 보내드립니다.',
+      message: '확인 메일을 보냈어요. 받은편지함에서 링크를 눌러주세요.',
     });
   }
 
-  const { error } = await supabaseAdmin.from('subscribers').insert({
-    email: normalized,
-    status: 'pending',
-    source,
-    source_slug: source_slug ?? null,
-    ip_hash: ipHashed,
-    user_agent: userAgent,
-    consent_at: new Date().toISOString(),
-    consent_text,
-  });
+  const { data: inserted, error } = await supabaseAdmin
+    .from('subscribers')
+    .insert({
+      email: normalized,
+      status: 'pending',
+      source,
+      source_slug: source_slug ?? null,
+      ip_hash: ipHashed,
+      user_agent: userAgent,
+      consent_at: new Date().toISOString(),
+      consent_text,
+    })
+    .select('confirm_token')
+    .maybeSingle();
 
-  if (error) {
+  if (error || !inserted) {
     return NextResponse.json({ error: '신청 저장에 실패했습니다.' }, { status: 500 });
   }
 
-  // TODO (5/3 sprint): Resend 발송 hook
+  if (inserted.confirm_token) {
+    try {
+      await sendConfirmEmail({ to: normalized, confirmToken: inserted.confirm_token });
+    } catch (err) {
+      console.error('[subscribers] confirm email send failed:', err);
+    }
+  }
+
   return NextResponse.json({
     success: true,
-    message: '확인 메일을 보냈습니다. (현재 발송 시스템 준비 중 — 실제 메일은 5/3 이후 도착)',
+    message: '확인 메일을 보냈어요. 받은편지함에서 링크를 눌러주세요.',
   });
 }
