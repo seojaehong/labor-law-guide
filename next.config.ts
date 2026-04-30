@@ -17,15 +17,22 @@ const nextConfig: NextConfig = {
       { source: '/oauth-authorization-server', destination: '/.well-known/oauth-authorization-server' },
       { source: '/oauth-protected-resource', destination: '/.well-known/oauth-protected-resource' },
       { source: '/agent-card.json', destination: '/.well-known/agent-card.json' },
-      // labor-decisions-search 라우트 메인 도메인 프록시 (#45)
-      { source: '/sanction', destination: `${DECISIONS_HOST}/sanction` },
-      { source: '/sanction/:path*', destination: `${DECISIONS_HOST}/sanction/:path*` },
-      { source: '/search', destination: `${DECISIONS_HOST}/search` },
-      { source: '/search/:path*', destination: `${DECISIONS_HOST}/search/:path*` },
+      // API는 rewrites 유지 (자산 의존 없음)
       { source: '/api/sanction', destination: `${DECISIONS_HOST}/api/sanction` },
       { source: '/api/sanction/:path*', destination: `${DECISIONS_HOST}/api/sanction/:path*` },
       { source: '/api/search', destination: `${DECISIONS_HOST}/api/search` },
       { source: '/api/search/:path*', destination: `${DECISIONS_HOST}/api/search/:path*` },
+    ];
+  },
+  async redirects() {
+    const DECISIONS_HOST = process.env.DECISIONS_HOST || 'https://labor-decisions-search.vercel.app';
+    return [
+      // /sanction, /search는 redirect (rewrites 시 외부 _next CSS chunk 404 발생)
+      // assetPrefix 패턴으로 향후 모노레포 통합(#35) 시 rewrites 복귀 검토
+      { source: '/sanction', destination: `${DECISIONS_HOST}/sanction`, permanent: false },
+      { source: '/sanction/:path*', destination: `${DECISIONS_HOST}/sanction/:path*`, permanent: false },
+      { source: '/search', destination: `${DECISIONS_HOST}/search`, permanent: false },
+      { source: '/search/:path*', destination: `${DECISIONS_HOST}/search/:path*`, permanent: false },
     ];
   },
   async headers() {
