@@ -1,7 +1,7 @@
 import { Resend } from 'resend';
 import { SITE_URL } from './constants';
 
-const FROM = '노란봉투법 가이드 <news@send.yellowenvelope.kr>';
+const FROM = '노동법 위클리 <news@send.yellowenvelope.kr>';
 const REPLY_TO = 'abc@winhr.co.kr';
 
 function getResend() {
@@ -48,7 +48,7 @@ export async function sendConfirmEmail(opts: {
   const html = `
     <div style="${baseStyle}">
       <p>안녕하세요 🙏</p>
-      <p>노란봉투법 가이드 뉴스레터 신청해주셔서 감사합니다.</p>
+      <p>노동법 위클리 신청해주셔서 감사합니다.</p>
       <p>아래 버튼을 한 번 눌러주시면 구독이 시작됩니다.<br>
         (스팸 가입 방지를 위한 절차예요.)</p>
       <p style="text-align:center">
@@ -59,7 +59,7 @@ export async function sendConfirmEmail(opts: {
         이 메일을 받으신 적이 없다면 무시하셔도 좋아요.
       </p>
       <div style="${footerStyle}">
-        <strong>노란봉투법 가이드</strong> (노무법인 위너스)<br>
+        <strong>노동법 위클리</strong> · 노란봉투법 가이드 (노무법인 위너스)<br>
         발신: news@send.yellowenvelope.kr · 답장: ${REPLY_TO}
       </div>
     </div>
@@ -69,7 +69,7 @@ export async function sendConfirmEmail(opts: {
     from: FROM,
     replyTo: REPLY_TO,
     to: opts.to,
-    subject: '[노란봉투법 가이드] 구독 확인 — 한 번만 클릭해주세요',
+    subject: '[노동법 위클리] 구독 확인 — 한 번만 클릭해주세요',
     html,
   });
 }
@@ -98,7 +98,7 @@ export async function sendWelcomeEmail(opts: {
         <a href="${SITE_URL}/blog" style="${buttonStyle};background-color:#f3f4f6;color:#374151;margin-left:8px">지난 글 모음</a>
       </p>
       <div style="${footerStyle}">
-        <strong>노란봉투법 가이드</strong> (노무법인 위너스)<br>
+        <strong>노동법 위클리</strong> · 노란봉투법 가이드 (노무법인 위너스)<br>
         발신: news@send.yellowenvelope.kr · 답장: ${REPLY_TO}<br>
         수신을 원치 않으시면 <a href="${unsubUrl}" style="color:#6b7280">여기를 클릭</a>해주세요.
       </div>
@@ -109,7 +109,7 @@ export async function sendWelcomeEmail(opts: {
     from: FROM,
     replyTo: REPLY_TO,
     to: opts.to,
-    subject: '[노란봉투법 가이드] 구독 시작! 첫 인사이트 보내드릴게요',
+    subject: '[노동법 위클리] 구독 시작! 첫 인사이트 보내드릴게요',
     html,
   });
 }
