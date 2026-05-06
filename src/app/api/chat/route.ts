@@ -234,9 +234,16 @@ export async function POST(req: NextRequest) {
           ...messages,
         ];
 
+        let r1ContentLen = 0;
+        let r1ToolCalls = 0;
+        let r2ContentLen = 0;
+        let r2ToolCalls = 0;
+        let r2Ran = false;
         try {
           const r1 = await streamRound(apiKey, controller, baseMsgs, toolHint, encoder, decoder);
           assembledAnswer += r1.content;
+          r1ContentLen = r1.content.length;
+          r1ToolCalls = r1.toolCalls.length;
           for (const tc of r1.toolCalls) {
             if (tc.name === 'calc_severance') {
               try {
@@ -276,23 +283,52 @@ export async function POST(req: NextRequest) {
             );
             const r2 = await streamRound(apiKey, controller, round2Msgs, false, encoder, decoder);
             assembledAnswer += r2.content;
+            r2ContentLen = r2.content.length;
+            r2ToolCalls = r2.toolCalls.length;
+            r2Ran = true;
           }
-        } catch {
+        } catch (e) {
           controller.enqueue(
             encoder.encode(
               `data: ${JSON.stringify({ error: '스트리밍 중 오류가 발생했습니다.' })}\n\n`
             )
           );
+          console.warn('[chat] stream error', { msg: (e as Error)?.message });
         } finally {
-          // 인용 누락 자동 footer
+          // 본문 검증: 빈 답변이면 footer 대신 fallback. 진단용 round-level 로깅도 함께.
+          const trimmedLen = assembledAnswer.trim().length;
+          const hasContent = trimmedLen >= 50;
           const hasCitation =
             /\[FAQ#\d+|\[CASE#[A-Za-z0-9_\-]+|\[COURT#[^\]]+\]|\[INTERP#[^\]]+\]/.test(
               assembledAnswer
             );
-          if (!hasCitation && topFaqIds.length > 0) {
+          if (!hasContent) {
+            // 본문 비어있음 — empty completion / round 2 silent fail / round 2 tool_call 미처리
+            console.warn('[chat] empty answer body', {
+              r1: { len: r1ContentLen, tcs: r1ToolCalls },
+              r2: { ran: r2Ran, len: r2ContentLen, tcs: r2ToolCalls },
+              question: lastUserMsg?.content?.slice(0, 80),
+              assembledLen: trimmedLen,
+              topFaqCount: topFaqIds.length,
+            });
+            const fallback =
+              '⚠️ 답변 생성에 실패했습니다. 질문을 더 구체적으로 작성해주시거나 잠시 후 다시 시도해주세요. 빠른 답변이 필요하시면 우측 하단 채팅으로 문의해주세요.';
+            controller.enqueue(
+              encoder.encode(`data: ${JSON.stringify({ content: fallback })}\n\n`)
+            );
+            // footer는 보내지 않음 — 본문 없는데 출처만 보이는 46자 버그 차단
+          } else if (!hasCitation && topFaqIds.length > 0) {
             const footer = `\n\n---\n참고 FAQ: ${topFaqIds.map((id) => `[FAQ#${id}]`).join(', ')}`;
             controller.enqueue(encoder.encode(`data: ${JSON.stringify({ content: footer })}\n\n`));
           }
+          // round-level 로그 (정상 케이스도 기록 — 추후 패턴 분석용)
+          console.log('[chat] round_summary', {
+            r1: { len: r1ContentLen, tcs: r1ToolCalls },
+            r2: { ran: r2Ran, len: r2ContentLen, tcs: r2ToolCalls },
+            assembled: trimmedLen,
+            hasContent,
+            hasCitation,
+          });
 
           // 계산기 페이지 링크 자동 첨부
           if (lastSeveranceArgs) {
