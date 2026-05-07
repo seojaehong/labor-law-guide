@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { rerankPassages } from './rerank';
 
 type FaqRow = {
   id: number;
@@ -31,11 +32,17 @@ export async function buildFaqContext(
   let dbFaq: FaqRow[] | null = null;
   let dbErr: { message: string } | null = null;
 
+  // NIM Reranker 활성 시 후보 16건 retrieval → rerank → top 5 사용 (token 절감 + 적합도 향상)
+  // 비활성 시 기존 top 8 그대로 (변경 없음, fail-safe)
+  const RERANK_ON = process.env.NIM_RERANK_ENABLED === 'true';
+  const RETRIEVE_K = RERANK_ON ? 16 : 8;
+  const FINAL_N = RERANK_ON ? 5 : 8;
+
   // 3-layer: combined → hybrid → legacy
   const combined = await db.rpc('search_faq_combined', {
     query_text: searchQuery,
     query_embedding: queryEmbedding,
-    max_results: 8,
+    max_results: RETRIEVE_K,
     canonical_only: false,
   });
   if (!combined.error && combined.data && combined.data.length > 0) {
@@ -43,14 +50,14 @@ export async function buildFaqContext(
   } else if (combined.error) {
     const hybrid = await db.rpc('search_faq_hybrid', {
       query_text: searchQuery,
-      max_results: 8,
+      max_results: RETRIEVE_K,
     });
     if (!hybrid.error && hybrid.data && hybrid.data.length > 0) {
       dbFaq = hybrid.data;
     } else {
       const legacy = await db.rpc('search_faq', {
         query: searchQuery,
-        result_limit: 8,
+        result_limit: RETRIEVE_K,
       });
       dbFaq = legacy.data;
       dbErr = legacy.error;
@@ -58,7 +65,22 @@ export async function buildFaqContext(
   }
 
   const matched = !dbErr && dbFaq !== null && dbFaq.length > 0;
-  const matchedFaqs: FaqRow[] = matched && dbFaq ? dbFaq : [];
+  let matchedFaqs: FaqRow[] = matched && dbFaq ? dbFaq : [];
+
+  // NIM Reranker — query에 대해 top N 만 추출 (timeout/error 시 입력 그대로 사용)
+  if (RERANK_ON && matchedFaqs.length > FINAL_N) {
+    const rerankInput = matchedFaqs.map((f) => ({
+      id: f.id,
+      text: `Q: ${f.question}\nA: ${f.answer}`,
+    }));
+    const reranked = await rerankPassages(searchQuery, rerankInput, FINAL_N);
+    const idOrder = new Map(reranked.map((r, i) => [r.id, i]));
+    matchedFaqs = matchedFaqs
+      .filter((f) => idOrder.has(f.id))
+      .sort((a, b) => (idOrder.get(a.id) ?? 99) - (idOrder.get(b.id) ?? 99));
+  } else if (matchedFaqs.length > FINAL_N) {
+    matchedFaqs = matchedFaqs.slice(0, FINAL_N);
+  }
   const categories = [
     ...new Set(matchedFaqs.map((f) => f.unified_category || f.category || '')),
   ].filter(Boolean);
