@@ -21,7 +21,7 @@ export async function POST(req: NextRequest) {
     const contactRaw = (body.contact || '').trim();
     const message = (body.message || '').trim().slice(0, 500);
     const sourceRaw = (body.source || 'banner').toString();
-    const source = ['banner', 'rate_limit', 'modal'].includes(sourceRaw) ? sourceRaw : 'banner';
+    const source = ['banner', 'rate_limit', 'modal', 'blog_end', 'sanction_end', 'chat_turn'].includes(sourceRaw) ? sourceRaw : 'banner';
     const sessionId =
       typeof body.sessionId === 'string' && /^[a-z0-9_-]{12,64}$/i.test(body.sessionId)
         ? body.sessionId

@@ -3,7 +3,7 @@
 import { useState } from 'react';
 
 type Props = {
-  source: 'banner' | 'rate_limit' | 'modal';
+  source: 'banner' | 'rate_limit' | 'modal' | 'blog_end' | 'sanction_end' | 'chat_turn';
   /** 결제의향 폼 위 안내 문구. 트리거 컨텍스트별로 다르게. */
   headline?: string;
   subline?: string;
