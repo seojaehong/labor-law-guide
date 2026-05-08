@@ -1,7 +1,8 @@
 import { Resend } from 'resend';
 import { SITE_URL } from './constants';
 
-const FROM = '노동법 위클리 <news@send.yellowenvelope.kr>';
+// Resend에 verified된 root 도메인 사용 — send. subdomain은 미인증 (2026-05-08)
+const FROM = '노동법 위클리 <news@yellowenvelope.kr>';
 const REPLY_TO = 'abc@winhr.co.kr';
 
 function getResend() {
