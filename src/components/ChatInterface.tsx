@@ -296,8 +296,11 @@ export default function ChatInterface({ injectedQuestion }: { injectedQuestion?:
       },
       turnstileToken,
     );
-    // 토큰은 1회용 — 사용 후 비워서 다음 요청 시 재발급 받도록
+    // 토큰은 1회용 — 비우고 widget reset으로 새 token 발급 (랜덤 token_missing 차단)
     setTurnstileToken(null);
+    if (typeof window !== 'undefined' && window.turnstile) {
+      try { window.turnstile.reset(); } catch { /* ignore */ }
+    }
   }, [messages, loading, refreshProfile, turnstileToken]);
 
   // 마운트 시 1회 프로필 로드
