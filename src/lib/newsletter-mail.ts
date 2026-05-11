@@ -116,7 +116,10 @@ export async function sendWelcomeEmail(opts: {
 }
 
 // 데일리 브리핑 발송 — 매일 KST 09:00 cron
-// 디자인은 사이트 톤 (toss blue #3182f6 + grey neutral). 사용자 검토 v4 기반.
+// 디자인 v6 (2026-05-11 finalized): 흰색 메인 + #1b64da 강조 (toss blue700)
+//   - Gmail 다크모드 색 변환 회피 위해 헤더 흰색
+//   - full content (preview 아닌 본문 전체)
+//   - 둘러보기 카드 + light footer
 export async function sendDailyNewsletter(opts: {
   to: string;
   unsubscribeToken: string;
@@ -124,38 +127,70 @@ export async function sendDailyNewsletter(opts: {
     slug: string;
     title: string;
     summary: string;
-    content_preview: string; // 본문 첫 600자 정도
+    content: string; // 본문 전체 (full text, HTML 그대로)
     published_at: string;
   };
 }) {
   const unsubUrl = `${SITE_URL}/api/subscribers/unsubscribe?token=${encodeURIComponent(opts.unsubscribeToken)}`;
   const articleUrl = `${SITE_URL}/blog/${opts.article.slug}`;
-  const dateStr = new Date(opts.article.published_at).toLocaleDateString('ko-KR', {
-    month: 'long', day: 'numeric', weekday: 'short',
-  });
 
-  const html = `
-<div style="background:#f9fafb;padding:0;margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Apple SD Gothic Neo','Malgun Gothic',sans-serif">
+  // 정확한 KST 날짜 + 요일
+  const KST_DAYS = ['일', '월', '화', '수', '목', '금', '토']; // getUTCDay() 0=Sun
+  const pubDt = new Date(opts.article.published_at);
+  const kstMs = pubDt.getTime() + 9 * 3600 * 1000;
+  const kstDt = new Date(kstMs);
+  const dateLabel = `${kstDt.getUTCMonth() + 1}월 ${kstDt.getUTCDate()}일 (${KST_DAYS[kstDt.getUTCDay()]})`;
+
+  // 제목 정리: '[5월 11일] 노동뉴스 브리핑 — ' prefix 제거 (header에 이미 있음)
+  let cleanTitle = opts.article.title;
+  cleanTitle = cleanTitle.replace(/^[📌📰⚖️🎯💰🤝🚚🏖️✏️📑]\s*/, '');
+  cleanTitle = cleanTitle.replace(/^\[\d+월\s*\d+일\]\s*노동뉴스\s*브리핑\s*[—-]\s*/, '').trim();
+  const displayTitle = cleanTitle.length <= 50 ? cleanTitle : cleanTitle.slice(0, 48) + '…';
+
+  // 본문 sanitize (script/style 제거)
+  let safeContent = opts.article.content.replace(/<script[\s\S]*?<\/script>/gi, '');
+  safeContent = safeContent.replace(/<style[\s\S]*?<\/style>/gi, '');
+
+  // subject — 50자 제한
+  let subject = `[${kstDt.getUTCMonth() + 1}월 ${kstDt.getUTCDate()}일] ${displayTitle}`;
+  if (subject.length > 50) subject = subject.slice(0, 48) + '…';
+
+  const ACCENT = '#1b64da';
+  const TEXT_PRIMARY = '#191f28';
+  const TEXT_SECONDARY = '#6b7684';
+  const BORDER = '#e5e8eb';
+
+  const summaryBlock = opts.article.summary
+    ? `<p style="margin:0 0 28px;color:${TEXT_SECONDARY};font-size:15px;line-height:1.6;padding-left:14px;border-left:3px solid ${ACCENT}">${opts.article.summary}</p>`
+    : '';
+
+  const html = `<div style="background:#ffffff;padding:0;margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Apple SD Gothic Neo','Malgun Gothic',sans-serif">
   <div style="max-width:600px;margin:0 auto;background:#ffffff">
-    <div style="background:#3182f6;padding:28px 24px;text-align:center">
-      <p style="margin:0 0 4px;color:#bfdbfe;font-size:12px;letter-spacing:1px;font-weight:600">📰 DAILY BRIEFING · ${dateStr}</p>
-      <h1 style="margin:0;color:#ffffff;font-size:20px;font-weight:800;letter-spacing:-0.3px">노동법 위클리</h1>
+    <div style="padding:32px 28px 24px;text-align:center;border-bottom:1px solid ${BORDER}">
+      <p style="margin:0 0 8px;color:${ACCENT};font-size:11px;letter-spacing:1.5px;font-weight:800;text-transform:uppercase">Daily Briefing · ${dateLabel}</p>
+      <h1 style="margin:0;color:${TEXT_PRIMARY};font-size:20px;font-weight:800;letter-spacing:-0.3px">📬 노동법 위클리</h1>
     </div>
-    <div style="padding:32px 28px;color:#191f28;line-height:1.7;font-size:15px">
-      <h2 style="margin:0 0 12px;font-size:20px;font-weight:800;color:#191f28;letter-spacing:-0.3px">${opts.article.title}</h2>
-      ${opts.article.summary ? `<p style="margin:0 0 20px;color:#3182f6;font-size:14px;font-weight:600">${opts.article.summary}</p>` : ''}
-      <div style="color:#374151;font-size:15px;line-height:1.8">${opts.article.content_preview}</div>
-      <div style="margin:32px 0 0;text-align:center">
-        <a href="${articleUrl}" style="display:inline-block;background:#3182f6;color:#ffffff;padding:14px 36px;border-radius:10px;text-decoration:none;font-weight:700;font-size:15px">전체 글 읽기 →</a>
+    <div style="padding:36px 28px;color:${TEXT_PRIMARY};line-height:1.7;font-size:15px">
+      <h2 style="margin:0 0 16px;font-size:24px;font-weight:800;color:${TEXT_PRIMARY};line-height:1.35;letter-spacing:-0.5px">📰 ${displayTitle}</h2>
+      ${summaryBlock}
+      <div style="color:#374151;font-size:15px;line-height:1.85">${safeContent}</div>
+      <div style="margin:36px 0 0;text-align:center">
+        <a href="${articleUrl}" style="display:inline-block;background:${ACCENT};color:#ffffff;padding:14px 36px;border-radius:10px;text-decoration:none;font-weight:700;font-size:14px">🔗 사이트에서 보기</a>
       </div>
     </div>
-    <div style="background:#191f28;padding:24px 28px;text-align:center">
-      <p style="margin:0 0 6px;color:#ffffff;font-size:13px;font-weight:700">노동법 위클리</p>
-      <p style="margin:0;color:#8b95a1;font-size:11px;line-height:1.7">
+    <div style="background:#f9fafb;padding:24px 28px;border-top:1px solid ${BORDER}">
+      <p style="margin:0 0 12px;font-size:13px;font-weight:700;color:${TEXT_PRIMARY}">📌 노동법 위클리 둘러보기</p>
+      <p style="margin:0 0 4px;font-size:13px"><a href="${SITE_URL}/blog" style="color:${ACCENT};text-decoration:none">→ 지난 딥다이브 모음</a></p>
+      <p style="margin:0 0 4px;font-size:13px"><a href="${SITE_URL}/" style="color:${ACCENT};text-decoration:none">→ AI 챗봇 (노동법 질문)</a></p>
+      <p style="margin:0;font-size:13px"><a href="${SITE_URL}/sanction" style="color:${ACCENT};text-decoration:none">→ 징계/해고 AI 비교분석</a></p>
+    </div>
+    <div style="background:#f2f4f6;padding:24px 28px;text-align:center">
+      <p style="margin:0 0 6px;color:${TEXT_PRIMARY};font-size:12px;font-weight:700">노동법 위클리</p>
+      <p style="margin:0;color:${TEXT_SECONDARY};font-size:11px;line-height:1.7">
         노란봉투법 가이드 · 노무법인 위너스<br>
         발신: news@yellowenvelope.kr · 답장: ${REPLY_TO}<br>
-        <a href="${SITE_URL}" style="color:#3182f6;text-decoration:none">yellowenvelope.kr</a> ·
-        <a href="${unsubUrl}" style="color:#8b95a1;text-decoration:underline">수신 거부</a>
+        <a href="${SITE_URL}" style="color:${ACCENT};text-decoration:none">yellowenvelope.kr</a> ·
+        <a href="${unsubUrl}" style="color:${TEXT_SECONDARY};text-decoration:underline">수신 거부</a>
       </p>
     </div>
   </div>
@@ -166,7 +201,7 @@ export async function sendDailyNewsletter(opts: {
     from: FROM,
     replyTo: REPLY_TO,
     to: opts.to,
-    subject: `[${dateStr}] ${opts.article.title}`,
+    subject,
     html,
   });
 }

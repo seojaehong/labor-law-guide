@@ -118,7 +118,7 @@ export async function POST(req: NextRequest) {
           slug: article.slug,
           title: article.title,
           summary: article.summary || '',
-          content_preview: preview,
+          content: article.content || '',
           published_at: article.published_at,
         },
       });
