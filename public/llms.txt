@@ -5,16 +5,16 @@
 
 ## 사이트 구조
 
-- [홈](https://노란봉투법.com/): 노란봉투법 핵심 변화 요약
-- [해석지침](https://노란봉투법.com/guide): 사용자 범위 확대, 노동쟁의 확대, 손해배상 제한 조문별 해설
-- [자가진단](https://노란봉투법.com/checklist): 약식(체크박스) + 심층(18항목 4단계) 2-트랙 사용자성·교섭의무 자가진단
-- [교섭절차](https://노란봉투법.com/manual): 원·하청 교섭절차 6단계 매뉴얼
-- [핵심판례](https://노란봉투법.com/cases): 사용자성 판단 핵심 판례 6건 쟁점별 정리
-- [판례검색](https://노란봉투법.com/database): 판례 2,900+건, 행정해석 890+건 통합검색
-- [뉴스](https://노란봉투법.com/news): 노란봉투법 관련 최신 뉴스
-- [AI 상담](https://노란봉투법.com/ai): 노란봉투법 관련 AI 즉시 질의응답
-- [전문가 상담](https://노란봉투법.com/contact): 노무법인 위너스 전문가 상담 문의
+- [홈](https://yellowenvelope.kr/): 노란봉투법 핵심 변화 요약
+- [해석지침](https://yellowenvelope.kr/guide): 사용자 범위 확대, 노동쟁의 확대, 손해배상 제한 조문별 해설
+- [자가진단](https://yellowenvelope.kr/checklist): 약식(체크박스) + 심층(18항목 4단계) 2-트랙 사용자성·교섭의무 자가진단
+- [교섭절차](https://yellowenvelope.kr/manual): 원·하청 교섭절차 6단계 매뉴얼
+- [핵심판례](https://yellowenvelope.kr/cases): 사용자성 판단 핵심 판례 6건 쟁점별 정리
+- [판례검색](https://yellowenvelope.kr/database): 판례 2,900+건, 행정해석 890+건 통합검색
+- [뉴스](https://yellowenvelope.kr/news): 노란봉투법 관련 최신 뉴스
+- [AI 상담](https://yellowenvelope.kr/ai): 노란봉투법 관련 AI 즉시 질의응답
+- [전문가 상담](https://yellowenvelope.kr/contact): 노무법인 위너스 전문가 상담 문의
 
 ## 상세 콘텐츠
 
-- [llms-full.txt](https://노란봉투법.com/llms-full.txt): 사이트 전체 콘텐츠 (마크다운)
+- [llms-full.txt](https://yellowenvelope.kr/llms-full.txt): 사이트 전체 콘텐츠 (마크다운)
