@@ -1,0 +1,39 @@
+{
+  "version": "1.0.0",
+  "self": "https://yellowenvelope.kr/.well-known/content-signal.json",
+  "publisher": {
+    "name": "노무법인 위너스",
+    "url": "https://yellowenvelope.kr",
+    "contact": "https://yellowenvelope.kr/contact"
+  },
+  "policies": [
+    {
+      "user-agent": "*",
+      "signals": {
+        "search": "yes",
+        "ai-input": "no",
+        "ai-train": "no"
+      },
+      "notes": "검색 인덱싱(search) 허용, AI 요약·생성 입력(ai-input)과 학습(ai-train)은 비허용. 동일 정책이 robots.txt의 Content-Signal 헤더 및 Cloudflare 관리 봇 정책에 반영되어 있음."
+    }
+  ],
+  "allowedAgents": [
+    "GPTBot",
+    "OAI-SearchBot",
+    "ChatGPT-User",
+    "ClaudeBot",
+    "Claude-Web",
+    "anthropic-ai",
+    "PerplexityBot",
+    "Google-Extended",
+    "Applebot-Extended",
+    "cohere-ai"
+  ],
+  "blockedAgents": [
+    "Bytespider",
+    "CCBot",
+    "SemrushBot"
+  ],
+  "lastUpdated": "2026-05-12",
+  "schemaSource": "https://www.cloudflare.com/learning/bots/what-is-content-signal-policy/"
+}
