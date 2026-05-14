@@ -142,9 +142,19 @@ export async function sendDailyNewsletter(opts: {
   const dateLabel = `${kstDt.getUTCMonth() + 1}월 ${kstDt.getUTCDate()}일 (${KST_DAYS[kstDt.getUTCDay()]})`;
 
   // 제목 정리: '[5월 11일] 노동뉴스 브리핑 — ' prefix 제거 (header에 이미 있음)
+  // surrogate pair 이모지를 character class에 넣으면 JS regex가 surrogate를 분리해서
+  // 깨진 \uDCCC 등이 잔여로 남는 버그(2026-05-14 이메일 본문 `📰� [2026...]` 사고).
+  // string-based startsWith으로 안전하게 제거.
   let cleanTitle = opts.article.title;
-  cleanTitle = cleanTitle.replace(/^[📌📰⚖️🎯💰🤝🚚🏖️✏️📑]\s*/, '');
-  cleanTitle = cleanTitle.replace(/^\[\d+월\s*\d+일\]\s*노동뉴스\s*브리핑\s*[—-]\s*/, '').trim();
+  const emojiPrefixes = ['📌', '📰', '⚖️', '🎯', '💰', '🤝', '🚚', '🏖️', '✏️', '📑'];
+  for (const e of emojiPrefixes) {
+    if (cleanTitle.startsWith(e)) {
+      cleanTitle = cleanTitle.slice(e.length).trimStart();
+      break;
+    }
+  }
+  // 날짜 prefix 제거 — '[5월 11일] 노동뉴스 브리핑 — ' 또는 '[2026.05.14] 노동뉴스 브리핑 — '
+  cleanTitle = cleanTitle.replace(/^\[(?:\d+년\s*)?(?:\d{4}\.)?\d+[월.]\s*\d+일?\.?\]\s*노동뉴스\s*브리핑\s*[—-]\s*/, '').trim();
   const displayTitle = cleanTitle.length <= 50 ? cleanTitle : cleanTitle.slice(0, 48) + '…';
 
   // 본문 sanitize (script/style 제거)
