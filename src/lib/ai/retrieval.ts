@@ -1177,7 +1177,10 @@ export async function searchCases(tags: string[], query?: string): Promise<Retri
   let candidates: Record<string, unknown>[] = [];
   let reranked = false;
 
-  const rewrite = query ? await rewriteQuery(query) : null;
+  // SKIP_AI_RETRIEVAL_HEAVY=true (기본) → rewriteQuery/rerankResults skip하여 retrieval 7-10s 단축.
+  // 정확도 미세 손실 vs 응답 속도 trade-off — 사용자 우선순위로 속도 선택.
+  const skipHeavy = process.env.SKIP_AI_RETRIEVAL_HEAVY !== 'false';
+  const rewrite = !skipHeavy && query ? await rewriteQuery(query) : null;
   const effectiveQuery = buildIntentAwareQuery(rewrite?.searchQuery || query || tags.join(' '), rewrite);
   const reasons = effectiveQuery ? extractReasonCategories(effectiveQuery) : [];
   const rpcCategory = rewrite?.category || (reasons.length > 0 ? reasons[0] : '');
@@ -1215,19 +1218,21 @@ export async function searchCases(tags: string[], query?: string): Promise<Retri
         return String(b.decision_date || '').localeCompare(String(a.decision_date || ''));
       });
 
-      const aiReranked = await rerankResults(
-        query || effectiveQuery,
-        keywordBoostedRpc.slice(0, RESULT_LIMIT * 4).map((candidate) => ({
-          id: String(candidate.id || ''),
-          title: String(candidate.title || ''),
-          key_issue: String(candidate.key_issue || ''),
-          holding_summary: String(candidate.holding_summary || ''),
-          holding_points: String(candidate.holding_points || ''),
-          decision_result: String(candidate.decision_result || ''),
-          source: detectSource(String(candidate.id || '')),
-        })),
-        RESULT_LIMIT,
-      );
+      const aiReranked = skipHeavy
+        ? []
+        : await rerankResults(
+            query || effectiveQuery,
+            keywordBoostedRpc.slice(0, RESULT_LIMIT * 4).map((candidate) => ({
+              id: String(candidate.id || ''),
+              title: String(candidate.title || ''),
+              key_issue: String(candidate.key_issue || ''),
+              holding_summary: String(candidate.holding_summary || ''),
+              holding_points: String(candidate.holding_points || ''),
+              decision_result: String(candidate.decision_result || ''),
+              source: detectSource(String(candidate.id || '')),
+            })),
+            RESULT_LIMIT,
+          );
 
       if (aiReranked.length > 0) {
         const rankById = new Map(aiReranked.map((item) => [item.id, item]));
