@@ -647,15 +647,29 @@ async function runBaselineSearch({
     error = fallbackResp.error;
   }
 
-  // 2차 fallback — reason 필터가 너무 strict해서 0건이면 reason 없이 텍스트만 매칭
+  // 2차 fallback — reason 필터가 너무 strict해서 0건이면 reason 없이 텍스트+동의어로 재시도
   if (!error && effectiveQuery && (count || 0) === 0 && effectiveReason) {
-    let textOnly = buildBaselineSelect(page, pageSize);
-    if (result) textOnly = textOnly.eq('decision_result', result);
-    textOnly = textOnly.or(`title.ilike.%${effectiveQuery}%,key_issue.ilike.%${effectiveQuery}%,holding_points.ilike.%${effectiveQuery}%`);
-    const textResp = await textOnly;
-    if (!textResp.error && (textResp.data?.length || 0) > 0) {
-      data = textResp.data;
-      count = textResp.count;
+    // 동의어 확장: '경영상해고' query + REASON_TO_QUERY[redundancy]='경영상 해고' + REASON_TO_LAWGO_KEYWORDS[redundancy]=['경영상해고','부당해고']
+    const synonyms = new Set<string>([effectiveQuery]);
+    const synQuery = REASON_TO_QUERY[effectiveReason];
+    if (synQuery) synQuery.split(/\s+/).filter((w) => w.length >= 2).forEach((w) => synonyms.add(w));
+    const synKeywords = REASON_TO_LAWGO_KEYWORDS[effectiveReason];
+    if (synKeywords) synKeywords.forEach((w) => synonyms.add(w));
+    const orParts: string[] = [];
+    for (const term of synonyms) {
+      const safe = term.replace(/[%,]/g, ' ').trim();
+      if (!safe) continue;
+      orParts.push(`title.ilike.%${safe}%`, `key_issue.ilike.%${safe}%`, `holding_points.ilike.%${safe}%`);
+    }
+    if (orParts.length > 0) {
+      let textOnly = buildBaselineSelect(page, pageSize);
+      if (result) textOnly = textOnly.eq('decision_result', result);
+      textOnly = textOnly.or(orParts.join(','));
+      const textResp = await textOnly;
+      if (!textResp.error && (textResp.data?.length || 0) > 0) {
+        data = textResp.data;
+        count = textResp.count;
+      }
     }
   }
 
