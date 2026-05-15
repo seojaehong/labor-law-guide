@@ -581,7 +581,7 @@ function SearchContentInner({
             </h2>
             <div className="space-y-3">
               {payload.molab.map((item) => (
-                <Card key={item.id} className="p-4 bg-white border-blue-100">
+                <Card key={item.id} className="p-4 bg-card border-blue-100 dark:border-blue-900">
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex-1 min-w-0">
                       <h3 className="font-medium text-sm line-clamp-2">{item.title}</h3>
