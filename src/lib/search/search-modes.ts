@@ -557,11 +557,13 @@ async function runBaselineSearch({
 
     nlrcQuery = nlrcQuery.textSearch('search_tsv', searchTerms);
 
-    // ⚡ 병렬화 (#43): nlrc / bigcase / lawgo 동시 실행 → 11.5s → ~4s
+    // 2026-05-15: 판례(bigcase/cases) 노출 일시 중단 — 데이터 정비 중. NLRC 판정례만 노출.
+    // 필요시 process.env.SHOW_CASES='true'로 재활성화 가능 (현재 기본 OFF).
+    const showCases = process.env.SHOW_CASES === 'true';
     const [nlrcRespInitial, bigcaseBucket, lawgoBucket] = await Promise.all([
       nlrcQuery,
-      runBigcaseSearch(effectiveQuery, COMBINED_QUERY_FETCH_SIZE),
-      runLawgoSearch(effectiveQuery, COMBINED_QUERY_FETCH_SIZE),
+      showCases ? runBigcaseSearch(effectiveQuery, COMBINED_QUERY_FETCH_SIZE) : Promise.resolve({ items: [], total: 0, page: 0, pageSize: 0 } as SearchBucket),
+      showCases ? runLawgoSearch(effectiveQuery, COMBINED_QUERY_FETCH_SIZE) : Promise.resolve({ items: [], total: 0, page: 0, pageSize: 0 } as SearchBucket),
     ]);
 
     let nlrcResp = nlrcRespInitial;

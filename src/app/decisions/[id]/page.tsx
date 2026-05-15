@@ -16,6 +16,7 @@ import { parseHoldingText, stripMarkdownFormatting } from "@/lib/format-holding"
 import { getDecisionSourceLabel, resolveDecisionSourceContract, type DecisionSourceProvider } from "@/lib/search/source-contracts";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
+import { notFound } from "next/navigation";
 
 // AI 분류 라벨 fallback: 미매핑 영문은 underscore→space로 보정
 function getAiLabel(key: string, map: Record<string, string>): string {
@@ -162,6 +163,11 @@ export default async function DecisionPage({
     ? resolvedSearchParams?.source[0]
     : resolvedSearchParams?.source;
   const decisionSource = resolveDecisionSourceContract({ id, sourceProvider: sourceParam }).provider;
+
+  // 2026-05-15: 판례(bigcase/lawgo) 노출 일시 중단 — 데이터 정비 중. NLRC 판정례만 노출.
+  if (process.env.SHOW_CASES !== 'true' && (decisionSource === 'bigcase' || decisionSource === 'lawgo')) {
+    notFound();
+  }
 
   if (decisionSource === "lawgo") {
     const apiId = id.startsWith("prec_") ? id.replace(/^prec_/, "") : id;

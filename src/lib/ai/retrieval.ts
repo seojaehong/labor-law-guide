@@ -1362,6 +1362,15 @@ export async function searchCases(tags: string[], query?: string): Promise<Retri
     return !NON_LABOR_CASE_TYPES.includes(caseType);
   });
 
+  // 2026-05-15: 판례(bc_*, prec_*) 노출 일시 중단 — 데이터 정비 중. NLRC 판정례(id_*)만 노출.
+  // process.env.SHOW_CASES='true'로 재활성화 가능.
+  if (process.env.SHOW_CASES !== 'true') {
+    candidates = candidates.filter((c) => {
+      const id = String(c.id || '');
+      return !id.startsWith('bc_') && !id.startsWith('prec_');
+    });
+  }
+
   _retrievalTiming.searchCasesTotal = Object.values(_timing).reduce((a, b) => a + b, 0) + (_retrievalTiming.embedding || 0) + (_retrievalTiming.rpc || 0);
 
   const results = reranked ? candidates.slice(0, RESULT_LIMIT * 3) : selectRepresentativeCases(candidates, RESULT_LIMIT);
