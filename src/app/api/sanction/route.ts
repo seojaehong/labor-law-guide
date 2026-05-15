@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { bucketDecisionResult } from '@/lib/ai/decision-bucket';
-import { extractTags, searchCases } from '@/lib/ai/retrieval';
+import { extractTags, searchCases, _retrievalTiming } from '@/lib/ai/retrieval';
 import { buildComparisonMeta, buildUserContext, splitIssueSummary, trimHistory, type ComparisonCase, type ComparisonMeta } from '@/lib/ai/prompt';
 import { SYSTEM_PROMPT } from '@/lib/ai/prompt';
 
@@ -353,18 +353,42 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ content: '질문을 입력해주세요.', tags: [], cases: [], comparison: null }, { status: 400 });
     }
 
+    // === Timing 진단 (Step 3e) ===
+    const _t = { start: Date.now(), tags: 0, search: 0, compMeta: 0, ctx: 0, totalPreLLM: 0 };
+
     // Step 1: 키워드 추출 (~1ms)
+    const t_tags = Date.now();
     const tags = extractTags(lastUserMsg.content);
+    _t.tags = Date.now() - t_tags;
 
     // Step 2: DB 검색
+    const t_search = Date.now();
     const retrieval = await searchCases(tags, lastUserMsg.content);
+    _t.search = Date.now() - t_search;
+    const t_compMeta = Date.now();
     const comparison = buildComparisonMeta(lastUserMsg.content, tags, retrieval.cases as unknown as Record<string, unknown>[]);
+    _t.compMeta = Date.now() - t_compMeta;
     // LLM 실패 시 사용자에게 보여줄 검색 결과 보존
     retrievalCache = { tags: retrieval.tags, cases: retrieval.cases as unknown[], comparison };
 
     // Step 3: 프롬프트 조립 + 히스토리 트리밍
+    const t_ctx = Date.now();
     const userContext = buildUserContext(lastUserMsg.content, tags, retrieval.cases as unknown as Record<string, unknown>[]);
     const trimmedMessages = trimHistory(messages, userContext);
+    _t.ctx = Date.now() - t_ctx;
+    _t.totalPreLLM = Date.now() - _t.start;
+
+    // diagnostic payload — retrievalTiming은 retrieval.ts global state에서 가져옴
+    const diagTiming = {
+      tags: _t.tags,
+      search: _t.search,
+      embedding: _retrievalTiming.embedding,
+      rpc: _retrievalTiming.rpc,
+      rpcRows: _retrievalTiming.rpcRows,
+      compMeta: _t.compMeta,
+      ctx: _t.ctx,
+      totalPreLLM: _t.totalPreLLM,
+    };
 
     // Step 4: 스트리밍 여부 확인
     const wantsStream = body?.stream === true;
@@ -375,7 +399,7 @@ export async function POST(req: NextRequest) {
       const stream = new ReadableStream({
         async start(controller) {
           // 즉시 DB 결과 전송
-          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'meta', tags: retrieval.tags, cases: retrieval.cases, comparison })}\n\n`));
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'meta', tags: retrieval.tags, cases: retrieval.cases, comparison, diagTiming })}\n\n`));
 
           try {
             const { resp, provider } = await callLLM(SYSTEM_PROMPT, trimmedMessages, {

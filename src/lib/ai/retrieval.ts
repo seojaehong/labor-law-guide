@@ -479,10 +479,19 @@ function buildIntentAwareQuery(query: string, rewrite: QueryRewriteLike | null):
   return addUniqueTerms(query, [...extraTerms]);
 }
 
+// global timing collector for diagnostic — meta payload에 노출
+export const _retrievalTiming: {
+  embedding?: number;
+  rpc?: number;
+  rpcRows?: number;
+  searchCasesTotal?: number;
+  rewriteMs?: number;
+} = {};
+
 async function searchCasesViaRpc(query: string, category: string, limit: number): Promise<Record<string, unknown>[]> {
   const t1 = Date.now();
   const embedding = await createQueryEmbedding(query);
-  const embMs = Date.now() - t1;
+  _retrievalTiming.embedding = Date.now() - t1;
 
   const t2 = Date.now();
   const { data, error } = await supabase.rpc('search_similar_cases_hybrid', {
@@ -492,8 +501,8 @@ async function searchCasesViaRpc(query: string, category: string, limit: number)
     limit,
     semantic_weight: 0.6,
   });
-  const rpcMs = Date.now() - t2;
-  console.log(`[retrieval timing] embedding=${embMs}ms rpc=${rpcMs}ms rows=${Array.isArray(data) ? data.length : 0}`);
+  _retrievalTiming.rpc = Date.now() - t2;
+  _retrievalTiming.rpcRows = Array.isArray(data) ? data.length : 0;
 
   if (error || !Array.isArray(data)) {
     return [];
@@ -1182,16 +1191,23 @@ export async function searchCases(tags: string[], query?: string): Promise<Retri
   let candidates: Record<string, unknown>[] = [];
   let reranked = false;
 
+  const _timing: Record<string, number> = {};
+  const _mark = (label: string, t0: number) => { _timing[label] = Date.now() - t0; };
+
   // SKIP_AI_RETRIEVAL_HEAVY=true (기본) → rewriteQuery/rerankResults skip하여 retrieval 7-10s 단축.
   // 정확도 미세 손실 vs 응답 속도 trade-off — 사용자 우선순위로 속도 선택.
   const skipHeavy = process.env.SKIP_AI_RETRIEVAL_HEAVY !== 'false';
+  const t_rewrite = Date.now();
   const rewrite = !skipHeavy && query ? await rewriteQuery(query) : null;
+  _mark('rewrite', t_rewrite);
   const effectiveQuery = buildIntentAwareQuery(rewrite?.searchQuery || query || tags.join(' '), rewrite);
   const reasons = effectiveQuery ? extractReasonCategories(effectiveQuery) : [];
   const rpcCategory = rewrite?.category || (reasons.length > 0 ? reasons[0] : '');
 
   if (effectiveQuery) {
+    const t_rpc = Date.now();
     const rpcRows = await searchCasesViaRpc(effectiveQuery, rpcCategory, RESULT_LIMIT * 4);
+    _mark('rpc', t_rpc);
     if (rpcRows.length > 0) {
       const rpcCandidates = rpcRows.map((row) => {
         const record = row as unknown as HybridSearchRow;
@@ -1329,6 +1345,8 @@ export async function searchCases(tags: string[], query?: string): Promise<Retri
     const caseType = (c.case_type as string) || '';
     return !NON_LABOR_CASE_TYPES.includes(caseType);
   });
+
+  _retrievalTiming.searchCasesTotal = Object.values(_timing).reduce((a, b) => a + b, 0) + (_retrievalTiming.embedding || 0) + (_retrievalTiming.rpc || 0);
 
   const results = reranked ? candidates.slice(0, RESULT_LIMIT * 3) : selectRepresentativeCases(candidates, RESULT_LIMIT);
 
