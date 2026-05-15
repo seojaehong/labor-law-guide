@@ -19,7 +19,8 @@ const MAX_TOTAL_CHARS = 16000;
 
 type LLMProvider = 'gemini' | 'openai' | 'anthropic';
 
-// 우선순위: Gemini → OpenAI gpt-4o-mini → Anthropic (한도 회복 후)
+// 우선순위: OpenAI gpt-4o-mini → Gemini 2.5 Flash → Anthropic (한도 회복 후)
+// 변경 사유 (2026-05-15): Gemini 2.5 Flash TTFT 12.5s 측정 → OpenAI gpt-4o-mini TTFT 1-2s 기대 → 사용자 첫 토큰까지 10s 단축
 // provider를 명시 반환 (detectProvider via resp.url은 Vercel runtime에서 신뢰 X)
 async function callLLM(
   systemPrompt: string,
@@ -82,8 +83,8 @@ async function callLLM(
 
   const errors: string[] = [];
   const providerMap: Array<[LLMProvider, () => Promise<Response>]> = [
-    ['gemini', tryGemini],
     ['openai', tryOpenAI],
+    ['gemini', tryGemini],
     ['anthropic', tryAnthropic],
   ];
   for (const [provider, attempt] of providerMap) {
