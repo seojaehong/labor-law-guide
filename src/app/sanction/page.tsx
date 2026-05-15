@@ -470,7 +470,7 @@ export default function SanctionPage() {
         </div>
 
         {/* Input */}
-        <form onSubmit={handleSubmit} className="flex gap-2 border-t border-border/15 p-4">
+        <form onSubmit={handleSubmit} className="flex gap-2 px-4 pb-4 pt-1">
           <input
             value={input}
             onChange={(e) => setInput(e.target.value)}
@@ -480,13 +480,13 @@ export default function SanctionPage() {
           <button
             type="submit"
             disabled={loading || !input.trim()}
-            className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-xl bg-primary px-4 text-primary-foreground transition-all hover:bg-primary/90 disabled:bg-muted/60 disabled:text-muted-foreground/40 disabled:cursor-not-allowed"
+            className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-xl bg-primary px-4 text-primary-foreground transition-all duration-200 hover:bg-primary/90 disabled:bg-transparent disabled:text-muted-foreground/30 disabled:cursor-not-allowed"
           >
             <Send size={16} />
           </button>
         </form>
         {lastError && (
-          <div className="border-t border-border px-4 pb-4">
+          <div className="border-t border-border/15 px-4 pb-4 pt-3">
             <p className="mb-2 text-xs text-red-500">{lastError}</p>
             <button
               type="button"
