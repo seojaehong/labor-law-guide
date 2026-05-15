@@ -366,26 +366,28 @@ export async function POST(req: NextRequest) {
     const tags = extractTags(lastUserMsg.content);
     _t.tags = Date.now() - t_tags;
 
-    // Step 2: DB 검색
+    // Step 2: DB 검색 + 부가 지식DB 동시 — 직렬 await로 retrieval 뒤에 FAQ 13s 추가되던 것 병렬화.
     const t_search = Date.now();
-    const retrieval = await searchCases(tags, lastUserMsg.content);
+    const t_faq = Date.now();
+    // FAQ 호출에 6s timeout (Supabase pooler 10s 컷 회피).
+    const faqWithTimeout = Promise.race<{ context: string; topIds: number[] }>([
+      buildFaqContext(db, lastUserMsg.content, null).then((r) => ({ context: r.context, topIds: r.topIds })).catch(() => ({ context: '', topIds: [] })),
+      new Promise<{ context: string; topIds: number[] }>((resolve) => setTimeout(() => resolve({ context: '', topIds: [] }), 6000)),
+    ]);
+    const [retrieval, faqResult] = await Promise.all([
+      searchCases(tags, lastUserMsg.content),
+      faqWithTimeout,
+    ]);
     _t.search = Date.now() - t_search;
+    const faqContext = faqResult.context;
+    const topFaqIds = faqResult.topIds;
+    const faqMs = Date.now() - t_faq;
+
     const t_compMeta = Date.now();
     const comparison = buildComparisonMeta(lastUserMsg.content, tags, retrieval.cases as unknown as Record<string, unknown>[]);
     _t.compMeta = Date.now() - t_compMeta;
     // LLM 실패 시 사용자에게 보여줄 검색 결과 보존
     retrievalCache = { tags: retrieval.tags, cases: retrieval.cases as unknown[], comparison };
-
-    // Step 3a: 부가 지식DB (최영우 교재 + 검토자 FAQ) 조회 — 답변에 인용
-    const t_faq = Date.now();
-    let faqContext = '';
-    let topFaqIds: number[] = [];
-    try {
-      const faq = await buildFaqContext(db, lastUserMsg.content, null);
-      faqContext = faq.context;
-      topFaqIds = faq.topIds;
-    } catch { /* FAQ 실패는 무시 — 메인 분석은 진행 */ }
-    const faqMs = Date.now() - t_faq;
 
     // Step 3: 프롬프트 조립 + 히스토리 트리밍
     const t_ctx = Date.now();
