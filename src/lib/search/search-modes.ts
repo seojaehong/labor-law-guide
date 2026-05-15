@@ -648,6 +648,7 @@ async function runBaselineSearch({
   }
 
   // 2차 fallback — reason 필터가 너무 strict해서 0건이면 reason 없이 텍스트+동의어로 재시도
+  let usedSynonymFallback = false;
   if (!error && effectiveQuery && (count || 0) === 0 && effectiveReason) {
     // 동의어 확장: '경영상해고' query + REASON_TO_QUERY[redundancy]='경영상 해고' + REASON_TO_LAWGO_KEYWORDS[redundancy]=['경영상해고','부당해고']
     const synonyms = new Set<string>([effectiveQuery]);
@@ -669,6 +670,7 @@ async function runBaselineSearch({
       if (!textResp.error && (textResp.data?.length || 0) > 0) {
         data = textResp.data;
         count = textResp.count;
+        usedSynonymFallback = true;
       }
     }
   }
@@ -689,7 +691,7 @@ async function runBaselineSearch({
     url: row.url,
     reason_category: row.reason_category || [],
     source_provider: 'nlrc' as const,
-  })).filter((item) => matchesReasonTextGuard(item, effectiveReason));
+  })).filter((item) => usedSynonymFallback ? true : matchesReasonTextGuard(item, effectiveReason));
 
   return {
     items,
