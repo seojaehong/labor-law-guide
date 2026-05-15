@@ -648,8 +648,9 @@ async function runBaselineSearch({
   }
 
   // 2차 fallback — reason 필터가 너무 strict해서 0건이면 reason 없이 텍스트+동의어로 재시도
+  // count: 'planned'는 planner 추정치라 strict 필터 후 stale일 수 있어 data?.length로 판정
   let usedSynonymFallback = false;
-  if (!error && effectiveQuery && (count || 0) === 0 && effectiveReason) {
+  if (!error && effectiveQuery && (data?.length || 0) === 0 && effectiveReason) {
     // 동의어 확장: '경영상해고' query + REASON_TO_QUERY[redundancy]='경영상 해고' + REASON_TO_LAWGO_KEYWORDS[redundancy]=['경영상해고','부당해고']
     const synonyms = new Set<string>([effectiveQuery]);
     const synQuery = REASON_TO_QUERY[effectiveReason];
