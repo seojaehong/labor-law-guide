@@ -3,6 +3,11 @@ import { bucketDecisionResult } from '@/lib/ai/decision-bucket';
 import { extractTags, searchCases, _retrievalTiming } from '@/lib/ai/retrieval';
 import { buildComparisonMeta, buildUserContext, splitIssueSummary, trimHistory, type ComparisonCase, type ComparisonMeta } from '@/lib/ai/prompt';
 import { SYSTEM_PROMPT } from '@/lib/ai/prompt';
+import { buildFaqContext } from '@/lib/chat/context/faq';
+import { supabaseAdmin } from '@/lib/supabase-server';
+import { supabase } from '@/lib/supabase';
+
+const db = supabaseAdmin || supabase;
 
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
 const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages';
@@ -371,9 +376,21 @@ export async function POST(req: NextRequest) {
     // LLM 실패 시 사용자에게 보여줄 검색 결과 보존
     retrievalCache = { tags: retrieval.tags, cases: retrieval.cases as unknown[], comparison };
 
+    // Step 3a: 부가 지식DB (최영우 교재 + 검토자 FAQ) 조회 — 답변에 인용
+    const t_faq = Date.now();
+    let faqContext = '';
+    let topFaqIds: number[] = [];
+    try {
+      const faq = await buildFaqContext(db, lastUserMsg.content, null);
+      faqContext = faq.context;
+      topFaqIds = faq.topIds;
+    } catch { /* FAQ 실패는 무시 — 메인 분석은 진행 */ }
+    const faqMs = Date.now() - t_faq;
+
     // Step 3: 프롬프트 조립 + 히스토리 트리밍
     const t_ctx = Date.now();
-    const userContext = buildUserContext(lastUserMsg.content, tags, retrieval.cases as unknown as Record<string, unknown>[]);
+    const baseContext = buildUserContext(lastUserMsg.content, tags, retrieval.cases as unknown as Record<string, unknown>[]);
+    const userContext = baseContext + faqContext;
     const trimmedMessages = trimHistory(messages, userContext);
     _t.ctx = Date.now() - t_ctx;
     _t.totalPreLLM = Date.now() - _t.start;
@@ -387,6 +404,8 @@ export async function POST(req: NextRequest) {
       rpcRows: _retrievalTiming.rpcRows,
       compMeta: _t.compMeta,
       ctx: _t.ctx,
+      faq: faqMs,
+      faqIds: topFaqIds,
       totalPreLLM: _t.totalPreLLM,
     };
 
