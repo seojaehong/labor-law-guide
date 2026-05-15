@@ -647,6 +647,18 @@ async function runBaselineSearch({
     error = fallbackResp.error;
   }
 
+  // 2차 fallback — reason 필터가 너무 strict해서 0건이면 reason 없이 텍스트만 매칭
+  if (!error && effectiveQuery && (count || 0) === 0 && effectiveReason) {
+    let textOnly = buildBaselineSelect(page, pageSize);
+    if (result) textOnly = textOnly.eq('decision_result', result);
+    textOnly = textOnly.or(`title.ilike.%${effectiveQuery}%,key_issue.ilike.%${effectiveQuery}%,holding_points.ilike.%${effectiveQuery}%`);
+    const textResp = await textOnly;
+    if (!textResp.error && (textResp.data?.length || 0) > 0) {
+      data = textResp.data;
+      count = textResp.count;
+    }
+  }
+
   if (error) throw error;
 
   const items: SearchCard[] = (data || []).map((row) => ({
