@@ -493,19 +493,26 @@ export const _retrievalTiming: {
   rewriteMs?: number;
 } = {};
 
+const RPC_TIMEOUT_MS = 3500; // 3.5s — Supabase pooler/CDN가 10s 컷이라 그 전에 fallback으로
+
 async function searchCasesViaRpc(query: string, category: string, limit: number): Promise<Record<string, unknown>[]> {
   const t1 = Date.now();
   const embedding = await createQueryEmbedding(query);
   _retrievalTiming.embedding = Date.now() - t1;
 
   const t2 = Date.now();
-  const { data, error } = await supabase.rpc('search_similar_cases_hybrid', {
+  const rpcPromise = supabase.rpc('search_similar_cases_hybrid', {
     query,
     query_embedding: embedding ? toVectorLiteral(embedding) : null,
     category,
     limit,
     semantic_weight: 0.6,
   });
+  const timeoutPromise = new Promise<{ data: null; error: { message: string } }>((resolve) => {
+    setTimeout(() => resolve({ data: null, error: { message: 'rpc_client_timeout' } }), RPC_TIMEOUT_MS);
+  });
+  const result = await Promise.race([rpcPromise, timeoutPromise]);
+  const { data, error } = result as { data: Record<string, unknown>[] | null; error: { message: string } | null };
   _retrievalTiming.rpc = Date.now() - t2;
   _retrievalTiming.rpcRows = Array.isArray(data) ? data.length : 0;
 
