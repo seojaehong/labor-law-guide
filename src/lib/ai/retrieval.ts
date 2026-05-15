@@ -9,9 +9,14 @@ const OPENAI_EMBEDDING_URL = 'https://api.openai.com/v1/embeddings';
 const OPENAI_EMBEDDING_MODEL = 'text-embedding-3-small';
 const EMBEDDING_TIMEOUT_MS = 5000;
 
+// retrieval은 server-only — anon 역할의 statement_timeout=10s에 RPC가 컷되는 이슈로
+// service_role 키를 우선 사용 (timeout 제한 없음). service key 없으면 anon으로 fallback.
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY
+    ? { auth: { autoRefreshToken: false, persistSession: false } }
+    : undefined,
 );
 
 // 42k 판정례 분류에서 검증된 키워드 패턴
