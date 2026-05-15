@@ -1262,55 +1262,58 @@ export async function searchCases(tags: string[], query?: string): Promise<Retri
   const primaryTypes = profile?.primaryPool || [];
   const TAGGED_SELECT = 'id, title, decision_result, holding_points, summary_short, key_issue, retrieval_note, tags, url, employment_stage, issue_type_primary, issue_type_secondary, disposition_type, fact_markers, legal_focus, industry_context, exclusion_flags, include_for_queries, exclude_for_queries, reason_category';
 
-  if (candidates.length < 3 && primaryTypes.length > 0 && reasons.length > 0) {
-    const { data: precisionCases } = await supabase
-      .from('nlrc_decisions')
-      .select(TAGGED_SELECT)
-      .in('issue_type_primary', primaryTypes)
-      .overlaps('reason_category', reasons)
-      .not('holding_points', 'is', null)
-      .limit(DB_CANDIDATE_LIMIT);
+  // fallback 4개를 병렬 실행 — 이전엔 sequential awaits로 candidates < 3일 때 각각 대기.
+  // 병렬화 후 candidates < 3 조건 그대로 적용해 우선순위는 유지.
+  if (candidates.length < 3) {
+    const hasPrimary = primaryTypes.length > 0;
+    const hasReasons = reasons.length > 0;
 
-    if (precisionCases && precisionCases.length > 0) {
+    const [precisionResp, taggedResp, reasonResp, tagResp] = await Promise.all([
+      (hasPrimary && hasReasons)
+        ? supabase.from('nlrc_decisions').select(TAGGED_SELECT)
+            .in('issue_type_primary', primaryTypes)
+            .overlaps('reason_category', reasons)
+            .not('holding_points', 'is', null)
+            .limit(DB_CANDIDATE_LIMIT)
+        : Promise.resolve({ data: null }),
+      hasPrimary
+        ? supabase.from('nlrc_decisions').select(TAGGED_SELECT)
+            .in('issue_type_primary', primaryTypes)
+            .not('holding_points', 'is', null)
+            .limit(DB_CANDIDATE_LIMIT)
+        : Promise.resolve({ data: null }),
+      hasReasons
+        ? supabase.from('nlrc_decisions')
+            .select('id, title, decision_result, holding_points, summary_short, key_issue, tags, url, reason_category')
+            .overlaps('reason_category', reasons)
+            .not('holding_points', 'is', null)
+            .limit(CANDIDATE_LIMIT)
+        : Promise.resolve({ data: null }),
+      supabase.from('nlrc_decisions')
+        .select('id, title, decision_result, holding_points, summary_short, key_issue, tags, url')
+        .overlaps('tags', tags)
+        .not('holding_points', 'is', null)
+        .limit(CANDIDATE_LIMIT),
+    ]);
+
+    const precisionCases = precisionResp.data as Record<string, unknown>[] | null;
+    const taggedCases = taggedResp.data as Record<string, unknown>[] | null;
+    const reasonCases = reasonResp.data as Record<string, unknown>[] | null;
+    const tagCases = tagResp.data as Record<string, unknown>[] | null;
+
+    if (candidates.length < 3 && precisionCases && precisionCases.length > 0) {
       candidates = effectiveQuery ? rankTaggedCandidates(effectiveQuery, precisionCases) : precisionCases;
     }
-  }
-
-  if (candidates.length < 3 && primaryTypes.length > 0) {
-    const existingIds = new Set(candidates.map((c) => c.id));
-    const { data: taggedCases } = await supabase
-      .from('nlrc_decisions')
-      .select(TAGGED_SELECT)
-      .in('issue_type_primary', primaryTypes)
-      .not('holding_points', 'is', null)
-      .limit(DB_CANDIDATE_LIMIT);
-
-    if (taggedCases && taggedCases.length > 0) {
+    if (candidates.length < 3 && taggedCases && taggedCases.length > 0) {
+      const existingIds = new Set(candidates.map((c) => c.id));
       const newCases = taggedCases.filter((c) => !existingIds.has(c.id));
       const allCases = [...candidates, ...newCases];
       candidates = effectiveQuery ? rankTaggedCandidates(effectiveQuery, allCases) : allCases;
     }
-  }
-
-  if (candidates.length < 3 && reasons.length > 0) {
-    const { data: reasonCases } = await supabase
-      .from('nlrc_decisions')
-      .select('id, title, decision_result, holding_points, summary_short, key_issue, tags, url, reason_category')
-      .overlaps('reason_category', reasons)
-      .not('holding_points', 'is', null)
-      .limit(CANDIDATE_LIMIT);
-    candidates = reasonCases || [];
-  }
-
-  if (candidates.length < 3) {
-    const { data: tagCases } = await supabase
-      .from('nlrc_decisions')
-      .select('id, title, decision_result, holding_points, summary_short, key_issue, tags, url')
-      .overlaps('tags', tags)
-      .not('holding_points', 'is', null)
-      .limit(CANDIDATE_LIMIT);
-
-    if (tagCases && tagCases.length > 0) {
+    if (candidates.length < 3 && reasonCases && reasonCases.length > 0) {
+      candidates = reasonCases;
+    }
+    if (candidates.length < 3 && tagCases && tagCases.length > 0) {
       const existingIds = new Set(candidates.map((c) => c.id));
       const fallbackCases = tagCases.filter((c) => !existingIds.has(c.id));
       candidates = [...candidates, ...fallbackCases];
