@@ -197,14 +197,14 @@ export default function SanctionPage() {
   function renderComparisonCaseCard(c: CaseCard, tone: 'worker' | 'employer') {
     const cardClass =
       tone === 'worker'
-        ? 'block rounded-xl border border-blue-200 bg-white p-3 hover:bg-blue-100/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500'
-        : 'block rounded-xl border border-amber-200 bg-white p-3 hover:bg-amber-100/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500'
-    const titleClass = tone === 'worker' ? 'mb-1 text-xs font-semibold text-blue-700' : 'mb-1 text-xs font-semibold text-amber-700'
+        ? 'block rounded-xl border border-primary/30 bg-card p-3 hover:bg-accent/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring'
+        : 'block rounded-xl border border-amber-200 dark:border-amber-900/50 bg-card p-3 hover:bg-amber-100/40 dark:hover:bg-amber-900/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500'
+    const titleClass = tone === 'worker' ? 'mb-1 text-xs font-semibold text-accent-foreground' : 'mb-1 text-xs font-semibold text-amber-700 dark:text-amber-300'
     const href = (c.id && !c.id.startsWith('ai_case_') ? getDecisionDetailHref({ id: c.id, sourceProvider: c.source === 'court' ? 'bigcase' : 'nlrc' }) : '')
 
     const sourceBadge = c.source === 'court'
-      ? <span className="ml-1.5 rounded-full bg-purple-100 px-1.5 py-0.5 text-[9px] font-medium text-purple-700">법원</span>
-      : <span className="ml-1.5 rounded-full bg-gray-100 px-1.5 py-0.5 text-[9px] font-medium text-gray-600">노동위</span>
+      ? <span className="ml-1.5 rounded-full bg-purple-100 dark:bg-purple-900/30 px-1.5 py-0.5 text-[9px] font-medium text-purple-700 dark:text-purple-300">법원</span>
+      : <span className="ml-1.5 rounded-full bg-muted px-1.5 py-0.5 text-[9px] font-medium text-muted-foreground">노동위</span>
 
     const content = (
       <>
@@ -212,7 +212,7 @@ export default function SanctionPage() {
           <div className={titleClass}>{c.title}</div>
           {sourceBadge}
         </div>
-        <p className="text-xs leading-relaxed text-gray-700">{stripMarkdownFormatting(c.holding_points || c.summary_short || c.key_issue || '')}</p>
+        <p className="text-xs leading-relaxed text-foreground/80">{stripMarkdownFormatting(c.holding_points || c.summary_short || c.key_issue || '')}</p>
       </>
     )
 
@@ -240,27 +240,30 @@ export default function SanctionPage() {
     <div className="mx-auto max-w-4xl px-4 py-8">
       {/* Header */}
       <div className="mb-6 text-center">
-        <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-blue-50 px-4 py-1.5">
-          <Scale size={14} className="text-blue-600" />
-          <span className="text-xs font-medium text-blue-700">42,000건 노동위 판정례 기반</span>
+        <div className="mb-3 inline-flex items-center gap-2.5 rounded-full bg-primary/5 px-3.5 py-2">
+          <Scale size={14} className="text-muted-foreground" />
+          <span className="text-xs font-medium text-muted-foreground">42,000건 노동위 판정례 기반</span>
         </div>
-        <h1 className="text-2xl font-bold text-gray-900">AI 판정례 비교분석</h1>
-        <p className="mt-1 text-sm text-gray-500">
+        <h1 className="text-2xl font-bold text-foreground">AI 판정례 비교분석</h1>
+        <p className="mt-1 text-sm text-muted-foreground">
           상황을 설명하시면 유사 판정례를 비교해 승패를 가른 요소와 실무 체크리스트를 안내합니다
         </p>
       </div>
 
       {/* Chat Area */}
-      <div className="flex flex-col rounded-2xl border border-gray-200 bg-white shadow-sm" style={{ height: 'calc(100vh - 240px)', minHeight: '500px' }}>
+      <div className="flex flex-col rounded-3xl bg-card shadow-xl shadow-black/[0.04] ring-1 ring-black/[0.04] dark:ring-white/[0.05]" style={{ height: 'calc(100vh - 240px)', minHeight: '500px' }}>
         <div ref={scrollRef} className="flex-1 overflow-y-auto p-5">
           {/* Empty State */}
           {isEmpty && !loading && (
             <div className="flex h-full flex-col items-center justify-center">
-              <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-blue-50">
-                <Scale size={28} className="text-blue-600" />
+              <div className="relative mb-6">
+                <div aria-hidden className="absolute inset-0 -m-4 rounded-full bg-primary/10 blur-2xl" />
+                <div className="relative flex h-16 w-16 items-center justify-center rounded-2xl bg-accent">
+                  <Scale size={28} className="text-primary" />
+                </div>
               </div>
-              <p className="mb-1 text-lg font-semibold text-gray-800">어떤 상황이신가요?</p>
-              <p className="mb-8 text-sm text-gray-400">징계 사유를 설명해 주시면 유사 판정례를 분석해 드립니다</p>
+              <p className="mb-1 text-lg font-semibold text-foreground">어떤 상황이신가요?</p>
+              <p className="mb-8 text-sm text-muted-foreground">징계 사유를 설명해 주시면 유사 판정례를 분석해 드립니다</p>
               <div className="flex max-w-lg flex-wrap justify-center gap-2">
                 {QUICK_REPLIES.map((text) => (
                   <PromptSuggestion key={text} onClick={() => sendMessage(text)}>
@@ -277,25 +280,25 @@ export default function SanctionPage() {
               <div key={msg.id} className={`flex gap-3 ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}>
                 <div
                   className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${
-                    msg.role === 'user' ? 'bg-blue-100' : 'bg-gray-100'
+                    msg.role === 'user' ? 'bg-accent' : 'bg-muted'
                   }`}
                 >
                   {msg.role === 'user' ? (
-                    <User size={14} className="text-blue-600" />
+                    <User size={14} className="text-primary" />
                   ) : (
-                    <Bot size={14} className="text-gray-600" />
+                    <Bot size={14} className="text-muted-foreground" />
                   )}
                 </div>
                 <div className={`max-w-[85%] space-y-3 ${msg.role === 'user' ? 'text-right' : ''}`}>
                   {/* User message */}
                   {msg.role === 'user' && (
-                    <div className="inline-block rounded-2xl bg-blue-600 px-4 py-3 text-sm text-white">
+                    <div className="inline-block rounded-2xl bg-primary px-4 py-3 text-sm text-primary-foreground">
                       {msg.content}
                     </div>
                   )}
 
                   {msg.role === 'assistant' && msg.content && !msg.comparison && (
-                    <div className="rounded-2xl bg-gray-50 px-4 py-3 text-sm leading-relaxed text-gray-800 whitespace-pre-wrap">
+                    <div className="rounded-2xl bg-muted px-4 py-3 text-sm leading-relaxed text-foreground whitespace-pre-wrap">
                       {msg.content}
                     </div>
                   )}
@@ -303,12 +306,12 @@ export default function SanctionPage() {
                   {msg.comparison && (
                     <div className="space-y-4">
                       {msg.comparison.issueSummary.length > 0 && (
-                        <div className="rounded-2xl border border-blue-200 bg-blue-50 p-4">
-                          <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-blue-900">
+                        <div className="rounded-2xl border border-primary/30 bg-accent p-4">
+                          <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-accent-foreground">
                             <Scale size={15} />
                             쟁점 요약
                           </div>
-                          <div className="space-y-1 text-sm text-blue-900">
+                          <div className="space-y-1 text-sm text-accent-foreground">
                             {msg.comparison.issueSummary.map((item, idx) => (
                               <p key={`issue-${idx}`}>{item}</p>
                             ))}
@@ -317,47 +320,47 @@ export default function SanctionPage() {
                       )}
 
                       <div className="grid gap-4 md:grid-cols-2">
-                        <div className="rounded-2xl border border-blue-200 bg-blue-50 p-4">
-                          <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-blue-900">
+                        <div className="rounded-2xl border border-primary/30 bg-accent p-4">
+                          <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-accent-foreground">
                             <GitCompareArrows size={15} />
                             근로자가 이긴 사건
                           </div>
                           <div className="space-y-3">
                             {msg.comparison.workerWinCases.length > 0 ? msg.comparison.workerWinCases.map((c) => (
                               renderComparisonCaseCard(c, 'worker')
-                            )) : <p className="text-xs text-gray-500">직접 비교 가능한 인용 사건이 아직 충분하지 않습니다.</p>}
+                            )) : <p className="text-xs text-muted-foreground">직접 비교 가능한 인용 사건이 아직 충분하지 않습니다.</p>}
                           </div>
                         </div>
 
-                        <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4">
-                          <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-amber-900">
+                        <div className="rounded-2xl border border-amber-200 dark:border-amber-900/50 bg-amber-50 dark:bg-amber-950/30 p-4">
+                          <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-amber-900 dark:text-amber-200">
                             <GitCompareArrows size={15} />
                             사용자가 이긴 사건
                           </div>
                           <div className="space-y-3">
                             {msg.comparison.employerWinCases.length > 0 ? msg.comparison.employerWinCases.map((c) => (
                               renderComparisonCaseCard(c, 'employer')
-                            )) : <p className="text-xs text-gray-500">직접 비교 가능한 기각 사건이 아직 충분하지 않습니다.</p>}
+                            )) : <p className="text-xs text-muted-foreground">직접 비교 가능한 기각 사건이 아직 충분하지 않습니다.</p>}
                           </div>
                         </div>
                       </div>
 
                       {msg.comparison.coreDifferences.length > 0 && (
-                        <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4">
+                        <div className="rounded-2xl border border-amber-200 dark:border-amber-900/50 bg-amber-50 dark:bg-amber-950/30 p-4">
                           <div className="mb-3 flex items-center justify-between gap-2">
-                            <div className="flex items-center gap-2 text-sm font-semibold text-amber-900">
+                            <div className="flex items-center gap-2 text-sm font-semibold text-amber-900 dark:text-amber-200">
                               <CheckCircle2 size={15} />
                               승패를 가른 핵심 차이
                             </div>
                             <button
                               type="button"
                               onClick={() => void copySection(`diff-${msg.id}`, msg.comparison?.coreDifferences || [])}
-                              className="rounded-md border border-amber-200 bg-white px-2 py-1 text-[11px] font-medium text-amber-900 transition-colors hover:bg-amber-100"
+                              className="rounded-md border border-amber-200 dark:border-amber-900/50 bg-card px-2 py-1 text-[11px] font-medium text-amber-900 dark:text-amber-200 transition-colors hover:bg-amber-100 dark:hover:bg-amber-900/30"
                             >
                               {copiedSection === `diff-${msg.id}` ? '복사됨' : '복사'}
                             </button>
                           </div>
-                          <ul className="space-y-2 text-sm text-amber-950">
+                          <ul className="space-y-2 text-sm text-amber-950 dark:text-amber-100">
                             {msg.comparison.coreDifferences.map((item, idx) => (
                               <li key={`diff-${idx}`}>- {item}</li>
                             ))}
@@ -366,23 +369,23 @@ export default function SanctionPage() {
                       )}
 
                       {msg.comparison.checklist.length > 0 && (
-                        <div className="rounded-2xl border border-gray-200 bg-white p-4">
+                        <div className="rounded-2xl border border-border/50 bg-card p-4">
                           <div className="mb-3 flex items-center justify-between gap-2">
-                            <div className="flex items-center gap-2 text-sm font-semibold text-gray-900">
+                            <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
                               <ClipboardList size={15} />
                               실무 체크리스트
                             </div>
                             <button
                               type="button"
                               onClick={() => void copySection(`check-${msg.id}`, msg.comparison?.checklist || [])}
-                              className="rounded-md border border-gray-200 bg-white px-2 py-1 text-[11px] font-medium text-gray-700 transition-colors hover:bg-gray-50"
+                              className="rounded-md border border-border/60 bg-muted/40 px-2 py-1 text-[11px] font-medium text-foreground/80 transition-colors hover:bg-muted"
                             >
                               {copiedSection === `check-${msg.id}` ? '복사됨' : '복사'}
                             </button>
                           </div>
                           <div className="grid gap-2 md:grid-cols-2">
                             {msg.comparison.checklist.map((item, idx) => (
-                              <div key={`check-${idx}`} className="rounded-xl bg-gray-50 px-3 py-2 text-sm text-gray-700">
+                              <div key={`check-${idx}`} className="rounded-xl bg-muted px-3 py-2 text-sm text-foreground/80">
                                 {item}
                               </div>
                             ))}
@@ -391,22 +394,22 @@ export default function SanctionPage() {
                       )}
 
                       {msg.provider && (
-                        <p className="text-right text-[10px] text-gray-400">analyzed by {msg.provider}</p>
+                        <p className="text-right text-[10px] text-muted-foreground">analyzed by {msg.provider}</p>
                       )}
 
                       {msg.comparison.decisionGuide.length > 0 && (
-                        <div className="rounded-2xl border border-purple-200 bg-purple-50 p-4">
+                        <div className="rounded-2xl border border-purple-200 dark:border-purple-900/50 bg-purple-50 dark:bg-purple-950/30 p-4">
                           <div className="mb-3 flex items-center justify-between gap-2">
-                            <div className="text-sm font-semibold text-purple-900">문안/의사결정 보조</div>
+                            <div className="text-sm font-semibold text-purple-900 dark:text-purple-200">문안/의사결정 보조</div>
                             <button
                               type="button"
                               onClick={() => void copySection(`guide-${msg.id}`, msg.comparison?.decisionGuide || [])}
-                              className="rounded-md border border-purple-200 bg-white px-2 py-1 text-[11px] font-medium text-purple-900 transition-colors hover:bg-purple-100"
+                              className="rounded-md border border-purple-200 dark:border-purple-900/50 bg-card px-2 py-1 text-[11px] font-medium text-purple-900 dark:text-purple-200 transition-colors hover:bg-purple-100 dark:hover:bg-purple-900/30"
                             >
                               {copiedSection === `guide-${msg.id}` ? '복사됨' : '복사'}
                             </button>
                           </div>
-                          <div className="space-y-2 text-sm text-purple-950">
+                          <div className="space-y-2 text-sm text-purple-950 dark:text-purple-100">
                             {msg.comparison.decisionGuide.map((item, idx) => (
                               <p key={`guide-${idx}`}>{item}</p>
                             ))}
@@ -425,34 +428,34 @@ export default function SanctionPage() {
 
             {loading && (
               <div className="flex gap-3">
-                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gray-100">
-                  <Loader2 size={14} className="animate-spin text-gray-500" />
+                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-muted">
+                  <Loader2 size={14} className="animate-spin text-muted-foreground" />
                 </div>
                 <div className="flex-1 space-y-3">
-                  <div className="rounded-2xl border border-blue-100 bg-blue-50 p-4 animate-pulse">
-                    <div className="mb-3 h-4 w-28 rounded bg-blue-200/60" />
+                  <div className="rounded-2xl border border-primary/30 bg-accent p-4 animate-pulse">
+                    <div className="mb-3 h-4 w-28 rounded bg-primary/20" />
                     <div className="space-y-2">
-                      <div className="h-3 w-5/6 rounded bg-blue-200/60" />
-                      <div className="h-3 w-2/3 rounded bg-blue-200/60" />
+                      <div className="h-3 w-5/6 rounded bg-primary/20" />
+                      <div className="h-3 w-2/3 rounded bg-primary/20" />
                     </div>
                   </div>
                   <div className="grid gap-3 md:grid-cols-2">
-                    <div className="rounded-2xl border border-gray-200 bg-white p-4 animate-pulse">
-                      <div className="mb-3 h-4 w-24 rounded bg-gray-200" />
+                    <div className="rounded-2xl border border-border/50 bg-card p-4 animate-pulse">
+                      <div className="mb-3 h-4 w-24 rounded bg-muted" />
                       <div className="space-y-2">
-                        <div className="h-3 w-full rounded bg-gray-200" />
-                        <div className="h-3 w-4/5 rounded bg-gray-200" />
+                        <div className="h-3 w-full rounded bg-muted" />
+                        <div className="h-3 w-4/5 rounded bg-muted" />
                       </div>
                     </div>
-                    <div className="rounded-2xl border border-gray-200 bg-white p-4 animate-pulse">
-                      <div className="mb-3 h-4 w-24 rounded bg-gray-200" />
+                    <div className="rounded-2xl border border-border/50 bg-card p-4 animate-pulse">
+                      <div className="mb-3 h-4 w-24 rounded bg-muted" />
                       <div className="space-y-2">
-                        <div className="h-3 w-full rounded bg-gray-200" />
-                        <div className="h-3 w-3/4 rounded bg-gray-200" />
+                        <div className="h-3 w-full rounded bg-muted" />
+                        <div className="h-3 w-3/4 rounded bg-muted" />
                       </div>
                     </div>
                   </div>
-                  <div className="text-sm text-gray-400">판정례 비교분석 중...</div>
+                  <div className="text-sm text-muted-foreground">판정례 비교분석 중...</div>
                 </div>
               </div>
             )}
@@ -460,30 +463,30 @@ export default function SanctionPage() {
         </div>
 
         {/* Disclaimer */}
-        <div className="border-t border-gray-100 px-4 py-1.5">
-          <p className="text-center text-[10px] text-gray-400">
+        <div className="border-t border-border/15 px-4 py-1.5">
+          <p className="text-center text-[10px] text-muted-foreground">
             본 결과는 유사 판정례 비교에 기반한 참고용입니다. 최종 결정 전 반드시 노무사와 상담하세요.
           </p>
         </div>
 
         {/* Input */}
-        <form onSubmit={handleSubmit} className="flex gap-2 border-t border-gray-200 p-4">
+        <form onSubmit={handleSubmit} className="flex gap-2 border-t border-border/15 p-4">
           <input
             value={input}
             onChange={(e) => setInput(e.target.value)}
             placeholder="징계 상황을 설명해 주세요..."
-            className="flex-1 rounded-xl border border-gray-200 px-4 py-2.5 text-sm outline-none transition-colors focus:border-blue-400"
+            className="flex-1 rounded-xl border border-border/50 bg-muted/40 px-4 py-2.5 text-sm text-foreground outline-none transition-colors focus:border-ring focus:bg-card"
           />
           <button
             type="submit"
             disabled={loading || !input.trim()}
-            className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-xl bg-blue-600 px-4 text-white transition-colors hover:bg-blue-700 disabled:bg-gray-300"
+            className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-xl bg-primary px-4 text-primary-foreground transition-all hover:bg-primary/90 disabled:bg-muted/60 disabled:text-muted-foreground/40 disabled:cursor-not-allowed"
           >
             <Send size={16} />
           </button>
         </form>
         {lastError && (
-          <div className="border-t border-gray-100 px-4 pb-4">
+          <div className="border-t border-border px-4 pb-4">
             <p className="mb-2 text-xs text-red-500">{lastError}</p>
             <button
               type="button"
@@ -497,7 +500,7 @@ export default function SanctionPage() {
                   void requestAnalysis(retryMessages);
                 }
               }}
-              className="rounded-lg border border-gray-200 px-3 py-2 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-50"
+              className="rounded-lg border border-border/60 px-3 py-2 text-xs font-medium text-foreground/80 transition-colors hover:bg-muted hover:border-border"
             >
               다시 시도
             </button>
