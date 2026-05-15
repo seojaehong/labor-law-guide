@@ -240,9 +240,9 @@ export default function SanctionPage() {
     <div className="mx-auto max-w-4xl px-4 py-8">
       {/* Header */}
       <div className="mb-6 text-center">
-        <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-accent px-4 py-1.5">
-          <Scale size={14} className="text-primary" />
-          <span className="text-xs font-medium text-accent-foreground">42,000건 노동위 판정례 기반</span>
+        <div className="mb-3 inline-flex items-center gap-2.5 rounded-full bg-primary/5 px-3.5 py-2">
+          <Scale size={14} className="text-muted-foreground" />
+          <span className="text-xs font-medium text-muted-foreground">42,000건 노동위 판정례 기반</span>
         </div>
         <h1 className="text-2xl font-bold text-foreground">AI 판정례 비교분석</h1>
         <p className="mt-1 text-sm text-muted-foreground">
@@ -251,13 +251,16 @@ export default function SanctionPage() {
       </div>
 
       {/* Chat Area */}
-      <div className="flex flex-col rounded-3xl border border-border/40 bg-card shadow-lg shadow-black/[0.02] ring-1 ring-black/[0.03] dark:ring-white/[0.04]" style={{ height: 'calc(100vh - 240px)', minHeight: '500px' }}>
+      <div className="flex flex-col rounded-3xl bg-card shadow-xl shadow-black/[0.04] ring-1 ring-black/[0.04] dark:ring-white/[0.05]" style={{ height: 'calc(100vh - 240px)', minHeight: '500px' }}>
         <div ref={scrollRef} className="flex-1 overflow-y-auto p-5">
           {/* Empty State */}
           {isEmpty && !loading && (
             <div className="flex h-full flex-col items-center justify-center">
-              <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-accent">
-                <Scale size={28} className="text-primary" />
+              <div className="relative mb-6">
+                <div aria-hidden className="absolute inset-0 -m-4 rounded-full bg-primary/10 blur-2xl" />
+                <div className="relative flex h-16 w-16 items-center justify-center rounded-2xl bg-accent">
+                  <Scale size={28} className="text-primary" />
+                </div>
               </div>
               <p className="mb-1 text-lg font-semibold text-foreground">어떤 상황이신가요?</p>
               <p className="mb-8 text-sm text-muted-foreground">징계 사유를 설명해 주시면 유사 판정례를 분석해 드립니다</p>
@@ -460,14 +463,14 @@ export default function SanctionPage() {
         </div>
 
         {/* Disclaimer */}
-        <div className="border-t border-border px-4 py-1.5">
+        <div className="border-t border-border/15 px-4 py-1.5">
           <p className="text-center text-[10px] text-muted-foreground">
             본 결과는 유사 판정례 비교에 기반한 참고용입니다. 최종 결정 전 반드시 노무사와 상담하세요.
           </p>
         </div>
 
         {/* Input */}
-        <form onSubmit={handleSubmit} className="flex gap-2 border-t border-border p-4">
+        <form onSubmit={handleSubmit} className="flex gap-2 border-t border-border/15 p-4">
           <input
             value={input}
             onChange={(e) => setInput(e.target.value)}
@@ -477,7 +480,7 @@ export default function SanctionPage() {
           <button
             type="submit"
             disabled={loading || !input.trim()}
-            className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-xl bg-primary px-4 text-primary-foreground transition-colors hover:bg-primary/90 disabled:bg-muted disabled:text-muted-foreground"
+            className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-xl bg-primary px-4 text-primary-foreground transition-all hover:bg-primary/90 disabled:bg-muted/60 disabled:text-muted-foreground/40 disabled:cursor-not-allowed"
           >
             <Send size={16} />
           </button>
