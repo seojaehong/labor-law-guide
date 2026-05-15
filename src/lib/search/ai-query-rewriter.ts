@@ -125,6 +125,21 @@ function fallbackRewriteQuery(userQuery: string): RewrittenQuery {
   } else if (/(노조|노동조합|단체교섭|부당노동행위|쟁의행위|파업)/.test(lowered)) {
     category = 'union_activity';
     intent = 'labor_relation_check';
+  } else if (/(경영상|정리해고|구조조정|긴박한 경영상 필요)/.test(lowered)) {
+    category = 'redundancy';
+    intent = 'validity_check';
+  } else if (/(횡령|배임|공금|착복|부정수령)/.test(lowered)) {
+    category = 'embezzlement';
+    intent = 'validity_check';
+  } else if (/(비위|품위유지|복무위반|복무 위반)/.test(lowered)) {
+    category = 'misconduct';
+    intent = 'validity_check';
+  } else if (/(사직|해고부존재|자진퇴사|권고사직)/.test(lowered)) {
+    category = 'no_dismissal';
+    intent = 'dismissal_existence_check';
+  } else if (/(차별|차별시정|남녀고용평등|동등대우)/.test(lowered)) {
+    category = 'discrimination';
+    intent = 'discrimination_check';
   }
 
   return {
