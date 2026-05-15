@@ -1216,7 +1216,11 @@ export async function searchCases(tags: string[], query?: string): Promise<Retri
   const reasons = effectiveQuery ? extractReasonCategories(effectiveQuery) : [];
   const rpcCategory = rewrite?.category || (reasons.length > 0 ? reasons[0] : '');
 
-  if (effectiveQuery) {
+  // SKIP_RPC=true (기본) → RPC 호출 자체 skip → fallback 쿼리만 사용.
+  // 진단 결과(Step 3f): Supabase pooler가 RPC를 10s 컷 → 결과 없는 채로 시간만 소비.
+  // fallback 쿼리(병렬화됨)가 이미 의미있는 cases 반환. 평균 retrieval 4.5s → ~1s로 단축 예상.
+  const skipRpc = process.env.SKIP_RPC !== 'false';
+  if (!skipRpc && effectiveQuery) {
     const t_rpc = Date.now();
     const rpcRows = await searchCasesViaRpc(effectiveQuery, rpcCategory, RESULT_LIMIT * 4);
     _mark('rpc', t_rpc);
