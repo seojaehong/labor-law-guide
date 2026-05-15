@@ -251,7 +251,7 @@ export default function SanctionPage() {
       </div>
 
       {/* Chat Area */}
-      <div className="flex flex-col rounded-2xl border border-border bg-card shadow-sm" style={{ height: 'calc(100vh - 240px)', minHeight: '500px' }}>
+      <div className="flex flex-col rounded-3xl border border-border/40 bg-card shadow-lg shadow-black/[0.02] ring-1 ring-black/[0.03] dark:ring-white/[0.04]" style={{ height: 'calc(100vh - 240px)', minHeight: '500px' }}>
         <div ref={scrollRef} className="flex-1 overflow-y-auto p-5">
           {/* Empty State */}
           {isEmpty && !loading && (
@@ -366,7 +366,7 @@ export default function SanctionPage() {
                       )}
 
                       {msg.comparison.checklist.length > 0 && (
-                        <div className="rounded-2xl border border-border bg-card p-4">
+                        <div className="rounded-2xl border border-border/50 bg-card p-4">
                           <div className="mb-3 flex items-center justify-between gap-2">
                             <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
                               <ClipboardList size={15} />
@@ -375,7 +375,7 @@ export default function SanctionPage() {
                             <button
                               type="button"
                               onClick={() => void copySection(`check-${msg.id}`, msg.comparison?.checklist || [])}
-                              className="rounded-md border border-border bg-card px-2 py-1 text-[11px] font-medium text-foreground/80 transition-colors hover:bg-muted"
+                              className="rounded-md border border-border/60 bg-muted/40 px-2 py-1 text-[11px] font-medium text-foreground/80 transition-colors hover:bg-muted"
                             >
                               {copiedSection === `check-${msg.id}` ? '복사됨' : '복사'}
                             </button>
@@ -437,14 +437,14 @@ export default function SanctionPage() {
                     </div>
                   </div>
                   <div className="grid gap-3 md:grid-cols-2">
-                    <div className="rounded-2xl border border-border bg-card p-4 animate-pulse">
+                    <div className="rounded-2xl border border-border/50 bg-card p-4 animate-pulse">
                       <div className="mb-3 h-4 w-24 rounded bg-muted" />
                       <div className="space-y-2">
                         <div className="h-3 w-full rounded bg-muted" />
                         <div className="h-3 w-4/5 rounded bg-muted" />
                       </div>
                     </div>
-                    <div className="rounded-2xl border border-border bg-card p-4 animate-pulse">
+                    <div className="rounded-2xl border border-border/50 bg-card p-4 animate-pulse">
                       <div className="mb-3 h-4 w-24 rounded bg-muted" />
                       <div className="space-y-2">
                         <div className="h-3 w-full rounded bg-muted" />
@@ -472,7 +472,7 @@ export default function SanctionPage() {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             placeholder="징계 상황을 설명해 주세요..."
-            className="flex-1 rounded-xl border border-border bg-card px-4 py-2.5 text-sm text-foreground outline-none transition-colors focus:border-ring"
+            className="flex-1 rounded-xl border border-border/50 bg-muted/40 px-4 py-2.5 text-sm text-foreground outline-none transition-colors focus:border-ring focus:bg-card"
           />
           <button
             type="submit"
@@ -497,7 +497,7 @@ export default function SanctionPage() {
                   void requestAnalysis(retryMessages);
                 }
               }}
-              className="rounded-lg border border-border px-3 py-2 text-xs font-medium text-foreground/80 transition-colors hover:bg-muted"
+              className="rounded-lg border border-border/60 px-3 py-2 text-xs font-medium text-foreground/80 transition-colors hover:bg-muted hover:border-border"
             >
               다시 시도
             </button>
