@@ -28,6 +28,14 @@ interface ComparisonMeta {
   decisionGuide: string[];
 }
 
+interface FaqRef {
+  id: number;
+  category: string;
+  question: string;
+  answer: string;
+  source: string;
+}
+
 interface Message {
   id: string;
   role: 'user' | 'assistant';
@@ -35,6 +43,7 @@ interface Message {
   tags?: string[];
   cases?: CaseCard[];
   comparison?: ComparisonMeta | null;
+  faqs?: FaqRef[];
   provider?: string;
 }
 
@@ -118,7 +127,7 @@ export default function SanctionPage() {
         buffer = lines.pop() ?? '';
         for (const line of lines) {
           if (!line.startsWith('data: ')) continue;
-          let event: { type?: string; content?: string; text?: string; tags?: string[]; cases?: CaseCard[]; comparison?: ComparisonMeta; provider?: string };
+          let event: { type?: string; content?: string; text?: string; tags?: string[]; cases?: CaseCard[]; comparison?: ComparisonMeta; provider?: string; faqs?: FaqRef[] };
           try {
             event = JSON.parse(line.slice(6));
           } catch {
@@ -131,7 +140,7 @@ export default function SanctionPage() {
             setMessages((prev) =>
               prev.map((m) =>
                 m.id === msgId
-                  ? { ...m, content: '유사 판례를 찾았습니다. AI 분석 생성 중...', tags: event.tags, cases: event.cases, comparison: event.comparison ?? null }
+                  ? { ...m, content: '유사 판례를 찾았습니다. AI 분석 생성 중...', tags: event.tags, cases: event.cases, comparison: event.comparison ?? null, faqs: event.faqs ?? [] }
                   : m
               )
             );
@@ -416,6 +425,33 @@ export default function SanctionPage() {
                           </div>
                         </div>
                       )}
+                    </div>
+                  )}
+
+                  {/* 관련 실무 해설 (최영우 교재 + 검토자 FAQ) — meta.faqs 기반 */}
+                  {msg.role === 'assistant' && msg.faqs && msg.faqs.length > 0 && (
+                    <div className="rounded-2xl border border-border/50 bg-muted/30 p-4 mt-3">
+                      <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-foreground">
+                        <span>📚 관련 실무 해설</span>
+                        <span className="text-xs font-normal text-muted-foreground">최영우 교재 · 검토자 FAQ</span>
+                      </div>
+                      <div className="space-y-2">
+                        {msg.faqs.map((faq) => (
+                          <details key={faq.id} className="rounded-xl border border-border/40 bg-card p-3 group">
+                            <summary className="cursor-pointer text-sm font-medium text-foreground/90 list-none flex items-start gap-2">
+                              <span className="text-xs text-muted-foreground shrink-0 mt-0.5">[FAQ#{faq.id}]</span>
+                              <span className="flex-1">{faq.question}</span>
+                              <span className="text-xs text-muted-foreground group-open:rotate-180 transition-transform">▾</span>
+                            </summary>
+                            <div className="mt-2 pt-2 border-t border-border/30 text-sm text-foreground/80 whitespace-pre-wrap">
+                              {faq.answer}
+                              {faq.category && (
+                                <div className="mt-2 text-xs text-muted-foreground">분류: {faq.category}</div>
+                              )}
+                            </div>
+                          </details>
+                        ))}
+                      </div>
                     </div>
                   )}
 

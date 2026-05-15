@@ -359,7 +359,9 @@ export async function POST(req: NextRequest) {
     }
 
     // === Timing 진단 (Step 3e) ===
+    interface FaqRef { id: number; category: string; question: string; answer: string; source: string }
     const _t = { start: Date.now(), tags: 0, search: 0, compMeta: 0, ctx: 0, totalPreLLM: 0 };
+    let faqEntries: FaqRef[] = [];
 
     // Step 1: 키워드 추출 (~1ms)
     const t_tags = Date.now();
@@ -382,6 +384,31 @@ export async function POST(req: NextRequest) {
     const faqContext = faqResult.context;
     const topFaqIds = faqResult.topIds;
     const faqMs = Date.now() - t_faq;
+
+    // UI 노출용 — 매칭된 FAQ 본문 fetch (id로 5건)
+    if (topFaqIds.length > 0) {
+      try {
+        const { data: faqRows } = await db
+          .from('faq')
+          .select('id, question, answer, source, unified_category')
+          .in('id', topFaqIds)
+          .limit(5);
+        if (Array.isArray(faqRows)) {
+          // topFaqIds 순서 유지
+          const byId = new Map(faqRows.map((f) => [f.id, f]));
+          faqEntries = topFaqIds
+            .map((id) => byId.get(id))
+            .filter((f): f is { id: number; question: string; answer: string; source: string; unified_category: string } => !!f)
+            .map((f) => ({
+              id: f.id,
+              category: f.unified_category || '',
+              question: f.question || '',
+              answer: f.answer || '',
+              source: f.source || '',
+            }));
+        }
+      } catch { /* skip — meta event는 ids만 노출 */ }
+    }
 
     const t_compMeta = Date.now();
     const comparison = buildComparisonMeta(lastUserMsg.content, tags, retrieval.cases as unknown as Record<string, unknown>[]);
@@ -420,7 +447,7 @@ export async function POST(req: NextRequest) {
       const stream = new ReadableStream({
         async start(controller) {
           // 즉시 DB 결과 전송
-          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'meta', tags: retrieval.tags, cases: retrieval.cases, comparison, diagTiming })}\n\n`));
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'meta', tags: retrieval.tags, cases: retrieval.cases, comparison, diagTiming, faqs: faqEntries })}\n\n`));
 
           try {
             const { resp, provider } = await callLLM(SYSTEM_PROMPT, trimmedMessages, {
