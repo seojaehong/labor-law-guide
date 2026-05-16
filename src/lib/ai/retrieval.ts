@@ -294,7 +294,25 @@ function asStringArray(value: unknown): string[] {
   return Array.isArray(value) ? value.filter((v): v is string => typeof v === 'string') : [];
 }
 
+// 2026-05-16: LRU 캐시 — Map의 insertion-order 특성 활용. cap 200 도달 시 oldest 제거.
+const EMBEDDING_CACHE_CAP = 200;
 const embeddingCache = new Map<string, number[]>();
+function embeddingCacheSet(key: string, value: number[]): void {
+  if (embeddingCache.has(key)) embeddingCache.delete(key);
+  embeddingCache.set(key, value);
+  if (embeddingCache.size > EMBEDDING_CACHE_CAP) {
+    const oldest = embeddingCache.keys().next().value;
+    if (oldest !== undefined) embeddingCache.delete(oldest);
+  }
+}
+function embeddingCacheGet(key: string): number[] | undefined {
+  const v = embeddingCache.get(key);
+  if (v) {
+    embeddingCache.delete(key);
+    embeddingCache.set(key, v);
+  }
+  return v;
+}
 
 function withTimeout<T>(promise: Promise<T>, timeoutMs: number, label: string): Promise<T> {
   return new Promise<T>((resolve, reject) => {
@@ -349,7 +367,7 @@ async function createQueryEmbedding(query: string): Promise<number[] | null> {
   const trimmed = query.trim();
   if (!trimmed) return null;
 
-  const cached = embeddingCache.get(trimmed);
+  const cached = embeddingCacheGet(trimmed);
   if (cached) return cached;
 
   const apiKey = process.env.OPENAI_API_KEY;
@@ -382,7 +400,7 @@ async function createQueryEmbedding(query: string): Promise<number[] | null> {
     const embedding = payload.data?.[0]?.embedding;
     if (!Array.isArray(embedding) || embedding.length === 0) return null;
 
-    embeddingCache.set(trimmed, embedding);
+    embeddingCacheSet(trimmed, embedding);
     return embedding;
   } catch {
     return null;
@@ -1438,7 +1456,12 @@ export async function searchCases(tags: string[], query?: string): Promise<Retri
     });
     if (scoredCount > 0) {
       scored.sort((a, b) => Number(b._semantic_score || -1) - Number(a._semantic_score || -1));
-      candidates = scored;
+      // 2026-05-16: cosine threshold — 점수 너무 낮은 사건 제거 (노이즈 차단).
+      // 0.35 = text-embedding-3-small에서 같은 카테고리 안에서 어느정도 토픽 일치 기준선.
+      // 3건 미만으로 잘리면 fail-open (최소 3건은 유지).
+      const SEMANTIC_THRESHOLD = 0.35;
+      const filtered = scored.filter((c) => Number(c._semantic_score || -1) >= SEMANTIC_THRESHOLD);
+      candidates = filtered.length >= 3 ? filtered : scored;
       reranked = true;
     }
     _timing['cosine'] = Date.now() - t_cos;
@@ -1463,7 +1486,8 @@ export async function searchCases(tags: string[], query?: string): Promise<Retri
 
   _retrievalTiming.searchCasesTotal = Object.values(_timing).reduce((a, b) => a + b, 0) + (_retrievalTiming.embedding || 0) + (_retrievalTiming.rpc || 0);
 
-  const results = reranked ? candidates.slice(0, RESULT_LIMIT * 3) : selectRepresentativeCases(candidates, RESULT_LIMIT);
+  // 2026-05-16: reranked=true 시 15건→5건으로 축소. cosine 정렬 후 상위만으로도 충분, LLM 노이즈 감소.
+  const results = reranked ? candidates.slice(0, RESULT_LIMIT) : selectRepresentativeCases(candidates, RESULT_LIMIT);
 
   return {
     tags,
