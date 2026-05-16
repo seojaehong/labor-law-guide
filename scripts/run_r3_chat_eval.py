@@ -71,7 +71,7 @@ def infer_tool_calls(text: str, citations: list[dict]) -> list[str]:
     return tools
 
 
-def call_chat(base_url: str, query: str, timeout: int = 90) -> dict[str, Any]:
+def call_chat(base_url: str, query: str, timeout: int = 120) -> dict[str, Any]:
     """POST /api/chat with SSE — 응답 텍스트 수집 후 도구 호출 추정."""
     started = time.time()
     text_chunks = []
@@ -86,7 +86,7 @@ def call_chat(base_url: str, query: str, timeout: int = 90) -> dict[str, Any]:
             f"{base_url}/api/chat",
             json=payload,
             stream=True,
-            timeout=(10, 30),  # connect=10s, read=30s per chunk
+            timeout=(10, 60),  # connect=10s, read=60s per chunk (LLM TTFB p95~26s)
             headers={"Accept": "text/event-stream", "Connection": "close"},
         ) as r:
             for line in r.iter_lines(decode_unicode=True, chunk_size=1024):

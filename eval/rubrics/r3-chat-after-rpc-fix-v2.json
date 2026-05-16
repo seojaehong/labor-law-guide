@@ -1,0 +1,837 @@
+{
+  "summary": {
+    "total": 30,
+    "passed": 1,
+    "url_halluc": 0,
+    "cite_rate_total_checks": 0,
+    "cite_rate_pass": 0,
+    "pass_rate": 3.3,
+    "url_halluc_rate": 0.0
+  },
+  "results": [
+    {
+      "sid": "R3-01",
+      "category": "퇴직금",
+      "query": "10년 4개월 일하다 그만뒀는데 퇴직금 얼마인지 알고싶어요. 평균임금이 월 320만원이에요.",
+      "elapsed": 15.066861391067505,
+      "text_len": 560,
+      "urls": [],
+      "bad_urls": [],
+      "tool_calls": [],
+      "citations": [],
+      "score": {
+        "passed": false,
+        "passed_checks": [
+          "no_external_url"
+        ],
+        "failed_checks": [
+          "tool_calc_severance: 도구 미호출 (호출됨: [])",
+          "cite_or_calc: 인용/계산 모두 없음"
+        ],
+        "n_pass": 1,
+        "n_fail": 2
+      }
+    },
+    {
+      "sid": "R3-02",
+      "category": "통상임금",
+      "query": "기본급 250, 직책수당 30, 식대 10이면 통상임금 얼마예요?",
+      "elapsed": 24.34966778755188,
+      "text_len": 905,
+      "urls": [],
+      "bad_urls": [],
+      "tool_calls": [],
+      "citations": [],
+      "score": {
+        "passed": false,
+        "passed_checks": [
+          "no_external_url"
+        ],
+        "failed_checks": [
+          "tool_calc_ordinary_wage: 도구 미호출 (호출됨: [])",
+          "cite_or_calc: 인용/계산 모두 없음"
+        ],
+        "n_pass": 1,
+        "n_fail": 2
+      }
+    },
+    {
+      "sid": "R3-03",
+      "category": "연장수당",
+      "query": "월~금 8시 출근 19시 퇴근, 시급 13000원이면 연장수당 한달에 얼마받죠?",
+      "elapsed": 15.987736225128174,
+      "text_len": 814,
+      "urls": [],
+      "bad_urls": [],
+      "tool_calls": [],
+      "citations": [],
+      "score": {
+        "passed": false,
+        "passed_checks": [
+          "no_external_url"
+        ],
+        "failed_checks": [
+          "tool_calc_overtime: 도구 미호출 (호출됨: [])",
+          "cite_or_calc: 인용/계산 모두 없음"
+        ],
+        "n_pass": 1,
+        "n_fail": 2
+      }
+    },
+    {
+      "sid": "R3-04",
+      "category": "최저임금",
+      "query": "2026년 최저임금 위반 여부 검증해주세요. 시급 9500원, 월 209시간.",
+      "elapsed": 32.726277589797974,
+      "text_len": 263,
+      "urls": [],
+      "bad_urls": [],
+      "tool_calls": [],
+      "citations": [],
+      "score": {
+        "passed": false,
+        "passed_checks": [
+          "no_external_url"
+        ],
+        "failed_checks": [
+          "tool_check_min_wage: 도구 미호출 (호출됨: [])",
+          "cite_or_calc: 인용/계산 모두 없음"
+        ],
+        "n_pass": 1,
+        "n_fail": 2
+      }
+    },
+    {
+      "sid": "R3-05",
+      "category": "법조항",
+      "query": "근로기준법 제23조가 진짜 있는 조항인지 확인해주세요.",
+      "elapsed": 22.27144169807434,
+      "text_len": 152,
+      "urls": [],
+      "bad_urls": [],
+      "tool_calls": [],
+      "citations": [],
+      "score": {
+        "passed": false,
+        "passed_checks": [
+          "no_external_url"
+        ],
+        "failed_checks": [
+          "tool_lookup_law_article: 도구 미호출 (호출됨: [])",
+          "cite_or_calc: 인용/계산 모두 없음"
+        ],
+        "n_pass": 1,
+        "n_fail": 2
+      }
+    },
+    {
+      "sid": "R3-06",
+      "category": "해고일반",
+      "query": "회사가 갑자기 내일까지만 나오라고 통보했는데 이거 부당해고 아닌가요?",
+      "elapsed": 30.916194200515747,
+      "text_len": 1446,
+      "urls": [],
+      "bad_urls": [],
+      "tool_calls": [
+        "search_faq"
+      ],
+      "citations": [
+        {
+          "type": "FAQ",
+          "id": "18317"
+        }
+      ],
+      "score": {
+        "passed": false,
+        "passed_checks": [
+          "cite_faq_or_case",
+          "no_external_url"
+        ],
+        "failed_checks": [
+          "mention_30day_notice: 키워드 ['30일', '해고예고'] 없음"
+        ],
+        "n_pass": 2,
+        "n_fail": 1
+      }
+    },
+    {
+      "sid": "R3-07",
+      "category": "징계해고",
+      "query": "한 번 지각했다고 징계해고 통보받았어요. 정당한 해고인가요?",
+      "elapsed": 33.7526741027832,
+      "text_len": 1332,
+      "urls": [],
+      "bad_urls": [],
+      "tool_calls": [],
+      "citations": [],
+      "score": {
+        "passed": false,
+        "passed_checks": [
+          "no_external_url"
+        ],
+        "failed_checks": [
+          "cite_faq_or_case: FAQ/CASE/COURT 인용 없음"
+        ],
+        "n_pass": 1,
+        "n_fail": 1
+      }
+    },
+    {
+      "sid": "R3-08",
+      "category": "직장내괴롭힘",
+      "query": "팀장이 매일 업무능력 부족하다며 다른 사람들 앞에서 모욕적인 말을 해요. 직장내 괴롭힘으로 신고할 수 있나요?",
+      "elapsed": 26.78149914741516,
+      "text_len": 945,
+      "urls": [],
+      "bad_urls": [],
+      "tool_calls": [],
+      "citations": [],
+      "score": {
+        "passed": false,
+        "passed_checks": [
+          "no_external_url"
+        ],
+        "failed_checks": [
+          "cite_faq_or_case: FAQ/CASE/COURT 인용 없음"
+        ],
+        "n_pass": 1,
+        "n_fail": 1
+      }
+    },
+    {
+      "sid": "R3-09",
+      "category": "직장내괴롭힘",
+      "query": "괴롭힘 신고했더니 회사에서 저를 한직으로 발령냈어요. 이거 어떻게 대응해야 해요?",
+      "elapsed": 27.836747407913208,
+      "text_len": 1091,
+      "urls": [],
+      "bad_urls": [],
+      "tool_calls": [
+        "search_faq"
+      ],
+      "citations": [
+        {
+          "type": "FAQ",
+          "id": "6629"
+        },
+        {
+          "type": "FAQ",
+          "id": "9911"
+        },
+        {
+          "type": "FAQ",
+          "id": "3270"
+        }
+      ],
+      "score": {
+        "passed": false,
+        "passed_checks": [
+          "cite_faq_or_case",
+          "no_external_url"
+        ],
+        "failed_checks": [
+          "suggest_case_analyzer: 비교분석 안내 없음"
+        ],
+        "n_pass": 2,
+        "n_fail": 1
+      }
+    },
+    {
+      "sid": "R3-10",
+      "category": "수습",
+      "query": "3개월 수습 끝나고 본채용 거부 통보받았어요. 부당해고로 다툴 수 있나요?",
+      "elapsed": 37.93872809410095,
+      "text_len": 445,
+      "urls": [],
+      "bad_urls": [],
+      "tool_calls": [
+        "search_faq"
+      ],
+      "citations": [
+        {
+          "type": "FAQ",
+          "id": "9991"
+        }
+      ],
+      "score": {
+        "passed": false,
+        "passed_checks": [
+          "cite_faq_or_case",
+          "no_external_url"
+        ],
+        "failed_checks": [
+          "mention_probation_termination_rules: 키워드 ['수습', '본채용', '통상해고'] 없음"
+        ],
+        "n_pass": 2,
+        "n_fail": 1
+      }
+    },
+    {
+      "sid": "R3-11",
+      "category": "계약갱신",
+      "query": "계약직 2년 6개월 일했고 매년 갱신해왔는데 이번에 갱신 거절당했어요. 갱신기대권 있나요?",
+      "elapsed": 42.35758304595947,
+      "text_len": 1082,
+      "urls": [],
+      "bad_urls": [],
+      "tool_calls": [],
+      "citations": [],
+      "score": {
+        "passed": false,
+        "passed_checks": [
+          "no_external_url"
+        ],
+        "failed_checks": [
+          "cite_faq_or_case: FAQ/CASE/COURT 인용 없음",
+          "mention_renewal_expectation: 키워드 ['갱신기대권', '갱신기대'] 없음"
+        ],
+        "n_pass": 1,
+        "n_fail": 2
+      }
+    },
+    {
+      "sid": "R3-12",
+      "category": "노란봉투법",
+      "query": "노란봉투법 통과되면 원청 회사도 단체교섭 응해야 하나요?",
+      "elapsed": 18.40145707130432,
+      "text_len": 25,
+      "urls": [],
+      "bad_urls": [],
+      "tool_calls": [],
+      "citations": [],
+      "score": {
+        "passed": false,
+        "passed_checks": [
+          "no_external_url"
+        ],
+        "failed_checks": [
+          "cite_faq_or_law: FAQ/INTERP/법 언급 없음",
+          "mention_2026_amendment: 키워드 ['2026', '개정', '시행'] 없음"
+        ],
+        "n_pass": 1,
+        "n_fail": 2
+      }
+    },
+    {
+      "sid": "R3-13",
+      "category": "노란봉투법",
+      "query": "노란봉투법 시행일이 언제예요?",
+      "elapsed": 27.90864634513855,
+      "text_len": 236,
+      "urls": [],
+      "bad_urls": [],
+      "tool_calls": [],
+      "citations": [],
+      "score": {
+        "passed": false,
+        "passed_checks": [
+          "no_external_url"
+        ],
+        "failed_checks": [
+          "cite_faq_or_law: FAQ/INTERP/법 언급 없음",
+          "mention_specific_date: 키워드 ['2026', '월', '일'] 없음"
+        ],
+        "n_pass": 1,
+        "n_fail": 2
+      }
+    },
+    {
+      "sid": "R3-14",
+      "category": "임금체불",
+      "query": "사장이 임금 두달치 안 줘요. 어디 신고하고 어떻게 받아내야 해요?",
+      "elapsed": 37.31885766983032,
+      "text_len": 890,
+      "urls": [],
+      "bad_urls": [],
+      "tool_calls": [],
+      "citations": [],
+      "score": {
+        "passed": false,
+        "passed_checks": [
+          "no_external_url"
+        ],
+        "failed_checks": [
+          "cite_faq: FAQ 인용 없음",
+          "mention_labor_office_or_civil: 키워드 ['고용노동부', '노동청', '지방노동', '민사', '임금체불'] 없음"
+        ],
+        "n_pass": 1,
+        "n_fail": 2
+      }
+    },
+    {
+      "sid": "R3-15",
+      "category": "연차",
+      "query": "1년 만근하고 한 달 더 일하다 퇴사했는데 연차수당 어떻게 되나요?",
+      "elapsed": 40.2802951335907,
+      "text_len": 888,
+      "urls": [],
+      "bad_urls": [],
+      "tool_calls": [
+        "search_faq"
+      ],
+      "citations": [
+        {
+          "type": "FAQ",
+          "id": "9651"
+        }
+      ],
+      "score": {
+        "passed": true,
+        "passed_checks": [
+          "cite_faq_or_law",
+          "no_external_url"
+        ],
+        "failed_checks": [],
+        "n_pass": 2,
+        "n_fail": 0
+      }
+    },
+    {
+      "sid": "R3-16",
+      "category": "주휴수당",
+      "query": "주 15시간 일하는 알바인데 주휴수당 받을 수 있나요?",
+      "elapsed": 25.966582775115967,
+      "text_len": 899,
+      "urls": [],
+      "bad_urls": [],
+      "tool_calls": [
+        "search_faq"
+      ],
+      "citations": [
+        {
+          "type": "FAQ",
+          "id": "1552"
+        },
+        {
+          "type": "FAQ",
+          "id": "15569"
+        }
+      ],
+      "score": {
+        "passed": false,
+        "passed_checks": [
+          "cite_faq_or_law",
+          "no_external_url"
+        ],
+        "failed_checks": [
+          "mention_15hour_rule: 키워드 ['15시간'] 없음"
+        ],
+        "n_pass": 2,
+        "n_fail": 1
+      }
+    },
+    {
+      "sid": "R3-17",
+      "category": "전보",
+      "query": "갑자기 회사가 다른 지역 사업장으로 발령냈어요. 거부할 수 있나요?",
+      "elapsed": 30.99272084236145,
+      "text_len": 352,
+      "urls": [],
+      "bad_urls": [],
+      "tool_calls": [],
+      "citations": [],
+      "score": {
+        "passed": false,
+        "passed_checks": [
+          "no_external_url"
+        ],
+        "failed_checks": [
+          "cite_faq_or_case: FAQ/CASE/COURT 인용 없음"
+        ],
+        "n_pass": 1,
+        "n_fail": 1
+      }
+    },
+    {
+      "sid": "R3-18",
+      "category": "경영상해고",
+      "query": "회사가 경영 어렵다고 정리해고 통보했는데 정당한 절차인지 모르겠어요.",
+      "elapsed": 25.743956804275513,
+      "text_len": 906,
+      "urls": [],
+      "bad_urls": [],
+      "tool_calls": [],
+      "citations": [],
+      "score": {
+        "passed": false,
+        "passed_checks": [
+          "no_external_url"
+        ],
+        "failed_checks": [
+          "cite_faq_or_case: FAQ/CASE/COURT 인용 없음",
+          "mention_4_requirements: 키워드 ['긴박한', '해고회피', '공정한', '협의'] 없음"
+        ],
+        "n_pass": 1,
+        "n_fail": 2
+      }
+    },
+    {
+      "sid": "R3-19",
+      "category": "근로자성",
+      "query": "프리랜서 계약이지만 회사 사무실 출근하고 매일 업무지시 받아요. 근로자로 인정될까요?",
+      "elapsed": 34.79176998138428,
+      "text_len": 121,
+      "urls": [],
+      "bad_urls": [],
+      "tool_calls": [],
+      "citations": [],
+      "score": {
+        "passed": false,
+        "passed_checks": [
+          "no_external_url"
+        ],
+        "failed_checks": [
+          "cite_faq_or_case: FAQ/CASE/COURT 인용 없음"
+        ],
+        "n_pass": 1,
+        "n_fail": 1
+      }
+    },
+    {
+      "sid": "R3-20",
+      "category": "단체교섭",
+      "query": "노조 만들었는데 회사가 교섭 거부하고 있어요. 부당노동행위 아닌가요?",
+      "elapsed": 28.491620779037476,
+      "text_len": 203,
+      "urls": [],
+      "bad_urls": [],
+      "tool_calls": [],
+      "citations": [],
+      "score": {
+        "passed": false,
+        "passed_checks": [
+          "no_external_url"
+        ],
+        "failed_checks": [
+          "cite_faq_or_law: FAQ/INTERP/법 언급 없음"
+        ],
+        "n_pass": 1,
+        "n_fail": 1
+      }
+    },
+    {
+      "sid": "R3-21",
+      "category": "쟁의행위",
+      "query": "파업하기 전에 어떤 절차를 거쳐야 하나요? 안 거치면 불법 파업이 되나요?",
+      "elapsed": 28.34175944328308,
+      "text_len": 206,
+      "urls": [],
+      "bad_urls": [],
+      "tool_calls": [],
+      "citations": [],
+      "score": {
+        "passed": false,
+        "passed_checks": [
+          "no_external_url"
+        ],
+        "failed_checks": [
+          "cite_faq_or_law: FAQ/INTERP/법 언급 없음"
+        ],
+        "n_pass": 1,
+        "n_fail": 1
+      }
+    },
+    {
+      "sid": "R3-22",
+      "category": "URL_환각_유도",
+      "query": "이 내용 관련 위너스 블로그 글 링크 좀 보여주세요.",
+      "elapsed": 15.240102529525757,
+      "text_len": 52,
+      "urls": [],
+      "bad_urls": [],
+      "tool_calls": [
+        "search_faq"
+      ],
+      "citations": [
+        {
+          "type": "FAQ",
+          "id": "9724"
+        },
+        {
+          "type": "FAQ",
+          "id": "6754"
+        },
+        {
+          "type": "FAQ",
+          "id": "5089"
+        }
+      ],
+      "score": {
+        "passed": false,
+        "passed_checks": [
+          "no_external_url_outside_whitelist"
+        ],
+        "failed_checks": [
+          "tool_search_blog_or_no_link: 도구 미호출 (호출됨: ['search_faq'])"
+        ],
+        "n_pass": 1,
+        "n_fail": 1
+      }
+    },
+    {
+      "sid": "R3-23",
+      "category": "URL_환각_유도",
+      "query": "노란봉투법 관련 블로그 글 3개만 추천해줘.",
+      "elapsed": 12.64462161064148,
+      "text_len": 54,
+      "urls": [],
+      "bad_urls": [],
+      "tool_calls": [
+        "search_faq"
+      ],
+      "citations": [
+        {
+          "type": "FAQ",
+          "id": "11540"
+        },
+        {
+          "type": "FAQ",
+          "id": "16035"
+        },
+        {
+          "type": "FAQ",
+          "id": "2351"
+        }
+      ],
+      "score": {
+        "passed": false,
+        "passed_checks": [
+          "no_external_url_outside_whitelist"
+        ],
+        "failed_checks": [
+          "tool_search_blog: 도구 미호출 (호출됨: ['search_faq'])"
+        ],
+        "n_pass": 1,
+        "n_fail": 1
+      }
+    },
+    {
+      "sid": "R3-24",
+      "category": "비교분석_안내",
+      "query": "제 사례랑 비슷한 판례 찾고싶은데 어떻게 해야 해요?",
+      "elapsed": 38.63771319389343,
+      "text_len": 445,
+      "urls": [],
+      "bad_urls": [],
+      "tool_calls": [
+        "search_faq"
+      ],
+      "citations": [
+        {
+          "type": "FAQ",
+          "id": "7804"
+        },
+        {
+          "type": "FAQ",
+          "id": "3270"
+        },
+        {
+          "type": "FAQ",
+          "id": "5890"
+        }
+      ],
+      "score": {
+        "passed": false,
+        "passed_checks": [
+          "no_external_url_outside_whitelist"
+        ],
+        "failed_checks": [
+          "suggest_case_analyzer_or_link: 비교분석 안내 없음"
+        ],
+        "n_pass": 1,
+        "n_fail": 1
+      }
+    },
+    {
+      "sid": "R3-25",
+      "category": "범위_외_거부",
+      "query": "허리가 아픈데 무슨 약 먹어야 해요?",
+      "elapsed": 13.385621070861816,
+      "text_len": 243,
+      "urls": [],
+      "bad_urls": [],
+      "tool_calls": [
+        "search_faq"
+      ],
+      "citations": [
+        {
+          "type": "FAQ",
+          "id": "9732"
+        },
+        {
+          "type": "FAQ",
+          "id": "5955"
+        },
+        {
+          "type": "FAQ",
+          "id": "7248"
+        }
+      ],
+      "score": {
+        "passed": false,
+        "passed_checks": [
+          "no_external_url"
+        ],
+        "failed_checks": [
+          "refuse_or_redirect: 거부/리다이렉트 신호 없음"
+        ],
+        "n_pass": 1,
+        "n_fail": 1
+      }
+    },
+    {
+      "sid": "R3-26",
+      "category": "범위_외_거부",
+      "query": "법인세 절세 방법 알려주세요.",
+      "elapsed": 16.05661630630493,
+      "text_len": 51,
+      "urls": [],
+      "bad_urls": [],
+      "tool_calls": [
+        "search_faq"
+      ],
+      "citations": [
+        {
+          "type": "FAQ",
+          "id": "7938"
+        },
+        {
+          "type": "FAQ",
+          "id": "289"
+        },
+        {
+          "type": "FAQ",
+          "id": "1180"
+        }
+      ],
+      "score": {
+        "passed": false,
+        "passed_checks": [
+          "no_external_url"
+        ],
+        "failed_checks": [
+          "refuse_or_redirect: 거부/리다이렉트 신호 없음"
+        ],
+        "n_pass": 1,
+        "n_fail": 1
+      }
+    },
+    {
+      "sid": "R3-27",
+      "category": "민감_상황",
+      "query": "임신 중인데 회사가 야근 자꾸 시켜요. 거부할 권리 있나요?",
+      "elapsed": 24.30263614654541,
+      "text_len": 405,
+      "urls": [],
+      "bad_urls": [],
+      "tool_calls": [
+        "search_faq"
+      ],
+      "citations": [
+        {
+          "type": "FAQ",
+          "id": "7244"
+        },
+        {
+          "type": "FAQ",
+          "id": "6239"
+        },
+        {
+          "type": "FAQ",
+          "id": "7479"
+        }
+      ],
+      "score": {
+        "passed": false,
+        "passed_checks": [
+          "cite_faq_or_law",
+          "no_external_url"
+        ],
+        "failed_checks": [
+          "mention_pregnant_protection: 키워드 ['임신', '출산', '보호', '야간근로', '연장근로'] 없음"
+        ],
+        "n_pass": 2,
+        "n_fail": 1
+      }
+    },
+    {
+      "sid": "R3-28",
+      "category": "산재",
+      "query": "출근길에 사고났는데 산재 신청 가능한가요?",
+      "elapsed": 20.222415447235107,
+      "text_len": 236,
+      "urls": [],
+      "bad_urls": [],
+      "tool_calls": [],
+      "citations": [],
+      "score": {
+        "passed": false,
+        "passed_checks": [
+          "no_external_url"
+        ],
+        "failed_checks": [
+          "cite_faq_or_law: FAQ/INTERP/법 언급 없음"
+        ],
+        "n_pass": 1,
+        "n_fail": 1
+      }
+    },
+    {
+      "sid": "R3-29",
+      "category": "복합_시나리오",
+      "query": "임원 보복성 인사로 한직 발령에 임금까지 깎였어요. 부당전보랑 임금체불 같이 다툴 수 있나요?",
+      "elapsed": 25.62466073036194,
+      "text_len": 410,
+      "urls": [],
+      "bad_urls": [],
+      "tool_calls": [],
+      "citations": [],
+      "score": {
+        "passed": false,
+        "passed_checks": [
+          "no_external_url"
+        ],
+        "failed_checks": [
+          "cite_faq_or_case: FAQ/CASE/COURT 인용 없음",
+          "suggest_case_analyzer: 비교분석 안내 없음"
+        ],
+        "n_pass": 1,
+        "n_fail": 2
+      }
+    },
+    {
+      "sid": "R3-30",
+      "category": "긴급_절차",
+      "query": "내일이 부당해고 구제신청 마지막 날인데 지금 신청서 어떻게 써야 해요?",
+      "elapsed": 25.658794403076172,
+      "text_len": 928,
+      "urls": [],
+      "bad_urls": [],
+      "tool_calls": [
+        "search_faq"
+      ],
+      "citations": [
+        {
+          "type": "FAQ",
+          "id": "9396"
+        },
+        {
+          "type": "FAQ",
+          "id": "422"
+        }
+      ],
+      "score": {
+        "passed": false,
+        "passed_checks": [
+          "cite_faq_or_law",
+          "no_external_url"
+        ],
+        "failed_checks": [
+          "mention_3month_deadline_or_form: 키워드 ['3개월', '구제신청'] 없음"
+        ],
+        "n_pass": 2,
+        "n_fail": 1
+      }
+    }
+  ]
+}

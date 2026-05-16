@@ -39,3 +39,11 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# claude / supabase scratch
+.claude/
+supabase/.temp/
+
+# proposals (private)
+proposal/
+
