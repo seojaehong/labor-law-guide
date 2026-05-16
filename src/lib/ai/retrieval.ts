@@ -228,6 +228,32 @@ function extractReasonCategories(text: string): string[] {
   return [...reasons];
 }
 
+// 2026-05-16: misconduct sub-category 매핑 — DB 컬럼 sub_reason과 동일 어휘.
+// 사용자 쿼리에서 sub_reason 감지 → SQL 단계에서 직접 필터 가능 (cosine보다 더 엄격).
+const KEYWORD_TO_SUB_REASON: [RegExp, string][] = [
+  [/기밀.*유출|기밀.*누설|영업비밀|기술유출|정보.*누설|정보.*유출|업무상\s*비밀/, 'information_leak'],
+  [/문서.*위조|허위.*보고|허위.*신고|허위.*기재|허위.*작성|조작|위조|사문서.*위조/, 'falsification'],
+  [/횡령|배임|금품.*수수|뇌물|공금.*유용|착복|절취|사기|금품.*수령/, 'fraud_embezzlement'],
+  [/지시.*불이행|지시.*불복|명령.*위반|업무.*지시.*거부|상사.*명령/, 'insubordination'],
+  [/직권.*남용|권한.*남용|지위.*이용|채용.*비리|특혜/, 'misuse_authority'],
+  [/무단.*결근|무단.*조퇴|무단.*이탈|근무지.*이탈|근태.*불량|병가.*남용|장기.*결근/, 'attendance_failure'],
+  [/겸직|이중.*취업|영리.*행위|타사.*근무|개인.*사업|투잡/, 'dual_employment'],
+  [/부적절.*관계|불륜|혼외|이성.*관계|이성.*문제/, 'relationship_misconduct'],
+  [/공무원.*품위|지방공무원법|국가공무원법|공무원.*비위/, 'public_servant_misconduct'],
+  [/음주|안전수칙.*위반|보호구.*미착용|음주.*운전/, 'safety_violation'],
+  [/직장.*질서|품위.*손상|이미지.*실추|품위.*유지.*위반/, 'workplace_disturbance'],
+  [/전산.*무단|회사.*컴퓨터.*개인|개인정보.*무단.*열람|업무용.*PC|이메일.*무단/, 'computer_misuse'],
+  [/고객.*폭언|고객.*불만|민원.*야기|거래처.*문제|고객.*항의/, 'client_relationship'],
+];
+
+function extractSubReasons(text: string): string[] {
+  const subs = new Set<string>();
+  for (const [pattern, sub] of KEYWORD_TO_SUB_REASON) {
+    if (pattern.test(text)) subs.add(sub);
+  }
+  return [...subs];
+}
+
 function extractEmploymentStages(text: string): string[] {
   const stages = new Set<string>();
   for (const [pattern, stage] of KEYWORD_TO_STAGE) {
@@ -1262,6 +1288,7 @@ export async function searchCases(tags: string[], query?: string): Promise<Retri
   _mark('rewrite', t_rewrite);
   const effectiveQuery = buildIntentAwareQuery(rewrite?.searchQuery || query || tags.join(' '), rewrite);
   const reasons = effectiveQuery ? extractReasonCategories(effectiveQuery) : [];
+  const subReasons = effectiveQuery ? extractSubReasons(effectiveQuery) : [];
   const rpcCategory = rewrite?.category || (reasons.length > 0 ? reasons[0] : '');
 
   // SKIP_RPC=true (기본) → RPC 호출 자체 skip → fallback 쿼리만 사용.
@@ -1345,8 +1372,8 @@ export async function searchCases(tags: string[], query?: string): Promise<Retri
 
   const profile = effectiveQuery ? buildCandidateQueryProfile(effectiveQuery) : null;
   const primaryTypes = profile?.primaryPool || [];
-  const TAGGED_SELECT = 'id, title, decision_result, holding_points, summary_short, key_issue, retrieval_note, tags, url, employment_stage, issue_type_primary, issue_type_secondary, disposition_type, fact_markers, legal_focus, industry_context, exclusion_flags, include_for_queries, exclude_for_queries, reason_category, embedding';
-  const FALLBACK_SELECT = 'id, title, decision_result, holding_points, summary_short, key_issue, tags, url, reason_category, embedding';
+  const TAGGED_SELECT = 'id, title, decision_result, holding_points, summary_short, key_issue, retrieval_note, tags, url, employment_stage, issue_type_primary, issue_type_secondary, disposition_type, fact_markers, legal_focus, industry_context, exclusion_flags, include_for_queries, exclude_for_queries, reason_category, sub_reason, embedding';
+  const FALLBACK_SELECT = 'id, title, decision_result, holding_points, summary_short, key_issue, tags, url, reason_category, sub_reason, embedding';
 
   // fallback 4개를 병렬 실행 — 이전엔 sequential awaits로 candidates < 3일 때 각각 대기.
   // 병렬화 후 candidates < 3 조건 그대로 적용해 우선순위는 유지.
@@ -1361,13 +1388,19 @@ export async function searchCases(tags: string[], query?: string): Promise<Retri
       ? createQueryEmbedding(effectiveQuery)
       : Promise.resolve(null);
 
+    const hasSubReasons = subReasons.length > 0;
+
     const [precisionResp, taggedResp, reasonResp, tagResp, queryEmbeddingResult] = await Promise.all([
+      // 2026-05-16: precision 쿼리에 sub_reason overlap 추가 — '기밀유출' 같은 토픽 매칭 강화.
       (hasPrimary && hasReasons)
-        ? supabase.from('nlrc_decisions').select(TAGGED_SELECT)
-            .in('issue_type_primary', primaryTypes)
-            .overlaps('reason_category', reasons)
-            .not('holding_points', 'is', null)
-            .limit(DB_CANDIDATE_LIMIT)
+        ? (() => {
+            let q = supabase.from('nlrc_decisions').select(TAGGED_SELECT)
+              .in('issue_type_primary', primaryTypes)
+              .overlaps('reason_category', reasons)
+              .not('holding_points', 'is', null);
+            if (hasSubReasons) q = q.overlaps('sub_reason', subReasons);
+            return q.limit(DB_CANDIDATE_LIMIT);
+          })()
         : Promise.resolve({ data: null }),
       hasPrimary
         ? supabase.from('nlrc_decisions').select(TAGGED_SELECT)
@@ -1376,11 +1409,14 @@ export async function searchCases(tags: string[], query?: string): Promise<Retri
             .limit(DB_CANDIDATE_LIMIT)
         : Promise.resolve({ data: null }),
       hasReasons
-        ? supabase.from('nlrc_decisions')
-            .select(FALLBACK_SELECT)
-            .overlaps('reason_category', reasons)
-            .not('holding_points', 'is', null)
-            .limit(CANDIDATE_LIMIT)
+        ? (() => {
+            let q = supabase.from('nlrc_decisions')
+              .select(FALLBACK_SELECT)
+              .overlaps('reason_category', reasons)
+              .not('holding_points', 'is', null);
+            if (hasSubReasons) q = q.overlaps('sub_reason', subReasons);
+            return q.limit(CANDIDATE_LIMIT);
+          })()
         : Promise.resolve({ data: null }),
       // tag fallback에도 reason_category 필터 추가 — '이자제한법 위반'처럼 동일 태그 다른 도메인 사건 차단
       (() => {
@@ -1389,6 +1425,7 @@ export async function searchCases(tags: string[], query?: string): Promise<Retri
           .overlaps('tags', tags)
           .not('holding_points', 'is', null);
         if (hasReasons) q = q.overlaps('reason_category', reasons);
+        if (hasSubReasons) q = q.overlaps('sub_reason', subReasons);
         return q.limit(CANDIDATE_LIMIT);
       })(),
       queryEmbeddingPromise,
