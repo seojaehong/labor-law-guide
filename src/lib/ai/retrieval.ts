@@ -315,6 +315,36 @@ function toVectorLiteral(values: number[]): string {
   return `[${values.map((value) => Number(value).toString()).join(',')}]`;
 }
 
+// PostgREST returns pgvector columns as JSON string "[0.1,0.2,...]" or as array directly.
+function parseEmbedding(value: unknown): number[] | null {
+  if (Array.isArray(value)) {
+    return value.every((v) => typeof v === 'number') ? (value as number[]) : null;
+  }
+  if (typeof value !== 'string') return null;
+  const trimmed = value.trim();
+  if (!trimmed.startsWith('[') || !trimmed.endsWith(']')) return null;
+  try {
+    const parsed = JSON.parse(trimmed) as unknown;
+    return Array.isArray(parsed) && parsed.every((v) => typeof v === 'number') ? (parsed as number[]) : null;
+  } catch {
+    return null;
+  }
+}
+
+function cosineSimilarity(a: number[], b: number[]): number {
+  if (a.length !== b.length || a.length === 0) return 0;
+  let dot = 0;
+  let normA = 0;
+  let normB = 0;
+  for (let i = 0; i < a.length; i++) {
+    dot += a[i] * b[i];
+    normA += a[i] * a[i];
+    normB += b[i] * b[i];
+  }
+  const denom = Math.sqrt(normA) * Math.sqrt(normB);
+  return denom === 0 ? 0 : dot / denom;
+}
+
 async function createQueryEmbedding(query: string): Promise<number[] | null> {
   const trimmed = query.trim();
   if (!trimmed) return null;
@@ -1297,15 +1327,23 @@ export async function searchCases(tags: string[], query?: string): Promise<Retri
 
   const profile = effectiveQuery ? buildCandidateQueryProfile(effectiveQuery) : null;
   const primaryTypes = profile?.primaryPool || [];
-  const TAGGED_SELECT = 'id, title, decision_result, holding_points, summary_short, key_issue, retrieval_note, tags, url, employment_stage, issue_type_primary, issue_type_secondary, disposition_type, fact_markers, legal_focus, industry_context, exclusion_flags, include_for_queries, exclude_for_queries, reason_category';
+  const TAGGED_SELECT = 'id, title, decision_result, holding_points, summary_short, key_issue, retrieval_note, tags, url, employment_stage, issue_type_primary, issue_type_secondary, disposition_type, fact_markers, legal_focus, industry_context, exclusion_flags, include_for_queries, exclude_for_queries, reason_category, embedding';
+  const FALLBACK_SELECT = 'id, title, decision_result, holding_points, summary_short, key_issue, tags, url, reason_category, embedding';
 
   // fallback 4개를 병렬 실행 — 이전엔 sequential awaits로 candidates < 3일 때 각각 대기.
   // 병렬화 후 candidates < 3 조건 그대로 적용해 우선순위는 유지.
+  // 2026-05-16: query 임베딩도 같이 시작 — fallback 후 Node cosine 랭킹용 (SKIP_RPC 환경에서 의미검색 복원).
+  let queryEmbedding: number[] | null = null;
   if (candidates.length < 3) {
     const hasPrimary = primaryTypes.length > 0;
     const hasReasons = reasons.length > 0;
 
-    const [precisionResp, taggedResp, reasonResp, tagResp] = await Promise.all([
+    const t_emb = Date.now();
+    const queryEmbeddingPromise: Promise<number[] | null> = effectiveQuery && !_retrievalTiming.embedding
+      ? createQueryEmbedding(effectiveQuery)
+      : Promise.resolve(null);
+
+    const [precisionResp, taggedResp, reasonResp, tagResp, queryEmbeddingResult] = await Promise.all([
       (hasPrimary && hasReasons)
         ? supabase.from('nlrc_decisions').select(TAGGED_SELECT)
             .in('issue_type_primary', primaryTypes)
@@ -1321,7 +1359,7 @@ export async function searchCases(tags: string[], query?: string): Promise<Retri
         : Promise.resolve({ data: null }),
       hasReasons
         ? supabase.from('nlrc_decisions')
-            .select('id, title, decision_result, holding_points, summary_short, key_issue, tags, url, reason_category')
+            .select(FALLBACK_SELECT)
             .overlaps('reason_category', reasons)
             .not('holding_points', 'is', null)
             .limit(CANDIDATE_LIMIT)
@@ -1329,13 +1367,16 @@ export async function searchCases(tags: string[], query?: string): Promise<Retri
       // tag fallback에도 reason_category 필터 추가 — '이자제한법 위반'처럼 동일 태그 다른 도메인 사건 차단
       (() => {
         let q = supabase.from('nlrc_decisions')
-          .select('id, title, decision_result, holding_points, summary_short, key_issue, tags, url, reason_category')
+          .select(FALLBACK_SELECT)
           .overlaps('tags', tags)
           .not('holding_points', 'is', null);
         if (hasReasons) q = q.overlaps('reason_category', reasons);
         return q.limit(CANDIDATE_LIMIT);
       })(),
+      queryEmbeddingPromise,
     ]);
+    queryEmbedding = queryEmbeddingResult;
+    if (queryEmbedding && !_retrievalTiming.embedding) _retrievalTiming.embedding = Date.now() - t_emb;
 
     const precisionCases = precisionResp.data as Record<string, unknown>[] | null;
     const taggedCases = taggedResp.data as Record<string, unknown>[] | null;
@@ -1383,6 +1424,27 @@ export async function searchCases(tags: string[], query?: string): Promise<Retri
     }
   }
 
+  // 2026-05-16: Node cosine 의미 랭킹 — SKIP_RPC 환경에서 임베딩 기반 랭킹 복원.
+  // reason_category로 카테고리는 좁혔지만 토픽이 안 맞는 사건(예: '기밀유출' query → '유인물배포' 사건)이 섞임.
+  // queryEmbedding과 각 candidate.embedding 코사인 유사도로 topic-level 정렬.
+  if (queryEmbedding && candidates.length > 0 && !reranked) {
+    const t_cos = Date.now();
+    let scoredCount = 0;
+    const scored = candidates.map((c) => {
+      const emb = parseEmbedding(c.embedding);
+      if (!emb) return { ...c, _semantic_score: -1 };
+      scoredCount++;
+      return { ...c, _semantic_score: cosineSimilarity(queryEmbedding!, emb) };
+    });
+    if (scoredCount > 0) {
+      scored.sort((a, b) => Number(b._semantic_score || -1) - Number(a._semantic_score || -1));
+      candidates = scored;
+      reranked = true;
+    }
+    _timing['cosine'] = Date.now() - t_cos;
+    _timing['cosineScored'] = scoredCount;
+  }
+
   // 2026-05-15: 판례(bc_*, prec_*) 노출 일시 중단 — 데이터 정비 중. NLRC 판정례(id_*)만 노출.
   // process.env.SHOW_CASES='true'로 재활성화 가능.
   if (process.env.SHOW_CASES !== 'true') {
@@ -1391,6 +1453,13 @@ export async function searchCases(tags: string[], query?: string): Promise<Retri
       return !id.startsWith('bc_') && !id.startsWith('prec_');
     });
   }
+
+  // embedding 페이로드 제거 — 응답에 1536-dim 배열 노출 방지 (이미 정렬 끝).
+  candidates = candidates.map((c) => {
+    const { embedding: _embedding, ...rest } = c as { embedding?: unknown } & Record<string, unknown>;
+    void _embedding;
+    return rest;
+  });
 
   _retrievalTiming.searchCasesTotal = Object.values(_timing).reduce((a, b) => a + b, 0) + (_retrievalTiming.embedding || 0) + (_retrievalTiming.rpc || 0);
 
