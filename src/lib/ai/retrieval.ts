@@ -1326,11 +1326,15 @@ export async function searchCases(tags: string[], query?: string): Promise<Retri
             .not('holding_points', 'is', null)
             .limit(CANDIDATE_LIMIT)
         : Promise.resolve({ data: null }),
-      supabase.from('nlrc_decisions')
-        .select('id, title, decision_result, holding_points, summary_short, key_issue, tags, url')
-        .overlaps('tags', tags)
-        .not('holding_points', 'is', null)
-        .limit(CANDIDATE_LIMIT),
+      // tag fallback에도 reason_category 필터 추가 — '이자제한법 위반'처럼 동일 태그 다른 도메인 사건 차단
+      (() => {
+        let q = supabase.from('nlrc_decisions')
+          .select('id, title, decision_result, holding_points, summary_short, key_issue, tags, url, reason_category')
+          .overlaps('tags', tags)
+          .not('holding_points', 'is', null);
+        if (hasReasons) q = q.overlaps('reason_category', reasons);
+        return q.limit(CANDIDATE_LIMIT);
+      })(),
     ]);
 
     const precisionCases = precisionResp.data as Record<string, unknown>[] | null;
@@ -1361,6 +1365,23 @@ export async function searchCases(tags: string[], query?: string): Promise<Retri
     const caseType = (c.case_type as string) || '';
     return !NON_LABOR_CASE_TYPES.includes(caseType);
   });
+
+  // 2026-05-16: reason_category strict 후처리 필터 — 사용자 reason 매칭과 카테고리 겹치지 않는 case 제거.
+  // 예: '기밀유출'(misconduct) 질의 → '이자제한법'(financial_dispute 등) 사건 제거.
+  // reasons 추출 못한 경우엔 skip (fail-open).
+  if (reasons.length > 0) {
+    const reasonSet = new Set(reasons);
+    const beforeCount = candidates.length;
+    candidates = candidates.filter((c) => {
+      const rc = (c.reason_category as string[] | null) || [];
+      if (rc.length === 0) return true; // 카테고리 없으면 일단 통과 (data gap 케이스)
+      return rc.some((r) => reasonSet.has(r));
+    });
+    // 너무 많이 잘려서 3개 미만이면 원본 복원 (fail-open)
+    if (candidates.length < 3 && beforeCount >= 3) {
+      // no-op, 필터 보류 — 실용성 우선
+    }
+  }
 
   // 2026-05-15: 판례(bc_*, prec_*) 노출 일시 중단 — 데이터 정비 중. NLRC 판정례(id_*)만 노출.
   // process.env.SHOW_CASES='true'로 재활성화 가능.
