@@ -1,5 +1,6 @@
 import { supabaseAdmin } from './supabase-server';
 import { supabase } from './supabase';
+import { getGenerativeModel } from './vertex/client';
 
 const db = supabaseAdmin || supabase;
 
@@ -124,8 +125,7 @@ export function formatSituationForPrompt(profile: UserSituation): string {
 
 export async function extractDelta(
   userMessage: string,
-  prevProfile: UserSituation,
-  apiKey: string
+  prevProfile: UserSituation
 ): Promise<UserSituation> {
   if (!userMessage || userMessage.length < 4) return {};
   const prompt = EXTRACTION_PROMPT.replace(
@@ -134,20 +134,16 @@ export async function extractDelta(
   ).replace('{user_message}', userMessage.slice(0, 1000));
 
   try {
-    const resp = await fetch('https://generativelanguage.googleapis.com/v1beta/openai/chat/completions', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
-      body: JSON.stringify({
-        model: 'gemini-2.5-flash',
-        messages: [{ role: 'user', content: prompt }],
-        max_completion_tokens: 256,
+    const model = getGenerativeModel('gemini-2.5-flash-preview-04-17');
+    const response = await model.generateContent({
+      contents: [{ role: 'user', parts: [{ text: prompt }] }],
+      generationConfig: {
         temperature: 0.0,
-      }),
-      signal: AbortSignal.timeout(10000),
+        maxOutputTokens: 256,
+      },
     });
-    if (!resp.ok) return {};
-    const j = await resp.json();
-    const text: string = j?.choices?.[0]?.message?.content || '{}';
+    const text: string =
+      response.response?.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
     // 1) ```json ... ``` 블록 제거 2) 첫 번째 { ... } 매칭
     const stripped = text.replace(/```json\s*/gi, '').replace(/```/g, '').trim();
     const m = stripped.match(/\{[\s\S]*\}/);
