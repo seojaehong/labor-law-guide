@@ -1,5 +1,7 @@
 import { SITE_URL } from '@/lib/constants';
 import { supabaseServer } from '@/lib/supabase-server';
+import { getCurrentTopicPicks } from '@/lib/topic-picks';
+import TopicPicks from '@/components/TopicPicks';
 import HomeClient from './HomeClient';
 
 export const revalidate = 3600; // ISR: 1시간
@@ -72,7 +74,10 @@ async function getHomeStats() {
 }
 
 export default async function Home() {
-  const { totalCases, totalAdmin, totalNews, latestBlogArticles } = await getHomeStats();
+  const [{ totalCases, totalAdmin, totalNews, latestBlogArticles }, topicPicks] = await Promise.all([
+    getHomeStats(),
+    getCurrentTopicPicks(),
+  ]);
   const jsonLd = {
     '@context': 'https://schema.org',
     '@graph': [
@@ -123,6 +128,7 @@ export default async function Home() {
         totalNews={totalNews}
         latestBlogArticles={latestBlogArticles}
         faqItems={homeFaqItems}
+        topicPicksSlot={<TopicPicks items={topicPicks} variant="home" />}
       />
     </>
   );

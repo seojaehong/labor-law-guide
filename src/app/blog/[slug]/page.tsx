@@ -13,6 +13,7 @@ import { getCategoryColor } from '@/lib/category-colors';
 import { extractFaqFromContent } from '@/lib/faq-extractor';
 import SubscribeForm from '@/components/SubscribeForm';
 import BetaSignupForm from '@/components/BetaSignupForm';
+import { getCurrentTopicPicks } from '@/lib/topic-picks';
 
 export const dynamicParams = true;
 export const revalidate = 86400; // ISR: 24시간 — 개별 글은 거의 안 바뀜
@@ -153,9 +154,10 @@ export default async function BlogArticlePage({
     notFound();
   }
 
-  const [related, latest] = await Promise.all([
+  const [related, latest, topicPicks] = await Promise.all([
     getRelatedArticles(article.slug, article.category),
     getLatestArticles(article.slug),
+    getCurrentTopicPicks(article.slug),
   ]);
   const displaySummary = cleanBlogSummary(article.summary, article.content) || extractBlogLead(article.content);
 
@@ -448,6 +450,41 @@ export default async function BlogArticlePage({
           {/* Sidebar */}
           <aside className="hidden lg:block">
             <div className="sticky top-24 space-y-6">
+              {/* 이 주의 토픽 — 사이드바 상단 (자기 자신 제외) */}
+              {topicPicks.length > 0 && (
+                <div
+                  className="rounded-2xl border p-5"
+                  style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)', boxShadow: 'var(--shadow-sm)' }}
+                >
+                  <h3
+                    className="text-[14px] font-bold mb-4 flex items-center gap-1.5"
+                    style={{ color: 'var(--color-text-primary)' }}
+                  >
+                    <span style={{ color: 'var(--color-accent)' }}>★</span> 이 주의 토픽
+                  </h3>
+                  <ul className="space-y-3">
+                    {topicPicks.map((pick) => (
+                      <li key={pick.slug}>
+                        <Link
+                          href={`/blog/${pick.slug}`}
+                          className="block group"
+                        >
+                          <div className="text-[10px] font-bold mb-0.5" style={{ color: 'var(--color-accent)' }}>
+                            {pick.category}
+                          </div>
+                          <div
+                            className="text-[12px] leading-snug line-clamp-3 group-hover:underline"
+                            style={{ color: 'var(--color-text-primary)' }}
+                          >
+                            {pick.title.replace(/^🎯\s*/, '')}
+                          </div>
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
               {/* Related in same category */}
               {related.length > 0 && (
                 <div

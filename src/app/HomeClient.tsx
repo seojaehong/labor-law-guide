@@ -26,6 +26,7 @@ type HomeClientProps = {
   totalNews: number;
   latestBlogArticles: LatestBlogArticle[];
   faqItems: readonly HomeFaqItem[];
+  topicPicksSlot?: React.ReactNode;
 };
 
 function formatDate(dateStr: string) {
@@ -46,7 +47,7 @@ function BlogCategoryBadge({ category }: { category: string }) {
   );
 }
 
-export default function HomeClient({ totalCases, totalAdmin, totalNews, latestBlogArticles, faqItems }: HomeClientProps) {
+export default function HomeClient({ totalCases, totalAdmin, totalNews, latestBlogArticles, faqItems, topicPicksSlot }: HomeClientProps) {
   const features = [
     {
       icon: Users,
@@ -244,6 +245,9 @@ export default function HomeClient({ totalCases, totalAdmin, totalNews, latestBl
           </div>
         </div>
       </section>
+
+      {/* 이 주의 토픽 (편집 큐레이션) — 최신 딥다이브 위에 배치 */}
+      {topicPicksSlot}
 
       {/* 최신 딥다이브 */}
       {latestBlogArticles.length > 0 && (

@@ -2,6 +2,8 @@ import type { Metadata } from 'next';
 import { supabaseServer } from '@/lib/supabase-server';
 import { SITE_URL } from '@/lib/constants';
 import { cleanBlogSummary } from '@/lib/blog-summary';
+import { getCurrentTopicPicks } from '@/lib/topic-picks';
+import TopicPicks from '@/components/TopicPicks';
 import BlogClient from './BlogClient';
 
 export const revalidate = 3600; // ISR: 1시간 — 새 글 발행 반영 주기
@@ -64,7 +66,7 @@ async function getArticles() {
 }
 
 export default async function BlogPage() {
-  const articles = await getArticles();
+  const [articles, topicPicks] = await Promise.all([getArticles(), getCurrentTopicPicks()]);
 
   const jsonLd = {
     '@context': 'https://schema.org',
@@ -94,6 +96,7 @@ export default async function BlogPage() {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
+      <TopicPicks items={topicPicks} variant="index" />
       <BlogClient initialArticles={articles} />
     </>
   );
