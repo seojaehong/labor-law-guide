@@ -15,6 +15,7 @@ import { getChatKillSwitch } from '@/lib/kill-switch';
 import { verifyTurnstile, isTurnstileEnabled } from '@/lib/turnstile';
 import { executeTool } from '@/lib/chat/tools/execute';
 import { streamRound, type ToolCallAcc } from '@/lib/chat/stream-round';
+import { getVertexClient } from '@/lib/vertex/client';
 import { buildFaqContext } from '@/lib/chat/context/faq';
 import { buildNlrcCasesContext, buildCourtCasesContext } from '@/lib/chat/context/cases';
 import { buildInterpretationsContext } from '@/lib/chat/context/interpretations';
@@ -138,8 +139,10 @@ export async function POST(req: NextRequest) {
     }
     // === 게이트 끝 ===
 
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) {
+    // Validate Vertex AI credentials at startup (throws if misconfigured)
+    try {
+      getVertexClient();
+    } catch {
       return new Response(JSON.stringify({ error: 'AI 서비스가 준비되지 않았습니다.' }), {
         status: 503,
       });
@@ -197,7 +200,7 @@ export async function POST(req: NextRequest) {
     if (sessionId && lastUserMsg) {
       try {
         prevProfile = await getSituation(sessionId);
-        const delta = await extractDelta(lastUserMsg.content, prevProfile, apiKey);
+        const delta = await extractDelta(lastUserMsg.content, prevProfile);
         mergedProfile = { ...prevProfile, ...delta };
         situationContext = formatSituationForPrompt(mergedProfile);
         await upsertSituation(sessionId, prevProfile, delta, 1);
@@ -240,7 +243,7 @@ export async function POST(req: NextRequest) {
         let r2ToolCalls = 0;
         let r2Ran = false;
         try {
-          const r1 = await streamRound(apiKey, controller, baseMsgs, toolHint, encoder, decoder);
+          const r1 = await streamRound(controller, baseMsgs, toolHint, encoder, decoder);
           assembledAnswer += r1.content;
           r1ContentLen = r1.content.length;
           r1ToolCalls = r1.toolCalls.length;
@@ -281,7 +284,7 @@ export async function POST(req: NextRequest) {
             controller.enqueue(
               encoder.encode(`data: ${JSON.stringify({ content: ' 완료\n\n' })}\n\n`)
             );
-            const r2 = await streamRound(apiKey, controller, round2Msgs, false, encoder, decoder);
+            const r2 = await streamRound(controller, round2Msgs, false, encoder, decoder);
             assembledAnswer += r2.content;
             r2ContentLen = r2.content.length;
             r2ToolCalls = r2.toolCalls.length;
