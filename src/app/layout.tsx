@@ -16,7 +16,7 @@ const pretendard = localFont({
   ],
   display: "swap",
   variable: "--font-pretendard",
-  preload: true,
+  preload: false,
   fallback: ["Apple SD Gothic Neo", "Malgun Gothic", "sans-serif"],
 });
 
