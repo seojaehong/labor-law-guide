@@ -160,6 +160,9 @@ export async function sendDailyNewsletter(opts: {
   // 본문 sanitize (script/style 제거)
   let safeContent = opts.article.content.replace(/<script[\s\S]*?<\/script>/gi, '');
   safeContent = safeContent.replace(/<style[\s\S]*?<\/style>/gi, '');
+  // 메일 클라이언트는 base URL 없어 상대 URL이 깨짐 — 사이트 절대 URL로 자동 치환 (DB 데이터 누락 케이스 방어)
+  safeContent = safeContent.replace(/href="\/(?!\/)/g, `href="${SITE_URL}/`);
+  safeContent = safeContent.replace(/src="\/(?!\/)/g, `src="${SITE_URL}/`);
 
   // subject — 50자 제한
   let subject = `[${kstDt.getUTCMonth() + 1}월 ${kstDt.getUTCDate()}일] ${displayTitle}`;
