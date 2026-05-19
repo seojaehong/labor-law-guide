@@ -1,8 +1,17 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import ChatInterface from '@/components/ChatInterface';
+import dynamic from 'next/dynamic';
 import { glossary } from '@/content/checklist-data';
+
+const ChatInterface = dynamic(() => import('@/components/ChatInterface'), {
+  loading: () => (
+    <div className="flex h-[500px] items-center justify-center rounded-xl border" style={{ borderColor: 'var(--color-border)' }}>
+      <div className="h-6 w-6 animate-spin rounded-full border-2 border-[var(--color-accent)] border-t-transparent" />
+    </div>
+  ),
+  ssr: false,
+});
 import { Search, BookOpen, MessageCircleQuestion, ChevronDown } from 'lucide-react';
 import Link from 'next/link';
 

@@ -4,6 +4,12 @@ const nextConfig: NextConfig = {
   images: {
     formats: ['image/avif', 'image/webp'],
   },
+  compiler: {
+    removeConsole: process.env.NODE_ENV === 'production',
+  },
+  experimental: {
+    optimizePackageImports: ['lucide-react', 'date-fns', 'react-markdown', 'remark-gfm'],
+  },
   async rewrites() {
     return [
       { source: '/sitemap_index.xml', destination: '/sitemap.xml' },

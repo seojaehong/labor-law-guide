@@ -4,7 +4,6 @@ import { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Menu, X, Scale, ChevronDown } from 'lucide-react';
-import { AnimatePresence, motion } from 'framer-motion';
 import ThemeToggle from './ThemeToggle';
 
 // ─── Navigation structure ───────────────────────────────────────────────────
@@ -111,49 +110,51 @@ function DesktopDropdown({ item, pathname }: { item: Extract<NavItem, { kind: 'd
         onClick={() => setOpen((v) => !v)}
       >
         {item.label}
-        <motion.span
-          animate={{ rotate: open ? 180 : 0 }}
-          transition={{ duration: 0.2, ease: 'easeInOut' }}
-          style={{ display: 'flex', alignItems: 'center' }}
+        <span
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            transform: open ? 'rotate(180deg)' : 'rotate(0deg)',
+            transition: 'transform 0.2s ease-in-out',
+          }}
         >
           <ChevronDown size={14} strokeWidth={2.5} />
-        </motion.span>
+        </span>
       </button>
 
-      <AnimatePresence>
-        {open && (
-          <motion.div
-            className="nav-dropdown"
-            role="menu"
-            initial={{ opacity: 0, y: -6, scale: 0.97 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -6, scale: 0.97 }}
-            transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
-          >
-            {item.items.map((child) => {
-              const childActive = pathname === child.href || pathname.startsWith(child.href + '/');
-              return (
-                <Link
-                  key={child.href}
-                  href={child.href}
-                  role="menuitem"
-                  className="nav-dropdown-item"
-                  style={{
-                    color: childActive ? 'var(--color-accent)' : 'var(--color-text-primary)',
-                    backgroundColor: childActive ? 'var(--color-accent-light)' : 'transparent',
-                  }}
-                  onClick={() => setOpen(false)}
-                >
-                  <span className="nav-dropdown-item-label">{child.label}</span>
-                  {child.description && (
-                    <span className="nav-dropdown-item-desc">{child.description}</span>
-                  )}
-                </Link>
-              );
-            })}
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {open && (
+        <div
+          className="nav-dropdown"
+          role="menu"
+          style={{
+            opacity: open ? 1 : 0,
+            transform: open ? 'translateY(0) scale(1)' : 'translateY(-6px) scale(0.97)',
+            transition: 'opacity 0.18s ease, transform 0.18s ease',
+          }}
+        >
+          {item.items.map((child) => {
+            const childActive = pathname === child.href || pathname.startsWith(child.href + '/');
+            return (
+              <Link
+                key={child.href}
+                href={child.href}
+                role="menuitem"
+                className="nav-dropdown-item"
+                style={{
+                  color: childActive ? 'var(--color-accent)' : 'var(--color-text-primary)',
+                  backgroundColor: childActive ? 'var(--color-accent-light)' : 'transparent',
+                }}
+                onClick={() => setOpen(false)}
+              >
+                <span className="nav-dropdown-item-label">{child.label}</span>
+                {child.description && (
+                  <span className="nav-dropdown-item-desc">{child.description}</span>
+                )}
+              </Link>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
@@ -171,6 +172,7 @@ function MobileDropdown({
 }) {
   const [open, setOpen] = useState(false);
   const active = isDropdownActive(item.items, pathname);
+  const contentRef = useRef<HTMLDivElement>(null);
 
   return (
     <div>
@@ -184,48 +186,49 @@ function MobileDropdown({
         aria-expanded={open}
       >
         <span>{item.label}</span>
-        <motion.span
-          animate={{ rotate: open ? 180 : 0 }}
-          transition={{ duration: 0.2 }}
-          style={{ display: 'flex', alignItems: 'center' }}
+        <span
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            transform: open ? 'rotate(180deg)' : 'rotate(0deg)',
+            transition: 'transform 0.2s ease',
+          }}
         >
           <ChevronDown size={16} />
-        </motion.span>
+        </span>
       </button>
 
-      <AnimatePresence initial={false}>
-        {open && (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: 'auto', opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
-            style={{ overflow: 'hidden' }}
-          >
-            <div className="mobile-nav-sub" role="menu">
-              {item.items.map((child) => {
-                const childActive = pathname === child.href || pathname.startsWith(child.href + '/');
-                return (
-                  <Link
-                    key={child.href}
-                    href={child.href}
-                    role="menuitem"
-                    onClick={onNavigate}
-                    className="mobile-nav-sub-item"
-                    style={{
-                      fontWeight: childActive ? 600 : 400,
-                      color: childActive ? 'var(--color-accent)' : 'var(--color-text-secondary)',
-                      backgroundColor: childActive ? 'var(--color-accent-light)' : 'transparent',
-                    }}
-                  >
-                    {child.label}
-                  </Link>
-                );
-              })}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      <div
+        ref={contentRef}
+        style={{
+          overflow: 'hidden',
+          maxHeight: open ? '500px' : '0',
+          opacity: open ? 1 : 0,
+          transition: 'max-height 0.22s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.22s ease',
+        }}
+      >
+        <div className="mobile-nav-sub" role="menu">
+          {item.items.map((child) => {
+            const childActive = pathname === child.href || pathname.startsWith(child.href + '/');
+            return (
+              <Link
+                key={child.href}
+                href={child.href}
+                role="menuitem"
+                onClick={onNavigate}
+                className="mobile-nav-sub-item"
+                style={{
+                  fontWeight: childActive ? 600 : 400,
+                  color: childActive ? 'var(--color-accent)' : 'var(--color-text-secondary)',
+                  backgroundColor: childActive ? 'var(--color-accent-light)' : 'transparent',
+                }}
+              >
+                {child.label}
+              </Link>
+            );
+          })}
+        </div>
+      </div>
     </div>
   );
 }
@@ -304,65 +307,63 @@ export default function GlassNav() {
       </div>
 
       {/* Mobile menu */}
-      <AnimatePresence>
-        {mobileOpen && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            exit={{ opacity: 0, height: 0 }}
-            transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
-            style={{ overflow: 'hidden', borderTop: '1px solid var(--color-border)' }}
-            className="md:hidden"
-          >
-            <div className="flex flex-col px-4 py-2 pb-4">
-              {NAV_ITEMS.map((item) => {
-                if (item.kind === 'dropdown') {
-                  return (
-                    <MobileDropdown
-                      key={item.label}
-                      item={item}
-                      pathname={pathname}
-                      onNavigate={closeMobile}
-                    />
-                  );
-                }
+      <div
+        style={{
+          overflow: 'hidden',
+          maxHeight: mobileOpen ? '600px' : '0',
+          opacity: mobileOpen ? 1 : 0,
+          transition: 'max-height 0.25s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.25s ease',
+          borderTop: mobileOpen ? '1px solid var(--color-border)' : 'none',
+        }}
+        className="md:hidden"
+      >
+        <div className="flex flex-col px-4 py-2 pb-4">
+          {NAV_ITEMS.map((item) => {
+            if (item.kind === 'dropdown') {
+              return (
+                <MobileDropdown
+                  key={item.label}
+                  item={item}
+                  pathname={pathname}
+                  onNavigate={closeMobile}
+                />
+              );
+            }
 
-                if (item.kind === 'cta') {
-                  return (
-                    <Link
-                      key={item.href}
-                      href={item.href}
-                      onClick={closeMobile}
-                      className="nav-cta mt-3 w-full text-center"
-                    >
-                      {item.label}
-                    </Link>
-                  );
-                }
+            if (item.kind === 'cta') {
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  onClick={closeMobile}
+                  className="nav-cta mt-3 w-full text-center"
+                >
+                  {item.label}
+                </Link>
+              );
+            }
 
-                const active = pathname === item.href;
-                const isExternal = item.href.startsWith('http');
-                return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    onClick={closeMobile}
-                    {...(isExternal ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
-                    className="mobile-nav-row"
-                    style={{
-                      fontWeight: active ? 600 : 400,
-                      color: active ? 'var(--color-accent)' : 'var(--color-text-secondary)',
-                      backgroundColor: active ? 'var(--color-accent-light)' : 'transparent',
-                    }}
-                  >
-                    {item.label}
-                  </Link>
-                );
-              })}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+            const active = pathname === item.href;
+            const isExternal = item.href.startsWith('http');
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                onClick={closeMobile}
+                {...(isExternal ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
+                className="mobile-nav-row"
+                style={{
+                  fontWeight: active ? 600 : 400,
+                  color: active ? 'var(--color-accent)' : 'var(--color-text-secondary)',
+                  backgroundColor: active ? 'var(--color-accent-light)' : 'transparent',
+                }}
+              >
+                {item.label}
+              </Link>
+            );
+          })}
+        </div>
+      </div>
     </nav>
   );
 }
