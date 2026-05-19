@@ -129,7 +129,7 @@ export default function HomeClient({ totalCases, totalAdmin, totalNews, latestBl
   return (
     <div>
       <section className="relative overflow-hidden px-5 py-14 text-center sm:py-20 md:py-32">
-        <div className="mx-auto max-w-3xl">
+        <div className="mx-auto max-w-3xl animate-fade-in">
           <div
             className="mb-4 inline-flex items-center gap-2 rounded-full border px-4 py-1.5 text-sm"
             style={{ borderColor: 'var(--blue-200)', backgroundColor: 'var(--blue-50)', color: 'var(--blue-600)' }}

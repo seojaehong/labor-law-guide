@@ -1,24 +1,9 @@
 import type { Metadata } from "next";
 import Script from "next/script";
-import localFont from "next/font/local";
 import "./globals.css";
 import GlassNav from "@/components/GlassNav";
 import BetaBanner from "@/components/BetaBanner";
 import { SITE_URL } from "@/lib/constants";
-
-const pretendard = localFont({
-  src: [
-    {
-      path: "../../public/fonts/PretendardVariable.woff2",
-      weight: "45 920",
-      style: "normal",
-    },
-  ],
-  display: "swap",
-  variable: "--font-pretendard",
-  preload: false,
-  fallback: ["Apple SD Gothic Neo", "Malgun Gothic", "sans-serif"],
-});
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
@@ -73,11 +58,23 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="ko" className={pretendard.variable}>
+    <html lang="ko">
       <head>
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <meta name="theme-color" content="#1d4ed8" />
         <link rel="icon" href="/favicon.ico" />
+        <link rel="preconnect" href="https://cdn.jsdelivr.net" crossOrigin="anonymous" />
+        <link
+          rel="preload"
+          as="style"
+          crossOrigin="anonymous"
+          href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css"
+        />
+        <link
+          rel="stylesheet"
+          crossOrigin="anonymous"
+          href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css"
+        />
         <Script src="https://www.googletagmanager.com/gtag/js?id=G-GKKFCZ235H" strategy="lazyOnload" />
         <Script id="gtag-init" strategy="lazyOnload">{`window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}gtag('js',new Date());gtag('config','G-GKKFCZ235H');`}</Script>
         <Script id="webmcp-init" strategy="afterInteractive">{`
