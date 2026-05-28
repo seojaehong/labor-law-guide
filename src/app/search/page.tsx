@@ -646,6 +646,28 @@ function SearchContentInner({
             </Button>
           </div>
         )}
+
+        {/* 검색 결과 페이지 CTA — 원하는 답을 못 찾았을 때 챗봇으로 유도 */}
+        <div className="mt-10 rounded-2xl border border-primary/30 bg-primary/5 p-5">
+          <h3 className="font-bold text-base mb-2">원하는 답을 못 찾으셨나요?</h3>
+          <p className="text-sm text-muted-foreground mb-4">
+            검색으로 찾기 어려운 구체적인 상황은 AI 노동법 상담에 직접 물어보세요. 판례·행정해석 1만 건 이상을 근거로 답변합니다.
+          </p>
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <Link
+              href={`/ai${query ? `?q=${encodeURIComponent(query)}` : ""}`}
+              className="inline-flex items-center justify-center rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90"
+            >
+              AI 상담으로 이어서 묻기 →
+            </Link>
+            <Link
+              href="/sanction"
+              className="inline-flex items-center justify-center rounded-lg border border-primary/40 px-4 py-2 text-sm font-semibold transition-colors hover:bg-primary/10"
+            >
+              징계 정당성 자가진단 →
+            </Link>
+          </div>
+        </div>
       </div>
     </main>
   );

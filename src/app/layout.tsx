@@ -3,6 +3,7 @@ import Script from "next/script";
 import "./globals.css";
 import GlassNav from "@/components/GlassNav";
 import BetaBanner from "@/components/BetaBanner";
+import FloatingChatButton from "@/components/FloatingChatButton";
 import { SITE_URL } from "@/lib/constants";
 
 export const metadata: Metadata = {
@@ -150,6 +151,7 @@ export default function RootLayout({
         <GlassNav />
         <BetaBanner />
         <main>{children}</main>
+        <FloatingChatButton />
         <footer className="border-t py-10" style={{ borderColor: 'var(--color-border)' }}>
           <div className="mx-auto max-w-[1400px] px-5 text-center">
             <p className="text-sm" style={{ color: 'var(--color-text-tertiary)' }}>

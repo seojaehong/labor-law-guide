@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { Mail, Check, AlertCircle } from 'lucide-react';
 
 interface SubscribeFormProps {
-  source: 'article-footer' | 'home-bottom' | 'sidebar' | 'contact';
+  source: 'article-footer' | 'home-bottom' | 'sidebar' | 'contact' | 'decision-footer' | 'search-results';
   sourceSlug?: string;
   variant?: 'compact' | 'full';
 }
@@ -82,17 +82,29 @@ export default function SubscribeForm({ source, sourceSlug, variant = 'full' }: 
   return (
     <form
       onSubmit={handleSubmit}
-      className={`rounded-2xl border p-5 ${isCompact ? '' : 'p-6'}`}
-      style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }}
+      className={`rounded-2xl border ${isCompact ? 'p-5' : 'p-6 sm:p-7'}`}
+      style={{
+        borderColor: isCompact ? 'var(--color-border)' : 'var(--color-accent)',
+        borderWidth: isCompact ? '1px' : '1.5px',
+        backgroundColor: isCompact ? 'var(--color-bg-surface)' : 'var(--color-accent-soft, #fff8e6)',
+      }}
     >
-      <div className="flex items-center gap-2 mb-2">
-        <Mail size={16} style={{ color: 'var(--color-accent)' }} />
-        <h3 className="text-[14px] font-bold" style={{ color: 'var(--color-text-primary)' }}>
-          노동법 인사이트 뉴스레터
+      <div className={`flex items-center gap-2 ${isCompact ? 'mb-2' : 'mb-3'}`}>
+        <Mail size={isCompact ? 16 : 20} style={{ color: 'var(--color-accent)' }} />
+        <h3
+          className={`font-bold ${isCompact ? 'text-[14px]' : 'text-[17px] sm:text-[18px]'}`}
+          style={{ color: 'var(--color-text-primary)' }}
+        >
+          {isCompact ? '노동법 인사이트 뉴스레터' : '매일 아침, 노동뉴스 핵심만 받아보세요'}
         </h3>
       </div>
-      <p className="text-[12px] mb-3" style={{ color: 'var(--color-text-secondary)' }}>
-        주 1~2회 — 행정해석 변경, 신규 판례, 실무 가이드를 받아보세요.
+      <p
+        className={`${isCompact ? 'text-[12px] mb-3' : 'text-[13px] sm:text-[14px] mb-4 leading-relaxed'}`}
+        style={{ color: 'var(--color-text-secondary)' }}
+      >
+        {isCompact
+          ? '주 1~2회 — 행정해석 변경, 신규 판례, 실무 가이드를 받아보세요.'
+          : '평일 매일 KST 09:00 — 어제 발생한 노동 이슈, 새 행정해석, 핵심 판례 1건을 5분 안에 파악할 수 있게 정리해서 보내드립니다. 언제든 1초 해지.'}
       </p>
 
       <div className="flex flex-col gap-2 sm:flex-row">
@@ -104,16 +116,20 @@ export default function SubscribeForm({ source, sourceSlug, variant = 'full' }: 
           aria-label="이메일 주소"
           required
           disabled={status === 'loading'}
-          className="flex-1 rounded-lg border px-3 py-2 text-[13px] outline-none transition-colors focus-visible:outline-2 focus-visible:outline-[var(--color-accent)] focus-visible:outline-offset-2 focus:border-[var(--color-accent)]"
+          className={`flex-1 rounded-lg border outline-none transition-colors focus-visible:outline-2 focus-visible:outline-[var(--color-accent)] focus-visible:outline-offset-2 focus:border-[var(--color-accent)] ${
+            isCompact ? 'px-3 py-2 text-[13px]' : 'px-4 py-3 text-[14px]'
+          }`}
           style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg)' }}
         />
         <button
           type="submit"
           disabled={status === 'loading'}
-          className="rounded-lg px-4 py-2 text-[13px] font-semibold transition-colors disabled:opacity-50"
+          className={`rounded-lg font-semibold transition-colors disabled:opacity-50 ${
+            isCompact ? 'px-4 py-2 text-[13px]' : 'px-5 py-3 text-[14px]'
+          }`}
           style={{ backgroundColor: 'var(--color-accent)', color: '#fff' }}
         >
-          {status === 'loading' ? '전송 중...' : '구독하기'}
+          {status === 'loading' ? '전송 중...' : isCompact ? '구독하기' : '무료 구독하기'}
         </button>
       </div>
 
