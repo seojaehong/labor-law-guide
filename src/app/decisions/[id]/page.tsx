@@ -41,7 +41,7 @@ export async function generateMetadata({
   // nlrc_decisions만 빠르게 lookup (lawgo/bigcase는 일시 노출 중단)
   const { data: d } = await supabase
     .from("nlrc_decisions")
-    .select("case_number, key_issue, holding_summary, decision_result, reason_category, judgment_date")
+    .select("case_number, key_issue, holding_summary, decision_result, reason_category")
     .eq("id", id)
     .maybeSingle();
 
