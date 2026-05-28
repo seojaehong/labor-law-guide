@@ -17,11 +17,74 @@ import { getDecisionSourceLabel, resolveDecisionSourceContract, type DecisionSou
 import { cn } from "@/lib/utils";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import type { Metadata } from "next";
 import SubscribeForm from "@/components/SubscribeForm";
+import { SITE_URL } from "@/lib/constants";
 
 // AI 분류 라벨 fallback: 미매핑 영문은 underscore→space로 보정
 function getAiLabel(key: string, map: Record<string, string>): string {
   return map[key] || key.replace(/_/g, " ");
+}
+
+// 동적 메타 — nlrc_decisions 핵심 필드 기반 (가장 큰 트래픽 페이지의 SEO 박살 fix)
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}): Promise<Metadata> {
+  const { id: rawId } = await params;
+  let id: string;
+  try { id = decodeURIComponent(rawId); } catch { id = rawId; }
+
+  const canonical = `${SITE_URL}/decisions/${encodeURIComponent(id)}`;
+
+  // nlrc_decisions만 빠르게 lookup (lawgo/bigcase는 일시 노출 중단)
+  const { data: d } = await supabase
+    .from("nlrc_decisions")
+    .select("case_number, key_issue, holding_summary, decision_result, reason_category, judgment_date")
+    .eq("id", id)
+    .maybeSingle();
+
+  if (!d) {
+    return {
+      title: `판정례 ${id} | 노동위 판정례 검색`,
+      description: "노동위원회 판정례 상세 정보. 핵심쟁점, 판정결과, 절차 확인을 한눈에 정리합니다.",
+      alternates: { canonical },
+      robots: { index: true, follow: true },
+    };
+  }
+
+  const caseNum = (d.case_number && !/^id_/i.test(d.case_number)) ? d.case_number : "";
+  const result = REASON_LABELS && d.decision_result ? (RESULT_LABELS[d.decision_result as DecisionResult] || d.decision_result) : "";
+  const reasonLabel = Array.isArray(d.reason_category) && d.reason_category[0]
+    ? (REASON_LABELS[d.reason_category[0] as ReasonCategory] || d.reason_category[0]) : "";
+  const keyIssue = typeof d.key_issue === "string" ? d.key_issue.replace(/\s+/g, " ").trim().slice(0, 60) : "";
+  const holding = typeof d.holding_summary === "string" ? d.holding_summary.replace(/\s+/g, " ").trim().slice(0, 120) : "";
+
+  const titleParts = [reasonLabel || "노동위 판정례", keyIssue || caseNum || id, result].filter(Boolean);
+  const title = `${titleParts.join(" | ")} | 노란봉투법 가이드`.slice(0, 110);
+  const descParts = [
+    caseNum ? `사건번호 ${caseNum}` : "",
+    reasonLabel ? `유형 ${reasonLabel}` : "",
+    result ? `판정 ${result}` : "",
+    holding,
+  ].filter(Boolean);
+  const description = (descParts.join(" · ") || "노동위원회 판정례 상세 정보 — 핵심쟁점·절차·판정결과 정리.").slice(0, 155);
+
+  return {
+    title,
+    description,
+    alternates: { canonical },
+    openGraph: {
+      title,
+      description,
+      url: canonical,
+      type: "article",
+      locale: "ko_KR",
+      siteName: "노란봉투법 가이드",
+    },
+    robots: { index: true, follow: true },
+  };
 }
 
 function getDisplayCaseNumber(caseNumber?: string | null) {
