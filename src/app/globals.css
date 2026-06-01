@@ -709,6 +709,13 @@
     color: var(--grey-900);
   }
 
+  /* 다크모드 가시성 fix — blog-case 등의 표가 본문에 inline `background:#fff` 또는 `#f9f9f9`
+     로 흰 배경을 강제하는데, td color는 다크모드 글로벌(흰색)을 상속받아 안 보임.
+     tbody td는 강제로 어두운 텍스트로 — 표 배경이 흰색이므로 가독성 OK. */
+  .blog-content tbody td {
+    color: var(--grey-900);
+  }
+
   .blog-content input[type="checkbox"] {
     margin-right: 8px;
     accent-color: var(--color-accent);
