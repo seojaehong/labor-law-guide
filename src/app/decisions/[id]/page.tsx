@@ -58,8 +58,10 @@ export async function generateMetadata({
   const result = REASON_LABELS && d.decision_result ? (RESULT_LABELS[d.decision_result as DecisionResult] || d.decision_result) : "";
   const reasonLabel = Array.isArray(d.reason_category) && d.reason_category[0]
     ? (REASON_LABELS[d.reason_category[0] as ReasonCategory] || d.reason_category[0]) : "";
-  const keyIssue = typeof d.key_issue === "string" ? d.key_issue.replace(/\s+/g, " ").trim().slice(0, 60) : "";
-  const holding = typeof d.holding_summary === "string" ? d.holding_summary.replace(/\s+/g, " ").trim().slice(0, 120) : "";
+  // 마크다운 잔존 제거 — key_issue/holding_summary에 #, **, - 가 들어있어 SEO title이 깨짐
+  const stripMd = (s: string) => stripMarkdownFormatting(s).replace(/\s+/g, " ").trim();
+  const keyIssue = typeof d.key_issue === "string" ? stripMd(d.key_issue).slice(0, 60) : "";
+  const holding = typeof d.holding_summary === "string" ? stripMd(d.holding_summary).slice(0, 120) : "";
 
   const titleParts = [reasonLabel || "노동위 판정례", keyIssue || caseNum || id, result].filter(Boolean);
   const title = `${titleParts.join(" | ")} | 노란봉투법 가이드`.slice(0, 110);
