@@ -20,14 +20,16 @@ async function getTableCount(table: string, quality: boolean = false): Promise<n
 }
 
 export async function GET() {
-  const [casesCount, decisionsCount] = await Promise.all([
+  const [casesCount, decisionsCount, lawgoCount] = await Promise.all([
     getTableCount('cases'),
     getTableCount('nlrc_decisions', true),
+    getTableCount('lawgo_precedents'),
   ]);
 
   const casesChunks = Math.max(1, Math.ceil(casesCount / CHUNK_SIZE));
   const decisionsChunks = Math.max(1, Math.ceil(decisionsCount / CHUNK_SIZE));
-  const total = 1 + casesChunks + decisionsChunks;
+  const lawgoChunks = Math.max(1, Math.ceil(lawgoCount / CHUNK_SIZE));
+  const total = 1 + casesChunks + decisionsChunks + lawgoChunks;
 
   const entries = Array.from({ length: total }, (_, i) =>
     `  <sitemap><loc>${SITE_URL}/sitemap/${i}.xml</loc></sitemap>`

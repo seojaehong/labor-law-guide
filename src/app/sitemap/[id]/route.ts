@@ -190,6 +190,31 @@ async function buildDecisionsSitemap(chunkIndex: number): Promise<SitemapEntry[]
   }
 }
 
+// 5/15 commit d0f344b 사고 회복: lawgo_precedents(법원 판례) 4,982건이 sitemap에
+// 완전히 빠져있어서 Google 색인 못 함. + 5/15에 일시 차단 commit이 같은 페이지를
+// notFound() 처리해서 색인 대거 삭제. 추가해서 회복 가속.
+async function buildLawgoSitemap(chunkIndex: number): Promise<SitemapEntry[]> {
+  const from = chunkIndex * CHUNK_SIZE;
+  const to = from + CHUNK_SIZE - 1;
+
+  try {
+    const { data } = await supabaseServer
+      .from('lawgo_precedents')
+      .select('id, judgment_date')
+      .order('id', { ascending: true })
+      .range(from, to);
+
+    return (data || []).map((item: { id: string; judgment_date: string | null }) => ({
+      url: `${SITE_URL}/decisions/${encodeURIComponent(item.id)}`,
+      lastModified: parseDate(item.judgment_date, new Date('2026-01-01')),
+      changeFrequency: 'monthly' as const,
+      priority: 0.7,
+    }));
+  } catch {
+    return [];
+  }
+}
+
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id: idRaw } = await params;
   const idParsed = parseInt(idRaw.replace(/\.xml$/, ''), 10);
@@ -198,11 +223,14 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     return new NextResponse('Not Found', { status: 404 });
   }
 
-  const [casesCount, decisionsCount] = await Promise.all([
+  const [casesCount, decisionsCount, lawgoCount] = await Promise.all([
     getTableCount('cases'),
     getTableCount('nlrc_decisions', 'nlrc_quality'),
+    getTableCount('lawgo_precedents'),
   ]);
   const casesChunks = Math.max(1, Math.ceil(casesCount / CHUNK_SIZE));
+  const maxDecisionChunks = Math.max(1, Math.ceil(decisionsCount / CHUNK_SIZE));
+  const maxLawgoChunks = Math.max(1, Math.ceil(lawgoCount / CHUNK_SIZE));
 
   let entries: SitemapEntry[] = [];
 
@@ -210,11 +238,12 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     entries = await buildStaticAndBlogSitemap();
   } else if (idParsed <= casesChunks) {
     entries = await buildCasesSitemap(idParsed - 1);
+  } else if (idParsed - casesChunks <= maxDecisionChunks) {
+    entries = await buildDecisionsSitemap(idParsed - 1 - casesChunks);
   } else {
-    const decisionChunkIndex = idParsed - 1 - casesChunks;
-    const maxDecisionChunks = Math.max(1, Math.ceil(decisionsCount / CHUNK_SIZE));
-    if (decisionChunkIndex < maxDecisionChunks) {
-      entries = await buildDecisionsSitemap(decisionChunkIndex);
+    const lawgoChunkIndex = idParsed - 1 - casesChunks - maxDecisionChunks;
+    if (lawgoChunkIndex >= 0 && lawgoChunkIndex < maxLawgoChunks) {
+      entries = await buildLawgoSitemap(lawgoChunkIndex);
     }
   }
 
