@@ -162,6 +162,10 @@ export default function RootLayout({
               {' '}| <a href="/privacy" style={{ color: 'var(--color-accent)' }}>개인정보처리방침</a>
               {' '}| <a href="/terms" style={{ color: 'var(--color-accent)' }}>이용약관</a>
             </p>
+            <p className="mt-2 text-xs" style={{ color: 'var(--color-text-tertiary)' }}>
+              관련 블로그:{' '}
+              <a href="https://node.pe.kr" target="_blank" rel="noopener" className="hover:underline" style={{ color: 'var(--color-accent)' }}>NODE — 노동·HR 딥다이브</a>
+            </p>
           </div>
         </footer>
       </body>
