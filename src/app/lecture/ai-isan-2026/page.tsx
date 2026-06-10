@@ -120,9 +120,9 @@ export default function LectureIsanPage() {
                     {slide.demo.prompt}
                   </div>
                 )}
-                {slide.demo.expectedOutput && (
-                  <div className="text-[13px] text-muted-foreground">
-                    → {slide.demo.expectedOutput}
+                {slide.demo.result && (
+                  <div className="text-[13px] text-muted-foreground whitespace-pre-wrap">
+                    → {slide.demo.result}
                   </div>
                 )}
               </div>
