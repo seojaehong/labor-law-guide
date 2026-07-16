@@ -46,11 +46,12 @@ export async function generateMetadata({
     .maybeSingle();
 
   if (!d) {
+    // 존재하지 않는(삭제/개인정보 요청 포함) 판정례는 색인 금지 — 페이지 본문도 notFound()로 404 처리.
     return {
-      title: `판정례 ${id} | 노동위 판정례 검색`,
-      description: "노동위원회 판정례 상세 정보. 핵심쟁점, 판정결과, 절차 확인을 한눈에 정리합니다.",
+      title: `판정례를 찾을 수 없습니다`,
+      description: "요청하신 판정례가 존재하지 않습니다.",
       alternates: { canonical },
-      robots: { index: true, follow: true },
+      robots: { index: false, follow: false },
     };
   }
 
@@ -605,7 +606,8 @@ export default async function DecisionPage({
     .single();
 
   if (!d) {
-    return <div className="p-8">판정례를 찾을 수 없습니다.</div>;
+    // 삭제되었거나 존재하지 않는 판정례 — 200 소프트404 대신 실제 404(noindex)로 처리해 색인에서 제외.
+    notFound();
   }
 
   const displayCaseNumber = getDisplayCaseNumber(d.case_number);
