@@ -4,13 +4,16 @@
 // 모든 처리는 브라우저 내에서만 수행(서버 전송·저장 없음). 모르는 항목은 건너뛰기 허용(needs_data).
 
 import { useState } from 'react';
-import { ChevronRight, ShieldCheck } from 'lucide-react';
+import Link from 'next/link';
+import { ChevronRight, Printer, ShieldCheck } from 'lucide-react';
 import rulesCatalog from '@/lib/contract-check/data/compliance_rules.json';
+import { amendContract } from '@/lib/contract-check/amendments';
 import { checkContract } from '@/lib/contract-check/engine';
 import { normalize } from '@/lib/contract-check/normalize';
 import type {
   Contract,
   Finding,
+  FindingSeverity,
   FindingStatus,
   RiskClause,
   WageItem,
@@ -37,6 +40,7 @@ const STATUS_STYLE: Record<FindingStatus, { bg: string; fg: string }> = {
 };
 
 const STATUS_ORDER: FindingStatus[] = ['violation', 'risk', 'needs_data', 'ok'];
+const SEVERITY_ORDER: FindingSeverity[] = ['critical', 'major', 'minor', 'info'];
 
 /** 문제조항 체크리스트 — 각 항목은 risk_clauses 태그로 매핑된다. */
 const CLAUSE_ITEMS: { tag: string; label: string; hint: string }[] = [
@@ -442,13 +446,20 @@ export default function ContractCheckClient() {
   const [step, setStep] = useState(1);
   const [form, setForm] = useState<FormState>(INITIAL);
   const [findings, setFindings] = useState<Finding[] | null>(null);
+  const [amendMap, setAmendMap] = useState<Record<string, string>>({});
 
   const patch = (p: Partial<FormState>) => setForm((prev) => ({ ...prev, ...p }));
 
   const runCheck = () => {
     const [contract] = normalize(buildContract(form));
     const sorted = [...checkContract(contract)].sort(
-      (a, b) => STATUS_ORDER.indexOf(a.status) - STATUS_ORDER.indexOf(b.status),
+      (a, b) =>
+        STATUS_ORDER.indexOf(a.status) - STATUS_ORDER.indexOf(b.status) ||
+        SEVERITY_ORDER.indexOf(a.severity) - SEVERITY_ORDER.indexOf(b.severity) ||
+        a.rule_code.localeCompare(b.rule_code),
+    );
+    setAmendMap(
+      Object.fromEntries(amendContract(contract, sorted).rows.map((r) => [r.rule_code, r.amendment])),
     );
     setFindings(sorted);
     setStep(5);
@@ -456,6 +467,7 @@ export default function ContractCheckClient() {
 
   const restart = () => {
     setFindings(null);
+    setAmendMap({});
     setStep(1);
   };
 
@@ -824,7 +836,13 @@ export default function ContractCheckClient() {
       )}
 
       {step === 5 && findings && counts && (
-        <div>
+        <div id="cc-print-area">
+          <style>{`@media print {
+            body * { visibility: hidden; }
+            #cc-print-area, #cc-print-area * { visibility: visible; }
+            #cc-print-area { position: absolute; left: 0; top: 0; width: 100%; padding: 16px; }
+            #cc-print-area .print-hide { display: none !important; }
+          }`}</style>
           <h2 className="mb-3 text-lg font-bold" style={{ color: 'var(--color-text-primary)' }}>
             점검 결과
           </h2>
@@ -865,9 +883,44 @@ export default function ContractCheckClient() {
                     {f.status === 'needs_data' ? `입력하면 판정됩니다 — ${f.detail}` : f.detail}
                   </p>
                 )}
+                {amendMap[f.rule_code] && (
+                  <p
+                    className="mt-2 rounded-md bg-slate-50 p-2 text-xs leading-relaxed dark:bg-slate-800"
+                    style={{ color: 'var(--color-text-secondary)' }}
+                  >
+                    <span className="font-semibold" style={{ color: 'var(--color-text-primary)' }}>
+                      수정 방향:{' '}
+                    </span>
+                    {amendMap[f.rule_code]}
+                  </p>
+                )}
               </li>
             ))}
           </ul>
+
+          <div className="print-hide mt-6 flex flex-col gap-3 sm:flex-row">
+            <Link
+              href="/contact"
+              className="flex-1 rounded-lg bg-yellow-400 px-5 py-3 text-center text-sm font-bold text-slate-900 hover:bg-yellow-300"
+            >
+              전문가에게 계약서 검토 요청
+            </Link>
+            <button
+              type="button"
+              onClick={() => window.print()}
+              className="flex items-center justify-center gap-2 rounded-lg border px-5 py-3 text-sm font-semibold hover:border-slate-400"
+              style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-secondary)' }}
+            >
+              <Printer className="h-4 w-4" />
+              결과 인쇄
+            </button>
+          </div>
+
+          <p className="mt-4 text-xs leading-relaxed" style={{ color: 'var(--color-text-tertiary)' }}>
+            본 결과는 입력하신 내용만으로 판정한 간이 자가점검이며 법률자문이 아닙니다. 실제 계약서
+            문안과 근무 실태에 따라 판정이 달라질 수 있으므로, 정확한 판단이 필요하면 노무사 등
+            전문가의 검토를 받아 주세요.
+          </p>
         </div>
       )}
 
