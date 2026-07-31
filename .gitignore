@@ -54,3 +54,6 @@ RALPH-README.md
 progress.txt
 .last-branch
 archive/
+
+# playwright output
+test-results/
