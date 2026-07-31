@@ -10,16 +10,10 @@ import rulesCatalog from '@/lib/contract-check/data/compliance_rules.json';
 import { amendContract } from '@/lib/contract-check/amendments';
 import { checkContract } from '@/lib/contract-check/engine';
 import { normalize } from '@/lib/contract-check/normalize';
-import type {
-  Contract,
-  Finding,
-  FindingSeverity,
-  FindingStatus,
-  RiskClause,
-  WageItem,
-  WorkTimeVariant,
-  DailySchedule,
-} from '@/lib/contract-check/types';
+import type { Finding, FindingSeverity, FindingStatus } from '@/lib/contract-check/types';
+import PhotoUploadCard from './PhotoUploadCard';
+import { applyExtracted } from './extractMap';
+import { CLAUSE_ITEMS, INITIAL, buildContract, type FormState } from './formState';
 
 const RULE_META: Record<string, { name: string; statute: string }> = Object.fromEntries(
   rulesCatalog.rules.map((r) => [r.code, { name: r.name, statute: r.statute }]),
@@ -41,210 +35,6 @@ const STATUS_STYLE: Record<FindingStatus, { bg: string; fg: string }> = {
 
 const STATUS_ORDER: FindingStatus[] = ['violation', 'risk', 'needs_data', 'ok'];
 const SEVERITY_ORDER: FindingSeverity[] = ['critical', 'major', 'minor', 'info'];
-
-/** 문제조항 체크리스트 — 각 항목은 risk_clauses 태그로 매핑된다. */
-const CLAUSE_ITEMS: { tag: string; label: string; hint: string }[] = [
-  {
-    tag: '금품청산',
-    label: '퇴직 후 14일을 넘겨 임금·퇴직금을 지급한다는 약정',
-    hint: '예: "퇴직금은 퇴직 다음 달 말일에 지급한다"',
-  },
-  {
-    tag: '조건부지급',
-    label: '반납·방문 등 조건을 걸고 임금을 지급한다는 조항',
-    hint: '예: "유니폼 반납 후 마지막 급여를 지급한다"',
-  },
-  {
-    tag: '즉시해고',
-    label: '"즉시 해고할 수 있다"는 문구',
-    hint: '해고예고(30일)·서면통지 절차를 건너뛰는 표현',
-  },
-  {
-    tag: '자동만료',
-    label: '일정 사유 발생 시 계약이 자동 종료·만료된다는 조항',
-    hint: '예: "무단결근 3일 시 자동 퇴사 처리한다"',
-  },
-  {
-    tag: '부제소',
-    label: '회사에 이의제기·소송을 하지 않겠다는 조항',
-    hint: '예: "본 계약에 대해 민형사상 이의를 제기하지 않는다"',
-  },
-  {
-    tag: '위약예정',
-    label: '위약금·손해배상액을 미리 정해 둔 조항',
-    hint: '예: "중도 퇴사 시 300만원을 배상한다"',
-  },
-];
-
-interface VariantRow {
-  perWeek: string;
-  start: string;
-  end: string;
-}
-
-interface DailyRow {
-  day: string;
-  start: string;
-  end: string;
-}
-
-interface FormState {
-  // ① 기본
-  periodType: '' | 'indefinite' | 'fixed';
-  startDate: string;
-  endDate: string;
-  probation: '' | 'yes' | 'no';
-  probationMonths: string;
-  probationRate: string;
-  monthlyTotal: string;
-  baseWage: string;
-  // ② 근로시간
-  daysPerWeek: string;
-  workStart: string;
-  workEnd: string;
-  hasVariants: boolean;
-  variants: VariantRow[];
-  breakMinutes: string;
-  nightWork: '' | 'yes' | 'no';
-  hasDaily: boolean;
-  daily: DailyRow[];
-  // ③ 임금 구성·지급
-  otAmount: string;
-  otHours: string;
-  holidayExtra: string;
-  annualLeavePay: string;
-  basisWritten: boolean;
-  payday: string;
-  paymentMethod: string;
-  weeklyRest: '' | 'specified' | 'unspecified';
-  annualLeaveClause: boolean;
-  jobWritten: boolean;
-  // ④ 문제조항
-  clauses: Record<string, boolean>;
-}
-
-const INITIAL: FormState = {
-  periodType: '',
-  startDate: '',
-  endDate: '',
-  probation: '',
-  probationMonths: '',
-  probationRate: '',
-  monthlyTotal: '',
-  baseWage: '',
-  daysPerWeek: '',
-  workStart: '',
-  workEnd: '',
-  hasVariants: false,
-  variants: [{ perWeek: '', start: '', end: '' }],
-  breakMinutes: '',
-  nightWork: '',
-  hasDaily: false,
-  daily: [{ day: '월', start: '', end: '' }],
-  otAmount: '',
-  otHours: '',
-  holidayExtra: '',
-  annualLeavePay: '',
-  basisWritten: false,
-  payday: '',
-  paymentMethod: '',
-  weeklyRest: '',
-  annualLeaveClause: false,
-  jobWritten: false,
-  clauses: {},
-};
-
-function num(s: string): number | null {
-  const n = parseFloat((s || '').replace(/[,\s]/g, ''));
-  return Number.isFinite(n) ? n : null;
-}
-
-/** 폼 상태 → 스키마 규격 계약 객체 (RALPH-README 매핑 지침). */
-export function buildContract(f: FormState): Contract {
-  const items: WageItem[] = [];
-  const basisText = f.basisWritten ? '계약서 기재' : null;
-  const base = num(f.baseWage);
-  if (base != null) {
-    items.push({ code: 'BASE', label: '기본급', amount: base, basis_text: basisText });
-  }
-  const ot = num(f.otAmount);
-  if (ot != null) {
-    items.push({
-      code: 'OT_WEEKDAY',
-      label: '연장수당',
-      amount: ot,
-      basis_hours: num(f.otHours),
-      basis_text: basisText,
-    });
-  }
-  const holiday = num(f.holidayExtra);
-  if (holiday != null) {
-    items.push({ code: 'HOLIDAY_EXTRA', label: '휴일·추가수당', amount: holiday, basis_text: basisText });
-  }
-  const annual = num(f.annualLeavePay);
-  if (annual != null) {
-    items.push({ code: 'ANNUAL_LEAVE', label: '연차수당', amount: annual, basis_text: basisText });
-  }
-
-  const variants: WorkTimeVariant[] = f.hasVariants
-    ? f.variants
-        .filter((v) => num(v.perWeek) != null && v.start && v.end)
-        .map((v) => ({ per_week: num(v.perWeek) ?? 0, start: v.start, end: v.end }))
-    : [];
-  const daily: DailySchedule[] = f.hasDaily
-    ? f.daily.filter((d) => d.day && d.start && d.end).map((d) => ({ day: d.day, start: d.start, end: d.end }))
-    : [];
-
-  const breakMin = num(f.breakMinutes);
-  const riskClauses: RiskClause[] = CLAUSE_ITEMS.filter((c) => f.clauses[c.tag]).map((c) => ({
-    clause_ref: '체크리스트',
-    text: c.label,
-    tags: [c.tag],
-  }));
-
-  return {
-    contract_id: 'web-form',
-    workplace: { name: '' },
-    employee: { name: '' },
-    period: {
-      start_date: f.startDate || null,
-      end_date: f.periodType === 'fixed' ? f.endDate || null : null,
-      indefinite: f.periodType === '' ? null : f.periodType === 'indefinite',
-      probation:
-        f.probation === ''
-          ? null
-          : f.probation === 'no'
-            ? { applied: false }
-            : {
-                applied: true,
-                months: num(f.probationMonths),
-                wage_rate_pct: num(f.probationRate),
-              },
-    },
-    job: f.jobWritten ? { location: '계약서 기재', duty: '계약서 기재' } : {},
-    work_time: {
-      days_per_week: num(f.daysPerWeek),
-      start: f.workStart || null,
-      end: f.workEnd || null,
-      variants: variants.length > 0 ? variants : null,
-      breaks: breakMin != null ? [{ minutes: breakMin }] : null,
-      daily_schedules: daily.length > 0 ? daily : null,
-      night_work: f.nightWork === '' ? null : f.nightWork === 'yes',
-    },
-    wage: {
-      monthly_total: num(f.monthlyTotal),
-      items,
-      payday: f.payday || null,
-      payment_method: f.paymentMethod || null,
-    },
-    holidays_leave: {
-      weekly_rest: f.weeklyRest === '' ? null : '계약서 기재',
-      weekly_rest_day_specified: f.weeklyRest === '' ? null : f.weeklyRest === 'specified',
-      annual_leave_clause: f.annualLeaveClause ? '계약서 기재' : null,
-    },
-    risk_clauses: riskClauses,
-  };
-}
 
 // ── UI 조각 ──────────────────────────────────────────────────────────
 
@@ -286,11 +76,29 @@ function StepHeader({ current }: { current: number }) {
   );
 }
 
-function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
+/** missing=true → 사진에서 못 읽은 항목. 직접 입력하도록 하이라이트한다. */
+function Field({
+  label,
+  hint,
+  missing,
+  children,
+}: {
+  label: string;
+  hint?: string;
+  missing?: boolean;
+  children: React.ReactNode;
+}) {
   return (
-    <div>
+    <div
+      className={missing ? 'rounded-lg border-l-4 border-amber-400 bg-amber-50/60 py-2 pl-3 dark:bg-amber-950/20' : undefined}
+    >
       <span className="mb-1 block text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>
         {label}
+        {missing && (
+          <span className="ml-2 rounded px-1.5 py-0.5 text-[11px] font-bold" style={{ backgroundColor: '#fef3c7', color: '#92400e' }}>
+            사진에서 못 읽음
+          </span>
+        )}
       </span>
       {hint && (
         <div className="mb-2 text-xs" style={{ color: 'var(--color-text-secondary)' }}>
@@ -447,8 +255,24 @@ export default function ContractCheckClient() {
   const [form, setForm] = useState<FormState>(INITIAL);
   const [findings, setFindings] = useState<Finding[] | null>(null);
   const [amendMap, setAmendMap] = useState<Record<string, string>>({});
+  // 사진 추출 결과: null이면 아직 업로드 안 함(하이라이트·배너 없음).
+  const [extracted, setExtracted] = useState<{
+    filled: Set<string>;
+    notes: string[];
+    warnings: string[];
+  } | null>(null);
 
   const patch = (p: Partial<FormState>) => setForm((prev) => ({ ...prev, ...p }));
+
+  /** 사진에서 못 읽은 항목인가 — 업로드한 뒤에만 하이라이트한다. */
+  const miss = (key: string) => !!extracted && !extracted.filled.has(key);
+
+  const onExtracted = (payload: unknown) => {
+    const result = applyExtracted(payload);
+    setForm(result.form);
+    setExtracted({ filled: result.filled, notes: result.notes, warnings: result.warnings });
+    setStep(1);
+  };
 
   const runCheck = () => {
     const [contract] = normalize(buildContract(form));
@@ -468,6 +292,7 @@ export default function ContractCheckClient() {
   const restart = () => {
     setFindings(null);
     setAmendMap({});
+    setExtracted(null);
     setStep(1);
   };
 
@@ -483,18 +308,49 @@ export default function ContractCheckClient() {
   return (
     <div className="rounded-xl border-2 border-slate-200 p-5">
       <div
-        className="mb-5 flex items-center gap-2 rounded-lg bg-slate-50 px-3 py-2 text-xs dark:bg-slate-800"
+        className="mb-5 flex items-start gap-2 rounded-lg bg-slate-50 px-3 py-2 text-xs dark:bg-slate-800"
         style={{ color: 'var(--color-text-secondary)' }}
       >
-        <ShieldCheck className="h-4 w-4 flex-shrink-0 text-green-600" />
-        입력 내용은 브라우저를 떠나지 않습니다 — 서버 전송·저장 없이 이 화면 안에서만 계산합니다.
+        <ShieldCheck className="mt-0.5 h-4 w-4 flex-shrink-0 text-green-600" />
+        <span className="leading-relaxed">
+          입력 내용은 브라우저를 떠나지 않습니다 — 서버 전송·저장 없이 이 화면 안에서만 계산합니다.
+          <br />
+          사진을 올릴 때만 인식(분석) 목적으로 서버를 거치며, 사진과 인식 결과는 저장하지 않습니다.
+        </span>
       </div>
+
+      {step < 5 && <PhotoUploadCard onExtracted={onExtracted} />}
+
+      {extracted && step < 5 && (
+        <div
+          role="status"
+          className="mb-5 rounded-lg px-3 py-2 text-xs leading-relaxed"
+          style={{ backgroundColor: '#eff6ff', color: '#1e40af' }}
+        >
+          {extracted.filled.size === 0 ? (
+            <span className="font-semibold">
+              사진에서 인식된 항목이 없습니다. 더 밝고 선명한 사진으로 다시 시도하거나, 아래 폼에 직접
+              입력해 주세요.
+            </span>
+          ) : (
+            <span className="font-semibold">
+              인식 결과를 확인·수정하세요 — 사진에서 읽은 값을 채워 두었습니다. 못 읽은 항목은
+              「사진에서 못 읽음」으로 표시되니 직접 입력해 주세요.
+            </span>
+          )}
+          {[...extracted.warnings, ...extracted.notes].map((m) => (
+            <span key={m} className="mt-1 block">
+              · {m}
+            </span>
+          ))}
+        </div>
+      )}
 
       <StepHeader current={step} />
 
       {step === 1 && (
         <div className="space-y-5">
-          <Field label="계약기간" hint="계약서에 적힌 기간 형태를 골라 주세요.">
+          <Field missing={miss('periodType')} label="계약기간" hint="계약서에 적힌 기간 형태를 골라 주세요.">
             <Choice
               options={[
                 { value: 'indefinite', label: '기간 정함 없음' },
@@ -506,7 +362,7 @@ export default function ContractCheckClient() {
             />
           </Field>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <Field label="계약 시작일">
+            <Field missing={miss('startDate')} label="계약 시작일">
               <TextInput
                 type="date"
                 ariaLabel="계약 시작일"
@@ -515,7 +371,7 @@ export default function ContractCheckClient() {
               />
             </Field>
             {form.periodType === 'fixed' && (
-              <Field label="계약 종료일">
+              <Field missing={miss('endDate')} label="계약 종료일">
                 <TextInput
                   type="date"
                   ariaLabel="계약 종료일"
@@ -525,7 +381,7 @@ export default function ContractCheckClient() {
               </Field>
             )}
           </div>
-          <Field label="수습 기간" hint="수습 중 임금을 깎는 약정이 있는지 확인합니다.">
+          <Field missing={miss('probation')} label="수습 기간" hint="수습 중 임금을 깎는 약정이 있는지 확인합니다.">
             <Choice
               options={[
                 { value: 'yes', label: '있음' },
@@ -538,7 +394,7 @@ export default function ContractCheckClient() {
           </Field>
           {form.probation === 'yes' && (
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <Field label="수습 개월 수">
+              <Field missing={miss('probationMonths')} label="수습 개월 수">
                 <TextInput
                   ariaLabel="수습 개월 수"
                   numeric
@@ -548,7 +404,7 @@ export default function ContractCheckClient() {
                   onChange={(v) => patch({ probationMonths: v })}
                 />
               </Field>
-              <Field label="수습 기간 임금 비율" hint="예: 90 (정상 임금의 90%를 지급)">
+              <Field missing={miss('probationRate')} label="수습 기간 임금 비율" hint="예: 90 (정상 임금의 90%를 지급)">
                 <TextInput
                   ariaLabel="수습 기간 임금 비율"
                   numeric
@@ -561,7 +417,7 @@ export default function ContractCheckClient() {
             </div>
           )}
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <Field label="월급여 총액" hint="세전 금액. 모르면 비워 두세요.">
+            <Field missing={miss('monthlyTotal')} label="월급여 총액" hint="세전 금액. 모르면 비워 두세요.">
               <TextInput
                 ariaLabel="월급여 총액"
                 numeric
@@ -571,7 +427,7 @@ export default function ContractCheckClient() {
                 onChange={(v) => patch({ monthlyTotal: v })}
               />
             </Field>
-            <Field label="기본급" hint="수당을 뺀 기본급. 최저임금 판정에 사용됩니다.">
+            <Field missing={miss('baseWage')} label="기본급" hint="수당을 뺀 기본급. 최저임금 판정에 사용됩니다.">
               <TextInput
                 ariaLabel="기본급"
                 numeric
@@ -588,7 +444,7 @@ export default function ContractCheckClient() {
       {step === 2 && (
         <div className="space-y-5">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-            <Field label="주 근무일수">
+            <Field missing={miss('daysPerWeek')} label="주 근무일수">
               <TextInput
                 ariaLabel="주 근무일수"
                 numeric
@@ -598,7 +454,7 @@ export default function ContractCheckClient() {
                 onChange={(v) => patch({ daysPerWeek: v })}
               />
             </Field>
-            <Field label="출근 시각">
+            <Field missing={miss('workStart')} label="출근 시각">
               <TextInput
                 type="time"
                 ariaLabel="출근 시각"
@@ -606,7 +462,7 @@ export default function ContractCheckClient() {
                 onChange={(v) => patch({ workStart: v })}
               />
             </Field>
-            <Field label="퇴근 시각">
+            <Field missing={miss('workEnd')} label="퇴근 시각">
               <TextInput
                 type="time"
                 ariaLabel="퇴근 시각"
@@ -662,7 +518,7 @@ export default function ContractCheckClient() {
               </button>
             </div>
           )}
-          <Field label="하루 휴게시간" hint="점심시간 등 쉬는 시간의 하루 합계(분). 4시간 근무당 30분 이상이 법정 기준입니다.">
+          <Field missing={miss('breakMinutes')} label="하루 휴게시간" hint="점심시간 등 쉬는 시간의 하루 합계(분). 4시간 근무당 30분 이상이 법정 기준입니다.">
             <TextInput
               ariaLabel="하루 휴게시간"
               numeric
@@ -672,7 +528,7 @@ export default function ContractCheckClient() {
               onChange={(v) => patch({ breakMinutes: v })}
             />
           </Field>
-          <Field label="야간근무(22시~06시)가 있나요?">
+          <Field missing={miss('nightWork')} label="야간근무(22시~06시)가 있나요?">
             <Choice
               options={[
                 { value: 'yes', label: '있음' },
@@ -728,7 +584,7 @@ export default function ContractCheckClient() {
       {step === 3 && (
         <div className="space-y-5">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <Field label="연장수당 금액(월)" hint="계약서에 고정 연장수당이 있으면 입력. 없으면 비워 두세요.">
+            <Field missing={miss('otAmount')} label="연장수당 금액(월)" hint="계약서에 고정 연장수당이 있으면 입력. 없으면 비워 두세요.">
               <TextInput
                 ariaLabel="연장수당 금액"
                 numeric
@@ -737,7 +593,7 @@ export default function ContractCheckClient() {
                 onChange={(v) => patch({ otAmount: v })}
               />
             </Field>
-            <Field label="연장근로 환산시간(월)" hint="계약서에 적힌 시간 (예: 20). 모르면 비워 두세요.">
+            <Field missing={miss('otHours')} label="연장근로 환산시간(월)" hint="계약서에 적힌 시간 (예: 20). 모르면 비워 두세요.">
               <TextInput
                 ariaLabel="연장근로 환산시간"
                 numeric
@@ -746,7 +602,7 @@ export default function ContractCheckClient() {
                 onChange={(v) => patch({ otHours: v })}
               />
             </Field>
-            <Field label="휴일·추가수당 금액(월)">
+            <Field missing={miss('holidayExtra')} label="휴일·추가수당 금액(월)">
               <TextInput
                 ariaLabel="휴일 추가수당 금액"
                 numeric
@@ -755,7 +611,7 @@ export default function ContractCheckClient() {
                 onChange={(v) => patch({ holidayExtra: v })}
               />
             </Field>
-            <Field label="연차수당 금액(월)">
+            <Field missing={miss('annualLeavePay')} label="연차수당 금액(월)">
               <TextInput
                 ariaLabel="연차수당 금액"
                 numeric
@@ -772,7 +628,7 @@ export default function ContractCheckClient() {
             hint='예: "기본급 = 시급 × 209시간" 같은 산식이 있는 경우'
           />
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <Field label="임금 지급일" hint='예: "매월 10일"'>
+            <Field missing={miss('payday')} label="임금 지급일" hint='예: "매월 10일"'>
               <TextInput
                 ariaLabel="임금 지급일"
                 placeholder="예: 매월 10일"
@@ -780,7 +636,7 @@ export default function ContractCheckClient() {
                 onChange={(v) => patch({ payday: v })}
               />
             </Field>
-            <Field label="지급 방법">
+            <Field missing={miss('paymentMethod')} label="지급 방법">
               <Choice
                 options={[
                   { value: '계좌이체', label: '계좌이체' },
@@ -792,7 +648,7 @@ export default function ContractCheckClient() {
               />
             </Field>
           </div>
-          <Field label="주휴일(유급 휴일)이 계약서에 어떻게 적혀 있나요?">
+          <Field missing={miss('weeklyRest')} label="주휴일(유급 휴일)이 계약서에 어떻게 적혀 있나요?">
             <Choice
               options={[
                 { value: 'specified', label: '요일까지 특정됨 (예: 일요일)' },

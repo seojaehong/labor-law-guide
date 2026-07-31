@@ -11,4 +11,7 @@
 - `/sitemap/0.xml`은 Supabase 실쿼리를 하므로 로컬 placeholder 자격증명에선 응답이 매우 느리거나 hang — 로컬에서 curl로 검증하지 말 것(빌드 통과 + 코드 정적 엔트리 확인으로 충분).
 - **API 라우트 unit 테스트**(tests/unit/extract-route.test.ts가 첫 사례): 라우트를 vitest에서 직접 import 하려면 ⓐ `NextRequest`/`NextResponse` 대신 표준 `Request`/`Response.json()`을 쓰고 ⓑ env(`ANTHROPIC_API_KEY` 등)를 **모듈 스코프가 아니라 핸들러 안에서** 읽어야 한다. 모듈 스코프 상수면 `vi.stubEnv`가 안 먹어 501/200 분기를 한 파일에서 못 짠다(api/sanction/route.ts는 모듈 스코프 방식 — 따라 하지 말 것).
 - `@/lib/supabase-server`·`@/lib/rate-limit`는 **import만 해도** `createClient(undefined!)`로 터진다(env 없음). 테스트 대상 라우트에서 import 금지 — `@supabase/supabase-js`의 `createClient`를 직접 가져와 env가 있을 때만 호출하면 `vi.mock('@supabase/supabase-js')`로 리밋 분기를 갈아끼울 수 있다(`vi.hoisted`로 mock 변수 선언).
+- ★ **`getByRole('alert')` 금지** — Next가 페이지마다 `<div role="alert" id="__next-route-announcer__">`를 붙여서 항상 strict mode 위반이 난다. 경고 문구는 `getByText(...)`로 특정할 것(`role="status"`는 충돌 없음).
+- **env 게이트로 닫힌 API의 성공 경로 e2e**: 로컬엔 키가 없어 501만 탄다. `page.route('**/api/...', r => r.fulfill({ status: 200, json: {...} }))`로 응답을 갈아끼우면 키 없이 성공 분기를 결정론적으로 검증할 수 있다(tests/e2e/contract-check-upload.spec.ts).
+- 숨겨진 `<input type="file" class="hidden">`도 `page.locator('input[type=file]').setInputFiles({name, mimeType, buffer})`로 그냥 채워진다(visible일 필요 없음).
 - `npm run lint`는 **기존 프로덕션 파일의 사전 존재 에러 11건**(react-hooks/set-state-in-effect 등, AdminClient·BlogClient·ThemeToggle 등)으로 exit≠0. contract-check 관련 파일은 clean — 검증은 `npx eslint tests/ src/lib/contract-check/ src/app/tools/` 처럼 범위를 좁혀서. 기존 파일 수정 금지(라이브 사이트).
