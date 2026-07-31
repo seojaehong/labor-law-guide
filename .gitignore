@@ -42,6 +42,7 @@ next-env.d.ts
 
 # claude / supabase scratch
 .claude/
+.bkit/
 supabase/.temp/
 
 # proposals (private)

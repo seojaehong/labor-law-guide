@@ -9,4 +9,6 @@
 - ★ strict mode 함정: page.tsx 하단 상시 면책 문구와 결과 화면 면책 문구가 겹쳐 `getByText(/법률자문이 아닙니다/)`가 2개 매칭 — 이런 공용 문구는 `.first()` 필수. `수정 방향:`·`입력하면 판정됩니다`도 카드마다 반복되므로 동일.
 - GlassNav 데스크톱 드롭다운은 mouseenter로 열리고 onClick이 토글 — playwright `click()`은 hover(열림)→click(닫힘)이 되어 드롭다운이 안 보인다. 열린 상태 검증은 `hover()`만 사용.
 - `/sitemap/0.xml`은 Supabase 실쿼리를 하므로 로컬 placeholder 자격증명에선 응답이 매우 느리거나 hang — 로컬에서 curl로 검증하지 말 것(빌드 통과 + 코드 정적 엔트리 확인으로 충분).
+- **API 라우트 unit 테스트**(tests/unit/extract-route.test.ts가 첫 사례): 라우트를 vitest에서 직접 import 하려면 ⓐ `NextRequest`/`NextResponse` 대신 표준 `Request`/`Response.json()`을 쓰고 ⓑ env(`ANTHROPIC_API_KEY` 등)를 **모듈 스코프가 아니라 핸들러 안에서** 읽어야 한다. 모듈 스코프 상수면 `vi.stubEnv`가 안 먹어 501/200 분기를 한 파일에서 못 짠다(api/sanction/route.ts는 모듈 스코프 방식 — 따라 하지 말 것).
+- `@/lib/supabase-server`·`@/lib/rate-limit`는 **import만 해도** `createClient(undefined!)`로 터진다(env 없음). 테스트 대상 라우트에서 import 금지 — `@supabase/supabase-js`의 `createClient`를 직접 가져와 env가 있을 때만 호출하면 `vi.mock('@supabase/supabase-js')`로 리밋 분기를 갈아끼울 수 있다(`vi.hoisted`로 mock 변수 선언).
 - `npm run lint`는 **기존 프로덕션 파일의 사전 존재 에러 11건**(react-hooks/set-state-in-effect 등, AdminClient·BlogClient·ThemeToggle 등)으로 exit≠0. contract-check 관련 파일은 clean — 검증은 `npx eslint tests/ src/lib/contract-check/ src/app/tools/` 처럼 범위를 좁혀서. 기존 파일 수정 금지(라이브 사이트).
