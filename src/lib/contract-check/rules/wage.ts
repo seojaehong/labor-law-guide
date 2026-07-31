@@ -7,7 +7,7 @@
 // HOLIDAY-COVER: HOLIDAY_EXTRA 환산H(amount÷통상시급) ≥ 공휴일 예정 근무H × 1.5
 //   (public_holiday_note "N일/M.MH" 파싱, 불가 시 needs_data)
 
-import minwageJson from '@/data/minwage_table.json';
+import minwageJson from '@/lib/contract-check/data/minwage_table.json';
 import type { Contract, Finding, WageItem } from '../types';
 import { makeFinding, type RuleFn } from './index';
 

@@ -2,7 +2,7 @@
 // code·severity·statute 메타는 data/compliance_rules.json 카탈로그에서 로드하고,
 // 각 규칙 함수는 정규화된 계약 객체를 받아 Finding을 반환한다.
 
-import rulesJson from '@/data/compliance_rules.json';
+import rulesJson from '@/lib/contract-check/data/compliance_rules.json';
 import type { Contract, Finding, FindingSeverity, FindingStatus } from '../types';
 
 export interface RuleMeta {
