@@ -1,0 +1,161 @@
+[
+  {
+    "contract_id": "syn-fixed-1y-0001",
+    "schema_version": "1.1",
+    "workplace": { "name": "합성테스트 사업장", "employee_count_5plus": true },
+    "employee": { "name": "합성01", "hire_date": "2026-01-01" },
+    "period": { "start_date": "2026-01-01", "end_date": "2026-12-31", "indefinite": false },
+    "job": { "location": "합성테스트 본점", "duty": "홀" },
+    "work_time": {
+      "days_per_week": 5,
+      "start": "09:00",
+      "end": "18:00",
+      "breaks": [{ "from": "12:00", "to": "13:00", "minutes": 60 }],
+      "night_work": false
+    },
+    "wage": {
+      "monthly_total": 2156880,
+      "inclusive_wage": false,
+      "payment_method": "계좌이체",
+      "payday": "익월 10일",
+      "items": [
+        { "code": "BASE", "label": "기본급", "amount": 2156880, "basis_hours": 209, "rate_multiplier": 1.0, "basis_text": "통상시급 10,320×월간 209H" }
+      ]
+    },
+    "holidays_leave": {
+      "weekly_rest": "매주 일요일",
+      "weekly_rest_day_specified": true,
+      "annual_leave_clause": "근로기준법 제60조에 따라 부여"
+    },
+    "risk_clauses": [],
+    "signatures": { "written_date": "2026-01-01", "employer_signed": true, "employee_signed": true, "copy_delivered_confirmed": true },
+    "source": { "files": ["synthetic"] },
+    "expected_findings": [
+      { "rule_code": "REQUIRED-TERMS", "severity": "major", "status": "ok", "detail": "필수 명시사항 완비" },
+      { "rule_code": "REQUIRED-TERMS-FIXED", "severity": "major", "status": "ok", "detail": "기간제 5개 항목 완비" },
+      { "rule_code": "FIXED-TERM-2Y", "severity": "minor", "status": "ok", "detail": "계약기간 1년 ≤ 2년 — 갱신 누계 별도 확인" },
+      { "rule_code": "PART-TIME-OT", "severity": "major", "status": "ok", "detail": "단시간 아님 — 비적용" }
+    ]
+  },
+  {
+    "contract_id": "syn-part-nosched-0002",
+    "schema_version": "1.1",
+    "workplace": { "name": "합성테스트 사업장", "employee_count_5plus": true },
+    "employee": { "name": "합성02", "hire_date": "2026-03-01" },
+    "period": { "start_date": "2026-03-01", "end_date": null, "indefinite": true },
+    "job": { "location": "합성테스트 본점", "duty": "홀" },
+    "work_time": {
+      "days_per_week": 5,
+      "start": "09:00",
+      "end": "13:30",
+      "breaks": [{ "from": "11:00", "to": "11:30", "minutes": 30 }],
+      "night_work": false
+    },
+    "wage": {
+      "monthly_total": 897840,
+      "inclusive_wage": false,
+      "payment_method": "계좌이체",
+      "payday": "익월 10일",
+      "items": [
+        { "code": "BASE", "label": "기본급", "amount": 897840, "basis_hours": 87, "rate_multiplier": 1.0, "basis_text": "시급 10,320×월 87H(주 20H×4.345)" }
+      ]
+    },
+    "holidays_leave": {
+      "weekly_rest": "매주 일요일",
+      "weekly_rest_day_specified": true,
+      "annual_leave_clause": "근로기준법 제60조에 따라 부여"
+    },
+    "risk_clauses": [],
+    "signatures": { "written_date": "2026-03-01", "employer_signed": true, "employee_signed": true, "copy_delivered_confirmed": true },
+    "source": { "files": ["synthetic"] },
+    "expected_findings": [
+      { "rule_code": "REQUIRED-TERMS", "severity": "major", "status": "ok", "detail": "근기법 §17 필수 명시사항 완비" },
+      { "rule_code": "REQUIRED-TERMS-FIXED", "severity": "major", "status": "violation", "detail": "근로일 및 근로일별 근로시간 미명시 (daily_schedules 누락)" },
+      { "rule_code": "FIXED-TERM-2Y", "severity": "minor", "status": "ok", "detail": "기간제 아님 — 비적용" },
+      { "rule_code": "PART-TIME-OT", "severity": "major", "status": "ok", "detail": "근로일별 시간 미명시 — 소정=실근로 20H로 보아 초과 없음" }
+    ]
+  },
+  {
+    "contract_id": "syn-fixed-2y6m-0003",
+    "schema_version": "1.1",
+    "workplace": { "name": "합성테스트 사업장", "employee_count_5plus": true },
+    "employee": { "name": "합성03", "hire_date": "2026-01-01" },
+    "period": { "start_date": "2026-01-01", "end_date": "2028-06-30", "indefinite": false },
+    "job": { "location": "합성테스트 본점", "duty": "주방" },
+    "work_time": {
+      "days_per_week": 5,
+      "start": "09:00",
+      "end": "18:00",
+      "breaks": [{ "from": "12:00", "to": "13:00", "minutes": 60 }],
+      "night_work": false
+    },
+    "wage": {
+      "monthly_total": 2156880,
+      "inclusive_wage": false,
+      "payment_method": "계좌이체",
+      "payday": "익월 10일",
+      "items": [
+        { "code": "BASE", "label": "기본급", "amount": 2156880, "basis_hours": 209, "rate_multiplier": 1.0, "basis_text": "통상시급 10,320×월간 209H" }
+      ]
+    },
+    "holidays_leave": {
+      "weekly_rest": "매주 일요일",
+      "weekly_rest_day_specified": true,
+      "annual_leave_clause": "근로기준법 제60조에 따라 부여"
+    },
+    "risk_clauses": [],
+    "signatures": { "written_date": "2026-01-01", "employer_signed": true, "employee_signed": true, "copy_delivered_confirmed": true },
+    "source": { "files": ["synthetic"] },
+    "expected_findings": [
+      { "rule_code": "REQUIRED-TERMS", "severity": "major", "status": "ok", "detail": "필수 명시사항 완비" },
+      { "rule_code": "REQUIRED-TERMS-FIXED", "severity": "major", "status": "ok", "detail": "기간제 5개 항목 완비" },
+      { "rule_code": "FIXED-TERM-2Y", "severity": "minor", "status": "risk", "detail": "계약기간 2.5년 > 2년 — 무기계약 간주 검토(기간제법 §4②)" },
+      { "rule_code": "PART-TIME-OT", "severity": "major", "status": "ok", "detail": "단시간 아님 — 비적용" }
+    ]
+  },
+  {
+    "contract_id": "syn-part-ot-0004",
+    "schema_version": "1.1",
+    "workplace": { "name": "합성테스트 사업장", "employee_count_5plus": true },
+    "employee": { "name": "합성04", "hire_date": "2026-03-01" },
+    "period": { "start_date": "2026-03-01", "end_date": null, "indefinite": true },
+    "job": { "location": "합성테스트 본점", "duty": "홀" },
+    "work_time": {
+      "days_per_week": 5,
+      "start": "10:00",
+      "end": "17:30",
+      "breaks": [{ "from": "12:00", "to": "12:30", "minutes": 30 }],
+      "daily_schedules": [
+        { "day": "월", "start": "10:00", "end": "14:00" },
+        { "day": "화", "start": "10:00", "end": "14:00" },
+        { "day": "수", "start": "10:00", "end": "14:00" },
+        { "day": "목", "start": "10:00", "end": "14:00" },
+        { "day": "금", "start": "10:00", "end": "14:00" }
+      ],
+      "night_work": false
+    },
+    "wage": {
+      "monthly_total": 897840,
+      "inclusive_wage": false,
+      "payment_method": "계좌이체",
+      "payday": "익월 10일",
+      "items": [
+        { "code": "BASE", "label": "기본급", "amount": 897840, "basis_hours": 87, "rate_multiplier": 1.0, "basis_text": "시급 10,320×월 87H(주 20H×4.345)" }
+      ]
+    },
+    "holidays_leave": {
+      "weekly_rest": "매주 일요일",
+      "weekly_rest_day_specified": true,
+      "annual_leave_clause": "근로기준법 제60조에 따라 부여"
+    },
+    "risk_clauses": [],
+    "signatures": { "written_date": "2026-03-01", "employer_signed": true, "employee_signed": true, "copy_delivered_confirmed": true },
+    "source": { "files": ["synthetic"] },
+    "expected_findings": [
+      { "rule_code": "REQUIRED-TERMS", "severity": "major", "status": "ok", "detail": "필수 명시사항 완비" },
+      { "rule_code": "REQUIRED-TERMS-FIXED", "severity": "major", "status": "ok", "detail": "단시간 6개 항목 완비(daily_schedules 포함)" },
+      { "rule_code": "FIXED-TERM-2Y", "severity": "minor", "status": "ok", "detail": "기간제 아님 — 비적용" },
+      { "rule_code": "PART-TIME-OT", "severity": "major", "status": "violation", "detail": "소정 주 20H(daily_schedules) 대비 실근로 35H — 초과 15H > 한도 12H" }
+    ]
+  }
+]

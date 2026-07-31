@@ -42,8 +42,19 @@ next-env.d.ts
 
 # claude / supabase scratch
 .claude/
+.bkit/
 supabase/.temp/
 
 # proposals (private)
 proposal/
 
+prd.json
+ralph.sh
+ralph-prompt.md
+RALPH-README.md
+progress.txt
+.last-branch
+archive/
+
+# playwright output
+test-results/

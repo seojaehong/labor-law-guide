@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import type { Metadata } from 'next';
-import { Calculator, Coins } from 'lucide-react';
+import { Calculator, Coins, FileCheck2 } from 'lucide-react';
 import { SITE_URL } from '@/lib/constants';
 
 export const metadata: Metadata = {
@@ -28,6 +28,13 @@ interface ToolItem {
 }
 
 const tools: ToolItem[] = [
+  {
+    href: '/tools/contract-check',
+    title: '근로계약서 자가진단',
+    desc: '계약서 내용을 폼에 입력하면 필수 명시사항·최저임금·위약금 등 25개 항목을 즉시 점검. 위반·리스크별 수정 방향 제시. 입력 내용은 브라우저를 떠나지 않습니다.',
+    badge: 'NEW',
+    Icon: FileCheck2,
+  },
   {
     href: '/tools/holiday-pay',
     title: '공휴일 수당 계산기',
