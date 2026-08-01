@@ -3,9 +3,9 @@
 // - env(ANTHROPIC_API_KEY)가 없으면 기능 전체가 501로 닫힌다.
 // - 개인정보(성명·생년월일·주민번호·주소·연락처)는 프롬프트에서 요구하지도, 응답에 담지도 않는다.
 
-import crypto from 'crypto';
 import { createClient } from '@supabase/supabase-js';
 import { isTurnstileEnabled, verifyTurnstile } from '@/lib/turnstile';
+import { extractIp, hashIp } from '@/lib/client-ip';
 import type { Contract, WageItemCode } from '@/lib/contract-check/types';
 
 export const runtime = 'nodejs';
@@ -254,24 +254,6 @@ export function sanitizeExtracted(raw: unknown): { contract: ExtractedContract; 
 }
 
 // ── 레이트리밋 ───────────────────────────────────────────────────────
-
-function hashIp(ip: string): string {
-  const salt = process.env.IP_HASH_SALT || 'yh-bok-default-salt';
-  return crypto.createHash('sha256').update(`${salt}:${ip}`).digest('hex').slice(0, 32);
-}
-
-/**
- * 이 사이트는 Cloudflare → Vercel 2단이다. Vercel이 보는 `x-forwarded-for`의 첫 항목은
- * **Cloudflare 엣지 IP**이고 PoP·커넥션마다 달라질 수 있다 → 그걸 키로 쓰면 카운터가
- * 매번 새 행에 쌓여 리밋이 영원히 안 걸린다(실제로 그렇게 됐다).
- * 진짜 클라이언트 IP는 `cf-connecting-ip`에 온다. 이걸 최우선으로 본다.
- */
-function extractIp(req: Request): string {
-  const cf = req.headers.get('cf-connecting-ip')?.trim();
-  if (cf) return cf;
-  const first = (req.headers.get('x-forwarded-for') || '').split(',')[0].trim();
-  return first || req.headers.get('x-real-ip') || 'unknown';
-}
 
 /**
  * 챗이 쓰는 공용 카운터(`incr_rate_limit`)를 그대로 재사용한다.
