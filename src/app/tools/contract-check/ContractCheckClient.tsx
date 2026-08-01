@@ -26,11 +26,14 @@ const STATUS_LABEL: Record<FindingStatus, string> = {
   needs_data: '자료 필요',
 };
 
+// DESIGN.md §6.4 배지 4변형(위험·주의·성공·중립). 값이 아니라 이름을 붙이는 교체다 —
+// #dc2626·#059669 같은 전경색으로 "정리"하면 틴트 위 대비가 후퇴한다.
+// 단 risk 잉크만 #b45309 → --color-warn-ink(#92400e)로 바뀐다(§6.4 "주의 잉크만은 예외", 4.51→6.37:1).
 const STATUS_STYLE: Record<FindingStatus, { bg: string; fg: string }> = {
-  violation: { bg: '#fee2e2', fg: '#b91c1c' },
-  risk: { bg: '#fef3c7', fg: '#b45309' },
-  ok: { bg: '#dcfce7', fg: '#15803d' },
-  needs_data: { bg: '#e2e8f0', fg: '#475569' },
+  violation: { bg: 'var(--color-danger-bg)', fg: 'var(--color-danger-ink)' },
+  risk: { bg: 'var(--color-warn-bg)', fg: 'var(--color-warn-ink)' },
+  ok: { bg: 'var(--color-success-bg)', fg: 'var(--color-success-ink)' },
+  needs_data: { bg: 'var(--grey-100)', fg: 'var(--grey-700)' },
 };
 
 const STATUS_ORDER: FindingStatus[] = ['violation', 'risk', 'needs_data', 'ok'];
@@ -707,18 +710,16 @@ export default function ContractCheckClient() {
             점검 결과
           </h2>
           <div className="mb-5 flex flex-wrap gap-2 text-sm font-semibold">
-            <span className="rounded-lg px-3 py-1.5" style={{ backgroundColor: '#fee2e2', color: '#b91c1c' }}>
-              위반 {counts.violation}
-            </span>
-            <span className="rounded-lg px-3 py-1.5" style={{ backgroundColor: '#fef3c7', color: '#b45309' }}>
-              리스크 {counts.risk}
-            </span>
-            <span className="rounded-lg px-3 py-1.5" style={{ backgroundColor: '#dcfce7', color: '#15803d' }}>
-              적정 {counts.ok}
-            </span>
-            <span className="rounded-lg px-3 py-1.5" style={{ backgroundColor: '#e2e8f0', color: '#475569' }}>
-              자료 필요 {counts.needs_data}
-            </span>
+            {/* 집계 칩은 아래 항목별 StatusBadge와 같은 4변형이다 — 같은 표를 쓴다(같은 화면에서 색이 갈리면 안 된다) */}
+            {(['violation', 'risk', 'ok', 'needs_data'] as FindingStatus[]).map((status) => (
+              <span
+                key={status}
+                className="rounded-lg px-3 py-1.5"
+                style={{ backgroundColor: STATUS_STYLE[status].bg, color: STATUS_STYLE[status].fg }}
+              >
+                {STATUS_LABEL[status]} {counts[status]}
+              </span>
+            ))}
           </div>
           <ul className="space-y-2">
             {findings.map((f) => (
