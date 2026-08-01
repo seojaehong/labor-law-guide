@@ -1,4 +1,4 @@
-// 근로계약서 사진 → 스키마 규격 계약 JSON 추출 API (US-305).
+// 근로계약서 파일(사진·PDF·DOCX·XLSX·HWPX) → 스키마 규격 계약 JSON 추출 API.
 // - 이미지·판독 결과는 저장하지 않는다. 로그에도 본문·파일명을 남기지 않는다(상태코드/에러 종류만).
 // - env(ANTHROPIC_API_KEY)가 없으면 기능 전체가 501로 닫힌다.
 // - 개인정보(성명·생년월일·주민번호·주소·연락처)는 프롬프트에서 요구하지도, 응답에 담지도 않는다.
@@ -6,6 +6,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { isTurnstileEnabled, verifyTurnstile } from '@/lib/turnstile';
 import { extractIp, hashIp } from '@/lib/client-ip';
+import { detectDocKind, extractDocText } from '@/lib/contract-check/extract-text';
 import type { Contract, WageItemCode } from '@/lib/contract-check/types';
 
 export const runtime = 'nodejs';
@@ -21,6 +22,14 @@ const REQUEST_TIMEOUT_MS = 45_000;
 const MAX_IMAGES = 4;
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 const ALLOWED_MEDIA_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+
+// ── 문서 파일 ────────────────────────────────────────────────────────
+// PDF는 Claude가 네이티브로 읽지만 **페이지가 이미지처럼 과금된다**(장당 1,500~4,784 토큰).
+// 20쪽 스캔본이면 한 번에 3만~9.5만 입력토큰 = 600~2,000원이라, 건당 40원을 가정한
+// 전역 캡(300건/일)이 통째로 무의미해진다. 그래서 바이트가 아니라 **페이지 수**로 막는다.
+// 근로계약서는 1~3쪽이다.
+const MAX_PDF_PAGES = 8;
+const MAX_DOC_BYTES = 4 * 1024 * 1024;
 const IP_DAILY_LIMIT = parseInt(process.env.CONTRACT_CHECK_IP_DAILY_LIMIT || '5', 10);
 // 비용 폭주 1차 방어선. 비전 판독 1건 ≈ 25~50원 → 300건이면 하루 최대 1.5만원 선에서 멈춘다.
 const GLOBAL_DAILY_LIMIT = parseInt(process.env.CONTRACT_CHECK_GLOBAL_DAILY_LIMIT || '300', 10);
@@ -47,7 +56,7 @@ export type ExtractedContract = Pick<
 >;
 
 const SYSTEM_PROMPT = `당신은 대한민국 근로계약서를 판독하는 노무 전문가입니다.
-사진(스캔·촬영·손글씨 포함)에서 아래 체크리스트 항목만 읽어 JSON 하나로 반환합니다.
+제공된 자료(사진·PDF·문서에서 추출한 본문)에서 아래 체크리스트 항목만 읽어 JSON 하나로 반환합니다.
 
 [판독 체크리스트]
 1. 계약기간: 시작일·종료일(YYYY-MM-DD), 기간의 정함이 없으면 indefinite=true
@@ -66,7 +75,7 @@ const SYSTEM_PROMPT = `당신은 대한민국 근로계약서를 판독하는 �
    - 위약예정: 위약금·손해배상액을 미리 정해두는 조항
 
 [판독 원칙]
-- 사진에서 확인되지 않거나 확신이 없는 값은 반드시 null. 추측·기본값으로 채우지 않는다.
+- 자료에서 확인되지 않거나 확신이 없는 값은 반드시 null. 추측·기본값으로 채우지 않는다.
 - 수습이 없거나 확인되지 않으면 probation은 {"applied": false} 또는 null만 쓰고, months·wage_rate_pct는 절대 넣지 않는다.
 - 취업장소/담당업무/주휴일/연차 조항은 "기재되어 있는가"를 본다. 조항이 보이면 그대로 요약한 짧은 문자열, 안 보이면 null.
 - 성명·생년월일·주민등록번호·주소·연락처·사업자번호는 읽지도, 반환하지도 않는다.
@@ -93,6 +102,10 @@ const SYSTEM_PROMPT = `당신은 대한민국 근로계약서를 판독하는 �
 
 const USER_INSTRUCTION =
   '위 사진은 근로계약서입니다. 체크리스트에 따라 판독하고 지정된 JSON 객체 하나만 출력하세요.';
+
+// 텍스트 경로(DOCX·XLSX·HWPX)는 '사진'이라고 하면 모델이 이미지를 찾는다.
+const DOC_INSTRUCTION =
+  '위 본문은 근로계약서입니다. 체크리스트에 따라 판독하고 지정된 JSON 객체 하나만 출력하세요. 표가 탭·개행으로 펼쳐져 있을 수 있으니 항목과 값의 짝을 신중히 맞추세요.';
 
 // ── 파싱·정제 ────────────────────────────────────────────────────────
 
@@ -319,7 +332,7 @@ function json(status: number, body: Obj): Response {
   return Response.json(body, { status, headers: { 'Cache-Control': 'no-store' } });
 }
 
-type UploadFile = { size: number; type: string; arrayBuffer: () => Promise<ArrayBuffer> };
+type UploadFile = { size: number; type: string; name?: string; arrayBuffer: () => Promise<ArrayBuffer> };
 
 function isFile(v: FormDataEntryValue): v is FormDataEntryValue & UploadFile {
   return (
@@ -349,18 +362,52 @@ export async function POST(req: Request): Promise<Response> {
 
   const files = form.getAll('images').filter(isFile);
   if (files.length === 0) {
-    return json(400, { error: 'no_image', message: '계약서 사진을 1장 이상 올려 주세요.' });
+    return json(400, { error: 'no_image', message: '계약서 파일을 1개 이상 올려 주세요.' });
   }
-  if (files.length > MAX_IMAGES) {
+
+  // 이미지는 여러 장을 이어 붙일 수 있지만(계약서 앞·뒷장), 문서 파일은 그 자체로 전문이라
+  // 1개만 받는다. 섞어 올리면 어느 쪽이 정본인지 알 수 없다.
+  const isImage = (f: UploadFile) => ALLOWED_MEDIA_TYPES.includes(f.type);
+  const images = files.filter(isImage);
+  const others = files.filter((f) => !isImage(f));
+
+  if (others.length > 0 && images.length > 0) {
+    return json(400, {
+      error: 'mixed_upload',
+      message: '사진과 문서 파일은 함께 올릴 수 없습니다. 한 가지만 골라 올려 주세요.',
+    });
+  }
+  if (others.length > 1) {
+    return json(400, { error: 'too_many_docs', message: '문서 파일은 1개만 올릴 수 있습니다.' });
+  }
+  if (images.length > MAX_IMAGES) {
     return json(400, { error: 'too_many_images', message: `사진은 최대 ${MAX_IMAGES}장까지 올릴 수 있습니다.` });
   }
-  for (const file of files) {
+
+  for (const file of images) {
     // 크기 검사를 먼저 — 초과 파일은 바이트를 읽지 않는다.
     if (file.size > MAX_IMAGE_BYTES) {
       return json(413, { error: 'file_too_large', message: '사진 1장당 5MB까지 올릴 수 있습니다.' });
     }
-    if (!ALLOWED_MEDIA_TYPES.includes(file.type)) {
-      return json(415, { error: 'unsupported_type', message: 'JPG·PNG·WEBP 이미지만 인식할 수 있습니다.' });
+  }
+
+  const doc = others[0];
+  const docKind = doc ? detectDocKind(doc.name ?? '', doc.type) : null;
+  const isPdf = !!doc && (doc.type === 'application/pdf' || (doc.name ?? '').toLowerCase().endsWith('.pdf'));
+
+  if (doc) {
+    if (!isPdf && !docKind) {
+      return json(415, {
+        error: 'unsupported_type',
+        message:
+          'JPG·PNG·WEBP 사진, PDF, DOCX, XLSX, HWPX만 인식할 수 있습니다. 한글(.hwp) 문서는 「PDF로 저장」해서 올려 주세요.',
+      });
+    }
+    if (doc.size > MAX_DOC_BYTES) {
+      return json(413, {
+        error: 'file_too_large',
+        message: '문서 파일은 4MB까지 올릴 수 있습니다. 쪽수를 줄이거나 PDF로 저장해 다시 시도해 주세요.',
+      });
     }
   }
 
@@ -396,11 +443,51 @@ export async function POST(req: Request): Promise<Response> {
 
   try {
     const blocks: Obj[] = [];
-    for (const file of files) {
-      const data = Buffer.from(await file.arrayBuffer()).toString('base64');
-      blocks.push({ type: 'image', source: { type: 'base64', media_type: file.type, data } });
+
+    if (doc && isPdf) {
+      const buf = await doc.arrayBuffer();
+      // 페이지 수를 먼저 센다 — 상한을 넘으면 Anthropic 호출 자체를 하지 않는다(비용 방어).
+      let pages = 0;
+      try {
+        const { PDFDocument } = await import('pdf-lib');
+        pages = (await PDFDocument.load(buf, { ignoreEncryption: true })).getPageCount();
+      } catch {
+        return json(400, {
+          error: 'pdf_unreadable',
+          message: 'PDF를 열지 못했습니다. 암호가 걸려 있지 않은지 확인하시거나 사진으로 올려 주세요.',
+        });
+      }
+      if (pages > MAX_PDF_PAGES) {
+        return json(413, {
+          error: 'too_many_pages',
+          message: `PDF는 ${MAX_PDF_PAGES}쪽까지 인식할 수 있습니다(올리신 파일 ${pages}쪽). 근로계약서 부분만 남겨 다시 올려 주세요.`,
+        });
+      }
+      blocks.push({
+        type: 'document',
+        source: { type: 'base64', media_type: 'application/pdf', data: Buffer.from(buf).toString('base64') },
+      });
+      blocks.push({ type: 'text', text: USER_INSTRUCTION });
+    } else if (doc && docKind) {
+      // 텍스트층이 있는 형식은 평문으로 뽑아 보낸다 — 이미지로 보내는 것보다 싸고 정확하다.
+      let text: string;
+      try {
+        text = await extractDocText(docKind, await doc.arrayBuffer());
+      } catch {
+        return json(400, {
+          error: 'doc_unreadable',
+          message: '문서에서 글자를 읽지 못했습니다. PDF로 저장하거나 사진으로 올려 주세요.',
+        });
+      }
+      blocks.push({ type: 'text', text: `아래는 근로계약서 파일에서 추출한 본문입니다.\n\n---\n${text}\n---` });
+      blocks.push({ type: 'text', text: DOC_INSTRUCTION });
+    } else {
+      for (const file of images) {
+        const data = Buffer.from(await file.arrayBuffer()).toString('base64');
+        blocks.push({ type: 'image', source: { type: 'base64', media_type: file.type, data } });
+      }
+      blocks.push({ type: 'text', text: USER_INSTRUCTION });
     }
-    blocks.push({ type: 'text', text: USER_INSTRUCTION });
 
     const resp = await fetch(ANTHROPIC_URL, {
       method: 'POST',

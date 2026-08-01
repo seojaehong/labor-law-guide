@@ -324,7 +324,9 @@ export default function ContractCheckClient() {
         <span className="leading-relaxed">
           입력하신 내용은 저장되지 않습니다. 이 화면에서 계산에만 쓰이고, 창을 닫으면 사라집니다.
           <br />
-          사진은 글자를 읽어내는 동안에만 서버를 거치고, 사진과 읽어낸 결과 모두 남기지 않습니다.
+          파일은 글자를 읽어내는 동안에만 서버를 거치고, 파일과 읽어낸 결과 모두 남기지 않습니다.
+          <br />
+          다만 파일은 통째로 전송되므로 <strong>이름·주민등록번호·주소는 가리고</strong> 올려 주세요.
         </span>
       </div>
 

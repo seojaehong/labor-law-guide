@@ -1,13 +1,20 @@
 'use client';
 
-// 계약서 사진 업로드 카드 (US-306) — 드래그앤드롭 + 파일 선택 → /api/tools/contract-check/extract.
-// 사진은 분석 목적으로만 서버를 거치고 저장하지 않는다. 실패·501·429는 한국어 안내 후 수동 입력으로 유도한다.
+// 계약서 파일 업로드 카드 — 드래그앤드롭 + 파일 선택 → /api/tools/contract-check/extract.
+// 사진(여러 장)·PDF·DOCX·XLSX·HWPX를 받는다. 파일은 분석 목적으로만 서버를 거치고 저장하지 않는다.
+// 실패·501·429·403은 한국어 안내 후 수동 입력으로 유도한다.
 
 import { useRef, useState } from 'react';
 import { Camera, Loader2, Upload } from 'lucide-react';
 import TurnstileWidget from '@/components/TurnstileWidget';
 
 const MAX_FILES = 4;
+/** 서버가 받는 문서 확장자. HWP(구형 바이너리)는 비지원 — 서버가 415로 안내한다. */
+const DOC_EXTS = ['.pdf', '.docx', '.xlsx', '.hwpx'];
+const ACCEPT = `image/*,${DOC_EXTS.join(',')}`;
+/** 문서는 압축할 수 없다 — 서버 상한(4MB)과 맞춘다. */
+const MAX_DOC_BYTES = 4 * 1024 * 1024;
+const isDoc = (f: File) => DOC_EXTS.some((e) => f.name.toLowerCase().endsWith(e));
 // Vercel 서버리스는 요청 본문 ~4.5MB를 핸들러 진입 **전에** 잘라낸다(우리 413이 아니라 비 JSON 응답이 온다).
 // 그래서 업로드 전에 클라이언트에서 줄여 합계를 이 아래로 맞춘다.
 const MAX_TOTAL_BYTES = 3.5 * 1024 * 1024;
@@ -18,7 +25,7 @@ const COMPRESS_STEPS = [
 ];
 
 const GENERIC_ERROR =
-  '사진 인식에 실패했습니다. 잠시 후 다시 시도하시거나 아래 폼에 직접 입력해 주세요.';
+  '파일 인식에 실패했습니다. 잠시 후 다시 시도하시거나 아래 폼에 직접 입력해 주세요.';
 
 function loadImage(file: File): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
@@ -81,20 +88,37 @@ export default function PhotoUploadCard({ onExtracted }: UploadCardProps) {
   const inputRef = useRef<HTMLInputElement>(null);
 
   const handleFiles = async (list: FileList | null) => {
-    const files = Array.from(list ?? []).filter((f) => f.type.startsWith('image/'));
-    if (files.length === 0) {
-      setError('이미지 파일(JPG·PNG)을 올려 주세요.');
+    const all = Array.from(list ?? []);
+    const images = all.filter((f) => f.type.startsWith('image/'));
+    const docs = all.filter((f) => isDoc(f) && !f.type.startsWith('image/'));
+
+    if (images.length === 0 && docs.length === 0) {
+      setError('사진(JPG·PNG) 또는 PDF·DOCX·XLSX·HWPX 파일을 올려 주세요. 한글(.hwp)은 「PDF로 저장」해서 올려 주세요.');
       return;
     }
-    if (files.length > MAX_FILES) {
+    // 사진은 앞·뒷장을 이어 붙일 수 있지만 문서는 그 자체로 전문이라 1개만 받는다.
+    if (images.length > 0 && docs.length > 0) {
+      setError('사진과 문서 파일은 함께 올릴 수 없습니다. 한 가지만 골라 올려 주세요.');
+      return;
+    }
+    if (docs.length > 1) {
+      setError('문서 파일은 1개만 올릴 수 있습니다.');
+      return;
+    }
+    if (images.length > MAX_FILES) {
       setError(`사진은 최대 ${MAX_FILES}장까지 올릴 수 있습니다.`);
+      return;
+    }
+    if (docs.length === 1 && docs[0].size > MAX_DOC_BYTES) {
+      setError('문서 파일은 4MB까지 올릴 수 있습니다. 쪽수를 줄이거나 PDF로 저장해 다시 시도해 주세요.');
       return;
     }
 
     setError(null);
     setBusy(true);
     try {
-      const prepared = await prepare(files);
+      // canvas 압축은 이미지 전용이다. 문서는 그대로 보내고 서버 상한에 맡긴다.
+      const prepared = docs.length === 1 ? docs : await prepare(images);
       if (!prepared) {
         setError('사진 용량이 너무 큽니다. 장수를 줄이거나 더 작게 촬영한 사진으로 다시 시도해 주세요.');
         return;
@@ -166,19 +190,33 @@ export default function PhotoUploadCard({ onExtracted }: UploadCardProps) {
       >
         <Camera className="mx-auto mb-2 h-6 w-6" style={{ color: 'var(--color-text-tertiary)' }} />
         <p className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>
-          계약서 사진으로 자동 입력
+          계약서 파일로 자동 입력
         </p>
         <p className="mt-1 text-xs leading-relaxed" style={{ color: 'var(--color-text-secondary)' }}>
           {/* ★ 상단 배너(ContractCheckClient)의 문장을 그대로 복제하지 말 것 — e2e strict mode 이중 매칭 */}
-          사진을 여기에 끌어다 놓거나 아래 버튼으로 고르세요 (최대 {MAX_FILES}장). 사진은 판독을 위해
-          서버를 거치며, 인식에만 쓰이고 저장하지 않습니다.
+          파일을 여기에 끌어다 놓거나 아래 버튼으로 고르세요. 사진은 최대 {MAX_FILES}장, PDF·DOCX·XLSX·HWPX는
+          1개까지. 파일은 판독을 위해 서버를 거치며, 인식에만 쓰이고 저장하지 않습니다.
+        </p>
+        {/* 개인정보 보호법 §28조의8① — 국외 이전은 "조회되는 경우를 포함"한다. 저장하지 않아도
+            전송 자체가 이전이다. 판독 항목은 계약 조건뿐이지만 파일은 통째로 전송되므로,
+            근로계약서에 흔히 있는 주민등록번호(고유식별정보, §24조의2)가 함께 나간다.
+            가리고 올리도록 업로드 지점에서 안내한다. */}
+        <p
+          className="mx-auto mt-2 max-w-md rounded-lg px-3 py-2 text-xs leading-relaxed"
+          style={{
+            backgroundColor: 'var(--color-warn-bg, #fef3c7)',
+            color: 'var(--color-warn-ink, #92400e)',
+          }}
+        >
+          <strong>이름·주민등록번호·주소는 가리고 올려 주세요.</strong> 점검에 필요한 것은 계약
+          조건(기간·근로시간·임금·조항)뿐입니다. 가린 부분이 있어도 판독에 지장이 없습니다.
         </p>
         <input
           ref={inputRef}
           type="file"
-          accept="image/*"
+          accept={ACCEPT}
           multiple
-          aria-label="계약서 사진 선택"
+          aria-label="계약서 파일 선택"
           className="hidden"
           onChange={(e) => void handleFiles(e.target.files)}
         />
@@ -191,7 +229,7 @@ export default function PhotoUploadCard({ onExtracted }: UploadCardProps) {
           className="mt-3 inline-flex items-center gap-2 rounded-lg bg-[var(--color-text-primary)] px-4 py-2 text-sm font-bold text-[var(--color-bg-surface)] disabled:opacity-60"
         >
           {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
-          {busy ? '사진을 읽는 중…' : '사진 선택'}
+          {busy ? '파일을 읽는 중…' : '파일 선택'}
         </button>
         {/* 사이트 키가 없으면 위젯이 아무것도 렌더하지 않는다(로컬·베타에서 그대로 통과). */}
         <div className="mt-3 flex justify-center">
