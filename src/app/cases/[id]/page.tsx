@@ -119,7 +119,7 @@ function VerdictBadge({ type }: { type: string | null }) {
   const colors: Record<string, { bg: string; text: string }> = {
     '원고승': { bg: 'var(--blue-50)', text: 'var(--blue-600)' },
     '원고패': { bg: 'var(--grey-100)', text: 'var(--grey-600)' },
-    '원고일부승': { bg: '#fef3c7', text: '#92400e' },
+    '원고일부승': { bg: 'var(--color-warn-bg)', text: 'var(--color-warn-ink)' },
     '파기환송': { bg: '#fce4ec', text: '#b71c1c' },
     '상고기각': { bg: 'var(--grey-100)', text: 'var(--grey-600)' },
   };

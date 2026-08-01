@@ -58,7 +58,7 @@ interface Stats {
 const CATEGORY_COLORS: Record<string, { bg: string; text: string }> = {
   '노동법': { bg: '#e8f3ff', text: '#1b64da' },
   '판례분석': { bg: '#f5f3ff', text: '#6d28d9' },
-  '뉴스해설': { bg: '#fef3c7', text: '#92400e' },
+  '뉴스해설': { bg: 'var(--color-warn-bg)', text: 'var(--color-warn-ink)' },
   '뉴스브리핑': { bg: '#fff7ed', text: '#c2410c' },
   '실무가이드': { bg: '#ecfdf5', text: '#065f46' },
   general: { bg: '#f2f4f6', text: '#6b7684' },

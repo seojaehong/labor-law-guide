@@ -70,13 +70,13 @@ export default function GuidePage() {
                   return (
                     <div key={i} className="my-6 rounded-xl border bg-[var(--color-bg-surface)] p-5" style={{ borderColor: 'var(--grey-200)' }}>
                       <div className="mb-3 flex items-center gap-2">
-                        <ListChecks size={16} style={{ color: '#059669' }} />
-                        <span className="text-sm font-bold" style={{ color: '#166534' }}>{block.title}</span>
+                        <ListChecks size={16} style={{ color: 'var(--color-success)' }} />
+                        <span className="text-sm font-bold" style={{ color: 'var(--color-success-ink)' }}>{block.title}</span>
                       </div>
                       <ol className="list-none space-y-3">
                         {block.items.map((item, j) => (
                           <li key={j} className="flex gap-3 text-[15px]">
-                            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold" style={{ backgroundColor: '#ecfdf5', color: '#059669' }}>{j + 1}</span>
+                            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold" style={{ backgroundColor: 'var(--color-success-bg)', color: 'var(--color-success-ink)' }}>{j + 1}</span>
                             <span style={{ color: 'var(--grey-700)' }}>{item}</span>
                           </li>
                         ))}
@@ -91,7 +91,9 @@ export default function GuidePage() {
                         <div key={j} className="rounded-xl border p-5" style={{ borderColor: 'var(--grey-200)', backgroundColor: 'var(--color-bg-surface)' }}>
                           <p className="mb-2 font-medium" style={{ color: 'var(--grey-800)' }}>{item.question}</p>
                           <div className="flex items-center gap-2">
-                            <span className="rounded-full px-3 py-1 text-sm font-bold text-white" style={{ backgroundColor: item.answer ? '#059669' : '#ef4444' }}>
+                            {/* 솔리드 위 잉크는 테마로 뒤집는다 — 다크 전경(#34d399·#f87171)에 흰 글씨를 얹으면 2:1 아래로 떨어진다(§3.3 ★★).
+                                --color-bg-surface = 라이트 #ffffff / 다크 #191f28 이라 종전 text-white와 라이트에서 동일하다. */}
+                            <span className="rounded-full px-3 py-1 text-sm font-bold" style={{ backgroundColor: item.answer ? 'var(--color-success)' : 'var(--color-danger)', color: 'var(--color-bg-surface)' }}>
                               {item.answer ? 'O' : 'X'}
                             </span>
                             <span className="text-sm" style={{ color: 'var(--grey-600)' }}>{item.explanation}</span>

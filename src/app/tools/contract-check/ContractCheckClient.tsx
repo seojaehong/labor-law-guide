@@ -95,7 +95,7 @@ function Field({
       <span className="mb-1 block text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>
         {label}
         {missing && (
-          <span className="ml-2 rounded px-1.5 py-0.5 text-[11px] font-bold" style={{ backgroundColor: '#fef3c7', color: '#92400e' }}>
+          <span className="ml-2 rounded px-1.5 py-0.5 text-[11px] font-bold" style={{ backgroundColor: 'var(--color-warn-bg)', color: 'var(--color-warn-ink)' }}>
             사진에서 못 읽음
           </span>
         )}

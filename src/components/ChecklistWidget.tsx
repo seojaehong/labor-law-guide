@@ -69,7 +69,7 @@ export default function ChecklistWidget({ title, description, items, results }: 
   const levelIcons = { low: Shield, medium: AlertTriangle, high: ShieldCheck };
   const levelColors = {
     low: { bg: '#f0fdf4', border: '#bbf7d0', text: '#166534' },
-    medium: { bg: '#fef3c7', border: '#fde68a', text: '#92400e' },
+    medium: { bg: 'var(--color-warn-bg)', border: 'var(--color-warn-border)', text: 'var(--color-warn-ink)' },
     high: { bg: '#fef2f2', border: '#fecaca', text: '#991b1b' },
   };
 
@@ -162,7 +162,7 @@ export default function ChecklistWidget({ title, description, items, results }: 
 function CheckItemRow({ item, selected, onSelect }: { item: ChecklistItem; selected: Answer | null; onSelect: (v: Answer) => void }) {
   const weightBadge = {
     high: { bg: '#fef2f2', text: '#991b1b', label: '중요' },
-    medium: { bg: '#fef3c7', text: '#92400e', label: '보통' },
+    medium: { bg: 'var(--color-warn-bg)', text: 'var(--color-warn-ink)', label: '보통' },
     low: { bg: 'var(--grey-100)', text: 'var(--grey-600)', label: '참고' },
   };
   const badge = weightBadge[item.weight];

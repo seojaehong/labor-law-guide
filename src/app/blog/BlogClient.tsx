@@ -283,7 +283,9 @@ export default function BlogClient({ initialArticles }: BlogClientProps) {
               className="rounded-full px-3 py-1 text-[12px] font-medium transition-colors border"
               style={
                 activeSubtype === sub.value
-                  ? { backgroundColor: '#92400e', color: '#fff', borderColor: '#92400e' }
+                  // 솔리드 배경 + 테마로 뒤집는 잉크(§3.3 ★★). 다크 --color-warn-ink는 #fcd34d라 흰 글씨를 그대로 두면 읽히지 않는다.
+                  // --color-bg-surface = 라이트 #ffffff / 다크 #191f28.
+                  ? { backgroundColor: 'var(--color-warn-ink)', color: 'var(--color-bg-surface)', borderColor: 'var(--color-warn-ink)' }
                   : { backgroundColor: 'var(--color-bg-surface)', color: 'var(--grey-500)', borderColor: 'var(--color-border)' }
               }
             >

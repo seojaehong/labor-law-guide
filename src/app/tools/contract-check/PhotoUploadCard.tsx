@@ -200,7 +200,7 @@ export default function PhotoUploadCard({ onExtracted }: UploadCardProps) {
         <p
           role="alert"
           className="mt-3 rounded-lg px-3 py-2 text-xs leading-relaxed"
-          style={{ backgroundColor: '#fef3c7', color: '#92400e' }}
+          style={{ backgroundColor: 'var(--color-warn-bg)', color: 'var(--color-warn-ink)' }}
         >
           {error}
         </p>

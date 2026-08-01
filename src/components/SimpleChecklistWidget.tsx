@@ -51,7 +51,7 @@ export default function SimpleChecklistWidget({ title, description, items, resul
 
   const levelColors = {
     low: { bg: '#f0fdf4', border: '#bbf7d0', text: '#166534' },
-    medium: { bg: '#fef3c7', border: '#fde68a', text: '#92400e' },
+    medium: { bg: 'var(--color-warn-bg)', border: 'var(--color-warn-border)', text: 'var(--color-warn-ink)' },
     high: { bg: '#fef2f2', border: '#fecaca', text: '#991b1b' },
   };
   const levelIcons = { low: Shield, medium: AlertTriangle, high: ShieldCheck };
@@ -73,7 +73,7 @@ export default function SimpleChecklistWidget({ title, description, items, resul
           <h4 className="mb-2 text-sm font-bold" style={{ color: 'var(--grey-600)' }}>{cat}</h4>
           <div className="space-y-2">
             {items.filter((i) => i.category === cat).map((item) => {
-              const badge = { high: { bg: '#fef2f2', text: '#991b1b', label: '중요' }, medium: { bg: '#fef3c7', text: '#92400e', label: '보통' }, low: { bg: 'var(--grey-100)', text: 'var(--grey-600)', label: '참고' } }[item.weight];
+              const badge = { high: { bg: '#fef2f2', text: '#991b1b', label: '중요' }, medium: { bg: 'var(--color-warn-bg)', text: 'var(--color-warn-ink)', label: '보통' }, low: { bg: 'var(--grey-100)', text: 'var(--grey-600)', label: '참고' } }[item.weight];
               return (
                 <label key={item.id} className="flex cursor-pointer items-start gap-3 rounded-lg p-3 transition-colors" style={{ backgroundColor: checked[item.id] ? 'var(--grey-50)' : 'transparent' }}>
                   <input type="checkbox" checked={!!checked[item.id]} onChange={() => toggle(item.id)} className="mt-0.5 h-4 w-4 rounded accent-blue-600" />

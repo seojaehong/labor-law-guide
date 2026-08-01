@@ -24,7 +24,7 @@ const ANSWER_OPTIONS: { value: Answer; label: string; activeBg: string; activeTe
 const LEVEL_STYLES: Record<string, { bg: string; border: string; text: string }> = {
   critical: { bg: '#fef2f2', border: '#f87171', text: '#991b1b' },
   high: { bg: '#fff1f2', border: '#fda4af', text: '#9f1239' },
-  medium: { bg: '#fef3c7', border: '#fde68a', text: '#92400e' },
+  medium: { bg: 'var(--color-warn-bg)', border: 'var(--color-warn-border)', text: 'var(--color-warn-ink)' },
   caution: { bg: '#fefce8', border: '#fef08a', text: '#854d0e' },
   low: { bg: '#f0fdf4', border: '#bbf7d0', text: '#166534' },
   safe: { bg: '#ecfdf5', border: '#6ee7b7', text: '#065f46' },

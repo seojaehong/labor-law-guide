@@ -6,7 +6,7 @@ import type { Step } from '@/content/manual-data';
 
 const actorColors: Record<string, { bg: string; text: string; border: string }> = {
   '하청노조': { bg: 'var(--blue-50)', text: 'var(--blue-700)', border: 'var(--blue-200)' },
-  '원청사용자': { bg: '#fef3c7', text: '#92400e', border: '#fde68a' },
+  '원청사용자': { bg: 'var(--color-warn-bg)', text: 'var(--color-warn-ink)', border: 'var(--color-warn-border)' },
   '노동위원회': { bg: '#f0fdf4', text: '#166534', border: '#bbf7d0' },
   '노사': { bg: '#faf5ff', text: '#6b21a8', border: '#e9d5ff' },
 };
@@ -73,9 +73,9 @@ export default function StepDiagram({ steps }: { steps: Step[] }) {
                       ))}
                     </ul>
                     {step.caution && (
-                      <div className="mt-3 flex gap-2 rounded-lg p-3" style={{ backgroundColor: '#fef3c7' }}>
-                        <AlertTriangle size={16} className="mt-0.5 shrink-0" style={{ color: '#d97706' }} />
-                        <p className="text-sm" style={{ color: '#92400e' }}>{step.caution}</p>
+                      <div className="mt-3 flex gap-2 rounded-lg p-3" style={{ backgroundColor: 'var(--color-warn-bg)' }}>
+                        <AlertTriangle size={16} className="mt-0.5 shrink-0" style={{ color: 'var(--color-warn)' }} />
+                        <p className="text-sm" style={{ color: 'var(--color-warn-ink)' }}>{step.caution}</p>
                       </div>
                     )}
                   </div>

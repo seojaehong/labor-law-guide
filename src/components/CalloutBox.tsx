@@ -1,9 +1,11 @@
 import { AlertTriangle, Info, Lightbulb } from 'lucide-react';
 
+// 슬롯 4개(bg / 좌측선 / 아이콘 / 라벨)를 의미색 4역할에 그대로 매핑한다. DESIGN.md §9 P3-2.
+// info는 -border가 없으므로(§6.6 — 참고 배너는 좌측선만 두고 테두리를 두지 않는다) 좌측선만 램프 --blue-200으로 남는다.
 const variants = {
-  info: { icon: Info, bg: 'var(--blue-50)', border: 'var(--blue-200)', iconColor: 'var(--blue-500)', label: '참고', labelColor: 'var(--blue-700)' },
-  warning: { icon: AlertTriangle, bg: '#fef3c7', border: '#fde68a', iconColor: '#d97706', label: '주의', labelColor: '#92400e' },
-  tip: { icon: Lightbulb, bg: '#f0fdf4', border: '#bbf7d0', iconColor: '#16a34a', label: '팁', labelColor: '#166534' },
+  info: { icon: Info, bg: 'var(--color-info-bg)', border: 'var(--blue-200)', iconColor: 'var(--color-info)', label: '참고', labelColor: 'var(--color-info-ink)' },
+  warning: { icon: AlertTriangle, bg: 'var(--color-warn-bg)', border: 'var(--color-warn-border)', iconColor: 'var(--color-warn)', label: '주의', labelColor: 'var(--color-warn-ink)' },
+  tip: { icon: Lightbulb, bg: 'var(--color-success-bg)', border: 'var(--color-success-border)', iconColor: 'var(--color-success)', label: '팁', labelColor: 'var(--color-success-ink)' },
 };
 
 interface Props {

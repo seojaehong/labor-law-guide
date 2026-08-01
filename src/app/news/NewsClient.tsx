@@ -369,7 +369,7 @@ export default function NewsClient({ initialNews, initialTotalCount, initialBrie
                 style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }}
               >
                 <div className="flex flex-wrap items-center gap-2 text-xs">
-                  <span className="rounded-md px-2 py-0.5 font-medium" style={{ backgroundColor: '#fef3c7', color: '#92400e' }}>
+                  <span className="rounded-md px-2 py-0.5 font-medium" style={{ backgroundColor: 'var(--color-warn-bg)', color: 'var(--color-warn-ink)' }}>
                     {item.source || '뉴스'}
                   </span>
                   <span style={{ color: 'var(--color-text-tertiary)' }}>{relativeDate(item.published_at)}</span>
