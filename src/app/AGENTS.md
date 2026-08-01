@@ -320,3 +320,32 @@ Tailwind v4의 캐스케이드 레이어 순서상 `utilities`가 `base`를 이�
 동시에 `rounded-md`를 쓰던 파일을 지우면, **참조는 남고 정의가 사라져 조용히 `border-radius: 0`이 된다.**
 확인: `npm run build && grep -o -- "--radius-md:[^;]*" .next/static/chunks/*.css`
 (US-013에서 `components/ui/*` 5개를 지우기 전 `rounded-md` 호출부가 그 밖에도 다수임을 확인하고 진행했다.)
+
+## ★ `prose*` 유틸은 이 레포에서 **아무 일도 하지 않는다** (typography 플러그인 미설치)
+
+`/lecture/ai-isan-2026/textbook`의 `<article>`은 `prose prose-zinc dark:prose-invert prose-h1:text-3xl
+prose-blockquote:… prose-code:…`를 20여 개 달고 있지만 **`@tailwindcss/typography`가 설치되어 있지 않고
+`globals.css`에 `@plugin` 선언도 없다.** Tailwind v4는 config 파일 없이 `@plugin`으로만 플러그인을 싣는다.
+
+- 근거 2중: 빌드 산출물에 `.prose` 규칙 **0건** (`grep -o '\.prose' .next/static/chunks/*.css`)
+  + 그 컨테이너에 링크를 주입하고 `prose-a:underline`을 붙여도 `textDecorationLine: none`으로 렌더.
+- 결과: 그 페이지의 제목 크기·인용·표·코드 규격이 **통째로 미적용**이다. 붙어 있는 클래스만 보고
+  "조판이 되어 있다"고 판단하지 말 것.
+- **그 페이지에서 조판을 실제로 바꾸려면 `prose-…`를 고치지 말고 임의 자식 선택자를 쓴다** — 예:
+  `[&_pre]:overflow-x-auto`. `prose-…`를 추가하는 변경은 죽은 유틸을 새로 심는 것과 같다.
+
+## 그리드/플렉스 컨테이너의 가로 오버플로 — 원인은 콘텐츠가 아니라 **트랙**이다
+
+`/lecture/.../textbook`이 375px에서 398px 넘치던 건(US-011·US-012가 두 번 넘긴 것)의 귀속:
+
+1. `div`가 모바일에서도 `grid`인데 컬럼 지정이 `lg:`에만 있었다 → 암시 트랙 기본값 `auto`는 **max-content까지 성장**한다.
+2. 위 typography 부재로 `pre`가 UA 기본 `white-space: pre` · `overflow-x: visible` → 가장 긴 코드 줄이 트랙 폭을 정한다.
+
+**둘 중 하나만 고치면 값이 1px도 안 움직인다**(트랙만·`min-width:0`만·`pre`만 = 전부 398 그대로, 둘 동시 = 0).
+→ 반응형 컨테이너에 `grid`를 걸 때는 **기본 브레이크포인트에도 `grid-cols-[minmax(0,1fr)]`을 명시**하고,
+스크롤 가능한 자식(`pre`·`table`)은 스크롤 컨테이너로 만든다.
+
+- ★ 진단 시 **블록 자식의 `scrollWidth`로 범인을 찾지 말 것** — 자기 콘텐츠가 아니라 부모가 정해 준 폭이라
+  빈 `<p>`까지 전부 같은 값이 나온다. `page.evaluate`로 **후보 처방을 하나씩 켜 보고 `docOver`가 0이 되는 조합**을 찾는다.
+- ★ `overflow-wrap: break-word`는 **min-content를 줄이지 않는다**(줄이는 건 `anywhere`뿐).
+  `word-break: keep-all`(US-011이 `body`로 승격)과 `min-width: auto`가 만나면 컨테이너가 최장 토큰만큼 넓어진다.
