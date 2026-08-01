@@ -76,7 +76,7 @@ export default function ToolsIndexPage() {
                 </div>
                 <div className="flex-1">
                   <div className="mb-1 flex items-center gap-2">
-                    <h2 className="text-lg font-bold" style={{ color: 'var(--color-text-primary)' }}>
+                    <h2 className="t-h4" style={{ color: 'var(--color-text-primary)' }}>
                       {t.title}
                     </h2>
                     <span

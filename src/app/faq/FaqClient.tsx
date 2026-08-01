@@ -237,7 +237,7 @@ export default function FaqClient({ initialFaqs, categoryCounts, totalCount, ini
                 <ArrowLeft size={14} className="inline" /> 전체
               </button>
               <span style={{ color: 'var(--grey-300)' }}>/</span>
-              <h2 className="text-lg font-bold" style={{ color: 'var(--color-text-primary)' }}>{activeCategory}</h2>
+              <h2 className="t-h4" style={{ color: 'var(--color-text-primary)' }}>{activeCategory}</h2>
               <span className="text-sm" style={{ color: 'var(--grey-500)' }}>({total}건)</span>
             </div>
           )}

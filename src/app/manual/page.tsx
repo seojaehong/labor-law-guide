@@ -18,13 +18,13 @@ export default function ManualPage() {
 
       {/* Step Diagram */}
       <section className="my-12">
-        <h2 className="mb-6 font-bold" style={{ fontSize: 'var(--text-xl)', color: 'var(--color-text-primary)' }}>교섭절차 6단계</h2>
+        <h2 className="t-h3 mb-6" style={{ color: 'var(--color-text-primary)' }}>교섭절차 6단계</h2>
         <StepDiagram steps={negotiationSteps} />
       </section>
 
       {/* Unit Separation */}
       <section className="my-12">
-        <h2 className="mb-4 font-bold" style={{ fontSize: 'var(--text-xl)', color: 'var(--color-text-primary)' }}>{unitSeparation.title}</h2>
+        <h2 className="t-h3 mb-4" style={{ color: 'var(--color-text-primary)' }}>{unitSeparation.title}</h2>
         <p className="mb-6 text-[15px]" style={{ color: 'var(--grey-600)' }}>{unitSeparation.description}</p>
 
         <h3 className="mb-3 text-sm font-bold" style={{ color: 'var(--grey-700)' }}>노동위원회 고려사항</h3>

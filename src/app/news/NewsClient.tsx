@@ -239,7 +239,7 @@ export default function NewsClient({ initialNews, initialTotalCount, initialBrie
           <div className="flex items-center justify-between mb-1">
             <div className="flex items-center gap-2">
               <Sparkles size={18} style={{ color: 'var(--color-accent)' }} />
-              <h2 className="text-lg font-bold" style={{ color: 'var(--color-text-primary)' }}>
+              <h2 className="t-h4" style={{ color: 'var(--color-text-primary)' }}>
                 노동 브리핑
               </h2>
               <span className="rounded-full px-2 py-0.5 text-xs font-medium" style={{ backgroundColor: 'var(--color-accent)', color: '#fff' }}>

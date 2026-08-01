@@ -210,7 +210,7 @@ export default function HomeClient({ totalCases, totalAdmin, totalNews, latestBl
               >
                 <feature.icon size={22} style={{ color: feature.color }} />
               </div>
-              <h3 className="mb-2 text-lg font-bold" style={{ color: 'var(--color-text-primary)' }}>{feature.title}</h3>
+              <h3 className="t-h4 mb-2" style={{ color: 'var(--color-text-primary)' }}>{feature.title}</h3>
               <p className="text-[15px] leading-relaxed" style={{ color: 'var(--color-text-secondary)' }}>{feature.description}</p>
               <span className="mt-4 inline-flex items-center gap-1 text-sm font-medium" style={{ color: 'var(--color-accent)' }}>
                 자세히 보기 <ArrowRight size={14} />
@@ -225,7 +225,7 @@ export default function HomeClient({ totalCases, totalAdmin, totalNews, latestBl
         <div className="mx-auto max-w-[1100px]">
           <div className="mb-6 text-center">
             <p className="text-[13px] font-semibold tracking-widest uppercase mb-2" style={{ color: 'var(--color-accent)' }}>MORE TOOLS</p>
-            <h2 className="text-xl sm:text-2xl font-bold tracking-tight" style={{ color: 'var(--color-text-primary)' }}>
+            <h2 className="t-h3 tracking-tight" style={{ color: 'var(--color-text-primary)' }}>
               노동법·HR 실무 종합 도구
             </h2>
             <p className="mt-2 text-[14px]" style={{ color: 'var(--color-text-secondary)' }}>
@@ -259,7 +259,7 @@ export default function HomeClient({ totalCases, totalAdmin, totalNews, latestBl
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center gap-2">
                 <BookOpen size={22} style={{ color: 'var(--color-accent)' }} />
-                <h2 className="text-xl font-bold" style={{ color: 'var(--color-text-primary)' }}>최신 딥다이브</h2>
+                <h2 className="t-h3" style={{ color: 'var(--color-text-primary)' }}>최신 딥다이브</h2>
               </div>
               <Link
                 href="/blog"
@@ -311,7 +311,7 @@ export default function HomeClient({ totalCases, totalAdmin, totalNews, latestBl
         <div className="mx-auto max-w-[1100px] rounded-xl border p-5 sm:p-8 md:p-10" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)', boxShadow: 'var(--shadow-sm)' }}>
           <div className="max-w-[760px]">
             <p className="text-sm font-medium" style={{ color: 'var(--color-accent)' }}>자주 묻는 질문</p>
-            <h2 className="mt-2 text-xl sm:text-2xl font-bold tracking-tight" style={{ color: 'var(--color-text-primary)' }}>
+            <h2 className="t-h3 mt-2 tracking-tight" style={{ color: 'var(--color-text-primary)' }}>
               노란봉투법, 원청 사용자성, 하청 교섭요구 대응에서 많이 묻는 핵심 질문
             </h2>
             <p className="mt-3 text-sm leading-6" style={{ color: 'var(--color-text-secondary)' }}>
@@ -350,7 +350,7 @@ export default function HomeClient({ totalCases, totalAdmin, totalNews, latestBl
       <section className="px-5 pb-16 sm:pb-20">
         <div className="mx-auto max-w-[820px] rounded-xl border p-6 sm:p-8 text-center" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)', boxShadow: 'var(--shadow-md)' }}>
           <MessageSquare size={32} className="mx-auto mb-4" style={{ color: 'var(--color-accent)' }} />
-          <h2 className="mb-2 text-xl font-bold" style={{ color: 'var(--color-text-primary)' }}>AI에게 노동법 질문하기</h2>
+          <h2 className="t-h3 mb-2" style={{ color: 'var(--color-text-primary)' }}>AI에게 노동법 질문하기</h2>
           <p className="mb-6 text-sm" style={{ color: 'var(--color-text-secondary)' }}>
             개정 노동조합법에 대한 궁금증을 AI가 즉시 답변해 드립니다
           </p>
@@ -365,7 +365,7 @@ export default function HomeClient({ totalCases, totalAdmin, totalNews, latestBl
 
       <section className="px-5 pb-16 sm:pb-20">
         <div className="mx-auto max-w-[820px] rounded-xl p-6 sm:p-8 text-center" style={{ backgroundColor: 'var(--grey-900)' }}>
-          <h2 className="mb-3 text-lg sm:text-xl font-bold" style={{ color: 'var(--grey-100)' }}>노란봉투법 실무 자문이 필요하면 바로 상담하세요</h2>
+          <h2 className="t-h4 mb-3" style={{ color: 'var(--grey-100)' }}>노란봉투법 실무 자문이 필요하면 바로 상담하세요</h2>
           <p className="mb-3 text-sm" style={{ color: 'var(--band-ink-muted)' }}>
             원청 사용자성 판단, 하청 노조 교섭요구 대응, 노동위원회 절차, 부당노동행위 리스크 점검까지 노무법인 위너스가 직접 봅니다.
           </p>

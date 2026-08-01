@@ -76,7 +76,7 @@ export default function CasesPage() {
               <span>{c.caseNumber}</span>
               <span>{c.date}</span>
             </div>
-            <h2 className="mt-2 text-lg font-semibold" style={{ color: 'var(--color-text-primary)' }}>{c.title}</h2>
+            <h2 className="t-h4 mt-2" style={{ color: 'var(--color-text-primary)' }}>{c.title}</h2>
             <p className="mt-1 text-sm font-medium" style={{ color: 'var(--color-accent)' }}>{c.significance}</p>
             <p className="mt-3 text-sm leading-7" style={{ color: 'var(--grey-700)' }}>{c.keyHolding}</p>
             <div className="mt-4 flex flex-wrap gap-3">
@@ -93,7 +93,7 @@ export default function CasesPage() {
       </section>
 
       <section className="mt-10">
-        <h2 className="text-lg font-bold" style={{ color: 'var(--color-text-primary)' }}>상세 해설 보기</h2>
+        <h2 className="t-h4" style={{ color: 'var(--color-text-primary)' }}>상세 해설 보기</h2>
         <p className="mb-4 mt-1 text-sm" style={{ color: 'var(--grey-500)' }}>
           각 판례를 열어 핵심 판시, 개정법과의 연결, 실무 시사점을 한 번에 확인할 수 있습니다.
         </p>

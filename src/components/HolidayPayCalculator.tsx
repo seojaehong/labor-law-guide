@@ -425,7 +425,7 @@ export default function HolidayPayCalculator() {
     return (
       <div>
         <StepHeader current={1} />
-        <h2 className="mb-1 text-xl font-bold" style={{ color: "var(--color-text-primary)" }}>1단계 — 사업장 규모를 선택하세요</h2>
+        <h2 className="t-h3 mb-1" style={{ color: "var(--color-text-primary)" }}>1단계 — 사업장 규모를 선택하세요</h2>
         <p className="mb-6 text-sm" style={{ color: 'var(--color-text-secondary)' }}>
           상시 근로자 수에 따라 가산수당 적용 여부가 달라집니다.
         </p>
@@ -462,7 +462,7 @@ export default function HolidayPayCalculator() {
     return (
       <div>
         <StepHeader current={2} />
-        <h2 className="mb-1 text-xl font-bold" style={{ color: "var(--color-text-primary)" }}>2단계 — 어떤 휴일인가요?</h2>
+        <h2 className="t-h3 mb-1" style={{ color: "var(--color-text-primary)" }}>2단계 — 어떤 휴일인가요?</h2>
         <p className="mb-6 text-sm" style={{ color: 'var(--color-text-secondary)' }}>
           노동절은 모든 사업장에 적용되고, 관공서 공휴일(빨간날)은 5인 이상 사업장만 유급휴일로 적용됩니다.
         </p>
@@ -502,7 +502,7 @@ export default function HolidayPayCalculator() {
     return (
       <div>
         <StepHeader current={3} />
-        <h2 className="mb-1 text-xl font-bold" style={{ color: "var(--color-text-primary)" }}>3단계 — 근로 유형을 선택하세요</h2>
+        <h2 className="t-h3 mb-1" style={{ color: "var(--color-text-primary)" }}>3단계 — 근로 유형을 선택하세요</h2>
         <p className="mb-6 text-sm" style={{ color: 'var(--color-text-secondary)' }}>
           유형에 따라 통상임금 산정 방식이 다릅니다.
         </p>
@@ -543,7 +543,7 @@ export default function HolidayPayCalculator() {
     return (
       <div>
         <StepHeader current={4} />
-        <h2 className="mb-1 text-xl font-bold" style={{ color: "var(--color-text-primary)" }}>4단계 — 근로 정보를 입력하세요</h2>
+        <h2 className="t-h3 mb-1" style={{ color: "var(--color-text-primary)" }}>4단계 — 근로 정보를 입력하세요</h2>
         <p className="mb-6 text-sm" style={{ color: 'var(--color-text-secondary)' }}>
           정확한 통상시급 산정을 위해 모든 항목을 입력해주세요.
         </p>

@@ -236,7 +236,7 @@ function SearchBucketSection({
     <div className="rounded-xl border bg-card/40 p-4">
       <div className="flex items-center justify-between mb-2">
         <div>
-          <h2 className="text-lg font-semibold">{title}</h2>
+          <h2 className="t-h4">{title}</h2>
           <p className="text-xs text-muted-foreground mt-1">{summary}</p>
         </div>
         <span className="text-sm text-muted-foreground">{bucket?.total?.toLocaleString() || 0}건</span>

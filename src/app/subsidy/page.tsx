@@ -69,7 +69,7 @@ export default function SubsidyPage() {
         <div className="grid gap-10 lg:grid-cols-[1fr_320px]">
           <div className="space-y-8">
             <section className="rounded-xl border p-6" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }}>
-              <h2 className="mb-4 text-lg font-bold" style={{ color: 'var(--color-text-primary)' }}>주요 지원금 한눈에 보기</h2>
+              <h2 className="t-h4 mb-4" style={{ color: 'var(--color-text-primary)' }}>주요 지원금 한눈에 보기</h2>
               <div className="space-y-4">
                 {highlights.map((item) => {
                   const Icon = item.icon;

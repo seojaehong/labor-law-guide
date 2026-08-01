@@ -710,7 +710,7 @@ export default function ContractCheckClient() {
             #cc-print-area { position: absolute; left: 0; top: 0; width: 100%; padding: 16px; }
             #cc-print-area .print-hide { display: none !important; }
           }`}</style>
-          <h2 className="mb-3 text-lg font-bold" style={{ color: 'var(--color-text-primary)' }}>
+          <h2 className="t-h4 mb-3" style={{ color: 'var(--color-text-primary)' }}>
             점검 결과
           </h2>
           <div className="mb-5 flex flex-wrap gap-2 text-sm font-semibold">

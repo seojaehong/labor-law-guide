@@ -128,7 +128,7 @@ export default function ContactPage() {
             <div className="rounded-xl border p-6" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }}>
               <div className="mb-5 flex items-start justify-between gap-4">
                 <div>
-                  <h2 className="text-lg font-bold" style={{ color: 'var(--color-text-primary)' }}>온라인 상담 접수</h2>
+                  <h2 className="t-h4" style={{ color: 'var(--color-text-primary)' }}>온라인 상담 접수</h2>
                   <p className="mt-1 text-sm" style={{ color: 'var(--grey-500)' }}>
                     회사명, 현재 쟁점, 교섭요구 여부, 일정 급박성까지 적어주시면 분류가 빨라집니다.
                   </p>
@@ -141,7 +141,7 @@ export default function ContactPage() {
             </div>
 
             <section className="rounded-xl border p-6" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }}>
-              <h2 className="mb-3 text-lg font-bold" style={{ color: 'var(--color-text-primary)' }}>이런 경우 바로 문의하는 편이 좋습니다</h2>
+              <h2 className="t-h4 mb-3" style={{ color: 'var(--color-text-primary)' }}>이런 경우 바로 문의하는 편이 좋습니다</h2>
               <ul className="space-y-2 text-sm leading-6" style={{ color: 'var(--grey-600)' }}>
                 <li>• 해고·징계 통보를 받았거나 예고 없이 퇴사 처리된 경우</li>
                 <li>• 퇴직금·연장수당·주휴수당 등 임금이 체불되고 있는 경우</li>
@@ -152,7 +152,7 @@ export default function ContactPage() {
             </section>
 
             <section className="rounded-xl border p-6" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }}>
-              <h2 className="mb-3 text-lg font-bold" style={{ color: 'var(--color-text-primary)' }}>상담 전 많이 묻는 질문</h2>
+              <h2 className="t-h4 mb-3" style={{ color: 'var(--color-text-primary)' }}>상담 전 많이 묻는 질문</h2>
               <div className="space-y-4">
                 {contactFaqItems.map((item) => (
                   <div key={item.question} className="rounded-xl border p-4" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }}>
@@ -164,7 +164,7 @@ export default function ContactPage() {
             </section>
 
             <section className="rounded-xl border p-6" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }}>
-              <h2 className="mb-4 text-lg font-bold" style={{ color: 'var(--color-text-primary)' }}>먼저 읽어보면 상담이 빨라지는 자료</h2>
+              <h2 className="t-h4 mb-4" style={{ color: 'var(--color-text-primary)' }}>먼저 읽어보면 상담이 빨라지는 자료</h2>
               <div className="grid gap-3 md:grid-cols-3">
                 {quickLinks.map((item) => {
                   const Icon = item.icon;

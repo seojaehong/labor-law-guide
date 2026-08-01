@@ -308,7 +308,7 @@ function DatabaseContent({ initialTotalCases, initialTotalAdmin, initialTotalNlr
     <section className="mt-8 rounded-xl border p-5 md:p-7" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }}>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 className="text-xl font-bold" style={{ color: 'var(--color-text-primary)' }}>실시간 검색</h2>
+          <h2 className="t-h3" style={{ color: 'var(--color-text-primary)' }}>실시간 검색</h2>
           <p className="mt-1 text-sm" style={{ color: 'var(--color-text-secondary)' }}>
             판례 {totalCases !== null ? totalCases.toLocaleString() : '...'}건, 행정해석 {totalAdmin !== null ? totalAdmin.toLocaleString() : '...'}건, 노동위결정문 {totalNlrc !== null ? totalNlrc.toLocaleString() : '...'}건을 바로 찾아보세요.
           </p>

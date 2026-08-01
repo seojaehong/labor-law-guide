@@ -152,7 +152,7 @@ export default async function DatabasePage() {
       </section>
 
       <section className="mt-8 rounded-xl border p-5 md:p-7" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }}>
-        <h2 className="text-lg font-bold" style={{ color: 'var(--color-text-primary)' }}>추천 검색</h2>
+        <h2 className="t-h4" style={{ color: 'var(--color-text-primary)' }}>추천 검색</h2>
         <p className="mt-1 text-sm" style={{ color: 'var(--color-text-secondary)' }}>
           사람들이 실제로 많이 찾는 질문형 키워드부터 시작하면 원하는 자료에 더 빨리 닿습니다.
         </p>
@@ -174,7 +174,7 @@ export default async function DatabasePage() {
         <div className="rounded-xl border p-5 md:p-6" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }}>
           <div className="flex items-center gap-2">
             <Scale size={18} style={{ color: 'var(--color-accent)' }} />
-            <h2 className="text-lg font-bold" style={{ color: 'var(--color-text-primary)' }}>대표 판례 미리 보기</h2>
+            <h2 className="t-h4" style={{ color: 'var(--color-text-primary)' }}>대표 판례 미리 보기</h2>
           </div>
           <p className="mt-1 text-sm" style={{ color: 'var(--color-text-secondary)' }}>
             원청 사용자성, 도급·파견 구별, 간접 통제 같은 핵심 논리를 먼저 읽어보면 검색 정확도가 올라갑니다.
@@ -218,7 +218,7 @@ export default async function DatabasePage() {
         <div className="rounded-xl border p-5 md:p-6" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }}>
           <div className="flex items-center gap-2">
             <FileText size={18} style={{ color: 'var(--color-accent)' }} />
-            <h2 className="text-lg font-bold" style={{ color: 'var(--color-text-primary)' }}>대표 행정해석 미리 보기</h2>
+            <h2 className="t-h4" style={{ color: 'var(--color-text-primary)' }}>대표 행정해석 미리 보기</h2>
           </div>
           <p className="mt-1 text-sm" style={{ color: 'var(--color-text-secondary)' }}>
             행정해석은 법원이 보기 전에 현장에서 먼저 부딪히는 운영 이슈를 정리해주는 경우가 많습니다. 교섭 범위와 노동위원회 절차를 함께 보세요.

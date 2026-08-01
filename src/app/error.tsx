@@ -16,7 +16,7 @@ export default function Error({
   return (
     <div className="flex min-h-[60vh] flex-col items-center justify-center px-4 text-center">
       <h2
-        className="mb-3 text-2xl font-bold"
+        className="t-h2 mb-3"
         style={{ color: 'var(--color-text-primary)' }}
       >
         문제가 발생했습니다

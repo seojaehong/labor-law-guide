@@ -40,7 +40,7 @@ export default function ContactForm() {
     return (
       <div className="flex flex-col items-center gap-4 py-16 text-center">
         <CheckCircle size={48} style={{ color: 'var(--color-accent)' }} />
-        <h2 className="text-xl font-bold">문의가 접수되었습니다</h2>
+        <h2 className="t-h3">문의가 접수되었습니다</h2>
         <p style={{ color: 'var(--color-text-secondary)' }}>빠른 시일 내에 연락드리겠습니다.</p>
         <p className="text-sm" style={{ color: 'var(--grey-400)' }}>입력하신 이메일로 접수 확인 메일이 발송되었습니다.</p>
       </div>

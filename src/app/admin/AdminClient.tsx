@@ -212,7 +212,7 @@ export default function AdminClient() {
           style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }}
         >
           <Lock size={32} className="mx-auto mb-4" style={{ color: 'var(--color-text-tertiary)' }} />
-          <h1 className="text-xl font-bold mb-2" style={{ color: 'var(--color-text-primary)' }}>어드민 로그인</h1>
+          <h1 className="t-h3 mb-2" style={{ color: 'var(--color-text-primary)' }}>어드민 로그인</h1>
           <p className="text-sm mb-6" style={{ color: 'var(--color-text-tertiary)' }}>관리자 토큰을 입력하세요</p>
           <input
             type="password"
@@ -241,7 +241,7 @@ export default function AdminClient() {
       {/* Header */}
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-2xl font-bold" style={{ color: 'var(--color-text-primary)' }}>
+          <h1 className="t-h2" style={{ color: 'var(--color-text-primary)' }}>
             블로그 어드민
           </h1>
           <p className="text-sm mt-1" style={{ color: 'var(--color-text-tertiary)' }}>
@@ -611,7 +611,7 @@ export default function AdminClient() {
             style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }}
           >
             <div className="flex items-center justify-between mb-6">
-              <h2 className="text-lg font-bold" style={{ color: 'var(--color-text-primary)' }}>글 수정</h2>
+              <h2 className="t-h4" style={{ color: 'var(--color-text-primary)' }}>글 수정</h2>
               <button onClick={() => setEditArticle(null)} className="rounded-lg p-1.5 hover:bg-[var(--grey-100)]">
                 <X size={18} />
               </button>

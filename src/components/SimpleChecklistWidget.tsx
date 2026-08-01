@@ -58,7 +58,7 @@ export default function SimpleChecklistWidget({ title, description, items, resul
 
   return (
     <div className="rounded-xl border p-6" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }}>
-      <h3 className="mb-1 text-lg font-bold" style={{ color: 'var(--color-text-primary)' }}>{title}</h3>
+      <h3 className="t-h4 mb-1" style={{ color: 'var(--color-text-primary)' }}>{title}</h3>
       <p className="mb-2 text-sm" style={{ color: 'var(--grey-500)' }}>{description}</p>
 
       <div className="mb-6 flex items-center gap-3">
