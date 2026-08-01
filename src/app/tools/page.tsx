@@ -68,31 +68,31 @@ export default function ToolsIndexPage() {
           const card = (
             <div
               key={t.href}
-              className="group rounded-xl border-2 border-slate-200 p-5 transition-all hover:border-yellow-400 hover:shadow-lg"
+              className="group rounded-xl border-2 border-[var(--color-border)] p-5 transition-all hover:border-[var(--color-brand-border)] hover:shadow-lg"
             >
               <div className="flex items-start gap-4">
-                <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-lg bg-yellow-100 text-yellow-700">
+                <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-lg bg-[var(--color-brand-surface)] text-[var(--color-brand-ink)]">
                   <Icon className="h-6 w-6" />
                 </div>
                 <div className="flex-1">
                   <div className="mb-1 flex items-center gap-2">
-                    <h2 className="text-lg font-bold" style={{ color: '#0f172a' }}>
+                    <h2 className="text-lg font-bold" style={{ color: 'var(--color-text-primary)' }}>
                       {t.title}
                     </h2>
                     <span
                       className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${
                         t.badge === 'NEW'
-                          ? 'bg-yellow-300 text-slate-900'
+                          ? 'bg-[var(--brand-300)] text-slate-900'
                           : 'bg-slate-200 text-slate-700'
                       }`}
                     >
                       {t.badge}
                     </span>
                   </div>
-                  <p className="text-sm leading-relaxed" style={{ color: '#475569' }}>
+                  <p className="text-sm leading-relaxed" style={{ color: 'var(--color-text-secondary)' }}>
                     {t.desc}
                   </p>
-                  <div className="mt-3 text-sm font-semibold text-yellow-700 group-hover:underline">
+                  <div className="mt-3 text-sm font-semibold text-[var(--color-brand-ink)] group-hover:underline">
                     열기 →
                   </div>
                 </div>
@@ -112,7 +112,8 @@ export default function ToolsIndexPage() {
         })}
       </div>
 
-      <p className="mt-8 text-xs" style={{ color: '#94a3b8' }}>
+      {/* --color-text-tertiary(2.01:1)는 본문 텍스트 금지(§7.3) — secondary로 올린다 */}
+      <p className="mt-8 text-xs" style={{ color: 'var(--color-text-secondary)' }}>
         본 계산기들은 참고용입니다. 분쟁 발생 시 노무사 상담을 권장합니다.
       </p>
     </div>

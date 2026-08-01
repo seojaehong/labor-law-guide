@@ -33,7 +33,7 @@ function StepHeader({ current }: { current: number }) {
             className="flex h-6 w-6 items-center justify-center rounded-full font-semibold"
             style={
               i + 1 < current
-                ? { backgroundColor: '#facc15', color: '#fff' }
+                ? { backgroundColor: 'var(--color-brand-solid)', color: '#191f28' }
                 : i + 1 === current
                 ? { backgroundColor: 'var(--color-text-primary)', color: 'var(--color-bg-primary)' }
                 : { backgroundColor: 'var(--color-border)', color: 'var(--color-text-tertiary)' }
@@ -98,7 +98,7 @@ function NumInput({
         value={formatted}
         onChange={(e) => onChange(e.target.value.replace(/[^\d.,]/g, ''))}
         placeholder={placeholder}
-        className="w-full rounded-lg border px-3 py-2 text-base focus:border-yellow-400 focus:outline-none focus:ring-2 focus:ring-yellow-200"
+        className="w-full rounded-lg border px-3 py-2 text-base focus:border-[var(--color-accent)] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]/20"
         style={{
           borderColor: 'var(--color-border)',
           backgroundColor: 'var(--color-bg-surface)',
@@ -343,6 +343,7 @@ export default function HolidayPayCalculator() {
 
       // 카드 frame
       ctx.fillStyle = '#ffffff';
+      // canvas는 var()를 못 읽는다 — --brand-400의 리터럴을 그대로 둔다(공유 이미지는 라·다 고정 라이트).
       ctx.strokeStyle = '#facc15';
       ctx.lineWidth = 2;
       const cardX = 16, cardY = 16, cardW = W - 32, cardH = totalH - 32;
@@ -438,8 +439,8 @@ export default function HolidayPayCalculator() {
               }}
               className="rounded-xl border-2 p-5 text-left transition-all hover:shadow-lg"
               style={{
-                borderColor: siteSize === opt.key ? '#facc15' : 'var(--color-border)',
-                backgroundColor: siteSize === opt.key ? 'rgba(250, 204, 21, 0.12)' : 'var(--color-bg-surface)',
+                borderColor: siteSize === opt.key ? 'var(--color-brand-border)' : 'var(--color-border)',
+                backgroundColor: siteSize === opt.key ? 'var(--color-brand-surface)' : 'var(--color-bg-surface)',
               }}
             >
               <div className="mb-2 text-lg font-bold" style={{ color: 'var(--color-text-primary)' }}>{opt.title}</div>
@@ -475,8 +476,8 @@ export default function HolidayPayCalculator() {
               }}
               className="rounded-xl border-2 p-5 text-left transition-all hover:shadow-lg"
               style={{
-                borderColor: holidayKind === opt.key ? '#facc15' : 'var(--color-border)',
-                backgroundColor: holidayKind === opt.key ? 'rgba(250, 204, 21, 0.12)' : 'var(--color-bg-surface)',
+                borderColor: holidayKind === opt.key ? 'var(--color-brand-border)' : 'var(--color-border)',
+                backgroundColor: holidayKind === opt.key ? 'var(--color-brand-surface)' : 'var(--color-bg-surface)',
               }}
             >
               <div className="mb-2 text-lg font-bold" style={{ color: 'var(--color-text-primary)' }}>{opt.title}</div>
@@ -516,8 +517,8 @@ export default function HolidayPayCalculator() {
               }}
               className="rounded-xl border-2 p-5 text-left transition-all hover:shadow-lg"
               style={{
-                borderColor: workerType === opt.key ? '#facc15' : 'var(--color-border)',
-                backgroundColor: workerType === opt.key ? 'rgba(250, 204, 21, 0.12)' : 'var(--color-bg-surface)',
+                borderColor: workerType === opt.key ? 'var(--color-brand-border)' : 'var(--color-border)',
+                backgroundColor: workerType === opt.key ? 'var(--color-brand-surface)' : 'var(--color-bg-surface)',
               }}
             >
               <div className="mb-2 text-lg font-bold" style={{ color: 'var(--color-text-primary)' }}>{opt.title}</div>
@@ -556,7 +557,7 @@ export default function HolidayPayCalculator() {
               <Field label="월 소정근로시간" hint="주 40시간 + 주휴 8시간 = 월 209시간 (기본값)">
                 <NumInput value={monthlyHours} onChange={setMonthlyHours} placeholder="209" suffix="시간" />
               </Field>
-              <label className="flex items-start gap-3 rounded-lg p-3 text-sm" style={{ backgroundColor: "rgba(250, 204, 21, 0.10)" }}>
+              <label className="flex items-start gap-3 rounded-lg p-3 text-sm" style={{ backgroundColor: 'var(--color-brand-surface)' }}>
                 <input
                   type="checkbox"
                   checked={inclusivePay}
@@ -609,7 +610,7 @@ export default function HolidayPayCalculator() {
               <Field label="주 소정근로시간" hint="주휴수당 발생 여부 판단 (15시간 이상 발생)">
                 <NumInput value={weeklyHours} onChange={setWeeklyHours} placeholder="40" suffix="시간" />
               </Field>
-              <label className="flex items-start gap-3 rounded-lg p-3 text-sm" style={{ backgroundColor: "rgba(250, 204, 21, 0.10)" }}>
+              <label className="flex items-start gap-3 rounded-lg p-3 text-sm" style={{ backgroundColor: 'var(--color-brand-surface)' }}>
                 <input
                   type="checkbox"
                   checked={hourlyIncludesWeekly}
@@ -644,7 +645,7 @@ export default function HolidayPayCalculator() {
           </button>
           <button
             onClick={calculate}
-            className="flex items-center gap-2 rounded-lg bg-yellow-400 px-6 py-3 font-bold text-slate-900 hover:bg-yellow-500"
+            className="flex items-center gap-2 rounded-lg bg-[var(--color-brand-solid)] px-6 py-3 font-bold text-slate-900 hover:bg-[var(--brand-500)]"
           >
             <Calculator className="h-4 w-4" />
             계산하기
@@ -659,8 +660,11 @@ export default function HolidayPayCalculator() {
     return (
       <div>
         <StepHeader current={5} />
-        <div className="rounded-2xl border-2 border-yellow-400 bg-gradient-to-br from-amber-50 to-yellow-100 p-6">
-          <div className="mb-4 flex items-center gap-2 text-sm font-semibold" style={{ color: '#92400e' }}>
+        {/* ★ 이 결과 카드는 배경 그라디언트가 라·다 고정 라이트다(안쪽 텍스트도 전부 라이트 전제).
+            그래서 테두리·잉크는 테마를 타는 역할 토큰이 아니라 값이 고정된 램프 토큰으로 간다.
+            US-009에서 안쪽 slate 텍스트를 토큰화할 때는 이 그라디언트 배경도 같은 커밋에서 바꿔야 한다. */}
+        <div className="rounded-2xl border-2 border-[var(--brand-400)] bg-gradient-to-br from-amber-50 to-yellow-100 p-6">
+          <div className="mb-4 flex items-center gap-2 text-sm font-semibold" style={{ color: 'var(--brand-800)' }}>
             <Calculator className="h-4 w-4" />
             계산 결과
           </div>
@@ -756,7 +760,7 @@ export default function HolidayPayCalculator() {
         <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-4">
           <button
             onClick={handleKakaoShare}
-            className="flex items-center justify-center gap-2 rounded-lg bg-yellow-300 px-4 py-3 font-semibold text-slate-900 hover:bg-yellow-400"
+            className="flex items-center justify-center gap-2 rounded-lg bg-[var(--brand-300)] px-4 py-3 font-semibold text-slate-900 hover:bg-[var(--color-brand-solid)]"
             title="카카오톡 공유 (Kakao SDK)"
           >
             <MessageCircle className="h-4 w-4" />

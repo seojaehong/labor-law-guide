@@ -52,7 +52,7 @@ function StepHeader({ current }: { current: number }) {
             className="flex h-6 w-6 items-center justify-center rounded-full font-semibold"
             style={
               i + 1 < current
-                ? { backgroundColor: '#facc15', color: '#fff' }
+                ? { backgroundColor: 'var(--color-brand-solid)', color: '#191f28' }
                 : i + 1 === current
                   ? { backgroundColor: 'var(--color-text-primary)', color: 'var(--color-bg-primary)' }
                   : { backgroundColor: 'var(--color-border)', color: 'var(--color-text-tertiary)' }
@@ -111,7 +111,7 @@ function Field({
 }
 
 const inputClass =
-  'w-full rounded-lg border px-3 py-2 text-base focus:border-yellow-400 focus:outline-none focus:ring-2 focus:ring-yellow-200';
+  'w-full rounded-lg border px-3 py-2 text-base focus:border-[var(--color-accent)] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]/20';
 const inputStyle: React.CSSProperties = {
   borderColor: 'var(--color-border)',
   backgroundColor: 'var(--color-bg-surface)',
@@ -182,11 +182,13 @@ function Choice<T extends string>({
             type="button"
             onClick={() => onChange(o.value)}
             className={`rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
-              active ? 'border-yellow-400 bg-yellow-50' : 'hover:border-slate-400'
+              active
+                ? 'border-[var(--color-brand-border)] bg-[var(--color-brand-surface)]'
+                : 'hover:border-slate-400'
             }`}
             style={
               active
-                ? { color: '#854d0e' }
+                ? { color: 'var(--color-brand-ink)' }
                 : { borderColor: 'var(--color-border)', color: 'var(--color-text-secondary)' }
             }
           >
@@ -212,7 +214,9 @@ function CheckRow({
   return (
     <label
       className={`flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition-colors ${
-        checked ? 'border-yellow-400 bg-yellow-50' : 'hover:border-slate-400'
+        checked
+          ? 'border-[var(--color-brand-border)] bg-[var(--color-brand-surface)]'
+          : 'hover:border-slate-400'
       }`}
       style={checked ? undefined : { borderColor: 'var(--color-border)' }}
     >
@@ -220,7 +224,7 @@ function CheckRow({
         type="checkbox"
         checked={checked}
         onChange={(e) => onChange(e.target.checked)}
-        className="mt-0.5 h-4 w-4 accent-yellow-500"
+        className="mt-0.5 h-4 w-4 accent-[var(--brand-500)]"
       />
       <span>
         <span className="block text-sm font-medium" style={{ color: 'var(--color-text-primary)' }}>
@@ -511,7 +515,7 @@ export default function ContractCheckClient() {
               ))}
               <button
                 type="button"
-                className="text-sm font-semibold text-yellow-700 hover:underline"
+                className="text-sm font-semibold text-[var(--color-brand-ink)] hover:underline"
                 onClick={() => patch({ variants: [...form.variants, { perWeek: '', start: '', end: '' }] })}
               >
                 + 근무 형태 추가
@@ -571,7 +575,7 @@ export default function ContractCheckClient() {
               ))}
               <button
                 type="button"
-                className="text-sm font-semibold text-yellow-700 hover:underline"
+                className="text-sm font-semibold text-[var(--color-brand-ink)] hover:underline"
                 onClick={() => patch({ daily: [...form.daily, { day: '', start: '', end: '' }] })}
               >
                 + 근로일 추가
@@ -757,7 +761,7 @@ export default function ContractCheckClient() {
           <div className="print-hide mt-6 flex flex-col gap-3 sm:flex-row">
             <Link
               href="/contact"
-              className="flex-1 rounded-lg bg-yellow-400 px-5 py-3 text-center text-sm font-bold text-slate-900 hover:bg-yellow-300"
+              className="flex-1 rounded-lg bg-[var(--color-brand-solid)] px-5 py-3 text-center text-sm font-bold text-slate-900 hover:bg-[var(--brand-300)]"
             >
               전문가에게 계약서 검토 요청
             </Link>
@@ -797,7 +801,7 @@ export default function ContractCheckClient() {
           <button
             type="button"
             onClick={() => setStep(step + 1)}
-            className="rounded-lg bg-yellow-400 px-5 py-2 text-sm font-bold text-slate-900 hover:bg-yellow-300"
+            className="rounded-lg bg-[var(--color-brand-solid)] px-5 py-2 text-sm font-bold text-slate-900 hover:bg-[var(--brand-300)]"
           >
             다음
           </button>
@@ -806,7 +810,7 @@ export default function ContractCheckClient() {
           <button
             type="button"
             onClick={runCheck}
-            className="rounded-lg bg-yellow-400 px-5 py-2 text-sm font-bold text-slate-900 hover:bg-yellow-300"
+            className="rounded-lg bg-[var(--color-brand-solid)] px-5 py-2 text-sm font-bold text-slate-900 hover:bg-[var(--brand-300)]"
           >
             결과 보기
           </button>

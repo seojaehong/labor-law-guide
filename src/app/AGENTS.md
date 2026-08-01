@@ -57,6 +57,26 @@ CSS·인라인 양쪽이 0이면 렌더는 정의상 안 바뀐다. 값이 실�
 `grep -o -- "--<이름>:[^;]*" .next/static/chunks/*.css`로 확인한다(다크 rgba는 `#facc1529` 처럼
 8자리 hex로 축약돼 나오므로 `rgba(`로 grep하면 안 잡힌다).
 
+### 호출부는 임의값 문법으로 토큰을 쓴다 — 생성 확인된 프리픽스 목록
+역할 토큰(`--color-brand-*` 등)은 `@theme`에 없어서 유틸 클래스가 없다. 호출부에서는 임의값 문법을 쓰고,
+**새 프리픽스를 처음 쓸 때마다 빌드 산출물에서 규칙 생성을 확인**한다(안 생기면 조용히 무시된다 — `border-border` 사고).
+
+```sh
+npm run build
+python3 -c "import re;css=open('.next/static/chunks/<hash>.css',encoding='utf-8').read();\
+print([ (s,b) for s,b in re.findall(r'([^{}]+)\{([^{}]*)\}',css) if '--color-brand' in b and '\\\\[' in s ])"
+```
+grep으로 찾을 때는 선택자가 `.bg-\[var\(--x\)\]` 처럼 **전부 백슬래시 이스케이프**돼 있다는 걸 기억할 것.
+
+생성 확인 완료(US-003·US-004): `bg-` `text-` `border-` `hover:bg-` `hover:border-` `focus:border-`
+`accent-`(→`accent-color`) `focus:ring-`(→`--tw-ring-color`) + 알파 `/20`(→`color-mix`).
+
+★ **인라인 `style`은 어떤 유틸보다 세다.** `style={{ borderColor: ... }}`를 가진 input에 `focus:border-*`를
+붙여도 **절대 발화하지 않는다**(contract-check `inputStyle`, HolidayPayCalculator `NumInput`이 이 상태 —
+노랑이든 파랑이든 원래부터 죽어 있었다). 포커스 표시는 `focus:ring-*`가 담당한다. 포커스 링 표준은
+`focus:border-[var(--color-accent)] focus:ring-2 focus:ring-[var(--color-accent)]/20`
+(`DatabaseClient.tsx:334`가 정본). `--color-accent-light`(=blue-50 `#e8f3ff`)는 **링에 쓰지 말 것** — 흰 배경 대비 1.1:1로 안 보인다.
+
 ## 테마 축: layout.tsx ↔ ThemeToggle.tsx 는 한 몸이다
 - 축은 `document.documentElement`의 `.dark` 클래스, localStorage 키는 `'theme'`.
 - 판정식 `saved === 'dark' || (!saved && prefersDark)` 이 **두 곳에 중복 존재**한다:
