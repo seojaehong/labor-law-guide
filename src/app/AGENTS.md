@@ -349,3 +349,19 @@ prose-blockquote:… prose-code:…`를 20여 개 달고 있지만 **`@tailwindc
   빈 `<p>`까지 전부 같은 값이 나온다. `page.evaluate`로 **후보 처방을 하나씩 켜 보고 `docOver`가 0이 되는 조합**을 찾는다.
 - ★ `overflow-wrap: break-word`는 **min-content를 줄이지 않는다**(줄이는 건 `anywhere`뿐).
   `word-break: keep-all`(US-011이 `body`로 승격)과 `min-width: auto`가 만나면 컨테이너가 최장 토큰만큼 넓어진다.
+
+## `layout.tsx` `<head>` 메타 — 어느 경로로 나오는지 먼저 확인한다
+
+`theme-color`·`viewport`는 이 레포에서 Next의 `metadata`/`viewport` **export가 아니라 `layout.tsx` `<head>`의 raw JSX**로
+나온다(`export const metadata`에는 `themeColor` 키가 없다). 고칠 때 **grep으로 출처를 먼저 확인**할 것 —
+`viewport.themeColor` 배열 API로 옮기면서 raw 태그를 안 지우면 **같은 메타가 2벌** 렌더된다.
+검증은 빌드 산출물이 제일 싸다: `grep -o 'theme-color[^>]*' .next/server/app/<정적라우트>.html` +
+`grep -c 'name="theme-color"'`. (RSC flight 페이로드에도 문자열이 보이지만 그건 `\"name\":\"theme-color\"` 형태라
+`<head>` 태그 카운트에는 안 잡힌다 — 헷갈리지 말 것.)
+
+- ★ **`theme-color`는 리터럴 색만 받는다.** `var(--color-bg-surface)`는 조용히 무시된다 → **토큰화 대상이 아니다.**
+  타입체크·lint·빌드 어디에도 안 걸린다(canvas `ctx.fillStyle`과 같은 부류).
+- ★ **`media="(prefers-color-scheme: …)"`는 OS 설정만 탄다 — 이 사이트의 테마 축이 아니다.**
+  축은 `.dark` 클래스 + localStorage(`ThemeToggle.tsx`)이므로 **OS 라이트 + 사이트 토글 다크** 방문자는
+  브라우저 크롬만 라이트로 남는다. 이건 `media` 방식의 구조적 한계이지 버그가 아니다.
+  없애려면 토글이 런타임에 meta 태그를 갱신해야 한다.
