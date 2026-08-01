@@ -280,6 +280,9 @@
     radial-gradient(ellipse 80% 60% at 20% 30%, rgba(49, 130, 246, 0.08) 0%, transparent 50%),
     radial-gradient(ellipse 60% 80% at 80% 20%, rgba(99, 102, 241, 0.06) 0%, transparent 50%),
     radial-gradient(ellipse 70% 50% at 50% 80%, rgba(16, 185, 129, 0.04) 0%, transparent 50%);
+  /* 라이트 body(§9 P4-4)에서 제거한 fixed를 여기로 옮겼다 — 원래 base body 선언을 상속받고 있었다.
+     다크 오로라 존치 여부는 DESIGN.md §10-8 미결이므로 렌더는 종전 그대로 유지한다. */
+  background-attachment: fixed;
 }
 
 .dark .glass-nav {
@@ -334,11 +337,6 @@
 
   body {
     background-color: var(--color-bg-primary);
-    background-image:
-      radial-gradient(ellipse 80% 60% at 20% 30%, rgba(49, 130, 246, 0.06) 0%, transparent 50%),
-      radial-gradient(ellipse 60% 80% at 80% 20%, rgba(99, 102, 241, 0.04) 0%, transparent 50%),
-      radial-gradient(ellipse 70% 50% at 50% 80%, rgba(16, 185, 129, 0.03) 0%, transparent 50%);
-    background-attachment: fixed;
     font-family: var(--font-sans);
     color: var(--color-text-primary);
   }
