@@ -440,6 +440,56 @@
     color: var(--color-text-primary);
   }
 
+  /* §6.8 읽는 화면의 조판 — .blog-content와 같은 규격을 .content-body에도 준다.
+     두 산문 컨테이너가 다른 조판을 쓰면 같은 사이트에서 문서마다 인상이 갈린다. */
+  .content-body p {
+    margin-bottom: 1.25em;
+  }
+
+  .content-body ul,
+  .content-body ol {
+    margin: 0.8em 0 1em;
+    padding-left: 1.4em;
+  }
+
+  .content-body ul {
+    list-style: disc;
+  }
+
+  .content-body ol {
+    list-style: decimal;
+  }
+
+  .content-body li {
+    margin-bottom: 0.4em;
+    display: list-item;
+  }
+
+  .content-body li::marker {
+    color: var(--color-text-secondary);
+  }
+
+  /* 본문 링크 — 근거는 .blog-content .blog-link와 동일(§6.8).
+     색만으로 구분되는 링크는 WCAG 1.4.1·1.4.3을 동시에 어기므로 밑줄은 상시다. */
+  .content-body a {
+    color: var(--color-accent-ink);
+    text-decoration: underline;
+    text-underline-offset: 0.2em;
+    text-decoration-thickness: 1px;
+  }
+
+  .content-body a:hover {
+    color: var(--color-accent-ink-hover);
+  }
+
+  /* §6.8 — h5·h6는 만들지 않는다(4단계로 안 되면 문서를 쪼갠다).
+     이미 마크업에 있다면 h4와 같은 크기로 눌러 위계가 늘어난 것처럼 보이지 않게 한다. */
+  .content-body h5,
+  .content-body h6 {
+    font-size: var(--text-base);
+    font-weight: 600;
+  }
+
   /* Liquid Glass System */
   .glass-nav {
     background: rgba(255, 255, 255, 0.72);
