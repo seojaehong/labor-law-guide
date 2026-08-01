@@ -313,9 +313,9 @@ export default function ContractCheckClient() {
       >
         <ShieldCheck className="mt-0.5 h-4 w-4 flex-shrink-0 text-green-600" />
         <span className="leading-relaxed">
-          입력 내용은 브라우저를 떠나지 않습니다 — 서버 전송·저장 없이 이 화면 안에서만 계산합니다.
+          입력하신 내용은 저장되지 않습니다. 이 화면에서 계산에만 쓰이고, 창을 닫으면 사라집니다.
           <br />
-          사진을 올릴 때만 인식(분석) 목적으로 서버를 거치며, 사진과 인식 결과는 저장하지 않습니다.
+          사진은 글자를 읽어내는 동안에만 서버를 거치고, 사진과 읽어낸 결과 모두 남기지 않습니다.
         </span>
       </div>
 

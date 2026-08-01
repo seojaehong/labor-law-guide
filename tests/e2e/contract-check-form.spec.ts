@@ -5,7 +5,7 @@ test('4스텝 폼을 진행하면 결과 화면에 도달한다', async ({ page 
   await page.goto('/tools/contract-check');
 
   await expect(page.getByRole('heading', { name: '근로계약서 자가진단' })).toBeVisible();
-  await expect(page.getByText('입력 내용은 브라우저를 떠나지 않습니다')).toBeVisible();
+  await expect(page.getByText('입력하신 내용은 저장되지 않습니다')).toBeVisible();
 
   // ① 기본
   await page.getByRole('button', { name: '기간 정함 없음' }).click();

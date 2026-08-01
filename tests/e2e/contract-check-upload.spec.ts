@@ -18,8 +18,8 @@ test('업로드 카드가 보이고, 키가 없는 환경에서는 501 안내 �
   await expect(page.getByText('계약서 사진으로 자동 입력')).toBeVisible();
   await expect(page.getByRole('button', { name: '사진 선택' })).toBeVisible();
   // 개인정보 고지 갱신 — 폼은 브라우저 내, 사진만 분석 목적 전송·무저장
-  await expect(page.getByText('입력 내용은 브라우저를 떠나지 않습니다')).toBeVisible();
-  await expect(page.getByText(/사진을 올릴 때만 인식\(분석\) 목적으로 서버를 거치며/)).toBeVisible();
+  await expect(page.getByText('입력하신 내용은 저장되지 않습니다')).toBeVisible();
+  await expect(page.getByText(/사진은 글자를 읽어내는 동안에만 서버를 거치고/)).toBeVisible();
 
   await upload(page);
 

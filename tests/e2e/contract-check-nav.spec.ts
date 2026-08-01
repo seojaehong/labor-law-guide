@@ -10,5 +10,5 @@ test('/tools 인덱스 카드로 근로계약서 자가진단에 진입한다', 
   await card.click();
   await expect(page).toHaveURL(/\/tools\/contract-check$/);
   await expect(page.getByRole('heading', { name: '근로계약서 자가진단' })).toBeVisible();
-  await expect(page.getByText('입력 내용은 브라우저를 떠나지 않습니다')).toBeVisible();
+  await expect(page.getByText('입력하신 내용은 저장되지 않습니다')).toBeVisible();
 });
