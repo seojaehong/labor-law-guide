@@ -365,3 +365,22 @@ prose-blockquote:… prose-code:…`를 20여 개 달고 있지만 **`@tailwindc
   축은 `.dark` 클래스 + localStorage(`ThemeToggle.tsx`)이므로 **OS 라이트 + 사이트 토글 다크** 방문자는
   브라우저 크롬만 라이트로 남는다. 이건 `media` 방식의 구조적 한계이지 버그가 아니다.
   없애려면 토글이 런타임에 meta 태그를 갱신해야 한다.
+
+## ★★ 램프 토큰(`--blue-*`)을 잉크로 직접 참조하면 다크가 조용히 깨진다 (US-016 실측)
+
+`.dark`는 파랑 램프 중 **`--blue-50`만 알파 틴트로 재정의한다**(`globals.css:200`
+`--blue-50: rgba(49,130,246,.12)`). `--blue-200`·`--blue-600`·`--blue-700`은 **재정의가 없어 라이트 값 그대로**다.
+
+그래서 호출부가 `backgroundColor: var(--blue-50)` + `color: var(--blue-600|700)` 쌍을 직접 쓰면
+다크에서 **배경만 어두워지고 잉크는 라이트 파랑으로 남는다** → 실측 **2.03~3.83:1**(AA 미달).
+라이트에서는 같은 쌍이 4.82~5.87:1로 멀쩡해서 **라이트만 보면 절대 안 보인다.**
+
+- 실제 사례(US-016 시점): `BetaBanner:38-40`(전 라우트) · `contact:136,219-220` · `subsidy:117-118` ·
+  `ArticleCard:13` · `components/CaseCard:20` · `StepDiagram:8` · `ComparisonTable:17` · `HomeClient:135` ·
+  `HolidayPayCalculator:450` · `cases/[id]` · `faq` · `database/_components/*` · `ChatInterface`.
+- **규칙: 잉크·전경은 역할 토큰으로 쓴다** — `--color-info` / `--color-info-ink` / `--color-accent-ink`.
+  역할 토큰은 `.dark`에 전부 반전값이 있다(`--color-info: var(--blue-300)` 등). 램프 직접 참조는 **배경 전용**으로 본다.
+- 같은 함정의 다른 얼굴: `--color-accent`는 `.dark`에 **선언 자체가 없다** — DESIGN.md §3.3 표는 다크 `#4593fc`라고
+  적지만 실측은 라·다 모두 `#3182f6`이다. 문서를 근거로 "다크는 알아서 밝아진다"고 가정하지 말 것.
+- 판별법: `grep -rn -- "--blue-[2-9]00" src/ --include=*.tsx` 로 잉크 참조를 찾고,
+  `grep -n -- "--blue-" src/app/globals.css` 의 `.dark` 블록(현 200행 부근)에 그 단계가 있는지 대조한다.
