@@ -187,7 +187,7 @@ function Choice<T extends string>({
             className={`rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
               active
                 ? 'border-[var(--color-brand-border)] bg-[var(--color-brand-surface)]'
-                : 'hover:border-slate-400'
+                : 'hover:border-[var(--grey-400)]'
             }`}
             style={
               active
@@ -219,7 +219,7 @@ function CheckRow({
       className={`flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition-colors ${
         checked
           ? 'border-[var(--color-brand-border)] bg-[var(--color-brand-surface)]'
-          : 'hover:border-slate-400'
+          : 'hover:border-[var(--grey-400)]'
       }`}
       style={checked ? undefined : { borderColor: 'var(--color-border)' }}
     >
@@ -313,10 +313,10 @@ export default function ContractCheckClient() {
     ) ?? null;
 
   return (
-    <div className="rounded-xl border-2 border-slate-200 p-5">
+    <div className="rounded-xl border-2 border-[var(--color-border)] p-5">
       <div
-        className="mb-5 flex items-start gap-2 rounded-lg bg-slate-50 px-3 py-2 text-xs dark:bg-slate-800"
-        style={{ color: 'var(--color-text-secondary)' }}
+        className="mb-5 flex items-start gap-2 rounded-lg bg-[var(--grey-100)] px-3 py-2 text-xs"
+        style={{ color: 'var(--grey-700)' }}
       >
         <ShieldCheck className="mt-0.5 h-4 w-4 flex-shrink-0 text-green-600" />
         <span className="leading-relaxed">
@@ -746,8 +746,8 @@ export default function ContractCheckClient() {
                 )}
                 {amendMap[f.rule_code] && (
                   <p
-                    className="mt-2 rounded-md bg-slate-50 p-2 text-xs leading-relaxed dark:bg-slate-800"
-                    style={{ color: 'var(--color-text-secondary)' }}
+                    className="mt-2 rounded-md bg-[var(--grey-100)] p-2 text-xs leading-relaxed"
+                    style={{ color: 'var(--grey-700)' }}
                   >
                     <span className="font-semibold" style={{ color: 'var(--color-text-primary)' }}>
                       수정 방향:{' '}
@@ -762,14 +762,14 @@ export default function ContractCheckClient() {
           <div className="print-hide mt-6 flex flex-col gap-3 sm:flex-row">
             <Link
               href="/contact"
-              className="flex-1 rounded-lg bg-[var(--color-brand-solid)] px-5 py-3 text-center text-sm font-bold text-slate-900 hover:bg-[var(--brand-300)]"
+              className="flex-1 rounded-lg bg-[var(--color-brand-solid)] px-5 py-3 text-center text-sm font-bold text-[#191f28] hover:bg-[var(--brand-300)]"
             >
               전문가에게 계약서 검토 요청
             </Link>
             <button
               type="button"
               onClick={() => window.print()}
-              className="flex items-center justify-center gap-2 rounded-lg border px-5 py-3 text-sm font-semibold hover:border-slate-400"
+              className="flex items-center justify-center gap-2 rounded-lg border px-5 py-3 text-sm font-semibold hover:border-[var(--grey-400)]"
               style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-secondary)' }}
             >
               <Printer className="h-4 w-4" />
@@ -790,7 +790,7 @@ export default function ContractCheckClient() {
           <button
             type="button"
             onClick={() => setStep(step - 1)}
-            className="rounded-lg border px-4 py-2 text-sm font-semibold hover:border-slate-400"
+            className="rounded-lg border px-4 py-2 text-sm font-semibold hover:border-[var(--grey-400)]"
             style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-secondary)' }}
           >
             이전
@@ -802,7 +802,7 @@ export default function ContractCheckClient() {
           <button
             type="button"
             onClick={() => setStep(step + 1)}
-            className="rounded-lg bg-[var(--color-brand-solid)] px-5 py-2 text-sm font-bold text-slate-900 hover:bg-[var(--brand-300)]"
+            className="rounded-lg bg-[var(--color-brand-solid)] px-5 py-2 text-sm font-bold text-[#191f28] hover:bg-[var(--brand-300)]"
           >
             다음
           </button>
@@ -811,7 +811,7 @@ export default function ContractCheckClient() {
           <button
             type="button"
             onClick={runCheck}
-            className="rounded-lg bg-[var(--color-brand-solid)] px-5 py-2 text-sm font-bold text-slate-900 hover:bg-[var(--brand-300)]"
+            className="rounded-lg bg-[var(--color-brand-solid)] px-5 py-2 text-sm font-bold text-[#191f28] hover:bg-[var(--brand-300)]"
           >
             결과 보기
           </button>
@@ -820,7 +820,7 @@ export default function ContractCheckClient() {
           <button
             type="button"
             onClick={restart}
-            className="rounded-lg border px-4 py-2 text-sm font-semibold hover:border-slate-400"
+            className="rounded-lg border px-4 py-2 text-sm font-semibold hover:border-[var(--grey-400)]"
             style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-secondary)' }}
           >
             다시 입력하기

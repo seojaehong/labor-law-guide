@@ -80,10 +80,12 @@ export default function ToolsIndexPage() {
                       {t.title}
                     </h2>
                     <span
+                      // 노랑 램프는 라·다 동일하므로 그 위 잉크는 고정 #191f28이다(globals.css §3.4 주석).
+                      // --color-text-primary / --grey-900은 다크에서 뒤집혀 노랑 위 흰 글씨가 된다.
                       className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${
                         t.badge === 'NEW'
-                          ? 'bg-[var(--brand-300)] text-slate-900'
-                          : 'bg-slate-200 text-slate-700'
+                          ? 'bg-[var(--brand-300)] text-[#191f28]'
+                          : 'bg-[var(--grey-100)] text-[var(--grey-700)]'
                       }`}
                     >
                       {t.badge}
@@ -112,8 +114,8 @@ export default function ToolsIndexPage() {
         })}
       </div>
 
-      {/* --color-text-tertiary(2.01:1)는 본문 텍스트 금지(§7.3) — secondary로 올린다 */}
-      <p className="mt-8 text-xs" style={{ color: 'var(--color-text-secondary)' }}>
+      {/* §3.2 규율 2 — 페이지 바탕 위 --text-xs는 --grey-700이다(secondary는 4.42:1로 미달) */}
+      <p className="mt-8 text-xs" style={{ color: 'var(--grey-700)' }}>
         본 계산기들은 참고용입니다. 분쟁 발생 시 노무사 상담을 권장합니다.
       </p>
     </div>

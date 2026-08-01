@@ -23,7 +23,7 @@ export default function ContractCheckPage() {
   return (
     <div className="mx-auto max-w-[820px] px-5 py-10">
       <div className="mb-6">
-        <Link href="/tools" className="text-sm text-slate-500 hover:text-slate-700">
+        <Link href="/tools" className="text-sm text-[var(--grey-700)] hover:text-[var(--color-text-primary)]">
           ← 노무 계산기
         </Link>
       </div>
@@ -37,7 +37,8 @@ export default function ContractCheckPage() {
 
       <ContractCheckClient />
 
-      <p className="mt-6 text-xs" style={{ color: '#94a3b8' }}>
+      {/* §3.2 규율 2 — 페이지 바탕 위 --text-xs는 --grey-700이다(tertiary 2.01:1·secondary 4.42:1 모두 미달) */}
+      <p className="mt-6 text-xs" style={{ color: 'var(--grey-700)' }}>
         본 도구는 참고용 간이 점검이며 법률자문이 아닙니다. 실제 분쟁·계약서 수정은 노무사 상담을 권장합니다.
       </p>
     </div>

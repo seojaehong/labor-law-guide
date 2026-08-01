@@ -7,7 +7,7 @@ export default function HolidayPayPage() {
       <div className="mb-6">
         <Link
           href="/blog"
-          className="text-sm text-slate-500 hover:text-slate-700"
+          className="text-sm text-[var(--grey-700)] hover:text-[var(--color-text-primary)]"
         >
           ← 블로그
         </Link>
@@ -26,11 +26,11 @@ export default function HolidayPayPage() {
 
       <HolidayPayCalculator />
 
-      <div className="mt-10 rounded-xl bg-slate-50 dark:bg-slate-800 p-5 text-sm leading-relaxed">
-        <div className="mb-2 font-semibold text-slate-700 dark:text-slate-200">
+      <div className="mt-10 rounded-xl bg-[var(--grey-100)] p-5 text-sm leading-relaxed">
+        <div className="mb-2 font-semibold text-[var(--color-text-primary)]">
           📚 더 자세히 알아보기
         </div>
-        <ul className="space-y-1.5 text-slate-600 dark:text-slate-300">
+        <ul className="space-y-1.5 text-[var(--grey-700)]">
           <li>
             <Link href="/blog/guide-20260428-04" className="text-yellow-700 hover:underline">
               [실무가이드] 노동절 수당 — 정규직·파트·일용직 사례별 완전 정복
@@ -44,7 +44,8 @@ export default function HolidayPayPage() {
         </ul>
       </div>
 
-      <p className="mt-6 text-xs" style={{ color: '#94a3b8' }}>
+      {/* §3.2 규율 2 — 페이지 바탕 위 --text-xs는 --grey-700이다(tertiary 2.01:1·secondary 4.42:1 모두 미달) */}
+      <p className="mt-6 text-xs" style={{ color: 'var(--grey-700)' }}>
         본 계산기는 참고용입니다. 정기상여·복지수당 등 통상임금 항목 분류는 사업장별 임금구성에 따라 달라질 수 있으며,
         분쟁 발생 시 노무사 상담을 권장합니다.
       </p>
