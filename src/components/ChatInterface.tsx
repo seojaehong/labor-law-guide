@@ -324,7 +324,7 @@ export default function ChatInterface({ injectedQuestion }: { injectedQuestion?:
   }
 
   return (
-    <div className="flex h-[600px] flex-col rounded-2xl border" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }}>
+    <div className="flex h-[600px] flex-col rounded-xl border" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }}>
       {/* 확인된 사용자 상황 띠 */}
       {Object.keys(profile).length > 0 && (
         <div

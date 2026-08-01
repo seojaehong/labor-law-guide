@@ -440,7 +440,7 @@ export default function HolidayPayCalculator() {
                 setSiteSize(opt.key);
                 setStep('holiday');
               }}
-              className="rounded-xl border-2 p-5 text-left transition-all hover:shadow-lg"
+              className="rounded-xl border p-5 text-left transition-all hover:shadow-lg"
               style={{
                 borderColor: siteSize === opt.key ? 'var(--color-brand-border)' : 'var(--color-border)',
                 backgroundColor: siteSize === opt.key ? 'var(--color-brand-surface)' : 'var(--color-bg-surface)',
@@ -477,7 +477,7 @@ export default function HolidayPayCalculator() {
                 setHolidayKind(opt.key);
                 setStep('worker');
               }}
-              className="rounded-xl border-2 p-5 text-left transition-all hover:shadow-lg"
+              className="rounded-xl border p-5 text-left transition-all hover:shadow-lg"
               style={{
                 borderColor: holidayKind === opt.key ? 'var(--color-brand-border)' : 'var(--color-border)',
                 backgroundColor: holidayKind === opt.key ? 'var(--color-brand-surface)' : 'var(--color-bg-surface)',
@@ -518,7 +518,7 @@ export default function HolidayPayCalculator() {
                 setWorkerType(opt.key);
                 setStep('input');
               }}
-              className="rounded-xl border-2 p-5 text-left transition-all hover:shadow-lg"
+              className="rounded-xl border p-5 text-left transition-all hover:shadow-lg"
               style={{
                 borderColor: workerType === opt.key ? 'var(--color-brand-border)' : 'var(--color-border)',
                 backgroundColor: workerType === opt.key ? 'var(--color-brand-surface)' : 'var(--color-bg-surface)',
@@ -549,7 +549,7 @@ export default function HolidayPayCalculator() {
         </p>
 
         <div
-          className="space-y-5 rounded-xl border-2 p-5"
+          className="space-y-5 rounded-xl border p-5"
           style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }}
         >
           {workerType === 'monthly' && (
@@ -648,7 +648,7 @@ export default function HolidayPayCalculator() {
           </button>
           <button
             onClick={calculate}
-            className="flex items-center gap-2 rounded-lg bg-[var(--color-brand-solid)] px-6 py-3 font-bold text-[#191f28] hover:bg-[var(--brand-500)]"
+            className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-md px-5 py-2.5 text-[15px] font-semibold transition-[background-color,transform] hover:-translate-y-px bg-[var(--color-brand-solid)] text-[#191f28] hover:bg-[var(--brand-500)]"
           >
             <Calculator className="h-4 w-4" />
             계산하기
@@ -669,7 +669,7 @@ export default function HolidayPayCalculator() {
             --color-brand-surface는 라이트에서 #fef9c3 = 종전 그라디언트 끝 색이라 변화가 작고,
             다크에서는 rgba(250,204,21,.16) 틴트가 된다. 테두리·잉크도 램프에서 역할 토큰으로 승격.
             안쪽 color-mix(--color-bg-surface …) 박스들은 이 전환으로 자동으로 맞는다. */}
-        <div className="rounded-2xl border-2 border-[var(--color-brand-border)] bg-[var(--color-brand-surface)] p-6">
+        <div className="rounded-xl border border-[var(--color-brand-border)] bg-[var(--color-brand-surface)] p-6">
           <div className="mb-4 flex items-center gap-2 text-sm font-semibold" style={{ color: 'var(--color-brand-ink)' }}>
             <Calculator className="h-4 w-4" />
             계산 결과

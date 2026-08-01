@@ -235,7 +235,7 @@ export default function NewsClient({ initialNews, initialTotalCount, initialBrie
 
       {/* 노동 브리핑 */}
       {briefing && (
-        <div className="mt-6 rounded-2xl border p-5" style={{ borderColor: 'var(--color-accent)', backgroundColor: 'color-mix(in srgb, var(--color-accent) 5%, var(--color-bg-surface))' }}>
+        <div className="mt-6 rounded-xl border p-5" style={{ borderColor: 'var(--color-accent)', backgroundColor: 'color-mix(in srgb, var(--color-accent) 5%, var(--color-bg-surface))' }}>
           <div className="flex items-center justify-between mb-1">
             <div className="flex items-center gap-2">
               <Sparkles size={18} style={{ color: 'var(--color-accent)' }} />

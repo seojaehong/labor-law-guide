@@ -305,7 +305,7 @@ function DatabaseContent({ initialTotalCases, initialTotalAdmin, initialTotalNlr
   };
 
   return (
-    <section className="mt-8 rounded-3xl border p-5 md:p-7" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }}>
+    <section className="mt-8 rounded-xl border p-5 md:p-7" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }}>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="text-xl font-bold" style={{ color: 'var(--color-text-primary)' }}>실시간 검색</h2>

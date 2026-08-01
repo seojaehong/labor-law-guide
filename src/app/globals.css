@@ -101,6 +101,11 @@
   --color-accent-ink: var(--blue-600);
   --color-accent-ink-hover: var(--blue-700);
 
+  /* primary 버튼의 잉크 — DESIGN.md §6.2 표가 지정한 두 값(라이트 #ffffff 5.41:1 / 다크 #0f1117 6.14:1).
+     기존 토큰으로는 이 조합이 안 나온다: --color-bg-surface는 다크가 #191f28이고
+     --color-bg-primary는 라이트가 #f9fafb다. 흰색을 고정하면 다크 accent-ink(#4593fc) 위 2.45:1이 된다(§3.3 ★★). */
+  --color-on-accent-ink: #ffffff;
+
   /* 의미색 — DESIGN.md §3.3 / A.1. 4역할로 나뉜다:
      전경(솔리드·아이콘·배너 좌측선) / -ink(틴트 위 텍스트) / -bg(틴트 배경) / -border(배너 보더).
      ★ 배지·배너의 텍스트는 항상 -ink다(§6.4). 전경색을 틴트 위 텍스트로 쓰면 AA에 미달한다.
@@ -226,6 +231,9 @@
      램프 참조가 그대로 #4593fc / #64a8ff로 풀린다. */
   --color-accent-ink: var(--blue-400);
   --color-accent-ink-hover: var(--blue-300);
+
+  /* primary 버튼 잉크 다크 — §6.2. 밝아진 accent-ink 위에서는 잉크가 어두워진다. */
+  --color-on-accent-ink: #0f1117;
 
   /* 의미색 다크 — 전경·잉크는 밝은 단계로 뒤집고, 배경·보더는 불투명 hex 대신 알파 오버레이로 만든다(§3.3 / A.1).
      ★ 라이트의 "솔리드 위 흰 잉크" 규칙을 다크에 복사하지 말 것 — 다크 전경은 전부 밝은 단계라
@@ -595,11 +603,14 @@
     justify-content: center;
     margin-left: 8px;
     border-radius: 8px;
-    padding: 6px 16px;
-    font-size: var(--text-sm);
+    /* §6.2 primary 규격 — px-5 py-2.5 / min-height 44px / 15px·600.
+       배경이 --color-accent가 아니라 --color-accent-ink인 이유는 #3182f6 + 흰 잉크가 3.71:1이기 때문(§3.3 ★★). */
+    padding: 10px 20px;
+    min-height: 44px;
+    font-size: 15px;
     font-weight: 600;
-    color: #ffffff !important;
-    background-color: var(--color-accent);
+    color: var(--color-on-accent-ink) !important;
+    background-color: var(--color-accent-ink);
     transition: background-color var(--transition-fast) ease,
                 transform var(--transition-fast) ease;
     white-space: nowrap;
@@ -609,7 +620,7 @@
   }
 
   .nav-cta:hover {
-    background-color: var(--color-accent-hover) !important;
+    background-color: var(--color-accent-ink-hover) !important;
     transform: translateY(-1px);
   }
 

@@ -50,7 +50,7 @@ function SubtypeBadge({ subtype }: { subtype: string | null }) {
   if (!info) return null;
   return (
     <span
-      className="rounded-full px-2 py-0.5 text-[10px] font-medium"
+      className="rounded-full px-2 py-0.5 text-[length:var(--text-xs)] font-medium"
       style={{ backgroundColor: info.bg, color: info.text }}
     >
       {info.label}
@@ -62,7 +62,7 @@ function ArticleCard({ article }: { article: BlogArticle }) {
   return (
     <Link
       href={`/blog/${article.slug}`}
-      className="feature-card flex flex-col rounded-2xl border bg-[var(--color-bg-surface)] p-6 transition-shadow hover:shadow-md"
+      className="feature-card flex flex-col rounded-xl border bg-[var(--color-bg-surface)] p-6 transition-shadow hover:shadow-md"
       style={{ borderColor: 'var(--color-border)', boxShadow: 'var(--shadow-sm)' }}
     >
       <div className="flex items-center gap-2 mb-3">
@@ -140,7 +140,7 @@ function ArticleRow({ article }: { article: BlogArticle }) {
 
 function SkeletonCard() {
   return (
-    <div className="rounded-2xl border p-6 animate-pulse" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }}>
+    <div className="rounded-xl border p-6 animate-pulse" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }}>
       <div className="flex gap-2 mb-3">
         <div className="h-5 w-16 rounded-full" style={{ backgroundColor: 'var(--grey-100)' }} />
         <div className="h-5 w-20 rounded-full" style={{ backgroundColor: 'var(--grey-100)' }} />

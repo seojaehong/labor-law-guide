@@ -55,7 +55,7 @@ export default function StepDiagram({ steps }: { steps: Step[] }) {
                       </span>
                       {step.article && <span className="text-xs" style={{ color: 'var(--grey-400)' }}>{step.article}</span>}
                     </div>
-                    <h3 className="mt-1 font-bold" style={{ fontSize: 'var(--text-lg)', color: 'var(--grey-900)' }}>{step.title}</h3>
+                    <h3 className="mt-1 font-bold" style={{ fontSize: 'var(--text-lg)', color: 'var(--color-text-primary)' }}>{step.title}</h3>
                   </div>
                   {isOpen ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
                 </button>

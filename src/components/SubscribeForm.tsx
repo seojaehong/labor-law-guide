@@ -82,7 +82,7 @@ export default function SubscribeForm({ source, sourceSlug, variant = 'full' }: 
   return (
     <form
       onSubmit={handleSubmit}
-      className={`rounded-2xl border ${isCompact ? 'p-5' : 'p-6 sm:p-7'}`}
+      className={`rounded-xl border ${isCompact ? 'p-5' : 'p-6 sm:p-7'}`}
       style={{
         borderColor: isCompact ? 'var(--color-border)' : 'var(--color-accent)',
         borderWidth: isCompact ? '1px' : '1.5px',

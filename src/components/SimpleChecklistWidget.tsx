@@ -57,8 +57,8 @@ export default function SimpleChecklistWidget({ title, description, items, resul
   const levelIcons = { low: Shield, medium: AlertTriangle, high: ShieldCheck };
 
   return (
-    <div className="rounded-2xl border p-6" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }}>
-      <h3 className="mb-1 text-lg font-bold" style={{ color: 'var(--grey-900)' }}>{title}</h3>
+    <div className="rounded-xl border p-6" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }}>
+      <h3 className="mb-1 text-lg font-bold" style={{ color: 'var(--color-text-primary)' }}>{title}</h3>
       <p className="mb-2 text-sm" style={{ color: 'var(--grey-500)' }}>{description}</p>
 
       <div className="mb-6 flex items-center gap-3">
@@ -80,7 +80,7 @@ export default function SimpleChecklistWidget({ title, description, items, resul
                   <div className="flex-1">
                     <div className="flex items-center gap-2">
                       <span className="text-[15px]" style={{ color: 'var(--grey-900)' }}>{item.question}</span>
-                      <span className="shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-medium" style={{ backgroundColor: badge.bg, color: badge.text }}>{badge.label}</span>
+                      <span className="shrink-0 rounded-full px-1.5 py-0.5 text-[length:var(--text-xs)] font-medium" style={{ backgroundColor: badge.bg, color: badge.text }}>{badge.label}</span>
                     </div>
                     <div className="mt-0.5 text-xs" style={{ color: 'var(--grey-400)' }}>{item.helpText}</div>
                   </div>

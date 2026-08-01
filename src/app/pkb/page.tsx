@@ -164,7 +164,7 @@ export default function PkbPage() {
           </h2>
           <div className="space-y-3">
             {chunks.map((c, i) => (
-              <div key={c.id} className="rounded-lg border p-4 text-sm" style={{ borderColor: 'var(--color-border)' }}>
+              <div key={c.id} className="rounded-xl border p-4 text-sm" style={{ borderColor: 'var(--color-border)' }}>
                 <div className="flex items-center gap-2 mb-2 text-xs">
                   <span className="font-mono">[{i + 1}]</span>
                   <span className="rounded bg-muted px-1.5 py-0.5">{c.folder}</span>

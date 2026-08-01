@@ -137,7 +137,7 @@ export default function HomeClient({ totalCases, totalAdmin, totalNews, latestBl
             <Shield size={14} />
             2026.3.10. 시행
           </div>
-          <h1 className="mb-6 font-bold tracking-tight" style={{ fontSize: 'var(--text-hero)', lineHeight: 1.1, color: 'var(--grey-900)' }}>
+          <h1 className="t-hero mb-6" style={{ color: 'var(--color-text-primary)' }}>
             노란봉투법,
             <br />
             <span style={{ color: 'var(--color-accent)' }}>무엇이 달라졌나?</span>
@@ -152,22 +152,19 @@ export default function HomeClient({ totalCases, totalAdmin, totalNews, latestBl
           <div className="flex flex-col items-center gap-3 sm:flex-row sm:flex-wrap sm:justify-center">
             <Link
               href="/guide"
-              className="flex w-full items-center justify-center gap-2 rounded-lg px-6 py-3 font-medium text-white transition-transform hover:scale-105 sm:w-auto"
-              style={{ backgroundColor: 'var(--color-accent)' }}
+              className="w-full inline-flex min-h-[44px] items-center justify-center gap-2 rounded-md px-5 py-2.5 text-[15px] font-semibold transition-[background-color,transform] hover:-translate-y-px bg-[var(--color-accent-ink)] text-[var(--color-on-accent-ink)] hover:bg-[var(--color-accent-ink-hover)] sm:w-auto"
             >
               해석지침 보기 <ArrowRight size={16} />
             </Link>
             <Link
               href="/contact"
-              className="flex w-full items-center justify-center gap-2 rounded-lg border px-6 py-3 font-medium transition-transform hover:scale-105 sm:w-auto"
-              style={{ borderColor: 'var(--color-accent)', color: 'var(--color-accent)', backgroundColor: 'var(--color-bg-surface)' }}
+              className="w-full inline-flex min-h-[44px] items-center justify-center gap-2 rounded-md px-5 py-2.5 text-[15px] font-semibold transition-[background-color,transform] hover:-translate-y-px border border-[var(--color-border)] bg-[var(--color-bg-surface)] text-[var(--color-text-primary)] hover:bg-[var(--grey-100)] sm:w-auto"
             >
               전문가 상담 문의 <ArrowRight size={16} />
             </Link>
             <Link
               href="/ai"
-              className="flex w-full items-center justify-center gap-2 rounded-lg border px-6 py-3 font-medium transition-transform hover:scale-105 sm:w-auto"
-              style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-primary)' }}
+              className="w-full inline-flex min-h-[44px] items-center justify-center gap-2 rounded-md px-5 py-2.5 text-[15px] font-semibold transition-[background-color,transform] hover:-translate-y-px border border-[var(--color-border)] bg-[var(--color-bg-surface)] text-[var(--color-text-primary)] hover:bg-[var(--grey-100)] sm:w-auto"
             >
               <MessageSquare size={16} />
               AI에게 질문하기
@@ -206,14 +203,14 @@ export default function HomeClient({ totalCases, totalAdmin, totalNews, latestBl
       <section className="px-5 pb-16 sm:pb-20">
         <div className="mx-auto grid max-w-[1100px] gap-4 sm:gap-6 sm:grid-cols-2 md:grid-cols-3">
           {features.map((feature) => (
-            <Link key={feature.title} href={feature.href} className="feature-card block rounded-2xl border bg-[var(--color-bg-surface)] p-5 sm:p-7" style={{ borderColor: 'var(--color-border)', boxShadow: 'var(--shadow-sm)' }}>
+            <Link key={feature.title} href={feature.href} className="feature-card block rounded-xl border bg-[var(--color-bg-surface)] p-5 sm:p-7" style={{ borderColor: 'var(--color-border)', boxShadow: 'var(--shadow-sm)' }}>
               <div
                 className="feature-chip mb-4 flex h-12 w-12 items-center justify-center rounded-xl"
                 style={{ '--chip-color': feature.color, '--chip-bg': feature.bg } as React.CSSProperties}
               >
                 <feature.icon size={22} style={{ color: feature.color }} />
               </div>
-              <h3 className="mb-2 text-lg font-bold" style={{ color: 'var(--grey-900)' }}>{feature.title}</h3>
+              <h3 className="mb-2 text-lg font-bold" style={{ color: 'var(--color-text-primary)' }}>{feature.title}</h3>
               <p className="text-[15px] leading-relaxed" style={{ color: 'var(--color-text-secondary)' }}>{feature.description}</p>
               <span className="mt-4 inline-flex items-center gap-1 text-sm font-medium" style={{ color: 'var(--color-accent)' }}>
                 자세히 보기 <ArrowRight size={14} />
@@ -228,7 +225,7 @@ export default function HomeClient({ totalCases, totalAdmin, totalNews, latestBl
         <div className="mx-auto max-w-[1100px]">
           <div className="mb-6 text-center">
             <p className="text-[13px] font-semibold tracking-widest uppercase mb-2" style={{ color: 'var(--color-accent)' }}>MORE TOOLS</p>
-            <h2 className="text-xl sm:text-2xl font-bold tracking-tight" style={{ color: 'var(--grey-900)' }}>
+            <h2 className="text-xl sm:text-2xl font-bold tracking-tight" style={{ color: 'var(--color-text-primary)' }}>
               노동법·HR 실무 종합 도구
             </h2>
             <p className="mt-2 text-[14px]" style={{ color: 'var(--color-text-secondary)' }}>
@@ -237,14 +234,14 @@ export default function HomeClient({ totalCases, totalAdmin, totalNews, latestBl
           </div>
           <div className="grid gap-4 sm:gap-5 sm:grid-cols-2 md:grid-cols-4">
             {moreFeatures.map((feature) => (
-              <Link key={feature.title} href={feature.href} className="feature-card block rounded-2xl border bg-[var(--color-bg-surface)] p-5" style={{ borderColor: 'var(--color-border)', boxShadow: 'var(--shadow-sm)' }}>
+              <Link key={feature.title} href={feature.href} className="feature-card block rounded-xl border bg-[var(--color-bg-surface)] p-5" style={{ borderColor: 'var(--color-border)', boxShadow: 'var(--shadow-sm)' }}>
                 <div
                   className="feature-chip mb-3 flex h-10 w-10 items-center justify-center rounded-lg"
                   style={{ '--chip-color': feature.color, '--chip-bg': feature.bg } as React.CSSProperties}
                 >
                   <feature.icon size={18} style={{ color: feature.color }} />
                 </div>
-                <h3 className="mb-1.5 text-[15px] font-bold" style={{ color: 'var(--grey-900)' }}>{feature.title}</h3>
+                <h3 className="mb-1.5 text-[15px] font-bold" style={{ color: 'var(--color-text-primary)' }}>{feature.title}</h3>
                 <p className="text-[13px] leading-relaxed" style={{ color: 'var(--color-text-secondary)' }}>{feature.description}</p>
               </Link>
             ))}
@@ -262,7 +259,7 @@ export default function HomeClient({ totalCases, totalAdmin, totalNews, latestBl
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center gap-2">
                 <BookOpen size={22} style={{ color: 'var(--color-accent)' }} />
-                <h2 className="text-xl font-bold" style={{ color: 'var(--grey-900)' }}>최신 딥다이브</h2>
+                <h2 className="text-xl font-bold" style={{ color: 'var(--color-text-primary)' }}>최신 딥다이브</h2>
               </div>
               <Link
                 href="/blog"
@@ -277,7 +274,7 @@ export default function HomeClient({ totalCases, totalAdmin, totalNews, latestBl
                 <Link
                   key={article.slug}
                   href={`/blog/${article.slug}`}
-                  className="feature-card block rounded-2xl border bg-[var(--color-bg-surface)] p-5 sm:p-6"
+                  className="feature-card block rounded-xl border bg-[var(--color-bg-surface)] p-5 sm:p-6"
                   style={{ borderColor: 'var(--color-border)', boxShadow: 'var(--shadow-sm)' }}
                 >
                   <div className="flex items-center gap-2 mb-3">
@@ -287,7 +284,7 @@ export default function HomeClient({ totalCases, totalAdmin, totalNews, latestBl
                       {formatDate(article.published_at)}
                     </span>
                   </div>
-                  <h3 className="text-[15px] font-bold leading-snug mb-1" style={{ color: 'var(--grey-900)' }}>
+                  <h3 className="text-[15px] font-bold leading-snug mb-1" style={{ color: 'var(--color-text-primary)' }}>
                     {article.title}
                   </h3>
                   {article.subtitle && (
@@ -311,10 +308,10 @@ export default function HomeClient({ totalCases, totalAdmin, totalNews, latestBl
       )}
 
       <section className="px-5 pb-16 sm:pb-20">
-        <div className="mx-auto max-w-[1100px] rounded-3xl border p-5 sm:p-8 md:p-10" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)', boxShadow: 'var(--shadow-sm)' }}>
+        <div className="mx-auto max-w-[1100px] rounded-xl border p-5 sm:p-8 md:p-10" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)', boxShadow: 'var(--shadow-sm)' }}>
           <div className="max-w-[760px]">
             <p className="text-sm font-medium" style={{ color: 'var(--color-accent)' }}>자주 묻는 질문</p>
-            <h2 className="mt-2 text-xl sm:text-2xl font-bold tracking-tight" style={{ color: 'var(--grey-900)' }}>
+            <h2 className="mt-2 text-xl sm:text-2xl font-bold tracking-tight" style={{ color: 'var(--color-text-primary)' }}>
               노란봉투법, 원청 사용자성, 하청 교섭요구 대응에서 많이 묻는 핵심 질문
             </h2>
             <p className="mt-3 text-sm leading-6" style={{ color: 'var(--color-text-secondary)' }}>
@@ -325,10 +322,10 @@ export default function HomeClient({ totalCases, totalAdmin, totalNews, latestBl
             {faqItems.map((item) => (
               <div
                 key={item.question}
-                className="rounded-2xl border p-4 sm:p-5"
+                className="rounded-xl border p-4 sm:p-5"
                 style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }}
               >
-                <h3 className="text-[15px] font-bold leading-6" style={{ color: 'var(--grey-900)' }}>{item.question}</h3>
+                <h3 className="text-[15px] font-bold leading-6" style={{ color: 'var(--color-text-primary)' }}>{item.question}</h3>
                 <p className="mt-2 text-sm leading-6" style={{ color: 'var(--color-text-secondary)' }}>{item.answer}</p>
               </div>
             ))}
@@ -336,15 +333,13 @@ export default function HomeClient({ totalCases, totalAdmin, totalNews, latestBl
           <div className="mt-6 sm:mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
             <Link
               href="/checklist"
-              className="inline-flex items-center justify-center gap-2 rounded-lg px-5 py-3 font-medium text-white"
-              style={{ backgroundColor: 'var(--color-accent)' }}
+              className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-md px-5 py-2.5 text-[15px] font-semibold transition-[background-color,transform] hover:-translate-y-px bg-[var(--color-accent-ink)] text-[var(--color-on-accent-ink)] hover:bg-[var(--color-accent-ink-hover)]"
             >
               교섭 의무 체크리스트 보기 <ArrowRight size={16} />
             </Link>
             <Link
               href="/contact"
-              className="inline-flex items-center justify-center gap-2 rounded-lg border px-5 py-3 font-medium"
-              style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-primary)' }}
+              className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-md px-5 py-2.5 text-[15px] font-semibold transition-[background-color,transform] hover:-translate-y-px border border-[var(--color-border)] bg-[var(--color-bg-surface)] text-[var(--color-text-primary)] hover:bg-[var(--grey-100)]"
             >
               노란봉투법 상담 문의 <ArrowRight size={16} />
             </Link>
@@ -353,9 +348,9 @@ export default function HomeClient({ totalCases, totalAdmin, totalNews, latestBl
       </section>
 
       <section className="px-5 pb-16 sm:pb-20">
-        <div className="mx-auto max-w-[700px] rounded-2xl border p-6 sm:p-8 text-center" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)', boxShadow: 'var(--shadow-md)' }}>
+        <div className="mx-auto max-w-[700px] rounded-xl border p-6 sm:p-8 text-center" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)', boxShadow: 'var(--shadow-md)' }}>
           <MessageSquare size={32} className="mx-auto mb-4" style={{ color: 'var(--color-accent)' }} />
-          <h2 className="mb-2 text-xl font-bold" style={{ color: 'var(--grey-900)' }}>AI에게 노동법 질문하기</h2>
+          <h2 className="mb-2 text-xl font-bold" style={{ color: 'var(--color-text-primary)' }}>AI에게 노동법 질문하기</h2>
           <p className="mb-6 text-sm" style={{ color: 'var(--color-text-secondary)' }}>
             개정 노동조합법에 대한 궁금증을 AI가 즉시 답변해 드립니다
           </p>
@@ -370,7 +365,7 @@ export default function HomeClient({ totalCases, totalAdmin, totalNews, latestBl
       </section>
 
       <section className="px-5 pb-16 sm:pb-20">
-        <div className="mx-auto max-w-[700px] rounded-2xl p-6 sm:p-8 text-center" style={{ backgroundColor: 'var(--grey-900)' }}>
+        <div className="mx-auto max-w-[700px] rounded-xl p-6 sm:p-8 text-center" style={{ backgroundColor: 'var(--grey-900)' }}>
           <h2 className="mb-3 text-lg sm:text-xl font-bold" style={{ color: 'var(--grey-100)' }}>노란봉투법 실무 자문이 필요하면 바로 상담하세요</h2>
           <p className="mb-3 text-sm" style={{ color: 'var(--band-ink-muted)' }}>
             원청 사용자성 판단, 하청 노조 교섭요구 대응, 노동위원회 절차, 부당노동행위 리스크 점검까지 노무법인 위너스가 직접 봅니다.

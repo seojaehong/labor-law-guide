@@ -202,12 +202,12 @@ export default function HarassmentPage() {
                 {(validDispositions.length > 0 || validLegalFocus.length > 0) && (
                   <div className="flex flex-wrap gap-1 pt-1">
                     {validDispositions.map((d) => (
-                      <Badge key={d} className="text-[10px]">
+                      <Badge key={d} className="text-[length:var(--text-xs)]">
                         {getLabelFor(d, DISPOSITION_LABELS)}
                       </Badge>
                     ))}
                     {validLegalFocus.map((f) => (
-                      <Badge key={f} variant="outline" className="text-[10px]">
+                      <Badge key={f} variant="outline" className="text-[length:var(--text-xs)]">
                         {getLabelFor(f, LEGAL_FOCUS_LABELS)}
                       </Badge>
                     ))}

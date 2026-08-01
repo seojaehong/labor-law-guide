@@ -62,8 +62,8 @@ export default function DeepChecklistWidget() {
   const style = LEVEL_STYLES[result.level] || LEVEL_STYLES.medium;
 
   return (
-    <div className="rounded-2xl border p-6" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }}>
-      <h3 className="mb-1 text-lg font-bold" style={{ color: 'var(--grey-900)' }}>{deepChecklistTitle}</h3>
+    <div className="rounded-xl border p-6" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }}>
+      <h3 className="mb-1 text-lg font-bold" style={{ color: 'var(--color-text-primary)' }}>{deepChecklistTitle}</h3>
       <p className="mb-2 text-sm" style={{ color: 'var(--grey-500)' }}>{deepChecklistDescription}</p>
 
       {/* 진행률 */}

@@ -38,7 +38,7 @@ export default function GuidePage() {
 
           {guideSections.map((section) => (
             <section key={section.id} id={section.id} className="mb-16">
-              <h2 className="mb-1 font-bold" style={{ fontSize: 'var(--text-xl)', color: 'var(--grey-900)' }}>
+              <h2 className="mb-1 font-bold" style={{ fontSize: 'var(--text-xl)', color: 'var(--color-text-primary)' }}>
                 {section.title}
               </h2>
               {section.subtitle && (
@@ -112,7 +112,7 @@ export default function GuidePage() {
 
           {/* Checklist */}
           <section id="checklist" className="mb-16">
-            <h2 className="mb-6 font-bold" style={{ fontSize: 'var(--text-xl)', color: 'var(--grey-900)' }}>
+            <h2 className="mb-6 font-bold" style={{ fontSize: 'var(--text-xl)', color: 'var(--color-text-primary)' }}>
               자가진단 체크리스트
             </h2>
             <Link
@@ -130,7 +130,7 @@ export default function GuidePage() {
 
           {/* Timeline */}
           <section id="timeline" className="mb-16">
-            <h2 className="mb-6 font-bold" style={{ fontSize: 'var(--text-xl)', color: 'var(--grey-900)' }}>
+            <h2 className="mb-6 font-bold" style={{ fontSize: 'var(--text-xl)', color: 'var(--color-text-primary)' }}>
               입법 경과
             </h2>
             <div className="relative pl-8">

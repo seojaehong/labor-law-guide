@@ -117,7 +117,7 @@ export default function AIPage() {
                 onClick={() => setPendingQuestion(qa.question + '_' + Date.now())}
               >
                 <div className="mb-1 flex items-center gap-2">
-                  <span className="rounded-full px-2 py-0.5 text-[10px] font-medium" style={{ backgroundColor: 'var(--blue-50)', color: 'var(--blue-600)' }}>{qa.unified_category}</span>
+                  <span className="rounded-full px-2 py-0.5 text-[length:var(--text-xs)] font-medium" style={{ backgroundColor: 'var(--blue-50)', color: 'var(--blue-600)' }}>{qa.unified_category}</span>
                 </div>
                 <p className="text-sm font-medium" style={{ color: 'var(--grey-800)' }}>{qa.question}</p>
               </button>
@@ -186,7 +186,7 @@ export default function AIPage() {
                     <span className="mt-0.5 shrink-0 text-sm font-bold" style={{ color: 'var(--color-accent)' }}>Q</span>
                     <div className="flex-1">
                       <div className="text-[14px] font-medium" style={{ color: 'var(--color-text-primary)' }}>{faq.question}</div>
-                      <span className="mt-1 inline-block rounded-full px-2 py-0.5 text-[10px] font-medium" style={{ backgroundColor: 'var(--blue-50)', color: 'var(--blue-600)' }}>{faq.unified_category}</span>
+                      <span className="mt-1 inline-block rounded-full px-2 py-0.5 text-[length:var(--text-xs)] font-medium" style={{ backgroundColor: 'var(--blue-50)', color: 'var(--blue-600)' }}>{faq.unified_category}</span>
                     </div>
                     <ChevronDown size={16} className="mt-0.5 shrink-0 transition-transform" style={{ color: 'var(--grey-400)', transform: expandedFaq === faq.id ? 'rotate(180deg)' : undefined }} />
                   </button>

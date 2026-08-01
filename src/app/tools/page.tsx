@@ -68,7 +68,7 @@ export default function ToolsIndexPage() {
           const card = (
             <div
               key={t.href}
-              className="group rounded-xl border-2 border-[var(--color-border)] p-5 transition-all hover:border-[var(--color-brand-border)] hover:shadow-lg"
+              className="group rounded-xl border border-[var(--color-border)] p-5 transition-all hover:border-[var(--color-brand-border)] hover:shadow-lg"
             >
               <div className="flex items-start gap-4">
                 <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-lg bg-[var(--color-brand-surface)] text-[var(--color-brand-ink)]">

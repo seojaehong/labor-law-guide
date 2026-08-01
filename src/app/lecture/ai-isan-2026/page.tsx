@@ -116,7 +116,7 @@ export default function LectureIsanPage() {
                 {slide.demo.prompt && (
                   <div className="rounded-lg border p-4 font-mono text-[13px] whitespace-pre-wrap"
                        style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg)' }}>
-                    <div className="text-[10px] font-bold text-muted-foreground mb-1">PROMPT</div>
+                    <div className="text-[length:var(--text-xs)] font-bold text-muted-foreground mb-1">PROMPT</div>
                     {slide.demo.prompt}
                   </div>
                 )}

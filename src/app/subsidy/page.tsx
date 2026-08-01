@@ -68,8 +68,8 @@ export default function SubsidyPage() {
 
         <div className="grid gap-10 lg:grid-cols-[1fr_320px]">
           <div className="space-y-8">
-            <section className="rounded-2xl border p-6" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }}>
-              <h2 className="mb-4 text-lg font-bold" style={{ color: 'var(--grey-900)' }}>주요 지원금 한눈에 보기</h2>
+            <section className="rounded-xl border p-6" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }}>
+              <h2 className="mb-4 text-lg font-bold" style={{ color: 'var(--color-text-primary)' }}>주요 지원금 한눈에 보기</h2>
               <div className="space-y-4">
                 {highlights.map((item) => {
                   const Icon = item.icon;
@@ -77,7 +77,7 @@ export default function SubsidyPage() {
                     <div key={item.title} className="flex gap-4 rounded-xl border p-4" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }}>
                       <Icon size={20} className="mt-0.5 shrink-0" style={{ color: 'var(--color-accent)' }} />
                       <div>
-                        <h3 className="text-sm font-bold" style={{ color: 'var(--grey-900)' }}>{item.title}</h3>
+                        <h3 className="text-sm font-bold" style={{ color: 'var(--color-text-primary)' }}>{item.title}</h3>
                         <p className="mt-1 text-sm leading-6" style={{ color: 'var(--grey-600)' }}>{item.desc}</p>
                       </div>
                     </div>
@@ -90,8 +90,7 @@ export default function SubsidyPage() {
               href={EXTERNAL_GUIDE_URL}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center justify-center gap-2 rounded-2xl px-6 py-4 text-sm font-bold text-white transition-opacity hover:opacity-90"
-              style={{ backgroundColor: 'var(--color-accent)' }}
+              className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-md px-5 py-2.5 text-[15px] font-semibold transition-[background-color,transform] hover:-translate-y-px bg-[var(--color-accent-ink)] text-[var(--color-on-accent-ink)] hover:bg-[var(--color-accent-ink-hover)]"
             >
               <BookOpen size={18} />
               고용지원금 상세 가이드 보기
@@ -100,8 +99,8 @@ export default function SubsidyPage() {
           </div>
 
           <div className="space-y-6">
-            <div className="rounded-2xl border p-6" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }}>
-              <h2 className="mb-3 font-bold" style={{ color: 'var(--grey-900)' }}>신청이 어려우신가요?</h2>
+            <div className="rounded-xl border p-6" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }}>
+              <h2 className="mb-3 font-bold" style={{ color: 'var(--color-text-primary)' }}>신청이 어려우신가요?</h2>
               <p className="text-sm leading-6" style={{ color: 'var(--grey-600)' }}>
                 요건 판단부터 서류 작성, 신청 대행까지 노무법인 위너스가 도와드립니다. 아래 버튼으로 상담을 접수해 주세요.
               </p>
@@ -115,7 +114,7 @@ export default function SubsidyPage() {
               </Link>
             </div>
 
-            <div className="rounded-2xl p-6" style={{ backgroundColor: 'var(--blue-50)' }}>
+            <div className="rounded-xl p-6" style={{ backgroundColor: 'var(--blue-50)' }}>
               <h2 className="mb-2 text-sm font-bold" style={{ color: 'var(--blue-700)' }}>이런 사업장이라면 꼭 확인하세요</h2>
               <ul className="space-y-1.5 text-sm" style={{ color: 'var(--blue-600)' }}>
                 <li>• 직원 수 30인 미만 사업장</li>

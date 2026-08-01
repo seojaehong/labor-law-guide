@@ -311,7 +311,7 @@ export default function AdminClient() {
             <div className="flex items-end gap-2 h-24">
               {stats.trend.map((t) => (
                 <div key={t.date} className="flex-1 flex flex-col items-center gap-1">
-                  <span className="text-[10px] font-semibold" style={{ color: 'var(--color-text-secondary)' }}>
+                  <span className="text-[length:var(--text-xs)] font-semibold" style={{ color: 'var(--color-text-secondary)' }}>
                     {t.count}
                   </span>
                   <div
@@ -321,7 +321,7 @@ export default function AdminClient() {
                       backgroundColor: t.count > 0 ? 'var(--blue-400)' : 'var(--grey-200)',
                     }}
                   />
-                  <span className="text-[10px]" style={{ color: 'var(--color-text-tertiary)' }}>
+                  <span className="text-[length:var(--text-xs)]" style={{ color: 'var(--color-text-tertiary)' }}>
                     {t.date.slice(5)}
                   </span>
                 </div>
@@ -540,7 +540,7 @@ export default function AdminClient() {
                         {a.author}
                       </td>
                       <td className="px-3 py-3 text-center hidden md:table-cell">
-                        <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded" style={{ backgroundColor: '#ecfdf5', color: '#059669' }}>공개</span>
+                        <span className="text-[length:var(--text-xs)] font-semibold px-1.5 py-0.5 rounded" style={{ backgroundColor: '#ecfdf5', color: '#059669' }}>공개</span>
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex items-center justify-end gap-1">

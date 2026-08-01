@@ -313,7 +313,7 @@ export default function ContractCheckClient() {
     ) ?? null;
 
   return (
-    <div className="rounded-xl border-2 border-[var(--color-border)] p-5">
+    <div className="rounded-xl border border-[var(--color-border)] p-5">
       <div
         className="mb-5 flex items-start gap-2 rounded-lg bg-[var(--grey-100)] px-3 py-2 text-xs"
         style={{ color: 'var(--grey-700)' }}
@@ -762,14 +762,14 @@ export default function ContractCheckClient() {
           <div className="print-hide mt-6 flex flex-col gap-3 sm:flex-row">
             <Link
               href="/contact"
-              className="flex-1 rounded-lg bg-[var(--color-brand-solid)] px-5 py-3 text-center text-sm font-bold text-[#191f28] hover:bg-[var(--brand-300)]"
+              className="flex-1 inline-flex min-h-[44px] items-center justify-center gap-2 rounded-md px-5 py-2.5 text-[15px] font-semibold transition-[background-color,transform] hover:-translate-y-px bg-[var(--color-brand-solid)] text-[#191f28] hover:bg-[var(--brand-500)]"
             >
               전문가에게 계약서 검토 요청
             </Link>
             <button
               type="button"
               onClick={() => window.print()}
-              className="flex items-center justify-center gap-2 rounded-lg border px-5 py-3 text-sm font-semibold hover:border-[var(--grey-400)]"
+              className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-md px-5 py-2.5 text-[15px] font-semibold transition-[background-color,transform] hover:-translate-y-px border border-[var(--color-border)] bg-[var(--color-bg-surface)] text-[var(--color-text-primary)] hover:bg-[var(--grey-100)]"
               style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-secondary)' }}
             >
               <Printer className="h-4 w-4" />
@@ -802,7 +802,7 @@ export default function ContractCheckClient() {
           <button
             type="button"
             onClick={() => setStep(step + 1)}
-            className="rounded-lg bg-[var(--color-brand-solid)] px-5 py-2 text-sm font-bold text-[#191f28] hover:bg-[var(--brand-300)]"
+            className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-md px-5 py-2.5 text-[15px] font-semibold transition-[background-color,transform] hover:-translate-y-px bg-[var(--color-brand-solid)] text-[#191f28] hover:bg-[var(--brand-500)]"
           >
             다음
           </button>
@@ -811,7 +811,7 @@ export default function ContractCheckClient() {
           <button
             type="button"
             onClick={runCheck}
-            className="rounded-lg bg-[var(--color-brand-solid)] px-5 py-2 text-sm font-bold text-[#191f28] hover:bg-[var(--brand-300)]"
+            className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-md px-5 py-2.5 text-[15px] font-semibold transition-[background-color,transform] hover:-translate-y-px bg-[var(--color-brand-solid)] text-[#191f28] hover:bg-[var(--brand-500)]"
           >
             결과 보기
           </button>

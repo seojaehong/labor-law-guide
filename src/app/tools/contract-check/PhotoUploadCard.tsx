@@ -159,7 +159,7 @@ export default function PhotoUploadCard({ onExtracted }: UploadCardProps) {
           setDragging(false);
           void handleFiles(e.dataTransfer.files);
         }}
-        className={`rounded-xl border-2 border-dashed p-5 text-center transition-colors ${
+        className={`rounded-xl border border-dashed p-5 text-center transition-colors ${
           dragging ? 'border-yellow-400 bg-yellow-50' : ''
         }`}
         style={dragging ? undefined : { borderColor: 'var(--color-border)' }}

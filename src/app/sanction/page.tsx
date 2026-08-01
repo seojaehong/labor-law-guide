@@ -212,8 +212,8 @@ export default function SanctionPage() {
     const href = (c.id && !c.id.startsWith('ai_case_') ? getDecisionDetailHref({ id: c.id, sourceProvider: c.source === 'court' ? 'bigcase' : 'nlrc' }) : '')
 
     const sourceBadge = c.source === 'court'
-      ? <span className="ml-1.5 rounded-full bg-purple-100 dark:bg-purple-900/30 px-1.5 py-0.5 text-[9px] font-medium text-purple-700 dark:text-purple-300">법원</span>
-      : <span className="ml-1.5 rounded-full bg-muted px-1.5 py-0.5 text-[9px] font-medium text-muted-foreground">노동위</span>
+      ? <span className="ml-1.5 rounded-full bg-purple-100 dark:bg-purple-900/30 px-1.5 py-0.5 text-[length:var(--text-xs)] font-medium text-purple-700 dark:text-purple-300">법원</span>
+      : <span className="ml-1.5 rounded-full bg-muted px-1.5 py-0.5 text-[length:var(--text-xs)] font-medium text-muted-foreground">노동위</span>
 
     const content = (
       <>
@@ -260,7 +260,7 @@ export default function SanctionPage() {
       </div>
 
       {/* Chat Area */}
-      <div className="flex flex-col rounded-3xl bg-card shadow-xl shadow-black/[0.04] ring-1 ring-black/[0.04] dark:ring-white/[0.05]" style={{ height: 'calc(100vh - 240px)', minHeight: '500px' }}>
+      <div className="flex flex-col rounded-xl bg-card shadow-xl shadow-black/[0.04] ring-1 ring-black/[0.04] dark:ring-white/[0.05]" style={{ height: 'calc(100vh - 240px)', minHeight: '500px' }}>
         <div ref={scrollRef} className="flex-1 overflow-y-auto p-5">
           {/* Empty State */}
           {isEmpty && !loading && (
@@ -311,7 +311,7 @@ export default function SanctionPage() {
                   {msg.comparison && (
                     <div className="space-y-4">
                       {msg.comparison.issueSummary.length > 0 && (
-                        <div className="rounded-2xl border border-primary/30 bg-muted p-4">
+                        <div className="rounded-xl border border-primary/30 bg-muted p-4">
                           <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-accent-foreground">
                             <Scale size={15} />
                             쟁점 요약
@@ -325,7 +325,7 @@ export default function SanctionPage() {
                       )}
 
                       <div className="grid gap-4 md:grid-cols-2">
-                        <div className="rounded-2xl border border-primary/30 bg-muted p-4">
+                        <div className="rounded-xl border border-primary/30 bg-muted p-4">
                           <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-accent-foreground">
                             <GitCompareArrows size={15} />
                             근로자가 이긴 사건
@@ -337,7 +337,7 @@ export default function SanctionPage() {
                           </div>
                         </div>
 
-                        <div className="rounded-2xl border border-amber-200 dark:border-amber-900/50 bg-amber-50 dark:bg-amber-950/30 p-4">
+                        <div className="rounded-xl border border-amber-200 dark:border-amber-900/50 bg-amber-50 dark:bg-amber-950/30 p-4">
                           <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-amber-900 dark:text-amber-200">
                             <GitCompareArrows size={15} />
                             사용자가 이긴 사건
@@ -351,7 +351,7 @@ export default function SanctionPage() {
                       </div>
 
                       {msg.comparison.coreDifferences.length > 0 && (
-                        <div className="rounded-2xl border border-amber-200 dark:border-amber-900/50 bg-amber-50 dark:bg-amber-950/30 p-4">
+                        <div className="rounded-xl border border-amber-200 dark:border-amber-900/50 bg-amber-50 dark:bg-amber-950/30 p-4">
                           <div className="mb-3 flex items-center justify-between gap-2">
                             <div className="flex items-center gap-2 text-sm font-semibold text-amber-900 dark:text-amber-200">
                               <CheckCircle2 size={15} />
@@ -374,7 +374,7 @@ export default function SanctionPage() {
                       )}
 
                       {msg.comparison.checklist.length > 0 && (
-                        <div className="rounded-2xl border border-border/50 bg-card p-4">
+                        <div className="rounded-xl border border-border/50 bg-card p-4">
                           <div className="mb-3 flex items-center justify-between gap-2">
                             <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
                               <ClipboardList size={15} />
@@ -399,11 +399,11 @@ export default function SanctionPage() {
                       )}
 
                       {msg.provider && (
-                        <p className="text-right text-[10px] text-muted-foreground">analyzed by {msg.provider}</p>
+                        <p className="text-right text-[length:var(--text-xs)] text-muted-foreground">analyzed by {msg.provider}</p>
                       )}
 
                       {msg.comparison.decisionGuide.length > 0 && (
-                        <div className="rounded-2xl border border-purple-200 dark:border-purple-900/50 bg-purple-50 dark:bg-purple-950/30 p-4">
+                        <div className="rounded-xl border border-purple-200 dark:border-purple-900/50 bg-purple-50 dark:bg-purple-950/30 p-4">
                           <div className="mb-3 flex items-center justify-between gap-2">
                             <div className="text-sm font-semibold text-purple-900 dark:text-purple-200">문안/의사결정 보조</div>
                             <button
@@ -426,7 +426,7 @@ export default function SanctionPage() {
 
                   {/* 관련 실무 해설 (최영우 교재 + 검토자 FAQ) — meta.faqs 기반 */}
                   {msg.role === 'assistant' && msg.faqs && msg.faqs.length > 0 && (
-                    <div className="rounded-2xl border border-border/50 bg-muted/30 p-4 mt-3">
+                    <div className="rounded-xl border border-border/50 bg-muted/30 p-4 mt-3">
                       <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-foreground">
                         <span>📚 관련 실무 해설</span>
                         <span className="text-xs font-normal text-muted-foreground">최영우 교재 · 검토자 FAQ</span>
@@ -464,7 +464,7 @@ export default function SanctionPage() {
                   <Loader2 size={14} className="animate-spin text-muted-foreground" />
                 </div>
                 <div className="flex-1 space-y-3">
-                  <div className="rounded-2xl border border-primary/30 bg-muted p-4 animate-pulse">
+                  <div className="rounded-xl border border-primary/30 bg-muted p-4 animate-pulse">
                     <div className="mb-3 h-4 w-28 rounded bg-primary/20" />
                     <div className="space-y-2">
                       <div className="h-3 w-5/6 rounded bg-primary/20" />
@@ -472,14 +472,14 @@ export default function SanctionPage() {
                     </div>
                   </div>
                   <div className="grid gap-3 md:grid-cols-2">
-                    <div className="rounded-2xl border border-border/50 bg-card p-4 animate-pulse">
+                    <div className="rounded-xl border border-border/50 bg-card p-4 animate-pulse">
                       <div className="mb-3 h-4 w-24 rounded bg-muted" />
                       <div className="space-y-2">
                         <div className="h-3 w-full rounded bg-muted" />
                         <div className="h-3 w-4/5 rounded bg-muted" />
                       </div>
                     </div>
-                    <div className="rounded-2xl border border-border/50 bg-card p-4 animate-pulse">
+                    <div className="rounded-xl border border-border/50 bg-card p-4 animate-pulse">
                       <div className="mb-3 h-4 w-24 rounded bg-muted" />
                       <div className="space-y-2">
                         <div className="h-3 w-full rounded bg-muted" />
@@ -496,7 +496,7 @@ export default function SanctionPage() {
 
         {/* Disclaimer */}
         <div className="border-t border-border/15 px-4 py-1.5">
-          <p className="text-center text-[10px] text-muted-foreground">
+          <p className="text-center text-[length:var(--text-xs)] text-muted-foreground">
             본 결과는 유사 판정례 비교에 기반한 참고용입니다. 최종 결정 전 반드시 노무사와 상담하세요.
           </p>
         </div>

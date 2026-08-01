@@ -77,8 +77,8 @@ export default function TextbookPage() {
           <div className="mt-3 rounded-lg border p-3 text-xs text-muted-foreground" style={{ borderColor: 'var(--color-border)' }}>
             <div className="mb-1"><strong>{TEXTBOOK_META.author}</strong></div>
             <div>{TEXTBOOK_META.org} · {TEXTBOOK_META.date}</div>
-            <div className="mt-2 text-[10px]">{TEXTBOOK_META.pages}</div>
-            <div className="mt-1 text-[10px]">{TEXTBOOK_META.version}</div>
+            <div className="mt-2 text-[length:var(--text-xs)]">{TEXTBOOK_META.pages}</div>
+            <div className="mt-1 text-[length:var(--text-xs)]">{TEXTBOOK_META.version}</div>
           </div>
         </aside>
 
