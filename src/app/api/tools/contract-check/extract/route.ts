@@ -364,15 +364,28 @@ export async function POST(req: Request): Promise<Response> {
       body: JSON.stringify({
         model: ANTHROPIC_MODEL,
         max_tokens: 4096,
-        temperature: 0,
+        // claude-sonnet-5는 temperature·top_p·top_k를 받지 않는다(보내면 400). 판독 일관성은 프롬프트로 잡는다.
+        // thinking을 생략하면 adaptive가 기본 ON이고, max_tokens는 사고+응답 합계 상한이라 JSON이 잘린다.
+        thinking: { type: 'disabled' },
         system: SYSTEM_PROMPT,
         messages: [{ role: 'user', content: blocks }],
       }),
     });
 
     if (!resp.ok) {
-      // 본문은 남기지 않는다(계약서 내용이 에러 응답에 실려 올 수 있음).
-      console.error('[contract-check/extract] upstream status', resp.status);
+      // 4xx는 요청 스펙 위반이고 본문에 계약서 내용이 실리지 않는다 → 진단용으로 type·message만 남긴다.
+      // (status만 남겼더니 400의 원인이 temperature인지 모델명인지 구분되지 않아 왕복이 한 번 더 필요했다)
+      let detail = '';
+      if (resp.status >= 400 && resp.status < 500) {
+        const raw = await resp.text().catch(() => '');
+        try {
+          const e = (JSON.parse(raw) as { error?: { type?: string; message?: string } }).error;
+          detail = `${e?.type ?? ''} ${e?.message ?? ''}`.trim().slice(0, 300);
+        } catch {
+          detail = raw.slice(0, 200);
+        }
+      }
+      console.error('[contract-check/extract] upstream status', resp.status, detail);
       return json(502, {
         error: 'extract_failed',
         message: '사진 인식에 실패했습니다. 잠시 후 다시 시도하시거나 아래 폼에 직접 입력해 주세요.',
