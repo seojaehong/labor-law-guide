@@ -207,7 +207,9 @@ export default function ContactPage() {
                   <ExternalLink size={18} style={{ color: 'var(--color-accent)' }} />
                   <div>
                     <p className="font-medium" style={{ color: 'var(--grey-800)' }}>공식 홈페이지</p>
-                    <a href="https://winhr.co.kr" target="_blank" rel="noopener noreferrer" className="hover:underline" style={{ color: 'var(--color-accent)' }}>winhr.co.kr</a>
+                    {/* §6.8 — 네비·버튼·카드가 아니라 본문 안의 단독 링크다(밑줄 예외에 해당하지 않는다).
+                        색 하나로만 구분되던 자리라 상시 밑줄 + --color-accent-ink로 옮긴다. */}
+                    <a href="https://winhr.co.kr" target="_blank" rel="noopener noreferrer" className="underline underline-offset-[0.2em] decoration-1" style={{ color: 'var(--color-accent-ink)' }}>winhr.co.kr</a>
                   </div>
                 </div>
               </div>
