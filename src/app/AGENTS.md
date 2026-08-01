@@ -239,3 +239,31 @@ dev 서버는 `Parsing ecmascript source code failed`만 반복 출력해 원인
 - ★ `keep-all`은 **flex/grid 아이템의 min-content 폭을 키울 수 있다**(`min-width:auto` 기본값 때문).
   줄바꿈 관련 전역 변경 후에는 **360/375px에서 `documentElement.scrollWidth > clientWidth`**를 전 라우트로 재 볼 것.
   (US-011 실측: 7개 라우트 모두 over=0. 단, 열이 많은 표는 이 변경과 무관하게 이미 모바일에서 넘친다.)
+
+## 버튼 — §6.2 4변형은 "클래스 레이어"가 아니라 **문자열 그대로** 쓴다
+DESIGN.md §6.2가 정한 4변형(primary / brand / secondary / ghost)을 `.btn-*` CSS 레이어로 추상화하지 않았다.
+호출부가 20곳대라 레이어를 만들면 기존 호출부를 다시 전부 고쳐야 하고, 그 편익이 없다.
+**아래 문자열을 복사해 쓴다**(US-012에서 확립, 실측값 병기):
+
+- 공통 골격: `inline-flex min-h-[44px] items-center justify-center gap-2 rounded-md px-5 py-2.5
+  text-[15px] font-semibold transition-[background-color,transform] hover:-translate-y-px`
+- **primary**: `bg-[var(--color-accent-ink)] text-[var(--color-on-accent-ink)] hover:bg-[var(--color-accent-ink-hover)]`
+  → 실측 라이트 `#1b64da`/`#ffffff` **5.41:1**, 다크 `#4593fc`/`#0f1117` **6.14:1**(§6.2 표와 일치)
+- **brand**: `bg-[var(--color-brand-solid)] text-[#191f28] hover:bg-[var(--brand-500)]`
+  → 라·다 동일 `#facc15`/`#191f28` **10.81:1**. 잉크는 **리터럴 고정**이다(토큰화 금지 — `--grey-900`은 다크에서 뒤집힌다)
+- **secondary**: `border border-[var(--color-border)] bg-[var(--color-bg-surface)]
+  text-[var(--color-text-primary)] hover:bg-[var(--grey-100)]`
+- disabled: `disabled:opacity-50 disabled:cursor-not-allowed`
+- ★ **primary 배경은 `--color-accent`가 아니라 `--color-accent-ink`다.** `#3182f6` + 흰 잉크는 3.71:1로 AA 미달이다.
+  `--color-accent`는 포커스 링·보더·아이콘 등 비텍스트 전용으로 남는다.
+- ★ 잉크 토큰 `--color-on-accent-ink`는 US-012에서 신설했다(라이트 `#ffffff` / 다크 `#0f1117`).
+  기존 표면 토큰으로는 이 조합이 안 나온다 — `--color-bg-surface`는 다크가 `#191f28`, `--color-bg-primary`는 라이트가 `#f9fafb`다.
+- `grid`/`flex` 칸 안에 넣을 때는 앞에 `w-full`을 붙인다(`inline-flex`라 기본은 내용 폭).
+
+## 콘텐츠 최대폭 — "페이지 셸"과 "컴포넌트 내부 폭"을 가르는 기준
+§5.2는 `max-w-[1400px]`(셸) / `[1100px]`(목록·데이터) / `[820px]`(읽는 화면) 3종만 허용하지만,
+**적용 대상은 라우트의 콘텐츠 컨테이너뿐이다.** 아래는 3종 규칙의 대상이 아니다(US-012에서 확정한 판정선):
+- 산문 measure: `<p>`에 걸린 `max-w-[760px]`·`max-w-xl`·`max-w-md`·`max-w-3xl`, prose의 `max-w-none`
+- 컴포넌트 내부 폭: 채팅 말풍선 `max-w-[85%]`/`[80%]`, 표 셀 `max-w-[280px]`, 모달 `max-w-[800px]`,
+  단일 카드가 곧 화면인 경우(어드민 로그인 `max-w-[400px]`)
+- 판정법: `grep -rno "max-w-[^ \"]*" src --include=*.tsx | ...`로 세고, **`mx-auto`가 붙은 블록만** 셸 후보로 본다.
