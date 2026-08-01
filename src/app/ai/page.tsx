@@ -130,7 +130,7 @@ export default function AIPage() {
       </div>
 
       {tab === 'faq' && (
-        <div id="ai-tabpanel-faq" role="tabpanel" className="max-w-[900px]">
+        <div id="ai-tabpanel-faq" role="tabpanel" className="max-w-[820px]">
           {/* Category filter */}
           <div className="mb-4 flex flex-wrap gap-2">
             <button
@@ -215,7 +215,7 @@ export default function AIPage() {
       )}
 
       {tab === 'glossary' && (
-        <div id="ai-tabpanel-glossary" role="tabpanel" className="max-w-[800px]">
+        <div id="ai-tabpanel-glossary" role="tabpanel" className="max-w-[820px]">
           <div className="rounded-xl border overflow-hidden" style={{ borderColor: 'var(--color-border)' }}>
             {glossary.map((item, i) => (
               <div

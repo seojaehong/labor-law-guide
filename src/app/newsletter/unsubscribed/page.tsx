@@ -39,7 +39,7 @@ export default async function UnsubscribedPage({
   const Icon = c.icon;
 
   return (
-    <main className="mx-auto flex max-w-[560px] flex-col items-center px-6 py-20 text-center">
+    <main className="mx-auto flex max-w-[820px] flex-col items-center px-6 py-20 text-center">
       <Icon size={56} style={{ color: c.color }} />
       <h1
         className="t-h2 mt-6"

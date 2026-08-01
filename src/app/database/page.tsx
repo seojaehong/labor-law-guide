@@ -135,7 +135,7 @@ export default async function DatabasePage() {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
-      <section className="max-w-[860px]">
+      <section className="max-w-[820px]">
         <div className="inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-medium" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--grey-50)', color: 'var(--color-text-secondary)' }}>
           <Search size={14} />
           실무형 판례·행정해석 검색

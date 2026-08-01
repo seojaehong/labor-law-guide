@@ -237,7 +237,7 @@ export default function AdminClient() {
   }
 
   return (
-    <div className="mx-auto max-w-[1200px] px-5 py-8">
+    <div className="mx-auto max-w-[1100px] px-5 py-8">
       {/* Header */}
       <div className="flex items-center justify-between mb-8">
         <div>

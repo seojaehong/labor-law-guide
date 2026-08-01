@@ -52,7 +52,7 @@ export default function LectureIsanPage() {
   const block = BLOCKS.find((b) => b.idx === slide.block);
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-6">
+    <div className="mx-auto max-w-[1100px] px-4 py-6">
       {/* 헤더 */}
       <header className="mb-6">
         <div className="flex flex-wrap items-baseline justify-between gap-3">

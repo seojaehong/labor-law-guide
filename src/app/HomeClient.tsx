@@ -348,7 +348,7 @@ export default function HomeClient({ totalCases, totalAdmin, totalNews, latestBl
       </section>
 
       <section className="px-5 pb-16 sm:pb-20">
-        <div className="mx-auto max-w-[700px] rounded-xl border p-6 sm:p-8 text-center" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)', boxShadow: 'var(--shadow-md)' }}>
+        <div className="mx-auto max-w-[820px] rounded-xl border p-6 sm:p-8 text-center" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)', boxShadow: 'var(--shadow-md)' }}>
           <MessageSquare size={32} className="mx-auto mb-4" style={{ color: 'var(--color-accent)' }} />
           <h2 className="mb-2 text-xl font-bold" style={{ color: 'var(--color-text-primary)' }}>AI에게 노동법 질문하기</h2>
           <p className="mb-6 text-sm" style={{ color: 'var(--color-text-secondary)' }}>
@@ -364,7 +364,7 @@ export default function HomeClient({ totalCases, totalAdmin, totalNews, latestBl
       </section>
 
       <section className="px-5 pb-16 sm:pb-20">
-        <div className="mx-auto max-w-[700px] rounded-xl p-6 sm:p-8 text-center" style={{ backgroundColor: 'var(--grey-900)' }}>
+        <div className="mx-auto max-w-[820px] rounded-xl p-6 sm:p-8 text-center" style={{ backgroundColor: 'var(--grey-900)' }}>
           <h2 className="mb-3 text-lg sm:text-xl font-bold" style={{ color: 'var(--grey-100)' }}>노란봉투법 실무 자문이 필요하면 바로 상담하세요</h2>
           <p className="mb-3 text-sm" style={{ color: 'var(--band-ink-muted)' }}>
             원청 사용자성 판단, 하청 노조 교섭요구 대응, 노동위원회 절차, 부당노동행위 리스크 점검까지 노무법인 위너스가 직접 봅니다.
@@ -384,7 +384,7 @@ export default function HomeClient({ totalCases, totalAdmin, totalNews, latestBl
 
       {/* 뉴스레터 구독 폼 — 홈 하단 인지 노출 */}
       <section className="px-5 pb-16 sm:pb-20">
-        <div className="mx-auto max-w-[700px]">
+        <div className="mx-auto max-w-[820px]">
           <SubscribeForm source="home-bottom" />
         </div>
       </section>
