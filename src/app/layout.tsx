@@ -58,9 +58,16 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // suppressHydrationWarning: 아래 pre-hydration 스크립트가 SSR HTML에 없는 .dark를 <html>에 붙이므로 속성 불일치가 정상 동작이다
   return (
-    <html lang="ko">
+    <html lang="ko" suppressHydrationWarning>
       <head>
+        {/* pre-hydration 테마 선반영 — 다크 사용자 FOUC 제거. 판정식은 ThemeToggle.tsx와 동일해야 한다. DESIGN.md §9 P0-3 */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `try{var s=localStorage.getItem('theme');if(s==='dark'||(!s&&matchMedia('(prefers-color-scheme: dark)').matches)){document.documentElement.classList.add('dark')}}catch(e){}`,
+          }}
+        />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <meta name="theme-color" content="#1d4ed8" />
         <link rel="icon" href="/favicon.ico" />
