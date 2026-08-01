@@ -82,10 +82,10 @@ export default function SubscribeForm({ source, sourceSlug, variant = 'full' }: 
   return (
     <form
       onSubmit={handleSubmit}
-      className={`rounded-2xl border ${isCompact ? 'p-5' : 'p-6 sm:p-7'}`}
+      className={`rounded-xl border ${isCompact ? 'p-5' : 'p-6 sm:p-7'}`}
       style={{
         borderColor: isCompact ? 'var(--color-border)' : 'var(--color-accent)',
-        borderWidth: isCompact ? '1px' : '1.5px',
+        borderWidth: '1px', // §5.3 카드 보더는 1px 단일 — 강조는 굵기가 아니라 색(--color-accent)으로
         backgroundColor: isCompact ? 'var(--color-bg-surface)' : 'var(--color-accent-soft, #fff8e6)',
       }}
     >
@@ -124,10 +124,7 @@ export default function SubscribeForm({ source, sourceSlug, variant = 'full' }: 
         <button
           type="submit"
           disabled={status === 'loading'}
-          className={`rounded-lg font-semibold transition-colors disabled:opacity-50 ${
-            isCompact ? 'px-4 py-2 text-[13px]' : 'px-5 py-3 text-[14px]'
-          }`}
-          style={{ backgroundColor: 'var(--color-accent)', color: '#fff' }}
+          className="inline-flex min-h-[44px] items-center justify-center rounded-md px-5 py-2.5 text-[15px] font-semibold transition-[background-color,transform] hover:-translate-y-px bg-[var(--color-accent-ink)] text-[var(--color-on-accent-ink)] hover:bg-[var(--color-accent-ink-hover)] disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {status === 'loading' ? '전송 중...' : isCompact ? '구독하기' : '무료 구독하기'}
         </button>

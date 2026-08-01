@@ -33,7 +33,7 @@ function StepHeader({ current }: { current: number }) {
             className="flex h-6 w-6 items-center justify-center rounded-full font-semibold"
             style={
               i + 1 < current
-                ? { backgroundColor: '#facc15', color: '#fff' }
+                ? { backgroundColor: 'var(--color-brand-solid)', color: '#191f28' }
                 : i + 1 === current
                 ? { backgroundColor: 'var(--color-text-primary)', color: 'var(--color-bg-primary)' }
                 : { backgroundColor: 'var(--color-border)', color: 'var(--color-text-tertiary)' }
@@ -98,7 +98,7 @@ function NumInput({
         value={formatted}
         onChange={(e) => onChange(e.target.value.replace(/[^\d.,]/g, ''))}
         placeholder={placeholder}
-        className="w-full rounded-lg border px-3 py-2 text-base focus:border-yellow-400 focus:outline-none focus:ring-2 focus:ring-yellow-200"
+        className="w-full rounded-lg border px-3 py-2 text-base focus:border-[var(--color-accent)] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]/20"
         style={{
           borderColor: 'var(--color-border)',
           backgroundColor: 'var(--color-bg-surface)',
@@ -310,6 +310,9 @@ export default function HolidayPayCalculator() {
       const holidayLabel = holidayKind === 'labor_day' ? '노동절(5/1)' : '관공서 공휴일';
       const typeLabel = workerType === 'monthly' ? '월급제' : workerType === 'daily' ? '일용직' : '시급제';
 
+      // ★ 아래 색은 canvas 전용이라 US-009에서도 토큰화하지 않았다 — ctx.fillStyle은 var()를 못 읽는다
+      // (공유 이미지는 라·다 고정 라이트). 대응: #0f172a·#1e293b·#334155 ≈ --color-text-primary,
+      // #475569 ≈ --color-text-secondary. 화면 쪽 잉크를 바꿀 때 여기도 같이 볼 것.
       const lines: { text: string; size: number; bold?: boolean; color?: string }[] = [];
       lines.push({ text: '공휴일 수당 계산 결과', size: 30, bold: true, color: '#0f172a' });
       lines.push({ text: `${sizeLabel}  ·  ${holidayLabel}  ·  ${typeLabel}`, size: 16, color: '#475569' });
@@ -343,6 +346,7 @@ export default function HolidayPayCalculator() {
 
       // 카드 frame
       ctx.fillStyle = '#ffffff';
+      // canvas는 var()를 못 읽는다 — --brand-400의 리터럴을 그대로 둔다(공유 이미지는 라·다 고정 라이트).
       ctx.strokeStyle = '#facc15';
       ctx.lineWidth = 2;
       const cardX = 16, cardY = 16, cardW = W - 32, cardH = totalH - 32;
@@ -436,10 +440,10 @@ export default function HolidayPayCalculator() {
                 setSiteSize(opt.key);
                 setStep('holiday');
               }}
-              className="rounded-xl border-2 p-5 text-left transition-all hover:shadow-lg"
+              className="rounded-xl border p-5 text-left transition-all hover:shadow-lg"
               style={{
-                borderColor: siteSize === opt.key ? '#facc15' : 'var(--color-border)',
-                backgroundColor: siteSize === opt.key ? 'rgba(250, 204, 21, 0.12)' : 'var(--color-bg-surface)',
+                borderColor: siteSize === opt.key ? 'var(--color-brand-border)' : 'var(--color-border)',
+                backgroundColor: siteSize === opt.key ? 'var(--color-brand-surface)' : 'var(--color-bg-surface)',
               }}
             >
               <div className="mb-2 text-lg font-bold" style={{ color: 'var(--color-text-primary)' }}>{opt.title}</div>
@@ -473,20 +477,20 @@ export default function HolidayPayCalculator() {
                 setHolidayKind(opt.key);
                 setStep('worker');
               }}
-              className="rounded-xl border-2 p-5 text-left transition-all hover:shadow-lg"
+              className="rounded-xl border p-5 text-left transition-all hover:shadow-lg"
               style={{
-                borderColor: holidayKind === opt.key ? '#facc15' : 'var(--color-border)',
-                backgroundColor: holidayKind === opt.key ? 'rgba(250, 204, 21, 0.12)' : 'var(--color-bg-surface)',
+                borderColor: holidayKind === opt.key ? 'var(--color-brand-border)' : 'var(--color-border)',
+                backgroundColor: holidayKind === opt.key ? 'var(--color-brand-surface)' : 'var(--color-bg-surface)',
               }}
             >
               <div className="mb-2 text-lg font-bold" style={{ color: 'var(--color-text-primary)' }}>{opt.title}</div>
-              <div className="text-sm leading-relaxed text-slate-600 dark:text-slate-300">
+              <div className="text-sm leading-relaxed text-[var(--grey-700)]">
                 {opt.desc}
               </div>
             </button>
           ))}
         </div>
-        <button onClick={() => goToStep('site')} className="mt-6 text-sm text-slate-500 hover:text-slate-700">
+        <button onClick={() => goToStep('site')} className="mt-6 text-sm text-[var(--grey-700)] hover:text-[var(--color-text-primary)]">
           ← 이전
         </button>
       </div>
@@ -514,20 +518,20 @@ export default function HolidayPayCalculator() {
                 setWorkerType(opt.key);
                 setStep('input');
               }}
-              className="rounded-xl border-2 p-5 text-left transition-all hover:shadow-lg"
+              className="rounded-xl border p-5 text-left transition-all hover:shadow-lg"
               style={{
-                borderColor: workerType === opt.key ? '#facc15' : 'var(--color-border)',
-                backgroundColor: workerType === opt.key ? 'rgba(250, 204, 21, 0.12)' : 'var(--color-bg-surface)',
+                borderColor: workerType === opt.key ? 'var(--color-brand-border)' : 'var(--color-border)',
+                backgroundColor: workerType === opt.key ? 'var(--color-brand-surface)' : 'var(--color-bg-surface)',
               }}
             >
               <div className="mb-2 text-lg font-bold" style={{ color: 'var(--color-text-primary)' }}>{opt.title}</div>
-              <div className="text-sm leading-relaxed text-slate-600 dark:text-slate-300">
+              <div className="text-sm leading-relaxed text-[var(--grey-700)]">
                 {opt.desc}
               </div>
             </button>
           ))}
         </div>
-        <button onClick={() => goToStep('holiday')} className="mt-6 text-sm text-slate-500 hover:text-slate-700">
+        <button onClick={() => goToStep('holiday')} className="mt-6 text-sm text-[var(--grey-700)] hover:text-[var(--color-text-primary)]">
           ← 이전
         </button>
       </div>
@@ -545,7 +549,7 @@ export default function HolidayPayCalculator() {
         </p>
 
         <div
-          className="space-y-5 rounded-xl border-2 p-5"
+          className="space-y-5 rounded-xl border p-5"
           style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }}
         >
           {workerType === 'monthly' && (
@@ -556,7 +560,7 @@ export default function HolidayPayCalculator() {
               <Field label="월 소정근로시간" hint="주 40시간 + 주휴 8시간 = 월 209시간 (기본값)">
                 <NumInput value={monthlyHours} onChange={setMonthlyHours} placeholder="209" suffix="시간" />
               </Field>
-              <label className="flex items-start gap-3 rounded-lg p-3 text-sm" style={{ backgroundColor: "rgba(250, 204, 21, 0.10)" }}>
+              <label className="flex items-start gap-3 rounded-lg p-3 text-sm" style={{ backgroundColor: 'var(--color-brand-surface)' }}>
                 <input
                   type="checkbox"
                   checked={inclusivePay}
@@ -566,7 +570,7 @@ export default function HolidayPayCalculator() {
                 <span>
                   <span className="font-semibold">포괄임금 약정</span>이 있습니다 (연장·휴일·야간 가산이 월급에 포함된다는 약정)
                   <br />
-                  <span className="text-slate-700">
+                  <span className="text-[var(--grey-700)]">
                     체크하면 결과 화면에 별도 안내가 표시됩니다. 단, 근로시간 산정이 어려운 업종이 아닌 경우
                     포괄임금 약정 자체가 무효일 수 있습니다 (대법원 2010다91046 등).
                   </span>
@@ -593,7 +597,7 @@ export default function HolidayPayCalculator() {
                 <span>
                   <span className="font-semibold">동일 사업장에 지속적으로 근로</span> (반복 호출됨)
                   <br />
-                  <span className="text-slate-600">
+                  <span className="text-[var(--grey-700)]">
                     체크 안 하면 단발성 일용직 — 통상임금 산정 대상이 아닙니다 (행정해석 근기 68207-2508).
                   </span>
                 </span>
@@ -609,7 +613,7 @@ export default function HolidayPayCalculator() {
               <Field label="주 소정근로시간" hint="주휴수당 발생 여부 판단 (15시간 이상 발생)">
                 <NumInput value={weeklyHours} onChange={setWeeklyHours} placeholder="40" suffix="시간" />
               </Field>
-              <label className="flex items-start gap-3 rounded-lg p-3 text-sm" style={{ backgroundColor: "rgba(250, 204, 21, 0.10)" }}>
+              <label className="flex items-start gap-3 rounded-lg p-3 text-sm" style={{ backgroundColor: 'var(--color-brand-surface)' }}>
                 <input
                   type="checkbox"
                   checked={hourlyIncludesWeekly}
@@ -619,7 +623,7 @@ export default function HolidayPayCalculator() {
                 <span>
                   <span className="font-semibold">시급에 주휴수당이 포함</span>되어 있습니다 (시급 × 1.2 형태)
                   <br />
-                  <span className="text-slate-700">
+                  <span className="text-[var(--grey-700)]">
                     체크하면 통상시급 = 시급 ÷ 1.2 (주휴분 제외한 기본시급)으로 가산수당을 계산합니다.
                   </span>
                 </span>
@@ -627,7 +631,7 @@ export default function HolidayPayCalculator() {
             </>
           )}
 
-          <div className="border-t border-slate-200 pt-5">
+          <div className="border-t border-[var(--color-border)] pt-5">
             <Field label="공휴일 근로시간" hint="실제 근무한 시간">
               <NumInput value={workedHours} onChange={setWorkedHours} placeholder="8" suffix="시간" />
             </Field>
@@ -639,12 +643,12 @@ export default function HolidayPayCalculator() {
         </div>
 
         <div className="mt-6 flex items-center justify-between">
-          <button onClick={() => goToStep('worker')} className="text-sm text-slate-500 hover:text-slate-700">
+          <button onClick={() => goToStep('worker')} className="text-sm text-[var(--grey-700)] hover:text-[var(--color-text-primary)]">
             ← 이전
           </button>
           <button
             onClick={calculate}
-            className="flex items-center gap-2 rounded-lg bg-yellow-400 px-6 py-3 font-bold text-slate-900 hover:bg-yellow-500"
+            className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-md px-5 py-2.5 text-[15px] font-semibold transition-[background-color,transform] hover:-translate-y-px bg-[var(--color-brand-solid)] text-[#191f28] hover:bg-[var(--brand-500)]"
           >
             <Calculator className="h-4 w-4" />
             계산하기
@@ -659,62 +663,68 @@ export default function HolidayPayCalculator() {
     return (
       <div>
         <StepHeader current={5} />
-        <div className="rounded-2xl border-2 border-yellow-400 bg-gradient-to-br from-amber-50 to-yellow-100 p-6">
-          <div className="mb-4 flex items-center gap-2 text-sm font-semibold" style={{ color: '#92400e' }}>
+        {/* ★ US-009에서 이 카드를 테마 표면으로 바꿨다. 배경은 고정 라이트 그라디언트
+            (from-amber-50 → to-yellow-100)였는데, 안쪽 잉크를 --color-text-*로 옮기려면
+            배경이 함께 뒤집혀야 한다(안 그러면 다크에서 밝은 글씨 + 밝은 배경). 평면
+            --color-brand-surface는 라이트에서 #fef9c3 = 종전 그라디언트 끝 색이라 변화가 작고,
+            다크에서는 rgba(250,204,21,.16) 틴트가 된다. 테두리·잉크도 램프에서 역할 토큰으로 승격.
+            안쪽 color-mix(--color-bg-surface …) 박스들은 이 전환으로 자동으로 맞는다. */}
+        <div className="rounded-xl border border-[var(--color-brand-border)] bg-[var(--color-brand-surface)] p-6">
+          <div className="mb-4 flex items-center gap-2 text-sm font-semibold" style={{ color: 'var(--color-brand-ink)' }}>
             <Calculator className="h-4 w-4" />
             계산 결과
           </div>
-          <div className="mb-2 text-sm" style={{ color: '#64748b' }}>
+          <div className="mb-2 text-sm" style={{ color: 'var(--grey-700)' }}>
             추가 지급액 {result.already_in_monthly_pay && <span className="text-xs">(가산수당만 — 월급 외)</span>}
           </div>
-          <div className="mb-2 text-4xl font-bold" style={{ color: '#0f172a' }}>
+          <div className="mb-2 text-4xl font-bold" style={{ color: 'var(--color-text-primary)' }}>
             {formatNumber(result.total)}
             <span className="ml-1 text-2xl">원</span>
           </div>
 
           {/* 환산 총액 안내 */}
-          <div className="mb-6 rounded-lg p-3 text-xs" style={{ color: '#475569', backgroundColor: 'color-mix(in srgb, var(--color-bg-surface) 60%, transparent)' }}>
-            <div className="mb-1 font-semibold text-slate-700">노동절 8시간 임금 환산 (참고)</div>
+          <div className="mb-6 rounded-lg p-3 text-xs" style={{ color: 'var(--grey-700)', backgroundColor: 'color-mix(in srgb, var(--color-bg-surface) 60%, transparent)' }}>
+            <div className="mb-1 font-semibold text-[var(--color-text-primary)]">노동절 8시간 임금 환산 (참고)</div>
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
               <span>
                 휴일근로 임금(1.0배):{' '}
-                <strong style={{ color: '#0f172a' }}>{formatNumber(result.regular_pay_equivalent)}원</strong>
-                {result.already_in_monthly_pay && <span className="text-slate-500"> (월급에 포함)</span>}
+                <strong style={{ color: 'var(--color-text-primary)' }}>{formatNumber(result.regular_pay_equivalent)}원</strong>
+                {result.already_in_monthly_pay && <span className="text-[var(--grey-700)]"> (월급에 포함)</span>}
                 {!result.already_in_monthly_pay && workerType === 'hourly' && hourlyIncludesWeekly && (
-                  <span className="text-slate-500"> (통상시급 기준 — 주휴분 별도)</span>
+                  <span className="text-[var(--grey-700)]"> (통상시급 기준 — 주휴분 별도)</span>
                 )}
               </span>
               <span>+</span>
               <span>
                 가산수당:{' '}
-                <strong style={{ color: '#0f172a' }}>
+                <strong style={{ color: 'var(--color-text-primary)' }}>
                   {formatNumber(result.gross_holiday_pay - result.regular_pay_equivalent)}원
                 </strong>
               </span>
               <span>=</span>
               <span>
                 환산 총액:{' '}
-                <strong style={{ color: '#0f172a' }}>{formatNumber(result.gross_holiday_pay)}원</strong>
+                <strong style={{ color: 'var(--color-text-primary)' }}>{formatNumber(result.gross_holiday_pay)}원</strong>
               </span>
             </div>
           </div>
 
           <div className="mb-4 rounded-lg p-4 text-sm" style={{ backgroundColor: 'color-mix(in srgb, var(--color-bg-surface) 70%, transparent)' }}>
-            <div className="mb-2 font-semibold" style={{ color: '#334155' }}>
+            <div className="mb-2 font-semibold" style={{ color: 'var(--color-text-primary)' }}>
               통상시급 {formatNumber(result.base_hourly)}원
             </div>
             <div className="space-y-2">
               {result.breakdown.map((b, i) => (
                 <div key={i} className="flex items-start justify-between gap-3">
                   <div className="flex-1">
-                    <div className="text-sm font-medium" style={{ color: '#334155' }}>
+                    <div className="text-sm font-medium" style={{ color: 'var(--color-text-primary)' }}>
                       {b.label}
                     </div>
-                    <div className="mt-0.5 text-xs" style={{ color: '#64748b' }}>
+                    <div className="mt-0.5 text-xs" style={{ color: 'var(--grey-700)' }}>
                       {b.formula}
                     </div>
                   </div>
-                  <div className="font-bold" style={{ color: b.amount === 0 ? '#94a3b8' : '#0f172a' }}>
+                  <div className="font-bold" style={{ color: b.amount === 0 ? 'var(--grey-700)' : 'var(--color-text-primary)' }}>
                     {formatNumber(b.amount)}원
                   </div>
                 </div>
@@ -723,14 +733,14 @@ export default function HolidayPayCalculator() {
           </div>
 
           {result.warning && (
-            <div className="mb-3 flex items-start gap-2 rounded-lg bg-amber-100 p-3 text-sm" style={{ color: '#78350f' }}>
+            <div className="mb-3 flex items-start gap-2 rounded-lg bg-[var(--color-warn-bg)] p-3 text-sm" style={{ color: 'var(--color-warn-ink)' }}>
               <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0" />
               <div>{result.warning}</div>
             </div>
           )}
 
           {result.notes.length > 0 && (
-            <div className="mb-3 rounded-lg p-3 text-xs" style={{ color: '#475569', backgroundColor: 'color-mix(in srgb, var(--color-bg-surface) 50%, transparent)' }}>
+            <div className="mb-3 rounded-lg p-3 text-xs" style={{ color: 'var(--grey-700)', backgroundColor: 'color-mix(in srgb, var(--color-bg-surface) 50%, transparent)' }}>
               <div className="mb-1 flex items-center gap-1 font-semibold">
                 <Info className="h-3 w-3" />
                 설명
@@ -743,8 +753,8 @@ export default function HolidayPayCalculator() {
             </div>
           )}
 
-          <details className="mt-3 text-xs" style={{ color: '#64748b' }}>
-            <summary className="cursor-pointer font-semibold hover:text-slate-900">법적 근거</summary>
+          <details className="mt-3 text-xs" style={{ color: 'var(--grey-700)' }}>
+            <summary className="cursor-pointer font-semibold hover:text-[var(--color-text-primary)]">법적 근거</summary>
             <ul className="mt-2 space-y-1 pl-4">
               {result.legal_basis.map((l, i) => (
                 <li key={i}>• {l}</li>
@@ -756,7 +766,7 @@ export default function HolidayPayCalculator() {
         <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-4">
           <button
             onClick={handleKakaoShare}
-            className="flex items-center justify-center gap-2 rounded-lg bg-yellow-300 px-4 py-3 font-semibold text-slate-900 hover:bg-yellow-400"
+            className="w-full inline-flex min-h-[44px] items-center justify-center gap-2 rounded-md px-5 py-2.5 text-[15px] font-semibold transition-[background-color,transform] hover:-translate-y-px bg-[var(--color-brand-solid)] text-[#191f28] hover:bg-[var(--brand-500)]"
             title="카카오톡 공유 (Kakao SDK)"
           >
             <MessageCircle className="h-4 w-4" />
@@ -764,7 +774,7 @@ export default function HolidayPayCalculator() {
           </button>
           <button
             onClick={handleNativeShare}
-            className="flex items-center justify-center gap-2 rounded-lg bg-slate-900 px-4 py-3 font-semibold text-white hover:bg-slate-800"
+            className="w-full inline-flex min-h-[44px] items-center justify-center gap-2 rounded-md px-5 py-2.5 text-[15px] font-semibold transition-[background-color,transform] hover:-translate-y-px border border-[var(--color-border)] bg-[var(--color-bg-surface)] text-[var(--color-text-primary)] hover:bg-[var(--grey-100)]"
             title="시스템 공유 시트 (모바일)"
           >
             <Share2 className="h-4 w-4" />
@@ -772,24 +782,14 @@ export default function HolidayPayCalculator() {
           </button>
           <button
             onClick={handleDownloadImage}
-            className="flex items-center justify-center gap-2 rounded-lg border px-4 py-3 font-semibold hover:opacity-90"
-            style={{
-              borderColor: 'var(--color-border)',
-              backgroundColor: 'var(--color-bg-surface)',
-              color: 'var(--color-text-primary)',
-            }}
+            className="w-full inline-flex min-h-[44px] items-center justify-center gap-2 rounded-md px-5 py-2.5 text-[15px] font-semibold transition-[background-color,transform] hover:-translate-y-px border border-[var(--color-border)] bg-[var(--color-bg-surface)] text-[var(--color-text-primary)] hover:bg-[var(--grey-100)]"
           >
             <Download className="h-4 w-4" />
             이미지 저장
           </button>
           <button
             onClick={handleCopy}
-            className="flex items-center justify-center gap-2 rounded-lg border px-4 py-3 font-semibold hover:opacity-90"
-            style={{
-              borderColor: 'var(--color-border)',
-              backgroundColor: 'var(--color-bg-surface)',
-              color: 'var(--color-text-primary)',
-            }}
+            className="w-full inline-flex min-h-[44px] items-center justify-center gap-2 rounded-md px-5 py-2.5 text-[15px] font-semibold transition-[background-color,transform] hover:-translate-y-px border border-[var(--color-border)] bg-[var(--color-bg-surface)] text-[var(--color-text-primary)] hover:bg-[var(--grey-100)]"
           >
             {copied ? <Check className="h-4 w-4 text-emerald-600" /> : <Copy className="h-4 w-4" />}
             {copied ? '복사됨' : '결과 복사'}
@@ -797,10 +797,10 @@ export default function HolidayPayCalculator() {
         </div>
 
         <div className="mt-6 flex items-center justify-between text-sm">
-          <button onClick={() => goToStep('site')} className="text-slate-500 hover:text-slate-700">
+          <button onClick={() => goToStep('site')} className="text-[var(--grey-700)] hover:text-[var(--color-text-primary)]">
             처음부터 다시
           </button>
-          <button onClick={() => goToStep('input')} className="text-slate-500 hover:text-slate-700">
+          <button onClick={() => goToStep('input')} className="text-[var(--grey-700)] hover:text-[var(--color-text-primary)]">
             ← 입력값 수정
           </button>
         </div>

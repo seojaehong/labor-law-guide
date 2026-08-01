@@ -119,7 +119,7 @@ function VerdictBadge({ type }: { type: string | null }) {
   const colors: Record<string, { bg: string; text: string }> = {
     '원고승': { bg: 'var(--blue-50)', text: 'var(--blue-600)' },
     '원고패': { bg: 'var(--grey-100)', text: 'var(--grey-600)' },
-    '원고일부승': { bg: '#fef3c7', text: '#92400e' },
+    '원고일부승': { bg: 'var(--color-warn-bg)', text: 'var(--color-warn-ink)' },
     '파기환송': { bg: '#fce4ec', text: '#b71c1c' },
     '상고기각': { bg: 'var(--grey-100)', text: 'var(--grey-600)' },
   };
@@ -182,7 +182,7 @@ export default async function CaseDetailPage({
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
 
-      <div className="mx-auto max-w-[1100px] px-5 py-10">
+      <div className="mx-auto max-w-[820px] px-5 py-10">
         <div className="lg:grid lg:grid-cols-[1fr_280px] lg:gap-10">
           {/* Main Content */}
           <article>
@@ -229,7 +229,7 @@ export default async function CaseDetailPage({
               </div>
 
               <h1
-                className="text-xl font-bold leading-tight mb-3 md:text-2xl"
+                className="t-h2 mb-3"
                 style={{ color: 'var(--color-text-primary)' }}
               >
                 {item.title}
@@ -367,7 +367,7 @@ export default async function CaseDetailPage({
                   </div>
                 </Link>
               </div>
-              <div className="rounded-2xl p-6 sm:p-8 text-center" style={{ backgroundColor: '#191f28' }}>
+              <div className="rounded-xl p-6 sm:p-8 text-center" style={{ backgroundColor: '#191f28' }}>
                 <p className="text-lg font-bold text-white">전문가 상담이 필요하신가요?</p>
                 <p className="mt-2 text-sm text-white/70">노무법인 위너스에서 사업장 맞춤 상담을 제공합니다.</p>
                 <Link
@@ -386,7 +386,7 @@ export default async function CaseDetailPage({
             <div className="sticky top-24 space-y-6">
               {/* Case Info Card */}
               <div
-                className="rounded-2xl border p-5"
+                className="rounded-xl border p-5"
                 style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)', boxShadow: 'var(--shadow-sm)' }}
               >
                 <h3 className="text-[14px] font-bold mb-3" style={{ color: 'var(--color-text-primary)' }}>
@@ -423,7 +423,7 @@ export default async function CaseDetailPage({
               </div>
 
               {/* CTA Sidebar */}
-              <div className="rounded-2xl p-5" style={{ backgroundColor: '#191f28' }}>
+              <div className="rounded-xl p-5" style={{ backgroundColor: '#191f28' }}>
                 <p className="text-[14px] font-bold text-white mb-2">전문가 상담</p>
                 <p className="text-[12px] text-white/70 mb-4 leading-relaxed">
                   이 판례와 유사한 사안이라면 노무법인 위너스에 문의하세요.

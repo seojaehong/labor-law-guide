@@ -2,6 +2,14 @@
 
 - unit: vitest (`npm run test`, tests/unit/**/*.test.ts). alias `@` → src/ 는 vitest.config.ts에 이미 설정됨. JSON은 `@/lib/contract-check/data/*.json` 직접 import 가능(resolveJsonModule).
 - e2e: playwright (`npm run e2e`, tests/e2e). baseURL http://localhost:3123, dev 서버 자동 기동(첫 기동 느림, 타임아웃 180s).
+- ★ **e2e 실행 전 `.env.local`이 있는지 확인.** 없으면 dev 서버가 `Error: supabaseUrl is required.`로 전 페이지 500을 뱉고
+  webServer가 180s 타임아웃난다(에러 메시지가 supabase만 가리켜 원인이 안 보인다). git worktree는 gitignore된 `.env*`를
+  안 가져오므로 워크트리에서 특히 자주 밟는다 — `cp <레포루트>/.env.local .env.local`.
+- ★ **포트 3123 좀비**: dev 서버를 직접 띄웠다가 죽이면 자식 node가 포트를 쥔 채 500만 응답하는 상태가 남는다.
+  그러면 playwright가 `reuseExistingServer`로 재사용하려다 non-2xx를 보고 새로 띄워 `EADDRINUSE`로 실패한다.
+  진단 `netstat -ano | grep ":3123"` → `taskkill //PID <pid> //F`. **dev 서버는 playwright에 맡기고 직접 띄우지 말 것.**
+- 계산된 스타일·상태값 검증은 `page.evaluate(() => getComputedStyle(el).xxx)` 결과를 `console.log`로 찍고
+  실행 출력에서 grep해 회수한다(스크린샷 육안 판정보다 재현 가능).
 - contract-check 엔진 불변식: **모든 규칙 함수는 계약 1건당 정확히 Finding 1개**를 반환한다(ok/needs_data 포함). 따라서 checkContract 출력의 rule_code 집합 == 엔진 구현 규칙 집합 == 카탈로그 auto:true 집합(24개, ORDINARY-WAGE만 auto:false).
 - synthetic_edge_cases.json은 완전한 계약 객체 4건의 배열이며 각각 `expected_findings`(부분 정답지, 4건씩)를 가짐. `normalize(배열)`로 파생필드(weekly_actual_hours·ordinary_hourly_rate·employment_type·retroactive_days)를 채운 뒤 checkContract에 넣어야 한다 — normalize 없이 넣으면 needs_data가 쏟아진다.
 - e2e 셀렉터 관례: 폼 입력은 aria-label(`getByLabel('계약 시작일')`), 선택 버튼·스텝 이동은 `getByRole('button', { name: ... })`. ContractCheckClient의 모든 input에 aria-label이 있다. 결과 도달 판정은 `heading '점검 결과'` + 카운트 배지 `/^위반 \d+$/`.

@@ -52,7 +52,7 @@ export default function LectureIsanPage() {
   const block = BLOCKS.find((b) => b.idx === slide.block);
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-6">
+    <div className="mx-auto max-w-[1100px] px-4 py-6">
       {/* 헤더 */}
       <header className="mb-6">
         <div className="flex flex-wrap items-baseline justify-between gap-3">
@@ -89,7 +89,7 @@ export default function LectureIsanPage() {
           </div>
 
           {/* 슬라이드 본체 */}
-          <article className="rounded-2xl border p-8 sm:p-12 min-h-[60vh] flex flex-col"
+          <article className="rounded-xl border p-8 sm:p-12 min-h-[60vh] flex flex-col"
                    style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }}>
             <h2 className="text-3xl sm:text-4xl font-bold leading-tight mb-3">{slide.title}</h2>
             {slide.subtitle && (
@@ -116,7 +116,7 @@ export default function LectureIsanPage() {
                 {slide.demo.prompt && (
                   <div className="rounded-lg border p-4 font-mono text-[13px] whitespace-pre-wrap"
                        style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg)' }}>
-                    <div className="text-[10px] font-bold text-muted-foreground mb-1">PROMPT</div>
+                    <div className="text-[length:var(--text-xs)] font-bold text-muted-foreground mb-1">PROMPT</div>
                     {slide.demo.prompt}
                   </div>
                 )}

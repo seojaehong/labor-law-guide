@@ -9,7 +9,8 @@ export default function MarkdownSnippet({ value }: { value: string }) {
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         components={{
-          a: ({ ...props }) => <a {...props} target="_blank" rel="noopener noreferrer" className="underline" style={{ color: 'var(--color-accent)' }} />,
+          // §6.8 본문 링크 — 밑줄은 이미 있었고 색만 --color-accent-ink로 옮긴다(--color-accent는 3.55:1로 AA 미달).
+          a: ({ ...props }) => <a {...props} target="_blank" rel="noopener noreferrer" className="underline underline-offset-[0.2em] decoration-1" style={{ color: 'var(--color-accent-ink)' }} />,
           p: ({ children }) => <p>{children}</p>,
           ul: ({ children }) => <ul className="space-y-1">{children}</ul>,
           ol: ({ children }) => <ol className="space-y-1">{children}</ol>,

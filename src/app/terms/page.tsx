@@ -7,8 +7,8 @@ export const metadata: Metadata = {
 
 export default function TermsPage() {
   return (
-    <main className="mx-auto max-w-3xl px-4 py-12 md:py-16">
-      <h1 className="text-3xl font-bold tracking-tight">이용약관</h1>
+    <main className="mx-auto max-w-[820px] px-4 py-12 md:py-16">
+      <h1 className="t-h2" style={{ color: 'var(--color-text-primary)' }}>이용약관</h1>
       <p className="mt-4 text-sm text-gray-600">최종 업데이트: 2026-04-20</p>
 
       <section className="mt-8 space-y-4 text-sm leading-7 text-gray-800">
@@ -25,7 +25,7 @@ export default function TermsPage() {
           사전 허가 없는 무단 복제·배포를 제한합니다.
         </p>
         <p>
-          문의 및 상담은 <a className="underline" href="/contact">상담 문의 페이지</a>에서 접수할 수 있습니다.
+          문의 및 상담은 <a className="underline underline-offset-2" style={{ color: 'var(--color-accent-ink)' }} href="/contact">상담 문의 페이지</a>에서 접수할 수 있습니다.
         </p>
       </section>
     </main>

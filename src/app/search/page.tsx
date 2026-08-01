@@ -164,19 +164,19 @@ function getDisplayCaseNumber(caseNumber?: string | null): string {
 function SearchResultCard({ item }: { item: SearchCard }) {
   const sourceBadge =
     item.source_provider === "lawgo" ? (
-      <Badge variant="outline" className="text-[10px]">법제처 판례</Badge>
+      <Badge variant="outline" className="text-[length:var(--text-xs)]">법제처 판례</Badge>
     ) : item.source_provider === "bigcase" ? (
-      <Badge variant="outline" className="text-[10px]">법원 판례</Badge>
+      <Badge variant="outline" className="text-[length:var(--text-xs)]">법원 판례</Badge>
     ) : item.source_provider === "nlrc" ? (
-      <Badge variant="outline" className="text-[10px]">노동위 판정례</Badge>
+      <Badge variant="outline" className="text-[length:var(--text-xs)]">노동위 판정례</Badge>
     ) : null;
 
   const tierBadge = item.tier === 'high_demand' ? (
-    <Badge variant="destructive" className="text-[10px]">괴롭힘·성희롱</Badge>
+    <Badge variant="destructive" className="text-[length:var(--text-xs)]">괴롭힘·성희롱</Badge>
   ) : null;
 
   const legalFocusBadges = item.legal_focus?.filter(f => f !== '불명').slice(0, 2).map(f => (
-    <Badge key={f} variant="outline" className="text-[10px]">{labelize(f, LEGAL_FOCUS_LABELS)}</Badge>
+    <Badge key={f} variant="outline" className="text-[length:var(--text-xs)]">{labelize(f, LEGAL_FOCUS_LABELS)}</Badge>
   ));
 
   const caseNum = getDisplayCaseNumber(item.case_number);
@@ -233,7 +233,7 @@ function SearchBucketSection({
   error?: string;
 }) {
   return (
-    <div className="rounded-2xl border bg-card/40 p-4">
+    <div className="rounded-xl border bg-card/40 p-4">
       <div className="flex items-center justify-between mb-2">
         <div>
           <h2 className="text-lg font-semibold">{title}</h2>
@@ -412,12 +412,12 @@ function SearchContentInner({
 
   return (
     <main className="min-h-screen bg-background">
-      <div className="max-w-6xl mx-auto px-4 py-8">
+      <div className="max-w-[1100px] mx-auto px-4 py-8">
         <Link href="/" className="text-sm text-muted-foreground hover:text-primary mb-4 inline-block">
           &larr; 홈으로
         </Link>
 
-        <h1 className="text-2xl font-bold mb-3">판정례 검색</h1>
+        <h1 className="t-h2 mb-3" style={{ color: 'var(--color-text-primary)' }}>판정례 검색</h1>
         <p className="text-sm text-muted-foreground mb-6">
           키워드 또는 사유를 선택하여 판정례를 검색합니다.
         </p>
@@ -509,7 +509,7 @@ function SearchContentInner({
         </div>
 
         {IS_DEV ? (
-          <div className="rounded-2xl border bg-muted/30 p-4 mb-6">
+          <div className="rounded-xl border bg-muted/30 p-4 mb-6">
             <div className="flex flex-wrap gap-2 mb-3">
               <SectionPill>{getModeLabel(mode)}</SectionPill>
               <SectionPill>검색어: {query || "없음"}</SectionPill>
@@ -575,7 +575,7 @@ function SearchContentInner({
         )}
 
         {payload?.molab && payload.molab.length > 0 && (
-          <div className="mt-8 rounded-2xl border border-blue-200 bg-blue-50/50 p-4">
+          <div className="mt-8 rounded-xl border border-blue-200 bg-blue-50/50 p-4">
             <h2 className="text-sm font-semibold text-blue-800 mb-3">
               관련 행정해석 ({payload.molab.length}건)
             </h2>
@@ -605,7 +605,7 @@ function SearchContentInner({
                   {item.keywords_matched && item.keywords_matched.length > 0 && (
                     <div className="flex flex-wrap gap-1 mt-2">
                       {item.keywords_matched.map((tag) => (
-                        <Badge key={tag} variant="outline" className="text-[10px] bg-blue-50 text-blue-700 border-blue-200">
+                        <Badge key={tag} variant="outline" className="text-[length:var(--text-xs)] bg-blue-50 text-blue-700 border-blue-200">
                           {tag}
                         </Badge>
                       ))}
@@ -648,7 +648,7 @@ function SearchContentInner({
         )}
 
         {/* 검색 결과 페이지 CTA — 원하는 답을 못 찾았을 때 챗봇으로 유도 */}
-        <div className="mt-10 rounded-2xl border border-primary/30 bg-primary/5 p-5">
+        <div className="mt-10 rounded-xl border border-primary/30 bg-primary/5 p-5">
           <h3 className="font-bold text-base mb-2">원하는 답을 못 찾으셨나요?</h3>
           <p className="text-sm text-muted-foreground mb-4">
             검색으로 찾기 어려운 구체적인 상황은 AI 노동법 상담에 직접 물어보세요. 판례·행정해석 1만 건 이상을 근거로 답변합니다.

@@ -159,7 +159,7 @@ export default function PhotoUploadCard({ onExtracted }: UploadCardProps) {
           setDragging(false);
           void handleFiles(e.dataTransfer.files);
         }}
-        className={`rounded-xl border-2 border-dashed p-5 text-center transition-colors ${
+        className={`rounded-xl border border-dashed p-5 text-center transition-colors ${
           dragging ? 'border-yellow-400 bg-yellow-50' : ''
         }`}
         style={dragging ? undefined : { borderColor: 'var(--color-border)' }}
@@ -169,8 +169,9 @@ export default function PhotoUploadCard({ onExtracted }: UploadCardProps) {
           계약서 사진으로 자동 입력
         </p>
         <p className="mt-1 text-xs leading-relaxed" style={{ color: 'var(--color-text-secondary)' }}>
-          사진을 여기에 끌어다 놓거나 아래 버튼으로 고르세요 (최대 {MAX_FILES}장). 사진은 인식에만
-          쓰이고 저장하지 않습니다.
+          {/* ★ 상단 배너(ContractCheckClient)의 문장을 그대로 복제하지 말 것 — e2e strict mode 이중 매칭 */}
+          사진을 여기에 끌어다 놓거나 아래 버튼으로 고르세요 (최대 {MAX_FILES}장). 사진은 판독을 위해
+          서버를 거치며, 인식에만 쓰이고 저장하지 않습니다.
         </p>
         <input
           ref={inputRef}
@@ -185,7 +186,9 @@ export default function PhotoUploadCard({ onExtracted }: UploadCardProps) {
           type="button"
           disabled={busy}
           onClick={() => inputRef.current?.click()}
-          className="mt-3 inline-flex items-center gap-2 rounded-lg bg-slate-900 px-4 py-2 text-sm font-bold text-white disabled:opacity-60 dark:bg-slate-100 dark:text-slate-900"
+          // 종전 slate-900/white ↔ dark:slate-100/slate-900 반전을 토큰 한 쌍으로 옮겼다.
+          // --color-text-primary(#191f28↔#f2f4f6)와 --color-bg-surface(#ffffff↔#191f28)는 서로 반대로 뒤집힌다.
+          className="mt-3 inline-flex items-center gap-2 rounded-lg bg-[var(--color-text-primary)] px-4 py-2 text-sm font-bold text-[var(--color-bg-surface)] disabled:opacity-60"
         >
           {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
           {busy ? '사진을 읽는 중…' : '사진 선택'}
@@ -200,7 +203,7 @@ export default function PhotoUploadCard({ onExtracted }: UploadCardProps) {
         <p
           role="alert"
           className="mt-3 rounded-lg px-3 py-2 text-xs leading-relaxed"
-          style={{ backgroundColor: '#fef3c7', color: '#92400e' }}
+          style={{ backgroundColor: 'var(--color-warn-bg)', color: 'var(--color-warn-ink)' }}
         >
           {error}
         </p>

@@ -7,7 +7,7 @@ export function highlightText(text: string, query: string): ReactNode {
   const parts = text.split(new RegExp(`(${escaped})`, 'gi'));
   return parts.map((part, i) =>
     part.toLowerCase() === query.toLowerCase()
-      ? createElement('mark', { key: i, style: { backgroundColor: 'var(--yellow-100, #fef9c3)', color: 'inherit', borderRadius: '2px', padding: '0 1px' } }, part)
+      ? createElement('mark', { key: i, style: { backgroundColor: 'var(--color-brand-surface, #fef9c3)', color: 'inherit', borderRadius: '2px', padding: '0 1px' } }, part)
       : part
   );
 }

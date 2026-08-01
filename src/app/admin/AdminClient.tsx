@@ -58,7 +58,7 @@ interface Stats {
 const CATEGORY_COLORS: Record<string, { bg: string; text: string }> = {
   '노동법': { bg: '#e8f3ff', text: '#1b64da' },
   '판례분석': { bg: '#f5f3ff', text: '#6d28d9' },
-  '뉴스해설': { bg: '#fef3c7', text: '#92400e' },
+  '뉴스해설': { bg: 'var(--color-warn-bg)', text: 'var(--color-warn-ink)' },
   '뉴스브리핑': { bg: '#fff7ed', text: '#c2410c' },
   '실무가이드': { bg: '#ecfdf5', text: '#065f46' },
   general: { bg: '#f2f4f6', text: '#6b7684' },
@@ -208,7 +208,7 @@ export default function AdminClient() {
     return (
       <div className="mx-auto max-w-[400px] px-5 py-20">
         <div
-          className="rounded-2xl border p-8 text-center"
+          className="rounded-xl border p-8 text-center"
           style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }}
         >
           <Lock size={32} className="mx-auto mb-4" style={{ color: 'var(--color-text-tertiary)' }} />
@@ -237,7 +237,7 @@ export default function AdminClient() {
   }
 
   return (
-    <div className="mx-auto max-w-[1200px] px-5 py-8">
+    <div className="mx-auto max-w-[1100px] px-5 py-8">
       {/* Header */}
       <div className="flex items-center justify-between mb-8">
         <div>
@@ -311,7 +311,7 @@ export default function AdminClient() {
             <div className="flex items-end gap-2 h-24">
               {stats.trend.map((t) => (
                 <div key={t.date} className="flex-1 flex flex-col items-center gap-1">
-                  <span className="text-[10px] font-semibold" style={{ color: 'var(--color-text-secondary)' }}>
+                  <span className="text-[length:var(--text-xs)] font-semibold" style={{ color: 'var(--color-text-secondary)' }}>
                     {t.count}
                   </span>
                   <div
@@ -321,7 +321,7 @@ export default function AdminClient() {
                       backgroundColor: t.count > 0 ? 'var(--blue-400)' : 'var(--grey-200)',
                     }}
                   />
-                  <span className="text-[10px]" style={{ color: 'var(--color-text-tertiary)' }}>
+                  <span className="text-[length:var(--text-xs)]" style={{ color: 'var(--color-text-tertiary)' }}>
                     {t.date.slice(5)}
                   </span>
                 </div>
@@ -540,7 +540,7 @@ export default function AdminClient() {
                         {a.author}
                       </td>
                       <td className="px-3 py-3 text-center hidden md:table-cell">
-                        <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded" style={{ backgroundColor: '#ecfdf5', color: '#059669' }}>공개</span>
+                        <span className="text-[length:var(--text-xs)] font-semibold px-1.5 py-0.5 rounded" style={{ backgroundColor: '#ecfdf5', color: '#059669' }}>공개</span>
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex items-center justify-end gap-1">
@@ -607,7 +607,7 @@ export default function AdminClient() {
       {editArticle && (
         <div className="fixed inset-0 z-50 flex items-start justify-center pt-10 px-4" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
           <div
-            className="w-full max-w-[800px] max-h-[85vh] overflow-y-auto rounded-2xl border p-6"
+            className="w-full max-w-[800px] max-h-[85vh] overflow-y-auto rounded-xl border p-6"
             style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }}
           >
             <div className="flex items-center justify-between mb-6">

@@ -58,11 +58,24 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // suppressHydrationWarning: 아래 pre-hydration 스크립트가 SSR HTML에 없는 .dark를 <html>에 붙이므로 속성 불일치가 정상 동작이다
   return (
-    <html lang="ko">
+    <html lang="ko" suppressHydrationWarning>
       <head>
+        {/* pre-hydration 테마 선반영 — 다크 사용자 FOUC 제거. 판정식은 ThemeToggle.tsx와 동일해야 한다. DESIGN.md §9 P0-3 */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `try{var s=localStorage.getItem('theme');if(s==='dark'||(!s&&matchMedia('(prefers-color-scheme: dark)').matches)){document.documentElement.classList.add('dark')}}catch(e){}`,
+          }}
+        />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <meta name="theme-color" content="#1d4ed8" />
+        {/* §9 P6-1 브라우저 크롬 색 — 종전 #1d4ed8은 팔레트에 없는 제3의 파랑이었다.
+            "크롬 색 = 페이지 최상단에 보이는 것"으로 맞춘다: 라이트는 glass 네비가 흰색으로 렌더되므로
+            --color-bg-surface(#ffffff), 다크는 페이지 바탕 --color-bg-primary(#0f1117).
+            ★ theme-color는 리터럴만 받으므로 var() 불가. 또 media는 OS의 prefers-color-scheme만 타고
+              이 사이트의 테마 축(.dark 클래스 + localStorage)은 못 읽는다 — 토글로만 다크인 방문자는 라이트 크롬을 본다. */}
+        <meta name="theme-color" media="(prefers-color-scheme: light)" content="#ffffff" />
+        <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0f1117" />
         <link rel="icon" href="/favicon.ico" />
         <link rel="preconnect" href="https://cdn.jsdelivr.net" crossOrigin="anonymous" />
         <link
@@ -158,11 +171,13 @@ export default function RootLayout({
               © 2026 노란봉투법 가이드. 본 사이트는 법률 자문이 아닌 정보 제공 목적입니다.
             </p>
             <p className="mt-1 text-xs" style={{ color: 'var(--color-text-tertiary)' }}>
-              <a href="https://winhr.co.kr" target="_blank" rel="noopener noreferrer" className="hover:underline" style={{ color: 'var(--color-accent)' }}>노무법인 위너스</a>
+              {/* §6.8 — 산문 링크는 상시 밑줄 + --color-accent-ink. 이 푸터는 전 라우트에 뜨므로
+                  hover-only 밑줄 + --color-accent(3.55:1)는 사이트 전체에서 1.4.1·1.4.3을 어긴다. */}
+              <a href="https://winhr.co.kr" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2" style={{ color: 'var(--color-accent-ink)' }}>노무법인 위너스</a>
               {' '}| 서울시 서초구 나루터로 61, 402호 |{' '}
-              <a href="/contact" style={{ color: 'var(--color-accent)' }}>온라인 상담 접수</a>
-              {' '}| <a href="/privacy" style={{ color: 'var(--color-accent)' }}>개인정보처리방침</a>
-              {' '}| <a href="/terms" style={{ color: 'var(--color-accent)' }}>이용약관</a>
+              <a href="/contact" className="underline underline-offset-2" style={{ color: 'var(--color-accent-ink)' }}>온라인 상담 접수</a>
+              {' '}| <a href="/privacy" className="underline underline-offset-2" style={{ color: 'var(--color-accent-ink)' }}>개인정보처리방침</a>
+              {' '}| <a href="/terms" className="underline underline-offset-2" style={{ color: 'var(--color-accent-ink)' }}>이용약관</a>
             </p>
           </div>
         </footer>

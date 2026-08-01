@@ -261,12 +261,12 @@ export default async function DecisionPage({
 
     return (
       <main className="min-h-screen bg-background">
-        <div className="max-w-3xl mx-auto px-4 py-8">
+        <div className="max-w-[820px] mx-auto px-4 py-8">
           <Link href="/search" className="text-sm text-muted-foreground hover:text-primary mb-4 inline-block">
             &larr; 검색으로
           </Link>
 
-          <h1 className="text-xl font-bold mb-2">{precedent.title || `법제처 판례 ${apiId}`}</h1>
+          <h1 className="t-h2 mb-2" style={{ color: 'var(--color-text-primary)' }}>{precedent.title || `법제처 판례 ${apiId}`}</h1>
           <p className="text-sm text-muted-foreground mb-4">
             {precedent.court || "-"} | {precedent.decision_date || "-"}
             {precedent.reference_number ? ` | ${precedent.reference_number}` : ""}
@@ -477,12 +477,12 @@ export default async function DecisionPage({
 
     return (
       <main className="min-h-screen bg-background">
-        <div className="max-w-3xl mx-auto px-4 py-8">
+        <div className="max-w-[820px] mx-auto px-4 py-8">
           <Link href="/search" className="text-sm text-muted-foreground hover:text-primary mb-4 inline-block">
             &larr; 검색으로
           </Link>
 
-          <h1 className="text-xl font-bold mb-2">{c.title}</h1>
+          <h1 className="t-h2 mb-2" style={{ color: 'var(--color-text-primary)' }}>{c.title}</h1>
           <p className="text-sm text-muted-foreground mb-4">
             {c.court} | {c.decision_date}
             {c.case_number ? ` | ${c.case_number}` : ""}
@@ -647,12 +647,12 @@ export default async function DecisionPage({
 
   return (
     <main className="min-h-screen bg-background">
-      <div className="max-w-3xl mx-auto px-4 py-8">
+      <div className="max-w-[820px] mx-auto px-4 py-8">
         <Link href="/search" className="text-sm text-muted-foreground hover:text-primary mb-4 inline-block">
           &larr; 검색으로
         </Link>
 
-        <h1 className="text-xl font-bold mb-2">{d.title}</h1>
+        <h1 className="t-h2 mb-2" style={{ color: 'var(--color-text-primary)' }}>{d.title}</h1>
         <p className="text-sm text-muted-foreground">
           {d.department} | {d.decision_date}
         </p>

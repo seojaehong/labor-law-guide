@@ -20,7 +20,7 @@ export default function TopicPicks({ items, variant = 'home' }: Props) {
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
             <Star size={18} style={{ color: 'var(--color-accent)' }} fill="currentColor" />
-            <h2 className="text-[17px] sm:text-xl font-bold" style={{ color: 'var(--grey-900)' }}>
+            <h2 className="text-[17px] sm:text-xl font-bold" style={{ color: 'var(--color-text-primary)' }}>
               이 주의 토픽
             </h2>
           </div>

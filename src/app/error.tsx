@@ -29,8 +29,7 @@ export default function Error({
       </p>
       <button
         onClick={reset}
-        className="rounded-lg px-5 py-2.5 text-sm font-medium text-white transition-colors"
-        style={{ backgroundColor: 'var(--color-accent)' }}
+        className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-md px-5 py-2.5 text-[15px] font-semibold transition-[background-color,transform] hover:-translate-y-px bg-[var(--color-accent-ink)] text-[var(--color-on-accent-ink)] hover:bg-[var(--color-accent-ink-hover)]"
       >
         다시 시도
       </button>

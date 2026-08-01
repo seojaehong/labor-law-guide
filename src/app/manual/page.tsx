@@ -6,8 +6,8 @@ import { CheckCircle, FileText } from 'lucide-react';
 
 export default function ManualPage() {
   return (
-    <div className="mx-auto max-w-[900px] px-5 py-10">
-      <h1 className="mb-2 font-bold" style={{ fontSize: 'var(--text-2xl)', color: 'var(--grey-900)' }}>
+    <div className="mx-auto max-w-[820px] px-5 py-10">
+      <h1 className="t-h2 mb-2" style={{ color: 'var(--color-text-primary)' }}>
         원·하청 교섭절차 가이드
       </h1>
       <p className="mb-10 text-sm" style={{ color: 'var(--grey-500)' }}>
@@ -18,13 +18,13 @@ export default function ManualPage() {
 
       {/* Step Diagram */}
       <section className="my-12">
-        <h2 className="mb-6 font-bold" style={{ fontSize: 'var(--text-xl)', color: 'var(--grey-900)' }}>교섭절차 6단계</h2>
+        <h2 className="mb-6 font-bold" style={{ fontSize: 'var(--text-xl)', color: 'var(--color-text-primary)' }}>교섭절차 6단계</h2>
         <StepDiagram steps={negotiationSteps} />
       </section>
 
       {/* Unit Separation */}
       <section className="my-12">
-        <h2 className="mb-4 font-bold" style={{ fontSize: 'var(--text-xl)', color: 'var(--grey-900)' }}>{unitSeparation.title}</h2>
+        <h2 className="mb-4 font-bold" style={{ fontSize: 'var(--text-xl)', color: 'var(--color-text-primary)' }}>{unitSeparation.title}</h2>
         <p className="mb-6 text-[15px]" style={{ color: 'var(--grey-600)' }}>{unitSeparation.description}</p>
 
         <h3 className="mb-3 text-sm font-bold" style={{ color: 'var(--grey-700)' }}>노동위원회 고려사항</h3>
@@ -59,10 +59,10 @@ export default function ManualPage() {
 
 function PrepChecklist({ data, icon }: { data: typeof unionPrepChecklist; icon: React.ReactNode }) {
   return (
-    <div className="rounded-2xl border p-6" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }}>
+    <div className="rounded-xl border p-6" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }}>
       <div className="mb-1 flex items-center gap-2">
         {icon}
-        <h3 className="font-bold" style={{ color: 'var(--grey-900)' }}>{data.title}</h3>
+        <h3 className="font-bold" style={{ color: 'var(--color-text-primary)' }}>{data.title}</h3>
       </div>
       <p className="mb-4 text-sm" style={{ color: 'var(--grey-500)' }}>{data.description}</p>
       <ul className="space-y-3">

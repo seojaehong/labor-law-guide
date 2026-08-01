@@ -120,10 +120,10 @@ export default function FaqClient({ initialFaqs, categoryCounts, totalCount, ini
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   return (
-    <div className="mx-auto max-w-[1200px] px-5 py-10">
+    <div className="mx-auto max-w-[1100px] px-5 py-10">
       <div className="mb-2 flex items-center gap-2">
         <MessageCircleQuestion size={24} style={{ color: 'var(--color-accent)' }} />
-        <h1 className="text-2xl font-bold md:text-3xl" style={{ color: 'var(--color-text-primary)' }}>
+        <h1 className="t-h2" style={{ color: 'var(--color-text-primary)' }}>
           노동법 FAQ
         </h1>
         <span className="ml-2 rounded-full px-2.5 py-0.5 text-xs font-medium" style={{ backgroundColor: 'var(--grey-100)', color: 'var(--grey-600)' }}>
@@ -277,7 +277,7 @@ export default function FaqClient({ initialFaqs, categoryCounts, totalCount, ini
                         <Link
                           href={`/faq/${categoryToSlug(faq.unified_category)}`}
                           onClick={(e) => e.stopPropagation()}
-                          className="mt-1 inline-block rounded-full px-2 py-0.5 text-[10px] font-medium hover:underline"
+                          className="mt-1 inline-block rounded-full px-2 py-0.5 text-[length:var(--text-xs)] font-medium hover:underline"
                           style={{ backgroundColor: 'var(--blue-50)', color: 'var(--blue-600)' }}
                         >
                           {faq.unified_category}
@@ -336,10 +336,10 @@ export default function FaqClient({ initialFaqs, categoryCounts, totalCount, ini
               찾으시는 답변이 없으신가요?
             </p>
             <div className="flex justify-center gap-3">
-              <Link href="/ai" className="rounded-lg px-4 py-2 text-sm font-medium text-white" style={{ backgroundColor: 'var(--color-accent)' }}>
+              <Link href="/ai" className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-md px-5 py-2.5 text-[15px] font-semibold transition-[background-color,transform] hover:-translate-y-px bg-[var(--color-accent-ink)] text-[var(--color-on-accent-ink)] hover:bg-[var(--color-accent-ink-hover)]">
                 AI에게 질문하기
               </Link>
-              <Link href="/contact" className="rounded-lg border px-4 py-2 text-sm font-medium" style={{ borderColor: 'var(--color-accent)', color: 'var(--color-accent)' }}>
+              <Link href="/contact" className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-md px-5 py-2.5 text-[15px] font-semibold transition-[background-color,transform] hover:-translate-y-px border border-[var(--color-border)] bg-[var(--color-bg-surface)] text-[var(--color-text-primary)] hover:bg-[var(--grey-100)]">
                 전문가 상담
               </Link>
             </div>

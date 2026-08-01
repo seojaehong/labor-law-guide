@@ -92,7 +92,7 @@ export default function ClustersClient() {
   return (
     <div className="min-h-screen">
       <header className="sticky top-0 z-30 border-b backdrop-blur bg-background/90">
-        <div className="mx-auto max-w-6xl px-4 py-3 flex items-center gap-3">
+        <div className="mx-auto max-w-[1100px] px-4 py-3 flex items-center gap-3">
           <Link href="/admin" className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
             <ArrowLeft size={14} /> 어드민
           </Link>
@@ -107,7 +107,7 @@ export default function ClustersClient() {
         </div>
       </header>
 
-      <div className="mx-auto max-w-6xl px-4 py-6">
+      <div className="mx-auto max-w-[1100px] px-4 py-6">
         {error && <div className="rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700 mb-4">{error}</div>}
 
         {data && (

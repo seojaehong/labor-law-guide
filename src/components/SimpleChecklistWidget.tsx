@@ -51,14 +51,14 @@ export default function SimpleChecklistWidget({ title, description, items, resul
 
   const levelColors = {
     low: { bg: '#f0fdf4', border: '#bbf7d0', text: '#166534' },
-    medium: { bg: '#fef3c7', border: '#fde68a', text: '#92400e' },
+    medium: { bg: 'var(--color-warn-bg)', border: 'var(--color-warn-border)', text: 'var(--color-warn-ink)' },
     high: { bg: '#fef2f2', border: '#fecaca', text: '#991b1b' },
   };
   const levelIcons = { low: Shield, medium: AlertTriangle, high: ShieldCheck };
 
   return (
-    <div className="rounded-2xl border p-6" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }}>
-      <h3 className="mb-1 text-lg font-bold" style={{ color: 'var(--grey-900)' }}>{title}</h3>
+    <div className="rounded-xl border p-6" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }}>
+      <h3 className="mb-1 text-lg font-bold" style={{ color: 'var(--color-text-primary)' }}>{title}</h3>
       <p className="mb-2 text-sm" style={{ color: 'var(--grey-500)' }}>{description}</p>
 
       <div className="mb-6 flex items-center gap-3">
@@ -73,14 +73,14 @@ export default function SimpleChecklistWidget({ title, description, items, resul
           <h4 className="mb-2 text-sm font-bold" style={{ color: 'var(--grey-600)' }}>{cat}</h4>
           <div className="space-y-2">
             {items.filter((i) => i.category === cat).map((item) => {
-              const badge = { high: { bg: '#fef2f2', text: '#991b1b', label: '중요' }, medium: { bg: '#fef3c7', text: '#92400e', label: '보통' }, low: { bg: 'var(--grey-100)', text: 'var(--grey-600)', label: '참고' } }[item.weight];
+              const badge = { high: { bg: '#fef2f2', text: '#991b1b', label: '중요' }, medium: { bg: 'var(--color-warn-bg)', text: 'var(--color-warn-ink)', label: '보통' }, low: { bg: 'var(--grey-100)', text: 'var(--grey-600)', label: '참고' } }[item.weight];
               return (
                 <label key={item.id} className="flex cursor-pointer items-start gap-3 rounded-lg p-3 transition-colors" style={{ backgroundColor: checked[item.id] ? 'var(--grey-50)' : 'transparent' }}>
                   <input type="checkbox" checked={!!checked[item.id]} onChange={() => toggle(item.id)} className="mt-0.5 h-4 w-4 rounded accent-blue-600" />
                   <div className="flex-1">
                     <div className="flex items-center gap-2">
                       <span className="text-[15px]" style={{ color: 'var(--grey-900)' }}>{item.question}</span>
-                      <span className="shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-medium" style={{ backgroundColor: badge.bg, color: badge.text }}>{badge.label}</span>
+                      <span className="shrink-0 rounded-full px-1.5 py-0.5 text-[length:var(--text-xs)] font-medium" style={{ backgroundColor: badge.bg, color: badge.text }}>{badge.label}</span>
                     </div>
                     <div className="mt-0.5 text-xs" style={{ color: 'var(--grey-400)' }}>{item.helpText}</div>
                   </div>
@@ -91,7 +91,7 @@ export default function SimpleChecklistWidget({ title, description, items, resul
         </div>
       ))}
 
-      <button onClick={() => setShowResult(true)} disabled={checkedCount === 0} className="mt-4 w-full rounded-lg py-3 font-medium text-white disabled:opacity-40" style={{ backgroundColor: 'var(--color-accent)' }}>
+      <button onClick={() => setShowResult(true)} disabled={checkedCount === 0} className="mt-4 w-full inline-flex min-h-[44px] items-center justify-center gap-2 rounded-md px-5 py-2.5 text-[15px] font-semibold transition-[background-color,transform] hover:-translate-y-px bg-[var(--color-accent-ink)] text-[var(--color-on-accent-ink)] hover:bg-[var(--color-accent-ink-hover)] disabled:opacity-50 disabled:cursor-not-allowed">
         진단 결과 보기
       </button>
 
@@ -116,7 +116,7 @@ export default function SimpleChecklistWidget({ title, description, items, resul
             <p className="mb-2 text-[15px]" style={{ color: 'var(--grey-700)' }}>{result.description}</p>
             <p className="text-sm" style={{ color: 'var(--grey-500)' }}>{result.recommendation}</p>
             <div className="mt-4 text-center">
-              <a href="/contact" className="inline-flex items-center gap-1 rounded-lg px-4 py-2 text-sm font-medium text-white" style={{ backgroundColor: 'var(--color-accent)' }}>전문가 상담 문의하기</a>
+              <a href="/contact" className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-md px-5 py-2.5 text-[15px] font-semibold transition-[background-color,transform] hover:-translate-y-px bg-[var(--color-accent-ink)] text-[var(--color-on-accent-ink)] hover:bg-[var(--color-accent-ink-hover)]">전문가 상담 문의하기</a>
             </div>
           </div>
         </div>

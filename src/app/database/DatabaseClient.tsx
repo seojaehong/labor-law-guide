@@ -305,7 +305,7 @@ function DatabaseContent({ initialTotalCases, initialTotalAdmin, initialTotalNlr
   };
 
   return (
-    <section className="mt-8 rounded-3xl border p-5 md:p-7" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }}>
+    <section className="mt-8 rounded-xl border p-5 md:p-7" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }}>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="text-xl font-bold" style={{ color: 'var(--color-text-primary)' }}>실시간 검색</h2>
@@ -337,7 +337,9 @@ function DatabaseContent({ initialTotalCases, initialTotalAdmin, initialTotalNlr
         </div>
       </form>
 
-      <div className="mt-5 flex gap-2" role="tablist" aria-label="검색 데이터 유형">
+      {/* flex-wrap 필수 — body 전역 word-break: keep-all(§4.3) 이후 '노동위결정문'이 단어 중간에서
+          쪼개지지 않아 3개 탭이 360/375px 뷰포트를 넘긴다. 줄바꿈 대신 탭이 다음 줄로 접히게 한다. */}
+      <div className="mt-5 flex flex-wrap gap-2" role="tablist" aria-label="검색 데이터 유형">
         {TABS.map((tab) => {
           const count = tab.key === 'cases' ? totalCases : tab.key === 'admin' ? totalAdmin : totalNlrc;
           return (
@@ -477,8 +479,7 @@ function DatabaseContent({ initialTotalCases, initialTotalAdmin, initialTotalNlr
             <p className="text-lg" style={{ color: 'var(--color-text-secondary)' }}>{searchError}</p>
             <button
               onClick={() => search(query, activeTab, page)}
-              className="mt-4 rounded-lg px-5 py-2.5 text-sm font-medium text-white transition-colors"
-              style={{ backgroundColor: 'var(--color-accent)' }}
+              className="mt-4 inline-flex min-h-[44px] items-center justify-center gap-2 rounded-md px-5 py-2.5 text-[15px] font-semibold transition-[background-color,transform] hover:-translate-y-px bg-[var(--color-accent-ink)] text-[var(--color-on-accent-ink)] hover:bg-[var(--color-accent-ink-hover)]"
             >
               다시 시도
             </button>

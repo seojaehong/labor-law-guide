@@ -54,8 +54,8 @@ const tools: ToolItem[] = [
 
 export default function ToolsIndexPage() {
   return (
-    <div className="mx-auto max-w-[820px] px-5 py-10">
-      <h1 className="mb-2 font-bold" style={{ fontSize: 'var(--text-2xl)', color: 'var(--grey-900)' }}>
+    <div className="mx-auto max-w-[1100px] px-5 py-10">
+      <h1 className="t-h2 mb-2" style={{ color: 'var(--color-text-primary)' }}>
         노무 계산기
       </h1>
       <p className="mb-8 text-sm leading-relaxed" style={{ color: 'var(--grey-500)' }}>
@@ -68,31 +68,33 @@ export default function ToolsIndexPage() {
           const card = (
             <div
               key={t.href}
-              className="group rounded-xl border-2 border-slate-200 p-5 transition-all hover:border-yellow-400 hover:shadow-lg"
+              className="group rounded-xl border border-[var(--color-border)] p-5 transition-all hover:border-[var(--color-brand-border)] hover:shadow-lg"
             >
               <div className="flex items-start gap-4">
-                <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-lg bg-yellow-100 text-yellow-700">
+                <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-lg bg-[var(--color-brand-surface)] text-[var(--color-brand-ink)]">
                   <Icon className="h-6 w-6" />
                 </div>
                 <div className="flex-1">
                   <div className="mb-1 flex items-center gap-2">
-                    <h2 className="text-lg font-bold" style={{ color: '#0f172a' }}>
+                    <h2 className="text-lg font-bold" style={{ color: 'var(--color-text-primary)' }}>
                       {t.title}
                     </h2>
                     <span
+                      // 노랑 램프는 라·다 동일하므로 그 위 잉크는 고정 #191f28이다(globals.css §3.4 주석).
+                      // --color-text-primary / --grey-900은 다크에서 뒤집혀 노랑 위 흰 글씨가 된다.
                       className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${
                         t.badge === 'NEW'
-                          ? 'bg-yellow-300 text-slate-900'
-                          : 'bg-slate-200 text-slate-700'
+                          ? 'bg-[var(--brand-300)] text-[#191f28]'
+                          : 'bg-[var(--grey-200)] text-[var(--grey-700)]'
                       }`}
                     >
                       {t.badge}
                     </span>
                   </div>
-                  <p className="text-sm leading-relaxed" style={{ color: '#475569' }}>
+                  <p className="text-sm leading-relaxed" style={{ color: 'var(--color-text-secondary)' }}>
                     {t.desc}
                   </p>
-                  <div className="mt-3 text-sm font-semibold text-yellow-700 group-hover:underline">
+                  <div className="mt-3 text-sm font-semibold text-[var(--color-brand-ink)] group-hover:underline">
                     열기 →
                   </div>
                 </div>
@@ -112,7 +114,8 @@ export default function ToolsIndexPage() {
         })}
       </div>
 
-      <p className="mt-8 text-xs" style={{ color: '#94a3b8' }}>
+      {/* §3.2 규율 2 — 페이지 바탕 위 --text-xs는 --grey-700이다(secondary는 4.42:1로 미달) */}
+      <p className="mt-8 text-xs" style={{ color: 'var(--grey-700)' }}>
         본 계산기들은 참고용입니다. 분쟁 발생 시 노무사 상담을 권장합니다.
       </p>
     </div>

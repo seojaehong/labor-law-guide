@@ -185,7 +185,7 @@ export default async function InterpretationDetailPage({
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
 
-      <div className="mx-auto max-w-[1100px] px-5 py-10">
+      <div className="mx-auto max-w-[820px] px-5 py-10">
         <div className="lg:grid lg:grid-cols-[1fr_280px] lg:gap-10">
           <article>
             <Link
@@ -227,7 +227,7 @@ export default async function InterpretationDetailPage({
               )}
 
               <h1
-                className="text-xl font-bold leading-tight mb-3 md:text-2xl"
+                className="t-h2 mb-3"
                 style={{ color: 'var(--color-text-primary)' }}
               >
                 {item.title}
@@ -343,7 +343,7 @@ export default async function InterpretationDetailPage({
                   </div>
                 </Link>
               </div>
-              <div className="rounded-2xl p-6 sm:p-8 text-center" style={{ backgroundColor: '#191f28' }}>
+              <div className="rounded-xl p-6 sm:p-8 text-center" style={{ backgroundColor: '#191f28' }}>
                 <p className="text-lg font-bold text-white">전문가 상담이 필요하신가요?</p>
                 <p className="mt-2 text-sm text-white/70">노무법인 위너스에서 사업장 맞춤 상담을 제공합니다.</p>
                 <Link
@@ -360,7 +360,7 @@ export default async function InterpretationDetailPage({
           <aside className="hidden lg:block">
             <div className="sticky top-24 space-y-6">
               <div
-                className="rounded-2xl border p-5"
+                className="rounded-xl border p-5"
                 style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)', boxShadow: 'var(--shadow-sm)' }}
               >
                 <h3 className="text-[14px] font-bold mb-3" style={{ color: 'var(--color-text-primary)' }}>
@@ -390,7 +390,7 @@ export default async function InterpretationDetailPage({
                 </dl>
               </div>
 
-              <div className="rounded-2xl p-5" style={{ backgroundColor: '#191f28' }}>
+              <div className="rounded-xl p-5" style={{ backgroundColor: '#191f28' }}>
                 <p className="text-[14px] font-bold text-white mb-2">전문가 상담</p>
                 <p className="text-[12px] text-white/70 mb-4 leading-relaxed">
                   이 행정해석의 적용 여부가 궁금하시면 노무법인 위너스에 문의하세요.

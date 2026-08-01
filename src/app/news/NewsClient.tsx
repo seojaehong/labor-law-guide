@@ -212,10 +212,10 @@ export default function NewsClient({ initialNews, initialTotalCount, initialBrie
   };
 
   return (
-    <div className="mx-auto max-w-[1000px] px-5 py-10">
+    <div className="mx-auto max-w-[1100px] px-5 py-10">
       <div className="flex items-center gap-2">
         <Newspaper size={24} style={{ color: 'var(--color-accent)' }} />
-        <h1 className="text-2xl font-bold md:text-3xl" style={{ color: 'var(--color-text-primary)' }}>
+        <h1 className="t-h2" style={{ color: 'var(--color-text-primary)' }}>
           최신 뉴스
         </h1>
         {totalCount > 0 && (
@@ -235,7 +235,7 @@ export default function NewsClient({ initialNews, initialTotalCount, initialBrie
 
       {/* 노동 브리핑 */}
       {briefing && (
-        <div className="mt-6 rounded-2xl border p-5" style={{ borderColor: 'var(--color-accent)', backgroundColor: 'color-mix(in srgb, var(--color-accent) 5%, var(--color-bg-surface))' }}>
+        <div className="mt-6 rounded-xl border p-5" style={{ borderColor: 'var(--color-accent)', backgroundColor: 'color-mix(in srgb, var(--color-accent) 5%, var(--color-bg-surface))' }}>
           <div className="flex items-center justify-between mb-1">
             <div className="flex items-center gap-2">
               <Sparkles size={18} style={{ color: 'var(--color-accent)' }} />
@@ -369,7 +369,7 @@ export default function NewsClient({ initialNews, initialTotalCount, initialBrie
                 style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }}
               >
                 <div className="flex flex-wrap items-center gap-2 text-xs">
-                  <span className="rounded-md px-2 py-0.5 font-medium" style={{ backgroundColor: '#fef3c7', color: '#92400e' }}>
+                  <span className="rounded-md px-2 py-0.5 font-medium" style={{ backgroundColor: 'var(--color-warn-bg)', color: 'var(--color-warn-ink)' }}>
                     {item.source || '뉴스'}
                   </span>
                   <span style={{ color: 'var(--color-text-tertiary)' }}>{relativeDate(item.published_at)}</span>

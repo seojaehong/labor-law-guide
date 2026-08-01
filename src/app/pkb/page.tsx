@@ -77,9 +77,9 @@ export default function PkbPage() {
   }
 
   return (
-    <div className="mx-auto max-w-4xl px-4 py-10">
+    <div className="mx-auto max-w-[1100px] px-4 py-10">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold mb-1 flex items-center gap-2">
+        <h1 className="t-h2 mb-1 flex items-center gap-2" style={{ color: 'var(--color-text-primary)' }}>
           <BookOpen size={22} /> PKB · Personal Knowledge Base
         </h1>
         <p className="text-sm text-muted-foreground">
@@ -130,7 +130,7 @@ export default function PkbPage() {
       </form>
 
       {error && (
-        <div className="rounded-lg border border-red-300 bg-red-50 p-3 text-sm text-red-800 mb-4">
+        <div className="rounded-xl border p-3 text-sm text-red-800 mb-4">
           {error}
         </div>
       )}
@@ -164,7 +164,7 @@ export default function PkbPage() {
           </h2>
           <div className="space-y-3">
             {chunks.map((c, i) => (
-              <div key={c.id} className="rounded-lg border p-4 text-sm" style={{ borderColor: 'var(--color-border)' }}>
+              <div key={c.id} className="rounded-xl border p-4 text-sm" style={{ borderColor: 'var(--color-border)' }}>
                 <div className="flex items-center gap-2 mb-2 text-xs">
                   <span className="font-mono">[{i + 1}]</span>
                   <span className="rounded bg-muted px-1.5 py-0.5">{c.folder}</span>

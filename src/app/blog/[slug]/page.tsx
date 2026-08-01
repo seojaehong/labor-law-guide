@@ -218,7 +218,7 @@ export default async function BlogArticlePage({
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
 
-      <div className="mx-auto max-w-[1100px] px-5 py-10">
+      <div className="mx-auto max-w-[820px] px-5 py-10">
         <div className="lg:grid lg:grid-cols-[1fr_280px] lg:gap-10">
           {/* Main Article */}
           <article>
@@ -253,7 +253,7 @@ export default async function BlogArticlePage({
               </div>
 
               <h1
-                className="text-2xl font-bold leading-tight mb-3 md:text-3xl"
+                className="t-h2 mb-3"
                 style={{ color: 'var(--color-text-primary)' }}
               >
                 {article.title}
@@ -413,7 +413,7 @@ export default async function BlogArticlePage({
                 </Link>
               </div>
               <div
-                className="rounded-2xl p-6 sm:p-8 text-center"
+                className="rounded-xl p-6 sm:p-8 text-center"
                 style={{ backgroundColor: '#191f28' }}
               >
                 <p className="text-lg font-bold text-white">
@@ -453,7 +453,7 @@ export default async function BlogArticlePage({
               {/* 이 주의 토픽 — 사이드바 상단 (자기 자신 제외) */}
               {topicPicks.length > 0 && (
                 <div
-                  className="rounded-2xl border p-5"
+                  className="rounded-xl border p-5"
                   style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)', boxShadow: 'var(--shadow-sm)' }}
                 >
                   <h3
@@ -469,7 +469,7 @@ export default async function BlogArticlePage({
                           href={`/blog/${pick.slug}`}
                           className="block group"
                         >
-                          <div className="text-[10px] font-bold mb-0.5" style={{ color: 'var(--color-accent)' }}>
+                          <div className="text-[length:var(--text-xs)] font-bold mb-0.5" style={{ color: 'var(--color-accent)' }}>
                             {pick.category}
                           </div>
                           <div
@@ -488,7 +488,7 @@ export default async function BlogArticlePage({
               {/* Related in same category */}
               {related.length > 0 && (
                 <div
-                  className="rounded-2xl border p-5"
+                  className="rounded-xl border p-5"
                   style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)', boxShadow: 'var(--shadow-sm)' }}
                 >
                   <h3
@@ -524,7 +524,7 @@ export default async function BlogArticlePage({
 
               {/* CTA */}
               <div
-                className="rounded-2xl p-5"
+                className="rounded-xl p-5"
                 style={{ backgroundColor: '#191f28' }}
               >
                 <p className="text-[14px] font-bold text-white mb-2">전문가 상담</p>

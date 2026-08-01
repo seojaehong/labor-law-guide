@@ -7,8 +7,8 @@ export const metadata: Metadata = {
 
 export default function PrivacyPage() {
   return (
-    <main className="mx-auto max-w-3xl px-4 py-12 md:py-16">
-      <h1 className="text-3xl font-bold tracking-tight">개인정보처리방침</h1>
+    <main className="mx-auto max-w-[820px] px-4 py-12 md:py-16">
+      <h1 className="t-h2" style={{ color: 'var(--color-text-primary)' }}>개인정보처리방침</h1>
       <p className="mt-4 text-sm text-gray-600">최종 업데이트: 2026-04-20</p>
 
       <section className="mt-8 space-y-4 text-sm leading-7 text-gray-800">
@@ -32,7 +32,24 @@ export default function PrivacyPage() {
           않습니다. 사진 기능을 이용하지 않으면 어떤 계약 정보도 서버로 전송되지 않습니다.
         </p>
         <p>
-          개인정보 관련 문의는 <a className="underline" href="/contact">상담 문의 페이지</a>를 통해 접수할 수 있습니다.
+          <strong>처리위탁 및 국외 이전</strong>: 서비스 제공을 위해 아래와 같이 개인정보 처리를
+          위탁하며, 일부는 국외에서 처리됩니다.
+        </p>
+        <p>
+          · <strong>Anthropic PBC</strong>(미국) — 계약서 사진 판독. 이전 항목은 이용자가 업로드한
+          계약서 이미지이며, 이전 시점은 사진 업로드 시, 보유 기간은 판독 응답 직후까지입니다.<br />
+          · <strong>Cloudflare, Inc.</strong>(미국) — 자동화(봇) 차단. 이전 항목은 접속 IP와 브라우저
+          신호이며, <strong>사진을 올리지 않아도 해당 화면에 접속하는 것만으로</strong> 확인 절차가
+          동작합니다.<br />
+          · <strong>Google LLC</strong>(미국) — 웹사이트 이용 통계 분석.
+        </p>
+        <p>
+          이용자는 위 처리위탁·국외 이전에 동의하지 않을 수 있으며, 이 경우 사진 자동 입력 기능을
+          이용하지 않고 폼 직접 입력으로 자가진단을 이용할 수 있습니다. 다만 브라우저에서 자바스크립트를
+          차단하는 등의 방법으로 자동화 차단 절차를 거부하는 경우 일부 기능 이용이 제한될 수 있습니다.
+        </p>
+        <p>
+          개인정보 관련 문의는 <a className="underline underline-offset-2" style={{ color: 'var(--color-accent-ink)' }} href="/contact">상담 문의 페이지</a>를 통해 접수할 수 있습니다.
         </p>
       </section>
     </main>

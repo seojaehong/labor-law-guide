@@ -114,8 +114,8 @@ export default function ContactPage() {
   return (
     <>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(contactJsonLd) }} />
-      <div className="mx-auto max-w-[980px] px-5 py-10">
-        <h1 className="mb-2 font-bold" style={{ fontSize: 'var(--text-2xl)', color: 'var(--grey-900)' }}>
+      <div className="mx-auto max-w-[820px] px-5 py-10">
+        <h1 className="t-h2 mb-2" style={{ color: 'var(--color-text-primary)' }}>
           노무법인 위너스 종합 상담 문의
         </h1>
         <p className="mb-10 max-w-[760px] text-sm leading-6" style={{ color: 'var(--grey-500)' }}>
@@ -125,10 +125,10 @@ export default function ContactPage() {
 
         <div className="grid gap-10 lg:grid-cols-[1fr_320px]">
           <div className="space-y-8">
-            <div className="rounded-2xl border p-6" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }}>
+            <div className="rounded-xl border p-6" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }}>
               <div className="mb-5 flex items-start justify-between gap-4">
                 <div>
-                  <h2 className="text-lg font-bold" style={{ color: 'var(--grey-900)' }}>온라인 상담 접수</h2>
+                  <h2 className="text-lg font-bold" style={{ color: 'var(--color-text-primary)' }}>온라인 상담 접수</h2>
                   <p className="mt-1 text-sm" style={{ color: 'var(--grey-500)' }}>
                     회사명, 현재 쟁점, 교섭요구 여부, 일정 급박성까지 적어주시면 분류가 빨라집니다.
                   </p>
@@ -140,8 +140,8 @@ export default function ContactPage() {
               <ContactForm />
             </div>
 
-            <section className="rounded-2xl border p-6" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }}>
-              <h2 className="mb-3 text-lg font-bold" style={{ color: 'var(--grey-900)' }}>이런 경우 바로 문의하는 편이 좋습니다</h2>
+            <section className="rounded-xl border p-6" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }}>
+              <h2 className="mb-3 text-lg font-bold" style={{ color: 'var(--color-text-primary)' }}>이런 경우 바로 문의하는 편이 좋습니다</h2>
               <ul className="space-y-2 text-sm leading-6" style={{ color: 'var(--grey-600)' }}>
                 <li>• 해고·징계 통보를 받았거나 예고 없이 퇴사 처리된 경우</li>
                 <li>• 퇴직금·연장수당·주휴수당 등 임금이 체불되고 있는 경우</li>
@@ -151,20 +151,20 @@ export default function ContactPage() {
               </ul>
             </section>
 
-            <section className="rounded-2xl border p-6" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }}>
-              <h2 className="mb-3 text-lg font-bold" style={{ color: 'var(--grey-900)' }}>상담 전 많이 묻는 질문</h2>
+            <section className="rounded-xl border p-6" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }}>
+              <h2 className="mb-3 text-lg font-bold" style={{ color: 'var(--color-text-primary)' }}>상담 전 많이 묻는 질문</h2>
               <div className="space-y-4">
                 {contactFaqItems.map((item) => (
                   <div key={item.question} className="rounded-xl border p-4" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }}>
-                    <h3 className="text-sm font-bold leading-6" style={{ color: 'var(--grey-900)' }}>{item.question}</h3>
+                    <h3 className="text-sm font-bold leading-6" style={{ color: 'var(--color-text-primary)' }}>{item.question}</h3>
                     <p className="mt-2 text-sm leading-6" style={{ color: 'var(--grey-600)' }}>{item.answer}</p>
                   </div>
                 ))}
               </div>
             </section>
 
-            <section className="rounded-2xl border p-6" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }}>
-              <h2 className="mb-4 text-lg font-bold" style={{ color: 'var(--grey-900)' }}>먼저 읽어보면 상담이 빨라지는 자료</h2>
+            <section className="rounded-xl border p-6" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }}>
+              <h2 className="mb-4 text-lg font-bold" style={{ color: 'var(--color-text-primary)' }}>먼저 읽어보면 상담이 빨라지는 자료</h2>
               <div className="grid gap-3 md:grid-cols-3">
                 {quickLinks.map((item) => {
                   const Icon = item.icon;
@@ -186,8 +186,8 @@ export default function ContactPage() {
           </div>
 
           <div className="space-y-6">
-            <div className="rounded-2xl border p-6" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }}>
-              <h2 className="mb-4 font-bold" style={{ color: 'var(--grey-900)' }}>접수 안내</h2>
+            <div className="rounded-xl border p-6" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }}>
+              <h2 className="mb-4 font-bold" style={{ color: 'var(--color-text-primary)' }}>접수 안내</h2>
               <div className="space-y-4 text-sm" style={{ color: 'var(--grey-600)' }}>
                 <div className="flex gap-3">
                   <Mail size={18} style={{ color: 'var(--color-accent)' }} />
@@ -207,13 +207,15 @@ export default function ContactPage() {
                   <ExternalLink size={18} style={{ color: 'var(--color-accent)' }} />
                   <div>
                     <p className="font-medium" style={{ color: 'var(--grey-800)' }}>공식 홈페이지</p>
-                    <a href="https://winhr.co.kr" target="_blank" rel="noopener noreferrer" className="hover:underline" style={{ color: 'var(--color-accent)' }}>winhr.co.kr</a>
+                    {/* §6.8 — 네비·버튼·카드가 아니라 본문 안의 단독 링크다(밑줄 예외에 해당하지 않는다).
+                        색 하나로만 구분되던 자리라 상시 밑줄 + --color-accent-ink로 옮긴다. */}
+                    <a href="https://winhr.co.kr" target="_blank" rel="noopener noreferrer" className="underline underline-offset-[0.2em] decoration-1" style={{ color: 'var(--color-accent-ink)' }}>winhr.co.kr</a>
                   </div>
                 </div>
               </div>
             </div>
 
-            <div className="rounded-2xl p-6" style={{ backgroundColor: 'var(--blue-50)' }}>
+            <div className="rounded-xl p-6" style={{ backgroundColor: 'var(--blue-50)' }}>
               <h2 className="mb-2 text-sm font-bold" style={{ color: 'var(--blue-700)' }}>상담 메모에 같이 남기면 좋은 정보</h2>
               <ul className="space-y-1.5 text-sm" style={{ color: 'var(--blue-600)' }}>
                 <li>• 근로자 / 사업주 중 어느 입장인지</li>

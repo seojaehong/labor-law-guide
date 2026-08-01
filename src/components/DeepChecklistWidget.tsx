@@ -24,7 +24,7 @@ const ANSWER_OPTIONS: { value: Answer; label: string; activeBg: string; activeTe
 const LEVEL_STYLES: Record<string, { bg: string; border: string; text: string }> = {
   critical: { bg: '#fef2f2', border: '#f87171', text: '#991b1b' },
   high: { bg: '#fff1f2', border: '#fda4af', text: '#9f1239' },
-  medium: { bg: '#fef3c7', border: '#fde68a', text: '#92400e' },
+  medium: { bg: 'var(--color-warn-bg)', border: 'var(--color-warn-border)', text: 'var(--color-warn-ink)' },
   caution: { bg: '#fefce8', border: '#fef08a', text: '#854d0e' },
   low: { bg: '#f0fdf4', border: '#bbf7d0', text: '#166534' },
   safe: { bg: '#ecfdf5', border: '#6ee7b7', text: '#065f46' },
@@ -62,8 +62,8 @@ export default function DeepChecklistWidget() {
   const style = LEVEL_STYLES[result.level] || LEVEL_STYLES.medium;
 
   return (
-    <div className="rounded-2xl border p-6" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }}>
-      <h3 className="mb-1 text-lg font-bold" style={{ color: 'var(--grey-900)' }}>{deepChecklistTitle}</h3>
+    <div className="rounded-xl border p-6" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }}>
+      <h3 className="mb-1 text-lg font-bold" style={{ color: 'var(--color-text-primary)' }}>{deepChecklistTitle}</h3>
       <p className="mb-2 text-sm" style={{ color: 'var(--grey-500)' }}>{deepChecklistDescription}</p>
 
       {/* 진행률 */}
@@ -88,8 +88,7 @@ export default function DeepChecklistWidget() {
       <button
         onClick={() => setShowResult(true)}
         disabled={answeredCount === 0}
-        className="mt-4 w-full rounded-lg py-3 font-medium text-white disabled:opacity-40"
-        style={{ backgroundColor: 'var(--color-accent)' }}
+        className="mt-4 w-full inline-flex min-h-[44px] items-center justify-center gap-2 rounded-md px-5 py-2.5 text-[15px] font-semibold transition-[background-color,transform] hover:-translate-y-px bg-[var(--color-accent-ink)] text-[var(--color-on-accent-ink)] hover:bg-[var(--color-accent-ink-hover)] disabled:opacity-50 disabled:cursor-not-allowed"
       >
         진단 결과 보기
       </button>
@@ -122,7 +121,7 @@ export default function DeepChecklistWidget() {
             </div>
             <p className="mb-2 text-[15px]" style={{ color: 'var(--grey-700)' }}>{result.description}</p>
             <div className="mt-4 text-center">
-              <a href="/contact" className="inline-flex items-center gap-1 rounded-lg px-4 py-2 text-sm font-medium text-white" style={{ backgroundColor: 'var(--color-accent)' }}>
+              <a href="/contact" className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-md px-5 py-2.5 text-[15px] font-semibold transition-[background-color,transform] hover:-translate-y-px bg-[var(--color-accent-ink)] text-[var(--color-on-accent-ink)] hover:bg-[var(--color-accent-ink-hover)]">
                 전문가 상담 문의하기
               </a>
             </div>

@@ -40,7 +40,7 @@ export default function TextbookPage() {
       {/* 상단 바 */}
       <header className="sticky top-0 z-30 border-b backdrop-blur"
               style={{ borderColor: 'var(--color-border)', backgroundColor: 'color-mix(in srgb, var(--color-bg) 92%, transparent)' }}>
-        <div className="mx-auto max-w-4xl px-4 py-3 flex items-center gap-3">
+        <div className="mx-auto max-w-[1100px] px-4 py-3 flex items-center gap-3">
           <Link href="/lecture/ai-isan-2026" className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
             <ArrowLeft size={14} /> 강의 슬라이드
           </Link>
@@ -60,7 +60,9 @@ export default function TextbookPage() {
         </div>
       </header>
 
-      <div className="mx-auto max-w-7xl px-4 py-6 grid lg:grid-cols-[260px_minmax(0,1fr)] gap-6">
+      {/* 모바일 단일 컬럼도 minmax(0,1fr)로 못박는다 — 그리드 트랙 기본값 auto는 max-content까지 자라서
+          아래 pre(코드 블록)의 가장 긴 줄이 컬럼 폭을 정해 버린다(375px에서 본문이 757px가 됐다). */}
+      <div className="mx-auto max-w-[1100px] px-4 py-6 grid grid-cols-[minmax(0,1fr)] lg:grid-cols-[260px_minmax(0,1fr)] gap-6">
         {/* TOC 사이드바 */}
         <aside className={`${tocOpen ? 'block' : 'hidden lg:block'} lg:sticky lg:top-20 lg:self-start lg:max-h-[calc(100vh-6rem)] overflow-y-auto`}>
           <div className="rounded-lg border p-3" style={{ borderColor: 'var(--color-border)' }}>
@@ -77,8 +79,8 @@ export default function TextbookPage() {
           <div className="mt-3 rounded-lg border p-3 text-xs text-muted-foreground" style={{ borderColor: 'var(--color-border)' }}>
             <div className="mb-1"><strong>{TEXTBOOK_META.author}</strong></div>
             <div>{TEXTBOOK_META.org} · {TEXTBOOK_META.date}</div>
-            <div className="mt-2 text-[10px]">{TEXTBOOK_META.pages}</div>
-            <div className="mt-1 text-[10px]">{TEXTBOOK_META.version}</div>
+            <div className="mt-2 text-[length:var(--text-xs)]">{TEXTBOOK_META.pages}</div>
+            <div className="mt-1 text-[length:var(--text-xs)]">{TEXTBOOK_META.version}</div>
           </div>
         </aside>
 
@@ -92,7 +94,8 @@ export default function TextbookPage() {
                             prose-td:px-3 prose-td:py-2 prose-td:border-t
                             prose-blockquote:border-l-primary prose-blockquote:bg-muted/30 prose-blockquote:py-2 prose-blockquote:px-4
                             prose-code:bg-muted prose-code:px-1 prose-code:rounded prose-code:text-[13px]
-                            prose-hr:my-12">
+                            prose-hr:my-12
+                            [&_pre]:overflow-x-auto [&_pre]:min-w-0">
           <ReactMarkdown remarkPlugins={[remarkGfm]} skipHtml={false}
                          components={{
                            // a 태그가 anchor id 역할도 함

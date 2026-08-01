@@ -39,12 +39,12 @@ export default function StatsPage() {
 
   return (
     <main className="min-h-screen bg-background">
-      <div className="max-w-4xl mx-auto px-4 py-8">
+      <div className="max-w-[1100px] mx-auto px-4 py-8">
         <Link href="/" className="text-sm text-muted-foreground hover:text-primary mb-4 inline-block">
           &larr; 홈으로
         </Link>
 
-        <h1 className="text-2xl font-bold mb-6">사유별 판정 통계</h1>
+        <h1 className="t-h2 mb-6" style={{ color: 'var(--color-text-primary)' }}>사유별 판정 통계</h1>
 
         {loading ? (
           <p>로딩 중...</p>
