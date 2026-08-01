@@ -89,7 +89,7 @@ export default function LectureIsanPage() {
           </div>
 
           {/* 슬라이드 본체 */}
-          <article className="rounded-2xl border p-8 sm:p-12 min-h-[60vh] flex flex-col"
+          <article className="rounded-xl border p-8 sm:p-12 min-h-[60vh] flex flex-col"
                    style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }}>
             <h2 className="text-3xl sm:text-4xl font-bold leading-tight mb-3">{slide.title}</h2>
             {slide.subtitle && (

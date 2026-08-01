@@ -208,7 +208,7 @@ export default function AdminClient() {
     return (
       <div className="mx-auto max-w-[400px] px-5 py-20">
         <div
-          className="rounded-2xl border p-8 text-center"
+          className="rounded-xl border p-8 text-center"
           style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }}
         >
           <Lock size={32} className="mx-auto mb-4" style={{ color: 'var(--color-text-tertiary)' }} />
