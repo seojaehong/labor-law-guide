@@ -412,12 +412,12 @@ function SearchContentInner({
 
   return (
     <main className="min-h-screen bg-background">
-      <div className="max-w-6xl mx-auto px-4 py-8">
+      <div className="max-w-[1100px] mx-auto px-4 py-8">
         <Link href="/" className="text-sm text-muted-foreground hover:text-primary mb-4 inline-block">
           &larr; 홈으로
         </Link>
 
-        <h1 className="text-2xl font-bold mb-3">판정례 검색</h1>
+        <h1 className="t-h2 mb-3" style={{ color: 'var(--color-text-primary)' }}>판정례 검색</h1>
         <p className="text-sm text-muted-foreground mb-6">
           키워드 또는 사유를 선택하여 판정례를 검색합니다.
         </p>

@@ -224,7 +224,7 @@ export default function BlogClient({ initialArticles }: BlogClientProps) {
       <div className="mb-8">
         <div className="flex items-center gap-2 mb-2">
           <BookOpen size={24} style={{ color: 'var(--color-accent)' }} />
-          <h1 className="text-2xl font-bold md:text-3xl" style={{ color: 'var(--color-text-primary)' }}>
+          <h1 className="t-h2" style={{ color: 'var(--color-text-primary)' }}>
             노동 딥다이브
           </h1>
           {initialArticles.length > 0 && (

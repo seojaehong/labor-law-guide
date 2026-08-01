@@ -46,7 +46,7 @@ export default function CasesPage() {
   };
 
   return (
-    <div className="mx-auto max-w-[920px] px-5 py-10">
+    <div className="mx-auto max-w-[1100px] px-5 py-10">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
@@ -56,7 +56,7 @@ export default function CasesPage() {
           <BookOpenText size={14} />
           사용자성·파견·경제적 종속성 핵심 판례
         </div>
-        <h1 className="mb-2 mt-4 font-bold" style={{ fontSize: 'var(--text-2xl)', color: 'var(--grey-900)' }}>
+        <h1 className="t-h2 mb-2 mt-4" style={{ color: 'var(--color-text-primary)' }}>
           노란봉투법 핵심판례 6선
         </h1>
         <p className="max-w-[760px] text-sm leading-7 md:text-[15px]" style={{ color: 'var(--grey-500)' }}>

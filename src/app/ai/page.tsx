@@ -71,8 +71,8 @@ export default function AIPage() {
   const faqTotalPages = Math.max(1, Math.ceil(faqTotal / 15));
 
   return (
-    <div className="mx-auto max-w-[1200px] px-5 py-10">
-      <h1 className="mb-2 font-bold" style={{ fontSize: 'var(--text-2xl)', color: 'var(--grey-900)' }}>
+    <div className="mx-auto max-w-[1100px] px-5 py-10">
+      <h1 className="t-h2 mb-2" style={{ color: 'var(--color-text-primary)' }}>
         AI 상담 & 참고자료
       </h1>
       <p className="mb-8 text-sm" style={{ color: 'var(--grey-500)' }}>

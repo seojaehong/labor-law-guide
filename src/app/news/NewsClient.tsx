@@ -212,10 +212,10 @@ export default function NewsClient({ initialNews, initialTotalCount, initialBrie
   };
 
   return (
-    <div className="mx-auto max-w-[1000px] px-5 py-10">
+    <div className="mx-auto max-w-[1100px] px-5 py-10">
       <div className="flex items-center gap-2">
         <Newspaper size={24} style={{ color: 'var(--color-accent)' }} />
-        <h1 className="text-2xl font-bold md:text-3xl" style={{ color: 'var(--color-text-primary)' }}>
+        <h1 className="t-h2" style={{ color: 'var(--color-text-primary)' }}>
           최신 뉴스
         </h1>
         {totalCount > 0 && (

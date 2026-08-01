@@ -218,7 +218,7 @@ export default async function BlogArticlePage({
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
 
-      <div className="mx-auto max-w-[1100px] px-5 py-10">
+      <div className="mx-auto max-w-[820px] px-5 py-10">
         <div className="lg:grid lg:grid-cols-[1fr_280px] lg:gap-10">
           {/* Main Article */}
           <article>
@@ -253,7 +253,7 @@ export default async function BlogArticlePage({
               </div>
 
               <h1
-                className="text-2xl font-bold leading-tight mb-3 md:text-3xl"
+                className="t-h2 mb-3"
                 style={{ color: 'var(--color-text-primary)' }}
               >
                 {article.title}

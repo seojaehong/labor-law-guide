@@ -246,14 +246,14 @@ export default function SanctionPage() {
   }
 
   return (
-    <div className="mx-auto max-w-4xl px-4 py-8">
+    <div className="mx-auto max-w-[1100px] px-4 py-8">
       {/* Header */}
       <div className="mb-6 text-center">
         <div className="mb-3 inline-flex items-center gap-2.5 rounded-full bg-primary/5 px-3.5 py-2">
           <Scale size={14} className="text-muted-foreground" />
           <span className="text-xs font-medium text-muted-foreground">42,000건 노동위 판정례 기반</span>
         </div>
-        <h1 className="text-2xl font-bold text-foreground">AI 판정례 비교분석</h1>
+        <h1 className="t-h2" style={{ color: 'var(--color-text-primary)' }}>AI 판정례 비교분석</h1>
         <p className="mt-1 text-sm text-muted-foreground">
           상황을 설명하시면 유사 판정례를 비교해 승패를 가른 요소와 실무 체크리스트를 안내합니다
         </p>

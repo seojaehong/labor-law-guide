@@ -42,7 +42,7 @@ export default async function UnsubscribedPage({
     <main className="mx-auto flex max-w-[560px] flex-col items-center px-6 py-20 text-center">
       <Icon size={56} style={{ color: c.color }} />
       <h1
-        className="mt-6 text-2xl font-bold"
+        className="t-h2 mt-6"
         style={{ color: 'var(--color-text-primary)' }}
       >
         {c.title}

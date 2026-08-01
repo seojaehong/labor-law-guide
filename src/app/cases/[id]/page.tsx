@@ -182,7 +182,7 @@ export default async function CaseDetailPage({
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
 
-      <div className="mx-auto max-w-[1100px] px-5 py-10">
+      <div className="mx-auto max-w-[820px] px-5 py-10">
         <div className="lg:grid lg:grid-cols-[1fr_280px] lg:gap-10">
           {/* Main Content */}
           <article>
@@ -229,7 +229,7 @@ export default async function CaseDetailPage({
               </div>
 
               <h1
-                className="text-xl font-bold leading-tight mb-3 md:text-2xl"
+                className="t-h2 mb-3"
                 style={{ color: 'var(--color-text-primary)' }}
               >
                 {item.title}

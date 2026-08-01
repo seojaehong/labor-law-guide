@@ -140,7 +140,7 @@ export default async function DatabasePage() {
           <Search size={14} />
           실무형 판례·행정해석 검색
         </div>
-        <h1 className="mt-4 text-3xl font-bold tracking-tight md:text-4xl" style={{ color: 'var(--color-text-primary)' }}>
+        <h1 className="t-h2 mt-4" style={{ color: 'var(--color-text-primary)' }}>
           판례와 행정해석을
           <br />
           검색보다 이해 중심으로 찾는 페이지

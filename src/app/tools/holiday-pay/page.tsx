@@ -12,7 +12,7 @@ export default function HolidayPayPage() {
           ← 블로그
         </Link>
       </div>
-      <h1 className="mb-2 font-bold" style={{ fontSize: 'var(--text-2xl)', color: 'var(--grey-900)' }}>
+      <h1 className="t-h2 mb-2" style={{ color: 'var(--color-text-primary)' }}>
         공휴일 수당 계산기
       </h1>
       <p className="mb-6 text-sm leading-relaxed" style={{ color: 'var(--grey-500)' }}>

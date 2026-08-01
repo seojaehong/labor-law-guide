@@ -114,8 +114,8 @@ export default function ContactPage() {
   return (
     <>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(contactJsonLd) }} />
-      <div className="mx-auto max-w-[980px] px-5 py-10">
-        <h1 className="mb-2 font-bold" style={{ fontSize: 'var(--text-2xl)', color: 'var(--grey-900)' }}>
+      <div className="mx-auto max-w-[820px] px-5 py-10">
+        <h1 className="t-h2 mb-2" style={{ color: 'var(--color-text-primary)' }}>
           노무법인 위너스 종합 상담 문의
         </h1>
         <p className="mb-10 max-w-[760px] text-sm leading-6" style={{ color: 'var(--grey-500)' }}>

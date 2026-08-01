@@ -123,10 +123,10 @@ export default function HarassmentPage() {
   const totalPages = Math.ceil(total / PAGE_SIZE);
 
   return (
-    <div className="max-w-3xl mx-auto px-4 py-8">
+    <div className="max-w-[820px] mx-auto px-4 py-8">
       {/* 헤더 */}
       <div className="mb-6">
-        <h1 className="text-2xl font-bold">직장 내 괴롭힘·성희롱 판례</h1>
+        <h1 className="t-h2" style={{ color: 'var(--color-text-primary)' }}>직장 내 괴롭힘·성희롱 판례</h1>
         <p className="text-muted-foreground text-sm mt-1">
           노동위원회·법원 판정례를 AI로 분류한 {total.toLocaleString()}건
         </p>

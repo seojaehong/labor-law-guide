@@ -337,7 +337,9 @@ function DatabaseContent({ initialTotalCases, initialTotalAdmin, initialTotalNlr
         </div>
       </form>
 
-      <div className="mt-5 flex gap-2" role="tablist" aria-label="검색 데이터 유형">
+      {/* flex-wrap 필수 — body 전역 word-break: keep-all(§4.3) 이후 '노동위결정문'이 단어 중간에서
+          쪼개지지 않아 3개 탭이 360/375px 뷰포트를 넘긴다. 줄바꿈 대신 탭이 다음 줄로 접히게 한다. */}
+      <div className="mt-5 flex flex-wrap gap-2" role="tablist" aria-label="검색 데이터 유형">
         {TABS.map((tab) => {
           const count = tab.key === 'cases' ? totalCases : tab.key === 'admin' ? totalAdmin : totalNlrc;
           return (
