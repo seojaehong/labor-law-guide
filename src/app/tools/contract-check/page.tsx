@@ -6,12 +6,12 @@ import ContractCheckClient from './ContractCheckClient';
 export const metadata: Metadata = {
   title: '근로계약서 자가진단 | 무료 점검 25항목',
   description:
-    '내 근로계약서, 법대로 쓰였을까? 최저임금·주52시간·필수 명시사항·위약금 등 25개 법정 항목을 브라우저에서 바로 점검합니다. 입력 내용은 서버로 전송되지 않습니다.',
+    '내 근로계약서, 법대로 쓰였을까? 최저임금·주52시간·필수 명시사항·위약금 등 25개 법정 항목을 브라우저에서 바로 점검합니다. 폼에 입력한 내용은 서버로 전송되지 않고, 사진 자동 입력을 쓰면 이미지만 판독 목적으로 서버를 거치고 저장하지 않습니다.',
   alternates: { canonical: `${SITE_URL}/tools/contract-check` },
   openGraph: {
     title: '근로계약서 자가진단 | 무료 점검 25항목',
     description:
-      '최저임금·주52시간·필수 명시사항·위약금 등 25개 법정 항목을 브라우저에서 바로 점검. 서버 전송 없음.',
+      '최저임금·주52시간·필수 명시사항·위약금 등 25개 법정 항목을 브라우저에서 바로 점검합니다. 폼 입력은 서버로 전송하지 않고, 사진 자동 입력만 판독 목적으로 서버를 거칩니다.',
     url: `${SITE_URL}/tools/contract-check`,
     type: 'website',
     locale: 'ko_KR',

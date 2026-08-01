@@ -1,7 +1,9 @@
 'use client';
 
 // 근로계약서 자가진단 — 4스텝 간이 폼 → Contract 객체 → normalize() → checkContract().
-// 모든 처리는 브라우저 내에서만 수행(서버 전송·저장 없음). 모르는 항목은 건너뛰기 허용(needs_data).
+// 폼 입력·판정은 브라우저 내에서만 수행(서버 전송·저장 없음 — 실측: 4스텝 전 구간 네트워크 호출 0건).
+// 단 사진 자동 입력(PhotoUploadCard)은 이미지를 서버로 POST 한다 — "전송 없음"으로 뭉뚱그리지 말 것.
+// 모르는 항목은 건너뛰기 허용(needs_data).
 
 import { useState } from 'react';
 import Link from 'next/link';

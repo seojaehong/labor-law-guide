@@ -169,8 +169,9 @@ export default function PhotoUploadCard({ onExtracted }: UploadCardProps) {
           계약서 사진으로 자동 입력
         </p>
         <p className="mt-1 text-xs leading-relaxed" style={{ color: 'var(--color-text-secondary)' }}>
-          사진을 여기에 끌어다 놓거나 아래 버튼으로 고르세요 (최대 {MAX_FILES}장). 사진은 인식에만
-          쓰이고 저장하지 않습니다.
+          {/* ★ 상단 배너(ContractCheckClient)의 문장을 그대로 복제하지 말 것 — e2e strict mode 이중 매칭 */}
+          사진을 여기에 끌어다 놓거나 아래 버튼으로 고르세요 (최대 {MAX_FILES}장). 사진은 판독을 위해
+          서버를 거치며, 인식에만 쓰이고 저장하지 않습니다.
         </p>
         <input
           ref={inputRef}
