@@ -60,7 +60,9 @@ export default function TextbookPage() {
         </div>
       </header>
 
-      <div className="mx-auto max-w-[1100px] px-4 py-6 grid lg:grid-cols-[260px_minmax(0,1fr)] gap-6">
+      {/* 모바일 단일 컬럼도 minmax(0,1fr)로 못박는다 — 그리드 트랙 기본값 auto는 max-content까지 자라서
+          아래 pre(코드 블록)의 가장 긴 줄이 컬럼 폭을 정해 버린다(375px에서 본문이 757px가 됐다). */}
+      <div className="mx-auto max-w-[1100px] px-4 py-6 grid grid-cols-[minmax(0,1fr)] lg:grid-cols-[260px_minmax(0,1fr)] gap-6">
         {/* TOC 사이드바 */}
         <aside className={`${tocOpen ? 'block' : 'hidden lg:block'} lg:sticky lg:top-20 lg:self-start lg:max-h-[calc(100vh-6rem)] overflow-y-auto`}>
           <div className="rounded-lg border p-3" style={{ borderColor: 'var(--color-border)' }}>
@@ -92,7 +94,8 @@ export default function TextbookPage() {
                             prose-td:px-3 prose-td:py-2 prose-td:border-t
                             prose-blockquote:border-l-primary prose-blockquote:bg-muted/30 prose-blockquote:py-2 prose-blockquote:px-4
                             prose-code:bg-muted prose-code:px-1 prose-code:rounded prose-code:text-[13px]
-                            prose-hr:my-12">
+                            prose-hr:my-12
+                            [&_pre]:overflow-x-auto [&_pre]:min-w-0">
           <ReactMarkdown remarkPlugins={[remarkGfm]} skipHtml={false}
                          components={{
                            // a 태그가 anchor id 역할도 함
