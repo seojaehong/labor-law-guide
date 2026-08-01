@@ -220,3 +220,22 @@ dev 서버는 `Parsing ecmascript source code failed`만 반복 출력해 원인
 ## lint
 `npm run lint`는 **사전 존재 에러 11건**(react-hooks/set-state-in-effect 등)으로 항상 exit≠0이다.
 전체 통과는 목표가 될 수 없다 — `npx eslint <내가 만진 파일>`로 범위를 좁혀 확인한다.
+
+## 타이포 — `.t-*` 전달 클래스 (globals.css `@layer utilities`)
+- `.t-hero`/`.t-h2`/`.t-h3`/`.t-h4`/`.t-body`/`.t-sm`/`.t-xs` 7종이 **크기·weight·line-height·letter-spacing을
+  한 묶음**으로 준다(DESIGN.md §4.2 표 = 정본). 제목마다 3속성을 손으로 반복하지 말 것.
+  24px 초과(`--text-2xl`·`--text-hero`)는 §4.3상 **Tailwind 유틸 금지, 이 클래스로만** 지정한다.
+- ★ `.t-body`는 `.content-body`의 **스케일 별칭**이다. 두 이름이 한 규칙을 공유하되
+  `max-width: 38em`·`color`는 `.content-body`에만 따로 준다 — `.t-body`를 카드 안 본문에 붙였을 때
+  38em이 따라붙지 않게 하려는 의도적 분리다. **합치지 말 것.**
+- ★ 손으로 쓴 규칙을 `@layer utilities {}` 안에 둬도 **Tailwind v4는 호출부가 0곳이어도 퍼지하지 않는다**
+  (US-011 실측: `.t-*` 7종 전부 `.next/static/chunks/*.css`에 생성됨). v3 습관으로 레이어 밖으로 빼지 않아도 된다.
+  다만 새 클래스는 항상 빌드 산출물 grep으로 한 번 확인할 것.
+
+## 줄바꿈 규율은 이제 `body` 전역이다
+- `word-break: keep-all` + `overflow-wrap: break-word`가 `@layer base`의 `body`에 있다(US-011, §4.3).
+  둘 다 **상속 속성**이라 컴포넌트·클래스에서 다시 선언할 필요가 없다(`.content-body`·`.blog-content`에서 제거함).
+- 효과: 한글 단어가 줄 끝에서 쪼개지지 않는다(예: `핵심 노|동법` → `핵심|노동법`). 되돌리지 말 것.
+- ★ `keep-all`은 **flex/grid 아이템의 min-content 폭을 키울 수 있다**(`min-width:auto` 기본값 때문).
+  줄바꿈 관련 전역 변경 후에는 **360/375px에서 `documentElement.scrollWidth > clientWidth`**를 전 라우트로 재 볼 것.
+  (US-011 실측: 7개 라우트 모두 over=0. 단, 열이 많은 표는 이 변경과 무관하게 이미 모바일에서 넘친다.)
