@@ -286,7 +286,7 @@ grep -n "\-\-그토큰이름" src/app/globals.css           # 정의가 실제�
 
 같은 역할의 형제가 여럿이라 한쪽만 고치면 규격이 갈린다. 실재 쌍:
 `SubscribeForm` ↔ `BetaSignupForm`(구독/신청 폼) · `ChecklistWidget` ↔ `DeepChecklistWidget` ↔ `SimpleChecklistWidget` ·
-`components/ui/*` ↔ `components/decisions-ui/*`(중복, 전자는 US-013 P5-7에서 삭제 예정).
+`components/ui/*` ↔ `components/decisions-ui/*` — **US-013 P5-7에서 전자 5개를 삭제해 정리됐다. 이제 `decisions-ui` 하나뿐이다.**
 버튼·입력·카드 규격을 손대기 전에 `ls src/components/ | grep <역할어>`를 한 번 돌릴 것.
 
 ## ★ Tailwind v4 레이어 서열 — `@layer base`는 유틸을 못 이긴다 (US-013에서 실측)
@@ -305,9 +305,11 @@ Tailwind v4의 캐스케이드 레이어 순서상 `utilities`가 `base`를 이�
 
 ## ★ 인라인 `style`은 클래스 hover 규칙을 영구히 이긴다 — 호출부를 보고 판단할 것
 
-`.feature-card:hover { box-shadow: var(--shadow-md) }`는 5개 호출부 중 4곳에서 **발화하지 않는다.**
-`HomeClient.tsx:206·237·277`·`BlogClient.tsx:66`이 `style={{ boxShadow: 'var(--shadow-sm)' }}`를 들고 있어
-인라인이 이긴다(실측: idle == hover == shadow-sm, 라·다 동일). `transform`은 인라인이 없어 정상 전환된다.
+`.feature-card:hover { box-shadow: var(--shadow-md) }`는 **인라인 `style`을 든 호출부에서 발화하지 않는다.**
+`HomeClient.tsx:206·237·277`·`BlogClient.tsx:66`이 `style={{ boxShadow: 'var(--shadow-sm)' }}`를 들고 있어 인라인이 이긴다
+(홈 `.feature-card` 9개 전수 실측: hover 전후 boxShadow **불변**, 라·다 동일). `transform`은 인라인이 없어 정상 전환된다.
+나머지 1곳 `TopicPicks.tsx:36`은 인라인이 없는 대신 Tailwind `hover:shadow-md`를 함께 들고 있다 —
+**미측정**(이 환경에서 `/blog`·홈 픽 데이터가 안 실려 노드가 렌더되지 않았다).
 → **CSS의 hover 규칙을 고칠 때는 호출부의 인라인 style을 먼저 grep한다.**
 소유권을 인라인 → 클래스로 옮기는 것은 `hover:shadow-md` 유틸과 소스 순서 충돌을 만드니 별도 판단이 필요하다.
 
