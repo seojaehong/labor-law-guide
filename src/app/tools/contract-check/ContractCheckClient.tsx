@@ -218,7 +218,7 @@ function CheckRow({
 }) {
   return (
     <label
-      className={`flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition-colors ${
+      className={`flex cursor-pointer items-start gap-3 rounded-xl border p-3 transition-colors ${
         checked
           ? 'border-[var(--color-brand-border)] bg-[var(--color-brand-surface)]'
           : 'hover:border-[var(--grey-400)]'
@@ -489,7 +489,7 @@ export default function ContractCheckClient() {
             hint="예: 금요일만 단축 근무"
           />
           {form.hasVariants && (
-            <div className="space-y-3 rounded-lg border border-dashed p-3" style={{ borderColor: 'var(--color-border)' }}>
+            <div className="space-y-3 rounded-xl border border-dashed p-3" style={{ borderColor: 'var(--color-border)' }}>
               {form.variants.map((v, i) => (
                 <div key={i} className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                   <TextInput
@@ -557,7 +557,7 @@ export default function ContractCheckClient() {
             hint="적혀 있는 요일별 시간을 그대로 입력하면 초과근로 판정에 사용됩니다."
           />
           {form.hasDaily && (
-            <div className="space-y-3 rounded-lg border border-dashed p-3" style={{ borderColor: 'var(--color-border)' }}>
+            <div className="space-y-3 rounded-xl border border-dashed p-3" style={{ borderColor: 'var(--color-border)' }}>
               {form.daily.map((d, i) => (
                 <div key={i} className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                   <TextInput
@@ -729,7 +729,7 @@ export default function ContractCheckClient() {
             {findings.map((f) => (
               <li
                 key={f.rule_code}
-                className="rounded-lg border p-3"
+                className="rounded-xl border p-3"
                 style={{ borderColor: 'var(--color-border)' }}
               >
                 <div className="mb-1 flex flex-wrap items-center gap-2">

@@ -124,7 +124,7 @@ export default function SubscribeForm({ source, sourceSlug, variant = 'full' }: 
         <button
           type="submit"
           disabled={status === 'loading'}
-          className="inline-flex min-h-[44px] items-center justify-center rounded-md px-5 py-2.5 text-[15px] font-semibold transition-[background-color,transform] hover:-translate-y-px bg-[var(--color-accent-ink)] text-[var(--color-on-accent-ink)] hover:bg-[var(--color-accent-ink-hover)] disabled:opacity-50 disabled:cursor-not-allowed"
+          className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-md px-5 py-2.5 text-[15px] font-semibold transition-[background-color,transform] hover:-translate-y-px bg-[var(--color-accent-ink)] text-[var(--color-on-accent-ink)] hover:bg-[var(--color-accent-ink-hover)] disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {status === 'loading' ? '전송 중...' : isCompact ? '구독하기' : '무료 구독하기'}
         </button>

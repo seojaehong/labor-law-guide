@@ -601,6 +601,9 @@
     display: inline-flex;
     align-items: center;
     border-radius: var(--radius-md);
+    /* §6.2 ghost — p-2·6px 패딩만으로는 44px에 못 미친다. 패딩을 키우면 내비가 두꺼워지므로
+       min-height로 히트 영역만 확보한다(§5.1 44px 예외표의 '조밀 제어'). */
+    min-height: 44px;
     padding: 6px 12px;
     font-size: var(--text-sm);
     transition: color var(--transition-fast) ease,

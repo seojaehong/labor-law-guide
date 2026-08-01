@@ -348,7 +348,7 @@ export default async function InterpretationDetailPage({
                 <p className="mt-2 text-sm text-white/70">노무법인 위너스에서 사업장 맞춤 상담을 제공합니다.</p>
                 <Link
                   href="/contact"
-                  className="mt-4 inline-flex items-center gap-2 rounded-xl px-6 py-3 text-sm font-semibold transition-colors hover:opacity-90"
+                  className="mt-4 inline-flex min-h-[44px] items-center justify-center gap-2 rounded-md px-5 py-2.5 text-[15px] font-semibold transition-transform hover:-translate-y-px"
                   style={{ backgroundColor: 'var(--color-bg-surface)', color: 'var(--grey-900)' }}
                 >
                   무료 상담 신청하기 <ArrowRight size={14} />
