@@ -260,7 +260,15 @@ function hashIp(ip: string): string {
   return crypto.createHash('sha256').update(`${salt}:${ip}`).digest('hex').slice(0, 32);
 }
 
+/**
+ * 이 사이트는 Cloudflare → Vercel 2단이다. Vercel이 보는 `x-forwarded-for`의 첫 항목은
+ * **Cloudflare 엣지 IP**이고 PoP·커넥션마다 달라질 수 있다 → 그걸 키로 쓰면 카운터가
+ * 매번 새 행에 쌓여 리밋이 영원히 안 걸린다(실제로 그렇게 됐다).
+ * 진짜 클라이언트 IP는 `cf-connecting-ip`에 온다. 이걸 최우선으로 본다.
+ */
 function extractIp(req: Request): string {
+  const cf = req.headers.get('cf-connecting-ip')?.trim();
+  if (cf) return cf;
   const first = (req.headers.get('x-forwarded-for') || '').split(',')[0].trim();
   return first || req.headers.get('x-real-ip') || 'unknown';
 }
@@ -295,7 +303,24 @@ async function underLimit(scope: 'ip' | 'global', key: string, max: number): Pro
       console.error('[contract-check/extract] rate limit fail-open', scope, error?.message ?? 'no data');
       return true;
     }
-    return (data as { allowed?: boolean }).allowed !== false;
+    // RETURNS TABLE/SETOF면 PostgREST가 배열로 준다 → data.allowed가 undefined가 되고
+    // `!== false`는 true로 흘러 조용히 무제한이 된다. 배열을 먼저 편다.
+    const row = (Array.isArray(data) ? data[0] : data) as
+      | { allowed?: boolean; count?: number }
+      | undefined;
+    if (!row || typeof row.allowed !== 'boolean') {
+      // 여기까지 오면 RPC는 성공했는데 우리가 shape을 잘못 읽고 있는 것이다.
+      // 조용히 통과시키면 원인 규명이 다시 불가능해지므로 반드시 남긴다.
+      console.error(
+        '[contract-check/extract] rate limit shape mismatch',
+        scope,
+        JSON.stringify(data).slice(0, 200),
+      );
+      return true;
+    }
+    // 판정이 실제로 내려진 경우에만 한 줄. 키가 누적되는지 로그로 확인 가능해야 한다.
+    console.log('[contract-check/extract] rate limit', scope, key, row.count ?? '?', row.allowed);
+    return row.allowed;
   } catch (err) {
     console.error(
       '[contract-check/extract] rate limit exception',
