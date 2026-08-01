@@ -85,7 +85,7 @@ export default function ToolsIndexPage() {
                       className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${
                         t.badge === 'NEW'
                           ? 'bg-[var(--brand-300)] text-[#191f28]'
-                          : 'bg-[var(--grey-100)] text-[var(--grey-700)]'
+                          : 'bg-[var(--grey-200)] text-[var(--grey-700)]'
                       }`}
                     >
                       {t.badge}
