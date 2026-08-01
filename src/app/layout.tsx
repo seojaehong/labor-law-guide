@@ -69,7 +69,13 @@ export default function RootLayout({
           }}
         />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <meta name="theme-color" content="#1d4ed8" />
+        {/* §9 P6-1 브라우저 크롬 색 — 종전 #1d4ed8은 팔레트에 없는 제3의 파랑이었다.
+            "크롬 색 = 페이지 최상단에 보이는 것"으로 맞춘다: 라이트는 glass 네비가 흰색으로 렌더되므로
+            --color-bg-surface(#ffffff), 다크는 페이지 바탕 --color-bg-primary(#0f1117).
+            ★ theme-color는 리터럴만 받으므로 var() 불가. 또 media는 OS의 prefers-color-scheme만 타고
+              이 사이트의 테마 축(.dark 클래스 + localStorage)은 못 읽는다 — 토글로만 다크인 방문자는 라이트 크롬을 본다. */}
+        <meta name="theme-color" media="(prefers-color-scheme: light)" content="#ffffff" />
+        <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0f1117" />
         <link rel="icon" href="/favicon.ico" />
         <link rel="preconnect" href="https://cdn.jsdelivr.net" crossOrigin="anonymous" />
         <link
