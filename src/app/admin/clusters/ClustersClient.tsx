@@ -184,7 +184,7 @@ export default function ClustersClient() {
                                   <li key={a.slug}>
                                     <span className="text-muted-foreground">{a.published_at?.slice(0, 10)}</span>{' '}
                                     <span className="text-muted-foreground">[{a.author}]</span>{' '}
-                                    <Link href={`/blog/${a.slug}`} className="hover:underline" target="_blank">
+                                    <Link href={`/blog/${a.slug}`} className="underline underline-offset-2" style={{ color: 'var(--color-accent-ink)' }} target="_blank">
                                       {a.title}
                                     </Link>
                                   </li>
