@@ -49,7 +49,7 @@ export default function PrivacyPage() {
           차단하는 등의 방법으로 자동화 차단 절차를 거부하는 경우 일부 기능 이용이 제한될 수 있습니다.
         </p>
         <p>
-          개인정보 관련 문의는 <a className="underline" href="/contact">상담 문의 페이지</a>를 통해 접수할 수 있습니다.
+          개인정보 관련 문의는 <a className="underline underline-offset-2" style={{ color: 'var(--color-accent-ink)' }} href="/contact">상담 문의 페이지</a>를 통해 접수할 수 있습니다.
         </p>
       </section>
     </main>

@@ -25,7 +25,7 @@ export default function TermsPage() {
           사전 허가 없는 무단 복제·배포를 제한합니다.
         </p>
         <p>
-          문의 및 상담은 <a className="underline" href="/contact">상담 문의 페이지</a>에서 접수할 수 있습니다.
+          문의 및 상담은 <a className="underline underline-offset-2" style={{ color: 'var(--color-accent-ink)' }} href="/contact">상담 문의 페이지</a>에서 접수할 수 있습니다.
         </p>
       </section>
     </main>

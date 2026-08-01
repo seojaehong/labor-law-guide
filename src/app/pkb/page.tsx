@@ -130,7 +130,7 @@ export default function PkbPage() {
       </form>
 
       {error && (
-        <div className="rounded-lg border border-red-300 bg-red-50 p-3 text-sm text-red-800 mb-4">
+        <div className="rounded-xl border p-3 text-sm text-red-800 mb-4">
           {error}
         </div>
       )}

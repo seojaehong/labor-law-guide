@@ -32,12 +32,12 @@ export default function HolidayPayPage() {
         </div>
         <ul className="space-y-1.5 text-[var(--grey-700)]">
           <li>
-            <Link href="/blog/guide-20260428-04" className="text-yellow-700 hover:underline">
+            <Link href="/blog/guide-20260428-04" className="underline underline-offset-2" style={{ color: 'var(--color-accent-ink)' }}>
               [실무가이드] 노동절 수당 — 정규직·파트·일용직 사례별 완전 정복
             </Link>
           </li>
           <li>
-            <Link href="/blog" className="text-yellow-700 hover:underline">
+            <Link href="/blog" className="underline underline-offset-2" style={{ color: 'var(--color-accent-ink)' }}>
               노란봉투법 가이드 블로그
             </Link>
           </li>

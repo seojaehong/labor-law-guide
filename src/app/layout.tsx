@@ -171,11 +171,13 @@ export default function RootLayout({
               © 2026 노란봉투법 가이드. 본 사이트는 법률 자문이 아닌 정보 제공 목적입니다.
             </p>
             <p className="mt-1 text-xs" style={{ color: 'var(--color-text-tertiary)' }}>
-              <a href="https://winhr.co.kr" target="_blank" rel="noopener noreferrer" className="hover:underline" style={{ color: 'var(--color-accent)' }}>노무법인 위너스</a>
+              {/* §6.8 — 산문 링크는 상시 밑줄 + --color-accent-ink. 이 푸터는 전 라우트에 뜨므로
+                  hover-only 밑줄 + --color-accent(3.55:1)는 사이트 전체에서 1.4.1·1.4.3을 어긴다. */}
+              <a href="https://winhr.co.kr" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2" style={{ color: 'var(--color-accent-ink)' }}>노무법인 위너스</a>
               {' '}| 서울시 서초구 나루터로 61, 402호 |{' '}
-              <a href="/contact" style={{ color: 'var(--color-accent)' }}>온라인 상담 접수</a>
-              {' '}| <a href="/privacy" style={{ color: 'var(--color-accent)' }}>개인정보처리방침</a>
-              {' '}| <a href="/terms" style={{ color: 'var(--color-accent)' }}>이용약관</a>
+              <a href="/contact" className="underline underline-offset-2" style={{ color: 'var(--color-accent-ink)' }}>온라인 상담 접수</a>
+              {' '}| <a href="/privacy" className="underline underline-offset-2" style={{ color: 'var(--color-accent-ink)' }}>개인정보처리방침</a>
+              {' '}| <a href="/terms" className="underline underline-offset-2" style={{ color: 'var(--color-accent-ink)' }}>이용약관</a>
             </p>
           </div>
         </footer>

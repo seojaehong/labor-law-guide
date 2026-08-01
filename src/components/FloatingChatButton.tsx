@@ -13,9 +13,9 @@ export default function FloatingChatButton() {
     <Link
       href="/ai"
       aria-label="AI 노동법 상담 챗봇 열기"
-      className="fixed bottom-5 right-5 z-50 flex items-center gap-2 rounded-full px-4 py-3 text-[13px] font-semibold transition-transform hover:scale-105 active:scale-95"
+      className="fixed bottom-5 right-5 z-50 inline-flex min-h-[44px] items-center gap-2 rounded-full px-4 py-3 text-[13px] font-semibold transition-transform hover:-translate-y-px active:translate-y-0"
       style={{
-        backgroundColor: 'var(--color-accent)',
+        backgroundColor: 'var(--color-accent-ink)',
         color: 'white',
         // §5.4 규율 3 — 하드코딩 그림자 금지. 부유 요소는 --shadow-lg.
         boxShadow: 'var(--shadow-lg)',
