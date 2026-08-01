@@ -53,9 +53,32 @@ grep -o "var(--color-<새이름>)" .next/static/chunks/*.css   # 0건이면 CSS�
 grep -rn "var(--color-<새이름>)" src/                        # 인라인 style 소비자도 함께 센다
 ```
 
-CSS·인라인 양쪽이 0이면 렌더는 정의상 안 바뀐다. 값이 실제로 들어갔는지는 별도로
-`grep -o -- "--<이름>:[^;]*" .next/static/chunks/*.css`로 확인한다(다크 rgba는 `#facc1529` 처럼
-8자리 hex로 축약돼 나오므로 `rgba(`로 grep하면 안 잡힌다).
+CSS·인라인 양쪽이 0이면 렌더는 정의상 안 바뀐다.
+
+### ★ 값이 "문서 그대로"인지는 grep으로 증명되지 않는다 — 칠해서 읽어라
+`grep -o -- "--<이름>:[^;]*"`는 **텍스트 존재**만 보여준다. 커스텀 프로퍼티는 거의 아무 토큰 스트림이나 받으므로
+`#fbb24`(5자리)·괄호 누락 같은 오타가 빌드를 통과하고 **사용 시점에 조용히 죽는다.** 더 나쁜 건 유효하지만 틀린 값
+(`var(--blue-500)`을 `--blue-600` 대신 쓴 경우)으로, 이건 어떤 grep에도 안 잡힌다.
+
+임시 스펙에서 **프로브에 칠하고 정규화된 색을 되읽는다**:
+
+```ts
+const got = await page.evaluate((names: string[]) => {
+  const probe = document.createElement('div');
+  document.body.appendChild(probe);
+  const out: Record<string, string> = {};
+  for (const n of names) {
+    probe.style.backgroundColor = '';                 // 앞 토큰의 잔상을 지운다
+    probe.style.backgroundColor = `var(${n})`;
+    out[n] = getComputedStyle(probe).backgroundColor;
+  }
+  probe.remove(); return out;
+}, Object.keys(EXPECT));
+```
+
+`.dark` 토글을 끼워 라·다 양쪽을 돌리면 **재선언 누락**(다크에 라이트 색이 그대로 나오는 사고)까지 같이 잡힌다.
+원시 텍스트를 읽지 않는 이유: Lightning CSS가 `rgba(5,150,105,.16)` → `#05966929`로 축약하므로 문서의 `rgba()` 표기와
+직접 비교하면 알파값마다 가짜 불일치가 난다. **칠하면 양변이 `rgb()`/`rgba()`로 정규화된다.**
 
 ### 호출부는 임의값 문법으로 토큰을 쓴다 — 생성 확인된 프리픽스 목록
 역할 토큰(`--color-brand-*` 등)은 `@theme`에 없어서 유틸 클래스가 없다. 호출부에서는 임의값 문법을 쓰고,
