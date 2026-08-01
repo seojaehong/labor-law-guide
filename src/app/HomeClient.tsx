@@ -121,8 +121,8 @@ export default function HomeClient({ totalCases, totalAdmin, totalNews, latestBl
       title: '고용·창업 지원금',
       description: '청년·중소기업·신중년 등 정부 고용지원금 가이드. 신청 자격·서류·기한 한번에 정리.',
       href: '/subsidy',
-      color: '#ca8a04',
-      bg: '#fefce8',
+      color: 'var(--brand-600)',
+      bg: 'var(--brand-50)',
     },
   ];
 
@@ -207,7 +207,10 @@ export default function HomeClient({ totalCases, totalAdmin, totalNews, latestBl
         <div className="mx-auto grid max-w-[1100px] gap-4 sm:gap-6 sm:grid-cols-2 md:grid-cols-3">
           {features.map((feature) => (
             <Link key={feature.title} href={feature.href} className="feature-card block rounded-2xl border bg-[var(--color-bg-surface)] p-5 sm:p-7" style={{ borderColor: 'var(--color-border)', boxShadow: 'var(--shadow-sm)' }}>
-              <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl" style={{ backgroundColor: feature.bg }}>
+              <div
+                className="feature-chip mb-4 flex h-12 w-12 items-center justify-center rounded-xl"
+                style={{ '--chip-color': feature.color, '--chip-bg': feature.bg } as React.CSSProperties}
+              >
                 <feature.icon size={22} style={{ color: feature.color }} />
               </div>
               <h3 className="mb-2 text-lg font-bold" style={{ color: 'var(--grey-900)' }}>{feature.title}</h3>
@@ -235,7 +238,10 @@ export default function HomeClient({ totalCases, totalAdmin, totalNews, latestBl
           <div className="grid gap-4 sm:gap-5 sm:grid-cols-2 md:grid-cols-4">
             {moreFeatures.map((feature) => (
               <Link key={feature.title} href={feature.href} className="feature-card block rounded-2xl border bg-[var(--color-bg-surface)] p-5" style={{ borderColor: 'var(--color-border)', boxShadow: 'var(--shadow-sm)' }}>
-                <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-lg" style={{ backgroundColor: feature.bg }}>
+                <div
+                  className="feature-chip mb-3 flex h-10 w-10 items-center justify-center rounded-lg"
+                  style={{ '--chip-color': feature.color, '--chip-bg': feature.bg } as React.CSSProperties}
+                >
                   <feature.icon size={18} style={{ color: feature.color }} />
                 </div>
                 <h3 className="mb-1.5 text-[15px] font-bold" style={{ color: 'var(--grey-900)' }}>{feature.title}</h3>
@@ -364,18 +370,18 @@ export default function HomeClient({ totalCases, totalAdmin, totalNews, latestBl
       </section>
 
       <section className="px-5 pb-16 sm:pb-20">
-        <div className="mx-auto max-w-[700px] rounded-2xl p-6 sm:p-8 text-center" style={{ backgroundColor: '#191f28' }}>
-          <h2 className="mb-3 text-lg sm:text-xl font-bold" style={{ color: '#f2f4f6' }}>노란봉투법 실무 자문이 필요하면 바로 상담하세요</h2>
-          <p className="mb-3 text-sm" style={{ color: 'rgba(242, 244, 246, 0.7)' }}>
+        <div className="mx-auto max-w-[700px] rounded-2xl p-6 sm:p-8 text-center" style={{ backgroundColor: 'var(--grey-900)' }}>
+          <h2 className="mb-3 text-lg sm:text-xl font-bold" style={{ color: 'var(--grey-100)' }}>노란봉투법 실무 자문이 필요하면 바로 상담하세요</h2>
+          <p className="mb-3 text-sm" style={{ color: 'var(--band-ink-muted)' }}>
             원청 사용자성 판단, 하청 노조 교섭요구 대응, 노동위원회 절차, 부당노동행위 리스크 점검까지 노무법인 위너스가 직접 봅니다.
           </p>
-          <p className="mb-6 text-xs" style={{ color: 'rgba(242, 244, 246, 0.55)' }}>
+          <p className="mb-6 text-xs" style={{ color: 'var(--band-ink-fine)' }}>
             상황을 남겨주시면 내용을 검토한 뒤 순차적으로 회신합니다.
           </p>
           <Link
             href="/contact"
             className="inline-flex items-center gap-2 rounded-lg px-6 py-3 font-medium"
-            style={{ backgroundColor: '#f2f4f6', color: '#191f28' }}
+            style={{ backgroundColor: 'var(--grey-100)', color: 'var(--grey-900)' }}
           >
             노란봉투법 전문가 상담 문의 <ArrowRight size={16} />
           </Link>

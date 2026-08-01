@@ -140,6 +140,24 @@ grep으로 찾을 때는 선택자가 `.bg-\[var\(--x\)\]` 처럼 **전부 백�
 `focus:border-[var(--color-accent)] focus:ring-2 focus:ring-[var(--color-accent)]/20`
 (`DatabaseClient.tsx:334`가 정본). `--color-accent-light`(=blue-50 `#e8f3ff`)는 **링에 쓰지 말 것** — 흰 배경 대비 1.1:1로 안 보인다.
 
+## 배열 데이터가 색을 들고 있을 때 다크 축을 주는 법 (US-008에서 확립)
+`features.map(f => <div style={{ backgroundColor: f.bg }}>)` 처럼 **색이 컴포넌트 밖 배열에 있으면**
+값을 인라인 `style`로밖에 못 넣는데, **인라인 `background-color`는 `.dark` 클래스 규칙을 이겨서 다크 전환이 불가능하다.**
+정적 hex를 테마 토큰으로 못 바꾸는 경우(계열 토큰이 없는 장식색 등)의 처방:
+
+```tsx
+<div className="feature-chip" style={{ '--chip-color': f.color, '--chip-bg': f.bg } as React.CSSProperties}>
+```
+```css
+.feature-chip { background-color: var(--chip-bg); }
+.dark .feature-chip { background-color: color-mix(in srgb, var(--chip-color) 16%, transparent); }
+```
+- 인라인으로 넘기는 것은 **커스텀 프로퍼티뿐**이고 실제 `background-color` 선언은 클래스가 갖는다 → `.dark`가 이긴다.
+- TS는 인라인 커스텀 프로퍼티를 모르므로 `as React.CSSProperties` 캐스트가 필요하다.
+- ★ Lightning CSS는 `color-mix`를 쓴 선언마다 **미지원 브라우저용 폴백을 앞에 깐다**
+  (`.dark .feature-chip{background-color:var(--chip-color)}` + `@supports(color-mix)` 블록).
+  폴백은 **알파가 빠진 원색**이라 틴트가 솔리드가 된다 — 빌드 산출물 grep에서 규칙이 2개로 보이는 건 정상이다.
+
 ## 테마 축: layout.tsx ↔ ThemeToggle.tsx 는 한 몸이다
 - 축은 `document.documentElement`의 `.dark` 클래스, localStorage 키는 `'theme'`.
 - 판정식 `saved === 'dark' || (!saved && prefersDark)` 이 **두 곳에 중복 존재**한다:

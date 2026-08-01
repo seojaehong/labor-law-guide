@@ -136,6 +136,11 @@
   --color-border: var(--grey-200);
   --color-border-subtle: rgba(0, 0, 0, 0.06);
 
+  /* 홈 하단 CTA 밴드 잉크 — 밴드 배경은 var(--grey-900)이라 테마에 따라 반전된다(§7.2-7).
+     비율은 종전 rgba(242,244,246,0.7 / 0.55)를 그대로 옮긴 값이고, 라이트 렌더값은 동일하다. */
+  --band-ink-muted: color-mix(in srgb, var(--grey-100) 70%, var(--grey-900));
+  --band-ink-fine: color-mix(in srgb, var(--grey-100) 55%, var(--grey-900));
+
   /* Typography Scale */
   --text-xs: clamp(0.6875rem, 0.6rem + 0.3vw, 0.75rem);
   --text-sm: clamp(0.8125rem, 0.75rem + 0.25vw, 0.875rem);
@@ -206,6 +211,11 @@
 
   --color-border: #2a3140;
   --color-border-subtle: rgba(255, 255, 255, 0.06);
+
+  /* 홈 CTA 밴드 잉크 다크 — 밴드가 밝은 표면으로 반전되므로 같은 비율이면 잉크가 중간 회색이 된다.
+     -muted(70%)는 5.48:1로 통과하지만 -fine(55%)은 3.51:1로 AA 미달이라 다크에서만 잉크 쪽으로 당긴다.
+     라이트는 건드리지 않는다(§7.2-4). §3.2 규칙 2(--text-xs는 더 진한 잉크)와 같은 방향이다. */
+  --band-ink-fine: color-mix(in srgb, var(--grey-100) 70%, var(--grey-900));
 
   /* 노랑 역할 토큰 다크 — solid는 라이트와 동일. 표면·경계는 알파 오버레이, 잉크는 밝은 단계로 뒤집는다 */
   --color-brand-surface: rgba(250, 204, 21, 0.16);
@@ -492,6 +502,19 @@
   .feature-card:hover {
     transform: translateY(-4px);
     box-shadow: var(--shadow-xl);
+  }
+
+  /* 홈 기능 카드 아이콘 칩. 호출부(HomeClient)가 --chip-color(아이콘 전경) / --chip-bg(라이트 배경)를
+     인라인 커스텀 프로퍼티로 넘긴다 — 배열 데이터라 인라인 style 말고는 값을 줄 방법이 없고,
+     인라인 background-color는 클래스 규칙을 이겨 다크 전환이 불가능하다.
+     다크에서는 라이트 파스텔을 그대로 두면 어두운 페이지에 밝은 블록이 남으므로 같은 전경색의
+     알파 틴트로 바꾼다(§7.2-6 / §3.3 -bg 규칙의 .16). 검증 표면은 카드 #191f28(§6.6). */
+  .feature-chip {
+    background-color: var(--chip-bg);
+  }
+
+  .dark .feature-chip {
+    background-color: color-mix(in srgb, var(--chip-color) 16%, transparent);
   }
 
   /* ── GlassNav: shared nav link ── */
