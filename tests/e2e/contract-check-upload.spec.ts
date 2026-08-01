@@ -19,7 +19,10 @@ test('업로드 카드가 보이고, 키가 없는 환경에서는 501 안내 �
   await expect(page.getByRole('button', { name: '파일 선택' })).toBeVisible();
   // 개인정보 고지 갱신 — 폼은 브라우저 내, 사진만 분석 목적 전송·무저장
   await expect(page.getByText('입력하신 내용은 저장되지 않습니다')).toBeVisible();
-  await expect(page.getByText(/사진은 글자를 읽어내는 동안에만 서버를 거치고/)).toBeVisible();
+  await expect(page.getByText(/파일은 글자를 읽어내는 동안에만 서버를 거치고/)).toBeVisible();
+  // 개인정보 보호법 §28조의8 — 파일은 통째로 전송되므로 마스킹 안내가 업로드 지점에 있어야 한다
+  // 업로드 카드와 상단 고지 양쪽에 있다(의도) — strict mode 회피를 위해 first()
+  await expect(page.getByText(/이름·주민등록번호·주소는 가리고 올려 주세요/).first()).toBeVisible();
 
   await upload(page);
 

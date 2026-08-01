@@ -196,6 +196,20 @@ export default function PhotoUploadCard({ onExtracted }: UploadCardProps) {
           파일을 여기에 끌어다 놓거나 아래 버튼으로 고르세요. 사진은 최대 {MAX_FILES}장, PDF·DOCX·XLSX·HWPX는
           1개까지. 파일은 인식에만 쓰이고 저장하지 않습니다.
         </p>
+        {/* 개인정보 보호법 §28조의8① — 국외 이전은 "조회되는 경우를 포함"한다. 저장하지 않아도
+            전송 자체가 이전이다. 판독 항목은 계약 조건뿐이지만 파일은 통째로 전송되므로,
+            근로계약서에 흔히 있는 주민등록번호(고유식별정보, §24조의2)가 함께 나간다.
+            가리고 올리도록 업로드 지점에서 안내한다. */}
+        <p
+          className="mx-auto mt-2 max-w-md rounded-lg px-3 py-2 text-xs leading-relaxed"
+          style={{
+            backgroundColor: 'var(--color-warn-bg, #fef3c7)',
+            color: 'var(--color-warn-ink, #92400e)',
+          }}
+        >
+          <strong>이름·주민등록번호·주소는 가리고 올려 주세요.</strong> 점검에 필요한 것은 계약
+          조건(기간·근로시간·임금·조항)뿐입니다. 가린 부분이 있어도 판독에 지장이 없습니다.
+        </p>
         <input
           ref={inputRef}
           type="file"
