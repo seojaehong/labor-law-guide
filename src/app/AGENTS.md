@@ -190,6 +190,18 @@ grep으로 찾을 때는 선택자가 `.bg-\[var\(--x\)\]` 처럼 **전부 백�
   (`.dark .feature-chip{background-color:var(--chip-color)}` + `@supports(color-mix)` 블록).
   폴백은 **알파가 빠진 원색**이라 틴트가 솔리드가 된다 — 빌드 산출물 grep에서 규칙이 2개로 보이는 건 정상이다.
 
+## ★ `.dark` 규칙은 형제 라이트 규칙에서 속성을 상속받는다 — 지우기 전에 확인할 것 (US-010)
+`globals.css`의 다크 오버라이드(`.dark body` · `.dark .glass-nav` · `.glass-panel` · `.glass-elevated` · `.nav-dropdown`)는
+**바뀌는 속성만 재선언**한다. 나머지는 같은 요소를 잡는 라이트 규칙에서 그대로 상속받는다.
+→ **라이트 규칙에서 어떤 선언을 지우면 다크 렌더가 조용히 같이 바뀐다.**
+US-010 실례: `background-attachment: fixed`는 `@layer base`의 `body`에 있었고 `.dark body`는 `background-image`만
+재선언했다. 라이트에서 그냥 지웠으면(라이트엔 이미지가 없어 무의미) 다크 오로라만 스크롤을 따라 움직였을 것이다.
+- 처방: 라이트에서 지우는 선언이 다크에서 의미가 있으면 **다크 규칙으로 옮기고 사유를 주석으로 남긴다.**
+- 검증: before/after 다크 스크린샷 **md5 비교**가 가장 싸다(스크롤 위치별 2장). computed style만으로는
+  `fixed`의 뷰포트 고정 같은 동작 회귀를 못 잡는다. 진입 애니메이션이 있는 화면은 대기 후 찍어야 md5가 맞는다.
+- ★ 이 `.dark` 규칙들은 **`@layer base` 밖(unlayered)**이라 레이어드 `body`를 항상 이긴다.
+  거꾸로 **`@layer base`에서는 다크를 덮을 수 없다** — 특이도를 올려도 소용없다.
+
 ## 테마 축: layout.tsx ↔ ThemeToggle.tsx 는 한 몸이다
 - 축은 `document.documentElement`의 `.dark` 클래스, localStorage 키는 `'theme'`.
 - 판정식 `saved === 'dark' || (!saved && prefersDark)` 이 **두 곳에 중복 존재**한다:
