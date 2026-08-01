@@ -14,6 +14,24 @@ Tailwind v4이고 **tailwind config 파일이 없다.** 순서와 역할:
 반대로 `@theme`에 이미 `:root`가 쓰는 이름을 올리면 브랜드 값을 덮어써 버린다 — 추가 전에
 `grep -rn "var(--color-<이름>)" src`로 인라인 사용처를 먼저 세어볼 것.
 
+### 이름이 겹칠 때: shadcn 별칭 한 홉을 둔다
+`:root`에 이미 있는 이름(`--color-border` 등)의 유틸이 필요하면
+`@theme inline { --color-x: var(--color-x) }` 로 자기참조하지 말고 **별칭 한 홉**을 끼운다:
+
+```css
+@theme inline { --color-border: var(--border); }   /* 유틸 → border-color: var(--border) */
+:root        { --border: var(--color-border); }    /* 별칭이 원본을 따라간다 */
+```
+
+`--primary`/`--muted`/`--input` 등 기존 shadcn 토큰이 전부 이 모양이다. 이점 두 가지:
+- `@theme`가 `:root`에 같은 이름을 다시 뱉어도 **뒤에 오는 사용자 `:root` 선언이 이긴다** → 사이클이 안 생긴다.
+- 별칭이 `var(--color-border)`를 가리키므로 **`.dark`에 별칭을 다시 쓸 필요가 없다.**
+  `var()`는 선언 위치가 아니라 **사용 위치**에서 풀리므로 `.dark`의 원본 값을 그대로 따라간다.
+
+검증은 브라우저보다 **빌드 산출물 grep이 싸다**:
+`npm run build` 후 `grep -o "\.border-border[^{]*{[^}]*}" .next/static/chunks/*.css`
+→ `border-color:var(--border)`면 성공, 규칙 자체가 없으면 유틸이 안 생긴 것이다(=`currentColor`로 떨어진다).
+
 ## 테마 축: layout.tsx ↔ ThemeToggle.tsx 는 한 몸이다
 - 축은 `document.documentElement`의 `.dark` 클래스, localStorage 키는 `'theme'`.
 - 판정식 `saved === 'dark' || (!saved && prefersDark)` 이 **두 곳에 중복 존재**한다:

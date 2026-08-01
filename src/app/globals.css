@@ -27,6 +27,8 @@
   --color-secondary-foreground: var(--secondary-foreground);
   --color-muted: var(--muted);
   --color-muted-foreground: var(--muted-foreground);
+  /* `border-border` 유틸 생성. --border는 :root에서 --color-border를 따른다. DESIGN.md §9 P1-2 */
+  --color-border: var(--border);
   --color-accent-shadcn: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
   --color-destructive: var(--destructive);
@@ -122,6 +124,7 @@
   --accent-foreground: var(--blue-700);
   --destructive: #dc2626;
   --destructive-foreground: #ffffff;
+  --border: var(--color-border);
   --input: var(--grey-200);
   --ring: var(--blue-400);
   --radius: 0.625rem;

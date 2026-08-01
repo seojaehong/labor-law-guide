@@ -206,7 +206,7 @@ export default function SanctionPage() {
   function renderComparisonCaseCard(c: CaseCard, tone: 'worker' | 'employer') {
     const cardClass =
       tone === 'worker'
-        ? 'block rounded-xl border border-primary/30 bg-card p-3 hover:bg-accent/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring'
+        ? 'block rounded-xl border border-primary/30 bg-card p-3 hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring'
         : 'block rounded-xl border border-amber-200 dark:border-amber-900/50 bg-card p-3 hover:bg-amber-100/40 dark:hover:bg-amber-900/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500'
     const titleClass = tone === 'worker' ? 'mb-1 text-xs font-semibold text-accent-foreground' : 'mb-1 text-xs font-semibold text-amber-700 dark:text-amber-300'
     const href = (c.id && !c.id.startsWith('ai_case_') ? getDecisionDetailHref({ id: c.id, sourceProvider: c.source === 'court' ? 'bigcase' : 'nlrc' }) : '')
@@ -267,7 +267,7 @@ export default function SanctionPage() {
             <div className="flex h-full flex-col items-center justify-center">
               <div className="relative mb-6">
                 <div aria-hidden className="absolute inset-0 -m-4 rounded-full bg-primary/10 blur-2xl" />
-                <div className="relative flex h-16 w-16 items-center justify-center rounded-2xl bg-accent">
+                <div className="relative flex h-16 w-16 items-center justify-center rounded-2xl bg-muted">
                   <Scale size={28} className="text-primary" />
                 </div>
               </div>
@@ -287,11 +287,7 @@ export default function SanctionPage() {
           <div className="space-y-5">
             {messages.map((msg) => (
               <div key={msg.id} className={`flex gap-3 ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}>
-                <div
-                  className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${
-                    msg.role === 'user' ? 'bg-accent' : 'bg-muted'
-                  }`}
-                >
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted">
                   {msg.role === 'user' ? (
                     <User size={14} className="text-primary" />
                   ) : (
@@ -315,7 +311,7 @@ export default function SanctionPage() {
                   {msg.comparison && (
                     <div className="space-y-4">
                       {msg.comparison.issueSummary.length > 0 && (
-                        <div className="rounded-2xl border border-primary/30 bg-accent p-4">
+                        <div className="rounded-2xl border border-primary/30 bg-muted p-4">
                           <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-accent-foreground">
                             <Scale size={15} />
                             쟁점 요약
@@ -329,7 +325,7 @@ export default function SanctionPage() {
                       )}
 
                       <div className="grid gap-4 md:grid-cols-2">
-                        <div className="rounded-2xl border border-primary/30 bg-accent p-4">
+                        <div className="rounded-2xl border border-primary/30 bg-muted p-4">
                           <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-accent-foreground">
                             <GitCompareArrows size={15} />
                             근로자가 이긴 사건
@@ -468,7 +464,7 @@ export default function SanctionPage() {
                   <Loader2 size={14} className="animate-spin text-muted-foreground" />
                 </div>
                 <div className="flex-1 space-y-3">
-                  <div className="rounded-2xl border border-primary/30 bg-accent p-4 animate-pulse">
+                  <div className="rounded-2xl border border-primary/30 bg-muted p-4 animate-pulse">
                     <div className="mb-3 h-4 w-28 rounded bg-primary/20" />
                     <div className="space-y-2">
                       <div className="h-3 w-5/6 rounded bg-primary/20" />
