@@ -607,7 +607,7 @@ export default function AdminClient() {
       {editArticle && (
         <div className="fixed inset-0 z-50 flex items-start justify-center pt-10 px-4" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
           <div
-            className="w-full max-w-[800px] max-h-[85vh] overflow-y-auto rounded-2xl border p-6"
+            className="w-full max-w-[800px] max-h-[85vh] overflow-y-auto rounded-xl border p-6"
             style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }}
           >
             <div className="flex items-center justify-between mb-6">
