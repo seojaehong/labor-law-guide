@@ -5,6 +5,7 @@
 
 import crypto from 'crypto';
 import { createClient } from '@supabase/supabase-js';
+import { isTurnstileEnabled, verifyTurnstile } from '@/lib/turnstile';
 import type { Contract, WageItemCode } from '@/lib/contract-check/types';
 
 export const runtime = 'nodejs';
@@ -20,7 +21,9 @@ const REQUEST_TIMEOUT_MS = 45_000;
 const MAX_IMAGES = 4;
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 const ALLOWED_MEDIA_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
-const IP_DAILY_LIMIT = 5;
+const IP_DAILY_LIMIT = parseInt(process.env.CONTRACT_CHECK_IP_DAILY_LIMIT || '5', 10);
+// 비용 폭주 1차 방어선. 비전 판독 1건 ≈ 25~50원 → 300건이면 하루 최대 1.5만원 선에서 멈춘다.
+const GLOBAL_DAILY_LIMIT = parseInt(process.env.CONTRACT_CHECK_GLOBAL_DAILY_LIMIT || '300', 10);
 
 /** rules/clauses.ts가 인식하는 폐쇄 태그 사전 — 이외 값은 버린다. */
 export const RISK_TAGS = ['금품청산', '조건부지급', '즉시해고', '자동만료', '부제소', '위약예정'] as const;
@@ -263,25 +266,42 @@ function extractIp(req: Request): string {
 }
 
 /**
- * IP당 일 5회. Supabase env가 없으면(로컬) 제한 생략.
- * DB 오류·마이그레이션 미적용 시에는 fail-open — 리밋 고장으로 사용자를 막지 않는다(src/lib/rate-limit.ts와 동일).
+ * 챗이 쓰는 공용 카운터(`incr_rate_limit`)를 그대로 재사용한다.
+ * 전용 RPC(`incr_contract_check_rate_limit`)를 따로 만들었더니 프로덕션에서 조용히 fail-open 됐다 —
+ * 원인 후보(마이그레이션 미적용/타 프로젝트 적용/반환 shape 불일치)를 밖에서 구분할 수 없었다.
+ * scope는 기존에 쓰이던 값('ip'·'global')만 쓰고 key만 `cc:` 네임스페이스로 분리해 스키마 변경 없이 붙인다.
+ *
+ * DB 오류 시에는 fail-open — 리밋 고장으로 사용자를 막지 않는다(src/lib/rate-limit.ts와 동일).
+ * 다만 삼키지 않고 로그를 남긴다. 조용한 fail-open이 곧 무제한이라는 걸 이번에 겪었다.
  */
-async function checkRateLimit(ipHash: string): Promise<boolean> {
+async function underLimit(scope: 'ip' | 'global', key: string, max: number): Promise<boolean> {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!url || !serviceKey) return true;
+  if (!url || !serviceKey) {
+    console.error('[contract-check/extract] rate limit skipped: supabase env missing');
+    return true;
+  }
 
   try {
     const db = createClient(url, serviceKey, {
       auth: { autoRefreshToken: false, persistSession: false },
     });
-    const { data, error } = await db.rpc('incr_contract_check_rate_limit', {
-      p_ip_hash: ipHash,
-      p_max: IP_DAILY_LIMIT,
+    const { data, error } = await db.rpc('incr_rate_limit', {
+      p_scope: scope,
+      p_key: key,
+      p_max: max,
     });
-    if (error || !data) return true;
+    if (error || !data) {
+      console.error('[contract-check/extract] rate limit fail-open', scope, error?.message ?? 'no data');
+      return true;
+    }
     return (data as { allowed?: boolean }).allowed !== false;
-  } catch {
+  } catch (err) {
+    console.error(
+      '[contract-check/extract] rate limit exception',
+      scope,
+      err instanceof Error ? err.message : 'unknown',
+    );
     return true;
   }
 }
@@ -337,8 +357,30 @@ export async function POST(req: Request): Promise<Response> {
     }
   }
 
-  const allowed = await checkRateLimit(hashIp(extractIp(req)));
-  if (!allowed) {
+  const ip = extractIp(req);
+
+  // 봇 차단 — 카운터를 올리기 전에 건다. env 미설정이면 자동 패스(로컬·베타).
+  if (isTurnstileEnabled()) {
+    const token = form.get('turnstileToken');
+    const ts = await verifyTurnstile(typeof token === 'string' ? token : null, ip);
+    if (!ts.skipped && !ts.success) {
+      return json(403, {
+        error: 'bot_check_failed',
+        message: '자동 확인에 실패했습니다. 잠시 후 다시 시도하시거나 아래 폼에 직접 입력해 주세요.',
+      });
+    }
+  }
+
+  // 전역 캡을 먼저 본다 — 여기서 막혀야 개별 카운터가 올라가지 않는다.
+  if (!(await underLimit('global', 'cc_all', GLOBAL_DAILY_LIMIT))) {
+    return json(429, {
+      error: 'rate_limited',
+      message:
+        '오늘 사진 인식 이용량이 많아 잠시 중단되었습니다. 아래 폼에 직접 입력하시거나 전문가 상담을 이용해 주세요.',
+    });
+  }
+
+  if (!(await underLimit('ip', `cc:${hashIp(ip)}`, IP_DAILY_LIMIT))) {
     return json(429, {
       error: 'rate_limited',
       message: `사진 인식은 하루 ${IP_DAILY_LIMIT}회까지 이용할 수 있습니다. 내일 다시 시도하시거나, 아래 폼에 직접 입력하거나 전문가 상담을 이용해 주세요.`,

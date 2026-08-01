@@ -5,6 +5,7 @@
 
 import { useRef, useState } from 'react';
 import { Camera, Loader2, Upload } from 'lucide-react';
+import TurnstileWidget from '@/components/TurnstileWidget';
 
 const MAX_FILES = 4;
 // Vercel 서버리스는 요청 본문 ~4.5MB를 핸들러 진입 **전에** 잘라낸다(우리 413이 아니라 비 JSON 응답이 온다).
@@ -76,6 +77,7 @@ export default function PhotoUploadCard({ onExtracted }: UploadCardProps) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const handleFiles = async (list: FileList | null) => {
@@ -100,6 +102,8 @@ export default function PhotoUploadCard({ onExtracted }: UploadCardProps) {
 
       const body = new FormData();
       prepared.forEach((f) => body.append('images', f));
+      // 봇 차단 토큰. 위젯이 아직 토큰을 못 받았으면 비워 보내고 서버 판정(403)에 맡긴다.
+      if (turnstileToken) body.append('turnstileToken', turnstileToken);
       const resp = await fetch('/api/tools/contract-check/extract', { method: 'POST', body });
 
       // 플랫폼이 본문 상한으로 잘라내면 JSON이 아닌 응답이 온다 — 반드시 catch 한다.
@@ -176,6 +180,10 @@ export default function PhotoUploadCard({ onExtracted }: UploadCardProps) {
           {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
           {busy ? '사진을 읽는 중…' : '사진 선택'}
         </button>
+        {/* 사이트 키가 없으면 위젯이 아무것도 렌더하지 않는다(로컬·베타에서 그대로 통과). */}
+        <div className="mt-3 flex justify-center">
+          <TurnstileWidget onToken={setTurnstileToken} />
+        </div>
       </div>
 
       {error && (

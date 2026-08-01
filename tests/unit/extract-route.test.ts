@@ -141,7 +141,10 @@ describe('POST /api/tools/contract-check/extract', () => {
   it('IP당 일 5회 초과면 429 + 상담 안내', async () => {
     vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', 'https://example.supabase.co');
     vi.stubEnv('SUPABASE_SERVICE_ROLE_KEY', 'service-role-key');
-    rpcMock.mockResolvedValue({ data: { allowed: false, count: 6, max: 5 }, error: null });
+    // 전역 캡은 통과, IP 캡에서 막힌다
+    rpcMock
+      .mockResolvedValueOnce({ data: { allowed: true, count: 1 }, error: null })
+      .mockResolvedValueOnce({ data: { allowed: false, count: 6, max: 5 }, error: null });
 
     const resp = await POST(makeRequest([{ bytes: 128 }]));
     expect(resp.status).toBe(429);
@@ -151,11 +154,31 @@ describe('POST /api/tools/contract-check/extract', () => {
     expect(body.message).toContain('상담');
     expect(fetchMock).not.toHaveBeenCalled();
 
+    // 챗과 같은 공용 RPC를 쓴다 — scope는 기존 값, key만 cc: 네임스페이스
+    expect(rpcMock.mock.calls[0][0]).toBe('incr_rate_limit');
+    const globalArgs = rpcMock.mock.calls[0][1];
+    expect(globalArgs.p_scope).toBe('global');
+    expect(globalArgs.p_key).toBe('cc_all');
+
     // 원본 IP가 아니라 해시가 넘어간다
-    const args = rpcMock.mock.calls[0][1];
-    expect(args.p_max).toBe(5);
-    expect(args.p_ip_hash).toMatch(/^[0-9a-f]{32}$/);
-    expect(args.p_ip_hash).not.toContain('203.0.113.9');
+    const ipArgs = rpcMock.mock.calls[1][1];
+    expect(ipArgs.p_scope).toBe('ip');
+    expect(ipArgs.p_max).toBe(5);
+    expect(ipArgs.p_key).toMatch(/^cc:[0-9a-f]{32}$/);
+    expect(ipArgs.p_key).not.toContain('203.0.113.9');
+  });
+
+  it('전역 일일 캡을 넘기면 429이고 IP 카운터를 올리지 않는다', async () => {
+    vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', 'https://example.supabase.co');
+    vi.stubEnv('SUPABASE_SERVICE_ROLE_KEY', 'service-role-key');
+    rpcMock.mockResolvedValue({ data: { allowed: false, count: 301 }, error: null });
+
+    const resp = await POST(makeRequest([{ bytes: 128 }]));
+    expect(resp.status).toBe(429);
+    expect(fetchMock).not.toHaveBeenCalled();
+    // 전역에서 끊겼으므로 RPC는 한 번만 불린다
+    expect(rpcMock).toHaveBeenCalledTimes(1);
+    expect(rpcMock.mock.calls[0][1].p_scope).toBe('global');
   });
 
   it('레이트리밋 DB 오류는 fail-open (사용자를 막지 않는다)', async () => {
