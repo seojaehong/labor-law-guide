@@ -133,6 +133,16 @@ export default function PhotoUploadCard({ onExtracted }: UploadCardProps) {
     } finally {
       setBusy(false);
       if (inputRef.current) inputRef.current.value = '';
+      // Turnstile 토큰은 1회용 — 비우고 재발급시킨다. 안 하면 두 번째 업로드부터 소진된 토큰을
+      // 그대로 보내 403(bot_check_failed)이 나고, 새로고침 전까지 재시도가 막힌다.
+      setTurnstileToken(null);
+      if (typeof window !== 'undefined' && window.turnstile) {
+        try {
+          window.turnstile.reset();
+        } catch {
+          /* ignore */
+        }
+      }
     }
   };
 
