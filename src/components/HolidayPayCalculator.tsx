@@ -766,7 +766,7 @@ export default function HolidayPayCalculator() {
         <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-4">
           <button
             onClick={handleKakaoShare}
-            className="flex items-center justify-center gap-2 rounded-lg bg-[var(--brand-300)] px-4 py-3 font-semibold text-[#191f28] hover:bg-[var(--color-brand-solid)]"
+            className="w-full inline-flex min-h-[44px] items-center justify-center gap-2 rounded-md px-5 py-2.5 text-[15px] font-semibold transition-[background-color,transform] hover:-translate-y-px bg-[var(--color-brand-solid)] text-[#191f28] hover:bg-[var(--brand-500)]"
             title="카카오톡 공유 (Kakao SDK)"
           >
             <MessageCircle className="h-4 w-4" />
@@ -774,7 +774,7 @@ export default function HolidayPayCalculator() {
           </button>
           <button
             onClick={handleNativeShare}
-            className="flex items-center justify-center gap-2 rounded-lg bg-[var(--color-text-primary)] px-4 py-3 font-semibold text-[var(--color-bg-surface)] hover:bg-[var(--grey-800)]"
+            className="w-full inline-flex min-h-[44px] items-center justify-center gap-2 rounded-md px-5 py-2.5 text-[15px] font-semibold transition-[background-color,transform] hover:-translate-y-px border border-[var(--color-border)] bg-[var(--color-bg-surface)] text-[var(--color-text-primary)] hover:bg-[var(--grey-100)]"
             title="시스템 공유 시트 (모바일)"
           >
             <Share2 className="h-4 w-4" />
@@ -782,24 +782,14 @@ export default function HolidayPayCalculator() {
           </button>
           <button
             onClick={handleDownloadImage}
-            className="flex items-center justify-center gap-2 rounded-lg border px-4 py-3 font-semibold hover:opacity-90"
-            style={{
-              borderColor: 'var(--color-border)',
-              backgroundColor: 'var(--color-bg-surface)',
-              color: 'var(--color-text-primary)',
-            }}
+            className="w-full inline-flex min-h-[44px] items-center justify-center gap-2 rounded-md px-5 py-2.5 text-[15px] font-semibold transition-[background-color,transform] hover:-translate-y-px border border-[var(--color-border)] bg-[var(--color-bg-surface)] text-[var(--color-text-primary)] hover:bg-[var(--grey-100)]"
           >
             <Download className="h-4 w-4" />
             이미지 저장
           </button>
           <button
             onClick={handleCopy}
-            className="flex items-center justify-center gap-2 rounded-lg border px-4 py-3 font-semibold hover:opacity-90"
-            style={{
-              borderColor: 'var(--color-border)',
-              backgroundColor: 'var(--color-bg-surface)',
-              color: 'var(--color-text-primary)',
-            }}
+            className="w-full inline-flex min-h-[44px] items-center justify-center gap-2 rounded-md px-5 py-2.5 text-[15px] font-semibold transition-[background-color,transform] hover:-translate-y-px border border-[var(--color-border)] bg-[var(--color-bg-surface)] text-[var(--color-text-primary)] hover:bg-[var(--grey-100)]"
           >
             {copied ? <Check className="h-4 w-4 text-emerald-600" /> : <Copy className="h-4 w-4" />}
             {copied ? '복사됨' : '결과 복사'}

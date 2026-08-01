@@ -106,8 +106,7 @@ export default function SubsidyPage() {
               </p>
               <Link
                 href="/contact"
-                className="mt-4 flex items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-bold text-white transition-opacity hover:opacity-90"
-                style={{ backgroundColor: 'var(--color-accent)' }}
+                className="mt-4 w-full inline-flex min-h-[44px] items-center justify-center gap-2 rounded-md px-5 py-2.5 text-[15px] font-semibold transition-[background-color,transform] hover:-translate-y-px bg-[var(--color-accent-ink)] text-[var(--color-on-accent-ink)] hover:bg-[var(--color-accent-ink-hover)]"
               >
                 <MessageSquare size={16} />
                 노무 상담 접수하기

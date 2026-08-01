@@ -356,8 +356,7 @@ export default function HomeClient({ totalCases, totalAdmin, totalNews, latestBl
           </p>
           <Link
             href="/ai"
-            className="inline-flex items-center gap-2 rounded-lg px-6 py-3 font-medium text-white"
-            style={{ backgroundColor: 'var(--color-accent)' }}
+            className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-md px-5 py-2.5 text-[15px] font-semibold transition-[background-color,transform] hover:-translate-y-px bg-[var(--color-accent-ink)] text-[var(--color-on-accent-ink)] hover:bg-[var(--color-accent-ink-hover)]"
           >
             AI 상담 시작하기 <ArrowRight size={16} />
           </Link>

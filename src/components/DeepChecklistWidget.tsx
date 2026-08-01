@@ -88,8 +88,7 @@ export default function DeepChecklistWidget() {
       <button
         onClick={() => setShowResult(true)}
         disabled={answeredCount === 0}
-        className="mt-4 w-full rounded-lg py-3 font-medium text-white disabled:opacity-40"
-        style={{ backgroundColor: 'var(--color-accent)' }}
+        className="mt-4 w-full inline-flex min-h-[44px] items-center justify-center gap-2 rounded-md px-5 py-2.5 text-[15px] font-semibold transition-[background-color,transform] hover:-translate-y-px bg-[var(--color-accent-ink)] text-[var(--color-on-accent-ink)] hover:bg-[var(--color-accent-ink-hover)] disabled:opacity-50 disabled:cursor-not-allowed"
       >
         진단 결과 보기
       </button>
@@ -122,7 +121,7 @@ export default function DeepChecklistWidget() {
             </div>
             <p className="mb-2 text-[15px]" style={{ color: 'var(--grey-700)' }}>{result.description}</p>
             <div className="mt-4 text-center">
-              <a href="/contact" className="inline-flex items-center gap-1 rounded-lg px-4 py-2 text-sm font-medium text-white" style={{ backgroundColor: 'var(--color-accent)' }}>
+              <a href="/contact" className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-md px-5 py-2.5 text-[15px] font-semibold transition-[background-color,transform] hover:-translate-y-px bg-[var(--color-accent-ink)] text-[var(--color-on-accent-ink)] hover:bg-[var(--color-accent-ink-hover)]">
                 전문가 상담 문의하기
               </a>
             </div>
