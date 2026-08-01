@@ -70,6 +70,17 @@
   --blue-600: #1b64da;
   --blue-700: #1957c2;
 
+  /* Brand Yellow (노랑 헌장 — DESIGN.md §3.4). 램프는 라이트·다크 동일 */
+  --brand-50: #fefce8;
+  --brand-100: #fef9c3;
+  --brand-200: #fef08a;
+  --brand-300: #fde047;
+  --brand-400: #facc15;
+  --brand-500: #eab308;
+  --brand-600: #ca8a04;
+  --brand-700: #a16207;
+  --brand-800: #854d0e;
+
   /* Semantic Tokens */
   --color-bg-primary: var(--grey-50);
   --color-bg-surface: #ffffff;
@@ -83,6 +94,14 @@
   --color-accent-hover: var(--blue-600);
   --color-accent-light: var(--blue-50);
 
+  /* 노랑 역할 토큰 — DESIGN.md §3.4. 노랑은 표면 색이다.
+     ★ solid는 라·다 동일(#facc15)이므로 그 위 잉크는 리터럴 #191f28 고정이다(§3.4/§6.2 "고정", 10.81:1).
+     --grey-900 / --color-text-primary로 쓰면 안 된다 — 다크에서 #f2f4f6으로 뒤집혀 대비가 무너진다. */
+  --color-brand-solid: var(--brand-400);
+  --color-brand-surface: var(--brand-100);
+  --color-brand-border: var(--brand-400);
+  --color-brand-ink: var(--brand-800);
+
   --color-border: var(--grey-200);
   --color-border-subtle: rgba(0, 0, 0, 0.06);
 
@@ -94,9 +113,6 @@
   --text-xl: clamp(1.25rem, 1.1rem + 0.6vw, 1.5rem);
   --text-2xl: clamp(1.5rem, 1.2rem + 1vw, 2rem);
   --text-hero: clamp(1.75rem, 1rem + 4vw, 5rem);
-
-  /* Yellow accent for highlights */
-  --yellow-100: #fef9c3;
 
   /* Animations & Shadows */
   --ease-expo-out: cubic-bezier(0.16, 1, 0.3, 1);
@@ -160,12 +176,15 @@
   --color-border: #2a3140;
   --color-border-subtle: rgba(255, 255, 255, 0.06);
 
+  /* 노랑 역할 토큰 다크 — solid는 라이트와 동일. 표면·경계는 알파 오버레이, 잉크는 밝은 단계로 뒤집는다 */
+  --color-brand-surface: rgba(250, 204, 21, 0.16);
+  --color-brand-border: rgba(250, 204, 21, 0.45);
+  --color-brand-ink: var(--brand-300);
+
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.03);
   --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.4), 0 2px 4px -1px rgba(0, 0, 0, 0.2);
   --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.4);
   --shadow-xl: 0 20px 40px -8px rgba(0, 0, 0, 0.5);
-
-  --yellow-100: #422006;
 
   /* shadcn tokens — dark variant */
   --primary: var(--blue-400);

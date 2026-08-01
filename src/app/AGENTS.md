@@ -32,6 +32,31 @@ Tailwind v4이고 **tailwind config 파일이 없다.** 순서와 역할:
 `npm run build` 후 `grep -o "\.border-border[^{]*{[^}]*}" .next/static/chunks/*.css`
 → `border-color:var(--border)`면 성공, 규칙 자체가 없으면 유틸이 안 생긴 것이다(=`currentColor`로 떨어진다).
 
+### 램프와 역할 토큰은 층을 나눈다
+`--grey-*` / `--blue-*` / `--brand-*` 같은 **램프는 원시값**, `--color-*`는 **역할**이다. 규칙:
+
+- 라이트·다크가 같은 램프는 `:root`에만 쓴다. `.dark`에 통째로 복사하지 말 것(`--brand-*` 9단이 이 경우).
+- 역할 토큰은 값이 같으면 램프를 `var()`로 가리킨다 — `--color-brand-solid: var(--brand-400)`.
+  `--color-accent: var(--blue-500)`이 원래 이 모양이다. hex를 두 번 적으면 한쪽만 고쳐져 갈라진다.
+- `.dark`에는 **라이트와 값이 다른 역할만** 재선언한다. 램프를 가리키는 역할은 램프가 `.dark`에서
+  뒤집히면 자동으로 따라온다(`var()`는 사용 위치에서 풀린다).
+- 다크에서 연한 표면은 hex를 새로 고르지 말고 **알파 오버레이**로 만든다(`rgba(250,204,21,.16)`).
+  불투명 어두운 hex(구 `--yellow-100: #422006`)보다 바탕과 어울리고 위에 얹히는 밝은 잉크가 그대로 산다.
+
+### 토큰만 추가한 커밋이 무해함을 증명하는 법
+호출부 교체 전에 토큰만 먼저 넣는 story가 여럿 있다. "화면이 안 변한다"를 육안으로 주장하지 말고
+**소비자가 0건임을 빌드 산출물에서 보인다**:
+
+```sh
+npm run build
+grep -o "var(--color-<새이름>)" .next/static/chunks/*.css   # 0건이면 CSS는 아무것도 안 쓴다
+grep -rn "var(--color-<새이름>)" src/                        # 인라인 style 소비자도 함께 센다
+```
+
+CSS·인라인 양쪽이 0이면 렌더는 정의상 안 바뀐다. 값이 실제로 들어갔는지는 별도로
+`grep -o -- "--<이름>:[^;]*" .next/static/chunks/*.css`로 확인한다(다크 rgba는 `#facc1529` 처럼
+8자리 hex로 축약돼 나오므로 `rgba(`로 grep하면 안 잡힌다).
+
 ## 테마 축: layout.tsx ↔ ThemeToggle.tsx 는 한 몸이다
 - 축은 `document.documentElement`의 `.dark` 클래스, localStorage 키는 `'theme'`.
 - 판정식 `saved === 'dark' || (!saved && prefersDark)` 이 **두 곳에 중복 존재**한다:
