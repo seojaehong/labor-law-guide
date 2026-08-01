@@ -30,20 +30,31 @@ export function detectDocKind(name: string, type: string): DocKind | null {
   return null;
 }
 
-/** XML 텍스트 런에서 내용만 뽑는다. 태그 사이 공백은 살리고 개행은 문단 단위로 만든다. */
-function textFromRuns(xml: string, runTag: string, paraTag: string): string {
-  // 문단 경계를 먼저 개행으로 치환해야 문장이 뭉치지 않는다.
-  const withBreaks = xml.replace(new RegExp(`</${paraTag}>`, 'g'), '\n');
-  const runs = withBreaks.match(new RegExp(`<${runTag}[^>]*>([\\s\\S]*?)</${runTag}>`, 'g')) ?? [];
-  const out = runs
-    .map((r) => r.replace(/<[^>]+>/g, ''))
-    .join('')
-    .replace(/&amp;/g, '&')
+function unescapeXml(s: string): string {
+  // &amp;를 마지막에 풀어야 `&amp;lt;`가 `<`로 잘못 접히지 않는다.
+  return s
     .replace(/&lt;/g, '<')
     .replace(/&gt;/g, '>')
     .replace(/&quot;/g, '"')
-    .replace(/&apos;/g, "'");
-  return out;
+    .replace(/&apos;/g, "'")
+    .replace(/&amp;/g, '&');
+}
+
+/**
+ * XML 텍스트 런에서 내용만 뽑되 **문단 경계를 개행으로 남긴다.**
+ * 런 내용만 이어 붙이면 문단 구분이 사라져 "월 급여" 다음 줄의 금액이 앞 항목에 붙는다 —
+ * 항목·값 짝이 깨지면 모델이 임금을 엉뚱한 항목에 배정한다. 그래서 문단 단위로 먼저 쪼갠다.
+ */
+function textFromRuns(xml: string, runTag: string, paraTag: string): string {
+  const paras = xml.match(new RegExp(`<${paraTag}[\\s>][\\s\\S]*?</${paraTag}>`, 'g')) ?? [];
+  const source = paras.length > 0 ? paras : [xml];
+  const runRe = new RegExp(`<${runTag}[^>]*>([\\s\\S]*?)</${runTag}>`, 'g');
+  return source
+    .map((p) => {
+      const runs = p.match(runRe) ?? [];
+      return unescapeXml(runs.map((r) => r.replace(/<[^>]+>/g, '')).join(''));
+    })
+    .join('\n');
 }
 
 /** 연속 공백·빈 줄 정리. 모델에 보내는 토큰을 줄인다. */
