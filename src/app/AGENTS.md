@@ -267,3 +267,24 @@ DESIGN.md §6.2가 정한 4변형(primary / brand / secondary / ghost)을 `.btn-
 - 컴포넌트 내부 폭: 채팅 말풍선 `max-w-[85%]`/`[80%]`, 표 셀 `max-w-[280px]`, 모달 `max-w-[800px]`,
   단일 카드가 곧 화면인 경우(어드민 로그인 `max-w-[400px]`)
 - 판정법: `grep -rno "max-w-[^ \"]*" src --include=*.tsx | ...`로 세고, **`mx-auto`가 붙은 블록만** 셸 후보로 본다.
+
+## ★ `var(--x, 폴백)`의 폴백은 죽은 토큰을 숨긴다 (US-012에서 발견)
+
+죽은 유틸은 빌드 산출물에 규칙이 없으니 grep으로 잡히지만, **죽은 *토큰*은 폴백이 있으면 안 잡힌다.**
+`background: var(--color-accent-soft, #fff8e6)`처럼 쓰면 `--color-accent-soft`가 정의 0건이어도 화면은 칠해진다 —
+대신 그 값이 **라이트·다크 고정 hex**가 되어 다크만 조용히 깨진다(`SubscribeForm.tsx:89`가 이 경우다.
+크림 배경 위 `--color-text-primary`가 다크에서 `#f2f4f6` → 약 1.1:1).
+
+판별법:
+```bash
+grep -rn "var(--[a-z0-9-]*, *#" src/                  # 폴백을 단 var() 전수
+grep -n "\-\-그토큰이름" src/app/globals.css           # 정의가 실제로 있는지
+```
+정의가 없으면 **토큰을 만들 것인지 다른 토큰으로 옮길 것인지**를 문서 근거로 결정한다. 폴백만 지우면 배경이 아예 사라진다.
+
+## ★ 규격을 바꿀 때는 쌍둥이 컴포넌트를 함께 본다
+
+같은 역할의 형제가 여럿이라 한쪽만 고치면 규격이 갈린다. 실재 쌍:
+`SubscribeForm` ↔ `BetaSignupForm`(구독/신청 폼) · `ChecklistWidget` ↔ `DeepChecklistWidget` ↔ `SimpleChecklistWidget` ·
+`components/ui/*` ↔ `components/decisions-ui/*`(중복, 전자는 US-013 P5-7에서 삭제 예정).
+버튼·입력·카드 규격을 손대기 전에 `ls src/components/ | grep <역할어>`를 한 번 돌릴 것.
