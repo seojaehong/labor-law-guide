@@ -86,7 +86,6 @@ export default function SubscribeForm({ source, sourceSlug, variant = 'full' }: 
       style={{
         borderColor: isCompact ? 'var(--color-border)' : 'var(--color-accent)',
         borderWidth: '1px', // §5.3 카드 보더는 1px 단일 — 강조는 굵기가 아니라 색(--color-accent)으로
-
         backgroundColor: isCompact ? 'var(--color-bg-surface)' : 'var(--color-accent-soft, #fff8e6)',
       }}
     >
