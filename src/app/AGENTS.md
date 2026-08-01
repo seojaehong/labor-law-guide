@@ -288,3 +288,33 @@ grep -n "\-\-그토큰이름" src/app/globals.css           # 정의가 실제�
 `SubscribeForm` ↔ `BetaSignupForm`(구독/신청 폼) · `ChecklistWidget` ↔ `DeepChecklistWidget` ↔ `SimpleChecklistWidget` ·
 `components/ui/*` ↔ `components/decisions-ui/*`(중복, 전자는 US-013 P5-7에서 삭제 예정).
 버튼·입력·카드 규격을 손대기 전에 `ls src/components/ | grep <역할어>`를 한 번 돌릴 것.
+
+## ★ Tailwind v4 레이어 서열 — `@layer base`는 유틸을 못 이긴다 (US-013에서 실측)
+
+전역 `:focus-visible`에 `border-radius: 4px`가 있었고 DESIGN.md §9 P5-12는 그것 때문에
+`rounded-full` FAB·칩의 포커스 링이 각지게 그려진다고 적었다. **재현되지 않았다.**
+4px을 되살린 상태에서 재도 FAB 반경은 `3.35544e+07px`(= `rounded-full`) 그대로였다 —
+Tailwind v4의 캐스케이드 레이어 순서상 `utilities`가 `base`를 이기기 때문이다.
+
+- `@layer base`에 쓴 선언은 **유틸이 손대지 않는 속성에만** 실제로 발화한다.
+- 반대로 `globals.css`의 `@layer utilities` 블록(`.nav-link`·`.feature-card` 등)과
+  Tailwind 생성 유틸(`hover:shadow-md`)은 **같은 레이어·같은 특정도(0,2,0)**라 소스 순서가 승부를 가른다 — 제어 불가에 가깝다.
+- 판별법: 문제의 선언을 되살린 상태에서 **Tab 순회**로 각 포커스 요소의 계산값을 뽑는다
+  (`el.matches(':focus-visible')`를 같이 찍을 것 — 스크립트 `.focus()`는 요소에 따라 `:focus-visible`이 안 붙는다).
+  US-013 실측: 반경 유틸이 없는 요소 2곳(스킵 링크·베타 배너 ✕)만 `4px → 0px`로 바뀌었다.
+
+## ★ 인라인 `style`은 클래스 hover 규칙을 영구히 이긴다 — 호출부를 보고 판단할 것
+
+`.feature-card:hover { box-shadow: var(--shadow-md) }`는 5개 호출부 중 4곳에서 **발화하지 않는다.**
+`HomeClient.tsx:206·237·277`·`BlogClient.tsx:66`이 `style={{ boxShadow: 'var(--shadow-sm)' }}`를 들고 있어
+인라인이 이긴다(실측: idle == hover == shadow-sm, 라·다 동일). `transform`은 인라인이 없어 정상 전환된다.
+→ **CSS의 hover 규칙을 고칠 때는 호출부의 인라인 style을 먼저 grep한다.**
+소유권을 인라인 → 클래스로 옮기는 것은 `hover:shadow-md` 유틸과 소스 순서 충돌을 만드니 별도 판단이 필요하다.
+
+## `@theme inline`의 토큰은 유틸 사용량에 따라 트리셰이킹된다
+
+`--radius-sm/md/lg/xl`은 `:root`가 아니라 `@theme inline`에 산다. 이 변수들은 대응 유틸(`rounded-md` 등)이
+소스에 남아 있는 동안만 산출물에 실린다. CSS 규칙에서 `var(--radius-md)`로 참조하는 코드를 늘리면서
+동시에 `rounded-md`를 쓰던 파일을 지우면, **참조는 남고 정의가 사라져 조용히 `border-radius: 0`이 된다.**
+확인: `npm run build && grep -o -- "--radius-md:[^;]*" .next/static/chunks/*.css`
+(US-013에서 `components/ui/*` 5개를 지우기 전 `rounded-md` 호출부가 그 밖에도 다수임을 확인하고 진행했다.)

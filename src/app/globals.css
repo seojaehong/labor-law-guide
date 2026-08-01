@@ -5,12 +5,6 @@
 /* `dark:` 유틸을 .dark 클래스 축에 합류시킨다(토글은 documentElement의 .dark). DESIGN.md §9 P0-2 */
 @custom-variant dark (&:is(.dark *));
 
-@font-face {
-  font-family: "Pretendard Variable Fallback";
-  src: local("Apple SD Gothic Neo"), local("Malgun Gothic"), local("sans-serif");
-  font-display: swap;
-}
-
 @theme inline {
   --color-background: var(--color-bg-primary);
   --color-foreground: var(--color-text-primary);
@@ -159,7 +153,6 @@
   --ease-expo-out: cubic-bezier(0.16, 1, 0.3, 1);
   --transition-fast: 150ms;
   --transition-normal: 300ms;
-  --transition-slow: 500ms;
 
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05), 0 0 0 1px rgba(0, 0, 0, 0.03);
   --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.07), 0 2px 4px -1px rgba(0, 0, 0, 0.04), 0 0 0 1px rgba(0, 0, 0, 0.03);
@@ -298,27 +291,20 @@
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 }
 
-.dark .glass-panel {
-  background: rgba(25, 31, 40, 0.65);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-}
-
-.dark .glass-elevated {
-  background: rgba(30, 37, 48, 0.75);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-}
-
 .dark .nav-dropdown {
   background: rgba(25, 31, 40, 0.92);
   border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 @layer base {
-  /* Keyboard accessibility — focus-visible ring */
+  /* Keyboard accessibility — focus-visible ring.
+     ★ border-radius를 여기서 지정하지 않는다(§9 P5-12). 링 모양은 요소 자신의 반경을 따라야 한다.
+     실측 주의: 여기 4px을 두어도 `rounded-full` 유틸을 가진 요소(FAB·칩)는 영향을 받지 않았다
+     — Tailwind v4에서 utilities 레이어가 base 레이어를 이기기 때문이다. 실제 피해자는
+     반경 유틸이 없는 포커스 요소였다(홈 Tab 순회 실측: 스킵 링크·베타 배너 닫기 ✕ 2곳이 4px → 0px). */
   :focus-visible {
     outline: 2px solid var(--color-accent);
     outline-offset: 2px;
-    border-radius: 4px;
   }
 
   button:focus-visible,
@@ -452,29 +438,8 @@
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
   }
 
-  .glass-panel {
-    background: rgba(255, 255, 255, 0.45);
-    backdrop-filter: blur(24px) saturate(180%);
-    -webkit-backdrop-filter: blur(24px) saturate(180%);
-    border: 1px solid rgba(255, 255, 255, 0.6);
-    border-radius: 16px;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.8);
-  }
-
-  .glass-elevated {
-    background: rgba(255, 255, 255, 0.6);
-    backdrop-filter: blur(40px) saturate(200%);
-    -webkit-backdrop-filter: blur(40px) saturate(200%);
-    border: 1px solid rgba(255, 255, 255, 0.7);
-    border-radius: 20px;
-    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.08), inset 0 2px 0 rgba(255, 255, 255, 0.9);
-  }
-
   @supports not (backdrop-filter: blur(1px)) {
-
-    .glass-nav,
-    .glass-panel,
-    .glass-elevated {
+    .glass-nav {
       background: rgba(255, 255, 255, 0.92);
     }
   }
@@ -546,20 +511,15 @@
     animation: fade-in-up 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
   }
 
-  .content-block {
-    animation: fade-in-up linear both;
-    animation-timeline: view();
-    animation-range: entry 0% entry 25%;
-  }
-
   .feature-card {
     transition: transform var(--transition-normal) var(--ease-expo-out),
       box-shadow var(--transition-normal) ease;
   }
 
+  /* §5.4 규율 2 — 카드 hover는 --shadow-md + translateY(-2px). xl은 모달 전용으로 내렸다. */
   .feature-card:hover {
-    transform: translateY(-4px);
-    box-shadow: var(--shadow-xl);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
   }
 
   /* 홈 기능 카드 아이콘 칩. 호출부(HomeClient)가 --chip-color(아이콘 전경) / --chip-bg(라이트 배경)를
@@ -579,7 +539,7 @@
   .nav-link {
     display: inline-flex;
     align-items: center;
-    border-radius: 8px;
+    border-radius: var(--radius-md);
     padding: 6px 12px;
     font-size: var(--text-sm);
     transition: color var(--transition-fast) ease,
@@ -602,7 +562,7 @@
     align-items: center;
     justify-content: center;
     margin-left: 8px;
-    border-radius: 8px;
+    border-radius: var(--radius-md);
     /* §6.2 primary 규격 — px-5 py-2.5 / min-height 44px / 15px·600.
        배경이 --color-accent가 아니라 --color-accent-ink인 이유는 #3182f6 + 흰 잉크가 3.71:1이기 때문(§3.3 ★★). */
     padding: 10px 20px;
@@ -639,7 +599,7 @@
     backdrop-filter: blur(24px) saturate(180%);
     -webkit-backdrop-filter: blur(24px) saturate(180%);
     border: 1px solid rgba(255, 255, 255, 0.65);
-    border-radius: 14px;
+    border-radius: var(--radius-xl);
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.8);
     padding: 6px;
     z-index: 100;
@@ -650,7 +610,7 @@
     flex-direction: column;
     gap: 2px;
     padding: 10px 12px;
-    border-radius: 8px;
+    border-radius: var(--radius-md);
     text-decoration: none;
     transition: background-color var(--transition-fast) ease,
                 color var(--transition-fast) ease;
@@ -679,7 +639,7 @@
     display: flex;
     align-items: center;
     padding: 11px 8px;
-    border-radius: 8px;
+    border-radius: var(--radius-md);
     font-size: var(--text-sm);
     cursor: pointer;
     text-decoration: none;
@@ -703,7 +663,7 @@
   .mobile-nav-sub-item {
     display: block;
     padding: 8px 10px;
-    border-radius: 8px;
+    border-radius: var(--radius-md);
     font-size: var(--text-sm);
     text-decoration: none;
     transition: background-color var(--transition-fast) ease;
@@ -768,7 +728,12 @@
     color: var(--grey-800);
   }
 
-  .blog-content .blog-h4 {
+  /* §6.8 — h5·h6는 만들지 않는다(§4.2의 h1~h4는 누락이 아니라 상한이다).
+     마크다운 원문에 섞여 들어온 경우 renderer가 클래스를 주지 않아 UA 기본(작고 굵은 글자)으로
+     떨어지므로, h4 규격으로 잘라서 렌더한다 — 5·6단계를 새로 만들지 않는다. */
+  .blog-content .blog-h4,
+  .blog-content h5,
+  .blog-content h6 {
     font-size: 1em;
     font-weight: 700;
     margin: 1em 0 0.3em;
@@ -815,24 +780,31 @@
     border-top: 1px solid var(--color-border);
   }
 
+  /* §6.6 참고 배너로 수렴(§6.8 "조문 인용" 행) — 인용 블록과 참고 배너는 같은 요소다.
+     좌측선 4px는 --color-accent가 아니라 --color-info, 배경은 --blue-50(=--color-accent-light,
+     활성 네비 전용으로 좁혔다)이 아니라 --color-info-bg다. 다크에서 둘은 .12/.16으로 갈린다.
+     본문은 잉크 토큰이 아니라 --color-text-primary다(§6.6 "긴 문장을 의미색으로 칠하지 않는다").
+     반경·패딩은 §6.6의 실장인 CalloutBox(rounded-xl · p-5)에 맞춘다. */
   .blog-content .blog-blockquote {
     margin: 1.2em 0;
-    padding: 0.8em 1em;
-    border-left: 3px solid var(--color-accent);
-    background: var(--blue-50);
-    border-radius: 0 8px 8px 0;
-    color: var(--color-text-secondary);
+    padding: 20px;
+    border-left: 4px solid var(--color-info);
+    background: var(--color-info-bg);
+    border-radius: var(--radius-xl);
+    color: var(--color-text-primary);
   }
 
+  /* §6.8 목록 — 들여쓰기는 margin-left가 아니라 padding-left 1.4em이다.
+     margin으로 밀면 마커가 컨테이너 밖 여백에 걸려 좁은 화면에서 본문 정렬선이 어긋난다. */
   .blog-content .blog-ul {
-    margin: 0.8em 0 1em 1.5em;
-    padding: 0;
+    margin: 0.8em 0 1em;
+    padding-left: 1.4em;
     list-style: disc;
   }
 
   .blog-content .blog-ol {
-    margin: 0.8em 0 1em 1.5em;
-    padding: 0;
+    margin: 0.8em 0 1em;
+    padding-left: 1.4em;
     list-style: decimal;
   }
 
@@ -841,14 +813,23 @@
     display: list-item;
   }
 
+  .blog-content .blog-li::marker {
+    color: var(--color-text-secondary);
+  }
+
+  /* §6.8 본문 링크 — 색은 --color-accent(페이지 바탕 위 3.55:1)가 아니라 --color-accent-ink다.
+     밑줄은 상시다(hover에만 두면 평상시 링크가 색 하나로만 구분돼 WCAG 1.4.1·1.4.3을 동시에 어긴다).
+     ★ hover가 --color-accent-hover가 아닌 이유: 라이트에서 그 값이 --color-accent-ink와 같아
+     hover가 아무 변화도 못 일으킨다(§3.3). -ink-hover를 써야 색이 실제로 바뀐다. */
   .blog-content .blog-link {
-    color: var(--color-accent);
+    color: var(--color-accent-ink);
     text-decoration: underline;
-    text-underline-offset: 2px;
+    text-underline-offset: 0.2em;
+    text-decoration-thickness: 1px;
   }
 
   .blog-content .blog-link:hover {
-    color: var(--color-accent-hover);
+    color: var(--color-accent-ink-hover);
   }
 
   .blog-content table {

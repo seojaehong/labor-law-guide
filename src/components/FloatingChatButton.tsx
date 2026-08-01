@@ -13,11 +13,12 @@ export default function FloatingChatButton() {
     <Link
       href="/ai"
       aria-label="AI 노동법 상담 챗봇 열기"
-      className="fixed bottom-5 right-5 z-50 flex items-center gap-2 rounded-full px-4 py-3 text-[13px] font-semibold shadow-lg transition-transform hover:scale-105 active:scale-95"
+      className="fixed bottom-5 right-5 z-50 flex items-center gap-2 rounded-full px-4 py-3 text-[13px] font-semibold transition-transform hover:scale-105 active:scale-95"
       style={{
         backgroundColor: 'var(--color-accent)',
         color: 'white',
-        boxShadow: '0 4px 16px rgba(0,0,0,0.15)',
+        // §5.4 규율 3 — 하드코딩 그림자 금지. 부유 요소는 --shadow-lg.
+        boxShadow: 'var(--shadow-lg)',
       }}
     >
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
