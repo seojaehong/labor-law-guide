@@ -158,7 +158,7 @@ export async function streamRound(
   const { systemInstruction, contents } = extractSystemAndContents(msgs);
 
   // Build per-request model with systemInstruction (cannot set on cached model instance)
-  const vertex = getGenerativeModel('gemini-2.5-flash-preview-04-17');
+  const vertex = getGenerativeModel();
 
   const requestBody: Parameters<typeof vertex.generateContentStream>[0] = {
     contents,

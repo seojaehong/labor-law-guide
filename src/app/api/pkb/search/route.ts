@@ -106,7 +106,7 @@ ${ctx}
 
   let answer = '';
   try {
-    const model = getGenerativeModel('gemini-2.5-flash-preview-04-17');
+    const model = getGenerativeModel();
     const result = await model.generateContent(prompt);
     const cand = result.response.candidates?.[0];
     const parts = cand?.content?.parts || [];
