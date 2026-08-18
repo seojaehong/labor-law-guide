@@ -58,3 +58,4 @@ archive/
 
 # playwright output
 test-results/
+.env*.local

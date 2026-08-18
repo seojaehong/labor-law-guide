@@ -15,6 +15,7 @@ import { getChatKillSwitch } from '@/lib/kill-switch';
 import { verifyTurnstile, isTurnstileEnabled } from '@/lib/turnstile';
 import { executeTool } from '@/lib/chat/tools/execute';
 import { streamRound, type ToolCallAcc } from '@/lib/chat/stream-round';
+import { isAnthropicConfigured } from '@/lib/chat/anthropic-fallback';
 import { getVertexClient } from '@/lib/vertex/client';
 import { buildFaqContext } from '@/lib/chat/context/faq';
 import { buildNlrcCasesContext, buildCourtCasesContext } from '@/lib/chat/context/cases';
@@ -139,12 +140,19 @@ export async function POST(req: NextRequest) {
     }
     // === 게이트 끝 ===
 
-    // Validate Vertex AI credentials at startup (throws if misconfigured)
+    // Vertex 자격증명 확인. 단, Vertex 가 죽어도 Anthropic 폴백이 있으면 계속 진행한다.
+    // (2026-08-18: 이 게이트가 streamRound 앞에 있어서, 폴백을 붙여도 Vertex 설정 오류
+    //  단계에서 503 으로 끊겨 폴백까지 도달하지 못하는 문제가 로컬 검증에서 드러남)
     try {
       getVertexClient();
-    } catch {
-      return new Response(JSON.stringify({ error: 'AI 서비스가 준비되지 않았습니다.' }), {
-        status: 503,
+    } catch (err) {
+      if (!isAnthropicConfigured()) {
+        return new Response(JSON.stringify({ error: 'AI 서비스가 준비되지 않았습니다.' }), {
+          status: 503,
+        });
+      }
+      console.warn('[chat] Vertex 클라이언트 생성 실패 — Anthropic 폴백으로 진행', {
+        msg: (err as Error)?.message?.slice(0, 200),
       });
     }
 

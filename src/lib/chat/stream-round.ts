@@ -158,22 +158,23 @@ export async function streamRound(
 ): Promise<{ content: string; toolCalls: ToolCallAcc[] }> {
   const { systemInstruction, contents } = extractSystemAndContents(msgs);
 
-  // Build per-request model with systemInstruction (cannot set on cached model instance)
-  const vertex = getGenerativeModel();
-
-  const requestBody: Parameters<typeof vertex.generateContentStream>[0] = {
-    contents,
-    ...(systemInstruction ? { systemInstruction } : {}),
-    ...(withTools ? { tools: toVertexTools() } : {}),
-  };
-
   // Vertex 실패 시 Anthropic 으로 폴백한다.
   // 2026-08-18: 모델 회수(404) 한 번으로 챗 전체가 중단됐다 — 단일 프로바이더 의존 제거.
+  // 클라이언트 생성(자격증명 오류)도 try 안에 둔다 — 밖에 두면 설정 오류가 폴백을 건너뛴다.
   // 스트리밍이 이미 시작된 뒤(=일부 텍스트를 내보낸 뒤)에는 폴백하지 않는다.
   // 중복 출력이 사용자에게 그대로 보이기 때문. 첫 청크 이전 실패만 폴백 대상이다.
-  let result: Awaited<ReturnType<typeof vertex.generateContentStream>>;
+  type VertexStream = Awaited<
+    ReturnType<ReturnType<typeof getGenerativeModel>['generateContentStream']>
+  >;
+  let result: VertexStream;
   try {
-    result = await vertex.generateContentStream(requestBody);
+    // Build per-request model with systemInstruction (cannot set on cached model instance)
+    const vertex = getGenerativeModel();
+    result = await vertex.generateContentStream({
+      contents,
+      ...(systemInstruction ? { systemInstruction } : {}),
+      ...(withTools ? { tools: toVertexTools() } : {}),
+    });
   } catch (err) {
     if (!isAnthropicConfigured()) throw err;
     console.warn('[chat] Vertex 실패 → Anthropic 폴백', {
