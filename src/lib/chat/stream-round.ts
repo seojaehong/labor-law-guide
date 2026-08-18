@@ -6,6 +6,7 @@ import type {
 import { TOOLS } from './tools/definitions';
 import { scrubFakeUrls } from './scrub-urls';
 import { getGenerativeModel } from '../vertex/client';
+import { isAnthropicConfigured, streamAnthropicRound } from './anthropic-fallback';
 
 export type ToolCallAcc = { id: string; name: string; arguments: string };
 
@@ -166,32 +167,58 @@ export async function streamRound(
     ...(withTools ? { tools: toVertexTools() } : {}),
   };
 
-  const result = await vertex.generateContentStream(requestBody);
+  // Vertex 실패 시 Anthropic 으로 폴백한다.
+  // 2026-08-18: 모델 회수(404) 한 번으로 챗 전체가 중단됐다 — 단일 프로바이더 의존 제거.
+  // 스트리밍이 이미 시작된 뒤(=일부 텍스트를 내보낸 뒤)에는 폴백하지 않는다.
+  // 중복 출력이 사용자에게 그대로 보이기 때문. 첫 청크 이전 실패만 폴백 대상이다.
+  let result: Awaited<ReturnType<typeof vertex.generateContentStream>>;
+  try {
+    result = await vertex.generateContentStream(requestBody);
+  } catch (err) {
+    if (!isAnthropicConfigured()) throw err;
+    console.warn('[chat] Vertex 실패 → Anthropic 폴백', {
+      msg: (err as Error)?.message?.slice(0, 200),
+    });
+    return streamAnthropicRound(controller, msgs, encoder);
+  }
 
   let content = '';
   const toolCallsMap: Record<number, ToolCallAcc> = {};
 
   let tcIdx = 0;
-  for await (const chunk of result.stream) {
-    const parts = chunk.candidates?.[0]?.content?.parts ?? [];
-    for (const part of parts) {
-      if ('text' in part && part.text) {
-        const scrubbed = scrubFakeUrls(part.text);
-        content += scrubbed;
-        if (scrubbed) {
-          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ content: scrubbed })}\n\n`));
+  let emitted = false;
+  try {
+    for await (const chunk of result.stream) {
+      const parts = chunk.candidates?.[0]?.content?.parts ?? [];
+      for (const part of parts) {
+        if ('text' in part && part.text) {
+          const scrubbed = scrubFakeUrls(part.text);
+          content += scrubbed;
+          if (scrubbed) {
+            controller.enqueue(
+              encoder.encode(`data: ${JSON.stringify({ content: scrubbed })}\n\n`)
+            );
+            emitted = true;
+          }
+        }
+        if ('functionCall' in part && part.functionCall) {
+          const fc = part.functionCall as { name: string; args: object };
+          toolCallsMap[tcIdx] = {
+            id: `call_${tcIdx}`,
+            name: fc.name,
+            arguments: JSON.stringify(fc.args),
+          };
+          tcIdx++;
         }
       }
-      if ('functionCall' in part && part.functionCall) {
-        const fc = part.functionCall as { name: string; args: object };
-        toolCallsMap[tcIdx] = {
-          id: `call_${tcIdx}`,
-          name: fc.name,
-          arguments: JSON.stringify(fc.args),
-        };
-        tcIdx++;
-      }
     }
+  } catch (err) {
+    // 이미 사용자 화면에 텍스트가 나간 뒤면 폴백 금지 — 답변이 두 번 이어붙는다.
+    if (emitted || !isAnthropicConfigured()) throw err;
+    console.warn('[chat] Vertex 스트림 중단 → Anthropic 폴백', {
+      msg: (err as Error)?.message?.slice(0, 200),
+    });
+    return streamAnthropicRound(controller, msgs, encoder);
   }
 
   return { content, toolCalls: Object.values(toolCallsMap) };
