@@ -59,9 +59,11 @@ async function getArticles() {
     return [];
   }
 
-  return ((data || []) as BlogArticleRow[]).map((article) => ({
+  // content는 summary 생성에만 쓰고 클라이언트로 넘기지 않는다 —
+  // 892건 본문 전체가 RSC 페이로드에 실려 /blog 응답이 13MB까지 커지던 문제
+  return ((data || []) as BlogArticleRow[]).map(({ content, ...article }) => ({
     ...article,
-    summary: cleanBlogSummary(article.summary, article.content),
+    summary: cleanBlogSummary(article.summary, content),
   }));
 }
 

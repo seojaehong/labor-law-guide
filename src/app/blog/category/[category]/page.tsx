@@ -47,9 +47,10 @@ export default async function BlogCategoryPage({ params }: { params: Promise<{ c
     .eq('category', decoded)
     .order('published_at', { ascending: false });
 
-  const articles = ((data || []) as BlogArticleRow[]).map((article) => ({
+  // content는 summary 생성용 — 클라이언트 페이로드에서는 제외 (/blog 와 동일 이유)
+  const articles = ((data || []) as BlogArticleRow[]).map(({ content, ...article }) => ({
     ...article,
-    summary: cleanBlogSummary(article.summary, article.content),
+    summary: cleanBlogSummary(article.summary, content),
   }));
 
   const jsonLd = {
