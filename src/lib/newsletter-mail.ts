@@ -153,8 +153,19 @@ export async function sendDailyNewsletter(opts: {
       break;
     }
   }
-  // 날짜 prefix 제거 — '[5월 11일] 노동뉴스 브리핑 — ' 또는 '[2026.05.14] 노동뉴스 브리핑 — '
-  cleanTitle = cleanTitle.replace(/^\[(?:\d+년\s*)?(?:\d{4}\.)?\d+[월.]\s*\d+일?\.?\]\s*노동뉴스\s*브리핑\s*[—-]\s*/, '').trim();
+  // 날짜 prefix 제거.
+  // 주의: 예전 정규식은 '[날짜] 노동뉴스 브리핑 — ' 처럼 고정 문구가 뒤따를 때만 지웠다.
+  // 제목 형식이 '[8월 24일] 현대모비스 …' 로 바뀌자 매칭에 실패해 subject 에 날짜가
+  // 두 번 찍혔다(2026-08-24). 뒤따르는 문구와 무관하게 '날짜 대괄호'만 먼저 지운다.
+  //  지원: [8월 24일] [8월 15일~21일] [2026.05.13] [2026년 6월 1일]
+  //  비대상: [주말 라운드업] 처럼 날짜가 아닌 대괄호는 그대로 둔다.
+  cleanTitle = cleanTitle
+    .replace(
+      /^\[\s*(?:\d{4}\s*[년.]\s*)?\d{1,2}\s*[월.]\s*\d{1,2}\s*일?\.?(?:\s*~\s*\d{1,2}\s*일?)?\s*\]\s*/,
+      ''
+    )
+    .replace(/^노동뉴스\s*브리핑\s*[—–-]\s*/, '')
+    .trim();
   const displayTitle = cleanTitle.length <= 50 ? cleanTitle : cleanTitle.slice(0, 48) + '…';
 
   // 본문 sanitize (script/style 제거)
