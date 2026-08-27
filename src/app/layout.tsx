@@ -24,7 +24,12 @@ export const metadata: Metadata = {
     '노동조합법 2026', '계약외사용자', '부당노동행위', '노무법인 위너스',
     '원청 교섭 의무', '교섭단위 분리', '사내하청 교섭',
   ],
-  alternates: { canonical: SITE_URL },
+  alternates: {
+    canonical: SITE_URL,
+    // 네이버 서치어드바이저는 RSS를 사이트맵보다 적극적으로 수집한다.
+    // <link rel="alternate" type="application/rss+xml">로 노출시켜 자동 발견을 돕는다.
+    types: { 'application/rss+xml': `${SITE_URL}/rss.xml` },
+  },
   openGraph: {
     title: '노란봉투법 완벽 가이드 | 뜻·내용·대응·하도급·공공기관 | 2026 개정 노동조합법',
     description: '노란봉투법 뜻, 핵심 내용 정리, 사용자성 자가진단, 원하청 교섭절차, 대응 방법. 하도급·공공기관·손해배상 제한. 노무법인 위너스.',
