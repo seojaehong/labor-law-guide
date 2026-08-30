@@ -7,6 +7,12 @@ export const revalidate = 3600;
 export const dynamic = 'force-dynamic';
 
 const CHUNK_SIZE = 1_000;
+
+// nlrc_decisions 의 tier 값은 standard / high_priority / low_priority 뿐이다.
+// 카운트 계산부와 URL 생성부 두 곳에서 같은 조건을 써야 하는데, 예전엔 각자 하드코딩돼
+// 있었다. 한 곳만 고치면 "sitemap 인덱스가 선언한 개수"와 "실제로 나오는 URL 수"가
+// 어긋나 크롤러가 빈 청크를 받게 되므로 상수로 묶는다.
+const NLRC_SITEMAP_TIERS = ['standard', 'high_priority'] as const;
 const FALLBACK_BLOG_DATE = new Date('2026-03-29T00:00:00.000Z');
 const FALLBACK_NEWS_DATE = new Date('2026-03-31T00:00:00.000Z');
 const CONTACT_LAST_MODIFIED = new Date('2026-04-04T00:00:00.000Z');
@@ -40,7 +46,14 @@ async function getTableCount(table: string, extraFilter?: string): Promise<numbe
   try {
     let q = supabaseServer.from(table).select('id', { count: 'exact', head: true });
     if (extraFilter === 'nlrc_quality') {
-      q = q.in('tier', ['standard', 'premium']).not('is_non_labor', 'is', true).gte('confidence_level', 0.8);
+      // tier 값은 실제로 standard / high_priority / low_priority 세 가지다.
+      // 기존 조건은 'premium'(DB에 0건인 존재하지 않는 값)을 넣고,
+      // 정작 존재하는 high_priority 6,657건을 통째로 빠뜨리고 있었다 (2026-08-30 확인).
+      // sitemap 대상 42,280 → 48,240건.
+      q = q
+        .in('tier', NLRC_SITEMAP_TIERS)
+        .not('is_non_labor', 'is', true)
+        .gte('confidence_level', 0.8);
     }
     const { count } = await q;
     return count ?? 0;
@@ -174,7 +187,7 @@ async function buildDecisionsSitemap(chunkIndex: number): Promise<SitemapEntry[]
     const { data } = await supabaseServer
       .from('nlrc_decisions')
       .select('id, decision_date')
-      .in('tier', ['standard', 'premium'])
+      .in('tier', NLRC_SITEMAP_TIERS)
       .not('is_non_labor', 'is', true)
       .gte('confidence_level', 0.8)
       .order('id', { ascending: true })
