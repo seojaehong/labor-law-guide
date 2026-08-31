@@ -83,31 +83,41 @@ export async function generateMetadata({
   //    절대 매칭되지 않는다. 앞에 둬봐야 자리만 차지하므로 쟁점을 앞세운다.
   // 한글 SERP 는 약 35자에서 잘리므로 브랜드 접미사는 붙이지 않는다.
   const isCourtCase = /^bc_/i.test(id);
-  // 한글 SERP 는 약 35자에서 잘린다. 그냥 slice 하면 "…해임 처분 적법성 판단 결과 요" 처럼
-  // 단어 중간에서 끊겨 오히려 안 읽힌다. 문장부호/조사 경계에서 끊고, 남는 꼬리는 버린다.
-  const clip = (s: string, max: number) => {
-    const t = s.trim();
+
+  // 한글 검색결과는 약 35자에서 잘린다. 앞서 34/38자로 자르고 뒤에 사건번호와
+  // 판정결과를 덧붙였더니 전수 시뮬레이션에서 99%가 35자를 넘었다(중앙값 45자).
+  // 그래서 "조각마다 자르기"가 아니라 "전체 35자 예산을 나눠 쓰기"로 바꾼다.
+  const TITLE_BUDGET = 35;
+  const clip = (str: string, max: number) => {
+    const t = str.trim();
     if (t.length <= max) return t;
     const cut = t.slice(0, max);
     const boundary = Math.max(cut.lastIndexOf(" "), cut.lastIndexOf("·"), cut.lastIndexOf(","));
     return (boundary > max * 0.6 ? cut.slice(0, boundary) : cut).replace(/[\s\-–—,·]+$/, "");
   };
-  // 요약문 앞머리에 자주 붙는 상투구와 항목번호("가.", "1.", "제1항")는
-  // 검색어가 아니면서 제목 앞자리를 먹는다. 실측에서 "가. 징계사유의 존재 여부…"
-  // 처럼 나왔다. 걷어낸 뒤에 자른다.
+  // 원문에 "존재여부징계사유가" 처럼 붙어 저장된 행이 있다(수집 단계 문제, 0.1%).
+  // 데이터를 고치기 전까지 제목에서만 띄운다.
   const cleanIssue = keyIssue
     .replace(/^(결과\s*요약|사건\s*개요|판결\s*결과|주문|이유)\s*[:：-]?\s*/, "")
     .replace(/^(?:[가-하]|\d{1,2})\s*[.)]\s*/, "")
+    .replace(/(여부|경우|사례)(?=[가-힣])/g, "$1 ")
     .trim();
-  const issueForTitle = clip(cleanIssue, isCourtCase && caseNum ? 34 : 38);
-  // "기타"는 분류가 안 됐다는 뜻이라 제목 앞에 두면 자리만 버린다.
+  // "기타"는 분류가 안 됐다는 뜻이라 좁은 지면을 낭비한다. 앞에 두지 않는다.
   const leadLabel = reasonLabel && reasonLabel !== "기타" ? reasonLabel : "";
-  const titleParts = isCourtCase && caseNum
-    ? [caseNum, issueForTitle || reasonLabel]
-    : [leadLabel, issueForTitle || caseNum || id];
-  // 판정결과는 붙임표로 분리한다. 그냥 이어붙이면 "…않는다고 각하" 처럼 문장에 먹힌다.
-  const head = titleParts.filter(Boolean).join(" ").trim();
-  const title = result && head.length + result.length + 3 <= 48 ? `${head} — ${result}` : head;
+  // 앞자리는 검색어가 되는 것에 준다. bc_ 는 사건번호가 실명이고 GSC 실측상 실제
+  // 검색어가 사건번호다. id_ 는 72%가 마스킹이라 쓸 수 없으므로 유형을 앞세운다.
+  const prefix = isCourtCase && caseNum ? caseNum : leadLabel;
+  const issueForTitle = clip(cleanIssue, Math.max(TITLE_BUDGET - prefix.length - 1, 12));
+  const head = [prefix, issueForTitle || caseNum || id].filter(Boolean).join(" ").trim();
+  // 판정결과("기각", "초심유지")는 검색어가 아니다. 예산 안에 남는 자리가 있을 때만
+  // 붙인다. +6자를 허용해 봤더니 전수 시뮬레이션 중앙값이 35자 예산을 넘겨(38자)
+  // 결국 잘렸다 — 잘릴 거면 안 붙이는 게 낫다.
+  const withResult = result && head.length + result.length + 3 <= TITLE_BUDGET
+    ? `${head} — ${result}`
+    : head;
+  // 사건번호가 비정상적으로 긴 행이 극소수 있다. 어떤 경우에도 넘지 않을 상한을 둔다.
+  const title = withResult.slice(0, 45);
+
   const descParts = [
     caseNum ? `사건번호 ${caseNum}` : "",
     reasonLabel ? `유형 ${reasonLabel}` : "",
