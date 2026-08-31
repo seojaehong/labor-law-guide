@@ -1,35 +1,14 @@
 import { NextResponse } from 'next/server';
 import { SITE_URL } from '@/lib/constants';
-import { supabaseServer } from '@/lib/supabase-server';
+import { getSitemapLayout } from '@/lib/sitemap-config';
 
 export const revalidate = 3600;
 
-const CHUNK_SIZE = 1_000;
-
-async function getTableCount(table: string, quality: boolean = false): Promise<number> {
-  try {
-    let q = supabaseServer.from(table).select('id', { count: 'exact', head: true });
-    if (quality) {
-      q = q.in('tier', ['standard', 'premium']).not('is_non_labor', 'is', true).gte('confidence_level', 0.8);
-    }
-    const { count } = await q;
-    return count ?? 0;
-  } catch {
-    return 0;
-  }
-}
-
+// 청크 수 계산은 src/lib/sitemap-config.ts 한 곳에서만 한다.
+// 이 파일이 자체 조건을 들고 있던 탓에 /sitemap/[id] 와 어긋나
+// 실재하는 /sitemap/53.xml(240건)이 인덱스에서 빠져 있었다.
 export async function GET() {
-  const [casesCount, decisionsCount, lawgoCount] = await Promise.all([
-    getTableCount('cases'),
-    getTableCount('nlrc_decisions', true),
-    getTableCount('lawgo_precedents'),
-  ]);
-
-  const casesChunks = Math.max(1, Math.ceil(casesCount / CHUNK_SIZE));
-  const decisionsChunks = Math.max(1, Math.ceil(decisionsCount / CHUNK_SIZE));
-  const lawgoChunks = Math.max(1, Math.ceil(lawgoCount / CHUNK_SIZE));
-  const total = 1 + casesChunks + decisionsChunks + lawgoChunks;
+  const { total } = await getSitemapLayout();
 
   const entries = Array.from({ length: total }, (_, i) =>
     `  <sitemap><loc>${SITE_URL}/sitemap/${i}.xml</loc></sitemap>`

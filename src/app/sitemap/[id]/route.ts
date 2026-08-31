@@ -2,39 +2,13 @@ import { NextResponse } from 'next/server';
 import { SITE_URL } from '@/lib/constants';
 import { supabaseServer } from '@/lib/supabase-server';
 import { FAQ_CATEGORIES, categoryToSlug } from '@/lib/faq-categories';
+import { SITEMAP_CHUNK_SIZE, applyNlrcSitemapFilter, getSitemapLayout } from '@/lib/sitemap-config';
 
 export const revalidate = 3600;
 export const dynamic = 'force-dynamic';
 
-const CHUNK_SIZE = 1_000;
+const CHUNK_SIZE = SITEMAP_CHUNK_SIZE;
 
-// nlrc_decisions 의 tier 값은 standard / high_priority / low_priority 뿐이다.
-// 카운트 계산부와 URL 생성부 두 곳에서 같은 조건을 써야 하는데, 예전엔 각자 하드코딩돼
-// 있었다. 한 곳만 고치면 "sitemap 인덱스가 선언한 개수"와 "실제로 나오는 URL 수"가
-// 어긋나 크롤러가 빈 청크를 받게 되므로 상수로 묶는다.
-const NLRC_SITEMAP_TIERS = ['standard', 'high_priority'] as const;
-
-// decisions/[id] 가 무엇을 404 처리하는지와 사이트맵이 무엇을 싣는지는 반드시 일치해야 한다.
-// 2026-05-15 d0f344b 가 bigcase/lawgo 를 404 로 만든 뒤에도 사이트맵은 계속 그 URL 을
-// 광고했고, 실측 결과 사이트맵 53,201건 중 10,917건(20.5%)이 404 였다. 사이트맵의 20%가
-// 404면 크롤 버짓이 낭비되고 사이트맵 신뢰도가 깎여 정상 페이지 색인까지 밀린다.
-// GSC: 색인 44,230(6/1) → 38,606(8/21), NOINDEX 제외 7,348 — 붕괴 시점이 그 커밋 직후다.
-//
-// 2026-08-31 현재: bigcase(bc_)는 데이터 98.1%가 정상이라 되살렸으므로 사이트맵에도 싣는다.
-// lawgo(prec_)는 껍데기(title 평균 17자, decision_date 100% 빈값)라 계속 404 이므로 싣지 않는다.
-const SHOW_LAWGO = process.env.SHOW_LAWGO === 'true';
-
-// 카운트부/생성부가 같은 조건을 쓰도록 쿼리 빌더를 한 곳에서 만든다.
-function applyNlrcSitemapFilter<T>(q: T): T {
-  /* eslint-disable @typescript-eslint/no-explicit-any */
-  let out: any = q;
-  out = out
-    .in('tier', NLRC_SITEMAP_TIERS)
-    .not('is_non_labor', 'is', true)
-    .gte('confidence_level', 0.8);
-  return out as T;
-  /* eslint-enable @typescript-eslint/no-explicit-any */
-}
 const FALLBACK_BLOG_DATE = new Date('2026-03-29T00:00:00.000Z');
 const FALLBACK_NEWS_DATE = new Date('2026-03-31T00:00:00.000Z');
 const CONTACT_LAST_MODIFIED = new Date('2026-04-04T00:00:00.000Z');
@@ -62,23 +36,6 @@ function parseDate(value: string | null | undefined, fallback: Date): Date {
 
 function maxDate(...dates: Date[]) {
   return new Date(Math.max(...dates.map((d) => d.getTime())));
-}
-
-async function getTableCount(table: string, extraFilter?: string): Promise<number> {
-  try {
-    let q = supabaseServer.from(table).select('id', { count: 'exact', head: true });
-    if (extraFilter === 'nlrc_quality') {
-      // tier 값은 실제로 standard / high_priority / low_priority 세 가지다.
-      // 기존 조건은 'premium'(DB에 0건인 존재하지 않는 값)을 넣고,
-      // 정작 존재하는 high_priority 6,657건을 통째로 빠뜨리고 있었다 (2026-08-30 확인).
-      // sitemap 대상 42,280 → 48,240건.
-      q = applyNlrcSitemapFilter(q);
-    }
-    const { count } = await q;
-    return count ?? 0;
-  } catch {
-    return 0;
-  }
 }
 
 function xmlEscape(s: string): string {
@@ -253,15 +210,9 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     return new NextResponse('Not Found', { status: 404 });
   }
 
-  const [casesCount, decisionsCount, lawgoCount] = await Promise.all([
-    getTableCount('cases'),
-    getTableCount('nlrc_decisions', 'nlrc_quality'),
-    // lawgo(prec_) 상세는 SHOW_LAWGO 가 꺼져 있으면 404 다. 404 를 광고하지 않는다.
-    SHOW_LAWGO ? getTableCount('lawgo_precedents') : Promise.resolve(0),
-  ]);
-  const casesChunks = Math.max(1, Math.ceil(casesCount / CHUNK_SIZE));
-  const maxDecisionChunks = Math.max(1, Math.ceil(decisionsCount / CHUNK_SIZE));
-  const maxLawgoChunks = Math.max(1, Math.ceil(lawgoCount / CHUNK_SIZE));
+  // 인덱스 라우트와 같은 계산을 써야 한다. 따로 계산하면 또 어긋난다.
+  const { casesChunks, decisionsChunks: maxDecisionChunks, lawgoChunks: maxLawgoChunks } =
+    await getSitemapLayout();
 
   let entries: SitemapEntry[] = [];
 
