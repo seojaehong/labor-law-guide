@@ -83,10 +83,24 @@ export async function generateMetadata({
   //    절대 매칭되지 않는다. 앞에 둬봐야 자리만 차지하므로 쟁점을 앞세운다.
   // 한글 SERP 는 약 35자에서 잘리므로 브랜드 접미사는 붙이지 않는다.
   const isCourtCase = /^bc_/i.test(id);
+  // 한글 SERP 는 약 35자에서 잘린다. 그냥 slice 하면 "…해임 처분 적법성 판단 결과 요" 처럼
+  // 단어 중간에서 끊겨 오히려 안 읽힌다. 문장부호/조사 경계에서 끊고, 남는 꼬리는 버린다.
+  const clip = (s: string, max: number) => {
+    const t = s.trim();
+    if (t.length <= max) return t;
+    const cut = t.slice(0, max);
+    const boundary = Math.max(cut.lastIndexOf(" "), cut.lastIndexOf("·"), cut.lastIndexOf(","));
+    return (boundary > max * 0.6 ? cut.slice(0, boundary) : cut).replace(/[\s\-–—,·]+$/, "");
+  };
+  // 요약문 앞머리에 자주 붙는 상투구는 제목에서 자리만 차지하므로 걷어낸다.
+  const issueForTitle = clip(
+    keyIssue.replace(/^(결과\s*요약|사건\s*개요|판결\s*결과)\s*[:：-]?\s*/, ""),
+    isCourtCase && caseNum ? 34 : 40
+  );
   const titleParts = isCourtCase && caseNum
-    ? [caseNum, keyIssue || reasonLabel, result]
-    : [reasonLabel || "노동위 판정례", keyIssue || caseNum || id, result];
-  const title = titleParts.filter(Boolean).join(" ").slice(0, 60);
+    ? [caseNum, issueForTitle || reasonLabel]
+    : [reasonLabel || "노동위 판정례", issueForTitle || caseNum || id, result];
+  const title = titleParts.filter(Boolean).join(" ").trim();
   const descParts = [
     caseNum ? `사건번호 ${caseNum}` : "",
     reasonLabel ? `유형 ${reasonLabel}` : "",
