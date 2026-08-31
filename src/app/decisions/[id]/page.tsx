@@ -41,7 +41,7 @@ export async function generateMetadata({
   // nlrc_decisions만 빠르게 lookup (lawgo/bigcase는 일시 노출 중단)
   const { data: d } = await supabase
     .from("nlrc_decisions")
-    .select("case_number, key_issue, holding_summary, decision_result, reason_category")
+    .select("title, case_number, key_issue, holding_summary, holding_points, decision_result, reason_category")
     .eq("id", id)
     .maybeSingle();
 
@@ -64,8 +64,29 @@ export async function generateMetadata({
   const keyIssue = typeof d.key_issue === "string" ? stripMd(d.key_issue).slice(0, 60) : "";
   const holding = typeof d.holding_summary === "string" ? stripMd(d.holding_summary).slice(0, 120) : "";
 
-  const titleParts = [reasonLabel || "노동위 판정례", keyIssue || caseNum || id, result].filter(Boolean);
-  const title = `${titleParts.join(" | ")} | 노란봉투법 가이드`.slice(0, 110);
+  // 본문이 비었거나 페이월/파싱실패 텍스트인 행은 색인시키지 않는다.
+  // 이런 페이지가 대량으로 색인되면 사이트 전체 평가가 깎인다.
+  const bodyText = `${d.holding_points || ""}${d.holding_summary || ""}`;
+  if (bodyText.trim().length < 200 || isPaywallText(bodyText) || isPyReprText(bodyText)) {
+    return {
+      title: (d.title || "판정례").slice(0, 32),
+      description: "본문 정비 중인 자료입니다.",
+      alternates: { canonical },
+      robots: { index: false, follow: true },
+    };
+  }
+
+  // 제목 전략이 소스별로 다르다.
+  //  bc_ (법원 판례): 사건번호가 실명이고, GSC 실측상 실제 검색어가 사건번호다
+  //    ("울산지방법원 2013구합66 해임처분"). 사건번호를 맨 앞에 둔다.
+  //  id_ (노동위 판정례): 사건번호의 72%가 2018부해OOO 로 마스킹돼 있어 검색어와
+  //    절대 매칭되지 않는다. 앞에 둬봐야 자리만 차지하므로 쟁점을 앞세운다.
+  // 한글 SERP 는 약 35자에서 잘리므로 브랜드 접미사는 붙이지 않는다.
+  const isCourtCase = /^bc_/i.test(id);
+  const titleParts = isCourtCase && caseNum
+    ? [caseNum, keyIssue || reasonLabel, result]
+    : [reasonLabel || "노동위 판정례", keyIssue || caseNum || id, result];
+  const title = titleParts.filter(Boolean).join(" ").slice(0, 60);
   const descParts = [
     caseNum ? `사건번호 ${caseNum}` : "",
     reasonLabel ? `유형 ${reasonLabel}` : "",
@@ -231,8 +252,21 @@ export default async function DecisionPage({
     : resolvedSearchParams?.source;
   const decisionSource = resolveDecisionSourceContract({ id, sourceProvider: sourceParam }).provider;
 
-  // 2026-05-15: 판례(bigcase/lawgo) 노출 일시 중단 — 데이터 정비 중. NLRC 판정례만 노출.
-  if (process.env.SHOW_CASES !== 'true' && (decisionSource === 'bigcase' || decisionSource === 'lawgo')) {
+  // 2026-05-15 d0f344b 로 bigcase/lawgo 를 "데이터 정비 중"이라며 함께 404 처리했는데,
+  // SHOW_CASES 는 그 뒤로 한 번도 설정되지 않아 3개월 반 동안 20,986페이지가 죽어 있었다.
+  // 2026-08-31 에 두 소스의 실제 데이터를 세어보고 판단을 갈랐다.
+  //
+  //   bigcase(bc_) 16,004건 — 6,400건 표본에서 98.1% 정상.
+  //     사건번호 마스킹 0%(실명 사건번호 완비), 페이월 혼입 0.2%, 빈껍데기 1.7%.
+  //     GSC 검색어가 "울산지방법원 2013구합66 해임처분" 같은 사건번호인데
+  //     정작 그 검색어에 맞는 페이지가 이것이고, 지금까지 404였다. → 되살린다.
+  //
+  //   lawgo(prec_) 4,982건 — 껍데기다. title 평균 17자("근로기준법위반" 수준),
+  //     decision_date 100% 비어 있고 issue_text 58%가 빈값, summary_text 중앙값 80자.
+  //     제목 중복이 심해 대량 색인하면 오히려 scaled content abuse 리스크다. → 계속 막는다.
+  //
+  // 오염된 bigcase 행은 아래 isPaywallText / isPyReprText 가드가 이미 걸러낸다.
+  if (decisionSource === 'lawgo' && process.env.SHOW_LAWGO !== 'true') {
     notFound();
   }
 

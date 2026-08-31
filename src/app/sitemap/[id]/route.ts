@@ -14,14 +14,15 @@ const CHUNK_SIZE = 1_000;
 // 어긋나 크롤러가 빈 청크를 받게 되므로 상수로 묶는다.
 const NLRC_SITEMAP_TIERS = ['standard', 'high_priority'] as const;
 
-// decisions/[id] 는 SHOW_CASES !== 'true' 이면 bigcase(bc_)/lawgo(prec_) 를 notFound()
-// 처리한다 (2026-05-15 d0f344b, "데이터 정비 중 일시 숨김"). 그런데 sitemap 은 그 URL 을
-// 계속 광고하고 있었다 — 실측 결과 sitemap 53,201건 중 10,917건이 bc_ 였고 전부 404 였다.
-// 사이트맵의 20%가 404면 크롤 버짓이 통째로 낭비되고 사이트맵 신뢰도가 깎여서
-// 정상 페이지 색인까지 밀린다. GSC 색인수가 6/1 44,230 → 8/21 38,606 으로 줄고
-// 'NOINDEX 제외 7,348' / '리디렉션 7,446' 이 쌓인 시점이 정확히 이 커밋 직후다.
-// 스위치가 켜지면 다시 싣고, 꺼져 있으면 싣지 않는다 — 페이지 동작과 항상 일치시킨다.
-const SHOW_CASES = process.env.SHOW_CASES === 'true';
+// decisions/[id] 가 무엇을 404 처리하는지와 사이트맵이 무엇을 싣는지는 반드시 일치해야 한다.
+// 2026-05-15 d0f344b 가 bigcase/lawgo 를 404 로 만든 뒤에도 사이트맵은 계속 그 URL 을
+// 광고했고, 실측 결과 사이트맵 53,201건 중 10,917건(20.5%)이 404 였다. 사이트맵의 20%가
+// 404면 크롤 버짓이 낭비되고 사이트맵 신뢰도가 깎여 정상 페이지 색인까지 밀린다.
+// GSC: 색인 44,230(6/1) → 38,606(8/21), NOINDEX 제외 7,348 — 붕괴 시점이 그 커밋 직후다.
+//
+// 2026-08-31 현재: bigcase(bc_)는 데이터 98.1%가 정상이라 되살렸으므로 사이트맵에도 싣는다.
+// lawgo(prec_)는 껍데기(title 평균 17자, decision_date 100% 빈값)라 계속 404 이므로 싣지 않는다.
+const SHOW_LAWGO = process.env.SHOW_LAWGO === 'true';
 
 // 카운트부/생성부가 같은 조건을 쓰도록 쿼리 빌더를 한 곳에서 만든다.
 function applyNlrcSitemapFilter<T>(q: T): T {
@@ -31,13 +32,6 @@ function applyNlrcSitemapFilter<T>(q: T): T {
     .in('tier', NLRC_SITEMAP_TIERS)
     .not('is_non_labor', 'is', true)
     .gte('confidence_level', 0.8);
-  if (!SHOW_CASES) {
-    // bc_ 상세 페이지는 현재 404 다. 404 를 사이트맵에 실으면 안 된다.
-    // 'bc_%' 로 쓰면 PostgREST 가 escape 를 요구해 쿼리가 깨진다(실측: 결과 0/에러).
-    // id 중 'bc' 로 시작하는 건 bc_ 뿐이므로 'bc%' 로 충분하다.
-    // 실측 검증: 57,840 → 41,836 (= 57,840 - bc_ 16,004). sitemap 48,240 → 37,323.
-    out = out.not('id', 'like', 'bc%');
-  }
   return out as T;
   /* eslint-enable @typescript-eslint/no-explicit-any */
 }
@@ -262,8 +256,8 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   const [casesCount, decisionsCount, lawgoCount] = await Promise.all([
     getTableCount('cases'),
     getTableCount('nlrc_decisions', 'nlrc_quality'),
-    // lawgo(prec_) 상세도 SHOW_CASES 가 꺼져 있으면 404 다. 404 를 광고하지 않는다.
-    SHOW_CASES ? getTableCount('lawgo_precedents') : Promise.resolve(0),
+    // lawgo(prec_) 상세는 SHOW_LAWGO 가 꺼져 있으면 404 다. 404 를 광고하지 않는다.
+    SHOW_LAWGO ? getTableCount('lawgo_precedents') : Promise.resolve(0),
   ]);
   const casesChunks = Math.max(1, Math.ceil(casesCount / CHUNK_SIZE));
   const maxDecisionChunks = Math.max(1, Math.ceil(decisionsCount / CHUNK_SIZE));
