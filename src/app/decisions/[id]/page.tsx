@@ -92,15 +92,22 @@ export async function generateMetadata({
     const boundary = Math.max(cut.lastIndexOf(" "), cut.lastIndexOf("·"), cut.lastIndexOf(","));
     return (boundary > max * 0.6 ? cut.slice(0, boundary) : cut).replace(/[\s\-–—,·]+$/, "");
   };
-  // 요약문 앞머리에 자주 붙는 상투구는 제목에서 자리만 차지하므로 걷어낸다.
-  const issueForTitle = clip(
-    keyIssue.replace(/^(결과\s*요약|사건\s*개요|판결\s*결과)\s*[:：-]?\s*/, ""),
-    isCourtCase && caseNum ? 34 : 40
-  );
+  // 요약문 앞머리에 자주 붙는 상투구와 항목번호("가.", "1.", "제1항")는
+  // 검색어가 아니면서 제목 앞자리를 먹는다. 실측에서 "가. 징계사유의 존재 여부…"
+  // 처럼 나왔다. 걷어낸 뒤에 자른다.
+  const cleanIssue = keyIssue
+    .replace(/^(결과\s*요약|사건\s*개요|판결\s*결과|주문|이유)\s*[:：-]?\s*/, "")
+    .replace(/^(?:[가-하]|\d{1,2})\s*[.)]\s*/, "")
+    .trim();
+  const issueForTitle = clip(cleanIssue, isCourtCase && caseNum ? 34 : 38);
+  // "기타"는 분류가 안 됐다는 뜻이라 제목 앞에 두면 자리만 버린다.
+  const leadLabel = reasonLabel && reasonLabel !== "기타" ? reasonLabel : "";
   const titleParts = isCourtCase && caseNum
     ? [caseNum, issueForTitle || reasonLabel]
-    : [reasonLabel || "노동위 판정례", issueForTitle || caseNum || id, result];
-  const title = titleParts.filter(Boolean).join(" ").trim();
+    : [leadLabel, issueForTitle || caseNum || id];
+  // 판정결과는 붙임표로 분리한다. 그냥 이어붙이면 "…않는다고 각하" 처럼 문장에 먹힌다.
+  const head = titleParts.filter(Boolean).join(" ").trim();
+  const title = result && head.length + result.length + 3 <= 48 ? `${head} — ${result}` : head;
   const descParts = [
     caseNum ? `사건번호 ${caseNum}` : "",
     reasonLabel ? `유형 ${reasonLabel}` : "",
