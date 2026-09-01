@@ -36,3 +36,11 @@ export async function withTimeout<T>(
 
 /** 검색 한 건당 상한. 전체 예산 5~10초에서 검색에 배정한 몫. */
 export const RETRIEVAL_TIMEOUT_MS = 2_500;
+
+/**
+ * FAQ 만 상한을 더 준다.
+ * 2026-09-01 실측에서 search_faq_combined 가 3.6초라 2.5초 상한에 걸려 잘렸고,
+ * 그 결과 faq_matched=false 인 요청이 생겼다. 속도를 얻자고 가장 중요한 컨텍스트를
+ * 버리면 안 된다. 검색들은 병렬로 돌므로 전체 대기시간은 여기 4초가 상한이 된다.
+ */
+export const FAQ_TIMEOUT_MS = 4_000;

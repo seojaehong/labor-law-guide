@@ -15,7 +15,7 @@ import { getChatKillSwitch } from '@/lib/kill-switch';
 import { verifyTurnstile, isTurnstileEnabled } from '@/lib/turnstile';
 import { executeTool } from '@/lib/chat/tools/execute';
 import { streamRound, type ToolCallAcc } from '@/lib/chat/stream-round';
-import { withTimeout, RETRIEVAL_TIMEOUT_MS } from '@/lib/chat/context/with-timeout';
+import { withTimeout, RETRIEVAL_TIMEOUT_MS, FAQ_TIMEOUT_MS } from '@/lib/chat/context/with-timeout';
 import { isAnthropicConfigured } from '@/lib/chat/anthropic-fallback';
 import { getVertexClient } from '@/lib/vertex/client';
 import { buildFaqContext } from '@/lib/chat/context/faq';
@@ -199,7 +199,7 @@ export async function POST(req: NextRequest) {
       );
 
       const [faq, nlrc, interp, court] = await Promise.all([
-        withTimeout(buildFaqContext(db, searchQuery, queryEmbedding), RETRIEVAL_TIMEOUT_MS,
+        withTimeout(buildFaqContext(db, searchQuery, queryEmbedding), FAQ_TIMEOUT_MS,
           'FAQ 검색', { context: '', topIds: [] as number[], matched: false, count: 0, categories: [] as string[] }),
         queryEmbedding
           ? withTimeout(buildNlrcCasesContext(db, searchQuery, queryEmbedding), RETRIEVAL_TIMEOUT_MS, '판정례 검색', '')

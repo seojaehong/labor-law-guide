@@ -16,18 +16,30 @@ export async function buildNlrcCasesContext(
     // 함수를 고치려면 DB 접근 권한이 필요해서, 그전까지 search_tsv 전문검색으로 우회한다.
     // 실측 0.1~0.6초. 의미검색이 아니라 키워드 검색이라 정확도는 손해지만,
     // 지금은 결과가 아예 0건이므로 무조건 이득이다. RPC 가 고쳐지면 되돌린다.
-    const terms = searchQuery
-      .replace(/[^가-힣a-zA-Z0-9\s]/g, ' ')
-      .split(/\s+/)
-      .filter((w) => w.length >= 2)
-      .slice(0, 6)
-      .join(' ');
-    if (!terms) return '';
+    // tsquery 를 만들 때 두 가지를 조심해야 한다.
+    //  (1) plainto_tsquery 는 모든 낱말을 AND 로 묶는다. 질문을 통째로 넣으면
+    //      '연차휴가는 & 며칠인가요' 가 되어 0건이 나온다(실측 확인).
+    //      그래서 OR(|) 로 묶는다.
+    //  (2) 조사·어미가 붙은 채로 넣으면 색인어와 안 맞고, 안 맞는 낱말이 많을수록
+    //      느려진다. '연차휴가는 | 며칠인가요' 는 5.2초, '연차 | 휴가' 는 0.24초였다.
+    //      그래서 꼬리의 조사·의문어미를 떼고 넣는다.
+    const STOP_TAIL = /(은|는|이|가|을|를|의|에|에서|으로|로|와|과|도|만|까지|부터|에게|한테)$/;
+    const QUESTION_TAIL = /(나요|까요|인가요|습니까|는지|한가요|될까요|되나요|하나요|입니까)$/;
+    const terms = Array.from(
+      new Set(
+        searchQuery
+          .replace(/[^가-힣a-zA-Z0-9\s]/g, ' ')
+          .split(/\s+/)
+          .map((w) => w.replace(QUESTION_TAIL, '').replace(STOP_TAIL, ''))
+          .filter((w) => w.length >= 2)
+      )
+    ).slice(0, 5);
+    if (terms.length === 0) return '';
 
     const caseResult = await db
       .from('nlrc_decisions')
       .select('id, title, decision_result, holding_summary, key_issue, decision_date')
-      .textSearch('search_tsv', terms, { type: 'plain' })
+      .textSearch('search_tsv', terms.join(' | '))
       .not('is_non_labor', 'is', true)
       .gte('confidence_level', 0.8)
       .limit(3);
@@ -37,7 +49,7 @@ export async function buildNlrcCasesContext(
       return '';
     }
     if (!Array.isArray(caseResult.data) || caseResult.data.length === 0) {
-      console.warn('[cases.ts] nlrc fts 0 rows:', terms.slice(0, 80));
+      console.warn('[cases.ts] nlrc fts 0 rows:', terms.join(' | '));
       return '';
     }
     const cases = caseResult.data as Array<{
