@@ -15,6 +15,7 @@ import { getChatKillSwitch } from '@/lib/kill-switch';
 import { verifyTurnstile, isTurnstileEnabled } from '@/lib/turnstile';
 import { executeTool } from '@/lib/chat/tools/execute';
 import { streamRound, type ToolCallAcc } from '@/lib/chat/stream-round';
+import { withTimeout, RETRIEVAL_TIMEOUT_MS } from '@/lib/chat/context/with-timeout';
 import { isAnthropicConfigured } from '@/lib/chat/anthropic-fallback';
 import { getVertexClient } from '@/lib/vertex/client';
 import { buildFaqContext } from '@/lib/chat/context/faq';
@@ -158,35 +159,69 @@ export async function POST(req: NextRequest) {
 
     const { searchQuery, lastUserMsg } = buildSearchQuery(messages);
 
+    // 답변 첫 글자까지 걸리는 시간이 24~29초였다(2026-09-01 실측).
+    // 원인은 두 가지였고 여기서 두 번째를 고친다 — 사전작업이 직렬이었다.
+    //   임베딩 → FAQ → (검색3 병렬) → 상황조회 → 상황추출(LLM) → 상황저장 → 뉴스 → 생성
+    // 상황추출과 뉴스는 임베딩 결과가 필요 없는데도 뒤에서 순서를 기다리고 있었다.
+    // 임베딩을 기다리지 않아도 되는 것부터 먼저 띄워 전체를 max() 로 만든다.
+    // 그리고 모든 검색에 상한을 건다 — 하나가 늦으면 그것만 버리고 답한다.
+
     let faqContext = '';
     let caseContext = '';
     let topFaqIds: number[] = [];
+    let situationContext = '';
+    let prevProfile: UserSituation = {};
+    let mergedProfile: UserSituation = {};
 
+    // (1) 임베딩과 무관한 작업을 먼저 시작한다
+    const newsPromise = lastUserMsg
+      ? withTimeout(buildNewsContext(supabase, lastUserMsg.content), RETRIEVAL_TIMEOUT_MS, '뉴스 컨텍스트', '')
+      : Promise.resolve('');
+
+    const situationPromise =
+      sessionId && lastUserMsg
+        ? withTimeout(
+            (async () => {
+              const prev = await getSituation(sessionId);
+              const delta = await extractDelta(lastUserMsg.content, prev);
+              return { prev, delta };
+            })(),
+            RETRIEVAL_TIMEOUT_MS,
+            '상황 추출',
+            null as { prev: UserSituation; delta: UserSituation } | null
+          )
+        : Promise.resolve(null);
+
+    // (2) 임베딩이 필요한 검색들
     if (lastUserMsg) {
-      const queryEmbedding = await getQueryEmbedding(searchQuery);
+      const queryEmbedding = await withTimeout(
+        getQueryEmbedding(searchQuery), RETRIEVAL_TIMEOUT_MS, '임베딩', null
+      );
 
-      const faq = await buildFaqContext(db, searchQuery, queryEmbedding);
+      const [faq, nlrc, interp, court] = await Promise.all([
+        withTimeout(buildFaqContext(db, searchQuery, queryEmbedding), RETRIEVAL_TIMEOUT_MS,
+          'FAQ 검색', { context: '', topIds: [] as number[], matched: false, count: 0, categories: [] as string[] }),
+        queryEmbedding
+          ? withTimeout(buildNlrcCasesContext(db, searchQuery, queryEmbedding), RETRIEVAL_TIMEOUT_MS, '판정례 검색', '')
+          : Promise.resolve(''),
+        queryEmbedding
+          ? withTimeout(buildInterpretationsContext(db, queryEmbedding), RETRIEVAL_TIMEOUT_MS, '행정해석 검색', '')
+          : Promise.resolve(''),
+        queryEmbedding
+          ? withTimeout(buildCourtCasesContext(db, queryEmbedding), RETRIEVAL_TIMEOUT_MS, '법원판례 검색', '')
+          : Promise.resolve(''),
+      ]);
+
       faqContext = faq.context;
       topFaqIds = faq.topIds;
+      caseContext = nlrc + interp + court;
 
-      let nlrcLen = 0, interpLen = 0, courtLen = 0;
-      if (queryEmbedding) {
-        const [nlrc, interp, court] = await Promise.all([
-          buildNlrcCasesContext(db, searchQuery, queryEmbedding),
-          buildInterpretationsContext(db, queryEmbedding),
-          buildCourtCasesContext(db, queryEmbedding),
-        ]);
-        nlrcLen = nlrc.length;
-        interpLen = interp.length;
-        courtLen = court.length;
-        caseContext = nlrc + interp + court;
-      }
-
-      // 디버그: cases/interp/court 컨텍스트 길이를 categories 끝에 임시 marker로 저장 (silent fail 추적)
+      // 디버그 마커 — 어느 컨텍스트가 비었는지 chat_logs 로 추적한다.
+      // 이 마커 덕분에 판정례가 8일 넘게 0건이었다는 걸 사후에 확인할 수 있었다.
       const debugMarkers = [
-        `_nlrc_len=${nlrcLen}`,
-        `_interp_len=${interpLen}`,
-        `_court_len=${courtLen}`,
+        `_nlrc_len=${nlrc.length}`,
+        `_interp_len=${interp.length}`,
+        `_court_len=${court.length}`,
         `_emb=${queryEmbedding ? 1 : 0}`,
       ];
 
@@ -202,19 +237,14 @@ export async function POST(req: NextRequest) {
         .then(null, () => {});
     }
 
-    let situationContext = '';
-    let prevProfile: UserSituation = {};
-    let mergedProfile: UserSituation = {};
-    if (sessionId && lastUserMsg) {
-      try {
-        prevProfile = await getSituation(sessionId);
-        const delta = await extractDelta(lastUserMsg.content, prevProfile);
-        mergedProfile = { ...prevProfile, ...delta };
-        situationContext = formatSituationForPrompt(mergedProfile);
-        await upsertSituation(sessionId, prevProfile, delta, 1);
-      } catch {
-        // 추출/저장 실패해도 답변은 진행
-      }
+    // (3) 병렬로 돌던 것을 회수한다
+    const situation = await situationPromise;
+    if (situation && sessionId) {
+      prevProfile = situation.prev;
+      mergedProfile = { ...situation.prev, ...situation.delta };
+      situationContext = formatSituationForPrompt(mergedProfile);
+      // 저장은 답변에 필요 없다. 기다리지 않는다.
+      upsertSituation(sessionId, situation.prev, situation.delta, 1).catch(() => {});
     }
 
     const multiturnHint =
@@ -222,11 +252,9 @@ export async function POST(req: NextRequest) {
         ? '\n\n═══ 멀티턴 대화 안내 ═══\n사용자의 직전 질문과 답변을 반드시 참조하여 후속 질문을 해석하세요. "그럼", "이건", "그건" 같은 지시어가 무엇을 가리키는지 이전 맥락에서 추론. 사용자 상황(회사 규모·근속기간·임금 등)이 이전 턴에 나왔다면 이를 토대로 맞춤 답변.'
         : '';
 
-    let systemPrompt = SYSTEM_PROMPT + faqContext + caseContext + situationContext + multiturnHint;
-
-    if (lastUserMsg) {
-      systemPrompt += await buildNewsContext(supabase, lastUserMsg.content);
-    }
+    const newsContext = await newsPromise;
+    const systemPrompt =
+      SYSTEM_PROMPT + faqContext + caseContext + situationContext + multiturnHint + newsContext;
 
     const encoder = new TextEncoder();
     const decoder = new TextDecoder();

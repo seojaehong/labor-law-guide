@@ -6,19 +6,38 @@ export async function buildNlrcCasesContext(
   queryEmbedding: number[]
 ): Promise<string> {
   try {
-    const caseResult = await db.rpc('search_similar_cases_hybrid', {
-      query: searchQuery.slice(0, 500),
-      query_embedding: queryEmbedding,
-      category: '',
-      limit: 3,
-      semantic_weight: 0.6,
-    });
+    // search_similar_cases_hybrid 는 쓰지 않는다.
+    //
+    // 2026-09-01 실측: 파라미터를 어떻게 바꿔도(limit 1, 검색어 비움, 가중치 변경)
+    // 10.13초에 statement timeout(57014)으로 죽는다. 입력 문제가 아니라 함수가 고장이다.
+    // 게다가 error 일 때 조용히 빈 문자열을 반환하도록 되어 있어 장애가 드러나지 않았다.
+    // chat_logs 최근 400건(8/24~9/1) 전부 _nlrc_len=0 — 판정례를 한 번도 못 쓰고 답해 왔다.
+    //
+    // 함수를 고치려면 DB 접근 권한이 필요해서, 그전까지 search_tsv 전문검색으로 우회한다.
+    // 실측 0.1~0.6초. 의미검색이 아니라 키워드 검색이라 정확도는 손해지만,
+    // 지금은 결과가 아예 0건이므로 무조건 이득이다. RPC 가 고쳐지면 되돌린다.
+    const terms = searchQuery
+      .replace(/[^가-힣a-zA-Z0-9\s]/g, ' ')
+      .split(/\s+/)
+      .filter((w) => w.length >= 2)
+      .slice(0, 6)
+      .join(' ');
+    if (!terms) return '';
+
+    const caseResult = await db
+      .from('nlrc_decisions')
+      .select('id, title, decision_result, holding_summary, key_issue, decision_date')
+      .textSearch('search_tsv', terms, { type: 'plain' })
+      .not('is_non_labor', 'is', true)
+      .gte('confidence_level', 0.8)
+      .limit(3);
+
     if (caseResult.error) {
-      console.error('[cases.ts] search_similar_cases_hybrid error:', JSON.stringify(caseResult.error));
+      console.error('[cases.ts] nlrc fts error:', JSON.stringify(caseResult.error));
       return '';
     }
     if (!Array.isArray(caseResult.data) || caseResult.data.length === 0) {
-      console.warn('[cases.ts] search_similar_cases_hybrid returned 0 rows for query:', searchQuery.slice(0, 80));
+      console.warn('[cases.ts] nlrc fts 0 rows:', terms.slice(0, 80));
       return '';
     }
     const cases = caseResult.data as Array<{
