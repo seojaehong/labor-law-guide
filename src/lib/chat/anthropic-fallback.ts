@@ -101,7 +101,9 @@ export async function streamAnthropicRound(
 
   const stream = client.messages.stream({
     model: MODEL,
-    max_tokens: 4096,
+    // Vertex 쪽 상한과 같은 값으로 맞춘다. 폴백이라고 답변 길이가 달라지면
+    // 사용자가 체감하는 응답 속도가 요청마다 널뛴다.
+    max_tokens: 1200,
     ...(system ? { system } : {}),
     messages,
   });

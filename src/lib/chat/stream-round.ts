@@ -172,6 +172,11 @@ export async function streamRound(
     const vertex = getGenerativeModel();
     result = await vertex.generateContentStream({
       contents,
+      // 챗 전용 상한. 클라이언트 기본값은 4096 인데 그건 /api/sanction 의 JSON 산출물
+      // 때문에 크게 잡혀 있다. 챗 본문은 350~500자를 목표로 하므로 그만큼 줄 필요가 없고,
+      // 상한이 크면 모델이 길게 쓰는 쪽으로 흐른다. 여기서만 낮춘다.
+      // 1200 토큰은 한글 500자에 넉넉한 값이라 정상 답변이 잘리지 않는다.
+      generationConfig: { maxOutputTokens: 1200 },
       ...(systemInstruction ? { systemInstruction } : {}),
       ...(withTools ? { tools: toVertexTools() } : {}),
     });
