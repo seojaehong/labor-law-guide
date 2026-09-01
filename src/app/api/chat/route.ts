@@ -14,7 +14,7 @@ import { checkChatRateLimit, extractIp, hashIp } from '@/lib/rate-limit';
 import { getChatKillSwitch } from '@/lib/kill-switch';
 import { verifyTurnstile, isTurnstileEnabled } from '@/lib/turnstile';
 import { executeTool } from '@/lib/chat/tools/execute';
-import { streamRound, type ToolCallAcc } from '@/lib/chat/stream-round';
+import { streamRound, lastRoundInfo, type ToolCallAcc } from '@/lib/chat/stream-round';
 import { withTimeout, RETRIEVAL_TIMEOUT_MS, FAQ_TIMEOUT_MS } from '@/lib/chat/context/with-timeout';
 import { isAnthropicConfigured } from '@/lib/chat/anthropic-fallback';
 import { getVertexClient } from '@/lib/vertex/client';
@@ -377,6 +377,27 @@ export async function POST(req: NextRequest) {
           //   ctxReady 시스템 프롬프트 완성까지 = 답변 생성 직전
           //   done     응답 종료까지
           // ctxReady 와 done 의 차이가 곧 모델 생성 시간이다.
+          // 계측을 응답 스트림에도 싣는다.
+          // vercel logs 스트리밍이 두 번 다 잡히지 않아 서버 밖에서 구간을 볼 방법이 없었다.
+          // 클라이언트는 parsed.content 만 읽으므로 이 프레임은 화면에 나타나지 않는다.
+          try {
+            controller.enqueue(
+              encoder.encode(
+                `data: ${JSON.stringify({
+                  debug: {
+                    ...mark,
+                    done: Date.now() - t0,
+                    provider: lastRoundInfo.provider,
+                    vertexFailMs: lastRoundInfo.vertexFailMs,
+                    promptChars: systemPrompt.length,
+                    answerChars: trimmedLen,
+                  },
+                })}\n\n`
+              )
+            );
+          } catch {
+            // 스트림이 이미 닫혔으면 무시한다. 계측 때문에 답변이 깨지면 안 된다.
+          }
           console.log('[chat] timing_ms', {
             ...mark,
             done: Date.now() - t0,

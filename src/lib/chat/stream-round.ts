@@ -148,6 +148,21 @@ function extractFunctionNameFromContext(contents: Content[], toolCallId: string)
 
 // ─── Main streaming function ──────────────────────────────────────────────────
 
+/**
+ * 어느 프로바이더가 답했는지와 Vertex 실패에 걸린 시간을 남긴다.
+ *
+ * 2026-09-01: 같은 질문의 길이만 다른 두 측정값으로 1차식을 풀어보니
+ *   t = 9.53초 + 0.00474초 * 답변글자수
+ * 답변을 0자로 만들어도 9.5초가 남는다. 질문·길이와 무관한 고정비용이 있다는 뜻이고,
+ * 그만한 고정비용은 보통 타임아웃이나 실패 후 재시도다. Vertex 가 느리게 실패한 뒤
+ * Anthropic 으로 넘어가는 것이 1순위 용의자인데, vercel logs 스트리밍이 잡히지 않아
+ * 서버 밖에서는 확인할 방법이 없었다. 그래서 값을 남겨 응답에 실어 보낸다.
+ */
+export const lastRoundInfo: { provider: string; vertexFailMs: number } = {
+  provider: 'unknown',
+  vertexFailMs: 0,
+};
+
 export async function streamRound(
   controller: ReadableStreamDefaultController<Uint8Array>,
   msgs: unknown[],
@@ -167,6 +182,7 @@ export async function streamRound(
     ReturnType<ReturnType<typeof getGenerativeModel>['generateContentStream']>
   >;
   let result: VertexStream;
+  const vertexStart = Date.now();
   try {
     // Build per-request model with systemInstruction (cannot set on cached model instance)
     const vertex = getGenerativeModel();
@@ -182,7 +198,10 @@ export async function streamRound(
     });
   } catch (err) {
     if (!isAnthropicConfigured()) throw err;
+    lastRoundInfo.provider = 'anthropic(vertex-failed)';
+    lastRoundInfo.vertexFailMs = Date.now() - vertexStart;
     console.warn('[chat] Vertex 실패 → Anthropic 폴백', {
+      afterMs: lastRoundInfo.vertexFailMs,
       msg: (err as Error)?.message?.slice(0, 200),
     });
     return streamAnthropicRound(controller, msgs, encoder);
@@ -221,11 +240,16 @@ export async function streamRound(
   } catch (err) {
     // 이미 사용자 화면에 텍스트가 나간 뒤면 폴백 금지 — 답변이 두 번 이어붙는다.
     if (emitted || !isAnthropicConfigured()) throw err;
+    lastRoundInfo.provider = 'anthropic(stream-broke)';
+    lastRoundInfo.vertexFailMs = Date.now() - vertexStart;
     console.warn('[chat] Vertex 스트림 중단 → Anthropic 폴백', {
+      afterMs: lastRoundInfo.vertexFailMs,
       msg: (err as Error)?.message?.slice(0, 200),
     });
     return streamAnthropicRound(controller, msgs, encoder);
   }
 
+  lastRoundInfo.provider = 'vertex';
+  lastRoundInfo.vertexFailMs = 0;
   return { content, toolCalls: Object.values(toolCallsMap) };
 }
