@@ -157,6 +157,13 @@ export async function POST(req: NextRequest) {
       });
     }
 
+    // 구간별 소요시간을 남긴다.
+    // 2026-09-01: '첫 글자까지 29초' 장애를 진단할 때 서버에서 어느 구간이 느린지
+    // 알 방법이 없어서, 밖에서 RPC 를 하나씩 때려보며 추정해야 했다. 같은 일을
+    // 두 번 하지 않도록 계측을 코드에 박는다.
+    const t0 = Date.now();
+    const mark: Record<string, number> = {};
+
     const { searchQuery, lastUserMsg } = buildSearchQuery(messages);
 
     // 답변 첫 글자까지 걸리는 시간이 24~29초였다(2026-09-01 실측).
@@ -197,6 +204,7 @@ export async function POST(req: NextRequest) {
       const queryEmbedding = await withTimeout(
         getQueryEmbedding(searchQuery), RETRIEVAL_TIMEOUT_MS, '임베딩', null
       );
+      mark.emb = Date.now() - t0;
 
       const [faq, nlrc, interp, court] = await Promise.all([
         withTimeout(buildFaqContext(db, searchQuery, queryEmbedding), FAQ_TIMEOUT_MS,
@@ -212,6 +220,7 @@ export async function POST(req: NextRequest) {
           : Promise.resolve(''),
       ]);
 
+      mark.search = Date.now() - t0;
       faqContext = faq.context;
       topFaqIds = faq.topIds;
       caseContext = nlrc + interp + court;
@@ -253,6 +262,7 @@ export async function POST(req: NextRequest) {
         : '';
 
     const newsContext = await newsPromise;
+    mark.ctxReady = Date.now() - t0;
     const systemPrompt =
       SYSTEM_PROMPT + faqContext + caseContext + situationContext + multiturnHint + newsContext;
 
@@ -361,6 +371,18 @@ export async function POST(req: NextRequest) {
             controller.enqueue(encoder.encode(`data: ${JSON.stringify({ content: footer })}\n\n`));
           }
           // round-level 로그 (정상 케이스도 기록 — 추후 패턴 분석용)
+          // 어느 구간이 시간을 먹는지 한 줄로 남긴다. 단위는 ms, 요청 시작 기준 누적이다.
+          //   emb      임베딩까지
+          //   search   검색 4종(병렬)까지
+          //   ctxReady 시스템 프롬프트 완성까지 = 답변 생성 직전
+          //   done     응답 종료까지
+          // ctxReady 와 done 의 차이가 곧 모델 생성 시간이다.
+          console.log('[chat] timing_ms', {
+            ...mark,
+            done: Date.now() - t0,
+            promptChars: systemPrompt.length,
+            answerChars: trimmedLen,
+          });
           console.log('[chat] round_summary', {
             r1: { len: r1ContentLen, tcs: r1ToolCalls },
             r2: { ran: r2Ran, len: r2ContentLen, tcs: r2ToolCalls },

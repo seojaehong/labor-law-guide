@@ -34,7 +34,17 @@ export async function buildFaqContext(
 
   // NIM Reranker 활성 시 후보 16건 retrieval → rerank → top 5 사용 (token 절감 + 적합도 향상)
   // 비활성 시 기존 top 8 그대로 (변경 없음, fail-safe)
-  const RERANK_ON = process.env.NIM_RERANK_ENABLED === 'true';
+  // NVIDIA NIM 리랭커는 2026-05-18 에 서비스가 종료됐다(HTTP 410 Gone,
+  // "This endpoint has reached its end of life on 2026-05-18").
+  // 그런데 rerank 함수가 실패 시 입력을 그대로 돌려주는 fail-safe 라서 아무도 몰랐다.
+  //
+  // 문제는 조용히 실패하는 데서 끝나지 않았다. 리랭크가 켜져 있으면 후보를 16건 뽑아
+  // 상위 5건만 쓰는데, 리랭크가 죽었으므로 '재정렬 없이 앞 5건'을 쓰게 된다.
+  // 즉 리랭크를 켜 둔 탓에 오히려 FAQ 8건 대신 5건만 넣고 있었다 — 정확성 손해다.
+  //
+  // 대체 엔드포인트를 붙이기 전까지는 끈다. 켜려면 여기 상수를 되돌리고
+  // rerank.ts 의 엔드포인트부터 갱신해야 한다.
+  const RERANK_ON = false;
   const RETRIEVE_K = RERANK_ON ? 16 : 8;
   const FINAL_N = RERANK_ON ? 5 : 8;
 
