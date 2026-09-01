@@ -15,7 +15,8 @@ import { getChatKillSwitch } from '@/lib/kill-switch';
 import { verifyTurnstile, isTurnstileEnabled } from '@/lib/turnstile';
 import { executeTool } from '@/lib/chat/tools/execute';
 import { streamRound, lastRoundInfo, type ToolCallAcc } from '@/lib/chat/stream-round';
-import { withTimeout, RETRIEVAL_TIMEOUT_MS, FAQ_TIMEOUT_MS } from '@/lib/chat/context/with-timeout';
+import { withTimeout, withTimeoutTagged, RETRIEVAL_TIMEOUT_MS, FAQ_TIMEOUT_MS } from '@/lib/chat/context/with-timeout';
+import { type Retrieval, EMPTY_RETRIEVAL } from '@/lib/chat/context/result';
 import { isAnthropicConfigured } from '@/lib/chat/anthropic-fallback';
 import { getVertexClient } from '@/lib/vertex/client';
 import { buildFaqContext } from '@/lib/chat/context/faq';
@@ -206,33 +207,77 @@ export async function POST(req: NextRequest) {
       );
       mark.emb = Date.now() - t0;
 
+      const emptyFaq = {
+        context: '',
+        topIds: [] as number[],
+        matched: false,
+        count: 0,
+        categories: [] as string[],
+      };
+      const noEmbed: Retrieval = { ...EMPTY_RETRIEVAL, status: 'noembed' };
+
       const [faq, nlrc, interp, court] = await Promise.all([
-        withTimeout(buildFaqContext(db, searchQuery, queryEmbedding), FAQ_TIMEOUT_MS,
-          'FAQ 검색', { context: '', topIds: [] as number[], matched: false, count: 0, categories: [] as string[] }),
+        withTimeout(
+          buildFaqContext(db, searchQuery, queryEmbedding),
+          FAQ_TIMEOUT_MS,
+          'FAQ 검색',
+          emptyFaq
+        ),
         queryEmbedding
-          ? withTimeout(buildNlrcCasesContext(db, searchQuery, queryEmbedding), RETRIEVAL_TIMEOUT_MS, '판정례 검색', '')
-          : Promise.resolve(''),
+          ? withTimeoutTagged(
+              buildNlrcCasesContext(db, searchQuery, queryEmbedding),
+              RETRIEVAL_TIMEOUT_MS,
+              '판정례 검색',
+              EMPTY_RETRIEVAL
+            )
+          : Promise.resolve({ value: noEmbed, timedOut: false, ms: 0 }),
         queryEmbedding
-          ? withTimeout(buildInterpretationsContext(db, queryEmbedding), RETRIEVAL_TIMEOUT_MS, '행정해석 검색', '')
-          : Promise.resolve(''),
+          ? withTimeoutTagged(
+              buildInterpretationsContext(db, queryEmbedding),
+              RETRIEVAL_TIMEOUT_MS,
+              '행정해석 검색',
+              EMPTY_RETRIEVAL
+            )
+          : Promise.resolve({ value: noEmbed, timedOut: false, ms: 0 }),
         queryEmbedding
-          ? withTimeout(buildCourtCasesContext(db, queryEmbedding), RETRIEVAL_TIMEOUT_MS, '법원판례 검색', '')
-          : Promise.resolve(''),
+          ? withTimeoutTagged(
+              buildCourtCasesContext(db, queryEmbedding),
+              RETRIEVAL_TIMEOUT_MS,
+              '법원판례 검색',
+              EMPTY_RETRIEVAL
+            )
+          : Promise.resolve({ value: noEmbed, timedOut: false, ms: 0 }),
       ]);
 
       mark.search = Date.now() - t0;
       faqContext = faq.context;
       topFaqIds = faq.topIds;
-      caseContext = nlrc + interp + court;
+      caseContext = nlrc.value.ctx + interp.value.ctx + court.value.ctx;
 
-      // 디버그 마커 — 어느 컨텍스트가 비었는지 chat_logs 로 추적한다.
-      // 이 마커 덕분에 판정례가 8일 넘게 0건이었다는 걸 사후에 확인할 수 있었다.
+      // 왜 비었는지까지 남긴다.
+      //
+      // _nlrc_len 계열은 이름을 유지한다 — 8일치 과거 로그와 비교할 수 있어야 한다.
+      // 거기에 상태를 덧붙인다: ok / 0rows / error / noembed / timeout.
+      // 2026-09-01 행정해석이 요청마다 사라졌을 때, 잘린 것과 0건이 마커에 똑같이 0 으로
+      // 찍혀 원인을 좁힐 수 없었다. 같은 실수를 두 번 하지 않는다.
+      const statusOf = (r: { value: Retrieval; timedOut: boolean; ms: number }) =>
+        r.timedOut ? 'timeout' : r.value.status;
+
       const debugMarkers = [
-        `_nlrc_len=${nlrc.length}`,
-        `_interp_len=${interp.length}`,
-        `_court_len=${court.length}`,
+        `_nlrc_len=${nlrc.value.ctx.length}`,
+        `_interp_len=${interp.value.ctx.length}`,
+        `_court_len=${court.value.ctx.length}`,
         `_emb=${queryEmbedding ? 1 : 0}`,
+        `_nlrc=${statusOf(nlrc)}/${nlrc.value.via}/${nlrc.ms}ms`,
+        `_interp=${statusOf(interp)}/${interp.ms}ms`,
+        `_court=${statusOf(court)}/${court.ms}ms`,
       ];
+
+      console.log('[chat] retrieval', {
+        nlrc: { status: statusOf(nlrc), via: nlrc.value.via, rows: nlrc.value.rows, ms: nlrc.ms },
+        interp: { status: statusOf(interp), rows: interp.value.rows, ms: interp.ms },
+        court: { status: statusOf(court), rows: court.value.rows, ms: court.ms },
+      });
 
       db.from('chat_logs')
         .insert({
