@@ -2,6 +2,7 @@ import type {
   Content,
   FunctionDeclarationsTool,
   Part,
+  GenerationConfig,
 } from '@google-cloud/vertexai';
 import { TOOLS } from './tools/definitions';
 import { scrubFakeUrls } from './scrub-urls';
@@ -192,7 +193,21 @@ export async function streamRound(
       // 때문에 크게 잡혀 있다. 챗 본문은 350~500자를 목표로 하므로 그만큼 줄 필요가 없고,
       // 상한이 크면 모델이 길게 쓰는 쪽으로 흐른다. 여기서만 낮춘다.
       // 1200 토큰은 한글 500자에 넉넉한 값이라 정상 답변이 잘리지 않는다.
-      generationConfig: { maxOutputTokens: 1200 },
+      // thinkingBudget: 0 — gemini-2.5-flash 는 '생각'이 기본으로 켜져 있다.
+      // 그 생각 토큰은 응답에 안 나오지만 시간은 그대로 든다. 챗 답변은 검색으로 근거를
+      // 이미 붙여주므로 모델이 따로 추론할 여지가 크지 않은데, 비용은 다 물고 있었다.
+      //
+      // 2026-09-02 실측 근거: 답변 길이가 526자든 514자든 생성 시간이 9.5~9.9초로 거의
+      // 같다. 길이에 비례하지 않는 고정 비용이 있다는 뜻이고, 폴백(vertexFailMs=0)도
+      // 리전(둘 다 서울)도 아니었다. 남은 설명이 이것이다.
+      //
+      // SDK 1.10.0 의 GenerationConfig 타입에는 이 필드가 없다(2.5 이후 추가된 것).
+      // 객체는 그대로 직렬화되어 전달되므로 캐스팅으로 넣는다. 서버가 무시하면 현상 유지고,
+      // 거부하면 Anthropic 폴백으로 떨어지므로 provider 값으로 즉시 드러난다.
+      generationConfig: {
+        maxOutputTokens: 1200,
+        thinkingConfig: { thinkingBudget: 0 },
+      } as GenerationConfig,
       ...(systemInstruction ? { systemInstruction } : {}),
       ...(withTools ? { tools: toVertexTools() } : {}),
     });
