@@ -333,8 +333,16 @@ export async function POST(req: NextRequest) {
         let r2ContentLen = 0;
         let r2ToolCalls = 0;
         let r2Ran = false;
+        // 생성 구간을 라운드별로 쪼개 잰다.
+        // 2026-09-02 실측: ctxReady 3.04초 / done 12.88초 → 생성만 9.85초였다.
+        // provider=vertex, vertexFailMs=0 이므로 폴백 대기가 아니다. 그렇다면 남은
+        // 후보는 (a) 모델 자체가 느림 (b) 도구호출로 2라운드를 도는 것 둘이다.
+        // 둘은 대응이 완전히 달라서(모델·프롬프트 vs 도구 정책) 먼저 갈라야 한다.
+        const genStart = Date.now();
+        let r1Ms = 0;
         try {
           const r1 = await streamRound(controller, baseMsgs, toolHint, encoder, decoder);
+          r1Ms = Date.now() - genStart;
           assembledAnswer += r1.content;
           r1ContentLen = r1.content.length;
           r1ToolCalls = r1.toolCalls.length;
@@ -434,6 +442,9 @@ export async function POST(req: NextRequest) {
                     done: Date.now() - t0,
                     provider: lastRoundInfo.provider,
                     vertexFailMs: lastRoundInfo.vertexFailMs,
+                    r1Ms,
+                    r2Ran,
+                    toolCalls: r1ToolCalls,
                     promptChars: systemPrompt.length,
                     answerChars: trimmedLen,
                   },
