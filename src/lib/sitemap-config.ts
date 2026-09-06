@@ -24,14 +24,18 @@ export const NLRC_SITEMAP_TIERS = ['standard', 'high_priority'] as const;
 // 404 를 사이트맵에 실으면 크롤 버짓만 낭비되므로 같은 스위치를 여기서도 본다.
 export const SHOW_LAWGO = process.env.SHOW_LAWGO === 'true';
 
+// ★ 2026-09-07 — sitemap 과 페이지 noindex 조건이 서로 달라서 GSC 경고가 났다.
+//   sitemap 은 tier·신뢰도로 거르고, decisions/[id] 는 **본문 길이 200자**로 걸렀다.
+//   그 사이에 낀 1,432건이 "sitemap 에는 있는데 noindex" 상태였다(실측).
+//   조건을 두 곳에 따로 쓰면 또 갈라지므로 **DB 뷰 하나를 정본으로 삼는다.**
+//     CREATE VIEW nlrc_sitemap_rows — tier·is_non_labor·confidence_level + body length >= 200
+//   페이월/파싱실패 행은 tier 조건이 이미 전부 걸러낸다(추가 0건, 실측).
+export const NLRC_SITEMAP_VIEW = 'nlrc_sitemap_rows';
+
 export function applyNlrcSitemapFilter<T>(q: T): T {
-  /* eslint-disable @typescript-eslint/no-explicit-any */
-  const out: any = (q as any)
-    .in('tier', NLRC_SITEMAP_TIERS)
-    .not('is_non_labor', 'is', true)
-    .gte('confidence_level', 0.8);
-  return out as T;
-  /* eslint-enable @typescript-eslint/no-explicit-any */
+  // 뷰가 조건을 이미 품고 있으므로 그대로 돌려준다.
+  // (호출부가 nlrc_sitemap_rows 를 쓰지 않는 경우를 대비해 함수는 남겨 둔다)
+  return q;
 }
 
 async function count(table: string, quality = false): Promise<number> {
@@ -67,7 +71,7 @@ export interface SitemapLayout {
 export async function getSitemapLayout(): Promise<SitemapLayout> {
   const [cases, decisions, lawgo] = await Promise.all([
     count('cases'),
-    count('nlrc_decisions', true),
+    count(NLRC_SITEMAP_VIEW),
     SHOW_LAWGO ? count('lawgo_precedents') : Promise.resolve(0),
   ]);
   const casesChunks = chunkCount(cases);

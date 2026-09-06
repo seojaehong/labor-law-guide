@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { SITE_URL } from '@/lib/constants';
 import { supabaseServer } from '@/lib/supabase-server';
 import { FAQ_CATEGORIES, categoryToSlug } from '@/lib/faq-categories';
-import { SITEMAP_CHUNK_SIZE, applyNlrcSitemapFilter, getSitemapLayout } from '@/lib/sitemap-config';
+import { SITEMAP_CHUNK_SIZE, NLRC_SITEMAP_VIEW, getSitemapLayout } from '@/lib/sitemap-config';
 
 export const revalidate = 3600;
 export const dynamic = 'force-dynamic';
@@ -160,9 +160,10 @@ async function buildDecisionsSitemap(chunkIndex: number): Promise<SitemapEntry[]
   const to = from + CHUNK_SIZE - 1;
 
   try {
-    const { data } = await applyNlrcSitemapFilter(
-      supabaseServer.from('nlrc_decisions').select('id, decision_date')
-    )
+    // 조건은 DB 뷰 nlrc_sitemap_rows 가 갖는다 — 페이지 noindex 와 한 정의를 쓰기 위함(2026-09-07)
+    const { data } = await supabaseServer
+      .from(NLRC_SITEMAP_VIEW)
+      .select('id, decision_date')
       .order('id', { ascending: true })
       .range(from, to);
 
