@@ -38,15 +38,27 @@ export function applyNlrcSitemapFilter<T>(q: T): T {
   return q;
 }
 
+/** 세는 데 실패하면 **던진다.** 0 을 돌려주면 안 된다.
+ *
+ * 2026-09-07 사고 — nlrc_sitemap_rows 뷰에 인덱스가 없어 count=exact 가 timeout(500)을 냈고,
+ * 여기서 `catch { return 0 }` 이 그걸 삼켜 decisionsChunks=0 이 됐다. 결과적으로 sitemap 인덱스가
+ * 54 → 5 로 줄어 decisions 46,808 URL 이 통째로 빠진 채 1시간 CDN 캐시에 박혔다.
+ *
+ * **0 은 「없다」가 아니라 「못 셌다」다.** 두 경우를 같은 값으로 돌려주면 조용히 망가진다.
+ * 던지면 라우트가 실패하고, revalidate 캐시가 직전 정상본을 유지한다 — 잘린 sitemap 을
+ * 새로 내보내는 것보다 훨씬 안전하다.
+ */
 async function count(table: string, quality = false): Promise<number> {
-  try {
-    let q = supabaseServer.from(table).select('id', { count: 'exact', head: true });
-    if (quality) q = applyNlrcSitemapFilter(q);
-    const { count: n } = await q;
-    return n ?? 0;
-  } catch {
-    return 0;
+  let q = supabaseServer.from(table).select('id', { count: 'exact', head: true });
+  if (quality) q = applyNlrcSitemapFilter(q);
+  const { count: n, error } = await q;
+  if (error) {
+    throw new Error(`sitemap count 실패 (${table}): ${error.message}`);
   }
+  if (n === null || n === undefined) {
+    throw new Error(`sitemap count 가 null (${table}) — 실패와 0 건을 구분할 수 없다`);
+  }
+  return n;
 }
 
 // 건수가 0이면 청크도 0이어야 한다. 예전에는 Math.max(1, ...) 라서 0건인 소스도
