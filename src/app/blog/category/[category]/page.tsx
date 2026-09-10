@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { supabaseServer } from '@/lib/supabase-server';
+import { fetchAllRows } from '@/lib/supabase-paged';
 import { SITE_URL } from '@/lib/constants';
 import { cleanBlogSummary } from '@/lib/blog-summary';
 import BlogClient from '../../BlogClient';
@@ -41,14 +42,17 @@ export default async function BlogCategoryPage({ params }: { params: Promise<{ c
   const { category } = await params;
   const decoded = decodeURIComponent(category);
 
-  const { data, error } = await supabaseServer
-    .from('blog_articles')
-    .select('slug, title, subtitle, summary, content, category, subtype, tags, author, published_at, seo_title, seo_description')
-    .eq('category', decoded)
-    .order('published_at', { ascending: false });
+  const data = await fetchAllRows<BlogArticleRow>((from, to) =>
+    supabaseServer
+      .from('blog_articles')
+      .select('slug, title, subtitle, summary, content, category, subtype, tags, author, published_at, seo_title, seo_description')
+      .eq('category', decoded)
+      .order('published_at', { ascending: false })
+      .range(from, to)
+  );
 
   // content는 summary 생성용 — 클라이언트 페이로드에서는 제외 (/blog 와 동일 이유)
-  const articles = ((data || []) as BlogArticleRow[]).map(({ content, ...article }) => ({
+  const articles = data.map(({ content, ...article }) => ({
     ...article,
     summary: cleanBlogSummary(article.summary, content),
   }));

@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { supabaseServer } from '@/lib/supabase-server';
+import { fetchAllRows } from '@/lib/supabase-paged';
 import { SITE_URL } from '@/lib/constants';
 import { cleanBlogSummary } from '@/lib/blog-summary';
 import { getCurrentTopicPicks } from '@/lib/topic-picks';
@@ -47,21 +48,20 @@ interface BlogArticleRow extends BlogArticle {
 }
 
 async function getArticles() {
-  const { data, error } = await supabaseServer
-    .from('blog_articles')
-    .select(
-      'slug, title, subtitle, summary, content, category, subtype, tags, author, published_at, seo_title, seo_description'
-    )
-    .order('published_at', { ascending: false });
-
-  if (error) {
-    console.error('blog fetch error:', error);
-    return [];
-  }
+  // limit 을 안 주면 PostgREST 가 1000행에서 조용히 끊는다 — fetchAllRows 가 끝까지 받는다
+  const data = await fetchAllRows<BlogArticleRow>((from, to) =>
+    supabaseServer
+      .from('blog_articles')
+      .select(
+        'slug, title, subtitle, summary, content, category, subtype, tags, author, published_at, seo_title, seo_description'
+      )
+      .order('published_at', { ascending: false })
+      .range(from, to)
+  );
 
   // content는 summary 생성에만 쓰고 클라이언트로 넘기지 않는다 —
   // 892건 본문 전체가 RSC 페이로드에 실려 /blog 응답이 13MB까지 커지던 문제
-  return ((data || []) as BlogArticleRow[]).map(({ content, ...article }) => ({
+  return data.map(({ content, ...article }) => ({
     ...article,
     summary: cleanBlogSummary(article.summary, content),
   }));

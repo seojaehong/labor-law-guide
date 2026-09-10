@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { SITE_URL } from '@/lib/constants';
 import { supabaseServer } from '@/lib/supabase-server';
+import { fetchAllRows } from '@/lib/supabase-paged';
 import { FAQ_CATEGORIES, categoryToSlug } from '@/lib/faq-categories';
 import { SITEMAP_CHUNK_SIZE, NLRC_SITEMAP_VIEW, getSitemapLayout } from '@/lib/sitemap-config';
 
@@ -69,11 +70,14 @@ async function buildStaticAndBlogSitemap(): Promise<SitemapEntry[]> {
   let latestNewsRows: Array<{ published_at: string | null }> = [];
 
   try {
-    const res = await supabaseServer
-      .from('blog_articles')
-      .select('slug, updated_at')
-      .order('published_at', { ascending: false });
-    if (res.data) blogArticles = res.data as typeof blogArticles;
+    // 1000행 상한에 걸리면 오래된 글이 사이트맵에서 조용히 사라진다
+    blogArticles = await fetchAllRows<{ slug: string; updated_at: string | null }>((from, to) =>
+      supabaseServer
+        .from('blog_articles')
+        .select('slug, updated_at')
+        .order('published_at', { ascending: false })
+        .range(from, to)
+    );
   } catch {}
 
   try {

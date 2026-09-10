@@ -6,6 +6,7 @@ import remarkGfm from 'remark-gfm';
 import rehypeRaw from 'rehype-raw';
 import rehypeSanitize, { defaultSchema } from 'rehype-sanitize';
 import { supabaseServer } from '@/lib/supabase-server';
+import { fetchAllRows } from '@/lib/supabase-paged';
 import { SITE_URL } from '@/lib/constants';
 import { cleanBlogSummary, extractBlogLead } from '@/lib/blog-summary';
 import { ArrowLeft, Calendar, User, Tag, BookOpen, ArrowRight, MessageSquare, ClipboardCheck } from 'lucide-react';
@@ -79,11 +80,16 @@ async function getLatestArticles(currentSlug: string): Promise<RelatedArticle[]>
 }
 
 export async function generateStaticParams() {
-  const { data } = await supabaseServer
-    .from('blog_articles')
-    .select('slug')
+  // 1000행 상한에 걸리면 그 뒤 글이 프리렌더에서 통째로 빠진다
+  const data = await fetchAllRows<{ slug: string }>((from, to) =>
+    supabaseServer
+      .from('blog_articles')
+      .select('slug')
+      .order('published_at', { ascending: false })
+      .range(from, to)
+  );
 
-  return (data || []).map((row: { slug: string }) => ({ slug: row.slug }));
+  return data.map((row) => ({ slug: row.slug }));
 }
 
 export async function generateMetadata({
