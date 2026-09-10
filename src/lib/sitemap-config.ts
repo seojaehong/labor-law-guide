@@ -32,6 +32,10 @@ export const SHOW_LAWGO = process.env.SHOW_LAWGO === 'true';
 //   페이월/파싱실패 행은 tier 조건이 이미 전부 걸러낸다(추가 0건, 실측).
 export const NLRC_SITEMAP_VIEW = 'nlrc_sitemap_rows';
 
+// 판정례(/cases·/decisions·lawgo)를 사이트맵에 실을지. 기본은 **끈다** — 2026-09-11 색인 0건 대응.
+// 켜려면 환경변수 SITEMAP_CASELAW=on. 자세한 이유는 getSitemapLayout() 머리말에 있다.
+export const SITEMAP_CASELAW = process.env.SITEMAP_CASELAW === 'on';
+
 export function applyNlrcSitemapFilter<T>(q: T): T {
   // 뷰가 조건을 이미 품고 있으므로 그대로 돌려준다.
   // (호출부가 nlrc_sitemap_rows 를 쓰지 않는 경우를 대비해 함수는 남겨 둔다)
@@ -81,6 +85,20 @@ export interface SitemapLayout {
  * 둘이 갈라지면 "선언은 됐는데 비어 있는 청크" 또는 "실재하는데 선언 안 된 청크"가 생긴다.
  */
 export async function getSitemapLayout(): Promise<SitemapLayout> {
+  // ★ 2026-09-11 — 판정례를 사이트맵에서 뺀다.
+  //
+  //   GSC 실측: 제출 42,731건 · **색인 0건**. 홈만 색인돼 있고 /blog 는 마지막 크롤이
+  //   2026-07-17, 개별 글은 "Google 에 아직 알려지지 않은 URL" 이었다.
+  //   제출한 42,731건 중 블로그는 964건뿐이고 나머지 4만 1천여 건이 자동 생성된
+  //   /cases·/decisions 다. 신생 도메인이 얇은 페이지 4만 건을 한꺼번에 들이밀면
+  //   크롤이 조여지고, 진짜 글 964편이 그 안에 묻힌다.
+  //
+  //   그래서 사이트맵에는 **사람이 쓴 것만** 싣는다. 판정례 페이지 자체는 그대로 살아 있고
+  //   내부 링크로도 여전히 닿는다 — 사이트맵으로 밀어 넣는 것만 멈추는 것이다.
+  //   되돌리려면 SITEMAP_CASELAW=on 하나면 된다.
+  if (!SITEMAP_CASELAW) {
+    return { casesChunks: 0, decisionsChunks: 0, lawgoChunks: 0, total: 1 };
+  }
   const [cases, decisions, lawgo] = await Promise.all([
     count('cases'),
     count(NLRC_SITEMAP_VIEW),
