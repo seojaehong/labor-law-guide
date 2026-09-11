@@ -1,13 +1,24 @@
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useEffect, useTransition } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { BookOpen, Search, ChevronLeft, ChevronRight, Calendar, Tag, LayoutGrid, List } from 'lucide-react';
 import type { BlogArticle } from './page';
 import { getCategoryColor } from '@/lib/category-colors';
+import { PAGE_SIZE } from '@/lib/blog-list';
 
 interface BlogClientProps {
-  initialArticles: BlogArticle[];
+  /** 이 페이지 몫만 온다. 예전에는 960편 전부가 왔고 그게 1.5MB 였다. */
+  articles: BlogArticle[];
+  /** 필터를 적용한 전체 건수 (서버가 count=exact 로 센 값) */
+  total: number;
+  page: number;
+  activeCategory: string;
+  activeSubtype: string | null;
+  query: string;
+  /** 페이지를 넘길 때 머무를 경로. 카테고리 페이지에서는 그 경로에 그대로 있는다. */
+  basePath?: string;
 }
 
 const CATEGORIES = [
@@ -19,7 +30,7 @@ const CATEGORIES = [
   { value: '실무가이드', label: '실무가이드' },
 ];
 
-const PAGE_SIZE = 12;
+
 
 function formatDate(dateStr: string) {
   // timezone 차이로 인한 hydration mismatch 방지 — Date 객체 대신 문자열 직접 파싱
@@ -152,12 +163,16 @@ function SkeletonCard() {
   );
 }
 
-export default function BlogClient({ initialArticles }: BlogClientProps) {
-  const [activeCategory, setActiveCategory] = useState('all');
-  const [activeSubtype, setActiveSubtype] = useState<string | null>(null);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [page, setPage] = useState(1);
+export default function BlogClient({
+  articles, total, page, activeCategory, activeSubtype, query, basePath = '/blog',
+}: BlogClientProps) {
+  const router = useRouter();
+  const [pending, startTransition] = useTransition();
+  // 검색어만 입력 중에는 로컬로 들고 있다가 멈추면 URL 로 밀어 넣는다.
+  const [searchQuery, setSearchQuery] = useState(query);
   const [viewMode, setViewMode] = useState<'card' | 'list'>('card');
+
+  useEffect(() => setSearchQuery(query), [query]);
 
   useEffect(() => {
     const saved = typeof window !== 'undefined' ? window.localStorage.getItem('blog_view_mode') : null;
@@ -169,52 +184,45 @@ export default function BlogClient({ initialArticles }: BlogClientProps) {
     if (typeof window !== 'undefined') window.localStorage.setItem('blog_view_mode', mode);
   };
 
-  const filtered = useMemo(() => {
-    let result = initialArticles;
+  /** 필터·페이지는 전부 URL 이 정본이다. 뒤로가기와 링크 공유가 그대로 동작한다. */
+  const go = (next: Partial<{ cat: string; sub: string | null; q: string; page: number }>) => {
+    const sp = new URLSearchParams();
+    const cat = next.cat ?? activeCategory;
+    const sub = next.sub !== undefined ? next.sub : activeSubtype;
+    const q = next.q ?? searchQuery;
+    const p = next.page ?? 1;
+    if (cat && cat !== 'all') sp.set('cat', cat);
+    if (sub) sp.set('sub', sub);
+    if (q.trim()) sp.set('q', q.trim());
+    if (p > 1) sp.set('page', String(p));
+    // 카테고리를 바꾸는 건 목록 전체로 나가는 일이라 항상 /blog 로 간다.
+    // 페이지만 넘길 때는 지금 경로(카테고리 페이지 포함)에 머문다.
+    const changingCategory = next.cat !== undefined && next.cat !== activeCategory;
+    const base = changingCategory ? '/blog' : basePath;
+    if (base !== '/blog') sp.delete('cat');
+    const qs = sp.toString();
+    startTransition(() => router.push(qs ? `${base}?${qs}` : base, { scroll: false }));
+  };
 
-    if (activeCategory !== 'all') {
-      result = result.filter((a) => a.category === activeCategory);
-    }
+  // 입력이 멈추면(300ms) 검색한다. 글자마다 서버를 때리지 않는다.
+  useEffect(() => {
+    if (searchQuery === query) return;
+    const t = setTimeout(() => go({ q: searchQuery, page: 1 }), 300);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchQuery]);
 
-    if (activeSubtype) {
-      result = result.filter((a) => a.subtype === activeSubtype);
-    }
-
-    if (searchQuery.trim()) {
-      const q = searchQuery.trim().toLowerCase();
-      result = result.filter(
-        (a) =>
-          a.title.toLowerCase().includes(q) ||
-          (a.subtitle?.toLowerCase().includes(q) ?? false) ||
-          (a.summary?.toLowerCase().includes(q) ?? false)
-      );
-    }
-
-    return result;
-  }, [initialArticles, activeCategory, activeSubtype, searchQuery]);
-
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  // 거르고 세는 일은 전부 서버가 한다. 여기서는 받은 것을 그리기만 한다.
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const currentPage = Math.min(page, totalPages);
-  const paginated = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+  const paginated = articles;
 
-  const handleCategoryChange = (cat: string) => {
-    setActiveCategory(cat);
-    setActiveSubtype(null);
-    setPage(1);
-  };
-
-  const handleSubtypeChange = (sub: string | null) => {
-    setActiveSubtype(sub);
-    setPage(1);
-  };
-
-  const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setSearchQuery(e.target.value);
-    setPage(1);
-  };
+  const handleCategoryChange = (cat: string) => go({ cat, sub: null, page: 1 });
+  const handleSubtypeChange = (sub: string | null) => go({ sub, page: 1 });
+  const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => setSearchQuery(e.target.value);
 
   const handlePage = (p: number) => {
-    setPage(p);
+    go({ page: p });
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -227,9 +235,9 @@ export default function BlogClient({ initialArticles }: BlogClientProps) {
           <h1 className="t-h2" style={{ color: 'var(--color-text-primary)' }}>
             노동 딥다이브
           </h1>
-          {initialArticles.length > 0 && (
+          {total > 0 && (
             <span className="ml-2 rounded-full px-2.5 py-0.5 text-xs font-medium" style={{ backgroundColor: 'var(--grey-100)', color: 'var(--grey-600)' }}>
-              {initialArticles.length}편
+              {total}편
             </span>
           )}
         </div>
@@ -296,10 +304,10 @@ export default function BlogClient({ initialArticles }: BlogClientProps) {
       )}
 
       {/* View mode toggle (카드 ↔ 표) + 결과 카운트 */}
-      {filtered.length > 0 && (
+      {total > 0 && (
         <div className="mb-4 flex items-center justify-between">
           <span className="text-[13px]" style={{ color: 'var(--color-text-tertiary)' }}>
-            총 {filtered.length}편
+            총 {total}편
           </span>
           <div className="inline-flex rounded-lg border overflow-hidden" style={{ borderColor: 'var(--color-border)' }}>
             <button
@@ -333,12 +341,12 @@ export default function BlogClient({ initialArticles }: BlogClientProps) {
       )}
 
       {/* Article Grid / List */}
-      {initialArticles.length === 0 ? (
+      {total === 0 && !query ? (
         <div className="py-20 text-center" style={{ color: 'var(--color-text-tertiary)' }}>
           <p className="text-lg font-medium mb-1">등록된 글이 없습니다</p>
           <p className="text-sm">새로운 콘텐츠가 곧 게시될 예정입니다.</p>
         </div>
-      ) : filtered.length === 0 ? (
+      ) : articles.length === 0 ? (
         <div className="py-20 text-center" style={{ color: 'var(--color-text-tertiary)' }}>
           검색 결과가 없습니다.
         </div>
@@ -364,7 +372,7 @@ export default function BlogClient({ initialArticles }: BlogClientProps) {
       )}
 
       {/* Pagination */}
-      {filtered.length > PAGE_SIZE && (
+      {totalPages > 1 && (
         <div className="mt-8 flex items-center justify-center gap-3">
           <button
             disabled={currentPage <= 1}
