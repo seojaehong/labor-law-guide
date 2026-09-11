@@ -178,6 +178,52 @@ export default function RootLayout({
         <main>{children}</main>
         <FloatingChatButton />
         <footer className="border-t py-10" style={{ borderColor: 'var(--color-border)' }}>
+          {/* 2026-09-12 — 메뉴를 3개로 줄이면서 내려온 것들이 여기 산다.
+              지운 게 아니라 자리를 옮긴 것이고, 크롤러가 들어갈 내부 링크도 여기서 유지된다.
+              메뉴에 올릴 만큼은 아니지만 닿을 수 없으면 안 되는 것들이다. */}
+          <div className="mx-auto mb-8 grid max-w-[1400px] grid-cols-2 gap-x-6 gap-y-7 px-5 text-left sm:grid-cols-4">
+            {[
+              { title: '찾아보기', links: [
+                { href: '/decisions', label: '판정례 검색' },
+                { href: '/database', label: '판례·행정해석 DB' },
+                { href: '/cases', label: '핵심 판례' },
+                { href: '/news', label: '노동 뉴스' },
+              ] },
+              { title: '알아보기', links: [
+                { href: '/guide', label: '핵심 가이드' },
+                { href: '/checklist', label: '자가진단' },
+                { href: '/manual', label: '교섭절차' },
+                { href: '/faq', label: 'FAQ' },
+              ] },
+              { title: '계산·점검', links: [
+                { href: '/tools/holiday-pay', label: '공휴일·노동절 수당' },
+                { href: '/tools/contract-check', label: '근로계약서 점검' },
+                { href: '/tools/severance.html', label: '퇴직금 계산' },
+                { href: '/subsidy', label: '지원금 안내' },
+              ] },
+              { title: '읽을거리', links: [
+                { href: '/blog', label: '노동 딥다이브' },
+                { href: '/blog/category/%ED%8C%90%EB%A1%80%EB%B6%84%EC%84%9D', label: '판례분석' },
+                { href: '/blog/category/%EC%8B%A4%EB%AC%B4%EA%B0%80%EC%9D%B4%EB%93%9C', label: '실무가이드' },
+                { href: '/contact', label: '상담 문의' },
+              ] },
+            ].map((col) => (
+              <div key={col.title}>
+                <p className="mb-2.5 text-xs font-semibold" style={{ color: 'var(--color-text-secondary)' }}>
+                  {col.title}
+                </p>
+                <ul className="space-y-1.5">
+                  {col.links.map((l) => (
+                    <li key={l.href}>
+                      <a href={l.href} className="text-[13px]" style={{ color: 'var(--color-text-tertiary)' }}>
+                        {l.label}
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
           <div className="mx-auto max-w-[1400px] px-5 text-center">
             <p className="text-sm" style={{ color: 'var(--color-text-tertiary)' }}>
               © 2026 노란봉투법 가이드. 본 사이트는 법률 자문이 아닌 정보 제공 목적입니다.

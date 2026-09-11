@@ -7,7 +7,9 @@ const SUBSIDY_URL = `${SITE_URL}/subsidy`;
 const EXTERNAL_GUIDE_URL = 'https://reporeview.vercel.app/';
 const DESCRIPTION = '고용지원금 종류·신청 요건·절차를 한눈에 확인하세요. 두루누리, 출산육아기 고용안정장려금, 서울시 워라밸 포인트제, 고용촉진장려금 등 우리 사업장에 맞는 지원금을 찾아드립니다.';
 
+// 메뉴에서 내리고 색인도 끈다 (2026-09-12). 페이지와 주소는 그대로다.
 export const metadata: Metadata = {
+  robots: { index: false, follow: true },
   title: '고용지원금 가이드 | 두루누리·출산육아기지원금·워라밸포인트제 | 노무법인 위너스',
   description: DESCRIPTION,
   alternates: { canonical: SUBSIDY_URL },

@@ -18,7 +18,11 @@ export const metadata: Metadata = {
     locale: 'ko_KR',
     siteName: '노란봉투법 가이드',
   },
-  robots: { index: true, follow: true },
+  // 2026-09-12 — 메뉴에서 내리면서 색인도 끈다. 페이지와 주소는 그대로이고
+  // 링크를 아는 사람은 계속 쓴다. 서버 렌더 본문이 300~800자뿐이라 크롤러 눈에는
+  // 빈 페이지이고, 얇은 페이지가 많으면 진짜 콘텐츠의 크롤 배분이 줄어든다.
+  // follow 는 남긴다. 되살리려면 index 를 true 로 되돌린다.
+  robots: { index: false, follow: true },
 };
 
 export default function HarassmentLayout({ children }: { children: React.ReactNode }) {
