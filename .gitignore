@@ -59,3 +59,7 @@ archive/
 # playwright output
 test-results/
 .env*.local
+
+# 손으로 남긴 백업본은 커밋하지 않는다
+*.bak
+*.bak-*
