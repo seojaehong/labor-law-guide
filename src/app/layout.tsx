@@ -185,8 +185,9 @@ export default function RootLayout({
             {[
               { title: '찾아보기', links: [
                 { href: '/decisions', label: '판정례 검색' },
-                { href: '/database', label: '판례·행정해석 DB' },
-                { href: '/cases', label: '핵심 판례' },
+                { href: '/decisions?type=court', label: '법원 판례' },
+                { href: '/decisions?type=admin', label: '행정해석' },
+                { href: '/cases', label: '핵심 판례 해설' },
                 { href: '/news', label: '노동 뉴스' },
               ] },
               { title: '알아보기', links: [

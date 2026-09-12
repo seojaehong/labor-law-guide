@@ -99,10 +99,12 @@ async function buildStaticAndBlogSitemap(): Promise<SitemapEntry[]> {
     { url: `${SITE_URL}/checklist`, lastModified: new Date('2026-03-15T00:00:00.000Z'), changeFrequency: 'monthly', priority: 0.9 },
     { url: `${SITE_URL}/manual`, lastModified: new Date('2026-03-15T00:00:00.000Z'), changeFrequency: 'monthly', priority: 0.9 },
     { url: `${SITE_URL}/cases`, lastModified: new Date('2026-03-26T00:00:00.000Z'), changeFrequency: 'monthly', priority: 0.85 },
-    { url: `${SITE_URL}/database`, lastModified: latestNewsDate, changeFrequency: 'daily', priority: 0.85 },
+    // 2026-09-12 — /decisions 가 검색의 본체가 됐다. 판정례 61,928건으로 들어가는 입구다.
+    // /database·/search 는 여기로 301 이동했고, /ai 는 noindex 로 내렸다. 둘 다 사이트맵에서 뺀다 —
+    // 리다이렉트되거나 noindex 인 주소를 사이트맵에 싣는 것은 크롤 예산 낭비다.
+    { url: `${SITE_URL}/decisions`, lastModified: latestContentDate, changeFrequency: 'daily', priority: 0.9 },
     { url: `${SITE_URL}/news`, lastModified: latestNewsDate, changeFrequency: 'daily', priority: 0.8 },
     { url: `${SITE_URL}/blog`, lastModified: latestBlogDate, changeFrequency: 'weekly', priority: 0.85 },
-    { url: `${SITE_URL}/ai`, lastModified: new Date('2026-03-20T00:00:00.000Z'), changeFrequency: 'weekly', priority: 0.8 },
     { url: `${SITE_URL}/contact`, lastModified: CONTACT_LAST_MODIFIED, changeFrequency: 'monthly', priority: 0.75 },
     { url: `${SITE_URL}/tools`, lastModified: new Date('2026-04-29T00:00:00.000Z'), changeFrequency: 'monthly', priority: 0.85 },
     { url: `${SITE_URL}/tools/holiday-pay`, lastModified: new Date('2026-04-29T00:00:00.000Z'), changeFrequency: 'monthly', priority: 0.9 },
