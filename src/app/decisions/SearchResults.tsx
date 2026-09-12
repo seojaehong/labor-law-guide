@@ -16,9 +16,12 @@ import { stripMarkdownFormatting } from "@/lib/format-holding";
 
 export type Kind = "nlrc" | "court" | "admin";
 
+// 배지 색은 토큰만 쓴다 — 생 hex 를 새로 늘리지 않는다(DESIGN.md §9 P2·P3).
+// 법원은 파랑·노랑과 겹치지 않아야 해서 중성 잉크로 간다. 색을 하나 더 만들면
+// §3.4 의 2액센트 체계(파랑=인터랙션 / 노랑=브랜드)가 깨진다.
 const KIND_STYLE: Record<Kind, { label: string; bg: string; fg: string; border: string }> = {
-  nlrc: { label: "노동위", bg: "#eef4fe", fg: "#1b64da", border: "#d6e6fd" },
-  court: { label: "법원", bg: "#f1eefb", fg: "#5442b8", border: "#e2dcf6" },
+  nlrc: { label: "노동위", bg: "var(--color-info-bg)", fg: "var(--color-info-ink)", border: "var(--blue-100)" },
+  court: { label: "법원", bg: "var(--grey-100)", fg: "var(--grey-700)", border: "var(--grey-200)" },
   admin: { label: "행정해석", bg: "var(--brand-50)", fg: "var(--brand-700)", border: "var(--brand-200)" },
 };
 
@@ -28,8 +31,10 @@ function resultTone(v: string | null): { text: string; bg: string; fg: string } 
   if (!v) return null;
   const label = RESULT_LABELS[v as DecisionResult];
   if (!label) return null;
-  if (v === "granted" || v === "partial") return { text: label, bg: "#ecfdf5", fg: "#15803d" };
-  if (v === "dismissed" || v === "rejected") return { text: label, bg: "#fef2f2", fg: "#b91c1c" };
+  if (v === "granted" || v === "partial")
+    return { text: label, bg: "var(--color-success-bg)", fg: "var(--color-success-ink)" };
+  if (v === "dismissed" || v === "rejected")
+    return { text: label, bg: "var(--color-danger-bg)", fg: "var(--color-danger-ink)" };
   return { text: label, bg: "var(--grey-100)", fg: "var(--grey-700)" };
 }
 

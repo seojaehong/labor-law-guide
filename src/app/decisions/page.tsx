@@ -312,7 +312,8 @@ async function HubView() {
               row={{
                 kind: "nlrc",
                 href: `/decisions/${encodeURIComponent(d.id)}`,
-                title: headline(d.key_issue, d.title, "판정례"),
+                // 허브는 크롤러가 61,928건으로 들어가는 입구다. 쟁점 전문이 곧 미끼이므로 넉넉히 싣는다.
+                title: headline(d.key_issue, d.title, "판정례", 600),
                 caseNumber: realCaseNumber(d.case_number_qualified, d.case_number_real, d.case_number),
                 date: d.decision_date,
                 tag: reasonLabel(d.reason_category),
