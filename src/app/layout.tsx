@@ -111,7 +111,7 @@ export default function RootLayout({
                   name: 'search-labor-law',
                   description: '노동법 관련 정보를 검색합니다. 노란봉투법, 부당해고, 임금체불, 직장내괴롭힘, 4대보험 등.',
                   inputSchema: { type: 'object', properties: { query: { type: 'string', description: '검색 키워드' } }, required: ['query'] },
-                  execute: async (input) => { window.location.href = '/database?q=' + encodeURIComponent(input.query); return { success: true }; }
+                  execute: async (input) => { window.location.href = '/decisions?q=' + encodeURIComponent(input.query); return { success: true }; }
                 },
                 {
                   name: 'ai-consultation',
@@ -142,7 +142,7 @@ export default function RootLayout({
                   publisher: { '@id': `${SITE_URL}/#organization` },
                   potentialAction: {
                     '@type': 'SearchAction',
-                    target: `${SITE_URL}/database?q={search_term_string}`,
+                    target: `${SITE_URL}/decisions?q={search_term_string}`,
                     'query-input': 'required name=search_term_string',
                   },
                 },

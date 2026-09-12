@@ -159,7 +159,7 @@ export default async function InterpretationDetailPage({
         '@type': 'BreadcrumbList',
         itemListElement: [
           { '@type': 'ListItem', position: 1, name: '홈', item: SITE_URL },
-          { '@type': 'ListItem', position: 2, name: '행정해석 검색', item: `${SITE_URL}/database?tab=admin` },
+          { '@type': 'ListItem', position: 2, name: '행정해석 검색', item: `${SITE_URL}/decisions?type=admin` },
           { '@type': 'ListItem', position: 3, name: item.doc_number || item.title, item: pageUrl },
         ],
       },
@@ -189,7 +189,7 @@ export default async function InterpretationDetailPage({
         <div className="lg:grid lg:grid-cols-[1fr_280px] lg:gap-10">
           <article>
             <Link
-              href="/database?tab=admin"
+              href="/decisions?type=admin"
               className="mb-6 inline-flex items-center gap-1.5 text-[13px] transition-colors hover:opacity-70"
               style={{ color: 'var(--color-text-secondary)' }}
             >
@@ -317,7 +317,7 @@ export default async function InterpretationDetailPage({
             <section className="mt-10 space-y-4">
               <div className="grid gap-4 sm:grid-cols-2">
                 <Link
-                  href={`/database?tab=admin&q=${encodeURIComponent(item.keywords_matched?.[0] || item.title.split(' ')[0])}`}
+                  href={`/decisions?type=admin&q=${encodeURIComponent(item.keywords_matched?.[0] || item.title.split(' ')[0])}`}
                   className="flex items-center gap-3 rounded-xl border p-5 transition-shadow hover:shadow-md"
                   style={{ borderColor: 'var(--color-accent)', backgroundColor: 'var(--blue-50)' }}
                 >

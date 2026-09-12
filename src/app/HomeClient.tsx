@@ -85,7 +85,7 @@ export default function HomeClient({ totalCases, totalAdmin, totalNews, latestBl
       icon: Search,
       title: '판례·행정해석 검색',
       description: `판례 ${totalCases.toLocaleString()}건, 공개 행정해석 ${totalAdmin.toLocaleString()}건, 최신 뉴스 ${totalNews.toLocaleString()}건을 통합 검색`,
-      href: '/database',
+      href: '/decisions',
       color: '#7c3aed',
       bg: '#f5f3ff',
     },

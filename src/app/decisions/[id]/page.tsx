@@ -327,7 +327,7 @@ export default async function DecisionPage({
     return (
       <main className="min-h-screen bg-background">
         <div className="max-w-[820px] mx-auto px-4 py-8">
-          <Link href="/search" className="text-sm text-muted-foreground hover:text-primary mb-4 inline-block">
+          <Link href="/decisions" className="text-sm text-muted-foreground hover:text-primary mb-4 inline-block">
             &larr; 검색으로
           </Link>
 
@@ -543,7 +543,7 @@ export default async function DecisionPage({
     return (
       <main className="min-h-screen bg-background">
         <div className="max-w-[820px] mx-auto px-4 py-8">
-          <Link href="/search" className="text-sm text-muted-foreground hover:text-primary mb-4 inline-block">
+          <Link href="/decisions" className="text-sm text-muted-foreground hover:text-primary mb-4 inline-block">
             &larr; 검색으로
           </Link>
 
@@ -713,7 +713,7 @@ export default async function DecisionPage({
   return (
     <main className="min-h-screen bg-background">
       <div className="max-w-[820px] mx-auto px-4 py-8">
-        <Link href="/search" className="text-sm text-muted-foreground hover:text-primary mb-4 inline-block">
+        <Link href="/decisions" className="text-sm text-muted-foreground hover:text-primary mb-4 inline-block">
           &larr; 검색으로
         </Link>
 

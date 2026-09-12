@@ -23,11 +23,16 @@ const TABS: { key: Kind; label: string }[] = [
   { key: "admin", label: "행정해석" },
 ];
 
-type Search = { q?: string; type?: string; page?: string };
+type Search = { q?: string; type?: string; tab?: string; page?: string };
 
+// 2026-09-12 — tab 은 /database 시절의 이름이다. 상세 페이지 3곳과 그때 색인된 주소가
+// 아직 /database?tab=admin 으로 들어오는데, next.config 리다이렉트가 질의 문자열을
+// 그대로 넘겨 주므로 여기서 받지 않으면 행정해석을 눌러도 노동위 결과가 나온다(실측 확인).
 function parse(sp: Search) {
   const q = (sp.q || "").trim().slice(0, 60);
-  const type: Kind = sp.type === "court" ? "court" : sp.type === "admin" ? "admin" : "nlrc";
+  // tab=cases 는 옛 /database 의 기본 탭(법원 판례)이다 — 새 이름은 court 다.
+  const kind = sp.type || (sp.tab === "cases" ? "court" : sp.tab);
+  const type: Kind = kind === "court" ? "court" : kind === "admin" ? "admin" : "nlrc";
   const page = Math.max(1, parseInt(sp.page || "1", 10) || 1);
   return { q, type, page };
 }

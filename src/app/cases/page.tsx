@@ -38,7 +38,7 @@ export default function CasesPage() {
             name: `${item.court} ${item.caseNumber} ${item.title}`,
             description: item.keyHolding,
             datePublished: item.date.replace(/\./g, '-'),
-            url: `${SITE_URL}/database?q=${encodeURIComponent(item.databaseQuery)}`,
+            url: `${SITE_URL}/decisions?type=court&q=${encodeURIComponent(item.databaseQuery)}`,
           },
         })),
       },
@@ -81,7 +81,7 @@ export default function CasesPage() {
             <p className="mt-3 text-sm leading-7" style={{ color: 'var(--grey-700)' }}>{c.keyHolding}</p>
             <div className="mt-4 flex flex-wrap gap-3">
               <Link
-                href={`/database?q=${encodeURIComponent(c.databaseQuery)}`}
+                href={`/decisions?type=court&q=${encodeURIComponent(c.databaseQuery)}`}
                 className="inline-flex items-center gap-1 text-sm font-medium"
                 style={{ color: 'var(--color-accent)' }}
               >

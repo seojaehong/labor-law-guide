@@ -156,7 +156,7 @@ export default async function CaseDetailPage({
         '@type': 'BreadcrumbList',
         itemListElement: [
           { '@type': 'ListItem', position: 1, name: '홈', item: SITE_URL },
-          { '@type': 'ListItem', position: 2, name: '판례 검색', item: `${SITE_URL}/database` },
+          { '@type': 'ListItem', position: 2, name: '판례 검색', item: `${SITE_URL}/decisions` },
           { '@type': 'ListItem', position: 3, name: item.case_number, item: pageUrl },
         ],
       },
@@ -188,7 +188,7 @@ export default async function CaseDetailPage({
           <article>
             {/* Back link */}
             <Link
-              href="/database"
+              href="/decisions"
               className="mb-6 inline-flex items-center gap-1.5 text-[13px] transition-colors hover:opacity-70"
               style={{ color: 'var(--color-text-secondary)' }}
             >
@@ -341,7 +341,7 @@ export default async function CaseDetailPage({
             <section className="mt-10 space-y-4">
               <div className="grid gap-4 sm:grid-cols-2">
                 <Link
-                  href={`/database?q=${encodeURIComponent(item.keywords_matched?.[0] || item.case_number)}`}
+                  href={`/decisions?type=court&q=${encodeURIComponent(item.keywords_matched?.[0] || item.case_number)}`}
                   className="flex items-center gap-3 rounded-xl border p-5 transition-shadow hover:shadow-md"
                   style={{ borderColor: 'var(--color-accent)', backgroundColor: 'var(--blue-50)' }}
                 >
