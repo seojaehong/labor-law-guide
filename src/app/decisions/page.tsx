@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { Metadata } from "next";
+import { unstable_cache } from "next/cache";
 import { supabase } from "@/lib/supabase";
 import { REASON_LABELS, type ReasonCategory } from "@/lib/types";
 import { SITE_URL } from "@/lib/constants";
@@ -269,11 +270,22 @@ async function SearchView({ q, type, page }: { q: string; type: Kind; page: numb
   );
 }
 
+// 2026-09-13 — 허브는 요청마다 exact count 16개를 병렬로 날리고 있었다(실측 합 1.2s, 콜드 5s).
+// 수집기가 멈춰 있어 숫자는 하루에 한 번도 안 바뀐다. 결과만 6시간 캐시한다 — 페이지는 force-dynamic 그대로.
+const getHubData = unstable_cache(
+  async () => {
+    const [counts, recent] = await Promise.all([
+      Promise.all(REASON_KEYS.map(async (r) => ({ reason: r, count: await countByReason(r) }))),
+      getRecent(),
+    ]);
+    return { counts, recent };
+  },
+  ["decisions-hub-v1"],
+  { revalidate: 21600 }
+);
+
 async function HubView() {
-  const [counts, recent] = await Promise.all([
-    Promise.all(REASON_KEYS.map(async (r) => ({ reason: r, count: await countByReason(r) }))),
-    getRecent(),
-  ]);
+  const { counts, recent } = await getHubData();
   const visible = counts.filter((c) => c.count > 0).sort((a, b) => b.count - a.count);
   const total = visible.reduce((s, c) => s + c.count, 0);
 
