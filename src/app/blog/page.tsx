@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { unstable_cache } from 'next/cache';
 import { supabaseServer } from '@/lib/supabase-server';
 import { SITE_URL } from '@/lib/constants';
 import { cleanBlogSummary } from '@/lib/blog-summary';
@@ -79,7 +80,7 @@ export async function generateMetadata(
   };
 }
 
-async function getPage({ page, cat, sub, q }: ReturnType<typeof parse>) {
+async function fetchPage({ page, cat, sub, q }: ReturnType<typeof parse>) {
   let query = supabaseServer
     .from('blog_articles')
     .select(
@@ -98,10 +99,8 @@ async function getPage({ page, cat, sub, q }: ReturnType<typeof parse>) {
 
   const from = (page - 1) * PAGE_SIZE;
   const { data, count, error } = await query.range(from, from + PAGE_SIZE - 1);
-  if (error) {
-    console.error('blog fetch error:', error);
-    return { articles: [] as BlogArticle[], total: 0 };
-  }
+  // 실패는 캐시에 담지 않는다 — 빈 목록이 10분 동안 굳어 버린다.
+  if (error) throw error;
 
   // content 는 summary 를 만드는 데만 쓰고 클라이언트로 넘기지 않는다.
   const articles = ((data || []) as BlogArticleRow[]).map(({ content, ...a }) => ({
@@ -109,6 +108,21 @@ async function getPage({ page, cat, sub, q }: ReturnType<typeof parse>) {
     summary: cleanBlogSummary(a.summary, content),
   }));
   return { articles, total: count ?? articles.length };
+}
+
+// 2026-09-14 — 목록 20편의 content 전문을 요약 한 줄 만들자고 매 요청 끌어오고 있었다.
+// PostgREST 직접 실측: content 포함 1,333KB·0.60s, 빼면 25KB·0.15s. 하네스 콜드 측정 9/12 2.2s → 9/14 4.4s.
+// 요약을 다 만든 결과(25KB)만 10분 캐시한다. 인자(page·cat·sub)가 캐시 키에 들어간다.
+// 검색(q)은 질의마다 달라 캐시하지 않는다.
+const getCachedPage = unstable_cache(fetchPage, ['blog-list-v1'], { revalidate: 600 });
+
+async function getPage(state: ReturnType<typeof parse>) {
+  try {
+    return await (state.q ? fetchPage(state) : getCachedPage(state));
+  } catch (error) {
+    console.error('blog fetch error:', error);
+    return { articles: [] as BlogArticle[], total: 0 };
+  }
 }
 
 export default async function BlogPage(
