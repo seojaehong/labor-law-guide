@@ -4,6 +4,26 @@ import { SITE_URL } from './constants';
 // Resend에 verified된 root 도메인 사용 — send. subdomain은 미인증 (2026-05-08)
 const FROM = '노동법 위클리 <news@yellowenvelope.kr>';
 const REPLY_TO = 'abc@winhr.co.kr';
+// mailto 해지도 같은 사람이 읽는 주소로 보낸다. 자동 처리는 없으므로 사람이 손으로 뺀다.
+const UNSUB_MAILBOX = 'abc@winhr.co.kr';
+
+/**
+ * 메일 클라이언트의 「수신거부」 버튼을 위한 헤더 (RFC 2369 · RFC 8058).
+ *
+ * ★ 2026-09-17 신설. 같은 날 해지 링크를 GET → POST 로 옮겼는데, 이 헤더가 없으면
+ * 지메일·아웃룩 상단의 수신거부 버튼이 사라진다. 그 버튼을 못 쓰게 되면 사용자는
+ * **스팸 신고로 간다** — 그게 도메인 평판에 훨씬 나쁘다.
+ *
+ * `List-Unsubscribe-Post` 가 붙어 있으면 클라이언트는 사람이 눌렀을 때만 POST 를 보낸다.
+ * 링크를 미리 열어보는 보안 스캐너는 GET 만 하므로 이 경로로는 해지되지 않는다.
+ */
+function listUnsubscribeHeaders(unsubscribeToken: string) {
+  const url = `${SITE_URL}/api/subscribers/unsubscribe?token=${encodeURIComponent(unsubscribeToken)}`;
+  return {
+    'List-Unsubscribe': `<${url}>, <mailto:${UNSUB_MAILBOX}?subject=unsubscribe>`,
+    'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
+  };
+}
 
 function getResend() {
   const key = process.env.RESEND_API_KEY;
@@ -112,6 +132,7 @@ export async function sendWelcomeEmail(opts: {
     to: opts.to,
     subject: '[노동법 위클리] 구독 시작! 첫 인사이트 보내드릴게요',
     html,
+    headers: listUnsubscribeHeaders(opts.unsubscribeToken),
   });
 }
 
@@ -206,7 +227,7 @@ export async function sendDailyNewsletter(opts: {
       <p style="margin:0 0 12px;font-size:13px;font-weight:700;color:${TEXT_PRIMARY}">📌 노동법 위클리 둘러보기</p>
       <p style="margin:0 0 4px;font-size:13px"><a href="${SITE_URL}/blog" style="color:${ACCENT};text-decoration:none">→ 지난 딥다이브 모음</a></p>
       <p style="margin:0 0 4px;font-size:13px"><a href="${SITE_URL}/" style="color:${ACCENT};text-decoration:none">→ AI 챗봇 (노동법 질문)</a></p>
-      <p style="margin:0;font-size:13px"><a href="${SITE_URL}/sanction" style="color:${ACCENT};text-decoration:none">→ 징계/해고 AI 비교분석</a></p>
+      <p style="margin:0;font-size:13px"><a href="${SITE_URL}/decisions" style="color:${ACCENT};text-decoration:none">→ 판정례·판례 검색 (6만건)</a></p>
     </div>
     <div style="background:#f2f4f6;padding:24px 28px;text-align:center">
       <p style="margin:0 0 6px;color:${TEXT_PRIMARY};font-size:12px;font-weight:700">노동법 위클리</p>
@@ -227,5 +248,6 @@ export async function sendDailyNewsletter(opts: {
     to: opts.to,
     subject,
     html,
+    headers: listUnsubscribeHeaders(opts.unsubscribeToken),
   });
 }
