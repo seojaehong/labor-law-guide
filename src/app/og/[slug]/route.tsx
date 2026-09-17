@@ -147,7 +147,7 @@ export async function GET(_req: Request, { params }: RouteParams) {
               노무법인 위너스
             </div>
             <div style={{ fontSize: 16, color: '#85807A', marginTop: 4 }}>
-              공인노무사 서재홍
+              노란봉투법 가이드
             </div>
           </div>
           <div

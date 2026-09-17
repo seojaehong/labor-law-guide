@@ -147,7 +147,7 @@ export default function HomeClient({ totalCases, totalAdmin, totalNews, latestBl
           </p>
           <p className="mx-auto mb-8 inline-flex items-center gap-1.5 rounded-full border px-4 py-1.5 text-[13px] sm:mb-10" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)', color: 'var(--color-text-secondary)' }}>
             <Shield size={13} style={{ color: 'var(--color-accent)' }} />
-            공인노무사 서재홍이 직접 운영하고 검수합니다 · 노무법인 위너스
+            노무법인 위너스 공인노무사가 직접 운영하고 검수합니다
           </p>
           <div className="flex flex-col items-center gap-3 sm:flex-row sm:flex-wrap sm:justify-center">
             <Link
