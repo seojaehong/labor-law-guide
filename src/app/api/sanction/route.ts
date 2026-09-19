@@ -382,7 +382,7 @@ export async function POST(req: NextRequest) {
       const stream = new ReadableStream({
         async start(controller) {
           // 즉시 DB 결과 전송
-          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'meta', tags: retrieval.tags, cases: retrieval.cases, comparison, diagTiming, faqs: faqEntries })}\n\n`));
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'meta', tags: retrieval.tags, cases: retrieval.cases, comparison, diagTiming, faqs: faqEntries, degraded: retrieval.degraded })}\n\n`));
 
           try {
             const { resp, provider } = await callLLM(SYSTEM_PROMPT, trimmedMessages, {
@@ -466,6 +466,7 @@ export async function POST(req: NextRequest) {
       cases: retrieval.cases,
       comparison: finalComparison,
       provider,
+      degraded: retrieval.degraded,
     });
   } catch (error) {
     const isTimeout = error instanceof Error && error.name === 'TimeoutError';

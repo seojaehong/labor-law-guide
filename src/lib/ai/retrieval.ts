@@ -98,6 +98,12 @@ export interface RetrievalResult {
   cases: CaseCard[];
   allCases: Record<string, unknown>[];
   reranked: boolean;
+  /**
+   * 후보 조회 중 DB 오류가 있었나. true 면 cases 가 비어 있어도 "해당 사건이 없다"는 뜻이 아니다.
+   * ★ 2026-09-19 신설 — 그전에는 인증 실패·타임아웃이 빈 배열과 구분되지 않아
+   * 화면이 「직접 비교 가능한 사건을 확인하지 못했습니다」로 똑같이 보였다.
+   */
+  degraded: boolean;
 }
 
 interface HybridSearchRow {
@@ -1296,6 +1302,7 @@ function rankTaggedCandidates(query: string, taggedCases: Record<string, unknown
 export async function searchCases(tags: string[], query?: string): Promise<RetrievalResult> {
   let candidates: Record<string, unknown>[] = [];
   let reranked = false;
+  let degraded = false;
 
   const _timing: Record<string, number> = {};
   const _mark = (label: string, t0: number) => { _timing[label] = Date.now() - t0; };
@@ -1453,6 +1460,22 @@ export async function searchCases(tags: string[], query?: string): Promise<Retri
     queryEmbedding = queryEmbeddingResult;
     if (queryEmbedding && !_retrievalTiming.embedding) _retrievalTiming.embedding = Date.now() - t_emb;
 
+    // 2026-09-19: 쿼리 실패를 조용히 삼키지 않는다.
+    // 종전에는 .data 만 읽고 .error 를 버려서, 서비스 키 만료(401)나 타임아웃이 나도
+    // 빈 배열이 되어 화면에는 "해당 사건이 없다"로 보였다. 실제로 이 때문에 코드 회귀로 오인한 적이 있다.
+    const dbErrors = ([
+      ['precision', precisionResp],
+      ['tagged', taggedResp],
+      ['reason', reasonResp],
+      ['tag', tagResp],
+    ] as Array<[string, { error?: { message?: string } | null }]>)
+      .map(([label, resp]) => (resp?.error ? `${label}: ${resp.error.message || 'unknown'}` : null))
+      .filter((v): v is string => v !== null);
+    if (dbErrors.length > 0) {
+      degraded = true;
+      console.error('[retrieval] 후보 조회 실패 — 결과가 실제보다 적을 수 있다:', dbErrors.join(' | '));
+    }
+
     const precisionCases = precisionResp.data as Record<string, unknown>[] | null;
     const taggedCases = taggedResp.data as Record<string, unknown>[] | null;
     const reasonCases = reasonResp.data as Record<string, unknown>[] | null;
@@ -1575,5 +1598,6 @@ export async function searchCases(tags: string[], query?: string): Promise<Retri
     })),
     allCases: candidates,
     reranked,
+    degraded,
   };
 }

@@ -45,6 +45,8 @@ interface Message {
   comparison?: ComparisonMeta | null;
   faqs?: FaqRef[];
   provider?: string;
+  /** 후보 조회 중 DB 오류가 있었나 — 카드가 비어도 "사건이 없다"는 뜻이 아니다. */
+  degraded?: boolean;
 }
 
 const QUICK_REPLIES = [
@@ -127,7 +129,7 @@ export default function SanctionPage() {
         buffer = lines.pop() ?? '';
         for (const line of lines) {
           if (!line.startsWith('data: ')) continue;
-          let event: { type?: string; content?: string; text?: string; tags?: string[]; cases?: CaseCard[]; comparison?: ComparisonMeta; provider?: string; faqs?: FaqRef[] };
+          let event: { type?: string; content?: string; text?: string; tags?: string[]; cases?: CaseCard[]; comparison?: ComparisonMeta; provider?: string; faqs?: FaqRef[]; degraded?: boolean };
           try {
             event = JSON.parse(line.slice(6));
           } catch {
@@ -140,7 +142,7 @@ export default function SanctionPage() {
             setMessages((prev) =>
               prev.map((m) =>
                 m.id === msgId
-                  ? { ...m, content: '유사 판례를 찾았습니다. AI 분석 생성 중...', tags: event.tags, cases: event.cases, comparison: event.comparison ?? null, faqs: event.faqs ?? [] }
+                  ? { ...m, content: '유사 판례를 찾았습니다. AI 분석 생성 중...', tags: event.tags, cases: event.cases, comparison: event.comparison ?? null, faqs: event.faqs ?? [], degraded: event.degraded === true }
                   : m
               )
             );
@@ -337,7 +339,7 @@ export default function SanctionPage() {
                           <div className="space-y-3">
                             {msg.comparison.workerWinCases.length > 0 ? msg.comparison.workerWinCases.map((c) => (
                               renderComparisonCaseCard(c, 'worker')
-                            )) : <p className="text-xs text-muted-foreground">이번 검색 범위에서 직접 비교 가능한 사건을 확인하지 못했습니다.</p>}
+                            )) : <p className="text-xs text-muted-foreground">{msg.degraded ? '일시적인 조회 오류로 사건을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.' : '이번 검색 범위에서 직접 비교 가능한 사건을 확인하지 못했습니다.'}</p>}
                           </div>
                         </div>
 
@@ -349,7 +351,7 @@ export default function SanctionPage() {
                           <div className="space-y-3">
                             {msg.comparison.employerWinCases.length > 0 ? msg.comparison.employerWinCases.map((c) => (
                               renderComparisonCaseCard(c, 'employer')
-                            )) : <p className="text-xs text-muted-foreground">이번 검색 범위에서 직접 비교 가능한 사건을 확인하지 못했습니다.</p>}
+                            )) : <p className="text-xs text-muted-foreground">{msg.degraded ? '일시적인 조회 오류로 사건을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.' : '이번 검색 범위에서 직접 비교 가능한 사건을 확인하지 못했습니다.'}</p>}
                           </div>
                         </div>
                       </div>
