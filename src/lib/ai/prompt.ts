@@ -1,4 +1,5 @@
 import { bucketDecisionResult } from '@/lib/ai/decision-bucket';
+import { digestIssues, buildIssueLines, buildIssueDifferences, buildIssueChecklist } from '@/lib/ai/issues';
 
 export const SYSTEM_PROMPT = `당신은 대한민국 노동법 전문 AI 자문입니다. 42,000건의 노동위원회 판정례 데이터베이스를 기반으로 답변합니다.
 
@@ -49,22 +50,29 @@ export const SYSTEM_PROMPT = `당신은 대한민국 노동법 전문 AI 자문�
 
 출력 규칙:
 - issue_summary는 1~2문장
-- similar_cases는 2~4개
-- core_differences는 2~4개
-- checklist는 3~5개
+- similar_cases / core_differences / checklist 는 화면에 쓰이지 않습니다(서버가 DB 로 만듭니다).
+  스키마 호환을 위해 필드는 채우되, 여기에 공들이지 말고 plain_text 에 집중하십시오.
 - decision_guide는 2~4개
 - plain_text는 위 JSON 내용을 자연스러운 실무 문장으로 풀어쓴 최종 답변
 - similar_cases의 result는 반드시 "인용", "기각", "일부인정" 중 하나로 정리
 - JSON 외의 텍스트를 절대 붙이지 말 것
 
-## 유사 판정례 적합성 게이트 (Quality Filter)
-"유사 판정례 N건"에서 받은 사건들은 retrieval 단계의 1차 추정이라 사용자 상황과 무관한 노이즈가 섞일 수 있습니다.
-- similar_cases 배열에 넣기 전, 각 판정례가 사용자 쟁점과 진짜 유사한지 자체 판단:
-  - 행위 유형(폭언/횡령/성희롱/성과/근태 등)이 일치 → 포함
-  - 행위 유형이 명백히 다름(예: 사용자=기밀유출, 판정례=이자제한법 위반) → 제외
-  - 애매하면 issue_summary 끝에 "직접 유사한 판정례는 N건"이라고 솔직히 명시
-- similar_cases 2~4개 룰 중 적합 사건만 들어가도록 — 부족하면 적게 (0개도 허용).
-- 적합 사건이 1개 이하면 issue_summary 끝에 "유사 판정례가 충분하지 않아 판단구조 위주로 설명합니다"를 추가.
+## 본문(plain_text)에서 하지 말 것 — 2026-09-19 신설, 가장 중요한 규칙
+
+화면에 보이는 **판정례 카드·쟁점 요약·승패를 가른 지점·체크리스트는 서버가 DB 에서 직접 만듭니다.**
+당신이 쓰는 similar_cases 등은 화면에 반영되지 않습니다. 당신의 몫은 plain_text 뿐입니다.
+
+그래서 plain_text 에서 **개별 사건을 언급하지 마십시오.**
+- "○○ 사건에서는…", "한 판정례에서는…" 같은 서술 금지
+- "유사 사건에서는 대체로…", "대부분의 판정례가…" 같은 **집합적 판단도 금지**
+- 위 둘은 카드와 어긋날 수 있고, 어긋나면 사용자는 어느 쪽이 맞는지 알 수 없습니다
+
+대신 plain_text 는 이 구조로 쓰십시오.
+1. 이 사안에서 무엇이 쟁점이 되는지 (일반 법리 수준)
+2. 사용자가 **자기 사안에서 확인해야 할 것** — 입력한 사실관계에 근거해서
+3. 빠져 있는 정보가 있으면 무엇을 더 알아야 판단이 서는지
+
+판정례의 구체적 내용은 화면의 카드가 보여줍니다. 본문은 **사용자의 상황**을 다루십시오.
 
 ## 부가 지식DB (FAQ) 인용
 사용자 컨텍스트에 "═══ 관련 지식DB 매칭 결과 ═══" 섹션이 있으면:
@@ -171,13 +179,6 @@ function analyzeWinLossFactors(cases: Record<string, unknown>[]): string {
   }
 
   return analysis;
-}
-
-function buildIssueSummary(userInput: string, tags: string[]): string[] {
-  const summary: string[] = [];
-  if (userInput.trim()) summary.push(userInput.trim());
-  if (tags.length > 0) summary.push(`핵심 태그: ${tags.join(', ')}`);
-  return summary.slice(0, 2);
 }
 
 function countKeywordHits(cases: Record<string, unknown>[], keywords: string[]): number {
@@ -306,6 +307,12 @@ export function buildComparisonMeta(
   userInput: string,
   tags: string[],
   cases: Record<string, unknown>[],
+  /**
+   * 쟁점 추출용 원문. cases 의 holding_points 는 150자로 잘려 있어
+   * 「나.」「다.」 쟁점 표제가 날아간다. 자르기 전 행을 받아 쟁점만 여기서 뽑는다.
+   * 생략하면 cases 로 대신한다(잘린 만큼 덜 잡힌다).
+   */
+  fullRows?: Record<string, unknown>[],
 ): ComparisonMeta {
   const normalizedCases: ComparisonCase[] = cases.slice(0, 10).map((c) => ({
     id: String(c.id || ''),
@@ -322,14 +329,31 @@ export function buildComparisonMeta(
   const workerWinCases = normalizedCases.filter((c) => c.bucket === 'worker_win').slice(0, 2);
   const employerWinCases = normalizedCases.filter((c) => c.bucket === 'employer_win').slice(0, 2);
 
-  const coreDifferences = buildCoreDifferences(cases, tags);
+  // 2026-09-19: 쟁점을 판정문 원문에서 뽑아 집계한다.
+  // 종전 buildIssueSummary 는 사용자 질문을 되풀이할 뿐이었고, buildCoreDifferences 는
+  // 키워드가 걸리면 미리 써둔 일반론을 꺼냈다. 둘 다 어떤 질의에도 같은 답이 나왔다.
+  const shownIds = new Set(normalizedCases.map((c) => c.id));
+  const rowsForIssues = (fullRows && fullRows.length > 0)
+    ? fullRows.filter((r) => shownIds.has(String(r.id || '')))
+    : cases;
+  const digest = digestIssues(rowsForIssues.length > 0 ? rowsForIssues : cases);
 
+  const issueLines = buildIssueLines(digest);
+  const issueDiffs = buildIssueDifferences(
+    digest,
+    workerWinCases.map((c) => c.id),
+    employerWinCases.map((c) => c.id),
+  );
+  const issueChecklist = buildIssueChecklist(digest);
+
+  // 쟁점이 안 잡히면(판정문에 쟁점 구조가 없는 경우) 기존 방식으로 물러난다.
+  // 단 issueSummary 는 질문 되풀이를 되살리지 않는다 — 빈 채로 두는 편이 낫다.
   return {
-    issueSummary: buildIssueSummary(userInput, tags),
+    issueSummary: issueLines,
     workerWinCases,
     employerWinCases,
-    coreDifferences: coreDifferences.slice(0, 4),
-    checklist: buildChecklist(cases, tags),
+    coreDifferences: issueDiffs.length > 0 ? issueDiffs : buildCoreDifferences(cases, tags).slice(0, 4),
+    checklist: issueChecklist.length > 0 ? issueChecklist : buildChecklist(cases, tags),
     decisionGuide: buildDecisionGuide(cases, tags),
   };
 }
