@@ -276,6 +276,26 @@ function isCourt(candidate: Record<string, unknown>): boolean {
 
 const NON_LABOR_CASE_TYPES = ['헌법', '특허', '신청', '형사'];
 
+/**
+ * 비교 카드에 올릴 만한 실질 내용이 있는가.
+ *
+ * ★ 2026-09-19 신설. 「별지 기재 참조」 여덟 글자가 본문의 전부인 행이 34건 있다.
+ * 내용이 없으니 임베딩도 서로 같아져서, 질의가 약할 때 이런 행끼리 동점으로 상위를 채운다
+ * (실측: 기밀유출 질의의 하이브리드 RPC 상위 10건이 전부 이 껍데기였다).
+ * 카드에 올라가도 사용자가 읽을 게 없으므로 후보에서 뺀다.
+ */
+const HOLDING_STUB_RX = /별지\s*기재\s*(참조|참고)|요약\s*없음/g;
+
+function hasSubstantiveHolding(candidate: Record<string, unknown>): boolean {
+  const text = [candidate.holding_points, candidate.summary_short, candidate.key_issue]
+    .map((v) => String(v || ''))
+    .join(' ')
+    .replace(HOLDING_STUB_RX, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return text.length >= 30;
+}
+
 function selectRepresentativeCases(candidates: Record<string, unknown>[], limit: number): Record<string, unknown>[] {
   if (candidates.length <= limit) return candidates;
 
@@ -1521,10 +1541,23 @@ export async function searchCases(tags: string[], query?: string): Promise<Retri
     return rest;
   });
 
+  // 2026-09-19: 원문 품질 하한. 비교 카드는 "무슨 판단이었나"를 보여주는 게 목적인데,
+  // 본문이 「별지 기재 참조」 여덟 글자뿐인 행이 34건 있다. 이런 행은 카드에 올려도 읽을 게 없다.
+  // 관련성 하한(위 cosine 0.35)을 통과한 뒤에 적용한다 — 순서가 바뀌면 관련 있는 사건을 품질로 먼저 날린다.
+  // 전부 걸러지면 fail-open: 빈 화면보다는 낫고, 카드가 비면 상위에서 "확인하지 못했다"고 말한다.
+  const substantive = candidates.filter((c) => hasSubstantiveHolding(c));
+  if (substantive.length > 0) candidates = substantive;
+
   _retrievalTiming.searchCasesTotal = Object.values(_timing).reduce((a, b) => a + b, 0) + (_retrievalTiming.embedding || 0) + (_retrievalTiming.rpc || 0);
 
-  // 2026-05-16: reranked=true 시 15건→5건으로 축소. cosine 정렬 후 상위만으로도 충분, LLM 노이즈 감소.
-  const results = reranked ? candidates.slice(0, RESULT_LIMIT) : selectRepresentativeCases(candidates, RESULT_LIMIT);
+  // 2026-09-19: 버킷 균형을 항상 적용한다.
+  // 전에는 `reranked ? candidates.slice(0, RESULT_LIMIT) : selectRepresentativeCases(...)` 였는데,
+  // cosine 경로가 위에서 항상 reranked=true 를 세우므로 selectRepresentativeCases 가 사실상 죽어 있었다.
+  // 그 결과 상위 5건이 한쪽으로 쏠리면 반대편 카드가 통째로 빈칸이 됐다
+  // (실측: 기밀유출 질의에 근로자 승 모수가 14건 이상 있는데도 「인용 사건이 충분하지 않습니다」).
+  // candidates 는 이미 관련성 순으로 정렬돼 있고 selectRepresentativeCases 는 그 순서를 유지한 채
+  // 버킷별로 고르므로, 관련성을 해치지 않으면서 양쪽을 채운다.
+  const results = selectRepresentativeCases(candidates, RESULT_LIMIT);
 
   return {
     tags,

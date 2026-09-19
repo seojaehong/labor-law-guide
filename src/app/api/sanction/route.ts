@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { bucketDecisionResult } from '@/lib/ai/decision-bucket';
 import { extractTags, searchCases, _retrievalTiming } from '@/lib/ai/retrieval';
-import { buildComparisonMeta, buildUserContext, splitIssueSummary, trimHistory, type ComparisonCase, type ComparisonMeta } from '@/lib/ai/prompt';
+import { buildComparisonMeta, buildUserContext, splitIssueSummary, trimHistory, type ComparisonMeta } from '@/lib/ai/prompt';
 import { SYSTEM_PROMPT } from '@/lib/ai/prompt';
 import { buildFaqContext } from '@/lib/chat/context/faq';
 import { supabaseAdmin } from '@/lib/supabase-server';
@@ -192,104 +191,40 @@ function parseStructuredAiResponse(text: string): StructuredAiResponse | null {
   }
 }
 
-function normalizeStructuredResult(result: string): string {
-  const map: Record<string, string> = {
-    '인용': 'granted',
-    '기각': 'dismissed',
-    '일부인정': 'partial',
-    '전부인정': 'granted',
-    '각하': 'rejected',
-  };
-  return map[result.trim()] || result;
-}
-
-function textOverlap(a: string, b: string): number {
-  if (!a || !b) return 0;
-  const wordsA = a.replace(/[○\s]+/g, ' ').trim().split(/\s+/).filter(w => w.length >= 2);
-  const wordsB = new Set(b.replace(/[○\s]+/g, ' ').trim().split(/\s+/).filter(w => w.length >= 2));
-  if (wordsA.length === 0) return 0;
-  const hits = wordsA.filter(w => wordsB.has(w)).length;
-  return hits / wordsA.length;
-}
-
-function matchSimilarCase(aiCase: StructuredAiCase, pool: Array<Record<string, unknown>>) {
-  // 1차: key_point 텍스트로 holding_points와 매칭 (가장 정확)
-  const keyPoint = aiCase.key_point || '';
-  const resultNorm = normalizeStructuredResult(aiCase.result);
-
-  let bestMatch: Record<string, unknown> | undefined;
-  let bestScore = 0;
-
-  for (const candidate of pool) {
-    const holding = String(candidate.holding_points || '');
-    const summary = String(candidate.summary_short || '');
-    const haystack = `${holding} ${summary}`;
-
-    // key_point의 핵심 단어가 holding_points에 포함되는지
-    const overlap = textOverlap(keyPoint, haystack);
-
-    // 승패 결과 일치 시 보너스
-    const resultMatch = String(candidate.decision_result || '') === resultNorm ? 0.15 : 0;
-    const score = overlap + resultMatch;
-
-    if (score > bestScore) {
-      bestScore = score;
-      bestMatch = candidate;
-    }
-  }
-
-  // 최소 30% 이상 겹쳐야 매칭 인정
-  return bestScore >= 0.3 ? bestMatch : undefined;
-}
-
+/**
+ * LLM 설명문을 DB가 확정한 비교 카드 위에 얹는다.
+ *
+ * ★ 2026-09-19 전면 수정. 전에는 LLM이 낸 similar_cases 를 텍스트 유사도로 DB 행에
+ * **되맞춰서** 카드를 만들었다. 그게 오인용의 원인이었다.
+ *
+ * 되맞춤 임계가 `단어겹침 + (승패 일치 시 0.15) >= 0.3` 이라, 승패만 맞으면 실질 임계가
+ * 단어겹침 15% 였다. 실측 사고: LLM 문장 「징계사유의 정당성을 인정하지 않았고, 사용자의
+ * 암묵적 용인 여부가 쟁점이 됨」이 「정당성을·사용자의·여부가」 세 단어만으로
+ * id_26697(식자재 무단취식)에 붙었다. 기밀유출 질문에 대한 답이었다.
+ *
+ * 게다가 되맞춤 풀(allCases, 최대 60행)이 LLM 이 프롬프트에서 본 사건(5건)보다 넓어서,
+ * **LLM 이 본 적도 없는 행에 매칭될 수 있는** 구조였다. 카드의 설명문은 LLM 문장이고
+ * 링크만 DB 사건이었으므로, 링크와 설명이 서로 다른 사건을 가리킬 수 있었다.
+ *
+ * 그래서 LLM 에서 사건 선택 권한을 뺐다. **카드는 언제나 검색 결과에서 만들고**
+ * (dbComparison = buildComparisonMeta), LLM 이 기여하는 것은 설명문뿐이다.
+ * 설명 생성이 실패하면 카드는 그대로 두고 설명만 DB 기본값으로 남긴다.
+ */
 function buildComparisonFromStructured(
   structured: StructuredAiResponse,
-  pool: Array<Record<string, unknown>>,
   dbComparison: ComparisonMeta,
 ): ComparisonMeta {
-  const usedIds = new Set<string>();
-  const normalizedCases: ComparisonCase[] = structured.similar_cases.map((item, index) => {
-    // 이미 사용된 DB 케이스 제외하고 매칭
-    const availablePool = pool.filter(c => !usedIds.has(String(c.id || '')));
-    const matched = matchSimilarCase(item, availablePool);
-
-    if (matched) usedIds.add(String(matched.id || ''));
-
-    const decisionResult = matched ? String(matched.decision_result || normalizeStructuredResult(item.result)) : normalizeStructuredResult(item.result);
-
-    const caseId = matched ? String(matched.id || `ai_case_${index}`) : `ai_case_${index}`;
-    return {
-      id: caseId,
-      title: matched ? String(matched.title || item.title) : item.title,
-      decision_result: decisionResult,
-      holding_points: item.key_point,
-      url: matched ? String(matched.url || '') : '',
-      summary_short: matched ? String(matched.summary_short || '').slice(0, 160) : item.key_point,
-      key_issue: matched ? String(matched.key_issue || '') : '',
-      bucket: bucketDecisionResult(decisionResult),
-      source: caseId.startsWith('bc_') ? 'court' as const : 'nlrc' as const,
-    };
-  });
-
-  // 매칭된 real case가 하나도 없으면 DB comparison을 사용
-  const hasRealCases = normalizedCases.some(c => !c.id.startsWith('ai_case_'));
-  if (!hasRealCases) {
-    return {
-      ...dbComparison,
-      issueSummary: splitIssueSummary(structured.issue_summary),
-      coreDifferences: structured.core_differences.length > 0 ? structured.core_differences.slice(0, 4) : dbComparison.coreDifferences,
-      checklist: structured.checklist.length > 0 ? structured.checklist.slice(0, 5) : dbComparison.checklist,
-      decisionGuide: structured.decision_guide.length > 0 ? structured.decision_guide.slice(0, 4) : dbComparison.decisionGuide,
-    };
-  }
-
   return {
-    issueSummary: splitIssueSummary(structured.issue_summary),
-    workerWinCases: normalizedCases.filter((item) => item.bucket === 'worker_win').slice(0, 2),
-    employerWinCases: normalizedCases.filter((item) => item.bucket === 'employer_win').slice(0, 2),
-    coreDifferences: structured.core_differences.slice(0, 4),
-    checklist: structured.checklist.slice(0, 5),
-    decisionGuide: structured.decision_guide.slice(0, 4),
+    // 카드는 DB 확정본을 그대로 — LLM 이 바꾸지 못한다.
+    workerWinCases: dbComparison.workerWinCases,
+    employerWinCases: dbComparison.employerWinCases,
+    // 설명문만 LLM 것으로. 비어 오면 DB 기본값 유지.
+    issueSummary: structured.issue_summary.trim()
+      ? splitIssueSummary(structured.issue_summary)
+      : dbComparison.issueSummary,
+    coreDifferences: structured.core_differences.length > 0 ? structured.core_differences.slice(0, 4) : dbComparison.coreDifferences,
+    checklist: structured.checklist.length > 0 ? structured.checklist.slice(0, 5) : dbComparison.checklist,
+    decisionGuide: structured.decision_guide.length > 0 ? structured.decision_guide.slice(0, 4) : dbComparison.decisionGuide,
   };
 }
 
@@ -492,7 +427,7 @@ export async function POST(req: NextRequest) {
             const fallbackPlain = extractPlainTextFromJsonLike(fullText) || fullText;
             const analysis = sanitizeAnalysis(structured?.plain_text || fallbackPlain);
             const finalComparison = structured
-              ? buildComparisonFromStructured(structured, retrieval.allCases, comparison)
+              ? buildComparisonFromStructured(structured, comparison)
               : comparison;
             controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'done', content: analysis, comparison: finalComparison, provider })}\n\n`));
           } catch {
@@ -522,7 +457,7 @@ export async function POST(req: NextRequest) {
     const fallbackPlain = extractPlainTextFromJsonLike(rawAnalysis) || rawAnalysis;
     const analysis = sanitizeAnalysis(structured?.plain_text || fallbackPlain);
     const finalComparison = structured
-      ? buildComparisonFromStructured(structured, retrieval.allCases, comparison)
+      ? buildComparisonFromStructured(structured, comparison)
       : comparison;
 
     return NextResponse.json({

@@ -774,18 +774,21 @@ export default async function DecisionPage({
             </Card>
           )}
 
-          <Card className="p-4 mb-4">
-            <h3 className="font-semibold text-sm mb-1">절차 확인</h3>
-            <div className="grid grid-cols-2 gap-2 text-sm">
-              <div>{d.procedure_committee ? "✅" : "❌"} 징계위원회</div>
-              <div>{d.procedure_defense ? "✅" : "❌"} 소명기회 부여</div>
-              <div>{d.procedure_written_notice ? "✅" : "❌"} 서면통지</div>
-              <div>{d.procedure_advance_notice ? "✅" : "❌"} 해고예고 30일</div>
-            </div>
-            {d.procedure_note && (
-              <p className="text-xs text-muted-foreground mt-2">{d.procedure_note}</p>
-            )}
-          </Card>
+          {/*
+            「절차 확인」 카드 제거 — 2026-09-19.
+
+            procedure_committee / procedure_defense / procedure_written_notice /
+            procedure_advance_notice 네 컬럼이 61,928건 **전부 false** 다. 채워진 적이 없다.
+            procedure_note 도 전건 비어 있다. 그래서 이 카드는 모든 판정례 페이지에서
+            ❌ 넷을 고정으로 찍고 있었다 — 「징계위원회 없었음·소명기회 없었음·서면통지 없었음」이라는
+            사실 주장을 6만 페이지에 하고 있었던 셈이다.
+
+            실측 모순 사례: id_52967 은 판정 요지가 「…절차에도 하자가 없어 정당하다고 판정한 사례」인데
+            바로 아래에서 네 항목 모두 ❌ 로 표시됐다. 같은 페이지 안에서 서로를 부정한다.
+
+            데이터가 실제로 채워지면 되살린다. 그때까지는 없는 게 맞다 —
+            빈 값을 ❌(=없었다)로 렌더링하면 안 된다. 「모름」과 「없었음」은 다르다.
+          */}
 
           {hasSummary && summaryDifferentFromKeyIssue && (
             <Card id="decision-summary" className="p-5 mb-4 border-primary/30 bg-primary/5 scroll-mt-24">

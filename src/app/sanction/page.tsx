@@ -152,11 +152,15 @@ export default function SanctionPage() {
               )
             );
           } else if (event.type === 'done') {
+            // done 은 카드 교체 신호가 아니라 **설명 확정 신호**다.
+            // 2026-09-19 이전에는 여기서 comparison 을 통째로 덮어써서, 스트리밍 도중 보이던
+            // 사건이 응답 끝에 다른 사건으로 바뀌었다. 이제 서버가 보내는 카드는 meta 와 동일하지만,
+            // 비어 오는 경우(파싱 실패 등) 기존 카드를 지우지 않도록 여기서도 막는다.
             finalComparison = event.comparison ?? null;
             setMessages((prev) =>
               prev.map((m) =>
                 m.id === msgId
-                  ? { ...m, content: event.content || streamedContent, comparison: finalComparison, provider: event.provider }
+                  ? { ...m, content: event.content || streamedContent, comparison: finalComparison ?? m.comparison, provider: event.provider }
                   : m
               )
             );
@@ -333,7 +337,7 @@ export default function SanctionPage() {
                           <div className="space-y-3">
                             {msg.comparison.workerWinCases.length > 0 ? msg.comparison.workerWinCases.map((c) => (
                               renderComparisonCaseCard(c, 'worker')
-                            )) : <p className="text-xs text-muted-foreground">직접 비교 가능한 인용 사건이 아직 충분하지 않습니다.</p>}
+                            )) : <p className="text-xs text-muted-foreground">이번 검색 범위에서 직접 비교 가능한 사건을 확인하지 못했습니다.</p>}
                           </div>
                         </div>
 
@@ -345,7 +349,7 @@ export default function SanctionPage() {
                           <div className="space-y-3">
                             {msg.comparison.employerWinCases.length > 0 ? msg.comparison.employerWinCases.map((c) => (
                               renderComparisonCaseCard(c, 'employer')
-                            )) : <p className="text-xs text-muted-foreground">직접 비교 가능한 기각 사건이 아직 충분하지 않습니다.</p>}
+                            )) : <p className="text-xs text-muted-foreground">이번 검색 범위에서 직접 비교 가능한 사건을 확인하지 못했습니다.</p>}
                           </div>
                         </div>
                       </div>
