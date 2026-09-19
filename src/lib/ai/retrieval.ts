@@ -4,6 +4,7 @@ import { bucketDecisionResult } from '@/lib/ai/decision-bucket';
 import { rerankResults } from '@/lib/ai/reranker';
 import { rewriteQuery } from '@/lib/search/ai-query-rewriter';
 import { ALL_TAGS } from '@/lib/tags';
+import presetEmbeddings from '@/lib/ai/preset-embeddings.json';
 
 const OPENAI_EMBEDDING_URL = 'https://api.openai.com/v1/embeddings';
 const OPENAI_EMBEDDING_MODEL = 'text-embedding-3-small';
@@ -415,9 +416,23 @@ function cosineSimilarity(a: number[], b: number[]): number {
   return denom === 0 ? 0 : dot / denom;
 }
 
+/**
+ * 홈 「빠른 질문」 6개의 미리 구운 임베딩.
+ *
+ * ★ 2026-09-19. 서버리스는 요청마다 콜드라서 위 메모리 LRU 가 매번 비어 있다.
+ * 실측: OpenAI 임베딩 콜드 2428ms / 웜 182ms — 모델이 아니라 연결 설정 비용이다.
+ * 빠른 질문은 고정 문구이고 홈에서 가장 많이 눌리는 경로이므로 빌드 시점에 구워둔다.
+ * 문구를 고치면 `node scripts/build-preset-embeddings.mjs` 를 다시 돌릴 것
+ * (안 돌려도 동작은 한다 — 그냥 API 를 타게 될 뿐이다).
+ */
+const PRESET_EMBEDDINGS = (presetEmbeddings as { table: Record<string, number[]> }).table;
+
 async function createQueryEmbedding(query: string): Promise<number[] | null> {
   const trimmed = query.trim();
   if (!trimmed) return null;
+
+  const preset = PRESET_EMBEDDINGS[trimmed];
+  if (preset) return preset;
 
   const cached = embeddingCacheGet(trimmed);
   if (cached) return cached;

@@ -103,21 +103,6 @@ async function callLLM(
   throw new Error(`모든 LLM 실패: ${errors.join(' | ')}`);
 }
 
-interface StructuredAiCase {
-  title: string
-  result: string
-  key_point: string
-}
-
-interface StructuredAiResponse {
-  issue_summary: string
-  similar_cases: StructuredAiCase[]
-  core_differences: string[]
-  checklist: string[]
-  decision_guide: string[]
-  plain_text: string
-}
-
 function sanitizeAnalysis(text: string): string {
   const cleaned = text
     .replace(/([0-9]+(\.[0-9]+)?%\s*)(확률|가능성|점수)/gi, '$3')
@@ -131,64 +116,23 @@ function sanitizeAnalysis(text: string): string {
   return cleaned || text.trim();
 }
 
-function extractJsonPayload(text: string): string {
+/**
+ * 혹시 모델이 옛 형식대로 JSON 을 뱉으면 본문만 건져낸다.
+ *
+ * 2026-09-19 이전에는 JSON 스키마(issue_summary/similar_cases/…/plain_text)로 받았다.
+ * 지금은 산문만 받지만, 캐시된 프롬프트나 모델 변덕으로 JSON 이 올 수 있어 안전망을 남긴다.
+ * 잘린 JSON 에서도 plain_text 값만 정규식으로 살린다.
+ */
+function unwrapLegacyJson(text: string): string {
   const trimmed = text.trim();
-  if (trimmed.startsWith('{') && trimmed.endsWith('}')) return trimmed;
-
-  const fenced = trimmed.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
-  if (fenced?.[1]) return fenced[1].trim();
-
-  const firstBrace = trimmed.indexOf('{');
-  const lastBrace = trimmed.lastIndexOf('}');
-  if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
-    return trimmed.slice(firstBrace, lastBrace + 1).trim();
-  }
-
-  return trimmed;
-}
-
-function extractPlainTextFromJsonLike(text: string): string | null {
-  // truncated JSON에서도 "plain_text" 값만 정규식으로 살리기
-  const match = text.match(/"plain_text"\s*:\s*"((?:\\.|[^"\\])*)/);
-  if (!match) return null;
-  return match[1]
+  if (!trimmed.startsWith('{')) return text;
+  const m = trimmed.match(/"plain_text"\s*:\s*"((?:\\.|[^"\\])*)/);
+  if (!m) return text;
+  return m[1]
     .replace(/\\n/g, '\n')
     .replace(/\\t/g, '\t')
     .replace(/\\"/g, '"')
     .replace(/\\\\/g, '\\');
-}
-
-function parseStructuredAiResponse(text: string): StructuredAiResponse | null {
-  try {
-    const payload = JSON.parse(extractJsonPayload(text)) as Partial<StructuredAiResponse>;
-    if (
-      typeof payload.issue_summary !== 'string' ||
-      !Array.isArray(payload.similar_cases) ||
-      !Array.isArray(payload.core_differences) ||
-      !Array.isArray(payload.checklist) ||
-      !Array.isArray(payload.decision_guide) ||
-      typeof payload.plain_text !== 'string'
-    ) {
-      return null;
-    }
-
-    return {
-      issue_summary: payload.issue_summary.trim(),
-      similar_cases: payload.similar_cases
-        .filter((item): item is StructuredAiCase => !!item && typeof item.title === 'string' && typeof item.result === 'string' && typeof item.key_point === 'string')
-        .map((item) => ({
-          title: item.title.trim(),
-          result: item.result.trim(),
-          key_point: item.key_point.trim(),
-        })),
-      core_differences: payload.core_differences.filter((item): item is string => typeof item === 'string').map((item) => item.trim()).filter(Boolean),
-      checklist: payload.checklist.filter((item): item is string => typeof item === 'string').map((item) => item.trim()).filter(Boolean),
-      decision_guide: payload.decision_guide.filter((item): item is string => typeof item === 'string').map((item) => item.trim()).filter(Boolean),
-      plain_text: payload.plain_text.trim(),
-    };
-  } catch {
-    return null;
-  }
 }
 
 /**
@@ -410,9 +354,7 @@ export async function POST(req: NextRequest) {
               }
             }
 
-            const structured = parseStructuredAiResponse(fullText);
-            const fallbackPlain = extractPlainTextFromJsonLike(fullText) || fullText;
-            const analysis = sanitizeAnalysis(structured?.plain_text || fallbackPlain);
+            const analysis = sanitizeAnalysis(unwrapLegacyJson(fullText));
             // 카드·쟁점·차이·체크리스트는 모두 DB 산출물이다. LLM 이 바꾸지 않는다.
             const finalComparison = comparison;
             controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'done', content: analysis, comparison: finalComparison, provider })}\n\n`));
@@ -439,9 +381,7 @@ export async function POST(req: NextRequest) {
     const rawAnalysis = provider === 'anthropic'
       ? (data.content?.[0]?.text || '분석 결과를 생성할 수 없습니다.')
       : (data.choices?.[0]?.message?.content || '분석 결과를 생성할 수 없습니다.');
-    const structured = parseStructuredAiResponse(rawAnalysis);
-    const fallbackPlain = extractPlainTextFromJsonLike(rawAnalysis) || rawAnalysis;
-    const analysis = sanitizeAnalysis(structured?.plain_text || fallbackPlain);
+    const analysis = sanitizeAnalysis(unwrapLegacyJson(rawAnalysis));
     // 카드·쟁점·차이·체크리스트는 모두 DB 산출물이다. LLM 이 바꾸지 않는다.
     const finalComparison = comparison;
 
