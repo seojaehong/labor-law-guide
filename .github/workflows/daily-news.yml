@@ -17,7 +17,8 @@ jobs:
           python-version: '3.12'
 
       - name: Install dependencies
-        run: pip install supabase googlenewsdecoder
+        # 1.0.0(2026-09-20)에서 new_decoderv1 이 사라져 9/21부터 수집이 멈췄다. 코드가 0.1.x API 를 쓰므로 고정한다
+        run: pip install supabase googlenewsdecoder==0.1.7
 
       - name: Run daily news update
         env:
