@@ -187,30 +187,52 @@ export async function streamRound(
   try {
     // Build per-request model with systemInstruction (cannot set on cached model instance)
     const vertex = getGenerativeModel();
-    result = await vertex.generateContentStream({
-      contents,
-      // 챗 전용 상한. 클라이언트 기본값은 4096 인데 그건 /api/sanction 의 JSON 산출물
-      // 때문에 크게 잡혀 있다. 챗 본문은 350~500자를 목표로 하므로 그만큼 줄 필요가 없고,
-      // 상한이 크면 모델이 길게 쓰는 쪽으로 흐른다. 여기서만 낮춘다.
-      // 1200 토큰은 한글 500자에 넉넉한 값이라 정상 답변이 잘리지 않는다.
-      // thinkingBudget: 0 — gemini-2.5-flash 는 '생각'이 기본으로 켜져 있다.
-      // 그 생각 토큰은 응답에 안 나오지만 시간은 그대로 든다. 챗 답변은 검색으로 근거를
-      // 이미 붙여주므로 모델이 따로 추론할 여지가 크지 않은데, 비용은 다 물고 있었다.
-      //
-      // 2026-09-02 실측 근거: 답변 길이가 526자든 514자든 생성 시간이 9.5~9.9초로 거의
-      // 같다. 길이에 비례하지 않는 고정 비용이 있다는 뜻이고, 폴백(vertexFailMs=0)도
-      // 리전(둘 다 서울)도 아니었다. 남은 설명이 이것이다.
-      //
-      // SDK 1.10.0 의 GenerationConfig 타입에는 이 필드가 없다(2.5 이후 추가된 것).
-      // 객체는 그대로 직렬화되어 전달되므로 캐스팅으로 넣는다. 서버가 무시하면 현상 유지고,
-      // 거부하면 Anthropic 폴백으로 떨어지므로 provider 값으로 즉시 드러난다.
-      generationConfig: {
-        maxOutputTokens: 1200,
-        thinkingConfig: { thinkingBudget: 0 },
-      } as GenerationConfig,
-      ...(systemInstruction ? { systemInstruction } : {}),
-      ...(withTools ? { tools: toVertexTools() } : {}),
+    // ★ 2026-09-23: Vertex 첫 응답에 시간제한을 건다.
+    //
+    // 실측(프로덕션 5회 중앙값): vertexFailMs 7,212ms. 5회 전부 실패하고 그만큼을 버린 뒤
+    // Anthropic 으로 넘어갔다. 챗 전체가 18.5초인데 그중 7.2초가 「실패를 기다리는 시간」이었다.
+    // 왜 실패하는지는 아직 모른다(배포 로그가 안 잡힌다) — 그건 따로 잡는다.
+    // 원인을 몰라도 기다리는 시간은 줄일 수 있다. 어차피 폴백이 정상 동작하므로
+    // 빨리 포기할수록 사용자가 답을 빨리 본다.
+    //
+    // 제한을 넘기면 아래 catch 가 받아 Anthropic 으로 간다 — 실패했을 때와 같은 경로다.
+    // 스트림이 아직 시작되기 전이라 중복 출력 위험이 없다(첫 청크 이전만 폴백 대상).
+    // Vertex 가 살아나면 이 값을 늘리거나 VERTEX_TIMEOUT_MS 로 덮는다.
+    const timeoutMs = Number(process.env.VERTEX_TIMEOUT_MS) || 2000;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const timeout = new Promise<never>((_, reject) => {
+      timer = setTimeout(
+        () => reject(new Error(`vertex timeout ${timeoutMs}ms`)),
+        timeoutMs
+      );
     });
+    result = await Promise.race([
+      vertex.generateContentStream({
+        contents,
+        // 챗 전용 상한. 클라이언트 기본값은 4096 인데 그건 /api/sanction 의 JSON 산출물
+        // 때문에 크게 잡혀 있다. 챗 본문은 350~500자를 목표로 하므로 그만큼 줄 필요가 없고,
+        // 상한이 크면 모델이 길게 쓰는 쪽으로 흐른다. 여기서만 낮춘다.
+        // 1200 토큰은 한글 500자에 넉넉한 값이라 정상 답변이 잘리지 않는다.
+        // thinkingBudget: 0 — gemini-2.5-flash 는 '생각'이 기본으로 켜져 있다.
+        // 그 생각 토큰은 응답에 안 나오지만 시간은 그대로 든다. 챗 답변은 검색으로 근거를
+        // 이미 붙여주므로 모델이 따로 추론할 여지가 크지 않은데, 비용은 다 물고 있었다.
+        //
+        // 2026-09-02 실측 근거: 답변 길이가 526자든 514자든 생성 시간이 9.5~9.9초로 거의
+        // 같다. 길이에 비례하지 않는 고정 비용이 있다는 뜻이고, 폴백(vertexFailMs=0)도
+        // 리전(둘 다 서울)도 아니었다. 남은 설명이 이것이다.
+        //
+        // SDK 1.10.0 의 GenerationConfig 타입에는 이 필드가 없다(2.5 이후 추가된 것).
+        // 객체는 그대로 직렬화되어 전달되므로 캐스팅으로 넣는다. 서버가 무시하면 현상 유지고,
+        // 거부하면 Anthropic 폴백으로 떨어지므로 provider 값으로 즉시 드러난다.
+        generationConfig: {
+          maxOutputTokens: 1200,
+          thinkingConfig: { thinkingBudget: 0 },
+        } as GenerationConfig,
+        ...(systemInstruction ? { systemInstruction } : {}),
+        ...(withTools ? { tools: toVertexTools() } : {}),
+      }),
+      timeout,
+    ]).finally(() => clearTimeout(timer));
   } catch (err) {
     if (!isAnthropicConfigured()) throw err;
     lastRoundInfo.provider = 'anthropic(vertex-failed)';
