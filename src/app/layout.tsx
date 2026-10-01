@@ -54,7 +54,16 @@ export const metadata: Metadata = {
   verification: {
     google: 'LBQPkEpc1Dd33Z69iOtHpXKmdIyaR1yFmyDpS0StKhM',
     other: {
-      'naver-site-verification': '9d48c445a2470f46da348a2399fb24fbb041ee03',
+      // 네이버는 **속성마다 다른 토큰**을 준다. 배열로 주면 메타가 두 개 렌더된다.
+      //   9d48c445… = 기존 www 속성 (지우면 그쪽 확인이 깨진다)
+      //   43d700b6… = non-www 속성 (2026-10-01 신설)
+      // 네이버가 색인해 결과에 띄우는 URL 은 전부 non-www 인데 등록된 속성은 www 뿐이었다.
+      // 그래서 사이트맵을 www 에 제출해도 안쪽 1,089개가 전부 non-www 라
+      // 「피드 내 모든 URL 은 소유확인된 사이트와 동일 도메인」 조건에 걸린다.
+      'naver-site-verification': [
+        '9d48c445a2470f46da348a2399fb24fbb041ee03',
+        '43d700b6ebbfd8bafd3f24c7b675e0e561a881d9',
+      ],
     },
   },
   other: {
