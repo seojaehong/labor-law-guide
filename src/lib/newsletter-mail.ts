@@ -31,6 +31,26 @@ function getResend() {
   return new Resend(key);
 }
 
+/** Resend 응답의 error 를 예외로 바꾼다.
+ *
+ * ★ 2026-10-02 — SDK(6.9.3)는 API 가 4xx/5xx 를 줘도 **던지지 않는다.**
+ *   dist 에서 확인: `if (!response.ok) ... return { data: null, error: JSON.parse(rawError) }`.
+ *   던지는 경우는 API 키 누락과 React 렌더 실패뿐이다.
+ *   그래서 호출부가 try/catch 만 두면 **거절된 메일도 성공으로 센다.**
+ *   send-daily 가 매일 「성공 13 · 실패 0」을 찍고 있었지만 그 숫자는 아무것도 증명하지 못했다.
+ *
+ *   ⚠ 이걸 통과해도 「보냈다」까지다. **받았는지·열었는지는 여전히 모른다** —
+ *   delivered/opened 는 Resend 웹훅으로만 오고 우리는 아직 그 경로가 없다.
+ */
+async function sendOrThrow<T extends { error: unknown }>(p: Promise<T>): Promise<T> {
+  const result = await p;
+  if (result.error) {
+    const e = result.error as { name?: string; message?: string };
+    throw new Error(`Resend 거절: ${e.name || 'unknown'} — ${e.message || JSON.stringify(result.error)}`);
+  }
+  return result;
+}
+
 const baseStyle = `
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
   color: #1f2937;
@@ -86,13 +106,16 @@ export async function sendConfirmEmail(opts: {
     </div>
   `;
   const resend = getResend();
-  return resend.emails.send({
+  // Resend SDK 는 4xx/5xx 에 던지지 않고 { data:null, error } 를 돌려준다(6.9.3 dist 확인).
+  // 그대로 return 하면 호출부의 try/catch 가 실패를 못 잡는다 — 확인메일이 조용히 실패하면
+  // 구독자가 확인 링크를 못 받고 pending 에 영영 남는다.
+  return sendOrThrow(resend.emails.send({
     from: FROM,
     replyTo: REPLY_TO,
     to: opts.to,
     subject: '[노동법 위클리] 구독 확인 — 한 번만 클릭해주세요',
     html,
-  });
+  }));
 }
 
 export async function sendWelcomeEmail(opts: {
@@ -126,14 +149,17 @@ export async function sendWelcomeEmail(opts: {
     </div>
   `;
   const resend = getResend();
-  return resend.emails.send({
+  // Resend SDK 는 4xx/5xx 에 던지지 않고 { data:null, error } 를 돌려준다(6.9.3 dist 확인).
+  // 그대로 return 하면 호출부의 try/catch 가 실패를 못 잡는다 — 확인메일이 조용히 실패하면
+  // 구독자가 확인 링크를 못 받고 pending 에 영영 남는다.
+  return sendOrThrow(resend.emails.send({
     from: FROM,
     replyTo: REPLY_TO,
     to: opts.to,
     subject: '[노동법 위클리] 구독 시작! 첫 인사이트 보내드릴게요',
     html,
     headers: listUnsubscribeHeaders(opts.unsubscribeToken),
-  });
+  }));
 }
 
 // 데일리 브리핑 발송 — 매일 KST 09:00 cron
@@ -242,7 +268,13 @@ export async function sendDailyNewsletter(opts: {
 </div>`;
 
   const resend = getResend();
-  return resend.emails.send({
+  // ★ 2026-10-02 — Resend SDK(6.9.3)는 API 가 4xx/5xx 를 줘도 **던지지 않는다.**
+  //   dist 확인: `if (!response.ok) ... return { data: null, error: JSON.parse(rawError) }`
+  //   던지는 경우는 API 키 누락과 React 렌더 실패뿐이다.
+  //   그래서 호출부가 try/catch 만 두면 **거절된 메일도 성공으로 센다.**
+  //   실제로 send-daily 가 매일 「성공 13 · 실패 0」을 찍고 있었는데 그 숫자는 아무것도
+  //   증명하지 못했다. error 를 보고 직접 던진다.
+  const result = await resend.emails.send({
     from: FROM,
     replyTo: REPLY_TO,
     to: opts.to,
@@ -250,4 +282,9 @@ export async function sendDailyNewsletter(opts: {
     html,
     headers: listUnsubscribeHeaders(opts.unsubscribeToken),
   });
+  if (result.error) {
+    const e = result.error as { name?: string; message?: string };
+    throw new Error(`Resend 거절: ${e.name || 'unknown'} — ${e.message || JSON.stringify(result.error)}`);
+  }
+  return result;
 }
