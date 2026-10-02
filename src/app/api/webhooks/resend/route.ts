@@ -118,5 +118,42 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'insert failed' }, { status: 500 });
   }
 
+  // ── 영구 반송이면 발송에서 뺀다 ────────────────────────────────
+  // 2026-10-02 재홍님 승인. 죽은 주소에 계속 보내면 발신 도메인 평판이 깎인다 —
+  // Resend 가 반송 페이로드에 그렇게 적어 보낸다("can have a negative impact").
+  //
+  // **Permanent 만 끊는다.** Transient(일시적 거부, 메일함 꽉 참 등)는 다음에 들어갈 수 있으므로
+  // 건드리지 않는다. 사람을 구독에서 빼는 일이라 보수적으로 간다.
+  if (body.type === 'email.bounced' && subscriberId) {
+    const bounce = (d.bounce || {}) as { type?: string; message?: string };
+    const permanent = bounce.type === 'Permanent';
+
+    // bounce_count 는 종전까지 아무도 갱신하지 않아 전 건 0 인 죽은 컬럼이었다. 여기서 살린다.
+    // PostgREST 는 col = col + 1 을 못 하므로 읽고 쓴다. 구독자당 반송이 동시에 여러 건
+    // 들어올 일이 없는 규모라 경합은 무시한다.
+    const { data: cur } = await supabaseAdmin
+      .from('subscribers')
+      .select('bounce_count, status')
+      .eq('id', subscriberId)
+      .maybeSingle();
+
+    const patch: Record<string, unknown> = { bounce_count: (cur?.bounce_count ?? 0) + 1 };
+    // 이미 해지한 사람을 bounced 로 덮지 않는다 — 해지 기록이 정통망법 증빙이다.
+    if (permanent && cur?.status === 'confirmed') patch.status = 'bounced';
+
+    const { error: upErr } = await supabaseAdmin
+      .from('subscribers')
+      .update(patch)
+      .eq('id', subscriberId);
+
+    if (upErr) {
+      // 이벤트 적재는 이미 끝났다. 여기서 500 을 돌리면 Svix 가 재전송해 중복 집계가 된다.
+      // 그래서 200 으로 닫고 로그만 남긴다 — 사람이 보고 고치는 쪽이 낫다.
+      console.error('[resend-webhook] 구독자 갱신 실패', subscriberId, upErr);
+    } else if (patch.status) {
+      console.warn(`[resend-webhook] 영구 반송으로 발송 제외: ${email} (${bounce.message || ''})`);
+    }
+  }
+
   return NextResponse.json({ ok: true, type: body.type });
 }
