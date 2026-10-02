@@ -155,5 +155,31 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  // ── 스팸 신고는 해지로 본다 ──────────────────────────────────
+  // 2026-10-02 재홍님 승인. 반송보다 강한 신호다 — 사람이 직접 「이건 스팸」이라고 누른 것이고,
+  // 계속 보내면 발신 도메인 평판이 반송보다 더 빨리 깎인다.
+  // 정통망법 쪽으로도 수신거부 의사표시로 보는 게 안전하다. 그래서 bounced 가 아니라
+  // **unsubscribed** 로 둔다 — 「받을 수 없는 주소」가 아니라 「받기 싫다고 한 사람」이다.
+  if (body.type === 'email.complained' && subscriberId) {
+    const { data: cur } = await supabaseAdmin
+      .from('subscribers')
+      .select('status')
+      .eq('id', subscriberId)
+      .maybeSingle();
+
+    // 이미 해지했거나 반송으로 끊긴 사람은 그대로 둔다. 먼저 찍힌 사유를 덮지 않는다.
+    if (cur?.status === 'confirmed' || cur?.status === 'pending') {
+      const { error: upErr } = await supabaseAdmin
+        .from('subscribers')
+        .update({ status: 'unsubscribed', unsubscribed_at: new Date().toISOString() })
+        .eq('id', subscriberId);
+      if (upErr) console.error('[resend-webhook] 신고 해지 처리 실패', subscriberId, upErr);
+      else console.warn(`[resend-webhook] 스팸 신고로 해지 처리: ${email}`);
+    }
+  }
+
+  // email.delivery_delayed 는 적재만 한다. 지연은 아직 실패가 아니고, 대개 뒤이어
+  // delivered 나 bounced 가 온다. 여기서 손대면 멀쩡한 구독자를 끊게 된다.
+
   return NextResponse.json({ ok: true, type: body.type });
 }
