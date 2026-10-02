@@ -1,10 +1,11 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { unstable_cache } from "next/cache";
-import { supabase } from "@/lib/supabase";
+import { countByReason, getRecent, runSearch, getCategory } from "@/lib/decisions-data";
+import { parse, tabHref, pageHref, categoryHref, type Search } from "@/lib/decisions-query";
 import { REASON_LABELS, type ReasonCategory } from "@/lib/types";
 import { SITE_URL } from "@/lib/constants";
-import { ResultRow, realCaseNumber, headline, reasonLabel, type Row, type Kind } from "./SearchResults";
+import { ResultRow, realCaseNumber, headline, reasonLabel, type Kind } from "./SearchResults";
 
 // /decisions 상세는 48,000페이지가 있는데 목록(허브) 페이지가 아예 없었다.
 // 라우트가 [id] 뿐이라 /decisions 자체가 404 + noindex 였고(2026-08-31 라이브 확인),
@@ -16,7 +17,6 @@ import { ResultRow, realCaseNumber, headline, reasonLabel, type Row, type Kind }
 export const dynamic = "force-dynamic";
 
 const REASON_KEYS = Object.keys(REASON_LABELS) as ReasonCategory[];
-const PAGE_SIZE = 20;
 
 const TABS: { key: Kind; label: string }[] = [
   { key: "nlrc", label: "노동위 판정례" },
@@ -24,24 +24,10 @@ const TABS: { key: Kind; label: string }[] = [
   { key: "admin", label: "행정해석" },
 ];
 
-type Search = { q?: string; type?: string; tab?: string; page?: string };
-
-// 2026-09-12 — tab 은 /database 시절의 이름이다. 상세 페이지 3곳과 그때 색인된 주소가
-// 아직 /database?tab=admin 으로 들어오는데, next.config 리다이렉트가 질의 문자열을
-// 그대로 넘겨 주므로 여기서 받지 않으면 행정해석을 눌러도 노동위 결과가 나온다(실측 확인).
-function parse(sp: Search) {
-  const q = (sp.q || "").trim().slice(0, 60);
-  // tab=cases 는 옛 /database 의 기본 탭(법원 판례)이다 — 새 이름은 court 다.
-  const kind = sp.type || (sp.tab === "cases" ? "court" : sp.tab);
-  const type: Kind = kind === "court" ? "court" : kind === "admin" ? "admin" : "nlrc";
-  const page = Math.max(1, parseInt(sp.page || "1", 10) || 1);
-  return { q, type, page };
-}
-
 export async function generateMetadata(
   { searchParams }: { searchParams: Promise<Search> }
 ): Promise<Metadata> {
-  const { q } = parse(await searchParams);
+  const { q, reasonProvided } = parse(await searchParams);
   // 검색 결과는 색인시키지 않는다 — 같은 사건이 질의마다 다른 주소로 중복된다.
   return {
     title: q
@@ -50,7 +36,7 @@ export async function generateMetadata(
     description:
       "부당해고 구제신청, 징계, 전보, 갱신기대권 등 노동위원회 판정례와 법원 판례, 행정해석을 한곳에서 찾습니다. 사건번호·쟁점·판정결과로 유사 사례를 비교해 보세요.",
     alternates: { canonical: `${SITE_URL}/decisions` },
-    robots: q ? { index: false, follow: true } : { index: true, follow: true },
+    robots: q || reasonProvided ? { index: false, follow: true } : { index: true, follow: true },
     openGraph: {
       title: "노동위 판정례·법원 판례 검색",
       description: "해고·징계 사건 6만건과 행정해석을 한곳에서.",
@@ -62,116 +48,10 @@ export async function generateMetadata(
   };
 }
 
-// ── 허브(질의가 없을 때) ────────────────────────────────────────────
-type Recent = {
-  id: string;
-  title: string | null;
-  case_number: string | null;
-  case_number_real: string | null;
-  case_number_qualified: string | null;
-  key_issue: string | null;
-  decision_date: string | null;
-  decision_result: string | null;
-  reason_category: string[] | null;
-};
-
-async function countByReason(reason: ReasonCategory): Promise<number> {
-  const { count } = await supabase
-    .from("nlrc_decisions")
-    .select("id", { count: "exact", head: true })
-    .contains("reason_category", [reason])
-    .not("is_non_labor", "is", true);
-  return count ?? 0;
-}
-
-async function getRecent(): Promise<Recent[]> {
-  const { data } = await supabase
-    .from("nlrc_decisions")
-    // 2026-09-02 복구로 실제 번호가 들어왔다. 마스킹된 case_number 만 보면 72%가 빈칸이 된다.
-    .select("id, title, case_number, case_number_real, case_number_qualified, key_issue, decision_date, decision_result, reason_category")
-    .not("is_non_labor", "is", true)
-    .gte("confidence_level", 0.8)
-    .not("decision_date", "is", null)
-    .order("decision_date", { ascending: false })
-    .limit(30);
-  return (data as Recent[]) || [];
-}
-
-// ── 검색 ────────────────────────────────────────────────────────────
-/** 세 표의 전문검색 RPC. 브라우저에서 부르던 것을 서버로 옮겼다. */
-async function runSearch(q: string, type: Kind, page: number): Promise<{ rows: Row[]; hasMore: boolean }> {
-  const offset = (page - 1) * PAGE_SIZE;
-  // RPC 에 넣기 전에 구문 문자를 턴다. 없애도 전문검색 결과는 달라지지 않는다.
-  const safe = q.replace(/[%_\\'"();]/g, " ").trim();
-  if (safe.length < 2) return { rows: [], hasMore: false };
-
-  const fn = type === "court" ? "search_cases" : type === "admin" ? "search_admin" : "search_nlrc";
-  const { data, error } = await supabase.rpc(fn, {
-    query: safe,
-    result_limit: PAGE_SIZE + 1,
-    page_offset: offset,
-  });
-  if (error) {
-    console.error(`${fn} 실패:`, error.message);
-    return { rows: [], hasMore: false };
-  }
-
-  const raw = (data || []) as Record<string, unknown>[];
-  const hasMore = raw.length > PAGE_SIZE;
-  const rows: Row[] = raw.slice(0, PAGE_SIZE).map((r) => {
-    const id = String(r.id ?? "");
-    if (type === "admin") {
-      return {
-        kind: "admin" as const,
-        href: `/interpretations/${encodeURIComponent(id)}`,
-        title: headline(null, (r.title as string) ?? null, "행정해석"),
-        caseNumber: (r.doc_number as string) || null,
-        date: (r.decision_date as string) || null,
-        tag: null,
-        result: null,
-      };
-    }
-    if (type === "court") {
-      return {
-        kind: "court" as const,
-        href: `/cases/${encodeURIComponent(id)}`,
-        title: headline(null, (r.title as string) ?? null, "판례"),
-        caseNumber: (r.case_number as string) || null,
-        date: (r.decision_date as string) || null,
-        tag: (r.court as string) || null,
-        result: null,
-      };
-    }
-    return {
-      kind: "nlrc" as const,
-      href: `/decisions/${encodeURIComponent(id)}`,
-      title: headline((r.key_issue as string) ?? null, (r.title as string) ?? null, "판정례", 120),
-      caseNumber: realCaseNumber(r.case_number as string),
-      date: (r.decision_date as string) || null,
-      tag: reasonLabel((r.reason_category as string[]) ?? null),
-      result: (r.decision_result as string) || null,
-    };
-  });
-  return { rows, hasMore };
-}
-
-function tabHref(q: string, type: Kind) {
-  const sp = new URLSearchParams({ q });
-  if (type !== "nlrc") sp.set("type", type);
-  return `/decisions?${sp.toString()}`;
-}
-
-function pageHref(q: string, type: Kind, page: number) {
-  const sp = new URLSearchParams({ q });
-  if (type !== "nlrc") sp.set("type", type);
-  if (page > 1) sp.set("page", String(page));
-  return `/decisions?${sp.toString()}`;
-}
-
 export default async function DecisionsIndexPage(
   { searchParams }: { searchParams: Promise<Search> }
 ) {
-  const { q, type, page } = parse(await searchParams);
+  const { q, type, page, reason, reasonProvided, invalidCombination } = parse(await searchParams);
 
   const jsonLd = {
     "@context": "https://schema.org",
@@ -197,15 +77,16 @@ export default async function DecisionsIndexPage(
       </p>
 
       {/* 자바스크립트 없이 동작하는 GET 폼 — 검색 결과도 서버가 그린다 */}
+      {reasonProvided ? <p className="mb-2 text-sm">전체 자료에서 검색</p> : null}
       <form action="/decisions" method="get" className="mb-6 flex gap-2">
-        {type !== "nlrc" ? <input type="hidden" name="type" value={type} /> : null}
+        {!reasonProvided && type !== "nlrc" ? <input type="hidden" name="type" value={type} /> : null}
         <input
           type="search"
           name="q"
           defaultValue={q}
           placeholder="쟁점, 사건번호로 검색 (예: 징계 절차, 경남2025부해9127)"
           aria-label="판정례 검색"
-          className="flex-1 rounded-xl border px-4 py-2.5 text-[14px] outline-none focus-visible:outline-2 focus-visible:outline-[var(--color-accent)] focus-visible:outline-offset-2"
+          className="min-w-0 flex-1 rounded-xl border px-4 py-2.5 text-[14px] outline-none focus-visible:outline-2 focus-visible:outline-[var(--color-accent)] focus-visible:outline-offset-2"
           style={{ borderColor: "var(--color-border)", backgroundColor: "var(--color-bg-surface)" }}
         />
         <button
@@ -217,13 +98,24 @@ export default async function DecisionsIndexPage(
         </button>
       </form>
 
-      {q ? <SearchView q={q} type={type} page={page} /> : <HubView />}
+      {reasonProvided && !reason ? (
+        <div><p>지원하지 않는 유형입니다.</p><Link href="/decisions">유형 목록으로</Link></div>
+      ) : invalidCombination && reason ? (
+        <div>
+          <p>유형과 키워드 또는 다른 자료 종류를 함께 지정할 수 없습니다.</p>
+          <Link href={categoryHref(reason)}>해당 유형 보기</Link>{" · "}
+          <Link href={tabHref(q, type)}>전체 자료 검색</Link>
+        </div>
+      ) : reason ? <CategoryView reason={reason} page={page} />
+        : q ? <SearchView q={q} type={type} page={page} /> : <HubView />}
     </main>
   );
 }
 
 async function SearchView({ q, type, page }: { q: string; type: Kind; page: number }) {
-  const { rows, hasMore } = await runSearch(q, type, page);
+  const result = await runSearch(q, type, page);
+  if (!result.ok) return <LoadError href={pageHref(q, type, page)} />;
+  const { rows, hasMore } = result;
 
   return (
     <>
@@ -280,12 +172,18 @@ const getHubData = unstable_cache(
     ]);
     return { counts, recent };
   },
-  ["decisions-hub-v1"],
+  ["decisions-hub-v2"],
   { revalidate: 21600 }
 );
 
 async function HubView() {
-  const { counts, recent } = await getHubData();
+  let hub;
+  try {
+    hub = await getHubData();
+  } catch {
+    return <LoadError href="/decisions" message="유형 집계와 최근 판정례를 불러오지 못했습니다." />;
+  }
+  const { counts, recent } = hub;
   const visible = counts.filter((c) => c.count > 0).sort((a, b) => b.count - a.count);
   const total = visible.reduce((s, c) => s + c.count, 0);
 
@@ -297,7 +195,7 @@ async function HubView() {
           {visible.map(({ reason, count }) => (
             <Link
               key={reason}
-              href={`/decisions?q=${encodeURIComponent(REASON_LABELS[reason])}`}
+              href={categoryHref(reason)}
               className="block rounded-lg border p-4 transition-colors hover:bg-muted/50"
               style={{ borderColor: "var(--color-border)" }}
             >
@@ -337,4 +235,29 @@ async function HubView() {
       </section>
     </>
   );
+}
+
+function LoadError({ href, message = "판정례를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요." }: { href: string; message?: string }) {
+  return <div className="py-10 text-sm" style={{ color: "var(--grey-700)" }}>
+    <p role="status">{message}</p>
+    <a href={href} className="mt-3 inline-block underline" style={{ color: "var(--color-accent-ink)" }}>다시 시도</a>
+  </div>;
+}
+
+async function CategoryView({ reason, page }: { reason: ReasonCategory; page: number }) {
+  const result = await getCategory(reason, page);
+  return <section>
+    <Link href="/decisions" className="text-sm underline" style={{ color: "var(--color-accent-ink)" }}>유형 목록으로</Link>
+    <h2 className="my-4 text-lg font-semibold">{REASON_LABELS[reason]} 유형별 노동위 판정례</h2>
+    {!result.ok ? <LoadError href={categoryHref(reason, page)} /> : <>
+      {result.rows.length ? <ul className="border-t" style={{ borderColor: "var(--color-border)" }}>
+        {result.rows.map((r) => <ResultRow key={r.href} row={r} />)}
+      </ul> : <p className="py-10 text-sm">{page > 1 ? "이 페이지에 결과가 없습니다." : "이 유형에 등록된 판정례가 없습니다."}</p>}
+      {(page > 1 || result.hasMore) && <nav aria-label="유형별 판정례 페이지" className="mt-8 flex flex-wrap items-center justify-center gap-4 text-sm">
+        {page > 1 && <><Link href={categoryHref(reason)}>첫 페이지</Link><Link href={categoryHref(reason, page - 1)}>← 이전</Link></>}
+        <span>{page} 페이지</span>
+        {result.hasMore && <Link href={categoryHref(reason, page + 1)}>다음 →</Link>}
+      </nav>}
+    </>}
+  </section>;
 }
