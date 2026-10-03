@@ -46,11 +46,6 @@ const nextConfig: NextConfig = {
           { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
         ],
       },
-      // PREVIEW ONLY: synthetic same-origin QA frames. Remove with public/__layout-review before production.
-      {
-        source: '/__layout-review/:path*',
-        headers: [{ key: 'X-Frame-Options', value: 'SAMEORIGIN' }],
-      },
       {
         source: '/api-catalog',
         headers: [{ key: 'Content-Type', value: 'application/json; charset=utf-8' }],
