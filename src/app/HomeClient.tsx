@@ -201,7 +201,7 @@ export default function HomeClient({ totalCases, totalAdmin, totalNews, latestBl
       </section>
 
       <section className="px-5 pb-16 sm:pb-20">
-        <div className="mx-auto grid max-w-[1100px] gap-4 sm:gap-6 sm:grid-cols-2 md:grid-cols-3">
+        <div className="mx-auto grid max-w-[var(--layout-list-max)] gap-4 sm:gap-6 sm:grid-cols-2 md:grid-cols-3">
           {features.map((feature) => (
             <Link key={feature.title} href={feature.href} className="feature-card block rounded-xl border bg-[var(--color-bg-surface)] p-5 sm:p-7" style={{ borderColor: 'var(--color-border)', boxShadow: 'var(--shadow-sm)' }}>
               <div
@@ -222,7 +222,7 @@ export default function HomeClient({ totalCases, totalAdmin, totalNews, latestBl
 
       {/* 부가 도구 — 노란봉투법 외 */}
       <section className="px-5 pb-16 sm:pb-20">
-        <div className="mx-auto max-w-[1100px]">
+        <div className="mx-auto max-w-[var(--layout-list-max)]">
           <div className="mb-6 text-center">
             <p className="text-[13px] font-semibold tracking-widest uppercase mb-2" style={{ color: 'var(--color-accent)' }}>MORE TOOLS</p>
             <h2 className="t-h3 tracking-tight" style={{ color: 'var(--color-text-primary)' }}>
@@ -255,7 +255,7 @@ export default function HomeClient({ totalCases, totalAdmin, totalNews, latestBl
       {/* 최신 딥다이브 */}
       {latestBlogArticles.length > 0 && (
         <section className="px-5 pb-16 sm:pb-20">
-          <div className="mx-auto max-w-[1100px]">
+          <div className="mx-auto max-w-[var(--layout-list-max)]">
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center gap-2">
                 <BookOpen size={22} style={{ color: 'var(--color-accent)' }} />
@@ -308,8 +308,8 @@ export default function HomeClient({ totalCases, totalAdmin, totalNews, latestBl
       )}
 
       <section className="px-5 pb-16 sm:pb-20">
-        <div className="mx-auto max-w-[1100px] rounded-xl border p-5 sm:p-8 md:p-10" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)', boxShadow: 'var(--shadow-sm)' }}>
-          <div className="max-w-[760px]">
+        <div className="mx-auto max-w-[var(--layout-list-max)] rounded-xl border p-5 sm:p-8 md:p-10" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)', boxShadow: 'var(--shadow-sm)' }}>
+          <div className="max-w-[var(--layout-intro-max)]">
             <p className="text-sm font-medium" style={{ color: 'var(--color-accent)' }}>자주 묻는 질문</p>
             <h2 className="t-h3 mt-2 tracking-tight" style={{ color: 'var(--color-text-primary)' }}>
               노란봉투법, 원청 사용자성, 하청 교섭요구 대응에서 많이 묻는 핵심 질문
@@ -348,7 +348,7 @@ export default function HomeClient({ totalCases, totalAdmin, totalNews, latestBl
       </section>
 
       <section className="px-5 pb-16 sm:pb-20">
-        <div className="mx-auto max-w-[820px] rounded-xl border p-6 sm:p-8 text-center" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)', boxShadow: 'var(--shadow-md)' }}>
+        <div className="mx-auto max-w-[var(--layout-compact-max)] rounded-xl border p-6 sm:p-8 text-center" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)', boxShadow: 'var(--shadow-md)' }}>
           <MessageSquare size={32} className="mx-auto mb-4" style={{ color: 'var(--color-accent)' }} />
           <h2 className="t-h3 mb-2" style={{ color: 'var(--color-text-primary)' }}>AI에게 노동법 질문하기</h2>
           <p className="mb-6 text-sm" style={{ color: 'var(--color-text-secondary)' }}>
@@ -364,7 +364,7 @@ export default function HomeClient({ totalCases, totalAdmin, totalNews, latestBl
       </section>
 
       <section className="px-5 pb-16 sm:pb-20">
-        <div className="mx-auto max-w-[820px] rounded-xl p-6 sm:p-8 text-center" style={{ backgroundColor: 'var(--grey-900)' }}>
+        <div className="mx-auto max-w-[var(--layout-compact-max)] rounded-xl p-6 sm:p-8 text-center" style={{ backgroundColor: 'var(--grey-900)' }}>
           <h2 className="t-h4 mb-3" style={{ color: 'var(--grey-100)' }}>노란봉투법 실무 자문이 필요하면 바로 상담하세요</h2>
           <p className="mb-3 text-sm" style={{ color: 'var(--band-ink-muted)' }}>
             원청 사용자성 판단, 하청 노조 교섭요구 대응, 노동위원회 절차, 부당노동행위 리스크 점검까지 노무법인 위너스가 직접 봅니다.
@@ -384,7 +384,7 @@ export default function HomeClient({ totalCases, totalAdmin, totalNews, latestBl
 
       {/* 뉴스레터 구독 폼 — 홈 하단 인지 노출 */}
       <section className="px-5 pb-16 sm:pb-20">
-        <div className="mx-auto max-w-[820px]">
+        <div className="mx-auto max-w-[var(--layout-compact-max)]">
           <SubscribeForm source="home-bottom" />
         </div>
       </section>

@@ -21,7 +21,7 @@ export const metadata: Metadata = {
 
 export default function ContractCheckPage() {
   return (
-    <div className="mx-auto max-w-[820px] px-5 py-10">
+    <div className="layout-tool layout-tool--compact">
       <div className="mb-6">
         <Link href="/tools" className="text-sm text-[var(--grey-700)] hover:text-[var(--color-text-primary)]">
           ← 노무 계산기

@@ -182,10 +182,10 @@ export default async function CaseDetailPage({
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
 
-      <div className="mx-auto max-w-[820px] px-5 py-10">
-        <div className="lg:grid lg:grid-cols-[1fr_280px] lg:gap-10">
+      <div className="layout-reading layout-reading--with-rail">
+        <div className="reading-layout">
           {/* Main Content */}
-          <article>
+          <article className="reading-main">
             {/* Back link */}
             <Link
               href="/decisions"
@@ -252,7 +252,7 @@ export default async function CaseDetailPage({
                     color: 'var(--color-text-secondary)',
                   }}
                 >
-                  <MarkdownSnippet value={summary} />
+                  <MarkdownSnippet variant="reading" value={summary} />
                 </div>
               </section>
             )}
@@ -267,7 +267,7 @@ export default async function CaseDetailPage({
                   className="rounded-xl border p-5 text-[14px] leading-7"
                   style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-secondary)' }}
                 >
-                  <MarkdownSnippet value={detail} />
+                  <MarkdownSnippet variant="reading" value={detail} />
                 </div>
               </section>
             )}
@@ -382,8 +382,8 @@ export default async function CaseDetailPage({
           </article>
 
           {/* Sidebar */}
-          <aside className="hidden lg:block">
-            <div className="sticky top-24 space-y-6">
+          <aside className="reading-sidebar">
+            <div className="reading-sidebar-content space-y-6">
               {/* Case Info Card */}
               <div
                 className="rounded-xl border p-5"

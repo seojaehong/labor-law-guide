@@ -60,15 +60,15 @@ export default function SubsidyPage() {
   return (
     <>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(subsidyJsonLd) }} />
-      <div className="mx-auto max-w-[820px] px-5 py-10">
+      <div className="layout-tool">
         <h1 className="t-h2 mb-2" style={{ color: 'var(--color-text-primary)' }}>
           고용지원금 가이드
         </h1>
-        <p className="mb-10 max-w-[760px] text-sm leading-6" style={{ color: 'var(--grey-500)' }}>
+        <p className="mb-10 max-w-[var(--reading-measure)] text-sm leading-6" style={{ color: 'var(--grey-500)' }}>
           우리 사업장에서 받을 수 있는 고용지원금을 한눈에 확인하고, 노무사에게 신청 절차까지 맡기세요.
         </p>
 
-        <div className="grid gap-10 lg:grid-cols-[1fr_320px]">
+        <div className="tool-layout">
           <div className="space-y-8">
             <section className="rounded-xl border p-6" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }}>
               <h2 className="t-h4 mb-4" style={{ color: 'var(--color-text-primary)' }}>주요 지원금 한눈에 보기</h2>

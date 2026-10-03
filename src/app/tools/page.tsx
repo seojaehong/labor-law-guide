@@ -54,7 +54,7 @@ const tools: ToolItem[] = [
 
 export default function ToolsIndexPage() {
   return (
-    <div className="mx-auto max-w-[1100px] px-5 py-10">
+    <div className="layout-list">
       <h1 className="t-h2 mb-2" style={{ color: 'var(--color-text-primary)' }}>
         노무 계산기
       </h1>
