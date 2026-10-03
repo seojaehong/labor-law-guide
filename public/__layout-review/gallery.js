@@ -4,6 +4,9 @@ const $ = id => document.getElementById(id);
 const controls = ['route', 'width', 'theme', 'version', 'textsize'].map($);
 const frames = ['before', 'after'].map($);
 let manifest, latest, sequence = 0, busy = false;
+// One normal cache-fresh navigation per failed static asset after the approved header revision.
+const failedFrameUrls = new Set();
+const frameHeaderRevision = '5a8a115';
 const settle = () => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
 
 function measureDocument(frame, route) {
@@ -65,12 +68,28 @@ function measureDocument(frame, route) {
 async function loadFrame(frame, route, width, theme, textsize) {
   frame.width = width;
   frame.height = 1000;
-  const desired = new URL(`${frame.id}/${route.file}`, location.href).href;
-  if (frame.src !== desired) await new Promise((resolve, reject) => {
-    frame.onload = resolve; frame.onerror = reject; frame.src = desired;
+  const asset = new URL(`${frame.id}/${route.file}`, location.href);
+  if (asset.origin !== location.origin) throw new Error('Snapshot must remain same-origin');
+  const key = asset.href;
+  const freshUrl = () => {
+    const url = new URL(key);
+    url.searchParams.set('__qa_header_revision', frameHeaderRevision);
+    return url.href;
+  };
+  const navigate = url => new Promise((resolve, reject) => {
+    frame.onload = resolve; frame.onerror = reject; frame.src = url;
   });
-  const doc = frame.contentDocument;
-  if (!doc?.documentElement?.dataset.qaSynthetic) throw new Error('Frame is not a verified synthetic snapshot');
+  const desired = failedFrameUrls.has(key) ? freshUrl() : key;
+  if (frame.src !== desired) await navigate(desired);
+  let doc = frame.contentDocument;
+  if (!doc?.documentElement?.dataset.qaSynthetic && !failedFrameUrls.has(key)) {
+    failedFrameUrls.add(key);
+    // Same protected resource, unchanged sandbox/auth. Never substitute an origin,
+    // remove a protection, retry indefinitely, or accept a non-synthetic document.
+    await navigate(freshUrl());
+    doc = frame.contentDocument;
+  }
+  if (!doc?.documentElement?.dataset.qaSynthetic) throw new Error('Frame is not a verified synthetic snapshot after one cache-fresh retry');
   doc.documentElement.classList.toggle('dark', theme === 'dark');
   doc.documentElement.style.fontSize = textsize + '%';
   // Parent event cancellation is only an extra guard; frame CSP also forbids form
