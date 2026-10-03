@@ -60,3 +60,29 @@ Run the focused offline tests before capture:
     node --test tests/layout/fixture.test.mjs tests/layout/ordinary-fixture.test.mjs tests/layout/static-snapshot.test.mjs tests/layout/static-gallery.test.mjs
 
 These Node tests validate fixtures, sanitizer, missing/hidden measurement handling and bounded same-origin cache-fresh retry behavior. They do not claim browser geometry, screenshots, interaction results or approval for publication.
+
+## CSS-only refresh without changing captured bodies
+
+For a change confined to `src/app/globals.css`, the existing source copy from the
+previous capture can prove that all rendered source and fixture inputs stayed
+unchanged:
+
+    node tests/layout/refresh-css-gallery.mjs OLD_GALLERY OLD_CAPTURE_SOURCE NEW_GALLERY
+
+`OLD_CAPTURE_SOURCE` must hash exactly to the old manifest's full
+`afterSourceSha256`. The script refuses any other added, removed or changed
+production source file, fixture mismatch or existing snapshot hash mismatch. It
+compiles the current CSS with an actual local Next server and ordinary fixture,
+using the existing network/credential isolation and `safeCss` sanitizer. It also
+requires the newly rendered ordinary blog body to match the previous captured
+body byte-for-byte.
+
+All previous files except the current manifest and explanatory README remain
+byte-identical, including both BEFORE sets, prior AFTER snapshots, controller,
+font and assets. The old manifest is preserved separately. New content-addressed
+AFTER HTML differs only in its compiled stylesheet URLs; every body, ID, content,
+CSP and font reference remains unchanged. The integrity report records source,
+stylesheet, body and preserved-file hashes. Mode routes and every snapshot hash
+are checked before completion. This does not claim a browser interaction pass
+or authorize publication; sticky-header fragment behavior still needs an
+authorized browser check against the new revision.

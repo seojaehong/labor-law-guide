@@ -43,6 +43,12 @@ describe('reading-first layout contract', () => {
     expect(read('src/app/decisions/[id]/page.tsx')).toContain('reading-prose whitespace-pre-wrap');
     expect(read('src/app/decisions/page.tsx')).toContain('className="layout-list"');
   });
+  it('reserves sticky-header clearance for notes and return references', () => {
+    expect(css).toContain('--reading-anchor-offset: 6rem');
+    expect(css).toContain('.reading-prose :is([data-footnote-ref], .footnotes li[id])');
+    expect(css).toContain('.blog-content :is([data-footnote-ref], .footnotes li[id])');
+    expect(css).toContain('scroll-margin-block-start: var(--reading-anchor-offset)');
+  });
   it('keeps legacy outer width magic numbers out of public TSX', () => {
     const scan = (dir: string): string[] => readdirSync(dir, { withFileTypes: true }).flatMap(e => {
       if (e.name === 'admin') return [];

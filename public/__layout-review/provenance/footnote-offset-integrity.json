@@ -1,0 +1,278 @@
+{
+  "generatedAt": "2026-10-03T09:02:16.700Z",
+  "captureRevision": "122306635c8f79b3",
+  "afterSourceSha256": "122306635c8f79b37c2d2def99c96219066bfb3d09507bed9fc49c8b07091711",
+  "previousRevision": "5e7d729dfcfd009a",
+  "oldSourceVerifiedAgainstManifest": true,
+  "changedSource": [
+    "src/app/globals.css"
+  ],
+  "compilation": [
+    {
+      "sourcePath": "/_next/static/css/app/layout.css?v=1791018135758",
+      "rawSha256": "8f53076d530649b72929fab6a45b2da36836e71ccbec044945bf0ad30f9c8c6f",
+      "safeSha256": "8f53076d530649b72929fab6a45b2da36836e71ccbec044945bf0ad30f9c8c6f",
+      "file": "assets/8f53076d530649b72929.css",
+      "bytes": 126209
+    }
+  ],
+  "previousManifest": "provenance/previous-manifest-5e7d729dfcfd009a.json",
+  "previousManifestSha256": "16c01ec22927e694c9afd74f9066c88c86fd4ea20179c70c9e8827d602ee69ba",
+  "sourceCss": {
+    "previousSha256": "c48259154790cc6ee7b3cf235720b289de53fa8baf2503362b97bbc3be6036e2",
+    "currentSha256": "c5d35f245f7ac0f5d7f934f1cab55ad5312748a4ebb1a70a61f2a63c23beeea0"
+  },
+  "sampledCurrentSsrBodyIdentical": true,
+  "afterBodies": [
+    {
+      "previousFile": "after/pages/blog-38e1cfc0eddc.html",
+      "file": "after/pages/blog-1c901d55ea93.html",
+      "bodySha256": "36a9f71c94e9cac9d878164d2a71f96479fd796bda8c3a8ac5b948d1329aae61",
+      "byteIdenticalExceptStylesheetUrls": true
+    },
+    {
+      "previousFile": "after/pages/decision-8f6350680771.html",
+      "file": "after/pages/decision-8e5f9bfd5b4a.html",
+      "bodySha256": "cac1a5560f284b52029d51602c94cc9316adcd90baf849c845181d818acdf2cc",
+      "byteIdenticalExceptStylesheetUrls": true
+    },
+    {
+      "previousFile": "after/pages/decisions-916797fd049d.html",
+      "file": "after/pages/decisions-3087bc21422b.html",
+      "bodySha256": "6d984c4705476a61483fecc20bb76859b8a43b6bc742aece126babf77b539bf7",
+      "byteIdenticalExceptStylesheetUrls": true
+    },
+    {
+      "previousFile": "after/pages/case-c190ff01f64f.html",
+      "file": "after/pages/case-03e58e6855dd.html",
+      "bodySha256": "059a9621e154361958417edfb83762e02b67d20a259258fbbb735104662bcb07",
+      "byteIdenticalExceptStylesheetUrls": true
+    },
+    {
+      "previousFile": "after/pages/interpretation-d8604c7b15ca.html",
+      "file": "after/pages/interpretation-265975703663.html",
+      "bodySha256": "e66a48ff7ae204bef0dd21d6e6eedfa724418b685c98997c63af6c9b0f7bdab5",
+      "byteIdenticalExceptStylesheetUrls": true
+    },
+    {
+      "previousFile": "after/pages/contact-d1dcc835c4f0.html",
+      "file": "after/pages/contact-adb974827248.html",
+      "bodySha256": "1f40efe04de55a1792b5e807a3ee79f01c1c248f462a64a3243d4be14fd9d449",
+      "byteIdenticalExceptStylesheetUrls": true
+    },
+    {
+      "previousFile": "after/pages/subsidy-a5b8057b7ef2.html",
+      "file": "after/pages/subsidy-601cc319f052.html",
+      "bodySha256": "294588b04d1e25e74dbd7ba7d13a9c44e26b04feab2ac98218ce23e6c2dad723",
+      "byteIdenticalExceptStylesheetUrls": true
+    },
+    {
+      "previousFile": "ordinary-after/pages/blog-aad1cec84491.html",
+      "file": "ordinary-after/pages/blog-4f6ba3a69135.html",
+      "bodySha256": "a224bc1fb196ca83c013b08977e9e2f730c3154ad2d7a8060139707507c5340e",
+      "byteIdenticalExceptStylesheetUrls": true
+    },
+    {
+      "previousFile": "ordinary-after/pages/decision-297e3fb0b8e6.html",
+      "file": "ordinary-after/pages/decision-45cbbc497f76.html",
+      "bodySha256": "971689f03e5152b4da56ab07944f1a2303c2782df231569d94b81860b1f54609",
+      "byteIdenticalExceptStylesheetUrls": true
+    },
+    {
+      "previousFile": "ordinary-after/pages/case-85d9cae6e847.html",
+      "file": "ordinary-after/pages/case-ff4c71056bee.html",
+      "bodySha256": "77615f68b5ec5b78d34e4927f336a0dc2a42c93340933909836420beef472b89",
+      "byteIdenticalExceptStylesheetUrls": true
+    },
+    {
+      "previousFile": "ordinary-after/pages/interpretation-ad62007a3e06.html",
+      "file": "ordinary-after/pages/interpretation-c0a5187cf757.html",
+      "bodySha256": "f2336f51ef27f3e6ee40f1acb7359fea1f9443bf75e796f50726853443a19017",
+      "byteIdenticalExceptStylesheetUrls": true
+    }
+  ],
+  "preservedFiles": [
+    {
+      "file": "after/pages/blog-38e1cfc0eddc.html",
+      "sha256": "38e1cfc0eddc74bb4b1459899ee4b90789c3c2f78b348448ead04517a5479fa4",
+      "bytes": 33766
+    },
+    {
+      "file": "after/pages/case-c190ff01f64f.html",
+      "sha256": "c190ff01f64fdc20234b8deef287cd64262e05246529a4e2b2af149b3d6533df",
+      "bytes": 33268
+    },
+    {
+      "file": "after/pages/contact-d1dcc835c4f0.html",
+      "sha256": "d1dcc835c4f0e951ff675f8332009c38717f33729afc4c91a93d7864472d8c03",
+      "bytes": 22663
+    },
+    {
+      "file": "after/pages/decision-8f6350680771.html",
+      "sha256": "8f6350680771d6051801bd7a425f00579c550c74adcc9d38a67cf3fadfeea035",
+      "bytes": 22692
+    },
+    {
+      "file": "after/pages/decisions-916797fd049d.html",
+      "sha256": "916797fd049daa11f9d6380ab97f51137b9f00215980c8d2ced301a2fd92f4e6",
+      "bytes": 33144
+    },
+    {
+      "file": "after/pages/interpretation-d8604c7b15ca.html",
+      "sha256": "d8604c7b15ca9ea9808486701c058232387e3e68ac483ffe2db8f00bf3ea2061",
+      "bytes": 31650
+    },
+    {
+      "file": "after/pages/subsidy-a5b8057b7ef2.html",
+      "sha256": "a5b8057b7ef25bf57942288ae3db3d9e0769321b49cde0bbad69d8f365d23b32",
+      "bytes": 16289
+    },
+    {
+      "file": "assets/114938979fc4ee06e5df.css",
+      "sha256": "114938979fc4ee06e5df7a372b13486a75071a525cc6abb2e16afec2c8c9925c",
+      "bytes": 122760
+    },
+    {
+      "file": "assets/8866cc8d4f44e8d94c4b.css",
+      "sha256": "8866cc8d4f44e8d94c4b1fd98e6c8c693cf1839ed19fbf057d0bc2a713653574",
+      "bytes": 125768
+    },
+    {
+      "file": "assets/PretendardVariable.woff2",
+      "sha256": "9599f12fd42fc0bce1cd50b47a0c022e108d7aa64dd0d1bb0ed44f3282d900b4",
+      "bytes": 2057688
+    },
+    {
+      "file": "assets/d0c9e6fd9b2e0868b6e3.css",
+      "sha256": "d0c9e6fd9b2e0868b6e359328d76203e5aee1e2757b16dd1412790484abad543",
+      "bytes": 125971
+    },
+    {
+      "file": "assets/qa-font.css",
+      "sha256": "e083400529018e3a8284a5bcf874f8f8e64aa2263cc64c3d25cc9f2dfe7d90b1",
+      "bytes": 153
+    },
+    {
+      "file": "before/pages/blog.html",
+      "sha256": "21ecd7e5f4339f05dd4cb699529130dde1911d6e2d372348323a71ef267d0c3f",
+      "bytes": 33517
+    },
+    {
+      "file": "before/pages/case.html",
+      "sha256": "d943c0d4665eaff765ffef4513d4df3fb2a91eb77e434e5ba861c942d446d6b9",
+      "bytes": 33240
+    },
+    {
+      "file": "before/pages/contact.html",
+      "sha256": "68000d0235e53b58ccdd583a4a767b0ff344ed9f529a2443b42159ea8c435a72",
+      "bytes": 22682
+    },
+    {
+      "file": "before/pages/decision.html",
+      "sha256": "9f9fc117fe05dfa673a9c677bebcedcb580072a9641fd44630eb581598c5129e",
+      "bytes": 22783
+    },
+    {
+      "file": "before/pages/decisions.html",
+      "sha256": "4805e629f1c860f7c21c3026d46d2e23ba14f542392fd591663893dc15715401",
+      "bytes": 33155
+    },
+    {
+      "file": "before/pages/interpretation.html",
+      "sha256": "8a746bfdb8b1d044efc6b4fa3939c4e9c93df66cd8c10e957e225e6fb5f676c3",
+      "bytes": 31687
+    },
+    {
+      "file": "before/pages/subsidy.html",
+      "sha256": "5dd5b998705f0ceb932303d67524c81804e9baf75dae4752452cf09c4cbeec7e",
+      "bytes": 16308
+    },
+    {
+      "file": "gallery-4433a5e4b770.js",
+      "sha256": "4433a5e4b770508129e9aca06a475df7e6d5c5d14b2dfa9312a6d4c3833cdd43",
+      "bytes": 13031
+    },
+    {
+      "file": "gallery-bbd39c470261.css",
+      "sha256": "bbd39c470261b8cb299bcaff1cef5fcb9ad10558514353c036150dbfaf589ce3",
+      "bytes": 1436
+    },
+    {
+      "file": "gallery.css",
+      "sha256": "bbd39c470261b8cb299bcaff1cef5fcb9ad10558514353c036150dbfaf589ce3",
+      "bytes": 1436
+    },
+    {
+      "file": "gallery.js",
+      "sha256": "4433a5e4b770508129e9aca06a475df7e6d5c5d14b2dfa9312a6d4c3833cdd43",
+      "bytes": 13031
+    },
+    {
+      "file": "index.html",
+      "sha256": "90c03a25ef2fa2297fb6b847ad502b0cb9c3ed51706e97d243d6cfdf2d63e5ee",
+      "bytes": 3945
+    },
+    {
+      "file": "ordinary-after/pages/blog-aad1cec84491.html",
+      "sha256": "aad1cec844919bad91320d2941e3ac0258e60928b0bb26f0f046415ad82691f7",
+      "bytes": 31468
+    },
+    {
+      "file": "ordinary-after/pages/case-85d9cae6e847.html",
+      "sha256": "85d9cae6e847d6d6646bca498844523babdabf13c62f94d950ddc72606e0dfb8",
+      "bytes": 29719
+    },
+    {
+      "file": "ordinary-after/pages/decision-297e3fb0b8e6.html",
+      "sha256": "297e3fb0b8e6b7fe11b5c3b52c1ee5f81de7ee37e631e9cf1ed744209a679fdf",
+      "bytes": 21120
+    },
+    {
+      "file": "ordinary-after/pages/interpretation-ad62007a3e06.html",
+      "sha256": "ad62007a3e062f9c72a9697382942f7ad8401bdfe35fcf5bca0b97e39778edcc",
+      "bytes": 28126
+    },
+    {
+      "file": "ordinary-before/pages/blog-a949f44831d1.html",
+      "sha256": "a949f44831d16aca37d4463029f29c657e4ec07e346348640f0782089b6069c2",
+      "bytes": 31137
+    },
+    {
+      "file": "ordinary-before/pages/case-b3a34bcbdfa8.html",
+      "sha256": "b3a34bcbdfa8e9d73e41bd94447eebf0132bf0560a6b60b862bd507b6eae14bd",
+      "bytes": 29786
+    },
+    {
+      "file": "ordinary-before/pages/decision-2d19f78ae7fb.html",
+      "sha256": "2d19f78ae7fb2ca41cb9c84f5ef585c50bb94b79a3eeeed15c7261f16e7830c7",
+      "bytes": 21201
+    },
+    {
+      "file": "ordinary-before/pages/interpretation-64dee84bfca9.html",
+      "sha256": "64dee84bfca968f3bea381a507e8b09fdd4f2487c35bab6becc14223ff355247",
+      "bytes": 28233
+    },
+    {
+      "file": "provenance/calibration-integrity.json",
+      "sha256": "49655cda0866fcc3acbee9cf1ad26dbe126ea014cf53e1fb4e6f5ffb41bda16b",
+      "bytes": 512
+    },
+    {
+      "file": "provenance/original-manifest.json",
+      "sha256": "9195c7d83f9104c35e995e8c220d93ec6e9f48d459c0e036a7659da663f054c3",
+      "bytes": 9266
+    }
+  ],
+  "allHtmlHashesVerified": true,
+  "allStylesheetsAndModeRoutesExist": true,
+  "preservedBeforeSnapshots": 11,
+  "fontUnchanged": true,
+  "newBrowserValidation": "Not run; authorized browser QA required",
+  "safety": {
+    "externalRequests": false,
+    "applicationApiRequests": false,
+    "providerKeysOrEnvCopied": false,
+    "browserLaunched": false,
+    "published": false
+  }
+}

@@ -1,3 +1,14 @@
+LOCAL ONLY CSS-REFRESHED SYNTHETIC LAYOUT QA
+
+Previous revision: 5e7d729dfcfd009a
+Current revision: 122306635c8f79b3
+Source digest: 122306635c8f79b37c2d2def99c96219066bfb3d09507bed9fc49c8b07091711
+
+Only globals.css changed. Fresh actual Next-compiled CSS is captured using a loopback-only ordinary fixture; every prior snapshot and asset is preserved. All eleven AFTER bodies, IDs, content and security markup are byte-identical, with only their stylesheet URLs changed in newly content-addressed HTML. Both BEFORE sets are immutable. See manifest.json and provenance/footnote-offset-integrity.json.
+
+This refresh does not execute a browser or claim new screenshots, geometry or successful sticky-header navigation. Authorized browser QA is still required for the new scroll offsets. No remote API, real provider key or .env file was used. No upload or publication was performed.
+
+PREVIOUS CAPTURE README (historical provenance)
 LOCAL ONLY SYNTHETIC LAYOUT QA
 
 This directory has NOT been uploaded or published. Publication needs separate authorization.
