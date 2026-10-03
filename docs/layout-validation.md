@@ -50,3 +50,9 @@ The snapshots strip application scripts, outbound resource/navigation attributes
 ## Safety boundaries
 
 Tests use deterministic localhost Supabase fixtures and no production `.env` or provider credentials. Browser interception must abort forbidden AI paths before a network request can reach the app; do not click prompt submission. Do not run live `/api/chat`, `/api/sanction` or `/api/ask`. Tests do not alter content, indexability or sitemap policy. Any published preview and production deployment require separate appropriate approval.
+
+## Browser-driven calibration (pre-production)
+
+The initial 38ic snapshot was measured in the authorized preview using the bundled Pretendard font. Blog complete-line full-Hangul medians at 1440/1280/1024/768/390 were 44/43/44/43/23; cases and interpretations reached 41 on desktop/tablet. These are acceptance misses against the <=40 desktop target, despite zero AFTER page overflow. The shared token is now a 35ic/35em candidate, with font size and mobile gutters unchanged; its predicted unpadded capacity from actual Range advances is approximately 40.5 whole-glyph slots, pending new rendered verification. Tests retain the <=40 rule rather than relaxing it. Provisional fixed-pixel lower bounds were replaced with token-relative containment/cap checks.
+
+The first stress fixture deliberately contains an unbroken Hangul ruler; its enormous baseline min-content overflow (for example Case 5752px) is not a claim about ordinary production page width. A separately captured ordinary fixture and quotation/footnote sample are used for fair visual comparisons. Original stress BEFORE snapshots remain immutable.

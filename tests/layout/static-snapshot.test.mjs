@@ -33,3 +33,15 @@ test('snapshot explicitly blocks scripts, connections and form submissions', () 
   assert.ok(html.includes("script-src 'none'")); assert.ok(html.includes("connect-src 'none'"));
   assert.ok(html.includes("form-action 'none'")); assert.ok(html.includes('data-qa-synthetic="true"'));
 });
+test('only inert same-document anchor fragments survive; base and outbound targets are removed', () => {
+  const result = inspectSsr('<body><base href="https://example.invalid/"><a href="#note-1">note</a><a href="https://example.invalid/#note-1">remote</a><a href="//example.invalid/">remote</a><a href="javascript:alert(1)">script</a><a href="/elsewhere#note-1">route</a><li id="note-1">note text</li></body>');
+  assert.ok(result.body.includes('href="#note-1"'));
+  assert.equal((result.body.match(/href=/g) || []).length, 1);
+  assert.doesNotMatch(result.body, /<base|https:|javascript:|\/elsewhere/);
+});
+test('footnote audit reports ref/backref and label identity before sanitization', () => {
+  const result = inspectSsr('<body><p><a id="fnref-note" href="#fn-note" data-footnote-ref aria-describedby="footnote-label">1</a></p><h2 id="footnote-label">Footnotes</h2><li id="fn-note"><a href="#fnref-note" data-footnote-backref>↩</a></li></body>');
+  assert.equal(result.report.footnotes.links.length, 2);
+  assert.ok(result.report.footnotes.links.every(link => link.targetExists && link.descriptionTargetsExist));
+  assert.deepEqual(result.report.footnotes.labelIds, ['footnote-label']);
+});

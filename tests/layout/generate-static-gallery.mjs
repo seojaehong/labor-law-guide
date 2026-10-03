@@ -1,5 +1,6 @@
 /** LOCAL ONLY. Creates an inert gallery; never uploads, publishes, or runs a browser.
- * Usage: node tests/layout/generate-static-gallery.mjs [output-directory]
+ * Usage: node tests/layout/generate-static-gallery.mjs [output-directory] [--reuse-before original-gallery] [--ordinary]
+ * --ordinary-proof creates only transient current-source ordinary blog/case proof snapshots.
  * Both fixture and SSR servers live within this single invocation. */
 import { spawn, execFileSync } from 'node:child_process';
 import { createServer } from 'node:http';
@@ -12,10 +13,19 @@ import { setTimeout as delay } from 'node:timers/promises';
 import assert from 'node:assert/strict';
 import { createFixtureServer } from './fixture-server.mjs';
 import { inspectSsr, safeCss, snapshotHtml } from './static-snapshot.mjs';
+import { ordinaryTables } from './ordinary-fixture-data.mjs';
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const repo = resolve(scriptDir, '../..');
-const output = resolve(process.argv[2] || '/workspace/shared/layout-preview');
+const args = process.argv.slice(2);
+const output = resolve(args[0] || '/workspace/shared/layout-preview');
+const reuseIndex = args.indexOf('--reuse-before');
+const reuseBefore = reuseIndex >= 0 ? resolve(args[reuseIndex + 1] || '') : null;
+if (reuseIndex >= 0 && !args[reuseIndex + 1]) throw new Error('--reuse-before requires an existing gallery directory');
+const ordinaryProof = args.includes('--ordinary-proof');
+const withOrdinary = args.includes('--ordinary') || ordinaryProof;
+const originalManifestBytes = reuseBefore ? await readFile(join(reuseBefore, 'manifest.json')) : null;
+const originalManifest = originalManifestBytes ? JSON.parse(originalManifestBytes) : null;
 const baseline = '3be9fb3';
 const sourcePaths = ['src', 'public', 'package.json', 'package-lock.json', 'next.config.ts', 'postcss.config.mjs', 'tsconfig.json'];
 const routes = [
@@ -56,9 +66,30 @@ async function treeDigest(root) {
   for (const path of sourcePaths) await visit(path);
   return digest.digest('hex');
 }
-const beforeSourceSha256 = await treeDigest(before);
+const archivedBeforeSourceSha256 = await treeDigest(before);
+const beforeSourceSha256 = originalManifest?.beforeSourceSha256 || archivedBeforeSourceSha256;
 const afterSourceSha256 = await treeDigest(after);
+const readingRoutes = routes.filter(route => route.scope);
+const fixtureSha256 = hash(await readFile(join(scriptDir, 'fixture-data.mjs')));
+if (originalManifest) {
+  assert.equal(originalManifest.baselineCommit, baselineCommit, 'Preserved baseline commit must match');
+  assert.equal(originalManifest.fixtureSha256, fixtureSha256, 'Never reuse BEFORE against changed stress fixtures');
+  assert.equal(originalManifest.beforeSourceSha256, archivedBeforeSourceSha256, 'Archived baseline source must match preserved evidence');
+  await cp(join(reuseBefore, 'before'), join(output, 'before'), { recursive: true });
+  await cp(join(reuseBefore, 'assets'), join(output, 'assets'), { recursive: true });
+  await mkdir(join(output, 'provenance'), { recursive: true });
+  await writeFile(join(output, 'provenance/original-manifest.json'), originalManifestBytes);
+  for (const item of originalManifest.captures.filter(item => item.label === 'before')) {
+    assert.equal(hash(await readFile(join(output, item.file))), item.htmlSha256, `Preserved BEFORE mismatch: ${item.file}`);
+    for (const sheet of item.stylesheets) {
+      const path = resolve(dirname(join(output, item.file)), sheet);
+      const previous = resolve(dirname(join(reuseBefore, item.file)), sheet);
+      assert.equal(hash(await readFile(path)), hash(await readFile(previous)), 'BEFORE CSS must remain byte-identical');
+    }
+  }
+}
 const font = await readFile(join(modules, 'pretendard/dist/web/variable/woff2/PretendardVariable.woff2'));
+if (originalManifest) assert.equal(hash(font), originalManifest.font.sha256, 'Captured font must match preserved baseline');
 await writeFile(join(output, 'assets/PretendardVariable.woff2'), font);
 await writeFile(join(output, 'assets/qa-font.css'), '@font-face{font-family:"Pretendard Variable";font-style:normal;font-weight:45 920;font-display:swap;src:url("PretendardVariable.woff2") format("woff2")}\n');
 
@@ -80,16 +111,18 @@ execFileSync(process.execPath, ['--check', guard]);
 const fixture = createFixtureServer();
 await new Promise((resolve, reject) => { fixture.once('error', reject); fixture.listen(0, '127.0.0.1', resolve); });
 const fixturePort = fixture.address().port;
-const captures = [];
+const captures = originalManifest && !ordinaryProof ? originalManifest.captures.filter(item => item.label === 'before') : [];
+const ordinaryFixture = withOrdinary ? createFixtureServer(ordinaryTables) : null;
+if (ordinaryFixture) await new Promise((resolve, reject) => { ordinaryFixture.once('error', reject); ordinaryFixture.listen(0, '127.0.0.1', resolve); });
 async function freePort() {
   const server = createServer(); await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
   const port = server.address().port; await new Promise(resolve => server.close(resolve)); return port;
 }
-async function capture(label, root) {
+async function capture(label, root, selectedRoutes = routes, mode = 'stress') {
   const port = await freePort(), origin = `http://127.0.0.1:${port}`;
   const env = { PATH: process.env.PATH, HOME: process.env.HOME, TMPDIR: process.env.TMPDIR,
     NODE_ENV: 'development', NODE_OPTIONS: `--require=${guard}`, NEXT_TELEMETRY_DISABLED: '1',
-    NEXT_PUBLIC_SUPABASE_URL: `http://127.0.0.1:${fixturePort}`, NEXT_PUBLIC_SUPABASE_ANON_KEY: 'local-layout-fixture-only' };
+    NEXT_PUBLIC_SUPABASE_URL: `http://127.0.0.1:${mode === 'ordinary' ? ordinaryFixture.address().port : fixturePort}`, NEXT_PUBLIC_SUPABASE_ANON_KEY: 'local-layout-fixture-only' };
   const child = spawn(process.execPath, [join(modules, 'next/dist/bin/next'), 'dev', '--webpack', '-p', String(port), '-H', '127.0.0.1'], { cwd: root, env, stdio: ['ignore', 'pipe', 'pipe'], detached: true });
   let log = ''; child.stdout.on('data', chunk => { log += chunk; }); child.stderr.on('data', chunk => { log += chunk; });
   const get = async path => {
@@ -107,12 +140,23 @@ async function capture(label, root) {
   };
   try {
     await mkdir(join(output, label, 'pages'), { recursive: true });
-    for (const route of routes) {
+    for (const route of selectedRoutes) {
       const raw = await get(route.path);
       await writeFile(join(temporary, `${label}-${route.key}.raw.html`), raw);
       const extracted = inspectSsr(raw);
-      if (route.scope) for (const probe of ['한글 측정 문단', '전각한글측정', 'Mixed layout'])
+      if (route.scope) for (const probe of (mode === 'ordinary' ? ['한글 측정 문단', 'Mixed layout'] : ['한글 측정 문단', '전각한글측정', 'Mixed layout']))
         assert.ok(extracted.body.includes(probe), `${label} ${route.path}: body contains ${probe}`);
+      if (mode === 'ordinary') {
+        assert.ok(!/전각한글측정|LONG_CODE_TOKEN_|readable-layout-|min-width:60rem/.test(extracted.body), 'Ordinary capture contains no stress-only fixture content');
+        if (['blog', 'case', 'interpretation'].includes(route.key)) {
+          assert.ok(extracted.body.includes('합성 각주:'), 'Ordinary renderer must emit the actual Markdown footnote');
+          assert.ok(extracted.body.includes('↩'), 'Ordinary renderer must emit the footnote back-reference glyph');
+          if (label === 'ordinary-after') {
+            assert.ok(extracted.report.footnotes.links.length >= 2, 'Actual renderer must produce ref/back-reference fragment links');
+            assert.ok(extracted.report.footnotes.links.every(link => link.targetExists && link.descriptionTargetsExist && (!link.target || link.target === '_self')), 'AFTER footnote fragment targets/labels must resolve without opening a new tab');
+          }
+        }
+      }
       const stylesheets = [];
       for (const cssPath of extracted.css) {
         if (/^https?:/.test(cssPath)) {
@@ -128,8 +172,9 @@ async function capture(label, root) {
       const html = snapshotHtml({ ...extracted, stylesheets, title: `${label}: ${route.title}`, label });
       assert.ok(!/<script\b/i.test(html), 'No application script survives');
       assert.ok(!/\b(?:src|href|action)=["']https?:/i.test(html), 'No remote resource/navigation attributes survive');
-      await writeFile(join(output, label, route.file), html);
-      captures.push({ label, route: route.path, file: `${label}/${route.file}`, htmlSha256: hash(html), htmlBytes: Buffer.byteLength(html), stylesheets, sanitization: extracted.report });
+      const file = label === 'before' ? route.file : `pages/${route.key}-${hash(html).slice(0, 12)}.html`;
+      await writeFile(join(output, label, file), html);
+      captures.push({ label, fixtureMode: mode, route: route.path, file: `${label}/${file}`, htmlSha256: hash(html), htmlBytes: Buffer.byteLength(html), stylesheets, sanitization: extracted.report });
       console.log(`Captured ${label} ${route.path}: ${Buffer.byteLength(html)} inert HTML bytes`);
     }
   } finally {
@@ -138,16 +183,60 @@ async function capture(label, root) {
     await writeFile(join(temporary, `${label}-server.log`), log);
   }
 }
-try { await capture('before', before); await capture('after', after); }
-finally { fixture.closeAllConnections(); await new Promise(resolve => fixture.close(resolve)); }
+try {
+  if (ordinaryProof) {
+    await capture('ordinary-after', after, readingRoutes.filter(route => ['blog', 'case'].includes(route.key)), 'ordinary');
+  } else {
+    if (!originalManifest) await capture('before', before);
+    await capture('after', after);
+    if (withOrdinary) {
+      const ordinaryBefore = join(temporary, 'ordinary-before'), ordinaryAfter = join(temporary, 'ordinary-after');
+      await mkdir(ordinaryBefore); await mkdir(ordinaryAfter);
+      // No compiler cache is shared between fixture modes.
+      for (const path of sourcePaths) {
+        await cp(join(before, path), join(ordinaryBefore, path), { recursive: true, dereference: false });
+        await cp(join(after, path), join(ordinaryAfter, path), { recursive: true, dereference: false });
+      }
+      for (const root of [ordinaryBefore, ordinaryAfter]) await symlink(modules, join(root, 'node_modules'), 'dir');
+      await capture('ordinary-before', ordinaryBefore, readingRoutes, 'ordinary');
+      await capture('ordinary-after', ordinaryAfter, readingRoutes, 'ordinary');
+    }
+  }
+} finally {
+  for (const server of [fixture, ordinaryFixture].filter(Boolean)) {
+    server.closeAllConnections(); await new Promise(resolve => server.close(resolve));
+  }
+}
+for (const route of routes) {
+  route.snapshots = {};
+  for (const mode of ['stress', ...(withOrdinary ? ['ordinary'] : [])]) {
+    route.snapshots[mode] = {};
+    for (const version of ['before', 'after']) {
+      const item = captures.find(item => item.route === route.path && item.label === (mode === 'ordinary' && route.scope ? `ordinary-${version}` : version));
+      if (item) route.snapshots[mode][version] = item.file;
+    }
+  }
+}
 for (const [source, target] of [['static-gallery.html', 'index.html'], ['static-gallery.css', 'gallery.css'], ['static-gallery.js', 'gallery.js']])
   await cp(join(scriptDir, source), join(output, target));
-const manifest = { kind: 'LOCAL ONLY synthetic static SSR gallery; not browser validation', generatedAt: new Date().toISOString(), baselineCommit,
-  beforeSourceSha256, afterSourceSha256, fixtureSha256: hash(await readFile(join(scriptDir, 'fixture-data.mjs'))),
+const manifest = { captureRevision: afterSourceSha256.slice(0, 16), ordinaryProof, fixtureModes: withOrdinary ? ['stress', 'ordinary'] : ['stress'], preservedBefore: originalManifest ? { manifest: 'provenance/original-manifest.json', sha256: hash(originalManifestBytes), byteIdentical: true } : null, ordinaryFixtureSha256: withOrdinary ? hash(await readFile(join(scriptDir, 'ordinary-fixture-data.mjs'))) : null, kind: 'LOCAL ONLY synthetic static SSR gallery; not browser validation', generatedAt: new Date().toISOString(), baselineCommit,
+  beforeSourceSha256, afterSourceSha256, fixtureSha256,
   font: { family: 'Pretendard Variable', source: 'installed pretendard package', sha256: hash(font), bytes: font.length },
   widths: [1440, 1280, 1024, 768, 390], themes: ['light', 'dark'], routes, captures,
-  safety: { localOnly: true, publicationAuthorized: false, sourceScriptsRemoved: true, navigationDisabled: true, formsDisabled: true, apiRequests: false, providerCredentialsCopied: false },
-  limitations: ['Static server-rendered HTML; no hydration or application interaction validation.', 'Before and after use identical synthetic database fixtures.', 'Contact/subsidy preserve checked-in public template text; they are not synthetic database records.', 'No browser geometry or screenshots exist until the gallery is opened and measured in an authorized browser.', 'Loopback-only development servers stopped after capture; raw SSR logs remain outside the gallery.'] };
+  safety: { localOnly: true, publicationAuthorized: false, sourceScriptsRemoved: true, outboundNavigationDisabled: true, ordinaryAfterSameDocumentFragmentsEnabled: true, formsDisabled: true, apiRequests: false, providerCredentialsCopied: false },
+  limitations: ['Static server-rendered HTML; no hydration or application interaction validation.', 'Before and after use identical synthetic input within each named fixture mode; ordinary reading snapshots are supplemental captures, not altered original BEFORE files.', 'The fullwidth ruler and long tokens are artificial stress fixtures. A very wide stress BEFORE case does not establish a normal production article width.', 'Supplemental ordinary snapshots retain Korean/mixed paragraphs, normal tables/lists, a short quote, and a real Markdown-rendered footnote/back-reference. Decision text uses its existing plain-text renderer.', 'Only same-document fragment clicks in ordinary AFTER are enabled. Outbound navigation, forms and application scripts remain disabled.', 'Contact/subsidy preserve checked-in public template text; they are not synthetic database records.', 'No browser geometry or screenshots exist until the gallery is opened and measured in an authorized browser.', 'Loopback-only development servers stopped after capture; raw SSR logs remain outside the gallery.'] };
 await writeFile(join(output, 'manifest.json'), JSON.stringify(manifest, null, 2));
-await writeFile(join(output, 'README.txt'), `LOCAL ONLY SYNTHETIC LAYOUT QA\n\nThis directory has NOT been uploaded or published. Publication needs separate authorization.\nServe through an approved same-origin static host to use index.html. All application JavaScript, metadata payloads, links, form actions and external resource loading have been removed. The gallery's own controlled JavaScript only switches local snapshots, measures DOM Range text lines, and saves local JSON.\n\nBefore: pristine git ${baselineCommit}\nAfter source digest: ${afterSourceSha256}\nRoutes: ${routes.length}; widths: 1440,1280,1024,768,390; themes: light,dark.\n\nNo browser execution, font rendering, geometry or screenshots was claimed by this generator. Static SSR cannot verify hydration, collapsed components, keyboard behavior or app submissions. Public checked-in contact/subsidy copy is retained only for layout context; the four reading documents and decisions database rows are synthetic.\n\nRetain manifest.json with any screenshot or exported measurement. The generator and sanitizer live in tests/layout.\n`);
+// Revision the owned controller and stylesheet too, while retaining familiar
+// aliases for inspection. Snapshot HTML and application CSS are content-addressed.
+let galleryHtml = await readFile(join(output, 'index.html'), 'utf8');
+for (const filename of ['gallery.js', 'gallery.css']) {
+  const bytes = await readFile(join(output, filename));
+  const revised = filename.replace('.', `-${hash(bytes).slice(0, 12)}.`);
+  await writeFile(join(output, revised), bytes);
+  galleryHtml = galleryHtml.replace(filename, revised);
+}
+await writeFile(join(output, 'index.html'), galleryHtml);
+await writeFile(join(output, 'README.txt'), `LOCAL ONLY SYNTHETIC LAYOUT QA\n\nThis directory has NOT been uploaded or published. Publication needs separate authorization.\nServe through an approved same-origin static host to use index.html. All application JavaScript, metadata payloads, outbound links, form actions and external resource loading have been removed. The gallery's own controlled JavaScript only switches local snapshots, measures DOM Range text lines, saves local JSON, and permits same-document footnote navigation in ordinary AFTER.\n\nBefore: pristine git ${baselineCommit}\nAfter source digest: ${afterSourceSha256}\nRoutes: ${routes.length}; widths: 1440,1280,1024,768,390; themes: light,dark.\n\nNo browser execution, font rendering, geometry or screenshots was claimed by this generator. Static SSR cannot verify hydration, collapsed components, keyboard behavior or app submissions. Public checked-in contact/subsidy copy is retained only for layout context; the four reading documents and decisions database rows are synthetic.\n\nOrdinary mode uses separately rendered, matched synthetic content. The original stress BEFORE and its CSS stay byte-identical. Stress failures such as a 5752px BEFORE case measure artificial min-content pressure, not normal production article width.
+
+Retain manifest.json with any screenshot or exported measurement. The generator and sanitizer live in tests/layout.\n`);
 console.log(`Local gallery ready: ${output}. ${captures.length} sanitized snapshots. No publication or browser validation performed.`);

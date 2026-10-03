@@ -13,6 +13,7 @@ import { ArrowLeft, Calendar, User, Tag, BookOpen, ArrowRight, MessageSquare, Cl
 import { getCategoryColor } from '@/lib/category-colors';
 import { extractFaqFromContent } from '@/lib/faq-extractor';
 import SubscribeForm from '@/components/SubscribeForm';
+import ReadingMarkdownLink from '@/components/ReadingMarkdownLink';
 import BetaSignupForm from '@/components/BetaSignupForm';
 import { getCurrentTopicPicks } from '@/lib/topic-picks';
 
@@ -323,19 +324,15 @@ export default async function BlogArticlePage({
                   },
                 }]]}
                 components={{
-                  h1: ({ children }) => <h1 className="blog-h1">{children}</h1>,
-                  h2: ({ children }) => <h2 className="blog-h2">{children}</h2>,
-                  h3: ({ children }) => <h3 className="blog-h3">{children}</h3>,
-                  h4: ({ children }) => <h4 className="blog-h4">{children}</h4>,
+                  h1: ({ children, id, className }) => <h1 id={id} className={className === 'sr-only' ? 'sr-only' : 'blog-h1'}>{children}</h1>,
+                  h2: ({ children, id, className }) => <h2 id={id} className={className === 'sr-only' ? 'sr-only' : 'blog-h2'}>{children}</h2>,
+                  h3: ({ children, id, className }) => <h3 id={id} className={className === 'sr-only' ? 'sr-only' : 'blog-h3'}>{children}</h3>,
+                  h4: ({ children, id, className }) => <h4 id={id} className={className === 'sr-only' ? 'sr-only' : 'blog-h4'}>{children}</h4>,
                   p: ({ children }) => <p className="blog-p">{children}</p>,
                   ul: ({ children }) => <ul className="blog-ul">{children}</ul>,
                   ol: ({ children }) => <ol className="blog-ol">{children}</ol>,
-                  li: ({ children }) => <li className="blog-li">{children}</li>,
-                  a: ({ href, children }) => (
-                    <a href={href} target="_blank" rel="noopener noreferrer" className="blog-link">
-                      {children}
-                    </a>
-                  ),
+                  li: ({ children, id }) => <li id={id} className="blog-li">{children}</li>,
+                  a: (props) => <ReadingMarkdownLink {...props} variant="blog" />,
                   strong: ({ children }) => <strong className="blog-strong">{children}</strong>,
                   code: ({ children }) => <code className="blog-code">{children}</code>,
                   blockquote: ({ children }) => <blockquote className="blog-blockquote">{children}</blockquote>,

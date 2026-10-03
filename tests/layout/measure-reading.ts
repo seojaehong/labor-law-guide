@@ -66,7 +66,7 @@ export async function measureReading(page: Page, scope: string) {
       viewport: { width: innerWidth, height: innerHeight },
       document: { clientWidth: document.documentElement.clientWidth, scrollWidth: document.documentElement.scrollWidth },
       root: { ...rectOf(root), clientWidth: root.clientWidth, scrollWidth: root.scrollWidth, fontSize: style.fontSize },
-      main: rectOf(main), sidebar: sidebar ? rectOf(sidebar) : null,
+      main: rectOf(main), mainMaxInlineSize: getComputedStyle(main).maxInlineSize, sidebar: sidebar ? rectOf(sidebar) : null,
       sidebarContent: sidebarContent ? { ...rectOf(sidebarContent), position: getComputedStyle(sidebarContent).position, top: getComputedStyle(sidebarContent).top } : null,
       theme: document.documentElement.classList.contains('dark') ? 'dark' : 'light',
       fontStatus: document.fonts.status,

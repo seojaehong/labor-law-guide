@@ -65,7 +65,16 @@ export function inspectSsr(html) {
     .map(node => attr(node, 'href')).filter(Boolean);
   const body = nodes.find(node => node.tagName === 'body');
   if (!body) throw new Error('SSR response has no body');
-  const report = { streamPlacements, removedElements: 0, removedAttributes: 0, removedImages: 0 };
+  const bodyNodes = [...walk(body)];
+  const ids = new Set(bodyNodes.map(node => attr(node, 'id')).filter(Boolean));
+  const footnoteLinks = bodyNodes.filter(node => node.tagName === 'a' && /^#.*(?:fn|footnote)/.test(attr(node, 'href') || '')).map(node => {
+    const href = attr(node, 'href'), describedBy = attr(node, 'aria-describedby') || null;
+    return { href, id: attr(node, 'id') || null, target: attr(node, 'target') || null,
+      targetExists: ids.has(href.slice(1)), describedBy,
+      descriptionTargetsExist: !describedBy || describedBy.split(/\s+/).every(id => ids.has(id)),
+      reference: attr(node, 'data-footnote-ref') !== undefined, backReference: attr(node, 'data-footnote-backref') !== undefined };
+  });
+  const report = { footnotes: { links: footnoteLinks, labelIds: [...ids].filter(id => id.includes('footnote-label')) }, streamPlacements, removedElements: 0, removedAttributes: 0, removedImages: 0 };
   const clean = node => {
     node.childNodes = children(node).filter(child => {
       const remove = child.nodeName === '#comment' || dropTags.has(child.tagName) || child.tagName === 'template';
@@ -75,10 +84,10 @@ export function inspectSsr(html) {
     for (const child of node.childNodes) {
       if (child.attrs) {
         child.attrs = child.attrs.filter(item => {
-          // Keep local SVG fragment references, but all navigation/request
-          // attributes and form submission targets are removed.
+          // Keep same-document HTML anchor fragments and local SVG references.
+          // No base URL or outbound navigation/request attributes survive.
           const remove = item.name.startsWith('on') || item.name === 'srcdoc' ||
-            (urlAttributes.has(item.name) && !(item.name === 'href' && item.value.startsWith('#') && child.namespaceURI?.includes('svg')));
+            (urlAttributes.has(item.name) && !(item.name === 'href' && ((child.tagName === 'a' && /^#[A-Za-z0-9_.:-]+$/.test(item.value)) || (item.value.startsWith('#') && child.namespaceURI?.includes('svg')))));
           if (remove) report.removedAttributes++;
           return !remove;
         });

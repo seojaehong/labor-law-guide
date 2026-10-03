@@ -44,14 +44,14 @@ for (const reading of readings) {
       expect(measurement.scrollWidth).toBeLessThanOrEqual(measurement.clientWidth + 1);
       expect(measurement.lineCount).toBeGreaterThan(3);
       if (metrics.viewport.width >= 768) {
-        expect(measurement.rect.width).toBeGreaterThanOrEqual(590);
-        expect(measurement.rect.width).toBeLessThanOrEqual(700);
+        expect(measurement.rect.width).toBeGreaterThan(0);
+        expect(measurement.rect.width).toBeLessThanOrEqual(metrics.main.width + 1);
         if (measurement.prefix === '전각한글측정') {
           expect(measurement.medianHangulPerCompleteLine).toBeGreaterThanOrEqual(32);
           expect(measurement.medianHangulPerCompleteLine).toBeLessThanOrEqual(40);
         }
       } else {
-        expect(measurement.rect.width).toBeGreaterThanOrEqual(275);
+        expect(measurement.rect.width).toBeGreaterThan(0);
         expect(measurement.rect.width).toBeLessThan(metrics.viewport.width);
         if (measurement.prefix === '전각한글측정') {
           expect(measurement.medianHangulPerCompleteLine).toBeGreaterThanOrEqual(15);
@@ -65,7 +65,9 @@ for (const reading of readings) {
       expect(metrics.sidebarContent?.position).toBe(metrics.viewport.width >= 1152 ? 'sticky' : 'static');
       if (metrics.sidebar && metrics.viewport.width >= 1152) {
         expect(metrics.sidebar.x).toBeGreaterThanOrEqual(metrics.main.right + 20);
-        expect(metrics.main.width).toBeGreaterThanOrEqual(660);
+        const cap = parseFloat(metrics.mainMaxInlineSize);
+        expect(Number.isFinite(cap), 'Reading column has a resolved font-relative cap').toBe(true);
+        expect(metrics.main.width).toBeCloseTo(cap, 0);
       } else if (metrics.sidebar) {
         expect(metrics.sidebar.y).toBeGreaterThanOrEqual(metrics.main.bottom - 1);
       }

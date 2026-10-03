@@ -44,7 +44,7 @@
   /* TASK-500: four layout families. Prose is measured in CJK advances, not pixels.
      `ic` measures 水, not Hangul; verify actual Korean line wraps after fonts load.
      em is the intentionally approximate fallback, never substitute Latin `ch`. */
-  --reading-measure: 38em;
+  --reading-measure: 35em;
   --reading-font-size: clamp(1.0625rem, 1rem + 0.125vw, 1.125rem);
   --reading-leading: 1.8;
   --reading-paragraph-space: 1.25em;
@@ -959,7 +959,7 @@
 /* Reading-first layout system. Structural classes own only geometry/type;
    existing Yellow Envelope color, branding and theme tokens remain authoritative. */
 @supports (max-inline-size: 1ic) {
-  :root { --reading-measure: 38ic; }
+  :root { --reading-measure: 35ic; }
 }
 
 @layer components {
@@ -994,7 +994,7 @@
   .tool-layout { display: grid; gap: var(--layout-gap); }
   .tool-layout > * { min-inline-size: 0; }
   .tool-layout--chat { --layout-tool-rail: var(--layout-chat-rail); }
-  /* 72rem = full reading measure + rail + gap + safe outer gutters.
+  /* Conservative 72rem threshold reserves full reading measure + rail + gap + gutters.
      Stack at 1024px and under rather than reducing the primary column. */
   @media (min-width: 72rem) {
     .reading-layout { grid-template-columns: minmax(0, 1fr) var(--layout-rail); }

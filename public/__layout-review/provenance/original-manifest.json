@@ -1,0 +1,318 @@
+{
+  "kind": "LOCAL ONLY synthetic static SSR gallery; not browser validation",
+  "generatedAt": "2026-10-03T01:47:40.859Z",
+  "baselineCommit": "3be9fb3d2cb6f832d88a11c9554cee5489b936d5",
+  "beforeSourceSha256": "0a8dfc4d8e1b9ead9fd4d4863cd2d47eb2d178dcf24fcb529d4aba0c49db846d",
+  "afterSourceSha256": "c586a071f5f1a1976e21531985d660bdb1b7f75522407b52492d37eff669bd43",
+  "fixtureSha256": "5307d265ef2efc4fec42bb73a685ad74f78b9190ee301dfe2557b0fc8ff13911",
+  "font": {
+    "family": "Pretendard Variable",
+    "source": "installed pretendard package",
+    "sha256": "9599f12fd42fc0bce1cd50b47a0c022e108d7aa64dd0d1bb0ed44f3282d900b4",
+    "bytes": 2057688
+  },
+  "widths": [
+    1440,
+    1280,
+    1024,
+    768,
+    390
+  ],
+  "themes": [
+    "light",
+    "dark"
+  ],
+  "routes": [
+    {
+      "key": "blog",
+      "title": "Blog detail",
+      "path": "/blog/news-20261003-01",
+      "scope": ".blog-content",
+      "file": "pages/blog.html"
+    },
+    {
+      "key": "decision",
+      "title": "Decision detail",
+      "path": "/decisions/layout-decision",
+      "scope": "#decision-summary",
+      "file": "pages/decision.html"
+    },
+    {
+      "key": "decisions",
+      "title": "Decisions list",
+      "path": "/decisions",
+      "scope": null,
+      "file": "pages/decisions.html"
+    },
+    {
+      "key": "case",
+      "title": "Case detail",
+      "path": "/cases/layout-case",
+      "scope": "article",
+      "file": "pages/case.html"
+    },
+    {
+      "key": "interpretation",
+      "title": "Interpretation detail",
+      "path": "/interpretations/layout-interpretation",
+      "scope": "article",
+      "file": "pages/interpretation.html"
+    },
+    {
+      "key": "contact",
+      "title": "Contact tool shell",
+      "path": "/contact",
+      "scope": null,
+      "file": "pages/contact.html"
+    },
+    {
+      "key": "subsidy",
+      "title": "Subsidy tool shell",
+      "path": "/subsidy",
+      "scope": null,
+      "file": "pages/subsidy.html"
+    }
+  ],
+  "captures": [
+    {
+      "label": "before",
+      "route": "/blog/news-20261003-01",
+      "file": "before/pages/blog.html",
+      "htmlSha256": "21ecd7e5f4339f05dd4cb699529130dde1911d6e2d372348323a71ef267d0c3f",
+      "htmlBytes": 33517,
+      "stylesheets": [
+        "../../assets/114938979fc4ee06e5df.css"
+      ],
+      "sanitization": {
+        "streamPlacements": 0,
+        "removedElements": 55,
+        "removedAttributes": 52,
+        "removedImages": 0
+      }
+    },
+    {
+      "label": "before",
+      "route": "/decisions/layout-decision",
+      "file": "before/pages/decision.html",
+      "htmlSha256": "9f9fc117fe05dfa673a9c677bebcedcb580072a9641fd44630eb581598c5129e",
+      "htmlBytes": 22783,
+      "stylesheets": [
+        "../../assets/114938979fc4ee06e5df.css"
+      ],
+      "sanitization": {
+        "streamPlacements": 2,
+        "removedElements": 40,
+        "removedAttributes": 36,
+        "removedImages": 0
+      }
+    },
+    {
+      "label": "before",
+      "route": "/decisions",
+      "file": "before/pages/decisions.html",
+      "htmlSha256": "4805e629f1c860f7c21c3026d46d2e23ba14f542392fd591663893dc15715401",
+      "htmlBytes": 33155,
+      "stylesheets": [
+        "../../assets/114938979fc4ee06e5df.css"
+      ],
+      "sanitization": {
+        "streamPlacements": 0,
+        "removedElements": 66,
+        "removedAttributes": 61,
+        "removedImages": 0
+      }
+    },
+    {
+      "label": "before",
+      "route": "/cases/layout-case",
+      "file": "before/pages/case.html",
+      "htmlSha256": "d943c0d4665eaff765ffef4513d4df3fb2a91eb77e434e5ba861c942d446d6b9",
+      "htmlBytes": 33240,
+      "stylesheets": [
+        "../../assets/114938979fc4ee06e5df.css"
+      ],
+      "sanitization": {
+        "streamPlacements": 2,
+        "removedElements": 77,
+        "removedAttributes": 44,
+        "removedImages": 0
+      }
+    },
+    {
+      "label": "before",
+      "route": "/interpretations/layout-interpretation",
+      "file": "before/pages/interpretation.html",
+      "htmlSha256": "8a746bfdb8b1d044efc6b4fa3939c4e9c93df66cd8c10e957e225e6fb5f676c3",
+      "htmlBytes": 31687,
+      "stylesheets": [
+        "../../assets/114938979fc4ee06e5df.css"
+      ],
+      "sanitization": {
+        "streamPlacements": 0,
+        "removedElements": 69,
+        "removedAttributes": 44,
+        "removedImages": 0
+      }
+    },
+    {
+      "label": "before",
+      "route": "/contact",
+      "file": "before/pages/contact.html",
+      "htmlSha256": "68000d0235e53b58ccdd583a4a767b0ff344ed9f529a2443b42159ea8c435a72",
+      "htmlBytes": 22682,
+      "stylesheets": [
+        "../../assets/114938979fc4ee06e5df.css"
+      ],
+      "sanitization": {
+        "streamPlacements": 0,
+        "removedElements": 35,
+        "removedAttributes": 37,
+        "removedImages": 0
+      }
+    },
+    {
+      "label": "before",
+      "route": "/subsidy",
+      "file": "before/pages/subsidy.html",
+      "htmlSha256": "5dd5b998705f0ceb932303d67524c81804e9baf75dae4752452cf09c4cbeec7e",
+      "htmlBytes": 16308,
+      "stylesheets": [
+        "../../assets/114938979fc4ee06e5df.css"
+      ],
+      "sanitization": {
+        "streamPlacements": 0,
+        "removedElements": 30,
+        "removedAttributes": 35,
+        "removedImages": 0
+      }
+    },
+    {
+      "label": "after",
+      "route": "/blog/news-20261003-01",
+      "file": "after/pages/blog.html",
+      "htmlSha256": "a8ca1cbaf30de681965ccfe353d76af756f9c8442d730a8aa904abe6672b0a24",
+      "htmlBytes": 33766,
+      "stylesheets": [
+        "../../assets/8866cc8d4f44e8d94c4b.css"
+      ],
+      "sanitization": {
+        "streamPlacements": 0,
+        "removedElements": 58,
+        "removedAttributes": 52,
+        "removedImages": 0
+      }
+    },
+    {
+      "label": "after",
+      "route": "/decisions/layout-decision",
+      "file": "after/pages/decision.html",
+      "htmlSha256": "c73f623a807a250c360fa62822fb9c0eab7f7737e155440a6ce1e352ed9d3fb3",
+      "htmlBytes": 22692,
+      "stylesheets": [
+        "../../assets/8866cc8d4f44e8d94c4b.css"
+      ],
+      "sanitization": {
+        "streamPlacements": 2,
+        "removedElements": 40,
+        "removedAttributes": 36,
+        "removedImages": 0
+      }
+    },
+    {
+      "label": "after",
+      "route": "/decisions",
+      "file": "after/pages/decisions.html",
+      "htmlSha256": "969874f228dc5602f2320381069d0b29b7ddd6a630a7987d4ebcc9e77a696d22",
+      "htmlBytes": 33144,
+      "stylesheets": [
+        "../../assets/8866cc8d4f44e8d94c4b.css"
+      ],
+      "sanitization": {
+        "streamPlacements": 0,
+        "removedElements": 66,
+        "removedAttributes": 61,
+        "removedImages": 0
+      }
+    },
+    {
+      "label": "after",
+      "route": "/cases/layout-case",
+      "file": "after/pages/case.html",
+      "htmlSha256": "4bc112b82df566ba475bddfd42fd4834a189fe4116cbe3926264ebb29d7bf309",
+      "htmlBytes": 33314,
+      "stylesheets": [
+        "../../assets/8866cc8d4f44e8d94c4b.css"
+      ],
+      "sanitization": {
+        "streamPlacements": 4,
+        "removedElements": 81,
+        "removedAttributes": 44,
+        "removedImages": 0
+      }
+    },
+    {
+      "label": "after",
+      "route": "/interpretations/layout-interpretation",
+      "file": "after/pages/interpretation.html",
+      "htmlSha256": "fb04a7abceac876be6e47ce83217de6f0136b255c0e38c4c10f2bbfe77718f03",
+      "htmlBytes": 31696,
+      "stylesheets": [
+        "../../assets/8866cc8d4f44e8d94c4b.css"
+      ],
+      "sanitization": {
+        "streamPlacements": 0,
+        "removedElements": 72,
+        "removedAttributes": 44,
+        "removedImages": 0
+      }
+    },
+    {
+      "label": "after",
+      "route": "/contact",
+      "file": "after/pages/contact.html",
+      "htmlSha256": "9df706e19f05653fc975b797a471e9ec60baba2724942b58a9eb557f21df1b69",
+      "htmlBytes": 22663,
+      "stylesheets": [
+        "../../assets/8866cc8d4f44e8d94c4b.css"
+      ],
+      "sanitization": {
+        "streamPlacements": 0,
+        "removedElements": 35,
+        "removedAttributes": 37,
+        "removedImages": 0
+      }
+    },
+    {
+      "label": "after",
+      "route": "/subsidy",
+      "file": "after/pages/subsidy.html",
+      "htmlSha256": "63ad9541a714692284a709deaa14122e0fe0247ca75f2f75ee85a21a4274a79e",
+      "htmlBytes": 16289,
+      "stylesheets": [
+        "../../assets/8866cc8d4f44e8d94c4b.css"
+      ],
+      "sanitization": {
+        "streamPlacements": 0,
+        "removedElements": 30,
+        "removedAttributes": 35,
+        "removedImages": 0
+      }
+    }
+  ],
+  "safety": {
+    "localOnly": true,
+    "publicationAuthorized": false,
+    "sourceScriptsRemoved": true,
+    "navigationDisabled": true,
+    "formsDisabled": true,
+    "apiRequests": false,
+    "providerCredentialsCopied": false
+  },
+  "limitations": [
+    "Static server-rendered HTML; no hydration or application interaction validation.",
+    "Before and after use identical synthetic database fixtures.",
+    "Contact/subsidy preserve checked-in public template text; they are not synthetic database records.",
+    "No browser geometry or screenshots exist until the gallery is opened and measured in an authorized browser.",
+    "Loopback-only development servers stopped after capture; raw SSR logs remain outside the gallery."
+  ]
+}

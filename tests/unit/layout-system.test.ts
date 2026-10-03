@@ -7,9 +7,9 @@ const css = read('src/app/globals.css');
 
 describe('reading-first layout contract', () => {
   it('uses CJK measure with an explicit em fallback, not a Latin zero-glyph width', () => {
-    expect(css).toContain('--reading-measure: 38em');
+    expect(css).toContain('--reading-measure: 35em');
     expect(css).toContain('@supports (max-inline-size: 1ic)');
-    expect(css).toContain('--reading-measure: 38ic');
+    expect(css).toContain('--reading-measure: 35ic');
     expect(css).not.toMatch(/--reading-measure:\s*[\d.]+(?:px|ch)/);
   });
   it('separates four page families and stacks reading rails before notebook widths', () => {

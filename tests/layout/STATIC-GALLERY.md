@@ -16,7 +16,7 @@ The output directory must be new or empty; existing evidence is never deleted. T
 3. Uses the same synthetic fixture server for both captures. It starts and fetches the servers inside one invocation, which works with per-command network/process isolation. The child environment is explicitly allowlisted and request guards reject non-loopback fetch/HTTP requests.
 4. Renders seven actual application routes in each version with their own Next development compiler and real compiled CSS: blog, decision, decisions list, case, interpretation, contact and subsidy.
 5. Parses only React's literal `$RC` / `$RS` streamed-HTML ID placements to materialize completed SSR, without evaluating JavaScript. Missing/unrecognized Suspense placements fail closed.
-6. Removes application scripts, analytics, metadata payloads, external font links, request-bearing attributes, navigation targets and form actions. Snapshot CSP additionally forbids scripts, connections and form submissions. Local SVG icons remain. The selected routes contain no required image assets.
+6. Removes application scripts, analytics, metadata payloads, external font links, request-bearing attributes, outbound navigation targets and form actions. Snapshot CSP additionally forbids scripts, connections and form submissions. Local SVG icons remain. The selected routes contain no required image assets.
 7. Bundles the installed Pretendard variable WOFF2 and compiled stylesheets. Source digests, HTML hashes, font hash, fixture hash and sanitization counts are recorded in `manifest.json`.
 8. Stops its development/fixture servers. Raw SSR and server logs remain in the temporary capture workspace, outside the gallery output.
 
@@ -38,3 +38,25 @@ Only the gallery's controlled JavaScript runs. It loads the local font, verifies
 - The generator's Node tests validate sanitizer behavior, not browser geometry or typography.
 - No browser metrics or screenshots are fabricated. A generated gallery can be complete while browser QA remains blocked.
 - No files from the production database or remote service are fetched. No API endpoint or AI provider is called.
+
+## Calibrated recapture with immutable original evidence
+
+    node tests/layout/generate-static-gallery.mjs /workspace/shared/layout-preview-calibrated --reuse-before /workspace/shared/layout-preview --ordinary
+
+This path copies the original stress BEFORE snapshots, compiled assets and capture manifest byte-for-byte. It checks the original HTML hashes, fixture hash, font hash, baseline commit/source hash and CSS bytes before proceeding. Only the stress AFTER is recaptured. AFTER HTML filenames, all compiled CSS filenames, and the controller/style references are content-addressed, so a calibrated capture has fresh asset identities rather than reusing stale cached AFTER content.
+
+The ordinary mode is a clearly labelled supplemental capture of the four reading routes from the pristine baseline and current source. Both receive the same `ordinary-fixture-data.mjs` data through the existing real templates and Markdown renderers. The original stress fixture module is unchanged. Ordinary data retains the Hangul/mixed paragraphs, normal lists and table, and adds a short synthetic quote plus a GFM footnote/back-reference. Only artificial stress content is excluded: the uninterrupted fullwidth ruler, extreme URL/token row, forced-width table, long code and stress-only heading. Non-reading routes reuse their standard captures. These supplemental BEFORE snapshots are not replacements for original BEFORE evidence.
+
+Stress mode remains the default acceptance view. Ordinary mode is for a fair visual comparison, because a 5752px BEFORE case under the uninterrupted-ruler fixture is artificial min-content stress, not a normal production article width. Each JSON measurement and matrix records its selected mode and snapshot identity. Missing/hidden probes are explicitly excluded, without a zero characters-per-line result.
+
+Same-document footnote fragments are retained by the snapshot sanitizer; base URLs, outbound URLs, scripts, event handlers, connections and forms remain disabled. The controlled harness permits fragment clicks only in ordinary AFTER when the target exists and the anchor does not open another browsing context. Original stress BEFORE bytes remain immutable. SSR capture records the actual footnote ref/back-reference target IDs and ARIA label resolution; final ordinary AFTER captures fail if those fragment targets or labels are broken. This is separate from browser interaction verification.
+
+For a temporary current-source blog/case SSR proof (not a complete comparison gallery):
+
+    node tests/layout/generate-static-gallery.mjs /workspace/shared/layout-ordinary-proof --ordinary-proof
+
+Run the focused offline tests before capture:
+
+    node --test tests/layout/fixture.test.mjs tests/layout/ordinary-fixture.test.mjs tests/layout/static-snapshot.test.mjs tests/layout/static-gallery.test.mjs
+
+These Node tests validate fixtures, sanitizer, missing/hidden measurement handling and bounded same-origin cache-fresh retry behavior. They do not claim browser geometry, screenshots, interaction results or approval for publication.

@@ -1,9 +1,21 @@
 {
+  "captureRevision": "5e7d729dfcfd009a",
+  "ordinaryProof": false,
+  "fixtureModes": [
+    "stress",
+    "ordinary"
+  ],
+  "preservedBefore": {
+    "manifest": "provenance/original-manifest.json",
+    "sha256": "9195c7d83f9104c35e995e8c220d93ec6e9f48d459c0e036a7659da663f054c3",
+    "byteIdentical": true
+  },
+  "ordinaryFixtureSha256": "3929e7a8bfe9d0276efceb6d6af09335a8625a50f0199e16c1e162676e0cc72f",
   "kind": "LOCAL ONLY synthetic static SSR gallery; not browser validation",
-  "generatedAt": "2026-10-03T01:47:40.859Z",
+  "generatedAt": "2026-10-03T04:54:34.038Z",
   "baselineCommit": "3be9fb3d2cb6f832d88a11c9554cee5489b936d5",
   "beforeSourceSha256": "0a8dfc4d8e1b9ead9fd4d4863cd2d47eb2d178dcf24fcb529d4aba0c49db846d",
-  "afterSourceSha256": "c586a071f5f1a1976e21531985d660bdb1b7f75522407b52492d37eff669bd43",
+  "afterSourceSha256": "5e7d729dfcfd009a3b4e9abe1854c521d9a222449abec13338e8ee6422f90958",
   "fixtureSha256": "5307d265ef2efc4fec42bb73a685ad74f78b9190ee301dfe2557b0fc8ff13911",
   "font": {
     "family": "Pretendard Variable",
@@ -28,49 +40,119 @@
       "title": "Blog detail",
       "path": "/blog/news-20261003-01",
       "scope": ".blog-content",
-      "file": "pages/blog.html"
+      "file": "pages/blog.html",
+      "snapshots": {
+        "stress": {
+          "before": "before/pages/blog.html",
+          "after": "after/pages/blog-38e1cfc0eddc.html"
+        },
+        "ordinary": {
+          "before": "ordinary-before/pages/blog-a949f44831d1.html",
+          "after": "ordinary-after/pages/blog-aad1cec84491.html"
+        }
+      }
     },
     {
       "key": "decision",
       "title": "Decision detail",
       "path": "/decisions/layout-decision",
       "scope": "#decision-summary",
-      "file": "pages/decision.html"
+      "file": "pages/decision.html",
+      "snapshots": {
+        "stress": {
+          "before": "before/pages/decision.html",
+          "after": "after/pages/decision-8f6350680771.html"
+        },
+        "ordinary": {
+          "before": "ordinary-before/pages/decision-2d19f78ae7fb.html",
+          "after": "ordinary-after/pages/decision-297e3fb0b8e6.html"
+        }
+      }
     },
     {
       "key": "decisions",
       "title": "Decisions list",
       "path": "/decisions",
       "scope": null,
-      "file": "pages/decisions.html"
+      "file": "pages/decisions.html",
+      "snapshots": {
+        "stress": {
+          "before": "before/pages/decisions.html",
+          "after": "after/pages/decisions-916797fd049d.html"
+        },
+        "ordinary": {
+          "before": "before/pages/decisions.html",
+          "after": "after/pages/decisions-916797fd049d.html"
+        }
+      }
     },
     {
       "key": "case",
       "title": "Case detail",
       "path": "/cases/layout-case",
       "scope": "article",
-      "file": "pages/case.html"
+      "file": "pages/case.html",
+      "snapshots": {
+        "stress": {
+          "before": "before/pages/case.html",
+          "after": "after/pages/case-c190ff01f64f.html"
+        },
+        "ordinary": {
+          "before": "ordinary-before/pages/case-b3a34bcbdfa8.html",
+          "after": "ordinary-after/pages/case-85d9cae6e847.html"
+        }
+      }
     },
     {
       "key": "interpretation",
       "title": "Interpretation detail",
       "path": "/interpretations/layout-interpretation",
       "scope": "article",
-      "file": "pages/interpretation.html"
+      "file": "pages/interpretation.html",
+      "snapshots": {
+        "stress": {
+          "before": "before/pages/interpretation.html",
+          "after": "after/pages/interpretation-d8604c7b15ca.html"
+        },
+        "ordinary": {
+          "before": "ordinary-before/pages/interpretation-64dee84bfca9.html",
+          "after": "ordinary-after/pages/interpretation-ad62007a3e06.html"
+        }
+      }
     },
     {
       "key": "contact",
       "title": "Contact tool shell",
       "path": "/contact",
       "scope": null,
-      "file": "pages/contact.html"
+      "file": "pages/contact.html",
+      "snapshots": {
+        "stress": {
+          "before": "before/pages/contact.html",
+          "after": "after/pages/contact-d1dcc835c4f0.html"
+        },
+        "ordinary": {
+          "before": "before/pages/contact.html",
+          "after": "after/pages/contact-d1dcc835c4f0.html"
+        }
+      }
     },
     {
       "key": "subsidy",
       "title": "Subsidy tool shell",
       "path": "/subsidy",
       "scope": null,
-      "file": "pages/subsidy.html"
+      "file": "pages/subsidy.html",
+      "snapshots": {
+        "stress": {
+          "before": "before/pages/subsidy.html",
+          "after": "after/pages/subsidy-a5b8057b7ef2.html"
+        },
+        "ordinary": {
+          "before": "before/pages/subsidy.html",
+          "after": "after/pages/subsidy-a5b8057b7ef2.html"
+        }
+      }
     }
   ],
   "captures": [
@@ -188,30 +270,40 @@
     },
     {
       "label": "after",
+      "fixtureMode": "stress",
       "route": "/blog/news-20261003-01",
-      "file": "after/pages/blog.html",
-      "htmlSha256": "a8ca1cbaf30de681965ccfe353d76af756f9c8442d730a8aa904abe6672b0a24",
+      "file": "after/pages/blog-38e1cfc0eddc.html",
+      "htmlSha256": "38e1cfc0eddc74bb4b1459899ee4b90789c3c2f78b348448ead04517a5479fa4",
       "htmlBytes": 33766,
       "stylesheets": [
-        "../../assets/8866cc8d4f44e8d94c4b.css"
+        "../../assets/d0c9e6fd9b2e0868b6e3.css"
       ],
       "sanitization": {
+        "footnotes": {
+          "links": [],
+          "labelIds": []
+        },
         "streamPlacements": 0,
-        "removedElements": 58,
+        "removedElements": 59,
         "removedAttributes": 52,
         "removedImages": 0
       }
     },
     {
       "label": "after",
+      "fixtureMode": "stress",
       "route": "/decisions/layout-decision",
-      "file": "after/pages/decision.html",
-      "htmlSha256": "c73f623a807a250c360fa62822fb9c0eab7f7737e155440a6ce1e352ed9d3fb3",
+      "file": "after/pages/decision-8f6350680771.html",
+      "htmlSha256": "8f6350680771d6051801bd7a425f00579c550c74adcc9d38a67cf3fadfeea035",
       "htmlBytes": 22692,
       "stylesheets": [
-        "../../assets/8866cc8d4f44e8d94c4b.css"
+        "../../assets/d0c9e6fd9b2e0868b6e3.css"
       ],
       "sanitization": {
+        "footnotes": {
+          "links": [],
+          "labelIds": []
+        },
         "streamPlacements": 2,
         "removedElements": 40,
         "removedAttributes": 36,
@@ -220,14 +312,19 @@
     },
     {
       "label": "after",
+      "fixtureMode": "stress",
       "route": "/decisions",
-      "file": "after/pages/decisions.html",
-      "htmlSha256": "969874f228dc5602f2320381069d0b29b7ddd6a630a7987d4ebcc9e77a696d22",
+      "file": "after/pages/decisions-916797fd049d.html",
+      "htmlSha256": "916797fd049daa11f9d6380ab97f51137b9f00215980c8d2ced301a2fd92f4e6",
       "htmlBytes": 33144,
       "stylesheets": [
-        "../../assets/8866cc8d4f44e8d94c4b.css"
+        "../../assets/d0c9e6fd9b2e0868b6e3.css"
       ],
       "sanitization": {
+        "footnotes": {
+          "links": [],
+          "labelIds": []
+        },
         "streamPlacements": 0,
         "removedElements": 66,
         "removedAttributes": 61,
@@ -236,46 +333,61 @@
     },
     {
       "label": "after",
+      "fixtureMode": "stress",
       "route": "/cases/layout-case",
-      "file": "after/pages/case.html",
-      "htmlSha256": "4bc112b82df566ba475bddfd42fd4834a189fe4116cbe3926264ebb29d7bf309",
-      "htmlBytes": 33314,
+      "file": "after/pages/case-c190ff01f64f.html",
+      "htmlSha256": "c190ff01f64fdc20234b8deef287cd64262e05246529a4e2b2af149b3d6533df",
+      "htmlBytes": 33268,
       "stylesheets": [
-        "../../assets/8866cc8d4f44e8d94c4b.css"
+        "../../assets/d0c9e6fd9b2e0868b6e3.css"
       ],
       "sanitization": {
+        "footnotes": {
+          "links": [],
+          "labelIds": []
+        },
         "streamPlacements": 4,
-        "removedElements": 81,
+        "removedElements": 79,
         "removedAttributes": 44,
         "removedImages": 0
       }
     },
     {
       "label": "after",
+      "fixtureMode": "stress",
       "route": "/interpretations/layout-interpretation",
-      "file": "after/pages/interpretation.html",
-      "htmlSha256": "fb04a7abceac876be6e47ce83217de6f0136b255c0e38c4c10f2bbfe77718f03",
-      "htmlBytes": 31696,
+      "file": "after/pages/interpretation-d8604c7b15ca.html",
+      "htmlSha256": "d8604c7b15ca9ea9808486701c058232387e3e68ac483ffe2db8f00bf3ea2061",
+      "htmlBytes": 31650,
       "stylesheets": [
-        "../../assets/8866cc8d4f44e8d94c4b.css"
+        "../../assets/d0c9e6fd9b2e0868b6e3.css"
       ],
       "sanitization": {
+        "footnotes": {
+          "links": [],
+          "labelIds": []
+        },
         "streamPlacements": 0,
-        "removedElements": 72,
+        "removedElements": 70,
         "removedAttributes": 44,
         "removedImages": 0
       }
     },
     {
       "label": "after",
+      "fixtureMode": "stress",
       "route": "/contact",
-      "file": "after/pages/contact.html",
-      "htmlSha256": "9df706e19f05653fc975b797a471e9ec60baba2724942b58a9eb557f21df1b69",
+      "file": "after/pages/contact-d1dcc835c4f0.html",
+      "htmlSha256": "d1dcc835c4f0e951ff675f8332009c38717f33729afc4c91a93d7864472d8c03",
       "htmlBytes": 22663,
       "stylesheets": [
-        "../../assets/8866cc8d4f44e8d94c4b.css"
+        "../../assets/d0c9e6fd9b2e0868b6e3.css"
       ],
       "sanitization": {
+        "footnotes": {
+          "links": [],
+          "labelIds": []
+        },
         "streamPlacements": 0,
         "removedElements": 35,
         "removedAttributes": 37,
@@ -284,17 +396,322 @@
     },
     {
       "label": "after",
+      "fixtureMode": "stress",
       "route": "/subsidy",
-      "file": "after/pages/subsidy.html",
-      "htmlSha256": "63ad9541a714692284a709deaa14122e0fe0247ca75f2f75ee85a21a4274a79e",
+      "file": "after/pages/subsidy-a5b8057b7ef2.html",
+      "htmlSha256": "a5b8057b7ef25bf57942288ae3db3d9e0769321b49cde0bbad69d8f365d23b32",
       "htmlBytes": 16289,
       "stylesheets": [
-        "../../assets/8866cc8d4f44e8d94c4b.css"
+        "../../assets/d0c9e6fd9b2e0868b6e3.css"
       ],
       "sanitization": {
+        "footnotes": {
+          "links": [],
+          "labelIds": []
+        },
         "streamPlacements": 0,
         "removedElements": 30,
         "removedAttributes": 35,
+        "removedImages": 0
+      }
+    },
+    {
+      "label": "ordinary-before",
+      "fixtureMode": "ordinary",
+      "route": "/blog/news-20261003-01",
+      "file": "ordinary-before/pages/blog-a949f44831d1.html",
+      "htmlSha256": "a949f44831d16aca37d4463029f29c657e4ec07e346348640f0782089b6069c2",
+      "htmlBytes": 31137,
+      "stylesheets": [
+        "../../assets/114938979fc4ee06e5df.css"
+      ],
+      "sanitization": {
+        "footnotes": {
+          "links": [
+            {
+              "href": "#user-content-fn-layout-note",
+              "id": null,
+              "target": "_blank",
+              "targetExists": false,
+              "describedBy": null,
+              "descriptionTargetsExist": true,
+              "reference": false,
+              "backReference": false
+            },
+            {
+              "href": "#user-content-fnref-layout-note",
+              "id": null,
+              "target": "_blank",
+              "targetExists": false,
+              "describedBy": null,
+              "descriptionTargetsExist": true,
+              "reference": false,
+              "backReference": false
+            }
+          ],
+          "labelIds": []
+        },
+        "streamPlacements": 0,
+        "removedElements": 53,
+        "removedAttributes": 50,
+        "removedImages": 0
+      }
+    },
+    {
+      "label": "ordinary-before",
+      "fixtureMode": "ordinary",
+      "route": "/decisions/layout-decision",
+      "file": "ordinary-before/pages/decision-2d19f78ae7fb.html",
+      "htmlSha256": "2d19f78ae7fb2ca41cb9c84f5ef585c50bb94b79a3eeeed15c7261f16e7830c7",
+      "htmlBytes": 21201,
+      "stylesheets": [
+        "../../assets/114938979fc4ee06e5df.css"
+      ],
+      "sanitization": {
+        "footnotes": {
+          "links": [],
+          "labelIds": []
+        },
+        "streamPlacements": 1,
+        "removedElements": 38,
+        "removedAttributes": 36,
+        "removedImages": 0
+      }
+    },
+    {
+      "label": "ordinary-before",
+      "fixtureMode": "ordinary",
+      "route": "/cases/layout-case",
+      "file": "ordinary-before/pages/case-b3a34bcbdfa8.html",
+      "htmlSha256": "b3a34bcbdfa8e9d73e41bd94447eebf0132bf0560a6b60b862bd507b6eae14bd",
+      "htmlBytes": 29786,
+      "stylesheets": [
+        "../../assets/114938979fc4ee06e5df.css"
+      ],
+      "sanitization": {
+        "footnotes": {
+          "links": [
+            {
+              "href": "#user-content-fn-layout-note",
+              "id": "user-content-fnref-layout-note",
+              "target": "_blank",
+              "targetExists": true,
+              "describedBy": "footnote-label",
+              "descriptionTargetsExist": false,
+              "reference": true,
+              "backReference": false
+            },
+            {
+              "href": "#user-content-fnref-layout-note",
+              "id": null,
+              "target": "_blank",
+              "targetExists": true,
+              "describedBy": null,
+              "descriptionTargetsExist": true,
+              "reference": false,
+              "backReference": true
+            }
+          ],
+          "labelIds": []
+        },
+        "streamPlacements": 2,
+        "removedElements": 73,
+        "removedAttributes": 42,
+        "removedImages": 0
+      }
+    },
+    {
+      "label": "ordinary-before",
+      "fixtureMode": "ordinary",
+      "route": "/interpretations/layout-interpretation",
+      "file": "ordinary-before/pages/interpretation-64dee84bfca9.html",
+      "htmlSha256": "64dee84bfca968f3bea381a507e8b09fdd4f2487c35bab6becc14223ff355247",
+      "htmlBytes": 28233,
+      "stylesheets": [
+        "../../assets/114938979fc4ee06e5df.css"
+      ],
+      "sanitization": {
+        "footnotes": {
+          "links": [
+            {
+              "href": "#user-content-fn-layout-note",
+              "id": "user-content-fnref-layout-note",
+              "target": "_blank",
+              "targetExists": true,
+              "describedBy": "footnote-label",
+              "descriptionTargetsExist": false,
+              "reference": true,
+              "backReference": false
+            },
+            {
+              "href": "#user-content-fnref-layout-note",
+              "id": null,
+              "target": "_blank",
+              "targetExists": true,
+              "describedBy": null,
+              "descriptionTargetsExist": true,
+              "reference": false,
+              "backReference": true
+            }
+          ],
+          "labelIds": []
+        },
+        "streamPlacements": 0,
+        "removedElements": 65,
+        "removedAttributes": 42,
+        "removedImages": 0
+      }
+    },
+    {
+      "label": "ordinary-after",
+      "fixtureMode": "ordinary",
+      "route": "/blog/news-20261003-01",
+      "file": "ordinary-after/pages/blog-aad1cec84491.html",
+      "htmlSha256": "aad1cec844919bad91320d2941e3ac0258e60928b0bb26f0f046415ad82691f7",
+      "htmlBytes": 31468,
+      "stylesheets": [
+        "../../assets/d0c9e6fd9b2e0868b6e3.css"
+      ],
+      "sanitization": {
+        "footnotes": {
+          "links": [
+            {
+              "href": "#user-content-user-content-fn-layout-note",
+              "id": "user-content-user-content-fnref-layout-note",
+              "target": null,
+              "targetExists": true,
+              "describedBy": "user-content-footnote-label",
+              "descriptionTargetsExist": true,
+              "reference": true,
+              "backReference": false
+            },
+            {
+              "href": "#user-content-user-content-fnref-layout-note",
+              "id": null,
+              "target": null,
+              "targetExists": true,
+              "describedBy": null,
+              "descriptionTargetsExist": true,
+              "reference": false,
+              "backReference": true
+            }
+          ],
+          "labelIds": [
+            "user-content-footnote-label"
+          ]
+        },
+        "streamPlacements": 0,
+        "removedElements": 54,
+        "removedAttributes": 50,
+        "removedImages": 0
+      }
+    },
+    {
+      "label": "ordinary-after",
+      "fixtureMode": "ordinary",
+      "route": "/decisions/layout-decision",
+      "file": "ordinary-after/pages/decision-297e3fb0b8e6.html",
+      "htmlSha256": "297e3fb0b8e6b7fe11b5c3b52c1ee5f81de7ee37e631e9cf1ed744209a679fdf",
+      "htmlBytes": 21120,
+      "stylesheets": [
+        "../../assets/d0c9e6fd9b2e0868b6e3.css"
+      ],
+      "sanitization": {
+        "footnotes": {
+          "links": [],
+          "labelIds": []
+        },
+        "streamPlacements": 2,
+        "removedElements": 39,
+        "removedAttributes": 36,
+        "removedImages": 0
+      }
+    },
+    {
+      "label": "ordinary-after",
+      "fixtureMode": "ordinary",
+      "route": "/cases/layout-case",
+      "file": "ordinary-after/pages/case-85d9cae6e847.html",
+      "htmlSha256": "85d9cae6e847d6d6646bca498844523babdabf13c62f94d950ddc72606e0dfb8",
+      "htmlBytes": 29719,
+      "stylesheets": [
+        "../../assets/d0c9e6fd9b2e0868b6e3.css"
+      ],
+      "sanitization": {
+        "footnotes": {
+          "links": [
+            {
+              "href": "#user-content-fn-layout-note",
+              "id": "user-content-fnref-layout-note",
+              "target": null,
+              "targetExists": true,
+              "describedBy": "footnote-label",
+              "descriptionTargetsExist": true,
+              "reference": true,
+              "backReference": false
+            },
+            {
+              "href": "#user-content-fnref-layout-note",
+              "id": null,
+              "target": null,
+              "targetExists": true,
+              "describedBy": null,
+              "descriptionTargetsExist": true,
+              "reference": false,
+              "backReference": true
+            }
+          ],
+          "labelIds": [
+            "footnote-label"
+          ]
+        },
+        "streamPlacements": 3,
+        "removedElements": 76,
+        "removedAttributes": 42,
+        "removedImages": 0
+      }
+    },
+    {
+      "label": "ordinary-after",
+      "fixtureMode": "ordinary",
+      "route": "/interpretations/layout-interpretation",
+      "file": "ordinary-after/pages/interpretation-ad62007a3e06.html",
+      "htmlSha256": "ad62007a3e062f9c72a9697382942f7ad8401bdfe35fcf5bca0b97e39778edcc",
+      "htmlBytes": 28126,
+      "stylesheets": [
+        "../../assets/d0c9e6fd9b2e0868b6e3.css"
+      ],
+      "sanitization": {
+        "footnotes": {
+          "links": [
+            {
+              "href": "#user-content-fn-layout-note",
+              "id": "user-content-fnref-layout-note",
+              "target": null,
+              "targetExists": true,
+              "describedBy": "footnote-label",
+              "descriptionTargetsExist": true,
+              "reference": true,
+              "backReference": false
+            },
+            {
+              "href": "#user-content-fnref-layout-note",
+              "id": null,
+              "target": null,
+              "targetExists": true,
+              "describedBy": null,
+              "descriptionTargetsExist": true,
+              "reference": false,
+              "backReference": true
+            }
+          ],
+          "labelIds": [
+            "footnote-label"
+          ]
+        },
+        "streamPlacements": 0,
+        "removedElements": 68,
+        "removedAttributes": 42,
         "removedImages": 0
       }
     }
@@ -303,14 +720,18 @@
     "localOnly": true,
     "publicationAuthorized": false,
     "sourceScriptsRemoved": true,
-    "navigationDisabled": true,
+    "outboundNavigationDisabled": true,
+    "ordinaryAfterSameDocumentFragmentsEnabled": true,
     "formsDisabled": true,
     "apiRequests": false,
     "providerCredentialsCopied": false
   },
   "limitations": [
     "Static server-rendered HTML; no hydration or application interaction validation.",
-    "Before and after use identical synthetic database fixtures.",
+    "Before and after use identical synthetic input within each named fixture mode; ordinary reading snapshots are supplemental captures, not altered original BEFORE files.",
+    "The fullwidth ruler and long tokens are artificial stress fixtures. A very wide stress BEFORE case does not establish a normal production article width.",
+    "Supplemental ordinary snapshots retain Korean/mixed paragraphs, normal tables/lists, a short quote, and a real Markdown-rendered footnote/back-reference. Decision text uses its existing plain-text renderer.",
+    "Only same-document fragment clicks in ordinary AFTER are enabled. Outbound navigation, forms and application scripts remain disabled.",
     "Contact/subsidy preserve checked-in public template text; they are not synthetic database records.",
     "No browser geometry or screenshots exist until the gallery is opened and measured in an authorized browser.",
     "Loopback-only development servers stopped after capture; raw SSR logs remain outside the gallery."
