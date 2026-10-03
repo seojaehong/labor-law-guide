@@ -6,7 +6,7 @@ import { CheckCircle, FileText } from 'lucide-react';
 
 export default function ManualPage() {
   return (
-    <div className="mx-auto max-w-[820px] px-5 py-10">
+    <div className="layout-reading">
       <h1 className="t-h2 mb-2" style={{ color: 'var(--color-text-primary)' }}>
         원·하청 교섭절차 가이드
       </h1>

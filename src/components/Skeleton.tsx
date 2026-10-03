@@ -35,7 +35,7 @@ export function BlogCardSkeleton() {
 
 export function DetailPageSkeleton() {
   return (
-    <div className="animate-pulse mx-auto max-w-[1100px] px-5 py-10">
+    <div className="animate-pulse mx-auto max-w-[var(--layout-list-max)] px-5 py-10">
       <div className="h-4 w-24 rounded-md mb-6" style={{ backgroundColor: 'var(--grey-200)' }} />
       <div className="flex gap-2 mb-4">
         <div className="h-5 w-14 rounded-full" style={{ backgroundColor: 'var(--grey-200)' }} />

@@ -231,7 +231,7 @@ function renderHoldingBlocks(text: string) {
     <p
       key={`${block.kind}-${index}`}
       className={cn(
-        "text-sm leading-relaxed whitespace-pre-wrap",
+        "reading-prose whitespace-pre-wrap",
         block.kind === "level1" && "font-semibold mt-4 first:mt-0",
         block.kind === "level2" && "pl-4 mt-2",
         block.kind === "level3" && "pl-8 mt-1.5",
@@ -256,7 +256,7 @@ function renderLawgoSections(sections: LawgoSection[]) {
   return sections.map((section, index) => (
     <div key={`${section.type || "body"}-${section.index ?? index}`} className="mb-5 last:mb-0">
       {section.title ? <h3 className="font-semibold text-sm mb-2">{section.title}</h3> : null}
-      <p className="text-sm leading-relaxed whitespace-pre-wrap">{section.text || ""}</p>
+      <p className="reading-prose whitespace-pre-wrap">{section.text || ""}</p>
     </div>
   ));
 }
@@ -266,7 +266,7 @@ export default async function DecisionPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams?: Promise<{ source?: string | string[] }> | { source?: string | string[] };
+  searchParams?: Promise<{ source?: string | string[] }>;
 }) {
   const { id: rawId } = await params;
   // 한글/특수문자 ID(예: 2015부해OOO) 처리 — Next.js dynamic route param이 URL-encoded
@@ -326,7 +326,7 @@ export default async function DecisionPage({
 
     return (
       <main className="min-h-screen bg-background">
-        <div className="max-w-[820px] mx-auto px-4 py-8">
+        <div className="layout-reading">
           <Link href="/decisions" className="text-sm text-muted-foreground hover:text-primary mb-4 inline-block">
             &larr; 검색으로
           </Link>
@@ -375,28 +375,28 @@ export default async function DecisionPage({
             {precedent.issue_text ? (
               <Card className="p-4 bg-muted/50">
                 <h3 className="font-semibold text-sm mb-2">판시사항</h3>
-                <p className="text-sm leading-relaxed whitespace-pre-wrap">{precedent.issue_text}</p>
+                <p className="reading-prose whitespace-pre-wrap">{precedent.issue_text}</p>
               </Card>
             ) : null}
 
             {precedent.summary_text ? (
               <Card className="p-4">
                 <h3 className="font-semibold text-sm mb-2">판결요지</h3>
-                <p className="text-sm leading-relaxed whitespace-pre-wrap">{precedent.summary_text}</p>
+                <p className="reading-prose whitespace-pre-wrap">{precedent.summary_text}</p>
               </Card>
             ) : null}
 
             {precedent.reference_statutes ? (
               <Card className="p-4">
                 <h3 className="font-semibold text-sm mb-2">참조조문</h3>
-                <p className="text-sm leading-relaxed whitespace-pre-wrap">{precedent.reference_statutes}</p>
+                <p className="reading-prose whitespace-pre-wrap">{precedent.reference_statutes}</p>
               </Card>
             ) : null}
 
             {precedent.reference_cases ? (
               <Card className="p-4">
                 <h3 className="font-semibold text-sm mb-2">참조판례</h3>
-                <p className="text-sm leading-relaxed whitespace-pre-wrap">{precedent.reference_cases}</p>
+                <p className="reading-prose whitespace-pre-wrap">{precedent.reference_cases}</p>
               </Card>
             ) : null}
           </section>
@@ -419,7 +419,7 @@ export default async function DecisionPage({
               {sections.length > 0 ? (
                 <div>{renderLawgoSections(sections)}</div>
               ) : (
-                <p className="text-sm leading-relaxed whitespace-pre-wrap">{document?.body_text || "본문이 없습니다."}</p>
+                <p className="reading-prose whitespace-pre-wrap">{document?.body_text || "본문이 없습니다."}</p>
               )}
             </Card>
 
@@ -542,7 +542,7 @@ export default async function DecisionPage({
 
     return (
       <main className="min-h-screen bg-background">
-        <div className="max-w-[820px] mx-auto px-4 py-8">
+        <div className="layout-reading">
           <Link href="/decisions" className="text-sm text-muted-foreground hover:text-primary mb-4 inline-block">
             &larr; 검색으로
           </Link>
@@ -625,7 +625,7 @@ export default async function DecisionPage({
             ) : realFulltext ? (
               <Card className="p-4 mb-4">
                 <h3 className="font-semibold text-sm mb-3">법원 판례 원문</h3>
-                <p className="text-sm leading-relaxed whitespace-pre-wrap">{realFulltext}</p>
+                <p className="reading-prose whitespace-pre-wrap">{realFulltext}</p>
               </Card>
             ) : hasDetailedHoldingPoints ? (
               <Card className="p-4 mb-4 bg-muted/40">
@@ -712,7 +712,7 @@ export default async function DecisionPage({
 
   return (
     <main className="min-h-screen bg-background">
-      <div className="max-w-[820px] mx-auto px-4 py-8">
+      <div className="layout-reading">
         <Link href="/decisions" className="text-sm text-muted-foreground hover:text-primary mb-4 inline-block">
           &larr; 검색으로
         </Link>
@@ -770,7 +770,7 @@ export default async function DecisionPage({
           {d.reason_detail && (
             <Card className="p-4 mb-4">
               <h3 className="font-semibold text-sm mb-1">해고 사유</h3>
-              <p className="text-sm">{stripMarkdownFormatting(d.reason_detail)}</p>
+              <p className="reading-prose">{stripMarkdownFormatting(d.reason_detail)}</p>
             </Card>
           )}
 

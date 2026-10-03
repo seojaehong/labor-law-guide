@@ -224,10 +224,10 @@ export default async function BlogArticlePage({
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
 
-      <div className="mx-auto max-w-[820px] px-5 py-10">
-        <div className="lg:grid lg:grid-cols-[1fr_280px] lg:gap-10">
+      <div className="layout-reading layout-reading--with-rail">
+        <div className="reading-layout">
           {/* Main Article */}
-          <article>
+          <article className="reading-main">
             {/* Back link */}
             <Link
               href="/blog"
@@ -340,6 +340,7 @@ export default async function BlogArticlePage({
                   code: ({ children }) => <code className="blog-code">{children}</code>,
                   blockquote: ({ children }) => <blockquote className="blog-blockquote">{children}</blockquote>,
                   hr: () => <hr className="blog-hr" />,
+                  table: ({ children, ...props }) => <div className="reading-table-scroll" role="region" aria-label="본문 표" tabIndex={0}><table {...props}>{children}</table></div>,
                 }}
               >
                 {article.content}
@@ -454,8 +455,8 @@ export default async function BlogArticlePage({
           </article>
 
           {/* Sidebar */}
-          <aside className="hidden lg:block">
-            <div className="sticky top-24 space-y-6">
+          <aside className="reading-sidebar">
+            <div className="reading-sidebar-content space-y-6">
               {/* 이 주의 토픽 — 사이드바 상단 (자기 자신 제외) */}
               {topicPicks.length > 0 && (
                 <div

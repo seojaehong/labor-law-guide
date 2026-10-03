@@ -41,6 +41,25 @@
 }
 
 :root {
+  /* TASK-500: four layout families. Prose is measured in CJK advances, not pixels.
+     `ic` measures 水, not Hangul; verify actual Korean line wraps after fonts load.
+     em is the intentionally approximate fallback, never substitute Latin `ch`. */
+  --reading-measure: 38em;
+  --reading-font-size: clamp(1.0625rem, 1rem + 0.125vw, 1.125rem);
+  --reading-leading: 1.8;
+  --reading-paragraph-space: 1.25em;
+  --layout-list-max: 68.75rem;
+  --layout-tool-max: 68.75rem;
+  --layout-wide-max: 87.5rem;
+  --layout-compact-max: 51.25rem;
+  --layout-intro-max: 47.5rem;
+  --layout-gutter: clamp(1.25rem, 2vw, 2rem);
+  --layout-gap: clamp(1.5rem, 3vw, 3rem);
+  --layout-rail: 17.5rem;
+  --layout-tool-rail: 20rem;
+  --layout-chat-rail: 23.75rem;
+  --layout-page-space: clamp(2rem, 4vw, 3rem);
+
   /* Grey Scale (Toss 참조) */
   --grey-50: #f9fafb;
   --grey-100: #f2f4f6;
@@ -936,3 +955,84 @@
     accent-color: var(--color-accent);
   }
 }
+
+/* Reading-first layout system. Structural classes own only geometry/type;
+   existing Yellow Envelope color, branding and theme tokens remain authoritative. */
+@supports (max-inline-size: 1ic) {
+  :root { --reading-measure: 38ic; }
+}
+
+@layer components {
+  .layout-reading, .layout-list, .layout-tool, .layout-wide {
+    inline-size: 100%;
+    margin-inline: auto;
+    padding-inline: var(--layout-gutter);
+    padding-block: var(--layout-page-space);
+    min-inline-size: 0;
+  }
+  .layout-reading {
+    font-size: var(--reading-font-size);
+    max-inline-size: calc(var(--reading-measure) + 2 * var(--layout-gutter));
+  }
+  .layout-reading--with-rail {
+    max-inline-size: calc(var(--reading-measure) + var(--layout-rail) + var(--layout-gap) + 2 * var(--layout-gutter));
+  }
+  .layout-list { max-inline-size: var(--layout-list-max); }
+  .layout-tool { max-inline-size: var(--layout-tool-max); }
+  .layout-tool--compact { max-inline-size: var(--layout-compact-max); }
+  .layout-wide { max-inline-size: var(--layout-wide-max); }
+  .layout-wide--chrome { padding-block: 0; }
+  .reading-layout { display: grid; gap: var(--layout-gap); }
+  .reading-main, .reading-sidebar {
+    inline-size: 100%;
+    max-inline-size: var(--reading-measure);
+    min-inline-size: 0;
+    margin-inline: auto;
+  }
+  .reading-sidebar { font-size: 1rem; }
+  .reading-sidebar-content { position: static; }
+  .tool-layout { display: grid; gap: var(--layout-gap); }
+  .tool-layout > * { min-inline-size: 0; }
+  .tool-layout--chat { --layout-tool-rail: var(--layout-chat-rail); }
+  /* 72rem = full reading measure + rail + gap + safe outer gutters.
+     Stack at 1024px and under rather than reducing the primary column. */
+  @media (min-width: 72rem) {
+    .reading-layout { grid-template-columns: minmax(0, 1fr) var(--layout-rail); }
+    .reading-sidebar-content { position: sticky; top: 6rem; }
+    .tool-layout { grid-template-columns: minmax(0, 1fr) var(--layout-tool-rail); }
+  }
+}
+
+/* Unlayered by design: detail prose must beat utility-sized list snippets.
+   This is opt-in, so search/list previews keep their compact typography. */
+.reading-prose, .layout-reading .blog-content {
+  font-size: var(--reading-font-size);
+  line-height: var(--reading-leading);
+  max-inline-size: var(--reading-measure);
+  min-inline-size: 0;
+  color: var(--color-text-primary);
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+}
+.reading-prose p { margin-block-end: var(--reading-paragraph-space); }
+.reading-prose p:last-child { margin-block-end: 0; }
+.reading-prose :is(h2, h3, h4), .blog-content :is(h2, h3, h4) { scroll-margin-top: 6rem; }
+.reading-prose :is(pre, table), .blog-content table {
+  display: block;
+  max-inline-size: 100%;
+  overflow-x: auto;
+}
+.reading-prose pre { white-space: pre; }
+.reading-prose blockquote {
+  margin-block: var(--reading-paragraph-space);
+  padding-inline-start: 1em;
+  border-inline-start: 3px solid var(--color-border);
+}
+.reading-prose :is(sup, sub) { line-height: 0; }
+.reading-prose a { text-underline-offset: .2em; }
+
+.reading-table-scroll { max-inline-size: 100%; overflow-x: auto; }
+.reading-table-scroll:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 3px; }
+.reading-table-scroll > table { display: table; }
+
+p.reading-prose { margin-block-end: var(--reading-paragraph-space); }

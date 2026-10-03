@@ -114,16 +114,16 @@ export default function ContactPage() {
   return (
     <>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(contactJsonLd) }} />
-      <div className="mx-auto max-w-[820px] px-5 py-10">
+      <div className="layout-tool">
         <h1 className="t-h2 mb-2" style={{ color: 'var(--color-text-primary)' }}>
           노무법인 위너스 종합 상담 문의
         </h1>
-        <p className="mb-10 max-w-[760px] text-sm leading-6" style={{ color: 'var(--grey-500)' }}>
+        <p className="mb-10 max-w-[var(--reading-measure)] text-sm leading-6" style={{ color: 'var(--grey-500)' }}>
           부당해고·징계, 임금체불·퇴직금, 직장내괴롭힘·성희롱, 노란봉투법(원청 교섭), 4대보험, 고용지원금까지 — 노동법 전반에 걸친 상담을 접수할 수 있습니다.
           회사명, 현재 쟁점, 급한 일정이 있으면 함께 적어 주세요. 공인노무사가 직접 검토합니다.
         </p>
 
-        <div className="grid gap-10 lg:grid-cols-[1fr_320px]">
+        <div className="tool-layout">
           <div className="space-y-8">
             <div className="rounded-xl border p-6" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }}>
               <div className="mb-5 flex items-start justify-between gap-4">

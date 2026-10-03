@@ -190,7 +190,7 @@ export default function RootLayout({
           {/* 2026-09-12 — 메뉴를 3개로 줄이면서 내려온 것들이 여기 산다.
               지운 게 아니라 자리를 옮긴 것이고, 크롤러가 들어갈 내부 링크도 여기서 유지된다.
               메뉴에 올릴 만큼은 아니지만 닿을 수 없으면 안 되는 것들이다. */}
-          <div className="mx-auto mb-8 grid max-w-[1400px] grid-cols-2 gap-x-6 gap-y-7 px-5 text-left sm:grid-cols-4">
+          <div className="layout-wide layout-wide--chrome mb-8 grid grid-cols-2 gap-x-6 gap-y-7 text-left sm:grid-cols-4">
             {[
               { title: '찾아보기', links: [
                 { href: '/decisions', label: '판정례 검색' },
@@ -234,7 +234,7 @@ export default function RootLayout({
               </div>
             ))}
           </div>
-          <div className="mx-auto max-w-[1400px] px-5 text-center">
+          <div className="layout-wide layout-wide--chrome text-center">
             <p className="text-sm" style={{ color: 'var(--color-text-tertiary)' }}>
               © 2026 노란봉투법 가이드. 본 사이트는 법률 자문이 아닌 정보 제공 목적입니다.
             </p>

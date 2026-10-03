@@ -2,10 +2,10 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { normalizeSnippetMarkdown } from './utils';
 
-export default function MarkdownSnippet({ value }: { value: string }) {
+export default function MarkdownSnippet({ value, variant = 'snippet' }: { value: string; variant?: 'snippet' | 'reading' }) {
   const cleaned = normalizeSnippetMarkdown(value);
   return (
-    <div className="break-words text-[13px] leading-6 [&_p]:mb-1.5 [&_p:last-child]:mb-0 [&_li]:ml-4 [&_li]:list-disc [&_ol]:ml-4 [&_ol]:list-decimal">
+    <div className={variant === 'reading' ? "reading-prose [&_li]:ml-4 [&_li]:list-disc [&_ol]:ml-4 [&_ol]:list-decimal" : "break-words text-[13px] leading-6 [&_p]:mb-1.5 [&_p:last-child]:mb-0 [&_li]:ml-4 [&_li]:list-disc [&_ol]:ml-4 [&_ol]:list-decimal"}>
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         components={{
@@ -19,6 +19,7 @@ export default function MarkdownSnippet({ value }: { value: string }) {
           h3: ({ children }) => <p className="font-semibold" style={{ color: 'var(--color-text-primary)' }}>{children}</p>,
           h4: ({ children }) => <p className="font-semibold" style={{ color: 'var(--color-text-primary)' }}>{children}</p>,
           strong: ({ children }) => <strong className="font-semibold" style={{ color: 'var(--color-text-primary)' }}>{children}</strong>,
+          table: ({ children, ...props }) => <div className="reading-table-scroll" role="region" aria-label="본문 표" tabIndex={0}><table {...props}>{children}</table></div>,
           hr: () => <hr className="my-2 border-t" style={{ borderColor: 'var(--color-border)' }} />,
         }}
       >

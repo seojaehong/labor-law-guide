@@ -227,7 +227,7 @@ export default function BlogClient({
   };
 
   return (
-    <div className="mx-auto max-w-[1100px] px-5 py-10">
+    <div className="layout-list">
       {/* Header */}
       <div className="mb-8">
         <div className="flex items-center gap-2 mb-2">

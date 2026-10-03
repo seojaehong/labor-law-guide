@@ -27,7 +27,7 @@ export default function GuidePage() {
       </aside>
 
       {/* Main content */}
-      <div className="mx-auto w-full max-w-[820px] px-6 py-10 md:px-10">
+      <div className="layout-reading">
         <article className="content-body">
           <h1 className="t-h2 mb-2" style={{ color: 'var(--color-text-primary)' }}>
             개정 노동조합법 해석지침

@@ -3,7 +3,7 @@ import Link from 'next/link';
 
 export default function HolidayPayPage() {
   return (
-    <div className="mx-auto max-w-[820px] px-5 py-10">
+    <div className="layout-tool layout-tool--compact">
       <div className="mb-6">
         <Link
           href="/blog"

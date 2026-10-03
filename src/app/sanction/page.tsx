@@ -252,7 +252,7 @@ export default function SanctionPage() {
   }
 
   return (
-    <div className="mx-auto max-w-[1100px] px-4 py-8">
+    <div className="layout-tool">
       {/* Header */}
       <div className="mb-6 text-center">
         <div className="mb-3 inline-flex items-center gap-2.5 rounded-full bg-primary/5 px-3.5 py-2">

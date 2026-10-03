@@ -40,7 +40,7 @@ export default function TextbookPage() {
       {/* 상단 바 */}
       <header className="sticky top-0 z-30 border-b backdrop-blur"
               style={{ borderColor: 'var(--color-border)', backgroundColor: 'color-mix(in srgb, var(--color-bg) 92%, transparent)' }}>
-        <div className="mx-auto max-w-[1100px] px-4 py-3 flex items-center gap-3">
+        <div className="mx-auto max-w-[var(--layout-list-max)] px-4 py-3 flex items-center gap-3">
           <Link href="/lecture/ai-isan-2026" className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
             <ArrowLeft size={14} /> 강의 슬라이드
           </Link>
@@ -62,7 +62,7 @@ export default function TextbookPage() {
 
       {/* 모바일 단일 컬럼도 minmax(0,1fr)로 못박는다 — 그리드 트랙 기본값 auto는 max-content까지 자라서
           아래 pre(코드 블록)의 가장 긴 줄이 컬럼 폭을 정해 버린다(375px에서 본문이 757px가 됐다). */}
-      <div className="mx-auto max-w-[1100px] px-4 py-6 grid grid-cols-[minmax(0,1fr)] lg:grid-cols-[260px_minmax(0,1fr)] gap-6">
+      <div className="mx-auto max-w-[var(--layout-list-max)] px-4 py-6 grid grid-cols-[minmax(0,1fr)] lg:grid-cols-[260px_minmax(0,1fr)] gap-6">
         {/* TOC 사이드바 */}
         <aside className={`${tocOpen ? 'block' : 'hidden lg:block'} lg:sticky lg:top-20 lg:self-start lg:max-h-[calc(100vh-6rem)] overflow-y-auto`}>
           <div className="rounded-lg border p-3" style={{ borderColor: 'var(--color-border)' }}>

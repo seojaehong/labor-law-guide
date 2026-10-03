@@ -39,7 +39,7 @@ export default function StatsPage() {
 
   return (
     <main className="min-h-screen bg-background">
-      <div className="max-w-[1100px] mx-auto px-4 py-8">
+      <div className="layout-tool">
         <Link href="/" className="text-sm text-muted-foreground hover:text-primary mb-4 inline-block">
           &larr; 홈으로
         </Link>

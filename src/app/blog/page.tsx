@@ -32,7 +32,7 @@ interface BlogArticleRow extends BlogArticle {
   content: string | null;
 }
 
-export const CATEGORIES = ['노동법', '판례분석', '뉴스해설', '뉴스브리핑', '실무가이드'];
+const CATEGORIES = ['노동법', '판례분석', '뉴스해설', '뉴스브리핑', '실무가이드'];
 
 type Search = { page?: string; cat?: string; sub?: string; q?: string };
 
