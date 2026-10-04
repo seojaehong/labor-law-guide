@@ -2,9 +2,9 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
-import { ClipboardCopy, ShieldCheck, X } from 'lucide-react';
+import { CalendarClock, ClipboardCopy, ShieldCheck, X } from 'lucide-react';
 import { checkRules, type RuleSpec, type Verdict } from '@/lib/laws/rules-check';
-import { citation, copyRich, ddayLabel, fmtDate, todayKST } from '@/lib/laws/format';
+import { citation, copyRich, ddayLabel, download, fmtDate, icsCalendar, prepCalItems, todayKST } from '@/lib/laws/format';
 
 const SAMPLE = `제22조(휴게) ① 회사는 근로시간이 4시간인 경우에는 30분 이상, 8시간인 경우에는 1시간 이상의 휴게시간을 근로시간 도중에 준다.
 제30조(연차유급휴가) ① 회사는 1년간 80퍼센트 이상 출근한 근로자에게 15일의 유급휴가를 준다.
@@ -48,6 +48,15 @@ export default function RulesCheck({ onClose, toast }: { onClose: () => void; to
   const fix = verdicts?.filter((v) => v.status !== '반영됨' && v.rule.required) ?? [];
   const opt = verdicts?.filter((v) => v.status !== '반영됨' && !v.rule.required) ?? [];
   const ok = verdicts?.filter((v) => v.status === '반영됨') ?? [];
+
+  const downloadPrep = () => {
+    const targets = [...fix, ...opt].map((v) => ({
+      key: `${v.rule.lawId}-${v.rule.article}-${v.rule.effective}`, topic: v.rule.topic, law: v.rule.law,
+      article: v.rule.article, effective: v.rule.effective, required: v.rule.required,
+    }));
+    download('취업규칙_대응일정.ics', icsCalendar(prepCalItems(targets, today)), 'text/calendar;charset=utf-8');
+    toast(`${targets.length}건의 개정안 작성·의견 청취·변경 신고 일정을 캘린더 파일로 받았습니다`);
+  };
 
   const copyAllFix = async () => {
     const body = fix.map((v, i) => `${i + 1}. ${v.rule.topic}${v.where ? ` (현행 ${v.where})` : ' (새 조문)'}\n${clauseText(v)}`).join('\n\n');
@@ -96,6 +105,11 @@ export default function RulesCheck({ onClose, toast }: { onClose: () => void; to
                   <div><span className="n ok">{ok.length}</span>반영됨</div>
                   <span className="sp" />
                   {fix.length > 0 && <button className="lr-btn lr-btn-sm" onClick={copyAllFix}><ClipboardCopy size={14} /> 수정 문안 전부 복사</button>}
+                  {fix.length + opt.length > 0 && (
+                    <button className="lr-btn lr-btn-ghost lr-btn-sm" onClick={downloadPrep} title="시행일에서 거꾸로 세운 개정안 작성·의견 청취·변경 신고 일정">
+                      <CalendarClock size={14} /> 대응 일정 캘린더로
+                    </button>
+                  )}
                 </div>
                 {[...fix, ...opt, ...(showOk ? ok : [])].map((v) => (
                   <VerdictCard key={v.rule.article + v.rule.topic} v={v} today={today} toast={toast} />

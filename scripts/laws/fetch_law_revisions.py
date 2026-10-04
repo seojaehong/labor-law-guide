@@ -22,6 +22,7 @@ sys.stdout.reconfigure(encoding="utf-8")
 
 ROOT = Path(__file__).resolve().parents[2]
 TARGETS = ROOT / "scripts" / "laws" / "labor_laws.json"
+SUBS = ROOT / "scripts" / "laws" / "subordinate_laws.json"
 OUT = ROOT / "data" / "law-revisions.json"
 OC = os.environ.get("LAW_GO_KR_OC", "iceamericano9")
 API = "https://www.law.go.kr/DRF/lawSearch.do"
@@ -70,9 +71,10 @@ def row(x: dict) -> dict:
     }
 
 
-def collect(name: str, since: str, aliases: list[str] = ()) -> tuple[list[dict], str | None, dict | None]:
-    # 법령명이 바뀐 법(근로자의 날 → 노동절)은 옛 이름으로도 찾아 같은 법령ID 의 옛 판을 기준판으로 쓴다
-    rows, law_id, older = [], None, []
+def collect(name: str, since: str, aliases: list[str] = (), id_hint: str | None = None) -> tuple[list[dict], str | None, dict | None]:
+    # 법령명이 바뀐 법(근로자의 날 → 노동절)은 옛 이름으로도 찾아 같은 법령ID 의 옛 판을 기준판으로 쓴다.
+    # 하위법령은 체계도에서 받은 법령ID(id_hint)로만 맞춘다 — 「근로기준법시행령」·「…시행규칙」처럼 이름이 섞여 나와서다
+    rows, law_id, older = [], id_hint, []
     for i, query in enumerate([name, *aliases]):
         want = norm(query)
         page = 1
@@ -84,17 +86,23 @@ def collect(name: str, since: str, aliases: list[str] = ()) -> tuple[list[dict],
             oldest = "99999999"
             for x in items:
                 oldest = min(oldest, x.get("공포일자") or oldest)
-                if x.get("법령구분명") != "법률":
-                    continue
-                same = norm(x.get("법령명한글", "")) == want or (law_id and x.get("법령ID") == law_id)
-                if not same:
-                    continue
-                if i == 0:
-                    law_id = law_id or x.get("법령ID")
-                elif x.get("법령ID") != law_id:
-                    continue
+                if id_hint:
+                    if x.get("법령ID") != id_hint:
+                        continue
+                else:
+                    if x.get("법령구분명") != "법률":
+                        continue
+                    same = norm(x.get("법령명한글", "")) == want or (law_id and x.get("법령ID") == law_id)
+                    if not same:
+                        continue
+                    if i == 0:
+                        law_id = law_id or x.get("법령ID")
+                    elif x.get("법령ID") != law_id:
+                        continue
                 pending = x.get("현행연혁코드") == "시행예정"
-                if pending or (x.get("공포일자") or "") >= since:
+                # 공포는 기준일 전이어도 시행이 기준일 이후면 넣는다(2026-10-04 실측 — 근기법 체불 강화 개정이
+                # 2025년에 공포되고 2026.8.20. 시행돼 빠졌고, 그 변경이 같은 날 시행된 타법개정에 잘못 붙었다)
+                if pending or (x.get("공포일자") or "") >= since or (x.get("시행일자") or "") >= since:
                     rows.append(row(x))
                 else:
                     older.append(row(x))
@@ -138,8 +146,25 @@ def main():
         print(f"  ✓ {t['no']:>2} {t['name']} [{law_id}] 판 {len(rows)} · 시행예정 {pend}")
         for r in rows:
             r["별표호"] = t["no"]
+            r["상위법ID"] = None
             if t.get("scope"):
                 r["적용범위"] = t["scope"]
+        out.extend(rows)
+        time.sleep(0.3)
+
+    # 별표 1 제39호 하위법령 — resolve_subordinates.py 가 체계도에서 뽑아 둔 목록
+    subs = json.loads(SUBS.read_text(encoding="utf-8"))["subordinates"] if SUBS.exists() else []
+    if not SUBS.exists():
+        print("  ⚠ subordinate_laws.json 없음 — 하위법령은 건너뛴다(resolve_subordinates.py 를 먼저 돌린다)")
+    for s in subs:
+        rows, law_id, base = collect(s["name"], args.since, [], s["lawId"])
+        if base and rows:
+            bases[law_id] = base
+        for r in rows:
+            r["별표호"] = 39
+            r["상위법ID"] = s["parentId"]
+        if rows:
+            print(f"  ✓ 39 {s['name']} [{law_id}] 판 {len(rows)} · 시행예정 {sum(r['상태'] == '시행예정' for r in rows)}")
         out.extend(rows)
         time.sleep(0.3)
 
@@ -154,7 +179,7 @@ def main():
         "bases": bases,
     }, ensure_ascii=False, indent=1), encoding="utf-8")
     pend = [r for r in out if r["상태"] == "시행예정"]
-    print(f"\n대상 {len(targets)} · 해결 {len(targets) - len(unresolved)} · 미해결 {len(unresolved)}")
+    print(f"\n대상 법률 {len(targets)} · 해결 {len(targets) - len(unresolved)} · 미해결 {len(unresolved)} · 하위법령 {len(subs)}")
     print(f"수집 판 {len(out)} · 시행예정 {len(pend)} → {OUT.relative_to(ROOT)}")
     if unresolved:
         sys.exit(2)

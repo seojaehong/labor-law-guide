@@ -12,6 +12,11 @@ export interface LawEvent {
   lawId: string;
   law: string;
   short: string;
+  /** 상위 법률 ID — 하위법령도 그 법률 칩으로 묶인다 */
+  group: string;
+  level: '법률' | '시행령' | '시행규칙';
+  /** 법률 · 대통령령 · 고용노동부령 … */
+  lawKind: string;
   scope: string | null;
   date: string;
   promulgations: Promulgation[];
@@ -31,7 +36,9 @@ export interface LawIndex {
   scopeNote: string;
   lawCount: number;
   art93: Record<string, string>;
-  laws: { lawId: string; name: string; short: string; events: number; upcoming: number }[];
+  laws: { lawId: string; name: string; short: string; group: string; level: string; events: number; upcoming: number }[];
+  groups: { lawId: string; name: string; short: string; events: number; upcoming: number }[];
+  subCount: number;
   events: LawEvent[];
 }
 
@@ -143,32 +150,126 @@ export function compareTable(rows: { article: string; before: string | null; aft
   return { text, html };
 }
 
-/** 시행일 캘린더(.ics) — 종일 일정, 하루 전 알림 */
-export function toICS(events: LawEvent[]): string {
+export interface CalItem {
+  uid: string;
+  date: string;
+  summary: string;
+  description: string;
+  url?: string;
+  /** 며칠 전 알림. 없으면 알림 없음 */
+  alarmDays?: number;
+}
+
+export function addDays(d: string, n: number): string {
+  return new Date(toUTC(d) + n * 86400000).toISOString().slice(0, 10).replace(/-/g, '');
+}
+
+const icsText = (s: string) => s.replace(/\\/g, '\\\\').replace(/\n/g, '\\n').replace(/,/g, '\\,').replace(/;/g, '\\;');
+
+/** 종일 일정 묶음 → .ics. name 이 있으면 구독 캘린더 이름·새로고침 주기를 단다 */
+export function icsCalendar(items: CalItem[], name?: string): string {
   const stamp = new Date().toISOString().replace(/[-:]/g, '').slice(0, 15) + 'Z';
-  const next = (d: string) => {
-    const t = new Date(toUTC(d) + 86400000);
-    return t.toISOString().slice(0, 10).replace(/-/g, '');
-  };
-  const fold = (s: string) => s.replace(/\\/g, '\\\\').replace(/\n/g, '\\n').replace(/,/g, '\\,').replace(/;/g, '\\;');
-  const body = events.map((e) =>
+  const head = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//labor-law-changes//KO', 'CALSCALE:GREGORIAN', 'METHOD:PUBLISH'];
+  if (name) head.push(`X-WR-CALNAME:${icsText(name)}`, 'X-WR-TIMEZONE:Asia/Seoul', 'REFRESH-INTERVAL;VALUE=DURATION:PT12H', 'X-PUBLISHED-TTL:PT12H');
+  const body = items.map((it) =>
     [
       'BEGIN:VEVENT',
-      `UID:${e.id}@laws`,
+      `UID:${it.uid}@laws`,
       `DTSTAMP:${stamp}`,
-      `DTSTART;VALUE=DATE:${e.date}`,
-      `DTEND;VALUE=DATE:${next(e.date)}`,
-      `SUMMARY:${fold(`[시행] ${e.short}: ${e.headline ?? e.changes.map((c) => c.article).slice(0, 4).join('·')}`)}`,
-      `DESCRIPTION:${fold(`${e.summary.slice(0, 300)}\n${citation(e.law, e.promulgations[0], e.date)}`)}`,
-      'BEGIN:VALARM',
-      'TRIGGER:-P1D',
-      'ACTION:DISPLAY',
-      `DESCRIPTION:${fold(`내일 시행: ${e.short}`)}`,
-      'END:VALARM',
+      `DTSTART;VALUE=DATE:${it.date}`,
+      `DTEND;VALUE=DATE:${addDays(it.date, 1)}`,
+      `SUMMARY:${icsText(it.summary)}`,
+      `DESCRIPTION:${icsText(it.description)}`,
+      ...(it.url ? [`URL:${it.url}`] : []),
+      'TRANSP:TRANSPARENT',
+      ...(it.alarmDays != null
+        ? ['BEGIN:VALARM', `TRIGGER:-P${it.alarmDays}D`, 'ACTION:DISPLAY', `DESCRIPTION:${icsText(it.summary)}`, 'END:VALARM']
+        : []),
       'END:VEVENT',
     ].join('\r\n'),
   );
-  return ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//labor-law-changes//KO', 'CALSCALE:GREGORIAN', ...body, 'END:VCALENDAR'].join('\r\n');
+  return [...head, ...body, 'END:VCALENDAR'].join('\r\n');
+}
+
+/** 개정 일정 → 캘린더 항목. 시행일은 하루 전 알림, 공포일은 선택(알림 없음) */
+export function lawCalItems(events: LawEvent[], opts: { promulgation?: boolean; origin?: string } = {}): CalItem[] {
+  const items: CalItem[] = [];
+  for (const e of events) {
+    const title = e.headline ?? (e.cause ? `「${e.cause}」에 따른 정비` : e.changes.map((c) => c.article).slice(0, 4).join('·'));
+    const url = opts.origin ? `${opts.origin}/laws#${encodeURIComponent(e.id)}` : undefined;
+    items.push({
+      uid: e.id,
+      date: e.date,
+      summary: `[시행] ${e.short}: ${title}`,
+      description: `${e.changes.map((c) => `${c.article}${c.title ? `(${c.title})` : ''} ${c.kind}`).slice(0, 12).join(', ')}\n\n${citation(e.law, e.promulgations[0], e.date)}`,
+      url,
+      alarmDays: 1,
+    });
+    if (opts.promulgation) {
+      for (const p of e.promulgations) {
+        if (p.date === e.date) continue;
+        items.push({
+          uid: `${e.lawId}-${p.no}-p`,
+          date: p.date,
+          summary: `[공포] ${e.short} ${p.kind}(제${p.no}호), ${fmtDate(e.date)} 시행 예정`,
+          description: `${title}\n\n${citation(e.law, p, e.date)}`,
+          url,
+        });
+      }
+    }
+  }
+  // 같은 공포가 여러 시행일에 걸치면 공포 일정이 겹친다 — uid 로 한 번만
+  const seen = new Set<string>();
+  return items.filter((it) => (seen.has(it.uid) ? false : (seen.add(it.uid), true)));
+}
+
+/** 시행일 캘린더(.ics) — 종일 일정, 하루 전 알림 */
+export function toICS(events: LawEvent[], opts: { promulgation?: boolean; origin?: string; name?: string } = {}): string {
+  return icsCalendar(lawCalItems(events, opts), opts.name);
+}
+
+export interface PrepInput {
+  key: string;
+  topic: string;
+  law: string;
+  article: string;
+  effective: string;
+  required: boolean;
+}
+
+/**
+ * 「언제까지 무엇을 하나」 — 취업규칙 대응 일정. 근로기준법 제93조(작성·변경 신고)·제94조(의견 청취, 불리하면 동의)를
+ * 시행일에서 거꾸로 세운다. 법정 기한이 아니라 권장 일정이다. 이미 시행 중이면 오늘부터 앞으로 잡는다.
+ */
+export function prepCalItems(items: PrepInput[], today: string): CalItem[] {
+  const out: CalItem[] = [];
+  for (const it of items) {
+    const late = it.effective <= today;
+    const steps: [number, string, string][] = late
+      ? [
+          [0, '개정안 작성(이미 시행 중)', '법은 이미 시행 중입니다. 취업규칙 조항을 바로 고칩니다.'],
+          [7, '근로자 과반수 의견 청취', '근로기준법 제94조. 근로자에게 불리한 변경이면 과반수 동의를 받습니다.'],
+          [14, '취업규칙 변경 신고', '근로기준법 제93조. 상시 10명 이상 사업장은 변경한 취업규칙을 신고합니다.'],
+        ]
+      : [
+          [-30, '개정안 작성', '바뀌는 조문에 맞춰 취업규칙 개정안을 만듭니다.'],
+          [-14, '근로자 과반수 의견 청취', '근로기준법 제94조. 근로자에게 불리한 변경이면 과반수 동의를 받습니다.'],
+          [-7, '취업규칙 변경 신고', '근로기준법 제93조. 상시 10명 이상 사업장은 변경한 취업규칙을 신고합니다.'],
+          [0, '시행일', '개정 법령이 시행됩니다. 바뀐 조항을 근로자에게 알립니다.'],
+        ];
+    for (const [off, what, how] of steps) {
+      let date = addDays(late ? today : it.effective, off);
+      if (!late && date < today) date = today; // 이미 지난 준비 단계는 오늘로 당긴다
+      out.push({
+        uid: `prep-${it.key}-${off}`,
+        date,
+        summary: `[취업규칙] ${what}: ${it.topic}`,
+        description: `${it.law} ${it.article} · ${fmtDate(it.effective)} 시행${it.required ? '' : ' · 선택 반영'}\n${how}\n권장 일정입니다. 법정 기한은 아닙니다.`,
+        alarmDays: off === 0 ? 1 : 3,
+      });
+    }
+  }
+  return out;
 }
 
 export function download(name: string, data: BlobPart, type: string) {

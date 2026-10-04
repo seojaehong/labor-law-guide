@@ -94,6 +94,8 @@ def main():
     results = []
     for r in sorted(MAP["rules"], key=lambda r: (r["effective"], r["lawId"])):
         j = judge(r, paras)
+        # 절차·인용 정비형은 법보다 좁은 옛 문구가 남았을 때만 필수다(옮겨 적지 않았으면 법이 바로 적용된다)
+        r = {**r, "required": r["required"] or bool(r.get("requiredIfStale") and j.get("stale"))}
         timing = "시행 중" if r["effective"] <= args.asof else f"{r['effective'][:4]}.{int(r['effective'][4:6])}.{int(r['effective'][6:])}. 시행 예정"
         need = j["status"] != "반영됨" and (r["required"] or args.include_optional)
         results.append({**{k: r[k] for k in ("lawId", "article", "effective", "topic", "art93", "required", "point", "clause")},
