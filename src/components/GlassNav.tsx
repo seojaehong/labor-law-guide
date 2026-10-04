@@ -25,6 +25,7 @@ const NAV_ITEMS: NavItem[] = [
     kind: 'dropdown',
     label: '실무도구',
     items: [
+      { href: '/laws', label: '노동법 개정 알림', description: '곧 시행되는 개정과 조문 비교' },
       { href: '/tools/holiday-pay', label: '공휴일·노동절 수당', description: '입력 조건에 따른 참고 계산' },
     ],
   },
