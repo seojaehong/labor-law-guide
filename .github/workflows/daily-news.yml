@@ -31,8 +31,25 @@ jobs:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: python supabase/daily_news_update.py
 
-      - name: Generate deep-dive articles
-        env:
-          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-        run: python supabase/generate_deepdive.py
+      # 🔴 2026-10-04 중단. 되살리지 말고 아래를 먼저 읽을 것.
+      #
+      # 이 단계는 2026-04-02 이후 6개월간 기사를 생성하고 저장은 0 건이었다(slug·category 가드).
+      # 같은 날 서버1이 그 셋을 고쳤는데, 고치고 보니 **되살리는 것이 더 나쁠 수 있다.**
+      #
+      #   · 이 스크립트는 gpt-4o-mini 로 1,500~2,500자를 한 번에 뽑는다(max_tokens 2500).
+      #   · 반면 필자 에이전트(blog-news·labor·case·guide)는 opus 로 쓰고
+      #     「본문을 열고 쓴다」·제목 45자·정정 절차·검수까지 걸려 있다.
+      #   · 즉 켜면 **품질 기준이 다른 글이 매일 2편 같은 블로그에 섞인다.**
+      #     재홍님 기준은 「블로그는 opus 필수」다.
+      #   · 6개월간 0 건이었는데 아무도 못 느꼈다 — 없어도 사이트가 돌아간다는 뜻이다.
+      #
+      # 수집 단계(daily_news_update.py)는 다르다. news·news_briefings 가
+      # /news 페이지 · 홈 · 챗봇 컨텍스트 · 사이트맵 · /api/cases 에서 실제로 읽힌다. 그래서 살려 둔다.
+      #
+      # 다시 켜려면 — 모델을 올리고 필자 에이전트와 같은 품질 규칙을 넣은 뒤에.
+      # 코드 쪽 수정(slug 접두·category 허용값·저장 0 이면 exit 1)은 커밋 e62a15d 에 그대로 있다.
+#      - name: Generate deep-dive articles
+#        env:
+#          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+#          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+#        run: python supabase/generate_deepdive.py
