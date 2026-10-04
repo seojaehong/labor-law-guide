@@ -35,9 +35,9 @@ export default function BetaBanner() {
       <div
         className="w-full border-b px-4 py-2 text-center text-xs sm:text-sm"
         style={{
-          backgroundColor: 'var(--blue-50, #eff6ff)',
+          backgroundColor: 'var(--grey-100)',
           borderColor: 'var(--color-border)',
-          color: 'var(--blue-700, #1d4ed8)',
+          color: 'var(--grey-700)',
         }}
         role="region"
         aria-label="베타 서비스 안내"
