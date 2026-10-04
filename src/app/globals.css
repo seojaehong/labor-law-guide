@@ -1064,3 +1064,12 @@ p.reading-prose { margin-block-end: var(--reading-paragraph-space); }
 
 .editorial-collection-header { border-top: 3px solid var(--color-text-primary); padding-top: 1.5rem; }
 .editorial-collection-header h1 { font-family: var(--font-editorial); font-size: clamp(1.875rem, 3vw, 2.5rem); }
+
+/* Four-or-more-column comparisons need readable cells on small screens.
+   Only tables inside the existing keyboard-scroll region opt in; 2/3-column
+   tables, desktop layouts, and authored wider inline dimensions are preserved. */
+@media (max-width: 47.999rem) {
+  .reading-table-scroll > table:has(> thead > tr > :nth-child(4), > tbody > tr > :nth-child(4)) {
+    min-inline-size: 35rem;
+  }
+}
