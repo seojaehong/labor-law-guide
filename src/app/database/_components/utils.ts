@@ -1,3 +1,4 @@
+import { unwrapSourceAnnotations } from '@/lib/legal-display-text';
 import { REASON_CATEGORY_LABELS } from './types';
 import { createElement, type ReactNode } from 'react';
 
@@ -60,7 +61,7 @@ export function getPreferredDetail(item: {
 }
 
 export function normalizeSnippetMarkdown(raw: string): string {
-  return raw
+  return unwrapSourceAnnotations(raw)
     .replace(/^#{1,4}\s+(.+)$/gm, '**$1**')
     .replace(/([^\n])([가-힣]\.\s)/g, '$1\n\n$2')
     .replace(/([^\n])(①|②|③|④|⑤|⑥|⑦|⑧|⑨|⑩)/g, '$1\n$2')

@@ -1,3 +1,4 @@
+import { unwrapSourceAnnotations } from "@/lib/legal-display-text";
 import { supabase } from "@/lib/supabase";
 import { Badge } from "@/components/decisions-ui/badge";
 import { Card } from "@/components/decisions-ui/card";
@@ -255,8 +256,8 @@ type LawgoSection = {
 function renderLawgoSections(sections: LawgoSection[]) {
   return sections.map((section, index) => (
     <div key={`${section.type || "body"}-${section.index ?? index}`} className="mb-5 last:mb-0">
-      {section.title ? <h3 className="font-semibold text-sm mb-2">{section.title}</h3> : null}
-      <p className="reading-prose whitespace-pre-wrap">{section.text || ""}</p>
+      {section.title ? <h3 className="font-semibold text-sm mb-2">{unwrapSourceAnnotations(section.title)}</h3> : null}
+      <p className="reading-prose whitespace-pre-wrap">{unwrapSourceAnnotations(section.text || "")}</p>
     </div>
   ));
 }
@@ -375,28 +376,28 @@ export default async function DecisionPage({
             {precedent.issue_text ? (
               <Card className="p-4 bg-muted/50">
                 <h3 className="font-semibold text-sm mb-2">판시사항</h3>
-                <p className="reading-prose whitespace-pre-wrap">{precedent.issue_text}</p>
+                <p className="reading-prose whitespace-pre-wrap">{unwrapSourceAnnotations(precedent.issue_text)}</p>
               </Card>
             ) : null}
 
             {precedent.summary_text ? (
               <Card className="p-4">
                 <h3 className="font-semibold text-sm mb-2">판결요지</h3>
-                <p className="reading-prose whitespace-pre-wrap">{precedent.summary_text}</p>
+                <p className="reading-prose whitespace-pre-wrap">{unwrapSourceAnnotations(precedent.summary_text)}</p>
               </Card>
             ) : null}
 
             {precedent.reference_statutes ? (
               <Card className="p-4">
                 <h3 className="font-semibold text-sm mb-2">참조조문</h3>
-                <p className="reading-prose whitespace-pre-wrap">{precedent.reference_statutes}</p>
+                <p className="reading-prose whitespace-pre-wrap">{unwrapSourceAnnotations(precedent.reference_statutes)}</p>
               </Card>
             ) : null}
 
             {precedent.reference_cases ? (
               <Card className="p-4">
                 <h3 className="font-semibold text-sm mb-2">참조판례</h3>
-                <p className="reading-prose whitespace-pre-wrap">{precedent.reference_cases}</p>
+                <p className="reading-prose whitespace-pre-wrap">{unwrapSourceAnnotations(precedent.reference_cases)}</p>
               </Card>
             ) : null}
           </section>
@@ -419,7 +420,7 @@ export default async function DecisionPage({
               {sections.length > 0 ? (
                 <div>{renderLawgoSections(sections)}</div>
               ) : (
-                <p className="reading-prose whitespace-pre-wrap">{document?.body_text || "본문이 없습니다."}</p>
+                <p className="reading-prose whitespace-pre-wrap">{unwrapSourceAnnotations(document?.body_text || "본문이 없습니다.")}</p>
               )}
             </Card>
 
@@ -625,7 +626,7 @@ export default async function DecisionPage({
             ) : realFulltext ? (
               <Card className="p-4 mb-4">
                 <h3 className="font-semibold text-sm mb-3">법원 판례 원문</h3>
-                <p className="reading-prose whitespace-pre-wrap">{realFulltext}</p>
+                <p className="reading-prose whitespace-pre-wrap">{unwrapSourceAnnotations(realFulltext)}</p>
               </Card>
             ) : hasDetailedHoldingPoints ? (
               <Card className="p-4 mb-4 bg-muted/40">
