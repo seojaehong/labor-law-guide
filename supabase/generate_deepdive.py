@@ -80,9 +80,21 @@ def select_top_news(news_list, top_n=TOP_N):
     return [n for _, n in scored[:top_n]]
 
 
+# DB 가드가 요구하는 분류 접두. 2026-10-04 에 이것 때문에 6개월간 저장이 거부됐다.
+# 오류: blog_articles.slug must match (labor|case|news|guide|daily)-YYYYMMDD-NN. Got: 20261003-1
+# 딥다이브는 뉴스에서 출발하므로 접두는 news 로 고정한다 — slug 는 생성 **전에** 정해야 해서
+# (중복 확인을 먼저 하고 돈을 쓴다) 기사 category 를 쓸 수 없다.
+SLUG_PREFIX = 'news'
+
+# blog_articles_category_check 가 허용하는 값만 넣는다.
+# 2026-10-04: 프롬프트가 「종합」을 선택지로 줬고 기본값도 '종합' 이었는데 제약이 거부했다.
+# 실측 분포: 뉴스해설 250 · 노동법 209 · 뉴스브리핑 178 · 판례분석 177 · 실무가이드 173 (종합 13 은 제약 추가 전 데이터)
+ALLOWED_CATEGORY = {k: k for k in ('노동법', '판례분석', '뉴스해설', '실무가이드', '뉴스브리핑')}
+
+
 def make_slug(date_str, index):
-    """날짜 기반 URL 안전 슬러그 생성 (YYYYMMDD-N 형식)"""
-    return f"{date_str}-{index}"
+    """DB 가드를 통과하는 슬러그 (news-YYYYMMDD-NN)"""
+    return f"{SLUG_PREFIX}-{date_str}-{index:02d}"
 
 
 def generate_deepdive_article(news_item):
@@ -112,7 +124,7 @@ JSON 형식으로 응답:
   "title": "🎯...",
   "subtitle": "...",
   "content": "...(마크다운 형식)",
-  "category": "종합|노동법|판례분석|뉴스해설|실무가이드 중 택1",
+  "category": "노동법|판례분석|뉴스해설|실무가이드 중 택1",
   "tags": ["키워드1", "키워드2", ...],
   "seo_title": "...(60자 이내)",
   "seo_description": "...(155자 이내)"
@@ -161,7 +173,7 @@ def insert_article(slug, article_data, news_id, published_at):
         'subtitle': article_data.get('subtitle', ''),
         'content': content,
         'summary': summary,
-        'category': article_data.get('category', '종합'),
+        'category': ALLOWED_CATEGORY.get(article_data.get('category'), '뉴스해설'),
         'tags': article_data.get('tags', []),
         'author': '위너스 에디터',
         'published_at': published_at,
@@ -243,6 +255,14 @@ def main():
         time.sleep(2)  # API 레이트 리밋 방지
 
     print(f'\n📝 딥다이브 생성 완료: {success_count}/{len(top_news)}건 성공')
+
+    # 🔴 **생성에 돈을 쓰고 하나도 저장하지 못하면 실패다.**
+    # 2026-10-04 에 드러난 것: 2026-04-02 이후 저장이 계속 거부됐는데 Actions 는 매일 green 이었다.
+    # 터지는 실패는 로그에 남지만 「성공으로 보고되는 실패」는 아무도 모른다.
+    if top_news and success_count == 0:
+        print('❌ 생성은 했지만 저장이 0 건이다 — 비용만 쓰고 산출물이 없다. 실패로 종료한다.')
+        sys.exit(1)
+    return success_count
 
 
 if __name__ == '__main__':

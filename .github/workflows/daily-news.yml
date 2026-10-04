@@ -18,7 +18,12 @@ jobs:
 
       - name: Install dependencies
         # 1.0.0(2026-09-20)에서 new_decoderv1 이 사라져 9/21부터 수집이 멈췄다. 코드가 0.1.x API 를 쓰므로 고정한다
-        run: pip install supabase googlenewsdecoder==0.1.7
+        run: pip install supabase googlenewsdecoder==0.1.7 selectolax==0.4.13
+        # selectolax 는 googlenewsdecoder 의 전이 의존성이고 상한이 없다(selectolax>=0.3.27).
+        # 2026-10-04 새 설치에서 1.0.0 이 당겨지며 수집이 깨졌다 —
+        # "Modest backend is deprecated since selectolax 1.0 … use lexbor backend instead".
+        # 2026-09-21 에 googlenewsdecoder 가 1.0 을 내며 같은 사고가 났고 0.1.7 로 고정했다.
+        # **같은 유형의 두 번째다.** 전이 의존성까지 고정해야 세 번째가 안 온다.
 
       - name: Run daily news update
         env:
