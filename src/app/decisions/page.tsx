@@ -1,11 +1,11 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { unstable_cache } from "next/cache";
-import { countByReason, getRecent, runSearch, getCategory } from "@/lib/decisions-data";
+import { countByReason, getRecent, runSearch, getCategory, decisionRow } from "@/lib/decisions-data";
 import { parse, tabHref, pageHref, categoryHref, type Search } from "@/lib/decisions-query";
 import { REASON_LABELS, type ReasonCategory } from "@/lib/types";
 import { SITE_URL } from "@/lib/constants";
-import { ResultRow, realCaseNumber, headline, reasonLabel, type Kind } from "./SearchResults";
+import { ResultRow, type Kind } from "./SearchResults";
 
 // /decisions 상세는 48,000페이지가 있는데 목록(허브) 페이지가 아예 없었다.
 // 라우트가 [id] 뿐이라 /decisions 자체가 404 + noindex 였고(2026-08-31 라이브 확인),
@@ -219,16 +219,8 @@ async function HubView() {
           {recent.map((d) => (
             <ResultRow
               key={d.id}
-              row={{
-                kind: "nlrc",
-                href: `/decisions/${encodeURIComponent(d.id)}`,
-                // 허브는 크롤러가 61,928건으로 들어가는 입구다. 쟁점 전문이 곧 미끼이므로 넉넉히 싣는다.
-                title: headline(d.key_issue, d.title, "판정례", 600),
-                caseNumber: realCaseNumber(d.case_number_qualified, d.case_number_real, d.case_number),
-                date: d.decision_date,
-                tag: reasonLabel(d.reason_category),
-                result: d.decision_result,
-              }}
+              // 허브는 쟁점 전문을 넉넉히 싣는다.
+              row={decisionRow(d, 600)}
             />
           ))}
         </ul>

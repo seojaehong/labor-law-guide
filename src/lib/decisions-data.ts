@@ -1,6 +1,7 @@
 import { supabase } from "@/lib/supabase";
 import type { ReasonCategory } from "@/lib/types";
 import { PAGE_SIZE } from "@/lib/decisions-query";
+import { resolveDecisionSourceContract } from "@/lib/search/source-contracts";
 import { realCaseNumber, headline, reasonLabel, type Row, type Kind } from "@/app/decisions/SearchResults";
 
 export type DecisionResult = { ok: true; rows: Row[]; hasMore: boolean } | { ok: false };
@@ -17,6 +18,22 @@ type Recent = {
   decision_result: string | null;
   reason_category: string[] | null;
 };
+
+/** 검색·유형·최근 목록 모두 상세 화면과 같은 ID 기반 출처 계약을 따른다. */
+export function decisionRow(r: Record<string, unknown>, max = 120): Row {
+  const id = String(r.id ?? "");
+  const kind = resolveDecisionSourceContract({ id }).provider === "nlrc" ? "nlrc" : "court";
+  return {
+    kind,
+    href: `/decisions/${encodeURIComponent(id)}`,
+    title: headline((r.key_issue as string) ?? null, (r.title as string) ?? null, kind === "court" ? "판례" : "판정례", max),
+    caseNumber: realCaseNumber(r.case_number_qualified as string, r.case_number_real as string, r.case_number as string),
+    date: (r.decision_date as string) || null,
+    tag: reasonLabel((r.reason_category as string[]) ?? null),
+    // 법원 자료에 저장된 값은 노동위 구제 결과로 해석할 수 없다.
+    result: kind === "nlrc" ? (r.decision_result as string) || null : null,
+  };
+}
 
 export async function countByReason(reason: ReasonCategory): Promise<number> {
   const { count, error } = await supabase
@@ -85,15 +102,7 @@ export async function runSearch(q: string, type: Kind, page: number): Promise<De
           result: null,
         };
       }
-      return {
-        kind: "nlrc" as const,
-        href: `/decisions/${encodeURIComponent(id)}`,
-        title: headline((r.key_issue as string) ?? null, (r.title as string) ?? null, "판정례", 120),
-        caseNumber: realCaseNumber(r.case_number as string),
-        date: (r.decision_date as string) || null,
-        tag: reasonLabel((r.reason_category as string[]) ?? null),
-        result: (r.decision_result as string) || null,
-      };
+      return decisionRow(r);
     });
     return { ok: true, rows, hasMore };
   } catch {
@@ -118,15 +127,7 @@ export async function getCategory(reason: ReasonCategory, page: number): Promise
     return {
       ok: true,
       hasMore: raw.length > PAGE_SIZE,
-      rows: raw.slice(0, PAGE_SIZE).map((r) => ({
-        kind: "nlrc",
-        href: `/decisions/${encodeURIComponent(r.id)}`,
-        title: headline(r.key_issue, r.title, "판정례", 120),
-        caseNumber: realCaseNumber(r.case_number_qualified, r.case_number_real, r.case_number),
-        date: r.decision_date,
-        tag: reasonLabel(r.reason_category),
-        result: r.decision_result,
-      })),
+      rows: raw.slice(0, PAGE_SIZE).map((r) => decisionRow(r)),
     };
   } catch {
     return { ok: false };

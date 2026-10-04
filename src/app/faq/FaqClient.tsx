@@ -7,7 +7,7 @@ import { CATEGORY_GROUPS, categoryToSlug, type FaqCategory } from '@/lib/faq-cat
 
 interface FaqItem {
   id: number;
-  unified_category: string;
+  unified_category: string | null;
   question: string;
   answer: string;
 }
@@ -273,7 +273,7 @@ export default function FaqClient({ initialFaqs, categoryCounts, totalCount, ini
                       <div className="text-[14px] font-medium" style={{ color: 'var(--color-text-primary)' }}>
                         {faq.question}
                       </div>
-                      {!activeCategory && (
+                      {!activeCategory && faq.unified_category && (
                         <Link
                           href={`/faq/${categoryToSlug(faq.unified_category)}`}
                           onClick={(e) => e.stopPropagation()}

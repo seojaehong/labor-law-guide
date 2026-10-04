@@ -1,7 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { renderToStaticMarkup } from 'react-dom/server';
 const mocks = vi.hoisted(() => ({from:vi.fn(),rpc:vi.fn()}));
 vi.mock('@/lib/supabase', () => ({supabase:mocks}));
-import { getCategory, countByReason, getRecent, runSearch } from '@/lib/decisions-data';
+vi.mock('next/cache', () => ({unstable_cache: (fn: unknown) => fn}));
+import { getCategory, countByReason, getRecent, runSearch, decisionRow } from '@/lib/decisions-data';
+import DecisionsIndexPage from '@/app/decisions/page';
+import { REASON_LABELS, RESULT_LABELS } from '@/lib/types';
 
 function query(data: unknown[] = [], error: unknown = null, count: number | null = data.length) {
   const response = {data,error,count};
@@ -63,5 +67,67 @@ describe('category data contract', () => {
   it('keeps the short-query fast path', async () => {
     expect(await runSearch('a','nlrc',1)).toEqual({ok:true,rows:[],hasMore:false});
     expect(mocks.rpc).not.toHaveBeenCalled();
+  });
+});
+
+describe('shared decision row source contract', () => {
+  const records = ['bc_42', 'prec_77', 'nlrc_1'].map(id => ({
+    ...row(1), id, decision_result: 'granted', decision_date: '2026-09-20',
+  }));
+
+  it.each([
+    ['bc_42', 'court', null],
+    ['prec_77', 'court', null],
+    ['nlrc_1', 'nlrc', 'granted'],
+    ['legacy_1', 'nlrc', 'granted'],
+  ])('resolves %s by the existing ID contract and preserves card metadata', (id, kind, result) => {
+    expect(decisionRow({ ...records[0], id, source: 'bigcase.ai' })).toEqual({
+      kind, result, href: `/decisions/${id}`, title: '테스트 판정례',
+      caseNumber: 'qualified', date: '2026-09-20', tag: REASON_LABELS.no_dismissal,
+    });
+  });
+
+  it('keeps encoded detail URLs, masked-number fallback and per-view headline limits', () => {
+    const input = { ...records[0], id: 'bc_한 글/42', case_number_qualified: 'OOO',
+      case_number_real: null, key_issue: '가'.repeat(650) };
+    const result = decisionRow(input);
+    expect(result.href).toBe(`/decisions/${encodeURIComponent(input.id)}`);
+    expect(result.caseNumber).toBe('old');
+    expect(result.title).toBe('가'.repeat(120) + '…');
+    expect(decisionRow(input, 600).title).toBe('가'.repeat(600) + '…');
+    expect(decisionRow({ id: 'prec_77' }).title).toBe('판례');
+    expect(decisionRow({ id: 'nlrc_1' }).title).toBe('판정례');
+  });
+
+  it('applies the same source and result mapping to search and category rows', async () => {
+    mocks.rpc.mockResolvedValue({ data: records, error: null });
+    query(records);
+    const expected = records.map(record => decisionRow(record));
+    expect(await runSearch('해고', 'nlrc', 1)).toEqual({ ok: true, rows: expected, hasMore: false });
+    expect(await getCategory('no_dismissal', 1)).toEqual({ ok: true, rows: expected, hasMore: false });
+  });
+
+  it('renders recent court cards without a 노동위 or 인정(구제) badge', async () => {
+    const chain = query(records);
+    const page = await DecisionsIndexPage({ searchParams: Promise.resolve({}) });
+    const hub = page.props.children.at(-1);
+    const html = renderToStaticMarkup(await hub.type(hub.props));
+    expect(html.match(/>법원<\/span>/g)).toHaveLength(2);
+    expect(html.match(/>노동위<\/span>/g)).toHaveLength(1);
+    expect(html.split(RESULT_LABELS.granted)).toHaveLength(2);
+    for (const record of records) expect(html).toContain(`href="/decisions/${record.id}"`);
+    expect(chain.gte).toHaveBeenCalledWith('confidence_level', 0.8);
+    expect(chain.limit).toHaveBeenCalledWith(30);
+  });
+
+  it.each(['court', 'admin'] as const)('preserves the dedicated %s RPC card contract', async type => {
+    mocks.rpc.mockResolvedValue({ data: [{ id: 'bc_42', title: '기존 제목', case_number: '2026두42',
+      doc_number: '근로기준정책과-42', court: '대법원', decision_date: '2026-09-20', decision_result: 'granted' }], error: null });
+    const result = await runSearch('해고', type, 1);
+    expect(result).toEqual({ ok: true, hasMore: false, rows: [{
+      kind: type, href: `/${type === 'court' ? 'cases' : 'interpretations'}/bc_42`,
+      title: '기존 제목', caseNumber: type === 'court' ? '2026두42' : '근로기준정책과-42',
+      date: '2026-09-20', tag: type === 'court' ? '대법원' : null, result: null,
+    }] });
   });
 });
