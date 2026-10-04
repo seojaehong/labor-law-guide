@@ -13,6 +13,7 @@ import { ArrowLeft, Calendar, User, Tag, BookOpen, ArrowRight, MessageSquare, Cl
 import { getCategoryColor } from '@/lib/category-colors';
 import { extractFaqFromContent } from '@/lib/faq-extractor';
 import SubscribeForm from '@/components/SubscribeForm';
+import ReadingMarkdownLink from '@/components/ReadingMarkdownLink';
 import BetaSignupForm from '@/components/BetaSignupForm';
 import { getCurrentTopicPicks } from '@/lib/topic-picks';
 
@@ -224,10 +225,10 @@ export default async function BlogArticlePage({
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
 
-      <div className="mx-auto max-w-[820px] px-5 py-10">
-        <div className="lg:grid lg:grid-cols-[1fr_280px] lg:gap-10">
+      <div className="layout-reading layout-reading--with-rail editorial-document">
+        <div className="reading-layout">
           {/* Main Article */}
-          <article>
+          <article className="reading-main">
             {/* Back link */}
             <Link
               href="/blog"
@@ -239,19 +240,19 @@ export default async function BlogArticlePage({
             </Link>
 
             {/* Article Header */}
-            <header className="mb-8">
+            <header className="editorial-reading-header">
               <div className="flex flex-wrap items-center gap-2 mb-4">
                 <CategoryBadge category={article.category} />
                 <span
                   className="flex items-center gap-1 text-[12px]"
-                  style={{ color: 'var(--color-text-tertiary)' }}
+                  style={{ color: 'var(--grey-700)' }}
                 >
                   <Calendar size={12} />
                   {formatDate(article.published_at)}
                 </span>
                 <span
                   className="flex items-center gap-1 text-[12px]"
-                  style={{ color: 'var(--color-text-tertiary)' }}
+                  style={{ color: 'var(--grey-700)' }}
                 >
                   <User size={12} />
                   {article.author}
@@ -267,8 +268,8 @@ export default async function BlogArticlePage({
 
               {article.subtitle && (
                 <p
-                  className="text-[17px] font-medium leading-snug mb-4"
-                  style={{ color: 'var(--color-accent)' }}
+                  className="editorial-deck mb-4"
+                  style={{ color: 'var(--grey-700)' }}
                 >
                   {article.subtitle}
                 </p>
@@ -276,12 +277,7 @@ export default async function BlogArticlePage({
 
               {displaySummary && (
                 <p
-                  className="text-[15px] leading-relaxed rounded-xl p-4"
-                  style={{
-                    color: 'var(--color-text-secondary)',
-                    backgroundColor: 'var(--blue-50)',
-                    borderLeft: '3px solid var(--color-accent)',
-                  }}
+                  className="editorial-summary"
                 >
                   {displaySummary}
                 </p>
@@ -289,11 +285,11 @@ export default async function BlogArticlePage({
 
               {article.tags && article.tags.length > 0 && (
                 <div className="mt-4 flex flex-wrap items-center gap-1.5">
-                  <Tag size={12} style={{ color: 'var(--color-text-tertiary)' }} />
+                  <Tag size={12} style={{ color: 'var(--grey-700)' }} />
                   {article.tags.map((tag) => (
                     <span
                       key={tag}
-                      className="rounded-full px-2.5 py-0.5 text-[11px]"
+                      className="rounded-full px-2.5 py-0.5 text-[12px]"
                       style={{ backgroundColor: 'var(--grey-100)', color: 'var(--grey-600)' }}
                     >
                       #{tag}
@@ -323,23 +319,20 @@ export default async function BlogArticlePage({
                   },
                 }]]}
                 components={{
-                  h1: ({ children }) => <h1 className="blog-h1">{children}</h1>,
-                  h2: ({ children }) => <h2 className="blog-h2">{children}</h2>,
-                  h3: ({ children }) => <h3 className="blog-h3">{children}</h3>,
-                  h4: ({ children }) => <h4 className="blog-h4">{children}</h4>,
+                  h1: ({ children, id, className }) => <h1 id={id} className={className === 'sr-only' ? 'sr-only' : 'blog-h1'}>{children}</h1>,
+                  h2: ({ children, id, className }) => <h2 id={id} className={className === 'sr-only' ? 'sr-only' : 'blog-h2'}>{children}</h2>,
+                  h3: ({ children, id, className }) => <h3 id={id} className={className === 'sr-only' ? 'sr-only' : 'blog-h3'}>{children}</h3>,
+                  h4: ({ children, id, className }) => <h4 id={id} className={className === 'sr-only' ? 'sr-only' : 'blog-h4'}>{children}</h4>,
                   p: ({ children }) => <p className="blog-p">{children}</p>,
                   ul: ({ children }) => <ul className="blog-ul">{children}</ul>,
                   ol: ({ children }) => <ol className="blog-ol">{children}</ol>,
-                  li: ({ children }) => <li className="blog-li">{children}</li>,
-                  a: ({ href, children }) => (
-                    <a href={href} target="_blank" rel="noopener noreferrer" className="blog-link">
-                      {children}
-                    </a>
-                  ),
+                  li: ({ children, id }) => <li id={id} className="blog-li">{children}</li>,
+                  a: (props) => <ReadingMarkdownLink {...props} variant="blog" />,
                   strong: ({ children }) => <strong className="blog-strong">{children}</strong>,
                   code: ({ children }) => <code className="blog-code">{children}</code>,
                   blockquote: ({ children }) => <blockquote className="blog-blockquote">{children}</blockquote>,
                   hr: () => <hr className="blog-hr" />,
+                  table: ({ children, ...props }) => <div className="reading-table-scroll" role="region" aria-label="본문 표" tabIndex={0}><table {...props}>{children}</table></div>,
                 }}
               >
                 {article.content}
@@ -378,7 +371,7 @@ export default async function BlogArticlePage({
                         {a.title}
                       </p>
                       {a.subtitle && (
-                        <p className="mt-0.5 text-[12px]" style={{ color: 'var(--color-text-tertiary)' }}>
+                        <p className="mt-0.5 text-[12px]" style={{ color: 'var(--grey-700)' }}>
                           {a.subtitle}
                         </p>
                       )}
@@ -454,13 +447,12 @@ export default async function BlogArticlePage({
           </article>
 
           {/* Sidebar */}
-          <aside className="hidden lg:block">
-            <div className="sticky top-24 space-y-6">
+          <aside className="reading-sidebar">
+            <div className="reading-sidebar-content space-y-6">
               {/* 이 주의 토픽 — 사이드바 상단 (자기 자신 제외) */}
               {topicPicks.length > 0 && (
                 <div
-                  className="rounded-xl border p-5"
-                  style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)', boxShadow: 'var(--shadow-sm)' }}
+                  className="editorial-rail-panel"
                 >
                   <h3
                     className="text-[14px] font-bold mb-4 flex items-center gap-1.5"
@@ -479,7 +471,7 @@ export default async function BlogArticlePage({
                             {pick.category}
                           </div>
                           <div
-                            className="text-[12px] leading-snug line-clamp-3 group-hover:underline"
+                            className="text-[14px] leading-relaxed group-hover:underline"
                             style={{ color: 'var(--color-text-primary)' }}
                           >
                             {pick.title.replace(/^🎯\s*/, '')}
@@ -494,8 +486,7 @@ export default async function BlogArticlePage({
               {/* Related in same category */}
               {related.length > 0 && (
                 <div
-                  className="rounded-xl border p-5"
-                  style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)', boxShadow: 'var(--shadow-sm)' }}
+                  className="editorial-rail-panel"
                 >
                   <h3
                     className="text-[14px] font-bold mb-4"
@@ -517,8 +508,8 @@ export default async function BlogArticlePage({
                           {a.title}
                         </p>
                         <p
-                          className="mt-0.5 text-[11px]"
-                          style={{ color: 'var(--color-text-tertiary)' }}
+                          className="mt-0.5 text-[12px]"
+                          style={{ color: 'var(--grey-700)' }}
                         >
                           {formatDate(a.published_at)}
                         </p>

@@ -27,7 +27,7 @@ export default async function UnsubscribeConfirmPage({
 
   if (!token || token.length < 10) {
     return (
-      <main className="mx-auto flex max-w-[820px] flex-col items-center px-6 py-20 text-center">
+      <main className="mx-auto flex max-w-[var(--layout-compact-max)] flex-col items-center px-6 py-20 text-center">
         <AlertCircle size={56} style={{ color: 'var(--color-danger)' }} />
         <h1 className="t-h2 mt-6" style={{ color: 'var(--color-text-primary)' }}>
           해지할 수 없어요
@@ -48,7 +48,7 @@ export default async function UnsubscribeConfirmPage({
   }
 
   return (
-    <main className="mx-auto flex max-w-[820px] flex-col items-center px-6 py-20 text-center">
+    <main className="mx-auto flex max-w-[var(--layout-compact-max)] flex-col items-center px-6 py-20 text-center">
       <MailX size={56} style={{ color: 'var(--color-text-tertiary)' }} />
       <h1 className="t-h2 mt-6" style={{ color: 'var(--color-text-primary)' }}>
         구독을 해지할까요?

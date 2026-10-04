@@ -41,17 +41,38 @@
 }
 
 :root {
+  /* TASK-500: four layout families. Prose is measured in CJK advances, not pixels.
+     `ic` measures 水, not Hangul; verify actual Korean line wraps after fonts load.
+     em is the intentionally approximate fallback, never substitute Latin `ch`. */
+  --font-editorial: "Noto Serif KR", "Pretendard Variable", serif;
+  --reading-measure: 35em;
+  --reading-font-size: clamp(1.0625rem, 1rem + 0.125vw, 1.125rem);
+  --reading-leading: 1.8;
+  --reading-paragraph-space: 1.25em;
+  --reading-anchor-offset: 6rem;
+  --layout-list-max: 68.75rem;
+  --layout-tool-max: 68.75rem;
+  --layout-wide-max: 87.5rem;
+  --layout-compact-max: 51.25rem;
+  --layout-intro-max: 47.5rem;
+  --layout-gutter: clamp(1.25rem, 2vw, 2rem);
+  --layout-gap: clamp(1.5rem, 3vw, 3rem);
+  --layout-rail: 17.5rem;
+  --layout-tool-rail: 20rem;
+  --layout-chat-rail: 23.75rem;
+  --layout-page-space: clamp(2rem, 4vw, 3rem);
+
   /* Grey Scale (Toss 참조) */
-  --grey-50: #f9fafb;
-  --grey-100: #f2f4f6;
-  --grey-200: #e5e8eb;
+  --grey-50: #faf8f2;
+  --grey-100: #eeeee7;
+  --grey-200: #d8d5cb;
   --grey-300: #d1d6db;
   --grey-400: #b0b8c1;
   --grey-500: #8b95a1;
-  --grey-600: #6b7684;
-  --grey-700: #4e5968;
-  --grey-800: #333d4b;
-  --grey-900: #191f28;
+  --grey-600: #626760;
+  --grey-700: #485149;
+  --grey-800: #343d35;
+  --grey-900: #20231f;
 
   /* Brand Blue (Toss) */
   --blue-50: #e8f3ff;
@@ -69,7 +90,7 @@
   --brand-100: #fef9c3;
   --brand-200: #fef08a;
   --brand-300: #fde047;
-  --brand-400: #facc15;
+  --brand-400: #e8c55a;
   --brand-500: #eab308;
   --brand-600: #ca8a04;
   --brand-700: #a16207;
@@ -84,16 +105,16 @@
   --color-text-secondary: var(--grey-600);
   --color-text-tertiary: var(--grey-400);
 
-  --color-accent: var(--blue-500);
-  --color-accent-hover: var(--blue-600);
+  --color-accent: #285e77;
+  --color-accent-hover: #214d62;
   --color-accent-light: var(--blue-50);
 
   /* 액센트 잉크 — DESIGN.md §3.3. 본문 링크와 주 CTA 배경은 --color-accent가 아니라 여기를 쓴다
      (#3182f6은 페이지 바탕 위 3.55:1로 AA 미달). --color-accent는 포커스 링·보더·아이콘 등 비텍스트 전용.
      -ink-hover가 따로 있는 이유: 라이트에서 -ink(#1b64da)와 --color-accent-hover가 같은 값이라
      그대로 두면 링크 hover가 아무 변화도 안 일으킨다(§3.3). */
-  --color-accent-ink: var(--blue-600);
-  --color-accent-ink-hover: var(--blue-700);
+  --color-accent-ink: #285e77;
+  --color-accent-ink-hover: #214d62;
 
   /* primary 버튼의 잉크 — DESIGN.md §6.2 표가 지정한 두 값(라이트 #ffffff 5.41:1 / 다크 #0f1117 6.14:1).
      기존 토큰으로는 이 조합이 안 나온다: --color-bg-surface는 다크가 #191f28이고
@@ -128,7 +149,7 @@
      ★ solid는 라·다 동일(#facc15)이므로 그 위 잉크는 리터럴 #191f28 고정이다(§3.4/§6.2 "고정", 10.81:1).
      --grey-900 / --color-text-primary로 쓰면 안 된다 — 다크에서 #f2f4f6으로 뒤집혀 대비가 무너진다. */
   --color-brand-solid: var(--brand-400);
-  --color-brand-surface: var(--brand-100);
+  --color-brand-surface: #f7edcb;
   --color-brand-border: var(--brand-400);
   --color-brand-ink: var(--brand-800);
 
@@ -160,7 +181,7 @@
   --shadow-xl: 0 20px 40px -8px rgba(0, 0, 0, 0.1), 0 8px 16px -4px rgba(0, 0, 0, 0.06);
 
   /* shadcn tokens — llg 브랜드(Toss blue/grey)에 맞춰 정렬 */
-  --primary: var(--blue-500);
+  --primary: var(--color-accent-ink);
   --primary-foreground: #ffffff;
   --card: var(--color-bg-surface);
   --card-foreground: var(--color-text-primary);
@@ -199,15 +220,15 @@
 
   --blue-50: rgba(49, 130, 246, 0.12);
 
-  --color-bg-primary: #0f1117;
-  --color-bg-surface: #191f28;
-  --color-bg-elevated: #1e2530;
+  --color-bg-primary: #191d19;
+  --color-bg-surface: #202620;
+  --color-bg-elevated: #2b322b;
 
-  --color-text-primary: #f2f4f6;
-  --color-text-secondary: #b0b8c1;
+  --color-text-primary: #f0f0e7;
+  --color-text-secondary: #b9c0b4;
   --color-text-tertiary: #6b7684;
 
-  --color-border: #2a3140;
+  --color-border: #414a3d;
   --color-border-subtle: rgba(255, 255, 255, 0.06);
 
   /* 홈 CTA 밴드 잉크 다크 — 밴드가 밝은 표면으로 반전되므로 같은 비율이면 잉크가 중간 회색이 된다.
@@ -216,14 +237,16 @@
   --band-ink-fine: color-mix(in srgb, var(--grey-100) 70%, var(--grey-900));
 
   /* 노랑 역할 토큰 다크 — solid는 라이트와 동일. 표면·경계는 알파 오버레이, 잉크는 밝은 단계로 뒤집는다 */
-  --color-brand-surface: rgba(250, 204, 21, 0.16);
-  --color-brand-border: rgba(250, 204, 21, 0.45);
+  --color-brand-surface: rgba(232, 197, 90, 0.16);
+  --color-brand-border: rgba(232, 197, 90, 0.45);
   --color-brand-ink: var(--brand-300);
 
   /* 액센트 잉크 다크 — 밝은 단계로 뒤집는다(§3.3 / A.1). blue-400·300은 .dark에서 재정의되지 않으므로
      램프 참조가 그대로 #4593fc / #64a8ff로 풀린다. */
-  --color-accent-ink: var(--blue-400);
-  --color-accent-ink-hover: var(--blue-300);
+  --color-accent: #9ac7e1;
+  --color-accent-ink: #9ac7e1;
+  --color-accent-hover: #c1dfef;
+  --color-accent-ink-hover: #c1dfef;
 
   /* primary 버튼 잉크 다크 — §6.2. 밝아진 accent-ink 위에서는 잉크가 어두워진다. */
   --color-on-accent-ink: #0f1117;
@@ -258,7 +281,7 @@
   --shadow-xl: 0 20px 40px -8px rgba(0, 0, 0, 0.5);
 
   /* shadcn tokens — dark variant */
-  --primary: var(--blue-400);
+  --primary: var(--color-accent-ink);
   --primary-foreground: #0f1117;
   --card: var(--color-bg-surface);
   --card-foreground: var(--color-text-primary);
@@ -276,15 +299,7 @@
   --ring: var(--blue-400);
 }
 
-.dark body {
-  background-image:
-    radial-gradient(ellipse 80% 60% at 20% 30%, rgba(49, 130, 246, 0.08) 0%, transparent 50%),
-    radial-gradient(ellipse 60% 80% at 80% 20%, rgba(99, 102, 241, 0.06) 0%, transparent 50%),
-    radial-gradient(ellipse 70% 50% at 50% 80%, rgba(16, 185, 129, 0.04) 0%, transparent 50%);
-  /* 라이트 body(§9 P4-4)에서 제거한 fixed를 여기로 옮겼다 — 원래 base body 선언을 상속받고 있었다.
-     다크 오로라 존치 여부는 DESIGN.md §10-8 미결이므로 렌더는 종전 그대로 유지한다. */
-  background-attachment: fixed;
-}
+.dark body { background-image: none; }
 
 .dark .glass-nav {
   background: rgba(15, 17, 23, 0.82);
@@ -936,3 +951,116 @@
     accent-color: var(--color-accent);
   }
 }
+
+/* Reading-first layout system. Structural classes own only geometry/type;
+   existing Yellow Envelope color, branding and theme tokens remain authoritative. */
+@supports (max-inline-size: 1ic) {
+  :root { --reading-measure: 35ic; }
+}
+
+@layer components {
+  .layout-reading, .layout-list, .layout-tool, .layout-wide {
+    inline-size: 100%;
+    margin-inline: auto;
+    padding-inline: var(--layout-gutter);
+    padding-block: var(--layout-page-space);
+    min-inline-size: 0;
+  }
+  .layout-reading {
+    font-size: var(--reading-font-size);
+    max-inline-size: calc(var(--reading-measure) + 2 * var(--layout-gutter));
+  }
+  .layout-reading--with-rail {
+    max-inline-size: calc(var(--reading-measure) + var(--layout-rail) + var(--layout-gap) + 2 * var(--layout-gutter));
+  }
+  .layout-list { max-inline-size: var(--layout-list-max); }
+  .layout-tool { max-inline-size: var(--layout-tool-max); }
+  .layout-tool--compact { max-inline-size: var(--layout-compact-max); }
+  .layout-wide { max-inline-size: var(--layout-wide-max); }
+  .layout-wide--chrome { padding-block: 0; }
+  .reading-layout { display: grid; gap: var(--layout-gap); }
+  .reading-main, .reading-sidebar {
+    inline-size: 100%;
+    max-inline-size: var(--reading-measure);
+    min-inline-size: 0;
+    margin-inline: auto;
+  }
+  .reading-sidebar { font-size: 1rem; }
+  .reading-sidebar-content { position: static; }
+  .tool-layout { display: grid; gap: var(--layout-gap); }
+  .tool-layout > * { min-inline-size: 0; }
+  .tool-layout--chat { --layout-tool-rail: var(--layout-chat-rail); }
+  /* Conservative 72rem threshold reserves full reading measure + rail + gap + gutters.
+     Stack at 1024px and under rather than reducing the primary column. */
+  @media (min-width: 72rem) {
+    .reading-layout { grid-template-columns: minmax(0, 1fr) var(--layout-rail); }
+    .reading-sidebar-content { position: sticky; top: 6rem; }
+    .tool-layout { grid-template-columns: minmax(0, 1fr) var(--layout-tool-rail); }
+  }
+}
+
+/* Unlayered by design: detail prose must beat utility-sized list snippets.
+   This is opt-in, so search/list previews keep their compact typography. */
+.reading-prose, .layout-reading .blog-content {
+  font-size: var(--reading-font-size);
+  line-height: var(--reading-leading);
+  max-inline-size: var(--reading-measure);
+  min-inline-size: 0;
+  color: var(--color-text-primary);
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+}
+.reading-prose p { margin-block-end: var(--reading-paragraph-space); }
+.reading-prose p:last-child { margin-block-end: 0; }
+.reading-prose :is(h2, h3, h4), .blog-content :is(h2, h3, h4) { scroll-margin-top: var(--reading-anchor-offset); }
+.reading-prose :is(pre, table), .blog-content table {
+  display: block;
+  max-inline-size: 100%;
+  overflow-x: auto;
+}
+.reading-prose pre { white-space: pre; }
+.reading-prose blockquote {
+  margin-block: var(--reading-paragraph-space);
+  padding-inline-start: 1em;
+  border-inline-start: 3px solid var(--color-border);
+}
+.reading-prose :is(sup, sub) { line-height: 0; }
+.reading-prose a { text-underline-offset: .2em; }
+
+.reading-table-scroll { max-inline-size: 100%; overflow-x: auto; }
+.reading-table-scroll:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 3px; }
+.reading-table-scroll > table { display: table; }
+
+p.reading-prose { margin-block-end: var(--reading-paragraph-space); }
+
+/* Fragment navigation must clear the sticky navigation in both directions. */
+.reading-prose :is([data-footnote-ref], .footnotes li[id]),
+.blog-content :is([data-footnote-ref], .footnotes li[id]) {
+  scroll-margin-block-start: var(--reading-anchor-offset);
+}
+
+/* Editorial reading surfaces. Keep the calibrated prose measure independent of headings. */
+.editorial-document .editorial-reading-header {
+  border-block-start: 3px solid var(--color-text-primary);
+  border-block-end: 1px solid var(--color-border);
+  padding-block: 1.5rem;
+  margin-block-end: 2rem;
+}
+.editorial-reading-header h1 { font-family: var(--font-editorial); font-size: clamp(1.875rem, 2.8vw, 2.6875rem); line-height: 1.35; letter-spacing: -.035em; }
+.editorial-reading-header .editorial-deck { font-size: 1.125rem; line-height: 1.7; color: var(--grey-700); }
+.editorial-reading-header .editorial-summary { padding: 1.25rem 0 0; margin-top: 1.25rem; border-top: 1px solid var(--color-border); color: var(--grey-700); font-size: 1rem; line-height: 1.8; }
+.editorial-document .editorial-evidence { border-block-start: 1px solid var(--color-border); padding-block-start: 1.25rem; margin-block-end: 2rem; }
+.editorial-evidence > h2 { font-size: 1.125rem; margin-block-end: 1rem; letter-spacing: -.02em; }
+.editorial-document .editorial-evidence-body { color: var(--color-text-primary); }
+.editorial-document .editorial-source { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; border-block: 1px solid var(--color-border); padding-block: 1rem; margin-block-end: 2rem; font-size: .875rem; }
+.editorial-source a { color: var(--color-accent-ink); text-decoration: underline; text-underline-offset: .2em; }
+.editorial-document .editorial-rail-panel { border: 0; border-block-start: 2px solid var(--color-text-primary); border-radius: 0; padding: 1.25rem 0; background: transparent; box-shadow: none; }
+.editorial-document .editorial-rail-panel dl > div { padding-block: .5rem; border-bottom: 1px solid var(--color-border); }
+.editorial-document .editorial-rail-panel dt { font-size: .8125rem; margin-bottom: .2rem; }
+.editorial-document .editorial-rail-panel dd { overflow-wrap: anywhere; }
+.editorial-document .blog-content .blog-blockquote { border-left: 3px solid var(--color-brand-solid); border-radius: 0; background: var(--grey-100); }
+.editorial-document .blog-content .blog-h2 { border-bottom: 1px solid var(--color-border); padding-bottom: .65rem; }
+.editorial-document .blog-content .footnotes { margin-top: 2.5rem; border-top: 2px solid var(--color-text-primary); padding-top: 1.5rem; }
+
+.editorial-collection-header { border-top: 3px solid var(--color-text-primary); padding-top: 1.5rem; }
+.editorial-collection-header h1 { font-family: var(--font-editorial); font-size: clamp(1.875rem, 3vw, 2.5rem); }

@@ -212,7 +212,7 @@ export default function NewsClient({ initialNews, initialTotalCount, initialBrie
   };
 
   return (
-    <div className="mx-auto max-w-[1100px] px-5 py-10">
+    <div className="layout-list">
       <div className="flex items-center gap-2">
         <Newspaper size={24} style={{ color: 'var(--color-accent)' }} />
         <h1 className="t-h2" style={{ color: 'var(--color-text-primary)' }}>

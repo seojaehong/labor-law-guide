@@ -24,3 +24,7 @@ function normalizeSiteUrl(value?: string) {
 }
 
 export const SITE_URL = normalizeSiteUrl(process.env.NEXT_PUBLIC_SITE_URL);
+
+// Display identity is independent of the canonical domain and legal topic names.
+export const BRAND_NAME = "일의 무늬";
+export const BRAND_DESCRIPTION = "노동법의 근거와 일터의 변화를 읽습니다";

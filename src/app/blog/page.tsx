@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { unstable_cache } from 'next/cache';
 import { supabaseServer } from '@/lib/supabase-server';
-import { SITE_URL } from '@/lib/constants';
+import { SITE_URL, BRAND_NAME } from '@/lib/constants';
 import { cleanBlogSummary } from '@/lib/blog-summary';
 import { getCurrentTopicPicks } from '@/lib/topic-picks';
 import TopicPicks from '@/components/TopicPicks';
@@ -32,7 +32,7 @@ interface BlogArticleRow extends BlogArticle {
   content: string | null;
 }
 
-export const CATEGORIES = ['노동법', '판례분석', '뉴스해설', '뉴스브리핑', '실무가이드'];
+const CATEGORIES = ['노동법', '판례분석', '뉴스해설', '뉴스브리핑', '실무가이드'];
 
 type Search = { page?: string; cat?: string; sub?: string; q?: string };
 
@@ -65,7 +65,7 @@ export async function generateMetadata(
     alternates: { canonical: canonical.toString() },
     robots: noindex ? { index: false, follow: true } : undefined,
     openGraph: {
-      title: '노동 딥다이브 | 노란봉투법 가이드',
+      title: `노동 딥다이브 | ${BRAND_NAME}`,
       description: '노동법 심층 분석 콘텐츠. 판례분석, 뉴스해설, 실무가이드.',
       url: canonical.toString(),
       type: 'website',
@@ -74,7 +74,7 @@ export async function generateMetadata(
     },
     twitter: {
       card: 'summary_large_image',
-      title: '노동 딥다이브 | 노란봉투법 가이드',
+      title: `노동 딥다이브 | ${BRAND_NAME}`,
       description: '노동법 심층 분석 콘텐츠. 판례분석, 뉴스해설, 실무가이드.',
     },
   };
@@ -162,7 +162,6 @@ export default async function BlogPage(
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
-      <TopicPicks items={topicPicks} variant="index" />
       <BlogClient
         articles={articles}
         total={total}
@@ -171,6 +170,7 @@ export default async function BlogPage(
         activeSubtype={state.sub}
         query={state.q}
       />
+      <TopicPicks items={topicPicks} variant="index" />
     </>
   );
 }

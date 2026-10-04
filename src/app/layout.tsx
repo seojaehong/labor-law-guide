@@ -1,15 +1,16 @@
 import type { Metadata } from "next";
 import Script from "next/script";
 import "./globals.css";
+import "@/components/editorial-navigation.css";
 import GlassNav from "@/components/GlassNav";
 import BetaBanner from "@/components/BetaBanner";
 import FloatingChatButton from "@/components/FloatingChatButton";
-import { SITE_URL } from "@/lib/constants";
+import { SITE_URL, BRAND_NAME } from "@/lib/constants";
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: {
-    default: '노란봉투법 완벽 가이드 | 2026 개정 노동조합법 해석지침·교섭절차',
+    default: `${BRAND_NAME} | 노동법·판례·실무 가이드`,
     // 접미사 없음 (2026-08-30).
     // 이전 값: '%s | 노란봉투법 가이드' — 모든 페이지 제목에 10자를 강제로 덧붙였다.
     // 한글 검색결과에서 실제로 보이는 제목은 약 35자인데, seo_title 평균 39자에
@@ -43,7 +44,7 @@ export const metadata: Metadata = {
     type: 'website',
     url: SITE_URL,
     locale: 'ko_KR',
-    siteName: '노란봉투법 가이드',
+    siteName: BRAND_NAME,
   },
   twitter: {
     card: 'summary_large_image',
@@ -144,7 +145,7 @@ export default function RootLayout({
                 {
                   '@type': 'WebSite',
                   '@id': `${SITE_URL}/#website`,
-                  name: '노란봉투법 완벽 가이드',
+                  name: BRAND_NAME,
                   description: '2026 개정 노동조합법 해석지침, 교섭절차 매뉴얼, AI 상담',
                   url: SITE_URL,
                   inLanguage: 'ko',
@@ -182,15 +183,20 @@ export default function RootLayout({
             }),
           }}
         />
+        <a className="editorial-skip-link" href="#site-main">본문 바로가기</a>
         <GlassNav />
         <BetaBanner />
-        <main>{children}</main>
+        <main id="site-main" tabIndex={-1}>{children}</main>
         <FloatingChatButton />
-        <footer className="border-t py-10" style={{ borderColor: 'var(--color-border)' }}>
+        <footer className="editorial-footer border-t py-10" style={{ borderColor: 'var(--color-border)' }}>
           {/* 2026-09-12 — 메뉴를 3개로 줄이면서 내려온 것들이 여기 산다.
               지운 게 아니라 자리를 옮긴 것이고, 크롤러가 들어갈 내부 링크도 여기서 유지된다.
               메뉴에 올릴 만큼은 아니지만 닿을 수 없으면 안 되는 것들이다. */}
-          <div className="mx-auto mb-8 grid max-w-[1400px] grid-cols-2 gap-x-6 gap-y-7 px-5 text-left sm:grid-cols-4">
+          <div className="layout-wide layout-wide--chrome editorial-footer-brand">
+            <p className="font-semibold">{BRAND_NAME}</p>
+            <p className="text-sm">노무법인 위너스</p>
+          </div>
+          <div className="layout-wide layout-wide--chrome mb-8 grid grid-cols-2 gap-x-6 gap-y-7 text-left sm:grid-cols-4">
             {[
               { title: '찾아보기', links: [
                 { href: '/decisions', label: '판정례 검색' },
@@ -219,13 +225,13 @@ export default function RootLayout({
               ] },
             ].map((col) => (
               <div key={col.title}>
-                <p className="mb-2.5 text-xs font-semibold" style={{ color: 'var(--color-text-secondary)' }}>
+                <p className="mb-2.5 text-xs font-semibold" style={{ color: 'var(--grey-700)' }}>
                   {col.title}
                 </p>
                 <ul className="space-y-1.5">
                   {col.links.map((l) => (
                     <li key={l.href}>
-                      <a href={l.href} className="text-[13px]" style={{ color: 'var(--color-text-tertiary)' }}>
+                      <a href={l.href} className="text-[13px]" style={{ color: 'var(--grey-700)' }}>
                         {l.label}
                       </a>
                     </li>
@@ -234,11 +240,11 @@ export default function RootLayout({
               </div>
             ))}
           </div>
-          <div className="mx-auto max-w-[1400px] px-5 text-center">
-            <p className="text-sm" style={{ color: 'var(--color-text-tertiary)' }}>
-              © 2026 노란봉투법 가이드. 본 사이트는 법률 자문이 아닌 정보 제공 목적입니다.
+          <div className="layout-wide layout-wide--chrome text-center">
+            <p className="text-sm" style={{ color: 'var(--grey-700)' }}>
+              © 2026 {BRAND_NAME}. 본 사이트는 법률 자문이 아닌 정보 제공 목적입니다.
             </p>
-            <p className="mt-1 text-xs" style={{ color: 'var(--color-text-tertiary)' }}>
+            <p className="mt-1 text-xs" style={{ color: 'var(--grey-700)' }}>
               {/* §6.8 — 산문 링크는 상시 밑줄 + --color-accent-ink. 이 푸터는 전 라우트에 뜨므로
                   hover-only 밑줄 + --color-accent(3.55:1)는 사이트 전체에서 1.4.1·1.4.3을 어긴다. */}
               <a href="https://winhr.co.kr" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2" style={{ color: 'var(--color-accent-ink)' }}>노무법인 위너스</a>

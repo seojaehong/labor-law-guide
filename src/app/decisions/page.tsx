@@ -67,7 +67,7 @@ export default async function DecisionsIndexPage(
   };
 
   return (
-    <main className="mx-auto max-w-[820px] px-5 py-10">
+    <main className="layout-list">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
       <h1 className="mb-2 text-2xl font-bold">판정례 · 판례 · 행정해석 검색</h1>

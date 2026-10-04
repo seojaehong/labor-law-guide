@@ -6,7 +6,7 @@ import { glossary } from '@/content/checklist-data';
 
 const ChatInterface = dynamic(() => import('@/components/ChatInterface'), {
   loading: () => (
-    <div className="flex h-[500px] items-center justify-center rounded-xl border" style={{ borderColor: 'var(--color-border)' }}>
+    <div className="flex h-[500px] items-center justify-center rounded-md border" style={{ borderColor: 'var(--color-border)' }}>
       <div className="h-6 w-6 animate-spin rounded-full border-2 border-[var(--color-accent)] border-t-transparent" />
     </div>
   ),
@@ -71,16 +71,18 @@ export default function AIPage() {
   const faqTotalPages = Math.max(1, Math.ceil(faqTotal / 15));
 
   return (
-    <div className="mx-auto max-w-[1100px] px-5 py-10">
-      <h1 className="t-h2 mb-2" style={{ color: 'var(--color-text-primary)' }}>
+    <div className="layout-tool editorial-tool">
+      <header className="editorial-tool-header">
+        <h1 className="t-h2 mb-2" style={{ color: 'var(--color-text-primary)' }}>
         AI 상담 & 참고자료
       </h1>
-      <p className="mb-8 text-sm" style={{ color: 'var(--grey-500)' }}>
+      <p className="mb-8 text-sm" style={{ color: 'var(--grey-700)' }}>
         노동법 전반에 대한 궁금증을 AI가 답변해 드립니다 | 노무법인 위너스
       </p>
+      </header>
 
       {/* Tabs */}
-      <div className="mb-6 flex gap-2" role="tablist" aria-label="AI 상담 메뉴">
+      <div className="editorial-tool-tabs mb-6 flex flex-wrap gap-2" role="tablist" aria-label="AI 상담 메뉴">
         {[
           { key: 'chat' as const, label: 'AI 채팅', icon: Search },
           { key: 'faq' as const, label: 'FAQ DB', icon: MessageCircleQuestion },
@@ -94,8 +96,8 @@ export default function AIPage() {
             onClick={() => setTab(t.key)}
             className="flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-medium transition-colors"
             style={{
-              backgroundColor: tab === t.key ? 'var(--color-accent)' : 'var(--grey-100)',
-              color: tab === t.key ? 'white' : 'var(--grey-600)',
+              backgroundColor: tab === t.key ? 'var(--color-brand-solid)' : 'var(--grey-100)',
+              color: tab === t.key ? '#252b27' : 'var(--grey-700)',
             }}
           >
             <t.icon size={14} />
@@ -105,24 +107,24 @@ export default function AIPage() {
       </div>
 
       <div id="ai-tabpanel-chat" role="tabpanel" style={{ display: tab === 'chat' ? undefined : 'none' }}>
-        <div className="grid gap-6 lg:grid-cols-[1fr_380px]">
+        <div className="tool-layout tool-layout--chat">
           <ChatInterface injectedQuestion={pendingQuestion} />
           <div className="space-y-4">
-            <h3 className="text-sm font-bold" style={{ color: 'var(--grey-600)' }}>자주 묻는 질문</h3>
+            <h3 className="text-sm font-bold" style={{ color: 'var(--grey-700)' }}>자주 묻는 질문</h3>
             {sidebarFaqs.map((qa) => (
               <button
                 key={qa.id}
-                className="w-full rounded-xl border p-4 text-left transition-colors hover:bg-[var(--grey-50)]"
+                className="w-full rounded-md border p-4 text-left transition-colors hover:bg-[var(--grey-50)]"
                 style={{ borderColor: 'var(--color-border)' }}
                 onClick={() => setPendingQuestion(qa.question + '_' + Date.now())}
               >
                 <div className="mb-1 flex items-center gap-2">
-                  <span className="rounded-full px-2 py-0.5 text-[length:var(--text-xs)] font-medium" style={{ backgroundColor: 'var(--blue-50)', color: 'var(--blue-600)' }}>{qa.unified_category}</span>
+                  <span className="rounded-full px-2 py-0.5 text-[length:var(--text-xs)] font-medium" style={{ backgroundColor: 'var(--grey-100)', color: 'var(--grey-700)' }}>{qa.unified_category}</span>
                 </div>
                 <p className="text-sm font-medium" style={{ color: 'var(--grey-800)' }}>{qa.question}</p>
               </button>
             ))}
-            <Link href="/faq" className="block text-center text-sm font-medium" style={{ color: 'var(--color-accent)' }}>
+            <Link href="/faq" className="block text-center text-sm font-medium" style={{ color: 'var(--color-accent-ink)' }}>
               전체 FAQ 보기 →
             </Link>
           </div>
@@ -130,13 +132,13 @@ export default function AIPage() {
       </div>
 
       {tab === 'faq' && (
-        <div id="ai-tabpanel-faq" role="tabpanel" className="max-w-[820px]">
+        <div id="ai-tabpanel-faq" role="tabpanel" className="max-w-[var(--layout-compact-max)]">
           {/* Category filter */}
           <div className="mb-4 flex flex-wrap gap-2">
             <button
               onClick={() => { setFaqCategory(null); setFaqPage(1); }}
               className="rounded-full px-3 py-1 text-sm transition-colors"
-              style={{ backgroundColor: !faqCategory ? 'var(--color-accent)' : 'var(--grey-100)', color: !faqCategory ? 'white' : 'var(--grey-600)' }}
+              style={{ backgroundColor: !faqCategory ? 'var(--color-brand-solid)' : 'var(--grey-100)', color: !faqCategory ? '#252b27' : 'var(--grey-700)' }}
             >
               전체
             </button>
@@ -145,12 +147,12 @@ export default function AIPage() {
                 key={cat}
                 onClick={() => { setFaqCategory(cat); setFaqPage(1); }}
                 className="rounded-full px-3 py-1 text-sm transition-colors"
-                style={{ backgroundColor: faqCategory === cat ? 'var(--color-accent)' : 'var(--grey-100)', color: faqCategory === cat ? 'white' : 'var(--grey-600)' }}
+                style={{ backgroundColor: faqCategory === cat ? 'var(--color-brand-solid)' : 'var(--grey-100)', color: faqCategory === cat ? '#252b27' : 'var(--grey-700)' }}
               >
                 {cat}
               </button>
             ))}
-            <Link href="/faq" className="rounded-full px-3 py-1 text-sm" style={{ color: 'var(--color-accent)', backgroundColor: 'var(--blue-50)' }}>
+            <Link href="/faq" className="rounded-full px-3 py-1 text-sm" style={{ color: 'var(--color-accent-ink)', backgroundColor: 'var(--grey-100)' }}>
               33개 전체 카테고리 →
             </Link>
           </div>
@@ -163,7 +165,8 @@ export default function AIPage() {
               value={faqSearch}
               onChange={handleFaqSearch}
               placeholder="질문 또는 답변 검색..."
-              className="w-full rounded-xl border py-2.5 pl-10 pr-4 text-[14px] outline-none focus:border-[var(--color-accent)]"
+              aria-label="질문 또는 답변 검색"
+              className="w-full rounded-md border py-2.5 pl-10 pr-4 text-[14px] outline-none focus:ring-2 focus:ring-[var(--color-accent)]/30"
               style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }}
             />
           </div>
@@ -171,30 +174,30 @@ export default function AIPage() {
           {faqLoading ? (
             <div className="space-y-3">
               {[...Array(5)].map((_, i) => (
-                <div key={i} className="animate-pulse rounded-xl border p-5" style={{ borderColor: 'var(--color-border)' }}>
+                <div key={i} className="animate-pulse rounded-md border p-5" style={{ borderColor: 'var(--color-border)' }}>
                   <div className="h-4 w-3/4 rounded" style={{ backgroundColor: 'var(--grey-100)' }} />
                 </div>
               ))}
             </div>
           ) : dbFaqs.length === 0 ? (
-            <div className="py-16 text-center" style={{ color: 'var(--color-text-tertiary)' }}>검색 결과가 없습니다.</div>
+            <div className="py-16 text-center" style={{ color: 'var(--grey-700)' }}>검색 결과가 없습니다.</div>
           ) : (
             <div className="space-y-2">
               {dbFaqs.map((faq) => (
-                <div key={faq.id} className="rounded-xl border overflow-hidden" style={{ borderColor: expandedFaq === faq.id ? 'var(--color-accent)' : 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }}>
+                <div key={faq.id} className="rounded-md border overflow-hidden" style={{ borderColor: expandedFaq === faq.id ? 'var(--color-accent)' : 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }}>
                   <button onClick={() => setExpandedFaq(expandedFaq === faq.id ? null : faq.id)} className="flex w-full items-start gap-3 p-5 text-left">
-                    <span className="mt-0.5 shrink-0 text-sm font-bold" style={{ color: 'var(--color-accent)' }}>Q</span>
+                    <span className="mt-0.5 shrink-0 text-sm font-bold" style={{ color: 'var(--color-accent-ink)' }}>Q</span>
                     <div className="flex-1">
                       <div className="text-[14px] font-medium" style={{ color: 'var(--color-text-primary)' }}>{faq.question}</div>
-                      <span className="mt-1 inline-block rounded-full px-2 py-0.5 text-[length:var(--text-xs)] font-medium" style={{ backgroundColor: 'var(--blue-50)', color: 'var(--blue-600)' }}>{faq.unified_category}</span>
+                      <span className="mt-1 inline-block rounded-full px-2 py-0.5 text-[length:var(--text-xs)] font-medium" style={{ backgroundColor: 'var(--grey-100)', color: 'var(--grey-700)' }}>{faq.unified_category}</span>
                     </div>
                     <ChevronDown size={16} className="mt-0.5 shrink-0 transition-transform" style={{ color: 'var(--grey-400)', transform: expandedFaq === faq.id ? 'rotate(180deg)' : undefined }} />
                   </button>
                   {expandedFaq === faq.id && (
                     <div className="border-t px-5 py-4" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--grey-50)' }}>
                       <div className="flex gap-3">
-                        <span className="mt-0.5 shrink-0 text-sm font-bold" style={{ color: '#059669' }}>A</span>
-                        <div className="whitespace-pre-line text-[14px] leading-relaxed" style={{ color: 'var(--color-text-secondary)' }}>{faq.answer}</div>
+                        <span className="mt-0.5 shrink-0 text-sm font-bold" style={{ color: 'var(--color-success-ink)' }}>A</span>
+                        <div className="whitespace-pre-line text-[14px] leading-relaxed" style={{ color: 'var(--grey-700)' }}>{faq.answer}</div>
                       </div>
                     </div>
                   )}
@@ -207,7 +210,7 @@ export default function AIPage() {
           {faqTotalPages > 1 && (
             <div className="mt-6 flex items-center justify-center gap-3">
               <button disabled={faqPage <= 1} onClick={() => setFaqPage(faqPage - 1)} className="rounded-lg border px-4 py-2 text-sm disabled:opacity-40" style={{ borderColor: 'var(--color-border)' }}>이전</button>
-              <span className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>{faqPage} / {faqTotalPages}</span>
+              <span className="text-sm" style={{ color: 'var(--grey-700)' }}>{faqPage} / {faqTotalPages}</span>
               <button disabled={faqPage >= faqTotalPages} onClick={() => setFaqPage(faqPage + 1)} className="rounded-lg border px-4 py-2 text-sm disabled:opacity-40" style={{ borderColor: 'var(--color-border)' }}>다음</button>
             </div>
           )}
@@ -215,15 +218,15 @@ export default function AIPage() {
       )}
 
       {tab === 'glossary' && (
-        <div id="ai-tabpanel-glossary" role="tabpanel" className="max-w-[820px]">
-          <div className="rounded-xl border overflow-hidden" style={{ borderColor: 'var(--color-border)' }}>
+        <div id="ai-tabpanel-glossary" role="tabpanel" className="max-w-[var(--layout-compact-max)]">
+          <div className="rounded-md border overflow-hidden" style={{ borderColor: 'var(--color-border)' }}>
             {glossary.map((item, i) => (
               <div
                 key={i}
-                className="flex gap-4 border-b p-5 last:border-b-0"
+                className="flex flex-col gap-2 border-b p-5 last:border-b-0 sm:flex-row sm:gap-4"
                 style={{ borderColor: 'var(--color-border)', backgroundColor: i % 2 === 0 ? 'var(--color-bg-surface)' : 'var(--grey-50)' }}
               >
-                <span className="shrink-0 font-bold" style={{ color: 'var(--blue-600)', minWidth: '140px', fontSize: 'var(--text-sm)' }}>{item.term}</span>
+                <span className="shrink-0 font-bold" style={{ color: 'var(--grey-700)', minWidth: '140px', fontSize: 'var(--text-sm)' }}>{item.term}</span>
                 <span className="text-[15px]" style={{ color: 'var(--grey-700)' }}>{item.definition}</span>
               </div>
             ))}

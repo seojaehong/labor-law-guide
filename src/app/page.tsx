@@ -62,7 +62,7 @@ async function getHomeStats() {
       .from('blog_articles')
       .select('slug, title, subtitle, summary, category, published_at')
       .order('published_at', { ascending: false })
-      .limit(3),
+      .limit(4),
   ]);
 
   return {
