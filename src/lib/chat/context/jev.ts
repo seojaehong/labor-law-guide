@@ -96,10 +96,12 @@ export async function jevRerank<T extends Jevable>(
       .filter((i) => score(i) > 0)
       .sort((x, y) => score(y) - score(x) || rank(x) - rank(y));
     const rest = fwd.filter((i) => score(i) === 0);
-    const ordered = [...picked, ...rest].slice(0, Math.max(finalN, picked.length));
-    return ordered.map((i) => items[i]);
+    // 🔴 정확히 finalN 개만 돌려준다. Math.max(finalN, picked.length) 로 두면
+    // 두 번 다 고른 것이 많을 때 **finalN 보다 많은 재료가 생성 컨텍스트로 들어간다.**
+    // 재선택의 목적은 줄이는 것인데 늘리면 안 된다(2026-10-04 루브릭에서 드러났다).
+    return [...picked, ...rest].slice(0, finalN).map((i) => items[i]);
   } catch (e) {
     console.warn('[jev] 재선택 실패 — 원래 순서 유지:', (e as Error).message);
-    return items.slice(0, Math.max(finalN, items.length));
+    return items.slice(0, finalN);
   }
 }

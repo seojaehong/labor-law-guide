@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { jevRerank } from './jev';
+import { toLexQuery } from './lex-query';
 
 type FaqRow = {
   id: number;
@@ -52,28 +53,42 @@ export async function buildFaqContext(
   //
   // JEV_ON=false 로 끌 수 있다. 실패하면 jevRerank 가 원래 순서를 그대로 돌려준다.
   const JEV_ON = process.env.JEV_ON !== 'false';
-  const RETRIEVE_K = JEV_ON ? 16 : 8;
+  // 그물을 넓히고 고르기는 Jev 에 맡긴다. 재선택은 **풀 밖의 것을 꺼내올 수 없다** —
+  // K=16 일 때 24질의 루브릭의 물리적 천장이 86.7% 였다(2026-10-04 실측).
+  //
+  // K 는 100 이 상한이다. 지연을 직접 쟀다(같은 3질의 × 2회):
+  //   K=40 중위 252ms · K=60 251ms · K=100 267ms · **K=134 1,239ms(최대 2,053ms)**
+  // 134 는 5배 느리고 한 번은 500(statement timeout)도 났다. 챗봇 경로에 쓸 수 없다.
+  const RETRIEVE_K = JEV_ON ? 100 : 8;
+  // 재선택에 넣는 수. 100건을 LLM 에 보여주지 않는다 — semantic_sim 으로 먼저 줄인다.
+  const JEV_IN = 16;
   const FINAL_N = JEV_ON ? 5 : 8;
+
+  // 어휘검색에는 내용어만 넘긴다(lex-query.ts 주석에 근거).
+  // **임베딩은 원문 문장 그대로** 쓴다 — 밀집검색은 문장이 길어야 좋다.
+  const lexQuery = toLexQuery(searchQuery);
 
   // 3-layer: combined → hybrid → legacy
   const combined = await db.rpc('search_faq_combined', {
-    query_text: searchQuery,
+    query_text: lexQuery,
     query_embedding: queryEmbedding,
     max_results: RETRIEVE_K,
     canonical_only: false,
   });
   if (!combined.error && combined.data && combined.data.length > 0) {
     dbFaq = combined.data;
-  } else if (combined.error) {
+  } else {
+    // 🔴 2026-10-04 수정. 전에는 `else if (combined.error)` 였다 —
+    // **combined 가 오류 없이 0건을 반환하면 폴백이 아예 안 돌았다.**
     const hybrid = await db.rpc('search_faq_hybrid', {
-      query_text: searchQuery,
+      query_text: lexQuery,
       max_results: RETRIEVE_K,
     });
     if (!hybrid.error && hybrid.data && hybrid.data.length > 0) {
       dbFaq = hybrid.data;
     } else {
       const legacy = await db.rpc('search_faq', {
-        query: searchQuery,
+        query: lexQuery,
         result_limit: RETRIEVE_K,
       });
       dbFaq = legacy.data;
@@ -84,7 +99,27 @@ export async function buildFaqContext(
   const matched = !dbErr && dbFaq !== null && dbFaq.length > 0;
   let matchedFaqs: FaqRow[] = matched && dbFaq ? dbFaq : [];
 
+  // 넓게 받은 뒤 **RPC 가 준 순서(final_rank)를 그대로** 상위 JEV_IN 만 재선택에 넣는다.
+  //
+  // 🔴 semantic_sim 내림차순 재정렬을 넣었다가 되돌렸다(2026-10-04). 구조적으로 틀렸다.
+  // search_faq_combined 은 어휘 분기와 의미 분기를 FULL OUTER JOIN 하고
+  // `COALESCE(s.similarity, 0)` 를 쓴다. 게다가 의미 분기에는 임계값 0.3 이 걸려 있다.
+  // 즉 **semantic_sim = 0 은 「유사도가 낮다」가 아니라 「의미 분기 집합에 없다」**는 뜻이다.
+  // 그걸로 내림차순 정렬하면 어휘로만 걸린 정답이 전부 맨 뒤로 간다.
+  //
+  // 실측 — 「산재 신청은 어떻게 하나요?」: 후보 100건에 산재 질문 38건이 들어오는데
+  // 전부 semantic_sim 0.000 이라 재정렬 후 top5 에 한 건도 남지 않았다(0/5).
+  // 「노동위원회 구제신청과 민사소송」도 같은 이유로 5/5 → 0/5 가 됐다.
+  // faq 25,844건 전부 임베딩이 있다 — 결측이 원인이 아니다.
+  if (JEV_ON && matchedFaqs.length > JEV_IN) {
+    matchedFaqs = matchedFaqs.slice(0, JEV_IN);
+  }
+
   // Jev 재선택 — 실패·타임아웃이면 입력 순서를 그대로 쓴다(답이 안 나가는 것이 더 나쁘다)
+  //
+  // ⚠ 병합 규칙은 **바꾸지 않는다.** 2026-10-04 에 네 가지 변경안(원래 1위 보호 ·
+  // 동률을 검색순위로 타이브레이크 · 교차만 승격 · baseline 좋으면 skip)을 적대적으로
+  // 측정했더니 **전부 점수를 떨어뜨렸다**(1위 보호는 −5.2점). 손대지 말 것.
   if (JEV_ON && matchedFaqs.length > FINAL_N) {
     matchedFaqs = await jevRerank(searchQuery, matchedFaqs, FINAL_N);
   } else if (matchedFaqs.length > FINAL_N) {
