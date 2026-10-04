@@ -31,6 +31,7 @@ const NAV_ITEMS: NavItem[] = [
     kind: 'dropdown',
     label: '알아보기',
     items: [
+      { href: '/laws', label: '노동법 개정 알림', description: '곧 시행되는 개정과 조문 비교' },
       { href: '/guide', label: '핵심 가이드', description: '법 조항 해석 및 실무 지침' },
       { href: '/checklist', label: '자가진단', description: '우리 사업장 적용 여부 확인' },
       { href: '/manual', label: '교섭절차', description: '단계별 교섭 진행 방법' },
