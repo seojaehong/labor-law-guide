@@ -3,7 +3,6 @@ import Script from "next/script";
 import "./globals.css";
 import "@/components/editorial-navigation.css";
 import GlassNav from "@/components/GlassNav";
-import BetaBanner from "@/components/BetaBanner";
 import { SITE_URL, BRAND_NAME, BRAND_DESCRIPTION } from "@/lib/constants";
 
 export const metadata: Metadata = {
@@ -184,7 +183,6 @@ export default function RootLayout({
         />
         <a className="editorial-skip-link" href="#site-main">본문 바로가기</a>
         <GlassNav />
-        <BetaBanner />
         <main id="site-main" tabIndex={-1}>{children}</main>
         <footer className="editorial-footer border-t py-10" style={{ borderColor: 'var(--color-border)' }}>
           {/* 2026-09-12 — 메뉴를 3개로 줄이면서 내려온 것들이 여기 산다.

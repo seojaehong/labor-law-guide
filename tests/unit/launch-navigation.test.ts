@@ -12,6 +12,7 @@ describe('selected launch navigation', () => {
   });
   it('preserves legacy URLs with a clear review status instead of global AI promotion', () => {
     expect(layout).not.toContain('<FloatingChatButton');
+    expect(layout).not.toContain('<BetaBanner');
     expect(layout).toContain('검토 중 자료');
     expect(layout).toContain('검토 중 기능');
     expect(layout).toContain('내용과 적용 조건을 확인 중입니다');
