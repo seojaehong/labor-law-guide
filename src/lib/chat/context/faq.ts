@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { rerankPassages } from './rerank';
+import { jevRerank } from './jev';
 
 type FaqRow = {
   id: number;
@@ -42,11 +42,18 @@ export async function buildFaqContext(
   // 상위 5건만 쓰는데, 리랭크가 죽었으므로 '재정렬 없이 앞 5건'을 쓰게 된다.
   // 즉 리랭크를 켜 둔 탓에 오히려 FAQ 8건 대신 5건만 넣고 있었다 — 정확성 손해다.
   //
-  // 대체 엔드포인트를 붙이기 전까지는 끈다. 켜려면 여기 상수를 되돌리고
-  // rerank.ts 의 엔드포인트부터 갱신해야 한다.
-  const RERANK_ON = false;
-  const RETRIEVE_K = RERANK_ON ? 16 : 8;
-  const FINAL_N = RERANK_ON ? 5 : 8;
+  // 재선택(② 단계). NIM 리랭커는 엔드포인트가 죽어 2026 중반부터 꺼져 있었고,
+  // 그 사이 **재선택 자리가 비어 있었다** — 임베딩 1위가 그대로 LLM 으로 갔다.
+  //
+  // 2026-10-04 실측: 「부당노동행위 구제신청은 언제까지 해야 하나요?」의 1위가
+  // 「실업급여 신청은 언제까지 해야 하나요?」였다. **말투가 주제를 눌렀다.**
+  // 그래서 Jev 재선택(순서를 뒤집어 두 번 묻기)으로 그 자리를 채운다.
+  // 기존 Vertex 클라이언트를 쓰므로 새 키·새 의존성이 없다.
+  //
+  // JEV_ON=false 로 끌 수 있다. 실패하면 jevRerank 가 원래 순서를 그대로 돌려준다.
+  const JEV_ON = process.env.JEV_ON !== 'false';
+  const RETRIEVE_K = JEV_ON ? 16 : 8;
+  const FINAL_N = JEV_ON ? 5 : 8;
 
   // 3-layer: combined → hybrid → legacy
   const combined = await db.rpc('search_faq_combined', {
@@ -77,17 +84,9 @@ export async function buildFaqContext(
   const matched = !dbErr && dbFaq !== null && dbFaq.length > 0;
   let matchedFaqs: FaqRow[] = matched && dbFaq ? dbFaq : [];
 
-  // NIM Reranker — query에 대해 top N 만 추출 (timeout/error 시 입력 그대로 사용)
-  if (RERANK_ON && matchedFaqs.length > FINAL_N) {
-    const rerankInput = matchedFaqs.map((f) => ({
-      id: f.id,
-      text: `Q: ${f.question}\nA: ${f.answer}`,
-    }));
-    const reranked = await rerankPassages(searchQuery, rerankInput, FINAL_N);
-    const idOrder = new Map(reranked.map((r, i) => [r.id, i]));
-    matchedFaqs = matchedFaqs
-      .filter((f) => idOrder.has(f.id))
-      .sort((a, b) => (idOrder.get(a.id) ?? 99) - (idOrder.get(b.id) ?? 99));
+  // Jev 재선택 — 실패·타임아웃이면 입력 순서를 그대로 쓴다(답이 안 나가는 것이 더 나쁘다)
+  if (JEV_ON && matchedFaqs.length > FINAL_N) {
+    matchedFaqs = await jevRerank(searchQuery, matchedFaqs, FINAL_N);
   } else if (matchedFaqs.length > FINAL_N) {
     matchedFaqs = matchedFaqs.slice(0, FINAL_N);
   }
