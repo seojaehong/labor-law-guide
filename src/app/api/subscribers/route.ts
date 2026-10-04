@@ -5,6 +5,12 @@ import { sendConfirmEmail } from '@/lib/newsletter-mail';
 
 const EMAIL_RX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+
+// 클라이언트가 보낸 유입 경로. 길이를 자르고 빈 값은 null 로 둔다.
+// referrer 가 없는 직접 방문·앱 내 브라우저가 흔하므로 **없는 것을 정상으로 취급한다.**
+const trim = (v: unknown, n: number) =>
+  typeof v === 'string' && v.trim() ? v.trim().slice(0, n) : null;
+
 export async function POST(req: Request) {
   if (!supabaseAdmin) {
     return NextResponse.json({ error: '서버 설정이 미완료되었습니다.' }, { status: 503 });
@@ -17,10 +23,15 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: '요청 형식이 올바르지 않습니다.' }, { status: 400 });
   }
 
-  const { email, source, source_slug, consent_text } = (body || {}) as {
+  const { email, source, source_slug, consent_text, referrer, utm_source, utm_medium, utm_campaign } =
+    (body || {}) as {
     email?: string;
     source?: string;
     source_slug?: string | null;
+    referrer?: string | null;
+    utm_source?: string | null;
+    utm_medium?: string | null;
+    utm_campaign?: string | null;
     consent_text?: string;
   };
 
@@ -61,6 +72,10 @@ export async function POST(req: Request) {
         status: 'pending',
         source: source!,
         source_slug: source_slug ?? null,
+        referrer: trim(referrer, 500),
+        utm_source: trim(utm_source, 120),
+        utm_medium: trim(utm_medium, 120),
+        utm_campaign: trim(utm_campaign, 120),
         ip_hash: ipHashed,
         user_agent: userAgent,
         consent_at: new Date().toISOString(),
@@ -91,6 +106,10 @@ export async function POST(req: Request) {
       status: 'pending',
       source,
       source_slug: source_slug ?? null,
+      referrer: trim(referrer, 500),
+      utm_source: trim(utm_source, 120),
+      utm_medium: trim(utm_medium, 120),
+      utm_campaign: trim(utm_campaign, 120),
       ip_hash: ipHashed,
       user_agent: userAgent,
       consent_at: new Date().toISOString(),

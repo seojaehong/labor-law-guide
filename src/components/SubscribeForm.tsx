@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Mail, Check, AlertCircle } from 'lucide-react';
+import { captureFirstTouch, readFirstTouch } from '@/lib/first-touch';
 
 interface SubscribeFormProps {
   source: 'article-footer' | 'home-bottom' | 'sidebar' | 'contact' | 'decision-footer' | 'search-results';
@@ -17,6 +18,12 @@ export default function SubscribeForm({ source, sourceSlug, variant = 'full' }: 
   const [consent, setConsent] = useState(false);
   const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [error, setError] = useState('');
+
+  // 세션의 첫 유입 경로를 잡아 둔다. 이미 잡혀 있으면 아무 일도 하지 않는다.
+  // 폼이 떠 있는 페이지가 첫 페이지가 아니어도, 그 세션에서 한 번은 여기를 지난다.
+  useEffect(() => {
+    captureFirstTouch();
+  }, []);
 
   const isCompact = variant === 'compact';
 
@@ -43,6 +50,7 @@ export default function SubscribeForm({ source, sourceSlug, variant = 'full' }: 
           source,
           source_slug: sourceSlug || null,
           consent_text: CONSENT_TEXT,
+          ...readFirstTouch(),
         }),
       });
       const data = await r.json();
