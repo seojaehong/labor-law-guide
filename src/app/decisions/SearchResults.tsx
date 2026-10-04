@@ -11,7 +11,7 @@ import { stripMarkdownFormatting } from "@/lib/format-holding";
  *
  * **종류는 source 컬럼으로 못 가른다.** 실측(2026-09-12) — source='bigcase.ai' 행에
  * 서울고등법원 판결이, source='law.go.kr' 행에 노동위 부당해고 사건이 들어 있다.
- * 그건 수집 경로일 뿐이다. 표(table)가 무엇이냐로 가른다.
+ * 그건 수집 경로일 뿐이다. /decisions 자료는 상세 화면과 공유하는 ID 기반 출처 계약으로 가른다.
  */
 
 export type Kind = "nlrc" | "court" | "admin";

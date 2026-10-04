@@ -8,7 +8,7 @@ export const revalidate = 3600;
 export const dynamicParams = true;
 
 export async function generateStaticParams() {
-  return FAQ_CATEGORIES.map((cat) => ({ category: categoryToSlug(cat) }));
+  return FAQ_CATEGORIES.map((cat) => ({ category: cat }));
 }
 
 export async function generateMetadata({ params }: { params: Promise<{ category: string }> }): Promise<Metadata> {

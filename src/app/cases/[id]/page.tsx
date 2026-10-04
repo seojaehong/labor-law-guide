@@ -125,7 +125,7 @@ function VerdictBadge({ type }: { type: string | null }) {
   };
   const c = colors[type] || { bg: 'var(--grey-100)', text: 'var(--grey-600)' };
   return (
-    <span className="rounded-full px-2.5 py-0.5 text-[11px] font-medium" style={{ backgroundColor: c.bg, color: c.text }}>
+    <span className="rounded-full px-2.5 py-0.5 text-[12px] font-medium" style={{ backgroundColor: c.bg, color: c.text }}>
       {type}
     </span>
   );
@@ -182,10 +182,10 @@ export default async function CaseDetailPage({
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
 
-      <div className="mx-auto max-w-[820px] px-5 py-10">
-        <div className="lg:grid lg:grid-cols-[1fr_280px] lg:gap-10">
+      <div className="layout-reading layout-reading--with-rail editorial-document">
+        <div className="reading-layout">
           {/* Main Content */}
-          <article>
+          <article className="reading-main">
             {/* Back link */}
             <Link
               href="/decisions"
@@ -197,11 +197,11 @@ export default async function CaseDetailPage({
             </Link>
 
             {/* Header */}
-            <header className="mb-8">
+            <header className="editorial-reading-header">
               <div className="flex flex-wrap items-center gap-2 mb-3">
                 <span
-                  className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-medium"
-                  style={{ backgroundColor: 'var(--blue-50)', color: 'var(--blue-600)' }}
+                  className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[12px] font-medium"
+                  style={{ backgroundColor: 'var(--blue-50)', color: 'var(--color-accent-ink)' }}
                 >
                   <Scale size={11} />
                   {item.case_type || '판례'}
@@ -210,7 +210,7 @@ export default async function CaseDetailPage({
                 {dateStr && (
                   <span
                     className="flex items-center gap-1 text-[12px]"
-                    style={{ color: 'var(--color-text-tertiary)' }}
+                    style={{ color: 'var(--grey-700)' }}
                   >
                     <Calendar size={12} />
                     {dateStr}
@@ -219,11 +219,11 @@ export default async function CaseDetailPage({
               </div>
 
               <div className="flex items-center gap-2 mb-2">
-                <Landmark size={14} style={{ color: 'var(--color-text-tertiary)' }} />
+                <Landmark size={14} style={{ color: 'var(--grey-700)' }} />
                 <span className="text-[13px] font-medium" style={{ color: 'var(--color-text-secondary)' }}>
                   {item.court}
                 </span>
-                <span className="text-[13px]" style={{ color: 'var(--color-text-tertiary)' }}>
+                <span className="text-[13px]" style={{ color: 'var(--grey-700)' }}>
                   {item.case_number}
                 </span>
               </div>
@@ -238,43 +238,52 @@ export default async function CaseDetailPage({
               <TagRow keywordsMatched={item.keywords_matched} />
             </header>
 
+            {item.original_url && (
+              <div className="editorial-source">
+                <a
+                  href={item.original_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 text-[13px] font-medium transition-colors hover:opacity-70"
+                  style={{ color: 'var(--color-accent-ink)' }}
+                >
+                  <ExternalLink size={13} />
+                  원문 보기 (법제처)
+                </a>
+              </div>
+            )}
+
             {/* Summary */}
             {summary && (
-              <section className="mb-8">
+              <section className="editorial-evidence">
                 <h2 className="text-[15px] font-bold mb-3" style={{ color: 'var(--color-text-primary)' }}>
                   판결 요지
                 </h2>
                 <div
-                  className="rounded-xl p-5 text-[14px] leading-7"
-                  style={{
-                    backgroundColor: 'var(--blue-50)',
-                    borderLeft: '3px solid var(--color-accent)',
-                    color: 'var(--color-text-secondary)',
-                  }}
+                  className="editorial-evidence-body"
                 >
-                  <MarkdownSnippet value={summary} />
+                  <MarkdownSnippet variant="reading" value={summary} />
                 </div>
               </section>
             )}
 
             {/* Holding Points / Detail */}
             {detail && detail !== summary && (
-              <section className="mb-8">
+              <section className="editorial-evidence">
                 <h2 className="text-[15px] font-bold mb-3" style={{ color: 'var(--color-text-primary)' }}>
                   판시사항
                 </h2>
                 <div
-                  className="rounded-xl border p-5 text-[14px] leading-7"
-                  style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-secondary)' }}
+                  className="editorial-evidence-body"
                 >
-                  <MarkdownSnippet value={detail} />
+                  <MarkdownSnippet variant="reading" value={detail} />
                 </div>
               </section>
             )}
 
             {/* Law References */}
             {item.law_references && (
-              <section className="mb-8">
+              <section className="editorial-evidence">
                 <h2 className="text-[15px] font-bold mb-3" style={{ color: 'var(--color-text-primary)' }}>
                   참조 법령
                 </h2>
@@ -288,20 +297,7 @@ export default async function CaseDetailPage({
             )}
 
             {/* Source link */}
-            {item.original_url && (
-              <div className="mb-8">
-                <a
-                  href={item.original_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 text-[13px] font-medium transition-colors hover:opacity-70"
-                  style={{ color: 'var(--color-accent)' }}
-                >
-                  <ExternalLink size={13} />
-                  원문 보기 (법제처)
-                </a>
-              </div>
-            )}
+
 
             {/* Related Cases */}
             {related.length > 0 && (
@@ -318,7 +314,7 @@ export default async function CaseDetailPage({
                       className="rounded-xl border p-4 transition-shadow hover:shadow-md"
                       style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }}
                     >
-                      <div className="flex items-center gap-2 text-[11px] mb-1" style={{ color: 'var(--color-text-tertiary)' }}>
+                      <div className="flex items-center gap-2 text-[12px] mb-1" style={{ color: 'var(--grey-700)' }}>
                         <span>{r.court}</span>
                         <span>{r.case_number}</span>
                         {r.verdict_type && <VerdictBadge type={r.verdict_type} />}
@@ -327,7 +323,7 @@ export default async function CaseDetailPage({
                         {r.title}
                       </p>
                       {r.decision_date && (
-                        <p className="mt-1 text-[11px]" style={{ color: 'var(--color-text-tertiary)' }}>
+                        <p className="mt-1 text-[12px]" style={{ color: 'var(--grey-700)' }}>
                           {formatDecisionDate(r.decision_date)}
                         </p>
                       )}
@@ -382,40 +378,39 @@ export default async function CaseDetailPage({
           </article>
 
           {/* Sidebar */}
-          <aside className="hidden lg:block">
-            <div className="sticky top-24 space-y-6">
+          <aside className="reading-sidebar">
+            <div className="reading-sidebar-content space-y-6">
               {/* Case Info Card */}
               <div
-                className="rounded-xl border p-5"
-                style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)', boxShadow: 'var(--shadow-sm)' }}
+                className="editorial-rail-panel"
               >
                 <h3 className="text-[14px] font-bold mb-3" style={{ color: 'var(--color-text-primary)' }}>
                   사건 정보
                 </h3>
                 <dl className="space-y-2 text-[13px]">
                   <div>
-                    <dt style={{ color: 'var(--color-text-tertiary)' }}>법원</dt>
+                    <dt style={{ color: 'var(--grey-700)' }}>법원</dt>
                     <dd className="font-medium" style={{ color: 'var(--color-text-primary)' }}>{item.court}</dd>
                   </div>
                   <div>
-                    <dt style={{ color: 'var(--color-text-tertiary)' }}>사건번호</dt>
+                    <dt style={{ color: 'var(--grey-700)' }}>사건번호</dt>
                     <dd className="font-medium" style={{ color: 'var(--color-text-primary)' }}>{item.case_number}</dd>
                   </div>
                   {dateStr && (
                     <div>
-                      <dt style={{ color: 'var(--color-text-tertiary)' }}>선고일</dt>
+                      <dt style={{ color: 'var(--grey-700)' }}>선고일</dt>
                       <dd className="font-medium" style={{ color: 'var(--color-text-primary)' }}>{dateStr}</dd>
                     </div>
                   )}
                   {item.case_type && (
                     <div>
-                      <dt style={{ color: 'var(--color-text-tertiary)' }}>사건유형</dt>
+                      <dt style={{ color: 'var(--grey-700)' }}>사건유형</dt>
                       <dd className="font-medium" style={{ color: 'var(--color-text-primary)' }}>{item.case_type}</dd>
                     </div>
                   )}
                   {item.verdict_type && (
                     <div>
-                      <dt style={{ color: 'var(--color-text-tertiary)' }}>판결결과</dt>
+                      <dt style={{ color: 'var(--grey-700)' }}>판결결과</dt>
                       <dd className="font-medium" style={{ color: 'var(--color-text-primary)' }}>{item.verdict_type}</dd>
                     </div>
                   )}

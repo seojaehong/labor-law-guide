@@ -14,7 +14,7 @@ export default function CasesClient() {
         {keyCases.map((c) => {
           const isOpen = openId === c.id;
           return (
-            <div key={c.id} className="overflow-hidden rounded-xl border" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }}>
+            <div key={c.id} className="overflow-hidden border-b" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }}>
               <button
                 onClick={() => setOpenId(isOpen ? null : c.id)}
                 aria-expanded={isOpen}
@@ -33,7 +33,7 @@ export default function CasesClient() {
                     <span className="text-xs" style={{ color: 'var(--grey-400)' }}>{c.date}</span>
                   </div>
                   <div className="mt-1 text-[15px] font-medium" style={{ color: 'var(--grey-900)' }}>{c.title}</div>
-                  <div className="mt-0.5 text-xs" style={{ color: 'var(--grey-500)' }}>{c.significance}</div>
+                  <div className="mt-0.5 text-xs" style={{ color: 'var(--grey-700)' }}>{c.significance}</div>
                 </div>
                 {isOpen ? <ChevronUp size={18} style={{ color: 'var(--grey-400)' }} /> : <ChevronDown size={18} style={{ color: 'var(--grey-400)' }} />}
               </button>
@@ -74,7 +74,7 @@ export default function CasesClient() {
 function Section({ label, text }: { label: string; text: string }) {
   return (
     <div>
-      <div className="mb-1 text-xs font-bold" style={{ color: 'var(--grey-500)' }}>{label}</div>
+      <div className="mb-1 text-xs font-bold" style={{ color: 'var(--grey-700)' }}>{label}</div>
       <p className="text-sm leading-relaxed" style={{ color: 'var(--grey-700)' }}>{text}</p>
     </div>
   );

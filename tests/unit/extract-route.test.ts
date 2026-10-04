@@ -6,7 +6,8 @@ vi.mock('@supabase/supabase-js', () => ({
   createClient: () => ({ rpc: rpcMock }),
 }));
 
-import { POST, sanitizeExtracted, extractJsonPayload } from '@/app/api/tools/contract-check/extract/route';
+import { POST } from '@/app/api/tools/contract-check/extract/route';
+import { sanitizeExtracted, extractJsonPayload } from '@/lib/contract-check/extract-output';
 
 const fetchMock = vi.fn();
 

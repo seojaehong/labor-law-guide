@@ -1,6 +1,7 @@
 import Link from 'next/link';
-import { Star, ArrowRight } from 'lucide-react';
+import { ArrowRight } from 'lucide-react';
 import type { TopicPick } from '@/lib/topic-picks';
+import './editorial-home.css';
 
 interface Props {
   items: TopicPick[];
@@ -10,61 +11,21 @@ interface Props {
 export default function TopicPicks({ items, variant = 'home' }: Props) {
   if (items.length === 0) return null;
 
-  const sectionPadding =
-    variant === 'home' ? 'px-5 pt-12 pb-2' : variant === 'index' ? 'px-5 pt-2 pb-6' : 'mt-10';
-  const innerWrap = variant === 'article' ? '' : 'mx-auto max-w-[1100px]';
-
   return (
-    <section className={sectionPadding}>
-      <div className={innerWrap}>
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2">
-            <Star size={18} style={{ color: 'var(--color-accent)' }} fill="currentColor" />
-            <h2 className="t-h3" style={{ color: 'var(--color-text-primary)' }}>
-              이 주의 토픽
-            </h2>
-          </div>
-          <span className="text-[11px]" style={{ color: 'var(--color-text-tertiary)' }}>
-            편집자 추천
-          </span>
-        </div>
-        <div className="grid gap-3 sm:gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {items.map((item) => (
-            <Link
-              key={item.slug}
-              href={`/blog/${item.slug}`}
-              className="feature-card block rounded-xl border bg-[var(--color-bg-surface)] p-4 hover:shadow-md transition-shadow"
-              style={{ borderColor: 'var(--color-border)' }}
-            >
-              <div
-                className="text-[11px] font-bold mb-2 tracking-wide"
-                style={{ color: 'var(--color-accent)' }}
-              >
-                {item.category}
-              </div>
-              <h3
-                className="text-[14px] font-bold leading-snug mb-2 line-clamp-3"
-                style={{ color: 'var(--grey-900)' }}
-              >
-                {item.title.replace(/^🎯\s*/, '')}
-              </h3>
-              {item.subtitle && (
-                <p
-                  className="text-[12px] leading-relaxed line-clamp-2"
-                  style={{ color: 'var(--color-text-secondary)' }}
-                >
-                  {item.subtitle}
-                </p>
-              )}
-              <span
-                className="mt-3 inline-flex items-center gap-1 text-[11px] font-medium"
-                style={{ color: 'var(--color-accent)' }}
-              >
-                자세히 <ArrowRight size={11} />
-              </span>
-            </Link>
-          ))}
-        </div>
+    <section className={`editorial-topics editorial-topics--${variant}${variant === 'article' ? '' : ' editorial-shell'}`} aria-label="이 주의 토픽">
+      <div className="editorial-section-heading">
+        <h2>이 주의 토픽</h2>
+        <span>편집자 추천</span>
+      </div>
+      <div className="editorial-topic-grid">
+        {items.map(item => (
+          <article key={item.slug}>
+            <p className="editorial-category">{item.category}</p>
+            <h3><Link href={`/blog/${item.slug}`}>{item.title.replace(/^🎯\s*/, '')}</Link></h3>
+            {item.subtitle && <p>{item.subtitle}</p>}
+            <Link href={`/blog/${item.slug}`} className="editorial-topic-more">글 읽기 <ArrowRight size={14} aria-hidden="true" /></Link>
+          </article>
+        ))}
       </div>
     </section>
   );

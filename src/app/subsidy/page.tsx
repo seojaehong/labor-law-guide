@@ -60,27 +60,29 @@ export default function SubsidyPage() {
   return (
     <>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(subsidyJsonLd) }} />
-      <div className="mx-auto max-w-[820px] px-5 py-10">
+      <div className="layout-tool editorial-tool">
+        <header className="editorial-tool-header">
         <h1 className="t-h2 mb-2" style={{ color: 'var(--color-text-primary)' }}>
           고용지원금 가이드
         </h1>
-        <p className="mb-10 max-w-[760px] text-sm leading-6" style={{ color: 'var(--grey-500)' }}>
+        <p className="mb-10 max-w-[var(--reading-measure)] text-sm leading-6" style={{ color: 'var(--grey-700)' }}>
           우리 사업장에서 받을 수 있는 고용지원금을 한눈에 확인하고, 노무사에게 신청 절차까지 맡기세요.
         </p>
+      </header>
 
-        <div className="grid gap-10 lg:grid-cols-[1fr_320px]">
+        <div className="tool-layout">
           <div className="space-y-8">
-            <section className="rounded-xl border p-6" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }}>
+            <section className="rounded-md border p-6" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }}>
               <h2 className="t-h4 mb-4" style={{ color: 'var(--color-text-primary)' }}>주요 지원금 한눈에 보기</h2>
               <div className="space-y-4">
                 {highlights.map((item) => {
                   const Icon = item.icon;
                   return (
-                    <div key={item.title} className="flex gap-4 rounded-xl border p-4" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }}>
-                      <Icon size={20} className="mt-0.5 shrink-0" style={{ color: 'var(--color-accent)' }} />
+                    <div key={item.title} className="flex gap-4 rounded-md border p-4" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }}>
+                      <Icon size={20} className="mt-0.5 shrink-0" style={{ color: 'var(--color-accent-ink)' }} />
                       <div>
                         <h3 className="text-sm font-bold" style={{ color: 'var(--color-text-primary)' }}>{item.title}</h3>
-                        <p className="mt-1 text-sm leading-6" style={{ color: 'var(--grey-600)' }}>{item.desc}</p>
+                        <p className="mt-1 text-sm leading-6" style={{ color: 'var(--grey-700)' }}>{item.desc}</p>
                       </div>
                     </div>
                   );
@@ -101,9 +103,9 @@ export default function SubsidyPage() {
           </div>
 
           <div className="space-y-6">
-            <div className="rounded-xl border p-6" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }}>
+            <div className="rounded-md border p-6" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }}>
               <h2 className="mb-3 font-bold" style={{ color: 'var(--color-text-primary)' }}>신청이 어려우신가요?</h2>
-              <p className="text-sm leading-6" style={{ color: 'var(--grey-600)' }}>
+              <p className="text-sm leading-6" style={{ color: 'var(--grey-700)' }}>
                 요건 판단부터 서류 작성, 신청 대행까지 노무법인 위너스가 도와드립니다. 아래 버튼으로 상담을 접수해 주세요.
               </p>
               <Link
@@ -115,9 +117,9 @@ export default function SubsidyPage() {
               </Link>
             </div>
 
-            <div className="rounded-xl p-6" style={{ backgroundColor: 'var(--blue-50)' }}>
-              <h2 className="mb-2 text-sm font-bold" style={{ color: 'var(--blue-700)' }}>이런 사업장이라면 꼭 확인하세요</h2>
-              <ul className="space-y-1.5 text-sm" style={{ color: 'var(--blue-600)' }}>
+            <div className="rounded-md p-6" style={{ backgroundColor: 'var(--grey-100)' }}>
+              <h2 className="mb-2 text-sm font-bold" style={{ color: 'var(--color-text-primary)' }}>이런 사업장이라면 꼭 확인하세요</h2>
+              <ul className="space-y-1.5 text-sm" style={{ color: 'var(--grey-700)' }}>
                 <li>• 직원 수 30인 미만 사업장</li>
                 <li>• 최저임금 인상으로 인건비 부담이 큰 경우</li>
                 <li>• 신규 채용 또는 육아휴직 복귀 계획이 있는 경우</li>

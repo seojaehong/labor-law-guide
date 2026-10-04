@@ -2,7 +2,7 @@ import ChecklistPageClient from '@/components/ChecklistPageClient';
 
 export default function ChecklistPage() {
   return (
-    <div className="mx-auto max-w-[820px] px-5 py-10">
+    <div className="layout-tool layout-tool--compact">
       <h1 className="t-h2 mb-2" style={{ color: 'var(--color-text-primary)' }}>
         자가진단 체크리스트
       </h1>

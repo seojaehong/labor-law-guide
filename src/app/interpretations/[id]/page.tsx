@@ -185,9 +185,9 @@ export default async function InterpretationDetailPage({
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
 
-      <div className="mx-auto max-w-[820px] px-5 py-10">
-        <div className="lg:grid lg:grid-cols-[1fr_280px] lg:gap-10">
-          <article>
+      <div className="layout-reading layout-reading--with-rail editorial-document">
+        <div className="reading-layout">
+          <article className="reading-main">
             <Link
               href="/decisions?type=admin"
               className="mb-6 inline-flex items-center gap-1.5 text-[13px] transition-colors hover:opacity-70"
@@ -197,10 +197,10 @@ export default async function InterpretationDetailPage({
               행정해석 검색
             </Link>
 
-            <header className="mb-8">
+            <header className="editorial-reading-header">
               <div className="flex flex-wrap items-center gap-2 mb-3">
                 <span
-                  className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-medium"
+                  className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[12px] font-medium"
                   style={{ backgroundColor: 'var(--color-accent-light)', color: 'var(--color-accent)' }}
                 >
                   <FileText size={11} />
@@ -209,7 +209,7 @@ export default async function InterpretationDetailPage({
                 {dateStr && (
                   <span
                     className="flex items-center gap-1 text-[12px]"
-                    style={{ color: 'var(--color-text-tertiary)' }}
+                    style={{ color: 'var(--grey-700)' }}
                   >
                     <Calendar size={12} />
                     {dateStr}
@@ -219,8 +219,8 @@ export default async function InterpretationDetailPage({
 
               {item.doc_number && (
                 <div className="flex items-center gap-2 mb-2">
-                  <FileText size={14} style={{ color: 'var(--color-text-tertiary)' }} />
-                  <span className="text-[13px]" style={{ color: 'var(--color-text-tertiary)' }}>
+                  <FileText size={14} style={{ color: 'var(--grey-700)' }} />
+                  <span className="text-[13px]" style={{ color: 'var(--grey-700)' }}>
                     {item.doc_number}
                   </span>
                 </div>
@@ -236,52 +236,48 @@ export default async function InterpretationDetailPage({
               <TagRow keywordsMatched={item.keywords_matched} />
             </header>
 
-            {summary && (
-              <section className="mb-8">
-                <h2 className="text-[15px] font-bold mb-3" style={{ color: 'var(--color-text-primary)' }}>
-                  해석 요지
-                </h2>
-                <div
-                  className="rounded-xl p-5 text-[14px] leading-7"
-                  style={{
-                    backgroundColor: 'var(--blue-50)',
-                    borderLeft: '3px solid var(--color-accent)',
-                    color: 'var(--color-text-secondary)',
-                  }}
-                >
-                  <MarkdownSnippet value={summary} />
-                </div>
-              </section>
-            )}
-
-            {detail && detail !== summary && (
-              <section className="mb-8">
-                <h2 className="text-[15px] font-bold mb-3" style={{ color: 'var(--color-text-primary)' }}>
-                  판단 요지
-                </h2>
-                <div
-                  className="rounded-xl border p-5 text-[14px] leading-7"
-                  style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-secondary)' }}
-                >
-                  <MarkdownSnippet value={detail} />
-                </div>
-              </section>
-            )}
-
             {item.original_url && (
-              <div className="mb-8">
+              <div className="editorial-source">
                 <a
                   href={item.original_url}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-1.5 text-[13px] font-medium transition-colors hover:opacity-70"
-                  style={{ color: 'var(--color-accent)' }}
+                  style={{ color: 'var(--color-accent-ink)' }}
                 >
                   <ExternalLink size={13} />
                   원문 보기
                 </a>
               </div>
             )}
+
+            {summary && (
+              <section className="editorial-evidence">
+                <h2 className="text-[15px] font-bold mb-3" style={{ color: 'var(--color-text-primary)' }}>
+                  해석 요지
+                </h2>
+                <div
+                  className="editorial-evidence-body"
+                >
+                  <MarkdownSnippet variant="reading" value={summary} />
+                </div>
+              </section>
+            )}
+
+            {detail && detail !== summary && (
+              <section className="editorial-evidence">
+                <h2 className="text-[15px] font-bold mb-3" style={{ color: 'var(--color-text-primary)' }}>
+                  판단 요지
+                </h2>
+                <div
+                  className="editorial-evidence-body"
+                >
+                  <MarkdownSnippet variant="reading" value={detail} />
+                </div>
+              </section>
+            )}
+
+
 
             {related.length > 0 && (
               <section className="mt-10 pt-8" style={{ borderTop: '1px solid var(--color-border)' }}>
@@ -297,14 +293,14 @@ export default async function InterpretationDetailPage({
                       className="rounded-xl border p-4 transition-shadow hover:shadow-md"
                       style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }}
                     >
-                      <div className="text-[11px] mb-1" style={{ color: 'var(--color-text-tertiary)' }}>
+                      <div className="text-[12px] mb-1" style={{ color: 'var(--grey-700)' }}>
                         {r.doc_number}
                       </div>
                       <p className="text-[13px] font-medium leading-snug" style={{ color: 'var(--color-text-primary)' }}>
                         {r.title}
                       </p>
                       {r.decision_date && (
-                        <p className="mt-1 text-[11px]" style={{ color: 'var(--color-text-tertiary)' }}>
+                        <p className="mt-1 text-[12px]" style={{ color: 'var(--grey-700)' }}>
                           {formatDecisionDate(r.decision_date)}
                         </p>
                       )}
@@ -357,11 +353,10 @@ export default async function InterpretationDetailPage({
             </section>
           </article>
 
-          <aside className="hidden lg:block">
-            <div className="sticky top-24 space-y-6">
+          <aside className="reading-sidebar">
+            <div className="reading-sidebar-content space-y-6">
               <div
-                className="rounded-xl border p-5"
-                style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)', boxShadow: 'var(--shadow-sm)' }}
+                className="editorial-rail-panel"
               >
                 <h3 className="text-[14px] font-bold mb-3" style={{ color: 'var(--color-text-primary)' }}>
                   문서 정보
@@ -369,19 +364,19 @@ export default async function InterpretationDetailPage({
                 <dl className="space-y-2 text-[13px]">
                   {item.doc_number && (
                     <div>
-                      <dt style={{ color: 'var(--color-text-tertiary)' }}>문서번호</dt>
+                      <dt style={{ color: 'var(--grey-700)' }}>문서번호</dt>
                       <dd className="font-medium" style={{ color: 'var(--color-text-primary)' }}>{item.doc_number}</dd>
                     </div>
                   )}
                   {dateStr && (
                     <div>
-                      <dt style={{ color: 'var(--color-text-tertiary)' }}>회신일</dt>
+                      <dt style={{ color: 'var(--grey-700)' }}>회신일</dt>
                       <dd className="font-medium" style={{ color: 'var(--color-text-primary)' }}>{dateStr}</dd>
                     </div>
                   )}
                   {item.keywords_matched && item.keywords_matched.length > 0 && (
                     <div>
-                      <dt style={{ color: 'var(--color-text-tertiary)' }}>키워드</dt>
+                      <dt style={{ color: 'var(--grey-700)' }}>키워드</dt>
                       <dd className="font-medium" style={{ color: 'var(--color-text-primary)' }}>
                         {item.keywords_matched.join(', ')}
                       </dd>

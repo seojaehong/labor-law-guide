@@ -24,11 +24,11 @@ export async function generateMetadata({ params }: { params: Promise<{ category:
   const decoded = decodeURIComponent(category);
 
   return {
-    title: `${decoded} — 노동 딥다이브`,
-    description: `${decoded} 카테고리의 노동법 심층 분석 콘텐츠를 모아봅니다. 노무법인 위너스 전문가가 직접 작성합니다.`,
+    title: `${decoded} — 글`,
+    description: `${decoded} 카테고리의 노동법 심층 분석 콘텐츠를 모아봅니다.`,
     alternates: { canonical: `${SITE_URL}/blog/category/${category}` },
     openGraph: {
-      title: `${decoded} | 노동 딥다이브`,
+      title: `${decoded} | 글`,
       description: `${decoded} 관련 노동법 콘텐츠`,
       url: `${SITE_URL}/blog/category/${category}`,
       type: 'website',
@@ -96,14 +96,14 @@ export default async function BlogCategoryPage({
         '@type': 'BreadcrumbList',
         itemListElement: [
           { '@type': 'ListItem', position: 1, name: '홈', item: SITE_URL },
-          { '@type': 'ListItem', position: 2, name: '노동 딥다이브', item: `${SITE_URL}/blog` },
+          { '@type': 'ListItem', position: 2, name: '글', item: `${SITE_URL}/blog` },
           { '@type': 'ListItem', position: 3, name: decoded, item: `${SITE_URL}/blog/category/${category}` },
         ],
       },
       {
         '@type': 'CollectionPage',
         '@id': `${SITE_URL}/blog/category/${category}`,
-        name: `${decoded} — 노동 딥다이브`,
+        name: `${decoded} — 글`,
         description: `${decoded} 카테고리 노동법 콘텐츠`,
         url: `${SITE_URL}/blog/category/${category}`,
         inLanguage: 'ko',

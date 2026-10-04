@@ -130,12 +130,12 @@ export default async function DatabasePage() {
   };
 
   return (
-    <div className="mx-auto max-w-[1100px] px-5 py-10">
+    <div className="layout-list">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
-      <section className="max-w-[820px]">
+      <section className="max-w-[var(--layout-compact-max)]">
         <div className="inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-medium" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--grey-50)', color: 'var(--color-text-secondary)' }}>
           <Search size={14} />
           실무형 판례·행정해석 검색

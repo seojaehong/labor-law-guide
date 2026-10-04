@@ -1,11 +1,12 @@
 import Link from "next/link";
+import DecisionCategoryNavigation from "@/components/DecisionCategoryNavigation";
 import type { Metadata } from "next";
 import { unstable_cache } from "next/cache";
-import { countByReason, getRecent, runSearch, getCategory } from "@/lib/decisions-data";
+import { countByReason, getRecent, runSearch, getCategory, decisionRow } from "@/lib/decisions-data";
 import { parse, tabHref, pageHref, categoryHref, type Search } from "@/lib/decisions-query";
 import { REASON_LABELS, type ReasonCategory } from "@/lib/types";
-import { SITE_URL } from "@/lib/constants";
-import { ResultRow, realCaseNumber, headline, reasonLabel, type Kind } from "./SearchResults";
+import { SITE_URL, BRAND_NAME } from "@/lib/constants";
+import { ResultRow, type Kind } from "./SearchResults";
 
 // /decisions 상세는 48,000페이지가 있는데 목록(허브) 페이지가 아예 없었다.
 // 라우트가 [id] 뿐이라 /decisions 자체가 404 + noindex 였고(2026-08-31 라이브 확인),
@@ -43,7 +44,7 @@ export async function generateMetadata(
       url: `${SITE_URL}/decisions`,
       type: "website",
       locale: "ko_KR",
-      siteName: "노란봉투법 가이드",
+      siteName: BRAND_NAME,
     },
   };
 }
@@ -67,7 +68,7 @@ export default async function DecisionsIndexPage(
   };
 
   return (
-    <main className="mx-auto max-w-[820px] px-5 py-10">
+    <main className="layout-list">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
       <h1 className="mb-2 text-2xl font-bold">판정례 · 판례 · 행정해석 검색</h1>
@@ -219,16 +220,8 @@ async function HubView() {
           {recent.map((d) => (
             <ResultRow
               key={d.id}
-              row={{
-                kind: "nlrc",
-                href: `/decisions/${encodeURIComponent(d.id)}`,
-                // 허브는 크롤러가 61,928건으로 들어가는 입구다. 쟁점 전문이 곧 미끼이므로 넉넉히 싣는다.
-                title: headline(d.key_issue, d.title, "판정례", 600),
-                caseNumber: realCaseNumber(d.case_number_qualified, d.case_number_real, d.case_number),
-                date: d.decision_date,
-                tag: reasonLabel(d.reason_category),
-                result: d.decision_result,
-              }}
+              // 허브는 쟁점 전문을 넉넉히 싣는다.
+              row={decisionRow(d, 600)}
             />
           ))}
         </ul>
@@ -247,7 +240,7 @@ function LoadError({ href, message = "판정례를 불러오지 못했습니다.
 async function CategoryView({ reason, page }: { reason: ReasonCategory; page: number }) {
   const result = await getCategory(reason, page);
   return <section>
-    <Link href="/decisions" className="text-sm underline" style={{ color: "var(--color-accent-ink)" }}>유형 목록으로</Link>
+    <DecisionCategoryNavigation reason={reason} />
     <h2 className="my-4 text-lg font-semibold">{REASON_LABELS[reason]} 유형별 노동위 판정례</h2>
     {!result.ok ? <LoadError href={categoryHref(reason, page)} /> : <>
       {result.rows.length ? <ul className="border-t" style={{ borderColor: "var(--color-border)" }}>

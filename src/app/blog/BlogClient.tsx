@@ -3,9 +3,9 @@
 import { useState, useEffect, useTransition } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { BookOpen, Search, ChevronLeft, ChevronRight, Calendar, Tag, LayoutGrid, List } from 'lucide-react';
+import { Search, ChevronLeft, ChevronRight, ArrowRight, LayoutGrid, List } from 'lucide-react';
 import type { BlogArticle } from './page';
-import { getCategoryColor } from '@/lib/category-colors';
+import '@/components/editorial-home.css';
 import { PAGE_SIZE } from '@/lib/blog-list';
 
 interface BlogClientProps {
@@ -39,127 +39,22 @@ function formatDate(dateStr: string) {
   return dateStr.slice(0, 10).replace(/-/g, '.');
 }
 
-function CategoryBadge({ category }: { category: string }) {
-  const color = getCategoryColor(category);
+function ArticleEntry({ article, card = false }: { article: BlogArticle; card?: boolean }) {
   return (
-    <span
-      className="rounded-full px-2.5 py-0.5 text-[11px] font-semibold"
-      style={{ backgroundColor: color.bg, color: color.text }}
-    >
-      {category === 'general' ? '일반' : category}
-    </span>
-  );
-}
-
-function SubtypeBadge({ subtype }: { subtype: string | null }) {
-  if (!subtype) return null;
-  const labelMap: Record<string, { label: string; bg: string; text: string }> = {
-    'deep-dive': { label: '딥다이브', bg: '#fff7ed', text: '#c2410c' },
-    // briefing subtype은 카테고리=뉴스브리핑으로 통합되어 사용 중단 (2026-04-29)
-  };
-  const info = labelMap[subtype];
-  if (!info) return null;
-  return (
-    <span
-      className="rounded-full px-2 py-0.5 text-[length:var(--text-xs)] font-medium"
-      style={{ backgroundColor: info.bg, color: info.text }}
-    >
-      {info.label}
-    </span>
-  );
-}
-
-function ArticleCard({ article }: { article: BlogArticle }) {
-  return (
-    <Link
-      href={`/blog/${article.slug}`}
-      className="feature-card flex flex-col rounded-xl border bg-[var(--color-bg-surface)] p-6 transition-shadow hover:shadow-md"
-      style={{ borderColor: 'var(--color-border)', boxShadow: 'var(--shadow-sm)' }}
-    >
-      <div className="flex items-center gap-2 mb-3">
-        <CategoryBadge category={article.category} />
-        <SubtypeBadge subtype={article.subtype} />
-        <span className="flex items-center gap-1 text-[11px]" style={{ color: 'var(--color-text-tertiary)' }}>
-          <Calendar size={10} />
-          {formatDate(article.published_at)}
-        </span>
+    <article className={card ? 'editorial-blog-card' : 'editorial-text-row'}>
+      <div className="editorial-row-meta editorial-meta">
+        <span className="editorial-category">{article.category === 'general' ? '일반' : article.category}</span>
+        <time dateTime={article.published_at}>{formatDate(article.published_at)}</time>
+        {article.subtype === 'deep-dive' && <span>딥다이브</span>}
       </div>
-
-      <h2 className="text-[16px] font-bold leading-snug mb-1" style={{ color: 'var(--color-text-primary)' }}>
-        {article.title}
-      </h2>
-
-      {article.subtitle && (
-        <p className="text-[13px] font-medium mb-2" style={{ color: 'var(--color-accent)' }}>
-          {article.subtitle}
-        </p>
-      )}
-
-      {article.summary && (
-        <p className="text-[13px] leading-relaxed flex-1" style={{ color: 'var(--color-text-secondary)' }}>
-          {article.summary}
-        </p>
-      )}
-
-      {article.tags && article.tags.length > 0 && (
-        <div className="mt-3 flex flex-wrap gap-1 pt-3" style={{ borderTop: '1px solid var(--color-border)' }}>
-          <Tag size={10} style={{ color: 'var(--color-text-tertiary)', marginTop: 2 }} />
-          {article.tags.slice(0, 4).map((tag) => (
-            <span key={tag} className="text-[11px]" style={{ color: 'var(--color-text-tertiary)' }}>
-              #{tag}
-            </span>
-          ))}
-        </div>
-      )}
-    </Link>
-  );
-}
-
-function ArticleRow({ article }: { article: BlogArticle }) {
-  return (
-    <Link
-      href={`/blog/${article.slug}`}
-      className="grid grid-cols-[100px_minmax(0,1fr)_120px] sm:grid-cols-[110px_120px_minmax(0,1fr)_140px] items-center gap-3 border-b py-3 px-2 transition-colors hover:bg-[var(--grey-50)]"
-      style={{ borderColor: 'var(--color-border)' }}
-    >
-      <span className="text-[12px] tabular-nums" style={{ color: 'var(--color-text-tertiary)' }}>
-        {formatDate(article.published_at)}
-      </span>
-      <div className="hidden sm:block">
-        <CategoryBadge category={article.category} />
+      <div className="editorial-row-content">
+        <h2><Link href={`/blog/${article.slug}`}>{article.title}</Link></h2>
+        {article.subtitle && <p className="editorial-row-subtitle">{article.subtitle}</p>}
+        {article.summary && <p>{article.summary}</p>}
+        {article.tags?.length > 0 && <div className="editorial-row-tags">{article.tags.slice(0, 4).map(tag => <span key={tag}>#{tag}</span>)}</div>}
       </div>
-      <div className="min-w-0">
-        <h3 className="truncate text-[14px] font-semibold" style={{ color: 'var(--color-text-primary)' }}>
-          {article.title}
-        </h3>
-        {article.subtitle && (
-          <p className="truncate text-[12px]" style={{ color: 'var(--color-text-secondary)' }}>
-            {article.subtitle}
-          </p>
-        )}
-      </div>
-      <div className="hidden sm:flex flex-wrap gap-1 justify-end overflow-hidden">
-        {article.tags?.slice(0, 2).map((tag) => (
-          <span key={tag} className="text-[11px] truncate" style={{ color: 'var(--color-text-tertiary)' }}>
-            #{tag}
-          </span>
-        ))}
-      </div>
-    </Link>
-  );
-}
-
-function SkeletonCard() {
-  return (
-    <div className="rounded-xl border p-6 animate-pulse" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }}>
-      <div className="flex gap-2 mb-3">
-        <div className="h-5 w-16 rounded-full" style={{ backgroundColor: 'var(--grey-100)' }} />
-        <div className="h-5 w-20 rounded-full" style={{ backgroundColor: 'var(--grey-100)' }} />
-      </div>
-      <div className="h-5 w-3/4 rounded mb-2" style={{ backgroundColor: 'var(--grey-100)' }} />
-      <div className="h-4 w-full rounded mb-1" style={{ backgroundColor: 'var(--grey-100)' }} />
-      <div className="h-4 w-2/3 rounded" style={{ backgroundColor: 'var(--grey-100)' }} />
-    </div>
+      <Link href={`/blog/${article.slug}`} className="editorial-row-arrow" aria-label={`${article.title} 읽기`}><ArrowRight size={19} aria-hidden="true" /></Link>
+    </article>
   );
 }
 
@@ -170,18 +65,20 @@ export default function BlogClient({
   const [pending, startTransition] = useTransition();
   // 검색어만 입력 중에는 로컬로 들고 있다가 멈추면 URL 로 밀어 넣는다.
   const [searchQuery, setSearchQuery] = useState(query);
-  const [viewMode, setViewMode] = useState<'card' | 'list'>('card');
+  const [viewMode, setViewMode] = useState<'card' | 'list'>('list');
 
   useEffect(() => setSearchQuery(query), [query]);
 
   useEffect(() => {
-    const saved = typeof window !== 'undefined' ? window.localStorage.getItem('blog_view_mode') : null;
-    if (saved === 'list' || saved === 'card') setViewMode(saved);
+    try {
+      const saved = window.localStorage.getItem('blog_view_mode');
+      if (saved === 'list' || saved === 'card') setViewMode(saved);
+    } catch { /* Restricted storage still permits an in-session display choice. */ }
   }, []);
 
   const handleViewMode = (mode: 'card' | 'list') => {
     setViewMode(mode);
-    if (typeof window !== 'undefined') window.localStorage.setItem('blog_view_mode', mode);
+    try { window.localStorage.setItem('blog_view_mode', mode); } catch { /* Keep the in-session choice. */ }
   };
 
   /** 필터·페이지는 전부 URL 이 정본이다. 뒤로가기와 링크 공유가 그대로 동작한다. */
@@ -212,190 +109,68 @@ export default function BlogClient({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchQuery]);
 
-  // 거르고 세는 일은 전부 서버가 한다. 여기서는 받은 것을 그리기만 한다.
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const currentPage = Math.min(page, totalPages);
   const paginated = articles;
-
   const handleCategoryChange = (cat: string) => go({ cat, sub: null, page: 1 });
   const handleSubtypeChange = (sub: string | null) => go({ sub, page: 1 });
-  const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => setSearchQuery(e.target.value);
-
+  const handleSearch = (event: React.ChangeEvent<HTMLInputElement>) => setSearchQuery(event.target.value);
   const handlePage = (p: number) => {
     go({ page: p });
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    window.scrollTo({ top: 0, behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
   };
 
   return (
-    <div className="mx-auto max-w-[1100px] px-5 py-10">
-      {/* Header */}
-      <div className="mb-8">
-        <div className="flex items-center gap-2 mb-2">
-          <BookOpen size={24} style={{ color: 'var(--color-accent)' }} />
-          <h1 className="t-h2" style={{ color: 'var(--color-text-primary)' }}>
-            노동 딥다이브
-          </h1>
-          {total > 0 && (
-            <span className="ml-2 rounded-full px-2.5 py-0.5 text-xs font-medium" style={{ backgroundColor: 'var(--grey-100)', color: 'var(--grey-600)' }}>
-              {total}편
-            </span>
-          )}
-        </div>
-        <p className="text-[15px]" style={{ color: 'var(--color-text-secondary)' }}>
-          노동법, 판례분석, 뉴스해설, 실무가이드 등 깊이 있는 노동법 콘텐츠를 제공합니다.
-        </p>
-      </div>
+    <div className="layout-list editorial-blog">
+      <header className="editorial-blog-heading">
+        <p className="editorial-kicker">노동법 정보와 실무 해설</p>
+        <h1>글</h1>
+        <p>노동법, 판례분석, 뉴스해설, 실무가이드 등 깊이 있는 노동법 콘텐츠를 제공합니다.</p>
+      </header>
 
-      {/* Search */}
-      <div className="relative mb-4">
-        <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2" style={{ color: 'var(--grey-400)' }} />
-        <input
-          type="text"
-          value={searchQuery}
-          onChange={handleSearch}
-          placeholder="제목, 요약으로 검색..."
-          aria-label="블로그 글 검색"
-          className="w-full rounded-xl border py-2.5 pl-10 pr-4 text-[14px] outline-none transition-colors focus-visible:outline-2 focus-visible:outline-[var(--color-accent)] focus-visible:outline-offset-2 focus:border-[var(--color-accent)]"
-          style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }}
-        />
-      </div>
+      <form className="editorial-blog-search" role="search" onSubmit={event => { event.preventDefault(); go({ q: searchQuery, page: 1 }); }}>
+        <label htmlFor="blog-search">글 검색</label>
+        <input id="blog-search" type="search" value={searchQuery} onChange={handleSearch} placeholder="제목, 부제, 요약으로 검색" />
+        <button type="submit">검색 <Search size={16} aria-hidden="true" /></button>
+      </form>
 
-      {/* Category Filter Chips */}
-      <div className="flex flex-wrap gap-2 mb-8">
-        {CATEGORIES.map((cat) => (
-          <button
-            key={cat.value}
-            onClick={() => handleCategoryChange(cat.value)}
-            className="rounded-full px-4 py-1.5 text-[13px] font-medium transition-colors border"
-            style={
-              activeCategory === cat.value
-                ? { backgroundColor: 'var(--color-accent)', color: '#fff', borderColor: 'var(--color-accent)' }
-                : { backgroundColor: 'var(--color-bg-surface)', color: 'var(--grey-600)', borderColor: 'var(--color-border)' }
-            }
-          >
-            {cat.label}
-          </button>
+      <div className="editorial-filters" role="group" aria-label="글 카테고리">
+        {CATEGORIES.map(cat => (
+          <button key={cat.value} onClick={() => handleCategoryChange(cat.value)} aria-pressed={activeCategory === cat.value}>{cat.label}</button>
         ))}
       </div>
-
-      {/* Subtype Filter (뉴스해설 only) — 브리핑 카테고리 분리 후 딥다이브만 노출 */}
       {activeCategory === '뉴스해설' && (
-        <div className="flex gap-2 mb-6 -mt-4">
-          {[
-            { value: null, label: '전체' },
-            { value: 'deep-dive', label: '딥다이브' },
-          ].map((sub) => (
-            <button
-              key={sub.value ?? 'all'}
-              onClick={() => handleSubtypeChange(sub.value)}
-              className="rounded-full px-3 py-1 text-[12px] font-medium transition-colors border"
-              style={
-                activeSubtype === sub.value
-                  // 솔리드 배경 + 테마로 뒤집는 잉크(§3.3 ★★). 다크 --color-warn-ink는 #fcd34d라 흰 글씨를 그대로 두면 읽히지 않는다.
-                  // --color-bg-surface = 라이트 #ffffff / 다크 #191f28.
-                  ? { backgroundColor: 'var(--color-warn-ink)', color: 'var(--color-bg-surface)', borderColor: 'var(--color-warn-ink)' }
-                  : { backgroundColor: 'var(--color-bg-surface)', color: 'var(--grey-500)', borderColor: 'var(--color-border)' }
-              }
-            >
-              {sub.label}
-            </button>
+        <div className="editorial-subtype-filters" role="group" aria-label="뉴스해설 종류">
+          {[{ value: null, label: '전체' }, { value: 'deep-dive', label: '딥다이브' }].map(sub => (
+            <button key={sub.value ?? 'all'} onClick={() => handleSubtypeChange(sub.value)} aria-pressed={activeSubtype === sub.value}>{sub.label}</button>
           ))}
         </div>
       )}
 
-      {/* View mode toggle (카드 ↔ 표) + 결과 카운트 */}
-      {total > 0 && (
-        <div className="mb-4 flex items-center justify-between">
-          <span className="text-[13px]" style={{ color: 'var(--color-text-tertiary)' }}>
-            총 {total}편
-          </span>
-          <div className="inline-flex rounded-lg border overflow-hidden" style={{ borderColor: 'var(--color-border)' }}>
-            <button
-              onClick={() => handleViewMode('card')}
-              aria-label="카드 보기"
-              className="flex items-center gap-1 px-3 py-1.5 text-[12px] font-medium transition-colors"
-              style={
-                viewMode === 'card'
-                  ? { backgroundColor: 'var(--color-accent)', color: '#fff' }
-                  : { backgroundColor: 'var(--color-bg-surface)', color: 'var(--grey-600)' }
-              }
-            >
-              <LayoutGrid size={13} />
-              카드
-            </button>
-            <button
-              onClick={() => handleViewMode('list')}
-              aria-label="표 보기"
-              className="flex items-center gap-1 px-3 py-1.5 text-[12px] font-medium transition-colors border-l"
-              style={
-                viewMode === 'list'
-                  ? { backgroundColor: 'var(--color-accent)', color: '#fff', borderColor: 'var(--color-accent)' }
-                  : { backgroundColor: 'var(--color-bg-surface)', color: 'var(--grey-600)', borderColor: 'var(--color-border)' }
-              }
-            >
-              <List size={13} />
-              표
-            </button>
+      <div className="editorial-result-status">
+        <p role="status" aria-live="polite">{pending ? '검색 중…' : `총 ${total.toLocaleString()}편`}{query && !pending ? ` · “${query}” 검색 결과` : ''}</p>
+        <div className="editorial-view-toggle" role="group" aria-label="목록 표시 방식">
+          <button onClick={() => handleViewMode('list')} aria-label="목록 보기" aria-pressed={viewMode === 'list'}><List size={15} aria-hidden="true" />목록</button>
+          <button onClick={() => handleViewMode('card')} aria-label="카드 보기" aria-pressed={viewMode === 'card'}><LayoutGrid size={15} aria-hidden="true" />카드</button>
+        </div>
+      </div>
+
+      <div aria-busy={pending} className={viewMode === 'card' && articles.length > 0 ? 'editorial-blog-grid' : 'editorial-results'}>
+        {articles.length === 0 ? (
+          <div className="editorial-empty">
+            <h2>{query || activeCategory !== 'all' || activeSubtype ? '검색 결과가 없습니다' : '등록된 글이 없습니다'}</h2>
+            <p>{query || activeCategory !== 'all' || activeSubtype ? '다른 검색어나 카테고리로 다시 찾아보세요.' : '새로운 콘텐츠가 곧 게시될 예정입니다.'}</p>
+            {(query || activeCategory !== 'all' || activeSubtype) && <Link href="/blog">전체 글 보기 <ArrowRight size={15} aria-hidden="true" /></Link>}
           </div>
-        </div>
-      )}
+        ) : paginated.map(article => <ArticleEntry key={article.slug} article={article} card={viewMode === 'card'} />)}
+      </div>
 
-      {/* Article Grid / List */}
-      {total === 0 && !query ? (
-        <div className="py-20 text-center" style={{ color: 'var(--color-text-tertiary)' }}>
-          <p className="text-lg font-medium mb-1">등록된 글이 없습니다</p>
-          <p className="text-sm">새로운 콘텐츠가 곧 게시될 예정입니다.</p>
-        </div>
-      ) : articles.length === 0 ? (
-        <div className="py-20 text-center" style={{ color: 'var(--color-text-tertiary)' }}>
-          검색 결과가 없습니다.
-        </div>
-      ) : viewMode === 'card' ? (
-        <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
-          {paginated.map((article) => (
-            <ArticleCard key={article.slug} article={article} />
-          ))}
-        </div>
-      ) : (
-        <div className="rounded-xl border overflow-hidden" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }}>
-          <div className="hidden sm:grid grid-cols-[110px_120px_minmax(0,1fr)_140px] items-center gap-3 border-b px-2 py-2 text-[11px] font-semibold uppercase tracking-wide"
-               style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-tertiary)', backgroundColor: 'var(--grey-50)' }}>
-            <span>날짜</span>
-            <span>카테고리</span>
-            <span>제목</span>
-            <span className="text-right">태그</span>
-          </div>
-          {paginated.map((article) => (
-            <ArticleRow key={article.slug} article={article} />
-          ))}
-        </div>
-      )}
-
-      {/* Pagination */}
       {totalPages > 1 && (
-        <div className="mt-8 flex items-center justify-center gap-3">
-          <button
-            disabled={currentPage <= 1}
-            onClick={() => handlePage(currentPage - 1)}
-            className="flex items-center gap-1 rounded-lg border px-4 py-2 text-sm transition-colors hover:bg-[var(--grey-50)] disabled:opacity-40"
-            style={{ borderColor: 'var(--color-border)' }}
-          >
-            <ChevronLeft size={14} />
-            이전
-          </button>
-          <span className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
-            {currentPage} / {totalPages} 페이지
-          </span>
-          <button
-            disabled={currentPage >= totalPages}
-            onClick={() => handlePage(currentPage + 1)}
-            className="flex items-center gap-1 rounded-lg border px-4 py-2 text-sm transition-colors hover:bg-[var(--grey-50)] disabled:opacity-40"
-            style={{ borderColor: 'var(--color-border)' }}
-          >
-            다음
-            <ChevronRight size={14} />
-          </button>
-        </div>
+        <nav className="editorial-pagination" aria-label="글 목록 페이지">
+          <button disabled={currentPage <= 1} onClick={() => handlePage(currentPage - 1)}><ChevronLeft size={16} aria-hidden="true" />이전</button>
+          <span>{currentPage} / {totalPages} 페이지</span>
+          <button disabled={currentPage >= totalPages} onClick={() => handlePage(currentPage + 1)}>다음<ChevronRight size={16} aria-hidden="true" /></button>
+        </nav>
       )}
     </div>
   );
