@@ -1,10 +1,11 @@
 import Link from "next/link";
+import DecisionCategoryNavigation from "@/components/DecisionCategoryNavigation";
 import type { Metadata } from "next";
 import { unstable_cache } from "next/cache";
 import { countByReason, getRecent, runSearch, getCategory, decisionRow } from "@/lib/decisions-data";
 import { parse, tabHref, pageHref, categoryHref, type Search } from "@/lib/decisions-query";
 import { REASON_LABELS, type ReasonCategory } from "@/lib/types";
-import { SITE_URL } from "@/lib/constants";
+import { SITE_URL, BRAND_NAME } from "@/lib/constants";
 import { ResultRow, type Kind } from "./SearchResults";
 
 // /decisions 상세는 48,000페이지가 있는데 목록(허브) 페이지가 아예 없었다.
@@ -43,7 +44,7 @@ export async function generateMetadata(
       url: `${SITE_URL}/decisions`,
       type: "website",
       locale: "ko_KR",
-      siteName: "노란봉투법 가이드",
+      siteName: BRAND_NAME,
     },
   };
 }
@@ -239,7 +240,7 @@ function LoadError({ href, message = "판정례를 불러오지 못했습니다.
 async function CategoryView({ reason, page }: { reason: ReasonCategory; page: number }) {
   const result = await getCategory(reason, page);
   return <section>
-    <Link href="/decisions" className="text-sm underline" style={{ color: "var(--color-accent-ink)" }}>유형 목록으로</Link>
+    <DecisionCategoryNavigation reason={reason} />
     <h2 className="my-4 text-lg font-semibold">{REASON_LABELS[reason]} 유형별 노동위 판정례</h2>
     {!result.ok ? <LoadError href={categoryHref(reason, page)} /> : <>
       {result.rows.length ? <ul className="border-t" style={{ borderColor: "var(--color-border)" }}>

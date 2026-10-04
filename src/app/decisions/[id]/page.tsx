@@ -19,7 +19,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import SubscribeForm from "@/components/SubscribeForm";
-import { SITE_URL } from "@/lib/constants";
+import { SITE_URL, BRAND_NAME } from "@/lib/constants";
 
 // AI 분류 라벨 fallback: 미매핑 영문은 underscore→space로 보정
 function getAiLabel(key: string, map: Record<string, string>): string {
@@ -136,7 +136,7 @@ export async function generateMetadata({
       url: canonical,
       type: "article",
       locale: "ko_KR",
-      siteName: "노란봉투법 가이드",
+      siteName: BRAND_NAME,
     },
     robots: { index: true, follow: true },
   };

@@ -59,13 +59,13 @@ export async function generateMetadata(
   if (page > 1) canonical.searchParams.set('page', String(page));
 
   return {
-    title: `노동 딥다이브${suffix}${pageSuffix}`,
+    title: `글${suffix}${pageSuffix}`,
     description:
-      '노란봉투법, 노동조합법, 판례분석, 뉴스해설, 실무가이드 등 노동법 심층 분석 콘텐츠를 제공합니다. 노무법인 위너스의 전문가가 직접 작성합니다.',
+      '노란봉투법, 노동조합법, 판례분석, 뉴스해설, 실무가이드 등 노동법 심층 분석 콘텐츠를 제공합니다.',
     alternates: { canonical: canonical.toString() },
     robots: noindex ? { index: false, follow: true } : undefined,
     openGraph: {
-      title: `노동 딥다이브 | ${BRAND_NAME}`,
+      title: `글 | ${BRAND_NAME}`,
       description: '노동법 심층 분석 콘텐츠. 판례분석, 뉴스해설, 실무가이드.',
       url: canonical.toString(),
       type: 'website',
@@ -74,7 +74,7 @@ export async function generateMetadata(
     },
     twitter: {
       card: 'summary_large_image',
-      title: `노동 딥다이브 | ${BRAND_NAME}`,
+      title: `글 | ${BRAND_NAME}`,
       description: '노동법 심층 분석 콘텐츠. 판례분석, 뉴스해설, 실무가이드.',
     },
   };
@@ -141,13 +141,13 @@ export default async function BlogPage(
         '@type': 'BreadcrumbList',
         itemListElement: [
           { '@type': 'ListItem', position: 1, name: '홈', item: SITE_URL },
-          { '@type': 'ListItem', position: 2, name: '노동 딥다이브', item: `${SITE_URL}/blog` },
+          { '@type': 'ListItem', position: 2, name: '글', item: `${SITE_URL}/blog` },
         ],
       },
       {
         '@type': 'CollectionPage',
         '@id': `${SITE_URL}/blog`,
-        name: '노동 딥다이브',
+        name: '글',
         description: '노동법 심층 분석 콘텐츠. 판례분석, 뉴스해설, 실무가이드.',
         url: `${SITE_URL}/blog`,
         inLanguage: 'ko',

@@ -53,3 +53,5 @@
 
 .editorial-skip-link { position: fixed; top: 12px; left: 16px; z-index: 1000; transform: translateY(-160%); padding: 12px 20px; border-radius: 4px; background: var(--color-text-primary); color: var(--color-bg-surface); font-weight: 600; }
 .editorial-skip-link:focus { transform: translateY(0); }
+
+.editorial-service-link { display: inline-flex; align-items: center; min-height: 44px; padding: 6px 12px; color: var(--grey-700); font-size: 14px; text-decoration: underline; text-underline-offset: 4px; }

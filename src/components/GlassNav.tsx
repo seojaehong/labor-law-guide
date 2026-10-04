@@ -16,30 +16,19 @@ type NavItem =
   | { kind: 'dropdown'; label: string; items: DropdownItem[] }
   | { kind: 'cta'; href: string; label: string };
 
-// 2026-09-12 — 4개 그룹 20개 항목에서 3개로 줄였다.
-//
-// 근거는 실측이다. 라우트 20개의 서버 렌더 본문 글자 수를 재 보니 9개가 800자 미만인
-// 껍데기였고, 정작 가장 두꺼운 /decisions(16,224자 · 판정례 61,928건)는 메뉴에 아예 없었다.
-// 대신 240자짜리 /search 가 메뉴에 있었다. 게다가 검색 성격 진입로가 다섯 개라
-// (판례 검색·판정례 검색·AI 비교분석·핵심판례·그리고 메뉴에 없는 /decisions)
-// 들어온 사람이 무엇을 눌러야 하는지 알 방법이 없었다.
-//
-// 메뉴에서 내린 것들은 **지우지 않았다.** 푸터(layout.tsx)에 남아 있고 주소도 그대로다.
-// 되살리려면 여기 배열에 한 줄 추가하면 된다.
+// Public launch navigation includes only the selected, usable surfaces.
+// Existing lower-confidence routes remain available from the labelled footer.
 const NAV_ITEMS: NavItem[] = [
-  { kind: 'link', href: '/decisions', label: '판정례 검색' },
-  { kind: 'link', href: '/blog', label: '노동 딥다이브' },
+  { kind: 'link', href: '/blog', label: '글' },
+  { kind: 'link', href: '/decisions', label: '판례·행정해석' },
   {
     kind: 'dropdown',
-    label: '알아보기',
+    label: '실무도구',
     items: [
-      { href: '/guide', label: '핵심 가이드', description: '법 조항 해석 및 실무 지침' },
-      { href: '/checklist', label: '자가진단', description: '우리 사업장 적용 여부 확인' },
-      { href: '/manual', label: '교섭절차', description: '단계별 교섭 진행 방법' },
-      { href: '/faq', label: 'FAQ', description: '자주 묻는 질문' },
+      { href: '/tools/holiday-pay', label: '공휴일·노동절 수당', description: '입력 조건에 따른 참고 계산' },
     ],
   },
-  { kind: 'cta', href: '/contact', label: '상담' },
+  { kind: 'cta', href: '/contact', label: '전문서비스' },
 ];
 
 function isActive(href: string, pathname: string): boolean {
@@ -160,7 +149,7 @@ export default function GlassNav() {
             if (item.kind === 'cta') return (
               <span key={item.href} className="ml-3 flex items-center gap-3">
                 <ThemeToggle />
-                <Link href={item.href} className="nav-cta" aria-current={isActive(item.href, pathname) ? 'page' : undefined}>{item.label}</Link>
+                <Link href={item.href} className="editorial-service-link" aria-current={isActive(item.href, pathname) ? 'page' : undefined}>{item.label}</Link>
               </span>
             );
             return <Link key={item.href} href={item.href} className="nav-link editorial-nav-link"
@@ -181,7 +170,7 @@ export default function GlassNav() {
             {NAV_ITEMS.map((item) => {
               if (item.kind === 'dropdown') return <MobileDropdown key={item.label} item={item} pathname={pathname} onNavigate={() => setMobileOpen(false)} />;
               return <Link key={item.href} href={item.href} onClick={() => setMobileOpen(false)}
-                className={item.kind === 'cta' ? 'nav-cta mt-3 text-center' : 'mobile-nav-row'}
+                className={item.kind === 'cta' ? 'mobile-nav-row editorial-service-link mt-3' : 'mobile-nav-row'}
                 aria-current={isActive(item.href, pathname) ? 'page' : undefined}>{item.label}</Link>;
             })}
           </div>

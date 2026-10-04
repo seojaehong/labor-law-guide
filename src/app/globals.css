@@ -931,7 +931,8 @@
 
   .blog-content th {
     font-weight: 700;
-    color: var(--grey-900);
+    /* Preserve authored header foreground/background pairs on the row. */
+    color: inherit;
   }
 
   .blog-content td strong {

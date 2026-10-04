@@ -124,7 +124,7 @@ export default function BlogClient({
     <div className="layout-list editorial-blog">
       <header className="editorial-blog-heading">
         <p className="editorial-kicker">노동법 정보와 실무 해설</p>
-        <h1>노동 딥다이브</h1>
+        <h1>글</h1>
         <p>노동법, 판례분석, 뉴스해설, 실무가이드 등 깊이 있는 노동법 콘텐츠를 제공합니다.</p>
       </header>
 
