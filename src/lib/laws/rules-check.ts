@@ -9,6 +9,8 @@ export interface RuleSpec {
   topic: string;
   art93: string;
   required: boolean;
+  /** 절차·인용 정비형 — 법보다 좁은 옛 문구가 남았을 때만 필수 */
+  requiredIfStale?: boolean;
   keywords: string[];
   ok: string[];
   stale: string[];
@@ -62,7 +64,8 @@ export function judge(rule: RuleSpec, paras: Para[]): Verdict {
     if (!best || score < best.score) best = { where: a, stale, missing, score };
   }
   const b = best!;
-  return { rule, status: b.score === 0 ? '반영됨' : '미반영', where: b.where, stale: b.stale, missing: b.missing };
+  const effective = rule.requiredIfStale && b.stale.length ? { ...rule, required: true } : rule;
+  return { rule: effective, status: b.score === 0 ? '반영됨' : '미반영', where: b.where, stale: b.stale, missing: b.missing };
 }
 
 export function checkRules(text: string, rules: RuleSpec[]): Verdict[] {

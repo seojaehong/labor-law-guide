@@ -17,6 +17,7 @@ OUT = ROOT / "public" / "data" / "laws"
 REVS = json.loads((ROOT / "data" / "law-revisions.json").read_text(encoding="utf-8"))
 RULES = json.loads((ROOT / "scripts" / "laws" / "work_rules_map.json").read_text(encoding="utf-8"))
 TARGETS = json.loads((ROOT / "scripts" / "laws" / "labor_laws.json").read_text(encoding="utf-8"))["laws"]
+SUBS = ROOT / "scripts" / "laws" / "subordinate_laws.json"
 HEADLINES = json.loads((ROOT / "scripts" / "laws" / "headlines.json").read_text(encoding="utf-8"))
 
 # 화면에서 쓰는 짧은 이름. 없으면 정식 명칭
@@ -25,6 +26,7 @@ SHORT = {
     "고용보험 및 산업재해보상보험의 보험료징수 등에 관한 법률": "고용산재보험료징수법",
     "기간제 및 단시간근로자 보호 등에 관한 법률": "기간제법",
     "파견근로자보호 등에 관한 법률": "파견법",
+    "파견근로자 보호 등에 관한 법률": "파견법",
     "노동조합 및 노동관계조정법": "노동조합법",
     "근로자참여 및 협력증진에 관한 법률": "근로자참여법",
     "외국인근로자의 고용 등에 관한 법률": "외국인고용법",
@@ -74,12 +76,38 @@ def main():
     for r in RULES["rules"]:
         rules_by.setdefault((r["lawId"], r["effective"]), []).append(r)
 
+    # 위계 — 법률 / 대통령령 / 부령. 하위법령은 상위 법률로 묶어 보여 준다(법령 칩 = 상위 법률 단위)
+    kind_of = {r["법령ID"]: r["법령구분"] for r in REVS["revisions"]}
+    parent_of = {r["법령ID"]: r.get("상위법ID") for r in REVS["revisions"] if r.get("상위법ID")}
+    name_of = {r["법령ID"]: r["법령명"] for r in REVS["revisions"] if not r.get("상위법ID")}
+    subs = json.loads(SUBS.read_text(encoding="utf-8"))["subordinates"] if SUBS.exists() else []
+    for s in subs:
+        name_of.setdefault(s["parentId"], s["parent"].replace("·", "ㆍ"))
+
+    def short_name(law_id: str, name: str) -> str:
+        if name in SHORT:
+            return SHORT[name]
+        pid = parent_of.get(law_id)
+        if pid:
+            pname = name_of.get(pid, "")
+            key = lambda x: "".join(x.replace("·", "ㆍ").split())
+            if pname and key(name).startswith(key(pname)):
+                rest = name.replace("·", "ㆍ")[len(pname):].strip() if name.replace("·", "ㆍ").startswith(pname) else key(name)[len(key(pname)):]
+                return f"{SHORT.get(pname, pname)} {rest}".strip()
+        return name
+
+    def level_of(law_id: str) -> str:
+        k = kind_of.get(law_id, "법률")
+        return "법률" if k == "법률" else "시행령" if k == "대통령령" else "시행규칙"
+
     OUT.mkdir(parents=True, exist_ok=True)
     events, laws = [], []
     for f in sorted(DIFFS.glob("*.json")):
         d = json.loads(f.read_text(encoding="utf-8"))
         law_id, name = d["법령ID"], d["법령명"]
-        detail = {"lawId": law_id, "name": name, "short": SHORT.get(name, name), "steps": []}
+        short = short_name(law_id, name)
+        group = parent_of.get(law_id) or law_id
+        detail = {"lawId": law_id, "name": name, "short": short, "steps": []}
         for s in d["단계"]:
             if not s["변경"]:
                 continue
@@ -95,7 +123,10 @@ def main():
                 "id": ev_id,
                 "lawId": law_id,
                 "law": name,
-                "short": SHORT.get(name, name),
+                "short": short,
+                "group": group,
+                "level": level_of(law_id),
+                "lawKind": kind_of.get(law_id, "법률"),
                 "scope": scope.get(name),
                 "date": s["시행일"],
                 "upcoming": s["시행일"] > today,
@@ -121,19 +152,30 @@ def main():
             })
         if detail["steps"]:
             (OUT / f"{law_id}.json").write_text(json.dumps(detail, ensure_ascii=False), encoding="utf-8")
-            laws.append({"lawId": law_id, "name": name, "short": detail["short"],
+            laws.append({"lawId": law_id, "name": name, "short": short, "group": group, "level": level_of(law_id),
                          "events": len(detail["steps"]),
                          "upcoming": sum(st["date"] > today for st in detail["steps"])})
 
-    events.sort(key=lambda e: (e["date"], e["short"]))
+    events.sort(key=lambda e: (e["date"], e["level"] != "법률", e["short"]))
+    # 법령 칩 = 상위 법률 단위. 하위법령만 바뀐 법률(근로복지기본법 등)도 칩이 있어야 한다
+    groups = {}
+    for e in events:
+        g = groups.setdefault(e["group"], {"lawId": e["group"], "name": name_of.get(e["group"], e["law"]),
+                                           "events": 0, "upcoming": 0})
+        g["events"] += 1
+        g["upcoming"] += e["date"] > today
+    for g in groups.values():
+        g["short"] = SHORT.get(g["name"], g["name"])
     index = {
         "generated": REVS["generated"],
         "since": REVS["since"],
         "source": "국가법령정보센터(법제처) Open API",
-        "scopeNote": "공인노무사법 시행령 [별표 1] 노동 관계 법령 37개 법률(15호 삭제)과 「노동절 제정에 관한 법률」",
+        "scopeNote": "공인노무사법 시행령 [별표 1] 노동 관계 법령 37개 법률(15호 삭제)과 그 하위법령(시행령·시행규칙 등, 제39호), 「노동절 제정에 관한 법률」",
+        "subCount": len(subs),
         "lawCount": len(TARGETS),
         "art93": RULES["_art93"],
         "laws": sorted(laws, key=lambda l: (-l["upcoming"], l["short"])),
+        "groups": sorted(groups.values(), key=lambda g: (-g["upcoming"], -g["events"], g["short"])),
         "events": events,
     }
     (OUT / "index.json").write_text(json.dumps(index, ensure_ascii=False), encoding="utf-8")

@@ -3,9 +3,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import {
-  CalendarPlus, Check, ChevronDown, ClipboardCopy, Columns2, ExternalLink, FileSpreadsheet, Link2, Rows3, Search, ScrollText, ShieldCheck, X,
+  CalendarDays, CalendarPlus, Check, ChevronDown, ClipboardCopy, Columns2, ExternalLink, FileSpreadsheet, Link2, Rows3, Search, ScrollText, ShieldCheck, X,
 } from 'lucide-react';
 import RulesCheck from './RulesCheck';
+import CalendarView from './CalendarView';
+import SubscribeButton from './SubscribeButton';
 import { diffArticle, type Row } from '@/lib/laws/diff';
 import {
   citation, compareTable, copyRich, ddayLabel, download, fmtDate, fmtShort, lawGoUrl, todayKST, toICS, weekday,
@@ -50,7 +52,10 @@ export default function LawsClient({ index }: { index: LawIndex }) {
   const [q, setQ] = useState('');
   const [laws, setLaws] = useState<string[]>([]);
   const [rulesOnly, setRulesOnly] = useState(false);
+  const [lawsOnly, setLawsOnly] = useState(false);
   const [month, setMonth] = useState<string | null>(null);
+  const [mode, setMode] = useState<'list' | 'cal'>('list');
+  const [day, setDay] = useState<string | null>(null);
   const [open, setOpen] = useState<Set<string>>(new Set());
   const [focus, setFocus] = useState<string | null>(null);
   const [layout, setLayout] = useState<Layout>('split');
@@ -68,7 +73,10 @@ export default function LawsClient({ index }: { index: LawIndex }) {
     if (sp.get('q')) setQ(sp.get('q')!);
     if (sp.get('law')) setLaws(sp.get('law')!.split(','));
     if (sp.get('rules') === '1') setRulesOnly(true);
+    if (sp.get('level') === 'law') setLawsOnly(true);
     if (sp.get('m')) setMonth(sp.get('m'));
+    if (sp.get('mode') === 'cal') setMode('cal');
+    if (sp.get('d')) setDay(sp.get('d'));
     if (window.matchMedia('(max-width: 700px)').matches) setLayout('unified');
     try {
       const saved = localStorage.getItem('lr-layout');
@@ -93,10 +101,13 @@ export default function LawsClient({ index }: { index: LawIndex }) {
     if (q) sp.set('q', q);
     if (laws.length) sp.set('law', laws.join(','));
     if (rulesOnly) sp.set('rules', '1');
+    if (lawsOnly) sp.set('level', 'law');
     if (month) sp.set('m', month);
+    if (mode === 'cal') sp.set('mode', 'cal');
+    if (day) sp.set('d', day);
     const s = sp.toString();
     history.replaceState(null, '', `${location.pathname}${s ? `?${s}` : ''}${location.hash}`);
-  }, [view, q, laws, rulesOnly, month]);
+  }, [view, q, laws, rulesOnly, lawsOnly, month, mode, day]);
 
   const setLayoutSaved = (l: Layout) => {
     setLayout(l);
@@ -106,20 +117,21 @@ export default function LawsClient({ index }: { index: LawIndex }) {
   const upcoming = useMemo(() => index.events.filter((e) => e.date > today), [index.events, today]);
   const recent = useMemo(() => index.events.filter((e) => e.date <= today).reverse(), [index.events, today]);
   const base = useMemo(
-    () => (view === 'upcoming' ? upcoming : view === 'recent' ? recent : [...upcoming, ...recent]),
-    [view, upcoming, recent],
+    () => (mode === 'cal' ? [...upcoming, ...recent] : view === 'upcoming' ? upcoming : view === 'recent' ? recent : [...upcoming, ...recent]),
+    [mode, view, upcoming, recent],
   );
 
   const lawCounts = useMemo(() => {
     const m = new Map<string, number>();
-    for (const e of base) m.set(e.lawId, (m.get(e.lawId) ?? 0) + 1);
+    for (const e of base) m.set(e.group, (m.get(e.group) ?? 0) + 1);
     return m;
   }, [base]);
 
-  const filtered = useMemo(() => {
+  const matched = useMemo(() => {
     const needle = q.trim().toLowerCase();
     return base.filter((e) => {
-      if (laws.length && !laws.includes(e.lawId)) return false;
+      if (laws.length && !laws.includes(e.group)) return false;
+      if (lawsOnly && e.level !== '법률') return false;
       if (rulesOnly && e.rules.length === 0) return false;
       if (month && !e.date.startsWith(month)) return false;
       if (!needle) return true;
@@ -127,7 +139,13 @@ export default function LawsClient({ index }: { index: LawIndex }) {
         ...e.changes.map((c) => `${c.article} ${c.title}`), ...e.rules.map((r) => r.topic)].join(' ').toLowerCase();
       return needle.split(/\s+/).every((w) => hay.includes(w));
     });
-  }, [base, laws, rulesOnly, month, q]);
+  }, [base, laws, rulesOnly, lawsOnly, month, q]);
+  const filtered = useMemo(
+    () => (day
+      ? matched.filter((e) => e.date === day || e.promulgations.some((p) => p.date === day))
+      : mode === 'cal' ? matched.filter((e) => e.date > today) : matched),
+    [matched, day, mode, today],
+  );
 
   const months = useMemo(() => {
     const m = new Map<string, number>();
@@ -182,8 +200,8 @@ export default function LawsClient({ index }: { index: LawIndex }) {
     return () => window.removeEventListener('keydown', onKey);
   }, [filtered, focus, open, q, toggle]);
 
-  const resetFilters = () => { setQ(''); setLaws([]); setRulesOnly(false); setMonth(null); };
-  const filtersOn = q || laws.length || rulesOnly || month;
+  const resetFilters = () => { setQ(''); setLaws([]); setRulesOnly(false); setLawsOnly(false); setMonth(null); };
+  const filtersOn = q || laws.length || rulesOnly || lawsOnly || month;
 
   const exportICS = (evs: LawEvent[], name: string) => {
     download(name, toICS(evs), 'text/calendar;charset=utf-8');
@@ -226,7 +244,7 @@ export default function LawsClient({ index }: { index: LawIndex }) {
     <div className="lr">
       <div className="lr-wrap">
         <header className="lr-hero">
-          <div className="lr-eyebrow">노동관계법령 {index.lawCount}개 법률 · 법제처 원문 기준 · {index.generated} 갱신</div>
+          <div className="lr-eyebrow">노동관계법령 {index.lawCount}개 법률과 하위법령 {index.subCount}개 · 법제처 원문 기준 · {index.generated} 갱신</div>
           <h1 className="lr-h1">곧 바뀌는 노동법을, 조문 단위로.</h1>
           <p className="lr-lead">
             공포됐지만 아직 시행되지 않은 개정 <b>{upcoming.length}건</b>을 시행일 순서로 모았습니다. 바뀐 글자만 칠해 보여주고,
@@ -316,19 +334,29 @@ export default function LawsClient({ index }: { index: LawIndex }) {
                 <span className="lr-kbd">/</span>
               )}
             </label>
-            <div className="lr-seg" role="group" aria-label="기간">
-              {([['upcoming', '시행 예정', upcoming.length], ['recent', '최근 시행', recent.length], ['all', '전체', index.events.length]] as const).map(([v, label, n]) => (
-                <button key={v} aria-pressed={view === v} onClick={() => { setView(v); if (v !== 'upcoming') setMonth(null); }}>
-                  {label}<span className="c">{n}</span>
-                </button>
-              ))}
+            <div className="lr-seg" role="group" aria-label="보기">
+              <button aria-pressed={mode === 'list'} onClick={() => { setMode('list'); setDay(null); }}><Rows3 size={14} style={{ display: 'inline' }} /> 목록</button>
+              <button aria-pressed={mode === 'cal'} onClick={() => { setMode('cal'); setMonth(null); }}><CalendarDays size={14} style={{ display: 'inline' }} /> 달력</button>
             </div>
+            {mode === 'list' && (
+              <div className="lr-seg" role="group" aria-label="기간">
+                {([['upcoming', '시행 예정', upcoming.length], ['recent', '최근 시행', recent.length], ['all', '전체', index.events.length]] as const).map(([v, label, n]) => (
+                  <button key={v} aria-pressed={view === v} onClick={() => { setView(v); if (v !== 'upcoming') setMonth(null); }}>
+                    {label}<span className="c">{n}</span>
+                  </button>
+                ))}
+              </div>
+            )}
             <button className="lr-btn lr-btn-ghost" onClick={() => exportXLSX(filtered)} disabled={!filtered.length} title="보이는 개정의 조문 전·후를 엑셀로">
               <FileSpreadsheet size={16} /> 엑셀
             </button>
-            <button className="lr-btn lr-btn-ghost" onClick={() => exportICS(filtered.filter((e) => e.date > today), '노동법_시행일.ics')} title="보이는 개정의 시행일을 캘린더로">
-              <CalendarPlus size={16} /> 캘린더
-            </button>
+            <SubscribeButton
+              laws={laws}
+              rulesOnly={rulesOnly}
+              lawsOnly={lawsOnly}
+              onDownload={() => exportICS(filtered.filter((e) => e.date > today), '노동법_시행일.ics')}
+              toast={toast.show}
+            />
             <button className="lr-btn lr-btn-ghost" onClick={() => copyDigest(filtered)} title="메일·메신저용 요약 복사">
               <ClipboardCopy size={16} /> 요약 복사
             </button>
@@ -337,7 +365,10 @@ export default function LawsClient({ index }: { index: LawIndex }) {
             <button className="lr-chip lr-chip-warn" aria-pressed={rulesOnly} onClick={() => setRulesOnly(!rulesOnly)}>
               취업규칙 고칠 것만
             </button>
-            {index.laws
+            <button className="lr-chip" aria-pressed={lawsOnly} onClick={() => setLawsOnly(!lawsOnly)} title="시행령·시행규칙 등 하위법령을 숨긴다">
+              법률만
+            </button>
+            {index.groups
               .filter((l) => lawCounts.has(l.lawId) || laws.includes(l.lawId))
               .sort((a, b) => (lawCounts.get(b.lawId) ?? 0) - (lawCounts.get(a.lawId) ?? 0))
               .map((l) => (
@@ -361,6 +392,16 @@ export default function LawsClient({ index }: { index: LawIndex }) {
       </div>
 
       <main className="lr-wrap">
+        {mode === 'cal' && (
+          <CalendarView events={matched} today={today} selected={day} onSelect={setDay} />
+        )}
+        {mode === 'cal' && day && (
+          <div className="lr-month">
+            <h2>{fmtDate(day)} ({weekday(day)})</h2>
+            <span className="lr-eyebrow">시행·공포 {filtered.length}건</span>
+            <button className="lr-chip" onClick={() => setDay(null)}><X size={12} style={{ display: 'inline', marginRight: 2 }} /> 날짜 해제</button>
+          </div>
+        )}
         {filtered.length === 0 ? (
           <div className="lr-empty">
             <p>조건에 맞는 개정이 없습니다.</p>
@@ -436,6 +477,7 @@ function EventCard({
   onToggle: () => void; toast: (m: string) => void; onExport: () => void; art93: Record<string, string>;
 }) {
   const [detail, setDetail] = useState<LawDetail | null>(null);
+  const [whyOpen, setWhyOpen] = useState(false);
   const [err, setErr] = useState(false);
   const step = detail?.steps.find((s) => s.id === e.id);
   const upcoming = e.date > today;
@@ -470,6 +512,7 @@ function EventCard({
         <div style={{ minWidth: 0 }}>
           <div className="lr-law">
             <strong>{e.short}</strong>
+            {e.level !== '법률' && <span className="lr-badge lvl" title={e.lawKind}>{e.level === '시행령' && !e.short.endsWith('시행령') ? e.lawKind : e.level === '시행규칙' && !e.short.endsWith('시행규칙') ? e.lawKind : e.level}</span>}
             {e.kinds.map((k) => <span key={k} className="lr-badge">{k}</span>)}
             {e.scope && <span className="lr-badge" title="공인노무사법 시행령 별표 1의 적용 범위">{e.scope}</span>}
             {e.rules.length > 0 && <span className="lr-badge rule">취업규칙 반영 {e.rules.length}</span>}
@@ -517,7 +560,10 @@ function EventCard({
                 {e.promulgations.length > 1 && ` 외 ${e.promulgations.length - 1}건`}
                 <br />
                 {e.cause ? `「${e.cause}」 개정이유: ` : '개정이유(법제처): '}
-                {step.reason}
+                {step.reason.length > 260 && !whyOpen ? `${step.reason.slice(0, 250)}…` : step.reason}
+                {step.reason.length > 260 && (
+                  <button className="lr-more" onClick={() => setWhyOpen(!whyOpen)}>{whyOpen ? '접기' : '전체 보기'}</button>
+                )}
               </div>
 
               {step.rules.length > 0 && <RulesBox rules={step.rules} art93={art93} cite={cite} toast={toast} />}

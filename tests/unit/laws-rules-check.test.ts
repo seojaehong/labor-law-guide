@@ -42,3 +42,16 @@ describe('내 취업규칙 점검', () => {
     expect(v[0].status).not.toBe('반영됨');
   });
 });
+
+describe('옛 문구가 남았을 때만 필수', () => {
+  it('출근 간주 조항이 없으면 선택, 「제19조제1항에 따른 육아휴직」이 남아 있으면 필수', () => {
+    const none = by(checkRules('제30조(연차) ① 15일의 유급휴가를 준다.', rules), '제60조', '출근 간주');
+    expect(none.rule.required).toBe(false);
+    const stale = by(
+      checkRules('제31조(출근 간주) 다음 기간은 출근한 것으로 본다.\n  3. 남녀고용평등법 제19조제1항에 따른 육아휴직으로 휴업한 기간', rules),
+      '제60조', '출근 간주',
+    );
+    expect(stale.status).toBe('미반영');
+    expect(stale.rule.required).toBe(true);
+  });
+});

@@ -77,7 +77,31 @@ def articles(law: dict) -> dict:
         if j.get("조문여부") != "조문":
             continue
         out[j["조문키"]] = {"조문": label(j), "제목": j.get("조문제목", ""), "본문": body(j)}
+    # 별표 — 시행령·시행규칙의 과태료 기준·일수·직종 목록은 조문이 아니라 별표에 있다. 서식은 뺀다
+    for b in as_list(law.get("별표", {}).get("별표단위")):
+        if b.get("별표구분") != "별표":
+            continue
+        no = str(int(b.get("별표번호") or 0))
+        if (b.get("별표가지번호") or "00") not in ("00", ""):
+            no += f"의{int(b['별표가지번호'])}"
+        out[f"B{b.get('별표키')}"] = {"조문": "별표" if no == "0" else f"별표 {no}", "제목": b.get("별표제목", ""), "본문": annex_text(b.get("별표내용"))}
     return out
+
+
+def annex_text(v) -> str:
+    """별표내용은 [[줄, 줄, …]] 꼴. 줄마다 오른쪽 공백을 걷고, 머리의 「<개정 …>」 꼬리표는 남긴다(diff 쪽에서 무시)."""
+    lines = []
+
+    def flat(x):
+        if isinstance(x, list):
+            for y in x:
+                flat(y)
+        elif isinstance(x, str):
+            lines.append(x.rstrip())
+
+    flat(v)
+    text = "\n".join(lines)
+    return "\n".join(l for l in text.split("\n") if l.strip())
 
 
 DELETED = re.compile(r"^제\d+조(의\d+)?\s*삭제")
