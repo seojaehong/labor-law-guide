@@ -8,6 +8,10 @@ const EMAIL_RX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 // 클라이언트가 보낸 유입 경로. 길이를 자르고 빈 값은 null 로 둔다.
 // referrer 가 없는 직접 방문·앱 내 브라우저가 흔하므로 **없는 것을 정상으로 취급한다.**
+//
+// 2026-10-04 또치 지적으로 범위를 줄였다 — 클라이언트가 **origin+pathname 만** 보낸다
+// (쿼리스트링은 first-touch.ts 에서 버린다. 남의 검색어·토큰이 실려 올 수 있다).
+// 서버에서도 길이를 300/80 으로 낮춰 두 겹으로 막는다. **필요 없는 것은 받지 않는다.**
 const trim = (v: unknown, n: number) =>
   typeof v === 'string' && v.trim() ? v.trim().slice(0, n) : null;
 
@@ -72,10 +76,10 @@ export async function POST(req: Request) {
         status: 'pending',
         source: source!,
         source_slug: source_slug ?? null,
-        referrer: trim(referrer, 500),
-        utm_source: trim(utm_source, 120),
-        utm_medium: trim(utm_medium, 120),
-        utm_campaign: trim(utm_campaign, 120),
+        referrer: trim(referrer, 300),
+        utm_source: trim(utm_source, 80),
+        utm_medium: trim(utm_medium, 80),
+        utm_campaign: trim(utm_campaign, 80),
         ip_hash: ipHashed,
         user_agent: userAgent,
         consent_at: new Date().toISOString(),
@@ -106,10 +110,10 @@ export async function POST(req: Request) {
       status: 'pending',
       source,
       source_slug: source_slug ?? null,
-      referrer: trim(referrer, 500),
-      utm_source: trim(utm_source, 120),
-      utm_medium: trim(utm_medium, 120),
-      utm_campaign: trim(utm_campaign, 120),
+      referrer: trim(referrer, 300),
+      utm_source: trim(utm_source, 80),
+      utm_medium: trim(utm_medium, 80),
+      utm_campaign: trim(utm_campaign, 80),
       ip_hash: ipHashed,
       user_agent: userAgent,
       consent_at: new Date().toISOString(),

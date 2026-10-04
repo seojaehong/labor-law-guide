@@ -31,12 +31,25 @@ export function captureFirstTouch(): void {
     const p = new URLSearchParams(window.location.search);
     const ref = document.referrer || '';
     // 우리 도메인에서 온 것은 유입이 아니다 — 내부 이동이다.
-    const external = ref && !ref.includes(window.location.host) ? ref.slice(0, 500) : null;
+    // 🔴 2026-10-04 또치 지적을 받아 **범위를 줄였다.**
+    // 처음에는 referrer 전체를 500자까지 저장했는데, referrer 의 **쿼리스트링에는
+    // 남의 검색어·토큰·식별자가 실려 올 수 있다.** 유입 경로를 알려면 **어디서(호스트) +
+    // 어느 글에서(경로)** 로 충분하고 쿼리는 필요 없다. 필요 없는 것을 받아 두면
+    // 그 자체가 위험이다. 적재 행이 0 일 때 줄이는 것이 가장 싸다.
+    let external: string | null = null;
+    if (ref && !ref.includes(window.location.host)) {
+      try {
+        const u = new URL(ref);
+        external = `${u.origin}${u.pathname}`.slice(0, 300);   // 쿼리·해시 버림
+      } catch {
+        external = null;   // 파싱 안 되면 저장하지 않는다
+      }
+    }
     const v: FirstTouch = {
       referrer: external,
-      utm_source: p.get('utm_source')?.slice(0, 120) || null,
-      utm_medium: p.get('utm_medium')?.slice(0, 120) || null,
-      utm_campaign: p.get('utm_campaign')?.slice(0, 120) || null,
+      utm_source: p.get('utm_source')?.slice(0, 80) || null,
+      utm_medium: p.get('utm_medium')?.slice(0, 80) || null,
+      utm_campaign: p.get('utm_campaign')?.slice(0, 80) || null,
     };
     sessionStorage.setItem(KEY, JSON.stringify(v));
   } catch {
