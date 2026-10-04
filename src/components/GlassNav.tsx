@@ -235,7 +235,7 @@ export default function GlassNav() {
 
   return (
     <nav className="glass-nav sticky top-0 z-50">
-      <div className="mx-auto flex h-14 max-w-[1400px] items-center justify-between px-5">
+      <div className="layout-wide layout-wide--chrome flex h-14 items-center justify-between">
         {/* Logo */}
         <Link
           href="/"

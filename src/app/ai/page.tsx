@@ -71,7 +71,7 @@ export default function AIPage() {
   const faqTotalPages = Math.max(1, Math.ceil(faqTotal / 15));
 
   return (
-    <div className="mx-auto max-w-[1100px] px-5 py-10">
+    <div className="layout-tool">
       <h1 className="t-h2 mb-2" style={{ color: 'var(--color-text-primary)' }}>
         AI 상담 & 참고자료
       </h1>
@@ -105,7 +105,7 @@ export default function AIPage() {
       </div>
 
       <div id="ai-tabpanel-chat" role="tabpanel" style={{ display: tab === 'chat' ? undefined : 'none' }}>
-        <div className="grid gap-6 lg:grid-cols-[1fr_380px]">
+        <div className="tool-layout tool-layout--chat">
           <ChatInterface injectedQuestion={pendingQuestion} />
           <div className="space-y-4">
             <h3 className="text-sm font-bold" style={{ color: 'var(--grey-600)' }}>자주 묻는 질문</h3>
@@ -130,7 +130,7 @@ export default function AIPage() {
       </div>
 
       {tab === 'faq' && (
-        <div id="ai-tabpanel-faq" role="tabpanel" className="max-w-[820px]">
+        <div id="ai-tabpanel-faq" role="tabpanel" className="max-w-[var(--layout-compact-max)]">
           {/* Category filter */}
           <div className="mb-4 flex flex-wrap gap-2">
             <button
@@ -215,7 +215,7 @@ export default function AIPage() {
       )}
 
       {tab === 'glossary' && (
-        <div id="ai-tabpanel-glossary" role="tabpanel" className="max-w-[820px]">
+        <div id="ai-tabpanel-glossary" role="tabpanel" className="max-w-[var(--layout-compact-max)]">
           <div className="rounded-xl border overflow-hidden" style={{ borderColor: 'var(--color-border)' }}>
             {glossary.map((item, i) => (
               <div

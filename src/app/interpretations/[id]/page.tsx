@@ -185,9 +185,9 @@ export default async function InterpretationDetailPage({
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
 
-      <div className="mx-auto max-w-[820px] px-5 py-10">
-        <div className="lg:grid lg:grid-cols-[1fr_280px] lg:gap-10">
-          <article>
+      <div className="layout-reading layout-reading--with-rail">
+        <div className="reading-layout">
+          <article className="reading-main">
             <Link
               href="/decisions?type=admin"
               className="mb-6 inline-flex items-center gap-1.5 text-[13px] transition-colors hover:opacity-70"
@@ -249,7 +249,7 @@ export default async function InterpretationDetailPage({
                     color: 'var(--color-text-secondary)',
                   }}
                 >
-                  <MarkdownSnippet value={summary} />
+                  <MarkdownSnippet variant="reading" value={summary} />
                 </div>
               </section>
             )}
@@ -263,7 +263,7 @@ export default async function InterpretationDetailPage({
                   className="rounded-xl border p-5 text-[14px] leading-7"
                   style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-secondary)' }}
                 >
-                  <MarkdownSnippet value={detail} />
+                  <MarkdownSnippet variant="reading" value={detail} />
                 </div>
               </section>
             )}
@@ -357,8 +357,8 @@ export default async function InterpretationDetailPage({
             </section>
           </article>
 
-          <aside className="hidden lg:block">
-            <div className="sticky top-24 space-y-6">
+          <aside className="reading-sidebar">
+            <div className="reading-sidebar-content space-y-6">
               <div
                 className="rounded-xl border p-5"
                 style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)', boxShadow: 'var(--shadow-sm)' }}

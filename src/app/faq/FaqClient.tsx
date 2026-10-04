@@ -120,7 +120,7 @@ export default function FaqClient({ initialFaqs, categoryCounts, totalCount, ini
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   return (
-    <div className="mx-auto max-w-[1100px] px-5 py-10">
+    <div className="layout-list">
       <div className="mb-2 flex items-center gap-2">
         <MessageCircleQuestion size={24} style={{ color: 'var(--color-accent)' }} />
         <h1 className="t-h2" style={{ color: 'var(--color-text-primary)' }}>

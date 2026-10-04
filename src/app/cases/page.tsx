@@ -46,7 +46,7 @@ export default function CasesPage() {
   };
 
   return (
-    <div className="mx-auto max-w-[1100px] px-5 py-10">
+    <div className="layout-list">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
@@ -59,7 +59,7 @@ export default function CasesPage() {
         <h1 className="t-h2 mb-2 mt-4" style={{ color: 'var(--color-text-primary)' }}>
           노란봉투법 핵심판례 6선
         </h1>
-        <p className="max-w-[760px] text-sm leading-7 md:text-[15px]" style={{ color: 'var(--grey-500)' }}>
+        <p className="max-w-[var(--reading-measure)] text-sm leading-7 md:text-[15px]" style={{ color: 'var(--grey-500)' }}>
           개정 노동조합법의 사용자성 판단과 원하청 교섭 의무는 갑자기 생긴 개념이 아니라, 대법원과 행정법원이 축적해 온 판례 법리 위에 서 있습니다.
           먼저 각 판결의 쟁점과 한 줄 요지를 훑어보고, 이어서 상세 해설과 유사 판례 검색으로 넓혀가면 실무 판단 속도가 빨라집니다.
         </p>

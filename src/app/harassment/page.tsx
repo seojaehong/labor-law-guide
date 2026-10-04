@@ -123,7 +123,7 @@ export default function HarassmentPage() {
   const totalPages = Math.ceil(total / PAGE_SIZE);
 
   return (
-    <div className="max-w-[820px] mx-auto px-4 py-8">
+    <div className="layout-tool layout-tool--compact">
       {/* 헤더 */}
       <div className="mb-6">
         <h1 className="t-h2" style={{ color: 'var(--color-text-primary)' }}>직장 내 괴롭힘·성희롱 판례</h1>

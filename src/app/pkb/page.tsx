@@ -77,7 +77,7 @@ export default function PkbPage() {
   }
 
   return (
-    <div className="mx-auto max-w-[1100px] px-4 py-10">
+    <div className="layout-tool">
       <div className="mb-6">
         <h1 className="t-h2 mb-1 flex items-center gap-2" style={{ color: 'var(--color-text-primary)' }}>
           <BookOpen size={22} /> PKB · Personal Knowledge Base

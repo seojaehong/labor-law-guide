@@ -12,7 +12,7 @@ export default function TopicPicks({ items, variant = 'home' }: Props) {
 
   const sectionPadding =
     variant === 'home' ? 'px-5 pt-12 pb-2' : variant === 'index' ? 'px-5 pt-2 pb-6' : 'mt-10';
-  const innerWrap = variant === 'article' ? '' : 'mx-auto max-w-[1100px]';
+  const innerWrap = variant === 'article' ? '' : 'mx-auto max-w-[var(--layout-list-max)]';
 
   return (
     <section className={sectionPadding}>
