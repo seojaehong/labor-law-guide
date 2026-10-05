@@ -3,7 +3,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { Search, ChevronDown, ChevronRight, MessageCircleQuestion, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
-import { CATEGORY_GROUPS, categoryToSlug, type FaqCategory } from '@/lib/faq-categories';
+import { CATEGORY_GROUPS, categoryToSlug } from '@/lib/faq-categories';
 
 interface FaqItem {
   id: number;
@@ -37,11 +37,13 @@ export default function FaqClient({ initialFaqs, categoryCounts, totalCount, ini
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
   const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const latestRequestRef = useRef(0);
 
   const countMap = Object.fromEntries(categoryCounts.map((c) => [c.unified_category, c.count]));
   const totalFaqCount = categoryCounts.reduce((sum, c) => sum + c.count, 0);
 
   const fetchFaqs = useCallback(async (cat: string | null, query: string, pageNum: number) => {
+    const requestId = ++latestRequestRef.current;
     setLoading(true);
     setLoadError(false);
     try {
@@ -54,16 +56,19 @@ export default function FaqClient({ initialFaqs, categoryCounts, totalCount, ini
       if (!res.ok) throw new Error(`FAQ request failed: ${res.status}`);
       const data = await res.json();
       if (!Array.isArray(data.faqs) || typeof data.total !== 'number') throw new Error('Invalid FAQ response');
+      if (requestId !== latestRequestRef.current) return;
       setFaqs(data.faqs);
       setTotal(data.total);
     } catch {
-      setLoadError(true);
+      if (requestId === latestRequestRef.current) setLoadError(true);
     } finally {
-      setLoading(false);
+      if (requestId === latestRequestRef.current) setLoading(false);
     }
   }, []);
 
   const handleCategoryChange = useCallback((cat: string | null) => {
+    ++latestRequestRef.current;
+    if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
     setActiveCategory(cat);
     setPage(1);
     setExpandedId(null);
@@ -71,6 +76,7 @@ export default function FaqClient({ initialFaqs, categoryCounts, totalCount, ini
   }, [searchQuery, fetchFaqs]);
 
   const handleSearch = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    ++latestRequestRef.current;
     const q = e.target.value;
     setSearchQuery(q);
     if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
@@ -81,6 +87,8 @@ export default function FaqClient({ initialFaqs, categoryCounts, totalCount, ini
   }, [activeCategory, fetchFaqs]);
 
   const handlePage = useCallback((p: number) => {
+    ++latestRequestRef.current;
+    if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
     setPage(p);
     setExpandedId(null);
     fetchFaqs(activeCategory, searchQuery, p);
@@ -88,7 +96,7 @@ export default function FaqClient({ initialFaqs, categoryCounts, totalCount, ini
   }, [activeCategory, searchQuery, fetchFaqs]);
 
   useEffect(() => {
-    return () => { if (searchTimerRef.current) clearTimeout(searchTimerRef.current); };
+    return () => { ++latestRequestRef.current; if (searchTimerRef.current) clearTimeout(searchTimerRef.current); };
   }, []);
 
   // Phase 1.3: ?id=N 인용 링크 진입 시 단일 FAQ 우선 표시 + 펼침
@@ -98,12 +106,13 @@ export default function FaqClient({ initialFaqs, categoryCounts, totalCount, ini
     const idStr = params.get('id');
     if (!idStr || !/^\d+$/.test(idStr)) return;
     const fid = parseInt(idStr, 10);
+    const requestId = latestRequestRef.current;
     (async () => {
       try {
         const r = await fetch(`/api/faq?id=${fid}`);
         if (!r.ok) return;
         const d = await r.json();
-        if (d?.faqs?.[0]) {
+        if (requestId === latestRequestRef.current && d?.faqs?.[0]) {
           // 기존 목록 위에 인용된 FAQ를 prepend, 펼친 상태로
           setFaqs((prev) => {
             const exists = prev.some((f) => f.id === fid);
