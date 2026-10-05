@@ -1383,6 +1383,7 @@ function renderTabs() {
 }
 
 function switchWorker(index) {
+    hideContext();
     saveFormToState();
     state.currentIndex = index;
     loadFormFromState();
@@ -1400,6 +1401,7 @@ function switchWorker(index) {
 }
 
 function addWorker() {
+    hideContext();
     if (state.workers.length >= MAX_WORKERS) {
         showToast(`최대 ${MAX_WORKERS}명까지 추가할 수 있습니다.`, 'error');
         return;
@@ -1884,6 +1886,18 @@ function onCalculate() {
  *
  * 실패해도 계산 결과는 그대로 둔다. 근거가 없다고 계산을 못 쓰게 하면 안 된다.
  */
+/**
+ * 근거 영역을 접는다.
+ *
+ * 🔴 근로자를 바꾸거나 초기화해도 이전 사람의 안내가 그대로 남아 있었다(2026-10-05 실측).
+ * 근로자2 폼을 보면서 근로자1 의 「1년 미만입니다」를 읽게 되는 구조였다.
+ * 계산 결과(resultArea)는 근로자별로 갈리는데 이 영역만 안 갈렸다.
+ */
+function hideContext() {
+    const el = document.getElementById('contextArea');
+    if (el) { el.hidden = true; el.innerHTML = ''; }
+}
+
 let ctxUnpaid = false;
 let ctxPension = 'unknown';   // severance | db | dc | unknown
 
@@ -1983,6 +1997,7 @@ function renderContext(d) {
 
 /** 초기화 */
 function onReset() {
+    hideContext();
     if (!confirm('현재 근로자의 모든 입력값을 초기화하시겠습니까?')) return;
     const biz = state.workers[0].businessName;
     const owner = state.workers[0].ownerName;
