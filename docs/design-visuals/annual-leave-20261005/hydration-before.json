@@ -1,0 +1,23 @@
+{
+  "baseSha": "f7495718c46da3e69d987df3de319c81cb8e6c55",
+  "errors": [
+    {
+      "url": "http://127.0.0.1:3126/tools",
+      "message": "Minified React error #418; visit https://react.dev/errors/418?args[]=HTML&args[]= for the full message or use the non-minified dev environment for full errors and additional helpful warnings.",
+      "stack": "Error: Minified React error #418; visit https://react.dev/errors/418?args[]=HTML&args[]= for the full message or use the non-minified dev environment for full errors and additional helpful warnings.\n    at rX (http://127.0.0.1:3126/_next/static/chunks/4bd1b696-bf5e0dbacfa5baef.js:1:36920)\n    at is (http://127.0.0.1:3126/_next/static/chunks/4bd1b696-bf5e0dbacfa5baef.js:1:87821)\n    at sp (http://127.0.0.1:3126/_next/static/chunks/4bd1b696-bf5e0dbacfa5baef.js:1:128292)\n    at http://127.0.0.1:3126/_next/static/chunks/4bd1b696-bf5e0dbacfa5baef.js:1:123182\n    at sn (http://127.0.0.1:3126/_next/static/chunks/4bd1b696-bf5e0dbacfa5baef.js:1:123283)\n    at sQ (http://127.0.0.1:3126/_next/static/chunks/4bd1b696-bf5e0dbacfa5baef.js:1:149671)\n    at MessagePort.M (http://127.0.0.1:3126/_next/static/chunks/3794-66f2972315f78d04.js:1:43152)"
+    }
+  ],
+  "fiberEvidence": [
+    {
+      "expected": "div.layout-list",
+      "actual": "h1",
+      "actualParent": "div.layout-list"
+    },
+    {
+      "expected": "div.lv-shell",
+      "actual": "nav.lv-nav",
+      "actualParent": "div.lv-shell"
+    }
+  ],
+  "instrumentation": "Diagnostic .next React chunk captured expected fiber and actual DOM; restored by clean production build. No diagnostic or suppression code committed."
+}
