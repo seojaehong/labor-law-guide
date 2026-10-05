@@ -82,7 +82,8 @@ export default function RulesCheck({ onClose, toast }: { onClose: () => void; to
   const today = todayKST();
   const [text, setText] = useState('');
   const [data, setData] = useState<Data | null>(null);
-  const [from, setFrom] = useState('20251001');
+  // 수집 시작이 2023.1.1. 로 내려가 기본값을 「2025년 초에 고친 취업규칙」으로 둔다(재홍님 예시)
+  const [from, setFrom] = useState('20250101');
   const [to, setTo] = useState(today);
   const [showOk, setShowOk] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -221,7 +222,7 @@ export default function RulesCheck({ onClose, toast }: { onClose: () => void; to
               ref={ref}
               value={text}
               onChange={(e) => setText(e.target.value)}
-              placeholder={'취업규칙 본문을 붙여넣거나 hwpx·docx 파일을 올리세요.\n비워 두면 이 기간 개정의 바꿀 문안만 모아 드립니다.\n조문 머리(제○조(…))가 줄 머리에 있으면 표준취업규칙 조문과 짝지어 판정합니다.'}
+              placeholder={'취업규칙 본문을 붙여넣거나 hwpx·docx 파일을 올리세요.\n비워 두면 이 기간 개정의 바꿀 문안만 모아 드립니다.\n조문 머리(제○조(…))가 줄 머리에 있으면 표준취업규칙 조문과 짝지어 판정합니다.\nPDF에서 복사한 본문은 글자 순서가 섞여 판정이 틀릴 수 있습니다. 한글·워드 원본을 권합니다.'}
               aria-label="취업규칙 본문"
             />
             {fileError && <p className="lr-file-error" role="alert">파일을 읽지 못했습니다: {fileError}</p>}
@@ -267,6 +268,19 @@ export default function RulesCheck({ onClose, toast }: { onClose: () => void; to
                   <button className="lr-fold-btn" onClick={() => setShowOk(!showOk)}>
                     {showOk ? '문구가 일치한 항목 접기' : `문구가 일치한 ${ok.length}건 보기`}
                   </button>
+                )}
+                {result.earlier.length > 0 && (
+                  <details className="lr-missing" open>
+                    <summary>최종 개정일 이전에 시행됐는데 옛 문구가 남아 있는 개정 {result.earlier.length}건</summary>
+                    <ul>
+                      {result.earlier.map(({ std: s, verdict: v }) => (
+                        <li key={v.rule.lawId + v.rule.article + v.rule.topic}>
+                          <b>{v.rule.topic}</b> · {v.rule.law} {v.rule.article} {fmtDate(v.rule.effective)} 시행 · 현행 {v.where ?? s.title} · 남은 옛 문구: {v.stale.map((x) => <del key={x}>{x}</del>)}
+                        </li>
+                      ))}
+                    </ul>
+                    <p className="lr-check-note">기간 안의 개정만 보면 빠지는 것들입니다. 지난 개정 때 함께 고쳤어야 할 조문입니다.</p>
+                  </details>
                 )}
                 {result.missing93.length > 0 && (
                   <details className="lr-missing" open>

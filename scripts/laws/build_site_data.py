@@ -219,7 +219,8 @@ def main():
     }, ensure_ascii=False), encoding="utf-8")
     up = sum(e["upcoming"] for e in events)
     print(f"이벤트 {len(events)} (시행예정 {up}) · 법령 {len(laws)} · 취업규칙 매핑 {sum(len(e['rules']) for e in events)} → {OUT.relative_to(ROOT)}")
-    unmatched = [r for r in RULES["rules"] if not any(e["lawId"] == r["lawId"] and e["date"] == r["effective"]
+    # 상시 점검(always) 매핑은 수집 기간(since) 이전 개정이라 이벤트가 없다 — 대조에서 뺀다
+    unmatched = [r for r in RULES["rules"] if not r.get("always") and not any(e["lawId"] == r["lawId"] and e["date"] == r["effective"]
                                                        and any(c["article"] == r["article"] for c in e["changes"])
                                                        for e in events)]
     if unmatched:

@@ -3,9 +3,11 @@ import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { checkRules, type RuleSpec } from '@/lib/laws/rules-check';
 
-const { rules } = JSON.parse(
-  readFileSync(path.join(process.cwd(), 'public', 'data', 'laws', 'rules.json'), 'utf-8'),
-) as { rules: RuleSpec[] };
+// 이 시험은 2025.10. 이후 시행 매핑을 대상으로 썼다. 2023.1.~2025.9. 매핑(같은 조문·비슷한 주제)이 더해져
+// 조문 번호만으로 고르면 다른 매핑이 먼저 잡힌다(2026-10-05) — 기간으로 한정한다
+const rules = (
+  JSON.parse(readFileSync(path.join(process.cwd(), 'public', 'data', 'laws', 'rules.json'), 'utf-8')) as { rules: RuleSpec[] }
+).rules.filter((r) => r.effective > '20251001');
 
 const by = (vs: ReturnType<typeof checkRules>, article: string, topic?: string) =>
   vs.find((v) => v.rule.article === article && (!topic || v.rule.topic.includes(topic)))!;
