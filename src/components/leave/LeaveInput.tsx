@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 import { compareRow } from "@/lib/leave/annual-leave";
 import { buildText, looksLikeHeader, parseLines, readGrid } from "@/lib/leave/leave-sheet";
-import type { ParsedRow } from "@/lib/leave/leave-sheet";
+import { isLeaveCalculationError, leaveTsv, leaveExportRow } from "@/lib/leave/leave-export";
 import { downloadXlsx } from "@/lib/leave/leave-xlsx";
 import { downloadLeaveTemplate } from "@/lib/leave/leave-template-xlsx";
 import { todayLocal } from "@/lib/leave/leave-today";
@@ -16,7 +16,8 @@ import {
 } from "@/lib/leave/leave-workspaces";
 import type { Workspace } from "@/lib/leave/leave-workspaces";
 import { StatusBadge } from "@/components/leave/LeaveUI";
-import { MAX_FILE_BYTES, validateDocArchive } from '@/lib/laws/doc-io';
+import { MAX_FILE_BYTES } from '@/lib/laws/doc-io';
+import { boundedLeaveArchive } from '@/lib/leave/leave-archive';
 
 /**
  * 연차 대장 직접 입력 — **브라우저에서만 계산한다.**
@@ -58,36 +59,6 @@ function saveTemplate(t: Template): void {
   }
 }
 
-function toCsv(
-  rows: { row: ParsedRow; result: ReturnType<typeof compareRow> | null }[],
-  asOf: string
-): string {
-  const head = ["이름", "입사일", "기준일", "발생일수", "대장기재", "차이", "판정", "적용근거"];
-  const lines = rows.map(({ row, result }) => {
-    if (!result) return [row.name, row.hireDate, asOf, "", "", "", "읽지 못함", row.error ?? ""];
-    const hasRec = row.recordedDays !== null;
-    return [
-      row.name,
-      row.hireDate,
-      asOf,
-      String(result.calculatedDays),
-      // ★ 대장에 「미확인」이라고 적혀 있으면 그 원문을 그대로 싣는다.
-      //   「대장값 없음」으로 쓰면 원본 대장을 왜곡한 파일이 사무소를 돈다.
-      hasRec ? String(row.recordedDays) : (row.recordedRaw ?? ""),
-      hasRec ? String(result.diff) : "",
-      hasRec
-        ? (result.verdict === "diff" ? "차이 있음" : "일치")
-        : row.recordedRaw
-          ? "대조 못 함(숫자 아님)"
-          : "대장값 없음",
-      result.basisLabel,
-    ];
-  });
-  return [head, ...lines]
-    .map((cols) => cols.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(","))
-    .join("\r\n");
-}
-
 export function LeaveInput() {
   const [text, setText] = useState("");
   // 기준일은 **마운트 후에** 채운다. SSR 은 서버 시계(UTC)로 렌더하는데,
@@ -117,10 +88,10 @@ export function LeaveInput() {
     try {
       if (file.size > MAX_FILE_BYTES) throw new Error('엑셀 파일은 10MB 이하만 읽을 수 있습니다.');
       const data = await file.arrayBuffer();
-      validateDocArchive(data);
+      const bounded = await boundedLeaveArchive(data);
       const ExcelJS = (await import("exceljs")).default;
       const wb = new ExcelJS.Workbook();
-      await wb.xlsx.load(data);
+      await wb.xlsx.load(bounded);
       const ws = wb.worksheets[0];
       if (!ws) {
         
@@ -161,12 +132,14 @@ export function LeaveInput() {
 
   /** 지금 고른 사업장 — 읽어낸 직원은 여기로 들어간다 */
   const [ws, setWs] = useState<Workspace | null>(null);
+  const [rosterSavedCount, setRosterSavedCount] = useState<number | null>(null);
   const editorWorkspace = useRef<string | null | undefined>(undefined);
   useEffect(() => {
     const sync = () => {
       const next = getActiveWorkspace();
       const id = next?.id ?? null;
       if (editorWorkspace.current !== id) {
+        setRosterSavedCount(null);
         const initialWithoutWorkspace = editorWorkspace.current === undefined && !next;
         const members = getMembers(next);
         const attachDraftToFirstWorkspace = editorWorkspace.current === null && next && members.length === 0;
@@ -192,12 +165,12 @@ export function LeaveInput() {
   //   쓰레기로 찬다. 날짜 오타를 고쳐도 틀린 것이 같이 남는다.
   useEffect(() => {
     if (editorWorkspace.current !== (ws?.id ?? null)) return;
-    setMembers(
-      ws,
-      rows
+    const members = rows
         .filter((r) => !r.error && r.hireDate)
-        .map((r) => ({ name: r.name, hireDate: r.hireDate }))
-    );
+        .map((r) => ({ name: r.name, hireDate: r.hireDate }));
+    const expected = setMembers(ws, members);
+    const stored = getMembers(ws);
+    setRosterSavedCount(ws && JSON.stringify(stored) === JSON.stringify(expected) ? stored.length : null);
   }, [rows, ws]);
   const results = useMemo(
     () =>
@@ -225,11 +198,11 @@ export function LeaveInput() {
   //   그것을 "diff 가 아니면 일치" 로 처리하면 **틀린 답을 맞다고 표시**한다.
   //   (기준일보다 미래 입사 등) → 반드시 따로 센다.
 
-  const ok = results.filter((x) => x.result && x.result.verdict !== "error");
+  const ok = results.filter((x) => x.result && !isLeaveCalculationError(x.result));
   const usable = ok;
   const withRecorded = ok.filter((x) => x.row.recordedDays !== null);
   const diffs = withRecorded.filter((x) => x.result!.verdict === "diff");
-  const problems = results.filter((x) => !x.result || x.result.verdict === "error");
+  const problems = results.filter((x) => isLeaveCalculationError(x.result));
 
   // ★ 2026-09-24 — 대장 칸에 숫자가 아닌 값(「미확인」·「-」)이 적힌 줄은
   //   recordedDays 가 null 이라 withRecorded 에서 빠지고, verdict 가 error 도
@@ -413,36 +386,20 @@ export function LeaveInput() {
               <tbody>
                 {results.map((x, i) => {
                   const r = x.row;
-                  if (!x.result) {
+                  if (isLeaveCalculationError(x.result)) {
+                    const exported = leaveExportRow(x);
                     return (
                       <tr key={i} data-diff="true">
                         <td data-label="이름">{r.name || "—"}</td>
-                        <td data-label="입사일" colSpan={4}>
-                          {r.error}
-                        </td>
-                        <td className="basis" data-label="원문">{r.raw}</td>
-                      </tr>
-                    );
-                  }
-                  const res = x.result;
-                  if (res.verdict === "error") {
-                    return (
-                      <tr key={i} data-diff="true">
-                        <td data-label="이름">{r.name}</td>
-                        <td data-label="입사일">{r.hireDate}</td>
+                        <td data-label="입사일">{r.hireDate || "—"}</td>
                         <td className="num" data-label="부여일수">—</td>
-                        <td className="num" data-label="대장">
-                          {r.recordedDays ?? r.recordedRaw ?? "—"}
-                        </td>
-                        <td data-label="판정">
-                          <StatusBadge status="unknown" />
-                        </td>
-                        <td className="basis" data-label="근거">
-                          {res.errorMessage ?? "계산할 수 없습니다"}
-                        </td>
+                        <td className="num" data-label="대장">{exported[3] === "" ? "—" : exported[3]}</td>
+                        <td data-label="판정">계산 불가</td>
+                        <td className="basis" data-label="근거">{exported[6]}</td>
                       </tr>
                     );
                   }
+                  const res = x.result!;
                   const hasRecorded = r.recordedDays !== null;
                   return (
                     <tr key={i} data-diff={hasRecorded && res.verdict === "diff" ? "true" : undefined}>
@@ -477,12 +434,13 @@ export function LeaveInput() {
               (.lv-offer 스타일은 그때 재사용할 수 있게 남겨 둔다) */}
 
           <p className="lv-roster__note" style={{ marginTop: 12 }}>
-            읽은 직원 <strong>{usable.length}명</strong>을{" "}
-            {ws ? <>「{ws.name}」 명부에 담았습니다. </> : <>명부에 담았습니다. </>}
-            <a href="/tools/leave/settlement">퇴직 연차 정산</a> 화면에서 골라 쓸 수 있습니다.
-            {ws?.remember
-              ? " 이 브라우저에 남습니다."
-              : " 탭을 닫으면 사라집니다(위에서 기억하기를 켜면 남습니다)."}
+            {ws && rosterSavedCount !== null ? <>
+              이름·입사일 <strong>{rosterSavedCount}명</strong>을 「{ws.name}」 명부에 저장했습니다.{' '}
+              <a href="/tools/leave/settlement">퇴직 연차 정산</a>에서 골라 쓸 수 있습니다.
+              {ws.remember ? " 이 브라우저에 남습니다." : " 탭을 닫으면 사라집니다."}
+            </> : <>
+              {ws ? "명부를 저장하지 못했습니다. 브라우저 저장 설정을 확인해 주세요." : "사업장을 선택하지 않아 명부는 저장되지 않았습니다. 위의 사업장·명부 관리에서 사업장을 선택하면 정산에 사용할 수 있습니다."}
+            </>}
           </p>
 
           <div className="lv-input__export">
@@ -491,9 +449,9 @@ export function LeaveInput() {
               className="lv-input__btn"
               onClick={async () => {
                 
-                const csv = toCsv(results, asOf);
+                const tsv = leaveTsv(results, asOf);
                 try {
-                  await navigator.clipboard.writeText(csv.replace(/","/g, "\t").replace(/"/g, ""));
+                  await navigator.clipboard.writeText(tsv);
                   setCopied(true);
                   setTimeout(() => setCopied(false), 2000);
                 } catch {
@@ -515,27 +473,7 @@ export function LeaveInput() {
                     subtitle: `기준일 ${asOf} · 입사일 기준 · 근로기준법 제60조`,
                     header: ["이름", "입사일", "발생일수", "대장 기재", "차이", "판정", "적용 근거"],
                     widths: [14, 13, 10, 10, 8, 13, 46],
-                    rows: results.map(({ row, result }) =>
-                      !result
-                        ? [row.name || "", row.hireDate || "", "", "", "", "읽지 못함", row.error ?? ""]
-                        : [
-                            row.name,
-                            row.hireDate,
-                            result.calculatedDays,
-                            // 대장에 적힌 원문을 보존한다 — 「미확인」을 「대장값 없음」으로
-                            // 바꿔 쓰면 원본을 왜곡한 파일이 사무소 안을 돈다.
-                            row.recordedDays ?? row.recordedRaw ?? "",
-                            row.recordedDays !== null ? result.diff : "",
-                            row.recordedDays !== null
-                              ? result.verdict === "diff"
-                                ? "차이 있음"
-                                : "일치"
-                              : row.recordedRaw
-                                ? "대조 못 함(숫자 아님)"
-                                : "대장값 없음",
-                            result.basisLabel,
-                          ]
-                    ),
+                    rows: results.map(leaveExportRow),
                     emphasizeRows: results
                       .map((x, i) =>
                         x.result && x.row.recordedDays !== null && x.result.verdict === "diff"

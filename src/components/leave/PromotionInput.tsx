@@ -2,7 +2,8 @@
 
 import { useMemo, useState } from "react";
 
-import { buildPromotionSchedule, scheduleStatusLabel } from "@/lib/leave/leave-promotion";
+import { scheduleStatusLabel } from "@/lib/leave/leave-promotion";
+import { checkedPromotionSchedule } from "@/lib/leave/leave-promotion-validation";
 import type { LeaveKind } from "@/lib/leave/leave-promotion";
 import { StatusBadge } from "@/components/leave/LeaveUI";
 
@@ -20,7 +21,7 @@ export function PromotionInput() {
 
   const result = useMemo(() => {
     if (!usagePeriodEnd) return null;
-    return buildPromotionSchedule({
+    return checkedPromotionSchedule({
       usagePeriodEnd,
       kind,
       firstNoticeSentOn: sentOn || undefined,

@@ -143,20 +143,20 @@ await ck("열 이름이 달라도 매핑으로 읽힌다", async () => {
   assert.equal(rows[0].recordedDays, 16);
 });
 
-await ck("엑셀 날짜 셀(Date)이 현지 날짜로 읽힌다", async () => {
+await ck("엑셀 날짜 셀(Date)이 UTC 날짜로 읽힌다", async () => {
   // 엑셀에서 날짜 서식으로 넣으면 문자열이 아니라 Date 로 들어온다
   const wb = new ExcelJS.Workbook();
   const ws = wb.addWorksheet("s");
   ws.addRow(["이름", "입사일"]);
   const row = ws.addRow(["홍길동", null]);
-  row.getCell(2).value = new Date(2019, 2, 2); // 현지 2019-03-02
+  row.getCell(2).value = new Date(Date.UTC(2019, 2, 2)); // Excel 날짜 직렬값의 UTC 2019-03-02
   const buf = await wb.xlsx.writeBuffer();
   const back = new ExcelJS.Workbook();
   await back.xlsx.load(buf as ArrayBuffer);
   const grid = readGrid(back.worksheets[0]!);
   const rows = parseLines(buildText(grid, looksLikeHeader(grid), 0, 1, null)).filter((r) => !r.error);
   assert.equal(rows.length, 1, "날짜 셀을 못 읽었다");
-  assert.equal(rows[0].hireDate, "2019-03-02", "UTC 로 읽으면 3월 1일이 된다");
+  assert.equal(rows[0].hireDate, "2019-03-02", "어느 시간대에서도 Excel 날짜를 유지한다");
 });
 
 await ck("제목줄이 없는 파일도 첫 사람을 잃지 않는다", async () => {
@@ -174,12 +174,12 @@ await ck("첫 직원의 날짜 오타가 그 사람만 문제로 남고 제목 �
     ["홍길동", "이십십구년", 18], // 오타
     ["김영희", "2024-01-08", 16],
   ]);
-  assert.equal(looksLikeHeader(grid), true, "이 경우는 제목으로 보이는 것이 현재 규칙이다");
-  // ★ 그래서 첫 줄이 제외된다 — 이것이 알려진 한계다.
-  //   제외되더라도 「읽지 못한 줄」로 보이는 쪽이 조용히 틀린 답을 주는 것보다 낫다.
-  const rows = parseLines(buildText(grid, true, 0, 1, 2));
-  assert.equal(rows.length, 1);
-  assert.equal(rows[0].name, "김영희");
+  assert.equal(looksLikeHeader(grid), false, "명시적인 제목 없이 직원을 제외하지 않는다");
+  const rows = parseLines(buildText(grid, false, 0, 1, 2));
+  assert.equal(rows.length, 2);
+  assert.equal(rows[0].name, "홍길동");
+  assert.ok(rows[0].error, "첫 직원은 행 오류로 남긴다");
+  assert.equal(rows[1].name, "김영희");
 });
 
 await ck("빈 줄과 완전히 빈 시트를 구분한다", async () => {

@@ -1,0 +1,11 @@
+{
+  "timezone": "America/Los_Angeles",
+  "checks": [
+    "screen/clipboard/download failure parity; safe formula text; numeric difference",
+    "real XLSX date preserved in LA; first invalid employee retained",
+    "no false save before selection; actual session save confirmed",
+    "storage failure never claims successful save",
+    "reverse promotion dates do not display a normal match"
+  ],
+  "errors": []
+}

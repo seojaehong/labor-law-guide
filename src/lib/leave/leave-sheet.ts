@@ -77,9 +77,11 @@ export function parseLines(text: string): ParsedRow[] {
 export function cellText(v: unknown): string {
   if (v == null) return "";
   if (v instanceof Date) {
-    const y = v.getFullYear();
-    const m = String(v.getMonth() + 1).padStart(2, "0");
-    const d = String(v.getDate()).padStart(2, "0");
+    if (!Number.isFinite(v.getTime())) return "";
+    // ExcelJS decodes date-only serials as UTC dates, regardless of browser timezone.
+    const y = v.getUTCFullYear();
+    const m = String(v.getUTCMonth() + 1).padStart(2, "0");
+    const d = String(v.getUTCDate()).padStart(2, "0");
     return `${y}-${m}-${d}`;
   }
   if (typeof v === "object") {
@@ -119,14 +121,14 @@ export function readGrid(ws: SheetLike): string[][] {
 /**
  * 첫 줄이 제목줄인지 본다.
  *
- * 첫 줄 둘째 칸이 날짜가 아니고 **둘째 줄은 날짜일 때만** 제목으로 본다.
- * 그냥 "첫 줄이 날짜가 아니면 제목" 으로 하면, 첫 직원의 날짜 오타 하나로
- * 그 사람이 통째로 사라진다.
+ * 명시적인 열 이름이 있을 때만 제목으로 본다. 첫 직원의 날짜 오타는 행 오류로 남긴다.
  */
 export function looksLikeHeader(grid: string[][]): boolean {
-  if (grid.length < 2) return false;
-  const second = (r: string[]) => (r[1] ?? "").trim();
-  return !normalizeDate(second(grid[0])) && Boolean(normalizeDate(second(grid[1])));
+  const first = grid[0] ?? [];
+  const labels = first.map(cell => cell.trim().replace(/\s+/g, '').toLowerCase());
+  const name = labels.some(cell => /^(이름|성명|직원|직원명|사원명|name|employeename)$/.test(cell));
+  const hire = labels.some(cell => /^(입사일|입사일자|입사날짜|입사연월일|채용일|hiredate|dateofhire)$/.test(cell));
+  return name && hire;
 }
 
 /** 표 + 열 매핑 → 입력창 텍스트 */
