@@ -1922,7 +1922,7 @@ function getContextOptions(w) {
 }
 function contextHeader(w) {
     const options = getContextOptions(w);
-    return '<h2>근거 조회</h2><p class="ctx-lede">계산은 이 기기에서 처리됩니다. 아래 버튼을 누르면 입사일·퇴사일·재직일수·평균임금·통상임금·퇴직금과 선택한 제도·미지급 여부를 서버로 보내 근거를 조회합니다. 이름과 사업장명은 보내지 않습니다. 검색에 쓰는 일반 쟁점 문장은 외부 AI 서비스(OpenAI)로 전달될 수 있습니다.</p>' +
+    return '<h2>근거 조회</h2><p class="privacy">계산은 이 기기에서 처리됩니다. 아래 버튼을 누르면 입사일·퇴사일·재직일수·평균임금·통상임금·퇴직금과 선택한 제도·미지급 여부를 서버로 보내 근거를 조회합니다. 이름·사업장명·사업주명·생년월일은 보내지 않습니다. 검색에 쓰는 일반 쟁점 문장은 외부 AI 서비스(OpenAI)로 전달될 수 있습니다. 금액과 날짜는 이 검색 문장에 포함되지 않습니다.</p>' +
       '<div class="ask"><label for="ctxPension">퇴직급여 제도</label><select id="ctxPension">' +
       ['unknown|모름 / 확인 안 해봤습니다', 'severance|퇴직금제도', 'db|퇴직연금 DB(확정급여형)', 'dc|퇴직연금 DC(확정기여형)'].map(o=>{const [v,t]=o.split('|');return '<option value="'+v+'"'+(options.pension===v?' selected':'')+'>'+t+'</option>';}).join('') +
       '</select></div><label class="ask"><input type="checkbox" id="ctxUnpaid"'+(options.unpaid?' checked':'')+'> 아직 퇴직금을 받지 못했습니다</label><button type="button" class="btn btn-primary" id="contextLookup">근거 조회하기</button><p id="contextStatus" role="status" aria-live="polite"></p>';
@@ -1991,6 +1991,7 @@ function renderContext(d, w) {
     const next = d.next || [];
 
     let h = contextHeader(w);
+    if (d.limited) h += '<p class="none" role="status">조회 요청이 많아 추가 자료 검색을 잠시 생략했습니다. 계산 결과는 유지됩니다. 잠시 후 다시 조회해 주세요.</p>';
     if (!checks.length && !srcI.length && !srcF.length && !next.length) h += '<p class="none">이 입력 조건에 해당하는 근거를 찾지 못했습니다.</p>';
 
 
