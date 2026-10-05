@@ -2,7 +2,7 @@
 :root { --primary:#285e77; --primary-light:#214d62; --accent:#285e77; --accent-light:#285e77; --bg:#faf8f2; --text:#20231f; --text-light:#485149; --border:#d8d5cb; --border-light:#e4e1d8; --shadow:none; --shadow-lg:none; }
 body { font-family:"Pretendard Variable",sans-serif; font-size:16px; line-height:1.8; }
 .work-nav { padding:16px 20px; max-width:1100px; margin:auto; border-bottom:1px solid var(--border); display:flex; flex-wrap:wrap; gap:20px; align-items:center; }
-.work-nav img { width:134px; height:35px; }
+.work-nav img { width:124px; height:35px; }
 .work-nav a { color:var(--text); min-height:44px; display:inline-flex; align-items:center; font-size:14px; text-decoration:none; }
 .work-nav a[aria-current] { color:var(--primary); text-decoration:underline; text-underline-offset:5px; }
 .work-nav .work-nav-links { display:flex; gap:20px; flex-wrap:wrap; }

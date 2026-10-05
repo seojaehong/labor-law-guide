@@ -18,4 +18,10 @@ describe('share presentation', () => {
     expect(JSON.stringify(metadata.openGraph)).toContain('/og/page?title=');
     expect(metadata.openGraph?.siteName).toBe('일의 무늬');
   });
+  it('shows raw and encoded blog markup as plain text without mutating the article', () => {
+    const article = Object.freeze({ summary: '<h2>질문</h2><p>R&amp;D &lt;strong&gt;답변&lt;/strong&gt;</p>' });
+    const original = article.summary;
+    expect(shareText(article.summary)).toBe('질문 R&D 답변');
+    expect(article.summary).toBe(original);
+  });
 });

@@ -1,87 +1,13 @@
 {
-  "wordmark": {
-    "bounds": [
-      84.62021984336621,
-      -865.5697034073551,
-      3850.624548722763,
-      117.9198681810467
-    ],
-    "ratio": 3.8292264988606304,
-    "positions": [
-      [
-        0,
-        0
-      ],
-      [
-        918,
-        0
-      ],
-      [
-        2076,
-        0
-      ],
-      [
-        3026,
-        0
-      ]
-    ],
-    "glyphHorizontalScales": [
-      0.98,
-      0.94,
-      1.015,
-      0.98
-    ],
-    "outlineSource": "Noto Serif KR 700, existing outlined asset",
-    "strokeExpansionUnits": 4,
-    "status": "review proposal, not approved",
-    "recommendedHeightPx": {
-      "mobileHeader": 28,
-      "desktopHeader": 32,
-      "OG": 64
-    },
-    "minimumHeightPx": 24,
-    "note": "Individual width and optical spacing adjustments; no runtime font dependency. Other construction entries retain their previous definitions."
-  },
-  "stacked": {
-    "bounds": [
-      21.07543594522437,
-      -857.5697034073551,
-      1793.2903558395537,
-      1299.9198681810467
-    ],
-    "ratio": 0.821424559002423,
-    "positions": [
-      [
-        0,
-        0
-      ],
-      [
-        960,
-        0
-      ],
-      [
-        0,
-        1190
-      ],
-      [
-        960,
-        1190
-      ]
-    ]
-  },
-  "favicon-letter": {
-    "bounds": [
-      94.51042841159818,
-      -857.5697034073551,
-      881.3589454483737,
-      87.48957158840182
-    ],
-    "ratio": 0.8325917091711611,
-    "positions": [
-      [
-        0,
-        0
-      ]
-    ]
-  }
+  "principle": "open counters and repeated eight-unit cut terminals",
+  "viewBox": [
+    0,
+    0,
+    989,
+    280
+  ],
+  "ratio": 3.532142857142857,
+  "verticalWeight": 44,
+  "horizontalWeight": 31,
+  "source": "custom edited Hangul component paths; no generated image or extra symbol"
 }
