@@ -29,7 +29,7 @@ PR11 https://github.com/seojaehong/labor-law-guide/pull/11 : head 244ac3926d5a75
 - 메뉴: PR11의 옛 실무도구 하위 위치 대신 승인 메뉴의 달라지는 일로 연결합니다.
 - 책임 표시: 기존 AI 작성 및 공인노무사 검수 전 문구를 보존합니다. 갱신일은 수집 자료의 generated 값이며 법률 검수일로 표시하지 않습니다.
 - 수집 토큰·06:30 KST 운영·bot PR 정상 동작은 이 작업에서 보장하지 않습니다.
-- 전달받은 실행 https://github.com/seojaehong/labor-law-guide/actions/runs/37246117884 은 attempt 1 failure 보고 상태입니다. 실패 원인·운영 배포 여부는 미확인입니다. 재실행·크론 변경·배포는 하지 않습니다.
+- 전달받은 실행 https://github.com/seojaehong/labor-law-guide/actions/runs/37246117884 은 law.go.kr/DRF/lawSearch.do 재시도 후 urllib/socket timeout으로 실패했고 Diff/BuildData/Compare/OpenPR는 미실행입니다. 외부 접속 실패로 구분하며 UI 빌드·법령 데이터 오류의 증거가 아닙니다. 수집 운영 검증은 미완료입니다. 재실행·크론 변경·운영 배포는 하지 않습니다.
 
 PR11 최신 head를 로컬 작업 브랜치에 통합했습니다. PR11 대비 법령 데이터·수집 스크립트·워크플로 추가 변경은 없습니다. 워크플로는 실행하지 않았습니다.
 
@@ -42,3 +42,12 @@ PR11 최신 head를 로컬 작업 브랜치에 통합했습니다. PR11 대비 �
 - /database·/news의 동적 OG 래퍼 누락과 옛 siteName 우선 적용을 보완했습니다. 개인정보 페이지의 사이트명과 글 목록·본문의 탐색 이름을 현 브랜드에 맞췄습니다. 법률 해설·계산식·원문은 바꾸지 않았습니다.
 - 워드마크는 최종 선택 전입니다. PR11 원본 SVG와 제안 SVG를 같은 실제 헤더와 OG 렌더러에서 비교했습니다.
 - 공개/예정 라우트 전수 체크리스트는 public-route-design-checklist.md에서 별도 관리합니다. 실데이터·법률 내용·구독 운영 검증은 계속 미완료입니다.
+
+## 최종 후속 검사와 외부 전달
+
+- 최신 코드 production build 성공: 102개 정적 페이지. TypeScript 및 git diff --check 통과, 27개 파일 251개 검사 통과.
+- design-browser-matrix.json: 공개 구체 경로 34개 × 7폭(360/390/430/768/1024/1280/1440) × 두 테마 클래스 = 476개 기록. 모두 HTTP 200, 문서 가로 넘침 없음. 색 대비·전체 동선·실데이터 정확성의 전수 검증은 아닙니다. 합성 FAQ 목록에는 분류 링크가 없어 분류 상세를 이번 매트릭스에서 제외했습니다.
+- 실제 헤더/OG 원안·제안안 비교와 모바일·다크·점검 모달·공유 이미지는 docs/design-visuals/README.md에 포함했습니다. 워드마크 최종 선택은 남아 있습니다.
+- Library 공식 업로드는 가용성 오류로 중단됐습니다. 저장 성공과 library_file_ids는 없습니다. 다른 Library 전송 경로로 우회하지 않았습니다.
+- 승인 브랜치를 push했고 Draft PR https://github.com/seojaehong/labor-law-guide/pull/12 를 생성했습니다. 운영 merge/production 배포는 하지 않았습니다.
+- 시각 파일 포함 커밋 c6b9eb011416258a517d447f45495a27f90387bc의 Vercel 상태는 success였습니다. 브랜치 미리보기 https://labor-law-guide-git-codex-laws-desi-a1c3ec-seojaehongs-projects.vercel.app 는 실제 HTTP 확인에서 Vercel 로그인으로 이동했습니다. 비로그인 공개 접근은 미확인입니다. GitHub Actions의 해당 커밋 PR 실행 목록은 비어 있었습니다.
