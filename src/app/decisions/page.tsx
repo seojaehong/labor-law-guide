@@ -94,7 +94,7 @@ export default async function DecisionsIndexPage(
         <button
           type="submit"
           className="rounded-xl px-5 py-2.5 text-[14px] font-semibold text-white"
-          style={{ backgroundColor: "var(--color-accent-ink)" }}
+          style={{ backgroundColor: "var(--color-accent-ink)", color: "var(--color-on-accent-ink)" }}
         >
           검색
         </button>
@@ -129,7 +129,7 @@ async function SearchView({ q, type, page }: { q: string; type: Kind; page: numb
             className="rounded-full border px-4 py-1.5 text-[13px] font-medium"
             style={
               t.key === type
-                ? { backgroundColor: "var(--color-accent)", color: "#fff", borderColor: "var(--color-accent)" }
+                ? { backgroundColor: "var(--color-accent)", color: "var(--color-on-accent-ink)", borderColor: "var(--color-accent)" }
                 : { backgroundColor: "var(--color-bg-surface)", color: "var(--grey-600)", borderColor: "var(--color-border)" }
             }
           >
