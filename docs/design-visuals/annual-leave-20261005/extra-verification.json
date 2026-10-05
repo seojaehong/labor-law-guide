@@ -1,0 +1,14 @@
+{
+  "xlsxUpload": true,
+  "invalidPreservesInput": true,
+  "sameNameRetry": true,
+  "workspaceSessionPrivacy": true,
+  "widths": [
+    320,
+    390,
+    768,
+    1024,
+    1440
+  ],
+  "errors": []
+}
