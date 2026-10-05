@@ -31,8 +31,8 @@ export default function GlassNav() {
   return <nav className="glass-nav editorial-nav sticky top-0 z-50" aria-label="주요 탐색">
     <div className="layout-wide layout-wide--chrome editorial-nav-inner">
       <Link href="/" className="editorial-wordmark" aria-current={pathname==='/'?'page':undefined}>
-        <Image className="editorial-logo-light" src="/brand/work-patterns-wordmark-ink.svg" width={141} height={40} alt={BRAND_NAME} priority />
-        <Image className="editorial-logo-dark" src="/brand/work-patterns-wordmark-dark.svg" width={141} height={40} alt={BRAND_NAME} priority />
+        <Image className="editorial-logo-light" src="/brand/work-patterns-wordmark-original.svg" width={141} height={40} alt={BRAND_NAME} priority />
+        <Image className="editorial-logo-dark" src="/brand/work-patterns-wordmark-original-dark.svg" width={141} height={40} alt={BRAND_NAME} priority />
       </Link>
       <div className="editorial-desktop-links">{links}</div>
       <div className="editorial-nav-controls"><ThemeToggle /><Link className="editorial-service-link editorial-desktop-service" href="/contact">소개·상담</Link>

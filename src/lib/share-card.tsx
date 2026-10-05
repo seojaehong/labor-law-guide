@@ -18,7 +18,7 @@ function loadAssets() {
     logo: 'data:image/svg+xml;base64,' + logo.toString('base64'),
   }));
 }
-export async function shareCard({ title, description, category = '노동법 자료·실무 정보', wordmark = 'proposal' }: { title: string; description?: string; category?: string; wordmark?: 'original' | 'proposal' }) {
+export async function shareCard({ title, description, category = '노동법 자료·실무 정보', wordmark = 'original' }: { title: string; description?: string; category?: string; wordmark?: 'original' | 'proposal' }) {
   const a = await loadAssets();
   const logo = wordmark === 'original' ? await (originalLogo ??= readFile(path.join(process.cwd(), 'public/brand/work-patterns-wordmark-original.svg')).then(value => 'data:image/svg+xml;base64,' + value.toString('base64'))) : a.logo;
   const text = shortShareText(title, 180) || BRAND_NAME;
