@@ -13,5 +13,10 @@
   ],
   "errorRetry": true,
   "emptyState": true,
+  "limitState": true,
+  "literalWorkerAndBusinessText": true,
+  "resultWidthThemeChecks": 10,
+  "keyboardScrollableResult": true,
+  "printOverflowVisible": true,
   "errors": []
 }
