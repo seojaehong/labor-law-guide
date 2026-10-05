@@ -23,7 +23,7 @@ export default function LeaveToolPage() {
     <div className="lv-page">
       <header className="lv-head">
         <p className="lv-head__eyebrow">노무사·인사담당자를 위한 연차 계산</p>
-        <h1 className="lv-head__title">연차휴가 계산기</h1>
+        <h1 className="lv-head__title t-hero">연차휴가 계산기</h1>
         <p className="lv-head__lede">
           한 명씩 계산기에 넣고 엑셀로 옮기는 일을 없앱니다. 명단을 그대로 붙여넣으면{" "}
           <strong>입사일 기준 연차일수</strong>를 한 번에 계산하고, 대장 값을 함께 넣으면{" "}

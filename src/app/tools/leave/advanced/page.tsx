@@ -24,7 +24,7 @@ export default function AdvancedPage() {
     <div className="lv-page">
       <header className="lv-head">
         <p className="lv-head__eyebrow">노무사·인사담당자를 위한 연차 점검</p>
-        <h1 className="lv-head__title">사용촉진 일정 · 반차 환산</h1>
+        <h1 className="lv-head__title t-hero">사용촉진 일정 · 반차 환산</h1>
         <p className="lv-head__lede">
           촉구를 <strong>언제까지 해야 하는지</strong> 날짜로 확인하고, 반차·반반차·시간차
           사용분을 <strong>일 단위로 환산</strong>합니다.

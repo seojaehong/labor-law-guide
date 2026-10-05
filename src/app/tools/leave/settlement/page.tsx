@@ -23,7 +23,7 @@ export default function SettlementPage() {
     <div className="lv-page">
       <header className="lv-head">
         <p className="lv-head__eyebrow">노무사·인사담당자를 위한 퇴직 정산</p>
-        <h1 className="lv-head__title">
+        <h1 className="lv-head__title t-hero">
           퇴직 연차 정산
         </h1>
         <p className="lv-head__lede">

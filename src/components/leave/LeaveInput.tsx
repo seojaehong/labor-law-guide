@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { compareRow } from "@/lib/leave/annual-leave";
 import { buildText, looksLikeHeader, parseLines, readGrid } from "@/lib/leave/leave-sheet";
@@ -11,6 +11,7 @@ import { todayLocal } from "@/lib/leave/leave-today";
 import {
   WORKSPACES_CHANGED,
   getActiveWorkspace,
+  getMembers,
   setMembers,
 } from "@/lib/leave/leave-workspaces";
 import type { Workspace } from "@/lib/leave/leave-workspaces";
@@ -160,11 +161,22 @@ export function LeaveInput() {
 
   /** 지금 고른 사업장 — 읽어낸 직원은 여기로 들어간다 */
   const [ws, setWs] = useState<Workspace | null>(null);
+  const editorWorkspace = useRef<string | null | undefined>(undefined);
   useEffect(() => {
-    const sync = () => setWs(previous => {
+    const sync = () => {
       const next = getActiveWorkspace();
-      return JSON.stringify(previous) === JSON.stringify(next) ? previous : next;
-    });
+      const id = next?.id ?? null;
+      if (editorWorkspace.current !== id) {
+        const initialWithoutWorkspace = editorWorkspace.current === undefined && !next;
+        editorWorkspace.current = id;
+        if (!initialWithoutWorkspace) {
+          setText(getMembers(next).map(member => `${member.name}\t${member.hireDate}`).join("\n"));
+          setSheet(null);
+          setFileNote(null);
+        }
+      }
+      setWs(previous => JSON.stringify(previous) === JSON.stringify(next) ? previous : next);
+    };
     sync();
     window.addEventListener(WORKSPACES_CHANGED, sync);
     return () => window.removeEventListener(WORKSPACES_CHANGED, sync);
@@ -177,6 +189,7 @@ export function LeaveInput() {
   //   합치면 타이핑 중간 상태("홍" → "홍길" → "홍길동")가 전부 남아 드롭다운이
   //   쓰레기로 찬다. 날짜 오타를 고쳐도 틀린 것이 같이 남는다.
   useEffect(() => {
+    if (editorWorkspace.current !== (ws?.id ?? null)) return;
     setMembers(
       ws,
       rows
