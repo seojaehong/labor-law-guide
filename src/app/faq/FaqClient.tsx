@@ -193,7 +193,7 @@ export default function FaqClient({ initialFaqs, categoryCounts, totalCount, ini
             onClick={() => handleCategoryChange(null)}
             className="rounded-full px-3 py-1 text-xs font-medium border transition-colors"
             style={!activeCategory
-              ? { backgroundColor: 'var(--color-accent)', color: '#fff', borderColor: 'var(--color-accent)' }
+              ? { backgroundColor: 'var(--color-accent)', color: 'var(--color-on-accent-ink)', borderColor: 'var(--color-accent)' }
               : { backgroundColor: 'var(--color-bg-surface)', color: 'var(--grey-600)', borderColor: 'var(--color-border)' }
             }
           >
@@ -205,7 +205,7 @@ export default function FaqClient({ initialFaqs, categoryCounts, totalCount, ini
               onClick={() => handleCategoryChange(cat)}
               className="rounded-full px-3 py-1 text-xs font-medium border transition-colors"
               style={activeCategory === cat
-                ? { backgroundColor: 'var(--color-accent)', color: '#fff', borderColor: 'var(--color-accent)' }
+                ? { backgroundColor: 'var(--color-accent)', color: 'var(--color-on-accent-ink)', borderColor: 'var(--color-accent)' }
                 : { backgroundColor: 'var(--color-bg-surface)', color: 'var(--grey-600)', borderColor: 'var(--color-border)' }
               }
             >
