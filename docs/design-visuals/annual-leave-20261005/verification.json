@@ -1,0 +1,109 @@
+{
+  "checks": [
+    {
+      "route": "/tools",
+      "theme": "light",
+      "status": 200,
+      "overflow": false
+    },
+    {
+      "route": "/tools/leave",
+      "theme": "light",
+      "status": 200,
+      "overflow": false
+    },
+    {
+      "route": "/tools/leave/advanced",
+      "theme": "light",
+      "status": 200,
+      "overflow": false
+    },
+    {
+      "route": "/tools/leave/settlement",
+      "theme": "light",
+      "status": 200,
+      "overflow": false
+    },
+    {
+      "route": "/tools",
+      "theme": "dark",
+      "status": 200,
+      "overflow": false
+    },
+    {
+      "route": "/tools/leave",
+      "theme": "dark",
+      "status": 200,
+      "overflow": false
+    },
+    {
+      "route": "/tools/leave/advanced",
+      "theme": "dark",
+      "status": 200,
+      "overflow": false
+    },
+    {
+      "route": "/tools/leave/settlement",
+      "theme": "dark",
+      "status": 200,
+      "overflow": false
+    },
+    {
+      "flow": "synthetic calculation and XLSX download",
+      "pass": true
+    },
+    {
+      "flow": "annual and separate first-year promotion windows",
+      "pass": true
+    }
+  ],
+  "blockedExternalRequests": [
+    {
+      "method": "GET",
+      "url": "https://www.googletagmanager.com/gtag/js"
+    },
+    {
+      "method": "GET",
+      "url": "https://www.googletagmanager.com/gtag/js"
+    },
+    {
+      "method": "GET",
+      "url": "https://www.googletagmanager.com/gtag/js"
+    },
+    {
+      "method": "GET",
+      "url": "https://www.googletagmanager.com/gtag/js"
+    },
+    {
+      "method": "GET",
+      "url": "https://www.googletagmanager.com/gtag/js"
+    },
+    {
+      "method": "GET",
+      "url": "https://www.googletagmanager.com/gtag/js"
+    },
+    {
+      "method": "GET",
+      "url": "https://www.googletagmanager.com/gtag/js"
+    },
+    {
+      "method": "GET",
+      "url": "https://www.googletagmanager.com/gtag/js"
+    },
+    {
+      "method": "GET",
+      "url": "https://www.googletagmanager.com/gtag/js"
+    },
+    {
+      "method": "GET",
+      "url": "https://www.googletagmanager.com/gtag/js"
+    },
+    {
+      "method": "GET",
+      "url": "https://www.googletagmanager.com/gtag/js"
+    }
+  ],
+  "errors": [
+    "http://127.0.0.1:3126/tools Minified React error #418; visit https://react.dev/errors/418?args[]=HTML&args[]= for the full message or use the non-minified dev environment for full errors and additional helpful warnings."
+  ]
+}

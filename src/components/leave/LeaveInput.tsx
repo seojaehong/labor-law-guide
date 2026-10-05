@@ -168,9 +168,11 @@ export function LeaveInput() {
       const id = next?.id ?? null;
       if (editorWorkspace.current !== id) {
         const initialWithoutWorkspace = editorWorkspace.current === undefined && !next;
+        const members = getMembers(next);
+        const attachDraftToFirstWorkspace = editorWorkspace.current === null && next && members.length === 0;
         editorWorkspace.current = id;
-        if (!initialWithoutWorkspace) {
-          setText(getMembers(next).map(member => `${member.name}\t${member.hireDate}`).join("\n"));
+        if (!initialWithoutWorkspace && !attachDraftToFirstWorkspace) {
+          setText(members.map(member => `${member.name}\t${member.hireDate}`).join("\n"));
           setSheet(null);
           setFileNote(null);
         }
