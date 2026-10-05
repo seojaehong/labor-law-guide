@@ -51,16 +51,41 @@ function days(a?: string, b?: string): number | null {
   return Math.round((e - s) / 86400000);
 }
 
+/**
+ * 계속근로기간이 1년 미만인지 **달력으로** 본다.
+ *
+ * 🔴 처음에는 `일수 < 365` 로 봤는데 **윤년에서 하루 어긋난다.** 2026-10-05 실측:
+ *   2023-03-01 ~ 2024-02-29 = 365일 → 일수 기준 「1년 이상」이지만 달력으로는 1년이 안 됐다
+ *                                      (1년이 되는 날은 2024-03-01)
+ *   2024-02-29 ~ 2025-02-28 = 365일 → 같은 어긋남
+ * 1년을 못 채운 사람이 경고를 못 받는 쪽으로 틀리므로 그냥 두면 안 된다.
+ *
+ * 2/29 입사자의 1주년은 평년에 날짜가 없다. 여기서는 3/1 로 본다 — 실무 해석이 갈릴 수 있는
+ * 지점이라 단정하지 않고, 이 경계에 걸리면 사람이 확인하도록 안내 문구에 기간을 함께 보여준다.
+ */
+function underOneYear(a?: string, b?: string): boolean | null {
+  if (!a || !b) return null;
+  const s = new Date(a + 'T00:00:00Z'), e = new Date(b + 'T00:00:00Z');
+  if (Number.isNaN(s.getTime()) || Number.isNaN(e.getTime())) return null;
+  const y = s.getUTCFullYear() + 1, m = s.getUTCMonth(), d = s.getUTCDate();
+  const anniv = new Date(Date.UTC(y, m, d));
+  // 2/29 입사자가 평년을 만나면 Date 가 3/1 로 넘긴다 — 의도한 동작이다.
+  if (anniv.getUTCMonth() !== m) anniv.setUTCDate(1);
+  return e < anniv;
+}
+
 /** 조문으로 말할 수 있는 것만. 각 항목의 basis 는 2026-10-05 법제처 원문 대조. */
 function buildChecks(b: Body): Check[] {
   const out: Check[] = [];
   const svc = b.serviceDays ?? days(b.startDate, b.endDate);
+  // 날짜가 있으면 달력으로 본다. 없으면 받은 일수로 보되 그때는 365 일을 쓸 수밖에 없다.
+  const under = underOneYear(b.startDate, b.endDate) ?? (svc !== null ? svc < 365 : null);
 
-  if (svc !== null && svc < 365) {
+  if (under === true) {
     out.push({
       level: 'block',
       title: '계속근로기간이 1년이 안 됩니다',
-      body: `입사일부터 퇴사일까지 ${svc}일입니다. 1년 미만이면 퇴직급여를 지급할 의무가 없습니다. 다만 계속근로기간을 어떻게 세는지(수습·휴직·재입사 포함 여부)에 따라 1년을 넘길 수 있으니 기간부터 확인하세요.`,
+      body: `입사일부터 퇴사일까지 ${svc ?? '?'}일입니다. 1년 미만이면 퇴직급여를 지급할 의무가 없습니다. 다만 계속근로기간을 어떻게 세는지(수습·휴직·재입사 포함 여부)에 따라 1년을 넘길 수 있으니 기간부터 확인하세요.`,
       basis: '근로자퇴직급여 보장법 제4조 제1항 단서',
     });
   }
