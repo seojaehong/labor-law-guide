@@ -10,6 +10,9 @@ header { background:transparent; color:var(--text); border-radius:0; border-top:
 header h1 { font-size:30px; letter-spacing:-.02em; line-height:1.35; }
 header p { font-size:14px; opacity:1; }
 header p[style] { color:var(--text-light) !important; }
+header p span[style] { color:var(--text) !important; background:var(--border-light) !important; }
+.tool-theme { margin-left:auto; padding:0 12px; border:1px solid var(--border); border-radius:4px; background:var(--card-bg); color:var(--text); cursor:pointer; }
+.tool-back { display:inline-flex; align-items:center; min-height:44px; margin-bottom:12px; color:var(--primary); text-underline-offset:4px; }
 .guide-toggle { color:var(--primary); border:1px solid var(--border); background:var(--card-bg); min-height:44px; font-size:14px; }
 .card { box-shadow:none; padding:24px; border:1px solid var(--border); }
 button,input,select { min-height:44px; font:inherit; }

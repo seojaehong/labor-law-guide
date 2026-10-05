@@ -280,6 +280,8 @@ export default function FaqClient({ initialFaqs, categoryCounts, totalCount, ini
                 >
                   <button
                     onClick={() => setExpandedId(expandedId === faq.id ? null : faq.id)}
+                    aria-expanded={expandedId === faq.id}
+                    aria-controls={expandedId === faq.id ? `faq-answer-${faq.id}` : undefined}
                     className="flex w-full items-start gap-3 p-5 text-left"
                   >
                     <span className="mt-0.5 shrink-0 text-sm font-bold" style={{ color: 'var(--color-accent)' }}>Q</span>
@@ -287,16 +289,6 @@ export default function FaqClient({ initialFaqs, categoryCounts, totalCount, ini
                       <div className="text-[14px] font-medium" style={{ color: 'var(--color-text-primary)' }}>
                         {faq.question}
                       </div>
-                      {!activeCategory && faq.unified_category && (
-                        <Link
-                          href={`/faq/${categoryToSlug(faq.unified_category)}`}
-                          onClick={(e) => e.stopPropagation()}
-                          className="mt-1 inline-block rounded-full px-2 py-0.5 text-[length:var(--text-xs)] font-medium hover:underline"
-                          style={{ backgroundColor: 'var(--blue-50)', color: 'var(--blue-600)' }}
-                        >
-                          {faq.unified_category}
-                        </Link>
-                      )}
                     </div>
                     <ChevronDown
                       size={16}
@@ -304,10 +296,19 @@ export default function FaqClient({ initialFaqs, categoryCounts, totalCount, ini
                       style={{ color: 'var(--grey-400)', transform: expandedId === faq.id ? 'rotate(180deg)' : undefined }}
                     />
                   </button>
+                  {!activeCategory && faq.unified_category && (
+                    <Link
+                      href={`/faq/${categoryToSlug(faq.unified_category)}`}
+                      className="mx-5 mb-3 inline-flex min-h-[44px] items-center rounded-full px-3 text-[length:var(--text-xs)] font-medium hover:underline"
+                      style={{ backgroundColor: 'var(--blue-50)', color: 'var(--color-info-ink)' }}
+                    >
+                      {faq.unified_category}
+                    </Link>
+                  )}
                   {expandedId === faq.id && (
-                    <div className="border-t px-5 py-4" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--grey-50)' }}>
+                    <div id={`faq-answer-${faq.id}`} className="border-t px-5 py-4" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--grey-50)' }}>
                       <div className="flex gap-3">
-                        <span className="mt-0.5 shrink-0 text-sm font-bold" style={{ color: '#059669' }}>A</span>
+                        <span className="mt-0.5 shrink-0 text-sm font-bold" style={{ color: 'var(--color-success-ink)' }}>A</span>
                         <div className="whitespace-pre-line text-[14px] leading-relaxed" style={{ color: 'var(--color-text-secondary)' }}>
                           {faq.answer}
                         </div>

@@ -1,0 +1,17 @@
+{
+  "mockOnly": true,
+  "realApiCalls": 0,
+  "automaticPost": false,
+  "perWorkerOptions": true,
+  "staleResponsesSuppressed": [
+    "add",
+    "change options",
+    "switch",
+    "reset",
+    "input",
+    "remove"
+  ],
+  "errorRetry": true,
+  "emptyState": true,
+  "errors": []
+}
