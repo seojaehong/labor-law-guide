@@ -146,8 +146,14 @@ export async function POST(req: NextRequest) {
 
   if (embedding) {
     const [interp, faq] = await Promise.all([
+      // 유사도 하한 0.50 — **챗봇(0.35)보다 높게 잡았다.**
+      // 여기서는 「근거」라는 이름으로 붙으므로 빗나간 것이 섞이면 안 된다.
+      // 2026-10-05 실측으로 경계가 깨끗하게 갈렸다:
+      //   맞는 쪽 0.715·0.665·0.664 (1년 미만) / 0.648·0.573·0.555 (평균임금<통상임금)
+      //   빗나간 쪽 0.448·0.392·0.385 (15시간 미만 — 이 쟁점은 행정해석이 실제로 얇다)
+      // 15시간 단서는 조문이 명확해 해석이 쌓이지 않은 영역이다. 없으면 없는 대로 비워 둔다.
       db.rpc('search_interpretation_semantic_v2', {
-        query_embedding: embedding, max_results: 3, min_similarity: 0.35,
+        query_embedding: embedding, max_results: 3, min_similarity: 0.50,
       }),
       db.rpc('search_faq_combined', {
         query_text: toLexQuery(query), query_embedding: embedding,
