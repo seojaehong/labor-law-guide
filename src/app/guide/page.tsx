@@ -94,7 +94,7 @@ export default function GuidePage() {
                             <div className="flex items-center gap-2">
                               {/* 솔리드 위 잉크는 테마로 뒤집는다 — 다크 전경(#34d399·#f87171)에 흰 글씨를 얹으면 2:1 아래로 떨어진다(§3.3 ★★).
                                   --color-bg-surface = 라이트 #ffffff / 다크 #191f28 이라 종전 text-white와 라이트에서 동일하다. */}
-                              <span className="rounded-full px-3 py-1 text-sm font-bold" style={{ backgroundColor: item.answer ? 'var(--color-success)' : 'var(--color-danger)', color: '#ffffff' }}>
+                              <span className="rounded-full px-3 py-1 text-sm font-bold" style={{ backgroundColor: item.answer ? 'var(--color-success)' : 'var(--color-danger)', color: item.answer ? '#ffffff' : 'var(--color-on-accent-ink)' }}>
                                 {item.answer ? 'O' : 'X'}
                               </span>
                               <span className="text-sm" style={{ color: 'var(--grey-600)' }}>{item.explanation}</span>
