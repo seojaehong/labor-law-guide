@@ -1,28 +1,29 @@
-/* /laws — 노동법 개정 알림. 흑백 정밀형 디자인 언어(잉크 + 회색 사다리 + 강조색 하나, 헤어라인, 겹친 그림자, 모노 라벨)를
-   이 화면 안(.lr)에만 적용한다. 사이트 전역 토큰은 건드리지 않는다. 한글 보정: 자간 -0.02em 하한·굵기 600 상한·keep-all */
+/* /laws — 노동법 개정 알림. 「일의 무늬」 토큰(globals.css)에 연결한다 — 종이·먹·강조 하나, 헤어라인, 모노 라벨.
+   --lr-* 이름은 화면 안 별칭일 뿐 값은 전부 사이트 토큰이라 다크 모드도 사이트가 뒤집는다.
+   신설·개정·삭제는 색만으로 구분하지 않고 글자 라벨을 함께 둔다(TONE 합의). 한글 보정: 자간 -0.02em 하한·굵기 600 상한·keep-all */
 
 .lr {
-  --lr-ink: #171717;
-  --lr-body: #4d4d4d;
-  --lr-mute: #666666;
-  --lr-hair: #ebebeb;
-  --lr-hair-strong: #a1a1a1;
-  --lr-canvas: #ffffff;
-  --lr-soft: #fafafa;
-  --lr-soft-2: #f5f5f5;
-  --lr-link: #0070f3;
-  --lr-link-deep: #0761d1;
-  --lr-link-soft: #d3e5ff;
-  --lr-error: #ee0000;
-  --lr-error-deep: #c50000;
-  --lr-error-soft: #f7d4d6;
-  --lr-warn-deep: #ab570a;
-  --lr-warn-soft: #ffefcf;
-  --lr-on-ink: #ffffff;
-  --lr-shadow-1: 0 0 0 1px rgba(0, 0, 0, 0.08);
-  --lr-shadow-2: 0 0 0 1px rgba(0, 0, 0, 0.08), 0 1px 1px rgba(0, 0, 0, 0.02), 0 2px 2px rgba(0, 0, 0, 0.04);
-  --lr-shadow-4: 0 0 0 1px rgba(0, 0, 0, 0.08), 0 2px 2px rgba(0, 0, 0, 0.04), 0 8px 16px -4px rgba(0, 0, 0, 0.04);
-  --lr-shadow-5: 0 0 0 1px rgba(0, 0, 0, 0.08), 0 1px 1px rgba(0, 0, 0, 0.02), 0 8px 16px -4px rgba(0, 0, 0, 0.04), 0 24px 32px -8px rgba(0, 0, 0, 0.06);
+  --lr-ink: var(--color-text-primary);
+  --lr-body: var(--grey-700);
+  --lr-mute: var(--color-text-secondary);
+  --lr-hair: var(--color-border);
+  --lr-hair-strong: var(--color-text-tertiary);
+  --lr-canvas: var(--color-bg-surface);
+  --lr-soft: var(--color-bg-primary);
+  --lr-soft-2: color-mix(in srgb, var(--color-bg-primary) 92%, var(--color-text-primary));
+  --lr-link: var(--color-accent-ink);
+  --lr-link-deep: var(--color-accent-ink-hover);
+  --lr-link-soft: color-mix(in srgb, var(--color-accent) 14%, transparent);
+  --lr-error: var(--color-danger);
+  --lr-error-deep: var(--color-danger-ink);
+  --lr-error-soft: var(--color-danger-bg);
+  --lr-warn-deep: var(--color-warn-ink);
+  --lr-warn-soft: var(--color-warn-bg);
+  --lr-on-ink: var(--color-bg-primary);
+  --lr-shadow-1: 0 0 0 1px var(--color-border);
+  --lr-shadow-2: 0 0 0 1px var(--color-border);
+  --lr-shadow-4: 0 0 0 1px var(--color-border), 0 8px 16px -4px rgba(0, 0, 0, 0.05);
+  --lr-shadow-5: 0 0 0 1px var(--color-border), 0 8px 16px -4px rgba(0, 0, 0, 0.05);
   --lr-mono: ui-monospace, 'SF Mono', 'JetBrains Mono', Menlo, Consolas, 'D2Coding', monospace;
 
   background: var(--lr-soft);
@@ -32,29 +33,8 @@
   font-feature-settings: 'tnum';
 }
 
-.dark .lr {
-  --lr-ink: #ededed;
-  --lr-body: #a1a1a1;
-  --lr-mute: #8f8f8f;
-  --lr-hair: #2e2e2e;
-  --lr-hair-strong: #4d4d4d;
-  --lr-canvas: #0a0a0a;
-  --lr-soft: #000000;
-  --lr-soft-2: #1a1a1a;
-  --lr-link: #3291ff;
-  --lr-link-deep: #52a8ff;
-  --lr-link-soft: rgba(50, 145, 255, 0.18);
-  --lr-error: #ff4d4d;
-  --lr-error-deep: #ff6b6b;
-  --lr-error-soft: rgba(238, 0, 0, 0.22);
-  --lr-warn-deep: #f5a623;
-  --lr-warn-soft: rgba(245, 166, 35, 0.16);
-  --lr-on-ink: #0a0a0a;
-  --lr-shadow-1: 0 0 0 1px rgba(255, 255, 255, 0.1);
-  --lr-shadow-2: 0 0 0 1px rgba(255, 255, 255, 0.1);
-  --lr-shadow-4: 0 0 0 1px rgba(255, 255, 255, 0.12);
-  --lr-shadow-5: 0 0 0 1px rgba(255, 255, 255, 0.14), 0 24px 32px -8px rgba(0, 0, 0, 0.6);
-}
+/* 큰 제목은 사이트 편집 서체 */
+.lr-h1, .lr-next-big, .lr-next-title { font-family: var(--font-editorial); }
 
 .lr-wrap { max-width: 1120px; margin: 0 auto; padding: 0 24px; }
 @media (max-width: 600px) { .lr-wrap { padding: 0 16px; } }
