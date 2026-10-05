@@ -8,6 +8,7 @@ import rehypeSanitize, { defaultSchema } from 'rehype-sanitize';
 import { supabaseServer } from '@/lib/supabase-server';
 import { fetchAllRows } from '@/lib/supabase-paged';
 import { SITE_URL } from '@/lib/constants';
+import { articleShare } from '@/lib/share-text';
 import { cleanBlogSummary, extractBlogLead } from '@/lib/blog-summary';
 import { ArrowLeft, Calendar, Tag, BookOpen, ArrowRight, MessageSquare, ClipboardCheck } from 'lucide-react';
 import { getCategoryColor } from '@/lib/category-colors';
@@ -106,14 +107,15 @@ export async function generateMetadata({
   }
 
   const title = article.seo_title || article.title;
-  const description = article.seo_description || article.summary || `${article.title} - 노무법인 위너스`;
+  const shared = articleShare(article);
+  const description = shared.description;
 
   return {
     title,
     description,
     alternates: { canonical: `${SITE_URL}/blog/${slug}` },
     openGraph: {
-      title,
+      title: shared.title,
       description,
       url: `${SITE_URL}/blog/${slug}`,
       type: 'article',
@@ -121,12 +123,13 @@ export async function generateMetadata({
       modifiedTime: article.updated_at,
       authors: [article.author],
       locale: 'ko_KR',
-      images: [{ url: article.cover_image || `${SITE_URL}/og/${slug}` }],
+      images: [{ url: `${SITE_URL}/og/${slug}` }],
     },
     twitter: {
       card: 'summary_large_image',
-      title,
+      title: shared.title,
       description,
+      images: [`${SITE_URL}/og/${slug}`],
     },
   };
 }
@@ -236,7 +239,7 @@ export default async function BlogArticlePage({
               style={{ color: 'var(--color-text-secondary)' }}
             >
               <ArrowLeft size={14} />
-              딥다이브 목록
+              글 목록
             </Link>
 
             {/* Article Header */}

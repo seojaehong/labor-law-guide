@@ -1,0 +1,65 @@
+{
+  "method": "Visible main headings, paragraphs, labels, buttons and navigation links; opaque ancestor background. Excludes transparent text and unresolvable surfaces.",
+  "report": [
+    {
+      "route": "/laws",
+      "theme": "light",
+      "checked": 55,
+      "failures": []
+    },
+    {
+      "route": "/tools/work-rules",
+      "theme": "light",
+      "checked": 11,
+      "failures": []
+    },
+    {
+      "route": "/blog",
+      "theme": "light",
+      "checked": 51,
+      "failures": []
+    },
+    {
+      "route": "/faq",
+      "theme": "light",
+      "checked": 8,
+      "failures": []
+    },
+    {
+      "route": "/decisions",
+      "theme": "light",
+      "checked": 10,
+      "failures": []
+    },
+    {
+      "route": "/laws",
+      "theme": "dark",
+      "checked": 55,
+      "failures": []
+    },
+    {
+      "route": "/tools/work-rules",
+      "theme": "dark",
+      "checked": 11,
+      "failures": []
+    },
+    {
+      "route": "/blog",
+      "theme": "dark",
+      "checked": 51,
+      "failures": []
+    },
+    {
+      "route": "/faq",
+      "theme": "dark",
+      "checked": 8,
+      "failures": []
+    },
+    {
+      "route": "/decisions",
+      "theme": "dark",
+      "checked": 10,
+      "failures": []
+    }
+  ]
+}

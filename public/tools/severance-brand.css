@@ -1,0 +1,20 @@
+@font-face { font-family:"Pretendard Variable"; src:url("/fonts/PretendardVariable.woff2") format("woff2"); font-weight:100 900; font-display:swap; }
+:root { --primary:#285e77; --primary-light:#214d62; --accent:#285e77; --accent-light:#285e77; --bg:#faf8f2; --text:#20231f; --text-light:#485149; --border:#d8d5cb; --border-light:#e4e1d8; --shadow:none; --shadow-lg:none; }
+body { font-family:"Pretendard Variable",sans-serif; font-size:16px; line-height:1.8; }
+.work-nav { padding:16px 20px; max-width:1100px; margin:auto; border-bottom:1px solid var(--border); display:flex; flex-wrap:wrap; gap:20px; align-items:center; }
+.work-nav img { width:124px; height:35px; }
+.work-nav a { color:var(--text); min-height:44px; display:inline-flex; align-items:center; font-size:14px; text-decoration:none; }
+.work-nav a[aria-current] { color:var(--primary); text-decoration:underline; text-underline-offset:5px; }
+.work-nav .work-nav-links { display:flex; gap:20px; flex-wrap:wrap; }
+header { background:transparent; color:var(--text); border-radius:0; border-top:2px solid var(--text); border-bottom:1px solid var(--border); box-shadow:none; padding:24px 0; }
+header h1 { font-size:30px; letter-spacing:-.02em; line-height:1.35; }
+header p { font-size:14px; opacity:1; }
+header p[style] { color:var(--text-light) !important; }
+.guide-toggle { color:var(--primary); border:1px solid var(--border); background:var(--card-bg); min-height:44px; font-size:14px; }
+.card { box-shadow:none; padding:24px; border:1px solid var(--border); }
+button,input,select { min-height:44px; font:inherit; }
+input[type=checkbox],input[type=radio] { min-height:0; }
+.table-wrap { overflow-x:auto; max-width:100%; }
+body.dark { --primary:#a3cfc8; --primary-light:#c5e1dc; --accent:#a3cfc8; --accent-light:#a3cfc8; --bg:#191d19; --card-bg:#202620; --text:#f0f0e7; --text-light:#b9c0b4; --border:#414a3d; --border-light:#414a3d; }
+body.dark .tab-btn.active,body.dark .btn-primary { color:#191d19; }
+@media(max-width:600px) { .container { padding:24px 20px; } .work-nav { gap:4px; } .work-nav-links { width:100%; gap:0 !important; justify-content:space-between; } .work-nav-links a { font-size:13px; } .card { padding:20px 16px; } }

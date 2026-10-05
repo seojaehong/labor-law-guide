@@ -63,3 +63,9 @@ test-results/
 # 손으로 남긴 백업본은 커밋하지 않는다
 *.bak
 *.bak-*
+
+# python
+__pycache__/
+
+# Local CLI browser snapshots
+.playwright-cli/

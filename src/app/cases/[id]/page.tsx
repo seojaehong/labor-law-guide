@@ -1,3 +1,4 @@
+import { publicMetadata } from '@/lib/public-metadata';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
@@ -83,7 +84,7 @@ export async function generateMetadata({
   const item = await getCase(decodeURIComponent(id));
 
   if (!item) {
-    return { title: '판례를 찾을 수 없습니다' };
+    return publicMetadata({ title: '판례를 찾을 수 없습니다' });
   }
 
   const dateStr = formatDecisionDate(item.decision_date) || '';
@@ -94,7 +95,7 @@ export async function generateMetadata({
 
   const pageUrl = `${SITE_URL}/cases/${encodeURIComponent(item.id)}`;
 
-  return {
+  return publicMetadata({
     title,
     description,
     alternates: { canonical: pageUrl },
@@ -111,7 +112,7 @@ export async function generateMetadata({
       title,
       description,
     },
-  };
+  });
 }
 
 function VerdictBadge({ type }: { type: string | null }) {

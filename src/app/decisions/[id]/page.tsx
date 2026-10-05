@@ -1,3 +1,5 @@
+import { publicMetadata } from '@/lib/public-metadata';
+import { unwrapSourceAnnotations } from "@/lib/legal-display-text";
 import { supabase } from "@/lib/supabase";
 import { Badge } from "@/components/decisions-ui/badge";
 import { Card } from "@/components/decisions-ui/card";
@@ -47,12 +49,12 @@ export async function generateMetadata({
 
   if (!d) {
     // 존재하지 않는(삭제/개인정보 요청 포함) 판정례는 색인 금지 — 페이지 본문도 notFound()로 404 처리.
-    return {
+    return publicMetadata({
       title: `판정례를 찾을 수 없습니다`,
       description: "요청하신 판정례가 존재하지 않습니다.",
       alternates: { canonical },
       robots: { index: false, follow: false },
-    };
+    });
   }
 
   const caseNum = (d.case_number && !/^id_/i.test(d.case_number)) ? d.case_number : "";
@@ -68,12 +70,12 @@ export async function generateMetadata({
   // 이런 페이지가 대량으로 색인되면 사이트 전체 평가가 깎인다.
   const bodyText = `${d.holding_points || ""}${d.holding_summary || ""}`;
   if (bodyText.trim().length < 200 || isPaywallText(bodyText) || isPyReprText(bodyText)) {
-    return {
+    return publicMetadata({
       title: (d.title || "판정례").slice(0, 32),
       description: "본문 정비 중인 자료입니다.",
       alternates: { canonical },
       robots: { index: false, follow: true },
-    };
+    });
   }
 
   // 제목 전략이 소스별로 다르다.
@@ -126,7 +128,7 @@ export async function generateMetadata({
   ].filter(Boolean);
   const description = (descParts.join(" · ") || "노동위원회 판정례 상세 정보 — 핵심쟁점·절차·판정결과 정리.").slice(0, 155);
 
-  return {
+  return publicMetadata({
     title,
     description,
     alternates: { canonical },
@@ -139,7 +141,7 @@ export async function generateMetadata({
       siteName: BRAND_NAME,
     },
     robots: { index: true, follow: true },
-  };
+  });
 }
 
 function getDisplayCaseNumber(caseNumber?: string | null) {
@@ -255,8 +257,8 @@ type LawgoSection = {
 function renderLawgoSections(sections: LawgoSection[]) {
   return sections.map((section, index) => (
     <div key={`${section.type || "body"}-${section.index ?? index}`} className="mb-5 last:mb-0">
-      {section.title ? <h3 className="font-semibold text-sm mb-2">{section.title}</h3> : null}
-      <p className="reading-prose whitespace-pre-wrap">{section.text || ""}</p>
+      {section.title ? <h3 className="font-semibold text-sm mb-2">{unwrapSourceAnnotations(section.title)}</h3> : null}
+      <p className="reading-prose whitespace-pre-wrap">{unwrapSourceAnnotations(section.text || "")}</p>
     </div>
   ));
 }
@@ -375,28 +377,28 @@ export default async function DecisionPage({
             {precedent.issue_text ? (
               <Card className="p-4 bg-muted/50">
                 <h3 className="font-semibold text-sm mb-2">판시사항</h3>
-                <p className="reading-prose whitespace-pre-wrap">{precedent.issue_text}</p>
+                <p className="reading-prose whitespace-pre-wrap">{unwrapSourceAnnotations(precedent.issue_text)}</p>
               </Card>
             ) : null}
 
             {precedent.summary_text ? (
               <Card className="p-4">
                 <h3 className="font-semibold text-sm mb-2">판결요지</h3>
-                <p className="reading-prose whitespace-pre-wrap">{precedent.summary_text}</p>
+                <p className="reading-prose whitespace-pre-wrap">{unwrapSourceAnnotations(precedent.summary_text)}</p>
               </Card>
             ) : null}
 
             {precedent.reference_statutes ? (
               <Card className="p-4">
                 <h3 className="font-semibold text-sm mb-2">참조조문</h3>
-                <p className="reading-prose whitespace-pre-wrap">{precedent.reference_statutes}</p>
+                <p className="reading-prose whitespace-pre-wrap">{unwrapSourceAnnotations(precedent.reference_statutes)}</p>
               </Card>
             ) : null}
 
             {precedent.reference_cases ? (
               <Card className="p-4">
                 <h3 className="font-semibold text-sm mb-2">참조판례</h3>
-                <p className="reading-prose whitespace-pre-wrap">{precedent.reference_cases}</p>
+                <p className="reading-prose whitespace-pre-wrap">{unwrapSourceAnnotations(precedent.reference_cases)}</p>
               </Card>
             ) : null}
           </section>
@@ -419,7 +421,7 @@ export default async function DecisionPage({
               {sections.length > 0 ? (
                 <div>{renderLawgoSections(sections)}</div>
               ) : (
-                <p className="reading-prose whitespace-pre-wrap">{document?.body_text || "본문이 없습니다."}</p>
+                <p className="reading-prose whitespace-pre-wrap">{unwrapSourceAnnotations(document?.body_text || "본문이 없습니다.")}</p>
               )}
             </Card>
 
@@ -625,7 +627,7 @@ export default async function DecisionPage({
             ) : realFulltext ? (
               <Card className="p-4 mb-4">
                 <h3 className="font-semibold text-sm mb-3">법원 판례 원문</h3>
-                <p className="reading-prose whitespace-pre-wrap">{realFulltext}</p>
+                <p className="reading-prose whitespace-pre-wrap">{unwrapSourceAnnotations(realFulltext)}</p>
               </Card>
             ) : hasDetailedHoldingPoints ? (
               <Card className="p-4 mb-4 bg-muted/40">

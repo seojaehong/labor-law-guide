@@ -1,0 +1,443 @@
+{
+  "synthetic": true,
+  "blockedBrowserApiRequests": [
+    "/api/faq",
+    "/api/faq"
+  ],
+  "result": [
+    {
+      "route": "/",
+      "width": 390,
+      "status": 200,
+      "scroll": 390,
+      "pass": true
+    },
+    {
+      "route": "/blog",
+      "width": 390,
+      "status": 200,
+      "scroll": 390,
+      "pass": true
+    },
+    {
+      "route": "/blog/news-20261003-01",
+      "width": 390,
+      "status": 200,
+      "scroll": 390,
+      "pass": true
+    },
+    {
+      "route": "/laws",
+      "width": 390,
+      "status": 200,
+      "scroll": 390,
+      "pass": true
+    },
+    {
+      "route": "/tools/work-rules",
+      "width": 390,
+      "status": 200,
+      "scroll": 390,
+      "pass": true
+    },
+    {
+      "route": "/decisions",
+      "width": 390,
+      "status": 200,
+      "scroll": 390,
+      "pass": true
+    },
+    {
+      "route": "/decisions/layout-decision",
+      "width": 390,
+      "status": 200,
+      "scroll": 390,
+      "pass": true
+    },
+    {
+      "route": "/cases",
+      "width": 390,
+      "status": 200,
+      "scroll": 390,
+      "pass": true
+    },
+    {
+      "route": "/cases/layout-case",
+      "width": 390,
+      "status": 200,
+      "scroll": 390,
+      "pass": true
+    },
+    {
+      "route": "/interpretations/layout-interpretation",
+      "width": 390,
+      "status": 200,
+      "scroll": 390,
+      "pass": true
+    },
+    {
+      "route": "/faq",
+      "width": 390,
+      "status": 200,
+      "scroll": 390,
+      "pass": true
+    },
+    {
+      "route": "/faq/%EC%97%B0%EC%B0%A8%EC%9C%A0%EA%B8%89%ED%9C%B4%EA%B0%80",
+      "width": 390,
+      "status": 200,
+      "scroll": 390,
+      "pass": true
+    },
+    {
+      "route": "/tools",
+      "width": 390,
+      "status": 200,
+      "scroll": 390,
+      "pass": true
+    },
+    {
+      "route": "/tools/contract-check",
+      "width": 390,
+      "status": 200,
+      "scroll": 390,
+      "pass": true
+    },
+    {
+      "route": "/tools/holiday-pay",
+      "width": 390,
+      "status": 200,
+      "scroll": 390,
+      "pass": true
+    },
+    {
+      "route": "/tools/severance.html",
+      "width": 390,
+      "status": 200,
+      "scroll": 390,
+      "pass": true
+    },
+    {
+      "route": "/contact",
+      "width": 390,
+      "status": 200,
+      "scroll": 390,
+      "pass": true
+    },
+    {
+      "route": "/database",
+      "width": 390,
+      "status": 200,
+      "scroll": 390,
+      "pass": true
+    },
+    {
+      "route": "/guide",
+      "width": 390,
+      "status": 200,
+      "scroll": 390,
+      "pass": true
+    },
+    {
+      "route": "/ai",
+      "width": 390,
+      "status": 200,
+      "scroll": 390,
+      "pass": true
+    },
+    {
+      "route": "/subsidy",
+      "width": 390,
+      "status": 200,
+      "scroll": 390,
+      "pass": true
+    },
+    {
+      "route": "/stats",
+      "width": 390,
+      "status": 200,
+      "scroll": 390,
+      "pass": true
+    },
+    {
+      "route": "/privacy",
+      "width": 390,
+      "status": 200,
+      "scroll": 390,
+      "pass": true
+    },
+    {
+      "route": "/terms",
+      "width": 390,
+      "status": 200,
+      "scroll": 390,
+      "pass": true
+    },
+    {
+      "route": "/news",
+      "width": 390,
+      "status": 200,
+      "scroll": 390,
+      "pass": true
+    },
+    {
+      "route": "/checklist",
+      "width": 390,
+      "status": 200,
+      "scroll": 390,
+      "pass": true
+    },
+    {
+      "route": "/harassment",
+      "width": 390,
+      "status": 200,
+      "scroll": 390,
+      "pass": true
+    },
+    {
+      "route": "/sanction",
+      "width": 390,
+      "status": 200,
+      "scroll": 390,
+      "pass": true
+    },
+    {
+      "route": "/pkb",
+      "width": 390,
+      "status": 200,
+      "scroll": 390,
+      "pass": true
+    },
+    {
+      "route": "/manual",
+      "width": 390,
+      "status": 200,
+      "scroll": 390,
+      "pass": true
+    },
+    {
+      "route": "/search",
+      "width": 390,
+      "status": 200,
+      "scroll": 390,
+      "pass": true
+    },
+    {
+      "route": "/",
+      "width": 1440,
+      "status": 200,
+      "scroll": 1440,
+      "pass": true
+    },
+    {
+      "route": "/blog",
+      "width": 1440,
+      "status": 200,
+      "scroll": 1440,
+      "pass": true
+    },
+    {
+      "route": "/blog/news-20261003-01",
+      "width": 1440,
+      "status": 200,
+      "scroll": 1440,
+      "pass": true
+    },
+    {
+      "route": "/laws",
+      "width": 1440,
+      "status": 200,
+      "scroll": 1440,
+      "pass": true
+    },
+    {
+      "route": "/tools/work-rules",
+      "width": 1440,
+      "status": 200,
+      "scroll": 1440,
+      "pass": true
+    },
+    {
+      "route": "/decisions",
+      "width": 1440,
+      "status": 200,
+      "scroll": 1440,
+      "pass": true
+    },
+    {
+      "route": "/decisions/layout-decision",
+      "width": 1440,
+      "status": 200,
+      "scroll": 1440,
+      "pass": true
+    },
+    {
+      "route": "/cases",
+      "width": 1440,
+      "status": 200,
+      "scroll": 1440,
+      "pass": true
+    },
+    {
+      "route": "/cases/layout-case",
+      "width": 1440,
+      "status": 200,
+      "scroll": 1440,
+      "pass": true
+    },
+    {
+      "route": "/interpretations/layout-interpretation",
+      "width": 1440,
+      "status": 200,
+      "scroll": 1440,
+      "pass": true
+    },
+    {
+      "route": "/faq",
+      "width": 1440,
+      "status": 200,
+      "scroll": 1440,
+      "pass": true
+    },
+    {
+      "route": "/faq/%EC%97%B0%EC%B0%A8%EC%9C%A0%EA%B8%89%ED%9C%B4%EA%B0%80",
+      "width": 1440,
+      "status": 200,
+      "scroll": 1440,
+      "pass": true
+    },
+    {
+      "route": "/tools",
+      "width": 1440,
+      "status": 200,
+      "scroll": 1440,
+      "pass": true
+    },
+    {
+      "route": "/tools/contract-check",
+      "width": 1440,
+      "status": 200,
+      "scroll": 1440,
+      "pass": true
+    },
+    {
+      "route": "/tools/holiday-pay",
+      "width": 1440,
+      "status": 200,
+      "scroll": 1440,
+      "pass": true
+    },
+    {
+      "route": "/tools/severance.html",
+      "width": 1440,
+      "status": 200,
+      "scroll": 1440,
+      "pass": true
+    },
+    {
+      "route": "/contact",
+      "width": 1440,
+      "status": 200,
+      "scroll": 1440,
+      "pass": true
+    },
+    {
+      "route": "/database",
+      "width": 1440,
+      "status": 200,
+      "scroll": 1440,
+      "pass": true
+    },
+    {
+      "route": "/guide",
+      "width": 1440,
+      "status": 200,
+      "scroll": 1440,
+      "pass": true
+    },
+    {
+      "route": "/ai",
+      "width": 1440,
+      "status": 200,
+      "scroll": 1440,
+      "pass": true
+    },
+    {
+      "route": "/subsidy",
+      "width": 1440,
+      "status": 200,
+      "scroll": 1440,
+      "pass": true
+    },
+    {
+      "route": "/stats",
+      "width": 1440,
+      "status": 200,
+      "scroll": 1440,
+      "pass": true
+    },
+    {
+      "route": "/privacy",
+      "width": 1440,
+      "status": 200,
+      "scroll": 1440,
+      "pass": true
+    },
+    {
+      "route": "/terms",
+      "width": 1440,
+      "status": 200,
+      "scroll": 1440,
+      "pass": true
+    },
+    {
+      "route": "/news",
+      "width": 1440,
+      "status": 200,
+      "scroll": 1440,
+      "pass": true
+    },
+    {
+      "route": "/checklist",
+      "width": 1440,
+      "status": 200,
+      "scroll": 1440,
+      "pass": true
+    },
+    {
+      "route": "/harassment",
+      "width": 1440,
+      "status": 200,
+      "scroll": 1440,
+      "pass": true
+    },
+    {
+      "route": "/sanction",
+      "width": 1440,
+      "status": 200,
+      "scroll": 1440,
+      "pass": true
+    },
+    {
+      "route": "/pkb",
+      "width": 1440,
+      "status": 200,
+      "scroll": 1440,
+      "pass": true
+    },
+    {
+      "route": "/manual",
+      "width": 1440,
+      "status": 200,
+      "scroll": 1440,
+      "pass": true
+    },
+    {
+      "route": "/search",
+      "width": 1440,
+      "status": 200,
+      "scroll": 1440,
+      "pass": true
+    }
+  ]
+}

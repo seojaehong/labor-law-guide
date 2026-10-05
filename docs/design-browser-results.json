@@ -1,0 +1,291 @@
+{
+  "scope": "synthetic read-only data for database pages; source JSON for laws; no production deployment",
+  "checks": {
+    "public": [
+      {
+        "path": "/",
+        "status": 200,
+        "width": 390,
+        "scroll": 390
+      },
+      {
+        "path": "/",
+        "status": 200,
+        "width": 1280,
+        "scroll": 1280
+      },
+      {
+        "path": "/blog",
+        "status": 200,
+        "width": 390,
+        "scroll": 390
+      },
+      {
+        "path": "/blog",
+        "status": 200,
+        "width": 1280,
+        "scroll": 1280
+      },
+      {
+        "path": "/blog/news-20261003-01",
+        "status": 200,
+        "width": 390,
+        "scroll": 390
+      },
+      {
+        "path": "/blog/news-20261003-01",
+        "status": 200,
+        "width": 1280,
+        "scroll": 1280
+      },
+      {
+        "path": "/decisions",
+        "status": 200,
+        "width": 390,
+        "scroll": 390
+      },
+      {
+        "path": "/decisions",
+        "status": 200,
+        "width": 1280,
+        "scroll": 1280
+      },
+      {
+        "path": "/decisions/layout-decision",
+        "status": 200,
+        "width": 390,
+        "scroll": 390
+      },
+      {
+        "path": "/decisions/layout-decision",
+        "status": 200,
+        "width": 1280,
+        "scroll": 1280
+      },
+      {
+        "path": "/cases/layout-case",
+        "status": 200,
+        "width": 390,
+        "scroll": 390
+      },
+      {
+        "path": "/cases/layout-case",
+        "status": 200,
+        "width": 1280,
+        "scroll": 1280
+      },
+      {
+        "path": "/interpretations/layout-interpretation",
+        "status": 200,
+        "width": 390,
+        "scroll": 390
+      },
+      {
+        "path": "/interpretations/layout-interpretation",
+        "status": 200,
+        "width": 1280,
+        "scroll": 1280
+      },
+      {
+        "path": "/tools",
+        "status": 200,
+        "width": 390,
+        "scroll": 390
+      },
+      {
+        "path": "/tools",
+        "status": 200,
+        "width": 1280,
+        "scroll": 1280
+      },
+      {
+        "path": "/tools/holiday-pay",
+        "status": 200,
+        "width": 390,
+        "scroll": 390
+      },
+      {
+        "path": "/tools/holiday-pay",
+        "status": 200,
+        "width": 1280,
+        "scroll": 1280
+      },
+      {
+        "path": "/tools/contract-check",
+        "status": 200,
+        "width": 390,
+        "scroll": 390
+      },
+      {
+        "path": "/tools/contract-check",
+        "status": 200,
+        "width": 1280,
+        "scroll": 1280
+      },
+      {
+        "path": "/contact",
+        "status": 200,
+        "width": 390,
+        "scroll": 390
+      },
+      {
+        "path": "/contact",
+        "status": 200,
+        "width": 1280,
+        "scroll": 1280
+      },
+      {
+        "path": "/tools/severance.html",
+        "status": 200,
+        "width": 390,
+        "scroll": 390
+      },
+      {
+        "path": "/tools/severance.html",
+        "status": 200,
+        "width": 1280,
+        "scroll": 1280
+      }
+    ],
+    "secondary": [
+      {
+        "path": "/manual",
+        "status": 200,
+        "width": 390,
+        "scroll": 390
+      },
+      {
+        "path": "/faq",
+        "status": 200,
+        "width": 390,
+        "scroll": 390
+      },
+      {
+        "path": "/faq/union",
+        "status": 200,
+        "width": 390,
+        "scroll": 390
+      },
+      {
+        "path": "/cases",
+        "status": 200,
+        "width": 390,
+        "scroll": 390
+      },
+      {
+        "path": "/news",
+        "status": 200,
+        "width": 390,
+        "scroll": 390
+      },
+      {
+        "path": "/ai",
+        "status": 200,
+        "width": 390,
+        "scroll": 390
+      },
+      {
+        "path": "/checklist",
+        "status": 200,
+        "width": 390,
+        "scroll": 390
+      },
+      {
+        "path": "/harassment",
+        "status": 200,
+        "width": 390,
+        "scroll": 390
+      },
+      {
+        "path": "/sanction",
+        "status": 200,
+        "width": 390,
+        "scroll": 390
+      },
+      {
+        "path": "/stats",
+        "status": 200,
+        "width": 390,
+        "scroll": 390
+      },
+      {
+        "path": "/subsidy",
+        "status": 200,
+        "width": 390,
+        "scroll": 390
+      },
+      {
+        "path": "/privacy",
+        "status": 200,
+        "width": 390,
+        "scroll": 390
+      },
+      {
+        "path": "/terms",
+        "status": 200,
+        "width": 390,
+        "scroll": 390
+      },
+      {
+        "path": "/lecture/ai-isan-2026",
+        "status": 200,
+        "width": 390,
+        "scroll": 390
+      },
+      {
+        "path": "/lecture/ai-isan-2026/textbook",
+        "status": 200,
+        "width": 390,
+        "scroll": 390
+      }
+    ],
+    "final": [
+      {
+        "path": "/guide",
+        "status": 200,
+        "width": 390,
+        "scroll": 390
+      },
+      {
+        "path": "/blog/category/general",
+        "status": 200,
+        "width": 390,
+        "scroll": 390
+      },
+      {
+        "path": "/newsletter/confirmed",
+        "status": 200,
+        "width": 390,
+        "scroll": 390
+      },
+      {
+        "path": "/newsletter/unsubscribe",
+        "status": 200,
+        "width": 390,
+        "scroll": 390
+      },
+      {
+        "path": "/newsletter/unsubscribed",
+        "status": 200,
+        "width": 390,
+        "scroll": 390
+      },
+      {
+        "path": "/search",
+        "status": 200,
+        "width": 390,
+        "scroll": 390
+      },
+      {
+        "path": "/database",
+        "status": 200,
+        "width": 390,
+        "scroll": 390
+      }
+    ]
+  },
+  "modal": {
+    "focusInside": true,
+    "escapeClosed": true
+  }
+}

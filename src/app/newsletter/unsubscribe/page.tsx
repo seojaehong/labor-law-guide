@@ -1,11 +1,12 @@
+import { publicMetadata } from '@/lib/public-metadata';
 import Link from 'next/link';
 import { AlertCircle, MailX } from 'lucide-react';
 import type { Metadata } from 'next';
 
-export const metadata: Metadata = {
+export const metadata: Metadata = publicMetadata({
   title: '구독 해지 확인 — 노란봉투법 가이드',
   robots: { index: false, follow: false },
-};
+});
 
 /**
  * 해지 확인 한 단계.

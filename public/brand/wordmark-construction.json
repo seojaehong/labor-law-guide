@@ -1,71 +1,13 @@
 {
-  "wordmark": {
-    "bounds": [
-      94.51042841159818,
-      -857.5697034073551,
-      3983.2903558395537,
-      109.91986818104671
-    ],
-    "ratio": 4.019454102273627,
-    "positions": [
-      [
-        0,
-        0
-      ],
-      [
-        960,
-        0
-      ],
-      [
-        2190,
-        0
-      ],
-      [
-        3150,
-        0
-      ]
-    ]
-  },
-  "stacked": {
-    "bounds": [
-      21.07543594522437,
-      -857.5697034073551,
-      1793.2903558395537,
-      1299.9198681810467
-    ],
-    "ratio": 0.821424559002423,
-    "positions": [
-      [
-        0,
-        0
-      ],
-      [
-        960,
-        0
-      ],
-      [
-        0,
-        1190
-      ],
-      [
-        960,
-        1190
-      ]
-    ]
-  },
-  "favicon-letter": {
-    "bounds": [
-      94.51042841159818,
-      -857.5697034073551,
-      881.3589454483737,
-      87.48957158840182
-    ],
-    "ratio": 0.8325917091711611,
-    "positions": [
-      [
-        0,
-        0
-      ]
-    ]
-  }
+  "principle": "open counters and repeated eight-unit cut terminals",
+  "viewBox": [
+    0,
+    0,
+    989,
+    280
+  ],
+  "ratio": 3.532142857142857,
+  "verticalWeight": 44,
+  "horizontalWeight": 31,
+  "source": "custom edited Hangul component paths; no generated image or extra symbol"
 }

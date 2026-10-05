@@ -1,3 +1,4 @@
+import { publicMetadata } from '@/lib/public-metadata';
 import type { Metadata } from 'next';
 import { supabaseServer } from '@/lib/supabase-server';
 import { SITE_URL } from '@/lib/constants';
@@ -5,7 +6,7 @@ import FaqClient from './FaqClient';
 
 export const revalidate = 3600;
 
-export const metadata: Metadata = {
+export const metadata: Metadata = publicMetadata({
   title: '노동법 FAQ — 1,600건+ 핵심 질문과 답변',
   description: '임금, 해고, 근로시간, 퇴직금, 연차휴가 등 30개 카테고리별 노동법 FAQ를 검색하세요. 공인노무사가 검수한 핵심 실무 Q&A를 제공합니다.',
   alternates: { canonical: `${SITE_URL}/faq` },
@@ -17,7 +18,7 @@ export const metadata: Metadata = {
     locale: 'ko_KR',
     images: [{ url: `${SITE_URL}/opengraph-image` }],
   },
-};
+});
 
 async function getFaqData() {
   const [faqResult, countResult] = await Promise.all([

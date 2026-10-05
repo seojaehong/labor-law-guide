@@ -1,3 +1,4 @@
+import { publicMetadata } from '@/lib/public-metadata';
 import type { Metadata } from 'next';
 import { unstable_cache } from 'next/cache';
 import { supabaseServer } from '@/lib/supabase-server';
@@ -23,7 +24,7 @@ export async function generateMetadata({ params }: { params: Promise<{ category:
   const { category } = await params;
   const decoded = decodeURIComponent(category);
 
-  return {
+  return publicMetadata({
     title: `${decoded} — 글`,
     description: `${decoded} 카테고리의 노동법 심층 분석 콘텐츠를 모아봅니다.`,
     alternates: { canonical: `${SITE_URL}/blog/category/${category}` },
@@ -35,7 +36,7 @@ export async function generateMetadata({ params }: { params: Promise<{ category:
       locale: 'ko_KR',
       images: [{ url: `${SITE_URL}/opengraph-image` }],
     },
-  };
+  });
 }
 
 interface BlogArticleRow extends BlogArticle {

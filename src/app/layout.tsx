@@ -3,6 +3,8 @@ import Script from "next/script";
 import "./globals.css";
 import "@/components/editorial-navigation.css";
 import GlassNav from "@/components/GlassNav";
+import SiteSurface from "@/components/SiteSurface";
+import "@/components/site-refactor.css";
 import { SITE_URL, BRAND_NAME, BRAND_DESCRIPTION } from "@/lib/constants";
 
 export const metadata: Metadata = {
@@ -97,18 +99,6 @@ export default function RootLayout({
         <meta name="theme-color" media="(prefers-color-scheme: light)" content="#ffffff" />
         <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0f1117" />
         <link rel="icon" href="/favicon.ico" />
-        <link rel="preconnect" href="https://cdn.jsdelivr.net" crossOrigin="anonymous" />
-        <link
-          rel="preload"
-          as="style"
-          crossOrigin="anonymous"
-          href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css"
-        />
-        <link
-          rel="stylesheet"
-          crossOrigin="anonymous"
-          href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css"
-        />
         <Script src="https://www.googletagmanager.com/gtag/js?id=G-GKKFCZ235H" strategy="lazyOnload" />
         <Script id="gtag-init" strategy="lazyOnload">{`window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}gtag('js',new Date());gtag('config','G-GKKFCZ235H');`}</Script>
         <Script id="webmcp-init" strategy="afterInteractive">{`
@@ -183,7 +173,7 @@ export default function RootLayout({
         />
         <a className="editorial-skip-link" href="#site-main">본문 바로가기</a>
         <GlassNav />
-        <main id="site-main" tabIndex={-1}>{children}</main>
+        <main id="site-main" tabIndex={-1}><SiteSurface>{children}</SiteSurface></main>
         <footer className="editorial-footer border-t py-10" style={{ borderColor: 'var(--color-border)' }}>
           {/* 2026-09-12 — 메뉴를 3개로 줄이면서 내려온 것들이 여기 산다.
               지운 게 아니라 자리를 옮긴 것이고, 크롤러가 들어갈 내부 링크도 여기서 유지된다.

@@ -1,3 +1,4 @@
+import { publicMetadata } from '@/lib/public-metadata';
 import type { Metadata } from 'next';
 import { supabaseServer } from '@/lib/supabase-server';
 import { SITE_URL } from '@/lib/constants';
@@ -15,7 +16,7 @@ export async function generateMetadata({ params }: { params: Promise<{ category:
   const { category: slug } = await params;
   const category = slugToCategory(slug);
 
-  return {
+  return publicMetadata({
     title: `${category} FAQ — 노동법 질문과 답변`,
     description: `${category} 관련 자주 묻는 질문과 답변을 확인하세요. 공인노무사가 검수한 신뢰할 수 있는 노동법 FAQ입니다.`,
     alternates: { canonical: `${SITE_URL}/faq/${categoryToSlug(category)}` },
@@ -26,7 +27,7 @@ export async function generateMetadata({ params }: { params: Promise<{ category:
       type: 'website',
       locale: 'ko_KR',
     },
-  };
+  });
 }
 
 export default async function FaqCategoryPage({ params }: { params: Promise<{ category: string }> }) {

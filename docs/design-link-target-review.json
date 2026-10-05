@@ -1,0 +1,380 @@
+{
+  "scope": "GET-only internal link targets in synthetic environment; not interaction or production-data validation",
+  "code_sha": "8439588180708d26b40185f385da65ddc5cb8619",
+  "checks": [
+    {
+      "path": "/",
+      "status": 200,
+      "url": "http://127.0.0.1:3124/"
+    },
+    {
+      "path": "/ai",
+      "skipped": "submission_or_subscription_scope"
+    },
+    {
+      "path": "/blog",
+      "status": 200,
+      "url": "http://127.0.0.1:3124/blog"
+    },
+    {
+      "path": "/blog/guide-20260428-04",
+      "status": 404,
+      "url": "http://127.0.0.1:3124/blog/guide-20260428-04"
+    },
+    {
+      "path": "/blog/layout-related-1",
+      "status": 200,
+      "url": "http://127.0.0.1:3124/blog/layout-related-1"
+    },
+    {
+      "path": "/blog/layout-related-2",
+      "status": 200,
+      "url": "http://127.0.0.1:3124/blog/layout-related-2"
+    },
+    {
+      "path": "/blog/layout-related-3",
+      "status": 200,
+      "url": "http://127.0.0.1:3124/blog/layout-related-3"
+    },
+    {
+      "path": "/blog/layout-related-4",
+      "status": 200,
+      "url": "http://127.0.0.1:3124/blog/layout-related-4"
+    },
+    {
+      "path": "/blog/layout-related-5",
+      "status": 200,
+      "url": "http://127.0.0.1:3124/blog/layout-related-5"
+    },
+    {
+      "path": "/blog/layout-related-6",
+      "status": 200,
+      "url": "http://127.0.0.1:3124/blog/layout-related-6"
+    },
+    {
+      "path": "/blog/layout-related-7",
+      "status": 200,
+      "url": "http://127.0.0.1:3124/blog/layout-related-7"
+    },
+    {
+      "path": "/blog/news-20261003-01",
+      "status": 200,
+      "url": "http://127.0.0.1:3124/blog/news-20261003-01"
+    },
+    {
+      "path": "/cases",
+      "status": 200,
+      "url": "http://127.0.0.1:3124/cases"
+    },
+    {
+      "path": "/cases/layout-case-1",
+      "status": 200,
+      "url": "http://127.0.0.1:3124/cases/layout-case-1"
+    },
+    {
+      "path": "/cases/layout-case-2",
+      "status": 200,
+      "url": "http://127.0.0.1:3124/cases/layout-case-2"
+    },
+    {
+      "path": "/cases/layout-case-3",
+      "status": 200,
+      "url": "http://127.0.0.1:3124/cases/layout-case-3"
+    },
+    {
+      "path": "/cases/layout-case-4",
+      "status": 200,
+      "url": "http://127.0.0.1:3124/cases/layout-case-4"
+    },
+    {
+      "path": "/checklist",
+      "status": 200,
+      "url": "http://127.0.0.1:3124/checklist"
+    },
+    {
+      "path": "/contact",
+      "status": 200,
+      "url": "http://127.0.0.1:3124/contact"
+    },
+    {
+      "path": "/decisions",
+      "status": 200,
+      "url": "http://127.0.0.1:3124/decisions"
+    },
+    {
+      "path": "/decisions/layout-decision",
+      "status": 200,
+      "url": "http://127.0.0.1:3124/decisions/layout-decision"
+    },
+    {
+      "path": "/decisions/layout-decision-1",
+      "status": 200,
+      "url": "http://127.0.0.1:3124/decisions/layout-decision-1"
+    },
+    {
+      "path": "/decisions/layout-decision-10",
+      "status": 200,
+      "url": "http://127.0.0.1:3124/decisions/layout-decision-10"
+    },
+    {
+      "path": "/decisions/layout-decision-11",
+      "status": 200,
+      "url": "http://127.0.0.1:3124/decisions/layout-decision-11"
+    },
+    {
+      "path": "/decisions/layout-decision-12",
+      "status": 200,
+      "url": "http://127.0.0.1:3124/decisions/layout-decision-12"
+    },
+    {
+      "path": "/decisions/layout-decision-13",
+      "status": 200,
+      "url": "http://127.0.0.1:3124/decisions/layout-decision-13"
+    },
+    {
+      "path": "/decisions/layout-decision-14",
+      "status": 200,
+      "url": "http://127.0.0.1:3124/decisions/layout-decision-14"
+    },
+    {
+      "path": "/decisions/layout-decision-15",
+      "status": 200,
+      "url": "http://127.0.0.1:3124/decisions/layout-decision-15"
+    },
+    {
+      "path": "/decisions/layout-decision-16",
+      "status": 200,
+      "url": "http://127.0.0.1:3124/decisions/layout-decision-16"
+    },
+    {
+      "path": "/decisions/layout-decision-17",
+      "status": 200,
+      "url": "http://127.0.0.1:3124/decisions/layout-decision-17"
+    },
+    {
+      "path": "/decisions/layout-decision-18",
+      "status": 200,
+      "url": "http://127.0.0.1:3124/decisions/layout-decision-18"
+    },
+    {
+      "path": "/decisions/layout-decision-19",
+      "status": 200,
+      "url": "http://127.0.0.1:3124/decisions/layout-decision-19"
+    },
+    {
+      "path": "/decisions/layout-decision-2",
+      "status": 200,
+      "url": "http://127.0.0.1:3124/decisions/layout-decision-2"
+    },
+    {
+      "path": "/decisions/layout-decision-20",
+      "status": 200,
+      "url": "http://127.0.0.1:3124/decisions/layout-decision-20"
+    },
+    {
+      "path": "/decisions/layout-decision-21",
+      "status": 200,
+      "url": "http://127.0.0.1:3124/decisions/layout-decision-21"
+    },
+    {
+      "path": "/decisions/layout-decision-22",
+      "status": 200,
+      "url": "http://127.0.0.1:3124/decisions/layout-decision-22"
+    },
+    {
+      "path": "/decisions/layout-decision-23",
+      "status": 200,
+      "url": "http://127.0.0.1:3124/decisions/layout-decision-23"
+    },
+    {
+      "path": "/decisions/layout-decision-24",
+      "status": 200,
+      "url": "http://127.0.0.1:3124/decisions/layout-decision-24"
+    },
+    {
+      "path": "/decisions/layout-decision-3",
+      "status": 200,
+      "url": "http://127.0.0.1:3124/decisions/layout-decision-3"
+    },
+    {
+      "path": "/decisions/layout-decision-4",
+      "status": 200,
+      "url": "http://127.0.0.1:3124/decisions/layout-decision-4"
+    },
+    {
+      "path": "/decisions/layout-decision-5",
+      "status": 200,
+      "url": "http://127.0.0.1:3124/decisions/layout-decision-5"
+    },
+    {
+      "path": "/decisions/layout-decision-6",
+      "status": 200,
+      "url": "http://127.0.0.1:3124/decisions/layout-decision-6"
+    },
+    {
+      "path": "/decisions/layout-decision-7",
+      "status": 200,
+      "url": "http://127.0.0.1:3124/decisions/layout-decision-7"
+    },
+    {
+      "path": "/decisions/layout-decision-8",
+      "status": 200,
+      "url": "http://127.0.0.1:3124/decisions/layout-decision-8"
+    },
+    {
+      "path": "/decisions/layout-decision-9",
+      "status": 200,
+      "url": "http://127.0.0.1:3124/decisions/layout-decision-9"
+    },
+    {
+      "path": "/decisions?reason=misconduct",
+      "status": 200,
+      "url": "http://127.0.0.1:3124/decisions?reason=misconduct"
+    },
+    {
+      "path": "/decisions?reason=no_dismissal",
+      "status": 200,
+      "url": "http://127.0.0.1:3124/decisions?reason=no_dismissal"
+    },
+    {
+      "path": "/decisions?type=admin",
+      "status": 200,
+      "url": "http://127.0.0.1:3124/decisions?type=admin"
+    },
+    {
+      "path": "/decisions?type=admin&q=%EA%B7%BC%EB%A1%9C%EC%A1%B0%EA%B1%B4",
+      "status": 200,
+      "url": "http://127.0.0.1:3124/decisions?type=admin&q=%EA%B7%BC%EB%A1%9C%EC%A1%B0%EA%B1%B4"
+    },
+    {
+      "path": "/decisions?type=court",
+      "status": 200,
+      "url": "http://127.0.0.1:3124/decisions?type=court"
+    },
+    {
+      "path": "/decisions?type=court&q=%EA%B7%BC%EB%A1%9C%EC%A1%B0%EA%B1%B4",
+      "status": 200,
+      "url": "http://127.0.0.1:3124/decisions?type=court&q=%EA%B7%BC%EB%A1%9C%EC%A1%B0%EA%B1%B4"
+    },
+    {
+      "path": "/decisions?type=court&q=2007%EB%91%908881",
+      "status": 200,
+      "url": "http://127.0.0.1:3124/decisions?type=court&q=2007%EB%91%908881"
+    },
+    {
+      "path": "/decisions?type=court&q=2010%EB%8B%A4106436",
+      "status": 200,
+      "url": "http://127.0.0.1:3124/decisions?type=court&q=2010%EB%8B%A4106436"
+    },
+    {
+      "path": "/decisions?type=court&q=2022%EA%B5%AC%ED%95%A969230",
+      "status": 200,
+      "url": "http://127.0.0.1:3124/decisions?type=court&q=2022%EA%B5%AC%ED%95%A969230"
+    },
+    {
+      "path": "/decisions?type=court&q=2023%EA%B5%AC%ED%95%A955658",
+      "status": 200,
+      "url": "http://127.0.0.1:3124/decisions?type=court&q=2023%EA%B5%AC%ED%95%A955658"
+    },
+    {
+      "path": "/decisions?type=court&q=2023%EB%88%8434646",
+      "status": 200,
+      "url": "http://127.0.0.1:3124/decisions?type=court&q=2023%EB%88%8434646"
+    },
+    {
+      "path": "/decisions?type=court&q=2024%EA%B5%AC%ED%95%A972896",
+      "status": 200,
+      "url": "http://127.0.0.1:3124/decisions?type=court&q=2024%EA%B5%AC%ED%95%A972896"
+    },
+    {
+      "path": "/faq",
+      "status": 200,
+      "url": "http://127.0.0.1:3124/faq"
+    },
+    {
+      "path": "/guide",
+      "status": 200,
+      "url": "http://127.0.0.1:3124/guide"
+    },
+    {
+      "path": "/interpretations/layout-interpretation-1",
+      "status": 200,
+      "url": "http://127.0.0.1:3124/interpretations/layout-interpretation-1"
+    },
+    {
+      "path": "/interpretations/layout-interpretation-2",
+      "status": 200,
+      "url": "http://127.0.0.1:3124/interpretations/layout-interpretation-2"
+    },
+    {
+      "path": "/interpretations/layout-interpretation-3",
+      "status": 200,
+      "url": "http://127.0.0.1:3124/interpretations/layout-interpretation-3"
+    },
+    {
+      "path": "/interpretations/layout-interpretation-4",
+      "status": 200,
+      "url": "http://127.0.0.1:3124/interpretations/layout-interpretation-4"
+    },
+    {
+      "path": "/laws",
+      "status": 200,
+      "url": "http://127.0.0.1:3124/laws"
+    },
+    {
+      "path": "/lecture/ai-isan-2026",
+      "status": 200,
+      "url": "http://127.0.0.1:3124/lecture/ai-isan-2026"
+    },
+    {
+      "path": "/manual",
+      "status": 200,
+      "url": "http://127.0.0.1:3124/manual"
+    },
+    {
+      "path": "/news",
+      "status": 200,
+      "url": "http://127.0.0.1:3124/news"
+    },
+    {
+      "path": "/privacy",
+      "status": 200,
+      "url": "http://127.0.0.1:3124/privacy"
+    },
+    {
+      "path": "/sanction",
+      "status": 200,
+      "url": "http://127.0.0.1:3124/sanction"
+    },
+    {
+      "path": "/subsidy",
+      "status": 200,
+      "url": "http://127.0.0.1:3124/subsidy"
+    },
+    {
+      "path": "/terms",
+      "status": 200,
+      "url": "http://127.0.0.1:3124/terms"
+    },
+    {
+      "path": "/tools",
+      "status": 200,
+      "url": "http://127.0.0.1:3124/tools"
+    },
+    {
+      "path": "/tools/contract-check",
+      "status": 200,
+      "url": "http://127.0.0.1:3124/tools/contract-check"
+    },
+    {
+      "path": "/tools/holiday-pay",
+      "status": 200,
+      "url": "http://127.0.0.1:3124/tools/holiday-pay"
+    },
+    {
+      "path": "/tools/severance.html",
+      "status": 200,
+      "url": "http://127.0.0.1:3124/tools/severance.html"
+    }
+  ]
+}

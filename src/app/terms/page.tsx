@@ -1,9 +1,10 @@
+import { publicMetadata } from '@/lib/public-metadata';
 import type { Metadata } from 'next';
 
-export const metadata: Metadata = {
-  title: '이용약관 | 노란봉투법 가이드',
-  description: '노란봉투법 가이드 이용약관',
-};
+export const metadata: Metadata = publicMetadata({
+  title: '이용약관 | 일의 무늬',
+  description: '일의 무늬 이용약관',
+});
 
 export default function TermsPage() {
   return (

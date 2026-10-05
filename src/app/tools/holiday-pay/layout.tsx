@@ -1,3 +1,4 @@
+import { publicMetadata } from '@/lib/public-metadata';
 import type { Metadata } from 'next';
 import { SITE_URL } from '@/lib/constants';
 
@@ -58,7 +59,7 @@ const breadcrumbJsonLd = {
   ],
 };
 
-export const metadata: Metadata = {
+export const metadata: Metadata = publicMetadata({
   title: '공휴일 수당 계산기 | 노동절·관공서 공휴일 | 노란봉투법 가이드',
   description:
     '노동절(5/1)·관공서 공휴일에 일하면 얼마 더 받나? 5인 이상/미만 × 월급제·일용직·시급제(파트) 6분기 정확 계산. 시급에 주휴수당 포함 케이스까지 자동 분리. 카톡 공유 지원.',
@@ -79,7 +80,7 @@ export const metadata: Metadata = {
     description:
       '5인 이상/미만 × 월급제·일용직·시급제(파트) 6분기 정확 계산. 시급 주휴수당 포함 케이스까지 자동 분리.',
   },
-};
+});
 
 export default function HolidayPayLayout({ children }: { children: React.ReactNode }) {
   return (

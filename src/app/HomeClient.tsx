@@ -40,21 +40,10 @@ function BlogCategoryBadge({ category }: { category: string }) {
 
 export default function HomeClient({ totalCases, totalAdmin, latestBlogArticles, faqItems, topicPicksSlot }: HomeClientProps) {
   const sections = [
-    {
-      title: '글',
-      description: '노동과 일터의 쟁점을 다룬 글을 읽습니다.',
-      href: '/blog',
-    },
-    {
-      title: '판례·행정해석',
-      description: `판례 ${totalCases.toLocaleString()}건과 공개 행정해석 ${totalAdmin.toLocaleString()}건을 검색합니다.`,
-      href: '/decisions',
-    },
-    {
-      title: '공휴일 수당 계산기',
-      description: '입력한 조건에 따른 참고 계산입니다. 실제 지급액이나 법률적 판단을 확정하지 않습니다.',
-      href: '/tools/holiday-pay',
-    },
+    { title: '글', description: '노동과 일터의 쟁점을 다룬 글을 읽습니다.', href: '/blog' },
+    { title: '법령 개정', description: '시행일, 개정 내용과 관련 조문을 확인합니다. 법령 검수 전 자료입니다.', href: '/laws' },
+    { title: '취업규칙 점검', description: '취업규칙 텍스트를 입력해 법령 개정 관련 항목을 확인합니다. 참고용 점검입니다.', href: '/tools/work-rules' },
+    { title: '판례·행정해석', description: `판례 ${totalCases.toLocaleString()}건과 공개 행정해석 ${totalAdmin.toLocaleString()}건을 검색합니다.`, href: '/decisions' },
   ];
 
   const [featured, ...supporting] = latestBlogArticles;
@@ -63,7 +52,7 @@ export default function HomeClient({ totalCases, totalAdmin, latestBlogArticles,
     <div className="editorial-home">
       <section className="editorial-shell editorial-search-band" aria-labelledby="home-search-heading">
         <div>
-          <h1 id="home-search-heading">노동법, 근거를 따라 읽다</h1>
+          <h1 id="home-search-heading">노동법 자료 검색과 실무 정보</h1>
           <p>판례 {totalCases.toLocaleString()}건 · 공개 행정해석 {totalAdmin.toLocaleString()}건</p>
         </div>
         <form action="/decisions" method="get" role="search" className="editorial-search-form">
@@ -75,7 +64,8 @@ export default function HomeClient({ totalCases, totalAdmin, latestBlogArticles,
           <span>바로 읽기</span>
           <Link href="/blog">글</Link>
           <Link href="/decisions">판례·행정해석</Link>
-          <Link href="/tools/holiday-pay">공휴일 수당 계산기</Link>
+          <Link href="/laws">법령 개정</Link>
+          <Link href="/tools/work-rules">취업규칙 점검</Link>
         </nav>
       </section>
 
@@ -110,7 +100,7 @@ export default function HomeClient({ totalCases, totalAdmin, latestBlogArticles,
       {topicPicksSlot}
 
       <section className="editorial-shell editorial-guide-section" aria-labelledby="home-sections-heading">
-        <div className="editorial-section-heading"><h2 id="home-sections-heading">일의 무늬 둘러보기</h2></div>
+        <div className="editorial-section-heading"><h2 id="home-sections-heading">메뉴 안내</h2></div>
         <div className="editorial-guide-links">
           {sections.map(section => (
             <Link key={section.title} href={section.href}>

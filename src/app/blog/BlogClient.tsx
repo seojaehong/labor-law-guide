@@ -7,6 +7,7 @@ import { Search, ChevronLeft, ChevronRight, ArrowRight, LayoutGrid, List } from 
 import type { BlogArticle } from './page';
 import '@/components/editorial-home.css';
 import { PAGE_SIZE } from '@/lib/blog-list';
+import { shareText } from '@/lib/share-text';
 
 interface BlogClientProps {
   /** 이 페이지 몫만 온다. 예전에는 960편 전부가 왔고 그게 1.5MB 였다. */
@@ -49,8 +50,8 @@ function ArticleEntry({ article, card = false }: { article: BlogArticle; card?: 
       </div>
       <div className="editorial-row-content">
         <h2><Link href={`/blog/${article.slug}`}>{article.title}</Link></h2>
-        {article.subtitle && <p className="editorial-row-subtitle">{article.subtitle}</p>}
-        {article.summary && <p>{article.summary}</p>}
+        {article.subtitle && <p className="editorial-row-subtitle">{shareText(article.subtitle)}</p>}
+        {article.summary && <p>{shareText(article.summary)}</p>}
         {article.tags?.length > 0 && <div className="editorial-row-tags">{article.tags.slice(0, 4).map(tag => <span key={tag}>#{tag}</span>)}</div>}
       </div>
       <Link href={`/blog/${article.slug}`} className="editorial-row-arrow" aria-label={`${article.title} 읽기`}><ArrowRight size={19} aria-hidden="true" /></Link>

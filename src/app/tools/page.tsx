@@ -1,9 +1,10 @@
+import { publicMetadata } from '@/lib/public-metadata';
 import Link from 'next/link';
 import type { Metadata } from 'next';
 import { Calculator, Coins, FileCheck2 } from 'lucide-react';
 import { SITE_URL } from '@/lib/constants';
 
-export const metadata: Metadata = {
+export const metadata: Metadata = publicMetadata({
   title: '노무 계산기 모음 | 퇴직금·공휴일 수당 | 노란봉투법 가이드',
   description:
     '실무자가 자주 쓰는 노무 계산기. 퇴직금 계산(평균임금·산정서), 공휴일·노동절 수당 계산(5인 이상/미만 × 월급·일용·시급) 등 한 곳에서.',
@@ -16,7 +17,7 @@ export const metadata: Metadata = {
     locale: 'ko_KR',
     images: [{ url: `${SITE_URL}/opengraph-image` }],
   },
-};
+});
 
 interface ToolItem {
   href: string;
@@ -28,25 +29,26 @@ interface ToolItem {
 }
 
 const tools: ToolItem[] = [
+  { href: '/tools/work-rules', title: '취업규칙 점검', desc: '취업규칙 텍스트를 입력해 법령 개정 관련 항목을 확인합니다. 법령 검수 전 참고 자료입니다.', badge: '참고 점검', Icon: FileCheck2 },
   {
     href: '/tools/contract-check',
     title: '근로계약서 자가진단',
     desc: '계약서 내용을 폼에 입력하면 필수 명시사항·최저임금·위약금 등 25개 항목을 즉시 점검. 위반·리스크별 수정 방향 제시. 입력한 내용은 저장되지 않습니다.',
-    badge: 'NEW',
+    badge: '참고 도구',
     Icon: FileCheck2,
   },
   {
     href: '/tools/holiday-pay',
     title: '공휴일 수당 계산기',
     desc: '노동절(5/1)·관공서 공휴일 근무 시 추가 지급액 계산. 5인 이상/미만 × 월급·일용·시급 6분기. 시급 주휴포함 케이스 자동 분리.',
-    badge: 'NEW',
+    badge: '참고 도구',
     Icon: Calculator,
   },
   {
     href: '/tools/severance.html',
     title: '퇴직금 계산기',
     desc: '평균임금·통상임금 자동 비교 + 윤년 고려 정밀 재직기간 + 퇴직소득세 산정. 산정서 PDF 출력 가능.',
-    badge: '검증',
+    badge: '참고 계산',
     Icon: Coins,
     external: true,
   },
@@ -56,10 +58,10 @@ export default function ToolsIndexPage() {
   return (
     <div className="layout-list">
       <h1 className="t-h2 mb-2" style={{ color: 'var(--color-text-primary)' }}>
-        노무 계산기
+        계산·점검 도구
       </h1>
       <p className="mb-8 text-sm leading-relaxed" style={{ color: 'var(--grey-500)' }}>
-        실무자가 자주 쓰는 계산기를 모았습니다. 산식은 근로기준법, 시행령, 행정해석을 반영해 검증되었습니다.
+        계산과 문구 점검을 돕는 참고 도구입니다. 입력 조건과 적용 근거를 확인하고, 결과는 개별 사정에 맞춰 검토하세요.
       </p>
 
       <div className="grid grid-cols-1 gap-4">

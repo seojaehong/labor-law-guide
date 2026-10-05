@@ -1,7 +1,8 @@
+import { publicMetadata } from '@/lib/public-metadata';
 import type { Metadata } from 'next';
 import { SITE_URL } from '@/lib/constants';
 
-export const metadata: Metadata = {
+export const metadata: Metadata = publicMetadata({
   title: '노동위 판정 통계 | 사유별·판정결과별 부당해고 인용률·기각률',
   description: '노동위원회 판정례 57,000건 이상을 사유·판정결과별로 집계한 통계입니다. 부당해고·부당노동행위·임금체불 등 사유별 인용률과 기각률, 연도별 트렌드를 한눈에 확인할 수 있습니다.',
   keywords: [
@@ -23,7 +24,7 @@ export const metadata: Metadata = {
   // 빈 페이지이고, 얇은 페이지가 많으면 진짜 콘텐츠의 크롤 배분이 줄어든다.
   // follow 는 남긴다. 되살리려면 index 를 true 로 되돌린다.
   robots: { index: false, follow: true },
-};
+});
 
 export default function StatsLayout({ children }: { children: React.ReactNode }) {
   return children;

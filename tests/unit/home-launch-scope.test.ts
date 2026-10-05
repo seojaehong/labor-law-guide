@@ -29,18 +29,12 @@ function renderHome(latestBlogArticles = articles) {
 }
 
 describe('Home launch scope', () => {
-  it('promotes only articles, decisions, and the selected holiday-pay tool', () => {
+  it('promotes the approved four sections with an explicit law review status', () => {
     const html = renderHome();
     const hrefs = [...html.matchAll(/\shref="([^"]+)"/g)].map(match => match[1]);
-
-    expect(new Set(hrefs.filter(href => !href.startsWith('/blog/')))).toEqual(new Set([
-      '/blog', '/decisions', '/tools/holiday-pay', '/contact',
-    ]));
-    expect(hrefs.filter(href => href.startsWith('/tools'))).toEqual([
-      '/tools/holiday-pay', '/tools/holiday-pay',
-    ]);
-    expect(html).toContain('입력한 조건에 따른 참고 계산입니다.');
-    expect(html).toContain('실제 지급액이나 법률적 판단을 확정하지 않습니다.');
+    expect(new Set(hrefs.filter(href => !href.startsWith('/blog/')))).toEqual(new Set(['/blog', '/laws', '/tools/work-rules', '/decisions', '/contact']));
+    for (const label of ['글', '법령 개정', '취업규칙 점검', '판례·행정해석']) expect(html).toContain(label);
+    expect(html).toContain('법령 검수 전 자료입니다.');
   });
 
   it('does not assert unverified human editing or promote AI and guide services', () => {
