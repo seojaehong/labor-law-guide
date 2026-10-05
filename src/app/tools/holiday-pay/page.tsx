@@ -38,7 +38,7 @@ export default function HolidayPayPage() {
           </li>
           <li>
             <Link href="/blog" className="underline underline-offset-2" style={{ color: 'var(--color-accent-ink)' }}>
-              일의 이야기
+              글
             </Link>
           </li>
         </ul>

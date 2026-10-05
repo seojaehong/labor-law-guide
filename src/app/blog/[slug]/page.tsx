@@ -239,7 +239,7 @@ export default async function BlogArticlePage({
               style={{ color: 'var(--color-text-secondary)' }}
             >
               <ArrowLeft size={14} />
-              일의 이야기 목록
+              글 목록
             </Link>
 
             {/* Article Header */}

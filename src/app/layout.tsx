@@ -185,8 +185,8 @@ export default function RootLayout({
           <div className="layout-wide layout-wide--chrome mb-8 grid grid-cols-2 gap-x-6 gap-y-7 text-left sm:grid-cols-4">
             {[
               { title: '읽고 찾기', links: [
-                { href: '/blog', label: '일의 이야기' },
-                { href: '/decisions', label: '근거 찾기' },
+                { href: '/blog', label: '글' },
+                { href: '/decisions', label: '판례·행정해석' },
                 { href: '/decisions?type=court', label: '법원 판례' },
                 { href: '/decisions?type=admin', label: '행정해석' },
               ] },

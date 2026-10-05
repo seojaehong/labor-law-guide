@@ -7,14 +7,14 @@ import { Menu, X } from 'lucide-react';
 import ThemeToggle from './ThemeToggle';
 import { BRAND_NAME } from '@/lib/constants';
 const NAV_ITEMS = [
-  { href:'/blog', label:'일의 이야기' },
-  { href:'/laws', label:'달라지는 일' },
-  { href:'/tools', label:'내 일 점검' },
-  { href:'/decisions', label:'근거 찾기' },
+  { href:'/blog', label:'글' },
+  { href:'/laws', label:'법령 개정' },
+  { href:'/tools/work-rules', label:'취업규칙 점검' },
+  { href:'/decisions', label:'판례·행정해석' },
 ];
 function active(href: string, pathname: string) {
   if (href === '/decisions') return /^\/(decisions|cases|interpretations|faq)(\/|$)/.test(pathname);
-  if (href === '/tools') return /^\/(tools|checklist|harassment|sanction|subsidy)(\/|$)/.test(pathname);
+  if (href === '/tools/work-rules') return pathname.startsWith('/tools/work-rules');
   return pathname === href || pathname.startsWith(href + '/');
 }
 export default function GlassNav() {
@@ -27,7 +27,7 @@ export default function GlassNav() {
     document.addEventListener('keydown',close);
     return () => document.removeEventListener('keydown',close);
   },[mobileOpen]);
-  const links = NAV_ITEMS.map(item => <Link key={item.href} href={item.href} className="nav-link editorial-nav-link" aria-current={active(item.href,pathname)?'page':undefined} onClick={()=>setMobileOpen(false)}>{item.label}</Link>);
+  const links = NAV_ITEMS.map(item => <Link key={item.href} href={item.href} className="nav-link editorial-nav-link" aria-current={active(item.href,pathname)?'page':undefined} onClick={()=>setMobileOpen(false)}><span>{item.href === '/decisions' ? <>판례·<wbr />행정해석</> : item.label}</span></Link>);
   return <nav className="glass-nav editorial-nav sticky top-0 z-50" aria-label="주요 탐색">
     <div className="layout-wide layout-wide--chrome editorial-nav-inner">
       <Link href="/" className="editorial-wordmark" aria-current={pathname==='/'?'page':undefined}>

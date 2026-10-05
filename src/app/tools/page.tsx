@@ -29,6 +29,7 @@ interface ToolItem {
 }
 
 const tools: ToolItem[] = [
+  { href: '/tools/work-rules', title: '취업규칙 점검', desc: '취업규칙 텍스트를 입력해 법령 개정 관련 항목을 확인합니다. 법령 검수 전 참고 자료입니다.', badge: '참고 점검', Icon: FileCheck2 },
   {
     href: '/tools/contract-check',
     title: '근로계약서 자가진단',
@@ -57,7 +58,7 @@ export default function ToolsIndexPage() {
   return (
     <div className="layout-list">
       <h1 className="t-h2 mb-2" style={{ color: 'var(--color-text-primary)' }}>
-        내 일 점검
+        계산·점검 도구
       </h1>
       <p className="mb-8 text-sm leading-relaxed" style={{ color: 'var(--grey-500)' }}>
         계산과 문구 점검을 돕는 참고 도구입니다. 입력 조건과 적용 근거를 확인하고, 결과는 개별 사정에 맞춰 검토하세요.

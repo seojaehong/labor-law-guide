@@ -40,10 +40,10 @@ function BlogCategoryBadge({ category }: { category: string }) {
 
 export default function HomeClient({ totalCases, totalAdmin, latestBlogArticles, faqItems, topicPicksSlot }: HomeClientProps) {
   const sections = [
-    { title: '일의 이야기', description: '노동과 일터의 쟁점을 다룬 글을 읽습니다.', href: '/blog' },
-    { title: '달라지는 일', description: '법령 개정 자료와 일터의 준비 사항을 살펴봅니다. 법령 검수 전 자료입니다.', href: '/laws' },
-    { title: '내 일 점검', description: '적용 조건을 확인하고 참고 계산과 점검 도구를 이용합니다.', href: '/tools' },
-    { title: '근거 찾기', description: `판례 ${totalCases.toLocaleString()}건과 공개 행정해석 ${totalAdmin.toLocaleString()}건을 검색합니다.`, href: '/decisions' },
+    { title: '글', description: '노동과 일터의 쟁점을 다룬 글을 읽습니다.', href: '/blog' },
+    { title: '법령 개정', description: '시행일, 개정 내용과 관련 조문을 확인합니다. 법령 검수 전 자료입니다.', href: '/laws' },
+    { title: '취업규칙 점검', description: '취업규칙 텍스트를 입력해 법령 개정 관련 항목을 확인합니다. 참고용 점검입니다.', href: '/tools/work-rules' },
+    { title: '판례·행정해석', description: `판례 ${totalCases.toLocaleString()}건과 공개 행정해석 ${totalAdmin.toLocaleString()}건을 검색합니다.`, href: '/decisions' },
   ];
 
   const [featured, ...supporting] = latestBlogArticles;
@@ -52,7 +52,7 @@ export default function HomeClient({ totalCases, totalAdmin, latestBlogArticles,
     <div className="editorial-home">
       <section className="editorial-shell editorial-search-band" aria-labelledby="home-search-heading">
         <div>
-          <h1 id="home-search-heading">노동법, 근거를 따라 읽다</h1>
+          <h1 id="home-search-heading">노동법 자료 검색과 실무 정보</h1>
           <p>판례 {totalCases.toLocaleString()}건 · 공개 행정해석 {totalAdmin.toLocaleString()}건</p>
         </div>
         <form action="/decisions" method="get" role="search" className="editorial-search-form">
@@ -62,10 +62,10 @@ export default function HomeClient({ totalCases, totalAdmin, latestBlogArticles,
         </form>
         <nav className="editorial-issue-links" aria-label="주요 콘텐츠">
           <span>바로 읽기</span>
-          <Link href="/blog">일의 이야기</Link>
-          <Link href="/decisions">근거 찾기</Link>
-          <Link href="/laws">달라지는 일</Link>
-          <Link href="/tools">내 일 점검</Link>
+          <Link href="/blog">글</Link>
+          <Link href="/decisions">판례·행정해석</Link>
+          <Link href="/laws">법령 개정</Link>
+          <Link href="/tools/work-rules">취업규칙 점검</Link>
         </nav>
       </section>
 
@@ -100,7 +100,7 @@ export default function HomeClient({ totalCases, totalAdmin, latestBlogArticles,
       {topicPicksSlot}
 
       <section className="editorial-shell editorial-guide-section" aria-labelledby="home-sections-heading">
-        <div className="editorial-section-heading"><h2 id="home-sections-heading">일의 무늬 둘러보기</h2></div>
+        <div className="editorial-section-heading"><h2 id="home-sections-heading">메뉴 안내</h2></div>
         <div className="editorial-guide-links">
           {sections.map(section => (
             <Link key={section.title} href={section.href}>

@@ -18,7 +18,7 @@ function loadAssets() {
     logo: 'data:image/svg+xml;base64,' + logo.toString('base64'),
   }));
 }
-export async function shareCard({ title, description, category = '노동법과 일터의 변화', wordmark = 'proposal' }: { title: string; description?: string; category?: string; wordmark?: 'original' | 'proposal' }) {
+export async function shareCard({ title, description, category = '노동법 자료·실무 정보', wordmark = 'proposal' }: { title: string; description?: string; category?: string; wordmark?: 'original' | 'proposal' }) {
   const a = await loadAssets();
   const logo = wordmark === 'original' ? await (originalLogo ??= readFile(path.join(process.cwd(), 'public/brand/work-patterns-wordmark-original.svg')).then(value => 'data:image/svg+xml;base64,' + value.toString('base64'))) : a.logo;
   const text = shortShareText(title, 180) || BRAND_NAME;
@@ -28,7 +28,7 @@ export async function shareCard({ title, description, category = '노동법과 �
     <div style={{ width:'100%', height:'100%', display:'flex', flexDirection:'column', padding:'42px 64px 36px', background:'#faf8f2', color:'#20231f', fontFamily:'Share KR', position:'relative' }}>
       <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', borderBottom:'2px solid #d8d5cb', paddingBottom:22 }}>
         {!general && <img src={logo} width={wordmark === 'original' ? 257 : 226} height={64} alt={BRAND_NAME} />}
-        {general && <span style={{ fontSize:25, color:'#485149' }}>노동법과 일터의 변화</span>}
+        {general && <span style={{ fontSize:25, color:'#485149' }}>노동법 자료·실무 정보</span>}
         {!general && <div style={{ fontSize:25, color:'#285e77', fontWeight:700 }}>{category}</div>}
       </div>
       <div style={{ display:'flex', flexDirection:'column', flex:1, justifyContent:'center', padding:'22px 0' }}>
@@ -36,7 +36,7 @@ export async function shareCard({ title, description, category = '노동법과 �
         {description && <div style={{ display:'flex', fontSize:28, color:'#485149', lineHeight:1.4, marginTop:22, wordBreak:'keep-all' }}>{shortShareText(description)}</div>}
       </div>
       <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', borderTop:'3px solid #285e77', paddingTop:18, fontSize:24, color:'#485149' }}>
-        <span>일을 읽고, 변화를 살핍니다</span><span>yellowenvelope.kr</span>
+        <span>노동법 자료와 실무 정보</span><span>yellowenvelope.kr</span>
       </div>
     </div>,
     { ...SHARE_SIZE, fonts: [{ name:'Share KR', data:a.regular, weight:400, style:'normal' }, { name:'Share KR', data:a.bold, weight:700, style:'normal' }] },

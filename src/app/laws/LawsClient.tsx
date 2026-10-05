@@ -252,22 +252,11 @@ export default function LawsClient({ index }: { index: LawIndex }) {
     <div className="lr">
       <div className="lr-wrap">
         <header className="lr-hero">
-          <div className="lr-eyebrow">달라지는 일 · 노동관계법령 {index.lawCount}개 법률과 하위법령 {index.subCount}개 · 법제처 원문 기준 · {index.generated} 갱신</div>
-          <h1 className="lr-h1">달라지는 법,
-            내 일터의 다음 준비.</h1>
-          <p className="lr-lead">
-            공포됐지만 아직 시행되지 않은 개정 <b>{upcoming.length}건</b>을 시행일 순서로 모았습니다. 바뀐 글자만 칠해 보여주고,
-            시행일과 조문을 확인한 뒤 내 취업규칙에서 살펴볼 항목으로 이어집니다.
-          </p>
+          <div className="lr-eyebrow">법령 개정 · 노동관계법령 {index.lawCount}개 법률과 하위법령 {index.subCount}개 · 법제처 원문 기준 · {index.generated} 갱신</div>
+          <h1 className="lr-h1">노동관계법령 개정 현황</h1>
+          <p className="lr-lead">시행 예정 개정 <b>{upcoming.length}건</b>의 시행일, 개정 내용과 관련 조문을 확인합니다. 취업규칙 관련 항목은 별도로 점검할 수 있습니다.</p>
           <p className="lr-review-note">법령 검수 전 · 개정 제목과 취업규칙 문안은 원문 대조와 공인노무사 검토가 필요합니다.</p>
-          <div className="lr-hero-cta">
-            <button className="lr-btn" onClick={() => setChecking(true)}>
-              <ShieldCheck size={16} /> 내 취업규칙 붙여넣고 점검
-            </button>
-            <button className="lr-btn lr-btn-ghost" onClick={() => { setView('upcoming'); setRulesOnly(true); document.querySelector('.lr-toolbar')?.scrollIntoView({ behavior: 'smooth' }); }}>
-              취업규칙에 걸리는 개정만 보기
-            </button>
-          </div>
+          <div className="lr-hero-cta"><a className="lr-btn" href="#law-list">개정 목록 보기</a></div>
         </header>
 
         {next && (
@@ -401,7 +390,7 @@ export default function LawsClient({ index }: { index: LawIndex }) {
         </div>
       </div>
 
-      <section className="lr-wrap" aria-label="법 개정 목록">
+      <section id="law-list" className="lr-wrap" aria-label="법령 개정 목록">
         {mode === 'cal' && (
           <CalendarView events={matched} today={today} selected={day} onSelect={setDay} />
         )}
@@ -549,7 +538,7 @@ function EventCard({
           {step && (
             <>
               <div className="lr-detail-bar">
-                <button className="lr-btn" onClick={onCheck}><ShieldCheck size={16} /> 내 취업규칙 점검</button>
+                <button className="lr-btn" onClick={onCheck}><ShieldCheck size={16} /> 취업규칙 점검</button>
                 <button className="lr-btn lr-btn-ghost" onClick={async () => { const u = new URL(location.href); u.searchParams.set("event",e.id); u.hash=e.id; if(await copyRich(u.toString())) toast("개정 상세 링크를 복사했습니다"); }}><Link2 size={14} /> 상세 링크</button>
                 <div className="lr-seg" role="group" aria-label="비교 보기">
                   <button aria-pressed={layout === 'split'} onClick={() => onLayout('split')}><Columns2 size={14} style={{ display: 'inline' }} /> 나란히</button>
@@ -607,7 +596,7 @@ function EventCard({
 function RulesBox({ rules, art93, cite, toast }: { rules: RuleDetail[]; art93: Record<string, string>; cite: string; toast: (m: string) => void }) {
   return (
     <section className="lr-rules" aria-label="취업규칙 반영">
-      <h3><Check size={16} /> 취업규칙에 반영할 것 {rules.length}건</h3>
+      <h3><Check size={16} /> 취업규칙 관련 항목 {rules.length}건</h3>
       <p>상시 10명 이상 사업장은 바뀐 내용을 취업규칙에 넣고 변경 신고합니다(근로기준법 제93조). 변경할 때는 근로자 과반수의 의견을 듣고, 불리한 변경이면 동의를 받습니다(제94조).</p>
       {rules.map((r) => (
         <div className="lr-rule" key={r.article + r.topic}>

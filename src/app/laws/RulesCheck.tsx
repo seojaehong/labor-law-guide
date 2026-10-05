@@ -16,7 +16,7 @@ const SAMPLE = `제22조(휴게) ① 회사는 근로시간이 4시간인 경우
 
 let rulesPromise: Promise<RuleSpec[]> | null = null;
 const loadRules = () =>
-  (rulesPromise ??= fetch('/data/laws/rules.json').then((r) => r.json()).then((d) => d.rules as RuleSpec[]));
+  (rulesPromise ??= fetch('/data/laws/rules.json').then((r) => { if (!r.ok) throw new Error('Rules unavailable'); return r.json(); }).then((d) => { if (!Array.isArray(d.rules)) throw new Error('Invalid rules'); return d.rules as RuleSpec[]; }).catch((error) => { rulesPromise = null; throw error; }));
 
 function label(v: Verdict) {
   if (v.status === '반영됨') return { text: '반영됨', cls: 'ok' };
@@ -33,12 +33,13 @@ export default function RulesCheck({ onClose, toast }: { onClose: () => void; to
   const [text, setText] = useState('');
   const [rules, setRules] = useState<RuleSpec[] | null>(null);
   const [showOk, setShowOk] = useState(false);
+  const [loadError, setLoadError] = useState(false);
   const ref = useRef<HTMLTextAreaElement>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
   const today = todayKST();
 
   useEffect(() => {
-    loadRules().then(setRules).catch(() => setRules([]));
+    loadRules().then(setRules).catch(() => setLoadError(true));
     const previous = document.activeElement as HTMLElement | null;
     const overflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
@@ -76,13 +77,12 @@ export default function RulesCheck({ onClose, toast }: { onClose: () => void; to
   };
 
   return (
-    <div className="lr-modal" role="dialog" aria-modal="true" aria-label="내 취업규칙 점검" onClick={onClose}>
+    <div className="lr-modal" role="dialog" aria-modal="true" aria-label="취업규칙 점검" onClick={onClose}>
       <div ref={dialogRef} className="lr-modal-card" onClick={(e) => e.stopPropagation()}>
         <div className="lr-modal-head">
           <div>
-            <div className="lr-eyebrow">내 취업규칙 점검</div>
-            <h2>우리 취업규칙에서
-              살펴볼 문구를 찾습니다.</h2>
+            <div className="lr-eyebrow">취업규칙 점검</div>
+            <h2>취업규칙 개정 관련 항목 확인</h2>
             <p className="lr-review-note">법령 검수 전 · 자동 문구 대조 결과는 법률 판단이 아닙니다.</p>
           </div>
           <button className="lr-icon-btn" onClick={onClose} aria-label="닫기"><X size={18} /></button>
@@ -101,14 +101,16 @@ export default function RulesCheck({ onClose, toast }: { onClose: () => void; to
             <div className="lr-check-meta">
               <ShieldCheck size={14} /> 붙여넣은 본문은 이 브라우저 안에서만 판정합니다. 서버로 보내지 않습니다.
               <span className="sp" />
-              {!text && <button className="lr-btn lr-btn-ghost lr-btn-sm" onClick={() => setText(SAMPLE)}>예시로 해보기</button>}
+              {!text && <button className="lr-btn lr-btn-ghost lr-btn-sm" onClick={() => setText(SAMPLE)}>예시 입력</button>}
               {text && <button className="lr-btn lr-btn-ghost lr-btn-sm" onClick={() => setText('')}>지우기</button>}
             </div>
           </div>
 
           <div className="lr-check-out" aria-live="polite">
             <h3 className="lr-output-title">2. 원문과 대조할 항목</h3>
-            {!verdicts && (
+            {!rules && !loadError && <p role="status">점검 기준을 불러오는 중입니다.</p>}
+            {loadError && <div className="lr-check-empty" role="alert">점검 기준을 불러오지 못했습니다. 입력한 내용을 유지한 채 다시 시도할 수 있습니다.<button className="lr-btn" onClick={() => { setLoadError(false); loadRules().then(setRules).catch(() => setLoadError(true)); }}>다시 시도</button></div>}
+            {!loadError && !verdicts && (
               <div className="lr-check-empty">
                 <b>{rules ? `개정 ${rules.length}건` : '…'}</b>과 대조합니다. 배우자 출산전후휴가, 배우자 유산·사산휴가, 단기 육아휴직, 난임치료휴가 유급 4일, 육아기 근로시간 단축, 연차 분할 사용, 휴게 생략 요청 등.
               </div>
