@@ -82,12 +82,15 @@ function dice(a: string, b: string): number {
   return (2 * n) / (x.size + y.size);
 }
 
+/** 제목 조각으로는 너무 흔한 낱말 — 「시용기간」이 「휴직사유 및 기간」에 붙었다(2026-10-05 실제 회사 규칙 7건 시험) */
+const GENERIC = new Set(['기간', '계산', '지급', '사용', '교육', '보호', '조치', '금지', '기준', '방법', '절차', '운영', '구성', '기능', '의무', '제한', '사항', '등의', '단축의', '사용형태', '근로시간']);
+
 function score(std: StdArticle, u: UserArticle): number {
   const st = squash(std.title);
   const ut = squash(u.title);
   if (ut && st === ut) return 100;
   if (ut && ut.length >= 2 && (st.includes(ut) || ut.includes(st))) return 80;
-  const kw = std.keywords.map(squash).filter((k) => k.length >= 2);
+  const kw = std.keywords.map(squash).filter((k) => k.length >= 2 && !GENERIC.has(k));
   if (ut && kw.some((k) => ut.includes(k))) return 60 + Math.round(dice(st, ut) * 10);
   const head = squash(u.text.slice(0, 160));
   if (kw.some((k) => head.includes(k))) return 30;
@@ -97,7 +100,7 @@ function score(std: StdArticle, u: UserArticle): number {
 /** 표준 조문 id → 짝지은 내 조문들.
  *  내 조문마다 점수가 가장 높은 표준 조문(동점이면 모두)에만 붙인다. 표준 조문 쪽에서 문턱 이상을 전부 모으면
  *  「휴게」「지급」 같은 두 글자 조각 때문에 한 조문이 열 곳에 붙는다(2026-10-05 실데이터 자기시험 58건 실패) */
-export function matchArticles(user: UserArticle[], std: StdArticle[]): Map<string, UserArticle[]> {
+export function matchArticles(user: UserArticle[], std: StdArticle[], opts: { weak?: boolean } = {}): Map<string, UserArticle[]> {
   const out = new Map<string, UserArticle[]>();
   for (const u of user) {
     const scored = std.map((s) => ({ s, sc: score(s, u) }));
@@ -105,10 +108,15 @@ export function matchArticles(user: UserArticle[], std: StdArticle[]): Map<strin
     if (!top) continue;
     for (const { s } of scored.filter((x) => x.sc === top)) out.set(s.id, [...(out.get(s.id) ?? []), u]);
   }
-  // 제목으로 짝지은 조문이 있는 표준 조문에서는 본문 낱말로만 붙은 조문(30점)을 뗀다
+  if (opts.weak) return out;
+  // 본문 낱말로만 붙은 짝(30점)은 판정 위치로 쓰지 않는다 — 「손해변상」「견책」이 육아휴직 사용형태에 붙었다.
+  // 짝이 비면 periodCheck 가 문서 전체에서 매핑 키워드로 찾는다(B 방식). 「조문이 있나」(누락 점검)에는 weak 를 쓴다
   for (const s of std) {
     const got = out.get(s.id);
-    if (got && got.some((u) => score(s, u) >= 60)) out.set(s.id, got.filter((u) => score(s, u) >= 60));
+    if (!got) continue;
+    const strong = got.filter((u) => score(s, u) >= 60);
+    if (strong.length) out.set(s.id, strong);
+    else out.delete(s.id);
   }
   return out;
 }
@@ -219,6 +227,7 @@ export function periodCheck(opts: {
   const items = [...byStd.values()].sort(
     (a, b) => RANK[a.status] - RANK[b.status] || a.std.no.localeCompare(b.std.no, 'ko', { numeric: true }),
   );
-  const missingRequired = hasText ? std.filter((s) => s.kind === '필수' && !matched.has(s.id)) : [];
+  const present = matchArticles(user, std, { weak: true });
+  const missingRequired = hasText ? std.filter((s) => s.kind === '필수' && !present.has(s.id)) : [];
   return { items, missingRequired, missing93: hasText ? missingArt93(text, opts.art93 ?? []) : [], matched };
 }
