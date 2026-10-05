@@ -5,9 +5,9 @@
       "C:\\Users\\iceam\\Documents\\Codex\\2026-10-05\\task-2\\labor-law-guide\\node_modules\\@playwright\\test\\cli.js",
       "test",
       "--config",
-      "qa-playwright.config.ts"
+      "playwright.faq-race.config.ts"
     ],
-    "configFile": "C:\\Users\\iceam\\Documents\\Codex\\2026-10-05\\task-2\\labor-law-guide\\qa-playwright.config.ts",
+    "configFile": "C:\\Users\\iceam\\Documents\\Codex\\2026-10-05\\task-2\\labor-law-guide\\playwright.faq-race.config.ts",
     "rootDir": "C:/Users/iceam/Documents/Codex/2026-10-05/task-2/labor-law-guide/tests/layout",
     "failOnFlakyTests": false,
     "forbidOnly": false,
@@ -88,12 +88,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 2974,
+                  "duration": 2749,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-10-05T02:46:33.256Z",
+                  "startTime": "2026-10-05T03:04:37.851Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -122,12 +122,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 1832,
+                  "duration": 1892,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-10-05T02:46:38.585Z",
+                  "startTime": "2026-10-05T03:04:42.487Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -145,8 +145,8 @@
   ],
   "errors": [],
   "stats": {
-    "startTime": "2026-10-05T02:46:32.026Z",
-    "duration": 10233.57,
+    "startTime": "2026-10-05T03:04:36.323Z",
+    "duration": 9299.689,
     "expected": 2,
     "skipped": 0,
     "unexpected": 0,

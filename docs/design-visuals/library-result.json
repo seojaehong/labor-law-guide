@@ -4,5 +4,6 @@
   "file_id": "file_0000000010188206a68a3893a548aa0c",
   "status": "saved",
   "local_metadata_error": "AttributeError: module 'os' has no attribute 'setxattr'",
-  "other_images_error": "library upload failed: Library prepare_uploads is not available"
+  "other_images_error": "library upload failed: Library prepare_uploads is not available",
+  "role": "Previous proposal comparison, archived reference. Current restored-default Library image is in original-default-library.json."
 }

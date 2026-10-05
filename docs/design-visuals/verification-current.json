@@ -6,6 +6,9 @@
       "overflow": false
     },
     {
+      "headerDefault": "original"
+    },
+    {
       "route": "/laws",
       "status": 200,
       "overflow": false
@@ -57,6 +60,9 @@
     {
       "route": "/og/news-20261003-01",
       "status": 200
+    },
+    {
+      "generalMatchesExplicitOriginal": true
     }
   ],
   "blockedApiRequests": []
