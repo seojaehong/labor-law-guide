@@ -3,10 +3,9 @@
   "build": "production Next fixture build, 102 static pages",
   "source_trees": {
     "src": "78c34132d10f1941156ce3de083cd55762ae5d1e",
-    "public": "fd9717a935aea484d89212d793923bb347c9537c",
-    "tests": "0bada5f51ed0303ceae88d0222722850b0e4abdc"
+    "public": "fd9717a935aea484d89212d793923bb347c9537c"
   },
-  "scope": "every PNG rerendered from the same code build; synthetic DB plus repository law JSON; no legal verification",
+  "scope": "Every PNG rerendered from app code/public assets identical to final publication head. Tests/docs-only additions do not change rendered pixels. Synthetic DB plus repository law JSON; no legal verification.",
   "law_example": {
     "route": "/og/laws?event=006288-20251001",
     "event": "006288-20251001"
