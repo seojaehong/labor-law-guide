@@ -45,6 +45,10 @@
                     color: var(--text); background: var(--card-bg);
                     border: 1px solid var(--border); border-radius: var(--radius); }
         .ctx .none { font-size: 13px; color: var(--text-light); margin: 0; }
+        .ctx .privacy { font-size: 12px; line-height: 1.65; color: var(--text-light);
+                    background: var(--card-bg); border: 1px solid var(--border);
+                    border-radius: var(--radius); padding: 10px 13px; margin: 0 0 18px; }
+        .ctx .privacy b { color: var(--text); font-weight: 600; }
         .ctx .disc { margin-top: 18px; font-size: 12px; color: var(--text-light); line-height: 1.65; }
 
         /* ========================================
@@ -1988,6 +1992,7 @@ function renderContext(d, w) {
 
     let h = contextHeader(w);
     if (!checks.length && !srcI.length && !srcF.length && !next.length) h += '<p class="none">이 입력 조건에 해당하는 근거를 찾지 못했습니다.</p>';
+
 
     h += '<section><h3>확인할 점</h3>';
     for (const c of checks) {

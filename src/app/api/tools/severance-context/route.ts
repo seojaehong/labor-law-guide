@@ -24,6 +24,40 @@ import { toLexQuery } from '@/lib/chat/context/lex-query';
 
 const db = supabaseAdmin || supabase;
 
+/**
+ * 임베딩 캐시 — 남용 방지의 핵심이다 (2026-10-05).
+ *
+ * 이 라우트가 만드는 질의는 **종류가 적다.** 걸린 쟁점(최대 4가지)과 제도(3가지)의 조합이고,
+ * 사용자가 입력한 숫자는 질의에 들어가지 않는다. 그래서 같은 문장이 계속 반복된다.
+ * 문장을 키로 캐시하면 인스턴스가 사는 동안 OpenAI 호출이 사실상 한 자릿수로 끝난다.
+ *
+ * 서버리스라 인스턴스가 여러 개이고 수시로 죽는다 — 캐시는 인스턴스마다 따로이고 영구적이지 않다.
+ * 그래도 「누르는 만큼 외부 유료 호출이 나가는」 구조는 이것으로 닫힌다.
+ */
+const EMB_CACHE = new Map<string, number[]>();
+const EMB_CACHE_MAX = 64;
+
+/**
+ * 호출 상한 — 캐시로 비용은 막았지만 우리 DB 를 두드리는 것은 남는다.
+ * 인스턴스 안에서만 세므로 완전하지 않다. 분산 차단이 필요하면 별도 저장소가 있어야 한다.
+ * 지금 단계에서는 「한 사람이 연타하는 것」을 막는 정도로 충분하다고 본다.
+ */
+const HITS = new Map<string, { n: number; reset: number }>();
+const LIMIT = 30;               // 1분당
+const WINDOW_MS = 60_000;
+
+function overLimit(ip: string): boolean {
+  const now = Date.now();
+  const cur = HITS.get(ip);
+  if (!cur || now > cur.reset) {
+    if (HITS.size > 5_000) HITS.clear();   // 메모리가 무한히 늘지 않게
+    HITS.set(ip, { n: 1, reset: now + WINDOW_MS });
+    return false;
+  }
+  cur.n += 1;
+  return cur.n > LIMIT;
+}
+
 type Body = {
   startDate?: string;      // 입사일 YYYY-MM-DD
   endDate?: string;        // 퇴사일
@@ -202,20 +236,31 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'bad json' }, { status: 400 });
   }
 
+  // 상한을 먼저 본다. 넘으면 **확인할 점은 그대로 주고 검색만 건너뛴다** —
+  // 계산을 쓰지 못하게 막는 것은 과하다.
+  const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
+  const limited = overLimit(ip);
+
   const checks = buildChecks(body);
   const query = buildQuery(body, checks);
 
   // 임베딩이 없으면 근거 없이 확인할 점만 돌려준다 — 화면이 비지 않게 한다.
-  let embedding: number[] | null = null;
+  let embedding: number[] | null = EMB_CACHE.get(query) ?? null;
   try {
     const key = process.env.OPENAI_API_KEY;
-    if (key) {
+    if (!embedding && !limited && key) {
       const r = await fetch('https://api.openai.com/v1/embeddings', {
         method: 'POST',
         headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ model: 'text-embedding-3-small', input: query }),
       });
-      if (r.ok) embedding = (await r.json())?.data?.[0]?.embedding ?? null;
+      if (r.ok) {
+        embedding = (await r.json())?.data?.[0]?.embedding ?? null;
+        if (embedding) {
+          if (EMB_CACHE.size >= EMB_CACHE_MAX) EMB_CACHE.clear();
+          EMB_CACHE.set(query, embedding);
+        }
+      }
     }
   } catch { /* 근거 없이 간다 */ }
 
@@ -224,7 +269,7 @@ export async function POST(req: NextRequest) {
     faq: Array<{ id: number; question: string; url: string }>;
   } = { interpretations: [], faq: [] };
 
-  if (embedding) {
+  if (embedding && !limited) {
     const [interp, faq] = await Promise.all([
       // 유사도 하한 0.50 — **챗봇(0.35)보다 높게 잡았다.**
       // 여기서는 「근거」라는 이름으로 붙으므로 빗나간 것이 섞이면 안 된다.
@@ -277,7 +322,7 @@ export async function POST(req: NextRequest) {
     body: '이 계산기의 산정서를 인쇄하거나 저장해 두면 나중에 다툴 때 그대로 쓸 수 있습니다.',
   });
 
-  return NextResponse.json({ checks, sources, next, query }, {
+  return NextResponse.json({ checks, sources, next, query, limited }, {
     headers: { 'Cache-Control': 'no-store' },
   });
 }
