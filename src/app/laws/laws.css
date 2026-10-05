@@ -312,3 +312,20 @@
 @media (max-width: 600px) { .lr-keys { display: none; } }
 .lr-more { border: 0; background: none; color: var(--lr-link); font-size: 13px; cursor: pointer; margin-left: 6px; padding: 0; }
 .lr-more:hover { text-decoration: underline; }
+
+/* ── 취업규칙 기간 점검 ── */
+.lr-period { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px 12px; padding: 12px 20px; border-bottom: 1px solid var(--lr-hair); background: var(--lr-soft); }
+.lr-period label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--lr-mute); }
+.lr-period input[type='date'] { height: 34px; padding: 0 10px; border-radius: 6px; border: 0; box-shadow: var(--lr-shadow-1); background: var(--lr-canvas); color: var(--lr-ink); font-size: 14px; font-feature-settings: 'tnum'; }
+.lr-period-sep { padding-bottom: 8px; color: var(--lr-mute); }
+.lr-period-warn { margin: 0; padding: 8px 20px; font-size: 12px; color: var(--lr-warn-deep); background: var(--lr-warn-soft); }
+.lr-check-actions { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0 6px; }
+.lr-period-ev { display: inline-block; margin-right: 10px; }
+.lr-period-ev a { color: var(--lr-link); text-decoration: underline; text-underline-offset: 2px; }
+.lr-period-rule { margin-top: 8px; font-size: 13px; }
+.lr-verdict.info { box-shadow: inset 3px 0 0 var(--lr-hair-strong), var(--lr-shadow-1); }
+.lr-badge.v-info { background: var(--lr-soft-2); color: var(--lr-body); font-weight: 500; }
+.lr-missing { margin-top: 14px; font-size: 13px; color: var(--lr-body); }
+.lr-missing summary { cursor: pointer; font-weight: 500; color: var(--lr-ink); }
+.lr-missing ul { margin: 8px 0 0 18px; line-height: 1.8; list-style: disc; }
+@media (max-width: 600px) { .lr-period { padding: 12px 16px; } .lr-period .lr-seg { width: 100%; overflow-x: auto; } }
