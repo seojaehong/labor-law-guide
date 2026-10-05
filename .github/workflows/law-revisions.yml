@@ -1,0 +1,94 @@
+name: Law Revisions Update
+
+# /laws 노동법 개정 알림 — 법제처 Open API 에서 매일 수집해, 실제로 바뀐 개정이 있으면 PR 을 연다.
+# master 에 바로 넣지 않는 이유: 날짜별 한 줄 제목(headlines.json)과 취업규칙 매핑(work_rules_map.json)은
+# 사람이 바뀐 조문 원문을 보고 쓴다. PR 본문에 제목이 없는 개정을 표로 띄운다.
+# PR 이벤트에서는 수집만 돌려 보고(법제처가 Actions 러너에서 응답하는지) 아무것도 올리지 않는다.
+
+on:
+  schedule:
+    # 매일 한국시간 06:30 (UTC 21:30)
+    - cron: '30 21 * * *'
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - '.github/workflows/law-revisions.yml'
+      - 'scripts/laws/fetch_law_revisions.py'
+      - 'scripts/laws/diff_law_versions.py'
+      - 'scripts/laws/build_site_data.py'
+      - 'scripts/laws/fingerprint.py'
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: law-revisions
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      # 표준 라이브러리만 쓴다 — 설치할 의존성이 없다
+      - name: Fingerprint before
+        run: python scripts/laws/fingerprint.py > "$RUNNER_TEMP/before.txt"
+
+      # 법제처 OC 는 스크립트 기본값을 쓴다(LAW_GO_KR_OC 로 바꿀 수 있다)
+      - name: Fetch revisions
+        run: python scripts/laws/fetch_law_revisions.py
+
+      - name: Diff versions
+        run: python scripts/laws/diff_law_versions.py
+
+      - name: Build site data
+        run: python scripts/laws/build_site_data.py
+
+      - name: Compare
+        id: cmp
+        run: |
+          python scripts/laws/fingerprint.py --compare "$RUNNER_TEMP/before.txt" > "$RUNNER_TEMP/changes.md"
+          if [ -s "$RUNNER_TEMP/changes.md" ]; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            cat "$RUNNER_TEMP/changes.md" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "바뀐 개정 없음" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Open PR
+        if: steps.cmp.outputs.changed == 'true' && github.event_name != 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          day=$(TZ=Asia/Seoul date +%Y-%m-%d)
+          # 고정 브랜치 — 병합 전에 다음 날 또 바뀌면 같은 PR 을 갱신한다(날짜별로 쌓지 않는다)
+          branch="bot/law-revisions"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898283+github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$branch"
+          git add data/law-revisions.json data/law-diffs public/data/laws
+          git commit -m "chore(laws): 법령 개정 자동 수집 $day"
+          git push -f origin "$branch"
+          {
+            echo "법제처 Open API 매일 수집에서 바뀐 개정이 잡혔다."
+            echo
+            cat "$RUNNER_TEMP/changes.md"
+            echo "### 병합 전에 사람이 할 것"
+            echo "- 제목이 **없음**인 개정은 바뀐 조문 원문을 보고 \`scripts/laws/headlines.json\` 에 한 줄 제목을 쓴다"
+            echo "- 취업규칙에 걸리는 개정이면 \`scripts/laws/work_rules_map.json\` 에 매핑을 더한다(/노동법개정반영)"
+            echo "- 하위법령(시행령·시행규칙)이 새로 공포됐으면 그 법률 매핑의 「시행령 공포 후 확정」 문안을 다시 본다"
+            echo "- 위를 고친 뒤 \`python scripts/laws/build_site_data.py\` 를 다시 돌려 커밋한다"
+          } > "$RUNNER_TEMP/body.md"
+          if gh pr view "$branch" --json state -q .state 2>/dev/null | grep -q OPEN; then
+            gh pr edit "$branch" --body-file "$RUNNER_TEMP/body.md"
+          else
+            gh pr create --base master --head "$branch" --title "chore(laws): 법령 개정 자동 수집 $day" --body-file "$RUNNER_TEMP/body.md"
+          fi
