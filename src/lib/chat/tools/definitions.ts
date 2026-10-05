@@ -79,12 +79,26 @@ export const TOOLS = [
     type: 'function' as const,
     function: {
       name: 'lookup_law_article',
-      description: '법조항 존재 여부와 제목 조회 (법제처 캐시).',
+      description:
+        '법조항 원문 조회 (법제처 조문 93종). 조문 제목과 본문을 돌려준다. ' +
+        '금액·기간·일수·벌칙 수위처럼 조문에 적힌 수치를 말해야 할 때 반드시 호출한다. ' +
+        '기억에 의존해 숫자를 쓰지 말 것. 삭제된 조문이면 삭제 사실을 알려준다.',
       parameters: {
         type: 'object',
         properties: {
-          law: { type: 'string', description: '예: 근로기준법, 노동조합 및 노동관계조정법' },
-          article: { type: 'integer', description: '조항 번호' },
+          law: {
+            type: 'string',
+            description:
+              '법령명 전체. 예: 근로기준법, 근로기준법 시행령, 노동조합 및 노동관계조정법, ' +
+              '남녀고용평등과 일ㆍ가정 양립 지원에 관한 법률',
+          },
+          article: { type: 'integer', description: '조 번호. 예: 76' },
+          sub: {
+            type: 'integer',
+            description:
+              '가지번호. 「제76조의2」면 2. 직장 내 괴롭힘(제76조의2·제76조의3)처럼 ' +
+              '핵심 조항이 가지번호에 있으므로 빠뜨리지 말 것',
+          },
         },
         required: ['law', 'article'],
       },
