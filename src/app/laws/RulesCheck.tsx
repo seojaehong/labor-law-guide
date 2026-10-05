@@ -195,7 +195,7 @@ export default function RulesCheck({ onClose, toast }: { onClose: () => void; to
               ref={ref}
               value={text}
               onChange={(e) => setText(e.target.value)}
-              placeholder={'취업규칙 본문을 붙여넣거나 hwpx·docx 파일을 올리세요.\n비워 두면 이 기간 개정의 바꿀 문안만 모아 드립니다.\n조문 머리(제○조(…))가 줄 머리에 있으면 표준취업규칙 조문과 짝지어 판정합니다.'}
+              placeholder={'취업규칙 본문을 붙여넣거나 hwpx·docx 파일을 올리세요.\n비워 두면 이 기간 개정의 바꿀 문안만 모아 드립니다.\n조문 머리(제○조(…))가 줄 머리에 있으면 표준취업규칙 조문과 짝지어 판정합니다.\nPDF에서 복사한 본문은 글자 순서가 섞여 판정이 틀릴 수 있습니다. 한글·워드 원본을 권합니다.'}
               aria-label="취업규칙 본문"
             />
             <div className="lr-check-meta">
