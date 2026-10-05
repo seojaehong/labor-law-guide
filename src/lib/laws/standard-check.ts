@@ -71,13 +71,24 @@ export function splitArticles(text: string): UserArticle[] {
   return out;
 }
 
+const bigrams = (s: string) => new Set(Array.from({ length: Math.max(0, s.length - 1) }, (_, i) => s.slice(i, i + 2)));
+/** 제목 글자쌍 겹침(0~1) — 「보호」 한 낱말로 동점이 된 조문을 가른다(2023 표준판 「피해자의 보호」 → 임산부의 보호 오짝, 2026-10-05) */
+function dice(a: string, b: string): number {
+  const x = bigrams(a);
+  const y = bigrams(b);
+  if (!x.size || !y.size) return 0;
+  let n = 0;
+  for (const g of x) if (y.has(g)) n++;
+  return (2 * n) / (x.size + y.size);
+}
+
 function score(std: StdArticle, u: UserArticle): number {
   const st = squash(std.title);
   const ut = squash(u.title);
   if (ut && st === ut) return 100;
   if (ut && ut.length >= 2 && (st.includes(ut) || ut.includes(st))) return 80;
   const kw = std.keywords.map(squash).filter((k) => k.length >= 2);
-  if (ut && kw.some((k) => ut.includes(k))) return 60;
+  if (ut && kw.some((k) => ut.includes(k))) return 60 + Math.round(dice(st, ut) * 10);
   const head = squash(u.text.slice(0, 160));
   if (kw.some((k) => head.includes(k))) return 30;
   return 0;
