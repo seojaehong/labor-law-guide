@@ -66,4 +66,20 @@ describe('source annotation display text', () => {
     const body = '법률 본문입니다. '.repeat(25000);
     expect(unwrapSourceAnnotations(body + escape(raw))).toBe(body + '군사법원법 제431조');
   });
+  it('preserves original line endings, Unicode and entity bytes around and inside wrappers', () => {
+    const legal = '제23조\r\n① 정당한 이유\t𠮷·👩🏽‍⚖️ R&amp;D &lt;개정&gt; e\u0301';
+    const before = '원문\r\n\r\n';
+    const after = '\r\n끝\u00a0문장';
+    const source = `${before}<law_cite ref="x">${legal}</law_cite>${after}`;
+    expect(unwrapSourceAnnotations(source)).toBe(before + legal + after);
+    expect(source).toBe(`${before}<law_cite ref="x">${legal}</law_cite>${after}`);
+  });
+  it('leaves unsupported deeper encoding intact instead of globally decoding source text', () => {
+    const source = escape(escape(escape(escape(raw))));
+    expect(unwrapSourceAnnotations(source)).toBe(source);
+  });
+  it('preserves an ambiguous wrapper while removing a later confirmed citation', () => {
+    const ambiguous = '<law_cite ref=>법률 A &amp; B';
+    expect(unwrapSourceAnnotations(`${ambiguous}\r\n${raw}`)).toBe(`${ambiguous}\r\n군사법원법 제431조`);
+  });
 });

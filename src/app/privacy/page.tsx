@@ -2,8 +2,8 @@ import { publicMetadata } from '@/lib/public-metadata';
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = publicMetadata({
-  title: '개인정보처리방침 | 노란봉투법 가이드',
-  description: '노란봉투법 가이드 개인정보처리방침',
+  title: '개인정보처리방침 | 일의 무늬',
+  description: '일의 무늬 개인정보처리방침',
 });
 
 export default function PrivacyPage() {
@@ -14,7 +14,7 @@ export default function PrivacyPage() {
 
       <section className="mt-8 space-y-4 text-sm leading-7 text-gray-800">
         <p>
-          노란봉투법 가이드는 서비스 제공 및 상담 접수 처리에 필요한 최소한의 개인정보만 수집·이용합니다.
+          일의 무늬는 서비스 제공 및 상담 접수 처리에 필요한 최소한의 개인정보만 수집·이용합니다.
           수집된 정보는 관련 법령 및 내부 보관 기준에 따라 안전하게 관리합니다.
         </p>
         <p>

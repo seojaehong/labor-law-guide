@@ -1,6 +1,6 @@
 import { BRAND_DESCRIPTION, BRAND_NAME, SITE_URL } from '@/lib/constants';
 export function shareText(value: string | null | undefined): string {
-  return (value || '').replace(/<[^>]*>/g, ' ').replace(/&nbsp;|&#160;/g, ' ').replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&#39;|&apos;/g, "'").replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/^[🎯📌]\s*/u, '').replace(/\s+/g, ' ').trim();
+  return (value || '').replace(/&nbsp;|&#160;/g, ' ').replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&#39;|&apos;/g, "'").replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/<[^>]*>/g, ' ').replace(/^[🎯📌]\s*/u, '').replace(/\s+/g, ' ').trim();
 }
 export function shortShareText(value: string | null | undefined, limit = 95): string {
   const text = shareText(value); return text.length > limit ? text.slice(0, limit - 1).trimEnd() + '…' : text;
