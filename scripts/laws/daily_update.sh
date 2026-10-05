@@ -29,7 +29,9 @@ git fetch -q origin master
 git checkout -q --detach origin/master
 
 python3 scripts/laws/fingerprint.py > "$TMP/before.txt"
-python3 scripts/laws/fetch_law_revisions.py
+# 시작일은 커밋된 데이터의 since 를 그대로 쓴다. 스크립트 기본값(오늘−365일)은 매일 밀려
+# 「목록에서 빠진 개정」이 날마다 생긴다(2026-10-05 서버1 시험 — 168건이 146건으로 줄었다)
+python3 scripts/laws/fetch_law_revisions.py --since "${LAW_SINCE:-$(python3 -c 'import json;print(json.load(open("data/law-revisions.json",encoding="utf-8"))["since"])')}"
 python3 scripts/laws/diff_law_versions.py
 python3 scripts/laws/build_site_data.py
 python3 scripts/laws/fingerprint.py --compare "$TMP/before.txt" > "$TMP/changes.md"
