@@ -6,7 +6,8 @@
     "FAQ returns to all categories",
     "law detail opens rules and Escape returns",
     "law empty search",
-    "rules fetch failure and retry control"
+    "rules fetch failure and retry control",
+    "rules retry fetch succeeds and sample produces verdicts"
   ],
   "faqReadMocks": [
     "?category=%EC%97%B0%EC%B0%A8%EC%9C%A0%EA%B8%89%ED%9C%B4%EA%B0%80&q=%EC%97%B0%EC%B0%A8&page=1&size=20",

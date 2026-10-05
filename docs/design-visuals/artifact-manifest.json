@@ -1,6 +1,6 @@
 {
-  "code_sha": "38034707b218ae918fab4a9e4bc3abf6793b114d",
-  "build": "Final production fixture build: 103 static pages. 253 tests passed; tsc --noEmit passed.",
+  "code_sha": "063839fef2746b22085942ebc0566894eda00b03",
+  "build": "Final production fixture build: 103 static pages. 253 unit tests, 2 actual-browser FAQ response-order regressions and tsc --noEmit passed.",
   "scope": "Every PNG rerendered from this code. Synthetic read-only database fixtures; repository law JSON. No collection or legal verification.",
   "files": [
     {
@@ -17,7 +17,7 @@
     },
     {
       "file": "faq-detail-mobile.png",
-      "sha256": "b88ee1acdc0d0fd6751009123732c1ac861e17a23c79e5fe865aa51998590056",
+      "sha256": "b9dd4cb94d963251210b5a8f73893536ad27342239de7a205dada7f1c4c8dfdd",
       "width": 390,
       "height": 844
     },
@@ -76,6 +76,12 @@
       "height": 844
     },
     {
+      "file": "navigation-current-mobile.png",
+      "sha256": "d0725f521b0c78a06520a829501c03eca3758a03cae18b665b2047e8fbac956f",
+      "width": 390,
+      "height": 844
+    },
+    {
       "file": "og-article-fixture.png",
       "sha256": "c8119feae15075a877319655e8b559c8147557fe4feee61ba892e05cf194b9d7",
       "width": 1200,
@@ -114,6 +120,12 @@
     {
       "file": "rules-error-mobile.png",
       "sha256": "8d94cbe7b4c717c1bffc2140339943a04f4e5bb1f596c69a22ef7a47ce461fa2",
+      "width": 390,
+      "height": 844
+    },
+    {
+      "file": "rules-retry-success-mobile.png",
+      "sha256": "0bec1e5603f524f6d196bd12c76ed39dfbc55bbe7c2b8d5e1eed8ad28299fcc0",
       "width": 390,
       "height": 844
     },

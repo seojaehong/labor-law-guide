@@ -1,31 +1,40 @@
 {
-  "code_sha": "3b39f67b8b47092181f9b33da4fe6c108ad6efc4",
-  "scope": "unchanged navigation code; four actual mobile links, active state, Escape and focus return; no global interaction certification",
-  "checks": {
-    "links": [
-      {
-        "path": "/blog",
-        "url": "http://127.0.0.1:3124/blog",
-        "active": "/blog"
-      },
-      {
-        "path": "/laws",
-        "url": "http://127.0.0.1:3124/laws",
-        "active": "/laws"
-      },
-      {
-        "path": "/tools",
-        "url": "http://127.0.0.1:3124/tools",
-        "active": "/tools"
-      },
-      {
-        "path": "/decisions",
-        "url": "http://127.0.0.1:3124/decisions",
-        "active": "/decisions"
-      }
-    ],
-    "menuOpened": "true",
-    "menuClosed": "false",
-    "focusRestored": true
-  }
+  "code_sha": "063839fef2746b22085942ebc0566894eda00b03",
+  "scope": "Current four mobile menu links clicked; history back/forward and selected state asserted in the final fixture production build.",
+  "checks": [
+    {
+      "path": "/laws",
+      "previous": "/blog",
+      "clicked": true,
+      "back": true,
+      "forward": true,
+      "selectedState": true
+    },
+    {
+      "path": "/tools/work-rules",
+      "previous": "/laws",
+      "clicked": true,
+      "back": true,
+      "forward": true,
+      "selectedState": true
+    },
+    {
+      "path": "/decisions",
+      "previous": "/tools/work-rules",
+      "clicked": true,
+      "back": true,
+      "forward": true,
+      "selectedState": true
+    },
+    {
+      "path": "/blog",
+      "previous": "/decisions",
+      "clicked": true,
+      "back": true,
+      "forward": true,
+      "selectedState": true
+    }
+  ],
+  "menuEscapeFocusReturn": true,
+  "blockedBrowserApiRequests": []
 }
