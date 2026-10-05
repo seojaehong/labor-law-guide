@@ -277,7 +277,11 @@ function ItemCard({ it, today, hasText, toast, onClose }: { it: PeriodItem; toda
             <a href={`#${e.id}`} onClick={onClose}>{e.short} {articles.join('·')}</a> {fmtDate(e.date)} {e.date > today ? `시행 예정(${ddayLabel(e.date, today)})` : '시행'}
           </span>
         ))}
-        {hasText && <> · 현행 {it.user.length ? <b>{it.user.map((u) => u.no + (u.title ? `(${u.title})` : '')).join(', ')}</b> : '해당 조문 없음'}</>}
+        {hasText && (
+          <> · 현행 {it.user.length ? <b>{it.user.map((u) => u.no + (u.title ? `(${u.title})` : '')).join(', ')}</b>
+            : it.verdicts.some((v) => v.where) ? <><b>{[...new Set(it.verdicts.map((v) => v.where).filter(Boolean))].join(', ')}</b> 안(조문 제목이 표준과 다름)</>
+            : '해당 조문 없음'}</>
+        )}
       </div>
       {it.status !== '반영됨' && (
         <>

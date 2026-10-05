@@ -157,7 +157,9 @@ export function periodCheck(opts: {
       const s = stdById.get(id);
       if (!s) continue;
       const it = item(s);
-      const paras = paragraphs(it.user.map((u) => u.text).join('\n'));
+      // 짝지은 조문이 없으면 문서 전체에서 찾는다(B 방식) — 제목이 다른 조문 안에 들어 있는 경우
+      // (2019년 표준판은 배우자 출산휴가를 「경조사 휴가」 조문 안에 둔다. 2026-10-05 A/B 대조)
+      const paras = paragraphs(it.user.length ? it.user.map((u) => u.text).join('\n') : text);
       it.verdicts.push(hasText ? judge(r, paras) : { rule: r, status: '누락', where: null, stale: [], missing: r.ok });
     }
   }
@@ -173,7 +175,7 @@ export function periodCheck(opts: {
       const open = vs.filter((v) => v.status !== '반영됨');
       if (!open.length) it.status = '반영됨';
       else if (!open.some((v) => v.rule.required)) it.status = '선택';
-      else it.status = it.user.length ? '고칠 것' : '조문 추가';
+      else it.status = it.user.length || open.some((v) => v.where) ? '고칠 것' : '조문 추가';
     } else it.status = it.user.length ? '법령 확인' : it.std.kind === '필수' ? '조문 추가' : '법령 확인';
   }
 
