@@ -18,6 +18,9 @@ header p span[style] { color:var(--text) !important; background:var(--border-lig
 button,input,select { min-height:44px; font:inherit; }
 input[type=checkbox],input[type=radio] { min-height:0; }
 .table-wrap { overflow-x:auto; max-width:100%; }
+.result-area { min-width:0; }
+.statement { max-width:100%; overflow-x:auto; }
+@media print { .statement { max-width:none; overflow:visible; } .work-nav { display:none; } }
 body.dark { --primary:#a3cfc8; --primary-light:#c5e1dc; --accent:#a3cfc8; --accent-light:#a3cfc8; --bg:#191d19; --card-bg:#202620; --text:#f0f0e7; --text-light:#b9c0b4; --border:#414a3d; --border-light:#414a3d; }
 body.dark .tab-btn.active,body.dark .btn-primary { color:#191d19; }
 @media(max-width:600px) { .container { padding:24px 20px; } .work-nav { gap:4px; } .work-nav-links { width:100%; gap:0 !important; justify-content:space-between; } .work-nav-links a { font-size:13px; } .card { padding:20px 16px; } }

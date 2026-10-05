@@ -723,7 +723,7 @@
 
 
 <div class="container">
-    <a class="tool-back" href="/tools">계산·점검 도구</a>
+    <a class="tool-back no-print" href="/tools">계산·점검 도구</a>
     <!-- 헤더 -->
     <header>
         <h1>퇴직금 계산</h1>
@@ -1381,7 +1381,7 @@ function renderTabs() {
         const name = w.workerName || `근로자 ${i + 1}`;
         const active = i === state.currentIndex ? ' active' : '';
         html += `<button class="tab-btn${active}" onclick="switchWorker(${i})">`;
-        html += `<span class="tab-name">${name}</span>`;
+        html += `<span class="tab-name">${esc(name)}</span>`;
         if (state.workers.length > 1) {
             html += `<span class="tab-remove" onclick="event.stopPropagation();removeWorker(${i})">×</span>`;
         }
@@ -1708,12 +1708,12 @@ function renderResult(result) {
         <!-- 기본 정보 -->
         <table class="stmt-table">
             <tr>
-                <th>사업장명</th><td colspan="2">${w.businessName || '-'}</td>
-                <th>근로자성명</th><td colspan="2">${w.workerName || '-'}</td>
+                <th>사업장명</th><td colspan="2">${esc(w.businessName || '-')}</td>
+                <th>근로자성명</th><td colspan="2">${esc(w.workerName || '-')}</td>
             </tr>
             <tr>
-                <th>생년월일</th><td colspan="2">${w.birthDate || '-'}</td>
-                <th>사업주성명</th><td colspan="2">${w.ownerName || '-'}</td>
+                <th>생년월일</th><td colspan="2">${esc(w.birthDate || '-')}</td>
+                <th>사업주성명</th><td colspan="2">${esc(w.ownerName || '-')}</td>
             </tr>
             <tr>
                 <th>산정사유발생일</th><td>${formatDate(endDate)}</td>
@@ -1824,14 +1824,18 @@ function renderResult(result) {
             <div class="date-line">위와 같이 확인합니다.</div>
             <div class="date-line">20____년 ____월 ____일</div>
             <div class="sign-grid">
-                <div class="sign-item">사업주 : ${w.ownerName || '____________'} (인)</div>
-                <div class="sign-item">근로자 : ${w.workerName || '____________'} (인)</div>
+                <div class="sign-item">사업주 : ${esc(w.ownerName || '____________')} (인)</div>
+                <div class="sign-item">근로자 : ${esc(w.workerName || '____________')} (인)</div>
             </div>
         </div>
     </div>`;
 
     const area = document.getElementById('resultArea');
     area.innerHTML = html;
+    const statement = area.querySelector('.statement');
+    statement.tabIndex = 0;
+    statement.setAttribute('role', 'region');
+    statement.setAttribute('aria-label', '평균임금 및 퇴직금 산정서');
     area.style.display = 'block';
     area.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
