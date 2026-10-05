@@ -118,7 +118,7 @@
 .lr-date { text-align: left; }
 .lr-date .d { font-size: 24px; font-weight: 600; line-height: 1; letter-spacing: -0.02em; white-space: nowrap; }
 .lr-date .w { font-size: 12px; color: var(--lr-mute); margin-top: 4px; }
-.lr-date .t { display: inline-block; margin-top: 8px; }
+.lr-date .t { display: inline-flex; align-items: center; justify-content: center; margin-top: 8px; }
 .lr-law { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 13px; color: var(--lr-body); }
 .lr-law strong { color: var(--lr-ink); font-weight: 600; font-size: 14px; }
 .lr-title { font-size: 17px; line-height: 1.5; font-weight: 600; letter-spacing: -0.01em; margin-top: 6px; }
