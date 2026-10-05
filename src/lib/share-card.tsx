@@ -29,7 +29,7 @@ export async function shareCard({ title, description, category = '노동법과 �
       <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', borderBottom:'2px solid #d8d5cb', paddingBottom:22 }}>
         {!general && <img src={logo} width={wordmark === 'original' ? 257 : 226} height={64} alt={BRAND_NAME} />}
         {general && <span style={{ fontSize:25, color:'#485149' }}>노동법과 일터의 변화</span>}
-        <div style={{ fontSize:25, color:'#285e77', fontWeight:700 }}>{category}</div>
+        {!general && <div style={{ fontSize:25, color:'#285e77', fontWeight:700 }}>{category}</div>}
       </div>
       <div style={{ display:'flex', flexDirection:'column', flex:1, justifyContent:'center', padding:'22px 0' }}>
         <div style={{ display:'flex', fontSize, fontWeight:700, lineHeight:1.22, letterSpacing:'-0.02em', wordBreak:'keep-all' }}>{general ? <img src={logo} width={wordmark === 'original' ? 700 : 660} height={wordmark === 'original' ? 174 : 187} alt={BRAND_NAME} /> : text}</div>

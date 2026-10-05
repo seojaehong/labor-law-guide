@@ -2,6 +2,7 @@
    Public source text, status colours, authored tables and private screens stay scoped. */
 @font-face { font-family:"Pretendard Variable"; src:url("/fonts/PretendardVariable.woff2") format("woff2"); font-weight:100 900; font-style:normal; font-display:swap; }
 :root { --font-editorial:"Pretendard Variable",Pretendard,sans-serif; --site-nav-height:76px; --reading-anchor-offset:calc(var(--site-nav-height) + 24px); --color-accent:#285e77; --color-accent-ink:#285e77; --color-accent-light:#e8f0ef; --color-info:#285e77; --color-info-ink:#214d62; --color-info-bg:#e8f0ef; --accent:var(--color-accent-light); --accent-foreground:var(--color-accent-ink); --ring:var(--color-accent); }
+.public-surface { --grey-400:var(--color-text-secondary); --grey-500:var(--color-text-secondary); --color-text-tertiary:var(--color-text-secondary); --blue-600:var(--color-accent-ink); --blue-700:var(--color-accent-ink); }
 .dark { --color-accent:#a3cfc8; --color-accent-ink:#a3cfc8; --color-accent-hover:#c5e1dc; --color-accent-ink-hover:#c5e1dc; --color-accent-light:rgba(80,140,130,.17); --color-info:#a3cfc8; --color-info-ink:#c5e1dc; --color-info-bg:rgba(80,140,130,.17); --accent:var(--color-accent-light); --accent-foreground:var(--color-accent-ink); --ring:var(--color-accent); }
 body { font-size:16px; line-height:1.7; }
 .editorial-nav-inner { gap:12px; }
