@@ -22,6 +22,7 @@ import { getVertexClient } from '@/lib/vertex/client';
 import { buildFaqContext } from '@/lib/chat/context/faq';
 import { buildNlrcCasesContext, buildCourtCasesContext } from '@/lib/chat/context/cases';
 import { buildInterpretationsContext } from '@/lib/chat/context/interpretations';
+import { buildLawsContext } from '@/lib/chat/context/laws';
 import { buildNewsContext } from '@/lib/chat/context/news';
 
 // Next.js segment config: literal value 필수 (import const 불가)
@@ -216,7 +217,7 @@ export async function POST(req: NextRequest) {
       };
       const noEmbed: Retrieval = { ...EMPTY_RETRIEVAL, status: 'noembed' };
 
-      const [faq, nlrc, interp, court] = await Promise.all([
+      const [faq, nlrc, interp, court, laws] = await Promise.all([
         withTimeout(
           buildFaqContext(db, searchQuery, queryEmbedding),
           FAQ_TIMEOUT_MS,
@@ -247,12 +248,21 @@ export async function POST(req: NextRequest) {
               EMPTY_RETRIEVAL
             )
           : Promise.resolve({ value: noEmbed, timedOut: false, ms: 0 }),
+        // 2026-10-05 신설 — 법령 조문. **임베딩이 필요 없다**(어휘 기반 + Jev 재선택)
+        // 그래서 임베딩 생성이 실패한 요청에서도 1차 자료가 들어간다.
+        withTimeoutTagged(
+          buildLawsContext(db, lastUserMsg.content),
+          RETRIEVAL_TIMEOUT_MS,
+          '법령 조문 검색',
+          EMPTY_RETRIEVAL
+        ),
       ]);
 
       mark.search = Date.now() - t0;
       faqContext = faq.context;
       topFaqIds = faq.topIds;
-      caseContext = nlrc.value.ctx + interp.value.ctx + court.value.ctx;
+      // 조문을 앞에 둔다 — 1차 자료이고, 뒤쪽은 길어서 잘릴 수 있다
+      caseContext = laws.value.ctx + nlrc.value.ctx + interp.value.ctx + court.value.ctx;
 
       // 왜 비었는지까지 남긴다.
       //
@@ -267,16 +277,19 @@ export async function POST(req: NextRequest) {
         `_nlrc_len=${nlrc.value.ctx.length}`,
         `_interp_len=${interp.value.ctx.length}`,
         `_court_len=${court.value.ctx.length}`,
+        `_laws_len=${laws.value.ctx.length}`,
         `_emb=${queryEmbedding ? 1 : 0}`,
         `_nlrc=${statusOf(nlrc)}/${nlrc.value.via}/${nlrc.ms}ms`,
         `_interp=${statusOf(interp)}/${interp.ms}ms`,
         `_court=${statusOf(court)}/${court.ms}ms`,
+        `_laws=${statusOf(laws)}/${laws.value.rows}rows/${laws.ms}ms`,
       ];
 
       console.log('[chat] retrieval', {
         nlrc: { status: statusOf(nlrc), via: nlrc.value.via, rows: nlrc.value.rows, ms: nlrc.ms },
         interp: { status: statusOf(interp), rows: interp.value.rows, ms: interp.ms },
         court: { status: statusOf(court), rows: court.value.rows, ms: court.ms },
+        laws: { status: statusOf(laws), rows: laws.value.rows, ms: laws.ms },
       });
 
       db.from('chat_logs')
