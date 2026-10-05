@@ -34,14 +34,26 @@ export default function RulesCheck({ onClose, toast }: { onClose: () => void; to
   const [rules, setRules] = useState<RuleSpec[] | null>(null);
   const [showOk, setShowOk] = useState(false);
   const ref = useRef<HTMLTextAreaElement>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
   const today = todayKST();
 
   useEffect(() => {
     loadRules().then(setRules).catch(() => setRules([]));
+    const previous = document.activeElement as HTMLElement | null;
+    const overflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
     ref.current?.focus();
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+      if (e.key === 'Tab') {
+        const nodes = [...(dialogRef.current?.querySelectorAll<HTMLElement>('button:not(:disabled), textarea, a[href], input:not(:disabled)') ?? [])].filter(el => el.getClientRects().length);
+        const first = nodes[0], last = nodes[nodes.length - 1];
+        if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last?.focus(); }
+        else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first?.focus(); }
+      }
+    };
     window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
+    return () => { window.removeEventListener('keydown', onKey); document.body.style.overflow = overflow; previous?.focus(); };
   }, [onClose]);
 
   const verdicts = useMemo(() => (rules && text.trim().length > 20 ? checkRules(text, rules) : null), [rules, text]);
@@ -65,17 +77,20 @@ export default function RulesCheck({ onClose, toast }: { onClose: () => void; to
 
   return (
     <div className="lr-modal" role="dialog" aria-modal="true" aria-label="내 취업규칙 점검" onClick={onClose}>
-      <div className="lr-modal-card" onClick={(e) => e.stopPropagation()}>
+      <div ref={dialogRef} className="lr-modal-card" onClick={(e) => e.stopPropagation()}>
         <div className="lr-modal-head">
           <div>
             <div className="lr-eyebrow">내 취업규칙 점검</div>
-            <h2>붙여넣으면 바로, 무엇을 고칠지 알려드립니다</h2>
+            <h2>우리 취업규칙에서
+              살펴볼 문구를 찾습니다.</h2>
+            <p className="lr-review-note">법령 검수 전 · 자동 문구 대조 결과는 법률 판단이 아닙니다.</p>
           </div>
           <button className="lr-icon-btn" onClick={onClose} aria-label="닫기"><X size={18} /></button>
         </div>
 
         <div className="lr-check">
           <div className="lr-check-in">
+            <h3 className="lr-input-title">1. 취업규칙 본문 붙여넣기</h3>
             <textarea
               ref={ref}
               value={text}
@@ -92,6 +107,7 @@ export default function RulesCheck({ onClose, toast }: { onClose: () => void; to
           </div>
 
           <div className="lr-check-out" aria-live="polite">
+            <h3 className="lr-output-title">2. 원문과 대조할 항목</h3>
             {!verdicts && (
               <div className="lr-check-empty">
                 <b>{rules ? `개정 ${rules.length}건` : '…'}</b>과 대조합니다. 배우자 출산전후휴가, 배우자 유산·사산휴가, 단기 육아휴직, 난임치료휴가 유급 4일, 육아기 근로시간 단축, 연차 분할 사용, 휴게 생략 요청 등.

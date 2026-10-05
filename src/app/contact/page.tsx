@@ -1,3 +1,4 @@
+import { publicMetadata } from '@/lib/public-metadata';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import ContactForm from '@/components/ContactForm';
@@ -7,7 +8,7 @@ import { SITE_URL } from '@/lib/constants';
 const CONTACT_URL = `${SITE_URL}/contact`;
 const DESCRIPTION = '부당해고, 임금체불, 직장내괴롭힘, 노란봉투법, 4대보험까지 — 노무법인 위너스에 온라인으로 노무 상담을 접수하세요. 공인노무사가 직접 검토합니다.';
 
-export const metadata: Metadata = {
+export const metadata: Metadata = publicMetadata({
   title: '노무 상담 문의 | 부당해고·임금체불·괴롭힘·노란봉투법 | 노무법인 위너스',
   description: DESCRIPTION,
   alternates: { canonical: CONTACT_URL },
@@ -22,7 +23,7 @@ export const metadata: Metadata = {
     title: '노무법인 위너스 종합 상담 문의',
     description: DESCRIPTION,
   },
-};
+});
 
 const quickLinks = [
   {

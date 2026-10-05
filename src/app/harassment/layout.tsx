@@ -1,7 +1,8 @@
+import { publicMetadata } from '@/lib/public-metadata';
 import type { Metadata } from 'next';
 import { SITE_URL } from '@/lib/constants';
 
-export const metadata: Metadata = {
+export const metadata: Metadata = publicMetadata({
   title: '직장 내 괴롭힘 판례·판정례 검색 | 인정·기각 사례와 업무상 적정범위 판단기준',
   description: '직장 내 괴롭힘으로 인정된 사례와 기각된 사례를 비교 검색합니다. 근로기준법 제76조의2, 업무상 적정범위, 정신질환 산재 인정 요건과 신고 후 불이익 처우 금지(제76조의3) 판정례를 정리했습니다.',
   keywords: [
@@ -23,7 +24,7 @@ export const metadata: Metadata = {
   // 빈 페이지이고, 얇은 페이지가 많으면 진짜 콘텐츠의 크롤 배분이 줄어든다.
   // follow 는 남긴다. 되살리려면 index 를 true 로 되돌린다.
   robots: { index: false, follow: true },
-};
+});
 
 export default function HarassmentLayout({ children }: { children: React.ReactNode }) {
   return children;

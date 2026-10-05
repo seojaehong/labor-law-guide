@@ -1,3 +1,4 @@
+import { publicMetadata } from '@/lib/public-metadata';
 import Link from "next/link";
 import DecisionCategoryNavigation from "@/components/DecisionCategoryNavigation";
 import type { Metadata } from "next";
@@ -30,7 +31,7 @@ export async function generateMetadata(
 ): Promise<Metadata> {
   const { q, reasonProvided } = parse(await searchParams);
   // 검색 결과는 색인시키지 않는다 — 같은 사건이 질의마다 다른 주소로 중복된다.
-  return {
+  return publicMetadata({
     title: q
       ? `${q} 검색 결과 | 노동위 판정례·법원 판례`
       : "노동위 판정례·법원 판례 검색 | 해고·징계 사건 6만건",
@@ -46,7 +47,7 @@ export async function generateMetadata(
       locale: "ko_KR",
       siteName: BRAND_NAME,
     },
-  };
+  });
 }
 
 export default async function DecisionsIndexPage(

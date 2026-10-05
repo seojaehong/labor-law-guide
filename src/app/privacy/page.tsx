@@ -1,9 +1,10 @@
+import { publicMetadata } from '@/lib/public-metadata';
 import type { Metadata } from 'next';
 
-export const metadata: Metadata = {
+export const metadata: Metadata = publicMetadata({
   title: '개인정보처리방침 | 노란봉투법 가이드',
   description: '노란봉투법 가이드 개인정보처리방침',
-};
+});
 
 export default function PrivacyPage() {
   return (

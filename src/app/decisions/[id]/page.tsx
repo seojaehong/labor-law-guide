@@ -1,3 +1,4 @@
+import { publicMetadata } from '@/lib/public-metadata';
 import { unwrapSourceAnnotations } from "@/lib/legal-display-text";
 import { supabase } from "@/lib/supabase";
 import { Badge } from "@/components/decisions-ui/badge";
@@ -48,12 +49,12 @@ export async function generateMetadata({
 
   if (!d) {
     // 존재하지 않는(삭제/개인정보 요청 포함) 판정례는 색인 금지 — 페이지 본문도 notFound()로 404 처리.
-    return {
+    return publicMetadata({
       title: `판정례를 찾을 수 없습니다`,
       description: "요청하신 판정례가 존재하지 않습니다.",
       alternates: { canonical },
       robots: { index: false, follow: false },
-    };
+    });
   }
 
   const caseNum = (d.case_number && !/^id_/i.test(d.case_number)) ? d.case_number : "";
@@ -69,12 +70,12 @@ export async function generateMetadata({
   // 이런 페이지가 대량으로 색인되면 사이트 전체 평가가 깎인다.
   const bodyText = `${d.holding_points || ""}${d.holding_summary || ""}`;
   if (bodyText.trim().length < 200 || isPaywallText(bodyText) || isPyReprText(bodyText)) {
-    return {
+    return publicMetadata({
       title: (d.title || "판정례").slice(0, 32),
       description: "본문 정비 중인 자료입니다.",
       alternates: { canonical },
       robots: { index: false, follow: true },
-    };
+    });
   }
 
   // 제목 전략이 소스별로 다르다.
@@ -127,7 +128,7 @@ export async function generateMetadata({
   ].filter(Boolean);
   const description = (descParts.join(" · ") || "노동위원회 판정례 상세 정보 — 핵심쟁점·절차·판정결과 정리.").slice(0, 155);
 
-  return {
+  return publicMetadata({
     title,
     description,
     alternates: { canonical },
@@ -140,7 +141,7 @@ export async function generateMetadata({
       siteName: BRAND_NAME,
     },
     robots: { index: true, follow: true },
-  };
+  });
 }
 
 function getDisplayCaseNumber(caseNumber?: string | null) {

@@ -1,3 +1,4 @@
+import { publicMetadata } from '@/lib/public-metadata';
 import type { Metadata } from 'next';
 import { unstable_cache } from 'next/cache';
 import { supabaseServer } from '@/lib/supabase-server';
@@ -58,7 +59,7 @@ export async function generateMetadata(
     cat === 'all' ? `${SITE_URL}/blog` : `${SITE_URL}/blog/category/${encodeURIComponent(cat)}`);
   if (page > 1) canonical.searchParams.set('page', String(page));
 
-  return {
+  return publicMetadata({
     title: `글${suffix}${pageSuffix}`,
     description:
       '노란봉투법, 노동조합법, 판례분석, 뉴스해설, 실무가이드 등 노동법 심층 분석 콘텐츠를 제공합니다.',
@@ -77,7 +78,7 @@ export async function generateMetadata(
       title: `글 | ${BRAND_NAME}`,
       description: '노동법 심층 분석 콘텐츠. 판례분석, 뉴스해설, 실무가이드.',
     },
-  };
+  });
 }
 
 async function fetchPage({ page, cat, sub, q }: ReturnType<typeof parse>) {

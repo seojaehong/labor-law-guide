@@ -1,0 +1,47 @@
+/* 일의 무늬 public design review. Values here follow the new paper/ink/teal brief.
+   Public source text, status colours, authored tables and private screens stay scoped. */
+@font-face { font-family:"Pretendard Variable"; src:url("/fonts/PretendardVariable.woff2") format("woff2"); font-weight:100 900; font-style:normal; font-display:swap; }
+:root { --font-editorial:"Pretendard Variable",Pretendard,sans-serif; --site-nav-height:76px; --reading-anchor-offset:calc(var(--site-nav-height) + 24px); --color-accent:#285e77; --color-accent-ink:#285e77; --color-accent-light:#e8f0ef; --color-info:#285e77; --color-info-ink:#214d62; --color-info-bg:#e8f0ef; --accent:var(--color-accent-light); --accent-foreground:var(--color-accent-ink); --ring:var(--color-accent); }
+.dark { --color-accent:#a3cfc8; --color-accent-ink:#a3cfc8; --color-accent-hover:#c5e1dc; --color-accent-ink-hover:#c5e1dc; --color-accent-light:rgba(80,140,130,.17); --color-info:#a3cfc8; --color-info-ink:#c5e1dc; --color-info-bg:rgba(80,140,130,.17); --accent:var(--color-accent-light); --accent-foreground:var(--color-accent-ink); --ring:var(--color-accent); }
+body { font-size:16px; line-height:1.7; }
+.editorial-nav-inner { gap:12px; }
+.editorial-wordmark img { width:153px; aspect-ratio:3.829; }
+.editorial-desktop-links { display:flex; align-items:center; gap:6px; }
+.editorial-nav-controls { display:flex; gap:4px; align-items:center; }
+.editorial-nav .editorial-nav-link { color:var(--color-text-secondary); padding:10px 12px; font-size:15px; }
+.editorial-nav .editorial-nav-link[aria-current] { color:var(--color-accent-ink); text-decoration-color:var(--color-accent-ink); }
+.editorial-nav .editorial-service-link { font-size:13px; padding-inline:8px; }
+.editorial-menu-toggle, .editorial-mobile-rail { display:none; }
+.editorial-mobile-menu { padding-block:12px; }
+.editorial-menu-note { font-size:13px; color:var(--color-text-secondary); margin:8px 0; }
+.public-surface { min-inline-size:0; }
+.public-surface :where(h1,h2,h3,h4) { text-wrap:pretty; letter-spacing:-.02em; overflow-wrap:anywhere; }
+.public-surface h1 { font-family:var(--font-editorial); font-weight:700; font-size:clamp(1.875rem,3.1vw,2.625rem); line-height:1.35; letter-spacing:-.02em; }
+.public-surface :is(input,select,textarea) { font-size:16px; max-inline-size:100%; }
+.public-surface :is(button,[role="button"]) { touch-action:manipulation; }
+.public-surface :is(.layout-list,.layout-tool,.layout-reading,.layout-wide) > h1:first-child { padding-block-start:20px; border-block-start:2px solid var(--color-text-primary); }
+.public-surface :is(.text-xs,[class~="text-[11px]"],[class~="text-[12px]"]) { font-size:13px; line-height:1.6; }
+.public-surface .reading-prose,.public-surface .blog-content { line-height:1.85; }
+.public-surface :is(.reading-prose,.blog-content) :is(h2,h3,h4) { margin-block-start:1.65em; }
+.public-surface .layout-list :is(.shadow-lg,.shadow-md,.hover\:shadow-lg,.hover\:shadow-md),
+.public-surface .layout-tool :is(.shadow-lg,.shadow-md) { box-shadow:none; }
+.public-surface :is(.layout-list,.layout-tool) :is(.rounded-xl,.rounded-2xl) { border-radius:8px; }
+.public-surface :is(.layout-list,.layout-tool) :is(button,input,select) { min-height:44px; }
+.public-surface :is(.layout-list,.layout-tool) :is(input[type="checkbox"],input[type="radio"]) { min-height:0; }
+.public-surface [class*="grid"] > * { min-width:0; }
+.public-surface .editorial-reading-header { border-top-width:2px; }
+.public-surface .editorial-reading-header h1 { letter-spacing:-.02em; }
+.public-surface :is(.editorial-deck,.editorial-summary) { line-height:1.8; }
+.editorial-footer li a { min-height:44px; padding-block:10px; }
+@media(max-width:767px) {
+  :root { --site-nav-height:110px; --layout-gutter:20px; }
+  .editorial-nav-inner { min-height:64px; }
+  .editorial-wordmark img { width:134px; }
+  .editorial-desktop-links,.editorial-desktop-service { display:none; }
+  .editorial-menu-toggle { display:inline-flex; }
+  .editorial-mobile-rail { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); padding-inline:12px; border-top:1px solid var(--color-border); }
+  .editorial-mobile-rail .editorial-nav-link { display:flex; justify-content:center; font-size:13px; padding:8px 2px; white-space:nowrap; min-height:46px; text-underline-offset:6px; }
+  .public-surface h1 { font-size:30px; }
+  .public-surface [data-family="document"] { min-width:0; }
+}
+@media(prefers-reduced-motion:reduce) { .public-surface *, .editorial-nav * { scroll-behavior:auto !important; transition:none !important; } }

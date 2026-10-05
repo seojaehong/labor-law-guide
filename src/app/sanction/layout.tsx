@@ -1,7 +1,8 @@
+import { publicMetadata } from '@/lib/public-metadata';
 import type { Metadata } from 'next';
 import { SITE_URL } from '@/lib/constants';
 
-export const metadata: Metadata = {
+export const metadata: Metadata = publicMetadata({
   title: '징계 정당성 AI 자가진단 | 부당해고·징계위반 5가지 쟁점 즉시 확인',
   description: '해고·정직·감봉 같은 징계 처분의 정당성을 5가지 핵심 쟁점(징계사유·양정·절차·소명·서면통지)으로 즉시 자가진단합니다. 노동위 판정례·법원 판례 데이터베이스 기반 AI 분석. 무료.',
   keywords: [
@@ -23,7 +24,7 @@ export const metadata: Metadata = {
   // 빈 페이지이고, 얇은 페이지가 많으면 진짜 콘텐츠의 크롤 배분이 줄어든다.
   // follow 는 남긴다. 되살리려면 index 를 true 로 되돌린다.
   robots: { index: false, follow: true },
-};
+});
 
 export default function SanctionLayout({ children }: { children: React.ReactNode }) {
   return children;

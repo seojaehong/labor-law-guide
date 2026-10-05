@@ -66,3 +66,6 @@ test-results/
 
 # python
 __pycache__/
+
+# Local CLI browser snapshots
+.playwright-cli/

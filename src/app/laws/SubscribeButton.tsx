@@ -48,8 +48,8 @@ export default function SubscribeButton({
       {open && (
         <div className="lr-sub-pop" role="dialog" aria-label="캘린더 구독">
           <h3>개정 일정을 내 캘린더로</h3>
-          <p>한 번 구독하면 새 개정이 들어올 때마다 캘린더가 알아서 갱신됩니다. 시행 하루 전에 알림이 옵니다.</p>
-          <p><b>{scope}</b> 기준입니다. 위 필터를 바꾸면 구독 범위도 바뀝니다.</p>
+          <p>구독 주소를 캘린더 앱에 추가할 수 있습니다. 자동 갱신과 알림 동작은 실제 앱에서 아직 검증하지 않았습니다.</p>
+          <p><b>{scope}</b> 기준으로 법령·취업규칙·법률 필터만 포함합니다. 검색어·기간·선택 날짜는 구독 주소에 포함되지 않습니다.</p>
           <label><input type="checkbox" checked={promulgation} onChange={(e) => setPromulgation(e.target.checked)} /> 공포일도 넣기</label>
           <div className="row">
             <a className="lr-btn lr-btn-sm" href={`https://calendar.google.com/calendar/render?cid=${encodeURIComponent(webcal)}`} target="_blank" rel="noreferrer">구글 캘린더</a>

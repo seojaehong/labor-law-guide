@@ -1,11 +1,12 @@
+import { publicMetadata } from '@/lib/public-metadata';
 import Link from 'next/link';
 import { CheckCircle2, AlertCircle, Mail } from 'lucide-react';
 import type { Metadata } from 'next';
 
-export const metadata: Metadata = {
+export const metadata: Metadata = publicMetadata({
   title: '구독 해지 — 노란봉투법 가이드',
   robots: { index: false, follow: false },
-};
+});
 
 export default async function UnsubscribedPage({
   searchParams,

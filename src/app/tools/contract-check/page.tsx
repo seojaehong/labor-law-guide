@@ -1,9 +1,10 @@
+import { publicMetadata } from '@/lib/public-metadata';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { SITE_URL } from '@/lib/constants';
 import ContractCheckClient from './ContractCheckClient';
 
-export const metadata: Metadata = {
+export const metadata: Metadata = publicMetadata({
   title: '근로계약서 자가진단 | 무료 점검 25항목',
   description:
     '내 근로계약서, 법대로 쓰였을까? 최저임금·주52시간·필수 명시사항·위약금 등 25개 법정 항목을 브라우저에서 바로 점검합니다. 폼에 입력한 내용은 서버로 전송되지 않고, 사진 자동 입력을 쓰면 이미지만 판독 목적으로 서버를 거치고 저장하지 않습니다.',
@@ -17,7 +18,7 @@ export const metadata: Metadata = {
     locale: 'ko_KR',
     images: [{ url: `${SITE_URL}/opengraph-image` }],
   },
-};
+});
 
 export default function ContractCheckPage() {
   return (

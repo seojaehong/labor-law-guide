@@ -1,7 +1,8 @@
+import { publicMetadata } from '@/lib/public-metadata';
 import type { Metadata } from 'next';
 import { SITE_URL } from '@/lib/constants';
 
-export const metadata: Metadata = {
+export const metadata: Metadata = publicMetadata({
   title: '노동위 판정례·법원 판례 검색 | 사용자성·부당해고·교섭 검색',
   description: '노동위원회 판정례와 법원 판례를 무료로 검색하세요. 원청 사용자성, 부당해고, 부당노동행위, 단체교섭, 산재 등 사유·판정결과 필터 + 키워드 검색으로 유사 사례를 찾아드립니다.',
   keywords: [
@@ -19,7 +20,7 @@ export const metadata: Metadata = {
     siteName: '노란봉투법 가이드',
   },
   robots: { index: true, follow: true },
-};
+});
 
 export default function SearchLayout({ children }: { children: React.ReactNode }) {
   return children;

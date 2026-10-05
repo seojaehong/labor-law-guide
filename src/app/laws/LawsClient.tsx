@@ -62,10 +62,15 @@ export default function LawsClient({ index }: { index: LawIndex }) {
   const searchRef = useRef<HTMLInputElement>(null);
   const toast = useToast();
   const [checking, setChecking] = useState(false);
+  const restoredUrl = useRef(false);
+  const [urlReady, setUrlReady] = useState(false);
   const closeCheck = useCallback(() => setChecking(false), []);
 
   // 오늘(KST)·URL 상태·화면 너비는 마운트 후에 읽는다(정적 HTML 과 어긋나지 않게)
   useEffect(() => {
+    if (restoredUrl.current) return;
+    restoredUrl.current = true;
+    setUrlReady(true);
     setToday(todayKST());
     const sp = new URLSearchParams(location.search);
     const v = sp.get('view');
@@ -82,7 +87,7 @@ export default function LawsClient({ index }: { index: LawIndex }) {
       const saved = localStorage.getItem('lr-layout');
       if (saved === 'split' || saved === 'unified') setLayout(saved);
     } catch { /* 저장소가 막혀도 기본값으로 돈다 */ }
-    const hash = decodeURIComponent(location.hash.slice(1));
+    const hash = sp.get('event') || decodeURIComponent(location.hash.slice(1));
     if (hash) {
       const evId = hash.split('~')[0];
       const ev = index.events.find((e) => e.id === evId);
@@ -96,6 +101,7 @@ export default function LawsClient({ index }: { index: LawIndex }) {
   }, [index.events]);
 
   useEffect(() => {
+    if (!urlReady) return;
     const sp = new URLSearchParams();
     if (view !== 'upcoming') sp.set('view', view);
     if (q) sp.set('q', q);
@@ -105,9 +111,11 @@ export default function LawsClient({ index }: { index: LawIndex }) {
     if (month) sp.set('m', month);
     if (mode === 'cal') sp.set('mode', 'cal');
     if (day) sp.set('d', day);
+    if (focus && open.has(focus)) sp.set('event', focus);
     const s = sp.toString();
-    history.replaceState(null, '', `${location.pathname}${s ? `?${s}` : ''}${location.hash}`);
-  }, [view, q, laws, rulesOnly, lawsOnly, month, mode, day]);
+    const nextUrl = `${location.pathname}${s ? `?${s}` : ''}${location.hash}`;
+    if (nextUrl !== location.pathname + location.search + location.hash) history.replaceState(history.state, '', nextUrl);
+  }, [view, q, laws, rulesOnly, lawsOnly, month, mode, day, focus, open, urlReady]);
 
   const setLayoutSaved = (l: Layout) => {
     setLayout(l);
@@ -184,7 +192,7 @@ export default function LawsClient({ index }: { index: LawIndex }) {
         else if (focus && open.has(focus)) toggle(focus);
         return;
       }
-      if (typing || ev.metaKey || ev.ctrlKey || ev.altKey) return;
+      if (typing || (ev.target as HTMLElement)?.closest('button, a, [role=button]') || ev.metaKey || ev.ctrlKey || ev.altKey) return;
       if (ev.key === 'j' || ev.key === 'k') {
         const ids = filtered.map((e) => e.id);
         if (!ids.length) return;
@@ -244,12 +252,14 @@ export default function LawsClient({ index }: { index: LawIndex }) {
     <div className="lr">
       <div className="lr-wrap">
         <header className="lr-hero">
-          <div className="lr-eyebrow">노동관계법령 {index.lawCount}개 법률과 하위법령 {index.subCount}개 · 법제처 원문 기준 · {index.generated} 갱신</div>
-          <h1 className="lr-h1">곧 바뀌는 노동법을, 조문 단위로.</h1>
+          <div className="lr-eyebrow">달라지는 일 · 노동관계법령 {index.lawCount}개 법률과 하위법령 {index.subCount}개 · 법제처 원문 기준 · {index.generated} 갱신</div>
+          <h1 className="lr-h1">달라지는 법,
+            내 일터의 다음 준비.</h1>
           <p className="lr-lead">
             공포됐지만 아직 시행되지 않은 개정 <b>{upcoming.length}건</b>을 시행일 순서로 모았습니다. 바뀐 글자만 칠해 보여주고,
-            신구대조표 복사·엑셀·캘린더 등록, 취업규칙에 넣을 문안까지 한 화면에서 끝납니다.
+            시행일과 조문을 확인한 뒤 내 취업규칙에서 살펴볼 항목으로 이어집니다.
           </p>
+          <p className="lr-review-note">법령 검수 전 · 개정 제목과 취업규칙 문안은 원문 대조와 공인노무사 검토가 필요합니다.</p>
           <div className="lr-hero-cta">
             <button className="lr-btn" onClick={() => setChecking(true)}>
               <ShieldCheck size={16} /> 내 취업규칙 붙여넣고 점검
@@ -391,7 +401,7 @@ export default function LawsClient({ index }: { index: LawIndex }) {
         </div>
       </div>
 
-      <main className="lr-wrap">
+      <section className="lr-wrap" aria-label="법 개정 목록">
         {mode === 'cal' && (
           <CalendarView events={matched} today={today} selected={day} onSelect={setDay} />
         )}
@@ -429,6 +439,7 @@ export default function LawsClient({ index }: { index: LawIndex }) {
                   toast={toast.show}
                   onExport={() => exportXLSX([e])}
                   art93={index.art93}
+                  onCheck={() => setChecking(true)}
                 />
               ))}
             </section>
@@ -437,7 +448,7 @@ export default function LawsClient({ index }: { index: LawIndex }) {
 
         <footer className="lr-foot">
           <div>
-            대상: {index.scopeNote}. 원문은 {index.source}에서 매일 받아, 시행일마다 전문을 직전 판과 조문 단위로 비교합니다.
+            대상: {index.scopeNote}. 원문은 {index.source}에서 받은 자료이며, 시행일마다 전문을 직전 판과 조문 단위로 비교합니다.
             {' '}개정이유는 법제처가 제공한 문장입니다. 날짜별 한 줄 제목과 취업규칙 반영 문안은 AI가 바뀐 조문 원문과 대조해 작성했고, 공인노무사 검수 전입니다.
           </div>
           <div style={{ marginTop: 6 }}>
@@ -451,7 +462,7 @@ export default function LawsClient({ index }: { index: LawIndex }) {
             <span><span className="lr-kbd">Esc</span> 닫기</span>
           </div>
         </footer>
-      </main>
+      </section>
 
       {checking && <RulesCheck onClose={closeCheck} toast={toast.show} />}
       {toast.msg && <div className="lr-toast" role="status">{toast.msg}</div>}
@@ -471,10 +482,10 @@ function groupByMonth(evs: LawEvent[]): [string, LawEvent[]][] {
 }
 
 function EventCard({
-  e, today, open, focused, layout, onLayout, onToggle, toast, onExport, art93,
+  e, today, open, focused, layout, onLayout, onToggle, toast, onExport, art93, onCheck,
 }: {
   e: LawEvent; today: string; open: boolean; focused: boolean; layout: Layout; onLayout: (l: Layout) => void;
-  onToggle: () => void; toast: (m: string) => void; onExport: () => void; art93: Record<string, string>;
+  onToggle: () => void; toast: (m: string) => void; onExport: () => void; art93: Record<string, string>; onCheck: () => void;
 }) {
   const [detail, setDetail] = useState<LawDetail | null>(null);
   const [whyOpen, setWhyOpen] = useState(false);
@@ -502,7 +513,7 @@ function EventCard({
         tabIndex={0}
         aria-expanded={open}
         onClick={onToggle}
-        onKeyDown={(ev) => { if (ev.key === ' ') { ev.preventDefault(); onToggle(); } }}
+        onKeyDown={(ev) => { if (ev.key === ' ' || ev.key === 'Enter') { ev.preventDefault(); ev.stopPropagation(); onToggle(); } }}
       >
         <div className="lr-date">
           <div className="d">{fmtShort(e.date)}</div>
@@ -538,6 +549,8 @@ function EventCard({
           {step && (
             <>
               <div className="lr-detail-bar">
+                <button className="lr-btn" onClick={onCheck}><ShieldCheck size={16} /> 내 취업규칙 점검</button>
+                <button className="lr-btn lr-btn-ghost" onClick={async () => { const u = new URL(location.href); u.searchParams.set("event",e.id); u.hash=e.id; if(await copyRich(u.toString())) toast("개정 상세 링크를 복사했습니다"); }}><Link2 size={14} /> 상세 링크</button>
                 <div className="lr-seg" role="group" aria-label="비교 보기">
                   <button aria-pressed={layout === 'split'} onClick={() => onLayout('split')}><Columns2 size={14} style={{ display: 'inline' }} /> 나란히</button>
                   <button aria-pressed={layout === 'unified'} onClick={() => onLayout('unified')}><Rows3 size={14} style={{ display: 'inline' }} /> 한 줄</button>

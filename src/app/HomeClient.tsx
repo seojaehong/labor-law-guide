@@ -40,21 +40,10 @@ function BlogCategoryBadge({ category }: { category: string }) {
 
 export default function HomeClient({ totalCases, totalAdmin, latestBlogArticles, faqItems, topicPicksSlot }: HomeClientProps) {
   const sections = [
-    {
-      title: '글',
-      description: '노동과 일터의 쟁점을 다룬 글을 읽습니다.',
-      href: '/blog',
-    },
-    {
-      title: '판례·행정해석',
-      description: `판례 ${totalCases.toLocaleString()}건과 공개 행정해석 ${totalAdmin.toLocaleString()}건을 검색합니다.`,
-      href: '/decisions',
-    },
-    {
-      title: '공휴일 수당 계산기',
-      description: '입력한 조건에 따른 참고 계산입니다. 실제 지급액이나 법률적 판단을 확정하지 않습니다.',
-      href: '/tools/holiday-pay',
-    },
+    { title: '일의 이야기', description: '노동과 일터의 쟁점을 다룬 글을 읽습니다.', href: '/blog' },
+    { title: '달라지는 일', description: '법령 개정 자료와 일터의 준비 사항을 살펴봅니다. 법령 검수 전 자료입니다.', href: '/laws' },
+    { title: '내 일 점검', description: '적용 조건을 확인하고 참고 계산과 점검 도구를 이용합니다.', href: '/tools' },
+    { title: '근거 찾기', description: `판례 ${totalCases.toLocaleString()}건과 공개 행정해석 ${totalAdmin.toLocaleString()}건을 검색합니다.`, href: '/decisions' },
   ];
 
   const [featured, ...supporting] = latestBlogArticles;
@@ -73,9 +62,10 @@ export default function HomeClient({ totalCases, totalAdmin, latestBlogArticles,
         </form>
         <nav className="editorial-issue-links" aria-label="주요 콘텐츠">
           <span>바로 읽기</span>
-          <Link href="/blog">글</Link>
-          <Link href="/decisions">판례·행정해석</Link>
-          <Link href="/tools/holiday-pay">공휴일 수당 계산기</Link>
+          <Link href="/blog">일의 이야기</Link>
+          <Link href="/decisions">근거 찾기</Link>
+          <Link href="/laws">달라지는 일</Link>
+          <Link href="/tools">내 일 점검</Link>
         </nav>
       </section>
 

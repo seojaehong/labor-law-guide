@@ -14,7 +14,7 @@ const dates = [
 ];
 function evaluate(tz: string, expression: string) {
   const program = `const vm = require('node:vm'); const context = vm.createContext({document:{addEventListener(){}}}); vm.runInContext(${JSON.stringify(script)}, context); console.log(JSON.stringify(vm.runInContext(${JSON.stringify(expression)}, context)));`;
-  return JSON.parse(execFileSync(process.execPath, ['-e', program], { env: { ...process.env, TZ: tz }, encoding: 'utf8' }));
+  return JSON.parse(execFileSync(process.execPath, ['-'], { input: program, env: { ...process.env, TZ: tz }, encoding: 'utf8' }));
 }
 const expression = `${JSON.stringify(dates)}.map(([startDate,endDate])=>({days:dateDiffDays(startDate,endDate),years:calcServiceYears(startDate,endDate),fraction:calcPreciseServiceFraction(startDate,endDate),periods:calc3MonthPeriod(endDate),result:calculateSeverance({...createDefaultWorker(),startDate,endDate,wage1:'3000000',wage2:'3000000',wage3:'3000000'})}))`;
 

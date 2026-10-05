@@ -4,11 +4,11 @@ import { describe, expect, it } from 'vitest';
 describe('selected launch navigation', () => {
   const nav = readFileSync('src/components/GlassNav.tsx', 'utf8');
   const layout = readFileSync('src/app/layout.tsx', 'utf8');
-  const items = nav.slice(nav.indexOf('const NAV_ITEMS'), nav.indexOf('function isActive'));
-  it('keeps writing, decisions, one reference tool and secondary service visible', () => {
-    for (const href of ['/blog', '/decisions', '/tools/holiday-pay', '/contact']) expect(items).toContain(`href: '${href}'`);
-    for (const href of ['/ai', '/guide', '/news', '/wiki', '/tools/severance.html']) expect(items).not.toContain(`href: '${href}'`);
-    expect(items).toContain('입력 조건에 따른 참고 계산');
+  const items = nav.slice(nav.indexOf('const NAV_ITEMS'), nav.indexOf('function active'));
+  it('keeps the approved four destinations and secondary service visible', () => {
+    for (const href of ['/blog', '/laws', '/tools', '/decisions']) expect(items).toContain(`href:'${href}'`);
+    for (const href of ['/ai', '/guide', '/news', '/wiki', '/tools/severance.html']) expect(items).not.toContain(`href:'${href}'`);
+    expect(nav).toContain('소개·상담');
   });
   it('preserves legacy URLs with a clear review status instead of global AI promotion', () => {
     expect(layout).not.toContain('<FloatingChatButton');

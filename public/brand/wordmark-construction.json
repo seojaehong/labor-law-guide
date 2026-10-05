@@ -1,30 +1,46 @@
 {
   "wordmark": {
     "bounds": [
-      94.51042841159818,
-      -857.5697034073551,
-      3983.2903558395537,
-      109.91986818104671
+      84.62021984336621,
+      -865.5697034073551,
+      3850.624548722763,
+      117.9198681810467
     ],
-    "ratio": 4.019454102273627,
+    "ratio": 3.8292264988606304,
     "positions": [
       [
         0,
         0
       ],
       [
-        960,
+        918,
         0
       ],
       [
-        2190,
+        2076,
         0
       ],
       [
-        3150,
+        3026,
         0
       ]
-    ]
+    ],
+    "glyphHorizontalScales": [
+      0.98,
+      0.94,
+      1.015,
+      0.98
+    ],
+    "outlineSource": "Noto Serif KR 700, existing outlined asset",
+    "strokeExpansionUnits": 4,
+    "status": "review proposal, not approved",
+    "recommendedHeightPx": {
+      "mobileHeader": 28,
+      "desktopHeader": 32,
+      "OG": 64
+    },
+    "minimumHeightPx": 24,
+    "note": "Individual width and optical spacing adjustments; no runtime font dependency. Other construction entries retain their previous definitions."
   },
   "stacked": {
     "bounds": [
