@@ -1,0 +1,3742 @@
+{
+  "base": "http://127.0.0.1:3126",
+  "fixture": true,
+  "checks": [
+    {
+      "route": "/ai",
+      "width": 360,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 360,
+      "h1": "AI 상담 & 참고자료",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/ai",
+      "width": 360,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 360,
+      "h1": "AI 상담 & 참고자료",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/blog/category/%EB%85%B8%EB%8F%99%EB%89%B4%EC%8A%A4",
+      "width": 360,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 360,
+      "h1": "글",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/blog/category/%EB%85%B8%EB%8F%99%EB%89%B4%EC%8A%A4",
+      "width": 360,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 360,
+      "h1": "글",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/blog",
+      "width": 360,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 360,
+      "h1": "글",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/blog",
+      "width": 360,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 360,
+      "h1": "글",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/blog/news-20261003-01",
+      "width": 360,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 360,
+      "h1": "넓은 화면에서도 편안하게 읽는 노동법 소식",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/blog/news-20261003-01",
+      "width": 360,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 360,
+      "h1": "넓은 화면에서도 편안하게 읽는 노동법 소식",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/cases",
+      "width": 360,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 360,
+      "h1": "노란봉투법 핵심판례 6선",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/cases",
+      "width": 360,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 360,
+      "h1": "노란봉투법 핵심판례 6선",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/cases/layout-case",
+      "width": 360,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 360,
+      "h1": "근로조건 변경과 절차에 관한 합성 판례 1",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/cases/layout-case",
+      "width": 360,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 360,
+      "h1": "근로조건 변경과 절차에 관한 합성 판례 1",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/checklist",
+      "width": 360,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 360,
+      "h1": "자가진단 체크리스트",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/checklist",
+      "width": 360,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 360,
+      "h1": "자가진단 체크리스트",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/contact",
+      "width": 360,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 360,
+      "h1": "노무법인 위너스 종합 상담 문의",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/contact",
+      "width": 360,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 360,
+      "h1": "노무법인 위너스 종합 상담 문의",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/database",
+      "width": 360,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 360,
+      "h1": "판정례 · 판례 · 행정해석 검색",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/database",
+      "width": 360,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 360,
+      "h1": "판정례 · 판례 · 행정해석 검색",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/decisions",
+      "width": 360,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 360,
+      "h1": "판정례 · 판례 · 행정해석 검색",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/decisions",
+      "width": 360,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 360,
+      "h1": "판정례 · 판례 · 행정해석 검색",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/decisions/layout-decision",
+      "width": 360,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 360,
+      "h1": "합성 노동위원회 판정례: 근로조건과 절차 1",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/decisions/layout-decision",
+      "width": 360,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 360,
+      "h1": "합성 노동위원회 판정례: 근로조건과 절차 1",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/faq",
+      "width": 360,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 360,
+      "h1": "노동법 FAQ",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/faq",
+      "width": 360,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 360,
+      "h1": "노동법 FAQ",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/faq/%EC%97%B0%EC%B0%A8%EC%9C%A0%EA%B8%89%ED%9C%B4%EA%B0%80",
+      "width": 360,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 360,
+      "h1": "노동법 FAQ",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/faq/%EC%97%B0%EC%B0%A8%EC%9C%A0%EA%B8%89%ED%9C%B4%EA%B0%80",
+      "width": 360,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 360,
+      "h1": "노동법 FAQ",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/guide",
+      "width": 360,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 360,
+      "h1": "개정 노동조합법 해석지침",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/guide",
+      "width": 360,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 360,
+      "h1": "개정 노동조합법 해석지침",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/harassment",
+      "width": 360,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 360,
+      "h1": "직장 내 괴롭힘·성희롱 판례",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/harassment",
+      "width": 360,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 360,
+      "h1": "직장 내 괴롭힘·성희롱 판례",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/interpretations/layout-interpretation",
+      "width": 360,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 360,
+      "h1": "근로시간과 휴게시간에 관한 합성 행정해석 1",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/interpretations/layout-interpretation",
+      "width": 360,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 360,
+      "h1": "근로시간과 휴게시간에 관한 합성 행정해석 1",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/laws",
+      "width": 360,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 360,
+      "h1": "노동관계법령 개정 현황",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/laws",
+      "width": 360,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 360,
+      "h1": "노동관계법령 개정 현황",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/lecture/ai-isan-2026",
+      "width": 360,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 360,
+      "h1": "노무사를 위한 Claude × Codex 실전",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/lecture/ai-isan-2026",
+      "width": 360,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 360,
+      "h1": "노무사를 위한 Claude × Codex 실전",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/lecture/ai-isan-2026/textbook",
+      "width": 360,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 360,
+      "h1": "노무사를 위한 Claude × Codex 실전\n— 교재",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/lecture/ai-isan-2026/textbook",
+      "width": 360,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 360,
+      "h1": "노무사를 위한 Claude × Codex 실전\n— 교재",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/manual",
+      "width": 360,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 360,
+      "h1": "원·하청 교섭절차 가이드",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/manual",
+      "width": 360,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 360,
+      "h1": "원·하청 교섭절차 가이드",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/news",
+      "width": 360,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 360,
+      "h1": "최신 뉴스",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/news",
+      "width": 360,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 360,
+      "h1": "최신 뉴스",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/",
+      "width": 360,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 360,
+      "h1": "노동법 자료 검색과 실무 정보",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/",
+      "width": 360,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 360,
+      "h1": "노동법 자료 검색과 실무 정보",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/pkb",
+      "width": 360,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 360,
+      "h1": "PKB · Personal Knowledge Base",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/pkb",
+      "width": 360,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 360,
+      "h1": "PKB · Personal Knowledge Base",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/privacy",
+      "width": 360,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 360,
+      "h1": "개인정보처리방침",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/privacy",
+      "width": 360,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 360,
+      "h1": "개인정보처리방침",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/sanction",
+      "width": 360,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 360,
+      "h1": "AI 판정례 비교분석",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/sanction",
+      "width": 360,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 360,
+      "h1": "AI 판정례 비교분석",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/search",
+      "width": 360,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 360,
+      "h1": "판정례 · 판례 · 행정해석 검색",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/search",
+      "width": 360,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 360,
+      "h1": "판정례 · 판례 · 행정해석 검색",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/stats",
+      "width": 360,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 360,
+      "h1": "사유별 판정 통계",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/stats",
+      "width": 360,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 360,
+      "h1": "사유별 판정 통계",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/subsidy",
+      "width": 360,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 360,
+      "h1": "고용지원금 가이드",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/subsidy",
+      "width": 360,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 360,
+      "h1": "고용지원금 가이드",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/terms",
+      "width": 360,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 360,
+      "h1": "이용약관",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/terms",
+      "width": 360,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 360,
+      "h1": "이용약관",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/tools/contract-check",
+      "width": 360,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 360,
+      "h1": "근로계약서 자가진단",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/tools/contract-check",
+      "width": 360,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 360,
+      "h1": "근로계약서 자가진단",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/tools/holiday-pay",
+      "width": 360,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 360,
+      "h1": "공휴일 수당 계산기",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/tools/holiday-pay",
+      "width": 360,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 360,
+      "h1": "공휴일 수당 계산기",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/tools/leave/advanced",
+      "width": 360,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 360,
+      "h1": "사용촉진 일정 · 반차 환산",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/tools/leave/advanced",
+      "width": 360,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 360,
+      "h1": "사용촉진 일정 · 반차 환산",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/tools/leave",
+      "width": 360,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 360,
+      "h1": "연차휴가 계산기",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/tools/leave",
+      "width": 360,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 360,
+      "h1": "연차휴가 계산기",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/tools/leave/settlement",
+      "width": 360,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 360,
+      "h1": "퇴직 연차 정산",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/tools/leave/settlement",
+      "width": 360,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 360,
+      "h1": "퇴직 연차 정산",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/tools",
+      "width": 360,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 360,
+      "h1": "계산·점검 도구",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/tools",
+      "width": 360,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 360,
+      "h1": "계산·점검 도구",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/tools/work-rules",
+      "width": 360,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 360,
+      "h1": "취업규칙 점검",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/tools/work-rules",
+      "width": 360,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 360,
+      "h1": "취업규칙 점검",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/tools/severance.html",
+      "width": 360,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 360,
+      "h1": "퇴직금 계산",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/tools/severance.html",
+      "width": 360,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 360,
+      "h1": "퇴직금 계산",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/ai",
+      "width": 390,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 390,
+      "h1": "AI 상담 & 참고자료",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/ai",
+      "width": 390,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 390,
+      "h1": "AI 상담 & 참고자료",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/blog/category/%EB%85%B8%EB%8F%99%EB%89%B4%EC%8A%A4",
+      "width": 390,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 390,
+      "h1": "글",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/blog/category/%EB%85%B8%EB%8F%99%EB%89%B4%EC%8A%A4",
+      "width": 390,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 390,
+      "h1": "글",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/blog",
+      "width": 390,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 390,
+      "h1": "글",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/blog",
+      "width": 390,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 390,
+      "h1": "글",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/blog/news-20261003-01",
+      "width": 390,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 390,
+      "h1": "넓은 화면에서도 편안하게 읽는 노동법 소식",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/blog/news-20261003-01",
+      "width": 390,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 390,
+      "h1": "넓은 화면에서도 편안하게 읽는 노동법 소식",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/cases",
+      "width": 390,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 390,
+      "h1": "노란봉투법 핵심판례 6선",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/cases",
+      "width": 390,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 390,
+      "h1": "노란봉투법 핵심판례 6선",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/cases/layout-case",
+      "width": 390,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 390,
+      "h1": "근로조건 변경과 절차에 관한 합성 판례 1",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/cases/layout-case",
+      "width": 390,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 390,
+      "h1": "근로조건 변경과 절차에 관한 합성 판례 1",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/checklist",
+      "width": 390,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 390,
+      "h1": "자가진단 체크리스트",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/checklist",
+      "width": 390,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 390,
+      "h1": "자가진단 체크리스트",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/contact",
+      "width": 390,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 390,
+      "h1": "노무법인 위너스 종합 상담 문의",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/contact",
+      "width": 390,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 390,
+      "h1": "노무법인 위너스 종합 상담 문의",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/database",
+      "width": 390,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 390,
+      "h1": "판정례 · 판례 · 행정해석 검색",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/database",
+      "width": 390,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 390,
+      "h1": "판정례 · 판례 · 행정해석 검색",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/decisions",
+      "width": 390,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 390,
+      "h1": "판정례 · 판례 · 행정해석 검색",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/decisions",
+      "width": 390,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 390,
+      "h1": "판정례 · 판례 · 행정해석 검색",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/decisions/layout-decision",
+      "width": 390,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 390,
+      "h1": "합성 노동위원회 판정례: 근로조건과 절차 1",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/decisions/layout-decision",
+      "width": 390,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 390,
+      "h1": "합성 노동위원회 판정례: 근로조건과 절차 1",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/faq",
+      "width": 390,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 390,
+      "h1": "노동법 FAQ",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/faq",
+      "width": 390,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 390,
+      "h1": "노동법 FAQ",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/faq/%EC%97%B0%EC%B0%A8%EC%9C%A0%EA%B8%89%ED%9C%B4%EA%B0%80",
+      "width": 390,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 390,
+      "h1": "노동법 FAQ",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/faq/%EC%97%B0%EC%B0%A8%EC%9C%A0%EA%B8%89%ED%9C%B4%EA%B0%80",
+      "width": 390,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 390,
+      "h1": "노동법 FAQ",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/guide",
+      "width": 390,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 390,
+      "h1": "개정 노동조합법 해석지침",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/guide",
+      "width": 390,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 390,
+      "h1": "개정 노동조합법 해석지침",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/harassment",
+      "width": 390,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 390,
+      "h1": "직장 내 괴롭힘·성희롱 판례",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/harassment",
+      "width": 390,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 390,
+      "h1": "직장 내 괴롭힘·성희롱 판례",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/interpretations/layout-interpretation",
+      "width": 390,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 390,
+      "h1": "근로시간과 휴게시간에 관한 합성 행정해석 1",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/interpretations/layout-interpretation",
+      "width": 390,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 390,
+      "h1": "근로시간과 휴게시간에 관한 합성 행정해석 1",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/laws",
+      "width": 390,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 390,
+      "h1": "노동관계법령 개정 현황",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/laws",
+      "width": 390,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 390,
+      "h1": "노동관계법령 개정 현황",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/lecture/ai-isan-2026",
+      "width": 390,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 390,
+      "h1": "노무사를 위한 Claude × Codex 실전",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/lecture/ai-isan-2026",
+      "width": 390,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 390,
+      "h1": "노무사를 위한 Claude × Codex 실전",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/lecture/ai-isan-2026/textbook",
+      "width": 390,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 390,
+      "h1": "노무사를 위한 Claude × Codex 실전\n— 교재",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/lecture/ai-isan-2026/textbook",
+      "width": 390,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 390,
+      "h1": "노무사를 위한 Claude × Codex 실전\n— 교재",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/manual",
+      "width": 390,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 390,
+      "h1": "원·하청 교섭절차 가이드",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/manual",
+      "width": 390,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 390,
+      "h1": "원·하청 교섭절차 가이드",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/news",
+      "width": 390,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 390,
+      "h1": "최신 뉴스",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/news",
+      "width": 390,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 390,
+      "h1": "최신 뉴스",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/",
+      "width": 390,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 390,
+      "h1": "노동법 자료 검색과 실무 정보",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/",
+      "width": 390,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 390,
+      "h1": "노동법 자료 검색과 실무 정보",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/pkb",
+      "width": 390,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 390,
+      "h1": "PKB · Personal Knowledge Base",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/pkb",
+      "width": 390,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 390,
+      "h1": "PKB · Personal Knowledge Base",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/privacy",
+      "width": 390,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 390,
+      "h1": "개인정보처리방침",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/privacy",
+      "width": 390,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 390,
+      "h1": "개인정보처리방침",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/sanction",
+      "width": 390,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 390,
+      "h1": "AI 판정례 비교분석",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/sanction",
+      "width": 390,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 390,
+      "h1": "AI 판정례 비교분석",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/search",
+      "width": 390,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 390,
+      "h1": "판정례 · 판례 · 행정해석 검색",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/search",
+      "width": 390,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 390,
+      "h1": "판정례 · 판례 · 행정해석 검색",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/stats",
+      "width": 390,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 390,
+      "h1": "사유별 판정 통계",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/stats",
+      "width": 390,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 390,
+      "h1": "사유별 판정 통계",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/subsidy",
+      "width": 390,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 390,
+      "h1": "고용지원금 가이드",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/subsidy",
+      "width": 390,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 390,
+      "h1": "고용지원금 가이드",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/terms",
+      "width": 390,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 390,
+      "h1": "이용약관",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/terms",
+      "width": 390,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 390,
+      "h1": "이용약관",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/tools/contract-check",
+      "width": 390,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 390,
+      "h1": "근로계약서 자가진단",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/tools/contract-check",
+      "width": 390,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 390,
+      "h1": "근로계약서 자가진단",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/tools/holiday-pay",
+      "width": 390,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 390,
+      "h1": "공휴일 수당 계산기",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/tools/holiday-pay",
+      "width": 390,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 390,
+      "h1": "공휴일 수당 계산기",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/tools/leave/advanced",
+      "width": 390,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 390,
+      "h1": "사용촉진 일정 · 반차 환산",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/tools/leave/advanced",
+      "width": 390,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 390,
+      "h1": "사용촉진 일정 · 반차 환산",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/tools/leave",
+      "width": 390,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 390,
+      "h1": "연차휴가 계산기",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/tools/leave",
+      "width": 390,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 390,
+      "h1": "연차휴가 계산기",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/tools/leave/settlement",
+      "width": 390,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 390,
+      "h1": "퇴직 연차 정산",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/tools/leave/settlement",
+      "width": 390,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 390,
+      "h1": "퇴직 연차 정산",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/tools",
+      "width": 390,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 390,
+      "h1": "계산·점검 도구",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/tools",
+      "width": 390,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 390,
+      "h1": "계산·점검 도구",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/tools/work-rules",
+      "width": 390,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 390,
+      "h1": "취업규칙 점검",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/tools/work-rules",
+      "width": 390,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 390,
+      "h1": "취업규칙 점검",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/tools/severance.html",
+      "width": 390,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 390,
+      "h1": "퇴직금 계산",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/tools/severance.html",
+      "width": 390,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 390,
+      "h1": "퇴직금 계산",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/ai",
+      "width": 430,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 430,
+      "h1": "AI 상담 & 참고자료",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/ai",
+      "width": 430,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 430,
+      "h1": "AI 상담 & 참고자료",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/blog/category/%EB%85%B8%EB%8F%99%EB%89%B4%EC%8A%A4",
+      "width": 430,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 430,
+      "h1": "글",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/blog/category/%EB%85%B8%EB%8F%99%EB%89%B4%EC%8A%A4",
+      "width": 430,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 430,
+      "h1": "글",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/blog",
+      "width": 430,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 430,
+      "h1": "글",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/blog",
+      "width": 430,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 430,
+      "h1": "글",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/blog/news-20261003-01",
+      "width": 430,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 430,
+      "h1": "넓은 화면에서도 편안하게 읽는 노동법 소식",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/blog/news-20261003-01",
+      "width": 430,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 430,
+      "h1": "넓은 화면에서도 편안하게 읽는 노동법 소식",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/cases",
+      "width": 430,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 430,
+      "h1": "노란봉투법 핵심판례 6선",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/cases",
+      "width": 430,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 430,
+      "h1": "노란봉투법 핵심판례 6선",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/cases/layout-case",
+      "width": 430,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 430,
+      "h1": "근로조건 변경과 절차에 관한 합성 판례 1",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/cases/layout-case",
+      "width": 430,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 430,
+      "h1": "근로조건 변경과 절차에 관한 합성 판례 1",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/checklist",
+      "width": 430,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 430,
+      "h1": "자가진단 체크리스트",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/checklist",
+      "width": 430,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 430,
+      "h1": "자가진단 체크리스트",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/contact",
+      "width": 430,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 430,
+      "h1": "노무법인 위너스 종합 상담 문의",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/contact",
+      "width": 430,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 430,
+      "h1": "노무법인 위너스 종합 상담 문의",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/database",
+      "width": 430,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 430,
+      "h1": "판정례 · 판례 · 행정해석 검색",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/database",
+      "width": 430,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 430,
+      "h1": "판정례 · 판례 · 행정해석 검색",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/decisions",
+      "width": 430,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 430,
+      "h1": "판정례 · 판례 · 행정해석 검색",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/decisions",
+      "width": 430,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 430,
+      "h1": "판정례 · 판례 · 행정해석 검색",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/decisions/layout-decision",
+      "width": 430,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 430,
+      "h1": "합성 노동위원회 판정례: 근로조건과 절차 1",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/decisions/layout-decision",
+      "width": 430,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 430,
+      "h1": "합성 노동위원회 판정례: 근로조건과 절차 1",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/faq",
+      "width": 430,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 430,
+      "h1": "노동법 FAQ",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/faq",
+      "width": 430,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 430,
+      "h1": "노동법 FAQ",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/faq/%EC%97%B0%EC%B0%A8%EC%9C%A0%EA%B8%89%ED%9C%B4%EA%B0%80",
+      "width": 430,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 430,
+      "h1": "노동법 FAQ",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/faq/%EC%97%B0%EC%B0%A8%EC%9C%A0%EA%B8%89%ED%9C%B4%EA%B0%80",
+      "width": 430,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 430,
+      "h1": "노동법 FAQ",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/guide",
+      "width": 430,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 430,
+      "h1": "개정 노동조합법 해석지침",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/guide",
+      "width": 430,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 430,
+      "h1": "개정 노동조합법 해석지침",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/harassment",
+      "width": 430,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 430,
+      "h1": "직장 내 괴롭힘·성희롱 판례",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/harassment",
+      "width": 430,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 430,
+      "h1": "직장 내 괴롭힘·성희롱 판례",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/interpretations/layout-interpretation",
+      "width": 430,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 430,
+      "h1": "근로시간과 휴게시간에 관한 합성 행정해석 1",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/interpretations/layout-interpretation",
+      "width": 430,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 430,
+      "h1": "근로시간과 휴게시간에 관한 합성 행정해석 1",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/laws",
+      "width": 430,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 430,
+      "h1": "노동관계법령 개정 현황",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/laws",
+      "width": 430,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 430,
+      "h1": "노동관계법령 개정 현황",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/lecture/ai-isan-2026",
+      "width": 430,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 430,
+      "h1": "노무사를 위한 Claude × Codex 실전",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/lecture/ai-isan-2026",
+      "width": 430,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 430,
+      "h1": "노무사를 위한 Claude × Codex 실전",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/lecture/ai-isan-2026/textbook",
+      "width": 430,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 430,
+      "h1": "노무사를 위한 Claude × Codex 실전\n— 교재",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/lecture/ai-isan-2026/textbook",
+      "width": 430,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 430,
+      "h1": "노무사를 위한 Claude × Codex 실전\n— 교재",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/manual",
+      "width": 430,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 430,
+      "h1": "원·하청 교섭절차 가이드",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/manual",
+      "width": 430,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 430,
+      "h1": "원·하청 교섭절차 가이드",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/news",
+      "width": 430,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 430,
+      "h1": "최신 뉴스",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/news",
+      "width": 430,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 430,
+      "h1": "최신 뉴스",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/",
+      "width": 430,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 430,
+      "h1": "노동법 자료 검색과 실무 정보",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/",
+      "width": 430,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 430,
+      "h1": "노동법 자료 검색과 실무 정보",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/pkb",
+      "width": 430,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 430,
+      "h1": "PKB · Personal Knowledge Base",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/pkb",
+      "width": 430,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 430,
+      "h1": "PKB · Personal Knowledge Base",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/privacy",
+      "width": 430,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 430,
+      "h1": "개인정보처리방침",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/privacy",
+      "width": 430,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 430,
+      "h1": "개인정보처리방침",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/sanction",
+      "width": 430,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 430,
+      "h1": "AI 판정례 비교분석",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/sanction",
+      "width": 430,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 430,
+      "h1": "AI 판정례 비교분석",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/search",
+      "width": 430,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 430,
+      "h1": "판정례 · 판례 · 행정해석 검색",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/search",
+      "width": 430,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 430,
+      "h1": "판정례 · 판례 · 행정해석 검색",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/stats",
+      "width": 430,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 430,
+      "h1": "사유별 판정 통계",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/stats",
+      "width": 430,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 430,
+      "h1": "사유별 판정 통계",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/subsidy",
+      "width": 430,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 430,
+      "h1": "고용지원금 가이드",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/subsidy",
+      "width": 430,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 430,
+      "h1": "고용지원금 가이드",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/terms",
+      "width": 430,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 430,
+      "h1": "이용약관",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/terms",
+      "width": 430,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 430,
+      "h1": "이용약관",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/tools/contract-check",
+      "width": 430,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 430,
+      "h1": "근로계약서 자가진단",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/tools/contract-check",
+      "width": 430,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 430,
+      "h1": "근로계약서 자가진단",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/tools/holiday-pay",
+      "width": 430,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 430,
+      "h1": "공휴일 수당 계산기",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/tools/holiday-pay",
+      "width": 430,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 430,
+      "h1": "공휴일 수당 계산기",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/tools/leave/advanced",
+      "width": 430,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 430,
+      "h1": "사용촉진 일정 · 반차 환산",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/tools/leave/advanced",
+      "width": 430,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 430,
+      "h1": "사용촉진 일정 · 반차 환산",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/tools/leave",
+      "width": 430,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 430,
+      "h1": "연차휴가 계산기",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/tools/leave",
+      "width": 430,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 430,
+      "h1": "연차휴가 계산기",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/tools/leave/settlement",
+      "width": 430,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 430,
+      "h1": "퇴직 연차 정산",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/tools/leave/settlement",
+      "width": 430,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 430,
+      "h1": "퇴직 연차 정산",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/tools",
+      "width": 430,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 430,
+      "h1": "계산·점검 도구",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/tools",
+      "width": 430,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 430,
+      "h1": "계산·점검 도구",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/tools/work-rules",
+      "width": 430,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 430,
+      "h1": "취업규칙 점검",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/tools/work-rules",
+      "width": 430,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 430,
+      "h1": "취업규칙 점검",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/tools/severance.html",
+      "width": 430,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 430,
+      "h1": "퇴직금 계산",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/tools/severance.html",
+      "width": 430,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 430,
+      "h1": "퇴직금 계산",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/ai",
+      "width": 768,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 768,
+      "h1": "AI 상담 & 참고자료",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/ai",
+      "width": 768,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 768,
+      "h1": "AI 상담 & 참고자료",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/blog/category/%EB%85%B8%EB%8F%99%EB%89%B4%EC%8A%A4",
+      "width": 768,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 768,
+      "h1": "글",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/blog/category/%EB%85%B8%EB%8F%99%EB%89%B4%EC%8A%A4",
+      "width": 768,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 768,
+      "h1": "글",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/blog",
+      "width": 768,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 768,
+      "h1": "글",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/blog",
+      "width": 768,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 768,
+      "h1": "글",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/blog/news-20261003-01",
+      "width": 768,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 768,
+      "h1": "넓은 화면에서도 편안하게 읽는 노동법 소식",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/blog/news-20261003-01",
+      "width": 768,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 768,
+      "h1": "넓은 화면에서도 편안하게 읽는 노동법 소식",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/cases",
+      "width": 768,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 768,
+      "h1": "노란봉투법 핵심판례 6선",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/cases",
+      "width": 768,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 768,
+      "h1": "노란봉투법 핵심판례 6선",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/cases/layout-case",
+      "width": 768,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 768,
+      "h1": "근로조건 변경과 절차에 관한 합성 판례 1",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/cases/layout-case",
+      "width": 768,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 768,
+      "h1": "근로조건 변경과 절차에 관한 합성 판례 1",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/checklist",
+      "width": 768,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 768,
+      "h1": "자가진단 체크리스트",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/checklist",
+      "width": 768,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 768,
+      "h1": "자가진단 체크리스트",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/contact",
+      "width": 768,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 768,
+      "h1": "노무법인 위너스 종합 상담 문의",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/contact",
+      "width": 768,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 768,
+      "h1": "노무법인 위너스 종합 상담 문의",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/database",
+      "width": 768,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 768,
+      "h1": "판정례 · 판례 · 행정해석 검색",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/database",
+      "width": 768,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 768,
+      "h1": "판정례 · 판례 · 행정해석 검색",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/decisions",
+      "width": 768,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 768,
+      "h1": "판정례 · 판례 · 행정해석 검색",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/decisions",
+      "width": 768,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 768,
+      "h1": "판정례 · 판례 · 행정해석 검색",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/decisions/layout-decision",
+      "width": 768,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 768,
+      "h1": "합성 노동위원회 판정례: 근로조건과 절차 1",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/decisions/layout-decision",
+      "width": 768,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 768,
+      "h1": "합성 노동위원회 판정례: 근로조건과 절차 1",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/faq",
+      "width": 768,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 768,
+      "h1": "노동법 FAQ",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/faq",
+      "width": 768,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 768,
+      "h1": "노동법 FAQ",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/faq/%EC%97%B0%EC%B0%A8%EC%9C%A0%EA%B8%89%ED%9C%B4%EA%B0%80",
+      "width": 768,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 768,
+      "h1": "노동법 FAQ",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/faq/%EC%97%B0%EC%B0%A8%EC%9C%A0%EA%B8%89%ED%9C%B4%EA%B0%80",
+      "width": 768,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 768,
+      "h1": "노동법 FAQ",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/guide",
+      "width": 768,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 768,
+      "h1": "개정 노동조합법 해석지침",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/guide",
+      "width": 768,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 768,
+      "h1": "개정 노동조합법 해석지침",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/harassment",
+      "width": 768,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 768,
+      "h1": "직장 내 괴롭힘·성희롱 판례",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/harassment",
+      "width": 768,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 768,
+      "h1": "직장 내 괴롭힘·성희롱 판례",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/interpretations/layout-interpretation",
+      "width": 768,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 768,
+      "h1": "근로시간과 휴게시간에 관한 합성 행정해석 1",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/interpretations/layout-interpretation",
+      "width": 768,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 768,
+      "h1": "근로시간과 휴게시간에 관한 합성 행정해석 1",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/laws",
+      "width": 768,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 768,
+      "h1": "노동관계법령 개정 현황",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/laws",
+      "width": 768,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 768,
+      "h1": "노동관계법령 개정 현황",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/lecture/ai-isan-2026",
+      "width": 768,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 768,
+      "h1": "노무사를 위한 Claude × Codex 실전",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/lecture/ai-isan-2026",
+      "width": 768,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 768,
+      "h1": "노무사를 위한 Claude × Codex 실전",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/lecture/ai-isan-2026/textbook",
+      "width": 768,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 768,
+      "h1": "노무사를 위한 Claude × Codex 실전\n— 교재",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/lecture/ai-isan-2026/textbook",
+      "width": 768,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 768,
+      "h1": "노무사를 위한 Claude × Codex 실전\n— 교재",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/manual",
+      "width": 768,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 768,
+      "h1": "원·하청 교섭절차 가이드",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/manual",
+      "width": 768,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 768,
+      "h1": "원·하청 교섭절차 가이드",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/news",
+      "width": 768,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 768,
+      "h1": "최신 뉴스",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/news",
+      "width": 768,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 768,
+      "h1": "최신 뉴스",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/",
+      "width": 768,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 768,
+      "h1": "노동법 자료 검색과 실무 정보",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/",
+      "width": 768,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 768,
+      "h1": "노동법 자료 검색과 실무 정보",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/pkb",
+      "width": 768,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 768,
+      "h1": "PKB · Personal Knowledge Base",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/pkb",
+      "width": 768,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 768,
+      "h1": "PKB · Personal Knowledge Base",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/privacy",
+      "width": 768,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 768,
+      "h1": "개인정보처리방침",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/privacy",
+      "width": 768,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 768,
+      "h1": "개인정보처리방침",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/sanction",
+      "width": 768,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 768,
+      "h1": "AI 판정례 비교분석",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/sanction",
+      "width": 768,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 768,
+      "h1": "AI 판정례 비교분석",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/search",
+      "width": 768,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 768,
+      "h1": "판정례 · 판례 · 행정해석 검색",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/search",
+      "width": 768,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 768,
+      "h1": "판정례 · 판례 · 행정해석 검색",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/stats",
+      "width": 768,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 768,
+      "h1": "사유별 판정 통계",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/stats",
+      "width": 768,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 768,
+      "h1": "사유별 판정 통계",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/subsidy",
+      "width": 768,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 768,
+      "h1": "고용지원금 가이드",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/subsidy",
+      "width": 768,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 768,
+      "h1": "고용지원금 가이드",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/terms",
+      "width": 768,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 768,
+      "h1": "이용약관",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/terms",
+      "width": 768,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 768,
+      "h1": "이용약관",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/tools/contract-check",
+      "width": 768,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 768,
+      "h1": "근로계약서 자가진단",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/tools/contract-check",
+      "width": 768,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 768,
+      "h1": "근로계약서 자가진단",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/tools/holiday-pay",
+      "width": 768,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 768,
+      "h1": "공휴일 수당 계산기",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/tools/holiday-pay",
+      "width": 768,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 768,
+      "h1": "공휴일 수당 계산기",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/tools/leave/advanced",
+      "width": 768,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 768,
+      "h1": "사용촉진 일정 · 반차 환산",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/tools/leave/advanced",
+      "width": 768,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 768,
+      "h1": "사용촉진 일정 · 반차 환산",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/tools/leave",
+      "width": 768,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 768,
+      "h1": "연차휴가 계산기",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/tools/leave",
+      "width": 768,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 768,
+      "h1": "연차휴가 계산기",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/tools/leave/settlement",
+      "width": 768,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 768,
+      "h1": "퇴직 연차 정산",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/tools/leave/settlement",
+      "width": 768,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 768,
+      "h1": "퇴직 연차 정산",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/tools",
+      "width": 768,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 768,
+      "h1": "계산·점검 도구",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/tools",
+      "width": 768,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 768,
+      "h1": "계산·점검 도구",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/tools/work-rules",
+      "width": 768,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 768,
+      "h1": "취업규칙 점검",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/tools/work-rules",
+      "width": 768,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 768,
+      "h1": "취업규칙 점검",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/tools/severance.html",
+      "width": 768,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 768,
+      "h1": "퇴직금 계산",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/tools/severance.html",
+      "width": 768,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 768,
+      "h1": "퇴직금 계산",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/ai",
+      "width": 1440,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 1440,
+      "h1": "AI 상담 & 참고자료",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/ai",
+      "width": 1440,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 1440,
+      "h1": "AI 상담 & 참고자료",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/blog/category/%EB%85%B8%EB%8F%99%EB%89%B4%EC%8A%A4",
+      "width": 1440,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 1440,
+      "h1": "글",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/blog/category/%EB%85%B8%EB%8F%99%EB%89%B4%EC%8A%A4",
+      "width": 1440,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 1440,
+      "h1": "글",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/blog",
+      "width": 1440,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 1440,
+      "h1": "글",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/blog",
+      "width": 1440,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 1440,
+      "h1": "글",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/blog/news-20261003-01",
+      "width": 1440,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 1440,
+      "h1": "넓은 화면에서도 편안하게 읽는 노동법 소식",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/blog/news-20261003-01",
+      "width": 1440,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 1440,
+      "h1": "넓은 화면에서도 편안하게 읽는 노동법 소식",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/cases",
+      "width": 1440,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 1440,
+      "h1": "노란봉투법 핵심판례 6선",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/cases",
+      "width": 1440,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 1440,
+      "h1": "노란봉투법 핵심판례 6선",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/cases/layout-case",
+      "width": 1440,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 1440,
+      "h1": "근로조건 변경과 절차에 관한 합성 판례 1",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/cases/layout-case",
+      "width": 1440,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 1440,
+      "h1": "근로조건 변경과 절차에 관한 합성 판례 1",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/checklist",
+      "width": 1440,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 1440,
+      "h1": "자가진단 체크리스트",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/checklist",
+      "width": 1440,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 1440,
+      "h1": "자가진단 체크리스트",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/contact",
+      "width": 1440,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 1440,
+      "h1": "노무법인 위너스 종합 상담 문의",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/contact",
+      "width": 1440,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 1440,
+      "h1": "노무법인 위너스 종합 상담 문의",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/database",
+      "width": 1440,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 1440,
+      "h1": "판정례 · 판례 · 행정해석 검색",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/database",
+      "width": 1440,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 1440,
+      "h1": "판정례 · 판례 · 행정해석 검색",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/decisions",
+      "width": 1440,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 1440,
+      "h1": "판정례 · 판례 · 행정해석 검색",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/decisions",
+      "width": 1440,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 1440,
+      "h1": "판정례 · 판례 · 행정해석 검색",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/decisions/layout-decision",
+      "width": 1440,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 1440,
+      "h1": "합성 노동위원회 판정례: 근로조건과 절차 1",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/decisions/layout-decision",
+      "width": 1440,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 1440,
+      "h1": "합성 노동위원회 판정례: 근로조건과 절차 1",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/faq",
+      "width": 1440,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 1440,
+      "h1": "노동법 FAQ",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/faq",
+      "width": 1440,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 1440,
+      "h1": "노동법 FAQ",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/faq/%EC%97%B0%EC%B0%A8%EC%9C%A0%EA%B8%89%ED%9C%B4%EA%B0%80",
+      "width": 1440,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 1440,
+      "h1": "노동법 FAQ",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/faq/%EC%97%B0%EC%B0%A8%EC%9C%A0%EA%B8%89%ED%9C%B4%EA%B0%80",
+      "width": 1440,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 1440,
+      "h1": "노동법 FAQ",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/guide",
+      "width": 1440,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 1440,
+      "h1": "개정 노동조합법 해석지침",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/guide",
+      "width": 1440,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 1440,
+      "h1": "개정 노동조합법 해석지침",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/harassment",
+      "width": 1440,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 1440,
+      "h1": "직장 내 괴롭힘·성희롱 판례",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/harassment",
+      "width": 1440,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 1440,
+      "h1": "직장 내 괴롭힘·성희롱 판례",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/interpretations/layout-interpretation",
+      "width": 1440,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 1440,
+      "h1": "근로시간과 휴게시간에 관한 합성 행정해석 1",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/interpretations/layout-interpretation",
+      "width": 1440,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 1440,
+      "h1": "근로시간과 휴게시간에 관한 합성 행정해석 1",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/laws",
+      "width": 1440,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 1440,
+      "h1": "노동관계법령 개정 현황",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/laws",
+      "width": 1440,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 1440,
+      "h1": "노동관계법령 개정 현황",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/lecture/ai-isan-2026",
+      "width": 1440,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 1440,
+      "h1": "노무사를 위한 Claude × Codex 실전",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/lecture/ai-isan-2026",
+      "width": 1440,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 1440,
+      "h1": "노무사를 위한 Claude × Codex 실전",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/lecture/ai-isan-2026/textbook",
+      "width": 1440,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 1440,
+      "h1": "노무사를 위한 Claude × Codex 실전\n— 교재",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/lecture/ai-isan-2026/textbook",
+      "width": 1440,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 1440,
+      "h1": "노무사를 위한 Claude × Codex 실전\n— 교재",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/manual",
+      "width": 1440,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 1440,
+      "h1": "원·하청 교섭절차 가이드",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/manual",
+      "width": 1440,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 1440,
+      "h1": "원·하청 교섭절차 가이드",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/news",
+      "width": 1440,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 1440,
+      "h1": "최신 뉴스",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/news",
+      "width": 1440,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 1440,
+      "h1": "최신 뉴스",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/",
+      "width": 1440,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 1440,
+      "h1": "노동법 자료 검색과 실무 정보",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/",
+      "width": 1440,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 1440,
+      "h1": "노동법 자료 검색과 실무 정보",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/pkb",
+      "width": 1440,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 1440,
+      "h1": "PKB · Personal Knowledge Base",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/pkb",
+      "width": 1440,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 1440,
+      "h1": "PKB · Personal Knowledge Base",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/privacy",
+      "width": 1440,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 1440,
+      "h1": "개인정보처리방침",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/privacy",
+      "width": 1440,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 1440,
+      "h1": "개인정보처리방침",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/sanction",
+      "width": 1440,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 1440,
+      "h1": "AI 판정례 비교분석",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/sanction",
+      "width": 1440,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 1440,
+      "h1": "AI 판정례 비교분석",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/search",
+      "width": 1440,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 1440,
+      "h1": "판정례 · 판례 · 행정해석 검색",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/search",
+      "width": 1440,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 1440,
+      "h1": "판정례 · 판례 · 행정해석 검색",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/stats",
+      "width": 1440,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 1440,
+      "h1": "사유별 판정 통계",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/stats",
+      "width": 1440,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 1440,
+      "h1": "사유별 판정 통계",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/subsidy",
+      "width": 1440,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 1440,
+      "h1": "고용지원금 가이드",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/subsidy",
+      "width": 1440,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 1440,
+      "h1": "고용지원금 가이드",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/terms",
+      "width": 1440,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 1440,
+      "h1": "이용약관",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/terms",
+      "width": 1440,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 1440,
+      "h1": "이용약관",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/tools/contract-check",
+      "width": 1440,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 1440,
+      "h1": "근로계약서 자가진단",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/tools/contract-check",
+      "width": 1440,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 1440,
+      "h1": "근로계약서 자가진단",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/tools/holiday-pay",
+      "width": 1440,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 1440,
+      "h1": "공휴일 수당 계산기",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/tools/holiday-pay",
+      "width": 1440,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 1440,
+      "h1": "공휴일 수당 계산기",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/tools/leave/advanced",
+      "width": 1440,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 1440,
+      "h1": "사용촉진 일정 · 반차 환산",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/tools/leave/advanced",
+      "width": 1440,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 1440,
+      "h1": "사용촉진 일정 · 반차 환산",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/tools/leave",
+      "width": 1440,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 1440,
+      "h1": "연차휴가 계산기",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/tools/leave",
+      "width": 1440,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 1440,
+      "h1": "연차휴가 계산기",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/tools/leave/settlement",
+      "width": 1440,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 1440,
+      "h1": "퇴직 연차 정산",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/tools/leave/settlement",
+      "width": 1440,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 1440,
+      "h1": "퇴직 연차 정산",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/tools",
+      "width": 1440,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 1440,
+      "h1": "계산·점검 도구",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/tools",
+      "width": 1440,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 1440,
+      "h1": "계산·점검 도구",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/tools/work-rules",
+      "width": 1440,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 1440,
+      "h1": "취업규칙 점검",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/tools/work-rules",
+      "width": 1440,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 1440,
+      "h1": "취업규칙 점검",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/tools/severance.html",
+      "width": 1440,
+      "theme": "light",
+      "status": 200,
+      "overflow": false,
+      "scroll": 1440,
+      "h1": "퇴직금 계산",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    },
+    {
+      "route": "/tools/severance.html",
+      "width": 1440,
+      "theme": "dark",
+      "status": 200,
+      "overflow": false,
+      "scroll": 1440,
+      "h1": "퇴직금 계산",
+      "wordmark": "/brand/work-patterns-wordmark-original.svg"
+    }
+  ],
+  "failures": [],
+  "errors": [],
+  "blocked": [
+    "/gtag/js",
+    "/gtag/js",
+    "/gtag/js"
+  ],
+  "interaction": {
+    "mobileNavAndBack": true,
+    "keyboardMenuEscapeFocus": true,
+    "faqCategoryBack": true,
+    "workRulesDialog": true,
+    "blogSafeSummary": true
+  },
+  "og": [
+    {
+      "route": "/opengraph-image",
+      "status": 200,
+      "type": "image/png"
+    },
+    {
+      "route": "/og/page?title=%EA%B3%84%EC%82%B0%C2%B7%EC%A0%90%EA%B2%80%20%EB%8F%84%EA%B5%AC",
+      "status": 200,
+      "type": "image/png"
+    },
+    {
+      "route": "/og/laws",
+      "status": 200,
+      "type": "image/png"
+    },
+    {
+      "route": "/og/news-20261003-01",
+      "status": 200,
+      "type": "image/png"
+    }
+  ]
+}
