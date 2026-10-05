@@ -2,6 +2,7 @@
   "results": [
     "load failure/retry preserves input; unrecognized text blocks verdict",
     "period results and DOCX contain review disclaimer",
+    "XLSX workbook, ICS calendar and table clipboard validated",
     "standalone result links point to /laws#event",
     "mobile overflow, modal scroll lock, keyboard containment and focus return",
     "oversized file rejected; ordinary DOCX parsed locally",
