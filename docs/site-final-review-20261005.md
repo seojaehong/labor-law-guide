@@ -1,6 +1,6 @@
 # 퇴직금 도구와 사이트 최종 검수
 
-검증 소스: `847d1aca7e606c42f7eaf5dadf47b16b908649d2`. 이후 커밋은 화면·기록만 변경한다.
+2차 차단 사항 보완 검증 소스: `a4776aa15556ee9fbb8bd8d9dc1ec47e2c84240e`. 이후 커밋은 화면·기록만 변경한다.
 최신 통합 master: `78dde76c81280af693ad69dbf97adc2824256102`.
 
 실제 제품 변경은 세 파일: `public/tools/severance.html`, `public/tools/severance-brand.css`, `src/app/faq/FaqClient.tsx`.
@@ -10,6 +10,8 @@
 - 조회 실패 재시도·빈 결과·추가 검색 상한 안내를 추가했다. 계산 결과는 그대로 유지한다. 초기화 확인에서 취소하면 화면을 유지한다.
 - 퇴직금 도구 목록 복귀 링크, 키보드로 사용할 수 있는 테마 버튼, 기능명 제목·공유 메타데이터를 추가했다. 종이색 배경에서 흰색으로 남던 강조 글자를 수정했다. 원안 로고와 크기는 유지했다.
 - 계산 결과 표는 모바일에서 페이지 폭을 밀지 않고 산정서 안에서 스크롤한다. 키보드 초점을 받을 수 있고 인쇄에서는 overflow를 풀고 탐색을 숨긴다. 이름·사업장명·사업주명·생년월일과 서명란은 HTML이 아닌 텍스트로 표시하며 원본 입력·저장 문자열은 그대로 유지한다.
+- 독립 검토의 오래된 결과 복원 결함을 수정했다. `saveFormToState`가 실제 계산/표시 입력 변화를 비교해 result와 산정서·조회 영역을 비운다. 종료일/임금 수정 뒤 A→B→A 전환에도 조회 버튼·이전 표를 되살리지 않으며 인쇄/조회는 최신 폼을 먼저 동기화한다. 금액의 쉼표 표시와 자동 산출 세금의 표시 문구는 계산 입력 변화로 취급하지 않는다. 저장 버튼은 기존 브라우저 저장 기능이며 별도 XLSX 내보내기 기능은 없다. 저장된 결과에는 검증할 입력 snapshot이 없으므로 재방문에서는 입력만 복원하고 재계산을 요구한다.
+- 다크 input/select·readonly·disabled·placeholder·임금 표 헤더/라벨·저장/초기화 버튼의 글자와 배경을 짝지었다. 산정서는 테마와 무관하게 밝은 종이와 어두운 글자로 인쇄 가독성을 유지한다. 인쇄에서 조회 영역은 제외한다. 모바일 임금 표도 자체 스크롤하며 입력칸 폭을 확보하고 키보드로 이동할 수 있다.
 - FAQ 질문 버튼 내부의 분류 링크를 독립 링크로 옮겼다. 펼침 상태/답변 연결을 알리고 분류·답변 색상을 테마 토큰으로 바꿨다.
 
 Claude 중복 수정: 전환·추가·초기화에서 영역 숨기기는 이미 master에 있었다. 단순 숨기기만으로 막히지 않는 늦은 응답과 전역 선택값을 이번에 보완했다. `78dde76`의 임베딩 캐시·인스턴스 호출 상한은 서버 파일을 byte-identical로 보존했다. 전송 후 표시되던 고지는 명시 조회 전 고지로 합쳤으며, 플랫폼 로그를 검증하지 않은 ‘값을 저장하지 않는다’ 단정은 제외했다. PR17의 chat route/context와 migration 역시 변경하지 않았다. DB migration은 실행하지 않았다.
@@ -22,9 +24,11 @@ Claude 중복 수정: 전환·추가·초기화에서 영역 숨기기는 이미
 | 대상 lint | 오류 0 | FAQ의 기존 ref-cleanup 경고 1건 유지 |
 | production fixture build | 108경로 통과 | 합성 PostgREST, webpack 빌드; 운영 DB 읽지 않음 |
 | 경로 inventory | source page 패턴 41개; 공개 대표 37개 | admin 2개와 token별 newsletter 3개 제외; 동적 데이터는 대표 fixture 1건씩 |
-| 폭·테마 | 37경로 × 360/390/430/768/1440px × light/dark = 370검사; HTTP200·넘침 없음·page error 0 | 모든 실데이터 레코드·실기기·전체 키보드 동선의 검수는 아님 |
+| 폭·테마 | 1차 PR18: 37경로 × 360/390/430/768/1440px × light/dark = 370검사; HTTP200·넘침 없음·page error 0. 2차 변경은 퇴직금 HTML/CSS에 한정하며 최종 결과 5폭×2테마를 다시 검사 | 370검사는 1차 전체 사이트 기록이고 이번 2차 코드의 전체 사이트 재실행 수치로 주장하지 않는다. 모든 실데이터 레코드·실기기·전체 키보드 동선의 검수는 아님 |
 | 공개 운영 읽기 | `https://yellowenvelope.kr`의 정적 진입 31경로, HTTP200·넘침·page error 없음 | 입력/업로드/전송 없음; 새 Draft UI는 아직 운영에 반영하지 않음 |
 | 대비 | 주요 8경로의 두 테마에서 378개 검사, 실패 0 | 불투명 조상 배경을 계산하는 자동 표본; 투명 배경/모든 컴포넌트를 망라하는 WCAG 인증 아님 |
+| 2차 퇴직금 대비 | 실제 폼 입력 후 light 154·dark 154·print 77 = 385검사, 실패 0. 입력값/placeholder/readonly/disabled/라벨/표 셀/합계/서명/제어 텍스트, 조상 배경 alpha 합성 포함; 새 light/dark PNG 직접 확인 | 378 표본의 퇴직금 4요소만으로 가독성을 확정한 이전 판단을 대체한다. 실제 프린터·OS native popup·실기기 인증은 아님 |
+| 오래된 결과 회귀 | 종료일과 임금 각각 수정→A→B→A→조회/인쇄/저장 차단, 재계산 후 요청과 새 결과 일치, 옛 저장 결과 재방문 차단, 원래 입력 보존, 정상 결과 인쇄 유지, programmatic print/lookup guard | mock만 사용, 실제 API 호출 0 |
 | 퇴직금 mock browser | 자동 POST 없음, 근로자 선택 분리, 늦은 응답 차단, 오류/빈 결과/상한 안내, 테마·원안 로고 확인; 결과 5폭×2테마 추가 10검사, 입력 HTML 문자열 텍스트 보존, 스크롤 키보드 초점·인쇄 CSS 확인 | 실제 API 호출 0; 계산식·법률 설명 정확도·검색 품질 인증 아님; 실제 프린터/PDF 앱 미검수 |
 | 외부 호출 경계 unit | 키 없을 때 호출 없음, 일반 검색 문장·캐시·인스턴스 상한·bad JSON 검증 | fetch와 Supabase RPC 모두 mock; 분산 남용 방지 검증 아님 |
 | 주요 이동·오류 | 메뉴 클릭/뒤로가기, Enter/Escape·초점 복귀, FAQ 분류 링크/답변, FAQ 오류 후 재시도, 법령 상세→점검→Escape, 법령 빈 검색, 점검 자료 오류 후 복구 | 순수 화면·fixture/mock 결과 |
@@ -32,7 +36,7 @@ Claude 중복 수정: 전환·추가·초기화에서 영역 숨기기는 이미
 
 증거: `docs/design-visuals/site-final-20261005/`의 inventory, matrix, contrast, public-readonly, interaction-current, severance-context JSON과 최종 렌더 PNG.
 
-공식 Library 저장 성공: 퇴직금 light `libfile_a944ec448ad081919b3697d69aa5273b`, dark `libfile_36da787ffd548191b488e8b1bd08bab6`; FAQ light `libfile_9b36a08423988191bd55cd4ffdce218f`, dark `libfile_c7718ee068b4819191fc35f8cc89bf62`. FAQ는 테마 전환 애니메이션이 끝난 후 캡처했으며, 중간 밝은 회색 상태를 제품 버그로 기록하지 않는다.
+공식 Library 최종 퇴직금 값 화면: light `libfile_dc1bc34a044c8191a3f9c6fbcf2997c0`, dark `libfile_a96dafc1770c8191a2bee58b856eb70b`. 이전 퇴직금 Library 이미지는 2차 대비 보완 전이므로 최종 증거로 사용하지 않는다. FAQ light `libfile_9b36a08423988191bd55cd4ffdce218f`, dark `libfile_c7718ee068b4819191fc35f8cc89bf62`. FAQ는 테마 전환 애니메이션이 끝난 후 캡처했으며, 중간 밝은 회색 상태를 제품 버그로 기록하지 않는다.
 
 ## 남은 범위와 운영 보류
 
