@@ -592,6 +592,11 @@
         @media (max-width: 768px) {
             .container { padding: 12px; }
             header { padding: 16px 20px; }
+            /* 2026-10-05: 모바일에서 제목과 「사용설명서」가 겹쳤다(390px 실측 제보).
+               .header-credit 이 absolute 라 제목이 길어지면 그 위로 올라탄다.
+               좁은 화면에서는 흐름 배치로 되돌린다 — 데스크톱의 우측 상단 배치는 그대로 둔다. */
+            .header-credit { position: static; margin-top: 12px; }
+            .guide-toggle { margin-left: 0; }
             header h1 { font-size: 18px; }
             .card { padding: 16px; }
             .form-grid {
