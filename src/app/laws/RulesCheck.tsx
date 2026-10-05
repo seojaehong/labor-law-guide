@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { CalendarClock, ClipboardCopy, FileDown, FileUp, ShieldCheck, X } from 'lucide-react';
 import { type Verdict } from '@/lib/laws/rules-check';
-import { periodCheck, STD_ASOF, type PeriodItem, type StdArticle, type StdRule } from '@/lib/laws/standard-check';
+import { periodCheck, STD_ASOF, type Art93Item, type PeriodItem, type StdArticle, type StdRule } from '@/lib/laws/standard-check';
 import { compareDocx, kindOf, readDocText } from '@/lib/laws/doc-io';
 import {
   citation,
@@ -32,6 +32,7 @@ interface Data {
   std: StdArticle[];
   events: LawEvent[];
   rules: StdRule[];
+  art93: Art93Item[];
   since: string;
 }
 
@@ -41,7 +42,7 @@ const loadData = () =>
     fetch('/data/laws/standard.json').then((r) => r.json()),
     fetch('/data/laws/index.json').then((r) => r.json() as Promise<LawIndex>),
     fetch('/data/laws/rules.json').then((r) => r.json()),
-  ]).then(([s, i, r]) => ({ std: s.articles, events: i.events, rules: r.rules, since: i.since })));
+  ]).then(([s, i, r]) => ({ std: s.articles, events: i.events, rules: r.rules, art93: s.art93 ?? [], since: i.since })));
 
 const toIso = (d: string) => `${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6, 8)}`;
 const fromIso = (d: string) => d.replace(/-/g, '');
@@ -85,7 +86,7 @@ export default function RulesCheck({ onClose, toast }: { onClose: () => void; to
   const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    loadData().then(setData).catch(() => setData({ std: [], events: [], rules: [], since: '20230101' }));
+    loadData().then(setData).catch(() => setData({ std: [], events: [], rules: [], art93: [], since: '20230101' }));
     ref.current?.focus();
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
     window.addEventListener('keydown', onKey);
@@ -93,7 +94,7 @@ export default function RulesCheck({ onClose, toast }: { onClose: () => void; to
   }, [onClose]);
 
   const result = useMemo(
-    () => (data && from < to ? periodCheck({ text, std: data.std, events: data.events, rules: data.rules, from, to }) : null),
+    () => (data && from < to ? periodCheck({ text, std: data.std, events: data.events, rules: data.rules, art93: data.art93, from, to }) : null),
     [data, text, from, to],
   );
   const open = result?.items.filter((i) => i.status !== '반영됨') ?? [];
@@ -236,6 +237,17 @@ export default function RulesCheck({ onClose, toast }: { onClose: () => void; to
                   <button className="lr-fold-btn" onClick={() => setShowOk(!showOk)}>
                     {showOk ? '반영된 항목 접기' : `반영된 ${ok.length}건 보기`}
                   </button>
+                )}
+                {result.missing93.length > 0 && (
+                  <details className="lr-missing" open>
+                    <summary>근로기준법 제93조 필수기재 중 관련 낱말이 안 보이는 {result.missing93.length}개 호</summary>
+                    <ul>
+                      {result.missing93.map((i) => (
+                        <li key={i.no}><b>제{i.no}호</b> {i.label}</li>
+                      ))}
+                    </ul>
+                    <p className="lr-check-note">상시 10명 이상 사업장은 이 사항을 취업규칙에 적어 신고해야 합니다. 낱말로만 찾은 1차 점검이라 다른 표현으로 적혀 있으면 무시하세요.</p>
+                  </details>
                 )}
                 {result.missingRequired.length > 0 && (
                   <details className="lr-missing">

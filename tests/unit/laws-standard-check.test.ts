@@ -195,3 +195,25 @@ describe('doc-io', () => {
     expect(text.split('\n').filter((l) => l.startsWith('제4')).length).toBe(2);
   });
 });
+
+describe('명칭 변경·제93조', () => {
+  it('everywhere 매핑은 짝지은 조문 밖에 남은 옛 명칭도 잡는다', () => {
+    const text = `제31조(배우자 출산전후휴가) ① 회사는 20일의 배우자 출산전후휴가를 준다.
+제18조(휴직명령) ③ 배우자 출산휴가 중인 사원에게는 휴직을 명하지 않는다.`;
+    const r = rule({ topic: '명칭', everywhere: true, ok: ['출산전후휴가'], stale: ['배우자 출산휴가'] });
+    const res = periodCheck({ text, std: STD, events: [], rules: [r], from: '20250101', to: '20261005' });
+    const v = res.items[0].verdicts[0];
+    expect(v.status).toBe('미반영');
+    expect(v.where).toContain('제18조(휴직명령)');
+  });
+
+  it('제93조 각 호 — 키워드가 하나도 없는 호만', () => {
+    const items = [
+      { no: '3', label: '가족수당', keywords: ['가족수당'] },
+      { no: '9의2', label: '사업장 환경 개선', keywords: ['사업장 환경', '신체적 조건'] },
+      { no: '13', label: '그 밖에', keywords: [] },
+    ];
+    const res = periodCheck({ text: '제1조(목적) 가족수당은 지급하지 아니한다.', std: STD, events: [], rules: [], from: '20250101', to: '20261005', art93: items });
+    expect(res.missing93.map((i) => i.no)).toEqual(['9의2']);
+  });
+});

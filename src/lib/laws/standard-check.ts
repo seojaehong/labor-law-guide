@@ -25,6 +25,22 @@ export interface StdArticle {
 export interface StdRule extends RuleSpec {
   /** 이 매핑이 걸리는 표준 조문 id */
   std?: string[];
+  /** 명칭 변경형 — 짝지은 조문 밖에 남은 옛 명칭(stale)도 문서 전체에서 찾는다 */
+  everywhere?: boolean;
+}
+
+export interface Art93Item {
+  no: string;
+  label: string;
+  keywords: string[];
+}
+
+const flat = (s: string) => s.replace(/[\sㆍ·]/g, '');
+
+/** 근로기준법 제93조 각 호 1차 점검 — 키워드가 하나도 없는 호. 키워드 없는 호(13호)는 보지 않는다 */
+export function missingArt93(text: string, items: Art93Item[]): Art93Item[] {
+  const t = flat(text);
+  return items.filter((i) => i.keywords.length && !i.keywords.some((k) => t.includes(flat(k))));
 }
 
 export interface UserArticle {
@@ -120,6 +136,8 @@ export interface PeriodResult {
   items: PeriodItem[];
   /** 짝이 없는 [필수] 표준 조문 — 본문을 넣었을 때만 */
   missingRequired: StdArticle[];
+  /** 근로기준법 제93조 필수기재 — 키워드가 하나도 없는 호(본문을 넣었을 때만) */
+  missing93: Art93Item[];
   matched: Map<string, UserArticle[]>;
 }
 
@@ -132,6 +150,7 @@ export function periodCheck(opts: {
   rules: StdRule[];
   from: string;
   to: string;
+  art93?: Art93Item[];
 }): PeriodResult {
   const { text, std, from, to } = opts;
   const user = splitArticles(text);
@@ -160,7 +179,14 @@ export function periodCheck(opts: {
       // 짝지은 조문이 없으면 문서 전체에서 찾는다(B 방식) — 제목이 다른 조문 안에 들어 있는 경우
       // (2019년 표준판은 배우자 출산휴가를 「경조사 휴가」 조문 안에 둔다. 2026-10-05 A/B 대조)
       const paras = paragraphs(it.user.length ? it.user.map((u) => u.text).join('\n') : text);
-      it.verdicts.push(hasText ? judge(r, paras) : { rule: r, status: '누락', where: null, stale: [], missing: r.ok });
+      let v: Verdict = hasText ? judge(r, paras) : { rule: r, status: '누락', where: null, stale: [], missing: r.ok };
+      if (hasText && r.everywhere) {
+        // 옛 명칭이 다른 조문에 남아 있으면 그 조문도 고칠 곳이다(2025 표준판 제18조 휴직명령의 「배우자 출산휴가」)
+        const all = paragraphs(text);
+        const left = [...new Set(all.filter((p) => r.stale.some((s) => flat(p.text).includes(flat(s)))).map((p) => p.article).filter((a): a is string => !!a && a !== v.where))];
+        if (left.length) v = { ...v, status: '미반영', where: [v.where, ...left].filter(Boolean).join(', '), stale: [...new Set([...v.stale, ...r.stale.filter((s) => all.some((p) => flat(p.text).includes(flat(s))))])] };
+      }
+      it.verdicts.push(v);
     }
   }
 
@@ -183,5 +209,5 @@ export function periodCheck(opts: {
     (a, b) => RANK[a.status] - RANK[b.status] || a.std.no.localeCompare(b.std.no, 'ko', { numeric: true }),
   );
   const missingRequired = hasText ? std.filter((s) => s.kind === '필수' && !matched.has(s.id)) : [];
-  return { items, missingRequired, matched };
+  return { items, missingRequired, missing93: hasText ? missingArt93(text, opts.art93 ?? []) : [], matched };
 }

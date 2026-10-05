@@ -206,6 +206,7 @@ def main():
     (OUT / "standard.json").write_text(json.dumps({
         "source": "고용노동부 표준취업규칙(2026년, 배포) 일반 근로자용",
         "asof": "20260201",
+        "art93": json.loads((ROOT / "scripts" / "laws" / "art93_check.json").read_text(encoding="utf-8"))["items"],
         "articles": [{k: s[k] for k in ("id", "no", "title", "chapter", "kind", "text", "laws", "keywords", "status")}
                      for s in std],
     }, ensure_ascii=False), encoding="utf-8")
