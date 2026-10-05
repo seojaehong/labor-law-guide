@@ -106,11 +106,17 @@ function buildChecks(b: Body): Check[] {
  * 쟁점이 하나라도 걸리면 그 쟁점만으로 찾고, 아무것도 안 걸렸을 때만 기본 질의를 쓴다.
  */
 function buildQuery(b: Body, checks: Check[]): string {
+  // 🔴 문장 형태를 쟁점마다 따로 골랐다. **일반 규칙이 없다** — 2026-10-05 실측:
+  //   · 1년 미만 — 키워드형 0.715 > 문장형 0.694 (문장형은 1위가 중간정산으로 빗나갔다)
+  //   · 통상임금 — 문장형 0.715 > 키워드형 0.648
+  //   · 체불    — '퇴직 후 14일 이내 금품청산 의무' 0.509 > 다른 두 표현 0.398·0.442
+  //   · 15시간  — 어떤 표현도 0.47 을 못 넘는다. 이 쟁점은 행정해석이 실제로 없다.
+  // 그래서 표현을 바꿀 때는 반드시 다시 재야 한다. 그럴듯한 쪽이 이기지 않는다.
   const hit: string[] = [];
   if (checks.some((c) => c.title.includes('1년'))) hit.push('퇴직금 계속근로기간 1년 미만 지급의무');
-  if (checks.some((c) => c.title.includes('15시간'))) hit.push('소정근로시간 15시간 미만 퇴직금');
-  if (checks.some((c) => c.title.includes('통상임금'))) hit.push('평균임금이 통상임금보다 적을 때');
-  if (checks.some((c) => c.title.includes('못 받'))) hit.push('퇴직금 체불 금품청산 14일');
+  if (checks.some((c) => c.title.includes('15시간'))) hit.push('1주 소정근로시간이 15시간 미만인 근로자도 퇴직금을 받을 수 있나요');
+  if (checks.some((c) => c.title.includes('통상임금'))) hit.push('평균임금이 통상임금보다 적으면 퇴직금을 어떻게 계산하나요');
+  if (checks.some((c) => c.title.includes('못 받'))) hit.push('퇴직 후 14일 이내 금품청산 의무');
   return hit.length ? hit.join(' ') : '퇴직금 평균임금 산정 방법';
 }
 
