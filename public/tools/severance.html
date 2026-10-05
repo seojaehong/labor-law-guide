@@ -33,8 +33,11 @@
         .ctx li a { color: var(--text); text-decoration: none; border-bottom: 1px solid var(--border); }
         .ctx li a:hover { color: var(--primary); border-color: var(--primary); }
         .ctx li .meta { color: var(--text-light); font-size: 11.5px; margin-left: 6px; }
-        .ctx .ask { display: flex; align-items: center; gap: 8px; font-size: 13.5px;
-                    color: var(--text-light); margin-bottom: 16px; }
+        .ctx .ask { display: flex; align-items: center; gap: 10px; font-size: 13.5px;
+                    color: var(--text-light); margin-bottom: 12px; flex-wrap: wrap; }
+        .ctx .ask select { font: inherit; font-size: 13.5px; padding: 7px 10px; min-height: 40px;
+                    color: var(--text); background: var(--card-bg);
+                    border: 1px solid var(--border); border-radius: var(--radius); }
         .ctx .none { font-size: 13px; color: var(--text-light); margin: 0; }
         .ctx .disc { margin-top: 18px; font-size: 12px; color: var(--text-light); line-height: 1.65; }
 
@@ -1882,6 +1885,7 @@ function onCalculate() {
  * 실패해도 계산 결과는 그대로 둔다. 근거가 없다고 계산을 못 쓰게 하면 안 된다.
  */
 let ctxUnpaid = false;
+let ctxPension = 'unknown';   // severance | db | dc | unknown
 
 async function loadContext(w, result) {
     const box = document.getElementById('contextArea');
@@ -1894,6 +1898,7 @@ async function loadContext(w, result) {
         ordinaryWage: result.dailyOrdinaryWage || undefined,
         severance: result.severancePay,
         paid: ctxUnpaid ? false : undefined,
+        pensionType: ctxPension,
     };
     try {
         const res = await fetch('/api/tools/severance-context', {
@@ -1922,6 +1927,13 @@ function renderContext(d) {
 
     let h = '<h2>이 결과를 보기 전에</h2>';
     h += '<p class="ctx-lede">계산기는 숫자까지만 냅니다. 아래는 그 숫자가 맞는지 확인할 점과 근거입니다.</p>';
+    h += '<div class="ask"><label for="ctxPension">퇴직급여 제도</label>' +
+         '<select id="ctxPension">' +
+         ['unknown|모름 / 확인 안 해봤습니다', 'severance|퇴직금제도', 'db|퇴직연금 DB(확정급여형)', 'dc|퇴직연금 DC(확정기여형)']
+           .map((o) => { const [v, t] = o.split('|');
+             return '<option value="' + v + '"' + (ctxPension === v ? ' selected' : '') + '>' + t + '</option>'; })
+           .join('') +
+         '</select></div>';
     h += '<label class="ask"><input type="checkbox" id="ctxUnpaid"' + (ctxUnpaid ? ' checked' : '') +
          '> 아직 퇴직금을 받지 못했습니다</label>';
 
@@ -1959,12 +1971,14 @@ function renderContext(d) {
 
     box.innerHTML = h;
     box.hidden = false;
-    const cb = document.getElementById('ctxUnpaid');
-    if (cb) cb.addEventListener('change', () => {
-        ctxUnpaid = cb.checked;
+    const reload = () => {
         const w = state.workers[state.currentIndex];
         if (w && w.result) loadContext(w, w.result);
-    });
+    };
+    const cb = document.getElementById('ctxUnpaid');
+    if (cb) cb.addEventListener('change', () => { ctxUnpaid = cb.checked; reload(); });
+    const sel = document.getElementById('ctxPension');
+    if (sel) sel.addEventListener('change', () => { ctxPension = sel.value; reload(); });
 }
 
 /** 초기화 */
