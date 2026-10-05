@@ -18,6 +18,10 @@ header p span[style] { color:var(--text) !important; background:var(--border-lig
 button,input,select { min-height:44px; font:inherit; }
 input[type=checkbox],input[type=radio] { min-height:0; }
 .table-wrap { overflow-x:auto; max-width:100%; }
+.wage-table { min-width:680px; }
+.wage-table input { min-width:94px; }
+.wage-scroll-help { font-size:12px; color:var(--text-light); }
+@media(min-width:769px) { .wage-scroll-help { display:none; } }
 .result-area { min-width:0; }
 .statement { max-width:100%; overflow-x:auto; }
 .statement { background:#fff; color:#20231f; --text:#20231f; --text-light:#485149; --primary:#285e77; --primary-light:#214d62; --accent:#285e77; --accent-light:#285e77; }
