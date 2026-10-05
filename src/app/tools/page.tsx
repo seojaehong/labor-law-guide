@@ -5,12 +5,12 @@ import { Calculator, Coins, FileCheck2 } from 'lucide-react';
 import { SITE_URL } from '@/lib/constants';
 
 export const metadata: Metadata = publicMetadata({
-  title: '노무 계산기 모음 | 퇴직금·공휴일 수당 | 노란봉투법 가이드',
+  title: '노무 계산기 모음 | 퇴직금·공휴일 수당 | 일의 무늬',
   description:
     '실무자가 자주 쓰는 노무 계산기. 퇴직금 계산(평균임금·산정서), 공휴일·노동절 수당 계산(5인 이상/미만 × 월급·일용·시급) 등 한 곳에서.',
   alternates: { canonical: `${SITE_URL}/tools` },
   openGraph: {
-    title: '노무 계산기 모음 | 노란봉투법 가이드',
+    title: '노무 계산기 모음 | 일의 무늬',
     description: '퇴직금·공휴일 수당·통상임금 등 실무 계산기',
     url: `${SITE_URL}/tools`,
     type: 'website',

@@ -910,13 +910,13 @@
     <!-- 푸터 -->
     <footer>
         <div style="text-align:center;color:#666;font-size:13px;line-height:1.6;padding:14px 8px">
-            노무법인 위너스 · 노란봉투법 가이드 제공
+            노무법인 위너스 · 일의 무늬 제공
             <br>
             근거: 근로자퇴직급여 보장법 제8조 · 근로기준법 제2조 · 소득세법 시행령 제203조의5/6 · 제55조
             <br>
             <span style="color:#999;font-size:12px">본 계산기는 일반적 정보 제공이며, 구체적 사안은 상단 메뉴의 <b>상담</b> 버튼을 통해 노무법인 위너스로 문의해 주세요.</span>
             <br>
-            <a href="/" style="color:#1d4ed8;text-decoration:none;font-size:12px">← 노란봉투법 가이드 홈</a>
+            <a href="/" style="color:#1d4ed8;text-decoration:none;font-size:12px">← 일의 무늬 홈</a>
         </div>
     </footer>
 </div>
@@ -1723,27 +1723,35 @@ function renderResult(result) {
 
     const html = `
     <div class="statement">
-        <h2>평균임금 및 퇴직금 산정서</h2>
+        <div class="stmt-document-head">
+            <span class="stmt-brand">일의 무늬 · 산정서</span>
+            <h2>평균임금 및 퇴직금 산정서</h2>
+        </div>
+        <section class="stmt-summary" aria-label="퇴직금 요약">
+            <div class="stmt-summary-label">실수령 퇴직금</div>
+            <div class="stmt-amount">${formatMoney(result.netSeverance)}<span>원</span></div>
+            <dl class="stmt-summary-details">
+                <div><dt>퇴직금</dt><dd>${formatMoney(result.severancePay)}원</dd></div>
+                <div><dt>공제액 합계</dt><dd>${formatMoney(totalDeduction)}원</dd></div>
+            </dl>
+        </section>
 
         <!-- 기본 정보 -->
-        <table class="stmt-table">
-            <tr>
-                <th>사업장명</th><td colspan="2">${esc(w.businessName || '-')}</td>
-                <th>근로자성명</th><td colspan="2">${esc(w.workerName || '-')}</td>
-            </tr>
-            <tr>
-                <th>생년월일</th><td colspan="2">${esc(w.birthDate || '-')}</td>
-                <th>사업주성명</th><td colspan="2">${esc(w.ownerName || '-')}</td>
-            </tr>
-            <tr>
-                <th>산정사유발생일</th><td>${formatDate(endDate)}</td>
-                <th>채용년월일</th><td>${formatDate(startDate)}</td>
-                <th>재직일수</th><td class="bold">${formatMoney(result.serviceDays)}일</td>
-            </tr>
-        </table>
+        <h3 class="stmt-section-title">기본 정보</h3>
+        <dl class="stmt-meta">
+            <div><dt>사업장명</dt><dd>${esc(w.businessName || '-')}</dd></div>
+            <div><dt>근로자성명</dt><dd>${esc(w.workerName || '-')}</dd></div>
+            <div><dt>생년월일</dt><dd>${esc(w.birthDate || '-')}</dd></div>
+            <div><dt>사업주성명</dt><dd>${esc(w.ownerName || '-')}</dd></div>
+            <div><dt>채용년월일</dt><dd>${formatDate(startDate)}</dd></div>
+            <div><dt>산정사유발생일</dt><dd>${formatDate(endDate)}</dd></div>
+            <div><dt>재직일수</dt><dd>${formatMoney(result.serviceDays)}일</dd></div>
+        </dl>
 
         <!-- 계산 과정 -->
-        <table class="stmt-table" style="margin-top:16px">
+        <h3 class="stmt-section-title">평균임금 계산</h3>
+        <div class="stmt-scroll" tabindex="0" role="region" aria-label="평균임금 계산 표">
+        <table class="stmt-table stmt-periods">
             <tr>
                 <th rowspan="2">구분</th>
                 ${periodHeaders}
@@ -1781,8 +1789,10 @@ function renderResult(result) {
             </tr>
         </table>
 
+        </div>
         <!-- 평균임금 & 퇴직금 -->
-        <table class="stmt-table" style="margin-top:16px">
+        <h3 class="stmt-section-title">퇴직금 및 공제</h3>
+        <table class="stmt-table stmt-breakdown">
             <tr class="highlight">
                 <th style="width:140px">1일 평균임금</th>
                 <td colspan="3" class="left">
