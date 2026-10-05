@@ -31,6 +31,7 @@ export default function FaqClient({ initialFaqs, categoryCounts, totalCount, ini
   const [activeCategory, setActiveCategory] = useState<string | null>(initialCategory ?? null);
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(false);
+  const [loadError, setLoadError] = useState(false);
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(totalCount);
   const [expandedId, setExpandedId] = useState<number | null>(null);
@@ -42,6 +43,7 @@ export default function FaqClient({ initialFaqs, categoryCounts, totalCount, ini
 
   const fetchFaqs = useCallback(async (cat: string | null, query: string, pageNum: number) => {
     setLoading(true);
+    setLoadError(false);
     try {
       const params = new URLSearchParams();
       if (cat) params.set('category', cat);
@@ -49,11 +51,13 @@ export default function FaqClient({ initialFaqs, categoryCounts, totalCount, ini
       params.set('page', String(pageNum));
       params.set('size', String(PAGE_SIZE));
       const res = await fetch(`/api/faq?${params}`);
+      if (!res.ok) throw new Error(`FAQ request failed: ${res.status}`);
       const data = await res.json();
+      if (!Array.isArray(data.faqs) || typeof data.total !== 'number') throw new Error('Invalid FAQ response');
       setFaqs(data.faqs);
       setTotal(data.total);
     } catch {
-      // keep existing
+      setLoadError(true);
     } finally {
       setLoading(false);
     }
@@ -121,6 +125,7 @@ export default function FaqClient({ initialFaqs, categoryCounts, totalCount, ini
 
   return (
     <div className="layout-list">
+      {loadError && <div role="alert" className="mb-4 rounded-lg border p-4" style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-primary)' }}>질문을 불러오지 못했습니다. 기존 결과를 유지했습니다. <button type="button" className="underline" onClick={() => fetchFaqs(activeCategory, searchQuery, page)}>다시 시도</button></div>}
       <div className="mb-2 flex items-center gap-2">
         <MessageCircleQuestion size={24} style={{ color: 'var(--color-accent)' }} />
         <h1 className="t-h2" style={{ color: 'var(--color-text-primary)' }}>
