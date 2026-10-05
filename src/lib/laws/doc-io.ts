@@ -81,6 +81,11 @@ export function kindOf(name: string): DocKind | 'hwp' | null {
   return ext === 'hwpx' || ext === 'docx' ? ext : ext === 'hwp' ? 'hwp' : null;
 }
 
+function readableText(text: string): string {
+  if (!text.trim()) throw new Error('본문에서 읽을 수 있는 글자가 없습니다. 이미지 문서는 글자를 직접 붙여넣으세요. 기존 입력은 유지됩니다.');
+  return text;
+}
+
 /** hwpx·docx 의 본문을 문단 단위 글자로. hwp(바이너리)는 읽지 않는다 */
 export async function readDocText(data: ArrayBuffer | Uint8Array, kind: DocKind): Promise<string> {
   validateDocArchive(data);
@@ -90,7 +95,7 @@ export async function readDocText(data: ArrayBuffer | Uint8Array, kind: DocKind)
     const xml = entry ? await limitedText(entry, MAX_FILE_BYTES) : null;
     if (!xml) throw new Error('docx 본문(word/document.xml)이 없습니다');
     if (xml.length > MAX_FILE_BYTES) throw new Error('본문이 너무 큽니다');
-    return paras(xml, 'w:p', 'w:t').join('\n');
+    return readableText(paras(xml, 'w:p', 'w:t').join('\n'));
   }
   const sections = Object.keys(zip.files)
     .filter((n) => /^Contents\/section\d+\.xml$/i.test(n))
@@ -99,7 +104,7 @@ export async function readDocText(data: ArrayBuffer | Uint8Array, kind: DocKind)
   const out: string[] = [];
   let expanded = 0;
   for (const s of sections) { const xml = await limitedText(zip.file(s)!, Math.min(MAX_FILE_BYTES, MAX_EXPANDED_BYTES - expanded)); expanded += new TextEncoder().encode(xml).byteLength; if (expanded > MAX_EXPANDED_BYTES) throw new Error('본문이 너무 큽니다'); out.push(...paras(xml, 'hp:p', 'hp:t')); }
-  return out.join('\n');
+  return readableText(out.join('\n'));
 }
 
 const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');

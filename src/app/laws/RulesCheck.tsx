@@ -87,6 +87,7 @@ export default function RulesCheck({ onClose, toast }: { onClose: () => void; to
   const [showOk, setShowOk] = useState(false);
   const [busy, setBusy] = useState(false);
   const [loadError, setLoadError] = useState(false);
+  const [fileError, setFileError] = useState<string | null>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
   const ref = useRef<HTMLTextAreaElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -125,16 +126,21 @@ export default function RulesCheck({ onClose, toast }: { onClose: () => void; to
 
   const onFile = async (f: File | undefined) => {
     if (!f) return;
-    if (f.size > MAX_FILE_BYTES) return toast('파일은 10MB 이하만 읽습니다');
+    if (fileRef.current) fileRef.current.value = '';
+    setFileError(null);
+    const fail = (message: string) => { setFileError(message); toast(message); };
+    if (f.size > MAX_FILE_BYTES) return fail('파일은 10MB 이하만 읽습니다');
     const kind = kindOf(f.name);
-    if (kind === 'hwp') return toast('hwp 는 읽을 수 없습니다. 한글에서 「다른 이름으로 저장 → hwpx」로 저장하거나 본문을 붙여넣으세요');
-    if (!kind) return toast('hwpx·docx 파일만 읽습니다');
+    if (kind === 'hwp') return fail('hwp 는 읽을 수 없습니다. 한글에서 「다른 이름으로 저장 → hwpx」로 저장하거나 본문을 붙여넣으세요');
+    if (!kind) return fail('hwpx·docx 파일만 읽습니다');
     setBusy(true);
     try {
       const t = await readDocText(await f.arrayBuffer(), kind);
+      if (!t.trim()) throw new Error('본문에서 읽을 수 있는 글자가 없습니다. 이미지 문서는 글자를 직접 붙여넣으세요. 기존 입력은 유지됩니다.');
       setText(t);
       toast(`${f.name} — 이 브라우저 안에서 글자만 읽었습니다`);
     } catch (e) {
+      setFileError((e as Error).message);
       toast(`파일을 읽지 못했습니다: ${(e as Error).message}`);
     } finally {
       setBusy(false);
@@ -218,6 +224,7 @@ export default function RulesCheck({ onClose, toast }: { onClose: () => void; to
               placeholder={'취업규칙 본문을 붙여넣거나 hwpx·docx 파일을 올리세요.\n비워 두면 이 기간 개정의 바꿀 문안만 모아 드립니다.\n조문 머리(제○조(…))가 줄 머리에 있으면 표준취업규칙 조문과 짝지어 판정합니다.'}
               aria-label="취업규칙 본문"
             />
+            {fileError && <p className="lr-file-error" role="alert">파일을 읽지 못했습니다: {fileError}</p>}
             <div className="lr-check-meta">
               <ShieldCheck size={14} /> 본문과 파일은 이 브라우저 안에서만 읽고 판정합니다. 서버로 보내지 않습니다.
               <span className="sp" />

@@ -6,10 +6,13 @@
     "standalone result links point to /laws#event",
     "mobile overflow, modal scroll lock, keyboard containment and focus return",
     "oversized file rejected; ordinary DOCX parsed locally",
+    "DOCX/HWPX empty, image-only and whitespace failures preserve text/mode; same-name valid retry succeeds (6 cases)",
+    "actual result link click arrives at matching law event and expanded detail",
     "law page entry and desktop dialog"
   ],
   "apiRequests": [],
   "blockedExistingAnalyticsScriptRequests": [
+    "https://www.googletagmanager.com",
     "https://www.googletagmanager.com",
     "https://www.googletagmanager.com"
   ]

@@ -24,3 +24,13 @@ describe('document resource limits', () => {
     expect(await readDocText(await doc('제1조 &lt;script&gt; &amp; 회사'), 'docx')).toBe('제1조 <script> & 회사');
   });
 });
+
+describe.each(['docx', 'hwpx'] as const)('%s empty body rejection', kind => {
+  it.each(['empty', 'image-only', 'whitespace'])('rejects %s rather than returning an empty success', async content => {
+    const prefix = kind === 'docx' ? 'w' : 'hp';
+    const inner = content === 'empty' ? '' : content === 'image-only' ? `<${prefix}:drawing/>` : `<${prefix}:t>  \n\t </${prefix}:t>`;
+    const zip = new JSZip();
+    zip.file(kind === 'docx' ? 'word/document.xml' : 'Contents/section0.xml', `<${prefix}:p>${inner}</${prefix}:p>`);
+    await expect(readDocText(await zip.generateAsync({ type: 'uint8array' }), kind)).rejects.toThrow('읽을 수 있는 글자가 없습니다');
+  });
+});
