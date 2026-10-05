@@ -1,0 +1,106 @@
+{
+  "code_sha": "8439588180708d26b40185f385da65ddc5cb8619",
+  "build": "production Next fixture build, 102 static pages",
+  "source_trees": {
+    "src": "78c34132d10f1941156ce3de083cd55762ae5d1e",
+    "public": "fd9717a935aea484d89212d793923bb347c9537c",
+    "tests": "0bada5f51ed0303ceae88d0222722850b0e4abdc"
+  },
+  "scope": "every PNG rerendered from the same code build; synthetic DB plus repository law JSON; no legal verification",
+  "law_example": {
+    "route": "/og/laws?event=006288-20251001",
+    "event": "006288-20251001"
+  },
+  "files": [
+    {
+      "file": "blog-summary-mobile.png",
+      "sha256": "e9054c8e1d9b502434ae9a830cc40875dc5aef8ee757d00f5c8fe1697926e689",
+      "width": 390,
+      "height": 844
+    },
+    {
+      "file": "faq-category-mobile.png",
+      "sha256": "57a3f51efcf82f55d9e0c28f23d91f2a96b88c6488c63792d5bbbcc798a1dd6f",
+      "width": 390,
+      "height": 844
+    },
+    {
+      "file": "final-laws-dark.png",
+      "sha256": "d837a996533bf7bc08dfbd942fae2ef5a2e1c23b9b6bc2460e411eb0286ca9ec",
+      "width": 390,
+      "height": 844
+    },
+    {
+      "file": "final-laws-desktop.png",
+      "sha256": "f3cfd4d0c89ab456b0154b784b730129583cccdd59667de0ff9e30548ace826f",
+      "width": 1440,
+      "height": 1000
+    },
+    {
+      "file": "final-laws-mobile.png",
+      "sha256": "a54ea03e2d5b3a7c8690b95b4eb35112b609a49647b0d165294e94a355e31207",
+      "width": 390,
+      "height": 844
+    },
+    {
+      "file": "final-rules-mobile.png",
+      "sha256": "3132522749bd1879b2c13c9ef302840aac453b3a7713a0291cfd215c1b13f18f",
+      "width": 390,
+      "height": 844
+    },
+    {
+      "file": "header-original-390.png",
+      "sha256": "979bdb8400e49dc29908ae67a486f4714ae66d9d710134833670eeedfbaa36ca",
+      "width": 390,
+      "height": 110
+    },
+    {
+      "file": "header-proposal-390.png",
+      "sha256": "68c85371512849a730bbbdc7d806e64629ffd1b2550117718ce09ea0db78464a",
+      "width": 390,
+      "height": 110
+    },
+    {
+      "file": "og-article-fixture.png",
+      "sha256": "d45864271ac9571fad1cc85fe9d43c0a9e431d532ce774d3c541077c297d3f86",
+      "width": 1200,
+      "height": 630
+    },
+    {
+      "file": "og-general.png",
+      "sha256": "ee3750ca46e4c26cd01807990e2c83405f6331af19d088cd7d54f0549ed3dfcf",
+      "width": 1200,
+      "height": 630
+    },
+    {
+      "file": "og-laws-index.png",
+      "sha256": "645529e3b39f20dbf7116007f49bf1eccdb7b25ba876110d928b92b2d93bdffb",
+      "width": 1200,
+      "height": 630
+    },
+    {
+      "file": "og-laws.png",
+      "sha256": "a1c2da4d246b8c2e7cc48bac58be9a16c816391dcb5d89568233cf410ca9c91a",
+      "width": 1200,
+      "height": 630
+    },
+    {
+      "file": "og-wordmark-original.png",
+      "sha256": "c2b6ba17dd1d5d7b50283480c11cc17e293c9f130b2285115b137388e666b9ac",
+      "width": 1200,
+      "height": 630
+    },
+    {
+      "file": "og-wordmark-proposal.png",
+      "sha256": "ee3750ca46e4c26cd01807990e2c83405f6331af19d088cd7d54f0549ed3dfcf",
+      "width": 1200,
+      "height": 630
+    },
+    {
+      "file": "wordmark-header-og-comparison.png",
+      "sha256": "11b948502b24107f6b8e025b2ef281d8748475bd1225798809057c8ca4be7bbd",
+      "width": 876,
+      "height": 620
+    }
+  ]
+}

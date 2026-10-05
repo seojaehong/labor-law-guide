@@ -1,0 +1,31 @@
+{
+  "code_sha": "3b39f67b8b47092181f9b33da4fe6c108ad6efc4",
+  "scope": "unchanged navigation code; four actual mobile links, active state, Escape and focus return; no global interaction certification",
+  "checks": {
+    "links": [
+      {
+        "path": "/blog",
+        "url": "http://127.0.0.1:3124/blog",
+        "active": "/blog"
+      },
+      {
+        "path": "/laws",
+        "url": "http://127.0.0.1:3124/laws",
+        "active": "/laws"
+      },
+      {
+        "path": "/tools",
+        "url": "http://127.0.0.1:3124/tools",
+        "active": "/tools"
+      },
+      {
+        "path": "/decisions",
+        "url": "http://127.0.0.1:3124/decisions",
+        "active": "/decisions"
+      }
+    ],
+    "menuOpened": "true",
+    "menuClosed": "false",
+    "focusRestored": true
+  }
+}
