@@ -27,7 +27,8 @@ try {
   const rows = []; sheet.eachRow(row => { if (['미래직원', '정상일치', '차이직원', '=1+1'].includes(String(row.getCell(1).value))) rows.push(row); });
   assert.equal(rows[0].getCell(3).value, ''); assert.equal(rows[0].getCell(5).value, ''); assert.equal(rows[0].getCell(6).value, '계산 불가');
   assert.equal(rows[1].getCell(6).value, '일치'); assert.equal(rows[2].getCell(6).value, '차이 있음'); assert.equal(rows[3].getCell(1).type, ExcelJS.ValueType.String);
-  await page.locator('.lv-table').screenshot({ path: `${output}/export-error-parity-390.png` });
+  await page.evaluate(() => { document.activeElement?.blur(); window.scrollTo(0, 0); });
+  await page.screenshot({ path: `${output}/export-error-parity-390.png`, fullPage: true });
   checks.push('screen/clipboard/download failure parity; safe formula text; numeric difference');
 
   const input = new ExcelJS.Workbook(), source = input.addWorksheet('synthetic');
@@ -65,7 +66,8 @@ try {
   await page.getByLabel('근로자 통보일').fill('2026-06-01');
   await page.getByLabel('2차 통보 발송일').fill('2026-01-01');
   assert.ok((await page.locator('.lv-table').first().innerText()).includes('빠릅니다'));
-  await page.locator('.lv-table').first().screenshot({ path: `${output}/promotion-chronology-390.png` });
+  await page.evaluate(() => { document.activeElement?.blur(); window.scrollTo(0, 0); });
+  await page.screenshot({ path: `${output}/promotion-chronology-390.png`, fullPage: true });
   checks.push('reverse promotion dates do not display a normal match');
   assert.deepEqual(errors, []);
   fs.writeFileSync(`${output}/safety-browser.json`, JSON.stringify({ timezone: 'America/Los_Angeles', checks, errors }, null, 2));
