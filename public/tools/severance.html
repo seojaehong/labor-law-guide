@@ -7,6 +7,38 @@
 
     <style>
         /* ========================================
+           0. 근거·다음 단계 (2026-10-05 추가)
+           색은 전부 기존 변수를 쓴다 — severance-brand.css 가 일의 무늬 팔레트로
+           덮어쓰고 body.dark 까지 처리하므로 여기서 색을 새로 정하지 않는다.
+           ======================================== */
+        .ctx { margin-top: 28px; }
+        .ctx h2 { font-size: 17px; font-weight: 700; margin: 0 0 4px; color: var(--text); }
+        .ctx .ctx-lede { font-size: 13px; color: var(--text-light); margin: 0 0 16px; }
+        .ctx section { margin-bottom: 22px; }
+        .ctx h3 { font-size: 14px; font-weight: 700; margin: 0 0 10px; color: var(--text);
+                  padding-bottom: 6px; border-bottom: 1px solid var(--border); }
+        .ctx .item { border: 1px solid var(--border); border-left: 3px solid var(--border);
+                     border-radius: var(--radius); padding: 13px 15px; margin-bottom: 9px;
+                     background: var(--card-bg); }
+        .ctx .item.block { border-left-color: var(--warning); }
+        .ctx .item.warn  { border-left-color: var(--accent); }
+        .ctx .item.info  { border-left-color: var(--border); }
+        .ctx .item b { display: block; font-size: 14.5px; margin-bottom: 5px; color: var(--text); }
+        .ctx .item p { margin: 0; font-size: 13.5px; line-height: 1.7; color: var(--text-light); }
+        .ctx .basis { display: inline-block; margin-top: 8px; font-size: 11.5px;
+                      color: var(--primary); border: 1px solid var(--border); border-radius: 3px; padding: 1px 7px; }
+        .ctx ul { list-style: none; margin: 0; padding: 0; }
+        .ctx li { padding: 9px 0; border-bottom: 1px solid var(--border-light); font-size: 13.5px; }
+        .ctx li:last-child { border-bottom: 0; }
+        .ctx li a { color: var(--text); text-decoration: none; border-bottom: 1px solid var(--border); }
+        .ctx li a:hover { color: var(--primary); border-color: var(--primary); }
+        .ctx li .meta { color: var(--text-light); font-size: 11.5px; margin-left: 6px; }
+        .ctx .ask { display: flex; align-items: center; gap: 8px; font-size: 13.5px;
+                    color: var(--text-light); margin-bottom: 16px; }
+        .ctx .none { font-size: 13px; color: var(--text-light); margin: 0; }
+        .ctx .disc { margin-top: 18px; font-size: 12px; color: var(--text-light); line-height: 1.65; }
+
+        /* ========================================
            1. CSS 변수 및 기본 설정
            ======================================== */
         :root {
@@ -849,6 +881,9 @@
 
     <!-- 결과 영역 (산정서) -->
     <div id="resultArea" class="result-area" style="display:none"></div>
+
+      <!-- 근거·다음 단계 (2026-10-05). 계산이 끝나면 /api/tools/severance-context 가 채운다 -->
+      <div id="contextArea" class="ctx" hidden></div>
 
     <!-- 푸터 -->
     <footer>
@@ -1827,8 +1862,104 @@ function onCalculate() {
     }
 
     renderResult(result);
+    loadContext(w, result);
     autoSave();
     showToast('계산 완료!', 'success');
+}
+
+/**
+ * 계산 결과에 근거와 다음 단계를 붙인다 (2026-10-05).
+ *
+ * 계산기는 숫자까지만 낸다. 그 숫자가 맞는지 확인할 점, 왜 그런지의 근거,
+ * 그래서 무엇을 할지는 서버가 붙인다 — 조문과 행정해석·FAQ 는 DB 에 있고
+ * 여기에 박아 두면 법이 바뀌었을 때 같이 안 바뀐다.
+ *
+ * 실패해도 계산 결과는 그대로 둔다. 근거가 없다고 계산을 못 쓰게 하면 안 된다.
+ */
+let ctxUnpaid = false;
+
+async function loadContext(w, result) {
+    const box = document.getElementById('contextArea');
+    if (!box) return;
+    const body = {
+        startDate: w.startDate,
+        endDate: w.endDate,
+        serviceDays: result.serviceDays,
+        avgWage: result.avgWage,
+        ordinaryWage: result.dailyOrdinaryWage || undefined,
+        severance: result.severancePay,
+        paid: ctxUnpaid ? false : undefined,
+    };
+    try {
+        const res = await fetch('/api/tools/severance-context', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
+        });
+        if (!res.ok) { box.hidden = true; return; }
+        renderContext(await res.json());
+    } catch (e) {
+        box.hidden = true;   // 조용히 접는다
+    }
+}
+
+function esc(t) {
+    return String(t == null ? '' : t).replace(/[&<>"]/g, (c) =>
+        ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+}
+
+function renderContext(d) {
+    const box = document.getElementById('contextArea');
+    const checks = d.checks || [];
+    const srcI = (d.sources && d.sources.interpretations) || [];
+    const srcF = (d.sources && d.sources.faq) || [];
+    const next = d.next || [];
+
+    let h = '<h2>이 결과를 보기 전에</h2>';
+    h += '<p class="ctx-lede">계산기는 숫자까지만 냅니다. 아래는 그 숫자가 맞는지 확인할 점과 근거입니다.</p>';
+    h += '<label class="ask"><input type="checkbox" id="ctxUnpaid"' + (ctxUnpaid ? ' checked' : '') +
+         '> 아직 퇴직금을 받지 못했습니다</label>';
+
+    h += '<section><h3>확인할 점</h3>';
+    for (const c of checks) {
+        h += '<div class="item ' + esc(c.level) + '"><b>' + esc(c.title) + '</b><p>' + esc(c.body) + '</p>' +
+             (c.basis ? '<span class="basis">' + esc(c.basis) + '</span>' : '') + '</div>';
+    }
+    h += '</section>';
+
+    if (srcI.length || srcF.length) {
+        h += '<section><h3>근거 자료</h3><ul>';
+        for (const it of srcI) {
+            h += '<li><a href="' + esc(it.url) + '">' + esc(it.title) + '</a>' +
+                 '<span class="meta">행정해석' + (it.date ? ' · ' + esc(it.date) : '') + '</span></li>';
+        }
+        for (const f of srcF) {
+            h += '<li><a href="' + esc(f.url) + '">' + esc(f.question) + '</a><span class="meta">FAQ</span></li>';
+        }
+        h += '</ul></section>';
+    }
+
+    if (next.length) {
+        h += '<section><h3>다음 단계</h3>';
+        for (const n of next) {
+            h += '<div class="item info"><b>' + esc(n.title) + '</b><p>' + esc(n.body) + '</p>' +
+                 (n.href ? '<span class="basis"><a href="' + esc(n.href) + '" target="_blank" rel="noopener">바로가기</a></span>' : '') +
+                 '</div>';
+        }
+        h += '</section>';
+    }
+
+    h += '<p class="disc">행정해석은 회신일 당시 기준입니다. 그 뒤 법이 바뀌었을 수 있으니 날짜를 함께 보세요. ' +
+         '구체적 사안은 사실관계에 따라 달라집니다.</p>';
+
+    box.innerHTML = h;
+    box.hidden = false;
+    const cb = document.getElementById('ctxUnpaid');
+    if (cb) cb.addEventListener('change', () => {
+        ctxUnpaid = cb.checked;
+        const w = state.workers[state.currentIndex];
+        if (w && w.result) loadContext(w, w.result);
+    });
 }
 
 /** 초기화 */
