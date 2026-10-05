@@ -153,7 +153,13 @@ function buildChecks(b: Body): Check[] {
 function buildQueries(b: Body): string[] {
   const qs: string[] = [];
   const names = (b.allowances ?? []).map((a) => (a.name || '').trim()).filter(Boolean).slice(0, 2);
-  for (const n of names) qs.push(`${n}이 통상임금에 포함되나요`);
+  // 받침에 따라 조사를 고른다. 「식대이」처럼 나가면 검색어가 어색해지고 유사도도 떨어진다.
+  const subjectParticle = (w: string): string => {
+    const last = w.charCodeAt(w.length - 1);
+    if (last < 0xac00 || last > 0xd7a3) return '가';     // 한글이 아니면 기본값
+    return (last - 0xac00) % 28 === 0 ? '가' : '이';      // 받침 없으면 '가', 있으면 '이'
+  };
+  for (const n of names) qs.push(`${n}${subjectParticle(n)} 통상임금에 포함되나요`);
   if (!names.length) qs.push('매월 1일 이상 근무해야 지급되는 상여금도 통상임금에 포함되나요');  // 0.637
   if (typeof b.weeklyHours === 'number') qs.push('통상임금 산정 기준시간 계산 방법');              // 0.621
   return qs.slice(0, 2);
