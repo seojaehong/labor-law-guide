@@ -29,6 +29,9 @@ interface ToolItem {
 }
 
 const tools: ToolItem[] = [
+  { href: '/tools/leave', title: '연차휴가 계산기', desc: '입사일 기준 발생일수를 계산하고 대장과 대조합니다. 엑셀·붙여넣기 입력과 결과 내려받기를 지원합니다.', badge: '브라우저 계산', Icon: Calculator },
+  { href: '/tools/leave/advanced', title: '연차 사용촉진', desc: '1년 이상·미만 연차의 촉구·통보 기간을 구분해 확인합니다. 실제 기록과 날짜만 대조하며 적법성을 판정하지 않습니다.', badge: '일정 대조', Icon: FileCheck2 },
+  { href: '/tools/leave/settlement', title: '퇴직 연차 정산', desc: '회계연도 실제 부여 누계와 입사일 기준 누계를 비교합니다. 발생일수·사용분·수당 지급분을 구분해 입력합니다.', badge: '참고 계산', Icon: Calculator },
   { href: '/tools/work-rules', title: '취업규칙 점검', desc: '취업규칙 텍스트를 입력해 법령 개정 관련 항목을 확인합니다. 법령 검수 전 참고 자료입니다.', badge: '참고 점검', Icon: FileCheck2 },
   {
     href: '/tools/contract-check',
