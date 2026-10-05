@@ -27,6 +27,8 @@ export interface StdRule extends RuleSpec {
   std?: string[];
   /** 명칭 변경형 — 짝지은 조문 밖에 남은 옛 명칭(stale)도 문서 전체에서 찾는다 */
   everywhere?: boolean;
+  /** 상시 점검 — 기간과 무관하게 늘 본다(오래전 개정인데 실제 규칙에 자주 남는 것: 휴일근로 8시간 초과 가산 등) */
+  always?: boolean;
 }
 
 export interface Art93Item {
@@ -190,15 +192,25 @@ export function periodCheck(opts: {
   }
   const stdById = new Map(std.map((s) => [s.id, s]));
   for (const r of opts.rules) {
-    if (r.effective <= from || r.effective > to) continue;
+    if (!r.always && (r.effective <= from || r.effective > to)) continue;
     for (const id of r.std ?? []) {
       const s = stdById.get(id);
       if (!s) continue;
       const it = item(s);
       // 짝지은 조문이 없으면 문서 전체에서 찾는다(B 방식) — 제목이 다른 조문 안에 들어 있는 경우
       // (2019년 표준판은 배우자 출산휴가를 「경조사 휴가」 조문 안에 둔다. 2026-10-05 A/B 대조)
-      const paras = paragraphs(it.user.length ? it.user.map((u) => u.text).join('\n') : text);
+      // 짝지은 조문 + 제목에 매핑 키워드가 든 조문(표준 「휴직사유」에 내 「휴직」만 짝지어지고 「육아휴직」 조문이 빠지던 것, 2026-10-05 강동 신고본)
+      const titled = user.filter((u) => u.title && r.keywords.some((k) => flat(u.title).includes(flat(k))));
+      const cand = [...new Set([...it.user, ...titled])];
+      const paras = paragraphs(cand.length ? cand.map((u) => u.text).join('\n') : text);
       let v: Verdict = hasText ? judge(r, paras) : { rule: r, status: '누락', where: null, stale: [], missing: r.ok };
+      if (hasText && !r.ok.length && r.stale.length) {
+        // 옛 문구만으로 판정하는 매핑 — judge 는 옛 문구 없는 다른 조문을 골라 「반영됨」으로 빠진다. 후보 어디에든 남아 있으면 미반영
+        const hit = paras.filter((p) => r.stale.some((s) => flat(p.text).includes(flat(s))));
+        v = hit.length
+          ? { rule: r, status: '미반영', where: hit[0].article, stale: r.stale.filter((s) => hit.some((p) => flat(p.text).includes(flat(s)))), missing: [] }
+          : { rule: r, status: '반영됨', where: null, stale: [], missing: [] };
+      }
       if (hasText && r.everywhere) {
         // 옛 명칭이 다른 조문에 남아 있으면 그 조문도 고칠 곳이다(2025 표준판 제18조 휴직명령의 「배우자 출산휴가」)
         const all = paragraphs(text);
