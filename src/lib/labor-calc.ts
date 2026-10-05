@@ -297,27 +297,102 @@ import { supabaseAdmin } from './supabase-server';
 import { supabase } from './supabase';
 const db = supabaseAdmin || supabase;
 
-export async function lookupLawArticle(input: { law: string; article: number }) {
+const LAW_BODY_LIMIT = 1200;
+
+// select 문자열이 길면 supabase-js 가 행 타입을 GenericStringError 로 추론한다.
+// 명시적으로 적어 둔다.
+type LawArticleRow = {
+  law_name: string;
+  article_number: number;
+  sub_number: number | null;
+  article_label: string;
+  article_title: string | null;
+  raw_title: string | null;
+  body: string | null;
+  effective_date: string | null;
+  law_kind: string | null;
+  is_deleted: boolean | null;
+  is_heading: boolean | null;
+  is_byeolpyo: boolean | null;
+};
+
+/**
+ * 법조항 조회. 2026-10-05 로 본문까지 돌려준다.
+ *
+ * 종전에는 `.eq(article_number).maybeSingle()` 로 제목만 읽었다. 그 테이블에
+ * 93종 7,887행(본문 982만자)을 적재하면서 **`maybeSingle()` 이 깨진다** —
+ * `(법령, 조번호)` 가 유일하지 않기 때문이다.
+ *   · 제105조 와 제105조의2 가 둘 다 `article_number = 105`
+ *   · 별표 1 과 제1조 가 둘 다 1
+ *   · 장·절 표제가 조문과 같은 번호를 쓴다
+ * 실측 — 2행 이상인 조합이 1,584건(해당 4,456행)이다.
+ *
+ * 그래서 `article_label`(제105조 / 제105조의2 / 별표 1 / 서식 3)로 좁히고,
+ * 본문 조문을 우선한다(표제·별표는 뒤로). `sub` 로 가지번호를 받는다 —
+ * **직장 내 괴롭힘이 제76조의2·제76조의3** 이라 가지번호 없이는 핵심 조항을 못 찾는다.
+ */
+export async function lookupLawArticle(input: {
+  law: string;
+  article: number;
+  sub?: number;
+}) {
+  const label = `제${input.article}조${input.sub ? `의${input.sub}` : ''}`;
   const { data, error } = await db
     .from('law_articles')
-    .select('law_name, article_number, raw_title')
+    .select(
+      'law_name, article_number, sub_number, article_label, article_title, raw_title, body, ' +
+        'effective_date, law_kind, is_deleted, is_heading, is_byeolpyo'
+    )
     .eq('law_name', input.law)
-    .eq('article_number', input.article)
-    .maybeSingle();
-  if (error || !data) {
+    .eq('article_label', label)
+    // 표제·별표보다 본문 조문을 먼저 — 표제는 제목이 비어 있어 뒤로 밀린다
+    .order('is_heading', { ascending: true })
+    .order('is_byeolpyo', { ascending: true })
+    .order('ordinal', { ascending: true })
+    .limit(1);
+
+  const row = (data as LawArticleRow[] | null)?.[0];
+  if (error || !row) {
     return {
       exists: false,
       law: input.law,
       article: input.article,
-      message: `${input.law} 제${input.article}조는 캐시에 없습니다. 법제처(law.go.kr) 직접 확인 권장.`,
+      sub: input.sub,
+      message: `${input.law} ${label}는 캐시에 없습니다. 법제처(law.go.kr) 직접 확인 권장.`,
     };
   }
+
+  // 삭제된 조문도 「없다」가 아니다 — 삭제됐다는 사실이 답이다
+  if (row.is_deleted) {
+    return {
+      exists: true,
+      deleted: true,
+      law: row.law_name,
+      article: row.article_number,
+      sub: row.sub_number ?? undefined,
+      title: null,
+      body: row.body,
+      effective_date: row.effective_date,
+      message: `${row.law_name} ${label}는 삭제된 조문입니다 — ${row.body}. 다른 조문으로 옮겨졌는지 확인이 필요합니다.`,
+    };
+  }
+
+  const title = row.article_title || row.raw_title || null;
+  const body = (row.body || '').slice(0, LAW_BODY_LIMIT);
+  const cut = (row.body || '').length > LAW_BODY_LIMIT;
   return {
     exists: true,
-    law: data.law_name,
-    article: data.article_number,
-    title: data.raw_title,
-    message: `${data.law_name} 제${data.article_number}조 (${data.raw_title || '제목 미수집'}) — 캐시 확인됨`,
+    law: row.law_name,
+    article: row.article_number,
+    sub: row.sub_number ?? undefined,
+    title,
+    body,
+    truncated: cut,
+    law_kind: row.law_kind,
+    effective_date: row.effective_date,
+    message:
+      `${row.law_name} ${label}${title ? ` (${title})` : ''} — 시행 ${row.effective_date ?? '미확인'}, ` +
+      `법제처 원문${cut ? ' (본문 일부, 전문은 law.go.kr)' : ''}\n${body}`,
   };
 }
 
