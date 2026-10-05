@@ -19,6 +19,7 @@ RULES = json.loads((ROOT / "scripts" / "laws" / "work_rules_map.json").read_text
 TARGETS = json.loads((ROOT / "scripts" / "laws" / "labor_laws.json").read_text(encoding="utf-8"))["laws"]
 SUBS = ROOT / "scripts" / "laws" / "subordinate_laws.json"
 HEADLINES = json.loads((ROOT / "scripts" / "laws" / "headlines.json").read_text(encoding="utf-8"))
+STD = ROOT / "scripts" / "laws" / "standard_rules.json"
 
 # 화면에서 쓰는 짧은 이름. 없으면 정식 명칭
 SHORT = {
@@ -181,9 +182,37 @@ def main():
     (OUT / "index.json").write_text(json.dumps(index, ensure_ascii=False), encoding="utf-8")
     # 「내 취업규칙 점검」 — 브라우저에서 rules_impact.py 와 같은 판정을 한다
     short_of = {l["lawId"]: l["short"] for l in laws}
+    # 취업규칙 기간 점검 — 표준취업규칙 2026 조문(뼈대)과, 매핑마다 걸리는 표준 조문 id(std)
+    std = json.loads(STD.read_text(encoding="utf-8"))["articles"] if STD.exists() else []
+    # lawId 는 빌드 때마다 이름으로 다시 푼다 — 추출 당시 개정이 없던 법(고령자고용법 등)도 개정이 들어오면 이어진다
+    id_by_name = {r["법령명"].replace("·", "ㆍ"): r["법령ID"] for r in REVS["revisions"]}
+    for s in std:
+        for l in s["laws"]:
+            l["lawId"] = l["lawId"] or id_by_name.get(l["law"].replace("·", "ㆍ"))
+
+    def std_of(r: dict) -> list[str]:
+        if r.get("std"):
+            return r["std"]
+        cited = [s["id"] for s in std if any(l["lawId"] == r["lawId"] and l["article"] == r["article"] for l in s["laws"])]
+        if cited:
+            return cited
+        kws = ["".join(k.split()) for k in r["keywords"]]
+        by_title = [s["id"] for s in std if any(k in "".join(s["title"].split()) for k in kws)]
+        if by_title:
+            return by_title
+        # 제목에 없으면 표준 문안 본문 — 「근로자의 날」은 휴일 조문 본문에만 있다
+        return [s["id"] for s in std if any(k in "".join(s["text"].split()) for k in kws)][:3]
+
+    (OUT / "standard.json").write_text(json.dumps({
+        "source": "고용노동부 표준취업규칙(2026년, 배포) 일반 근로자용",
+        "asof": "20260201",
+        "art93": json.loads((ROOT / "scripts" / "laws" / "art93_check.json").read_text(encoding="utf-8"))["items"],
+        "articles": [{k: s[k] for k in ("id", "no", "title", "chapter", "kind", "text", "laws", "keywords", "status")}
+                     for s in std],
+    }, ensure_ascii=False), encoding="utf-8")
     (OUT / "rules.json").write_text(json.dumps({
         "art93": RULES["_art93"],
-        "rules": [{**r, "law": short_of.get(r["lawId"], r["lawId"]),
+        "rules": [{**r, "std": std_of(r), "law": short_of.get(r["lawId"], r["lawId"]),
                    "mst": next((e["promulgations"][0]["mst"] for e in events
                                 if e["lawId"] == r["lawId"] and e["date"] == r["effective"] and e["promulgations"]), None)}
                   for r in RULES["rules"]],

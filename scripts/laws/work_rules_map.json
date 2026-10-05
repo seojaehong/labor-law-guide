@@ -13,6 +13,7 @@
    "article": "본문",
    "effective": "20251111",
    "topic": "「근로자의 날」 → 「노동절」 명칭 변경",
+   "std": ["제32조"],
    "art93": "1",
    "required": false,
    "keywords": [
@@ -35,6 +36,7 @@
    "article": "제18조의2",
    "effective": "20260918",
    "topic": "배우자 출산전후휴가",
+   "std": ["제39조"],
    "art93": "8",
    "required": true,
    "keywords": [
@@ -58,6 +60,7 @@
    "article": "제18조의4",
    "effective": "20260918",
    "topic": "배우자 유산·사산휴가 (신설)",
+   "std": ["제39조"],
    "art93": "8",
    "required": true,
    "keywords": [
@@ -78,6 +81,7 @@
    "article": "제19조",
    "effective": "20260820",
    "topic": "단기 육아휴직(1주·2주) 신설",
+   "std": ["제17조", "제48조"],
    "art93": "8",
    "required": true,
    "keywords": [
@@ -96,6 +100,7 @@
    "article": "제36조",
    "effective": "20260601",
    "topic": "위험성평가 근로자대표 참여·근로자 주지",
+   "std": ["제95조"],
    "art93": "9",
    "required": false,
    "keywords": [
@@ -114,6 +119,7 @@
    "article": "제31조의2",
    "effective": "20270108",
    "topic": "외국인근로자 기초안전보건교육",
+   "std": ["제89조"],
    "art93": "9",
    "required": false,
    "keywords": [
@@ -133,6 +139,7 @@
    "article": "제19조",
    "effective": "20260918",
    "topic": "육아휴직 사유 확대",
+   "std": ["제17조"],
    "art93": "8",
    "required": true,
    "keywords": [
@@ -151,6 +158,7 @@
    "article": "제19조의2",
    "effective": "20260918",
    "topic": "육아기 근로시간 단축 거부 사유 축소",
+   "std": ["제46조"],
    "art93": "8",
    "required": true,
    "keywords": [
@@ -169,6 +177,7 @@
    "article": "제18조의3",
    "effective": "20261127",
    "topic": "난임치료휴가 유급 2일 → 4일",
+   "std": ["제42조"],
    "art93": "8",
    "required": true,
    "keywords": [
@@ -188,6 +197,7 @@
    "article": "제12조",
    "effective": "20261127",
    "topic": "성희롱 금지 대상에 법인 대표자 추가",
+   "std": ["제83조"],
    "art93": "13",
    "required": false,
    "keywords": [
@@ -207,6 +217,7 @@
    "article": "제54조",
    "effective": "20261210",
    "topic": "4시간 근무 시 휴게 생략 요청",
+   "std": ["제24조"],
    "art93": "1",
    "required": false,
    "keywords": [
@@ -224,6 +235,7 @@
    "article": "제60조",
    "effective": "20270610",
    "topic": "연차 분할 사용·불리한 처우 금지",
+   "std": ["제33조", "제34조"],
    "art93": "1",
    "required": true,
    "keywords": [
@@ -243,6 +255,7 @@
    "article": "제37조의3",
    "effective": "20260601",
    "topic": "위험성평가 결과 근로자 공유",
+   "std": ["제95조"],
    "art93": "9",
    "required": false,
    "keywords": [
@@ -263,6 +276,7 @@
    "article": "제11조",
    "effective": "20260820",
    "topic": "단기 육아휴직 신청 절차",
+   "std": ["제17조"],
    "art93": "8",
    "required": false,
    "keywords": [
@@ -287,6 +301,7 @@
    "article": "제13조",
    "effective": "20260820",
    "topic": "긴급 단기 육아휴직 신청의 철회",
+   "std": ["제17조"],
    "art93": "8",
    "required": false,
    "keywords": [
@@ -306,6 +321,7 @@
    "article": "제15조",
    "effective": "20260820",
    "topic": "단기 육아휴직 신청 사유",
+   "std": ["제17조"],
    "art93": "8",
    "required": false,
    "keywords": [
@@ -327,6 +343,7 @@
    "article": "제11조",
    "effective": "20260918",
    "topic": "육아휴직 7일 전 신청 사유 확대",
+   "std": ["제17조"],
    "art93": "8",
    "required": false,
    "keywords": [
@@ -351,6 +368,7 @@
    "article": "제9조의2",
    "effective": "20260918",
    "topic": "배우자 출산전후휴가 명칭과 고지 절차",
+   "std": ["제39조"],
    "art93": "8",
    "required": false,
    "keywords": [
@@ -373,6 +391,7 @@
    "article": "제9조의4",
    "effective": "20260918",
    "topic": "배우자 유산·사산휴가 청구 절차",
+   "std": ["제39조"],
    "art93": "8",
    "required": false,
    "keywords": [
@@ -396,6 +415,7 @@
    "article": "제2조",
    "effective": "20261127",
    "topic": "직장 내 성희롱 정의에 법인 대표자 추가",
+   "std": ["제83조"],
    "art93": "13",
    "required": false,
    "keywords": [
@@ -423,6 +443,7 @@
    "article": "제60조",
    "effective": "20260820",
    "topic": "연차 출근 간주에 단기 육아휴직 포함",
+   "std": ["제33조"],
    "art93": "1",
    "required": false,
    "keywords": [
@@ -444,6 +465,7 @@
    "article": "제37조",
    "effective": "20251023",
    "topic": "재직 중 미지급 임금에도 지연이자",
+   "std": ["제52조"],
    "art93": "2",
    "required": false,
    "keywords": [

@@ -1,0 +1,15 @@
+{
+  "results": [
+    "load failure/retry preserves input; unrecognized text blocks verdict",
+    "period results and DOCX contain review disclaimer",
+    "standalone result links point to /laws#event",
+    "mobile overflow, modal scroll lock, keyboard containment and focus return",
+    "oversized file rejected; ordinary DOCX parsed locally",
+    "law page entry and desktop dialog"
+  ],
+  "apiRequests": [],
+  "blockedExistingAnalyticsScriptRequests": [
+    "https://www.googletagmanager.com",
+    "https://www.googletagmanager.com"
+  ]
+}
