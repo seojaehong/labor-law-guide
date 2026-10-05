@@ -1,0 +1,121 @@
+{
+  "baseline": "33d9d72",
+  "calculationIdentical": true,
+  "realApiCalls": 0,
+  "matrix": [
+    {
+      "width": 360,
+      "scroll": 360,
+      "break": "keep-all"
+    },
+    {
+      "width": 390,
+      "scroll": 390,
+      "break": "keep-all"
+    },
+    {
+      "width": 430,
+      "scroll": 430,
+      "break": "keep-all"
+    },
+    {
+      "width": 768,
+      "scroll": 768,
+      "break": "keep-all"
+    },
+    {
+      "width": 1440,
+      "scroll": 1440,
+      "break": "keep-all"
+    }
+  ],
+  "keyboardTableScroll": true,
+  "koreanLabelsUnbroken": true,
+  "longUrlWithoutPageOverflow": true,
+  "result": {
+    "serviceDays": 2469,
+    "serviceYears": 7,
+    "svcFraction": {
+      "fullYears": 6,
+      "remainDays": 277,
+      "daysInYear": 365,
+      "fraction": 6.758904109589041
+    },
+    "periods": [
+      {
+        "year": 2026,
+        "month": 7,
+        "startDay": 5,
+        "endDay": 31,
+        "days": 27,
+        "label": "2026년 7월",
+        "periodText": "7.5~7.31"
+      },
+      {
+        "year": 2026,
+        "month": 8,
+        "startDay": 1,
+        "endDay": 31,
+        "days": 31,
+        "label": "2026년 8월",
+        "periodText": "8.1~8.31"
+      },
+      {
+        "year": 2026,
+        "month": 9,
+        "startDay": 1,
+        "endDay": 30,
+        "days": 30,
+        "label": "2026년 9월",
+        "periodText": "9.1~9.30"
+      },
+      {
+        "year": 2026,
+        "month": 10,
+        "startDay": 1,
+        "endDay": 4,
+        "days": 4,
+        "label": "2026년 10월",
+        "periodText": "10.1~10.4"
+      }
+    ],
+    "totalCalcDays": 92,
+    "wages": [
+      3000000,
+      3000000,
+      3000000,
+      3000000
+    ],
+    "wageSum": 12000000,
+    "bonus": 0,
+    "annual": 0,
+    "bonusAdd": 0,
+    "annualAdd": 0,
+    "total3Month": 12000000,
+    "avgWage": 130434.78260869565,
+    "dailyOrdinaryWage": 0,
+    "appliedWage": 130434.78260869565,
+    "wageTypeApplied": "average",
+    "severancePay": 26447885,
+    "severancePayRaw": 26447885.646217987,
+    "priorSev": 0,
+    "retirementTax": 306740,
+    "localTax": 30670,
+    "totalTax": 337410,
+    "netSeverance": 26110475,
+    "taxResult": {
+      "severancePay": 26447885,
+      "serviceYears": 7,
+      "svcDeduction": 9000000,
+      "afterDeduction": 17447885,
+      "convertedWage": 29910660,
+      "cwDeduction": 21146396,
+      "taxBase": 8764264,
+      "convertedTax": 525855,
+      "incomeTax": 306740,
+      "localTax": 30670,
+      "totalTax": 337410
+    },
+    "autoCalcTax": true
+  }
+}
