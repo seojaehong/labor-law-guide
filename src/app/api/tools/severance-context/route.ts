@@ -97,14 +97,21 @@ function buildChecks(b: Body): Check[] {
   return out;
 }
 
-/** 사실관계에서 검색어를 만든다. 입력이 비어도 기본 질의로 돌아간다. */
+/**
+ * 사실관계에서 검색어를 만든다.
+ *
+ * 🔴 걸린 쟁점을 **앞에 두고 기본 질의는 뒤로** 뺀다. 처음엔 '퇴직금 평균임금 산정'을
+ * 항상 앞에 두었는데, 그러면 「1년 미만」이 걸렸는데도 평균임금 산정 행정해석이
+ * 돌아왔다(2026-10-05 실측). 기본 질의가 검색을 끌고 간 것이다.
+ * 쟁점이 하나라도 걸리면 그 쟁점만으로 찾고, 아무것도 안 걸렸을 때만 기본 질의를 쓴다.
+ */
 function buildQuery(b: Body, checks: Check[]): string {
-  const bits = ['퇴직금 평균임금 산정'];
-  if (checks.some((c) => c.title.includes('1년'))) bits.push('계속근로기간 1년 미만');
-  if (checks.some((c) => c.title.includes('15시간'))) bits.push('소정근로시간 15시간');
-  if (checks.some((c) => c.title.includes('통상임금'))) bits.push('평균임금 통상임금 하한');
-  if (checks.some((c) => c.title.includes('못 받'))) bits.push('퇴직금 체불 금품청산 14일');
-  return bits.join(' ');
+  const hit: string[] = [];
+  if (checks.some((c) => c.title.includes('1년'))) hit.push('퇴직금 계속근로기간 1년 미만 지급의무');
+  if (checks.some((c) => c.title.includes('15시간'))) hit.push('소정근로시간 15시간 미만 퇴직금');
+  if (checks.some((c) => c.title.includes('통상임금'))) hit.push('평균임금이 통상임금보다 적을 때');
+  if (checks.some((c) => c.title.includes('못 받'))) hit.push('퇴직금 체불 금품청산 14일');
+  return hit.length ? hit.join(' ') : '퇴직금 평균임금 산정 방법';
 }
 
 export async function POST(req: NextRequest) {
