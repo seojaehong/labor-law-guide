@@ -238,6 +238,19 @@ export default function RulesCheck({ onClose, toast }: { onClose: () => void; to
                     {showOk ? '반영된 항목 접기' : `반영된 ${ok.length}건 보기`}
                   </button>
                 )}
+                {result.earlier.length > 0 && (
+                  <details className="lr-missing" open>
+                    <summary>최종 개정일 이전에 시행됐는데 옛 문구가 남아 있는 개정 {result.earlier.length}건</summary>
+                    <ul>
+                      {result.earlier.map(({ std: s, verdict: v }) => (
+                        <li key={v.rule.lawId + v.rule.article + v.rule.topic}>
+                          <b>{v.rule.topic}</b> · {v.rule.law} {v.rule.article} {fmtDate(v.rule.effective)} 시행 · 현행 {v.where ?? s.title} · 남은 옛 문구: {v.stale.map((x) => <del key={x}>{x}</del>)}
+                        </li>
+                      ))}
+                    </ul>
+                    <p className="lr-check-note">기간 안의 개정만 보면 빠지는 것들입니다. 지난 개정 때 함께 고쳤어야 할 조문입니다.</p>
+                  </details>
+                )}
                 {result.missing93.length > 0 && (
                   <details className="lr-missing" open>
                     <summary>근로기준법 제93조 필수기재 중 관련 낱말이 안 보이는 {result.missing93.length}개 호</summary>

@@ -61,8 +61,11 @@ const squash = (s: string) => s.replace(/[\s·ㆍ.,()]/g, '');
 export function splitArticles(text: string): UserArticle[] {
   const out: UserArticle[] = [];
   for (const raw of text.split(/\r?\n/)) {
-    const line = raw.trim();
+    let line = raw.trim();
     if (!line) continue;
+    // PDF 추출은 장 제목·쪽 머리 글자를 조문 머리와 한 줄에 붙인다(「제1장 총 칙 제1조(목적)」 「박 현 제12조(출장)」, 공공기관 규칙 시험)
+    const lead = line.match(/^(?:제\s*\d+\s*장[^제]{0,15}|[^제]{1,6})\s+(?=제\s*\d+\s*조(?:\s*의\s*\d+)?\s*[(【[])/);
+    if (lead) line = line.slice(lead[0].length);
     const m = line.match(ART);
     if (m) {
       out.push({ no: m[1].replace(/\s/g, ''), title: (m[2] ?? m[3] ?? m[4] ?? '').trim(), text: line });
@@ -159,6 +162,8 @@ export interface PeriodResult {
   missingRequired: StdArticle[];
   /** 근로기준법 제93조 필수기재 — 키워드가 하나도 없는 호(본문을 넣었을 때만) */
   missing93: Art93Item[];
+  /** 최종 개정일 이전에 시행된 필수 개정 중 반영 안 된 것(옛 문구가 실제로 남은 조문이 있을 때만) */
+  earlier: { std: StdArticle; verdict: Verdict }[];
   matched: Map<string, UserArticle[]>;
 }
 
@@ -191,17 +196,12 @@ export function periodCheck(opts: {
     for (const { std: s, articles } of stdForEvent(e, std)) item(s).events.push({ event: e, articles });
   }
   const stdById = new Map(std.map((s) => [s.id, s]));
-  for (const r of opts.rules) {
-    if (!r.always && (r.effective <= from || r.effective > to)) continue;
-    for (const id of r.std ?? []) {
-      const s = stdById.get(id);
-      if (!s) continue;
-      const it = item(s);
+  const verdictOf = (r: StdRule, mine: UserArticle[]): Verdict => {
       // 짝지은 조문이 없으면 문서 전체에서 찾는다(B 방식) — 제목이 다른 조문 안에 들어 있는 경우
       // (2019년 표준판은 배우자 출산휴가를 「경조사 휴가」 조문 안에 둔다. 2026-10-05 A/B 대조)
       // 짝지은 조문 + 제목에 매핑 키워드가 든 조문(표준 「휴직사유」에 내 「휴직」만 짝지어지고 「육아휴직」 조문이 빠지던 것, 2026-10-05 강동 신고본)
       const titled = user.filter((u) => u.title && r.keywords.some((k) => flat(u.title).includes(flat(k))));
-      const cand = [...new Set([...it.user, ...titled])];
+      const cand = [...new Set([...mine, ...titled])];
       const paras = paragraphs(cand.length ? cand.map((u) => u.text).join('\n') : text);
       let v: Verdict = hasText ? judge(r, paras) : { rule: r, status: '누락', where: null, stale: [], missing: r.ok };
       if (hasText && !r.ok.length && r.stale.length) {
@@ -217,7 +217,27 @@ export function periodCheck(opts: {
         const left = [...new Set(all.filter((p) => r.stale.some((s) => flat(p.text).includes(flat(s)))).map((p) => p.article).filter((a): a is string => !!a && a !== v.where))];
         if (left.length) v = { ...v, status: '미반영', where: [v.where, ...left].filter(Boolean).join(', '), stale: [...new Set([...v.stale, ...r.stale.filter((s) => all.some((p) => flat(p.text).includes(flat(s))))])] };
       }
-      it.verdicts.push(v);
+      return v;
+  };
+  for (const r of opts.rules) {
+    if (!r.always && (r.effective <= from || r.effective > to)) continue;
+    for (const id of r.std ?? []) {
+      const s = stdById.get(id);
+      if (!s) continue;
+      const it = item(s);
+      it.verdicts.push(verdictOf(r, it.user));
+    }
+  }
+  // 최종 개정일 이전에 시행됐는데 반영 안 된 필수 개정 — 기간만 보면 놓친다
+  // (2026.6. 개정본인데 2025.2.23. 유산·사산휴가 개정이 그대로 남은 공공기관 규칙, 2026-10-05 시험)
+  const earlier: { std: StdArticle; verdict: Verdict }[] = [];
+  if (hasText) {
+    for (const r of opts.rules) {
+      if (r.always || !r.required || r.effective > from) continue;
+      const s = stdById.get((r.std ?? [])[0] ?? '');
+      if (!s) continue;
+      const v = verdictOf(r, matched.get(s.id) ?? []);
+      if (v.status !== '반영됨' && v.stale.length) earlier.push({ std: s, verdict: v });
     }
   }
 
@@ -241,5 +261,5 @@ export function periodCheck(opts: {
   );
   const present = matchArticles(user, std, { weak: true });
   const missingRequired = hasText ? std.filter((s) => s.kind === '필수' && !present.has(s.id)) : [];
-  return { items, missingRequired, missing93: hasText ? missingArt93(text, opts.art93 ?? []) : [], matched };
+  return { items, missingRequired, missing93: hasText ? missingArt93(text, opts.art93 ?? []) : [], earlier, matched };
 }
