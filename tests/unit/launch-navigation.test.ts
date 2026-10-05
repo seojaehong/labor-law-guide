@@ -6,7 +6,7 @@ describe('selected launch navigation', () => {
   const layout = readFileSync('src/app/layout.tsx', 'utf8');
   const items = nav.slice(nav.indexOf('const NAV_ITEMS'), nav.indexOf('function active'));
   it('keeps the approved four destinations and secondary service visible', () => {
-    for (const href of ['/blog', '/laws', '/tools', '/decisions']) expect(items).toContain(`href:'${href}'`);
+    for (const href of ['/blog', '/laws', '/tools/work-rules', '/decisions']) expect(items).toContain(`href:'${href}'`);
     for (const href of ['/ai', '/guide', '/news', '/wiki', '/tools/severance.html']) expect(items).not.toContain(`href:'${href}'`);
     expect(nav).toContain('소개·상담');
   });

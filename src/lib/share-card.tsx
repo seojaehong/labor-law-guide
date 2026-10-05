@@ -28,7 +28,7 @@ export async function shareCard({ title, description, category = '노동법 자�
     <div style={{ width:'100%', height:'100%', display:'flex', flexDirection:'column', padding:'42px 64px 36px', background:'#faf8f2', color:'#20231f', fontFamily:'Share KR', position:'relative' }}>
       <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', borderBottom:'2px solid #d8d5cb', paddingBottom:22 }}>
         {!general && <img src={logo} width={wordmark === 'original' ? 257 : 226} height={64} alt={BRAND_NAME} />}
-        {general && <span style={{ fontSize:25, color:'#485149' }}>노동법 자료·실무 정보</span>}
+        {general && <span style={{ fontSize:25, color:'#485149' }}>yellowenvelope.kr</span>}
         {!general && <div style={{ fontSize:25, color:'#285e77', fontWeight:700 }}>{category}</div>}
       </div>
       <div style={{ display:'flex', flexDirection:'column', flex:1, justifyContent:'center', padding:'22px 0' }}>
@@ -36,7 +36,7 @@ export async function shareCard({ title, description, category = '노동법 자�
         {description && <div style={{ display:'flex', fontSize:28, color:'#485149', lineHeight:1.4, marginTop:22, wordBreak:'keep-all' }}>{shortShareText(description)}</div>}
       </div>
       <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', borderTop:'3px solid #285e77', paddingTop:18, fontSize:24, color:'#485149' }}>
-        <span>노동법 자료와 실무 정보</span><span>yellowenvelope.kr</span>
+        {!general && <span>노동법 자료와 실무 정보</span>}{!general && <span>yellowenvelope.kr</span>}
       </div>
     </div>,
     { ...SHARE_SIZE, fonts: [{ name:'Share KR', data:a.regular, weight:400, style:'normal' }, { name:'Share KR', data:a.bold, weight:700, style:'normal' }] },

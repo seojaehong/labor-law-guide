@@ -32,8 +32,8 @@ describe('Home launch scope', () => {
   it('promotes the approved four sections with an explicit law review status', () => {
     const html = renderHome();
     const hrefs = [...html.matchAll(/\shref="([^"]+)"/g)].map(match => match[1]);
-    expect(new Set(hrefs.filter(href => !href.startsWith('/blog/')))).toEqual(new Set(['/blog', '/laws', '/tools', '/decisions', '/contact']));
-    for (const label of ['일의 이야기', '달라지는 일', '내 일 점검', '근거 찾기']) expect(html).toContain(label);
+    expect(new Set(hrefs.filter(href => !href.startsWith('/blog/')))).toEqual(new Set(['/blog', '/laws', '/tools/work-rules', '/decisions', '/contact']));
+    for (const label of ['글', '법령 개정', '취업규칙 점검', '판례·행정해석']) expect(html).toContain(label);
     expect(html).toContain('법령 검수 전 자료입니다.');
   });
 
