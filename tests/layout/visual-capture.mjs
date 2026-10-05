@@ -2,7 +2,7 @@ import { chromium } from '@playwright/test';
 import fs from 'node:fs';
 import assert from 'node:assert/strict';
 const out='docs/design-visuals'; const base='http://127.0.0.1:3125';
-const browser=await chromium.launch({headless:true,executablePath:'C:/Users/iceam/AppData/Local/ms-playwright/chromium-1234/chrome-win64/chrome.exe'});
+const browser=await chromium.launch({headless:true,executablePath:process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE});
 const context=await browser.newContext({viewport:{width:390,height:844},reducedMotion:'reduce'});
 const blocked=[];await context.route('**/*',r=>{const u=new URL(r.request().url());if(u.origin!==base||u.pathname.startsWith('/api/')){if(u.pathname.startsWith('/api/'))blocked.push(u.pathname);return r.abort();}return r.continue();});
 const page=await context.newPage(); const log=[];
