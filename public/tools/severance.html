@@ -1452,8 +1452,24 @@ function removeWorker(index) {
    7. UI — 폼 ↔ 상태 동기화
    ================================================================ */
 
+function workerInputSignature(w) {
+    const moneyFields = new Set(['wage1', 'wage2', 'wage3', 'wage4', 'bonusTotal', 'annualLeave', 'priorSeverance', 'retirementTax', 'dailyOrdinaryWage']);
+    return JSON.stringify(['businessName', 'ownerName', 'workerName', 'birthDate', 'startDate', 'endDate',
+        'wage1', 'wage2', 'wage3', 'wage4', 'bonusTotal', 'annualLeave', 'priorSeverance',
+        'autoCalcTax', 'retirementTax', 'dailyOrdinaryWage', 'wageType'].map(key => key === 'retirementTax' && w.autoCalcTax ? 0 : moneyFields.has(key) ? parseMoney(w[key]) : w[key]));
+}
+function invalidateResult(w) {
+    const hadResult = !!w.result;
+    w.result = null;
+    hideContext();
+    const area = document.getElementById('resultArea');
+    area.replaceChildren();
+    area.style.display = 'none';
+    if (hadResult) showToast('입력이 바뀌었습니다. 다시 계산해 주세요.', 'info');
+}
 function saveFormToState() {
     const w = state.workers[state.currentIndex];
+    const previous = workerInputSignature(w);
     w.businessName = document.getElementById('businessName').value;
     w.ownerName = document.getElementById('ownerName').value;
     w.workerName = document.getElementById('workerName').value;
@@ -1471,6 +1487,7 @@ function saveFormToState() {
     w.retirementTax = document.getElementById('retirementTax').value;
     w.dailyOrdinaryWage = document.getElementById('dailyOrdinaryWage').value;
     w.wageType = document.getElementById('wageType').value;
+    if (previous !== workerInputSignature(w)) invalidateResult(w);
 }
 
 function loadFormFromState() {
@@ -1947,6 +1964,8 @@ function showContextPrompt(w, message = '') {
 }
 
 async function loadContext(w, result) {
+    saveFormToState();
+    if (state.workers[state.currentIndex] !== w || w.result !== result || !result) return;
     const box = document.getElementById('contextArea');
     if (!box) return;
     contextController?.abort();
@@ -2054,6 +2073,7 @@ function onReset() {
 
 /** 인쇄하기 */
 function onPrint() {
+    saveFormToState();
     const w = state.workers[state.currentIndex];
     if (!w.result) {
         showToast('먼저 계산을 실행해 주세요.', 'error');
@@ -2109,6 +2129,9 @@ function loadFromStorage() {
 function init() {
     /* LocalStorage에서 데이터 복원 */
     const restored = loadFromStorage();
+    // Stored results have no verifiable input snapshot, including legacy edited results.
+    // Restore original inputs but require an explicit recalculation before result actions.
+    if (restored) state.workers.forEach(w => { w.result = null; });
     loadFormFromState();
     renderTabs();
     updateDateInfo();
@@ -2156,12 +2179,10 @@ function init() {
 
     /* 전체 폼 입력/변경 시 자동 저장 (라디오, 셀렉트 포함) */
     document.querySelector('.input-area').addEventListener('input', () => {
-        hideContext();
         saveFormToState();
         autoSave();
     });
     document.querySelector('.input-area').addEventListener('change', () => {
-        hideContext();
         saveFormToState();
         autoSave();
     });
