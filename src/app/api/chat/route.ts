@@ -251,7 +251,7 @@ export async function POST(req: NextRequest) {
         // 2026-10-05 신설 — 법령 조문. **임베딩이 필요 없다**(어휘 기반 + Jev 재선택)
         // 그래서 임베딩 생성이 실패한 요청에서도 1차 자료가 들어간다.
         withTimeoutTagged(
-          buildLawsContext(db, lastUserMsg.content),
+          buildLawsContext(db, lastUserMsg.content, queryEmbedding),
           RETRIEVAL_TIMEOUT_MS,
           '법령 조문 검색',
           EMPTY_RETRIEVAL

@@ -40,7 +40,13 @@ type LawRow = {
 // 후보를 넓게 뽑고 고르기는 Jev 에 맡긴다. 재선택은 풀 밖의 것을 꺼내올 수 없다.
 // faq.ts 가 K=100 에서 267ms 를 쟀고 K=134 에서 1,239ms 로 터졌다. 조문은 본문이
 // 길어 프롬프트가 커지므로 더 보수적으로 둔다.
-const RETRIEVE_K = 20;
+// 2026-10-05 측정으로 올렸다. 정답이 어휘 **33위·47위**에 있는 질의가 있어
+// K=20 으로는 Jev 가 아예 못 본다(「임금체불 벌칙」의 제107조 33위,
+// 「사업주 안전보건 조치」의 산안법 제38조 47위).
+// jev.ts 의 numbered() 는 **question 만** 쓰고 120자로 자르므로 K 를 늘려도
+// 프롬프트가 크게 늘지 않는다 — 60개 × 120자 ≈ 7천자.
+const RETRIEVE_K = 60;
+const JEV_IN = 32;      // faq.ts 가 2026-10-05 에 16 → 32 로 올린 것과 같은 눈금
 const FINAL_N = 3;
 const BODY_LIMIT = 700;
 
@@ -128,7 +134,8 @@ function expandTerms(lex: string, raw: string): string {
 
 export async function buildLawsContext(
   db: SupabaseClient,
-  userText: string
+  userText: string,
+  queryEmbedding?: number[] | null
 ): Promise<Retrieval> {
   try {
     // 조사·어미·불용어를 떼고 내용어만 넘긴다. RPC 가 토큰별로 점수를 합산하므로
@@ -136,8 +143,16 @@ export async function buildLawsContext(
     const lex = expandTerms(toLexQuery(userText) || userText, userText);
     const hint = lawHint(userText);
 
-    const { data, error } = await db.rpc('search_law_articles', {
+    // 하이브리드 — 어휘가 주력, 임베딩이 보조다. **임베딩이 없어도 돈다**(인자 NULL).
+    //
+    // 왜 어휘가 주력인가 (2026-10-05 측정). 정답이 각 목록 60위 안에 있는 비율이
+    // **어휘 4/6 · 의미 1/6** 이었다. 원인은 짧은 질의와 긴 문서 임베딩의 비대칭이다 —
+    // 문서끼리는 잘 맞는다(제55조 → 제56·60·57조). 질의↔문서가 약하다.
+    // RRF 동등 결합을 먼저 시험했는데 어휘가 맞추던 것까지 깨졌다
+    // (「연차 유급휴가 며칠」이 제60조 → 별표로). 그래서 의미는 가산으로만 쓴다.
+    const { data, error } = await db.rpc('search_law_articles_hybrid', {
       query_text: lex.slice(0, 200),
+      query_embedding: queryEmbedding ?? null,
       max_results: RETRIEVE_K,
       law_hint: hint,
     });
@@ -154,7 +169,7 @@ export async function buildLawsContext(
     // Jev 재선택 — 제목을 question 으로, 본문을 answer 로 넘긴다.
     // JEV_ON=false 면 건너뛴다. 실패하면 jevRerank 가 원래 순서를 돌려준다.
     if (process.env.JEV_ON !== 'false' && rows.length > FINAL_N) {
-      const jevable = rows.map((r) => ({
+      const jevable = rows.slice(0, JEV_IN).map((r) => ({
         question: `${r.law_name} ${r.article_label}${r.article_title ? ` (${r.article_title})` : ''}`,
         answer: (r.body || '').slice(0, 300),
         __row: r,

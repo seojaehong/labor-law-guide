@@ -107,3 +107,82 @@ LANGUAGE sql STABLE AS $function$
   ORDER BY matched DESC, score DESC, length(body) ASC
   LIMIT max_results;
 $function$;
+
+-- ────────────────────────────────────────────────────────────────────────
+-- 5. 임베딩 + 하이브리드 검색 (2026-10-05 추가)
+--
+-- 왜. 어휘검색만으로는 **법이 그 단어를 쓰지 않는 질의**를 못 받는다.
+--   「주휴수당」은 법에 없다(「유급휴일」) · 「임금체불 벌칙」의 제107조는 제목이
+--   「벌칙」이고 본문이 제36조·제43조를 번호로만 인용한다.
+-- 임베딩은 `text-embedding-3-small`(1536). ⚠ 다른 모델을 섞으면 벡터 공간이 달라
+-- 검색이 깨진다 — 이 DB 의 기존 임베딩이 전부 1536 이다.
+-- 생성: work-orchestrator/scripts/embed_law_articles.py --apply  (7,228행, 실패 0)
+
+ALTER TABLE law_articles ADD COLUMN IF NOT EXISTS embedding vector(1536);
+ALTER TABLE law_articles ADD COLUMN IF NOT EXISTS embed_input_len int;
+CREATE INDEX IF NOT EXISTS law_articles_emb_ivfflat_idx
+  ON law_articles USING ivfflat (embedding vector_cosine_ops) WITH (lists = 85);
+
+-- ★ 측정으로 정한 설계 — 어휘가 주력, 임베딩이 보조다.
+--   정답이 60위 안에 있는 비율: **어휘 4/6 · 의미 1/6**
+--   원인은 짧은 질의와 긴 문서 임베딩의 비대칭이다. 문서끼리는 잘 맞는다
+--   (제55조 → 제56·60·57조). 질의↔문서가 약하다.
+--   RRF 동등 결합을 먼저 시험했다가 어휘가 맞추던 것까지 깨졌다
+--   (「연차 유급휴가 며칠」이 제60조 → 별표로 퇴보). 그래서 의미는 가산으로만 쓴다.
+--
+-- 앱이 실무어→법령어를 보태 넘기면(laws.ts TERM_EXPAND) 정답이 32위 안에 드는 비율이
+-- **7/8** 이 된다 — 그것이 Jev 재선택의 천장이다.
+DROP FUNCTION IF EXISTS public.search_law_articles_hybrid(text, vector, integer, text);
+
+CREATE FUNCTION public.search_law_articles_hybrid(
+  query_text text,
+  query_embedding vector DEFAULT NULL,
+  max_results integer DEFAULT 6,
+  law_hint text DEFAULT NULL
+)
+RETURNS TABLE(
+  law_name text, article_label text, article_title text, body text,
+  law_kind text, effective_date date,
+  lex_rank int, vec_rank int, score double precision, via text
+)
+LANGUAGE sql STABLE AS $function$
+  WITH toks AS (
+    SELECT DISTINCT t FROM unnest(
+      regexp_split_to_array(regexp_replace(trim(coalesce(query_text,'')), '\s+', ' ', 'g'), ' ')
+    ) AS t WHERE length(t) >= 2
+  ), lex0 AS (
+    SELECT a.id,
+           sum(CASE WHEN a.article_title ILIKE '%' || k.t || '%' THEN 4 ELSE 0 END
+             + CASE WHEN a.body ILIKE '%' || k.t || '%' THEN 1 ELSE 0 END)::float
+           + coalesce(max(similarity(a.article_title, query_text)) * 4, 0) AS s
+    FROM law_articles a CROSS JOIN toks k
+    WHERE NOT a.is_heading AND NOT a.is_deleted AND NOT a.is_byeolpyo
+      AND a.body IS NOT NULL
+      AND (a.article_title ILIKE '%' || k.t || '%' OR a.body ILIKE '%' || k.t || '%')
+    GROUP BY a.id ORDER BY s DESC LIMIT 80
+  ), lex AS (SELECT id, s, row_number() OVER (ORDER BY s DESC) AS r FROM lex0),
+  vec0 AS (
+    SELECT a.id FROM law_articles a
+    WHERE query_embedding IS NOT NULL AND a.embedding IS NOT NULL
+      AND NOT a.is_heading AND NOT a.is_deleted AND NOT a.is_byeolpyo
+    ORDER BY a.embedding <=> query_embedding
+    LIMIT 40                 -- ★ 상수여야 한다. 변수식이면 ivfflat 상위N 최적화가 꺼진다
+  ), vec AS (SELECT id, row_number() OVER () AS r FROM vec0),
+  merged AS (
+    SELECT coalesce(l.id, v.id) AS id, l.r AS lr, v.r AS vr, l.s AS ls,
+           CASE WHEN l.id IS NOT NULL AND v.id IS NOT NULL THEN 'both'
+                WHEN l.id IS NOT NULL THEN 'lex' ELSE 'vec' END AS via
+    FROM lex l FULL OUTER JOIN vec v ON l.id = v.id
+  )
+  SELECT a.law_name, a.article_label, a.article_title, a.body,
+         a.law_kind, a.effective_date, m.lr::int, m.vr::int,
+         ( coalesce(m.ls, 0)
+         + CASE WHEN m.vr IS NOT NULL THEN 6.0/(1 + m.vr) ELSE 0 END
+         + CASE WHEN m.via = 'both' THEN 2.5 ELSE 0 END
+         + CASE a.law_kind WHEN '법률' THEN 0.6 ELSE 0 END
+         + CASE WHEN law_hint IS NOT NULL AND a.law_name = law_hint THEN 2.0 ELSE 0 END
+         )::float AS score, m.via
+  FROM merged m JOIN law_articles a ON a.id = m.id
+  ORDER BY score DESC, length(a.body) ASC
+  LIMIT max_results;
+$function$;
