@@ -36,7 +36,7 @@ function StepHeader({ current }: { current: number }) {
                 ? { backgroundColor: 'var(--color-brand-solid)', color: '#191f28' }
                 : i + 1 === current
                 ? { backgroundColor: 'var(--color-text-primary)', color: 'var(--color-bg-primary)' }
-                : { backgroundColor: 'var(--color-border)', color: 'var(--color-text-tertiary)' }
+                : { backgroundColor: 'var(--color-border)', color: 'var(--color-text-primary)' }
             }
           >
             {i + 1}

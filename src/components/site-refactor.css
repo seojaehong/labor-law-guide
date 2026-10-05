@@ -47,4 +47,3 @@ body { font-size:16px; line-height:1.7; }
 }
 @media(prefers-reduced-motion:reduce) { .public-surface *, .editorial-nav * { scroll-behavior:auto !important; transition:none !important; } }
 
-.public-surface span.h-6.w-6.font-semibold[style*="--grey-400"] { color:var(--color-text-primary) !important; }
