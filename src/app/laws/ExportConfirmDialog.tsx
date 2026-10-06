@@ -22,6 +22,7 @@ export default function ExportConfirmDialog({ pending, onConfirm, onCancel }: {
 }) {
   const ref = useRef<HTMLDialogElement>(null);
   const cancelRef = useRef<HTMLButtonElement>(null);
+  const confirmRef = useRef<HTMLButtonElement>(null);
   useEffect(() => {
     const dialog = ref.current;
     if (!dialog) return;
@@ -34,7 +35,15 @@ export default function ExportConfirmDialog({ pending, onConfirm, onCancel }: {
   }, [pending.returnFocusTo]);
 
   return <dialog ref={ref} className="lr-export-dialog" aria-labelledby="law-export-title"
-    aria-describedby="law-export-description" onKeyDown={(event) => event.stopPropagation()} onCancel={(event) => { event.preventDefault(); onCancel(); }}>
+    aria-describedby="law-export-description" onKeyDown={(event) => {
+      event.stopPropagation();
+      if (event.key !== 'Tab') return;
+      if (event.shiftKey && document.activeElement === cancelRef.current) {
+        event.preventDefault(); confirmRef.current?.focus();
+      } else if (!event.shiftKey && document.activeElement === confirmRef.current) {
+        event.preventDefault(); cancelRef.current?.focus();
+      }
+    }} onCancel={(event) => { event.preventDefault(); onCancel(); }}>
     <h2 id="law-export-title">분량이 큰 원문 파일입니다</h2>
     <p id="law-export-description">선택한 개정의 신구대조 원문 전체가 들어 있습니다. 저장한 뒤 문서 앱에서 여는 데 시간이 걸릴 수 있습니다.</p>
     <dl>
@@ -47,7 +56,7 @@ export default function ExportConfirmDialog({ pending, onConfirm, onCancel }: {
     {pending.kind === 'docx' && <p className="lr-export-explanation">개정별로 새 페이지에서 시작합니다. 한컴 한글·Word 앱에서의 호환은 아직 검수하지 않았습니다.</p>}
     <div className="lr-export-dialog-actions">
       <button ref={cancelRef} className="lr-btn lr-btn-ghost" onClick={onCancel}>취소하고 선택 유지</button>
-      <button className="lr-btn" onClick={onConfirm}>원문 전체 내려받기</button>
+      <button ref={confirmRef} className="lr-btn" onClick={onConfirm}>원문 전체 내려받기</button>
     </div>
   </dialog>;
 }
