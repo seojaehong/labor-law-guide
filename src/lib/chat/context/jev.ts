@@ -29,8 +29,23 @@
  * (`work-orchestrator/evals/jev/`, 120건). 재선택은 「주어진 후보 중 고르기」이고
  * 분류는 「라벨 뜻 알기」다 — 과제가 다르다.
  *
- * 실패하면 **원래 순서를 그대로 돌려준다.** 재선택이 안 되는 것보다 답이 안 나가는 것이 나쁘다.
+ * ## 순서 — Jev → Gemini → 원래 순서
+ *
+ * Jev 키가 없거나 Jev 가 죽으면 **종전 경로(Gemini 2회)로 떨어진다.** 둘 다 안 되면
+ * 검색 순서를 그대로 돌려준다.
+ *
+ * 왜 Gemini 를 남겨 두나. 이 변경을 배포하는 순간 **재선택이 꺼지면 손실**이다 —
+ * 종전 운영은 Gemini 로 재선택을 하고 있었다. Vercel 에 Jev 키가 들어갔는지 확인되지
+ * 않은 상태에서 병합하면 「키 없음 → 재선택 꺼짐 → 검색 1위 그대로」가 된다.
+ * 폴백이 있으면 **키가 없어도 종전 수준은 유지된다.**
+ *
+ * 로그로 어느 경로였는지 가른다 —
+ *   `[jev] 적용 안 함 …`        Jev 는 답했으나 확률이 낮아 손대지 않음
+ *   `[jev] 실패 → Gemini 폴백`   Jev 가 죽어 종전 경로로
+ *   `[jev] 키 없음 + Gemini 폴백 실패`  둘 다 안 됨 → 검색 순서 그대로
  */
+import { getGenerativeModel } from '@/lib/vertex/client';
+
 export type Jevable = { question?: string | null; answer?: string | null };
 
 const TIMEOUT_MS = Number(process.env.JEV_TIMEOUT_MS) || 2500;
@@ -52,6 +67,88 @@ function criteria(items: Jevable[], order: number[]): Record<string, string> {
     out[String(i + 1)] = (items[idx].question || '').slice(0, 120);
   });
   return out;
+}
+
+/**
+ * Vertex Gemini 폴백 — Jev 키가 없거나 Jev 가 실패할 때 쓴다.
+ *
+ * 왜 남겨 두나. 이 변경을 배포하는 순간 **재선택이 꺼지면 손실**이다. 종전 운영은
+ * Gemini 로 재선택을 하고 있었다. Jev 키가 Vercel 에 들어갔는지 확인되지 않은 상태에서
+ * 병합하면 「키 없음 → 재선택 꺼짐 → 검색 1위 그대로」가 된다.
+ * 그래서 Jev 를 1순위로 두고, 안 되면 **종전 경로로 떨어진다.**
+ *
+ * 이쪽은 일반 LLM 이라 **위치 편향 방어가 필요하다** — 순서를 뒤집어 두 번 묻고
+ * 두 번 다 고른 것을 앞세운다(종전 동작 그대로).
+ */
+function numbered(items: Jevable[], order: number[]): string {
+  return order
+    .map((idx, i) => `${i + 1}. ${(items[idx].question || '').slice(0, 120)}`)
+    .join('\n');
+}
+
+function parsePicks(text: string, order: number[], max: number): number[] {
+  const nums = (text.match(/\d+/g) || []).map((n) => parseInt(n, 10));
+  const out: number[] = [];
+  for (const n of nums) {
+    if (n < 1 || n > order.length) continue;
+    const orig = order[n - 1];
+    if (!out.includes(orig)) out.push(orig);
+    if (out.length >= max) break;
+  }
+  return out;
+}
+
+async function askGemini(
+  query: string,
+  items: Jevable[],
+  order: number[],
+  pick: number
+): Promise<number[]> {
+  const prompt = `질문에 **실제로 답이 되는** 후보를 고르세요.
+
+질문: ${query}
+
+후보:
+${numbered(items, order)}
+
+규칙
+- 말투나 문장 꼴이 비슷한 것이 아니라 **주제가 같은 것**을 고릅니다.
+  예: 「언제까지 해야 하나요」가 같아도 주제(실업급여 vs 부당노동행위)가 다르면 답이 아닙니다.
+- 답이 되는 것이 ${pick}개보다 적으면 **적게 고릅니다.** 숫자를 채우지 마세요.
+- 설명 없이 **번호만 쉼표로** 적습니다. 좋은 순서대로.`;
+
+  // generationConfig 를 주지 않는다 — maxOutputTokens 를 작게 주면 gemini-2.5-flash 가
+  // thinking 에 다 쓰고 parts 가 아예 없는 응답을 준다(2026-10-06 실측).
+  const model = getGenerativeModel();
+  const res = await model.generateContent({
+    contents: [{ role: 'user', parts: [{ text: prompt }] }],
+  });
+  const text = res.response?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+  return parsePicks(text, order, pick);
+}
+
+/** 종전 동작 — 정순·역순 두 번 묻고 두 번 다 고른 것을 앞세운다. */
+async function geminiRerank<T extends Jevable>(
+  query: string,
+  items: T[],
+  finalN: number
+): Promise<T[]> {
+  const fwd = items.map((_, i) => i);
+  const rev = [...fwd].reverse();
+  const [a, b] = await Promise.all([
+    askGemini(query, items, fwd, finalN),
+    askGemini(query, items, rev, finalN),
+  ]);
+  const score = (i: number) => (a.includes(i) ? 1 : 0) + (b.includes(i) ? 1 : 0);
+  const ranked = [...fwd].sort((x, y) => {
+    const d = score(y) - score(x);
+    if (d !== 0) return d;
+    const ax = a.indexOf(x) < 0 ? 99 : a.indexOf(x);
+    const ay = a.indexOf(y) < 0 ? 99 : a.indexOf(y);
+    if (ax !== ay) return ax - ay;
+    return x - y;
+  });
+  return ranked.slice(0, finalN).map((i) => items[i]);
 }
 
 async function askJev(
@@ -108,6 +205,21 @@ export async function jevRerank<T extends Jevable>(
 ): Promise<T[]> {
   if (items.length <= 1) return items;
 
+  // ① Jev 가 1순위. 키가 없으면 바로 폴백으로 간다
+  if (!process.env.TYPESAFE_API_KEY) {
+    try {
+      return await Promise.race([
+        geminiRerank(query, items, finalN),
+        new Promise<never>((_, rej) =>
+          setTimeout(() => rej(new Error('gemini timeout')), TIMEOUT_MS)
+        ),
+      ]);
+    } catch (err) {
+      console.error('[jev] 키 없음 + Gemini 폴백 실패:', (err as Error)?.message?.slice(0, 120));
+      return items.slice(0, finalN);
+    }
+  }
+
   try {
     const order = items.map((_, i) => i);
     const { picks, topProb } = await Promise.race([
@@ -131,7 +243,19 @@ export async function jevRerank<T extends Jevable>(
     const rest = items.map((_, i) => i).filter((i) => !seen.has(i));
     return [...picks, ...rest].slice(0, finalN).map((i) => items[i]);
   } catch (err) {
-    console.error('[jev] 실패 — 원래 순서 유지:', (err as Error)?.message?.slice(0, 160));
-    return items.slice(0, finalN);
+    // ② Jev 가 죽었으면 종전 경로(Gemini)로 떨어진다. 재선택이 꺼지는 것보다 낫다
+    console.warn('[jev] 실패 → Gemini 폴백:', (err as Error)?.message?.slice(0, 160));
+    try {
+      return await Promise.race([
+        geminiRerank(query, items, finalN),
+        new Promise<never>((_, rej) =>
+          setTimeout(() => rej(new Error('gemini timeout')), TIMEOUT_MS)
+        ),
+      ]);
+    } catch (err2) {
+      console.error('[jev] 폴백도 실패 — 원래 순서 유지:',
+        (err2 as Error)?.message?.slice(0, 120));
+      return items.slice(0, finalN);
+    }
   }
 }
