@@ -54,11 +54,58 @@ const MODEL = process.env.TYPESAFE_MODEL || 'jev-latest';
 /** 1위 확률이 이보다 낮으면 재선택을 **적용하지 않는다**(원래 순서 유지). */
 const MIN_TOP_PROB = Number(process.env.JEV_MIN_PROB) || 0.12;
 
-type ChoiceAnswer = {
-  choice?: string;
-  confidence?: number;
-  probabilities?: Record<string, number>;
-};
+/** Only locally classified errors may reach logs; provider bodies can contain user data. */
+class RerankError extends Error {
+  constructor(readonly code: 'timeout' | 'http' | 'invalid-response', readonly status?: number) {
+    super(code);
+  }
+}
+
+function failureCode(error: unknown): string {
+  return error instanceof RerankError
+    ? `${error.code}${error.status === undefined ? '' : `:${error.status}`}`
+    : 'provider-error';
+}
+
+/** Bound the whole operation, including JSON body reads, and always release the timer.
+ * TypeSafe fetch consumes the signal. The current Vertex SDK fallback has no cancellation
+ * hook here: its wait is bounded, but an already-started provider call can still finish.
+ */
+async function withTimeout<T>(operation: (signal: AbortSignal) => Promise<T>): Promise<T> {
+  const controller = new AbortController();
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      operation(controller.signal),
+      new Promise<never>((_, reject) => {
+        timer = setTimeout(() => {
+          reject(new RerankError('timeout'));
+          controller.abort();
+        }, TIMEOUT_MS);
+      }),
+    ]);
+  } finally {
+    clearTimeout(timer);
+    controller.abort();
+  }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function isProbability(value: unknown): value is number {
+  return typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= 1;
+}
+
+function choiceIndex(id: unknown, order: number[]): number {
+  if (typeof id !== 'string' || !/^[1-9]\d*$/.test(id)) {
+    throw new RerankError('invalid-response');
+  }
+  const n = Number(id);
+  if (!Number.isSafeInteger(n) || n > order.length) throw new RerankError('invalid-response');
+  return order[n - 1];
+}
 
 /** 후보를 criteria 객체로 만든다. 키는 1-기반 번호, 값은 설명이다. */
 function criteria(items: Jevable[], order: number[]): Record<string, string> {
@@ -154,13 +201,15 @@ async function geminiRerank<T extends Jevable>(
 async function askJev(
   query: string,
   items: Jevable[],
-  order: number[]
+  order: number[],
+  signal: AbortSignal
 ): Promise<{ picks: number[]; topProb: number }> {
   const key = process.env.TYPESAFE_API_KEY;
   if (!key) throw new Error('TYPESAFE_API_KEY 없음');
 
   const res = await fetch(API_URL, {
     method: 'POST',
+    signal,
     headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({
       model: MODEL,
@@ -174,26 +223,31 @@ async function askJev(
       },
     }),
   });
-  if (!res.ok) {
-    throw new Error(`jev http ${res.status} ${(await res.text()).slice(0, 160)}`);
+  if (!res.ok) throw new RerankError('http', res.status);
+  const body: unknown = await res.json();
+  if (!isRecord(body) || !isRecord(body.answers) || !isRecord(body.answers.pick)) {
+    throw new RerankError('invalid-response');
   }
-  const body = (await res.json()) as { answers?: Record<string, ChoiceAnswer> };
-  const ans: ChoiceAnswer = body.answers?.pick ?? {};
-
-  // 확률 내림차순. 확률이 없으면 choice 하나만 쓴다.
-  const probs = ans.probabilities ?? {};
-  const ranked = Object.entries(probs)
-    .sort((a, b) => b[1] - a[1])
-    .filter(([k]) => /^\d+$/.test(k));
-  if (ranked.length > 0) {
-    const picks = ranked
-      .map(([k]) => order[parseInt(k, 10) - 1])
-      .filter((v) => typeof v === 'number');
-    return { picks, topProb: ranked[0][1] };
+  const ans = body.answers.pick;
+  // Reject malformed IDs before sorting, including aliases such as "01" for "1".
+  if (ans.probabilities !== undefined) {
+    if (!isRecord(ans.probabilities)) throw new RerankError('invalid-response');
+    const seen = new Set<number>();
+    const ranked = Object.entries(ans.probabilities).map(([id, probability]) => {
+      const index = choiceIndex(id, order);
+      if (!isProbability(probability) || seen.has(index)) throw new RerankError('invalid-response');
+      seen.add(index);
+      return { index, probability };
+    }).sort((a, b) => b.probability - a.probability);
+    if (ranked.length > 0) {
+      return { picks: ranked.map((entry) => entry.index), topProb: ranked[0].probability };
+    }
   }
-  if (ans.choice && /^\d+$/.test(ans.choice)) {
-    const one = order[parseInt(ans.choice, 10) - 1];
-    return { picks: typeof one === 'number' ? [one] : [], topProb: ans.confidence ?? 1 };
+  if (ans.choice !== undefined) {
+    const index = choiceIndex(ans.choice, order);
+    const confidence = ans.confidence === undefined ? 1 : ans.confidence;
+    if (!isProbability(confidence)) throw new RerankError('invalid-response');
+    return { picks: [index], topProb: confidence };
   }
   return { picks: [], topProb: 0 };
 }
@@ -208,26 +262,16 @@ export async function jevRerank<T extends Jevable>(
   // ① Jev 가 1순위. 키가 없으면 바로 폴백으로 간다
   if (!process.env.TYPESAFE_API_KEY) {
     try {
-      return await Promise.race([
-        geminiRerank(query, items, finalN),
-        new Promise<never>((_, rej) =>
-          setTimeout(() => rej(new Error('gemini timeout')), TIMEOUT_MS)
-        ),
-      ]);
+      return await withTimeout(() => geminiRerank(query, items, finalN));
     } catch (err) {
-      console.error('[jev] 키 없음 + Gemini 폴백 실패:', (err as Error)?.message?.slice(0, 120));
+      console.error('[jev] 키 없음 + Gemini 폴백 실패:', failureCode(err));
       return items.slice(0, finalN);
     }
   }
 
   try {
     const order = items.map((_, i) => i);
-    const { picks, topProb } = await Promise.race([
-      askJev(query, items, order),
-      new Promise<never>((_, rej) =>
-        setTimeout(() => rej(new Error('jev timeout')), TIMEOUT_MS)
-      ),
-    ]);
+    const { picks, topProb } = await withTimeout((signal) => askJev(query, items, order, signal));
 
     // 아무것도 못 고르거나 1위 확률이 너무 낮으면 **손대지 않는다.**
     // 노무 자문은 틀린 답의 비용이 크다 — 확신 없으면 검색 순서를 그대로 둔다.
@@ -244,17 +288,12 @@ export async function jevRerank<T extends Jevable>(
     return [...picks, ...rest].slice(0, finalN).map((i) => items[i]);
   } catch (err) {
     // ② Jev 가 죽었으면 종전 경로(Gemini)로 떨어진다. 재선택이 꺼지는 것보다 낫다
-    console.warn('[jev] 실패 → Gemini 폴백:', (err as Error)?.message?.slice(0, 160));
+    console.warn('[jev] 실패 → Gemini 폴백:', failureCode(err));
     try {
-      return await Promise.race([
-        geminiRerank(query, items, finalN),
-        new Promise<never>((_, rej) =>
-          setTimeout(() => rej(new Error('gemini timeout')), TIMEOUT_MS)
-        ),
-      ]);
+      return await withTimeout(() => geminiRerank(query, items, finalN));
     } catch (err2) {
       console.error('[jev] 폴백도 실패 — 원래 순서 유지:',
-        (err2 as Error)?.message?.slice(0, 120));
+        failureCode(err2));
       return items.slice(0, finalN);
     }
   }
