@@ -186,3 +186,34 @@ LANGUAGE sql STABLE AS $function$
   ORDER BY score DESC, length(a.body) ASC
   LIMIT max_results;
 $function$;
+
+-- ────────────────────────────────────────────────────────────────────────
+-- 6. ivfflat → HNSW (2026-10-06)
+--
+-- ★ ivfflat 이 정답을 놓치고 있었다. `ivfflat.probes` 기본값이 1 이라
+--   lists=85 중 **한 조각만** 본다. 7,228행 중 약 85행이다.
+--
+-- 선행 기록(2026-10-05, faq 25,881행 · lists=64) —
+--   LIMIT 300 에 154건만 돌아오고 정답이 그 안에 없었다.
+--   **probes 를 4·8·16 으로 올려도 Seq Scan 으로 넘어가 설정으로는 안 풀린다.**
+--   HNSW 로 바꿔 16ms. 그런데 **플래너가 HNSW 를 스스로 고르지 않는다** —
+--   16ms 인덱스 스캔보다 2.8초 Seq Scan 을 싸게 본다. 함수 안에서 트랜잭션 로컬로 끈다.
+--   `hnsw.ef_search` 는 LIMIT 이상이어야 회수가 유지된다(기본 40).
+--
+-- law_articles 실측 (2026-10-06, 정답이 의미 목록 60위 안에 드는 비율)
+--   ivfflat  1/6
+--   HNSW     3/6     ← 괴롭힘 밖→3위 · 안전보건 밖→29위
+-- 용어 확장과 함께 쓸 때 정답 순위
+--   ivfflat  주휴수당 2위 · 안전보건 14위 · 퇴직금 11위   (1위가 4개)
+--   HNSW     주휴수당 1위 · 안전보건  7위 · 퇴직금 16위   (1위가 5개)
+
+CREATE INDEX IF NOT EXISTS law_articles_emb_hnsw_idx
+  ON law_articles USING hnsw (embedding vector_cosine_ops) WITH (m = 16, ef_construction = 64);
+DROP INDEX IF EXISTS law_articles_emb_ivfflat_idx;
+ANALYZE law_articles;
+
+-- RPC 를 plpgsql 로 바꾼다 — set_config 를 쓰려면 sql STABLE 로는 안 된다.
+-- 본문은 §5 와 같고 머리에 두 줄이 붙는다:
+--   PERFORM set_config('enable_seqscan', 'off', true);
+--   PERFORM set_config('hnsw.ef_search', greatest(120, max_results*2)::text, true);
+-- (전문은 DB 의 현재 정의를 보라 — 여기 중복해 두면 둘이 어긋난다)
