@@ -187,11 +187,27 @@ export async function buildLawsContext(
     // Jev 재선택 — 제목을 question 으로, 본문을 answer 로 넘긴다.
     // JEV_ON=false 면 건너뛴다. 실패하면 jevRerank 가 원래 순서를 돌려준다.
     if (process.env.JEV_ON !== 'false' && rows.length > FINAL_N) {
-      const jevable = rows.slice(0, JEV_IN).map((r) => ({
-        question: `${r.law_name} ${r.article_label}${r.article_title ? ` (${r.article_title})` : ''}`,
-        answer: (r.body || '').slice(0, 300),
-        __row: r,
-      }));
+      // ★ jev.ts 의 numbered() 는 **question 만** 쓰고 120자로 자른다(answer 를 받아
+      // 두고도 쓰지 않는다). 조문 제목은 명사구라 그것만으로는 못 고르는 질의가 있다 —
+      // 「퇴직금 얼마나 받나」의 정답은 퇴직급여법 제8조인데 제목이 「퇴직금제도의 설정 등」
+      // 이고, 금액(「계속근로 1년에 30일분 이상의 평균임금」)은 **본문에 있다.**
+      // 제목만 보면 제9조(지급 등)나 제15조(급여수준)를 고르게 된다.
+      //
+      // 그래서 question 에 **제목 + 본문 앞부분**을 함께 넣는다. jev.ts 를 고치지 않으므로
+      // FAQ 경로에는 영향이 없다 — FAQ 는 제목이 이미 질문 꼴이라 본문이 필요 없다.
+      const jevable = rows.slice(0, JEV_IN).map((r) => {
+        const head = `${r.law_name} ${r.article_label}${r.article_title ? ` (${r.article_title})` : ''}`;
+        // 본문 머리의 「제NN조(제목)」 반복을 떼고 실제 내용만 남긴다
+        const lead = (r.body || '')
+          .replace(/^\s*제\d+조(?:의\d+)?\s*\([^)]*\)\s*/, '')
+          .replace(/\s+/g, ' ')
+          .trim();
+        return {
+          question: `${head} — ${lead}`,   // jev.ts 가 120자로 자른다
+          answer: lead.slice(0, 300),
+          __row: r,
+        };
+      });
       const picked = await jevRerank(lex, jevable, FINAL_N);
       rows = picked.map((p) => p.__row);
     } else {
