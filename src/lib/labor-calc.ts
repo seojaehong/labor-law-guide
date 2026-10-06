@@ -297,7 +297,12 @@ import { supabaseAdmin } from './supabase-server';
 import { supabase } from './supabase';
 const db = supabaseAdmin || supabase;
 
-const LAW_BODY_LIMIT = 1200;
+// ★ 2026-10-06 — 1,200 에서 올렸다. 2026-09-03 에 QA 패킷이 **정확히 이 값**으로
+// 자르다가 코퍼스 12% 가 영향받았다(노조법 시행령 별표1 50% 소실, 노조법 제81조
+// 운영비 원조 고려요소 2개 소실, 공무원노조법 제17조 준용목록 통째 소실).
+// 조문은 원칙을 앞에, 예외·준용·세부기준을 뒤에 쓴다 — 뒤를 자르면 단서가 사라진다.
+// 이 함수는 조문 **하나**만 돌려주므로 넉넉히 둔다. 실측 3,000자 초과는 9건(0.15%).
+const LAW_BODY_LIMIT = 4000;
 
 // select 문자열이 길면 supabase-js 가 행 타입을 GenericStringError 로 추론한다.
 // 명시적으로 적어 둔다.
@@ -392,7 +397,8 @@ export async function lookupLawArticle(input: {
     effective_date: row.effective_date,
     message:
       `${row.law_name} ${label}${title ? ` (${title})` : ''} — 시행 ${row.effective_date ?? '미확인'}, ` +
-      `법제처 원문${cut ? ' (본문 일부, 전문은 law.go.kr)' : ''}\n${body}`,
+      `법제처 원문${cut ? ' (★ 뒷부분이 잘렸다. 조문은 예외·준용·세부기준을 뒤에 쓰므로 ' +
+        '단서가 더 있을 수 있다. 전문은 law.go.kr)' : ''}\n${body}`,
   };
 }
 
