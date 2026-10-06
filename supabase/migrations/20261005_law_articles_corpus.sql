@@ -51,6 +51,8 @@ CREATE INDEX IF NOT EXISTS law_articles_title_trgm_idx ON law_articles USING gin
 CREATE INDEX IF NOT EXISTS law_articles_body_trgm_idx  ON law_articles USING gin (body gin_trgm_ops);
 
 -- ── 4. 조문 검색 RPC ──
+-- ⚠ 2026-10-06 — 운영은 아래 `search_law_articles` 가 아니라 하이브리드판을 쓴다.
+--    **최종 정의는 `20261006_rpc_sync_from_db.sql` 에 있다.** 이 절은 이력으로 남긴다.
 -- 어휘 기반이다. **임베딩을 쓰지 않는다** — 그래서 임베딩 생성이 실패한 요청에서도
 -- 1차 자료가 들어간다. 후보를 넓게 내고 고르기는 Jev(LLM 재선택)에 맡긴다.
 --
@@ -213,7 +215,6 @@ DROP INDEX IF EXISTS law_articles_emb_ivfflat_idx;
 ANALYZE law_articles;
 
 -- RPC 를 plpgsql 로 바꾼다 — set_config 를 쓰려면 sql STABLE 로는 안 된다.
--- 본문은 §5 와 같고 머리에 두 줄이 붙는다:
---   PERFORM set_config('enable_seqscan', 'off', true);
---   PERFORM set_config('hnsw.ef_search', greatest(120, max_results*2)::text, true);
--- (전문은 DB 의 현재 정의를 보라 — 여기 중복해 두면 둘이 어긋난다)
+-- ★ **실행 가능한 최종판은 `20261006_rpc_sync_from_db.sql` 이다.**
+--   종전에 여기 「전문은 DB 의 현재 정의를 보라」고만 적어 두었는데, 그러면 레포만 보고
+--   DB 를 다시 세울 수 없다(서버1 지적 2026-10-06 「DB 변경 누락」). 그 파일로 옮겼다.
