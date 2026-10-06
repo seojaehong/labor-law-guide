@@ -8,6 +8,7 @@ import {
 import RulesCheck from './RulesCheck';
 import CalendarView from './CalendarView';
 import SubscribeButton from './SubscribeButton';
+import ExportConfirmDialog, { type PendingLawExport } from './ExportConfirmDialog';
 import { diffArticle, type Row } from '@/lib/laws/diff';
 import { toggleResultSelection, selectionCounts } from '@/lib/laws/selection';
 import { validLawDate, validLawMonth, lawDateResults } from '@/lib/laws/date-view';
@@ -62,6 +63,7 @@ export default function LawsClient({ index }: { index: LawIndex }) {
   const [selectedOnly, setSelectedOnly] = useState(false);
   const [exporting, setExporting] = useState(false);
   const exportLock = useRef(false);
+  const [pendingExport, setPendingExport] = useState<PendingLawExport | null>(null);
   const [exportError, setExportError] = useState<string | null>(null);
   const [day, setDay] = useState<string | null>(null);
   const [open, setOpen] = useState<Set<string>>(new Set());
@@ -255,20 +257,45 @@ export default function LawsClient({ index }: { index: LawIndex }) {
     toast.show(`시행일 ${evs.length}건을 캘린더 파일로 받았습니다. 열면 구글·아웃룩 캘린더에 들어갑니다`);
   };
 
+  const cancelExport = () => { setPendingExport(null); exportLock.current = false; };
+  const confirmExport = () => {
+    if (!pendingExport || !exportLock.current) return;
+    exportLock.current = false;
+    try {
+      download(pendingExport.filename, pendingExport.blob, pendingExport.blob.type);
+      toast.show(`선택한 개정 ${pendingExport.stats.eventCount}건 · 조문 ${pendingExport.stats.changeCount}개를 받았습니다`);
+    } catch {
+      setExportError('파일 저장을 시작하지 못했습니다. 선택은 유지됩니다. 다시 시도해 주세요.');
+    } finally { cancelExport(); }
+  };
+
   const exportSelected = async (kind: 'xlsx' | 'docx') => {
     if (exportLock.current || !selectedEvents.length) return;
     exportLock.current = true;
     setExporting(true); setExportError(null);
     const snapshot = [...selectedEvents];
+    const hiddenCount = hiddenSelected;
+    const returnFocusTo = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    let awaitingConfirmation = false;
     try {
-      const { prepareSelectedLawExport, selectedLawsXlsx, selectedLawsDocx } = await import('@/lib/laws/export-selected');
+      const { prepareSelectedLawExport, selectedLawExportStats, isLargeSelectedLawExport, selectedLawsXlsx, selectedLawsDocx } = await import('@/lib/laws/export-selected');
       const data = await prepareSelectedLawExport(snapshot, loadDetail);
+      const stats = selectedLawExportStats(data);
       const blob = await (kind === 'xlsx' ? selectedLawsXlsx(data) : selectedLawsDocx(data));
-      download(`노동법개정_선택${snapshot.length}건_${todayKST()}.${kind}`, blob, blob.type);
-      toast.show(`선택한 개정 ${snapshot.length}건 · 조문 ${data.changeCount}개를 받았습니다`);
+      const filename = `노동법개정_선택${snapshot.length}건_${todayKST()}.${kind}`;
+      if (isLargeSelectedLawExport(stats, blob.size)) {
+        awaitingConfirmation = true;
+        setPendingExport({ blob, filename, kind, stats, hiddenCount, returnFocusTo });
+      } else {
+        download(filename, blob, blob.type);
+        toast.show(`선택한 개정 ${stats.eventCount}건 · 조문 ${stats.changeCount}개를 받았습니다`);
+      }
     } catch (error) {
       setExportError(`파일을 만들지 못했습니다. ${error instanceof Error ? error.message : '자료를 불러오지 못했습니다.'} 선택은 유지됩니다. 다시 시도해 주세요.`);
-    } finally { exportLock.current = false; setExporting(false); }
+    } finally {
+      if (!awaitingConfirmation) exportLock.current = false;
+      setExporting(false);
+    }
   };
 
   const copyDigest = async (evs: LawEvent[]) => {
@@ -436,12 +463,12 @@ export default function LawsClient({ index }: { index: LawIndex }) {
             현재 결과 {currentResults.length}건 전체 선택</label>}
         </div>
         {selectedEvents.length > 0 && <div className="lr-selection-bar" aria-label="선택한 개정 내보내기">
-          <div className="lr-selection-status"><strong>{selectedEvents.length}건 선택</strong>{hiddenSelected > 0 && <span> · 현재 결과 밖 {hiddenSelected}건 포함</span>}</div>
+          <div className="lr-selection-status"><strong>{selectedEvents.length}건 선택 · 목록 조문 {selectedEvents.reduce((sum, e) => sum + e.changes.length, 0)}개</strong>{hiddenSelected > 0 && <span> · 현재 결과 밖 {hiddenSelected}건 포함</span>}</div>
           <button className="lr-btn lr-btn-sm" disabled={exporting} onClick={() => exportSelected('xlsx')}><FileSpreadsheet size={16} /> 엑셀(.xlsx)</button>
           <button className="lr-btn lr-btn-sm" disabled={exporting} onClick={() => exportSelected('docx')}><FileText size={16} /> 문서(.docx)</button>
           <button className="lr-btn lr-btn-ghost lr-btn-sm" onClick={() => setSelectedOnly(!selectedOnly)} aria-pressed={selectedOnly}>{selectedOnly ? '현재 결과로 돌아가기' : '선택한 항목 보기'}</button>
           <button className="lr-btn lr-btn-ghost lr-btn-sm" disabled={exporting} onClick={clearSelection}>선택 해제</button>
-          <p className="lr-export-note">{exporting ? '선택한 신구대조 원문 전체를 파일로 준비하는 중입니다. 긴 조문은 시간이 걸릴 수 있습니다…' : '선택한 개정의 신구대조 원문 전체를 저장합니다. 긴 조문은 문서 분량이 많아질 수 있습니다. DOCX의 한컴 한글 앱 호환은 아직 검수하지 않았습니다.'}</p>
+          <p className="lr-export-note">{exporting ? '원문 분량을 확인하고 파일을 준비하는 중입니다. 큰 파일은 크기를 확인한 뒤 내려받을 수 있습니다…' : '선택한 개정의 신구대조 원문 전체를 저장합니다. 큰 파일은 실제 크기·원문 글자 수를 확인한 뒤 내려받습니다. 긴 조문은 문서 분량이 많아질 수 있습니다. DOCX의 한컴 한글 앱 호환은 아직 검수하지 않았습니다.'}</p>
         </div>}
         {exportError && <p className="lr-export-error" role="alert">{exportError}</p>}
         {filtered.length === 0 ? (
@@ -496,6 +523,7 @@ export default function LawsClient({ index }: { index: LawIndex }) {
         </footer>
       </section>
 
+      {pendingExport && <ExportConfirmDialog pending={pendingExport} onConfirm={confirmExport} onCancel={cancelExport} />}
       {checking && <RulesCheck onClose={closeCheck} toast={toast.show} />}
       {toast.msg && <div className="lr-toast" role="status">{toast.msg}</div>}
     </div>

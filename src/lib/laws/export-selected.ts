@@ -1,4 +1,4 @@
-import { compareDocx } from './doc-io';
+import { compareDocx, type CompareDocxSection } from './doc-io';
 import { fmtDate, lawGoUrl, type LawDetail, type LawEvent } from './format';
 
 export const SELECTED_LAWS_XLSX_MIME = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
@@ -15,6 +15,43 @@ export interface SelectedLawExportEvent {
 export interface SelectedLawExport {
   events: SelectedLawExportEvent[];
   changeCount: number;
+}
+
+export interface SelectedLawExportStats {
+  eventCount: number;
+  /** Distinct law IDs, including statutes, decrees and regulations individually. */
+  lawCount: number;
+  changeCount: number;
+  /** Unicode code points in original before + after strings, including whitespace. Null is zero. */
+  textCharacterCount: number;
+}
+
+export const SELECTED_LAWS_CHARACTER_COUNT_NOTE = '개정 전·후 원문의 유니코드 코드 포인트 수 합계(공백·줄바꿈 포함)입니다. 별도로 붙이는 제목·출처·부칙과 신설·삭제 표시 문구는 제외합니다.';
+
+/** Advisory limits, not file-size or page estimates. The 401-event baseline has a 43,655-char p95;
+ *  16 individual events exceed 50,000 chars, while its largest has 344,414 chars. */
+export const LARGE_SELECTED_LAW_EXPORT_LIMITS = { eventCount: 20, changeCount: 50, textCharacterCount: 50000, byteLimit: 5000000 } as const;
+
+/** Count the resolved originals once, unaffected by generated continuation rows or placeholders. */
+export function selectedLawExportStats(data: SelectedLawExport): SelectedLawExportStats {
+  const events = [...new Map(data.events.map(item => [item.event.id, item])).values()];
+  let changeCount = 0;
+  let textCharacterCount = 0;
+  for (const { step } of events) {
+    changeCount += step.changes.length;
+    for (const change of step.changes) for (const text of [change.before, change.after]) {
+      if (text !== null) textCharacterCount += Array.from(text).length;
+    }
+  }
+  return { eventCount: events.length, lawCount: new Set(events.map(item => item.event.lawId)).size, changeCount, textCharacterCount };
+}
+
+/** Ask the user whether to continue; do not truncate or block an explicitly confirmed selection. */
+export function isLargeSelectedLawExport(stats: SelectedLawExportStats, fileBytes = 0): boolean {
+  return stats.eventCount >= LARGE_SELECTED_LAW_EXPORT_LIMITS.eventCount ||
+    stats.changeCount >= LARGE_SELECTED_LAW_EXPORT_LIMITS.changeCount ||
+    stats.textCharacterCount >= LARGE_SELECTED_LAW_EXPORT_LIMITS.textCharacterCount ||
+    fileBytes >= LARGE_SELECTED_LAW_EXPORT_LIMITS.byteLimit;
 }
 
 /** Resolve the entire selection before making a file. Never silently skip unavailable details. */
@@ -146,10 +183,11 @@ export async function selectedLawsXlsx(data: SelectedLawExport): Promise<Blob> {
 
 /** A real landscape DOCX package; never a renamed HWP. */
 export async function selectedLawsDocx(data: SelectedLawExport): Promise<Blob> {
-  const rows: string[][] = [];
-  const foot = [SOURCE, SELECTED_LAWS_DISCLAIMER];
+  const sections: CompareDocxSection[] = [];
   for (const item of data.events) {
     const { event, step } = item;
+    const rows: string[][] = [];
+    const foot = [SOURCE, SELECTED_LAWS_DISCLAIMER];
     const context = `${event.law}\n시행: ${fmtDate(event.date)}\n비교 기준: ${step.base ? fmtDate(step.base) : '정보 없음'}`;
     const source = `${promulgationsText(event)}\n${sources(item).join('\n')}`;
     for (const change of step.changes) {
@@ -162,19 +200,23 @@ export async function selectedLawsDocx(data: SelectedLawExport): Promise<Blob> {
       ]);
     }
     if (!step.changes.length) rows.push([context, '비교 조문 없음', '비교 조문 없음', source]);
-    foot.push(`「${event.law}」 · ${fmtDate(event.date)} 시행 · 개정 ID: ${event.id}`);
     if (event.headline) foot.push(event.headline);
     if (event.summary) foot.push(`요약: ${event.summary}`);
     if (step.reason) foot.push(`개정 이유: ${step.reason}`);
     for (const addendum of step.addenda) foot.push([addendum.부칙, ...addendum.내용].join('\n'));
     foot.push(source);
+    sections.push({
+      title: `「${event.law}」 · ${fmtDate(event.date)} 시행`,
+      intro: [`개정 ID: ${event.id} · 비교 기준: ${step.base ? fmtDate(step.base) : '정보 없음'} · 비교 조문 ${step.changes.length}개`, promulgationsText(event)],
+      rows, foot,
+    });
   }
+  const stats = selectedLawExportStats(data);
   return compareDocx({
     title: '선택 법령 개정 신구대조표',
-    intro: [`선택 개정 ${data.events.length}건 · 비교 조문 ${data.changeCount}개`, SELECTED_LAWS_DISCLAIMER,
-      '긴 조문은 본문 번호 순서대로 이어 읽습니다. 분할된 개정 전·후 열은 각각 원문 순서이며, 같은 행이 문장별 대응을 뜻하지는 않습니다.',
-      ...data.events.map(({ event }) => `「${event.law}」 · ${fmtDate(event.date)} 시행 · ${promulgationsText(event)}`)],
+    intro: [`법령 ${stats.lawCount}개 · 선택 개정 ${stats.eventCount}건 · 비교 조문 ${stats.changeCount}개`, SELECTED_LAWS_DISCLAIMER,
+      '긴 조문은 본문 번호 순서대로 이어 읽습니다. 분할된 개정 전·후 열은 각각 원문 순서이며, 같은 행이 문장별 대응을 뜻하지는 않습니다.'],
     head: ['법령·시행일·조문', '개정 전 (원문)', '개정 후 (원문)', '공포·출처'],
-    widths: [2300, 4850, 4850, 3000], rows, foot,
+    widths: [2300, 4850, 4850, 3000], sections, foot: [],
   });
 }

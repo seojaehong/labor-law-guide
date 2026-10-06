@@ -64,3 +64,35 @@ test('failed detail fetch retains selection, retries successfully, and repeated 
  await expect(page.getByRole('button', {name:'엑셀(.xlsx)',exact:true})).toBeEnabled();
  expect(attempts).toBe(2); expect(downloads).toBe(1);
 });
+
+test('large export confirms exact scope and bytes; Escape/cancel preserve selection and confirmation downloads once', async ({page}) => {
+ await page.goto('/laws?view=all');
+ await page.getByRole('checkbox', {name:'현재 결과 401건 전체 선택',exact:true}).check();
+ let downloads = 0; page.on('download', () => downloads++);
+ await page.getByRole('button', {name:'문서(.docx)',exact:true}).click();
+ const dialog = page.getByRole('dialog', {name:'분량이 큰 원문 파일입니다',exact:true});
+ await expect(dialog).toBeVisible();
+ await expect(dialog).toContainText('개정 401건');
+ await expect(dialog).toContainText('실제 파일 크기');
+ await expect(dialog).toContainText('바이트');
+ await expect(dialog.getByRole('button',{name:'취소하고 선택 유지',exact:true})).toBeFocused();
+ await page.keyboard.press('Shift+Tab');
+ await expect(dialog.getByRole('button',{name:'원문 전체 내려받기',exact:true})).toBeFocused();
+ await page.keyboard.press('Escape');
+ await expect(dialog).toHaveCount(0);
+ await expect(page.getByRole('button', {name:'문서(.docx)',exact:true})).toBeFocused();
+ expect(downloads).toBe(0);
+ await expect(page.getByLabel('선택한 개정 내보내기')).toContainText('401건 선택');
+ await page.getByRole('button', {name:'문서(.docx)',exact:true}).click();
+ await expect(dialog).toBeVisible();
+ await dialog.getByRole('button',{name:'취소하고 선택 유지',exact:true}).click();
+ expect(downloads).toBe(0);
+ await page.getByRole('button', {name:'엑셀(.xlsx)',exact:true}).click();
+ await expect(dialog).toBeVisible();
+ await expect(dialog).toContainText('XLSX');
+ const done=page.waitForEvent('download');
+ await dialog.getByRole('button',{name:'원문 전체 내려받기',exact:true}).evaluate(el=>{(el as HTMLButtonElement).click();(el as HTMLButtonElement).click();});
+ await done;
+ await expect(dialog).toHaveCount(0);
+ expect(downloads).toBe(1);
+});

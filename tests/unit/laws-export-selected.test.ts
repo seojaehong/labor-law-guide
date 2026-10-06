@@ -3,7 +3,8 @@ import { describe, expect, it, vi } from 'vitest';
 import JSZip from 'jszip';
 import * as XLSX from 'xlsx';
 import {
-  prepareSelectedLawExport, selectedLawsDocx, selectedLawsXlsx,
+  prepareSelectedLawExport, selectedLawsDocx, selectedLawsXlsx, selectedLawExportStats, isLargeSelectedLawExport,
+  LARGE_SELECTED_LAW_EXPORT_LIMITS, SELECTED_LAWS_CHARACTER_COUNT_NOTE, type SelectedLawExportStats,
   SELECTED_LAWS_DISCLAIMER, SELECTED_LAWS_DOCX_MIME, SELECTED_LAWS_XLSX_MIME,
 } from '@/lib/laws/export-selected';
 import { lawGoUrl, type LawDetail, type LawEvent, type LawIndex, type StepChange } from '@/lib/laws/format';
@@ -95,6 +96,52 @@ describe('selected law detail resolution', () => {
   });
 });
 
+describe('exact selected export volume', () => {
+  it('counts deduplicated amendments, distinct law IDs and raw before/after Unicode code points', async () => {
+    const second = { ...event, id: 'law-20261201', date: '20261201' };
+    const other = { ...event, id: 'other-20261006', lawId: 'other' };
+    const detail = fixture([{ ...change, before: '가 😀\n', after: 'e\u0301' }]);
+    detail.steps.push(fixture([{ ...change, before: null, after: '' }], second).steps[0]);
+    const data = await prepareSelectedLawExport([event, second, event, other], async id =>
+      id === 'law' ? detail : fixture([{ ...change, before: '甲', after: '乙' }], other));
+    expect(selectedLawExportStats(data)).toEqual({ eventCount: 3, lawCount: 2, changeCount: 3, textCharacterCount: 8 });
+    // Result is computed from original detail, not a supplied aggregate or formatted placeholders.
+    expect(selectedLawExportStats({ events: [...data.events, data.events[0]], changeCount: 999 })).toEqual(selectedLawExportStats(data));
+    expect(SELECTED_LAWS_CHARACTER_COUNT_NOTE).toContain('공백·줄바꿈 포함');
+  });
+
+  it('counts long original text once regardless of export continuation rows', async () => {
+    const long = '가😀\n'.repeat(20000);
+    const data = await prepare([{ ...change, before: long, after: long }]);
+    const before = selectedLawExportStats(data);
+    await selectedLawsXlsx(data);
+    await selectedLawsDocx(data);
+    expect(selectedLawExportStats(data)).toEqual(before);
+    expect(before.textCharacterCount).toBe(120000);
+  });
+
+  it('returns zero counts for empty resolved data', () => {
+    expect(selectedLawExportStats({ events: [], changeCount: 0 })).toEqual({ eventCount: 0, lawCount: 0, changeCount: 0, textCharacterCount: 0 });
+  });
+
+  it.each(['eventCount', 'changeCount', 'textCharacterCount'] as const)('flags %s at the inclusive advisory threshold', field => {
+    const stats: SelectedLawExportStats = { eventCount: 1, lawCount: 1, changeCount: 1, textCharacterCount: 1 };
+    const limit = LARGE_SELECTED_LAW_EXPORT_LIMITS[field];
+    expect(isLargeSelectedLawExport({ ...stats, [field]: limit - 1 })).toBe(false);
+    expect(isLargeSelectedLawExport({ ...stats, [field]: limit })).toBe(true);
+    expect(isLargeSelectedLawExport({ ...stats, [field]: limit + 1 })).toBe(true);
+  });
+
+  it('uses only supplied actual file bytes for the inclusive byte threshold', () => {
+    const small: SelectedLawExportStats = { eventCount: 1, lawCount: 1, changeCount: 1, textCharacterCount: 1 };
+    const limit = LARGE_SELECTED_LAW_EXPORT_LIMITS.byteLimit;
+    expect(isLargeSelectedLawExport(small)).toBe(false);
+    expect(isLargeSelectedLawExport(small, limit - 1)).toBe(false);
+    expect(isLargeSelectedLawExport(small, limit)).toBe(true);
+    expect(isLargeSelectedLawExport(small, limit + 1)).toBe(true);
+  });
+});
+
 describe('selected law XLSX', () => {
   it('creates a real readable workbook with original multiline text and safe string cells', async () => {
     const book = await workbook();
@@ -155,6 +202,35 @@ describe('selected law XLSX', () => {
 });
 
 describe('selected law DOCX', () => {
+  it('starts each later amendment on a new page with its own comparison and complete metadata', async () => {
+    const second = { ...event, id: 'law-20270101', date: '20270101', headline: '두 번째 제목', summary: '두 번째 요약',
+      promulgations: [{ date: '20261201', no: '00789', kind: '일부개정', mst: '201' }] };
+    const detail = fixture();
+    const nextStep = fixture([{ ...change, before: '두 번째 전 <&>\n원문', after: '두 번째 후 <&>\n원문' }], second).steps[0];
+    nextStep.reason = '두 번째 개정 이유';
+    nextStep.addenda = [{ 부칙: '두 번째 부칙', 내용: ['두 번째 경과조치'] }];
+    detail.steps.push(nextStep);
+    const data = await prepareSelectedLawExport([event, second], async () => detail);
+    const zip = await JSZip.loadAsync(await (await selectedLawsDocx(data)).arrayBuffer());
+    const xml = await zip.file('word/document.xml')!.async('string');
+    const sections = xml.split('<w:p><w:pPr>').slice(1);
+    expect(sections).toHaveLength(2);
+    expect(xml.match(/<w:tbl>/g)).toHaveLength(2);
+    expect(xml.match(/<w:pageBreakBefore\/>/g)).toHaveLength(1);
+    expect(sections[0]).not.toContain('<w:pageBreakBefore/>');
+    expect(sections[1]).toMatch(/^<w:pageBreakBefore\/><w:keepNext\/>/);
+    expect(cellText(sections[0])).toContain('「시험법 시행령」 · 2026. 10. 6. 시행');
+    expect(cellText(sections[1])).toContain('「시험법 시행령」 · 2027. 1. 1. 시행');
+    expect(cellText(sections[0])).toContain(event.summary);
+    expect(cellText(sections[0])).toContain(detail.steps[0].reason);
+    expect(cellText(sections[0])).toContain('제2조 경과조치 & 특례');
+    expect(cellText(sections[0])).not.toContain('두 번째');
+    for (const text of ['두 번째 요약', '두 번째 개정 이유', '두 번째 부칙', '두 번째 경과조치', nextStep.changes[0].before!, nextStep.changes[0].after!]) expect(cellText(sections[1])).toContain(text);
+    expect(cellText(sections[1])).toContain('대통령령 제00789호');
+    expect(cellText(sections[1])).toContain(lawGoUrl('201', second.date));
+    expect(xml.slice(0, xml.indexOf('<w:p><w:pPr>'))).not.toContain('2027. 1. 1.');
+  });
+
   it('creates a real landscape OOXML package and preserves XML-special, multiline legal text exactly', async () => {
     const blob = await selectedLawsDocx(await prepare());
     expect(blob.type).toBe(SELECTED_LAWS_DOCX_MIME);

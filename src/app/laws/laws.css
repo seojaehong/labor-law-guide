@@ -414,3 +414,19 @@
   .lr-more-content { right:auto; left:0; }
   .lr-card-select { padding-left:14px; }
 }
+
+.lr-export-dialog { width:min(620px,calc(100vw - 32px)); max-height:calc(100dvh - 48px); margin:auto; overflow:auto; padding:28px; border:1px solid var(--color-border); border-radius:12px; background:var(--color-bg-surface); color:var(--color-text-primary); box-shadow:0 16px 40px rgb(0 0 0 / .16); }
+.lr-export-dialog::backdrop { background:rgb(0 0 0 / .45); }
+.lr-export-dialog h2 { font-size:22px; line-height:1.4; margin:0 0 12px; }
+.lr-export-dialog p { line-height:1.7; margin:12px 0; }
+.lr-export-dialog dl { margin:20px 0; }
+.lr-export-dialog dl > div { display:grid; grid-template-columns:130px minmax(0,1fr); gap:12px; padding:10px 0; border-bottom:1px solid var(--color-border); }
+.lr-export-dialog dt { color:var(--color-text-secondary); }
+.lr-export-dialog dd { margin:0; font-weight:600; overflow-wrap:anywhere; }
+.lr-export-explanation { font-size:13px; color:var(--color-text-secondary); }
+.lr-export-dialog-actions { display:flex; justify-content:flex-end; flex-wrap:wrap; gap:10px; margin-top:22px; }
+@media(max-width:600px) {
+  .lr-export-dialog { padding:20px; }
+  .lr-export-dialog dl > div { grid-template-columns:1fr; gap:4px; }
+  .lr-export-dialog-actions .lr-btn { width:100%; }
+}

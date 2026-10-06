@@ -16,13 +16,13 @@ The review branch is stacked directly on PR #19 head `0fa365b92884a5b8f4c6b4294b
 
 - TypeScript `tsc --noEmit`: passed.
 - ESLint for all changed implementation and test files: passed.
-- Full Vitest suite: 372 tests / 44 files passed after the final long-DOCX continuation-row refinement.
+- Full Vitest suite: 382 tests / 45 files passed after the final long-DOCX continuation-row refinement.
 - `git diff --check`: passed.
 - Production webpack build passed on one retry: compilation, TypeScript, all 101 static pages and final route output completed. Three unchanged FAQ routes timed out once and then succeeded through Next.js automatic retries. Only local placeholder Supabase values were used. The first attempt was interrupted with `automatic approval review was cancelled`, not an explicit user denial.
 - Global lint on the exact stacked review base reports 20 errors and 20 warnings, all in unchanged application/components. Changed product files pass targeted lint. Global lint is not a pass.
 - Playwright web server started with placeholder Supabase environment values and webpack. Chromium failed before opening a page with `socket() failed: Operation not permitted`. No flags or alternate browser route were used to bypass that restriction. Browser interaction, mobile layout and real browser download tests remain unverified.
 - Authored Playwright cases cover month/list sync, hidden selection, both real downloads, mobile width, invalid dates, PR19 return/back URL state, failed detail retry and repeated download clicks. Their existence is not a test pass.
-- Independent openpyxl, python-docx and XML parsing recover exact original text for a representative selection and the longest production clause (164,034 characters). The representative DOCX rendered to 7 pages and every page was visually inspected. The long-clause stress event rendered to 184 pages after lossless continuation rows were added; full visual review of all 184 pages is not claimed. Actual Hancom Hangul is not available here.
+- Independent openpyxl, python-docx and XML parsing recover exact original text for a representative selection and the longest production clause (164,034 characters). The revised representative DOCX rendered to 9 pages and every page was visually inspected; its three amendments start on pages 1, 4 and 6. The long-clause stress event rendered to 184 pages after lossless continuation rows were added; full visual review of all 184 pages is not claimed. Actual Hancom Hangul is not available here.
 
 ## Before publication
 
@@ -31,3 +31,13 @@ Rerun final unit/type/lint/build checks after future edits, and run the Playwrig
 ## Future usability option
 
 Consider a separate explicitly labeled “요약 목록” export alongside “신구대조 원문 전체” after observing real use. Keep original legal text lossless in the full comparison. This option is a recommendation only and was not added in this change.
+
+## Export-volume safeguards added after review
+
+Before any large download, a native accessible confirmation dialog displays the resolved amendment/law/clause counts, exact original before+after Unicode-code-point count (including whitespace, excluding separately generated metadata), and actual generated Blob byte size. No page estimate is calculated. Preparation happens in browser memory, not an external service.
+
+Any of these triggers confirmation: at least 20 amendments, 50 clauses, 50,000 original-text characters, or 5,000,000 actual file bytes. These are advisory thresholds, not caps. In the 401-event source data the per-event p95 is 43,655 characters, 16 events reach 50,000, and the largest has 344,414. Raw before/after total is 4,720,306 characters; this differs intentionally from counts of all rendered document text including repeated metadata.
+
+Cancel/Escape preserves selection and releases the prepared Blob. Initial focus is Cancel; native dialog semantics trap focus and make the background inert. The confirmed download has a duplicate-click guard. DOCX now groups each amendment with its heading, own table, sources, reasons and addenda; every subsequent amendment starts on a new page. Existing non-section compareDocx callers preserve their previous behavior.
+
+The original head ff5f8a3 passed manual external-preview browsing and actual selected XLSX/DOCX download/reopening. The new confirmation flow requires rechecking on its newly deployed preview. Localhost browser navigation returned ERR_BLOCKED_BY_CLIENT and was not bypassed.

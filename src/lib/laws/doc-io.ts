@@ -109,8 +109,8 @@ export async function readDocText(data: ArrayBuffer | Uint8Array, kind: DocKind)
 
 const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
-function runs(text: string, bold = false): string {
-  const rpr = `<w:rPr><w:rFonts w:ascii="맑은 고딕" w:eastAsia="맑은 고딕" w:hAnsi="맑은 고딕"/>${bold ? '<w:b/>' : ''}<w:sz w:val="18"/></w:rPr>`;
+function runs(text: string, bold = false, size = 18): string {
+  const rpr = `<w:rPr><w:rFonts w:ascii="맑은 고딕" w:eastAsia="맑은 고딕" w:hAnsi="맑은 고딕"/>${bold ? '<w:b/>' : ''}<w:sz w:val="${size}"/></w:rPr>`;
   return text
     .split('\n')
     .map((line, i) => `${i ? '<w:r><w:br/></w:r>' : ''}<w:r>${rpr}<w:t xml:space="preserve">${esc(line)}</w:t></w:r>`)
@@ -121,25 +121,39 @@ const para = (text: string, bold = false) => `<w:p>${runs(text, bold)}</w:p>`;
 const cell = (text: string, w: number, head = false) =>
   `<w:tc><w:tcPr><w:tcW w:w="${w}" w:type="dxa"/>${head ? '<w:shd w:val="clear" w:color="auto" w:fill="EEEEEE"/>' : ''}</w:tcPr>${para(text, head)}</w:tc>`;
 
-/** 신구대조표 docx — 한글·워드에서 열린다. 열 폭은 dxa(1/20pt) */
-export async function compareDocx(opts: {
+export interface CompareDocxSection {
+  title: string;
+  intro: string[];
+  rows: string[][];
+  foot: string[];
+}
+
+type CompareDocxOptions = {
   title: string;
   intro: string[];
   head: string[];
   widths: number[];
-  rows: string[][];
   foot: string[];
-}): Promise<Blob> {
-  const { title, intro, head, widths, rows, foot } = opts;
+} & ({ rows: string[][]; sections?: never } | { sections: CompareDocxSection[]; rows?: never });
+
+/** 신구대조표 DOCX. 열 폭은 dxa(1/20pt). Sections start each later amendment on a new page. */
+export async function compareDocx(opts: CompareDocxOptions): Promise<Blob> {
+  const { title, intro, head, widths, foot } = opts;
   const border = '<w:top w:val="single" w:sz="4" w:color="999999"/><w:left w:val="single" w:sz="4" w:color="999999"/><w:bottom w:val="single" w:sz="4" w:color="999999"/><w:right w:val="single" w:sz="4" w:color="999999"/><w:insideH w:val="single" w:sz="4" w:color="999999"/><w:insideV w:val="single" w:sz="4" w:color="999999"/>';
-  const table =
+  const table = (rows: string[][]) =>
     `<w:tbl><w:tblPr><w:tblW w:w="${widths.reduce((a, b) => a + b, 0)}" w:type="dxa"/><w:tblBorders>${border}</w:tblBorders></w:tblPr>` +
     `<w:tblGrid>${widths.map((w) => `<w:gridCol w:w="${w}"/>`).join('')}</w:tblGrid>` +
     `<w:tr><w:trPr><w:tblHeader/></w:trPr>${head.map((h, i) => cell(h, widths[i], true)).join('')}</w:tr>` +
     rows.map((r) => `<w:tr><w:trPr><w:cantSplit/></w:trPr>${r.map((c, i) => cell(c, widths[i])).join('')}</w:tr>`).join('') +
     `</w:tbl>`;
+  const content = opts.sections
+    ? opts.sections.map((section, index) =>
+      `<w:p><w:pPr>${index > 0 ? '<w:pageBreakBefore/>' : ''}<w:keepNext/></w:pPr>${runs(section.title, true, 24)}</w:p>` +
+      section.intro.map(text => para(text)).join('') + table(section.rows) + section.foot.map(text => para(text)).join(''),
+    ).join('')
+    : table(opts.rows);
   const body =
-    para(title, true) + intro.map((t) => para(t)).join('') + table + foot.map((t) => para(t)).join('') +
+    para(title, true) + intro.map((t) => para(t)).join('') + content + foot.map((t) => para(t)).join('') +
     `<w:sectPr><w:pgSz w:w="16838" w:h="11906" w:orient="landscape"/><w:pgMar w:top="1000" w:right="900" w:bottom="1000" w:left="900" w:header="500" w:footer="500" w:gutter="0"/></w:sectPr>`;
   const zip = new JSZip();
   zip.file(
