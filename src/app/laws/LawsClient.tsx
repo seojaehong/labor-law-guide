@@ -3,12 +3,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import {
-  CalendarDays, CalendarPlus, Check, ChevronDown, ClipboardCopy, Columns2, ExternalLink, FileSpreadsheet, Link2, Rows3, Search, ScrollText, ShieldCheck, X,
+  CalendarDays, Check, ChevronDown, ClipboardCopy, Columns2, ExternalLink, FileSpreadsheet, FileText, Link2, Rows3, Search, ScrollText, ShieldCheck, X,
 } from 'lucide-react';
 import RulesCheck from './RulesCheck';
 import CalendarView from './CalendarView';
 import SubscribeButton from './SubscribeButton';
 import { diffArticle, type Row } from '@/lib/laws/diff';
+import { toggleResultSelection, selectionCounts } from '@/lib/laws/selection';
+import { validLawDate, validLawMonth, lawDateResults } from '@/lib/laws/date-view';
 import { readLawHash, writeLawUrl } from '@/lib/laws/url-state';
 import {
   citation, compareTable, copyRich, ddayLabel, download, fmtDate, fmtShort, lawGoUrl, todayKST, toICS, weekday,
@@ -24,7 +26,7 @@ function loadDetail(lawId: string): Promise<LawDetail> {
     detailCache.set(lawId, fetch(`/data/laws/${lawId}.json`).then((r) => {
       if (!r.ok) throw new Error(String(r.status));
       return r.json();
-    }));
+    }).catch((error) => { detailCache.delete(lawId); throw error; }));
   }
   return detailCache.get(lawId)!;
 }
@@ -56,6 +58,11 @@ export default function LawsClient({ index }: { index: LawIndex }) {
   const [lawsOnly, setLawsOnly] = useState(false);
   const [month, setMonth] = useState<string | null>(null);
   const [mode, setMode] = useState<'list' | 'cal'>('list');
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [selectedOnly, setSelectedOnly] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const exportLock = useRef(false);
+  const [exportError, setExportError] = useState<string | null>(null);
   const [day, setDay] = useState<string | null>(null);
   const [open, setOpen] = useState<Set<string>>(new Set());
   const [focus, setFocus] = useState<string | null>(null);
@@ -71,6 +78,11 @@ export default function LawsClient({ index }: { index: LawIndex }) {
   useEffect(() => {
     const restore = () => {
       if (restoreScrollTimer.current) clearTimeout(restoreScrollTimer.current);
+    if (window.matchMedia('(max-width: 700px)').matches) setLayout('unified');
+    try {
+      const saved = localStorage.getItem('lr-layout');
+      if (saved === 'split' || saved === 'unified') setLayout(saved);
+    } catch { /* 저장소가 막혀도 기본값으로 돈다 */ }
       const now = todayKST();
       const sp = new URLSearchParams(location.search);
       const hash = readLawHash(location.hash);
@@ -83,9 +95,12 @@ export default function LawsClient({ index }: { index: LawIndex }) {
       setLaws(sp.get('law')?.split(',').filter(Boolean) || []);
       setRulesOnly(sp.get('rules') === '1');
       setLawsOnly(sp.get('level') === 'law');
-      setMonth(sp.get('m') || null);
+      const restoredDay = validLawDate(sp.get('d')) ? sp.get('d')! : null;
+      const restoredMonth = validLawMonth(sp.get('m')) ? sp.get('m')! : null;
+      setMonth(restoredDay?.slice(0, 6) ?? restoredMonth ?? (sp.get('mode') === 'cal' ? now.slice(0, 6) : null));
       setMode(sp.get('mode') === 'cal' ? 'cal' : 'list');
-      setDay(sp.get('d') || null);
+      setDay(restoredDay);
+      setSelectedOnly(false);
       setOpen(new Set(ev ? [ev.id] : []));
       setFocus(ev?.id || null);
       setUrlReady(true);
@@ -95,11 +110,6 @@ export default function LawsClient({ index }: { index: LawIndex }) {
       }
     };
     restore();
-    if (window.matchMedia('(max-width: 700px)').matches) setLayout('unified');
-    try {
-      const saved = localStorage.getItem('lr-layout');
-      if (saved === 'split' || saved === 'unified') setLayout(saved);
-    } catch { /* 저장소가 막혀도 기본값으로 돈다 */ }
     window.addEventListener('popstate', restore);
     return () => {
       window.removeEventListener('popstate', restore);
@@ -131,19 +141,22 @@ export default function LawsClient({ index }: { index: LawIndex }) {
       if (laws.length && !laws.includes(e.group)) return false;
       if (lawsOnly && e.level !== '법률') return false;
       if (rulesOnly && e.rules.length === 0) return false;
-      if (month && !e.date.startsWith(month)) return false;
+
       if (!needle) return true;
       const hay = [e.law, e.short, e.headline ?? '', e.summary, e.cause ?? '',
         ...e.changes.map((c) => `${c.article} ${c.title}`), ...e.rules.map((r) => r.topic)].join(' ').toLowerCase();
       return needle.split(/\s+/).every((w) => hay.includes(w));
     });
-  }, [base, laws, rulesOnly, lawsOnly, month, q]);
-  const filtered = useMemo(
-    () => (day
-      ? matched.filter((e) => e.date === day || e.promulgations.some((p) => p.date === day))
-      : mode === 'cal' ? matched.filter((e) => e.date > today) : matched),
-    [matched, day, mode, today],
-  );
+  }, [base, laws, rulesOnly, lawsOnly, q]);
+  const currentResults = useMemo(() => lawDateResults(matched, month, day, mode === 'cal'), [matched, month, day, mode]);
+  const selectedEvents = useMemo(() => index.events.filter((e) => selectedIds.has(e.id)), [index.events, selectedIds]);
+  const showSelectedOnly = selectedOnly && selectedEvents.length > 0;
+  const filtered = showSelectedOnly ? selectedEvents : currentResults;
+  const { shown: visibleSelected, hidden: hiddenSelected, all: allCurrentSelected } = selectionCounts(selectedIds, currentResults.map(e => e.id));
+  const toggleSelection = (id: string) => setSelectedIds((prev) => {
+    const next = new Set(prev); if (next.has(id)) next.delete(id); else next.add(id); return next;
+  });
+  const clearSelection = () => { setSelectedIds(new Set()); setSelectedOnly(false); setExportError(null); };
 
   // 숨겨진 상세 선택은 필터를 되돌려도 다시 살아나지 않게 비운다.
   const [previousFiltered, setPreviousFiltered] = useState(filtered);
@@ -234,7 +247,7 @@ export default function LawsClient({ index }: { index: LawIndex }) {
     return () => window.removeEventListener('keydown', onKey);
   }, [filtered, focus, open, q, toggle]);
 
-  const resetFilters = () => { setQ(''); setLaws([]); setRulesOnly(false); setLawsOnly(false); setMonth(null); };
+  const resetFilters = () => { setQ(''); setLaws([]); setRulesOnly(false); setLawsOnly(false); setDay(null); setMonth(mode === 'cal' ? today.slice(0, 6) : null); setSelectedOnly(false); };
   const filtersOn = q || laws.length || rulesOnly || lawsOnly || month;
 
   const exportICS = (evs: LawEvent[], name: string) => {
@@ -242,35 +255,25 @@ export default function LawsClient({ index }: { index: LawIndex }) {
     toast.show(`시행일 ${evs.length}건을 캘린더 파일로 받았습니다. 열면 구글·아웃룩 캘린더에 들어갑니다`);
   };
 
-  const exportXLSX = async (evs: LawEvent[]) => {
-    toast.show('엑셀을 만드는 중입니다…');
-    const XLSX = await import('xlsx');
-    const details = await Promise.all([...new Set(evs.map((e) => e.lawId))].map(loadDetail));
-    const byId = new Map(details.flatMap((d) => d.steps.map((s) => [s.id, s] as const)));
-    const rows: (string | number)[][] = [['시행일', '법령', '공포', '구분', '조문', '제목', '변경', '개정 전', '개정 후', '취업규칙 반영', '법제처 원문']];
-    for (const e of evs) {
-      const st = byId.get(e.id);
-      if (!st) continue;
-      const p = e.promulgations[0];
-      for (const c of st.changes) {
-        rows.push([
-          fmtDate(e.date), e.law, p ? `제${p.no}호(${fmtDate(p.date)})` : '', e.kinds.join('·'), c.article, c.title, c.kind,
-          c.before ?? '', c.after ?? '', e.changes.find((x) => x.key === c.key)?.rule ?? '', lawGoUrl(st.mst, e.date),
-        ]);
-      }
-    }
-    rows.push([], ['출처: 국가법령정보센터(법제처) Open API. 법적 효력은 관보·국가법령정보센터 원문을 따릅니다.']);
-    const ws = XLSX.utils.aoa_to_sheet(rows);
-    ws['!cols'] = [12, 22, 18, 10, 10, 18, 6, 60, 60, 18, 40].map((wch) => ({ wch }));
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, '신구대조');
-    XLSX.writeFile(wb, `노동법개정_신구대조_${todayKST()}.xlsx`);
-    toast.show(`조문 ${rows.length - 3}개를 엑셀로 받았습니다`);
+  const exportSelected = async (kind: 'xlsx' | 'docx') => {
+    if (exportLock.current || !selectedEvents.length) return;
+    exportLock.current = true;
+    setExporting(true); setExportError(null);
+    const snapshot = [...selectedEvents];
+    try {
+      const { prepareSelectedLawExport, selectedLawsXlsx, selectedLawsDocx } = await import('@/lib/laws/export-selected');
+      const data = await prepareSelectedLawExport(snapshot, loadDetail);
+      const blob = await (kind === 'xlsx' ? selectedLawsXlsx(data) : selectedLawsDocx(data));
+      download(`노동법개정_선택${snapshot.length}건_${todayKST()}.${kind}`, blob, blob.type);
+      toast.show(`선택한 개정 ${snapshot.length}건 · 조문 ${data.changeCount}개를 받았습니다`);
+    } catch (error) {
+      setExportError(`파일을 만들지 못했습니다. ${error instanceof Error ? error.message : '자료를 불러오지 못했습니다.'} 선택은 유지됩니다. 다시 시도해 주세요.`);
+    } finally { exportLock.current = false; setExporting(false); }
   };
 
   const copyDigest = async (evs: LawEvent[]) => {
     const lines = evs.map((e) => `▸ ${fmtShort(e.date)}(${weekday(e.date)}) ${e.short}: ${headlineOf(e)}`);
-    const text = `[곧 시행되는 노동법 개정]\n${lines.join('\n')}\n\n출처: 국가법령정보센터(법제처) · ${location.origin}/laws`;
+    const text = `[노동법 개정 현황]\n${lines.join('\n')}\n\n출처: 국가법령정보센터(법제처) · ${location.origin}/laws`;
     if (await copyRich(text)) toast.show(`${evs.length}건 요약을 복사했습니다. 메일·메신저에 바로 붙이세요`);
   };
 
@@ -305,7 +308,7 @@ export default function LawsClient({ index }: { index: LawIndex }) {
                 <button
                   className="lr-btn"
                   onClick={() => {
-                    setView('upcoming'); resetFilters();
+                    setMode('list'); setView('upcoming'); resetFilters(); setMonth(null); setDay(null);
                     setOpen(new Set(nextSameDay.map((e) => e.id)));
                     setFocus(next.id);
                     setTimeout(() => document.getElementById(next.id)?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 60);
@@ -313,9 +316,7 @@ export default function LawsClient({ index }: { index: LawIndex }) {
                 >
                   바뀐 조문 보기
                 </button>
-                <button className="lr-btn lr-btn-ghost" onClick={() => exportICS(upcoming, '노동법_시행일.ics')}>
-                  <CalendarPlus size={16} /> 시행일 전부 캘린더에
-                </button>
+
               </div>
             </div>
           </section>
@@ -327,7 +328,7 @@ export default function LawsClient({ index }: { index: LawIndex }) {
               <button
                 key={m}
                 aria-pressed={month === m}
-                onClick={() => { setView('upcoming'); setMonth(month === m ? null : m); }}
+                onClick={() => { setView('upcoming'); setDay(null); setMonth(mode === 'cal' ? m : month === m ? null : m); setSelectedOnly(false); }}
                 title={`${m.slice(0, 4)}년 ${+m.slice(4)}월 시행 ${n}건`}
               >
                 <span className="m">{m.slice(2, 4)}.{m.slice(4)}</span>
@@ -360,8 +361,8 @@ export default function LawsClient({ index }: { index: LawIndex }) {
               )}
             </label>
             <div className="lr-seg" role="group" aria-label="보기">
-              <button aria-pressed={mode === 'list'} onClick={() => { setMode('list'); setDay(null); }}><Rows3 size={14} style={{ display: 'inline' }} /> 목록</button>
-              <button aria-pressed={mode === 'cal'} onClick={() => { setMode('cal'); setMonth(null); }}><CalendarDays size={14} style={{ display: 'inline' }} /> 달력</button>
+              <button aria-pressed={mode === 'list'} onClick={() => { setMode('list'); setDay(null); setSelectedOnly(false); }}><Rows3 size={14} style={{ display: 'inline' }} /> 목록</button>
+              <button aria-pressed={mode === 'cal'} onClick={() => { setMode('cal'); setMonth(month ?? today.slice(0, 6)); setDay(null); setSelectedOnly(false); }}><CalendarDays size={14} style={{ display: 'inline' }} /> 날짜로 보기</button>
             </div>
             {mode === 'list' && (
               <div className="lr-seg" role="group" aria-label="기간">
@@ -372,23 +373,20 @@ export default function LawsClient({ index }: { index: LawIndex }) {
                 ))}
               </div>
             )}
-            <button className="lr-btn lr-btn-ghost" onClick={() => exportXLSX(filtered)} disabled={!filtered.length} title="보이는 개정의 조문 전·후를 엑셀로">
-              <FileSpreadsheet size={16} /> 엑셀
-            </button>
-            <SubscribeButton
-              laws={laws}
-              rulesOnly={rulesOnly}
-              lawsOnly={lawsOnly}
-              onDownload={() => exportICS(filtered.filter((e) => e.date > today), '노동법_시행일.ics')}
-              toast={toast.show}
-            />
-            <button className="lr-btn lr-btn-ghost" onClick={() => copyDigest(filtered)} title="메일·메신저용 요약 복사">
-              <ClipboardCopy size={16} /> 요약 복사
-            </button>
+            <details className="lr-more-tools">
+              <summary className="lr-btn lr-btn-ghost">더보기</summary>
+              <div className="lr-more-content">
+                <SubscribeButton laws={laws} rulesOnly={rulesOnly} lawsOnly={lawsOnly}
+                  onDownload={() => exportICS(filtered.filter((e) => e.date > today), '노동법_시행일.ics')} toast={toast.show} />
+                <button className="lr-btn lr-btn-ghost" onClick={() => copyDigest(filtered)} disabled={!filtered.length}>
+                  <ClipboardCopy size={16} /> 현재 결과 요약 복사
+                </button>
+              </div>
+            </details>
           </div>
           <div className="lr-chips" role="group" aria-label="법령 필터">
             <button className="lr-chip lr-chip-warn" aria-pressed={rulesOnly} onClick={() => setRulesOnly(!rulesOnly)}>
-              취업규칙 고칠 것만
+              취업규칙 관련
             </button>
             <button className="lr-chip" aria-pressed={lawsOnly} onClick={() => setLawsOnly(!lawsOnly)} title="시행령·시행규칙 등 하위법령을 숨긴다">
               법률만
@@ -418,19 +416,38 @@ export default function LawsClient({ index }: { index: LawIndex }) {
 
       <section id="law-list" className="lr-wrap" aria-label="법령 개정 목록">
         {mode === 'cal' && (
-          <CalendarView events={matched} today={today} selected={day} onSelect={setDay} />
+          <CalendarView events={matched} today={today} selected={day} month={month ?? today.slice(0, 6)}
+            onMonth={(m) => { setMonth(m); setDay(null); setSelectedOnly(false); }}
+            onSelect={(d) => { setDay(d); setSelectedOnly(false); }} />
         )}
-        {mode === 'cal' && day && (
+        {mode === 'cal' && day && !showSelectedOnly && (
           <div className="lr-month">
             <h2>{fmtDate(day)} ({weekday(day)})</h2>
-            <span className="lr-eyebrow">시행·공포 {filtered.length}건</span>
+            <span className="lr-eyebrow">시행 {currentResults.length}건</span>
             <button className="lr-chip" onClick={() => setDay(null)}><X size={12} style={{ display: 'inline', marginRight: 2 }} /> 날짜 해제</button>
           </div>
         )}
+        <div className="lr-results-bar">
+          <div><strong>{showSelectedOnly ? '선택한 개정' : '현재 결과'} {filtered.length}건</strong><span className="lr-eyebrow"> · 시행일 기준</span></div>
+          {!showSelectedOnly && <label className="lr-select-all"><input type="checkbox" checked={allCurrentSelected}
+            ref={(el) => { if (el) el.indeterminate = visibleSelected > 0 && !allCurrentSelected; }}
+            disabled={!currentResults.length || exporting}
+            onChange={() => setSelectedIds((prev) => toggleResultSelection(prev, currentResults.map(e => e.id)))} />
+            현재 결과 {currentResults.length}건 전체 선택</label>}
+        </div>
+        {selectedEvents.length > 0 && <div className="lr-selection-bar" aria-label="선택한 개정 내보내기">
+          <div className="lr-selection-status"><strong>{selectedEvents.length}건 선택</strong>{hiddenSelected > 0 && <span> · 현재 결과 밖 {hiddenSelected}건 포함</span>}</div>
+          <button className="lr-btn lr-btn-sm" disabled={exporting} onClick={() => exportSelected('xlsx')}><FileSpreadsheet size={16} /> 엑셀(.xlsx)</button>
+          <button className="lr-btn lr-btn-sm" disabled={exporting} onClick={() => exportSelected('docx')}><FileText size={16} /> 문서(.docx)</button>
+          <button className="lr-btn lr-btn-ghost lr-btn-sm" onClick={() => setSelectedOnly(!selectedOnly)} aria-pressed={selectedOnly}>{selectedOnly ? '현재 결과로 돌아가기' : '선택한 항목 보기'}</button>
+          <button className="lr-btn lr-btn-ghost lr-btn-sm" disabled={exporting} onClick={clearSelection}>선택 해제</button>
+          <p className="lr-export-note">{exporting ? '선택한 신구대조 원문 전체를 파일로 준비하는 중입니다. 긴 조문은 시간이 걸릴 수 있습니다…' : '선택한 개정의 신구대조 원문 전체를 저장합니다. 긴 조문은 문서 분량이 많아질 수 있습니다. DOCX의 한컴 한글 앱 호환은 아직 검수하지 않았습니다.'}</p>
+        </div>}
+        {exportError && <p className="lr-export-error" role="alert">{exportError}</p>}
         {filtered.length === 0 ? (
           <div className="lr-empty">
             <p>조건에 맞는 개정이 없습니다.</p>
-            <button className="lr-btn lr-btn-ghost" style={{ marginTop: 12 }} onClick={() => { resetFilters(); setView('all'); }}>
+            <button className="lr-btn lr-btn-ghost" style={{ marginTop: 12 }} onClick={() => { resetFilters(); setView('all'); setMode('list'); setMonth(null); setDay(null); }}>
               전체 기간에서 다시 찾기
             </button>
           </div>
@@ -452,7 +469,7 @@ export default function LawsClient({ index }: { index: LawIndex }) {
                   onLayout={setLayoutSaved}
                   onToggle={() => toggle(e.id)}
                   toast={toast.show}
-                  onExport={() => exportXLSX([e])}
+                  selected={selectedIds.has(e.id)} onSelect={() => toggleSelection(e.id)} selectionDisabled={exporting}
                   art93={index.art93}
                   onCheck={() => setChecking(true)}
                 />
@@ -486,21 +503,20 @@ export default function LawsClient({ index }: { index: LawIndex }) {
 }
 
 function groupByMonth(evs: LawEvent[]): [string, LawEvent[]][] {
-  const out: [string, LawEvent[]][] = [];
+  const groups = new Map<string, LawEvent[]>();
   for (const e of evs) {
-    const m = e.date.slice(0, 6);
-    const last = out[out.length - 1];
-    if (last && last[0] === m) last[1].push(e);
-    else out.push([m, [e]]);
+    const month = e.date.slice(0, 6);
+    if (!groups.has(month)) groups.set(month, []);
+    groups.get(month)!.push(e);
   }
-  return out;
+  return [...groups];
 }
 
 function EventCard({
-  e, today, open, focused, layout, onLayout, onToggle, toast, onExport, art93, onCheck,
+  e, today, open, focused, layout, onLayout, onToggle, toast, selected, onSelect, selectionDisabled, art93, onCheck,
 }: {
   e: LawEvent; today: string; open: boolean; focused: boolean; layout: Layout; onLayout: (l: Layout) => void;
-  onToggle: () => void; toast: (m: string) => void; onExport: () => void; art93: Record<string, string>; onCheck: () => void;
+  onToggle: () => void; toast: (m: string) => void; selected: boolean; onSelect: () => void; selectionDisabled: boolean; art93: Record<string, string>; onCheck: () => void;
 }) {
   const [detail, setDetail] = useState<LawDetail | null>(null);
   const [whyOpen, setWhyOpen] = useState(false);
@@ -522,6 +538,7 @@ function EventCard({
 
   return (
     <article className="lr-card" id={e.id} data-open={open} data-focus={focused}>
+      <label className="lr-card-select"><input type="checkbox" checked={selected} onChange={onSelect} disabled={selectionDisabled} aria-label={`${e.short} ${fmtDate(e.date)} 개정 선택`} /> 선택</label>
       <div
         className="lr-row"
         role="button"
@@ -572,12 +589,6 @@ function EventCard({
                 </div>
                 <span className="sp" />
                 <button className="lr-btn lr-btn-sm" onClick={copyAll}><ClipboardCopy size={14} /> 신구대조표 복사</button>
-                <button className="lr-btn lr-btn-ghost lr-btn-sm" onClick={onExport}><FileSpreadsheet size={14} /> 엑셀</button>
-                {upcoming && (
-                  <button className="lr-btn lr-btn-ghost lr-btn-sm" onClick={() => { download(`${e.short}_${e.date}.ics`, toICS([e]), 'text/calendar;charset=utf-8'); toast('캘린더 파일을 받았습니다'); }}>
-                    <CalendarPlus size={14} /> 캘린더
-                  </button>
-                )}
                 <a className="lr-btn lr-btn-ghost lr-btn-sm" href={lawGoUrl(step.mst, e.date)} target="_blank" rel="noreferrer">
                   <ExternalLink size={14} /> 법제처 원문
                 </a>
