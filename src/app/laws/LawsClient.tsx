@@ -9,6 +9,7 @@ import RulesCheck from './RulesCheck';
 import CalendarView from './CalendarView';
 import SubscribeButton from './SubscribeButton';
 import { diffArticle, type Row } from '@/lib/laws/diff';
+import { readLawHash, writeLawUrl } from '@/lib/laws/url-state';
 import {
   citation, compareTable, copyRich, ddayLabel, download, fmtDate, fmtShort, lawGoUrl, todayKST, toICS, weekday,
   type LawDetail, type LawEvent, type LawIndex, type RuleDetail, type StepChange,
@@ -62,60 +63,49 @@ export default function LawsClient({ index }: { index: LawIndex }) {
   const searchRef = useRef<HTMLInputElement>(null);
   const toast = useToast();
   const [checking, setChecking] = useState(false);
-  const restoredUrl = useRef(false);
   const [urlReady, setUrlReady] = useState(false);
+  const restoreScrollTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const closeCheck = useCallback(() => setChecking(false), []);
 
-  // 오늘(KST)·URL 상태·화면 너비는 마운트 후에 읽는다(정적 HTML 과 어긋나지 않게)
+  // 처음 진입과 뒤로/앞으로 이동 모두 URL에서 전체 상태를 복원한다.
   useEffect(() => {
-    if (restoredUrl.current) return;
-    restoredUrl.current = true;
-    setUrlReady(true);
-    setToday(todayKST());
-    const sp = new URLSearchParams(location.search);
-    const v = sp.get('view');
-    if (v === 'recent' || v === 'all') setView(v);
-    if (sp.get('q')) setQ(sp.get('q')!);
-    if (sp.get('law')) setLaws(sp.get('law')!.split(','));
-    if (sp.get('rules') === '1') setRulesOnly(true);
-    if (sp.get('level') === 'law') setLawsOnly(true);
-    if (sp.get('m')) setMonth(sp.get('m'));
-    if (sp.get('mode') === 'cal') setMode('cal');
-    if (sp.get('d')) setDay(sp.get('d'));
+    const restore = () => {
+      if (restoreScrollTimer.current) clearTimeout(restoreScrollTimer.current);
+      const now = todayKST();
+      const sp = new URLSearchParams(location.search);
+      const hash = readLawHash(location.hash);
+      const evId = sp.get('event') || hash.split('~')[0];
+      const ev = index.events.find((e) => e.id === evId);
+      const v = sp.get('view');
+      setToday(now);
+      setView(v === 'recent' || v === 'all' ? v : ev && ev.date <= now ? 'all' : 'upcoming');
+      setQ(sp.get('q') || '');
+      setLaws(sp.get('law')?.split(',').filter(Boolean) || []);
+      setRulesOnly(sp.get('rules') === '1');
+      setLawsOnly(sp.get('level') === 'law');
+      setMonth(sp.get('m') || null);
+      setMode(sp.get('mode') === 'cal' ? 'cal' : 'list');
+      setDay(sp.get('d') || null);
+      setOpen(new Set(ev ? [ev.id] : []));
+      setFocus(ev?.id || null);
+      setUrlReady(true);
+      if (ev) {
+        const target = hash.split('~')[0] === ev.id ? hash : ev.id;
+        restoreScrollTimer.current = setTimeout(() => document.getElementById(target)?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 400);
+      }
+    };
+    restore();
     if (window.matchMedia('(max-width: 700px)').matches) setLayout('unified');
     try {
       const saved = localStorage.getItem('lr-layout');
       if (saved === 'split' || saved === 'unified') setLayout(saved);
     } catch { /* 저장소가 막혀도 기본값으로 돈다 */ }
-    const hash = sp.get('event') || decodeURIComponent(location.hash.slice(1));
-    if (hash) {
-      const evId = hash.split('~')[0];
-      const ev = index.events.find((e) => e.id === evId);
-      if (ev) {
-        if (ev.date <= todayKST()) setView('all');
-        setOpen(new Set([evId]));
-        setFocus(evId);
-        setTimeout(() => document.getElementById(hash)?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 400);
-      }
-    }
+    window.addEventListener('popstate', restore);
+    return () => {
+      window.removeEventListener('popstate', restore);
+      if (restoreScrollTimer.current) clearTimeout(restoreScrollTimer.current);
+    };
   }, [index.events]);
-
-  useEffect(() => {
-    if (!urlReady) return;
-    const sp = new URLSearchParams();
-    if (view !== 'upcoming') sp.set('view', view);
-    if (q) sp.set('q', q);
-    if (laws.length) sp.set('law', laws.join(','));
-    if (rulesOnly) sp.set('rules', '1');
-    if (lawsOnly) sp.set('level', 'law');
-    if (month) sp.set('m', month);
-    if (mode === 'cal') sp.set('mode', 'cal');
-    if (day) sp.set('d', day);
-    if (focus && open.has(focus)) sp.set('event', focus);
-    const s = sp.toString();
-    const nextUrl = `${location.pathname}${s ? `?${s}` : ''}${location.hash}`;
-    if (nextUrl !== location.pathname + location.search + location.hash) history.replaceState(history.state, '', nextUrl);
-  }, [view, q, laws, rulesOnly, lawsOnly, month, mode, day, focus, open, urlReady]);
 
   const setLayoutSaved = (l: Layout) => {
     setLayout(l);
@@ -154,6 +144,42 @@ export default function LawsClient({ index }: { index: LawIndex }) {
       : mode === 'cal' ? matched.filter((e) => e.date > today) : matched),
     [matched, day, mode, today],
   );
+
+  // 숨겨진 상세 선택은 필터를 되돌려도 다시 살아나지 않게 비운다.
+  const [previousFiltered, setPreviousFiltered] = useState(filtered);
+  if (previousFiltered !== filtered) {
+    setPreviousFiltered(filtered);
+    const visible = new Set(filtered.map((e) => e.id));
+    if ([...open].some((id) => !visible.has(id))) setOpen(new Set([...open].filter((id) => visible.has(id))));
+    if (focus && !visible.has(focus)) setFocus(null);
+  }
+
+  useEffect(() => {
+    if (!urlReady) return;
+    const event = focus && open.has(focus) && filtered.some((e) => e.id === focus) ? focus : null;
+    const nextUrl = writeLawUrl(new URL(location.href), {
+      view, q, laws, rulesOnly, lawsOnly, month, mode, day, event,
+    }, index.events.map((e) => e.id));
+    if (nextUrl !== location.pathname + location.search + location.hash) history.replaceState(history.state, '', nextUrl);
+  }, [view, q, laws, rulesOnly, lawsOnly, month, mode, day, focus, open, filtered, urlReady, index.events]);
+
+  const listHref = urlReady
+    ? writeLawUrl(new URL(location.href), {
+      view, q, laws, rulesOnly, lawsOnly, month, mode, day, event: null,
+    }, index.events.map((e) => e.id)).split('#')[0] + '#law-list'
+    : '#law-list';
+
+  const returnToList = (ev: React.MouseEvent<HTMLAnchorElement>) => {
+    if (ev.button !== 0 || ev.metaKey || ev.ctrlKey || ev.shiftKey || ev.altKey) return;
+    ev.preventDefault();
+    if (restoreScrollTimer.current) clearTimeout(restoreScrollTimer.current);
+    const url = new URL(ev.currentTarget.href);
+    // 새 목록 위치를 남겨 뒤로 가면 원래 상세 선택으로 돌아갈 수 있다.
+    if (url.href !== location.href) history.pushState(history.state, '', url);
+    setOpen(new Set());
+    setFocus(null);
+    document.getElementById('law-list')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
 
   const months = useMemo(() => {
     const m = new Map<string, number>();
@@ -256,7 +282,7 @@ export default function LawsClient({ index }: { index: LawIndex }) {
           <h1 className="lr-h1">노동관계법령 개정 현황</h1>
           <p className="lr-lead">시행 예정 개정 <b>{upcoming.length}건</b>의 시행일, 개정 내용과 관련 조문을 확인합니다. 취업규칙 관련 항목은 별도로 점검할 수 있습니다.</p>
           <p className="lr-review-note">법령 검수 전 · 개정 제목과 취업규칙 문안은 원문 대조와 공인노무사 검토가 필요합니다.</p>
-          <div className="lr-hero-cta"><a className="lr-btn" href="#law-list">개정 목록 보기</a></div>
+          <div className="lr-hero-cta"><a className="lr-btn" href={listHref} onClick={returnToList}>개정 목록 보기</a></div>
         </header>
 
         {next && (
