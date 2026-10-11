@@ -16,6 +16,31 @@ const ASSET_FILE_REGEX = /\.[^/]+$/
 // 끝낸 뒤에 올린다(2026-10-01 완료). 먼저 걸면 www 속성 소유확인이 리다이렉트로 깨진다.
 const CANONICAL_HOST = 'yellowenvelope.kr'
 
+// 옛 `?category=` 를 현재 `?reason=` 으로 옮긴다 (2026-10-11).
+//
+// GSC 가 아직 긁고 있는 옛 주소 10개를 받아 확인했다(9/25~9/28 크롤).
+//   https://www.노란봉투법.com/search?category=sexual-harassment …
+// 종전에는 /search → /decisions 로만 넘겨 쿼리가 `category=` 인 채 따라붙었고,
+// /decisions 는 `reason=` 만 읽으므로 **필터가 통째로 날아갔다**(실측: 200 이지만 전체 목록).
+//
+// 🔴 next.config 의 redirects 로 하면 Next 가 원래 질의를 덧붙여
+//    `/decisions?category=…&reason=…` 가 된다. 죽은 파라미터가 색인에 남아서 여기로 옮겼다.
+//    미들웨어에서는 최종 URL 을 그대로 만들 수 있다.
+//
+// 이름을 짐작하지 않고 src/lib/types.ts 의 REASON_LABELS 와 하나씩 대조했다.
+// 대응하는 reason 이 없는 둘(retirement · industrial-accident)은 여기 넣지 않는다 —
+// next.config 의 포괄 규칙이 필터 없는 /decisions 로 보낸다. 홈으로 보내지 않는다.
+const LEGACY_CATEGORY_TO_REASON: Record<string, string> = {
+  'sexual-harassment': 'sexual_harassment',   // 성희롱
+  'renewal-expectation': 'contract_expiry',   // 갱신기대권/계약만료
+  'management-dismissal': 'redundancy',       // 경영상해고
+  'dismissal-nonexistence': 'no_dismissal',   // 해고부존재/사직
+  misconduct: 'misconduct',                   // 비위행위
+  probation: 'probation',                     // 수습해고
+  embezzlement: 'embezzlement',               // 횡령/배임
+  discrimination: 'discrimination',           // 차별시정
+}
+
 export function middleware(request: NextRequest) {
   // Cloudflare 가 앞단에 있으므로 nextUrl.host 가 아니라 Host 헤더를 본다.
   const host = (request.headers.get('host') || '').toLowerCase().split(':')[0]
@@ -25,6 +50,24 @@ export function middleware(request: NextRequest) {
     target.port = ''
     target.protocol = 'https:'
     // 308 이 아니라 301 이다. 검색엔진의 정규화 신호로 쓰는 것이고, 메서드 보존이 필요 없다.
+    return NextResponse.redirect(target, 301)
+  }
+
+  // 옛 /search?category=… 는 호스트 정규화 뒤, 다른 처리보다 먼저 보낸다.
+  if (request.nextUrl.pathname === '/search') {
+    const legacy = request.nextUrl.searchParams.get('category')
+    const reason = legacy ? LEGACY_CATEGORY_TO_REASON[legacy] : undefined
+    const target = request.nextUrl.clone()
+    target.pathname = '/decisions'
+    if (reason) {
+      target.search = ''                       // 죽은 category 를 버린다
+      target.searchParams.set('reason', reason)
+    } else if (legacy) {
+      // 대응하는 reason 이 없는 옛 값(retirement · industrial-accident 등).
+      // 억지로 끼워 맞추지 않고 필터 없는 허브로 보낸다. 홈으로 보내지 않는다.
+      target.search = ''
+    }
+    // q= 같은 다른 질의는 그대로 둔다 — /decisions 가 읽는다(실측: /database?q= 44건이 이 경로다).
     return NextResponse.redirect(target, 301)
   }
 
