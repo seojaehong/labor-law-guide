@@ -193,8 +193,8 @@ export async function buildLawsContext(
       // 이고, 금액(「계속근로 1년에 30일분 이상의 평균임금」)은 **본문에 있다.**
       // 제목만 보면 제9조(지급 등)나 제15조(급여수준)를 고르게 된다.
       //
-      // 그래서 question 에 **제목 + 본문 앞부분**을 함께 넣는다. jev.ts 를 고치지 않으므로
-      // FAQ 경로에는 영향이 없다 — FAQ 는 제목이 이미 질문 꼴이라 본문이 필요 없다.
+      // 그래서 법령 후보 question 에 **제목 + 본문 앞부분**을 함께 넣는다.
+      // FAQ 후보 구성은 유지하지만, 공용 jev.ts 의 공급자·폴백 변경은 FAQ 에도 적용된다.
       const jevable = rows.slice(0, JEV_IN).map((r) => {
         const head = `${r.law_name} ${r.article_label}${r.article_title ? ` (${r.article_title})` : ''}`;
         // 본문 머리의 「제NN조(제목)」 반복을 떼고 실제 내용만 남긴다
