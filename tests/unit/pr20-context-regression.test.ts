@@ -9,11 +9,13 @@ const mocks = vi.hoisted(() => ({
   order: vi.fn(),
   limit: vi.fn(),
   jevRerank: vi.fn(),
+  rerankPublicLaws: vi.fn(),
   getGenerativeModel: vi.fn(),
   fetch: vi.fn(),
 }));
 
 vi.mock('@/lib/chat/context/jev', () => ({ jevRerank: mocks.jevRerank }));
+vi.mock('@/lib/chat/context/public-law-rerank', () => ({ rerankPublicLaws: mocks.rerankPublicLaws }));
 vi.mock('@/lib/vertex/client', () => ({ getGenerativeModel: mocks.getGenerativeModel }));
 vi.mock('@/lib/supabase-server', () => ({ supabaseAdmin: { from: mocks.from } }));
 vi.mock('@/lib/supabase', () => ({ supabase: { from: mocks.from } }));
@@ -121,9 +123,8 @@ describe('PR20 context selection and truncation regressions', () => {
   it('buildLawsContext renders the final three reranked articles in selected order', async () => {
     const candidates = Array.from({ length: 40 }, (_, i) => makeLaw(i + 1));
     mocks.rpc.mockResolvedValue({ data: candidates, error: null });
-    type Candidate = { question: string; answer: string; __row: ReturnType<typeof makeLaw> };
-    mocks.jevRerank.mockImplementation(async (_query: string, items: Candidate[]) => [
-      items[31], items[9], items[1],
+    mocks.rerankPublicLaws.mockImplementation(async (_query: string, items: ReturnType<typeof makeLaw>[]) => [
+      items[31], ...items.filter((_, i) => i !== 31),
     ]);
 
     const result = await buildLawsContext(db, query, embedding);
@@ -134,18 +135,11 @@ describe('PR20 context selection and truncation regressions', () => {
       max_results: 60,
       law_hint: null,
     });
-    expect(mocks.jevRerank).toHaveBeenCalledExactlyOnceWith(
-      query,
-      candidates.slice(0, 32).map((row) => ({
-        question: `${row.law_name} ${row.article_label} (${row.article_title}) — ${row.body}`,
-        answer: row.body,
-        __row: row,
-      })),
-      3,
-    );
+    expect(mocks.rerankPublicLaws).toHaveBeenCalledExactlyOnceWith(query, candidates);
+    expect(mocks.jevRerank).not.toHaveBeenCalled();
     expect(result).toMatchObject({ rows: 3, via: 'rpc', status: 'ok' });
-    expect(lawIds(result.ctx)).toEqual([32, 10, 2]);
-    for (const index of [31, 9, 1]) {
+    expect(lawIds(result.ctx)).toEqual([32, 1, 2]);
+    for (const index of [31, 0, 1]) {
       expect(result.ctx).toContain(`\n  ${candidates[index].body}\n`);
     }
     expect(result.ctx).toContain('관련 법령 조문 (3건, 법제처 원문)');
@@ -178,6 +172,7 @@ describe('PR20 context selection and truncation regressions', () => {
     const result = await buildLawsContext(db, query);
 
     expect(mocks.jevRerank).not.toHaveBeenCalled();
+    expect(mocks.rerankPublicLaws).not.toHaveBeenCalled();
     expect(mocks.rpc).toHaveBeenCalledExactlyOnceWith('search_law_articles_hybrid', {
       query_text: query,
       query_embedding: null,

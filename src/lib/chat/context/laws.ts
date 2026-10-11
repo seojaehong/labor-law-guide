@@ -22,7 +22,7 @@
  * Jev 가 이 자리를 올린다 — 효과는 배포 후 `_laws=` 마커와 로그로 확인한다.
  */
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { jevRerank } from './jev';
+import { rerankPublicLaws } from './public-law-rerank';
 import { toLexQuery } from './lex-query';
 import { type Retrieval } from './result';
 
@@ -37,16 +37,9 @@ type LawRow = {
   matched: number;
 };
 
-// 후보를 넓게 뽑고 고르기는 Jev 에 맡긴다. 재선택은 풀 밖의 것을 꺼내올 수 없다.
-// faq.ts 가 K=100 에서 267ms 를 쟀고 K=134 에서 1,239ms 로 터졌다. 조문은 본문이
-// 길어 프롬프트가 커지므로 더 보수적으로 둔다.
-// 2026-10-05 측정으로 올렸다. 정답이 어휘 **33위·47위**에 있는 질의가 있어
-// K=20 으로는 Jev 가 아예 못 본다(「임금체불 벌칙」의 제107조 33위,
-// 「사업주 안전보건 조치」의 산안법 제38조 47위).
-// jev.ts 의 numbered() 는 **question 만** 쓰고 120자로 자르므로 K 를 늘려도
-// 프롬프트가 크게 늘지 않는다 — 60개 × 120자 ≈ 7천자.
+// Retrieval remains 60. The public-only reranker sees at most the first 32.
+// It cannot recover candidates outside that prefix; the limit is tested explicitly.
 const RETRIEVE_K = 60;
-const JEV_IN = 32;      // faq.ts 가 2026-10-05 에 16 → 32 로 올린 것과 같은 눈금
 const FINAL_N = 3;
 // ★ 2026-10-06 — 700 에서 올렸다. 자르는 자리가 사고를 만든다.
 //
@@ -175,44 +168,21 @@ export async function buildLawsContext(
       law_hint: hint,
     });
     if (error) {
-      console.error('[laws.ts] rpc error:', JSON.stringify(error));
+      console.error('[laws.ts] rpc error');
       return { ctx: '', rows: 0, via: 'rpc', status: 'error' };
     }
     let rows = (data ?? []) as LawRow[];
     if (rows.length === 0) {
-      console.warn(`[laws.ts] rpc 0 rows (lex="${lex.slice(0, 40)}")`);
+      console.warn('[laws.ts] rpc 0 rows');
       return { ctx: '', rows: 0, via: 'rpc', status: '0rows' };
     }
 
-    // Jev 재선택 — 제목을 question 으로, 본문을 answer 로 넘긴다.
-    // JEV_ON=false 면 건너뛴다. 실패하면 jevRerank 가 원래 순서를 돌려준다.
+    // Public-only reranking has its own default-off flag. It checks complete
+    // public text provenance and never uses the legacy FAQ/free-text transport.
     if (process.env.JEV_ON !== 'false' && rows.length > FINAL_N) {
-      // ★ jev.ts 의 numbered() 는 **question 만** 쓰고 120자로 자른다(answer 를 받아
-      // 두고도 쓰지 않는다). 조문 제목은 명사구라 그것만으로는 못 고르는 질의가 있다 —
-      // 「퇴직금 얼마나 받나」의 정답은 퇴직급여법 제8조인데 제목이 「퇴직금제도의 설정 등」
-      // 이고, 금액(「계속근로 1년에 30일분 이상의 평균임금」)은 **본문에 있다.**
-      // 제목만 보면 제9조(지급 등)나 제15조(급여수준)를 고르게 된다.
-      //
-      // 그래서 법령 후보 question 에 **제목 + 본문 앞부분**을 함께 넣는다.
-      // FAQ 후보 구성은 유지하지만, 공용 jev.ts 의 공급자·폴백 변경은 FAQ 에도 적용된다.
-      const jevable = rows.slice(0, JEV_IN).map((r) => {
-        const head = `${r.law_name} ${r.article_label}${r.article_title ? ` (${r.article_title})` : ''}`;
-        // 본문 머리의 「제NN조(제목)」 반복을 떼고 실제 내용만 남긴다
-        const lead = (r.body || '')
-          .replace(/^\s*제\d+조(?:의\d+)?\s*\([^)]*\)\s*/, '')
-          .replace(/\s+/g, ' ')
-          .trim();
-        return {
-          question: `${head} — ${lead}`,   // jev.ts 가 120자로 자른다
-          answer: lead.slice(0, 300),
-          __row: r,
-        };
-      });
-      const picked = await jevRerank(lex, jevable, FINAL_N);
-      rows = picked.map((p) => p.__row);
-    } else {
-      rows = rows.slice(0, FINAL_N);
+      rows = await rerankPublicLaws(userText, rows);
     }
+    rows = rows.slice(0, FINAL_N);
 
     let ctx = `\n\n═══ 관련 법령 조문 (${rows.length}건, 법제처 원문) ═══\n`;
     for (const r of rows) {
@@ -231,8 +201,8 @@ export async function buildLawsContext(
       '예외·준용·세부기준을 뒤에 쓴다.** 그러므로 잘린 조문으로 「예외는 없다」·「전부 해당한다」 ' +
       '같은 단정을 하지 말고, 단서나 준용 규정이 뒤에 있을 수 있다고 밝힌 뒤 원문 확인을 권한다.';
     return { ctx, rows: rows.length, via: 'rpc', status: 'ok' };
-  } catch (err) {
-    console.error('[laws.ts] 예외:', (err as Error)?.message?.slice(0, 150));
+  } catch {
+    console.error('[laws.ts] retrieval error');
     return { ctx: '', rows: 0, via: 'rpc', status: 'error' };
   }
 }
