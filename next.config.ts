@@ -15,42 +15,12 @@ const nextConfig: NextConfig = {
   // 둘 다 영구 이동으로 넘긴다. **q 같은 질의 문자열은 Next 가 그대로 붙여 준다.**
   // /cases 는 남긴다 — 손으로 고른 핵심 판례 6건 요약이라 검색과 목적이 다르다.
   // /cases/:id · /decisions/:id · /interpretations/:id 상세는 건드리지 않는다(사이트맵에 실린 주소다).
-  // 2026-10-11 — 옛 `?category=` 를 현재 `?reason=` 으로 옮긴다.
-  // GSC 가 아직 긁고 있는 옛 주소 10개를 받아 확인했다(9/25~9/28 크롤).
-  //   https://www.노란봉투법.com/search?category=sexual-harassment …
-  // 종전에는 `/search` → `/decisions` 로만 넘겨서 **쿼리가 `category=` 인 채 그대로 따라붙었다.**
-  // `/decisions` 는 `reason=` 만 읽으므로 그 값이 무시되고 **필터가 통째로 날아갔다**(실측:
-  // /search?category=discrimination → /decisions?category=discrimination → 200, 전체 목록).
-  //
-  // 🔴 이름을 짐작해서 일괄 치환하지 않았다. src/lib/types.ts 의 REASON_LABELS 와 하나씩 대조했다.
-  //   sexual-harassment      → sexual_harassment (성희롱)
-  //   renewal-expectation    → contract_expiry   (갱신기대권/계약만료)
-  //   management-dismissal   → redundancy        (경영상해고)
-  //   dismissal-nonexistence → no_dismissal      (해고부존재/사직)
-  //   misconduct · probation · embezzlement · discrimination 은 이름이 같다
-  // 대응하는 reason 이 **없는 둘**(retirement · industrial-accident)은 억지로 끼워 맞추지 않고
-  // 필터 없는 /decisions 허브로 보낸다. 홈으로 보내지 않는다 — 목적이 가장 가까운 곳이 허브다.
   async redirects() {
-    const CATEGORY_TO_REASON: Record<string, string> = {
-      'sexual-harassment': 'sexual_harassment',
-      'renewal-expectation': 'contract_expiry',
-      'management-dismissal': 'redundancy',
-      'dismissal-nonexistence': 'no_dismissal',
-      misconduct: 'misconduct',
-      probation: 'probation',
-      embezzlement: 'embezzlement',
-      discrimination: 'discrimination',
-    };
-    const legacy = Object.entries(CATEGORY_TO_REASON).map(([category, reason]) => ({
-      source: '/search',
-      has: [{ type: 'query' as const, key: 'category', value: category }],
-      destination: `/decisions?reason=${reason}`,
-      permanent: true,
-    }));
     return [
-      // 구체적인 규칙이 먼저다. 아래 포괄 규칙이 위를 가리면 안 된다.
-      ...legacy,
-      { source: '/search', destination: '/decisions', permanent: true },
+      // 🔴 `/search` 는 여기에 두지 않는다. **next.config 의 redirects 가 미들웨어보다 먼저 돈다.**
+      // 여기 두면 미들웨어가 /search 를 보기도 전에 /decisions 로 넘어가,
+      // 옛 `?category=` → `?reason=` 매핑이 영영 실행되지 않는다.
+      // 그래서 /search 는 쿼리 유무와 무관하게 src/middleware.ts 가 전담한다.
       { source: '/database', destination: '/decisions', permanent: true },
     ];
   },
