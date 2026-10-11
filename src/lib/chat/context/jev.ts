@@ -82,6 +82,8 @@ async function askJev(
 
   const res = await fetch(API_URL, {
     method: 'POST',
+    redirect: 'error',
+    cache: 'no-store',
     signal,
     headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -157,4 +159,3 @@ export async function jevRerank<T extends Jevable>(
     return items.slice(0, finalN);
   }
 }
-
