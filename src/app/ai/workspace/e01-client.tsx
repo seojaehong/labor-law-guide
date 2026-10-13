@@ -22,7 +22,8 @@ export default function E01Client() {
   function editField(key:keyof E01Facts,value:string) {
     setFacts({...facts,[key]:value,
       ...(key==='notice'&&current.current.approvedLeave?{leaveClaim:'unclear'}:{})});
-    if(current.current.phase!=='input')act(()=>beginEditE01(current.current),false);
+    if(current.current.phase!=='input'||(key==='notice'&&current.current.noticeOrigin==='fixture'))
+      act(()=>beginEditE01(current.current,key==='notice'),false);
   }
   async function word(){
     if(exporting.current)return;

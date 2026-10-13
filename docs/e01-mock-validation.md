@@ -4,7 +4,7 @@ Base: `41e97f841b98e003034d1967cd2f5c34b248f955`.
 
 Original patch SHA256: `d01beab072a399b3501257d3b5b2a579450949fc435265042455c56c692f9ece`, 306835 bytes. Applied without conflicts; recovery branch not merged.
 
-Full unit suite: 574/574 across 62 files. Type check, scoped lint and offline fixture production build pass. Desktop/mobile synthetic M1/M2/M3a/M3b flow and real DOCX/Chromium PDF outputs verified. Production page/API return 404; paid provider calls and DB executions: zero.
+Full unit suite: 579/579 across 63 files. Type check, scoped lint and offline fixture production build pass. Desktop/mobile synthetic M1/M2/M3a/M3b flow and real DOCX/Chromium PDF outputs verified. Production page/API return 404; paid provider calls and DB executions: zero.
 
 Full eslint reproduced independently on an unchanged detached base checkout using the same lockfile/dependencies: 9 errors, 20 warnings. Head diagnostics match base exactly after checkout-path normalization, including rule, severity, line, column and message.
 
@@ -47,3 +47,7 @@ Eight new unit regressions pass. Real browser race reproduction passes in script
 ## Approved-leave status follow-up
 
 Date-presence heuristics were removed. Current 08-18 allegation status is explicit excluded/alleged/unclear input. M2 establishes exclusion; editing current allegation text resets status to unclear and requires explicit confirmation before drafting. Both supplied dated correction sentences pass when exclusion is confirmed. Actual structured allegation conflicts and unknown status produce separate specific UI messages. Three added regressions plus actual browser assertions cover these cases; no claim is made that arbitrary free text has been semantically validated.
+
+## Custom-notice provenance boundary
+
+M2 automatically excludes only known fixture-origin initial/corrected notice text. Any user-origin notice becomes unclear on M2 and requires explicit reconfirmation; editing back to an identical fixture string does not restore fixture provenance. Repeated custom M2 does not inherit an old confirmation. Original notice stays immutable and repeated corrections do not duplicate evidence IDs. Five additional unit combinations cover custom edits before/after M2, M3a/M3b, repeated corrections and save/reapproval. The actual browser script also checks a pre-M2 custom allegation, explicit resolution, M3 transition and repeated-M2 re-confirmation.

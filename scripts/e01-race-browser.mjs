@@ -40,5 +40,16 @@ const output=path.resolve('test-results/e01-race');fs.mkdirSync(output,{recursiv
   await expect(page.getByText(message,{exact:true})).toBeVisible();
  }
  log.push({case:'structured conflict and unknown show specific cause',result:'passed'});
+ await page.goto(base+'/ai/workspace',{waitUntil:'networkidle'});
+ await page.getByLabel('현재 통지 주장',{exact:true}).fill('08-18 무단결근 및 08-25 지각을 주장한다.');
+ await click('사실 저장·이전 승인 무효화');await click('M2 승인휴무 증거 반영');
+ await expect(page.getByLabel('08-18 현재 불참 주장 상태',{exact:true})).toHaveValue('unclear');
+ await click('입력 사실로 모의 상담');await click('회사 답변서 목차 제시');await click('현재 목차 명시적 승인');await click('조건부 초안 작성');
+ await expect(page.getByText('08-18을 현재 불참 주장에 포함하는지 미확정입니다. 현재 불참 주장 상태를 명시적으로 확인하세요.',{exact:true})).toBeVisible();
+ await page.getByLabel('현재 통지 주장',{exact:true}).fill('08-18 승인휴무 제외. 08-25 지각만 주장.');
+ await page.getByLabel('08-18 현재 불참 주장 상태',{exact:true}).selectOption('excluded');await click('사실 저장·이전 승인 무효화');await ready();
+ await click('M3a 인원 판단 미확정');await ready();await click('M3b 독립 사업·정정표 반영');await ready();
+ await click('M2 승인휴무 증거 반영');await expect(page.getByLabel('08-18 현재 불참 주장 상태',{exact:true})).toHaveValue('unclear');
+ log.push({case:'pre-M2 custom edit, explicit review, M3 and repeated M2',result:'passed'});
  fs.writeFileSync(path.join(output,'result.json'),JSON.stringify(log,null,2));console.log(JSON.stringify(log));await browser.close();
 })().catch(e=>{console.error(e.message);process.exit(1)});

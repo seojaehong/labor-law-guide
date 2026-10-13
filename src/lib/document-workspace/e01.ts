@@ -9,6 +9,7 @@ export type E01 = {
   version: number; phase: 'input'|'consultation'|'outline'|'draft';
   scenario: 'M1'|'M2'|'M3a'|'M3b'; facts: E01Facts;
   originalNotice: string; approvedLeave: boolean; headcount: 'assumed8'|'unknown'|'daily4';
+  noticeOrigin: 'fixture'|'user';
   evidence: { id: string; body: string }[];
   consultation: string; sections: Section[];
   outlineApproved: boolean; outputApproved: boolean;
@@ -18,7 +19,7 @@ export type E01 = {
 export function initialE01(): E01 {
   const notice = '08-18/08-25 배정 근무 불참·사전 연락 미이행. 08-27 면담.';
   return { version: 1, phase: 'input', scenario: 'M1', originalNotice: notice,
-    approvedLeave: false, headcount: 'assumed8', evidence: [{id:'notice-original',body:notice}],
+    approvedLeave: false, headcount: 'assumed8', noticeOrigin:'fixture', evidence: [{id:'notice-original',body:notice}],
     facts: { employer:'회사 A', worker:'근로자 B', joined:'2025-03-01', noticeReceived:'2026-09-01',
       lastWorked:'2026-09-14', effective:'2026-09-15', filed:'2026-09-21',
       role:'고객문의 응대·무기계약·수습 아님', notice,
@@ -39,31 +40,40 @@ export function editE01(s: E01, facts: E01Facts): E01 {
   if(!['excluded','alleged','unclear'].includes(facts.leaveClaim))throw Error('invalid-leave-status');
   const next=archive(s,'구조화 사실 정정: 관련 초안·목차 승인·출력 승인 무효화');
   next.facts=structuredClone(facts);
+  if(facts.notice!==s.facts.notice)next.noticeOrigin='user';
   // The first notice source remains immutable, even if the current account changes.
   return next;
 }
-export function beginEditE01(s:E01):E01 {
-  return archive(s,'입력 편집 시작: 저장 전이라도 이전 초안·출력 승인 무효화');
+export function beginEditE01(s:E01,noticeEdited=false):E01 {
+  const next=archive(s,'입력 편집 시작: 저장 전이라도 이전 초안·출력 승인 무효화');
+  if(noticeEdited)next.noticeOrigin='user';
+  return next;
 }
 export function correctE01(s: E01, kind: 'M2'|'M3a'|'M3b'): E01 {
   const next=archive(s,kind+' 정정: 영향 문단 및 적용범위 재검토 필요');
   next.scenario=kind;
   if(kind==='M2') {
     next.approvedLeave=true;
-    next.facts.leaveClaim='excluded';
     // Only the known synthetic initial allegation is transformed automatically.
     // Free text is preserved; allegation status is a separate explicit input.
-    if(next.facts.notice===initialE01().facts.notice)
-      next.facts.notice='08-25 배정 근무 불참·사전 연락 미이행. 08-27 면담.';
-    next.evidence.push({id:'leave-0818',body:'합성 증거: 2026-08-18 승인휴무 확인'});
+    const correctedFixture='08-25 배정 근무 불참·사전 연락 미이행. 08-27 면담.';
+    if(next.noticeOrigin==='fixture'&&[initialE01().facts.notice,correctedFixture].includes(next.facts.notice)) {
+      next.facts.notice=correctedFixture;
+      next.facts.leaveClaim='excluded';
+    }else next.facts.leaveClaim='unclear';
+    if(!next.evidence.some(e=>e.id==='leave-0818'))
+      next.evidence.push({id:'leave-0818',body:'합성 증거: 2026-08-18 승인휴무 확인'});
   } else if(kind==='M3a') {
     next.headcount='unknown';
-    next.evidence.push({id:'count-correction',body:'8인 표가 다른 회사 자료와 병합됐다는 정정 발화. 확정표 없음.'});
+    if(!next.evidence.some(e=>e.id==='count-correction'))
+      next.evidence.push({id:'count-correction',body:'8인 표가 다른 회사 자료와 병합됐다는 정정 발화. 확정표 없음.'});
   } else {
     if(s.scenario!=='M3a')throw Error('M3a-required');
     next.headcount='daily4';
-    next.evidence.push({id:'independent-business',body:'합성 독립 사업 자료 제출'});
-    next.evidence.push({id:'daily-count',body:'합성 정정표: 31일, 일별 4인, 124연인원. 124/31=4. 법적 산정 결론은 별도 검토.'});
+    if(!next.evidence.some(e=>e.id==='independent-business'))
+      next.evidence.push({id:'independent-business',body:'합성 독립 사업 자료 제출'});
+    if(!next.evidence.some(e=>e.id==='daily-count'))
+      next.evidence.push({id:'daily-count',body:'합성 정정표: 31일, 일별 4인, 124연인원. 124/31=4. 법적 산정 결론은 별도 검토.'});
   }
   return next;
 }
