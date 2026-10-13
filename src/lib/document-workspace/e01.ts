@@ -3,6 +3,7 @@ export type E01Facts = {
   employer: string; worker: string; joined: string; noticeReceived: string;
   lastWorked: string; effective: string; filed: string; role: string;
   notice: string; workerPosition: string; deadline: string; ordinaryWage: string;
+  leaveClaim: string; // excluded | alleged | unclear; not inferred from free text
 };
 export type E01 = {
   version: number; phase: 'input'|'consultation'|'outline'|'draft';
@@ -22,7 +23,7 @@ export function initialE01(): E01 {
       lastWorked:'2026-09-14', effective:'2026-09-15', filed:'2026-09-21',
       role:'고객문의 응대·무기계약·수습 아님', notice,
       workerPosition:'일정 전달 착오·사전 경고 없음·해고 과중. 복직·임금상당액 청구.',
-      deadline:'미상', ordinaryWage:'미상' }, consultation:'',sections:[],
+      deadline:'미상', ordinaryWage:'미상', leaveClaim:'alleged' }, consultation:'',sections:[],
     outlineApproved:false,outputApproved:false,history:[] };
 }
 function archive(s: E01, explanation: string): E01 {
@@ -35,6 +36,7 @@ function archive(s: E01, explanation: string): E01 {
 }
 export function editE01(s: E01, facts: E01Facts): E01 {
   if(Object.values(facts).some(v=>typeof v!=='string'||!v.trim()||v.length>4000))throw Error('invalid-facts');
+  if(!['excluded','alleged','unclear'].includes(facts.leaveClaim))throw Error('invalid-leave-status');
   const next=archive(s,'구조화 사실 정정: 관련 초안·목차 승인·출력 승인 무효화');
   next.facts=structuredClone(facts);
   // The first notice source remains immutable, even if the current account changes.
@@ -48,8 +50,9 @@ export function correctE01(s: E01, kind: 'M2'|'M3a'|'M3b'): E01 {
   next.scenario=kind;
   if(kind==='M2') {
     next.approvedLeave=true;
+    next.facts.leaveClaim='excluded';
     // Only the known synthetic initial allegation is transformed automatically.
-    // Custom user text is preserved and must resolve conflicting leave claims.
+    // Free text is preserved; allegation status is a separate explicit input.
     if(next.facts.notice===initialE01().facts.notice)
       next.facts.notice='08-25 배정 근무 불참·사전 연락 미이행. 08-27 면담.';
     next.evidence.push({id:'leave-0818',body:'합성 증거: 2026-08-18 승인휴무 확인'});
@@ -69,7 +72,8 @@ export function consultE01(s: E01): E01 {
   const next=structuredClone(s);next.phase='consultation';
   next.consultation = '모의 상담 · 회사 측 답변서 준비. '+s.facts.employer+' / '+s.facts.worker+
     '. 통지 원문과 현재 주장·반론을 구별합니다. 현재 회사 주장: '+s.facts.notice+'. '+(s.approvedLeave?
-    '08-18은 승인휴무이므로 현재 불참 주장에서는 제외합니다. 통지 원문은 보존합니다. ':
+    '08-18 승인휴무 확인. 현재 불참 주장 상태: '+s.facts.leaveClaim+
+    '. 제외 여부를 구조화 입력으로 확인하고 통지 원문은 보존합니다. ':
     '08-18/08-25 배정과 연락 자료를 확인해야 합니다. ')+
     (s.headcount==='assumed8'?'8인 가정 아래 조건부 본안 검토. ':
     s.headcount==='unknown'?'인원 판단 미확정: 적용범위 검토·자료 보완. ':
@@ -94,8 +98,8 @@ export function approveOutlineE01(s:E01):E01 {
 }
 export function draftE01(s:E01):E01 {
   if(s.phase!=='outline'||!s.outlineApproved)throw Error('outline-approval-required');
-  if(s.approvedLeave&&/(?:0?8[-./]0?18|8월\s*18일)/.test(s.facts.notice))
-    throw Error('leave-claim-conflict');
+  if(s.approvedLeave&&s.facts.leaveClaim==='alleged')throw Error('leave-claim-conflict');
+  if(s.approvedLeave&&s.facts.leaveClaim==='unclear')throw Error('leave-claim-confirmation-required');
   const next=structuredClone(s),f=s.facts;next.phase='draft';
   const scope=s.headcount!=='assumed8';
   const bodies=[

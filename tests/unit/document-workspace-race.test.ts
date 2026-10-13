@@ -35,9 +35,23 @@ it('changed relief appears consistently without fabricating reinstatement',()=>{
   expect(next.sections[2].text).toContain(workerPosition);
   expect(next.sections[0].text).not.toContain('복직·임금상당액 청구');
 });
-it('custom conflicting approved-leave allegation is not silently rewritten',()=>{
-  const initial=editE01(initialE01(),{...initialE01().facts,notice:'08-18 불참 재주장'});
-  const m2=correctE01(initial,'M2');
+it('explicit structured allegation conflicting with approved leave blocks drafting',()=>{
+  const corrected=correctE01(initialE01(),'M2');
+  const m2=editE01(corrected,{...corrected.facts,notice:'08-18 불참 재주장',leaveClaim:'alleged'});
   expect(m2.facts.notice).toBe('08-18 불참 재주장');
   expect(()=>draftE01(approveOutlineE01(outlineE01(consultE01(m2))))).toThrow('leave-claim-conflict');
+});
+it.each([
+  '08-18 승인휴무 인정. 08-25 정상출근 확인. 불참 주장을 모두 철회한다.',
+  '8월 18일 승인휴무는 불참에서 제외. 08-25 불참만 재검토한다.',
+])('allows valid M2 correction containing date: %s',notice=>{
+  const m2=correctE01(initialE01(),'M2');
+  const next=ready(editE01(m2,{...m2.facts,notice,leaveClaim:'excluded'}));
+  expect(next.sections[2].text).toContain(notice);
+  expect(next.facts.leaveClaim).toBe('excluded');
+});
+it('unclear structured allegation asks for specific confirmation instead of inferring conflict',()=>{
+  const m2=correctE01(initialE01(),'M2');
+  const next=editE01(m2,{...m2.facts,notice:'08-18 관련 진술 확인중',leaveClaim:'unclear'});
+  expect(()=>draftE01(approveOutlineE01(outlineE01(consultE01(next))))).toThrow('leave-claim-confirmation-required');
 });

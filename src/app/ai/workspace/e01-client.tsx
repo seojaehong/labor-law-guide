@@ -4,7 +4,13 @@ import {initialE01,beginEditE01,editE01,correctE01,consultE01,outlineE01,approve
 import {createWord} from '@/lib/document-workspace/word';
 import {previewDocumentText} from '@/lib/document-workspace/workflow';
 import {renderApprovedE01} from '@/lib/document-workspace/e01-export';
-const labels:Record<keyof E01Facts,string>={employer:'회사',worker:'근로자',joined:'입사일',noticeReceived:'종이 통지 수령일',lastWorked:'마지막 근무일',effective:'해고 효력일',filed:'노동위 접수일',role:'계약·업무',notice:'현재 통지 주장',workerPosition:'근로자 주장·청구',deadline:'답변기한',ordinaryWage:'통상임금'};
+const labels:Record<keyof E01Facts,string>={employer:'회사',worker:'근로자',joined:'입사일',noticeReceived:'종이 통지 수령일',lastWorked:'마지막 근무일',effective:'해고 효력일',filed:'노동위 접수일',role:'계약·업무',notice:'현재 통지 주장',workerPosition:'근로자 주장·청구',deadline:'답변기한',ordinaryWage:'통상임금',leaveClaim:'08-18 현재 불참 주장 상태'};
+const errorMessages:Record<string,string>={
+  'leave-claim-conflict':'08-18 승인휴무와 현재 불참 주장이 충돌합니다. 현재 주장 상태와 문구를 확인하고 다시 저장하세요.',
+  'leave-claim-confirmation-required':'08-18을 현재 불참 주장에 포함하는지 미확정입니다. 현재 불참 주장 상태를 명시적으로 확인하세요.',
+  'invalid-leave-status':'08-18 현재 불참 주장 상태를 선택하세요.',
+  'invalid-facts':'비어 있는 사실 입력을 확인하세요. 미상인 항목은 미상으로 표시하세요.',
+};
 export default function E01Client() {
   const [state,setState]=useState(initialE01);
   const [facts,setFacts]=useState<E01Facts>(state.facts);
@@ -12,9 +18,10 @@ export default function E01Client() {
   const current=useRef(state),exporting=useRef(false);
   const [busy,setBusy]=useState(false);
   const dirty=JSON.stringify(facts)!==JSON.stringify(state.facts);
-  function act(fn:()=>typeof state,syncFacts=true){try{const next=fn();current.current=next;setState(next);if(syncFacts)setFacts(next.facts);setError('');}catch{setError('현재 단계의 검토·승인이 필요합니다.');}}
+  function act(fn:()=>typeof state,syncFacts=true){try{const next=fn();current.current=next;setState(next);if(syncFacts)setFacts(next.facts);setError('');}catch(error){const code=error instanceof Error?error.message:'';setError(errorMessages[code]||'현재 단계의 검토·승인이 필요합니다.');}}
   function editField(key:keyof E01Facts,value:string) {
-    setFacts({...facts,[key]:value});
+    setFacts({...facts,[key]:value,
+      ...(key==='notice'&&current.current.approvedLeave?{leaveClaim:'unclear'}:{})});
     if(current.current.phase!=='input')act(()=>beginEditE01(current.current),false);
   }
   async function word(){
@@ -36,7 +43,7 @@ export default function E01Client() {
       <p>모델 호출 0회. 법령 원문·실모델·전문가 품질 검증은 미완료입니다. 실제 개인정보를 입력하지 마세요.</p>
       <p role="status">{state.scenario} · 버전 {state.version} · {state.phase}</p>
       {error&&<p>{error}</p>}
-      <fieldset><legend>구조화 사실 입력</legend>{(Object.keys(labels) as (keyof E01Facts)[]).map(key=><label className="block my-2" key={key}>{labels[key]}<input className="block w-full border p-2" value={facts[key]} onChange={e=>editField(key,e.target.value)} maxLength={4000}/></label>)}</fieldset>
+      <fieldset><legend>구조화 사실 입력</legend>{(Object.keys(labels) as (keyof E01Facts)[]).map(key=><label className="block my-2" key={key}>{labels[key]}{key==='leaveClaim'?<select aria-label={labels[key]} className="block w-full border p-2" value={facts.leaveClaim} onChange={e=>editField(key,e.target.value)}><option value="excluded">불참 주장에서 제외</option><option value="alleged">불참 주장에 포함</option><option value="unclear">미확정·확인 필요</option></select>:<input className="block w-full border p-2" value={facts[key]} onChange={e=>editField(key,e.target.value)} maxLength={4000}/>}</label>)}</fieldset>
       <button onClick={()=>act(()=>editE01(state,facts))}>사실 저장·이전 승인 무효화</button>
       {state.phase==='input'&&<button disabled={dirty} onClick={()=>act(()=>consultE01(state))}>입력 사실로 모의 상담</button>}
       {state.consultation&&<p>{state.consultation}</p>}

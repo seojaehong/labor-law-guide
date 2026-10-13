@@ -22,8 +22,23 @@ const output=path.resolve('test-results/e01-race');fs.mkdirSync(output,{recursiv
  await expect(page.getByRole('button',{name:'Word 다운로드',exact:true})).toBeEnabled();if(downloads!==before+1)throw Error('multiple downloads');log.push({case:'rapid triple click',downloads:1,result:'passed'});
  await click('M2 승인휴무 증거 반영');
  const notice='08-25 정상출근 확인. 현재 불참 주장을 철회한다.';const relief='금전보상만 청구하며 복직은 구하지 않음';
- await page.getByLabel('현재 통지 주장',{exact:true}).fill(notice);await page.getByLabel('근로자 주장·청구',{exact:true}).fill(relief);await click('사실 저장·이전 승인 무효화');await ready();
+ await page.getByLabel('현재 통지 주장',{exact:true}).fill(notice);await page.getByLabel('근로자 주장·청구',{exact:true}).fill(relief);await page.getByLabel('08-18 현재 불참 주장 상태',{exact:true}).selectOption('excluded');await click('사실 저장·이전 승인 무효화');await ready();
  const body=await page.getByLabel('E01 답변서 초안').innerText();if(!body.includes(notice)||!body.includes(relief)||body.includes('신청취지: 근로자의 복직·임금상당액 청구'))throw Error('fact distortion');
  log.push({case:'M2 current allegation/relief preserved',result:'passed'});
+ for(const notice of ['08-18 승인휴무 인정. 08-25 정상출근 확인. 불참 주장을 모두 철회한다.','8월 18일 승인휴무는 불참에서 제외. 08-25 불참만 재검토한다.']) {
+  await page.getByLabel('현재 통지 주장',{exact:true}).fill(notice);
+  await page.getByLabel('08-18 현재 불참 주장 상태',{exact:true}).selectOption('excluded');
+  await click('사실 저장·이전 승인 무효화');await ready();
+  if(!(await page.getByLabel('E01 답변서 초안').innerText()).includes(notice))throw Error('valid correction rejected');
+ }
+ log.push({case:'two valid dated corrections accepted',result:'passed'});
+ for(const status of ['alleged','unclear']) {
+  await page.getByLabel('현재 통지 주장',{exact:true}).fill('08-18 불참 재주장');
+  await page.getByLabel('08-18 현재 불참 주장 상태',{exact:true}).selectOption(status);
+  await click('사실 저장·이전 승인 무효화');await click('입력 사실로 모의 상담');await click('회사 답변서 목차 제시');await click('현재 목차 명시적 승인');await click('조건부 초안 작성');
+  const message=status==='alleged'?'08-18 승인휴무와 현재 불참 주장이 충돌합니다. 현재 주장 상태와 문구를 확인하고 다시 저장하세요.':'08-18을 현재 불참 주장에 포함하는지 미확정입니다. 현재 불참 주장 상태를 명시적으로 확인하세요.';
+  await expect(page.getByText(message,{exact:true})).toBeVisible();
+ }
+ log.push({case:'structured conflict and unknown show specific cause',result:'passed'});
  fs.writeFileSync(path.join(output,'result.json'),JSON.stringify(log,null,2));console.log(JSON.stringify(log));await browser.close();
 })().catch(e=>{console.error(e.message);process.exit(1)});
