@@ -40,11 +40,18 @@ export function editE01(s: E01, facts: E01Facts): E01 {
   // The first notice source remains immutable, even if the current account changes.
   return next;
 }
+export function beginEditE01(s:E01):E01 {
+  return archive(s,'입력 편집 시작: 저장 전이라도 이전 초안·출력 승인 무효화');
+}
 export function correctE01(s: E01, kind: 'M2'|'M3a'|'M3b'): E01 {
   const next=archive(s,kind+' 정정: 영향 문단 및 적용범위 재검토 필요');
   next.scenario=kind;
   if(kind==='M2') {
     next.approvedLeave=true;
+    // Only the known synthetic initial allegation is transformed automatically.
+    // Custom user text is preserved and must resolve conflicting leave claims.
+    if(next.facts.notice===initialE01().facts.notice)
+      next.facts.notice='08-25 배정 근무 불참·사전 연락 미이행. 08-27 면담.';
     next.evidence.push({id:'leave-0818',body:'합성 증거: 2026-08-18 승인휴무 확인'});
   } else if(kind==='M3a') {
     next.headcount='unknown';
@@ -61,7 +68,7 @@ export function consultE01(s: E01): E01 {
   if(s.phase!=='input')throw Error('input-required');
   const next=structuredClone(s);next.phase='consultation';
   next.consultation = '모의 상담 · 회사 측 답변서 준비. '+s.facts.employer+' / '+s.facts.worker+
-    '. 통지 원문과 현재 주장·반론을 구별합니다. '+(s.approvedLeave?
+    '. 통지 원문과 현재 주장·반론을 구별합니다. 현재 회사 주장: '+s.facts.notice+'. '+(s.approvedLeave?
     '08-18은 승인휴무이므로 현재 불참 주장에서는 제외합니다. 통지 원문은 보존합니다. ':
     '08-18/08-25 배정과 연락 자료를 확인해야 합니다. ')+
     (s.headcount==='assumed8'?'8인 가정 아래 조건부 본안 검토. ':
@@ -87,10 +94,12 @@ export function approveOutlineE01(s:E01):E01 {
 }
 export function draftE01(s:E01):E01 {
   if(s.phase!=='outline'||!s.outlineApproved)throw Error('outline-approval-required');
+  if(s.approvedLeave&&/(?:0?8[-./]0?18|8월\s*18일)/.test(s.facts.notice))
+    throw Error('leave-claim-conflict');
   const next=structuredClone(s),f=s.facts;next.phase='draft';
   const scope=s.headcount!=='assumed8';
   const bodies=[
-    '회사 측 부당해고 답변서 · '+s.scenario+' · 모의 검토용\n신청취지: 근로자의 복직·임금상당액 청구.\n'+
+    '회사 측 부당해고 답변서 · '+s.scenario+' · 모의 검토용\n신청취지(근로자 주장·청구 원문): '+f.workerPosition+'\n'+
       (scope?'현재는 적용범위 검토 메모입니다. 기존 본안 답변을 최종 결론으로 재사용하지 않습니다.':
       '회사 답변: 8인 적용 가정 아래 사유·양정·절차 및 반론을 조건부로 검토합니다. 청구 기각 여부는 확정하지 않습니다.'),
     '경위: '+f.employer+' / '+f.worker+'; '+f.joined+' 입사; '+f.role+
@@ -98,7 +107,7 @@ export function draftE01(s:E01):E01 {
       '적용범위: '+(s.headcount==='assumed8'?'8인은 가정이며 산정 근거 확인 필요.':
       s.headcount==='unknown'?'타 회사 자료 병합 정정으로 상시인원 미확정. 4인으로 단정하지 않음.':
       '독립 사업 자료 및 31일·124연인원 정정표 제출. 일별 4인 산술을 확인하되 시행령 산정·별표 적용은 전문가 검토 필요.'),
-    '회사주장(현재): '+(s.approvedLeave?'08-25 불참·사전 연락 주장만 재검토. 08-18 승인휴무는 불참 주장에서 제외.':f.notice)+
+    '회사주장(현재): '+f.notice+(s.approvedLeave?'\n08-18 승인휴무는 불참 주장에서 제외.':'')+
       '\n반론·한계: '+f.workerPosition+' 배정 전달·경고·면담·비례성 자료 확인.\n'+
       '서면통지: 종이 수령 사실과 이유·시기 기재의 충족 여부는 구분.\n해고예고: '+f.noticeReceived+
       ' 수령과 '+f.effective+' 효력 사이 기간 및 예고수당 검토 필요. 통상임금 '+f.ordinaryWage+'; 예외 해당 여부 미확정.',

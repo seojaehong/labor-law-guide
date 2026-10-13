@@ -40,7 +40,7 @@ it('real DOCX downloads match approved current revision with no provider hooks',
   const first=await createWord(exportE01(s)),second=await createWord(exportE01(s));
   for(const bytes of [first,second]) {
     const zip=await JSZip.loadAsync(bytes);const xml=await zip.file('word/document.xml')!.async('string');
-    expect(xml).toContain('会社'.replace('会社','회사'));expect(xml).toContain('승인휴무');
+    expect(xml).toContain('회사');expect(xml).toContain('승인휴무');
     expect(xml).toContain('문서 버전 '+s.version);expect(xml).toContain('공식 원문 확인 미완료');
   }
 });
