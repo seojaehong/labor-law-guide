@@ -34,9 +34,14 @@ export interface Verdict {
   missing: string[];
 }
 
-const ART = /^\s*(제\s*\d+\s*조(?:\s*의\s*\d+)?)\s*(\([^)]*\))?/;
+const ART = /^\s*(제\s*\d+\s*조(?:\s*의\s*\d+)?)\s*(\([^)]*\)|【[^】]*】|\[[^\]]*\])?/;
 const norm = (s: string) => s.replace(/ㆍ/g, '·').replace(/\s+/g, ' ').trim();
-const has = (text: string, needle: string) => text.replace(/\s/g, '').includes(norm(needle).replace(/\s/g, ''));
+const has = (text: string, needle: string) => norm(text).replace(/\s/g, '').includes(norm(needle).replace(/\s/g, ''));
+const reference = /제\s*\d+\s*조(?:\s*의\s*\d+)?(?:에|를)\s*(?:따른다|참조|준용)/;
+/** Only explicit article titles are strong anchor evidence. */
+function titleOf(article: string | null): string {
+  return article?.match(/(?:\(([^)]*)\)|【([^】]*)】|\[([^\]]*)\])/)?.slice(1).find(Boolean) ?? '';
+}
 
 interface Para {
   article: string | null;
@@ -59,7 +64,12 @@ export function paragraphs(text: string): Para[] {
 /** anchor 가 든 조문의 줄만 남긴다. anchor 가 없으면 그대로 돌려준다. */
 export function anchored(rule: RuleSpec, paras: Para[]): Para[] {
   if (!rule.anchor?.length) return paras;
-  const arts = new Set(paras.filter((p) => rule.anchor!.some((a) => has(p.text, a))).map((p) => p.article));
+  const titled = new Set(paras.filter((p) => rule.anchor!.some((a) => has(titleOf(p.article), a))).map(p => p.article));
+  // A cross-reference in general leave must not compete with the named scheme.
+  const arts = titled.size ? titled : new Set(paras.filter(p => {
+    const body = p.text.replace(ART, '');
+    return !reference.test(body) && rule.anchor!.some(a => has(body, a));
+  }).map(p => p.article));
   return arts.size ? paras.filter((p) => arts.has(p.article)) : [];
 }
 
