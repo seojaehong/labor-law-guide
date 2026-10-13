@@ -55,7 +55,8 @@ export function paragraphs(text: string): Para[] {
     const line = norm(raw);
     if (!line) continue;
     const m = line.match(ART);
-    if (m) current = (m[1].replace(/\s/g, '') + (m[2] ?? '')).trim();
+    const reference = m && !m[2] && /^\s*(?:및|의|에|를|과|에서|까지)/.test(line.slice(m[0].length));
+    if (m && !reference) current = (m[1].replace(/\s/g, '') + (m[2] ?? '')).trim();
     out.push({ article: current, text: line });
   }
   return out;
