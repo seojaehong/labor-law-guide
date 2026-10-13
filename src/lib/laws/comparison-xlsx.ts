@@ -1,4 +1,5 @@
 import ExcelJS from 'exceljs';
+import JSZip from 'jszip';
 export type ComparisonSheet={title:string;intro:string[];head:string[];rows:(string|number)[][];widths:number[];foot:string[]};
 /** Editable wrapped cells, repeated print header, frozen labels; no fixed body heights. */
 export async function comparisonXlsx(opts:ComparisonSheet):Promise<Blob>{
@@ -21,8 +22,24 @@ export async function comparisonXlsx(opts:ComparisonSheet):Promise<Blob>{
   const chunks=(value:string|number,column:number):(string|number)[]=>{
     if(typeof value==='number')return[value];
     const size=Math.max(120,Math.floor(opts.widths[column]*7));
-    const chars=Array.from(value);if(!chars.length)return[''];
-    const parts:string[]=[];for(let i=0;i<chars.length;i+=size)parts.push(chars.slice(i,i+size).join(''));return parts;
+    // 18 estimated visual lines stay well below Excel's 409pt row-height limit.
+    // Count wide glyphs and explicit line breaks; retain every original character.
+    const lineWidth=Math.max(4,Math.floor(opts.widths[column]));
+    const tokens=value.match(/\r\n|[\s\S]/gu)??[];
+    const parts:string[]=[];let part='',length=0,lines=1,units=0;
+    for(const token of tokens){
+      const newline=token==='\n'||token==='\r'||token==='\r\n';
+      const width=token==='\t'?4:token.codePointAt(0)!>255?2:1;
+      const nextLines=lines+(newline||units+width>lineWidth?1:0);
+      if(part&&(length+1>size||nextLines>18)){
+        parts.push(part);part='';length=0;lines=1;units=0;
+      }
+      if(newline){lines++;units=0;}
+      else if(units+width>lineWidth){lines++;units=width;}
+      else units+=width;
+      part+=token;length++;
+    }
+    if(part||!parts.length)parts.push(part);return parts;
   };
   for(const input of opts.rows){
     const parts=input.map(chunks);const count=Math.max(...parts.map(p=>p.length));
@@ -36,14 +53,12 @@ export async function comparisonXlsx(opts:ComparisonSheet):Promise<Blob>{
       });
     }
   }
-  const dataEnd=sheet.rowCount;
   sheet.addRow([]);
-  for(const text of [...opts.foot,'긴 본문은 계속행으로 나뉩니다. 전체 원문은 숨김 원문보관 시트를 표시하면 확인할 수 있습니다.']){
+  for(const text of [...opts.foot,'계속행은 한 조문의 일부입니다. 행별 정렬·필터는 조문을 분리하므로 사용하지 마세요.','숨김 원문보관은 내보내기 당시 원본입니다. 표시용 시트 편집 후 자동 갱신되지 않습니다.']){
     const row=sheet.addRow([text]);sheet.mergeCells(row.number,1,row.number,opts.head.length);
     row.font={name:'맑은 고딕',size:9,color:{argb:'FF4E5968'}};row.alignment={wrapText:true,vertical:'top'};
   }
   sheet.views=[{state:'frozen',ySplit:headerRow,xSplit:1,showGridLines:false}];
-  sheet.autoFilter={from:{row:headerRow,column:1},to:{row:dataEnd,column:opts.head.length}};
   sheet.pageSetup.printTitlesRow=String(headerRow)+':'+headerRow;
   sheet.pageSetup.printArea='A1:'+sheet.getColumn(opts.head.length).letter+sheet.rowCount;
   sheet.headerFooter.oddFooter='&L검토용 신구조문 대조표 · 법률 검수 전&R&P / &N';
@@ -52,5 +67,9 @@ export async function comparisonXlsx(opts:ComparisonSheet):Promise<Blob>{
   for(const row of opts.rows)original.addRow(row);
   original.eachRow(row=>{row.font={name:'맑은 고딕',size:10};row.alignment={wrapText:true,vertical:'top'};});
   const bytes=await book.xlsx.writeBuffer();
-  return new Blob([new Uint8Array(bytes)],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+  // XML parsers normalize literal CR/CRLF; character references preserve the source.
+  const zip=await JSZip.loadAsync(bytes);
+  const strings=zip.file('xl/sharedStrings.xml');
+  if(strings)zip.file('xl/sharedStrings.xml',(await strings.async('string')).replace(/\r/g,'&#13;'));
+  return new Blob([new Uint8Array(await zip.generateAsync({type:'uint8array'}))],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
 }
