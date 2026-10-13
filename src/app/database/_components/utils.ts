@@ -1,3 +1,4 @@
+import { unwrapSourceAnnotations } from '@/lib/legal-display-text';
 import { REASON_CATEGORY_LABELS } from './types';
 import { createElement, type ReactNode } from 'react';
 
@@ -7,7 +8,7 @@ export function highlightText(text: string, query: string): ReactNode {
   const parts = text.split(new RegExp(`(${escaped})`, 'gi'));
   return parts.map((part, i) =>
     part.toLowerCase() === query.toLowerCase()
-      ? createElement('mark', { key: i, style: { backgroundColor: 'var(--yellow-100, #fef9c3)', color: 'inherit', borderRadius: '2px', padding: '0 1px' } }, part)
+      ? createElement('mark', { key: i, style: { backgroundColor: 'var(--color-brand-surface, #fef9c3)', color: 'inherit', borderRadius: '2px', padding: '0 1px' } }, part)
       : part
   );
 }
@@ -60,7 +61,7 @@ export function getPreferredDetail(item: {
 }
 
 export function normalizeSnippetMarkdown(raw: string): string {
-  return raw
+  return unwrapSourceAnnotations(raw)
     .replace(/^#{1,4}\s+(.+)$/gm, '**$1**')
     .replace(/([^\n])([가-힣]\.\s)/g, '$1\n\n$2')
     .replace(/([^\n])(①|②|③|④|⑤|⑥|⑦|⑧|⑨|⑩)/g, '$1\n$2')

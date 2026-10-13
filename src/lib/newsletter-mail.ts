@@ -4,11 +4,51 @@ import { SITE_URL } from './constants';
 // Resend에 verified된 root 도메인 사용 — send. subdomain은 미인증 (2026-05-08)
 const FROM = '노동법 위클리 <news@yellowenvelope.kr>';
 const REPLY_TO = 'abc@winhr.co.kr';
+// mailto 해지도 같은 사람이 읽는 주소로 보낸다. 자동 처리는 없으므로 사람이 손으로 뺀다.
+const UNSUB_MAILBOX = 'abc@winhr.co.kr';
+
+/**
+ * 메일 클라이언트의 「수신거부」 버튼을 위한 헤더 (RFC 2369 · RFC 8058).
+ *
+ * ★ 2026-09-17 신설. 같은 날 해지 링크를 GET → POST 로 옮겼는데, 이 헤더가 없으면
+ * 지메일·아웃룩 상단의 수신거부 버튼이 사라진다. 그 버튼을 못 쓰게 되면 사용자는
+ * **스팸 신고로 간다** — 그게 도메인 평판에 훨씬 나쁘다.
+ *
+ * `List-Unsubscribe-Post` 가 붙어 있으면 클라이언트는 사람이 눌렀을 때만 POST 를 보낸다.
+ * 링크를 미리 열어보는 보안 스캐너는 GET 만 하므로 이 경로로는 해지되지 않는다.
+ */
+function listUnsubscribeHeaders(unsubscribeToken: string) {
+  const url = `${SITE_URL}/api/subscribers/unsubscribe?token=${encodeURIComponent(unsubscribeToken)}`;
+  return {
+    'List-Unsubscribe': `<${url}>, <mailto:${UNSUB_MAILBOX}?subject=unsubscribe>`,
+    'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
+  };
+}
 
 function getResend() {
   const key = process.env.RESEND_API_KEY;
   if (!key) throw new Error('RESEND_API_KEY가 설정되지 않았습니다.');
   return new Resend(key);
+}
+
+/** Resend 응답의 error 를 예외로 바꾼다.
+ *
+ * ★ 2026-10-02 — SDK(6.9.3)는 API 가 4xx/5xx 를 줘도 **던지지 않는다.**
+ *   dist 에서 확인: `if (!response.ok) ... return { data: null, error: JSON.parse(rawError) }`.
+ *   던지는 경우는 API 키 누락과 React 렌더 실패뿐이다.
+ *   그래서 호출부가 try/catch 만 두면 **거절된 메일도 성공으로 센다.**
+ *   send-daily 가 매일 「성공 13 · 실패 0」을 찍고 있었지만 그 숫자는 아무것도 증명하지 못했다.
+ *
+ *   ⚠ 이걸 통과해도 「보냈다」까지다. **받았는지·열었는지는 여전히 모른다** —
+ *   delivered/opened 는 Resend 웹훅으로만 오고 우리는 아직 그 경로가 없다.
+ */
+async function sendOrThrow<T extends { error: unknown }>(p: Promise<T>): Promise<T> {
+  const result = await p;
+  if (result.error) {
+    const e = result.error as { name?: string; message?: string };
+    throw new Error(`Resend 거절: ${e.name || 'unknown'} — ${e.message || JSON.stringify(result.error)}`);
+  }
+  return result;
 }
 
 const baseStyle = `
@@ -66,13 +106,16 @@ export async function sendConfirmEmail(opts: {
     </div>
   `;
   const resend = getResend();
-  return resend.emails.send({
+  // Resend SDK 는 4xx/5xx 에 던지지 않고 { data:null, error } 를 돌려준다(6.9.3 dist 확인).
+  // 그대로 return 하면 호출부의 try/catch 가 실패를 못 잡는다 — 확인메일이 조용히 실패하면
+  // 구독자가 확인 링크를 못 받고 pending 에 영영 남는다.
+  return sendOrThrow(resend.emails.send({
     from: FROM,
     replyTo: REPLY_TO,
     to: opts.to,
     subject: '[노동법 위클리] 구독 확인 — 한 번만 클릭해주세요',
     html,
-  });
+  }));
 }
 
 export async function sendWelcomeEmail(opts: {
@@ -106,13 +149,17 @@ export async function sendWelcomeEmail(opts: {
     </div>
   `;
   const resend = getResend();
-  return resend.emails.send({
+  // Resend SDK 는 4xx/5xx 에 던지지 않고 { data:null, error } 를 돌려준다(6.9.3 dist 확인).
+  // 그대로 return 하면 호출부의 try/catch 가 실패를 못 잡는다 — 확인메일이 조용히 실패하면
+  // 구독자가 확인 링크를 못 받고 pending 에 영영 남는다.
+  return sendOrThrow(resend.emails.send({
     from: FROM,
     replyTo: REPLY_TO,
     to: opts.to,
     subject: '[노동법 위클리] 구독 시작! 첫 인사이트 보내드릴게요',
     html,
-  });
+    headers: listUnsubscribeHeaders(opts.unsubscribeToken),
+  }));
 }
 
 // 데일리 브리핑 발송 — 매일 KST 09:00 cron
@@ -153,8 +200,19 @@ export async function sendDailyNewsletter(opts: {
       break;
     }
   }
-  // 날짜 prefix 제거 — '[5월 11일] 노동뉴스 브리핑 — ' 또는 '[2026.05.14] 노동뉴스 브리핑 — '
-  cleanTitle = cleanTitle.replace(/^\[(?:\d+년\s*)?(?:\d{4}\.)?\d+[월.]\s*\d+일?\.?\]\s*노동뉴스\s*브리핑\s*[—-]\s*/, '').trim();
+  // 날짜 prefix 제거.
+  // 주의: 예전 정규식은 '[날짜] 노동뉴스 브리핑 — ' 처럼 고정 문구가 뒤따를 때만 지웠다.
+  // 제목 형식이 '[8월 24일] 현대모비스 …' 로 바뀌자 매칭에 실패해 subject 에 날짜가
+  // 두 번 찍혔다(2026-08-24). 뒤따르는 문구와 무관하게 '날짜 대괄호'만 먼저 지운다.
+  //  지원: [8월 24일] [8월 15일~21일] [2026.05.13] [2026년 6월 1일]
+  //  비대상: [주말 라운드업] 처럼 날짜가 아닌 대괄호는 그대로 둔다.
+  cleanTitle = cleanTitle
+    .replace(
+      /^\[\s*(?:\d{4}\s*[년.]\s*)?\d{1,2}\s*[월.]\s*\d{1,2}\s*일?\.?(?:\s*~\s*\d{1,2}\s*일?)?\s*\]\s*/,
+      ''
+    )
+    .replace(/^노동뉴스\s*브리핑\s*[—–-]\s*/, '')
+    .trim();
   const displayTitle = cleanTitle.length <= 50 ? cleanTitle : cleanTitle.slice(0, 48) + '…';
 
   // 본문 sanitize (script/style 제거)
@@ -195,7 +253,7 @@ export async function sendDailyNewsletter(opts: {
       <p style="margin:0 0 12px;font-size:13px;font-weight:700;color:${TEXT_PRIMARY}">📌 노동법 위클리 둘러보기</p>
       <p style="margin:0 0 4px;font-size:13px"><a href="${SITE_URL}/blog" style="color:${ACCENT};text-decoration:none">→ 지난 딥다이브 모음</a></p>
       <p style="margin:0 0 4px;font-size:13px"><a href="${SITE_URL}/" style="color:${ACCENT};text-decoration:none">→ AI 챗봇 (노동법 질문)</a></p>
-      <p style="margin:0;font-size:13px"><a href="${SITE_URL}/sanction" style="color:${ACCENT};text-decoration:none">→ 징계/해고 AI 비교분석</a></p>
+      <p style="margin:0;font-size:13px"><a href="${SITE_URL}/decisions" style="color:${ACCENT};text-decoration:none">→ 판정례·판례 검색 (6만건)</a></p>
     </div>
     <div style="background:#f2f4f6;padding:24px 28px;text-align:center">
       <p style="margin:0 0 6px;color:${TEXT_PRIMARY};font-size:12px;font-weight:700">노동법 위클리</p>
@@ -210,11 +268,23 @@ export async function sendDailyNewsletter(opts: {
 </div>`;
 
   const resend = getResend();
-  return resend.emails.send({
+  // ★ 2026-10-02 — Resend SDK(6.9.3)는 API 가 4xx/5xx 를 줘도 **던지지 않는다.**
+  //   dist 확인: `if (!response.ok) ... return { data: null, error: JSON.parse(rawError) }`
+  //   던지는 경우는 API 키 누락과 React 렌더 실패뿐이다.
+  //   그래서 호출부가 try/catch 만 두면 **거절된 메일도 성공으로 센다.**
+  //   실제로 send-daily 가 매일 「성공 13 · 실패 0」을 찍고 있었는데 그 숫자는 아무것도
+  //   증명하지 못했다. error 를 보고 직접 던진다.
+  const result = await resend.emails.send({
     from: FROM,
     replyTo: REPLY_TO,
     to: opts.to,
     subject,
     html,
+    headers: listUnsubscribeHeaders(opts.unsubscribeToken),
   });
+  if (result.error) {
+    const e = result.error as { name?: string; message?: string };
+    throw new Error(`Resend 거절: ${e.name || 'unknown'} — ${e.message || JSON.stringify(result.error)}`);
+  }
+  return result;
 }

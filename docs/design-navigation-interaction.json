@@ -1,0 +1,40 @@
+{
+  "code_sha": "31d34223297f79c8d6ae79306feb69bc64638a62",
+  "scope": "Current four mobile menu links clicked; history back/forward and selected state asserted in the final fixture production build.",
+  "checks": [
+    {
+      "path": "/laws",
+      "previous": "/blog",
+      "clicked": true,
+      "back": true,
+      "forward": true,
+      "selectedState": true
+    },
+    {
+      "path": "/tools/work-rules",
+      "previous": "/laws",
+      "clicked": true,
+      "back": true,
+      "forward": true,
+      "selectedState": true
+    },
+    {
+      "path": "/decisions",
+      "previous": "/tools/work-rules",
+      "clicked": true,
+      "back": true,
+      "forward": true,
+      "selectedState": true
+    },
+    {
+      "path": "/blog",
+      "previous": "/decisions",
+      "clicked": true,
+      "back": true,
+      "forward": true,
+      "selectedState": true
+    }
+  ],
+  "menuEscapeFocusReturn": true,
+  "blockedBrowserApiRequests": []
+}

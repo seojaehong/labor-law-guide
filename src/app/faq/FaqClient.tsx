@@ -3,11 +3,11 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { Search, ChevronDown, ChevronRight, MessageCircleQuestion, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
-import { CATEGORY_GROUPS, categoryToSlug, type FaqCategory } from '@/lib/faq-categories';
+import { CATEGORY_GROUPS, categoryToSlug } from '@/lib/faq-categories';
 
 interface FaqItem {
   id: number;
-  unified_category: string;
+  unified_category: string | null;
   question: string;
   answer: string;
 }
@@ -31,17 +31,21 @@ export default function FaqClient({ initialFaqs, categoryCounts, totalCount, ini
   const [activeCategory, setActiveCategory] = useState<string | null>(initialCategory ?? null);
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(false);
+  const [loadError, setLoadError] = useState(false);
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(totalCount);
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
   const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const latestRequestRef = useRef(0);
 
   const countMap = Object.fromEntries(categoryCounts.map((c) => [c.unified_category, c.count]));
   const totalFaqCount = categoryCounts.reduce((sum, c) => sum + c.count, 0);
 
   const fetchFaqs = useCallback(async (cat: string | null, query: string, pageNum: number) => {
+    const requestId = ++latestRequestRef.current;
     setLoading(true);
+    setLoadError(false);
     try {
       const params = new URLSearchParams();
       if (cat) params.set('category', cat);
@@ -49,17 +53,22 @@ export default function FaqClient({ initialFaqs, categoryCounts, totalCount, ini
       params.set('page', String(pageNum));
       params.set('size', String(PAGE_SIZE));
       const res = await fetch(`/api/faq?${params}`);
+      if (!res.ok) throw new Error(`FAQ request failed: ${res.status}`);
       const data = await res.json();
+      if (!Array.isArray(data.faqs) || typeof data.total !== 'number') throw new Error('Invalid FAQ response');
+      if (requestId !== latestRequestRef.current) return;
       setFaqs(data.faqs);
       setTotal(data.total);
     } catch {
-      // keep existing
+      if (requestId === latestRequestRef.current) setLoadError(true);
     } finally {
-      setLoading(false);
+      if (requestId === latestRequestRef.current) setLoading(false);
     }
   }, []);
 
   const handleCategoryChange = useCallback((cat: string | null) => {
+    ++latestRequestRef.current;
+    if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
     setActiveCategory(cat);
     setPage(1);
     setExpandedId(null);
@@ -67,6 +76,7 @@ export default function FaqClient({ initialFaqs, categoryCounts, totalCount, ini
   }, [searchQuery, fetchFaqs]);
 
   const handleSearch = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    ++latestRequestRef.current;
     const q = e.target.value;
     setSearchQuery(q);
     if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
@@ -77,6 +87,8 @@ export default function FaqClient({ initialFaqs, categoryCounts, totalCount, ini
   }, [activeCategory, fetchFaqs]);
 
   const handlePage = useCallback((p: number) => {
+    ++latestRequestRef.current;
+    if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
     setPage(p);
     setExpandedId(null);
     fetchFaqs(activeCategory, searchQuery, p);
@@ -84,7 +96,7 @@ export default function FaqClient({ initialFaqs, categoryCounts, totalCount, ini
   }, [activeCategory, searchQuery, fetchFaqs]);
 
   useEffect(() => {
-    return () => { if (searchTimerRef.current) clearTimeout(searchTimerRef.current); };
+    return () => { ++latestRequestRef.current; if (searchTimerRef.current) clearTimeout(searchTimerRef.current); };
   }, []);
 
   // Phase 1.3: ?id=N 인용 링크 진입 시 단일 FAQ 우선 표시 + 펼침
@@ -94,12 +106,13 @@ export default function FaqClient({ initialFaqs, categoryCounts, totalCount, ini
     const idStr = params.get('id');
     if (!idStr || !/^\d+$/.test(idStr)) return;
     const fid = parseInt(idStr, 10);
+    const requestId = latestRequestRef.current;
     (async () => {
       try {
         const r = await fetch(`/api/faq?id=${fid}`);
         if (!r.ok) return;
         const d = await r.json();
-        if (d?.faqs?.[0]) {
+        if (requestId === latestRequestRef.current && d?.faqs?.[0]) {
           // 기존 목록 위에 인용된 FAQ를 prepend, 펼친 상태로
           setFaqs((prev) => {
             const exists = prev.some((f) => f.id === fid);
@@ -120,10 +133,11 @@ export default function FaqClient({ initialFaqs, categoryCounts, totalCount, ini
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   return (
-    <div className="mx-auto max-w-[1200px] px-5 py-10">
+    <div className="layout-list">
+      {loadError && <div role="alert" className="mb-4 rounded-lg border p-4" style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-primary)' }}>질문을 불러오지 못했습니다. 기존 결과를 유지했습니다. <button type="button" className="underline" onClick={() => fetchFaqs(activeCategory, searchQuery, page)}>다시 시도</button></div>}
       <div className="mb-2 flex items-center gap-2">
         <MessageCircleQuestion size={24} style={{ color: 'var(--color-accent)' }} />
-        <h1 className="text-2xl font-bold md:text-3xl" style={{ color: 'var(--color-text-primary)' }}>
+        <h1 className="t-h2" style={{ color: 'var(--color-text-primary)' }}>
           노동법 FAQ
         </h1>
         <span className="ml-2 rounded-full px-2.5 py-0.5 text-xs font-medium" style={{ backgroundColor: 'var(--grey-100)', color: 'var(--grey-600)' }}>
@@ -193,7 +207,7 @@ export default function FaqClient({ initialFaqs, categoryCounts, totalCount, ini
             onClick={() => handleCategoryChange(null)}
             className="rounded-full px-3 py-1 text-xs font-medium border transition-colors"
             style={!activeCategory
-              ? { backgroundColor: 'var(--color-accent)', color: '#fff', borderColor: 'var(--color-accent)' }
+              ? { backgroundColor: 'var(--color-accent)', color: 'var(--color-on-accent-ink)', borderColor: 'var(--color-accent)' }
               : { backgroundColor: 'var(--color-bg-surface)', color: 'var(--grey-600)', borderColor: 'var(--color-border)' }
             }
           >
@@ -205,7 +219,7 @@ export default function FaqClient({ initialFaqs, categoryCounts, totalCount, ini
               onClick={() => handleCategoryChange(cat)}
               className="rounded-full px-3 py-1 text-xs font-medium border transition-colors"
               style={activeCategory === cat
-                ? { backgroundColor: 'var(--color-accent)', color: '#fff', borderColor: 'var(--color-accent)' }
+                ? { backgroundColor: 'var(--color-accent)', color: 'var(--color-on-accent-ink)', borderColor: 'var(--color-accent)' }
                 : { backgroundColor: 'var(--color-bg-surface)', color: 'var(--grey-600)', borderColor: 'var(--color-border)' }
               }
             >
@@ -236,8 +250,8 @@ export default function FaqClient({ initialFaqs, categoryCounts, totalCount, ini
               <button onClick={() => handleCategoryChange(null)} className="text-sm" style={{ color: 'var(--color-accent)' }}>
                 <ArrowLeft size={14} className="inline" /> 전체
               </button>
-              <span style={{ color: 'var(--grey-300)' }}>/</span>
-              <h2 className="text-lg font-bold" style={{ color: 'var(--color-text-primary)' }}>{activeCategory}</h2>
+              <span aria-hidden="true" style={{ color: 'var(--grey-300)' }}>/</span>
+              <h2 className="t-h4" style={{ color: 'var(--color-text-primary)' }}>{activeCategory}</h2>
               <span className="text-sm" style={{ color: 'var(--grey-500)' }}>({total}건)</span>
             </div>
           )}
@@ -266,6 +280,8 @@ export default function FaqClient({ initialFaqs, categoryCounts, totalCount, ini
                 >
                   <button
                     onClick={() => setExpandedId(expandedId === faq.id ? null : faq.id)}
+                    aria-expanded={expandedId === faq.id}
+                    aria-controls={expandedId === faq.id ? `faq-answer-${faq.id}` : undefined}
                     className="flex w-full items-start gap-3 p-5 text-left"
                   >
                     <span className="mt-0.5 shrink-0 text-sm font-bold" style={{ color: 'var(--color-accent)' }}>Q</span>
@@ -273,16 +289,6 @@ export default function FaqClient({ initialFaqs, categoryCounts, totalCount, ini
                       <div className="text-[14px] font-medium" style={{ color: 'var(--color-text-primary)' }}>
                         {faq.question}
                       </div>
-                      {!activeCategory && (
-                        <Link
-                          href={`/faq/${categoryToSlug(faq.unified_category)}`}
-                          onClick={(e) => e.stopPropagation()}
-                          className="mt-1 inline-block rounded-full px-2 py-0.5 text-[10px] font-medium hover:underline"
-                          style={{ backgroundColor: 'var(--blue-50)', color: 'var(--blue-600)' }}
-                        >
-                          {faq.unified_category}
-                        </Link>
-                      )}
                     </div>
                     <ChevronDown
                       size={16}
@@ -290,10 +296,19 @@ export default function FaqClient({ initialFaqs, categoryCounts, totalCount, ini
                       style={{ color: 'var(--grey-400)', transform: expandedId === faq.id ? 'rotate(180deg)' : undefined }}
                     />
                   </button>
+                  {!activeCategory && faq.unified_category && (
+                    <Link
+                      href={`/faq/${categoryToSlug(faq.unified_category)}`}
+                      className="mx-5 mb-3 inline-flex min-h-[44px] items-center rounded-full px-3 text-[length:var(--text-xs)] font-medium hover:underline"
+                      style={{ backgroundColor: 'var(--blue-50)', color: 'var(--color-info-ink)' }}
+                    >
+                      {faq.unified_category}
+                    </Link>
+                  )}
                   {expandedId === faq.id && (
-                    <div className="border-t px-5 py-4" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--grey-50)' }}>
+                    <div id={`faq-answer-${faq.id}`} className="border-t px-5 py-4" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--grey-50)' }}>
                       <div className="flex gap-3">
-                        <span className="mt-0.5 shrink-0 text-sm font-bold" style={{ color: '#059669' }}>A</span>
+                        <span className="mt-0.5 shrink-0 text-sm font-bold" style={{ color: 'var(--color-success-ink)' }}>A</span>
                         <div className="whitespace-pre-line text-[14px] leading-relaxed" style={{ color: 'var(--color-text-secondary)' }}>
                           {faq.answer}
                         </div>
@@ -336,10 +351,10 @@ export default function FaqClient({ initialFaqs, categoryCounts, totalCount, ini
               찾으시는 답변이 없으신가요?
             </p>
             <div className="flex justify-center gap-3">
-              <Link href="/ai" className="rounded-lg px-4 py-2 text-sm font-medium text-white" style={{ backgroundColor: 'var(--color-accent)' }}>
+              <Link href="/ai" className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-md px-5 py-2.5 text-[15px] font-semibold transition-[background-color,transform] hover:-translate-y-px bg-[var(--color-accent-ink)] text-[var(--color-on-accent-ink)] hover:bg-[var(--color-accent-ink-hover)]">
                 AI에게 질문하기
               </Link>
-              <Link href="/contact" className="rounded-lg border px-4 py-2 text-sm font-medium" style={{ borderColor: 'var(--color-accent)', color: 'var(--color-accent)' }}>
+              <Link href="/contact" className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-md px-5 py-2.5 text-[15px] font-semibold transition-[background-color,transform] hover:-translate-y-px border border-[var(--color-border)] bg-[var(--color-bg-surface)] text-[var(--color-text-primary)] hover:bg-[var(--grey-100)]">
                 전문가 상담
               </Link>
             </div>

@@ -1,0 +1,380 @@
+{
+  "version": "2.0",
+  "updated_at": "2026-07-02",
+  "note": "노란봉투법 가이드 블로그 주제 클러스터 재설계. 60 서브클러스터 + 유사어 그룹 + 필자 매트릭스. blog-topic.md와 scripts/validate_topics.py의 소스 오브 트루스.",
+
+  "synonym_groups": {
+    "_desc": "STEP 1 유사도 검사 시 그룹 내 어떤 단어든 동일 canonical로 정규화되어 overlap 카운트에 포함. 6/27 '수습' + 6/29 '시용' 사고 방지.",
+    "probation_group":  ["수습", "시용", "본채용", "채용내정", "시용기간", "본채용거부"],
+    "officer_group":    ["임원", "이사", "대표이사", "위임계약", "사내이사", "비등기임원", "등기임원"],
+    "harassment_group": ["직장내괴롭힘", "직장 내 괴롭힘", "괴롭힘", "성희롱", "폭언", "폭행", "태움", "2차피해"],
+    "restructuring":    ["정리해고", "경영상해고", "경영상 해고", "감원", "구조조정", "집단해고"],
+    "ma_transfer":      ["합병", "영업양도", "회사분할", "분사", "기업변동", "인수합병"],
+    "fixed_term":       ["기간제", "계약직", "무기계약", "갱신기대권", "계약갱신", "재계약"],
+    "flex_hours":       ["탄력적 근로", "선택적 근로", "재량근로", "유연근무", "탄력근로", "선택근로"],
+    "yellow_envelope":  ["노란봉투법", "노조법 개정", "원청 사용자성", "하청 교섭권", "부당노동행위 교섭거부"],
+    "trade_secret":     ["영업비밀", "전직금지", "경업금지", "비밀유지", "고객명단"],
+    "wage_underpayment":["임금체불", "체불사업주", "금품청산", "대지급금"],
+    "unfair_dismissal": ["부당해고", "해고예고", "해고사유"],
+    "minimum_wage":     ["최저임금", "최저임금위원회", "최임"],
+    "ordinary_wage":    ["통상임금", "포괄임금", "포괄임금제"],
+    "annual_leave":     ["연차", "연차휴가", "연차수당", "연차 사용촉진", "연차 소멸"],
+    "parental_leave":   ["육아휴직", "육아기 근로시간 단축", "육아기", "단기 육아휴직"],
+    "maternity":        ["출산휴가", "배우자 출산휴가", "유산", "사산"],
+    "family_care":      ["가족돌봄휴직", "가족돌봄휴가", "가족돌봄"],
+    "collective_agreement": ["단체협약", "단체교섭", "협약해석", "협약효력"],
+    "industrial_action":["파업", "쟁의행위", "직장폐쇄", "대체근로", "보이콧"],
+    "workplace_change": ["전보", "인사이동", "배치전환", "전직", "보복인사"],
+    "platform_worker":  ["플랫폼노동", "특수고용", "프리랜서", "근로자성", "배달라이더", "대리운전", "근로자추정"],
+    "serious_accident": ["중대재해", "중대재해처벌법", "산업안전보건법", "안전보건관리체계"],
+    "union_setup":      ["노조 설립", "노동조합 설립", "노조가입", "복수노조", "교섭창구단일화"]
+  },
+
+  "clusters": {
+    "_desc": "21개 대분류 → 60개 서브클러스터. 각 서브에 14일 3건 쿨다운 / 30일 5건 SATURATED 적용.",
+
+    "hiring": {
+      "label": "채용",
+      "primary_author": "blog-guide",
+      "subclusters": {
+        "procedure":    { "keywords": ["채용절차", "근로조건 명시", "이력서", "채용공고"] },
+        "intended_hire":{ "keywords": ["채용내정", "내정 취소", "내정자"] },
+        "probation":    { "synonym_group": "probation_group" },
+        "intern":       { "keywords": ["인턴", "채용형 인턴", "과정형 인턴"] },
+        "personal_info":{ "keywords": ["개인정보", "채용 개인정보", "지원자 정보"] }
+      }
+    },
+
+    "dismissal": {
+      "label": "해고·징계",
+      "primary_author": "blog-case",
+      "cross_authors": ["blog-labor"],
+      "subclusters": {
+        "restructuring":  { "synonym_group": "restructuring" },
+        "unfair":         { "synonym_group": "unfair_dismissal" },
+        "disciplinary":   { "keywords": ["징계해고", "징계시효", "이중징계", "시말서", "징계권"] },
+        "wage_penalty":   { "keywords": ["감급", "감봉", "정직", "감액"] },
+        "performance":    { "keywords": ["저성과자", "직무능력부족", "PIP"] },
+        "status_change":  { "keywords": ["대기발령", "직위해제", "직권면직", "당연퇴직"] },
+        "officer":        { "synonym_group": "officer_group" }
+      }
+    },
+
+    "harassment": {
+      "label": "직장 내 괴롭힘·성희롱",
+      "primary_author": "blog-labor",
+      "cross_authors": ["blog-case", "blog-guide", "blog-news"],
+      "subclusters": {
+        "elements":     { "synonym_group": "harassment_group", "keywords": ["성립 요건", "괴롭힘 요건", "우위성"] },
+        "investigation":{ "keywords": ["조사 절차", "조사위원회", "처리지침", "신고 접수", "조사가 시작"] },
+        "victim":       { "keywords": ["피해자 보호", "2차 피해", "분리조치", "보호조치"] },
+        "criminal":     { "keywords": ["형사 고소", "폭행 고소", "명예훼손", "모욕죄"] },
+        "officer":      { "keywords": ["대표이사 가해", "임원 가해", "사장 가해"] }
+      }
+    },
+
+    "retirement": {
+      "label": "퇴직금·퇴직연금",
+      "primary_author": "blog-guide",
+      "subclusters": {
+        "severance":  { "keywords": ["퇴직금", "1년 미만", "평균임금", "계속근로"] },
+        "db":         { "keywords": ["확정급여형", "DB형", "확정급여"] },
+        "dc":         { "keywords": ["확정기여형", "DC형", "확정기여"] },
+        "irp":        { "keywords": ["IRP", "중간정산"] },
+        "calculation":{ "keywords": ["산정", "평균임금 산정", "계산법"] }
+      }
+    },
+
+    "leave_family": {
+      "label": "휴가·휴직",
+      "primary_author": "blog-labor",
+      "cross_authors": ["blog-guide"],
+      "subclusters": {
+        "annual":     { "synonym_group": "annual_leave", "keywords": ["연차"] },
+        "parental":   { "synonym_group": "parental_leave", "keywords": ["육아휴직"] },
+        "maternity":  { "synonym_group": "maternity", "keywords": ["출산휴가"] },
+        "family_care":{ "synonym_group": "family_care", "keywords": ["가족돌봄"] },
+        "sick":       { "keywords": ["병가", "휴직", "개인휴직"] },
+        "substitute": { "keywords": ["휴일대체", "보상휴가"] }
+      }
+    },
+
+    "contract": {
+      "label": "근로계약·취업규칙",
+      "primary_author": "blog-labor",
+      "subclusters": {
+        "employment":  { "keywords": ["근로계약", "필수기재사항", "근로조건명시"] },
+        "work_rules":  { "keywords": ["취업규칙", "취업규칙 변경", "불이익변경", "과반수동의"] },
+        "fixed_term":  { "synonym_group": "fixed_term" },
+        "dispatch":    { "keywords": ["파견", "도급", "불법파견", "위장도급"] },
+        "annual_salary":{ "keywords": ["연봉제", "포괄임금"] }
+      }
+    },
+
+    "wage_system": {
+      "label": "임금제도·수당",
+      "primary_author": "blog-labor",
+      "cross_authors": ["blog-news"],
+      "subclusters": {
+        "minimum":  { "synonym_group": "minimum_wage", "keywords": ["최저임금"] },
+        "ordinary": { "synonym_group": "ordinary_wage", "keywords": ["통상임금"] },
+        "inclusive":{ "keywords": ["포괄임금", "포괄임금제"] },
+        "bonus":    { "keywords": ["성과급", "경영성과급", "인센티브"] },
+        "allowance":{ "keywords": ["연장근로수당", "야간수당", "휴일수당", "가산수당"] }
+      }
+    },
+
+    "wage_claim": {
+      "label": "임금채권·체불",
+      "primary_author": "blog-guide",
+      "subclusters": {
+        "underpayment":  { "synonym_group": "wage_underpayment" },
+        "priority":      { "keywords": ["임금채권 우선변제", "최우선변제", "임금채권보장"] },
+        "statute":       { "keywords": ["임금시효", "임금채권 시효", "소멸시효"] }
+      }
+    },
+
+    "work_hours": {
+      "label": "근로시간",
+      "primary_author": "blog-labor",
+      "subclusters": {
+        "flex":       { "synonym_group": "flex_hours" },
+        "reduction":  { "keywords": ["주4일제", "주4.5일제", "근로시간 단축"] },
+        "shift":      { "keywords": ["교대제", "2조2교대", "3조2교대"] },
+        "remote":     { "keywords": ["재택근무", "원격근무"] },
+        "on_call":    { "keywords": ["숙직", "감시단속적", "대기시간"] }
+      }
+    },
+
+    "transfer": {
+      "label": "전보·인사이동",
+      "primary_author": "blog-case",
+      "subclusters": {
+        "internal":  { "synonym_group": "workplace_change", "keywords": ["전보", "인사이동", "배치전환"] },
+        "external":  { "keywords": ["전출", "전적", "계열사"] },
+        "retaliation":{ "keywords": ["보복인사", "보복성 전보", "신고 후 전보"] }
+      }
+    },
+
+    "platform_gig": {
+      "label": "플랫폼·특수고용",
+      "primary_author": "blog-news",
+      "cross_authors": ["blog-case"],
+      "subclusters": {
+        "worker_status":{ "synonym_group": "platform_worker" },
+        "ilo":          { "keywords": ["ILO 193호", "플랫폼 노동자 협약"] },
+        "presumption":  { "keywords": ["근로자추정제", "근로자 추정"] }
+      }
+    },
+
+    "safety": {
+      "label": "산업안전·중대재해",
+      "primary_author": "blog-news",
+      "cross_authors": ["blog-guide"],
+      "subclusters": {
+        "serious":     { "synonym_group": "serious_accident" },
+        "compensation":{ "keywords": ["산재보험", "산재신청", "업무상 재해"] },
+        "prevention":  { "keywords": ["안전보건교육", "TBM", "위험성평가"] }
+      }
+    },
+
+    "social_insurance": {
+      "label": "4대보험",
+      "primary_author": "blog-guide",
+      "subclusters": {
+        "employment":  { "keywords": ["고용보험", "실업급여", "피보험단위기간"] },
+        "industrial":  { "keywords": ["산재보험", "산재신청"] },
+        "national":    { "keywords": ["국민연금", "기준소득월액"] },
+        "health":      { "keywords": ["건강보험", "건보"] },
+        "coverage":    { "keywords": ["4대보험 가입", "일용직 4대보험", "초단시간 근로자"] }
+      }
+    },
+
+    "company_change": {
+      "label": "기업변동",
+      "primary_author": "blog-labor",
+      "subclusters": {
+        "ma":       { "keywords": ["합병"] },
+        "transfer": { "synonym_group": "ma_transfer", "keywords": ["영업양도", "고용승계"] },
+        "split":    { "keywords": ["회사분할", "분사"] },
+        "shutdown": { "keywords": ["휴업", "폐업"] }
+      }
+    },
+
+    "trade_secret": {
+      "label": "영업비밀·전직금지",
+      "primary_author": "blog-guide",
+      "cross_authors": ["blog-case"],
+      "subclusters": {
+        "protection":{ "synonym_group": "trade_secret" },
+        "non_compete":{ "keywords": ["전직금지 약정", "경업금지"] }
+      }
+    },
+
+    "youth_labor": {
+      "label": "연소자·청소년",
+      "primary_author": "blog-labor",
+      "subclusters": {
+        "employment":  { "keywords": ["연소자", "청소년 근로", "미성년자"] },
+        "vocational":  { "keywords": ["직업계고", "현장실습"] }
+      }
+    },
+
+    "dispute_resolution": {
+      "label": "노동위·구제",
+      "primary_author": "blog-labor",
+      "cross_authors": ["blog-case", "blog-guide"],
+      "subclusters": {
+        "remedy":       { "keywords": ["구제신청", "부당해고 구제"] },
+        "monetary":     { "keywords": ["금전보상", "금전보상제"] },
+        "reconciliation":{ "keywords": ["화해", "조정 신청"] },
+        "enforcement":  { "keywords": ["이행강제금", "구제명령"] }
+      }
+    },
+
+    "union_formation": {
+      "label": "노동조합 설립·운영",
+      "primary_author": "blog-labor",
+      "subclusters": {
+        "setup":         { "synonym_group": "union_setup" },
+        "internal":      { "keywords": ["조합원 제명", "노조 내부 징계", "조합비"] },
+        "personality":   { "keywords": ["법인격", "노조 법인격"] },
+        "public":        { "keywords": ["공무원 노조", "직장협의회"] }
+      }
+    },
+
+    "collective_agreement": {
+      "label": "단체협약",
+      "primary_author": "blog-labor",
+      "subclusters": {
+        "coverage":  { "synonym_group": "collective_agreement", "keywords": ["단체협약 효력", "협약 적용"] },
+        "expiry":    { "keywords": ["단체협약 실효", "유효기간 만료"] },
+        "bargaining":{ "keywords": ["단체교섭", "교섭 거부", "교섭 해태"] }
+      }
+    },
+
+    "industrial_action": {
+      "label": "쟁의행위·파업",
+      "primary_author": "blog-news",
+      "cross_authors": ["blog-case"],
+      "subclusters": {
+        "legality":  { "synonym_group": "industrial_action", "keywords": ["쟁의행위 정당성", "파업 정당성", "파업"] },
+        "lockout":   { "keywords": ["직장폐쇄"] },
+        "substitute":{ "keywords": ["대체근로"] },
+        "essential": { "keywords": ["필수유지업무"] },
+        "damages":   { "keywords": ["파업 손해배상", "노조 손해배상"] }
+      }
+    },
+
+    "yellow_envelope": {
+      "label": "노란봉투법",
+      "primary_author": "blog-news",
+      "cross_authors": ["blog-labor", "blog-case"],
+      "subclusters": {
+        "employer_scope":{ "synonym_group": "yellow_envelope", "keywords": ["원청 사용자성", "원청 교섭 의무", "사용자 판정"] },
+        "damages":       { "keywords": ["노봉법 손배", "조합원 개인 청구", "면책", "노란봉투법이 바꾼 손해배상"] },
+        "progress":      { "keywords": ["시행", "교섭 요구 통계", "교섭 지연", "시행 3개월", "100일"] },
+        "revision":      { "keywords": ["역개정", "시행령", "처벌 조항"] }
+      }
+    },
+
+    "law_enforcement": {
+      "label": "법 집행·근로감독",
+      "primary_author": "blog-news",
+      "subclusters": {
+        "inspection":  { "keywords": ["근로감독", "감독 대상", "집중감독"] },
+        "penalty":     { "keywords": ["처벌 강화", "벌금", "가중처벌"] },
+        "amnesty":     { "keywords": ["자진신고", "부정수급 감경"] }
+      }
+    },
+
+    "personal_info": {
+      "label": "개인정보 (HR)",
+      "primary_author": "blog-guide",
+      "note": "신규 클러스터 — UNMAPPED 60건 대응",
+      "subclusters": {
+        "hiring":      { "keywords": ["채용 개인정보", "지원자 정보"] },
+        "employment":  { "keywords": ["재직 개인정보", "근로자 정보 관리"] },
+        "termination": { "keywords": ["퇴직자 정보", "퇴직 개인정보 파기"] }
+      }
+    },
+
+    "overseas_worker": {
+      "label": "외국인 근로자",
+      "primary_author": "blog-guide",
+      "note": "신규 클러스터",
+      "subclusters": {
+        "visa":  { "keywords": ["E-9", "H-2", "EPS", "고용허가제"] },
+        "safety":{ "keywords": ["외국인 안전교육", "다국어 안전"] },
+        "labor": { "keywords": ["외국인 근로계약", "이주노동자"] }
+      }
+    },
+
+    "newcomer": {
+      "label": "소규모·신규 사업주",
+      "primary_author": "blog-guide",
+      "note": "신규 클러스터",
+      "subclusters": {
+        "small":     { "keywords": ["5인 미만", "5명 미만"] },
+        "freelance": { "keywords": ["프리랜서 계약", "3.3% 소득세"] },
+        "startup":   { "keywords": ["창업 노무", "스타트업"] }
+      }
+    },
+
+    "law_calendar": {
+      "label": "법·제도 시행 일정",
+      "primary_author": "blog-news",
+      "note": "신규 클러스터",
+      "subclusters": {
+        "new_law":     { "keywords": ["신설 법", "시행일", "제도 도입"] },
+        "amendment":   { "keywords": ["개정", "시행령", "고시"] },
+        "sunset":      { "keywords": ["일몰", "폐지"] }
+      }
+    }
+  },
+
+  "author_matrix": {
+    "_desc": "필자별 전담 클러스터. primary가 우선 배정, cross_authors는 각도 명확 시 진입 가능.",
+    "blog-daily": {
+      "role": "매일 뉴스 라운드업 (딥다이브 아님)",
+      "primary_clusters": ["*"],
+      "note": "카운트 대상 아님 — 딥다이브 쿨다운 계산에 미포함"
+    },
+    "blog-news": {
+      "role": "시사 뉴스 딥다이브",
+      "primary_clusters": ["yellow_envelope", "industrial_action", "law_enforcement", "platform_gig", "safety", "law_calendar"],
+      "cross_clusters": ["wage_system"],
+      "saturation_exception": true,
+      "exception_rule": "SATURATED 예외는 뉴스룸만 · 서브클러스터당 주 1회 · 예외 발동도 카운트 반영"
+    },
+    "blog-labor": {
+      "role": "법령·행정해석 해설 (위너스 에디터)",
+      "primary_clusters": ["contract", "union_formation", "collective_agreement", "wage_system", "leave_family", "youth_labor", "company_change"],
+      "cross_clusters": ["harassment", "dismissal", "dispute_resolution"],
+      "saturation_exception": false
+    },
+    "blog-case": {
+      "role": "판례·판정례 분석 (판례 분석팀)",
+      "primary_clusters": ["dismissal", "dispute_resolution", "transfer", "trade_secret"],
+      "cross_clusters": ["harassment", "*"],
+      "saturation_exception": false,
+      "note": "모든 클러스터의 판례 각도 허용. 단 서브클러스터 ALL TIME 3건 이상 → PERMANENT_SATURATED"
+    },
+    "blog-guide": {
+      "role": "HR·실무자 체크리스트·매뉴얼 (실무 가이드)",
+      "primary_clusters": ["hiring", "retirement", "social_insurance", "wage_claim", "personal_info", "overseas_worker", "newcomer", "trade_secret"],
+      "cross_clusters": ["contract", "harassment", "safety", "leave_family"],
+      "saturation_exception": false
+    }
+  },
+
+  "cooldown_rules": {
+    "sub_cluster_cooldown_days": 14,
+    "sub_cluster_cooldown_count": 3,
+    "sub_cluster_saturated_days": 30,
+    "sub_cluster_saturated_count": 5,
+    "author_sub_cooldown_days": 14,
+    "case_all_time_permanent_saturated": 3,
+    "exception_weekly_max_per_subcluster": 1
+  }
+}

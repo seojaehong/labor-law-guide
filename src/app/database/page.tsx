@@ -130,17 +130,17 @@ export default async function DatabasePage() {
   };
 
   return (
-    <div className="mx-auto max-w-[1100px] px-5 py-10">
+    <div className="layout-list">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
-      <section className="max-w-[860px]">
+      <section className="max-w-[var(--layout-compact-max)]">
         <div className="inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-medium" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--grey-50)', color: 'var(--color-text-secondary)' }}>
           <Search size={14} />
           실무형 판례·행정해석 검색
         </div>
-        <h1 className="mt-4 text-3xl font-bold tracking-tight md:text-4xl" style={{ color: 'var(--color-text-primary)' }}>
+        <h1 className="t-h2 mt-4" style={{ color: 'var(--color-text-primary)' }}>
           판례와 행정해석을
           <br />
           검색보다 이해 중심으로 찾는 페이지
@@ -151,8 +151,8 @@ export default async function DatabasePage() {
         </p>
       </section>
 
-      <section className="mt-8 rounded-3xl border p-5 md:p-7" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }}>
-        <h2 className="text-lg font-bold" style={{ color: 'var(--color-text-primary)' }}>추천 검색</h2>
+      <section className="mt-8 rounded-xl border p-5 md:p-7" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }}>
+        <h2 className="t-h4" style={{ color: 'var(--color-text-primary)' }}>추천 검색</h2>
         <p className="mt-1 text-sm" style={{ color: 'var(--color-text-secondary)' }}>
           사람들이 실제로 많이 찾는 질문형 키워드부터 시작하면 원하는 자료에 더 빨리 닿습니다.
         </p>
@@ -171,17 +171,17 @@ export default async function DatabasePage() {
       </section>
 
       <section className="mt-8 grid gap-6 lg:grid-cols-2">
-        <div className="rounded-3xl border p-5 md:p-6" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }}>
+        <div className="rounded-xl border p-5 md:p-6" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }}>
           <div className="flex items-center gap-2">
             <Scale size={18} style={{ color: 'var(--color-accent)' }} />
-            <h2 className="text-lg font-bold" style={{ color: 'var(--color-text-primary)' }}>대표 판례 미리 보기</h2>
+            <h2 className="t-h4" style={{ color: 'var(--color-text-primary)' }}>대표 판례 미리 보기</h2>
           </div>
           <p className="mt-1 text-sm" style={{ color: 'var(--color-text-secondary)' }}>
             원청 사용자성, 도급·파견 구별, 간접 통제 같은 핵심 논리를 먼저 읽어보면 검색 정확도가 올라갑니다.
           </p>
           <div className="mt-4 space-y-3">
             {featuredCases.map((item) => (
-              <article key={item.id} className="rounded-2xl border p-4" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--grey-50)' }}>
+              <article key={item.id} className="rounded-xl border p-4" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--grey-50)' }}>
                 <div className="flex flex-wrap items-center gap-2 text-xs" style={{ color: 'var(--color-text-tertiary)' }}>
                   <span className="rounded-md px-2 py-0.5 font-medium" style={{ backgroundColor: 'var(--blue-50)', color: 'var(--blue-600)' }}>
                     {item.court}
@@ -215,17 +215,17 @@ export default async function DatabasePage() {
           </Link>
         </div>
 
-        <div className="rounded-3xl border p-5 md:p-6" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }}>
+        <div className="rounded-xl border p-5 md:p-6" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }}>
           <div className="flex items-center gap-2">
             <FileText size={18} style={{ color: 'var(--color-accent)' }} />
-            <h2 className="text-lg font-bold" style={{ color: 'var(--color-text-primary)' }}>대표 행정해석 미리 보기</h2>
+            <h2 className="t-h4" style={{ color: 'var(--color-text-primary)' }}>대표 행정해석 미리 보기</h2>
           </div>
           <p className="mt-1 text-sm" style={{ color: 'var(--color-text-secondary)' }}>
             행정해석은 법원이 보기 전에 현장에서 먼저 부딪히는 운영 이슈를 정리해주는 경우가 많습니다. 교섭 범위와 노동위원회 절차를 함께 보세요.
           </p>
           <div className="mt-4 space-y-3">
             {featuredAdmins.map((item) => (
-              <article key={item.id} className="rounded-2xl border p-4" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--grey-50)' }}>
+              <article key={item.id} className="rounded-xl border p-4" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--grey-50)' }}>
                 <div className="flex flex-wrap items-center gap-2 text-xs" style={{ color: 'var(--color-text-tertiary)' }}>
                   <span className="rounded-md px-2 py-0.5 font-medium" style={{ backgroundColor: 'var(--color-accent-light)', color: 'var(--color-accent)' }}>
                     행정해석
@@ -258,19 +258,19 @@ export default async function DatabasePage() {
       </section>
 
       <section className="mt-8 grid gap-4 md:grid-cols-3">
-        <div className="rounded-2xl border p-5" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }}>
+        <div className="rounded-xl border p-5" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }}>
           <h2 className="text-sm font-bold" style={{ color: 'var(--color-text-primary)' }}>판례 검색 팁</h2>
           <p className="mt-2 text-sm leading-6" style={{ color: 'var(--color-text-secondary)' }}>
             회사 유형보다 쟁점 단어를 먼저 넣는 편이 좋습니다. 예: 사용자성, 원청, 파견, 손해배상, 교섭 거부.
           </p>
         </div>
-        <div className="rounded-2xl border p-5" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }}>
+        <div className="rounded-xl border p-5" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }}>
           <h2 className="text-sm font-bold" style={{ color: 'var(--color-text-primary)' }}>행정해석 읽는 법</h2>
           <p className="mt-2 text-sm leading-6" style={{ color: 'var(--color-text-secondary)' }}>
             현재 공개된 행정해석은 노조법과 인접 노동관계 법령 자료가 중심입니다. 사용자성보다 단체교섭, 교섭창구, 부당노동행위 같은 제도 키워드로 더 잘 찾을 수 있습니다.
           </p>
         </div>
-        <div className="rounded-2xl border p-5" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }}>
+        <div className="rounded-xl border p-5" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }}>
           <h2 className="text-sm font-bold" style={{ color: 'var(--color-text-primary)' }}>이 페이지의 한계</h2>
           <p className="mt-2 text-sm leading-6" style={{ color: 'var(--color-text-secondary)' }}>
             검색 결과에는 노조법 일반 자료가 섞이거나, 같은 사건번호가 다른 요약 품질로 중복될 수 있습니다. 대표 사례를 먼저 읽고, 이어서 관련 키워드로 좁혀가면 정확도가 올라갑니다.

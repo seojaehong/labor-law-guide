@@ -1,6 +1,9 @@
 import { supabaseAdmin } from '@/lib/supabase-server';
 import { supabase } from '@/lib/supabase';
-import crypto from 'crypto';
+import { extractIp, hashIp } from '@/lib/client-ip';
+
+// 기존 호출부(api/chat·payment-intent·subscribers)가 여기서 가져다 쓰고 있어 그대로 재수출한다.
+export { extractIp, hashIp };
 
 const db = supabaseAdmin || supabase;
 
@@ -17,18 +20,6 @@ export type RateLimitResult = {
   remaining: number;
 };
 
-export function hashIp(ip: string): string {
-  const salt = process.env.IP_HASH_SALT || 'yh-bok-default-salt';
-  return crypto.createHash('sha256').update(`${salt}:${ip}`).digest('hex').slice(0, 32);
-}
-
-export function extractIp(req: Request): string {
-  const xff = req.headers.get('x-forwarded-for') || '';
-  const first = xff.split(',')[0].trim();
-  if (first) return first;
-  return req.headers.get('x-real-ip') || 'unknown';
-}
-
 async function incr(scope: 'ip' | 'session' | 'global', key: string, max: number): Promise<RateLimitResult> {
   try {
     const { data, error } = await db.rpc('incr_rate_limit', {
@@ -37,12 +28,30 @@ async function incr(scope: 'ip' | 'session' | 'global', key: string, max: number
       p_max: max,
     });
     if (error || !data) {
+      console.error('[rate-limit] fail-open', scope, error?.message ?? 'no data');
       return { allowed: true, scope, count: 0, max, remaining: max };
     }
-    const d = data as { count: number; allowed: boolean; max: number; remaining: number };
-    return { allowed: d.allowed, scope, count: d.count, max: d.max, remaining: d.remaining };
-  } catch {
-    // RPC 실패 시 fail-open (베타: 가용성 우선, 비용 캡은 spend monitor가 잡음)
+    // RETURNS TABLE/SETOF면 PostgREST가 배열로 준다 → d.allowed가 undefined가 되고
+    // 호출부의 `!result.allowed`가 항상 true여서 **전부 차단**되거나(챗), 반대 방향의
+    // 비교를 쓰는 곳에서는 **전부 통과**한다. 어느 쪽이든 조용히 틀린다.
+    const d = (Array.isArray(data) ? data[0] : data) as
+      | { count?: number; allowed?: boolean; max?: number; remaining?: number }
+      | undefined;
+    if (!d || typeof d.allowed !== 'boolean') {
+      console.error('[rate-limit] shape mismatch', scope, JSON.stringify(data).slice(0, 200));
+      return { allowed: true, scope, count: 0, max, remaining: max };
+    }
+    return {
+      allowed: d.allowed,
+      scope,
+      count: d.count ?? 0,
+      max: d.max ?? max,
+      remaining: d.remaining ?? Math.max(max - (d.count ?? 0), 0),
+    };
+  } catch (err) {
+    // RPC 실패 시 fail-open (베타: 가용성 우선). 단 조용히 넘기지 않는다 —
+    // 로그가 없으면 "리밋이 도는 중"과 "리밋이 죽어 무제한"을 구분할 수 없다.
+    console.error('[rate-limit] exception', scope, err instanceof Error ? err.message : 'unknown');
     return { allowed: true, scope, count: 0, max, remaining: max };
   }
 }

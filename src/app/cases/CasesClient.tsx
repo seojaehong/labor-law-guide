@@ -14,7 +14,7 @@ export default function CasesClient() {
         {keyCases.map((c) => {
           const isOpen = openId === c.id;
           return (
-            <div key={c.id} className="overflow-hidden rounded-xl border" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }}>
+            <div key={c.id} className="overflow-hidden border-b" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }}>
               <button
                 onClick={() => setOpenId(isOpen ? null : c.id)}
                 aria-expanded={isOpen}
@@ -33,7 +33,7 @@ export default function CasesClient() {
                     <span className="text-xs" style={{ color: 'var(--grey-400)' }}>{c.date}</span>
                   </div>
                   <div className="mt-1 text-[15px] font-medium" style={{ color: 'var(--grey-900)' }}>{c.title}</div>
-                  <div className="mt-0.5 text-xs" style={{ color: 'var(--grey-500)' }}>{c.significance}</div>
+                  <div className="mt-0.5 text-xs" style={{ color: 'var(--grey-700)' }}>{c.significance}</div>
                 </div>
                 {isOpen ? <ChevronUp size={18} style={{ color: 'var(--grey-400)' }} /> : <ChevronDown size={18} style={{ color: 'var(--grey-400)' }} />}
               </button>
@@ -45,7 +45,7 @@ export default function CasesClient() {
                   <Section label="실무 시사점" text={c.kotraImplication} />
                   <div className="flex flex-wrap gap-3 pt-1">
                     <Link
-                      href={`/database?q=${encodeURIComponent(c.databaseQuery)}`}
+                      href={`/decisions?type=court&q=${encodeURIComponent(c.databaseQuery)}`}
                       className="inline-flex items-center gap-1 text-sm font-medium"
                       style={{ color: 'var(--color-accent)' }}
                     >
@@ -61,9 +61,8 @@ export default function CasesClient() {
 
       <div className="mt-10 text-center">
         <Link
-          href="/database"
-          className="inline-flex items-center gap-2 rounded-lg px-5 py-2.5 text-sm font-medium text-white"
-          style={{ backgroundColor: 'var(--color-accent)' }}
+          href="/decisions"
+          className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-md px-5 py-2.5 text-[15px] font-semibold transition-[background-color,transform] hover:-translate-y-px bg-[var(--color-accent-ink)] text-[var(--color-on-accent-ink)] hover:bg-[var(--color-accent-ink-hover)]"
         >
           더 많은 판례 검색하기 <ArrowRight size={16} />
         </Link>
@@ -75,7 +74,7 @@ export default function CasesClient() {
 function Section({ label, text }: { label: string; text: string }) {
   return (
     <div>
-      <div className="mb-1 text-xs font-bold" style={{ color: 'var(--grey-500)' }}>{label}</div>
+      <div className="mb-1 text-xs font-bold" style={{ color: 'var(--grey-700)' }}>{label}</div>
       <p className="text-sm leading-relaxed" style={{ color: 'var(--grey-700)' }}>{text}</p>
     </div>
   );

@@ -14,7 +14,7 @@
 /coverage
 
 # next.js
-/.next/
+.next/
 /out/
 
 # production
@@ -42,8 +42,30 @@ next-env.d.ts
 
 # claude / supabase scratch
 .claude/
+.bkit/
 supabase/.temp/
 
 # proposals (private)
 proposal/
 
+prd.json
+ralph.sh
+ralph-prompt.md
+RALPH-README.md
+progress.txt
+.last-branch
+archive/
+
+# playwright output
+test-results/
+.env*.local
+
+# 손으로 남긴 백업본은 커밋하지 않는다
+*.bak
+*.bak-*
+
+# python
+__pycache__/
+
+# Local CLI browser snapshots
+.playwright-cli/

@@ -1,0 +1,888 @@
+{
+  "base": "http://127.0.0.1:3126",
+  "checks": [
+    {
+      "timezoneId": "UTC",
+      "locale": "ko-KR",
+      "cycle": 0,
+      "route": "/tools",
+      "themeToggle": true,
+      "reloadTheme": true,
+      "overflow": false
+    },
+    {
+      "timezoneId": "UTC",
+      "locale": "ko-KR",
+      "cycle": 0,
+      "route": "/tools/leave",
+      "themeToggle": true,
+      "reloadTheme": true,
+      "overflow": false
+    },
+    {
+      "timezoneId": "UTC",
+      "locale": "ko-KR",
+      "cycle": 0,
+      "route": "/tools/leave/advanced",
+      "themeToggle": true,
+      "reloadTheme": true,
+      "overflow": false
+    },
+    {
+      "timezoneId": "UTC",
+      "locale": "ko-KR",
+      "cycle": 0,
+      "route": "/tools/leave/settlement",
+      "themeToggle": true,
+      "reloadTheme": true,
+      "overflow": false
+    },
+    {
+      "timezoneId": "UTC",
+      "locale": "ko-KR",
+      "cycle": 1,
+      "route": "/tools",
+      "themeToggle": true,
+      "reloadTheme": true,
+      "overflow": false
+    },
+    {
+      "timezoneId": "UTC",
+      "locale": "ko-KR",
+      "cycle": 1,
+      "route": "/tools/leave",
+      "themeToggle": true,
+      "reloadTheme": true,
+      "overflow": false
+    },
+    {
+      "timezoneId": "UTC",
+      "locale": "ko-KR",
+      "cycle": 1,
+      "route": "/tools/leave/advanced",
+      "themeToggle": true,
+      "reloadTheme": true,
+      "overflow": false
+    },
+    {
+      "timezoneId": "UTC",
+      "locale": "ko-KR",
+      "cycle": 1,
+      "route": "/tools/leave/settlement",
+      "themeToggle": true,
+      "reloadTheme": true,
+      "overflow": false
+    },
+    {
+      "timezoneId": "UTC",
+      "locale": "ko-KR",
+      "cycle": 2,
+      "route": "/tools",
+      "themeToggle": true,
+      "reloadTheme": true,
+      "overflow": false
+    },
+    {
+      "timezoneId": "UTC",
+      "locale": "ko-KR",
+      "cycle": 2,
+      "route": "/tools/leave",
+      "themeToggle": true,
+      "reloadTheme": true,
+      "overflow": false
+    },
+    {
+      "timezoneId": "UTC",
+      "locale": "ko-KR",
+      "cycle": 2,
+      "route": "/tools/leave/advanced",
+      "themeToggle": true,
+      "reloadTheme": true,
+      "overflow": false
+    },
+    {
+      "timezoneId": "UTC",
+      "locale": "ko-KR",
+      "cycle": 2,
+      "route": "/tools/leave/settlement",
+      "themeToggle": true,
+      "reloadTheme": true,
+      "overflow": false
+    },
+    {
+      "timezoneId": "UTC",
+      "locale": "ko-KR",
+      "cycle": 3,
+      "route": "/tools",
+      "themeToggle": true,
+      "reloadTheme": true,
+      "overflow": false
+    },
+    {
+      "timezoneId": "UTC",
+      "locale": "ko-KR",
+      "cycle": 3,
+      "route": "/tools/leave",
+      "themeToggle": true,
+      "reloadTheme": true,
+      "overflow": false
+    },
+    {
+      "timezoneId": "UTC",
+      "locale": "ko-KR",
+      "cycle": 3,
+      "route": "/tools/leave/advanced",
+      "themeToggle": true,
+      "reloadTheme": true,
+      "overflow": false
+    },
+    {
+      "timezoneId": "UTC",
+      "locale": "ko-KR",
+      "cycle": 3,
+      "route": "/tools/leave/settlement",
+      "themeToggle": true,
+      "reloadTheme": true,
+      "overflow": false
+    },
+    {
+      "timezoneId": "UTC",
+      "locale": "ko-KR",
+      "cycle": 4,
+      "route": "/tools",
+      "themeToggle": true,
+      "reloadTheme": true,
+      "overflow": false
+    },
+    {
+      "timezoneId": "UTC",
+      "locale": "ko-KR",
+      "cycle": 4,
+      "route": "/tools/leave",
+      "themeToggle": true,
+      "reloadTheme": true,
+      "overflow": false
+    },
+    {
+      "timezoneId": "UTC",
+      "locale": "ko-KR",
+      "cycle": 4,
+      "route": "/tools/leave/advanced",
+      "themeToggle": true,
+      "reloadTheme": true,
+      "overflow": false
+    },
+    {
+      "timezoneId": "UTC",
+      "locale": "ko-KR",
+      "cycle": 4,
+      "route": "/tools/leave/settlement",
+      "themeToggle": true,
+      "reloadTheme": true,
+      "overflow": false
+    },
+    {
+      "timezoneId": "UTC",
+      "locale": "ko-KR",
+      "cycle": 5,
+      "route": "/tools",
+      "themeToggle": true,
+      "reloadTheme": true,
+      "overflow": false
+    },
+    {
+      "timezoneId": "UTC",
+      "locale": "ko-KR",
+      "cycle": 5,
+      "route": "/tools/leave",
+      "themeToggle": true,
+      "reloadTheme": true,
+      "overflow": false
+    },
+    {
+      "timezoneId": "UTC",
+      "locale": "ko-KR",
+      "cycle": 5,
+      "route": "/tools/leave/advanced",
+      "themeToggle": true,
+      "reloadTheme": true,
+      "overflow": false
+    },
+    {
+      "timezoneId": "UTC",
+      "locale": "ko-KR",
+      "cycle": 5,
+      "route": "/tools/leave/settlement",
+      "themeToggle": true,
+      "reloadTheme": true,
+      "overflow": false
+    },
+    {
+      "timezoneId": "UTC",
+      "locale": "ko-KR",
+      "cycle": 6,
+      "route": "/tools",
+      "themeToggle": true,
+      "reloadTheme": true,
+      "overflow": false
+    },
+    {
+      "timezoneId": "UTC",
+      "locale": "ko-KR",
+      "cycle": 6,
+      "route": "/tools/leave",
+      "themeToggle": true,
+      "reloadTheme": true,
+      "overflow": false
+    },
+    {
+      "timezoneId": "UTC",
+      "locale": "ko-KR",
+      "cycle": 6,
+      "route": "/tools/leave/advanced",
+      "themeToggle": true,
+      "reloadTheme": true,
+      "overflow": false
+    },
+    {
+      "timezoneId": "UTC",
+      "locale": "ko-KR",
+      "cycle": 6,
+      "route": "/tools/leave/settlement",
+      "themeToggle": true,
+      "reloadTheme": true,
+      "overflow": false
+    },
+    {
+      "timezoneId": "UTC",
+      "locale": "ko-KR",
+      "cycle": 7,
+      "route": "/tools",
+      "themeToggle": true,
+      "reloadTheme": true,
+      "overflow": false
+    },
+    {
+      "timezoneId": "UTC",
+      "locale": "ko-KR",
+      "cycle": 7,
+      "route": "/tools/leave",
+      "themeToggle": true,
+      "reloadTheme": true,
+      "overflow": false
+    },
+    {
+      "timezoneId": "UTC",
+      "locale": "ko-KR",
+      "cycle": 7,
+      "route": "/tools/leave/advanced",
+      "themeToggle": true,
+      "reloadTheme": true,
+      "overflow": false
+    },
+    {
+      "timezoneId": "UTC",
+      "locale": "ko-KR",
+      "cycle": 7,
+      "route": "/tools/leave/settlement",
+      "themeToggle": true,
+      "reloadTheme": true,
+      "overflow": false
+    },
+    {
+      "timezoneId": "UTC",
+      "locale": "ko-KR",
+      "liveInputAcrossThemeToggles": true,
+      "sessionRosterAcrossReload": true
+    },
+    {
+      "timezoneId": "Asia/Seoul",
+      "locale": "ko-KR",
+      "cycle": 0,
+      "route": "/tools",
+      "themeToggle": true,
+      "reloadTheme": true,
+      "overflow": false
+    },
+    {
+      "timezoneId": "Asia/Seoul",
+      "locale": "ko-KR",
+      "cycle": 0,
+      "route": "/tools/leave",
+      "themeToggle": true,
+      "reloadTheme": true,
+      "overflow": false
+    },
+    {
+      "timezoneId": "Asia/Seoul",
+      "locale": "ko-KR",
+      "cycle": 0,
+      "route": "/tools/leave/advanced",
+      "themeToggle": true,
+      "reloadTheme": true,
+      "overflow": false
+    },
+    {
+      "timezoneId": "Asia/Seoul",
+      "locale": "ko-KR",
+      "cycle": 0,
+      "route": "/tools/leave/settlement",
+      "themeToggle": true,
+      "reloadTheme": true,
+      "overflow": false
+    },
+    {
+      "timezoneId": "Asia/Seoul",
+      "locale": "ko-KR",
+      "cycle": 1,
+      "route": "/tools",
+      "themeToggle": true,
+      "reloadTheme": true,
+      "overflow": false
+    },
+    {
+      "timezoneId": "Asia/Seoul",
+      "locale": "ko-KR",
+      "cycle": 1,
+      "route": "/tools/leave",
+      "themeToggle": true,
+      "reloadTheme": true,
+      "overflow": false
+    },
+    {
+      "timezoneId": "Asia/Seoul",
+      "locale": "ko-KR",
+      "cycle": 1,
+      "route": "/tools/leave/advanced",
+      "themeToggle": true,
+      "reloadTheme": true,
+      "overflow": false
+    },
+    {
+      "timezoneId": "Asia/Seoul",
+      "locale": "ko-KR",
+      "cycle": 1,
+      "route": "/tools/leave/settlement",
+      "themeToggle": true,
+      "reloadTheme": true,
+      "overflow": false
+    },
+    {
+      "timezoneId": "Asia/Seoul",
+      "locale": "ko-KR",
+      "cycle": 2,
+      "route": "/tools",
+      "themeToggle": true,
+      "reloadTheme": true,
+      "overflow": false
+    },
+    {
+      "timezoneId": "Asia/Seoul",
+      "locale": "ko-KR",
+      "cycle": 2,
+      "route": "/tools/leave",
+      "themeToggle": true,
+      "reloadTheme": true,
+      "overflow": false
+    },
+    {
+      "timezoneId": "Asia/Seoul",
+      "locale": "ko-KR",
+      "cycle": 2,
+      "route": "/tools/leave/advanced",
+      "themeToggle": true,
+      "reloadTheme": true,
+      "overflow": false
+    },
+    {
+      "timezoneId": "Asia/Seoul",
+      "locale": "ko-KR",
+      "cycle": 2,
+      "route": "/tools/leave/settlement",
+      "themeToggle": true,
+      "reloadTheme": true,
+      "overflow": false
+    },
+    {
+      "timezoneId": "Asia/Seoul",
+      "locale": "ko-KR",
+      "cycle": 3,
+      "route": "/tools",
+      "themeToggle": true,
+      "reloadTheme": true,
+      "overflow": false
+    },
+    {
+      "timezoneId": "Asia/Seoul",
+      "locale": "ko-KR",
+      "cycle": 3,
+      "route": "/tools/leave",
+      "themeToggle": true,
+      "reloadTheme": true,
+      "overflow": false
+    },
+    {
+      "timezoneId": "Asia/Seoul",
+      "locale": "ko-KR",
+      "cycle": 3,
+      "route": "/tools/leave/advanced",
+      "themeToggle": true,
+      "reloadTheme": true,
+      "overflow": false
+    },
+    {
+      "timezoneId": "Asia/Seoul",
+      "locale": "ko-KR",
+      "cycle": 3,
+      "route": "/tools/leave/settlement",
+      "themeToggle": true,
+      "reloadTheme": true,
+      "overflow": false
+    },
+    {
+      "timezoneId": "Asia/Seoul",
+      "locale": "ko-KR",
+      "cycle": 4,
+      "route": "/tools",
+      "themeToggle": true,
+      "reloadTheme": true,
+      "overflow": false
+    },
+    {
+      "timezoneId": "Asia/Seoul",
+      "locale": "ko-KR",
+      "cycle": 4,
+      "route": "/tools/leave",
+      "themeToggle": true,
+      "reloadTheme": true,
+      "overflow": false
+    },
+    {
+      "timezoneId": "Asia/Seoul",
+      "locale": "ko-KR",
+      "cycle": 4,
+      "route": "/tools/leave/advanced",
+      "themeToggle": true,
+      "reloadTheme": true,
+      "overflow": false
+    },
+    {
+      "timezoneId": "Asia/Seoul",
+      "locale": "ko-KR",
+      "cycle": 4,
+      "route": "/tools/leave/settlement",
+      "themeToggle": true,
+      "reloadTheme": true,
+      "overflow": false
+    },
+    {
+      "timezoneId": "Asia/Seoul",
+      "locale": "ko-KR",
+      "cycle": 5,
+      "route": "/tools",
+      "themeToggle": true,
+      "reloadTheme": true,
+      "overflow": false
+    },
+    {
+      "timezoneId": "Asia/Seoul",
+      "locale": "ko-KR",
+      "cycle": 5,
+      "route": "/tools/leave",
+      "themeToggle": true,
+      "reloadTheme": true,
+      "overflow": false
+    },
+    {
+      "timezoneId": "Asia/Seoul",
+      "locale": "ko-KR",
+      "cycle": 5,
+      "route": "/tools/leave/advanced",
+      "themeToggle": true,
+      "reloadTheme": true,
+      "overflow": false
+    },
+    {
+      "timezoneId": "Asia/Seoul",
+      "locale": "ko-KR",
+      "cycle": 5,
+      "route": "/tools/leave/settlement",
+      "themeToggle": true,
+      "reloadTheme": true,
+      "overflow": false
+    },
+    {
+      "timezoneId": "Asia/Seoul",
+      "locale": "ko-KR",
+      "cycle": 6,
+      "route": "/tools",
+      "themeToggle": true,
+      "reloadTheme": true,
+      "overflow": false
+    },
+    {
+      "timezoneId": "Asia/Seoul",
+      "locale": "ko-KR",
+      "cycle": 6,
+      "route": "/tools/leave",
+      "themeToggle": true,
+      "reloadTheme": true,
+      "overflow": false
+    },
+    {
+      "timezoneId": "Asia/Seoul",
+      "locale": "ko-KR",
+      "cycle": 6,
+      "route": "/tools/leave/advanced",
+      "themeToggle": true,
+      "reloadTheme": true,
+      "overflow": false
+    },
+    {
+      "timezoneId": "Asia/Seoul",
+      "locale": "ko-KR",
+      "cycle": 6,
+      "route": "/tools/leave/settlement",
+      "themeToggle": true,
+      "reloadTheme": true,
+      "overflow": false
+    },
+    {
+      "timezoneId": "Asia/Seoul",
+      "locale": "ko-KR",
+      "cycle": 7,
+      "route": "/tools",
+      "themeToggle": true,
+      "reloadTheme": true,
+      "overflow": false
+    },
+    {
+      "timezoneId": "Asia/Seoul",
+      "locale": "ko-KR",
+      "cycle": 7,
+      "route": "/tools/leave",
+      "themeToggle": true,
+      "reloadTheme": true,
+      "overflow": false
+    },
+    {
+      "timezoneId": "Asia/Seoul",
+      "locale": "ko-KR",
+      "cycle": 7,
+      "route": "/tools/leave/advanced",
+      "themeToggle": true,
+      "reloadTheme": true,
+      "overflow": false
+    },
+    {
+      "timezoneId": "Asia/Seoul",
+      "locale": "ko-KR",
+      "cycle": 7,
+      "route": "/tools/leave/settlement",
+      "themeToggle": true,
+      "reloadTheme": true,
+      "overflow": false
+    },
+    {
+      "timezoneId": "Asia/Seoul",
+      "locale": "ko-KR",
+      "liveInputAcrossThemeToggles": true,
+      "sessionRosterAcrossReload": true
+    },
+    {
+      "timezoneId": "America/Los_Angeles",
+      "locale": "en-US",
+      "cycle": 0,
+      "route": "/tools",
+      "themeToggle": true,
+      "reloadTheme": true,
+      "overflow": false
+    },
+    {
+      "timezoneId": "America/Los_Angeles",
+      "locale": "en-US",
+      "cycle": 0,
+      "route": "/tools/leave",
+      "themeToggle": true,
+      "reloadTheme": true,
+      "overflow": false
+    },
+    {
+      "timezoneId": "America/Los_Angeles",
+      "locale": "en-US",
+      "cycle": 0,
+      "route": "/tools/leave/advanced",
+      "themeToggle": true,
+      "reloadTheme": true,
+      "overflow": false
+    },
+    {
+      "timezoneId": "America/Los_Angeles",
+      "locale": "en-US",
+      "cycle": 0,
+      "route": "/tools/leave/settlement",
+      "themeToggle": true,
+      "reloadTheme": true,
+      "overflow": false
+    },
+    {
+      "timezoneId": "America/Los_Angeles",
+      "locale": "en-US",
+      "cycle": 1,
+      "route": "/tools",
+      "themeToggle": true,
+      "reloadTheme": true,
+      "overflow": false
+    },
+    {
+      "timezoneId": "America/Los_Angeles",
+      "locale": "en-US",
+      "cycle": 1,
+      "route": "/tools/leave",
+      "themeToggle": true,
+      "reloadTheme": true,
+      "overflow": false
+    },
+    {
+      "timezoneId": "America/Los_Angeles",
+      "locale": "en-US",
+      "cycle": 1,
+      "route": "/tools/leave/advanced",
+      "themeToggle": true,
+      "reloadTheme": true,
+      "overflow": false
+    },
+    {
+      "timezoneId": "America/Los_Angeles",
+      "locale": "en-US",
+      "cycle": 1,
+      "route": "/tools/leave/settlement",
+      "themeToggle": true,
+      "reloadTheme": true,
+      "overflow": false
+    },
+    {
+      "timezoneId": "America/Los_Angeles",
+      "locale": "en-US",
+      "cycle": 2,
+      "route": "/tools",
+      "themeToggle": true,
+      "reloadTheme": true,
+      "overflow": false
+    },
+    {
+      "timezoneId": "America/Los_Angeles",
+      "locale": "en-US",
+      "cycle": 2,
+      "route": "/tools/leave",
+      "themeToggle": true,
+      "reloadTheme": true,
+      "overflow": false
+    },
+    {
+      "timezoneId": "America/Los_Angeles",
+      "locale": "en-US",
+      "cycle": 2,
+      "route": "/tools/leave/advanced",
+      "themeToggle": true,
+      "reloadTheme": true,
+      "overflow": false
+    },
+    {
+      "timezoneId": "America/Los_Angeles",
+      "locale": "en-US",
+      "cycle": 2,
+      "route": "/tools/leave/settlement",
+      "themeToggle": true,
+      "reloadTheme": true,
+      "overflow": false
+    },
+    {
+      "timezoneId": "America/Los_Angeles",
+      "locale": "en-US",
+      "cycle": 3,
+      "route": "/tools",
+      "themeToggle": true,
+      "reloadTheme": true,
+      "overflow": false
+    },
+    {
+      "timezoneId": "America/Los_Angeles",
+      "locale": "en-US",
+      "cycle": 3,
+      "route": "/tools/leave",
+      "themeToggle": true,
+      "reloadTheme": true,
+      "overflow": false
+    },
+    {
+      "timezoneId": "America/Los_Angeles",
+      "locale": "en-US",
+      "cycle": 3,
+      "route": "/tools/leave/advanced",
+      "themeToggle": true,
+      "reloadTheme": true,
+      "overflow": false
+    },
+    {
+      "timezoneId": "America/Los_Angeles",
+      "locale": "en-US",
+      "cycle": 3,
+      "route": "/tools/leave/settlement",
+      "themeToggle": true,
+      "reloadTheme": true,
+      "overflow": false
+    },
+    {
+      "timezoneId": "America/Los_Angeles",
+      "locale": "en-US",
+      "cycle": 4,
+      "route": "/tools",
+      "themeToggle": true,
+      "reloadTheme": true,
+      "overflow": false
+    },
+    {
+      "timezoneId": "America/Los_Angeles",
+      "locale": "en-US",
+      "cycle": 4,
+      "route": "/tools/leave",
+      "themeToggle": true,
+      "reloadTheme": true,
+      "overflow": false
+    },
+    {
+      "timezoneId": "America/Los_Angeles",
+      "locale": "en-US",
+      "cycle": 4,
+      "route": "/tools/leave/advanced",
+      "themeToggle": true,
+      "reloadTheme": true,
+      "overflow": false
+    },
+    {
+      "timezoneId": "America/Los_Angeles",
+      "locale": "en-US",
+      "cycle": 4,
+      "route": "/tools/leave/settlement",
+      "themeToggle": true,
+      "reloadTheme": true,
+      "overflow": false
+    },
+    {
+      "timezoneId": "America/Los_Angeles",
+      "locale": "en-US",
+      "cycle": 5,
+      "route": "/tools",
+      "themeToggle": true,
+      "reloadTheme": true,
+      "overflow": false
+    },
+    {
+      "timezoneId": "America/Los_Angeles",
+      "locale": "en-US",
+      "cycle": 5,
+      "route": "/tools/leave",
+      "themeToggle": true,
+      "reloadTheme": true,
+      "overflow": false
+    },
+    {
+      "timezoneId": "America/Los_Angeles",
+      "locale": "en-US",
+      "cycle": 5,
+      "route": "/tools/leave/advanced",
+      "themeToggle": true,
+      "reloadTheme": true,
+      "overflow": false
+    },
+    {
+      "timezoneId": "America/Los_Angeles",
+      "locale": "en-US",
+      "cycle": 5,
+      "route": "/tools/leave/settlement",
+      "themeToggle": true,
+      "reloadTheme": true,
+      "overflow": false
+    },
+    {
+      "timezoneId": "America/Los_Angeles",
+      "locale": "en-US",
+      "cycle": 6,
+      "route": "/tools",
+      "themeToggle": true,
+      "reloadTheme": true,
+      "overflow": false
+    },
+    {
+      "timezoneId": "America/Los_Angeles",
+      "locale": "en-US",
+      "cycle": 6,
+      "route": "/tools/leave",
+      "themeToggle": true,
+      "reloadTheme": true,
+      "overflow": false
+    },
+    {
+      "timezoneId": "America/Los_Angeles",
+      "locale": "en-US",
+      "cycle": 6,
+      "route": "/tools/leave/advanced",
+      "themeToggle": true,
+      "reloadTheme": true,
+      "overflow": false
+    },
+    {
+      "timezoneId": "America/Los_Angeles",
+      "locale": "en-US",
+      "cycle": 6,
+      "route": "/tools/leave/settlement",
+      "themeToggle": true,
+      "reloadTheme": true,
+      "overflow": false
+    },
+    {
+      "timezoneId": "America/Los_Angeles",
+      "locale": "en-US",
+      "cycle": 7,
+      "route": "/tools",
+      "themeToggle": true,
+      "reloadTheme": true,
+      "overflow": false
+    },
+    {
+      "timezoneId": "America/Los_Angeles",
+      "locale": "en-US",
+      "cycle": 7,
+      "route": "/tools/leave",
+      "themeToggle": true,
+      "reloadTheme": true,
+      "overflow": false
+    },
+    {
+      "timezoneId": "America/Los_Angeles",
+      "locale": "en-US",
+      "cycle": 7,
+      "route": "/tools/leave/advanced",
+      "themeToggle": true,
+      "reloadTheme": true,
+      "overflow": false
+    },
+    {
+      "timezoneId": "America/Los_Angeles",
+      "locale": "en-US",
+      "cycle": 7,
+      "route": "/tools/leave/settlement",
+      "themeToggle": true,
+      "reloadTheme": true,
+      "overflow": false
+    },
+    {
+      "timezoneId": "America/Los_Angeles",
+      "locale": "en-US",
+      "liveInputAcrossThemeToggles": true,
+      "sessionRosterAcrossReload": true
+    }
+  ],
+  "errors": []
+}

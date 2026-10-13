@@ -134,7 +134,7 @@ export async function extractDelta(
   ).replace('{user_message}', userMessage.slice(0, 1000));
 
   try {
-    const model = getGenerativeModel('gemini-2.5-flash-preview-04-17');
+    const model = getGenerativeModel();
     const response = await model.generateContent({
       contents: [{ role: 'user', parts: [{ text: prompt }] }],
       generationConfig: {

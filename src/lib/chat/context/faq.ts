@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { rerankPassages } from './rerank';
+import { jevRerank } from './jev';
+import { toLexQuery } from './lex-query';
 
 type FaqRow = {
   id: number;
@@ -34,29 +35,73 @@ export async function buildFaqContext(
 
   // NIM Reranker 활성 시 후보 16건 retrieval → rerank → top 5 사용 (token 절감 + 적합도 향상)
   // 비활성 시 기존 top 8 그대로 (변경 없음, fail-safe)
-  const RERANK_ON = process.env.NIM_RERANK_ENABLED === 'true';
-  const RETRIEVE_K = RERANK_ON ? 16 : 8;
-  const FINAL_N = RERANK_ON ? 5 : 8;
+  // NVIDIA NIM 리랭커는 2026-05-18 에 서비스가 종료됐다(HTTP 410 Gone,
+  // "This endpoint has reached its end of life on 2026-05-18").
+  // 그런데 rerank 함수가 실패 시 입력을 그대로 돌려주는 fail-safe 라서 아무도 몰랐다.
+  //
+  // 문제는 조용히 실패하는 데서 끝나지 않았다. 리랭크가 켜져 있으면 후보를 16건 뽑아
+  // 상위 5건만 쓰는데, 리랭크가 죽었으므로 '재정렬 없이 앞 5건'을 쓰게 된다.
+  // 즉 리랭크를 켜 둔 탓에 오히려 FAQ 8건 대신 5건만 넣고 있었다 — 정확성 손해다.
+  //
+  // 재선택(② 단계). NIM 리랭커는 엔드포인트가 죽어 2026 중반부터 꺼져 있었고,
+  // 그 사이 **재선택 자리가 비어 있었다** — 임베딩 1위가 그대로 LLM 으로 갔다.
+  //
+  // 2026-10-04 실측: 「부당노동행위 구제신청은 언제까지 해야 하나요?」의 1위가
+  // 「실업급여 신청은 언제까지 해야 하나요?」였다. **말투가 주제를 눌렀다.**
+  // 현재 공용 jevRerank 는 TypeSafe 1회 호출을 우선하며 TYPESAFE_API_KEY 가 필요하다.
+  // 키가 없거나 실패하면 원래 검색 순서를 유지한다. 추가 공급자 폴백은 호출하지 않는다.
+  //
+  // JEV_ON=false 로 끌 수 있다. 실패하면 jevRerank 가 원래 순서를 그대로 돌려준다.
+  const JEV_ON = process.env.JEV_ON !== 'false';
+  // 그물을 넓히고 고르기는 Jev 에 맡긴다. 재선택은 **풀 밖의 것을 꺼내올 수 없다** —
+  // K=16 일 때 24질의 루브릭의 물리적 천장이 86.7% 였다(2026-10-04 실측).
+  //
+  // K 는 100 이 상한이다. 지연을 직접 쟀다(같은 3질의 × 2회):
+  //   K=40 중위 252ms · K=60 251ms · K=100 267ms · **K=134 1,239ms(최대 2,053ms)**
+  // 134 는 5배 느리고 한 번은 500(statement timeout)도 났다. 챗봇 경로에 쓸 수 없다.
+  const RETRIEVE_K = JEV_ON ? 100 : 8;
+  // 재선택에 넣는 수. 2026-10-05 에 16 → 32 로 올렸다.
+  //
+  // 아래 수치와 2회 호출 설명은 2026-10-05 Gemini 경로의 기록이다.
+  // 현재 TypeSafe 경로는 명시적 전역·채팅 활성화가 필요하며 실패 시 추가 호출 없이 원래 순서를 유지한다.
+  // 24질의 루브릭(후보별 독립 판정 + 판정 캐시, 3회 반복)으로 쟀다. 회차 폭은 1~3점이다.
+  //   16건 60.6%  ·  24건 65.6%  ·  32건 67.2%  ·  48건 69.2%   (천장 71.7%)
+  // **Jev 에게 더 보여줄수록 오른다.** 48건이 천장의 96% 까지 가지만 32 에서 멈춘 이유는
+  // 지연이다 — 후보가 늘면 재선택 프롬프트가 그만큼 커지고, 그걸 **순서 바꿔 두 번** 부른다.
+  // 운영은 Vertex(gemini-2.5-flash)인데 이 서버에 자격증명이 없어 **운영 지연을 못 쟀다.**
+  // 48 로 올리려면 먼저 운영에서 실제 지연을 재고 JEV_TIMEOUT_MS 와 같이 조정할 것.
+  //
+  // 같이 재서 **버린** 것들(전부 현행보다 나빴다 — 다시 시도하지 말 것):
+  //   단방향(한 번만 물음) 57.5% (−3.7) · 병합=정방향우선 57.5% (−3.7) · 병합=평균순위 60.3% (−0.3)
+  // 당시 Gemini 경로의 순서를 뒤집어 두 번 묻는 방식이 측정으로 확인됐다.
+  const JEV_IN = Number(process.env.JEV_IN) || 32;
+  const FINAL_N = JEV_ON ? 5 : 8;
+
+  // 어휘검색에는 내용어만 넘긴다(lex-query.ts 주석에 근거).
+  // **임베딩은 원문 문장 그대로** 쓴다 — 밀집검색은 문장이 길어야 좋다.
+  const lexQuery = toLexQuery(searchQuery);
 
   // 3-layer: combined → hybrid → legacy
   const combined = await db.rpc('search_faq_combined', {
-    query_text: searchQuery,
+    query_text: lexQuery,
     query_embedding: queryEmbedding,
     max_results: RETRIEVE_K,
     canonical_only: false,
   });
   if (!combined.error && combined.data && combined.data.length > 0) {
     dbFaq = combined.data;
-  } else if (combined.error) {
+  } else {
+    // 🔴 2026-10-04 수정. 전에는 `else if (combined.error)` 였다 —
+    // **combined 가 오류 없이 0건을 반환하면 폴백이 아예 안 돌았다.**
     const hybrid = await db.rpc('search_faq_hybrid', {
-      query_text: searchQuery,
+      query_text: lexQuery,
       max_results: RETRIEVE_K,
     });
     if (!hybrid.error && hybrid.data && hybrid.data.length > 0) {
       dbFaq = hybrid.data;
     } else {
       const legacy = await db.rpc('search_faq', {
-        query: searchQuery,
+        query: lexQuery,
         result_limit: RETRIEVE_K,
       });
       dbFaq = legacy.data;
@@ -67,17 +112,29 @@ export async function buildFaqContext(
   const matched = !dbErr && dbFaq !== null && dbFaq.length > 0;
   let matchedFaqs: FaqRow[] = matched && dbFaq ? dbFaq : [];
 
-  // NIM Reranker — query에 대해 top N 만 추출 (timeout/error 시 입력 그대로 사용)
-  if (RERANK_ON && matchedFaqs.length > FINAL_N) {
-    const rerankInput = matchedFaqs.map((f) => ({
-      id: f.id,
-      text: `Q: ${f.question}\nA: ${f.answer}`,
-    }));
-    const reranked = await rerankPassages(searchQuery, rerankInput, FINAL_N);
-    const idOrder = new Map(reranked.map((r, i) => [r.id, i]));
-    matchedFaqs = matchedFaqs
-      .filter((f) => idOrder.has(f.id))
-      .sort((a, b) => (idOrder.get(a.id) ?? 99) - (idOrder.get(b.id) ?? 99));
+  // 넓게 받은 뒤 **RPC 가 준 순서(final_rank)를 그대로** 상위 JEV_IN 만 재선택에 넣는다.
+  //
+  // 🔴 semantic_sim 내림차순 재정렬을 넣었다가 되돌렸다(2026-10-04). 구조적으로 틀렸다.
+  // search_faq_combined 은 어휘 분기와 의미 분기를 FULL OUTER JOIN 하고
+  // `COALESCE(s.similarity, 0)` 를 쓴다. 게다가 의미 분기에는 임계값 0.3 이 걸려 있다.
+  // 즉 **semantic_sim = 0 은 「유사도가 낮다」가 아니라 「의미 분기 집합에 없다」**는 뜻이다.
+  // 그걸로 내림차순 정렬하면 어휘로만 걸린 정답이 전부 맨 뒤로 간다.
+  //
+  // 실측 — 「산재 신청은 어떻게 하나요?」: 후보 100건에 산재 질문 38건이 들어오는데
+  // 전부 semantic_sim 0.000 이라 재정렬 후 top5 에 한 건도 남지 않았다(0/5).
+  // 「노동위원회 구제신청과 민사소송」도 같은 이유로 5/5 → 0/5 가 됐다.
+  // faq 25,844건 전부 임베딩이 있다 — 결측이 원인이 아니다.
+  if (JEV_ON && matchedFaqs.length > JEV_IN) {
+    matchedFaqs = matchedFaqs.slice(0, JEV_IN);
+  }
+
+  // Jev 재선택 — 실패·타임아웃이면 입력 순서를 그대로 쓴다(답이 안 나가는 것이 더 나쁘다)
+  //
+  // ⚠ 병합 규칙은 **바꾸지 않는다.** 2026-10-04 에 네 가지 변경안(원래 1위 보호 ·
+  // 동률을 검색순위로 타이브레이크 · 교차만 승격 · baseline 좋으면 skip)을 적대적으로
+  // 측정했더니 **전부 점수를 떨어뜨렸다**(1위 보호는 −5.2점). 손대지 말 것.
+  if (JEV_ON && matchedFaqs.length > FINAL_N) {
+    matchedFaqs = await jevRerank(searchQuery, matchedFaqs, FINAL_N);
   } else if (matchedFaqs.length > FINAL_N) {
     matchedFaqs = matchedFaqs.slice(0, FINAL_N);
   }

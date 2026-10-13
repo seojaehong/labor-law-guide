@@ -16,7 +16,7 @@ export default function Error({
   return (
     <div className="flex min-h-[60vh] flex-col items-center justify-center px-4 text-center">
       <h2
-        className="mb-3 text-2xl font-bold"
+        className="t-h2 mb-3"
         style={{ color: 'var(--color-text-primary)' }}
       >
         문제가 발생했습니다
@@ -29,8 +29,7 @@ export default function Error({
       </p>
       <button
         onClick={reset}
-        className="rounded-lg px-5 py-2.5 text-sm font-medium text-white transition-colors"
-        style={{ backgroundColor: 'var(--color-accent)' }}
+        className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-md px-5 py-2.5 text-[15px] font-semibold transition-[background-color,transform] hover:-translate-y-px bg-[var(--color-accent-ink)] text-[var(--color-on-accent-ink)] hover:bg-[var(--color-accent-ink-hover)]"
       >
         다시 시도
       </button>

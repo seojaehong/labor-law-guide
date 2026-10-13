@@ -1,12 +1,15 @@
 import { NextResponse } from 'next/server';
 import { SITE_URL } from '@/lib/constants';
 import { supabaseServer } from '@/lib/supabase-server';
+import { fetchAllRows } from '@/lib/supabase-paged';
 import { FAQ_CATEGORIES, categoryToSlug } from '@/lib/faq-categories';
+import { SITEMAP_CHUNK_SIZE, NLRC_SITEMAP_VIEW, getSitemapLayout } from '@/lib/sitemap-config';
 
 export const revalidate = 3600;
 export const dynamic = 'force-dynamic';
 
-const CHUNK_SIZE = 1_000;
+const CHUNK_SIZE = SITEMAP_CHUNK_SIZE;
+
 const FALLBACK_BLOG_DATE = new Date('2026-03-29T00:00:00.000Z');
 const FALLBACK_NEWS_DATE = new Date('2026-03-31T00:00:00.000Z');
 const CONTACT_LAST_MODIFIED = new Date('2026-04-04T00:00:00.000Z');
@@ -34,19 +37,6 @@ function parseDate(value: string | null | undefined, fallback: Date): Date {
 
 function maxDate(...dates: Date[]) {
   return new Date(Math.max(...dates.map((d) => d.getTime())));
-}
-
-async function getTableCount(table: string, extraFilter?: string): Promise<number> {
-  try {
-    let q = supabaseServer.from(table).select('id', { count: 'exact', head: true });
-    if (extraFilter === 'nlrc_quality') {
-      q = q.in('tier', ['standard', 'premium']).not('is_non_labor', 'is', true).gte('confidence_level', 0.8);
-    }
-    const { count } = await q;
-    return count ?? 0;
-  } catch {
-    return 0;
-  }
 }
 
 function xmlEscape(s: string): string {
@@ -80,11 +70,14 @@ async function buildStaticAndBlogSitemap(): Promise<SitemapEntry[]> {
   let latestNewsRows: Array<{ published_at: string | null }> = [];
 
   try {
-    const res = await supabaseServer
-      .from('blog_articles')
-      .select('slug, updated_at')
-      .order('published_at', { ascending: false });
-    if (res.data) blogArticles = res.data as typeof blogArticles;
+    // 1000행 상한에 걸리면 오래된 글이 사이트맵에서 조용히 사라진다
+    blogArticles = await fetchAllRows<{ slug: string; updated_at: string | null }>((from, to) =>
+      supabaseServer
+        .from('blog_articles')
+        .select('slug, updated_at')
+        .order('published_at', { ascending: false })
+        .range(from, to)
+    );
   } catch {}
 
   try {
@@ -106,13 +99,17 @@ async function buildStaticAndBlogSitemap(): Promise<SitemapEntry[]> {
     { url: `${SITE_URL}/checklist`, lastModified: new Date('2026-03-15T00:00:00.000Z'), changeFrequency: 'monthly', priority: 0.9 },
     { url: `${SITE_URL}/manual`, lastModified: new Date('2026-03-15T00:00:00.000Z'), changeFrequency: 'monthly', priority: 0.9 },
     { url: `${SITE_URL}/cases`, lastModified: new Date('2026-03-26T00:00:00.000Z'), changeFrequency: 'monthly', priority: 0.85 },
-    { url: `${SITE_URL}/database`, lastModified: latestNewsDate, changeFrequency: 'daily', priority: 0.85 },
+    // 2026-09-12 — /decisions 가 검색의 본체가 됐다. 판정례 61,928건으로 들어가는 입구다.
+    // /database·/search 는 여기로 301 이동했고, /ai 는 noindex 로 내렸다. 둘 다 사이트맵에서 뺀다 —
+    // 리다이렉트되거나 noindex 인 주소를 사이트맵에 싣는 것은 크롤 예산 낭비다.
+    { url: `${SITE_URL}/decisions`, lastModified: latestContentDate, changeFrequency: 'daily', priority: 0.9 },
     { url: `${SITE_URL}/news`, lastModified: latestNewsDate, changeFrequency: 'daily', priority: 0.8 },
     { url: `${SITE_URL}/blog`, lastModified: latestBlogDate, changeFrequency: 'weekly', priority: 0.85 },
-    { url: `${SITE_URL}/ai`, lastModified: new Date('2026-03-20T00:00:00.000Z'), changeFrequency: 'weekly', priority: 0.8 },
     { url: `${SITE_URL}/contact`, lastModified: CONTACT_LAST_MODIFIED, changeFrequency: 'monthly', priority: 0.75 },
     { url: `${SITE_URL}/tools`, lastModified: new Date('2026-04-29T00:00:00.000Z'), changeFrequency: 'monthly', priority: 0.85 },
     { url: `${SITE_URL}/tools/holiday-pay`, lastModified: new Date('2026-04-29T00:00:00.000Z'), changeFrequency: 'monthly', priority: 0.9 },
+    { url: `${SITE_URL}/tools/contract-check`, lastModified: new Date('2026-07-31T00:00:00.000Z'), changeFrequency: 'monthly', priority: 0.9 },
+    { url: `${SITE_URL}/laws`, lastModified: new Date('2026-10-04T00:00:00.000Z'), changeFrequency: 'daily', priority: 0.9 },
     { url: `${SITE_URL}/tools/severance.html`, lastModified: new Date('2026-03-15T00:00:00.000Z'), changeFrequency: 'monthly', priority: 0.85 },
     { url: `${SITE_URL}/privacy`, lastModified: CONTACT_LAST_MODIFIED, changeFrequency: 'yearly', priority: 0.5 },
     { url: `${SITE_URL}/terms`, lastModified: CONTACT_LAST_MODIFIED, changeFrequency: 'yearly', priority: 0.5 },
@@ -170,12 +167,10 @@ async function buildDecisionsSitemap(chunkIndex: number): Promise<SitemapEntry[]
   const to = from + CHUNK_SIZE - 1;
 
   try {
+    // 조건은 DB 뷰 nlrc_sitemap_rows 가 갖는다 — 페이지 noindex 와 한 정의를 쓰기 위함(2026-09-07)
     const { data } = await supabaseServer
-      .from('nlrc_decisions')
+      .from(NLRC_SITEMAP_VIEW)
       .select('id, decision_date')
-      .in('tier', ['standard', 'premium'])
-      .not('is_non_labor', 'is', true)
-      .gte('confidence_level', 0.8)
       .order('id', { ascending: true })
       .range(from, to);
 
@@ -190,6 +185,31 @@ async function buildDecisionsSitemap(chunkIndex: number): Promise<SitemapEntry[]
   }
 }
 
+// 5/15 commit d0f344b 사고 회복: lawgo_precedents(법원 판례) 4,982건이 sitemap에
+// 완전히 빠져있어서 Google 색인 못 함. + 5/15에 일시 차단 commit이 같은 페이지를
+// notFound() 처리해서 색인 대거 삭제. 추가해서 회복 가속.
+async function buildLawgoSitemap(chunkIndex: number): Promise<SitemapEntry[]> {
+  const from = chunkIndex * CHUNK_SIZE;
+  const to = from + CHUNK_SIZE - 1;
+
+  try {
+    const { data } = await supabaseServer
+      .from('lawgo_precedents')
+      .select('id, judgment_date')
+      .order('id', { ascending: true })
+      .range(from, to);
+
+    return (data || []).map((item: { id: string; judgment_date: string | null }) => ({
+      url: `${SITE_URL}/decisions/${encodeURIComponent(item.id)}`,
+      lastModified: parseDate(item.judgment_date, new Date('2026-01-01')),
+      changeFrequency: 'monthly' as const,
+      priority: 0.7,
+    }));
+  } catch {
+    return [];
+  }
+}
+
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id: idRaw } = await params;
   const idParsed = parseInt(idRaw.replace(/\.xml$/, ''), 10);
@@ -198,11 +218,9 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     return new NextResponse('Not Found', { status: 404 });
   }
 
-  const [casesCount, decisionsCount] = await Promise.all([
-    getTableCount('cases'),
-    getTableCount('nlrc_decisions', 'nlrc_quality'),
-  ]);
-  const casesChunks = Math.max(1, Math.ceil(casesCount / CHUNK_SIZE));
+  // 인덱스 라우트와 같은 계산을 써야 한다. 따로 계산하면 또 어긋난다.
+  const { casesChunks, decisionsChunks: maxDecisionChunks, lawgoChunks: maxLawgoChunks } =
+    await getSitemapLayout();
 
   let entries: SitemapEntry[] = [];
 
@@ -210,11 +228,12 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     entries = await buildStaticAndBlogSitemap();
   } else if (idParsed <= casesChunks) {
     entries = await buildCasesSitemap(idParsed - 1);
+  } else if (idParsed - casesChunks <= maxDecisionChunks) {
+    entries = await buildDecisionsSitemap(idParsed - 1 - casesChunks);
   } else {
-    const decisionChunkIndex = idParsed - 1 - casesChunks;
-    const maxDecisionChunks = Math.max(1, Math.ceil(decisionsCount / CHUNK_SIZE));
-    if (decisionChunkIndex < maxDecisionChunks) {
-      entries = await buildDecisionsSitemap(decisionChunkIndex);
+    const lawgoChunkIndex = idParsed - 1 - casesChunks - maxDecisionChunks;
+    if (lawgoChunkIndex >= 0 && lawgoChunkIndex < maxLawgoChunks) {
+      entries = await buildLawgoSitemap(lawgoChunkIndex);
     }
   }
 

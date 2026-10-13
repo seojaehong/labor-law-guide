@@ -1,0 +1,18 @@
+{
+  "synthetic": true,
+  "checks": [
+    "FAQ category answer expands",
+    "FAQ failure preserves answer and retry recovers",
+    "FAQ returns to all categories",
+    "law detail opens rules and Escape returns",
+    "law empty search",
+    "rules fetch failure and retry control",
+    "rules retry fetch succeeds and sample produces verdicts"
+  ],
+  "faqReadMocks": [
+    "?category=%EC%97%B0%EC%B0%A8%EC%9C%A0%EA%B8%89%ED%9C%B4%EA%B0%80&q=%EC%97%B0%EC%B0%A8&page=1&size=20",
+    "?category=%EC%97%B0%EC%B0%A8%EC%9C%A0%EA%B8%89%ED%9C%B4%EA%B0%80&q=%EC%98%A4%EB%A5%98&page=1&size=20",
+    "?category=%EC%97%B0%EC%B0%A8%EC%9C%A0%EA%B8%89%ED%9C%B4%EA%B0%80&q=%EC%98%A4%EB%A5%98&page=1&size=20",
+    "?q=%EC%98%A4%EB%A5%98&page=1&size=20"
+  ]
+}

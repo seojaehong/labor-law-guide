@@ -40,7 +40,7 @@ export default function ContactForm() {
     return (
       <div className="flex flex-col items-center gap-4 py-16 text-center">
         <CheckCircle size={48} style={{ color: 'var(--color-accent)' }} />
-        <h2 className="text-xl font-bold">문의가 접수되었습니다</h2>
+        <h2 className="t-h3">문의가 접수되었습니다</h2>
         <p style={{ color: 'var(--color-text-secondary)' }}>빠른 시일 내에 연락드리겠습니다.</p>
         <p className="text-sm" style={{ color: 'var(--grey-400)' }}>입력하신 이메일로 접수 확인 메일이 발송되었습니다.</p>
       </div>
@@ -51,21 +51,21 @@ export default function ContactForm() {
     <form onSubmit={handleSubmit} className="space-y-5">
       <div className="grid gap-5 md:grid-cols-2">
         <div>
-          <label className="mb-1 block text-sm font-medium" style={{ color: 'var(--grey-700)' }}>이름 *</label>
-          <input name="name" required autoComplete="name" placeholder="담당자 성함" className="w-full rounded-lg border px-4 py-2.5 text-[15px] outline-none transition-colors focus-visible:outline-2 focus-visible:outline-[var(--color-accent)] focus-visible:outline-offset-2 focus:border-[var(--color-accent)]" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }} />
+          <label htmlFor="contact-name" className="mb-1 block text-sm font-medium" style={{ color: 'var(--grey-700)' }}>이름 *</label>
+          <input id="contact-name" name="name" required autoComplete="name" placeholder="담당자 성함" className="min-h-[44px] w-full rounded-lg border px-4 py-2.5 text-[16px] outline-none transition-colors focus-visible:outline-2 focus-visible:outline-[var(--color-accent)] focus-visible:outline-offset-2 focus:border-[var(--color-accent)]" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }} />
         </div>
         <div>
-          <label className="mb-1 block text-sm font-medium" style={{ color: 'var(--grey-700)' }}>연락처 *</label>
-          <input name="phone" required autoComplete="tel" placeholder="휴대전화 또는 유선번호" className="w-full rounded-lg border px-4 py-2.5 text-[15px] outline-none transition-colors focus-visible:outline-2 focus-visible:outline-[var(--color-accent)] focus-visible:outline-offset-2 focus:border-[var(--color-accent)]" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }} />
+          <label htmlFor="contact-phone" className="mb-1 block text-sm font-medium" style={{ color: 'var(--grey-700)' }}>연락처 *</label>
+          <input id="contact-phone" name="phone" type="tel" required autoComplete="tel" placeholder="휴대전화 또는 유선번호" className="min-h-[44px] w-full rounded-lg border px-4 py-2.5 text-[16px] outline-none transition-colors focus-visible:outline-2 focus-visible:outline-[var(--color-accent)] focus-visible:outline-offset-2 focus:border-[var(--color-accent)]" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }} />
         </div>
       </div>
       <div>
-        <label className="mb-1 block text-sm font-medium" style={{ color: 'var(--grey-700)' }}>이메일 (자동 회신용)</label>
-        <input name="email" type="email" autoComplete="email" className="w-full rounded-lg border px-4 py-2.5 text-[15px] outline-none transition-colors focus-visible:outline-2 focus-visible:outline-[var(--color-accent)] focus-visible:outline-offset-2 focus:border-[var(--color-accent)]" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }} placeholder="입력하시면 접수 확인 메일을 보내드립니다" />
+        <label htmlFor="contact-email" className="mb-1 block text-sm font-medium" style={{ color: 'var(--grey-700)' }}>이메일 (자동 회신용)</label>
+        <input id="contact-email" name="email" type="email" autoComplete="email" className="min-h-[44px] w-full rounded-lg border px-4 py-2.5 text-[16px] outline-none transition-colors focus-visible:outline-2 focus-visible:outline-[var(--color-accent)] focus-visible:outline-offset-2 focus:border-[var(--color-accent)]" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }} placeholder="입력하시면 접수 확인 메일을 보내드립니다" />
       </div>
       <div>
-        <label className="mb-1 block text-sm font-medium" style={{ color: 'var(--grey-700)' }}>문의 유형</label>
-        <select name="type" className="w-full rounded-lg border px-4 py-2.5 text-[15px] outline-none focus-visible:outline-2 focus-visible:outline-[var(--color-accent)] focus-visible:outline-offset-2" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }}>
+        <label htmlFor="contact-type" className="mb-1 block text-sm font-medium" style={{ color: 'var(--grey-700)' }}>문의 유형</label>
+        <select id="contact-type" name="type" className="min-h-[44px] w-full rounded-lg border px-4 py-2.5 text-[16px] outline-none focus-visible:outline-2 focus-visible:outline-[var(--color-accent)] focus-visible:outline-offset-2" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }}>
           <option>노란봉투법 문의</option>
           <option>부당해고/징계 문의</option>
           <option>퇴직금/임금 문의</option>
@@ -75,8 +75,8 @@ export default function ContactForm() {
         </select>
       </div>
       <div>
-        <label className="mb-1 block text-sm font-medium" style={{ color: 'var(--grey-700)' }}>문의 내용 *</label>
-        <textarea name="message" required rows={6} className="w-full rounded-lg border px-4 py-2.5 text-[15px] outline-none transition-colors focus-visible:outline-2 focus-visible:outline-[var(--color-accent)] focus-visible:outline-offset-2 focus:border-[var(--color-accent)]" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }} placeholder="회사명, 원청/하청/발주처 중 위치, 교섭요구서 또는 노조 연락 수령 여부, 급한 일정(회의·공고·노동위 대응), 궁금한 쟁점을 적어주세요." />
+        <label htmlFor="contact-message" className="mb-1 block text-sm font-medium" style={{ color: 'var(--grey-700)' }}>문의 내용 *</label>
+        <textarea id="contact-message" name="message" required rows={6} className="min-h-[44px] w-full rounded-lg border px-4 py-2.5 text-[16px] outline-none transition-colors focus-visible:outline-2 focus-visible:outline-[var(--color-accent)] focus-visible:outline-offset-2 focus:border-[var(--color-accent)]" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }} placeholder="회사명, 원청/하청/발주처 중 위치, 교섭요구서 또는 노조 연락 수령 여부, 급한 일정(회의·공고·노동위 대응), 궁금한 쟁점을 적어주세요." />
       </div>
 
       {error && <p className="text-sm" style={{ color: '#dc2626' }}>{error}</p>}
@@ -84,8 +84,8 @@ export default function ContactForm() {
       <button
         type="submit"
         disabled={loading}
-        className="flex items-center gap-2 rounded-lg px-6 py-3 font-medium text-white transition-colors"
-        style={{ backgroundColor: loading ? 'var(--grey-400)' : 'var(--color-accent)' }}
+        className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-md px-5 py-2.5 text-[15px] font-semibold text-white transition-transform hover:-translate-y-px"
+        style={{ backgroundColor: loading ? 'var(--grey-400)' : 'var(--color-accent-ink)' }}
       >
         <Send size={16} />
         {loading ? '전송 중...' : '문의하기'}

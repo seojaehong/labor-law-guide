@@ -1,11 +1,12 @@
+import { publicMetadata } from '@/lib/public-metadata';
 import Link from 'next/link';
 import { CheckCircle2, AlertCircle, Mail } from 'lucide-react';
 import type { Metadata } from 'next';
 
-export const metadata: Metadata = {
+export const metadata: Metadata = publicMetadata({
   title: '구독 확인 — 노란봉투법 가이드',
   robots: { index: false, follow: false },
-};
+});
 
 export default async function ConfirmedPage({
   searchParams,
@@ -39,10 +40,10 @@ export default async function ConfirmedPage({
   const Icon = c.icon;
 
   return (
-    <main className="mx-auto flex max-w-[560px] flex-col items-center px-6 py-20 text-center">
+    <main className="mx-auto flex max-w-[var(--layout-compact-max)] flex-col items-center px-6 py-20 text-center">
       <Icon size={56} style={{ color: c.color }} />
       <h1
-        className="mt-6 text-2xl font-bold"
+        className="t-h2 mt-6"
         style={{ color: 'var(--color-text-primary)' }}
       >
         {c.title}
@@ -53,8 +54,7 @@ export default async function ConfirmedPage({
       <div className="mt-8 flex gap-3">
         <Link
           href="/"
-          className="rounded-lg px-5 py-2.5 text-[14px] font-semibold"
-          style={{ backgroundColor: 'var(--color-accent)', color: '#fff' }}
+          className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-md px-5 py-2.5 text-[15px] font-semibold transition-[background-color,transform] hover:-translate-y-px bg-[var(--color-accent-ink)] text-[var(--color-on-accent-ink)] hover:bg-[var(--color-accent-ink-hover)]"
         >
           홈으로
         </Link>

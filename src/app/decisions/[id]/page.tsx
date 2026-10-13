@@ -1,3 +1,5 @@
+import { publicMetadata } from '@/lib/public-metadata';
+import { unwrapSourceAnnotations } from "@/lib/legal-display-text";
 import { supabase } from "@/lib/supabase";
 import { Badge } from "@/components/decisions-ui/badge";
 import { Card } from "@/components/decisions-ui/card";
@@ -17,10 +19,129 @@ import { getDecisionSourceLabel, resolveDecisionSourceContract, type DecisionSou
 import { cn } from "@/lib/utils";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import type { Metadata } from "next";
+import SubscribeForm from "@/components/SubscribeForm";
+import { SITE_URL, BRAND_NAME } from "@/lib/constants";
 
 // AI 분류 라벨 fallback: 미매핑 영문은 underscore→space로 보정
 function getAiLabel(key: string, map: Record<string, string>): string {
   return map[key] || key.replace(/_/g, " ");
+}
+
+// 동적 메타 — nlrc_decisions 핵심 필드 기반 (가장 큰 트래픽 페이지의 SEO 박살 fix)
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}): Promise<Metadata> {
+  const { id: rawId } = await params;
+  let id: string;
+  try { id = decodeURIComponent(rawId); } catch { id = rawId; }
+
+  const canonical = `${SITE_URL}/decisions/${encodeURIComponent(id)}`;
+
+  // nlrc_decisions만 빠르게 lookup (lawgo/bigcase는 일시 노출 중단)
+  const { data: d } = await supabase
+    .from("nlrc_decisions")
+    .select("title, case_number, key_issue, holding_summary, holding_points, decision_result, reason_category")
+    .eq("id", id)
+    .maybeSingle();
+
+  if (!d) {
+    // 존재하지 않는(삭제/개인정보 요청 포함) 판정례는 색인 금지 — 페이지 본문도 notFound()로 404 처리.
+    return publicMetadata({
+      title: `판정례를 찾을 수 없습니다`,
+      description: "요청하신 판정례가 존재하지 않습니다.",
+      alternates: { canonical },
+      robots: { index: false, follow: false },
+    });
+  }
+
+  const caseNum = (d.case_number && !/^id_/i.test(d.case_number)) ? d.case_number : "";
+  const result = REASON_LABELS && d.decision_result ? (RESULT_LABELS[d.decision_result as DecisionResult] || d.decision_result) : "";
+  const reasonLabel = Array.isArray(d.reason_category) && d.reason_category[0]
+    ? (REASON_LABELS[d.reason_category[0] as ReasonCategory] || d.reason_category[0]) : "";
+  // 마크다운 잔존 제거 — key_issue/holding_summary에 #, **, - 가 들어있어 SEO title이 깨짐
+  const stripMd = (s: string) => stripMarkdownFormatting(s).replace(/\s+/g, " ").trim();
+  const keyIssue = typeof d.key_issue === "string" ? stripMd(d.key_issue).slice(0, 60) : "";
+  const holding = typeof d.holding_summary === "string" ? stripMd(d.holding_summary).slice(0, 120) : "";
+
+  // 본문이 비었거나 페이월/파싱실패 텍스트인 행은 색인시키지 않는다.
+  // 이런 페이지가 대량으로 색인되면 사이트 전체 평가가 깎인다.
+  const bodyText = `${d.holding_points || ""}${d.holding_summary || ""}`;
+  if (bodyText.trim().length < 200 || isPaywallText(bodyText) || isPyReprText(bodyText)) {
+    return publicMetadata({
+      title: (d.title || "판정례").slice(0, 32),
+      description: "본문 정비 중인 자료입니다.",
+      alternates: { canonical },
+      robots: { index: false, follow: true },
+    });
+  }
+
+  // 제목 전략이 소스별로 다르다.
+  //  bc_ (법원 판례): 사건번호가 실명이고, GSC 실측상 실제 검색어가 사건번호다
+  //    ("울산지방법원 2013구합66 해임처분"). 사건번호를 맨 앞에 둔다.
+  //  id_ (노동위 판정례): 사건번호의 72%가 2018부해OOO 로 마스킹돼 있어 검색어와
+  //    절대 매칭되지 않는다. 앞에 둬봐야 자리만 차지하므로 쟁점을 앞세운다.
+  // 한글 SERP 는 약 35자에서 잘리므로 브랜드 접미사는 붙이지 않는다.
+  const isCourtCase = /^bc_/i.test(id);
+
+  // 한글 검색결과는 약 35자에서 잘린다. 앞서 34/38자로 자르고 뒤에 사건번호와
+  // 판정결과를 덧붙였더니 전수 시뮬레이션에서 99%가 35자를 넘었다(중앙값 45자).
+  // 그래서 "조각마다 자르기"가 아니라 "전체 35자 예산을 나눠 쓰기"로 바꾼다.
+  const TITLE_BUDGET = 35;
+  const clip = (str: string, max: number) => {
+    const t = str.trim();
+    if (t.length <= max) return t;
+    const cut = t.slice(0, max);
+    const boundary = Math.max(cut.lastIndexOf(" "), cut.lastIndexOf("·"), cut.lastIndexOf(","));
+    return (boundary > max * 0.6 ? cut.slice(0, boundary) : cut).replace(/[\s\-–—,·]+$/, "");
+  };
+  // 원문에 "존재여부징계사유가" 처럼 붙어 저장된 행이 있다(수집 단계 문제, 0.1%).
+  // 데이터를 고치기 전까지 제목에서만 띄운다.
+  const cleanIssue = keyIssue
+    .replace(/^(결과\s*요약|사건\s*개요|판결\s*결과|주문|이유)\s*[:：-]?\s*/, "")
+    .replace(/^(?:[가-하]|\d{1,2})\s*[.)]\s*/, "")
+    .replace(/(여부|경우|사례)(?=[가-힣])/g, "$1 ")
+    .trim();
+  // "기타"는 분류가 안 됐다는 뜻이라 좁은 지면을 낭비한다. 앞에 두지 않는다.
+  const leadLabel = reasonLabel && reasonLabel !== "기타" ? reasonLabel : "";
+  // 앞자리는 검색어가 되는 것에 준다. bc_ 는 사건번호가 실명이고 GSC 실측상 실제
+  // 검색어가 사건번호다. id_ 는 72%가 마스킹이라 쓸 수 없으므로 유형을 앞세운다.
+  const prefix = isCourtCase && caseNum ? caseNum : leadLabel;
+  const issueForTitle = clip(cleanIssue, Math.max(TITLE_BUDGET - prefix.length - 1, 12));
+  const head = [prefix, issueForTitle || caseNum || id].filter(Boolean).join(" ").trim();
+  // 판정결과("기각", "초심유지")는 검색어가 아니다. 예산 안에 남는 자리가 있을 때만
+  // 붙인다. +6자를 허용해 봤더니 전수 시뮬레이션 중앙값이 35자 예산을 넘겨(38자)
+  // 결국 잘렸다 — 잘릴 거면 안 붙이는 게 낫다.
+  const withResult = result && head.length + result.length + 3 <= TITLE_BUDGET
+    ? `${head} — ${result}`
+    : head;
+  // 사건번호가 비정상적으로 긴 행이 극소수 있다. 어떤 경우에도 넘지 않을 상한을 둔다.
+  const title = withResult.slice(0, 45);
+
+  const descParts = [
+    caseNum ? `사건번호 ${caseNum}` : "",
+    reasonLabel ? `유형 ${reasonLabel}` : "",
+    result ? `판정 ${result}` : "",
+    holding,
+  ].filter(Boolean);
+  const description = (descParts.join(" · ") || "노동위원회 판정례 상세 정보 — 핵심쟁점·절차·판정결과 정리.").slice(0, 155);
+
+  return publicMetadata({
+    title,
+    description,
+    alternates: { canonical },
+    openGraph: {
+      title,
+      description,
+      url: canonical,
+      type: "article",
+      locale: "ko_KR",
+      siteName: BRAND_NAME,
+    },
+    robots: { index: true, follow: true },
+  });
 }
 
 function getDisplayCaseNumber(caseNumber?: string | null) {
@@ -112,7 +233,7 @@ function renderHoldingBlocks(text: string) {
     <p
       key={`${block.kind}-${index}`}
       className={cn(
-        "text-sm leading-relaxed whitespace-pre-wrap",
+        "reading-prose whitespace-pre-wrap",
         block.kind === "level1" && "font-semibold mt-4 first:mt-0",
         block.kind === "level2" && "pl-4 mt-2",
         block.kind === "level3" && "pl-8 mt-1.5",
@@ -136,8 +257,8 @@ type LawgoSection = {
 function renderLawgoSections(sections: LawgoSection[]) {
   return sections.map((section, index) => (
     <div key={`${section.type || "body"}-${section.index ?? index}`} className="mb-5 last:mb-0">
-      {section.title ? <h3 className="font-semibold text-sm mb-2">{section.title}</h3> : null}
-      <p className="text-sm leading-relaxed whitespace-pre-wrap">{section.text || ""}</p>
+      {section.title ? <h3 className="font-semibold text-sm mb-2">{unwrapSourceAnnotations(section.title)}</h3> : null}
+      <p className="reading-prose whitespace-pre-wrap">{unwrapSourceAnnotations(section.text || "")}</p>
     </div>
   ));
 }
@@ -147,7 +268,7 @@ export default async function DecisionPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams?: Promise<{ source?: string | string[] }> | { source?: string | string[] };
+  searchParams?: Promise<{ source?: string | string[] }>;
 }) {
   const { id: rawId } = await params;
   // 한글/특수문자 ID(예: 2015부해OOO) 처리 — Next.js dynamic route param이 URL-encoded
@@ -164,8 +285,21 @@ export default async function DecisionPage({
     : resolvedSearchParams?.source;
   const decisionSource = resolveDecisionSourceContract({ id, sourceProvider: sourceParam }).provider;
 
-  // 2026-05-15: 판례(bigcase/lawgo) 노출 일시 중단 — 데이터 정비 중. NLRC 판정례만 노출.
-  if (process.env.SHOW_CASES !== 'true' && (decisionSource === 'bigcase' || decisionSource === 'lawgo')) {
+  // 2026-05-15 d0f344b 로 bigcase/lawgo 를 "데이터 정비 중"이라며 함께 404 처리했는데,
+  // SHOW_CASES 는 그 뒤로 한 번도 설정되지 않아 3개월 반 동안 20,986페이지가 죽어 있었다.
+  // 2026-08-31 에 두 소스의 실제 데이터를 세어보고 판단을 갈랐다.
+  //
+  //   bigcase(bc_) 16,004건 — 6,400건 표본에서 98.1% 정상.
+  //     사건번호 마스킹 0%(실명 사건번호 완비), 페이월 혼입 0.2%, 빈껍데기 1.7%.
+  //     GSC 검색어가 "울산지방법원 2013구합66 해임처분" 같은 사건번호인데
+  //     정작 그 검색어에 맞는 페이지가 이것이고, 지금까지 404였다. → 되살린다.
+  //
+  //   lawgo(prec_) 4,982건 — 껍데기다. title 평균 17자("근로기준법위반" 수준),
+  //     decision_date 100% 비어 있고 issue_text 58%가 빈값, summary_text 중앙값 80자.
+  //     제목 중복이 심해 대량 색인하면 오히려 scaled content abuse 리스크다. → 계속 막는다.
+  //
+  // 오염된 bigcase 행은 아래 isPaywallText / isPyReprText 가드가 이미 걸러낸다.
+  if (decisionSource === 'lawgo' && process.env.SHOW_LAWGO !== 'true') {
     notFound();
   }
 
@@ -194,12 +328,12 @@ export default async function DecisionPage({
 
     return (
       <main className="min-h-screen bg-background">
-        <div className="max-w-3xl mx-auto px-4 py-8">
-          <Link href="/search" className="text-sm text-muted-foreground hover:text-primary mb-4 inline-block">
+        <div className="layout-reading">
+          <Link href="/decisions" className="text-sm text-muted-foreground hover:text-primary mb-4 inline-block">
             &larr; 검색으로
           </Link>
 
-          <h1 className="text-xl font-bold mb-2">{precedent.title || `법제처 판례 ${apiId}`}</h1>
+          <h1 className="t-h2 mb-2" style={{ color: 'var(--color-text-primary)' }}>{precedent.title || `법제처 판례 ${apiId}`}</h1>
           <p className="text-sm text-muted-foreground mb-4">
             {precedent.court || "-"} | {precedent.decision_date || "-"}
             {precedent.reference_number ? ` | ${precedent.reference_number}` : ""}
@@ -243,28 +377,28 @@ export default async function DecisionPage({
             {precedent.issue_text ? (
               <Card className="p-4 bg-muted/50">
                 <h3 className="font-semibold text-sm mb-2">판시사항</h3>
-                <p className="text-sm leading-relaxed whitespace-pre-wrap">{precedent.issue_text}</p>
+                <p className="reading-prose whitespace-pre-wrap">{unwrapSourceAnnotations(precedent.issue_text)}</p>
               </Card>
             ) : null}
 
             {precedent.summary_text ? (
               <Card className="p-4">
                 <h3 className="font-semibold text-sm mb-2">판결요지</h3>
-                <p className="text-sm leading-relaxed whitespace-pre-wrap">{precedent.summary_text}</p>
+                <p className="reading-prose whitespace-pre-wrap">{unwrapSourceAnnotations(precedent.summary_text)}</p>
               </Card>
             ) : null}
 
             {precedent.reference_statutes ? (
               <Card className="p-4">
                 <h3 className="font-semibold text-sm mb-2">참조조문</h3>
-                <p className="text-sm leading-relaxed whitespace-pre-wrap">{precedent.reference_statutes}</p>
+                <p className="reading-prose whitespace-pre-wrap">{unwrapSourceAnnotations(precedent.reference_statutes)}</p>
               </Card>
             ) : null}
 
             {precedent.reference_cases ? (
               <Card className="p-4">
                 <h3 className="font-semibold text-sm mb-2">참조판례</h3>
-                <p className="text-sm leading-relaxed whitespace-pre-wrap">{precedent.reference_cases}</p>
+                <p className="reading-prose whitespace-pre-wrap">{unwrapSourceAnnotations(precedent.reference_cases)}</p>
               </Card>
             ) : null}
           </section>
@@ -287,7 +421,7 @@ export default async function DecisionPage({
               {sections.length > 0 ? (
                 <div>{renderLawgoSections(sections)}</div>
               ) : (
-                <p className="text-sm leading-relaxed whitespace-pre-wrap">{document?.body_text || "본문이 없습니다."}</p>
+                <p className="reading-prose whitespace-pre-wrap">{unwrapSourceAnnotations(document?.body_text || "본문이 없습니다.")}</p>
               )}
             </Card>
 
@@ -410,12 +544,12 @@ export default async function DecisionPage({
 
     return (
       <main className="min-h-screen bg-background">
-        <div className="max-w-3xl mx-auto px-4 py-8">
-          <Link href="/search" className="text-sm text-muted-foreground hover:text-primary mb-4 inline-block">
+        <div className="layout-reading">
+          <Link href="/decisions" className="text-sm text-muted-foreground hover:text-primary mb-4 inline-block">
             &larr; 검색으로
           </Link>
 
-          <h1 className="text-xl font-bold mb-2">{c.title}</h1>
+          <h1 className="t-h2 mb-2" style={{ color: 'var(--color-text-primary)' }}>{c.title}</h1>
           <p className="text-sm text-muted-foreground mb-4">
             {c.court} | {c.decision_date}
             {c.case_number ? ` | ${c.case_number}` : ""}
@@ -493,7 +627,7 @@ export default async function DecisionPage({
             ) : realFulltext ? (
               <Card className="p-4 mb-4">
                 <h3 className="font-semibold text-sm mb-3">법원 판례 원문</h3>
-                <p className="text-sm leading-relaxed whitespace-pre-wrap">{realFulltext}</p>
+                <p className="reading-prose whitespace-pre-wrap">{unwrapSourceAnnotations(realFulltext)}</p>
               </Card>
             ) : hasDetailedHoldingPoints ? (
               <Card className="p-4 mb-4 bg-muted/40">
@@ -539,7 +673,8 @@ export default async function DecisionPage({
     .single();
 
   if (!d) {
-    return <div className="p-8">판정례를 찾을 수 없습니다.</div>;
+    // 삭제되었거나 존재하지 않는 판정례 — 200 소프트404 대신 실제 404(noindex)로 처리해 색인에서 제외.
+    notFound();
   }
 
   const displayCaseNumber = getDisplayCaseNumber(d.case_number);
@@ -579,12 +714,12 @@ export default async function DecisionPage({
 
   return (
     <main className="min-h-screen bg-background">
-      <div className="max-w-3xl mx-auto px-4 py-8">
-        <Link href="/search" className="text-sm text-muted-foreground hover:text-primary mb-4 inline-block">
+      <div className="layout-reading">
+        <Link href="/decisions" className="text-sm text-muted-foreground hover:text-primary mb-4 inline-block">
           &larr; 검색으로
         </Link>
 
-        <h1 className="text-xl font-bold mb-2">{d.title}</h1>
+        <h1 className="t-h2 mb-2" style={{ color: 'var(--color-text-primary)' }}>{d.title}</h1>
         <p className="text-sm text-muted-foreground">
           {d.department} | {d.decision_date}
         </p>
@@ -637,22 +772,25 @@ export default async function DecisionPage({
           {d.reason_detail && (
             <Card className="p-4 mb-4">
               <h3 className="font-semibold text-sm mb-1">해고 사유</h3>
-              <p className="text-sm">{stripMarkdownFormatting(d.reason_detail)}</p>
+              <p className="reading-prose">{stripMarkdownFormatting(d.reason_detail)}</p>
             </Card>
           )}
 
-          <Card className="p-4 mb-4">
-            <h3 className="font-semibold text-sm mb-1">절차 확인</h3>
-            <div className="grid grid-cols-2 gap-2 text-sm">
-              <div>{d.procedure_committee ? "✅" : "❌"} 징계위원회</div>
-              <div>{d.procedure_defense ? "✅" : "❌"} 소명기회 부여</div>
-              <div>{d.procedure_written_notice ? "✅" : "❌"} 서면통지</div>
-              <div>{d.procedure_advance_notice ? "✅" : "❌"} 해고예고 30일</div>
-            </div>
-            {d.procedure_note && (
-              <p className="text-xs text-muted-foreground mt-2">{d.procedure_note}</p>
-            )}
-          </Card>
+          {/*
+            「절차 확인」 카드 제거 — 2026-09-19.
+
+            procedure_committee / procedure_defense / procedure_written_notice /
+            procedure_advance_notice 네 컬럼이 61,928건 **전부 false** 다. 채워진 적이 없다.
+            procedure_note 도 전건 비어 있다. 그래서 이 카드는 모든 판정례 페이지에서
+            ❌ 넷을 고정으로 찍고 있었다 — 「징계위원회 없었음·소명기회 없었음·서면통지 없었음」이라는
+            사실 주장을 6만 페이지에 하고 있었던 셈이다.
+
+            실측 모순 사례: id_52967 은 판정 요지가 「…절차에도 하자가 없어 정당하다고 판정한 사례」인데
+            바로 아래에서 네 항목 모두 ❌ 로 표시됐다. 같은 페이지 안에서 서로를 부정한다.
+
+            데이터가 실제로 채워지면 되살린다. 그때까지는 없는 게 맞다 —
+            빈 값을 ❌(=없었다)로 렌더링하면 안 된다. 「모름」과 「없었음」은 다르다.
+          */}
 
           {hasSummary && summaryDifferentFromKeyIssue && (
             <Card id="decision-summary" className="p-5 mb-4 border-primary/30 bg-primary/5 scroll-mt-24">
@@ -660,6 +798,32 @@ export default async function DecisionPage({
               <div>{renderHoldingBlocks(holdingSummaryText)}</div>
             </Card>
           )}
+        </section>
+
+        {/* 판례 페이지 CTA — 유사 사례 진단 + 챗봇 + 뉴스레터 구독 */}
+        <section className="mt-8 space-y-4">
+          <Card className="p-5 border-primary/30 bg-primary/5">
+            <h3 className="font-bold text-base mb-2">우리 사건도 비슷한 결론일까?</h3>
+            <p className="text-sm text-muted-foreground mb-4">
+              이 판례와 비슷한 상황이라면 핵심 쟁점 5가지를 30초 안에 자가진단할 수 있습니다. 또는 AI 상담으로 즉시 답을 받아보세요.
+            </p>
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <Link
+                href="/sanction"
+                className="inline-flex items-center justify-center rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90"
+              >
+                징계 정당성 자가진단 →
+              </Link>
+              <Link
+                href="/ai"
+                className="inline-flex items-center justify-center rounded-lg border border-primary/40 px-4 py-2 text-sm font-semibold transition-colors hover:bg-primary/10"
+              >
+                AI에게 바로 물어보기 →
+              </Link>
+            </div>
+          </Card>
+
+          <SubscribeForm source="decision-footer" sourceSlug={d.id ? String(d.id) : undefined} />
         </section>
       </div>
     </main>

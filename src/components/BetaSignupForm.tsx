@@ -111,8 +111,7 @@ export default function BetaSignupForm({ source, headline, subline, onClose }: P
         <button
           type="submit"
           disabled={loading || !contact || !agreed}
-          className="w-full rounded-lg px-4 py-2.5 text-sm font-medium text-white transition-opacity disabled:opacity-50"
-          style={{ backgroundColor: 'var(--color-accent)' }}
+          className="w-full inline-flex min-h-[44px] items-center justify-center gap-2 rounded-md px-5 py-2.5 text-[15px] font-semibold transition-[background-color,transform] hover:-translate-y-px bg-[var(--color-accent-ink)] text-[var(--color-on-accent-ink)] hover:bg-[var(--color-accent-ink-hover)] disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {loading ? '처리 중...' : '알림 받기'}
         </button>

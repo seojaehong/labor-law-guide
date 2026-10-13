@@ -1,0 +1,146 @@
+{
+  "code_sha": "31d34223297f79c8d6ae79306feb69bc64638a62",
+  "build": "Final original-default production fixture build: 103 static pages. 256 unit tests, 2 browser FAQ regressions, tsc --noEmit and changed-file ESLint passed.",
+  "scope": "Every PNG rerendered from this code. Synthetic read-only database fixtures; repository law JSON. No collection or legal verification.",
+  "files": [
+    {
+      "file": "blog-summary-mobile.png",
+      "sha256": "440813bcd1482faf1deb95664fdf797e1fe34e3cfa32a9c98cc1dcc894a5211d",
+      "width": 390,
+      "height": 844
+    },
+    {
+      "file": "faq-category-mobile.png",
+      "sha256": "a9680b189481d0e03af507c6289eff295b3015032901958a932db7c8406484fe",
+      "width": 390,
+      "height": 844
+    },
+    {
+      "file": "faq-detail-mobile.png",
+      "sha256": "d76a39ee791791b6c54bf4cad7940ec6615536b26f26f5c53cdaca5a0ae9130f",
+      "width": 390,
+      "height": 844
+    },
+    {
+      "file": "faq-error-mobile.png",
+      "sha256": "e9ff9d03c4d11f68064aea348d675d9667f7d622c84b111b21172c1d228c7f6a",
+      "width": 390,
+      "height": 844
+    },
+    {
+      "file": "final-laws-dark.png",
+      "sha256": "ff15ca1aee592d98574e00b7330f7d90b0f15f0f9970864887ca999931a29656",
+      "width": 390,
+      "height": 844
+    },
+    {
+      "file": "final-laws-desktop.png",
+      "sha256": "5df9b5e77354b5110185270a3ee20d7847a5ea72ae4c6427272a9aac6ab821f2",
+      "width": 1440,
+      "height": 1000
+    },
+    {
+      "file": "final-laws-mobile.png",
+      "sha256": "ef13041337d7e1ba7ad615cf9af3b1fbc929713f0334bc21ccaec51fbe6fc152",
+      "width": 390,
+      "height": 844
+    },
+    {
+      "file": "final-rules-mobile.png",
+      "sha256": "28daea103282d50270763e26898dca21563f18386406eb2d9e0dc2fb8496af90",
+      "width": 390,
+      "height": 844
+    },
+    {
+      "file": "header-original-390.png",
+      "sha256": "3a21a7268b2a924f0871f3db9e6cc83616d327e0e7449d69ce7bb03a661175f6",
+      "width": 390,
+      "height": 118
+    },
+    {
+      "file": "header-proposal-390.png",
+      "sha256": "ac313600e6d6281105c4c18f1034b18c48ba534f8cbdfff3f03a9a8b8fe7dab7",
+      "width": 390,
+      "height": 118
+    },
+    {
+      "file": "laws-detail-rules-mobile.png",
+      "sha256": "28daea103282d50270763e26898dca21563f18386406eb2d9e0dc2fb8496af90",
+      "width": 390,
+      "height": 844
+    },
+    {
+      "file": "laws-empty-mobile.png",
+      "sha256": "d06eb92d39d6c8797f8a0a579ca7365fc58d2b87c8d024ee1bf891ce3679e737",
+      "width": 390,
+      "height": 844
+    },
+    {
+      "file": "navigation-current-mobile.png",
+      "sha256": "7cef838f1d184744101cb0c3d656a9dab3a9342f8fbb68c63ce026c303ac274c",
+      "width": 390,
+      "height": 844
+    },
+    {
+      "file": "og-article-fixture.png",
+      "sha256": "ada324d77c5af743dd61b349654ba2838c032cac95ec1858189158d2c7197a11",
+      "width": 1200,
+      "height": 630
+    },
+    {
+      "file": "og-general.png",
+      "sha256": "1a4917462930c8c2287909fa872d2a1690ecba651b3d8fed7fc372d32351a627",
+      "width": 1200,
+      "height": 630
+    },
+    {
+      "file": "og-laws-index.png",
+      "sha256": "d689c0a0011f1dd1a3fbfedb8ac9d6e6afdd4cf8da688ee0ca9500f2d1539b53",
+      "width": 1200,
+      "height": 630
+    },
+    {
+      "file": "og-laws.png",
+      "sha256": "996e824c6e5bf2a14b6f0b557f8014784749e6846057225c0037e8c32c08fb0c",
+      "width": 1200,
+      "height": 630
+    },
+    {
+      "file": "og-wordmark-original.png",
+      "sha256": "1a4917462930c8c2287909fa872d2a1690ecba651b3d8fed7fc372d32351a627",
+      "width": 1200,
+      "height": 630
+    },
+    {
+      "file": "og-wordmark-proposal.png",
+      "sha256": "714f99c72c1c51075ebdd09780b4bb0d0cf0fd59bcedaff4cd614d4bb8577074",
+      "width": 1200,
+      "height": 630
+    },
+    {
+      "file": "rules-error-mobile.png",
+      "sha256": "8d94cbe7b4c717c1bffc2140339943a04f4e5bb1f596c69a22ef7a47ce461fa2",
+      "width": 390,
+      "height": 844
+    },
+    {
+      "file": "rules-retry-success-mobile.png",
+      "sha256": "0bec1e5603f524f6d196bd12c76ed39dfbc55bbe7c2b8d5e1eed8ad28299fcc0",
+      "width": 390,
+      "height": 844
+    },
+    {
+      "file": "wordmark-header-og-comparison.png",
+      "sha256": "34d0795d876a6332018fdc284a4e633fd596c5b447163f967d8068e2d1dd0cc8",
+      "width": 876,
+      "height": 620
+    },
+    {
+      "file": "work-rules-mobile.png",
+      "sha256": "89d9cf92809404c11f27aa7893f6b51214436cad96beadf8eb5604045c6560d9",
+      "width": 390,
+      "height": 844
+    }
+  ],
+  "default_wordmark": "original serif; geometric proposal rejected and retained only for explicit comparison"
+}

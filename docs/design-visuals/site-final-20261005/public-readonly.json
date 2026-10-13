@@ -1,0 +1,269 @@
+{
+  "base": "https://yellowenvelope.kr",
+  "readOnly": true,
+  "noInput": true,
+  "noUploads": true,
+  "allExternalAndApiBlocked": true,
+  "checks": [
+    {
+      "route": "/ai",
+      "status": 200,
+      "url": "https://yellowenvelope.kr/ai",
+      "overflow": false
+    },
+    {
+      "route": "/blog",
+      "status": 200,
+      "url": "https://yellowenvelope.kr/blog",
+      "overflow": false
+    },
+    {
+      "route": "/cases",
+      "status": 200,
+      "url": "https://yellowenvelope.kr/cases",
+      "overflow": false
+    },
+    {
+      "route": "/checklist",
+      "status": 200,
+      "url": "https://yellowenvelope.kr/checklist",
+      "overflow": false
+    },
+    {
+      "route": "/contact",
+      "status": 200,
+      "url": "https://yellowenvelope.kr/contact",
+      "overflow": false
+    },
+    {
+      "route": "/database",
+      "status": 200,
+      "url": "https://yellowenvelope.kr/decisions",
+      "overflow": false
+    },
+    {
+      "route": "/decisions",
+      "status": 200,
+      "url": "https://yellowenvelope.kr/decisions",
+      "overflow": false
+    },
+    {
+      "route": "/faq",
+      "status": 200,
+      "url": "https://yellowenvelope.kr/faq",
+      "overflow": false
+    },
+    {
+      "route": "/guide",
+      "status": 200,
+      "url": "https://yellowenvelope.kr/guide",
+      "overflow": false
+    },
+    {
+      "route": "/harassment",
+      "status": 200,
+      "url": "https://yellowenvelope.kr/harassment",
+      "overflow": false
+    },
+    {
+      "route": "/laws",
+      "status": 200,
+      "url": "https://yellowenvelope.kr/laws",
+      "overflow": false
+    },
+    {
+      "route": "/lecture/ai-isan-2026",
+      "status": 200,
+      "url": "https://yellowenvelope.kr/lecture/ai-isan-2026",
+      "overflow": false
+    },
+    {
+      "route": "/lecture/ai-isan-2026/textbook",
+      "status": 200,
+      "url": "https://yellowenvelope.kr/lecture/ai-isan-2026/textbook",
+      "overflow": false
+    },
+    {
+      "route": "/manual",
+      "status": 200,
+      "url": "https://yellowenvelope.kr/manual",
+      "overflow": false
+    },
+    {
+      "route": "/news",
+      "status": 200,
+      "url": "https://yellowenvelope.kr/news",
+      "overflow": false
+    },
+    {
+      "route": "/",
+      "status": 200,
+      "url": "https://yellowenvelope.kr/",
+      "overflow": false
+    },
+    {
+      "route": "/pkb",
+      "status": 200,
+      "url": "https://yellowenvelope.kr/pkb",
+      "overflow": false
+    },
+    {
+      "route": "/privacy",
+      "status": 200,
+      "url": "https://yellowenvelope.kr/privacy",
+      "overflow": false
+    },
+    {
+      "route": "/sanction",
+      "status": 200,
+      "url": "https://yellowenvelope.kr/sanction",
+      "overflow": false
+    },
+    {
+      "route": "/search",
+      "status": 200,
+      "url": "https://yellowenvelope.kr/decisions",
+      "overflow": false
+    },
+    {
+      "route": "/stats",
+      "status": 200,
+      "url": "https://yellowenvelope.kr/stats",
+      "overflow": false
+    },
+    {
+      "route": "/subsidy",
+      "status": 200,
+      "url": "https://yellowenvelope.kr/subsidy",
+      "overflow": false
+    },
+    {
+      "route": "/terms",
+      "status": 200,
+      "url": "https://yellowenvelope.kr/terms",
+      "overflow": false
+    },
+    {
+      "route": "/tools/contract-check",
+      "status": 200,
+      "url": "https://yellowenvelope.kr/tools/contract-check",
+      "overflow": false
+    },
+    {
+      "route": "/tools/holiday-pay",
+      "status": 200,
+      "url": "https://yellowenvelope.kr/tools/holiday-pay",
+      "overflow": false
+    },
+    {
+      "route": "/tools/leave/advanced",
+      "status": 200,
+      "url": "https://yellowenvelope.kr/tools/leave/advanced",
+      "overflow": false
+    },
+    {
+      "route": "/tools/leave",
+      "status": 200,
+      "url": "https://yellowenvelope.kr/tools/leave",
+      "overflow": false
+    },
+    {
+      "route": "/tools/leave/settlement",
+      "status": 200,
+      "url": "https://yellowenvelope.kr/tools/leave/settlement",
+      "overflow": false
+    },
+    {
+      "route": "/tools",
+      "status": 200,
+      "url": "https://yellowenvelope.kr/tools",
+      "overflow": false
+    },
+    {
+      "route": "/tools/work-rules",
+      "status": 200,
+      "url": "https://yellowenvelope.kr/tools/work-rules",
+      "overflow": false
+    },
+    {
+      "route": "/tools/severance.html",
+      "status": 200,
+      "url": "https://yellowenvelope.kr/tools/severance.html",
+      "overflow": false
+    }
+  ],
+  "errors": [],
+  "blocked": [
+    "https://static.cloudflareinsights.com/beacon.min.js/v31edd6df95cf4e85bb4c19e7a9bdbcba1788362987495",
+    "https://yellowenvelope.kr/api/faq",
+    "https://www.googletagmanager.com/gtag/js",
+    "https://challenges.cloudflare.com/turnstile/v0/api.js",
+    "https://static.cloudflareinsights.com/beacon.min.js/v31edd6df95cf4e85bb4c19e7a9bdbcba1788362987495",
+    "https://www.googletagmanager.com/gtag/js",
+    "https://static.cloudflareinsights.com/beacon.min.js/v31edd6df95cf4e85bb4c19e7a9bdbcba1788362987495",
+    "https://www.googletagmanager.com/gtag/js",
+    "https://static.cloudflareinsights.com/beacon.min.js/v31edd6df95cf4e85bb4c19e7a9bdbcba1788362987495",
+    "https://www.googletagmanager.com/gtag/js",
+    "https://static.cloudflareinsights.com/beacon.min.js/v31edd6df95cf4e85bb4c19e7a9bdbcba1788362987495",
+    "https://www.googletagmanager.com/gtag/js",
+    "https://static.cloudflareinsights.com/beacon.min.js/v31edd6df95cf4e85bb4c19e7a9bdbcba1788362987495",
+    "https://www.googletagmanager.com/gtag/js",
+    "https://static.cloudflareinsights.com/beacon.min.js/v31edd6df95cf4e85bb4c19e7a9bdbcba1788362987495",
+    "https://www.googletagmanager.com/gtag/js",
+    "https://static.cloudflareinsights.com/beacon.min.js/v31edd6df95cf4e85bb4c19e7a9bdbcba1788362987495",
+    "https://www.googletagmanager.com/gtag/js",
+    "https://static.cloudflareinsights.com/beacon.min.js/v31edd6df95cf4e85bb4c19e7a9bdbcba1788362987495",
+    "https://www.googletagmanager.com/gtag/js",
+    "https://static.cloudflareinsights.com/beacon.min.js/v31edd6df95cf4e85bb4c19e7a9bdbcba1788362987495",
+    "https://www.googletagmanager.com/gtag/js",
+    "https://mewqgevgdgghhatqtuos.supabase.co/rest/v1/nlrc_decisions",
+    "https://mewqgevgdgghhatqtuos.supabase.co/rest/v1/nlrc_decisions",
+    "https://static.cloudflareinsights.com/beacon.min.js/v31edd6df95cf4e85bb4c19e7a9bdbcba1788362987495",
+    "https://www.googletagmanager.com/gtag/js",
+    "https://static.cloudflareinsights.com/beacon.min.js/v31edd6df95cf4e85bb4c19e7a9bdbcba1788362987495",
+    "https://www.googletagmanager.com/gtag/js",
+    "https://static.cloudflareinsights.com/beacon.min.js/v31edd6df95cf4e85bb4c19e7a9bdbcba1788362987495",
+    "https://www.googletagmanager.com/gtag/js",
+    "https://static.cloudflareinsights.com/beacon.min.js/v31edd6df95cf4e85bb4c19e7a9bdbcba1788362987495",
+    "https://www.googletagmanager.com/gtag/js",
+    "https://static.cloudflareinsights.com/beacon.min.js/v31edd6df95cf4e85bb4c19e7a9bdbcba1788362987495",
+    "https://mewqgevgdgghhatqtuos.supabase.co/rest/v1/news_briefings",
+    "https://www.googletagmanager.com/gtag/js",
+    "https://mewqgevgdgghhatqtuos.supabase.co/rest/v1/news_briefings",
+    "https://static.cloudflareinsights.com/beacon.min.js/v31edd6df95cf4e85bb4c19e7a9bdbcba1788362987495",
+    "https://www.googletagmanager.com/gtag/js",
+    "https://static.cloudflareinsights.com/beacon.min.js/v31edd6df95cf4e85bb4c19e7a9bdbcba1788362987495",
+    "https://www.googletagmanager.com/gtag/js",
+    "https://static.cloudflareinsights.com/beacon.min.js/v31edd6df95cf4e85bb4c19e7a9bdbcba1788362987495",
+    "https://www.googletagmanager.com/gtag/js",
+    "https://static.cloudflareinsights.com/beacon.min.js/v31edd6df95cf4e85bb4c19e7a9bdbcba1788362987495",
+    "https://www.googletagmanager.com/gtag/js",
+    "https://static.cloudflareinsights.com/beacon.min.js/v31edd6df95cf4e85bb4c19e7a9bdbcba1788362987495",
+    "https://www.googletagmanager.com/gtag/js",
+    "https://static.cloudflareinsights.com/beacon.min.js/v31edd6df95cf4e85bb4c19e7a9bdbcba1788362987495",
+    "https://www.googletagmanager.com/gtag/js",
+    "https://mewqgevgdgghhatqtuos.supabase.co/rest/v1/reason_stats",
+    "https://mewqgevgdgghhatqtuos.supabase.co/rest/v1/reason_stats",
+    "https://static.cloudflareinsights.com/beacon.min.js/v31edd6df95cf4e85bb4c19e7a9bdbcba1788362987495",
+    "https://www.googletagmanager.com/gtag/js",
+    "https://static.cloudflareinsights.com/beacon.min.js/v31edd6df95cf4e85bb4c19e7a9bdbcba1788362987495",
+    "https://www.googletagmanager.com/gtag/js",
+    "https://static.cloudflareinsights.com/beacon.min.js/v31edd6df95cf4e85bb4c19e7a9bdbcba1788362987495",
+    "https://www.googletagmanager.com/gtag/js",
+    "https://challenges.cloudflare.com/turnstile/v0/api.js",
+    "https://static.cloudflareinsights.com/beacon.min.js/v31edd6df95cf4e85bb4c19e7a9bdbcba1788362987495",
+    "https://t1.kakaocdn.net/kakao_js_sdk/2.7.4/kakao.share.min.js",
+    "https://www.googletagmanager.com/gtag/js",
+    "https://static.cloudflareinsights.com/beacon.min.js/v31edd6df95cf4e85bb4c19e7a9bdbcba1788362987495",
+    "https://www.googletagmanager.com/gtag/js",
+    "https://static.cloudflareinsights.com/beacon.min.js/v31edd6df95cf4e85bb4c19e7a9bdbcba1788362987495",
+    "https://www.googletagmanager.com/gtag/js",
+    "https://static.cloudflareinsights.com/beacon.min.js/v31edd6df95cf4e85bb4c19e7a9bdbcba1788362987495",
+    "https://www.googletagmanager.com/gtag/js",
+    "https://static.cloudflareinsights.com/beacon.min.js/v31edd6df95cf4e85bb4c19e7a9bdbcba1788362987495",
+    "https://www.googletagmanager.com/gtag/js",
+    "https://static.cloudflareinsights.com/beacon.min.js/v31edd6df95cf4e85bb4c19e7a9bdbcba1788362987495",
+    "https://www.googletagmanager.com/gtag/js",
+    "https://static.cloudflareinsights.com/beacon.min.js/v31edd6df95cf4e85bb4c19e7a9bdbcba1788362987495"
+  ]
+}

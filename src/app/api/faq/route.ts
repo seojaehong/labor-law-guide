@@ -43,11 +43,28 @@ export async function GET(req: NextRequest) {
       max_results: size * page,
     });
     if (!hybrid.error && Array.isArray(hybrid.data)) {
-      const rows = hybrid.data as Array<{ id: number; unified_category?: string; category?: string; question: string; answer: string }>;
+      const rows = hybrid.data as Array<{ id: number; unified_category?: string | null; category?: string | null; question: string; answer: string }>;
       const paged = rows.slice(offset, offset + size);
+      const missingCategoryIds = paged
+        .filter((row) => !row.unified_category && !row.category)
+        .map((row) => row.id);
+      const categoriesById = new Map<number, string>();
+      if (missingCategoryIds.length > 0) {
+        // Some deployed hybrid RPC versions omit category metadata. Hydrate this page only.
+        const { data: categories, error: categoryError } = await db
+          .from('faq')
+          .select('id, unified_category, category')
+          .in('id', missingCategoryIds);
+        if (!categoryError) {
+          for (const row of categories || []) {
+            const category = row.unified_category || row.category;
+            if (category) categoriesById.set(row.id, category);
+          }
+        }
+      }
       const faqs = paged.map((row) => ({
         id: row.id,
-        unified_category: row.unified_category || row.category,
+        unified_category: row.unified_category || row.category || categoriesById.get(row.id) || null,
         question: row.question,
         answer: row.answer,
       }));

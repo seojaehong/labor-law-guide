@@ -1,3 +1,4 @@
+import { publicMetadata } from '@/lib/public-metadata';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { ExternalLink, BadgeCheck, BookOpen, MessageSquare } from 'lucide-react';
@@ -7,7 +8,9 @@ const SUBSIDY_URL = `${SITE_URL}/subsidy`;
 const EXTERNAL_GUIDE_URL = 'https://reporeview.vercel.app/';
 const DESCRIPTION = '고용지원금 종류·신청 요건·절차를 한눈에 확인하세요. 두루누리, 출산육아기 고용안정장려금, 서울시 워라밸 포인트제, 고용촉진장려금 등 우리 사업장에 맞는 지원금을 찾아드립니다.';
 
-export const metadata: Metadata = {
+// 메뉴에서 내리고 색인도 끈다 (2026-09-12). 페이지와 주소는 그대로다.
+export const metadata: Metadata = publicMetadata({
+  robots: { index: false, follow: true },
   title: '고용지원금 가이드 | 두루누리·출산육아기지원금·워라밸포인트제 | 노무법인 위너스',
   description: DESCRIPTION,
   alternates: { canonical: SUBSIDY_URL },
@@ -22,7 +25,7 @@ export const metadata: Metadata = {
     title: '고용지원금 가이드 — 노무법인 위너스',
     description: DESCRIPTION,
   },
-};
+});
 
 const subsidyJsonLd = {
   '@context': 'https://schema.org',
@@ -58,27 +61,29 @@ export default function SubsidyPage() {
   return (
     <>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(subsidyJsonLd) }} />
-      <div className="mx-auto max-w-[980px] px-5 py-10">
-        <h1 className="mb-2 font-bold" style={{ fontSize: 'var(--text-2xl)', color: 'var(--grey-900)' }}>
+      <div className="layout-tool editorial-tool">
+        <header className="editorial-tool-header">
+        <h1 className="t-h2 mb-2" style={{ color: 'var(--color-text-primary)' }}>
           고용지원금 가이드
         </h1>
-        <p className="mb-10 max-w-[760px] text-sm leading-6" style={{ color: 'var(--grey-500)' }}>
+        <p className="mb-10 max-w-[var(--reading-measure)] text-sm leading-6" style={{ color: 'var(--grey-700)' }}>
           우리 사업장에서 받을 수 있는 고용지원금을 한눈에 확인하고, 노무사에게 신청 절차까지 맡기세요.
         </p>
+      </header>
 
-        <div className="grid gap-10 lg:grid-cols-[1fr_320px]">
+        <div className="tool-layout">
           <div className="space-y-8">
-            <section className="rounded-2xl border p-6" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }}>
-              <h2 className="mb-4 text-lg font-bold" style={{ color: 'var(--grey-900)' }}>주요 지원금 한눈에 보기</h2>
+            <section className="rounded-md border p-6" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }}>
+              <h2 className="t-h4 mb-4" style={{ color: 'var(--color-text-primary)' }}>주요 지원금 한눈에 보기</h2>
               <div className="space-y-4">
                 {highlights.map((item) => {
                   const Icon = item.icon;
                   return (
-                    <div key={item.title} className="flex gap-4 rounded-xl border p-4" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }}>
-                      <Icon size={20} className="mt-0.5 shrink-0" style={{ color: 'var(--color-accent)' }} />
+                    <div key={item.title} className="flex gap-4 rounded-md border p-4" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }}>
+                      <Icon size={20} className="mt-0.5 shrink-0" style={{ color: 'var(--color-accent-ink)' }} />
                       <div>
-                        <h3 className="text-sm font-bold" style={{ color: 'var(--grey-900)' }}>{item.title}</h3>
-                        <p className="mt-1 text-sm leading-6" style={{ color: 'var(--grey-600)' }}>{item.desc}</p>
+                        <h3 className="text-sm font-bold" style={{ color: 'var(--color-text-primary)' }}>{item.title}</h3>
+                        <p className="mt-1 text-sm leading-6" style={{ color: 'var(--grey-700)' }}>{item.desc}</p>
                       </div>
                     </div>
                   );
@@ -90,8 +95,7 @@ export default function SubsidyPage() {
               href={EXTERNAL_GUIDE_URL}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center justify-center gap-2 rounded-2xl px-6 py-4 text-sm font-bold text-white transition-opacity hover:opacity-90"
-              style={{ backgroundColor: 'var(--color-accent)' }}
+              className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-md px-5 py-2.5 text-[15px] font-semibold transition-[background-color,transform] hover:-translate-y-px bg-[var(--color-accent-ink)] text-[var(--color-on-accent-ink)] hover:bg-[var(--color-accent-ink-hover)]"
             >
               <BookOpen size={18} />
               고용지원금 상세 가이드 보기
@@ -100,24 +104,23 @@ export default function SubsidyPage() {
           </div>
 
           <div className="space-y-6">
-            <div className="rounded-2xl border p-6" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }}>
-              <h2 className="mb-3 font-bold" style={{ color: 'var(--grey-900)' }}>신청이 어려우신가요?</h2>
-              <p className="text-sm leading-6" style={{ color: 'var(--grey-600)' }}>
+            <div className="rounded-md border p-6" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }}>
+              <h2 className="mb-3 font-bold" style={{ color: 'var(--color-text-primary)' }}>신청이 어려우신가요?</h2>
+              <p className="text-sm leading-6" style={{ color: 'var(--grey-700)' }}>
                 요건 판단부터 서류 작성, 신청 대행까지 노무법인 위너스가 도와드립니다. 아래 버튼으로 상담을 접수해 주세요.
               </p>
               <Link
                 href="/contact"
-                className="mt-4 flex items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-bold text-white transition-opacity hover:opacity-90"
-                style={{ backgroundColor: 'var(--color-accent)' }}
+                className="mt-4 w-full inline-flex min-h-[44px] items-center justify-center gap-2 rounded-md px-5 py-2.5 text-[15px] font-semibold transition-[background-color,transform] hover:-translate-y-px bg-[var(--color-accent-ink)] text-[var(--color-on-accent-ink)] hover:bg-[var(--color-accent-ink-hover)]"
               >
                 <MessageSquare size={16} />
                 노무 상담 접수하기
               </Link>
             </div>
 
-            <div className="rounded-2xl p-6" style={{ backgroundColor: 'var(--blue-50)' }}>
-              <h2 className="mb-2 text-sm font-bold" style={{ color: 'var(--blue-700)' }}>이런 사업장이라면 꼭 확인하세요</h2>
-              <ul className="space-y-1.5 text-sm" style={{ color: 'var(--blue-600)' }}>
+            <div className="rounded-md p-6" style={{ backgroundColor: 'var(--grey-100)' }}>
+              <h2 className="mb-2 text-sm font-bold" style={{ color: 'var(--color-text-primary)' }}>이런 사업장이라면 꼭 확인하세요</h2>
+              <ul className="space-y-1.5 text-sm" style={{ color: 'var(--grey-700)' }}>
                 <li>• 직원 수 30인 미만 사업장</li>
                 <li>• 최저임금 인상으로 인건비 부담이 큰 경우</li>
                 <li>• 신규 채용 또는 육아휴직 복귀 계획이 있는 경우</li>

@@ -2,10 +2,12 @@ import type {
   Content,
   FunctionDeclarationsTool,
   Part,
+  GenerationConfig,
 } from '@google-cloud/vertexai';
 import { TOOLS } from './tools/definitions';
 import { scrubFakeUrls } from './scrub-urls';
 import { getGenerativeModel } from '../vertex/client';
+import { isAnthropicConfigured, streamAnthropicRound } from './anthropic-fallback';
 
 export type ToolCallAcc = { id: string; name: string; arguments: string };
 
@@ -147,6 +149,21 @@ function extractFunctionNameFromContext(contents: Content[], toolCallId: string)
 
 // ─── Main streaming function ──────────────────────────────────────────────────
 
+/**
+ * 어느 프로바이더가 답했는지와 Vertex 실패에 걸린 시간을 남긴다.
+ *
+ * 2026-09-01: 같은 질문의 길이만 다른 두 측정값으로 1차식을 풀어보니
+ *   t = 9.53초 + 0.00474초 * 답변글자수
+ * 답변을 0자로 만들어도 9.5초가 남는다. 질문·길이와 무관한 고정비용이 있다는 뜻이고,
+ * 그만한 고정비용은 보통 타임아웃이나 실패 후 재시도다. Vertex 가 느리게 실패한 뒤
+ * Anthropic 으로 넘어가는 것이 1순위 용의자인데, vercel logs 스트리밍이 잡히지 않아
+ * 서버 밖에서는 확인할 방법이 없었다. 그래서 값을 남겨 응답에 실어 보낸다.
+ */
+export const lastRoundInfo: { provider: string; vertexFailMs: number } = {
+  provider: 'unknown',
+  vertexFailMs: 0,
+};
+
 export async function streamRound(
   controller: ReadableStreamDefaultController<Uint8Array>,
   msgs: unknown[],
@@ -157,42 +174,119 @@ export async function streamRound(
 ): Promise<{ content: string; toolCalls: ToolCallAcc[] }> {
   const { systemInstruction, contents } = extractSystemAndContents(msgs);
 
-  // Build per-request model with systemInstruction (cannot set on cached model instance)
-  const vertex = getGenerativeModel('gemini-2.5-flash-preview-04-17');
-
-  const requestBody: Parameters<typeof vertex.generateContentStream>[0] = {
-    contents,
-    ...(systemInstruction ? { systemInstruction } : {}),
-    ...(withTools ? { tools: toVertexTools() } : {}),
-  };
-
-  const result = await vertex.generateContentStream(requestBody);
+  // Vertex 실패 시 Anthropic 으로 폴백한다.
+  // 2026-08-18: 모델 회수(404) 한 번으로 챗 전체가 중단됐다 — 단일 프로바이더 의존 제거.
+  // 클라이언트 생성(자격증명 오류)도 try 안에 둔다 — 밖에 두면 설정 오류가 폴백을 건너뛴다.
+  // 스트리밍이 이미 시작된 뒤(=일부 텍스트를 내보낸 뒤)에는 폴백하지 않는다.
+  // 중복 출력이 사용자에게 그대로 보이기 때문. 첫 청크 이전 실패만 폴백 대상이다.
+  type VertexStream = Awaited<
+    ReturnType<ReturnType<typeof getGenerativeModel>['generateContentStream']>
+  >;
+  let result: VertexStream;
+  const vertexStart = Date.now();
+  try {
+    // Build per-request model with systemInstruction (cannot set on cached model instance)
+    const vertex = getGenerativeModel();
+    // ★ 2026-09-23: Vertex 첫 응답에 시간제한을 건다.
+    //
+    // 실측(프로덕션 5회 중앙값): vertexFailMs 7,212ms. 5회 전부 실패하고 그만큼을 버린 뒤
+    // Anthropic 으로 넘어갔다. 챗 전체가 18.5초인데 그중 7.2초가 「실패를 기다리는 시간」이었다.
+    // 왜 실패하는지는 아직 모른다(배포 로그가 안 잡힌다) — 그건 따로 잡는다.
+    // 원인을 몰라도 기다리는 시간은 줄일 수 있다. 어차피 폴백이 정상 동작하므로
+    // 빨리 포기할수록 사용자가 답을 빨리 본다.
+    //
+    // 제한을 넘기면 아래 catch 가 받아 Anthropic 으로 간다 — 실패했을 때와 같은 경로다.
+    // 스트림이 아직 시작되기 전이라 중복 출력 위험이 없다(첫 청크 이전만 폴백 대상).
+    // Vertex 가 살아나면 이 값을 늘리거나 VERTEX_TIMEOUT_MS 로 덮는다.
+    const timeoutMs = Number(process.env.VERTEX_TIMEOUT_MS) || 2000;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const timeout = new Promise<never>((_, reject) => {
+      timer = setTimeout(
+        () => reject(new Error(`vertex timeout ${timeoutMs}ms`)),
+        timeoutMs
+      );
+    });
+    result = await Promise.race([
+      vertex.generateContentStream({
+        contents,
+        // 챗 전용 상한. 클라이언트 기본값은 4096 인데 그건 /api/sanction 의 JSON 산출물
+        // 때문에 크게 잡혀 있다. 챗 본문은 350~500자를 목표로 하므로 그만큼 줄 필요가 없고,
+        // 상한이 크면 모델이 길게 쓰는 쪽으로 흐른다. 여기서만 낮춘다.
+        // 1200 토큰은 한글 500자에 넉넉한 값이라 정상 답변이 잘리지 않는다.
+        // thinkingBudget: 0 — gemini-2.5-flash 는 '생각'이 기본으로 켜져 있다.
+        // 그 생각 토큰은 응답에 안 나오지만 시간은 그대로 든다. 챗 답변은 검색으로 근거를
+        // 이미 붙여주므로 모델이 따로 추론할 여지가 크지 않은데, 비용은 다 물고 있었다.
+        //
+        // 2026-09-02 실측 근거: 답변 길이가 526자든 514자든 생성 시간이 9.5~9.9초로 거의
+        // 같다. 길이에 비례하지 않는 고정 비용이 있다는 뜻이고, 폴백(vertexFailMs=0)도
+        // 리전(둘 다 서울)도 아니었다. 남은 설명이 이것이다.
+        //
+        // SDK 1.10.0 의 GenerationConfig 타입에는 이 필드가 없다(2.5 이후 추가된 것).
+        // 객체는 그대로 직렬화되어 전달되므로 캐스팅으로 넣는다. 서버가 무시하면 현상 유지고,
+        // 거부하면 Anthropic 폴백으로 떨어지므로 provider 값으로 즉시 드러난다.
+        generationConfig: {
+          maxOutputTokens: 1200,
+          thinkingConfig: { thinkingBudget: 0 },
+        } as GenerationConfig,
+        ...(systemInstruction ? { systemInstruction } : {}),
+        ...(withTools ? { tools: toVertexTools() } : {}),
+      }),
+      timeout,
+    ]).finally(() => clearTimeout(timer));
+  } catch (err) {
+    if (!isAnthropicConfigured()) throw err;
+    lastRoundInfo.provider = 'anthropic(vertex-failed)';
+    lastRoundInfo.vertexFailMs = Date.now() - vertexStart;
+    console.warn('[chat] Vertex 실패 → Anthropic 폴백', {
+      afterMs: lastRoundInfo.vertexFailMs,
+      msg: (err as Error)?.message?.slice(0, 200),
+    });
+    return streamAnthropicRound(controller, msgs, encoder);
+  }
 
   let content = '';
   const toolCallsMap: Record<number, ToolCallAcc> = {};
 
   let tcIdx = 0;
-  for await (const chunk of result.stream) {
-    const parts = chunk.candidates?.[0]?.content?.parts ?? [];
-    for (const part of parts) {
-      if ('text' in part && part.text) {
-        const scrubbed = scrubFakeUrls(part.text);
-        content += scrubbed;
-        if (scrubbed) {
-          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ content: scrubbed })}\n\n`));
+  let emitted = false;
+  try {
+    for await (const chunk of result.stream) {
+      const parts = chunk.candidates?.[0]?.content?.parts ?? [];
+      for (const part of parts) {
+        if ('text' in part && part.text) {
+          const scrubbed = scrubFakeUrls(part.text);
+          content += scrubbed;
+          if (scrubbed) {
+            controller.enqueue(
+              encoder.encode(`data: ${JSON.stringify({ content: scrubbed })}\n\n`)
+            );
+            emitted = true;
+          }
+        }
+        if ('functionCall' in part && part.functionCall) {
+          const fc = part.functionCall as { name: string; args: object };
+          toolCallsMap[tcIdx] = {
+            id: `call_${tcIdx}`,
+            name: fc.name,
+            arguments: JSON.stringify(fc.args),
+          };
+          tcIdx++;
         }
       }
-      if ('functionCall' in part && part.functionCall) {
-        const fc = part.functionCall as { name: string; args: object };
-        toolCallsMap[tcIdx] = {
-          id: `call_${tcIdx}`,
-          name: fc.name,
-          arguments: JSON.stringify(fc.args),
-        };
-        tcIdx++;
-      }
     }
+  } catch (err) {
+    // 이미 사용자 화면에 텍스트가 나간 뒤면 폴백 금지 — 답변이 두 번 이어붙는다.
+    if (emitted || !isAnthropicConfigured()) throw err;
+    lastRoundInfo.provider = 'anthropic(stream-broke)';
+    lastRoundInfo.vertexFailMs = Date.now() - vertexStart;
+    console.warn('[chat] Vertex 스트림 중단 → Anthropic 폴백', {
+      afterMs: lastRoundInfo.vertexFailMs,
+      msg: (err as Error)?.message?.slice(0, 200),
+    });
+    return streamAnthropicRound(controller, msgs, encoder);
   }
 
+  lastRoundInfo.provider = 'vertex';
+  lastRoundInfo.vertexFailMs = 0;
   return { content, toolCalls: Object.values(toolCallsMap) };
 }

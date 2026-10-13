@@ -57,6 +57,8 @@ function linkifyFaqCitations(text: string): string {
   });
 
   // 2) 괄호 빠진 형태 (LLM이 형식 무시): FAQ#123 / CASE#xxx / COURT#xxx / INTERP#ml_xxx
+  //    INTERP id 는 2026-10-05 부터 두 형태다 — ml_xxxx(molab) 와 「노사관계법제과-2110」(admin).
+  //    admin 쪽은 한글과 전각 하이픈(임금복지과－2818)이 섞여 있어 영숫자만 받으면 잘린다.
   // iOS Safari < 16.4 호환: lookbehind 사용 금지 → 선행 문자 캡처 후 보존 방식
   out = out.replace(/(^|[^A-Za-z])FAQ#(\d+)/g, (_, prefix, id) => {
     push('FAQ', id, `/faq?id=${id}`);
@@ -70,7 +72,7 @@ function linkifyFaqCitations(text: string): string {
     push('COURT', id, `/cases/${encodeURIComponent(id)}`);
     return prefix;
   });
-  out = out.replace(/(^|[^A-Za-z])INTERP#([A-Za-z0-9_\-]+)/g, (_, prefix, id) => {
+  out = out.replace(/(^|[^A-Za-z])INTERP#([A-Za-z0-9_가-힣\-－]+)/g, (_, prefix, id) => {
     push('INTERP', id, `/interpretations/${encodeURIComponent(id)}`);
     return prefix;
   });
@@ -324,7 +326,7 @@ export default function ChatInterface({ injectedQuestion }: { injectedQuestion?:
   }
 
   return (
-    <div className="flex h-[600px] flex-col rounded-2xl border" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }}>
+    <div className="flex h-[600px] flex-col rounded-xl border" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }}>
       {/* 확인된 사용자 상황 띠 */}
       {Object.keys(profile).length > 0 && (
         <div

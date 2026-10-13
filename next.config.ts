@@ -10,6 +10,20 @@ const nextConfig: NextConfig = {
   experimental: {
     optimizePackageImports: ['lucide-react', 'date-fns', 'react-markdown', 'remark-gfm'],
   },
+  // 2026-09-12 — 검색 진입로 다섯을 /decisions 하나로 모았다.
+  // /search 는 서버 렌더 본문이 240자뿐인 껍데기였고, /database 는 같은 일을 브라우저에서 했다.
+  // 둘 다 영구 이동으로 넘긴다. **q 같은 질의 문자열은 Next 가 그대로 붙여 준다.**
+  // /cases 는 남긴다 — 손으로 고른 핵심 판례 6건 요약이라 검색과 목적이 다르다.
+  // /cases/:id · /decisions/:id · /interpretations/:id 상세는 건드리지 않는다(사이트맵에 실린 주소다).
+  async redirects() {
+    return [
+      // 🔴 `/search` 는 여기에 두지 않는다. **next.config 의 redirects 가 미들웨어보다 먼저 돈다.**
+      // 여기 두면 미들웨어가 /search 를 보기도 전에 /decisions 로 넘어가,
+      // 옛 `?category=` → `?reason=` 매핑이 영영 실행되지 않는다.
+      // 그래서 /search 는 쿼리 유무와 무관하게 src/middleware.ts 가 전담한다.
+      { source: '/database', destination: '/decisions', permanent: true },
+    ];
+  },
   async rewrites() {
     return [
       { source: '/sitemap_index.xml', destination: '/sitemap.xml' },

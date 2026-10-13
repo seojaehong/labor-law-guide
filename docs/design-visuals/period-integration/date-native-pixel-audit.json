@@ -1,0 +1,47 @@
+{
+  "scope": "Chromium1234 native date icon only; before uses original normal color-scheme in the same dark surface; not Safari validation",
+  "results": {
+    "date-native-dark-before": {
+      "image_size": [
+        125,
+        35
+      ],
+      "roi": "calendar interior: right26..8px, y8..26px; DPR1",
+      "background": [
+        32,
+        38,
+        32
+      ],
+      "maximum_icon_contrast": 1.359517424251352,
+      "pixels_at_least_3_to_1": 0
+    },
+    "date-native-dark": {
+      "image_size": [
+        125,
+        35
+      ],
+      "roi": "calendar interior: right26..8px, y8..26px; DPR1",
+      "background": [
+        32,
+        38,
+        32
+      ],
+      "maximum_icon_contrast": 15.446657486985952,
+      "pixels_at_least_3_to_1": 78
+    },
+    "date-native-light": {
+      "image_size": [
+        125,
+        35
+      ],
+      "roi": "calendar interior: right26..8px, y8..26px; DPR1",
+      "background": [
+        255,
+        255,
+        255
+      ],
+      "maximum_icon_contrast": 21.0,
+      "pixels_at_least_3_to_1": 65
+    }
+  }
+}

@@ -3,9 +3,54 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>퇴직금 계산 프로그램 — 평균임금 및 퇴직금 산정서</title>
-    <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+    <title>퇴직금 계산 | 일의 무늬</title>
+    <meta name="description" content="평균임금과 퇴직금을 계산하고 산정서를 확인합니다. 근거 자료는 선택해서 조회합니다.">
+    <meta property="og:title" content="퇴직금 계산 | 일의 무늬">
+    <meta property="og:description" content="평균임금·퇴직금 계산과 산정서 확인">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://yellowenvelope.kr/tools/severance.html">
+    <meta property="og:image" content="https://yellowenvelope.kr/og/page?title=%ED%87%B4%EC%A7%81%EA%B8%88%20%EA%B3%84%EC%82%B0">
+
     <style>
+        /* ========================================
+           0. 근거·다음 단계 (2026-10-05 추가)
+           색은 전부 기존 변수를 쓴다 — severance-brand.css 가 일의 무늬 팔레트로
+           덮어쓰고 body.dark 까지 처리하므로 여기서 색을 새로 정하지 않는다.
+           ======================================== */
+        .ctx { margin-top: 28px; }
+        .ctx h2 { font-size: 17px; font-weight: 700; margin: 0 0 4px; color: var(--text); }
+        .ctx .ctx-lede { font-size: 13px; color: var(--text-light); margin: 0 0 16px; }
+        .ctx section { margin-bottom: 22px; }
+        .ctx h3 { font-size: 14px; font-weight: 700; margin: 0 0 10px; color: var(--text);
+                  padding-bottom: 6px; border-bottom: 1px solid var(--border); }
+        .ctx .item { border: 1px solid var(--border); border-left: 3px solid var(--border);
+                     border-radius: var(--radius); padding: 13px 15px; margin-bottom: 9px;
+                     background: var(--card-bg); }
+        .ctx .item.block { border-left-color: var(--warning); }
+        .ctx .item.warn  { border-left-color: var(--accent); }
+        .ctx .item.info  { border-left-color: var(--border); }
+        .ctx .item b { display: block; font-size: 14.5px; margin-bottom: 5px; color: var(--text); }
+        .ctx .item p { margin: 0; font-size: 13.5px; line-height: 1.7; color: var(--text-light); }
+        .ctx .basis { display: inline-block; margin-top: 8px; font-size: 11.5px;
+                      color: var(--primary); border: 1px solid var(--border); border-radius: 3px; padding: 1px 7px; }
+        .ctx ul { list-style: none; margin: 0; padding: 0; }
+        .ctx li { padding: 9px 0; border-bottom: 1px solid var(--border-light); font-size: 13.5px; }
+        .ctx li:last-child { border-bottom: 0; }
+        .ctx li a { color: var(--text); text-decoration: none; border-bottom: 1px solid var(--border); }
+        .ctx li a:hover { color: var(--primary); border-color: var(--primary); }
+        .ctx li .meta { color: var(--text-light); font-size: 11.5px; margin-left: 6px; }
+        .ctx .ask { display: flex; align-items: center; gap: 10px; font-size: 13.5px;
+                    color: var(--text-light); margin-bottom: 12px; flex-wrap: wrap; }
+        .ctx .ask select { font: inherit; font-size: 13.5px; padding: 7px 10px; min-height: 40px;
+                    color: var(--text); background: var(--card-bg);
+                    border: 1px solid var(--border); border-radius: var(--radius); }
+        .ctx .none { font-size: 13px; color: var(--text-light); margin: 0; }
+        .ctx .privacy { font-size: 12px; line-height: 1.65; color: var(--text-light);
+                    background: var(--card-bg); border: 1px solid var(--border);
+                    border-radius: var(--radius); padding: 10px 13px; margin: 0 0 18px; }
+        .ctx .privacy b { color: var(--text); font-weight: 600; }
+        .ctx .disc { margin-top: 18px; font-size: 12px; color: var(--text-light); line-height: 1.65; }
+
         /* ========================================
            1. CSS 변수 및 기본 설정
            ======================================== */
@@ -560,6 +605,11 @@
         @media (max-width: 768px) {
             .container { padding: 12px; }
             header { padding: 16px 20px; }
+            /* 2026-10-05: 모바일에서 제목과 「사용설명서」가 겹쳤다(390px 실측 제보).
+               .header-credit 이 absolute 라 제목이 길어지면 그 위로 올라탄다.
+               좁은 화면에서는 흐름 배치로 되돌린다 — 데스크톱의 우측 상단 배치는 그대로 둔다. */
+            .header-credit { position: static; margin-top: 12px; }
+            .guide-toggle { margin-left: 0; }
             header h1 { font-size: 18px; }
             .card { padding: 16px; }
             .form-grid {
@@ -663,13 +713,20 @@
             }
         }
     </style>
+    <link rel="stylesheet" href="/tools/severance-brand.css">
+    <meta property="og:title" content="퇴직금 계산 프로그램 | 일의 무늬">
+    <meta property="og:description" content="평균임금과 퇴직금 산정의 참고 계산 도구입니다.">
+    <meta property="og:image" content="https://yellowenvelope.kr/og/page?title=퇴직금%20계산%20프로그램">
 </head>
 <body>
+<nav class="work-nav" aria-label="주요 탐색"><a href="/"><img src="/brand/work-patterns-wordmark-original.svg" alt="일의 무늬"></a><button type="button" class="tool-theme" onclick="toggleToolTheme()" aria-label="어두운 화면으로 전환">화면 테마</button><div class="work-nav-links"><a href="/blog">글</a><a href="/laws">법령 개정</a><a href="/tools/work-rules">취업규칙 점검</a><a href="/decisions">판례·행정해석</a></div></nav>
+
 
 <div class="container">
+    <a class="tool-back no-print" href="/tools">계산·점검 도구</a>
     <!-- 헤더 -->
     <header>
-        <h1>퇴직금 계산 프로그램 ※</h1>
+        <h1>퇴직금 계산</h1>
         <p style="margin-bottom:6px">근로자퇴직급여보장법 제8조 · 근로기준법 제2조에 따른 평균임금 및 퇴직금 산정서 생성기</p>
         <p style="font-size:12px;color:#FFD700;margin-top:2px">※ 이 프로그램은 오류가 있을 수 있으니 참고용으로 사용하시기 바랍니다. 전문적인 노동법 상담은 가까운 <span style="font-weight:800;color:#FFFFFF;background:rgba(255,215,0,0.3);padding:1px 6px;border-radius:3px">공인노무사</span>에게 상담을 받길 권해드립니다.</p>
         <div class="header-credit">
@@ -764,6 +821,8 @@
         <!-- 임금 정보 -->
         <div class="card">
             <h3>임금 정보 (퇴직 전 3개월)</h3>
+            <p class="wage-scroll-help">좁은 화면에서는 표를 좌우로 움직여 입력칸을 확인하세요.</p>
+            <div class="table-wrap" tabindex="0" role="region" aria-label="월급여 입력 표">
             <table class="wage-table">
                 <thead>
                     <tr>
@@ -803,6 +862,7 @@
                 </tbody>
             </table>
 
+            </div>
             <div class="extra-wage-grid">
                 <label for="bonusTotal">1년분 상여금 총액</label>
                 <input type="text" id="bonusTotal" class="money-input" placeholder="0" value="0">
@@ -844,16 +904,19 @@
     <!-- 결과 영역 (산정서) -->
     <div id="resultArea" class="result-area" style="display:none"></div>
 
+      <!-- 근거·다음 단계 (2026-10-05). 계산이 끝나면 /api/tools/severance-context 가 채운다 -->
+      <div id="contextArea" class="ctx" hidden></div>
+
     <!-- 푸터 -->
     <footer>
         <div style="text-align:center;color:#666;font-size:13px;line-height:1.6;padding:14px 8px">
-            노무법인 위너스 · 노란봉투법 가이드 제공
+            노무법인 위너스 · 일의 무늬 제공
             <br>
             근거: 근로자퇴직급여 보장법 제8조 · 근로기준법 제2조 · 소득세법 시행령 제203조의5/6 · 제55조
             <br>
             <span style="color:#999;font-size:12px">본 계산기는 일반적 정보 제공이며, 구체적 사안은 상단 메뉴의 <b>상담</b> 버튼을 통해 노무법인 위너스로 문의해 주세요.</span>
             <br>
-            <a href="/" style="color:#1d4ed8;text-decoration:none;font-size:12px">← 노란봉투법 가이드 홈</a>
+            <a href="/" style="color:#1d4ed8;text-decoration:none;font-size:12px">← 일의 무늬 홈</a>
         </div>
     </footer>
 </div>
@@ -940,26 +1003,34 @@ function parseMoney(str) {
     return parseFloat(String(str).replace(/,/g, '')) || 0;
 }
 
+/** 날짜 입력은 시간대 없는 달력 날짜이므로 UTC 자정으로만 연산한다. */
+function parseDateOnlyUTC(value) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(value || '')) return new Date(NaN);
+    const date = new Date(value + 'T00:00:00.000Z');
+    if (!Number.isFinite(date.getTime()) || date.toISOString().slice(0, 10) !== value) return new Date(NaN);
+    return date;
+}
+
 /** 해당 월의 일수 반환 (1~12월) */
 function getDaysInMonth(year, month) {
-    return new Date(year, month, 0).getDate();
+    return new Date(Date.UTC(year, month, 0)).getUTCDate();
 }
 
 /** 두 날짜 사이의 일수 차이 (달력일수) */
 function dateDiffDays(startStr, endStr) {
-    const s = new Date(startStr);
-    const e = new Date(endStr);
+    const s = parseDateOnlyUTC(startStr);
+    const e = parseDateOnlyUTC(endStr);
     return Math.round((e - s) / (1000 * 60 * 60 * 24));
 }
 
 /** 근속연수 계산 (1년 미만 올림) */
 function calcServiceYears(startStr, endStr) {
-    const start = new Date(startStr);
-    const end = new Date(endStr);
+    const start = parseDateOnlyUTC(startStr);
+    const end = parseDateOnlyUTC(endStr);
     let years = 0;
     const temp = new Date(start);
     while (true) {
-        temp.setFullYear(temp.getFullYear() + 1);
+        temp.setUTCFullYear(temp.getUTCFullYear() + 1);
         if (temp <= end) {
             years++;
         } else {
@@ -968,7 +1039,7 @@ function calcServiceYears(startStr, endStr) {
     }
     /* 정확히 N년인 경우와 나머지가 있는 경우 구분 */
     const exact = new Date(start);
-    exact.setFullYear(exact.getFullYear() + years);
+    exact.setUTCFullYear(exact.getUTCFullYear() + years);
     if (exact < end) {
         years++;
     }
@@ -981,15 +1052,15 @@ function calcServiceYears(startStr, endStr) {
  * @returns {object} { fullYears, remainDays, daysInYear, fraction }
  */
 function calcPreciseServiceFraction(startStr, endStr) {
-    const start = new Date(startStr);
-    const end = new Date(endStr);
+    const start = parseDateOnlyUTC(startStr);
+    const end = parseDateOnlyUTC(endStr);
 
     let fullYears = 0;
     let current = new Date(start);
 
     while (true) {
         const next = new Date(current);
-        next.setFullYear(next.getFullYear() + 1);
+        next.setUTCFullYear(next.getUTCFullYear() + 1);
         if (next <= end) {
             fullYears++;
             current = next;
@@ -1003,7 +1074,7 @@ function calcPreciseServiceFraction(startStr, endStr) {
 
     /* 현재 시점에서 다음 주년까지의 일수 (365 또는 366) */
     const nextAnniv = new Date(current);
-    nextAnniv.setFullYear(nextAnniv.getFullYear() + 1);
+    nextAnniv.setUTCFullYear(nextAnniv.getUTCFullYear() + 1);
     const daysInYear = Math.round((nextAnniv - current) / (1000 * 60 * 60 * 24));
 
     return {
@@ -1020,10 +1091,10 @@ function calcPreciseServiceFraction(startStr, endStr) {
  * - 중도 퇴사: 역산 3개월 → 4구간 (첫/끝 월 일할)
  */
 function calc3MonthPeriod(endStr) {
-    const end = new Date(endStr);
-    const endYear = end.getFullYear();
-    const endMonth = end.getMonth() + 1;
-    const endDay = end.getDate();
+    const end = parseDateOnlyUTC(endStr);
+    const endYear = end.getUTCFullYear();
+    const endMonth = end.getUTCMonth() + 1;
+    const endDay = end.getUTCDate();
 
     const periods = [];
 
@@ -1112,7 +1183,7 @@ function calculateSeverance(data) {
     if (!startDate || !endDate) return null;
 
     const serviceDays = dateDiffDays(startDate, endDate);
-    if (serviceDays <= 0) return null;
+    if (!Number.isFinite(serviceDays) || serviceDays <= 0) return null;
 
     const serviceYears = calcServiceYears(startDate, endDate);
     const periods = calc3MonthPeriod(endDate);
@@ -1313,7 +1384,7 @@ function renderTabs() {
         const name = w.workerName || `근로자 ${i + 1}`;
         const active = i === state.currentIndex ? ' active' : '';
         html += `<button class="tab-btn${active}" onclick="switchWorker(${i})">`;
-        html += `<span class="tab-name">${name}</span>`;
+        html += `<span class="tab-name">${esc(name)}</span>`;
         if (state.workers.length > 1) {
             html += `<span class="tab-remove" onclick="event.stopPropagation();removeWorker(${i})">×</span>`;
         }
@@ -1326,6 +1397,7 @@ function renderTabs() {
 }
 
 function switchWorker(index) {
+    hideContext();
     saveFormToState();
     state.currentIndex = index;
     loadFormFromState();
@@ -1343,6 +1415,7 @@ function switchWorker(index) {
 }
 
 function addWorker() {
+    hideContext();
     if (state.workers.length >= MAX_WORKERS) {
         showToast(`최대 ${MAX_WORKERS}명까지 추가할 수 있습니다.`, 'error');
         return;
@@ -1365,6 +1438,7 @@ function addWorker() {
 function removeWorker(index) {
     if (state.workers.length <= 1) return;
     if (!confirm(`근로자 ${index + 1} (${state.workers[index].workerName || '이름 없음'})의 데이터를 삭제하시겠습니까?`)) return;
+    hideContext();
     state.workers.splice(index, 1);
     if (state.currentIndex >= state.workers.length) {
         state.currentIndex = state.workers.length - 1;
@@ -1381,8 +1455,24 @@ function removeWorker(index) {
    7. UI — 폼 ↔ 상태 동기화
    ================================================================ */
 
+function workerInputSignature(w) {
+    const moneyFields = new Set(['wage1', 'wage2', 'wage3', 'wage4', 'bonusTotal', 'annualLeave', 'priorSeverance', 'retirementTax', 'dailyOrdinaryWage']);
+    return JSON.stringify(['businessName', 'ownerName', 'workerName', 'birthDate', 'startDate', 'endDate',
+        'wage1', 'wage2', 'wage3', 'wage4', 'bonusTotal', 'annualLeave', 'priorSeverance',
+        'autoCalcTax', 'retirementTax', 'dailyOrdinaryWage', 'wageType'].map(key => key === 'retirementTax' && w.autoCalcTax ? 0 : moneyFields.has(key) ? parseMoney(w[key]) : w[key]));
+}
+function invalidateResult(w) {
+    const hadResult = !!w.result;
+    w.result = null;
+    hideContext();
+    const area = document.getElementById('resultArea');
+    area.replaceChildren();
+    area.style.display = 'none';
+    if (hadResult) showToast('입력이 바뀌었습니다. 다시 계산해 주세요.', 'info');
+}
 function saveFormToState() {
     const w = state.workers[state.currentIndex];
+    const previous = workerInputSignature(w);
     w.businessName = document.getElementById('businessName').value;
     w.ownerName = document.getElementById('ownerName').value;
     w.workerName = document.getElementById('workerName').value;
@@ -1400,6 +1490,7 @@ function saveFormToState() {
     w.retirementTax = document.getElementById('retirementTax').value;
     w.dailyOrdinaryWage = document.getElementById('dailyOrdinaryWage').value;
     w.wageType = document.getElementById('wageType').value;
+    if (previous !== workerInputSignature(w)) invalidateResult(w);
 }
 
 function loadFormFromState() {
@@ -1443,7 +1534,7 @@ function updateDateInfo() {
     }
 
     const days = dateDiffDays(startStr, endStr);
-    if (days <= 0) {
+    if (!Number.isFinite(days) || days <= 0) {
         sdEl.value = '날짜 오류';
         syEl.value = '-';
         clearPeriodLabels();
@@ -1549,7 +1640,7 @@ function setupDateInputs() {
         input.addEventListener('blur', function () {
             /* blur 시 유효한 날짜인지 간단 검증 */
             if (this.value && this.value.length === 10) {
-                const d = new Date(this.value);
+                const d = parseDateOnlyUTC(this.value);
                 if (isNaN(d.getTime())) {
                     this.style.borderColor = 'var(--warning)';
                 } else {
@@ -1591,11 +1682,12 @@ function setupMoneyInputs() {
 
 function renderResult(result) {
     const w = state.workers[state.currentIndex];
+    showContextPrompt(w);
     const p = result.periods;
-    const endDate = new Date(w.endDate);
-    const startDate = new Date(w.startDate);
+    const endDate = parseDateOnlyUTC(w.endDate);
+    const startDate = parseDateOnlyUTC(w.startDate);
 
-    const formatDate = (d) => `${d.getFullYear()}. ${String(d.getMonth()+1).padStart(2,'0')}. ${String(d.getDate()).padStart(2,'0')}.`;
+    const formatDate = (d) => `${d.getUTCFullYear()}. ${String(d.getUTCMonth()+1).padStart(2,'0')}. ${String(d.getUTCDate()).padStart(2,'0')}.`;
 
     const totalDeduction = result.retirementTax + result.localTax + result.priorSev;
 
@@ -1631,27 +1723,35 @@ function renderResult(result) {
 
     const html = `
     <div class="statement">
-        <h2>평균임금 및 퇴직금 산정서</h2>
+        <div class="stmt-document-head">
+            <span class="stmt-brand">일의 무늬 · 산정서</span>
+            <h2>평균임금 및 퇴직금 산정서</h2>
+        </div>
+        <section class="stmt-summary" aria-label="퇴직금 요약">
+            <div class="stmt-summary-label">실수령 퇴직금</div>
+            <div class="stmt-amount">${formatMoney(result.netSeverance)}<span>원</span></div>
+            <dl class="stmt-summary-details">
+                <div><dt>퇴직금</dt><dd>${formatMoney(result.severancePay)}원</dd></div>
+                <div><dt>공제액 합계</dt><dd>${formatMoney(totalDeduction)}원</dd></div>
+            </dl>
+        </section>
 
         <!-- 기본 정보 -->
-        <table class="stmt-table">
-            <tr>
-                <th>사업장명</th><td colspan="2">${w.businessName || '-'}</td>
-                <th>근로자성명</th><td colspan="2">${w.workerName || '-'}</td>
-            </tr>
-            <tr>
-                <th>생년월일</th><td colspan="2">${w.birthDate || '-'}</td>
-                <th>사업주성명</th><td colspan="2">${w.ownerName || '-'}</td>
-            </tr>
-            <tr>
-                <th>산정사유발생일</th><td>${formatDate(endDate)}</td>
-                <th>채용년월일</th><td>${formatDate(startDate)}</td>
-                <th>재직일수</th><td class="bold">${formatMoney(result.serviceDays)}일</td>
-            </tr>
-        </table>
+        <h3 class="stmt-section-title">기본 정보</h3>
+        <dl class="stmt-meta">
+            <div><dt>사업장명</dt><dd>${esc(w.businessName || '-')}</dd></div>
+            <div><dt>근로자성명</dt><dd>${esc(w.workerName || '-')}</dd></div>
+            <div><dt>생년월일</dt><dd>${esc(w.birthDate || '-')}</dd></div>
+            <div><dt>사업주성명</dt><dd>${esc(w.ownerName || '-')}</dd></div>
+            <div><dt>채용년월일</dt><dd>${formatDate(startDate)}</dd></div>
+            <div><dt>산정사유발생일</dt><dd>${formatDate(endDate)}</dd></div>
+            <div><dt>재직일수</dt><dd>${formatMoney(result.serviceDays)}일</dd></div>
+        </dl>
 
         <!-- 계산 과정 -->
-        <table class="stmt-table" style="margin-top:16px">
+        <h3 class="stmt-section-title">평균임금 계산</h3>
+        <div class="stmt-scroll" tabindex="0" role="region" aria-label="평균임금 계산 표">
+        <table class="stmt-table stmt-periods">
             <tr>
                 <th rowspan="2">구분</th>
                 ${periodHeaders}
@@ -1689,8 +1789,10 @@ function renderResult(result) {
             </tr>
         </table>
 
+        </div>
         <!-- 평균임금 & 퇴직금 -->
-        <table class="stmt-table" style="margin-top:16px">
+        <h3 class="stmt-section-title">퇴직금 및 공제</h3>
+        <table class="stmt-table stmt-breakdown">
             <tr class="highlight">
                 <th style="width:140px">1일 평균임금</th>
                 <td colspan="3" class="left">
@@ -1752,14 +1854,18 @@ function renderResult(result) {
             <div class="date-line">위와 같이 확인합니다.</div>
             <div class="date-line">20____년 ____월 ____일</div>
             <div class="sign-grid">
-                <div class="sign-item">사업주 : ${w.ownerName || '____________'} (인)</div>
-                <div class="sign-item">근로자 : ${w.workerName || '____________'} (인)</div>
+                <div class="sign-item">사업주 : ${esc(w.ownerName || '____________')} (인)</div>
+                <div class="sign-item">근로자 : ${esc(w.workerName || '____________')} (인)</div>
             </div>
         </div>
     </div>`;
 
     const area = document.getElementById('resultArea');
     area.innerHTML = html;
+    const statement = area.querySelector('.statement');
+    statement.tabIndex = 0;
+    statement.setAttribute('role', 'region');
+    statement.setAttribute('aria-label', '평균임금 및 퇴직금 산정서');
     area.style.display = 'block';
     area.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
@@ -1779,7 +1885,7 @@ function onCalculate() {
         return;
     }
     const days = dateDiffDays(w.startDate, w.endDate);
-    if (days <= 0) {
+    if (!Number.isFinite(days) || days <= 0) {
         showToast('퇴사일이 입사일보다 이후여야 합니다.', 'error');
         return;
     }
@@ -1817,9 +1923,155 @@ function onCalculate() {
     showToast('계산 완료!', 'success');
 }
 
+/**
+ * 계산 결과에 근거와 다음 단계를 붙인다 (2026-10-05).
+ *
+ * 계산기는 숫자까지만 낸다. 그 숫자가 맞는지 확인할 점, 왜 그런지의 근거,
+ * 그래서 무엇을 할지는 서버가 붙인다 — 조문과 행정해석·FAQ 는 DB 에 있고
+ * 여기에 박아 두면 법이 바뀌었을 때 같이 안 바뀐다.
+ *
+ * 실패해도 계산 결과는 그대로 둔다. 근거가 없다고 계산을 못 쓰게 하면 안 된다.
+ */
+/**
+ * 근거 영역을 접는다.
+ *
+ * 🔴 근로자를 바꾸거나 초기화해도 이전 사람의 안내가 그대로 남아 있었다(2026-10-05 실측).
+ * 근로자2 폼을 보면서 근로자1 의 「1년 미만입니다」를 읽게 되는 구조였다.
+ * 계산 결과(resultArea)는 근로자별로 갈리는데 이 영역만 안 갈렸다.
+ */
+function hideContext() {
+    contextRequestId++;
+    contextController?.abort();
+    contextController = null;
+    const el = document.getElementById('contextArea');
+    if (el) { el.hidden = true; el.innerHTML = ''; }
+}
+
+let contextRequestId = 0;
+let contextController = null;
+const contextOptions = new WeakMap(); // Session-only, scoped to each worker; never saved.
+function getContextOptions(w) {
+    if (!contextOptions.has(w)) contextOptions.set(w, { unpaid: false, pension: 'unknown' });
+    return contextOptions.get(w);
+}
+function contextHeader(w) {
+    const options = getContextOptions(w);
+    return '<h2>근거 조회</h2><p class="privacy">계산은 이 기기에서 처리됩니다. 아래 버튼을 누르면 입사일·퇴사일·재직일수·평균임금·통상임금·퇴직금과 선택한 제도·미지급 여부를 서버로 보내 근거를 조회합니다. 이름·사업장명·사업주명·생년월일은 보내지 않습니다. 검색에 쓰는 일반 쟁점 문장은 외부 AI 서비스(OpenAI)로 전달될 수 있습니다. 금액과 날짜는 이 검색 문장에 포함되지 않습니다.</p>' +
+      '<div class="ask"><label for="ctxPension">퇴직급여 제도</label><select id="ctxPension">' +
+      ['unknown|모름 / 확인 안 해봤습니다', 'severance|퇴직금제도', 'db|퇴직연금 DB(확정급여형)', 'dc|퇴직연금 DC(확정기여형)'].map(o=>{const [v,t]=o.split('|');return '<option value="'+v+'"'+(options.pension===v?' selected':'')+'>'+t+'</option>';}).join('') +
+      '</select></div><label class="ask"><input type="checkbox" id="ctxUnpaid"'+(options.unpaid?' checked':'')+'> 아직 퇴직금을 받지 못했습니다</label><button type="button" class="btn btn-primary" id="contextLookup">근거 조회하기</button><p id="contextStatus" role="status" aria-live="polite"></p>';
+}
+function bindContextControls(w) {
+    document.getElementById('ctxUnpaid').addEventListener('change', e=>{getContextOptions(w).unpaid=e.target.checked;showContextPrompt(w);});
+    document.getElementById('ctxPension').addEventListener('change', e=>{getContextOptions(w).pension=e.target.value;showContextPrompt(w);});
+    document.getElementById('contextLookup').addEventListener('click', ()=>{if(state.workers[state.currentIndex]===w&&w.result)loadContext(w,w.result);});
+}
+function showContextPrompt(w, message = '') {
+    hideContext();
+    const box = document.getElementById('contextArea');
+    if (!box) return;
+    box.innerHTML = contextHeader(w);
+    box.hidden = false;
+    bindContextControls(w);
+    document.getElementById('contextStatus').textContent = message;
+}
+
+async function loadContext(w, result) {
+    saveFormToState();
+    if (state.workers[state.currentIndex] !== w || w.result !== result || !result) return;
+    const box = document.getElementById('contextArea');
+    if (!box) return;
+    contextController?.abort();
+    const controller = new AbortController();
+    contextController = controller;
+    const requestId = ++contextRequestId;
+    const current = () => requestId === contextRequestId && !controller.signal.aborted && state.workers[state.currentIndex] === w && w.result === result;
+    const options = getContextOptions(w);
+    document.getElementById('contextLookup').disabled = true;
+    document.getElementById('contextStatus').textContent = '근거를 조회하고 있습니다.';
+    const body = {
+        startDate: w.startDate,
+        endDate: w.endDate,
+        serviceDays: result.serviceDays,
+        avgWage: result.avgWage,
+        ordinaryWage: result.dailyOrdinaryWage || undefined,
+        severance: result.severancePay,
+        paid: options.unpaid ? false : undefined,
+        pensionType: options.pension,
+    };
+    try {
+        const res = await fetch('/api/tools/severance-context', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
+            signal: controller.signal,
+        });
+        if (!res.ok) throw new Error('context lookup failed');
+        const data = await res.json();
+        if (current()) renderContext(data, w);
+    } catch (e) {
+        if (current()) showContextPrompt(w, '근거를 불러오지 못했습니다. 계산 결과는 유지됩니다. 잠시 후 다시 조회해 주세요.');
+    }
+}
+
+function esc(t) {
+    return String(t == null ? '' : t).replace(/[&<>"]/g, (c) =>
+        ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+}
+
+function renderContext(d, w) {
+    const box = document.getElementById('contextArea');
+    const checks = d.checks || [];
+    const srcI = (d.sources && d.sources.interpretations) || [];
+    const srcF = (d.sources && d.sources.faq) || [];
+    const next = d.next || [];
+
+    let h = contextHeader(w);
+    if (d.limited) h += '<p class="none" role="status">조회 요청이 많아 추가 자료 검색을 잠시 생략했습니다. 계산 결과는 유지됩니다. 잠시 후 다시 조회해 주세요.</p>';
+    if (!checks.length && !srcI.length && !srcF.length && !next.length) h += '<p class="none">이 입력 조건에 해당하는 근거를 찾지 못했습니다.</p>';
+
+
+    h += '<section><h3>확인할 점</h3>';
+    for (const c of checks) {
+        h += '<div class="item ' + esc(c.level) + '"><b>' + esc(c.title) + '</b><p>' + esc(c.body) + '</p>' +
+             (c.basis ? '<span class="basis">' + esc(c.basis) + '</span>' : '') + '</div>';
+    }
+    h += '</section>';
+
+    if (srcI.length || srcF.length) {
+        h += '<section><h3>근거 자료</h3><ul>';
+        for (const it of srcI) {
+            h += '<li><a href="' + esc(it.url) + '">' + esc(it.title) + '</a>' +
+                 '<span class="meta">행정해석' + (it.date ? ' · ' + esc(it.date) : '') + '</span></li>';
+        }
+        for (const f of srcF) {
+            h += '<li><a href="' + esc(f.url) + '">' + esc(f.question) + '</a><span class="meta">FAQ</span></li>';
+        }
+        h += '</ul></section>';
+    }
+
+    if (next.length) {
+        h += '<section><h3>다음 단계</h3>';
+        for (const n of next) {
+            h += '<div class="item info"><b>' + esc(n.title) + '</b><p>' + esc(n.body) + '</p>' +
+                 (n.href ? '<span class="basis"><a href="' + esc(n.href) + '" target="_blank" rel="noopener">바로가기</a></span>' : '') +
+                 '</div>';
+        }
+        h += '</section>';
+    }
+
+    h += '<p class="disc">행정해석은 회신일 당시 기준입니다. 그 뒤 법이 바뀌었을 수 있으니 날짜를 함께 보세요. ' +
+         '구체적 사안은 사실관계에 따라 달라집니다. 1주 소정근로시간처럼 입력하지 않은 조건은 이 조회에서 확인하지 않습니다.</p>';
+
+    box.innerHTML = h;
+    box.hidden = false;
+    bindContextControls(w);
+}
+
 /** 초기화 */
 function onReset() {
     if (!confirm('현재 근로자의 모든 입력값을 초기화하시겠습니까?')) return;
+    hideContext();
     const biz = state.workers[0].businessName;
     const owner = state.workers[0].ownerName;
     state.workers[state.currentIndex] = createDefaultWorker();
@@ -1834,6 +2086,7 @@ function onReset() {
 
 /** 인쇄하기 */
 function onPrint() {
+    saveFormToState();
     const w = state.workers[state.currentIndex];
     if (!w.result) {
         showToast('먼저 계산을 실행해 주세요.', 'error');
@@ -1889,6 +2142,9 @@ function loadFromStorage() {
 function init() {
     /* LocalStorage에서 데이터 복원 */
     const restored = loadFromStorage();
+    // Stored results have no verifiable input snapshot, including legacy edited results.
+    // Restore original inputs but require an explicit recalculation before result actions.
+    if (restored) state.workers.forEach(w => { w.result = null; });
     loadFormFromState();
     renderTabs();
     updateDateInfo();
@@ -2002,5 +2258,18 @@ function init() {
 document.addEventListener('DOMContentLoaded', init);
 </script>
 
+<script>
+function updateToolTheme(dark) {
+    document.body.classList.toggle('dark', dark);
+    document.querySelector('.work-nav img').src = dark ? '/brand/work-patterns-wordmark-original-dark.svg' : '/brand/work-patterns-wordmark-original.svg';
+    document.querySelector('.tool-theme').setAttribute('aria-label', dark ? '밝은 화면으로 전환' : '어두운 화면으로 전환');
+}
+function toggleToolTheme() {
+    const dark = !document.body.classList.contains('dark');
+    updateToolTheme(dark);
+    try { localStorage.setItem('theme', dark ? 'dark' : 'light'); } catch {}
+}
+try { updateToolTheme(localStorage.getItem('theme') === 'dark'); } catch {}
+</script>
 </body>
 </html>

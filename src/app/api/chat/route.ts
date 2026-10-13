@@ -14,11 +14,15 @@ import { checkChatRateLimit, extractIp, hashIp } from '@/lib/rate-limit';
 import { getChatKillSwitch } from '@/lib/kill-switch';
 import { verifyTurnstile, isTurnstileEnabled } from '@/lib/turnstile';
 import { executeTool } from '@/lib/chat/tools/execute';
-import { streamRound, type ToolCallAcc } from '@/lib/chat/stream-round';
+import { streamRound, lastRoundInfo, type ToolCallAcc } from '@/lib/chat/stream-round';
+import { withTimeout, withTimeoutTagged, RETRIEVAL_TIMEOUT_MS, FAQ_TIMEOUT_MS } from '@/lib/chat/context/with-timeout';
+import { type Retrieval, EMPTY_RETRIEVAL } from '@/lib/chat/context/result';
+import { isAnthropicConfigured } from '@/lib/chat/anthropic-fallback';
 import { getVertexClient } from '@/lib/vertex/client';
 import { buildFaqContext } from '@/lib/chat/context/faq';
 import { buildNlrcCasesContext, buildCourtCasesContext } from '@/lib/chat/context/cases';
 import { buildInterpretationsContext } from '@/lib/chat/context/interpretations';
+import { buildLawsContext } from '@/lib/chat/context/laws';
 import { buildNewsContext } from '@/lib/chat/context/news';
 
 // Next.js segment config: literal value 필수 (import const 불가)
@@ -139,48 +143,154 @@ export async function POST(req: NextRequest) {
     }
     // === 게이트 끝 ===
 
-    // Validate Vertex AI credentials at startup (throws if misconfigured)
+    // Vertex 자격증명 확인. 단, Vertex 가 죽어도 Anthropic 폴백이 있으면 계속 진행한다.
+    // (2026-08-18: 이 게이트가 streamRound 앞에 있어서, 폴백을 붙여도 Vertex 설정 오류
+    //  단계에서 503 으로 끊겨 폴백까지 도달하지 못하는 문제가 로컬 검증에서 드러남)
     try {
       getVertexClient();
-    } catch {
-      return new Response(JSON.stringify({ error: 'AI 서비스가 준비되지 않았습니다.' }), {
-        status: 503,
+    } catch (err) {
+      if (!isAnthropicConfigured()) {
+        return new Response(JSON.stringify({ error: 'AI 서비스가 준비되지 않았습니다.' }), {
+          status: 503,
+        });
+      }
+      console.warn('[chat] Vertex 클라이언트 생성 실패 — Anthropic 폴백으로 진행', {
+        msg: (err as Error)?.message?.slice(0, 200),
       });
     }
 
+    // 구간별 소요시간을 남긴다.
+    // 2026-09-01: '첫 글자까지 29초' 장애를 진단할 때 서버에서 어느 구간이 느린지
+    // 알 방법이 없어서, 밖에서 RPC 를 하나씩 때려보며 추정해야 했다. 같은 일을
+    // 두 번 하지 않도록 계측을 코드에 박는다.
+    const t0 = Date.now();
+    const mark: Record<string, number> = {};
+
     const { searchQuery, lastUserMsg } = buildSearchQuery(messages);
+
+    // 답변 첫 글자까지 걸리는 시간이 24~29초였다(2026-09-01 실측).
+    // 원인은 두 가지였고 여기서 두 번째를 고친다 — 사전작업이 직렬이었다.
+    //   임베딩 → FAQ → (검색3 병렬) → 상황조회 → 상황추출(LLM) → 상황저장 → 뉴스 → 생성
+    // 상황추출과 뉴스는 임베딩 결과가 필요 없는데도 뒤에서 순서를 기다리고 있었다.
+    // 임베딩을 기다리지 않아도 되는 것부터 먼저 띄워 전체를 max() 로 만든다.
+    // 그리고 모든 검색에 상한을 건다 — 하나가 늦으면 그것만 버리고 답한다.
 
     let faqContext = '';
     let caseContext = '';
     let topFaqIds: number[] = [];
+    let situationContext = '';
+    let prevProfile: UserSituation = {};
+    let mergedProfile: UserSituation = {};
 
+    // (1) 임베딩과 무관한 작업을 먼저 시작한다
+    const newsPromise = lastUserMsg
+      ? withTimeout(buildNewsContext(supabase, lastUserMsg.content), RETRIEVAL_TIMEOUT_MS, '뉴스 컨텍스트', '')
+      : Promise.resolve('');
+
+    const situationPromise =
+      sessionId && lastUserMsg
+        ? withTimeout(
+            (async () => {
+              const prev = await getSituation(sessionId);
+              const delta = await extractDelta(lastUserMsg.content, prev);
+              return { prev, delta };
+            })(),
+            RETRIEVAL_TIMEOUT_MS,
+            '상황 추출',
+            null as { prev: UserSituation; delta: UserSituation } | null
+          )
+        : Promise.resolve(null);
+
+    // (2) 임베딩이 필요한 검색들
     if (lastUserMsg) {
-      const queryEmbedding = await getQueryEmbedding(searchQuery);
+      const queryEmbedding = await withTimeout(
+        getQueryEmbedding(searchQuery), RETRIEVAL_TIMEOUT_MS, '임베딩', null
+      );
+      mark.emb = Date.now() - t0;
 
-      const faq = await buildFaqContext(db, searchQuery, queryEmbedding);
+      const emptyFaq = {
+        context: '',
+        topIds: [] as number[],
+        matched: false,
+        count: 0,
+        categories: [] as string[],
+      };
+      const noEmbed: Retrieval = { ...EMPTY_RETRIEVAL, status: 'noembed' };
+
+      const [faq, nlrc, interp, court, laws] = await Promise.all([
+        withTimeout(
+          buildFaqContext(db, searchQuery, queryEmbedding),
+          FAQ_TIMEOUT_MS,
+          'FAQ 검색',
+          emptyFaq
+        ),
+        queryEmbedding
+          ? withTimeoutTagged(
+              buildNlrcCasesContext(db, searchQuery, queryEmbedding),
+              RETRIEVAL_TIMEOUT_MS,
+              '판정례 검색',
+              EMPTY_RETRIEVAL
+            )
+          : Promise.resolve({ value: noEmbed, timedOut: false, ms: 0 }),
+        queryEmbedding
+          ? withTimeoutTagged(
+              buildInterpretationsContext(db, queryEmbedding),
+              RETRIEVAL_TIMEOUT_MS,
+              '행정해석 검색',
+              EMPTY_RETRIEVAL
+            )
+          : Promise.resolve({ value: noEmbed, timedOut: false, ms: 0 }),
+        queryEmbedding
+          ? withTimeoutTagged(
+              buildCourtCasesContext(db, queryEmbedding),
+              RETRIEVAL_TIMEOUT_MS,
+              '법원판례 검색',
+              EMPTY_RETRIEVAL
+            )
+          : Promise.resolve({ value: noEmbed, timedOut: false, ms: 0 }),
+        // 2026-10-05 신설 — 법령 조문. **임베딩이 필요 없다**(어휘 기반 + Jev 재선택)
+        // 그래서 임베딩 생성이 실패한 요청에서도 1차 자료가 들어간다.
+        withTimeoutTagged(
+          buildLawsContext(db, lastUserMsg.content, queryEmbedding),
+          RETRIEVAL_TIMEOUT_MS,
+          '법령 조문 검색',
+          EMPTY_RETRIEVAL
+        ),
+      ]);
+
+      mark.search = Date.now() - t0;
       faqContext = faq.context;
       topFaqIds = faq.topIds;
+      // 조문을 앞에 둔다 — 1차 자료이고, 뒤쪽은 길어서 잘릴 수 있다
+      caseContext = laws.value.ctx + nlrc.value.ctx + interp.value.ctx + court.value.ctx;
 
-      let nlrcLen = 0, interpLen = 0, courtLen = 0;
-      if (queryEmbedding) {
-        const [nlrc, interp, court] = await Promise.all([
-          buildNlrcCasesContext(db, searchQuery, queryEmbedding),
-          buildInterpretationsContext(db, queryEmbedding),
-          buildCourtCasesContext(db, queryEmbedding),
-        ]);
-        nlrcLen = nlrc.length;
-        interpLen = interp.length;
-        courtLen = court.length;
-        caseContext = nlrc + interp + court;
-      }
+      // 왜 비었는지까지 남긴다.
+      //
+      // _nlrc_len 계열은 이름을 유지한다 — 8일치 과거 로그와 비교할 수 있어야 한다.
+      // 거기에 상태를 덧붙인다: ok / 0rows / error / noembed / timeout.
+      // 2026-09-01 행정해석이 요청마다 사라졌을 때, 잘린 것과 0건이 마커에 똑같이 0 으로
+      // 찍혀 원인을 좁힐 수 없었다. 같은 실수를 두 번 하지 않는다.
+      const statusOf = (r: { value: Retrieval; timedOut: boolean; ms: number }) =>
+        r.timedOut ? 'timeout' : r.value.status;
 
-      // 디버그: cases/interp/court 컨텍스트 길이를 categories 끝에 임시 marker로 저장 (silent fail 추적)
       const debugMarkers = [
-        `_nlrc_len=${nlrcLen}`,
-        `_interp_len=${interpLen}`,
-        `_court_len=${courtLen}`,
+        `_nlrc_len=${nlrc.value.ctx.length}`,
+        `_interp_len=${interp.value.ctx.length}`,
+        `_court_len=${court.value.ctx.length}`,
+        `_laws_len=${laws.value.ctx.length}`,
         `_emb=${queryEmbedding ? 1 : 0}`,
+        `_nlrc=${statusOf(nlrc)}/${nlrc.value.via}/${nlrc.ms}ms`,
+        `_interp=${statusOf(interp)}/${interp.ms}ms`,
+        `_court=${statusOf(court)}/${court.ms}ms`,
+        `_laws=${statusOf(laws)}/${laws.value.rows}rows/${laws.ms}ms`,
       ];
+
+      console.log('[chat] retrieval', {
+        nlrc: { status: statusOf(nlrc), via: nlrc.value.via, rows: nlrc.value.rows, ms: nlrc.ms },
+        interp: { status: statusOf(interp), rows: interp.value.rows, ms: interp.ms },
+        court: { status: statusOf(court), rows: court.value.rows, ms: court.ms },
+        laws: { status: statusOf(laws), rows: laws.value.rows, ms: laws.ms },
+      });
 
       db.from('chat_logs')
         .insert({
@@ -194,19 +304,14 @@ export async function POST(req: NextRequest) {
         .then(null, () => {});
     }
 
-    let situationContext = '';
-    let prevProfile: UserSituation = {};
-    let mergedProfile: UserSituation = {};
-    if (sessionId && lastUserMsg) {
-      try {
-        prevProfile = await getSituation(sessionId);
-        const delta = await extractDelta(lastUserMsg.content, prevProfile);
-        mergedProfile = { ...prevProfile, ...delta };
-        situationContext = formatSituationForPrompt(mergedProfile);
-        await upsertSituation(sessionId, prevProfile, delta, 1);
-      } catch {
-        // 추출/저장 실패해도 답변은 진행
-      }
+    // (3) 병렬로 돌던 것을 회수한다
+    const situation = await situationPromise;
+    if (situation && sessionId) {
+      prevProfile = situation.prev;
+      mergedProfile = { ...situation.prev, ...situation.delta };
+      situationContext = formatSituationForPrompt(mergedProfile);
+      // 저장은 답변에 필요 없다. 기다리지 않는다.
+      upsertSituation(sessionId, situation.prev, situation.delta, 1).catch(() => {});
     }
 
     const multiturnHint =
@@ -214,11 +319,10 @@ export async function POST(req: NextRequest) {
         ? '\n\n═══ 멀티턴 대화 안내 ═══\n사용자의 직전 질문과 답변을 반드시 참조하여 후속 질문을 해석하세요. "그럼", "이건", "그건" 같은 지시어가 무엇을 가리키는지 이전 맥락에서 추론. 사용자 상황(회사 규모·근속기간·임금 등)이 이전 턴에 나왔다면 이를 토대로 맞춤 답변.'
         : '';
 
-    let systemPrompt = SYSTEM_PROMPT + faqContext + caseContext + situationContext + multiturnHint;
-
-    if (lastUserMsg) {
-      systemPrompt += await buildNewsContext(supabase, lastUserMsg.content);
-    }
+    const newsContext = await newsPromise;
+    mark.ctxReady = Date.now() - t0;
+    const systemPrompt =
+      SYSTEM_PROMPT + faqContext + caseContext + situationContext + multiturnHint + newsContext;
 
     const encoder = new TextEncoder();
     const decoder = new TextDecoder();
@@ -242,8 +346,16 @@ export async function POST(req: NextRequest) {
         let r2ContentLen = 0;
         let r2ToolCalls = 0;
         let r2Ran = false;
+        // 생성 구간을 라운드별로 쪼개 잰다.
+        // 2026-09-02 실측: ctxReady 3.04초 / done 12.88초 → 생성만 9.85초였다.
+        // provider=vertex, vertexFailMs=0 이므로 폴백 대기가 아니다. 그렇다면 남은
+        // 후보는 (a) 모델 자체가 느림 (b) 도구호출로 2라운드를 도는 것 둘이다.
+        // 둘은 대응이 완전히 달라서(모델·프롬프트 vs 도구 정책) 먼저 갈라야 한다.
+        const genStart = Date.now();
+        let r1Ms = 0;
         try {
           const r1 = await streamRound(controller, baseMsgs, toolHint, encoder, decoder);
+          r1Ms = Date.now() - genStart;
           assembledAnswer += r1.content;
           r1ContentLen = r1.content.length;
           r1ToolCalls = r1.toolCalls.length;
@@ -325,6 +437,42 @@ export async function POST(req: NextRequest) {
             controller.enqueue(encoder.encode(`data: ${JSON.stringify({ content: footer })}\n\n`));
           }
           // round-level 로그 (정상 케이스도 기록 — 추후 패턴 분석용)
+          // 어느 구간이 시간을 먹는지 한 줄로 남긴다. 단위는 ms, 요청 시작 기준 누적이다.
+          //   emb      임베딩까지
+          //   search   검색 4종(병렬)까지
+          //   ctxReady 시스템 프롬프트 완성까지 = 답변 생성 직전
+          //   done     응답 종료까지
+          // ctxReady 와 done 의 차이가 곧 모델 생성 시간이다.
+          // 계측을 응답 스트림에도 싣는다.
+          // vercel logs 스트리밍이 두 번 다 잡히지 않아 서버 밖에서 구간을 볼 방법이 없었다.
+          // 클라이언트는 parsed.content 만 읽으므로 이 프레임은 화면에 나타나지 않는다.
+          try {
+            controller.enqueue(
+              encoder.encode(
+                `data: ${JSON.stringify({
+                  debug: {
+                    ...mark,
+                    done: Date.now() - t0,
+                    provider: lastRoundInfo.provider,
+                    vertexFailMs: lastRoundInfo.vertexFailMs,
+                    r1Ms,
+                    r2Ran,
+                    toolCalls: r1ToolCalls,
+                    promptChars: systemPrompt.length,
+                    answerChars: trimmedLen,
+                  },
+                })}\n\n`
+              )
+            );
+          } catch {
+            // 스트림이 이미 닫혔으면 무시한다. 계측 때문에 답변이 깨지면 안 된다.
+          }
+          console.log('[chat] timing_ms', {
+            ...mark,
+            done: Date.now() - t0,
+            promptChars: systemPrompt.length,
+            answerChars: trimmedLen,
+          });
           console.log('[chat] round_summary', {
             r1: { len: r1ContentLen, tcs: r1ToolCalls },
             r2: { ran: r2Ran, len: r2ContentLen, tcs: r2ToolCalls },

@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { bucketDecisionResult } from '@/lib/ai/decision-bucket';
 import { extractTags, searchCases, _retrievalTiming } from '@/lib/ai/retrieval';
-import { buildComparisonMeta, buildUserContext, splitIssueSummary, trimHistory, type ComparisonCase, type ComparisonMeta } from '@/lib/ai/prompt';
+import { buildComparisonMeta, buildUserContext, trimHistory, type ComparisonMeta } from '@/lib/ai/prompt';
 import { SYSTEM_PROMPT } from '@/lib/ai/prompt';
 import { buildFaqContext } from '@/lib/chat/context/faq';
 import { supabaseAdmin } from '@/lib/supabase-server';
@@ -104,21 +103,6 @@ async function callLLM(
   throw new Error(`모든 LLM 실패: ${errors.join(' | ')}`);
 }
 
-interface StructuredAiCase {
-  title: string
-  result: string
-  key_point: string
-}
-
-interface StructuredAiResponse {
-  issue_summary: string
-  similar_cases: StructuredAiCase[]
-  core_differences: string[]
-  checklist: string[]
-  decision_guide: string[]
-  plain_text: string
-}
-
 function sanitizeAnalysis(text: string): string {
   const cleaned = text
     .replace(/([0-9]+(\.[0-9]+)?%\s*)(확률|가능성|점수)/gi, '$3')
@@ -132,166 +116,42 @@ function sanitizeAnalysis(text: string): string {
   return cleaned || text.trim();
 }
 
-function extractJsonPayload(text: string): string {
+/**
+ * 혹시 모델이 옛 형식대로 JSON 을 뱉으면 본문만 건져낸다.
+ *
+ * 2026-09-19 이전에는 JSON 스키마(issue_summary/similar_cases/…/plain_text)로 받았다.
+ * 지금은 산문만 받지만, 캐시된 프롬프트나 모델 변덕으로 JSON 이 올 수 있어 안전망을 남긴다.
+ * 잘린 JSON 에서도 plain_text 값만 정규식으로 살린다.
+ */
+function unwrapLegacyJson(text: string): string {
   const trimmed = text.trim();
-  if (trimmed.startsWith('{') && trimmed.endsWith('}')) return trimmed;
-
-  const fenced = trimmed.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
-  if (fenced?.[1]) return fenced[1].trim();
-
-  const firstBrace = trimmed.indexOf('{');
-  const lastBrace = trimmed.lastIndexOf('}');
-  if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
-    return trimmed.slice(firstBrace, lastBrace + 1).trim();
-  }
-
-  return trimmed;
-}
-
-function extractPlainTextFromJsonLike(text: string): string | null {
-  // truncated JSON에서도 "plain_text" 값만 정규식으로 살리기
-  const match = text.match(/"plain_text"\s*:\s*"((?:\\.|[^"\\])*)/);
-  if (!match) return null;
-  return match[1]
+  if (!trimmed.startsWith('{')) return text;
+  const m = trimmed.match(/"plain_text"\s*:\s*"((?:\\.|[^"\\])*)/);
+  if (!m) return text;
+  return m[1]
     .replace(/\\n/g, '\n')
     .replace(/\\t/g, '\t')
     .replace(/\\"/g, '"')
     .replace(/\\\\/g, '\\');
 }
 
-function parseStructuredAiResponse(text: string): StructuredAiResponse | null {
-  try {
-    const payload = JSON.parse(extractJsonPayload(text)) as Partial<StructuredAiResponse>;
-    if (
-      typeof payload.issue_summary !== 'string' ||
-      !Array.isArray(payload.similar_cases) ||
-      !Array.isArray(payload.core_differences) ||
-      !Array.isArray(payload.checklist) ||
-      !Array.isArray(payload.decision_guide) ||
-      typeof payload.plain_text !== 'string'
-    ) {
-      return null;
-    }
-
-    return {
-      issue_summary: payload.issue_summary.trim(),
-      similar_cases: payload.similar_cases
-        .filter((item): item is StructuredAiCase => !!item && typeof item.title === 'string' && typeof item.result === 'string' && typeof item.key_point === 'string')
-        .map((item) => ({
-          title: item.title.trim(),
-          result: item.result.trim(),
-          key_point: item.key_point.trim(),
-        })),
-      core_differences: payload.core_differences.filter((item): item is string => typeof item === 'string').map((item) => item.trim()).filter(Boolean),
-      checklist: payload.checklist.filter((item): item is string => typeof item === 'string').map((item) => item.trim()).filter(Boolean),
-      decision_guide: payload.decision_guide.filter((item): item is string => typeof item === 'string').map((item) => item.trim()).filter(Boolean),
-      plain_text: payload.plain_text.trim(),
-    };
-  } catch {
-    return null;
-  }
-}
-
-function normalizeStructuredResult(result: string): string {
-  const map: Record<string, string> = {
-    '인용': 'granted',
-    '기각': 'dismissed',
-    '일부인정': 'partial',
-    '전부인정': 'granted',
-    '각하': 'rejected',
-  };
-  return map[result.trim()] || result;
-}
-
-function textOverlap(a: string, b: string): number {
-  if (!a || !b) return 0;
-  const wordsA = a.replace(/[○\s]+/g, ' ').trim().split(/\s+/).filter(w => w.length >= 2);
-  const wordsB = new Set(b.replace(/[○\s]+/g, ' ').trim().split(/\s+/).filter(w => w.length >= 2));
-  if (wordsA.length === 0) return 0;
-  const hits = wordsA.filter(w => wordsB.has(w)).length;
-  return hits / wordsA.length;
-}
-
-function matchSimilarCase(aiCase: StructuredAiCase, pool: Array<Record<string, unknown>>) {
-  // 1차: key_point 텍스트로 holding_points와 매칭 (가장 정확)
-  const keyPoint = aiCase.key_point || '';
-  const resultNorm = normalizeStructuredResult(aiCase.result);
-
-  let bestMatch: Record<string, unknown> | undefined;
-  let bestScore = 0;
-
-  for (const candidate of pool) {
-    const holding = String(candidate.holding_points || '');
-    const summary = String(candidate.summary_short || '');
-    const haystack = `${holding} ${summary}`;
-
-    // key_point의 핵심 단어가 holding_points에 포함되는지
-    const overlap = textOverlap(keyPoint, haystack);
-
-    // 승패 결과 일치 시 보너스
-    const resultMatch = String(candidate.decision_result || '') === resultNorm ? 0.15 : 0;
-    const score = overlap + resultMatch;
-
-    if (score > bestScore) {
-      bestScore = score;
-      bestMatch = candidate;
-    }
-  }
-
-  // 최소 30% 이상 겹쳐야 매칭 인정
-  return bestScore >= 0.3 ? bestMatch : undefined;
-}
-
-function buildComparisonFromStructured(
-  structured: StructuredAiResponse,
-  pool: Array<Record<string, unknown>>,
-  dbComparison: ComparisonMeta,
-): ComparisonMeta {
-  const usedIds = new Set<string>();
-  const normalizedCases: ComparisonCase[] = structured.similar_cases.map((item, index) => {
-    // 이미 사용된 DB 케이스 제외하고 매칭
-    const availablePool = pool.filter(c => !usedIds.has(String(c.id || '')));
-    const matched = matchSimilarCase(item, availablePool);
-
-    if (matched) usedIds.add(String(matched.id || ''));
-
-    const decisionResult = matched ? String(matched.decision_result || normalizeStructuredResult(item.result)) : normalizeStructuredResult(item.result);
-
-    const caseId = matched ? String(matched.id || `ai_case_${index}`) : `ai_case_${index}`;
-    return {
-      id: caseId,
-      title: matched ? String(matched.title || item.title) : item.title,
-      decision_result: decisionResult,
-      holding_points: item.key_point,
-      url: matched ? String(matched.url || '') : '',
-      summary_short: matched ? String(matched.summary_short || '').slice(0, 160) : item.key_point,
-      key_issue: matched ? String(matched.key_issue || '') : '',
-      bucket: bucketDecisionResult(decisionResult),
-      source: caseId.startsWith('bc_') ? 'court' as const : 'nlrc' as const,
-    };
-  });
-
-  // 매칭된 real case가 하나도 없으면 DB comparison을 사용
-  const hasRealCases = normalizedCases.some(c => !c.id.startsWith('ai_case_'));
-  if (!hasRealCases) {
-    return {
-      ...dbComparison,
-      issueSummary: splitIssueSummary(structured.issue_summary),
-      coreDifferences: structured.core_differences.length > 0 ? structured.core_differences.slice(0, 4) : dbComparison.coreDifferences,
-      checklist: structured.checklist.length > 0 ? structured.checklist.slice(0, 5) : dbComparison.checklist,
-      decisionGuide: structured.decision_guide.length > 0 ? structured.decision_guide.slice(0, 4) : dbComparison.decisionGuide,
-    };
-  }
-
-  return {
-    issueSummary: splitIssueSummary(structured.issue_summary),
-    workerWinCases: normalizedCases.filter((item) => item.bucket === 'worker_win').slice(0, 2),
-    employerWinCases: normalizedCases.filter((item) => item.bucket === 'employer_win').slice(0, 2),
-    coreDifferences: structured.core_differences.slice(0, 4),
-    checklist: structured.checklist.slice(0, 5),
-    decisionGuide: structured.decision_guide.slice(0, 4),
-  };
-}
+/**
+ * 비교 결과는 전부 DB 에서 만든다. LLM 은 본문 설명(plain_text)만 쓴다.
+ *
+ * ★ 2026-09-19. 두 단계로 여기까지 왔다.
+ *
+ * 1단계 — 종전에는 LLM 이 낸 similar_cases 를 텍스트 유사도로 DB 행에 되맞춰 카드를 만들었다.
+ *   임계가 `단어겹침 + (승패 일치 시 0.15) >= 0.3` 이라 승패만 맞으면 실질 15% 였고,
+ *   실측 사고: 「징계사유의 정당성을 인정하지 않았고…」가 「정당성을·사용자의·여부가」
+ *   세 단어로 id_26697(식자재 무단취식)에 붙어 기밀유출 질문의 답으로 나갔다.
+ *   되맞춤 풀(60행)이 LLM 이 본 사건(5건)보다 넓어 본 적 없는 행에도 붙을 수 있었다.
+ *
+ * 2단계 — 쟁점 요약·핵심 차이·체크리스트까지 판정문 원문에서 집계하도록 바꿨다(lib/ai/issues.ts).
+ *   그러면 LLM 이 덮어쓸 자리가 없다. 그래서 이 함수는 사라지고, comparison 을 그대로 쓴다.
+ *
+ * 남은 LLM 의 몫은 본문 산문뿐이고, 거기서도 개별 사건 언급과
+ * "유사 사건에서는 대체로…" 식 집합 판단은 SYSTEM_PROMPT 에서 금지한다.
+ */
 
 function validateMessages(messages: unknown): { valid: true; messages: { role: string; content: string }[] } | { valid: false; error: string } {
   if (!Array.isArray(messages)) {
@@ -411,7 +271,13 @@ export async function POST(req: NextRequest) {
     }
 
     const t_compMeta = Date.now();
-    const comparison = buildComparisonMeta(lastUserMsg.content, tags, retrieval.cases as unknown as Record<string, unknown>[]);
+    const comparison = buildComparisonMeta(
+      lastUserMsg.content,
+      tags,
+      retrieval.cases as unknown as Record<string, unknown>[],
+      // 쟁점 추출은 자르기 전 원문으로 — cases 의 holding_points 는 150자로 잘려 있다.
+      retrieval.allCases,
+    );
     _t.compMeta = Date.now() - t_compMeta;
     // LLM 실패 시 사용자에게 보여줄 검색 결과 보존
     retrievalCache = { tags: retrieval.tags, cases: retrieval.cases as unknown[], comparison };
@@ -447,7 +313,7 @@ export async function POST(req: NextRequest) {
       const stream = new ReadableStream({
         async start(controller) {
           // 즉시 DB 결과 전송
-          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'meta', tags: retrieval.tags, cases: retrieval.cases, comparison, diagTiming, faqs: faqEntries })}\n\n`));
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'meta', tags: retrieval.tags, cases: retrieval.cases, comparison, diagTiming, faqs: faqEntries, degraded: retrieval.degraded })}\n\n`));
 
           try {
             const { resp, provider } = await callLLM(SYSTEM_PROMPT, trimmedMessages, {
@@ -488,12 +354,9 @@ export async function POST(req: NextRequest) {
               }
             }
 
-            const structured = parseStructuredAiResponse(fullText);
-            const fallbackPlain = extractPlainTextFromJsonLike(fullText) || fullText;
-            const analysis = sanitizeAnalysis(structured?.plain_text || fallbackPlain);
-            const finalComparison = structured
-              ? buildComparisonFromStructured(structured, retrieval.allCases, comparison)
-              : comparison;
+            const analysis = sanitizeAnalysis(unwrapLegacyJson(fullText));
+            // 카드·쟁점·차이·체크리스트는 모두 DB 산출물이다. LLM 이 바꾸지 않는다.
+            const finalComparison = comparison;
             controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'done', content: analysis, comparison: finalComparison, provider })}\n\n`));
           } catch {
             controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'error', content: '응답 생성이 지연되고 있습니다.' })}\n\n`));
@@ -518,12 +381,9 @@ export async function POST(req: NextRequest) {
     const rawAnalysis = provider === 'anthropic'
       ? (data.content?.[0]?.text || '분석 결과를 생성할 수 없습니다.')
       : (data.choices?.[0]?.message?.content || '분석 결과를 생성할 수 없습니다.');
-    const structured = parseStructuredAiResponse(rawAnalysis);
-    const fallbackPlain = extractPlainTextFromJsonLike(rawAnalysis) || rawAnalysis;
-    const analysis = sanitizeAnalysis(structured?.plain_text || fallbackPlain);
-    const finalComparison = structured
-      ? buildComparisonFromStructured(structured, retrieval.allCases, comparison)
-      : comparison;
+    const analysis = sanitizeAnalysis(unwrapLegacyJson(rawAnalysis));
+    // 카드·쟁점·차이·체크리스트는 모두 DB 산출물이다. LLM 이 바꾸지 않는다.
+    const finalComparison = comparison;
 
     return NextResponse.json({
       content: analysis,
@@ -531,6 +391,7 @@ export async function POST(req: NextRequest) {
       cases: retrieval.cases,
       comparison: finalComparison,
       provider,
+      degraded: retrieval.degraded,
     });
   } catch (error) {
     const isTimeout = error instanceof Error && error.name === 'TimeoutError';

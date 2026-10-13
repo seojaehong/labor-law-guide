@@ -1,0 +1,12 @@
+{
+  "mockOnly": true,
+  "realApiCalls": 0,
+  "endDateAndWageEditAToBToA": true,
+  "staleStatementCleared": true,
+  "printingBlockedUntilRecalculation": true,
+  "savedResultInvalidated": true,
+  "legacySavedInputsPreservedWithoutResult": true,
+  "programmaticPrintGuard": true,
+  "newLookupMatchesNewResult": true,
+  "errors": []
+}

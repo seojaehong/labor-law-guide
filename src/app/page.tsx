@@ -1,4 +1,4 @@
-import { SITE_URL } from '@/lib/constants';
+import { SITE_URL, BRAND_NAME } from '@/lib/constants';
 import { supabaseServer } from '@/lib/supabase-server';
 import { getCurrentTopicPicks } from '@/lib/topic-picks';
 import TopicPicks from '@/components/TopicPicks';
@@ -62,7 +62,7 @@ async function getHomeStats() {
       .from('blog_articles')
       .select('slug, title, subtitle, summary, category, published_at')
       .order('published_at', { ascending: false })
-      .limit(3),
+      .limit(4),
   ]);
 
   return {
@@ -85,7 +85,7 @@ export default async function Home() {
         '@type': 'WebPage',
         '@id': `${SITE_URL}/#webpage`,
         url: SITE_URL,
-        name: '노란봉투법 완벽 가이드',
+        name: BRAND_NAME,
         isPartOf: { '@id': `${SITE_URL}/#website` },
         about: {
           '@type': 'Article',

@@ -1,0 +1,107 @@
+{
+  "checks": [
+    {
+      "route": "/tools",
+      "theme": "light",
+      "status": 200,
+      "overflow": false
+    },
+    {
+      "route": "/tools/leave",
+      "theme": "light",
+      "status": 200,
+      "overflow": false
+    },
+    {
+      "route": "/tools/leave/advanced",
+      "theme": "light",
+      "status": 200,
+      "overflow": false
+    },
+    {
+      "route": "/tools/leave/settlement",
+      "theme": "light",
+      "status": 200,
+      "overflow": false
+    },
+    {
+      "route": "/tools",
+      "theme": "dark",
+      "status": 200,
+      "overflow": false
+    },
+    {
+      "route": "/tools/leave",
+      "theme": "dark",
+      "status": 200,
+      "overflow": false
+    },
+    {
+      "route": "/tools/leave/advanced",
+      "theme": "dark",
+      "status": 200,
+      "overflow": false
+    },
+    {
+      "route": "/tools/leave/settlement",
+      "theme": "dark",
+      "status": 200,
+      "overflow": false
+    },
+    {
+      "flow": "synthetic calculation and XLSX download",
+      "pass": true
+    },
+    {
+      "flow": "annual and separate first-year promotion windows",
+      "pass": true
+    }
+  ],
+  "blockedExternalRequests": [
+    {
+      "method": "GET",
+      "url": "https://www.googletagmanager.com/gtag/js"
+    },
+    {
+      "method": "GET",
+      "url": "https://www.googletagmanager.com/gtag/js"
+    },
+    {
+      "method": "GET",
+      "url": "https://www.googletagmanager.com/gtag/js"
+    },
+    {
+      "method": "GET",
+      "url": "https://www.googletagmanager.com/gtag/js"
+    },
+    {
+      "method": "GET",
+      "url": "https://www.googletagmanager.com/gtag/js"
+    },
+    {
+      "method": "GET",
+      "url": "https://www.googletagmanager.com/gtag/js"
+    },
+    {
+      "method": "GET",
+      "url": "https://www.googletagmanager.com/gtag/js"
+    },
+    {
+      "method": "GET",
+      "url": "https://www.googletagmanager.com/gtag/js"
+    },
+    {
+      "method": "GET",
+      "url": "https://www.googletagmanager.com/gtag/js"
+    },
+    {
+      "method": "GET",
+      "url": "https://www.googletagmanager.com/gtag/js"
+    },
+    {
+      "method": "GET",
+      "url": "https://www.googletagmanager.com/gtag/js"
+    }
+  ],
+  "errors": []
+}

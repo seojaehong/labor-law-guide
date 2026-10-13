@@ -1,0 +1,20 @@
+[
+  {
+    "version": "before",
+    "pages": 1,
+    "width": 595.9199829101562,
+    "height": 842.8800048828125,
+    "syntheticWorkerPresent": true,
+    "netAmountPresent": true,
+    "signaturePresent": true
+  },
+  {
+    "version": "after",
+    "pages": 1,
+    "width": 595.9199829101562,
+    "height": 842.8800048828125,
+    "syntheticWorkerPresent": true,
+    "netAmountPresent": true,
+    "signaturePresent": true
+  }
+]

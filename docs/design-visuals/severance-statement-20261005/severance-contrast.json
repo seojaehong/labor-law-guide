@@ -1,0 +1,8741 @@
+{
+  "method": "Computed input/value/placeholder/readonly/disabled/labels/table cells/totals/signature/control text; alpha backgrounds composited through ancestors; print media included.",
+  "report": [
+    {
+      "mode": "light",
+      "checked": 164,
+      "checks": [
+        {
+          "tag": "LABEL",
+          "id": "",
+          "class": "",
+          "text": "사업장명",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "INPUT",
+          "id": "businessName",
+          "class": "",
+          "text": "합성 사업장",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "INPUT",
+          "id": "businessName",
+          "class": "",
+          "text": "placeholder: 예: 00회사",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            72,
+            81,
+            73
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 8.23941968179043,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "LABEL",
+          "id": "",
+          "class": "",
+          "text": "사업주성명",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "INPUT",
+          "id": "ownerName",
+          "class": "",
+          "text": "합성 사업주",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "INPUT",
+          "id": "ownerName",
+          "class": "",
+          "text": "placeholder: 사업주 이름",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            72,
+            81,
+            73
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 8.23941968179043,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "LABEL",
+          "id": "",
+          "class": "",
+          "text": "근로자성명",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "INPUT",
+          "id": "workerName",
+          "class": "",
+          "text": "합성 이름",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "INPUT",
+          "id": "workerName",
+          "class": "",
+          "text": "placeholder: 근로자 이름",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            72,
+            81,
+            73
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 8.23941968179043,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "LABEL",
+          "id": "",
+          "class": "",
+          "text": "생년월일",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "INPUT",
+          "id": "birthDate",
+          "class": "date-input",
+          "text": "(empty input)",
+          "readonly": false,
+          "disabled": true,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            250.2,
+            250.2,
+            250.2
+          ],
+          "ratio": 15.249724152056668,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "INPUT",
+          "id": "birthDate",
+          "class": "date-input",
+          "text": "placeholder: YYYY-MM-DD",
+          "readonly": false,
+          "disabled": true,
+          "fg": [
+            72,
+            81,
+            73
+          ],
+          "bg": [
+            250.2,
+            250.2,
+            250.2
+          ],
+          "ratio": 7.907584851691959,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "LABEL",
+          "id": "",
+          "class": "",
+          "text": "채용년월일(입사일)",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "INPUT",
+          "id": "startDate",
+          "class": "date-input",
+          "text": "2020-01-01",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "INPUT",
+          "id": "startDate",
+          "class": "date-input",
+          "text": "placeholder: YYYY-MM-DD",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            72,
+            81,
+            73
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 8.23941968179043,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "LABEL",
+          "id": "",
+          "class": "",
+          "text": "산정사유발생일(퇴사일)",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "INPUT",
+          "id": "endDate",
+          "class": "date-input",
+          "text": "2026-10-05",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "INPUT",
+          "id": "endDate",
+          "class": "date-input",
+          "text": "placeholder: YYYY-MM-DD",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            72,
+            81,
+            73
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 8.23941968179043,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "LABEL",
+          "id": "",
+          "class": "",
+          "text": "재직일수",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "INPUT",
+          "id": "serviceDays",
+          "class": "",
+          "text": "2,469일",
+          "readonly": true,
+          "disabled": false,
+          "fg": [
+            40,
+            94,
+            119
+          ],
+          "bg": [
+            248,
+            249,
+            250
+          ],
+          "ratio": 6.735666358233576,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "LABEL",
+          "id": "",
+          "class": "",
+          "text": "근속연수",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "INPUT",
+          "id": "serviceYears",
+          "class": "",
+          "text": "7년",
+          "readonly": true,
+          "disabled": false,
+          "fg": [
+            40,
+            94,
+            119
+          ],
+          "bg": [
+            248,
+            249,
+            250
+          ],
+          "ratio": 6.735666358233576,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TH",
+          "id": "",
+          "class": "",
+          "text": "구분",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            255,
+            255,
+            255
+          ],
+          "bg": [
+            40,
+            94,
+            119
+          ],
+          "ratio": 7.100143808039998,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TH",
+          "id": "monthLabel1",
+          "class": "",
+          "text": "2026년 7월",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            255,
+            255,
+            255
+          ],
+          "bg": [
+            40,
+            94,
+            119
+          ],
+          "ratio": 7.100143808039998,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TH",
+          "id": "monthLabel2",
+          "class": "",
+          "text": "2026년 8월",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            255,
+            255,
+            255
+          ],
+          "bg": [
+            40,
+            94,
+            119
+          ],
+          "ratio": 7.100143808039998,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TH",
+          "id": "monthLabel3",
+          "class": "",
+          "text": "2026년 9월",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            255,
+            255,
+            255
+          ],
+          "bg": [
+            40,
+            94,
+            119
+          ],
+          "ratio": 7.100143808039998,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TH",
+          "id": "monthLabel4",
+          "class": "period4-col",
+          "text": "2026년 10월",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            255,
+            255,
+            255
+          ],
+          "bg": [
+            40,
+            94,
+            119
+          ],
+          "ratio": 7.100143808039998,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TH",
+          "id": "",
+          "class": "",
+          "text": "합계",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            255,
+            255,
+            255
+          ],
+          "bg": [
+            40,
+            94,
+            119
+          ],
+          "ratio": 7.100143808039998,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TD",
+          "id": "",
+          "class": "label-cell",
+          "text": "기간",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            248,
+            249,
+            250
+          ],
+          "ratio": 15.073988286844745,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TD",
+          "id": "periodText1",
+          "class": "",
+          "text": "7.5~7.31",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TD",
+          "id": "periodText2",
+          "class": "",
+          "text": "8.1~8.31",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TD",
+          "id": "periodText3",
+          "class": "",
+          "text": "9.1~9.30",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TD",
+          "id": "periodText4",
+          "class": "period4-col",
+          "text": "10.1~10.4",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TD",
+          "id": "",
+          "class": "",
+          "text": "-",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TD",
+          "id": "",
+          "class": "label-cell",
+          "text": "일수",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            248,
+            249,
+            250
+          ],
+          "ratio": 15.073988286844745,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TD",
+          "id": "daysText1",
+          "class": "",
+          "text": "27일",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TD",
+          "id": "daysText2",
+          "class": "",
+          "text": "31일",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TD",
+          "id": "daysText3",
+          "class": "",
+          "text": "30일",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TD",
+          "id": "daysText4",
+          "class": "period4-col",
+          "text": "4일",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TD",
+          "id": "totalDaysText",
+          "class": "",
+          "text": "92일",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TD",
+          "id": "",
+          "class": "label-cell",
+          "text": "월급여(원)",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            248,
+            249,
+            250
+          ],
+          "ratio": 15.073988286844745,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "INPUT",
+          "id": "wage1",
+          "class": "money-input",
+          "text": "3,000,000",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            0,
+            0,
+            0
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 21,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "INPUT",
+          "id": "wage1",
+          "class": "money-input",
+          "text": "placeholder: 0",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            72,
+            81,
+            73
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 8.23941968179043,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "INPUT",
+          "id": "wage2",
+          "class": "money-input",
+          "text": "3,000,000",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            0,
+            0,
+            0
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 21,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "INPUT",
+          "id": "wage2",
+          "class": "money-input",
+          "text": "placeholder: 0",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            72,
+            81,
+            73
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 8.23941968179043,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "INPUT",
+          "id": "wage3",
+          "class": "money-input",
+          "text": "3,000,000",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            0,
+            0,
+            0
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 21,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "INPUT",
+          "id": "wage3",
+          "class": "money-input",
+          "text": "placeholder: 0",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            72,
+            81,
+            73
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 8.23941968179043,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "INPUT",
+          "id": "wage4",
+          "class": "money-input",
+          "text": "3,000,000",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            0,
+            0,
+            0
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 21,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "INPUT",
+          "id": "wage4",
+          "class": "money-input",
+          "text": "placeholder: 0",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            72,
+            81,
+            73
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 8.23941968179043,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TD",
+          "id": "wageTotal",
+          "class": "",
+          "text": "12,000,000",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "LABEL",
+          "id": "",
+          "class": "",
+          "text": "1년분 상여금 총액",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "INPUT",
+          "id": "bonusTotal",
+          "class": "money-input",
+          "text": "0",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            0,
+            0,
+            0
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 21,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "INPUT",
+          "id": "bonusTotal",
+          "class": "money-input",
+          "text": "placeholder: 0",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            72,
+            81,
+            73
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 8.23941968179043,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "LABEL",
+          "id": "",
+          "class": "",
+          "text": "연월차수당",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "INPUT",
+          "id": "annualLeave",
+          "class": "money-input",
+          "text": "0",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            0,
+            0,
+            0
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 21,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "INPUT",
+          "id": "annualLeave",
+          "class": "money-input",
+          "text": "placeholder: 0",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            72,
+            81,
+            73
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 8.23941968179043,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "LABEL",
+          "id": "",
+          "class": "",
+          "text": "퇴직금 중간정산",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "INPUT",
+          "id": "priorSeverance",
+          "class": "money-input",
+          "text": "0",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            0,
+            0,
+            0
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 21,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "INPUT",
+          "id": "priorSeverance",
+          "class": "money-input",
+          "text": "placeholder: 0",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            72,
+            81,
+            73
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 8.23941968179043,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "LABEL",
+          "id": "",
+          "class": "",
+          "text": "퇴직소득세",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "INPUT",
+          "id": "retirementTax",
+          "class": "money-input",
+          "text": "306,740",
+          "readonly": true,
+          "disabled": false,
+          "fg": [
+            0,
+            0,
+            0
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 21,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "INPUT",
+          "id": "retirementTax",
+          "class": "money-input",
+          "text": "placeholder: 자동계산",
+          "readonly": true,
+          "disabled": false,
+          "fg": [
+            72,
+            81,
+            73
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 8.23941968179043,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "LABEL",
+          "id": "",
+          "class": "",
+          "text": "자동",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "LABEL",
+          "id": "",
+          "class": "",
+          "text": "1일 통상임금",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "INPUT",
+          "id": "dailyOrdinaryWage",
+          "class": "money-input",
+          "text": "(empty input)",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            0,
+            0,
+            0
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 21,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "INPUT",
+          "id": "dailyOrdinaryWage",
+          "class": "money-input",
+          "text": "placeholder: 미입력 시 평균임금만 적용",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            72,
+            81,
+            73
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 8.23941968179043,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "LABEL",
+          "id": "",
+          "class": "",
+          "text": "적용임금 선택",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "SELECT",
+          "id": "wageType",
+          "class": "",
+          "text": "auto",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "BUTTON",
+          "id": "",
+          "class": "btn btn-primary",
+          "text": "계산하기",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            255,
+            255,
+            255
+          ],
+          "bg": [
+            40,
+            94,
+            119
+          ],
+          "ratio": 7.100143808039998,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "BUTTON",
+          "id": "",
+          "class": "btn btn-danger",
+          "text": "초기화",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            180,
+            35,
+            24
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 6.57428861557707,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "BUTTON",
+          "id": "",
+          "class": "btn btn-secondary",
+          "text": "인쇄하기",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            255,
+            255,
+            255
+          ],
+          "bg": [
+            40,
+            94,
+            119
+          ],
+          "ratio": 7.100143808039998,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "BUTTON",
+          "id": "",
+          "class": "btn btn-outline",
+          "text": "저장",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "SPAN",
+          "id": "",
+          "class": "stmt-brand",
+          "text": "일의 무늬 · 산정서",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            72,
+            81,
+            73
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 8.23941968179043,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "H2",
+          "id": "",
+          "class": "",
+          "text": "평균임금 및 퇴직금 산정서",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 3,
+          "pass": true
+        },
+        {
+          "tag": "DIV",
+          "id": "",
+          "class": "stmt-summary-label",
+          "text": "실수령 퇴직금",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            72,
+            81,
+            73
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 8.23941968179043,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "DIV",
+          "id": "",
+          "class": "stmt-amount",
+          "text": "26,110,475원",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 3,
+          "pass": true
+        },
+        {
+          "tag": "DT",
+          "id": "",
+          "class": "",
+          "text": "퇴직금",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            72,
+            81,
+            73
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 8.23941968179043,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "DD",
+          "id": "",
+          "class": "",
+          "text": "26,447,885원",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "DT",
+          "id": "",
+          "class": "",
+          "text": "공제액 합계",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            72,
+            81,
+            73
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 8.23941968179043,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "DD",
+          "id": "",
+          "class": "",
+          "text": "337,410원",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "H3",
+          "id": "",
+          "class": "stmt-section-title",
+          "text": "기본 정보",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "DT",
+          "id": "",
+          "class": "",
+          "text": "사업장명",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            72,
+            81,
+            73
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 8.23941968179043,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "DD",
+          "id": "",
+          "class": "",
+          "text": "합성 사업장",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "DT",
+          "id": "",
+          "class": "",
+          "text": "근로자성명",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            72,
+            81,
+            73
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 8.23941968179043,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "DD",
+          "id": "",
+          "class": "",
+          "text": "합성 이름",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "DT",
+          "id": "",
+          "class": "",
+          "text": "생년월일",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            72,
+            81,
+            73
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 8.23941968179043,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "DD",
+          "id": "",
+          "class": "",
+          "text": "-",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "DT",
+          "id": "",
+          "class": "",
+          "text": "사업주성명",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            72,
+            81,
+            73
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 8.23941968179043,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "DD",
+          "id": "",
+          "class": "",
+          "text": "합성 사업주",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "DT",
+          "id": "",
+          "class": "",
+          "text": "채용년월일",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            72,
+            81,
+            73
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 8.23941968179043,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "DD",
+          "id": "",
+          "class": "",
+          "text": "2020. 01. 01.",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "DT",
+          "id": "",
+          "class": "",
+          "text": "산정사유발생일",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            72,
+            81,
+            73
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 8.23941968179043,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "DD",
+          "id": "",
+          "class": "",
+          "text": "2026. 10. 05.",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "DT",
+          "id": "",
+          "class": "",
+          "text": "재직일수",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            72,
+            81,
+            73
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 8.23941968179043,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "DD",
+          "id": "",
+          "class": "",
+          "text": "2,469일",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "H3",
+          "id": "",
+          "class": "stmt-section-title",
+          "text": "평균임금 계산",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TH",
+          "id": "",
+          "class": "",
+          "text": "구분",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            250,
+            248,
+            242
+          ],
+          "ratio": 14.961951314879139,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TH",
+          "id": "",
+          "class": "",
+          "text": "2026년 7월",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            250,
+            248,
+            242
+          ],
+          "ratio": 14.961951314879139,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TH",
+          "id": "",
+          "class": "",
+          "text": "2026년 8월",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            250,
+            248,
+            242
+          ],
+          "ratio": 14.961951314879139,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TH",
+          "id": "",
+          "class": "",
+          "text": "2026년 9월",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            250,
+            248,
+            242
+          ],
+          "ratio": 14.961951314879139,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TH",
+          "id": "",
+          "class": "",
+          "text": "2026년 10월",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            250,
+            248,
+            242
+          ],
+          "ratio": 14.961951314879139,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TH",
+          "id": "",
+          "class": "",
+          "text": "합계",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            250,
+            248,
+            242
+          ],
+          "ratio": 14.961951314879139,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TH",
+          "id": "",
+          "class": "",
+          "text": "기간",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            250,
+            248,
+            242
+          ],
+          "ratio": 14.961951314879139,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TH",
+          "id": "",
+          "class": "",
+          "text": "일수",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            250,
+            248,
+            242
+          ],
+          "ratio": 14.961951314879139,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TH",
+          "id": "",
+          "class": "",
+          "text": "기간",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            250,
+            248,
+            242
+          ],
+          "ratio": 14.961951314879139,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TH",
+          "id": "",
+          "class": "",
+          "text": "일수",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            250,
+            248,
+            242
+          ],
+          "ratio": 14.961951314879139,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TH",
+          "id": "",
+          "class": "",
+          "text": "기간",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            250,
+            248,
+            242
+          ],
+          "ratio": 14.961951314879139,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TH",
+          "id": "",
+          "class": "",
+          "text": "일수",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            250,
+            248,
+            242
+          ],
+          "ratio": 14.961951314879139,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TH",
+          "id": "",
+          "class": "",
+          "text": "기간",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            250,
+            248,
+            242
+          ],
+          "ratio": 14.961951314879139,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TH",
+          "id": "",
+          "class": "",
+          "text": "일수",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            250,
+            248,
+            242
+          ],
+          "ratio": 14.961951314879139,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TD",
+          "id": "",
+          "class": "label-cell",
+          "text": "계산기간",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TD",
+          "id": "",
+          "class": "",
+          "text": "7.5~7.31",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TD",
+          "id": "",
+          "class": "",
+          "text": "27일",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TD",
+          "id": "",
+          "class": "",
+          "text": "8.1~8.31",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TD",
+          "id": "",
+          "class": "",
+          "text": "31일",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TD",
+          "id": "",
+          "class": "",
+          "text": "9.1~9.30",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TD",
+          "id": "",
+          "class": "",
+          "text": "30일",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TD",
+          "id": "",
+          "class": "",
+          "text": "10.1~10.4",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TD",
+          "id": "",
+          "class": "",
+          "text": "4일",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TD",
+          "id": "",
+          "class": "bold",
+          "text": "92일",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TD",
+          "id": "",
+          "class": "label-cell",
+          "text": "월급여",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TD",
+          "id": "",
+          "class": "right",
+          "text": "3,000,000",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TD",
+          "id": "",
+          "class": "right",
+          "text": "3,000,000",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TD",
+          "id": "",
+          "class": "right",
+          "text": "3,000,000",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TD",
+          "id": "",
+          "class": "right",
+          "text": "3,000,000",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TD",
+          "id": "",
+          "class": "right bold",
+          "text": "12,000,000",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TD",
+          "id": "",
+          "class": "label-cell",
+          "text": "소계",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TD",
+          "id": "",
+          "class": "right",
+          "text": "3,000,000",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TD",
+          "id": "",
+          "class": "right",
+          "text": "3,000,000",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TD",
+          "id": "",
+          "class": "right",
+          "text": "3,000,000",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TD",
+          "id": "",
+          "class": "right",
+          "text": "3,000,000",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TD",
+          "id": "",
+          "class": "right bold",
+          "text": "12,000,000",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TD",
+          "id": "",
+          "class": "label-cell",
+          "text": "상여금",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TD",
+          "id": "",
+          "class": "right",
+          "text": "0 × 3 / 12 =",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TD",
+          "id": "",
+          "class": "right",
+          "text": "0",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TD",
+          "id": "",
+          "class": "label-cell",
+          "text": "연월차수당",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TD",
+          "id": "",
+          "class": "right",
+          "text": "0 × 3 / 12 =",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TD",
+          "id": "",
+          "class": "right",
+          "text": "0",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TD",
+          "id": "",
+          "class": "",
+          "text": "3개월 임금 총액",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            250,
+            248,
+            242
+          ],
+          "ratio": 14.961951314879139,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TD",
+          "id": "",
+          "class": "right",
+          "text": "12,000,000원",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            250,
+            248,
+            242
+          ],
+          "ratio": 14.961951314879139,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "H3",
+          "id": "",
+          "class": "stmt-section-title",
+          "text": "퇴직금 및 공제",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TH",
+          "id": "",
+          "class": "",
+          "text": "1일 평균임금",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            250,
+            248,
+            242
+          ],
+          "ratio": 14.961951314879139,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TD",
+          "id": "",
+          "class": "left",
+          "text": "12,000,000 ÷ 92 = 130,434.78원",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TH",
+          "id": "",
+          "class": "",
+          "text": "퇴직금",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            250,
+            248,
+            242
+          ],
+          "ratio": 14.961951314879139,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TD",
+          "id": "",
+          "class": "left",
+          "text": "130,434.78 × 30 × (6년 + 277일/365일) = 26,447,885원",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TD",
+          "id": "",
+          "class": "left bold",
+          "text": "[ 공제 항목 ]",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            40,
+            94,
+            119
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 7.100143808039998,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TH",
+          "id": "",
+          "class": "",
+          "text": "퇴직소득세",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            250,
+            248,
+            242
+          ],
+          "ratio": 14.961951314879139,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TD",
+          "id": "",
+          "class": "right",
+          "text": "306,740원",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TH",
+          "id": "",
+          "class": "",
+          "text": "지방소득세",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            250,
+            248,
+            242
+          ],
+          "ratio": 14.961951314879139,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TD",
+          "id": "",
+          "class": "right",
+          "text": "30,670원",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TH",
+          "id": "",
+          "class": "",
+          "text": "퇴직금 중간정산",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            250,
+            248,
+            242
+          ],
+          "ratio": 14.961951314879139,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TD",
+          "id": "",
+          "class": "right",
+          "text": "0원",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TH",
+          "id": "",
+          "class": "",
+          "text": "공제액 합계",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            250,
+            248,
+            242
+          ],
+          "ratio": 14.961951314879139,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TD",
+          "id": "",
+          "class": "right",
+          "text": "337,410원",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            250,
+            248,
+            242
+          ],
+          "ratio": 14.961951314879139,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TD",
+          "id": "",
+          "class": "",
+          "text": "실수령 퇴직금",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TD",
+          "id": "",
+          "class": "",
+          "text": "26,110,475원",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "DIV",
+          "id": "",
+          "class": "stmt-signature",
+          "text": "위와 같이 확인합니다.\n            20____년 ____월 ____일\n            \n       ",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            72,
+            81,
+            73
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 8.23941968179043,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "DIV",
+          "id": "",
+          "class": "sign-item",
+          "text": "사업주 : 합성 사업주 (인)",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            72,
+            81,
+            73
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 8.23941968179043,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "DIV",
+          "id": "",
+          "class": "sign-item",
+          "text": "근로자 : 합성 이름 (인)",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            72,
+            81,
+            73
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 8.23941968179043,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "P",
+          "id": "",
+          "class": "privacy",
+          "text": "계산은 이 기기에서 처리됩니다. 아래 버튼을 누르면 입사일·퇴사일·재직일수·평균임금·통상임금·퇴직금과 선택한 제도·미",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            72,
+            81,
+            73
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 8.23941968179043,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "LABEL",
+          "id": "",
+          "class": "",
+          "text": "퇴직급여 제도",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            72,
+            81,
+            73
+          ],
+          "bg": [
+            250,
+            248,
+            242
+          ],
+          "ratio": 7.758363258874718,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "SELECT",
+          "id": "ctxPension",
+          "class": "",
+          "text": "unknown",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "LABEL",
+          "id": "",
+          "class": "ask",
+          "text": "아직 퇴직금을 받지 못했습니다",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            72,
+            81,
+            73
+          ],
+          "bg": [
+            250,
+            248,
+            242
+          ],
+          "ratio": 7.758363258874718,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "BUTTON",
+          "id": "contextLookup",
+          "class": "btn btn-primary",
+          "text": "근거 조회하기",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            255,
+            255,
+            255
+          ],
+          "bg": [
+            40,
+            94,
+            119
+          ],
+          "ratio": 7.100143808039998,
+          "threshold": 4.5,
+          "pass": true
+        }
+      ],
+      "failures": []
+    },
+    {
+      "mode": "dark",
+      "checked": 164,
+      "checks": [
+        {
+          "tag": "LABEL",
+          "id": "",
+          "class": "",
+          "text": "사업장명",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            240,
+            240,
+            231
+          ],
+          "bg": [
+            32,
+            38,
+            32
+          ],
+          "ratio": 13.477571004752402,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "INPUT",
+          "id": "businessName",
+          "class": "",
+          "text": "합성 사업장",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            240,
+            240,
+            231
+          ],
+          "bg": [
+            32,
+            38,
+            32
+          ],
+          "ratio": 13.477571004752402,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "INPUT",
+          "id": "businessName",
+          "class": "",
+          "text": "placeholder: 예: 00회사",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            185,
+            192,
+            180
+          ],
+          "bg": [
+            32,
+            38,
+            32
+          ],
+          "ratio": 8.283652434163107,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "LABEL",
+          "id": "",
+          "class": "",
+          "text": "사업주성명",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            240,
+            240,
+            231
+          ],
+          "bg": [
+            32,
+            38,
+            32
+          ],
+          "ratio": 13.477571004752402,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "INPUT",
+          "id": "ownerName",
+          "class": "",
+          "text": "합성 사업주",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            240,
+            240,
+            231
+          ],
+          "bg": [
+            32,
+            38,
+            32
+          ],
+          "ratio": 13.477571004752402,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "INPUT",
+          "id": "ownerName",
+          "class": "",
+          "text": "placeholder: 사업주 이름",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            185,
+            192,
+            180
+          ],
+          "bg": [
+            32,
+            38,
+            32
+          ],
+          "ratio": 8.283652434163107,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "LABEL",
+          "id": "",
+          "class": "",
+          "text": "근로자성명",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            240,
+            240,
+            231
+          ],
+          "bg": [
+            32,
+            38,
+            32
+          ],
+          "ratio": 13.477571004752402,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "INPUT",
+          "id": "workerName",
+          "class": "",
+          "text": "합성 이름",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            240,
+            240,
+            231
+          ],
+          "bg": [
+            32,
+            38,
+            32
+          ],
+          "ratio": 13.477571004752402,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "INPUT",
+          "id": "workerName",
+          "class": "",
+          "text": "placeholder: 근로자 이름",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            185,
+            192,
+            180
+          ],
+          "bg": [
+            32,
+            38,
+            32
+          ],
+          "ratio": 8.283652434163107,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "LABEL",
+          "id": "",
+          "class": "",
+          "text": "생년월일",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            240,
+            240,
+            231
+          ],
+          "bg": [
+            32,
+            38,
+            32
+          ],
+          "ratio": 13.477571004752402,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "INPUT",
+          "id": "birthDate",
+          "class": "date-input",
+          "text": "(empty input)",
+          "readonly": false,
+          "disabled": true,
+          "fg": [
+            240,
+            240,
+            231
+          ],
+          "bg": [
+            32,
+            38,
+            32
+          ],
+          "ratio": 13.477571004752402,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "INPUT",
+          "id": "birthDate",
+          "class": "date-input",
+          "text": "placeholder: YYYY-MM-DD",
+          "readonly": false,
+          "disabled": true,
+          "fg": [
+            185,
+            192,
+            180
+          ],
+          "bg": [
+            32,
+            38,
+            32
+          ],
+          "ratio": 8.283652434163107,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "LABEL",
+          "id": "",
+          "class": "",
+          "text": "채용년월일(입사일)",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            240,
+            240,
+            231
+          ],
+          "bg": [
+            32,
+            38,
+            32
+          ],
+          "ratio": 13.477571004752402,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "INPUT",
+          "id": "startDate",
+          "class": "date-input",
+          "text": "2020-01-01",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            240,
+            240,
+            231
+          ],
+          "bg": [
+            32,
+            38,
+            32
+          ],
+          "ratio": 13.477571004752402,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "INPUT",
+          "id": "startDate",
+          "class": "date-input",
+          "text": "placeholder: YYYY-MM-DD",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            185,
+            192,
+            180
+          ],
+          "bg": [
+            32,
+            38,
+            32
+          ],
+          "ratio": 8.283652434163107,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "LABEL",
+          "id": "",
+          "class": "",
+          "text": "산정사유발생일(퇴사일)",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            240,
+            240,
+            231
+          ],
+          "bg": [
+            32,
+            38,
+            32
+          ],
+          "ratio": 13.477571004752402,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "INPUT",
+          "id": "endDate",
+          "class": "date-input",
+          "text": "2026-10-05",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            240,
+            240,
+            231
+          ],
+          "bg": [
+            32,
+            38,
+            32
+          ],
+          "ratio": 13.477571004752402,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "INPUT",
+          "id": "endDate",
+          "class": "date-input",
+          "text": "placeholder: YYYY-MM-DD",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            185,
+            192,
+            180
+          ],
+          "bg": [
+            32,
+            38,
+            32
+          ],
+          "ratio": 8.283652434163107,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "LABEL",
+          "id": "",
+          "class": "",
+          "text": "재직일수",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            240,
+            240,
+            231
+          ],
+          "bg": [
+            32,
+            38,
+            32
+          ],
+          "ratio": 13.477571004752402,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "INPUT",
+          "id": "serviceDays",
+          "class": "",
+          "text": "2,469일",
+          "readonly": true,
+          "disabled": false,
+          "fg": [
+            240,
+            240,
+            231
+          ],
+          "bg": [
+            32,
+            38,
+            32
+          ],
+          "ratio": 13.477571004752402,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "LABEL",
+          "id": "",
+          "class": "",
+          "text": "근속연수",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            240,
+            240,
+            231
+          ],
+          "bg": [
+            32,
+            38,
+            32
+          ],
+          "ratio": 13.477571004752402,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "INPUT",
+          "id": "serviceYears",
+          "class": "",
+          "text": "7년",
+          "readonly": true,
+          "disabled": false,
+          "fg": [
+            240,
+            240,
+            231
+          ],
+          "bg": [
+            32,
+            38,
+            32
+          ],
+          "ratio": 13.477571004752402,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TH",
+          "id": "",
+          "class": "",
+          "text": "구분",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            25,
+            29,
+            25
+          ],
+          "bg": [
+            163,
+            207,
+            200
+          ],
+          "ratio": 10.004290248314593,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TH",
+          "id": "monthLabel1",
+          "class": "",
+          "text": "2026년 7월",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            25,
+            29,
+            25
+          ],
+          "bg": [
+            163,
+            207,
+            200
+          ],
+          "ratio": 10.004290248314593,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TH",
+          "id": "monthLabel2",
+          "class": "",
+          "text": "2026년 8월",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            25,
+            29,
+            25
+          ],
+          "bg": [
+            163,
+            207,
+            200
+          ],
+          "ratio": 10.004290248314593,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TH",
+          "id": "monthLabel3",
+          "class": "",
+          "text": "2026년 9월",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            25,
+            29,
+            25
+          ],
+          "bg": [
+            163,
+            207,
+            200
+          ],
+          "ratio": 10.004290248314593,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TH",
+          "id": "monthLabel4",
+          "class": "period4-col",
+          "text": "2026년 10월",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            25,
+            29,
+            25
+          ],
+          "bg": [
+            163,
+            207,
+            200
+          ],
+          "ratio": 10.004290248314593,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TH",
+          "id": "",
+          "class": "",
+          "text": "합계",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            25,
+            29,
+            25
+          ],
+          "bg": [
+            163,
+            207,
+            200
+          ],
+          "ratio": 10.004290248314593,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TD",
+          "id": "",
+          "class": "label-cell",
+          "text": "기간",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            240,
+            240,
+            231
+          ],
+          "bg": [
+            25,
+            29,
+            25
+          ],
+          "ratio": 14.883214172724253,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TD",
+          "id": "periodText1",
+          "class": "",
+          "text": "7.5~7.31",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            240,
+            240,
+            231
+          ],
+          "bg": [
+            32,
+            38,
+            32
+          ],
+          "ratio": 13.477571004752402,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TD",
+          "id": "periodText2",
+          "class": "",
+          "text": "8.1~8.31",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            240,
+            240,
+            231
+          ],
+          "bg": [
+            32,
+            38,
+            32
+          ],
+          "ratio": 13.477571004752402,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TD",
+          "id": "periodText3",
+          "class": "",
+          "text": "9.1~9.30",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            240,
+            240,
+            231
+          ],
+          "bg": [
+            32,
+            38,
+            32
+          ],
+          "ratio": 13.477571004752402,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TD",
+          "id": "periodText4",
+          "class": "period4-col",
+          "text": "10.1~10.4",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            240,
+            240,
+            231
+          ],
+          "bg": [
+            32,
+            38,
+            32
+          ],
+          "ratio": 13.477571004752402,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TD",
+          "id": "",
+          "class": "",
+          "text": "-",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            240,
+            240,
+            231
+          ],
+          "bg": [
+            32,
+            38,
+            32
+          ],
+          "ratio": 13.477571004752402,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TD",
+          "id": "",
+          "class": "label-cell",
+          "text": "일수",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            240,
+            240,
+            231
+          ],
+          "bg": [
+            25,
+            29,
+            25
+          ],
+          "ratio": 14.883214172724253,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TD",
+          "id": "daysText1",
+          "class": "",
+          "text": "27일",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            240,
+            240,
+            231
+          ],
+          "bg": [
+            32,
+            38,
+            32
+          ],
+          "ratio": 13.477571004752402,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TD",
+          "id": "daysText2",
+          "class": "",
+          "text": "31일",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            240,
+            240,
+            231
+          ],
+          "bg": [
+            32,
+            38,
+            32
+          ],
+          "ratio": 13.477571004752402,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TD",
+          "id": "daysText3",
+          "class": "",
+          "text": "30일",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            240,
+            240,
+            231
+          ],
+          "bg": [
+            32,
+            38,
+            32
+          ],
+          "ratio": 13.477571004752402,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TD",
+          "id": "daysText4",
+          "class": "period4-col",
+          "text": "4일",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            240,
+            240,
+            231
+          ],
+          "bg": [
+            32,
+            38,
+            32
+          ],
+          "ratio": 13.477571004752402,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TD",
+          "id": "totalDaysText",
+          "class": "",
+          "text": "92일",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            240,
+            240,
+            231
+          ],
+          "bg": [
+            32,
+            38,
+            32
+          ],
+          "ratio": 13.477571004752402,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TD",
+          "id": "",
+          "class": "label-cell",
+          "text": "월급여(원)",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            240,
+            240,
+            231
+          ],
+          "bg": [
+            25,
+            29,
+            25
+          ],
+          "ratio": 14.883214172724253,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "INPUT",
+          "id": "wage1",
+          "class": "money-input",
+          "text": "3,000,000",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            240,
+            240,
+            231
+          ],
+          "bg": [
+            32,
+            38,
+            32
+          ],
+          "ratio": 13.477571004752402,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "INPUT",
+          "id": "wage1",
+          "class": "money-input",
+          "text": "placeholder: 0",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            185,
+            192,
+            180
+          ],
+          "bg": [
+            32,
+            38,
+            32
+          ],
+          "ratio": 8.283652434163107,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "INPUT",
+          "id": "wage2",
+          "class": "money-input",
+          "text": "3,000,000",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            240,
+            240,
+            231
+          ],
+          "bg": [
+            32,
+            38,
+            32
+          ],
+          "ratio": 13.477571004752402,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "INPUT",
+          "id": "wage2",
+          "class": "money-input",
+          "text": "placeholder: 0",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            185,
+            192,
+            180
+          ],
+          "bg": [
+            32,
+            38,
+            32
+          ],
+          "ratio": 8.283652434163107,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "INPUT",
+          "id": "wage3",
+          "class": "money-input",
+          "text": "3,000,000",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            240,
+            240,
+            231
+          ],
+          "bg": [
+            32,
+            38,
+            32
+          ],
+          "ratio": 13.477571004752402,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "INPUT",
+          "id": "wage3",
+          "class": "money-input",
+          "text": "placeholder: 0",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            185,
+            192,
+            180
+          ],
+          "bg": [
+            32,
+            38,
+            32
+          ],
+          "ratio": 8.283652434163107,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "INPUT",
+          "id": "wage4",
+          "class": "money-input",
+          "text": "3,000,000",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            240,
+            240,
+            231
+          ],
+          "bg": [
+            32,
+            38,
+            32
+          ],
+          "ratio": 13.477571004752402,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "INPUT",
+          "id": "wage4",
+          "class": "money-input",
+          "text": "placeholder: 0",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            185,
+            192,
+            180
+          ],
+          "bg": [
+            32,
+            38,
+            32
+          ],
+          "ratio": 8.283652434163107,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TD",
+          "id": "wageTotal",
+          "class": "",
+          "text": "12,000,000",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            240,
+            240,
+            231
+          ],
+          "bg": [
+            32,
+            38,
+            32
+          ],
+          "ratio": 13.477571004752402,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "LABEL",
+          "id": "",
+          "class": "",
+          "text": "1년분 상여금 총액",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            240,
+            240,
+            231
+          ],
+          "bg": [
+            32,
+            38,
+            32
+          ],
+          "ratio": 13.477571004752402,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "INPUT",
+          "id": "bonusTotal",
+          "class": "money-input",
+          "text": "0",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            240,
+            240,
+            231
+          ],
+          "bg": [
+            32,
+            38,
+            32
+          ],
+          "ratio": 13.477571004752402,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "INPUT",
+          "id": "bonusTotal",
+          "class": "money-input",
+          "text": "placeholder: 0",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            185,
+            192,
+            180
+          ],
+          "bg": [
+            32,
+            38,
+            32
+          ],
+          "ratio": 8.283652434163107,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "LABEL",
+          "id": "",
+          "class": "",
+          "text": "연월차수당",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            240,
+            240,
+            231
+          ],
+          "bg": [
+            32,
+            38,
+            32
+          ],
+          "ratio": 13.477571004752402,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "INPUT",
+          "id": "annualLeave",
+          "class": "money-input",
+          "text": "0",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            240,
+            240,
+            231
+          ],
+          "bg": [
+            32,
+            38,
+            32
+          ],
+          "ratio": 13.477571004752402,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "INPUT",
+          "id": "annualLeave",
+          "class": "money-input",
+          "text": "placeholder: 0",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            185,
+            192,
+            180
+          ],
+          "bg": [
+            32,
+            38,
+            32
+          ],
+          "ratio": 8.283652434163107,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "LABEL",
+          "id": "",
+          "class": "",
+          "text": "퇴직금 중간정산",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            240,
+            240,
+            231
+          ],
+          "bg": [
+            32,
+            38,
+            32
+          ],
+          "ratio": 13.477571004752402,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "INPUT",
+          "id": "priorSeverance",
+          "class": "money-input",
+          "text": "0",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            240,
+            240,
+            231
+          ],
+          "bg": [
+            32,
+            38,
+            32
+          ],
+          "ratio": 13.477571004752402,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "INPUT",
+          "id": "priorSeverance",
+          "class": "money-input",
+          "text": "placeholder: 0",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            185,
+            192,
+            180
+          ],
+          "bg": [
+            32,
+            38,
+            32
+          ],
+          "ratio": 8.283652434163107,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "LABEL",
+          "id": "",
+          "class": "",
+          "text": "퇴직소득세",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            240,
+            240,
+            231
+          ],
+          "bg": [
+            32,
+            38,
+            32
+          ],
+          "ratio": 13.477571004752402,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "INPUT",
+          "id": "retirementTax",
+          "class": "money-input",
+          "text": "306,740",
+          "readonly": true,
+          "disabled": false,
+          "fg": [
+            240,
+            240,
+            231
+          ],
+          "bg": [
+            32,
+            38,
+            32
+          ],
+          "ratio": 13.477571004752402,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "INPUT",
+          "id": "retirementTax",
+          "class": "money-input",
+          "text": "placeholder: 자동계산",
+          "readonly": true,
+          "disabled": false,
+          "fg": [
+            185,
+            192,
+            180
+          ],
+          "bg": [
+            32,
+            38,
+            32
+          ],
+          "ratio": 8.283652434163107,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "LABEL",
+          "id": "",
+          "class": "",
+          "text": "자동",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            240,
+            240,
+            231
+          ],
+          "bg": [
+            32,
+            38,
+            32
+          ],
+          "ratio": 13.477571004752402,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "LABEL",
+          "id": "",
+          "class": "",
+          "text": "1일 통상임금",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            240,
+            240,
+            231
+          ],
+          "bg": [
+            32,
+            38,
+            32
+          ],
+          "ratio": 13.477571004752402,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "INPUT",
+          "id": "dailyOrdinaryWage",
+          "class": "money-input",
+          "text": "(empty input)",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            240,
+            240,
+            231
+          ],
+          "bg": [
+            32,
+            38,
+            32
+          ],
+          "ratio": 13.477571004752402,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "INPUT",
+          "id": "dailyOrdinaryWage",
+          "class": "money-input",
+          "text": "placeholder: 미입력 시 평균임금만 적용",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            185,
+            192,
+            180
+          ],
+          "bg": [
+            32,
+            38,
+            32
+          ],
+          "ratio": 8.283652434163107,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "LABEL",
+          "id": "",
+          "class": "",
+          "text": "적용임금 선택",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            240,
+            240,
+            231
+          ],
+          "bg": [
+            32,
+            38,
+            32
+          ],
+          "ratio": 13.477571004752402,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "SELECT",
+          "id": "wageType",
+          "class": "",
+          "text": "auto",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            240,
+            240,
+            231
+          ],
+          "bg": [
+            32,
+            38,
+            32
+          ],
+          "ratio": 13.477571004752402,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "BUTTON",
+          "id": "",
+          "class": "btn btn-primary",
+          "text": "계산하기",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            25,
+            29,
+            25
+          ],
+          "bg": [
+            163,
+            207,
+            200
+          ],
+          "ratio": 10.004290248314593,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "BUTTON",
+          "id": "",
+          "class": "btn btn-danger",
+          "text": "초기화",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            252,
+            165,
+            165
+          ],
+          "bg": [
+            32,
+            38,
+            32
+          ],
+          "ratio": 8.138524074987666,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "BUTTON",
+          "id": "",
+          "class": "btn btn-secondary",
+          "text": "인쇄하기",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            25,
+            29,
+            25
+          ],
+          "bg": [
+            163,
+            207,
+            200
+          ],
+          "ratio": 10.004290248314593,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "BUTTON",
+          "id": "",
+          "class": "btn btn-outline",
+          "text": "저장",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            240,
+            240,
+            231
+          ],
+          "bg": [
+            32,
+            38,
+            32
+          ],
+          "ratio": 13.477571004752402,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "SPAN",
+          "id": "",
+          "class": "stmt-brand",
+          "text": "일의 무늬 · 산정서",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            72,
+            81,
+            73
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 8.23941968179043,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "H2",
+          "id": "",
+          "class": "",
+          "text": "평균임금 및 퇴직금 산정서",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 3,
+          "pass": true
+        },
+        {
+          "tag": "DIV",
+          "id": "",
+          "class": "stmt-summary-label",
+          "text": "실수령 퇴직금",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            72,
+            81,
+            73
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 8.23941968179043,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "DIV",
+          "id": "",
+          "class": "stmt-amount",
+          "text": "26,110,475원",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 3,
+          "pass": true
+        },
+        {
+          "tag": "DT",
+          "id": "",
+          "class": "",
+          "text": "퇴직금",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            72,
+            81,
+            73
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 8.23941968179043,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "DD",
+          "id": "",
+          "class": "",
+          "text": "26,447,885원",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "DT",
+          "id": "",
+          "class": "",
+          "text": "공제액 합계",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            72,
+            81,
+            73
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 8.23941968179043,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "DD",
+          "id": "",
+          "class": "",
+          "text": "337,410원",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "H3",
+          "id": "",
+          "class": "stmt-section-title",
+          "text": "기본 정보",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "DT",
+          "id": "",
+          "class": "",
+          "text": "사업장명",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            72,
+            81,
+            73
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 8.23941968179043,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "DD",
+          "id": "",
+          "class": "",
+          "text": "합성 사업장",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "DT",
+          "id": "",
+          "class": "",
+          "text": "근로자성명",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            72,
+            81,
+            73
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 8.23941968179043,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "DD",
+          "id": "",
+          "class": "",
+          "text": "합성 이름",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "DT",
+          "id": "",
+          "class": "",
+          "text": "생년월일",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            72,
+            81,
+            73
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 8.23941968179043,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "DD",
+          "id": "",
+          "class": "",
+          "text": "-",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "DT",
+          "id": "",
+          "class": "",
+          "text": "사업주성명",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            72,
+            81,
+            73
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 8.23941968179043,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "DD",
+          "id": "",
+          "class": "",
+          "text": "합성 사업주",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "DT",
+          "id": "",
+          "class": "",
+          "text": "채용년월일",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            72,
+            81,
+            73
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 8.23941968179043,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "DD",
+          "id": "",
+          "class": "",
+          "text": "2020. 01. 01.",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "DT",
+          "id": "",
+          "class": "",
+          "text": "산정사유발생일",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            72,
+            81,
+            73
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 8.23941968179043,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "DD",
+          "id": "",
+          "class": "",
+          "text": "2026. 10. 05.",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "DT",
+          "id": "",
+          "class": "",
+          "text": "재직일수",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            72,
+            81,
+            73
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 8.23941968179043,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "DD",
+          "id": "",
+          "class": "",
+          "text": "2,469일",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "H3",
+          "id": "",
+          "class": "stmt-section-title",
+          "text": "평균임금 계산",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TH",
+          "id": "",
+          "class": "",
+          "text": "구분",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            250,
+            248,
+            242
+          ],
+          "ratio": 14.961951314879139,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TH",
+          "id": "",
+          "class": "",
+          "text": "2026년 7월",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            250,
+            248,
+            242
+          ],
+          "ratio": 14.961951314879139,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TH",
+          "id": "",
+          "class": "",
+          "text": "2026년 8월",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            250,
+            248,
+            242
+          ],
+          "ratio": 14.961951314879139,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TH",
+          "id": "",
+          "class": "",
+          "text": "2026년 9월",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            250,
+            248,
+            242
+          ],
+          "ratio": 14.961951314879139,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TH",
+          "id": "",
+          "class": "",
+          "text": "2026년 10월",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            250,
+            248,
+            242
+          ],
+          "ratio": 14.961951314879139,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TH",
+          "id": "",
+          "class": "",
+          "text": "합계",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            250,
+            248,
+            242
+          ],
+          "ratio": 14.961951314879139,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TH",
+          "id": "",
+          "class": "",
+          "text": "기간",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            250,
+            248,
+            242
+          ],
+          "ratio": 14.961951314879139,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TH",
+          "id": "",
+          "class": "",
+          "text": "일수",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            250,
+            248,
+            242
+          ],
+          "ratio": 14.961951314879139,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TH",
+          "id": "",
+          "class": "",
+          "text": "기간",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            250,
+            248,
+            242
+          ],
+          "ratio": 14.961951314879139,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TH",
+          "id": "",
+          "class": "",
+          "text": "일수",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            250,
+            248,
+            242
+          ],
+          "ratio": 14.961951314879139,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TH",
+          "id": "",
+          "class": "",
+          "text": "기간",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            250,
+            248,
+            242
+          ],
+          "ratio": 14.961951314879139,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TH",
+          "id": "",
+          "class": "",
+          "text": "일수",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            250,
+            248,
+            242
+          ],
+          "ratio": 14.961951314879139,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TH",
+          "id": "",
+          "class": "",
+          "text": "기간",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            250,
+            248,
+            242
+          ],
+          "ratio": 14.961951314879139,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TH",
+          "id": "",
+          "class": "",
+          "text": "일수",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            250,
+            248,
+            242
+          ],
+          "ratio": 14.961951314879139,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TD",
+          "id": "",
+          "class": "label-cell",
+          "text": "계산기간",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TD",
+          "id": "",
+          "class": "",
+          "text": "7.5~7.31",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TD",
+          "id": "",
+          "class": "",
+          "text": "27일",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TD",
+          "id": "",
+          "class": "",
+          "text": "8.1~8.31",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TD",
+          "id": "",
+          "class": "",
+          "text": "31일",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TD",
+          "id": "",
+          "class": "",
+          "text": "9.1~9.30",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TD",
+          "id": "",
+          "class": "",
+          "text": "30일",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TD",
+          "id": "",
+          "class": "",
+          "text": "10.1~10.4",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TD",
+          "id": "",
+          "class": "",
+          "text": "4일",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TD",
+          "id": "",
+          "class": "bold",
+          "text": "92일",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TD",
+          "id": "",
+          "class": "label-cell",
+          "text": "월급여",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TD",
+          "id": "",
+          "class": "right",
+          "text": "3,000,000",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TD",
+          "id": "",
+          "class": "right",
+          "text": "3,000,000",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TD",
+          "id": "",
+          "class": "right",
+          "text": "3,000,000",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TD",
+          "id": "",
+          "class": "right",
+          "text": "3,000,000",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TD",
+          "id": "",
+          "class": "right bold",
+          "text": "12,000,000",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TD",
+          "id": "",
+          "class": "label-cell",
+          "text": "소계",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TD",
+          "id": "",
+          "class": "right",
+          "text": "3,000,000",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TD",
+          "id": "",
+          "class": "right",
+          "text": "3,000,000",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TD",
+          "id": "",
+          "class": "right",
+          "text": "3,000,000",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TD",
+          "id": "",
+          "class": "right",
+          "text": "3,000,000",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TD",
+          "id": "",
+          "class": "right bold",
+          "text": "12,000,000",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TD",
+          "id": "",
+          "class": "label-cell",
+          "text": "상여금",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TD",
+          "id": "",
+          "class": "right",
+          "text": "0 × 3 / 12 =",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TD",
+          "id": "",
+          "class": "right",
+          "text": "0",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TD",
+          "id": "",
+          "class": "label-cell",
+          "text": "연월차수당",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TD",
+          "id": "",
+          "class": "right",
+          "text": "0 × 3 / 12 =",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TD",
+          "id": "",
+          "class": "right",
+          "text": "0",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TD",
+          "id": "",
+          "class": "",
+          "text": "3개월 임금 총액",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            250,
+            248,
+            242
+          ],
+          "ratio": 14.961951314879139,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TD",
+          "id": "",
+          "class": "right",
+          "text": "12,000,000원",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            250,
+            248,
+            242
+          ],
+          "ratio": 14.961951314879139,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "H3",
+          "id": "",
+          "class": "stmt-section-title",
+          "text": "퇴직금 및 공제",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TH",
+          "id": "",
+          "class": "",
+          "text": "1일 평균임금",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            250,
+            248,
+            242
+          ],
+          "ratio": 14.961951314879139,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TD",
+          "id": "",
+          "class": "left",
+          "text": "12,000,000 ÷ 92 = 130,434.78원",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TH",
+          "id": "",
+          "class": "",
+          "text": "퇴직금",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            250,
+            248,
+            242
+          ],
+          "ratio": 14.961951314879139,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TD",
+          "id": "",
+          "class": "left",
+          "text": "130,434.78 × 30 × (6년 + 277일/365일) = 26,447,885원",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TD",
+          "id": "",
+          "class": "left bold",
+          "text": "[ 공제 항목 ]",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            40,
+            94,
+            119
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 7.100143808039998,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TH",
+          "id": "",
+          "class": "",
+          "text": "퇴직소득세",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            250,
+            248,
+            242
+          ],
+          "ratio": 14.961951314879139,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TD",
+          "id": "",
+          "class": "right",
+          "text": "306,740원",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TH",
+          "id": "",
+          "class": "",
+          "text": "지방소득세",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            250,
+            248,
+            242
+          ],
+          "ratio": 14.961951314879139,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TD",
+          "id": "",
+          "class": "right",
+          "text": "30,670원",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TH",
+          "id": "",
+          "class": "",
+          "text": "퇴직금 중간정산",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            250,
+            248,
+            242
+          ],
+          "ratio": 14.961951314879139,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TD",
+          "id": "",
+          "class": "right",
+          "text": "0원",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TH",
+          "id": "",
+          "class": "",
+          "text": "공제액 합계",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            250,
+            248,
+            242
+          ],
+          "ratio": 14.961951314879139,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TD",
+          "id": "",
+          "class": "right",
+          "text": "337,410원",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            250,
+            248,
+            242
+          ],
+          "ratio": 14.961951314879139,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TD",
+          "id": "",
+          "class": "",
+          "text": "실수령 퇴직금",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TD",
+          "id": "",
+          "class": "",
+          "text": "26,110,475원",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "DIV",
+          "id": "",
+          "class": "stmt-signature",
+          "text": "위와 같이 확인합니다.\n            20____년 ____월 ____일\n            \n       ",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            72,
+            81,
+            73
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 8.23941968179043,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "DIV",
+          "id": "",
+          "class": "sign-item",
+          "text": "사업주 : 합성 사업주 (인)",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            72,
+            81,
+            73
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 8.23941968179043,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "DIV",
+          "id": "",
+          "class": "sign-item",
+          "text": "근로자 : 합성 이름 (인)",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            72,
+            81,
+            73
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 8.23941968179043,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "P",
+          "id": "",
+          "class": "privacy",
+          "text": "계산은 이 기기에서 처리됩니다. 아래 버튼을 누르면 입사일·퇴사일·재직일수·평균임금·통상임금·퇴직금과 선택한 제도·미",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            185,
+            192,
+            180
+          ],
+          "bg": [
+            32,
+            38,
+            32
+          ],
+          "ratio": 8.283652434163107,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "LABEL",
+          "id": "",
+          "class": "",
+          "text": "퇴직급여 제도",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            185,
+            192,
+            180
+          ],
+          "bg": [
+            25,
+            29,
+            25
+          ],
+          "ratio": 9.147595903340822,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "SELECT",
+          "id": "ctxPension",
+          "class": "",
+          "text": "unknown",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            240,
+            240,
+            231
+          ],
+          "bg": [
+            32,
+            38,
+            32
+          ],
+          "ratio": 13.477571004752402,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "LABEL",
+          "id": "",
+          "class": "ask",
+          "text": "아직 퇴직금을 받지 못했습니다",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            185,
+            192,
+            180
+          ],
+          "bg": [
+            25,
+            29,
+            25
+          ],
+          "ratio": 9.147595903340822,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "BUTTON",
+          "id": "contextLookup",
+          "class": "btn btn-primary",
+          "text": "근거 조회하기",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            25,
+            29,
+            25
+          ],
+          "bg": [
+            163,
+            207,
+            200
+          ],
+          "ratio": 10.004290248314593,
+          "threshold": 4.5,
+          "pass": true
+        }
+      ],
+      "failures": []
+    },
+    {
+      "mode": "print",
+      "checked": 87,
+      "checks": [
+        {
+          "tag": "SPAN",
+          "id": "",
+          "class": "stmt-brand",
+          "text": "일의 무늬 · 산정서",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            72,
+            81,
+            73
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 8.23941968179043,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "H2",
+          "id": "",
+          "class": "",
+          "text": "평균임금 및 퇴직금 산정서",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 3,
+          "pass": true
+        },
+        {
+          "tag": "DIV",
+          "id": "",
+          "class": "stmt-summary-label",
+          "text": "실수령 퇴직금",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            72,
+            81,
+            73
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 8.23941968179043,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "DIV",
+          "id": "",
+          "class": "stmt-amount",
+          "text": "26,110,475원",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 3,
+          "pass": true
+        },
+        {
+          "tag": "DT",
+          "id": "",
+          "class": "",
+          "text": "퇴직금",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            72,
+            81,
+            73
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 8.23941968179043,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "DD",
+          "id": "",
+          "class": "",
+          "text": "26,447,885원",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "DT",
+          "id": "",
+          "class": "",
+          "text": "공제액 합계",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            72,
+            81,
+            73
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 8.23941968179043,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "DD",
+          "id": "",
+          "class": "",
+          "text": "337,410원",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "H3",
+          "id": "",
+          "class": "stmt-section-title",
+          "text": "기본 정보",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "DT",
+          "id": "",
+          "class": "",
+          "text": "사업장명",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            72,
+            81,
+            73
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 8.23941968179043,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "DD",
+          "id": "",
+          "class": "",
+          "text": "합성 사업장",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "DT",
+          "id": "",
+          "class": "",
+          "text": "근로자성명",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            72,
+            81,
+            73
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 8.23941968179043,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "DD",
+          "id": "",
+          "class": "",
+          "text": "합성 이름",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "DT",
+          "id": "",
+          "class": "",
+          "text": "생년월일",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            72,
+            81,
+            73
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 8.23941968179043,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "DD",
+          "id": "",
+          "class": "",
+          "text": "-",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "DT",
+          "id": "",
+          "class": "",
+          "text": "사업주성명",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            72,
+            81,
+            73
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 8.23941968179043,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "DD",
+          "id": "",
+          "class": "",
+          "text": "합성 사업주",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "DT",
+          "id": "",
+          "class": "",
+          "text": "채용년월일",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            72,
+            81,
+            73
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 8.23941968179043,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "DD",
+          "id": "",
+          "class": "",
+          "text": "2020. 01. 01.",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "DT",
+          "id": "",
+          "class": "",
+          "text": "산정사유발생일",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            72,
+            81,
+            73
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 8.23941968179043,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "DD",
+          "id": "",
+          "class": "",
+          "text": "2026. 10. 05.",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "DT",
+          "id": "",
+          "class": "",
+          "text": "재직일수",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            72,
+            81,
+            73
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 8.23941968179043,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "DD",
+          "id": "",
+          "class": "",
+          "text": "2,469일",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "H3",
+          "id": "",
+          "class": "stmt-section-title",
+          "text": "평균임금 계산",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TH",
+          "id": "",
+          "class": "",
+          "text": "구분",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            250,
+            248,
+            242
+          ],
+          "ratio": 14.961951314879139,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TH",
+          "id": "",
+          "class": "",
+          "text": "2026년 7월",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            250,
+            248,
+            242
+          ],
+          "ratio": 14.961951314879139,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TH",
+          "id": "",
+          "class": "",
+          "text": "2026년 8월",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            250,
+            248,
+            242
+          ],
+          "ratio": 14.961951314879139,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TH",
+          "id": "",
+          "class": "",
+          "text": "2026년 9월",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            250,
+            248,
+            242
+          ],
+          "ratio": 14.961951314879139,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TH",
+          "id": "",
+          "class": "",
+          "text": "2026년 10월",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            250,
+            248,
+            242
+          ],
+          "ratio": 14.961951314879139,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TH",
+          "id": "",
+          "class": "",
+          "text": "합계",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            250,
+            248,
+            242
+          ],
+          "ratio": 14.961951314879139,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TH",
+          "id": "",
+          "class": "",
+          "text": "기간",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            250,
+            248,
+            242
+          ],
+          "ratio": 14.961951314879139,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TH",
+          "id": "",
+          "class": "",
+          "text": "일수",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            250,
+            248,
+            242
+          ],
+          "ratio": 14.961951314879139,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TH",
+          "id": "",
+          "class": "",
+          "text": "기간",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            250,
+            248,
+            242
+          ],
+          "ratio": 14.961951314879139,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TH",
+          "id": "",
+          "class": "",
+          "text": "일수",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            250,
+            248,
+            242
+          ],
+          "ratio": 14.961951314879139,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TH",
+          "id": "",
+          "class": "",
+          "text": "기간",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            250,
+            248,
+            242
+          ],
+          "ratio": 14.961951314879139,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TH",
+          "id": "",
+          "class": "",
+          "text": "일수",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            250,
+            248,
+            242
+          ],
+          "ratio": 14.961951314879139,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TH",
+          "id": "",
+          "class": "",
+          "text": "기간",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            250,
+            248,
+            242
+          ],
+          "ratio": 14.961951314879139,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TH",
+          "id": "",
+          "class": "",
+          "text": "일수",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            250,
+            248,
+            242
+          ],
+          "ratio": 14.961951314879139,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TD",
+          "id": "",
+          "class": "label-cell",
+          "text": "계산기간",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TD",
+          "id": "",
+          "class": "",
+          "text": "7.5~7.31",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TD",
+          "id": "",
+          "class": "",
+          "text": "27일",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TD",
+          "id": "",
+          "class": "",
+          "text": "8.1~8.31",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TD",
+          "id": "",
+          "class": "",
+          "text": "31일",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TD",
+          "id": "",
+          "class": "",
+          "text": "9.1~9.30",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TD",
+          "id": "",
+          "class": "",
+          "text": "30일",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TD",
+          "id": "",
+          "class": "",
+          "text": "10.1~10.4",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TD",
+          "id": "",
+          "class": "",
+          "text": "4일",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TD",
+          "id": "",
+          "class": "bold",
+          "text": "92일",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TD",
+          "id": "",
+          "class": "label-cell",
+          "text": "월급여",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TD",
+          "id": "",
+          "class": "right",
+          "text": "3,000,000",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TD",
+          "id": "",
+          "class": "right",
+          "text": "3,000,000",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TD",
+          "id": "",
+          "class": "right",
+          "text": "3,000,000",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TD",
+          "id": "",
+          "class": "right",
+          "text": "3,000,000",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TD",
+          "id": "",
+          "class": "right bold",
+          "text": "12,000,000",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TD",
+          "id": "",
+          "class": "label-cell",
+          "text": "소계",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TD",
+          "id": "",
+          "class": "right",
+          "text": "3,000,000",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TD",
+          "id": "",
+          "class": "right",
+          "text": "3,000,000",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TD",
+          "id": "",
+          "class": "right",
+          "text": "3,000,000",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TD",
+          "id": "",
+          "class": "right",
+          "text": "3,000,000",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TD",
+          "id": "",
+          "class": "right bold",
+          "text": "12,000,000",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TD",
+          "id": "",
+          "class": "label-cell",
+          "text": "상여금",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TD",
+          "id": "",
+          "class": "right",
+          "text": "0 × 3 / 12 =",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TD",
+          "id": "",
+          "class": "right",
+          "text": "0",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TD",
+          "id": "",
+          "class": "label-cell",
+          "text": "연월차수당",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TD",
+          "id": "",
+          "class": "right",
+          "text": "0 × 3 / 12 =",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TD",
+          "id": "",
+          "class": "right",
+          "text": "0",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TD",
+          "id": "",
+          "class": "",
+          "text": "3개월 임금 총액",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            250,
+            248,
+            242
+          ],
+          "ratio": 14.961951314879139,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TD",
+          "id": "",
+          "class": "right",
+          "text": "12,000,000원",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            250,
+            248,
+            242
+          ],
+          "ratio": 14.961951314879139,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "H3",
+          "id": "",
+          "class": "stmt-section-title",
+          "text": "퇴직금 및 공제",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TH",
+          "id": "",
+          "class": "",
+          "text": "1일 평균임금",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            250,
+            248,
+            242
+          ],
+          "ratio": 14.961951314879139,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TD",
+          "id": "",
+          "class": "left",
+          "text": "12,000,000 ÷ 92 = 130,434.78원",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TH",
+          "id": "",
+          "class": "",
+          "text": "퇴직금",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            250,
+            248,
+            242
+          ],
+          "ratio": 14.961951314879139,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TD",
+          "id": "",
+          "class": "left",
+          "text": "130,434.78 × 30 × (6년 + 277일/365일) = 26,447,885원",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TD",
+          "id": "",
+          "class": "left bold",
+          "text": "[ 공제 항목 ]",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            40,
+            94,
+            119
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 7.100143808039998,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TH",
+          "id": "",
+          "class": "",
+          "text": "퇴직소득세",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            250,
+            248,
+            242
+          ],
+          "ratio": 14.961951314879139,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TD",
+          "id": "",
+          "class": "right",
+          "text": "306,740원",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TH",
+          "id": "",
+          "class": "",
+          "text": "지방소득세",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            250,
+            248,
+            242
+          ],
+          "ratio": 14.961951314879139,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TD",
+          "id": "",
+          "class": "right",
+          "text": "30,670원",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TH",
+          "id": "",
+          "class": "",
+          "text": "퇴직금 중간정산",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            250,
+            248,
+            242
+          ],
+          "ratio": 14.961951314879139,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TD",
+          "id": "",
+          "class": "right",
+          "text": "0원",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TH",
+          "id": "",
+          "class": "",
+          "text": "공제액 합계",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            250,
+            248,
+            242
+          ],
+          "ratio": 14.961951314879139,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TD",
+          "id": "",
+          "class": "right",
+          "text": "337,410원",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            250,
+            248,
+            242
+          ],
+          "ratio": 14.961951314879139,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TD",
+          "id": "",
+          "class": "",
+          "text": "실수령 퇴직금",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "TD",
+          "id": "",
+          "class": "",
+          "text": "26,110,475원",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            32,
+            35,
+            31
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 15.889665387965572,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "DIV",
+          "id": "",
+          "class": "stmt-signature",
+          "text": "위와 같이 확인합니다.\n            20____년 ____월 ____일\n            \n       ",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            72,
+            81,
+            73
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 8.23941968179043,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "DIV",
+          "id": "",
+          "class": "sign-item",
+          "text": "사업주 : 합성 사업주 (인)",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            72,
+            81,
+            73
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 8.23941968179043,
+          "threshold": 4.5,
+          "pass": true
+        },
+        {
+          "tag": "DIV",
+          "id": "",
+          "class": "sign-item",
+          "text": "근로자 : 합성 이름 (인)",
+          "readonly": false,
+          "disabled": false,
+          "fg": [
+            72,
+            81,
+            73
+          ],
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "ratio": 8.23941968179043,
+          "threshold": 4.5,
+          "pass": true
+        }
+      ],
+      "failures": []
+    }
+  ]
+}

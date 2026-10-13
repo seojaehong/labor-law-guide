@@ -79,7 +79,7 @@ export async function POST(req: NextRequest) {
   // Confirmed subscribers
   const { data: subs, error: subErr } = await supabaseAdmin
     .from('subscribers')
-    .select('email, unsubscribe_token')
+    .select('id, email, unsubscribe_token')
     .eq('status', 'confirmed')
     .is('unsubscribed_at', null);
 
@@ -111,7 +111,7 @@ export async function POST(req: NextRequest) {
 
   for (const r of recipients) {
     try {
-      await sendDailyNewsletter({
+      const res = await sendDailyNewsletter({
         to: r.email,
         unsubscribeToken: r.unsubscribe_token,
         article: {
@@ -127,6 +127,26 @@ export async function POST(req: NextRequest) {
         .from('subscribers')
         .update({ last_sent_at: new Date().toISOString() })
         .eq('email', r.email);
+
+      // 🔴 Resend 가 돌려준 메시지 id 를 남긴다 (2026-10-12 신설).
+      //
+      // 종전에는 이 값을 버렸다. 그래서 「보냈다는데 안 왔다」를 추적할 때
+      // **보낸 건과 웹훅을 이을 키가 없었다** — 웹훅(email_events)은 resend_email_id 를
+      // 저장하는데 발송 쪽에 대응하는 기록이 없어서 손으로 대조해야 했다.
+      // 2026-10-12 에 한 구독자가 두 달간 못 받은 것을 사람이 말해 주기 전까지 몰랐다.
+      //
+      // `last_sent_at` 은 **우리가 호출한 시각**일 뿐 도착 증거가 아니다. 도착은 웹훅만 안다.
+      // 적재가 실패해도 발송은 이미 끝났으므로 throw 하지 않는다 — 기록이 본문보다 중요하지 않다.
+      const providerId = (res as { data?: { id?: string } } | undefined)?.data?.id ?? null;
+      const { error: logErr } = await supabaseAdmin.from('subscriber_sends').insert({
+        subscriber_id: r.id,
+        campaign_slug: 'daily',
+        article_slug: article.slug,
+        sent_at: new Date().toISOString(),
+        provider_message_id: providerId,
+      });
+      if (logErr) console.error('[send-daily] subscriber_sends 적재 실패', r.email, logErr.message);
+
       sent++;
     } catch (e) {
       failed++;

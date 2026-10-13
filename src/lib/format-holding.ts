@@ -1,3 +1,5 @@
+import { unwrapSourceAnnotations } from "@/lib/legal-display-text";
+
 export type HoldingBlockKind =
   | "level1"
   | "level2"
@@ -20,7 +22,7 @@ const NUMBERED_PATTERN = /^\d+\.\s+/;
 const BULLET_PATTERN = /^[-·]\s+/;
 
 export function stripMarkdownFormatting(input: string): string {
-  return input
+  return unwrapSourceAnnotations(input)
     // Strip markdown headers → plain text
     .replace(/^#{1,4}\s+(.+)$/gm, '$1')
     // Strip bold markers ** **
