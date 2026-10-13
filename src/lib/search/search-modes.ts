@@ -854,7 +854,7 @@ async function runCompareSearch(options: SearchRequestOptions): Promise<Pick<Sea
   return compareState;
 }
 
-export async function runSearch(options: SearchRequestOptions): Promise<SearchResponsePayload> {
+export async function runSearch(options: SearchRequestOptions, onSecondaryFailure?: () => void): Promise<SearchResponsePayload> {
   const page = options.page ?? 0;
   const rewritten = options.query.trim() ? await rewriteQuery(options.query) : null;
   const effectiveReason = options.reason || asReasonCategory(rewritten?.category);
@@ -889,6 +889,7 @@ export async function runSearch(options: SearchRequestOptions): Promise<SearchRe
         payload.reason = effectiveReason;
       }
     } catch {
+      onSecondaryFailure?.();
       // 행정해석 검색 실패 시 무시 (핵심 기능 아님)
     }
     return payload;
@@ -912,6 +913,7 @@ export async function runSearch(options: SearchRequestOptions): Promise<SearchRe
     try {
       payload.molab = await runMolabSearch(effectiveQuery, 5, effectiveReason || '');
     } catch {
+      onSecondaryFailure?.();
       // 행정해석 검색 실패 시 무시
     }
     return payload;
@@ -932,6 +934,7 @@ export async function runSearch(options: SearchRequestOptions): Promise<SearchRe
   try {
     molab = await runMolabSearch(effectiveQuery, 5, effectiveReason || '');
   } catch {
+    onSecondaryFailure?.();
     // 행정해석 검색 실패 시 무시
   }
   return {
