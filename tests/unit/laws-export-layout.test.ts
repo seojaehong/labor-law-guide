@@ -33,9 +33,26 @@ it('Excel wraps and freezes headers, preserves exact strings and print settings'
   expect(sheet.pageSetup.fitToHeight).toBe(0);expect(sheet.pageSetup.printTitlesRow).toBe('4:4');
   expect(sheet.getCell('B5').alignment.wrapText).toBe(true);
   expect(sheet.getRow(5).height).toBeUndefined();
+  expect(sheet.autoFilter).toBeUndefined();
   expect(original.getCell('B2').value).toBe(options.rows[0][1]);
   expect(original.getCell('C2').value).toBe('=새 문안 <보존>');
   expect(sheet.rowCount).toBeGreaterThan(10);
+});
+it('continuation rows retain complete long and many-line cells without a row filter',async()=>{
+  const multiline='항\n'.repeat(100)+'마지막 문장';
+  const input=[['제29조','가'.repeat(800),'나'.repeat(800),'법령 근거','미반영'],['제30조',multiline,'항\r\n'.repeat(100)+'끝 문장','근거','미반영']];
+  const blob=await comparisonXlsx({...options,rows:input,widths:[20,52,52,38,16]});
+  const book=new ExcelJS.Workbook();await book.xlsx.load(await blob.arrayBuffer());
+  const sheet=book.getWorksheet('신구대조')!;
+  expect(sheet.autoFilter).toBeUndefined();
+  const sourceRows=(label:string)=>sheet.getRows(5,sheet.rowCount-4)!.filter(r=>String(r.getCell(1).value).startsWith(label));
+  for(const [label,before,after] of input){
+    const rows=sourceRows(label);expect(rows.length).toBeGreaterThan(1);
+    expect(rows.map(r=>r.getCell(2).value??'').join('')).toBe(before);
+    expect(rows.map(r=>r.getCell(3).value??'').join('')).toBe(after);
+    for(const row of rows)expect(String(row.getCell(2).value??'').split(/\r\n|\r|\n/).length).toBeLessThanOrEqual(18);
+  }
+  expect(sheet.getRows(1,sheet.rowCount)!.some(r=>String(r.getCell(1).value).includes('자동 갱신되지 않습니다'))).toBe(true);
 });
 it('wrapped legal cross-reference stays in Article29 rather than generating false Article24',()=>{
   const text='제29조(특별휴가) 건강검진\n제24조 및 제25조에 따른 예방접종을 포함한다.\n11. 가족돌봄휴가 조부모 손자녀\n제29조의2(공가) 예비군';
