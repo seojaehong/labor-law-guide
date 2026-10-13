@@ -10,7 +10,7 @@ function asMode(value: string | null): SearchMode {
 }
 
 export async function GET(req: NextRequest) {
-  const observation = startServiceObservation('case_search');
+  const observation = startServiceObservation('case_search', req.signal, () => 'retrieval');
   try {
     const { searchParams } = new URL(req.url);
     const mode = asMode(searchParams.get('mode'));

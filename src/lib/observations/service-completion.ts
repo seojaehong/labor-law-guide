@@ -10,11 +10,11 @@ const services = {
 export type Service = keyof typeof services;
 export type Stage = 'validation' | 'retrieval' | 'generation' | 'extraction' | 'stream' | 'completed';
 export type Outcome = 'success' | 'partial_failure' | 'failure';
-export type ErrorCode = 'none' | 'invalid_request' | 'not_configured' | 'blocked' | 'rate_limited' | 'upstream_failed' | 'parse_failed' | 'search_failed' | 'stream_failed' | 'empty_answer' | 'cancelled' | 'internal_error';
+export type ErrorCode = 'none' | 'invalid_request' | 'not_configured' | 'blocked' | 'rate_limited' | 'upstream_failed' | 'parse_failed' | 'search_failed' | 'stream_failed' | 'empty_answer' | 'incomplete_answer' | 'cancelled' | 'internal_error';
 export type Completion = { stage: Stage; outcome: Outcome; error_code: ErrorCode; duration_ms: number; result_count: number | null };
 const stages = ['validation','retrieval','generation','extraction','stream','completed'];
 const outcomes = ['success','partial_failure','failure'];
-const errors = ['none','invalid_request','not_configured','blocked','rate_limited','upstream_failed','parse_failed','search_failed','stream_failed','empty_answer','cancelled','internal_error'];
+const errors = ['none','invalid_request','not_configured','blocked','rate_limited','upstream_failed','parse_failed','search_failed','stream_failed','empty_answer','incomplete_answer','cancelled','internal_error'];
 const bounded = (n: unknown, max: number) => typeof n === 'number' && Number.isInteger(n) && n >= 0 && n <= max;
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 // Explicit projection, never spread a request/result/error into the persistence payload.
@@ -45,10 +45,17 @@ export async function persistCompletion(service: Service, runId: string, value: 
     return !error;
   } catch { return false; }
 }
-export function startServiceObservation(service: Service) {
+export function startServiceObservation(service: Service, signal?: AbortSignal, currentStage: () => Stage = () => 'validation') {
   const start = Date.now(), runId = crypto.randomUUID();
   let finished = false;
   let resolveCompletion: ((value: Completion) => void) | undefined;
+  const finish = (value: Omit<Completion, 'duration_ms'>) => {
+    if (finished) return;
+    finished = true;
+    signal?.removeEventListener('abort', onAbort);
+    resolveCompletion?.({ ...value, duration_ms: Math.min(86_400_000, Math.max(0, Date.now() - start)) });
+  };
+  const onAbort = () => finish({stage:currentStage(),outcome:'failure',error_code:'cancelled',result_count:null});
   // Register while the route's request context is active, before stream/cancel callbacks.
   if (process.env.SERVICE_OBSERVATIONS_ENABLED === '1') {
     const terminal = new Promise<Completion>(resolve => { resolveCompletion = resolve; });
@@ -57,9 +64,7 @@ export function startServiceObservation(service: Service) {
       if (!await persistCompletion(service, runId, completion)) console.warn('[service-observations] completion write unavailable');
     }); } catch { console.warn('[service-observations] request lifecycle unavailable'); }
   }
-  return { finish(value: Omit<Completion, 'duration_ms'>) {
-    if (finished) return;
-    finished = true;
-    resolveCompletion?.({ ...value, duration_ms: Math.min(86_400_000, Math.max(0, Date.now() - start)) });
-  } };
+  signal?.addEventListener('abort', onAbort, {once:true});
+  if (signal?.aborted) onAbort();
+  return { finish };
 }

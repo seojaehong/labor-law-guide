@@ -167,8 +167,8 @@ function isFile(v: FormDataEntryValue): v is FormDataEntryValue & UploadFile {
 }
 
 export async function POST(req: Request): Promise<Response> {
-  const observation = startServiceObservation('contract_extract');
   let stage: Stage = 'validation';
+  const observation = startServiceObservation('contract_extract', req.signal, () => stage);
   // Error enums come from our own response codes, never from upstream messages.
   const respond = (status: number, body: Obj) => {
     const errorCodes: Record<string, ErrorCode> = {not_configured:'not_configured',bot_check_failed:'blocked',rate_limited:'rate_limited',extract_failed:'upstream_failed',parse_failed:'parse_failed'};

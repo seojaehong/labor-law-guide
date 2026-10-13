@@ -83,7 +83,7 @@ export async function POST(req: NextRequest) {
     req.signal.removeEventListener('abort', onAbort);
     recorder.finish(value);
   } };
-  const onAbort = () => observation.finish({stage, outcome: emittedChars > 0 ? 'partial_failure' : 'failure',error_code:'cancelled',result_count:emittedChars > 0 ? 1 : null});
+  const onAbort = () => observation.finish({stage, outcome: emittedChars > 0 ? 'partial_failure' : 'failure',error_code:'cancelled',result_count:null});
   req.signal.addEventListener('abort', onAbort, {once:true});
   if (req.signal.aborted) onAbort();
   const respond = (body: BodyInit | null, init?: ResponseInit) => {
@@ -385,6 +385,7 @@ export async function POST(req: NextRequest) {
         let r2ContentLen = 0;
         let r2ToolCalls = 0;
         let r2Ran = false;
+        let finalBodyLength = 0;
         // 생성 구간을 라운드별로 쪼개 잰다.
         // 2026-09-02 실측: ctxReady 3.04초 / done 12.88초 → 생성만 9.85초였다.
         // provider=vertex, vertexFailMs=0 이므로 폴백 대기가 아니다. 그렇다면 남은
@@ -397,6 +398,7 @@ export async function POST(req: NextRequest) {
           r1Ms = Date.now() - genStart;
           assembledAnswer += r1.content;
           r1ContentLen = r1.content.length;
+          finalBodyLength = r1.content.trim().length;
           r1ToolCalls = r1.toolCalls.length;
           for (const tc of r1.toolCalls) {
             if (tc.name === 'calc_severance') {
@@ -438,6 +440,7 @@ export async function POST(req: NextRequest) {
             const r2 = await streamRound(modelController, round2Msgs, false, encoder, decoder);
             assembledAnswer += r2.content;
             r2ContentLen = r2.content.length;
+            finalBodyLength = r2.content.trim().length;
             r2ToolCalls = r2.toolCalls.length;
             r2Ran = true;
           }
@@ -453,6 +456,9 @@ export async function POST(req: NextRequest) {
           // 본문 검증: 빈 답변이면 footer 대신 fallback. 진단용 round-level 로깅도 함께.
           const trimmedLen = assembledAnswer.trim().length;
           const hasContent = trimmedLen >= 50;
+          // A pre-tool explanation is not the final answer after tool execution.
+          const finalAnswerComplete = !streamFailed && finalBodyLength >= 50 &&
+            (r1ToolCalls === 0 || r2Ran && r2ToolCalls === 0);
           const hasCitation =
             /\[FAQ#\d+|\[CASE#[A-Za-z0-9_\-]+|\[COURT#[^\]]+\]|\[INTERP#[^\]]+\]/.test(
               assembledAnswer
@@ -558,12 +564,13 @@ export async function POST(req: NextRequest) {
 
           controller.enqueue(encoder.encode('data: [DONE]\n\n'));
           controller.close();
-          observation.finish({stage: streamFailed || !hasContent ? 'stream' : retrievalFailed ? 'retrieval' : 'completed',
-            outcome: streamFailed ? (hasContent || emittedChars > 0 ? 'partial_failure' : 'failure') : hasContent ? (retrievalFailed || r2ToolCalls > 0 ? 'partial_failure' : 'success') : 'failure',
-            error_code: streamFailed || r2ToolCalls > 0 ? 'stream_failed' : !hasContent ? 'empty_answer' : retrievalFailed ? 'search_failed' : 'none',result_count:hasContent || streamFailed && emittedChars > 0 ? 1 : 0});
+          observation.finish({stage: streamFailed ? 'stream' : !finalAnswerComplete ? 'generation' : retrievalFailed ? 'retrieval' : 'completed',
+            outcome: streamFailed ? (hasContent || emittedChars > 0 ? 'partial_failure' : 'failure') : !finalAnswerComplete ? (r1ToolCalls > 0 && (hasContent || emittedChars > 0) ? 'partial_failure' : 'failure') : retrievalFailed ? 'partial_failure' : 'success',
+            error_code: streamFailed ? 'stream_failed' : !finalAnswerComplete ? (r1ToolCalls > 0 ? 'incomplete_answer' : 'empty_answer') : retrievalFailed ? 'search_failed' : 'none',
+            result_count: finalAnswerComplete ? 1 : streamFailed ? null : 0});
         }
         } catch (error) {
-          observation.finish({stage:'stream',outcome:emittedChars > 0 ? 'partial_failure' : 'failure',error_code:'stream_failed',result_count:emittedChars > 0 ? 1 : null});
+          observation.finish({stage:'stream',outcome:emittedChars > 0 ? 'partial_failure' : 'failure',error_code:'stream_failed',result_count:null});
           throw error;
         }
       },
