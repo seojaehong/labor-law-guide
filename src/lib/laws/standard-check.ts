@@ -67,7 +67,9 @@ export function splitArticles(text: string): UserArticle[] {
     const lead = line.match(/^(?:제\s*\d+\s*장[^제]{0,15}|[^제]{1,6})\s+(?=제\s*\d+\s*조(?:\s*의\s*\d+)?\s*[(【[])/);
     if (lead) line = line.slice(lead[0].length);
     const m = line.match(ART);
-    if (m) {
+    // A wrapped statutory cross-reference is not a new company article heading.
+    const reference = m && !m[2] && !m[3] && !m[4] && /^\s*(?:및|의|에|를|과|에서|까지)/.test(line.slice(m[0].length));
+    if (m && !reference) {
       out.push({ no: m[1].replace(/\s/g, ''), title: (m[2] ?? m[3] ?? m[4] ?? '').trim(), text: line });
     } else if (out.length) {
       out[out.length - 1].text += '\n' + line;
@@ -207,7 +209,8 @@ export function periodCheck(opts: {
       const cand = [...new Set([...mine, ...titled])];
       // Only explicit anchor evidence permits a fallback outside matched/titled candidates.
       const fallback = r.anchor?.length ? user.filter(u => anchored(r, paragraphs(u.text)).length > 0) : [];
-      const paras = paragraphs((cand.length ? cand : fallback).map(u => u.text).join('\n'));
+      const selected = cand.length && (!r.anchor?.length || anchored(r, paragraphs(cand.map(u=>u.text).join('\n'))).length) ? cand : fallback;
+      const paras = paragraphs(selected.map(u => u.text).join('\n'));
       let v: Verdict = hasText ? judge(r, paras) : { rule: r, status: '누락', where: null, stale: [], missing: r.ok };
       if (hasText && !r.ok.length && r.stale.length) {
         // 옛 문구만으로 판정하는 매핑 — judge 는 옛 문구 없는 다른 조문을 골라 「반영됨」으로 빠진다. 후보 어디에든 남아 있으면 미반영

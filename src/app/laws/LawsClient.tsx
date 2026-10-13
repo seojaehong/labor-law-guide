@@ -218,7 +218,7 @@ export default function LawsClient({ index }: { index: LawIndex }) {
 
   const exportXLSX = async (evs: LawEvent[]) => {
     toast.show('엑셀을 만드는 중입니다…');
-    const XLSX = await import('xlsx');
+    const { comparisonXlsx } = await import('@/lib/laws/comparison-xlsx');
     const details = await Promise.all([...new Set(evs.map((e) => e.lawId))].map(loadDetail));
     const byId = new Map(details.flatMap((d) => d.steps.map((s) => [s.id, s] as const)));
     const rows: (string | number)[][] = [['시행일', '법령', '공포', '구분', '조문', '제목', '변경', '개정 전', '개정 후', '취업규칙 반영', '법제처 원문']];
@@ -233,13 +233,9 @@ export default function LawsClient({ index }: { index: LawIndex }) {
         ]);
       }
     }
-    rows.push([], ['출처: 국가법령정보센터(법제처) Open API. 법적 효력은 관보·국가법령정보센터 원문을 따릅니다.']);
-    const ws = XLSX.utils.aoa_to_sheet(rows);
-    ws['!cols'] = [12, 22, 18, 10, 10, 18, 6, 60, 60, 18, 40].map((wch) => ({ wch }));
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, '신구대조');
-    XLSX.writeFile(wb, `노동법개정_신구대조_${todayKST()}.xlsx`);
-    toast.show(`조문 ${rows.length - 3}개를 엑셀로 받았습니다`);
+    const blob=await comparisonXlsx({title:'노동법 개정 신구대조',intro:['검토용 법령 변경 기록'],head:rows[0].map(String),rows:rows.slice(1),widths:[12,22,18,10,10,18,8,52,52,20,38],foot:['출처: 국가법령정보센터(법제처) Open API. 법적 효력은 관보·국가법령정보센터 원문을 따릅니다.']});
+    download(`노동법개정_신구대조_${todayKST()}.xlsx`,blob,blob.type);
+    toast.show(`조문 ${rows.length - 1}개를 엑셀로 받았습니다`);
   };
 
   const copyDigest = async (evs: LawEvent[]) => {

@@ -91,7 +91,9 @@ export default function RulesCheck({ onClose, toast }: { onClose: () => void; to
   const [text, updateText] = useState('');
   const [captureStore] = useState(() => new Map<string, Observation>());
   const [runId, setRunId] = useState(() => crypto.randomUUID());
-  const freshRun = () => setRunId(crypto.randomUUID());
+  const currentRun = useRef(runId);
+  const exporting = useRef(false);
+  const freshRun = () => { const next=crypto.randomUUID();currentRun.current=next;setRunId(next); };
   const setText = (value: string) => { updateText(value); freshRun(); };
   const [data, setData] = useState<Data | null>(null);
   // 수집 시작이 2023.1.1. 로 내려가 기본값을 「2025년 초에 고친 취업규칙」으로 둔다(재홍님 예시)
@@ -110,7 +112,7 @@ export default function RulesCheck({ onClose, toast }: { onClose: () => void; to
 
   useEffect(() => {
     let active = true;
-    loadData().then(d => { if (active) { setData(d); setRunId(crypto.randomUUID()); } }).catch(() => { if (active) setLoadError(true); });
+    loadData().then(d => { if (active) { setData(d);const next=crypto.randomUUID();currentRun.current=next;setRunId(next); } }).catch(() => { if (active) setLoadError(true); });
     const previous = document.activeElement as HTMLElement | null;
     const overflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
@@ -176,17 +178,24 @@ export default function RulesCheck({ onClose, toast }: { onClose: () => void; to
   const fileStem = `취업규칙_신구대조_${from}-${to}`;
 
   const downloadDocx = async () => {
-    const blob = await compareDocx({ title: '취업규칙 신구대조표', intro, head: ['표준 조문', '현행(내 취업규칙)', '개정안', '근거', '판정'], widths: [1700, 4300, 4300, 3200, 1200], rows, foot });
-    download(`${fileStem}.docx`, blob, blob.type);
-    toast(`신구대조표 ${rows.length}건을 docx 로 받았습니다(한글에서 열립니다)`);
+    if(exporting.current)return;exporting.current=true;const expected=currentRun.current;
+    try {
+      const blob = await compareDocx({ title: '취업규칙 신구대조표', intro, head: ['표준 조문', '현행(내 취업규칙)', '개정안', '근거', '판정'], widths: [1700, 4300, 4300, 3200, 1200], rows, foot });
+      if(expected!==currentRun.current){toast('본문 또는 검사기간이 바뀌어 이전 결과의 다운로드를 취소했습니다.');return;}
+      download(`${fileStem}.docx`, blob, blob.type);
+      toast(`신구대조표 ${rows.length}건을 docx 로 받았습니다(한글에서 열립니다)`);
+    }catch{toast('신구대조표를 만들지 못했습니다. 입력과 결과를 보존했습니다.');}
+    finally{exporting.current=false;}
   };
   const downloadXlsx = async () => {
-    const XLSX = await import('xlsx');
-    const ws = XLSX.utils.aoa_to_sheet([...intro.map((t) => [t]), [], ['표준 조문', '현행(내 취업규칙)', '개정안', '근거', '판정'], ...rows, [], ...foot.map((t) => [t])]);
-    ws['!cols'] = [{ wch: 18 }, { wch: 60 }, { wch: 60 }, { wch: 36 }, { wch: 10 }];
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, '신구대조');
-    XLSX.writeFile(wb, `${fileStem}.xlsx`);
+    if(exporting.current)return;exporting.current=true;const expected=currentRun.current;
+    try {
+      const {comparisonXlsx}=await import('@/lib/laws/comparison-xlsx');
+      const blob=await comparisonXlsx({title:'취업규칙 신구대조표',intro,head:['표준 조문','현행(내 취업규칙)','개정안','근거','판정'],rows,widths:[20,52,52,38,16],foot});
+      if(expected!==currentRun.current){toast('본문 또는 검사기간이 바뀌어 이전 결과의 다운로드를 취소했습니다.');return;}
+      download(`${fileStem}.xlsx`,blob,blob.type);
+    }catch{toast('신구대조표를 만들지 못했습니다. 입력과 결과를 보존했습니다.');}
+    finally{exporting.current=false;}
   };
   const copyTable = async () => {
     const t = compareTable(open.map((it) => ({ article: `${it.std.no}(${it.std.title})`, before: mine(it) || null, after: proposal(it) })), foot[0]);
