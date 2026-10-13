@@ -199,7 +199,7 @@ export function periodCheck(opts: {
   const verdictOf = (r: StdRule, mine: UserArticle[]): Verdict => {
       // 짝지은 조문이 없으면 문서 전체에서 찾는다(B 방식) — 제목이 다른 조문 안에 들어 있는 경우
       // (2019년 표준판은 배우자 출산휴가를 「경조사 휴가」 조문 안에 둔다. 2026-10-05 A/B 대조)
-      // 짝지은 조문 + 제목에 매핑 키워드가 든 조문(표준 「휴직사유」에 내 「휴직」만 짝지어지고 「육아휴직」 조문이 빠지던 것, 2026-10-05 강동 신고본)
+      // 짝지은 조문 + 제목에 매핑 키워드가 든 조문(표준 「휴직사유」에 내 「휴직」만 짝지어지고 「육아휴직」 조문이 빠지던 것, 2026-10-05 실사례 대조)
       const titled = user.filter((u) => u.title && r.keywords.some((k) => flat(u.title).includes(flat(k))));
       const cand = [...new Set([...mine, ...titled])];
       const paras = paragraphs(cand.length ? cand.map((u) => u.text).join('\n') : text);
