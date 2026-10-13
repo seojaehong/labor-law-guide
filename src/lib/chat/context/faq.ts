@@ -11,6 +11,7 @@ type FaqRow = {
 };
 
 export type FaqContextResult = {
+  failed?: boolean;
   context: string;
   matched: boolean;
   count: number;
@@ -154,5 +155,5 @@ export async function buildFaqContext(
     topIds = matchedFaqs.slice(0, 3).map((f) => f.id);
   }
 
-  return { context, matched, count: matchedFaqs.length, categories, topIds };
+  return { context, matched, count: matchedFaqs.length, categories, topIds, failed: !!dbErr };
 }

@@ -1,0 +1,62 @@
+import {beforeEach,afterEach,expect,it,vi} from 'vitest';
+import {NextRequest} from 'next/server';
+const {finish,round,kill,laws,faq}=vi.hoisted(()=>({finish:vi.fn(),round:vi.fn(),kill:vi.fn(),laws:vi.fn(),faq:vi.fn()}));
+vi.mock('@/lib/observations/service-completion',()=>({startServiceObservation:()=>{let done=false;return {finish:(value:unknown)=>{if(!done){done=true;finish(value);}}};}}));
+vi.mock('@/lib/supabase',()=>({supabase:{}}));
+vi.mock('@/lib/supabase-server',()=>({supabaseAdmin:{from:()=>({insert:()=>Promise.resolve({})})}}));
+vi.mock('@/lib/user-situation',()=>({getSituation:vi.fn(),upsertSituation:vi.fn(),formatSituationForPrompt:()=>'',extractDelta:vi.fn()}));
+vi.mock('@/lib/legal-verify',()=>({verifyCitations:async()=>({hallucinated:[]})}));
+vi.mock('@/lib/rate-limit',()=>({checkChatRateLimit:async()=>({allowed:true}),extractIp:()=>'',hashIp:()=>''}));
+vi.mock('@/lib/kill-switch',()=>({getChatKillSwitch:kill}));
+vi.mock('@/lib/turnstile',()=>({isTurnstileEnabled:()=>false,verifyTurnstile:vi.fn()}));
+vi.mock('@/lib/chat/tools/execute',()=>({executeTool:async()=>({})}));
+vi.mock('@/lib/chat/stream-round',()=>({streamRound:round,lastRoundInfo:{provider:'mock',vertexFailMs:0}}));
+vi.mock('@/lib/chat/anthropic-fallback',()=>({isAnthropicConfigured:()=>false}));
+vi.mock('@/lib/vertex/client',()=>({getVertexClient:()=>({})}));
+vi.mock('@/lib/chat/context/faq',()=>({buildFaqContext:faq}));
+vi.mock('@/lib/chat/context/news',()=>({buildNewsContext:async()=>''}));
+vi.mock('@/lib/chat/context/cases',()=>({buildNlrcCasesContext:vi.fn(),buildCourtCasesContext:vi.fn()}));
+vi.mock('@/lib/chat/context/interpretations',()=>({buildInterpretationsContext:vi.fn()}));
+vi.mock('@/lib/chat/context/laws',()=>({buildLawsContext:laws}));
+import {POST} from '@/app/api/chat/route';
+const req=()=>new NextRequest('http://localhost/api/chat',{method:'POST',body:JSON.stringify({messages:[{role:'user',content:'PRIVATE_SYNTHETIC_QUESTION'}]})});
+beforeEach(()=>{finish.mockReset();round.mockReset();kill.mockResolvedValue({disabled:false});faq.mockResolvedValue({context:'',topIds:[],matched:false,count:0,categories:[],failed:false});laws.mockResolvedValue({ctx:'',rows:0,via:'none',status:'0rows'});vi.stubEnv('OPENAI_API_KEY','');vi.stubGlobal('fetch',vi.fn(()=>{throw new Error('unexpected external fetch');}));vi.spyOn(console,'log').mockImplementation(()=>{});vi.spyOn(console,'warn').mockImplementation(()=>{});});
+afterEach(()=>{vi.unstubAllEnvs();vi.unstubAllGlobals();vi.restoreAllMocks();});
+it('counts actual completed body once, no question/session/answer forwarded',async()=>{round.mockResolvedValue({content:'합성 문장 '.repeat(20),toolCalls:[]});const res=await POST(req());await res.text();expect(finish).toHaveBeenCalledTimes(1);expect(finish).toHaveBeenCalledWith({stage:'completed',outcome:'success',error_code:'none',result_count:1});expect(JSON.stringify(finish.mock.calls)).not.toContain('PRIVATE');});
+it('empty stream with HTTP200 is failed generation',async()=>{round.mockResolvedValue({content:'',toolCalls:[]});const res=await POST(req());expect(res.status).toBe(200);await res.text();expect(finish.mock.calls[0][0]).toMatchObject({outcome:'failure',error_code:'empty_answer',result_count:0});});
+it('stream exception is failure despite HTTP200',async()=>{round.mockRejectedValue(new Error('PRIVATE_UPSTREAM_ERROR'));const res=await POST(req());await res.text();expect(finish.mock.calls[0][0]).toMatchObject({outcome:'failure',error_code:'stream_failed'});expect(JSON.stringify(finish.mock.calls)).not.toContain('PRIVATE');});
+it('completed answer with explicit retrieval failure is partial',async()=>{laws.mockResolvedValue({ctx:'',rows:0,via:'none',status:'error'});round.mockResolvedValue({content:'합성 문장 '.repeat(20),toolCalls:[]});await (await POST(req())).text();expect(finish.mock.calls[0][0]).toMatchObject({stage:'retrieval',outcome:'partial_failure',error_code:'search_failed',result_count:1});});
+it('round2 failure preserves distinction from full success',async()=>{round.mockResolvedValueOnce({content:'합성 문장 '.repeat(20),toolCalls:[{id:'mock',name:'synthetic_tool',arguments:'{}'}]}).mockRejectedValueOnce(new Error('PRIVATE'));await (await POST(req())).text();expect(finish.mock.calls[0][0]).toMatchObject({outcome:'partial_failure',error_code:'stream_failed',result_count:1});});
+it('validation rejection never runs a model',async()=>{const res=await POST(new NextRequest('http://localhost/api/chat',{method:'POST',body:'{"messages":[]}'}));expect(res.status).toBe(400);expect(round).not.toHaveBeenCalled();expect(finish.mock.calls[0][0]).toMatchObject({stage:'validation',outcome:'failure',error_code:'invalid_request',result_count:null});});
+
+it('model emitted-then-rejected is partial, never copies emitted body',async()=>{
+ round.mockImplementation(async controller=>{controller.enqueue(new TextEncoder().encode('data: '+JSON.stringify({content:'PRIVATE_PARTIAL_ANSWER'})+'\n\n'));throw new Error('PRIVATE');});
+ await (await POST(req())).text();
+ expect(finish.mock.calls[0][0]).toMatchObject({outcome:'partial_failure',error_code:'stream_failed',result_count:1});
+ expect(JSON.stringify(finish.mock.calls)).not.toContain('PRIVATE');
+});
+it('request abort captures partial output before generation resolves',async()=>{
+ const abort=new AbortController();let resolveRound!:(value:unknown)=>void;
+ round.mockImplementation(controller=>{controller.enqueue(new TextEncoder().encode('data: {"content":"합성 일부 답변"}\n\n'));return new Promise(resolve=>{resolveRound=resolve;});});
+ const res=await POST(new NextRequest('http://localhost/api/chat',{method:'POST',signal:abort.signal,body:JSON.stringify({messages:[{role:'user',content:'합성'}]})}));
+ abort.abort();expect(finish.mock.calls[0][0]).toMatchObject({outcome:'partial_failure',error_code:'cancelled',result_count:1});
+ resolveRound({content:'합성 문장 '.repeat(20),toolCalls:[]});await res.text();expect(finish).toHaveBeenCalledTimes(1);
+});
+it('underlying stream cancellation records cancellation before a blocked model finishes',async()=>{
+ let resolveRound!:(value:unknown)=>void;round.mockImplementation(()=>new Promise(resolve=>{resolveRound=resolve;}));
+ const res=await POST(req());await res.body!.cancel();
+ expect(finish.mock.calls[0][0]).toMatchObject({outcome:'failure',error_code:'cancelled',result_count:null});
+ resolveRound({content:'합성 문장 '.repeat(20),toolCalls:[]});
+ await Promise.resolve();
+});
+
+it('FAQ rejected lookup is partial with a usable generated answer',async()=>{faq.mockRejectedValue(new Error('PRIVATE_FAQ_ERROR'));round.mockResolvedValue({content:'합성 문장 '.repeat(20),toolCalls:[]});await (await POST(req())).text();expect(finish.mock.calls[0][0]).toMatchObject({outcome:'partial_failure',error_code:'search_failed'});});
+
+it('FAQ timeout is partial while response still completes',async()=>{
+ vi.useFakeTimers();
+ try {
+  faq.mockImplementation(()=>new Promise(()=>{}));round.mockResolvedValue({content:'합성 문장 '.repeat(20),toolCalls:[]});
+  const pending=POST(req());await vi.advanceTimersByTimeAsync(5001);await (await pending).text();
+  expect(finish.mock.calls[0][0]).toMatchObject({outcome:'partial_failure',error_code:'search_failed'});
+ } finally {vi.useRealTimers();}
+});

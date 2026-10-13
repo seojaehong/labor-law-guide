@@ -1,3 +1,4 @@
+import { startServiceObservation, type Stage, type ErrorCode } from '@/lib/observations/service-completion';
 // 근로계약서 파일(사진·PDF·DOCX·XLSX·HWPX) → 스키마 규격 계약 JSON 추출 API.
 // - 이미지·판독 결과는 저장하지 않는다. 로그에도 본문·파일명을 남기지 않는다(상태코드/에러 종류만).
 // - env(ANTHROPIC_API_KEY)가 없으면 기능 전체가 501로 닫힌다.
@@ -166,10 +167,20 @@ function isFile(v: FormDataEntryValue): v is FormDataEntryValue & UploadFile {
 }
 
 export async function POST(req: Request): Promise<Response> {
+  const observation = startServiceObservation('contract_extract');
+  let stage: Stage = 'validation';
+  // Error enums come from our own response codes, never from upstream messages.
+  const respond = (status: number, body: Obj) => {
+    const errorCodes: Record<string, ErrorCode> = {not_configured:'not_configured',bot_check_failed:'blocked',rate_limited:'rate_limited',extract_failed:'upstream_failed',parse_failed:'parse_failed'};
+    observation.finish({stage: status === 200 ? 'completed' : stage, outcome: status === 200 ? 'success' : 'failure',
+      error_code: status === 200 ? 'none' : errorCodes[String(body.error)] ?? 'invalid_request',result_count:status === 200 ? 1 : null});
+    return json(status, body);
+  };
+  try {
   // env 게이트 — 키가 없으면 기능 전체가 닫힌다(폼 수동 입력으로 폴백).
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
-    return json(501, {
+    return respond(501, {
       error: 'not_configured',
       message: '사진 자동 인식을 준비 중입니다. 아래 폼에 직접 입력해 주세요.',
     });
@@ -179,12 +190,12 @@ export async function POST(req: Request): Promise<Response> {
   try {
     form = await req.formData();
   } catch {
-    return json(400, { error: 'bad_request', message: '이미지 파일을 업로드해 주세요.' });
+    return respond(400, { error: 'bad_request', message: '이미지 파일을 업로드해 주세요.' });
   }
 
   const files = form.getAll('images').filter(isFile);
   if (files.length === 0) {
-    return json(400, { error: 'no_image', message: '계약서 파일을 1개 이상 올려 주세요.' });
+    return respond(400, { error: 'no_image', message: '계약서 파일을 1개 이상 올려 주세요.' });
   }
 
   // 이미지는 여러 장을 이어 붙일 수 있지만(계약서 앞·뒷장), 문서 파일은 그 자체로 전문이라
@@ -194,22 +205,22 @@ export async function POST(req: Request): Promise<Response> {
   const others = files.filter((f) => !isImage(f));
 
   if (others.length > 0 && images.length > 0) {
-    return json(400, {
+    return respond(400, {
       error: 'mixed_upload',
       message: '사진과 문서 파일은 함께 올릴 수 없습니다. 한 가지만 골라 올려 주세요.',
     });
   }
   if (others.length > 1) {
-    return json(400, { error: 'too_many_docs', message: '문서 파일은 1개만 올릴 수 있습니다.' });
+    return respond(400, { error: 'too_many_docs', message: '문서 파일은 1개만 올릴 수 있습니다.' });
   }
   if (images.length > MAX_IMAGES) {
-    return json(400, { error: 'too_many_images', message: `사진은 최대 ${MAX_IMAGES}장까지 올릴 수 있습니다.` });
+    return respond(400, { error: 'too_many_images', message: `사진은 최대 ${MAX_IMAGES}장까지 올릴 수 있습니다.` });
   }
 
   for (const file of images) {
     // 크기 검사를 먼저 — 초과 파일은 바이트를 읽지 않는다.
     if (file.size > MAX_IMAGE_BYTES) {
-      return json(413, { error: 'file_too_large', message: '사진 1장당 5MB까지 올릴 수 있습니다.' });
+      return respond(413, { error: 'file_too_large', message: '사진 1장당 5MB까지 올릴 수 있습니다.' });
     }
   }
 
@@ -219,14 +230,14 @@ export async function POST(req: Request): Promise<Response> {
 
   if (doc) {
     if (!isPdf && !docKind) {
-      return json(415, {
+      return respond(415, {
         error: 'unsupported_type',
         message:
           'JPG·PNG·WEBP 사진, PDF, DOCX, XLSX, HWPX만 인식할 수 있습니다. 한글(.hwp) 문서는 「PDF로 저장」해서 올려 주세요.',
       });
     }
     if (doc.size > MAX_DOC_BYTES) {
-      return json(413, {
+      return respond(413, {
         error: 'file_too_large',
         message: '문서 파일은 4MB까지 올릴 수 있습니다. 쪽수를 줄이거나 PDF로 저장해 다시 시도해 주세요.',
       });
@@ -240,7 +251,7 @@ export async function POST(req: Request): Promise<Response> {
     const token = form.get('turnstileToken');
     const ts = await verifyTurnstile(typeof token === 'string' ? token : null, ip);
     if (!ts.skipped && !ts.success) {
-      return json(403, {
+      return respond(403, {
         error: 'bot_check_failed',
         message: '자동 확인에 실패했습니다. 잠시 후 다시 시도하시거나 아래 폼에 직접 입력해 주세요.',
       });
@@ -249,7 +260,7 @@ export async function POST(req: Request): Promise<Response> {
 
   // 전역 캡을 먼저 본다 — 여기서 막혀야 개별 카운터가 올라가지 않는다.
   if (!(await underLimit('global', 'cc_all', GLOBAL_DAILY_LIMIT))) {
-    return json(429, {
+    return respond(429, {
       error: 'rate_limited',
       message:
         '오늘 사진 인식 이용량이 많아 잠시 중단되었습니다. 아래 폼에 직접 입력하시거나 전문가 상담을 이용해 주세요.',
@@ -257,13 +268,14 @@ export async function POST(req: Request): Promise<Response> {
   }
 
   if (!(await underLimit('ip', `cc:${hashIp(ip)}`, IP_DAILY_LIMIT))) {
-    return json(429, {
+    return respond(429, {
       error: 'rate_limited',
       message: `사진 인식은 하루 ${IP_DAILY_LIMIT}회까지 이용할 수 있습니다. 내일 다시 시도하시거나, 아래 폼에 직접 입력하거나 전문가 상담을 이용해 주세요.`,
     });
   }
 
   try {
+    stage = 'extraction';
     const blocks: Obj[] = [];
 
     if (doc && isPdf) {
@@ -274,13 +286,13 @@ export async function POST(req: Request): Promise<Response> {
         const { PDFDocument } = await import('pdf-lib');
         pages = (await PDFDocument.load(buf, { ignoreEncryption: true })).getPageCount();
       } catch {
-        return json(400, {
+        return respond(400, {
           error: 'pdf_unreadable',
           message: 'PDF를 열지 못했습니다. 암호가 걸려 있지 않은지 확인하시거나 사진으로 올려 주세요.',
         });
       }
       if (pages > MAX_PDF_PAGES) {
-        return json(413, {
+        return respond(413, {
           error: 'too_many_pages',
           message: `PDF는 ${MAX_PDF_PAGES}쪽까지 인식할 수 있습니다(올리신 파일 ${pages}쪽). 근로계약서 부분만 남겨 다시 올려 주세요.`,
         });
@@ -296,7 +308,7 @@ export async function POST(req: Request): Promise<Response> {
       try {
         text = await extractDocText(docKind, await doc.arrayBuffer());
       } catch {
-        return json(400, {
+        return respond(400, {
           error: 'doc_unreadable',
           message: '문서에서 글자를 읽지 못했습니다. PDF로 저장하거나 사진으로 올려 주세요.',
         });
@@ -311,6 +323,7 @@ export async function POST(req: Request): Promise<Response> {
       blocks.push({ type: 'text', text: USER_INSTRUCTION });
     }
 
+    stage = 'generation';
     const resp = await fetch(ANTHROPIC_URL, {
       method: 'POST',
       signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
@@ -344,7 +357,7 @@ export async function POST(req: Request): Promise<Response> {
         }
       }
       console.error('[contract-check/extract] upstream status', resp.status, detail);
-      return json(502, {
+      return respond(502, {
         error: 'extract_failed',
         message: '사진 인식에 실패했습니다. 잠시 후 다시 시도하시거나 아래 폼에 직접 입력해 주세요.',
       });
@@ -354,11 +367,12 @@ export async function POST(req: Request): Promise<Response> {
     // 첫 블록이 text가 아닐 수 있다(thinking 등) — 첫 text 블록을 고른다.
     const text = (data?.content ?? []).find((b) => b?.type === 'text')?.text ?? '';
 
+    stage = 'extraction';
     let parsed: unknown;
     try {
       parsed = JSON.parse(extractJsonPayload(text));
     } catch {
-      return json(502, {
+      return respond(502, {
         error: 'parse_failed',
         message: '계약서 내용을 읽지 못했습니다. 더 밝고 선명한 사진으로 다시 시도하거나 아래 폼에 직접 입력해 주세요.',
       });
@@ -366,19 +380,24 @@ export async function POST(req: Request): Promise<Response> {
 
     const result = sanitizeExtracted(parsed);
     if (!result) {
-      return json(502, {
+      return respond(502, {
         error: 'parse_failed',
         message: '계약서 내용을 읽지 못했습니다. 더 밝고 선명한 사진으로 다시 시도하거나 아래 폼에 직접 입력해 주세요.',
       });
     }
 
     // 이미지·추출 결과는 저장하지 않는다 — 응답으로만 돌려주고 끝.
-    return json(200, { contract: result.contract, notes: result.notes });
+    return respond(200, { contract: result.contract, notes: result.notes });
   } catch (err) {
     console.error('[contract-check/extract] error', err instanceof Error ? err.name : 'unknown');
-    return json(502, {
+    return respond(502, {
       error: 'extract_failed',
       message: '사진 인식에 실패했습니다. 잠시 후 다시 시도하시거나 아래 폼에 직접 입력해 주세요.',
     });
+  }
+
+  } catch (error) {
+    observation.finish({stage,outcome:'failure',error_code:'internal_error',result_count:null});
+    throw error;
   }
 }
