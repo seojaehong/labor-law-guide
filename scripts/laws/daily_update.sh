@@ -14,6 +14,36 @@
 #   DRY_RUN=1 bash scripts/laws/daily_update.sh   # 수집·비교만, 브랜치·PR 안 만듦
 set -euo pipefail
 
+# 🔴 2026-10-13 — cron 의 PATH 는 /usr/bin:/bin 뿐이라 `gh` 를 못 찾았다.
+# gh 는 서버1에 **설치돼 있고 인증도 돼 있다**(~/.local/bin/gh, seojaehong).
+# 「gh 가 없다」가 아니라 **cron 이 그 경로를 안 본다**가 원인이었다.
+# 그 결과 line 69 에서 127 로 죽고, `set -e` 때문에 마지막 `git checkout "$start"` 가
+# 실행되지 않아 레포가 bot/law-revisions 에 남았다(실측). 수집은 성공했는데 PR 만 안 열렸다.
+export PATH="$HOME/.local/bin:$HOME/bin:/usr/local/bin:$PATH"
+
+# 그래도 못 찾으면 **조용히 죽지 않는다.** 아무도 모른 채 브랜치에만 쌓이던 게 이번 사고다.
+notify() {
+  local msg="$1"
+  echo "$msg"
+  local env1=/home/ubuntu/work-orchestrator/.env
+  [ -f "$env1" ] || return 0
+  local tok chat
+  tok=$(grep -m1 '^TELEGRAM_BOT_TOKEN=' "$env1" | cut -d= -f2-)
+  chat=$(grep -m1 '^TELEGRAM_CHAT_ID=' "$env1" | cut -d= -f2-)
+  [ -n "$tok" ] || return 0
+  curl -s -m 20 -X POST "https://api.telegram.org/bot${tok}/sendMessage" \
+    -H 'Content-Type: application/json' \
+    --data-raw "$(python3 -c 'import json,sys;print(json.dumps({"chat_id":sys.argv[1] or "8699916672","text":sys.argv[2]}))' "$chat" "$msg")" >/dev/null || true
+}
+
+if ! command -v gh >/dev/null 2>&1; then
+  notify "🔴 /laws 매일 수집 — gh 를 찾지 못해 PR 을 열지 못했습니다.
+수집 자체는 돌았고 브랜치(bot/law-revisions)에만 쌓입니다.
+PATH=$PATH
+고치는 법: gh 경로를 확인해 이 스크립트 상단 PATH 에 더하세요."
+  exit 1
+fi
+
 cd "$(git rev-parse --show-toplevel)"
 BRANCH=bot/law-revisions
 TMP=$(mktemp -d)
@@ -63,9 +93,17 @@ git push -q -f origin "$BRANCH"
   echo "- 하위법령(시행령·시행규칙)이 새로 공포됐으면 그 법률 매핑의 「시행령 공포 후 확정」 문안을 다시 본다"
   echo "- 위를 고친 뒤 \`python3 scripts/laws/build_site_data.py\` 를 다시 돌려 커밋한다"
 } > "$TMP/body.md"
+# PR 단계가 실패해도 **원래 브랜치로는 반드시 돌아온다.**
+# 종전에는 여기서 죽으면 레포가 bot/law-revisions 에 남아, 다음 사람이 그 위에서 작업했다.
+pr_rc=0
 if gh pr view "$BRANCH" --json state -q .state 2>/dev/null | grep -q OPEN; then
-  gh pr edit "$BRANCH" --body-file "$TMP/body.md"
+  gh pr edit "$BRANCH" --body-file "$TMP/body.md" || pr_rc=$?
 else
-  gh pr create --base master --head "$BRANCH" --title "chore(laws): 법령 개정 자동 수집 $day" --body-file "$TMP/body.md"
+  gh pr create --base master --head "$BRANCH" --title "chore(laws): 법령 개정 자동 수집 $day" --body-file "$TMP/body.md" || pr_rc=$?
 fi
 git checkout -q "$start"
+if [ "$pr_rc" -ne 0 ]; then
+  notify "🔴 /laws 매일 수집 — 수집은 됐는데 PR 열기/갱신이 실패했습니다(gh 종료코드 $pr_rc).
+브랜치 $BRANCH 는 푸시돼 있으니 수집분은 남아 있습니다."
+  exit "$pr_rc"
+fi
