@@ -28,6 +28,8 @@ function getClient(): Anthropic {
 export function isAnthropicConfigured(): boolean {
   return Boolean(process.env.ANTHROPIC_API_KEY);
 }
+/** Reuse the existing configured client; only invoked by explicitly authorized callers. */
+export function getAnthropicClient(): Anthropic { return getClient(); }
 
 type AnthropicMsg = { role: 'user' | 'assistant'; content: string };
 
