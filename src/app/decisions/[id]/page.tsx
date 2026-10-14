@@ -16,6 +16,7 @@ import {
 } from "@/lib/types";
 import { parseHoldingText, stripMarkdownFormatting } from "@/lib/format-holding";
 import { pickReason } from "@/lib/reason-pick";
+import DecisionReasonBadges from '../DecisionReasonBadges';
 import { getDecisionSourceLabel, resolveDecisionSourceContract, type DecisionSourceProvider } from "@/lib/search/source-contracts";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
@@ -451,6 +452,8 @@ export default async function DecisionPage({
       summary?: string | null;
       url?: string | null;
       keywords_matched?: string[] | null;
+      reason_category?: string[] | null;
+      issue_type_primary?: string | null;
     };
 
     let c: CaseLike | null = null;
@@ -479,6 +482,8 @@ export default async function DecisionPage({
           summary: d.holding_summary || d.summary_short,
           url: d.url,
           keywords_matched: d.tags,
+          reason_category: d.reason_category,
+          issue_type_primary: d.issue_type_primary,
         };
       }
     }
@@ -559,6 +564,8 @@ export default async function DecisionPage({
           <div className="flex flex-wrap gap-2 mb-6">
             <Badge className="bg-blue-100 text-blue-800">{c.verdict_type || "판결"}</Badge>
             <Badge variant="outline">{getDecisionSourceLabel(decisionSource)}</Badge>
+            <DecisionReasonBadges categories={c.reason_category} primary={c.issue_type_primary} />
+            {c.keywords_matched?.length ? <span className="self-center text-xs text-muted-foreground">관련 태그</span> : null}
             {Array.isArray(c.keywords_matched) ? c.keywords_matched.map((tag: string) => (
               <Badge key={tag} variant="outline">
                 {tag}
@@ -734,11 +741,7 @@ export default async function DecisionPage({
           <Badge className="bg-blue-100 text-blue-800">
             {RESULT_LABELS[d.decision_result as DecisionResult] || d.decision_result}
           </Badge>
-          {d.reason_category?.map((r: string) => (
-            <Badge key={r} variant="outline">
-              {REASON_LABELS[r as ReasonCategory] || r}
-            </Badge>
-          ))}
+          <DecisionReasonBadges categories={d.reason_category} primary={d.issue_type_primary} />
           {d.sanction_type && (
             <Badge variant="secondary">
               {SANCTION_LABELS[d.sanction_type as SanctionType] || d.sanction_type}
