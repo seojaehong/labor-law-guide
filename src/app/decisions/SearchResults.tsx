@@ -1,6 +1,7 @@
 import Link from "next/link";
-import { REASON_LABELS, RESULT_LABELS, type ReasonCategory, type DecisionResult } from "@/lib/types";
+import { REASON_LABELS, RESULT_LABELS, type DecisionResult } from "@/lib/types";
 import { stripMarkdownFormatting } from "@/lib/format-holding";
+import { pickReason } from "@/lib/reason-pick";
 
 /**
  * 통합 결과 행 — 노동위 판정례 · 법원 판례 · 행정해석이 같은 줄 규격을 쓴다 (2026-09-12).
@@ -100,7 +101,7 @@ export function headline(keyIssue: string | null, title: string | null, fallback
   return t || fallback;
 }
 
-export function reasonLabel(cats: string[] | null): string | null {
-  const first = cats?.[0] as ReasonCategory | undefined;
-  return first && REASON_LABELS[first] ? REASON_LABELS[first] : null;
+export function reasonLabel(cats: string[] | null, primary?: string | null): string | null {
+  const picked = pickReason(cats, primary);
+  return picked && REASON_LABELS[picked] ? REASON_LABELS[picked] : null;
 }

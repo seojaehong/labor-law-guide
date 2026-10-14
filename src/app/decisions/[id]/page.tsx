@@ -15,6 +15,7 @@ import {
   type SanctionType,
 } from "@/lib/types";
 import { parseHoldingText, stripMarkdownFormatting } from "@/lib/format-holding";
+import { pickReason } from "@/lib/reason-pick";
 import { getDecisionSourceLabel, resolveDecisionSourceContract, type DecisionSourceProvider } from "@/lib/search/source-contracts";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
@@ -43,7 +44,7 @@ export async function generateMetadata({
   // nlrc_decisions만 빠르게 lookup (lawgo/bigcase는 일시 노출 중단)
   const { data: d } = await supabase
     .from("nlrc_decisions")
-    .select("title, case_number, key_issue, holding_summary, holding_points, decision_result, reason_category")
+    .select("title, case_number, key_issue, holding_summary, holding_points, decision_result, reason_category, issue_type_primary")
     .eq("id", id)
     .maybeSingle();
 
@@ -59,8 +60,8 @@ export async function generateMetadata({
 
   const caseNum = (d.case_number && !/^id_/i.test(d.case_number)) ? d.case_number : "";
   const result = REASON_LABELS && d.decision_result ? (RESULT_LABELS[d.decision_result as DecisionResult] || d.decision_result) : "";
-  const reasonLabel = Array.isArray(d.reason_category) && d.reason_category[0]
-    ? (REASON_LABELS[d.reason_category[0] as ReasonCategory] || d.reason_category[0]) : "";
+  const pickedReason = pickReason(Array.isArray(d.reason_category) ? d.reason_category : null, d.issue_type_primary);
+  const reasonLabel = pickedReason ? (REASON_LABELS[pickedReason as ReasonCategory] || pickedReason) : "";
   // 마크다운 잔존 제거 — key_issue/holding_summary에 #, **, - 가 들어있어 SEO title이 깨짐
   const stripMd = (s: string) => stripMarkdownFormatting(s).replace(/\s+/g, " ").trim();
   const keyIssue = typeof d.key_issue === "string" ? stripMd(d.key_issue).slice(0, 60) : "";
