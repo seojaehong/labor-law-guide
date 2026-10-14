@@ -66,3 +66,10 @@ test('mobile and no-JavaScript links', async ({browser}) => {
   await page.getByRole('link',{name:'다음 →',exact:true}).click();await expect(page).toHaveURL(/reason=no_dismissal&page=2$/);
   await context.close();
 });
+test('collection hydration and source switching remain stable after no-JS repair',async({page})=>{
+ const errors:string[]=[];page.on('pageerror',error=>errors.push(error.message));
+ await page.goto('/decisions');await expect(page.locator('main a[href="/decisions?reason=no_dismissal"]')).toBeVisible();
+ await page.goto('/decisions?q=성희롱');await expect(page.locator(rows)).toHaveCount(20);
+ await page.getByLabel('검색 자료 종류').getByRole('link',{name:'법원 판례',exact:true}).click();await expect(page).toHaveURL(/type=court/);await expect(page.locator('main li a[href^="/cases/"]')).toHaveCount(20);
+ expect(errors).toEqual([]);
+});

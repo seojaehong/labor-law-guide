@@ -1,3 +1,5 @@
+import CollectedSourceBody from "@/components/CollectedSourceBody";
+import OfficialSourceLink from "@/components/OfficialSourceLink";
 import { serializeJsonLd } from "@/lib/safe-json-ld";
 import { publicMetadata } from '@/lib/public-metadata';
 import type { Metadata } from 'next';
@@ -14,7 +16,6 @@ import {
   ArrowRight,
   Calendar,
   FileText,
-  ExternalLink,
   MessageSquare,
   Search,
 } from 'lucide-react';
@@ -23,6 +24,7 @@ export const dynamicParams = true;
 export const revalidate = 86400;
 
 interface AdminDetail {
+  collected_body?: string | null;
   id: string;
   title: string;
   doc_number: string | null;
@@ -67,7 +69,8 @@ async function getInterpretation(id: string): Promise<AdminDetail | null> {
       decision_date: decisionDate(r.decision_date),
       keywords_matched: r.keywords_matched,
       summary: r.inquiry_summary,
-      holding_points: r.answer_summary || r.full_text,
+      holding_points: r.answer_summary,
+      collected_body: r.full_text,
       url: r.url,
       original_url: r.url,
     };
@@ -239,20 +242,7 @@ export default async function InterpretationDetailPage({
               <TagRow keywordsMatched={item.keywords_matched} />
             </header>
 
-            {item.original_url && (
-              <div className="editorial-source">
-                <a
-                  href={item.original_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 text-[13px] font-medium transition-colors hover:opacity-70"
-                  style={{ color: 'var(--color-accent-ink)' }}
-                >
-                  <ExternalLink size={13} />
-                  원문 보기
-                </a>
-              </div>
-            )}
+            <div className="editorial-source"><OfficialSourceLink urls={[item.original_url,item.url]} /></div>
 
             <p className="mb-4 text-sm" style={{ color: 'var(--grey-700)' }}>수집 내용입니다. 전문 여부와 구획·문단·표의 원형 보존은 확인되지 않았으며, 앞뒤 누락이나 단어 공백 손상이 있을 수 있습니다. 원문 출처와 대조하세요.</p>
 
@@ -283,6 +273,12 @@ export default async function InterpretationDetailPage({
             )}
 
 
+
+            {item.collected_body ? <section className="editorial-evidence" id="collected-source-body">
+              <h2 className="text-[15px] font-bold mb-3">별도로 확보한 수집 본문</h2>
+              <p className="mb-3 text-sm">위 요약과 별도로 저장된 본문입니다. 원본 완전성·구획 보존은 미확인입니다. HTML의 실행 요소는 표시하지 않습니다.</p>
+              <CollectedSourceBody text={item.collected_body}/>
+            </section> : null}
 
             {related.length > 0 && (
               <section className="mt-10 pt-8" style={{ borderTop: '1px solid var(--color-border)' }}>

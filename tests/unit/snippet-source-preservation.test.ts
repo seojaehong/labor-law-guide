@@ -12,3 +12,8 @@ it('retains internal paragraph boundaries, indented code and table cell text',()
  expect(normalizeSnippetMarkdown(text)).toBe(text);
  const html=renderToStaticMarkup(createElement(MarkdownSnippet,{value:text}));expect(html).toContain('<table>');expect(html).toContain('<pre>');expect(html).toContain('취소한다. 지급받았다.');
 });
+it('preserves the exact screenshot case without silently correcting stored word spaces',()=>{
+ const text='근로시간이 감소하는 경우. - 법령에서 정한 사유가 아닌 보직변경 등으로 사용자 책무 가 달라지는 경우.';
+ expect(normalizeSnippetMarkdown(text)).toBe(text);
+ const html=renderToStaticMarkup(createElement(MarkdownSnippet,{value:text}));expect(html).toContain('감소하는 경우. - 법령에서 정한 사유가 아닌 보직변경 등으로');expect(html).toContain('사용자 책무 가');
+});

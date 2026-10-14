@@ -25,7 +25,7 @@ vi.mock('@/components/BetaSignupForm', () => ({ default: () => null }));
 import BlogArticlePage from '@/app/blog/[slug]/page';
 import MarkdownSnippet from '@/app/database/_components/MarkdownSnippet';
 
-function checkActualHtml(html: string) {
+function checkActualHtml(html: string, sourcePolicy=false) {
   const ids = new Set([...html.matchAll(/\bid="([^"]+)"/g)].map(match => match[1]));
   const fragments = [...html.matchAll(/<a\b([^>]*href="#([^"]+)"[^>]*)>/g)];
   expect(fragments.length).toBeGreaterThanOrEqual(4);
@@ -38,8 +38,8 @@ function checkActualHtml(html: string) {
   expect(html).not.toContain('node="[object Object]"');
   expect(html).toContain('<blockquote');
   const external = html.match(/<a\b[^>]*href="https:\/\/example.invalid\/source"[^>]*>/)?.[0];
-  expect(external).toContain('target="_blank"');
-  expect(external).toContain('rel="noopener noreferrer"');
+  if(sourcePolicy){expect(external).toBeUndefined();expect(html).toContain('공식 원문 미확인');}
+  else{expect(external).toContain('target="_blank"');expect(external).toContain('rel="noopener noreferrer"');}
 }
 
 describe('actual reading renderers retain footnote relationships', () => {
@@ -48,6 +48,6 @@ describe('actual reading renderers retain footnote relationships', () => {
     checkActualHtml(renderToStaticMarkup(page));
   });
   it('renders the real reading MarkdownSnippet including its custom heading renderer', () => {
-    checkActualHtml(renderToStaticMarkup(createElement(MarkdownSnippet, { value: sample.markdown, variant: 'reading' })));
+    checkActualHtml(renderToStaticMarkup(createElement(MarkdownSnippet, { value: sample.markdown, variant: 'reading' })),true);
   });
 });

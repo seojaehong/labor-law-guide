@@ -1,6 +1,6 @@
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import ReadingMarkdownLink from '@/components/ReadingMarkdownLink';
+import SourceMarkdownLink from '@/components/SourceMarkdownLink';
 import { normalizeSnippetMarkdown } from './utils';
 
 export default function MarkdownSnippet({ value, variant = 'snippet' }: { value: string; variant?: 'snippet' | 'reading' }) {
@@ -11,7 +11,7 @@ export default function MarkdownSnippet({ value, variant = 'snippet' }: { value:
         remarkPlugins={[remarkGfm]}
         components={{
           // §6.8 본문 링크 — 밑줄은 이미 있었고 색만 --color-accent-ink로 옮긴다(--color-accent는 3.55:1로 AA 미달).
-          a: (props) => <ReadingMarkdownLink {...props} />,
+          a: (props) => <SourceMarkdownLink {...props} />,
           p: ({ children }) => <p>{children}</p>,
           ul: ({ children }) => <ul className="space-y-1">{children}</ul>,
           ol: ({ children }) => <ol className="space-y-1">{children}</ol>,

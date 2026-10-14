@@ -548,9 +548,9 @@ function EventCard({
                     <CalendarPlus size={14} /> 캘린더
                   </button>
                 )}
-                <a className="lr-btn lr-btn-ghost lr-btn-sm" href={lawGoUrl(step.mst, e.date)} target="_blank" rel="noreferrer">
+                {lawGoUrl(step.mst, e.date) ? <a className="lr-btn lr-btn-ghost lr-btn-sm" href={lawGoUrl(step.mst, e.date)} target="_blank" rel="noreferrer">
                   <ExternalLink size={14} /> 법제처 원문
-                </a>
+                </a> : <span className="text-sm">공식 원문 미확인</span>}
               </div>
 
               <div className="lr-why">

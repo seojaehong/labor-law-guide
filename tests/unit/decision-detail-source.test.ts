@@ -22,3 +22,7 @@ it('does not promise complete original text from accepted source documents',asyn
  const html=renderToStaticMarkup(await DecisionPage({params:Promise.resolve({id:stored.id})}));
  expect(html).toContain('완전성 미확인');expect(html).toContain('전문 여부');expect(html).not.toContain('그대로 확인하세요');expect(html).toContain('표 셀');
 });
+it.each([null,[],[null],[{title:'invalid'}],[{text:42}],[{content:'unsupported'}]])('malformed sections cannot replace the accepted collected body %j',async sections=>{
+ mock.from.mockImplementation((table:string)=>query(table==='nlrc_decisions'?stored:table==='decision_source_documents'?[{full_text_clean:'검증된 수집 텍스트 '.repeat(150),body_sections:sections}]:null));
+ const html=renderToStaticMarkup(await DecisionPage({params:Promise.resolve({id:stored.id})}));expect(html).toContain('검증된 수집 텍스트');
+});

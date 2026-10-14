@@ -1,5 +1,6 @@
+import OfficialSourceLink from "@/components/OfficialSourceLink";
 import Link from 'next/link';
-import { ChevronDown, ChevronUp, ExternalLink, ArrowRight } from 'lucide-react';
+import { ChevronDown, ChevronUp, ArrowRight } from 'lucide-react';
 import type { CaseResult } from './types';
 import { highlightText, formatDecisionDate, getPreferredSummary, getPreferredDetail } from './utils';
 import MarkdownSnippet from './MarkdownSnippet';
@@ -44,11 +45,7 @@ export default function CaseCard({ item, query, expanded, onToggle }: { item: Ca
         <Link href={`/cases/${encodeURIComponent(item.id)}`} className="flex items-center gap-1 text-xs font-medium" style={{ color: 'var(--color-accent)' }}>
           <ArrowRight size={12} /> 상세 보기
         </Link>
-        {item.original_url && (
-          <a href={item.original_url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-xs font-medium" style={{ color: 'var(--color-text-tertiary)' }}>
-            <ExternalLink size={12} /> 원문 참고
-          </a>
-        )}
+        <OfficialSourceLink urls={[item.original_url, item.url]} />
       </div>
 
       {expanded && hasContent && (
