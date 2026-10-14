@@ -135,6 +135,17 @@ describe('shared decision row source contract', () => {
   });
 });
 describe('source counts and primary enrichment',()=>{
+  it('preserves source tabs and the query when a search fails',async()=>{
+    mocks.rpc.mockResolvedValue({data:null,error:{message:'controlled outage'}});
+    const page=await DecisionsIndexPage({searchParams:Promise.resolve({q:'보직변경',type:'admin'})});
+    const view=page.props.children.at(-1);const html=renderToStaticMarkup(await view.type(view.props));
+    expect(html).toContain('검색 자료 종류');expect(html).toContain('노동위·법원 통합');expect(html).toContain('법원 판례');expect(html).toContain('행정해석');
+    expect(html).toContain('다시 시도');expect(html).toContain('type=admin');expect(html).toContain('aria-current="page"');
+  });
+  it('keeps an empty-query source selection without showing the unrelated hub',async()=>{
+    const page=await DecisionsIndexPage({searchParams:Promise.resolve({type:'admin'})});
+    const html=renderToStaticMarkup(page);expect(html).toContain('선택한 자료에서 찾을 검색어');expect(html).toContain('검색 자료 종류');expect(html).not.toContain('최근 판정례');expect(mocks.from).not.toHaveBeenCalled();
+  });
   it('uses exact disjoint literal prefixes and excludes the same non-labor population',async()=>{
     const chains=[query([],null,7,false),query([],null,2,false),query([],null,1,false)];
     mocks.from.mockReset();for(const c of chains)mocks.from.mockReturnValueOnce(c);

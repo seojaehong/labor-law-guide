@@ -9,7 +9,7 @@ test('cards, pagination, history, all enums, form reset and metadata', async ({p
   await expect(card).toContainText('45건');
   await card.click();
   await expect(page).toHaveURL(/reason=no_dismissal$/);
-  await expect(page.getByRole('heading',{name:'해고부존재/사직 유형별 노동위 판정례'})).toBeVisible();
+  await expect(page.getByRole('heading',{name:'해고부존재/사직 유형별 판정례·법원 판례'})).toBeVisible();
   await expect(page.locator(rows)).toHaveCount(20);
   const first=await page.locator(rows).evaluateAll(els=>els.map(e=>e.getAttribute('href')));
   await page.getByRole('link',{name:'다음 →',exact:true}).click();
@@ -22,7 +22,7 @@ test('cards, pagination, history, all enums, form reset and metadata', async ({p
   await expect(page.locator(rows)).toHaveCount(5);
   for(const [reason,label] of Object.entries(REASON_LABELS)) {
     await page.goto(`/decisions?reason=${reason}`);
-    await expect(page.getByRole('heading',{name:`${label} 유형별 노동위 판정례`})).toBeVisible();
+    await expect(page.getByRole('heading',{name:`${label} 유형별 판정례·법원 판례`})).toBeVisible();
     await expect(page.locator(rows)).toHaveCount(20);
     await expect(page.locator('meta[name=robots]')).toHaveAttribute('content','noindex, follow');
     await expect(page.locator('link[rel=canonical]')).toHaveAttribute('href',/\/decisions$/);

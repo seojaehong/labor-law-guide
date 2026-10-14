@@ -17,6 +17,7 @@ import {
 import { parseHoldingText, stripMarkdownFormatting } from "@/lib/format-holding";
 import { pickReason } from "@/lib/reason-pick";
 import DecisionReasonBadges from '../DecisionReasonBadges';
+import {decisionDate} from '@/lib/decision-date';
 import { getDecisionSourceLabel, resolveDecisionSourceContract, type DecisionSourceProvider } from "@/lib/search/source-contracts";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
@@ -60,7 +61,8 @@ export async function generateMetadata({
   }
 
   const caseNum = (d.case_number && !/^id_/i.test(d.case_number)) ? d.case_number : "";
-  const result = REASON_LABELS && d.decision_result ? (RESULT_LABELS[d.decision_result as DecisionResult] || d.decision_result) : "";
+  const isCourtCase = resolveDecisionSourceContract({id}).provider !== "nlrc";
+  const result = !isCourtCase && d.decision_result ? (RESULT_LABELS[d.decision_result as DecisionResult] || d.decision_result) : "";
   const pickedReason = pickReason(Array.isArray(d.reason_category) ? d.reason_category : null, d.issue_type_primary);
   const reasonLabel = pickedReason ? (REASON_LABELS[pickedReason as ReasonCategory] || pickedReason) : "";
   // 마크다운 잔존 제거 — key_issue/holding_summary에 #, **, - 가 들어있어 SEO title이 깨짐
@@ -86,7 +88,6 @@ export async function generateMetadata({
   //  id_ (노동위 판정례): 사건번호의 72%가 2018부해OOO 로 마스킹돼 있어 검색어와
   //    절대 매칭되지 않는다. 앞에 둬봐야 자리만 차지하므로 쟁점을 앞세운다.
   // 한글 SERP 는 약 35자에서 잘리므로 브랜드 접미사는 붙이지 않는다.
-  const isCourtCase = /^bc_/i.test(id);
 
   // 한글 검색결과는 약 35자에서 잘린다. 앞서 34/38자로 자르고 뒤에 사건번호와
   // 판정결과를 덧붙였더니 전수 시뮬레이션에서 99%가 35자를 넘었다(중앙값 45자).
@@ -337,7 +338,7 @@ export default async function DecisionPage({
 
           <h1 className="t-h2 mb-2" style={{ color: 'var(--color-text-primary)' }}>{precedent.title || `법제처 판례 ${apiId}`}</h1>
           <p className="text-sm text-muted-foreground mb-4">
-            {precedent.court || "-"} | {precedent.decision_date || "-"}
+            {precedent.court || "-"} | {decisionDate(precedent.decision_date) || "날짜 미확인"}
             {precedent.reference_number ? ` | ${precedent.reference_number}` : ""}
           </p>
 
@@ -477,7 +478,8 @@ export default async function DecisionPage({
           court: d.department,
           decision_date: d.decision_date,
           case_number: d.case_number,
-          verdict_type: d.decision_result,
+          // Imported values follow the NLRC result schema, not a verified court outcome.
+          verdict_type: null,
           holding_points: d.holding_points,
           summary: d.holding_summary || d.summary_short,
           url: d.url,
@@ -557,7 +559,7 @@ export default async function DecisionPage({
 
           <h1 className="t-h2 mb-2" style={{ color: 'var(--color-text-primary)' }}>{c.title}</h1>
           <p className="text-sm text-muted-foreground mb-4">
-            {c.court} | {c.decision_date}
+            {c.court} | {decisionDate(c.decision_date) || '날짜 미확인'}
             {c.case_number ? ` | ${c.case_number}` : ""}
           </p>
 
@@ -729,7 +731,7 @@ export default async function DecisionPage({
 
         <h1 className="t-h2 mb-2" style={{ color: 'var(--color-text-primary)' }}>{d.title}</h1>
         <p className="text-sm text-muted-foreground">
-          {d.department} | {d.decision_date}
+          {d.department} | {decisionDate(d.decision_date) || '날짜 미확인'}
         </p>
         {displayCaseNumber && (
           <p className="text-sm font-semibold text-foreground mb-4">

@@ -21,7 +21,7 @@ export const dynamic = "force-dynamic";
 const REASON_KEYS = Object.keys(REASON_LABELS) as ReasonCategory[];
 
 const TABS: { key: Kind; label: string }[] = [
-  { key: "nlrc", label: "노동위 판정례" },
+  { key: "nlrc", label: "노동위·법원 통합" },
   { key: "court", label: "법원 판례" },
   { key: "admin", label: "행정해석" },
 ];
@@ -109,23 +109,19 @@ export default async function DecisionsIndexPage(
           <Link href={tabHref(q, type)}>전체 자료 검색</Link>
         </div>
       ) : reason ? <CategoryView reason={reason} page={page} />
-        : q ? <SearchView q={q} type={type} page={page} /> : <HubView />}
+        : q ? <SearchView q={q} type={type} page={page} /> : type!=="nlrc" ? <><SearchTabs q="" type={type} /><p className="py-10 text-sm">선택한 자료에서 찾을 검색어를 입력하세요.</p></> : <HubView />}
     </main>
   );
 }
 
-async function SearchView({ q, type, page }: { q: string; type: Kind; page: number }) {
-  const result = await runSearch(q, type, page);
-  if (!result.ok) return <LoadError href={pageHref(q, type, page)} />;
-  const { rows, hasMore } = result;
-
+function SearchTabs({q,type}:{q:string;type:Kind}) {
   return (
-    <>
-      <div className="mb-5 flex flex-wrap gap-2">
+      <nav aria-label="검색 자료 종류" className="mb-5 flex flex-wrap gap-2">
         {TABS.map((t) => (
           <Link
             key={t.key}
             href={tabHref(q, t.key)}
+            aria-current={t.key===type ? "page" : undefined}
             className="rounded-full border px-4 py-1.5 text-[13px] font-medium"
             style={
               t.key === type
@@ -136,7 +132,18 @@ async function SearchView({ q, type, page }: { q: string; type: Kind; page: numb
             {t.label}
           </Link>
         ))}
-      </div>
+      </nav>
+  );
+}
+
+async function SearchView({ q, type, page }: { q: string; type: Kind; page: number }) {
+  const result = await runSearch(q, type, page);
+  if (!result.ok) return <><SearchTabs q={q} type={type} /><LoadError href={pageHref(q, type, page)} /></>;
+  const { rows, hasMore } = result;
+
+  return (
+    <>
+      <SearchTabs q={q} type={type} />
 
       {rows.length === 0 ? (
         <div className="py-16 text-center text-sm" style={{ color: "var(--color-text-tertiary)" }}>
@@ -215,7 +222,7 @@ async function HubView() {
       </section>
 
       <section>
-        <h2 className="mb-4 text-lg font-semibold">최근 판정례</h2>
+        <h2 className="mb-4 text-lg font-semibold">최근 판정례·법원 판례</h2>
         <ul className="border-t" style={{ borderColor: "var(--color-border)" }}>
           {recent.map((d) => (
             <ResultRow
@@ -241,11 +248,11 @@ async function CategoryView({ reason, page }: { reason: ReasonCategory; page: nu
   const result = await getCategory(reason, page);
   return <section>
     <DecisionCategoryNavigation reason={reason} />
-    <h2 className="my-4 text-lg font-semibold">{REASON_LABELS[reason]} 유형별 노동위 판정례</h2>
+    <h2 className="my-4 text-lg font-semibold">{REASON_LABELS[reason]} 유형별 판정례·법원 판례</h2>
     {!result.ok ? <LoadError href={categoryHref(reason, page)} /> : <>
       {result.rows.length ? <ul className="border-t" style={{ borderColor: "var(--color-border)" }}>
         {result.rows.map((r) => <ResultRow key={r.href} row={r} />)}
-      </ul> : <p className="py-10 text-sm">{page > 1 ? "이 페이지에 결과가 없습니다." : "이 유형에 등록된 판정례가 없습니다."}</p>}
+      </ul> : <p className="py-10 text-sm">{page > 1 ? "이 페이지에 결과가 없습니다." : "이 유형에 등록된 판정례·법원 판례가 없습니다."}</p>}
       {(page > 1 || result.hasMore) && <nav aria-label="유형별 판정례 페이지" className="mt-8 flex flex-wrap items-center justify-center gap-4 text-sm">
         {page > 1 && <><Link href={categoryHref(reason)}>첫 페이지</Link><Link href={categoryHref(reason, page - 1)}>← 이전</Link></>}
         <span>{page} 페이지</span>

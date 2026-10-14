@@ -5,6 +5,7 @@ import { notFound } from 'next/navigation';
 import { supabaseServer } from '@/lib/supabase-server';
 import { SITE_URL } from '@/lib/constants';
 import { formatDecisionDate, getPreferredSummary, getPreferredDetail } from '@/app/database/_components/utils';
+import { decisionDate } from '@/lib/decision-date';
 import TagRow from '@/app/database/_components/TagRow';
 import MarkdownSnippet from '@/app/database/_components/MarkdownSnippet';
 import {
@@ -62,7 +63,7 @@ async function getInterpretation(id: string): Promise<AdminDetail | null> {
       id: r.id,
       title: r.title,
       doc_number: r.case_number,
-      decision_date: r.decision_date,
+      decision_date: decisionDate(r.decision_date),
       keywords_matched: r.keywords_matched,
       summary: r.inquiry_summary,
       holding_points: r.answer_summary || r.full_text,
@@ -77,7 +78,7 @@ async function getInterpretation(id: string): Promise<AdminDetail | null> {
     .eq('id', id)
     .single();
   if (error || !data) return null;
-  return data as AdminDetail;
+  return {...data,decision_date:decisionDate(data.decision_date)} as AdminDetail;
 }
 
 async function getRelatedInterpretations(currentId: string, keywords: string[] | null): Promise<RelatedAdmin[]> {

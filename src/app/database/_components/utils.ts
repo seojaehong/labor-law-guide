@@ -1,4 +1,5 @@
 import { unwrapSourceAnnotations } from '@/lib/legal-display-text';
+import { decisionDate } from '@/lib/decision-date';
 import { REASON_CATEGORY_LABELS } from './types';
 import { createElement, type ReactNode } from 'react';
 
@@ -26,18 +27,7 @@ export function scoreResult(item: { decision_date?: string | null; summary?: str
 }
 
 export function formatDecisionDate(value?: string | null) {
-  if (!value) return null;
-  const compact = value.replace(/[^\d]/g, '');
-  if (compact.length === 8) {
-    const year = compact.slice(0, 4);
-    const month = compact.slice(4, 6);
-    const day = compact.slice(6, 8);
-    if (year === '0001') return null;
-    return `${year}.${month}.${day}`;
-  }
-
-  const sliced = value.slice(0, 10).replace(/-/g, '.');
-  return sliced || null;
+  return decisionDate(value)?.replace(/-/g,'.')??null;
 }
 
 export function translateReasonCategory(code: string) {

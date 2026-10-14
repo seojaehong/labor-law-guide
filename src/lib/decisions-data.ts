@@ -1,4 +1,5 @@
 import { supabase } from "@/lib/supabase";
+import { decisionDate } from '@/lib/decision-date';
 import type { ReasonCategory } from "@/lib/types";
 import { PAGE_SIZE } from "@/lib/decisions-query";
 import { resolveDecisionSourceContract } from "@/lib/search/source-contracts";
@@ -29,7 +30,7 @@ export function decisionRow(r: Record<string, unknown>, max = 120): Row {
     href: `/decisions/${encodeURIComponent(id)}`,
     title: headline((r.key_issue as string) ?? null, (r.title as string) ?? null, kind === "court" ? "판례" : "판정례", max),
     caseNumber: realCaseNumber(r.case_number_qualified as string, r.case_number_real as string, r.case_number as string),
-    date: (r.decision_date as string) || null,
+    date: decisionDate(r.decision_date),
     tag: reasonLabel((r.reason_category as string[]) ?? null, (r.issue_type_primary as string) ?? null),
     // 법원 자료에 저장된 값은 노동위 구제 결과로 해석할 수 없다.
     result: kind === "nlrc" ? (r.decision_result as string) || null : null,
@@ -120,7 +121,7 @@ export async function runSearch(q: string, type: Kind, page: number): Promise<De
           href: `/interpretations/${encodeURIComponent(id)}`,
           title: headline(null, (r.title as string) ?? null, "행정해석"),
           caseNumber: (r.doc_number as string) || null,
-          date: (r.decision_date as string) || null,
+          date: decisionDate(r.decision_date),
           tag: null,
           result: null,
         };
@@ -131,7 +132,7 @@ export async function runSearch(q: string, type: Kind, page: number): Promise<De
           href: `/cases/${encodeURIComponent(id)}`,
           title: headline(null, (r.title as string) ?? null, "판례"),
           caseNumber: (r.case_number as string) || null,
-          date: (r.decision_date as string) || null,
+          date: decisionDate(r.decision_date),
           tag: (r.court as string) || null,
           result: null,
         };

@@ -5,6 +5,7 @@ import { notFound } from 'next/navigation';
 import { supabaseServer } from '@/lib/supabase-server';
 import { SITE_URL } from '@/lib/constants';
 import { formatDecisionDate, getPreferredSummary, getPreferredDetail } from '@/app/database/_components/utils';
+import { decisionDate } from '@/lib/decision-date';
 import TagRow from '@/app/database/_components/TagRow';
 import MarkdownSnippet from '@/app/database/_components/MarkdownSnippet';
 import {
@@ -54,7 +55,7 @@ async function getCase(id: string): Promise<CaseDetail | null> {
     .single();
 
   if (error || !data) return null;
-  return data as CaseDetail;
+  return {...data,decision_date:decisionDate(data.decision_date)} as CaseDetail;
 }
 
 async function getRelatedCases(currentId: string, caseType: string | null, court: string | null): Promise<RelatedCase[]> {
