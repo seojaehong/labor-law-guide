@@ -4,7 +4,7 @@ const {finish,round,kill,laws,faq}=vi.hoisted(()=>({finish:vi.fn(),round:vi.fn()
 vi.mock('@/lib/observations/service-completion',()=>({startServiceObservation:()=>{let done=false;return {finish:(value:unknown)=>{if(!done){done=true;finish(value);}}};}}));
 vi.mock('@/lib/supabase',()=>({supabase:{}}));
 vi.mock('@/lib/supabase-server',()=>({supabaseAdmin:{from:()=>({insert:()=>Promise.resolve({})})}}));
-vi.mock('@/lib/user-situation',()=>({getSituation:vi.fn(),upsertSituation:vi.fn(),formatSituationForPrompt:()=>'',extractDelta:vi.fn()}));
+vi.mock('@/lib/user-situation',()=>({getSituation:vi.fn(),upsertSituation:vi.fn(),formatSituationForPrompt:()=>'',extractDelta:vi.fn(),mergeSituation:(prev:object,delta:object)=>({...prev,...delta})}));
 vi.mock('@/lib/legal-verify',()=>({verifyCitations:async()=>({hallucinated:[]})}));
 vi.mock('@/lib/rate-limit',()=>({checkChatRateLimit:async()=>({allowed:true}),extractIp:()=>'',hashIp:()=>''}));
 vi.mock('@/lib/kill-switch',()=>({getChatKillSwitch:kill}));
@@ -20,6 +20,7 @@ vi.mock('@/lib/chat/context/interpretations',()=>({buildInterpretationsContext:v
 vi.mock('@/lib/chat/context/laws',()=>({buildLawsContext:laws}));
 import {POST} from '@/app/api/chat/route';
 import {buildSearchQuery} from '@/lib/chat/search-query';
+import {getSituation,extractDelta,upsertSituation} from '@/lib/user-situation';
 const req=()=>new NextRequest('http://localhost/api/chat',{method:'POST',body:JSON.stringify({messages:[{role:'user',content:'PRIVATE_SYNTHETIC_QUESTION'}]})});
 beforeEach(()=>{finish.mockReset();round.mockReset();kill.mockResolvedValue({disabled:false});faq.mockResolvedValue({context:'',topIds:[],matched:false,count:0,categories:[],failed:false});laws.mockResolvedValue({ctx:'',rows:0,via:'none',status:'0rows'});vi.stubEnv('OPENAI_API_KEY','');vi.stubGlobal('fetch',vi.fn(()=>{throw new Error('unexpected external fetch');}));vi.spyOn(console,'log').mockImplementation(()=>{});vi.spyOn(console,'warn').mockImplementation(()=>{});});
 afterEach(()=>{vi.unstubAllEnvs();vi.unstubAllGlobals();vi.restoreAllMocks();});
@@ -113,4 +114,15 @@ it('invented model citation does not suppress the verified FAQ footer',async()=>
  faq.mockResolvedValue({context:'verified FAQ content',topIds:[123],matched:true,count:1,categories:[],failed:false});
  round.mockResolvedValue({content:'합성 문장 '.repeat(20)+'[FAQ#999]',toolCalls:[]});
  expect(await (await POST(req())).text()).toContain('참고 FAQ: [FAQ#123]');
+});
+
+it.each(['새 질문: 육아휴직은 어떻게 신청하나요?', '그럼 서류는요?'])('reset segment never loads old profile or sends old provider history: %s',async current=>{
+ const messages=[{role:'user',content:'OLD_PRIVATE_DISMISSAL'},{role:'assistant',content:'OLD_PRIVATE_ANSWER'},
+  {role:'user',content:'새 질문: 육아휴직은 어떻게 신청하나요?'}];
+ if(current.startsWith('그럼')) messages.push({role:'assistant',content:'새 답변'},{role:'user',content:current});
+ round.mockResolvedValue({content:'새 질문 답변 '.repeat(20),toolCalls:[]});
+ await (await POST(new NextRequest('http://localhost/api/chat',{method:'POST',body:JSON.stringify({sessionId:'offline_reset_session',messages})}))).text();
+ expect(getSituation).not.toHaveBeenCalled();expect(extractDelta).not.toHaveBeenCalled();expect(upsertSituation).not.toHaveBeenCalled();
+ expect(JSON.stringify(round.mock.calls[0][1])).not.toContain('OLD_PRIVATE');
+ expect(JSON.stringify(round.mock.calls[0][1])).toContain('육아휴직');
 });

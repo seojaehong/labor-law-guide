@@ -56,6 +56,19 @@ describe('retrieval request and evidence contract (offline)', () => {
     expect(result.timings.rpcRows).toBe(0);
   });
 
+  it('applies the final relevance gate after nonempty RPC results are replaced by fallback', async () => {
+    vi.stubEnv('SKIP_RPC', 'false');
+    mocks.rpc.mockResolvedValue({ data: [{ id: 'id_rpc', title: '기밀유출',
+      holding_summary: '영업비밀 유출 사실과 징계 절차를 구체적으로 검토한 판정 내용입니다.',
+      reason_category: ['misconduct'], relevance: 0.9 }], error: null });
+    mocks.rows = [fixture('id_low_1', 0.1), fixture('id_low_2', 0.15), fixture('id_low_3', 0.2)];
+    const result = await searchCases(['징계해고'], '기밀유출 RPC 유효결과 fallback 검증');
+    expect(mocks.rpc).toHaveBeenCalledTimes(1);
+    expect(mocks.fetch).toHaveBeenCalledTimes(1);
+    expect(result.cases).toEqual([]);
+    expect(result.timings.cosineScored).toBe(3);
+  });
+
   it('does not restore unrelated cases to fill a minimum of three', async () => {
     mocks.rows = [fixture('id_good', 0.8), fixture('id_noise1', 0.2), fixture('id_noise2', 0.1)];
     const result = await searchCases(['징계해고'], '기밀유출 임계값 검증 질문');

@@ -7,12 +7,12 @@ vi.mock('server-only', () => ({}));
 import { rerankResults } from '@/lib/ai/reranker';
 afterEach(() => { vi.unstubAllGlobals(); vi.unstubAllEnvs(); });
 describe('headcount evidence', () => {
-  it.each(['5인 미만', '100명 이상', '5명 이하', '10명 초과', '5~10명'])('preserves %s without invented exact count', (text) => {
+  it.each(['회사 상시근로자 5인 미만', '회사 상시근로자 100명 이상', '회사 상시근로자 5명 이하', '회사 상시근로자 10명 초과', '회사 상시근로자 5~10명'])('preserves %s without invented exact count', (text) => {
     const result = companySizeEvidence(text);
     expect(result.company_size).toBeUndefined();
     expect(result.company_size_evidence?.original).toBe(text);
   });
-  it('retains explicit exact count', () => expect(companySizeEvidence('직원 10명입니다').company_size).toBe(10));
+  it('retains explicit exact count', () => expect(companySizeEvidence('회사 상시근로자 10명입니다').company_size).toBe(10));
 });
 it('shared headings do not establish divergent issue outcomes', () => {
   const digest = digestIssues(['w', 'e'].map(id => ({ id, holding_points: '가. 징계사유의 존재 여부 나. 징계양정의 적정성' })));

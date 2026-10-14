@@ -8,6 +8,7 @@ import {
   upsertSituation,
   formatSituationForPrompt,
   extractDelta,
+  mergeSituation,
   type UserSituation,
 } from '@/lib/user-situation';
 import { verifyCitations } from '@/lib/legal-verify';
@@ -26,6 +27,7 @@ import { buildInterpretationsContext } from '@/lib/chat/context/interpretations'
 import { buildLawsContext } from '@/lib/chat/context/laws';
 import { hasVerifiedCitation, type EvidenceId } from '@/lib/chat/citations';
 import { buildSearchQuery } from '@/lib/chat/search-query';
+import { activeConversation } from '@/lib/ai/conversation-query';
 import { buildNewsContext } from '@/lib/chat/context/news';
 
 // Next.js segment config: literal value 필수 (import const 불가)
@@ -86,7 +88,7 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const messages = body?.messages;
+    let messages = body?.messages;
     const rawSessionId: string | undefined =
       typeof body?.sessionId === 'string' ? body.sessionId : undefined;
     const sessionId =
@@ -100,6 +102,8 @@ export async function POST(req: NextRequest) {
         status: 400,
       });
     }
+    const active = activeConversation(messages);
+    messages = active.messages;
 
     const ip = extractIp(req);
     const ipHashed = hashIp(ip);
@@ -180,7 +184,6 @@ export async function POST(req: NextRequest) {
     let topFaqIds: number[] = [];
     let evidence: EvidenceId[] = [];
     let situationContext = '';
-    let prevProfile: UserSituation = {};
     let mergedProfile: UserSituation = {};
 
     // (1) 임베딩과 무관한 작업을 먼저 시작한다
@@ -189,7 +192,7 @@ export async function POST(req: NextRequest) {
       : Promise.resolve('');
 
     const situationPromise =
-      sessionId && lastUserMsg
+      sessionId && lastUserMsg && !active.resetsContext
         ? withTimeout(
             (async () => {
               const prev = await getSituation(sessionId);
@@ -212,6 +215,7 @@ export async function POST(req: NextRequest) {
       const emptyFaq = {
         context: '',
         topIds: [] as number[],
+        selectedFaqs: [],
         matched: false,
         count: 0,
         categories: [] as string[],
@@ -317,8 +321,7 @@ export async function POST(req: NextRequest) {
     // (3) 병렬로 돌던 것을 회수한다
     const situation = await situationPromise;
     if (situation && sessionId) {
-      prevProfile = situation.prev;
-      mergedProfile = { ...situation.prev, ...situation.delta };
+      mergedProfile = mergeSituation(situation.prev, situation.delta);
       situationContext = formatSituationForPrompt(mergedProfile);
       // 저장은 답변에 필요 없다. 기다리지 않는다.
       upsertSituation(sessionId, situation.prev, situation.delta, 1).catch(() => {});

@@ -77,8 +77,10 @@ export function digestIssues(cases: Record<string, unknown>[]): IssueDigest {
   let analyzed = 0;
 
   for (const c of cases) {
+    const id = String(c.id || '');
+    if (!id || byCase.has(id)) continue;
     const issues = extractCaseIssues(c);
-    byCase.set(String(c.id || ''), issues);
+    byCase.set(id, issues);
     if (issues.length === 0) continue;
     analyzed++;
     for (const key of issues) counter.set(key, (counter.get(key) || 0) + 1);
@@ -88,7 +90,7 @@ export function digestIssues(cases: Record<string, unknown>[]): IssueDigest {
     .map(([key, count]) => ({ key, label: LABEL_BY_KEY.get(key) || key, count }))
     .sort((a, b) => b.count - a.count);
 
-  return { analyzed, total: cases.length, tallies, byCase };
+  return { analyzed, total: byCase.size, tallies, byCase };
 }
 
 /**
@@ -99,7 +101,7 @@ export function digestIssues(cases: Record<string, unknown>[]): IssueDigest {
  */
 export function buildIssueLines(digest: IssueDigest): string[] {
   if (digest.analyzed === 0 || digest.tallies.length === 0) return [];
-  const lines = [`이 유형에서 노동위가 실제로 따진 쟁점입니다. (유사 판정례 ${digest.total}건 중 쟁점이 명시된 ${digest.analyzed}건 기준)`];
+  const lines = [`표시된 판정·판례에 명시된 쟁점입니다. (표시 자료 ${digest.total}건 중 쟁점이 명시된 ${digest.analyzed}건 기준)`];
   for (const t of digest.tallies.slice(0, 5)) {
     lines.push(`· ${t.label} — ${t.count}건`);
   }

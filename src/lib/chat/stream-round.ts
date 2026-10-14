@@ -274,6 +274,12 @@ export async function streamRound(
       }
     }
   } catch (err) {
+    const tail = scrubber.flush();
+    if (tail) {
+      content += tail;
+      controller.enqueue(encoder.encode(`data: ${JSON.stringify({ content: tail })}\n\n`));
+      emitted = true;
+    }
     // 이미 사용자 화면에 텍스트가 나간 뒤면 폴백 금지 — 답변이 두 번 이어붙는다.
     if (emitted || !isAnthropicConfigured()) throw err;
     roundInfo.provider = 'anthropic(stream-broke)';

@@ -2,12 +2,13 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { jevRerank } from './jev';
 import { toLexQuery } from './lex-query';
 
-type FaqRow = {
+export type FaqRow = {
   id: number;
   unified_category?: string;
   category?: string;
   question: string;
   answer: string;
+  source?: string;
 };
 
 export type FaqContextResult = {
@@ -17,6 +18,8 @@ export type FaqContextResult = {
   count: number;
   categories: string[];
   topIds: number[];
+  /** Same selected rows used to construct context; no second lookup. */
+  selectedFaqs: FaqRow[];
 };
 
 const CITATION_GUIDE =
@@ -155,5 +158,5 @@ export async function buildFaqContext(
     topIds = matchedFaqs.map((f) => f.id);
   }
 
-  return { context, matched, count: matchedFaqs.length, categories, topIds, failed: !!dbErr };
+  return { context, matched, selectedFaqs: matchedFaqs, count: matchedFaqs.length, categories, topIds, failed: !!dbErr };
 }

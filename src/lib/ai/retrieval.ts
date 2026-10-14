@@ -1264,6 +1264,7 @@ function rankTaggedCandidates(query: string, taggedCases: Record<string, unknown
 export async function searchCases(tags: string[], query?: string): Promise<RetrievalResult> {
   let candidates: Record<string, unknown>[] = [];
   let reranked = false;
+  let queryEmbedding: number[] | null = null;
   let degraded = false;
 
   const startedAt = Date.now();
@@ -1291,6 +1292,7 @@ export async function searchCases(tags: string[], query?: string): Promise<Retri
   if (!skipRpc && effectiveQuery) {
     const t_rpc = Date.now();
     const rpcRows = await searchCasesViaRpc(effectiveQuery, rpcCategory, RESULT_LIMIT * 4, _timing, getEmbedding);
+    queryEmbedding = await getEmbedding();
     _mark('rpc', t_rpc);
     if (rpcRows.length > 0) {
       const rpcCandidates = rpcRows.map((row) => {
@@ -1371,7 +1373,6 @@ export async function searchCases(tags: string[], query?: string): Promise<Retri
   // fallback 4개를 병렬 실행 — 이전엔 sequential awaits로 candidates < 3일 때 각각 대기.
   // 병렬화 후 candidates < 3 조건 그대로 적용해 우선순위는 유지.
   // 2026-05-16: query 임베딩도 같이 시작 — fallback 후 Node cosine 랭킹용 (SKIP_RPC 환경에서 의미검색 복원).
-  let queryEmbedding: number[] | null = null;
   if (candidates.length < 3) {
     const hasPrimary = primaryTypes.length > 0;
     const hasReasons = reasons.length > 0;
@@ -1486,7 +1487,7 @@ export async function searchCases(tags: string[], query?: string): Promise<Retri
   // 2026-05-16: Node cosine 의미 랭킹 — SKIP_RPC 환경에서 임베딩 기반 랭킹 복원.
   // reason_category로 카테고리는 좁혔지만 토픽이 안 맞는 사건(예: '기밀유출' query → '유인물배포' 사건)이 섞임.
   // queryEmbedding과 각 candidate.embedding 코사인 유사도로 topic-level 정렬.
-  if (!reranked && candidates.length > 0) {
+  if (candidates.length > 0) {
     const t_cos = Date.now();
     let scoredCount = 0;
     const validQueryEmbedding = isUsableEmbedding(queryEmbedding) ? queryEmbedding : null;
@@ -1503,7 +1504,7 @@ export async function searchCases(tags: string[], query?: string): Promise<Retri
       return hasDirectQueryEvidence(c, query || '') ? [{ ...c, _lexical_evidence: true }] : [];
     });
     candidates.sort((a, b) => Number(b._semantic_score ?? -1) - Number(a._semantic_score ?? -1));
-    reranked = scoredCount > 0;
+    reranked = reranked || scoredCount > 0;
     _timing['cosine'] = Date.now() - t_cos;
     _timing['cosineScored'] = scoredCount;
   }

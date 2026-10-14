@@ -6,6 +6,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import BetaSignupForm from './BetaSignupForm';
 import TurnstileWidget from './TurnstileWidget';
+import { activeConversation } from '@/lib/ai/conversation-query';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -16,7 +17,9 @@ interface Message {
 type ProfileMap = Record<string, unknown>;
 
 const PROFILE_LABELS: Record<string, string> = {
-  company_size: '회사규모',
+  company_size: '기존 저장 인원',
+  company_size_evidence: '인원 원문',
+  company_size_unresolved: '인원 확인 필요',
   tenure_months: '근속',
   monthly_salary: '월급',
   job_type: '고용형태',
@@ -25,14 +28,25 @@ const PROFILE_LABELS: Record<string, string> = {
   timeline: '시점',
 };
 
-import { linkifyFaqCitations, type EvidenceId } from '@/lib/chat/citations';
+import { linkifyFaqCitations, citationLinkComponents, type EvidenceId } from '@/lib/chat/citations';
 
 
 function formatProfileValue(key: string, value: unknown): string {
   if (value == null) return '';
+  if (key === 'company_size_unresolved') {
+    if (typeof value !== 'object' || !value) return '';
+    const unresolved = value as {original?:unknown};
+    return typeof unresolved.original === 'string' ? unresolved.original : '';
+  }
+  if (key === 'company_size_evidence') {
+    if (typeof value !== 'object' || !value) return '';
+    const evidence = value as {original?:unknown;scope?:unknown;kind?:unknown};
+    if (evidence.scope !== 'employer' || typeof evidence.original !== 'string') return '';
+    return `${evidence.original}${evidence.kind === 'regular_workers' ? '' : ' (상시근로자수인지 미확인)'}`;
+  }
   if (key === 'company_size') {
     const n = Number(value);
-    return n < 5 ? `상시 ${n}명 (5인 미만)` : `상시 ${n}명`;
+    return `${n}명 (원문·집계 범위 미확인)`;
   }
   if (key === 'tenure_months') {
     const n = Number(value);
@@ -149,11 +163,13 @@ export default function ChatInterface({ injectedQuestion }: { injectedQuestion?:
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [profile, setProfile] = useState<ProfileMap>({});
+  const profileSuppressed = useRef(false);
   const [showBetaCta, setShowBetaCta] = useState(false);
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const refreshProfile = useCallback(async () => {
+    if (profileSuppressed.current) return;
     if (typeof window === 'undefined') return;
     const sid = window.localStorage.getItem('yebot_session_id');
     if (!sid) return;
@@ -161,7 +177,7 @@ export default function ChatInterface({ injectedQuestion }: { injectedQuestion?:
       const r = await fetch(`/api/chat/situation?sessionId=${encodeURIComponent(sid)}`);
       if (!r.ok) return;
       const d = await r.json();
-      setProfile(d?.profile || {});
+      if (!profileSuppressed.current) setProfile(d?.profile || {});
     } catch {
       // ignore
     }
@@ -194,6 +210,11 @@ export default function ChatInterface({ injectedQuestion }: { injectedQuestion?:
 
     const userMsg: Message = { role: 'user', content: userContent };
     const newMessages = [...messages, userMsg];
+    const resetsContext = activeConversation(newMessages).resetsContext;
+    if (resetsContext) {
+      profileSuppressed.current = true;
+      setProfile({});
+    }
     setMessages(newMessages);
     setLoading(true);
 
@@ -215,7 +236,7 @@ export default function ChatInterface({ injectedQuestion }: { injectedQuestion?:
       () => {
         setLoading(false);
         // 답변 종료 직후 프로필 갱신 시도 (서버 추출 완료 시점 보정 위해 약간 지연)
-        setTimeout(() => { void refreshProfile(); }, 1500);
+        if (!resetsContext) setTimeout(() => { void refreshProfile(); }, 1500);
       },
       (errorMsg, info) => {
         setMessages(prev => {
@@ -282,6 +303,8 @@ export default function ChatInterface({ injectedQuestion }: { injectedQuestion?:
           <span style={{ color: 'var(--color-text-secondary)' }}>확인된 정보:</span>
           {Object.entries(profile).map(([k, v]) => {
             if (k.startsWith('_')) return null;
+            if ((k === 'company_size' || k === 'company_size_evidence') && profile.company_size_unresolved) return null;
+            if (k === 'company_size' && profile.company_size_evidence) return null;
             if (!PROFILE_LABELS[k]) return null;
             const label = PROFILE_LABELS[k];
             const val = formatProfileValue(k, v);
@@ -327,7 +350,7 @@ export default function ChatInterface({ injectedQuestion }: { injectedQuestion?:
             >
               {msg.role === 'assistant' ? (
                 msg.content ? (
-                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{linkifyFaqCitations(msg.content, msg.evidence)}</ReactMarkdown>
+                  <ReactMarkdown remarkPlugins={[remarkGfm]} components={citationLinkComponents(msg.evidence)}>{linkifyFaqCitations(msg.content, msg.evidence)}</ReactMarkdown>
                 ) : (
                   <span className="inline-flex items-center gap-2 text-sm" style={{ color: 'var(--color-text-tertiary)' }}>
                     <Loader2 size={14} className="animate-spin" />

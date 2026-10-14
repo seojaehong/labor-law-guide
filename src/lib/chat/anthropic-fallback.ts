@@ -110,20 +110,23 @@ export async function streamAnthropicRound(
 
   let content = '';
   const scrubber = createUrlScrubber();
-  for await (const event of stream) {
-    if (event.type === 'content_block_delta' && event.delta.type === 'text_delta') {
-      const scrubbed = scrubber.push(event.delta.text);
-      if (scrubbed) {
-        content += scrubbed;
-        controller.enqueue(encoder.encode(`data: ${JSON.stringify({ content: scrubbed })}\n\n`));
+  try {
+    for await (const event of stream) {
+      if (event.type === 'content_block_delta' && event.delta.type === 'text_delta') {
+        const scrubbed = scrubber.push(event.delta.text);
+        if (scrubbed) {
+          content += scrubbed;
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ content: scrubbed })}\n\n`));
+        }
       }
     }
-  }
-
-  const tail = scrubber.flush();
-  if (tail) {
-    content += tail;
-    controller.enqueue(encoder.encode(`data: ${JSON.stringify({ content: tail })}\n\n`));
+  } finally {
+    // Preserve safe buffered prose even when the provider stops midstream.
+    const tail = scrubber.flush();
+    if (tail) {
+      content += tail;
+      controller.enqueue(encoder.encode(`data: ${JSON.stringify({ content: tail })}\n\n`));
+    }
   }
   return { content, toolCalls: [] };
 }

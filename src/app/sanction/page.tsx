@@ -23,6 +23,7 @@ interface CaseCard {
 
 interface ComparisonMeta {
   issueSummary: string[];
+  issueEvidence?: Array<{ key: string; label: string; caseIds: string[] }>;
   workerWinCases: CaseCard[];
   employerWinCases: CaseCard[];
   coreDifferences: string[];
@@ -91,6 +92,7 @@ export default function SanctionPage() {
     setLastError(null);
 
     const msgId = makeMessageId();
+    let streamedContent = '';
 
     try {
       const res = await fetch('/api/sanction', {
@@ -110,7 +112,6 @@ export default function SanctionPage() {
 
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
-      let streamedContent = '';
       let finalComparison: ComparisonMeta | null = null;
       let metaReceived = false;
       let doneReceived = false;
@@ -186,7 +187,7 @@ export default function SanctionPage() {
       setMessages((prev) => {
         const existing = prev.find((m) => m.id === msgId);
         if (existing) {
-          return prev.map((m) => (m.id === msgId ? { ...m, content: message } : m));
+          return prev.map((m) => (m.id === msgId ? { ...m, content: streamedContent ? `${streamedContent}\n\n⚠️ ${message}` : message } : m));
         }
         return [...prev, { id: msgId, role: 'assistant' as const, content: message }];
       });
@@ -329,6 +330,20 @@ export default function SanctionPage() {
                           <div className="space-y-1 text-sm text-accent-foreground">
                             {msg.comparison.issueSummary.map((item, idx) => (
                               <p key={`issue-${idx}`}>{item}</p>
+                            ))}
+                            {msg.comparison.issueEvidence?.map((issue) => (
+                              <div key={issue.key} className="pt-2">
+                                <p className="font-medium">{issue.label} 근거</p>
+                                <ul className="space-y-1">
+                                  {issue.caseIds.map((id) => {
+                                    const card = [...(msg.comparison?.workerWinCases || []), ...(msg.comparison?.employerWinCases || [])].find(c => c.id === id);
+                                    if (!card || !card.id || card.id.startsWith('ai_case_')) return null;
+                                    const href = getDecisionDetailHref({ id: card.id, sourceProvider: card.source === 'court' ? 'bigcase' : 'nlrc' });
+                                    if (!href) return null;
+                                    return <li key={id}><a href={href} aria-label={`${issue.label} 근거 판정례: ${card.title}`} className="underline underline-offset-2">{card.title}</a></li>;
+                                  })}
+                                </ul>
+                              </div>
                             ))}
                           </div>
                         </div>

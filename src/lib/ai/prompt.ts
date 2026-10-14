@@ -93,6 +93,7 @@ export interface ComparisonCase {
 
 export interface ComparisonMeta {
   issueSummary: string[];
+  issueEvidence?: Array<{ key: string; label: string; caseIds: string[] }>;
   workerWinCases: ComparisonCase[];
   employerWinCases: ComparisonCase[];
   coreDifferences: string[];
@@ -299,7 +300,8 @@ export function buildComparisonMeta(
    */
   fullRows?: Record<string, unknown>[],
 ): ComparisonMeta {
-  const normalizedCases: ComparisonCase[] = cases.slice(0, 10).map((c) => ({
+  const uniqueCases = cases.filter((c, index) => c.id && cases.findIndex(other => String(other.id) === String(c.id)) === index);
+  const normalizedCases: ComparisonCase[] = uniqueCases.slice(0, 10).map((c) => ({
     id: String(c.id || ''),
     title: String(c.title || ''),
     decision_result: String(c.decision_result || ''),
@@ -317,11 +319,12 @@ export function buildComparisonMeta(
   // 2026-09-19: 쟁점을 판정문 원문에서 뽑아 집계한다.
   // 종전 buildIssueSummary 는 사용자 질문을 되풀이할 뿐이었고, buildCoreDifferences 는
   // 키워드가 걸리면 미리 써둔 일반론을 꺼냈다. 둘 다 어떤 질의에도 같은 답이 나왔다.
-  const shownIds = new Set(normalizedCases.map((c) => c.id));
+  const shownIds = new Set([...workerWinCases, ...employerWinCases].map((c) => c.id));
+  const displayedRows = cases.filter(r => shownIds.has(String(r.id || '')));
   const rowsForIssues = (fullRows && fullRows.length > 0)
     ? fullRows.filter((r) => shownIds.has(String(r.id || '')))
-    : cases;
-  const digest = digestIssues(rowsForIssues.length > 0 ? rowsForIssues : cases);
+    : displayedRows;
+  const digest = digestIssues(rowsForIssues);
 
   const issueLines = buildIssueLines(digest);
   const issueDiffs = buildIssueDifferences(
@@ -335,11 +338,15 @@ export function buildComparisonMeta(
   // 단 issueSummary 는 질문 되풀이를 되살리지 않는다 — 빈 채로 두는 편이 낫다.
   return {
     issueSummary: issueLines,
+    issueEvidence: digest.tallies.slice(0, 5).map(t => ({
+      key: t.key, label: t.label,
+      caseIds: [...digest.byCase].filter(([, keys]) => keys.includes(t.key)).map(([id]) => id),
+    })),
     workerWinCases,
     employerWinCases,
     coreDifferences: issueDiffs.length > 0 ? issueDiffs : ['판정문에 쟁점별 결론이 확인되지 않아 사건 간 결론 차이는 추정하지 않습니다.'],
-    checklist: issueChecklist.length > 0 ? issueChecklist : buildChecklist(cases, tags),
-    decisionGuide: buildDecisionGuide(cases, tags),
+    checklist: issueChecklist.length > 0 ? issueChecklist : buildChecklist(displayedRows, tags),
+    decisionGuide: buildDecisionGuide(displayedRows, tags),
   };
 }
 
