@@ -18,7 +18,8 @@ vi.mock('@/lib/chat/context/news',()=>({buildNewsContext:async()=>''}));
 vi.mock('@/lib/chat/context/cases',()=>({buildNlrcCasesContext:vi.fn(),buildCourtCasesContext:vi.fn()}));
 vi.mock('@/lib/chat/context/interpretations',()=>({buildInterpretationsContext:vi.fn()}));
 vi.mock('@/lib/chat/context/laws',()=>({buildLawsContext:laws}));
-import {POST,buildSearchQuery} from '@/app/api/chat/route';
+import {POST} from '@/app/api/chat/route';
+import {buildSearchQuery} from '@/lib/chat/search-query';
 const req=()=>new NextRequest('http://localhost/api/chat',{method:'POST',body:JSON.stringify({messages:[{role:'user',content:'PRIVATE_SYNTHETIC_QUESTION'}]})});
 beforeEach(()=>{finish.mockReset();round.mockReset();kill.mockResolvedValue({disabled:false});faq.mockResolvedValue({context:'',topIds:[],matched:false,count:0,categories:[],failed:false});laws.mockResolvedValue({ctx:'',rows:0,via:'none',status:'0rows'});vi.stubEnv('OPENAI_API_KEY','');vi.stubGlobal('fetch',vi.fn(()=>{throw new Error('unexpected external fetch');}));vi.spyOn(console,'log').mockImplementation(()=>{});vi.spyOn(console,'warn').mockImplementation(()=>{});});
 afterEach(()=>{vi.unstubAllEnvs();vi.unstubAllGlobals();vi.restoreAllMocks();});
@@ -97,4 +98,19 @@ it('followup search retains current question after a long previous question',()=
  const current='그럼 추가 수당은 어떻게 되나요?';
  const {searchQuery}=buildSearchQuery([{role:'user',content:'이전상황'.repeat(150)},{role:'assistant',content:'답변'},{role:'user',content:current}]);
  expect(searchQuery.length).toBeLessThanOrEqual(300);expect(searchQuery.endsWith(current)).toBe(true);
+});
+
+it('emits request evidence before generation, never trusts client citation metadata',async()=>{
+ faq.mockResolvedValue({context:'verified FAQ content',topIds:[123],matched:true,count:1,categories:[],failed:false});
+ round.mockResolvedValue({content:'합성 문장 '.repeat(20),toolCalls:[]});
+ const res=await POST(new NextRequest('http://localhost/api/chat',{method:'POST',body:JSON.stringify({messages:[{role:'user',content:'질문',evidence:[{type:'FAQ',id:'999'}]}]})}));
+ const text=await res.text();
+ expect(text).toContain('"evidence":[{"type":"FAQ","id":"123"}]');
+ expect(text).not.toContain('"id":"999"');
+});
+
+it('invented model citation does not suppress the verified FAQ footer',async()=>{
+ faq.mockResolvedValue({context:'verified FAQ content',topIds:[123],matched:true,count:1,categories:[],failed:false});
+ round.mockResolvedValue({content:'합성 문장 '.repeat(20)+'[FAQ#999]',toolCalls:[]});
+ expect(await (await POST(req())).text()).toContain('참고 FAQ: [FAQ#123]');
 });

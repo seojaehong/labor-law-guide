@@ -372,6 +372,37 @@ function parseEmbedding(value: unknown): number[] | null {
   }
 }
 
+function hasDirectQueryEvidence(candidate: Record<string, unknown>, query: string): boolean {
+  // Taxonomy labels alone are not evidence. Check the actual source text.
+  const text = [candidate.title, candidate.holding_points, candidate.holding_summary,
+    candidate.summary_short, candidate.key_issue].map(value => String(value || '')).join(' ');
+  const compactQuery = query.replace(/\s+/g, '');
+  const compactText = text.replace(/\s+/g, '');
+  const specificPatterns = KEYWORD_TO_SUB_REASON.filter(([pattern]) => pattern.test(compactQuery));
+  if (specificPatterns.length > 0) {
+    return specificPatterns.some(([pattern]) => pattern.test(compactText));
+  }
+  // Match the same concrete keyword pattern, not merely the shared category
+  // (e.g. fraud and insubordination both carry "misconduct").
+  const anchors = KEYWORD_TO_REASON.flatMap(([pattern]) => pattern.source.split('|'))
+    .map(source => new RegExp(source))
+    .filter(pattern => pattern.test(compactQuery));
+  if (anchors.length > 0) return anchors.some(pattern => pattern.test(compactText));
+
+  const generic = new Set(['해고', '부당해고', '징계', '부당징계', '징계해고', '징계양정',
+    '근로자', '사용자', '회사', '사건', '사례', '판정', '판례', '관련', '질문', '비교',
+    '기준', '절차', '정당', '부당', '해주세요', '알려주세요', '가능한가요', '어떻게', '있나요']);
+  const words = (query.match(/[가-힣a-zA-Z0-9]+/g) || [])
+    .map(word => word.replace(/(?:에서는|으로|에게|에서|하는|한|은|는|이|가|을|를|의|도)$/, ''))
+    .filter(word => word.length >= 3 && !generic.has(word));
+  return words.some(word => compactText.includes(word));
+}
+
+function isUsableEmbedding(vector: number[] | null, dimensions?: number): vector is number[] {
+  return !!vector && vector.length > 0 && (dimensions === undefined || vector.length === dimensions)
+    && vector.every(Number.isFinite) && vector.some(value => value !== 0);
+}
+
 function cosineSimilarity(a: number[], b: number[]): number {
   if (a.length !== b.length || a.length === 0) return 0;
   let dot = 0;
@@ -1455,25 +1486,24 @@ export async function searchCases(tags: string[], query?: string): Promise<Retri
   // 2026-05-16: Node cosine 의미 랭킹 — SKIP_RPC 환경에서 임베딩 기반 랭킹 복원.
   // reason_category로 카테고리는 좁혔지만 토픽이 안 맞는 사건(예: '기밀유출' query → '유인물배포' 사건)이 섞임.
   // queryEmbedding과 각 candidate.embedding 코사인 유사도로 topic-level 정렬.
-  if (queryEmbedding && candidates.length > 0 && !reranked) {
+  if (!reranked && candidates.length > 0) {
     const t_cos = Date.now();
     let scoredCount = 0;
-    const scored = candidates.map((c) => {
+    const validQueryEmbedding = isUsableEmbedding(queryEmbedding) ? queryEmbedding : null;
+    candidates = candidates.flatMap<Record<string, unknown>>(c => {
       const emb = parseEmbedding(c.embedding);
-      if (!emb) return { ...c, _semantic_score: -1 };
-      scoredCount++;
-      return { ...c, _semantic_score: cosineSimilarity(queryEmbedding!, emb) };
+      if (validQueryEmbedding && isUsableEmbedding(emb, validQueryEmbedding.length)) {
+        scoredCount++;
+        const similarity = cosineSimilarity(validQueryEmbedding, emb);
+        // A measured low semantic score cannot be overridden by generic words.
+        return similarity >= 0.35 ? [{ ...c, _semantic_score: similarity }] : [];
+      }
+      // Missing / malformed vectors are not a license to pad results. Preserve
+      // only direct lexical source evidence; never fabricate a semantic score.
+      return hasDirectQueryEvidence(c, query || '') ? [{ ...c, _lexical_evidence: true }] : [];
     });
-    if (scoredCount > 0) {
-      scored.sort((a, b) => Number(b._semantic_score ?? -1) - Number(a._semantic_score ?? -1));
-      // 2026-05-16: cosine threshold — 점수 너무 낮은 사건 제거 (노이즈 차단).
-      // 0.35 = text-embedding-3-small에서 같은 카테고리 안에서 어느정도 토픽 일치 기준선.
-      // 근거가 부족하면 적은 결과를 유지한다. 낮은 관련성 사건은 복원하지 않는다.
-      const SEMANTIC_THRESHOLD = 0.35;
-      const filtered = scored.filter((c) => Number(c._semantic_score ?? -1) >= SEMANTIC_THRESHOLD);
-      candidates = filtered;
-      reranked = true;
-    }
+    candidates.sort((a, b) => Number(b._semantic_score ?? -1) - Number(a._semantic_score ?? -1));
+    reranked = scoredCount > 0;
     _timing['cosine'] = Date.now() - t_cos;
     _timing['cosineScored'] = scoredCount;
   }

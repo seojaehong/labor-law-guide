@@ -1,15 +1,26 @@
 // 인용 마크 본문에서 제거 + 답변 끝에 깔끔한 "참고 자료" footer 1개로 통합
-type Citation = { type: 'FAQ' | 'CASE' | 'COURT' | 'INTERP'; id: string; href: string };
+export type EvidenceId = { type: 'FAQ' | 'CASE' | 'COURT' | 'INTERP'; id: string };
+type Citation = EvidenceId & { href: string };
 
-export function linkifyFaqCitations(text: string): string {
+export function linkifyFaqCitations(text: string, evidence: EvidenceId[] = []): string {
+  const allowed = new Set(evidence.map(({ type, id }) => `${type}-${id}`));
   const cited: Citation[] = [];
   const seen = new Set<string>();
   const push = (type: Citation['type'], id: string, href: string) => {
     const key = `${type}-${id}`;
-    if (seen.has(key)) return;
+    if (!allowed.has(key) || seen.has(key)) return;
     seen.add(key);
     cited.push({ type, id, href });
   };
+
+  // A model can also emit direct local source links; apply the same ID contract.
+  text = text.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (full, label: string, href: string) => {
+    const citation = evidence.find(item => citationHref(item) === href);
+    if (/^(?:https?:\/\/[^/]+)?\/(?:faq|decisions|cases|interpretations)(?:[/?#]|$)/.test(href)) {
+      return citation ? full : label;
+    }
+    return full;
+  });
 
   // 1) 괄호 형태: [FAQ#123, FAQ#456] / [CASE#id] / [COURT#id] / [INTERP#id]
   let out = text.replace(/\[FAQ#[\d,\sFAQ#]+\]/g, (m) => {
@@ -76,4 +87,17 @@ export function linkifyFaqCitations(text: string): string {
     out = out.trimEnd() + '\n' + footer.join('\n');
   }
   return out;
+}
+
+export function citationHref({ type, id }: EvidenceId): string {
+  if (type === 'FAQ') return `/faq?id=${encodeURIComponent(id)}`;
+  const root = { CASE: 'decisions', COURT: 'cases', INTERP: 'interpretations' }[type];
+  return `/${root}/${encodeURIComponent(id)}`;
+}
+
+export function hasVerifiedCitation(text: string, evidence: EvidenceId[]): boolean {
+  return evidence.some(({ type, id }) => {
+    const escaped = id.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    return new RegExp(`${type}#${escaped}(?=[,\\]\\s]|$)`).test(text);
+  });
 }

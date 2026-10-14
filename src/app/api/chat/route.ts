@@ -24,6 +24,8 @@ import { buildFaqContext } from '@/lib/chat/context/faq';
 import { buildNlrcCasesContext, buildCourtCasesContext } from '@/lib/chat/context/cases';
 import { buildInterpretationsContext } from '@/lib/chat/context/interpretations';
 import { buildLawsContext } from '@/lib/chat/context/laws';
+import { hasVerifiedCitation, type EvidenceId } from '@/lib/chat/citations';
+import { buildSearchQuery } from '@/lib/chat/search-query';
 import { buildNewsContext } from '@/lib/chat/context/news';
 
 // Next.js segment config: literal value 필수 (import const 불가)
@@ -31,32 +33,6 @@ export const maxDuration = 60;
 
 const db = supabaseAdmin || supabase;
 
-export function buildSearchQuery(messages: Array<{ role: string; content: string }>): {
-  searchQuery: string;
-  lastUserMsg: { role: string; content: string } | undefined;
-} {
-  const lastUserIndex = messages.map((m) => m.role).lastIndexOf('user');
-  const lastUserMsg = messages[lastUserIndex];
-  let searchQuery = lastUserMsg?.content || '';
-
-  if (lastUserMsg && messages.length > 1) {
-    const isShortFollowup =
-      lastUserMsg.content.length < 30 ||
-      /^(그럼|그러면|그건|이건|왜|어떻게|네\?|뭐|아|그|이)\s/.test(lastUserMsg.content);
-    if (isShortFollowup) {
-      const prevUsers = messages
-        .slice(0, lastUserIndex)
-        .filter((m) => m.role === 'user')
-        .slice(-1);
-      if (prevUsers.length > 0) {
-        const previousBudget = Math.max(0, 300 - lastUserMsg.content.length - 1);
-        searchQuery = `${prevUsers[0].content.slice(-previousBudget)} ${lastUserMsg.content}`;
-        if (previousBudget === 0) searchQuery = lastUserMsg.content;
-      }
-    }
-  }
-  return { searchQuery, lastUserMsg };
-}
 
 async function getQueryEmbedding(text: string): Promise<number[] | null> {
   const openaiKey = process.env.OPENAI_API_KEY;
@@ -202,6 +178,7 @@ export async function POST(req: NextRequest) {
     let faqContext = '';
     let caseContext = '';
     let topFaqIds: number[] = [];
+    let evidence: EvidenceId[] = [];
     let situationContext = '';
     let prevProfile: UserSituation = {};
     let mergedProfile: UserSituation = {};
@@ -288,6 +265,12 @@ export async function POST(req: NextRequest) {
       mark.search = Date.now() - t0;
       faqContext = faq.context;
       topFaqIds = faq.topIds;
+      evidence = [
+        ...topFaqIds.map(id => ({ type: 'FAQ' as const, id: String(id) })),
+        ...(nlrc.value.evidenceIds ?? []).map(id => ({ type: 'CASE' as const, id })),
+        ...(court.value.evidenceIds ?? []).map(id => ({ type: 'COURT' as const, id })),
+        ...(interp.value.evidenceIds ?? []).map(id => ({ type: 'INTERP' as const, id })),
+      ];
       // 조문을 앞에 둔다 — 1차 자료이고, 뒤쪽은 길어서 잘릴 수 있다
       caseContext = laws.value.ctx + nlrc.value.ctx + interp.value.ctx + court.value.ctx;
 
@@ -363,6 +346,7 @@ export async function POST(req: NextRequest) {
     const stream = new ReadableStream({
       async start(controller) {
         try {
+        controller.enqueue(encoder.encode(`data: ${JSON.stringify({ evidence })}\n\n`));
         const lastRoundInfo: RoundInfo = { provider: 'unknown', vertexFailMs: 0 };
         let assembledAnswer = '';
         let streamFailed = false;
@@ -466,10 +450,7 @@ export async function POST(req: NextRequest) {
           // A pre-tool explanation is not the final answer after tool execution.
           const finalAnswerComplete = !streamFailed && finalBodyLength >= 50 &&
             (r1ToolCalls === 0 || r2Ran && r2ToolCalls === 0);
-          const hasCitation =
-            /\[FAQ#\d+|\[CASE#[A-Za-z0-9_\-]+|\[COURT#[^\]]+\]|\[INTERP#[^\]]+\]/.test(
-              assembledAnswer
-            );
+          const hasCitation = hasVerifiedCitation(assembledAnswer, evidence);
           if (!finalAnswerComplete) {
             // 본문 비어있음 — empty completion / round 2 silent fail / round 2 tool_call 미처리
             console.warn('[chat] empty answer body', {

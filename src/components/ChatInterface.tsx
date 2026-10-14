@@ -10,6 +10,7 @@ import TurnstileWidget from './TurnstileWidget';
 interface Message {
   role: 'user' | 'assistant';
   content: string;
+  evidence?: EvidenceId[];
 }
 
 type ProfileMap = Record<string, unknown>;
@@ -24,7 +25,7 @@ const PROFILE_LABELS: Record<string, string> = {
   timeline: '시점',
 };
 
-import { linkifyFaqCitations } from '@/lib/chat/citations';
+import { linkifyFaqCitations, type EvidenceId } from '@/lib/chat/citations';
 
 
 function formatProfileValue(key: string, value: unknown): string {
@@ -61,7 +62,8 @@ async function streamChat(
   onChunk: (text: string) => void,
   onDone: () => void,
   onError: (msg: string, info?: { status?: number; scope?: string }) => void,
-  turnstileToken: string | null
+  turnstileToken: string | null,
+  onEvidence: (evidence: EvidenceId[]) => void
 ) {
   const sessionId = getSessionId();
   const res = await fetch('/api/chat', {
@@ -100,6 +102,12 @@ async function streamChat(
 
   const decoder = new TextDecoder();
   let buffer = '';
+  let receivedDone = false;
+  let reportedError = false;
+  const reportError = (message: string) => {
+    if (!reportedError) onError(message);
+    reportedError = true;
+  };
 
   try {
     while (true) {
@@ -114,17 +122,21 @@ async function streamChat(
         const trimmed = line.trim();
         if (!trimmed || !trimmed.startsWith('data: ')) continue;
         const data = trimmed.slice(6);
-        if (data === '[DONE]') { onDone(); return; }
+        if (data === '[DONE]') { receivedDone = true; return; }
 
         try {
           const parsed = JSON.parse(data);
+          if (Array.isArray(parsed.evidence)) onEvidence(parsed.evidence);
           if (parsed.content) onChunk(parsed.content);
-          if (parsed.error) onError(parsed.error);
+          if (parsed.error) reportError(parsed.error);
         } catch {
           // skip malformed
         }
       }
     }
+    if (!receivedDone) reportError('답변 전송이 중단되었습니다. 표시된 내용은 일부 답변입니다. 다시 시도해주세요.');
+  } catch {
+    reportError('답변 전송 중 오류가 발생했습니다. 다시 시도해주세요.');
   } finally {
     onDone();
   }
@@ -209,8 +221,11 @@ export default function ChatInterface({ injectedQuestion }: { injectedQuestion?:
         setMessages(prev => {
           const updated = [...prev];
           const last = updated[updated.length - 1];
-          if (last.role === 'assistant' && !last.content) {
-            updated[updated.length - 1] = { ...last, content: errorMsg };
+          if (last.role === 'assistant') {
+            updated[updated.length - 1] = {
+              ...last,
+              content: last.content ? `${last.content}\n\n⚠️ ${errorMsg}` : errorMsg,
+            };
           }
           return updated;
         });
@@ -221,6 +236,12 @@ export default function ChatInterface({ injectedQuestion }: { injectedQuestion?:
         }
       },
       turnstileToken,
+      evidence => setMessages(prev => {
+        const updated = [...prev];
+        const last = updated[updated.length - 1];
+        if (last?.role === 'assistant') updated[updated.length - 1] = { ...last, evidence };
+        return updated;
+      }),
     );
     // 토큰은 1회용 — 비우고 widget reset으로 새 token 발급 (랜덤 token_missing 차단)
     setTurnstileToken(null);
@@ -306,7 +327,7 @@ export default function ChatInterface({ injectedQuestion }: { injectedQuestion?:
             >
               {msg.role === 'assistant' ? (
                 msg.content ? (
-                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{linkifyFaqCitations(msg.content)}</ReactMarkdown>
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{linkifyFaqCitations(msg.content, msg.evidence)}</ReactMarkdown>
                 ) : (
                   <span className="inline-flex items-center gap-2 text-sm" style={{ color: 'var(--color-text-tertiary)' }}>
                     <Loader2 size={14} className="animate-spin" />

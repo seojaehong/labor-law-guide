@@ -77,6 +77,48 @@ describe('retrieval request and evidence contract (offline)', () => {
     expect(result.cases.map(c => c.id)).toEqual(['id_0', 'id_1', 'id_2', 'id_3', 'id_4']);
   });
 
+  it('without embeddings rejects broad-category hard negatives and keeps direct source evidence', async () => {
+    vi.stubEnv('OPENAI_API_KEY', '');
+    mocks.rows = [
+      { ...fixture('id_direct', 0.8), embedding: undefined },
+      { ...fixture('id_broad', 0.8), embedding: undefined, title: '징계해고 횡령 사건',
+        holding_points: '공금 횡령과 회계 부정에 관한 징계 사유를 검토하고 해고의 정당성을 판단한 사건입니다.' },
+      { ...fixture('id_missing_category', 0.8), embedding: undefined, reason_category: [],
+        title: '업무 지시 불이행', holding_points: '근로자가 상사의 업무 지시를 반복적으로 따르지 않아 징계위원회가 해고를 결정한 사건입니다.' },
+    ];
+    const result = await searchCases(['징계해고'], '기밀 유출에 따른 징계 판단');
+    expect(mocks.fetch).not.toHaveBeenCalled();
+    expect(result.cases.map(c => c.id)).toEqual(['id_direct']);
+    expect(result.allCases[0]._lexical_evidence).toBe(true);
+    expect(result.allCases[0]).not.toHaveProperty('_semantic_score');
+  });
+
+  it.each([undefined, [1, 0, 0], [0, 0], [Number.NaN, 0], 'invalid'])
+    ('requires direct lexical evidence for a missing or invalid vector %j', async embedding => {
+      mocks.rows = [
+        { ...fixture('id_direct', 0.8), embedding },
+        { ...fixture('id_unrelated', 0.8), embedding, title: '회계 부정 징계',
+          holding_points: '공금 횡령과 회계 부정에 관한 징계 사유를 검토하고 해고의 정당성을 판단한 사건입니다.' },
+      ];
+      const result = await searchCases(['징계해고'], `기밀유출 손상벡터 질문 ${String(embedding)}`);
+      expect(result.cases.map(c => c.id)).toEqual(['id_direct']);
+      expect(result.allCases[0]).not.toHaveProperty('_semantic_score');
+    });
+
+  it('uses lexical positives alongside measured semantic evidence without resurrecting low scores', async () => {
+    mocks.rows = [fixture('id_semantic', 0.8),
+      { ...fixture('id_lexical', 0.8), embedding: undefined }, fixture('id_low', 0.2)];
+    const result = await searchCases(['징계해고'], '기밀유출 혼합 근거 질문');
+    expect(result.cases.map(c => c.id)).toEqual(['id_semantic', 'id_lexical']);
+  });
+
+  it('does not accept a generic disciplinary query as lexical proof', async () => {
+    vi.stubEnv('OPENAI_API_KEY', '');
+    mocks.rows = [{ ...fixture('id_broad_only', 0.8), embedding: undefined }];
+    const result = await searchCases(['징계해고'], '해고 징계 사례 알려주세요');
+    expect(result.cases).toEqual([]);
+  });
+
   it('never uses empty holding stubs as evidence', async () => {
     mocks.rows = [{ ...fixture('id_stub', 0.9), holding_points: '별지 기재 참조' }];
     const result = await searchCases(['징계해고'], '기밀유출 빈 본문 질문');
