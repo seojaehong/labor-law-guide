@@ -254,10 +254,12 @@ export default async function InterpretationDetailPage({
               </div>
             )}
 
+            <p className="mb-4 text-sm" style={{ color: 'var(--grey-700)' }}>수집 내용입니다. 전문 여부와 구획·문단·표의 원형 보존은 확인되지 않았으며, 앞뒤 누락이나 단어 공백 손상이 있을 수 있습니다. 원문 출처와 대조하세요.</p>
+
             {summary && (
               <section className="editorial-evidence">
                 <h2 className="text-[15px] font-bold mb-3" style={{ color: 'var(--color-text-primary)' }}>
-                  해석 요지
+                  질의·요약 (수집 내용)
                 </h2>
                 <div
                   className="editorial-evidence-body"
@@ -270,7 +272,7 @@ export default async function InterpretationDetailPage({
             {detail && detail !== summary && (
               <section className="editorial-evidence">
                 <h2 className="text-[15px] font-bold mb-3" style={{ color: 'var(--color-text-primary)' }}>
-                  판단 요지
+                  회시·판단 (수집 내용)
                 </h2>
                 <div
                   className="editorial-evidence-body"

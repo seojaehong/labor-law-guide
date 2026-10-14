@@ -20,7 +20,7 @@ export default function MarkdownSnippet({ value, variant = 'snippet' }: { value:
           h3: ({ children, id, className }) => <p id={id} className={className === 'sr-only' ? 'sr-only' : 'font-semibold'} style={{ color: 'var(--color-text-primary)' }}>{children}</p>,
           h4: ({ children, id, className }) => <p id={id} className={className === 'sr-only' ? 'sr-only' : 'font-semibold'} style={{ color: 'var(--color-text-primary)' }}>{children}</p>,
           strong: ({ children }) => <strong className="font-semibold" style={{ color: 'var(--color-text-primary)' }}>{children}</strong>,
-          table: ({ children, ...props }) => <div className="reading-table-scroll" role="region" aria-label="본문 표" tabIndex={0}><table {...props}>{children}</table></div>,
+          table: ({ children, id, className }) => <div className="reading-table-scroll" role="region" aria-label="본문 표" tabIndex={0}><table id={id} className={className}>{children}</table></div>,
           hr: () => <hr className="my-2 border-t" style={{ borderColor: 'var(--color-border)' }} />,
         }}
       >

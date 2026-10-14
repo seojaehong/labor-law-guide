@@ -1,3 +1,4 @@
+import { publicSourceUrl } from "@/lib/public-source-url";
 import { realCaseNumber } from "@/app/decisions/SearchResults";
 import { publicMetadata } from '@/lib/public-metadata';
 import { unwrapSourceAnnotations } from "@/lib/legal-display-text";
@@ -484,7 +485,7 @@ export default async function DecisionPage({
           verdict_type: null,
           holding_points: d.holding_points,
           summary: d.holding_summary || d.summary_short,
-          url: d.url,
+          url: publicSourceUrl(d.original_url) || publicSourceUrl(d.url),
           keywords_matched: d.tags,
           reason_category: d.reason_category,
           issue_type_primary: d.issue_type_primary,
@@ -610,7 +611,8 @@ export default async function DecisionPage({
           <section id="decision-summary" className="scroll-mt-24 space-y-4">
             {summaryText ? (
               <Card className="p-4 bg-muted/50">
-                <h3 className="font-semibold text-sm mb-2">{getSummaryLabel(decisionSource)}</h3>
+                <h3 className="font-semibold text-sm mb-2">{getSummaryLabel(decisionSource)} · 저장된 요약</h3>
+                <p className="text-sm mb-3">원문이 아닌 정리본이며, 저장된 요약의 끝부분이 잘려 있을 수 있습니다.</p>
                 <div>{renderHoldingBlocks(summaryText)}</div>
               </Card>
             ) : null}
@@ -630,6 +632,10 @@ export default async function DecisionPage({
                 {hasRealFulltext ? "수집 본문 · 완전성 미확인" : "정리본 · 원문 미확보"}
               </Badge>
             </div>
+
+            <p className="mb-3 text-sm">
+              {publicSourceUrl(c.url) ? <a href={publicSourceUrl(c.url)!} target="_blank" rel="noopener noreferrer" className="underline">외부 출처 보기 · 전문 여부 미확인</a> : "외부 출처 URL을 확보하지 못했습니다."}
+            </p>
 
             {bodySections.length > 0 ? (
               <Card className="p-4 mb-4">

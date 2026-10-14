@@ -53,11 +53,9 @@ export function getPreferredDetail(item: {
 export function normalizeSnippetMarkdown(raw: string): string {
   return unwrapSourceAnnotations(raw)
     .replace(/^#{1,4}\s+(.+)$/gm, '**$1**')
-    .replace(/([^\n])([가-힣]\.\s)/g, '$1\n\n$2')
     .replace(/([^\n])(①|②|③|④|⑤|⑥|⑦|⑧|⑨|⑩)/g, '$1\n$2')
     .replace(/([^\n])(□\s)/g, '$1\n\n$2')
     .replace(/\n{3,}/g, '\n\n')
-    .replace(/^[ \t]+/gm, '')
     .trim();
 }
 
