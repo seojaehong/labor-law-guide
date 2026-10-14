@@ -24,3 +24,7 @@ it('collected HTML preserves tables/tails while stripping active content and pri
 it('checks candidates independently, never relabels a private URL as official',()=>{
  const html=renderToStaticMarkup(createElement(OfficialSourceLink,{urls:['https://bigcase.ai/1','https://labor.moel.go.kr/cmmt/iqrs_detail.do?id=18820']}));expect(html).toContain('고용노동부');expect(html).not.toContain('bigcase');expect(html).not.toContain('법제처');
 });
+it('blocks the trailing-DNS-dot private host even with an ordinary case-number label',()=>{
+ const html=renderToStaticMarkup(createElement(MarkdownSnippet,{value:'[2023가단135177](https://bigcase.ai./cases/example) [상대 주소](//bigcase.ai./cases/example) [출처로](#source-text)'}));
+ expect(html).not.toContain('href="https://bigcase.ai.');expect(html).not.toContain('href="//bigcase.ai.');expect(html).toContain('2023가단135177');expect(html).toContain('공식 원문 미확인');expect(html).toContain('href="#source-text"');
+});
