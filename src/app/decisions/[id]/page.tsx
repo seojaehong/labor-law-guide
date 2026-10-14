@@ -1,3 +1,4 @@
+import { realCaseNumber } from "@/app/decisions/SearchResults";
 import { publicMetadata } from '@/lib/public-metadata';
 import { unwrapSourceAnnotations } from "@/lib/legal-display-text";
 import { supabase } from "@/lib/supabase";
@@ -46,7 +47,7 @@ export async function generateMetadata({
   // nlrc_decisions만 빠르게 lookup (lawgo/bigcase는 일시 노출 중단)
   const { data: d } = await supabase
     .from("nlrc_decisions")
-    .select("title, case_number, key_issue, holding_summary, holding_points, decision_result, reason_category, issue_type_primary")
+    .select("title, case_number, case_number_real, case_number_qualified, key_issue, holding_summary, holding_points, decision_result, reason_category, issue_type_primary")
     .eq("id", id)
     .maybeSingle();
 
@@ -60,7 +61,7 @@ export async function generateMetadata({
     });
   }
 
-  const caseNum = (d.case_number && !/^id_/i.test(d.case_number)) ? d.case_number : "";
+  const caseNum = realCaseNumber(d.case_number_qualified, d.case_number_real, d.case_number) || "";
   const isCourtCase = resolveDecisionSourceContract({id}).provider !== "nlrc";
   const result = !isCourtCase && d.decision_result ? (RESULT_LABELS[d.decision_result as DecisionResult] || d.decision_result) : "";
   const pickedReason = pickReason(Array.isArray(d.reason_category) ? d.reason_category : null, d.issue_type_primary);
@@ -209,11 +210,6 @@ function normalizeHoldingSummary(rawSummary: string): string {
   return `${intro}\n\n쟁점\n${issue}\n\n판단\n${judgment}`.trim();
 }
 
-function getSourceStatusLabel(hasDetailedHoldingPoints: boolean, hasHoldingPoints: boolean) {
-  if (hasDetailedHoldingPoints) return "서비스 내 추출 원문 제공";
-  if (hasHoldingPoints) return "추출 원문 일부 제공";
-  return "서비스 내 정리본 제공";
-}
 
 function getSummaryLabel(source: DecisionSourceProvider) {
   return source === "bigcase" || source === "lawgo" ? "판결요지" : "판정요지";
@@ -257,11 +253,17 @@ type LawgoSection = {
   index?: number;
 };
 
+function validSourceSections(value: unknown): LawgoSection[] {
+  if (!Array.isArray(value)) return [];
+  // Reject malformed/boilerplate sections; preserve the accepted source text verbatim.
+  return value.filter((section): section is LawgoSection => section && typeof section.text === "string" && section.text.trim().length > 0 && (!section.title || typeof section.title === "string") && !isPaywallText(section.text) && !isPyReprText(section.text));
+}
+
 function renderLawgoSections(sections: LawgoSection[]) {
-  return sections.map((section, index) => (
+  return sections.filter((section) => section && typeof section.text === "string" && (!section.title || typeof section.title === "string")).map((section, index) => (
     <div key={`${section.type || "body"}-${section.index ?? index}`} className="mb-5 last:mb-0">
       {section.title ? <h3 className="font-semibold text-sm mb-2">{unwrapSourceAnnotations(section.title)}</h3> : null}
-      <p className="reading-prose whitespace-pre-wrap">{unwrapSourceAnnotations(section.text || "")}</p>
+      <p className="reading-prose whitespace-pre-wrap break-words overflow-x-auto">{unwrapSourceAnnotations(section.text || "")}</p>
     </div>
   ));
 }
@@ -327,7 +329,7 @@ export default async function DecisionPage({
       return <div className="p-8">판례를 찾을 수 없습니다.</div>;
     }
 
-    const sections = Array.isArray(document?.body_sections) ? (document.body_sections as LawgoSection[]) : [];
+    const sections = validSourceSections(document?.body_sections);
 
     return (
       <main className="min-h-screen bg-background">
@@ -413,10 +415,10 @@ export default async function DecisionPage({
               <div>
                 <h2 className="font-semibold">원문·출처</h2>
                 <p className="text-sm text-muted-foreground mt-1">
-                  법제처 판례 본문과 메타 정보를 내부에서 확인하세요.
+                  확보한 본문과 출처를 확인하세요. 전문 여부와 문단·표의 원형 보존은 확인되지 않았습니다.
                 </p>
               </div>
-              <Badge variant="outline">서비스 내 원문 제공</Badge>
+              <Badge variant="outline">수집 본문 · 완전성 미확인</Badge>
             </div>
 
             <Card className="p-4 mb-4">
@@ -430,7 +432,7 @@ export default async function DecisionPage({
 
             <Card className="p-4 bg-muted/40">
               <p className="text-sm text-muted-foreground">
-                위 원문은 법제처 공식 판례 API를 기준으로 수집해 사이트 내 노출하는 내용입니다.
+                법제처 공식 판례 API에서 수집한 내용입니다. 앞뒤 누락 및 표·공백 변형 가능성이 있으므로 공식 출처와 대조하세요.
               </p>
             </Card>
           </section>
@@ -471,13 +473,13 @@ export default async function DecisionPage({
         .select("*")
         .eq("id", id)
         .maybeSingle();
-      if (d) {
+      if (d && id.startsWith("bc_")) {
         c = {
           id: d.id,
           title: d.title,
           court: d.department,
           decision_date: d.decision_date,
-          case_number: d.case_number,
+          case_number: realCaseNumber(d.case_number_qualified, d.case_number_real, d.case_number),
           // Imported values follow the NLRC result schema, not a verified court outcome.
           verdict_type: null,
           holding_points: d.holding_points,
@@ -525,7 +527,7 @@ export default async function DecisionPage({
       const clean = typeof d.full_text_clean === "string" ? d.full_text_clean.trim() : "";
       if (clean.length >= 1000 && !isPaywallText(clean) && !isPyReprText(clean)) {
         realFulltext = clean;
-        const sections = Array.isArray(d.body_sections) ? (d.body_sections as LawgoSection[]) : [];
+        const sections = validSourceSections(d.body_sections);
         if (sections.length > 0) bodySections = sections;
         break;
       }
@@ -535,7 +537,7 @@ export default async function DecisionPage({
         const raw = typeof d.full_text_raw === "string" ? d.full_text_raw.trim() : "";
         if (raw.length >= 1000 && !isPaywallText(raw) && !isPyReprText(raw)) {
           realFulltext = raw;
-          const sections = Array.isArray(d.body_sections) ? (d.body_sections as LawgoSection[]) : [];
+          const sections = validSourceSections(d.body_sections);
           if (sections.length > 0) bodySections = sections;
           break;
         }
@@ -619,24 +621,24 @@ export default async function DecisionPage({
           <section id="source-text" className="scroll-mt-24">
             <div className="flex items-start justify-between gap-4 mb-3">
               <div>
-                <h2 className="font-semibold">판결 원문</h2>
+                <h2 className="font-semibold">수집 본문·요약 및 출처</h2>
                 <p className="text-sm text-muted-foreground mt-1">
-                  법원 판례 원문을 사이트 내에서 그대로 확인하세요.
+                  확보한 수집 내용입니다. 전문 여부와 앞뒤 누락, 문단·표·공백의 원형 보존은 확인되지 않았습니다.
                 </p>
               </div>
               <Badge variant="outline">
-                {hasRealFulltext ? "원본 본문" : getSourceStatusLabel(hasDetailedHoldingPoints, hasHoldingPoints)}
+                {hasRealFulltext ? "수집 본문 · 완전성 미확인" : "정리본 · 원문 미확보"}
               </Badge>
             </div>
 
             {bodySections.length > 0 ? (
               <Card className="p-4 mb-4">
-                <h3 className="font-semibold text-sm mb-3">법원 판례 원문</h3>
+                <h3 className="font-semibold text-sm mb-3">확보한 수집 본문</h3>
                 <div>{renderLawgoSections(bodySections)}</div>
               </Card>
             ) : realFulltext ? (
               <Card className="p-4 mb-4">
-                <h3 className="font-semibold text-sm mb-3">법원 판례 원문</h3>
+                <h3 className="font-semibold text-sm mb-3">확보한 수집 본문</h3>
                 <p className="reading-prose whitespace-pre-wrap">{unwrapSourceAnnotations(realFulltext)}</p>
               </Card>
             ) : hasDetailedHoldingPoints ? (
@@ -656,7 +658,7 @@ export default async function DecisionPage({
                 <div className="space-y-3">
                   {hasHoldingPoints ? (
                     <div>
-                      <p className="text-xs font-medium text-muted-foreground mb-1">추출된 원문 일부</p>
+                      <p className="text-xs font-medium text-muted-foreground mb-1">판결요지 정리 · 원문 아님</p>
                       <div>{renderHoldingBlocks(holdingPointsText)}</div>
                     </div>
                   ) : null}
@@ -687,7 +689,7 @@ export default async function DecisionPage({
     notFound();
   }
 
-  const displayCaseNumber = getDisplayCaseNumber(d.case_number);
+  const displayCaseNumber = getDisplayCaseNumber(realCaseNumber(d.case_number_qualified, d.case_number_real, d.case_number));
   const holdingPointsText = typeof d.holding_points === "string" ? d.holding_points.trim() : "";
   const rawHoldingSummary = typeof d.holding_summary === "string" ? d.holding_summary.trim() : "";
   const holdingSummaryText = normalizeHoldingSummary(rawHoldingSummary);

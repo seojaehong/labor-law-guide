@@ -71,19 +71,21 @@ export function resolveDecisionSourceContract(input: {
   id?: string | null;
   sourceProvider?: unknown;
 }): DecisionSourceResolution {
-  const provider = normalizeDecisionSourceProvider(input.sourceProvider) ?? detectDecisionSourceProvider(input.id ?? '');
+  const detected = detectDecisionSourceProvider(input.id ?? '');
+  // A URL hint cannot contradict a known provider prefix. Legacy IDs may retain a hint.
+  const provider = detected !== 'nlrc' || /^(?:id_|el_|nlrc_)/.test(input.id ?? '') ? detected : normalizeDecisionSourceProvider(input.sourceProvider) ?? detected;
   const contract = DECISION_SOURCE_CONTRACTS[provider];
   const id = input.id ?? '';
 
   return {
     ...contract,
     id,
-    routePath: id ? `/decisions/${id}` : '/decisions',
+    routePath: id ? `/decisions/${encodeURIComponent(id)}` : '/decisions',
   };
 }
 
 export function getDecisionDetailRoutePath(id: string) {
-  return `/decisions/${id}`;
+  return `/decisions/${encodeURIComponent(id)}`;
 }
 
 export function getDecisionSourceLabel(provider: DecisionSourceProvider) {

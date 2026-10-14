@@ -1,7 +1,10 @@
 import { expect, test } from '@playwright/test';
 import { REASON_LABELS } from '../../src/lib/types';
 const rows = 'main li a[href^="/decisions/fixture-"]';
-test.beforeEach(async ({ request }) => { await request.get('http://127.0.0.1:4319/control?fail=0'); });
+async function blockExternal(context: import('@playwright/test').BrowserContext) {
+  await context.route('**/*', route => { const url=new URL(route.request().url()); return ['127.0.0.1','localhost'].includes(url.hostname) && !url.pathname.startsWith('/api/') ? route.continue() : route.abort(); });
+}
+test.beforeEach(async ({ request,context }) => { await blockExternal(context); await request.get('http://127.0.0.1:4319/control?fail=0'); });
 test('cards, pagination, history, all enums, form reset and metadata', async ({page}) => {
   await page.goto('/decisions');
   await expect(page.locator('meta[name=robots]')).toHaveAttribute('content','index, follow');
@@ -57,6 +60,7 @@ test('invalid, unsupported, empty, errors and retry', async ({page,request}) => 
 });
 test('mobile and no-JavaScript links', async ({browser}) => {
   const context=await browser.newContext({javaScriptEnabled:false,viewport:{width:360,height:800}});
+  await blockExternal(context);
   const page=await context.newPage();await page.goto('/decisions');
   await page.locator('main a[href="/decisions?reason=no_dismissal"]').click();await expect(page.locator(rows)).toHaveCount(20);
   await page.getByRole('link',{name:'다음 →',exact:true}).click();await expect(page).toHaveURL(/reason=no_dismissal&page=2$/);

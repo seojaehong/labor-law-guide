@@ -13,3 +13,12 @@ it('keeps representative and related tags but suppresses unverified court outcom
  const html=renderToStaticMarkup(await DecisionPage({params:Promise.resolve({id:stored.id})}));
  expect(html).toContain('대표 유형: 비위행위');expect(html).toContain('함께 저장된 유형');expect(html).toContain('관련 태그');expect(html).toContain('기존 관련 태그');expect(html).not.toContain('granted');expect(html).not.toContain('0001-01-01');expect(html).toContain('날짜 미확인');
 });
+it('a URL hint cannot present an ordinary NLRC row as a court fallback',async()=>{
+ const html=renderToStaticMarkup(await DecisionPage({params:Promise.resolve({id:'ordinary_fixture'}),searchParams:Promise.resolve({source:'bigcase'})}));
+ expect(html).toContain('판결을 찾을 수 없습니다.');expect(html).not.toContain('합성 법원 자료');
+});
+it('does not promise complete original text from accepted source documents',async()=>{
+ mock.from.mockImplementation((table:string)=>query(table==='nlrc_decisions'?stored:table==='decision_source_documents'?[{full_text_clean:'합성 수집 본문 '.repeat(200),body_sections:[null,{text:42},{title:'문단',text:'  표 셀\t값\n다음 줄'}]}]:null));
+ const html=renderToStaticMarkup(await DecisionPage({params:Promise.resolve({id:stored.id})}));
+ expect(html).toContain('완전성 미확인');expect(html).toContain('전문 여부');expect(html).not.toContain('그대로 확인하세요');expect(html).toContain('표 셀');
+});

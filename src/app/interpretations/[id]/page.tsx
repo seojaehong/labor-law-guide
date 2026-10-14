@@ -1,3 +1,4 @@
+import { serializeJsonLd } from "@/lib/safe-json-ld";
 import { publicMetadata } from '@/lib/public-metadata';
 import type { Metadata } from 'next';
 import Link from 'next/link';
@@ -184,7 +185,7 @@ export default async function InterpretationDetailPage({
     <>
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        dangerouslySetInnerHTML={{ __html: serializeJsonLd(jsonLd) }}
       />
 
       <div className="layout-reading layout-reading--with-rail editorial-document">

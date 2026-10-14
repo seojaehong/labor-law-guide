@@ -79,11 +79,13 @@ export default async function DecisionsIndexPage(
       </p>
 
       {/* 자바스크립트 없이 동작하는 GET 폼 — 검색 결과도 서버가 그린다 */}
-      {reasonProvided ? <p className="mb-2 text-sm">전체 자료에서 검색</p> : null}
+      {reasonProvided ? <p className="mb-2 text-sm">노동위·법원 통합 자료에서 검색</p> : null}
       <form action="/decisions" method="get" className="mb-6 flex gap-2">
         {!reasonProvided && type !== "nlrc" ? <input type="hidden" name="type" value={type} /> : null}
         <input
           type="search"
+          minLength={2}
+          maxLength={60}
           name="q"
           defaultValue={q}
           placeholder="쟁점, 사건번호로 검색 (예: 징계 절차, 경남2025부해9127)"
@@ -106,7 +108,7 @@ export default async function DecisionsIndexPage(
         <div>
           <p>유형과 키워드 또는 다른 자료 종류를 함께 지정할 수 없습니다.</p>
           <Link href={categoryHref(reason)}>해당 유형 보기</Link>{" · "}
-          <Link href={tabHref(q, type)}>전체 자료 검색</Link>
+          <Link href={tabHref(q, type)}>노동위·법원 통합 자료 검색</Link>
         </div>
       ) : reason ? <CategoryView reason={reason} page={page} />
         : q ? <SearchView q={q} type={type} page={page} /> : type!=="nlrc" ? <><SearchTabs q="" type={type} /><p className="py-10 text-sm">선택한 자료에서 찾을 검색어를 입력하세요.</p></> : <HubView />}
@@ -137,6 +139,7 @@ function SearchTabs({q,type}:{q:string;type:Kind}) {
 }
 
 async function SearchView({ q, type, page }: { q: string; type: Kind; page: number }) {
+  if (q.replace(/[%_\\'"();]/g, " ").trim().length < 2) return <><SearchTabs q={q} type={type} /><p className="py-10 text-sm">검색 가능한 글자를 두 글자 이상 입력하세요. 검색어는 최대 60자입니다.</p></>;
   const result = await runSearch(q, type, page);
   if (!result.ok) return <><SearchTabs q={q} type={type} /><LoadError href={pageHref(q, type, page)} /></>;
   const { rows, hasMore } = result;
@@ -147,7 +150,8 @@ async function SearchView({ q, type, page }: { q: string; type: Kind; page: numb
 
       {rows.length === 0 ? (
         <div className="py-16 text-center text-sm" style={{ color: "var(--color-text-tertiary)" }}>
-          <p className="mb-1">「{q}」에 해당하는 결과가 없습니다.</p>
+          <p className="mb-1">{page > 1 ? "이 페이지에 결과가 없습니다." : `「${q}」에 해당하는 결과가 없습니다.`}</p>
+          {page > 1 ? <Link href={pageHref(q, type)}>첫 페이지로 돌아가기</Link> : null}
           <p>다른 낱말로 찾거나 위 탭에서 다른 자료를 보세요.</p>
         </div>
       ) : (
