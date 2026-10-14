@@ -1,3 +1,6 @@
+import { normalizeHoldingSummary, isFullyCovered } from "@/lib/holding-summary";
+import OfficialSourceLink from "@/components/OfficialSourceLink";
+import { realCaseNumber } from "@/app/decisions/SearchResults";
 import { publicMetadata } from '@/lib/public-metadata';
 import { unwrapSourceAnnotations } from "@/lib/legal-display-text";
 import { supabase } from "@/lib/supabase";
@@ -16,6 +19,8 @@ import {
 } from "@/lib/types";
 import { parseHoldingText, stripMarkdownFormatting } from "@/lib/format-holding";
 import { pickReason } from "@/lib/reason-pick";
+import DecisionReasonBadges from '../DecisionReasonBadges';
+import {decisionDate} from '@/lib/decision-date';
 import { getDecisionSourceLabel, resolveDecisionSourceContract, type DecisionSourceProvider } from "@/lib/search/source-contracts";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
@@ -44,7 +49,7 @@ export async function generateMetadata({
   // nlrc_decisions만 빠르게 lookup (lawgo/bigcase는 일시 노출 중단)
   const { data: d } = await supabase
     .from("nlrc_decisions")
-    .select("title, case_number, key_issue, holding_summary, holding_points, decision_result, reason_category, issue_type_primary")
+    .select("title, case_number, case_number_real, case_number_qualified, key_issue, holding_summary, holding_points, decision_result, reason_category, issue_type_primary")
     .eq("id", id)
     .maybeSingle();
 
@@ -58,8 +63,9 @@ export async function generateMetadata({
     });
   }
 
-  const caseNum = (d.case_number && !/^id_/i.test(d.case_number)) ? d.case_number : "";
-  const result = REASON_LABELS && d.decision_result ? (RESULT_LABELS[d.decision_result as DecisionResult] || d.decision_result) : "";
+  const caseNum = realCaseNumber(d.case_number_qualified, d.case_number_real, d.case_number) || "";
+  const isCourtCase = resolveDecisionSourceContract({id}).provider !== "nlrc";
+  const result = !isCourtCase && d.decision_result ? (RESULT_LABELS[d.decision_result as DecisionResult] || d.decision_result) : "";
   const pickedReason = pickReason(Array.isArray(d.reason_category) ? d.reason_category : null, d.issue_type_primary);
   const reasonLabel = pickedReason ? (REASON_LABELS[pickedReason as ReasonCategory] || pickedReason) : "";
   // 마크다운 잔존 제거 — key_issue/holding_summary에 #, **, - 가 들어있어 SEO title이 깨짐
@@ -85,7 +91,6 @@ export async function generateMetadata({
   //  id_ (노동위 판정례): 사건번호의 72%가 2018부해OOO 로 마스킹돼 있어 검색어와
   //    절대 매칭되지 않는다. 앞에 둬봐야 자리만 차지하므로 쟁점을 앞세운다.
   // 한글 SERP 는 약 35자에서 잘리므로 브랜드 접미사는 붙이지 않는다.
-  const isCourtCase = /^bc_/i.test(id);
 
   // 한글 검색결과는 약 35자에서 잘린다. 앞서 34/38자로 자르고 뒤에 사건번호와
   // 판정결과를 덧붙였더니 전수 시뮬레이션에서 99%가 35자를 넘었다(중앙값 45자).
@@ -175,44 +180,6 @@ function isPyReprText(text: string): boolean {
   return text.includes("'item':") && text.includes("'content':");
 }
 
-// holding_summary가 ingestion에서 "{원본}\n\n쟁점: X\n판단: Y" 형태로 저장되며
-// X/Y가 동일하거나 원본과 prefix 동일한 케이스(8,271건/14%)가 다수.
-// 같은 텍스트 중복 노출 방지를 위해 정규화 — 쟁점=판단이면 한 번만, intro와 같으면 intro만.
-function normalizeHoldingSummary(rawSummary: string): string {
-  if (!rawSummary) return "";
-  const text = rawSummary.trim();
-  const match = text.match(/^([\s\S]*?)\n+쟁점:\s*([\s\S]*?)\n+판단:\s*([\s\S]*)$/);
-  if (!match) return text;
-
-  const intro = match[1].trim();
-  const issue = match[2].trim();
-  const judgment = match[3].trim();
-
-  // 쟁점 ≈ 판단 (정확히 같거나 한쪽이 다른 쪽 prefix)
-  const issueEqJudgment =
-    issue === judgment ||
-    (issue.length > 20 && judgment.startsWith(issue.slice(0, Math.min(issue.length, 80)))) ||
-    (judgment.length > 20 && issue.startsWith(judgment.slice(0, Math.min(judgment.length, 80))));
-  const introEqIssue =
-    intro === issue ||
-    (intro.length > 0 && issue.startsWith(intro)) ||
-    (intro.length > 0 && intro.startsWith(issue));
-
-  if (issueEqJudgment && introEqIssue) return intro || issue;
-  if (issueEqJudgment) {
-    const longer = issue.length >= judgment.length ? issue : judgment;
-    return intro ? `${intro}\n\n${longer}` : longer;
-  }
-  if (introEqIssue) return `${intro || issue}\n\n판단\n${judgment}`;
-  return `${intro}\n\n쟁점\n${issue}\n\n판단\n${judgment}`.trim();
-}
-
-function getSourceStatusLabel(hasDetailedHoldingPoints: boolean, hasHoldingPoints: boolean) {
-  if (hasDetailedHoldingPoints) return "서비스 내 추출 원문 제공";
-  if (hasHoldingPoints) return "추출 원문 일부 제공";
-  return "서비스 내 정리본 제공";
-}
-
 function getSummaryLabel(source: DecisionSourceProvider) {
   return source === "bigcase" || source === "lawgo" ? "판결요지" : "판정요지";
 }
@@ -255,11 +222,17 @@ type LawgoSection = {
   index?: number;
 };
 
+function validSourceSections(value: unknown): LawgoSection[] {
+  if (!Array.isArray(value)) return [];
+  // Reject malformed/boilerplate sections; preserve the accepted source text verbatim.
+  return value.filter((section): section is LawgoSection => section && typeof section.text === "string" && section.text.trim().length > 0 && (!section.title || typeof section.title === "string") && !isPaywallText(section.text) && !isPyReprText(section.text));
+}
+
 function renderLawgoSections(sections: LawgoSection[]) {
-  return sections.map((section, index) => (
+  return sections.filter((section) => section && typeof section.text === "string" && (!section.title || typeof section.title === "string")).map((section, index) => (
     <div key={`${section.type || "body"}-${section.index ?? index}`} className="mb-5 last:mb-0">
       {section.title ? <h3 className="font-semibold text-sm mb-2">{unwrapSourceAnnotations(section.title)}</h3> : null}
-      <p className="reading-prose whitespace-pre-wrap">{unwrapSourceAnnotations(section.text || "")}</p>
+      <p className="reading-prose whitespace-pre-wrap break-words overflow-x-auto">{unwrapSourceAnnotations(section.text || "")}</p>
     </div>
   ));
 }
@@ -325,7 +298,7 @@ export default async function DecisionPage({
       return <div className="p-8">판례를 찾을 수 없습니다.</div>;
     }
 
-    const sections = Array.isArray(document?.body_sections) ? (document.body_sections as LawgoSection[]) : [];
+    const sections = validSourceSections(document?.body_sections);
 
     return (
       <main className="min-h-screen bg-background">
@@ -336,7 +309,7 @@ export default async function DecisionPage({
 
           <h1 className="t-h2 mb-2" style={{ color: 'var(--color-text-primary)' }}>{precedent.title || `법제처 판례 ${apiId}`}</h1>
           <p className="text-sm text-muted-foreground mb-4">
-            {precedent.court || "-"} | {precedent.decision_date || "-"}
+            {precedent.court || "-"} | {decisionDate(precedent.decision_date) || "날짜 미확인"}
             {precedent.reference_number ? ` | ${precedent.reference_number}` : ""}
           </p>
 
@@ -368,7 +341,7 @@ export default async function DecisionPage({
                   href="#source-text"
                   className="inline-flex items-center rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground"
                 >
-                  원문·출처 보기
+                  수집 본문·출처 보기
                 </a>
               </div>
             </div>
@@ -411,14 +384,15 @@ export default async function DecisionPage({
               <div>
                 <h2 className="font-semibold">원문·출처</h2>
                 <p className="text-sm text-muted-foreground mt-1">
-                  법제처 판례 본문과 메타 정보를 내부에서 확인하세요.
+                  확보한 본문과 출처를 확인하세요. 전문 여부와 문단·표의 원형 보존은 확인되지 않았습니다.
                 </p>
               </div>
-              <Badge variant="outline">서비스 내 원문 제공</Badge>
+              <Badge variant="outline">수집 본문 · 완전성 미확인</Badge>
             </div>
 
             <Card className="p-4 mb-4">
-              <h3 className="font-semibold text-sm mb-3">서비스 내 추출 원문</h3>
+              <OfficialSourceLink urls={[precedent.original_url, precedent.url]} />
+              <h3 className="font-semibold text-sm mb-3">서비스 내 수집 본문</h3>
               {sections.length > 0 ? (
                 <div>{renderLawgoSections(sections)}</div>
               ) : (
@@ -428,7 +402,7 @@ export default async function DecisionPage({
 
             <Card className="p-4 bg-muted/40">
               <p className="text-sm text-muted-foreground">
-                위 원문은 법제처 공식 판례 API를 기준으로 수집해 사이트 내 노출하는 내용입니다.
+                법제처 공식 판례 API에서 수집한 내용입니다. 앞뒤 누락 및 표·공백 변형 가능성이 있으므로 공식 출처와 대조하세요.
               </p>
             </Card>
           </section>
@@ -450,7 +424,10 @@ export default async function DecisionPage({
       holding_points?: string | null;
       summary?: string | null;
       url?: string | null;
+      original_url?: string | null;
       keywords_matched?: string[] | null;
+      reason_category?: string[] | null;
+      issue_type_primary?: string | null;
     };
 
     let c: CaseLike | null = null;
@@ -467,18 +444,22 @@ export default async function DecisionPage({
         .select("*")
         .eq("id", id)
         .maybeSingle();
-      if (d) {
+      if (d && id.startsWith("bc_")) {
         c = {
           id: d.id,
           title: d.title,
           court: d.department,
           decision_date: d.decision_date,
-          case_number: d.case_number,
-          verdict_type: d.decision_result,
+          case_number: realCaseNumber(d.case_number_qualified, d.case_number_real, d.case_number),
+          // Imported values follow the NLRC result schema, not a verified court outcome.
+          verdict_type: null,
           holding_points: d.holding_points,
           summary: d.holding_summary || d.summary_short,
           url: d.url,
+          original_url: d.original_url,
           keywords_matched: d.tags,
+          reason_category: d.reason_category,
+          issue_type_primary: d.issue_type_primary,
         };
       }
     }
@@ -506,8 +487,8 @@ export default async function DecisionPage({
     let bodySections: LawgoSection[] = [];
 
     const listRowFirst = [...docs].sort((a, b) => {
-      const aIsList = Array.isArray(a.body_sections) && (a.body_sections as unknown[]).length > 0 ? 1 : 0;
-      const bIsList = Array.isArray(b.body_sections) && (b.body_sections as unknown[]).length > 0 ? 1 : 0;
+      const aIsList = validSourceSections(a.body_sections).length > 0 ? 1 : 0;
+      const bIsList = validSourceSections(b.body_sections).length > 0 ? 1 : 0;
       if (aIsList !== bIsList) return bIsList - aIsList;
       const aCov = typeof a.coverage_ratio === "number" ? a.coverage_ratio : 0;
       const bCov = typeof b.coverage_ratio === "number" ? b.coverage_ratio : 0;
@@ -518,7 +499,7 @@ export default async function DecisionPage({
       const clean = typeof d.full_text_clean === "string" ? d.full_text_clean.trim() : "";
       if (clean.length >= 1000 && !isPaywallText(clean) && !isPyReprText(clean)) {
         realFulltext = clean;
-        const sections = Array.isArray(d.body_sections) ? (d.body_sections as LawgoSection[]) : [];
+        const sections = validSourceSections(d.body_sections);
         if (sections.length > 0) bodySections = sections;
         break;
       }
@@ -528,7 +509,7 @@ export default async function DecisionPage({
         const raw = typeof d.full_text_raw === "string" ? d.full_text_raw.trim() : "";
         if (raw.length >= 1000 && !isPaywallText(raw) && !isPyReprText(raw)) {
           realFulltext = raw;
-          const sections = Array.isArray(d.body_sections) ? (d.body_sections as LawgoSection[]) : [];
+          const sections = validSourceSections(d.body_sections);
           if (sections.length > 0) bodySections = sections;
           break;
         }
@@ -552,13 +533,15 @@ export default async function DecisionPage({
 
           <h1 className="t-h2 mb-2" style={{ color: 'var(--color-text-primary)' }}>{c.title}</h1>
           <p className="text-sm text-muted-foreground mb-4">
-            {c.court} | {c.decision_date}
+            {c.court} | {decisionDate(c.decision_date) || '날짜 미확인'}
             {c.case_number ? ` | ${c.case_number}` : ""}
           </p>
 
           <div className="flex flex-wrap gap-2 mb-6">
             <Badge className="bg-blue-100 text-blue-800">{c.verdict_type || "판결"}</Badge>
             <Badge variant="outline">{getDecisionSourceLabel(decisionSource)}</Badge>
+            <DecisionReasonBadges categories={c.reason_category} primary={c.issue_type_primary} />
+            {c.keywords_matched?.length ? <span className="self-center text-xs text-muted-foreground">관련 태그</span> : null}
             {Array.isArray(c.keywords_matched) ? c.keywords_matched.map((tag: string) => (
               <Badge key={tag} variant="outline">
                 {tag}
@@ -589,7 +572,7 @@ export default async function DecisionPage({
                     href="#source-text"
                     className="inline-flex items-center rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground"
                   >
-                    원문·출처 보기
+                    수집 본문·출처 보기
                   </a>
                 ) : null}
               </div>
@@ -599,7 +582,8 @@ export default async function DecisionPage({
           <section id="decision-summary" className="scroll-mt-24 space-y-4">
             {summaryText ? (
               <Card className="p-4 bg-muted/50">
-                <h3 className="font-semibold text-sm mb-2">{getSummaryLabel(decisionSource)}</h3>
+                <h3 className="font-semibold text-sm mb-2">{getSummaryLabel(decisionSource)} · 저장된 요약</h3>
+                <p className="text-sm mb-3">원문이 아닌 정리본이며, 저장된 요약의 끝부분이 잘려 있을 수 있습니다.</p>
                 <div>{renderHoldingBlocks(summaryText)}</div>
               </Card>
             ) : null}
@@ -610,24 +594,29 @@ export default async function DecisionPage({
           <section id="source-text" className="scroll-mt-24">
             <div className="flex items-start justify-between gap-4 mb-3">
               <div>
-                <h2 className="font-semibold">판결 원문</h2>
+                <h2 className="font-semibold">수집 본문·요약 및 출처</h2>
                 <p className="text-sm text-muted-foreground mt-1">
-                  법원 판례 원문을 사이트 내에서 그대로 확인하세요.
+                  확보한 수집 내용입니다. 전문 여부와 앞뒤 누락, 문단·표·공백의 원형 보존은 확인되지 않았습니다.
                 </p>
               </div>
               <Badge variant="outline">
-                {hasRealFulltext ? "원본 본문" : getSourceStatusLabel(hasDetailedHoldingPoints, hasHoldingPoints)}
+                {hasRealFulltext ? "수집 본문 · 완전성 미확인" : "정리본 · 원문 미확보"}
               </Badge>
             </div>
 
+            <p className="mb-3 text-sm">
+              <OfficialSourceLink urls={[c.original_url, c.url]} />
+            </p>
+
             {bodySections.length > 0 ? (
               <Card className="p-4 mb-4">
-                <h3 className="font-semibold text-sm mb-3">법원 판례 원문</h3>
+                <h3 className="font-semibold text-sm mb-3">확보한 수집 본문</h3>
                 <div>{renderLawgoSections(bodySections)}</div>
+                {realFulltext ? <details className="mt-4"><summary>같은 수집본의 저장 텍스트 보기 · 완전성 미확인</summary><p className="reading-prose whitespace-pre-wrap break-words">{unwrapSourceAnnotations(realFulltext)}</p></details> : null}
               </Card>
             ) : realFulltext ? (
               <Card className="p-4 mb-4">
-                <h3 className="font-semibold text-sm mb-3">법원 판례 원문</h3>
+                <h3 className="font-semibold text-sm mb-3">확보한 수집 본문</h3>
                 <p className="reading-prose whitespace-pre-wrap">{unwrapSourceAnnotations(realFulltext)}</p>
               </Card>
             ) : hasDetailedHoldingPoints ? (
@@ -647,7 +636,7 @@ export default async function DecisionPage({
                 <div className="space-y-3">
                   {hasHoldingPoints ? (
                     <div>
-                      <p className="text-xs font-medium text-muted-foreground mb-1">추출된 원문 일부</p>
+                      <p className="text-xs font-medium text-muted-foreground mb-1">판결요지 정리 · 원문 아님</p>
                       <div>{renderHoldingBlocks(holdingPointsText)}</div>
                     </div>
                   ) : null}
@@ -678,7 +667,7 @@ export default async function DecisionPage({
     notFound();
   }
 
-  const displayCaseNumber = getDisplayCaseNumber(d.case_number);
+  const displayCaseNumber = getDisplayCaseNumber(realCaseNumber(d.case_number_qualified, d.case_number_real, d.case_number));
   const holdingPointsText = typeof d.holding_points === "string" ? d.holding_points.trim() : "";
   const rawHoldingSummary = typeof d.holding_summary === "string" ? d.holding_summary.trim() : "";
   const holdingSummaryText = normalizeHoldingSummary(rawHoldingSummary);
@@ -690,27 +679,7 @@ export default async function DecisionPage({
   const hasDetailedHoldingPoints = holdingPointsText.length >= 50;
   const hasHoldingPoints = holdingPointsText.length > 0;
   const hasSummary = holdingSummaryText.length > 0;
-  // 핵심쟁점 ↔ 판정 요지 dedup — character-trigram Jaccard로 유사도 측정.
-  // 0.5+면 같은 본문(또는 prefix/한 줄 요약+본문 변형)으로 보고 판정 요지 카드 숨김.
-  const summaryDifferentFromKeyIssue = (() => {
-    if (!hasSummary) return false;
-    if (holdingSummaryText === bestKeyIssueText) return false;
-    if (bestKeyIssueText.includes(holdingSummaryText.slice(0, 80))) return false;
-    if (holdingSummaryText.includes(bestKeyIssueText.slice(0, 80))) return false;
-    const trigrams = (s: string) => {
-      const norm = s.replace(/\s+/g, '');
-      const set = new Set<string>();
-      for (let i = 0; i < norm.length - 2; i++) set.add(norm.slice(i, i + 3));
-      return set;
-    };
-    const a = trigrams(holdingSummaryText);
-    const b = trigrams(bestKeyIssueText);
-    if (a.size === 0 || b.size === 0) return true;
-    let inter = 0;
-    for (const t of a) if (b.has(t)) inter++;
-    const jaccard = inter / (a.size + b.size - inter);
-    return jaccard < 0.5; // 절반 이상 겹치면 같은 내용으로 간주, 카드 숨김
-  })();
+  const summaryDifferentFromKeyIssue = hasSummary && !isFullyCovered(holdingSummaryText, bestKeyIssueText);
   const hasSourceSection = hasHoldingPoints || Boolean(d.url);
 
   return (
@@ -719,10 +688,11 @@ export default async function DecisionPage({
         <Link href="/decisions" className="text-sm text-muted-foreground hover:text-primary mb-4 inline-block">
           &larr; 검색으로
         </Link>
+        <div className="mb-4"><OfficialSourceLink urls={[d.original_url,d.url]} /></div>
 
         <h1 className="t-h2 mb-2" style={{ color: 'var(--color-text-primary)' }}>{d.title}</h1>
         <p className="text-sm text-muted-foreground">
-          {d.department} | {d.decision_date}
+          {d.department} | {decisionDate(d.decision_date) || '날짜 미확인'}
         </p>
         {displayCaseNumber && (
           <p className="text-sm font-semibold text-foreground mb-4">
@@ -734,11 +704,7 @@ export default async function DecisionPage({
           <Badge className="bg-blue-100 text-blue-800">
             {RESULT_LABELS[d.decision_result as DecisionResult] || d.decision_result}
           </Badge>
-          {d.reason_category?.map((r: string) => (
-            <Badge key={r} variant="outline">
-              {REASON_LABELS[r as ReasonCategory] || r}
-            </Badge>
-          ))}
+          <DecisionReasonBadges categories={d.reason_category} primary={d.issue_type_primary} />
           {d.sanction_type && (
             <Badge variant="secondary">
               {SANCTION_LABELS[d.sanction_type as SanctionType] || d.sanction_type}

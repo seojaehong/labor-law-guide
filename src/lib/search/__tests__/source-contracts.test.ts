@@ -57,15 +57,15 @@ describe('decision source contracts', () => {
     });
   });
 
-  it('lets an explicit provider override id-based detection when the source contract is known', () => {
+  it('keeps a canonical source prefix even when a URL hint conflicts', () => {
     const resolution = resolveDecisionSourceContract({
       id: 'bc_999',
       sourceProvider: 'lawgo',
     });
 
-    expect(resolution.provider).toBe('lawgo');
-    expect(resolution.detailTable).toBe('lawgo_precedents');
-    expect(resolution.detailKind).toBe('lawgo-precedent');
+    expect(resolution.provider).toBe('bigcase');
+    expect(resolution.detailTable).toBe('cases');
+    expect(resolution.detailKind).toBe('bigcase-case');
     expect(resolution.routePath).toBe('/decisions/bc_999');
   });
 

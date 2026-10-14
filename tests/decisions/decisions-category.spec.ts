@@ -1,7 +1,10 @@
 import { expect, test } from '@playwright/test';
 import { REASON_LABELS } from '../../src/lib/types';
 const rows = 'main li a[href^="/decisions/fixture-"]';
-test.beforeEach(async ({ request }) => { await request.get('http://127.0.0.1:4319/control?fail=0'); });
+async function blockExternal(context: import('@playwright/test').BrowserContext) {
+  await context.route('**/*', route => { const url=new URL(route.request().url()); return ['127.0.0.1','localhost'].includes(url.hostname) && !url.pathname.startsWith('/api/') ? route.continue() : route.abort(); });
+}
+test.beforeEach(async ({ request,context }) => { await blockExternal(context); await request.get('http://127.0.0.1:4319/control?fail=0'); });
 test('cards, pagination, history, all enums, form reset and metadata', async ({page}) => {
   await page.goto('/decisions');
   await expect(page.locator('meta[name=robots]')).toHaveAttribute('content','index, follow');
@@ -9,7 +12,7 @@ test('cards, pagination, history, all enums, form reset and metadata', async ({p
   await expect(card).toContainText('45건');
   await card.click();
   await expect(page).toHaveURL(/reason=no_dismissal$/);
-  await expect(page.getByRole('heading',{name:'해고부존재/사직 유형별 노동위 판정례'})).toBeVisible();
+  await expect(page.getByRole('heading',{name:'해고부존재/사직 유형별 판정례·법원 판례'})).toBeVisible();
   await expect(page.locator(rows)).toHaveCount(20);
   const first=await page.locator(rows).evaluateAll(els=>els.map(e=>e.getAttribute('href')));
   await page.getByRole('link',{name:'다음 →',exact:true}).click();
@@ -22,7 +25,7 @@ test('cards, pagination, history, all enums, form reset and metadata', async ({p
   await expect(page.locator(rows)).toHaveCount(5);
   for(const [reason,label] of Object.entries(REASON_LABELS)) {
     await page.goto(`/decisions?reason=${reason}`);
-    await expect(page.getByRole('heading',{name:`${label} 유형별 노동위 판정례`})).toBeVisible();
+    await expect(page.getByRole('heading',{name:`${label} 유형별 판정례·법원 판례`})).toBeVisible();
     await expect(page.locator(rows)).toHaveCount(20);
     await expect(page.locator('meta[name=robots]')).toHaveAttribute('content','noindex, follow');
     await expect(page.locator('link[rel=canonical]')).toHaveAttribute('href',/\/decisions$/);
@@ -57,8 +60,16 @@ test('invalid, unsupported, empty, errors and retry', async ({page,request}) => 
 });
 test('mobile and no-JavaScript links', async ({browser}) => {
   const context=await browser.newContext({javaScriptEnabled:false,viewport:{width:360,height:800}});
+  await blockExternal(context);
   const page=await context.newPage();await page.goto('/decisions');
   await page.locator('main a[href="/decisions?reason=no_dismissal"]').click();await expect(page.locator(rows)).toHaveCount(20);
   await page.getByRole('link',{name:'다음 →',exact:true}).click();await expect(page).toHaveURL(/reason=no_dismissal&page=2$/);
   await context.close();
+});
+test('collection hydration and source switching remain stable after no-JS repair',async({page})=>{
+ const errors:string[]=[];page.on('pageerror',error=>errors.push(error.message));
+ await page.goto('/decisions');await expect(page.locator('main a[href="/decisions?reason=no_dismissal"]')).toBeVisible();
+ await page.goto('/decisions?q=성희롱');await expect(page.locator(rows)).toHaveCount(20);
+ await page.getByLabel('검색 자료 종류').getByRole('link',{name:'법원 판례',exact:true}).click();await expect(page).toHaveURL(/type=court/);await expect(page.locator('main li a[href^="/cases/"]')).toHaveCount(20);
+ expect(errors).toEqual([]);
 });

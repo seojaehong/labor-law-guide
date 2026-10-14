@@ -5,7 +5,7 @@ import { categoryHref } from '@/lib/decisions-query';
 /** URL remains the source of selection and browser Back/Forward history. */
 export default function DecisionCategoryNavigation({ reason }: { reason: ReasonCategory }) {
   return (
-    <nav aria-label="노동위 판정례 유형 탐색" className="mb-5 rounded-lg border p-3" style={{ borderColor: 'var(--color-border)' }}>
+    <nav aria-label="판정례·법원 유형 탐색" className="mb-5 rounded-lg border p-3" style={{ borderColor: 'var(--color-border)' }}>
       <div className="flex items-center justify-between gap-3 text-sm">
         <span>선택한 유형 <strong>{REASON_LABELS[reason]}</strong></span>
         <Link href="/decisions" className="inline-flex min-h-[44px] items-center px-2 underline" style={{ color: 'var(--color-accent-ink)' }}>선택 해제</Link>

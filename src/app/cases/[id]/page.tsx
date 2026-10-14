@@ -1,3 +1,5 @@
+import OfficialSourceLink from "@/components/OfficialSourceLink";
+import { serializeJsonLd } from "@/lib/safe-json-ld";
 import { publicMetadata } from '@/lib/public-metadata';
 import type { Metadata } from 'next';
 import Link from 'next/link';
@@ -5,6 +7,7 @@ import { notFound } from 'next/navigation';
 import { supabaseServer } from '@/lib/supabase-server';
 import { SITE_URL } from '@/lib/constants';
 import { formatDecisionDate, getPreferredSummary, getPreferredDetail } from '@/app/database/_components/utils';
+import { decisionDate } from '@/lib/decision-date';
 import TagRow from '@/app/database/_components/TagRow';
 import MarkdownSnippet from '@/app/database/_components/MarkdownSnippet';
 import {
@@ -13,7 +16,6 @@ import {
   Calendar,
   Scale,
   Landmark,
-  ExternalLink,
   MessageSquare,
   Search,
 } from 'lucide-react';
@@ -54,7 +56,7 @@ async function getCase(id: string): Promise<CaseDetail | null> {
     .single();
 
   if (error || !data) return null;
-  return data as CaseDetail;
+  return {...data,decision_date:decisionDate(data.decision_date)} as CaseDetail;
 }
 
 async function getRelatedCases(currentId: string, caseType: string | null, court: string | null): Promise<RelatedCase[]> {
@@ -180,7 +182,7 @@ export default async function CaseDetailPage({
     <>
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        dangerouslySetInnerHTML={{ __html: serializeJsonLd(jsonLd) }}
       />
 
       <div className="layout-reading layout-reading--with-rail editorial-document">
@@ -239,26 +241,15 @@ export default async function CaseDetailPage({
               <TagRow keywordsMatched={item.keywords_matched} />
             </header>
 
-            {item.original_url && (
-              <div className="editorial-source">
-                <a
-                  href={item.original_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 text-[13px] font-medium transition-colors hover:opacity-70"
-                  style={{ color: 'var(--color-accent-ink)' }}
-                >
-                  <ExternalLink size={13} />
-                  원문 보기 (법제처)
-                </a>
-              </div>
-            )}
+            <div className="editorial-source"><OfficialSourceLink urls={[item.original_url,item.url]} /></div>
 
             {/* Summary */}
+            <p className="mb-4 text-sm" style={{ color: 'var(--grey-700)' }}>수집 내용입니다. 전문 여부와 구획·문단·표의 원형 보존은 확인되지 않았으며, 앞뒤 누락이나 단어 공백 손상이 있을 수 있습니다. 원문 출처와 대조하세요.</p>
+
             {summary && (
               <section className="editorial-evidence">
                 <h2 className="text-[15px] font-bold mb-3" style={{ color: 'var(--color-text-primary)' }}>
-                  판결 요지
+                  수집 요약 · 구획 미확인
                 </h2>
                 <div
                   className="editorial-evidence-body"
@@ -272,7 +263,7 @@ export default async function CaseDetailPage({
             {detail && detail !== summary && (
               <section className="editorial-evidence">
                 <h2 className="text-[15px] font-bold mb-3" style={{ color: 'var(--color-text-primary)' }}>
-                  판시사항
+                  수집 상세 · 구획 미확인
                 </h2>
                 <div
                   className="editorial-evidence-body"
