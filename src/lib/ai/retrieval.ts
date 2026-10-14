@@ -105,6 +105,8 @@ export interface RetrievalResult {
    * 화면이 「직접 비교 가능한 사건을 확인하지 못했습니다」로 똑같이 보였다.
    */
   degraded: boolean;
+  /** Request-local diagnostic values; never used to gate retrieval. */
+  timings: Record<string, number>;
 }
 
 interface HybridSearchRow {
@@ -152,8 +154,6 @@ interface CandidateQueryProfile {
   preferredLegalFocus: string[];
   preferredQueryHints: string[];
   penalizedQueryHints: string[];
-  boostedDecisionResults: string[];
-  excludedDecisionResults: string[];
   penalizedKeywords: string[];
 }
 
@@ -277,10 +277,6 @@ function detectSource(id: string): 'nlrc' | 'court' {
   return id.startsWith('bc_') ? 'court' : 'nlrc';
 }
 
-function isCourt(candidate: Record<string, unknown>): boolean {
-  return String(candidate.id || '').startsWith('bc_');
-}
-
 const NON_LABOR_CASE_TYPES = ['헌법', '특허', '신청', '형사'];
 
 /**
@@ -304,35 +300,9 @@ function hasSubstantiveHolding(candidate: Record<string, unknown>): boolean {
 }
 
 function selectRepresentativeCases(candidates: Record<string, unknown>[], limit: number): Record<string, unknown>[] {
-  if (candidates.length <= limit) return candidates;
-
-  const workerWins = candidates.filter((c) => bucketDecisionResult(String(c.decision_result || '')) === 'worker_win');
-  const employerWins = candidates.filter((c) => bucketDecisionResult(String(c.decision_result || '')) === 'employer_win');
-  const picked: Record<string, unknown>[] = [];
-  const pushUnique = (candidate: Record<string, unknown>) => {
-    if (picked.some((item) => item.id === candidate.id)) return;
-    picked.push(candidate);
-  };
-
-  // source 균형: 노동위 + 법원 혼합 (각 버킷에서 court 우선 1 + nlrc 1)
-  const workerCourt = workerWins.find((c) => isCourt(c));
-  const workerNlrc = workerWins.find((c) => !isCourt(c));
-  if (workerCourt) pushUnique(workerCourt);
-  if (workerNlrc) pushUnique(workerNlrc);
-  if (picked.length < 2) workerWins.slice(0, 2).forEach(pushUnique);
-
-  const employerCourt = employerWins.find((c) => isCourt(c));
-  const employerNlrc = employerWins.find((c) => !isCourt(c));
-  if (employerCourt) pushUnique(employerCourt);
-  if (employerNlrc) pushUnique(employerNlrc);
-  if (picked.length < 4) employerWins.slice(0, 2).forEach(pushUnique);
-
-  for (const candidate of candidates) {
-    if (picked.length >= limit) break;
-    pushUnique(candidate);
-  }
-
-  return picked.slice(0, limit);
+  // Retrieval order expresses relevance. Outcome/source diversity must never
+  // promote a lower-ranked case or manufacture an opposite-side example.
+  return candidates.slice(0, limit);
 }
 
 function uniq(values: string[]): string[] {
@@ -599,21 +569,12 @@ function buildIntentAwareQuery(query: string, rewrite: QueryRewriteLike | null):
   return addUniqueTerms(query, [...extraTerms]);
 }
 
-// global timing collector for diagnostic — meta payload에 노출
-export const _retrievalTiming: {
-  embedding?: number;
-  rpc?: number;
-  rpcRows?: number;
-  searchCasesTotal?: number;
-  rewriteMs?: number;
-} = {};
-
 const RPC_TIMEOUT_MS = 3500; // 3.5s — Supabase pooler/CDN가 10s 컷이라 그 전에 fallback으로
 
-async function searchCasesViaRpc(query: string, category: string, limit: number): Promise<Record<string, unknown>[]> {
+async function searchCasesViaRpc(query: string, category: string, limit: number, timings: Record<string, number>, getEmbedding: () => Promise<number[] | null>): Promise<Record<string, unknown>[]> {
   const t1 = Date.now();
-  const embedding = await createQueryEmbedding(query);
-  _retrievalTiming.embedding = Date.now() - t1;
+  const embedding = await getEmbedding();
+  timings.embedding = Date.now() - t1;
 
   const t2 = Date.now();
   const rpcPromise = supabase.rpc('search_similar_cases_hybrid', {
@@ -628,8 +589,8 @@ async function searchCasesViaRpc(query: string, category: string, limit: number)
   });
   const result = await Promise.race([rpcPromise, timeoutPromise]);
   const { data, error } = result as { data: Record<string, unknown>[] | null; error: { message: string } | null };
-  _retrievalTiming.rpc = Date.now() - t2;
-  _retrievalTiming.rpcRows = Array.isArray(data) ? data.length : 0;
+  timings.rpc = Date.now() - t2;
+  timings.rpcRows = Array.isArray(data) ? data.length : 0;
 
   if (error || !Array.isArray(data)) {
     return [];
@@ -654,8 +615,6 @@ function buildCandidateQueryProfile(query: string): CandidateQueryProfile {
     preferredLegalFocus: [],
     preferredQueryHints: [],
     penalizedQueryHints: [],
-    boostedDecisionResults: [],
-    excludedDecisionResults: [],
     penalizedKeywords: [],
   };
 
@@ -685,7 +644,6 @@ function buildCandidateQueryProfile(query: string): CandidateQueryProfile {
       preferredSecondary: ['procedure', 'absence_without_leave'],
       preferredFactMarkers: ['unauthorized_absence', 'written_notice_missing'],
       preferredLegalFocus: ['procedural_due_process'],
-      excludedDecisionResults: ['dismissed', 'settled'],
       penalizedKeywords: ['구제이익', '복직명령', '상시근로자 수', '채용내정'],
     };
   }
@@ -818,8 +776,6 @@ function buildCandidateQueryProfile(query: string): CandidateQueryProfile {
       preferredDispositions: ['dismissal', 'disciplinary_dismissal'],
       preferredLegalFocus: ['proportionality', 'appropriateness_of_discipline', 'social_norm_reasonableness'],
       preferredSecondary: ['misconduct'],
-      boostedDecisionResults: ['granted', 'partial', 'overturned'],
-      excludedDecisionResults: [],
       preferredQueryHints: ['양정과다', '해고 과중', '징계 과다', '비례원칙', '징계사유 인정 해고 부당'],
       penalizedKeywords: ['구제이익', '채용내정', '상시근로자 수', '복직명령', '계약기간 만료'],
     };
@@ -850,8 +806,6 @@ function buildCandidateQueryProfile(query: string): CandidateQueryProfile {
         '양정이 적정',
         '절차에도 하자가 없어',
       ],
-      boostedDecisionResults: ['dismissed', 'upheld'],
-      excludedDecisionResults: [],
       penalizedKeywords: ['양정과다', '과중', '비례원칙', '해고가 과도'],
     };
   }
@@ -868,8 +822,6 @@ function buildCandidateQueryProfile(query: string): CandidateQueryProfile {
       preferredDispositions: ['dismissal', 'disciplinary_dismissal', 'suspension', 'pay_cut'],
       preferredLegalFocus: ['proportionality', 'appropriateness_of_discipline'],
       preferredSecondary: ['misconduct'],
-      boostedDecisionResults: ['granted', 'partial', 'overturned'],
-      excludedDecisionResults: ['dismissed', 'settled'],
       penalizedKeywords: ['구제이익', '채용내정', '상시근로자 수', '복직명령', '계약기간 만료'],
     };
   }
@@ -900,8 +852,6 @@ function buildCandidateQueryProfile(query: string): CandidateQueryProfile {
       preferredDispositions: ['nonrenewal', 'dismissal'],
       preferredFactMarkers: ['renewal_expectation_recognized', 'repeated_renewal'],
       preferredQueryHints: ['갱신기대권 인정', '사실상 해고', '갱신거절 부당', '부당해고 인정', '계약기간 만료 부당해고'],
-      boostedDecisionResults: ['granted', 'partial'],
-      excludedDecisionResults: [],
       penalizedKeywords: ['권고사직', '자진퇴사', '근로자성'],
       penalizedQueryHints: ['갱신기대권 부정', '계약기간 만료 정당'],
     };
@@ -954,7 +904,6 @@ function scoreTaggedCandidate(candidate: Record<string, unknown>, query: string,
   const includeQueries = asStringArray(candidate.include_for_queries);
   const excludeQueries = asStringArray(candidate.exclude_for_queries);
   const stage = (candidate.employment_stage as string) || '';
-  const decisionResult = (candidate.decision_result as string) || '';
   const haystack = [
     candidate.title,
     candidate.summary_short,
@@ -1025,10 +974,6 @@ function scoreTaggedCandidate(candidate: Record<string, unknown>, query: string,
     reasons.push(`stage_penalty:${stage}`);
   }
 
-  if (profile.boostedDecisionResults.includes(decisionResult)) {
-    score += 4;
-    reasons.push(`result_boost:${decisionResult}`);
-  }
 
   if (query.includes('결근') && exclusions.includes('not_really_absence_case')) {
     score -= 10;
@@ -1145,10 +1090,6 @@ function scoreTaggedCandidate(candidate: Record<string, unknown>, query: string,
       score -= 8;
       reasons.push('cross_penalty:misconduct_general_theory');
     }
-    if (decisionResult === 'dismissed' && primary !== 'workplace_harassment') {
-      score -= 8;
-      reasons.push('cross_penalty:dismissed_general_theory');
-    }
   }
 
   if (profile.scenario === 'severity_excessive') {
@@ -1158,10 +1099,6 @@ function scoreTaggedCandidate(candidate: Record<string, unknown>, query: string,
     if (hasSeverityStructure) {
       score += 8;
       reasons.push('cross:severity_proportionality');
-    }
-    if (decisionResult === 'dismissed' || decisionResult === 'rejected') {
-      score -= 4;
-      reasons.push('cross_penalty:non_excessive_outcome');
     }
   }
 
@@ -1194,17 +1131,13 @@ function scoreTaggedCandidate(candidate: Record<string, unknown>, query: string,
       score += 12;
       reasons.push('cross:compound_overall_validity');
     }
-    if (decisionResult === 'dismissed' || decisionResult === 'upheld') {
-      score += 6;
-      reasons.push('cross:compound_employer_win');
-    }
     if (includesAny(haystack, ['양정과다', '과중', '비례원칙']) && !hasOverallValidityStructure) {
       score -= 10;
       reasons.push('cross_penalty:severity_only_case');
     }
   }
 
-  // Q16: 사실상 해고 — 갱신기대권 인정 + granted 사건 우선
+  // Q16: 사실상 해고 — 갱신기대권 및 해고 관련 원문 구조로 관련성 평가
   if (profile.scenario === 'constructive_dismissal') {
     const hasRenewalRecognized = includesAny(haystack, ['갱신기대권이 인정', '갱신기대권은 인정', '갱신기대권 인정']);
     const hasRenewalDenied = includesAny(haystack, ['갱신기대권이 인정되지', '갱신기대권이 인정되지 않', '갱신기대권은 인정되지 않', '갱신기대권이 부정', '갱신기대권이 부인']);
@@ -1221,14 +1154,6 @@ function scoreTaggedCandidate(candidate: Record<string, unknown>, query: string,
     if (hasDefacto) {
       score += 6;
       reasons.push('cross:defacto_dismissal');
-    }
-    if (decisionResult === 'granted' || decisionResult === 'partial') {
-      score += 10;
-      reasons.push('cross:worker_win_renewal');
-    }
-    if (decisionResult === 'dismissed') {
-      score -= 4;
-      reasons.push('cross_penalty:dismissed_renewal');
     }
   }
 
@@ -1261,10 +1186,6 @@ function scoreTaggedCandidate(candidate: Record<string, unknown>, query: string,
       score -= 14;
       reasons.push('cross_penalty:bullying_recognized');
     }
-    if (decisionResult === 'dismissed' && hasPostReportAction) {
-      score += 4;
-      reasons.push('cross:dismissed_post_report');
-    }
   }
 
   if (profile.scenario === 'workplace_safety') {
@@ -1289,11 +1210,9 @@ function rankTaggedCandidates(query: string, taggedCases: Record<string, unknown
 
   const filtered = taggedCases.filter((candidate) => {
     const exclusions = asStringArray(candidate.exclusion_flags);
-    const decisionResult = (candidate.decision_result as string) || '';
     if (query.includes('결근') && exclusions.includes('not_really_absence_case')) return false;
     if (query.includes('괴롭힘') && exclusions.includes('not_really_harassment_case') && profile.scenario !== 'retaliation') return false;
     if (query.includes('수습') && exclusions.includes('unrelated_to_probation')) return false;
-    if (profile.excludedDecisionResults.includes(decisionResult)) return false;
     return true;
   });
 
@@ -1305,9 +1224,6 @@ function rankTaggedCandidates(query: string, taggedCases: Record<string, unknown
   scored.sort((a, b) => {
     const scoreDiff = ((b as Record<string, unknown>)._score as number || 0) - ((a as Record<string, unknown>)._score as number || 0);
     if (scoreDiff !== 0) return scoreDiff;
-    const aDecision = ((a as Record<string, unknown>).decision_result as string) || '';
-    const bDecision = ((b as Record<string, unknown>).decision_result as string) || '';
-    if (aDecision !== bDecision) return aDecision.localeCompare(bDecision);
     return (((a as Record<string, unknown>).id as string) || '').localeCompare(((b as Record<string, unknown>).id as string) || '');
   });
 
@@ -1319,7 +1235,10 @@ export async function searchCases(tags: string[], query?: string): Promise<Retri
   let reranked = false;
   let degraded = false;
 
+  const startedAt = Date.now();
   const _timing: Record<string, number> = {};
+  // Share one embedding promise within this request, including RPC fallback.
+  let embeddingPromise: Promise<number[] | null> | undefined;
   const _mark = (label: string, t0: number) => { _timing[label] = Date.now() - t0; };
 
   // SKIP_AI_RETRIEVAL_HEAVY=true (기본) → rewriteQuery/rerankResults skip하여 retrieval 7-10s 단축.
@@ -1329,6 +1248,7 @@ export async function searchCases(tags: string[], query?: string): Promise<Retri
   const rewrite = !skipHeavy && query ? await rewriteQuery(query) : null;
   _mark('rewrite', t_rewrite);
   const effectiveQuery = buildIntentAwareQuery(rewrite?.searchQuery || query || tags.join(' '), rewrite);
+  const getEmbedding = () => embeddingPromise ??= createQueryEmbedding(effectiveQuery);
   const reasons = effectiveQuery ? extractReasonCategories(effectiveQuery) : [];
   const subReasons = effectiveQuery ? extractSubReasons(effectiveQuery) : [];
   const rpcCategory = rewrite?.category || (reasons.length > 0 ? reasons[0] : '');
@@ -1339,7 +1259,7 @@ export async function searchCases(tags: string[], query?: string): Promise<Retri
   const skipRpc = process.env.SKIP_RPC !== 'false';
   if (!skipRpc && effectiveQuery) {
     const t_rpc = Date.now();
-    const rpcRows = await searchCasesViaRpc(effectiveQuery, rpcCategory, RESULT_LIMIT * 4);
+    const rpcRows = await searchCasesViaRpc(effectiveQuery, rpcCategory, RESULT_LIMIT * 4, _timing, getEmbedding);
     _mark('rpc', t_rpc);
     if (rpcRows.length > 0) {
       const rpcCandidates = rpcRows.map((row) => {
@@ -1426,8 +1346,8 @@ export async function searchCases(tags: string[], query?: string): Promise<Retri
     const hasReasons = reasons.length > 0;
 
     const t_emb = Date.now();
-    const queryEmbeddingPromise: Promise<number[] | null> = effectiveQuery && !_retrievalTiming.embedding
-      ? createQueryEmbedding(effectiveQuery)
+    const queryEmbeddingPromise: Promise<number[] | null> = effectiveQuery
+      ? getEmbedding()
       : Promise.resolve(null);
 
     const hasSubReasons = subReasons.length > 0;
@@ -1473,7 +1393,7 @@ export async function searchCases(tags: string[], query?: string): Promise<Retri
       queryEmbeddingPromise,
     ]);
     queryEmbedding = queryEmbeddingResult;
-    if (queryEmbedding && !_retrievalTiming.embedding) _retrievalTiming.embedding = Date.now() - t_emb;
+    if (_timing.embedding === undefined) _mark('embedding', t_emb);
 
     // 2026-09-19: 쿼리 실패를 조용히 삼키지 않는다.
     // 종전에는 .data 만 읽고 .error 를 버려서, 서비스 키 만료(401)나 타임아웃이 나도
@@ -1525,16 +1445,11 @@ export async function searchCases(tags: string[], query?: string): Promise<Retri
   // reasons 추출 못한 경우엔 skip (fail-open).
   if (reasons.length > 0) {
     const reasonSet = new Set(reasons);
-    const beforeCount = candidates.length;
     candidates = candidates.filter((c) => {
       const rc = (c.reason_category as string[] | null) || [];
       if (rc.length === 0) return true; // 카테고리 없으면 일단 통과 (data gap 케이스)
       return rc.some((r) => reasonSet.has(r));
     });
-    // 너무 많이 잘려서 3개 미만이면 원본 복원 (fail-open)
-    if (candidates.length < 3 && beforeCount >= 3) {
-      // no-op, 필터 보류 — 실용성 우선
-    }
   }
 
   // 2026-05-16: Node cosine 의미 랭킹 — SKIP_RPC 환경에서 임베딩 기반 랭킹 복원.
@@ -1550,13 +1465,13 @@ export async function searchCases(tags: string[], query?: string): Promise<Retri
       return { ...c, _semantic_score: cosineSimilarity(queryEmbedding!, emb) };
     });
     if (scoredCount > 0) {
-      scored.sort((a, b) => Number(b._semantic_score || -1) - Number(a._semantic_score || -1));
+      scored.sort((a, b) => Number(b._semantic_score ?? -1) - Number(a._semantic_score ?? -1));
       // 2026-05-16: cosine threshold — 점수 너무 낮은 사건 제거 (노이즈 차단).
       // 0.35 = text-embedding-3-small에서 같은 카테고리 안에서 어느정도 토픽 일치 기준선.
-      // 3건 미만으로 잘리면 fail-open (최소 3건은 유지).
+      // 근거가 부족하면 적은 결과를 유지한다. 낮은 관련성 사건은 복원하지 않는다.
       const SEMANTIC_THRESHOLD = 0.35;
-      const filtered = scored.filter((c) => Number(c._semantic_score || -1) >= SEMANTIC_THRESHOLD);
-      candidates = filtered.length >= 3 ? filtered : scored;
+      const filtered = scored.filter((c) => Number(c._semantic_score ?? -1) >= SEMANTIC_THRESHOLD);
+      candidates = filtered;
       reranked = true;
     }
     _timing['cosine'] = Date.now() - t_cos;
@@ -1582,19 +1497,12 @@ export async function searchCases(tags: string[], query?: string): Promise<Retri
   // 2026-09-19: 원문 품질 하한. 비교 카드는 "무슨 판단이었나"를 보여주는 게 목적인데,
   // 본문이 「별지 기재 참조」 여덟 글자뿐인 행이 34건 있다. 이런 행은 카드에 올려도 읽을 게 없다.
   // 관련성 하한(위 cosine 0.35)을 통과한 뒤에 적용한다 — 순서가 바뀌면 관련 있는 사건을 품질로 먼저 날린다.
-  // 전부 걸러지면 fail-open: 빈 화면보다는 낫고, 카드가 비면 상위에서 "확인하지 못했다"고 말한다.
+  // 빈 본문은 근거로 사용하지 않는다. 전부 비면 빈 결과를 반환한다.
   const substantive = candidates.filter((c) => hasSubstantiveHolding(c));
-  if (substantive.length > 0) candidates = substantive;
+  candidates = substantive;
 
-  _retrievalTiming.searchCasesTotal = Object.values(_timing).reduce((a, b) => a + b, 0) + (_retrievalTiming.embedding || 0) + (_retrievalTiming.rpc || 0);
+  _timing.searchCasesTotal = Date.now() - startedAt;
 
-  // 2026-09-19: 버킷 균형을 항상 적용한다.
-  // 전에는 `reranked ? candidates.slice(0, RESULT_LIMIT) : selectRepresentativeCases(...)` 였는데,
-  // cosine 경로가 위에서 항상 reranked=true 를 세우므로 selectRepresentativeCases 가 사실상 죽어 있었다.
-  // 그 결과 상위 5건이 한쪽으로 쏠리면 반대편 카드가 통째로 빈칸이 됐다
-  // (실측: 기밀유출 질의에 근로자 승 모수가 14건 이상 있는데도 「인용 사건이 충분하지 않습니다」).
-  // candidates 는 이미 관련성 순으로 정렬돼 있고 selectRepresentativeCases 는 그 순서를 유지한 채
-  // 버킷별로 고르므로, 관련성을 해치지 않으면서 양쪽을 채운다.
   const results = selectRepresentativeCases(candidates, RESULT_LIMIT);
 
   return {
@@ -1605,7 +1513,7 @@ export async function searchCases(tags: string[], query?: string): Promise<Retri
       decision_result: c.decision_result as string,
       holding_points: ((c.holding_points as string) || (c.holding_summary as string) || '').slice(0, 150),
       url: (c.url as string) || '',
-      similarity: (c._score as number | undefined) ?? (c.relevance as number | undefined),
+      similarity: (c._semantic_score as number | undefined) ?? (c._score as number | undefined) ?? (c.relevance as number | undefined),
       summary_short: ((c.summary_short as string) || (c.holding_summary as string) || '').slice(0, 180),
       key_issue: (c.key_issue as string) || '',
       bucket: bucketDecisionResult(c.decision_result as string),
@@ -1614,5 +1522,6 @@ export async function searchCases(tags: string[], query?: string): Promise<Retri
     allCases: candidates,
     reranked,
     degraded,
+    timings: _timing,
   };
 }

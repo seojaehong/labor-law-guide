@@ -27,3 +27,27 @@ export function scrubFakeUrls(text: string): string {
   text = text.replace(/^\)+\s*\n?/g, '');
   return text;
 }
+
+/** Keep incomplete tokens/Markdown links until their boundary is known. */
+export function createUrlScrubber() {
+  let pending = '';
+  return {
+    push(chunk: string): string {
+      pending += chunk;
+      const whitespace = pending.search(/\s+[^\s]*$/);
+      let boundary = whitespace < 0 ? 0 : whitespace + 1;
+      const open = pending.lastIndexOf('[');
+      if (open >= 0 && (pending.indexOf(')', open) < 0 || pending.indexOf(')', open) >= boundary)) {
+        boundary = Math.min(boundary, open);
+      }
+      const complete = pending.slice(0, boundary);
+      pending = pending.slice(boundary);
+      return scrubFakeUrls(complete);
+    },
+    flush(): string {
+      const complete = scrubFakeUrls(pending);
+      pending = '';
+      return complete;
+    },
+  };
+}

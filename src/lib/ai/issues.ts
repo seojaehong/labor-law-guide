@@ -107,10 +107,8 @@ export function buildIssueLines(digest: IssueDigest): string[] {
 }
 
 /**
- * 승패와 쟁점을 겹쳐 「승패를 가른 지점」을 만든다.
- *
- * 같은 쟁점이 양쪽에서 다뤄졌는데 결론이 갈렸다면, 거기가 실제로 갈린 지점이다.
- * 한쪽에서만 다뤄진 쟁점은 그 쪽 특유의 논점이다.
+ * 사건 전체 결과로 나눈 두 집단의 명시된 쟁점 표제만 비교한다.
+ * 표제는 쟁점별 결론의 근거가 아니므로 승패 원인이나 결론 차이를 추정하지 않는다.
  */
 export function buildIssueDifferences(
   digest: IssueDigest,
@@ -154,11 +152,11 @@ export function buildIssueDifferences(
     const inW = w.keys.has(t.key);
     const inE = e.keys.has(t.key);
     if (inW && inE) {
-      out.push(`${t.label} — 양쪽 모두 이 쟁점에서 다투었고 결론이 갈렸습니다. 여기가 실제 분기점입니다.`);
+      out.push(`${t.label} — 양쪽 사건의 표제에 이 쟁점이 명시되어 있습니다. 쟁점별 결론은 표제와 사건 전체 결과만으로 확인할 수 없습니다.`);
     } else if (inW) {
-      out.push(`${t.label} — 근로자가 이긴 사건에서만 쟁점이 됐습니다.`);
+      out.push(`${t.label} — 확인한 표제 중 근로자가 이긴 사건에 이 쟁점이 명시되어 있습니다. 반대편에서 다뤄졌는지는 확인되지 않습니다.`);
     } else if (inE) {
-      out.push(`${t.label} — 사용자가 이긴 사건에서만 쟁점이 됐습니다.`);
+      out.push(`${t.label} — 확인한 표제 중 사용자가 이긴 사건에 이 쟁점이 명시되어 있습니다. 반대편에서 다뤄졌는지는 확인되지 않습니다.`);
     }
   }
   return out.slice(0, 4);

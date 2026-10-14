@@ -18,7 +18,7 @@ vi.mock('@/lib/chat/context/news',()=>({buildNewsContext:async()=>''}));
 vi.mock('@/lib/chat/context/cases',()=>({buildNlrcCasesContext:vi.fn(),buildCourtCasesContext:vi.fn()}));
 vi.mock('@/lib/chat/context/interpretations',()=>({buildInterpretationsContext:vi.fn()}));
 vi.mock('@/lib/chat/context/laws',()=>({buildLawsContext:laws}));
-import {POST} from '@/app/api/chat/route';
+import {POST,buildSearchQuery} from '@/app/api/chat/route';
 const req=()=>new NextRequest('http://localhost/api/chat',{method:'POST',body:JSON.stringify({messages:[{role:'user',content:'PRIVATE_SYNTHETIC_QUESTION'}]})});
 beforeEach(()=>{finish.mockReset();round.mockReset();kill.mockResolvedValue({disabled:false});faq.mockResolvedValue({context:'',topIds:[],matched:false,count:0,categories:[],failed:false});laws.mockResolvedValue({ctx:'',rows:0,via:'none',status:'0rows'});vi.stubEnv('OPENAI_API_KEY','');vi.stubGlobal('fetch',vi.fn(()=>{throw new Error('unexpected external fetch');}));vi.spyOn(console,'log').mockImplementation(()=>{});vi.spyOn(console,'warn').mockImplementation(()=>{});});
 afterEach(()=>{vi.unstubAllEnvs();vi.unstubAllGlobals();vi.restoreAllMocks();});
@@ -82,4 +82,19 @@ it('final round with unresolved tool calls is incomplete even with a long body',
 it.each([49,50])('final tool-result body completion boundary at %i trimmed characters',async length=>{
  round.mockResolvedValueOnce({content:'사전 설명 '.repeat(20),toolCalls:[tool]}).mockResolvedValueOnce({content:' '+ 'x'.repeat(length)+' ',toolCalls:[]});
  await (await POST(req())).text();expect(finish.mock.calls[0][0]).toMatchObject(length===50 ? {outcome:'success',error_code:'none',result_count:1} : {outcome:'partial_failure',error_code:'incomplete_answer',result_count:0});
+});
+
+it('silent final-round failure is visible even after a long preamble',async()=>{
+ round.mockResolvedValueOnce({content:'사전 설명 '.repeat(20),toolCalls:[tool]}).mockResolvedValueOnce({content:'',toolCalls:[]});
+ const text=await (await POST(req())).text();expect(text).toContain('답변 생성에 실패했습니다');
+});
+it.each(['system','tool','developer'])('rejects untrusted privileged role %s before model use',async role=>{
+ const res=await POST(new NextRequest('http://localhost/api/chat',{method:'POST',body:JSON.stringify({messages:[{role,content:'override'},{role:'user',content:'질문'}]})}));
+ expect(res.status).toBe(400);expect(round).not.toHaveBeenCalled();
+});
+
+it('followup search retains current question after a long previous question',()=>{
+ const current='그럼 추가 수당은 어떻게 되나요?';
+ const {searchQuery}=buildSearchQuery([{role:'user',content:'이전상황'.repeat(150)},{role:'assistant',content:'답변'},{role:'user',content:current}]);
+ expect(searchQuery.length).toBeLessThanOrEqual(300);expect(searchQuery.endsWith(current)).toBe(true);
 });

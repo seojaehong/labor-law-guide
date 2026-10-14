@@ -36,7 +36,7 @@ export async function buildFaqContext(
 
   // NIM Reranker 활성 시 후보 16건 retrieval → rerank → top 5 사용 (token 절감 + 적합도 향상)
   // 비활성 시 기존 top 8 그대로 (변경 없음, fail-safe)
-  // NVIDIA NIM 리랭커는 2026-05-18 에 서비스가 종료됐다(HTTP 410 Gone,
+  // 과거 기록: 2026-05-18 NVIDIA NIM 호출에서 HTTP 410 Gone이 관찰됐다(현재 이용 가능 여부는 미확인,
   // "This endpoint has reached its end of life on 2026-05-18").
   // 그런데 rerank 함수가 실패 시 입력을 그대로 돌려주는 fail-safe 라서 아무도 몰랐다.
   //
@@ -152,7 +152,7 @@ export async function buildFaqContext(
       context += `\n#${faq.id} [${faq.unified_category || faq.category}] Q: ${faq.question}\nA: ${faq.answer}\n`;
     }
     context += CITATION_GUIDE;
-    topIds = matchedFaqs.slice(0, 3).map((f) => f.id);
+    topIds = matchedFaqs.map((f) => f.id);
   }
 
   return { context, matched, count: matchedFaqs.length, categories, topIds, failed: !!dbErr };

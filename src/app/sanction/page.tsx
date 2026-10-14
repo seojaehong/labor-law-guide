@@ -1,5 +1,7 @@
 'use client';
 
+import { requireStreamCompletion } from '@/lib/ai/stream-completion';
+
 import { useState, useRef, useEffect, type FormEvent } from 'react';
 import { Send, Bot, User, Loader2, Scale, CheckCircle2, GitCompareArrows, ClipboardList } from 'lucide-react';
 import { PromptSuggestion } from '@/components/decisions-ui/prompt-suggestion';
@@ -111,6 +113,7 @@ export default function SanctionPage() {
       let streamedContent = '';
       let finalComparison: ComparisonMeta | null = null;
       let metaReceived = false;
+      let doneReceived = false;
       let buffer = '';
       let serverError: string | null = null;
 
@@ -154,6 +157,7 @@ export default function SanctionPage() {
               )
             );
           } else if (event.type === 'done') {
+            doneReceived = true;
             // done 은 카드 교체 신호가 아니라 **설명 확정 신호**다.
             // 2026-09-19 이전에는 여기서 comparison 을 통째로 덮어써서, 스트리밍 도중 보이던
             // 사건이 응답 끝에 다른 사건으로 바뀌었다. 이제 서버가 보내는 카드는 meta 와 동일하지만,
@@ -171,7 +175,7 @@ export default function SanctionPage() {
           }
         }
       }
-      if (serverError) throw new Error(serverError);
+      requireStreamCompletion(doneReceived, serverError);
 
       if (!metaReceived && !streamedContent) {
         throw new Error('응답을 받지 못했습니다.');
@@ -308,7 +312,7 @@ export default function SanctionPage() {
                     </div>
                   )}
 
-                  {msg.role === 'assistant' && msg.content && !msg.comparison && (
+                  {msg.role === 'assistant' && msg.content && (
                     <div className="rounded-2xl bg-muted px-4 py-3 text-sm leading-relaxed text-foreground whitespace-pre-wrap">
                       {msg.content}
                     </div>
@@ -361,7 +365,7 @@ export default function SanctionPage() {
                           <div className="mb-3 flex items-center justify-between gap-2">
                             <div className="flex items-center gap-2 text-sm font-semibold text-amber-900 dark:text-amber-200">
                               <CheckCircle2 size={15} />
-                              승패를 가른 핵심 차이
+                              판정문에 명시된 쟁점 비교
                             </div>
                             <button
                               type="button"
@@ -435,7 +439,7 @@ export default function SanctionPage() {
                     <div className="rounded-xl border border-border/50 bg-muted/30 p-4 mt-3">
                       <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-foreground">
                         <span>📚 관련 실무 해설</span>
-                        <span className="text-xs font-normal text-muted-foreground">최영우 교재 · 검토자 FAQ</span>
+                        <span className="text-xs font-normal text-muted-foreground">지식DB 매칭 자료</span>
                       </div>
                       <div className="space-y-2">
                         {msg.faqs.map((faq) => (
@@ -447,6 +451,7 @@ export default function SanctionPage() {
                             </summary>
                             <div className="mt-2 pt-2 border-t border-border/30 text-sm text-foreground/80 whitespace-pre-wrap">
                               {faq.answer}
+                              {faq.source && <div className="mt-2 text-xs text-muted-foreground">출처: {faq.source}</div>}
                               {faq.category && (
                                 <div className="mt-2 text-xs text-muted-foreground">분류: {faq.category}</div>
                               )}

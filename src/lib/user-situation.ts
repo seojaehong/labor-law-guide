@@ -1,3 +1,4 @@
+import { companySizeEvidence } from './company-size-evidence';
 import { supabaseAdmin } from './supabase-server';
 import { supabase } from './supabase';
 import { getGenerativeModel } from './vertex/client';
@@ -6,6 +7,7 @@ const db = supabaseAdmin || supabase;
 
 export type UserSituation = {
   company_size?: number;
+  company_size_evidence?: ReturnType<typeof companySizeEvidence>['company_size_evidence'];
   tenure_months?: number;
   monthly_salary?: number;
   job_type?: string;
@@ -17,6 +19,7 @@ export type UserSituation = {
 
 const KEYS = [
   'company_size',
+  'company_size_evidence',
   'tenure_months',
   'monthly_salary',
   'job_type',
@@ -28,7 +31,7 @@ const KEYS = [
 const EXTRACTION_PROMPT = `당신은 노무 상담 사용자의 메시지에서 핵심 상황 정보만 정확히 추출하는 분류기입니다.
 
 [추출 키 정의]
-- company_size: 상시근로자수 (정수). "5인 미만"→4, "10명"→10, "100명 이상"→100. 모르면 생략.
+- company_size: 명시된 정확한 상시근로자수만 정수로 출력. "10명"→10. "5인 미만", "100명 이상", 범위는 정확한 수가 아니므로 company_size 생략.
 - tenure_months: 근속개월 (정수). "3년"→36, "1년 6개월"→18, "신입"→0. 모르면 생략.
 - monthly_salary: 월급 원화 (정수). "300만원"→3000000, "연봉 4천"→3333333(연/12). 모르면 생략.
 - job_type: 정규직/계약직/단시간/일용직/파견/프리랜서/임원 중 하나. 모르면 생략.
@@ -70,7 +73,11 @@ export async function upsertSituation(
   for (const k of KEYS) {
     const v = newDelta[k];
     if (v === undefined || v === null || v === '') continue;
-    if (k === 'company_size' || k === 'tenure_months' || k === 'monthly_salary') {
+    if (k === 'company_size_evidence') {
+      const evidence = newDelta.company_size_evidence;
+      if (!evidence || typeof evidence.original !== 'string' || !['eq', 'lt', 'lte', 'gt', 'gte', 'range'].includes(evidence.operator) || !Number.isFinite(evidence.value)) continue;
+      cleanDelta[k] = evidence;
+    } else if (k === 'company_size' || k === 'tenure_months' || k === 'monthly_salary') {
       const n = typeof v === 'number' ? v : Number(v);
       if (!Number.isFinite(n)) continue;
       cleanDelta[k] = n;
@@ -81,6 +88,7 @@ export async function upsertSituation(
   if (Object.keys(cleanDelta).length === 0 && turnIncrement === 0) return;
 
   const merged = { ...prevProfile, ...cleanDelta };
+  if (newDelta.company_size_evidence && newDelta.company_size_evidence.operator !== 'eq') delete merged.company_size;
   const { data: existing } = await db
     .from('user_situation')
     .select('turns_observed')
@@ -98,7 +106,9 @@ export async function upsertSituation(
 
 export function formatSituationForPrompt(profile: UserSituation): string {
   const parts: string[] = [];
-  if (profile.company_size != null) {
+  if (profile.company_size_evidence) {
+    parts.push(`회사규모: 사용자 원문 ‘${profile.company_size_evidence.original}’ (범위·부등호 그대로 적용, 정확한 인원으로 추정하지 않음)`);
+  } else if (profile.company_size != null) {
     parts.push(`회사규모: 상시 ${profile.company_size}명${profile.company_size < 5 ? ' (5인 미만 사업장)' : ''}`);
   }
   if (profile.tenure_months != null) {
@@ -154,8 +164,11 @@ export async function extractDelta(
     for (const k of KEYS) {
       if (parsed[k] !== undefined) result[k] = parsed[k];
     }
-    return result;
+    // A model-proposed point estimate is never evidence of an exact headcount.
+    delete result.company_size;
+    delete result.company_size_evidence;
+    return { ...result, ...companySizeEvidence(userMessage) };
   } catch {
-    return {};
+    return companySizeEvidence(userMessage);
   }
 }

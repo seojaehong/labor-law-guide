@@ -15,7 +15,7 @@ import { checkChatRateLimit, extractIp, hashIp } from '@/lib/rate-limit';
 import { getChatKillSwitch } from '@/lib/kill-switch';
 import { verifyTurnstile, isTurnstileEnabled } from '@/lib/turnstile';
 import { executeTool } from '@/lib/chat/tools/execute';
-import { streamRound, lastRoundInfo, type ToolCallAcc } from '@/lib/chat/stream-round';
+import { streamRound, type RoundInfo, type ToolCallAcc } from '@/lib/chat/stream-round';
 import { withTimeout, withTimeoutTagged, RETRIEVAL_TIMEOUT_MS, FAQ_TIMEOUT_MS } from '@/lib/chat/context/with-timeout';
 import { type Retrieval, EMPTY_RETRIEVAL } from '@/lib/chat/context/result';
 import { isAnthropicConfigured } from '@/lib/chat/anthropic-fallback';
@@ -31,11 +31,12 @@ export const maxDuration = 60;
 
 const db = supabaseAdmin || supabase;
 
-function buildSearchQuery(messages: Array<{ role: string; content: string }>): {
+export function buildSearchQuery(messages: Array<{ role: string; content: string }>): {
   searchQuery: string;
   lastUserMsg: { role: string; content: string } | undefined;
 } {
-  const lastUserMsg = [...messages].reverse().find((m) => m.role === 'user');
+  const lastUserIndex = messages.map((m) => m.role).lastIndexOf('user');
+  const lastUserMsg = messages[lastUserIndex];
   let searchQuery = lastUserMsg?.content || '';
 
   if (lastUserMsg && messages.length > 1) {
@@ -44,11 +45,13 @@ function buildSearchQuery(messages: Array<{ role: string; content: string }>): {
       /^(그럼|그러면|그건|이건|왜|어떻게|네\?|뭐|아|그|이)\s/.test(lastUserMsg.content);
     if (isShortFollowup) {
       const prevUsers = messages
-        .slice(0, -1)
+        .slice(0, lastUserIndex)
         .filter((m) => m.role === 'user')
         .slice(-1);
       if (prevUsers.length > 0) {
-        searchQuery = `${prevUsers[0].content} ${lastUserMsg.content}`.slice(0, 300);
+        const previousBudget = Math.max(0, 300 - lastUserMsg.content.length - 1);
+        searchQuery = `${prevUsers[0].content.slice(-previousBudget)} ${lastUserMsg.content}`;
+        if (previousBudget === 0) searchQuery = lastUserMsg.content;
       }
     }
   }
@@ -113,7 +116,10 @@ export async function POST(req: NextRequest) {
     const sessionId =
       rawSessionId && /^[a-z0-9_-]{12,64}$/i.test(rawSessionId) ? rawSessionId : null;
 
-    if (!Array.isArray(messages) || messages.length === 0 || messages.length > 50) {
+    if (!Array.isArray(messages) || messages.length === 0 || messages.length > 50 ||
+      messages.some((m: unknown) => !m || typeof m !== 'object' ||
+        !['user', 'assistant'].includes((m as { role: string }).role) ||
+        typeof (m as { content: unknown }).content !== 'string')) {
       return respond(JSON.stringify({ error: '올바른 메시지 형식이 아닙니다.' }), {
         status: 400,
       });
@@ -357,6 +363,7 @@ export async function POST(req: NextRequest) {
     const stream = new ReadableStream({
       async start(controller) {
         try {
+        const lastRoundInfo: RoundInfo = { provider: 'unknown', vertexFailMs: 0 };
         let assembledAnswer = '';
         let streamFailed = false;
         // Count only model body frames, not fallback/footer/progress. Never persist chunks.
@@ -394,7 +401,7 @@ export async function POST(req: NextRequest) {
         const genStart = Date.now();
         let r1Ms = 0;
         try {
-          const r1 = await streamRound(modelController, baseMsgs, toolHint, encoder, decoder);
+          const r1 = await streamRound(modelController, baseMsgs, toolHint, encoder, decoder, lastRoundInfo);
           r1Ms = Date.now() - genStart;
           assembledAnswer += r1.content;
           r1ContentLen = r1.content.length;
@@ -437,7 +444,7 @@ export async function POST(req: NextRequest) {
             controller.enqueue(
               encoder.encode(`data: ${JSON.stringify({ content: ' 완료\n\n' })}\n\n`)
             );
-            const r2 = await streamRound(modelController, round2Msgs, false, encoder, decoder);
+            const r2 = await streamRound(modelController, round2Msgs, false, encoder, decoder, lastRoundInfo);
             assembledAnswer += r2.content;
             r2ContentLen = r2.content.length;
             finalBodyLength = r2.content.trim().length;
@@ -463,7 +470,7 @@ export async function POST(req: NextRequest) {
             /\[FAQ#\d+|\[CASE#[A-Za-z0-9_\-]+|\[COURT#[^\]]+\]|\[INTERP#[^\]]+\]/.test(
               assembledAnswer
             );
-          if (!hasContent) {
+          if (!finalAnswerComplete) {
             // 본문 비어있음 — empty completion / round 2 silent fail / round 2 tool_call 미처리
             console.warn('[chat] empty answer body', {
               r1: { len: r1ContentLen, tcs: r1ToolCalls },

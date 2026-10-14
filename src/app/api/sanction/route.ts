@@ -1,5 +1,6 @@
+import { conversationQuery } from '@/lib/ai/conversation-query';
 import { NextRequest, NextResponse } from 'next/server';
-import { extractTags, searchCases, _retrievalTiming } from '@/lib/ai/retrieval';
+import { extractTags, searchCases } from '@/lib/ai/retrieval';
 import { buildComparisonMeta, buildUserContext, trimHistory, type ComparisonMeta } from '@/lib/ai/prompt';
 import { SYSTEM_PROMPT } from '@/lib/ai/prompt';
 import { buildFaqContext } from '@/lib/chat/context/faq';
@@ -167,7 +168,7 @@ function validateMessages(messages: unknown): { valid: true; messages: { role: s
     content: typeof message?.content === 'string' ? message.content.trim() : '',
   }));
 
-  if (normalized.some((message) => !message.role || !message.content || message.content.length > MAX_MESSAGE_LENGTH)) {
+  if (normalized.some((message) => !['user', 'assistant'].includes(message.role) || !message.content || message.content.length > MAX_MESSAGE_LENGTH)) {
     return { valid: false, error: `각 메시지는 role/content를 가져야 하며, content는 ${MAX_MESSAGE_LENGTH}자 이하여야 합니다.` };
   }
 
@@ -225,7 +226,8 @@ export async function POST(req: NextRequest) {
 
     // Step 1: 키워드 추출 (~1ms)
     const t_tags = Date.now();
-    const tags = extractTags(lastUserMsg.content);
+    const searchQuery = conversationQuery(messages);
+    const tags = extractTags(searchQuery);
     _t.tags = Date.now() - t_tags;
 
     // Step 2: DB 검색 + 부가 지식DB 동시 — 직렬 await로 retrieval 뒤에 FAQ 13s 추가되던 것 병렬화.
@@ -233,11 +235,11 @@ export async function POST(req: NextRequest) {
     const t_faq = Date.now();
     // FAQ 호출에 6s timeout (Supabase pooler 10s 컷 회피).
     const faqWithTimeout = Promise.race<{ context: string; topIds: number[] }>([
-      buildFaqContext(db, lastUserMsg.content, null).then((r) => ({ context: r.context, topIds: r.topIds })).catch(() => ({ context: '', topIds: [] })),
+      buildFaqContext(db, searchQuery, null).then((r) => ({ context: r.context, topIds: r.topIds })).catch(() => ({ context: '', topIds: [] })),
       new Promise<{ context: string; topIds: number[] }>((resolve) => setTimeout(() => resolve({ context: '', topIds: [] }), 6000)),
     ]);
     const [retrieval, faqResult] = await Promise.all([
-      searchCases(tags, lastUserMsg.content),
+      searchCases(tags, searchQuery),
       faqWithTimeout,
     ]);
     _t.search = Date.now() - t_search;
@@ -252,7 +254,7 @@ export async function POST(req: NextRequest) {
           .from('faq')
           .select('id, question, answer, source, unified_category')
           .in('id', topFaqIds)
-          .limit(5);
+          .limit(topFaqIds.length);
         if (Array.isArray(faqRows)) {
           // topFaqIds 순서 유지
           const byId = new Map(faqRows.map((f) => [f.id, f]));
@@ -294,9 +296,9 @@ export async function POST(req: NextRequest) {
     const diagTiming = {
       tags: _t.tags,
       search: _t.search,
-      embedding: _retrievalTiming.embedding,
-      rpc: _retrievalTiming.rpc,
-      rpcRows: _retrievalTiming.rpcRows,
+      embedding: retrieval.timings.embedding,
+      rpc: retrieval.timings.rpc,
+      rpcRows: retrieval.timings.rpcRows,
       compMeta: _t.compMeta,
       ctx: _t.ctx,
       faq: faqMs,
