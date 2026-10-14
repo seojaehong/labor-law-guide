@@ -3,7 +3,7 @@ import Link from "next/link";
 import DecisionCategoryNavigation from "@/components/DecisionCategoryNavigation";
 import type { Metadata } from "next";
 import { unstable_cache } from "next/cache";
-import { countByReason, getRecent, runSearch, getCategory, decisionRow } from "@/lib/decisions-data";
+import { countByReason, countBySource, getRecent, runSearch, getCategory, decisionRow } from "@/lib/decisions-data";
 import { parse, tabHref, pageHref, categoryHref, type Search } from "@/lib/decisions-query";
 import { REASON_LABELS, type ReasonCategory } from "@/lib/types";
 import { SITE_URL, BRAND_NAME } from "@/lib/constants";
@@ -34,14 +34,14 @@ export async function generateMetadata(
   return publicMetadata({
     title: q
       ? `${q} 검색 결과 | 노동위 판정례·법원 판례`
-      : "노동위 판정례·법원 판례 검색 | 해고·징계 사건 6만건",
+      : "노동위 판정례·법원 판례 검색",
     description:
       "부당해고 구제신청, 징계, 전보, 갱신기대권 등 노동위원회 판정례와 법원 판례, 행정해석을 한곳에서 찾습니다. 사건번호·쟁점·판정결과로 유사 사례를 비교해 보세요.",
     alternates: { canonical: `${SITE_URL}/decisions` },
     robots: q || reasonProvided ? { index: false, follow: true } : { index: true, follow: true },
     openGraph: {
       title: "노동위 판정례·법원 판례 검색",
-      description: "해고·징계 사건 6만건과 행정해석을 한곳에서.",
+      description: "노동위 판정례·법원 판례와 행정해석을 한곳에서.",
       url: `${SITE_URL}/decisions`,
       type: "website",
       locale: "ko_KR",
@@ -74,7 +74,7 @@ export default async function DecisionsIndexPage(
 
       <h1 className="mb-2 text-2xl font-bold">판정례 · 판례 · 행정해석 검색</h1>
       <p className="mb-6 text-sm leading-relaxed" style={{ color: "var(--color-text-secondary)" }}>
-        노동위원회 판정례 6만여 건, 법원 판례, 고용노동부 행정해석을 한곳에서 찾습니다.
+        노동위원회 판정례, 법원 판례, 고용노동부 행정해석을 한곳에서 찾습니다.
         비슷한 사건이 어떤 이유로 인정되고 기각됐는지 비교해 보세요.
       </p>
 
@@ -168,13 +168,14 @@ async function SearchView({ q, type, page }: { q: string; type: Kind; page: numb
 // 수집기가 멈춰 있어 숫자는 하루에 한 번도 안 바뀐다. 결과만 6시간 캐시한다 — 페이지는 force-dynamic 그대로.
 const getHubData = unstable_cache(
   async () => {
-    const [counts, recent] = await Promise.all([
+    const [counts, recent, sources] = await Promise.all([
       Promise.all(REASON_KEYS.map(async (r) => ({ reason: r, count: await countByReason(r) }))),
       getRecent(),
+      countBySource(),
     ]);
-    return { counts, recent };
+    return { counts, recent, sources };
   },
-  ["decisions-hub-v2"],
+  ["decisions-hub-v3"],
   { revalidate: 21600 }
 );
 
@@ -185,9 +186,8 @@ async function HubView() {
   } catch {
     return <LoadError href="/decisions" message="유형 집계와 최근 판정례를 불러오지 못했습니다." />;
   }
-  const { counts, recent } = hub;
+  const { counts, recent, sources } = hub;
   const visible = counts.filter((c) => c.count > 0).sort((a, b) => b.count - a.count);
-  const total = visible.reduce((s, c) => s + c.count, 0);
 
   return (
     <>
@@ -208,11 +208,10 @@ async function HubView() {
             </Link>
           ))}
         </div>
-        {total > 0 ? (
-          <p className="mt-4 text-xs" style={{ color: "var(--color-text-tertiary)" }}>
-            분류된 사건 {total.toLocaleString()}건
-          </p>
-        ) : null}
+        <p className="mt-4 text-xs" style={{ color: "var(--color-text-tertiary)" }}>
+          노동위 판정례 {sources.nlrc.toLocaleString()}건 · 법원 판례 {sources.court.toLocaleString()}건.
+          한 사건이 여러 유형에 걸칠 수 있어 유형별 건수는 중복될 수 있습니다.
+        </p>
       </section>
 
       <section>
