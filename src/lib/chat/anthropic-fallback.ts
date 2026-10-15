@@ -1,5 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { createUrlScrubber } from './scrub-urls';
+import { requireGenerationFinish } from './completion';
 import type { ToolCallAcc } from './stream-round';
 
 // Vertex 장애 시 챗을 살리기 위한 2순위 프로바이더.
@@ -110,8 +111,12 @@ export async function streamAnthropicRound(
 
   let content = '';
   const scrubber = createUrlScrubber();
+  const stopReasons: unknown[] = [];
+  let terminal = false;
   try {
     for await (const event of stream) {
+      if (event.type === 'message_delta' && event.delta.stop_reason != null) stopReasons.push(event.delta.stop_reason);
+      if (event.type === 'message_stop') terminal = true;
       if (event.type === 'content_block_delta' && event.delta.type === 'text_delta') {
         const scrubbed = scrubber.push(event.delta.text);
         if (scrubbed) {
@@ -128,5 +133,6 @@ export async function streamAnthropicRound(
       controller.enqueue(encoder.encode(`data: ${JSON.stringify({ content: tail })}\n\n`));
     }
   }
+  requireGenerationFinish('anthropic', stopReasons, terminal);
   return { content, toolCalls: [] };
 }

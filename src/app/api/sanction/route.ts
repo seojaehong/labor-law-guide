@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { extractTags, searchCases } from '@/lib/ai/retrieval';
 import { buildComparisonMeta, buildUserContext, trimHistory, type ComparisonMeta } from '@/lib/ai/prompt';
 import { SYSTEM_PROMPT } from '@/lib/ai/prompt';
-import { faqReferences, validateFaqCitations, createFaqCitationGuard, providerCompletion, requireProviderCompletion } from '@/lib/ai/faq-evidence';
+import { faqReferences, validateFaqCitations, createFaqCitationGuard, createProviderCompletionTracker, requireNonstreamCompletion, ProviderCompletionError } from '@/lib/ai/faq-evidence';
 import { buildFaqContext } from '@/lib/chat/context/faq';
 import { supabaseAdmin } from '@/lib/supabase-server';
 import { supabase } from '@/lib/supabase';
@@ -311,7 +311,7 @@ export async function POST(req: NextRequest) {
             const reader = resp.body.getReader();
             const decoder = new TextDecoder();
             let fullText = '';
-            let providerDone = false;
+            const completion = createProviderCompletionTracker(provider);
             let buffer = '';
 
             while (true) {
@@ -324,7 +324,7 @@ export async function POST(req: NextRequest) {
               for (const line of lines) {
                 if (!line.startsWith('data: ')) continue;
                 const payload = line.slice(6);
-                if (providerCompletion(provider, payload)) { providerDone = true; continue; }
+                if (completion.observe(payload)) continue;
                 try {
                   const parsed = JSON.parse(line.slice(6));
                   const delta = provider === 'anthropic'
@@ -339,17 +339,18 @@ export async function POST(req: NextRequest) {
               }
             }
 
-            requireProviderCompletion(providerDone);
+            completion.requireComplete();
+            if (!fullText.trim()) throw new ProviderCompletionError('incomplete');
             const safeTail = citationGuard.flush();
             if (safeTail) controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'delta', text: safeTail })}\n\n`));
             const analysis = validateFaqCitations(sanitizeAnalysis(unwrapLegacyJson(fullText)), topFaqIds);
             // 카드·쟁점·차이·체크리스트는 모두 DB 산출물이다. LLM 이 바꾸지 않는다.
             const finalComparison = comparison;
             controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'done', content: analysis, comparison: finalComparison, provider })}\n\n`));
-          } catch {
+          } catch (error) {
             const safeTail = citationGuard.flush();
             if (safeTail) controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'delta', text: safeTail })}\n\n`));
-            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'error', content: '응답 생성이 지연되고 있습니다.' })}\n\n`));
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'error', content: error instanceof ProviderCompletionError ? error.message : '응답 생성이 지연되고 있습니다.', error_code: error instanceof ProviderCompletionError ? error.code : 'stream_failed' })}\n\n`));
           }
           controller.close();
         },
@@ -366,11 +367,13 @@ export async function POST(req: NextRequest) {
       signal: AbortSignal.timeout(45_000),
     });
     const data = await resp.json();
+    requireNonstreamCompletion(provider, data);
     // OpenAI-compat (Gemini, OpenAI): choices[0].message.content
     // Anthropic: content[0].text
     const rawAnalysis = provider === 'anthropic'
-      ? (data.content?.[0]?.text || '분석 결과를 생성할 수 없습니다.')
-      : (data.choices?.[0]?.message?.content || '분석 결과를 생성할 수 없습니다.');
+      ? data.content?.[0]?.text
+      : data.choices?.[0]?.message?.content;
+    if (typeof rawAnalysis !== 'string' || !rawAnalysis.trim()) throw new ProviderCompletionError('incomplete');
     const analysis = validateFaqCitations(sanitizeAnalysis(unwrapLegacyJson(rawAnalysis)), topFaqIds);
     // 카드·쟁점·차이·체크리스트는 모두 DB 산출물이다. LLM 이 바꾸지 않는다.
     const finalComparison = comparison;
@@ -398,10 +401,11 @@ export async function POST(req: NextRequest) {
     console.error('[sanction] POST error:', error instanceof Error ? error.message : String(error));
 
     return NextResponse.json({
-      content: message,
+      content: error instanceof ProviderCompletionError ? error.message : message,
+      ...(error instanceof ProviderCompletionError ? { error_code: error.code, completion: 'incomplete' } : {}),
       tags: retrievalCache?.tags || [],
       cases: retrievalCache?.cases || [],
       comparison: retrievalCache?.comparison || null,
-    });
+    }, error instanceof ProviderCompletionError ? { status: 502 } : undefined);
   }
 }

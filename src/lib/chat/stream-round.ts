@@ -6,6 +6,7 @@ import type {
 } from '@google-cloud/vertexai';
 import { TOOLS } from './tools/definitions';
 import { createUrlScrubber } from './scrub-urls';
+import { requireGenerationFinish } from './completion';
 import { getGenerativeModel } from '../vertex/client';
 import { isAnthropicConfigured, streamAnthropicRound } from './anthropic-fallback';
 
@@ -245,11 +246,13 @@ export async function streamRound(
   let content = '';
   const scrubber = createUrlScrubber();
   const toolCallsMap: Record<number, ToolCallAcc> = {};
+  const finishReasons: unknown[] = [];
 
   let tcIdx = 0;
   let emitted = false;
   try {
     for await (const chunk of result.stream) {
+      if (chunk.candidates?.[0]?.finishReason != null) finishReasons.push(chunk.candidates[0].finishReason);
       const parts = chunk.candidates?.[0]?.content?.parts ?? [];
       for (const part of parts) {
         if ('text' in part && part.text) {
@@ -298,5 +301,6 @@ export async function streamRound(
     content += tail;
     controller.enqueue(encoder.encode(`data: ${JSON.stringify({ content: tail })}\n\n`));
   }
+  requireGenerationFinish('vertex', finishReasons);
   return { content, toolCalls: Object.values(toolCallsMap) };
 }

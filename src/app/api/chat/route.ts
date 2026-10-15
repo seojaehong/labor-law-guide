@@ -27,6 +27,7 @@ import { buildInterpretationsContext } from '@/lib/chat/context/interpretations'
 import { buildLawsContext } from '@/lib/chat/context/laws';
 import { hasVerifiedCitation, type EvidenceId } from '@/lib/chat/citations';
 import { buildSearchQuery } from '@/lib/chat/search-query';
+import { IncompleteGenerationError } from '@/lib/chat/completion';
 import { activeConversation } from '@/lib/ai/conversation-query';
 import { buildNewsContext } from '@/lib/chat/context/news';
 
@@ -442,7 +443,7 @@ export async function POST(req: NextRequest) {
           streamFailed = true;
           controller.enqueue(
             encoder.encode(
-              `data: ${JSON.stringify({ error: '스트리밍 중 오류가 발생했습니다.' })}\n\n`
+              `data: ${JSON.stringify({ error: e instanceof IncompleteGenerationError ? e.message : '스트리밍 중 오류가 발생했습니다.', ...(e instanceof IncompleteGenerationError ? { completion: e.kind } : {}) })}\n\n`
             )
           );
           console.warn('[chat] stream error', { msg: (e as Error)?.message });
