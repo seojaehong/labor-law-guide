@@ -1,7 +1,8 @@
 import type { Root, Element } from 'hast';
 export const COLLECTED_ANCHOR_PREFIX='collected-source-';
 /** Runs after sanitizer clobber protection; resolve only targets inside this collected body. */
-export default function collectedSourceAnchors() {
+export default function collectedSourceAnchors(options?: { prefix?: string }) {
+ const prefix=options?.prefix?.startsWith(COLLECTED_ANCHOR_PREFIX) ? options.prefix : COLLECTED_ANCHOR_PREFIX;
  return (tree:Root)=>{
   const elements:Element[]=[];
   function walk(node:Root|Root['children'][number]) {if(node.type==='element')elements.push(node);if('children' in node)for(const child of node.children)walk(child);}
@@ -10,8 +11,8 @@ export default function collectedSourceAnchors() {
   for(const el of elements){
    const p=el.properties;const raw=typeof p.id==='string'?p.id:typeof p.name==='string'?p.name:null;
    if(raw){
-    const original=raw.startsWith(COLLECTED_ANCHOR_PREFIX)?raw.slice(COLLECTED_ANCHOR_PREFIX.length):raw;
-    const base=COLLECTED_ANCHOR_PREFIX+original;let id=base,index=2;while(used.has(id))id=base+'-'+index++;
+    const original=raw.startsWith(prefix)?raw.slice(prefix.length):raw;
+    const base=prefix+original;let id=base,index=2;while(used.has(id))id=base+'-'+index++;
     used.add(id);p.id=id;if(!targets.has(original))targets.set(original,id);
    }
    delete p.name;
