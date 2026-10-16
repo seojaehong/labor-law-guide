@@ -234,6 +234,25 @@ export async function sendDailyNewsletter(opts: {
   const TEXT_SECONDARY = '#6b7684';
   const BORDER = '#e5e8eb';
 
+  // 🔴 2026-10-16 — 이름 바뀐 것을 **따로 메일 보내지 않고 이 메일 머리에 한 번만** 붙인다.
+  //   재홍님 지시: 「변경안내는 따로 하지 말고 내일 보낼 때 앞에나 뒤에 추가해서 같이」
+  //   별도 발송은 받는 쪽에 메일 두 통이 되고, 읽을 이유도 약하다. 오는 메일에 붙이면 반드시 본다.
+  //   **기한이 지나면 저절로 사라진다** — 지우는 걸 기억할 필요가 없게 한다.
+  const NOTICE_UNTIL = '2026-10-20';            // 이 날짜까지만 보인다(KST)
+  const todayKst = new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 10);
+  const renameNotice = todayKst <= NOTICE_UNTIL
+    ? `<div style="margin:0 0 24px;padding:14px 16px;background:#f9fafb;border:1px solid ${BORDER};border-radius:10px">
+      <p style="margin:0 0 6px;font-size:13px;font-weight:700;color:${TEXT_PRIMARY}">알려드립니다 — 뉴스레터 이름과 안내 문구를 바로잡았습니다</p>
+      <p style="margin:0;font-size:13px;line-height:1.7;color:${TEXT_SECONDARY}">
+        「노동법 위클리」를 <strong>「오늘의 일」</strong>로 바꾸고, 신청 화면의 「주 1~2회 발송」을
+        <strong>「매일 아침 9시 발송」</strong>으로 고쳤습니다.
+        <strong>내용과 보내는 시각은 그대로입니다</strong> — 지금까지도 매일 아침에 보내 드리고 있었는데
+        안내 문구만 잘못 적혀 있었습니다. 구독자 한 분이 물어봐 주셔서 알게 됐습니다. 고맙습니다.
+        받는 빈도가 부담스러우시면 맨 아래 해지 버튼을 한 번 누르시면 바로 해지됩니다.
+      </p>
+    </div>`
+    : '';
+
   const summaryBlock = opts.article.summary
     ? `<p style="margin:0 0 28px;color:${TEXT_SECONDARY};font-size:15px;line-height:1.6;padding-left:14px;border-left:3px solid ${ACCENT}">${opts.article.summary}</p>`
     : '';
@@ -245,6 +264,7 @@ export async function sendDailyNewsletter(opts: {
       <h1 style="margin:0;color:${TEXT_PRIMARY};font-size:20px;font-weight:800;letter-spacing:-0.3px">📬 오늘의 일</h1>
     </div>
     <div style="padding:36px 28px;color:${TEXT_PRIMARY};line-height:1.7;font-size:15px">
+      ${renameNotice}
       <h2 style="margin:0 0 16px;font-size:24px;font-weight:800;color:${TEXT_PRIMARY};line-height:1.35;letter-spacing:-0.5px">📰 ${displayTitle}</h2>
       ${summaryBlock}
       <div style="color:#374151;font-size:15px;line-height:1.85">${safeContent}</div>
