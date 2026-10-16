@@ -10,7 +10,6 @@ import { SITE_URL } from '@/lib/constants';
 import { formatDecisionDate, getPreferredSummary, getPreferredDetail } from '@/app/database/_components/utils';
 import { decisionDate } from '@/lib/decision-date';
 import TagRow from '@/app/database/_components/TagRow';
-import MarkdownSnippet from '@/app/database/_components/MarkdownSnippet';
 import {
   ArrowLeft,
   ArrowRight,
@@ -254,7 +253,7 @@ export default async function InterpretationDetailPage({
                 <div
                   className="editorial-evidence-body"
                 >
-                  <MarkdownSnippet variant="reading" value={summary} />
+                  <CollectedSourceBody text={summary} anchorScope="interpretation-inquiry" />
                 </div>
               </section>
             )}
@@ -262,12 +261,13 @@ export default async function InterpretationDetailPage({
             {detail && detail !== summary && (
               <section className="editorial-evidence">
                 <h2 className="text-[15px] font-bold mb-3" style={{ color: 'var(--color-text-primary)' }}>
-                  회시·판단 (수집 내용)
+                  회시·판단 요약 (수집 내용)
                 </h2>
                 <div
                   className="editorial-evidence-body"
                 >
-                  <MarkdownSnippet variant="reading" value={detail} />
+                  <p className="mb-3 text-sm">저장된 요약입니다. HTML 형식은 안전하게 표시하지만 잘린 내용을 복구하거나 전문임을 보증하지 않습니다. 별도 수집 본문이 있으면 아래에서 확인하세요.</p>
+                  <CollectedSourceBody text={detail} anchorScope="interpretation-answer" />
                 </div>
               </section>
             )}
@@ -277,7 +277,7 @@ export default async function InterpretationDetailPage({
             {item.collected_body ? <section className="editorial-evidence" id="collected-source-body">
               <h2 className="text-[15px] font-bold mb-3">별도로 확보한 수집 본문</h2>
               <p className="mb-3 text-sm">위 요약과 별도로 저장된 본문입니다. 원본 완전성·구획 보존은 미확인입니다. HTML의 실행 요소는 표시하지 않습니다.</p>
-              <CollectedSourceBody text={item.collected_body}/>
+              <CollectedSourceBody text={item.collected_body} anchorScope="interpretation-body"/>
             </section> : null}
 
             {related.length > 0 && (

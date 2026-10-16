@@ -9,7 +9,7 @@ it.each(['http://www.law.go.kr/LSW/precInfoP.do?precSeq=1','//www.law.go.kr/LSW/
  expect(officialSource(url)).toBeNull();const html=renderToStaticMarkup(createElement(OfficialSourceLink,{urls:[url]}));expect(html).toContain('공식 원문 미확인');expect(html).not.toContain('href=');
 });
 it('uses stored official IDs only and identifies the actual agency',()=>{
- const a=officialSource('https://www.law.go.kr/DRF/lawService.do?target=prec&ID=372172&type=HTML');expect(a?.url).toBe('https://www.law.go.kr/DRF/lawService.do?target=prec&ID=372172&type=HTML');
+ const a=officialSource('https://www.law.go.kr/DRF/lawService.do?target=prec&ID=372172&type=HTML');expect(a?.url).toBe('https://www.law.go.kr/LSW/precInfoP.do?mode=0&precSeq=372172');
  expect(officialSource('https://labor.moel.go.kr/cmmt/iqrs_detail.do?id=18820')?.agency).toBe('고용노동부');
  expect(officialSource('https://www.law.go.kr/LSW/precInfoP.do?precSeq=372172&redirect=https://evil.invalid')).toBeNull();
 });
