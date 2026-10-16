@@ -5,7 +5,8 @@ import type {
   GenerationConfig,
 } from '@google-cloud/vertexai';
 import { TOOLS } from './tools/definitions';
-import { scrubFakeUrls } from './scrub-urls';
+import { createUrlScrubber } from './scrub-urls';
+import { requireGenerationFinish } from './completion';
 import { getGenerativeModel } from '../vertex/client';
 import { isAnthropicConfigured, streamAnthropicRound } from './anthropic-fallback';
 
@@ -159,10 +160,7 @@ function extractFunctionNameFromContext(contents: Content[], toolCallId: string)
  * Anthropic 으로 넘어가는 것이 1순위 용의자인데, vercel logs 스트리밍이 잡히지 않아
  * 서버 밖에서는 확인할 방법이 없었다. 그래서 값을 남겨 응답에 실어 보낸다.
  */
-export const lastRoundInfo: { provider: string; vertexFailMs: number } = {
-  provider: 'unknown',
-  vertexFailMs: 0,
-};
+export type RoundInfo = { provider: string; vertexFailMs: number };
 
 export async function streamRound(
   controller: ReadableStreamDefaultController<Uint8Array>,
@@ -170,7 +168,8 @@ export async function streamRound(
   withTools: boolean,
   encoder: TextEncoder,
   // decoder parameter kept for API compatibility (unused in Vertex path)
-  _decoder?: TextDecoder
+  _decoder?: TextDecoder,
+  roundInfo: RoundInfo = { provider: 'unknown', vertexFailMs: 0 }
 ): Promise<{ content: string; toolCalls: ToolCallAcc[] }> {
   const { systemInstruction, contents } = extractSystemAndContents(msgs);
 
@@ -235,26 +234,29 @@ export async function streamRound(
     ]).finally(() => clearTimeout(timer));
   } catch (err) {
     if (!isAnthropicConfigured()) throw err;
-    lastRoundInfo.provider = 'anthropic(vertex-failed)';
-    lastRoundInfo.vertexFailMs = Date.now() - vertexStart;
+    roundInfo.provider = 'anthropic(vertex-failed)';
+    roundInfo.vertexFailMs = Date.now() - vertexStart;
     console.warn('[chat] Vertex 실패 → Anthropic 폴백', {
-      afterMs: lastRoundInfo.vertexFailMs,
+      afterMs: roundInfo.vertexFailMs,
       msg: (err as Error)?.message?.slice(0, 200),
     });
     return streamAnthropicRound(controller, msgs, encoder);
   }
 
   let content = '';
+  const scrubber = createUrlScrubber();
   const toolCallsMap: Record<number, ToolCallAcc> = {};
+  const finishReasons: unknown[] = [];
 
   let tcIdx = 0;
   let emitted = false;
   try {
     for await (const chunk of result.stream) {
+      if (chunk.candidates?.[0]?.finishReason != null) finishReasons.push(chunk.candidates[0].finishReason);
       const parts = chunk.candidates?.[0]?.content?.parts ?? [];
       for (const part of parts) {
         if ('text' in part && part.text) {
-          const scrubbed = scrubFakeUrls(part.text);
+          const scrubbed = scrubber.push(part.text);
           content += scrubbed;
           if (scrubbed) {
             controller.enqueue(
@@ -275,18 +277,30 @@ export async function streamRound(
       }
     }
   } catch (err) {
+    const tail = scrubber.flush();
+    if (tail) {
+      content += tail;
+      controller.enqueue(encoder.encode(`data: ${JSON.stringify({ content: tail })}\n\n`));
+      emitted = true;
+    }
     // 이미 사용자 화면에 텍스트가 나간 뒤면 폴백 금지 — 답변이 두 번 이어붙는다.
     if (emitted || !isAnthropicConfigured()) throw err;
-    lastRoundInfo.provider = 'anthropic(stream-broke)';
-    lastRoundInfo.vertexFailMs = Date.now() - vertexStart;
+    roundInfo.provider = 'anthropic(stream-broke)';
+    roundInfo.vertexFailMs = Date.now() - vertexStart;
     console.warn('[chat] Vertex 스트림 중단 → Anthropic 폴백', {
-      afterMs: lastRoundInfo.vertexFailMs,
+      afterMs: roundInfo.vertexFailMs,
       msg: (err as Error)?.message?.slice(0, 200),
     });
     return streamAnthropicRound(controller, msgs, encoder);
   }
 
-  lastRoundInfo.provider = 'vertex';
-  lastRoundInfo.vertexFailMs = 0;
+  roundInfo.provider = 'vertex';
+  roundInfo.vertexFailMs = 0;
+  const tail = scrubber.flush();
+  if (tail) {
+    content += tail;
+    controller.enqueue(encoder.encode(`data: ${JSON.stringify({ content: tail })}\n\n`));
+  }
+  requireGenerationFinish('vertex', finishReasons);
   return { content, toolCalls: Object.values(toolCallsMap) };
 }

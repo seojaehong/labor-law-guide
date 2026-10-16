@@ -1,5 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk';
-import { scrubFakeUrls } from './scrub-urls';
+import { createUrlScrubber } from './scrub-urls';
+import { requireGenerationFinish } from './completion';
 import type { ToolCallAcc } from './stream-round';
 
 // Vertex 장애 시 챗을 살리기 위한 2순위 프로바이더.
@@ -109,15 +110,29 @@ export async function streamAnthropicRound(
   });
 
   let content = '';
-  for await (const event of stream) {
-    if (event.type === 'content_block_delta' && event.delta.type === 'text_delta') {
-      const scrubbed = scrubFakeUrls(event.delta.text);
-      if (scrubbed) {
-        content += scrubbed;
-        controller.enqueue(encoder.encode(`data: ${JSON.stringify({ content: scrubbed })}\n\n`));
+  const scrubber = createUrlScrubber();
+  const stopReasons: unknown[] = [];
+  let terminal = false;
+  try {
+    for await (const event of stream) {
+      if (event.type === 'message_delta' && event.delta.stop_reason != null) stopReasons.push(event.delta.stop_reason);
+      if (event.type === 'message_stop') terminal = true;
+      if (event.type === 'content_block_delta' && event.delta.type === 'text_delta') {
+        const scrubbed = scrubber.push(event.delta.text);
+        if (scrubbed) {
+          content += scrubbed;
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ content: scrubbed })}\n\n`));
+        }
       }
     }
+  } finally {
+    // Preserve safe buffered prose even when the provider stops midstream.
+    const tail = scrubber.flush();
+    if (tail) {
+      content += tail;
+      controller.enqueue(encoder.encode(`data: ${JSON.stringify({ content: tail })}\n\n`));
+    }
   }
-
+  requireGenerationFinish('anthropic', stopReasons, terminal);
   return { content, toolCalls: [] };
 }

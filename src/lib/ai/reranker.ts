@@ -25,21 +25,6 @@ export interface RankedResult {
 
 const rerankCache = new Map<string, { expiresAt: number; results: RankedResult[] }>();
 
-function withTimeout<T>(promise: Promise<T>, timeoutMs: number, label: string): Promise<T> {
-  return new Promise<T>((resolve, reject) => {
-    const timeout = setTimeout(() => reject(new Error(`${label} timeout`)), timeoutMs);
-    promise
-      .then((value) => {
-        clearTimeout(timeout);
-        resolve(value);
-      })
-      .catch((error: unknown) => {
-        clearTimeout(timeout);
-        reject(error);
-      });
-  });
-}
-
 function buildCacheKey(userQuery: string, results: RerankableSearchResult[]): string {
   return `${userQuery}::${results.map((item) => item.id).join(',')}`;
 }
@@ -90,9 +75,9 @@ async function rerankWithAnthropic(userQuery: string, results: RerankableSearchR
     throw new Error('Missing ANTHROPIC_API_KEY');
   }
 
-  const response = await withTimeout(
-    fetch(ANTHROPIC_URL, {
+  const response = await fetch(ANTHROPIC_URL, {
       method: 'POST',
+      signal: AbortSignal.timeout(RERANK_TIMEOUT_MS),
       headers: {
         'content-type': 'application/json',
         'x-api-key': apiKey,
@@ -135,10 +120,7 @@ async function rerankWithAnthropic(userQuery: string, results: RerankableSearchR
           },
         ],
       }),
-    }),
-    RERANK_TIMEOUT_MS,
-    'rerank',
-  );
+    });
 
   if (!response.ok) {
     throw new Error(`anthropic rerank failed: ${response.status}`);
@@ -155,9 +137,9 @@ async function rerankWithOpenAI(userQuery: string, results: RerankableSearchResu
     throw new Error('Missing OPENAI_API_KEY');
   }
 
-  const response = await withTimeout(
-    fetch(OPENAI_URL, {
+  const response = await fetch(OPENAI_URL, {
       method: 'POST',
+      signal: AbortSignal.timeout(RERANK_TIMEOUT_MS),
       headers: {
         'content-type': 'application/json',
         authorization: `Bearer ${apiKey}`,
@@ -184,10 +166,7 @@ async function rerankWithOpenAI(userQuery: string, results: RerankableSearchResu
           },
         ],
       }),
-    }),
-    RERANK_TIMEOUT_MS,
-    'rerank',
-  );
+    });
 
   if (!response.ok) {
     throw new Error(`openai rerank failed: ${response.status}`);

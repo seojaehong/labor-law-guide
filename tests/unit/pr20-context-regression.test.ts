@@ -110,7 +110,8 @@ describe('PR20 context selection and truncation regressions', () => {
     expect(result.matched).toBe(true);
     expect(result.count).toBe(5);
     expect(faqIds(result.context)).toEqual([32, 17, 8, 4, 1]);
-    expect(result.topIds).toEqual([32, 17, 8]);
+    expect(result.topIds).toEqual([32, 17, 8, 4, 1]);
+    expect(result.topIds).toEqual(faqIds(result.context));
     expect(result.categories).toEqual(['category-0', 'category-1']);
     for (const faq of selected) {
       expect(result.context).toContain(`Q: ${faq.question}\nA: ${faq.answer}\n`);
@@ -167,7 +168,8 @@ describe('PR20 context selection and truncation regressions', () => {
     });
     expect(result.count).toBe(8);
     expect(faqIds(result.context)).toEqual([1, 2, 3, 4, 5, 6, 7, 8]);
-    expect(result.topIds).toEqual([1, 2, 3]);
+    expect(result.topIds).toEqual([1, 2, 3, 4, 5, 6, 7, 8]);
+    for (const id of result.topIds) expect(result.context).toContain(`#${id} `);
   });
 
   it('JEV_ON=false bypasses law reranking and preserves the first three results', async () => {

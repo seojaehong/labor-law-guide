@@ -8,6 +8,7 @@ import {
   upsertSituation,
   formatSituationForPrompt,
   extractDelta,
+  mergeSituation,
   type UserSituation,
 } from '@/lib/user-situation';
 import { verifyCitations } from '@/lib/legal-verify';
@@ -15,7 +16,7 @@ import { checkChatRateLimit, extractIp, hashIp } from '@/lib/rate-limit';
 import { getChatKillSwitch } from '@/lib/kill-switch';
 import { verifyTurnstile, isTurnstileEnabled } from '@/lib/turnstile';
 import { executeTool } from '@/lib/chat/tools/execute';
-import { streamRound, lastRoundInfo, type ToolCallAcc } from '@/lib/chat/stream-round';
+import { streamRound, type RoundInfo, type ToolCallAcc } from '@/lib/chat/stream-round';
 import { withTimeout, withTimeoutTagged, RETRIEVAL_TIMEOUT_MS, FAQ_TIMEOUT_MS } from '@/lib/chat/context/with-timeout';
 import { type Retrieval, EMPTY_RETRIEVAL } from '@/lib/chat/context/result';
 import { isAnthropicConfigured } from '@/lib/chat/anthropic-fallback';
@@ -24,6 +25,10 @@ import { buildFaqContext } from '@/lib/chat/context/faq';
 import { buildNlrcCasesContext, buildCourtCasesContext } from '@/lib/chat/context/cases';
 import { buildInterpretationsContext } from '@/lib/chat/context/interpretations';
 import { buildLawsContext } from '@/lib/chat/context/laws';
+import { hasVerifiedCitation, type EvidenceId } from '@/lib/chat/citations';
+import { buildSearchQuery } from '@/lib/chat/search-query';
+import { IncompleteGenerationError } from '@/lib/chat/completion';
+import { activeConversation } from '@/lib/ai/conversation-query';
 import { buildNewsContext } from '@/lib/chat/context/news';
 
 // Next.js segment config: literal value 필수 (import const 불가)
@@ -31,29 +36,6 @@ export const maxDuration = 60;
 
 const db = supabaseAdmin || supabase;
 
-function buildSearchQuery(messages: Array<{ role: string; content: string }>): {
-  searchQuery: string;
-  lastUserMsg: { role: string; content: string } | undefined;
-} {
-  const lastUserMsg = [...messages].reverse().find((m) => m.role === 'user');
-  let searchQuery = lastUserMsg?.content || '';
-
-  if (lastUserMsg && messages.length > 1) {
-    const isShortFollowup =
-      lastUserMsg.content.length < 30 ||
-      /^(그럼|그러면|그건|이건|왜|어떻게|네\?|뭐|아|그|이)\s/.test(lastUserMsg.content);
-    if (isShortFollowup) {
-      const prevUsers = messages
-        .slice(0, -1)
-        .filter((m) => m.role === 'user')
-        .slice(-1);
-      if (prevUsers.length > 0) {
-        searchQuery = `${prevUsers[0].content} ${lastUserMsg.content}`.slice(0, 300);
-      }
-    }
-  }
-  return { searchQuery, lastUserMsg };
-}
 
 async function getQueryEmbedding(text: string): Promise<number[] | null> {
   const openaiKey = process.env.OPENAI_API_KEY;
@@ -107,17 +89,22 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const messages = body?.messages;
+    let messages = body?.messages;
     const rawSessionId: string | undefined =
       typeof body?.sessionId === 'string' ? body.sessionId : undefined;
     const sessionId =
       rawSessionId && /^[a-z0-9_-]{12,64}$/i.test(rawSessionId) ? rawSessionId : null;
 
-    if (!Array.isArray(messages) || messages.length === 0 || messages.length > 50) {
+    if (!Array.isArray(messages) || messages.length === 0 || messages.length > 50 ||
+      messages.some((m: unknown) => !m || typeof m !== 'object' ||
+        !['user', 'assistant'].includes((m as { role: string }).role) ||
+        typeof (m as { content: unknown }).content !== 'string')) {
       return respond(JSON.stringify({ error: '올바른 메시지 형식이 아닙니다.' }), {
         status: 400,
       });
     }
+    const active = activeConversation(messages);
+    messages = active.messages;
 
     const ip = extractIp(req);
     const ipHashed = hashIp(ip);
@@ -196,8 +183,8 @@ export async function POST(req: NextRequest) {
     let faqContext = '';
     let caseContext = '';
     let topFaqIds: number[] = [];
+    let evidence: EvidenceId[] = [];
     let situationContext = '';
-    let prevProfile: UserSituation = {};
     let mergedProfile: UserSituation = {};
 
     // (1) 임베딩과 무관한 작업을 먼저 시작한다
@@ -206,7 +193,7 @@ export async function POST(req: NextRequest) {
       : Promise.resolve('');
 
     const situationPromise =
-      sessionId && lastUserMsg
+      sessionId && lastUserMsg && !active.resetsContext
         ? withTimeout(
             (async () => {
               const prev = await getSituation(sessionId);
@@ -229,6 +216,7 @@ export async function POST(req: NextRequest) {
       const emptyFaq = {
         context: '',
         topIds: [] as number[],
+        selectedFaqs: [],
         matched: false,
         count: 0,
         categories: [] as string[],
@@ -282,6 +270,12 @@ export async function POST(req: NextRequest) {
       mark.search = Date.now() - t0;
       faqContext = faq.context;
       topFaqIds = faq.topIds;
+      evidence = [
+        ...topFaqIds.map(id => ({ type: 'FAQ' as const, id: String(id) })),
+        ...(nlrc.value.evidenceIds ?? []).map(id => ({ type: 'CASE' as const, id })),
+        ...(court.value.evidenceIds ?? []).map(id => ({ type: 'COURT' as const, id })),
+        ...(interp.value.evidenceIds ?? []).map(id => ({ type: 'INTERP' as const, id })),
+      ];
       // 조문을 앞에 둔다 — 1차 자료이고, 뒤쪽은 길어서 잘릴 수 있다
       caseContext = laws.value.ctx + nlrc.value.ctx + interp.value.ctx + court.value.ctx;
 
@@ -328,8 +322,7 @@ export async function POST(req: NextRequest) {
     // (3) 병렬로 돌던 것을 회수한다
     const situation = await situationPromise;
     if (situation && sessionId) {
-      prevProfile = situation.prev;
-      mergedProfile = { ...situation.prev, ...situation.delta };
+      mergedProfile = mergeSituation(situation.prev, situation.delta);
       situationContext = formatSituationForPrompt(mergedProfile);
       // 저장은 답변에 필요 없다. 기다리지 않는다.
       upsertSituation(sessionId, situation.prev, situation.delta, 1).catch(() => {});
@@ -357,6 +350,8 @@ export async function POST(req: NextRequest) {
     const stream = new ReadableStream({
       async start(controller) {
         try {
+        controller.enqueue(encoder.encode(`data: ${JSON.stringify({ evidence })}\n\n`));
+        const lastRoundInfo: RoundInfo = { provider: 'unknown', vertexFailMs: 0 };
         let assembledAnswer = '';
         let streamFailed = false;
         // Count only model body frames, not fallback/footer/progress. Never persist chunks.
@@ -394,7 +389,7 @@ export async function POST(req: NextRequest) {
         const genStart = Date.now();
         let r1Ms = 0;
         try {
-          const r1 = await streamRound(modelController, baseMsgs, toolHint, encoder, decoder);
+          const r1 = await streamRound(modelController, baseMsgs, toolHint, encoder, decoder, lastRoundInfo);
           r1Ms = Date.now() - genStart;
           assembledAnswer += r1.content;
           r1ContentLen = r1.content.length;
@@ -437,7 +432,7 @@ export async function POST(req: NextRequest) {
             controller.enqueue(
               encoder.encode(`data: ${JSON.stringify({ content: ' 완료\n\n' })}\n\n`)
             );
-            const r2 = await streamRound(modelController, round2Msgs, false, encoder, decoder);
+            const r2 = await streamRound(modelController, round2Msgs, false, encoder, decoder, lastRoundInfo);
             assembledAnswer += r2.content;
             r2ContentLen = r2.content.length;
             finalBodyLength = r2.content.trim().length;
@@ -448,7 +443,7 @@ export async function POST(req: NextRequest) {
           streamFailed = true;
           controller.enqueue(
             encoder.encode(
-              `data: ${JSON.stringify({ error: '스트리밍 중 오류가 발생했습니다.' })}\n\n`
+              `data: ${JSON.stringify({ error: e instanceof IncompleteGenerationError ? e.message : '스트리밍 중 오류가 발생했습니다.', ...(e instanceof IncompleteGenerationError ? { completion: e.kind } : {}) })}\n\n`
             )
           );
           console.warn('[chat] stream error', { msg: (e as Error)?.message });
@@ -459,11 +454,8 @@ export async function POST(req: NextRequest) {
           // A pre-tool explanation is not the final answer after tool execution.
           const finalAnswerComplete = !streamFailed && finalBodyLength >= 50 &&
             (r1ToolCalls === 0 || r2Ran && r2ToolCalls === 0);
-          const hasCitation =
-            /\[FAQ#\d+|\[CASE#[A-Za-z0-9_\-]+|\[COURT#[^\]]+\]|\[INTERP#[^\]]+\]/.test(
-              assembledAnswer
-            );
-          if (!hasContent) {
+          const hasCitation = hasVerifiedCitation(assembledAnswer, evidence);
+          if (!finalAnswerComplete) {
             // 본문 비어있음 — empty completion / round 2 silent fail / round 2 tool_call 미처리
             console.warn('[chat] empty answer body', {
               r1: { len: r1ContentLen, tcs: r1ToolCalls },

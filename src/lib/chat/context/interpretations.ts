@@ -58,7 +58,7 @@ export async function buildInterpretationsContext(
       '형식을 고치거나 번역하지 않는다.\n' +
       '[주의] 행정해석은 노동부 공식 입장이지만 회신일 당시의 법령 기준이다. 대괄호 안의 회신일이 오래된 경우 ' +
       '그 뒤 법이 개정되었을 수 있으므로 현행 조문과 다를 수 있다고 함께 밝힌다. 단정하지 않는다.';
-    return { ctx, rows: interps.length, via: 'rpc', status: 'ok' };
+    return { ctx, evidenceIds: interps.map(row => String(row.id)), rows: interps.length, via: 'rpc', status: 'ok' };
   } catch (err) {
     console.error('[interpretations.ts] 예외:', (err as Error)?.message?.slice(0, 150));
     return { ctx: '', rows: 0, via: 'rpc', status: 'error' };
