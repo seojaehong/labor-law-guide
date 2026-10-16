@@ -2,7 +2,10 @@ import { Resend } from 'resend';
 import { SITE_URL } from './constants';
 
 // Resend에 verified된 root 도메인 사용 — send. subdomain은 미인증 (2026-05-08)
-const FROM = '노동법 위클리 <news@yellowenvelope.kr>';
+// 🔴 2026-10-16 개명. 종전 「노동법 위클리」인데 **실제로는 매일 나간다**(크론 0 0 * * *).
+// 구독자가 「왜 위클리냐」고 물었고, 동의 문구도 「주 1~2회」였다 — 표기가 아니라 **동의 문제**였다.
+// 재홍님 결정: 발송은 매일 그대로 두고 이름·문구를 실제에 맞춘다.
+const FROM = '일의 무늬 · 오늘의 일 <news@yellowenvelope.kr>';
 const REPLY_TO = 'abc@winhr.co.kr';
 // mailto 해지도 같은 사람이 읽는 주소로 보낸다. 자동 처리는 없으므로 사람이 손으로 뺀다.
 const UNSUB_MAILBOX = 'abc@winhr.co.kr';
@@ -89,7 +92,7 @@ export async function sendConfirmEmail(opts: {
   const html = `
     <div style="${baseStyle}">
       <p>안녕하세요 🙏</p>
-      <p>노동법 위클리 신청해주셔서 감사합니다.</p>
+      <p>「오늘의 일」 신청해주셔서 감사합니다.</p>
       <p>아래 버튼을 한 번 눌러주시면 구독이 시작됩니다.<br>
         (스팸 가입 방지를 위한 절차예요.)</p>
       <p style="text-align:center">
@@ -100,7 +103,7 @@ export async function sendConfirmEmail(opts: {
         이 메일을 받으신 적이 없다면 무시하셔도 좋아요.
       </p>
       <div style="${footerStyle}">
-        <strong>노동법 위클리</strong> · 노란봉투법 가이드 (노무법인 위너스)<br>
+        <strong>오늘의 일</strong> · 일의 무늬 (노무법인 위너스)<br>
         발신: news@send.yellowenvelope.kr · 답장: ${REPLY_TO}
       </div>
     </div>
@@ -113,7 +116,7 @@ export async function sendConfirmEmail(opts: {
     from: FROM,
     replyTo: REPLY_TO,
     to: opts.to,
-    subject: '[노동법 위클리] 구독 확인 — 한 번만 클릭해주세요',
+    subject: '[오늘의 일] 구독 확인 — 한 번만 클릭해주세요',
     html,
   }));
 }
@@ -133,8 +136,8 @@ export async function sendWelcomeEmail(opts: {
         <li>실무 체크리스트</li>
       </ul>
       <p>
-        <strong>발송 일정</strong>: 주 1~2회 (월요일 오전 9시 KST)<br>
-        <strong>다음 메일</strong>: 5월 둘째 주
+        <strong>발송 일정</strong>: 매일 아침 9시(KST)<br>
+        <strong>첫 메일</strong>: 내일 아침
       </p>
       <p>첫 메일이 스팸함에 들어갔으면 \"스팸 아님\" 표시 부탁드려요.</p>
       <p style="text-align:center">
@@ -142,7 +145,7 @@ export async function sendWelcomeEmail(opts: {
         <a href="${SITE_URL}/blog" style="${buttonStyle};background-color:#f3f4f6;color:#374151;margin-left:8px">지난 글 모음</a>
       </p>
       <div style="${footerStyle}">
-        <strong>노동법 위클리</strong> · 노란봉투법 가이드 (노무법인 위너스)<br>
+        <strong>오늘의 일</strong> · 일의 무늬 (노무법인 위너스)<br>
         발신: news@yellowenvelope.kr · 답장: ${REPLY_TO}<br>
         수신을 원치 않으시면 <a href="${unsubUrl}" style="color:#6b7280">여기를 클릭</a>해주세요.
       </div>
@@ -156,7 +159,7 @@ export async function sendWelcomeEmail(opts: {
     from: FROM,
     replyTo: REPLY_TO,
     to: opts.to,
-    subject: '[노동법 위클리] 구독 시작! 첫 인사이트 보내드릴게요',
+    subject: '[오늘의 일] 구독 시작 — 내일 아침부터 보내드려요',
     html,
     headers: listUnsubscribeHeaders(opts.unsubscribeToken),
   }));
@@ -239,7 +242,7 @@ export async function sendDailyNewsletter(opts: {
   <div style="max-width:600px;margin:0 auto;background:#ffffff">
     <div style="padding:32px 28px 24px;text-align:center;border-bottom:1px solid ${BORDER}">
       <p style="margin:0 0 8px;color:${ACCENT};font-size:11px;letter-spacing:1.5px;font-weight:800;text-transform:uppercase">Daily Briefing · ${dateLabel}</p>
-      <h1 style="margin:0;color:${TEXT_PRIMARY};font-size:20px;font-weight:800;letter-spacing:-0.3px">📬 노동법 위클리</h1>
+      <h1 style="margin:0;color:${TEXT_PRIMARY};font-size:20px;font-weight:800;letter-spacing:-0.3px">📬 오늘의 일</h1>
     </div>
     <div style="padding:36px 28px;color:${TEXT_PRIMARY};line-height:1.7;font-size:15px">
       <h2 style="margin:0 0 16px;font-size:24px;font-weight:800;color:${TEXT_PRIMARY};line-height:1.35;letter-spacing:-0.5px">📰 ${displayTitle}</h2>
@@ -250,13 +253,13 @@ export async function sendDailyNewsletter(opts: {
       </div>
     </div>
     <div style="background:#f9fafb;padding:24px 28px;border-top:1px solid ${BORDER}">
-      <p style="margin:0 0 12px;font-size:13px;font-weight:700;color:${TEXT_PRIMARY}">📌 노동법 위클리 둘러보기</p>
+      <p style="margin:0 0 12px;font-size:13px;font-weight:700;color:${TEXT_PRIMARY}">📌 오늘의 일 둘러보기</p>
       <p style="margin:0 0 4px;font-size:13px"><a href="${SITE_URL}/blog" style="color:${ACCENT};text-decoration:none">→ 지난 딥다이브 모음</a></p>
       <p style="margin:0 0 4px;font-size:13px"><a href="${SITE_URL}/" style="color:${ACCENT};text-decoration:none">→ AI 챗봇 (노동법 질문)</a></p>
       <p style="margin:0;font-size:13px"><a href="${SITE_URL}/decisions" style="color:${ACCENT};text-decoration:none">→ 판정례·판례 검색 (6만건)</a></p>
     </div>
     <div style="background:#f2f4f6;padding:24px 28px;text-align:center">
-      <p style="margin:0 0 6px;color:${TEXT_PRIMARY};font-size:12px;font-weight:700">노동법 위클리</p>
+      <p style="margin:0 0 6px;color:${TEXT_PRIMARY};font-size:12px;font-weight:700">오늘의 일</p>
       <p style="margin:0;color:${TEXT_SECONDARY};font-size:11px;line-height:1.7">
         노란봉투법 가이드 · 노무법인 위너스<br>
         발신: news@yellowenvelope.kr · 답장: ${REPLY_TO}<br>
