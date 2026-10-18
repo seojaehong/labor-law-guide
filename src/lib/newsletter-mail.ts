@@ -238,7 +238,7 @@ export async function sendDailyNewsletter(opts: {
   //   재홍님 지시: 「변경안내는 따로 하지 말고 내일 보낼 때 앞에나 뒤에 추가해서 같이」
   //   별도 발송은 받는 쪽에 메일 두 통이 되고, 읽을 이유도 약하다. 오는 메일에 붙이면 반드시 본다.
   //   **기한이 지나면 저절로 사라진다** — 지우는 걸 기억할 필요가 없게 한다.
-  const NOTICE_UNTIL = '2026-10-20';            // 이 날짜까지만 보인다(KST)
+  const NOTICE_UNTIL = '2026-10-18';            // 이 날짜까지만 보인다(KST). 10-17·18 두 번으로 끝낸다
   const todayKst = new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 10);
   const renameNotice = todayKst <= NOTICE_UNTIL
     ? `<div style="margin:0 0 24px;padding:14px 16px;background:#f9fafb;border:1px solid ${BORDER};border-radius:10px">
