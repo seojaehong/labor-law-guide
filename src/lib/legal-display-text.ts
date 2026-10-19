@@ -2,7 +2,7 @@
  * Entity decoding is only a scanning view: non-wrapper source bytes stay intact.
  * This returns text, not trusted HTML, and does not manufacture citation links.
  */
-export function unwrapSourceAnnotations(input: string): string {
+export function unwrapSourceAnnotations(input: string, options: { markTruncatedReference?: boolean } = {}): string {
   if (!input || !/law_cite/i.test(input)) return input;
   type Unit = { char: string; start: number; end: number; depth: number };
   let units: Unit[] = input.split('').map((char, index) => ({ char, start: index, end: index + 1, depth: 0 }));
@@ -84,7 +84,17 @@ export function unwrapSourceAnnotations(input: string): string {
   for (let index = 0; index < view.length; index++) {
     if (view[index] !== '<') continue;
     const end = tokenEnd(index);
-    if (end < 0) continue;
+    if (end < 0) {
+      // Some collected cases end inside a quoted ref attribute. Never invent the
+      // missing citation or discard a later paragraph. Opt in only at case display
+      // boundaries; ordinary malformed/unknown markup stays byte-for-byte intact.
+      if (options.markTruncatedReference && /^<law_cite\s+ref=(?:"[^"<>\r\n]*|'[^'<>\r\n]*)$/i.test(view.slice(index))) {
+        result += input.slice(sourceCursor, units[index].start) + '[수집 중 끊긴 인용 표기]';
+        sourceCursor = input.length;
+        break;
+      }
+      continue;
+    }
     const token = view.slice(index, end + 1);
     const known = /^<\/law_cite\s*>$/i.test(token)
       || (/^<law_cite(?=[\s/>])/i.test(token) && isOpening(index, end));

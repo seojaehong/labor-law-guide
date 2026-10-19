@@ -83,3 +83,19 @@ describe('source annotation display text', () => {
     expect(unwrapSourceAnnotations(`${ambiguous}\r\n${raw}`)).toBe(`${ambiguous}\r\n군사법원법 제431조`);
   });
 });
+
+describe('explicit truncated collected-reference display', () => {
+  it.each(['<law_cite ref="파', '&lt;law_cite ref=&quot;파', '&amp;lt;law_cite ref=&amp;quot;파'])('marks a confirmed terminal ref fragment: %s', tail => {
+    const source = '그 법률관계가 위와 같이 ' + tail;
+    expect(unwrapSourceAnnotations(source)).toBe(source);
+    expect(unwrapSourceAnnotations(source, { markTruncatedReference: true })).toBe('그 법률관계가 위와 같이 [수집 중 끊긴 인용 표기]');
+  });
+  it.each([
+    '<law_cite ref="파\n다음 문단은 보존한다.',
+    '<law_cite_extra ref="파',
+    '<law_cite 임금 법문',
+    '<law_cite ref="파">법률 본문',
+  ])('preserves legal text outside terminal metadata: %s', source => {
+    expect(unwrapSourceAnnotations(source, { markTruncatedReference: true })).toBe(unwrapSourceAnnotations(source));
+  });
+});
