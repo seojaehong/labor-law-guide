@@ -26,11 +26,15 @@ http.createServer(async (req,res)=>{
     const escape = text => text.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;');
     const annotate = text => {
       let result = `<law_cite ref="javascript:alert(1)">${text}</law_cite>`;
-      const depth = Number(id.slice('ilabor_annotation_'.length));
+      const depth = Number(id.slice('ilabor_annotation_'.length).split('_')[0]);
       for (let i=0; i<depth; i++) result = escape(result);
       return result;
     };
-    return res.end(JSON.stringify({id,case_number:'합성 사건',court:'합성 법원',title:'법령 인용 회귀 검증',decision_date:'2026-10-01',case_type:null,verdict_type:null,keywords_matched:[],summary:annotate('요약 근로기준법 제23조'),holding_points:annotate('상세 근로기준법 제23조 제1항')+' 그 법률관계가 위와 같이 <law_cite ref="파',law_references:annotate('근로기준법 제23조 제1항')+'<script>window.__annotationExecuted=true</script>',url:null,original_url:null}));
+    const fragment = ['<law_cite ref="파', '<law_cite', '<law_cite ref=', '</law_cite'][Number(id.split('_').at(-1))] || '<law_cite ref="파';
+    const depth = Number(id.slice('ilabor_annotation_'.length).split('_')[0]);
+    let tail = fragment;
+    for (let i=0; i<depth; i++) tail = escape(tail);
+    return res.end(JSON.stringify({id,case_number:'합성 사건',court:'합성 법원',title:'법령 인용 회귀 검증',decision_date:'2026-10-01',case_type:null,verdict_type:null,keywords_matched:[],summary:annotate('요약 근로기준법 제23조'),holding_points:annotate('상세 근로기준법 제23조 제1항')+' 그 법률관계가 위와 같이 '+tail,law_references:annotate('근로기준법 제23조 제1항')+'<script>window.__annotationExecuted=true</script>',url:null,original_url:null}));
   }
   if(url.pathname==='/rest/v1/nlrc_decisions') {
     let selected;try { selected=selectRows(rows,url.searchParams); } catch {res.statusCode=400;return res.end('{}');}

@@ -85,10 +85,10 @@ export function unwrapSourceAnnotations(input: string, options: { markTruncatedR
     if (view[index] !== '<') continue;
     const end = tokenEnd(index);
     if (end < 0) {
-      // Some collected cases end inside a quoted ref attribute. Never invent the
+      // Some collected cases end at the exact tag name or inside ref metadata. Never invent the
       // missing citation or discard a later paragraph. Opt in only at case display
       // boundaries; ordinary malformed/unknown markup stays byte-for-byte intact.
-      if (options.markTruncatedReference && /^<law_cite\s+ref=(?:"[^"<>\r\n]*|'[^'<>\r\n]*)$/i.test(view.slice(index))) {
+      if (options.markTruncatedReference && /^(?:<\/?law_cite|<law_cite[ \t]+ref=(?:"[^"<>\r\n\u2028\u2029]*|'[^'<>\r\n\u2028\u2029]*|))(?![\s\S])/i.test(view.slice(index))) {
         result += input.slice(sourceCursor, units[index].start) + '[수집 중 끊긴 인용 표기]';
         sourceCursor = input.length;
         break;

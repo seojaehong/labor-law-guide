@@ -99,3 +99,28 @@ describe('explicit truncated collected-reference display', () => {
     expect(unwrapSourceAnnotations(source, { markTruncatedReference: true })).toBe(unwrapSourceAnnotations(source));
   });
 });
+
+describe('reviewed exact terminal citation fragments', () => {
+  const fragments = ['<law_cite', '<law_cite ref=', '</law_cite'];
+  const encoders = [(s: string) => s, escape, (s: string) => escape(escape(s))];
+  it.each(fragments.flatMap(tail => encoders.map(encode => encode(tail))))('marks only the confirmed fragment: %s', tail => {
+    const source = '보존 법문 제23조\r\n다음 문단 ' + tail;
+    expect(unwrapSourceAnnotations(source)).toBe(source);
+    expect(unwrapSourceAnnotations(source, { markTruncatedReference: true })).toBe('보존 법문 제23조\r\n다음 문단 [수집 중 끊긴 인용 표기]');
+  });
+  it.each([
+    '<law_cite_extra', '<law_cite-example', '</law_cite_extra',
+    '<law_cite 정상 법문', '</law_cite 정상 법문', '<law_cite ref= 정상 법문',
+    '<law_cite onclick="evil()', '<law_cite ref=x onclick=evil()',
+    '<law_cite ref="x" onclick="evil()', '<law_cite ref="x"><script>evil()</script>',
+    '<span title="<law_cite">법문</span>',
+    ...fragments.flatMap(tail => ['\n', '\r\n', '\u2028', '\u2029', '\n다음 문단 법문'].map(end => tail + end)),
+    '<law_cite ref="파\n', '<law_cite ref="파\r\n다음 문단',
+  ].flatMap(source => encoders.map(encode => encode(source))))('does not broaden removal into unrelated or nonterminal text: %s', source => {
+    expect(unwrapSourceAnnotations(source, { markTruncatedReference: true })).toBe(unwrapSourceAnnotations(source));
+  });
+  it.each(encoders)('keeps complete citation inner text, ordinary entities and following paragraphs', encode => {
+    const source = '앞\r\n' + encode('<law_cite ref="x">') + '법문 R&amp;D' + encode('</law_cite>') + '\r\n다음 문단';
+    expect(unwrapSourceAnnotations(source, { markTruncatedReference: true })).toBe('앞\r\n법문 R&amp;D\r\n다음 문단');
+  });
+});
