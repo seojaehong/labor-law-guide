@@ -20,6 +20,18 @@ http.createServer(async (req,res)=>{
     catch { res.statusCode=400;return res.end('{}'); }
   }
   if(!['GET','HEAD'].includes(req.method)){res.statusCode=405;return res.end('{}');}
+  if(url.pathname==='/rest/v1/cases') {
+    const id = url.searchParams.get('id')?.replace(/^eq\./, '');
+    if (!id?.startsWith('ilabor_annotation_')) return res.end('[]');
+    const escape = text => text.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;');
+    const annotate = text => {
+      let result = `<law_cite ref="javascript:alert(1)">${text}</law_cite>`;
+      const depth = Number(id.slice('ilabor_annotation_'.length));
+      for (let i=0; i<depth; i++) result = escape(result);
+      return result;
+    };
+    return res.end(JSON.stringify({id,case_number:'합성 사건',court:'합성 법원',title:'법령 인용 회귀 검증',decision_date:'2026-10-01',case_type:null,verdict_type:null,keywords_matched:[],summary:annotate('요약 근로기준법 제23조'),holding_points:annotate('상세 근로기준법 제23조 제1항'),law_references:annotate('근로기준법 제23조 제1항')+'<script>window.__annotationExecuted=true</script>',url:null,original_url:null}));
+  }
   if(url.pathname==='/rest/v1/nlrc_decisions') {
     let selected;try { selected=selectRows(rows,url.searchParams); } catch {res.statusCode=400;return res.end('{}');}
     res.setHeader('Content-Range',`${selected.offset}-${Math.max(selected.offset,selected.offset+selected.rows.length-1)}/${selected.count}`);
