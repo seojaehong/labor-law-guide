@@ -64,6 +64,25 @@ python3 scripts/laws/fingerprint.py > "$TMP/before.txt"
 python3 scripts/laws/fetch_law_revisions.py --since "${LAW_SINCE:-$(python3 -c 'import json;print(json.load(open("data/law-revisions.json",encoding="utf-8"))["since"])')}"
 python3 scripts/laws/diff_law_versions.py
 python3 scripts/laws/build_site_data.py
+
+# 🔴 재생성이 **조용히 줄이는 것**을 막는다 (2026-10-19).
+#   2026-10-13 에 가족돌봄 anchor 가 생성물 rules.json 에만 들어가고 원본
+#   work_rules_map.json 에는 안 들어갔다. 10-18 수집이 재생성하면서 지웠고(10→9)
+#   아무 알림도 없었다. 운영에 안 나간 것은 우연이었다.
+#   줄었으면 **PR 을 열지 않고 멈춘다.** 늘거나 같으면 그대로 간다.
+guard_rc=0
+python3 scripts/laws/guard_no_shrink.py origin/master > "$TMP/guard.txt" 2>&1 || guard_rc=$?
+cat "$TMP/guard.txt"
+if [ "$guard_rc" = "2" ]; then
+  notify "🔴 /laws 매일 수집 — **재생성이 규칙을 줄여서 멈췄습니다.**
+$(cat "$TMP/guard.txt")
+
+생성물(public/data/laws)을 직접 고치고 원본(scripts/laws/work_rules_map.json)에
+안 넣으면 이렇게 됩니다. 원본을 고치고 다시 돌리면 풀립니다. PR 은 열지 않았습니다."
+  git checkout -q -- . && git clean -fdq -- data/law-diffs public/data/laws && git checkout -q "$start"
+  exit 3
+fi
+
 python3 scripts/laws/fingerprint.py --compare "$TMP/before.txt" > "$TMP/changes.md"
 
 if [ ! -s "$TMP/changes.md" ]; then
