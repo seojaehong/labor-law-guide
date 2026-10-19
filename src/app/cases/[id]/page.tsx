@@ -1,3 +1,4 @@
+import { unwrapSourceAnnotations } from "@/lib/legal-display-text";
 import OfficialSourceLink from "@/components/OfficialSourceLink";
 import { serializeJsonLd } from "@/lib/safe-json-ld";
 import { publicMetadata } from '@/lib/public-metadata';
@@ -92,7 +93,7 @@ export async function generateMetadata({
   const dateStr = formatDecisionDate(item.decision_date) || '';
   const title = `${item.case_number} | ${item.court} ${dateStr} 판결`;
   const description = item.summary
-    ? item.summary.slice(0, 160)
+    ? unwrapSourceAnnotations(item.summary, { markTruncatedReference: true }).slice(0, 160)
     : `${item.court} ${item.case_number} ${item.title}`;
 
   const pageUrl = `${SITE_URL}/cases/${encodeURIComponent(item.id)}`;
@@ -147,8 +148,8 @@ export default async function CaseDetailPage({
   }
 
   const related = await getRelatedCases(item.id, item.case_type, item.court);
-  const summary = getPreferredSummary(item);
-  const detail = getPreferredDetail(item);
+  const summary = unwrapSourceAnnotations(getPreferredSummary(item), { markTruncatedReference: true });
+  const detail = unwrapSourceAnnotations(getPreferredDetail(item), { markTruncatedReference: true });
   const dateStr = formatDecisionDate(item.decision_date);
   const pageUrl = `${SITE_URL}/cases/${encodeURIComponent(item.id)}`;
 
@@ -167,7 +168,7 @@ export default async function CaseDetailPage({
         '@type': 'Article',
         '@id': pageUrl,
         headline: `${item.case_number} ${item.title}`,
-        description: item.summary || item.title,
+        description: unwrapSourceAnnotations(item.summary || item.title, { markTruncatedReference: true }),
         ...(item.decision_date && { datePublished: item.decision_date }),
         author: { '@type': 'Organization', name: item.court },
         publisher: { '@id': `${SITE_URL}/#organization` },
@@ -283,7 +284,7 @@ export default async function CaseDetailPage({
                   className="rounded-xl border p-4 text-[13px] leading-6"
                   style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-secondary)' }}
                 >
-                  {item.law_references}
+                  {unwrapSourceAnnotations(item.law_references, { markTruncatedReference: true })}
                 </div>
               </section>
             )}
