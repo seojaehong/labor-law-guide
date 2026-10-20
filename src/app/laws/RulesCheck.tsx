@@ -166,13 +166,13 @@ export default function RulesCheck({ onClose, toast }: { onClose: () => void; to
     }
   };
 
-  const rows = open.map((it) => [`${it.std.no}(${it.std.title})`, mine(it) || (hasText ? '(해당 조문 없음)' : ''), proposal(it), basis(it).join('\n'), it.status]);
+  const rows = open.map((it) => [`${it.std.no}(${it.std.title})`, mine(it) || (hasText ? '(해당 조문 없음)' : ''), proposal(it), basis(it).join('\n'), it.status === '반영됨' ? '문구 일치 · 법률 검토 필요' : it.status]);
   const intro = [
     `점검 기간: ${period} 시행분 · 기준: 고용노동부 표준취업규칙(2026년 배포) 일반 근로자용, 국가법령정보센터(법제처) 원문`,
     hasText ? `판정: 고칠 것·조문 추가 ${fixN}건 / 전체 ${open.length}건` : '취업규칙 본문 없이 기간만으로 만든 문안 묶음입니다',
   ];
   const foot = [
-    '1차 자동 점검입니다. 표준취업규칙 2026(고용노동부)과 법제처 원문을 기준으로 하며 공인노무사 검수 전입니다.',
+    '문구·기간 기준의 결정론적 1차 점검이며 법률 적합 판정이 아닙니다. 문구 일치도 의미·사업장 적용 여부는 검토 필요입니다. 표준취업규칙 2026(고용노동부)과 법제처 원문을 기준으로 하며 공인노무사 검수 전입니다.',
     '개정안 작성 → 근로자 과반수 의견 청취(불이익 변경은 동의) → 관할 지방고용노동관서 변경 신고 순서로 진행하세요.',
   ];
   const fileStem = `취업규칙_신구대조_${from}-${to}`;
@@ -345,7 +345,7 @@ export default function RulesCheck({ onClose, toast }: { onClose: () => void; to
 
 function ItemCard({ it, captureContext, captureStore, observationAvailability, today, hasText, toast, onClose }: { it: PeriodItem; captureContext: CaptureContext; captureStore: Map<string, Observation>; observationAvailability: ObservationAvailability; today: string; hasText: boolean; toast: (m: string) => void; onClose: () => void }) {
   const cls = LABEL[it.status];
-  const shown = hasText ? (it.status === '반영됨' ? '문구 일치' : it.status) : it.verdicts.length ? '바꿀 문안' : '법령 확인';
+  const shown = hasText ? (it.status === '반영됨' ? '문구 일치 · 법률 검토 필요' : it.status) : it.verdicts.length ? '바꿀 문안' : '법령 확인';
   return (
     <div className={`lr-verdict ${cls}`}>
       <div className="lr-rule-head">
@@ -370,7 +370,7 @@ function ItemCard({ it, captureContext, captureStore, observationAvailability, t
         <>
           {it.verdicts.filter((v) => v.status !== '반영됨').map((v) => (
             <div key={v.rule.topic} className="lr-period-rule">
-              <b>{v.rule.topic}</b>
+              <b>{v.rule.topic}</b>{v.status === '검토 필요' && <> · 검토 필요(근거·시행일 또는 상충 문구 확인)</>}
               {v.stale.length > 0 && <> · 남은 옛 문구: {v.stale.map((s) => <del key={s}>{s}</del>)}</>}
               <p>{v.rule.point}</p>
             </div>

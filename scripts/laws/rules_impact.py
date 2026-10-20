@@ -67,6 +67,15 @@ def anchored(rule: dict, paras: list[dict]) -> list[dict]:
 
 
 def judge(rule: dict, paras: list[dict]) -> dict:
+    from datetime import datetime
+    try:
+        date = rule.get("effective", "")
+        valid_date = bool(re.fullmatch(r"\d{8}", date)) and datetime.strptime(date, "%Y%m%d").strftime("%Y%m%d") == date
+    except (ValueError, TypeError):
+        valid_date = False
+    if not (valid_date and rule.get("law", "").strip() and rule.get("lawId", "").strip()
+            and re.fullmatch(r"(?:제\d+조(?:의\d+)?|별표(?:\s*\d+)?)", rule.get("article", ""))):
+        return {"status": "검토 필요", "where": None, "stale": [], "missing": []}
     hits = [p for p in anchored(rule, paras) if any(has(p["text"], k) for k in rule["keywords"])]
     if not hits:
         return {"status": "누락", "where": None, "found": [], "missing": rule["ok"]}
@@ -85,6 +94,9 @@ def judge(rule: dict, paras: list[dict]) -> dict:
                 "paragraphs": [p["text"] for p in paras if p["article"] == a][:6] if a else [h["text"] for h in hits][:6]}
         if best is None or score < best["score"]:
             best = cand
+    conflicting = [s for s in rule["stale"] if any(has(p["text"], s) for p in anchored(rule, paras))]
+    if best["score"] == 0 and conflicting:
+        return {"status": "검토 필요", "where": best["where"], "stale": conflicting, "missing": [], "paragraphs": best["paragraphs"]}
     status = "반영됨" if best["score"] == 0 else "미반영"
     return {"status": status, "where": best["where"], "stale": best["stale"], "missing": best["missing"],
             "paragraphs": best["paragraphs"]}

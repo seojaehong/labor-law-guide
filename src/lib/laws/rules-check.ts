@@ -24,7 +24,7 @@ export interface RuleSpec {
   mst: string | null;
 }
 
-export type Status = '반영됨' | '미반영' | '누락';
+export type Status = '반영됨' | '미반영' | '누락' | '검토 필요';
 
 export interface Verdict {
   rule: RuleSpec;
@@ -74,7 +74,16 @@ export function anchored(rule: RuleSpec, paras: Para[]): Para[] {
   return arts.size ? paras.filter((p) => arts.has(p.article)) : [];
 }
 
+export function hasRuleEvidence(rule: RuleSpec): boolean {
+  const date = rule.effective;
+  const iso = typeof date === 'string' ? `${date.slice(0, 4)}-${date.slice(4, 6)}-${date.slice(6, 8)}` : '';
+  return !!rule.law?.trim() && /^(?:제\d+조(?:의\d+)?|별표(?:\s*\d+)?)$/.test(rule.article ?? '') &&
+    !!rule.lawId?.trim() && /^\d{8}$/.test(date ?? '') &&
+    !Number.isNaN(Date.parse(iso)) && new Date(iso).toISOString().slice(0, 10) === iso;
+}
+
 export function judge(rule: RuleSpec, paras: Para[]): Verdict {
+  if (!hasRuleEvidence(rule)) return { rule, status: '검토 필요', where: null, stale: [], missing: [] };
   // anchor 가 있으면 **그 말이 든 조문**만 후보다(2026-10-13).
   // 조문 단위로 거르는 이유: paragraphs() 는 줄 단위라 제도명이 조문 제목 줄에만 있고
   // 정작 대조할 문구는 다른 줄에 있는 일이 흔하다. 줄 단위로 거르면 맞는 조문이 통째로 빠진다.
@@ -91,6 +100,9 @@ export function judge(rule: RuleSpec, paras: Para[]): Verdict {
     if (!best || score < best.score) best = { where: a, stale, missing, score };
   }
   const b = best!;
+  // A newer-looking block cannot hide contradictory old wording elsewhere in the same scheme.
+  const conflicting = rule.stale.filter(s => scoped.some(p => has(p.text, s)));
+  if (b.score === 0 && conflicting.length) return { rule, status: '검토 필요', where: b.where, stale: conflicting, missing: [] };
   const effective = rule.requiredIfStale && b.stale.length ? { ...rule, required: true } : rule;
   return { rule: effective, status: b.score === 0 ? '반영됨' : '미반영', where: b.where, stale: b.stale, missing: b.missing };
 }

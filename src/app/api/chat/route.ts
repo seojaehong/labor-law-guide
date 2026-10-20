@@ -11,7 +11,7 @@ import {
   mergeSituation,
   type UserSituation,
 } from '@/lib/user-situation';
-import { verifyCitations } from '@/lib/legal-verify';
+import { verifyCitations, legalReviewOutput } from '@/lib/legal-verify';
 import { checkChatRateLimit, extractIp, hashIp } from '@/lib/rate-limit';
 import { getChatKillSwitch } from '@/lib/kill-switch';
 import { verifyTurnstile, isTurnstileEnabled } from '@/lib/turnstile';
@@ -60,7 +60,7 @@ async function getQueryEmbedding(text: string): Promise<number[] | null> {
 export async function POST(req: NextRequest) {
   const recorder = startServiceObservation('consultation');
   let stage: Stage = 'validation';
-  let emittedChars = 0;
+  const emittedChars = 0;
   const observation = { finish(value: Parameters<typeof recorder.finish>[0]) {
     req.signal.removeEventListener('abort', onAbort);
     recorder.finish(value);
@@ -358,14 +358,8 @@ export async function POST(req: NextRequest) {
         const modelController: ReadableStreamDefaultController<Uint8Array> = {
           get desiredSize() { return controller.desiredSize; },
           enqueue(chunk) {
-            try {
-              for (const line of decoder.decode(chunk).split('\n')) {
-                if (!line.startsWith('data: ')) continue;
-                const frame = JSON.parse(line.slice(6));
-                if (typeof frame.content === 'string') emittedChars += frame.content.trim().length;
-              }
-            } catch { /* non-content frames carry no body evidence */ }
-            controller.enqueue(chunk);
+            // Model body stays private until legal review. streamRound still assembles it.
+            void chunk;
           },
           close: () => controller.close(), error: error => controller.error(error),
         };
@@ -538,28 +532,17 @@ export async function POST(req: NextRequest) {
             controller.enqueue(encoder.encode(`data: ${JSON.stringify({ content: link })}\n\n`));
           }
 
-          // 법조항 실시간 검증
-          try {
-            const { hallucinated } = await verifyCitations(assembledAnswer);
-            if (hallucinated.length > 0) {
-              const warning =
-                '\n\n⚠️ **검증 경고**: 답변에 인용된 일부 법조항이 현재 시점에서 확인되지 않았습니다 (' +
-                hallucinated.map((h) => `${h.law} 제${h.article}조`).join(', ') +
-                '). 정확한 조항은 법제처(law.go.kr)에서 재확인 권장합니다.';
-              controller.enqueue(
-                encoder.encode(`data: ${JSON.stringify({ content: warning })}\n\n`)
-              );
-            }
-          } catch {
-            // 검증 실패해도 답변 자체는 영향 없음
-          }
+          // Cache lookup is not semantic approval. Publish only the review/evidence result.
+          const verification = await verifyCitations(assembledAnswer);
+          const review = legalReviewOutput(assembledAnswer, verification, finalAnswerComplete);
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ content: review, verification })}\n\n`));
 
           controller.enqueue(encoder.encode('data: [DONE]\n\n'));
           controller.close();
           observation.finish({stage: streamFailed ? 'stream' : !finalAnswerComplete ? 'generation' : retrievalFailed ? 'retrieval' : 'completed',
-            outcome: streamFailed ? (hasContent || emittedChars > 0 ? 'partial_failure' : 'failure') : !finalAnswerComplete ? (r1ToolCalls > 0 && (hasContent || emittedChars > 0) ? 'partial_failure' : 'failure') : retrievalFailed ? 'partial_failure' : 'success',
-            error_code: streamFailed ? 'stream_failed' : !finalAnswerComplete ? (r1ToolCalls > 0 ? 'incomplete_answer' : 'empty_answer') : retrievalFailed ? 'search_failed' : 'none',
-            result_count: finalAnswerComplete ? 1 : streamFailed ? null : 0});
+            outcome: streamFailed ? (hasContent || emittedChars > 0 ? 'partial_failure' : 'failure') : !finalAnswerComplete ? (r1ToolCalls > 0 && (hasContent || emittedChars > 0) ? 'partial_failure' : 'failure') : retrievalFailed ? 'partial_failure' : 'failure',
+            error_code: streamFailed ? 'stream_failed' : !finalAnswerComplete ? (r1ToolCalls > 0 ? 'incomplete_answer' : 'empty_answer') : retrievalFailed ? 'search_failed' : 'incomplete_answer',
+            result_count: streamFailed ? null : 0});
         }
         } catch (error) {
           observation.finish({stage:'stream',outcome:emittedChars > 0 ? 'partial_failure' : 'failure',error_code:'stream_failed',result_count:null});

@@ -2,7 +2,7 @@
 // ① 내 조문을 표준 조문에 짝짓고 ② 기간 [최종 개정일, 기준일] 안에 시행되는 개정 중 그 표준 조문에 걸리는 것을 모은다.
 // 매핑(RuleSpec)이 있으면 짝지은 내 조문 안에서만 judge 한다 — 문서 전체를 키워드로 훑는 B(checkRules)와 다른 점이다.
 import type { LawEvent } from './format';
-import { anchored, judge, paragraphs, type RuleSpec, type Verdict } from './rules-check';
+import { anchored, hasRuleEvidence, judge, paragraphs, type RuleSpec, type Verdict } from './rules-check';
 
 export interface StdLawRef {
   lawId: string | null;
@@ -212,7 +212,7 @@ export function periodCheck(opts: {
       const selected = cand.length && (!r.anchor?.length || anchored(r, paragraphs(cand.map(u=>u.text).join('\n'))).length) ? cand : fallback;
       const paras = paragraphs(selected.map(u => u.text).join('\n'));
       let v: Verdict = hasText ? judge(r, paras) : { rule: r, status: '누락', where: null, stale: [], missing: r.ok };
-      if (hasText && !r.ok.length && r.stale.length) {
+      if (hasText && hasRuleEvidence(r) && !r.ok.length && r.stale.length) {
         // 옛 문구만으로 판정하는 매핑 — judge 는 옛 문구 없는 다른 조문을 골라 「반영됨」으로 빠진다. 후보 어디에든 남아 있으면 미반영
         const hit = anchored(r, paras).filter((p) => r.stale.some((s) => flat(p.text).includes(flat(s))));
         v = hit.length
@@ -257,7 +257,8 @@ export function periodCheck(opts: {
     if (!hasText) it.status = vs.length ? (vs.some((v) => v.rule.required) ? '고칠 것' : '선택') : '법령 확인';
     else if (vs.length) {
       const open = vs.filter((v) => v.status !== '반영됨');
-      if (!open.length) it.status = '반영됨';
+      if (vs.some(v => v.status === '검토 필요' || !hasRuleEvidence(v.rule))) it.status = '법령 확인';
+      else if (!open.length) it.status = '반영됨';
       else if (!open.some((v) => v.rule.required)) it.status = '선택';
       else it.status = it.user.length || open.some((v) => v.where) ? '고칠 것' : '조문 추가';
     } else it.status = it.user.length ? '법령 확인' : it.std.kind === '필수' ? '조문 추가' : '법령 확인';
