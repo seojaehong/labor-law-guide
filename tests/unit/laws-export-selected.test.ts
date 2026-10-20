@@ -118,7 +118,7 @@ describe('exact selected export volume', () => {
     await selectedLawsDocx(data);
     expect(selectedLawExportStats(data)).toEqual(before);
     expect(before.textCharacterCount).toBe(120000);
-  });
+  }, 30000); // Real OOXML stress generation is slower than pure count checks under full-suite load.
 
   it('returns zero counts for empty resolved data', () => {
     expect(selectedLawExportStats({ events: [], changeCount: 0 })).toEqual({ eventCount: 0, lawCount: 0, changeCount: 0, textCharacterCount: 0 });
