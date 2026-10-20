@@ -64,3 +64,7 @@ connection: close
 이는 CONNECT 프록시 차단 증거다. GitHub 계정·저장소 권한 거절 증거는 없지만, 프록시 내부의 정책 사유까지 확인할 수는 없다. 따라서 인증·권한을 변경하거나 다른 커넥터로 우회하지 않았다. PR 생성은 실패 상태다. 브랜치 푸시는 성공했고 배포·병합은 하지 않았다.
 
 최종 추가 검증: 게이트·취소·CLI 집중 검사 70건 통과, 전체 920건 중 918건 통과(기준 master에서도 실패한 홈 화면 2건 제외). 변경 파일 lint·tsc·Python 구문 검사를 통과했다. 기준 master와 변경 브랜치의 offline fixture 빌드는 각각 종료 코드 0이다.
+
+## PR54와 최신 base 통합
+
+부모의 연결된 GitHub 커넥터에서 초안 PR54(https://github.com/seojaehong/labor-law-guide/pull/54)가 생성됐다. 이 환경의 CLI 프록시 차단 기록과 PR 생성의 최종 상태를 구별한다. 최신 master 11015081cdb81eb5b83a66c467f28fbd2c9b40b0의 PR53 교재 예시 익명화 변경을 충돌 없이 통합했다. 해당 파일은 최신 master와 동일하며 PR52도 보존된다. 초기 GitHub mergeable=false를 실제 코드 충돌로 해석하지 않았다. GitHub 서버의 현재 병합 가능 상태는 이 환경에서 재조회하지 않았다. 통합 코드 전체 테스트는 918/920 통과(기존 홈 화면 2건 실패 유지), 변경 파일 lint와 Python 구문 검사는 통과했다. 운영 배포·PR 병합은 하지 않았다.

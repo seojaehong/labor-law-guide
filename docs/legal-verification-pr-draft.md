@@ -18,6 +18,8 @@
 
 추가 AI 공급자·API를 도입하지 않았고 자격증명이나 실제 사용자 문서를 읽거나 전송하지 않았습니다. 기존 Vertex/Anthropic 등의 설정을 유지하며 별도 보조 검증 공급자·키 선택은 후속 보안 설정 단계입니다. AI 일치도 정답 보증이 아닙니다. PR52가 포함된 f942e3c 기반이며 해당 캐시 수정은 보존했습니다.
 
-## PR 생성 차단
+## PR 상태
 
-브랜치 푸시는 성공했습니다. gh pr create --draft는 POST https://api.github.com/graphql: Forbidden으로 실패했습니다. 인증 없는 공개 API 요청도 CONNECT tunnel failed, response 403 및 server: envoy를 반환해 프록시 CONNECT 단계 차단이 확인됩니다. GitHub 계정/저장소 권한 거절 증거는 없지만 프록시 내부 정책 사유는 미확인입니다. 다른 경로로 우회하거나 권한을 확대하지 않았습니다. PR 생성은 실패 상태이며 배포·병합하지 않았습니다.
+부모의 연결된 GitHub 커넥터에서 초안 PR54를 생성했습니다: https://github.com/seojaehong/labor-law-guide/pull/54 . 최신 master 11015081cdb81eb5b83a66c467f28fbd2c9b40b0의 PR53 교재 예시 익명화 변경을 충돌 없이 통합하고 보존했습니다. 초기 mergeable=false의 원인은 확정하지 않았고 GitHub 현재 상태는 별도 재확인이 필요합니다. 운영 배포·PR 병합은 하지 않았습니다.
+
+이 실행 환경의 gh 요청은 프록시 CONNECT 403(server: envoy)으로 차단됐습니다. GitHub 계정/저장소 권한 거절 증거는 없으며 프록시 내부 정책 사유는 미확인입니다. 이 환경에서는 다른 경로로 우회하거나 권한을 확대하지 않았습니다.
