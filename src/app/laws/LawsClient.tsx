@@ -102,7 +102,9 @@ export default function LawsClient({ index }: { index: LawIndex }) {
       setMonth(restoredDay?.slice(0, 6) ?? restoredMonth ?? (sp.get('mode') === 'cal' ? now.slice(0, 6) : null));
       setMode(sp.get('mode') === 'cal' ? 'cal' : 'list');
       setDay(restoredDay);
-      setSelectedOnly(false);
+      const review = sp.get('review') === '1' && !!ev;
+      setSelectedOnly(review);
+      if (review) setSelectedIds(prev => new Set([...prev, ev!.id]));
       setOpen(new Set(ev ? [ev.id] : []));
       setFocus(ev?.id || null);
       setUrlReady(true);
@@ -173,10 +175,10 @@ export default function LawsClient({ index }: { index: LawIndex }) {
     if (!urlReady) return;
     const event = focus && open.has(focus) && filtered.some((e) => e.id === focus) ? focus : null;
     const nextUrl = writeLawUrl(new URL(location.href), {
-      view, q, laws, rulesOnly, lawsOnly, month, mode, day, event,
+      view, q, laws, rulesOnly, lawsOnly, month, mode, day, event, review: showSelectedOnly,
     }, index.events.map((e) => e.id));
     if (nextUrl !== location.pathname + location.search + location.hash) history.replaceState(history.state, '', nextUrl);
-  }, [view, q, laws, rulesOnly, lawsOnly, month, mode, day, focus, open, filtered, urlReady, index.events]);
+  }, [view, q, laws, rulesOnly, lawsOnly, month, mode, day, focus, open, filtered, showSelectedOnly, urlReady, index.events]);
 
   const listHref = urlReady
     ? writeLawUrl(new URL(location.href), {
@@ -193,6 +195,7 @@ export default function LawsClient({ index }: { index: LawIndex }) {
     if (url.href !== location.href) history.pushState(history.state, '', url);
     setOpen(new Set());
     setFocus(null);
+    setSelectedOnly(false);
     document.getElementById('law-list')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
 
@@ -291,6 +294,8 @@ export default function LawsClient({ index }: { index: LawIndex }) {
         toast.show(`선택한 개정 ${stats.eventCount}건 · 조문 ${stats.changeCount}개를 받았습니다`);
       }
     } catch (error) {
+      // A successful HTTP response may still contain a stale/incomplete step.
+      if (error instanceof Error && 'lawId' in error && typeof error.lawId === 'string') detailCache.delete(error.lawId);
       setExportError(`파일을 만들지 못했습니다. ${error instanceof Error ? error.message : '자료를 불러오지 못했습니다.'} 선택은 유지됩니다. 다시 시도해 주세요.`);
     } finally {
       if (!awaitingConfirmation) exportLock.current = false;

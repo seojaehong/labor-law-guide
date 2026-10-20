@@ -1,6 +1,6 @@
 import ExcelJS from 'exceljs';
 import JSZip from 'jszip';
-export type ComparisonSheet={title:string;intro:string[];head:string[];rows:(string|number)[][];widths:number[];foot:string[]};
+export type ComparisonSheet={title:string;intro:string[];head:string[];rows:(string|number)[][];widths:number[];foot:string[];additionalSheets?:{name:string;rows:string[][];widths:number[];headerRow:number}[]};
 /** Editable wrapped cells, repeated print header, frozen labels; no fixed body heights. */
 export async function comparisonXlsx(opts:ComparisonSheet):Promise<Blob>{
   if(!opts.head.length||opts.widths.length!==opts.head.length||opts.rows.some(r=>r.length!==opts.head.length))throw Error('invalid-comparison-table');
@@ -66,6 +66,19 @@ export async function comparisonXlsx(opts:ComparisonSheet):Promise<Blob>{
   original.columns=opts.widths.map(width=>({width}));original.addRow(opts.head);
   for(const row of opts.rows)original.addRow(row);
   original.eachRow(row=>{row.font={name:'맑은 고딕',size:10};row.alignment={wrapText:true,vertical:'top'};});
+  for(const extra of opts.additionalSheets??[]){
+    const tab=book.addWorksheet(extra.name,{pageSetup:{orientation:'landscape',fitToPage:true,fitToWidth:1,fitToHeight:0}});
+    tab.columns=extra.widths.map(width=>({width}));
+    for(const values of extra.rows){
+      const row=tab.addRow(values);
+      row.eachCell({includeEmpty:true},cell=>{
+        cell.font={name:'맑은 고딕',size:10};cell.alignment={wrapText:true,vertical:'top'};
+        if(typeof cell.value==='string'&&/^https:\/\/www\.law\.go\.kr\//.test(cell.value))cell.value={text:cell.value,hyperlink:cell.value};
+      });
+    }
+    tab.views=[{state:'frozen',ySplit:extra.headerRow,xSplit:1,showGridLines:false}];
+    tab.pageSetup.printTitlesRow=`${extra.headerRow}:${extra.headerRow}`;
+  }
   const bytes=await book.xlsx.writeBuffer();
   // XML parsers normalize literal CR/CRLF; character references preserve the source.
   const zip=await JSZip.loadAsync(bytes);

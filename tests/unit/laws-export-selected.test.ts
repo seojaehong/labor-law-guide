@@ -33,7 +33,7 @@ function fixture(changes: StepChange[] = [change], target: LawEvent = event): La
   };
 }
 const prepare = (changes: StepChange[] = [change]) => prepareSelectedLawExport([event], async () => fixture(changes));
-const sheetRows = (workbook: XLSX.WorkBook, name: string) => XLSX.utils.sheet_to_json<string[]>(workbook.Sheets[name], { header: 1, defval: '' });
+const sheetRows = (workbook: XLSX.WorkBook, name: string) => XLSX.utils.sheet_to_json<string[]>(workbook.Sheets[name === '신구대조' ? '원문보관' : name], { header: 1, defval: '' });
 async function workbook(changes: StepChange[] = [change]) {
   const blob = await selectedLawsXlsx(await prepare(changes));
   expect(blob.type).toBe(SELECTED_LAWS_XLSX_MIME);
@@ -145,13 +145,13 @@ describe('exact selected export volume', () => {
 describe('selected law XLSX', () => {
   it('creates a real readable workbook with original multiline text and safe string cells', async () => {
     const book = await workbook();
-    expect(book.SheetNames).toEqual(['신구대조', '선택 개정', '출처·안내']);
+    expect(book.SheetNames).toEqual(['신구대조', '원문보관', '선택 개정', '출처·안내']);
     const rows = sheetRows(book, '신구대조');
     expect(rows).toHaveLength(2);
     expect(rows[1][7]).toBe(change.before);
     expect(rows[1][8]).toBe(change.after);
-    expect(book.Sheets['신구대조'].I2.t).toBe('s');
-    expect(book.Sheets['신구대조'].I2.f).toBeUndefined();
+    expect(book.Sheets['원문보관'].I2.t).toBe('s');
+    expect(book.Sheets['원문보관'].I2.f).toBeUndefined();
     expect(rows[1][9]).toBe('취업규칙 검토');
   });
 
@@ -305,4 +305,25 @@ describe('production selection structural regression (not legal verification)', 
       expect(matching.map(row => row[8]).join('')).toBe(c.after ?? '<삭제>');
     }
   });
+});
+
+it('identifies malformed detail responses for targeted cache eviction', async () => {
+ for(const detail of [ {...fixture(),steps:[]}, {...fixture(),lawId:'other'}, {...fixture(),steps:[{...fixture().steps[0],changes:[null]}]} ]){
+   await expect(prepareSelectedLawExport([event],async()=>detail as unknown as LawDetail)).rejects.toMatchObject({lawId:event.lawId});
+ }
+});
+
+it('uses current printable XLSX layout with a lossless hidden archive', async () => {
+ const {default:ExcelJS}=await import('exceljs');
+ const before='긴 원문\n'.repeat(1000);
+ const blob=await selectedLawsXlsx(await prepare([{...change,before}]));
+ const book=new ExcelJS.Workbook();await book.xlsx.load(await blob.arrayBuffer());
+ const sheet=book.getWorksheet('신구대조')!;
+ expect(sheet.autoFilter).toBeUndefined();
+ expect(sheet.views[0]).toMatchObject({state:'frozen',xSplit:1});
+ expect(sheet.pageSetup.printTitlesRow).toBeTruthy();
+ expect(sheet.getCell('H6').alignment?.wrapText).toBe(true);
+ const archive=book.getWorksheet('원문보관')!;expect(archive.state).toBe('hidden');
+ expect(archive.getCell('H2').text).toBe(before);
+ let max=0;sheet.eachRow(row=>row.eachCell(cell=>{max=Math.max(max,cell.text.length);}));expect(max).toBeLessThan(2000);
 });
