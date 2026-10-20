@@ -18,6 +18,7 @@ vi.mock('@/lib/chat/context/cases',()=>({buildNlrcCasesContext:vi.fn(),buildCour
 vi.mock('@/lib/chat/context/interpretations',()=>({buildInterpretationsContext:vi.fn()}));
 vi.mock('@/lib/chat/context/laws',()=>({buildLawsContext:laws}));
 import {POST} from '@/app/api/chat/route';
+import * as legalVerification from '@/lib/legal-verify';
 import {buildSearchQuery} from '@/lib/chat/search-query';
 import {getSituation,extractDelta,upsertSituation} from '@/lib/user-situation';
 const req=()=>new NextRequest('http://localhost/api/chat',{method:'POST',body:JSON.stringify({messages:[{role:'user',content:'PRIVATE_SYNTHETIC_QUESTION'}]})});
@@ -124,4 +125,46 @@ it.each(['새 질문: 육아휴직은 어떻게 신청하나요?', '그럼 서�
  expect(getSituation).not.toHaveBeenCalled();expect(extractDelta).not.toHaveBeenCalled();expect(upsertSituation).not.toHaveBeenCalled();
  expect(JSON.stringify(round.mock.calls[0][1])).not.toContain('OLD_PRIVATE');
  expect(JSON.stringify(round.mock.calls[0][1])).toContain('육아휴직');
+});
+
+it.each([['reference_found', true], ['review_required', false]] as const)('route gates model chunks before displaying %s evidence', async (status, released) => {
+ const body='근로기준법 제56조에 관한 SYNTHETIC_DRAFT_MARKER 참고 설명. 사업장 적용 여부와 의미는 검토해야 합니다. '.repeat(2);
+ const citation={law:'근로기준법',article:56,label:'제56조'};
+ vi.spyOn(legalVerification,'verifyCitations').mockResolvedValue({citations:[citation],hallucinated:[],status:'review_required',scope:'cached_reference_only',applicableOn:'2026-10-20',reason:'meaning_and_applicability_unverified',evidence:[{citation,status,reason:status==='reference_found'?'meaning_and_applicability_unverified':'missing_effective_date',source:'https://www.law.go.kr/LSW/lsInfoP.do?lsiSeq=123',effectiveDate:status==='reference_found'?'2025-01-01':null}]});
+ round.mockImplementation(async controller=>{
+  controller.enqueue(new TextEncoder().encode('data: '+JSON.stringify({content:body})+'\n\n'));
+  return {content:body,toolCalls:[]};
+ });
+ const wire=await (await POST(req())).text();
+ const frames=wire.split('\n').filter(line=>line.startsWith('data: {')).map(line=>JSON.parse(line.slice(6)));
+ const visible=frames.map(frame=>frame.content??'').join('');
+ expect(visible.includes('SYNTHETIC_DRAFT_MARKER')).toBe(released);
+ if(released){
+  expect(visible.indexOf('검토 필요')).toBeLessThan(visible.indexOf('SYNTHETIC_DRAFT_MARKER'));
+  expect(visible.split('SYNTHETIC_DRAFT_MARKER').length-1).toBe(2);
+ }
+ expect(visible).toContain('검토 필요');
+ expect(frames.find(frame=>frame.verification)?.verification.status).toBe('review_required');
+});
+
+it('abort stops the private chunk collector before consuming later model output', async () => {
+ const abort=new AbortController();let release!:()=>void;let consumed=0;let stopped=false;
+ const paused=new Promise<void>(resolve=>{release=resolve;});
+ round.mockImplementation(async controller=>{
+  controller.enqueue(new TextEncoder().encode('data: {"content":"SYNTHETIC_PRIVATE_BEFORE_ABORT"}\n\n'));
+  consumed++;
+  await paused;
+  try {
+   controller.enqueue(new TextEncoder().encode('data: {"content":"SYNTHETIC_PRIVATE_AFTER_ABORT"}\n\n'));
+   consumed++;
+   return {content:'합성 생성 결과 '.repeat(20),toolCalls:[]};
+  } catch(error){stopped=error instanceof Error&&error.name==='AbortError';throw error;}
+ });
+ const response=await POST(new NextRequest('http://localhost/api/chat',{method:'POST',signal:abort.signal,body:JSON.stringify({messages:[{role:'user',content:'합성 질문'}]})}));
+ abort.abort();release();
+ const text=await response.text();
+ expect(stopped).toBe(true);expect(consumed).toBe(1);
+ expect(text).not.toContain('SYNTHETIC_PRIVATE');
+ expect(finish).toHaveBeenCalledTimes(1);
+ expect(finish.mock.calls[0][0]).toMatchObject({outcome:'failure',error_code:'cancelled'});
 });

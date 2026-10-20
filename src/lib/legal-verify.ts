@@ -23,8 +23,14 @@ const LAW_NORMALIZE: Record<string, string> = {
 export type LawCitation = { law: string; article: number; sub?: number; label: string };
 
 export function extractLawCitations(text: string): LawCitation[] {
+  text = text.replace(/[「」『』“”‘’"']/g, ' ');
   const seen = new Set<string>();
   const out: LawCitation[] = [];
+  const covered: Array<[number, number]> = [];
+  const add = (c: LawCitation) => {
+    const key = `${c.law}-${c.label}`;
+    if (!seen.has(key)) { seen.add(key); out.push(c); }
+  };
   for (const m of text.matchAll(LAW_CITATION_RX)) {
     const rawLaw = m[1].replace(/\s+/g, ' ').trim();
     const article = parseInt(m[2], 10);
@@ -35,10 +41,31 @@ export function extractLawCitations(text: string): LawCitation[] {
     const normalizedLaw = rawLaw.replace(/일[·.]가정/g, '일ㆍ가정');
     const law = LAW_NORMALIZE[normalizedLaw] || normalizedLaw;
     const label = `제${article}조${sub ? `의${sub}` : ''}`;
-    const key = `${law}-${label}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    out.push({ law, article, sub, label });
+    add({ law, article, sub, label });
+    covered.push([m.index!, m.index! + m[0].length]);
+    // An explicit law name also governs a directly connected article list.
+    let tail = text.slice(m.index! + m[0].length);
+    const next = /^\s*(,|·|ㆍ|및|와|과|또는|부터|내지|~|∼|–|-|(?=제))\s*제?\s*(\d+)\s*조(?:\s*의\s*(\d+))?/;
+    let following: RegExpMatchArray | null;
+    while ((following = tail.match(next))) {
+      const n = Number(following[2]), branch = following[3] ? Number(following[3]) : undefined;
+      const nextLabel = `제${n}조${branch ? `의${branch}` : ''}`;
+      // Range endpoints alone do not establish the intervening provisions.
+      if (/^(?:부터|내지|~|∼|–|-)$/.test(following[1])) {
+        add({ law, article, label: `${label}~${nextLabel}` });
+      } else add({ law, article: n, sub: branch, label: nextLabel });
+      tail = tail.slice(following[0].length);
+    }
+  }
+  // Coverage check catches named laws and subordinate legislation outside the supported aliases.
+  // It targets explicit statutory article syntax, not plain numbers or company article headings.
+  const explicit = /(?:법률|법|시행령|시행규칙)\s*제\s*(\d+)\s*조(?:\s*의\s*(\d+))?/g;
+  for (const m of text.matchAll(explicit)) {
+    if (covered.some(([start, end]) => m.index! >= start && m.index! + m[0].length <= end)) continue;
+    const prefix = text.slice(Math.max(0, m.index! - 50), m.index! + m[0].indexOf('제')).trim();
+    const law = prefix.match(/[가-힣A-Za-zㆍ·]+(?:\s+(?:시행령|시행규칙))?$/)?.[0] ?? '미지원 법령';
+    const article = Number(m[1]), sub = m[2] ? Number(m[2]) : undefined;
+    add({ law, article, sub, label: `제${article}조${sub ? `의${sub}` : ''}` });
   }
   return out;
 }
@@ -83,7 +110,7 @@ async function lookup(laws: string[], signal: AbortSignal): Promise<unknown> {
 
 /** Cache existence is supporting evidence, never semantic or legal approval. */
 export async function verifyCitations(text: string, options: {
-  applicableOn?: string; lookup?: Lookup; timeoutMs?: number;
+  applicableOn?: string; lookup?: Lookup; timeoutMs?: number; signal?: AbortSignal;
 } = {}): Promise<CitationVerifyResult> {
   const citations = extractLawCitations(text);
   const applicableOn = options.applicableOn ?? new Date().toISOString().slice(0, 10);
@@ -93,10 +120,15 @@ export async function verifyCitations(text: string, options: {
     evidence: citations.map(citation => ({ citation, status: 'review_required', reason, source: null, effectiveDate: null })) });
   if (!isoDate(applicableOn)) return fail('invalid_application_date');
   if (!citations.length) return fail('no_supported_citation');
+  if (options.signal?.aborted) return fail('lookup_cancelled');
   const controller = new AbortController();
+  let rejectCancelled: ((reason: Error) => void) | undefined;
+  const onCancel = () => { controller.abort(); rejectCancelled?.(new Error('cancelled')); };
+  options.signal?.addEventListener('abort', onCancel, { once: true });
   let timer: ReturnType<typeof setTimeout> | undefined;
   try {
     const result = await Promise.race([
+      new Promise<never>((_, reject) => { rejectCancelled = reject; }),
       (options.lookup ?? lookup)([...new Set(citations.map(c => c.law))], controller.signal),
       new Promise<never>((_, reject) => { timer = setTimeout(() => {
         controller.abort(); reject(new Error('timeout'));
@@ -122,21 +154,21 @@ export async function verifyCitations(text: string, options: {
     });
     return { ...base, evidence, reason: 'meaning_and_applicability_unverified' };
   } catch {
-    return fail(controller.signal.aborted ? 'lookup_timeout' : 'lookup_unavailable');
-  } finally { if (timer) clearTimeout(timer); }
+    return fail(options.signal?.aborted ? 'lookup_cancelled' : controller.signal.aborted ? 'lookup_timeout' : 'lookup_unavailable');
+  } finally { if (timer) clearTimeout(timer); options.signal?.removeEventListener('abort', onCancel); }
 }
 
 /** Never release an unreviewed model judgment, even when the cited article exists. */
 export function citationReviewMessage(result: CitationVerifyResult): string {
   const lines = result.evidence.map(e =>
     `- ${e.citation.law} ${e.citation.label}: ${e.status === 'reference_found' ? '캐시 조문 확인 · 의미/적용시점 검토 필요' : '근거 검토 필요'}; 시행일: ${e.effectiveDate ?? '확인 불가'}; 출처: ${e.source ?? '확인 불가'}`);
-  return `**검토 필요** — 생성된 법률 판단의 근거·의미·적용시점 검증이 완료되지 않아 본문을 보류했습니다.\n적용 기준일: ${result.applicableOn} · 검증 범위: 저장된 조문 참조 확인(실시간 법령·법률 적합성 검증 아님).\n${lines.join('\n') || '확인 가능한 근거 조문이 없습니다.'}\n별도 AI 검증이나 API 연결도 정답을 보증하지 않습니다. 전문가가 원문과 적용일을 확인해 주세요.`;
+  return `**검토 필요** — 생성된 법률 판단의 근거·의미·적용시점 검증이 완료되지 않아 본문을 보류했습니다.\n검사 기준일(기본값: 조회일): ${result.applicableOn} · 사건 발생일·경과규정·사업장 적용 여부: 미확인 · 검증 범위: 저장된 조문 참조 확인(실시간 법령·법률 적합성 검증 아님).\n${lines.join('\n') || '확인 가능한 근거 조문이 없습니다.'}\n별도 AI 검증이나 API 연결도 정답을 보증하지 않습니다. 전문가가 원문과 적용일을 확인해 주세요.`;
 }
 
 /** Only a bounded reference-backed draft may be displayed, always behind its review label. */
 export function legalReviewOutput(text: string, result: CitationVerifyResult, generationComplete: boolean): string {
   const review = citationReviewMessage(result);
-  const overclaim = /확실|보장|100\s*%|검증\s*완료|문제\s*없|(?:적법|적합|합법|준수)(?:합니다|입니다)|반드시\s*승소/;
+  const overclaim = /확실|보장(?:합니다|됩니다|한다|할\s*수\s*있)|(?:정답|정확성|결과|승소).{0,12}보장|(?:정확도|정확성|확률|확신)\s*(?:은|는|이|가)?\s*100\s*%|100\s*%\s*(?:정확|확실|적합|적법|보장)|검증\s*완료|문제\s*없|(?:적법|적합|합법|준수)(?:합니다|입니다)|반드시\s*승소/;
   const referenceBacked = result.evidence.length > 0 && result.evidence.every(e => e.status === 'reference_found');
   if (!generationComplete || !referenceBacked || overclaim.test(text)) return review;
   return review.replace('본문을 보류했습니다.', '아래 내용을 미검수 참고 초안으로 표시합니다.') +

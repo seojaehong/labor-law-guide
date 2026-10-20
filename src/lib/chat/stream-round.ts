@@ -233,6 +233,7 @@ export async function streamRound(
       timeout,
     ]).finally(() => clearTimeout(timer));
   } catch (err) {
+    if (err instanceof Error && err.name === 'AbortError') throw err;
     if (!isAnthropicConfigured()) throw err;
     roundInfo.provider = 'anthropic(vertex-failed)';
     roundInfo.vertexFailMs = Date.now() - vertexStart;
@@ -277,6 +278,7 @@ export async function streamRound(
       }
     }
   } catch (err) {
+    if (err instanceof Error && err.name === 'AbortError') throw err;
     const tail = scrubber.flush();
     if (tail) {
       content += tail;

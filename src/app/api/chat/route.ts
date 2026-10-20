@@ -61,11 +61,13 @@ export async function POST(req: NextRequest) {
   const recorder = startServiceObservation('consultation');
   let stage: Stage = 'validation';
   const emittedChars = 0;
+  const cancelled = new AbortController();
+  const checkCancelled = () => { if (cancelled.signal.aborted) throw new DOMException("Request cancelled", "AbortError"); };
   const observation = { finish(value: Parameters<typeof recorder.finish>[0]) {
     req.signal.removeEventListener('abort', onAbort);
     recorder.finish(value);
   } };
-  const onAbort = () => observation.finish({stage, outcome: emittedChars > 0 ? 'partial_failure' : 'failure',error_code:'cancelled',result_count:null});
+  const onAbort = () => { cancelled.abort(); observation.finish({stage, outcome: emittedChars > 0 ? 'partial_failure' : 'failure',error_code:'cancelled',result_count:null}); };
   req.signal.addEventListener('abort', onAbort, {once:true});
   if (req.signal.aborted) onAbort();
   const respond = (body: BodyInit | null, init?: ResponseInit) => {
@@ -359,6 +361,7 @@ export async function POST(req: NextRequest) {
           get desiredSize() { return controller.desiredSize; },
           enqueue(chunk) {
             // Model body stays private until legal review. streamRound still assembles it.
+            checkCancelled();
             void chunk;
           },
           close: () => controller.close(), error: error => controller.error(error),
@@ -385,6 +388,7 @@ export async function POST(req: NextRequest) {
         try {
           const r1 = await streamRound(modelController, baseMsgs, toolHint, encoder, decoder, lastRoundInfo);
           r1Ms = Date.now() - genStart;
+          checkCancelled();
           assembledAnswer += r1.content;
           r1ContentLen = r1.content.length;
           finalBodyLength = r1.content.trim().length;
@@ -427,6 +431,7 @@ export async function POST(req: NextRequest) {
               encoder.encode(`data: ${JSON.stringify({ content: ' 완료\n\n' })}\n\n`)
             );
             const r2 = await streamRound(modelController, round2Msgs, false, encoder, decoder, lastRoundInfo);
+            checkCancelled();
             assembledAnswer += r2.content;
             r2ContentLen = r2.content.length;
             finalBodyLength = r2.content.trim().length;
@@ -434,6 +439,7 @@ export async function POST(req: NextRequest) {
             r2Ran = true;
           }
         } catch (e) {
+          if (cancelled.signal.aborted) return;
           streamFailed = true;
           controller.enqueue(
             encoder.encode(
@@ -442,6 +448,7 @@ export async function POST(req: NextRequest) {
           );
           console.warn('[chat] stream error', { msg: (e as Error)?.message });
         } finally {
+          if (cancelled.signal.aborted) { try { controller.close(); } catch {} return; }
           // 본문 검증: 빈 답변이면 footer 대신 fallback. 진단용 round-level 로깅도 함께.
           const trimmedLen = assembledAnswer.trim().length;
           const hasContent = trimmedLen >= 50;
@@ -533,7 +540,8 @@ export async function POST(req: NextRequest) {
           }
 
           // Cache lookup is not semantic approval. Publish only the review/evidence result.
-          const verification = await verifyCitations(assembledAnswer);
+          const verification = await verifyCitations(assembledAnswer, { signal: cancelled.signal });
+          checkCancelled();
           const review = legalReviewOutput(assembledAnswer, verification, finalAnswerComplete);
           controller.enqueue(encoder.encode(`data: ${JSON.stringify({ content: review, verification })}\n\n`));
 

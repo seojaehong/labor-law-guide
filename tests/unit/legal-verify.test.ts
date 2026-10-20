@@ -54,3 +54,71 @@ describe('fail closed cached legal reference review', () => {
     expect((await verifyCitations('확실히 적합합니다')).reason).toBe('no_supported_citation');
   });
 });
+
+describe('reference-backed draft versus withheld output', () => {
+  const draft = '근로기준법 제56조 관련 합성 설명. 사업장 적용 여부는 별도 검토가 필요합니다.';
+  it.each([
+    ['complete reference', [row], true, true],
+    ['missing article', [], true, false],
+    ['missing date', [{ ...row, effective_date: null }], true, false],
+    ['conflicting revisions', [row, row], true, false],
+    ['future date', [{ ...row, article_effective_date: '2027-01-01' }], true, false],
+    ['incomplete generation', [row], false, false],
+  ])('%s', async (_name, data, complete, released) => {
+    const result = await run(data);
+    const output = legalReviewOutput(draft, result, complete);
+    expect(output.includes(draft)).toBe(released);
+    expect(result.status).toBe('review_required');
+    expect(output).toContain('검토 필요');
+    if (released) expect(output.indexOf('검토 필요')).toBeLessThan(output.indexOf(draft));
+  });
+  it('withholds a mixed answer if even one reference is unresolved', async () => {
+    const text = '근로기준법 제56조와 고용보험법 제40조 관련 합성 설명';
+    const result = await verifyCitations(text, { applicableOn: '2026-10-20', lookup: async () => ({ data: [row] }) });
+    expect(result.evidence.map(e => e.status)).toEqual(['reference_found', 'review_required']);
+    expect(legalReviewOutput(text, result, true)).not.toContain(text);
+  });
+});
+
+describe('explicit statutory citation coverage', () => {
+  it.each([
+    '근로기준법 제56조와 민법 제99999조 관련 합성 설명',
+    '근로기준법 제56조 및 제99999조 관련 합성 설명',
+    '근로기준법 제56조, 제57조 관련 합성 설명',
+    '근로기준법 제56조·57조 관련 합성 설명',
+    '근로기준법 제56조 제57조 관련 합성 설명',
+    '근로기준법 제56조와 근로기준법 시행령 제99999조 관련 합성 설명',
+    '근로기준법 제56조와 근로기준법 시행규칙 제99999조 관련 합성 설명',
+    '근로기준법 제56조부터 제58조 관련 합성 설명',
+  ])('withholds unresolved explicit citation: %s', async text => {
+    const result = await verifyCitations(text, { lookup: async () => ({ data: [row] }) });
+    expect(result.citations.length).toBeGreaterThan(1);
+    expect(result.evidence.some(e => e.status === 'review_required')).toBe(true);
+    expect(legalReviewOutput(text, result, true)).not.toContain(text);
+  });
+  it.each(['「근로기준법」 제56조', '『근로기준법』 제56조', '근로기준법 제56조에 관한 2026년 10월 20일, 2명, 50시간, 출근율 100% 관련 합성 설명'])('preserves supported spelling and ordinary numbers: %s', async text => {
+    const result = await verifyCitations(text, { lookup: async () => ({ data: [row] }) });
+    expect(result.citations).toHaveLength(1);
+    expect(result.evidence[0].status).toBe('reference_found');
+    expect(legalReviewOutput(text, result, true)).toContain(text);
+  });
+  it('releases a listed pair only after both references are found', async () => {
+    const text = '근로기준법 제56조 및 제57조 관련 합성 설명';
+    const result = await verifyCitations(text, { lookup: async () => ({ data: [row, { ...row, article_label: '제57조' }] }) });
+    expect(result.citations).toHaveLength(2);
+    expect(legalReviewOutput(text, result, true)).toContain(text);
+  });
+  it('does not confuse the Retirement Benefit Act name with guaranteed correctness', async () => {
+    const text = '「근로자퇴직급여 보장법」 제8조 관련 합성 참고 설명';
+    const result = await verifyCitations(text, { lookup: async () => ({ data: [{ ...row, law_name: '근로자퇴직급여 보장법', article_label: '제8조' }] }) });
+    expect(result.evidence[0].status).toBe('reference_found');
+    expect(legalReviewOutput(text, result, true)).toContain(text);
+    expect(legalReviewOutput(text + ' 정답을 보장합니다.', result, true)).not.toContain('정답을 보장합니다.');
+  });
+  it('cancels a hanging cache lookup when the request aborts', async () => {
+    const controller = new AbortController();
+    const pending = verifyCitations('근로기준법 제56조', { signal: controller.signal, lookup: () => new Promise(() => {}) });
+    controller.abort();
+    expect((await pending).reason).toBe('lookup_cancelled');
+  });
+});

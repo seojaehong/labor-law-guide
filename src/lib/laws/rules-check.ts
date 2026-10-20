@@ -77,7 +77,7 @@ export function anchored(rule: RuleSpec, paras: Para[]): Para[] {
 export function hasRuleEvidence(rule: RuleSpec): boolean {
   const date = rule.effective;
   const iso = typeof date === 'string' ? `${date.slice(0, 4)}-${date.slice(4, 6)}-${date.slice(6, 8)}` : '';
-  return !!rule.law?.trim() && /^(?:제\d+조(?:의\d+)?|별표(?:\s*\d+)?)$/.test(rule.article ?? '') &&
+  return !!rule.law?.trim() && /^(?:제\d+조(?:의\d+)?|별표(?:\s*\d+)?|본문)$/.test(rule.article ?? '') &&
     !!rule.lawId?.trim() && /^\d{8}$/.test(date ?? '') &&
     !Number.isNaN(Date.parse(iso)) && new Date(iso).toISOString().slice(0, 10) === iso;
 }

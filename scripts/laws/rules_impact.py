@@ -74,7 +74,7 @@ def judge(rule: dict, paras: list[dict]) -> dict:
     except (ValueError, TypeError):
         valid_date = False
     if not (valid_date and rule.get("law", "").strip() and rule.get("lawId", "").strip()
-            and re.fullmatch(r"(?:제\d+조(?:의\d+)?|별표(?:\s*\d+)?)", rule.get("article", ""))):
+            and re.fullmatch(r"(?:제\d+조(?:의\d+)?|별표(?:\s*\d+)?|본문)", rule.get("article", ""))):
         return {"status": "검토 필요", "where": None, "stale": [], "missing": []}
     hits = [p for p in anchored(rule, paras) if any(has(p["text"], k) for k in rule["keywords"])]
     if not hits:
@@ -121,8 +121,11 @@ def main():
     SHORT.update({l["lawId"]: l["short"] for l in idx["laws"]})
     print(f"기준일 {args.asof} · 개정 데이터 {gen} 수집분 · 매핑 {len(MAP['rules'])}건 · 문단 {len(paras)}개\n")
 
+    law_names = {l["lawId"]: l.get("name") or l.get("short", "") for l in idx["laws"]}
     results = []
     for r in sorted(MAP["rules"], key=lambda r: (r["effective"], r["lawId"])):
+        # Raw mapping uses lawId; browser rules are enriched during generation.
+        r = {**r, "law": r.get("law") or law_names.get(r["lawId"], "")}
         j = judge(r, paras)
         # 절차·인용 정비형은 법보다 좁은 옛 문구가 남았을 때만 필수다(옮겨 적지 않았으면 법이 바로 적용된다)
         r = {**r, "required": r["required"] or bool(r.get("requiredIfStale") and j.get("stale"))}
@@ -130,7 +133,7 @@ def main():
         need = j["status"] != "반영됨" and (r["required"] or args.include_optional)
         results.append({**{k: r[k] for k in ("lawId", "article", "effective", "topic", "art93", "required", "point", "clause")},
                         "timing": timing, "action_needed": need, **j})
-        mark = {"반영됨": "✓", "미반영": "✗", "누락": "＋"}[j["status"]]
+        mark = {"반영됨": "✓", "미반영": "✗", "누락": "＋", "검토 필요": "?"}[j["status"]]
         req = "필수" if r["required"] else "선택"
         law = SHORT.get(r["lawId"], r["lawId"])
         print(f"{mark} {j['status']:<3} [{req}] {law} {r['article']} {r['topic']} — {timing}")

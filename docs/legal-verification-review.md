@@ -21,10 +21,46 @@
 
 ## 로컬 검증 (합성 입력)
 
-- 전체 Vitest: 890 통과 / 892, 홈 화면 검사 2건 실패. `origin/master`를 `/tmp/labor-baseline`에 추출해 같은 2건을 재현했다. 관련 회귀·신규 테스트는 통과했다.
+- 전체 Vitest: 916 통과 / 918, 홈 화면 검사 2건 실패. `origin/master`를 `/tmp/labor-baseline`에 추출해 같은 2건을 재현했다. 관련 회귀·신규 테스트는 통과했다.
 - 변경 TS/TSX·테스트 ESLint 및 `tsc --noEmit`: 통과. 전체 lint는 변경하지 않은 파일의 기존 8 errors / 18 warnings로 실패했다.
 - Python 구문 검사 및 TS/Python 매처 parity: 통과. 판정 소스 해시와 실제 public 데이터 해시를 동기화했다(기존 RULE_VERSION도 실제 데이터와 달랐다).
-- 키 없는 placeholder 설정으로 Next 빌드: 컴파일·타입검사는 통과했으나 FAQ 정적 생성에서 60초 시간 초과가 반복되어 중단했다. 전체 빌드 완료는 미확인이다. 운영 설정 검증이 아니다.
+- 외부 placeholder 설정으로 Next 빌드: 변경 브랜치와 기준 master 모두 FAQ 정적 생성 60초 시간 초과가 재현됐다. loopback 합성 fixture로는 두 브랜치 모두 컴파일·타입·103개 정적 생성과 전체 빌드가 완료됐다. 운영 설정 검증이 아니다.
 - Supabase 문서/changelog 조회는 네트워크 403이었다. 새로운 Supabase 기능·스키마는 도입하지 않았으며 기존 select/filter와 설치된 SDK 타입으로 검증했다. 운영 쿼리는 실행하지 않았다.
 
 GitHub 브랜치 푸시는 성공했다. 초안 PR 생성은 `POST https://api.github.com/graphql: Forbidden`으로 실패했으며 PR은 생성되지 않았다. PR 본문 초안은 `/tmp/labor-pr-body.md`에 남겼다. 배포·병합은 하지 않았다.
+
+## 추가 검토 보완
+
+- 원본 `scripts/laws/work_rules_map.json`의 44개 규칙은 `law`가 없는 raw 계약이다. Python CLI는 기존 index의 lawId로 법명을 보강하고 검토 필요 기호를 처리한다. 원본 map 전체 CLI 실행·JSON 내보내기 및 미확인 lawId의 검토 필요 출력 회귀검사를 추가했다. 전체 법령 명칭 변경의 `본문` 식별자도 명시적인 근거로 인정하되 법률 적합성을 보증하지 않는다.
+- 인용부호 법명, 동일 법명 뒤 복수 조문(제 생략 포함), 미지원 법률·시행령·시행규칙 인용을 수집한다. 일부만 확인된 혼합 답변과 범위 인용은 보류한다. 일반 숫자·출근율 100%는 인용이나 확신 과장으로 처리하지 않는다. `근로자퇴직급여 보장법`은 보장 주장과 구별한다. 이 검사는 명시적 조문 참조 범위이며 모든 자연어 법률 주장·생략형 인용을 포괄하지 않는다.
+- 취소된 요청/응답은 private collector가 AbortError로 다음 청크 소비를 중단하고, 취소를 공급자 fallback으로 재시도하지 않는다. 검증 조회에도 취소 신호를 연결했다. SDK 호출 전 구간의 즉시 네트워크 취소까지 보장하는 변경은 아니다. 정상 완료와 중간 취소의 합성 검사로 검증했다.
+- 검사 기준일(기본 조회일)과 사건 발생일·경과규정·사업장 적용 여부의 미확인을 출력에서 구별했다. 운영 DB 필드 충족률이나 실제 응답 제공률은 확인하지 않았다.
+
+### 빌드 비교와 재현
+
+동일한 placeholder URL `https://example.invalid`에서 변경 브랜치와 원본 master f942e3c 모두 FAQ 정적 생성 60초 시간 초과가 재현됐다. 기준 master 추출본의 초기 빌드는 node_modules 외부 symlink 제한으로 실패했고, 의존성을 실제 복사한 후 비교했다. 따라서 symlink 실패와 FAQ 시간 초과는 구분한다.
+
+합성 데이터만 제공하는 loopback fixture는 `tests/fixtures/supabase-build-fixture.py`다. `python3 tests/fixtures/supabase-build-fixture.py`를 별도 프로세스로 실행하고 다음과 같이 빌드한다:
+
+```sh
+env -u SUPABASE_SERVICE_ROLE_KEY NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:45671 NEXT_PUBLIC_SUPABASE_ANON_KEY=synthetic-placeholder npm run build
+```
+
+이 fixture는 FAQ 합성 1건과 다른 조회의 빈 배열을 반환한다. API 라우트·화면의 컴파일/타입/정적 생성 확인용이며 운영 DB의 스키마·데이터 품질·연결 검증을 대체하지 않는다.
+
+### GitHub 오류 증거와 미완료 작업
+
+`gh pr create --draft`는 `Post "https://api.github.com/graphql": Forbidden`으로 종료했다. 인증정보를 쓰지 않는 공개 `curl https://api.github.com/`도 아래 응답으로 TLS/API 접근 전에 실패했다:
+
+```text
+curl: (56) CONNECT tunnel failed, response 403
+HTTP/1.1 403 Forbidden
+content-length: 16
+content-type: text/plain
+server: envoy
+connection: close
+```
+
+이는 CONNECT 프록시 차단 증거다. GitHub 계정·저장소 권한 거절 증거는 없지만, 프록시 내부의 정책 사유까지 확인할 수는 없다. 따라서 인증·권한을 변경하거나 다른 커넥터로 우회하지 않았다. PR 생성은 실패 상태다. 브랜치 푸시는 성공했고 배포·병합은 하지 않았다.
+
+최종 추가 검증: 게이트·취소·CLI 집중 검사 68건 통과, 전체 918건 중 916건 통과(기준 master에서도 실패한 홈 화면 2건 제외). 변경 파일 lint·tsc·Python 구문 검사를 통과했다. 기준 master와 변경 브랜치의 offline fixture 빌드는 각각 종료 코드 0이다.
