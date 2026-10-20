@@ -24,5 +24,7 @@
 - 전체 Vitest: 890 통과 / 892, 홈 화면 검사 2건 실패. `origin/master`를 `/tmp/labor-baseline`에 추출해 같은 2건을 재현했다. 관련 회귀·신규 테스트는 통과했다.
 - 변경 TS/TSX·테스트 ESLint 및 `tsc --noEmit`: 통과. 전체 lint는 변경하지 않은 파일의 기존 8 errors / 18 warnings로 실패했다.
 - Python 구문 검사 및 TS/Python 매처 parity: 통과. 판정 소스 해시와 실제 public 데이터 해시를 동기화했다(기존 RULE_VERSION도 실제 데이터와 달랐다).
-- 키 없는 placeholder 설정으로 Next 빌드: 컴파일·타입검사는 통과했으나 정적 페이지 생성은 별도로 완료 상태를 확인해야 한다. 운영 설정 검증이 아니다.
+- 키 없는 placeholder 설정으로 Next 빌드: 컴파일·타입검사는 통과했으나 FAQ 정적 생성에서 60초 시간 초과가 반복되어 중단했다. 전체 빌드 완료는 미확인이다. 운영 설정 검증이 아니다.
 - Supabase 문서/changelog 조회는 네트워크 403이었다. 새로운 Supabase 기능·스키마는 도입하지 않았으며 기존 select/filter와 설치된 SDK 타입으로 검증했다. 운영 쿼리는 실행하지 않았다.
+
+GitHub 브랜치 푸시는 성공했다. 초안 PR 생성은 `POST https://api.github.com/graphql: Forbidden`으로 실패했으며 PR은 생성되지 않았다. PR 본문 초안은 `/tmp/labor-pr-body.md`에 남겼다. 배포·병합은 하지 않았다.
