@@ -70,7 +70,7 @@ async function fetchCategoryPage(decoded: string, page: number) {
 // 2026-09-15 — /blog 와 같은 쿼리를 쓰므로 같은 값을 치르고 있었다: 요약 한 줄을 만들자고
 // 목록 24편의 content 전문을 매 요청 끌어온다. 실측 1.9~2.4s (캐시를 붙인 /blog 는 1.0~1.6s).
 // 요약을 다 만든 결과만 10분 캐시한다. 인자(카테고리·페이지)가 캐시 키에 들어간다.
-const getCachedCategoryPage = unstable_cache(fetchCategoryPage, ['blog-category-v1'], { revalidate: 600 });
+const getCachedCategoryPage = unstable_cache(fetchCategoryPage, ['blog-category-v2'], { revalidate: 600, tags: ['blog-article-lists'] });
 
 async function getCategoryPage(decoded: string, page: number) {
   try {
