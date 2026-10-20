@@ -45,7 +45,7 @@ export function extractLawCitations(text: string): LawCitation[] {
     covered.push([m.index!, m.index! + m[0].length]);
     // An explicit law name also governs a directly connected article list.
     let tail = text.slice(m.index! + m[0].length);
-    const next = /^\s*(,|·|ㆍ|및|와|과|또는|부터|내지|~|∼|–|-|(?=제))\s*제?\s*(\d+)\s*조(?:\s*의\s*(\d+))?/;
+    const next = /^(?:\s*\([^()\n]{0,100}\))?(?:\s*제\s*\d+\s*(?:항|호))*\s*(,|·|ㆍ|및|와|과|또는|부터|내지|~|∼|–|-|(?=제))\s*제?\s*(\d+)\s*조(?:\s*의\s*(\d+))?/;
     let following: RegExpMatchArray | null;
     while ((following = tail.match(next))) {
       const n = Number(following[2]), branch = following[3] ? Number(following[3]) : undefined;

@@ -8,7 +8,7 @@
 
 ## 검증
 
-합성 입력만 사용했습니다. 전체 918개 중 916개 통과했고, 홈 화면 실패 2건은 원본 master에서도 재현했습니다. 게이트·취소·원본 CLI 집중 검사 68건, 변경 파일 lint·타입 검사·Python 구문·매처 parity를 통과했습니다. 전체 lint는 변경하지 않은 파일의 기존 8 errors / 18 warnings로 실패합니다.
+합성 입력만 사용했습니다. 전체 920개 중 918개 통과했고, 홈 화면 실패 2건은 원본 master에서도 재현했습니다. 게이트·취소·원본 CLI 집중 검사 70건, 변경 파일 lint·타입 검사·Python 구문·매처 parity를 통과했습니다. 전체 lint는 변경하지 않은 파일의 기존 8 errors / 18 warnings로 실패합니다.
 
 동일한 외부 placeholder URL에서는 기준 master와 변경 브랜치 모두 FAQ 정적 생성 60초 시간 초과가 재현됐습니다. 합성 Supabase loopback fixture에서는 두 브랜치 모두 전체 빌드(103개 정적 페이지 포함)가 종료 코드 0으로 완료됐습니다. fixture는 운영 DB 검증을 대체하지 않습니다. 조사·재현 명령·오류 증거는 docs/legal-verification-review.md에 있습니다.
 

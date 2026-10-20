@@ -21,7 +21,7 @@
 
 ## 로컬 검증 (합성 입력)
 
-- 전체 Vitest: 916 통과 / 918, 홈 화면 검사 2건 실패. `origin/master`를 `/tmp/labor-baseline`에 추출해 같은 2건을 재현했다. 관련 회귀·신규 테스트는 통과했다.
+- 전체 Vitest: 918 통과 / 920, 홈 화면 검사 2건 실패. `origin/master`를 `/tmp/labor-baseline`에 추출해 같은 2건을 재현했다. 관련 회귀·신규 테스트는 통과했다.
 - 변경 TS/TSX·테스트 ESLint 및 `tsc --noEmit`: 통과. 전체 lint는 변경하지 않은 파일의 기존 8 errors / 18 warnings로 실패했다.
 - Python 구문 검사 및 TS/Python 매처 parity: 통과. 판정 소스 해시와 실제 public 데이터 해시를 동기화했다(기존 RULE_VERSION도 실제 데이터와 달랐다).
 - 외부 placeholder 설정으로 Next 빌드: 변경 브랜치와 기준 master 모두 FAQ 정적 생성 60초 시간 초과가 재현됐다. loopback 합성 fixture로는 두 브랜치 모두 컴파일·타입·103개 정적 생성과 전체 빌드가 완료됐다. 운영 설정 검증이 아니다.
@@ -63,4 +63,4 @@ connection: close
 
 이는 CONNECT 프록시 차단 증거다. GitHub 계정·저장소 권한 거절 증거는 없지만, 프록시 내부의 정책 사유까지 확인할 수는 없다. 따라서 인증·권한을 변경하거나 다른 커넥터로 우회하지 않았다. PR 생성은 실패 상태다. 브랜치 푸시는 성공했고 배포·병합은 하지 않았다.
 
-최종 추가 검증: 게이트·취소·CLI 집중 검사 68건 통과, 전체 918건 중 916건 통과(기준 master에서도 실패한 홈 화면 2건 제외). 변경 파일 lint·tsc·Python 구문 검사를 통과했다. 기준 master와 변경 브랜치의 offline fixture 빌드는 각각 종료 코드 0이다.
+최종 추가 검증: 게이트·취소·CLI 집중 검사 70건 통과, 전체 920건 중 918건 통과(기준 master에서도 실패한 홈 화면 2건 제외). 변경 파일 lint·tsc·Python 구문 검사를 통과했다. 기준 master와 변경 브랜치의 offline fixture 빌드는 각각 종료 코드 0이다.
