@@ -38,8 +38,9 @@ describe('reading-first layout contract', () => {
   it('opts legal detail typography in without enlarging compact list previews', () => {
     expect(read('src/app/database/_components/MarkdownSnippet.tsx')).toContain("variant = 'snippet'");
     for (const route of ['cases', 'interpretations']) {
-      expect(read(`src/app/${route}/[id]/page.tsx`)).toContain('<MarkdownSnippet variant="reading"');
+      expect(read(`src/app/${route}/[id]/page.tsx`)).toContain(route === 'interpretations' ? '<CollectedSourceBody text={summary}' : '<MarkdownSnippet variant="reading"');
     }
+    expect(read('src/components/CollectedSourceBody.tsx')).toContain('className="reading-prose');
     expect(read('src/app/decisions/[id]/page.tsx')).toContain('reading-prose whitespace-pre-wrap');
     expect(read('src/app/decisions/page.tsx')).toContain('className="layout-list"');
   });

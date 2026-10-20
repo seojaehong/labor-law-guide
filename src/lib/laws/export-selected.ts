@@ -7,6 +7,10 @@ export const SELECTED_LAWS_DISCLAIMER = '법령 검수 전 · 개정 제목과 �
 const SOURCE = '출처: 국가법령정보센터(법제처) Open API';
 const EXCEL_CELL_LIMIT = 32767;
 
+export class LawExportDetailError extends Error {
+  constructor(public readonly lawId: string, message: string, options?: ErrorOptions) { super(message, options); }
+}
+
 type LawStep = LawDetail['steps'][number];
 export interface SelectedLawExportEvent {
   event: LawEvent;
@@ -69,20 +73,20 @@ export async function prepareSelectedLawExport(
       details.set(lawId, detail);
     } catch (error) {
       const law = unique.find(event => event.lawId === lawId)!.law;
-      throw new Error(`${law} 상세 정보를 불러오지 못했습니다. 다시 시도하세요.`, { cause: error });
+      throw new LawExportDetailError(lawId, `${law} 상세 정보를 불러오지 못했습니다. 다시 시도하세요.`, { cause: error });
     }
   }));
   const resolved = unique.map(event => {
-    const matches = details.get(event.lawId)!.steps.filter(step => step.id === event.id);
+    const matches = details.get(event.lawId)!.steps.filter(step => step?.id === event.id);
     const step = matches[0];
     if (matches.length !== 1 || step.date !== event.date || !Array.isArray(step.changes)) {
-      throw new Error(`${event.law} (${fmtDate(event.date)} 시행) 상세 개정을 확인할 수 없습니다. 파일을 만들지 않았습니다.`);
+      throw new LawExportDetailError(event.lawId, `${event.law} (${fmtDate(event.date)} 시행) 상세 개정을 확인할 수 없습니다. 파일을 만들지 않았습니다.`);
     }
-    const keys = new Set(step.changes.map(change => change.key));
-    if (event.changes.some(change => !keys.has(change.key)) || step.changes.some(change =>
-      !change || typeof change.article !== 'string' || typeof change.title !== 'string' || typeof change.kind !== 'string' ||
-      !(typeof change.before === 'string' || change.before === null) || !(typeof change.after === 'string' || change.after === null))) {
-      throw new Error(`${event.law} (${fmtDate(event.date)} 시행) 조문 상세가 빠져 있습니다. 파일을 만들지 않았습니다.`);
+    if (step.changes.some(change =>
+      !change || typeof change.key !== 'string' || typeof change.article !== 'string' || typeof change.title !== 'string' || typeof change.kind !== 'string' ||
+      !(typeof change.before === 'string' || change.before === null) || !(typeof change.after === 'string' || change.after === null)) ||
+      event.changes.some(change => !step.changes.some(detail => detail.key === change.key))) {
+      throw new LawExportDetailError(event.lawId, `${event.law} (${fmtDate(event.date)} 시행) 조문 상세가 빠져 있습니다. 파일을 만들지 않았습니다.`);
     }
     return { event, step };
   });
@@ -141,7 +145,7 @@ function appendRows(rows: string[][], values: string[], continuousColumns: numbe
 
 /** A real OOXML workbook; data and legal text stay in the browser. */
 export async function selectedLawsXlsx(data: SelectedLawExport): Promise<Blob> {
-  const XLSX = await import('xlsx');
+  const { comparisonXlsx } = await import('./comparison-xlsx');
   const comparison: string[][] = [['개정 ID', '시행일', '법령', '공포일·번호(전체)', '조문', '제목', '변경', '개정 전', '개정 후', '취업규칙 반영', '법제처 원문', '본문 분할']];
   const selected: string[][] = [['개정 ID', '법령', '법령 구분', '시행일', '비교 기준일', '공포일·번호(전체)', '개정 구분', '제목', '요약', '개정 이유', '부칙', '조문 수', '본문 분할']];
   const sourceRows: string[][] = [
@@ -161,24 +165,14 @@ export async function selectedLawsXlsx(data: SelectedLawExport): Promise<Blob> {
     sourceRows.push([event.id, event.law, fmtDate(event.date), '시행 법령', '', '', '', source]);
     for (const p of event.promulgations) sourceRows.push([event.id, event.law, fmtDate(event.date), '공포 법령', fmtDate(p.date), `${event.lawKind} 제${p.no}호`, p.kind, lawGoUrl(p.mst, event.date)]);
   }
-  const workbook = XLSX.utils.book_new();
-  for (const [name, rows, widths] of [
-    ['신구대조', comparison, [24, 15, 30, 40, 14, 24, 10, 70, 70, 24, 50, 12]],
-    ['선택 개정', selected, [24, 30, 12, 15, 15, 40, 18, 40, 70, 70, 70, 10, 12]],
-    ['출처·안내', sourceRows, [24, 30, 15, 15, 15, 25, 18, 65]],
-  ] as const) {
-    const sheet = XLSX.utils.aoa_to_sheet(rows);
-    sheet['!cols'] = widths.map(wch => ({ wch }));
-    if (name !== '출처·안내') sheet['!autofilter'] = { ref: sheet['!ref']! };
-    // Explicit string cells also prevent formula injection from law text beginning with '='.
-    for (let row = 0; row < rows.length; row++) for (let column = 0; column < rows[row].length; column++) {
-      const value = rows[row][column];
-      const cell = sheet[XLSX.utils.encode_cell({ r: row, c: column })];
-      if (cell && /^https:\/\/www\.law\.go\.kr\//.test(value)) cell.l = { Target: value, Tooltip: '국가법령정보센터 원문' };
-    }
-    XLSX.utils.book_append_sheet(workbook, sheet, name);
-  }
-  return new Blob([XLSX.write(workbook, { bookType: 'xlsx', type: 'array', compression: true })], { type: SELECTED_LAWS_XLSX_MIME });
+  return comparisonXlsx({
+    title: '선택 법령 개정 신구대조표', intro: [SELECTED_LAWS_DISCLAIMER, '긴 본문은 계속행 순서대로 읽으세요. 숨김 원문보관에 손실 없이 보관합니다.'],
+    head: comparison[0], rows: comparison.slice(1), widths: [24,15,30,40,14,24,10,70,70,24,50,12], foot: [SOURCE],
+    additionalSheets: [
+      { name: '선택 개정', rows: selected, widths: [24,30,12,15,15,40,18,40,70,70,70,10,12], headerRow: 1 },
+      { name: '출처·안내', rows: sourceRows, widths: [24,30,15,15,15,25,18,65], headerRow: 5 },
+    ],
+  });
 }
 
 /** A real landscape DOCX package; never a renamed HWP. */

@@ -67,12 +67,12 @@ test('failed detail fetch retains selection, retries successfully, and repeated 
 
 test('large export confirms exact scope and bytes; Escape/cancel preserve selection and confirmation downloads once', async ({page}) => {
  await page.goto('/laws?view=all');
- await page.getByRole('checkbox', {name:'현재 결과 401건 전체 선택',exact:true}).check();
+ await page.getByRole('checkbox', {name:`현재 결과 ${index.events.length}건 전체 선택`,exact:true}).check();
  let downloads = 0; page.on('download', () => downloads++);
  await page.getByRole('button', {name:'문서(.docx)',exact:true}).click();
  const dialog = page.getByRole('dialog', {name:'분량이 큰 원문 파일입니다',exact:true});
  await expect(dialog).toBeVisible();
- await expect(dialog).toContainText('개정 401건');
+ await expect(dialog).toContainText(`개정 ${index.events.length}건`);
  await expect(dialog).toContainText('실제 파일 크기');
  await expect(dialog).toContainText('바이트');
  await expect(dialog.getByRole('button',{name:'취소하고 선택 유지',exact:true})).toBeFocused();
@@ -82,7 +82,7 @@ test('large export confirms exact scope and bytes; Escape/cancel preserve select
  await expect(dialog).toHaveCount(0);
  await expect(page.getByRole('button', {name:'문서(.docx)',exact:true})).toBeFocused();
  expect(downloads).toBe(0);
- await expect(page.getByLabel('선택한 개정 내보내기')).toContainText('401건 선택');
+ await expect(page.getByLabel('선택한 개정 내보내기')).toContainText(`${index.events.length}건 선택`);
  await page.getByRole('button', {name:'문서(.docx)',exact:true}).click();
  await expect(dialog).toBeVisible();
  await dialog.getByRole('button',{name:'취소하고 선택 유지',exact:true}).click();
@@ -95,4 +95,60 @@ test('large export confirms exact scope and bytes; Escape/cancel preserve select
  await done;
  await expect(dialog).toHaveCount(0);
  expect(downloads).toBe(1);
+});
+
+test('keyboard selection and calendar date survive navigation and reload', async ({page}) => {
+ await page.goto(`/laws?view=all&mode=cal&m=${event.date.slice(0,6)}&d=${event.date}`);
+ const checkbox=page.getByRole('checkbox',{name:`${event.short} ${event.date.slice(0,4)}. ${+event.date.slice(4,6)}. ${+event.date.slice(6)}. 개정 선택`,exact:true});
+ await checkbox.focus();await page.keyboard.press('Space');await expect(checkbox).toBeChecked();
+ await page.getByRole('button',{name:'다음 달',exact:true}).click();
+ await expect(page.getByLabel('선택한 개정 내보내기')).toContainText('현재 결과 밖 1건 포함');
+ await page.evaluate((date)=>{history.pushState(history.state,'',`/laws?mode=cal&m=${date.slice(0,6)}&d=${date}`);history.pushState(history.state,'','/laws?mode=cal&m=202701');},event.date);
+ await page.goBack();await expect(page).toHaveURL(new RegExp(`d=${event.date}`));
+ await expect(checkbox).toBeChecked();
+ await page.reload();await expect(page).toHaveURL(new RegExp(`d=${event.date}`));
+ await expect(checkbox).not.toBeChecked();
+ await expect(page.getByRole('region',{name:'개정 달력'}).getByRole('button',{pressed:true})).toHaveCount(1);
+ await page.getByRole('button',{name:'필터 해제',exact:true}).click();await expect(page).not.toHaveURL(/d=/);
+});
+
+test('hidden review detail restores on reload and history without losing filters or in-memory selection', async ({page}) => {
+ await page.goto('/laws?view=all');
+ const checkbox=page.locator(`[id="${event.id}"]`).getByRole('checkbox');
+ await checkbox.check();
+ await page.getByLabel('개정 검색').fill('no-match-xyz');
+ await page.getByRole('button',{name:'선택한 항목 보기',exact:true}).click();
+ await page.locator(`[id="${event.id}"] .lr-row`).click();
+ await expect(page).toHaveURL(/review=1/);
+ await page.getByRole('link',{name:'개정 목록 보기',exact:true}).click();
+ await expect(page).not.toHaveURL(/event=|review=/);
+ await expect(page.getByLabel('개정 검색')).toHaveValue('no-match-xyz');
+ await page.goBack();
+ await expect(page.locator(`[id="${event.id}"] .lr-row`)).toHaveAttribute('aria-expanded','true');
+ await expect(checkbox).toBeChecked();
+ await page.goForward();await expect(page.locator('.lr-card')).toHaveCount(0);
+ await page.goBack();await page.reload();
+ await expect(page.locator(`[id="${event.id}"] .lr-row`)).toHaveAttribute('aria-expanded','true');
+ await expect(checkbox).toBeChecked();
+ await expect(page.getByLabel('개정 검색')).toHaveValue('no-match-xyz');
+ await page.getByRole('button',{name:'현재 결과로 돌아가기',exact:true}).click();
+ await expect(page.locator('.lr-card')).toHaveCount(0);
+ await expect(page).not.toHaveURL(/event=|review=/);
+ await expect(page.getByLabel('선택한 개정 내보내기')).toContainText('1건 선택');
+});
+
+test('incomplete HTTP 200 detail is evicted and retry refetches a repaired response', async ({page}) => {
+ const {readFileSync}=await import('node:fs');
+ const detail=JSON.parse(readFileSync(`public/data/laws/${event.lawId}.json`,'utf8'));
+ let requests=0;
+ await page.route(`**/data/laws/${event.lawId}.json`,route=>route.fulfill({json:++requests===1?{...detail,steps:detail.steps.filter((step:{id:string})=>step.id!==event.id)}:detail}));
+ await page.goto('/laws?view=all');
+ await page.locator(`[id="${event.id}"]`).getByRole('checkbox').check();
+ await page.getByRole('button',{name:'엑셀(.xlsx)',exact:true}).click();
+ await expect(page.locator('.lr-export-error')).toContainText('선택은 유지됩니다');
+ expect(requests).toBe(1);
+ const done=page.waitForEvent('download');
+ await page.getByRole('button',{name:'엑셀(.xlsx)',exact:true}).click();await done;
+ expect(requests).toBe(2);
+ await expect(page.getByLabel('선택한 개정 내보내기')).toContainText('1건 선택');
 });

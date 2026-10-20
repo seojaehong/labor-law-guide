@@ -5,7 +5,7 @@ const db = supabaseAdmin || supabase;
 
 // 답변에서 "근로기준법 제56조", "노동조합 및 노동관계조정법 제2조" 등 추출
 const LAW_CITATION_RX =
-  /((?:근로기준|노동조합\s*(?:및|·)\s*노동관계조정|최저임금|고용보험|근로자퇴직급여\s*보장|남녀고용평등|산업안전보건|산업재해보상보험|기간제\s*(?:및|·)\s*단시간근로자\s*보호|파견근로자\s*보호|노동위원회|임금채권보장|근로자참여\s*(?:및|·)\s*협력증진)법)\s*제\s*(\d+)\s*조(?:\s*의\s*(\d+))?/g;
+  /((?:남녀고용평등과\s*일[ㆍ·.]가정\s*양립\s*지원에\s*관한\s*법률|기간제\s*(?:및|·)\s*단시간근로자\s*보호\s*등에\s*관한\s*법률|파견근로자\s*보호\s*등에\s*관한\s*법률|근로자참여\s*(?:및|·)\s*협력증진에\s*관한\s*법률)|(?:근로기준|노동조합\s*(?:및|·)\s*노동관계조정|최저임금|고용보험|근로자퇴직급여\s*보장|남녀고용평등|산업안전보건|산업재해보상보험|기간제\s*(?:및|·)\s*단시간근로자\s*보호|파견근로자\s*보호|노동위원회|임금채권보장|근로자참여\s*(?:및|·)\s*협력증진)법)\s*제\s*(\d+)\s*조(?:\s*의\s*(\d+))?/g;
 
 const LAW_NORMALIZE: Record<string, string> = {
   근로기준법: '근로기준법',
@@ -35,7 +35,8 @@ export function extractLawCitations(text: string): LawCitation[] {
     // 2026-10-05: 가지번호를 함께 읽는다. 「제76조의2」를 「제76조」로 읽으면
     // 직장 내 괴롭힘(제76조의2·제76조의3) 같은 핵심 조항이 뭉개진다.
     const sub = m[3] ? parseInt(m[3], 10) : undefined;
-    const law = LAW_NORMALIZE[rawLaw] || rawLaw;
+    const normalizedLaw = rawLaw.replace(/일[·.]가정/g, '일ㆍ가정');
+    const law = LAW_NORMALIZE[normalizedLaw] || normalizedLaw;
     const label = `제${article}조${sub ? `의${sub}` : ''}`;
     const key = `${law}-${label}`;
     if (seen.has(key)) continue;

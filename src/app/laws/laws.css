@@ -73,7 +73,7 @@
 @media (max-width: 600px) { .lr-toolbar { position: static; } }
 .lr-tool-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .lr-search {
-  flex: 1 1 260px; min-height: 48px; border-radius: 6px; background: var(--lr-canvas); box-shadow: var(--lr-shadow-1);
+  flex: 1 1 260px; min-width: 0; min-height: 48px; border-radius: 6px; background: var(--lr-canvas); box-shadow: var(--lr-shadow-1);
   display: flex; align-items: center; gap: 8px; padding: 0 12px;
 }
 .lr-search input { flex: 1; border: 0; outline: none; background: transparent; color: var(--lr-ink); font-size: 14px; min-width: 0; }

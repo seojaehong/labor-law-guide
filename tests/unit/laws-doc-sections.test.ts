@@ -9,9 +9,12 @@ describe('comparison DOCX sections are opt-in', () => {
     const xml = await zip.file('word/document.xml')!.async('string');
     expect(xml.match(/<w:tbl>/g)).toHaveLength(1);
     expect(xml).not.toContain('pageBreakBefore');
-    expect(xml).not.toContain('w:keepNext');
+    expect(xml).toContain('<w:keepNext w:val="0"/>');
     expect(xml).not.toContain('w:val="24"');
-    expect(xml).toContain('<w:sz w:val="18"/>');
+    expect(xml).toContain('<w:sz w:val="20"/>');
+    expect(xml).toContain('<w:tblLayout w:type="fixed"/>');
+    expect(xml).toContain('285E77');
+    expect(xml).toContain('<w:vAlign w:val="top"/>');
     expect(xml).toContain('기존 본문 &lt;&amp;&gt;');
     expect(xml).toContain('<w:gridCol w:w="7000"/>');
     expect(xml).toContain('w:orient="landscape"');

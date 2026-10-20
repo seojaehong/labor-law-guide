@@ -3,15 +3,15 @@ import { renderToStaticMarkup } from 'react-dom/server';
 const mocks = vi.hoisted(() => ({from:vi.fn(),rpc:vi.fn()}));
 vi.mock('@/lib/supabase', () => ({supabase:mocks}));
 vi.mock('next/cache', () => ({unstable_cache: (fn: unknown) => fn}));
-import { getCategory, countByReason, getRecent, runSearch, decisionRow } from '@/lib/decisions-data';
+import { getCategory, countByReason, countBySource, getRecent, runSearch, decisionRow } from '@/lib/decisions-data';
 import DecisionsIndexPage from '@/app/decisions/page';
 import { REASON_LABELS, RESULT_LABELS } from '@/lib/types';
 
-function query(data: unknown[] = [], error: unknown = null, count: number | null = data.length) {
+function query(data: unknown[] = [], error: unknown = null, count: number | null = data.length, register=true) {
   const response = {data,error,count};
-  const chain = {select:vi.fn(),contains:vi.fn(),not:vi.fn(),order:vi.fn(),range:vi.fn(),gte:vi.fn(),limit:vi.fn(),then: (resolve: (r:typeof response)=>unknown) => Promise.resolve(response).then(resolve)};
-  for (const method of ['select','contains','not','order','range','gte','limit'] as const) chain[method].mockReturnValue(chain);
-  mocks.from.mockReturnValue(chain);
+  const chain = {select:vi.fn(),contains:vi.fn(),not:vi.fn(),order:vi.fn(),range:vi.fn(),gte:vi.fn(),limit:vi.fn(),like:vi.fn(),in:vi.fn(),then: (resolve: (r:typeof response)=>unknown) => Promise.resolve(response).then(resolve)};
+  for (const method of ['select','contains','not','order','range','gte','limit','like','in'] as const) chain[method].mockReturnValue(chain);
+  if(register)mocks.from.mockReturnValue(chain);
   return chain;
 }
 const row = (id: number) => ({ id:String(id), title:'테스트 판정례', case_number:'old', case_number_real:'real',case_number_qualified:'qualified',key_issue:null,decision_date:null,decision_result:null,reason_category:['no_dismissal'] });
@@ -109,6 +109,9 @@ describe('shared decision row source contract', () => {
 
   it('renders recent court cards without a 노동위 or 인정(구제) badge', async () => {
     const chain = query(records);
+    mocks.from.mockReset();
+    for(let i=0;i<Object.keys(REASON_LABELS).length+1;i++)mocks.from.mockReturnValueOnce(chain);
+    mocks.from.mockReturnValueOnce(query([],null,3,false)).mockReturnValueOnce(query([],null,1,false)).mockReturnValueOnce(query([],null,1,false));
     const page = await DecisionsIndexPage({ searchParams: Promise.resolve({}) });
     const hub = page.props.children.at(-1);
     const html = renderToStaticMarkup(await hub.type(hub.props));
@@ -129,5 +132,58 @@ describe('shared decision row source contract', () => {
       title: '기존 제목', caseNumber: type === 'court' ? '2026두42' : '근로기준정책과-42',
       date: '2026-09-20', tag: type === 'court' ? '대법원' : null, result: null,
     }] });
+  });
+});
+describe('source counts and primary enrichment',()=>{
+  it('preserves source tabs and the query when a search fails',async()=>{
+    mocks.rpc.mockResolvedValue({data:null,error:{message:'controlled outage'}});
+    const page=await DecisionsIndexPage({searchParams:Promise.resolve({q:'보직변경',type:'admin'})});
+    const view=page.props.children.at(-1);const html=renderToStaticMarkup(await view.type(view.props));
+    expect(html).toContain('검색 자료 종류');expect(html).toContain('노동위·법원 통합');expect(html).toContain('법원 판례');expect(html).toContain('행정해석');
+    expect(html).toContain('다시 시도');expect(html).toContain('type=admin');expect(html).toContain('aria-current="page"');
+  });
+  it('keeps an empty-query source selection without showing the unrelated hub',async()=>{
+    const page=await DecisionsIndexPage({searchParams:Promise.resolve({type:'admin'})});
+    const html=renderToStaticMarkup(page);expect(html).toContain('선택한 자료에서 찾을 검색어');expect(html).toContain('검색 자료 종류');expect(html).not.toContain('최근 판정례');expect(mocks.from).not.toHaveBeenCalled();
+  });
+  it('uses exact disjoint literal prefixes and excludes the same non-labor population',async()=>{
+    const chains=[query([],null,7,false),query([],null,2,false),query([],null,1,false)];
+    mocks.from.mockReset();for(const c of chains)mocks.from.mockReturnValueOnce(c);
+    expect(await countBySource()).toEqual({nlrc:4,court:3});
+    for(const c of chains){expect(c.select).toHaveBeenCalledWith('id',{count:'exact',head:true});expect(c.not).toHaveBeenCalledWith('is_non_labor','is',true);}
+    expect(chains[0].like).not.toHaveBeenCalled();
+    expect(chains[1].like).toHaveBeenCalledWith('id','bc\\_%');
+    expect(chains[2].like).toHaveBeenCalledWith('id','prec\\_%');
+  });
+  it.each([0,1,2])('rejects unavailable or failed count query %i',async index=>{
+    for(const failure of ['null','error','negative','fraction','unsafe'] as const){
+      const counts=[7,2,1];if(failure==='negative')counts[index]=-1;if(failure==='fraction')counts[index]=1.5;if(failure==='unsafe')counts[index]=Number.MAX_SAFE_INTEGER+1;
+      mocks.from.mockReset();for(let i=0;i<3;i++)mocks.from.mockReturnValueOnce(query([],i===index&&failure==='error'?{message:'fixture error'}:null,i===index&&failure==='null'?null:counts[i],false));
+      await expect(countBySource()).rejects.toThrow('Source count failed');
+    }
+  });
+  it('accepts zero population and rejects impossible sums',async()=>{
+    for(const [counts,expected] of [[[0,0,0],{nlrc:0,court:0}],[[2,2,1],null]] as const){
+      mocks.from.mockReset();for(const n of counts)mocks.from.mockReturnValueOnce(query([],null,n,false));
+      if(expected)expect(await countBySource()).toEqual(expected);else await expect(countBySource()).rejects.toThrow('Inconsistent');
+    }
+  });
+  it('enriches only displayed legacy RPC results in one bounded query and matches recent tags',async()=>{
+    const records=Array.from({length:21},(_,i)=>({...row(i),reason_category:['violence','probation']}));
+    mocks.rpc.mockResolvedValue({data:records,error:null});
+    const lookup=query(records.slice(0,20).map(r=>({id:r.id,issue_type_primary:'probation'})));
+    const result=await runSearch('해고','nlrc',1);
+    expect(mocks.from).toHaveBeenCalledTimes(1);expect(lookup.select).toHaveBeenCalledWith('id,issue_type_primary');
+    expect(lookup.in).toHaveBeenCalledWith('id',records.slice(0,20).map(r=>r.id));
+    expect(result).toMatchObject({ok:true,hasMore:true});
+    if(result.ok)expect(result.rows.map(r=>r.tag)).toEqual(Array(20).fill(decisionRow({...records[0],issue_type_primary:'probation'}).tag));
+  });
+  it('does not query for empty, complete-primary or dedicated source results',async()=>{
+    for(const records of [[],[{...row(1),issue_type_primary:null}]]){mocks.from.mockClear();mocks.rpc.mockResolvedValue({data:records,error:null});expect((await runSearch('해고','nlrc',1)).ok).toBe(true);expect(mocks.from).not.toHaveBeenCalled();}
+  });
+  it('fails clearly when enrichment fails or a returned record has disappeared',async()=>{
+    mocks.rpc.mockResolvedValue({data:[row(1)],error:null});
+    query([],{message:'fixture failure'});expect(await runSearch('해고','nlrc',1)).toEqual({ok:false});
+    query([]);expect(await runSearch('해고','nlrc',1)).toEqual({ok:false});
   });
 });

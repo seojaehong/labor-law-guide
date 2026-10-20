@@ -100,7 +100,7 @@ describe('DecisionPage removes source annotations at every actual body renderer'
         coverage_ratio: 1,
       }],
       visible: ['근로기준법 적용 조문', '섹션 고유 문구:', legalText],
-      absent: ['섹션 대신 표시되면 안 되는 전체 본문', '선택되지 않은 수집 원문', '정리본 고유 문구:'],
+      absent: ['선택되지 않은 수집 원문', '정리본 고유 문구:'],
     },
     {
       name: 'full_text_clean',
@@ -179,10 +179,8 @@ describe('MarkdownSnippet renders annotations as legal text without enabling HTM
     expect(html).not.toMatch(/href="javascript:/i);
     expect(html).not.toContain('node="[object Object]"');
 
-    const sourceLink = html.match(/<a\b[^>]*href="https:\/\/example.invalid\/judgment\?[^\"]*"[^>]*>/)?.[0];
-    expect(sourceLink).toContain(`href="${sourceUrl.replace(/&/g, '&amp;')}"`);
-    expect(sourceLink).toContain('target="_blank"');
-    expect(sourceLink).toContain('rel="noopener noreferrer"');
+    expect(html).not.toContain(`href="${sourceUrl.replace(/&/g, '&amp;')}"`);
+    expect(html).toContain('공식 원문 미확인');
 
     const ids = new Set([...html.matchAll(/\bid="([^"]+)"/g)].map(match => match[1]));
     const fragments = [...html.matchAll(/<a\b([^>]*href="#([^"]+)"[^>]*)>/g)];

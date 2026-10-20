@@ -2,6 +2,10 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
+import ObservationCapture from './ObservationCapture';
+import { useObservationAvailability, type ObservationAvailability } from './observation-availability';
+import { MATCHER_VERSION, RULE_VERSION } from '@/lib/laws/observation-version';
+import type { CaptureContext, Observation } from '@/lib/laws/observation-payload';
 import { CalendarClock, ClipboardCopy, FileDown, FileUp, ShieldCheck, X } from 'lucide-react';
 import { type Verdict } from '@/lib/laws/rules-check';
 import { periodCheck, splitArticles, STD_ASOF, type Art93Item, type PeriodItem, type StdArticle, type StdRule } from '@/lib/laws/standard-check';
@@ -33,6 +37,7 @@ interface Data {
   rules: StdRule[];
   art93: Art93Item[];
   since: string;
+  rulesVersion: string;
 }
 
 let dataPromise: Promise<Data> | null = null;
@@ -43,9 +48,11 @@ const readData = async (path: string) => {
 };
 const loadData = () => (dataPromise ??= Promise.all([
   readData('/data/laws/standard.json'), readData('/data/laws/index.json'), readData('/data/laws/rules.json'),
-]).then(([s, i, r]) => {
+]).then(async ([s, i, r]) => {
   if (!Array.isArray(s.articles) || !s.articles.length || !Array.isArray(i.events) || !Array.isArray(r.rules) || !r.rules.length || !/^\d{8}$/.test(i.since)) throw new Error('Invalid review data');
-  return { std: s.articles, events: i.events, rules: r.rules, art93: s.art93 ?? [], since: i.since };
+  const bytes = new TextEncoder().encode(JSON.stringify([s, i, r]));
+  const rulesVersion = [...new Uint8Array(await crypto.subtle.digest('SHA-256', bytes))].map(b => b.toString(16).padStart(2, '0')).join('');
+  return { std: s.articles, events: i.events, rules: r.rules, art93: s.art93 ?? [], since: i.since, rulesVersion };
 }).catch(error => { dataPromise = null; throw error; }));
 
 const toIso = (d: string) => `${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6, 8)}`;
@@ -80,11 +87,21 @@ const proposal = (it: PeriodItem) =>
 
 export default function RulesCheck({ onClose, toast }: { onClose: () => void; toast: (m: string) => void }) {
   const today = todayKST();
-  const [text, setText] = useState('');
+  const observationAvailability = useObservationAvailability();
+  const [text, updateText] = useState('');
+  const [captureStore] = useState(() => new Map<string, Observation>());
+  const [runId, setRunId] = useState(() => crypto.randomUUID());
+  const currentRun = useRef(runId);
+  const exporting = useRef(false);
+  const freshRun = () => { const next=crypto.randomUUID();currentRun.current=next;setRunId(next); };
+  const setText = (value: string) => { updateText(value); freshRun(); };
   const [data, setData] = useState<Data | null>(null);
   // 수집 시작이 2023.1.1. 로 내려가 기본값을 「2025년 초에 고친 취업규칙」으로 둔다(재홍님 예시)
-  const [from, setFrom] = useState('20250101');
-  const [to, setTo] = useState(today);
+  const [from, updateFrom] = useState('20250101');
+  const setFrom = (value: string) => { updateFrom(value); freshRun(); };
+  const [to, updateTo] = useState(today);
+  const setTo = (value: string) => { updateTo(value); freshRun(); };
+  const captureContext: CaptureContext = { run_id: runId, period_from: from, period_to: to, matcher_version: MATCHER_VERSION, rule_version: data?.rulesVersion ?? RULE_VERSION };
   const [showOk, setShowOk] = useState(false);
   const [busy, setBusy] = useState(false);
   const [loadError, setLoadError] = useState(false);
@@ -95,7 +112,7 @@ export default function RulesCheck({ onClose, toast }: { onClose: () => void; to
 
   useEffect(() => {
     let active = true;
-    loadData().then(d => { if (active) setData(d); }).catch(() => { if (active) setLoadError(true); });
+    loadData().then(d => { if (active) { setData(d);const next=crypto.randomUUID();currentRun.current=next;setRunId(next); } }).catch(() => { if (active) setLoadError(true); });
     const previous = document.activeElement as HTMLElement | null;
     const overflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
@@ -161,17 +178,24 @@ export default function RulesCheck({ onClose, toast }: { onClose: () => void; to
   const fileStem = `취업규칙_신구대조_${from}-${to}`;
 
   const downloadDocx = async () => {
-    const blob = await compareDocx({ title: '취업규칙 신구대조표', intro, head: ['표준 조문', '현행(내 취업규칙)', '개정안', '근거', '판정'], widths: [1700, 4300, 4300, 3200, 1200], rows, foot });
-    download(`${fileStem}.docx`, blob, blob.type);
-    toast(`신구대조표 ${rows.length}건을 docx 로 받았습니다(한글에서 열립니다)`);
+    if(exporting.current)return;exporting.current=true;const expected=currentRun.current;
+    try {
+      const blob = await compareDocx({ title: '취업규칙 신구대조표', intro, head: ['표준 조문', '현행(내 취업규칙)', '개정안', '근거', '판정'], widths: [1700, 4300, 4300, 3200, 1200], rows, foot });
+      if(expected!==currentRun.current){toast('본문 또는 검사기간이 바뀌어 이전 결과의 다운로드를 취소했습니다.');return;}
+      download(`${fileStem}.docx`, blob, blob.type);
+      toast(`신구대조표 ${rows.length}건을 docx 로 받았습니다(한글에서 열립니다)`);
+    }catch{toast('신구대조표를 만들지 못했습니다. 입력과 결과를 보존했습니다.');}
+    finally{exporting.current=false;}
   };
   const downloadXlsx = async () => {
-    const XLSX = await import('xlsx');
-    const ws = XLSX.utils.aoa_to_sheet([...intro.map((t) => [t]), [], ['표준 조문', '현행(내 취업규칙)', '개정안', '근거', '판정'], ...rows, [], ...foot.map((t) => [t])]);
-    ws['!cols'] = [{ wch: 18 }, { wch: 60 }, { wch: 60 }, { wch: 36 }, { wch: 10 }];
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, '신구대조');
-    XLSX.writeFile(wb, `${fileStem}.xlsx`);
+    if(exporting.current)return;exporting.current=true;const expected=currentRun.current;
+    try {
+      const {comparisonXlsx}=await import('@/lib/laws/comparison-xlsx');
+      const blob=await comparisonXlsx({title:'취업규칙 신구대조표',intro,head:['표준 조문','현행(내 취업규칙)','개정안','근거','판정'],rows,widths:[20,52,52,38,16],foot});
+      if(expected!==currentRun.current){toast('본문 또는 검사기간이 바뀌어 이전 결과의 다운로드를 취소했습니다.');return;}
+      download(`${fileStem}.xlsx`,blob,blob.type);
+    }catch{toast('신구대조표를 만들지 못했습니다. 입력과 결과를 보존했습니다.');}
+    finally{exporting.current=false;}
   };
   const copyTable = async () => {
     const t = compareTable(open.map((it) => ({ article: `${it.std.no}(${it.std.title})`, before: mine(it) || null, after: proposal(it) })), foot[0]);
@@ -214,6 +238,7 @@ export default function RulesCheck({ onClose, toast }: { onClose: () => void; to
             <button aria-pressed={to === lastUpcoming} onClick={() => setTo(lastUpcoming)}>공포된 예정분 전부</button>
           </div>
         </div>
+        {from >= to && <p role="status">점검 시작일은 기준일보다 빨라야 합니다. 기간을 수정하면 기록할 수 있습니다.</p>}
         {data && from < data.since && <p className="lr-period-warn">{fmtDate(data.since)} 이전 개정은 아직 모으지 않았습니다. 그보다 오래된 취업규칙은 표준취업규칙 전체와 대조하는 것을 권합니다.</p>}
 
         <div className="lr-check">
@@ -238,7 +263,7 @@ export default function RulesCheck({ onClose, toast }: { onClose: () => void; to
 
           <div className="lr-check-out" aria-live="polite">
             <h3 className="lr-output-title">2. 원문과 대조할 항목</h3>
-            {loadError && <div className="lr-check-empty" role="alert">점검 자료를 불러오지 못했습니다. 입력은 유지됩니다.<button className="lr-btn" onClick={() => { setLoadError(false); loadData().then(setData).catch(() => setLoadError(true)); }}>다시 시도</button></div>}
+            {loadError && <div className="lr-check-empty" role="alert">점검 자료를 불러오지 못했습니다. 입력은 유지됩니다.<button className="lr-btn" onClick={() => { setLoadError(false); loadData().then(d => { setData(d); freshRun(); }).catch(() => setLoadError(true)); }}>다시 시도</button></div>}
             {unrecognized && <p role="alert">조문을 인식하지 못했습니다. 제1조(제목)처럼 조문 번호가 줄 처음에 오도록 입력하세요. 현재 본문은 판정하지 않습니다.</p>}
             {!loadError && !unrecognized && !result && <div className="lr-check-empty">{data ? '기준일이 최종 개정일보다 뒤여야 합니다.' : '개정 자료를 불러오는 중…'}</div>}
             {result && (
@@ -250,6 +275,7 @@ export default function RulesCheck({ onClose, toast }: { onClose: () => void; to
                   <span className="sp" />
                 </div>
                 <div className="lr-check-actions">
+                  <button className="lr-btn lr-btn-ghost lr-btn-sm" onClick={freshRun}>새 점검 실행</button>
                   <button className="lr-btn lr-btn-sm" onClick={downloadDocx} disabled={!open.length}><FileDown size={14} /> 신구대조표 docx</button>
                   <button className="lr-btn lr-btn-ghost lr-btn-sm" onClick={downloadXlsx} disabled={!open.length}>엑셀</button>
                   <button className="lr-btn lr-btn-ghost lr-btn-sm" onClick={copyTable} disabled={!open.length}><ClipboardCopy size={14} /> 표 복사</button>
@@ -262,7 +288,7 @@ export default function RulesCheck({ onClose, toast }: { onClose: () => void; to
                 <div className="lr-verdict-meta">{period} 시행 개정 중 표준취업규칙 조문에 걸리는 것</div>
                 {!open.length && <div className="lr-check-empty" style={{ marginTop: 10 }}>이 기간에 취업규칙 조문에 걸리는 개정이 없습니다.</div>}
                 {[...open, ...(showOk ? ok : [])].map((it) => (
-                  <ItemCard key={it.std.id} it={it} today={today} hasText={hasText} toast={toast} onClose={onClose} />
+                  <ItemCard key={it.std.id} it={it} captureContext={captureContext} captureStore={captureStore} observationAvailability={observationAvailability} today={today} hasText={hasText} toast={toast} onClose={onClose} />
                 ))}
                 {ok.length > 0 && (
                   <button className="lr-fold-btn" onClick={() => setShowOk(!showOk)}>
@@ -317,7 +343,7 @@ export default function RulesCheck({ onClose, toast }: { onClose: () => void; to
   );
 }
 
-function ItemCard({ it, today, hasText, toast, onClose }: { it: PeriodItem; today: string; hasText: boolean; toast: (m: string) => void; onClose: () => void }) {
+function ItemCard({ it, captureContext, captureStore, observationAvailability, today, hasText, toast, onClose }: { it: PeriodItem; captureContext: CaptureContext; captureStore: Map<string, Observation>; observationAvailability: ObservationAvailability; today: string; hasText: boolean; toast: (m: string) => void; onClose: () => void }) {
   const cls = LABEL[it.status];
   const shown = hasText ? (it.status === '반영됨' ? '문구 일치' : it.status) : it.verdicts.length ? '바꿀 문안' : '법령 확인';
   return (
@@ -327,6 +353,7 @@ function ItemCard({ it, today, hasText, toast, onClose }: { it: PeriodItem; toda
         <b>{it.std.no}({it.std.title})</b>
         <span className="lr-verdict-meta" style={{ marginTop: 0 }}>표준취업규칙 [{it.std.kind}]</span>
       </div>
+      {hasText && it.verdicts.map(v => <ObservationCapture key={v.rule.lawId+v.rule.article+v.rule.effective+v.rule.topic+v.status+v.missing.length+":"+v.stale.length+":"+it.user.map(u=>u.no).join(",")} verdict={v} clauseIds={it.user.map(u=>u.no)} context={captureContext} standardId={it.std.id} store={captureStore} availability={observationAvailability} />)}
       <div className="lr-verdict-meta">
         {it.events.map(({ event: e, articles }) => (
           <span key={e.id} className="lr-period-ev">

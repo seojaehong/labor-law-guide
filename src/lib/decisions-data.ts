@@ -1,4 +1,5 @@
 import { supabase } from "@/lib/supabase";
+import { decisionDate } from '@/lib/decision-date';
 import type { ReasonCategory } from "@/lib/types";
 import { PAGE_SIZE } from "@/lib/decisions-query";
 import { resolveDecisionSourceContract } from "@/lib/search/source-contracts";
@@ -17,6 +18,7 @@ type Recent = {
   decision_date: string | null;
   decision_result: string | null;
   reason_category: string[] | null;
+  issue_type_primary?: string | null;
 };
 
 /** 검색·유형·최근 목록 모두 상세 화면과 같은 ID 기반 출처 계약을 따른다. */
@@ -28,8 +30,8 @@ export function decisionRow(r: Record<string, unknown>, max = 120): Row {
     href: `/decisions/${encodeURIComponent(id)}`,
     title: headline((r.key_issue as string) ?? null, (r.title as string) ?? null, kind === "court" ? "판례" : "판정례", max),
     caseNumber: realCaseNumber(r.case_number_qualified as string, r.case_number_real as string, r.case_number as string),
-    date: (r.decision_date as string) || null,
-    tag: reasonLabel((r.reason_category as string[]) ?? null),
+    date: decisionDate(r.decision_date),
+    tag: reasonLabel((r.reason_category as string[]) ?? null, (r.issue_type_primary as string) ?? null),
     // 법원 자료에 저장된 값은 노동위 구제 결과로 해석할 수 없다.
     result: kind === "nlrc" ? (r.decision_result as string) || null : null,
   };
@@ -45,11 +47,30 @@ export async function countByReason(reason: ReasonCategory): Promise<number> {
   return count;
 }
 
+/**
+ * 출처별 실제 사건 수 (2026-10-14). 유형별 건수를 더하면 한 사건이 여러 유형에 걸쳐 중복 계산돼
+ * 여러 유형에 속한 사건을 중복 합산하지 않는다. 같은 저장 표의 출처별 건수다.
+ * 출처 구분은 상세 화면과 같은 ID 접두어 계약(bc_·prec_ = 법원)을 따른다.
+ */
+export async function countBySource(): Promise<{ nlrc: number; court: number }> {
+  const base = () =>
+    supabase.from("nlrc_decisions").select("id", { count: "exact", head: true }).not("is_non_labor", "is", true);
+  const [all, bc, prec] = await Promise.all([
+    base(),
+    base().like("id", "bc\\_%"),
+    base().like("id", "prec\\_%"),
+  ]);
+  if ([all,bc,prec].some(r=>r.error||!Number.isSafeInteger(r.count)||r.count===null||r.count<0)) throw new Error("Source count failed");
+  const court = bc.count! + prec.count!;
+  if(!Number.isSafeInteger(court)||court>all.count!)throw new Error("Inconsistent source counts");
+  return { nlrc: all.count! - court, court };
+}
+
 export async function getRecent(): Promise<Recent[]> {
   const { data, error } = await supabase
     .from("nlrc_decisions")
     // 2026-09-02 복구로 실제 번호가 들어왔다. 마스킹된 case_number 만 보면 72%가 빈칸이 된다.
-    .select("id, title, case_number, case_number_real, case_number_qualified, key_issue, decision_date, decision_result, reason_category")
+    .select("id, title, case_number, case_number_real, case_number_qualified, key_issue, decision_date, decision_result, reason_category, issue_type_primary")
     .not("is_non_labor", "is", true)
     .gte("confidence_level", 0.8)
     .not("decision_date", "is", null)
@@ -78,7 +99,21 @@ export async function runSearch(q: string, type: Kind, page: number): Promise<De
 
     const raw = (data || []) as Record<string, unknown>[];
     const hasMore = raw.length > PAGE_SIZE;
-    const rows: Row[] = raw.slice(0, PAGE_SIZE).map((r) => {
+    const visible=raw.slice(0,PAGE_SIZE).map(r=>({...r}));
+    // Existing search_nlrc RPC omits primary type. Enrich only displayed rows,
+    // in one read query, without a migration or one request per result.
+    if(type==='nlrc'){
+      const ids=[...new Set(visible.filter(r=>r.issue_type_primary===undefined).map(r=>String(r.id??'')))];
+      if(ids.length){
+        if(ids.some(id=>!id))return {ok:false};
+        const lookup=await supabase.from('nlrc_decisions').select('id,issue_type_primary').in('id',ids);
+        if(lookup.error)return {ok:false};
+        const primary=new Map((lookup.data??[]).map(r=>[String(r.id),r.issue_type_primary??null]));
+        if(ids.some(id=>!primary.has(id)))return {ok:false};
+        for(const r of visible)if(r.issue_type_primary===undefined)r.issue_type_primary=primary.get(String(r.id));
+      }
+    }
+    const rows: Row[] = visible.map((r) => {
       const id = String(r.id ?? "");
       if (type === "admin") {
         return {
@@ -86,7 +121,7 @@ export async function runSearch(q: string, type: Kind, page: number): Promise<De
           href: `/interpretations/${encodeURIComponent(id)}`,
           title: headline(null, (r.title as string) ?? null, "행정해석"),
           caseNumber: (r.doc_number as string) || null,
-          date: (r.decision_date as string) || null,
+          date: decisionDate(r.decision_date),
           tag: null,
           result: null,
         };
@@ -97,7 +132,7 @@ export async function runSearch(q: string, type: Kind, page: number): Promise<De
           href: `/cases/${encodeURIComponent(id)}`,
           title: headline(null, (r.title as string) ?? null, "판례"),
           caseNumber: (r.case_number as string) || null,
-          date: (r.decision_date as string) || null,
+          date: decisionDate(r.decision_date),
           tag: (r.court as string) || null,
           result: null,
         };
@@ -116,7 +151,7 @@ export async function getCategory(reason: ReasonCategory, page: number): Promise
     const offset = (page - 1) * PAGE_SIZE;
     const { data, error } = await supabase
       .from("nlrc_decisions")
-      .select("id,title,case_number,case_number_real,case_number_qualified,key_issue,decision_date,decision_result,reason_category")
+      .select("id,title,case_number,case_number_real,case_number_qualified,key_issue,decision_date,decision_result,reason_category,issue_type_primary")
       .contains("reason_category", [reason])
       .not("is_non_labor", "is", true)
       .order("decision_date", { ascending: false, nullsFirst: false })

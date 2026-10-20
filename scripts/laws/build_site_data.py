@@ -70,6 +70,17 @@ def cause_law(addenda: list[dict]) -> str | None:
     return None
 
 
+# Internal provenance is not part of the public rule contract.
+PUBLIC_RULE_FIELDS = frozenset((
+    "always", "anchor", "art93", "article", "clause", "effective", "everywhere",
+    "keywords", "lawId", "ok", "point", "required", "requiredIfStale",
+    "stale", "std", "topic",
+))
+
+def public_rule(rule: dict) -> dict:
+    return {key: value for key, value in rule.items() if key in PUBLIC_RULE_FIELDS}
+
+
 def main():
     today = date.today().strftime("%Y%m%d")
     scope = {t["name"].replace("·", "ㆍ"): t.get("scope") for t in TARGETS}
@@ -149,7 +160,7 @@ def main():
                              "before": c["개정전"], "after": c["개정후"]} for c in s["변경"]],
                 "addenda": s.get("부칙", []),
                 "reason": reason,
-                "rules": rules,
+                "rules": [public_rule(r) for r in rules],
             })
         if detail["steps"]:
             (OUT / f"{law_id}.json").write_text(json.dumps(detail, ensure_ascii=False), encoding="utf-8")
@@ -212,7 +223,7 @@ def main():
     }, ensure_ascii=False), encoding="utf-8")
     (OUT / "rules.json").write_text(json.dumps({
         "art93": RULES["_art93"],
-        "rules": [{**r, "std": std_of(r), "law": short_of.get(r["lawId"], r["lawId"]),
+        "rules": [{**public_rule(r), "std": std_of(r), "law": short_of.get(r["lawId"], r["lawId"]),
                    "mst": next((e["promulgations"][0]["mst"] for e in events
                                 if e["lawId"] == r["lawId"] and e["date"] == r["effective"] and e["promulgations"]), None)}
                   for r in RULES["rules"]],

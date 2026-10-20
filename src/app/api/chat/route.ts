@@ -1,3 +1,4 @@
+import { startServiceObservation, type Stage } from '@/lib/observations/service-completion';
 import { NextRequest } from 'next/server';
 import { SYSTEM_PROMPT } from '@/content/ai-knowledge';
 import { supabase } from '@/lib/supabase';
@@ -7,6 +8,7 @@ import {
   upsertSituation,
   formatSituationForPrompt,
   extractDelta,
+  mergeSituation,
   type UserSituation,
 } from '@/lib/user-situation';
 import { verifyCitations } from '@/lib/legal-verify';
@@ -14,7 +16,7 @@ import { checkChatRateLimit, extractIp, hashIp } from '@/lib/rate-limit';
 import { getChatKillSwitch } from '@/lib/kill-switch';
 import { verifyTurnstile, isTurnstileEnabled } from '@/lib/turnstile';
 import { executeTool } from '@/lib/chat/tools/execute';
-import { streamRound, lastRoundInfo, type ToolCallAcc } from '@/lib/chat/stream-round';
+import { streamRound, type RoundInfo, type ToolCallAcc } from '@/lib/chat/stream-round';
 import { withTimeout, withTimeoutTagged, RETRIEVAL_TIMEOUT_MS, FAQ_TIMEOUT_MS } from '@/lib/chat/context/with-timeout';
 import { type Retrieval, EMPTY_RETRIEVAL } from '@/lib/chat/context/result';
 import { isAnthropicConfigured } from '@/lib/chat/anthropic-fallback';
@@ -23,6 +25,10 @@ import { buildFaqContext } from '@/lib/chat/context/faq';
 import { buildNlrcCasesContext, buildCourtCasesContext } from '@/lib/chat/context/cases';
 import { buildInterpretationsContext } from '@/lib/chat/context/interpretations';
 import { buildLawsContext } from '@/lib/chat/context/laws';
+import { hasVerifiedCitation, type EvidenceId } from '@/lib/chat/citations';
+import { buildSearchQuery } from '@/lib/chat/search-query';
+import { IncompleteGenerationError } from '@/lib/chat/completion';
+import { activeConversation } from '@/lib/ai/conversation-query';
 import { buildNewsContext } from '@/lib/chat/context/news';
 
 // Next.js segment config: literal value 필수 (import const 불가)
@@ -30,29 +36,6 @@ export const maxDuration = 60;
 
 const db = supabaseAdmin || supabase;
 
-function buildSearchQuery(messages: Array<{ role: string; content: string }>): {
-  searchQuery: string;
-  lastUserMsg: { role: string; content: string } | undefined;
-} {
-  const lastUserMsg = [...messages].reverse().find((m) => m.role === 'user');
-  let searchQuery = lastUserMsg?.content || '';
-
-  if (lastUserMsg && messages.length > 1) {
-    const isShortFollowup =
-      lastUserMsg.content.length < 30 ||
-      /^(그럼|그러면|그건|이건|왜|어떻게|네\?|뭐|아|그|이)\s/.test(lastUserMsg.content);
-    if (isShortFollowup) {
-      const prevUsers = messages
-        .slice(0, -1)
-        .filter((m) => m.role === 'user')
-        .slice(-1);
-      if (prevUsers.length > 0) {
-        searchQuery = `${prevUsers[0].content} ${lastUserMsg.content}`.slice(0, 300);
-      }
-    }
-  }
-  return { searchQuery, lastUserMsg };
-}
 
 async function getQueryEmbedding(text: string): Promise<number[] | null> {
   const openaiKey = process.env.OPENAI_API_KEY;
@@ -75,12 +58,27 @@ async function getQueryEmbedding(text: string): Promise<number[] | null> {
 }
 
 export async function POST(req: NextRequest) {
+  const recorder = startServiceObservation('consultation');
+  let stage: Stage = 'validation';
+  let emittedChars = 0;
+  const observation = { finish(value: Parameters<typeof recorder.finish>[0]) {
+    req.signal.removeEventListener('abort', onAbort);
+    recorder.finish(value);
+  } };
+  const onAbort = () => observation.finish({stage, outcome: emittedChars > 0 ? 'partial_failure' : 'failure',error_code:'cancelled',result_count:null});
+  req.signal.addEventListener('abort', onAbort, {once:true});
+  if (req.signal.aborted) onAbort();
+  const respond = (body: BodyInit | null, init?: ResponseInit) => {
+    const status = init?.status ?? 200;
+    observation.finish({stage,outcome:'failure',error_code:status === 400 ? 'invalid_request' : status === 403 ? 'blocked' : status === 429 ? 'rate_limited' : status === 503 ? 'not_configured' : 'internal_error',result_count:null});
+    return new Response(body, init);
+  };
   try {
     // === Phase 0.1 비용 방어 게이트 ===
     // 1) 킬 스위치 (cost monitor가 임계 도달 시 자동 ON)
     const kill = await getChatKillSwitch();
     if (kill.disabled) {
-      return new Response(
+      return respond(
         JSON.stringify({
           error:
             '현재 AI 챗 서비스가 일시 중단되었습니다. 잠시 후 다시 시도해주세요. (베타 일일 한도 도달)',
@@ -91,17 +89,22 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const messages = body?.messages;
+    let messages = body?.messages;
     const rawSessionId: string | undefined =
       typeof body?.sessionId === 'string' ? body.sessionId : undefined;
     const sessionId =
       rawSessionId && /^[a-z0-9_-]{12,64}$/i.test(rawSessionId) ? rawSessionId : null;
 
-    if (!Array.isArray(messages) || messages.length === 0 || messages.length > 50) {
-      return new Response(JSON.stringify({ error: '올바른 메시지 형식이 아닙니다.' }), {
+    if (!Array.isArray(messages) || messages.length === 0 || messages.length > 50 ||
+      messages.some((m: unknown) => !m || typeof m !== 'object' ||
+        !['user', 'assistant'].includes((m as { role: string }).role) ||
+        typeof (m as { content: unknown }).content !== 'string')) {
+      return respond(JSON.stringify({ error: '올바른 메시지 형식이 아닙니다.' }), {
         status: 400,
       });
     }
+    const active = activeConversation(messages);
+    messages = active.messages;
 
     const ip = extractIp(req);
     const ipHashed = hashIp(ip);
@@ -112,7 +115,7 @@ export async function POST(req: NextRequest) {
         typeof body?.turnstileToken === 'string' ? body.turnstileToken : null;
       const tsResult = await verifyTurnstile(tsToken, ip);
       if (!tsResult.skipped && !tsResult.success) {
-        return new Response(
+        return respond(
           JSON.stringify({
             error: '봇 검증에 실패했습니다. 페이지를 새로고침 후 다시 시도해주세요.',
             reason: tsResult.reason,
@@ -131,7 +134,7 @@ export async function POST(req: NextRequest) {
         ip: `오늘 IP 기준 무료 베타 한도(${rl.reason.max}건)를 모두 사용했습니다. 내일 다시 이용해주세요.`,
         session: `오늘 세션 기준 무료 베타 한도(${rl.reason.max}건)를 모두 사용했습니다. 정식 출시 시 알림을 받으시려면 결제의향 폼을 이용해주세요.`,
       };
-      return new Response(
+      return respond(
         JSON.stringify({
           error: msgByScope[rl.reason.scope] || '오늘 베타 한도를 초과했습니다.',
           scope: rl.reason.scope,
@@ -150,7 +153,7 @@ export async function POST(req: NextRequest) {
       getVertexClient();
     } catch (err) {
       if (!isAnthropicConfigured()) {
-        return new Response(JSON.stringify({ error: 'AI 서비스가 준비되지 않았습니다.' }), {
+        return respond(JSON.stringify({ error: 'AI 서비스가 준비되지 않았습니다.' }), {
           status: 503,
         });
       }
@@ -163,6 +166,7 @@ export async function POST(req: NextRequest) {
     // 2026-09-01: '첫 글자까지 29초' 장애를 진단할 때 서버에서 어느 구간이 느린지
     // 알 방법이 없어서, 밖에서 RPC 를 하나씩 때려보며 추정해야 했다. 같은 일을
     // 두 번 하지 않도록 계측을 코드에 박는다.
+    stage = 'retrieval';
     const t0 = Date.now();
     const mark: Record<string, number> = {};
 
@@ -175,11 +179,12 @@ export async function POST(req: NextRequest) {
     // 임베딩을 기다리지 않아도 되는 것부터 먼저 띄워 전체를 max() 로 만든다.
     // 그리고 모든 검색에 상한을 건다 — 하나가 늦으면 그것만 버리고 답한다.
 
+    let retrievalFailed = false;
     let faqContext = '';
     let caseContext = '';
     let topFaqIds: number[] = [];
+    let evidence: EvidenceId[] = [];
     let situationContext = '';
-    let prevProfile: UserSituation = {};
     let mergedProfile: UserSituation = {};
 
     // (1) 임베딩과 무관한 작업을 먼저 시작한다
@@ -188,7 +193,7 @@ export async function POST(req: NextRequest) {
       : Promise.resolve('');
 
     const situationPromise =
-      sessionId && lastUserMsg
+      sessionId && lastUserMsg && !active.resetsContext
         ? withTimeout(
             (async () => {
               const prev = await getSituation(sessionId);
@@ -211,14 +216,16 @@ export async function POST(req: NextRequest) {
       const emptyFaq = {
         context: '',
         topIds: [] as number[],
+        selectedFaqs: [],
         matched: false,
         count: 0,
         categories: [] as string[],
+        failed: false,
       };
       const noEmbed: Retrieval = { ...EMPTY_RETRIEVAL, status: 'noembed' };
 
-      const [faq, nlrc, interp, court, laws] = await Promise.all([
-        withTimeout(
+      const [faqResult, nlrc, interp, court, laws] = await Promise.all([
+        withTimeoutTagged(
           buildFaqContext(db, searchQuery, queryEmbedding),
           FAQ_TIMEOUT_MS,
           'FAQ 검색',
@@ -231,7 +238,7 @@ export async function POST(req: NextRequest) {
               '판정례 검색',
               EMPTY_RETRIEVAL
             )
-          : Promise.resolve({ value: noEmbed, timedOut: false, ms: 0 }),
+          : Promise.resolve({ value: noEmbed, timedOut: false, ms: 0, failed: false }),
         queryEmbedding
           ? withTimeoutTagged(
               buildInterpretationsContext(db, queryEmbedding),
@@ -239,7 +246,7 @@ export async function POST(req: NextRequest) {
               '행정해석 검색',
               EMPTY_RETRIEVAL
             )
-          : Promise.resolve({ value: noEmbed, timedOut: false, ms: 0 }),
+          : Promise.resolve({ value: noEmbed, timedOut: false, ms: 0, failed: false }),
         queryEmbedding
           ? withTimeoutTagged(
               buildCourtCasesContext(db, queryEmbedding),
@@ -247,7 +254,7 @@ export async function POST(req: NextRequest) {
               '법원판례 검색',
               EMPTY_RETRIEVAL
             )
-          : Promise.resolve({ value: noEmbed, timedOut: false, ms: 0 }),
+          : Promise.resolve({ value: noEmbed, timedOut: false, ms: 0, failed: false }),
         // 2026-10-05 신설 — 법령 조문. **임베딩이 필요 없다**(어휘 기반 + Jev 재선택)
         // 그래서 임베딩 생성이 실패한 요청에서도 1차 자료가 들어간다.
         withTimeoutTagged(
@@ -258,9 +265,17 @@ export async function POST(req: NextRequest) {
         ),
       ]);
 
+      const faq = faqResult.value;
+      retrievalFailed = faqResult.timedOut || !!faqResult.failed || !!faq.failed || [nlrc, interp, court, laws].some(r => r.timedOut || r.failed || r.value.status === 'error');
       mark.search = Date.now() - t0;
       faqContext = faq.context;
       topFaqIds = faq.topIds;
+      evidence = [
+        ...topFaqIds.map(id => ({ type: 'FAQ' as const, id: String(id) })),
+        ...(nlrc.value.evidenceIds ?? []).map(id => ({ type: 'CASE' as const, id })),
+        ...(court.value.evidenceIds ?? []).map(id => ({ type: 'COURT' as const, id })),
+        ...(interp.value.evidenceIds ?? []).map(id => ({ type: 'INTERP' as const, id })),
+      ];
       // 조문을 앞에 둔다 — 1차 자료이고, 뒤쪽은 길어서 잘릴 수 있다
       caseContext = laws.value.ctx + nlrc.value.ctx + interp.value.ctx + court.value.ctx;
 
@@ -307,8 +322,7 @@ export async function POST(req: NextRequest) {
     // (3) 병렬로 돌던 것을 회수한다
     const situation = await situationPromise;
     if (situation && sessionId) {
-      prevProfile = situation.prev;
-      mergedProfile = { ...situation.prev, ...situation.delta };
+      mergedProfile = mergeSituation(situation.prev, situation.delta);
       situationContext = formatSituationForPrompt(mergedProfile);
       // 저장은 답변에 필요 없다. 기다리지 않는다.
       upsertSituation(sessionId, situation.prev, situation.delta, 1).catch(() => {});
@@ -332,9 +346,29 @@ export async function POST(req: NextRequest) {
         lastUserMsg?.content || ''
       );
 
+    stage = 'stream';
     const stream = new ReadableStream({
       async start(controller) {
+        try {
+        controller.enqueue(encoder.encode(`data: ${JSON.stringify({ evidence })}\n\n`));
+        const lastRoundInfo: RoundInfo = { provider: 'unknown', vertexFailMs: 0 };
         let assembledAnswer = '';
+        let streamFailed = false;
+        // Count only model body frames, not fallback/footer/progress. Never persist chunks.
+        const modelController: ReadableStreamDefaultController<Uint8Array> = {
+          get desiredSize() { return controller.desiredSize; },
+          enqueue(chunk) {
+            try {
+              for (const line of decoder.decode(chunk).split('\n')) {
+                if (!line.startsWith('data: ')) continue;
+                const frame = JSON.parse(line.slice(6));
+                if (typeof frame.content === 'string') emittedChars += frame.content.trim().length;
+              }
+            } catch { /* non-content frames carry no body evidence */ }
+            controller.enqueue(chunk);
+          },
+          close: () => controller.close(), error: error => controller.error(error),
+        };
         let lastSeveranceArgs: Record<string, unknown> | null = null;
         const baseMsgs: unknown[] = [
           { role: 'system', content: systemPrompt },
@@ -346,6 +380,7 @@ export async function POST(req: NextRequest) {
         let r2ContentLen = 0;
         let r2ToolCalls = 0;
         let r2Ran = false;
+        let finalBodyLength = 0;
         // 생성 구간을 라운드별로 쪼개 잰다.
         // 2026-09-02 실측: ctxReady 3.04초 / done 12.88초 → 생성만 9.85초였다.
         // provider=vertex, vertexFailMs=0 이므로 폴백 대기가 아니다. 그렇다면 남은
@@ -354,10 +389,11 @@ export async function POST(req: NextRequest) {
         const genStart = Date.now();
         let r1Ms = 0;
         try {
-          const r1 = await streamRound(controller, baseMsgs, toolHint, encoder, decoder);
+          const r1 = await streamRound(modelController, baseMsgs, toolHint, encoder, decoder, lastRoundInfo);
           r1Ms = Date.now() - genStart;
           assembledAnswer += r1.content;
           r1ContentLen = r1.content.length;
+          finalBodyLength = r1.content.trim().length;
           r1ToolCalls = r1.toolCalls.length;
           for (const tc of r1.toolCalls) {
             if (tc.name === 'calc_severance') {
@@ -396,16 +432,18 @@ export async function POST(req: NextRequest) {
             controller.enqueue(
               encoder.encode(`data: ${JSON.stringify({ content: ' 완료\n\n' })}\n\n`)
             );
-            const r2 = await streamRound(controller, round2Msgs, false, encoder, decoder);
+            const r2 = await streamRound(modelController, round2Msgs, false, encoder, decoder, lastRoundInfo);
             assembledAnswer += r2.content;
             r2ContentLen = r2.content.length;
+            finalBodyLength = r2.content.trim().length;
             r2ToolCalls = r2.toolCalls.length;
             r2Ran = true;
           }
         } catch (e) {
+          streamFailed = true;
           controller.enqueue(
             encoder.encode(
-              `data: ${JSON.stringify({ error: '스트리밍 중 오류가 발생했습니다.' })}\n\n`
+              `data: ${JSON.stringify({ error: e instanceof IncompleteGenerationError ? e.message : '스트리밍 중 오류가 발생했습니다.', ...(e instanceof IncompleteGenerationError ? { completion: e.kind } : {}) })}\n\n`
             )
           );
           console.warn('[chat] stream error', { msg: (e as Error)?.message });
@@ -413,11 +451,11 @@ export async function POST(req: NextRequest) {
           // 본문 검증: 빈 답변이면 footer 대신 fallback. 진단용 round-level 로깅도 함께.
           const trimmedLen = assembledAnswer.trim().length;
           const hasContent = trimmedLen >= 50;
-          const hasCitation =
-            /\[FAQ#\d+|\[CASE#[A-Za-z0-9_\-]+|\[COURT#[^\]]+\]|\[INTERP#[^\]]+\]/.test(
-              assembledAnswer
-            );
-          if (!hasContent) {
+          // A pre-tool explanation is not the final answer after tool execution.
+          const finalAnswerComplete = !streamFailed && finalBodyLength >= 50 &&
+            (r1ToolCalls === 0 || r2Ran && r2ToolCalls === 0);
+          const hasCitation = hasVerifiedCitation(assembledAnswer, evidence);
+          if (!finalAnswerComplete) {
             // 본문 비어있음 — empty completion / round 2 silent fail / round 2 tool_call 미처리
             console.warn('[chat] empty answer body', {
               r1: { len: r1ContentLen, tcs: r1ToolCalls },
@@ -518,8 +556,17 @@ export async function POST(req: NextRequest) {
 
           controller.enqueue(encoder.encode('data: [DONE]\n\n'));
           controller.close();
+          observation.finish({stage: streamFailed ? 'stream' : !finalAnswerComplete ? 'generation' : retrievalFailed ? 'retrieval' : 'completed',
+            outcome: streamFailed ? (hasContent || emittedChars > 0 ? 'partial_failure' : 'failure') : !finalAnswerComplete ? (r1ToolCalls > 0 && (hasContent || emittedChars > 0) ? 'partial_failure' : 'failure') : retrievalFailed ? 'partial_failure' : 'success',
+            error_code: streamFailed ? 'stream_failed' : !finalAnswerComplete ? (r1ToolCalls > 0 ? 'incomplete_answer' : 'empty_answer') : retrievalFailed ? 'search_failed' : 'none',
+            result_count: finalAnswerComplete ? 1 : streamFailed ? null : 0});
+        }
+        } catch (error) {
+          observation.finish({stage:'stream',outcome:emittedChars > 0 ? 'partial_failure' : 'failure',error_code:'stream_failed',result_count:null});
+          throw error;
         }
       },
+      cancel() { onAbort(); },
     });
 
     return new Response(stream, {
@@ -530,7 +577,7 @@ export async function POST(req: NextRequest) {
       },
     });
   } catch (error) {
-    return new Response(
+    return respond(
       JSON.stringify({
         error: `오류: ${error instanceof Error ? error.message : '알 수 없는 오류'}`,
       }),

@@ -1,0 +1,2 @@
+import {defineConfig} from '@playwright/test';
+export default defineConfig({testDir:'tests/observations',workers:1,timeout:60000,use:{baseURL:'http://127.0.0.1:3138',launchOptions:{executablePath:'/usr/bin/chromium',args:['--no-sandbox']}},webServer:{command:'npm run start -- -p 3138',url:'http://127.0.0.1:3138',reuseExistingServer:false,timeout:60000,env:{NEXT_PUBLIC_SUPABASE_URL:'http://127.0.0.1:8765',NEXT_PUBLIC_SUPABASE_ANON_KEY:'local-test-placeholder',ADMIN_TOKEN:'local-test-admin',WORK_RULE_OBSERVATIONS_ENABLED:'0'}}});

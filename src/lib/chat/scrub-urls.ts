@@ -27,3 +27,46 @@ export function scrubFakeUrls(text: string): string {
   text = text.replace(/^\)+\s*\n?/g, '');
   return text;
 }
+
+/** Keep incomplete tokens/Markdown links until their boundary is known. */
+export function createUrlScrubber() {
+  let pending = '';
+  return {
+    push(chunk: string): string {
+      pending += chunk;
+      const whitespace = pending.search(/\s+[^\s]*$/);
+      let boundary = whitespace < 0 ? 0 : whitespace + 1;
+      // Only an unfinished Markdown link can retain following prose. Closed
+      // citation tokens such as [FAQ#123] are standalone, not link labels.
+      for (let open = pending.indexOf('['); open >= 0; open = pending.indexOf('[', open + 1)) {
+        const close = pending.indexOf(']', open + 1);
+        if (close < 0) {
+          boundary = Math.min(boundary, open);
+          break;
+        }
+        const citation = /^\[(?:FAQ|CASE|COURT|INTERP)#[^\]\s]+\]$/.test(pending.slice(open, close + 1));
+        if (close + 1 === pending.length && !citation) {
+          boundary = Math.min(boundary, open);
+          break;
+        }
+        if (pending[close + 1] === '(') {
+          const end = pending.indexOf(')', close + 2);
+          if (end < 0 || end >= boundary) {
+            boundary = Math.min(boundary, open);
+            break;
+          }
+        }
+      }
+      const complete = pending.slice(0, boundary);
+      pending = pending.slice(boundary);
+      return scrubFakeUrls(complete);
+    },
+    flush(): string {
+      // A failed stream may end inside a URL: preserve its label, never
+      // expose an unfinished destination as a clickable link.
+      const complete = scrubFakeUrls(pending.replace(/\[([^\]]+)\]\([^)]*$/, '$1'));
+      pending = '';
+      return complete;
+    },
+  };
+}

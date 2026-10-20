@@ -14,6 +14,7 @@ type LawUrlState = {
   mode: 'list' | 'cal';
   day: string | null;
   event: string | null;
+  review?: boolean;
 };
 
 /** Only replace this page's state; preserve campaign and other unrelated query parameters. */
@@ -28,6 +29,7 @@ export function writeLawUrl(url: URL, state: LawUrlState, eventIds: readonly str
     mode: state.mode === 'cal' ? 'cal' : null,
     d: state.day,
     event: state.event,
+    review: state.review && state.event ? '1' : null,
   };
   for (const [key, value] of Object.entries(values)) {
     if (value) url.searchParams.set(key, value);

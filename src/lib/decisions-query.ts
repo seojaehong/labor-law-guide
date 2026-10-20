@@ -12,7 +12,7 @@ export function parse(sp: Search) {
   const type: Kind = kind === "court" ? "court" : kind === "admin" ? "admin" : "nlrc";
   const rawPage = first(sp.page) || "1";
   const parsedPage = /^\d+$/.test(rawPage) ? Number(rawPage) : NaN;
-  const page = Number.isSafeInteger(parsedPage) && parsedPage > 0 && Number.isSafeInteger(parsedPage * PAGE_SIZE)
+  const page = Number.isSafeInteger(parsedPage) && parsedPage > 0 && (parsedPage - 1) * PAGE_SIZE <= 2147483647
     ? parsedPage : 1;
   const rawReason = first(sp.reason);
   const reasonProvided = sp.reason !== undefined;

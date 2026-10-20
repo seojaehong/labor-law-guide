@@ -11,7 +11,7 @@ interface SubscribeFormProps {
 }
 
 const CONSENT_TEXT =
-  '노란봉투법 가이드의 노동법 인사이트(주 1~2회 발송) 수신에 동의합니다. 메일 하단의 해지 버튼을 한 번만 눌러도 즉시 해지돼요.';
+  '일의 무늬가 보내는 「오늘의 일」(매일 아침 9시 발송) 수신에 동의합니다. 메일 하단의 해지 버튼을 한 번만 눌러도 즉시 해지돼요.';
 
 export default function SubscribeForm({ source, sourceSlug, variant = 'full' }: SubscribeFormProps) {
   const [email, setEmail] = useState('');
@@ -111,7 +111,7 @@ export default function SubscribeForm({ source, sourceSlug, variant = 'full' }: 
         style={{ color: 'var(--color-text-secondary)' }}
       >
         {isCompact
-          ? '주 1~2회 — 행정해석 변경, 신규 판례, 실무 가이드를 받아보세요.'
+          ? '매일 아침 9시 — 어제 노동 뉴스와 실무 영향을 5분 안에.'
           : '평일 매일 KST 09:00 — 어제 발생한 노동 이슈, 새 행정해석, 핵심 판례 1건을 5분 안에 파악할 수 있게 정리해서 보내드립니다. 언제든 1초 해지.'}
       </p>
 

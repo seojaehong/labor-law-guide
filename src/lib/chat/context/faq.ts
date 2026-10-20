@@ -2,20 +2,24 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { jevRerank } from './jev';
 import { toLexQuery } from './lex-query';
 
-type FaqRow = {
+export type FaqRow = {
   id: number;
   unified_category?: string;
   category?: string;
   question: string;
   answer: string;
+  source?: string;
 };
 
 export type FaqContextResult = {
+  failed?: boolean;
   context: string;
   matched: boolean;
   count: number;
   categories: string[];
   topIds: number[];
+  /** Same selected rows used to construct context; no second lookup. */
+  selectedFaqs: FaqRow[];
 };
 
 const CITATION_GUIDE =
@@ -35,7 +39,7 @@ export async function buildFaqContext(
 
   // NIM Reranker 활성 시 후보 16건 retrieval → rerank → top 5 사용 (token 절감 + 적합도 향상)
   // 비활성 시 기존 top 8 그대로 (변경 없음, fail-safe)
-  // NVIDIA NIM 리랭커는 2026-05-18 에 서비스가 종료됐다(HTTP 410 Gone,
+  // 과거 기록: 2026-05-18 NVIDIA NIM 호출에서 HTTP 410 Gone이 관찰됐다(현재 이용 가능 여부는 미확인,
   // "This endpoint has reached its end of life on 2026-05-18").
   // 그런데 rerank 함수가 실패 시 입력을 그대로 돌려주는 fail-safe 라서 아무도 몰랐다.
   //
@@ -48,8 +52,8 @@ export async function buildFaqContext(
   //
   // 2026-10-04 실측: 「부당노동행위 구제신청은 언제까지 해야 하나요?」의 1위가
   // 「실업급여 신청은 언제까지 해야 하나요?」였다. **말투가 주제를 눌렀다.**
-  // 그래서 Jev 재선택(순서를 뒤집어 두 번 묻기)으로 그 자리를 채운다.
-  // 기존 Vertex 클라이언트를 쓰므로 새 키·새 의존성이 없다.
+  // 현재 공용 jevRerank 는 TypeSafe 1회 호출을 우선하며 TYPESAFE_API_KEY 가 필요하다.
+  // 키가 없거나 실패하면 원래 검색 순서를 유지한다. 추가 공급자 폴백은 호출하지 않는다.
   //
   // JEV_ON=false 로 끌 수 있다. 실패하면 jevRerank 가 원래 순서를 그대로 돌려준다.
   const JEV_ON = process.env.JEV_ON !== 'false';
@@ -62,6 +66,8 @@ export async function buildFaqContext(
   const RETRIEVE_K = JEV_ON ? 100 : 8;
   // 재선택에 넣는 수. 2026-10-05 에 16 → 32 로 올렸다.
   //
+  // 아래 수치와 2회 호출 설명은 2026-10-05 Gemini 경로의 기록이다.
+  // 현재 TypeSafe 경로는 명시적 전역·채팅 활성화가 필요하며 실패 시 추가 호출 없이 원래 순서를 유지한다.
   // 24질의 루브릭(후보별 독립 판정 + 판정 캐시, 3회 반복)으로 쟀다. 회차 폭은 1~3점이다.
   //   16건 60.6%  ·  24건 65.6%  ·  32건 67.2%  ·  48건 69.2%   (천장 71.7%)
   // **Jev 에게 더 보여줄수록 오른다.** 48건이 천장의 96% 까지 가지만 32 에서 멈춘 이유는
@@ -71,7 +77,7 @@ export async function buildFaqContext(
   //
   // 같이 재서 **버린** 것들(전부 현행보다 나빴다 — 다시 시도하지 말 것):
   //   단방향(한 번만 물음) 57.5% (−3.7) · 병합=정방향우선 57.5% (−3.7) · 병합=평균순위 60.3% (−0.3)
-  // 순서를 뒤집어 두 번 묻고 교차를 앞세우는 현행 방식이 측정으로 확인됐다.
+  // 당시 Gemini 경로의 순서를 뒤집어 두 번 묻는 방식이 측정으로 확인됐다.
   const JEV_IN = Number(process.env.JEV_IN) || 32;
   const FINAL_N = JEV_ON ? 5 : 8;
 
@@ -149,8 +155,8 @@ export async function buildFaqContext(
       context += `\n#${faq.id} [${faq.unified_category || faq.category}] Q: ${faq.question}\nA: ${faq.answer}\n`;
     }
     context += CITATION_GUIDE;
-    topIds = matchedFaqs.slice(0, 3).map((f) => f.id);
+    topIds = matchedFaqs.map((f) => f.id);
   }
 
-  return { context, matched, count: matchedFaqs.length, categories, topIds };
+  return { context, matched, selectedFaqs: matchedFaqs, count: matchedFaqs.length, categories, topIds, failed: !!dbErr };
 }

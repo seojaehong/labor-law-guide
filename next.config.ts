@@ -17,7 +17,10 @@ const nextConfig: NextConfig = {
   // /cases/:id · /decisions/:id · /interpretations/:id 상세는 건드리지 않는다(사이트맵에 실린 주소다).
   async redirects() {
     return [
-      { source: '/search', destination: '/decisions', permanent: true },
+      // 🔴 `/search` 는 여기에 두지 않는다. **next.config 의 redirects 가 미들웨어보다 먼저 돈다.**
+      // 여기 두면 미들웨어가 /search 를 보기도 전에 /decisions 로 넘어가,
+      // 옛 `?category=` → `?reason=` 매핑이 영영 실행되지 않는다.
+      // 그래서 /search 는 쿼리 유무와 무관하게 src/middleware.ts 가 전담한다.
       { source: '/database', destination: '/decisions', permanent: true },
     ];
   },

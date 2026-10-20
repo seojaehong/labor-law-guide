@@ -6,16 +6,20 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import BetaSignupForm from './BetaSignupForm';
 import TurnstileWidget from './TurnstileWidget';
+import { activeConversation } from '@/lib/ai/conversation-query';
 
 interface Message {
   role: 'user' | 'assistant';
   content: string;
+  evidence?: EvidenceId[];
 }
 
 type ProfileMap = Record<string, unknown>;
 
 const PROFILE_LABELS: Record<string, string> = {
-  company_size: '회사규모',
+  company_size: '기존 저장 인원',
+  company_size_evidence: '인원 원문',
+  company_size_unresolved: '인원 확인 필요',
   tenure_months: '근속',
   monthly_salary: '월급',
   job_type: '고용형태',
@@ -24,90 +28,25 @@ const PROFILE_LABELS: Record<string, string> = {
   timeline: '시점',
 };
 
-// 인용 마크 본문에서 제거 + 답변 끝에 깔끔한 "참고 자료" footer 1개로 통합
-type Citation = { type: 'FAQ' | 'CASE' | 'COURT' | 'INTERP'; id: string; href: string };
+import { linkifyFaqCitations, citationLinkComponents, type EvidenceId } from '@/lib/chat/citations';
 
-function linkifyFaqCitations(text: string): string {
-  const cited: Citation[] = [];
-  const seen = new Set<string>();
-  const push = (type: Citation['type'], id: string, href: string) => {
-    const key = `${type}-${id}`;
-    if (seen.has(key)) return;
-    seen.add(key);
-    cited.push({ type, id, href });
-  };
-
-  // 1) 괄호 형태: [FAQ#123, FAQ#456] / [CASE#id] / [COURT#id] / [INTERP#id]
-  let out = text.replace(/\[FAQ#[\d,\sFAQ#]+\]/g, (m) => {
-    const ids = m.match(/\d+/g) || [];
-    ids.forEach((id) => push('FAQ', id, `/faq?id=${id}`));
-    return '';
-  });
-  out = out.replace(/\[CASE#([A-Za-z0-9_\-]+)\]/g, (_, id) => {
-    push('CASE', id, `/decisions/${id}`);
-    return '';
-  });
-  out = out.replace(/\[COURT#([^\]]+)\]/g, (_, id) => {
-    push('COURT', id, `/cases/${encodeURIComponent(id)}`);
-    return '';
-  });
-  out = out.replace(/\[INTERP#([^\]]+)\]/g, (_, id) => {
-    push('INTERP', id, `/interpretations/${encodeURIComponent(id)}`);
-    return '';
-  });
-
-  // 2) 괄호 빠진 형태 (LLM이 형식 무시): FAQ#123 / CASE#xxx / COURT#xxx / INTERP#ml_xxx
-  //    INTERP id 는 2026-10-05 부터 두 형태다 — ml_xxxx(molab) 와 「노사관계법제과-2110」(admin).
-  //    admin 쪽은 한글과 전각 하이픈(임금복지과－2818)이 섞여 있어 영숫자만 받으면 잘린다.
-  // iOS Safari < 16.4 호환: lookbehind 사용 금지 → 선행 문자 캡처 후 보존 방식
-  out = out.replace(/(^|[^A-Za-z])FAQ#(\d+)/g, (_, prefix, id) => {
-    push('FAQ', id, `/faq?id=${id}`);
-    return prefix;
-  });
-  out = out.replace(/(^|[^A-Za-z])CASE#([A-Za-z0-9_\-]+)/g, (_, prefix, id) => {
-    push('CASE', id, `/decisions/${id}`);
-    return prefix;
-  });
-  out = out.replace(/(^|[^A-Za-z])COURT#([A-Za-z0-9_가-힣\-]+)/g, (_, prefix, id) => {
-    push('COURT', id, `/cases/${encodeURIComponent(id)}`);
-    return prefix;
-  });
-  out = out.replace(/(^|[^A-Za-z])INTERP#([A-Za-z0-9_가-힣\-－]+)/g, (_, prefix, id) => {
-    push('INTERP', id, `/interpretations/${encodeURIComponent(id)}`);
-    return prefix;
-  });
-
-  // 빈 인용으로 인해 남은 ", " ", ," "( )" 같은 잔여 정리
-  out = out.replace(/\s*,\s*,\s*/g, ', ').replace(/\(\s*,?\s*\)/g, '').replace(/\s+([,.])/g, '$1');
-
-  // 자동 footer: "참고 FAQ: ..." 서버 측 footer가 이미 있으면 중복 추가하지 않음
-  if (cited.length > 0 && !/참고\s*(FAQ|자료)/.test(out)) {
-    const labels: Record<Citation['type'], string> = {
-      FAQ: 'FAQ',
-      CASE: '판정례',
-      COURT: '판례',
-      INTERP: '행정해석',
-    };
-    const groups = new Map<Citation['type'], Citation[]>();
-    for (const c of cited) {
-      if (!groups.has(c.type)) groups.set(c.type, []);
-      groups.get(c.type)!.push(c);
-    }
-    const footer = ['', '', '---', '**참고 자료**'];
-    for (const [type, list] of groups) {
-      const items = list.map((c, i) => `[${labels[type]} ${i + 1}](${c.href})`).join(' · ');
-      footer.push(`- ${labels[type]}: ${items}`);
-    }
-    out = out.trimEnd() + '\n' + footer.join('\n');
-  }
-  return out;
-}
 
 function formatProfileValue(key: string, value: unknown): string {
   if (value == null) return '';
+  if (key === 'company_size_unresolved') {
+    if (typeof value !== 'object' || !value) return '';
+    const unresolved = value as {original?:unknown};
+    return typeof unresolved.original === 'string' ? unresolved.original : '';
+  }
+  if (key === 'company_size_evidence') {
+    if (typeof value !== 'object' || !value) return '';
+    const evidence = value as {original?:unknown;scope?:unknown;kind?:unknown};
+    if (evidence.scope !== 'employer' || typeof evidence.original !== 'string') return '';
+    return `${evidence.original}${evidence.kind === 'regular_workers' ? '' : ' (상시근로자수인지 미확인)'}`;
+  }
   if (key === 'company_size') {
     const n = Number(value);
-    return n < 5 ? `상시 ${n}명 (5인 미만)` : `상시 ${n}명`;
+    return `${n}명 (원문·집계 범위 미확인)`;
   }
   if (key === 'tenure_months') {
     const n = Number(value);
@@ -137,7 +76,8 @@ async function streamChat(
   onChunk: (text: string) => void,
   onDone: () => void,
   onError: (msg: string, info?: { status?: number; scope?: string }) => void,
-  turnstileToken: string | null
+  turnstileToken: string | null,
+  onEvidence: (evidence: EvidenceId[]) => void
 ) {
   const sessionId = getSessionId();
   const res = await fetch('/api/chat', {
@@ -147,7 +87,7 @@ async function streamChat(
   });
 
   if (!res.ok) {
-    let info: { status?: number; scope?: string } = { status: res.status };
+    const info: { status?: number; scope?: string } = { status: res.status };
     let msg = 'API 오류가 발생했습니다.';
     try {
       const j = await res.json();
@@ -176,6 +116,12 @@ async function streamChat(
 
   const decoder = new TextDecoder();
   let buffer = '';
+  let receivedDone = false;
+  let reportedError = false;
+  const reportError = (message: string) => {
+    if (!reportedError) onError(message);
+    reportedError = true;
+  };
 
   try {
     while (true) {
@@ -190,17 +136,21 @@ async function streamChat(
         const trimmed = line.trim();
         if (!trimmed || !trimmed.startsWith('data: ')) continue;
         const data = trimmed.slice(6);
-        if (data === '[DONE]') { onDone(); return; }
+        if (data === '[DONE]') { receivedDone = true; return; }
 
         try {
           const parsed = JSON.parse(data);
+          if (Array.isArray(parsed.evidence)) onEvidence(parsed.evidence);
           if (parsed.content) onChunk(parsed.content);
-          if (parsed.error) onError(parsed.error);
+          if (parsed.error) reportError(parsed.error);
         } catch {
           // skip malformed
         }
       }
     }
+    if (!receivedDone) reportError('답변 전송이 중단되었습니다. 표시된 내용은 일부 답변입니다. 다시 시도해주세요.');
+  } catch {
+    reportError('답변 전송 중 오류가 발생했습니다. 다시 시도해주세요.');
   } finally {
     onDone();
   }
@@ -213,11 +163,13 @@ export default function ChatInterface({ injectedQuestion }: { injectedQuestion?:
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [profile, setProfile] = useState<ProfileMap>({});
+  const profileSuppressed = useRef(false);
   const [showBetaCta, setShowBetaCta] = useState(false);
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const refreshProfile = useCallback(async () => {
+    if (profileSuppressed.current) return;
     if (typeof window === 'undefined') return;
     const sid = window.localStorage.getItem('yebot_session_id');
     if (!sid) return;
@@ -225,7 +177,7 @@ export default function ChatInterface({ injectedQuestion }: { injectedQuestion?:
       const r = await fetch(`/api/chat/situation?sessionId=${encodeURIComponent(sid)}`);
       if (!r.ok) return;
       const d = await r.json();
-      setProfile(d?.profile || {});
+      if (!profileSuppressed.current) setProfile(d?.profile || {});
     } catch {
       // ignore
     }
@@ -258,6 +210,11 @@ export default function ChatInterface({ injectedQuestion }: { injectedQuestion?:
 
     const userMsg: Message = { role: 'user', content: userContent };
     const newMessages = [...messages, userMsg];
+    const resetsContext = activeConversation(newMessages).resetsContext;
+    if (resetsContext) {
+      profileSuppressed.current = true;
+      setProfile({});
+    }
     setMessages(newMessages);
     setLoading(true);
 
@@ -279,14 +236,17 @@ export default function ChatInterface({ injectedQuestion }: { injectedQuestion?:
       () => {
         setLoading(false);
         // 답변 종료 직후 프로필 갱신 시도 (서버 추출 완료 시점 보정 위해 약간 지연)
-        setTimeout(() => { void refreshProfile(); }, 1500);
+        if (!resetsContext) setTimeout(() => { void refreshProfile(); }, 1500);
       },
       (errorMsg, info) => {
         setMessages(prev => {
           const updated = [...prev];
           const last = updated[updated.length - 1];
-          if (last.role === 'assistant' && !last.content) {
-            updated[updated.length - 1] = { ...last, content: errorMsg };
+          if (last.role === 'assistant') {
+            updated[updated.length - 1] = {
+              ...last,
+              content: last.content ? `${last.content}\n\n⚠️ ${errorMsg}` : errorMsg,
+            };
           }
           return updated;
         });
@@ -297,6 +257,12 @@ export default function ChatInterface({ injectedQuestion }: { injectedQuestion?:
         }
       },
       turnstileToken,
+      evidence => setMessages(prev => {
+        const updated = [...prev];
+        const last = updated[updated.length - 1];
+        if (last?.role === 'assistant') updated[updated.length - 1] = { ...last, evidence };
+        return updated;
+      }),
     );
     // 토큰은 1회용 — 비우고 widget reset으로 새 token 발급 (랜덤 token_missing 차단)
     setTurnstileToken(null);
@@ -337,6 +303,8 @@ export default function ChatInterface({ injectedQuestion }: { injectedQuestion?:
           <span style={{ color: 'var(--color-text-secondary)' }}>확인된 정보:</span>
           {Object.entries(profile).map(([k, v]) => {
             if (k.startsWith('_')) return null;
+            if ((k === 'company_size' || k === 'company_size_evidence') && profile.company_size_unresolved) return null;
+            if (k === 'company_size' && profile.company_size_evidence) return null;
             if (!PROFILE_LABELS[k]) return null;
             const label = PROFILE_LABELS[k];
             const val = formatProfileValue(k, v);
@@ -382,7 +350,7 @@ export default function ChatInterface({ injectedQuestion }: { injectedQuestion?:
             >
               {msg.role === 'assistant' ? (
                 msg.content ? (
-                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{linkifyFaqCitations(msg.content)}</ReactMarkdown>
+                  <ReactMarkdown remarkPlugins={[remarkGfm]} components={citationLinkComponents(msg.evidence)}>{linkifyFaqCitations(msg.content, msg.evidence)}</ReactMarkdown>
                 ) : (
                   <span className="inline-flex items-center gap-2 text-sm" style={{ color: 'var(--color-text-tertiary)' }}>
                     <Loader2 size={14} className="animate-spin" />

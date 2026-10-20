@@ -2,7 +2,7 @@
 // ① 내 조문을 표준 조문에 짝짓고 ② 기간 [최종 개정일, 기준일] 안에 시행되는 개정 중 그 표준 조문에 걸리는 것을 모은다.
 // 매핑(RuleSpec)이 있으면 짝지은 내 조문 안에서만 judge 한다 — 문서 전체를 키워드로 훑는 B(checkRules)와 다른 점이다.
 import type { LawEvent } from './format';
-import { judge, paragraphs, type RuleSpec, type Verdict } from './rules-check';
+import { anchored, judge, paragraphs, type RuleSpec, type Verdict } from './rules-check';
 
 export interface StdLawRef {
   lawId: string | null;
@@ -67,7 +67,9 @@ export function splitArticles(text: string): UserArticle[] {
     const lead = line.match(/^(?:제\s*\d+\s*장[^제]{0,15}|[^제]{1,6})\s+(?=제\s*\d+\s*조(?:\s*의\s*\d+)?\s*[(【[])/);
     if (lead) line = line.slice(lead[0].length);
     const m = line.match(ART);
-    if (m) {
+    // A wrapped statutory cross-reference is not a new company article heading.
+    const reference = m && !m[2] && !m[3] && !m[4] && /^\s*(?:및|의|에|를|과|에서|까지)/.test(line.slice(m[0].length));
+    if (m && !reference) {
       out.push({ no: m[1].replace(/\s/g, ''), title: (m[2] ?? m[3] ?? m[4] ?? '').trim(), text: line });
     } else if (out.length) {
       out[out.length - 1].text += '\n' + line;
@@ -197,16 +199,22 @@ export function periodCheck(opts: {
   }
   const stdById = new Map(std.map((s) => [s.id, s]));
   const verdictOf = (r: StdRule, mine: UserArticle[]): Verdict => {
-      // 짝지은 조문이 없으면 문서 전체에서 찾는다(B 방식) — 제목이 다른 조문 안에 들어 있는 경우
-      // (2019년 표준판은 배우자 출산휴가를 「경조사 휴가」 조문 안에 둔다. 2026-10-05 A/B 대조)
-      // 짝지은 조문 + 제목에 매핑 키워드가 든 조문(표준 「휴직사유」에 내 「휴직」만 짝지어지고 「육아휴직」 조문이 빠지던 것, 2026-10-05 강동 신고본)
-      const titled = user.filter((u) => u.title && r.keywords.some((k) => flat(u.title).includes(flat(k))));
+      // 짝지은 조문이 없으면 명시적인 anchor 증거가 있는 조문만 대체 후보로 본다.
+      // 넓은 keywords 만으로 문서 전체를 훑으면 무관한 제도의 문구가 통과한다.
+      // 짝지은 조문 + 제목에 매핑 키워드가 든 조문(표준 「휴직사유」에 내 「휴직」만 짝지어지고 「육아휴직」 조문이 빠지던 것, 2026-10-05 실사례 대조)
+      // 2026-10-13 — anchor 가 있으면 제목 매칭도 anchor 로 한다.
+      // keywords 로 하면 「근로시간 단축」 같은 넓은 말이 다른 제도의 조문 제목을 끌어온다.
+      const titleKeys = r.anchor?.length ? r.anchor : r.keywords;
+      const titled = user.filter((u) => u.title && titleKeys.some((k) => flat(u.title).includes(flat(k))));
       const cand = [...new Set([...mine, ...titled])];
-      const paras = paragraphs(cand.length ? cand.map((u) => u.text).join('\n') : text);
+      // Only explicit anchor evidence permits a fallback outside matched/titled candidates.
+      const fallback = r.anchor?.length ? user.filter(u => anchored(r, paragraphs(u.text)).length > 0) : [];
+      const selected = cand.length && (!r.anchor?.length || anchored(r, paragraphs(cand.map(u=>u.text).join('\n'))).length) ? cand : fallback;
+      const paras = paragraphs(selected.map(u => u.text).join('\n'));
       let v: Verdict = hasText ? judge(r, paras) : { rule: r, status: '누락', where: null, stale: [], missing: r.ok };
       if (hasText && !r.ok.length && r.stale.length) {
         // 옛 문구만으로 판정하는 매핑 — judge 는 옛 문구 없는 다른 조문을 골라 「반영됨」으로 빠진다. 후보 어디에든 남아 있으면 미반영
-        const hit = paras.filter((p) => r.stale.some((s) => flat(p.text).includes(flat(s))));
+        const hit = anchored(r, paras).filter((p) => r.stale.some((s) => flat(p.text).includes(flat(s))));
         v = hit.length
           ? { rule: r, status: '미반영', where: hit[0].article, stale: r.stale.filter((s) => hit.some((p) => flat(p.text).includes(flat(s)))), missing: [] }
           : { rule: r, status: '반영됨', where: null, stale: [], missing: [] };

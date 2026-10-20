@@ -1,3 +1,6 @@
+import CollectedSourceBody from "@/components/CollectedSourceBody";
+import OfficialSourceLink from "@/components/OfficialSourceLink";
+import { serializeJsonLd } from "@/lib/safe-json-ld";
 import { publicMetadata } from '@/lib/public-metadata';
 import type { Metadata } from 'next';
 import Link from 'next/link';
@@ -5,14 +8,13 @@ import { notFound } from 'next/navigation';
 import { supabaseServer } from '@/lib/supabase-server';
 import { SITE_URL } from '@/lib/constants';
 import { formatDecisionDate, getPreferredSummary, getPreferredDetail } from '@/app/database/_components/utils';
+import { decisionDate } from '@/lib/decision-date';
 import TagRow from '@/app/database/_components/TagRow';
-import MarkdownSnippet from '@/app/database/_components/MarkdownSnippet';
 import {
   ArrowLeft,
   ArrowRight,
   Calendar,
   FileText,
-  ExternalLink,
   MessageSquare,
   Search,
 } from 'lucide-react';
@@ -21,6 +23,7 @@ export const dynamicParams = true;
 export const revalidate = 86400;
 
 interface AdminDetail {
+  collected_body?: string | null;
   id: string;
   title: string;
   doc_number: string | null;
@@ -62,10 +65,11 @@ async function getInterpretation(id: string): Promise<AdminDetail | null> {
       id: r.id,
       title: r.title,
       doc_number: r.case_number,
-      decision_date: r.decision_date,
+      decision_date: decisionDate(r.decision_date),
       keywords_matched: r.keywords_matched,
       summary: r.inquiry_summary,
-      holding_points: r.answer_summary || r.full_text,
+      holding_points: r.answer_summary,
+      collected_body: r.full_text,
       url: r.url,
       original_url: r.url,
     };
@@ -77,7 +81,7 @@ async function getInterpretation(id: string): Promise<AdminDetail | null> {
     .eq('id', id)
     .single();
   if (error || !data) return null;
-  return data as AdminDetail;
+  return {...data,decision_date:decisionDate(data.decision_date)} as AdminDetail;
 }
 
 async function getRelatedInterpretations(currentId: string, keywords: string[] | null): Promise<RelatedAdmin[]> {
@@ -183,7 +187,7 @@ export default async function InterpretationDetailPage({
     <>
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        dangerouslySetInnerHTML={{ __html: serializeJsonLd(jsonLd) }}
       />
 
       <div className="layout-reading layout-reading--with-rail editorial-document">
@@ -237,30 +241,19 @@ export default async function InterpretationDetailPage({
               <TagRow keywordsMatched={item.keywords_matched} />
             </header>
 
-            {item.original_url && (
-              <div className="editorial-source">
-                <a
-                  href={item.original_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 text-[13px] font-medium transition-colors hover:opacity-70"
-                  style={{ color: 'var(--color-accent-ink)' }}
-                >
-                  <ExternalLink size={13} />
-                  원문 보기
-                </a>
-              </div>
-            )}
+            <div className="editorial-source"><OfficialSourceLink urls={[item.original_url,item.url]} /></div>
+
+            <p className="mb-4 text-sm" style={{ color: 'var(--grey-700)' }}>수집 내용입니다. 전문 여부와 구획·문단·표의 원형 보존은 확인되지 않았으며, 앞뒤 누락이나 단어 공백 손상이 있을 수 있습니다. 원문 출처와 대조하세요.</p>
 
             {summary && (
               <section className="editorial-evidence">
                 <h2 className="text-[15px] font-bold mb-3" style={{ color: 'var(--color-text-primary)' }}>
-                  해석 요지
+                  질의·요약 (수집 내용)
                 </h2>
                 <div
                   className="editorial-evidence-body"
                 >
-                  <MarkdownSnippet variant="reading" value={summary} />
+                  <CollectedSourceBody text={summary} anchorScope="interpretation-inquiry" />
                 </div>
               </section>
             )}
@@ -268,17 +261,24 @@ export default async function InterpretationDetailPage({
             {detail && detail !== summary && (
               <section className="editorial-evidence">
                 <h2 className="text-[15px] font-bold mb-3" style={{ color: 'var(--color-text-primary)' }}>
-                  판단 요지
+                  회시·판단 요약 (수집 내용)
                 </h2>
                 <div
                   className="editorial-evidence-body"
                 >
-                  <MarkdownSnippet variant="reading" value={detail} />
+                  <p className="mb-3 text-sm">저장된 요약입니다. HTML 형식은 안전하게 표시하지만 잘린 내용을 복구하거나 전문임을 보증하지 않습니다. 별도 수집 본문이 있으면 아래에서 확인하세요.</p>
+                  <CollectedSourceBody text={detail} anchorScope="interpretation-answer" />
                 </div>
               </section>
             )}
 
 
+
+            {item.collected_body ? <section className="editorial-evidence" id="collected-source-body">
+              <h2 className="text-[15px] font-bold mb-3">별도로 확보한 수집 본문</h2>
+              <p className="mb-3 text-sm">위 요약과 별도로 저장된 본문입니다. 원본 완전성·구획 보존은 미확인입니다. HTML의 실행 요소는 표시하지 않습니다.</p>
+              <CollectedSourceBody text={item.collected_body} anchorScope="interpretation-body"/>
+            </section> : null}
 
             {related.length > 0 && (
               <section className="mt-10 pt-8" style={{ borderTop: '1px solid var(--color-border)' }}>

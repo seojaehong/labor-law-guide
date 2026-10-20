@@ -109,64 +109,32 @@ export async function readDocText(data: ArrayBuffer | Uint8Array, kind: DocKind)
 
 const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
-function runs(text: string, bold = false, size = 18): string {
-  const rpr = `<w:rPr><w:rFonts w:ascii="맑은 고딕" w:eastAsia="맑은 고딕" w:hAnsi="맑은 고딕"/>${bold ? '<w:b/>' : ''}<w:sz w:val="${size}"/></w:rPr>`;
-  return text
-    .split('\n')
-    .map((line, i) => `${i ? '<w:r><w:br/></w:r>' : ''}<w:r>${rpr}<w:t xml:space="preserve">${esc(line)}</w:t></w:r>`)
-    .join('');
+function runs(text: string, bold = false, size = 20, color = '202B33'): string {
+  const rpr = `<w:rPr><w:rFonts w:ascii="Arial" w:eastAsia="맑은 고딕" w:hAnsi="Arial"/>${bold ? '<w:b/>' : ''}<w:color w:val="${color}"/><w:sz w:val="${size}"/></w:rPr>`;
+  return text.split('\n').map((line,i)=>`${i?'<w:r><w:br/></w:r>':''}<w:r>${rpr}<w:t xml:space="preserve">${esc(line)}</w:t></w:r>`).join('');
 }
-
-const para = (text: string, bold = false) => `<w:p>${runs(text, bold)}</w:p>`;
-const cell = (text: string, w: number, head = false) =>
-  `<w:tc><w:tcPr><w:tcW w:w="${w}" w:type="dxa"/>${head ? '<w:shd w:val="clear" w:color="auto" w:fill="EEEEEE"/>' : ''}</w:tcPr>${para(text, head)}</w:tc>`;
-
-export interface CompareDocxSection {
-  title: string;
-  intro: string[];
-  rows: string[][];
-  foot: string[];
-}
-
-type CompareDocxOptions = {
-  title: string;
-  intro: string[];
-  head: string[];
-  widths: number[];
-  foot: string[];
-} & ({ rows: string[][]; sections?: never } | { sections: CompareDocxSection[]; rows?: never });
-
-/** 신구대조표 DOCX. 열 폭은 dxa(1/20pt). Sections start each later amendment on a new page. */
-export async function compareDocx(opts: CompareDocxOptions): Promise<Blob> {
-  const { title, intro, head, widths, foot } = opts;
-  const border = '<w:top w:val="single" w:sz="4" w:color="999999"/><w:left w:val="single" w:sz="4" w:color="999999"/><w:bottom w:val="single" w:sz="4" w:color="999999"/><w:right w:val="single" w:sz="4" w:color="999999"/><w:insideH w:val="single" w:sz="4" w:color="999999"/><w:insideV w:val="single" w:sz="4" w:color="999999"/>';
-  const table = (rows: string[][]) =>
-    `<w:tbl><w:tblPr><w:tblW w:w="${widths.reduce((a, b) => a + b, 0)}" w:type="dxa"/><w:tblBorders>${border}</w:tblBorders></w:tblPr>` +
-    `<w:tblGrid>${widths.map((w) => `<w:gridCol w:w="${w}"/>`).join('')}</w:tblGrid>` +
-    `<w:tr><w:trPr><w:tblHeader/></w:trPr>${head.map((h, i) => cell(h, widths[i], true)).join('')}</w:tr>` +
-    rows.map((r) => `<w:tr><w:trPr><w:cantSplit/></w:trPr>${r.map((c, i) => cell(c, widths[i])).join('')}</w:tr>`).join('') +
-    `</w:tbl>`;
-  const content = opts.sections
-    ? opts.sections.map((section, index) =>
-      `<w:p><w:pPr>${index > 0 ? '<w:pageBreakBefore/>' : ''}<w:keepNext/></w:pPr>${runs(section.title, true, 24)}</w:p>` +
-      section.intro.map(text => para(text)).join('') + table(section.rows) + section.foot.map(text => para(text)).join(''),
-    ).join('')
-    : table(opts.rows);
-  const body =
-    para(title, true) + intro.map((t) => para(t)).join('') + content + foot.map((t) => para(t)).join('') +
-    `<w:sectPr><w:pgSz w:w="16838" w:h="11906" w:orient="landscape"/><w:pgMar w:top="1000" w:right="900" w:bottom="1000" w:left="900" w:header="500" w:footer="500" w:gutter="0"/></w:sectPr>`;
-  const zip = new JSZip();
-  zip.file(
-    '[Content_Types].xml',
-    '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/></Types>',
-  );
-  zip.file(
-    '_rels/.rels',
-    '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>',
-  );
-  zip.file(
-    'word/document.xml',
-    `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>${body}</w:body></w:document>`,
-  );
-  return zip.generateAsync({ type: 'blob', mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
+const para=(text:string,bold=false,size=20,color='202B33')=>`<w:p><w:pPr><w:spacing w:after="80" w:line="276" w:lineRule="auto"/><w:widowControl/><w:keepNext w:val="0"/></w:pPr>${runs(text,bold,size,color)}</w:p>`;
+const cell=(text:string,w:number,index:number,head=false)=>`<w:tc><w:tcPr><w:tcW w:w="${w}" w:type="dxa"/><w:vAlign w:val="top"/><w:shd w:val="clear" w:fill="${head?'285E77':index===1?'F4F6F8':index===2?'EDF4F7':'FFFFFF'}"/></w:tcPr>${para(text,head||index===0,20,head?'FFFFFF':'202B33')}</w:tc>`;
+export interface CompareDocxSection { title: string; intro: string[]; rows: string[][]; foot: string[]; }
+export type ComparisonOptions={title:string;intro:string[];head:string[];widths:number[];foot:string[]} & ({rows:string[][]; sections?:never} | {sections:CompareDocxSection[]; rows?:never});
+/** Editable fixed-grid A4 landscape. Body rows can split across pages; header repeats. */
+export async function compareDocx(opts:ComparisonOptions):Promise<Blob>{
+  const {title,intro,head,foot}=opts;
+  const allRows=opts.sections ? opts.sections.flatMap(section=>section.rows) : opts.rows;
+  if(!head.length||opts.widths.length!==head.length||opts.widths.some(w=>!Number.isSafeInteger(w)||w<=0)||allRows.some(r=>r.length!==head.length))throw Error('invalid-comparison-table');
+  const limit=15038,total=opts.widths.reduce((a,b)=>a+b,0);
+  const widths=opts.widths.map(w=>Math.floor(w*Math.min(1,limit/total)));
+  const tableWidth=widths.reduce((a,b)=>a+b,0);
+  const border=['top','left','bottom','right','insideH','insideV'].map(side=>`<w:${side} w:val="single" w:sz="4" w:color="B8C3CE"/>`).join('');
+  const table=(rows:string[][])=>`<w:tbl><w:tblPr><w:tblW w:w="${tableWidth}" w:type="dxa"/><w:tblLayout w:type="fixed"/><w:tblBorders>${border}</w:tblBorders><w:tblCellMar><w:top w:w="100" w:type="dxa"/><w:bottom w:w="100" w:type="dxa"/><w:left w:w="120" w:type="dxa"/><w:right w:w="120" w:type="dxa"/></w:tblCellMar></w:tblPr><w:tblGrid>${widths.map(w=>`<w:gridCol w:w="${w}"/>`).join('')}</w:tblGrid><w:tr><w:trPr><w:tblHeader/><w:cantSplit/></w:trPr>${head.map((h,i)=>cell(h,widths[i],i,true)).join('')}</w:tr>${rows.map(r=>`<w:tr>${r.map((c,i)=>cell(c,widths[i],i)).join('')}</w:tr>`).join('')}</w:tbl>`;
+  const content=opts.sections ? opts.sections.map((section,index)=>
+    `<w:p><w:pPr>${index>0?'<w:pageBreakBefore/>':''}<w:keepNext/></w:pPr>${runs(section.title,true,24)}</w:p>`+
+    section.intro.map(t=>para(t,false,18)).join('')+table(section.rows)+section.foot.map(t=>para(t,false,16)).join('')
+  ).join('') : table(opts.rows);
+  const body=para(title,true,30)+intro.map(t=>para(t,false,18)).join('')+content+foot.map(t=>para(t,false,16)).join('')+`<w:sectPr><w:pgSz w:w="16838" w:h="11906" w:orient="landscape"/><w:pgMar w:top="1000" w:right="900" w:bottom="1000" w:left="900" w:header="500" w:footer="500" w:gutter="0"/></w:sectPr>`;
+  const zip=new JSZip();
+  zip.file('[Content_Types].xml','<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/></Types>');
+  zip.file('_rels/.rels','<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>');
+  zip.file('word/document.xml',`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>${body}</w:body></w:document>`);
+  return zip.generateAsync({type:'blob',mimeType:'application/vnd.openxmlformats-officedocument.wordprocessingml.document'});
 }

@@ -3,7 +3,7 @@ import Link from "next/link";
 import DecisionCategoryNavigation from "@/components/DecisionCategoryNavigation";
 import type { Metadata } from "next";
 import { unstable_cache } from "next/cache";
-import { countByReason, getRecent, runSearch, getCategory, decisionRow } from "@/lib/decisions-data";
+import { countByReason, countBySource, getRecent, runSearch, getCategory, decisionRow } from "@/lib/decisions-data";
 import { parse, tabHref, pageHref, categoryHref, type Search } from "@/lib/decisions-query";
 import { REASON_LABELS, type ReasonCategory } from "@/lib/types";
 import { SITE_URL, BRAND_NAME } from "@/lib/constants";
@@ -21,7 +21,7 @@ export const dynamic = "force-dynamic";
 const REASON_KEYS = Object.keys(REASON_LABELS) as ReasonCategory[];
 
 const TABS: { key: Kind; label: string }[] = [
-  { key: "nlrc", label: "노동위 판정례" },
+  { key: "nlrc", label: "노동위·법원 통합" },
   { key: "court", label: "법원 판례" },
   { key: "admin", label: "행정해석" },
 ];
@@ -34,14 +34,14 @@ export async function generateMetadata(
   return publicMetadata({
     title: q
       ? `${q} 검색 결과 | 노동위 판정례·법원 판례`
-      : "노동위 판정례·법원 판례 검색 | 해고·징계 사건 6만건",
+      : "노동위 판정례·법원 판례 검색",
     description:
       "부당해고 구제신청, 징계, 전보, 갱신기대권 등 노동위원회 판정례와 법원 판례, 행정해석을 한곳에서 찾습니다. 사건번호·쟁점·판정결과로 유사 사례를 비교해 보세요.",
     alternates: { canonical: `${SITE_URL}/decisions` },
     robots: q || reasonProvided ? { index: false, follow: true } : { index: true, follow: true },
     openGraph: {
       title: "노동위 판정례·법원 판례 검색",
-      description: "해고·징계 사건 6만건과 행정해석을 한곳에서.",
+      description: "노동위 판정례·법원 판례와 행정해석을 한곳에서.",
       url: `${SITE_URL}/decisions`,
       type: "website",
       locale: "ko_KR",
@@ -74,16 +74,18 @@ export default async function DecisionsIndexPage(
 
       <h1 className="mb-2 text-2xl font-bold">판정례 · 판례 · 행정해석 검색</h1>
       <p className="mb-6 text-sm leading-relaxed" style={{ color: "var(--color-text-secondary)" }}>
-        노동위원회 판정례 6만여 건, 법원 판례, 고용노동부 행정해석을 한곳에서 찾습니다.
+        노동위원회 판정례, 법원 판례, 고용노동부 행정해석을 한곳에서 찾습니다.
         비슷한 사건이 어떤 이유로 인정되고 기각됐는지 비교해 보세요.
       </p>
 
       {/* 자바스크립트 없이 동작하는 GET 폼 — 검색 결과도 서버가 그린다 */}
-      {reasonProvided ? <p className="mb-2 text-sm">전체 자료에서 검색</p> : null}
+      {reasonProvided ? <p className="mb-2 text-sm">노동위·법원 통합 자료에서 검색</p> : null}
       <form action="/decisions" method="get" className="mb-6 flex gap-2">
         {!reasonProvided && type !== "nlrc" ? <input type="hidden" name="type" value={type} /> : null}
         <input
           type="search"
+          minLength={2}
+          maxLength={60}
           name="q"
           defaultValue={q}
           placeholder="쟁점, 사건번호로 검색 (예: 징계 절차, 경남2025부해9127)"
@@ -106,26 +108,22 @@ export default async function DecisionsIndexPage(
         <div>
           <p>유형과 키워드 또는 다른 자료 종류를 함께 지정할 수 없습니다.</p>
           <Link href={categoryHref(reason)}>해당 유형 보기</Link>{" · "}
-          <Link href={tabHref(q, type)}>전체 자료 검색</Link>
+          <Link href={tabHref(q, type)}>노동위·법원 통합 자료 검색</Link>
         </div>
       ) : reason ? <CategoryView reason={reason} page={page} />
-        : q ? <SearchView q={q} type={type} page={page} /> : <HubView />}
+        : q ? <SearchView q={q} type={type} page={page} /> : type!=="nlrc" ? <><SearchTabs q="" type={type} /><p className="py-10 text-sm">선택한 자료에서 찾을 검색어를 입력하세요.</p></> : <HubView />}
     </main>
   );
 }
 
-async function SearchView({ q, type, page }: { q: string; type: Kind; page: number }) {
-  const result = await runSearch(q, type, page);
-  if (!result.ok) return <LoadError href={pageHref(q, type, page)} />;
-  const { rows, hasMore } = result;
-
+function SearchTabs({q,type}:{q:string;type:Kind}) {
   return (
-    <>
-      <div className="mb-5 flex flex-wrap gap-2">
+      <nav aria-label="검색 자료 종류" className="mb-5 flex flex-wrap gap-2">
         {TABS.map((t) => (
           <Link
             key={t.key}
             href={tabHref(q, t.key)}
+            aria-current={t.key===type ? "page" : undefined}
             className="rounded-full border px-4 py-1.5 text-[13px] font-medium"
             style={
               t.key === type
@@ -136,11 +134,24 @@ async function SearchView({ q, type, page }: { q: string; type: Kind; page: numb
             {t.label}
           </Link>
         ))}
-      </div>
+      </nav>
+  );
+}
+
+async function SearchView({ q, type, page }: { q: string; type: Kind; page: number }) {
+  if (q.replace(/[%_\\'"();]/g, " ").trim().length < 2) return <><SearchTabs q={q} type={type} /><p className="py-10 text-sm">검색 가능한 글자를 두 글자 이상 입력하세요. 검색어는 최대 60자입니다.</p></>;
+  const result = await runSearch(q, type, page);
+  if (!result.ok) return <><SearchTabs q={q} type={type} /><LoadError href={pageHref(q, type, page)} /></>;
+  const { rows, hasMore } = result;
+
+  return (
+    <>
+      <SearchTabs q={q} type={type} />
 
       {rows.length === 0 ? (
         <div className="py-16 text-center text-sm" style={{ color: "var(--color-text-tertiary)" }}>
-          <p className="mb-1">「{q}」에 해당하는 결과가 없습니다.</p>
+          <p className="mb-1">{page > 1 ? "이 페이지에 결과가 없습니다." : `「${q}」에 해당하는 결과가 없습니다.`}</p>
+          {page > 1 ? <Link href={pageHref(q, type)}>첫 페이지로 돌아가기</Link> : null}
           <p>다른 낱말로 찾거나 위 탭에서 다른 자료를 보세요.</p>
         </div>
       ) : (
@@ -168,13 +179,14 @@ async function SearchView({ q, type, page }: { q: string; type: Kind; page: numb
 // 수집기가 멈춰 있어 숫자는 하루에 한 번도 안 바뀐다. 결과만 6시간 캐시한다 — 페이지는 force-dynamic 그대로.
 const getHubData = unstable_cache(
   async () => {
-    const [counts, recent] = await Promise.all([
+    const [counts, recent, sources] = await Promise.all([
       Promise.all(REASON_KEYS.map(async (r) => ({ reason: r, count: await countByReason(r) }))),
       getRecent(),
+      countBySource(),
     ]);
-    return { counts, recent };
+    return { counts, recent, sources };
   },
-  ["decisions-hub-v2"],
+  ["decisions-hub-v3"],
   { revalidate: 21600 }
 );
 
@@ -185,9 +197,8 @@ async function HubView() {
   } catch {
     return <LoadError href="/decisions" message="유형 집계와 최근 판정례를 불러오지 못했습니다." />;
   }
-  const { counts, recent } = hub;
+  const { counts, recent, sources } = hub;
   const visible = counts.filter((c) => c.count > 0).sort((a, b) => b.count - a.count);
-  const total = visible.reduce((s, c) => s + c.count, 0);
 
   return (
     <>
@@ -208,15 +219,14 @@ async function HubView() {
             </Link>
           ))}
         </div>
-        {total > 0 ? (
-          <p className="mt-4 text-xs" style={{ color: "var(--color-text-tertiary)" }}>
-            분류된 사건 {total.toLocaleString()}건
-          </p>
-        ) : null}
+        <p className="mt-4 text-xs" style={{ color: "var(--color-text-tertiary)" }}>
+          노동위 판정례 {sources.nlrc.toLocaleString()}건 · 법원 판례 {sources.court.toLocaleString()}건.
+          한 사건이 여러 유형에 걸칠 수 있어 유형별 건수는 중복될 수 있습니다.
+        </p>
       </section>
 
       <section>
-        <h2 className="mb-4 text-lg font-semibold">최근 판정례</h2>
+        <h2 className="mb-4 text-lg font-semibold">최근 판정례·법원 판례</h2>
         <ul className="border-t" style={{ borderColor: "var(--color-border)" }}>
           {recent.map((d) => (
             <ResultRow
@@ -242,11 +252,11 @@ async function CategoryView({ reason, page }: { reason: ReasonCategory; page: nu
   const result = await getCategory(reason, page);
   return <section>
     <DecisionCategoryNavigation reason={reason} />
-    <h2 className="my-4 text-lg font-semibold">{REASON_LABELS[reason]} 유형별 노동위 판정례</h2>
+    <h2 className="my-4 text-lg font-semibold">{REASON_LABELS[reason]} 유형별 판정례·법원 판례</h2>
     {!result.ok ? <LoadError href={categoryHref(reason, page)} /> : <>
       {result.rows.length ? <ul className="border-t" style={{ borderColor: "var(--color-border)" }}>
         {result.rows.map((r) => <ResultRow key={r.href} row={r} />)}
-      </ul> : <p className="py-10 text-sm">{page > 1 ? "이 페이지에 결과가 없습니다." : "이 유형에 등록된 판정례가 없습니다."}</p>}
+      </ul> : <p className="py-10 text-sm">{page > 1 ? "이 페이지에 결과가 없습니다." : "이 유형에 등록된 판정례·법원 판례가 없습니다."}</p>}
       {(page > 1 || result.hasMore) && <nav aria-label="유형별 판정례 페이지" className="mt-8 flex flex-wrap items-center justify-center gap-4 text-sm">
         {page > 1 && <><Link href={categoryHref(reason)}>첫 페이지</Link><Link href={categoryHref(reason, page - 1)}>← 이전</Link></>}
         <span>{page} 페이지</span>
