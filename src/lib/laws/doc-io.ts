@@ -115,17 +115,23 @@ function runs(text: string, bold = false, size = 20, color = '202B33'): string {
 }
 const para=(text:string,bold=false,size=20,color='202B33')=>`<w:p><w:pPr><w:spacing w:after="80" w:line="276" w:lineRule="auto"/><w:widowControl/><w:keepNext w:val="0"/></w:pPr>${runs(text,bold,size,color)}</w:p>`;
 const cell=(text:string,w:number,index:number,head=false)=>`<w:tc><w:tcPr><w:tcW w:w="${w}" w:type="dxa"/><w:vAlign w:val="top"/><w:shd w:val="clear" w:fill="${head?'285E77':index===1?'F4F6F8':index===2?'EDF4F7':'FFFFFF'}"/></w:tcPr>${para(text,head||index===0,20,head?'FFFFFF':'202B33')}</w:tc>`;
-export type ComparisonOptions={title:string;intro:string[];head:string[];widths:number[];rows:string[][];foot:string[]};
+export interface CompareDocxSection { title: string; intro: string[]; rows: string[][]; foot: string[]; }
+export type ComparisonOptions={title:string;intro:string[];head:string[];widths:number[];foot:string[]} & ({rows:string[][]; sections?:never} | {sections:CompareDocxSection[]; rows?:never});
 /** Editable fixed-grid A4 landscape. Body rows can split across pages; header repeats. */
 export async function compareDocx(opts:ComparisonOptions):Promise<Blob>{
-  const {title,intro,head,rows,foot}=opts;
-  if(!head.length||opts.widths.length!==head.length||opts.widths.some(w=>!Number.isSafeInteger(w)||w<=0)||rows.some(r=>r.length!==head.length))throw Error('invalid-comparison-table');
+  const {title,intro,head,foot}=opts;
+  const allRows=opts.sections ? opts.sections.flatMap(section=>section.rows) : opts.rows;
+  if(!head.length||opts.widths.length!==head.length||opts.widths.some(w=>!Number.isSafeInteger(w)||w<=0)||allRows.some(r=>r.length!==head.length))throw Error('invalid-comparison-table');
   const limit=15038,total=opts.widths.reduce((a,b)=>a+b,0);
   const widths=opts.widths.map(w=>Math.floor(w*Math.min(1,limit/total)));
   const tableWidth=widths.reduce((a,b)=>a+b,0);
   const border=['top','left','bottom','right','insideH','insideV'].map(side=>`<w:${side} w:val="single" w:sz="4" w:color="B8C3CE"/>`).join('');
-  const table=`<w:tbl><w:tblPr><w:tblW w:w="${tableWidth}" w:type="dxa"/><w:tblLayout w:type="fixed"/><w:tblBorders>${border}</w:tblBorders><w:tblCellMar><w:top w:w="100" w:type="dxa"/><w:bottom w:w="100" w:type="dxa"/><w:left w:w="120" w:type="dxa"/><w:right w:w="120" w:type="dxa"/></w:tblCellMar></w:tblPr><w:tblGrid>${widths.map(w=>`<w:gridCol w:w="${w}"/>`).join('')}</w:tblGrid><w:tr><w:trPr><w:tblHeader/><w:cantSplit/></w:trPr>${head.map((h,i)=>cell(h,widths[i],i,true)).join('')}</w:tr>${rows.map(r=>`<w:tr>${r.map((c,i)=>cell(c,widths[i],i)).join('')}</w:tr>`).join('')}</w:tbl>`;
-  const body=para(title,true,30)+intro.map(t=>para(t,false,18)).join('')+table+foot.map(t=>para(t,false,16)).join('')+`<w:sectPr><w:pgSz w:w="16838" w:h="11906" w:orient="landscape"/><w:pgMar w:top="1000" w:right="900" w:bottom="1000" w:left="900" w:header="500" w:footer="500" w:gutter="0"/></w:sectPr>`;
+  const table=(rows:string[][])=>`<w:tbl><w:tblPr><w:tblW w:w="${tableWidth}" w:type="dxa"/><w:tblLayout w:type="fixed"/><w:tblBorders>${border}</w:tblBorders><w:tblCellMar><w:top w:w="100" w:type="dxa"/><w:bottom w:w="100" w:type="dxa"/><w:left w:w="120" w:type="dxa"/><w:right w:w="120" w:type="dxa"/></w:tblCellMar></w:tblPr><w:tblGrid>${widths.map(w=>`<w:gridCol w:w="${w}"/>`).join('')}</w:tblGrid><w:tr><w:trPr><w:tblHeader/><w:cantSplit/></w:trPr>${head.map((h,i)=>cell(h,widths[i],i,true)).join('')}</w:tr>${rows.map(r=>`<w:tr>${r.map((c,i)=>cell(c,widths[i],i)).join('')}</w:tr>`).join('')}</w:tbl>`;
+  const content=opts.sections ? opts.sections.map((section,index)=>
+    `<w:p><w:pPr>${index>0?'<w:pageBreakBefore/>':''}<w:keepNext/></w:pPr>${runs(section.title,true,24)}</w:p>`+
+    section.intro.map(t=>para(t,false,18)).join('')+table(section.rows)+section.foot.map(t=>para(t,false,16)).join('')
+  ).join('') : table(opts.rows);
+  const body=para(title,true,30)+intro.map(t=>para(t,false,18)).join('')+content+foot.map(t=>para(t,false,16)).join('')+`<w:sectPr><w:pgSz w:w="16838" w:h="11906" w:orient="landscape"/><w:pgMar w:top="1000" w:right="900" w:bottom="1000" w:left="900" w:header="500" w:footer="500" w:gutter="0"/></w:sectPr>`;
   const zip=new JSZip();
   zip.file('[Content_Types].xml','<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/></Types>');
   zip.file('_rels/.rels','<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>');
