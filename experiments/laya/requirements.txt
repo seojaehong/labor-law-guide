@@ -1,0 +1,4 @@
+# Official PyPI wheel, verified against PyPI JSON on 2026-10-20.
+laya==0.4.12 --hash=sha256:485625629bf14003e947ce13e5f901cc1ba8d298a152e52917b19017914baf80
+# Transitive dependencies must be resolved and hash-locked before installation.
+# This intentionally is not an installable complete dependency lock.

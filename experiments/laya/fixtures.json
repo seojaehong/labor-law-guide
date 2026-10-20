@@ -1,0 +1,5 @@
+[
+ {"id":"synthetic-hours","query":"법정 주간 근로시간 한도는?","relevant":["lsa50"],"candidates":[{"id":"lsa23","text":"근로기준법 제23조: 정당한 이유 없이 해고 등을 하지 못한다."},{"id":"lsa50","text":"근로기준법 제50조: 1주 간의 근로시간은 휴게시간을 제외하고 40시간을 초과할 수 없다."},{"id":"lsa60","text":"근로기준법 제60조: 연차 유급휴가."}]},
+ {"id":"synthetic-dismissal","query":"해고에 정당한 이유가 필요한가?","relevant":["lsa23"],"candidates":[{"id":"lsa60","text":"근로기준법 제60조: 연차 유급휴가."},{"id":"lsa50","text":"근로기준법 제50조: 근로시간."},{"id":"lsa23","text":"근로기준법 제23조: 사용자는 근로자에게 정당한 이유 없이 해고를 하지 못한다."}]},
+ {"id":"synthetic-leave","query":"연차 유급휴가에 관한 조문","relevant":["lsa60"],"candidates":[{"id":"lsa60","text":"근로기준법 제60조: 연차 유급휴가."},{"id":"lsa23","text":"근로기준법 제23조: 해고 등의 제한."},{"id":"lsa50","text":"근로기준법 제50조: 근로시간."}]}
+]
