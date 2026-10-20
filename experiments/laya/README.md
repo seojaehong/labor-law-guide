@@ -52,3 +52,5 @@ Laya는 choice/score/yes-no 결정 엔진이며 전용 검색 재정렬기 또�
 검토한 upstream main commit: `ffc142012af63d015fa19f05f29f9c5ff329a2cc` (git ls-remote 확인). 모델 SHA는 이 소스의 reviewed revision이며 HF 메타데이터 대조는 403으로 불가능했다.
 
 검증: `npm run test -- tests/unit/laya-rerank.test.ts tests/unit/jev-rerank.test.ts` 39/39 통과, `python -m unittest discover -s experiments/laya -p 'test_*.py'` 3/3 통과, 변경 TS 파일 ESLint 통과. 최초 npm 설치는 기본 캐시 경로 쓰기 실패였고 `/tmp/laya-npm-cache`로 지정한 재시도는 성공했다. 실제 모델 실험과 이 단위 검증은 구분한다. worker는 본문을 state에 두고 짧은 선택지 ID를 사용하며, 공식 API의 `instructions`, `max_len=8192`, `head_max_len=512`, usage 잘림·선택지 붕괴 정보를 확인한다.
+
+`npx --no-install tsc --noEmit`도 통과했다. 브랜치는 origin에 게시했다. GitHub GraphQL 조회 및 REST 초안 PR 생성(`POST /repos/seojaehong/labor-law-guide/pulls`)은 `Forbidden`으로 차단돼 원격 PR 생성은 확인되지 않았다. PR 본문은 PR_DRAFT.md에 보존했다. 병합·배포는 하지 않았다.
