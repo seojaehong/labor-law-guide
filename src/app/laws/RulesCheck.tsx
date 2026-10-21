@@ -66,9 +66,17 @@ const LABEL: Record<PeriodItem['status'], string> = {
   반영됨: 'ok',
 };
 
+// 제안 문안은 **법이 정한 최저 기준**이다. 회사 규정이 이미 더 유리한데 이대로 바꾸면 낮아진다.
+// 2026-10-21 실사용 검토에서 실제로 났다 — 육아기 근로시간 단축을 3년 주던 회사가
+// 제안 문안(1년+α)으로 바꿔 깎였다. 도구가 불이익 변경을 유도한 셈이다.
+// 자동으로 가려내려면 조문별 유불리 비교가 필요하고 그건 아직 없다. 그때까지는 **붙여넣는 글에 같이 따라가게** 둔다.
+export const FLOOR_NOTE =
+  '[확인] 이 문안은 법이 정한 최저 기준입니다. 회사 규정이 이미 이보다 유리하면 그대로 두십시오. '
+  + '낮추면 근로기준법 제94조제1항 단서의 불이익 변경이 되어 과반수의 동의가 필요합니다.';
+
 function clauseText(v: Verdict) {
   const p = v.rule.mst ? { date: '', no: '', kind: '', mst: v.rule.mst } : undefined;
-  return `${v.rule.clause}\n\n(근거) ${v.rule.law} ${v.rule.article}, ${fmtDate(v.rule.effective)} 시행\n${citation(v.rule.law, p, v.rule.effective).split('\n')[1]}`;
+  return `${v.rule.clause}\n\n(근거) ${v.rule.law} ${v.rule.article}, ${fmtDate(v.rule.effective)} 시행\n${citation(v.rule.law, p, v.rule.effective).split('\n')[1]}\n${FLOOR_NOTE}`;
 }
 
 /** 근거 한 줄씩 — 개정 이벤트(바뀐 조문) + 매핑 */
@@ -379,11 +387,12 @@ function ItemCard({ it, captureContext, captureStore, observationAvailability, t
             <>
               <div className="lr-verdict-meta">개정안 출처: {it.proposalFrom === '매핑' ? '바뀐 조문 원문 대조 문안' : `표준취업규칙 2026 문안(${fmtDate(STD_ASOF)} 이전 시행분 반영)`}</div>
               <div className="lr-clause">{it.proposal}</div>
+              <p className="lr-review-note">{FLOOR_NOTE}</p>
               <div style={{ marginTop: 8 }}>
                 <button
                   className="lr-btn lr-btn-ghost lr-btn-sm"
                   onClick={async () => {
-                    const body = it.verdicts.length ? it.verdicts.map(clauseText).join('\n\n') : `${it.proposal}\n\n(근거) ${basis(it).join(', ')}`;
+                    const body = it.verdicts.length ? it.verdicts.map(clauseText).join('\n\n') : `${it.proposal}\n\n(근거) ${basis(it).join(', ')}\n${FLOOR_NOTE}`;
                     if (await copyRich(body)) toast('문안을 복사했습니다. 회사 조문 번호에 맞춰 붙이세요');
                   }}
                 >
