@@ -2,6 +2,9 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
+import dynamic from 'next/dynamic';
+import type { HwpSource } from './HwpApply';
+import { canApplyText } from '@/lib/hwp/apply-guard';
 import ObservationCapture from './ObservationCapture';
 import { useObservationAvailability, type ObservationAvailability } from './observation-availability';
 import { MATCHER_VERSION, RULE_VERSION } from '@/lib/laws/observation-version';
@@ -54,6 +57,9 @@ const loadData = () => (dataPromise ??= Promise.all([
   const rulesVersion = [...new Uint8Array(await crypto.subtle.digest('SHA-256', bytes))].map(b => b.toString(16).padStart(2, '0')).join('');
   return { std: s.articles, events: i.events, rules: r.rules, art93: s.art93 ?? [], since: i.since, rulesVersion };
 }).catch(error => { dataPromise = null; throw error; }));
+
+// 반영 단계는 rhwp WASM 을 쓰므로 파일을 올리고 결과가 나온 뒤에만 불러온다
+const HwpApply = dynamic(() => import('./HwpApply'), { ssr: false, loading: () => <div className="lr-check-empty">반영 도구를 불러오는 중…</div> });
 
 const toIso = (d: string) => `${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6, 8)}`;
 const fromIso = (d: string) => d.replace(/-/g, '');
@@ -114,6 +120,8 @@ export default function RulesCheck({ onClose, toast }: { onClose: () => void; to
   const [busy, setBusy] = useState(false);
   const [loadError, setLoadError] = useState(false);
   const [fileError, setFileError] = useState<string | null>(null);
+  // 올린 한글 파일 — 반영 단계가 원본 바이트에서 새 파일을 만든다. text = 그 파일에서 읽은 글자(본문 칸과 같을 때만 반영)
+  const [source, setSource] = useState<(HwpSource & { text: string }) | null>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
   const ref = useRef<HTMLTextAreaElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -160,11 +168,13 @@ export default function RulesCheck({ onClose, toast }: { onClose: () => void; to
     if (!kind) return fail('hwp·hwpx·docx 파일만 읽습니다');
     setBusy(true);
     try {
+      const buf = await f.arrayBuffer();
       const t = kind === 'hwp'
-        ? await (await import('@/lib/laws/hwp-read')).readHwpText(await f.arrayBuffer())
-        : await readDocText(await f.arrayBuffer(), kind);
+        ? await (await import('@/lib/laws/hwp-read')).readHwpText(buf.slice(0))
+        : await readDocText(buf.slice(0), kind);
       if (!t.trim()) throw new Error('본문에서 읽을 수 있는 글자가 없습니다. 이미지 문서는 글자를 직접 붙여넣으세요. 기존 입력은 유지됩니다.');
       setText(t);
+      setSource(kind === 'docx' ? null : { bytes: new Uint8Array(buf), name: f.name, kind, text: t });
       toast(`${f.name} — 이 브라우저 안에서 글자만 읽었습니다`);
     } catch (e) {
       setFileError((e as Error).message);
@@ -340,6 +350,8 @@ export default function RulesCheck({ onClose, toast }: { onClose: () => void; to
                     <p className="lr-check-note">조문 제목이 달라 짝을 못 찾았을 수도 있습니다. 같은 내용이 다른 조문에 있으면 무시하세요.</p>
                   </details>
                 )}
+                {hasText && source && <HwpApply source={source} items={result.items} enabled={canApplyText(source, text)} floorNote={FLOOR_NOTE} toast={toast} />}
+                {hasText && !source && open.some((i) => i.proposal) && <p className="lr-check-note">hwp·hwpx 파일을 올리면 바꿀 문안 제안을 그 파일에 넣은 새 파일을 받을 수 있습니다.</p>}
                 <p className="lr-check-note">
                   문구 일치는 키워드 대조 결과이며 법률 검수 완료를 뜻하지 않습니다. 표준취업규칙 2026(고용노동부, 2026. 2. 배포)과 법제처 원문을 기준으로 하며 공인노무사 검수 전입니다.
                   표준 조문과 법령의 연결은 자동 추출본이라 빠진 연결이 있을 수 있습니다.{' '}<Link href="/contact">노무사 검토 요청</Link>

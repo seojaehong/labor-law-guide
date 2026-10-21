@@ -394,3 +394,17 @@
 .lr-file-error { margin:12px 20px; padding:12px; border:1px solid var(--lr-hair); color:var(--lr-ink); background:var(--lr-canvas); font-size:14px; line-height:1.6; }
 .lr-hwp-notice { margin:0; padding:0 16px 10px; color:var(--lr-mute); font-size:12px; line-height:1.6; }
 .lr-hwp-notice a { color:inherit; text-decoration:underline; }
+
+/* 3. 내 파일에 반영 */
+.lr-apply { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--lr-hair); }
+.lr-apply-item { margin-top: 10px; padding: 12px; border-radius: 8px; background: var(--lr-canvas); box-shadow: var(--lr-shadow-1); }
+.lr-apply-item.on { box-shadow: inset 0 0 0 2px var(--lr-link); }
+.lr-apply-item.off { opacity: .6; }
+.lr-apply-row { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; margin-top: 8px; font-size: 13px; }
+.lr-apply-row label { display: inline-flex; gap: 6px; align-items: center; color: var(--lr-body); }
+.lr-apply-row select, .lr-apply-row input { min-height: 36px; border-radius: 6px; border: 1px solid var(--lr-hair-strong); background: var(--lr-canvas); color: var(--lr-ink); padding: 0 8px; font-size: 14px; max-width: 100%; }
+.lr-apply-before, .lr-apply-after { margin-top: 8px; font-size: 14px; line-height: 1.75; white-space: pre-wrap; }
+.lr-apply-before > span, .lr-apply-after > span { display: block; font-size: 12px; color: var(--lr-mute); }
+.lr-apply-before del { color: var(--lr-error-deep); }
+.lr-apply-after textarea { width: 100%; min-height: 44px; border-radius: 6px; border: 1px solid var(--lr-hair-strong); background: var(--lr-soft); color: var(--lr-ink); padding: 8px 10px; font: inherit; font-size: 14px; line-height: 1.7; resize: vertical; }
+.lr-apply-foot { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 14px; }
