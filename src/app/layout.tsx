@@ -192,6 +192,7 @@ export default function RootLayout({
               ] },
               { title: '실무도구·문의', links: [
                 { href: '/tools/holiday-pay', label: '공휴일·노동절 수당 참고 계산' },
+                { href: '/duties', label: '사업장 규모별 사업주 의무' },
                 { href: '/contact', label: '전문서비스 문의' },
               ] },
               { title: '검토 중 자료', links: [
