@@ -8,10 +8,17 @@ export const RHWP_WASM_URL = '/rhwp/rhwp_bg.wasm';
 
 let ready: Promise<typeof import('@rhwp/core')> | null = null;
 
-function load(wasm: InitInput) {
+/** rhwp 모듈을 한 번만 초기화한다. 쪽 그리기(/tools/hwp)도 이것을 쓴다 */
+export function loadRhwp(wasm: InitInput = RHWP_WASM_URL) {
   ready ??= import('@rhwp/core').then(async (m) => {
-    // 조판 계산이 글자 폭을 묻는다. 글자만 뽑으므로 정확할 필요는 없다
+    // 조판 계산이 글자 폭을 묻는다. 브라우저는 캔버스로 재고, 그 밖(테스트)은 어림값을 쓴다
     const g = globalThis as { measureTextWidth?: (font: string, text: string) => number };
+    if (!g.measureTextWidth && typeof document !== 'undefined') {
+      const ctx = document.createElement('canvas').getContext('2d');
+      // ctx.font 지정은 비싸다 — 같은 글꼴이면 다시 지정하지 않는다(rhwp README 권장)
+      let last = '';
+      if (ctx) g.measureTextWidth = (font, text) => { if (font !== last) { ctx.font = font; last = font; } return ctx.measureText(text).width; };
+    }
     g.measureTextWidth ??= (font, text) => (Number(font.match(/(\d+(?:\.\d+)?)px/)?.[1]) || 16) * text.length;
     await m.default({ module_or_path: wasm });
     return m;
@@ -26,7 +33,7 @@ export async function readHwpText(data: ArrayBuffer | Uint8Array, wasm: InitInpu
   const bytes = data instanceof Uint8Array ? data : new Uint8Array(data);
   if (bytes.byteLength > MAX_FILE_BYTES) throw new Error('파일은 10MB 이하만 읽습니다');
   if (!CFB.every((b, i) => bytes[i] === b)) throw new Error('한글(hwp) 파일 형식이 아닙니다');
-  const { HwpDocument } = await load(wasm);
+  const { HwpDocument } = await loadRhwp(wasm);
   let doc: InstanceType<typeof HwpDocument> | null = null;
   let text: string;
   try {
