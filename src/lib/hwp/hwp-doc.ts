@@ -2,6 +2,7 @@
 // 원본 바이트는 건드리지 않는다. 되돌리기는 원본에서 바꾸기 기록을 다시 적용해 만든다.
 import type { InitInput } from '@rhwp/core';
 import { loadRhwp, RHWP_WASM_URL } from '@/lib/laws/hwp-read';
+import { indexParagraphs, paraOps, type IndexedPara, type ParaOps } from './para-index';
 
 export const MAX_EDIT_BYTES = 20 * 1024 * 1024;
 export type HwpKind = 'hwp' | 'hwpx';
@@ -73,6 +74,29 @@ export class HwpEditDoc {
   export(kind: HwpKind): Uint8Array {
     if (this.saveBlocked) throw new Error('변경 내용 추적 또는 배포용 문서는 저장할 수 없습니다. 보기와 글자 복사만 됩니다');
     return kind === 'hwp' ? this.doc.exportHwp() : this.doc.exportHwpx();
+  }
+
+  /** 저장 + 손실 보고. 손실(count)이 있으면 저장본에서 빠진 내용이 있다는 뜻이다 */
+  exportWithReport(kind: HwpKind): { bytes: Uint8Array; loss: number } {
+    if (this.saveBlocked) throw new Error('변경 내용 추적 또는 배포용 문서는 저장할 수 없습니다. 보기와 글자 복사만 됩니다');
+    const r = kind === 'hwp' ? this.doc.exportHwpWithReport() : this.doc.exportHwpxWithReport();
+    try {
+      const loss = (JSON.parse(r.contentLoss()) as { count?: number }).count ?? 0;
+      return { bytes: r.takeBytes(), loss };
+    } finally {
+      r.free();
+    }
+  }
+
+  /** 모든 구역의 본문 문단과 표 셀(중첩 포함) 문단 — 문서 순서. text() 는 표 셀 글자를 빠뜨릴 수 있다 */
+  paragraphs(): IndexedPara[] { return indexParagraphs(this.doc); }
+
+  /** 문단 좌표로 글자를 고치는 함수 묶음. 여러 번 고칠 때는 batch 로 감싸 쪽 다시 나누기를 한 번만 한다 */
+  ops(): ParaOps { return paraOps(this.doc); }
+
+  batch<T>(fn: () => T): T {
+    this.doc.beginBatch();
+    try { return fn(); } finally { this.doc.endBatch(); }
   }
 
   free() { this.doc.free(); }

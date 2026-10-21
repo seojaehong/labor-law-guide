@@ -2,6 +2,7 @@
 // 파일은 브라우저 밖으로 나가지 않는다. 쪽 나눔·렌더는 쓰지 않고 글자만 뽑는다.
 import type { InitInput } from '@rhwp/core';
 import { MAX_FILE_BYTES, readableText } from './doc-io';
+import { indexParagraphs, indexText } from '@/lib/hwp/para-index';
 
 /** public/rhwp/ 에 빌드 때 복사한다(scripts/copy-rhwp-wasm.mjs) */
 export const RHWP_WASM_URL = '/rhwp/rhwp_bg.wasm';
@@ -38,13 +39,13 @@ export async function readHwpText(data: ArrayBuffer | Uint8Array, wasm: InitInpu
   let text: string;
   try {
     doc = new HwpDocument(bytes);
-    // 0.8.7 은 글자를 JSON 문자열(따옴표·\r\n 이스케이프)로 감싸 돌려준다
-    const raw = doc.getTextFileText();
-    text = raw.startsWith('"') ? JSON.parse(raw) : raw;
+    // getTextFileText 는 둘째 구역부터 표 셀 글자를 빠뜨린다 — 본문이 표 안에 든 취업규칙에서 118자만 나왔다.
+    // 구역·본문 문단·표 셀(중첩 포함) 문단을 직접 훑는다
+    text = indexText(indexParagraphs(doc));
   } catch {
     throw new Error('hwp 본문을 읽지 못했습니다. 암호가 걸렸거나 손상된 파일일 수 있습니다. hwpx로 저장하거나 본문을 붙여넣으세요');
   } finally {
     doc?.free();
   }
-  return readableText(text.split(/\r\n|\r|\n/).map((l) => l.trim()).filter(Boolean).join('\n'));
+  return readableText(text);
 }
