@@ -3,10 +3,17 @@
   "revision": "e4e9ddf21a7b1903b7acffd8814ad4307bf63a67",
   "package": "laya==0.4.12",
   "production_ready": false,
-  "latency_scope": "cold CPU process including model load; not warm service latency",
+  "environment": "selected cloud sandbox, not Oracle server1/server2",
+  "latency_scope": "per-case cold process/load; first inference separate from subsequent warm repeats",
   "measured_count": 0,
-  "p50_ms": null,
-  "p95_ms": null,
+  "warm_p50_ms": null,
+  "warm_p95_ms": null,
+  "baseline_mean": {
+    "top1": 0.3333333333333333,
+    "mrr": 0.6111111111111112,
+    "recall_at_3": 1.0
+  },
+  "laya_mean": null,
   "cases": [
     {
       "id": "synthetic-hours",
@@ -23,7 +30,8 @@
         "lsa50",
         "lsa60"
       ],
-      "cold_process_ms": 0.01
+      "cold_process_ms": 0.01,
+      "model_measurement": null
     },
     {
       "id": "synthetic-dismissal",
@@ -40,7 +48,8 @@
         "lsa50",
         "lsa23"
       ],
-      "cold_process_ms": 0.01
+      "cold_process_ms": 0.01,
+      "model_measurement": null
     },
     {
       "id": "synthetic-leave",
@@ -57,7 +66,62 @@
         "lsa23",
         "lsa50"
       ],
-      "cold_process_ms": 0.0
+      "cold_process_ms": 0.0,
+      "model_measurement": null
+    },
+    {
+      "id": "synthetic-case-relevance-1",
+      "status": "unconfigured",
+      "baseline": {
+        "top1": 0,
+        "mrr": 0.3333333333333333,
+        "recall_at_3": 1.0
+      },
+      "laya": null,
+      "rank_changed": false,
+      "order": [
+        "2010다106436",
+        "2023누34646",
+        "2007두8881"
+      ],
+      "cold_process_ms": 0.19,
+      "model_measurement": null
+    },
+    {
+      "id": "synthetic-case-relevance-2",
+      "status": "unconfigured",
+      "baseline": {
+        "top1": 1,
+        "mrr": 1.0,
+        "recall_at_3": 1.0
+      },
+      "laya": null,
+      "rank_changed": false,
+      "order": [
+        "2010다106436",
+        "2023누34646",
+        "2007두8881"
+      ],
+      "cold_process_ms": 0.0,
+      "model_measurement": null
+    },
+    {
+      "id": "synthetic-case-relevance-3",
+      "status": "unconfigured",
+      "baseline": {
+        "top1": 0,
+        "mrr": 0.5,
+        "recall_at_3": 1.0
+      },
+      "laya": null,
+      "rank_changed": false,
+      "order": [
+        "2010다106436",
+        "2023누34646",
+        "2007두8881"
+      ],
+      "cold_process_ms": 0.0,
+      "model_measurement": null
     }
   ]
 }

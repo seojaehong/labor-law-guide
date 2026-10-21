@@ -1,4 +1,3 @@
-# Official PyPI wheel, verified against PyPI JSON on 2026-10-20.
-laya==0.4.12 --hash=sha256:485625629bf14003e947ce13e5f901cc1ba8d298a152e52917b19017914baf80
-# Transitive dependencies must be resolved and hash-locked before installation.
-# This intentionally is not an installable complete dependency lock.
+# Installation entry point for Linux x86_64 / CPython 3.12 ONLY.
+# Use --require-hashes --only-binary :all: --torch-backend cpu with uv (README).
+-r requirements-linux-x86_64-py312.lock

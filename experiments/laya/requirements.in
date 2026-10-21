@@ -1,0 +1,4 @@
+# Official PyPI; torch CPU wheels from official PyTorch index via --torch-backend cpu.
+laya==0.4.12
+torch==2.8.0+cpu
+transformers==4.57.6

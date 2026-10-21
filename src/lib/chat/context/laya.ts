@@ -23,7 +23,7 @@ export async function layaRerank<T extends Jevable>(
     ]);
     // Require a complete positional vector; reject omissions, NaN, infinity and aliases.
     if (!Array.isArray(result) || result.length !== items.length ||
-        !result.every(s => typeof s === 'number' && Number.isFinite(s) && s >= 0 && s <= 1)) return baseline();
+        !Array.from(result).every(s => typeof s === 'number' && Number.isFinite(s) && s >= 0 && s <= 1)) return baseline();
     return items.map((item, index) => ({ item, index, score: result[index] as number }))
       .sort((a, b) => b.score - a.score || a.index - b.index).slice(0, topN).map(x => x.item);
   } catch {
