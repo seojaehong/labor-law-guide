@@ -8,7 +8,7 @@ import type { HwpKind } from '@/lib/hwp/hwp-doc';
 
 /** public/hwp-editor/ 의 편집기(rhwp-studio). 같은 출처라 next.config 의 SAMEORIGIN 헤더로 iframe 에 뜬다 */
 const STUDIO_URL = '/hwp-editor/index.html?chrome=embed&lang=ko';
-const HWP_WARNING = 'hwp 저장은 바탕쪽(둘째 이후)·메모·수식 캡션이 빠질 수 있습니다(rhwp 0.8.7 알려진 한계). 제출본은 hwpx 를 권합니다';
+const HWP_WARNING = 'hwp 저장본은 한글에서 열리지 않을 수 있고, 바탕쪽(둘째 이후)·메모·수식 캡션이 빠질 수 있습니다(rhwp 0.8.7 알려진 한계). 제출본은 hwpx 를 권합니다';
 
 type Msg = { kind: 'info' | 'error'; text: string };
 
@@ -125,7 +125,7 @@ export default function HwpEditorClient() {
           <p className="he-lead">hwp·hwpx 문서를 브라우저에서 열어 쪽 모양 그대로 글자를 고치고 내려받습니다. 한글 프로그램이 없어도 됩니다. 글자만 찾아 바꾸려면 <Link href="/tools/hwp">한글 문서 열기·고치기</Link>가 더 빠릅니다.</p>
           <ul className="he-note">
             <li>원본 파일은 바뀌지 않습니다. 수정본은 「_수정」을 붙인 새 파일로 내려받습니다.</li>
-            <li>저장은 hwpx 를 권합니다. hwp 저장은 바탕쪽(둘째 이후)·메모·수식 캡션이 빠질 수 있습니다.</li>
+            <li>저장은 hwpx 를 권합니다. hwp 저장본은 한글에서 열리지 않을 수 있고, 바탕쪽(둘째 이후)·메모·수식 캡션이 빠질 수 있습니다.</li>
             <li>쪽 나눔과 글꼴은 한컴 한글과 다르게 보일 수 있습니다. 제출 전에는 한글에서 한 번 열어 확인하세요.</li>
             <li>처음 한 번 편집기 엔진(약 5MB)을 받습니다. 파일은 서버로 보내지 않고 이 브라우저 안에서만 다루며, 편집 중 초안도 브라우저에 남기지 않습니다.</li>
           </ul>
