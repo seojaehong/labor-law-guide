@@ -28,17 +28,25 @@ export default function HwpApply({ source, items, enabled, floorNote, toast }: {
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
+    // 본문 칸을 고친 동안에는 다시 계산하지 않는다(수락 목록을 지우지 않고 버튼만 끈다)
+    if (!enabled) return;
     let live = true;
     HwpEditDoc.open(source.bytes.slice())
       .then((doc) => {
         try {
           const p = planChanges(doc.paragraphs(), items);
-          if (live) { setPlan(p); setBlocked(doc.saveBlocked); setError(null); setEdits({}); setAccepted([]); setRejected([]); }
+          if (live) {
+            // 같은 변경(같은 id)은 수락·수정 상태를 이어 간다 — 본문 칸을 고쳤다 되돌려도 고른 것이 남는다
+            const keep = (ids: string[]) => ids.filter((id) => p.changes.some((c) => c.id === id));
+            setPlan(p); setBlocked(doc.saveBlocked); setError(null);
+            setAccepted(keep); setRejected(keep);
+            setEdits((e) => Object.fromEntries(Object.entries(e).filter(([id]) => p.changes.some((c) => c.id === id))));
+          }
         } finally { doc.free(); }
       })
       .catch((e) => { if (live) setError((e as Error).message); });
     return () => { live = false; };
-  }, [source, items]);
+  }, [source, items, enabled]);
 
   const changes = useMemo(() => (plan?.changes ?? []).map((c) => ({ ...c, ...edits[c.id] })), [plan, edits]);
   const acceptedList = changes.filter((c) => accepted.includes(c.id));

@@ -350,7 +350,7 @@ export default function RulesCheck({ onClose, toast }: { onClose: () => void; to
                     <p className="lr-check-note">조문 제목이 달라 짝을 못 찾았을 수도 있습니다. 같은 내용이 다른 조문에 있으면 무시하세요.</p>
                   </details>
                 )}
-                {hasText && source && <HwpApply source={source} items={result.items} enabled={canApplyText(source, text)} floorNote={FLOOR_NOTE} toast={toast} />}
+                {hasText && source && <HwpApply key={`${source.name}:${source.bytes.byteLength}`} source={source} items={result.items} enabled={canApplyText(source, text)} floorNote={FLOOR_NOTE} toast={toast} />}
                 {hasText && !source && open.some((i) => i.proposal) && <p className="lr-check-note">hwp·hwpx 파일을 올리면 바꿀 문안 제안을 그 파일에 넣은 새 파일을 받을 수 있습니다.</p>}
                 <p className="lr-check-note">
                   문구 일치는 키워드 대조 결과이며 법률 검수 완료를 뜻하지 않습니다. 표준취업규칙 2026(고용노동부, 2026. 2. 배포)과 법제처 원문을 기준으로 하며 공인노무사 검수 전입니다.

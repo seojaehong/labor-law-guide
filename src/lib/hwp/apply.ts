@@ -156,7 +156,8 @@ export function planChanges(index: IndexedPara[], items: PeriodItem[]): Plan {
   const lastMain = firstSupp > 0 ? firstSupp - 1 : firstSupp < 0 ? articles.length - 1 : 0;
   const changes: Change[] = [];
   const text = (s: number, e: number) => lines.slice(s, e + 1).map((l) => l.text).join('\n');
-  const hasCtrl = (s: number, e: number) => lines.slice(s, e + 1).some((l) => l.controls > 0);
+  // 줄 사이의 빈 문단(글자 없는 표 문단 등)까지 본다 — 표가 조문 중간에 있으면 문단을 합치다 표를 건드린다
+  const hasCtrl = (s: number, e: number) => index.slice(lines[s].ord, lines[e].ord + 1).some((x) => x.controls > 0);
 
   for (const it of items) {
     if (it.status === '반영됨') continue;
