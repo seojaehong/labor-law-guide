@@ -70,6 +70,14 @@ def pipeline(new_text: str, old_text: str | None, asof: date, since: date, triag
     return rows, report
 
 
+def anthropic_client():
+    """조직 단위 키(워크스페이스 미지정)는 anthropic-workspace-id 헤더가 있어야 한다 — ANTHROPIC_WORKSPACE_ID 로 준다."""
+    import anthropic
+
+    ws = os.environ.get("ANTHROPIC_WORKSPACE_ID")
+    return anthropic.Anthropic(default_headers={"anthropic-workspace-id": ws} if ws else None)
+
+
 def _need(name: str) -> str:
     v = os.environ.get(name)
     if not v:
@@ -83,7 +91,7 @@ def _triage_backend(kind: str, headcount: str):
         import anthropic
 
         from work_rules_c.triage import HaikuTriage
-        return HaikuTriage(anthropic.Anthropic())
+        return HaikuTriage(anthropic_client())
     from work_rules_c.decisions import DecisionTriage, JevClient, OpenAIDecisionsClient
     if kind == "jev":
         return DecisionTriage(JevClient(_need("TYPESAFE_API_KEY")), headcount=headcount)
@@ -115,11 +123,11 @@ def main(argv=None) -> int:
     if a.triage == "none":
         from work_rules_c.batch_judge import BatchJudge
         triage = None
-        judge = BatchJudge(anthropic.Anthropic(), model=a.judge_model, effort=a.effort, size=a.batch_size)
+        judge = BatchJudge(anthropic_client(), model=a.judge_model, effort=a.effort, size=a.batch_size)
     else:
         from work_rules_c.judge import AnthropicJudge
         triage = _triage_backend(a.triage, a.headcount)
-        judge = AnthropicJudge(anthropic.Anthropic(), model=a.judge_model, effort=a.effort)
+        judge = AnthropicJudge(anthropic_client(), model=a.judge_model, effort=a.effort)
     meta = {"사업장": a.site, "작성일": date.today().isoformat(), "점검 기간": f"{a.since} ~ {a.asof}",
             "기준 자료": "표준취업규칙 2026 · 법제처 원문"}
     try:

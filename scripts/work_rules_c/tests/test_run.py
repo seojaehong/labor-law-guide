@@ -67,6 +67,15 @@ def test_pipeline_without_old_marks_all_new():
     assert judge.seen == ["제7조", "제46조", "제50조"]
 
 
+def test_anthropic_client_sends_workspace_header(monkeypatch):
+    from work_rules_c import run
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-test")
+    monkeypatch.setenv("ANTHROPIC_WORKSPACE_ID", "wrkspc_abc")
+    assert run.anthropic_client().default_headers.get("anthropic-workspace-id") == "wrkspc_abc"
+    monkeypatch.delenv("ANTHROPIC_WORKSPACE_ID")
+    assert "anthropic-workspace-id" not in run.anthropic_client().default_headers
+
+
 def test_default_judge_model_is_sonnet():
     from work_rules_c import run
     assert run.DEFAULT_JUDGE_MODEL == "claude-sonnet-5-5"
