@@ -9,8 +9,8 @@
     "lint": "eslint",
     "test": "vitest run",
     "e2e": "playwright test",
-    "predev": "node scripts/copy-rhwp-wasm.mjs",
-    "prebuild": "node scripts/copy-rhwp-wasm.mjs"
+    "predev": "node scripts/copy-rhwp-wasm.mjs && node scripts/copy-pdfjs-worker.mjs",
+    "prebuild": "node scripts/copy-rhwp-wasm.mjs && node scripts/copy-pdfjs-worker.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.117.1",
@@ -28,6 +28,7 @@
     "lucide-react": "^0.577.0",
     "next": "16.1.6",
     "pdf-lib": "^1.17.1",
+    "pdfjs-dist": "^5.4.149",
     "pretendard": "^1.3.9",
     "radix-ui": "^1.4.3",
     "react": "19.2.3",

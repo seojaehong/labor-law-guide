@@ -157,12 +157,15 @@ export default function RulesCheck({ onClose, toast }: { onClose: () => void; to
     const fail = (message: string) => { setFileError(message); toast(message); };
     if (f.size > MAX_FILE_BYTES) return fail('파일은 10MB 이하만 읽습니다');
     const kind = kindOf(f.name);
-    if (!kind) return fail('hwp·hwpx·docx 파일만 읽습니다');
+    if (!kind) return fail('hwp·hwpx·docx·pdf 파일만 읽습니다');
     setBusy(true);
     try {
+      const buf = await f.arrayBuffer();
       const t = kind === 'hwp'
-        ? await (await import('@/lib/laws/hwp-read')).readHwpText(await f.arrayBuffer())
-        : await readDocText(await f.arrayBuffer(), kind);
+        ? await (await import('@/lib/laws/hwp-read')).readHwpText(buf)
+        : kind === 'pdf'
+          ? await (await import('@/lib/laws/pdf-read')).readPdfText(buf)
+          : await readDocText(buf, kind);
       if (!t.trim()) throw new Error('본문에서 읽을 수 있는 글자가 없습니다. 이미지 문서는 글자를 직접 붙여넣으세요. 기존 입력은 유지됩니다.');
       setText(t);
       toast(`${f.name} — 이 브라우저 안에서 글자만 읽었습니다`);
@@ -263,7 +266,7 @@ export default function RulesCheck({ onClose, toast }: { onClose: () => void; to
             <div className="lr-check-meta">
               <ShieldCheck size={14} /> 본문과 파일은 이 브라우저 안에서만 읽고 판정합니다. 서버로 보내지 않습니다.
               <span className="sp" />
-              <input ref={fileRef} type="file" accept=".hwpx,.docx,.hwp" hidden onChange={(e) => onFile(e.target.files?.[0])} />
+              <input ref={fileRef} type="file" accept=".hwpx,.docx,.hwp,.pdf" hidden onChange={(e) => onFile(e.target.files?.[0])} />
               <button className="lr-btn lr-btn-ghost lr-btn-sm" onClick={() => fileRef.current?.click()} disabled={busy}><FileUp size={14} /> {busy ? '읽는 중…' : 'hwp·hwpx·docx 올리기'}</button>
               {!text && <button className="lr-btn lr-btn-ghost lr-btn-sm" onClick={() => setText(SAMPLE)}>예시로 해보기</button>}
               {text && <button className="lr-btn lr-btn-ghost lr-btn-sm" onClick={() => setText('')}>지우기</button>}

@@ -72,3 +72,5 @@ __pycache__/
 
 # rhwp WASM (scripts/copy-rhwp-wasm.mjs 가 빌드 때 복사)
 /public/rhwp/
+# pdf.js 워커 (scripts/copy-pdfjs-worker.mjs 가 빌드 때 복사)
+/public/pdfjs/
