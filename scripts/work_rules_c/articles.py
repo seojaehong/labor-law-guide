@@ -10,6 +10,8 @@ NO = r"제\s*\d+\s*조(?:\s*의\s*\d+)?"
 HEAD = re.compile(rf"^\s*({NO})\s*(?:\(([^)]*)\)|【([^】]*)】|(?=\s+(?!에|의|와|과|을|를|및|부터|까지|제|·|,)\S))")
 PAGE_MARK = re.compile(r"^-\s*\d+\s*-$")
 TRAILING_PAGE_MARK = re.compile(r"\s+-\s*\d+\s*-\s*$")
+CHAPTER = re.compile(r"^\s*제\s*\d+\s*(?:장|절|관)(?:\s|$)")  # 장·절 제목 — 어느 조문의 본문도 아니다
+TOC_REST = re.compile(r"^(?:\[[^\]]*\]\s*)*\.*\s*\d*$")  # 목차 줄 꼬리: 「[필수] 7」·「…… 12」·쪽 번호뿐
 STOP = re.compile(r"^\s*(?:부\s*칙|개정\s*부\s*칙|附\s*則|[\[【]\s*별\s*[지표]|별\s*[지표]\s*제?\s*\d+\s*호)")
 
 
@@ -34,11 +36,12 @@ def split_articles(text: str) -> list[Article]:
     current = None
     for raw in text.splitlines():
         line = TRAILING_PAGE_MARK.sub("", raw).strip()
-        if not line or PAGE_MARK.match(line):
+        if not line or PAGE_MARK.match(line) or CHAPTER.match(line):
             continue
         if STOP.match(line):
-            # 목차에 적힌 「부칙」은 멈춤 신호가 아니다 — 본문이 있는 조문이 하나라도 생긴 뒤에만 멈춘다
-            if any(lines for _, lines in found.values()):
+            # 목차에 적힌 「부칙」은 멈춤 신호가 아니다 — 바로 앞 조문에 본문이 있을 때만 멈춘다
+            # (목차에는 쪽 머리글 같은 군더더기가 다른 항목에 붙을 수 있어 「본문 있는 조문이 하나라도」로는 못 가린다)
+            if current and found[current][1]:
                 break
             current = None
             continue
@@ -47,6 +50,8 @@ def split_articles(text: str) -> list[Article]:
             current = re.sub(r"\s", "", m.group(1))
             title = (m.group(2) or m.group(3) or "").strip()
             rest = line[m.end():].strip()
+            if TOC_REST.match(rest):  # 목차 항목 — 본문이 아니다
+                rest = ""
             found[current] = (title, [rest] if rest else [])
             continue
         if current:

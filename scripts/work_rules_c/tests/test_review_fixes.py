@@ -60,6 +60,18 @@ def test_toc_listing_supplementary_does_not_stop_body():
     assert [a.body for a in split_articles(t)] == ["실제 목적", "실제 범위"]
 
 
+def test_toc_with_page_numbers_and_tags_is_not_body():
+    t = ("제1조(목적) [필수] \t7\n제2조(적용범위) [필수] \t7\n부 칙\t95\n"
+         "제1조(목적) 이 규칙은 목적을 정한다.\n제2조(적용범위) ① 사원에게 적용한다.\n부 칙\n제1조(시행일) 시행")
+    assert [a.body for a in split_articles(t)] == ["이 규칙은 목적을 정한다.", "① 사원에게 적용한다."]
+
+
+def test_chapter_headings_in_toc_are_not_body():
+    t = ("제1장 총칙\n제1조(목적) [필수] \t7\n제2장 보칙\n제2조(비치) [선택] \t70\n부  칙 \t71\n"
+         "제1장 총칙\n제1조(목적) 목적을 정한다.\n제2장 보칙\n제2조(비치) 비치한다.\n부 칙\n제1조(시행일) 시행")
+    assert [a.body for a in split_articles(t)] == ["목적을 정한다.", "비치한다."]
+
+
 def test_pipeline_refuses_empty_document():
     with pytest.raises(ValueError):
         pipeline("목 차\n제1조(목적)\n제2조(적용)", None, date(2026, 10, 21), date(2023, 1, 1), _clean_haiku(),
