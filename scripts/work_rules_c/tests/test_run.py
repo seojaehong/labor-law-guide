@@ -67,6 +67,11 @@ def test_pipeline_without_old_marks_all_new():
     assert judge.seen == ["제7조", "제46조", "제50조"]
 
 
+def test_default_judge_model_is_sonnet():
+    from work_rules_c import run
+    assert run.DEFAULT_JUDGE_MODEL == "claude-sonnet-5-5"
+
+
 def test_bad_asof_exits_2(tmp_path):
     f = tmp_path / "rules.txt"
     f.write_text(NEW, encoding="utf-8")

@@ -1,7 +1,7 @@
 """취업규칙 정밀 점검(C) 고정 파이프라인 실행.
 
 python3 scripts/work_rules_c/run.py --rules <개정안> [--old <종전>] --asof 2026-10-21 --since 2023-01-01 \
-    --out <폴더> --triage haiku|jev|openai [--judge-model claude-opus-5-5] [--min-confidence 0.8] [--site 사업장명]
+    --out <폴더> --triage haiku|jev|openai [--judge-model claude-sonnet-5-5] [--min-confidence 0.8] [--site 사업장명]
 """
 import argparse
 import json
@@ -21,6 +21,9 @@ from work_rules_c.mapping import NEW_BUCKET, hits_by_article, map_rules  # noqa:
 from work_rules_c.quantities import quantity_drops  # noqa: E402
 from work_rules_c.report import build_rows, write_outputs  # noqa: E402
 from work_rules_c.triage import TriageBackend  # noqa: E402
+
+
+DEFAULT_JUDGE_MODEL = "claude-sonnet-5-5"  # 2026-10-21 재홍님 「소넷만 가도 되지 않을까」
 
 
 def pipeline(new_text: str, old_text: str | None, asof: date, since: date, triage: TriageBackend,
@@ -89,7 +92,7 @@ def main(argv=None) -> int:
     ap.add_argument("--since", required=True, type=date.fromisoformat)
     ap.add_argument("--out", required=True, type=Path)
     ap.add_argument("--triage", required=True, choices=["haiku", "jev", "openai"])
-    ap.add_argument("--judge-model", default="claude-opus-5-5")
+    ap.add_argument("--judge-model", default=DEFAULT_JUDGE_MODEL)
     ap.add_argument("--min-confidence", type=float, default=0.8)
     ap.add_argument("--site", default="")
     ap.add_argument("--headcount", default="")
