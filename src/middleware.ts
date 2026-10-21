@@ -42,6 +42,11 @@ const LEGACY_CATEGORY_TO_REASON: Record<string, string> = {
 }
 
 export function middleware(request: NextRequest) {
+  // Local-only document harness: gate before streaming and markdown negotiation.
+  if ((request.nextUrl.pathname === '/ai/workspace' || request.nextUrl.pathname.startsWith('/ai/workspace/')) &&
+      (process.env.NODE_ENV === 'production' || process.env.AI_WORKSPACE_DEMO !== 'true')) {
+    return new NextResponse('Not found', { status: 404 });
+  }
   // Cloudflare 가 앞단에 있으므로 nextUrl.host 가 아니라 Host 헤더를 본다.
   const host = (request.headers.get('host') || '').toLowerCase().split(':')[0]
   if (host === `www.${CANONICAL_HOST}`) {
