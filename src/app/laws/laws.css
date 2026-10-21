@@ -392,3 +392,5 @@
 .dark .lr-period input[type="date"] { color-scheme: dark; }
 
 .lr-file-error { margin:12px 20px; padding:12px; border:1px solid var(--lr-hair); color:var(--lr-ink); background:var(--lr-canvas); font-size:14px; line-height:1.6; }
+.lr-hwp-notice { margin:0; padding:0 16px 10px; color:var(--lr-mute); font-size:12px; line-height:1.6; }
+.lr-hwp-notice a { color:inherit; text-decoration:underline; }

@@ -69,3 +69,6 @@ __pycache__/
 
 # Local CLI browser snapshots
 .playwright-cli/
+
+# rhwp WASM (scripts/copy-rhwp-wasm.mjs 가 빌드 때 복사)
+/public/rhwp/
