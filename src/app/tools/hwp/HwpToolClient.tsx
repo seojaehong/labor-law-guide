@@ -113,7 +113,7 @@ export default function HwpToolClient() {
         <header className="hw-hero">
           <p className="hw-eyebrow"><Link href="/tools">계산·점검 도구</Link> · 한글 문서</p>
           <h1 className="hw-h1">한글 문서 열기·고치기</h1>
-          <p className="hw-lead">hwp·hwpx 파일을 브라우저에서 열어 쪽 모양으로 보고, 글자를 찾아 바꾼 뒤 hwp 또는 hwpx 로 내려받습니다. 한글 프로그램이 없어도 됩니다.</p>
+          <p className="hw-lead">hwp·hwpx 파일을 브라우저에서 열어 쪽 모양으로 보고, 글자를 찾아 바꾼 뒤 hwp 또는 hwpx 로 내려받습니다. 한글 프로그램이 없어도 됩니다. 쪽 위에서 직접 글자를 고치려면 <Link href="/hwp-editor">한글 문서 편집기</Link>를 쓰세요.</p>
           <p className="hw-note">원본 파일은 바뀌지 않습니다. 수정본은 「_수정」을 붙인 새 파일로 내려받습니다. 쪽 나눔과 글꼴은 한컴 한글과 다르게 보일 수 있으니, 제출 전에는 한글에서 한 번 열어 확인하세요.</p>
         </header>
 
