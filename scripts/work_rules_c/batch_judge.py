@@ -69,13 +69,20 @@ class BatchJudge:
         out: dict[str, JudgeOut] = {}
         for group in chunks(pairs, self.size):
             got = self._ask(group, drops, hits)
+            answers = {} if isinstance(got, str) else got
+            left = [p for p in group if p.no not in answers]
+            why = got if isinstance(got, str) else "묶음 답에서 빠짐"
+            if left:  # 실패했거나 빠진 조문만 한 번 더 묻는다
+                again = self._ask(left, drops, hits)
+                if isinstance(again, str):
+                    why = again
+                else:
+                    answers.update(again)
             for p in group:
-                if isinstance(got, str):
-                    out[p.no] = failed(got)
-                elif p.no not in got:
-                    out[p.no] = failed("묶음 답에서 빠짐")
-                elif got[p.no].result != "문제없음":
-                    f = got[p.no]
+                if p.no not in answers:
+                    out[p.no] = failed(why)
+                elif answers[p.no].result != "문제없음":
+                    f = answers[p.no]
                     out[p.no] = JudgeOut(result=f.result, disadvantage=f.disadvantage, reason=f.reason,
                                          basis=f.basis, ops_note=f.ops_note, proposed_text=f.proposed_text)
         return out

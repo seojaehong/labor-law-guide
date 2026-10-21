@@ -39,6 +39,39 @@ def test_missing_article_forced_to_check():
     assert sorted(out) == ["제2조", "제3조"] and out["제2조"].result == "추가 확인"
 
 
+class SequenceClient(FakeClient):
+    """호출마다 다른 답(또는 예외)을 낸다."""
+
+    def __init__(self, seq):
+        super().__init__()
+        self.seq = list(seq)
+        self.asked = []
+
+    def _parse(self, **kwargs):
+        import json
+        self.calls += 1
+        self.asked.append([a["조문"] for a in json.loads(kwargs["messages"][0]["content"])["조문들"]])
+        item = self.seq.pop(0)
+        if isinstance(item, Exception):
+            raise item
+        from types import SimpleNamespace
+        return SimpleNamespace(parsed_output=item, stop_reason="end_turn",
+                               usage=SimpleNamespace(input_tokens=1, output_tokens=1, cache_read_input_tokens=0,
+                                                     cache_creation_input_tokens=0))
+
+
+def test_missing_articles_retried_once():
+    c = SequenceClient([BatchOut(findings=[_f("제1조")]), BatchOut(findings=[_f("제2조"), _f("제3조")])])
+    out = BatchJudge(c, size=8).judge_all(_pairs(3), {}, {})
+    assert out == {} and c.asked == [["제1조", "제2조", "제3조"], ["제2조", "제3조"]]
+
+
+def test_failed_chunk_retried_then_marked():
+    c = SequenceClient([RuntimeError("x"), RuntimeError("y")])
+    out = BatchJudge(c, size=8).judge_all(_pairs(2), {}, {})
+    assert c.calls == 2 and sorted(out) == ["제1조", "제2조"]
+
+
 def test_call_failure_marks_whole_chunk():
     out = BatchJudge(FakeClient(raises=RuntimeError("x")), size=8).judge_all(_pairs(3), {}, {})
     assert sorted(out) == ["제1조", "제2조", "제3조"]
