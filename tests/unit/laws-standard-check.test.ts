@@ -142,7 +142,11 @@ describe('periodCheck', () => {
     const r1 = periodCheck({ text: MY, std: STD, events: EVENTS, rules: RULES, from: '20260101', to: '20261005' });
     expect(r1.items).toEqual([]);
     const r2 = periodCheck({ text: MY, std: STD, events: EVENTS, rules: RULES, from: '20260101', to: '20270610' });
-    expect(r2.items.map((i) => [i.std.id, i.status])).toEqual([['제30조', '고칠 것']]);
+    // 들어오기는 들어오되, 시행일이 아직 안 왔으면 「고칠 것」이 아니라 「시행 예정」이다(2026-10-21).
+    expect(r2.items.map((i) => [i.std.id, i.status])).toEqual([['제30조', '시행 예정']]);
+    // 시행일이 지난 뒤에는 같은 항목이 「고칠 것」으로 옮겨 간다 — 들어온다는 원래 취지는 그대로다.
+    const r3 = periodCheck({ text: MY, std: STD, events: EVENTS, rules: RULES, from: '20260101', to: '20270610', today: '20270611' });
+    expect(r3.items.map((i) => [i.std.id, i.status])).toEqual([['제30조', '고칠 것']]);
   });
 
   it('본문 없이 기간만 고르면 문안 묶음을 준다', () => {
