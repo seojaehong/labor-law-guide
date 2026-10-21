@@ -142,12 +142,13 @@ export async function verifyCitations(text: string, options: {
       const matches = rows.filter(r => r.law_name === citation.law && r.article_label === citation.label);
       const row = matches[0];
       const date = row?.article_effective_date ?? row?.effective_date;
-      const source = row?.law_mst && /^\d+$/.test(row.law_mst) && row.source
-        ? `https://www.law.go.kr/LSW/lsInfoP.do?lsiSeq=${row.law_mst}` : null;
+      const source = row?.law_mst && /^\d+$/.test(row.law_mst) && row.source && isoDate(row.effective_date)
+        ? `https://www.law.go.kr/LSW/lsInfoP.do?lsiSeq=${row.law_mst}&efYd=${row.effective_date.replaceAll('-', '')}` : null;
       const reason = !matches.length ? 'reference_not_found' : matches.length !== 1 ? 'conflicting_revisions'
         : row.is_deleted !== false || row.exists_flag !== true ? 'deleted_or_unknown'
+        : !isoDate(date) || !isoDate(row.effective_date) ? 'missing_effective_date'
         : !source || typeof row.body !== 'string' || !row.body.trim() ? 'missing_source_or_text'
-        : !isoDate(date) ? 'missing_effective_date' : date > applicableOn ? 'not_yet_effective'
+        : date > applicableOn || row.effective_date > applicableOn ? 'not_yet_effective'
         : 'meaning_and_applicability_unverified';
       return { citation, status: reason === 'meaning_and_applicability_unverified' ? 'reference_found' : 'review_required',
         reason, source, effectiveDate: isoDate(date) ? date : null };

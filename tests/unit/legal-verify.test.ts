@@ -124,3 +124,27 @@ describe('explicit statutory citation coverage', () => {
     expect((await pending).reason).toBe('lookup_cancelled');
   });
 });
+
+describe('snapshot provenance and employment insurance date mismatch', () => {
+  it('pins the source URL to the stored snapshot date rather than a default future edition', async () => {
+    const result = await run([{ ...row, effective_date: '2026-09-18', article_effective_date: '2025-01-01' }]);
+    expect(result.evidence[0].source).toBe('https://www.law.go.kr/LSW/lsInfoP.do?lsiSeq=123&efYd=20260918');
+    expect(result.evidence[0].effectiveDate).toBe('2025-01-01');
+    expect(result.evidence[0].status).toBe('reference_found');
+  });
+  it('does not approve a future snapshot through an earlier provision date', async () => {
+    const result = await run([{ ...row, effective_date: '2028-01-01', article_effective_date: '2025-01-01' }]);
+    expect(result.evidence[0]).toMatchObject({ status: 'review_required', reason: 'not_yet_effective' });
+  });
+  it('requires a known snapshot date even when a provision date exists', async () => {
+    const result = await run([{ ...row, effective_date: null, article_effective_date: '2025-01-01' }]);
+    expect(result.evidence[0]).toMatchObject({ status: 'review_required', reason: 'missing_effective_date', source: null });
+  });
+  it.each([40,45,70])('holds mixed current-snapshot/future-provision metadata for article %i', async article => {
+    const text = `고용보험법 제${article}조 관련 합성 참고 설명`;
+    const result = await verifyCitations(text, { applicableOn: '2026-10-21', lookup: async () => ({ data: [{ ...row, law_name: '고용보험법', article_label: `제${article}조`, effective_date: '2026-09-18', article_effective_date: '2028-01-01', law_mst: '284449' }] }) });
+    expect(result.evidence[0]).toMatchObject({ status: 'review_required', reason: 'not_yet_effective' });
+    expect(result.evidence[0].source).toContain('lsiSeq=284449&efYd=20260918');
+    expect(legalReviewOutput(text, result, true)).not.toContain(text);
+  });
+});
