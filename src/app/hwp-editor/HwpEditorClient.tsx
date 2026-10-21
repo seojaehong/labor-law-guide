@@ -49,7 +49,11 @@ export default function HwpEditorClient() {
   const getEditor = () => {
     if (!editorRef.current) {
       prepareStudioSettings();
-      editorRef.current = import('@rhwp/editor').then((m) => m.createEditor(hostRef.current!, { studioUrl: STUDIO_URL }));
+      // 빌드에서 편집기가 빠졌으면(scripts/build-hwp-editor.mjs 가 실패를 건너뜀) 기다리지 말고 바로 알린다
+      editorRef.current = fetch(STUDIO_URL, { method: 'HEAD' })
+        .then((r) => { if (!r.ok) throw new Error('지금은 편집기를 쓸 수 없습니다. 「한글 문서 열기·고치기」(/tools/hwp)에서 찾아 바꾸기로 고칠 수 있습니다'); })
+        .then(() => import('@rhwp/editor'))
+        .then((m) => m.createEditor(hostRef.current!, { studioUrl: STUDIO_URL }));
       editorRef.current.catch(() => { editorRef.current = null; hostRef.current?.replaceChildren(); });
     }
     return editorRef.current;

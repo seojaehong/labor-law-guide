@@ -137,10 +137,18 @@ if (!force && existsSync(join(OUT, 'index.html')) && existsSync(STAMP) && readFi
   writeFileSync(STAMP, stamp);
   console.log(`hwp-editor: restored ${TAG} from .next/cache (${stamp}) in ${Date.now() - t0}ms`);
 } else {
-  fetchSource();
-  await buildStudio();
-  writeFileSync(STAMP, stamp);
-  rmSync(dirname(saved), { recursive: true, force: true });
-  cpSync(OUT, saved, { recursive: true });
-  console.log(`hwp-editor: built ${TAG} into public/hwp-editor (${stamp}) in ${Date.now() - t0}ms`);
+  // GitHub 장애·태그 이동으로 편집기를 못 만들어도 사이트 배포는 막지 않는다 — 편집기만 빠진다.
+  // 엄격하게 멈추려면 HWP_EDITOR_STRICT=1
+  try {
+    fetchSource();
+    await buildStudio();
+    writeFileSync(STAMP, stamp);
+    rmSync(dirname(saved), { recursive: true, force: true });
+    cpSync(OUT, saved, { recursive: true });
+    console.log(`hwp-editor: built ${TAG} into public/hwp-editor (${stamp}) in ${Date.now() - t0}ms`);
+  } catch (e) {
+    if (process.env.HWP_EDITOR_STRICT === '1') throw e;
+    rmSync(OUT, { recursive: true, force: true });
+    console.warn(`hwp-editor: ⚠ 편집기 빌드를 건너뜁니다(사이트 빌드는 계속) — ${e instanceof Error ? e.message : e}`);
+  }
 }
