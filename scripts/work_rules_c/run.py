@@ -20,7 +20,7 @@ from work_rules_c.judge import JudgeBackend, JudgeInput, apply_threshold  # noqa
 from work_rules_c.mapping import NEW_BUCKET, hits_by_article, map_rules  # noqa: E402
 from work_rules_c.quantities import quantity_drops  # noqa: E402
 from work_rules_c.report import build_rows, write_outputs  # noqa: E402
-from work_rules_c.triage import TriageBackend  # noqa: E402
+from work_rules_c.triage import Triage, TriageBackend, Usage, force_escalate  # noqa: E402
 
 
 DEFAULT_JUDGE_MODEL = "claude-sonnet-5-5"  # 2026-10-21 재홍님 「소넷만 가도 되지 않을까」
@@ -42,16 +42,25 @@ def pipeline(new_text: str, old_text: str | None, asof: date, since: date, triag
         hits.setdefault(NEW_BUCKET, []).extend(hits.pop(key))
     triages, judged = {}, {}
     t0 = time.time()
-    for p in pairs:
-        t = triage.triage(p, drops[p.no], hits.get(p.no, []))
-        triages[p.no] = t
-        if t.escalate:
-            out = judge.judge(JudgeInput(p, tuple(drops[p.no]), tuple(hits.get(p.no, [])), t))
-            judged[p.no] = apply_threshold(out, min_confidence)
+    if triage is None:  # 묶음 판단 — 1차 거르기 없이 모든 조문을 판단 단계가 본다
+        judged = judge.judge_all(pairs, drops, hits)
+        for p in pairs:
+            hard = p.new is None or force_escalate(drops[p.no], hits.get(p.no, []))
+            triages[p.no] = Triage(p.no, "확인필요" if p.no in judged or hard else "문제없음", (),
+                                   p.no in judged or hard)
+    else:
+        for p in pairs:
+            t = triage.triage(p, drops[p.no], hits.get(p.no, []))
+            triages[p.no] = t
+            if t.escalate:
+                out = judge.judge(JudgeInput(p, tuple(drops[p.no]), tuple(hits.get(p.no, [])), t))
+                judged[p.no] = apply_threshold(out, min_confidence)
     rows = build_rows(pairs, drops, hits, triages, judged)
-    tu, ju = cost.usd(triage.usage), cost.usd(judge.usage)
+    tusage = triage.usage if triage else Usage("none")
+    tu = cost.usd(tusage) if triage else 0.0
+    ju = cost.usd(judge.usage)
     report = {
-        "triage": {"backend": triage.name, **asdict(triage.usage), "usd": round(tu, 6)},
+        "triage": {"backend": triage.name if triage else "none", **asdict(tusage), "usd": round(tu, 6)},
         "judge": {"backend": judge.name, **asdict(judge.usage), "usd": round(ju, 6)},
         "total_usd": round(tu + ju, 6),
         "articles": len(triages),
@@ -91,18 +100,26 @@ def main(argv=None) -> int:
     ap.add_argument("--asof", required=True, type=date.fromisoformat)
     ap.add_argument("--since", required=True, type=date.fromisoformat)
     ap.add_argument("--out", required=True, type=Path)
-    ap.add_argument("--triage", required=True, choices=["haiku", "jev", "openai"])
+    ap.add_argument("--triage", required=True, choices=["haiku", "jev", "openai", "none"],
+                    help="none = 1차 거르기 없이 묶음 판단(조문 --batch-size 개씩 한 번에)")
+    ap.add_argument("--batch-size", type=int, default=8)
+    ap.add_argument("--effort", default="medium", choices=["low", "medium", "high"])
     ap.add_argument("--judge-model", default=DEFAULT_JUDGE_MODEL)
     ap.add_argument("--min-confidence", type=float, default=0.8)
     ap.add_argument("--site", default="")
     ap.add_argument("--headcount", default="")
     a = ap.parse_args(argv)
 
-    triage = _triage_backend(a.triage, a.headcount)
     import anthropic
 
-    from work_rules_c.judge import AnthropicJudge
-    judge = AnthropicJudge(anthropic.Anthropic(), model=a.judge_model)
+    if a.triage == "none":
+        from work_rules_c.batch_judge import BatchJudge
+        triage = None
+        judge = BatchJudge(anthropic.Anthropic(), model=a.judge_model, effort=a.effort, size=a.batch_size)
+    else:
+        from work_rules_c.judge import AnthropicJudge
+        triage = _triage_backend(a.triage, a.headcount)
+        judge = AnthropicJudge(anthropic.Anthropic(), model=a.judge_model, effort=a.effort)
     meta = {"사업장": a.site, "작성일": date.today().isoformat(), "점검 기간": f"{a.since} ~ {a.asof}",
             "기준 자료": "표준취업규칙 2026 · 법제처 원문"}
     try:
