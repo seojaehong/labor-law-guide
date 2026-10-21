@@ -1,7 +1,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 // 429 분기용 — createClient를 갈아끼운다(라우트는 supabase env가 있을 때만 호출).
-const { rpcMock } = vi.hoisted(() => ({ rpcMock: vi.fn() }));
+const { rpcMock, finishObservation } = vi.hoisted(() => ({ rpcMock: vi.fn(), finishObservation:vi.fn() }));
+vi.mock('@/lib/observations/service-completion',()=>({startServiceObservation:()=>({finish:finishObservation})}));
 vi.mock('@supabase/supabase-js', () => ({
   createClient: () => ({ rpc: rpcMock }),
 }));
@@ -67,6 +68,7 @@ beforeEach(() => {
   vi.stubGlobal('fetch', fetchMock);
   fetchMock.mockReset();
   rpcMock.mockReset();
+  finishObservation.mockReset();
   rpcMock.mockResolvedValue({ data: { allowed: true, count: 1 }, error: null });
   vi.stubEnv('ANTHROPIC_API_KEY', 'test-key');
   // 기본은 Supabase env 없음 = 레이트리밋 생략(로컬 동작)
@@ -257,4 +259,18 @@ describe('extractJsonPayload', () => {
     expect(extractJsonPayload('결과입니다: {"a":1} 이상입니다.')).toBe('{"a":1}');
     expect(extractJsonPayload('  {"a":1}  ')).toBe('{"a":1}');
   });
+});
+
+it('completion collector records extraction success without copied contract fields',async()=>{
+  fetchMock.mockResolvedValue(anthropicReply(JSON.stringify(GOOD_EXTRACTION)));
+  const res=await POST(makeRequest([{bytes:10}]));
+  expect(res.status).toBe(200);
+  expect(finishObservation).toHaveBeenCalledWith({stage:'completed',outcome:'success',error_code:'none',result_count:1});
+  expect(JSON.stringify(finishObservation.mock.calls)).not.toContain('서울');
+  expect(JSON.stringify(finishObservation.mock.calls)).not.toContain('2300000');
+});
+it('completion collector records upstream failure with unknown result count',async()=>{
+  fetchMock.mockResolvedValue({ok:false,status:500});
+  expect((await POST(makeRequest([{bytes:10}]))).status).toBe(502);
+  expect(finishObservation).toHaveBeenCalledWith({stage:'generation',outcome:'failure',error_code:'upstream_failed',result_count:null});
 });

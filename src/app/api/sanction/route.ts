@@ -1,7 +1,9 @@
+import { activeConversation, conversationQuery } from '@/lib/ai/conversation-query';
 import { NextRequest, NextResponse } from 'next/server';
-import { extractTags, searchCases, _retrievalTiming } from '@/lib/ai/retrieval';
+import { extractTags, searchCases } from '@/lib/ai/retrieval';
 import { buildComparisonMeta, buildUserContext, trimHistory, type ComparisonMeta } from '@/lib/ai/prompt';
 import { SYSTEM_PROMPT } from '@/lib/ai/prompt';
+import { faqReferences, validateFaqCitations, createFaqCitationGuard, createProviderCompletionTracker, requireNonstreamCompletion, ProviderCompletionError } from '@/lib/ai/faq-evidence';
 import { buildFaqContext } from '@/lib/chat/context/faq';
 import { supabaseAdmin } from '@/lib/supabase-server';
 import { supabase } from '@/lib/supabase';
@@ -167,7 +169,7 @@ function validateMessages(messages: unknown): { valid: true; messages: { role: s
     content: typeof message?.content === 'string' ? message.content.trim() : '',
   }));
 
-  if (normalized.some((message) => !message.role || !message.content || message.content.length > MAX_MESSAGE_LENGTH)) {
+  if (normalized.some((message) => !['user', 'assistant'].includes(message.role) || !message.content || message.content.length > MAX_MESSAGE_LENGTH)) {
     return { valid: false, error: `각 메시지는 role/content를 가져야 하며, content는 ${MAX_MESSAGE_LENGTH}자 이하여야 합니다.` };
   }
 
@@ -219,25 +221,26 @@ export async function POST(req: NextRequest) {
     }
 
     // === Timing 진단 (Step 3e) ===
-    interface FaqRef { id: number; category: string; question: string; answer: string; source: string }
     const _t = { start: Date.now(), tags: 0, search: 0, compMeta: 0, ctx: 0, totalPreLLM: 0 };
-    let faqEntries: FaqRef[] = [];
 
     // Step 1: 키워드 추출 (~1ms)
     const t_tags = Date.now();
-    const tags = extractTags(lastUserMsg.content);
+    const searchQuery = conversationQuery(messages);
+    const tags = extractTags(searchQuery);
     _t.tags = Date.now() - t_tags;
 
     // Step 2: DB 검색 + 부가 지식DB 동시 — 직렬 await로 retrieval 뒤에 FAQ 13s 추가되던 것 병렬화.
     const t_search = Date.now();
     const t_faq = Date.now();
     // FAQ 호출에 6s timeout (Supabase pooler 10s 컷 회피).
-    const faqWithTimeout = Promise.race<{ context: string; topIds: number[] }>([
-      buildFaqContext(db, lastUserMsg.content, null).then((r) => ({ context: r.context, topIds: r.topIds })).catch(() => ({ context: '', topIds: [] })),
-      new Promise<{ context: string; topIds: number[] }>((resolve) => setTimeout(() => resolve({ context: '', topIds: [] }), 6000)),
-    ]);
+    const emptyFaq = { context: '', topIds: [] as number[], selectedFaqs: [] as import('@/lib/chat/context/faq').FaqRow[] };
+    let faqTimer: ReturnType<typeof setTimeout> | undefined;
+    const faqWithTimeout = Promise.race([
+      buildFaqContext(db, searchQuery, null).catch(() => emptyFaq),
+      new Promise<typeof emptyFaq>((resolve) => { faqTimer = setTimeout(() => resolve(emptyFaq), 6000); }),
+    ]).finally(() => clearTimeout(faqTimer));
     const [retrieval, faqResult] = await Promise.all([
-      searchCases(tags, lastUserMsg.content),
+      searchCases(tags, searchQuery),
       faqWithTimeout,
     ]);
     _t.search = Date.now() - t_search;
@@ -245,30 +248,7 @@ export async function POST(req: NextRequest) {
     const topFaqIds = faqResult.topIds;
     const faqMs = Date.now() - t_faq;
 
-    // UI 노출용 — 매칭된 FAQ 본문 fetch (id로 5건)
-    if (topFaqIds.length > 0) {
-      try {
-        const { data: faqRows } = await db
-          .from('faq')
-          .select('id, question, answer, source, unified_category')
-          .in('id', topFaqIds)
-          .limit(5);
-        if (Array.isArray(faqRows)) {
-          // topFaqIds 순서 유지
-          const byId = new Map(faqRows.map((f) => [f.id, f]));
-          faqEntries = topFaqIds
-            .map((id) => byId.get(id))
-            .filter((f): f is { id: number; question: string; answer: string; source: string; unified_category: string } => !!f)
-            .map((f) => ({
-              id: f.id,
-              category: f.unified_category || '',
-              question: f.question || '',
-              answer: f.answer || '',
-              source: f.source || '',
-            }));
-        }
-      } catch { /* skip — meta event는 ids만 노출 */ }
-    }
+    const faqEntries = faqReferences(faqResult.selectedFaqs);
 
     const t_compMeta = Date.now();
     const comparison = buildComparisonMeta(
@@ -286,7 +266,7 @@ export async function POST(req: NextRequest) {
     const t_ctx = Date.now();
     const baseContext = buildUserContext(lastUserMsg.content, tags, retrieval.cases as unknown as Record<string, unknown>[]);
     const userContext = baseContext + faqContext;
-    const trimmedMessages = trimHistory(messages, userContext);
+    const trimmedMessages = trimHistory(activeConversation(messages).messages, userContext);
     _t.ctx = Date.now() - t_ctx;
     _t.totalPreLLM = Date.now() - _t.start;
 
@@ -294,9 +274,9 @@ export async function POST(req: NextRequest) {
     const diagTiming = {
       tags: _t.tags,
       search: _t.search,
-      embedding: _retrievalTiming.embedding,
-      rpc: _retrievalTiming.rpc,
-      rpcRows: _retrievalTiming.rpcRows,
+      embedding: retrieval.timings.embedding,
+      rpc: retrieval.timings.rpc,
+      rpcRows: retrieval.timings.rpcRows,
       compMeta: _t.compMeta,
       ctx: _t.ctx,
       faq: faqMs,
@@ -315,6 +295,7 @@ export async function POST(req: NextRequest) {
           // 즉시 DB 결과 전송
           controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'meta', tags: retrieval.tags, cases: retrieval.cases, comparison, diagTiming, faqs: faqEntries, degraded: retrieval.degraded })}\n\n`));
 
+          const citationGuard = createFaqCitationGuard(topFaqIds);
           try {
             const { resp, provider } = await callLLM(SYSTEM_PROMPT, trimmedMessages, {
               stream: true,
@@ -330,6 +311,7 @@ export async function POST(req: NextRequest) {
             const reader = resp.body.getReader();
             const decoder = new TextDecoder();
             let fullText = '';
+            const completion = createProviderCompletionTracker(provider);
             let buffer = '';
 
             while (true) {
@@ -340,7 +322,9 @@ export async function POST(req: NextRequest) {
               const lines = buffer.split('\n');
               buffer = lines.pop() ?? '';
               for (const line of lines) {
-                if (!line.startsWith('data: ') || line === 'data: [DONE]') continue;
+                if (!line.startsWith('data: ')) continue;
+                const payload = line.slice(6);
+                if (completion.observe(payload)) continue;
                 try {
                   const parsed = JSON.parse(line.slice(6));
                   const delta = provider === 'anthropic'
@@ -348,18 +332,25 @@ export async function POST(req: NextRequest) {
                     : parsed.choices?.[0]?.delta?.content;
                   if (delta) {
                     fullText += delta;
-                    controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'delta', text: delta })}\n\n`));
+                    const safeDelta = citationGuard.push(delta);
+                    if (safeDelta) controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'delta', text: safeDelta })}\n\n`));
                   }
                 } catch { /* skip malformed */ }
               }
             }
 
-            const analysis = sanitizeAnalysis(unwrapLegacyJson(fullText));
+            completion.requireComplete();
+            if (!fullText.trim()) throw new ProviderCompletionError('incomplete');
+            const safeTail = citationGuard.flush();
+            if (safeTail) controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'delta', text: safeTail })}\n\n`));
+            const analysis = validateFaqCitations(sanitizeAnalysis(unwrapLegacyJson(fullText)), topFaqIds);
             // 카드·쟁점·차이·체크리스트는 모두 DB 산출물이다. LLM 이 바꾸지 않는다.
             const finalComparison = comparison;
             controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'done', content: analysis, comparison: finalComparison, provider })}\n\n`));
-          } catch {
-            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'error', content: '응답 생성이 지연되고 있습니다.' })}\n\n`));
+          } catch (error) {
+            const safeTail = citationGuard.flush();
+            if (safeTail) controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'delta', text: safeTail })}\n\n`));
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'error', content: error instanceof ProviderCompletionError ? error.message : '응답 생성이 지연되고 있습니다.', error_code: error instanceof ProviderCompletionError ? error.code : 'stream_failed' })}\n\n`));
           }
           controller.close();
         },
@@ -376,12 +367,14 @@ export async function POST(req: NextRequest) {
       signal: AbortSignal.timeout(45_000),
     });
     const data = await resp.json();
+    requireNonstreamCompletion(provider, data);
     // OpenAI-compat (Gemini, OpenAI): choices[0].message.content
     // Anthropic: content[0].text
     const rawAnalysis = provider === 'anthropic'
-      ? (data.content?.[0]?.text || '분석 결과를 생성할 수 없습니다.')
-      : (data.choices?.[0]?.message?.content || '분석 결과를 생성할 수 없습니다.');
-    const analysis = sanitizeAnalysis(unwrapLegacyJson(rawAnalysis));
+      ? data.content?.[0]?.text
+      : data.choices?.[0]?.message?.content;
+    if (typeof rawAnalysis !== 'string' || !rawAnalysis.trim()) throw new ProviderCompletionError('incomplete');
+    const analysis = validateFaqCitations(sanitizeAnalysis(unwrapLegacyJson(rawAnalysis)), topFaqIds);
     // 카드·쟁점·차이·체크리스트는 모두 DB 산출물이다. LLM 이 바꾸지 않는다.
     const finalComparison = comparison;
 
@@ -392,6 +385,7 @@ export async function POST(req: NextRequest) {
       comparison: finalComparison,
       provider,
       degraded: retrieval.degraded,
+      faqs: faqEntries,
     });
   } catch (error) {
     const isTimeout = error instanceof Error && error.name === 'TimeoutError';
@@ -407,10 +401,11 @@ export async function POST(req: NextRequest) {
     console.error('[sanction] POST error:', error instanceof Error ? error.message : String(error));
 
     return NextResponse.json({
-      content: message,
+      content: error instanceof ProviderCompletionError ? error.message : message,
+      ...(error instanceof ProviderCompletionError ? { error_code: error.code, completion: 'incomplete' } : {}),
       tags: retrievalCache?.tags || [],
       cases: retrievalCache?.cases || [],
       comparison: retrievalCache?.comparison || null,
-    });
+    }, error instanceof ProviderCompletionError ? { status: 502 } : undefined);
   }
 }

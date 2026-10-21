@@ -1,3 +1,4 @@
+import OfficialSourceLink from "@/components/OfficialSourceLink";
 import Link from 'next/link';
 import { ArrowRight, FileText, Scale, Search } from 'lucide-react';
 import DatabaseClient from './DatabaseClient';
@@ -14,6 +15,7 @@ type FeaturedCase = {
   decision_date: string | null;
   summary: string | null;
   url: string | null;
+  original_url: string | null;
 };
 
 type FeaturedAdmin = {
@@ -23,6 +25,7 @@ type FeaturedAdmin = {
   decision_date: string | null;
   summary: string | null;
   url: string | null;
+  original_url: string | null;
 };
 
 const FEATURED_CASE_NUMBERS = ['2007두8881', '2010다106436', '2023누34646'];
@@ -201,11 +204,7 @@ export default async function DatabasePage() {
                   <Link href={`/database?q=${encodeURIComponent(item.case_number)}`} className="text-sm font-medium" style={{ color: 'var(--color-accent)' }}>
                     유사 판례 검색
                   </Link>
-                  {item.url && (
-                    <a href={item.url} target="_blank" rel="noopener noreferrer" className="text-sm font-medium" style={{ color: 'var(--color-text-secondary)' }}>
-                      원문 보기
-                    </a>
-                  )}
+                  <OfficialSourceLink urls={[item.original_url, item.url]} />
                 </div>
               </article>
             ))}
@@ -245,11 +244,7 @@ export default async function DatabasePage() {
                   <Link href={`/database?q=${encodeURIComponent(item.doc_number)}&tab=admin`} className="text-sm font-medium" style={{ color: 'var(--color-accent)' }}>
                     유사 해석 검색
                   </Link>
-                  {item.url && (
-                    <a href={item.url} target="_blank" rel="noopener noreferrer" className="text-sm font-medium" style={{ color: 'var(--color-text-secondary)' }}>
-                      원문 보기
-                    </a>
-                  )}
+                  <OfficialSourceLink urls={[item.original_url, item.url]} />
                 </div>
               </article>
             ))}

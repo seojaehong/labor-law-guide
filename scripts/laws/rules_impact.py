@@ -23,7 +23,7 @@ MAP = json.loads((ROOT / "scripts" / "laws" / "work_rules_map.json").read_text(e
 INDEX = ROOT / "public" / "data" / "laws" / "index.json"
 
 SHORT: dict[str, str] = {}
-ART = re.compile(r"^\s*(제\s*\d+\s*조(?:\s*의\s*\d+)?)\s*(\([^)]*\))?")
+ART = re.compile(r"^\s*(제\s*\d+\s*조(?:\s*의\s*\d+)?)\s*(\([^)]*\)|【[^】]*】|\[[^\]]*\])?")
 
 
 def norm(s: str) -> str:
@@ -45,11 +45,29 @@ def paragraphs(text: str) -> list[dict]:
 
 
 def has(text: str, needle: str) -> bool:
-    return norm(needle).replace(" ", "") in text.replace(" ", "")
+    return norm(needle).replace(" ", "") in norm(text).replace(" ", "")
+
+
+REFERENCE = re.compile(r"제\s*\d+\s*조(?:\s*의\s*\d+)?(?:에|를)\s*(?:따른다|참조|준용)")
+TITLE = re.compile(r"\(([^)]*)\)|【([^】]*)】|\[([^\]]*)\]")
+
+
+def anchored(rule: dict, paras: list[dict]) -> list[dict]:
+    anchors = rule.get("anchor", [])
+    if not anchors:
+        return paras
+    def title(article):
+        match = TITLE.search(article or "")
+        return next((x for x in match.groups() if x), "") if match else ""
+    titled = {p["article"] for p in paras if any(has(title(p["article"]), a) for a in anchors)}
+    arts = titled or {p["article"] for p in paras
+                     if not REFERENCE.search(ART.sub("", p["text"]))
+                     and any(has(ART.sub("", p["text"]), a) for a in anchors)}
+    return [p for p in paras if p["article"] in arts]
 
 
 def judge(rule: dict, paras: list[dict]) -> dict:
-    hits = [p for p in paras if any(has(p["text"], k) for k in rule["keywords"])]
+    hits = [p for p in anchored(rule, paras) if any(has(p["text"], k) for k in rule["keywords"])]
     if not hits:
         return {"status": "누락", "where": None, "found": [], "missing": rule["ok"]}
     # 같은 조문에 속한 문단을 한 덩어리로 보고 판정한다(① 에 없어도 ② 에 있으면 반영된 것)

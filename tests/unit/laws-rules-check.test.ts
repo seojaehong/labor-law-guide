@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { checkRules, type RuleSpec } from '@/lib/laws/rules-check';
+import { checkRules, judge, paragraphs, type RuleSpec } from '@/lib/laws/rules-check';
 
 // 이 시험은 2025.10. 이후 시행 매핑을 대상으로 썼다. 2023.1.~2025.9. 매핑(같은 조문·비슷한 주제)이 더해져
 // 조문 번호만으로 고르면 다른 매핑이 먼저 잡힌다(2026-10-05) — 기간으로 한정한다
@@ -55,5 +55,48 @@ describe('옛 문구가 남았을 때만 필수', () => {
     );
     expect(stale.status).toBe('미반영');
     expect(stale.rule.required).toBe(true);
+  });
+});
+
+// 2026-10-13 — anchor. keywords 가 「휴직을 신청」처럼 넓으면 일반 휴직 조항이 걸리던 것을 막는다.
+describe('anchor — 조문을 고르는 말', () => {
+  const base = {
+    lawId: '000130', law: '남녀고용평등법', article: '제19조', effective: '20260820',
+    topic: '단기 육아휴직', art93: '8', required: true,
+    keywords: ['육아휴직', '휴직을 신청'], ok: ['1주'], stale: [],
+    point: '', clause: '', mst: null,
+  } satisfies RuleSpec;
+  const text = [
+    '제17조(휴직사유 및 기간)',
+    '① 사원이 다음 각 호의 사유로 휴직을 신청하는 경우 회사는 이를 허용할 수 있다.',
+    '제40조(육아휴직)',
+    '① 회사는 육아휴직을 1주 단위로 신청할 수 있도록 한다.',
+  ].join('\n');
+
+  // 맞는 조문이 ok 를 갖추고 있으면 점수 때문에 그쪽이 이긴다 — 그래서 44건 중 1건만 바뀌었다(2026-10-13 실측).
+  // 문제가 드러나는 건 **맞는 조문이 아직 안 고쳐져 있을 때**다. 그때 엉뚱한 조문이 「고칠 곳」으로 찍힌다.
+  const notYet = text.replace('1주 단위로', '30일 단위로');
+
+  it('anchor 가 없으면 아직 안 고친 경우 일반 휴직 조항이 「고칠 곳」으로 찍힌다 — 종전 결함', () => {
+    const v = judge(base, paragraphs(notYet));
+    expect(v.where).toBe('제17조(휴직사유 및 기간)');
+  });
+
+  it('anchor 가 있으면 아직 안 고쳤어도 육아휴직 조문을 가리킨다', () => {
+    const v = judge({ ...base, anchor: ['육아휴직'] }, paragraphs(notYet));
+    expect(v.where).toBe('제40조(육아휴직)');
+    expect(v.status).toBe('미반영');
+  });
+
+  it('anchor 를 주면 그 말이 든 조문만 본다', () => {
+    const v = judge({ ...base, anchor: ['육아휴직'] }, paragraphs(text));
+    expect(v.where).toBe('제40조(육아휴직)');
+    expect(v.status).toBe('반영됨');
+  });
+
+  it('anchor 가 어느 조문에도 없으면 누락이다 — 엉뚱한 조문을 고르지 않는다', () => {
+    const v = judge({ ...base, anchor: ['난임치료휴가'] }, paragraphs(text));
+    expect(v.status).toBe('누락');
+    expect(v.where).toBeNull();
   });
 });

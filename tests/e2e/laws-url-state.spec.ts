@@ -88,7 +88,7 @@ for (const filter of ['search', 'period', 'month', 'law', 'rules'] as const) {
     } else if (filter === 'law') {
       await page.getByRole('group', { name: '법령 필터' }).getByRole('button', { name: /^산업안전보건법/ }).click();
     } else {
-      await page.getByRole('button', { name: '취업규칙 고칠 것만', exact: true }).click();
+      await page.getByRole('button', { name: '취업규칙 관련', exact: true }).click();
     }
     await expect(card(page)).toHaveCount(0);
     await expectNoSelectionUrl(page);
@@ -155,7 +155,7 @@ test('same-document back and forward restore filters, selection and anchors', as
   await expectSelection(page, true);
   await page.goForward();
   await expect(page.getByRole('textbox', { name: '개정 검색' })).toHaveValue('not-found');
-  await expect(page.getByRole('button', { name: '취업규칙 고칠 것만', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByRole('button', { name: '취업규칙 관련', exact: true })).toHaveAttribute('aria-pressed', 'true');
   await expect(card(page)).toHaveCount(0);
   await expectNoSelectionUrl(page, '#law-list');
   await expect(page.locator('html')).toHaveAttribute('data-history-marker', 'same-document');
@@ -179,6 +179,9 @@ test('calendar day survives back/forward and clearing it does not reopen a hidde
   await page.goForward();
   await expect(card(page)).toHaveCount(0);
   await page.getByRole('button', { name: '날짜 해제', exact: true }).click();
+  // Clearing a day keeps the visible month; returning to October must not reopen its card.
+  await expect(card(page)).toHaveCount(0);
+  await page.getByRole('button', { name: '이번 달', exact: true }).click();
   await expectSelection(page, false);
   await expectNoSelectionUrl(page, '#law-list');
   await expect.poll(() => new URL(page.url()).searchParams.get('d')).toBeNull();

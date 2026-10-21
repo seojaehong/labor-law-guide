@@ -66,7 +66,7 @@ async function nlrcByFullText(db: SupabaseClient, searchQuery: string): Promise<
     console.warn('[cases.ts] nlrc fts 0 rows:', terms.join(' | '));
     return { ctx: '', rows: 0, via: 'fts', status: '0rows' };
   }
-  return { ctx: renderNlrc(rows), rows: rows.length, via: 'fts', status: 'ok' };
+  return { ctx: renderNlrc(rows), evidenceIds: rows.map(row => String(row.id)), rows: rows.length, via: 'fts', status: 'ok' };
 }
 
 /**
@@ -105,7 +105,7 @@ export async function buildNlrcCasesContext(
       console.warn('[cases.ts] nlrc rpc 0 rows — fts 로 폴백:', searchQuery.slice(0, 60));
       return await nlrcByFullText(db, searchQuery);
     }
-    return { ctx: renderNlrc(rows), rows: rows.length, via: 'rpc', status: 'ok' };
+    return { ctx: renderNlrc(rows), evidenceIds: rows.map(row => String(row.id)), rows: rows.length, via: 'rpc', status: 'ok' };
   } catch (err) {
     console.error('[cases.ts] nlrc 예외 — fts 로 폴백:', (err as Error)?.message?.slice(0, 150));
     try {
@@ -153,7 +153,7 @@ export async function buildCourtCasesContext(
       '1) 답변에서 위 판례 중 관련된 것을 인용할 때 반드시 `[COURT#id]` 형식 사용 (id는 위 #뒤 문자열 그대로). 예: "대법원은 정기상여금이 통상임금 요건을 충족하면 인정한다고 판시 [COURT#대법원_2023다302838].".\n' +
       '2) 일반적인 "대법원은 ... 라고 판시" 식으로 답변하지 말고 위 DB의 구체적 판례 id를 사용하세요.\n' +
       '3) 학습 데이터에 있는 판례번호("2020다247190" 등)를 임의로 인용하지 말고, 반드시 위 DB에 있는 id만 인용하세요.';
-    return { ctx, rows: courts.length, via: 'rpc', status: 'ok' };
+    return { ctx, evidenceIds: courts.map(row => String(row.id)), rows: courts.length, via: 'rpc', status: 'ok' };
   } catch (err) {
     console.error('[cases.ts] court 예외:', (err as Error)?.message?.slice(0, 150));
     return { ctx: '', rows: 0, via: 'rpc', status: 'error' };

@@ -12,6 +12,11 @@ export interface RuleSpec {
   /** 절차·인용 정비형 — 법보다 좁은 옛 문구가 남았을 때만 필수 */
   requiredIfStale?: boolean;
   keywords: string[];
+  /** 「어느 조문인가」를 고르는 말. 있으면 이 말이 든 조문만 후보가 된다.
+   *  keywords 는 본문에서 대조할 말이라 「휴직을 신청」처럼 넓어질 수 있는데,
+   *  그게 일반 휴직 조항을 끌어오던 것이 2026-10-13 에 잡힌 결함이다.
+   *  없는 규칙은 종전대로 전부 후보 — 하위호환을 지킨다. */
+  anchor?: string[];
   ok: string[];
   stale: string[];
   point: string;
@@ -29,9 +34,14 @@ export interface Verdict {
   missing: string[];
 }
 
-const ART = /^\s*(제\s*\d+\s*조(?:\s*의\s*\d+)?)\s*(\([^)]*\))?/;
+const ART = /^\s*(제\s*\d+\s*조(?:\s*의\s*\d+)?)\s*(\([^)]*\)|【[^】]*】|\[[^\]]*\])?/;
 const norm = (s: string) => s.replace(/ㆍ/g, '·').replace(/\s+/g, ' ').trim();
-const has = (text: string, needle: string) => text.replace(/\s/g, '').includes(norm(needle).replace(/\s/g, ''));
+const has = (text: string, needle: string) => norm(text).replace(/\s/g, '').includes(norm(needle).replace(/\s/g, ''));
+const reference = /제\s*\d+\s*조(?:\s*의\s*\d+)?(?:에|를)\s*(?:따른다|참조|준용)/;
+/** Only explicit article titles are strong anchor evidence. */
+function titleOf(article: string | null): string {
+  return article?.match(/(?:\(([^)]*)\)|【([^】]*)】|\[([^\]]*)\])/)?.slice(1).find(Boolean) ?? '';
+}
 
 interface Para {
   article: string | null;
@@ -45,14 +55,31 @@ export function paragraphs(text: string): Para[] {
     const line = norm(raw);
     if (!line) continue;
     const m = line.match(ART);
-    if (m) current = (m[1].replace(/\s/g, '') + (m[2] ?? '')).trim();
+    const reference = m && !m[2] && /^\s*(?:및|의|에|를|과|에서|까지)/.test(line.slice(m[0].length));
+    if (m && !reference) current = (m[1].replace(/\s/g, '') + (m[2] ?? '')).trim();
     out.push({ article: current, text: line });
   }
   return out;
 }
 
+/** anchor 가 든 조문의 줄만 남긴다. anchor 가 없으면 그대로 돌려준다. */
+export function anchored(rule: RuleSpec, paras: Para[]): Para[] {
+  if (!rule.anchor?.length) return paras;
+  const titled = new Set(paras.filter((p) => rule.anchor!.some((a) => has(titleOf(p.article), a))).map(p => p.article));
+  // A cross-reference in general leave must not compete with the named scheme.
+  const arts = titled.size ? titled : new Set(paras.filter(p => {
+    const body = p.text.replace(ART, '');
+    return !reference.test(body) && rule.anchor!.some(a => has(body, a));
+  }).map(p => p.article));
+  return arts.size ? paras.filter((p) => arts.has(p.article)) : [];
+}
+
 export function judge(rule: RuleSpec, paras: Para[]): Verdict {
-  const hits = paras.filter((p) => rule.keywords.some((k) => has(p.text, k)));
+  // anchor 가 있으면 **그 말이 든 조문**만 후보다(2026-10-13).
+  // 조문 단위로 거르는 이유: paragraphs() 는 줄 단위라 제도명이 조문 제목 줄에만 있고
+  // 정작 대조할 문구는 다른 줄에 있는 일이 흔하다. 줄 단위로 거르면 맞는 조문이 통째로 빠진다.
+  const scoped = anchored(rule, paras);
+  const hits = scoped.filter((p) => rule.keywords.some((k) => has(p.text, k)));
   if (!hits.length) return { rule, status: '누락', where: null, stale: [], missing: rule.ok };
   const arts = [...new Set(hits.map((h) => h.article))];
   let best: Omit<Verdict, 'rule' | 'status'> & { score: number } | null = null;

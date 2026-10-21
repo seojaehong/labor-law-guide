@@ -115,7 +115,7 @@ async function fetchPage({ page, cat, sub, q }: ReturnType<typeof parse>) {
 // PostgREST 직접 실측: content 포함 1,333KB·0.60s, 빼면 25KB·0.15s. 하네스 콜드 측정 9/12 2.2s → 9/14 4.4s.
 // 요약을 다 만든 결과(25KB)만 10분 캐시한다. 인자(page·cat·sub)가 캐시 키에 들어간다.
 // 검색(q)은 질의마다 달라 캐시하지 않는다.
-const getCachedPage = unstable_cache(fetchPage, ['blog-list-v1'], { revalidate: 600 });
+const getCachedPage = unstable_cache(fetchPage, ['blog-list-v2'], { revalidate: 600, tags: ['blog-article-lists'] });
 
 async function getPage(state: ReturnType<typeof parse>) {
   try {

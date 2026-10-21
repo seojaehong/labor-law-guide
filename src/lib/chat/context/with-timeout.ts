@@ -65,7 +65,7 @@ export const FAQ_TIMEOUT_MS = RETRIEVAL_TIMEOUT_MS;
  * 조용히 빈 문자열을 반환하는 경로가 판정례 장애를 8일 숨겼는데, 그 경로를 상한 쪽에
  * 그대로 다시 만든 셈이다. 그래서 왜 비었는지를 값과 함께 돌려준다.
  */
-export type Timed<T> = { value: T; timedOut: boolean; ms: number };
+export type Timed<T> = { value: T; timedOut: boolean; ms: number; failed?: boolean };
 
 export async function withTimeoutTagged<T>(
   work: Promise<T>,
@@ -90,7 +90,7 @@ export async function withTimeoutTagged<T>(
     console.warn(`[chat] ${label} 실패 — 이 컨텍스트 없이 진행`, {
       msg: (err as Error)?.message?.slice(0, 150),
     });
-    return { value: fallback, timedOut: false, ms: Date.now() - started };
+    return { value: fallback, timedOut: false, ms: Date.now() - started, failed: true };
   } finally {
     if (timer) clearTimeout(timer);
   }

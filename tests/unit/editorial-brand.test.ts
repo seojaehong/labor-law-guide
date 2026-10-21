@@ -16,7 +16,9 @@ describe('editorial identity and reading safeguards', () => {
     for (const route of ['cases', 'interpretations']) {
       const source = read(`src/app/${route}/[id]/page.tsx`);
       expect(source).toContain('editorial-source');
-      expect(source.indexOf('className="editorial-source"')).toBeLessThan(source.indexOf('<MarkdownSnippet variant="reading"'));
+      const bodyMarker = route === 'interpretations' ? '<CollectedSourceBody text={summary}' : '<MarkdownSnippet variant="reading"';
+      expect(source.indexOf(bodyMarker)).toBeGreaterThanOrEqual(0);
+      expect(source.indexOf('className="editorial-source"')).toBeLessThan(source.indexOf(bodyMarker));
       expect(source).toContain('item.original_url');
       expect(source).toContain('canonical:');
     }

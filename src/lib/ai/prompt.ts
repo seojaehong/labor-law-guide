@@ -33,7 +33,7 @@ export const SYSTEM_PROMPT = `당신은 대한민국 노동법 전문 AI 자문�
 
 **JSON 을 쓰지 마십시오.** 일반 문장으로만 답하십시오. 마크다운 기호(#, *, -, \`)도 쓰지 마십시오.
 
-전에는 JSON 으로 여러 필드를 받았지만, 화면에 보이는 판정례 카드·쟁점 요약·승패를 가른 지점·
+전에는 JSON 으로 여러 필드를 받았지만, 화면에 보이는 판정례 카드·쟁점 요약·판정문에 명시된 쟁점 비교·
 체크리스트는 이제 **서버가 DB 에서 직접 만듭니다.** 당신이 그 필드들을 채워도 전부 버려집니다.
 버려질 내용을 생성하느라 답변이 느려지고, 스트리밍 중에는 사용자 화면에 날 JSON 이 찍혔습니다.
 
@@ -41,7 +41,7 @@ export const SYSTEM_PROMPT = `당신은 대한민국 노동법 전문 AI 자문�
 
 ## 본문에서 하지 말 것 — 2026-09-19 신설, 가장 중요한 규칙
 
-화면에 보이는 **판정례 카드·쟁점 요약·승패를 가른 지점·체크리스트는 서버가 DB 에서 직접 만듭니다.**
+화면에 보이는 **판정례 카드·쟁점 요약·판정문에 명시된 쟁점 비교·체크리스트는 서버가 DB 에서 직접 만듭니다.**
 당신의 몫은 본문 산문뿐입니다.
 
 그래서 본문에서 **개별 사건을 언급하지 마십시오.**
@@ -93,6 +93,7 @@ export interface ComparisonCase {
 
 export interface ComparisonMeta {
   issueSummary: string[];
+  issueEvidence?: Array<{ key: string; label: string; caseIds: string[] }>;
   workerWinCases: ComparisonCase[];
   employerWinCases: ComparisonCase[];
   coreDifferences: string[];
@@ -299,7 +300,8 @@ export function buildComparisonMeta(
    */
   fullRows?: Record<string, unknown>[],
 ): ComparisonMeta {
-  const normalizedCases: ComparisonCase[] = cases.slice(0, 10).map((c) => ({
+  const uniqueCases = cases.filter((c, index) => c.id && cases.findIndex(other => String(other.id) === String(c.id)) === index);
+  const normalizedCases: ComparisonCase[] = uniqueCases.slice(0, 10).map((c) => ({
     id: String(c.id || ''),
     title: String(c.title || ''),
     decision_result: String(c.decision_result || ''),
@@ -317,11 +319,12 @@ export function buildComparisonMeta(
   // 2026-09-19: 쟁점을 판정문 원문에서 뽑아 집계한다.
   // 종전 buildIssueSummary 는 사용자 질문을 되풀이할 뿐이었고, buildCoreDifferences 는
   // 키워드가 걸리면 미리 써둔 일반론을 꺼냈다. 둘 다 어떤 질의에도 같은 답이 나왔다.
-  const shownIds = new Set(normalizedCases.map((c) => c.id));
+  const shownIds = new Set([...workerWinCases, ...employerWinCases].map((c) => c.id));
+  const displayedRows = cases.filter(r => shownIds.has(String(r.id || '')));
   const rowsForIssues = (fullRows && fullRows.length > 0)
     ? fullRows.filter((r) => shownIds.has(String(r.id || '')))
-    : cases;
-  const digest = digestIssues(rowsForIssues.length > 0 ? rowsForIssues : cases);
+    : displayedRows;
+  const digest = digestIssues(rowsForIssues);
 
   const issueLines = buildIssueLines(digest);
   const issueDiffs = buildIssueDifferences(
@@ -335,51 +338,16 @@ export function buildComparisonMeta(
   // 단 issueSummary 는 질문 되풀이를 되살리지 않는다 — 빈 채로 두는 편이 낫다.
   return {
     issueSummary: issueLines,
+    issueEvidence: digest.tallies.slice(0, 5).map(t => ({
+      key: t.key, label: t.label,
+      caseIds: [...digest.byCase].filter(([, keys]) => keys.includes(t.key)).map(([id]) => id),
+    })),
     workerWinCases,
     employerWinCases,
-    coreDifferences: issueDiffs.length > 0 ? issueDiffs : buildCoreDifferences(cases, tags).slice(0, 4),
-    checklist: issueChecklist.length > 0 ? issueChecklist : buildChecklist(cases, tags),
-    decisionGuide: buildDecisionGuide(cases, tags),
+    coreDifferences: issueDiffs.length > 0 ? issueDiffs : ['판정문에 쟁점별 결론이 확인되지 않아 사건 간 결론 차이는 추정하지 않습니다.'],
+    checklist: issueChecklist.length > 0 ? issueChecklist : buildChecklist(displayedRows, tags),
+    decisionGuide: buildDecisionGuide(displayedRows, tags),
   };
-}
-
-function buildCoreDifferences(cases: Record<string, unknown>[], tags: string[]): string[] {
-  const domain = detectDomain(tags);
-
-  if (domain === 'restructuring') {
-    return [
-      '경영상 긴박성의 객관적 증거 유무가 회사 측 정당성 입증의 출발점입니다.',
-      '회피노력 시도의 폭과 진정성이 결과를 가르는 핵심 차이로 작용합니다.',
-      '대상자 선정 기준의 객관성과 노조원 편중 여부가 부당노동행위 인정과 직결됩니다.',
-      '정리해고 직후 신규 채용 등 회피 우회 정황은 사유의 진정성을 직접 부정합니다.',
-    ];
-  }
-
-  if (domain === 'renewal') {
-    return [
-      '반복 갱신 횟수와 갱신 관행이 기대권 형성 수준에 도달했는지가 분수령입니다.',
-      '동일 직무 후임 채용 여부가 사유의 진정성을 직접 가립니다.',
-      '동료 갱신 여부와의 차별 정황이 거절의 합리성 판단을 좌우합니다.',
-      '근로계약서 자동종료 문구가 실제 운영에서 엄격히 적용됐는지가 핵심입니다.',
-    ];
-  }
-
-  if (domain === 'unfair_labor') {
-    return [
-      '노조 가입·활동과 불이익 처분 시점의 근접성이 의도 추정의 강력한 정황입니다.',
-      '동일 처지 비조합원과의 차별 처분 비교가 인정 여부를 가릅니다.',
-      '회사 측 발언·문서에 노조 무력화 의도가 드러나는지가 결정적입니다.',
-    ];
-  }
-
-  // default: 징계
-  const diffs: string[] = [];
-  if (countKeywordHits(cases, ['서면통지', '서면 통지']) > 0) diffs.push('서면통지 유무가 결과를 갈랐는지 확인해야 합니다.');
-  if (countKeywordHits(cases, ['소명기회', '소명 기회', '변명의 기회']) > 0) diffs.push('소명기회 부여 여부가 절차 적법성 판단에 직접 연결됩니다.');
-  if (countKeywordHits(cases, ['인사위원회', '징계위원회']) > 0) diffs.push('인사위원회 개최와 의결 과정의 적법성이 유지 여부에 영향을 줍니다.');
-  if (countKeywordHits(cases, ['양정', '과도하', '과중', '비례']) > 0) diffs.push('비위 정도에 비해 처분 수위가 과하면 뒤집힐 위험이 커집니다.');
-  if (countKeywordHits(cases, ['개선기회', '경고', '시정요구', 'PIP']) > 0) diffs.push('개선기회를 줬는지가 저성과·통상해고 영역에서 중요합니다.');
-  return diffs;
 }
 
 export function splitIssueSummary(issueSummary: string): string[] {
@@ -415,7 +383,7 @@ export function buildUserContext(
   const checklist = comparison.checklist.map((item) => `- ${item}`).join('\n');
   const differences = comparison.coreDifferences.map((item) => `- ${item}`).join('\n');
 
-  return `사용자 상황: ${userInput}\n\n추출 키워드: ${tags.join(', ')}\n\n유사 판정례 ${cases.length}건:\n${caseSummary}\n\n근로자가 이긴 대표 사건:\n${workerWins || '- 직접 비교 가능한 인용 사건이 충분하지 않습니다.'}\n\n사용자가 이긴 대표 사건:\n${employerWins || '- 직접 비교 가능한 기각 사건이 충분하지 않습니다.'}\n\n승패를 가른 핵심 차이 후보:\n${differences || '- 절차, 양정, 개선기회 여부를 우선 확인하세요.'}\n\n실무 체크리스트 후보:\n${checklist}${winLossAnalysis}${instruction}`;
+  return `사용자 상황: ${userInput}\n\n추출 키워드: ${tags.join(', ')}\n\n유사 판정례 ${cases.length}건:\n${caseSummary}\n\n근로자가 이긴 대표 사건:\n${workerWins || '- 직접 비교 가능한 인용 사건이 충분하지 않습니다.'}\n\n사용자가 이긴 대표 사건:\n${employerWins || '- 직접 비교 가능한 기각 사건이 충분하지 않습니다.'}\n\n판정문에 명시된 쟁점 비교 (쟁점별 결론은 추정 금지):\n${differences || '- 절차, 양정, 개선기회 여부를 우선 확인하세요.'}\n\n실무 체크리스트 후보:\n${checklist}${winLossAnalysis}${instruction}`;
 }
 
 export function trimHistory(

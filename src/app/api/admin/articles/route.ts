@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin, supabaseServer } from '@/lib/supabase-server';
 import { checkAdminAuth } from '@/lib/admin-auth';
+import { revalidateArticle } from '@/lib/article-cache';
 
 const db = supabaseAdmin || supabaseServer;
 
@@ -76,6 +77,7 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
+  revalidateArticle(data.slug);
   return NextResponse.json({ article: data });
 }
 

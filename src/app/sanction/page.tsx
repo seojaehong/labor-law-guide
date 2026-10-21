@@ -1,5 +1,7 @@
 'use client';
 
+import { requireStreamCompletion } from '@/lib/ai/stream-completion';
+
 import { useState, useRef, useEffect, type FormEvent } from 'react';
 import { Send, Bot, User, Loader2, Scale, CheckCircle2, GitCompareArrows, ClipboardList } from 'lucide-react';
 import { PromptSuggestion } from '@/components/decisions-ui/prompt-suggestion';
@@ -21,6 +23,7 @@ interface CaseCard {
 
 interface ComparisonMeta {
   issueSummary: string[];
+  issueEvidence?: Array<{ key: string; label: string; caseIds: string[] }>;
   workerWinCases: CaseCard[];
   employerWinCases: CaseCard[];
   coreDifferences: string[];
@@ -89,6 +92,7 @@ export default function SanctionPage() {
     setLastError(null);
 
     const msgId = makeMessageId();
+    let streamedContent = '';
 
     try {
       const res = await fetch('/api/sanction', {
@@ -108,9 +112,9 @@ export default function SanctionPage() {
 
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
-      let streamedContent = '';
       let finalComparison: ComparisonMeta | null = null;
       let metaReceived = false;
+      let doneReceived = false;
       let buffer = '';
       let serverError: string | null = null;
 
@@ -154,6 +158,7 @@ export default function SanctionPage() {
               )
             );
           } else if (event.type === 'done') {
+            doneReceived = true;
             // done 은 카드 교체 신호가 아니라 **설명 확정 신호**다.
             // 2026-09-19 이전에는 여기서 comparison 을 통째로 덮어써서, 스트리밍 도중 보이던
             // 사건이 응답 끝에 다른 사건으로 바뀌었다. 이제 서버가 보내는 카드는 meta 와 동일하지만,
@@ -171,7 +176,7 @@ export default function SanctionPage() {
           }
         }
       }
-      if (serverError) throw new Error(serverError);
+      requireStreamCompletion(doneReceived, serverError);
 
       if (!metaReceived && !streamedContent) {
         throw new Error('응답을 받지 못했습니다.');
@@ -182,7 +187,7 @@ export default function SanctionPage() {
       setMessages((prev) => {
         const existing = prev.find((m) => m.id === msgId);
         if (existing) {
-          return prev.map((m) => (m.id === msgId ? { ...m, content: message } : m));
+          return prev.map((m) => (m.id === msgId ? { ...m, content: streamedContent ? `${streamedContent}\n\n⚠️ ${message}` : message } : m));
         }
         return [...prev, { id: msgId, role: 'assistant' as const, content: message }];
       });
@@ -308,7 +313,7 @@ export default function SanctionPage() {
                     </div>
                   )}
 
-                  {msg.role === 'assistant' && msg.content && !msg.comparison && (
+                  {msg.role === 'assistant' && msg.content && (
                     <div className="rounded-2xl bg-muted px-4 py-3 text-sm leading-relaxed text-foreground whitespace-pre-wrap">
                       {msg.content}
                     </div>
@@ -325,6 +330,20 @@ export default function SanctionPage() {
                           <div className="space-y-1 text-sm text-accent-foreground">
                             {msg.comparison.issueSummary.map((item, idx) => (
                               <p key={`issue-${idx}`}>{item}</p>
+                            ))}
+                            {msg.comparison.issueEvidence?.map((issue) => (
+                              <div key={issue.key} className="pt-2">
+                                <p className="font-medium">{issue.label} 근거</p>
+                                <ul className="space-y-1">
+                                  {issue.caseIds.map((id) => {
+                                    const card = [...(msg.comparison?.workerWinCases || []), ...(msg.comparison?.employerWinCases || [])].find(c => c.id === id);
+                                    if (!card || !card.id || card.id.startsWith('ai_case_')) return null;
+                                    const href = getDecisionDetailHref({ id: card.id, sourceProvider: card.source === 'court' ? 'bigcase' : 'nlrc' });
+                                    if (!href) return null;
+                                    return <li key={id}><a href={href} aria-label={`${issue.label} 근거 판정례: ${card.title}`} className="underline underline-offset-2">{card.title}</a></li>;
+                                  })}
+                                </ul>
+                              </div>
                             ))}
                           </div>
                         </div>
@@ -361,7 +380,7 @@ export default function SanctionPage() {
                           <div className="mb-3 flex items-center justify-between gap-2">
                             <div className="flex items-center gap-2 text-sm font-semibold text-amber-900 dark:text-amber-200">
                               <CheckCircle2 size={15} />
-                              승패를 가른 핵심 차이
+                              판정문에 명시된 쟁점 비교
                             </div>
                             <button
                               type="button"
@@ -435,7 +454,7 @@ export default function SanctionPage() {
                     <div className="rounded-xl border border-border/50 bg-muted/30 p-4 mt-3">
                       <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-foreground">
                         <span>📚 관련 실무 해설</span>
-                        <span className="text-xs font-normal text-muted-foreground">최영우 교재 · 검토자 FAQ</span>
+                        <span className="text-xs font-normal text-muted-foreground">지식DB 매칭 자료</span>
                       </div>
                       <div className="space-y-2">
                         {msg.faqs.map((faq) => (
@@ -447,6 +466,7 @@ export default function SanctionPage() {
                             </summary>
                             <div className="mt-2 pt-2 border-t border-border/30 text-sm text-foreground/80 whitespace-pre-wrap">
                               {faq.answer}
+                              {faq.source && <div className="mt-2 text-xs text-muted-foreground">출처: {faq.source}</div>}
                               {faq.category && (
                                 <div className="mt-2 text-xs text-muted-foreground">분류: {faq.category}</div>
                               )}

@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { ArrowRight, Search } from 'lucide-react';
+import SubscribeForm from '@/components/SubscribeForm';
 import '@/components/editorial-home.css';
 
 interface LatestBlogArticle {
@@ -151,6 +152,16 @@ export default function HomeClient({ totalCases, totalAdmin, latestBlogArticles,
         </div>
       </section>
 
+      {/* 🔴 2026-10-16 복구. 홈 구독 상자가 **2026-10-04 개편(67dca86) 때 빠져 있었다.**
+          유입 경로를 세어 보니 구독자 16명 중 home-bottom 이 9명(56%) 으로 가장 큰 입구였는데,
+          10-04 이후 home-bottom 가입이 0명이다. 2주 가까이 닫혀 있었다.
+          자리는 FAQ 다음 — 글을 읽고 내려온 사람에게 묻는 것이 자연스럽고,
+          source="home-bottom" 이 그 이름 그대로 「홈 맨 아래」를 뜻한다. */}
+      <section className="px-5 pb-16 sm:pb-20" aria-label="뉴스레터 구독">
+        <div className="mx-auto max-w-[var(--layout-list-max)]">
+          <SubscribeForm source="home-bottom" />
+        </div>
+      </section>
 
     </div>
   );

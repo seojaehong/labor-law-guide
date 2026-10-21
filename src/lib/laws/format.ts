@@ -1,3 +1,4 @@
+import { decisionDate } from "@/lib/decision-date";
 // /laws 화면의 날짜·출처·복사·내려받기 형식. 복사물은 모두 같은 출처 꼬리를 단다 — 법령 원문 재배포 조건(출처 표시·변조 금지)의 실체.
 
 export interface Promulgation {
@@ -114,9 +115,9 @@ export function weekday(d: string): string {
 }
 
 export function lawGoUrl(mst: string | null, date: string): string {
-  return mst
-    ? `https://www.law.go.kr/lsInfoP.do?lsiSeq=${mst}&efYd=${date}`
-    : 'https://www.law.go.kr';
+  if (!mst || !/^\d+$/.test(mst) || !/^\d{8}$/.test(date) || !decisionDate(date)) return '';
+  const parts=new URLSearchParams({lsiSeq:mst,efYd:date});
+  return `https://www.law.go.kr/lsInfoP.do?${parts}`;
 }
 
 /** 모든 복사물 끝에 붙는 출처 */

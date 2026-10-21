@@ -7,6 +7,8 @@
  */
 export type Retrieval = {
   ctx: string;
+  /** Exact IDs of rows included in ctx, never parsed from model prose. */
+  evidenceIds?: string[];
   rows: number;
   /** 어느 경로로 얻었는지. 우회와 정상 경로를 사후에 구분하기 위한 것. */
   via: 'rpc' | 'fts' | 'none';

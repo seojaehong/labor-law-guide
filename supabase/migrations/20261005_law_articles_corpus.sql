@@ -51,6 +51,8 @@ CREATE INDEX IF NOT EXISTS law_articles_title_trgm_idx ON law_articles USING gin
 CREATE INDEX IF NOT EXISTS law_articles_body_trgm_idx  ON law_articles USING gin (body gin_trgm_ops);
 
 -- ── 4. 조문 검색 RPC ──
+-- ⚠ 2026-10-06 — 운영은 아래 `search_law_articles` 가 아니라 하이브리드판을 쓴다.
+--    **최종 정의는 `20261006_rpc_sync_from_db.sql` 에 있다.** 이 절은 이력으로 남긴다.
 -- 어휘 기반이다. **임베딩을 쓰지 않는다** — 그래서 임베딩 생성이 실패한 요청에서도
 -- 1차 자료가 들어간다. 후보를 넓게 내고 고르기는 Jev(LLM 재선택)에 맡긴다.
 --
@@ -186,3 +188,33 @@ LANGUAGE sql STABLE AS $function$
   ORDER BY score DESC, length(a.body) ASC
   LIMIT max_results;
 $function$;
+
+-- ────────────────────────────────────────────────────────────────────────
+-- 6. ivfflat → HNSW (2026-10-06)
+--
+-- ★ ivfflat 이 정답을 놓치고 있었다. `ivfflat.probes` 기본값이 1 이라
+--   lists=85 중 **한 조각만** 본다. 7,228행 중 약 85행이다.
+--
+-- 선행 기록(2026-10-05, faq 25,881행 · lists=64) —
+--   LIMIT 300 에 154건만 돌아오고 정답이 그 안에 없었다.
+--   **probes 를 4·8·16 으로 올려도 Seq Scan 으로 넘어가 설정으로는 안 풀린다.**
+--   HNSW 로 바꿔 16ms. 그런데 **플래너가 HNSW 를 스스로 고르지 않는다** —
+--   16ms 인덱스 스캔보다 2.8초 Seq Scan 을 싸게 본다. 함수 안에서 트랜잭션 로컬로 끈다.
+--   `hnsw.ef_search` 는 LIMIT 이상이어야 회수가 유지된다(기본 40).
+--
+-- law_articles 실측 (2026-10-06, 정답이 의미 목록 60위 안에 드는 비율)
+--   ivfflat  1/6
+--   HNSW     3/6     ← 괴롭힘 밖→3위 · 안전보건 밖→29위
+-- 용어 확장과 함께 쓸 때 정답 순위
+--   ivfflat  주휴수당 2위 · 안전보건 14위 · 퇴직금 11위   (1위가 4개)
+--   HNSW     주휴수당 1위 · 안전보건  7위 · 퇴직금 16위   (1위가 5개)
+
+CREATE INDEX IF NOT EXISTS law_articles_emb_hnsw_idx
+  ON law_articles USING hnsw (embedding vector_cosine_ops) WITH (m = 16, ef_construction = 64);
+DROP INDEX IF EXISTS law_articles_emb_ivfflat_idx;
+ANALYZE law_articles;
+
+-- RPC 를 plpgsql 로 바꾼다 — set_config 를 쓰려면 sql STABLE 로는 안 된다.
+-- ★ **실행 가능한 최종판은 `20261006_rpc_sync_from_db.sql` 이다.**
+--   종전에 여기 「전문은 DB 의 현재 정의를 보라」고만 적어 두었는데, 그러면 레포만 보고
+--   DB 를 다시 세울 수 없다(서버1 지적 2026-10-06 「DB 변경 누락」). 그 파일로 옮겼다.
