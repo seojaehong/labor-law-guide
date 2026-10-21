@@ -97,9 +97,13 @@
 }
 
 /* ── 배지 ── */
-.ed-badge { display: inline-flex; align-items: center; height: 22px; padding: 0 8px; border-radius: 9999px; font-size: 12px; line-height: 1; white-space: nowrap; background: var(--ed-soft-2); color: var(--ed-body); }
-.ed-badge.new { background: var(--ed-warn-soft); color: var(--ed-warn-deep); font-weight: 500; }
+/* DESIGN.md §6.4 — 중립 배지 글자는 --grey-700, 주의는 warn-ink */
+.ed-from { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
+.ed-badge { display: inline-flex; align-items: center; height: 22px; padding: 0 8px; border-radius: 9999px; font-size: 12px; font-weight: 500; line-height: 1; white-space: nowrap; background: var(--ed-soft-2); color: var(--grey-700); }
+.ed-badge.new { background: var(--ed-warn-soft); color: var(--ed-warn-deep); }
 .ed-badge.all { background: transparent; box-shadow: inset 0 0 0 1px var(--ed-hair-strong); }
+.ed-badge.cond { background: var(--ed-link-soft); color: var(--ed-link-deep); }
+@media (max-width: 600px) { .ed-from { flex-direction: row; flex-wrap: wrap; } }
 
 /* ── 다음 규모 ── */
 .ed-next { margin-top: 40px; border-radius: 12px; background: var(--ed-canvas); box-shadow: var(--ed-shadow-1); padding: 20px; }

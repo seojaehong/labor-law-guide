@@ -117,11 +117,11 @@ export default function DutiesClient() {
               <div className="ed-sum-meta">
                 {fresh.length > 0 && <>새로 생김 · {fresh.map(d => d.title).join(' · ')}<br /></>}
                 {tier !== 1 && DUTIES.some(d => d.by?.[tier]) && <>방법이 바뀜 · {DUTIES.filter(d => d.by?.[tier]).map(d => d.title).join(' · ')}<br /></>}
-                의무교육 {applies.filter(d => d.group === '의무교육').length}개 포함
+                의무교육 {applies.filter(d => d.group === '의무교육').length}개 포함 · 해당하는 사업장만 적용되는 {applies.filter(d => d.cond).length}개 포함
                 {nextMin && <> · {tierOf(nextMin).label} 사업장이 되면 {upcoming.length}개가 더 생깁니다</>}
               </div>
               <div className="ed-sum-actions">
-                <button className="ed-btn" onClick={copyList}>목록 복사</button>
+                <button className="ed-btn" onClick={copyList}>목록 복사하기</button>
                 <a className="ed-btn ed-btn-ghost" href="#count">근로자 수 세는 법</a>
               </div>
             </div>
@@ -161,6 +161,7 @@ export default function DutiesClient() {
                           <span className={`ed-badge ${d.min === tier && tier !== 1 ? 'new' : d.min === 1 ? 'all' : ''}`}>
                             {d.min === tier && tier !== 1 ? '이 규모부터' : fromLabel(d.min)}
                           </span>
+                          {d.cond && <span className="ed-badge cond">{d.cond}</span>}
                         </div>
                         <div>
                           <div className="ed-title">{d.title}</div>
