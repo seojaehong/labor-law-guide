@@ -114,8 +114,10 @@ def questions_for(pair: ArticlePair) -> list[DQ]:
     if pair.status == "변경":
         qs.append(DQ("worse_than_old", "yesno", "개정안이 종전 규정보다 근로조건을 낮췄다.",
                      true="종전보다 근로자에게 불리해졌다", false="종전과 같거나 유리해졌다"))
-    qs.append(DQ("hard_to_run", "yesno", "규정한 절차(정족수·재심 인원·필수 심의)를 이 사업장 규모로 지키기 어렵다.",
-                 true="절차를 그대로 지키기 어렵다", false="절차를 지키는 데 무리가 없다"))
+    qs.append(DQ("hard_to_run", "yesno",
+                 "이 조문은 위원회 구성·정족수·재심·필수 심의 같은 절차를 정하고 있고, 그 절차를 이 사업장 규모로 지키기 어렵다.",
+                 true="절차를 정하고 있고 그대로 지키기 어렵다",
+                 false="절차를 정하지 않은 조문이거나, 절차를 지키는 데 무리가 없다"))
     qs.append(DQ("kind", "choice", "이 조문의 점검 결과로 가장 알맞은 것을 고른다.", choices=KIND_CHOICES))
     return qs
 
