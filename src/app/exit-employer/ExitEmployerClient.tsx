@@ -189,7 +189,7 @@ export default function ExitEmployerClient() {
           <div>
             <div className="ee-sum-title">
               {dates
-                ? `금품 청산 기한 ${fmtKo(dates.settle)} · 4대보험 상실 신고 ${fmtKo(dates.report15)}까지`
+                ? `금품 청산 기한 ${fmtKo(dates.settle)} · 고용보험·국민연금 상실 신고 ${fmtKo(dates.report15)}까지`
                 : '마지막 근무일을 넣으면 항목마다 기한 날짜가 붙습니다'}
             </div>
             <div className="ee-sum-meta">

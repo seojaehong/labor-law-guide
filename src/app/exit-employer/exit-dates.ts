@@ -117,7 +117,7 @@ export interface ExitDates {
   pay: Ymd;
   /** 해고 예고를 늦어도 할 날 (마지막 근무일 − 30일) */
   noticeBy: Ymd;
-  /** 고용보험 상실·고용종료·국민연금 상실 신고 (마지막 근무일이 속한 달의 다음 달 15일) */
+  /** 고용보험 상실·고용종료·국민연금 상실 신고 (자격 상실일이 속한 달의 다음 달 15일) */
   report15: Ymd;
   /** 건강보험 자격상실 신고 (자격 변동일부터 14일 이내 = 마지막 근무일 + 14일) */
   health14: Ymd;
@@ -141,7 +141,7 @@ export function computeExitDates(last: Ymd, pay?: Ymd | null): ExitDates {
     settle,
     pay: p,
     noticeBy: addDays(last, -30),
-    report15: nextMonth15(last),
+    report15: nextMonth15(lossDay),
     health14: addDays(lossDay, 13),
     tax10: nextMonth10(p),
     receipt: endOfNextMonth(p),

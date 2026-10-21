@@ -46,10 +46,12 @@ describe('금품 청산 14일 (근로기준법 §36)', () => {
 describe('다음 달 15일 신고 (고용보험법 시행령 §7① 등)', () => {
   it('12월 퇴사 → 다음 해 1월 15일', () => {
     expect(iso(nextMonth15(d('2026-12-31')))).toBe('2027-01-15');
-    expect(iso(computeExitDates(d('2026-12-31')).report15)).toBe('2027-01-15');
+    expect(iso(computeExitDates(d('2026-12-30')).report15)).toBe('2027-01-15');
+    expect(iso(computeExitDates(d('2026-12-31')).report15)).toBe('2027-02-15');
   });
-  it('말일 퇴사도 마지막 근무일이 속한 달 기준(앞선 날짜)', () => {
-    expect(iso(computeExitDates(d('2026-10-31')).report15)).toBe('2026-11-15');
+  it('말일까지 근무하면 상실일(다음 달 1일)이 속한 달 기준', () => {
+    expect(iso(computeExitDates(d('2026-10-31')).report15)).toBe('2026-12-15');
+    expect(iso(computeExitDates(d('2026-10-30')).report15)).toBe('2026-11-15');
   });
   it('월초 퇴사', () => {
     expect(iso(nextMonth15(d('2026-03-01')))).toBe('2026-04-15');
