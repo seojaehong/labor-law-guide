@@ -8,6 +8,9 @@ import { parse, tabHref, pageHref, categoryHref, type Search } from "@/lib/decis
 import { REASON_LABELS, type ReasonCategory } from "@/lib/types";
 import { SITE_URL, BRAND_NAME } from "@/lib/constants";
 import { ResultRow, type Kind } from "./SearchResults";
+import FlowDiagram from "@/components/FlowDiagram";
+import { REMEDY_FLOW, FLOW_CHECKED } from "@/content/procedure-flows";
+import "@/components/flow-diagram.css";
 
 // /decisions 상세는 48,000페이지가 있는데 목록(허브) 페이지가 아예 없었다.
 // 라우트가 [id] 뿐이라 /decisions 자체가 404 + noindex 였고(2026-08-31 라이브 확인),
@@ -223,6 +226,16 @@ async function HubView() {
           노동위 판정례 {sources.nlrc.toLocaleString()}건 · 법원 판례 {sources.court.toLocaleString()}건.
           한 사건이 여러 유형에 걸칠 수 있어 유형별 건수는 중복될 수 있습니다.
         </p>
+      </section>
+
+      {/* 판정례를 보러 온 사람이 가장 먼저 묻는 것 — 「나는 지금 어느 단계이고 기한이 언제까지인가」.
+          검색 결과만 쌓아 두면 그 답이 어디에도 없다(2026-10-21). */}
+      <section className="mb-12">
+        <h2 className="mb-1 text-lg font-semibold">절차는 이렇게 갑니다</h2>
+        <p className="mb-4 text-xs" style={{ color: "var(--color-text-tertiary)" }}>
+          법제처 현행 법령 원문 기준 · {FLOW_CHECKED} 확인
+        </p>
+        <FlowDiagram flow={REMEDY_FLOW} />
       </section>
 
       <section>
