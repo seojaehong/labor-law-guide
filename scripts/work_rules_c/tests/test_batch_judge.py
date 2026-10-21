@@ -72,6 +72,60 @@ def test_failed_chunk_retried_then_marked():
     assert c.calls == 2 and sorted(out) == ["제1조", "제2조"]
 
 
+class FakeBatchClient(SequenceClient):
+    """messages.batches 만 흉내 낸다. results 는 custom_id → BatchOut | 'errored'."""
+
+    def __init__(self, results, retry_seq=()):
+        super().__init__(retry_seq)
+        from types import SimpleNamespace
+        self.results_map, self.created = results, None
+        self.messages.batches = SimpleNamespace(create=self._create, retrieve=self._retrieve, results=self._results)
+
+    def _create(self, requests):
+        from types import SimpleNamespace
+        self.created = requests
+        return SimpleNamespace(id="b1", processing_status="in_progress")
+
+    def _retrieve(self, bid):
+        from types import SimpleNamespace
+        return SimpleNamespace(id=bid, processing_status="ended")
+
+    def _results(self, bid):
+        from types import SimpleNamespace
+        for cid, out in self.results_map.items():
+            if out == "errored":
+                yield SimpleNamespace(custom_id=cid, result=SimpleNamespace(type="errored"))
+                continue
+            msg = SimpleNamespace(content=[SimpleNamespace(type="text", text=out.model_dump_json())],
+                                  usage=SimpleNamespace(input_tokens=10, output_tokens=5, cache_read_input_tokens=0,
+                                                        cache_creation_input_tokens=0))
+            yield SimpleNamespace(custom_id=cid, result=SimpleNamespace(type="succeeded", message=msg))
+
+
+def test_batch_api_submits_all_chunks_once():
+    c = FakeBatchClient({"c0": BatchOut(findings=[_f(f"제{i}조") for i in range(1, 9)]),
+                         "c1": BatchOut(findings=[_f("제9조", result="현행 수정 필요")])})
+    out = BatchJudge(c, size=8, use_batch_api=True, poll=0).judge_all(_pairs(9), {}, {})
+    assert len(c.created) == 2 and c.calls == 0 and list(out) == ["제9조"]
+    fmt = c.created[0]["params"]["output_config"]["format"]
+    assert fmt["type"] == "json_schema" and "findings" in fmt["schema"]["properties"]
+    assert c.created[0]["params"]["system"][0]["cache_control"] == {"type": "ephemeral"}
+
+
+def test_batch_api_errored_chunk_retried_sync():
+    c = FakeBatchClient({"c0": "errored"}, retry_seq=[BatchOut(findings=[_f("제1조"), _f("제2조")])])
+    out = BatchJudge(c, size=8, use_batch_api=True, poll=0).judge_all(_pairs(2), {}, {})
+    assert out == {} and c.asked == [["제1조", "제2조"]]
+
+
+def test_batch_api_usage_priced_as_batch():
+    from work_rules_c import cost
+    c = FakeBatchClient({"c0": BatchOut(findings=[_f("제1조")])})
+    j = BatchJudge(c, size=8, use_batch_api=True, poll=0)
+    j.judge_all(_pairs(1), {}, {})
+    assert j.usage.model == "claude-sonnet-5-5-batch" and cost.usd(j.usage) > 0
+
+
 def test_call_failure_marks_whole_chunk():
     out = BatchJudge(FakeClient(raises=RuntimeError("x")), size=8).judge_all(_pairs(3), {}, {})
     assert sorted(out) == ["제1조", "제2조", "제3조"]

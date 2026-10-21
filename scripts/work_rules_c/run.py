@@ -111,6 +111,7 @@ def main(argv=None) -> int:
     ap.add_argument("--triage", required=True, choices=["haiku", "jev", "openai", "none"],
                     help="none = 1차 거르기 없이 묶음 판단(조문 --batch-size 개씩 한 번에)")
     ap.add_argument("--batch-size", type=int, default=8)
+    ap.add_argument("--batch-api", action="store_true", help="묶음 판단을 Batch API(50%% 할인, 수 분~수 시간)로 보낸다")
     ap.add_argument("--effort", default="medium", choices=["low", "medium", "high"])
     ap.add_argument("--judge-model", default=DEFAULT_JUDGE_MODEL)
     ap.add_argument("--min-confidence", type=float, default=0.8)
@@ -123,7 +124,8 @@ def main(argv=None) -> int:
     if a.triage == "none":
         from work_rules_c.batch_judge import BatchJudge
         triage = None
-        judge = BatchJudge(anthropic_client(), model=a.judge_model, effort=a.effort, size=a.batch_size)
+        judge = BatchJudge(anthropic_client(), model=a.judge_model, effort=a.effort, size=a.batch_size,
+                           use_batch_api=a.batch_api)
     else:
         from work_rules_c.judge import AnthropicJudge
         triage = _triage_backend(a.triage, a.headcount)
