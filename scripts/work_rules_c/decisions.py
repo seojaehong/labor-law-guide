@@ -111,7 +111,7 @@ KIND_CHOICES = (
 def questions_for(pair: ArticlePair) -> list[DQ]:
     qs = [DQ("below_law", "yesno", "개정안이 관련 법령 기준보다 근로자에게 불리하거나 법이 요구하는 사항을 빠뜨렸다.",
              true="법령 기준 미달 또는 필수 사항 누락이 있다", false="법령 기준을 충족한다")]
-    if pair.old is not None:
+    if pair.status == "변경":
         qs.append(DQ("worse_than_old", "yesno", "개정안이 종전 규정보다 근로조건을 낮췄다.",
                      true="종전보다 근로자에게 불리해졌다", false="종전과 같거나 유리해졌다"))
     qs.append(DQ("hard_to_run", "yesno", "규정한 절차(정족수·재심 인원·필수 심의)를 이 사업장 규모로 지키기 어렵다.",
@@ -135,24 +135,25 @@ class DecisionTriage:
         state = {"조문": pair.no, "종전": pair.old.body if pair.old else "",
                  "개정안": pair.new.body if pair.new else "",
                  "관련 법령 기준": [h.topic for h in hits], "사업장 상시 인원": self.headcount}
+        questions = questions_for(pair)
         try:
-            answers, usage = self.client.ask(state, questions_for(pair))
+            answers, usage = self.client.ask(state, questions)
         except Exception as e:  # 호출 실패는 위로 올린다
             return Triage(pair.no, "확인필요", (f"1차 분류 실패: {type(e).__name__}",), True)
         self.usage.add(_UsageView(usage))
-        reasons = []
+        reasons = [f"{q.name} 답 없음" for q in questions if q.name not in answers]
         for name, a in answers.items():
             if a.refused:
                 reasons.append(f"{name} 거부")
             elif a.p_yes is not None and a.p_yes >= self.yes_threshold:
                 reasons.append(f"{name} {a.p_yes:.2f}")
         kind = answers.get("kind")
-        if kind is None or kind.refused:
-            reasons.append("kind 없음")
-        else:
+        if kind is not None and not kind.refused:
             if kind.choice != "문제없음":
                 reasons.append(f"kind {kind.choice}")
-            if kind.confidence is not None and kind.confidence < self.min_confidence:
+            if kind.confidence is None:
+                reasons.append("kind confidence 없음")
+            elif kind.confidence < self.min_confidence:
                 reasons.append(f"kind confidence {kind.confidence:.2f}")
         escalate = bool(reasons) or force_escalate(drops, hits)
         return Triage(pair.no, "확인필요" if escalate else "문제없음", tuple(reasons), escalate)

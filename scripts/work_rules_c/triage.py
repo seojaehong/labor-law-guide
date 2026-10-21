@@ -54,9 +54,11 @@ def force_escalate(drops: list[Drop], hits: list[RuleHit]) -> bool:
 
 
 def skip_same(pair: ArticlePair, drops: list[Drop], hits: list[RuleHit]) -> Triage | None:
-    if pair.status != "동일":
-        return None
-    return Triage(pair.no, "문제없음", (), force_escalate(drops, hits))
+    """API 없이 정할 수 있는 경우. 삭제 조문은 묻지 않고 올린다(보호 조항 삭제는 대표적인 불이익변경).
+    바뀌지 않은 조문도 현행 법령 기준으로는 점검해야 하므로 건너뛰지 않는다."""
+    if pair.new is None:
+        return Triage(pair.no, "확인필요", ("조문 삭제",), True)
+    return None
 
 
 def payload(pair: ArticlePair, drops: list[Drop], hits: list[RuleHit]) -> dict:

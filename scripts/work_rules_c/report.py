@@ -1,5 +1,6 @@
 """표준 열 대조표(comparison.v1) — /laws 화면과 검수자가 같이 읽는다."""
 import json
+import re
 from pathlib import Path
 
 from work_rules_c.articles import ArticlePair
@@ -9,6 +10,16 @@ from work_rules_c.quantities import Drop
 from work_rules_c.triage import Triage
 
 COLUMNS = ["조문", "현행", "개정안", "개정 사유", "근거·시행일", "불이익변경", "점검 결과", "운영 메모", "제안 문안"]
+
+# 산출물에 못 쓰는 말(NOW.md — 직무 표방·확률 숫자 금지). 모델이 쓴 글에서 바꾸거나 지운다
+REPLACE = {"판정": "점검 결과", "자문": "검토", "상담": "문의", "진단": "점검"}
+PROB = re.compile(r"(?:확률|가능성|정확도)\s*[:은는이가]?\s*\d+(?:\.\d+)?\s*%?|(?:확률|정확도)")
+
+
+def clean(text: str) -> str:
+    for a, b in REPLACE.items():
+        text = text.replace(a, b)
+    return re.sub(r"\s{2,}", " ", PROB.sub("", text)).strip()
 
 
 def _basis(hits: list[RuleHit]) -> str:
@@ -24,16 +35,28 @@ def build_rows(pairs: list[ArticlePair], drops: dict[str, list[Drop]], hits: dic
             continue
         j = judged.get(p.no)
         h = hits.get(p.no, [])
+        d = drops.get(p.no, [])
+        hard = bool(d) or p.status == "삭제"  # 기계 신호 — 판단이 「해당 없음」으로 지우지 못한다
+        disadvantage = j.disadvantage if j else ("확인 필요" if hard else "해당 없음")
+        if hard and disadvantage == "해당 없음":
+            disadvantage = "확인 필요"
+        memo = [clean(j.ops_note)] if j and j.ops_note else []
+        if d:
+            memo.append("수치 하락: " + ", ".join(f"{x.old_max:g}{x.unit} → {x.new_max:g}{x.unit}" for x in d))
+        if p.status == "삭제":
+            memo.append("조문 삭제")
+        elif p.old_no and p.old_no != p.no:
+            memo.append(f"종전 {p.old_no}에서 옮김")
         row = {
             "조문": p.no,
             "현행": p.old.body if p.old else "",
             "개정안": p.new.body if p.new else "",
-            "개정 사유": j.reason if j else "",
-            "근거·시행일": j.basis if j and j.basis else _basis(h),
-            "불이익변경": j.disadvantage if j else ("확인 필요" if drops.get(p.no) else "해당 없음"),
+            "개정 사유": clean(j.reason) if j else "",
+            "근거·시행일": clean(j.basis) if j and j.basis else _basis(h),
+            "불이익변경": disadvantage,
             "점검 결과": j.result if j else "추가 확인",
-            "운영 메모": j.ops_note if j else "",
-            "제안 문안": j.proposed_text if j else "",
+            "운영 메모": " · ".join(m for m in memo if m),
+            "제안 문안": clean(j.proposed_text) if j else "",
         }
         rows.append({k: row[k] for k in COLUMNS})
     for h in hits.get(NEW_BUCKET, []):

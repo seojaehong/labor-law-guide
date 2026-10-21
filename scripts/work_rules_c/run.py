@@ -17,7 +17,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from work_rules_c import cost  # noqa: E402
 from work_rules_c.articles import pair_articles, read_text, split_articles  # noqa: E402
 from work_rules_c.judge import JudgeBackend, JudgeInput, apply_threshold  # noqa: E402
-from work_rules_c.mapping import hits_by_article, map_rules  # noqa: E402
+from work_rules_c.mapping import NEW_BUCKET, hits_by_article, map_rules  # noqa: E402
 from work_rules_c.quantities import quantity_drops  # noqa: E402
 from work_rules_c.report import build_rows, write_outputs  # noqa: E402
 from work_rules_c.triage import TriageBackend  # noqa: E402
@@ -28,14 +28,18 @@ def pipeline(new_text: str, old_text: str | None, asof: date, since: date, triag
              min_confidence: float = 0.8) -> tuple[list[dict], dict]:
     new = split_articles(new_text)
     old = split_articles(old_text) if old_text is not None else []
+    for label, arts in (("개정안", new), ("종전", old if old_text is not None else None)):
+        if arts is not None and not any(a.body.strip() for a in arts):
+            raise ValueError(f"{label}에서 본문이 있는 조문을 찾지 못했다 — 조 머리 형식이나 목차를 확인한다")
     pairs = pair_articles(old, new)
     drops = {p.no: quantity_drops(p) for p in pairs}
     hits = hits_by_article(map_rules(new, asof, since, rules))
+    known = {p.no for p in pairs}
+    for key in [k for k in hits if k != NEW_BUCKET and k not in known]:  # 조문 짝이 없는 매핑은 버리지 않는다
+        hits.setdefault(NEW_BUCKET, []).extend(hits.pop(key))
     triages, judged = {}, {}
     t0 = time.time()
     for p in pairs:
-        if p.new is None:  # 삭제 조문은 종전 쪽만 있어 점검 대상이 아니다
-            continue
         t = triage.triage(p, drops[p.no], hits.get(p.no, []))
         triages[p.no] = t
         if t.escalate:
@@ -98,8 +102,12 @@ def main(argv=None) -> int:
     judge = AnthropicJudge(anthropic.Anthropic(), model=a.judge_model)
     meta = {"사업장": a.site, "작성일": date.today().isoformat(), "점검 기간": f"{a.since} ~ {a.asof}",
             "기준 자료": "표준취업규칙 2026 · 법제처 원문"}
-    rows, report = pipeline(read_text(a.rules), read_text(a.old) if a.old else None, a.asof, a.since,
-                            triage, judge, meta, min_confidence=a.min_confidence)
+    try:
+        rows, report = pipeline(read_text(a.rules), read_text(a.old) if a.old else None, a.asof, a.since,
+                                triage, judge, meta, min_confidence=a.min_confidence)
+    except ValueError as e:
+        print(str(e), file=sys.stderr)
+        return 2
     write_outputs(rows, meta, a.out)
     (a.out / "cost.json").write_text(json.dumps(report, ensure_ascii=False, indent=1), encoding="utf-8")
     print(json.dumps(report, ensure_ascii=False))

@@ -10,10 +10,16 @@ from work_rules_c.triage import TRIAGE_MODEL, HaikuTriage, TriageBackend, Triage
 from .fakes import FakeClient, changed_pair, httpx_request, same_pair
 
 
-def test_same_pair_skips_api():
-    c = FakeClient(fail_if_called=True)
-    t = triage_pair(c, same_pair(), [], [], Usage(TRIAGE_MODEL))
-    assert t.label == "문제없음" and not t.escalate
+def test_deleted_pair_escalates_without_api():
+    from work_rules_c.articles import pair_articles, split_articles
+    p = pair_articles(split_articles("제3조(경조사휴가) 결혼 5일"), [])[0]
+    t = triage_pair(FakeClient(fail_if_called=True), p, [], [], Usage(TRIAGE_MODEL))
+    assert t.escalate and t.reasons == ("조문 삭제",)
+
+
+def test_same_pair_clean_not_escalated():
+    c = FakeClient(out=TriageOut(label="문제없음", reasons=[], topics=[]))
+    assert not triage_pair(c, same_pair(), [], [], Usage(TRIAGE_MODEL)).escalate
 
 
 def test_clean_label_not_escalated():

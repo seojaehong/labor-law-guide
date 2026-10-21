@@ -75,6 +75,16 @@ def test_bad_asof_exits_2(tmp_path):
     assert r.returncode == 2
 
 
+def test_empty_document_exits_2(tmp_path):
+    f = tmp_path / "rules.txt"
+    f.write_text("목 차\n제1조(목적)\n제2조(적용)", encoding="utf-8")
+    env = {k: v for k, v in __import__("os").environ.items()}
+    env["TYPESAFE_API_KEY"] = "x"
+    r = subprocess.run([sys.executable, RUN, "--rules", str(f), "--asof", "2026-10-21", "--since", "2023-01-01",
+                        "--out", str(tmp_path), "--triage", "jev"], capture_output=True, env=env)
+    assert r.returncode == 2 and "본문" in r.stderr.decode("utf-8") and b"Traceback" not in r.stderr
+
+
 def test_missing_key_exits_2(tmp_path):
     f = tmp_path / "rules.txt"
     f.write_text(NEW, encoding="utf-8")

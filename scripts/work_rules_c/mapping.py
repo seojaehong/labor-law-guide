@@ -34,7 +34,8 @@ def _date(s: str) -> date:
 def map_rules(articles: list[Article], asof: date, since: date, rules: list[dict] | None = None) -> list[RuleHit]:
     if rules is None:
         rules = rules_impact.MAP["rules"]
-    text = "\n".join(f"{a.no}({a.title}) {a.body}" for a in articles)
+    # 조문 하나를 한 줄로 넘긴다 — 본문 속 「제3조에 따라」 줄을 rules_impact 가 새 조문으로 읽지 않게
+    text = "\n".join(f"{a.no}({a.title}) " + " ".join(a.body.split()) for a in articles)
     paras = rules_impact.paragraphs(text)
     out = []
     for rule in rules:

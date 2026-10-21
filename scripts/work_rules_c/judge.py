@@ -59,7 +59,8 @@ class AnthropicJudge:
 
     def judge(self, item: JudgeInput) -> JudgeOut:
         body = payload(item.pair, list(item.drops), list(item.hits))
-        body["1차 분류 사유"] = list(item.triage.reasons)
+        # 확률 숫자는 넘기지 않는다 — 모델이 산출물에 옮겨 적는다
+        body["1차 분류 사유"] = [r.split(" ")[0] if r[:1].isascii() else r for r in item.triage.reasons]
         try:
             resp = self.client.messages.parse(
                 model=self.model,

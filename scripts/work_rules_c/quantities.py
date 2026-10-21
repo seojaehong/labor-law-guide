@@ -42,15 +42,36 @@ def extract_quantities(text: str) -> list[Quantity]:
     return [q for _, q in sorted(found, key=lambda x: x[0])]
 
 
-def _max_by_unit(text: str) -> dict[str, float]:
-    out: dict[str, float] = {}
+DAYS = {"년": 365.0, "개월": 30.0, "주": 7.0, "일": 1.0}
+
+
+def _group(unit: str) -> str:
+    return "기간" if unit in DAYS else unit
+
+
+def _values(text: str) -> dict[str, list[tuple[float, Quantity]]]:
+    """단위 무리별로 (비교값, 원래 수치) — 기간은 일수로 바꿔 비교한다."""
+    out: dict[str, list[tuple[float, Quantity]]] = {}
     for q in extract_quantities(text):
-        out[q.unit] = max(out.get(q.unit, q.value), q.value)
+        v = q.value * DAYS.get(q.unit, 1.0)
+        out.setdefault(_group(q.unit), []).append((v, q))
+    for vs in out.values():
+        vs.sort(key=lambda x: -x[0])
     return out
 
 
 def quantity_drops(pair: ArticlePair) -> list[Drop]:
+    """종전 수치를 큰 것부터 개정안 수치와 하나씩 맞대 보아, 작아지거나 사라진 첫 수치를 무리마다 하나 돌려준다."""
     if pair.status != "변경":
         return []
-    old, new = _max_by_unit(pair.old.body), _max_by_unit(pair.new.body)
-    return [Drop(unit, old[unit], new[unit]) for unit in old if unit in new and new[unit] < old[unit]]
+    old, new = _values(pair.old.body), _values(pair.new.body)
+    drops = []
+    for group, ovs in old.items():
+        nvs = new.get(group, [])
+        for i, (ov, oq) in enumerate(ovs):
+            nv = nvs[i][0] if i < len(nvs) else 0.0
+            if nv < ov:
+                factor = DAYS.get(oq.unit, 1.0)
+                drops.append(Drop(oq.unit, oq.value, round(nv / factor, 2)))
+                break
+    return drops
