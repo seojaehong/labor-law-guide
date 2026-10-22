@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { pairArticles, splitArticles } from '@/lib/laws/precise/articles';
 import { extractQuantities, quantityDrops } from '@/lib/laws/precise/quantities';
 import { anthropicAsk, chunks, judgeAll, merge, type Finding } from '@/lib/laws/precise/judge';
-import { clean, precisePipeline } from '@/lib/laws/precise/pipeline';
+import { clean, precisePipeline, rowsForStore } from '@/lib/laws/precise/pipeline';
 import { BATCH_SYSTEM } from '@/lib/laws/precise/prompts';
 
 // 기준 구현 scripts/work_rules_c 의 시험(test_articles·test_quantities·test_review_fixes·test_batch_judge)과 같은 사례
@@ -176,6 +176,12 @@ describe('파이프라인', () => {
 
   it('본문 없는 문서는 거절한다', async () => {
     await expect(precisePipeline({ rules: '목 차\n제1조(목적)\n제2조(적용)', since: '20230101' }, [], { ask: ask([]) })).rejects.toThrow('empty_rules');
+  });
+
+  it('보관 동의가 없으면 저장 행에 조문 원문이 남지 않는다', () => {
+    const row = { 조문: '제1조', 현행: '종전 원문', 개정안: '개정 원문', '개정 사유': 'r', '근거·시행일': '', 불이익변경: '해당 없음', '점검 결과': '회사 선택', '운영 메모': '', '제안 문안': '' };
+    expect(rowsForStore([row], false)[0]).toMatchObject({ 현행: '', 개정안: '', '개정 사유': 'r' });
+    expect(rowsForStore([row], true)[0].현행).toBe('종전 원문');
   });
 
   it('금지어·확률 숫자를 지운다', () => {

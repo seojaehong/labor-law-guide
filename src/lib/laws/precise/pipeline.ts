@@ -35,6 +35,11 @@ export function mapRules(articles: { no: string; title: string; body: string }[]
   return out;
 }
 
+/** 저장용 행 — 본문 보관에 동의하지 않았으면 조문 원문(현행·개정안)을 비우고 점검 결과만 남긴다. */
+export function rowsForStore(rows: Row[], store: boolean): Row[] {
+  return store ? rows : rows.map((r) => ({ ...r, 현행: '', 개정안: '' }));
+}
+
 export interface PreciseInput {
   rules: string; // 개정안(또는 현행) 본문
   old?: string | null; // 종전 본문 — 없으면 단일 문서 점검

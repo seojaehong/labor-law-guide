@@ -83,7 +83,8 @@ export default function PreciseCheck({ text, since, toast }: { text: string; sin
       <h3 className="lr-output-title">3. 정밀 점검 (AI 조문 대조 · 시험 운영)</h3>
       <p className="lr-check-note">
         위 점검은 낱말 대조입니다. 정밀 점검은 조문마다 법령 기준 충족·종전 대비 불이익변경·운영 가능성을 AI 가 대조합니다.
-        <b> 이 버튼을 누르면 본문이 AI 점검을 위해 서버로 전송됩니다.</b> 결과는 노무사 검수 전 초안이며, 1분 안팎 걸리고 하루 3회까지 쓸 수 있습니다.
+        <b> 실행하면 입력한 본문 전체가 우리 서버를 거쳐 외부 AI 제공사(Anthropic)로 전송됩니다.</b>{' '}
+        보관에 동의하지 않으면 조문 본문은 저장하지 않고 점검 결과만 남깁니다. 결과는 노무사 검수 전 초안이며, 1분 안팎 걸리고 하루 3회까지 쓸 수 있습니다.
       </p>
       <details>
         <summary>종전 취업규칙과 비교하기(선택)</summary>

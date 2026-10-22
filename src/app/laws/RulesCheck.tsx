@@ -273,7 +273,7 @@ export default function RulesCheck({ onClose, toast }: { onClose: () => void; to
             {fileError && <p className="lr-file-error" role="alert">파일을 읽지 못했습니다: {fileError}</p>}
             <div className="lr-check-meta">
               <ShieldCheck size={14} /> {PRECISE_ENABLED
-                ? '기본 점검은 이 브라우저 안에서만 합니다. 아래 「정밀 점검」을 누를 때만 본문이 서버로 전송됩니다.'
+                ? '기본 점검은 이 브라우저 안에서만 합니다. 아래 「정밀 점검」을 실행할 때만 본문 전체가 외부 AI 제공사로 전송됩니다.'
                 : '본문과 파일은 이 브라우저 안에서만 읽고 판정합니다. 서버로 보내지 않습니다.'}
               <span className="sp" />
               <input ref={fileRef} type="file" accept=".hwpx,.docx,.hwp" hidden onChange={(e) => onFile(e.target.files?.[0])} />

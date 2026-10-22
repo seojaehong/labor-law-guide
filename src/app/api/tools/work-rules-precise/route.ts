@@ -1,13 +1,14 @@
 // 취업규칙 정밀 점검 API — 본문을 받아 조문별 묶음 판단(Sonnet, 2회 합집합)을 돌려 대조표 행을 돌려준다.
 // - 플래그(WORK_RULES_PRECISE_ENABLED=1)와 키(ANTHROPIC_API_KEY)가 둘 다 있어야 열린다. 아니면 501.
-// - 본문은 로그에 남기지 않는다. 저장은 사용자가 동의(store=true)했을 때만 — 동의가 없으면 결과 행과 수치만 남긴다.
+// - 본문 전체가 이 서버를 거쳐 Anthropic(외부 AI 제공사)으로 간다. 본문은 로그에 남기지 않는다.
+// - 본문 저장은 사용자가 동의(store=true)했을 때만 — 동의가 없으면 행의 조문 원문(현행·개정안)을 비우고 점검 결과만 남긴다.
 // - 결과는 노무사 검수 전 초안이다. 화면 문구가 그 점을 알린다(RulesCheck.tsx).
 import { createClient } from '@supabase/supabase-js';
 import { isTurnstileEnabled, verifyTurnstile } from '@/lib/turnstile';
 import { extractIp, hashIp } from '@/lib/client-ip';
 import type { RuleSpec } from '@/lib/laws/rules-check';
 import { anthropicAsk, usd, type Usage } from '@/lib/laws/precise/judge';
-import { precisePipeline } from '@/lib/laws/precise/pipeline';
+import { precisePipeline, rowsForStore } from '@/lib/laws/precise/pipeline';
 import rulesJson from '../../../../../public/data/laws/rules.json';
 
 export const runtime = 'nodejs';
@@ -110,7 +111,7 @@ export async function POST(req: Request): Promise<Response> {
   if (client) { // 수집 — 실패해도 결과는 돌려준다
     const { error } = await client.from('work_rules_precise_runs').insert({
       id: runId, articles: result.articles, flagged: result.flagged, usd: cost, seconds, headcount: headcount || null,
-      rows: result.rows, stored_text: store, rules_text: store ? rules : null, old_text: store ? old : null,
+      rows: rowsForStore(result.rows, store), stored_text: store, rules_text: store ? rules : null, old_text: store ? old : null,
     });
     if (error) console.error('[work-rules-precise] run insert failed', error.code ?? 'unknown');
   }

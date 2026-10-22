@@ -24,6 +24,10 @@ export async function POST(req: Request): Promise<Response> {
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!url || !key) return json(503, { error: 'unavailable' });
   const db = createClient(url, key, { auth: { autoRefreshToken: false, persistSession: false } });
+  // 그 실행 결과에 있는 조문에만 반응을 받는다 — 임의 조문명으로 행을 무한히 쌓지 못하게
+  const { data: run } = await db.from('work_rules_precise_runs').select('rows').eq('id', runId).maybeSingle();
+  const rows = (run?.rows ?? []) as { 조문?: string }[];
+  if (!rows.some((r) => r.조문 === article)) return json(404, { error: 'unknown_article' });
   // 같은 조문에 다시 누르면 마지막 반응으로 바꾼다
   const { error } = await db.from('work_rules_precise_feedback')
     .upsert({ run_id: runId, article, verdict, note }, { onConflict: 'run_id,article' });
