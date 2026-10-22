@@ -1,4 +1,4 @@
-// 원본: ~/dev/pay-exception-check @4663947
+// 원본: ~/dev/pay-exception-check @c6c988d
 // Result card (spec 화면 7): 관찰 → 근거 → 조건부 해석 → 필요한 자료 → 회사에 물어볼 문장.
 // The wording never states a legal conclusion or an owed amount (spec §6).
 
@@ -20,6 +20,7 @@ export function forbiddenHits(text: string): string[] {
 
 export function renderCard(r: CheckResult): string {
   const lines = [`[${STATUS_TEXT[r.status]}] ${r.observation}`];
+  if (r.open_confirmations.length) lines.push("", "확인되지 않은 채 남은 것", ...r.open_confirmations.map((g) => `- ${g}`));
   if (r.grounds.length) lines.push("", "근거", ...r.grounds.map((g) => `- ${g}`));
   if (r.conditions.length) lines.push("", "이 결과가 달라지는 경우", ...r.conditions.map((g) => `- ${g}`));
   if (r.evidence_needed.length) lines.push("", "필요한 자료", ...r.evidence_needed.map((g) => `- ${g}`));

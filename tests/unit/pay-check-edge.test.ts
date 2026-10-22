@@ -1,4 +1,4 @@
-// 12건 밖의 경계 (원본: ~/dev/pay-exception-check @4663947 test/edge.test.ts, extractor slot 묶음 제외).
+// 12건 밖의 경계 (원본: ~/dev/pay-exception-check @c6c988d test/edge.test.ts, extractor slot 묶음 제외).
 // 끝수 처리(방법·단위), [별표 2] 1일 소정근로시간, 15시간 선, 공제 부호, 결근 주 주휴(I4), 확인 항목(C1~C3), 마지막 소정근로일 범위,
 // 결과 카드에 내부 코드가 보이지 않음·확인된 항목을 다시 묻지 않음(미리보기 E2E).
 
@@ -206,7 +206,7 @@ describe("C1 a confirmation that is not given is not a confirmation", () => {
     expect(ml({ last_scheduled_workday: "2026-04-15" }).status).toBe("MATCH");
   });
 
-  const mj = (extra: Record<string, string | null | undefined>) => {
+  const mj = (extra: Record<string, string | boolean | null | undefined>) => {
     const confirmed: Record<string, string | number | boolean | null> = {
       pay_period_start: "2026-04-01", pay_period_end: "2026-04-30", employment_start: "2026-04-16",
       hourly_rate: 10000, paid_hours: 80, payslip_amount: 800000, calculation_basis_documented: true,
@@ -222,12 +222,17 @@ describe("C1 a confirmation that is not given is not a confirmation", () => {
     expect(mj({ pay_period_end: null }).expected_amount).toBeNull();
   });
 
-  it("company basis documented: missing → stop, null → stop, false → stop, true → compare", () => {
-    expect(mj({ calculation_basis_documented: undefined }).reasons).toEqual(["COMPANY_BASIS_NOT_CONFIRMED"]);
-    expect(mj({ calculation_basis_documented: null }).reasons).toEqual(["COMPANY_BASIS_NOT_CONFIRMED"]);
-    const no = check({ scenario: "MID_JOIN", policy_id: "HOUR_ACTUAL", confirmed: { pay_period_start: "2026-04-01", pay_period_end: "2026-04-30", employment_start: "2026-04-16", hourly_rate: 10000, paid_hours: 80, payslip_amount: 800000, calculation_basis_documented: false } });
-    expect([no.status, no.expected_amount, no.reasons]).toEqual(["NEEDS_CONFIRMATION", null, ["COMPANY_BASIS_NOT_CONFIRMED"]]);
-    expect(mj({}).expected_amount).toBe(800000);
+  it("company basis: 기준 없음 → stop · 기준은 있고 문서 미확인(없음·null·false) → 참고 계산 + 확인 상태 · true → 확인 상태 없음 (261022 결정)", () => {
+    expect(check({ scenario: "MID_JOIN", policy_id: null, confirmed: { pay_period_start: "2026-04-01", pay_period_end: "2026-04-30", employment_start: "2026-04-16", hourly_rate: 10000, paid_hours: 80, payslip_amount: 800000, calculation_basis_documented: true } }).reasons).toEqual(["COMPANY_BASIS_NOT_CONFIRMED"]);
+    for (const v of [undefined, null, false]) {
+      const r = mj({ calculation_basis_documented: v });
+      expect([r.status, r.expected_amount, r.reasons]).toEqual(["MATCH", 800000, ["COMPARED_EQUAL", "BASIS_NOT_DOCUMENTED"]]);
+      expect(r.open_confirmations).toHaveLength(1);
+      expect(r.observation.startsWith("참고 계산입니다.")).toBe(true);
+      expect(renderCard(r)).toContain("계산 기준 문서 미확인");
+    }
+    const ok = mj({});
+    expect([ok.expected_amount, ok.open_confirmations, ok.reasons]).toEqual([800000, [], ["COMPARED_EQUAL"]]);
   });
 
   it("weekly holiday designation: missing → stop, null → stop, false·true (답함) → compare", () => {
@@ -242,8 +247,14 @@ describe("C1 a confirmation that is not given is not a confirmation", () => {
     });
     expect([missing.status, missing.reasons, missing.expected_amount]).toEqual(["NEEDS_CONFIRMATION", ["FACT_UNCONFIRMED:continuity_or_holiday"], null]);
     expect(hwd(null).reasons).toEqual(["FACT_UNCONFIRMED:continuity_or_holiday"]);
-    expect(hwd(false).status).toBe("MATCH");
-    expect(hwd(true).status).toBe("MATCH");
+    // 미지정 확인(false)은 대조하되 「주휴일 확인 필요」를 남긴다 (261022 결정, 제17조·제55조).
+    const no = hwd(false);
+    expect([no.status, no.reasons]).toEqual(["MATCH", ["COMPARED_EQUAL", "WEEKLY_HOLIDAY_NOT_DESIGNATED"]]);
+    expect(no.open_confirmations[0]).toContain("주휴일 확인 필요");
+    expect(no.citations).toContain("근로기준법 제17조");
+    expect(forbiddenHits(renderCard(no))).toEqual([]);
+    const yes = hwd(true);
+    expect([yes.status, yes.open_confirmations, yes.citations]).toEqual(["MATCH", [], expect.not.arrayContaining(["근로기준법 제17조"])]);
   });
 });
 
@@ -339,7 +350,7 @@ describe("E2E 결과 카드: 사람에게 보이는 문장에 내부 코드가 �
     ["퇴사 · 어긋남(30일 기준, 반올림 100원)", C("MID_LEAVE", "DAY_30", { ...leave, rounding: "ROUND", rounding_unit: 100 })],
     ["퇴사 · 마지막 소정근로일 미확인", C("MID_LEAVE", "DAY_30", { ...leave, last_scheduled_workday: null })],
     ["퇴사 · 마지막 소정근로일 범위 밖", C("MID_LEAVE", "DAY_30", { ...leave, last_scheduled_workday: "2026-04-20" })],
-    ["퇴사 · 기준 미확인", C("MID_LEAVE", "DAY_30", { ...leave, calculation_basis_documented: false })],
+    ["퇴사 · 기준 문서 미확인(참고 계산)", C("MID_LEAVE", "DAY_30", { ...leave, calculation_basis_documented: false })],
     ["퇴사 · 다른 예외의 기준", C("MID_LEAVE", "WEEKLY_HOLIDAY_FIXED", leave)],
     ["퇴사 · 범위 밖", C("MID_LEAVE", "DAY_30", { ...leave, employment_end: "2026-04-30" })],
     ["결근 · 일치", C("ABSENCE_DEDUCTION", "ABSENCE_HOUR", ab)],

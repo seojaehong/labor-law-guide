@@ -1,4 +1,4 @@
-// 원본: ~/dev/pay-exception-check @4663947
+// 원본: ~/dev/pay-exception-check @c6c988d
 // One worker, one pay month, one exception (spec §1). Decides the status from confirmed values only.
 // Order per scenario: scope → facts the exception depends on → company basis → policy → compare.
 // NEEDS_CONFIRMATION never carries an amount.
@@ -283,6 +283,7 @@ export function check(input: CheckInput): CheckResult {
     difference: null,
     grounds: [] as string[],
     conditions: [] as string[],
+    open_confirmations: [] as string[],
     citations: CITATIONS[s],
   };
   const done = (x: Partial): CheckResult => ({
@@ -299,8 +300,10 @@ export function check(input: CheckInput): CheckResult {
   if (fact) return done(fact);
 
   // Basis gate: the product never picks a company basis (spec 화면 5).
-  // calculation_basis_documented 는 true 일 때만 통과한다. 없음·null·false 는 모두 확인 못함 (외부 검토 C1).
-  if (p === null || c.calculation_basis_documented !== true) {
+  // 「기준이 정해져 있음」(policy_id)과 「문서에서 확인함」(calculation_basis_documented)은 다른 사실이다 (261022 결정).
+  // 기준이 없으면 멈춘다. 기준은 있는데 문서 확인이 true 가 아니면 참고 계산만 내고 확인 상태를 남긴다.
+  const documented = c.calculation_basis_documented === true;
+  if (p === null) {
     const b = BASIS_QUESTION[s];
     return done(stop("NEEDS_CONFIRMATION", "COMPANY_BASIS_NOT_CONFIRMED", b.q, b.evidence, `${josa(ITEM[s], "을", "를")} 어떤 기준으로 계산했는지 확인되지 않아 금액을 만들지 않습니다.`));
   }
@@ -324,20 +327,37 @@ export function check(input: CheckInput): CheckResult {
   const diff = s === "ABSENCE_DEDUCTION" ? payslip - out.amount : out.amount - payslip;
   const match = diff === 0;
   const after = afterCompare(s, p, match);
-  const obs = match
+  const basisWord = documented ? "확인한 기준" : "고른 기준";
+  const obs = (documented ? "" : "참고 계산입니다. ") + (match
     ? `입력한 기준으로는 명세서 ${ITEM[s]} ${won(payslip)}과 대조됩니다.`
-    : `명세서 ${josa(ITEM[s], "은", "는")} ${won(payslip)}이고, 확인한 기준(${policyName(p)})으로 계산하면 ${won(out.amount)}입니다. 차이 ${won(Math.abs(diff))}. 계산 기준이 같다면 차이를 확인해 보세요.`;
+    : `명세서 ${josa(ITEM[s], "은", "는")} ${won(payslip)}이고, ${basisWord}(${policyName(p)})으로 계산하면 ${won(out.amount)}입니다. 차이 ${won(Math.abs(diff))}. 계산 기준이 같다면 차이를 확인해 보세요.`);
+  // 확인 상태: 금액을 냈어도 확인되지 않은 채 남은 것은 숨기지 않는다 (261022 결정).
+  const open: string[] = [], openReasons: string[] = [], openCites: string[] = [];
+  let q = after.q, evidence = after.evidence;
+  if (!documented) {
+    open.push("계산 기준 문서 미확인 — 고른 기준이 회사 문서에 적혀 있는지 확인하지 못했습니다. 위 금액은 참고 계산이며, 문서에서 확인하기 전까지 확인된 결과로 보지 않습니다.");
+    openReasons.push("BASIS_NOT_DOCUMENTED");
+    q = `${BASIS_QUESTION[s].q} ${after.q}`;
+    evidence = [...BASIS_QUESTION[s].evidence, ...after.evidence];
+  }
+  if (s === "HOURLY_WEEKLY_HOLIDAY" && c.weekly_holiday_designated === false) {
+    open.push("주휴일 확인 필요 — 계약·규칙에 주휴일이 정해져 있지 않은 것으로 확인됐습니다. 이 금액 대조는 주휴일 지정 여부를 쓰지 않는 현재 산식 범위의 결과입니다. 주휴일을 실제로 주었는지와 근로조건을 서면에 적었는지는 따로 확인해야 합니다.");
+    openReasons.push("WEEKLY_HOLIDAY_NOT_DESIGNATED");
+    openCites.push("근로기준법 제17조");
+  }
   return {
     ...base,
     status: match ? "MATCH" : "POTENTIAL_MISMATCH",
     expected_amount: out.amount,
     payslip_amount: payslip,
     difference: diff,
-    reasons: [match ? "COMPARED_EQUAL" : "COMPARED_DIFFERENT"],
+    reasons: [match ? "COMPARED_EQUAL" : "COMPARED_DIFFERENT", ...openReasons],
     observation: obs,
     grounds: [...out.grounds, ...POLICY_FIELDS[p].map((k) => `${label(k)}: ${show(c[k])} (사용자 확인)`)],
     conditions: after.conditions,
-    evidence_needed: after.evidence.slice(0, 3),
-    required_question: after.q,
+    open_confirmations: open,
+    evidence_needed: evidence.slice(0, 3),
+    required_question: q,
+    citations: [...base.citations, ...openCites],
   };
 }

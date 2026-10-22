@@ -99,6 +99,9 @@
 .pc-block h3 { font-size: 14px; font-weight: 600; color: var(--pc-ink); }
 .pc-block ul { margin-top: 6px; display: grid; gap: 4px; font-size: 14px; line-height: 1.7; color: var(--pc-body); padding-left: 1.2em; list-style: disc; }
 .pc-ask { background: var(--pc-soft); border-radius: 8px; padding: 14px 16px; }
+.pc-open { background: var(--pc-soft); border-radius: 8px; padding: 12px 16px; border-left: 3px solid var(--pc-ink); }
+.pc-basis-doc { margin-top: 14px; }
+.pc-q { font-size: 14px; font-weight: 600; color: var(--pc-ink); }
 .pc-ask p { font-size: 15px; line-height: 1.7; margin: 6px 0 10px; }
 .pc-cite { font-size: 13px; color: var(--pc-body); margin-top: 16px; }
 .pc-disclaimer { font-size: 13px; color: var(--pc-body); margin: 16px 0 12px; padding-top: 12px; border-top: 1px solid var(--pc-hair); }

@@ -193,6 +193,8 @@ export interface FormState {
   rounding: Rounding;
   /** 끝수 처리 단위(원). 없거나 null 이면 모름. */
   roundingUnit?: RoundingUnit | null;
+  /** 고른 계산 기준을 회사 문서에서 확인했는지. 없거나 null 이면 답하지 않음 — 「기준이 있음」과 다른 사실이다 (261022 결정). */
+  basisDocumented?: boolean | null;
 }
 
 export function buildInput(f: FormState): CheckInput {
@@ -213,7 +215,7 @@ export function buildInput(f: FormState): CheckInput {
       if (opt && opt.value !== 'omit') confirmed[def.key] = opt.value;
     }
   }
-  if (f.policy) confirmed.calculation_basis_documented = true;
+  if (f.policy && typeof f.basisDocumented === 'boolean') confirmed.calculation_basis_documented = f.basisDocumented;
   if (f.rounding !== 'UNKNOWN') confirmed.rounding = f.rounding;
   if (f.roundingUnit != null) confirmed.rounding_unit = f.roundingUnit;
   return { scenario: f.scenario, confirmed, policy_id: f.policy };
