@@ -53,7 +53,9 @@ def split_articles(text: str) -> list[Article]:
             rest = line[m.end():].strip()
             if TOC_REST.match(rest):  # 목차 항목 — 본문이 아니다
                 rest = ""
-            if current in found and found[current][1]:  # 본문 있는 조문이 또 나오면 번호 중복 — 덮어쓰지 않는다
+            # 본문 있는 조문이 제목을 달리해 또 나오면 번호 중복 — 덮어쓰지 않는다.
+            # 제목이 같으면 목차·반복본이므로 뒤의 것으로 바꾼다(목차 항목에 군더더기 줄이 붙는 일이 흔하다)
+            if current in found and found[current][1] and _norm(found[current][0]) != _norm(title):
                 current += DUP
             found[current] = (title, [rest] if rest else [])
             continue

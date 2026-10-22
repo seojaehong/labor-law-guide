@@ -22,6 +22,13 @@ def test_duplicate_number_keeps_both():
     assert arts[0].body == "연 1회 교육한다." and arts[1].title == "예방·대응조직"
 
 
+def test_same_title_repeat_is_not_duplicate():
+    """목차 항목에 군더더기 줄이 붙어도, 제목이 같은 본문 조문은 번호 중복이 아니다(2026-10-22 드리븐 종전 제32조)."""
+    t = "제32조(대기발령)\n(인사)\n제32조(대기발령) ① 대기발령할 수 있다."
+    arts = split_articles(t)
+    assert [(a.no, a.body) for a in arts] == [("제32조", "① 대기발령할 수 있다.")]
+
+
 def test_toc_then_body_uses_body():
     t = "제1조(목적)\n제2조(적용)\n제1조(목적) 실제 본문\n제2조(적용) 실제 적용"
     assert split_articles(t)[0].body == "실제 본문"
