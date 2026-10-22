@@ -100,3 +100,17 @@ describe('anchor — 조문을 고르는 말', () => {
     expect(v.where).toBeNull();
   });
 });
+
+describe('근거와 충돌 방어', () => {
+  const rule: RuleSpec = { lawId: '123', law: '합성법', article: '제1조', effective: '20260101', topic: '휴가', art93: '1', required: true,
+    keywords: ['휴가'], ok: ['20일'], stale: ['10일'], point: '', clause: '', mst: null };
+  it.each(['', '20260230'])('시행일이 없거나 잘못되면 검토 필요', effective => {
+    expect(judge({ ...rule, effective }, paragraphs('제1조(휴가) 20일')).status).toBe('검토 필요');
+  });
+  it('근거 조문이 없으면 검토 필요', () => {
+    expect(judge({ ...rule, article: '' }, paragraphs('제1조(휴가) 20일')).status).toBe('검토 필요');
+  });
+  it('새 문구가 별도 조문의 상충 문구를 숨기지 못한다', () => {
+    expect(judge(rule, paragraphs('제1조(휴가) 20일\n제2조(휴가) 10일')).status).toBe('검토 필요');
+  });
+});

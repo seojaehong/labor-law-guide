@@ -5,7 +5,6 @@ vi.mock('@/lib/observations/service-completion', () => ({ startServiceObservatio
 vi.mock('@/lib/supabase', () => ({ supabase: {} }));
 vi.mock('@/lib/supabase-server', () => ({ supabaseAdmin: { from: () => ({ insert: () => Promise.resolve({}) }) } }));
 vi.mock('@/lib/user-situation', () => ({ getSituation: vi.fn(), extractDelta: vi.fn(), upsertSituation: vi.fn(), mergeSituation: vi.fn(), formatSituationForPrompt: () => '' }));
-vi.mock('@/lib/legal-verify', () => ({ verifyCitations: async () => ({ hallucinated: [] }) }));
 vi.mock('@/lib/rate-limit', () => ({ checkChatRateLimit: async () => ({ allowed: true }), extractIp: () => '', hashIp: () => '' }));
 vi.mock('@/lib/kill-switch', () => ({ getChatKillSwitch: async () => ({ disabled: false }) }));
 vi.mock('@/lib/turnstile', () => ({ isTurnstileEnabled: () => false }));
@@ -37,13 +36,14 @@ it.each([
   }
   const response = await POST(new NextRequest('http://localhost/api/chat', { method: 'POST', body: JSON.stringify({ messages: [{ role: 'user', content: '합성 질문' }] }) }));
   const text = await response.text();
-  expect(text).toContain('이미 전달된 안전 본문');
+  expect(text).not.toContain('이미 전달된 안전 본문');
+  expect(text).toContain('검토 필요');
   const result = mocks.finish.mock.calls.at(-1)?.[0];
   if (kind === 'normal') {
-    expect(text).not.toContain('"error":'); expect(result).toMatchObject({ outcome: 'success', result_count: 1 });
+    expect(text).not.toContain('"error":'); expect(result).toMatchObject({ outcome: 'failure', result_count: 0 });
   } else {
     expect(text).toContain(`"completion":"${kind}"`);
-    expect(result).toMatchObject({ outcome: 'partial_failure' });
+    expect(result).toMatchObject({ outcome: 'failure' });
     expect(result.result_count).not.toBe(1);
   }
 });
