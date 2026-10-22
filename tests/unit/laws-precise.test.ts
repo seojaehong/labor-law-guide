@@ -3,7 +3,7 @@ import path from 'path';
 import { describe, expect, it } from 'vitest';
 import { pairArticles, splitArticles } from '@/lib/laws/precise/articles';
 import { extractQuantities, quantityDrops } from '@/lib/laws/precise/quantities';
-import { anthropicAsk, BATCH_RUNS, BATCH_SCHEMA, BATCH_SIZE, chunks, groupCount, judgeAll, merge, NO_BASELINE, type Finding } from '@/lib/laws/precise/judge';
+import { anthropicAsk, usd, BATCH_RUNS, BATCH_SCHEMA, BATCH_SIZE, chunks, groupCount, judgeAll, merge, NO_BASELINE, type Finding } from '@/lib/laws/precise/judge';
 import { clean, disadvantageOf, precisePipeline, rowsForStore } from '@/lib/laws/precise/pipeline';
 import { BATCH_SYSTEM } from '@/lib/laws/precise/prompts';
 
@@ -120,7 +120,7 @@ describe('묶음 판단', () => {
     });
     expect(asked[2]).toEqual(['제2조', '제3조']);
     expect(out.get('제3조')?.result).toBe('추가 확인');
-    expect(out.has('제1조')).toBe(false);
+    expect(out.get('제1조')?.incomplete).toBe(true);
   });
 
   it('묶음을 동시에 보낸다', async () => {
@@ -191,8 +191,8 @@ describe('파이프라인', () => {
   it('번호 중복은 판단이 문제없음이어도 올린다', async () => {
     const t = '제55조(예방교육) 연 1회 교육한다.\n제55조(예방·대응조직) 담당자를 둔다.\n제56조(접수) 신고한다.';
     const r = await precisePipeline({ rules: t, since: '20230101' }, [], { ask: ask([f('제55조'), f('제55조(번호 중복)'), f('제56조')]), runs: 1 });
-    expect(r.rows.map((x) => x.조문)).toEqual(['제55조', '제55조(번호 중복)']);
-    expect(r.rows.every((x) => x['운영 메모'].includes('조문 번호 중복') && x['점검 결과'] === '현행 수정 필요')).toBe(true);
+    expect(r.rows.filter((x) => x['운영 메모'].includes('조문 번호 중복')).map((x) => x.조문)).toEqual(['제55조', '제55조(번호 중복)']);
+    expect(r.rows.filter((x) => x['운영 메모'].includes('조문 번호 중복')).every((x) => x['점검 결과'] === '현행 수정 필요')).toBe(true);
   });
 
   it('수치 하락은 판단이 해당 없음으로 지우지 못한다', async () => {
@@ -296,4 +296,87 @@ describe('파이프라인', () => {
 it('프롬프트가 기준 구현과 같다', () => {
   const md = readFileSync(path.resolve(__dirname, '../../scripts/work_rules_c/prompts/batch_system.md'), 'utf8');
   expect(BATCH_SYSTEM.replace(/\r\n/g, '\n')).toBe(md.replace(/\r\n/g, '\n')); // 체크아웃 줄끝(CRLF)은 따지지 않는다
+});
+
+describe('미완료·충돌·근거 회귀', () => {
+  it('한 회차 실패와 다른 회차 문제없음을 함께 보존한다', async () => {
+    const seq: (Finding[] | string)[] = ['http_500', [f('제1조')]];
+    const got = await judgeAll(pairs(1), new Map(), new Map(), { ask: async () => seq.shift()!, workers: 1 });
+    expect(got.get('제1조')).toMatchObject({ result: '추가 확인', incomplete: true });
+    expect(got.get('제1조')?.ops_note).toContain('미완료');
+  });
+  it('회차 충돌은 두 의견을 기록한다', () => {
+    const got = merge([f('제1조'), f('제1조', '현행 수정 필요', '해당')]);
+    expect(got.conflict).toBe(true); expect(got.ops_note).toContain('문제없음/해당 없음');
+    expect(got.ops_note).toContain('현행 수정 필요/해당');
+  });
+  it('세 개 이상 같은 번호를 덮어쓰지 않는다', () => {
+    const a = splitArticles('제55조(교육) A\n제55조(조직) B\n제55조(접수) C\n제55조(보호) D');
+    expect(a.map((x) => x.body)).toEqual(['A', 'B', 'C', 'D']); expect(new Set(a.map((x) => x.no)).size).toBe(4);
+  });
+  it('조문 일부 누락은 다른 회차 정상이어도 미완료다', async () => {
+    const seq = [[f('제1조')], [f('제1조'), f('제2조')]];
+    const got = await judgeAll(pairs(2), new Map(), new Map(), { ask: async () => seq.shift()!, workers: 1 });
+    expect(got.get('제2조')?.incomplete).toBe(true); expect(got.has('제1조')).toBe(false);
+  });
+  it('원문 없는 AI 인용은 검증된 근거나 완료로 표시하지 않는다', async () => {
+    const r = await precisePipeline({ rules: '제1조(합성) 본문', since: '20260101' }, [], {
+      ask: async () => [{ ...f('제1조', '현행 수정 필요'), basis: '가상법 제999조' }], asOf: '20261022',
+    });
+    expect(r.rows[0]['근거·시행일']).toContain('AI 인용(미검증)'); expect(r.rows[0]['점검 결과']).toBe('추가 확인');
+    expect(r.review).toMatchObject({ asOf: '20261022', since: '20260101' });
+  });
+  it('실패 응답의 사용량과 재시도 사용량을 합하고 Messages 단가를 쓴다', async () => {
+    const usage = { input_tokens: 0, output_tokens: 0, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 };
+    const accounting = { attempts: 0, responsesWithUsage: 0 }; let n = 0;
+    const fetchImpl = (async () => new Response(JSON.stringify({ usage: { input_tokens: 100, output_tokens: 20 },
+      content: [{ type: 'text', text: '{"findings":[]}' }] }), { status: ++n === 1 ? 529 : 200 })) as typeof fetch;
+    await anthropicAsk({ apiKey: 'fake', usage, accounting, fetchImpl })('{}');
+    expect(usage.input_tokens).toBe(200); expect(usage.output_tokens).toBe(40);
+    expect(accounting).toEqual({ attempts: 2, responsesWithUsage: 2 });
+    expect(usd({ input_tokens: 1e6, output_tokens: 1e6, cache_creation_input_tokens: 1e6, cache_read_input_tokens: 1e6 })).toBe(14.6);
+  });
+});
+
+
+it('원문 근거 없이 문제없음이라고 답해도 추가 확인 행을 남긴다', async () => {
+  const r = await precisePipeline({ rules: '제1조(합성) 본문', since: '20260101' }, [], { ask: async () => [f('제1조')] });
+  expect(r.rows[0]['점검 결과']).toBe('추가 확인');
+  expect(r.rows[0]['운영 메모']).toContain('법령 원문 없음');
+  const row = { ...r.rows[0], '근거·시행일': 'AI 인용(미검증): 고객 원문을 옮긴 가상 인용' };
+  expect(rowsForStore([row], false)[0]['근거·시행일']).toBe('');
+});
+
+
+it('보관 미동의 때도 원문 없이 미완료·충돌·날짜 메타데이터는 보존한다', async () => {
+  const seq: (Finding[] | string)[] = ['http_500', [f('제1조')]];
+  const result = await precisePipeline({ rules: '제1조(합성) 비공개 합성 본문', since: '20260101' }, [], { ask: async () => seq.shift()!, workers: 1, asOf: '20261022' });
+  const stored = rowsForStore(result.rows, false)[0];
+  expect(stored.개정안).toBe(''); expect(stored['운영 메모']).toBe('');
+  expect(stored.review).toMatchObject({ incomplete: true, asOf: '20261022', since: '20260101' });
+});
+
+
+it('재질문 응답은 빠진 조문만 반영하며 다른 조문 의견을 덮지 않는다', async () => {
+  const seq = [[f('제1조')], [f('제1조')], [f('제1조', '현행 수정 필요'), f('제2조')]];
+  const result = await judgeAll(pairs(2), new Map(), new Map(), { ask: async () => seq.shift()!, workers: 1 });
+  expect(result.has('제1조')).toBe(false);
+  expect(result.get('제2조')).toMatchObject({ incomplete: true, unanswered: false });
+});
+
+it('문제없음 회차에 남은 불이익 의견도 합집합에서 보존한다', () => {
+  const result = merge([f('제1조', '문제없음', '해당'), f('제1조', '현행 수정 필요', '해당 없음')]);
+  expect(result.disadvantage).toBe('해당'); expect(result.conflict).toBe(true);
+});
+
+
+it('두 회차 모두 문제없음이어도 불이익 의견 충돌을 결과에서 버리지 않는다', async () => {
+  const seq = [[f('제1조', '문제없음', '해당')], [f('제1조', '문제없음', '해당 없음')]];
+  const result = await judgeAll(pairs(1), new Map(), new Map(), { ask: async () => seq.shift()!, workers: 1 });
+  expect(result.get('제1조')).toMatchObject({ conflict: true, disadvantage: '해당' });
+  const pipelineSeq = [[f('제1조', '문제없음', '해당')], [f('제1조', '문제없음', '해당 없음')]];
+  const output = await precisePipeline({ rules: '제1조(합성) 합성 본문', since: '20260101' }, [], { ask: async () => pipelineSeq.shift()!, workers: 1 });
+  expect(output.review.conflicts).toBe(1);
+  expect(output.rows[0].review?.conflict).toBe(true);
+  expect(output.rows[0]['점검 결과']).toBe('추가 확인');
 });

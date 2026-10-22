@@ -51,7 +51,12 @@ export function splitArticles(text: string): Article[] {
       // 본문 있는 조문이 제목을 달리해 또 나오면 번호 중복 — 덮어쓰지 않는다.
       // 제목이 같으면 목차·반복본이므로 뒤의 것으로 바꾼다(목차 항목에 군더더기 줄이 붙는 일이 흔하다)
       const prev = found.get(current);
-      if (prev?.lines.length && norm(prev.title) !== norm(title)) current += DUP;
+      if (prev?.lines.length && norm(prev.title) !== norm(title)) {
+        const base = current;
+        current += DUP;
+        let occurrence = 2;
+        while (found.has(current)) current = base + DUP + `#${++occurrence}`;
+      }
       found.set(current, { title, lines: rest ? [rest] : [] });
       continue;
     }

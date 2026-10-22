@@ -1,5 +1,7 @@
 """취업규칙 본문을 조문 단위로 나누고, 종전·개정안 조문을 제목·번호로 짝짓는다."""
 import re
+from io import BytesIO
+from xml.etree import ElementTree
 import zipfile
 from dataclasses import dataclass
 from pathlib import Path
@@ -56,7 +58,12 @@ def split_articles(text: str) -> list[Article]:
             # 본문 있는 조문이 제목을 달리해 또 나오면 번호 중복 — 덮어쓰지 않는다.
             # 제목이 같으면 목차·반복본이므로 뒤의 것으로 바꾼다(목차 항목에 군더더기 줄이 붙는 일이 흔하다)
             if current in found and found[current][1] and _norm(found[current][0]) != _norm(title):
+                base = current
                 current += DUP
+                occurrence = 2
+                while current in found:
+                    occurrence += 1
+                    current = f"{base}{DUP}#{occurrence}"
             found[current] = (title, [rest] if rest else [])
             continue
         if current:
@@ -127,14 +134,23 @@ def _docx_text(path: Path) -> str:
 def _hwpx_text(path: Path) -> str:
     out = []
     with zipfile.ZipFile(path) as z:
-        names = sorted(n for n in z.namelist() if re.match(r"Contents/section\d+\.xml$", n))
+        names = sorted((n for n in z.namelist() if re.match(r"Contents/section\d+\.xml$", n)),
+                       key=lambda n: int(re.search(r"section(\d+)", n).group(1)))
         for name in names:
-            xml = z.read(name).decode("utf-8")
-            for para in re.findall(r"<hp:p\b.*?</hp:p>", xml, re.S):
-                s = "".join(re.findall(r"<hp:t\b[^>]*>(.*?)</hp:t>", para, re.S))
-                s = re.sub(r"<[^>]+>", "", s)
-                if s.strip():
-                    out.append(s)
+            parts = []
+            def flush():
+                text = "".join(parts).strip()
+                if text:
+                    out.append(text)
+                parts.clear()
+            # 중첩 셀 문단의 시작과 끝을 모두 경계로 삼는다. 바깥 문단의 뒷부분도 빠뜨리지 않는다.
+            for event, el in ElementTree.iterparse(BytesIO(z.read(name)), events=("start", "end")):
+                tag = el.tag.rsplit("}", 1)[-1]
+                if tag == "p":
+                    flush()
+                elif event == "end" and tag == "t":
+                    parts.append("".join(el.itertext()))
+            flush()
     return "\n".join(out)
 
 

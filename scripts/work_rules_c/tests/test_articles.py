@@ -51,3 +51,23 @@ def test_pair_statuses_and_order():
     new = split_articles("제26조(육아휴직) A2\n제26조의2(단기 육아휴직) C\n제27조(가족돌봄) B")
     got = [(p.no, p.status) for p in pair_articles(old, new)]
     assert got == [("제26조", "변경"), ("제26조의2", "신설"), ("제27조", "동일")]
+
+
+def test_three_duplicate_numbers_keep_all_bodies():
+    from work_rules_c.articles import split_articles, duplicated
+    a = split_articles('제55조(교육) 교육한다.\n제55조(조직) 조직한다.\n제55조(접수) 접수한다.')
+    assert [x.body for x in a] == ['교육한다.', '조직한다.', '접수한다.']
+    assert len(duplicated(x.no for x in a)) == 3
+
+
+
+def test_hwpx_nested_paragraphs_preserve_tail_exceptions_and_section_order(tmp_path):
+    import zipfile
+    from work_rules_c.articles import read_text
+    path = tmp_path / "synthetic.hwpx"
+    with zipfile.ZipFile(path, "w") as z:
+        z.writestr("Contents/section10.xml", '<hp:p xmlns:hp="urn:test"><hp:t>제3조(합성) 마지막</hp:t></hp:p>')
+        z.writestr("Contents/section2.xml", '<hp:p xmlns:hp="urn:test"><hp:t>제1조(합성) 원칙</hp:t><hp:tbl><hp:p><hp:t>중첩 &amp; 예외</hp:t></hp:p></hp:tbl><hp:t>다만, 표 뒤 예외는 보존한다.</hp:t></hp:p>')
+    text = read_text(path)
+    assert text == '제1조(합성) 원칙\n중첩 & 예외\n다만, 표 뒤 예외는 보존한다.\n제3조(합성) 마지막'
+    assert split_articles(text)[0].body.endswith('다만, 표 뒤 예외는 보존한다.')
