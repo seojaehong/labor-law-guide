@@ -1,9 +1,9 @@
-// 원본: ~/dev/pay-exception-check @ea0b75c
+// 원본: ~/dev/pay-exception-check @583dd3e
 // One worker, one pay month, one exception (spec §1). Decides the status from confirmed values only.
 // Order per scenario: scope → facts the exception depends on → company basis → policy → compare.
 // NEEDS_CONFIRMATION never carries an amount.
 
-import { applyPolicy, num, POLICY_FIELDS } from "./policies";
+import { applyPolicy, num, POLICY_FIELDS, POLICY_NAME } from "./policies";
 import type { CheckInput, CheckResult, Confirmed, PolicyId, Scenario, Status } from "./types";
 
 const POLICIES_FOR: Record<Scenario, PolicyId[]> = {
@@ -68,6 +68,10 @@ function josa(word: string, withFinal: string, without: string) {
   return word + (hasFinal ? withFinal : without);
 }
 const show = (v: unknown) => (typeof v === "number" ? v.toLocaleString("ko-KR") : String(v));
+/** 화면에 나가는 정책 이름. 모르는 id 도 코드 그대로 내보내지 않는다. */
+const policyName = (p: string) => POLICY_NAME[p as PolicyId] ?? "고른 계산 기준";
+/** 두 낱말을 「과/와」로 잇는다. */
+const and = (words: string[]) => (words.length === 2 ? `${josa(words[0]!, "과", "와")} ${words[1]}` : words.join(", "));
 
 interface Partial {
   status: Status;
@@ -96,7 +100,7 @@ function dateOrStop(c: Confirmed, k: string, what: string, evidence: string): st
   const v = isoDate(c[k]);
   if (v) return v;
   const reason = c[k] === undefined || c[k] === null ? `FACT_MISSING:${k}` : `FACT_INVALID_DATE:${k}`;
-  return stop("NEEDS_CONFIRMATION", reason, `${what}을 YYYY-MM-DD 날짜로 확인해 주세요.`, [evidence], `${what}이 확인된 날짜가 아닙니다.`);
+  return stop("NEEDS_CONFIRMATION", reason, `${what}을 2026-04-15처럼 연-월-일 날짜로 확인해 주세요.`, [evidence], `${what}이 확인된 날짜가 아닙니다.`);
 }
 
 /** Pay period, both ends, as real dates in order. */
@@ -135,12 +139,20 @@ function midLeave(c: Confirmed): Partial | null {
     ...(c.paid_holiday_treatment === "paid" || c.paid_holiday_treatment === "unpaid" ? [] : ["paid_holiday_treatment"]),
   ];
   if (open.length) {
+    // 묻는 것은 확인되지 않은 항목뿐이다. 계산 기준은 아직 확인 전일 때만 함께 묻는다.
+    const ask: Record<string, { name: string; evidence: string }> = {
+      last_scheduled_workday: { name: "마지막 소정근로일", evidence: "마지막 근무일이 적힌 근무표·출퇴근기록" },
+      paid_holiday_treatment: { name: "유급휴일 처리", evidence: "퇴사월 유급휴일 처리 내역" },
+      basis: { name: "퇴사월 계산 기준", evidence: "퇴사월 계산 기준이 적힌 계약·취업규칙 조항" },
+    };
+    const items = [...open, ...(c.calculation_basis_documented === true ? [] : ["basis"])].map((k) => ask[k]!);
+    const names = items.map((x) => x.name);
     return {
       status: "NEEDS_CONFIRMATION",
       reasons: open.map((k) => `FACT_UNKNOWN:${k}`),
-      question: "마지막 소정근로일, 유급휴일 처리, 퇴사월 계산 기준을 각각 확인해 주세요.",
-      evidence: ["마지막 근무일이 적힌 근무표·출퇴근기록", "퇴사월 유급휴일 처리 내역", "퇴사월 계산 기준이 적힌 계약·취업규칙 조항"],
-      observation: "마지막 소정근로일 또는 유급휴일 처리가 확인되지 않아 날짜를 정할 수 없습니다.",
+      question: `${josa(names.join(", "), "을", "를")} ${names.length > 1 ? "각각 " : ""}확인해 주세요.`,
+      evidence: items.map((x) => x.evidence),
+      observation: `${josa(and(open.map((k) => ask[k]!.name)), "이", "가")} 확인되지 않아 퇴사월 대조를 시작하지 않습니다.`,
     };
   }
   // 마지막 소정근로일은 급여기간 첫날부터 퇴사일 사이여야 한다. 밖이면 날짜를 고치지 않고 멈춘다.
@@ -161,13 +173,18 @@ function absence(c: Confirmed): Partial | null {
   if (c.paid_leave_or_holiday === true) {
     return stop("NEEDS_CONFIRMATION", "DAY_IS_PAID_LEAVE_OR_HOLIDAY", "그날이 유급휴가·유급휴일로 처리됐는데 결근 공제가 들어간 이유를 확인해 주세요.", ["휴가 승인 기록", "결근 공제 기준이 적힌 취업규칙 조항"], "그날은 유급휴가·유급휴일로 확인돼 결근 공제 계산으로 대조하지 않습니다.");
   }
-  if (c.scheduled_workday_confirmed !== true || c.paid_leave_or_holiday !== false) {
+  // 묻는 것은 확인되지 않은 항목뿐이다. 공제 기준은 아직 확인 전일 때만 함께 묻는다.
+  const workdayOpen = c.scheduled_workday_confirmed !== true, leaveOpen = c.paid_leave_or_holiday !== false;
+  if (workdayOpen || leaveOpen) {
+    const basisOpen = c.calculation_basis_documented !== true;
+    const docs = [...(workdayOpen ? ["근무표"] : []), ...(leaveOpen ? ["휴가 승인 기록"] : []), ...(basisOpen ? ["공제 기준 조항"] : [])];
+    const facts = [...(workdayOpen ? ["소정근로일인지"] : []), ...(leaveOpen ? ["유급휴가·휴일인지"] : [])];
     return stop(
       "NEEDS_CONFIRMATION",
       "FACT_UNCONFIRMED:scheduled_workday",
-      "근무표, 휴가 승인 기록, 공제 기준 조항을 확인해 주세요.",
-      ["그날의 근무표", "휴가 승인 기록", "결근 공제 기준이 적힌 취업규칙 조항"],
-      "공제된 날이 소정근로일인지, 유급휴가·휴일인지 확인되지 않았습니다.",
+      `${josa(docs.join(", "), "을", "를")} 확인해 주세요.`,
+      [...(workdayOpen ? ["그날의 근무표"] : []), ...(leaveOpen ? ["휴가 승인 기록"] : []), ...(basisOpen ? ["결근 공제 기준이 적힌 취업규칙 조항"] : [])],
+      `공제된 날이 ${facts.join(", ")} 확인되지 않았습니다.`,
     );
   }
   return null;
@@ -179,8 +196,18 @@ function weeklyHoliday(c: Confirmed): Partial | null {
     return stop("NEEDS_CONFIRMATION", "TEMPORARY_HOURS_NOT_AGREED_HOURS", "대타시간이 계약상 약정시간 변경인지 확인해 주세요.", ["대타 근무가 적힌 근무표", "약정시간 변경을 적은 계약서·문자"], "약정시간과 실제 대타 시간이 다릅니다. 실제 시간만으로 주휴 대조를 시작하지 않습니다.");
   }
   // weekly_holiday_designated: true(지정함)·false(지정 안 함)는 확인된 사실 / 없음·null 은 확인 못함 (외부 검토 C1).
-  if (c.employment_continued_for_7_days !== true || typeof c.weekly_holiday_designated !== "boolean") {
-    return stop("NEEDS_CONFIRMATION", "FACT_UNCONFIRMED:continuity_or_holiday", "계약 기간, 계속근로, 주휴일 지정 자료를 확인해 주세요.", ["계약 기간이 적힌 근로계약서", "주휴일을 정한 계약·취업규칙 조항"], "그 주의 계속근로 또는 주휴일 지정이 확인되지 않았습니다.");
+  const continuityOpen = c.employment_continued_for_7_days !== true, designationOpen = typeof c.weekly_holiday_designated !== "boolean";
+  if (continuityOpen || designationOpen) {
+    // 묻는 것은 확인되지 않은 항목뿐이다.
+    const docs = [...(continuityOpen ? ["계약 기간", "계속근로"] : []), ...(designationOpen ? ["주휴일 지정"] : [])];
+    const facts = [...(continuityOpen ? ["계속근로"] : []), ...(designationOpen ? ["주휴일 지정"] : [])];
+    return stop(
+      "NEEDS_CONFIRMATION",
+      "FACT_UNCONFIRMED:continuity_or_holiday",
+      `${docs.join(", ")} 자료를 확인해 주세요.`,
+      [...(continuityOpen ? ["계약 기간이 적힌 근로계약서"] : []), ...(designationOpen ? ["주휴일을 정한 계약·취업규칙 조항"] : [])],
+      `그 주의 ${josa(and(facts), "이", "가")} 확인되지 않았습니다.`,
+    );
   }
   // 근로기준법 제18조제3항: 4주 동안(4주 미만으로 근로하는 경우에는 그 기간)을 평균한다 (외부 검토 C3).
   const h4 = num(c, "four_week_scheduled_hours"), weeks = num(c, "averaging_weeks");
@@ -209,7 +236,7 @@ const BASIS_QUESTION: Record<Scenario, { q: string; evidence: string[] }> = {
   MID_JOIN: { q: "입사월 급여를 일수·시간 중 어떤 기준으로 계산하는지 적힌 계약/규정을 확인해 주세요.", evidence: ["입사월 계산 기준이 적힌 근로계약서·취업규칙 조항"] },
   MID_LEAVE: { q: "퇴사월 급여를 일수·시간 중 어떤 기준으로 계산하는지 적힌 계약/규정을 확인해 주세요.", evidence: ["퇴사월 계산 기준이 적힌 근로계약서·취업규칙 조항"] },
   ABSENCE_DEDUCTION: { q: "결근 공제를 시간·일 중 어떤 기준으로 하는지 적힌 취업규칙·계약 조항을 확인해 주세요.", evidence: ["결근 공제 기준이 적힌 취업규칙 조항"] },
-  HOURLY_WEEKLY_HOLIDAY: { q: "약정 소정근로시간과 주휴일이 적힌 근로계약서를 확인해 주세요.", evidence: ["근로계약서"] },
+  HOURLY_WEEKLY_HOLIDAY: { q: "주휴수당 계산 기준(약정 소정근로시간)이 적힌 근로계약서를 확인해 주세요.", evidence: ["근로계약서"] },
 };
 
 function afterCompare(s: Scenario, p: PolicyId, match: boolean): { q: string; evidence: string[]; conditions: string[] } {
@@ -221,9 +248,10 @@ function afterCompare(s: Scenario, p: PolicyId, match: boolean): { q: string; ev
       : { q: "결근으로 처리된 시간과 공제 기준이 명세서 계산과 같은지 확인해 주세요.", evidence: ["결근 처리 내역", "결근 공제 기준이 적힌 취업규칙 조항"], conditions: ["회사가 시간 기준이 아닌 다른 기준으로 공제했다면 그 기준으로 다시 대조해야 합니다.", week] };
   }
   if (s === "HOURLY_WEEKLY_HOLIDAY") {
+    // 여기까지 오면 계속근로·주휴일 지정·개근은 모두 확인된 값이다. 어긋남이면 아직 다를 수 있는 계산만 묻는다.
     return {
-      q: match ? "주휴일 지정과 개근 처리가 달라지면 다시 확인해 주세요." : "주휴일 지정과 해당 주의 소정근로일 개근 처리를 확인해 주세요.",
-      evidence: match ? [] : ["해당 주 근무표", "주휴일을 정한 계약·취업규칙 조항"],
+      q: match ? "주휴일 지정과 개근 처리가 달라지면 다시 확인해 주세요." : "명세서 주휴수당이 몇 주분이고 1일 소정근로시간을 몇 시간으로 계산했는지 확인해 주세요.",
+      evidence: match ? [] : ["명세서 주휴수당 계산 내역", "약정 소정근로시간이 적힌 근로계약서"],
       conditions: ["약정시간이 바뀌었거나 통상 근로자의 소정근로일수가 다르면 1일 소정근로시간이 달라집니다."],
     };
   }
@@ -231,8 +259,11 @@ function afterCompare(s: Scenario, p: PolicyId, match: boolean): { q: string; ev
   if (p === "DAY_30") {
     return { q: `명세서에 적용된 ${month} 인정일수와 30일 기준이 같은지 확인해 주세요.`, evidence: [`${month} 계산 기준이 적힌 조항`], conditions: ["회사 문서의 기준이 30일이 아니라 실제 일수·소정근로일이면 기대값이 달라집니다."] };
   }
+  // 시간 기준은 확인된 회사 기준이다. 어긋남이면 명세서가 유급으로 처리한 시간만 묻는다.
   const day = s === "MID_JOIN" ? "입사일" : "퇴사 전 마지막 근무일";
-  return { q: `${day}의 소정근로시간과 ${month} 급여 산정 기준을 확인해 주세요.`, evidence: [`${day}의 근무표·출퇴근기록`, `${month} 산정 기준`], conditions: ["유급으로 처리된 시간이 다르면 기대값이 달라집니다."] };
+  return match
+    ? { q: "유급으로 처리된 시간이 달라지면 다시 확인해 주세요.", evidence: [], conditions: ["유급으로 처리된 시간이 다르면 기대값이 달라집니다."] }
+    : { q: `명세서가 ${month} 유급 처리 시간을 몇 시간으로 계산했는지 확인해 주세요.`, evidence: [`${day}의 근무표·출퇴근기록`, `명세서 ${month} 급여 계산 내역`], conditions: ["유급으로 처리된 시간이 다르면 기대값이 달라집니다."] };
 }
 
 export function check(input: CheckInput): CheckResult {
@@ -268,7 +299,7 @@ export function check(input: CheckInput): CheckResult {
     return done(stop("NEEDS_CONFIRMATION", "COMPANY_BASIS_NOT_CONFIRMED", b.q, b.evidence, `${josa(ITEM[s], "을", "를")} 어떤 기준으로 계산했는지 확인되지 않아 금액을 만들지 않습니다.`));
   }
   if (!POLICIES_FOR[s].includes(p)) {
-    return done(stop("NEEDS_CONFIRMATION", `POLICY_NOT_FOR_SCENARIO:${p}`, BASIS_QUESTION[s].q, BASIS_QUESTION[s].evidence, `${p} 기준은 이 예외의 대조에 쓰지 않습니다.`));
+    return done(stop("NEEDS_CONFIRMATION", `POLICY_NOT_FOR_SCENARIO:${p}`, BASIS_QUESTION[s].q, BASIS_QUESTION[s].evidence, `${josa(policyName(p), "은", "는")} 이 예외의 대조에 쓰지 않습니다.`));
   }
 
   const out = applyPolicy(p, c);
@@ -289,7 +320,7 @@ export function check(input: CheckInput): CheckResult {
   const after = afterCompare(s, p, match);
   const obs = match
     ? `입력한 기준으로는 명세서 ${ITEM[s]} ${won(payslip)}과 대조됩니다.`
-    : `명세서 ${josa(ITEM[s], "은", "는")} ${won(payslip)}이고, 확인한 기준(${p})으로 계산하면 ${won(out.amount)}입니다. 차이 ${won(Math.abs(diff))}. 계산 기준이 같다면 차이를 확인해 보세요.`;
+    : `명세서 ${josa(ITEM[s], "은", "는")} ${won(payslip)}이고, 확인한 기준(${policyName(p)})으로 계산하면 ${won(out.amount)}입니다. 차이 ${won(Math.abs(diff))}. 계산 기준이 같다면 차이를 확인해 보세요.`;
   return {
     ...base,
     status: match ? "MATCH" : "POTENTIAL_MISMATCH",

@@ -1,9 +1,11 @@
-// 12건 밖의 경계 (원본: ~/dev/pay-exception-check @ea0b75c test/edge.test.ts, extractor slot 묶음 제외).
-// 끝수 처리(방법·단위), [별표 2] 1일 소정근로시간, 15시간 선, 공제 부호, 결근 주 주휴(I4), 확인 항목(C1~C3), 마지막 소정근로일 범위.
+// 12건 밖의 경계 (원본: ~/dev/pay-exception-check @583dd3e test/edge.test.ts, extractor slot 묶음 제외).
+// 끝수 처리(방법·단위), [별표 2] 1일 소정근로시간, 15시간 선, 공제 부호, 결근 주 주휴(I4), 확인 항목(C1~C3), 마지막 소정근로일 범위,
+// 결과 카드에 내부 코드가 보이지 않음·확인된 항목을 다시 묻지 않음(미리보기 E2E).
 
 import { describe, expect, it } from "vitest";
 import { forbiddenHits, renderCard } from "@/lib/pay-check/card";
 import { check } from "@/lib/pay-check/check";
+import type { CheckInput, CheckResult } from "@/lib/pay-check/types";
 
 const hw = (extra: Record<string, number | boolean | null> = {}) =>
   check({
@@ -85,7 +87,7 @@ describe("rounding is the company's, never the core's", () => {
     expect(leave("FLOOR", 100, 833_300).expected_amount).toBe(833300);
     expect(leave("ROUND", 100, 833_300).expected_amount).toBe(833300);
     expect(leave("CEIL", 10, 833_340).expected_amount).toBe(833340);
-    expect(leave("FLOOR", 10, 833_330).grounds).toContain("끝수 처리: FLOOR · 10원 단위 (회사 기준, 사용자 확인)");
+    expect(leave("FLOOR", 10, 833_330).grounds).toContain("끝수 처리: 버림 · 10원 단위 (회사 기준, 사용자 확인)");
   });
   it("a whole 원 result: no unit → as it is; a 10원 unit applies to it too", () => {
     // 2,500,050 ÷ 30 × 10 = 833,350 (나누어떨어짐)
@@ -306,5 +308,156 @@ describe("C3 근로기준법 제18조제3항: 4주 미만 근로면 그 기간�
   it("without the number of weeks it asks", () => {
     const r = hw({ averaging_weeks: null });
     expect([r.status, r.reasons[0], r.expected_amount]).toEqual(["NEEDS_CONFIRMATION", "FACT_MISSING:averaging_weeks", null]);
+  });
+});
+
+describe("E2E 결과 카드: 사람에게 보이는 문장에 내부 코드가 없다", () => {
+  // 화면에 나가는 칸만 본다. reasons·policy_id 는 기계용이라 화면에 그리지 않는다.
+  const visible = (r: CheckResult) =>
+    [r.observation, ...r.grounds, ...r.conditions, ...r.evidence_needed, r.required_question ?? "", ...r.citations, renderCard(r)].join("\n");
+  const C = (scenario: CheckInput["scenario"], policy_id: CheckInput["policy_id"], confirmed: CheckInput["confirmed"]): CheckInput => ({ scenario, policy_id, confirmed });
+  const period = { pay_period_start: "2026-04-01", pay_period_end: "2026-04-30" };
+  const join = { ...period, employment_start: "2026-04-16", hourly_rate: 10000, paid_hours: 80, payslip_amount: 800000, calculation_basis_documented: true };
+  const join30 = { ...period, employment_start: "2026-04-21", monthly_base_pay: 2_500_000, eligible_days: 10, payslip_amount: 833_330, calculation_basis_documented: true, rounding: "FLOOR", rounding_unit: 10 };
+  const leave = { ...period, employment_end: "2026-04-10", last_scheduled_workday: "2026-04-10", paid_holiday_treatment: "paid", monthly_base_pay: 2_500_000, eligible_days: 10, payslip_amount: 833_330, calculation_basis_documented: true, rounding: "FLOOR", rounding_unit: 10 };
+  const ab = { unpaid_absence_hours: 8, hourly_rate: 10000, payslip_absence_deduction: 80000, scheduled_workday_confirmed: true, paid_leave_or_holiday: false, calculation_basis_documented: true };
+  const hwc = { four_week_scheduled_hours: 60, averaging_weeks: 4, full_time_scheduled_days_4w: 20, holiday_weeks: 1, all_scheduled_days_attended: true, employment_continued_for_7_days: true, weekly_holiday_designated: true, calculation_basis_documented: true, hourly_rate: 10000, payslip_weekly_holiday_pay: 30000 };
+  const cases: [string, CheckInput][] = [
+    ["입사 · 일치(시간 기준)", C("MID_JOIN", "HOUR_ACTUAL", join)],
+    ["입사 · 어긋남(시간 기준)", C("MID_JOIN", "HOUR_ACTUAL", { ...join, payslip_amount: 790000 })],
+    ["입사 · 일치(30일 기준, 버림 10원)", C("MID_JOIN", "DAY_30", join30)],
+    ["입사 · 어긋남(30일 기준, 올림 10원)", C("MID_JOIN", "DAY_30", { ...join30, rounding: "CEIL" })],
+    ["입사 · 끝수 미확인", C("MID_JOIN", "DAY_30", { ...join30, rounding: null, rounding_unit: null })],
+    ["입사 · 기준 미확인", C("MID_JOIN", null, join)],
+    ["입사 · 다른 예외의 기준", C("MID_JOIN", "ABSENCE_HOUR", join)],
+    ["입사 · 읽을 수 없는 날짜", C("MID_JOIN", "HOUR_ACTUAL", { ...join, employment_start: "2026.04.16" })],
+    ["입사 · 입사일 없음", C("MID_JOIN", "HOUR_ACTUAL", { ...join, employment_start: null })],
+    ["입사 · 급여기간 없음", C("MID_JOIN", "HOUR_ACTUAL", { ...join, pay_period_start: null })],
+    ["입사 · 값 비어 있음", C("MID_JOIN", "HOUR_ACTUAL", { ...join, paid_hours: null, payslip_amount: null })],
+    ["입사 · 범위 밖", C("MID_JOIN", "HOUR_ACTUAL", { ...join, employment_start: "2026-04-01" })],
+    ["퇴사 · 일치(30일 기준, 버림 10원)", C("MID_LEAVE", "DAY_30", leave)],
+    ["퇴사 · 어긋남(30일 기준, 반올림 100원)", C("MID_LEAVE", "DAY_30", { ...leave, rounding: "ROUND", rounding_unit: 100 })],
+    ["퇴사 · 마지막 소정근로일 미확인", C("MID_LEAVE", "DAY_30", { ...leave, last_scheduled_workday: null })],
+    ["퇴사 · 마지막 소정근로일 범위 밖", C("MID_LEAVE", "DAY_30", { ...leave, last_scheduled_workday: "2026-04-20" })],
+    ["퇴사 · 기준 미확인", C("MID_LEAVE", "DAY_30", { ...leave, calculation_basis_documented: false })],
+    ["퇴사 · 다른 예외의 기준", C("MID_LEAVE", "WEEKLY_HOLIDAY_FIXED", leave)],
+    ["퇴사 · 범위 밖", C("MID_LEAVE", "DAY_30", { ...leave, employment_end: "2026-04-30" })],
+    ["결근 · 일치", C("ABSENCE_DEDUCTION", "ABSENCE_HOUR", ab)],
+    ["결근 · 어긋남", C("ABSENCE_DEDUCTION", "ABSENCE_HOUR", { ...ab, payslip_absence_deduction: -90000 })],
+    ["결근 · 소정근로일 미확인", C("ABSENCE_DEDUCTION", "ABSENCE_HOUR", { ...ab, scheduled_workday_confirmed: null })],
+    ["결근 · 유급휴가", C("ABSENCE_DEDUCTION", "ABSENCE_HOUR", { ...ab, paid_leave_or_holiday: true })],
+    ["결근 · 기준 미확인", C("ABSENCE_DEDUCTION", null, ab)],
+    ["결근 · 다른 예외의 기준", C("ABSENCE_DEDUCTION", "DAY_30", ab)],
+    ["결근 · 범위 밖", C("ABSENCE_DEDUCTION", "ABSENCE_HOUR", { ...ab, unpaid_absence_hours: 0, payslip_absence_deduction: 0 })],
+    ["주휴 · 일치", C("HOURLY_WEEKLY_HOLIDAY", "WEEKLY_HOLIDAY_FIXED", hwc)],
+    ["주휴 · 어긋남", C("HOURLY_WEEKLY_HOLIDAY", "WEEKLY_HOLIDAY_FIXED", { ...hwc, payslip_weekly_holiday_pay: 0 })],
+    ["주휴 · 2주 평균(해석 문장)", C("HOURLY_WEEKLY_HOLIDAY", "WEEKLY_HOLIDAY_FIXED", { ...hwc, four_week_scheduled_hours: 32, averaging_weeks: 2, full_time_scheduled_days_4w: 10, payslip_weekly_holiday_pay: 32000 })],
+    ["주휴 · 끝수 적용", C("HOURLY_WEEKLY_HOLIDAY", "WEEKLY_HOLIDAY_FIXED", { ...hwc, hourly_rate: 10001, four_week_scheduled_hours: 61, rounding: "FLOOR", rounding_unit: 10, payslip_weekly_holiday_pay: 30500 })],
+    ["주휴 · 대타", C("HOURLY_WEEKLY_HOLIDAY", "WEEKLY_HOLIDAY_FIXED", { ...hwc, temporary_actual_hours_in_one_week: 20 })],
+    ["주휴 · 지정 미확인", C("HOURLY_WEEKLY_HOLIDAY", "WEEKLY_HOLIDAY_FIXED", { ...hwc, weekly_holiday_designated: null })],
+    ["주휴 · 개근 미확인", C("HOURLY_WEEKLY_HOLIDAY", "WEEKLY_HOLIDAY_FIXED", { ...hwc, all_scheduled_days_attended: null })],
+    ["주휴 · 평균 주수 없음", C("HOURLY_WEEKLY_HOLIDAY", "WEEKLY_HOLIDAY_FIXED", { ...hwc, averaging_weeks: null })],
+    ["주휴 · 기준 미확인", C("HOURLY_WEEKLY_HOLIDAY", null, hwc)],
+    ["주휴 · 다른 예외의 기준", C("HOURLY_WEEKLY_HOLIDAY", "HOUR_ACTUAL", hwc)],
+    ["주휴 · 범위 밖", C("HOURLY_WEEKLY_HOLIDAY", "WEEKLY_HOLIDAY_FIXED", { ...hwc, four_week_scheduled_hours: 56 })],
+  ];
+
+  it("4 시나리오가 일치·어긋남·확인 필요·범위 밖을 모두 거친다", () => {
+    for (const s of ["MID_JOIN", "MID_LEAVE", "ABSENCE_DEDUCTION", "HOURLY_WEEKLY_HOLIDAY"] as const) {
+      const seen = new Set(cases.filter(([, i]) => i.scenario === s).map(([, i]) => check(i).status));
+      expect([...seen].sort(), s).toEqual(["MATCH", "NEEDS_CONFIRMATION", "OUTSIDE_SCOPE", "POTENTIAL_MISMATCH"]);
+    }
+  });
+  it("끝수가 실제로 적용된 경우가 들어 있다", () => {
+    const rounded = cases.map(([, i]) => check(i)).filter((r) => r.grounds.some((g) => g.startsWith("끝수 처리")));
+    expect(rounded.length).toBeGreaterThanOrEqual(3);
+  });
+  for (const [name, input] of cases) {
+    it(`${name}: 대문자 코드(정책 id·끝수 방법·날짜 형식)가 보이지 않는다`, () => {
+      expect(visible(check(input))).not.toMatch(/[A-Z_]{3,}/);
+    });
+  }
+  it("정책은 사이트 화면과 같은 한글 이름으로, 끝수 방법은 버림·반올림·올림으로 적는다", () => {
+    const g = (i: CheckInput) => check(i).grounds.join("\n");
+    expect(g(C("MID_JOIN", "HOUR_ACTUAL", join))).toContain("(시간 기준)");
+    expect(g(C("MID_LEAVE", "DAY_30", leave))).toContain("(30일 기준)");
+    expect(g(C("ABSENCE_DEDUCTION", "ABSENCE_HOUR", ab))).toContain("(시간 단위 결근 공제)");
+    expect(g(C("HOURLY_WEEKLY_HOLIDAY", "WEEKLY_HOLIDAY_FIXED", hwc))).toContain("(주휴 고정 스케줄)");
+    expect(g(C("MID_LEAVE", "DAY_30", { ...leave, rounding: "ROUND", rounding_unit: 100 }))).toContain("끝수 처리: 반올림 · 100원 단위");
+    expect(g(C("MID_JOIN", "DAY_30", { ...join30, rounding: "CEIL" }))).toContain("끝수 처리: 올림 · 10원 단위");
+    expect(check(C("MID_JOIN", "HOUR_ACTUAL", { ...join, payslip_amount: 790000 })).observation).toContain("확인한 기준(시간 기준)");
+  });
+});
+
+describe("E2E 결과 카드: 물어보는 것은 아직 확인되지 않은 것뿐이다", () => {
+  const asked = (r: CheckResult) => [r.observation, r.required_question ?? "", ...r.evidence_needed].join("\n");
+  const hwc = { four_week_scheduled_hours: 60, averaging_weeks: 4, full_time_scheduled_days_4w: 20, holiday_weeks: 1, all_scheduled_days_attended: true, employment_continued_for_7_days: true, weekly_holiday_designated: true, calculation_basis_documented: true, hourly_rate: 10000, payslip_weekly_holiday_pay: 0 };
+  const hwRun = (extra: Record<string, number | boolean | null> = {}) =>
+    check({ scenario: "HOURLY_WEEKLY_HOLIDAY", policy_id: "WEEKLY_HOLIDAY_FIXED", confirmed: { ...hwc, ...extra } });
+
+  it("주휴 어긋남: 계속근로·주휴일 지정·개근을 모두 확인했으면 그것을 다시 묻지 않는다", () => {
+    const r = hwRun();
+    expect(r.status).toBe("POTENTIAL_MISMATCH");
+    const q = [r.required_question ?? "", ...r.evidence_needed].join("\n");
+    expect(q).not.toMatch(/주휴일 지정|주휴일을 정한|개근|계속근로/);
+    expect(r.required_question).toMatch(/몇 주분|1일 소정근로시간/);
+  });
+  it("주휴: 계속근로만 확인했으면 주휴일 지정만 묻는다", () => {
+    const r = hwRun({ weekly_holiday_designated: null });
+    expect(r.status).toBe("NEEDS_CONFIRMATION");
+    expect(asked(r)).toContain("주휴일 지정");
+    expect(asked(r)).not.toMatch(/계속근로|계약 기간/);
+  });
+  it("주휴: 주휴일 지정만 확인했으면 계속근로만 묻는다", () => {
+    const r = hwRun({ employment_continued_for_7_days: false });
+    expect(r.status).toBe("NEEDS_CONFIRMATION");
+    expect(asked(r)).toContain("계속근로");
+    expect(asked(r)).not.toMatch(/주휴일 지정|주휴일을 정한/);
+  });
+
+  const ab = (extra: Record<string, boolean | null | undefined>) => {
+    const confirmed: Record<string, number | boolean | null> = { unpaid_absence_hours: 8, hourly_rate: 10000, payslip_absence_deduction: 80000, scheduled_workday_confirmed: true, paid_leave_or_holiday: false, calculation_basis_documented: true };
+    for (const [k, v] of Object.entries(extra)) if (v === undefined) delete confirmed[k]; else confirmed[k] = v;
+    return check({ scenario: "ABSENCE_DEDUCTION", policy_id: "ABSENCE_HOUR", confirmed });
+  };
+  it("결근: 소정근로일을 확인했으면 유급휴가·휴일 여부만 묻는다", () => {
+    const r = ab({ paid_leave_or_holiday: undefined });
+    expect(r.status).toBe("NEEDS_CONFIRMATION");
+    expect(asked(r)).toMatch(/유급휴가|휴가 승인 기록/);
+    expect(asked(r)).not.toMatch(/소정근로일|근무표/);
+  });
+  it("결근: 유급휴가·휴일이 아니었음을 확인했으면 소정근로일 여부만 묻는다", () => {
+    const r = ab({ scheduled_workday_confirmed: null });
+    expect(r.status).toBe("NEEDS_CONFIRMATION");
+    expect(asked(r)).toMatch(/소정근로일|근무표/);
+    expect(asked(r)).not.toMatch(/유급휴가|휴가 승인 기록/);
+  });
+  it("결근: 공제 기준이 확인됐으면 공제 기준 조항을 묻지 않고, 확인 전이면 함께 묻는다", () => {
+    expect(asked(ab({ scheduled_workday_confirmed: null }))).not.toContain("공제 기준");
+    expect(ab({ scheduled_workday_confirmed: null, calculation_basis_documented: null }).required_question).toContain("공제 기준");
+  });
+
+  const ml = (extra: Record<string, string | boolean | null>) =>
+    check({
+      scenario: "MID_LEAVE",
+      policy_id: "DAY_30",
+      confirmed: { pay_period_start: "2026-04-01", pay_period_end: "2026-04-30", employment_end: "2026-04-15", last_scheduled_workday: "2026-04-15", paid_holiday_treatment: "paid", monthly_base_pay: 3000000, eligible_days: 15, payslip_amount: 1500000, calculation_basis_documented: true, ...extra },
+    });
+  it("퇴사: 마지막 소정근로일·계산 기준을 확인했으면 유급휴일 처리만 묻는다", () => {
+    const r = ml({ paid_holiday_treatment: null });
+    expect(r.status).toBe("NEEDS_CONFIRMATION");
+    expect(asked(r)).toContain("유급휴일 처리");
+    expect(asked(r)).not.toMatch(/마지막 소정근로일|마지막 근무일|계산 기준/);
+  });
+  it("퇴사: 유급휴일 처리를 확인했으면 마지막 소정근로일만 묻는다", () => {
+    const r = ml({ last_scheduled_workday: null });
+    expect(asked(r)).toContain("마지막 소정근로일");
+    expect(asked(r)).not.toMatch(/유급휴일|계산 기준/);
+  });
+
+  it("입사 어긋남(시간 기준): 확인된 산정 기준을 다시 묻지 않는다", () => {
+    const r = check({ scenario: "MID_JOIN", policy_id: "HOUR_ACTUAL", confirmed: { pay_period_start: "2026-04-01", pay_period_end: "2026-04-30", employment_start: "2026-04-16", hourly_rate: 10000, paid_hours: 80, payslip_amount: 790000, calculation_basis_documented: true } });
+    expect(r.status).toBe("POTENTIAL_MISMATCH");
+    expect([r.required_question ?? "", ...r.evidence_needed].join("\n")).not.toMatch(/산정 기준|계산 기준/);
   });
 });

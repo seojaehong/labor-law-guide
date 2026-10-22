@@ -37,7 +37,7 @@
         "status": "POTENTIAL_MISMATCH",
         "expected_amount": 96000,
         "difference": 12000,
-        "required_question": "입사일의 소정근로시간과 입사월 급여 산정 기준을 확인해 주세요."
+        "required_question": "명세서가 입사월 유급 처리 시간을 몇 시간으로 계산했는지 확인해 주세요."
       }
     },
     {
@@ -193,7 +193,7 @@
         "status": "POTENTIAL_MISMATCH",
         "expected_amount": 30000,
         "difference": 30000,
-        "required_question": "주휴일 지정과 해당 주의 소정근로일 개근 처리를 확인해 주세요."
+        "required_question": "명세서 주휴수당이 몇 주분이고 1일 소정근로시간을 몇 시간으로 계산했는지 확인해 주세요."
       }
     },
     {
