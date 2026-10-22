@@ -58,7 +58,7 @@ def pipeline(new_text: str, old_text: str | None, asof: date, since: date, triag
             if t.escalate:
                 out = judge.judge(JudgeInput(p, tuple(drops[p.no]), tuple(hits.get(p.no, [])), t))
                 judged[p.no] = apply_threshold(out, min_confidence)
-    rows = build_rows(pairs, drops, hits, triages, judged)
+    rows = build_rows(pairs, drops, hits, triages, judged, has_old=old_text is not None)
     tusage = triage.usage if triage else Usage("none")
     tu = cost.usd(tusage) if triage else 0.0
     ju = cost.usd(judge.usage)

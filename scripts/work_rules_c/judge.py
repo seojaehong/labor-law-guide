@@ -13,6 +13,10 @@ from work_rules_c.triage import Triage, Usage, payload
 
 SYSTEM = (Path(__file__).parent / "prompts" / "judge_system.md").read_text(encoding="utf-8")
 
+# 「비교 불가」 = 종전 규정이 없어 대조하지 못했다. 「해당 없음」(대조해 보니 불리하지 않다)과 다른 상태다
+Disadvantage = Literal["해당", "해당 없음", "확인 필요", "비교 불가"]
+NO_BASELINE = "비교 불가 — 종전 규칙 미제공"  # 종전 규칙 없이 점검한 행의 불이익변경 칸
+
 
 @dataclass(frozen=True)
 class JudgeInput:
@@ -24,7 +28,7 @@ class JudgeInput:
 
 class JudgeOut(BaseModel):
     result: Literal["현행 수정 필요", "시행 예정", "회사 선택", "추가 확인"]
-    disadvantage: Literal["해당", "해당 없음", "확인 필요"]
+    disadvantage: Disadvantage
     reason: str
     basis: str
     ops_note: str

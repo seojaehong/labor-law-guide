@@ -441,7 +441,11 @@
 .lr-pc-go { width: 100%; justify-content: center; min-height: 48px; font-size: 15px; }
 .lr-pc-progress { display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: var(--lr-body); }
 .lr-pc-progress .bar { height: 6px; border-radius: 9999px; background: var(--lr-soft-2); overflow: hidden; }
-.lr-pc-progress .bar i { display: block; height: 100%; background: var(--lr-link); transition: width 1s linear; }
+/* 불확정 진행 — 완료율이 아니라 「돌고 있다」만 알린다 */
+.lr-pc-progress .bar.indeterminate i { display: block; width: 30%; height: 100%; border-radius: 9999px; background: var(--lr-link); animation: lr-pc-indet 1.4s ease-in-out infinite; }
+@keyframes lr-pc-indet { 0% { transform: translateX(-100%); } 100% { transform: translateX(340%); } }
+@media (prefers-reduced-motion: reduce) { .lr-pc-progress .bar.indeterminate i { animation: none; width: 100%; opacity: .45; } }
+.lr-pc-stale { margin: 0; padding: 10px 12px; border-radius: 10px; background: var(--lr-soft-2); color: var(--lr-ink); font-size: 13px; font-weight: 600; }
 .lr-pc .lr-file-error { margin: 0; }
 .lr-pc-result { margin-top: 24px; display: flex; flex-direction: column; gap: 10px; }
 .lr-pc-sum { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }

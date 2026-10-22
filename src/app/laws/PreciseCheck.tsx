@@ -1,18 +1,31 @@
 'use client';
 // AI 정밀 점검(시험 운영) — 파일을 이 창에 바로 올리고, 보고 싶은 내용·넣고 싶은 내용을 적어 조문별 AI 대조 결과를 받는다.
 // 기본 점검(브라우저 안 낱말 대조)과 따로 움직인다. 결과는 노무사 검수 전 초안이고, 조문마다 맞음·틀림·애매 반응을 모은다.
-import { useEffect, useRef, useState, type DragEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type DragEvent } from 'react';
 import Link from 'next/link';
 import { Check, ClipboardCopy, FileDown, FileUp, Sparkles, X } from 'lucide-react';
 import TurnstileWidget from '@/components/TurnstileWidget';
 import { kindOf, MAX_FILE_BYTES, readDocText } from '@/lib/laws/doc-io';
 import { splitArticles } from '@/lib/laws/precise/articles';
+import { NO_BASELINE } from '@/lib/laws/precise/judge';
 
 export const PRECISE_ENABLED = process.env.NEXT_PUBLIC_WORK_RULES_PRECISE === '1';
 
 type Row = Record<'조문' | '현행' | '개정안' | '개정 사유' | '근거·시행일' | '불이익변경' | '점검 결과' | '운영 메모' | '제안 문안', string>;
 type Verdict = 'right' | 'wrong' | 'unsure';
 type Doc = { name: string; text: string; articles: number };
+/** 실행할 때의 입력 — 결과와 묶어 둔다. 화면 입력이 이것과 다르면 결과는 다른 조건의 것이다 */
+type Snap = { name: string; doc: string; old: string | null; since: string; headcount: string; focus: string };
+type Res = { runId: string; rows: Row[]; articles: number; input: Snap };
+
+/** 문서 대조용 지문(FNV-1a 32비트). 본문을 상태에 두 벌 들고 있지 않으려고 쓴다 — 보안 용도가 아니다 */
+function fingerprint(t: string): string {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < t.length; i++) h = Math.imul(h ^ t.charCodeAt(i), 0x01000193);
+  return `${t.length}:${(h >>> 0).toString(16)}`;
+}
+const sameSnap = (a: Snap, b: Snap | null) => !!b && a.doc === b.doc && a.old === b.old && a.since === b.since
+  && a.headcount === b.headcount && a.focus === b.focus;
 const ORDER = ['현행 수정 필요', '시행 예정', '회사 선택', '추가 확인'] as const;
 const TONE: Record<string, string> = { '현행 수정 필요': 'fix', '시행 예정': 'soon', '회사 선택': 'choice', '추가 확인': 'check' };
 const VERDICT_LABEL: [Verdict, string][] = [['right', '맞음'], ['wrong', '틀림'], ['unsure', '애매']];
@@ -80,7 +93,7 @@ export default function PreciseCheck({ mainText, since, toast }: { mainText: str
   const [busy, setBusy] = useState(false);
   const [elapsed, setElapsed] = useState(0);
   const [error, setError] = useState<string | null>(null);
-  const [res, setRes] = useState<{ runId: string; rows: Row[]; articles: number } | null>(null);
+  const [res, setRes] = useState<Res | null>(null);
   const [filter, setFilter] = useState<string | null>(null);
   const [marks, setMarks] = useState<Record<string, Verdict>>({});
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
@@ -92,11 +105,17 @@ export default function PreciseCheck({ mainText, since, toast }: { mainText: str
   const source: Doc | null = doc ?? (mainArticles ? { name: '위에 입력한 본문', text: mainText, articles: mainArticles } : null);
 
   useEffect(() => () => { if (timer.current) clearInterval(timer.current); }, []);
-  // 입력이 바뀌면 이전 결과(진행 중인 것 포함)는 다른 입력의 것이다
-  useEffect(() => { runSeq.current++; setRes(null); setMarks({}); setFilter(null); }, [source?.text, oldDoc?.text, since]);
+  // 지금 화면의 입력 — 결과에 묶인 실행 당시 입력과 하나라도 다르면(진행 중에 바뀐 것 포함) 「다시 점검 필요」로 표시한다
+  const sourceText = source?.text ?? '';
+  const docPrint = useMemo(() => (sourceText ? fingerprint(sourceText) : ''), [sourceText]);
+  const oldPrint = useMemo(() => (oldDoc ? fingerprint(oldDoc.text) : null), [oldDoc]);
+  const now: Snap | null = source
+    ? { name: source.name, doc: docPrint, old: oldPrint, since, headcount: headcount.trim(), focus: focus.trim() } : null;
+  const stale = !!res && !(now && sameSnap(now, res.input));
 
   const run = async () => {
-    if (!source) return;
+    if (!source || !now) return;
+    const input = now; // 이 실행의 입력 — 응답이 오기 전에 화면 입력이 바뀌어도 결과는 이 값에 묶인다
     setBusy(true); setError(null); setRes(null); setMarks({}); setFilter(null); setElapsed(0);
     const seq = ++runSeq.current;
     const t0 = Date.now();
@@ -104,12 +123,12 @@ export default function PreciseCheck({ mainText, since, toast }: { mainText: str
     try {
       const r = await fetch('/api/tools/work-rules-precise', {
         method: 'POST', headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ rules: source.text, old: oldDoc?.text ?? null, since, headcount: headcount.trim(), focus: focus.trim(), store, turnstileToken }),
+        body: JSON.stringify({ rules: source.text, old: oldDoc?.text ?? null, since: input.since, headcount: input.headcount, focus: input.focus, store, turnstileToken }),
       });
       const body = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(body.message ?? '정밀 점검을 하지 못했습니다.');
-      if (seq !== runSeq.current) return; // 그사이 입력이 바뀌었다
-      setRes(body);
+      if (seq !== runSeq.current) return; // 더 나중 실행이 있다
+      setRes({ runId: body.runId, rows: body.rows, articles: body.articles, input });
       toast(`정밀 점검을 마쳤습니다 — 조문 ${body.articles}개 중 ${body.rows.filter((x: Row) => x['조문'] !== '신설 필요').length}건을 확인할 항목으로 올렸습니다`);
     } catch (e) {
       if (seq === runSeq.current) setError((e as Error).message);
@@ -132,13 +151,19 @@ export default function PreciseCheck({ mainText, since, toast }: { mainText: str
     if (!r?.ok) toast('의견을 저장하지 못했습니다. 화면 표시는 남겨 둡니다.');
   };
 
+  // 내보내기는 화면의 현재 입력이 아니라 결과에 묶인 실행 당시 입력을 쓴다 — 다른 실행의 입력·결과가 섞이지 않게
   const downloadXlsx = async () => {
     if (!res) return;
     const { comparisonXlsx } = await import('@/lib/laws/comparison-xlsx');
     const head = ['조문', '현행', '개정안', '개정 사유', '근거·시행일', '불이익변경', '점검 결과', '운영 메모', '제안 문안'] as const;
+    const s = res.input;
     const blob = await comparisonXlsx({
       title: '취업규칙 AI 정밀 점검 대조표',
-      intro: [`점검 시작일 ${since} 이후 시행 법령 기준 · AI 대조 초안(노무사 검수 전)`, ...(focus.trim() ? [`점검 요청: ${focus.trim()}`] : [])],
+      intro: [
+        `점검 시작일 ${s.since} 이후 시행 법령 기준 · AI 대조 초안(노무사 검수 전)`,
+        `점검 대상: ${s.name}${s.old ? ' · 종전 규칙과 대조' : ' · 종전 규칙 미제공(불이익변경 비교 불가)'}${s.headcount ? ` · 상시 근로자 ${s.headcount}명` : ''}`,
+        ...(s.focus ? [`점검 요청: ${s.focus}`] : []),
+      ],
       head: [...head], rows: res.rows.map((x) => head.map((h) => x[h])), widths: [14, 40, 40, 36, 24, 12, 14, 30, 40],
       foot: ['AI 대조 결과는 노무사 검수 전 초안입니다. 불이익변경 여부와 최종 문안은 노무사 검토를 거쳐 정하세요.'],
     });
@@ -207,9 +232,10 @@ export default function PreciseCheck({ mainText, since, toast }: { mainText: str
           <Sparkles size={16} aria-hidden /> {busy ? `대조하는 중… ${elapsed}초` : source ? `AI 정밀 점검 실행 (조문 ${source.articles}개)` : '취업규칙을 먼저 올려 주세요'}
         </button>
         {busy && (
+          // 서버가 진행 정보를 주지 않으므로 완료율처럼 보이는 막대 대신 흐르는 막대와 경과 초만 보인다
           <div className="lr-pc-progress" role="status">
-            <div className="bar"><i style={{ width: `${Math.min(95, (elapsed / 70) * 100)}%` }} /></div>
-            <span>조문 {source?.articles}개를 {calls}번에 나눠 두 번씩 대조하고 있습니다. 보통 1~2분 걸립니다.</span>
+            <div className="bar indeterminate" aria-hidden><i /></div>
+            <span>경과 {elapsed}초 · 조문 {source?.articles}개를 {calls}번에 나눠 두 번씩 대조하고 있습니다. 보통 1~2분 걸립니다.</span>
           </div>
         )}
         {error && <p className="lr-file-error" role="alert">{error}</p>}
@@ -217,6 +243,14 @@ export default function PreciseCheck({ mainText, since, toast }: { mainText: str
 
       {res && (
         <div className="lr-pc-result" aria-live="polite">
+          {stale && (
+            <p className="lr-pc-stale" role="status">
+              조건이 바뀌어 다시 점검이 필요합니다. 아래 결과와 대조표 엑셀은 실행할 때의 조건(파일·종전 규칙·점검 시작일·상시 근로자 수·점검 요청)으로 대조한 것입니다.
+            </p>
+          )}
+          {!res.input.old && (
+            <p className="lr-check-note">종전 규칙을 넣지 않아 불이익변경은 대조하지 않았습니다(비교 불가 — 종전 규칙 미제공). 불리해진 조문이 없다는 뜻이 아닙니다.</p>
+          )}
           <div className="lr-pc-sum" role="group" aria-label="점검 결과로 거르기">
             {ORDER.map((k) => (
               <button key={k} className={`t-${TONE[k]}`} aria-pressed={filter === k} onClick={() => setFilter(filter === k ? null : k)}>
@@ -232,7 +266,9 @@ export default function PreciseCheck({ mainText, since, toast }: { mainText: str
               <header>
                 <b>{x['조문']}</b>
                 <span className="lr-pc-tag">{x['점검 결과']}</span>
-                {x['불이익변경'] !== '해당 없음' && <span className="lr-pc-tag warn">불이익변경 {x['불이익변경']}</span>}
+                {/* 「비교 불가」는 경고가 아니다 — 위 안내 한 줄로 알리고 조문마다 붙이지 않는다 */}
+                {x['불이익변경'] !== '해당 없음' && x['불이익변경'] !== NO_BASELINE
+                  && <span className="lr-pc-tag warn">불이익변경 {x['불이익변경']}</span>}
                 <span className="sp" />
                 <span className="lr-pc-vote" role="group" aria-label={`${x['조문']} 점검 결과가 맞는지`}>
                   {VERDICT_LABEL.map(([v, label]) => (

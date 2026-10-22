@@ -5,7 +5,10 @@ import type { Drop } from './quantities';
 import { BATCH_SYSTEM } from './prompts';
 
 export type Result = '문제없음' | '현행 수정 필요' | '시행 예정' | '회사 선택' | '추가 확인';
-export type Disadvantage = '해당' | '해당 없음' | '확인 필요';
+export type Disadvantage = '해당' | '해당 없음' | '확인 필요' | '비교 불가';
+export const DISADVANTAGES: Disadvantage[] = ['해당', '해당 없음', '확인 필요', '비교 불가'];
+/** 종전 규칙 없이 점검한 행의 불이익변경 칸 — 「해당 없음」(대조해 보니 불리하지 않다)과 다른 상태다 */
+export const NO_BASELINE = '비교 불가 — 종전 규칙 미제공';
 
 export interface Finding {
   no: string;
@@ -44,7 +47,8 @@ const why = (code: string) => WHY[code] ?? (code.startsWith('http_5') ? 'AI 서�
 
 export const RESULTS: Result[] = ['문제없음', '현행 수정 필요', '시행 예정', '회사 선택', '추가 확인'];
 const RESULT_RANK: Record<Result, number> = { '현행 수정 필요': 0, '시행 예정': 1, '회사 선택': 2, '추가 확인': 3, 문제없음: 4 };
-const DISADV_RANK: Record<Disadvantage, number> = { 해당: 0, '확인 필요': 1, '해당 없음': 2 };
+// 비교 불가는 해당 없음보다 무겁다 — 대조하지 못한 것이 「불리하지 않다」로 합쳐지면 안 된다
+const DISADV_RANK: Record<Disadvantage, number> = { 해당: 0, '확인 필요': 1, '비교 불가': 2, '해당 없음': 3 };
 
 export const BATCH_SCHEMA = {
   type: 'object',
@@ -60,7 +64,7 @@ export const BATCH_SCHEMA = {
         properties: {
           no: { type: 'string' },
           result: { type: 'string', enum: RESULTS },
-          disadvantage: { type: 'string', enum: ['해당', '해당 없음', '확인 필요'] },
+          disadvantage: { type: 'string', enum: DISADVANTAGES },
           reason: { type: 'string' },
           basis: { type: 'string' },
           ops_note: { type: 'string' },

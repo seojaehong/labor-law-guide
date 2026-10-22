@@ -2,7 +2,7 @@
 // 기준 구현은 scripts/work_rules_c/run.py(pipeline, 묶음 판단 경로)와 report.py 다.
 import { checkRules, type RuleSpec } from '../rules-check';
 import { duplicated, pairArticles, splitArticles, type ArticlePair } from './articles';
-import { forceEscalate, judgeAll, type Ask, type Finding, type RuleHit } from './judge';
+import { DISADVANTAGES, forceEscalate, judgeAll, NO_BASELINE, type Ask, type Finding, type RuleHit } from './judge';
 import { quantityDrops, type Drop } from './quantities';
 
 export const COLUMNS = ['조문', '현행', '개정안', '개정 사유', '근거·시행일', '불이익변경', '점검 결과', '운영 메모', '제안 문안'] as const;
@@ -60,6 +60,7 @@ export async function precisePipeline(input: PreciseInput, ruleSpecs: RuleSpec[]
   const old = input.old ? splitArticles(input.old) : [];
   if (!neu.some((a) => a.body.trim())) throw new Error('empty_rules');
   if (input.old && !old.some((a) => a.body.trim())) throw new Error('empty_old');
+  const hasOld = Boolean(input.old);
   const pairs = pairArticles(old, neu);
   if (pairs.length > MAX_ARTICLES) throw new Error('too_many_articles');
   const drops = new Map(pairs.map((p) => [p.no, quantityDrops(p)]));
@@ -79,19 +80,28 @@ export async function precisePipeline(input: PreciseInput, ruleSpecs: RuleSpec[]
     const h = hits.get(p.no) ?? [];
     const hard = p.new === null || dups.has(p.no) || forceEscalate(d, h);
     if (!judged.has(p.no) && !hard) continue;
-    rows.push(row(p, d, h, judged.get(p.no) ?? null, dups.has(p.no)));
+    rows.push(row(p, d, h, judged.get(p.no) ?? null, dups.has(p.no), hasOld));
   }
   for (const h of hits.get(NEW_BUCKET) ?? []) {
     rows.push({ 조문: '신설 필요', 현행: '', 개정안: '', '개정 사유': h.topic, '근거·시행일': basisOf([h]),
-      불이익변경: '해당 없음', '점검 결과': '추가 확인', '운영 메모': '', '제안 문안': '' });
+      불이익변경: hasOld ? '해당 없음' : NO_BASELINE, '점검 결과': '추가 확인', '운영 메모': '', '제안 문안': '' });
   }
   return { rows, articles: pairs.length, flagged: rows.length };
 }
 
-function row(p: ArticlePair, d: Drop[], h: RuleHit[], j: Finding | null, dup: boolean): Row {
-  const hard = d.length > 0 || p.status === '삭제'; // 기계 신호 — 판단이 「해당 없음」으로 지우지 못한다
-  let disadvantage = j ? j.disadvantage : hard ? '확인 필요' : '해당 없음';
-  if (hard && disadvantage === '해당 없음') disadvantage = '확인 필요';
+/** 불이익변경 칸. 종전 규칙이 없으면 판단과 무관하게 「비교 불가 — 종전 규칙 미제공」이다(대조하지 않은 것을 「해당 없음」으로 쓰지 않는다).
+ *  종전 규칙은 있는데 그 조문만 짝이 없어 판단이 「비교 불가」를 낸 경우는 「확인 필요」로 올린다. */
+export function disadvantageOf(j: Finding | null, hard: boolean, hasOld: boolean): string {
+  if (!hasOld) return NO_BASELINE;
+  let d: string = j ? j.disadvantage : hard ? '확인 필요' : '해당 없음';
+  if (d === '비교 불가' || !DISADVANTAGES.includes(d as never)) d = '확인 필요';
+  if (hard && d === '해당 없음') d = '확인 필요'; // 기계 신호 — 판단이 「해당 없음」으로 지우지 못한다
+  return d;
+}
+
+function row(p: ArticlePair, d: Drop[], h: RuleHit[], j: Finding | null, dup: boolean, hasOld: boolean): Row {
+  const hard = d.length > 0 || p.status === '삭제';
+  const disadvantage = disadvantageOf(j, hard, hasOld);
   const memo = j?.ops_note ? [clean(j.ops_note)] : [];
   if (d.length) memo.push('수치 하락: ' + d.map((x) => `${x.oldMax}${x.unit} → ${x.newMax}${x.unit}`).join(', '));
   if (dup) memo.push('조문 번호 중복 — 같은 번호의 조문이 둘 이상이다');
