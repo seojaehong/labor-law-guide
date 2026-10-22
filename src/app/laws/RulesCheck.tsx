@@ -354,9 +354,7 @@ export default function RulesCheck({ onClose, toast }: { onClose: () => void; to
                   </details>
                 )}
                 {hasText && source && <HwpApply key={`${source.name}:${source.bytes.byteLength}`} source={source} items={result.items} enabled={canApplyText(source, text)} floorNote={FLOOR_NOTE} toast={toast} />}
-                {hasText && !source && open.some((i) => i.proposal) && <p className="lr-check-note">hwp·hwpx 파일을 올리면 바꿀 문안 제안을 그 파일에 넣은 새 파일을 받을 수 있습니다.</p>}
-                {PRECISE_ENABLED && hasText && <PreciseCheck text={text} since={from} toast={toast} />}
-                <p className="lr-check-note">
+                {hasText && !source && open.some((i) => i.proposal) && <p className="lr-check-note">hwp·hwpx 파일을 올리면 바꿀 문안 제안을 그 파일에 넣은 새 파일을 받을 수 있습니다.</p>}                <p className="lr-check-note">
                   문구 일치는 키워드 대조 결과이며 법률 검수 완료를 뜻하지 않습니다. 표준취업규칙 2026(고용노동부, 2026. 2. 배포)과 법제처 원문을 기준으로 하며 공인노무사 검수 전입니다.
                   표준 조문과 법령의 연결은 자동 추출본이라 빠진 연결이 있을 수 있습니다.{' '}<Link href="/contact">노무사 검토 요청</Link>
                 </p>
@@ -364,6 +362,7 @@ export default function RulesCheck({ onClose, toast }: { onClose: () => void; to
             )}
           </div>
         </div>
+        {PRECISE_ENABLED && <PreciseCheck mainText={text} since={from} toast={toast} />}
       </div>
     </div>
   );

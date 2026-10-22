@@ -6,7 +6,7 @@ from typing import Literal
 from pydantic import BaseModel
 
 from work_rules_c.articles import ArticlePair
-from work_rules_c.judge import JudgeOut, failed
+from work_rules_c.judge import Disadvantage, JudgeOut, failed
 from work_rules_c.mapping import RuleHit
 from work_rules_c.quantities import Drop
 from work_rules_c.triage import Usage, force_escalate, payload
@@ -18,7 +18,7 @@ DEFAULT_MODEL = "claude-sonnet-5-5"
 class ArticleFinding(BaseModel):
     no: str
     result: Literal["문제없음", "현행 수정 필요", "시행 예정", "회사 선택", "추가 확인"]
-    disadvantage: Literal["해당", "해당 없음", "확인 필요"]
+    disadvantage: Disadvantage
     reason: str
     basis: str
     ops_note: str
@@ -41,7 +41,8 @@ def _schema() -> dict:
 
 
 RESULT_RANK = {"현행 수정 필요": 0, "시행 예정": 1, "회사 선택": 2, "추가 확인": 3, "문제없음": 4}
-DISADV_RANK = {"해당": 0, "확인 필요": 1, "해당 없음": 2}
+# 비교 불가는 해당 없음보다 무겁다 — 대조하지 못한 것이 「불리하지 않다」로 합쳐지면 안 된다
+DISADV_RANK = {"해당": 0, "확인 필요": 1, "비교 불가": 2, "해당 없음": 3}
 
 
 def merge(found: list[ArticleFinding]) -> ArticleFinding:
@@ -55,10 +56,10 @@ def merge(found: list[ArticleFinding]) -> ArticleFinding:
 class BatchJudge:
     def __init__(self, client, model: str = DEFAULT_MODEL, effort: str = "medium", size: int = 8,
                  use_batch_api: bool = False, poll: float = 15.0, runs: int = 1, workers: int = 8,
-                 headcount: str = ""):
+                 headcount: str = "", focus: str = ""):
         import threading
         self.client, self.model, self.effort, self.size = client, model, effort, size
-        self.headcount = headcount
+        self.headcount, self.focus = headcount, focus
         self.use_batch_api, self.poll = use_batch_api, poll
         self.runs, self.workers = runs, workers
         self.name = f"anthropic-{'batchapi' if use_batch_api else 'batch'}:{model}"
@@ -70,6 +71,7 @@ class BatchJudge:
     def _body(self, group: list[ArticlePair], drops: dict, hits: dict) -> str:
         return json.dumps({
             "사업장 상시 인원": self.headcount,  # 위원회 정족수·재심 인원을 규모로 보라고 했으니 규모를 준다
+            "점검 요청": self.focus,  # 사용자가 보고 싶거나 넣고 싶다고 적은 내용
             "조문들": [payload(p, drops.get(p.no, []), hits.get(p.no, [])) for p in group],
             "반드시 살필 조문": [p.no for p in group
                            if p.new is None or force_escalate(drops.get(p.no, []), hits.get(p.no, []))],

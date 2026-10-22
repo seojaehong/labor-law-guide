@@ -3,8 +3,8 @@ import path from 'path';
 import { describe, expect, it } from 'vitest';
 import { pairArticles, splitArticles } from '@/lib/laws/precise/articles';
 import { extractQuantities, quantityDrops } from '@/lib/laws/precise/quantities';
-import { anthropicAsk, chunks, judgeAll, merge, type Finding } from '@/lib/laws/precise/judge';
-import { clean, precisePipeline, rowsForStore } from '@/lib/laws/precise/pipeline';
+import { anthropicAsk, BATCH_RUNS, BATCH_SCHEMA, BATCH_SIZE, chunks, groupCount, judgeAll, merge, NO_BASELINE, type Finding } from '@/lib/laws/precise/judge';
+import { clean, disadvantageOf, precisePipeline, rowsForStore } from '@/lib/laws/precise/pipeline';
 import { BATCH_SYSTEM } from '@/lib/laws/precise/prompts';
 
 // 기준 구현 scripts/work_rules_c 의 시험(test_articles·test_quantities·test_review_fixes·test_batch_judge)과 같은 사례
@@ -94,6 +94,11 @@ describe('수치', () => {
 
 describe('묶음 판단', () => {
   it('묶음 크기', () => expect(chunks(pairs(19), 8).map((c) => c.length)).toEqual([8, 8, 3]));
+  it('진행 문구의 묶음 수·회차는 judgeAll 의 실제 값이다', () => {
+    expect([BATCH_SIZE, BATCH_RUNS]).toEqual([8, 2]);
+    expect(groupCount(19)).toBe(chunks(pairs(19), BATCH_SIZE).length);
+    expect(groupCount(0)).toBe(0);
+  });
 
   it('회차 합집합 — 한 회차만 지적해도 남는다', async () => {
     const seq: (Finding[] | string)[] = [[f('제1조'), f('제2조')], [f('제1조'), f('제2조', '현행 수정 필요', '확인 필요')]];
@@ -150,6 +155,15 @@ describe('묶음 판단', () => {
     expect(n).toBe(2);
   }, 10_000);
 
+  it('점검 요청이 묶음 입력에 들어간다(재질문 포함)', async () => {
+    const seen: string[] = [];
+    const seq: (Finding[] | string)[] = [[], [f('제1조')]];
+    await judgeAll(pairs(1), new Map(), new Map(), {
+      ask: async (b) => { seen.push(JSON.parse(b)['점검 요청']); return seq.shift() ?? []; }, runs: 1, focus: '재택근무 조항',
+    });
+    expect(seen).toEqual(['재택근무 조항', '재택근무 조항']);
+  });
+
   it('상시 인원이 묶음 입력에 들어간다', async () => {
     let seen = '';
     await judgeAll(pairs(1), new Map(), new Map(), { ask: async (b) => { seen = JSON.parse(b)['사업장 상시 인원']; return [f('제1조')]; }, runs: 1, headcount: '24' });
@@ -194,6 +208,56 @@ describe('파이프라인', () => {
     const row = r.rows.find((x) => x.조문 === '제3조')!;
     expect(row.개정안).toBe('');
     expect(row.불이익변경).not.toBe('해당 없음');
+  });
+
+  it('종전 규칙 없이 점검하면 판단이 해당 없음이어도 「비교 불가 — 종전 규칙 미제공」', async () => {
+    const r = await precisePipeline({ rules: '제1조(목적) 목적\n제2조(휴가) 연 15일', since: '20230101' }, [],
+      { ask: ask([f('제1조', '회사 선택', '해당 없음'), f('제2조', '현행 수정 필요', '해당')]), runs: 1 });
+    expect(r.rows.map((x) => x.불이익변경)).toEqual([NO_BASELINE, NO_BASELINE]);
+    expect(r.rows.some((x) => x.불이익변경 === '해당 없음')).toBe(false);
+  });
+
+  it('종전 규칙은 있는데 판단이 비교 불가를 내면(짝 없는 조문) 확인 필요로 올린다', async () => {
+    const r = await precisePipeline({ rules: '제1조(목적) 목적\n제9조(재택) 재택근무를 둔다.', old: '제1조(목적) 목적', since: '20230101' }, [],
+      { ask: ask([f('제1조'), f('제9조', '회사 선택', '비교 불가')]), runs: 1 });
+    expect(r.rows.find((x) => x.조문 === '제9조')!.불이익변경).toBe('확인 필요');
+  });
+
+  it('불이익변경 칸 — 종전 유무·기계 신호·모르는 값', () => {
+    expect(disadvantageOf(f('제1조', '회사 선택', '해당'), true, false)).toBe(NO_BASELINE);
+    expect(disadvantageOf(null, false, false)).toBe(NO_BASELINE);
+    expect(disadvantageOf(null, false, true)).toBe('해당 없음');
+    expect(disadvantageOf(f('제1조', '회사 선택', '해당 없음'), true, true)).toBe('확인 필요');
+    expect(disadvantageOf({ ...f('제1조'), disadvantage: '모름' as never }, false, true)).toBe('확인 필요');
+    // 종전 규칙이 있는 점검에서 새로 생긴 조문이 「해당」이면 그대로 남는다(비교 불가로 눌리지 않는다)
+    expect(disadvantageOf(f('제1조', '회사 선택', '해당'), false, true)).toBe('해당');
+  });
+
+  it('합칠 때 비교 불가는 해당 없음에 지워지지 않는다', () => {
+    expect(merge([f('제1조', '회사 선택', '해당 없음'), f('제1조', '회사 선택', '비교 불가')]).disadvantage).toBe('비교 불가');
+    expect(merge([f('제1조', '회사 선택', '비교 불가'), f('제1조', '회사 선택', '확인 필요')]).disadvantage).toBe('확인 필요');
+  });
+
+  it('스키마·프롬프트가 비교 불가를 해당 없음과 가른다', () => {
+    const items = BATCH_SCHEMA.properties.findings.items.properties.disadvantage.enum;
+    expect(items).toContain('비교 불가');
+    expect(BATCH_SYSTEM).not.toContain('종전 규정이 없는 점검이면 해당 없음');
+    expect(BATCH_SYSTEM).toContain('- 비교 불가:');
+    expect(BATCH_SYSTEM).toContain('새로 생긴 조문이라도 새 의무·제재·공제처럼 근로조건을 낮추는 내용을 담고 있으면 해당이다');
+    expect(BATCH_SYSTEM).toContain('종전 규칙이 없는 점검에서는 불리해졌다·저하·낮아졌다처럼 종전과 비교하는 말을 쓰지 말고 현행 법령 기준과의 차이로만 적는다');
+  });
+
+  it('본문에서 찾지 못한 법령 기준에 법령명을 붙인다', async () => {
+    const spec = { lawId: '000130', law: '남녀고용평등법', article: '제18조의2', effective: '20250223', topic: '배우자 출산휴가 20일',
+      art93: '8', required: true, keywords: ['배우자 출산'], ok: ['20일'], stale: ['10일'], point: '', clause: '', mst: null };
+    const r = await precisePipeline({ rules: '제1조(목적) 목적', since: '20230101' }, [spec], { ask: ask([f('제1조')]), runs: 1 });
+    const row = r.rows.find((x) => x.조문 === '신설 필요')!;
+    expect(row['근거·시행일']).toBe('남녀고용평등법 제18조의2 (2025.02.23. 시행)');
+  });
+
+  it('보관 동의가 없어도 저장 행에 비교 불가 표시는 남는다', () => {
+    const row = { 조문: '제1조', 현행: 'a', 개정안: 'b', '개정 사유': 'c', '근거·시행일': '', 불이익변경: NO_BASELINE, '점검 결과': '회사 선택', '운영 메모': '', '제안 문안': '' };
+    expect(rowsForStore([row], false)[0].불이익변경).toBe(NO_BASELINE);
   });
 
   it('본문 없는 문서는 거절한다', async () => {

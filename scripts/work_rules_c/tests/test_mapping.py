@@ -18,5 +18,13 @@ def test_missing_goes_to_new_bucket():
     assert list(hits_by_article(hits)) == ["(신설 필요)"]
 
 
+def test_law_name_carried_when_rule_has_it():
+    [h] = map_rules(split_articles("제1조(목적) 목적"), date(2026, 10, 21), date(2023, 1, 1),
+                    rules=[{**RULE, "law": "남녀고용평등법"}])
+    assert h.law == "남녀고용평등법"
+    [h] = map_rules(split_articles("제1조(목적) 목적"), date(2026, 10, 21), date(2023, 1, 1), rules=[RULE])
+    assert h.law == ""  # 매핑 원본(work_rules_map.json)에는 법령명이 없다
+
+
 def test_since_filters_old_rules():
     assert map_rules(split_articles("제1조(목적) x"), date(2026, 10, 21), date(2025, 3, 1), rules=[RULE]) == []

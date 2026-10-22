@@ -4,7 +4,7 @@ import re
 from pathlib import Path
 
 from work_rules_c.articles import ArticlePair, duplicated
-from work_rules_c.judge import JudgeOut
+from work_rules_c.judge import NO_BASELINE, JudgeOut
 from work_rules_c.mapping import NEW_BUCKET, RuleHit
 from work_rules_c.quantities import Drop
 from work_rules_c.triage import Triage
@@ -21,11 +21,25 @@ def clean(text: str) -> str:
 
 
 def _basis(hits: list[RuleHit]) -> str:
-    return "; ".join(f"{h.law_article} ({h.effective:%Y.%m.%d.} 시행)" for h in hits)
+    # 「제11조」만으로는 어느 법인지 모른다 — 법령명이 있으면 붙인다(TS pipeline.ts mapRules 와 같다)
+    return "; ".join(f"{f'{h.law} ' if h.law else ''}{h.law_article} ({h.effective:%Y.%m.%d.} 시행)" for h in hits)
+
+
+def disadvantage_of(j: JudgeOut | None, hard: bool, has_old: bool) -> str:
+    """불이익변경 칸. 종전 규칙이 없으면 판단과 무관하게 「비교 불가 — 종전 규칙 미제공」이다(대조하지 않은 것을 「해당 없음」으로 쓰지 않는다).
+    종전 규칙은 있는데 그 조문만 짝이 없어 판단이 「비교 불가」를 낸 경우는 「확인 필요」로 올린다."""
+    if not has_old:
+        return NO_BASELINE
+    d = j.disadvantage if j else ("확인 필요" if hard else "해당 없음")
+    if d == "비교 불가":
+        d = "확인 필요"
+    if hard and d == "해당 없음":  # 기계 신호 — 판단이 「해당 없음」으로 지우지 못한다
+        d = "확인 필요"
+    return d
 
 
 def build_rows(pairs: list[ArticlePair], drops: dict[str, list[Drop]], hits: dict[str, list[RuleHit]],
-               triages: dict[str, Triage], judged: dict[str, JudgeOut]) -> list[dict]:
+               triages: dict[str, Triage], judged: dict[str, JudgeOut], has_old: bool = True) -> list[dict]:
     rows = []
     dups = duplicated(p.no for p in pairs)
     for p in pairs:
@@ -35,10 +49,7 @@ def build_rows(pairs: list[ArticlePair], drops: dict[str, list[Drop]], hits: dic
         j = judged.get(p.no)
         h = hits.get(p.no, [])
         d = drops.get(p.no, [])
-        hard = bool(d) or p.status == "삭제"  # 기계 신호 — 판단이 「해당 없음」으로 지우지 못한다
-        disadvantage = j.disadvantage if j else ("확인 필요" if hard else "해당 없음")
-        if hard and disadvantage == "해당 없음":
-            disadvantage = "확인 필요"
+        disadvantage = disadvantage_of(j, bool(d) or p.status == "삭제", has_old)
         memo = [clean(j.ops_note)] if j and j.ops_note else []
         if d:
             memo.append("수치 하락: " + ", ".join(f"{x.old_max:g}{x.unit} → {x.new_max:g}{x.unit}" for x in d))
@@ -64,7 +75,7 @@ def build_rows(pairs: list[ArticlePair], drops: dict[str, list[Drop]], hits: dic
     for h in hits.get(NEW_BUCKET, []):
         rows.append({
             "조문": "신설 필요", "현행": "", "개정안": "", "개정 사유": h.topic,
-            "근거·시행일": _basis([h]), "불이익변경": "해당 없음", "점검 결과": "추가 확인",
+            "근거·시행일": _basis([h]), "불이익변경": "해당 없음" if has_old else NO_BASELINE, "점검 결과": "추가 확인",
             "운영 메모": "", "제안 문안": "",
         })
     return rows
