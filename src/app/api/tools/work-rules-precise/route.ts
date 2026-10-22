@@ -1,5 +1,5 @@
 // 취업규칙 정밀 점검 API — 본문을 받아 조문별 묶음 판단(Sonnet, 2회 합집합)을 돌려 대조표 행을 돌려준다.
-// - 플래그(WORK_RULES_PRECISE_ENABLED=1)와 키(ANTHROPIC_API_KEY)가 둘 다 있어야 열린다. 아니면 501.
+// - 플래그(WORK_RULES_PRECISE_ENABLED=1)와 키(WORK_RULES_PRECISE_ANTHROPIC_API_KEY, 없으면 ANTHROPIC_API_KEY)가 있어야 열린다. 아니면 501.
 // - 본문 전체가 이 서버를 거쳐 Anthropic(외부 AI 제공사)으로 간다. 본문은 로그에 남기지 않는다.
 // - 본문 저장은 사용자가 동의(store=true)했을 때만 — 동의가 없으면 행의 조문 원문(현행·개정안)을 비우고 점검 결과만 남긴다.
 // - 결과는 노무사 검수 전 초안이다. 화면 문구가 그 점을 알린다(RulesCheck.tsx).
@@ -55,7 +55,8 @@ async function underLimit(scope: 'ip' | 'global', key: string, max: number): Pro
 const str = (v: unknown) => (typeof v === 'string' ? v : '');
 
 export async function POST(req: Request): Promise<Response> {
-  const apiKey = process.env.ANTHROPIC_API_KEY;
+  // 전용 키(크레딧 계정)를 먼저 쓴다 — 사이트 공용 ANTHROPIC_API_KEY(챗·계약서 판독)와 청구를 가른다
+  const apiKey = process.env.WORK_RULES_PRECISE_ANTHROPIC_API_KEY || process.env.ANTHROPIC_API_KEY;
   if (process.env.WORK_RULES_PRECISE_ENABLED !== '1' || !apiKey) {
     return json(501, { error: 'not_configured', message: '정밀 점검을 준비 중입니다.' });
   }
@@ -69,6 +70,7 @@ export async function POST(req: Request): Promise<Response> {
   const old = str(input.old) || null;
   const since = str(input.since).replace(/-/g, '');
   const headcount = str(input.headcount).slice(0, 10);
+  const focus = str(input.focus).trim().slice(0, 1000);
   if (!rules.trim() || !/^\d{8}$/.test(since)) {
     return json(400, { error: 'bad_request', message: '본문과 점검 시작일이 필요합니다.' });
   }
@@ -105,7 +107,7 @@ export async function POST(req: Request): Promise<Response> {
   let result;
   try {
     // 요청 전체 상한 — 플랫폼 타임아웃(maxDuration)보다 먼저 끊어 JSON 으로 답한다. 끊긴 묶음은 「추가 확인」으로 남는다
-    result = await precisePipeline({ rules, old, since, headcount }, (rulesJson as { rules: RuleSpec[] }).rules,
+    result = await precisePipeline({ rules, old, since, headcount, focus },(rulesJson as { rules: RuleSpec[] }).rules,
       { ask: anthropicAsk({ apiKey, usage }), runs: 2, workers: 8, signal: AbortSignal.timeout(DEADLINE_MS) });
   } catch (err) {
     const code = err instanceof Error ? err.message : '';

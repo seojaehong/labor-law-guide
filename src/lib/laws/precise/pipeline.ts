@@ -45,6 +45,7 @@ export interface PreciseInput {
   old?: string | null; // 종전 본문 — 없으면 단일 문서 점검
   since: string; // YYYYMMDD — 이 날 이후 시행 법령만 대조
   headcount?: string;
+  focus?: string; // 점검 요청 — 사용자가 특히 보고 싶거나 넣고 싶은 내용
 }
 
 export interface PreciseResult {
@@ -70,7 +71,7 @@ export async function precisePipeline(input: PreciseInput, ruleSpecs: RuleSpec[]
       hits.delete(k);
     }
   }
-  const judged = await judgeAll(pairs, drops, hits, { ...opts, headcount: input.headcount ?? '' }); // opts.signal = 요청 전체 시간 상한
+  const judged = await judgeAll(pairs, drops, hits, { ...opts, headcount: input.headcount ?? '', focus: input.focus ?? '' }); // opts.signal = 요청 전체 시간 상한
   const dups = duplicated(pairs.map((p) => p.no));
   const rows: Row[] = [];
   for (const p of pairs) {

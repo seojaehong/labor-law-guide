@@ -123,6 +123,7 @@ def main(argv=None) -> int:
     ap.add_argument("--min-confidence", type=float, default=0.8)
     ap.add_argument("--site", default="")
     ap.add_argument("--headcount", default="")
+    ap.add_argument("--focus", default="", help="점검 요청 — 특히 보고 싶거나 넣고 싶은 내용")
     a = ap.parse_args(argv)
 
     import anthropic
@@ -131,7 +132,8 @@ def main(argv=None) -> int:
         from work_rules_c.batch_judge import BatchJudge
         triage = None
         judge = BatchJudge(anthropic_client(), model=a.judge_model, effort=a.effort, size=a.batch_size,
-                           use_batch_api=a.batch_api, runs=a.runs, workers=a.workers, headcount=a.headcount)
+                           use_batch_api=a.batch_api, runs=a.runs, workers=a.workers, headcount=a.headcount,
+                           focus=a.focus)
     else:
         from work_rules_c.judge import AnthropicJudge
         triage = _triage_backend(a.triage, a.headcount)

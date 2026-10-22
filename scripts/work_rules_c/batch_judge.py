@@ -55,10 +55,10 @@ def merge(found: list[ArticleFinding]) -> ArticleFinding:
 class BatchJudge:
     def __init__(self, client, model: str = DEFAULT_MODEL, effort: str = "medium", size: int = 8,
                  use_batch_api: bool = False, poll: float = 15.0, runs: int = 1, workers: int = 8,
-                 headcount: str = ""):
+                 headcount: str = "", focus: str = ""):
         import threading
         self.client, self.model, self.effort, self.size = client, model, effort, size
-        self.headcount = headcount
+        self.headcount, self.focus = headcount, focus
         self.use_batch_api, self.poll = use_batch_api, poll
         self.runs, self.workers = runs, workers
         self.name = f"anthropic-{'batchapi' if use_batch_api else 'batch'}:{model}"
@@ -70,6 +70,7 @@ class BatchJudge:
     def _body(self, group: list[ArticlePair], drops: dict, hits: dict) -> str:
         return json.dumps({
             "사업장 상시 인원": self.headcount,  # 위원회 정족수·재심 인원을 규모로 보라고 했으니 규모를 준다
+            "점검 요청": self.focus,  # 사용자가 보고 싶거나 넣고 싶다고 적은 내용
             "조문들": [payload(p, drops.get(p.no, []), hits.get(p.no, [])) for p in group],
             "반드시 살필 조문": [p.no for p in group
                            if p.new is None or force_escalate(drops.get(p.no, []), hits.get(p.no, []))],

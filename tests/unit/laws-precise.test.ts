@@ -150,6 +150,15 @@ describe('묶음 판단', () => {
     expect(n).toBe(2);
   }, 10_000);
 
+  it('점검 요청이 묶음 입력에 들어간다(재질문 포함)', async () => {
+    const seen: string[] = [];
+    const seq: (Finding[] | string)[] = [[], [f('제1조')]];
+    await judgeAll(pairs(1), new Map(), new Map(), {
+      ask: async (b) => { seen.push(JSON.parse(b)['점검 요청']); return seq.shift() ?? []; }, runs: 1, focus: '재택근무 조항',
+    });
+    expect(seen).toEqual(['재택근무 조항', '재택근무 조항']);
+  });
+
   it('상시 인원이 묶음 입력에 들어간다', async () => {
     let seen = '';
     await judgeAll(pairs(1), new Map(), new Map(), { ask: async (b) => { seen = JSON.parse(b)['사업장 상시 인원']; return [f('제1조')]; }, runs: 1, headcount: '24' });

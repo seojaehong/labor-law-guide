@@ -93,9 +93,10 @@ function payload(p: ArticlePair, drops: Drop[], hits: RuleHit[]) {
   };
 }
 
-export function body(group: ArticlePair[], drops: Map<string, Drop[]>, hits: Map<string, RuleHit[]>, headcount: string): string {
+export function body(group: ArticlePair[], drops: Map<string, Drop[]>, hits: Map<string, RuleHit[]>, headcount: string, focus = ''): string {
   return JSON.stringify({
     '사업장 상시 인원': headcount, // 위원회 정족수·재심 인원을 규모로 보라고 했으니 규모를 준다
+    '점검 요청': focus, // 사용자가 보고 싶거나 넣고 싶다고 적은 내용
     조문들: group.map((p) => payload(p, drops.get(p.no) ?? [], hits.get(p.no) ?? [])),
     '반드시 살필 조문': group
       .filter((p) => p.new === null || forceEscalate(drops.get(p.no) ?? [], hits.get(p.no) ?? []))
@@ -135,12 +136,12 @@ async function pool<T, R>(items: T[], workers: number, fn: (x: T) => Promise<R>)
  *  어느 회차도 답하지 않은 조문은 한 번 더 묻고, 그래도 없으면 「추가 확인」. */
 export async function judgeAll(
   pairs: ArticlePair[], drops: Map<string, Drop[]>, hits: Map<string, RuleHit[]>,
-  opts: { ask: Ask; size?: number; runs?: number; workers?: number; headcount?: string; signal?: AbortSignal },
+  opts: { ask: Ask; size?: number; runs?: number; workers?: number; headcount?: string; focus?: string; signal?: AbortSignal },
 ): Promise<Map<string, Finding>> {
-  const { ask, size = 8, runs = 2, workers = 8, headcount = '', signal } = opts;
+  const { ask, size = 8, runs = 2, workers = 8, headcount = '', focus = '', signal } = opts;
   const groups = chunks(pairs, size);
   const jobs = Array.from({ length: runs }, (_, k) => groups.map((_, gi) => [k, gi] as const)).flat();
-  const got = await pool(jobs, workers, ([, gi]) => ask(body(groups[gi], drops, hits, headcount), signal));
+  const got = await pool(jobs, workers, ([, gi]) => ask(body(groups[gi], drops, hits, headcount, focus), signal));
   const found = groups.map((group, gi) => {
     const m = new Map<string, Finding[]>();
     for (const [i, j] of jobs.entries()) {
@@ -152,7 +153,7 @@ export async function judgeAll(
   });
   // 어느 회차도 답하지 않은 조문만 한 번 더 묻는다 — 묶음별로 동시에, 같은 시간 상한 안에서
   const retry = signal?.aborted ? [] : found.filter((g) => g.group.some((p) => !g.m.has(p.no))); // 시간이 다 됐으면 재질문하지 않는다
-  const again = await pool(retry, workers, (g) => ask(body(g.group.filter((p) => !g.m.has(p.no)), drops, hits, headcount), signal));
+  const again = await pool(retry, workers, (g) => ask(body(g.group.filter((p) => !g.m.has(p.no)), drops, hits, headcount, focus), signal));
   retry.forEach((g, i) => {
     const a = again[i];
     if (typeof a === 'string') g.code = a;
