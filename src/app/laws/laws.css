@@ -408,3 +408,10 @@
 .lr-apply-before del { color: var(--lr-error-deep); }
 .lr-apply-after textarea { width: 100%; min-height: 44px; border-radius: 6px; border: 1px solid var(--lr-hair-strong); background: var(--lr-soft); color: var(--lr-ink); padding: 8px 10px; font: inherit; font-size: 14px; line-height: 1.7; resize: vertical; }
 .lr-apply-foot { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 14px; }
+/* 정밀 점검(시험 운영) — PreciseCheck.tsx */
+.lr-precise { margin-top: 22px; padding-top: 16px; border-top: 1px solid var(--lr-hair); }
+.lr-precise textarea { width: 100%; margin-top: 8px; }
+.lr-precise .lr-check-meta label { display: inline-flex; align-items: center; gap: 4px; }
+.lr-precise .lr-seg { margin-top: 8px; }
+.lr-precise-text { white-space: pre-wrap; font: inherit; font-size: 13px; background: var(--lr-soft-2); padding: 8px 10px; border-radius: 6px; }
+.lr-precise .lr-check-meta input:not([type]) { width: 4.5em; padding: 2px 6px; border: 1px solid var(--lr-hair); border-radius: 4px; background: var(--lr-canvas); color: var(--lr-ink); }
