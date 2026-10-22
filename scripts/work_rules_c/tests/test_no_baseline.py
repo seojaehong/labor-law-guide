@@ -40,6 +40,7 @@ def test_disadvantage_of_cases():
     assert disadvantage_of(None, False, True) == "해당 없음"
     assert disadvantage_of(_j("비교 불가"), False, True) == "확인 필요"  # 종전은 있는데 짝 없는 조문
     assert disadvantage_of(_j("해당 없음"), True, True) == "확인 필요"
+    assert disadvantage_of(_j("해당"), False, True) == "해당"  # 종전 있는 점검의 새 조문 「해당」은 그대로
 
 
 def test_merge_no_baseline_not_erased_by_none():
@@ -52,3 +53,4 @@ def test_prompts_separate_no_baseline():
         text = (PROMPTS / name).read_text(encoding="utf-8")
         assert "- 비교 불가:" in text
         assert "종전 규정이 없는 점검이면 해당 없음" not in text
+        assert "새로 생긴 조문이라도 새 의무·제재·공제처럼 근로조건을 낮추는 내용을 담고 있으면 해당이다" in text

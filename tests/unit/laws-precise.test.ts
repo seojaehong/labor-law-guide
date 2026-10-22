@@ -224,6 +224,8 @@ describe('파이프라인', () => {
     expect(disadvantageOf(null, false, true)).toBe('해당 없음');
     expect(disadvantageOf(f('제1조', '회사 선택', '해당 없음'), true, true)).toBe('확인 필요');
     expect(disadvantageOf({ ...f('제1조'), disadvantage: '모름' as never }, false, true)).toBe('확인 필요');
+    // 종전 규칙이 있는 점검에서 새로 생긴 조문이 「해당」이면 그대로 남는다(비교 불가로 눌리지 않는다)
+    expect(disadvantageOf(f('제1조', '회사 선택', '해당'), false, true)).toBe('해당');
   });
 
   it('합칠 때 비교 불가는 해당 없음에 지워지지 않는다', () => {
@@ -236,6 +238,7 @@ describe('파이프라인', () => {
     expect(items).toContain('비교 불가');
     expect(BATCH_SYSTEM).not.toContain('종전 규정이 없는 점검이면 해당 없음');
     expect(BATCH_SYSTEM).toContain('- 비교 불가:');
+    expect(BATCH_SYSTEM).toContain('새로 생긴 조문이라도 새 의무·제재·공제처럼 근로조건을 낮추는 내용을 담고 있으면 해당이다');
   });
 
   it('보관 동의가 없어도 저장 행에 비교 불가 표시는 남는다', () => {
