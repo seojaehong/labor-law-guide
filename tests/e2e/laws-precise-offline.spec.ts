@@ -51,7 +51,7 @@ test('PR72 스냅샷·XLSX·진행 표시와 안전 보완의 취소·부분 실
   const downloaded = page.waitForEvent('download');
   await page.getByRole('button', { name: '대조표 엑셀', exact: true }).click();
   const file = await downloaded; const book = new ExcelJS.Workbook();
-  await book.xlsx.load(readFileSync((await file.path())!));
+  await book.xlsx.load(new Uint8Array(readFileSync((await file.path())!)).buffer);
   const exported = JSON.stringify(book.worksheets[0].getSheetValues());
   expect(exported).toContain('상시 근로자 24명'); expect(exported).not.toContain('99명');
   expect(exported).toContain('합성 실행 당시 요청'); expect(exported).not.toContain('변경한 현재 요청');

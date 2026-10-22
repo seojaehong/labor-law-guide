@@ -380,3 +380,14 @@ it('두 회차 모두 문제없음이어도 불이익 의견 충돌을 결과에
   expect(output.rows[0].review?.conflict).toBe(true);
   expect(output.rows[0]['점검 결과']).toBe('추가 확인');
 });
+
+it('종전이 있고 기계 신호가 없어도 모델 조문 누락은 해당 없음으로 떨어지지 않는다', async () => {
+  const text = '제1조(합성 절차) 합성 절차를 따른다.';
+  const result = await precisePipeline({ rules: text, old: text, since: '20260101' }, [], { ask: async () => [], workers: 1 });
+  expect(result.rows).toHaveLength(1);
+  expect(result.rows[0].불이익변경).toBe('확인 필요');
+  expect(result.rows[0]['점검 결과']).toBe('추가 확인');
+  expect(result.rows[0].review?.incomplete).toBe(true);
+  expect(result.rows[0]['운영 메모']).not.toContain('수치 하락');
+  expect(result.rows[0]['운영 메모']).not.toContain('조문 삭제');
+});
