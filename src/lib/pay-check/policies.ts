@@ -1,4 +1,4 @@
-// 원본: ~/dev/pay-exception-check @3263456
+// 원본: ~/dev/pay-exception-check @486509a
 // The four calculation policies (spec §5). Integer arithmetic on 원 with an exact fraction:
 // a result that is not a whole 원 needs the company's rounding rule, which the core never guesses.
 
@@ -22,12 +22,22 @@ export function num(c: Confirmed, k: string): number | null {
   return typeof v === "number" && Number.isFinite(v) ? v : null;
 }
 
-/** Exact value or a rounding decision. A non-whole result without a confirmed rounding rule is not an amount. */
-export function toWon(f: Fraction, rounding: Rounding | null): number | null {
-  if (f.num % f.den === 0) return f.num / f.den;
-  if (!rounding) return null;
+/** 끝수 처리 단위(원). 읽기 단계 산수 검사(extract/arith.ts)도 이 목록을 쓴다. */
+export const ROUNDING_UNITS = [1, 10, 100] as const;
+export type RoundingUnit = (typeof ROUNDING_UNITS)[number];
+
+/**
+ * Exact value or a rounding decision (외부 검토 I1).
+ * A whole 원 with no unit given stays as it is. Otherwise the company's method and unit are both needed;
+ * a unit of 10 or 100 also applies to a whole-원 result. Returns the names of what is missing instead of guessing.
+ */
+export function toWon(f: Fraction, rounding: Rounding | null, unit: RoundingUnit | null = null): number | string[] {
   const x = f.num / f.den;
-  return rounding === "FLOOR" ? Math.floor(x) : rounding === "CEIL" ? Math.ceil(x) : Math.round(x);
+  if (f.num % f.den === 0 && (unit === null || x % unit === 0)) return x;
+  const missing = [...(rounding ? [] : ["rounding"]), ...(unit ? [] : ["rounding_unit"])];
+  if (missing.length) return missing;
+  const g = rounding === "FLOOR" ? Math.floor : rounding === "CEIL" ? Math.ceil : Math.round;
+  return g(x / unit!) * unit!;
 }
 
 function need(c: Confirmed, keys: string[]): string[] {
@@ -39,10 +49,17 @@ function rounding(c: Confirmed): Rounding | null {
   return r === "FLOOR" || r === "ROUND" || r === "CEIL" ? r : null;
 }
 
+function roundingUnit(c: Confirmed): RoundingUnit | null {
+  const u = c.rounding_unit;
+  return (ROUNDING_UNITS as readonly unknown[]).includes(u) ? (u as RoundingUnit) : null;
+}
+
 function finish(f: Fraction, c: Confirmed, grounds: string[]): PolicyOutcome {
-  const amount = toWon(f, rounding(c));
-  if (amount === null) return { ok: false, reason: "ROUNDING_RULE_NOT_CONFIRMED", missing: ["rounding"] };
-  return { ok: true, amount, grounds };
+  const how = rounding(c), unit = roundingUnit(c);
+  const amount = toWon(f, how, unit);
+  if (typeof amount !== "number") return { ok: false, reason: "ROUNDING_RULE_NOT_CONFIRMED", missing: amount };
+  const note = amount === f.num / f.den ? [] : [`끝수 처리: ${how} · ${unit}원 단위 (회사 기준, 사용자 확인)`];
+  return { ok: true, amount, grounds: [...grounds, ...note] };
 }
 
 export const POLICY_FIELDS: Record<PolicyId, string[]> = {
@@ -74,8 +91,10 @@ export function applyPolicy(id: PolicyId, c: Confirmed): PolicyOutcome {
       const d4 = num(c, "full_time_scheduled_days_4w")!, w = num(c, "holiday_weeks")!;
       if (d4 <= 0) return { ok: false, reason: "POLICY_FIELD_MISSING", missing: ["full_time_scheduled_days_4w"] };
       const daily = h4 / d4;
+      // 평균 기간은 4주, 4주 미만 근로면 그 기간(근로기준법 제18조제3항). check.ts 가 확인한 주수를 그대로 적는다.
+      const weeks = num(c, "averaging_weeks") ?? 4;
       return finish({ num: Math.round(r * h4 * w * 100), den: d4 * 100 }, c, [
-        `1일 소정근로시간 = 4주 소정근로시간 ${h4}시간 ÷ 통상 근로자 4주 소정근로일 ${d4}일 = ${Math.round(daily * 100) / 100}시간`,
+        `1일 소정근로시간 = ${weeks}주 소정근로시간 ${h4}시간 ÷ 같은 기간 통상 근로자 소정근로일 ${d4}일 = ${Math.round(daily * 100) / 100}시간`,
         `시급 ${won(r)} × 1일 소정근로시간 × 주휴 ${w}주분 (WEEKLY_HOLIDAY_FIXED)`,
       ]);
     }

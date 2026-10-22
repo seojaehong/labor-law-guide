@@ -1,4 +1,4 @@
-// 원본: ~/dev/pay-exception-check @3263456
+// 원본: ~/dev/pay-exception-check @486509a
 // Core types. The core is pure: no IO, no network, no LLM.
 
 export const SCENARIOS = ["MID_JOIN", "MID_LEAVE", "ABSENCE_DEDUCTION", "HOURLY_WEEKLY_HOLIDAY"] as const;

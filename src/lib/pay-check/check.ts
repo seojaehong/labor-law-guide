@@ -1,4 +1,4 @@
-// 원본: ~/dev/pay-exception-check @3263456
+// 원본: ~/dev/pay-exception-check @486509a
 // One worker, one pay month, one exception (spec §1). Decides the status from confirmed values only.
 // Order per scenario: scope → facts the exception depends on → company basis → policy → compare.
 // NEEDS_CONFIRMATION never carries an amount.
@@ -31,7 +31,7 @@ const ITEM: Record<Scenario, string> = {
 const CITATIONS: Record<Scenario, string[]> = {
   MID_JOIN: [],
   MID_LEAVE: [],
-  ABSENCE_DEDUCTION: [],
+  ABSENCE_DEDUCTION: ["근로기준법 시행령 제30조제1항"],
   HOURLY_WEEKLY_HOLIDAY: [
     "근로기준법 제55조제1항",
     "근로기준법 시행령 제30조제1항",
@@ -46,10 +46,12 @@ const FIELD_LABEL: Record<string, string> = {
   monthly_base_pay: "월 기본급",
   eligible_days: "인정일수",
   unpaid_absence_hours: "무급 결근시간",
-  four_week_scheduled_hours: "최근 4주 약정 소정근로시간",
+  four_week_scheduled_hours: "평균 기간(4주, 4주 미만 근로면 그 기간)의 약정 소정근로시간",
+  averaging_weeks: "평균을 낸 주수",
   full_time_scheduled_days_4w: "같은 기간 통상 근로자의 소정근로일수",
   holiday_weeks: "명세서 주휴 항목이 몇 주분인지",
-  rounding: "원 단위 끝수 처리 기준",
+  rounding: "끝수 처리 방법(버림·반올림·올림)",
+  rounding_unit: "끝수 처리 단위(1원·10원·100원)",
   payslip_amount: "명세서 금액",
   payslip_absence_deduction: "명세서 결근 공제액",
   payslip_weekly_holiday_pay: "명세서 주휴 금액",
@@ -80,34 +82,58 @@ function stop(status: Status, reason: string, question: string | null, evidence:
   return { status, reasons: [reason], question, evidence, observation };
 }
 
-function isFalse(c: Confirmed, k: string) {
-  return c[k] === false;
+
+/** A real calendar date in YYYY-MM-DD, or null. Other spellings (2026.04.15, 2026-4-30) are not compared. */
+export function isoDate(v: unknown): string | null {
+  if (typeof v !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(v)) return null;
+  const [y, m, d] = v.split("-").map(Number) as [number, number, number];
+  const t = new Date(Date.UTC(y, m - 1, d));
+  return t.getUTCFullYear() === y && t.getUTCMonth() === m - 1 && t.getUTCDate() === d ? v : null;
 }
 
-/** The field exists in the confirmed set but its value is unknown (null), i.e. the user said 없음/모름. */
-function unknown(c: Confirmed, k: string) {
-  return k in c && c[k] === null;
+/** Missing, null and an unreadable date all mean the fact is not confirmed (외부 검토 C1·C2). */
+function dateOrStop(c: Confirmed, k: string, what: string, evidence: string): string | Partial {
+  const v = isoDate(c[k]);
+  if (v) return v;
+  const reason = c[k] === undefined || c[k] === null ? `FACT_MISSING:${k}` : `FACT_INVALID_DATE:${k}`;
+  return stop("NEEDS_CONFIRMATION", reason, `${what}을 YYYY-MM-DD 날짜로 확인해 주세요.`, [evidence], `${what}이 확인된 날짜가 아닙니다.`);
+}
+
+/** Pay period, both ends, as real dates in order. */
+function periodOrStop(c: Confirmed): { ps: string; pe: string } | Partial {
+  const ps = isoDate(c.pay_period_start), pe = isoDate(c.pay_period_end);
+  if (!ps || !pe || ps > pe) {
+    return stop("NEEDS_CONFIRMATION", "FACT_MISSING:pay_period", "이 명세서의 급여기간(첫날·마지막 날)을 확인해 주세요.", ["급여기간이 적힌 명세서"], "급여기간이 확인되지 않아 중도 입·퇴사 달인지 정할 수 없습니다.");
+  }
+  return { ps, pe };
 }
 
 // ── Scope and facts, per scenario. Returns a stop, or null to go on to the basis gate. ──
 
 function midJoin(c: Confirmed): Partial | null {
-  const start = c.employment_start;
-  if (typeof start !== "string") return stop("NEEDS_CONFIRMATION", "FACT_MISSING:employment_start", "입사일을 확인해 주세요.", ["입사일이 적힌 근로계약서"], "입사일이 확인되지 않았습니다.");
-  const ps = c.pay_period_start, pe = c.pay_period_end;
-  if (typeof ps === "string" && start <= ps) return stop("OUTSIDE_SCOPE", "NOT_MID_PERIOD:starts_on_or_before_period", null, [], "입사일이 급여기간 첫날 이전이라 중도입사 달이 아닙니다. 정상 근무월은 지금 범위 밖입니다.");
-  if (typeof pe === "string" && start > pe) return stop("OUTSIDE_SCOPE", "NOT_IN_PERIOD:starts_after_period", null, [], "입사일이 이 급여기간 뒤입니다.");
+  const start = dateOrStop(c, "employment_start", "입사일", "입사일이 적힌 근로계약서");
+  if (typeof start !== "string") return start;
+  const period = periodOrStop(c);
+  if (!("ps" in period)) return period;
+  const { ps, pe } = period;
+  if (start <= ps) return stop("OUTSIDE_SCOPE", "NOT_MID_PERIOD:starts_on_or_before_period", null, [], "입사일이 급여기간 첫날 이전이라 중도입사 달이 아닙니다. 정상 근무월은 지금 범위 밖입니다.");
+  if (start > pe) return stop("OUTSIDE_SCOPE", "NOT_IN_PERIOD:starts_after_period", null, [], "입사일이 이 급여기간 뒤입니다.");
   return null;
 }
 
 function midLeave(c: Confirmed): Partial | null {
-  const end = c.employment_end;
-  if (typeof end !== "string") return stop("NEEDS_CONFIRMATION", "FACT_MISSING:employment_end", "퇴사일을 확인해 주세요.", ["퇴사일이 적힌 사직서·인사기록"], "퇴사일이 확인되지 않았습니다.");
-  const ps = c.pay_period_start, pe = c.pay_period_end;
-  if (typeof pe === "string" && end >= pe) return stop("OUTSIDE_SCOPE", "NOT_MID_PERIOD:ends_on_or_after_period", null, [], "퇴사일이 급여기간 마지막 날 이후라 중도퇴사 달이 아닙니다. 정상 근무월은 지금 범위 밖입니다.");
-  if (typeof ps === "string" && end < ps) return stop("OUTSIDE_SCOPE", "NOT_IN_PERIOD:ends_before_period", null, [], "퇴사일이 이 급여기간 앞입니다.");
-  // Facts the leave month depends on, left unknown by the user: ask for each, never adjust a date.
-  const open = ["last_scheduled_workday", "paid_holiday_treatment"].filter((k) => unknown(c, k));
+  const end = dateOrStop(c, "employment_end", "퇴사일", "퇴사일이 적힌 사직서·인사기록");
+  if (typeof end !== "string") return end;
+  const period = periodOrStop(c);
+  if (!("ps" in period)) return period;
+  const { ps, pe } = period;
+  if (end >= pe) return stop("OUTSIDE_SCOPE", "NOT_MID_PERIOD:ends_on_or_after_period", null, [], "퇴사일이 급여기간 마지막 날 이후라 중도퇴사 달이 아닙니다. 정상 근무월은 지금 범위 밖입니다.");
+  if (end < ps) return stop("OUTSIDE_SCOPE", "NOT_IN_PERIOD:ends_before_period", null, [], "퇴사일이 이 급여기간 앞입니다.");
+  // Facts the leave month depends on: not given, unknown or unreadable all stop. Never adjust a date.
+  const open = [
+    ...(isoDate(c.last_scheduled_workday) ? [] : ["last_scheduled_workday"]),
+    ...(c.paid_holiday_treatment === "paid" || c.paid_holiday_treatment === "unpaid" ? [] : ["paid_holiday_treatment"]),
+  ];
   if (open.length) {
     return {
       status: "NEEDS_CONFIRMATION",
@@ -125,11 +151,12 @@ function absence(c: Confirmed): Partial | null {
   if ((h ?? 0) === 0 && (d ?? 0) === 0 && (h !== null || d !== null)) {
     return stop("OUTSIDE_SCOPE", "NO_ABSENCE_AND_NO_DEDUCTION", null, [], "결근시간도 결근 공제도 없습니다. 결근 공제 대조를 시작하지 않습니다.");
   }
+  // paid_leave_or_holiday: true = 그날은 유급휴가·휴일이었다 / false = 아니었다(확인함) / 없음·null = 확인 못함.
   // The user says the day was paid leave or a paid holiday: a deduction is not compared as an absence.
-  if (c.paid_leave_or_holiday_confirmed === true) {
+  if (c.paid_leave_or_holiday === true) {
     return stop("NEEDS_CONFIRMATION", "DAY_IS_PAID_LEAVE_OR_HOLIDAY", "그날이 유급휴가·유급휴일로 처리됐는데 결근 공제가 들어간 이유를 확인해 주세요.", ["휴가 승인 기록", "결근 공제 기준이 적힌 취업규칙 조항"], "그날은 유급휴가·유급휴일로 확인돼 결근 공제 계산으로 대조하지 않습니다.");
   }
-  if (c.scheduled_workday_confirmed !== true || isFalse(c, "paid_leave_or_holiday_confirmed")) {
+  if (c.scheduled_workday_confirmed !== true || c.paid_leave_or_holiday !== false) {
     return stop(
       "NEEDS_CONFIRMATION",
       "FACT_UNCONFIRMED:scheduled_workday",
@@ -146,12 +173,19 @@ function weeklyHoliday(c: Confirmed): Partial | null {
   if (num(c, "temporary_actual_hours_in_one_week") !== null && c.contract_change_confirmed !== true) {
     return stop("NEEDS_CONFIRMATION", "TEMPORARY_HOURS_NOT_AGREED_HOURS", "대타시간이 계약상 약정시간 변경인지 확인해 주세요.", ["대타 근무가 적힌 근무표", "약정시간 변경을 적은 계약서·문자"], "약정시간과 실제 대타 시간이 다릅니다. 실제 시간만으로 주휴 대조를 시작하지 않습니다.");
   }
-  if (c.employment_continued_for_7_days !== true || unknown(c, "weekly_holiday_designated")) {
+  // weekly_holiday_designated: true(지정함)·false(지정 안 함)는 확인된 사실 / 없음·null 은 확인 못함 (외부 검토 C1).
+  if (c.employment_continued_for_7_days !== true || typeof c.weekly_holiday_designated !== "boolean") {
     return stop("NEEDS_CONFIRMATION", "FACT_UNCONFIRMED:continuity_or_holiday", "계약 기간, 계속근로, 주휴일 지정 자료를 확인해 주세요.", ["계약 기간이 적힌 근로계약서", "주휴일을 정한 계약·취업규칙 조항"], "그 주의 계속근로 또는 주휴일 지정이 확인되지 않았습니다.");
   }
-  const h4 = num(c, "four_week_scheduled_hours");
-  if (h4 !== null && h4 / 4 < 15) {
-    return stop("OUTSIDE_SCOPE", "WEEKLY_AVG_UNDER_15", null, [], `4주 평균 1주 약정 소정근로시간이 ${h4 / 4}시간으로 15시간 미만입니다(근로기준법 제18조제3항). 주휴 대조 대상이 아닙니다.`);
+  // 근로기준법 제18조제3항: 4주 동안(4주 미만으로 근로하는 경우에는 그 기간)을 평균한다 (외부 검토 C3).
+  const h4 = num(c, "four_week_scheduled_hours"), weeks = num(c, "averaging_weeks");
+  if (h4 !== null) {
+    if (weeks === null || weeks <= 0 || weeks > 4) {
+      return stop("NEEDS_CONFIRMATION", "FACT_MISSING:averaging_weeks", "약정 소정근로시간을 몇 주 동안의 시간으로 셌는지(4주, 또는 근로한 기간이 4주 미만이면 그 주수) 확인해 주세요.", ["근로계약서의 계약 기간", "근무표"], "평균을 낼 기간이 확인되지 않아 1주 평균 시간을 정할 수 없습니다.");
+    }
+    if (h4 / weeks < 15) {
+      return stop("OUTSIDE_SCOPE", "WEEKLY_AVG_UNDER_15", null, [], `${weeks}주 평균 1주 약정 소정근로시간이 ${Math.round((h4 / weeks) * 100) / 100}시간으로 15시간 미만입니다(근로기준법 제18조제3항). 주휴 대조 대상이 아닙니다.`);
+    }
   }
   if (c.all_scheduled_days_attended !== true) {
     return stop("NEEDS_CONFIRMATION", "FACT_UNCONFIRMED:attendance", "해당 주 소정근로일을 개근했는지 근무표로 확인해 주세요.", ["해당 주 근무표·출퇴근기록"], "해당 주 개근 여부가 확인되지 않았습니다(시행령 제30조제1항).");
@@ -175,9 +209,11 @@ const BASIS_QUESTION: Record<Scenario, { q: string; evidence: string[] }> = {
 
 function afterCompare(s: Scenario, p: PolicyId, match: boolean): { q: string; evidence: string[]; conditions: string[] } {
   if (s === "ABSENCE_DEDUCTION") {
+    // 외부 검토 I4: 결근한 주의 주휴는 이 대조 밖이라는 것을 결과에 적는다.
+    const week = "무급 결근이 있는 주는 소정근로일 개근이 아니어서 그 주의 유급 주휴일이 생기지 않을 수 있습니다(근로기준법 시행령 제30조제1항). 명세서에서 그 주 주휴수당이 빠졌거나 공제됐다면 이 결근 공제 대조에는 들어 있지 않으니 따로 확인해 주세요.";
     return match
-      ? { q: "유급·무급 처리 사유가 달라지면 다시 확인해 주세요.", evidence: [], conditions: ["그날이 유급휴가·유급휴일로 바뀌면 공제 대상이 아닐 수 있습니다."] }
-      : { q: "결근으로 처리된 시간과 공제 기준이 명세서 계산과 같은지 확인해 주세요.", evidence: ["결근 처리 내역", "결근 공제 기준이 적힌 취업규칙 조항"], conditions: ["회사가 시간 기준이 아닌 다른 기준으로 공제했다면 그 기준으로 다시 대조해야 합니다."] };
+      ? { q: "유급·무급 처리 사유가 달라지면 다시 확인해 주세요.", evidence: [], conditions: ["그날이 유급휴가·유급휴일로 바뀌면 공제 대상이 아닐 수 있습니다.", week] }
+      : { q: "결근으로 처리된 시간과 공제 기준이 명세서 계산과 같은지 확인해 주세요.", evidence: ["결근 처리 내역", "결근 공제 기준이 적힌 취업규칙 조항"], conditions: ["회사가 시간 기준이 아닌 다른 기준으로 공제했다면 그 기준으로 다시 대조해야 합니다.", week] };
   }
   if (s === "HOURLY_WEEKLY_HOLIDAY") {
     return {
@@ -221,7 +257,8 @@ export function check(input: CheckInput): CheckResult {
   if (fact) return done(fact);
 
   // Basis gate: the product never picks a company basis (spec 화면 5).
-  if (p === null || isFalse(c, "calculation_basis_documented")) {
+  // calculation_basis_documented 는 true 일 때만 통과한다. 없음·null·false 는 모두 확인 못함 (외부 검토 C1).
+  if (p === null || c.calculation_basis_documented !== true) {
     const b = BASIS_QUESTION[s];
     return done(stop("NEEDS_CONFIRMATION", "COMPANY_BASIS_NOT_CONFIRMED", b.q, b.evidence, `${josa(ITEM[s], "을", "를")} 어떤 기준으로 계산했는지 확인되지 않아 금액을 만들지 않습니다.`));
   }
