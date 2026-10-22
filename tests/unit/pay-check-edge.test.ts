@@ -1,5 +1,5 @@
-// 12건 밖의 경계 (원본: ~/dev/pay-exception-check @486509a test/edge.test.ts, extractor slot 묶음 제외).
-// 끝수 처리(방법·단위), [별표 2] 1일 소정근로시간, 15시간 선, 공제 부호, 결근 주 주휴(I4), 확인 항목(C1~C3).
+// 12건 밖의 경계 (원본: ~/dev/pay-exception-check @ea0b75c test/edge.test.ts, extractor slot 묶음 제외).
+// 끝수 처리(방법·단위), [별표 2] 1일 소정근로시간, 15시간 선, 공제 부호, 결근 주 주휴(I4), 확인 항목(C1~C3), 마지막 소정근로일 범위.
 
 import { describe, expect, it } from "vitest";
 import { forbiddenHits, renderCard } from "@/lib/pay-check/card";
@@ -194,6 +194,15 @@ describe("C1 a confirmation that is not given is not a confirmation", () => {
     expect([r.status, r.reasons, r.expected_amount]).toEqual(["NEEDS_CONFIRMATION", ["FACT_UNKNOWN:last_scheduled_workday"], null]);
     expect(ml({ paid_holiday_treatment: "모름" }).reasons).toEqual(["FACT_UNKNOWN:paid_holiday_treatment"]);
   });
+  it("leave month: a last workday after the leave date or before the pay period → FACT_INVALID_DATE, no amount", () => {
+    for (const d of ["2026-04-16", "2026-04-30", "2026-03-31"]) {
+      const r = ml({ last_scheduled_workday: d });
+      expect([r.status, r.reasons, r.expected_amount], d).toEqual(["NEEDS_CONFIRMATION", ["FACT_INVALID_DATE:last_scheduled_workday"], null]);
+    }
+    // 경계: 급여기간 첫날·퇴사일 당일은 마지막 소정근로일이 될 수 있다
+    expect(ml({ last_scheduled_workday: "2026-04-01" }).reasons).not.toContain("FACT_INVALID_DATE:last_scheduled_workday");
+    expect(ml({ last_scheduled_workday: "2026-04-15" }).status).toBe("MATCH");
+  });
 
   const mj = (extra: Record<string, string | null | undefined>) => {
     const confirmed: Record<string, string | number | boolean | null> = {
@@ -271,6 +280,15 @@ describe("C3 근로기준법 제18조제3항: 4주 미만 근로면 그 기간�
     // 근거 문장은 평균을 낸 실제 주수를 적는다(4주라고 쓰지 않는다)
     expect(r.grounds[0]).toContain("2주 소정근로시간 32시간");
     expect(r.grounds.join("\n")).not.toContain("4주 소정근로시간");
+    // [별표 2] 제2호나목은 4주만 말한다: 그 기간으로 나눈 것은 제18조제3항의 평균 기간을 따른 해석이라고 적는다
+    expect(r.grounds[0]).toContain("법 제18조제3항의 평균 기간을 따른 계산");
+    expect(r.grounds[0]).toContain("해석");
+  });
+  it("4 weeks: the 1-day hours sentence cites [별표 2] 제2호나목 directly, with no interpretation note", () => {
+    const r = hw();
+    expect(r.grounds[0]).toContain("4주 소정근로시간 60시간");
+    expect(r.grounds[0]).toContain("[별표 2] 제2호나목");
+    expect(r.grounds[0]).not.toContain("해석");
   });
   it("averaging weeks absent, 0 or more than 4 → asks, no amount", () => {
     const absent = check({

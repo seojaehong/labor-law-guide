@@ -1,4 +1,4 @@
-// 원본: ~/dev/pay-exception-check @486509a
+// 원본: ~/dev/pay-exception-check @ea0b75c
 // The four calculation policies (spec §5). Integer arithmetic on 원 with an exact fraction:
 // a result that is not a whole 원 needs the company's rounding rule, which the core never guesses.
 
@@ -86,15 +86,19 @@ export function applyPolicy(id: PolicyId, c: Confirmed): PolicyOutcome {
       return finish({ num: Math.round(r * h * 100), den: 100 }, c, [`시급 ${won(r)} × 무급 결근 ${h}시간 (ABSENCE_HOUR)`]);
     }
     case "WEEKLY_HOLIDAY_FIXED": {
-      // 시행령 [별표 2] 2호나목: 1일 소정근로시간 = 4주 소정근로시간 ÷ 그 기간 통상 근로자의 총 소정근로일수
+      // 시행령 [별표 2] 제2호나목: 1일 소정근로시간 수 = 4주 동안의 소정근로시간 ÷ 그 기간의 통상 근로자의 총 소정근로일 수 (4주만 정한다).
+      // 근로기준법 제18조제3항: 15시간 판정의 평균 기간 = 4주(4주 미만으로 근로하면 그 기간). 판정은 check.ts 가 한다.
+      // 4주 미만 근로자에게 같은 나눗셈을 그 기간으로 하는 것은 제18조제3항의 평균 기간을 따른 해석이라, 근거 문장에 그렇게 적는다.
       const r = num(c, "hourly_rate")!, h4 = num(c, "four_week_scheduled_hours")!;
       const d4 = num(c, "full_time_scheduled_days_4w")!, w = num(c, "holiday_weeks")!;
       if (d4 <= 0) return { ok: false, reason: "POLICY_FIELD_MISSING", missing: ["full_time_scheduled_days_4w"] };
       const daily = h4 / d4;
-      // 평균 기간은 4주, 4주 미만 근로면 그 기간(근로기준법 제18조제3항). check.ts 가 확인한 주수를 그대로 적는다.
       const weeks = num(c, "averaging_weeks") ?? 4;
+      const basis = weeks === 4
+        ? "(시행령 [별표 2] 제2호나목)"
+        : `(시행령 [별표 2] 제2호나목은 4주 기준이다. ${weeks}주 근로라 같은 나눗셈을 그 기간으로 했다. 법 제18조제3항의 평균 기간을 따른 계산이며 이 도구의 해석이다)`;
       return finish({ num: Math.round(r * h4 * w * 100), den: d4 * 100 }, c, [
-        `1일 소정근로시간 = ${weeks}주 소정근로시간 ${h4}시간 ÷ 같은 기간 통상 근로자 소정근로일 ${d4}일 = ${Math.round(daily * 100) / 100}시간`,
+        `1일 소정근로시간 = ${weeks}주 소정근로시간 ${h4}시간 ÷ 같은 기간 통상 근로자 소정근로일 ${d4}일 = ${Math.round(daily * 100) / 100}시간 ${basis}`,
         `시급 ${won(r)} × 1일 소정근로시간 × 주휴 ${w}주분 (WEEKLY_HOLIDAY_FIXED)`,
       ]);
     }

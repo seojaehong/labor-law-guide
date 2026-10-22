@@ -1,4 +1,4 @@
-// 원본: ~/dev/pay-exception-check @486509a
+// 원본: ~/dev/pay-exception-check @ea0b75c
 // One worker, one pay month, one exception (spec §1). Decides the status from confirmed values only.
 // Order per scenario: scope → facts the exception depends on → company basis → policy → compare.
 // NEEDS_CONFIRMATION never carries an amount.
@@ -142,6 +142,11 @@ function midLeave(c: Confirmed): Partial | null {
       evidence: ["마지막 근무일이 적힌 근무표·출퇴근기록", "퇴사월 유급휴일 처리 내역", "퇴사월 계산 기준이 적힌 계약·취업규칙 조항"],
       observation: "마지막 소정근로일 또는 유급휴일 처리가 확인되지 않아 날짜를 정할 수 없습니다.",
     };
+  }
+  // 마지막 소정근로일은 급여기간 첫날부터 퇴사일 사이여야 한다. 밖이면 날짜를 고치지 않고 멈춘다.
+  const last = c.last_scheduled_workday as string;
+  if (last > end || last < ps) {
+    return stop("NEEDS_CONFIRMATION", "FACT_INVALID_DATE:last_scheduled_workday", "마지막 소정근로일이 급여기간 첫날과 퇴사일 사이의 날짜인지 확인해 주세요.", ["마지막 근무일이 적힌 근무표·출퇴근기록", "퇴사일이 적힌 사직서·인사기록"], `마지막 소정근로일 ${last}이 급여기간 첫날 ${ps}부터 퇴사일 ${end} 사이에 있지 않습니다.`);
   }
   return null;
 }
