@@ -414,3 +414,4 @@
 .lr-precise .lr-check-meta label { display: inline-flex; align-items: center; gap: 4px; }
 .lr-precise .lr-seg { margin-top: 8px; }
 .lr-precise-text { white-space: pre-wrap; font: inherit; font-size: 13px; background: var(--lr-soft-2); padding: 8px 10px; border-radius: 6px; }
+.lr-precise .lr-check-meta input:not([type]) { width: 4.5em; padding: 2px 6px; border: 1px solid var(--lr-hair); border-radius: 4px; background: var(--lr-canvas); color: var(--lr-ink); }

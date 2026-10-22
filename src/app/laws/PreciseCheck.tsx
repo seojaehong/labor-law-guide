@@ -72,7 +72,10 @@ export default function PreciseCheck({ text, since, toast }: { text: string; sin
     URL.revokeObjectURL(a.href);
   };
 
-  const sorted = res ? [...res.rows].sort((a, b) => ORDER.indexOf(a['점검 결과']) - ORDER.indexOf(b['점검 결과'])) : [];
+  // 「신설 필요」는 본문에서 조문을 못 찾은 법령 기준이다 — 조문 판단과 섞지 않고 한 묶음으로 접는다
+  const absent = res ? res.rows.filter((x) => x['조문'] === '신설 필요') : [];
+  const sorted = res ? res.rows.filter((x) => x['조문'] !== '신설 필요')
+    .sort((a, b) => ORDER.indexOf(a['점검 결과']) - ORDER.indexOf(b['점검 결과'])) : [];
   const count = (k: string) => sorted.filter((x) => x['점검 결과'] === k).length;
 
   return (
@@ -114,6 +117,13 @@ export default function PreciseCheck({ text, since, toast }: { text: string; sin
               </div>
             </details>
           ))}
+          {absent.length > 0 && (
+            <details className="lr-missing">
+              <summary>본문에서 해당 조문을 찾지 못한 법령 기준 {absent.length}건</summary>
+              <ul>{absent.map((x) => <li key={x['개정 사유']}><b>{x['개정 사유']}</b> · {x['근거·시행일']}</li>)}</ul>
+              <p className="lr-check-note">조문이 없거나 다른 표현으로 적혀 있을 수 있습니다. 해당 제도를 운영하지 않으면 무시하세요.</p>
+            </details>
+          )}
           <p className="lr-check-note">
             AI 대조 결과는 노무사 검수 전 초안입니다. 불이익변경 여부와 최종 문안은 노무사 검토를 거쳐 정하세요.{' '}
             <Link href="/contact">노무사 검토 신청</Link>
