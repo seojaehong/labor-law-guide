@@ -14,6 +14,14 @@ def test_supplementary_does_not_override_body():
     assert len(split_articles(t)) == 1
 
 
+def test_duplicate_number_keeps_both():
+    """번호가 두 번 나오면 뒤 조문이 앞 조문을 덮어쓰지 않는다(2026-10-22 강동 제55조)."""
+    t = "제55조(예방교육) 연 1회 교육한다.\n제55조(예방·대응조직) 담당자를 둔다.\n제56조(접수) 신고한다."
+    arts = split_articles(t)
+    assert [a.no for a in arts] == ["제55조", "제55조(번호 중복)", "제56조"]
+    assert arts[0].body == "연 1회 교육한다." and arts[1].title == "예방·대응조직"
+
+
 def test_toc_then_body_uses_body():
     t = "제1조(목적)\n제2조(적용)\n제1조(목적) 실제 본문\n제2조(적용) 실제 적용"
     assert split_articles(t)[0].body == "실제 본문"

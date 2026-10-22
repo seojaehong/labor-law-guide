@@ -15,7 +15,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from work_rules_c import cost  # noqa: E402
-from work_rules_c.articles import pair_articles, read_text, split_articles  # noqa: E402
+from work_rules_c.articles import duplicated, pair_articles, read_text, split_articles  # noqa: E402
 from work_rules_c.judge import JudgeBackend, JudgeInput, apply_threshold  # noqa: E402
 from work_rules_c.mapping import NEW_BUCKET, hits_by_article, map_rules  # noqa: E402
 from work_rules_c.quantities import quantity_drops  # noqa: E402
@@ -42,15 +42,18 @@ def pipeline(new_text: str, old_text: str | None, asof: date, since: date, triag
         hits.setdefault(NEW_BUCKET, []).extend(hits.pop(key))
     triages, judged = {}, {}
     t0 = time.time()
+    dups = duplicated(p.no for p in pairs)
     if triage is None:  # 묶음 판단 — 1차 거르기 없이 모든 조문을 판단 단계가 본다
         judged = judge.judge_all(pairs, drops, hits)
         for p in pairs:
-            hard = p.new is None or force_escalate(drops[p.no], hits.get(p.no, []))
+            hard = p.new is None or p.no in dups or force_escalate(drops[p.no], hits.get(p.no, []))
             triages[p.no] = Triage(p.no, "확인필요" if p.no in judged or hard else "문제없음", (),
                                    p.no in judged or hard)
     else:
         for p in pairs:
             t = triage.triage(p, drops[p.no], hits.get(p.no, []))
+            if p.no in dups and not t.escalate:  # 번호 중복은 1차 거르기가 지우지 못한다
+                t = Triage(p.no, "확인필요", t.reasons, True)
             triages[p.no] = t
             if t.escalate:
                 out = judge.judge(JudgeInput(p, tuple(drops[p.no]), tuple(hits.get(p.no, [])), t))

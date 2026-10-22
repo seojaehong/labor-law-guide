@@ -3,7 +3,7 @@ import json
 import re
 from pathlib import Path
 
-from work_rules_c.articles import ArticlePair
+from work_rules_c.articles import ArticlePair, duplicated
 from work_rules_c.judge import JudgeOut
 from work_rules_c.mapping import NEW_BUCKET, RuleHit
 from work_rules_c.quantities import Drop
@@ -29,6 +29,7 @@ def _basis(hits: list[RuleHit]) -> str:
 def build_rows(pairs: list[ArticlePair], drops: dict[str, list[Drop]], hits: dict[str, list[RuleHit]],
                triages: dict[str, Triage], judged: dict[str, JudgeOut]) -> list[dict]:
     rows = []
+    dups = duplicated(p.no for p in pairs)
     for p in pairs:
         t = triages.get(p.no)
         if t is None or not t.escalate:
@@ -43,6 +44,8 @@ def build_rows(pairs: list[ArticlePair], drops: dict[str, list[Drop]], hits: dic
         memo = [clean(j.ops_note)] if j and j.ops_note else []
         if d:
             memo.append("수치 하락: " + ", ".join(f"{x.old_max:g}{x.unit} → {x.new_max:g}{x.unit}" for x in d))
+        if p.no in dups:
+            memo.append("조문 번호 중복 — 같은 번호의 조문이 둘 이상이다")
         if p.status == "삭제":
             memo.append("조문 삭제")
         elif p.old_no and p.old_no != p.no:
@@ -54,7 +57,8 @@ def build_rows(pairs: list[ArticlePair], drops: dict[str, list[Drop]], hits: dic
             "개정 사유": clean(j.reason) if j else "",
             "근거·시행일": clean(j.basis) if j and j.basis else _basis(h),
             "불이익변경": disadvantage,
-            "점검 결과": j.result if j else "추가 확인",
+            "점검 결과": "현행 수정 필요" if p.no in dups and (not j or j.result == "추가 확인") else (
+                j.result if j else "추가 확인"),
             "운영 메모": " · ".join(m for m in memo if m),
             "제안 문안": clean(j.proposed_text) if j else "",
         }

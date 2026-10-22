@@ -12,6 +12,7 @@ PAGE_MARK = re.compile(r"^-\s*\d+\s*-$")
 TRAILING_PAGE_MARK = re.compile(r"\s+-\s*\d+\s*-\s*$")
 CHAPTER = re.compile(r"^\s*제\s*\d+\s*(?:장|절|관)(?:\s|$)")  # 장·절 제목 — 어느 조문의 본문도 아니다
 TOC_REST = re.compile(r"^(?:\[[^\]]*\]\s*)*\.*\s*\d*$")  # 목차 줄 꼬리: 「[필수] 7」·「…… 12」·쪽 번호뿐
+DUP = "(번호 중복)"
 STOP = re.compile(r"^\s*(?:부\s*칙|개정\s*부\s*칙|附\s*則|[\[【]\s*별\s*[지표]|별\s*[지표]\s*제?\s*\d+\s*호)")
 
 
@@ -52,11 +53,19 @@ def split_articles(text: str) -> list[Article]:
             rest = line[m.end():].strip()
             if TOC_REST.match(rest):  # 목차 항목 — 본문이 아니다
                 rest = ""
+            if current in found and found[current][1]:  # 본문 있는 조문이 또 나오면 번호 중복 — 덮어쓰지 않는다
+                current += DUP
             found[current] = (title, [rest] if rest else [])
             continue
         if current:
             found[current][1].append(line)
     return [Article(no, title, "\n".join(lines)) for no, (title, lines) in found.items()]
+
+
+def duplicated(nos) -> set[str]:
+    """번호가 겹친 조문 — 앞의 것과 「(번호 중복)」이 붙은 것 모두."""
+    nos = set(nos)
+    return {n for n in nos if DUP in n or n + DUP in nos}
 
 
 def _key(no: str) -> list[int]:
