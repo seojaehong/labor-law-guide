@@ -79,11 +79,17 @@ function ResultCard({ r, onCopy }: { r: CheckResult; onCopy: (text: string, done
         <span className={`pc-badge ${STATUS_CLASS[r.status]}`}>{STATUS_TEXT[r.status]}</span>
       </div>
       <p className="pc-obs">{r.observation}</p>
+      {r.open_confirmations.length > 0 && (
+        <div className="pc-block pc-open" role="note">
+          <h3>확인되지 않은 채 남은 것</h3>
+          <ul>{r.open_confirmations.map((g) => <li key={g}>{g}</li>)}</ul>
+        </div>
+      )}
 
       {r.expected_amount !== null && r.payslip_amount !== null && r.difference !== null && (
         <dl className="pc-figs">
           <div><dt>명세서</dt><dd>{won(r.payslip_amount)}</dd></div>
-          <div><dt>확인한 기준으로 계산</dt><dd>{won(r.expected_amount)}</dd></div>
+          <div><dt>{r.reasons.includes('BASIS_NOT_DOCUMENTED') ? '고른 기준으로 참고 계산' : '확인한 기준으로 계산'}</dt><dd>{won(r.expected_amount)}</dd></div>
           <div><dt>차이</dt><dd>{won(Math.abs(r.difference))}</dd></div>
         </dl>
       )}
@@ -130,6 +136,11 @@ export default function PayCheckClient() {
   const [policy, setPolicy] = useState<PolicyId | null>(null);
   const [rounding, setRounding] = useState<Rounding>('UNKNOWN');
   const [roundingUnit, setRoundingUnit] = useState<RoundingUnit | null>(null);
+  const [basisDocumented, setBasisDocumented] = useState<boolean | null>(null);
+  const choosePolicy = (id: PolicyId | null) => {
+    setPolicy(id);
+    setBasisDocumented(null);
+  };
   const [toast, setToast] = useState('');
 
   const scenario: Scenario | null = pick && pick !== 'NORMAL_MONTH' && pick !== 'MULTIPLE' ? pick : null;
@@ -140,13 +151,14 @@ export default function PayCheckClient() {
     setPolicy(null);
     setRounding('UNKNOWN');
     setRoundingUnit(null);
+    setBasisDocumented(null);
   };
   const set = (k: string) => (v: string) => setValues((prev) => ({ ...prev, [k]: v }));
 
   const fields = scenario ? fieldsFor(scenario, policy) : null;
   const result = useMemo(
-    () => (scenario ? check(buildInput({ scenario, values, policy, rounding, roundingUnit })) : null),
-    [scenario, values, policy, rounding, roundingUnit],
+    () => (scenario ? check(buildInput({ scenario, values, policy, rounding, roundingUnit, basisDocumented })) : null),
+    [scenario, values, policy, rounding, roundingUnit, basisDocumented],
   );
 
   const copy = async (text: string, done: string) => {
@@ -205,20 +217,30 @@ export default function PayCheckClient() {
             </section>
 
             <section className="pc-step" aria-label="회사 계산 기준">
-              <h2><span>3</span>회사 문서에 적힌 계산 기준</h2>
-              <p className="pc-help">근로계약서·취업규칙에 적힌 기준을 고릅니다. 적힌 것이 없거나 모르면 「없음·모름」을 고르세요.</p>
+              <h2><span>3</span>회사 계산 기준</h2>
+              <p className="pc-help">회사가 쓰는 계산 기준을 고르고, 그 기준을 근로계약서·취업규칙에서 확인했는지 따로 답합니다. 기준을 모르면 「없음·모름」을 고르세요.</p>
               <div className="pc-opts pc-bases" role="group" aria-label="계산 기준">
                 {BASES[scenario].map((b) => (
-                  <button key={b.id} type="button" aria-pressed={policy === b.id} onClick={() => setPolicy(b.id)}>
+                  <button key={b.id} type="button" aria-pressed={policy === b.id} onClick={() => choosePolicy(b.id)}>
                     <span className="n">{b.label}</span>
                     <span className="m">{b.note}</span>
                   </button>
                 ))}
-                <button type="button" aria-pressed={policy === null} onClick={() => setPolicy(null)}>
+                <button type="button" aria-pressed={policy === null} onClick={() => choosePolicy(null)}>
                   <span className="n">없음·모름</span>
-                  <span className="m">문서에서 기준을 찾지 못함</span>
+                  <span className="m">정해진 기준을 모름</span>
                 </button>
               </div>
+              {policy !== null && (
+                <div className="pc-field pc-basis-doc">
+                  <p className="pc-q">그 기준을 회사 문서에서 확인했나요?</p>
+                  <div className="pc-opts" role="group" aria-label="계산 기준 문서 확인">
+                    <button type="button" aria-pressed={basisDocumented === true} onClick={() => setBasisDocumented(true)}>문서에서 확인함</button>
+                    <button type="button" aria-pressed={basisDocumented === false} onClick={() => setBasisDocumented(false)}>문서는 확인하지 못함</button>
+                  </div>
+                  <p className="pc-help">문서에서 확인하지 못했거나 답하지 않으면 금액은 참고 계산으로만 보여 드리고, 결과에 「계산 기준 문서 미확인」을 남깁니다.</p>
+                </div>
+              )}
               {fields.basis.length > 0 && (
                 <div className="pc-fields pc-fields-basis">
                   {fields.basis.map((d) => <Field key={d.key} def={d} value={values[d.key] ?? ''} onChange={set(d.key)} />)}

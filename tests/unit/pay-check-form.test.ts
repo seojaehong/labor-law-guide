@@ -18,6 +18,7 @@ describe('화면에서 누르는 세 경우', () => {
       scenario: 'MID_LEAVE',
       values: { ...LEAVE_FACTS, payslip_amount: '1,400,000', monthly_base_pay: '3,000,000', eligible_days: '15' },
       policy: 'DAY_30',
+      basisDocumented: true,
       rounding: 'UNKNOWN',
     };
     expect(buildInput(f)).toEqual({
@@ -54,7 +55,7 @@ describe('화면에서 누르는 세 경우', () => {
 
 describe('빈 칸·모름', () => {
   it('빈 칸은 키를 뺀다 (null 로 넣지 않는다)', () => {
-    const c = buildInput({ scenario: 'MID_JOIN', values: { employment_start: '2026-04-16', payslip_amount: '  ' }, policy: 'HOUR_ACTUAL', rounding: 'UNKNOWN' }).confirmed;
+    const c = buildInput({ scenario: 'MID_JOIN', values: { employment_start: '2026-04-16', payslip_amount: '  ' }, policy: 'HOUR_ACTUAL', rounding: 'UNKNOWN', basisDocumented: true }).confirmed;
     expect(c).toEqual({ employment_start: '2026-04-16', calculation_basis_documented: true });
     expect('hourly_rate' in c).toBe(false);
   });
@@ -180,6 +181,27 @@ describe('화면 칸 = 엔진 키', () => {
     expect(keys('ABSENCE_DEDUCTION')).toEqual(expect.arrayContaining(['scheduled_workday_confirmed', 'paid_leave_or_holiday']));
     expect(keys('ABSENCE_DEDUCTION')).not.toContain('paid_leave_or_holiday_confirmed');
     expect(keys('HOURLY_WEEKLY_HOLIDAY')).toEqual(expect.arrayContaining(['averaging_weeks', 'weekly_holiday_designated', 'employment_continued_for_7_days', 'all_scheduled_days_attended']));
+  });
+
+  it('계산 기준: 「기준이 있음」과 「문서에서 확인함」은 두 질문이다 — 문서 미확인·무응답은 참고 계산 + 확인 상태 (261022 결정)', () => {
+    const f = (basisDocumented?: boolean | null): FormState => ({
+      scenario: 'MID_JOIN',
+      values: { ...PERIOD, employment_start: '2026-04-16', hourly_rate: '10000', paid_hours: '80', payslip_amount: '800000' },
+      policy: 'HOUR_ACTUAL',
+      rounding: 'UNKNOWN',
+      basisDocumented,
+    });
+    expect(buildInput(f(true)).confirmed.calculation_basis_documented).toBe(true);
+    expect(buildInput(f(false)).confirmed.calculation_basis_documented).toBe(false);
+    expect('calculation_basis_documented' in buildInput(f()).confirmed).toBe(false);
+    for (const v of [false, null, undefined]) {
+      const r = run(f(v));
+      expect([r.status, r.expected_amount, r.reasons]).toEqual(['MATCH', 800000, ['COMPARED_EQUAL', 'BASIS_NOT_DOCUMENTED']]);
+      expect(r.open_confirmations).toHaveLength(1);
+    }
+    expect(run(f(true)).open_confirmations).toEqual([]);
+    // 기준을 모르면(없음·모름) 문서 답과 상관없이 금액을 만들지 않는다.
+    expect(run({ ...f(true), policy: null }).expected_amount).toBeNull();
   });
 
   it('예외마다 명세서 금액 칸이 있다', () => {

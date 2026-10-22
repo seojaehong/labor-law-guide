@@ -1,4 +1,4 @@
-// 원본: ~/dev/pay-exception-check @4663947
+// 원본: ~/dev/pay-exception-check @c6c988d
 // Core types. The core is pure: no IO, no network, no LLM.
 
 export const SCENARIOS = ["MID_JOIN", "MID_LEAVE", "ABSENCE_DEDUCTION", "HOURLY_WEEKLY_HOLIDAY"] as const;
@@ -39,6 +39,8 @@ export interface CheckResult {
   grounds: string[];
   /** 조건부 해석 / 재확인 조건. */
   conditions: string[];
+  /** 확인 상태: 금액은 냈지만 확인되지 않은 채 남은 것. 일치여도 화면·복사본에서 숨기지 않는다 (261022 결정). */
+  open_confirmations: string[];
   /** 필요한 자료, at most 3. */
   evidence_needed: string[];
   /** 회사에 물어볼 문장 (or a self-check line). null for OUTSIDE_SCOPE. */
