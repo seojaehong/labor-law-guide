@@ -20,6 +20,7 @@ export function clean(text: string): string {
 }
 
 const dotted = (d: string) => `${d.slice(0, 4)}.${d.slice(4, 6)}.${d.slice(6, 8)}.`;
+const sourcesComplete = (hits: RuleHit[]) => hits.length > 0 && hits.every((h) => !!h.source);
 const basisOf = (hits: RuleHit[]) => hits.map((h) => `${h.lawArticle} (${dotted(h.effective)} 시행)`).join('; ');
 
 /** 법령 기준 대조 — 조문 하나를 한 줄로 넘긴다(본문 속 「제3조에 따라」 줄을 새 조문으로 읽지 않게). */
@@ -79,7 +80,7 @@ export async function precisePipeline(input: PreciseInput, ruleSpecs: RuleSpec[]
     const d = drops.get(p.no) ?? [];
     const h = hits.get(p.no) ?? [];
     const hard = p.new === null || dups.has(p.no) || forceEscalate(d, h);
-    if (!judged.has(p.no) && !hard && h.some((x) => x.source)) continue;
+    if (!judged.has(p.no) && !hard && sourcesComplete(h)) continue;
     rows.push(row(p, d, h, judged.get(p.no) ?? null, dups.has(p.no)));
   }
   for (const h of hits.get(NEW_BUCKET) ?? []) {
@@ -104,11 +105,11 @@ function row(p: ArticlePair, d: Drop[], h: RuleHit[], j: Finding | null, dup: bo
   if (citationLinked) memo.push('AI 인용의 법령명·조문 식별자 일치 — 법률 적용과 인용 내용은 미검증');
   if (j?.basis && !citationLinked) memo.push('AI 인용을 제공 원문 식별자와 연결하지 못함 — 추가 확인');
   if (j?.basis) memo.push('AI 인용 미검증 — 법령 원문·시행일·적용 여부 추가 확인');
-  if (!h.some((x) => x.source)) memo.push('연결된 법령 원문 없음 — 추가 확인');
-  if (j && !h.some((x) => x.source)) memo.push(`AI 의견(미검증): ${j.result}`);
-  const result = dup && (!j || j.result === '추가 확인') ? '현행 수정 필요' : j && citationLinked ? j.result : '추가 확인';
+  if (!sourcesComplete(h)) memo.push('연결된 법령 원문 없음 또는 일부 누락 — 추가 확인');
+  if (j && !sourcesComplete(h)) memo.push(`AI 의견(미검증): ${j.result}`);
+  const result = dup && (!j || j.result === '추가 확인') ? '현행 수정 필요' : j && j.result !== '문제없음' && citationLinked && sourcesComplete(h) ? j.result : '추가 확인';
   return {
-    review: { incomplete: !!j?.incomplete, conflict: !!j?.conflict, citationLinked, sourceMissing: !h.some((x) => x.source) },
+    review: { incomplete: !!j?.incomplete, conflict: !!j?.conflict, citationLinked, sourceMissing: !sourcesComplete(h) },
     조문: p.no,
     현행: p.old?.body ?? '',
     개정안: p.new?.body ?? '',

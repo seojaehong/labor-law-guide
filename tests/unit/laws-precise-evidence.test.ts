@@ -45,3 +45,33 @@ it('인용 번호 일부 일치를 원문 연결로 오인하지 않고 일치�
     if (!linked) expect(result.rows[0]['점검 결과']).toBe('추가 확인');
   }
 });
+
+
+it('같은 조문의 일부 법령 원문 누락은 다른 원문 연결로 숨기지 않는다', async () => {
+  const first: RuleSpec = { lawId: '999999', law: '합성법', article: '제1조', effective: '20260101', topic: '합성 기준 A', art93: '', required: false,
+    keywords: ['합성제도'], ok: ['충족'], stale: [], point: '', clause: '', mst: null };
+  const second = { ...first, article: '제2조', topic: '합성 기준 B' };
+  const evidence = new Map([[evidenceKey(first), { law: '합성법', article: '제1조', effective: '20260101', text: '법률 정답이 아닌 합성 근거', url: 'https://example.invalid/synthetic' }]]);
+  for (const verdict of ['문제없음', '현행 수정 필요'] as const) {
+    const result = await precisePipeline({ rules: '제1조(합성제도) 합성제도 충족', since: '20260101' }, [first, second], {
+      evidence, ask: async () => [{ no: '제1조', result: verdict, disadvantage: '해당 없음', reason: '합성 의견', basis: verdict === '문제없음' ? '' : '합성법 제1조', ops_note: '', proposed_text: '' }],
+    });
+    expect(result.rows).toHaveLength(1);
+    expect(result.rows[0].review?.sourceMissing).toBe(true);
+    expect(result.rows[0]['점검 결과']).toBe('추가 확인');
+    expect(result.rows[0]['운영 메모']).toContain('일부 누락');
+  }
+});
+
+
+it('원문 식별자가 일치해도 불이익 의견 충돌 행을 문제없음으로 표시하지 않는다', async () => {
+  const r = (rules.rules as RuleSpec[]).find((r) => r.lawId === '000130' && r.effective === '20260918')!;
+  const evidence = await loadEvidence([r]);
+  let round = 0;
+  const result = await precisePipeline({ rules: '제1조(배우자 출산휴가) 배우자의 출산을 이유로 휴가 10일', since: '20260101' }, [r], {
+    evidence, workers: 1, ask: async () => [{ no: '제1조', result: '문제없음', disadvantage: ++round === 1 ? '해당' : '해당 없음',
+      reason: '상충하는 합성 의견', basis: `${evidence.get(evidenceKey(r))!.law} ${r.article}`, ops_note: '', proposed_text: '' }],
+  });
+  expect(result.rows[0].review).toMatchObject({ citationLinked: true, conflict: true });
+  expect(result.rows[0]['점검 결과']).toBe('추가 확인');
+});

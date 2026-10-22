@@ -306,3 +306,15 @@ it('문제없음 회차에 남은 불이익 의견도 합집합에서 보존한�
   const result = merge([f('제1조', '문제없음', '해당'), f('제1조', '현행 수정 필요', '해당 없음')]);
   expect(result.disadvantage).toBe('해당'); expect(result.conflict).toBe(true);
 });
+
+
+it('두 회차 모두 문제없음이어도 불이익 의견 충돌을 결과에서 버리지 않는다', async () => {
+  const seq = [[f('제1조', '문제없음', '해당')], [f('제1조', '문제없음', '해당 없음')]];
+  const result = await judgeAll(pairs(1), new Map(), new Map(), { ask: async () => seq.shift()!, workers: 1 });
+  expect(result.get('제1조')).toMatchObject({ conflict: true, disadvantage: '해당' });
+  const pipelineSeq = [[f('제1조', '문제없음', '해당')], [f('제1조', '문제없음', '해당 없음')]];
+  const output = await precisePipeline({ rules: '제1조(합성) 합성 본문', since: '20260101' }, [], { ask: async () => pipelineSeq.shift()!, workers: 1 });
+  expect(output.review.conflicts).toBe(1);
+  expect(output.rows[0].review?.conflict).toBe(true);
+  expect(output.rows[0]['점검 결과']).toBe('추가 확인');
+});

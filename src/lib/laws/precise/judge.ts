@@ -191,7 +191,7 @@ export async function judgeAll(
       if (!fs) out.set(p.no, failed(p.no, code));
       else {
         const f = merge(fs);
-        if (f.result !== '문제없음') out.set(p.no, f);
+        if (f.result !== '문제없음' || f.conflict || f.incomplete || f.disadvantage !== '해당 없음') out.set(p.no, f);
       }
     }
   }
