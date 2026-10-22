@@ -1,0 +1,231 @@
+{
+  "schema_version": "1.0",
+  "purpose": "월급 점검소 7주 MVP의 결정론적 로컬 경계값 테스트. 법률 결론이 아닌 제품 상태와 대조 결과를 검증한다.",
+  "cases": [
+    {
+      "id": "MI-01",
+      "scenario": "MID_JOIN",
+      "boundary": "입사일이 급여기간 첫날",
+      "confirmed": {
+        "pay_period_start": "2026-04-01",
+        "pay_period_end": "2026-04-30",
+        "employment_start": "2026-04-01",
+        "other_exception": false
+      },
+      "policy_id": null,
+      "expected": {
+        "status": "OUTSIDE_SCOPE",
+        "expected_amount": null,
+        "required_question": null
+      }
+    },
+    {
+      "id": "MI-02",
+      "scenario": "MID_JOIN",
+      "boundary": "입사일이 마지막 소정근로일이고 시간 기준이 확인됨",
+      "confirmed": {
+        "pay_period_start": "2026-04-01",
+        "pay_period_end": "2026-04-30",
+        "employment_start": "2026-04-30",
+        "hourly_rate": 12000,
+        "paid_hours": 8,
+        "payslip_amount": 84000
+      },
+      "policy_id": "HOUR_ACTUAL",
+      "expected": {
+        "status": "POTENTIAL_MISMATCH",
+        "expected_amount": 96000,
+        "difference": 12000,
+        "required_question": "입사일의 소정근로시간과 입사월 급여 산정 기준을 확인해 주세요."
+      }
+    },
+    {
+      "id": "MI-03",
+      "scenario": "MID_JOIN",
+      "boundary": "월 기본급만 있고 입사월 계산 기준이 없음",
+      "confirmed": {
+        "employment_start": "2026-04-16",
+        "monthly_base_pay": 3100000,
+        "payslip_amount": 1500000,
+        "calculation_basis_documented": false
+      },
+      "policy_id": null,
+      "expected": {
+        "status": "NEEDS_CONFIRMATION",
+        "expected_amount": null,
+        "required_question": "입사월 급여를 일수·시간 중 어떤 기준으로 계산하는지 적힌 계약/규정을 확인해 주세요."
+      }
+    },
+    {
+      "id": "ML-01",
+      "scenario": "MID_LEAVE",
+      "boundary": "퇴사일이 급여기간 마지막 날",
+      "confirmed": {
+        "pay_period_start": "2026-04-01",
+        "pay_period_end": "2026-04-30",
+        "employment_end": "2026-04-30",
+        "other_exception": false
+      },
+      "policy_id": null,
+      "expected": {
+        "status": "OUTSIDE_SCOPE",
+        "expected_amount": null,
+        "required_question": null
+      }
+    },
+    {
+      "id": "ML-02",
+      "scenario": "MID_LEAVE",
+      "boundary": "30일 기준이 문서에 있고 인정일수가 정확히 15일",
+      "confirmed": {
+        "employment_end": "2026-04-15",
+        "monthly_base_pay": 3000000,
+        "eligible_days": 15,
+        "payslip_amount": 1400000,
+        "calculation_basis_documented": true
+      },
+      "policy_id": "DAY_30",
+      "expected": {
+        "status": "POTENTIAL_MISMATCH",
+        "expected_amount": 1500000,
+        "difference": 100000,
+        "required_question": "명세서에 적용된 퇴사월 인정일수와 30일 기준이 같은지 확인해 주세요."
+      }
+    },
+    {
+      "id": "ML-03",
+      "scenario": "MID_LEAVE",
+      "boundary": "퇴사일은 있으나 마지막 소정근로일·유급 처리·계산 기준이 충돌",
+      "confirmed": {
+        "employment_end": "2026-04-15",
+        "last_scheduled_workday": null,
+        "paid_holiday_treatment": null,
+        "calculation_basis_documented": false
+      },
+      "policy_id": null,
+      "expected": {
+        "status": "NEEDS_CONFIRMATION",
+        "expected_amount": null,
+        "required_question": "마지막 소정근로일, 유급휴일 처리, 퇴사월 계산 기준을 각각 확인해 주세요."
+      }
+    },
+    {
+      "id": "AB-01",
+      "scenario": "ABSENCE_DEDUCTION",
+      "boundary": "결근시간과 결근 공제 항목이 모두 0",
+      "confirmed": {
+        "unpaid_absence_hours": 0,
+        "payslip_absence_deduction": 0
+      },
+      "policy_id": null,
+      "expected": {
+        "status": "OUTSIDE_SCOPE",
+        "expected_amount": null,
+        "required_question": null
+      }
+    },
+    {
+      "id": "AB-02",
+      "scenario": "ABSENCE_DEDUCTION",
+      "boundary": "무급 결근 1일 8시간과 시간 기준 공제가 모두 확인됨",
+      "confirmed": {
+        "unpaid_absence_hours": 8,
+        "hourly_rate": 10000,
+        "payslip_absence_deduction": 80000,
+        "scheduled_workday_confirmed": true,
+        "calculation_basis_documented": true
+      },
+      "policy_id": "ABSENCE_HOUR",
+      "expected": {
+        "status": "MATCH",
+        "expected_amount": 80000,
+        "difference": 0,
+        "required_question": "유급·무급 처리 사유가 달라지면 다시 확인해 주세요."
+      }
+    },
+    {
+      "id": "AB-03",
+      "scenario": "ABSENCE_DEDUCTION",
+      "boundary": "명세서 결근 공제는 있으나 해당일이 소정근로일인지 불명",
+      "confirmed": {
+        "payslip_absence_deduction": 80000,
+        "absence_date": "2026-04-15",
+        "scheduled_workday_confirmed": false,
+        "paid_leave_or_holiday_confirmed": false
+      },
+      "policy_id": null,
+      "expected": {
+        "status": "NEEDS_CONFIRMATION",
+        "expected_amount": null,
+        "required_question": "근무표, 휴가 승인 기록, 공제 기준 조항을 확인해 주세요."
+      }
+    },
+    {
+      "id": "HW-01",
+      "scenario": "HOURLY_WEEKLY_HOLIDAY",
+      "boundary": "4주 평균 약정시간이 정확히 15시간",
+      "confirmed": {
+        "four_week_scheduled_hours": 60,
+        "scheduled_days_per_week": 5,
+        "scheduled_hours_per_day": 3,
+        "all_scheduled_days_attended": true,
+        "employment_continued_for_7_days": true,
+        "hourly_rate": 10000,
+        "payslip_weekly_holiday_pay": 0,
+        "full_time_scheduled_days_4w": 20,
+        "holiday_weeks": 1
+      },
+      "policy_id": "WEEKLY_HOLIDAY_FIXED",
+      "expected": {
+        "status": "POTENTIAL_MISMATCH",
+        "expected_amount": 30000,
+        "difference": 30000,
+        "required_question": "주휴일 지정과 해당 주의 소정근로일 개근 처리를 확인해 주세요."
+      }
+    },
+    {
+      "id": "HW-02",
+      "scenario": "HOURLY_WEEKLY_HOLIDAY",
+      "boundary": "4주 평균 약정시간 14.75시간이나 일시적 대타로 실제 16시간",
+      "confirmed": {
+        "four_week_scheduled_hours": 59,
+        "temporary_actual_hours_in_one_week": 16,
+        "contract_change_confirmed": false
+      },
+      "policy_id": null,
+      "expected": {
+        "status": "NEEDS_CONFIRMATION",
+        "expected_amount": null,
+        "required_question": "대타시간이 계약상 약정시간 변경인지 확인해 주세요."
+      }
+    },
+    {
+      "id": "HW-03",
+      "scenario": "HOURLY_WEEKLY_HOLIDAY",
+      "boundary": "약정 주 20시간이나 계약이 4일 뒤 종료되어 7일 계속근로가 확인되지 않음",
+      "confirmed": {
+        "scheduled_hours_per_week": 20,
+        "employment_continued_for_7_days": false,
+        "weekly_holiday_designated": null
+      },
+      "policy_id": null,
+      "expected": {
+        "status": "NEEDS_CONFIRMATION",
+        "expected_amount": null,
+        "required_question": "계약 기간, 계속근로, 주휴일 지정 자료를 확인해 주세요."
+      }
+    }
+  ],
+  "source": "Manus 2026-10-04 「월급 점검소 7주 MVP」 로컬 fixture 12개 (노션 3eeb0768-64e2-81e7-9bb9-de16bd23e116) 원본을 옮김",
+  "corrections": [
+    {
+      "case": "HW-01",
+      "date": "2026-10-22",
+      "added": {
+        "full_time_scheduled_days_4w": 20,
+        "holiday_weeks": 1
+      },
+      "why": "근로기준법 시행령 [별표 2] 제2호나목은 단시간근로자의 1일 소정근로시간을 「4주 동안의 소정근로시간 ÷ 그 기간 통상 근로자의 총 소정근로일수」로 정한다. 원본은 본인 근무일(주 5일)로 나눴다. 통상 근로자 4주 소정근로일 20일을 확인값으로 넣어도 1일 3시간·기대값 30,000원은 같다. holiday_weeks 는 명세서 주휴 항목이 몇 주분인지이며, 원본 기대값(30,000원)이 한 주분이라 1로 넣었다."
+    }
+  ]
+}

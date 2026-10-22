@@ -33,7 +33,8 @@ const tools: ToolItem[] = [
   { href: '/tools/leave', title: '연차휴가 계산기', desc: '입사일 기준 발생일수를 계산하고 대장과 대조합니다. 엑셀·붙여넣기 입력과 결과 내려받기를 지원합니다.', badge: '브라우저 계산', Icon: Calculator },
   { href: '/tools/leave/advanced', title: '연차 사용촉진', desc: '1년 이상·미만 연차의 촉구·통보 기간을 구분해 확인합니다. 실제 기록과 날짜만 대조하며 적법성을 판정하지 않습니다.', badge: '일정 대조', Icon: FileCheck2 },
   { href: '/tools/leave/settlement', title: '퇴직 연차 정산', desc: '회계연도 실제 부여 누계와 입사일 기준 누계를 비교합니다. 발생일수·사용분·수당 지급분을 구분해 입력합니다.', badge: '참고 계산', Icon: Calculator },
-  { href: '/tools/hwp', title: '한글 문서 열기·고치기', desc: '한글 프로그램 없이 hwp·hwpx 파일을 브라우저에서 열어 쪽 모양으로 보고, 글자를 찾아 바꾼 뒤 hwp 또는 hwpx 로 내려받습니다.', badge: '브라우저 처리', Icon: FileCheck2 },
+  { href: '/tools/pay-check', title: '월급 대조', desc: '중도입사·중도퇴사·결근 공제·시급제 주휴 중 예외 하나를 골라, 확인한 값과 회사 문서의 계산 기준으로 명세서 금액을 대조합니다. 기준이 없으면 회사에 물어볼 문장을 정리합니다.', badge: '브라우저 대조', Icon: Calculator },
+  { href: '/tools/hwp', title:'한글 문서 열기·고치기', desc: '한글 프로그램 없이 hwp·hwpx 파일을 브라우저에서 열어 쪽 모양으로 보고, 글자를 찾아 바꾼 뒤 hwp 또는 hwpx 로 내려받습니다.', badge: '브라우저 처리', Icon: FileCheck2 },
   { href: '/hwp-editor', title: '한글 문서 편집기', desc: 'hwp·hwpx 문서를 브라우저에서 열어 쪽 모양 그대로 글자를 고치고 hwpx 또는 hwp 로 내려받습니다. 원본 파일은 바뀌지 않습니다.', badge: '브라우저 편집', Icon: FileCheck2 },
   { href: '/tools/work-rules', title: '취업규칙 점검', desc: '취업규칙 텍스트를 입력해 법령 개정 관련 항목을 확인합니다. 법령 검수 전 참고 자료입니다.', badge: '참고 점검', Icon: FileCheck2 },
   {
