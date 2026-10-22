@@ -2,6 +2,9 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
+import dynamic from 'next/dynamic';
+import type { HwpSource } from './HwpApply';
+import { canApplyText } from '@/lib/hwp/apply-guard';
 import ObservationCapture from './ObservationCapture';
 import { useObservationAvailability, type ObservationAvailability } from './observation-availability';
 import { MATCHER_VERSION, RULE_VERSION } from '@/lib/laws/observation-version';
@@ -55,6 +58,9 @@ const loadData = () => (dataPromise ??= Promise.all([
   return { std: s.articles, events: i.events, rules: r.rules, art93: s.art93 ?? [], since: i.since, rulesVersion };
 }).catch(error => { dataPromise = null; throw error; }));
 
+// 반영 단계는 rhwp WASM 을 쓰므로 파일을 올리고 결과가 나온 뒤에만 불러온다
+const HwpApply = dynamic(() => import('./HwpApply'), { ssr: false, loading: () => <div className="lr-check-empty">반영 도구를 불러오는 중…</div> });
+
 const toIso = (d: string) => `${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6, 8)}`;
 const fromIso = (d: string) => d.replace(/-/g, '');
 
@@ -66,9 +72,17 @@ const LABEL: Record<PeriodItem['status'], string> = {
   반영됨: 'ok',
 };
 
+// 제안 문안은 **법이 정한 최저 기준**이다. 회사 규정이 이미 더 유리한데 이대로 바꾸면 낮아진다.
+// 2026-10-21 실사용 검토에서 실제로 났다 — 육아기 근로시간 단축을 3년 주던 회사가
+// 제안 문안(1년+α)으로 바꿔 깎였다. 도구가 불이익 변경을 유도한 셈이다.
+// 자동으로 가려내려면 조문별 유불리 비교가 필요하고 그건 아직 없다. 그때까지는 **붙여넣는 글에 같이 따라가게** 둔다.
+export const FLOOR_NOTE =
+  '[확인] 이 문안은 법이 정한 최저 기준입니다. 회사 규정이 이미 이보다 유리하면 그대로 두십시오. '
+  + '낮추면 근로기준법 제94조제1항 단서의 불이익 변경이 되어 과반수의 동의가 필요합니다.';
+
 function clauseText(v: Verdict) {
   const p = v.rule.mst ? { date: '', no: '', kind: '', mst: v.rule.mst } : undefined;
-  return `${v.rule.clause}\n\n(근거) ${v.rule.law} ${v.rule.article}, ${fmtDate(v.rule.effective)} 시행\n${citation(v.rule.law, p, v.rule.effective).split('\n')[1]}`;
+  return `${v.rule.clause}\n\n(근거) ${v.rule.law} ${v.rule.article}, ${fmtDate(v.rule.effective)} 시행\n${citation(v.rule.law, p, v.rule.effective).split('\n')[1]}\n${FLOOR_NOTE}`;
 }
 
 /** 근거 한 줄씩 — 개정 이벤트(바뀐 조문) + 매핑 */
@@ -106,6 +120,8 @@ export default function RulesCheck({ onClose, toast }: { onClose: () => void; to
   const [busy, setBusy] = useState(false);
   const [loadError, setLoadError] = useState(false);
   const [fileError, setFileError] = useState<string | null>(null);
+  // 올린 한글 파일 — 반영 단계가 원본 바이트에서 새 파일을 만든다. text = 그 파일에서 읽은 글자(본문 칸과 같을 때만 반영)
+  const [source, setSource] = useState<(HwpSource & { text: string }) | null>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
   const ref = useRef<HTMLTextAreaElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -149,13 +165,16 @@ export default function RulesCheck({ onClose, toast }: { onClose: () => void; to
     const fail = (message: string) => { setFileError(message); toast(message); };
     if (f.size > MAX_FILE_BYTES) return fail('파일은 10MB 이하만 읽습니다');
     const kind = kindOf(f.name);
-    if (kind === 'hwp') return fail('hwp 는 읽을 수 없습니다. 한글에서 「다른 이름으로 저장 → hwpx」로 저장하거나 본문을 붙여넣으세요');
-    if (!kind) return fail('hwpx·docx 파일만 읽습니다');
+    if (!kind) return fail('hwp·hwpx·docx 파일만 읽습니다');
     setBusy(true);
     try {
-      const t = await readDocText(await f.arrayBuffer(), kind);
+      const buf = await f.arrayBuffer();
+      const t = kind === 'hwp'
+        ? await (await import('@/lib/laws/hwp-read')).readHwpText(buf.slice(0))
+        : await readDocText(buf.slice(0), kind);
       if (!t.trim()) throw new Error('본문에서 읽을 수 있는 글자가 없습니다. 이미지 문서는 글자를 직접 붙여넣으세요. 기존 입력은 유지됩니다.');
       setText(t);
+      setSource(kind === 'docx' ? null : { bytes: new Uint8Array(buf), name: f.name, kind, text: t });
       toast(`${f.name} — 이 브라우저 안에서 글자만 읽었습니다`);
     } catch (e) {
       setFileError((e as Error).message);
@@ -247,7 +266,7 @@ export default function RulesCheck({ onClose, toast }: { onClose: () => void; to
               ref={ref}
               value={text}
               onChange={(e) => setText(e.target.value)}
-              placeholder={'취업규칙 본문을 붙여넣거나 hwpx·docx 파일을 올리세요.\n비워 두면 이 기간 개정의 바꿀 문안만 모아 드립니다.\n조문 머리(제○조(…))가 줄 머리에 있으면 표준취업규칙 조문과 짝지어 판정합니다.\nPDF에서 복사한 본문은 글자 순서가 섞여 판정이 틀릴 수 있습니다. 한글·워드 원본을 권합니다.'}
+              placeholder={'취업규칙 본문을 붙여넣거나 hwp·hwpx·docx 파일을 올리세요.\n비워 두면 이 기간 개정의 바꿀 문안만 모아 드립니다.\n조문 머리(제○조(…))가 줄 머리에 있으면 표준취업규칙 조문과 짝지어 판정합니다.\nPDF에서 복사한 본문은 글자 순서가 섞여 판정이 틀릴 수 있습니다. 한글·워드 원본을 권합니다.'}
               aria-label="취업규칙 본문"
             />
             {fileError && <p className="lr-file-error" role="alert">파일을 읽지 못했습니다: {fileError}</p>}
@@ -255,10 +274,11 @@ export default function RulesCheck({ onClose, toast }: { onClose: () => void; to
               <ShieldCheck size={14} /> 본문과 파일은 이 브라우저 안에서만 읽고 판정합니다. 서버로 보내지 않습니다.
               <span className="sp" />
               <input ref={fileRef} type="file" accept=".hwpx,.docx,.hwp" hidden onChange={(e) => onFile(e.target.files?.[0])} />
-              <button className="lr-btn lr-btn-ghost lr-btn-sm" onClick={() => fileRef.current?.click()} disabled={busy}><FileUp size={14} /> {busy ? '읽는 중…' : 'hwpx·docx 올리기'}</button>
+              <button className="lr-btn lr-btn-ghost lr-btn-sm" onClick={() => fileRef.current?.click()} disabled={busy}><FileUp size={14} /> {busy ? '읽는 중…' : 'hwp·hwpx·docx 올리기'}</button>
               {!text && <button className="lr-btn lr-btn-ghost lr-btn-sm" onClick={() => setText(SAMPLE)}>예시로 해보기</button>}
               {text && <button className="lr-btn lr-btn-ghost lr-btn-sm" onClick={() => setText('')}>지우기</button>}
             </div>
+            <p className="lr-hwp-notice">hwp 파일은 오픈소스 <a href="https://github.com/edwardkim/rhwp" target="_blank" rel="noreferrer">rhwp</a>(<a href="/rhwp/LICENSE.txt" target="_blank">MIT</a>)로 읽습니다. 본 제품은 한글과컴퓨터의 HWP 문서 파일(.hwp) 공개 문서를 참고하여 개발하였습니다.</p>
           </div>
 
           <div className="lr-check-out" aria-live="polite">
@@ -330,6 +350,8 @@ export default function RulesCheck({ onClose, toast }: { onClose: () => void; to
                     <p className="lr-check-note">조문 제목이 달라 짝을 못 찾았을 수도 있습니다. 같은 내용이 다른 조문에 있으면 무시하세요.</p>
                   </details>
                 )}
+                {hasText && source && <HwpApply key={`${source.name}:${source.bytes.byteLength}`} source={source} items={result.items} enabled={canApplyText(source, text)} floorNote={FLOOR_NOTE} toast={toast} />}
+                {hasText && !source && open.some((i) => i.proposal) && <p className="lr-check-note">hwp·hwpx 파일을 올리면 바꿀 문안 제안을 그 파일에 넣은 새 파일을 받을 수 있습니다.</p>}
                 <p className="lr-check-note">
                   문구 일치는 키워드 대조 결과이며 법률 검수 완료를 뜻하지 않습니다. 표준취업규칙 2026(고용노동부, 2026. 2. 배포)과 법제처 원문을 기준으로 하며 공인노무사 검수 전입니다.
                   표준 조문과 법령의 연결은 자동 추출본이라 빠진 연결이 있을 수 있습니다.{' '}<Link href="/contact">노무사 검토 요청</Link>
@@ -379,11 +401,12 @@ function ItemCard({ it, captureContext, captureStore, observationAvailability, t
             <>
               <div className="lr-verdict-meta">개정안 출처: {it.proposalFrom === '매핑' ? '바뀐 조문 원문 대조 문안' : `표준취업규칙 2026 문안(${fmtDate(STD_ASOF)} 이전 시행분 반영)`}</div>
               <div className="lr-clause">{it.proposal}</div>
+              <p className="lr-review-note">{FLOOR_NOTE}</p>
               <div style={{ marginTop: 8 }}>
                 <button
                   className="lr-btn lr-btn-ghost lr-btn-sm"
                   onClick={async () => {
-                    const body = it.verdicts.length ? it.verdicts.map(clauseText).join('\n\n') : `${it.proposal}\n\n(근거) ${basis(it).join(', ')}`;
+                    const body = it.verdicts.length ? it.verdicts.map(clauseText).join('\n\n') : `${it.proposal}\n\n(근거) ${basis(it).join(', ')}\n${FLOOR_NOTE}`;
                     if (await copyRich(body)) toast('문안을 복사했습니다. 회사 조문 번호에 맞춰 붙이세요');
                   }}
                 >

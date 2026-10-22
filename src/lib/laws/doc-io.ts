@@ -81,12 +81,12 @@ export function kindOf(name: string): DocKind | 'hwp' | null {
   return ext === 'hwpx' || ext === 'docx' ? ext : ext === 'hwp' ? 'hwp' : null;
 }
 
-function readableText(text: string): string {
+export function readableText(text: string): string {
   if (!text.trim()) throw new Error('본문에서 읽을 수 있는 글자가 없습니다. 이미지 문서는 글자를 직접 붙여넣으세요. 기존 입력은 유지됩니다.');
   return text;
 }
 
-/** hwpx·docx 의 본문을 문단 단위 글자로. hwp(바이너리)는 읽지 않는다 */
+/** hwpx·docx 의 본문을 문단 단위 글자로. hwp(바이너리)는 hwp-read.ts 가 읽는다 */
 export async function readDocText(data: ArrayBuffer | Uint8Array, kind: DocKind): Promise<string> {
   validateDocArchive(data);
   const zip = await JSZip.loadAsync(data);

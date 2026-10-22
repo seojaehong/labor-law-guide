@@ -1,0 +1,9 @@
+GenOffice
+Copyright 2026 Mainfunc, Inc.
+
+This product includes software developed at Mainfunc, Inc.
+
+(Above: first paragraph of NOTICE in pblsketch/openoffice at commit
+284f3b394f385efbc8278b4fc4880cba3d277072. It covers
+scripts/hwp-editor/rhwp-patches.mjs, which is derived from
+apps/hwp/scripts/rhwp-patches.mjs and modified; see the header of that file.)

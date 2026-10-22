@@ -1,0 +1,54 @@
+/* 한글 문서 편집기. /tools/hwp(.hw)·/duties(.ed) 와 같은 방식으로 공용 종이·먹·청록 토큰을 범위 별칭으로 받는다. */
+.he {
+  --he-ink: var(--color-text-primary);
+  --he-body: var(--color-text-secondary);
+  --he-hair: var(--color-border);
+  --he-canvas: var(--color-bg-surface);
+  --he-soft: var(--color-bg-primary);
+  --he-soft-2: var(--grey-100);
+  --he-link: var(--color-accent);
+  --he-link-soft: var(--color-accent-light);
+  --he-warn-deep: var(--color-warn-ink);
+  --he-warn-soft: var(--color-warn-bg);
+  --he-on-ink: var(--color-bg-surface);
+  --he-shadow-1: inset 0 0 0 1px var(--he-hair);
+  background: var(--he-soft); color: var(--he-ink); word-break: keep-all; overflow-wrap: anywhere; min-height: 60vh;
+}
+.he-wrap { max-width: 1440px; margin: 0 auto; padding: 0 24px 64px; }
+@media (max-width: 600px) { .he-wrap { padding: 0 16px 48px; } }
+
+.he-eyebrow { font-size: 13px; line-height: 1.7; color: var(--he-body); }
+.he-eyebrow a { color: inherit; }
+.he-hero { padding: 48px 0 16px; }
+.he-h1 { font-size: 40px; line-height: 1.25; font-weight: 600; letter-spacing: -0.02em; margin: 12px 0; }
+.he-lead { font-size: 17px; line-height: 1.7; color: var(--he-body); max-width: 760px; }
+.he-lead a { color: var(--he-link); }
+.he-note { margin: 16px 0 0; padding: 12px 16px 12px 32px; border-left: 3px solid var(--he-link); background: var(--he-link-soft); color: var(--he-body); font-size: 14px; line-height: 1.75; max-width: 820px; }
+.he-mobile { display: none; align-items: center; gap: 6px; margin: 12px 0 0; padding: 10px 14px; border-radius: 6px; background: var(--he-warn-soft); color: var(--he-warn-deep); font-size: 13px; line-height: 1.6; }
+@media (max-width: 860px) { .he-mobile { display: flex; } }
+@media (max-width: 600px) { .he-h1 { font-size: 28px; } .he-lead { font-size: 15px; } .he-hero { padding: 32px 0 12px; } .he-note { font-size: 13px; } }
+
+.he-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 12px; border-radius: 8px; background: var(--he-canvas); box-shadow: var(--he-shadow-1); }
+.he-bar .sp { flex: 1; }
+.he-file { font-size: 14px; color: var(--he-body); min-width: 0; }
+
+.he-btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 40px; padding: 0 14px; border-radius: 6px; border: 0; background: var(--he-canvas); color: var(--he-ink); box-shadow: var(--he-shadow-1); font-size: 14px; cursor: pointer; }
+.he-btn:hover:not(:disabled) { background: var(--he-soft-2); }
+.he-btn:disabled { opacity: .5; cursor: not-allowed; }
+.he-btn-primary { background: var(--he-ink); color: var(--he-on-ink); box-shadow: none; }
+.he-btn-primary:hover:not(:disabled) { background: var(--he-ink); opacity: .88; }
+@media (max-width: 600px) { .he-bar .he-btn { flex: 1 1 100%; } .he-bar .sp { display: none; } }
+
+.he-msg { margin: 12px 0 0; padding: 10px 14px; border-radius: 6px; background: var(--he-canvas); box-shadow: var(--he-shadow-1); font-size: 14px; line-height: 1.6; color: var(--he-body); }
+.he-msg.is-error { background: var(--he-warn-soft); color: var(--he-warn-deep); box-shadow: none; }
+
+/* 편집기 iframe 은 화면 높이를 가득 쓴다 */
+.he-frame { position: relative; margin-top: 12px; height: calc(100dvh - 24px); min-height: 520px; border-radius: 8px; overflow: hidden; background: var(--he-canvas); box-shadow: var(--he-shadow-1); }
+.he-host { position: absolute; inset: 0; }
+.he-host iframe { display: block; width: 100%; height: 100%; border: 0; }
+.he-empty { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; padding: 24px; text-align: center; background: var(--he-canvas); color: var(--he-body); font-size: 15px; }
+.he-empty p { margin: 0; }
+@media (max-width: 600px) { .he-frame { min-height: 420px; } }
+
+.he-foot { margin-top: 32px; font-size: 12px; line-height: 1.7; color: var(--he-body); }
+.he-foot a { color: inherit; text-decoration: underline; }

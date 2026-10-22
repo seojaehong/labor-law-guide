@@ -49,6 +49,16 @@ const nextConfig: NextConfig = {
           { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
         ],
       },
+      // 한글 편집기(rhwp-studio, public/hwp-editor/)는 /hwp-editor 페이지 안 iframe 으로 뜬다.
+      // 위의 DENY 가 걸리면 편집기가 안 뜨므로, 이 정적 파일들에만 같은 출처 iframe 을 허용한다.
+      // 🔴 위 항목보다 뒤에 둔다 — 같은 헤더 키는 뒤 항목이 이긴다. `:path+` 라 /hwp-editor 페이지 자체는 DENY 그대로다.
+      {
+        source: '/hwp-editor/:path+',
+        headers: [
+          { key: 'X-Frame-Options', value: 'SAMEORIGIN' },
+          { key: 'Content-Security-Policy', value: "frame-ancestors 'self'" },
+        ],
+      },
       {
         source: '/api-catalog',
         headers: [{ key: 'Content-Type', value: 'application/json; charset=utf-8' }],
