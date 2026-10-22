@@ -185,5 +185,5 @@ describe('파이프라인', () => {
 
 it('프롬프트가 기준 구현과 같다', () => {
   const md = readFileSync(path.resolve(__dirname, '../../scripts/work_rules_c/prompts/batch_system.md'), 'utf8');
-  expect(BATCH_SYSTEM).toBe(md);
+  expect(BATCH_SYSTEM.replace(/\r\n/g, '\n')).toBe(md.replace(/\r\n/g, '\n')); // 체크아웃 줄끝(CRLF)은 따지지 않는다
 });

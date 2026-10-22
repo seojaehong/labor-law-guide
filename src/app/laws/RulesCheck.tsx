@@ -25,6 +25,7 @@ import {
   todayKST,
   type LawEvent,
 } from '@/lib/laws/format';
+import PreciseCheck, { PRECISE_ENABLED } from './PreciseCheck';
 
 const SAMPLE = `제22조(휴게) ① 회사는 근로시간이 4시간인 경우에는 30분 이상, 8시간인 경우에는 1시간 이상의 휴게시간을 근로시간 도중에 준다.
 제30조(연차유급휴가) ① 회사는 1년간 80퍼센트 이상 출근한 근로자에게 15일의 유급휴가를 준다.
@@ -271,7 +272,9 @@ export default function RulesCheck({ onClose, toast }: { onClose: () => void; to
             />
             {fileError && <p className="lr-file-error" role="alert">파일을 읽지 못했습니다: {fileError}</p>}
             <div className="lr-check-meta">
-              <ShieldCheck size={14} /> 본문과 파일은 이 브라우저 안에서만 읽고 판정합니다. 서버로 보내지 않습니다.
+              <ShieldCheck size={14} /> {PRECISE_ENABLED
+                ? '기본 점검은 이 브라우저 안에서만 합니다. 아래 「정밀 점검」을 누를 때만 본문이 서버로 전송됩니다.'
+                : '본문과 파일은 이 브라우저 안에서만 읽고 판정합니다. 서버로 보내지 않습니다.'}
               <span className="sp" />
               <input ref={fileRef} type="file" accept=".hwpx,.docx,.hwp" hidden onChange={(e) => onFile(e.target.files?.[0])} />
               <button className="lr-btn lr-btn-ghost lr-btn-sm" onClick={() => fileRef.current?.click()} disabled={busy}><FileUp size={14} /> {busy ? '읽는 중…' : 'hwp·hwpx·docx 올리기'}</button>
@@ -352,6 +355,7 @@ export default function RulesCheck({ onClose, toast }: { onClose: () => void; to
                 )}
                 {hasText && source && <HwpApply key={`${source.name}:${source.bytes.byteLength}`} source={source} items={result.items} enabled={canApplyText(source, text)} floorNote={FLOOR_NOTE} toast={toast} />}
                 {hasText && !source && open.some((i) => i.proposal) && <p className="lr-check-note">hwp·hwpx 파일을 올리면 바꿀 문안 제안을 그 파일에 넣은 새 파일을 받을 수 있습니다.</p>}
+                {PRECISE_ENABLED && hasText && <PreciseCheck text={text} since={from} toast={toast} />}
                 <p className="lr-check-note">
                   문구 일치는 키워드 대조 결과이며 법률 검수 완료를 뜻하지 않습니다. 표준취업규칙 2026(고용노동부, 2026. 2. 배포)과 법제처 원문을 기준으로 하며 공인노무사 검수 전입니다.
                   표준 조문과 법령의 연결은 자동 추출본이라 빠진 연결이 있을 수 있습니다.{' '}<Link href="/contact">노무사 검토 요청</Link>
