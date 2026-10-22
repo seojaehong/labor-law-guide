@@ -209,3 +209,10 @@ def test_pipeline_flags_duplicate_numbers_even_if_clean():
     assert [r["조문"] for r in rows] == ["제55조", "제55조(번호 중복)"]
     assert all("조문 번호 중복" in r["운영 메모"] for r in rows)
     assert all(r["점검 결과"] == "현행 수정 필요" for r in rows)
+
+
+def test_headcount_in_body():
+    import json
+    c = FakeClient(out=BatchOut(findings=[_f("제1조")]))
+    BatchJudge(c, headcount="24").judge_all(_pairs(1), {}, {})
+    assert json.loads(c.last_kwargs["messages"][0]["content"])["사업장 상시 인원"] == "24"

@@ -131,7 +131,7 @@ def main(argv=None) -> int:
         from work_rules_c.batch_judge import BatchJudge
         triage = None
         judge = BatchJudge(anthropic_client(), model=a.judge_model, effort=a.effort, size=a.batch_size,
-                           use_batch_api=a.batch_api, runs=a.runs, workers=a.workers)
+                           use_batch_api=a.batch_api, runs=a.runs, workers=a.workers, headcount=a.headcount)
     else:
         from work_rules_c.judge import AnthropicJudge
         triage = _triage_backend(a.triage, a.headcount)
