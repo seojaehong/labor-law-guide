@@ -103,8 +103,8 @@ class FakeBatchClient(SequenceClient):
 
 
 def test_batch_api_submits_all_chunks_once():
-    c = FakeBatchClient({"c0": BatchOut(findings=[_f(f"제{i}조") for i in range(1, 9)]),
-                         "c1": BatchOut(findings=[_f("제9조", result="현행 수정 필요")])})
+    c = FakeBatchClient({"r0c0": BatchOut(findings=[_f(f"제{i}조") for i in range(1, 9)]),
+                         "r0c1": BatchOut(findings=[_f("제9조", result="현행 수정 필요")])})
     out = BatchJudge(c, size=8, use_batch_api=True, poll=0).judge_all(_pairs(9), {}, {})
     assert len(c.created) == 2 and c.calls == 0 and list(out) == ["제9조"]
     fmt = c.created[0]["params"]["output_config"]["format"]
@@ -113,14 +113,14 @@ def test_batch_api_submits_all_chunks_once():
 
 
 def test_batch_api_errored_chunk_retried_sync():
-    c = FakeBatchClient({"c0": "errored"}, retry_seq=[BatchOut(findings=[_f("제1조"), _f("제2조")])])
+    c = FakeBatchClient({"r0c0": "errored"}, retry_seq=[BatchOut(findings=[_f("제1조"), _f("제2조")])])
     out = BatchJudge(c, size=8, use_batch_api=True, poll=0).judge_all(_pairs(2), {}, {})
     assert out == {} and c.asked == [["제1조", "제2조"]]
 
 
 def test_batch_api_usage_priced_as_batch():
     from work_rules_c import cost
-    c = FakeBatchClient({"c0": BatchOut(findings=[_f("제1조")])})
+    c = FakeBatchClient({"r0c0": BatchOut(findings=[_f("제1조")])})
     j = BatchJudge(c, size=8, use_batch_api=True, poll=0)
     j.judge_all(_pairs(1), {}, {})
     assert j.usage.model == "claude-sonnet-5-5-batch" and cost.usd(j.usage) > 0
@@ -136,6 +136,62 @@ def test_default_model_sonnet_and_cache():
     BatchJudge(c).judge_all(_pairs(1), {}, {})
     assert c.last_kwargs["model"] == "claude-sonnet-5-5"
     assert c.last_kwargs["system"][0]["cache_control"] == {"type": "ephemeral"}
+
+
+class SlowClient(FakeClient):
+    """호출마다 잠깐 멈춘다 — 동시에 몇 개가 떠 있었는지 센다."""
+
+    def __init__(self, out, wait=0.05):
+        super().__init__(out=out)
+        import threading
+        self.wait, self.live, self.peak, self.lock = wait, 0, 0, threading.Lock()
+
+    def _parse(self, **kwargs):
+        import time
+        with self.lock:
+            self.live += 1
+            self.peak = max(self.peak, self.live)
+        time.sleep(self.wait)
+        with self.lock:
+            self.live -= 1
+            return super()._parse(**kwargs)
+
+
+def test_chunks_sent_in_parallel():
+    c = SlowClient(BatchOut(findings=[]))
+    BatchJudge(c, size=2, workers=4, runs=1).judge_all(_pairs(8), {}, {})
+    assert c.peak > 1
+
+
+def test_runs_union_keeps_finding_from_either_run():
+    """1회차는 제2조를 놓치고 2회차는 잡는다 — 합집합이면 남는다."""
+    clean = BatchOut(findings=[_f("제1조"), _f("제2조")])
+    hit = BatchOut(findings=[_f("제1조"), _f("제2조", result="현행 수정 필요", disadvantage="확인 필요")])
+    c = SequenceClient([clean, hit])
+    j = BatchJudge(c, size=8, runs=2, workers=1)
+    out = j.judge_all(_pairs(2), {}, {})
+    assert c.calls == 2 and list(out) == ["제2조"] and out["제2조"].result == "현행 수정 필요"
+
+
+def test_runs_union_takes_stronger_result_and_disadvantage():
+    a = BatchOut(findings=[_f("제1조", result="추가 확인", disadvantage="해당")])
+    b = BatchOut(findings=[_f("제1조", result="현행 수정 필요", disadvantage="해당 없음")])
+    out = BatchJudge(SequenceClient([a, b]), size=8, runs=2, workers=1).judge_all(_pairs(1), {}, {})
+    assert out["제1조"].result == "현행 수정 필요" and out["제1조"].disadvantage == "해당"
+
+
+def test_runs_retry_only_when_no_run_answered():
+    """한 회차라도 답했으면 재질문하지 않는다."""
+    c = SequenceClient([BatchOut(findings=[_f("제1조")]), RuntimeError("x")])
+    out = BatchJudge(c, size=8, runs=2, workers=1).judge_all(_pairs(1), {}, {})
+    assert out == {} and c.calls == 2
+
+
+def test_batch_api_runs_in_one_batch():
+    c = FakeBatchClient({"r0c0": BatchOut(findings=[_f("제1조")]),
+                         "r1c0": BatchOut(findings=[_f("제1조", result="회사 선택")])})
+    out = BatchJudge(c, size=8, use_batch_api=True, poll=0, runs=2).judge_all(_pairs(1), {}, {})
+    assert len(c.created) == 2 and c.calls == 0 and out["제1조"].result == "회사 선택"
 
 
 def test_pipeline_batch_mode_rows():

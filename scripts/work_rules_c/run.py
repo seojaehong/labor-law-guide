@@ -112,6 +112,9 @@ def main(argv=None) -> int:
                     help="none = 1차 거르기 없이 묶음 판단(조문 --batch-size 개씩 한 번에)")
     ap.add_argument("--batch-size", type=int, default=8)
     ap.add_argument("--batch-api", action="store_true", help="묶음 판단을 Batch API(50%% 할인, 수 분~수 시간)로 보낸다")
+    ap.add_argument("--runs", type=int, default=2,
+                    help="묶음 판단을 몇 번 돌려 합집합을 낼지 — 한 번에 0~1조씩 놓친다(2026-10-21 실측)")
+    ap.add_argument("--workers", type=int, default=8, help="즉시 호출을 동시에 몇 개 보낼지")
     ap.add_argument("--effort", default="medium", choices=["low", "medium", "high"])
     ap.add_argument("--judge-model", default=DEFAULT_JUDGE_MODEL)
     ap.add_argument("--min-confidence", type=float, default=0.8)
@@ -125,7 +128,7 @@ def main(argv=None) -> int:
         from work_rules_c.batch_judge import BatchJudge
         triage = None
         judge = BatchJudge(anthropic_client(), model=a.judge_model, effort=a.effort, size=a.batch_size,
-                           use_batch_api=a.batch_api)
+                           use_batch_api=a.batch_api, runs=a.runs, workers=a.workers)
     else:
         from work_rules_c.judge import AnthropicJudge
         triage = _triage_backend(a.triage, a.headcount)
