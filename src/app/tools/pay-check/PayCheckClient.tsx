@@ -6,9 +6,10 @@ import { renderCard, STATUS_TEXT } from '@/lib/pay-check/card';
 import { check } from '@/lib/pay-check/check';
 import type { CheckResult, PolicyId, Scenario, Status } from '@/lib/pay-check/types';
 import {
-  BASES, buildInput, fieldsFor, OUTSIDE_NOTE, PICKS, ROUNDINGS, UNKNOWN_DATE,
+  BASES, buildInput, fieldsFor, OUTSIDE_NOTE, PICKS, ROUNDING_UNIT_OPTIONS, ROUNDINGS, UNKNOWN_DATE,
   type FieldDef, type PickId, type Rounding,
 } from './build-input';
+import type { RoundingUnit } from '@/lib/pay-check/policies';
 
 export const DISCLAIMER = '이 결과는 입력하고 확인한 값의 대조이며 법률 판단이 아닙니다.';
 
@@ -128,6 +129,7 @@ export default function PayCheckClient() {
   const [values, setValues] = useState<Record<string, string>>({});
   const [policy, setPolicy] = useState<PolicyId | null>(null);
   const [rounding, setRounding] = useState<Rounding>('UNKNOWN');
+  const [roundingUnit, setRoundingUnit] = useState<RoundingUnit | null>(null);
   const [toast, setToast] = useState('');
 
   const scenario: Scenario | null = pick && pick !== 'NORMAL_MONTH' && pick !== 'MULTIPLE' ? pick : null;
@@ -137,13 +139,14 @@ export default function PayCheckClient() {
     setValues({});
     setPolicy(null);
     setRounding('UNKNOWN');
+    setRoundingUnit(null);
   };
   const set = (k: string) => (v: string) => setValues((prev) => ({ ...prev, [k]: v }));
 
   const fields = scenario ? fieldsFor(scenario, policy) : null;
   const result = useMemo(
-    () => (scenario ? check(buildInput({ scenario, values, policy, rounding })) : null),
-    [scenario, values, policy, rounding],
+    () => (scenario ? check(buildInput({ scenario, values, policy, rounding, roundingUnit })) : null),
+    [scenario, values, policy, rounding, roundingUnit],
   );
 
   const copy = async (text: string, done: string) => {
@@ -224,11 +227,20 @@ export default function PayCheckClient() {
             </section>
 
             <section className="pc-step" aria-label="끝수 처리">
-              <h2><span>4</span>원 단위 끝수 처리</h2>
-              <p className="pc-help">계산이 원 단위로 나누어떨어지지 않을 때 회사가 쓰는 처리입니다. 모르면 끝수가 생길 때 금액을 만들지 않습니다.</p>
-              <div className="pc-opts" role="group" aria-label="끝수 처리">
+              <h2><span>4</span>끝수 처리</h2>
+              <p className="pc-help">
+                계산 결과에 끝수가 생길 때 회사가 쓰는 처리 방법과 단위(1원·10원·100원)입니다. 끝수가 생겼는데 둘 중 하나라도 모르면 금액을 만들지 않습니다.
+              </p>
+              <div className="pc-opts" role="group" aria-label="끝수 처리 방법">
                 {ROUNDINGS.map((x) => (
                   <button key={x.id} type="button" aria-pressed={rounding === x.id} onClick={() => setRounding(x.id)}>
+                    {x.label}
+                  </button>
+                ))}
+              </div>
+              <div className="pc-opts" role="group" aria-label="끝수 처리 단위">
+                {ROUNDING_UNIT_OPTIONS.map((x) => (
+                  <button key={x.label} type="button" aria-pressed={roundingUnit === x.id} onClick={() => setRoundingUnit(x.id)}>
                     {x.label}
                   </button>
                 ))}
@@ -242,9 +254,10 @@ export default function PayCheckClient() {
         <footer className="pc-foot">
           <b>이 도구가 쓰는 조문</b>
           <ul>
-            <li>근로기준법 제18조제3항 — 4주 평균 1주 소정근로시간이 15시간 미만이면 제55조(휴일)를 적용하지 않음</li>
+            <li>근로기준법 제18조제3항 — 4주(4주 미만으로 근로하면 그 기간) 평균 1주 소정근로시간이 15시간 미만이면 제55조(휴일)와 제60조(연차 유급휴가)를 적용하지 않음</li>
             <li>근로기준법 제55조제1항 · 시행령 제30조제1항 — 1주 소정근로일을 개근한 근로자에게 유급휴일</li>
-            <li>근로기준법 시행령 [별표 2] 제2호나목 — 단시간근로자의 1일 소정근로시간 = 4주 소정근로시간 ÷ 그 기간 통상 근로자의 총 소정근로일수</li>
+            <li>근로기준법 시행령 [별표 2] 제2호나목 — 단시간근로자의 1일 소정근로시간 = 4주 동안의 소정근로시간 ÷ 그 기간 통상 근로자의 총 소정근로일 수</li>
+            <li>4주 미만으로 근로한 경우 — [별표 2] 제2호나목은 4주 기준이므로, 같은 나눗셈을 그 기간으로 하는 것은 법 제18조제3항의 평균 기간을 따른 계산이며 이 도구의 해석입니다</li>
           </ul>
           <p>
             <a href="https://www.law.go.kr/법령/근로기준법" target="_blank" rel="noopener noreferrer">근로기준법 원문</a>

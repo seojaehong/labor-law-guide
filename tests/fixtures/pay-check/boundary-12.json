@@ -29,14 +29,15 @@
         "employment_start": "2026-04-30",
         "hourly_rate": 12000,
         "paid_hours": 8,
-        "payslip_amount": 84000
+        "payslip_amount": 84000,
+        "calculation_basis_documented": true
       },
       "policy_id": "HOUR_ACTUAL",
       "expected": {
         "status": "POTENTIAL_MISMATCH",
         "expected_amount": 96000,
         "difference": 12000,
-        "required_question": "입사일의 소정근로시간과 입사월 급여 산정 기준을 확인해 주세요."
+        "required_question": "명세서가 입사월 유급 처리 시간을 몇 시간으로 계산했는지 확인해 주세요."
       }
     },
     {
@@ -47,7 +48,9 @@
         "employment_start": "2026-04-16",
         "monthly_base_pay": 3100000,
         "payslip_amount": 1500000,
-        "calculation_basis_documented": false
+        "calculation_basis_documented": false,
+        "pay_period_start": "2026-04-01",
+        "pay_period_end": "2026-04-30"
       },
       "policy_id": null,
       "expected": {
@@ -82,14 +85,18 @@
         "monthly_base_pay": 3000000,
         "eligible_days": 15,
         "payslip_amount": 1400000,
-        "calculation_basis_documented": true
+        "calculation_basis_documented": true,
+        "pay_period_start": "2026-04-01",
+        "pay_period_end": "2026-04-30",
+        "last_scheduled_workday": "2026-04-15",
+        "paid_holiday_treatment": "paid"
       },
       "policy_id": "DAY_30",
       "expected": {
         "status": "POTENTIAL_MISMATCH",
         "expected_amount": 1500000,
         "difference": 100000,
-        "required_question": "명세서에 적용된 퇴사월 인정일수와 30일 기준이 같은지 확인해 주세요."
+        "required_question": "명세서가 퇴사월 인정일수를 며칠로, 몇 일 기준으로 계산했는지 확인해 주세요."
       }
     },
     {
@@ -100,7 +107,9 @@
         "employment_end": "2026-04-15",
         "last_scheduled_workday": null,
         "paid_holiday_treatment": null,
-        "calculation_basis_documented": false
+        "calculation_basis_documented": false,
+        "pay_period_start": "2026-04-01",
+        "pay_period_end": "2026-04-30"
       },
       "policy_id": null,
       "expected": {
@@ -133,7 +142,8 @@
         "hourly_rate": 10000,
         "payslip_absence_deduction": 80000,
         "scheduled_workday_confirmed": true,
-        "calculation_basis_documented": true
+        "calculation_basis_documented": true,
+        "paid_leave_or_holiday": false
       },
       "policy_id": "ABSENCE_HOUR",
       "expected": {
@@ -151,13 +161,13 @@
         "payslip_absence_deduction": 80000,
         "absence_date": "2026-04-15",
         "scheduled_workday_confirmed": false,
-        "paid_leave_or_holiday_confirmed": false
+        "paid_leave_or_holiday": null
       },
       "policy_id": null,
       "expected": {
         "status": "NEEDS_CONFIRMATION",
         "expected_amount": null,
-        "required_question": "근무표, 휴가 승인 기록, 공제 기준 조항을 확인해 주세요."
+        "required_question": "공제된 그날이 소정근로일이었는지, 유급휴가·유급휴일이었는지 확인해 주세요. 결근 공제 기준 조항도 함께 확인해 주세요."
       }
     },
     {
@@ -173,14 +183,17 @@
         "hourly_rate": 10000,
         "payslip_weekly_holiday_pay": 0,
         "full_time_scheduled_days_4w": 20,
-        "holiday_weeks": 1
+        "holiday_weeks": 1,
+        "averaging_weeks": 4,
+        "weekly_holiday_designated": true,
+        "calculation_basis_documented": true
       },
       "policy_id": "WEEKLY_HOLIDAY_FIXED",
       "expected": {
         "status": "POTENTIAL_MISMATCH",
         "expected_amount": 30000,
         "difference": 30000,
-        "required_question": "주휴일 지정과 해당 주의 소정근로일 개근 처리를 확인해 주세요."
+        "required_question": "명세서가 1일 소정근로시간을 몇 시간으로 계산했는지 확인해 주세요."
       }
     },
     {
@@ -226,6 +239,42 @@
         "holiday_weeks": 1
       },
       "why": "근로기준법 시행령 [별표 2] 제2호나목은 단시간근로자의 1일 소정근로시간을 「4주 동안의 소정근로시간 ÷ 그 기간 통상 근로자의 총 소정근로일수」로 정한다. 원본은 본인 근무일(주 5일)로 나눴다. 통상 근로자 4주 소정근로일 20일을 확인값으로 넣어도 1일 3시간·기대값 30,000원은 같다. holiday_weeks 는 명세서 주휴 항목이 몇 주분인지이며, 원본 기대값(30,000원)이 한 주분이라 1로 넣었다."
+    },
+    {
+      "date": "2026-10-22",
+      "review": "외부 검토 C1~C3 (다른 세션 Opus 리뷰, @38ddaf7)",
+      "added": {
+        "MI-02": {
+          "calculation_basis_documented": true
+        },
+        "MI-03": {
+          "pay_period_start": "2026-04-01",
+          "pay_period_end": "2026-04-30"
+        },
+        "ML-02": {
+          "pay_period_start": "2026-04-01",
+          "pay_period_end": "2026-04-30",
+          "last_scheduled_workday": "2026-04-15",
+          "paid_holiday_treatment": "paid"
+        },
+        "ML-03": {
+          "pay_period_start": "2026-04-01",
+          "pay_period_end": "2026-04-30"
+        },
+        "AB-02": {
+          "paid_leave_or_holiday": false
+        },
+        "HW-01": {
+          "averaging_weeks": 4,
+          "weekly_holiday_designated": true,
+          "calculation_basis_documented": true
+        },
+        "AB-03": {
+          "paid_leave_or_holiday": null,
+          "removed": "paid_leave_or_holiday_confirmed"
+        }
+      },
+      "why": "C1: 확인 항목은 「키 없음」도 확인 못함으로 본다 — 원본 MI-02·ML-02·AB-02·HW-01 은 키가 없는데 금액을 기대했다. 회사 기준 문서 확인(calculation_basis_documented)은 true 일 때만, 주휴일 지정(weekly_holiday_designated)은 true·false 로 답했을 때만 대조로 간다. 유급휴가 여부는 paid_leave_or_holiday(true=유급휴가였음 / false=아니었음 / 없음·null=확인 못함) 하나로 바꿨다. 화면 4 의 필수값(급여기간, 퇴사월 마지막 소정근로일)을 입력에 넣었다. C3: 근로기준법 제18조제3항 「4주 동안(4주 미만으로 근로하는 경우에는 그 기간)」 — 평균 주수(averaging_weeks)를 받는다. 기대 상태·금액·질문은 모두 원본과 같다."
     }
   ]
 }

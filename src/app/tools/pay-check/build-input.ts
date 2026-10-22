@@ -1,7 +1,8 @@
 // 화면 입력 → 엔진 CheckInput. 엔진(src/lib/pay-check)은 고치지 않고, 엔진이 읽는 키 이름을 그대로 쓴다.
-// 빈 칸은 키를 뺀다. 엔진이 「키가 있고 null」로 모름을 읽는 칸(unknown())만 「모름」을 null 로 넣는다.
+// 빈 칸은 키를 뺀다. 엔진(@486509a)은 키 없음·null·읽을 수 없는 날짜를 모두 「확인 못함」으로 보고 멈추므로,
+// 빈 칸도 대조를 막는다. 「아니다」를 확인한 답은 false 로 명시해서 보낸다.
 
-import { POLICY_FIELDS } from '@/lib/pay-check/policies';
+import { POLICY_FIELDS, ROUNDING_UNITS, type RoundingUnit } from '@/lib/pay-check/policies';
 import type { CheckInput, Confirmed, PolicyId, Scenario } from '@/lib/pay-check/types';
 
 /** 고르기 칸의 선택지. value 가 'omit' 이면 키를 넣지 않는다. */
@@ -40,8 +41,8 @@ const YES_NO = (yes: string, no: string): ChoiceOption[] => [
 ];
 
 const PERIOD: FieldDef[] = [
-  { key: 'pay_period_start', label: '급여기간 첫날', hint: '선택', kind: 'date' },
-  { key: 'pay_period_end', label: '급여기간 마지막 날', hint: '선택', kind: 'date' },
+  { key: 'pay_period_start', label: '급여기간 첫날', hint: '명세서에 적힌 기간', kind: 'date' },
+  { key: 'pay_period_end', label: '급여기간 마지막 날', hint: '명세서에 적힌 기간', kind: 'date' },
 ];
 
 /** 예외마다 먼저 묻는 사실과 명세서 금액. 계산 기준에 딸린 칸(POLICY_FIELDS)은 기준을 고른 뒤에 붙는다. */
@@ -54,11 +55,10 @@ export const FACT_FIELDS: Record<Scenario, FieldDef[]> = {
   MID_LEAVE: [
     { key: 'employment_end', label: '퇴사일', kind: 'date' },
     ...PERIOD,
-    { key: 'last_scheduled_workday', label: '마지막 소정근로일', hint: '선택 · 모르면 「모름」', kind: 'date-or-unknown' },
+    { key: 'last_scheduled_workday', label: '마지막 소정근로일', hint: '모르면 「모름」', kind: 'date-or-unknown' },
     {
       key: 'paid_holiday_treatment',
       label: '퇴사월 유급휴일 처리',
-      hint: '선택',
       kind: 'choice',
       options: [
         { id: 'paid', label: '유급으로 처리됨', value: 'paid' },
@@ -78,18 +78,19 @@ export const FACT_FIELDS: Record<Scenario, FieldDef[]> = {
       options: YES_NO('근무표로 소정근로일임을 확인함', '확인하지 못함'),
     },
     {
-      key: 'paid_leave_or_holiday_confirmed',
+      key: 'paid_leave_or_holiday',
       label: '그날이 유급휴가·유급휴일이었는지',
       kind: 'choice',
       options: [
-        { id: 'not', label: '유급휴가·휴일이 아님을 확인함', value: 'omit' },
-        { id: 'yes', label: '유급휴가·휴일로 확인됨', value: true },
-        { id: 'no', label: '확인하지 못함', value: false },
+        { id: 'no', label: '아니오 · 유급휴가·휴일이 아님을 확인함', value: false },
+        { id: 'yes', label: '예 · 유급휴가·휴일로 확인됨', value: true },
+        { id: 'unknown', label: '모름 · 확인하지 못함', value: null },
       ],
     },
   ],
   HOURLY_WEEKLY_HOLIDAY: [
-    { key: 'four_week_scheduled_hours', label: '최근 4주 약정 소정근로시간 합계', hint: '계약서에 적힌 시간', kind: 'number', unit: '시간' },
+    { key: 'four_week_scheduled_hours', label: '평균 기간의 약정 소정근로시간 합계', hint: '보통 4주 · 근로한 기간이 4주 미만이면 그 기간 · 계약서에 적힌 시간', kind: 'number', unit: '시간' },
+    { key: 'averaging_weeks', label: '평균을 낸 주수', hint: '보통 4 · 근로한 기간이 4주 미만이면 그 주수(예: 2)', kind: 'number', unit: '주' },
     { key: 'temporary_actual_hours_in_one_week', label: '대타로 실제 일한 그 주의 시간', hint: '대타가 있었을 때만', kind: 'number', unit: '시간' },
     {
       key: 'contract_change_confirmed',
@@ -107,10 +108,10 @@ export const FACT_FIELDS: Record<Scenario, FieldDef[]> = {
     {
       key: 'weekly_holiday_designated',
       label: '주휴일 지정',
-      hint: '선택',
       kind: 'choice',
       options: [
         { id: 'yes', label: '계약·규칙에 지정됨', value: true },
+        { id: 'no', label: '지정되지 않음을 확인함', value: false },
         { id: 'unknown', label: '모름', value: null },
       ],
     },
@@ -131,8 +132,8 @@ const POLICY_FIELD_DEF: Record<string, FieldDef> = {
   monthly_base_pay: { key: 'monthly_base_pay', label: '월 기본급', kind: 'number', unit: '원' },
   eligible_days: { key: 'eligible_days', label: '인정일수', hint: '30일 기준으로 셀 날수', kind: 'number', unit: '일' },
   unpaid_absence_hours: { key: 'unpaid_absence_hours', label: '무급 결근시간', kind: 'number', unit: '시간' },
-  four_week_scheduled_hours: { key: 'four_week_scheduled_hours', label: '최근 4주 약정 소정근로시간 합계', kind: 'number', unit: '시간' },
-  full_time_scheduled_days_4w: { key: 'full_time_scheduled_days_4w', label: '같은 4주 통상 근로자의 소정근로일수', hint: '주 5일 근무 사업장이면 보통 20일', kind: 'number', unit: '일' },
+  four_week_scheduled_hours: { key: 'four_week_scheduled_hours', label: '평균 기간의 약정 소정근로시간 합계', kind: 'number', unit: '시간' },
+  full_time_scheduled_days_4w: { key: 'full_time_scheduled_days_4w', label: '같은 기간 통상 근로자의 소정근로일수', hint: '주 5일 근무 사업장이면 4주에 보통 20일', kind: 'number', unit: '일' },
   holiday_weeks: { key: 'holiday_weeks', label: '명세서 주휴 항목이 몇 주분인지', kind: 'number', unit: '주' },
 };
 
@@ -160,6 +161,12 @@ export const ROUNDINGS: { id: Rounding; label: string }[] = [
   { id: 'CEIL', label: '올림' },
 ];
 
+/** 끝수 처리 단위. 목록은 엔진 ROUNDING_UNITS(1·10·100원)를 그대로 쓴다. null = 모름. */
+export const ROUNDING_UNIT_OPTIONS: { id: RoundingUnit | null; label: string }[] = [
+  { id: null, label: '모름' },
+  ...ROUNDING_UNITS.map((u) => ({ id: u, label: `${u}원 단위` })),
+];
+
 /** 이 예외·기준에서 보여줄 칸. 사실 칸에 이미 있는 키는 한 번만 묻는다. */
 export function fieldsFor(s: Scenario, p: PolicyId | null): { facts: FieldDef[]; basis: FieldDef[] } {
   const facts = FACT_FIELDS[s];
@@ -184,6 +191,8 @@ export interface FormState {
   values: Record<string, string>;
   policy: PolicyId | null;
   rounding: Rounding;
+  /** 끝수 처리 단위(원). 없거나 null 이면 모름. */
+  roundingUnit?: RoundingUnit | null;
 }
 
 export function buildInput(f: FormState): CheckInput {
@@ -206,5 +215,6 @@ export function buildInput(f: FormState): CheckInput {
   }
   if (f.policy) confirmed.calculation_basis_documented = true;
   if (f.rounding !== 'UNKNOWN') confirmed.rounding = f.rounding;
+  if (f.roundingUnit != null) confirmed.rounding_unit = f.roundingUnit;
   return { scenario: f.scenario, confirmed, policy_id: f.policy };
 }

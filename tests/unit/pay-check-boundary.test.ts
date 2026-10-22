@@ -1,4 +1,4 @@
-// 월급 대조 엔진의 12개 경계값 (원본: ~/dev/pay-exception-check @3263456 test/boundary.test.ts).
+// 월급 대조 엔진의 12개 경계값 (원본: ~/dev/pay-exception-check @4663947 test/boundary.test.ts).
 // 사이트로 옮긴 src/lib/pay-check 가 원본과 같은 결과를 내는지 고정한다.
 
 import { readFileSync } from 'node:fs';

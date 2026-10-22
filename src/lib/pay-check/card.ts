@@ -1,4 +1,4 @@
-// 원본: ~/dev/pay-exception-check @3263456
+// 원본: ~/dev/pay-exception-check @4663947
 // Result card (spec 화면 7): 관찰 → 근거 → 조건부 해석 → 필요한 자료 → 회사에 물어볼 문장.
 // The wording never states a legal conclusion or an owed amount (spec §6).
 
