@@ -7,7 +7,7 @@ import { Check, ClipboardCopy, FileDown, FileUp, Sparkles, X } from 'lucide-reac
 import TurnstileWidget from '@/components/TurnstileWidget';
 import { kindOf, MAX_FILE_BYTES, readDocText } from '@/lib/laws/doc-io';
 import { splitArticles } from '@/lib/laws/precise/articles';
-import { NO_BASELINE } from '@/lib/laws/precise/judge';
+import { BATCH_RUNS, groupCount, NO_BASELINE } from '@/lib/laws/precise/judge';
 
 export const PRECISE_ENABLED = process.env.NEXT_PUBLIC_WORK_RULES_PRECISE === '1';
 
@@ -160,7 +160,7 @@ export default function PreciseCheck({ mainText, since, toast }: { mainText: str
     const blob = await comparisonXlsx({
       title: '취업규칙 AI 정밀 점검 대조표',
       intro: [
-        `점검 시작일 ${s.since} 이후 시행 법령 기준 · AI 대조 초안(노무사 검수 전)`,
+        `점검 시작일 ${s.since.replace(/^(\d{4})(\d{2})(\d{2})$/, '$1-$2-$3')} 이후 시행 법령 기준 · AI 대조 초안(노무사 검수 전)`,
         `점검 대상: ${s.name}${s.old ? ' · 종전 규칙과 대조' : ' · 종전 규칙 미제공(불이익변경 비교 불가)'}${s.headcount ? ` · 상시 근로자 ${s.headcount}명` : ''}`,
         ...(s.focus ? [`점검 요청: ${s.focus}`] : []),
       ],
@@ -182,7 +182,7 @@ export default function PreciseCheck({ mainText, since, toast }: { mainText: str
     .sort((a, b) => ORDER.indexOf(a['점검 결과'] as never) - ORDER.indexOf(b['점검 결과'] as never)) : [];
   const shown = filter ? rows.filter((x) => x['점검 결과'] === filter) : rows;
   const count = (k: string) => rows.filter((x) => x['점검 결과'] === k).length;
-  const calls = source ? Math.ceil(source.articles / 8) * 2 : 0;
+  const groups = source ? groupCount(source.articles) : 0;
 
   return (
     <section className="lr-pc" aria-labelledby="lr-pc-title">
@@ -235,7 +235,7 @@ export default function PreciseCheck({ mainText, since, toast }: { mainText: str
           // 서버가 진행 정보를 주지 않으므로 완료율처럼 보이는 막대 대신 흐르는 막대와 경과 초만 보인다
           <div className="lr-pc-progress" role="status">
             <div className="bar indeterminate" aria-hidden><i /></div>
-            <span>경과 {elapsed}초 · 조문 {source?.articles}개를 {calls}번에 나눠 두 번씩 대조하고 있습니다. 보통 1~2분 걸립니다.</span>
+            <span>경과 {elapsed}초 · 조문 {source?.articles}개를 {groups}묶음으로 나눠 묶음마다 {BATCH_RUNS}번씩 대조하고 있습니다. 보통 1~2분 걸립니다.</span>
           </div>
         )}
         {error && <p className="lr-file-error" role="alert">{error}</p>}

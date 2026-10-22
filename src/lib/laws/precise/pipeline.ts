@@ -28,7 +28,8 @@ export function mapRules(articles: { no: string; title: string; body: string }[]
   const live = rules.filter((r) => r.effective >= since);
   for (const v of checkRules(text, live)) {
     const key = v.where ? (v.where.match(/제\d+조(?:의\d+)?/)?.[0] ?? v.where) : NEW_BUCKET;
-    const hit: RuleHit = { topic: v.rule.topic, lawArticle: v.rule.article, effective: v.rule.effective, status: v.status };
+    const lawArticle = v.rule.law ? `${v.rule.law} ${v.rule.article}` : v.rule.article; // 「제11조」만으로는 어느 법인지 모른다
+    const hit: RuleHit = { topic: v.rule.topic, lawArticle, effective: v.rule.effective, status: v.status };
     out.set(key, [...(out.get(key) ?? []), hit]);
   }
   return out;

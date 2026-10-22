@@ -25,6 +25,7 @@ class RuleHit:
     where: str | None
     stale: tuple[str, ...]
     missing: tuple[str, ...]
+    law: str = ""  # 법령명 — 사이트 데이터(public/data/laws/rules.json)에는 있고 매핑 원본(work_rules_map.json)에는 없다
 
 
 def _date(s: str) -> date:
@@ -46,7 +47,7 @@ def map_rules(articles: list[Article], asof: date, since: date, rules: list[dict
         out.append(RuleHit(
             topic=rule["topic"], law_id=rule["lawId"], law_article=rule["article"], effective=effective,
             required=bool(rule.get("required")), status=r["status"], where=r.get("where"),
-            stale=tuple(r.get("stale", ())), missing=tuple(r.get("missing", ())),
+            stale=tuple(r.get("stale", ())), missing=tuple(r.get("missing", ())), law=rule.get("law", ""),
         ))
     return out
 

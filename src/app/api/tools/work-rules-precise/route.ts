@@ -7,7 +7,7 @@ import { createClient } from '@supabase/supabase-js';
 import { isTurnstileEnabled, verifyTurnstile } from '@/lib/turnstile';
 import { extractIp, hashIp } from '@/lib/client-ip';
 import type { RuleSpec } from '@/lib/laws/rules-check';
-import { anthropicAsk, usd, type Usage } from '@/lib/laws/precise/judge';
+import { anthropicAsk, BATCH_RUNS, usd, type Usage } from '@/lib/laws/precise/judge';
 import { splitArticles } from '@/lib/laws/precise/articles';
 import { MAX_ARTICLES, precisePipeline, rowsForStore } from '@/lib/laws/precise/pipeline';
 import rulesJson from '../../../../../public/data/laws/rules.json';
@@ -108,7 +108,7 @@ export async function POST(req: Request): Promise<Response> {
   try {
     // 요청 전체 상한 — 플랫폼 타임아웃(maxDuration)보다 먼저 끊어 JSON 으로 답한다. 끊긴 묶음은 「추가 확인」으로 남는다
     result = await precisePipeline({ rules, old, since, headcount, focus },(rulesJson as { rules: RuleSpec[] }).rules,
-      { ask: anthropicAsk({ apiKey, usage }), runs: 2, workers: 8, signal: AbortSignal.timeout(DEADLINE_MS) });
+      { ask: anthropicAsk({ apiKey, usage }), runs: BATCH_RUNS, workers: 8, signal: AbortSignal.timeout(DEADLINE_MS) });
   } catch (err) {
     const code = err instanceof Error ? err.message : '';
     if (code === 'empty_rules' || code === 'empty_old') {

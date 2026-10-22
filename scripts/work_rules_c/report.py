@@ -21,7 +21,8 @@ def clean(text: str) -> str:
 
 
 def _basis(hits: list[RuleHit]) -> str:
-    return "; ".join(f"{h.law_article} ({h.effective:%Y.%m.%d.} 시행)" for h in hits)
+    # 「제11조」만으로는 어느 법인지 모른다 — 법령명이 있으면 붙인다(TS pipeline.ts mapRules 와 같다)
+    return "; ".join(f"{f'{h.law} ' if h.law else ''}{h.law_article} ({h.effective:%Y.%m.%d.} 시행)" for h in hits)
 
 
 def disadvantage_of(j: JudgeOut | None, hard: bool, has_old: bool) -> str:

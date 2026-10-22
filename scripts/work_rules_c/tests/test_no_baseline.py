@@ -54,3 +54,4 @@ def test_prompts_separate_no_baseline():
         assert "- 비교 불가:" in text
         assert "종전 규정이 없는 점검이면 해당 없음" not in text
         assert "새로 생긴 조문이라도 새 의무·제재·공제처럼 근로조건을 낮추는 내용을 담고 있으면 해당이다" in text
+        assert "종전 규칙이 없는 점검에서는 불리해졌다·저하·낮아졌다처럼 종전과 비교하는 말을 쓰지 말고 현행 법령 기준과의 차이로만 적는다" in text

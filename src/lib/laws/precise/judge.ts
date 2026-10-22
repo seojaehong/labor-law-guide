@@ -9,6 +9,10 @@ export type Disadvantage = '해당' | '해당 없음' | '확인 필요' | '비�
 export const DISADVANTAGES: Disadvantage[] = ['해당', '해당 없음', '확인 필요', '비교 불가'];
 /** 종전 규칙 없이 점검한 행의 불이익변경 칸 — 「해당 없음」(대조해 보니 불리하지 않다)과 다른 상태다 */
 export const NO_BASELINE = '비교 불가 — 종전 규칙 미제공';
+/** 묶음 하나에 넣는 조문 수와 회차 수 — judgeAll 기본값이고, 화면 진행 문구도 이 값을 쓴다 */
+export const BATCH_SIZE = 8;
+export const BATCH_RUNS = 2;
+export const groupCount = (articles: number) => Math.ceil(articles / BATCH_SIZE);
 
 export interface Finding {
   no: string;
@@ -142,7 +146,7 @@ export async function judgeAll(
   pairs: ArticlePair[], drops: Map<string, Drop[]>, hits: Map<string, RuleHit[]>,
   opts: { ask: Ask; size?: number; runs?: number; workers?: number; headcount?: string; focus?: string; signal?: AbortSignal },
 ): Promise<Map<string, Finding>> {
-  const { ask, size = 8, runs = 2, workers = 8, headcount = '', focus = '', signal } = opts;
+  const { ask, size = BATCH_SIZE, runs = BATCH_RUNS, workers = 8, headcount = '', focus = '', signal } = opts;
   const groups = chunks(pairs, size);
   const jobs = Array.from({ length: runs }, (_, k) => groups.map((_, gi) => [k, gi] as const)).flat();
   const got = await pool(jobs, workers, ([, gi]) => ask(body(groups[gi], drops, hits, headcount, focus), signal));

@@ -45,6 +45,12 @@ def test_new_required_row_appended():
     assert rows[0]["조문"] == "신설 필요" and rows[0]["근거·시행일"] == "제18조의2 (2025.02.23. 시행)"
 
 
+def test_new_row_basis_has_law_name():
+    from dataclasses import replace
+    rows = build_rows([], {}, {"(신설 필요)": [replace(_hit(status="누락"), law="남녀고용평등법")]}, {}, {})
+    assert rows[0]["근거·시행일"] == "남녀고용평등법 제18조의2 (2025.02.23. 시행)"
+
+
 def test_unescalated_rows_dropped():
     rows = build_rows([same_pair(), changed_pair()], {}, {}, {"제50조": _triage(escalate=False)}, {})
     assert rows == []

@@ -3,7 +3,7 @@ import path from 'path';
 import { describe, expect, it } from 'vitest';
 import { pairArticles, splitArticles } from '@/lib/laws/precise/articles';
 import { extractQuantities, quantityDrops } from '@/lib/laws/precise/quantities';
-import { anthropicAsk, BATCH_SCHEMA, chunks, judgeAll, merge, NO_BASELINE, type Finding } from '@/lib/laws/precise/judge';
+import { anthropicAsk, BATCH_RUNS, BATCH_SCHEMA, BATCH_SIZE, chunks, groupCount, judgeAll, merge, NO_BASELINE, type Finding } from '@/lib/laws/precise/judge';
 import { clean, disadvantageOf, precisePipeline, rowsForStore } from '@/lib/laws/precise/pipeline';
 import { BATCH_SYSTEM } from '@/lib/laws/precise/prompts';
 
@@ -94,6 +94,11 @@ describe('수치', () => {
 
 describe('묶음 판단', () => {
   it('묶음 크기', () => expect(chunks(pairs(19), 8).map((c) => c.length)).toEqual([8, 8, 3]));
+  it('진행 문구의 묶음 수·회차는 judgeAll 의 실제 값이다', () => {
+    expect([BATCH_SIZE, BATCH_RUNS]).toEqual([8, 2]);
+    expect(groupCount(19)).toBe(chunks(pairs(19), BATCH_SIZE).length);
+    expect(groupCount(0)).toBe(0);
+  });
 
   it('회차 합집합 — 한 회차만 지적해도 남는다', async () => {
     const seq: (Finding[] | string)[] = [[f('제1조'), f('제2조')], [f('제1조'), f('제2조', '현행 수정 필요', '확인 필요')]];
@@ -239,6 +244,15 @@ describe('파이프라인', () => {
     expect(BATCH_SYSTEM).not.toContain('종전 규정이 없는 점검이면 해당 없음');
     expect(BATCH_SYSTEM).toContain('- 비교 불가:');
     expect(BATCH_SYSTEM).toContain('새로 생긴 조문이라도 새 의무·제재·공제처럼 근로조건을 낮추는 내용을 담고 있으면 해당이다');
+    expect(BATCH_SYSTEM).toContain('종전 규칙이 없는 점검에서는 불리해졌다·저하·낮아졌다처럼 종전과 비교하는 말을 쓰지 말고 현행 법령 기준과의 차이로만 적는다');
+  });
+
+  it('본문에서 찾지 못한 법령 기준에 법령명을 붙인다', async () => {
+    const spec = { lawId: '000130', law: '남녀고용평등법', article: '제18조의2', effective: '20250223', topic: '배우자 출산휴가 20일',
+      art93: '8', required: true, keywords: ['배우자 출산'], ok: ['20일'], stale: ['10일'], point: '', clause: '', mst: null };
+    const r = await precisePipeline({ rules: '제1조(목적) 목적', since: '20230101' }, [spec], { ask: ask([f('제1조')]), runs: 1 });
+    const row = r.rows.find((x) => x.조문 === '신설 필요')!;
+    expect(row['근거·시행일']).toBe('남녀고용평등법 제18조의2 (2025.02.23. 시행)');
   });
 
   it('보관 동의가 없어도 저장 행에 비교 불가 표시는 남는다', () => {
