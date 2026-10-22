@@ -1,4 +1,4 @@
-// 원본: ~/dev/pay-exception-check @583dd3e
+// 원본: ~/dev/pay-exception-check @4663947
 // One worker, one pay month, one exception (spec §1). Decides the status from confirmed values only.
 // Order per scenario: scope → facts the exception depends on → company basis → policy → compare.
 // NEEDS_CONFIRMATION never carries an amount.
@@ -177,12 +177,13 @@ function absence(c: Confirmed): Partial | null {
   const workdayOpen = c.scheduled_workday_confirmed !== true, leaveOpen = c.paid_leave_or_holiday !== false;
   if (workdayOpen || leaveOpen) {
     const basisOpen = c.calculation_basis_documented !== true;
-    const docs = [...(workdayOpen ? ["근무표"] : []), ...(leaveOpen ? ["휴가 승인 기록"] : []), ...(basisOpen ? ["공제 기준 조항"] : [])];
+    // 문의 문장은 기록 이름이 아니라 그날의 사실을 묻는다. 기록은 필요한 자료 칸에만 둔다.
+    const asks = [...(workdayOpen ? ["소정근로일이었는지"] : []), ...(leaveOpen ? ["유급휴가·유급휴일이었는지"] : [])];
     const facts = [...(workdayOpen ? ["소정근로일인지"] : []), ...(leaveOpen ? ["유급휴가·휴일인지"] : [])];
     return stop(
       "NEEDS_CONFIRMATION",
       "FACT_UNCONFIRMED:scheduled_workday",
-      `${josa(docs.join(", "), "을", "를")} 확인해 주세요.`,
+      `공제된 그날이 ${asks.join(", ")} 확인해 주세요.${basisOpen ? " 결근 공제 기준 조항도 함께 확인해 주세요." : ""}`,
       [...(workdayOpen ? ["그날의 근무표"] : []), ...(leaveOpen ? ["휴가 승인 기록"] : []), ...(basisOpen ? ["결근 공제 기준이 적힌 취업규칙 조항"] : [])],
       `공제된 날이 ${facts.join(", ")} 확인되지 않았습니다.`,
     );
@@ -250,14 +251,19 @@ function afterCompare(s: Scenario, p: PolicyId, match: boolean): { q: string; ev
   if (s === "HOURLY_WEEKLY_HOLIDAY") {
     // 여기까지 오면 계속근로·주휴일 지정·개근은 모두 확인된 값이다. 어긋남이면 아직 다를 수 있는 계산만 묻는다.
     return {
-      q: match ? "주휴일 지정과 개근 처리가 달라지면 다시 확인해 주세요." : "명세서 주휴수당이 몇 주분이고 1일 소정근로시간을 몇 시간으로 계산했는지 확인해 주세요.",
-      evidence: match ? [] : ["명세서 주휴수당 계산 내역", "약정 소정근로시간이 적힌 근로계약서"],
+      // 주수(holiday_weeks)와 약정 소정근로시간은 사용자가 넣은 값이다. 명세서가 쓴 1일 소정근로시간만 묻는다.
+      q: match ? "주휴일 지정과 개근 처리가 달라지면 다시 확인해 주세요." : "명세서가 1일 소정근로시간을 몇 시간으로 계산했는지 확인해 주세요.",
+      evidence: match ? [] : ["명세서 주휴수당 계산 내역"],
       conditions: ["약정시간이 바뀌었거나 통상 근로자의 소정근로일수가 다르면 1일 소정근로시간이 달라집니다."],
     };
   }
   const month = s === "MID_JOIN" ? "입사월" : "퇴사월";
   if (p === "DAY_30") {
-    return { q: `명세서에 적용된 ${month} 인정일수와 30일 기준이 같은지 확인해 주세요.`, evidence: [`${month} 계산 기준이 적힌 조항`], conditions: ["회사 문서의 기준이 30일이 아니라 실제 일수·소정근로일이면 기대값이 달라집니다."] };
+    // 30일 기준도 확인된 회사 기준이다. 어긋남이면 명세서가 쓴 인정일수·기준 일수만 묻는다.
+    const cond = ["인정일수나 기준 일수(30일)가 다르면 기대값이 달라집니다."];
+    return match
+      ? { q: "인정일수나 기준이 달라지면 다시 확인해 주세요.", evidence: [], conditions: cond }
+      : { q: `명세서가 ${month} 인정일수를 며칠로, 몇 일 기준으로 계산했는지 확인해 주세요.`, evidence: [`명세서 ${month} 급여 계산 내역`], conditions: cond };
   }
   // 시간 기준은 확인된 회사 기준이다. 어긋남이면 명세서가 유급으로 처리한 시간만 묻는다.
   const day = s === "MID_JOIN" ? "입사일" : "퇴사 전 마지막 근무일";

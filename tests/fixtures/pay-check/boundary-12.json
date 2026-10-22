@@ -96,7 +96,7 @@
         "status": "POTENTIAL_MISMATCH",
         "expected_amount": 1500000,
         "difference": 100000,
-        "required_question": "명세서에 적용된 퇴사월 인정일수와 30일 기준이 같은지 확인해 주세요."
+        "required_question": "명세서가 퇴사월 인정일수를 며칠로, 몇 일 기준으로 계산했는지 확인해 주세요."
       }
     },
     {
@@ -167,7 +167,7 @@
       "expected": {
         "status": "NEEDS_CONFIRMATION",
         "expected_amount": null,
-        "required_question": "근무표, 휴가 승인 기록, 공제 기준 조항을 확인해 주세요."
+        "required_question": "공제된 그날이 소정근로일이었는지, 유급휴가·유급휴일이었는지 확인해 주세요. 결근 공제 기준 조항도 함께 확인해 주세요."
       }
     },
     {
@@ -193,7 +193,7 @@
         "status": "POTENTIAL_MISMATCH",
         "expected_amount": 30000,
         "difference": 30000,
-        "required_question": "명세서 주휴수당이 몇 주분이고 1일 소정근로시간을 몇 시간으로 계산했는지 확인해 주세요."
+        "required_question": "명세서가 1일 소정근로시간을 몇 시간으로 계산했는지 확인해 주세요."
       }
     },
     {

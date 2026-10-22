@@ -1,4 +1,4 @@
-// 원본: ~/dev/pay-exception-check @583dd3e
+// 원본: ~/dev/pay-exception-check @4663947
 // The four calculation policies (spec §5). Integer arithmetic on 원 with an exact fraction:
 // a result that is not a whole 원 needs the company's rounding rule, which the core never guesses.
 

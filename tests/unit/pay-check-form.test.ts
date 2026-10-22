@@ -2,7 +2,7 @@
 
 import { describe, expect, it } from 'vitest';
 import { check } from '@/lib/pay-check/check';
-import { POLICY_FIELDS, ROUNDING_UNITS } from '@/lib/pay-check/policies';
+import { POLICY_FIELDS, POLICY_NAME, ROUNDING_UNITS } from '@/lib/pay-check/policies';
 import { SCENARIOS } from '@/lib/pay-check/types';
 import {
   BASES, buildInput, FACT_FIELDS, fieldsFor, parseNumber, ROUNDING_UNIT_OPTIONS, UNKNOWN_DATE, type FormState,
@@ -30,7 +30,7 @@ describe('화면에서 누르는 세 경우', () => {
     });
     const r = run(f);
     expect([r.status, r.expected_amount, r.difference]).toEqual(['POTENTIAL_MISMATCH', 1500000, 100000]);
-    expect(r.required_question).toBe('명세서에 적용된 퇴사월 인정일수와 30일 기준이 같은지 확인해 주세요.');
+    expect(r.required_question).toBe('명세서가 퇴사월 인정일수를 며칠로, 몇 일 기준으로 계산했는지 확인해 주세요.');
   });
 
   it('확인 필요: 기준 없음 → 금액을 만들지 않는다', () => {
@@ -154,6 +154,12 @@ describe('화면 칸 = 엔진 키', () => {
         const r = check({ scenario: s, policy_id: b.id, confirmed: {} });
         expect(r.reasons.some((x) => x.startsWith('POLICY_NOT_FOR_SCENARIO'))).toBe(false);
       }
+    }
+  });
+
+  it('화면의 기준 이름은 엔진 결과 카드의 기준 이름(POLICY_NAME)과 같다', () => {
+    for (const s of SCENARIOS) {
+      for (const b of BASES[s]) expect(b.label, `${s} ${b.id}`).toBe(POLICY_NAME[b.id]);
     }
   });
 

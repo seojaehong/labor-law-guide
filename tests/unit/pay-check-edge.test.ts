@@ -1,4 +1,4 @@
-// 12건 밖의 경계 (원본: ~/dev/pay-exception-check @583dd3e test/edge.test.ts, extractor slot 묶음 제외).
+// 12건 밖의 경계 (원본: ~/dev/pay-exception-check @4663947 test/edge.test.ts, extractor slot 묶음 제외).
 // 끝수 처리(방법·단위), [별표 2] 1일 소정근로시간, 15시간 선, 공제 부호, 결근 주 주휴(I4), 확인 항목(C1~C3), 마지막 소정근로일 범위,
 // 결과 카드에 내부 코드가 보이지 않음·확인된 항목을 다시 묻지 않음(미리보기 E2E).
 
@@ -459,5 +459,48 @@ describe("E2E 결과 카드: 물어보는 것은 아직 확인되지 않은 것�
     const r = check({ scenario: "MID_JOIN", policy_id: "HOUR_ACTUAL", confirmed: { pay_period_start: "2026-04-01", pay_period_end: "2026-04-30", employment_start: "2026-04-16", hourly_rate: 10000, paid_hours: 80, payslip_amount: 790000, calculation_basis_documented: true } });
     expect(r.status).toBe("POTENTIAL_MISMATCH");
     expect([r.required_question ?? "", ...r.evidence_needed].join("\n")).not.toMatch(/산정 기준|계산 기준/);
+  });
+
+  // 30일 기준도 시간 기준과 같은 원칙: 확인된 기준 조항은 다시 요구하지 않는다.
+  const d30 = (s: "MID_JOIN" | "MID_LEAVE", payslip: number) =>
+    check({
+      scenario: s,
+      policy_id: "DAY_30",
+      confirmed: s === "MID_JOIN"
+        ? { pay_period_start: "2026-04-01", pay_period_end: "2026-04-30", employment_start: "2026-04-21", monthly_base_pay: 2_500_000, eligible_days: 10, payslip_amount: payslip, calculation_basis_documented: true, rounding: "FLOOR", rounding_unit: 10 }
+        : { pay_period_start: "2026-04-01", pay_period_end: "2026-04-30", employment_end: "2026-04-10", last_scheduled_workday: "2026-04-10", paid_holiday_treatment: "paid", monthly_base_pay: 2_500_000, eligible_days: 10, payslip_amount: payslip, calculation_basis_documented: true, rounding: "FLOOR", rounding_unit: 10 },
+    });
+  for (const s of ["MID_JOIN", "MID_LEAVE"] as const) {
+    it(`${s} 일치(30일 기준): 확인된 기준을 다시 묻지 않고 달라지면 다시 확인하라고만 한다`, () => {
+      const r = d30(s, 833_330);
+      expect(r.status).toBe("MATCH");
+      expect(r.required_question).toContain("인정일수나 기준이 달라지면 다시 확인");
+      expect(r.required_question).not.toMatch(/같은지/);
+      expect(r.evidence_needed).toEqual([]);
+    });
+    it(`${s} 어긋남(30일 기준): 명세서가 쓴 인정일수·기준 일수를 묻고 기준 조항을 자료로 다시 요구하지 않는다`, () => {
+      const r = d30(s, 800_000);
+      expect(r.status).toBe("POTENTIAL_MISMATCH");
+      expect(r.required_question).toMatch(/명세서가 .*인정일수를 며칠로, 몇 일 기준으로 계산했는지/);
+      expect(r.evidence_needed.join("\n")).not.toMatch(/조항|계산 기준/);
+      expect(r.evidence_needed.join("\n")).toContain("명세서");
+    });
+  }
+
+  it("주휴 어긋남: 이미 넣은 주수를 묻지 않고, 확인된 약정시간 근로계약서를 자료로 다시 요구하지 않는다", () => {
+    const r = hwRun();
+    expect(r.required_question).not.toMatch(/몇 주분/);
+    expect(r.required_question).toContain("명세서가 1일 소정근로시간을 몇 시간으로 계산했는지");
+    expect(r.evidence_needed.join("\n")).not.toMatch(/근로계약서/);
+    expect(r.evidence_needed).toContain("명세서 주휴수당 계산 내역");
+  });
+
+  it("결근 모름: 문의 문장은 기록 이름이 아니라 그날이 유급휴가·휴일이었는지를 묻는다", () => {
+    const r = ab({ paid_leave_or_holiday: undefined });
+    expect(r.required_question).not.toMatch(/휴가 승인 기록/);
+    expect(r.required_question).toMatch(/그날이 .*유급휴가·유급휴일이었는지/);
+    const both = ab({ paid_leave_or_holiday: null, scheduled_workday_confirmed: null });
+    expect(both.required_question).toMatch(/그날이 소정근로일이었는지, 유급휴가·유급휴일이었는지/);
+    expect(both.required_question).not.toMatch(/휴가 승인 기록|근무표/);
   });
 });
