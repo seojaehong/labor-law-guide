@@ -32,8 +32,15 @@ export interface Usage {
   cache_creation_input_tokens: number;
 }
 
-/** 묶음 하나를 묻는다 — 답(조문별) 또는 실패 사유 문자열 */
-export type Ask = (body: string) => Promise<Finding[] | string>;
+/** 묶음 하나를 묻는다 — 답(조문별) 또는 실패 사유 문자열. signal 이 끊기면 그 자리에서 실패로 돌려준다 */
+export type Ask = (body: string, signal?: AbortSignal) => Promise<Finding[] | string>;
+
+// 실패 사유는 화면 「개정 사유」 칸에 그대로 보이므로 사람이 읽는 말로 바꾼다
+const WHY: Record<string, string> = {
+  TimeoutError: '응답 시간 초과', AbortError: '응답 시간 초과', http_429: 'AI 요청 혼잡', http_529: 'AI 요청 혼잡',
+  refusal: 'AI 응답 거절', max_tokens: '응답이 잘림', parse_failed: '응답 해석 실패', SyntaxError: '응답 해석 실패',
+};
+const why = (code: string) => WHY[code] ?? (code.startsWith('http_5') ? 'AI 서버 오류' : '점검 오류');
 
 export const RESULTS: Result[] = ['문제없음', '현행 수정 필요', '시행 예정', '회사 선택', '추가 확인'];
 const RESULT_RANK: Record<Result, number> = { '현행 수정 필요': 0, '시행 예정': 1, '회사 선택': 2, '추가 확인': 3, 문제없음: 4 };
@@ -105,8 +112,10 @@ export function merge(found: Finding[]): Finding {
   return { ...best, disadvantage: worst };
 }
 
-export function failed(no: string, why: string): Finding {
-  return { no, result: '추가 확인', disadvantage: '확인 필요', reason: `판단 실패: ${why}`, basis: '', ops_note: '', proposed_text: '' };
+export const FAILED_PREFIX = '판단 실패: ';
+
+export function failed(no: string, code: string): Finding {
+  return { no, result: '추가 확인', disadvantage: '확인 필요', reason: FAILED_PREFIX + why(code), basis: '', ops_note: '', proposed_text: '' };
 }
 
 async function pool<T, R>(items: T[], workers: number, fn: (x: T) => Promise<R>): Promise<R[]> {
@@ -126,30 +135,34 @@ async function pool<T, R>(items: T[], workers: number, fn: (x: T) => Promise<R>)
  *  어느 회차도 답하지 않은 조문은 한 번 더 묻고, 그래도 없으면 「추가 확인」. */
 export async function judgeAll(
   pairs: ArticlePair[], drops: Map<string, Drop[]>, hits: Map<string, RuleHit[]>,
-  opts: { ask: Ask; size?: number; runs?: number; workers?: number; headcount?: string },
+  opts: { ask: Ask; size?: number; runs?: number; workers?: number; headcount?: string; signal?: AbortSignal },
 ): Promise<Map<string, Finding>> {
-  const { ask, size = 8, runs = 2, workers = 8, headcount = '' } = opts;
+  const { ask, size = 8, runs = 2, workers = 8, headcount = '', signal } = opts;
   const groups = chunks(pairs, size);
   const jobs = Array.from({ length: runs }, (_, k) => groups.map((_, gi) => [k, gi] as const)).flat();
-  const got = await pool(jobs, workers, ([, gi]) => ask(body(groups[gi], drops, hits, headcount)));
-  const out = new Map<string, Finding>();
-  for (let gi = 0; gi < groups.length; gi++) {
-    const group = groups[gi];
-    const answers = jobs.map((j, i) => (j[1] === gi ? got[i] : null)).filter((x): x is Finding[] | string => x !== null);
-    const found = new Map<string, Finding[]>();
-    const add = (fs: Finding[]) => fs.forEach((f) => found.set(f.no, [...(found.get(f.no) ?? []), f]));
-    for (const a of answers) if (typeof a !== 'string') add(a);
-    const fails = answers.filter((a): a is string => typeof a === 'string');
-    let why = fails[0] ?? '묶음 답에서 빠짐';
-    const left = group.filter((p) => !found.has(p.no));
-    if (left.length) { // 어느 회차도 답하지 않은 조문만 한 번 더 묻는다
-      const again = await ask(body(left, drops, hits, headcount));
-      if (typeof again === 'string') why = again;
-      else add(again);
+  const got = await pool(jobs, workers, ([, gi]) => ask(body(groups[gi], drops, hits, headcount), signal));
+  const found = groups.map((group, gi) => {
+    const m = new Map<string, Finding[]>();
+    for (const [i, j] of jobs.entries()) {
+      const a = got[i];
+      if (j[1] === gi && typeof a !== 'string') a.forEach((f) => m.set(f.no, [...(m.get(f.no) ?? []), f]));
     }
+    const fails = jobs.flatMap((j, i) => (j[1] === gi && typeof got[i] === 'string' ? [got[i] as string] : []));
+    return { group, m, code: fails[0] ?? '묶음 답에서 빠짐' };
+  });
+  // 어느 회차도 답하지 않은 조문만 한 번 더 묻는다 — 묶음별로 동시에, 같은 시간 상한 안에서
+  const retry = signal?.aborted ? [] : found.filter((g) => g.group.some((p) => !g.m.has(p.no))); // 시간이 다 됐으면 재질문하지 않는다
+  const again = await pool(retry, workers, (g) => ask(body(g.group.filter((p) => !g.m.has(p.no)), drops, hits, headcount), signal));
+  retry.forEach((g, i) => {
+    const a = again[i];
+    if (typeof a === 'string') g.code = a;
+    else a.forEach((f) => g.m.set(f.no, [...(g.m.get(f.no) ?? []), f]));
+  });
+  const out = new Map<string, Finding>();
+  for (const { group, m, code } of found) {
     for (const p of group) {
-      const fs = found.get(p.no);
-      if (!fs) out.set(p.no, failed(p.no, why));
+      const fs = m.get(p.no);
+      if (!fs) out.set(p.no, failed(p.no, code));
       else {
         const f = merge(fs);
         if (f.result !== '문제없음') out.set(p.no, f);
@@ -170,24 +183,30 @@ export function usd(u: Usage): number {
 export function anthropicAsk(opts: {
   apiKey: string; model?: string; effort?: string; timeoutMs?: number; usage: Usage; fetchImpl?: typeof fetch;
 }): Ask {
-  const { apiKey, model = 'claude-sonnet-5-5', effort = 'medium', timeoutMs = 150_000, usage, fetchImpl = fetch } = opts;
-  return async (content) => {
+  const { apiKey, model = 'claude-sonnet-5-5', effort = 'medium', timeoutMs = 120_000, usage, fetchImpl = fetch } = opts;
+  const request = (content: string, signal?: AbortSignal) => fetchImpl('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
+    body: JSON.stringify({
+      model, max_tokens: 16000,
+      output_config: { effort, format: { type: 'json_schema', schema: BATCH_SCHEMA } },
+      system: [{ type: 'text', text: BATCH_SYSTEM, cache_control: { type: 'ephemeral' } }],
+      messages: [{ role: 'user', content }],
+    }),
+    // 호출마다의 상한과 요청 전체의 상한 중 먼저 오는 쪽에서 끊는다
+    signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(timeoutMs)]) : AbortSignal.timeout(timeoutMs),
+  });
+  return async (content, signal) => {
     try {
-      const res = await fetchImpl('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
-        body: JSON.stringify({
-          model, max_tokens: 16000,
-          output_config: { effort, format: { type: 'json_schema', schema: BATCH_SCHEMA } },
-          system: [{ type: 'text', text: BATCH_SYSTEM, cache_control: { type: 'ephemeral' } }],
-          messages: [{ role: 'user', content }],
-        }),
-        signal: AbortSignal.timeout(timeoutMs),
-      });
+      let res = await request(content, signal);
+      if ((res.status === 429 || res.status === 529) && !signal?.aborted) { // 동시에 여러 묶음을 보내므로 혼잡이면 한 번만 쉬었다 다시
+        await new Promise((r) => setTimeout(r, 2000));
+        res = await request(content, signal);
+      }
       if (!res.ok) return `http_${res.status}`;
       const data = await res.json();
       for (const k of Object.keys(usage) as (keyof Usage)[]) usage[k] += Number(data.usage?.[k] ?? 0);
-      if (data.stop_reason === 'refusal') return 'refusal';
+      if (data.stop_reason === 'refusal' || data.stop_reason === 'max_tokens') return data.stop_reason;
       const text = (data.content ?? []).find((b: { type: string }) => b.type === 'text')?.text ?? '';
       const parsed = JSON.parse(text);
       return Array.isArray(parsed?.findings) ? (parsed.findings as Finding[]) : 'parse_failed';

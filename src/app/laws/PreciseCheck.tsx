@@ -4,6 +4,7 @@
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { FileDown, Send } from 'lucide-react';
+import TurnstileWidget from '@/components/TurnstileWidget';
 
 export const PRECISE_ENABLED = process.env.NEXT_PUBLIC_WORK_RULES_PRECISE === '1';
 
@@ -21,23 +22,27 @@ export default function PreciseCheck({ text, since, toast }: { text: string; sin
   const [error, setError] = useState<string | null>(null);
   const [res, setRes] = useState<{ runId: string; rows: Row[]; articles: number } | null>(null);
   const [marks, setMarks] = useState<Record<string, Verdict>>({});
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const runSeq = useRef(0);
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => () => { if (timer.current) clearInterval(timer.current); }, []);
-  // 본문이 바뀌면 이전 결과는 다른 문서의 것이다
-  useEffect(() => { setRes(null); setMarks({}); }, [text]);
+  // 본문·기간이 바뀌면 이전 결과(진행 중인 것 포함)는 다른 입력의 것이다
+  useEffect(() => { runSeq.current++; setRes(null); setMarks({}); }, [text, since]);
 
   const run = async () => {
     setBusy(true); setError(null); setRes(null); setMarks({}); setElapsed(0);
+    const seq = ++runSeq.current;
     const t0 = Date.now();
     timer.current = setInterval(() => setElapsed(Math.round((Date.now() - t0) / 1000)), 1000);
     try {
       const r = await fetch('/api/tools/work-rules-precise', {
         method: 'POST', headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ rules: text, old: old.trim() || null, since, headcount: headcount.trim(), store }),
+        body: JSON.stringify({ rules: text, old: old.trim() || null, since, headcount: headcount.trim(), store, turnstileToken }),
       });
       const body = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(body.message ?? '정밀 점검을 하지 못했습니다.');
+      if (seq !== runSeq.current) return; // 그사이 입력이 바뀌었다
       setRes(body);
       toast(`정밀 점검을 마쳤습니다 — 조문 ${body.articles}개 중 ${body.rows.length}건을 확인할 항목으로 올렸습니다`);
     } catch (e) {
@@ -45,6 +50,9 @@ export default function PreciseCheck({ text, since, toast }: { text: string; sin
     } finally {
       if (timer.current) clearInterval(timer.current);
       setBusy(false);
+      // Turnstile 토큰은 1회용 — 비우고 재발급시킨다(PhotoUploadCard 와 같다)
+      setTurnstileToken(null);
+      try { window.turnstile?.reset(); } catch { /* ignore */ }
     }
   };
 
@@ -84,7 +92,7 @@ export default function PreciseCheck({ text, since, toast }: { text: string; sin
       <p className="lr-check-note">
         위 점검은 낱말 대조입니다. 정밀 점검은 조문마다 법령 기준 충족·종전 대비 불이익변경·운영 가능성을 AI 가 대조합니다.
         <b> 실행하면 입력한 본문 전체가 우리 서버를 거쳐 외부 AI 제공사(Anthropic)로 전송됩니다.</b>{' '}
-        보관에 동의하지 않으면 조문 본문은 저장하지 않고 점검 결과만 남깁니다. 결과는 노무사 검수 전 초안이며, 1분 안팎 걸리고 하루 3회까지 쓸 수 있습니다.
+        보관에 동의하지 않으면 조문 본문은 저장하지 않고 점검 결과만 남깁니다. 결과는 노무사 검수 전 초안입니다. 문서 한 벌에 보통 1~2분 걸리고, 하루 이용 횟수가 정해져 있습니다.
       </p>
       <details>
         <summary>종전 취업규칙과 비교하기(선택)</summary>
@@ -94,6 +102,7 @@ export default function PreciseCheck({ text, since, toast }: { text: string; sin
         <label>상시 근로자 수 <input value={headcount} onChange={(e) => setHeadcount(e.target.value)} inputMode="numeric" size={5} aria-label="상시 근로자 수" /> 명</label>
         <label><input type="checkbox" checked={store} onChange={(e) => setStore(e.target.checked)} /> 점검 개선을 위해 본문 보관에 동의합니다(선택)</label>
         <span className="sp" />
+        <TurnstileWidget onToken={setTurnstileToken} />
         <button className="lr-btn lr-btn-sm" onClick={run} disabled={busy || !text.trim()}><Send size={14} /> {busy ? `점검 중… ${elapsed}초` : '정밀 점검 실행'}</button>
       </div>
       {error && <p className="lr-file-error" role="alert">{error}</p>}

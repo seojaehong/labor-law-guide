@@ -8,12 +8,14 @@ import { isTurnstileEnabled, verifyTurnstile } from '@/lib/turnstile';
 import { extractIp, hashIp } from '@/lib/client-ip';
 import type { RuleSpec } from '@/lib/laws/rules-check';
 import { anthropicAsk, usd, type Usage } from '@/lib/laws/precise/judge';
-import { precisePipeline, rowsForStore } from '@/lib/laws/precise/pipeline';
+import { splitArticles } from '@/lib/laws/precise/articles';
+import { MAX_ARTICLES, precisePipeline, rowsForStore } from '@/lib/laws/precise/pipeline';
 import rulesJson from '../../../../../public/data/laws/rules.json';
 
 export const runtime = 'nodejs';
-// 2회 × 13묶음 안팎을 8개씩 동시에 — 실측 45~75초(2026-10-22). 묶음 하나가 늦어도 플랫폼 타임아웃 전에 끝나게 둔다
+// 2회 × 13묶음 안팎을 8개씩 동시에 — 실측 45~75초(2026-10-22). 300초는 Vercel Pro 이상에서 허용된다(newsletter 라우트도 300)
 export const maxDuration = 300;
+const DEADLINE_MS = 240_000; // 불변식: DEADLINE_MS + 마무리(저장·응답) < maxDuration
 
 const MAX_CHARS = 300_000; // 취업규칙 한 벌은 5만~10만 자다
 const IP_DAILY_LIMIT = parseInt(process.env.WORK_RULES_PRECISE_IP_DAILY_LIMIT || '3', 10);
@@ -74,6 +76,15 @@ export async function POST(req: Request): Promise<Response> {
     return json(413, { error: 'too_large', message: '본문이 너무 깁니다. 취업규칙 본칙만 넣어 주세요.' });
   }
 
+  // 횟수를 쓰기 전에 값싼 검사부터 — 목차만 붙여넣은 경우에 하루 횟수를 깎지 않는다
+  const arts = splitArticles(rules);
+  if (!arts.some((a) => a.body.trim())) {
+    return json(422, { error: 'empty_rules', message: '조문(제N조)을 찾지 못했습니다. 목차만 들어갔는지 확인해 주세요.' });
+  }
+  if (arts.length + (old ? splitArticles(old).length : 0) > MAX_ARTICLES) {
+    return json(413, { error: 'too_many_articles', message: `조문이 ${MAX_ARTICLES}개를 넘습니다. 취업규칙 한 벌씩 넣어 주세요.` });
+  }
+
   const ip = extractIp(req);
   if (isTurnstileEnabled()) {
     const ts = await verifyTurnstile(str(input.turnstileToken) || null, ip);
@@ -81,20 +92,21 @@ export async function POST(req: Request): Promise<Response> {
       return json(403, { error: 'bot_check_failed', message: '자동 확인에 실패했습니다. 잠시 후 다시 시도해 주세요.' });
     }
   }
-  // 전역 캡을 먼저 본다 — 여기서 막혀야 개별 카운터가 올라가지 않는다
-  if (!(await underLimit('global', 'wrp_all', GLOBAL_DAILY_LIMIT))) {
-    return json(429, { error: 'rate_limited', message: '오늘 정밀 점검 한도가 찼습니다. 내일 다시 이용해 주세요.' });
-  }
+  // 개인 횟수를 먼저 본다 — 이미 막힌 한 사람이 전체 한도를 깎지 못하게
   if (!(await underLimit('ip', `wrp:${hashIp(ip)}`, IP_DAILY_LIMIT))) {
     return json(429, { error: 'rate_limited', message: `정밀 점검은 하루 ${IP_DAILY_LIMIT}회까지 이용할 수 있습니다.` });
+  }
+  if (!(await underLimit('global', 'wrp_all', GLOBAL_DAILY_LIMIT))) {
+    return json(429, { error: 'rate_limited', message: '오늘 정밀 점검 한도가 찼습니다. 내일 다시 이용해 주세요.' });
   }
 
   const t0 = Date.now();
   const usage: Usage = { input_tokens: 0, output_tokens: 0, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 };
   let result;
   try {
+    // 요청 전체 상한 — 플랫폼 타임아웃(maxDuration)보다 먼저 끊어 JSON 으로 답한다. 끊긴 묶음은 「추가 확인」으로 남는다
     result = await precisePipeline({ rules, old, since, headcount }, (rulesJson as { rules: RuleSpec[] }).rules,
-      { ask: anthropicAsk({ apiKey, usage }), runs: 2, workers: 8 });
+      { ask: anthropicAsk({ apiKey, usage }), runs: 2, workers: 8, signal: AbortSignal.timeout(DEADLINE_MS) });
   } catch (err) {
     const code = err instanceof Error ? err.message : '';
     if (code === 'empty_rules' || code === 'empty_old') {
@@ -102,6 +114,10 @@ export async function POST(req: Request): Promise<Response> {
     }
     console.error('[work-rules-precise] pipeline failed', err instanceof Error ? err.name : 'unknown');
     return json(502, { error: 'judge_failed', message: '점검 중 오류가 났습니다. 잠시 후 다시 시도해 주세요.' });
+  }
+  if (usage.output_tokens === 0) { // 한 묶음도 답을 못 받았다 — 전부 「판단 실패」인 표를 성공으로 내지 않는다
+    console.error('[work-rules-precise] all calls failed');
+    return json(502, { error: 'judge_failed', message: 'AI 점검 서버가 응답하지 않았습니다. 잠시 후 다시 시도해 주세요.' });
   }
   const cost = Math.round(usd(usage) * 1e4) / 1e4;
   const seconds = Math.round((Date.now() - t0) / 100) / 10;

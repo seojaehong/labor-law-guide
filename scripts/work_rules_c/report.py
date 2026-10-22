@@ -11,14 +11,12 @@ from work_rules_c.triage import Triage
 
 COLUMNS = ["조문", "현행", "개정안", "개정 사유", "근거·시행일", "불이익변경", "점검 결과", "운영 메모", "제안 문안"]
 
-# 산출물에 못 쓰는 말(NOW.md — 직무 표방·확률 숫자 금지). 모델이 쓴 글에서 바꾸거나 지운다
-REPLACE = {"판정": "점검 결과", "자문": "검토", "상담": "문의", "진단": "점검"}
-PROB = re.compile(r"(?:확률|가능성|정확도)\s*[:은는이가]?\s*\d+(?:\.\d+)?\s*%?|(?:확률|정확도)")
+# 확률 숫자는 산출물에 쓰지 않는다(NOW.md). 모델이 쓴 판단 글(개정 사유·운영 메모)에서만 지운다.
+# 「건강진단」「고충상담」「노동위원회 판정」 같은 법령 용어는 바꾸지 않는다 — 직무 표방 어휘는 프롬프트가 막는다(2026-10-22 리뷰)
+PROB = re.compile(r"(?:확률|정확도)\s*[:은는이가]?\s*\d+(?:\.\d+)?\s*%?|가능성\s*[:은는이가]?\s*\d+(?:\.\d+)?\s*%")
 
 
 def clean(text: str) -> str:
-    for a, b in REPLACE.items():
-        text = text.replace(a, b)
     return re.sub(r"\s{2,}", " ", PROB.sub("", text)).strip()
 
 
@@ -55,12 +53,12 @@ def build_rows(pairs: list[ArticlePair], drops: dict[str, list[Drop]], hits: dic
             "현행": p.old.body if p.old else "",
             "개정안": p.new.body if p.new else "",
             "개정 사유": clean(j.reason) if j else "",
-            "근거·시행일": clean(j.basis) if j and j.basis else _basis(h),
+            "근거·시행일": j.basis if j and j.basis else _basis(h),
             "불이익변경": disadvantage,
             "점검 결과": "현행 수정 필요" if p.no in dups and (not j or j.result == "추가 확인") else (
                 j.result if j else "추가 확인"),
             "운영 메모": " · ".join(m for m in memo if m),
-            "제안 문안": clean(j.proposed_text) if j else "",
+            "제안 문안": j.proposed_text if j else "",  # 조문 문안은 손대지 않는다
         }
         rows.append({k: row[k] for k in COLUMNS})
     for h in hits.get(NEW_BUCKET, []):

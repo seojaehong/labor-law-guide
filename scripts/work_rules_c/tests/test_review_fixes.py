@@ -161,13 +161,14 @@ def test_unchanged_article_is_checked():
 
 
 # Important 10 — 금지어·확률이 산출물로 새지 않는다
-def test_forbidden_words_scrubbed_from_rows():
-    j = JudgeOut(result="회사 선택", disadvantage="해당", reason="노무사 판정과 자문이 필요하다. 확률 0.72",
-                 basis="", ops_note="상담 권장", proposed_text="")
+def test_probability_numbers_scrubbed_legal_terms_kept():
+    """확률 숫자는 지우되 법령 용어(건강진단·고충상담·노동위원회 판정)와 제안 문안은 바꾸지 않는다(2026-10-22 리뷰)."""
+    j = JudgeOut(result="회사 선택", disadvantage="해당", reason="노동위원회 판정 사례가 있다. 확률 0.72",
+                 basis="산업안전보건법 제129조(건강진단)", ops_note="고충상담 창구 운영", proposed_text="건강진단을 실시한다.")
     rows = build_rows([changed_pair()], {}, {}, {"제50조": Triage("제50조", "확인필요", (), True)}, {"제50조": j})
-    text = rows[0]["개정 사유"] + rows[0]["운영 메모"]
-    for w in ("판정", "자문", "상담", "확률"):
-        assert w not in text
+    assert "확률" not in rows[0]["개정 사유"] and "노동위원회 판정" in rows[0]["개정 사유"]
+    assert "고충상담" in rows[0]["운영 메모"] and rows[0]["제안 문안"] == "건강진단을 실시한다."
+    assert rows[0]["근거·시행일"] == "산업안전보건법 제129조(건강진단)"
 
 
 def test_judge_payload_has_no_probabilities():

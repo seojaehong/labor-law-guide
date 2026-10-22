@@ -128,6 +128,28 @@ describe('묶음 판단', () => {
     expect(peak).toBeGreaterThan(1);
   });
 
+  it('요청 전체 시간이 끊기면 남은 묶음은 기다리지 않고 「추가 확인」(사람이 읽는 사유)', async () => {
+    const ctl = new AbortController();
+    const slow = (_b: string, s?: AbortSignal) => new Promise<Finding[] | string>((res) => {
+      const t = setTimeout(() => res([]), 10_000);
+      s?.addEventListener('abort', () => { clearTimeout(t); res('TimeoutError'); });
+    });
+    setTimeout(() => ctl.abort(), 30);
+    const t0 = Date.now();
+    const out = await judgeAll(pairs(3), new Map(), new Map(), { ask: slow, runs: 2, workers: 8, signal: ctl.signal });
+    expect(Date.now() - t0).toBeLessThan(2000);
+    expect(out.get('제1조')?.reason).toBe('판단 실패: 응답 시간 초과');
+  });
+
+  it('혼잡(529)이면 한 번 쉬었다 다시 묻는다', async () => {
+    const usage = { input_tokens: 0, output_tokens: 0, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 };
+    let n = 0;
+    const fetchImpl = (async () => (++n === 1 ? new Response('', { status: 529 })
+      : new Response(JSON.stringify({ stop_reason: 'end_turn', usage: { output_tokens: 1 }, content: [{ type: 'text', text: '{"findings":[]}' }] })))) as unknown as typeof fetch;
+    expect(await anthropicAsk({ apiKey: 'k', usage, fetchImpl })('{}')).toEqual([]);
+    expect(n).toBe(2);
+  }, 10_000);
+
   it('상시 인원이 묶음 입력에 들어간다', async () => {
     let seen = '';
     await judgeAll(pairs(1), new Map(), new Map(), { ask: async (b) => { seen = JSON.parse(b)['사업장 상시 인원']; return [f('제1조')]; }, runs: 1, headcount: '24' });
@@ -178,14 +200,32 @@ describe('파이프라인', () => {
     await expect(precisePipeline({ rules: '목 차\n제1조(목적)\n제2조(적용)', since: '20230101' }, [], { ask: ask([]) })).rejects.toThrow('empty_rules');
   });
 
-  it('보관 동의가 없으면 저장 행에 조문 원문이 남지 않는다', () => {
-    const row = { 조문: '제1조', 현행: '종전 원문', 개정안: '개정 원문', '개정 사유': 'r', '근거·시행일': '', 불이익변경: '해당 없음', '점검 결과': '회사 선택', '운영 메모': '', '제안 문안': '' };
-    expect(rowsForStore([row], false)[0]).toMatchObject({ 현행: '', 개정안: '', '개정 사유': 'r' });
+  it('보관 동의가 없으면 저장 행에 조문 원문·원문을 옮기기 쉬운 칸이 남지 않는다', () => {
+    const row = { 조문: '제1조', 현행: '종전 원문', 개정안: '개정 원문', '개정 사유': '원문 인용', '근거·시행일': '근로기준법 제60조', 불이익변경: '해당 없음', '점검 결과': '회사 선택', '운영 메모': '원문', '제안 문안': '원문 고쳐 씀' };
+    expect(rowsForStore([row], false)[0]).toEqual({ ...row, 현행: '', 개정안: '', '개정 사유': '', '운영 메모': '', '제안 문안': '' });
     expect(rowsForStore([row], true)[0].현행).toBe('종전 원문');
   });
 
-  it('금지어·확률 숫자를 지운다', () => {
-    expect(clean('판정 결과 확률 80% 자문')).toBe('점검 결과 결과 검토');
+  it('확률 숫자만 지우고 법령 용어는 그대로 둔다', () => {
+    expect(clean('가능성 80% 건강진단과 고충상담, 노동위원회 판정 확률 0.72')).toBe('건강진단과 고충상담, 노동위원회 판정');
+  });
+
+  it('제안 문안은 손대지 않는다', async () => {
+    const fin = { ...f('제1조', '현행 수정 필요'), proposed_text: '회사는 건강진단을 실시한다. 고충상담 창구를 둔다.' };
+    const r = await precisePipeline({ rules: '제1조(건강) 건강진단', since: '20230101' }, [], { ask: ask([fin]), runs: 1 });
+    expect(r.rows[0]['제안 문안']).toBe(fin.proposed_text);
+  });
+
+  it('조문이 너무 많으면 호출 전에 거절한다', async () => {
+    const big = Array.from({ length: 301 }, (_, i) => `제${i + 1}조(t) 본문`).join('\n');
+    let called = false;
+    await expect(precisePipeline({ rules: big, since: '20230101' }, [], { ask: async () => { called = true; return []; } }))
+      .rejects.toThrow('too_many_articles');
+    expect(called).toBe(false);
+  });
+
+  it('전각 숫자·낱 CR 줄바꿈도 조문으로 나눈다', () => {
+    expect(nos('제１조(목적) 목적\r제２조(적용) 적용')).toEqual(['제1조', '제2조']);
   });
 });
 

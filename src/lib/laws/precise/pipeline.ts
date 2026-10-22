@@ -9,14 +9,13 @@ export const COLUMNS = ['조문', '현행', '개정안', '개정 사유', '근�
 export type Row = Record<(typeof COLUMNS)[number], string>;
 export const NEW_BUCKET = '(신설 필요)';
 
-// 산출물에 못 쓰는 말(NOW.md — 직무 표방·확률 숫자 금지). 모델이 쓴 글에서 바꾸거나 지운다
-const REPLACE: [string, string][] = [['판정', '점검 결과'], ['자문', '검토'], ['상담', '문의'], ['진단', '점검']];
-const PROB = /(?:확률|가능성|정확도)\s*[:은는이가]?\s*\d+(?:\.\d+)?\s*%?|(?:확률|정확도)/g;
+// 확률 숫자는 산출물에 쓰지 않는다(NOW.md). 모델이 쓴 판단 글(개정 사유·운영 메모)에서만 지운다.
+// 「건강진단」「고충상담」「노동위원회 판정」 같은 법령 용어는 바꾸지 않는다 — 직무 표방 어휘는 프롬프트가 막는다
+const PROB = /(?:확률|정확도)\s*[:은는이가]?\s*\d+(?:\.\d+)?\s*%?|가능성\s*[:은는이가]?\s*\d+(?:\.\d+)?\s*%/g;
+export const MAX_ARTICLES = 300; // 취업규칙 한 벌은 60~120조다 — 넘으면 호출 수·비용 상한이 깨진다
 
 export function clean(text: string): string {
-  let t = text;
-  for (const [a, b] of REPLACE) t = t.split(a).join(b);
-  return t.replace(PROB, '').replace(/\s{2,}/g, ' ').trim();
+  return text.replace(PROB, '').replace(/\s{2,}/g, ' ').trim();
 }
 
 const dotted = (d: string) => `${d.slice(0, 4)}.${d.slice(4, 6)}.${d.slice(6, 8)}.`;
@@ -35,9 +34,10 @@ export function mapRules(articles: { no: string; title: string; body: string }[]
   return out;
 }
 
-/** 저장용 행 — 본문 보관에 동의하지 않았으면 조문 원문(현행·개정안)을 비우고 점검 결과만 남긴다. */
+/** 저장용 행 — 본문 보관에 동의하지 않았으면 조문 원문과 원문을 옮겨 적기 쉬운 칸(사유·메모·제안 문안)을 비우고
+ *  조문 번호·점검 결과·불이익변경·근거만 남긴다. */
 export function rowsForStore(rows: Row[], store: boolean): Row[] {
-  return store ? rows : rows.map((r) => ({ ...r, 현행: '', 개정안: '' }));
+  return store ? rows : rows.map((r) => ({ ...r, 현행: '', 개정안: '', '개정 사유': '', '운영 메모': '', '제안 문안': '' }));
 }
 
 export interface PreciseInput {
@@ -54,12 +54,13 @@ export interface PreciseResult {
 }
 
 export async function precisePipeline(input: PreciseInput, ruleSpecs: RuleSpec[],
-  opts: { ask: Ask; runs?: number; workers?: number; size?: number }): Promise<PreciseResult> {
+  opts: { ask: Ask; runs?: number; workers?: number; size?: number; signal?: AbortSignal }): Promise<PreciseResult> {
   const neu = splitArticles(input.rules);
   const old = input.old ? splitArticles(input.old) : [];
   if (!neu.some((a) => a.body.trim())) throw new Error('empty_rules');
   if (input.old && !old.some((a) => a.body.trim())) throw new Error('empty_old');
   const pairs = pairArticles(old, neu);
+  if (pairs.length > MAX_ARTICLES) throw new Error('too_many_articles');
   const drops = new Map(pairs.map((p) => [p.no, quantityDrops(p)]));
   const hits = mapRules(neu, input.since, ruleSpecs);
   const known = new Set(pairs.map((p) => p.no));
@@ -69,7 +70,7 @@ export async function precisePipeline(input: PreciseInput, ruleSpecs: RuleSpec[]
       hits.delete(k);
     }
   }
-  const judged = await judgeAll(pairs, drops, hits, { ...opts, headcount: input.headcount ?? '' });
+  const judged = await judgeAll(pairs, drops, hits, { ...opts, headcount: input.headcount ?? '' }); // opts.signal = 요청 전체 시간 상한
   const dups = duplicated(pairs.map((p) => p.no));
   const rows: Row[] = [];
   for (const p of pairs) {
@@ -101,10 +102,10 @@ function row(p: ArticlePair, d: Drop[], h: RuleHit[], j: Finding | null, dup: bo
     현행: p.old?.body ?? '',
     개정안: p.new?.body ?? '',
     '개정 사유': j ? clean(j.reason) : '',
-    '근거·시행일': j?.basis ? clean(j.basis) : basisOf(h),
+    '근거·시행일': j?.basis ? j.basis : basisOf(h),
     불이익변경: disadvantage,
     '점검 결과': result,
     '운영 메모': memo.filter(Boolean).join(' · '),
-    '제안 문안': j ? clean(j.proposed_text) : '',
+    '제안 문안': j ? j.proposed_text : '', // 조문 문안은 손대지 않는다 — 법령 용어가 깨진다
   };
 }

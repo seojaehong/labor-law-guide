@@ -25,12 +25,15 @@ const TRAILING_PAGE_MARK = /\s+-\s*\d+\s*-\s*$/;
 const CHAPTER = /^\s*제\s*\d+\s*(?:장|절|관)(?:\s|$)/; // 장·절 제목 — 어느 조문의 본문도 아니다
 const TOC_REST = /^(?:\[[^\]]*\]\s*)*\.*\s*\d*$/; // 목차 줄 꼬리: 「[필수] 7」·「…… 12」·쪽 번호뿐
 const STOP = /^\s*(?:부\s*칙|개정\s*부\s*칙|附\s*則|[[【]\s*별\s*[지표]|별\s*[지표]\s*제?\s*\d+\s*호)/;
+const LINE_BREAK = /\r\n|[\n\r\v\f\x1c-\x1e\x85\u2028\u2029]/; // 파이썬 splitlines() 와 같은 줄 구분
 export const DUP = '(번호 중복)';
 
 export function splitArticles(text: string): Article[] {
   const found = new Map<string, { title: string; lines: string[] }>();
   let current: string | null = null;
-  for (const raw of text.split(/\r?\n/)) {
+  // 파이썬 splitlines()·유니코드 \d 와 맞춘다 — 한글 변환본에 전각 숫자(제１조)·낱 \r·문단 구분자가 섞여 온다
+  const normalized = text.replace(/[０-９]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0xfee0));
+  for (const raw of normalized.split(LINE_BREAK)) {
     const line = raw.replace(TRAILING_PAGE_MARK, '').trim();
     if (!line || PAGE_MARK.test(line) || CHAPTER.test(line)) continue;
     if (STOP.test(line)) {
