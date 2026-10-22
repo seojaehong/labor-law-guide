@@ -20,39 +20,64 @@ export default function PreciseCheck({ text, since, toast }: { text: string; sin
   const [busy, setBusy] = useState(false);
   const [elapsed, setElapsed] = useState(0);
   const [error, setError] = useState<string | null>(null);
-  const [res, setRes] = useState<{ runId: string; rows: Row[]; articles: number } | null>(null);
+  const [res, setRes] = useState<{ runId: string; rows: Row[]; articles: number; review?: { incomplete: number; conflicts: number; asOf: string; since: string } } | null>(null);
   const [marks, setMarks] = useState<Record<string, Verdict>>({});
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const active = useRef<AbortController | null>(null);
   const runSeq = useRef(0);
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  useEffect(() => () => { if (timer.current) clearInterval(timer.current); }, []);
-  // 본문·기간이 바뀌면 이전 결과(진행 중인 것 포함)는 다른 입력의 것이다
-  useEffect(() => { runSeq.current++; setRes(null); setMarks({}); }, [text, since]);
+  useEffect(() => () => { active.current?.abort(); if (timer.current) clearInterval(timer.current); }, []);
+  // 입력이 바뀌면 이전 결과와 대기를 무효화한다. 서버 비용 취소를 보장하는 기능은 아니다.
+  useEffect(() => {
+    runSeq.current++;
+    const wasRunning = !!active.current;
+    active.current?.abort(); active.current = null;
+    if (timer.current) clearInterval(timer.current);
+    if (wasRunning) {
+      setTurnstileToken(null);
+      try { window.turnstile?.reset(); } catch { /* ignore */ }
+    }
+    setBusy(false); setRes(null); setMarks({}); setError(null);
+  }, [text, since, old, headcount, store]);
+
+  const cancel = () => {
+    runSeq.current++;
+    active.current?.abort(); active.current = null;
+    if (timer.current) clearInterval(timer.current);
+    setBusy(false); setTurnstileToken(null);
+    try { window.turnstile?.reset(); } catch { /* ignore */ }
+    setError('결과 대기를 취소했습니다. 이미 시작된 서버 점검과 비용 발생은 계속될 수 있습니다.');
+  };
 
   const run = async () => {
+    if (active.current) return;
+    const controller = new AbortController(); active.current = controller;
     setBusy(true); setError(null); setRes(null); setMarks({}); setElapsed(0);
     const seq = ++runSeq.current;
     const t0 = Date.now();
     timer.current = setInterval(() => setElapsed(Math.round((Date.now() - t0) / 1000)), 1000);
     try {
       const r = await fetch('/api/tools/work-rules-precise', {
-        method: 'POST', headers: { 'content-type': 'application/json' },
+        method: 'POST', signal: controller.signal, headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ rules: text, old: old.trim() || null, since, headcount: headcount.trim(), store, turnstileToken }),
       });
       const body = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(body.message ?? '정밀 점검을 하지 못했습니다.');
       if (seq !== runSeq.current) return; // 그사이 입력이 바뀌었다
       setRes(body);
-      toast(`정밀 점검을 마쳤습니다 — 조문 ${body.articles}개 중 ${body.rows.length}건을 확인할 항목으로 올렸습니다`);
+      toast(`AI 검수 초안을 받았습니다 — 조문 ${body.articles}개 중 ${body.rows.length}건을 확인할 항목으로 올렸습니다`);
     } catch (e) {
-      setError((e as Error).message);
+      if (seq === runSeq.current && !controller.signal.aborted) setError((e as Error).message);
     } finally {
-      if (timer.current) clearInterval(timer.current);
-      setBusy(false);
-      // Turnstile 토큰은 1회용 — 비우고 재발급시킨다(PhotoUploadCard 와 같다)
-      setTurnstileToken(null);
-      try { window.turnstile?.reset(); } catch { /* ignore */ }
+      if (seq === runSeq.current) {
+        active.current = null;
+        if (timer.current) clearInterval(timer.current);
+        setBusy(false);
+        // Turnstile 토큰은 1회용 — 비우고 재발급시킨다(PhotoUploadCard 와 같다)
+        setTurnstileToken(null);
+        try { window.turnstile?.reset(); } catch { /* ignore */ }
+      }
     }
   };
 
@@ -71,7 +96,7 @@ export default function PreciseCheck({ text, since, toast }: { text: string; sin
     const { comparisonXlsx } = await import('@/lib/laws/comparison-xlsx');
     const head = ['조문', '현행', '개정안', '개정 사유', '근거·시행일', '불이익변경', '점검 결과', '운영 메모', '제안 문안'] as const;
     const blob = await comparisonXlsx({
-      title: '취업규칙 정밀 점검 대조표', intro: [`점검 시작일 ${since} 이후 시행 법령 기준 · AI 대조 초안(노무사 검수 전)`],
+      title: '취업규칙 정밀 점검 대조표', intro: [`점검 시작일 ${res.review?.since ?? since} 이후 시행 법령 기준 · 기준일 ${res.review?.asOf ?? "미기록"} · AI 대조 초안(노무사 검수 전)`, `검토 미완료 ${res.review?.incomplete ?? "미기록"}조 · 회차 의견 충돌 ${res.review?.conflicts ?? "미기록"}조`],
       head: [...head], rows: res.rows.map((x) => head.map((h) => x[h])), widths: [14, 40, 40, 36, 24, 12, 14, 30, 40],
       foot: ['AI 대조 결과는 노무사 검수 전 초안입니다. 불이익변경 여부와 최종 문안은 노무사 검토를 거쳐 정하세요.'],
     });
@@ -90,9 +115,9 @@ export default function PreciseCheck({ text, since, toast }: { text: string; sin
     <section className="lr-precise">
       <h3 className="lr-output-title">3. 정밀 점검 (AI 조문 대조 · 시험 운영)</h3>
       <p className="lr-check-note">
-        위 점검은 낱말 대조입니다. 정밀 점검은 조문마다 법령 기준 충족·종전 대비 불이익변경·운영 가능성을 AI 가 대조합니다.
+        위 점검은 낱말 대조입니다. 정밀 점검은 AI가 조문별 의미상 의심점·종전 대비 불이익변경 가능성·운영 검토 사항과 검수용 초안을 제시합니다. 법률 적합성을 확정하지 않습니다.
         <b> 실행하면 입력한 본문 전체가 우리 서버를 거쳐 외부 AI 제공사(Anthropic)로 전송됩니다.</b>{' '}
-        보관에 동의하지 않으면 조문 본문은 저장하지 않고 점검 결과만 남깁니다. 결과는 노무사 검수 전 초안입니다. 문서 한 벌에 보통 1~2분 걸리고, 하루 이용 횟수가 정해져 있습니다.
+        보관에 동의하지 않으면 조문 본문은 저장하지 않고 점검 결과만 남깁니다. 결과는 노무사 검수 전 초안입니다. 문서 한 벌에 보통 1~2분 걸리고, 하루 이용 횟수가 정해져 있습니다. 다시 실행하면 새 점검으로 횟수와 비용이 추가됩니다.
       </p>
       <details>
         <summary>종전 취업규칙과 비교하기(선택)</summary>
@@ -105,9 +130,13 @@ export default function PreciseCheck({ text, since, toast }: { text: string; sin
         <TurnstileWidget onToken={setTurnstileToken} />
         <button className="lr-btn lr-btn-sm" onClick={run} disabled={busy || !text.trim()}><Send size={14} /> {busy ? `점검 중… ${elapsed}초` : '정밀 점검 실행'}</button>
       </div>
+      {busy && <button className="lr-btn lr-btn-sm" onClick={cancel}>결과 대기 취소</button>}
       {error && <p className="lr-file-error" role="alert">{error}</p>}
       {res && (
         <>
+          <p role="status" className="lr-check-note">검수 보조 초안 · 법률 적합성 확인 완료를 의미하지 않습니다.
+            {res.review && ` 기준일 ${res.review.asOf} · 대조 시작일 ${res.review.since} · 검토 미완료 ${res.review.incomplete}조 · 회차 의견 충돌 ${res.review.conflicts}조`}
+          </p>
           <div className="lr-check-sum">
             {ORDER.map((k) => <div key={k}><span className={`n${k === '현행 수정 필요' ? ' fix' : ''}`}>{count(k)}</span>{k}</div>)}
             <span className="sp" />

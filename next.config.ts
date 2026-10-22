@@ -1,6 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  outputFileTracingIncludes: { '/api/tools/work-rules-precise': ['./public/data/laws/*.json'] },
   images: {
     formats: ['image/avif', 'image/webp'],
   },

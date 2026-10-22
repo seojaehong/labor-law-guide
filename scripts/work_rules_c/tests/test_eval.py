@@ -27,3 +27,17 @@ def test_cli_exit_1_on_miss(tmp_path):
     g.write_text(json.dumps({"case": "t", "items": [{"조문": "제1조"}]}), encoding="utf-8")
     r = subprocess.run([sys.executable, EVAL, "--pred", str(p), "--gold", str(g)], capture_output=True)
     assert r.returncode == 1 and json.loads(r.stdout)["missed"] == ["제1조"]
+
+
+def test_offline_comparison_reports_added_value_and_false_alarms():
+    from work_rules_c.eval import compare_baselines
+    gold = {"case": "synthetic-routing-not-legal-gold", "items": [{"조문": "제1조"}, {"조문": "제2조"}],
+            "negatives": [{"조문": "제3조", "점검 결과": "현행 수정 필요"}]}
+    baseline = {"rows": [{"조문": "제1조"}]}
+    augmented = {"rows": [{"조문": "제2조"}, {"조문": "제3조", "점검 결과": "현행 수정 필요"}, {"조문": "제4조"}]}
+    r = compare_baselines(baseline, augmented, gold)
+    assert r["recovered"] == ["제2조"]
+    assert r["regressed"] == ["제1조"]
+    assert r["added_false_alarms"] == ["제3조"]
+    assert r["rules_plus_ai"]["unlabelled"] == ["제4조"]
+    assert r["legal_accuracy_proven"] is False
