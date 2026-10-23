@@ -114,6 +114,22 @@ async function buildStaticAndBlogSitemap(): Promise<SitemapEntry[]> {
     { url: `${SITE_URL}/privacy`, lastModified: CONTACT_LAST_MODIFIED, changeFrequency: 'yearly', priority: 0.5 },
     { url: `${SITE_URL}/terms`, lastModified: CONTACT_LAST_MODIFIED, changeFrequency: 'yearly', priority: 0.5 },
     { url: `${SITE_URL}/faq`, lastModified: latestContentDate, changeFrequency: 'weekly', priority: 0.85 },
+    // 🔴 2026-10-22 — 아래 여덟은 **만들어 놓고 사이트맵에 안 넣은** 것들이다.
+    //   200 으로 살아 있고 noindex 도 아닌데 구글에 전달되지 않았다(실측: 사이트맵 1,129건 중 0건).
+    //   staticRoutes 가 손으로 관리하는 목록이라 새 페이지를 만들 때마다 여기 넣는 것을 빠뜨렸다.
+    //   같은 일이 또 생기지 않도록 tests/unit/sitemap-covers-pages.test.ts 를 같이 둔다.
+    { url: `${SITE_URL}/duties`, lastModified: new Date('2026-10-21T00:00:00.000Z'), changeFrequency: 'monthly', priority: 0.9 },
+    { url: `${SITE_URL}/exit`, lastModified: new Date('2026-10-22T00:00:00.000Z'), changeFrequency: 'monthly', priority: 0.85 },
+    { url: `${SITE_URL}/exit-employer`, lastModified: new Date('2026-10-22T00:00:00.000Z'), changeFrequency: 'monthly', priority: 0.85 },
+    { url: `${SITE_URL}/tools/work-rules`, lastModified: new Date('2026-10-21T00:00:00.000Z'), changeFrequency: 'weekly', priority: 0.9 },
+    { url: `${SITE_URL}/tools/leave`, lastModified: new Date('2026-09-01T00:00:00.000Z'), changeFrequency: 'monthly', priority: 0.85 },
+    { url: `${SITE_URL}/tools/pay-check`, lastModified: new Date('2026-09-01T00:00:00.000Z'), changeFrequency: 'monthly', priority: 0.85 },
+    { url: `${SITE_URL}/tools/hwp`, lastModified: new Date('2026-10-21T00:00:00.000Z'), changeFrequency: 'monthly', priority: 0.8 },
+    { url: `${SITE_URL}/hwp-editor`, lastModified: new Date('2026-10-21T00:00:00.000Z'), changeFrequency: 'monthly', priority: 0.8 },
+    // 연차 도구의 하위 둘은 제목과 쓰임이 따로다 — 「퇴직 연차 정산」·「사용촉진·반차 환산」.
+    // 묶어서 /tools/leave 하나로만 올리면 그 말로 찾는 사람이 못 온다.
+    { url: `${SITE_URL}/tools/leave/settlement`, lastModified: new Date('2026-09-01T00:00:00.000Z'), changeFrequency: 'monthly', priority: 0.8 },
+    { url: `${SITE_URL}/tools/leave/advanced`, lastModified: new Date('2026-09-01T00:00:00.000Z'), changeFrequency: 'monthly', priority: 0.8 },
   ];
 
   const faqCategoryRoutes: SitemapEntry[] = FAQ_CATEGORIES.map((cat) => ({
