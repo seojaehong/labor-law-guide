@@ -226,7 +226,7 @@ export default function PreciseCheck({ mainText, since, toast }: { mainText: str
         <p className="lr-pc-notice">
           실행하면 본문 전체가 우리 서버를 거쳐 외부 AI 제공사(Anthropic)로 전송됩니다. 보관에 동의하지 않으면 조문 본문은 저장하지 않고 점검 결과만 남깁니다.
         </p>
-        <label className="lr-pc-consent"><input type="checkbox" checked={store} onChange={(e) => setStore(e.target.checked)} /> 점검 개선을 위해 본문 보관에 동의합니다(선택)</label>
+        <label className="lr-pc-consent"><input type="checkbox" checked={store} onChange={(e) => setStore(e.target.checked)} /> 점검 개선을 위해 본문 보관에 동의합니다(선택 · 체크하지 않으면 본문은 저장하지 않습니다)</label>
         <TurnstileWidget onToken={setTurnstileToken} />
         <button className="lr-btn lr-pc-go" onClick={run} disabled={busy || !source}>
           <Sparkles size={16} aria-hidden /> {busy ? `대조하는 중… ${elapsed}초` : source ? `AI 정밀 점검 실행 (조문 ${source.articles}개)` : '취업규칙을 먼저 올려 주세요'}
