@@ -7,7 +7,9 @@ import { FileText, FileUp, Paperclip, Scale, Send, ShieldCheck, Sparkles, X } fr
 import { splitArticles } from '@/lib/laws/standard-check';
 import { fmtDate, todayKST } from '@/lib/laws/format';
 import { HwpNotice, PeriodControls, PeriodResults, readRulesFile, SAMPLE, useReviewData, type Data, type RulesSource } from '../../laws/RulesCheck';
-import PreciseCheck, { PRECISE_ENABLED } from '../../laws/PreciseCheck';
+import PreciseCheck, { PRECISE_ENABLED, type PreciseStatus } from '../../laws/PreciseCheck';
+import { ObservationNotice } from '../../laws/ObservationCapture';
+import { useObservationAvailability } from '../../laws/observation-availability';
 
 type Turn = { id: string; text: string; name: string; articles: number; source: RulesSource | null; from: string; to: string };
 
@@ -17,6 +19,7 @@ function TurnView({ turn, last, data, loadError, retry, toast }: {
   const [runId, setRunId] = useState(() => crypto.randomUUID());
   const currentRun = useRef(runId);
   const fresh = () => { const next = crypto.randomUUID(); currentRun.current = next; setRunId(next); };
+  const [ai, setAi] = useState<PreciseStatus>('idle');
   return (
     <>
       <div className="wr-msg user" id={`wr-turn-${turn.id}`}>
@@ -37,15 +40,21 @@ function TurnView({ turn, last, data, loadError, retry, toast }: {
               : '본문 없이 이 기간 개정으로 바꿀 문안만 모았습니다. 본문을 보내 주시면 조문마다 맞춰 봅니다.'}
           </p>
           <PeriodResults data={data} loadError={loadError} onRetry={() => { retry(); fresh(); }} text={turn.text} from={turn.from} to={turn.to}
-            source={turn.source} runId={runId} currentRun={currentRun} onFresh={fresh} toast={toast} />
+            source={turn.source} runId={runId} currentRun={currentRun} onFresh={fresh} toast={toast} ownNotice={false} />
         </div>
       </div>
-      {PRECISE_ENABLED && last && turn.articles > 0 && (
-        <div className="wr-msg bot">
+      {/* 다음 질문이 와도 지난 AI 결과는 남긴다. 실행하지 않은 지난 차례의 AI 말풍선만 숨긴다(상태 보존을 위해 마운트는 유지) */}
+      {PRECISE_ENABLED && turn.articles > 0 && (
+        <div className="wr-msg bot" hidden={!last && ai === 'idle'}>
           <span className="wr-avatar ai" aria-hidden><Sparkles size={16} /></span>
           <div className="wr-bubble wide">
-            <p className="wr-say">조문마다 AI 로 더 자세히 대조할 수 있습니다. 종전 규칙을 함께 올리면 근로조건이 낮아진 조문(불이익변경)도 봅니다.</p>
-            <PreciseCheck mainText={turn.text} since={turn.from} toast={toast} />
+            <p className="wr-say">
+              {last ? '조문마다 AI 로 더 자세히 대조할 수 있습니다. 종전 규칙을 함께 올리면 근로조건이 낮아진 조문(불이익변경)도 봅니다.' : '앞서 보낸 본문으로 실행한 AI 정밀 점검 결과입니다.'}
+            </p>
+            <p className="wr-basis">
+              기준 · <a href={`#wr-turn-${turn.id}`}>{turn.name}{turn.articles > 0 ? `(조문 ${turn.articles}개)` : ''}</a> · {fmtDate(turn.from)} 다음 날부터 시행된 법령
+            </p>
+            <PreciseCheck mainText={turn.text} since={turn.from} toast={toast} archived={!last} onStatus={setAi} />
           </div>
         </div>
       )}
@@ -56,6 +65,7 @@ function TurnView({ turn, last, data, loadError, retry, toast }: {
 export default function WorkRulesClient() {
   const today = todayKST();
   const { data, loadError, retry } = useReviewData();
+  const observationAvailability = useObservationAvailability();
   const [turns, setTurns] = useState<Turn[]>([]);
   const [draft, setDraft] = useState('');
   const [attached, setAttached] = useState<{ name: string; source: RulesSource | null } | null>(null);
@@ -143,6 +153,8 @@ export default function WorkRulesClient() {
         {turns.map((t, i) => (
           <TurnView key={t.id} turn={t} last={i === turns.length - 1} data={data} loadError={loadError} retry={retry} toast={setMessage} />
         ))}
+        {/* 관리자 기록 기능 안내는 결과마다 붙이지 않고 대화 끝에 한 번만 */}
+        {turns.some((t) => t.articles > 0) && <ObservationNotice availability={observationAvailability} />}
       </div>
 
       <form className={`wr-composer${over ? ' over' : ''}`} onSubmit={(e) => { e.preventDefault(); if (canSend) send(draft); }}
@@ -173,7 +185,11 @@ export default function WorkRulesClient() {
         </div>
         <div className="wr-meta">
           <button type="button" className="wr-period-btn" onClick={() => setShowPeriod((v) => !v)}>점검 기간 {fmtDate(from)} ~ {fmtDate(to)}</button>
-          <span className="wr-privacy"><ShieldCheck size={13} aria-hidden /> {PRECISE_ENABLED ? '기본 점검은 브라우저 안에서만 합니다. AI 정밀 점검을 실행할 때만 본문이 외부 AI 제공사로 전송됩니다.' : '본문과 파일은 이 브라우저 안에서만 읽고 판정합니다.'}</span>
+          {/* 좁은 화면에서도 숨기지 않고 짧은 문장으로 바꾼다 */}
+          <span className="wr-privacy"><ShieldCheck size={13} aria-hidden />
+            <span className="long">{PRECISE_ENABLED ? '기본 점검은 브라우저 안에서만 합니다. AI 정밀 점검을 실행할 때만 본문이 외부 AI 제공사로 전송됩니다.' : '본문과 파일은 이 브라우저 안에서만 읽고 판정합니다.'}</span>
+            <span className="short">{PRECISE_ENABLED ? 'AI 점검 실행 때만 본문이 외부 AI로 전송됩니다' : '본문은 이 브라우저 안에서만 읽습니다'}</span>
+          </span>
         </div>
       </form>
 

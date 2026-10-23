@@ -139,6 +139,8 @@
 .lr-badge.k-개정 { background: var(--lr-soft-2); color: var(--lr-ink); }
 .lr-badge.k-삭제 { background: var(--lr-error-soft); color: var(--lr-error-deep); }
 .lr-badge.rule { background: var(--lr-warn-soft); color: var(--lr-warn-deep); font-weight: 500; }
+/* 긴 배지(적용 범위 설명 등)는 좁은 화면에서 줄을 바꾼다 — 한 줄로 두면 390px 에서 쪽 밖으로 13px 넘쳤다 */
+.lr-law .lr-badge { max-width: 100%; white-space: normal; height: auto; min-height: 20px; line-height: 1.35; padding-block: 2px; }
 .lr-badge.lvl { background: transparent; box-shadow: inset 0 0 0 1px var(--lr-hair-strong); color: var(--lr-body); }
 .lr-badge.dday { background: var(--lr-ink); color: var(--lr-on-ink); font-family: inherit; }
 .lr-badge.past { background: transparent; box-shadow: inset 0 0 0 1px var(--lr-hair); color: var(--lr-mute); font-family: inherit; }
@@ -514,6 +516,11 @@
 .wr-meta { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; margin-top: 6px; font-size: 12px; color: var(--lr-body); }
 .wr-period-btn { border: 1px solid var(--lr-hair); background: var(--lr-soft); border-radius: 999px; padding: 4px 10px; font-size: 12px; color: var(--lr-ink); cursor: pointer; }
 .wr-privacy { display: inline-flex; align-items: center; gap: 4px; }
+.wr-privacy .short { display: none; }
+.wr-msg[hidden] { display: none; }
+.wr-basis { margin: 0 0 8px; font-size: 13px; color: var(--lr-body); }
+.wr-basis a { color: var(--lr-link-deep); }
+.lr-pc-basis { margin: 0 0 8px; font-size: 13px; color: var(--lr-body); }
 .wr-period { position: relative; border-bottom: 1px solid var(--lr-hair); padding: 0 32px 8px 0; margin-bottom: 8px; }
 .wr-period .lr-icon-btn { position: absolute; top: 0; right: 0; }
 .wr-foot { padding: 20px 0 48px; font-size: 13px; color: var(--lr-body); display: grid; gap: 6px; }
@@ -523,6 +530,7 @@
   .wr-bubble { padding: 12px 13px; font-size: 14px; }
   .wr-msg.user .wr-bubble { max-width: 88%; }
   .wr-composer { bottom: 8px; border-radius: 14px; padding: 8px; }
-  .wr-privacy { display: none; }
+  .wr-privacy .long { display: none; }
+  .wr-privacy .short { display: inline; }
 }
 .wr-msg.user { scroll-margin-top: 88px; }

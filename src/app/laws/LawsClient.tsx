@@ -210,6 +210,8 @@ export default function LawsClient({ index }: { index: LawIndex }) {
   // 키보드 — / 검색 · j k 이동 · Enter 펼치기 · Esc 닫기
   useEffect(() => {
     const onKey = (ev: KeyboardEvent) => {
+      // 취업규칙 점검 창이 열려 있으면 키는 창의 것이다 — Esc 가 창과 함께 펼친 개정 카드까지 접어 초점을 잃던 것을 막는다
+      if (checking) return;
       const tag = (ev.target as HTMLElement)?.tagName;
       const typing = tag === 'INPUT' || tag === 'TEXTAREA';
       if (ev.key === '/' && !typing) { ev.preventDefault(); searchRef.current?.focus(); return; }
@@ -232,7 +234,7 @@ export default function LawsClient({ index }: { index: LawIndex }) {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [filtered, focus, open, q, toggle]);
+  }, [checking, filtered, focus, open, q, toggle]);
 
   const resetFilters = () => { setQ(''); setLaws([]); setRulesOnly(false); setLawsOnly(false); setMonth(null); };
   const filtersOn = q || laws.length || rulesOnly || lawsOnly || month;
