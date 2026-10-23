@@ -5,7 +5,7 @@ import Link from 'next/link';
 import dynamic from 'next/dynamic';
 import type { HwpSource } from './HwpApply';
 import { canApplyText } from '@/lib/hwp/apply-guard';
-import ObservationCapture from './ObservationCapture';
+import ObservationCapture, { ObservationNotice } from './ObservationCapture';
 import { useObservationAvailability, type ObservationAvailability } from './observation-availability';
 import { MATCHER_VERSION, RULE_VERSION } from '@/lib/laws/observation-version';
 import type { CaptureContext, Observation } from '@/lib/laws/observation-payload';
@@ -269,9 +269,11 @@ export function PeriodControls({ data, from, to, today, lastUpcoming, setFrom, s
 }
 
 /** 기간별 대조 결과 — 요약·내려받기·조문 카드·놓친 개정·제93조. 창과 챗 화면이 같이 쓴다 */
-export function PeriodResults({ data, loadError, onRetry, text, from, to, source, runId, currentRun, onFresh, toast, onLeave }: {
+export function PeriodResults({ data, loadError, onRetry, text, from, to, source, runId, currentRun, onFresh, toast, onLeave, ownNotice = true }: {
   data: Data | null; loadError: boolean; onRetry: () => void; text: string; from: string; to: string; source: RulesSource | null;
   runId: string; currentRun: { current: string }; onFresh: () => void; toast: (m: string) => void; onLeave?: () => void;
+  /** false 면 기록 기능 안내를 이 결과 안에 두지 않는다 — 결과가 여러 번 쌓이는 챗 화면은 화면에 한 번만 둔다 */
+  ownNotice?: boolean;
 }) {
   const today = todayKST();
   const observationAvailability = useObservationAvailability();
@@ -362,6 +364,7 @@ export function PeriodResults({ data, loadError, onRetry, text, from, to, source
             )}
           </div>
           <div className="lr-verdict-meta">{period} 시행 개정 중 표준취업규칙 조문에 걸리는 것</div>
+          {ownNotice && hasText && open.some((i) => i.verdicts.length) && <ObservationNotice availability={observationAvailability} />}
           {!open.length && <div className="lr-check-empty" style={{ marginTop: 10 }}>이 기간에 취업규칙 조문에 걸리는 개정이 없습니다.</div>}
           {[...open, ...(showOk ? ok : [])].map((it) => (
             <ItemCard key={it.std.id} it={it} captureContext={captureContext} captureStore={captureStore} observationAvailability={observationAvailability} today={today} hasText={hasText} toast={toast} onClose={leave} />

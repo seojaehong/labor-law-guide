@@ -1,7 +1,7 @@
 'use client';
 // AI 정밀 점검(시험 운영) — 파일을 이 창에 바로 올리고, 보고 싶은 내용·넣고 싶은 내용을 적어 조문별 AI 대조 결과를 받는다.
 // 기본 점검(브라우저 안 낱말 대조)과 따로 움직인다. 결과는 노무사 검수 전 초안이고, 조문마다 맞음·틀림·애매 반응을 모은다.
-import { useEffect, useMemo, useRef, useState, type DragEvent } from 'react';
+import { useEffect, useId, useMemo, useRef, useState, type DragEvent } from 'react';
 import Link from 'next/link';
 import { Check, ClipboardCopy, FileDown, FileUp, Sparkles, X } from 'lucide-react';
 import TurnstileWidget from '@/components/TurnstileWidget';
@@ -83,7 +83,13 @@ function Drop({ label, hint, doc, onDoc, onClear, compact }: {
   );
 }
 
-export default function PreciseCheck({ mainText, since, toast }: { mainText: string; since: string; toast: (m: string) => void }) {
+export type PreciseStatus = 'idle' | 'busy' | 'done';
+
+// archived = 챗 화면에서 다음 질문이 온 뒤의 지난 결과. 입력·실행 칸은 접고 결과와 진행 상태만 남긴다
+export default function PreciseCheck({ mainText, since, toast, archived = false, onStatus }: {
+  mainText: string; since: string; toast: (m: string) => void; archived?: boolean; onStatus?: (s: PreciseStatus) => void;
+}) {
+  const titleId = useId();
   const [doc, setDoc] = useState<Doc | null>(null);
   const [oldDoc, setOldDoc] = useState<Doc | null>(null);
   const [showOld, setShowOld] = useState(false);
@@ -105,6 +111,7 @@ export default function PreciseCheck({ mainText, since, toast }: { mainText: str
   const source: Doc | null = doc ?? (mainArticles ? { name: '위에 입력한 본문', text: mainText, articles: mainArticles } : null);
 
   useEffect(() => () => { if (timer.current) clearInterval(timer.current); }, []);
+  useEffect(() => { onStatus?.(busy ? 'busy' : res ? 'done' : 'idle'); }, [busy, res, onStatus]);
   // 지금 화면의 입력 — 결과에 묶인 실행 당시 입력과 하나라도 다르면(진행 중에 바뀐 것 포함) 「다시 점검 필요」로 표시한다
   const sourceText = source?.text ?? '';
   const docPrint = useMemo(() => (sourceText ? fingerprint(sourceText) : ''), [sourceText]);
@@ -185,14 +192,15 @@ export default function PreciseCheck({ mainText, since, toast }: { mainText: str
   const groups = source ? groupCount(source.articles) : 0;
 
   return (
-    <section className="lr-pc" aria-labelledby="lr-pc-title">
+    <section className="lr-pc" aria-labelledby={titleId}>
       <div className="lr-pc-head">
         <Sparkles size={18} aria-hidden />
-        <h3 id="lr-pc-title">AI 정밀 점검</h3>
+        <h3 id={titleId}>AI 정밀 점검</h3>
         <span className="lr-badge rule">시험 운영 · 무료</span>
       </div>
       <p className="lr-pc-lead">조문마다 법령 기준 충족·종전 대비 불이익변경·운영 가능성을 AI 가 대조합니다. 보고 싶은 내용을 적으면 그 관점으로 함께 봅니다.</p>
 
+      {!archived && <>
       <div className="lr-pc-step"><span className="n">1</span>취업규칙</div>
       {doc || !mainArticles
         ? <Drop label="취업규칙 파일 올리기" hint="hwp·hwpx·docx · 끌어다 놓거나 눌러서 선택" doc={doc} onDoc={setDoc} onClear={() => setDoc(null)} />
@@ -231,6 +239,9 @@ export default function PreciseCheck({ mainText, since, toast }: { mainText: str
         <button className="lr-btn lr-pc-go" onClick={run} disabled={busy || !source}>
           <Sparkles size={16} aria-hidden /> {busy ? `대조하는 중… ${elapsed}초` : source ? `AI 정밀 점검 실행 (조문 ${source.articles}개)` : '취업규칙을 먼저 올려 주세요'}
         </button>
+      </div>
+      </>}
+      <div className="lr-pc-status">
         {busy && (
           // 서버가 진행 정보를 주지 않으므로 완료율처럼 보이는 막대 대신 흐르는 막대와 경과 초만 보인다
           <div className="lr-pc-progress" role="status">
@@ -248,6 +259,10 @@ export default function PreciseCheck({ mainText, since, toast }: { mainText: str
               조건이 바뀌어 다시 점검이 필요합니다. 아래 결과와 대조표 엑셀은 실행할 때의 조건(파일·종전 규칙·점검 시작일·상시 근로자 수·점검 요청)으로 대조한 것입니다.
             </p>
           )}
+          <p className="lr-pc-basis">
+            실행 조건 · {res.input.name} · 점검 시작일 {res.input.since.replace(/^(\d{4})(\d{2})(\d{2})$/, '$1. $2. $3.')} 이후 시행 법령
+            {res.input.old ? ' · 종전 규칙과 대조' : ''}{res.input.headcount ? ` · 상시 근로자 ${res.input.headcount}명` : ''}{res.input.focus ? ' · 점검 요청 있음' : ''}
+          </p>
           {!res.input.old && (
             <p className="lr-check-note">종전 규칙을 넣지 않아 불이익변경은 대조하지 않았습니다(비교 불가 — 종전 규칙 미제공). 불리해진 조문이 없다는 뜻이 아닙니다.</p>
           )}

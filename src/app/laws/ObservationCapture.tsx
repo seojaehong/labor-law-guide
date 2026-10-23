@@ -13,6 +13,12 @@ export default function ObservationCapture(props: Props) {
   // A different document/run/period/version mounts fresh state, even for identical verdicts.
   return <CaptureAttempt key={captureIdentity(props.context)} {...props} />;
 }
+/** 관리자 검토기록 기능이 아직 준비 중이거나 꺼져 있을 때 결과 묶음 위에 한 번만 보이는 안내 */
+export function ObservationNotice({ availability }: { availability: ObservationAvailability }) {
+  const admin = useSyncExternalStore(subscribe, hasAdmin, () => false);
+  if (!admin || availability === 'ready') return null;
+  return <p className="lr-check-note" role="status">관리자 검토기록 저장: {availability === 'checking' ? '서버 기록 기능의 준비 상태를 확인하고 있습니다.' : '기록 기능이 비활성 상태입니다. 점검 결과는 이 브라우저에서 확인할 수 있습니다.'}</p>;
+}
 function CaptureAttempt({ verdict, clauseIds, context, standardId, store, availability }: Props) {
   const admin = useSyncExternalStore(subscribe, hasAdmin, () => false);
   const attemptKey = `${captureIdentity(context)}:${standardId}:${verdict.rule.lawId}:${verdict.rule.article}:${verdict.rule.effective}`;
@@ -52,10 +58,8 @@ function CaptureAttempt({ verdict, clauseIds, context, standardId, store, availa
       setState('저장 확인에 실패했습니다. 같은 실행의 재시도는 최초 기록 내용으로 진행됩니다.');
     } finally { inFlight.current = false; setBusy(false); }
   }
-  if (availability !== 'ready') return <div>
-    <button className="lr-btn lr-btn-sm" disabled>관리자 검토기록 저장</button>
-    <p role="status">{availability === 'checking' ? '서버 기록 기능의 준비 상태를 확인하고 있습니다.' : '기록 기능이 비활성 상태입니다. 점검 결과는 이 브라우저에서 확인할 수 있습니다.'}</p>
-  </div>;
+  // 준비되지 않은 상태 안내는 결과마다 붙이지 않고 결과 위 ObservationNotice 한 곳에서만 보인다
+  if (availability !== 'ready') return null;
   return <div>
     <label><input type="checkbox" checked={falsePositive} disabled={busy || attempted} onChange={e => setFalsePositive(e.target.checked)} /> 오탐 의심 표시</label>{' '}
     <button className="lr-btn lr-btn-sm" disabled={busy || state === '기록 저장 확인됨'} onClick={save}>관리자 검토기록 저장</button>
