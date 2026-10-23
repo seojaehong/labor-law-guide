@@ -37,6 +37,7 @@ const tools: ToolItem[] = [
   { href: '/tools/hwp', title:'한글 문서 열기·고치기', desc: '한글 프로그램 없이 hwp·hwpx 파일을 브라우저에서 열어 쪽 모양으로 보고, 글자를 찾아 바꾼 뒤 hwp 또는 hwpx 로 내려받습니다.', badge: '브라우저 처리', Icon: FileCheck2 },
   { href: '/hwp-editor', title: '한글 문서 편집기', desc: 'hwp·hwpx 문서를 브라우저에서 열어 쪽 모양 그대로 글자를 고치고 hwpx 또는 hwp 로 내려받습니다. 원본 파일은 바뀌지 않습니다.', badge: '브라우저 편집', Icon: FileCheck2 },
   { href: '/tools/work-rules', title: '취업규칙 점검', desc: '취업규칙 텍스트를 입력해 법령 개정 관련 항목을 확인합니다. 법령 검수 전 참고 자료입니다.', badge: '참고 점검', Icon: FileCheck2 },
+  { href: '/tools/rules-review', title: '규정 정비 점검', desc: '기관 규정 묶음(zip)을 올리면 규정끼리 인용·위임·별표·조문 번호·용어를 맞춰 보고, 담당자가 확인한 항목으로 신·구조문대비표와 반영본을 만듭니다.', badge: '브라우저 대조', Icon: FileCheck2 },
   {
     href: '/tools/contract-check',
     title: '근로계약서 자가진단',
