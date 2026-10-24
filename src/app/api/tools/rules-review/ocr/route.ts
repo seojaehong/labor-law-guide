@@ -3,7 +3,7 @@ import { startServiceObservation, type Stage, type ErrorCode } from '@/lib/obser
 // - 담당자가 화면에서 「이 N쪽을 서버로 보내 읽기」에 동의한 쪽만 온다. 나머지 규정 파일은 브라우저 밖으로 나가지 않는다.
 // - 이미지·읽은 글자는 저장하지 않는다. 로그에도 본문을 남기지 않는다(상태·모델·에러 종류만).
 // - 먼저 하이쿠로 읽고, 덜 읽었으면(잘림·판독 불가·거의 빈 쪽·거절) 그 쪽만 소넷으로 다시 읽는다.
-// - env(ANTHROPIC_API_KEY)가 없으면 501 로 닫힌다.
+// - 키는 RULES_OCR_ANTHROPIC_API_KEY → WORK_RULES_PRECISE_ANTHROPIC_API_KEY → ANTHROPIC_API_KEY 순. 셋 다 없으면 501 로 닫힌다.
 import Anthropic from '@anthropic-ai/sdk';
 import { isTurnstileEnabled, verifyTurnstile } from '@/lib/turnstile';
 import { extractIp, hashIp, incrRateLimit } from '@/lib/rate-limit';
@@ -38,7 +38,8 @@ export async function POST(req: Request): Promise<Response> {
     return json(status, body);
   };
 
-  const apiKey = process.env.ANTHROPIC_API_KEY;
+  // 기본 키(ANTHROPIC_API_KEY)는 작업공간 미지정 키라 400 이 난다 — 운영에서 도는 정밀 점검 키를 먼저 쓴다
+  const apiKey = process.env.RULES_OCR_ANTHROPIC_API_KEY || process.env.WORK_RULES_PRECISE_ANTHROPIC_API_KEY || process.env.ANTHROPIC_API_KEY;
   if (!apiKey) return respond(501, { error: 'not_configured', message: '스캔 쪽 읽기를 준비 중입니다. 같은 규정의 한글 원본을 올려 주세요.' });
 
   let form: FormData;

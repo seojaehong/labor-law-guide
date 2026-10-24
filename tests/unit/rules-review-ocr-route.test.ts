@@ -1,10 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const m = vi.hoisted(() => ({ create: vi.fn(), limit: vi.fn(), finish: vi.fn() }));
+const m = vi.hoisted(() => ({ create: vi.fn(), limit: vi.fn(), finish: vi.fn(), key: '' }));
 vi.mock('@/lib/observations/service-completion', () => ({ startServiceObservation: () => ({ finish: m.finish }) }));
 vi.mock('@/lib/rate-limit', () => ({ incrRateLimit: m.limit, extractIp: () => '203.0.113.9', hashIp: () => 'h' }));
 vi.mock('@/lib/turnstile', () => ({ isTurnstileEnabled: () => false }));
-vi.mock('@anthropic-ai/sdk', () => ({ default: class { messages = { create: m.create }; } }));
+vi.mock('@anthropic-ai/sdk', () => ({ default: class { messages = { create: m.create }; constructor(o: { apiKey: string }) { m.key = o.apiKey; } } }));
 
 import { POST } from '@/app/api/tools/rules-review/ocr/route';
 import { looksRead } from '@/lib/rules-review/ocr-check';
@@ -70,8 +70,21 @@ describe('스캔 쪽 읽기', () => {
     expect((await res.json()).error).toBe('unreadable');
   });
 
+  it('전용 키 → 정밀 점검 키 → 기본 키 순으로 고른다(기본 키는 작업공간 미지정이라 400 이 날 수 있다)', async () => {
+    vi.stubEnv('WORK_RULES_PRECISE_ANTHROPIC_API_KEY', 'precise-key');
+    m.create.mockResolvedValueOnce(reply(PAGE));
+    expect((await POST(req())).status).toBe(200);
+    expect(m.key).toBe('precise-key');
+    vi.stubEnv('RULES_OCR_ANTHROPIC_API_KEY', 'ocr-key');
+    m.create.mockResolvedValueOnce(reply(PAGE));
+    await POST(req());
+    expect(m.key).toBe('ocr-key');
+  });
+
   it('키가 없으면 501, 이미지가 아니면 400, 한도를 넘으면 429 — 모델을 부르지 않는다', async () => {
     vi.stubEnv('ANTHROPIC_API_KEY', '');
+    vi.stubEnv('WORK_RULES_PRECISE_ANTHROPIC_API_KEY', '');
+    vi.stubEnv('RULES_OCR_ANTHROPIC_API_KEY', '');
     expect((await POST(req())).status).toBe(501);
     vi.stubEnv('ANTHROPIC_API_KEY', 'offline-placeholder');
     expect((await POST(req('application/pdf'))).status).toBe(400);
