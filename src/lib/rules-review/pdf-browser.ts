@@ -32,9 +32,10 @@ export async function pageImage(page: PdfPage): Promise<Blob> {
 export type OcrResult = { lines: string[]; model: 'haiku' | 'sonnet' } | { error: string; message: string; stop: boolean };
 
 /** 쪽 하나 읽기. stop 이면 남은 쪽도 보내지 않는다(키 없음·한도 초과) */
-export async function ocrPage(image: Blob): Promise<OcrResult> {
+export async function ocrPage(image: Blob, turnstileToken: string | null = null): Promise<OcrResult> {
   const form = new FormData();
   form.append('image', image, 'page.jpg');
+  if (turnstileToken) form.append('turnstileToken', turnstileToken);
   const res = await fetch('/api/tools/rules-review/ocr', { method: 'POST', body: form });
   const body = await res.json().catch(() => ({}));
   if (res.ok) return { lines: body.lines ?? [], model: body.model };
