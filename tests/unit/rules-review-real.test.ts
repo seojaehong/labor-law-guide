@@ -5,8 +5,8 @@ import { readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { dirname, join, relative } from 'node:path';
 import { ingest } from '@/lib/rules-review/ingest';
-import { KIND_LABEL, runChecks, type Finding } from '@/lib/rules-review/checks';
-import { applyLine, applyToSources, bundleDocx } from '@/lib/rules-review/outputs';
+import { KIND_LABEL, runChecks } from '@/lib/rules-review/checks';
+import { applyLine, applyToSources, bundleDocx, planChanges } from '@/lib/rules-review/outputs';
 import { newWorkspace } from '@/lib/rules-review/workspace';
 import { HwpEditDoc } from '@/lib/hwp/hwp-doc';
 import { toLines } from '@/lib/hwp/apply';
@@ -55,9 +55,12 @@ it.skipIf(!DIR || !OUT)('실제 규정 묶음 실측', async () => {
       const lines = toLines(doc.paragraphs()).map((l) => l.text);
       doc.free();
       const r = regs.find((x) => x.name === a.reg)!;
-      const taken = findings.filter((f) => f.reg === a.reg && f.after !== null);
-      const byLine = new Map<number, { at: number; length: number; to: string; f: Finding }[]>();
-      for (const f of taken) for (const sp of f.spans) if (sp.length && !r.lines[sp.line].controls) byLine.set(sp.line, [...(byLine.get(sp.line) ?? []), { at: sp.at, length: sp.length, to: sp.to ?? f.after!, f }]);
+      // 기대 글자는 반영본과 같은 겹침 정리(planChanges)로 만든다 — 겹쳐서 뺀 고침은 「직접 고칠 곳」으로 갔다
+      const byLine = new Map<number, Parameters<typeof applyLine>[1]>();
+      for (const c of planChanges(ws, r).changes) {
+        const w = c.word!;
+        byLine.set(w.line, [...(byLine.get(w.line) ?? []), { at: w.at, length: w.length, to: c.after } as Parameters<typeof applyLine>[1][number]]);
+      }
       for (const [line, edits] of byLine) {
         const want = applyLine(r.lines[line].text, edits).text;
         if (!lines.includes(want)) missing.push(want.slice(0, 80));
