@@ -8,7 +8,7 @@ const browser=await chromium.launch({headless:true,executablePath:process.env.PL
 const FORBIDDEN=['진단','자문','판정','노무사','적법','위반입니다','확률','undefined','NaN'];
 const overflow=page=>page.evaluate(()=>document.documentElement.scrollWidth-document.documentElement.clientWidth);
 const open=async(width)=>{const ctx=await browser.newContext({viewport:{width,height:900},acceptDownloads:true});const page=await ctx.newPage();const errors=[];
-  page.on('console',m=>{if(m.type()==='error')errors.push(m.text());});page.on('pageerror',e=>errors.push(String(e)));
+  page.on('console',m=>{if(m.type()==='error'&&!(m.location().url||'').includes('challenges.cloudflare.com'))errors.push(m.text());});page.on('pageerror',e=>errors.push(String(e)));
   const res=await page.goto(base+'/tools/rules-review');assert(res&&res.ok(),'/tools/rules-review 응답 '+(res&&res.status()));
   // 스크린샷은 캐럿을 숨기려고 입력칸에 style 을 넣는다 — 하이드레이션이 끝나기 전에 찍으면 불일치 경고가 난다
   await page.waitForLoadState('networkidle');return {ctx,page,errors};};

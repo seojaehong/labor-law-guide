@@ -144,7 +144,7 @@ export default function RulesReviewClient() {
       await apply(next, got.sources);
       if (ocr) {
         const done = tally.haiku + tally.sonnet;
-        setNotice((n) => `${n ? `${n} ` : ''}스캔 쪽 ${done}쪽을 읽었습니다(하이쿠 ${tally.haiku}쪽${tally.sonnet ? ` · 덜 읽혀 소넷으로 다시 읽은 쪽 ${tally.sonnet}쪽` : ''})${tally.failed ? `. 읽지 못한 쪽 ${tally.failed}쪽` : ''}${tally.stopped ? ` — ${tally.stopped}` : ''}. 스캔에서 읽은 글자는 원문과 한 번 대조하세요.`);
+        setNotice((n) => `${n ? `${n} ` : ''}스캔 쪽 ${done}쪽을 읽었습니다(하이쿠 ${tally.haiku}쪽${tally.sonnet ? ` · 덜 읽혀 소넷으로 다시 읽은 쪽 ${tally.sonnet}쪽` : ''})${tally.failed ? `. 읽지 못한 쪽 ${tally.failed}쪽` : ''}${tally.stopped ? ` — ${tally.stopped.replace(/\.$/, '')}` : ''}. 스캔에서 읽은 글자는 원문과 한 번 대조하세요.`);
       }
     } catch (e) {
       setError(`파일을 읽지 못했습니다: ${(e as Error).message}`);

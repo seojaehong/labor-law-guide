@@ -20,6 +20,8 @@ const IP_DAILY_PAGES = parseInt(process.env.RULES_OCR_IP_DAILY_PAGES || '300', 1
 const GLOBAL_DAILY_PAGES = parseInt(process.env.RULES_OCR_GLOBAL_DAILY_PAGES || '3000', 10);
 
 type Obj = Record<string, unknown>;
+/** 상위 API 가 돌려준 상태 코드(시간 초과·연결 실패면 null) — 키·본문은 남기지 않는다 */
+const upstreamStatus = (err: unknown) => (typeof (err as { status?: unknown })?.status === 'number' ? (err as { status: number }).status : null);
 const json = (status: number, body: Obj) => Response.json(body, { status, headers: { 'Cache-Control': 'no-store' } });
 
 type UploadFile = { size: number; type: string; arrayBuffer: () => Promise<ArrayBuffer> };
@@ -60,14 +62,19 @@ export async function POST(req: Request): Promise<Response> {
     stage = 'generation';
     const client = new Anthropic({ apiKey });
     const data = Buffer.from(await image.arrayBuffer()).toString('base64');
-    let got = await readPage(client, 'haiku', image.type, data);
+    // 하이쿠가 덜 읽었거나 호출 자체가 실패하면 소넷으로 다시 읽는다
+    let got = await readPage(client, 'haiku', image.type, data).catch((err) => {
+      console.error('[rules-review/ocr] haiku error', upstreamStatus(err));
+      return null;
+    });
     let model: OcrModel = 'haiku';
-    if (!got.ok) { got = await readPage(client, 'sonnet', image.type, data); model = 'sonnet'; }
+    if (!got?.ok) { got = await readPage(client, 'sonnet', image.type, data); model = 'sonnet'; }
     console.log('[rules-review/ocr]', model, got.ok ? 'ok' : 'unreadable');
     if (!got.ok) return respond(422, { error: 'unreadable', message: '이 쪽은 글자를 읽지 못했습니다. 원본 파일을 확인해 주세요.' });
     return respond(200, { model, lines: got.text.split('\n').map((l) => l.trim()).filter(Boolean) });
   } catch (err) {
-    console.error('[rules-review/ocr] error', err instanceof Error ? err.name : 'unknown');
-    return respond(502, { error: 'ocr_failed', message: '스캔 쪽을 읽지 못했습니다. 잠시 뒤 다시 시도해 주세요.' });
+    console.error('[rules-review/ocr] error', err instanceof Error ? err.name : 'unknown', upstreamStatus(err));
+    // 502·504 는 앞단(Cloudflare)이 제 오류 화면으로 바꿔 본문이 사라진다 — 503 으로 돌려 사유를 남긴다
+    return respond(503, { error: 'ocr_failed', upstream: upstreamStatus(err), message: '스캔 쪽을 읽지 못했습니다. 잠시 뒤 다시 시도해 주세요.' });
   }
 }
