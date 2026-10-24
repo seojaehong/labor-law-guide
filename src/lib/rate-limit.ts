@@ -56,6 +56,9 @@ async function incr(scope: 'ip' | 'session' | 'global', key: string, max: number
   }
 }
 
+/** 하루 카운터 하나를 올리고 판정한다 — 챗 밖의 기능(규정 정비 스캔 쪽 읽기 등)이 key 네임스페이스만 달리해 쓴다 */
+export const incrRateLimit = incr;
+
 export async function checkChatRateLimit(opts: {
   ip: string;
   sessionId: string | null;

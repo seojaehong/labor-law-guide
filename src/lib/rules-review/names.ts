@@ -54,7 +54,7 @@ export function versionDate(fileName: string, amended?: string): string {
   return m ? `${m[1]}${m[2].padStart(2, '0')}${m[3].padStart(2, '0')}` : '';
 }
 
-const KIND_RANK: Record<SourceKind, number> = { hwpx: 0, hwp: 1, docx: 2, txt: 3 };
+const KIND_RANK: Record<SourceKind, number> = { hwpx: 0, hwp: 1, docx: 2, txt: 3, pdf: 4 };
 
 export interface Candidate {
   path: string;
@@ -78,7 +78,8 @@ export function groupSame<T extends Candidate>(list: T[]): Grouped<T>[] {
     else groups.push([c]);
   }
   return groups.map((g) => {
-    const sorted = [...g].sort((a, b) => (b.date || '').localeCompare(a.date || '') || KIND_RANK[a.kind] - KIND_RANK[b.kind] || b.size - a.size);
+    // pdf 는 날짜가 늦어도 마지막 — 한글 원본이 있어야 반영본을 만든다
+    const sorted = [...g].sort((a, b) => Number(a.kind === 'pdf') - Number(b.kind === 'pdf') || (b.date || '').localeCompare(a.date || '') || KIND_RANK[a.kind] - KIND_RANK[b.kind] || b.size - a.size);
     return { chosen: sorted[0], others: sorted.slice(1) };
   });
 }

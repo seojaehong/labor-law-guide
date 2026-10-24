@@ -133,7 +133,7 @@ describe('개정안 반영본(hwpx)', () => {
     expect(text).toContain('근로기준법에 따라 준다');
     expect(text).not.toContain('근로기준법에 따른다');
   });
-  it('zip 안의 EUC-KR 한글 파일 이름을 읽고, pdf 는 읽지 않은 파일로 남긴다', async () => {
+  it('zip 안의 EUC-KR 한글 파일 이름을 읽고, 같은 규정의 pdf 는 고르지 않는다', async () => {
     const zip = new JSZip();
     const name = '직원 인사 규정(20240101).txt';
     zip.file(name, '직원 인사 규정\n제1조(목적) 시험.');
@@ -141,7 +141,7 @@ describe('개정안 반영본(hwpx)', () => {
     const raw = await zip.generateAsync({ type: 'uint8array', encodeFileName: ((s: string) => (s === name ? eucKr(name) : new TextEncoder().encode(s))) as unknown as (s: string) => string });
     const { regs, report } = await ingest([{ path: '규정.zip', bytes: raw }], { wasm });
     expect(regs.map((x) => x.name)).toEqual(['직원 인사 규정']);
-    expect(report.skipped.map((s) => s.path)).toEqual(['규정.zip/직원 인사 규정.pdf']);
+    expect(report.duplicates).toEqual([{ chosen: `규정.zip/${name}`, others: ['규정.zip/직원 인사 규정.pdf'] }]);
   });
 });
 

@@ -3,7 +3,8 @@
 // 흐름: 올리기 → 읽은 결과 → 확인(작업대) → 부서 의견 → 결재 묶음. 작업은 이 브라우저에 자동 저장한다.
 import { useCallback, useEffect, useRef, useState, type DragEvent } from 'react';
 import { FileArchive, FolderOpen, Files, ShieldCheck, Upload as UploadIcon } from 'lucide-react';
-import type { Ingested, Source, Upload } from '@/lib/rules-review/ingest';
+import type { Ingested, PdfReader, Source, Upload } from '@/lib/rules-review/ingest';
+import { loadPdfLib, ocrPage, pageImage } from '@/lib/rules-review/pdf-browser';
 import { runChecks } from '@/lib/rules-review/checks';
 import { carryOver, newWorkspace, stats, type ItemState, type Workspace } from '@/lib/rules-review/workspace';
 import { clearAll, loadAll, saveSources, saveWorkspace } from '@/lib/rules-review/store';
@@ -78,17 +79,38 @@ export default function RulesReviewClient() {
     }
   };
 
-  const read = async (uploads: Upload[], name = institution) => {
+  // 마지막으로 올린 파일 — 스캔 쪽 읽기에 동의하면 같은 파일을 다시 읽는다
+  const lastUploads = useRef<Upload[]>([]);
+
+  /** ocr 이면 스캔 쪽을 서버로 보내 읽는다(담당자가 「보내 읽기」를 누른 뒤에만) */
+  const read = async (uploads: Upload[], name = institution, ocr = false) => {
     if (!uploads.length) return;
+    lastUploads.current = uploads;
     setError(null);
     setNotice(null);
     setBusy({ done: 0, total: 1, name: '' });
+    const tally = { haiku: 0, sonnet: 0, failed: 0, stopped: '' };
+    let progress = { done: 0, total: 1 };
+    const pdf: PdfReader = {
+      lib: loadPdfLib,
+      onScanned: ocr ? async (page, no, path) => {
+        if (tally.stopped) return null;
+        setBusy({ ...progress, name: `${path.split('/').pop()} ${no}쪽 — 스캔 쪽 읽는 중` });
+        try {
+          const r = await ocrPage(await pageImage(page));
+          if ('lines' in r) { tally[r.model]++; return r.lines; }
+          tally.failed++;
+          if (r.stop) tally.stopped = r.message;
+        } catch { tally.failed++; }
+        return null;
+      } : undefined,
+    };
     try {
       const { ingest } = await import('@/lib/rules-review/ingest');
-      const got: Ingested = await ingest(uploads, { onProgress: (done, total, name) => setBusy({ done, total, name }) });
+      const got: Ingested = await ingest(uploads, { pdf, onProgress: (done, total, name) => { progress = { done, total }; setBusy({ done, total, name }); } });
       if (!got.regs.length) {
         setError(got.report.skipped.length || got.report.failed.length
-          ? '읽을 수 있는 규정 파일이 없습니다. hwp·hwpx·docx·txt 파일이나 그것을 담은 zip 을 올려 주세요(pdf 는 1단계에서 읽지 않습니다).'
+          ? '읽을 수 있는 규정 파일이 없습니다. hwp·hwpx·docx·txt·pdf 파일이나 그것을 담은 zip 을 올려 주세요.'
           : '규정 파일을 찾지 못했습니다.');
         return;
       }
@@ -96,6 +118,10 @@ export default function RulesReviewClient() {
       // 다시 올린 규정이 지난번보다 적으면 바꾸기 전에 묻는다(일부 파일만 고른 실수일 수 있다)
       if (ws && next.regs.length < ws.regs.length) { setPending({ next, src: got.sources }); return; }
       await apply(next, got.sources);
+      if (ocr) {
+        const done = tally.haiku + tally.sonnet;
+        setNotice((n) => `${n ? `${n} ` : ''}스캔 쪽 ${done}쪽을 읽었습니다(하이쿠 ${tally.haiku}쪽${tally.sonnet ? ` · 덜 읽혀 소넷으로 다시 읽은 쪽 ${tally.sonnet}쪽` : ''})${tally.failed ? `. 읽지 못한 쪽 ${tally.failed}쪽` : ''}${tally.stopped ? ` — ${tally.stopped}` : ''}. 스캔에서 읽은 글자는 원문과 한 번 대조하세요.`);
+      }
     } catch (e) {
       setError(`파일을 읽지 못했습니다: ${(e as Error).message}`);
     } finally {
@@ -145,7 +171,7 @@ export default function RulesReviewClient() {
 
   const picker = (
     <>
-      <input ref={fileRef} type="file" hidden multiple accept=".zip,.hwp,.hwpx,.docx,.txt" onChange={(e) => onFiles(e.target.files)} />
+      <input ref={fileRef} type="file" hidden multiple accept=".zip,.hwp,.hwpx,.docx,.txt,.pdf" onChange={(e) => onFiles(e.target.files)} />
       <input ref={dirRef} type="file" hidden multiple {...{ webkitdirectory: '', directory: '' }} onChange={(e) => onFiles(e.target.files)} />
     </>
   );
@@ -162,7 +188,7 @@ export default function RulesReviewClient() {
               부르는 별표·서식이 실려 있는지, 조·항 번호와 용어가 맞는지 맞춰 봅니다. 담당자가 항목마다 반영·보류·해당 없음을 고르면
               신·구조문대비표와 원본 한글 파일에 고친 글자를 넣은 반영본을 만듭니다.
             </p>
-            <p className="rr-note"><ShieldCheck size={16} aria-hidden /> 파일은 이 브라우저 안에서만 읽습니다. 서버로 보내지 않고, 작업은 이 컴퓨터의 브라우저에 저장됩니다.</p>
+            <p className="rr-note"><ShieldCheck size={16} aria-hidden /> 파일은 이 브라우저 안에서만 읽습니다. 서버로 보내지 않고, 작업은 이 컴퓨터의 브라우저에 저장됩니다. 글자층이 없는 스캔 pdf 쪽만, 담당자가 동의하면 그 쪽 그림을 보내 글자로 읽습니다.</p>
           </header>
 
           {restore && (
@@ -200,7 +226,7 @@ export default function RulesReviewClient() {
                 <>
                   <FileArchive size={32} aria-hidden />
                   <p><b>규정 zip 이나 파일을 여기에 끌어 놓으세요</b></p>
-                  <p className="rr-mute">hwp · hwpx · docx · txt, 그리고 그것을 담은 zip(안의 zip 한 단계까지). pdf 는 1단계에서 읽지 않습니다.</p>
+                  <p className="rr-mute">hwp · hwpx · docx · txt · pdf, 그리고 그것을 담은 zip(안의 zip 한 단계까지). 같은 규정의 한글 파일과 pdf 가 함께 있으면 한글 파일을 읽습니다(반영본은 한글 파일로만 만듭니다).</p>
                   <div className="rr-row center">
                     <button className="rr-btn" onClick={() => fileRef.current?.click()}><UploadIcon size={16} aria-hidden /> zip·파일 고르기</button>
                     <button className="rr-btn ghost" onClick={() => dirRef.current?.click()}><FolderOpen size={16} aria-hidden /> 폴더 통째로 고르기</button>
@@ -285,7 +311,8 @@ export default function RulesReviewClient() {
       {notice && <div className="rr-wrap wide"><p className="rr-note" role="status">{notice}</p></div>}
       {error && <div className="rr-wrap wide"><p className="rr-error" role="alert">{error}</p></div>}
       <div className="rr-wrap wide rr-body">
-        {tab === '읽은 파일' && <ReadReport ws={ws} onStart={() => setTab('확인')} />}
+        {tab === '읽은 파일' && <ReadReport ws={ws} onStart={() => setTab('확인')} busy={busy ? `${busy.done}/${busy.total} ${busy.name}` : null}
+          onOcr={lastUploads.current.length ? () => read(lastUploads.current, institution, true) : null} />}
         {tab === '확인' && <Workbench ws={ws} patch={patch} patchMany={patchMany} />}
         {tab === '조문 고치기' && <AmendPanel ws={ws} setWs={setWs} />}
         {tab === '부서 의견' && <DeptPanel ws={ws} setWs={setWs} />}

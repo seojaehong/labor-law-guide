@@ -102,6 +102,24 @@ checks.push('390px 시작·작업대·조문 고치기·결재 묶음 가로 넘
 assert.deepEqual(errors,[]);checks.push('콘솔 오류 0 (390)');
 await ctx.close();
 
+// ── pdf: 글자층 쪽은 브라우저에서 읽고, 스캔 쪽은 동의 단추가 나온다. RR_OCR=1 이면 눌러 실제로 읽는다(모델 호출 1~2번) ──
+({ctx,page,errors}=await open(1280));
+{const r=page.getByRole('button',{name:'지우고 새로 시작'});if(await r.count())await r.click();}
+await page.locator('input[type=file][accept^=".zip"]').setInputFiles('tests/fixtures/laws/sample-rules.pdf');
+await page.getByRole('heading',{name:/규정 1개를 읽었습니다/}).waitFor({timeout:60000});
+const pdfBox=page.getByRole('region',{name:'pdf 로 읽은 규정'});
+assert((await pdfBox.innerText()).includes('스캔 쪽 1쪽'),'스캔 쪽 안내 없음');
+const ask=pdfBox.getByRole('button',{name:/동의하고 스캔 1쪽 보내 읽기/});assert.equal(await ask.count(),1,'동의 단추 없음');
+checks.push('pdf — 글자층 쪽을 브라우저에서 읽고 스캔 1쪽에 동의 단추');
+if(process.env.RR_OCR){
+  await ask.click();await page.getByText(/스캔 쪽 \d+쪽을 읽었습니다/).waitFor({timeout:120000});
+  assert((await pdfBox.innerText()).includes('그림에서 읽은 글자'),'스캔 읽기 뒤 안내 없음');
+  checks.push('스캔 쪽 실제 읽기 — '+(await page.locator('.rr-note[role=status]').innerText()).slice(0,90));
+}
+await page.screenshot({path:`${out}/1280-pdf.png`,fullPage:true});
+assert.deepEqual(errors,[]);checks.push('콘솔 오류 0 (pdf)');
+await ctx.close();
+
 // ── 3. 실제 규정 폴더(선택) ──
 if(process.env.RR_REAL_DIR){
   const realOut=process.env.RR_REAL_OUT||out;const walk=d=>fs.readdirSync(d).flatMap(n=>fs.statSync(path.join(d,n)).isDirectory()?walk(path.join(d,n)):[path.join(d,n)]);

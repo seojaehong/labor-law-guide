@@ -232,3 +232,7 @@
 .rr-am-was { display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; font-size: 13px; color: var(--rr-body); }
 .rr-am-was span { text-decoration: line-through; text-decoration-color: var(--grey-400); }
 .rr-am-was .rr-link { display: inline-flex; align-items: center; gap: 4px; font-size: 13px; }
+.rr-pdf p + p { margin-top: 8px; }
+.rr-pdf.warn { box-shadow: inset 0 0 0 1px var(--rr-warn), var(--rr-shadow-1); }
+.rr-pdf .rr-btn { margin-top: 10px; }
+.rr-pdf p svg { display: inline; vertical-align: -2px; margin-right: 4px; }
