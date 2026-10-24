@@ -121,7 +121,10 @@ export default function RulesReviewClient() {
         if (tally.stopped) return null;
         setBusy({ ...progress, name: `${path.split('/').pop()} ${no}쪽 — 스캔 쪽 읽는 중` });
         try {
-          const r = await ocrPage(await pageImage(page), await nextToken());
+          const img = await pageImage(page);
+          let r = await ocrPage(img, await nextToken());
+          // 자동 확인은 가끔 떨어진다(쪽 12개 중 1개 실측) — 새 토큰으로 한 번 더 보낸다
+          if ('error' in r && r.error === 'bot_check_failed') r = await ocrPage(img, await nextToken());
           if ('lines' in r) { tally[r.model]++; return r.lines; }
           tally.failed++;
           if (r.stop) tally.stopped = r.message;
