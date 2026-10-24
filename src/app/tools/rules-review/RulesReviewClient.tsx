@@ -13,6 +13,7 @@ import DeptPanel from './DeptPanel';
 import AmendPanel from './AmendPanel';
 import BundlePanel from './BundlePanel';
 import ReadReport from './ReadReport';
+import TurnstileWidget from '@/components/TurnstileWidget';
 
 type Tab = '확인' | '조문 고치기' | '부서 의견' | '결재 묶음' | '읽은 파일';
 const TABS: Tab[] = ['확인', '조문 고치기', '부서 의견', '결재 묶음', '읽은 파일'];
@@ -82,6 +83,29 @@ export default function RulesReviewClient() {
   // 마지막으로 올린 파일 — 스캔 쪽 읽기에 동의하면 같은 파일을 다시 읽는다
   const lastUploads = useRef<Upload[]>([]);
 
+  // 자동 확인(turnstile) 토큰은 한 번만 쓸 수 있다 — 스캔 쪽마다 새로 받는다. 사이트 키가 없으면(개발) 보내지 않는다
+  const token = useRef<string | null>(null);
+  const waiters = useRef<((t: string) => void)[]>([]);
+  const take = (t: string) => {
+    token.current = null;
+    try { window.turnstile?.reset(); } catch { /* 다음 토큰은 다시 발급된다 */ }
+    return t;
+  };
+  const onToken = useCallback((t: string | null) => {
+    const w = waiters.current.shift();
+    if (t && w) w(take(t));
+    else token.current = t;
+  }, []);
+  const nextToken = (): Promise<string | null> => {
+    if (!process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY?.trim()) return Promise.resolve(null);
+    if (token.current) return Promise.resolve(take(token.current));
+    return new Promise((res) => {
+      const w = (t: string) => { clearTimeout(timer); res(t); };
+      const timer = setTimeout(() => { waiters.current = waiters.current.filter((x) => x !== w); res(null); }, 20_000);
+      waiters.current.push(w);
+    });
+  };
+
   /** ocr 이면 스캔 쪽을 서버로 보내 읽는다(담당자가 「보내 읽기」를 누른 뒤에만) */
   const read = async (uploads: Upload[], name = institution, ocr = false) => {
     if (!uploads.length) return;
@@ -97,7 +121,7 @@ export default function RulesReviewClient() {
         if (tally.stopped) return null;
         setBusy({ ...progress, name: `${path.split('/').pop()} ${no}쪽 — 스캔 쪽 읽는 중` });
         try {
-          const r = await ocrPage(await pageImage(page));
+          const r = await ocrPage(await pageImage(page), await nextToken());
           if ('lines' in r) { tally[r.model]++; return r.lines; }
           tally.failed++;
           if (r.stop) tally.stopped = r.message;
@@ -274,6 +298,7 @@ export default function RulesReviewClient() {
   return (
     <main className="rr">
       {picker}
+      <TurnstileWidget onToken={onToken} />
       <div className="rr-top">
         <div className="rr-wrap wide rr-top-in">
           <div className="rr-title">
