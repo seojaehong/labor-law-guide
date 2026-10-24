@@ -4,9 +4,11 @@ import { looksRead, OCR_SYSTEM } from './ocr-check';
 
 export const OCR_MODELS = { haiku: 'claude-haiku-5-5', sonnet: 'claude-sonnet-5-5' } as const;
 export type OcrModel = keyof typeof OCR_MODELS;
+// 기본값은 실측 시험용 — 라우트는 남은 시간 예산으로 따로 준다
 const CALL_TIMEOUT_MS = 25_000;
+export type ReadOptions = { timeoutMs?: number; maxRetries?: number };
 
-export async function readPage(client: Anthropic, model: OcrModel, mediaType: string, data: string): Promise<{ text: string; ok: boolean; usage: { input: number; output: number } }> {
+export async function readPage(client: Anthropic, model: OcrModel, mediaType: string, data: string, opts: ReadOptions = {}): Promise<{ text: string; ok: boolean; usage: { input: number; output: number } }> {
   const res = await client.messages.create({
     model: OCR_MODELS[model],
     max_tokens: 8000,
@@ -17,7 +19,7 @@ export async function readPage(client: Anthropic, model: OcrModel, mediaType: st
       { type: 'image', source: { type: 'base64', media_type: mediaType as 'image/jpeg', data } },
       { type: 'text', text: '이 쪽의 글자를 규칙대로 옮겨 주세요.' },
     ] }],
-  }, { timeout: CALL_TIMEOUT_MS, maxRetries: 1 });
+  }, { timeout: opts.timeoutMs ?? CALL_TIMEOUT_MS, maxRetries: opts.maxRetries ?? 1 });
   const text = res.content.map((b) => (b.type === 'text' ? b.text : '')).join('').trim();
   return { text, ok: looksRead(text, res.stop_reason), usage: { input: res.usage?.input_tokens ?? 0, output: res.usage?.output_tokens ?? 0 } };
 }

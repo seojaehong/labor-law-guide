@@ -18,6 +18,8 @@ export type RateLimitResult = {
   count: number;
   max: number;
   remaining: number;
+  /** 카운터가 죽어 fail-open 으로 통과시켰다 — 닫힌 쪽으로 실패해야 하는 호출부가 본다 */
+  failed?: true;
 };
 
 async function incr(scope: 'ip' | 'session' | 'global', key: string, max: number): Promise<RateLimitResult> {
@@ -29,7 +31,7 @@ async function incr(scope: 'ip' | 'session' | 'global', key: string, max: number
     });
     if (error || !data) {
       console.error('[rate-limit] fail-open', scope, error?.message ?? 'no data');
-      return { allowed: true, scope, count: 0, max, remaining: max };
+      return { allowed: true, scope, count: 0, max, remaining: max, failed: true };
     }
     // RETURNS TABLE/SETOF면 PostgREST가 배열로 준다 → d.allowed가 undefined가 되고
     // 호출부의 `!result.allowed`가 항상 true여서 **전부 차단**되거나(챗), 반대 방향의
@@ -39,7 +41,7 @@ async function incr(scope: 'ip' | 'session' | 'global', key: string, max: number
       | undefined;
     if (!d || typeof d.allowed !== 'boolean') {
       console.error('[rate-limit] shape mismatch', scope, JSON.stringify(data).slice(0, 200));
-      return { allowed: true, scope, count: 0, max, remaining: max };
+      return { allowed: true, scope, count: 0, max, remaining: max, failed: true };
     }
     return {
       allowed: d.allowed,
@@ -52,7 +54,7 @@ async function incr(scope: 'ip' | 'session' | 'global', key: string, max: number
     // RPC 실패 시 fail-open (베타: 가용성 우선). 단 조용히 넘기지 않는다 —
     // 로그가 없으면 "리밋이 도는 중"과 "리밋이 죽어 무제한"을 구분할 수 없다.
     console.error('[rate-limit] exception', scope, err instanceof Error ? err.message : 'unknown');
-    return { allowed: true, scope, count: 0, max, remaining: max };
+    return { allowed: true, scope, count: 0, max, remaining: max, failed: true };
   }
 }
 
