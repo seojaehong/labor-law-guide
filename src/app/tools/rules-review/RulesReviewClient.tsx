@@ -97,12 +97,14 @@ export default function RulesReviewClient() {
     if (t && w) w(take(t));
     else token.current = t;
   }, []);
-  const nextToken = (): Promise<string | null> => {
+  /** 자동 확인 토큰 — Cloudflare 가 「사람인지 확인」 상자를 띄우면 담당자가 누를 때까지 2분 기다린다(onWait 로 안내) */
+  const nextToken = (onWait?: () => void): Promise<string | null> => {
     if (!process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY?.trim()) return Promise.resolve(null);
     if (token.current) return Promise.resolve(take(token.current));
+    onWait?.();
     return new Promise((res) => {
       const w = (t: string) => { clearTimeout(timer); res(t); };
-      const timer = setTimeout(() => { waiters.current = waiters.current.filter((x) => x !== w); res(null); }, 20_000);
+      const timer = setTimeout(() => { waiters.current = waiters.current.filter((x) => x !== w); res(null); }, 120_000);
       waiters.current.push(w);
     });
   };
@@ -120,12 +122,13 @@ export default function RulesReviewClient() {
       lib: loadPdfLib,
       onScanned: ocr ? async (page, no, path) => {
         if (tally.stopped) return null;
-        setBusy({ ...progress, name: `${path.split('/').pop()} ${no}쪽 — 스캔 쪽 읽는 중` });
+        const label = `${path.split('/').pop()} ${no}쪽`;
+        setBusy({ ...progress, name: `${label} — 스캔 쪽 읽는 중` });
         try {
           const img = await pageImage(page);
           // 자동 확인은 묶음당 한 번 — 통과하면 받은 통행증(10분)으로 나머지 쪽을 보낸다
           const send = async () => {
-            const got = await ocrPage(img, pass.current ? { pass: pass.current } : { token: await nextToken() });
+            const got = await ocrPage(img, pass.current ? { pass: pass.current } : { token: await nextToken(() => setBusy({ ...progress, name: `${label} — 자동 확인을 기다립니다. 아래 「사람인지 확인」 상자가 보이면 눌러 주세요` })) });
             if (got.pass) pass.current = got.pass;
             return got;
           };
@@ -308,7 +311,6 @@ export default function RulesReviewClient() {
   return (
     <main className="rr">
       {picker}
-      <TurnstileWidget onToken={onToken} />
       <div className="rr-top">
         <div className="rr-wrap wide rr-top-in">
           <div className="rr-title">
@@ -347,6 +349,7 @@ export default function RulesReviewClient() {
       {error && <div className="rr-wrap wide"><p className="rr-error" role="alert">{error}</p></div>}
       <div className="rr-wrap wide rr-body">
         {tab === '읽은 파일' && <ReadReport ws={ws} onStart={() => setTab('확인')} busy={busy ? `${busy.done}/${busy.total} ${busy.name}` : null}
+          check={<TurnstileWidget onToken={onToken} />}
           onOcr={lastUploads.current.length ? () => read(lastUploads.current, institution, true) : null} />}
         {tab === '확인' && <Workbench ws={ws} patch={patch} patchMany={patchMany} />}
         {tab === '조문 고치기' && <AmendPanel ws={ws} setWs={setWs} />}
