@@ -8,6 +8,7 @@ import { readDocText } from '@/lib/laws/doc-io';
 import { annexKey, parseRegulation, type DocLine, type Regulation, type SourceKind } from './model';
 import { annexOwner, groupSame, nameFromFile, nameFromText, normName, REG_SUFFIX, sameName, versionDate } from './names';
 import { readPdf, type PdfLib, type PdfPage, type PdfPageInfo } from './pdf';
+import type { PageCheck } from './ocr-crosscheck';
 
 export const LIMITS = { files: 1500, fileBytes: 20 * 1024 * 1024, totalBytes: 400 * 1024 * 1024 };
 
@@ -113,8 +114,8 @@ export interface IngestReport {
   annexFiles: { path: string; owner: string | null }[];
   failed: Skipped[];
   skipped: Skipped[];
-  /** pdf 로 읽은 규정 — 쪽 수와 글자층이 없는(스캔) 쪽, 그중 읽어 낸 쪽 */
-  pdf?: { path: string; pages: number; scanned: number[]; read: number[] }[];
+  /** pdf 로 읽은 규정 — 쪽 수와 글자층이 없는(스캔) 쪽, 그중 읽어 낸 쪽, 읽어 낸 쪽의 두 판독 대조(없으면 옛 작업·대조 전) */
+  pdf?: { path: string; pages: number; scanned: number[]; read: number[]; xcheck?: PageCheck[] }[];
 }
 
 export interface Ingested {

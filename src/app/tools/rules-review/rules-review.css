@@ -236,3 +236,9 @@
 .rr-pdf.warn { box-shadow: inset 0 0 0 1px var(--rr-warn), var(--rr-shadow-1); }
 .rr-pdf .rr-btn { margin-top: 10px; }
 .rr-pdf p svg { display: inline; vertical-align: -2px; margin-right: 4px; }
+.rr-xcheck { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--rr-hair); }
+.rr-xcheck-file { margin-top: 8px; }
+.rr-xcheck-file ul { margin-top: 4px; padding-left: 18px; list-style: disc; color: var(--rr-body); }
+.rr-xcheck-file details { margin-top: 4px; }
+.rr-xcheck-file summary { cursor: pointer; font-size: 13px; color: var(--rr-link-deep); }
+.rr-xcheck-at { display: inline-block; min-width: 3em; font-size: 12px; font-weight: 600; color: var(--rr-warn-deep); }

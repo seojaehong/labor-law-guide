@@ -6,6 +6,7 @@ import { FileArchive, FolderOpen, Files, ShieldCheck, Upload as UploadIcon } fro
 import type { Ingested, PdfReader, Source, Upload } from '@/lib/rules-review/ingest';
 import { loadPdfLib, ocrPage, pageImage } from '@/lib/rules-review/pdf-browser';
 import { runChecks } from '@/lib/rules-review/checks';
+import { attachChecks, crossCheck, type PageCheck } from '@/lib/rules-review/ocr-crosscheck';
 import { carryOver, newWorkspace, stats, type ItemState, type Workspace } from '@/lib/rules-review/workspace';
 import { clearAll, loadAll, saveSources, saveWorkspace } from '@/lib/rules-review/store';
 import Workbench from './Workbench';
@@ -118,6 +119,9 @@ export default function RulesReviewClient() {
     setBusy({ done: 0, total: 1, name: '' });
     const tally = { haiku: 0, sonnet: 0, failed: 0, stopped: '' };
     let progress = { done: 0, total: 1 };
+    // 두 번째 판독 — 서버가 읽은 쪽만, 다음 쪽을 보내는 동안 이 브라우저에서 같은 그림을 읽는다
+    const second = ocr ? (await import('@/lib/rules-review/tesseract-browser')).secondReader() : null;
+    const checks: Promise<{ path: string } & PageCheck>[] = [];
     const pdf: PdfReader = {
       lib: loadPdfLib,
       onScanned: ocr ? async (page, no, path) => {
@@ -135,7 +139,12 @@ export default function RulesReviewClient() {
           let r = await send();
           // 통행증이 만료됐거나 확인이 떨어졌으면 새 토큰으로 한 번 더
           if ('error' in r && r.error === 'bot_check_failed') { pass.current = null; r = await send(); }
-          if ('lines' in r) { tally[r.model]++; return r.lines; }
+          if ('lines' in r) {
+            tally[r.model]++;
+            const lines = r.lines;
+            if (second) checks.push(second.read(img).then((text) => ({ path, page: no, ...crossCheck(lines, text) })));
+            return lines;
+          }
           tally.failed++;
           if (r.stop) tally.stopped = r.message;
         } catch { tally.failed++; }
@@ -145,6 +154,12 @@ export default function RulesReviewClient() {
     try {
       const { ingest } = await import('@/lib/rules-review/ingest');
       const got: Ingested = await ingest(uploads, { pdf, onProgress: (done, total, name) => { progress = { done, total }; setBusy({ done, total, name }); } });
+      if (checks.length && got.report.pdf) {
+        setBusy({ done: progress.total, total: progress.total, name: `스캔 ${checks.length}쪽 숫자·조 번호 두 판독 맞춰 보는 중` });
+        const byPath = new Map<string, PageCheck[]>();
+        for (const { path, ...c } of await Promise.all(checks)) byPath.set(path, [...(byPath.get(path) ?? []), c]);
+        got.report.pdf = attachChecks(got.report.pdf, byPath);
+      }
       if (!got.regs.length) {
         setError(got.report.skipped.length || got.report.failed.length
           ? '읽을 수 있는 규정 파일이 없습니다. hwp·hwpx·docx·txt·pdf 파일이나 그것을 담은 zip 을 올려 주세요.'
@@ -162,6 +177,7 @@ export default function RulesReviewClient() {
     } catch (e) {
       setError(`파일을 읽지 못했습니다: ${(e as Error).message}`);
     } finally {
+      void second?.close();
       setBusy(null);
       if (fileRef.current) fileRef.current.value = '';
       if (dirRef.current) dirRef.current.value = '';
