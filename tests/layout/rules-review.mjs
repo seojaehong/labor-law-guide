@@ -111,10 +111,20 @@ const pdfBox=page.getByRole('region',{name:'pdf 로 읽은 규정'});
 assert((await pdfBox.innerText()).includes('스캔 쪽 1쪽'),'스캔 쪽 안내 없음');
 const ask=pdfBox.getByRole('button',{name:/동의하고 스캔 1쪽 보내 읽기/});assert.equal(await ask.count(),1,'동의 단추 없음');
 checks.push('pdf — 글자층 쪽을 브라우저에서 읽고 스캔 1쪽에 동의 단추');
-if(process.env.RR_OCR){
-  await ask.click();await page.getByText(/스캔 쪽 \d+쪽을 읽었습니다/).waitFor({timeout:120000});
-  assert((await pdfBox.innerText()).includes('그림에서 읽은 글자'),'스캔 읽기 뒤 안내 없음');
-  checks.push('스캔 쪽 실제 읽기 — '+(await page.locator('.rr-note[role=status]').innerText()).slice(0,90));
+// 운영은 자동 확인(turnstile)이 켜져 있어 자동화 브라우저는 토큰을 받지 못한다 — RR_CDP=<일반 크롬 원격 디버깅 주소> 로 붙어 읽는다
+const local=/^http:\/\/(127\.0\.0\.1|localhost)/.test(base);
+if(process.env.RR_OCR&&!local&&!process.env.RR_CDP){
+  checks.push('스캔 쪽 실제 읽기 — 확인하지 않음(운영은 RR_CDP 일반 크롬이 필요)');
+}else if(process.env.RR_OCR){
+  const cdp=process.env.RR_CDP&&await chromium.connectOverCDP(process.env.RR_CDP);
+  const p=cdp?await cdp.contexts()[0].newPage():page;
+  if(cdp){await p.goto(`${base}/tools/rules-review`,{waitUntil:'networkidle'});{const r=p.getByRole('button',{name:'지우고 새로 시작'});if(await r.count())await r.click();}
+    await p.locator('input[type=file][accept^=".zip"]').setInputFiles('tests/fixtures/laws/sample-rules.pdf');await p.getByRole('heading',{name:/규정 1개를 읽었습니다/}).waitFor({timeout:60000});}
+  const box=p.getByRole('region',{name:'pdf 로 읽은 규정'});
+  await box.getByRole('button',{name:/동의하고 스캔 1쪽 보내 읽기/}).click();await p.getByText(/스캔 쪽 \d+쪽을 읽었습니다/).waitFor({timeout:120000});
+  assert((await box.innerText()).includes('그림에서 읽은 글자'),'스캔 읽기 뒤 안내 없음 — '+(await p.locator('.rr-note[role=status]').innerText()).slice(0,160));
+  checks.push('스캔 쪽 실제 읽기 — '+(await p.locator('.rr-note[role=status]').innerText()).slice(0,90));
+  if(cdp){await p.close();await cdp.close();}
 }
 await page.screenshot({path:`${out}/1280-pdf.png`,fullPage:true});
 assert.deepEqual(errors,[]);checks.push('콘솔 오류 0 (pdf)');
