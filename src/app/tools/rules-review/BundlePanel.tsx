@@ -4,7 +4,7 @@
 import { useState, type MutableRefObject } from 'react';
 import { CircleAlert, CircleCheck, Download, FileSpreadsheet, FileText, Save, Trash2 } from 'lucide-react';
 import type { Source } from '@/lib/rules-review/ingest';
-import { stateOf, stats, replacement, type Workspace } from '@/lib/rules-review/workspace';
+import { ownText, stateOf, stats, replacement, type Workspace } from '@/lib/rules-review/workspace';
 import { download, safeName, today } from './download';
 
 interface Result { reg: string; applied: number; manual: number; error?: string }
@@ -22,6 +22,7 @@ export default function BundlePanel({ ws, setWs, sources, onReset }: {
   const st = stats(ws);
   const holdNoReason = ws.findings.filter((f) => { const s = stateOf(ws, f.id); return s.decision === '보류' && !s.note.trim(); }).length;
   const manual = ws.findings.filter((f) => { const s = stateOf(ws, f.id); return s.decision === '반영' && replacement(ws, f) === null && !s.text?.trim(); }).length;
+  const written = ws.findings.filter((f) => stateOf(ws, f.id).decision === '반영' && ownText(ws, f) !== null).length;
   const name = safeName(ws.institution);
   const set = (p: Partial<Workspace>) => setWs((w) => (w ? { ...w, ...p } : w));
   const hasSources = Object.keys(sources.current).length > 0;
@@ -54,6 +55,7 @@ export default function BundlePanel({ ws, setWs, sources, onReset }: {
     { ok: st.unsettled === 0, text: st.unsettled ? `부서 이견 ${st.unsettled}건의 조율 결과가 비어 있습니다` : st.disputed ? `부서 이견 ${st.disputed}건 모두 조율 결과를 적었습니다` : '부서 이견이 없습니다' },
     { ok: holdNoReason === 0, text: holdNoReason ? `사유 없는 보류 ${holdNoReason}건 — 보류 목록에 「사유 미기재」로 실립니다` : '보류 항목에 모두 사유가 있습니다' },
     { ok: manual === 0, text: manual ? `자동으로 고칠 문안이 없는 반영 ${manual}건 — 「직접 고칠 곳」으로 실립니다(확인 탭의 「개정 문안 직접 쓰기」나 「조문 고치기」 탭에서 고치면 대비표에 들어갑니다)` : '반영 항목은 모두 고칠 문안이 있습니다' },
+    { ok: written === 0, text: written ? `담당자가 개정 문안을 쓴 반영 ${written}건 — 대비표에는 실리지만 반영본(hwpx)에는 자동으로 넣지 못해 「직접 고칠 곳」으로 실립니다(한글에서 옮겨 적으세요)` : '반영본에 직접 옮길 담당자 개정 문안이 없습니다' },
   ];
 
   return (
