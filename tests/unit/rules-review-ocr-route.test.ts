@@ -47,6 +47,22 @@ describe('스캔 쪽 읽기', () => {
     expect(m.create.mock.calls.map((c) => c[0].model)).toEqual(['claude-haiku-5-5', 'claude-sonnet-5-5']);
   });
 
+  it('하이쿠 호출이 실패해도 소넷으로 다시 읽는다', async () => {
+    m.create.mockRejectedValueOnce(Object.assign(new Error('not found'), { status: 404 })).mockResolvedValueOnce(reply(PAGE));
+    const res = await POST(req());
+    expect(res.status).toBe(200);
+    expect((await res.json()).model).toBe('sonnet');
+  });
+
+  it('둘 다 호출이 실패하면 503 — 502·504 는 앞단(Cloudflare)이 제 화면으로 바꿔 내용이 사라진다', async () => {
+    m.create.mockRejectedValue(Object.assign(new Error('bad'), { status: 400 }));
+    const res = await POST(req());
+    expect(res.status).toBe(503);
+    const body = await res.json();
+    expect(body.error).toBe('ocr_failed');
+    expect(body.upstream).toBe(400);
+  });
+
   it('둘 다 못 읽으면 422', async () => {
     m.create.mockResolvedValue(reply('[판독 불가]'));
     const res = await POST(req());
