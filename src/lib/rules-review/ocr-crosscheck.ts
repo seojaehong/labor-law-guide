@@ -10,8 +10,8 @@ export interface Flagged {
   anchors: string[];
 }
 
-/** checked = 표지가 있어 대조한 줄 수. not_checked = 두 번째 판독이 없음(실패·시간 초과) — 「일치」가 아니다 */
-export type CrossCheck = { state: 'checked'; checked: number; flagged: Flagged[] } | { state: 'not_checked' };
+/** checked = 표지가 있어 대조한 줄 수. not_checked = 두 번째 판독이 없음(실패·시간 초과) 또는 숫자를 대부분 놓침(low_coverage) — 「일치」가 아니다 */
+export type CrossCheck = { state: 'checked'; checked: number; flagged: Flagged[] } | { state: 'not_checked'; reason?: 'low_coverage' };
 export type PageCheck = { page: number } & CrossCheck;
 
 // 조·항·호 → 날짜 → 원문자 → 숫자 순. 한 글자를 두 표지가 나눠 갖지 않는다
@@ -67,6 +67,8 @@ export function crossCheck(modelLines: string[], other: string | null | undefine
     }
     if (missing.length) flagged.push({ line: i + 1, text: line, anchors: missing });
   });
+  // 대조한 줄의 절반 넘게 걸리면 모델이 틀린 게 아니라 두 번째 판독이 숫자를 놓친 쪽이다(빽빽한 표 실측 15줄 중 14줄) — 줄마다 걸지 않는다
+  if (checked >= 4 && flagged.length * 2 > checked) return { state: 'not_checked', reason: 'low_coverage' };
   return { state: 'checked', checked, flagged };
 }
 

@@ -52,7 +52,7 @@ export default function ReadReport({ ws, onStart, busy, onOcr, check }: { ws: Wo
           {crossed.length > 0 && (
             <div className="rr-xcheck">
               <p>같은 쪽 그림을 이 브라우저 안에서 다른 판독기(tesseract)로 한 번 더 읽어, 숫자·날짜·조 번호가 두 판독에서 다르게 나온 줄을 모았습니다. 이 줄부터 원문과 대조하세요.
-                모으지 않은 줄도 원문 대조가 필요합니다. 「대조 못 함」은 두 번째 판독이 끝나지 않은 쪽입니다.</p>
+                모으지 않은 줄도 원문 대조가 필요합니다. 「대조 못 함」은 두 번째 판독이 끝나지 않았거나 숫자를 대부분 놓친 쪽(빽빽한 표 등)입니다 — 그 쪽은 원문과 직접 대조하세요.</p>
               {crossed.map(({ p, s }) => {
                 const compared = s.pages - s.notChecked;
                 const line = (f: (typeof s.flagged)[number]) => <li key={`${f.page}-${f.line}`}><span className="rr-xcheck-at">{f.page}쪽</span> {f.text} <span className="rr-mute small">(두 번째 판독에 없는 것: {f.anchors.join(' · ')})</span></li>;

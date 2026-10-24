@@ -92,3 +92,17 @@ describe('attachChecks · summarize — 파일별로 붙이고 센다', () => {
     expect(summarize(b)).toBeNull();
   });
 });
+
+describe('두 번째 판독이 숫자를 많이 놓친 쪽(빽빽한 표) — 줄마다 걸지 않고 「대조 못 함」', () => {
+  // 실측: 이수학점표 쪽에서 tesseract 가 표 숫자를 거의 놓쳐 대조한 15줄 중 14줄이 걸렸다(하이쿠는 맞게 읽었다)
+  const rows = Array.from({ length: 8 }, (_, i) => `학과${i} | 15 | 12 | ${i + 3} | 30 | 7${i} | 0 | 132`);
+  it('대조한 줄의 절반 넘게 걸리면 쪽 전체를 「대조 못 함」(사유 low_coverage)으로 돌린다', () => {
+    expect(crossCheck(rows, '학과 표 이수학점 기준표')).toEqual({ state: 'not_checked', reason: 'low_coverage' });
+  });
+  it('몇 줄만 다르면 그대로 그 줄을 짚는다', () => {
+    const other = rows.join('\n').replace('| 74 |', '| 47 |');
+    const r = crossCheck(rows, other);
+    expect(r.state).toBe('checked');
+    if (r.state === 'checked') expect(r.flagged.map((f) => f.line)).toEqual([5]);
+  });
+});
