@@ -116,6 +116,12 @@ export function replacement(ws: Workspace, f: Finding): string | null {
   return s.text?.trim() ? s.text : f.after;
 }
 
+/** 바꿀 글자가 없는 항목에 담당자가 쓴 조문 개정 문안 — 대비표에만 실리고 반영본에는 직접 옮긴다 */
+export function ownText(ws: Workspace, f: Finding): string | null {
+  const t = stateOf(ws, f.id).text?.trim();
+  return f.after === null && t ? t : null;
+}
+
 /** 오늘(한국 시간) YYYY-MM-DD — toISOString 은 UTC 라 새벽에 하루 전 날짜가 된다 */
 export const kstToday = () => new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Seoul' });
 

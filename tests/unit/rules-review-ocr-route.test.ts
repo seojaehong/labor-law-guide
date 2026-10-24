@@ -135,6 +135,70 @@ describe('스캔 쪽 읽기', () => {
   });
 });
 
+describe('시간 예산 — maxDuration(60초) 안에 JSON 이 나가야 한다(504 는 앞단이 본문·통행증을 지운다)', () => {
+  beforeEach(() => { vi.useFakeTimers({ toFake: ['Date'] }); });
+  afterEach(() => { vi.useRealTimers(); });
+  // 호출 하나가 가장 오래 걸리는 시간 = 시간 초과 × (1 + 재시도)
+  const worst = (o: { timeout: number; maxRetries: number }) => o.timeout * (1 + o.maxRetries);
+
+  it('하이쿠는 20초·재시도 없이, 소넷은 남은 시간만 — 둘을 합쳐도 55초를 넘지 않는다', async () => {
+    m.create.mockImplementationOnce(async () => { vi.setSystemTime(Date.now() + 20_000); throw Object.assign(new Error('timeout'), { status: undefined }); })
+      .mockResolvedValueOnce(reply(PAGE));
+    const res = await POST(req());
+    expect(res.status).toBe(200);
+    const [h, s] = m.create.mock.calls.map((c) => c[1]);
+    expect(h).toMatchObject({ maxRetries: 0 });
+    expect(h.timeout).toBeLessThanOrEqual(20_000);
+    expect(s.maxRetries).toBe(0);
+    expect(worst(h) + worst(s)).toBeLessThanOrEqual(55_000);
+  });
+
+  it('하이쿠가 곧바로 덜 읽어도 소넷 시간은 전체 예산 안이다', async () => {
+    m.create.mockResolvedValueOnce(reply('[판독 불가]')).mockResolvedValueOnce(reply(PAGE));
+    await POST(req());
+    const s = m.create.mock.calls[1][1];
+    expect(worst(s)).toBeLessThanOrEqual(55_000);
+  });
+
+  it('하이쿠가 예산을 거의 다 쓰면 소넷을 부르지 않는다 — 덜 읽음은 422, 호출 실패는 503, 둘 다 통행증을 싣는다', async () => {
+    m.ts = true; vi.stubEnv('TURNSTILE_SECRET_KEY', 'test-secret'); m.verify.mockResolvedValue({ skipped: false, success: true });
+    m.create.mockImplementationOnce(async () => { vi.setSystemTime(Date.now() + 45_000); return reply('[판독 불가]'); });
+    const a = await POST(req(undefined, undefined, { turnstileToken: 't1' }));
+    expect(a.status).toBe(422);
+    expect(typeof (await a.json()).pass).toBe('string');
+    expect(m.create).toHaveBeenCalledTimes(1);
+
+    m.create.mockReset();
+    m.create.mockImplementationOnce(async () => { vi.setSystemTime(Date.now() + 45_000); throw Object.assign(new Error('timeout'), { status: undefined }); });
+    const b = await POST(req(undefined, undefined, { turnstileToken: 't1' }));
+    expect(b.status).toBe(503);
+    const body = await b.json();
+    expect(body.error).toBe('ocr_failed');
+    expect(typeof body.pass).toBe('string');
+    expect(m.create).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('하루 한도 — 순서와 카운터 장애', () => {
+  it('IP 한도를 먼저 본다 — IP 에서 막힌 요청은 전체 3,000쪽 예산을 깎지 않는다', async () => {
+    m.limit.mockImplementation(async (scope: string) => ({ allowed: scope !== 'ip' }));
+    expect((await POST(req())).status).toBe(429);
+    expect(m.limit.mock.calls.map((c) => c[0])).toEqual(['ip']);
+    expect(m.create).not.toHaveBeenCalled();
+  });
+
+  it.each(['ip', 'global'])('카운터(%s)가 죽었으면 통과시키지 않고 503 — 이 라우트는 닫힌 쪽으로 실패한다', async (dead) => {
+    m.ts = true; vi.stubEnv('TURNSTILE_SECRET_KEY', 'test-secret'); m.verify.mockResolvedValue({ skipped: false, success: true });
+    m.limit.mockImplementation(async (scope: string) => (scope === dead ? { allowed: true, failed: true } : { allowed: true }));
+    const res = await POST(req(undefined, undefined, { turnstileToken: 't1' }));
+    expect(res.status).toBe(503);
+    const body = await res.json();
+    expect(body.error).toBe('limit_unavailable');
+    expect(typeof body.pass).toBe('string');
+    expect(m.create).not.toHaveBeenCalled();
+  });
+});
+
 describe('읽었다고 볼 기준', () => {
   it('끝까지 썼고, 판독 불가 표시가 없고, 한글·숫자가 충분해야 한다', () => {
     expect(looksRead(PAGE, 'end_turn')).toBe(true);

@@ -5,15 +5,83 @@ import JSZip from 'jszip';
 import ExcelJS from 'exceljs';
 import type { InitInput } from '@rhwp/core';
 import { applyChanges, type Change } from '@/lib/hwp/apply';
-import { articleAt, articleLabel, articleText, HEAD, type Article, type Regulation } from './model';
+import { articleAt, articleLabel, HEAD, type Article, type Regulation } from './model';
 import { KIND_GROUP, KIND_LABEL, type Finding } from './checks';
-import { deptOf, disputed, dotDate, kstToday, replacement, stateOf, stats, type Opinion, type Verdict, type Workspace } from './workspace';
+import { deptOf, disputed, dotDate, kstToday, ownText, replacement, stateOf, stats, type Opinion, type Verdict, type Workspace } from './workspace';
 import type { Source } from './ingest';
 
 // ── 신·구조문 ──
 export interface CompareRow { old: string; neu: string; why: string }
 
 interface Edit { at: number; length: number; to: string; f: Finding }
+
+/** 반영했지만 반영본에 자동으로 넣지 않는 항목 — 대비표·반영본 양쪽 「직접 고칠 곳」 */
+export interface Hand { f: Finding; why: string }
+
+/** 조문 하나의 담당자 개정 문안 — 문안 줄과, 원래 줄 → 문안에 그대로 남은 줄 번호 */
+export interface Own { fs: Finding[]; lines: string[]; at: Map<number, number> }
+
+export interface Resolved {
+  /** 줄 → 넣을 글자 고침(서로 겹치지 않는다) */
+  lines: Map<number, Edit[]>;
+  written: Map<Article, Own>;
+  hand: Hand[];
+}
+
+/** 한 규정의 반영 고침을 정한다 — 신·구조문대비표와 반영본이 이것 하나를 쓴다.
+ *  겹침: 직접 고친 줄(amend) 먼저, 그다음 앞 글자부터(같은 자리면 긴 것). 항목 목록 순서와 상관없다. 뒤에 온 겹친 고침은 뺀다.
+ *  담당자 개정 문안(바꿀 글자 없는 항목에 쓴 조문 전체): 그 조문은 문안이 이긴다. 같은 조문의 글자 고침은
+ *  원래 줄이 문안에 그대로 남아 있을 때만 그 줄에 얹고, 담당자가 고쳐 쓴 줄의 글자 고침은 뺀다.
+ *  문안 자체는 반영본에 자동으로 넣지 못하므로 직접 고칠 곳이다. */
+export function resolveEdits(ws: Workspace, reg: Regulation): Resolved {
+  const taken = ws.findings.filter((f) => f.reg === reg.name && stateOf(ws, f.id).decision === '반영');
+  const hand: Hand[] = [];
+  const drop = (f: Finding, why: string) => { if (!hand.some((h) => h.f === f && h.why === why)) hand.push({ f, why }); };
+  const all: (Edit & { line: number })[] = [];
+  const byArt = new Map<Article, Finding[]>();
+  for (const f of taken) {
+    const rep = replacement(ws, f);
+    if (rep !== null) {
+      for (const sp of f.spans) {
+        if (sp.line < 0 || !sp.length) continue;
+        all.push({ line: sp.line, at: sp.at, length: sp.length, to: f.after !== null && rep === f.after ? (sp.to ?? rep) : rep, f });
+      }
+      continue;
+    }
+    if (ownText(ws, f) === null) { drop(f, '고칠 문안 없음'); continue; }
+    const a = f.spans.map((sp) => articleAt(reg, sp.line)).find(Boolean);
+    if (!a) { drop(f, '조문을 찾지 못한 담당자 개정 문안'); continue; }
+    byArt.set(a, [...(byArt.get(a) ?? []), f]);
+    drop(f, '담당자 개정 문안 — 반영본에는 한글에서 직접 옮기세요');
+  }
+  const written = new Map<Article, Own>();
+  for (const [a, fs] of byArt) {
+    const lines = fs.map((f) => ownText(ws, f)!).join('\n').split('\n');
+    const at = new Map<number, number>(), used = new Set<number>();
+    for (let i = a.start; i <= a.end; i++) {
+      const t = reg.lines[i].text.trim();
+      if (!t) continue;
+      const j = lines.findIndex((n, k) => !used.has(k) && n.trim() === t);
+      if (j >= 0) { used.add(j); at.set(i, j); }
+    }
+    written.set(a, { fs, lines, at });
+  }
+  const rank = (e: Edit) => (e.f.kind === 'amend' ? 0 : 1);
+  all.sort((x, y) => rank(x) - rank(y) || x.line - y.line || x.at - y.at || y.length - x.length);
+  const lines = new Map<number, Edit[]>();
+  for (const { line, ...e } of all) {
+    const a = articleAt(reg, line);
+    const own = a ? written.get(a) : undefined;
+    if (own && !own.at.has(line)) { drop(e.f, '담당자 개정 문안에서 고쳐 쓴 줄'); continue; }
+    const on = lines.get(line) ?? [];
+    if (on.some((o) => e.at < o.at + o.length && o.at < e.at + e.length)) { drop(e.f, '다른 고침과 같은 글자'); continue; }
+    lines.set(line, [...on, e]);
+  }
+  return { lines, written, hand };
+}
+
+/** 모든 규정의 직접 고칠 곳(반영본 쪽은 여기에 표·그림 문단·새 줄 고침이 더해진다) */
+export const handList = (ws: Workspace): Hand[] => ws.regs.flatMap((r) => resolveEdits(ws, r).hand);
 
 /** 한 줄에 반영 글자 고침을 넣는다. 겹치는 고침은 앞 것만 */
 export function applyLine(text: string, edits: Edit[]): { text: string; skipped: Edit[] } {
@@ -55,31 +123,30 @@ const reasonOf = (ws: Workspace, f: Finding) => {
 /** 반영한 항목 → 한 규정의 신·구조문 행 */
 export function compareRows(ws: Workspace, reg: Regulation): CompareRow[] {
   const mark = `<개정 ${dotDate(ws.effective)}>`;
-  const taken = ws.findings.filter((f) => f.reg === reg.name && stateOf(ws, f.id).decision === '반영');
-  const lineEdits = new Map<number, Edit[]>();
-  const overrides = new Map<Article, Finding[]>();
+  const { lines: lineEdits, written } = resolveEdits(ws, reg);
   const reasons = new Map<string, Set<string>>(); // 조문(또는 줄) 열쇠 → 사유
   const keyOf = (line: number) => { const a = articleAt(reg, line); return a ? `a${a.start}` : `l${line}`; };
-  const addReason = (k: string, r: string) => reasons.set(k, (reasons.get(k) ?? new Set()).add(r));
-  for (const f of taken) {
-    const rep = replacement(ws, f);
-    const s = stateOf(ws, f.id);
-    if (rep !== null) {
-      for (const sp of f.spans) {
-        if (sp.line < 0 || !sp.length) continue;
-        const to = f.after !== null && rep === f.after ? (sp.to ?? rep) : rep;
-        lineEdits.set(sp.line, [...(lineEdits.get(sp.line) ?? []), { at: sp.at, length: sp.length, to, f }]);
-        addReason(keyOf(sp.line), reasonOf(ws, f));
-      }
-    } else if (s.text?.trim()) {
-      const a = f.spans.map((sp) => articleAt(reg, sp.line)).find(Boolean);
-      if (a) { overrides.set(a, [...(overrides.get(a) ?? []), f]); addReason(`a${a.start}`, reasonOf(ws, f)); }
-    }
-  }
+  // 사유는 넣은 고침만, 항목 목록 순서로
+  const order = new Map(ws.findings.map((f, i) => [f, i]));
+  const pairs: [Finding, string][] = [];
+  for (const [line, es] of lineEdits) for (const e of es) pairs.push([e.f, keyOf(line)]);
+  for (const [a, own] of written) for (const f of own.fs) pairs.push([f, `a${a.start}`]);
+  for (const [f, k] of pairs.sort((x, y) => order.get(x[0])! - order.get(y[0])!)) reasons.set(k, (reasons.get(k) ?? new Set()).add(reasonOf(ws, f)));
   const rows: { start: number; row: CompareRow }[] = [];
   const done = new Set<number>();
-  for (const [a, fs] of overrides) {
-    rows.push({ start: a.start, row: { old: articleText(reg, a), neu: `${fs.map((f) => stateOf(ws, f.id).text!.trim()).join('\n')} ${mark}`, why: [...reasons.get(`a${a.start}`)!].join('\n') } });
+  // 담당자 개정 문안 조문 — 문안 그대로 싣고, 문안에 그대로 남은 원래 줄에만 글자 고침을 얹는다
+  for (const [a, own] of written) {
+    const olds: string[] = [], news = [...own.lines];
+    for (let i = a.start; i <= a.end; i++) {
+      const t = reg.lines[i].text.trim();
+      if (!t) continue;
+      const edits = lineEdits.get(i);
+      if (!edits) { olds.push(t); continue; }
+      const m = markedLine(reg.lines[i].text, edits);
+      olds.push(m.old);
+      news[own.at.get(i)!] = m.neu;
+    }
+    rows.push({ start: a.start, row: { old: olds.join('\n'), neu: `${news.join('\n').trim()} ${mark}`, why: [...reasons.get(`a${a.start}`)!].join('\n') } });
     for (let i = a.start; i <= a.end; i++) done.add(i);
   }
   const arts = new Set<Article>();
@@ -194,9 +261,9 @@ export function bundleBody(ws: Workspace): string {
   });
   const row = (f: Finding, extra: string[]) => [f.reg, f.article || '-', ...extra];
   // 3. 직접 고칠 곳
-  const manual = manualItems(ws);
-  b += pageBreak + para('3. 직접 고칠 곳', true, 24, 60) + para('반영하기로 했지만 자동으로 고칠 문안이 없는 항목입니다. 개정 문안을 작성해 신·구조문대비표에 더하세요.', false, 18, 100, '485149');
-  b += manual.length ? table(['규정', '조문', '종류', '내용', '사유'], split([3, 2, 2, 6, 3]), manual.map((f) => row(f, [KIND_LABEL[f.kind], f.message, stateOf(ws, f.id).note]))) : para('없습니다.', false, 19);
+  const manual = handList(ws);
+  b += pageBreak + para('3. 직접 고칠 곳', true, 24, 60) + para('반영하기로 했지만 반영본(hwpx)에 자동으로 넣지 않은 항목입니다. 고칠 문안이 없는 항목은 개정 문안을 작성해 신·구조문대비표에 더하고, 담당자 개정 문안은 한글에서 반영본에 직접 옮기세요.', false, 18, 100, '485149');
+  b += manual.length ? table(['규정', '조문', '종류', '내용', '사유'], split([3, 2, 2, 6, 3]), manual.map(({ f, why }) => row(f, [KIND_LABEL[f.kind], `${f.message}\n(${why})`, stateOf(ws, f.id).note]))) : para('없습니다.', false, 19);
   // 4. 보류
   const held = ws.findings.filter((f) => stateOf(ws, f.id).decision === '보류');
   b += para('4. 보류 목록', true, 24, 100);
@@ -338,40 +405,40 @@ export interface Applied {
   fileName: string;
   bytes: Uint8Array | null;
   applied: number;
-  /** 표·그림 문단이라 자동으로 고치지 않은 자리, 겹쳐서 뺀 자리 */
-  manual: { f: Finding; why: string }[];
+  /** 직접 고칠 곳 — 대비표와 같은 항목(문안 없음·담당자 개정 문안·겹쳐서 뺀 고침) + 표·그림 문단·새 줄 고침 */
+  manual: Hand[];
   error?: string;
+}
+
+/** 한 규정의 반영본 고침 — 대비표와 같은 resolveEdits 결과에서, 한글 문단에 넣지 못하는 것만 더 뺀다 */
+export function planChanges(ws: Workspace, r: Regulation): { changes: Change[]; manual: Hand[] } {
+  const { lines, hand } = resolveEdits(ws, r);
+  const changes: Change[] = [], manual = [...hand];
+  for (const [ln, edits] of lines) {
+    const line = r.lines[ln];
+    for (const e of edits) {
+      if (line.controls) { manual.push({ f: e.f, why: '표·그림이 든 문단' }); continue; }
+      if (e.to.includes('\n')) { manual.push({ f: e.f, why: '줄을 새로 넣는 고침' }); continue; }
+      changes.push({ id: `${e.f.id}:${ln}:${e.at}`, kind: 'word', topic: KIND_LABEL[e.f.kind], std: '', where: articleLabel(articleAt(r, ln)),
+        before: line.text.slice(e.at, e.at + e.length), after: e.to, word: { line: ln, at: e.at, length: e.length }, overlaps: [] } as Change);
+    }
+  }
+  return { changes, manual };
 }
 
 export async function applyToSources(ws: Workspace, sources: Record<string, Source>, wasm?: InitInput): Promise<Applied[]> {
   const out: Applied[] = [];
   for (const r of ws.regs) {
     const src = sources[r.key];
-    const taken = ws.findings.filter((f) => f.reg === r.name && stateOf(ws, f.id).decision === '반영' && replacement(ws, f) !== null);
-    if (!taken.length) continue;
-    const res: Applied = { reg: r.name, fileName: r.fileName.replace(/\.(hwpx?|docx|txt)$/i, '') + '_개정안.hwpx', bytes: null, applied: 0, manual: [] };
+    const { changes, manual } = planChanges(ws, r);
+    if (!changes.length && !manual.length) continue;
+    const res: Applied = { reg: r.name, fileName: r.fileName.replace(/\.(hwpx?|docx|txt)$/i, '') + '_개정안.hwpx', bytes: null, applied: 0, manual };
     if (!src || (src.kind !== 'hwp' && src.kind !== 'hwpx')) {
       res.error = '원본이 한글 파일이 아니라 반영본을 만들지 않았습니다. 신·구조문대비표를 쓰세요';
       out.push(res);
       continue;
     }
-    const changes: Change[] = [];
-    const used = new Map<number, [number, number][]>();
-    for (const f of taken) {
-      const rep = replacement(ws, f)!;
-      for (const sp of f.spans) {
-        if (sp.line < 0 || !sp.length) continue;
-        const line = r.lines[sp.line];
-        if (line.controls) { res.manual.push({ f, why: '표·그림이 든 문단' }); continue; }
-        const to = f.after !== null && rep === f.after ? (sp.to ?? rep) : rep;
-        if (to.includes('\n')) { res.manual.push({ f, why: '줄을 새로 넣는 고침' }); continue; }
-        const span: [number, number] = [sp.at, sp.at + sp.length];
-        if ((used.get(sp.line) ?? []).some(([a, b]) => span[0] < b && a < span[1])) { res.manual.push({ f, why: '다른 고침과 같은 글자' }); continue; }
-        used.set(sp.line, [...(used.get(sp.line) ?? []), span]);
-        changes.push({ id: `${f.id}:${sp.line}:${sp.at}`, kind: 'word', topic: KIND_LABEL[f.kind], std: '', where: articleLabel(articleAt(r, sp.line)),
-          before: line.text.slice(sp.at, sp.at + sp.length), after: to, word: { line: sp.line, at: sp.at, length: sp.length }, overlaps: [] } as Change);
-      }
-    }
+    if (!changes.length) { out.push(res); continue; } // 직접 고칠 곳만 있는 규정 — 파일은 만들지 않는다
     try {
       const a = await applyChanges(src.bytes, changes, 'hwpx', wasm);
       res.bytes = a.bytes;
