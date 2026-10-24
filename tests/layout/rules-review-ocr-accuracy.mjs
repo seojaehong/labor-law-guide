@@ -27,22 +27,24 @@ for(const f of files){const task=pdfjs.getDocument({data:new Uint8Array(fs.readF
     const b=page.getViewport({scale:1}),vp=page.getViewport({scale:1800/Math.max(b.width,b.height)});
     const canvas=createCanvas(Math.ceil(vp.width),Math.ceil(vp.height)),ctx=canvas.getContext('2d');ctx.fillStyle='#fff';ctx.fillRect(0,0,canvas.width,canvas.height);
     await page.render({canvasContext:ctx,canvas,viewport:vp}).promise;
-    const id=String(pages.length+1).padStart(2,'0'),name=`측정 규정 ${id}`,file=path.join(OUT,'pages',`${name}.pdf`);
+    const id=String(pages.length+1).padStart(2,'0'),name=`${id} 측정${'가나다라마바사아자차카타파하'[pages.length]} 규정`,file=path.join(OUT,'pages',`${name}.pdf`);
     fs.writeFileSync(file,imagePdf(await canvas.encode('jpeg',85),canvas.width,canvas.height));
     pages.push({id,name,file,src:f,page:no,truth});}
   await task.destroy();}
 
-const browser=await chromium.launch({headless:true,executablePath:process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE});
-const ctx=await browser.newContext({viewport:{width:1280,height:900}});const page=await ctx.newPage();const errors=[];
-page.on('console',(m)=>{if(m.type()==='error')errors.push(m.text());});
+// 자동화 브라우저는 자동 확인(turnstile) 토큰을 받지 못한다 — 운영은 RR_CDP=<일반 크롬 원격 디버깅 주소> 로 붙는다
+const browser=process.env.RR_CDP?await chromium.connectOverCDP(process.env.RR_CDP):await chromium.launch({headless:true,executablePath:process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE});
+const ctx=process.env.RR_CDP?browser.contexts()[0]:await browser.newContext();const page=await ctx.newPage();await page.setViewportSize({width:1280,height:900});const errors=[];
+page.on('console',(m)=>{if(m.type()==='error'&&!(m.location().url||'').includes('challenges.cloudflare.com'))errors.push(m.text());});
 await page.goto(`${base}/tools/rules-review`,{waitUntil:'networkidle'});
 {const r=page.getByRole('button',{name:'지우고 새로 시작'});if(await r.count())await r.click();}
 await page.locator('input[type=file][accept^=".zip"]').setInputFiles(pages.map((p)=>p.file));
-await page.getByRole('heading',{name:/규정 \d+개를 읽었습니다/}).waitFor({timeout:120000});
+await page.getByRole('heading',{name:/규정 \d+개를 읽었습니다/}).waitFor({timeout:120000}).catch(async(e)=>{console.log((await page.locator('main.rr').innerText()).slice(-500));throw e;});
 const t0=Date.now();
 await page.getByRole('region',{name:'pdf 로 읽은 규정'}).getByRole('button',{name:/동의하고 스캔 \d+쪽 보내 읽기/}).click();
 await page.getByText(/스캔 쪽 \d+쪽을 읽었습니다/).waitFor({timeout:pages.length*60000});
 const notice=await page.locator('.rr-note[role=status]').innerText();
+await page.waitForTimeout(2000); // 자동 저장(0.5초 뒤)이 끝난 뒤 읽는다
 const ws=await page.evaluate(()=>new Promise((res,rej)=>{const q=indexedDB.open('rules-review',1);q.onsuccess=()=>{const g=q.result.transaction('kv').objectStore('kv').get('workspace');g.onsuccess=()=>res(g.result);g.onerror=()=>rej(g.error);};q.onerror=()=>rej(q.error);}));
 const rows=pages.map((p)=>{const reg=ws.regs.find((r)=>(r.fileName??'').includes(p.name));const got=keep((reg?.lines??[]).map((l)=>l.text).join(''));
   return {id:p.id,src:p.src,page:p.page,truthChars:p.truth.length,gotChars:got.length,sim:Number(similarity(p.truth,got).toFixed(4)),found:!!reg};});
