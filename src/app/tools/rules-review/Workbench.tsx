@@ -12,7 +12,7 @@ import { deptOf, disputed, stateOf, stats, type Decision, type ItemState, type W
 type View = '규정별' | '종류별';
 type Filter = '미확인' | '전체' | '반영' | '보류' | '해당 없음' | '이견';
 const FILTERS: Filter[] = ['미확인', '전체', '반영', '보류', '해당 없음', '이견'];
-const GROUPS = ['위임·인용', '별표·서식', '체계', '규정 간 충돌', '용어·문장'];
+const GROUPS = ['위임·인용', '별표·서식', '체계', '규정 간 충돌', '용어·문장', '직접 고친 조문'];
 const PAGE = 40;
 
 const KEY: Record<string, Decision> = { '1': '반영', '2': '보류', '3': '해당 없음', '0': '미확인' };
@@ -185,7 +185,8 @@ const Card = memo(function Card({ i, f, s, reg, dept, focused, onFocus, patch }:
   onFocus: (i: number) => void; patch: (id: string, p: Partial<ItemState>) => void;
 }) {
   const [writing, setWriting] = useState(!!s.text && f.after === null);
-  const editable = f.after !== null && f.kind !== 'plain';
+  // 직접 고친 조문은 「조문 고치기」 탭에서 고친다
+  const editable = f.after !== null && f.kind !== 'plain' && f.kind !== 'amend';
   // 규정 전체에 걸린 항목(상위 규정 없음·개정 표시 모양)은 자리가 규정 머리(0번 줄, 길이 0)라 발췌를 보이지 않는다
   const spans = f.spans.filter((sp) => sp.line >= 0 && !(sp.line === 0 && !sp.length));
   const decide = (d: Decision) => patch(f.id, { decision: s.decision === d ? '미확인' : d });

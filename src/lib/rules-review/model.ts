@@ -2,7 +2,7 @@
 // 줄 번호는 hwp·hwpx 의 경우 src/lib/hwp/apply.ts toLines() 번호와 같다. 그래야 걸린 글자를 반영본에 그대로 고칠 수 있다.
 // 조문 머리 정규식은 src/lib/laws/precise/articles.ts 와 같은 모양이다(그쪽은 파이썬 쌍둥이가 있어 건드리지 않는다).
 
-export type SourceKind = 'hwp' | 'hwpx' | 'docx' | 'txt';
+export type SourceKind = 'hwp' | 'hwpx' | 'docx' | 'txt' | 'pdf';
 
 export interface DocLine {
   text: string;

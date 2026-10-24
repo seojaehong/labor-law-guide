@@ -5,10 +5,13 @@ import type { Workspace } from '@/lib/rules-review/workspace';
 
 const base = (p: string) => p.split('/').pop()!;
 
-export default function ReadReport({ ws, onStart }: { ws: Workspace; onStart: () => void }) {
+export default function ReadReport({ ws, onStart, busy, onOcr }: { ws: Workspace; onStart: () => void; busy: string | null; onOcr: (() => void) | null }) {
   const { report } = ws;
   const counts = (name: string) => ws.findings.filter((f) => f.reg === name).length;
   const notRead = report.skipped.length + report.failed.length + report.notRegulation.length;
+  const pdfs = report.pdf ?? [];
+  const unread = pdfs.reduce((n, p) => n + p.scanned.length - p.read.length, 0);
+  const ocrRead = pdfs.reduce((n, p) => n + p.read.length, 0);
   return (
     <section aria-labelledby="rr-read">
       <div className="rr-head-row">
@@ -36,6 +39,22 @@ export default function ReadReport({ ws, onStart }: { ws: Workspace; onStart: ()
         </table>
       </div>
 
+      {pdfs.length > 0 && (
+        <div className={`rr-details rr-pdf${unread ? ' warn' : ''}`} role="region" aria-label="pdf 로 읽은 규정">
+          <p><b>pdf 로 읽은 규정 {pdfs.length}개</b> — 글자층에서 글자를 뽑아 읽었습니다. 줄이 바뀐 자리의 띄어쓰기가 원문과 다를 수 있고, 반영본(한글 파일)은 만들지 않습니다(신·구조문대비표는 만듭니다).
+            {ocrRead > 0 && ` 스캔 쪽 ${ocrRead}쪽은 그림에서 읽은 글자입니다 — 원문과 한 번 대조하세요.`}</p>
+          {unread > 0 && (
+            <>
+              <p><CircleAlert size={15} aria-hidden /> 글자층이 없는 스캔 쪽 <b>{unread}쪽</b>은 아직 읽지 못했습니다({pdfs.filter((p) => p.scanned.length > p.read.length).map((p) => `${base(p.path)} ${p.scanned.filter((n) => !p.read.includes(n)).join('·')}쪽`).join(', ')}).
+                이 쪽들만 그림으로 서버를 거쳐 Anthropic(Claude)으로 보내 글자로 읽을 수 있습니다. 먼저 빠른 모델(하이쿠)로 읽고, 덜 읽힌 쪽만 상위 모델(소넷)로 다시 읽습니다.
+                보낸 그림과 읽은 글자는 저장하지 않으며, 나머지 파일은 계속 이 브라우저 안에서만 처리합니다.</p>
+              {busy ? <p className="rr-mute" role="status">{busy}</p> : onOcr
+                ? <button className="rr-btn small" onClick={onOcr}>동의하고 스캔 {unread}쪽 보내 읽기</button>
+                : <p className="rr-mute">새로 고친 뒤라 원본 파일이 없습니다. 「규정 묶음 다시 올리기」로 같은 파일을 올리면 이 단추가 나옵니다.</p>}
+            </>
+          )}
+        </div>
+      )}
       {report.duplicates.length > 0 && (
         <details className="rr-details">
           <summary>같은 규정이라 하나만 읽은 파일 {report.duplicates.reduce((n, d) => n + d.others.length, 0)}개</summary>

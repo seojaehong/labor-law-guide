@@ -7,6 +7,7 @@ import { toLines } from '@/lib/hwp/apply';
 import { readDocText } from '@/lib/laws/doc-io';
 import { annexKey, parseRegulation, type DocLine, type Regulation, type SourceKind } from './model';
 import { annexOwner, groupSame, nameFromFile, nameFromText, normName, REG_SUFFIX, sameName, versionDate } from './names';
+import { readPdf, type PdfLib, type PdfPage, type PdfPageInfo } from './pdf';
 
 export const LIMITS = { files: 1500, fileBytes: 20 * 1024 * 1024, totalBytes: 400 * 1024 * 1024 };
 
@@ -22,7 +23,14 @@ export interface Skipped {
 }
 
 const ext = (p: string) => p.toLowerCase().split('.').pop() ?? '';
-const KIND: Record<string, SourceKind> = { hwp: 'hwp', hwpx: 'hwpx', docx: 'docx', txt: 'txt' };
+const KIND: Record<string, SourceKind> = { hwp: 'hwp', hwpx: 'hwpx', docx: 'docx', txt: 'txt', pdf: 'pdf' };
+
+/** pdf 읽기 — 글자층은 브라우저 안에서, 스캔 쪽은 onScanned 가 있을 때만(담당자 동의 뒤) 읽는다 */
+export interface PdfReader {
+  /** pdf.js — 화면에서는 pdf 가 실제로 나왔을 때만 불러오도록 함수로 준다 */
+  lib: PdfLib | (() => Promise<PdfLib>);
+  onScanned?: (page: PdfPage, no: number, path: string) => Promise<string[] | null>;
+}
 
 /** 윈도우 「압축 폴더」는 한글 이름을 EUC-KR 로 적는다. JSZip 은 UTF-8 표시가 없는 항목에만 이 함수를 부른다 */
 const decodeName = (b: string[] | Uint8Array | Buffer) => {
@@ -38,7 +46,7 @@ export async function expandUploads(inputs: Upload[]): Promise<{ files: Upload[]
   const take = (u: Upload) => {
     if (/(^|\/)(__MACOSX|\.DS_Store|Thumbs\.db)/.test(u.path) || u.path.split('/').pop()!.startsWith('~$')) return;
     const e = ext(u.path);
-    if (!KIND[e]) { skipped.push({ path: u.path, why: e === 'pdf' ? 'pdf 는 1단계에서 읽지 않습니다(같은 규정의 hwp·hwpx 를 함께 올리세요)' : '읽지 않는 형식' }); return; }
+    if (!KIND[e]) { skipped.push({ path: u.path, why: '읽지 않는 형식' }); return; }
     if (u.bytes.byteLength > LIMITS.fileBytes) { skipped.push({ path: u.path, why: '20MB 넘는 파일' }); return; }
     if (files.length >= LIMITS.files) { skipped.push({ path: u.path, why: `파일 ${LIMITS.files}개 한도 초과` }); return; }
     total += u.bytes.byteLength;
@@ -66,8 +74,14 @@ export async function expandUploads(inputs: Upload[]): Promise<{ files: Upload[]
 }
 
 /** 한 파일 → 줄 목록 */
-export async function readLines(u: Upload, wasm?: InitInput): Promise<{ kind: SourceKind; lines: DocLine[] }> {
+export async function readLines(u: Upload, wasm?: InitInput, pdf?: PdfReader): Promise<{ kind: SourceKind; lines: DocLine[]; pages?: PdfPageInfo[] }> {
   const kind = KIND[ext(u.path)];
+  if (kind === 'pdf') {
+    if (!pdf) throw new Error('pdf 를 읽을 준비가 되지 않았습니다');
+    const lib = typeof pdf.lib === 'function' ? await pdf.lib() : pdf.lib;
+    const got = await readPdf(u.bytes, lib, pdf.onScanned ? (page, no) => pdf.onScanned!(page, no, u.path) : undefined);
+    return { kind, lines: got.lines, pages: got.pages };
+  }
   if (kind === 'hwp' || kind === 'hwpx') {
     const doc = await HwpEditDoc.open(u.bytes.slice(), wasm);
     try {
@@ -99,6 +113,8 @@ export interface IngestReport {
   annexFiles: { path: string; owner: string | null }[];
   failed: Skipped[];
   skipped: Skipped[];
+  /** pdf 로 읽은 규정 — 쪽 수와 글자층이 없는(스캔) 쪽, 그중 읽어 낸 쪽 */
+  pdf?: { path: string; pages: number; scanned: number[]; read: number[] }[];
 }
 
 export interface Ingested {
@@ -109,7 +125,7 @@ export interface Ingested {
 
 const base = (p: string) => p.split('/').pop()!;
 
-export async function ingest(inputs: Upload[], opts: { wasm?: InitInput; onProgress?: (done: number, total: number, name: string) => void } = {}): Promise<Ingested> {
+export async function ingest(inputs: Upload[], opts: { wasm?: InitInput; pdf?: PdfReader; onProgress?: (done: number, total: number, name: string) => void } = {}): Promise<Ingested> {
   const { files, skipped } = await expandUploads(inputs);
   const annexFiles: { path: string; owner: string | null; file: Upload }[] = [];
   const notRegulation: string[] = [];
@@ -124,13 +140,25 @@ export async function ingest(inputs: Upload[], opts: { wasm?: InitInput; onProgr
   const sources: Record<string, Source> = {};
   const failed: Skipped[] = [];
   const duplicates: IngestReport['duplicates'] = [];
+  const pdfs: NonNullable<IngestReport['pdf']> = [];
+  const readOk = new Map<string, number[]>();
+  const pdf: PdfReader | undefined = opts.pdf && {
+    lib: opts.pdf.lib,
+    onScanned: opts.pdf.onScanned && (async (page, no, path) => {
+      const got = await opts.pdf!.onScanned!(page, no, path);
+      if (got?.length) readOk.set(path, [...(readOk.get(path) ?? []), no]);
+      return got;
+    }),
+  };
   let done = 0;
   for (const g of groups) {
     const c = g.chosen;
     opts.onProgress?.(done++, groups.length, base(c.path));
     let lines: DocLine[];
     try {
-      lines = (await readLines(c.file, opts.wasm)).lines;
+      const got = await readLines(c.file, opts.wasm, pdf);
+      lines = got.lines;
+      if (got.pages) pdfs.push({ path: c.path, pages: got.pages.length, scanned: got.pages.filter((p) => p.scanned).map((p) => p.no), read: readOk.get(c.path) ?? [] });
     } catch (e) {
       failed.push({ path: c.path, why: (e as Error).message });
       continue;
@@ -157,6 +185,6 @@ export async function ingest(inputs: Upload[], opts: { wasm?: InitInput; onProgr
   return {
     regs,
     sources,
-    report: { read: regs.length, duplicates, notRegulation, annexFiles: annexFiles.map(({ path, owner }) => ({ path, owner })), failed, skipped },
+    report: { read: regs.length, pdf: pdfs.length ? pdfs : undefined, duplicates, notRegulation, annexFiles: annexFiles.map(({ path, owner }) => ({ path, owner })), failed, skipped },
   };
 }

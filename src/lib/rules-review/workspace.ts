@@ -1,6 +1,6 @@
 // 규정 정비 작업 — 항목마다 담당자 결정·사유·부서 의견·조율 결과를 담는다. 결정은 항목 번호(id)에 붙는다.
 // 같은 파일을 다시 올려 대조를 다시 돌려도 번호가 같으면 결정이 그대로 붙는다.
-import type { Regulation } from './model';
+import { articleAt, articleLabel, type Regulation } from './model';
 import type { Finding } from './checks';
 import type { IngestReport } from './ingest';
 
@@ -41,6 +41,8 @@ export interface Workspace {
   states: Record<string, ItemState>;
   /** 규정 이름 → 소관 부서 */
   depts: Record<string, string>;
+  /** 이번 묶음에 없는 규정의 직접 고친 조문 — 그 규정을 다시 올리면 돌아온다 */
+  parked?: Finding[];
 }
 
 export const blankState = (): ItemState => ({ decision: '미확인', note: '' });
@@ -55,13 +57,32 @@ export function newWorkspace(regs: Regulation[], findings: Finding[], report: In
 /** 다시 올린 결과에 지난 결정을 붙인다. 짝을 못 찾은 결정도 지우지 않고 들고 간다 —
  *  규정 몇 개만 다시 올렸다가 나머지를 다시 올리면 그대로 다시 붙는다(번호가 같으므로) */
 export function carryOver(prev: Workspace, next: Workspace): { ws: Workspace; kept: number; lost: number } {
-  const ids = new Set(next.findings.map((f) => f.id));
+  const { placed, parked } = relocateAmends(prev, next);
+  const findings = [...next.findings, ...placed];
+  const ids = new Set(findings.map((f) => f.id));
   let kept = 0, lost = 0;
   for (const [id, s] of Object.entries(prev.states)) {
     const touched = s.decision !== '미확인' || s.note || s.text || s.opinion;
     if (touched) { if (ids.has(id)) kept++; else lost++; }
   }
-  return { ws: { ...next, institution: prev.institution || next.institution, effective: prev.effective, states: { ...prev.states }, depts: { ...next.depts, ...prev.depts } }, kept, lost };
+  return { ws: { ...next, findings, parked: parked.length ? parked : undefined, institution: prev.institution || next.institution, effective: prev.effective, states: { ...prev.states }, depts: { ...next.depts, ...prev.depts } }, kept, lost };
+}
+
+/** 직접 고친 조문은 대조 결과가 아니라서 다시 만들어지지 않는다 — 다시 올린 규정에서 고치기 전 줄을 찾아(가장 가까운 곳) 옮긴다.
+ *  그 줄이 없어졌으면 옮기지 않는다(결정은 states 에 남아 「잃은 결정」으로 센다) */
+function relocateAmends(prev: Workspace, next: Workspace): { placed: Finding[]; parked: Finding[] } {
+  const out: Finding[] = [], parked: Finding[] = [];
+  for (const f of [...prev.findings, ...(prev.parked ?? [])]) {
+    if (f.kind !== 'amend') continue;
+    const r = next.regs.find((x) => x.name === f.reg);
+    // 이번에 올리지 않은 규정의 고침은 들고 있다가 그 규정을 다시 올리면 붙인다
+    if (!r) { parked.push(f); continue; }
+    const was = f.spans[0].line;
+    let best = -1;
+    r.lines.forEach((l, i) => { if (l.text === f.orig && (best < 0 || Math.abs(i - was) < Math.abs(best - was))) best = i; });
+    if (best >= 0) out.push({ ...f, article: articleLabel(articleAt(r, best)), spans: [{ ...f.spans[0], line: best }] });
+  }
+  return { placed: out, parked };
 }
 
 export const deptOf = (ws: Workspace, f: Finding): string => stateOf(ws, f.id).dept ?? ws.depts[f.reg] ?? '';
