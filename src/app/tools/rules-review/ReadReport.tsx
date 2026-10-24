@@ -1,11 +1,12 @@
 'use client';
 // 읽은 결과 — 무엇을 읽었고 무엇을 읽지 않았는지 먼저 보여 준다. 빠진 규정이 있으면 확인 전에 알아야 한다.
+import type { ReactNode } from 'react';
 import { CircleAlert, FileCheck2 } from 'lucide-react';
 import type { Workspace } from '@/lib/rules-review/workspace';
 
 const base = (p: string) => p.split('/').pop()!;
 
-export default function ReadReport({ ws, onStart, busy, onOcr }: { ws: Workspace; onStart: () => void; busy: string | null; onOcr: (() => void) | null }) {
+export default function ReadReport({ ws, onStart, busy, onOcr, check }: { ws: Workspace; onStart: () => void; busy: string | null; onOcr: (() => void) | null; check?: ReactNode }) {
   const { report } = ws;
   const counts = (name: string) => ws.findings.filter((f) => f.reg === name).length;
   const notRead = report.skipped.length + report.failed.length + report.notRegulation.length;
@@ -51,6 +52,8 @@ export default function ReadReport({ ws, onStart, busy, onOcr }: { ws: Workspace
               {busy ? <p className="rr-mute" role="status">{busy}</p> : onOcr
                 ? <button className="rr-btn small" onClick={onOcr}>동의하고 스캔 {unread}쪽 보내 읽기</button>
                 : <p className="rr-mute">새로 고친 뒤라 원본 파일이 없습니다. 「규정 묶음 다시 올리기」로 같은 파일을 올리면 이 단추가 나옵니다.</p>}
+              {/* 자동 확인(Cloudflare) — 평소엔 보이지 않고, 사람 확인이 필요할 때만 이 자리에 상자가 뜬다 */}
+              {onOcr && check}
             </>
           )}
         </div>
