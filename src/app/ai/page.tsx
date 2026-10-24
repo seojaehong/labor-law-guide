@@ -74,7 +74,7 @@ export default function AIPage() {
     <div className="layout-tool editorial-tool">
       <header className="editorial-tool-header">
         <h1 className="t-h2 mb-2" style={{ color: 'var(--color-text-primary)' }}>
-        AI 상담 & 참고자료
+        AI 질의응답 & 참고자료
       </h1>
       <p className="mb-8 text-sm" style={{ color: 'var(--grey-700)' }}>
         노동법 전반에 대한 궁금증을 AI가 답변해 드립니다 | 노무법인 위너스
@@ -82,7 +82,7 @@ export default function AIPage() {
       </header>
 
       {/* Tabs */}
-      <div className="editorial-tool-tabs mb-6 flex flex-wrap gap-2" role="tablist" aria-label="AI 상담 메뉴">
+      <div className="editorial-tool-tabs mb-6 flex flex-wrap gap-2" role="tablist" aria-label="AI 질의응답 메뉴">
         {[
           { key: 'chat' as const, label: 'AI 채팅', icon: Search },
           { key: 'faq' as const, label: 'FAQ DB', icon: MessageCircleQuestion },

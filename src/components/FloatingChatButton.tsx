@@ -25,7 +25,7 @@ export default function FloatingChatButton() {
         <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
       </svg>
       <span className="hidden sm:inline">AI 노동법 상담</span>
-      <span className="sm:hidden">AI 상담</span>
+      <span className="sm:hidden">AI 질의응답</span>
     </Link>
   );
 }
