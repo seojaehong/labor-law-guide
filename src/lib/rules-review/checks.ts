@@ -450,6 +450,22 @@ function checkPlain(r: Regulation, out: Out) {
       }
     }
     if (!spans.length) continue;
+    if (rule.check) {
+      // 뜻이 갈리는 말 — 고친 문안 없이 조문별로 낸다(담당자가 쓴 문안은 그 조문에 붙는다)
+      const byArt = new Map<string, Span[]>();
+      for (const sp of spans) {
+        const k = articleLabel(articleAt(r, sp.line));
+        byArt.set(k, [...(byArt.get(k) ?? []), { line: sp.line, at: sp.at, length: sp.length }]);
+      }
+      for (const [article, list] of byArt) {
+        out.add({
+          kind: 'plain', reg: r.name, article, spans: list, before: first.trim(), after: null,
+          message: `확인 필요: ${rule.label} — ${rule.check}. 이 조문에 ${list.length}곳. 자동으로 고치지 않습니다.`,
+          other: null,
+        });
+      }
+      continue;
+    }
     out.add({
       kind: 'plain', reg: r.name, article: '', spans, before: first.trim(), after: after.trim(),
       message: `${rule.label} — 이 규정 본문에 ${spans.length}곳. 반영하면 모두 바꿉니다.`,
