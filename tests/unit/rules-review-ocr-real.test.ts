@@ -33,7 +33,7 @@ it.skipIf(!DIR || !OUT || !(KEY || URL_))('스캔 쪽 읽기 정확도 — 하�
   // 작업공간에 묶이지 않은 조직 키는 작업공간 머리를 함께 보내야 한다
   const ws = process.env.ANTHROPIC_WORKSPACE_ID;
   const client = new Anthropic({ apiKey: KEY, ...(ws ? { defaultHeaders: { 'anthropic-workspace-id': ws } } : {}) });
-  const files = readdirSync(DIR).filter((f) => f.toLowerCase().endsWith('.pdf') && !/대비표|편람/.test(f)).slice(0, Number(process.env.RR_OCR_FILES ?? 4));
+  const files = readdirSync(DIR).filter((f) => f.toLowerCase().endsWith('.pdf') && !/대비표|편람/.test(f) && new RegExp(process.env.RR_OCR_MATCH ?? '').test(f)).slice(0, Number(process.env.RR_OCR_FILES ?? 4));
   const rows = [];
   for (const f of files) {
     const task = pdfjs.getDocument({ data: new Uint8Array(readFileSync(join(DIR, f))) });
@@ -69,6 +69,9 @@ it.skipIf(!DIR || !OUT || !(KEY || URL_))('스캔 쪽 읽기 정확도 — 하�
         try {
           const r = await readPage(client, m, 'image/jpeg', data);
           row[m] = { sim: Number(similarity(truth, keep(r.text)).toFixed(4)), ok: r.ok, ms: Date.now() - t0, chars: keep(r.text).length, usage: r.usage };
+          // 낮게 나온 쪽을 눈으로 대조할 수 있게 읽은 글자와 정답을 남긴다(결과 폴더에만)
+          writeFileSync(join(OUT, `${f}_${no}_${m}.txt`), r.text);
+          writeFileSync(join(OUT, `${f}_${no}_truth.txt`), items.map((i) => i.str).join(''));
         } catch (e) {
           row[m] = { error: (e as Error).message.slice(0, 400) };
         }
