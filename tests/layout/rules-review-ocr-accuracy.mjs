@@ -29,7 +29,7 @@ for(const f of files){const task=pdfjs.getDocument({data:new Uint8Array(fs.readF
     await page.render({canvasContext:ctx,canvas,viewport:vp}).promise;
     const id=String(pages.length+1).padStart(2,'0'),name=`${id} 측정${'가나다라마바사아자차카타파하'[pages.length]} 규정`,file=path.join(OUT,'pages',`${name}.pdf`);
     fs.writeFileSync(file,imagePdf(await canvas.encode('jpeg',85),canvas.width,canvas.height));
-    pages.push({id,name,file,src:f,page:no,truth});}
+    pages.push({id,name,file,src:f,page:no,truth});console.log('그림 pdf',id,no);}
   await task.destroy();}
 
 // 자동화 브라우저는 자동 확인(turnstile) 토큰을 받지 못한다 — 운영은 RR_CDP=<일반 크롬 원격 디버깅 주소> 로 붙는다
@@ -52,4 +52,5 @@ const sims=rows.map((r)=>r.sim).sort((a,b)=>a-b);
 const summary={base,pages:rows.length,seconds:Math.round((Date.now()-t0)/1000),notice,meanSim:Number((sims.reduce((a,b)=>a+b,0)/sims.length).toFixed(4)),minSim:sims[0],medianSim:sims[Math.floor(sims.length/2)],consoleErrors:errors};
 fs.writeFileSync(path.join(OUT,'ocr_accuracy_e2e.json'),JSON.stringify({summary,rows},null,1));
 console.log(JSON.stringify(summary,null,1));for(const r of rows)console.log(r.id,r.page,r.truthChars,r.gotChars,r.sim,r.found?'':'(짝 없음)');
-await browser.close();
+if(process.env.RR_CDP)await page.close();else await browser.close();
+process.exit(0); // CDP 연결이 node 를 붙잡아 두지 않게

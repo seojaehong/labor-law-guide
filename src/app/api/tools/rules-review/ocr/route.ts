@@ -8,6 +8,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import { isTurnstileEnabled, verifyTurnstile } from '@/lib/turnstile';
 import { extractIp, hashIp, incrRateLimit } from '@/lib/rate-limit';
 import { readPage, type OcrModel } from '@/lib/rules-review/ocr-call';
+import { checkPass, issuePass } from '@/lib/rules-review/ocr-pass';
 
 export const runtime = 'nodejs';
 // 하이쿠(~10초) + 소넷 재시도(~25초)가 maxDuration 안에 끝나야 플랫폼 타임아웃 대신 JSON 이 나간다
@@ -49,15 +50,20 @@ export async function POST(req: Request): Promise<Response> {
   if (image.size > MAX_IMAGE_BYTES) return respond(413, { error: 'too_large', message: '쪽 이미지가 4MB 를 넘습니다.' });
 
   const ip = extractIp(req);
-  if (isTurnstileEnabled()) {
+  // 자동 확인은 묶음당 한 번 — 통과하면 통행증을 주고, 이 요청의 응답(성공·실패 모두)에 싣는다
+  let pass: string | null = null;
+  const secret = process.env.TURNSTILE_SECRET_KEY;
+  if (isTurnstileEnabled() && secret && !checkPass(form.get('pass'), hashIp(ip), secret)) {
     const token = form.get('turnstileToken');
     const ts = await verifyTurnstile(typeof token === 'string' ? token : null, ip);
     if (!ts.skipped && !ts.success) return respond(403, { error: 'bot_check_failed', message: '자동 확인에 실패했습니다. 잠시 뒤 다시 시도해 주세요.' });
+    if (!ts.skipped) pass = issuePass(hashIp(ip), secret);
   }
+  const reply = (status: number, body: Obj) => respond(status, pass ? { ...body, pass } : body);
   if (!(await incrRateLimit('global', 'rr_ocr_all', GLOBAL_DAILY_PAGES)).allowed)
-    return respond(429, { error: 'rate_limited', message: '오늘 스캔 쪽 읽기 이용량이 많아 멈췄습니다. 내일 다시 시도하거나 한글 원본을 올려 주세요.' });
+    return reply(429, { error: 'rate_limited', message: '오늘 스캔 쪽 읽기 이용량이 많아 멈췄습니다. 내일 다시 시도하거나 한글 원본을 올려 주세요.' });
   if (!(await incrRateLimit('ip', `rr_ocr:${hashIp(ip)}`, IP_DAILY_PAGES)).allowed)
-    return respond(429, { error: 'rate_limited', message: `스캔 쪽 읽기는 하루 ${IP_DAILY_PAGES}쪽까지입니다. 내일 이어서 하거나 한글 원본을 올려 주세요.` });
+    return reply(429, { error: 'rate_limited', message: `스캔 쪽 읽기는 하루 ${IP_DAILY_PAGES}쪽까지입니다. 내일 이어서 하거나 한글 원본을 올려 주세요.` });
 
   try {
     stage = 'generation';
@@ -71,11 +77,11 @@ export async function POST(req: Request): Promise<Response> {
     let model: OcrModel = 'haiku';
     if (!got?.ok) { got = await readPage(client, 'sonnet', image.type, data); model = 'sonnet'; }
     console.log('[rules-review/ocr]', model, got.ok ? 'ok' : 'unreadable');
-    if (!got.ok) return respond(422, { error: 'unreadable', message: '이 쪽은 글자를 읽지 못했습니다. 원본 파일을 확인해 주세요.' });
-    return respond(200, { model, lines: got.text.split('\n').map((l) => l.trim()).filter(Boolean) });
+    if (!got.ok) return reply(422, { error: 'unreadable', message: '이 쪽은 글자를 읽지 못했습니다. 원본 파일을 확인해 주세요.' });
+    return reply(200, { model, lines: got.text.split('\n').map((l) => l.trim()).filter(Boolean) });
   } catch (err) {
     console.error('[rules-review/ocr] error', err instanceof Error ? err.name : 'unknown', upstreamStatus(err));
     // 502·504 는 앞단(Cloudflare)이 제 오류 화면으로 바꿔 본문이 사라진다 — 503 으로 돌려 사유를 남긴다
-    return respond(503, { error: 'ocr_failed', upstream: upstreamStatus(err), message: '스캔 쪽을 읽지 못했습니다. 잠시 뒤 다시 시도해 주세요.' });
+    return reply(503, { error: 'ocr_failed', upstream: upstreamStatus(err), message: '스캔 쪽을 읽지 못했습니다. 잠시 뒤 다시 시도해 주세요.' });
   }
 }

@@ -85,6 +85,7 @@ export default function RulesReviewClient() {
 
   // 자동 확인(turnstile) 토큰은 한 번만 쓸 수 있다 — 스캔 쪽마다 새로 받는다. 사이트 키가 없으면(개발) 보내지 않는다
   const token = useRef<string | null>(null);
+  const pass = useRef<string | null>(null);
   const waiters = useRef<((t: string) => void)[]>([]);
   const take = (t: string) => {
     token.current = null;
@@ -122,9 +123,15 @@ export default function RulesReviewClient() {
         setBusy({ ...progress, name: `${path.split('/').pop()} ${no}쪽 — 스캔 쪽 읽는 중` });
         try {
           const img = await pageImage(page);
-          let r = await ocrPage(img, await nextToken());
-          // 자동 확인은 가끔 떨어진다(쪽 12개 중 1개 실측) — 새 토큰으로 한 번 더 보낸다
-          if ('error' in r && r.error === 'bot_check_failed') r = await ocrPage(img, await nextToken());
+          // 자동 확인은 묶음당 한 번 — 통과하면 받은 통행증(10분)으로 나머지 쪽을 보낸다
+          const send = async () => {
+            const got = await ocrPage(img, pass.current ? { pass: pass.current } : { token: await nextToken() });
+            if (got.pass) pass.current = got.pass;
+            return got;
+          };
+          let r = await send();
+          // 통행증이 만료됐거나 확인이 떨어졌으면 새 토큰으로 한 번 더
+          if ('error' in r && r.error === 'bot_check_failed') { pass.current = null; r = await send(); }
           if ('lines' in r) { tally[r.model]++; return r.lines; }
           tally.failed++;
           if (r.stop) tally.stopped = r.message;

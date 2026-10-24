@@ -29,15 +29,17 @@ export async function pageImage(page: PdfPage): Promise<Blob> {
   return new Promise((ok, no) => canvas.toBlob((b) => (b ? ok(b) : no(new Error('쪽 그림을 만들지 못했습니다'))), 'image/jpeg', 0.85));
 }
 
-export type OcrResult = { lines: string[]; model: 'haiku' | 'sonnet' } | { error: string; message: string; stop: boolean };
+export type OcrResult = ({ lines: string[]; model: 'haiku' | 'sonnet' } | { error: string; message: string; stop: boolean }) & { pass?: string };
 
-/** 쪽 하나 읽기. stop 이면 남은 쪽도 보내지 않는다(키 없음·한도 초과) */
-export async function ocrPage(image: Blob, turnstileToken: string | null = null): Promise<OcrResult> {
+/** 쪽 하나 읽기. 통행증이 있으면 자동 확인 토큰 대신 보낸다. stop 이면 남은 쪽도 보내지 않는다(키 없음·한도 초과·확인 실패) */
+export async function ocrPage(image: Blob, auth: { token?: string | null; pass?: string | null } = {}): Promise<OcrResult> {
   const form = new FormData();
   form.append('image', image, 'page.jpg');
-  if (turnstileToken) form.append('turnstileToken', turnstileToken);
+  if (auth.pass) form.append('pass', auth.pass);
+  else if (auth.token) form.append('turnstileToken', auth.token);
   const res = await fetch('/api/tools/rules-review/ocr', { method: 'POST', body: form });
   const body = await res.json().catch(() => ({}));
-  if (res.ok) return { lines: body.lines ?? [], model: body.model };
-  return { error: body.error ?? 'ocr_failed', message: body.message ?? '스캔 쪽을 읽지 못했습니다.', stop: res.status === 501 || res.status === 429 || res.status === 403 };
+  const pass = typeof body.pass === 'string' ? { pass: body.pass } : {};
+  if (res.ok) return { lines: body.lines ?? [], model: body.model, ...pass };
+  return { error: body.error ?? 'ocr_failed', message: body.message ?? '스캔 쪽을 읽지 못했습니다.', stop: res.status === 501 || res.status === 429 || res.status === 403, ...pass };
 }
