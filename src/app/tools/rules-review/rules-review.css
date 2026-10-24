@@ -218,3 +218,17 @@
 .rr-out b { font-size: 16px; }
 @media (max-width: 700px) { .rr-outs { grid-template-columns: 1fr; } }
 .rr-danger { margin-top: 40px; display: flex; gap: 10px; align-items: center; }
+
+/* ── 조문 고치기 ── */
+.rr-kind.g-5 { background: var(--rr-ink); color: var(--rr-canvas); }
+.rr-am-nav .rr-nav-list { margin-top: 4px; }
+.rr-am-field { display: flex; flex-direction: column; gap: 4px; font-size: 13px; font-weight: 600; color: var(--rr-body); }
+.rr-am-field select, .rr-am-field input { font: inherit; font-size: 15px; font-weight: 400; padding: 9px 12px; border-radius: 8px; border: 1px solid var(--rr-hair); background: var(--rr-canvas); color: var(--rr-ink); min-height: 44px; width: 100%; }
+.rr-am-lead { margin: 0 0 12px; }
+.rr-am-line { display: flex; flex-direction: column; gap: 4px; }
+.rr-am-line textarea { font: inherit; font-size: 15px; line-height: 1.7; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--rr-hair); background: var(--rr-canvas); color: var(--rr-ink); resize: vertical; width: 100%; field-sizing: content; min-height: 44px; }
+.rr-am .rr-where { display: inline-flex; align-items: center; gap: 6px; }
+.rr-am-line.on textarea { border-color: var(--rr-ok); box-shadow: inset 3px 0 0 var(--rr-ok); }
+.rr-am-was { display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; font-size: 13px; color: var(--rr-body); }
+.rr-am-was span { text-decoration: line-through; text-decoration-color: var(--grey-400); }
+.rr-am-was .rr-link { display: inline-flex; align-items: center; gap: 4px; font-size: 13px; }

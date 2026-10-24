@@ -7,7 +7,9 @@ import { PLAIN_RULES } from './plain';
 export type FindingKind =
   | 'reg-ref' | 'reg-name' | 'article-ref' | 'para-ref' | 'deleted-ref' | 'delegation' | 'parent'
   | 'annex-missing' | 'annex-unused' | 'numbering' | 'para-numbering' | 'definition' | 'same-matter'
-  | 'plain' | 'amend-mark' | 'para-glyph';
+  | 'plain' | 'amend-mark' | 'para-glyph'
+  /** 점검 항목이 아니라 담당자가 조문을 직접 고친 줄 */
+  | 'amend';
 
 export const KIND_LABEL: Record<FindingKind, string> = {
   'reg-ref': '묶음에 없는 규정 인용',
@@ -26,6 +28,7 @@ export const KIND_LABEL: Record<FindingKind, string> = {
   'same-matter': '규정·세칙 기준 차이',
   plain: '알기 쉬운 표현',
   'amend-mark': '개정 표시',
+  amend: '직접 고친 조문',
 };
 
 /** 과업 요구 묶음 — 화면의 종류 묶음과 검토표 열 */
@@ -36,6 +39,7 @@ export const KIND_GROUP: Record<FindingKind, string> = {
   numbering: '체계', 'para-numbering': '체계', 'para-glyph': '체계',
   definition: '규정 간 충돌', 'same-matter': '규정 간 충돌',
   plain: '용어·문장', 'amend-mark': '용어·문장',
+  amend: '직접 고친 조문',
 };
 
 export interface Span {
@@ -61,10 +65,12 @@ export interface Finding {
   message: string;
   /** 맞대 본 상대 */
   other: { reg: string; article: string; text: string } | null;
+  /** 직접 고친 조문: 고치기 전 줄 전문 — 다시 올렸을 때 같은 줄을 찾는 데 쓴다 */
+  orig?: string;
 }
 
 // ── 항목 번호: 같은 파일을 다시 올려도 같은 번호가 나와야 결정·부서 의견이 다시 붙는다 ──
-function hash(s: string): string {
+export function hash(s: string): string {
   let h = 0x811c9dc5;
   for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 0x01000193); }
   return (h >>> 0).toString(36);

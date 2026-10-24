@@ -53,7 +53,7 @@ export default function BundlePanel({ ws, setWs, sources, onReset }: {
     { ok: st.by.미확인 === 0, text: st.by.미확인 ? `미확인 ${st.by.미확인}건이 남아 있습니다 — 결재 묶음에는 반영한 항목만 실립니다` : '모든 항목을 확인했습니다' },
     { ok: st.unsettled === 0, text: st.unsettled ? `부서 이견 ${st.unsettled}건의 조율 결과가 비어 있습니다` : st.disputed ? `부서 이견 ${st.disputed}건 모두 조율 결과를 적었습니다` : '부서 이견이 없습니다' },
     { ok: holdNoReason === 0, text: holdNoReason ? `사유 없는 보류 ${holdNoReason}건 — 보류 목록에 「사유 미기재」로 실립니다` : '보류 항목에 모두 사유가 있습니다' },
-    { ok: manual === 0, text: manual ? `자동으로 고칠 문안이 없는 반영 ${manual}건 — 「직접 고칠 곳」으로 실립니다(확인 탭에서 개정 문안을 직접 쓰면 대비표에 들어갑니다)` : '반영 항목은 모두 고칠 문안이 있습니다' },
+    { ok: manual === 0, text: manual ? `자동으로 고칠 문안이 없는 반영 ${manual}건 — 「직접 고칠 곳」으로 실립니다(확인 탭의 「개정 문안 직접 쓰기」나 「조문 고치기」 탭에서 고치면 대비표에 들어갑니다)` : '반영 항목은 모두 고칠 문안이 있습니다' },
   ];
 
   return (

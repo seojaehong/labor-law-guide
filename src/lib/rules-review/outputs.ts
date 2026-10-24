@@ -37,7 +37,8 @@ export function markedLine(text: string, edits: Edit[]): { old: string; neu: str
   let old = text, neu = text;
   for (const e of ok) {
     old = old.slice(0, e.at) + U0 + old.slice(e.at, e.at + e.length) + U1 + old.slice(e.at + e.length);
-    neu = neu.slice(0, e.at) + U0 + e.to + U1 + neu.slice(e.at + e.length);
+    // 밑줄 표시는 줄을 넘지 않는다 — 새로 넣은 줄도 줄마다 감싼다
+    neu = neu.slice(0, e.at) + U0 + e.to.split('\n').join(`${U1}\n${U0}`) + U1 + neu.slice(e.at + e.length);
   }
   return { old: old.trim(), neu: neu.trim() };
 }
@@ -45,6 +46,7 @@ export function markedLine(text: string, edits: Edit[]): { old: string; neu: str
 const MARKER = /^\s*([①-⑳]|\d+\.|[가-하]\.|\(\d+\)|\d+\))/;
 const reasonOf = (ws: Workspace, f: Finding) => {
   const s = stateOf(ws, f.id);
+  if (f.kind === 'amend') return s.note.trim() || '담당자 개정';
   const rep = replacement(ws, f);
   const base = rep !== null ? `${KIND_LABEL[f.kind]}: 「${f.before}」→「${rep}」` : `${KIND_LABEL[f.kind]}`;
   return s.note.trim() ? `${base} — ${s.note.trim()}` : base;
@@ -361,10 +363,11 @@ export async function applyToSources(ws: Workspace, sources: Record<string, Sour
         if (sp.line < 0 || !sp.length) continue;
         const line = r.lines[sp.line];
         if (line.controls) { res.manual.push({ f, why: '표·그림이 든 문단' }); continue; }
+        const to = f.after !== null && rep === f.after ? (sp.to ?? rep) : rep;
+        if (to.includes('\n')) { res.manual.push({ f, why: '줄을 새로 넣는 고침' }); continue; }
         const span: [number, number] = [sp.at, sp.at + sp.length];
         if ((used.get(sp.line) ?? []).some(([a, b]) => span[0] < b && a < span[1])) { res.manual.push({ f, why: '다른 고침과 같은 글자' }); continue; }
         used.set(sp.line, [...(used.get(sp.line) ?? []), span]);
-        const to = f.after !== null && rep === f.after ? (sp.to ?? rep) : rep;
         changes.push({ id: `${f.id}:${sp.line}:${sp.at}`, kind: 'word', topic: KIND_LABEL[f.kind], std: '', where: articleLabel(articleAt(r, sp.line)),
           before: line.text.slice(sp.at, sp.at + sp.length), after: to, word: { line: sp.line, at: sp.at, length: sp.length }, overlaps: [] } as Change);
       }

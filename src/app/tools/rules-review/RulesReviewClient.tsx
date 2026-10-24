@@ -9,11 +9,12 @@ import { carryOver, newWorkspace, stats, type ItemState, type Workspace } from '
 import { clearAll, loadAll, saveSources, saveWorkspace } from '@/lib/rules-review/store';
 import Workbench from './Workbench';
 import DeptPanel from './DeptPanel';
+import AmendPanel from './AmendPanel';
 import BundlePanel from './BundlePanel';
 import ReadReport from './ReadReport';
 
-type Tab = '확인' | '부서 의견' | '결재 묶음' | '읽은 파일';
-const TABS: Tab[] = ['확인', '부서 의견', '결재 묶음', '읽은 파일'];
+type Tab = '확인' | '조문 고치기' | '부서 의견' | '결재 묶음' | '읽은 파일';
+const TABS: Tab[] = ['확인', '조문 고치기', '부서 의견', '결재 묶음', '읽은 파일'];
 
 async function toUploads(files: FileList | File[]): Promise<Upload[]> {
   return Promise.all([...files].map(async (f) => ({ path: (f as File & { webkitRelativePath?: string }).webkitRelativePath || f.name, bytes: new Uint8Array(await f.arrayBuffer()) })));
@@ -286,6 +287,7 @@ export default function RulesReviewClient() {
       <div className="rr-wrap wide rr-body">
         {tab === '읽은 파일' && <ReadReport ws={ws} onStart={() => setTab('확인')} />}
         {tab === '확인' && <Workbench ws={ws} patch={patch} patchMany={patchMany} />}
+        {tab === '조문 고치기' && <AmendPanel ws={ws} setWs={setWs} />}
         {tab === '부서 의견' && <DeptPanel ws={ws} setWs={setWs} />}
         {tab === '결재 묶음' && <BundlePanel ws={ws} setWs={setWs} sources={sources} onReset={reset} />}
       </div>

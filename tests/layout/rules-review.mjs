@@ -56,6 +56,13 @@ assert(await page.getByRole('tab',{name:/부서 의견/}).locator('em.warn').cou
 // 확인 탭 「이견」에서 조율 결과 적기
 await page.getByRole('tab',{name:/확인/}).click();await page.getByRole('radio',{name:/^이견/}).click();
 await page.getByLabel('조율 결과').fill('인사팀과 협의 — 다음 개정 때 함께 반영');checks.push('이견 항목에 조율 결과 입력');
+// ── 조문 고치기: 점검 항목 없이 담당자가 조문을 고친다 ──
+await page.getByRole('tab',{name:'조문 고치기'}).click();
+await page.locator('.rr-am-nav .rr-nav-list button').first().click();
+const amTa=page.locator('.rr-am-line textarea').first();await amTa.fill((await amTa.inputValue())+' 다만, 총장이 따로 정할 수 있다.');
+await page.getByLabel(/고친 사유/).fill('위원회 운영 보완');
+assert.equal(await page.locator('.rr-am-line.on').count(),1,'고친 줄 표시 없음');
+await page.screenshot({path:`${out}/1280-amend.png`,fullPage:true});checks.push('조문 고치기 — 고친 줄 표시·사유 입력');
 // ── 결재 묶음 ──
 await page.getByRole('tab',{name:'결재 묶음'}).click();
 await page.locator('input[type=date]').fill('2026-03-01');
@@ -64,11 +71,11 @@ const [d2]=await Promise.all([page.waitForEvent('download'),page.locator('.rr-ou
 const docx=await JSZip.loadAsync(fs.readFileSync(await save(page,d2)));const xml=await docx.file('word/document.xml').async('string');
 const plain=xml.replace(/<w:br\/>/g,'\n').replace(/<[^>]+>/g,'');
 assert(plain.includes('신·구조문대비표'));assert(plain.includes('&lt;개정 2026. 3. 1.&gt;')||plain.includes('<개정 2026. 3. 1.>'),'개정 표시 없음');
-assert(plain.includes('이 규정은 2026년 3월 1일부터 시행한다.'));assert(plain.includes('사유 미기재'),'사유 없는 보류 표시 없음');assert(plain.includes('인사팀과 협의'),'조율 결과 없음');
+assert(plain.includes('이 규정은 2026년 3월 1일부터 시행한다.'));assert(plain.includes('사유 미기재'),'사유 없는 보류 표시 없음');assert(plain.includes('인사팀과 협의'),'조율 결과 없음');assert(plain.includes('총장이 따로 정할 수 있다')&&plain.includes('위원회 운영 보완'),'직접 고친 조문이 대비표에 없음');
 for(const w of ['진단','자문','판정','노무사'])assert(!plain.includes(w),'결재 묶음 금지어: '+w);
-checks.push('신·구조문대비표 docx — 개정 표시·부칙 시행일·사유 미기재 보류·조율 결과 실림, 금지어 0');
+checks.push('신·구조문대비표 docx — 개정 표시·부칙 시행일·사유 미기재 보류·조율 결과·직접 고친 조문 실림, 금지어 0');
 const [d3]=await Promise.all([page.waitForEvent('download'),page.locator('.rr-out',{hasText:'정비 검토표'}).getByRole('button').click()]);
-const rb=new ExcelJS.Workbook();await rb.xlsx.readFile(await save(page,d3));assert.equal(rb.getWorksheet('정비 검토표').rowCount-1,total,'검토표 행 수가 항목 수와 다름');checks.push(`정비 검토표 xlsx ${total}행 = 항목 수`);
+const rb=new ExcelJS.Workbook();await rb.xlsx.readFile(await save(page,d3));assert.equal(rb.getWorksheet('정비 검토표').rowCount-1,total+1,'검토표 행 수가 항목 수와 다름');checks.push(`정비 검토표 xlsx ${total+1}행 = 항목 수(직접 고친 조문 포함)`);
 const body=await page.locator('main.rr').innerText();for(const w of FORBIDDEN)assert(!body.includes(w),'화면 금지어·내부 값: '+w);checks.push('화면 금지어·내부 값 0');
 // 다시 열면 이어서 하기 — 사람이 잠깐 멈춘 것처럼 자동 저장(0.5초) 뒤에 새로 고친다
 await page.waitForTimeout(1200);
@@ -87,9 +94,11 @@ await page.getByRole('button',{name:'예시 규정으로 먼저 보기'}).click(
 await page.getByRole('button',{name:/확인 시작/}).click();await page.locator('article.rr-item').first().waitFor();
 assert.equal(await overflow(page),0,'390 작업대 가로 넘침');
 await page.screenshot({path:`${out}/390-bench.png`,fullPage:false});
+await page.getByRole('tab',{name:'조문 고치기'}).click();await page.locator('.rr-am-nav select.rr-nav-select').selectOption({index:1});await page.locator('.rr-am-line textarea').first().waitFor();assert.equal(await overflow(page),0,'390 조문 고치기 가로 넘침');
+await page.screenshot({path:`${out}/390-amend.png`,fullPage:true});
 await page.getByRole('tab',{name:'결재 묶음'}).click();assert.equal(await overflow(page),0,'390 결재 묶음 가로 넘침');
 await page.screenshot({path:`${out}/390-bundle.png`,fullPage:true});
-checks.push('390px 시작·작업대·결재 묶음 가로 넘침 0');
+checks.push('390px 시작·작업대·조문 고치기·결재 묶음 가로 넘침 0');
 assert.deepEqual(errors,[]);checks.push('콘솔 오류 0 (390)');
 await ctx.close();
 
