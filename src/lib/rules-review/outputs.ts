@@ -19,7 +19,7 @@ interface Edit { at: number; length: number; to: string; f: Finding }
 export interface Hand { f: Finding; why: string }
 
 /** 조문 하나의 담당자 개정 문안 — 문안 줄과, 원래 줄 → 문안에 그대로 남은 줄 번호 */
-interface Own { fs: Finding[]; lines: string[]; at: Map<number, number> }
+export interface Own { fs: Finding[]; lines: string[]; at: Map<number, number> }
 
 export interface Resolved {
   /** 줄 → 넣을 글자 고침(서로 겹치지 않는다) */
