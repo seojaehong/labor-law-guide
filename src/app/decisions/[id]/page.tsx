@@ -772,14 +772,14 @@ export default async function DecisionPage({
           <Card className="p-5 border-primary/30 bg-primary/5">
             <h3 className="font-bold text-base mb-2">우리 사건도 비슷한 결론일까?</h3>
             <p className="text-sm text-muted-foreground mb-4">
-              이 판례와 비슷한 상황이라면 핵심 쟁점 5가지를 30초 안에 자가진단할 수 있습니다. 또는 AI 상담으로 즉시 답을 받아보세요.
+              이 판례와 비슷한 상황이라면 핵심 쟁점 5가지를 30초 안에 점검할 수 있습니다. 또는 AI 질의응답으로 즉시 답을 받아보세요.
             </p>
             <div className="flex flex-col gap-2 sm:flex-row">
               <Link
                 href="/sanction"
                 className="inline-flex items-center justify-center rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90"
               >
-                징계 정당성 자가진단 →
+                징계 정당성 점검 →
               </Link>
               <Link
                 href="/ai"

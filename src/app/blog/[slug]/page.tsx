@@ -384,7 +384,7 @@ export default async function BlogArticlePage({
               </section>
             )}
 
-            {/* 전환 CTA — AI + 자가진단 + 전문가 상담 */}
+            {/* 전환 CTA — AI + 점검 + 전문가 상담 */}
             <section className="mt-12 space-y-4">
               <div className="grid gap-4 sm:grid-cols-2">
                 <Link
@@ -409,7 +409,7 @@ export default async function BlogArticlePage({
                     <ClipboardCheck size={18} style={{ color: 'white' }} />
                   </div>
                   <div>
-                    <p className="text-sm font-bold" style={{ color: 'var(--color-text-primary)' }}>자가진단 체크리스트</p>
+                    <p className="text-sm font-bold" style={{ color: 'var(--color-text-primary)' }}>점검 체크리스트</p>
                     <p className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>교섭 의무 · 사용자성 해당 여부 1분 진단</p>
                   </div>
                 </Link>

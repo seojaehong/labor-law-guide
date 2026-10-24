@@ -4,7 +4,7 @@ import { test, expect } from '@playwright/test';
 test('4스텝 폼을 진행하면 결과 화면에 도달한다', async ({ page }) => {
   await page.goto('/tools/contract-check');
 
-  await expect(page.getByRole('heading', { name: '근로계약서 자가진단' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: '근로계약서 점검' })).toBeVisible();
   await expect(page.getByText('입력하신 내용은 저장되지 않습니다')).toBeVisible();
 
   // ① 기본

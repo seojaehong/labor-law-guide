@@ -4,10 +4,10 @@ export default function ChecklistPage() {
   return (
     <div className="layout-tool layout-tool--compact">
       <h1 className="t-h2 mb-2" style={{ color: 'var(--color-text-primary)' }}>
-        자가진단 체크리스트
+        점검 체크리스트
       </h1>
       <p className="mb-6 text-sm" style={{ color: 'var(--grey-500)' }}>
-        개정 노동조합법에 따른 귀사의 교섭 의무와 사용자성을 자가진단해 보세요. (법적 판단이 아닌 참고용입니다)
+        개정 노동조합법에 따른 귀사의 교섭 의무와 사용자성을 점검해 보세요. (법적 판단이 아닌 참고용입니다)
       </p>
       <ChecklistPageClient />
     </div>

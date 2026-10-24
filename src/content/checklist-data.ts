@@ -1,7 +1,7 @@
-// 자가진단 체크리스트 & 데이터 베리에이션
+// 점검 체크리스트 & 데이터 베리에이션
 // 해석지침/매뉴얼 정보를 다양한 형태로 변환
 
-// ─── 1. 사용자성 자가진단 체크리스트 ───
+// ─── 1. 사용자성 점검 체크리스트 ───
 
 export interface ChecklistItem {
   id: string;
@@ -20,8 +20,8 @@ export interface ChecklistResult {
   recommendation: string;
 }
 
-export const employerChecklistTitle = '원청 사용자성 자가진단';
-export const employerChecklistDescription = '아래 항목을 체크하여 원청의 노동조합법상 사용자 해당 가능성을 자가진단해 보세요. (법적 판단은 아니며 참고용입니다)';
+export const employerChecklistTitle = '원청 사용자성 점검';
+export const employerChecklistDescription = '아래 항목을 체크하여 원청의 노동조합법상 사용자 해당 가능성을 점검해 보세요. (법적 판단은 아니며 참고용입니다)';
 
 export const employerChecklist: ChecklistItem[] = [
   // 인사 관여
@@ -141,11 +141,11 @@ export const employerChecklistResults: ChecklistResult[] = [
   },
 ];
 
-// ─── 2. 불법하도급(위장도급) 판단 — 교섭요구권 자가진단 ───
+// ─── 2. 불법하도급(위장도급) 판단 — 교섭요구권 점검 ───
 
 export const subcontractChecklistTitle = '우리도 교섭에 응해야 하나요?';
 export const subcontractChecklistDescription =
-  '하청 노동조합이 교섭을 요구해 왔습니다. 아래 항목을 체크하여 귀사가 개정 노동조합법상 사용자로서 교섭에 응할 의무가 있는지 자가진단하세요.';
+  '하청 노동조합이 교섭을 요구해 왔습니다. 아래 항목을 체크하여 귀사가 개정 노동조합법상 사용자로서 교섭에 응할 의무가 있는지 점검하세요.';
 
 export const subcontractChecklist: ChecklistItem[] = [
   // A. 지휘·명령 (근로자파견 핵심 징표)
@@ -379,7 +379,7 @@ export const faqData = [
   },
   {
     question: '우리 원청도 사용자에 해당하나요?',
-    answer: '원청이 하청 근로자의 채용·해고, 임금, 근로시간, 업무지시 등 근로조건을 실질적·구체적으로 지배·결정하는 경우 사용자에 해당할 수 있습니다. 위의 자가진단 체크리스트로 대략적인 판단이 가능하며, 정확한 판단은 전문가 상담이 필요합니다.',
+    answer: '원청이 하청 근로자의 채용·해고, 임금, 근로시간, 업무지시 등 근로조건을 실질적·구체적으로 지배·결정하는 경우 사용자에 해당할 수 있습니다. 위의 점검 체크리스트로 대략적인 판단이 가능하며, 정확한 판단은 전문가 상담이 필요합니다.',
   },
   {
     question: '사용자성은 전부 인정되나요, 일부만 인정되나요?',

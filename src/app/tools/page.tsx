@@ -40,7 +40,7 @@ const tools: ToolItem[] = [
   { href: '/tools/rules-review', title: '규정 정비 점검', desc: '기관 규정 묶음(zip)을 올리면 규정끼리 인용·위임·별표·조문 번호·용어를 맞춰 보고, 담당자가 확인한 항목으로 신·구조문대비표와 반영본을 만듭니다.', badge: '브라우저 대조', Icon: FileCheck2 },
   {
     href: '/tools/contract-check',
-    title: '근로계약서 자가진단',
+    title: '근로계약서 점검',
     desc: '계약서 내용을 폼에 입력하면 필수 명시사항·최저임금·위약금 등 25개 항목을 즉시 점검. 위반·리스크별 수정 방향 제시. 입력한 내용은 저장되지 않습니다.',
     badge: '참고 도구',
     Icon: FileCheck2,
