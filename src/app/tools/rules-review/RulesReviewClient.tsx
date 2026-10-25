@@ -142,7 +142,8 @@ export default function RulesReviewClient() {
           if ('lines' in r) {
             tally[r.model]++;
             const lines = r.lines;
-            if (second) checks.push(second.read(img).then((text) => ({ path, page: no, ...crossCheck(lines, text) })));
+            // 두 판독 글자도 남긴다 — 표·머리 줄처럼 조문이 아닌 판독을 담당자가 원문과 맞춰 보는 데 쓴다(판독문 원문 대조)
+            if (second) checks.push(second.read(img).then((text) => ({ path, page: no, ...crossCheck(lines, text), a: lines, b: text ?? null })));
             return lines;
           }
           tally.failed++;

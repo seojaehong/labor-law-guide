@@ -12,7 +12,9 @@ export interface Flagged {
 
 /** checked = 표지가 있어 대조한 줄 수. not_checked = 두 번째 판독이 없음(실패·시간 초과) 또는 숫자를 대부분 놓침(low_coverage) — 「일치」가 아니다 */
 export type CrossCheck = { state: 'checked'; checked: number; flagged: Flagged[] } | { state: 'not_checked'; reason?: 'low_coverage' };
-export type PageCheck = { page: number } & CrossCheck;
+/** a = 모델이 읽은 그 쪽 줄, b = 두 번째 판독(tesseract) 글자 그대로(없으면 null). 옛 작업에는 둘 다 없다 —
+ *  표·머리 줄처럼 조문이 아닌 판독을 담당자가 원문과 맞춰 볼 수 있게 남긴다(판독문 원문 대조) */
+export type PageCheck = { page: number; a?: string[]; b?: string | null } & CrossCheck;
 
 // 조·항·호 → 날짜 → 원문자 → 숫자 순. 한 글자를 두 표지가 나눠 갖지 않는다
 const ANCHOR = /제\s*\d+\s*조(?:\s*의\s*\d+)?|제\s*\d+\s*[항호장절관편]|\d{4}\s*\.\s*\d{1,2}\s*\.\s*\d{1,2}\s*\.?|[①-⑳]|\d[\d,]*\d|\d/g;
@@ -28,6 +30,11 @@ const norm = (a: string) => {
 /** 줄에서 대조할 표지 — 조·항·호(제N조의M), 날짜(2024.4.26.), 원문자(①), 숫자 */
 export function anchorsOf(text: string): string[] {
   return [...text.matchAll(ANCHOR)].map((m) => norm(m[0]));
+}
+
+/** 줄 안 표지 자리 — 화면에서 두 판독이 다른 표지를 표시할 때 쓴다 */
+export function anchorSpans(text: string): { a: string; start: number; end: number }[] {
+  return [...text.matchAll(ANCHOR)].map((m) => ({ a: norm(m[0]), start: m.index ?? 0, end: (m.index ?? 0) + m[0].length }));
 }
 
 /** 같은 표지가 이만큼(쪽 길이 대비) 떨어진 자리까지는 같은 것으로 본다 — 표 칸 순서가 달라도 걸리지 않게 넉넉히 */

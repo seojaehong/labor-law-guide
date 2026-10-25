@@ -5,8 +5,25 @@
 import { useMemo, useState, type Dispatch, type SetStateAction } from 'react';
 import { PencilLine, RotateCcw } from 'lucide-react';
 import { amendedLine, amendsOf, setAmend } from '@/lib/rules-review/amend';
-import { articleLabel, type Article } from '@/lib/rules-review/model';
+import { articleLabel, type Article, type Regulation } from '@/lib/rules-review/model';
 import { stateOf, type Workspace } from '@/lib/rules-review/workspace';
+import ReadingsPanel from './ReadingsPanel';
+
+/** 조문 머리가 하나도 없는 규정(표·서식만 있는 pdf 등) — 고를 조문이 없어도 읽은 글자는 원문과 대조할 수 있어야 한다 */
+function NoArticles({ ws, reg }: { ws: Workspace; reg: Regulation }) {
+  const pdf = (ws.report.pdf ?? []).find((p) => p.path.split('/').pop() === reg.fileName);
+  const lines = reg.lines.map((l) => l.text.trim()).filter(Boolean);
+  return (
+    <article className="rr-item rr-am">
+      <p className="rr-mute">「{reg.name}」에서 조문(제N조)을 찾지 못했습니다. 표·서식만 있는 파일일 수 있습니다. 고칠 조문은 없지만, 읽은 글자는 아래에서 원문과 대조하세요.</p>
+      {pdf?.xcheck?.length ? <ReadingsPanel path={pdf.path} xcheck={pdf.xcheck} /> : null}
+      <details className="rr-rd">
+        <summary>읽은 글자 전체({lines.length}줄)</summary>
+        {lines.length ? <pre className="rr-rd-pre">{lines.join('\n')}</pre> : <p className="rr-mute small">읽은 글자가 없습니다.</p>}
+      </details>
+    </article>
+  );
+}
 
 export default function AmendPanel({ ws, setWs }: { ws: Workspace; setWs: Dispatch<SetStateAction<Workspace | null>> }) {
   const [regName, setRegName] = useState(ws.regs[0]?.name ?? '');
@@ -53,7 +70,7 @@ export default function AmendPanel({ ws, setWs }: { ws: Workspace; setWs: Dispat
               </button>
             </li>
           ))}
-          {!listed.length && <li className="rr-mute small">맞는 조문이 없습니다.</li>}
+          {!listed.length && <li className="rr-mute small">{arts.length ? '맞는 조문이 없습니다.' : '조문(제N조)을 찾지 못한 규정입니다.'}</li>}
         </ul>
       </aside>
 
@@ -62,7 +79,9 @@ export default function AmendPanel({ ws, setWs }: { ws: Workspace; setWs: Dispat
           점검 항목과 상관없이 조문을 직접 고칩니다. 고친 줄은 「직접 고친 조문」 항목(반영)이 되어 부서 의견 요청·신·구조문대비표·반영본에 실립니다.
           지금까지 {total}줄을 고쳤습니다.
         </p>
-        {!art ? (
+        {!arts.length ? (
+          <NoArticles ws={ws} reg={reg} />
+        ) : !art ? (
           <div className="rr-empty">왼쪽에서 「{reg.name}」의 조문을 고르세요.</div>
         ) : (
           <article className="rr-item rr-am">

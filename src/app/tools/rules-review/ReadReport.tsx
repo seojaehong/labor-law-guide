@@ -4,6 +4,7 @@ import type { ReactNode } from 'react';
 import { CircleAlert, FileCheck2 } from 'lucide-react';
 import type { Workspace } from '@/lib/rules-review/workspace';
 import { summarize } from '@/lib/rules-review/ocr-crosscheck';
+import ReadingsPanel from './ReadingsPanel';
 
 const base = (p: string) => p.split('/').pop()!;
 /** 두 판독이 다른 줄 — 처음 몇 곳만 펼쳐 두고 나머지는 접는다 */
@@ -68,6 +69,7 @@ export default function ReadReport({ ws, onStart, busy, onOcr, check }: { ws: Wo
                         <ul>{s.flagged.slice(SHOW).map(line)}</ul>
                       </details>
                     )}
+                    <ReadingsPanel path={p.path} xcheck={p.xcheck!} />
                   </div>
                 );
               })}
