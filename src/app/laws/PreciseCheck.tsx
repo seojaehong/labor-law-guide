@@ -34,7 +34,10 @@ const FOCUS_EXAMPLES = ['징계 절차가 우리 회사 규모로 운영 가능�
 async function readFile(f: File): Promise<Doc> {
   if (f.size > MAX_FILE_BYTES) throw new Error('파일은 10MB 이하만 읽습니다');
   const kind = kindOf(f.name);
-  if (!kind) throw new Error('hwp·hwpx·docx 파일만 읽습니다. PDF 는 글자를 복사해 붙여넣어 주세요');
+  // kindOf 가 2026-10-25 부터 'pdf' 도 돌려준다(규칙표 점검은 읽는다).
+  // 정밀 점검은 본문을 서버로 보내므로 **여기서는 지금까지대로 받지 않는다** — 읽기 품질이
+  // 판단에 그대로 실리고, 스캔 쪽이 섞이면 조문이 빠진 채 판단이 나간다. 넓히려면 따로 정한다.
+  if (!kind || kind === 'pdf') throw new Error('hwp·hwpx·docx 파일만 읽습니다. PDF 는 글자를 복사해 붙여넣어 주세요');
   const buf = await f.arrayBuffer();
   const text = kind === 'hwp' ? await (await import('@/lib/laws/hwp-read')).readHwpText(buf) : await readDocText(buf, kind);
   const articles = splitArticles(text).filter((a) => a.body.trim()).length;
