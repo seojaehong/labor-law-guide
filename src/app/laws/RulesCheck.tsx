@@ -75,16 +75,40 @@ export function useReviewData() {
 export type RulesSource = HwpSource & { text: string };
 
 /** 올린 hwp·hwpx·docx 를 이 브라우저 안에서 글자로 읽는다. hwp·hwpx 는 반영 단계용 원본 바이트도 돌려준다 */
+/** pdf 본문 — rules-review 가 이미 만들어 둔 것을 그대로 쓴다(2026-10-25).
+ *
+ *  따로 만들지 않는 이유. `src/lib/rules-review/pdf.ts` 는 머리말·꼬리말을 빼고
+ *  한국어 조사를 보며 끊긴 줄을 다시 잇는다. 같은 것을 여기 또 만들면 두 벌이 갈린다.
+ *  스캔 쪽은 **OCR 로 넘기지 않는다** — 여기서는 글자만 읽고, 그림뿐이면 붙여넣으라고 말한다.
+ *  (OCR 은 /tools/rules-review 에서 담당자 동의를 받고 돈다. 이 화면은 그 동의 절차가 없다.) */
+async function readPdfPlainText(bytes: Uint8Array): Promise<string> {
+  const { loadPdfLib } = await import('@/lib/rules-review/pdf-browser');
+  const { readPdf, SCANNED_BELOW } = await import('@/lib/rules-review/pdf');
+  const { lines, pages } = await readPdf(bytes, await loadPdfLib());
+  const text = lines.map((l) => l.text).join('\n');
+  const scanned = pages.filter((p) => p.scanned).length;
+  if (!text.trim()) {
+    throw new Error(scanned
+      ? `글자 없이 그림만 있는 쪽이 ${scanned}쪽입니다. 글자를 직접 붙여넣으세요`
+      : '본문에서 읽을 수 있는 글자가 없습니다. 글자를 직접 붙여넣으세요');
+  }
+  if (scanned) throw new Error(`${pages.length}쪽 중 ${scanned}쪽이 그림입니다(글자 ${SCANNED_BELOW}자 미만). 그 쪽은 빠지므로 글자를 직접 붙여넣으세요`);
+  return text;
+}
+
 export async function readRulesFile(f: File): Promise<{ text: string; source: RulesSource | null }> {
   if (f.size > MAX_FILE_BYTES) throw new Error('파일은 10MB 이하만 읽습니다');
   const kind = kindOf(f.name);
-  if (!kind) throw new Error('hwp·hwpx·docx 파일만 읽습니다');
+  if (!kind) throw new Error('hwp·hwpx·docx·pdf 파일만 읽습니다');
   const buf = await f.arrayBuffer();
   const t = kind === 'hwp'
     ? await (await import('@/lib/laws/hwp-read')).readHwpText(buf.slice(0))
-    : await readDocText(buf.slice(0), kind);
+    : kind === 'pdf'
+      ? await readPdfPlainText(new Uint8Array(buf.slice(0)))
+      : await readDocText(buf.slice(0), kind);
   if (!t.trim()) throw new Error('본문에서 읽을 수 있는 글자가 없습니다. 이미지 문서는 글자를 직접 붙여넣으세요. 기존 입력은 유지됩니다.');
-  return { text: t, source: kind === 'docx' ? null : { bytes: new Uint8Array(buf), name: f.name, kind, text: t } };
+  // 반영(HwpApply)은 한글 파일만 — docx·pdf 는 원본에 되쓰지 않는다
+  return { text: t, source: kind === 'docx' || kind === 'pdf' ? null : { bytes: new Uint8Array(buf), name: f.name, kind, text: t } };
 }
 
 // 반영 단계는 rhwp WASM 을 쓰므로 파일을 올리고 결과가 나온 뒤에만 불러온다
@@ -216,7 +240,7 @@ export default function RulesCheck({ onClose, toast }: { onClose: () => void; to
                 ? '기본 점검은 이 브라우저 안에서만 합니다. 아래 「정밀 점검」을 실행할 때만 본문 전체가 외부 AI 제공사로 전송됩니다.'
                 : '본문과 파일은 이 브라우저 안에서만 읽고 판정합니다. 서버로 보내지 않습니다.'}
               <span className="sp" />
-              <input ref={fileRef} type="file" accept=".hwpx,.docx,.hwp" hidden onChange={(e) => onFile(e.target.files?.[0])} />
+              <input ref={fileRef} type="file" accept=".hwpx,.docx,.hwp,.pdf" hidden onChange={(e) => onFile(e.target.files?.[0])} />
               <button className="lr-btn lr-btn-ghost lr-btn-sm" onClick={() => fileRef.current?.click()} disabled={busy}><FileUp size={14} /> {busy ? '읽는 중…' : 'hwp·hwpx·docx 올리기'}</button>
               {!text && <button className="lr-btn lr-btn-ghost lr-btn-sm" onClick={() => setText(SAMPLE)}>예시로 해보기</button>}
               {text && <button className="lr-btn lr-btn-ghost lr-btn-sm" onClick={() => setText('')}>지우기</button>}

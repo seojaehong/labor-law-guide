@@ -164,7 +164,9 @@ describe('periodCheck', () => {
 
 describe('doc-io', () => {
   it('파일 종류', () => {
-    expect([kindOf('a.HWPX'), kindOf('b.docx'), kindOf('c.hwp'), kindOf('d.pdf')]).toEqual(['hwpx', 'docx', 'hwp', null]);
+    // pdf 는 2026-10-25 에 더했다(rules-review 의 readPdf 를 다시 쓴다). 모르는 확장자만 null 이다.
+    expect([kindOf('a.HWPX'), kindOf('b.docx'), kindOf('c.hwp'), kindOf('d.pdf'), kindOf('e.txt')])
+      .toEqual(['hwpx', 'docx', 'hwp', 'pdf', null]);
   });
 
   it('hwpx — 표 안 문단이 바깥 문단과 섞이지 않는다', async () => {

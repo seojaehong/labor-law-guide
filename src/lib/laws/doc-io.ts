@@ -76,9 +76,9 @@ function paras(xml: string, p: string, t: string): string[] {
 
 export type DocKind = 'hwpx' | 'docx';
 
-export function kindOf(name: string): DocKind | 'hwp' | null {
+export function kindOf(name: string): DocKind | 'hwp' | 'pdf' | null {
   const ext = name.toLowerCase().split('.').pop();
-  return ext === 'hwpx' || ext === 'docx' ? ext : ext === 'hwp' ? 'hwp' : null;
+  return ext === 'hwpx' || ext === 'docx' ? ext : ext === 'hwp' || ext === 'pdf' ? ext : null;
 }
 
 export function readableText(text: string): string {
