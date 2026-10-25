@@ -1,3 +1,3 @@
 // Pin the actual public inputs and matcher source; update alongside reviewed changes.
-export const MATCHER_VERSION = "a83d93f9125f0eb0e42b081fe82ed92a0d2de493f457fa1f15e0ffac35789ff8";
-export const RULE_VERSION = "cf6e5012a75252f9437373f95170bf84256820c642d2993add5d3ef61316ecd8";
+export const MATCHER_VERSION = "66a44cd77983901abb2b83e20ee71efbc3e0731491ac2e6e3073d7c54f207f82";
+export const RULE_VERSION = "67b41e1e261995bcc2e1b1d6193f4f8399100cf2031346a5afbe0c5516ff14d8";
