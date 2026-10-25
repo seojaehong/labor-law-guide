@@ -27,7 +27,7 @@ export default function TierStair({ tier, onPick }: { tier: TierMin; onPick: (t:
   return (
     <figure className="ed-stair">
       <figcaption className="ed-eyebrow">규모가 커질 때 쌓이는 의무</figcaption>
-      <svg viewBox={`0 0 ${W} ${H}`} role="img" width="100%"
+      <div className="ed-stair-chart"><svg viewBox={`0 0 ${W} ${H}`} role="img" width="100%"
         aria-label={bars.map(b => `${b.label} ${b.total}개`).join(', ')}>
         {bars.map((b, i) => {
           const x = PAD.left + i * (bw + GAP);
@@ -42,15 +42,15 @@ export default function TierStair({ tier, onPick }: { tier: TierMin; onPick: (t:
               {b.added > 0 && <rect className="add" x={x} y={y} width={bw} height={addedH} rx="4" />}
               <text className="total" x={x + bw / 2} y={y - 6} textAnchor="middle">{b.total}</text>
               {b.added > 0 && i > 0 && (
-                <text className="add-n" x={x + bw / 2} y={y + Math.min(addedH - 6, 16)} textAnchor="middle">+{b.added}</text>
+                <text className="add-n" x={x + bw / 2} y={H - 5} textAnchor="middle">+{b.added}</text>
               )}
               <text className="label" x={x + bw / 2} y={H - PAD.bottom + 18} textAnchor="middle">{b.label}</text>
             </g>
           );
         })}
-      </svg>
+      </svg></div>
       <p className="ed-note" style={{ marginTop: 2 }}>
-        막대를 누르면 그 규모로 바뀝니다. 진한 칸이 그 구간에서 **새로 생기는** 의무입니다.
+        막대를 누르면 그 규모로 바뀝니다. 진한 칸이 그 구간에서 <strong>새로 생기는</strong> 의무입니다.
       </p>
     </figure>
   );
