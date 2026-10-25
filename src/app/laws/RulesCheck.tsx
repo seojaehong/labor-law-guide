@@ -92,11 +92,11 @@ async function readPdfPlainText(bytes: Uint8Array): Promise<string> {
       ? `글자 없이 그림만 있는 쪽이 ${scanned}쪽입니다. 글자를 직접 붙여넣으세요`
       : '본문에서 읽을 수 있는 글자가 없습니다. 글자를 직접 붙여넣으세요');
   }
-  if (scanned) throw new Error(`${pages.length}쪽 중 ${scanned}쪽이 그림입니다(글자 ${SCANNED_BELOW}자 미만). 그 쪽은 빠지므로 글자를 직접 붙여넣으세요`);
+  if (scanned) throw new Error(`${pages.length}쪽 중 ${scanned}쪽은 읽힌 한글·숫자가 ${SCANNED_BELOW}자 미만입니다. 짧은 표지·빈 쪽·스캔 쪽이 포함될 수 있어 일부만 점검하지 않습니다. 본문 글자를 직접 붙여넣으세요. 기존 입력은 유지됩니다.`);
   return text;
 }
 
-export async function readRulesFile(f: File): Promise<{ text: string; source: RulesSource | null }> {
+export async function readRulesFile(f: File): Promise<{ text: string; source: RulesSource | null; rulesOnly: boolean }> {
   if (f.size > MAX_FILE_BYTES) throw new Error('파일은 10MB 이하만 읽습니다');
   const kind = kindOf(f.name);
   if (!kind) throw new Error('hwp·hwpx·docx·pdf 파일만 읽습니다');
@@ -108,7 +108,7 @@ export async function readRulesFile(f: File): Promise<{ text: string; source: Ru
       : await readDocText(buf.slice(0), kind);
   if (!t.trim()) throw new Error('본문에서 읽을 수 있는 글자가 없습니다. 이미지 문서는 글자를 직접 붙여넣으세요. 기존 입력은 유지됩니다.');
   // 반영(HwpApply)은 한글 파일만 — docx·pdf 는 원본에 되쓰지 않는다
-  return { text: t, source: kind === 'docx' || kind === 'pdf' ? null : { bytes: new Uint8Array(buf), name: f.name, kind, text: t } };
+  return { text: t, source: kind === 'docx' || kind === 'pdf' ? null : { bytes: new Uint8Array(buf), name: f.name, kind, text: t }, rulesOnly: kind === 'pdf' };
 }
 
 // 반영 단계는 rhwp WASM 을 쓰므로 파일을 올리고 결과가 나온 뒤에만 불러온다
@@ -170,6 +170,7 @@ export default function RulesCheck({ onClose, toast }: { onClose: () => void; to
   const [fileError, setFileError] = useState<string | null>(null);
   // 올린 한글 파일 — 반영 단계가 원본 바이트에서 새 파일을 만든다. text = 그 파일에서 읽은 글자(본문 칸과 같을 때만 반영)
   const [source, setSource] = useState<RulesSource | null>(null);
+  const [rulesOnly, setRulesOnly] = useState(false);
   const dialogRef = useRef<HTMLDivElement>(null);
   const ref = useRef<HTMLTextAreaElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -203,6 +204,7 @@ export default function RulesCheck({ onClose, toast }: { onClose: () => void; to
       const r = await readRulesFile(f);
       setText(r.text);
       setSource(r.source);
+      setRulesOnly(r.rulesOnly);
       toast(`${f.name} — 이 브라우저 안에서 글자만 읽었습니다`);
     } catch (e) {
       setFileError((e as Error).message);
@@ -232,7 +234,7 @@ export default function RulesCheck({ onClose, toast }: { onClose: () => void; to
               ref={ref}
               value={text}
               onChange={(e) => setText(e.target.value)}
-              placeholder={'취업규칙 본문을 붙여넣거나 hwp·hwpx·docx 파일을 올리세요.\n비워 두면 이 기간 개정의 바꿀 문안만 모아 드립니다.\n조문 머리(제○조(…))가 줄 머리에 있으면 표준취업규칙 조문과 짝지어 판정합니다.\nPDF에서 복사한 본문은 글자 순서가 섞여 판정이 틀릴 수 있습니다. 한글·워드 원본을 권합니다.'}
+            placeholder={'취업규칙 본문을 붙여넣거나 hwp·hwpx·docx·pdf 파일을 올리세요.\n비워 두면 이 기간 개정의 바꿀 문안만 모아 드립니다.\n조문 머리(제○조(…))가 줄 머리에 있으면 표준취업규칙 조문과 짝지어 판정합니다.\nPDF에서 복사한 본문은 글자 순서가 섞여 판정이 틀릴 수 있습니다. 한글·워드 원본을 권합니다.'}
               aria-label="취업규칙 본문"
             />
             {fileError && <p className="lr-file-error" role="alert">파일을 읽지 못했습니다: {fileError}</p>}
@@ -242,7 +244,7 @@ export default function RulesCheck({ onClose, toast }: { onClose: () => void; to
                 : '본문과 파일은 이 브라우저 안에서만 읽고 판정합니다. 서버로 보내지 않습니다.'}
               <span className="sp" />
               <input ref={fileRef} type="file" accept=".hwpx,.docx,.hwp,.pdf" hidden onChange={(e) => onFile(e.target.files?.[0])} />
-              <button className="lr-btn lr-btn-ghost lr-btn-sm" onClick={() => fileRef.current?.click()} disabled={busy}><FileUp size={14} /> {busy ? '읽는 중…' : 'hwp·hwpx·docx 올리기'}</button>
+            <button className="lr-btn lr-btn-ghost lr-btn-sm" onClick={() => fileRef.current?.click()} disabled={busy}><FileUp size={14} /> {busy ? '읽는 중…' : 'hwp·hwpx·docx·pdf 올리기'}</button>
               {!text && <button className="lr-btn lr-btn-ghost lr-btn-sm" onClick={() => setText(SAMPLE)}>예시로 해보기</button>}
               {text && <button className="lr-btn lr-btn-ghost lr-btn-sm" onClick={() => setText('')}>지우기</button>}
             </div>
@@ -255,7 +257,8 @@ export default function RulesCheck({ onClose, toast }: { onClose: () => void; to
               runId={runId} currentRun={currentRun} onFresh={freshRun} toast={toast} onLeave={onClose} />
           </div>
         </div>
-        {PRECISE_ENABLED && <PreciseCheck mainText={text} since={from} toast={toast} />}
+        {rulesOnly && <p className="lr-check-note">PDF에서 읽은 본문은 기본 점검만 합니다. AI 정밀 점검과 원본 반영은 제공하지 않습니다.</p>}
+        {PRECISE_ENABLED && !rulesOnly && <PreciseCheck mainText={text} since={from} toast={toast} />}
       </div>
     </div>
   );

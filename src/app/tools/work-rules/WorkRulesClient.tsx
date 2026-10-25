@@ -11,7 +11,7 @@ import PreciseCheck, { PRECISE_ENABLED, type PreciseStatus } from '../../laws/Pr
 import { ObservationNotice } from '../../laws/ObservationCapture';
 import { useObservationAvailability } from '../../laws/observation-availability';
 
-type Turn = { id: string; text: string; name: string; articles: number; source: RulesSource | null; from: string; to: string };
+type Turn = { id: string; text: string; name: string; articles: number; source: RulesSource | null; rulesOnly: boolean; from: string; to: string };
 
 function TurnView({ turn, last, data, loadError, retry, toast }: {
   turn: Turn; last: boolean; data: Data | null; loadError: boolean; retry: () => void; toast: (m: string) => void;
@@ -44,7 +44,8 @@ function TurnView({ turn, last, data, loadError, retry, toast }: {
         </div>
       </div>
       {/* 다음 질문이 와도 지난 AI 결과는 남긴다. 실행하지 않은 지난 차례의 AI 말풍선만 숨긴다(상태 보존을 위해 마운트는 유지) */}
-      {PRECISE_ENABLED && turn.articles > 0 && (
+      {turn.rulesOnly && <p className="lr-check-note">PDF에서 읽은 본문은 기본 점검만 합니다. AI 정밀 점검과 원본 반영은 제공하지 않습니다.</p>}
+      {PRECISE_ENABLED && !turn.rulesOnly && turn.articles > 0 && (
         <div className="wr-msg bot" hidden={!last && ai === 'idle'}>
           <span className="wr-avatar ai" aria-hidden><Sparkles size={16} /></span>
           <div className="wr-bubble wide">
@@ -68,7 +69,7 @@ export default function WorkRulesClient() {
   const observationAvailability = useObservationAvailability();
   const [turns, setTurns] = useState<Turn[]>([]);
   const [draft, setDraft] = useState('');
-  const [attached, setAttached] = useState<{ name: string; source: RulesSource | null } | null>(null);
+  const [attached, setAttached] = useState<{ name: string; source: RulesSource | null; rulesOnly: boolean } | null>(null);
   // 수집 시작이 2023.1.1. 로 내려가 기본값을 「2025년 초에 고친 취업규칙」으로 둔다(재홍님 예시)
   const [from, setFrom] = useState('20250101');
   const [to, setTo] = useState(today);
@@ -103,7 +104,7 @@ export default function WorkRulesClient() {
     try {
       const r = await readRulesFile(f);
       setDraft(r.text);
-      setAttached({ name: f.name, source: r.source });
+      setAttached({ name: f.name, source: r.source, rulesOnly: r.rulesOnly });
       setMessage(`${f.name} — 이 브라우저 안에서 글자만 읽었습니다`);
     } catch (e) {
       setFileError((e as Error).message);
@@ -119,7 +120,7 @@ export default function WorkRulesClient() {
     const name = fromFile ? attached.name : text === SAMPLE ? '예시 취업규칙' : text.trim() ? '붙여넣은 본문' : '본문 없이 기간만';
     // 반영 단계(HwpApply)는 파일에서 읽은 글자 그대로일 때만 원본 바이트를 쓴다
     const source = fromFile && attached.source?.text === text ? attached.source : null;
-    setTurns((t) => [...t, { id: crypto.randomUUID(), text, name, articles: n, source, from, to }]);
+    setTurns((t) => [...t, { id: crypto.randomUUID(), text, name, articles: n, source, rulesOnly: !!(fromFile && attached.rulesOnly), from, to }]);
     setDraft('');
     setAttached(null);
     setFileError(null);
@@ -136,7 +137,7 @@ export default function WorkRulesClient() {
         <div className="wr-msg bot">
           <span className="wr-avatar" aria-hidden><Scale size={16} /></span>
           <div className="wr-bubble">
-            <p className="wr-say">취업규칙 본문을 아래에 붙여넣거나 hwp·hwpx·docx 파일을 올려 주세요.</p>
+            <p className="wr-say">취업규칙 본문을 아래에 붙여넣거나 hwp·hwpx·docx·pdf 파일을 올려 주세요. PDF는 글자층이 있는 파일을 기본 점검에서만 읽습니다.</p>
             <ul className="wr-list">
               <li>먼저 고용노동부 표준취업규칙과 이 기간에 시행된 개정 법령에 맞춰 고칠 조문을 찾습니다. 이 단계는 이 브라우저 안에서만 합니다.</li>
               {PRECISE_ENABLED && <li>이어서 원하시면 조문마다 AI 정밀 점검을 합니다. 종전 규칙을 함께 올리면 불이익변경도 대조합니다.</li>}
@@ -173,8 +174,8 @@ export default function WorkRulesClient() {
         {fileError && <p className="lr-file-error" role="alert">파일을 읽지 못했습니다: {fileError}</p>}
         {draft.trim() && !articles && <p className="lr-file-error" role="status">조문을 인식하지 못했습니다. 제1조(제목)처럼 조문 번호가 줄 처음에 오도록 넣어 주세요.</p>}
         <div className="wr-row">
-          <input ref={fileRef} type="file" accept=".hwpx,.docx,.hwp" hidden onChange={(e) => onFile(e.target.files?.[0])} />
-          <button type="button" className="wr-attach-btn" onClick={() => fileRef.current?.click()} disabled={busy} aria-label="hwp·hwpx·docx 파일 올리기" title="hwp·hwpx·docx 파일 올리기">
+          <input ref={fileRef} type="file" accept=".hwpx,.docx,.hwp,.pdf" hidden onChange={(e) => onFile(e.target.files?.[0])} />
+          <button type="button" className="wr-attach-btn" onClick={() => fileRef.current?.click()} disabled={busy} aria-label="hwp·hwpx·docx·pdf 파일 올리기" title="hwp·hwpx·docx·pdf 파일 올리기">
             <FileUp size={18} />
           </button>
           <textarea value={draft} rows={1} aria-label="취업규칙 본문"
