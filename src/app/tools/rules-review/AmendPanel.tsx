@@ -70,7 +70,7 @@ export default function AmendPanel({ ws, setWs }: { ws: Workspace; setWs: Dispat
               </button>
             </li>
           ))}
-          {!listed.length && <li className="rr-mute small">{arts.length ? '맞는 조문이 없습니다.' : '조문(제N조)을 찾지 못한 규정입니다.'}</li>}
+          {!listed.length && <li className="rr-mute small">{reg.articles.length ? '맞는 조문이 없습니다.' : '조문(제N조)을 찾지 못한 규정입니다.'}</li>}
         </ul>
       </aside>
 
@@ -79,7 +79,7 @@ export default function AmendPanel({ ws, setWs }: { ws: Workspace; setWs: Dispat
           점검 항목과 상관없이 조문을 직접 고칩니다. 고친 줄은 「직접 고친 조문」 항목(반영)이 되어 부서 의견 요청·신·구조문대비표·반영본에 실립니다.
           지금까지 {total}줄을 고쳤습니다.
         </p>
-        {!arts.length ? (
+        {!reg.articles.length ? (
           <NoArticles ws={ws} reg={reg} />
         ) : !art ? (
           <div className="rr-empty">왼쪽에서 「{reg.name}」의 조문을 고르세요.</div>

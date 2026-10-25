@@ -34,6 +34,7 @@ const isAnnexHead = (t: string) => {
 export function nonArticleSegments(pages: PageCheck[]): Segment[] {
   const out: Segment[] = [];
   let area: 'head' | 'article' | 'chapter' | 'supp' | 'annex' = 'head';
+  let seenArticle = false;
   for (const check of [...pages].sort((x, y) => x.page - y.page)) {
     if (!check.a) continue;
     const flagged = new Map<number, Flagged>(check.state === 'checked' ? check.flagged.map((f) => [f.line, f]) : []);
@@ -51,8 +52,9 @@ export function nonArticleSegments(pages: PageCheck[]): Segment[] {
       }
       const kind: SegmentKind | null = isTableRow(t) ? '표'
         : area === 'head' ? '머리' : area === 'chapter' ? '장·절 제목' : area === 'supp' ? '부칙' : area === 'annex' ? '별표·서식' : null;
-      // 장 제목은 그 줄 하나뿐 — 다음 줄부터는 조문 앞의 머리가 아니다
-      if (area === 'chapter') area = 'article';
+      // 장 제목은 그 줄 하나뿐 — 첫 조문 전이면 다음 줄도 머리(제정일 등), 조문이 나온 뒤면 조문으로 돌아간다
+      if (area === 'chapter') area = seenArticle ? 'article' : 'head';
+      if (area === 'article') seenArticle = true;
       if (!kind) { seg = null; return; }
       if (!seg || seg.kind !== kind) { seg = { page: check.page, kind, lines: [], check }; out.push(seg); }
       seg.lines.push({ no: i + 1, text: raw, missing: flagged.get(i + 1)?.anchors ?? [], anchored: anchorsOf(raw).length > 0 });

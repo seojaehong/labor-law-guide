@@ -53,6 +53,13 @@ describe('nonArticleSegments — 조문이 아닌 판독 줄을 쪽별로 묶는
     expect(segs).toEqual([]);
   });
 
+  it('첫 장 제목 뒤 첫 조문 전의 날짜 줄은 머리로 모은다', () => {
+    const segs = nonArticleSegments([page(1, ['제1장 총칙', '제정 2019. 3. 1.', '제1조(목적) 이 규정은 복무를 정한다.', '제2장 복무', '제2조(근무) 근무는 따로 정한다.'], null)]);
+    expect(segs.map((s) => [s.kind, s.lines.map((l) => l.text)])).toEqual([
+      ['장·절 제목', ['제1장 총칙']], ['머리', ['제정 2019. 3. 1.']], ['장·절 제목', ['제2장 복무']],
+    ]);
+  });
+
   it('판독문이 저장되지 않은 옛 작업 쪽은 건너뛴다', () => {
     expect(nonArticleSegments([{ page: 1, state: 'not_checked' }])).toEqual([]);
   });
