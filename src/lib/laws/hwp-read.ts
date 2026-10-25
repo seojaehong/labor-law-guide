@@ -2,16 +2,24 @@
 // 파일은 브라우저 밖으로 나가지 않는다. 쪽 나눔·렌더는 쓰지 않고 글자만 뽑는다.
 import type { InitInput } from '@rhwp/core';
 import { MAX_FILE_BYTES, readableText } from './doc-io';
+import { indexParagraphs, indexText } from '@/lib/hwp/para-index';
 
 /** public/rhwp/ 에 빌드 때 복사한다(scripts/copy-rhwp-wasm.mjs) */
 export const RHWP_WASM_URL = '/rhwp/rhwp_bg.wasm';
 
 let ready: Promise<typeof import('@rhwp/core')> | null = null;
 
-function load(wasm: InitInput) {
+/** rhwp 모듈을 한 번만 초기화한다. 쪽 그리기(/tools/hwp)도 이것을 쓴다 */
+export function loadRhwp(wasm: InitInput = RHWP_WASM_URL) {
   ready ??= import('@rhwp/core').then(async (m) => {
-    // 조판 계산이 글자 폭을 묻는다. 글자만 뽑으므로 정확할 필요는 없다
+    // 조판 계산이 글자 폭을 묻는다. 브라우저는 캔버스로 재고, 그 밖(테스트)은 어림값을 쓴다
     const g = globalThis as { measureTextWidth?: (font: string, text: string) => number };
+    if (!g.measureTextWidth && typeof document !== 'undefined') {
+      const ctx = document.createElement('canvas').getContext('2d');
+      // ctx.font 지정은 비싸다 — 같은 글꼴이면 다시 지정하지 않는다(rhwp README 권장)
+      let last = '';
+      if (ctx) g.measureTextWidth = (font, text) => { if (font !== last) { ctx.font = font; last = font; } return ctx.measureText(text).width; };
+    }
     g.measureTextWidth ??= (font, text) => (Number(font.match(/(\d+(?:\.\d+)?)px/)?.[1]) || 16) * text.length;
     await m.default({ module_or_path: wasm });
     return m;
@@ -26,18 +34,18 @@ export async function readHwpText(data: ArrayBuffer | Uint8Array, wasm: InitInpu
   const bytes = data instanceof Uint8Array ? data : new Uint8Array(data);
   if (bytes.byteLength > MAX_FILE_BYTES) throw new Error('파일은 10MB 이하만 읽습니다');
   if (!CFB.every((b, i) => bytes[i] === b)) throw new Error('한글(hwp) 파일 형식이 아닙니다');
-  const { HwpDocument } = await load(wasm);
+  const { HwpDocument } = await loadRhwp(wasm);
   let doc: InstanceType<typeof HwpDocument> | null = null;
   let text: string;
   try {
     doc = new HwpDocument(bytes);
-    // 0.8.7 은 글자를 JSON 문자열(따옴표·\r\n 이스케이프)로 감싸 돌려준다
-    const raw = doc.getTextFileText();
-    text = raw.startsWith('"') ? JSON.parse(raw) : raw;
+    // getTextFileText 는 둘째 구역부터 표 셀 글자를 빠뜨린다 — 본문이 표 안에 든 취업규칙에서 118자만 나왔다.
+    // 구역·본문 문단·표 셀(중첩 포함) 문단을 직접 훑는다
+    text = indexText(indexParagraphs(doc));
   } catch {
     throw new Error('hwp 본문을 읽지 못했습니다. 암호가 걸렸거나 손상된 파일일 수 있습니다. hwpx로 저장하거나 본문을 붙여넣으세요');
   } finally {
     doc?.free();
   }
-  return readableText(text.split(/\r\n|\r|\n/).map((l) => l.trim()).filter(Boolean).join('\n'));
+  return readableText(text);
 }

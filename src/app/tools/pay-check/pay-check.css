@@ -1,0 +1,124 @@
+/* 월급 대조. /exit-employer(.ee) 와 같은 토큰 별칭·카드 구조를 별도 범위로 쓴다. */
+.pc {
+  --pc-ink: var(--color-text-primary);
+  --pc-body: var(--color-text-secondary);
+  --pc-hair: var(--color-border);
+  --pc-canvas: var(--color-bg-surface);
+  --pc-soft: var(--color-bg-primary);
+  --pc-soft-2: var(--grey-100);
+  --pc-link: var(--color-accent);
+  --pc-link-deep: var(--color-accent-ink);
+  --pc-link-soft: var(--color-accent-light);
+  --pc-warn-deep: var(--color-warn-ink);
+  --pc-warn-soft: var(--color-warn-bg);
+  --pc-ok-deep: var(--color-success-ink);
+  --pc-ok-soft: var(--color-success-bg);
+  --pc-on-ink: var(--color-bg-surface);
+  --pc-shadow-1: inset 0 0 0 1px var(--pc-hair);
+  --pc-shadow-5: 0 16px 40px rgb(0 0 0 / .16);
+  background: var(--pc-soft); color: var(--pc-ink); word-break: keep-all; overflow-wrap: anywhere;
+}
+.pc-wrap { max-width: 880px; margin: 0 auto; padding: 0 24px; }
+@media (max-width: 600px) { .pc-wrap { padding: 0 16px; } }
+
+.pc-eyebrow { font-size: 13px; line-height: 1.7; color: var(--pc-body); }
+
+/* ── 머리 ── */
+.pc-hero { padding: 56px 0 8px; }
+.pc-h1 { font-size: 40px; line-height: 1.25; font-weight: 600; letter-spacing: -0.02em; margin: 12px 0; }
+.pc-lead { font-size: 17px; line-height: 1.7; color: var(--pc-body); max-width: 680px; }
+.pc-note { margin-top: 16px; padding: 12px 16px; border-left: 3px solid var(--pc-link); background: var(--pc-link-soft); color: var(--pc-body); font-size: 14px; line-height: 1.75; }
+@media (max-width: 600px) { .pc-h1 { font-size: 28px; } .pc-lead { font-size: 15px; } .pc-hero { padding: 32px 0 8px; } .pc-note { font-size: 13px; } }
+
+/* ── 단계 ── */
+.pc-step { margin-top: 32px; }
+.pc-step h2 { display: flex; align-items: center; gap: 10px; font-size: 19px; font-weight: 600; letter-spacing: -0.02em; }
+.pc-step h2 span {
+  display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; border-radius: 9999px; flex: none;
+  background: var(--pc-ink); color: var(--pc-on-ink); font-size: 13px; font-weight: 600;
+}
+.pc-help { font-size: 14px; line-height: 1.7; color: var(--pc-body); margin-top: 6px; }
+
+/* ── 고르기 ── */
+.pc-picks { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; margin-top: 12px; }
+.pc-picks button, .pc-bases button {
+  min-height: 64px; border-radius: 8px; background: var(--pc-canvas); box-shadow: var(--pc-shadow-1);
+  border: 0; cursor: pointer; color: var(--pc-ink); padding: 10px 12px; text-align: left;
+}
+.pc-picks .n, .pc-bases .n { display: block; font-size: 16px; font-weight: 600; letter-spacing: -0.01em; }
+.pc-picks .m, .pc-bases .m { display: block; font-size: 12px; opacity: 0.7; margin-top: 2px; }
+.pc-picks button[aria-pressed='true'], .pc-opts button[aria-pressed='true'] { background: var(--pc-ink); color: var(--pc-on-ink); box-shadow: none; }
+@media (max-width: 600px) { .pc-picks { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+.pc-opts { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.pc-opts button {
+  min-height: 44px; padding: 8px 14px; border-radius: 8px; border: 0; cursor: pointer; font-size: 14px; text-align: left;
+  background: var(--pc-canvas); color: var(--pc-ink); box-shadow: var(--pc-shadow-1);
+}
+.pc-bases { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); margin-top: 12px; }
+@media (max-width: 600px) { .pc-bases { grid-template-columns: 1fr; } }
+
+/* ── 입력 ── */
+.pc-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 12px; }
+.pc-fields-basis { margin-top: 10px; }
+.pc-field { display: grid; gap: 6px; align-content: start; background: var(--pc-canvas); box-shadow: var(--pc-shadow-1); border-radius: 8px; padding: 12px 14px; min-width: 0; }
+.pc-field-wide { grid-column: 1 / -1; }
+.pc-field .k { font-size: 13px; color: var(--pc-body); }
+.pc-field .k em { font-style: normal; opacity: 0.75; margin-left: 6px; }
+.pc-field input[type='date'], .pc-num input {
+  min-height: 44px; font-size: 16px; color: var(--pc-ink); background: var(--pc-soft); border: 0; border-radius: 6px; padding: 0 10px;
+  box-shadow: var(--pc-shadow-1); width: 100%; min-width: 0;
+}
+.pc-field input:disabled { opacity: 0.5; }
+.pc-num { display: flex; align-items: center; gap: 8px; }
+.pc-num span { font-size: 14px; color: var(--pc-body); flex: none; }
+.pc-field .pc-opts { margin-top: 0; }
+.pc-unknown { display: inline-flex; align-items: center; gap: 8px; min-height: 32px; font-size: 14px; cursor: pointer; }
+.pc-unknown input { width: 18px; height: 18px; accent-color: var(--pc-link); }
+@media (max-width: 600px) { .pc-fields { grid-template-columns: 1fr; } }
+
+.pc-picks button:focus-visible, .pc-opts button:focus-visible, .pc-btn:focus-visible, .pc-field input:focus-visible { outline: 2px solid var(--pc-link); outline-offset: 2px; }
+
+/* ── 결과 카드 ── */
+.pc-result { margin-top: 36px; background: var(--pc-canvas); border-radius: 12px; box-shadow: var(--pc-shadow-1), var(--pc-shadow-5); padding: 24px; border-top: 4px solid var(--pc-hair); }
+.pc-result.is-ok { border-top-color: var(--color-success); }
+.pc-result.is-warn { border-top-color: var(--pc-warn-deep); }
+.pc-result-head { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.pc-badge { display: inline-flex; align-items: center; height: 26px; padding: 0 10px; border-radius: 9999px; font-size: 13px; font-weight: 600; line-height: 1; white-space: nowrap; background: var(--pc-soft-2); color: var(--grey-700); }
+.pc-badge.ok { background: var(--pc-ok-soft); color: var(--pc-ok-deep); }
+.pc-badge.warn { background: var(--pc-warn-soft); color: var(--pc-warn-deep); }
+.pc-badge.need { background: var(--pc-link-soft); color: var(--pc-link-deep); }
+.pc-badge.out { background: transparent; box-shadow: inset 0 0 0 1px var(--grey-500); }
+.pc-obs { font-size: 17px; line-height: 1.65; font-weight: 500; margin-top: 12px; }
+.pc-figs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: 16px; }
+.pc-figs div { background: var(--pc-soft); border-radius: 8px; padding: 10px 12px; min-width: 0; }
+.pc-figs dt { font-size: 12px; color: var(--pc-body); }
+.pc-figs dd { font-size: 17px; font-weight: 600; margin-top: 2px; font-variant-numeric: tabular-nums; }
+@media (max-width: 600px) { .pc-figs { grid-template-columns: 1fr; } .pc-result { padding: 18px; } .pc-obs { font-size: 16px; } }
+.pc-block { margin-top: 18px; }
+.pc-block h3 { font-size: 14px; font-weight: 600; color: var(--pc-ink); }
+.pc-block ul { margin-top: 6px; display: grid; gap: 4px; font-size: 14px; line-height: 1.7; color: var(--pc-body); padding-left: 1.2em; list-style: disc; }
+.pc-ask { background: var(--pc-soft); border-radius: 8px; padding: 14px 16px; }
+.pc-open { background: var(--pc-soft); border-radius: 8px; padding: 12px 16px; border-left: 3px solid var(--pc-ink); }
+.pc-basis-doc { margin-top: 14px; }
+.pc-q { font-size: 14px; font-weight: 600; color: var(--pc-ink); }
+.pc-ask p { font-size: 15px; line-height: 1.7; margin: 6px 0 10px; }
+.pc-cite { font-size: 13px; color: var(--pc-body); margin-top: 16px; }
+.pc-disclaimer { font-size: 13px; color: var(--pc-body); margin: 16px 0 12px; padding-top: 12px; border-top: 1px solid var(--pc-hair); }
+
+/* ── 버튼 ── */
+.pc-btn {
+  display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 14px; border-radius: 6px; border: 0;
+  background: var(--pc-ink); color: var(--pc-on-ink); font-size: 14px; font-weight: 500; cursor: pointer;
+}
+.pc-btn-ghost { background: var(--pc-canvas); color: var(--pc-ink); box-shadow: var(--pc-shadow-1); }
+
+/* ── 바닥 ── */
+.pc-foot { font-size: 13px; line-height: 1.8; color: var(--pc-body); padding: 40px 0 64px; border-top: 1px solid var(--pc-hair); margin-top: 48px; }
+.pc-foot ul { margin: 8px 0 12px; display: grid; gap: 4px; padding-left: 1.2em; list-style: disc; }
+.pc-foot p { margin-top: 8px; }
+.pc-foot a { color: var(--pc-link-deep); text-decoration: underline; text-underline-offset: 3px; }
+.pc-toast {
+  position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); z-index: 60; background: var(--pc-ink); color: var(--pc-on-ink);
+  border-radius: 8px; padding: 10px 16px; font-size: 14px; box-shadow: var(--pc-shadow-5); max-width: calc(100vw - 32px);
+}

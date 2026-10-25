@@ -6,6 +6,7 @@ const services = {
   consultation: { route: '/api/chat', operation: 'answer', method: 'POST' },
   contract_extract: { route: '/api/tools/contract-check/extract', operation: 'extract', method: 'POST' },
   case_search: { route: '/api/search', operation: 'search', method: 'GET' },
+  rules_review_ocr: { route: '/api/tools/rules-review/ocr', operation: 'ocr', method: 'POST' },
 } as const;
 export type Service = keyof typeof services;
 export type Stage = 'validation' | 'retrieval' | 'generation' | 'extraction' | 'stream' | 'completed';

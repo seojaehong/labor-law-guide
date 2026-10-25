@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { dirname, join } from 'node:path';
-import { readHwpText } from '@/lib/laws/hwp-read';
+import { loadRhwp, readHwpText } from '@/lib/laws/hwp-read';
 import { MAX_FILE_BYTES, readDocText } from '@/lib/laws/doc-io';
 
 // 픽스처 = rhwp scaffold 로 만든 hwpx 와, 그것을 rhwp convert 로 바꾼 hwp (같은 문서)
@@ -22,6 +22,21 @@ describe('hwp reading', () => {
     const hwpx = await readDocText(fx('sample-rules.hwpx'), 'hwpx');
     expect(articles(hwp)).toEqual(articles(hwpx));
     expect(articles(hwp)).toHaveLength(3);
+  });
+  // 본문이 표 셀(중첩 표 포함) 안에 있고 구역이 둘인 합성 문서 — scripts/laws/make_table_rules_fixture.py
+  it('reads articles inside table cells, nested cells and later sections like the hwpx path', async () => {
+    const articles = (s: string) => s.split('\n').filter((l) => /^제\d+조/.test(l));
+    const hwp = articles(await readHwpText(fx('table-rules.hwp'), wasm));
+    const hwpx = articles(await readDocText(fx('table-rules.hwpx'), 'hwpx'));
+    expect(hwp).toEqual(hwpx);
+    expect(hwp).toHaveLength(8); // 제1~7조(셀·중첩 셀·본문) + 부칙 제1조
+    expect(hwp).toContain('제5조(배우자 출산휴가) ① 회사는 근로자가 배우자의 출산을 이유로 휴가를 청구하는 경우 10일의 유급휴가를 준다.');
+    // 픽스처가 결함 조건을 계속 재현하는지 — 엔진의 getTextFileText 는 셀 안 조문을 빠뜨린다
+    const { HwpDocument } = await loadRhwp(wasm);
+    const d = new HwpDocument(fx('table-rules.hwp'));
+    const legacy = articles(JSON.parse(d.getTextFileText()).split(/\r\n|\n/).map((l: string) => l.trim()).join('\n'));
+    d.free();
+    expect(legacy.length).toBeLessThan(hwp.length);
   });
   it('rejects non-hwp and oversized input before loading the engine', async () => {
     await expect(readHwpText(fx('sample-rules.hwpx'), wasm)).rejects.toThrow('hwp) 파일 형식이 아닙니다');

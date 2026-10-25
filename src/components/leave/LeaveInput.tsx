@@ -484,7 +484,7 @@ export function LeaveInput() {
                     notes: [
                       `· 계산 ${usable.length}명 · 대조 ${comparedCount}명 · 대조 못 함 ${uncompared.length}명 · 대장값 없음 ${noRecord.length}명 · 계산 불가 ${problems.length}줄`,
                       "· 「대조 못 함」은 대장 칸에 숫자가 아닌 값이 적혀 있어 계산값과 맞대보지 못한 줄입니다. 원문을 그대로 실었습니다.",
-                      "· 계산: yellowenvelope.kr/tools/leave — 노무법인 위너스 공인노무사 서재홍 · abc@winhr.co.kr",
+                      "· 계산: yellowenvelope.kr/tools/leave — 노무법인 위너스 · abc@winhr.co.kr",
                       "· 상시 5인 이상 사업장, 1주 소정근로시간 15시간 이상 근로자를 전제로 한 참고 계산입니다.",
                       "· 입사일 기준 「발생일수」입니다. 이월·사용분을 뺀 잔여일수와는 다릅니다.",
                       "· 출근율 80% 미만 구간, 육아휴직 등 특수 출결은 조건이 달라집니다.",

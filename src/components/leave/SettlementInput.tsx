@@ -371,7 +371,7 @@ export function SettlementInput() {
                     ],
                     emphasizeRows: [4],
                     notes: [
-                      "· 계산: yellowenvelope.kr/tools/leave — 노무법인 위너스 공인노무사 서재홍 · abc@winhr.co.kr",
+                      "· 계산: yellowenvelope.kr/tools/leave — 노무법인 위너스 · abc@winhr.co.kr",
                       "· 근거 — 고용노동부 근로기준과-5802(2009-12-31), 근기 68207-620(2003-05-23)",
                       "· 퇴직 시 총 휴가일수가 입사일 기준에 미달하면 부족분을 정산합니다.",
                       "· 수당 금액은 산출하지 않습니다. 통상임금 기준은 별도 확인이 필요합니다.",

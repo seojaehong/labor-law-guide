@@ -17,7 +17,7 @@ import {
 import type { Audience, Workspace } from "@/lib/leave/leave-workspaces";
 
 /**
- * 사업장 막대 — 노무사는 자문사를 여러 개, 회사 담당자는 우리 회사 하나.
+ * 사업장 막대 — 여러 사업장을 관리하는 쪽은 사업장을 여러 개, 회사 담당자는 우리 회사 하나.
  *
  * 처음 오면 역할을 한 번 묻는다. 그 값에 따라 문구와 기본 사업장 성격이 갈린다.
  * 서버로 아무것도 보내지 않는다. 저장 위치는 사업장마다 사용자가 켠다.
@@ -52,8 +52,8 @@ export function WorkspaceBar() {
         <p className="lv-ws__ask">어떤 쪽으로 쓰시나요?</p>
         <div className="lv-ws__choices">
           <button type="button" onClick={() => setAudience("advisor")}>
-            <strong>노무사 · 노무법인</strong>
-            <span>자문사를 여러 곳 관리합니다</span>
+            <strong>여러 사업장 관리</strong>
+            <span>여러 곳을 오가며 봅니다</span>
           </button>
           <button type="button" onClick={() => setAudience("employer")}>
             <strong>우리 회사 담당자</strong>
@@ -68,7 +68,7 @@ export function WorkspaceBar() {
   }
 
   const isAdvisor = audience === "advisor";
-  const label = isAdvisor ? "자문사" : "사업장";
+  const label = isAdvisor ? "관리 사업장" : "사업장";
 
   // ── ② 사업장이 아직 없음
   if (list.length === 0) {
@@ -82,7 +82,7 @@ export function WorkspaceBar() {
           }}
         >
           <label className="lv-input__field">
-            <span>{isAdvisor ? "자문사 이름" : "회사 이름"}</span>
+            <span>{isAdvisor ? "사업장 이름" : "회사 이름"}</span>
             <input
               value={newName}
               onChange={(e) => setNewName(e.target.value)}
@@ -96,7 +96,7 @@ export function WorkspaceBar() {
         </form>
         <p className="lv-ws__note">
           {isAdvisor
-            ? "자문사별로 직원 명부가 따로 유지됩니다. 여러 곳을 만들어 위에서 전환하며 쓰실 수 있습니다."
+            ? "사업장별로 직원 명부가 따로 유지됩니다. 여러 곳을 만들어 위에서 전환하며 쓰실 수 있습니다."
             : "직원 명부를 여기에 두면 화면을 옮겨도 다시 올리지 않아도 됩니다."}
         </p>
       </section>
@@ -135,9 +135,9 @@ export function WorkspaceBar() {
             <input
               value={newName}
               onChange={(e) => setNewName(e.target.value)}
-              placeholder={isAdvisor ? "자문사 이름" : "회사 이름"}
+              placeholder={isAdvisor ? "사업장 이름" : "회사 이름"}
               autoComplete="off"
-              aria-label={isAdvisor ? "자문사 이름" : "회사 이름"}
+              aria-label={isAdvisor ? "사업장 이름" : "회사 이름"}
             />
             <button type="submit" className="lv-input__btn" disabled={newName.trim() === ""}>
               추가

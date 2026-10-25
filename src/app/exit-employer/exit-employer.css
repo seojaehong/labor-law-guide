@@ -1,0 +1,168 @@
+/* 직원 퇴사 처리 점검(사업장용). /duties(.ed) 와 같은 토큰 별칭·카드 구조를 별도 범위로 쓴다. */
+.ee {
+  --ee-ink: var(--color-text-primary);
+  --ee-body: var(--color-text-secondary);
+  --ee-hair: var(--color-border);
+  --ee-hair-strong: var(--grey-500);
+  --ee-canvas: var(--color-bg-surface);
+  --ee-soft: var(--color-bg-primary);
+  --ee-soft-2: var(--grey-100);
+  --ee-link: var(--color-accent);
+  --ee-link-deep: var(--color-accent-ink);
+  --ee-link-soft: var(--color-accent-light);
+  --ee-warn-deep: var(--color-warn-ink);
+  --ee-warn-soft: var(--color-warn-bg);
+  --ee-on-ink: var(--color-bg-surface);
+  --ee-shadow-1: inset 0 0 0 1px var(--ee-hair);
+  --ee-shadow-5: 0 16px 40px rgb(0 0 0 / .16);
+  background: var(--ee-soft); color: var(--ee-ink); word-break: keep-all; overflow-wrap: anywhere;
+}
+.ee-wrap { max-width: 1120px; margin: 0 auto; padding: 0 24px; }
+@media (max-width: 600px) { .ee-wrap { padding: 0 16px; } }
+
+.ee-eyebrow { font-size: 13px; line-height: 1.7; color: var(--ee-body); }
+
+/* ── 머리 ── */
+.ee-hero { padding: 56px 0 24px; }
+.ee-h1 { font-size: 40px; line-height: 1.25; font-weight: 600; letter-spacing: -0.02em; margin: 12px 0; }
+.ee-lead { font-size: 17px; line-height: 1.7; color: var(--ee-body); max-width: 680px; }
+.ee-note { margin-top: 16px; padding: 12px 16px; border-left: 3px solid var(--ee-link); background: var(--ee-link-soft); color: var(--ee-body); font-size: 14px; line-height: 1.75; max-width: 760px; }
+@media (max-width: 600px) { .ee-h1 { font-size: 28px; } .ee-lead { font-size: 15px; } .ee-hero { padding: 32px 0 16px; } .ee-note { font-size: 13px; } }
+
+/* ── 규모 고르기 ── */
+.ee-tiers { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; margin-top: 8px; }
+.ee-tiers button {
+  min-height: 64px; border-radius: 8px; background: var(--ee-canvas); box-shadow: var(--ee-shadow-1);
+  border: 0; cursor: pointer; color: var(--ee-ink); padding: 10px 12px; text-align: left;
+}
+.ee-tiers button[aria-pressed='true'] { background: var(--ee-ink); color: var(--ee-on-ink); box-shadow: none; }
+.ee-tiers .n { display: block; font-size: 17px; font-weight: 600; letter-spacing: -0.01em; }
+.ee-tiers .m { display: block; font-size: 12px; opacity: 0.7; margin-top: 2px; }
+@media (max-width: 700px) { .ee-tiers { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+
+/* ── 요약 띠 (잉크 반전) ── */
+.ee-sum {
+  background: var(--ee-ink); color: var(--ee-on-ink); border-radius: 12px; padding: 28px; margin-top: 16px;
+  display: grid; grid-template-columns: auto 1fr; gap: 28px; align-items: center; box-shadow: var(--ee-shadow-5);
+}
+.ee-sum-k { font-size: 13px; opacity: 0.7; }
+.ee-sum-big { font-size: 56px; line-height: 1; font-weight: 600; letter-spacing: -0.02em; }
+.ee-sum-big small { font-size: 20px; font-weight: 500; margin-left: 4px; }
+.ee-sum-title { font-size: 20px; line-height: 1.45; font-weight: 600; letter-spacing: -0.02em; }
+.ee-sum-meta { font-size: 14px; opacity: 0.8; margin-top: 6px; line-height: 1.6; }
+.ee-sum-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+.ee-sum .ee-btn { background: var(--ee-on-ink); color: var(--ee-ink); box-shadow: none; }
+.ee-sum .ee-btn-ghost { background: transparent; color: var(--ee-on-ink); box-shadow: inset 0 0 0 1px currentColor; }
+@media (max-width: 700px) { .ee-sum { grid-template-columns: 1fr; gap: 14px; padding: 20px; } .ee-sum-big { font-size: 44px; } .ee-sum-title { font-size: 17px; } }
+
+/* ── 버튼·칩 ── */
+.ee-btn {
+  display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 14px; border-radius: 6px; border: 0;
+  background: var(--ee-ink); color: var(--ee-on-ink); font-size: 14px; font-weight: 500; cursor: pointer; text-decoration: none; white-space: nowrap;
+}
+.ee-btn-ghost { background: var(--ee-canvas); color: var(--ee-ink); box-shadow: var(--ee-shadow-1); }
+.ee-chips { display: flex; gap: 6px; overflow-x: auto; padding: 24px 0 2px; scrollbar-width: none; }
+.ee-chips::-webkit-scrollbar { display: none; }
+.ee-chip {
+  flex: none; min-height: 44px; padding: 0 14px; border-radius: 9999px; border: 0; cursor: pointer; font-size: 14px;
+  background: var(--ee-canvas); color: var(--ee-body); box-shadow: var(--ee-shadow-1); white-space: nowrap;
+}
+.ee-chip[aria-pressed='true'] { background: var(--ee-ink); color: var(--ee-on-ink); box-shadow: none; }
+.ee-chip .c { font-size: 12px; opacity: 0.65; margin-left: 4px; }
+.ee-btn:focus-visible, .ee-chip:focus-visible, .ee-tiers button:focus-visible, .ee-card summary:focus-visible { outline: 2px solid var(--ee-link); outline-offset: 2px; }
+
+/* ── 목록 ── */
+.ee-group { display: flex; align-items: baseline; gap: 10px; margin: 36px 0 12px; }
+.ee-group h2 { font-size: 20px; font-weight: 600; letter-spacing: -0.02em; }
+.ee-group .ee-eyebrow { margin-left: auto; }
+.ee-card { background: var(--ee-canvas); border-radius: 12px; box-shadow: var(--ee-shadow-1); margin-bottom: 10px; }
+.ee-card summary { list-style: none; display: grid; grid-template-columns: 104px 1fr auto; gap: 18px; padding: 18px 20px; cursor: pointer; align-items: start; }
+.ee-card summary::-webkit-details-marker { display: none; }
+.ee-card summary:hover .ee-title { text-decoration: underline; text-decoration-color: var(--ee-hair-strong); text-underline-offset: 3px; }
+.ee-from { font-size: 13px; line-height: 1.4; color: var(--ee-body); padding-top: 3px; }
+.ee-title { font-size: 17px; line-height: 1.5; font-weight: 600; letter-spacing: -0.01em; }
+.ee-basis { font-size: 13px; color: var(--ee-body); margin-top: 2px; }
+.ee-what { font-size: 15px; line-height: 1.7; color: var(--ee-body); margin-top: 6px; }
+.ee-chev { color: var(--ee-body); transition: transform .15s ease; margin-top: 4px; }
+.ee-card[open] .ee-chev { transform: rotate(180deg); }
+.ee-detail { border-top: 1px solid var(--ee-hair); padding: 14px 20px 18px 142px; display: grid; gap: 10px; }
+.ee-how { font-size: 15px; line-height: 1.75; color: var(--ee-body); background: var(--ee-soft); border-radius: 8px; padding: 12px 14px; }
+.ee-how b, .ee-pen b { color: var(--ee-ink); font-weight: 600; }
+.ee-pen { font-size: 14px; line-height: 1.7; color: var(--ee-body); }
+@media (max-width: 600px) {
+  .ee-card summary { grid-template-columns: 1fr auto; gap: 6px 8px; padding: 16px; }
+  .ee-from { grid-column: 1 / -1; padding-top: 0; }
+  .ee-detail { padding: 12px 16px 16px; }
+  .ee-title { font-size: 16px; }
+}
+
+/* ── 배지 ── */
+/* DESIGN.md §6.4 — 중립 배지 글자는 --grey-700, 주의는 warn-ink */
+.ee-from { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
+.ee-badge { display: inline-flex; align-items: center; height: 22px; padding: 0 8px; border-radius: 9999px; font-size: 12px; font-weight: 500; line-height: 1; white-space: nowrap; background: var(--ee-soft-2); color: var(--grey-700); }
+.ee-badge.new { background: var(--ee-warn-soft); color: var(--ee-warn-deep); }
+.ee-badge.all { background: transparent; box-shadow: inset 0 0 0 1px var(--ee-hair-strong); }
+.ee-badge.cond { background: var(--ee-link-soft); color: var(--ee-link-deep); }
+@media (max-width: 600px) { .ee-from { flex-direction: row; flex-wrap: wrap; } }
+
+/* ── 다음 규모 ── */
+.ee-next { margin-top: 40px; border-radius: 12px; background: var(--ee-canvas); box-shadow: var(--ee-shadow-1); padding: 20px; }
+.ee-next h2 { font-size: 18px; font-weight: 600; letter-spacing: -0.02em; }
+.ee-next p { font-size: 14px; line-height: 1.7; color: var(--ee-body); margin-top: 4px; }
+.ee-next ul { margin-top: 12px; display: grid; gap: 8px; }
+.ee-next li { font-size: 15px; line-height: 1.6; display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; }
+.ee-next li span { font-size: 13px; color: var(--ee-body); }
+
+/* ── 보조 절 ── */
+.ee-sec { margin-top: 48px; }
+.ee-sec h2 { font-size: 20px; font-weight: 600; letter-spacing: -0.02em; margin-bottom: 12px; }
+.ee-list { display: grid; gap: 8px; font-size: 15px; line-height: 1.75; color: var(--ee-body); padding-left: 1.2em; list-style: disc; }
+.ee-list b { color: var(--ee-ink); font-weight: 600; }
+.ee-foot { font-size: 13px; line-height: 1.8; color: var(--ee-body); padding: 40px 0 64px; border-top: 1px solid var(--ee-hair); margin-top: 48px; }
+.ee-foot a { color: var(--ee-link-deep); text-decoration: underline; text-underline-offset: 3px; }
+.ee-foot ul { margin: 8px 0 16px; display: grid; gap: 4px; }
+.ee-toast {
+  position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); z-index: 60; background: var(--ee-ink); color: var(--ee-on-ink);
+  border-radius: 8px; padding: 10px 16px; font-size: 14px; box-shadow: var(--ee-shadow-5); max-width: calc(100vw - 32px);
+}
+@media (prefers-reduced-motion: reduce) { .ee-chev { transition: none; } }
+
+/* ── 입력 ── */
+.ee-form { margin-top: 8px; }
+.ee-fields { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.ee-field { display: grid; gap: 6px; background: var(--ee-canvas); box-shadow: var(--ee-shadow-1); border-radius: 8px; padding: 12px 14px; }
+.ee-field .k { font-size: 13px; color: var(--ee-body); }
+.ee-field .k b { font-weight: 500; color: var(--ee-warn-deep); margin-left: 4px; }
+.ee-field .k em { font-style: normal; opacity: 0.75; margin-left: 4px; }
+.ee-field input { min-height: 44px; font-size: 16px; color: var(--ee-ink); background: var(--ee-soft); border: 0; border-radius: 6px; padding: 0 10px; box-shadow: var(--ee-shadow-1); width: 100%; }
+.ee-field input:focus-visible { outline: 2px solid var(--ee-link); outline-offset: 2px; }
+.ee-warn { margin-top: 10px; font-size: 14px; color: var(--ee-warn-deep); background: var(--ee-warn-soft); border-radius: 6px; padding: 8px 12px; }
+.ee-label { margin-top: 20px; }
+.ee-reasons { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; margin-top: 8px; }
+.ee-reasons button {
+  min-height: 64px; border-radius: 8px; background: var(--ee-canvas); box-shadow: var(--ee-shadow-1);
+  border: 0; cursor: pointer; color: var(--ee-ink); padding: 10px 12px; text-align: left;
+}
+.ee-reasons button[aria-pressed='true'] { background: var(--ee-ink); color: var(--ee-on-ink); box-shadow: none; }
+.ee-reasons .n { display: block; font-size: 16px; font-weight: 600; letter-spacing: -0.01em; }
+.ee-reasons .m { display: block; font-size: 12px; opacity: 0.7; margin-top: 2px; }
+.ee-reasons button:focus-visible { outline: 2px solid var(--ee-link); outline-offset: 2px; }
+@media (max-width: 700px) {
+  .ee-fields { grid-template-columns: 1fr; }
+  .ee-reasons { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+/* ── 사유별 안내 ── */
+.ee-reason { margin-top: 24px; border-radius: 12px; background: var(--ee-link-soft); padding: 18px 20px; }
+.ee-reason h2 { font-size: 17px; font-weight: 600; letter-spacing: -0.02em; margin-bottom: 8px; }
+
+/* ── 기한·체크 ── */
+.ee-due { font-size: 14px; color: var(--ee-body); margin-top: 6px; display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; }
+.ee-due b { color: var(--ee-ink); font-weight: 600; }
+.ee-wk { font-size: 12px; color: var(--ee-warn-deep); }
+.ee-detail .ee-what { margin-top: 0; }
+.ee-check { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; font-size: 14px; color: var(--ee-ink); cursor: pointer; }
+.ee-check input { width: 18px; height: 18px; accent-color: var(--ee-link); }
+.ee-card.is-done .ee-title { text-decoration: line-through; text-decoration-color: var(--ee-hair-strong); }
+.ee-card.is-done { opacity: 0.8; }
+.ee-next a { color: var(--ee-link-deep); text-decoration: underline; text-underline-offset: 3px; }
