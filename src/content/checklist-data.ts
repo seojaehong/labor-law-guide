@@ -129,7 +129,7 @@ export const employerChecklistResults: ChecklistResult[] = [
     level: 'medium',
     title: '사용자성 인정 가능성 있음',
     description: '일부 근로조건에 대해 원청의 실질적 지배력이 인정될 가능성이 있습니다.',
-    recommendation: '전문가 상담을 통해 구체적인 사용자성 인정 범위를 확인하시기 바랍니다.',
+    recommendation: '노무사 상담을 통해 구체적인 사용자성 인정 범위를 확인하시기 바랍니다.',
   },
   {
     minScore: 61,
@@ -137,7 +137,7 @@ export const employerChecklistResults: ChecklistResult[] = [
     level: 'high',
     title: '사용자성 인정 가능성 높음',
     description: '여러 근로조건에 대해 원청의 실질적·구체적 지배력이 인정될 가능성이 높습니다.',
-    recommendation: '교섭 요구에 대비한 준비가 필요합니다. 전문가 상담을 권장합니다.',
+    recommendation: '교섭 요구에 대비한 준비가 필요합니다. 노무사 상담을 권장합니다.',
   },
 ];
 
@@ -275,7 +275,7 @@ export const subcontractChecklistResults: ChecklistResult[] = [
     description:
       '귀사가 근로조건 전반에 실질적·구체적 지배력을 행사하고 있어, 개정법상 사용자로서 교섭에 응할 의무가 인정될 가능성이 매우 높습니다.',
     recommendation:
-      '교섭 거부 시 부당노동행위(형사처벌 대상)에 해당할 수 있습니다. 즉시 전문가 상담을 받으시기 바랍니다.',
+      '교섭 거부 시 부당노동행위(형사처벌 대상)에 해당할 수 있습니다. 즉시 노무사 상담을 받으시기 바랍니다.',
   },
 ];
 
@@ -379,7 +379,7 @@ export const faqData = [
   },
   {
     question: '우리 원청도 사용자에 해당하나요?',
-    answer: '원청이 하청 근로자의 채용·해고, 임금, 근로시간, 업무지시 등 근로조건을 실질적·구체적으로 지배·결정하는 경우 사용자에 해당할 수 있습니다. 위의 점검 체크리스트로 대략적인 판단이 가능하며, 정확한 판단은 전문가 상담이 필요합니다.',
+    answer: '원청이 하청 근로자의 채용·해고, 임금, 근로시간, 업무지시 등 근로조건을 실질적·구체적으로 지배·결정하는 경우 사용자에 해당할 수 있습니다. 위의 점검 체크리스트로 대략적인 판단이 가능하며, 정확한 판단은 노무사 상담이 필요합니다.',
   },
   {
     question: '사용자성은 전부 인정되나요, 일부만 인정되나요?',
