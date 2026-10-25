@@ -10,6 +10,8 @@ import type { RuleSpec } from '@/lib/laws/rules-check';
 import { anthropicAsk, BATCH_RUNS, usd, type Usage } from '@/lib/laws/precise/judge';
 import { splitArticles } from '@/lib/laws/precise/articles';
 import { MAX_ARTICLES, precisePipeline, rowsForStore } from '@/lib/laws/precise/pipeline';
+import { todayKST } from '@/lib/laws/format';
+import { loadEvidence } from '@/lib/laws/precise/evidence';
 import rulesJson from '../../../../../public/data/laws/rules.json';
 
 export const runtime = 'nodejs';
@@ -31,27 +33,29 @@ function db() {
   return url && key ? createClient(url, key, { auth: { autoRefreshToken: false, persistSession: false } }) : null;
 }
 
-/** 챗·계약서 판독과 같은 공용 카운터. DB 오류면 fail-open 하되 로그를 남긴다(contract-check 와 같다). */
-async function underLimit(scope: 'ip' | 'global', key: string, max: number): Promise<boolean> {
-  const client = db();
-  if (!client) {
-    console.error('[work-rules-precise] rate limit skipped: supabase env missing');
-    return true;
-  }
+/** 유료 호출은 카운터를 확인할 수 있을 때만 허용한다. */
+async function underLimit(scope: 'ip' | 'global', key: string, max: number): Promise<boolean | null> {
+  if (!Number.isSafeInteger(max) || max <= 0) return null;
   try {
+    const client = db();
+    if (!client) {
+      console.error('[work-rules-precise] rate limit unavailable: supabase env missing');
+      return null;
+    }
     const { data, error } = await client.rpc('incr_rate_limit', { p_scope: scope, p_key: key, p_max: max });
     const row = (Array.isArray(data) ? data[0] : data) as { allowed?: boolean } | undefined;
     if (error || !row || typeof row.allowed !== 'boolean') {
-      console.error('[work-rules-precise] rate limit fail-open', scope, error?.message ?? 'shape');
-      return true;
+      console.error('[work-rules-precise] rate limit unavailable', scope, error?.message ?? 'shape');
+      return null;
     }
     return row.allowed;
   } catch (err) {
     console.error('[work-rules-precise] rate limit exception', scope, err instanceof Error ? err.message : 'unknown');
-    return true;
+    return null;
   }
 }
 
+const validDate = (v: string) => { const d = new Date(`${v.slice(0,4)}-${v.slice(4,6)}-${v.slice(6,8)}T00:00:00Z`); return Number.isNaN(d.getTime()) ? '' : d.toISOString().slice(0,10).replaceAll('-', ''); };
 const str = (v: unknown) => (typeof v === 'string' ? v : '');
 
 export async function POST(req: Request): Promise<Response> {
@@ -71,7 +75,7 @@ export async function POST(req: Request): Promise<Response> {
   const since = str(input.since).replace(/-/g, '');
   const headcount = str(input.headcount).slice(0, 10);
   const focus = str(input.focus).trim().slice(0, 1000);
-  if (!rules.trim() || !/^\d{8}$/.test(since)) {
+  if (!rules.trim() || (!/^\d{8}$/.test(since) || validDate(since) !== since)) {
     return json(400, { error: 'bad_request', message: '본문과 점검 시작일이 필요합니다.' });
   }
   if (rules.length > MAX_CHARS || (old?.length ?? 0) > MAX_CHARS) {
@@ -83,6 +87,7 @@ export async function POST(req: Request): Promise<Response> {
   if (!arts.some((a) => a.body.trim())) {
     return json(422, { error: 'empty_rules', message: '조문(제N조)을 찾지 못했습니다. 목차만 들어갔는지 확인해 주세요.' });
   }
+  if (old && !splitArticles(old).some((a) => a.body.trim())) return json(422, { error: 'empty_old', message: '종전 본문의 조문을 확인해 주세요.' });
   if (arts.length + (old ? splitArticles(old).length : 0) > MAX_ARTICLES) {
     return json(413, { error: 'too_many_articles', message: `조문이 ${MAX_ARTICLES}개를 넘습니다. 취업규칙 한 벌씩 넣어 주세요.` });
   }
@@ -95,36 +100,45 @@ export async function POST(req: Request): Promise<Response> {
     }
   }
   // 개인 횟수를 먼저 본다 — 이미 막힌 한 사람이 전체 한도를 깎지 못하게
-  if (!(await underLimit('ip', `wrp:${hashIp(ip)}`, IP_DAILY_LIMIT))) {
+  const unavailable = () => json(503, { error: 'usage_guard_unavailable', message: '이용 한도를 확인할 수 없어 유료 AI 점검을 시작하지 않았습니다. 잠시 후 다시 시도해 주세요.' });
+  const ipAllowed = await underLimit('ip', `wrp:${hashIp(ip)}`, IP_DAILY_LIMIT);
+  if (ipAllowed === null) return unavailable();
+  if (!ipAllowed) {
     return json(429, { error: 'rate_limited', message: `정밀 점검은 하루 ${IP_DAILY_LIMIT}회까지 이용할 수 있습니다.` });
   }
-  if (!(await underLimit('global', 'wrp_all', GLOBAL_DAILY_LIMIT))) {
+  const globalAllowed = await underLimit('global', 'wrp_all', GLOBAL_DAILY_LIMIT);
+  if (globalAllowed === null) return unavailable();
+  if (!globalAllowed) {
     return json(429, { error: 'rate_limited', message: '오늘 정밀 점검 한도가 찼습니다. 내일 다시 이용해 주세요.' });
   }
 
   const t0 = Date.now();
+  const runId = crypto.randomUUID();
   const usage: Usage = { input_tokens: 0, output_tokens: 0, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 };
+  const accounting = { attempts: 0, responsesWithUsage: 0 };
   let result;
   try {
     // 요청 전체 상한 — 플랫폼 타임아웃(maxDuration)보다 먼저 끊어 JSON 으로 답한다. 끊긴 묶음은 「추가 확인」으로 남는다
-    result = await precisePipeline({ rules, old, since, headcount, focus },(rulesJson as { rules: RuleSpec[] }).rules,
-      { ask: anthropicAsk({ apiKey, usage }), runs: BATCH_RUNS, workers: 8, signal: AbortSignal.timeout(DEADLINE_MS) });
+    result = await precisePipeline({ rules, old, since, headcount, focus }, (rulesJson as { rules: RuleSpec[] }).rules,
+      { evidence: await loadEvidence((rulesJson as { rules: RuleSpec[] }).rules), asOf: todayKST(), ask: anthropicAsk({ apiKey, usage, accounting }), runs: BATCH_RUNS, workers: 8, signal: AbortSignal.timeout(DEADLINE_MS) });
   } catch (err) {
     const code = err instanceof Error ? err.message : '';
     if (code === 'empty_rules' || code === 'empty_old') {
       return json(422, { error: code, message: '조문(제N조)을 찾지 못했습니다. 목차만 들어갔는지 확인해 주세요.' });
     }
+    process.stdout.write(JSON.stringify({ event: 'work_rules_precise_estimated_usage', runId, usage, accounting, estimatedUsd: usd(usage), billingVerified: false, usageComplete: accounting.attempts === accounting.responsesWithUsage }) + '\n');
     console.error('[work-rules-precise] pipeline failed', err instanceof Error ? err.name : 'unknown');
     return json(502, { error: 'judge_failed', message: '점검 중 오류가 났습니다. 잠시 후 다시 시도해 주세요.' });
   }
-  if (usage.output_tokens === 0) { // 한 묶음도 답을 못 받았다 — 전부 「판단 실패」인 표를 성공으로 내지 않는다
+  process.stdout.write(JSON.stringify({ event: 'work_rules_precise_estimated_usage', runId, usage, accounting, estimatedUsd: usd(usage), billingVerified: false, usageComplete: accounting.attempts === accounting.responsesWithUsage }) + '\n');
+  if (usage.output_tokens === 0 || result.review.unanswered === result.articles) { // 한 묶음도 답을 못 받았다 — 전부 「판단 실패」인 표를 성공으로 내지 않는다
     console.error('[work-rules-precise] all calls failed');
     return json(502, { error: 'judge_failed', message: 'AI 점검 서버가 응답하지 않았습니다. 잠시 후 다시 시도해 주세요.' });
   }
   const cost = Math.round(usd(usage) * 1e4) / 1e4;
   const seconds = Math.round((Date.now() - t0) / 100) / 10;
-  const runId = crypto.randomUUID();
   const store = input.store === true;
+  try {
   const client = db();
   if (client) { // 수집 — 실패해도 결과는 돌려준다
     const { error } = await client.from('work_rules_precise_runs').insert({
@@ -133,6 +147,7 @@ export async function POST(req: Request): Promise<Response> {
     });
     if (error) console.error('[work-rules-precise] run insert failed', error.code ?? 'unknown');
   }
+  } catch { console.error('[work-rules-precise] run insert exception'); }
   console.log('[work-rules-precise] done', result.articles, result.flagged, cost, seconds);
-  return json(200, { runId, rows: result.rows, articles: result.articles, flagged: result.flagged, seconds });
+  return json(200, { runId, rows: result.rows, articles: result.articles, flagged: result.flagged, seconds, review: result.review, cost: { estimatedUsd: cost, billingVerified: false, usageComplete: accounting.attempts === accounting.responsesWithUsage } });
 }

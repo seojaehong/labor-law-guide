@@ -174,6 +174,26 @@ describe.each(['table-rules.hwp', 'table-rules.hwpx'])('apply to %s', (name) => 
     expect(lines.map((l) => l.text)).toEqual(want);
     d.free();
   });
+  it('partial paragraph edit changes exactly one location and preserves every other paragraph after both saves', async () => {
+    const original = fx(name);
+    const base = await reopen(original);
+    const before = base.lines.map((l) => l.text);
+    const locs = base.lines.map((l) => l.loc);
+    base.d.free();
+    const { changes } = await plan(name);
+    const leave = find(changes, 'replace', '휴가 신청')[0];
+    const index = before.indexOf('② 근로자의 날에는 휴가를 신청하지 않는다.');
+    expect(index).toBeGreaterThan(0);
+    for (const format of ['hwp', 'hwpx'] as const) {
+      const result = await applyChanges(original, [leave], format, wasm);
+      const after = await reopen(result.bytes);
+      const expected = [...before]; expected[index] = '② 휴가는 사흘 전까지 신청한다.';
+      expect(after.lines.map((l) => l.text)).toEqual(expected);
+      expect(after.lines.map((l) => l.loc)).toEqual(locs);
+      // Includes nested table exceptions and supplementary clauses outside the selected 항.
+      after.d.free();
+    }
+  });
   it('refuses overlapping, blocked and partial changes', async () => {
     const { changes } = await plan(name);
     const leave = find(changes, 'replace', '휴가 신청')[0];

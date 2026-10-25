@@ -16,7 +16,7 @@ type Verdict = 'right' | 'wrong' | 'unsure';
 type Doc = { name: string; text: string; articles: number };
 /** 실행할 때의 입력 — 결과와 묶어 둔다. 화면 입력이 이것과 다르면 결과는 다른 조건의 것이다 */
 type Snap = { name: string; doc: string; old: string | null; since: string; headcount: string; focus: string };
-type Res = { runId: string; rows: Row[]; articles: number; input: Snap };
+type Res = { runId: string; rows: Row[]; articles: number; input: Snap; review?: { incomplete: number; conflicts: number; asOf: string; since: string } };
 
 /** 문서 대조용 지문(FNV-1a 32비트). 본문을 상태에 두 벌 들고 있지 않으려고 쓴다 — 보안 용도가 아니다 */
 function fingerprint(t: string): string {
@@ -101,6 +101,7 @@ export default function PreciseCheck({ mainText, since, toast, archived = false,
   const [store, setStore] = useState(false);
   const [busy, setBusy] = useState(false);
   const [elapsed, setElapsed] = useState(0);
+  const [runningArticles, setRunningArticles] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [res, setRes] = useState<Res | null>(null);
   const [filter, setFilter] = useState<string | null>(null);
@@ -108,12 +109,13 @@ export default function PreciseCheck({ mainText, since, toast, archived = false,
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
   const runSeq = useRef(0);
+  const active = useRef<AbortController | null>(null);
 
   // 파일이 없으면 위 「1. 취업규칙 본문」에 넣은 글을 쓴다
   const mainArticles = splitArticles(mainText).filter((a) => a.body.trim()).length;
   const source: Doc | null = doc ?? (mainArticles ? { name: '위에 입력한 본문', text: mainText, articles: mainArticles } : null);
 
-  useEffect(() => () => { if (timer.current) clearInterval(timer.current); }, []);
+  useEffect(() => () => { runSeq.current++; active.current?.abort(); if (timer.current) clearInterval(timer.current); }, []);
   useEffect(() => { onStatus?.(busy ? 'busy' : res ? 'done' : 'idle'); }, [busy, res, onStatus]);
   // 지금 화면의 입력 — 결과에 묶인 실행 당시 입력과 하나라도 다르면(진행 중에 바뀐 것 포함) 「다시 점검 필요」로 표시한다
   const sourceText = source?.text ?? '';
@@ -123,8 +125,19 @@ export default function PreciseCheck({ mainText, since, toast, archived = false,
     ? { name: source.name, doc: docPrint, old: oldPrint, since, headcount: headcount.trim(), focus: focus.trim() } : null;
   const stale = !!res && !(now && sameSnap(now, res.input));
 
+  const cancel = () => {
+    runSeq.current++;
+    active.current?.abort(); active.current = null;
+    if (timer.current) clearInterval(timer.current);
+    setBusy(false); setTurnstileToken(null);
+    try { window.turnstile?.reset(); } catch { /* ignore */ }
+    setError('결과 대기를 취소했습니다. 이미 시작된 서버 점검과 비용 발생은 계속될 수 있습니다.');
+  };
+
   const run = async () => {
-    if (!source || !now) return;
+    if (!source || !now || active.current) return;
+    const controller = new AbortController(); active.current = controller;
+    setRunningArticles(source.articles);
     const input = now; // 이 실행의 입력 — 응답이 오기 전에 화면 입력이 바뀌어도 결과는 이 값에 묶인다
     setBusy(true); setError(null); setRes(null); setMarks({}); setFilter(null); setElapsed(0);
     const seq = ++runSeq.current;
@@ -132,22 +145,25 @@ export default function PreciseCheck({ mainText, since, toast, archived = false,
     timer.current = setInterval(() => setElapsed(Math.round((Date.now() - t0) / 1000)), 1000);
     try {
       const r = await fetch('/api/tools/work-rules-precise', {
-        method: 'POST', headers: { 'content-type': 'application/json' },
+        method: 'POST', signal: controller.signal, headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ rules: source.text, old: oldDoc?.text ?? null, since: input.since, headcount: input.headcount, focus: input.focus, store, turnstileToken }),
       });
       const body = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(body.message ?? '정밀 점검을 하지 못했습니다.');
       if (seq !== runSeq.current) return; // 더 나중 실행이 있다
-      setRes({ runId: body.runId, rows: body.rows, articles: body.articles, input });
-      toast(`정밀 점검을 마쳤습니다 — 조문 ${body.articles}개 중 ${body.rows.filter((x: Row) => x['조문'] !== '신설 필요').length}건을 확인할 항목으로 올렸습니다`);
+      setRes({ runId: body.runId, rows: body.rows, articles: body.articles, input, review: body.review });
+      toast(`AI 검수 초안을 받았습니다 — 조문 ${body.articles}개 중 ${body.rows.filter((x: Row) => x['조문'] !== '신설 필요').length}건을 확인할 항목으로 올렸습니다`);
     } catch (e) {
-      if (seq === runSeq.current) setError((e as Error).message);
+      if (seq === runSeq.current && !controller.signal.aborted) setError((e as Error).message);
     } finally {
-      if (timer.current) clearInterval(timer.current);
-      setBusy(false);
-      // Turnstile 토큰은 1회용 — 비우고 재발급시킨다(PhotoUploadCard 와 같다)
-      setTurnstileToken(null);
-      try { window.turnstile?.reset(); } catch { /* ignore */ }
+      if (seq === runSeq.current) {
+        active.current = null;
+        if (timer.current) clearInterval(timer.current);
+        setBusy(false);
+        // Turnstile 토큰은 1회용 — 비우고 재발급시킨다(PhotoUploadCard 와 같다)
+        setTurnstileToken(null);
+        try { window.turnstile?.reset(); } catch { /* ignore */ }
+      }
     }
   };
 
@@ -173,6 +189,7 @@ export default function PreciseCheck({ mainText, since, toast, archived = false,
         `점검 시작일 ${s.since.replace(/^(\d{4})(\d{2})(\d{2})$/, '$1-$2-$3')} 이후 시행 법령 기준 · AI 대조 초안(노무사 검수 전)`,
         `점검 대상: ${s.name}${s.old ? ' · 종전 규칙과 대조' : ' · 종전 규칙 미제공(불이익변경 비교 불가)'}${s.headcount ? ` · 상시 근로자 ${s.headcount}명` : ''}`,
         ...(s.focus ? [`점검 요청: ${s.focus}`] : []),
+        `점검 기준일 ${res.review?.asOf ?? '미기록'} · 검토 미완료 ${res.review?.incomplete ?? '미기록'}조 · 회차 의견 충돌 ${res.review?.conflicts ?? '미기록'}조`,
       ],
       head: [...head], rows: res.rows.map((x) => head.map((h) => x[h])), widths: [14, 40, 40, 36, 24, 12, 14, 30, 40],
       foot: ['AI 대조 결과는 노무사 검수 전 초안입니다. 불이익변경 여부와 최종 문안은 노무사 검토를 거쳐 정하세요.'],
@@ -192,7 +209,7 @@ export default function PreciseCheck({ mainText, since, toast, archived = false,
     .sort((a, b) => ORDER.indexOf(a['점검 결과'] as never) - ORDER.indexOf(b['점검 결과'] as never)) : [];
   const shown = filter ? rows.filter((x) => x['점검 결과'] === filter) : rows;
   const count = (k: string) => rows.filter((x) => x['점검 결과'] === k).length;
-  const groups = source ? groupCount(source.articles) : 0;
+  const groups = groupCount(busy ? runningArticles : source?.articles ?? 0);
 
   return (
     <section className="lr-pc" aria-labelledby={titleId}>
@@ -201,7 +218,7 @@ export default function PreciseCheck({ mainText, since, toast, archived = false,
         <h3 id={titleId}>AI 정밀 점검</h3>
         <span className="lr-badge rule">시험 운영 · 무료</span>
       </div>
-      <p className="lr-pc-lead">조문마다 법령 기준 충족·종전 대비 불이익변경·운영 가능성을 AI 가 대조합니다. 보고 싶은 내용을 적으면 그 관점으로 함께 봅니다.</p>
+      <p className="lr-pc-lead">AI가 조문별 의미상 의심점·운영 검토 사항과 검수용 초안을 제시합니다. 종전 규칙이 있으면 불이익변경 검토를 돕고, 보고 싶은 내용을 함께 살핍니다. 법률 적합성을 확정하지 않습니다.</p>
 
       {!archived && <>
       <div className="lr-pc-step"><span className="n">1</span>취업규칙</div>
@@ -235,7 +252,7 @@ export default function PreciseCheck({ mainText, since, toast, archived = false,
 
       <div className="lr-pc-run">
         <p className="lr-pc-notice">
-          실행하면 본문 전체가 우리 서버를 거쳐 외부 AI 제공사(Anthropic)로 전송됩니다. 보관에 동의하지 않으면 조문 본문은 저장하지 않고 점검 결과만 남깁니다.
+          실행하면 본문 전체가 우리 서버를 거쳐 외부 AI 제공사(Anthropic)로 전송됩니다. 보관에 동의하지 않으면 조문 본문은 저장하지 않고 점검 결과만 남깁니다. 다시 실행하면 새 점검으로 이용 횟수와 비용이 추가됩니다.
         </p>
         <label className="lr-pc-consent"><input type="checkbox" checked={store} onChange={(e) => setStore(e.target.checked)} /> 점검 개선을 위해 본문 보관에 동의합니다(선택 · 체크하지 않으면 본문은 저장하지 않습니다)</label>
         <TurnstileWidget onToken={setTurnstileToken} />
@@ -249,14 +266,18 @@ export default function PreciseCheck({ mainText, since, toast, archived = false,
           // 서버가 진행 정보를 주지 않으므로 완료율처럼 보이는 막대 대신 흐르는 막대와 경과 초만 보인다
           <div className="lr-pc-progress" role="status">
             <div className="bar indeterminate" aria-hidden><i /></div>
-            <span>경과 {elapsed}초 · 조문 {source?.articles}개를 {groups}묶음으로 나눠 묶음마다 {BATCH_RUNS}번씩 대조하고 있습니다. 보통 1~2분 걸립니다.</span>
+            <span>경과 {elapsed}초 · 조문 {runningArticles}개를 {groups}묶음으로 나눠 묶음마다 {BATCH_RUNS}번씩 대조하고 있습니다. 보통 1~2분 걸립니다.</span>
           </div>
         )}
         {error && <p className="lr-file-error" role="alert">{error}</p>}
       </div>
 
+      {busy && <button className="lr-btn lr-btn-sm" onClick={cancel}>결과 대기 취소</button>}
       {res && (
         <div className="lr-pc-result" aria-live="polite">
+          <p role="status" className="lr-check-note">검수 보조 초안 · 법률 적합성 확인 완료를 의미하지 않습니다.
+            {res.review && ` 기준일 ${res.review.asOf} · 대조 시작일 ${res.input.since} · 검토 미완료 ${res.review.incomplete}조 · 회차 의견 충돌 ${res.review.conflicts}조`}
+          </p>
           {stale && (
             <p className="lr-pc-stale" role="status">
               조건이 바뀌어 다시 점검이 필요합니다. 아래 결과와 대조표 엑셀은 실행할 때의 조건(파일·종전 규칙·점검 시작일·상시 근로자 수·점검 요청)으로 대조한 것입니다.
