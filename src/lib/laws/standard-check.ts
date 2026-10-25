@@ -61,7 +61,7 @@ const squash = (s: string) => s.replace(/[\s·ㆍ.,()]/g, '');
 //   실제 회사 규칙(조문 206개)에서 「개정 부칙」 뒤에 제1~4조가 또 나왔고, 그것을 본문 조문으로
 //   세는 바람에 난임치료휴가를 **부칙 제2조**로 지목했다. 사용자는 본문 제2조(목적)로 읽는다.
 //   부칙의 경과규정은 본문 근로조건이 아니므로 판정 대상에서 뺀다.
-const ADDENDA = /^\s*(?:개정\s*)?부\s*칙(?:\s*[<(（]|\s*$|\s)/;
+const ADDENDA = /^\s*(?:개정\s*)?부\s*칙(?:\s*[<(（【\[].*[>)）】\]])?\s*$/;
 
 /** 「제N조(제목)」 덩어리로 나눈다. 조문 머리가 없는 앞부분과 **부칙 이후**는 버린다 */
 export function splitArticles(text: string): UserArticle[] {
@@ -69,11 +69,14 @@ export function splitArticles(text: string): UserArticle[] {
   for (const raw of text.split(/\r?\n/)) {
     let line = raw.trim();
     if (!line) continue;
-    if (ADDENDA.test(line)) break;
+    // 목차의 「부칙 35」나 본문 중 「부칙 제2조에 따른다」는 경계가 아니다.
+    if (ADDENDA.test(line)) { if (out.length) break; else continue; }
     // PDF 추출은 장 제목·쪽 머리 글자를 조문 머리와 한 줄에 붙인다(「제1장 총 칙 제1조(목적)」 「박 현 제12조(출장)」, 공공기관 규칙 시험)
     const lead = line.match(/^(?:제\s*\d+\s*장[^제]{0,15}|[^제]{1,6})\s+(?=제\s*\d+\s*조(?:\s*의\s*\d+)?\s*[(【[])/);
     if (lead) line = line.slice(lead[0].length);
     const m = line.match(ART);
+    // 쪽번호만 뒤따르는 목차 항목은 본문 조문으로 세지 않는다.
+    if (m && /^[\s.…·-]*\d+\s*$/.test(line.slice(m[0].length))) continue;
     // A wrapped statutory cross-reference is not a new company article heading.
     const reference = m && !m[2] && !m[3] && !m[4] && /^\s*(?:및|의|에|를|과|에서|까지)/.test(line.slice(m[0].length));
     if (m && !reference) {

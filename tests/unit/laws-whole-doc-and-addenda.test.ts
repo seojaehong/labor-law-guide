@@ -2,6 +2,17 @@ import { describe, expect, it } from 'vitest';
 import { splitArticles, periodCheck } from '@/lib/laws/standard-check';
 
 describe('부칙은 본문 조문이 아니다', () => {
+  it('본문 앞 목차의 부칙 35와 쪽번호 조문을 건너뛴다', () => {
+    const text = '목차\n제1조(목적) … 1\n부칙 35\n제1조(목적) 실제 본문\n제2조(휴가) 연 15일\n부칙 <2026. 1. 1.>\n제1조(시행일) 즉시';
+    expect(splitArticles(text).map(a => a.text)).toEqual(['제1조(목적) 실제 본문', '제2조(휴가) 연 15일']);
+  });
+
+  it('조문 앞의 부칙 머리와 조문 안의 부칙 인용은 본문을 자르지 않는다', () => {
+    const text = '부칙\n제1조(목적) 본문\n부칙 제2조에 따른다.\n제2조(휴가) 본문';
+    const articles = splitArticles(text);
+    expect(articles.map(a => a.no)).toEqual(['제1조', '제2조']);
+    expect(articles[0].text).toContain('부칙 제2조에 따른다.');
+  });
   // 2026-10-21 실제 회사 규칙: 「개정 부칙」 뒤에 제1~4조가 또 나왔고 그것을 본문으로 세는 바람에
   // 난임치료휴가를 **부칙 제2조**로 지목했다. 사용자는 본문 제2조(목적)로 읽는다.
   const body = [
