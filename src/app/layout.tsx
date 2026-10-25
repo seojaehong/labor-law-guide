@@ -194,6 +194,7 @@ export default function RootLayout({
                 { href: '/tools/holiday-pay', label: '공휴일·노동절 수당 참고 계산' },
                 { href: '/duties', label: '사업장 규모별 사업주 의무' },
                 { href: '/contact', label: '전문서비스 문의' },
+                { href: 'https://www.safeclaw.kr', label: '산업안전 점검 — SafeClaw', external: true },
               ] },
               { title: '검토 중 자료', links: [
                 { href: '/guide', label: '핵심 가이드' },
@@ -218,7 +219,7 @@ export default function RootLayout({
                 <ul className="space-y-1.5">
                   {col.links.map((l) => (
                     <li key={l.href}>
-                      <a href={l.href} className="text-[13px]" style={{ color: 'var(--grey-700)' }}>
+                      <a href={l.href} {...('external' in l && l.external ? { target: '_blank', rel: 'noopener' } : {})} className="text-[13px]" style={{ color: 'var(--grey-700)' }}>
                         {l.label}
                       </a>
                     </li>

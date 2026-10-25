@@ -126,3 +126,20 @@
   border-radius: 8px; padding: 10px 16px; font-size: 14px; box-shadow: var(--ed-shadow-5); max-width: calc(100vw - 32px);
 }
 @media (prefers-reduced-motion: reduce) { .ed-chev { transition: none; } }
+
+/* 규모 계단 도식 — 색은 전부 변수로 받는다(테마가 바뀌어도 다시 그리지 않는다) */
+.ed-stair { margin: 14px 0 4px; }
+.ed-stair-chart { overflow-x: auto; }
+.ed-stair-chart svg { min-width: 680px; }
+.ed-stair svg { display: block; overflow: visible; }
+.ed-stair .base { fill: var(--ed-soft-2); }
+.ed-stair .add { fill: var(--ed-link-soft); }
+.ed-stair g.on .base { fill: var(--ed-link-soft); }
+.ed-stair g.on .add { fill: var(--ed-link); }
+.ed-stair .total { font-size: 15px; font-weight: 600; fill: var(--ed-ink); font-variant-numeric: tabular-nums; }
+.ed-stair .add-n { font-size: 13px; fill: var(--ed-link-deep); font-variant-numeric: tabular-nums; }
+.ed-stair .label { font-size: 12px; fill: var(--ed-body); }
+.ed-stair g:hover .base { fill: var(--ed-link-soft); }
+@media (prefers-reduced-motion: no-preference) {
+  .ed-stair rect { transition: fill .15s ease; }
+}
