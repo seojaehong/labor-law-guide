@@ -242,3 +242,17 @@
 .rr-xcheck-file details { margin-top: 4px; }
 .rr-xcheck-file summary { cursor: pointer; font-size: 13px; color: var(--rr-link-deep); }
 .rr-xcheck-at { display: inline-block; min-width: 3em; font-size: 12px; font-weight: 600; color: var(--rr-warn-deep); }
+
+/* 판독문 원문 대조 — 표·머리 줄 등 조문이 아닌 판독을 두 판독 나란히 */
+.rr-rd { margin-top: 12px; }
+.rr-rd > summary { cursor: pointer; font-weight: 600; font-size: 14px; }
+.rr-rd-page { margin-top: 12px; padding: 12px; border-radius: 8px; background: var(--rr-canvas); box-shadow: var(--rr-shadow-1); font-size: 14px; }
+.rr-rd-status { margin-top: 6px; padding: 6px 10px; border-radius: 6px; background: var(--rr-soft-2); line-height: 1.6; }
+.rr-rd-status.warn { background: var(--rr-warn-soft); color: var(--rr-warn-deep); }
+.rr-rd-cols { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; margin-top: 8px; }
+@media (max-width: 720px) { .rr-rd-cols { grid-template-columns: minmax(0, 1fr); } }
+.rr-rd-label { font-size: 13px; font-weight: 600; color: var(--rr-body); margin-bottom: 4px; }
+.rr-rd-seg + .rr-rd-seg { margin-top: 8px; }
+.rr-rd-pre { white-space: pre-wrap; overflow-wrap: anywhere; font-family: inherit; font-size: 13px; line-height: 1.6; margin: 4px 0 0; padding: 8px; border-radius: 6px; background: var(--rr-soft); max-height: 420px; overflow: auto; }
+.rr-rd-grid td { font-size: 13px; padding: 4px 8px; }
+.rr-rd mark { background: var(--rr-warn-soft); color: var(--rr-warn-deep); font-weight: 600; padding: 0 2px; border-radius: 3px; }
