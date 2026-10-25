@@ -10,6 +10,15 @@ import { REMEDY_FLOW, FLOW_CHECKED } from '@/content/procedure-flows';
 describe('부당해고 구제신청 흐름', () => {
   const byId = Object.fromEntries(REMEDY_FLOW.steps.map(s => [s.id, s]));
 
+  it('5인 적용범위와 최초 신청기한을 판정 확정과 구분한다', () => {
+    expect(REMEDY_FLOW.lead).toContain('5인 이상');
+    expect(REMEDY_FLOW.notes.join(' ')).toContain('5인 미만');
+    expect(REMEDY_FLOW.lead).not.toContain('결정이 확정');
+    expect(byId.file.branch?.detail).not.toContain('확정');
+    expect(byId.review.branch?.detail).toContain('확정');
+    expect(byId.court.branch?.detail).toContain('확정');
+  });
+
   it('기한 셋이 원문과 같다', () => {
     expect(byId.file.deadline).toBe('3개월 이내');
     expect(byId.review.deadline).toBe('10일 이내');
