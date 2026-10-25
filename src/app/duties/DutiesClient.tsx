@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { ChevronDown } from 'lucide-react';
+import TierStair from './TierStair';
 import { CHECKED, COUNT_RULES, DUTIES, GROUPS, SOURCES, TIERS, type Duty, type Group, type TierMin } from '@/content/duties-data';
 
 const TIER_MINS = TIERS.map(t => t.min) as TierMin[];
@@ -102,6 +103,8 @@ export default function DutiesClient() {
               </button>
             ))}
           </div>
+
+          <TierStair tier={tier} onPick={pick} />
 
           <div className="ed-sum" aria-live="polite">
             <div>

@@ -271,6 +271,8 @@
 .lr-check-sum .n.opt { color: var(--lr-warn-deep); }
 .lr-verdict { border-radius: 8px; box-shadow: var(--lr-shadow-1); padding: 12px 14px; margin-top: 10px; }
 .lr-verdict.fix { box-shadow: inset 3px 0 0 var(--lr-error), var(--lr-shadow-1); }
+/* 시행 예정 — 빨강이 아니라 경고색. 「지금 고칠 것」과 눈으로 갈려야 한다(2026-10-21) */
+.lr-verdict.soon { box-shadow: inset 3px 0 0 var(--lr-warn-deep), var(--lr-shadow-1); }
 .lr-verdict.opt { box-shadow: inset 3px 0 0 var(--lr-warn-deep), var(--lr-shadow-1); }
 .lr-verdict p { font-size: 13px; line-height: 1.7; color: var(--lr-body); margin-top: 6px; }
 .lr-verdict .lr-clause { font-size: 13px; }
