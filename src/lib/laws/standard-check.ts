@@ -57,16 +57,26 @@ export const STD_ASOF = '20260201';
 const ART = /^\s*(제\s*\d+\s*조(?:\s*의\s*\d+)?)\s*(?:\(([^)]*)\)|【([^】]*)】|\[([^\]]*)\])?/;
 const squash = (s: string) => s.replace(/[\s·ㆍ.,()]/g, '');
 
-/** 「제N조(제목)」 덩어리로 나눈다. 조문 머리가 없는 앞부분은 버린다 */
+// 🔴 부칙은 본문이 아니다 (2026-10-21).
+//   실제 회사 규칙(조문 206개)에서 「개정 부칙」 뒤에 제1~4조가 또 나왔고, 그것을 본문 조문으로
+//   세는 바람에 난임치료휴가를 **부칙 제2조**로 지목했다. 사용자는 본문 제2조(목적)로 읽는다.
+//   부칙의 경과규정은 본문 근로조건이 아니므로 판정 대상에서 뺀다.
+const ADDENDA = /^\s*(?:개정\s*)?부\s*칙(?:\s*[<(（【\[].*[>)）】\]])?\s*$/;
+
+/** 「제N조(제목)」 덩어리로 나눈다. 조문 머리가 없는 앞부분과 **부칙 이후**는 버린다 */
 export function splitArticles(text: string): UserArticle[] {
   const out: UserArticle[] = [];
   for (const raw of text.split(/\r?\n/)) {
     let line = raw.trim();
     if (!line) continue;
+    // 목차의 「부칙 35」나 본문 중 「부칙 제2조에 따른다」는 경계가 아니다.
+    if (ADDENDA.test(line)) { if (out.length) break; else continue; }
     // PDF 추출은 장 제목·쪽 머리 글자를 조문 머리와 한 줄에 붙인다(「제1장 총 칙 제1조(목적)」 「박 현 제12조(출장)」, 공공기관 규칙 시험)
     const lead = line.match(/^(?:제\s*\d+\s*장[^제]{0,15}|[^제]{1,6})\s+(?=제\s*\d+\s*조(?:\s*의\s*\d+)?\s*[(【[])/);
     if (lead) line = line.slice(lead[0].length);
     const m = line.match(ART);
+    // 쪽번호만 뒤따르는 목차 항목은 본문 조문으로 세지 않는다.
+    if (m && /^[\s.…·-]*\d+\s*$/.test(line.slice(m[0].length))) continue;
     // A wrapped statutory cross-reference is not a new company article heading.
     const reference = m && !m[2] && !m[3] && !m[4] && /^\s*(?:및|의|에|를|과|에서|까지)/.test(line.slice(m[0].length));
     if (m && !reference) {
@@ -145,7 +155,12 @@ export function stdForEvent(e: LawEvent, std: StdArticle[]): { std: StdArticle; 
   return out;
 }
 
-export type ItemStatus = '고칠 것' | '조문 추가' | '반영됨' | '선택' | '법령 확인';
+export type ItemStatus = '고칠 것' | '조문 추가' | '시행 예정' | '반영됨' | '선택' | '법령 확인';
+
+/** 오늘(KST). 시행일이 아직 안 온 개정을 「고칠 것」과 같은 칸에 두지 않기 위해 쓴다. */
+export function todayKst(now: number = Date.now()): string {
+  return new Date(now + 9 * 3600 * 1000).toISOString().slice(0, 10).replace(/-/g, '');
+}
 
 export interface PeriodItem {
   std: StdArticle;
@@ -169,7 +184,7 @@ export interface PeriodResult {
   matched: Map<string, UserArticle[]>;
 }
 
-const RANK: Record<ItemStatus, number> = { '고칠 것': 0, '조문 추가': 1, '법령 확인': 2, 선택: 3, 반영됨: 4 };
+const RANK: Record<ItemStatus, number> = { '고칠 것': 0, '조문 추가': 1, '시행 예정': 2, '법령 확인': 3, 선택: 4, 반영됨: 5 };
 
 export function periodCheck(opts: {
   text: string;
@@ -179,8 +194,11 @@ export function periodCheck(opts: {
   from: string;
   to: string;
   art93?: Art93Item[];
+  /** 시험에서 오늘을 고정하려고 둔다. 없으면 KST 오늘. */
+  today?: string;
 }): PeriodResult {
   const { text, std, from, to } = opts;
+  const today = opts.today ?? todayKst();
   const user = splitArticles(text);
   const hasText = user.length > 0;
   const matched = matchArticles(user, std);
@@ -259,6 +277,11 @@ export function periodCheck(opts: {
       const open = vs.filter((v) => v.status !== '반영됨');
       if (!open.length) it.status = '반영됨';
       else if (!open.some((v) => v.rule.required)) it.status = '선택';
+      // 🔴 시행일이 아직 안 온 개정은 「고칠 것」과 같은 칸에 두지 않는다 (2026-10-21).
+      //   표준취업규칙 2026 자체를 넣어 재 보니 「고칠 것」 7건이 **전부 기준일 이후 시행분**이었고
+      //   그중에는 2027-06-10 시행 예정도 있었다. 지금 안 고쳐도 되는 것을 같은 칸에 두면
+      //   받는 사람은 전부를 오탐으로 읽는다. 고객사 A 요청 2·4번과 같은 건이다.
+      else if (open.filter((v) => v.rule.required).every((v) => v.rule.effective > today)) it.status = '시행 예정';
       else it.status = it.user.length || open.some((v) => v.where) ? '고칠 것' : '조문 추가';
     } else it.status = it.user.length ? '법령 확인' : it.std.kind === '필수' ? '조문 추가' : '법령 확인';
   }
