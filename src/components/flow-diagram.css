@@ -2,7 +2,7 @@
 .fd { margin: 20px 0; }
 .fd-head { margin-bottom: 14px; }
 .fd-title { font-size: 17px; font-weight: 600; color: var(--color-text-primary); margin: 0 0 4px; }
-.fd-lead { font-size: 14px; line-height: 1.7; color: var(--color-text-secondary); margin: 0; }
+.fd-lead { font-size: 14px; line-height: 1.7; color: var(--grey-700); margin: 0; }
 
 .fd-steps { list-style: none; margin: 0; padding: 0; }
 .fd-step { display: grid; grid-template-columns: 28px 1fr; gap: 12px; }
@@ -23,17 +23,17 @@
   background: var(--color-warn-bg); color: var(--color-warn-ink); font-size: 12px; font-weight: 600;
   white-space: nowrap;
 }
-.fd-detail { font-size: 14px; line-height: 1.7; color: var(--color-text-secondary); margin: 4px 0 0; }
-.fd-basis { font-size: 12px; color: var(--grey-500); margin: 4px 0 0; }
+.fd-detail { font-size: 14px; line-height: 1.7; color: var(--grey-700); margin: 4px 0 0; }
+.fd-basis { font-size: 12px; color: var(--grey-700); margin: 4px 0 0; }
 .fd-branch {
-  font-size: 13px; line-height: 1.6; color: var(--color-text-secondary);
+  font-size: 13px; line-height: 1.6; color: var(--grey-700);
   margin: 8px 0 0; padding: 8px 10px; border-radius: 8px; background: var(--color-bg-primary);
   box-shadow: inset 2px 0 0 var(--color-border);
 }
 .fd-branch-k { font-weight: 600; color: var(--color-text-primary); }
 
 .fd-notes { margin: 6px 0 0; padding-left: 18px; }
-.fd-notes li { font-size: 13px; line-height: 1.8; color: var(--color-text-secondary); }
+.fd-notes li { font-size: 13px; line-height: 1.8; color: var(--grey-700); }
 
 @media (max-width: 560px) {
   .fd-step { grid-template-columns: 22px 1fr; gap: 10px; }
