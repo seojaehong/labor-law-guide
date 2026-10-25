@@ -2,6 +2,12 @@ import { describe, expect, it } from 'vitest';
 import { splitArticles, periodCheck } from '@/lib/laws/standard-check';
 
 describe('부칙은 본문 조문이 아니다', () => {
+  it('숫자뿐인 본문을 보존하고 괄호 없는 날짜형 부칙에서 끊는다', () => {
+    for (const heading of ['부칙 2026. 1. 1.', '개정 부칙 2026년 1월 1일']) {
+      const text = `제3조(정년) 60\n제4조(수당) 100000\n${heading}\n제1조(시행일) 즉시`;
+      expect(splitArticles(text).map(a => a.text)).toEqual(['제3조(정년) 60', '제4조(수당) 100000']);
+    }
+  });
   it('본문 앞 목차의 부칙 35와 쪽번호 조문을 건너뛴다', () => {
     const text = '목차\n제1조(목적) … 1\n부칙 35\n제1조(목적) 실제 본문\n제2조(휴가) 연 15일\n부칙 <2026. 1. 1.>\n제1조(시행일) 즉시';
     expect(splitArticles(text).map(a => a.text)).toEqual(['제1조(목적) 실제 본문', '제2조(휴가) 연 15일']);

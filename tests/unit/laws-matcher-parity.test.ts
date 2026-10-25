@@ -13,7 +13,7 @@ const scenarios = [
 ];
 function python(text:string, r:RuleSpec) {
   const code = `import importlib.util,json,sys\nspec=importlib.util.spec_from_file_location('impact','scripts/laws/rules_impact.py')\nm=importlib.util.module_from_spec(spec);spec.loader.exec_module(m)\nx=json.load(sys.stdin);v=m.judge(x['rule'],m.paragraphs(x['text']))\nprint(json.dumps({k:v.get(k) for k in ['status','where','missing']}))`;
-  return JSON.parse(execFileSync('python3',['-c',code],{input:JSON.stringify({rule:r,text}),encoding:'utf8'}));
+  return JSON.parse(execFileSync('python3',['-X','utf8','-c',code],{input:JSON.stringify({rule:r,text}),encoding:'utf8'}));
 }
 describe('synthetic Python/TypeScript technical parity',()=>{
   for(const x of scenarios) it(x.name,()=>{
