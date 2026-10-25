@@ -96,6 +96,7 @@ const fromIso = (d: string) => d.replace(/-/g, '');
 const LABEL: Record<PeriodItem['status'], string> = {
   '고칠 것': 'fix',
   '조문 추가': 'fix',
+  '시행 예정': 'soon',
   선택: 'opt',
   '법령 확인': 'info',
   반영됨: 'ok',
@@ -290,6 +291,8 @@ export function PeriodResults({ data, loadError, onRetry, text, from, to, source
   const open = result?.items.filter((i) => i.status !== '반영됨') ?? [];
   const ok = result?.items.filter((i) => i.status === '반영됨') ?? [];
   const fixN = open.filter((i) => i.status === '고칠 것' || i.status === '조문 추가').length;
+  // 시행일이 아직 안 온 것은 「고칠 것」에서 뺀다 — 지금 고칠 일이 아니다(2026-10-21)
+  const soonN = open.filter((i) => i.status === '시행 예정').length;
   const hasText = splitArticles(text).length > 0;
   const unrecognized = !!text.trim() && !hasText;
   const period = `${fmtDate(from)} 다음 날 ~ ${fmtDate(to)}`;
@@ -297,7 +300,7 @@ export function PeriodResults({ data, loadError, onRetry, text, from, to, source
   const rows = open.map((it) => [`${it.std.no}(${it.std.title})`, mine(it) || (hasText ? '(해당 조문 없음)' : ''), proposal(it), basis(it).join('\n'), it.status]);
   const intro = [
     `점검 기간: ${period} 시행분 · 기준: 고용노동부 표준취업규칙(2026년 배포) 일반 근로자용, 국가법령정보센터(법제처) 원문`,
-    hasText ? `판정: 고칠 것·조문 추가 ${fixN}건 / 전체 ${open.length}건` : '취업규칙 본문 없이 기간만으로 만든 문안 묶음입니다',
+    hasText ? `판정: 고칠 것·조문 추가 ${fixN}건${soonN ? ` · 시행 예정 ${soonN}건` : ''} / 전체 ${open.length}건` : '취업규칙 본문 없이 기간만으로 만든 문안 묶음입니다',
   ];
   const foot = [
     '1차 자동 점검입니다. 표준취업규칙 2026(고용노동부)과 법제처 원문을 기준으로 하며 공인노무사 검수 전입니다.',
@@ -348,7 +351,8 @@ export function PeriodResults({ data, loadError, onRetry, text, from, to, source
         <>
           <div className="lr-check-sum">
             <div><span className="n fix">{fixN}</span>{hasText ? '고칠 것' : '바꿀 조문'}</div>
-            <div><span className="n">{open.length - fixN}</span>확인·선택</div>
+            {soonN > 0 && <div><span className="n">{soonN}</span>시행 예정</div>}
+            <div><span className="n">{open.length - fixN - soonN}</span>확인·선택</div>
             {hasText && <div><span className="n ok">{ok.length}</span>문구 일치</div>}
             <span className="sp" />
           </div>
