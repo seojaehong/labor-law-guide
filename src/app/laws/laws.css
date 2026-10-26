@@ -434,6 +434,8 @@
 .lr-pc-file .lr-pc-drop.compact { width: auto; margin: 0 0 0 auto; padding: 6px 10px; border-width: 1px; }
 .lr-pc-file .lr-pc-drop.compact .h { display: none; }
 .lr-pc-link { margin-top: 8px; border: 0; background: none; padding: 6px 0; color: var(--lr-link-deep); font: inherit; font-size: 14px; cursor: pointer; min-height: 44px; }
+.lr-pc-hint { margin: 8px 0 0; padding: 10px 12px; border-left: 3px solid var(--lr-link); border-radius: 0 8px 8px 0; background: var(--lr-canvas); color: var(--lr-mute); font-size: 13px; line-height: 1.7; }
+.lr-pc-hint b { color: var(--lr-ink); }
 .lr-pc-focus { width: 100%; box-sizing: border-box; padding: 12px; border: 1px solid var(--lr-hair); border-radius: 10px; background: var(--lr-canvas); color: var(--lr-ink); font: inherit; font-size: 14px; line-height: 1.6; resize: vertical; }
 .lr-pc-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
 .lr-pc-field { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 14px; color: var(--lr-ink); }

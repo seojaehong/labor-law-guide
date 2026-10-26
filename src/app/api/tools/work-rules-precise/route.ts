@@ -129,6 +129,9 @@ export async function POST(req: Request): Promise<Response> {
   if (client) { // 수집 — 실패해도 결과는 돌려준다
     const { error } = await client.from('work_rules_precise_runs').insert({
       id: runId, articles: result.articles, flagged: result.flagged, usd: cost, seconds, headcount: headcount || null,
+      // 종전 규칙·점검 요청 유무는 본문이 아니라 「어느 경로로 왔나」다 — 동의와 무관하게 남긴다.
+      // 이게 없으면 나중에 두 벌 대조와 한 벌 점검을 갈라서 못 센다(2026-10-26).
+      has_old: !!old, has_focus: !!focus,
       rows: rowsForStore(result.rows, store), stored_text: store, rules_text: store ? rules : null, old_text: store ? old : null,
     });
     if (error) console.error('[work-rules-precise] run insert failed', error.code ?? 'unknown');

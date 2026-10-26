@@ -216,6 +216,13 @@ export default function PreciseCheck({ mainText, since, toast, archived = false,
       {showOld || oldDoc
         ? <Drop label="종전(개정 전) 취업규칙 올리기" hint="넣으면 근로조건이 낮아진 조문(불이익변경)을 함께 대조합니다" doc={oldDoc} onDoc={setOldDoc} onClear={() => { setOldDoc(null); setShowOld(false); }} compact />
         : <button className="lr-pc-link" onClick={() => setShowOld(true)}>+ 종전 규칙과 비교하기(불이익변경 대조)</button>}
+      {/* 한 벌만 올리면 결과가 넓어진다 — 그 사실을 결과가 아니라 올리기 전에 알린다(2026-10-26) */}
+      {source && !oldDoc && (
+        <p className="lr-pc-hint">
+          <b>종전 규칙도 올리시면 결과가 좁아집니다.</b> 두 벌을 대조하면 <b>근로조건이 낮아진 조문</b>만
+          골라낼 수 있습니다. 한 벌만 올리면 법령 기준으로 전체를 훑기 때문에 확인할 조문이 많아집니다.
+        </p>
+      )}
 
       <div className="lr-pc-step"><span className="n">2</span>보고 싶은 내용·넣고 싶은 내용 <span className="opt">선택</span></div>
       <textarea className="lr-pc-focus" value={focus} onChange={(e) => setFocus(e.target.value.slice(0, 1000))} rows={3}
