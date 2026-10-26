@@ -23,8 +23,13 @@ function normalizeSummary(
 ): string | null {
   if (!source) return null
 
+  // 🔴 HTML 을 먼저 벗긴다 (2026-10-26). 종전에는 벗기지 않아서, content 가 한 덩이 HTML 이라
+  // extractLeadFromMarkdown 이 블록을 못 나누고 여기로 되돌아오면 `<h2>오늘의 한 줄</h2> <p>…`
+  // 가 그대로 화면에 찍혔다. 31일치 데일리 표본 가운데 8건이 그 경로였다.
+  const tagless = /<[a-z!/][^>]*>/i.test(source) ? sanitizeLeadText(source) : source
+
   // Strip markdown heading lines entirely (# 도입부 → removed, not just marker)
-  const headingStripped = source.replace(/^#{1,6}\s+.*$/gm, '').trim()
+  const headingStripped = tagless.replace(/^#{1,6}\s+.*$/gm, '').trim()
   const beforeHeading = headingStripped.split(/\n(?=#{1,6}\s)/, 1)[0] ?? headingStripped
   const firstParagraph = beforeHeading
     .split(/\n\s*\n/, 1)[0]
@@ -45,7 +50,13 @@ function normalizeSummary(
     return stripped
   }
 
-  const sentenceChunks = stripped.match(/[^.!?…。]+[.!?…。]?/g)?.map((chunk) => chunk.trim()).filter(Boolean) ?? []
+  // 🔴 소수점을 문장 끝으로 읽지 않는다 (2026-10-26). 종전에는 「14.7%」가 「14.」/「7%…」로 갈려
+  // 다시 이어 붙을 때 공백이 들어가 **「14. 7%」**로 찍혔다. 가려 두고 나중에 되돌린다.
+  const DOT = '\u0001'
+  const guarded = stripped.replace(/(\d)\.(\d)/g, `$1${DOT}$2`)
+  const unguard = (text: string) => text.split(DOT).join('.')
+
+  const sentenceChunks = guarded.match(/[^.!?…。]+[.!?…。]?/g)?.map((chunk) => chunk.trim()).filter(Boolean) ?? []
 
   if (sentenceChunks.length > 1) {
     let assembled = ''
@@ -55,16 +66,16 @@ function normalizeSummary(
       if (candidate.length > options.maxLength) break
       assembled = candidate
       if (assembled.length >= options.preferredLength) {
-        return assembled
+        return unguard(assembled)
       }
     }
 
     if (assembled.length >= Math.min(140, options.preferredLength)) {
-      return assembled
+      return unguard(assembled)
     }
   }
 
-  const fallback = stripped.slice(0, options.maxLength - 3).trimEnd()
+  const fallback = unguard(guarded.slice(0, options.maxLength - 3)).trimEnd()
   return `${fallback}...`
 }
 
@@ -74,8 +85,12 @@ function extractLeadFromMarkdown(
 ): string | null {
   if (!source) return null
 
+  // 🔴 한 덩이로 온 HTML 도 블록으로 나눈다 (2026-10-26). 우리 본문은 빈 줄 없이
+  // `<h2>…</h2><p>…</p>` 로 붙어 오는 일이 잦아서, 종전에는 전체가 한 블록이 되고
+  // 그 블록이 `<h2`로 시작한다는 이유로 통째로 걸러져 블록이 0개가 됐다.
   const blocks = source
     .replace(/\r/g, '')
+    .replace(/<\/(?:h[1-6]|p|ul|ol|li|table|blockquote|pre|div|figure|details)>\s*/gi, '$&\n\n')
     .split(/\n\s*\n/)
     .map((block) => block.trim())
     .filter(Boolean)
