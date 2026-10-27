@@ -10,7 +10,7 @@ import { ListChecks, BookOpen, Clock } from 'lucide-react';
 
 export default function GuidePage() {
   const navSections = guideSections.map((s) => ({ id: s.id, title: s.title }));
-  const tocSections = [...navSections, { id: 'checklist', title: '자가진단' }, { id: 'timeline', title: '입법 경과' }];
+  const tocSections = [...navSections, { id: 'checklist', title: '점검 체크리스트' }, { id: 'timeline', title: '입법 경과' }];
 
   return (
     <div className="docs-layout">
@@ -21,7 +21,7 @@ export default function GuidePage() {
         <div className="mt-6 border-t pt-4" style={{ borderColor: 'var(--color-border)' }}>
           <a href="#checklist" className="toc-link flex items-center gap-2">
             <ListChecks size={14} />
-            자가진단
+            점검 체크리스트
           </a>
         </div>
       </aside>
@@ -113,7 +113,7 @@ export default function GuidePage() {
           {/* Checklist */}
           <section id="checklist" className="mb-16">
             <h2 className="t-h3 mb-6" style={{ color: 'var(--color-text-primary)' }}>
-              자가진단 체크리스트
+              점검 체크리스트
             </h2>
             <Link
               href="/checklist"
@@ -121,7 +121,7 @@ export default function GuidePage() {
               style={{ borderColor: 'var(--color-border)' }}
             >
               <div>
-                <p className="font-bold" style={{ color: 'var(--grey-900)' }}>교섭 의무 · 사용자성 자가진단</p>
+                <p className="font-bold" style={{ color: 'var(--grey-900)' }}>교섭 의무 · 사용자성 점검</p>
                 <p className="text-sm" style={{ color: 'var(--grey-500)' }}>체크리스트로 귀사의 교섭 의무 가능성을 진단해 보세요</p>
               </div>
               <span style={{ color: 'var(--color-accent)' }}>→</span>

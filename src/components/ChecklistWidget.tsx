@@ -147,7 +147,7 @@ export default function ChecklistWidget({ title, description, items, results }: 
                 href="/contact"
                 className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-md px-5 py-2.5 text-[15px] font-semibold transition-[background-color,transform] hover:-translate-y-px bg-[var(--color-accent-ink)] text-[var(--color-on-accent-ink)] hover:bg-[var(--color-accent-ink-hover)]"
               >
-                전문가 상담 문의하기
+                노무사 상담 문의
               </a>
             </div>
           </div>

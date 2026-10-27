@@ -34,7 +34,7 @@ const quickLinks = [
   },
   {
     href: '/checklist',
-    label: '자가진단 체크리스트',
+    label: '점검 체크리스트',
     description: '우리 사업장에 교섭 의무 가능성이 있는지 빠르게 점검합니다.',
     icon: ClipboardCheck,
   },
@@ -131,7 +131,7 @@ export default function ContactPage() {
             <div className="rounded-md border p-6" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }}>
               <div className="mb-5 flex items-start justify-between gap-4">
                 <div>
-                  <h2 className="t-h4" style={{ color: 'var(--color-text-primary)' }}>온라인 상담 접수</h2>
+                  <h2 className="t-h4" style={{ color: 'var(--color-text-primary)' }}>문의 접수</h2>
                   <p className="mt-1 text-sm" style={{ color: 'var(--grey-700)' }}>
                     회사명, 현재 쟁점, 교섭요구 여부, 일정 급박성까지 적어주시면 분류가 빨라집니다.
                   </p>

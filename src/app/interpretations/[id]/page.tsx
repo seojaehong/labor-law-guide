@@ -341,7 +341,7 @@ export default async function InterpretationDetailPage({
                 </Link>
               </div>
               <div className="rounded-xl p-6 sm:p-8 text-center" style={{ backgroundColor: '#191f28' }}>
-                <p className="text-lg font-bold text-white">전문가 상담이 필요하신가요?</p>
+                <p className="text-lg font-bold text-white">노무사 상담이 필요하신가요?</p>
                 <p className="mt-2 text-sm text-white/70">노무법인 위너스에서 사업장 맞춤 상담을 제공합니다.</p>
                 <Link
                   href="/contact"
@@ -387,7 +387,7 @@ export default async function InterpretationDetailPage({
               </div>
 
               <div className="rounded-xl p-5" style={{ backgroundColor: '#191f28' }}>
-                <p className="text-[14px] font-bold text-white mb-2">전문가 상담</p>
+                <p className="text-[14px] font-bold text-white mb-2">노무사 상담 문의</p>
                 <p className="text-[12px] text-white/70 mb-4 leading-relaxed">
                   이 행정해석의 적용 여부가 궁금하시면 노무법인 위너스에 문의하세요.
                 </p>

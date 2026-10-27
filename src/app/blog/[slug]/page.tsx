@@ -384,7 +384,7 @@ export default async function BlogArticlePage({
               </section>
             )}
 
-            {/* 전환 CTA — AI + 자가진단 + 전문가 상담 */}
+            {/* 전환 CTA — AI + 점검 + 노무사 상담 */}
             <section className="mt-12 space-y-4">
               <div className="grid gap-4 sm:grid-cols-2">
                 <Link
@@ -409,7 +409,7 @@ export default async function BlogArticlePage({
                     <ClipboardCheck size={18} style={{ color: 'white' }} />
                   </div>
                   <div>
-                    <p className="text-sm font-bold" style={{ color: 'var(--color-text-primary)' }}>자가진단 체크리스트</p>
+                    <p className="text-sm font-bold" style={{ color: 'var(--color-text-primary)' }}>점검 체크리스트</p>
                     <p className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>교섭 의무 · 사용자성 해당 여부 1분 진단</p>
                   </div>
                 </Link>
@@ -419,7 +419,7 @@ export default async function BlogArticlePage({
                 style={{ backgroundColor: '#191f28' }}
               >
                 <p className="text-lg font-bold text-white">
-                  전문가 상담이 필요하신가요?
+                  노무사 상담이 필요하신가요?
                 </p>
                 <p className="mt-2 text-sm text-white/70">
                   노무법인 위너스에서 사업장 맞춤 상담을 제공합니다.
@@ -527,7 +527,7 @@ export default async function BlogArticlePage({
                 className="rounded-xl p-5"
                 style={{ backgroundColor: '#191f28' }}
               >
-                <p className="text-[14px] font-bold text-white mb-2">전문가 상담</p>
+                <p className="text-[14px] font-bold text-white mb-2">노무사 상담 문의</p>
                 <p className="text-[12px] text-white/70 mb-4 leading-relaxed">
                   노동법 관련 구체적인 사안은 노무법인 위너스와 직접 상담하세요.
                 </p>

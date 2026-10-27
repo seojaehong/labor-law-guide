@@ -355,7 +355,7 @@ export default function FaqClient({ initialFaqs, categoryCounts, totalCount, ini
                 AI에게 질문하기
               </Link>
               <Link href="/contact" className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-md px-5 py-2.5 text-[15px] font-semibold transition-[background-color,transform] hover:-translate-y-px border border-[var(--color-border)] bg-[var(--color-bg-surface)] text-[var(--color-text-primary)] hover:bg-[var(--grey-100)]">
-                전문가 상담
+                노무사 상담 문의
               </Link>
             </div>
           </div>

@@ -26,7 +26,7 @@ export const metadata: Metadata = {
     '노란봉투법 내용', '노란봉투법 정리', '노란봉투법 요약', '노란봉투법 대응',
     '노란봉투법 시행', '노란봉투법 시행일', '노란봉투법 시행령',
     '노란봉투법 하도급', '노란봉투법 공공기관', '노란봉투법 손해배상', '노란봉투법 폐지',
-    '노란봉투법 자가진단', '노란봉투법 체크리스트', '노란봉투법 교섭',
+    '노란봉투법 점검', '노란봉투법 체크리스트', '노란봉투법 교섭',
     '개정 노동조합법', '사용자 범위 확대', '원하청 교섭', '노동쟁의', '사용자성 판단',
     '교섭창구 단일화', '위장도급', '불법파견', '교섭절차', '하청 교섭',
     '노동조합법 2026', '계약외사용자', '부당노동행위', '노무법인 위너스',
@@ -204,11 +204,11 @@ export default function RootLayout({
                 { href: '/news', label: '노동 뉴스' },
               ] },
               { title: '검토 중 기능', links: [
-                { href: '/checklist', label: '자가진단' },
+                { href: '/checklist', label: '점검 체크리스트' },
                 { href: '/tools/contract-check', label: '근로계약서 점검' },
                 { href: '/tools/severance.html', label: '퇴직금 계산' },
                 { href: '/subsidy', label: '지원금 안내' },
-                { href: '/ai', label: 'AI 상담' },
+                { href: '/ai', label: 'AI 질의응답' },
               ] },
             ].map((col) => (
               <div key={col.title}>
@@ -237,7 +237,7 @@ export default function RootLayout({
                   hover-only 밑줄 + --color-accent(3.55:1)는 사이트 전체에서 1.4.1·1.4.3을 어긴다. */}
               <a href="https://winhr.co.kr" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2" style={{ color: 'var(--color-accent-ink)' }}>노무법인 위너스</a>
               {' '}| 서울시 서초구 나루터로 61, 402호 |{' '}
-              <a href="/contact" className="underline underline-offset-2" style={{ color: 'var(--color-accent-ink)' }}>온라인 상담 접수</a>
+              <a href="/contact" className="underline underline-offset-2" style={{ color: 'var(--color-accent-ink)' }}>문의 접수</a>
               {' '}| <a href="/privacy" className="underline underline-offset-2" style={{ color: 'var(--color-accent-ink)' }}>개인정보처리방침</a>
               {' '}| <a href="/terms" className="underline underline-offset-2" style={{ color: 'var(--color-accent-ink)' }}>이용약관</a>
             </p>

@@ -263,14 +263,14 @@ export async function POST(req: Request): Promise<Response> {
     return respond(429, {
       error: 'rate_limited',
       message:
-        '오늘 사진 인식 이용량이 많아 잠시 중단되었습니다. 아래 폼에 직접 입력하시거나 전문가 상담을 이용해 주세요.',
+        '오늘 사진 인식 이용량이 많아 잠시 중단되었습니다. 아래 폼에 직접 입력하시거나 노무사 상담을 이용해 주세요.',
     });
   }
 
   if (!(await underLimit('ip', `cc:${hashIp(ip)}`, IP_DAILY_LIMIT))) {
     return respond(429, {
       error: 'rate_limited',
-      message: `사진 인식은 하루 ${IP_DAILY_LIMIT}회까지 이용할 수 있습니다. 내일 다시 시도하시거나, 아래 폼에 직접 입력하거나 전문가 상담을 이용해 주세요.`,
+      message: `사진 인식은 하루 ${IP_DAILY_LIMIT}회까지 이용할 수 있습니다. 내일 다시 시도하시거나, 아래 폼에 직접 입력하거나 노무사 상담을 이용해 주세요.`,
     });
   }
 
