@@ -19,7 +19,7 @@ function headline(r: NoticePayResult): string[] {
     case 'noticed':
       return ['해고예고수당이 없습니다.', `해고일 ${r.noticeDays}일 전에 예고했습니다.`];
     case 'short':
-      return [`해고예고수당은 ${won(r.amount)}입니다.`, `예고가 해고일 ${r.noticeDays}일 전이라 30일에 못 미칩니다.`];
+      return [`해고예고수당은 ${won(r.amount)}입니다.`, `예고가 해고일 ${r.noticeDays}일 전이라 30일에 못 미쳐 30일분 전액입니다.`];
     default:
       return [`해고예고수당은 ${won(r.amount)}입니다.`, '30일 전에 예고하지 않았으면 30일분 통상임금입니다.'];
   }
@@ -107,7 +107,7 @@ export default function NoticePayClient() {
           {out.r!.amount > 0 && (
             <p className={`${small} mt-3`} style={muted}>
               1일 통상임금 {won(out.r!.dailyOrdinary)}(시간당 {won(Math.round(out.r!.hourly))} × {num(daily)}시간) × 30일
-              {out.r!.status === 'short' ? '. 법 조문은 「30일 전에 예고를 하지 아니하였을 때에는 30일분 이상」으로 정하고 있어 30일분을 보여줍니다. 모자란 날만큼만 주면 되는지는 이 도구가 근거를 확인하지 못했습니다.' : ''}
+              {out.r!.status === 'short' ? '. 예고를 했더라도 30일에 못 미치면 모자란 날만큼이 아니라 30일분 전액입니다.' : ''}
             </p>
           )}
           {hire && dismissal && <p className={`${small} mt-2`} style={muted}>입사 {fmtDate(hire, today)} · 해고 {fmtDate(dismissal, today)}</p>}
