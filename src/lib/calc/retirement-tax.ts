@@ -135,7 +135,7 @@ export function calcRetirementTax(input: RetirementTaxInput): RetirementTaxResul
   parse(lastWorkDate, '퇴사일');
   if (lastWorkDate < hireDate) throw new Error('퇴사일이 입사일보다 앞섭니다');
   const t = tableOn(lastWorkDate);
-  if (!t) throw new Error('2023년 1월 1일 이후 퇴사만 계산합니다. 그 전 퇴사는 종전 공제표·세율을 적용합니다(법률 제19196호 부칙 제13조·제14조).');
+  if (!t) throw new Error('2023년 1월 1일 이후 퇴사만 계산합니다. 그 전 퇴사는 종전 공제표·세율이 적용됩니다(법률 제19196호 부칙 제13조·제14조).');
 
   const months = serviceMonths(hireDate, lastWorkDate);
   const n = Math.floor((months + 11) / 12);
