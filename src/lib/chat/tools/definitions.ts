@@ -5,7 +5,7 @@ export const TOOLS = [
     function: {
       name: 'calc_severance',
       description:
-        '퇴직금 계산 (윤년 고려 정밀 재직 fraction). 사용자가 입사일·퇴사일·직전 3개월 임금을 알려준 경우 호출. 추측 X. include_tax=true로 호출하면 퇴직소득세까지 동시 산출.',
+        '퇴직금 계산 (1일 평균임금 × 30 × 재직일수 ÷ 365, 고용노동부 퇴직금 계산기와 같은 끝수. 계속근로 1년 미만이면 eligible=false). 사용자가 입사일·퇴사일·직전 3개월 임금을 알려준 경우 호출. 추측 X. include_tax=true로 호출하면 퇴직소득세까지 동시 산출.',
       parameters: {
         type: 'object',
         properties: {
@@ -17,8 +17,10 @@ export const TOOLS = [
             description: '[전3개월급, 전2개월급, 전1개월급] 세전 원',
           },
           annual_bonus: { type: 'integer', description: '연간 상여금 총액 (원)' },
-          unused_annual_leave_days: { type: 'integer' },
-          annual_leave_daily_wage: { type: 'integer' },
+          annual_leave_pay: {
+            type: 'integer',
+            description: '퇴직 전 1년 동안 지급받은 연차수당 총액(원). 퇴직하면서 정산받는 미사용 연차수당은 넣지 않는다',
+          },
           include_tax: { type: 'boolean', description: '퇴직소득세까지 함께 계산 (기본 false)' },
         },
         required: ['hire_date', 'last_work_date', 'wages_3months'],
@@ -68,8 +70,8 @@ export const TOOLS = [
         properties: {
           base_pay: { type: 'integer', description: '기본급 (원)' },
           fixed_allowances: { type: 'integer', description: '매월 고정 지급 수당 합계' },
-          year: { type: 'integer', description: '연도 (기본 2026)' },
-          monthly_hours: { type: 'integer', description: '월 소정근로시간 (기본 209)' },
+          year: { type: 'integer', description: '연도 (기본 올해). 최저임금 고시가 없는 해는 오류' },
+          weekly_hours: { type: 'number', description: '1주 소정근로시간 (기본 40). 주휴·월 환산은 시행령 제5조 제1항대로 센다' },
         },
         required: ['base_pay'],
       },

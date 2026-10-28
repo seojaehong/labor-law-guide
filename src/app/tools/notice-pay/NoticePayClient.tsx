@@ -106,7 +106,7 @@ export default function NoticePayClient() {
         <AnswerCard lines={headline(out.r!)}>
           {out.r!.amount > 0 && (
             <p className={`${small} mt-3`} style={muted}>
-              1일 통상임금 {won(out.r!.dailyOrdinary)}(시간당 {won(Math.round(out.r!.hourly))} × {num(daily)}시간) × 30일
+              1일 통상임금 {won(out.r!.dailyOrdinary)}(시간당 {(Math.round(out.r!.hourly * 100) / 100).toLocaleString('ko-KR')}원 × {num(daily)}시간) × 30일
               {out.r!.status === 'short' ? '. 예고를 했더라도 30일에 못 미치면 모자란 날만큼이 아니라 30일분 전액입니다.' : ''}
             </p>
           )}
