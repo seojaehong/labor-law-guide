@@ -124,6 +124,7 @@ async function buildStaticAndBlogSitemap(): Promise<SitemapEntry[]> {
     { url: `${SITE_URL}/tools/work-rules`, lastModified: new Date('2026-10-21T00:00:00.000Z'), changeFrequency: 'weekly', priority: 0.9 },
     { url: `${SITE_URL}/tools/leave`, lastModified: new Date('2026-09-01T00:00:00.000Z'), changeFrequency: 'monthly', priority: 0.85 },
     { url: `${SITE_URL}/tools/headcount`, lastModified: new Date('2026-10-28T00:00:00.000Z'), changeFrequency: 'monthly', priority: 0.9 },
+    { url: `${SITE_URL}/tools/workplace`, lastModified: new Date('2026-10-28T00:00:00.000Z'), changeFrequency: 'monthly', priority: 0.9 },
     { url: `${SITE_URL}/tools/pay-check`, lastModified: new Date('2026-09-01T00:00:00.000Z'), changeFrequency: 'monthly', priority: 0.85 },
     { url: `${SITE_URL}/tools/hwp`, lastModified: new Date('2026-10-21T00:00:00.000Z'), changeFrequency: 'monthly', priority: 0.8 },
     { url: `${SITE_URL}/hwp-editor`, lastModified: new Date('2026-10-21T00:00:00.000Z'), changeFrequency: 'monthly', priority: 0.8 },
