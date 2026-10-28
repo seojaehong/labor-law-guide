@@ -36,3 +36,4 @@ H1 제목, 사용자 입장 한 문단, 그다음 H2 넷을 이 순서로: `Sub-
 - [퇴직소득세 계산기](./retirement-tax.md) — `/tools/retirement-tax`
 - [중도퇴사 연말정산 계산기](./midyear-settlement.md) — `/tools/midyear-settlement`
 - [통상임금 점검](./ordinary-wage-check.md) — `/tools/ordinary-wage-check`
+- [임금 지연이자 계산기](./wage-delay-interest.md) — `/tools/wage-delay-interest`
