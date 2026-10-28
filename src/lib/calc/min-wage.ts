@@ -46,21 +46,29 @@ function weekHours(weeklyHours: number): number {
   return weeklyHours + (h.status === 'paid' ? Math.min(weeklyHours / 5, 8) : 0);
 }
 
+/**
+ * 임금 단위 기간의 시간 수 — 시급이면 1, 일급은 1일 소정근로시간, 주급은 주 소정 + 주휴, 월급은 그 × 365 ÷ 7 ÷ 12 반올림.
+ * 최저임금법 시행령 §5①과 근로기준법 시행령 §6②(통상임금 시간급)는 같은 식이다.
+ */
+export function unitHours(unit: MinWageInput['unit'], weeklyHours?: number, dailyHours?: number): number {
+  if (unit === 'day') {
+    if (bad(dailyHours) || dailyHours! > 24) throw new Error('1일 소정근로시간을 확인해 주세요');
+    return dailyHours!;
+  }
+  if (unit === 'week' || unit === 'month') {
+    if (bad(weeklyHours) || weeklyHours! > 168) throw new Error('1주 소정근로시간을 확인해 주세요');
+    const w = weekHours(weeklyHours!);
+    return unit === 'week' ? w : Math.round((w * 365) / 84);
+  }
+  return 1;
+}
+
 export function checkMinWage(input: MinWageInput): MinWageResult {
   const { unit, minHourly } = input;
   if (!(input.amount >= 0) || !Number.isFinite(input.amount)) throw new Error('금액을 확인해 주세요');
   if (bad(minHourly)) throw new Error('최저임금 기준이 없습니다');
 
-  let hours = 1;
-  if (unit === 'day') {
-    if (bad(input.dailyHours) || input.dailyHours! > 24) throw new Error('1일 소정근로시간을 확인해 주세요');
-    hours = input.dailyHours!;
-  } else if (unit === 'week' || unit === 'month') {
-    if (bad(input.weeklyHours) || input.weeklyHours! > 168) throw new Error('1주 소정근로시간을 확인해 주세요');
-    const w = weekHours(input.weeklyHours!);
-    hours = unit === 'week' ? w : Math.round((w * 365) / 84);
-  }
-
+  const hours = unitHours(unit, input.weeklyHours, input.dailyHours);
   const counted = input.amount + (unit === 'month' ? (input.monthlyBonus ?? 0) + (input.monthlyWelfareCash ?? 0) : 0);
   const p = input.probation;
   const applied = p && p.oneYearContract && p.withinThreeMonths && !p.simpleLabor ? Math.round(minHourly * 0.9) : minHourly;
