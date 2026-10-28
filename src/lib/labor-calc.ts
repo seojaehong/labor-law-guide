@@ -2,6 +2,8 @@
 // Source: /home/ubuntu/onedrive/_10_고객/_active/급여자동화/src/{severance,minimum_wage,payroll_calc}.py
 // 산식 정확성: 실제 매장 급여 처리에 사용 중인 검증된 코드와 동일
 
+import { calcSeverance as severanceEngine } from './calc/severance';
+
 // ────────────── 1. 최저임금 ──────────────
 const MINIMUM_WAGE_HOURLY: Record<number, number> = {
   2024: 9_860,
@@ -90,35 +92,6 @@ export function calcOvertime(input: {
 }
 
 // ────────────── 4. 퇴직금 ──────────────
-function _subtractMonths(d: Date, months: number): Date {
-  const r = new Date(d);
-  r.setMonth(r.getMonth() - months);
-  return r;
-}
-
-function _diffDays(later: Date, earlier: Date): number {
-  return Math.round((later.getTime() - earlier.getTime()) / 86400000);
-}
-
-// 윤년 고려 정밀 재직 fraction — HTML calcPreciseServiceFraction 동치
-function _preciseServiceFraction(start: Date, end: Date) {
-  let fullYears = 0;
-  const cur = new Date(start);
-  while (true) {
-    const next = new Date(cur);
-    next.setFullYear(next.getFullYear() + 1);
-    if (next <= end) {
-      fullYears++;
-      cur.setTime(next.getTime());
-    } else break;
-  }
-  const remainDays = Math.round((end.getTime() - cur.getTime()) / 86400000);
-  const nextAnniv = new Date(cur);
-  nextAnniv.setFullYear(nextAnniv.getFullYear() + 1);
-  const daysInYear = Math.round((nextAnniv.getTime() - cur.getTime()) / 86400000);
-  return { fullYears, remainDays, daysInYear, fraction: fullYears + remainDays / daysInYear };
-}
-
 // 1년 미만 올림 근속연수 — HTML calcServiceYears 동치 (퇴직소득세용)
 function _ceilServiceYears(start: Date, end: Date): number {
   let years = 0;
@@ -212,39 +185,22 @@ export function calcSeverance(input: {
 }) {
   const hire = new Date(input.hire_date);
   const last_work = new Date(input.last_work_date);
-  const retirement = new Date(last_work.getTime() + 86400000); // last_work + 1
-  const service_days = _diffDays(retirement, hire);
-  const three_months_start = _subtractMonths(retirement, 3);
-  const total_days_3m = _diffDays(retirement, three_months_start);
-
-  const wage_total = input.wages_3months.reduce((a, b) => a + b, 0);
-  const bonus_addition = Math.floor(((input.annual_bonus || 0) * 3) / 12);
-  const annual_leave_addition = Math.floor(
-    ((input.annual_leave_daily_wage || 0) * (input.unused_annual_leave_days || 0) * 3) / 12
-  );
-
-  const avg_wage_base = wage_total + bonus_addition + annual_leave_addition;
-  const daily_avg_wage = total_days_3m > 0 ? avg_wage_base / total_days_3m : 0;
-
-  let applied_daily_wage = daily_avg_wage;
-  let wage_type = '평균임금';
-  if ((input.ordinary_daily_wage || 0) > daily_avg_wage) {
-    applied_daily_wage = input.ordinary_daily_wage as number;
-    wage_type = '통상임금';
-  }
-
-  // 정밀 재직 fraction (윤년 고려) — last_work 기준
-  const svc = _preciseServiceFraction(hire, last_work);
-  const severance_raw = applied_daily_wage * 30 * svc.fraction;
-  const severance_pay = Math.floor(severance_raw);
+  // 정본 엔진(src/lib/calc/severance.ts) — /tools/severance.html·/exit 와 같은 값을 낸다
+  const r = severanceEngine({
+    hireDate: input.hire_date,
+    lastWorkDate: input.last_work_date,
+    wageTotal: input.wages_3months.reduce((a, b) => a + b, 0),
+    annualBonus: input.annual_bonus || 0,
+    annualLeavePay: (input.annual_leave_daily_wage || 0) * (input.unused_annual_leave_days || 0),
+    dailyOrdinaryWage: input.ordinary_daily_wage || 0,
+  });
+  const severance_pay = r.amount;
 
   const result: {
     hire_date: string;
     last_work_date: string;
     retirement_date: string;
     service_days: number;
-    service_full_years: number;
-    service_remain_days: number;
     service_fraction: number;
     three_months_start: string;
     total_days_3m: number;
@@ -262,24 +218,22 @@ export function calcSeverance(input: {
   } = {
     hire_date: input.hire_date,
     last_work_date: input.last_work_date,
-    retirement_date: retirement.toISOString().slice(0, 10),
-    service_days,
-    service_full_years: svc.fullYears,
-    service_remain_days: svc.remainDays,
-    service_fraction: Number(svc.fraction.toFixed(6)),
-    three_months_start: three_months_start.toISOString().slice(0, 10),
-    total_days_3m,
-    wage_total,
-    bonus_addition,
-    annual_leave_addition,
-    avg_wage_base,
-    daily_avg_wage: Math.round(daily_avg_wage),
-    applied_daily_wage: Math.round(applied_daily_wage),
-    wage_type,
+    retirement_date: r.retirementDate,
+    service_days: r.serviceDays,
+    service_fraction: Number((r.serviceDays / 365).toFixed(6)),
+    three_months_start: r.segments[0]?.from ?? r.retirementDate,
+    total_days_3m: r.periodDays,
+    wage_total: input.wages_3months.reduce((a, b) => a + b, 0),
+    bonus_addition: r.bonusAdd,
+    annual_leave_addition: r.leaveAdd,
+    avg_wage_base: r.baseTotal,
+    daily_avg_wage: r.dailyAverage,
+    applied_daily_wage: r.dailyApplied,
+    wage_type: r.applied === 'ordinary' ? '통상임금' : '평균임금',
     severance_pay,
     legal_basis:
       '근로자퇴직급여 보장법 제8조 + 시행령 제3조 / ' +
-      '퇴직금 = 1일평균임금 × 30 × 재직 fraction (윤년 고려: fullYears + remainDays/daysInYear) / ' +
+      '퇴직금 = 1일평균임금 × 30 × 재직일수 ÷ 365 (고용노동부 퇴직금 계산기와 같은 끝수: 평균임금 소수 둘째 자리 올림, 퇴직금 원 단위 반올림) / ' +
       '평균임금 = 퇴직 직전 3개월 임금총액 / 총일수 (상여금·연차수당 가산) / 통상임금이 더 높으면 통상임금 사용',
   };
 

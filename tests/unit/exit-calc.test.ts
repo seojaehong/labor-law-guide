@@ -82,8 +82,8 @@ describe('확인용 추정치', () => {
     const e = estimateSeverance('2025-01-01', '2025-12-31', 3_000_000);
     expect(e.periodStart).toBe('2025-10-01');
     expect(e.periodDays).toBe(92);
-    expect(e.amount).toBe(Math.floor((9_000_000 / 92) * 30 * 365 / 365)); // 2,934,782
-    expect(e.amount).toBe(2_934_782);
+    // 고용노동부 계산기 끝수 — 1일 평균임금 97,826.09(올림) × 30 × 365 / 365 = 2,934,782.7 → 반올림
+    expect(e.amount).toBe(2_934_783);
   });
 
   it('2월이 낀 3개월은 총일수가 줄어든다', () => {
@@ -92,10 +92,16 @@ describe('확인용 추정치', () => {
     expect(e.periodDays).toBe(90);
   });
 
-  it('3개월 전 같은 날이 없으면 그 달 말일부터 — 퇴직금 계산기와 같은 방식', () => {
-    const e = estimateSeverance('2020-03-01', '2026-05-30', 3_000_000); // 퇴직일 5/31
-    expect(e.periodStart).toBe('2026-02-28');
+  it('3개월 전 같은 날이 없으면 그 달 말일부터 — 퇴직일 7/31 → 4/30', () => {
+    const e = estimateSeverance('2020-03-01', '2026-07-30', 3_000_000);
+    expect(e.periodStart).toBe('2026-04-30');
     expect(e.periodDays).toBe(92);
+  });
+
+  it('2월에 같은 날이 없으면 3월 1일부터 — 퇴직일 5/31, 고용노동부 계산기와 같다', () => {
+    const e = estimateSeverance('2020-03-01', '2026-05-30', 3_000_000);
+    expect(e.periodStart).toBe('2026-03-01');
+    expect(e.periodDays).toBe(91);
   });
 
   it('월 소정근로시간 환산 — 주 40시간 209시간', () => {
