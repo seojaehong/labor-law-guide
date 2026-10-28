@@ -50,4 +50,6 @@ export const TOOLS: ToolEntry[] = [
     sitemap: { lastModified: '2026-04-29', changeFrequency: 'monthly', priority: 0.9 } },
   { href: '/tools/severance.html', title: '퇴직금 계산기', desc: '평균임금·통상임금 자동 비교 + 재직일수 ÷ 365(고용노동부 계산기와 같은 끝수) + 퇴직소득세 산정. 산정서 PDF 출력 가능.', badge: '참고 계산', icon: 'coins', external: true,
     sitemap: { lastModified: '2026-03-15', changeFrequency: 'monthly', priority: 0.85 } },
+  { href: '/tools/take-home-pay', title: '실수령액 계산기', desc: '월 급여와 비과세 식대, 공제대상 가족 수를 넣으면 국민연금·건강보험·장기요양·고용보험 근로자 몫과 간이세액표 소득세·지방소득세를 빼 한 달 실수령액을 예상합니다.', badge: '브라우저 계산', icon: 'coins',
+    sitemap: { lastModified: '2026-10-28', changeFrequency: 'monthly', priority: 0.9 } },
 ];

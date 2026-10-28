@@ -123,6 +123,42 @@ const FEATURES: Record<string, { path: string; journey: Journey }> = {
       step('퇴직금 추정(정본 엔진)', '8,812,389원', await answer(p, 'section[aria-label="확인용 추정"]'));
     },
   },
+  'take-home-pay': {
+    path: '/tools/take-home-pay',
+    journey: async (p, step) => {
+      const pay = p.getByLabel(/^월 급여/);
+      const meal = p.getByLabel(/^식대/);
+      step('기본 300만·식대 20만·1인', '예상 실수령액은 2,665,440원', await answer(p));
+      await meal.fill('250000');
+      step('식대 25만 — 20만까지만 비과세', '예상 실수령액은 2,665,440원', await answer(p));
+      await meal.fill('');
+      step('식대 없음', '예상 실수령액은 2,626,700원', await answer(p));
+      await p.getByLabel(/국민연금 공제 대상이 아님/).check();
+      step('국민연금 공제 대상 아님', '예상 실수령액은 2,769,200원', await answer(p));
+      await p.getByLabel(/국민연금 공제 대상이 아님/).uncheck();
+      await p.getByLabel('만 65세 이후 새로 고용됨').check();
+      step('65세 이후 새로 고용', '예상 실수령액은 2,653,700원', await answer(p));
+      await p.getByLabel('만 65세 이후 새로 고용됨').uncheck();
+      await pay.fill('2650000');
+      await p.getByLabel('120%', { exact: true }).check();
+      step('265만 · 120%', '예상 실수령액은 2,334,480원', await answer(p));
+      await p.getByLabel('80%', { exact: true }).check();
+      step('265만 · 80%', '예상 실수령액은 2,353,830원', await answer(p));
+      await p.getByLabel('100%', { exact: true }).check();
+      await pay.fill('4000000');
+      await meal.fill('200000');
+      await p.getByLabel(/^공제대상가족 수/).fill('4');
+      await p.getByLabel(/8세 이상 20세 이하 자녀 수/).fill('2');
+      step('400만·식대 20만·4인·자녀 2', '예상 실수령액은 3,599,140원', await answer(p));
+      await p.getByLabel(/8세 이상 20세 이하 자녀 수/).fill('4');
+      step('자녀가 가족 − 1 보다 많음', '자녀 수는 공제대상가족 수에서 본인을 뺀 수보다 많을 수 없습니다', await answer(p));
+      await p.getByLabel(/8세 이상 20세 이하 자녀 수/).fill('0');
+      await p.getByLabel(/^공제대상가족 수/).fill('1');
+      await meal.fill('');
+      await pay.fill('10000001');
+      step('과세 급여 1,000만원 초과 — 표 밖', '소득세를 계산하지 않습니다', await answer(p));
+    },
+  },
 };
 
 async function api(step: (n: string, e: string | RegExp, g: string) => void) {
