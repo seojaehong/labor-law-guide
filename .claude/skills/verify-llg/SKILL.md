@@ -10,8 +10,7 @@ description: labor-law-guide(일의 무늬, 운영 https://yellowenvelope.kr) �
 ## Launch
 
 - **운영(기본)**: 띄울 것이 없다. 병합 커밋의 Vercel 배포가 끝났는지만 Doctor 로 본다.
-- **로컬(선택)**: 저장소 루트에서 `npm.cmd run dev -- -p 3107` → 출력에 `Ready` 가 뜨면 `--base http://127.0.0.1:3107` 로 돌린다. 끝나면 띄운 그 터미널(그 PID)만 끈다. 로컬 모드는 2026-10-28 `retirement-tax` 로 처음 돌렸다(`-p 3126`, PC·모바일 PASS). `predev` 가 hwp-editor 를 내려받아 빌드하므로 첫 기동은 1분쯤 걸린다. 다른 워크트리와 포트가 겹치지 않게 번호를 바꿔 쓴다.
-- **로컬(선택)**: 저장소 루트에서 `npm.cmd run dev -- -p 3107` → 출력에 `Ready` 가 뜨면 `--base http://127.0.0.1:3107` 로 돌린다. 끝나면 띄운 그 터미널(그 PID)만 끈다. 로컬 모드는 2026-10-28 통상임금 점검 PR 에서 처음 돌렸다(워크트리에서 dev → `drive --feature ordinary-wage-check` PASS, 첫 컴파일 약 7초). 워크트리에서 띄우면 Turbopack 이 상위 저장소 lockfile 을 루트로 골랐다는 경고가 뜨지만 페이지는 워크트리 코드로 뜬다(워크트리에만 있는 새 경로가 200).
+- **로컬(선택)**: 저장소 루트에서 `npm.cmd run dev -- -p 3107` → 출력에 `Ready` 가 뜨면 `--base http://127.0.0.1:3107` 로 돌린다. 끝나면 띄운 그 터미널(그 PID)만 끈다. 로컬 모드는 2026-10-28 `retirement-tax` 로 처음 돌렸다(`-p 3126`, PC·모바일 PASS). `predev` 가 hwp-editor 를 내려받아 빌드하므로 첫 기동은 1분쯤 걸린다. 다른 워크트리와 포트가 겹치지 않게 번호를 바꿔 쓴다. 워크트리에서 띄우면 Turbopack 이 상위 저장소 lockfile 을 루트로 골랐다는 경고가 뜨지만 페이지는 워크트리 코드로 뜬다(워크트리에만 있는 새 경로가 200).
 - Playwright 는 저장소 `node_modules` 의 것을 쓴다. 이 워크트리에 `node_modules` 가 없으면 `npm.cmd ci` (정션 금지). 급하면 다른 워크트리를 `NODE_PATH=<그 워크트리>/node_modules` 로 빌려 쓸 수 있다.
 
 ## Doctor — 돌릴 가치가 있는 인스턴스인가

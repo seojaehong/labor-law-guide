@@ -53,6 +53,7 @@ export const TOOLS: ToolEntry[] = [
   { href: '/tools/take-home-pay', title: '실수령액 계산기', desc: '월 급여와 비과세 식대, 공제대상 가족 수를 넣으면 국민연금·건강보험·장기요양·고용보험 근로자 몫과 간이세액표 소득세·지방소득세를 빼 한 달 실수령액을 예상합니다.', badge: '브라우저 계산', icon: 'coins',
     sitemap: { lastModified: '2026-10-28', changeFrequency: 'monthly', priority: 0.9 } },
   { href: '/tools/retirement-tax', title: '퇴직소득세 계산기', desc: '퇴직급여와 입사일·퇴사일(마지막 근무일)을 넣으면 예상 퇴직소득세와 지방소득세를 계산합니다. 근속연수공제·환산급여공제·기본세율을 국세청 퇴직소득 세액계산 프로그램과 같은 순서로 보여줍니다.', badge: '브라우저 계산', icon: 'coins',
+    sitemap: { lastModified: '2026-10-28', changeFrequency: 'monthly', priority: 0.85 } },
   { href: '/tools/ordinary-wage-check', title: '통상임금 점검', desc: '기본급·수당·상여금 항목마다 정기성·일률성·소정근로 대가성을 물어 새 기준(대법원 2024. 12. 19. 전원합의체)으로 통상임금에 들어가는 쪽인지 빠지는 쪽인지 판결 원문과 함께 보여줍니다. 2024. 12. 18.까지 제공분의 종전 기준과 시간급(참고)도 봅니다.', badge: '참고 점검', icon: 'file-check',
     sitemap: { lastModified: '2026-10-28', changeFrequency: 'monthly', priority: 0.85 } },
   { href: '/tools/midyear-settlement', title: '중도퇴사 연말정산 계산기', desc: '퇴사한 해 받은 급여·비과세·4대보험료·이미 낸 소득세를 넣으면 퇴직월에 돌려받거나 더 낼 소득세·지방소득세 예상액을 계산합니다. 본인 기본공제와 4대보험료만 넣는 고정형이라 부양가족·종전 근무지·감면은 다루지 않습니다.', badge: '참고 계산', icon: 'coins',
