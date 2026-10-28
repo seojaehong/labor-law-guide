@@ -54,4 +54,6 @@ export const TOOLS: ToolEntry[] = [
     sitemap: { lastModified: '2026-10-28', changeFrequency: 'monthly', priority: 0.9 } },
   { href: '/tools/retirement-tax', title: '퇴직소득세 계산기', desc: '퇴직급여와 입사일·퇴사일(마지막 근무일)을 넣으면 예상 퇴직소득세와 지방소득세를 계산합니다. 근속연수공제·환산급여공제·기본세율을 국세청 퇴직소득 세액계산 프로그램과 같은 순서로 보여줍니다.', badge: '브라우저 계산', icon: 'coins',
     sitemap: { lastModified: '2026-10-28', changeFrequency: 'monthly', priority: 0.85 } },
+  { href: '/tools/midyear-settlement', title: '중도퇴사 연말정산 계산기', desc: '퇴사한 해 받은 급여·비과세·4대보험료·이미 낸 소득세를 넣으면 퇴직월에 돌려받거나 더 낼 소득세·지방소득세 예상액을 계산합니다. 본인 기본공제와 4대보험료만 넣는 고정형이라 부양가족·종전 근무지·감면은 다루지 않습니다.', badge: '참고 계산', icon: 'coins',
+    sitemap: { lastModified: '2026-10-28', changeFrequency: 'monthly', priority: 0.8 } },
 ];
