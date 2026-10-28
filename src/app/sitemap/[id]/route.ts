@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { SITE_URL } from '@/lib/constants';
+import { TOOLS } from '@/content/tools-registry';
 import { supabaseServer } from '@/lib/supabase-server';
 import { fetchAllRows } from '@/lib/supabase-paged';
 import { FAQ_CATEGORIES, categoryToSlug } from '@/lib/faq-categories';
@@ -107,10 +108,7 @@ async function buildStaticAndBlogSitemap(): Promise<SitemapEntry[]> {
     { url: `${SITE_URL}/blog`, lastModified: latestBlogDate, changeFrequency: 'weekly', priority: 0.85 },
     { url: `${SITE_URL}/contact`, lastModified: CONTACT_LAST_MODIFIED, changeFrequency: 'monthly', priority: 0.75 },
     { url: `${SITE_URL}/tools`, lastModified: new Date('2026-04-29T00:00:00.000Z'), changeFrequency: 'monthly', priority: 0.85 },
-    { url: `${SITE_URL}/tools/holiday-pay`, lastModified: new Date('2026-04-29T00:00:00.000Z'), changeFrequency: 'monthly', priority: 0.9 },
-    { url: `${SITE_URL}/tools/contract-check`, lastModified: new Date('2026-07-31T00:00:00.000Z'), changeFrequency: 'monthly', priority: 0.9 },
     { url: `${SITE_URL}/laws`, lastModified: new Date('2026-10-04T00:00:00.000Z'), changeFrequency: 'daily', priority: 0.9 },
-    { url: `${SITE_URL}/tools/severance.html`, lastModified: new Date('2026-03-15T00:00:00.000Z'), changeFrequency: 'monthly', priority: 0.85 },
     { url: `${SITE_URL}/privacy`, lastModified: CONTACT_LAST_MODIFIED, changeFrequency: 'yearly', priority: 0.5 },
     { url: `${SITE_URL}/terms`, lastModified: CONTACT_LAST_MODIFIED, changeFrequency: 'yearly', priority: 0.5 },
     { url: `${SITE_URL}/faq`, lastModified: latestContentDate, changeFrequency: 'weekly', priority: 0.85 },
@@ -118,19 +116,15 @@ async function buildStaticAndBlogSitemap(): Promise<SitemapEntry[]> {
     //   200 으로 살아 있고 noindex 도 아닌데 구글에 전달되지 않았다(실측: 사이트맵 1,129건 중 0건).
     //   staticRoutes 가 손으로 관리하는 목록이라 새 페이지를 만들 때마다 여기 넣는 것을 빠뜨렸다.
     //   같은 일이 또 생기지 않도록 tests/unit/sitemap-covers-pages.test.ts 를 같이 둔다.
-    { url: `${SITE_URL}/duties`, lastModified: new Date('2026-10-21T00:00:00.000Z'), changeFrequency: 'monthly', priority: 0.9 },
     { url: `${SITE_URL}/exit`, lastModified: new Date('2026-10-22T00:00:00.000Z'), changeFrequency: 'monthly', priority: 0.85 },
     { url: `${SITE_URL}/exit-employer`, lastModified: new Date('2026-10-22T00:00:00.000Z'), changeFrequency: 'monthly', priority: 0.85 },
-    { url: `${SITE_URL}/tools/work-rules`, lastModified: new Date('2026-10-21T00:00:00.000Z'), changeFrequency: 'weekly', priority: 0.9 },
-    { url: `${SITE_URL}/tools/leave`, lastModified: new Date('2026-09-01T00:00:00.000Z'), changeFrequency: 'monthly', priority: 0.85 },
-    { url: `${SITE_URL}/tools/headcount`, lastModified: new Date('2026-10-28T00:00:00.000Z'), changeFrequency: 'monthly', priority: 0.9 },
-    { url: `${SITE_URL}/tools/pay-check`, lastModified: new Date('2026-09-01T00:00:00.000Z'), changeFrequency: 'monthly', priority: 0.85 },
-    { url: `${SITE_URL}/tools/hwp`, lastModified: new Date('2026-10-21T00:00:00.000Z'), changeFrequency: 'monthly', priority: 0.8 },
-    { url: `${SITE_URL}/hwp-editor`, lastModified: new Date('2026-10-21T00:00:00.000Z'), changeFrequency: 'monthly', priority: 0.8 },
-    // 연차 도구의 하위 둘은 제목과 쓰임이 따로다 — 「퇴직 연차 정산」·「사용촉진·반차 환산」.
-    // 묶어서 /tools/leave 하나로만 올리면 그 말로 찾는 사람이 못 온다.
-    { url: `${SITE_URL}/tools/leave/settlement`, lastModified: new Date('2026-09-01T00:00:00.000Z'), changeFrequency: 'monthly', priority: 0.8 },
-    { url: `${SITE_URL}/tools/leave/advanced`, lastModified: new Date('2026-09-01T00:00:00.000Z'), changeFrequency: 'monthly', priority: 0.8 },
+    // 계산·점검 도구는 등록부(src/content/tools-registry.ts) 한 곳에서 온다.
+    ...TOOLS.filter((t) => t.sitemap).map((t) => ({
+      url: `${SITE_URL}${t.href}`,
+      lastModified: new Date(`${t.sitemap!.lastModified}T00:00:00.000Z`),
+      changeFrequency: t.sitemap!.changeFrequency,
+      priority: t.sitemap!.priority,
+    })),
   ];
 
   const faqCategoryRoutes: SitemapEntry[] = FAQ_CATEGORIES.map((cat) => ({

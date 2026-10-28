@@ -8,14 +8,14 @@ const read = (p: string) => readFileSync(p, 'utf8');
 const SITE_BANNED = ['노무사', '상담', '진단', '판정', '자문', '체불', '위법', '받을 수 있는 금액', '승소'];
 
 const pageFiles = ['page.tsx', 'PayCheckClient.tsx', 'build-input.ts'].map((f) => `src/app/tools/pay-check/${f}`);
-const toolsEntry = read('src/app/tools/page.tsx').split('\n').find((l) => l.includes("'/tools/pay-check'")) ?? '';
+const toolsEntry = read('src/content/tools-registry.ts').split('\n').find((l) => l.includes("'/tools/pay-check'")) ?? '';
 
 describe('월급 대조 페이지 문구', () => {
   it('도구 목록에 들어 있다', () => {
     expect(toolsEntry).toContain("title: '월급 대조'");
   });
 
-  for (const p of [...pageFiles, 'tools/page.tsx 의 월급 대조 항목']) {
+  for (const p of [...pageFiles, '도구 등록부의 월급 대조 항목']) {
     it(`${p}: 결론형·금지 표현이 없다`, () => {
       const text = p.startsWith('src/') ? read(p) : toolsEntry;
       expect(forbiddenHits(text)).toEqual([]);
