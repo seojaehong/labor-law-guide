@@ -4,6 +4,8 @@ import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { ChevronDown } from 'lucide-react';
 import TierStair from './TierStair';
+import BizNoLookup from '@/components/BizNoLookup';
+import { tierFor } from '@/lib/workplace-lookup';
 import { CHECKED, COUNT_RULES, DUTIES, GROUPS, SOURCES, TIERS, type Duty, type Group, type TierMin } from '@/content/duties-data';
 
 const TIER_MINS = TIERS.map(t => t.min) as TierMin[];
@@ -95,6 +97,7 @@ export default function DutiesClient() {
 
         <section aria-label="사업장 규모 고르기">
           <div className="ed-eyebrow">상시 근로자 수</div>
+          <BizNoLookup onFound={w => pick(tierFor(w.headcount))} />
           <div className="ed-tiers" role="group" aria-label="상시 근로자 수">
             {TIERS.map(x => (
               <button key={x.min} aria-pressed={tier === x.min} onClick={() => pick(x.min)}>

@@ -3,7 +3,7 @@
 // ★ 조회 칸은 v_saeopjaDrno 다. 칸 이름이 틀리면 오류 없이 전국 목록이 오므로 돌아온 번호를 전부 대조한다.
 // 상시인원(sangsiInwonCnt)은 공단 보험 기준 값이다 — 근로기준법 시행령 제7조의2 산정과 같지 않다.
 
-import { DUTIES, TIERS, type Duty, type TierMin } from '@/content/duties-data';
+import { TIERS, type TierMin } from '@/content/duties-data';
 
 export const API_URL = 'https://apis.data.go.kr/B490001/gySjbPstateInfoService/getGySjBoheomBsshItem';
 
@@ -102,25 +102,8 @@ export async function fetchWorkplaces(
   return { ok: true, rows: mergeRows(parsed.rows) };
 }
 
-export interface Profile {
-  headcount: number;
-  tier: TierMin;
-  total: number; // 이 구간에서 지키는 의무 수
-  fresh: Duty[]; // 이 구간에서 새로 생긴 의무
-  next: { min: TierMin; gap: number; added: number } | null;
-}
-
-export function profileFor(headcount: number): Profile {
+/** 인원 → /duties 규모 구간(1·5·10·30·50) */
+export function tierFor(headcount: number): TierMin {
   const n = Math.max(0, Math.floor(headcount));
-  const tier = [...TIERS].reverse().find(t => n >= t.min)?.min ?? 1;
-  const nextTier = TIERS.find(t => t.min > tier);
-  return {
-    headcount: n,
-    tier,
-    total: DUTIES.filter(d => d.min <= tier).length,
-    fresh: tier === 1 ? [] : DUTIES.filter(d => d.min === tier),
-    next: nextTier
-      ? { min: nextTier.min, gap: nextTier.min - n, added: DUTIES.filter(d => d.min === nextTier.min).length }
-      : null,
-  };
+  return [...TIERS].reverse().find(t => n >= t.min)?.min ?? 1;
 }

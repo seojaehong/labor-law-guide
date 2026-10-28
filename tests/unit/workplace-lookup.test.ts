@@ -3,9 +3,9 @@ import {
   fetchWorkplaces,
   normalizeBizNo,
   parseWorkplaceXml,
-  profileFor,
+  tierFor,
 } from '@/lib/workplace-lookup';
-import { allCopy, FORBIDDEN } from '@/app/tools/workplace/copy';
+import { allCopy, FORBIDDEN } from '@/components/biz-no-lookup-copy';
 
 // 2026-10-28 실측 응답(삼성전자 1248100998)에서 두 줄만 남긴 것
 const XML = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><response><header><resultCode>00</resultCode><resultMsg>NORMAL SERVICE.</resultMsg></header><body><items><item><addr>경기 수원시 영통구 삼성로 129 (매탄동)</addr><opaBoheomFg>1</opaBoheomFg><post>16677</post><saeopFg>3</saeopFg><saeopjaDrno>1248100998</saeopjaDrno><saeopjangNm>삼성전자(주)서울R&amp;D캠퍼스</saeopjangNm><sangsiInwonCnt>4806</sangsiInwonCnt><seongripDt>20151121</seongripDt><sjEopjongCd>90703</sjEopjongCd><sjEopjongNm>연구 및 개발사업</sjEopjongNm></item><item><addr>인천 서구 봉수대로 19</addr><gyEopjongCd>29199</gyEopjongCd><gyEopjongNm>그 외 기타 일반목적용 기계 제조업</gyEopjongNm><opaBoheomFg>2</opaBoheomFg><saeopjaDrno>1248100998</saeopjaDrno><saeopjangNm>(주)흥영하이테크</saeopjangNm><sangsiInwonCnt>9</sangsiInwonCnt><seongripDt>20110831</seongripDt></item></items><numOfRows>50</numOfRows><pageNo>1</pageNo><totalCount>2</totalCount></body></response>`;
@@ -92,30 +92,12 @@ describe('fetchWorkplaces', () => {
   });
 });
 
-describe('profileFor', () => {
-  it('4명 — 1~4명 구간, 5인까지 1명', () => {
-    const p = profileFor(4);
-    expect(p.tier).toBe(1);
-    expect(p.next).toEqual({ min: 5, gap: 1, added: expect.any(Number) });
-    expect(p.next!.added).toBeGreaterThan(0);
-  });
-
-  it('12명 — 10인 구간, 새로 생긴 의무에 취업규칙, 다음은 30인', () => {
-    const p = profileFor(12);
-    expect(p.tier).toBe(10);
-    expect(p.fresh.map(d => d.id)).toContain('rules');
-    expect(p.next).toMatchObject({ min: 30, gap: 18 });
-  });
-
-  it('5만 명 — 50인 이상, 다음 구간 없음', () => {
-    const p = profileFor(50000);
-    expect(p.tier).toBe(50);
-    expect(p.next).toBeNull();
-    expect(p.total).toBeGreaterThan(p.fresh.length);
-  });
-
-  it('0명·음수는 1~4명으로 본다', () => {
-    expect(profileFor(0).tier).toBe(1);
+describe('tierFor', () => {
+  it('인원을 /duties 규모 구간으로 바꾼다 — 경계는 이상(≥)', () => {
+    expect([0, 1, 4, 5, 9, 10, 29, 30, 49, 50, 120563].map(tierFor))
+      .toEqual([1, 1, 1, 5, 5, 10, 10, 30, 30, 50, 50]);
+    expect(tierFor(-3)).toBe(1);
+    expect(tierFor(4.9)).toBe(1);
   });
 });
 

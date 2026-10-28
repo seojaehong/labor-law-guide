@@ -3,6 +3,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import { Calculator, ChevronRight, Share2, Download, Copy, Check, AlertTriangle, Info, MessageCircle } from 'lucide-react';
 import { calcHolidayPay, type Result, type SiteSize, type WorkerType, type HolidayKind } from '@/lib/holiday-pay';
+import BizNoLookup from './BizNoLookup';
 
 type Step = 'site' | 'holiday' | 'worker' | 'input' | 'result';
 
@@ -429,6 +430,7 @@ export default function HolidayPayCalculator() {
         <p className="mb-6 text-sm" style={{ color: 'var(--color-text-secondary)' }}>
           상시 근로자 수에 따라 가산수당 적용 여부가 달라집니다.
         </p>
+        <BizNoLookup onFound={(w) => setSiteSize(w.headcount >= 5 ? 'large' : 'small')} />
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           {([
             { key: 'large', title: '5인 이상', desc: '근로기준법 전면 적용 — 휴일근로 가산수당 1.5배/2배 + 야간 0.5배 의무', recommended: true },

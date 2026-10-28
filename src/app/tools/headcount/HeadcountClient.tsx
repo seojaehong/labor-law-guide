@@ -12,6 +12,7 @@ import {
   type PlanEdit,
   type WorkerKind,
 } from '@/lib/headcount-plan';
+import BizNoLookup from '@/components/BizNoLookup';
 import { CHANGES, basisLine, crewLabel, fmtDate, headline, leaveLines, noteLine, tenLine, whyLines } from './copy';
 
 const WEEK = ['일', '월', '화', '수', '목', '금', '토'];
@@ -127,7 +128,11 @@ export default function HeadcountClient() {
     <div className="space-y-6">
       <section className={card}>
         <h2 className="t-h4 mb-1" style={ink}>사람</h2>
-        <p className="mb-4 text-sm" style={muted}>대표는 빼고, 아르바이트·계약직은 넣습니다.</p>
+        <p className="mb-1 text-sm" style={muted}>대표는 빼고, 아르바이트·계약직은 넣습니다.</p>
+        <BizNoLookup onFound={(w) => {
+          const staff = plan.crews.find((c) => !c.from && !c.to);
+          if (staff) edit({ type: 'count', id: staff.id, count: w.headcount });
+        }} />
         <div className="space-y-3">
           {plan.crews.map((c) => (
             <CrewCard key={c.id} crew={c} openDays={plan.site.openDays} canRemove={plan.crews.length > 1} edit={edit} />

@@ -8,6 +8,7 @@ import TurnstileWidget from '@/components/TurnstileWidget';
 import { kindOf, MAX_FILE_BYTES, readDocText } from '@/lib/laws/doc-io';
 import { splitArticles } from '@/lib/laws/precise/articles';
 import { BATCH_RUNS, groupCount, NO_BASELINE } from '@/lib/laws/precise/judge';
+import BizNoLookup from '@/components/BizNoLookup';
 
 export const PRECISE_ENABLED = process.env.NEXT_PUBLIC_WORK_RULES_PRECISE === '1';
 
@@ -239,6 +240,7 @@ export default function PreciseCheck({ mainText, since, toast, archived = false,
         <input value={headcount} onChange={(e) => setHeadcount(e.target.value.replace(/[^\d]/g, '').slice(0, 6))} inputMode="numeric" placeholder="예) 24" aria-label="상시 근로자 수" /> 명
         <span className="h">위원회·재심 인원처럼 규모에 따라 달라지는 조문을 보는 데 씁니다</span>
       </label>
+      <BizNoLookup onFound={(w) => setHeadcount(String(w.headcount))} />
 
       <div className="lr-pc-run">
         <p className="lr-pc-notice">
