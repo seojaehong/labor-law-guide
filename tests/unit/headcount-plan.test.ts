@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { computeHeadcount, type HeadcountInput } from '@/lib/headcount';
 import { answerPlan, defaultPlan, editPlan, explainDate, type Plan } from '@/lib/headcount-plan';
-import { FORBIDDEN, allCopy } from '@/app/tools/headcount/copy';
+import { allCopy } from '@/app/tools/headcount/copy';
+import { bannedHits } from '@/lib/tool-kit/banned';
 
 const WEEKDAYS = [1, 2, 3, 4, 5];
 const TODAY = '2026-10-28';
@@ -149,7 +150,7 @@ describe('문구', () => {
     for (const p of plans) {
       const lines = allCopy(answerPlan(p, TODAY), p, TODAY);
       expect(lines.length).toBeGreaterThan(3);
-      for (const line of lines) for (const w of FORBIDDEN) expect(line, line).not.toContain(w);
+      for (const line of lines) expect(bannedHits(line), line).toEqual([]);
     }
   });
 });

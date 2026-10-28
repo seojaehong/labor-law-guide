@@ -130,7 +130,7 @@ export default function WorkRulesClient() {
     <div className="lr wr"><div className="lr-wrap wr-wrap">
       <header className="wr-head">
         <h1 className="lr-h1">취업규칙 점검</h1>
-        <p className="lr-review-note">법령 검수 전 참고 자료입니다. 결과와 제안 문안은 원문 대조와 공인노무사 검토가 필요합니다.</p>
+        <p className="lr-review-note">법령 검수 전 참고 자료입니다. 결과와 제안 문안은 법령 원문과 대조해 확인하세요.</p>
       </header>
 
       <div className="wr-thread" aria-live="polite">
@@ -188,7 +188,7 @@ export default function WorkRulesClient() {
           <button type="button" className="wr-period-btn" onClick={() => setShowPeriod((v) => !v)}>점검 기간 {fmtDate(from)} ~ {fmtDate(to)}</button>
           {/* 좁은 화면에서도 숨기지 않고 짧은 문장으로 바꾼다 */}
           <span className="wr-privacy"><ShieldCheck size={13} aria-hidden />
-            <span className="long">{PRECISE_ENABLED ? '기본 점검은 브라우저 안에서만 합니다. AI 정밀 점검을 실행할 때만 본문이 외부 AI 제공사로 전송됩니다.' : '본문과 파일은 이 브라우저 안에서만 읽고 판정합니다.'}</span>
+            <span className="long">{PRECISE_ENABLED ? '기본 점검은 브라우저 안에서만 합니다. AI 정밀 점검을 실행할 때만 본문이 외부 AI 제공사로 전송됩니다.' : '본문과 파일은 이 브라우저 안에서만 읽고 점검합니다.'}</span>
             <span className="short">{PRECISE_ENABLED ? 'AI 점검 실행 때만 본문이 외부 AI로 전송됩니다' : '본문은 이 브라우저 안에서만 읽습니다'}</span>
           </span>
         </div>

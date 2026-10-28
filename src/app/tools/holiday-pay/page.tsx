@@ -47,7 +47,7 @@ export default function HolidayPayPage() {
       {/* §3.2 규율 2 — 페이지 바탕 위 --text-xs는 --grey-700이다(tertiary 2.01:1·secondary 4.42:1 모두 미달) */}
       <p className="mt-6 text-xs" style={{ color: 'var(--grey-700)' }}>
         본 계산기는 참고용입니다. 정기상여·복지수당 등 통상임금 항목 분류는 사업장별 임금구성에 따라 달라질 수 있으며,
-        분쟁 발생 시 노무사 상담을 권장합니다.
+        결과는 입력 조건에 따라 달라지니 근거 조문과 함께 확인하세요.
       </p>
     </div>
   );

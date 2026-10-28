@@ -24,7 +24,7 @@ export const TOOLS: ToolEntry[] = [
   { href: '/tools/leave', title: '연차휴가 계산기', desc: '입사일 기준 발생일수를 계산하고 대장과 대조합니다. 엑셀·붙여넣기 입력과 결과 내려받기를 지원합니다.', badge: '브라우저 계산', icon: 'calculator',
     sitemap: { lastModified: '2026-09-01', changeFrequency: 'monthly', priority: 0.85 } },
   // 연차 도구의 하위 둘은 제목과 쓰임이 따로다 — 묶어서 /tools/leave 하나로만 올리면 그 말로 찾는 사람이 못 온다.
-  { href: '/tools/leave/advanced', title: '연차 사용촉진', desc: '1년 이상·미만 연차의 촉구·통보 기간을 구분해 확인합니다. 실제 기록과 날짜만 대조하며 적법성을 판정하지 않습니다.', badge: '일정 대조', icon: 'file-check',
+  { href: '/tools/leave/advanced', title: '연차 사용촉진', desc: '1년 이상·미만 연차의 촉구·통보 기간을 구분해 확인합니다. 실제 기록과 날짜만 대조합니다. 절차를 제대로 밟았는지는 다루지 않습니다.', badge: '일정 대조', icon: 'file-check',
     sitemap: { lastModified: '2026-09-01', changeFrequency: 'monthly', priority: 0.8 } },
   { href: '/tools/leave/settlement', title: '퇴직 연차 정산', desc: '회계연도 실제 부여 누계와 입사일 기준 누계를 비교합니다. 발생일수·사용분·수당 지급분을 구분해 입력합니다.', badge: '참고 계산', icon: 'calculator',
     sitemap: { lastModified: '2026-09-01', changeFrequency: 'monthly', priority: 0.8 } },

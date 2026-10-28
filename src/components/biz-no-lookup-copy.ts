@@ -1,7 +1,6 @@
 // 사업자번호로 인원 불러오기(BizNoLookup)의 문장. 시험이 allCopy() 전부를 금지어로 훑는다.
 import type { LookupFail, Workplace } from '@/lib/workplace-lookup';
 
-export const FORBIDDEN = ['판정', '진단', '자문', '상담', '노무사', '적법', '확률'] as const;
 
 export const OPEN_LABEL = '사업자등록번호로 불러오기';
 

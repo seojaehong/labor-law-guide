@@ -379,7 +379,7 @@ export function LeaveInput() {
                   <th>입사일</th>
                   <th className="num">부여일수</th>
                   <th className="num">대장</th>
-                  <th>판정</th>
+                  <th>대조 결과</th>
                   <th>적용 근거</th>
                 </tr>
               </thead>
@@ -394,7 +394,7 @@ export function LeaveInput() {
                         <td data-label="입사일">{r.hireDate || "—"}</td>
                         <td className="num" data-label="부여일수">—</td>
                         <td className="num" data-label="대장">{exported[3] === "" ? "—" : exported[3]}</td>
-                        <td data-label="판정">계산 불가</td>
+                        <td data-label="대조 결과">계산 불가</td>
                         <td className="basis" data-label="근거">{exported[6]}</td>
                       </tr>
                     );
@@ -411,7 +411,7 @@ export function LeaveInput() {
                       <td className="num" data-label="대장">
                         {hasRecorded ? r.recordedDays : (r.recordedRaw ?? "—")}
                       </td>
-                      <td data-label="판정">
+                      <td data-label="대조 결과">
                         {hasRecorded ? (
                           <StatusBadge status={res.verdict === "diff" ? "diff" : "match"} />
                         ) : r.recordedRaw ? (
@@ -471,7 +471,7 @@ export function LeaveInput() {
                     name: "연차 계산",
                     title: "연차 발생일수 계산 결과",
                     subtitle: `기준일 ${asOf} · 입사일 기준 · 근로기준법 제60조`,
-                    header: ["이름", "입사일", "발생일수", "대장 기재", "차이", "판정", "적용 근거"],
+                    header: ["이름", "입사일", "발생일수", "대장 기재", "차이", "대조 결과", "적용 근거"],
                     widths: [14, 13, 10, 10, 8, 13, 46],
                     rows: results.map(leaveExportRow),
                     emphasizeRows: results

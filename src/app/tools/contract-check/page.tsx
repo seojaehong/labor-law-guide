@@ -40,7 +40,7 @@ export default function ContractCheckPage() {
 
       {/* §3.2 규율 2 — 페이지 바탕 위 --text-xs는 --grey-700이다(tertiary 2.01:1·secondary 4.42:1 모두 미달) */}
       <p className="mt-6 text-xs" style={{ color: 'var(--grey-700)' }}>
-        본 도구는 참고용 간이 점검이며 법률자문이 아닙니다. 실제 분쟁·계약서 수정은 노무사 상담을 권장합니다.
+        본 도구는 참고용 간이 점검이며 법률 판단이 아닙니다. 계약서를 고칠 때는 근거 조문을 함께 확인하세요.
       </p>
     </div>
   );
