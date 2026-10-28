@@ -2,8 +2,8 @@
 
 import { useMemo, useState } from 'react';
 import {
-  AGREED_WAGE_NOTICE, KIND_LABEL, OLD_ERA_NOTICE, PERF_YEAR_LABEL, RIGHT_TO_PAY_NOTICE, ROUNDING_NOTE, TIMES, UNIT_HOURS_NOTE,
-  baseHours, checkItem, directionSentence, eraLabel, eraOn, fmt2, itemNotes, splitOvertime, sumIncluded, summaryLines,
+  AGREED_WAGE_NOTICE, KIND_LABEL, OLD_ERA_NOTICE, PERF_YEAR_HINT, PERF_YEAR_LABEL, RIGHT_TO_PAY_NOTICE, ROUNDING_NOTE, TIMES, UNIT_HOURS_NOTE,
+  baseHours, checkItem, directionSentence, eraLabel, eraOn, hourlyText, itemNotes, splitOvertime, sumIncluded, summaryLines,
   type Answer, type Era, type ItemCheck, type ItemKind, type TimesPerYear, type WageItem,
 } from '@/lib/calc/ordinary-wage-check';
 import { SOURCES, type SourceId } from '@/lib/calc/ordinary-wage-sources';
@@ -68,15 +68,18 @@ const START: Row[] = [
 ];
 
 function toItem(r: Row): WageItem {
+  // 법정수당은 조건 칸을 숨긴다 — 종류를 바꾸기 전에 넣은 조건 값은 엔진에 넘기지 않는다(재직 안내문도 뜨지 않게)
+  const cond = r.kind !== 'statutory';
+  const dayMode = cond ? r.dayMode : 'none';
   return {
     kind: r.kind, name: r.name, amount: num(r.amount), timesPerYear: r.times,
     regular: r.regular, uniform: r.uniform, forWork: r.forWork,
-    employedOnPayday: r.payday,
-    workDays: r.dayMode === 'days' ? { required: num(r.required), scheduled: num(r.scheduled) } : undefined,
-    attendanceRate: r.dayMode === 'rate' ? num(r.rate) : undefined,
-    proRataOnLeave: r.payday && r.proRataLeave,
-    proRataOnShortDays: r.dayMode !== 'none' && r.proRataDays,
-    leaveOrDisciplineOnly: r.restrict,
+    employedOnPayday: cond && r.payday,
+    workDays: dayMode === 'days' ? { required: num(r.required), scheduled: num(r.scheduled) } : undefined,
+    attendanceRate: dayMode === 'rate' ? num(r.rate) : undefined,
+    proRataOnLeave: cond && r.payday && r.proRataLeave,
+    proRataOnShortDays: dayMode !== 'none' && r.proRataDays,
+    leaveOrDisciplineOnly: cond && r.restrict,
     minimum: r.kind === 'performance' ? num(r.minimum) : undefined,
     performanceYear: r.kind === 'performance' ? r.perfYear : undefined,
     baseForAll: r.kind === 'family' ? num(r.baseForAll) : undefined,
@@ -243,9 +246,7 @@ export default function OrdinaryWageClient() {
                     </label>
                     <fieldset className={small} style={muted}>
                       <legend className="mb-1" style={ink}>그 성과급은 어느 기간의 실적분입니까?</legend>
-                      <p className="mb-1">
-                        점검 기준일이 속한 해의 실적분이면 지급이 다음 해여도 그해 통상임금 쪽으로 봅니다. 판결은 지급 시기가 아니라 지급 대상기간으로 가렸습니다(2023다216777).
-                      </p>
+                      <p className="mb-1">{PERF_YEAR_HINT}</p>
                       <div className="flex flex-wrap gap-4">
                         {(Object.keys(PERF_YEAR_LABEL) as (keyof typeof PERF_YEAR_LABEL)[]).map((v) => (
                           <label key={v} className="flex items-center gap-2">
@@ -371,7 +372,7 @@ export default function OrdinaryWageClient() {
       ) : (
         <AnswerCard lines={summaryLines(summary.era, summary.checks, summary.cur.hourly, summary.invalid)}>
           <p className={`${small} mt-3`} style={muted}>
-            {eraLabel('new')} 시간당 {fmt2(summary.neu.hourly)}원 · {eraLabel('old')} 시간당 {fmt2(summary.old.hourly)}원
+            {eraLabel('new')} {hourlyText(summary.neu)} · {eraLabel('old')} {hourlyText(summary.old)}
           </p>
           {summary.era === 'old' && <p className={`${small} mt-2`} style={ink}>{OLD_ERA_NOTICE}</p>}
           {summary.payday && <p className={`${small} mt-2`} style={muted}>{RIGHT_TO_PAY_NOTICE}</p>}
@@ -382,7 +383,9 @@ export default function OrdinaryWageClient() {
       <FoldedDetail summary="시간급은 어떻게 냈나">
         {!('error' in summary) && (
           <p className={small} style={muted}>
-            들어가는 쪽 항목 1년 합계 {won(summary.cur.annual)} ÷ 12 ÷ {summary.h.toLocaleString('ko-KR')}시간 = 시간당 {fmt2(summary.cur.hourly)}원
+            {summary.cur.count > 0
+              ? `들어가는 쪽 항목 1년 합계 ${won(summary.cur.annual)} ÷ 12 ÷ ${summary.h.toLocaleString('ko-KR')}시간 = ${hourlyText(summary.cur)}`
+              : '들어가는 쪽 항목이 없어 시간급을 내지 않았습니다.'}
           </p>
         )}
         <ul className={`${small} list-disc space-y-1 pl-5`} style={muted}>
