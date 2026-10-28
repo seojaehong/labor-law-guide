@@ -231,6 +231,9 @@ const FEATURES: Record<string, { path: string; journey: Journey }> = {
       step('부양가족 차등 가족수당 — 빠지는 쪽, 합계 그대로', /항목은 2개입니다.*17,942\.58원/, await answer(p));
       step('가족수당 항목 문장', '새 기준으로도 통상임금에서 빠지는 쪽으로 볼 요소가 있습니다', (await fam.innerText()).replace(/\s+/g, ' '));
       await fam.getByLabel(/모두에게 주는 1회 기본금액/).fill('20000');
+      step('기본금액을 넣으면 나머지 두 질문이 비어 보류', /답이 비어 있는 질문: 정해진 주기, 근무시간의 대가/, (await fam.innerText()).replace(/\s+/g, ' '));
+      await fam.getByRole('group', { name: /^정해진 주기/ }).getByLabel('예', { exact: true }).check();
+      await fam.getByRole('group', { name: /^근무시간의 대가/ }).getByLabel('예', { exact: true }).check();
       step('모두에게 주는 기본금액 2만원만 들어감(45,240,000 ÷ 12 ÷ 209)', /항목은 3개입니다.*18,038\.28원/, await answer(p));
     },
   },
