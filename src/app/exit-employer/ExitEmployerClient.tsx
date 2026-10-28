@@ -9,6 +9,8 @@ import {
   type ExitStep, type ReasonId,
 } from '@/content/exit-employer-data';
 import { computeExitDates, fmtIso, fmtKo, isWeekend, parseYmd, servedMonths, type ExitDates } from './exit-dates';
+import BizNoLookup from '@/components/BizNoLookup';
+import { tierFor } from '@/lib/workplace-lookup';
 
 const TIER_MINS = TIERS.map(t => t.min) as TierMin[];
 const REASON_IDS = REASONS.map(r => r.id) as ReasonId[];
@@ -161,6 +163,7 @@ export default function ExitEmployerClient() {
           {hireAfter && <p className="ee-warn" role="alert">입사일이 마지막 근무일보다 늦습니다. 날짜를 확인해 주세요.</p>}
 
           <div className="ee-eyebrow ee-label">상시 근로자 수</div>
+          <BizNoLookup onFound={w => { const t = tierFor(w.headcount); setTier(t); sync({ size: String(t) }); }} />
           <div className="ee-tiers" role="group" aria-label="상시 근로자 수">
             {TIERS.map(x => (
               <button key={x.min} aria-pressed={tier === x.min} onClick={() => { setTier(x.min); sync({ size: String(x.min) }); }}>

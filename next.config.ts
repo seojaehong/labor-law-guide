@@ -22,6 +22,8 @@ const nextConfig: NextConfig = {
       // 옛 `?category=` → `?reason=` 매핑이 영영 실행되지 않는다.
       // 그래서 /search 는 쿼리 유무와 무관하게 src/middleware.ts 가 전담한다.
       { source: '/database', destination: '/decisions', permanent: true },
+      // 사업장 규모 카드는 단독 페이지를 접고 인원을 받는 도구마다 「사업자등록번호로 불러오기」로 넣었다(261028)
+      { source: '/tools/workplace', destination: '/duties', permanent: true },
     ];
   },
   async rewrites() {
