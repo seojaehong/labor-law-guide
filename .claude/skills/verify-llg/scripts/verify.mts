@@ -188,6 +188,28 @@ const FEATURES: Record<string, { path: string; journey: Journey }> = {
       step('2023. 1. 1. 퇴사 = 계산', '280,000원', await answer(p));
     },
   },
+  'midyear-settlement': {
+    path: '/tools/midyear-settlement',
+    journey: async (p, step) => {
+      const fill = async (v: Record<string, string>) => {
+        for (const [label, x] of Object.entries(v)) await p.getByLabel(label).fill(x);
+      };
+      step('범위 먼저', '먼저 위 경우에 해당하는 것이 있는지', await answer(p));
+      await p.getByLabel('하나라도 있다', { exact: true }).check();
+      step('범위 밖 조건 = 멈춤', '이 도구가 계산하지 않습니다', await answer(p));
+      await p.getByLabel('하나도 없다', { exact: true }).check();
+      await p.getByLabel('퇴사한 해').selectOption('2026');
+      step('급여 칸 비어 있음', '받은 급여 합계를 넣어 주세요', await answer(p));
+      // S2 — B(표준세액공제) 승 · 환급 · −74,896 → −74,890(0 쪽 버림)
+      await fill({ '받은 급여 합계': '26000000', '비과세 급여 합계': '1200000', 국민연금: '1178000', 건강보험료: '891560', 장기요양보험료: '117240', 고용보험료: '223200', '이미 낸 소득세': '300000', '이미 낸 지방소득세': '29980', '퇴직월 간이세액': '31000' });
+      step('S2 B · 환급', /소득세 74,890원을 돌려받는.*지방소득세는 7,470원을 돌려받는.*작아 B로 계산했습니다/, await answer(p));
+      // S3 — A(보험료 소득공제) 승 · 추징 · 근로소득세액공제 한도 68.4만
+      await fill({ '받은 급여 합계': '41000000', '비과세 급여 합계': '1000000', 국민연금: '1900000', 건강보험료: '1438000', 장기요양보험료: '188960', 고용보험료: '360000', '이미 낸 소득세': '1500000', '이미 낸 지방소득세': '150000', '퇴직월 간이세액': '160000' });
+      step('S3 A · 추징', /소득세 60,450원을 더 내는.*지방소득세는 6,040원을 더 내는.*작아 A로 계산했습니다/, await answer(p));
+      await fill({ '받은 급여 합계': '121200000', '비과세 급여 합계': '1200000' });
+      step('총급여 1.2억 = 멈춤', '1억 2천만원 이상이라', await answer(p));
+    },
+  },
 };
 
 async function api(step: (n: string, e: string | RegExp, g: string) => void) {
