@@ -1,11 +1,11 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { calcMidyear, type MidyearInput, type MidyearOutcome } from '@/lib/calc/midyear-settlement';
+import { calcMidyear, defaultYear, type MidyearInput, type MidyearOutcome } from '@/lib/calc/midyear-settlement';
 import AnswerCard from '@/components/tool/AnswerCard';
 import FoldedDetail from '@/components/tool/FoldedDetail';
 import { card, inputCls, ink, muted, small, todayKst } from '@/lib/tool-kit';
-import { effectLines, formulaLines, headline, LIMITS, NOTICE, SCOPE_ITEMS, SCOPE_STOP, whyLines } from './copy';
+import { effectLines, formulaLines, headline, HOMETAX_LINK, HOMETAX_URL, LIMITS, NOTICE, SCOPE_ITEMS, SCOPE_STOP, whyLines } from './copy';
 
 // 입력값은 이 화면 안에서만 계산한다 — 보내거나 저장하지 않는다.
 
@@ -19,7 +19,7 @@ const FIELDS: { key: Field; label: string }[] = [
   { key: 'employment', label: '고용보험료(근로자 부담 합계)' },
   { key: 'paidIncomeTax', label: '이미 낸 소득세(퇴직월 전 달까지)' },
   { key: 'paidLocalTax', label: '이미 낸 지방소득세(퇴직월 전 달까지)' },
-  { key: 'lastMonthSimpleTax', label: '퇴직월 간이세액(계산에 쓰지 않음)' },
+  { key: 'lastMonthSimpleTax', label: '퇴직월 간이세액(대조용, 있으면)' },
 ];
 
 const num = (s: string) => Number(s.replace(/,/g, '').trim() || '0');
@@ -29,7 +29,7 @@ function Notice() {
     <ul className={`${small} mt-3 list-disc space-y-1 pl-5`} style={muted}>
       {NOTICE.map((l) => <li key={l}>{l}</li>)}
       <li>
-        <a href="https://www.hometax.go.kr" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2">홈택스</a>의 연말정산 모의계산으로도 확인할 수 있습니다.
+        <a href={HOMETAX_URL} target="_blank" rel="noopener noreferrer" className="underline underline-offset-2">{HOMETAX_LINK.text}</a>{HOMETAX_LINK.after}
       </li>
     </ul>
   );
@@ -38,7 +38,8 @@ function Notice() {
 export default function MidyearSettlementClient() {
   const thisYear = Number(todayKst().slice(0, 4));
   const [scope, setScope] = useState<'' | 'none' | 'some'>('');
-  const [year, setYear] = useState(thisYear);
+  // 올해 기준이 아직 없으면 미리 고르지 않는다 — 다른 해로 대신 고르지 않고 이용자가 직접 고른다
+  const [year, setYear] = useState<number | null>(() => defaultYear(thisYear));
   const [vals, setVals] = useState<Record<Field, string>>(
     () => Object.fromEntries(FIELDS.map((f) => [f.key, ''])) as Record<Field, string>,
   );
@@ -46,6 +47,7 @@ export default function MidyearSettlementClient() {
   const out = useMemo((): { error: string } | { stop: true } | { o: MidyearOutcome } => {
     if (!scope) return { error: '먼저 위 경우에 해당하는 것이 있는지 골라 주세요.' };
     if (scope === 'some') return { stop: true };
+    if (year === null) return { error: '퇴사한 해를 골라 주세요.' };
     if (!vals.totalPay.trim()) return { error: '받은 급여 합계를 넣어 주세요.' };
     try {
       const inp = Object.fromEntries(FIELDS.map((f) => [f.key, num(vals[f.key])])) as Record<Field, number>;
@@ -73,7 +75,8 @@ export default function MidyearSettlementClient() {
       <section className={`${card} grid gap-4 sm:grid-cols-2`}>
         <label className={small} style={muted}>
           퇴사한 해
-          <select className={inputCls} value={year} onChange={(e) => setYear(Number(e.target.value))}>
+          <select className={inputCls} value={year ?? ''} onChange={(e) => setYear(e.target.value ? Number(e.target.value) : null)}>
+            {year === null && <option value="">골라 주세요</option>}
             {[thisYear - 1, thisYear].map((y) => <option key={y} value={y}>{y}년</option>)}
           </select>
         </label>
@@ -90,7 +93,7 @@ export default function MidyearSettlementClient() {
         ))}
         <p className={`${small} sm:col-span-2`} style={muted}>
           금액은 모두 그해 1월부터의 합계(원)입니다. 4대보험료는 급여에서 뗀 근로자 부담분이고, 퇴직정산으로 더 뗀 건강·장기요양보험료는 더하고 돌려받은 것은 뺍니다.
-          이미 낸 세금에는 퇴직월 간이세액을 넣지 않습니다.
+          이미 낸 세금은 퇴직월 전 달까지의 합계입니다. 퇴직월 간이세액은 따로 적으면 회사가 그것을 먼저 뗀 경우의 정산액도 함께 보여 줍니다.
         </p>
       </section>
 
