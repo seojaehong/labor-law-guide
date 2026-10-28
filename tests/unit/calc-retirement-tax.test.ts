@@ -47,17 +47,64 @@ const ROWS: Row[] = [
   { id: 'E3', what: '부동소수 n=30', hire: '1996-08-01', last: '2026-07-31', pay: 90_020_415, months: 360, years: 30, svc: 70_000_000, conv: 8_008_166, convDed: 8_004_899, base: 3_267, convTax: 196, calcTax: 490, income: 490, local: 40 },
 ];
 
+function expectRow(row: Row) {
+  const r = calcRetirementTax({ pay: row.pay, hireDate: row.hire, lastWorkDate: row.last });
+  expect({
+    months: r.months, years: r.years, svc: r.serviceDeduction, conv: r.converted, convDed: r.convertedDeduction,
+    base: r.taxBase, convTax: r.convertedTax, calcTax: r.calculatedTax, income: r.incomeTax, local: r.localTax,
+  }).toEqual({
+    months: row.months, years: row.years, svc: row.svc, conv: row.conv, convDed: row.convDed,
+    base: row.base, convTax: row.convTax, calcTax: row.calcTax, income: row.income, local: row.local,
+  });
+  expect(r.total).toBe(row.income + row.local);
+  return r;
+}
+
+// 위 ROWS 가 지나지 않던 표의 줄 — 환산급여공제 55%·45%, 기본세율 24%·35%·38%·42%(PR #115 검토 지적).
+// 기대값은 조문 표(소득세법 §48①2·§55①)를 분수(Fraction) 정수 연산으로 푼 독립 손계산 한 갈래다. 국세청 프로그램에는 넣어 보지 않았다.
+// 공통: 입사 2016-08-01 · 퇴사 2026-07-31 → 120개월 · 10년 · 근속연수공제 1,500만.
+const ROWS_TABLE: (Row & { conv3: readonly [number, number, number]; rate3: readonly [number, number, number] })[] = [
+  { id: 'R55', what: '환산급여공제 55% 줄(7,000만 초과 1억 이하)', hire: '2016-08-01', last: '2026-07-31', pay: 85_833_333, months: 120, years: 10, svc: 15_000_000, conv: 84_999_999, convDed: 53_449_999, base: 31_550_000, convTax: 3_472_500, calcTax: 2_893_750, income: 2_893_750, local: 289_370, conv3: [45_200_000, 55, 70_000_000], rate3: [840_000, 15, 14_000_000] },
+  { id: 'R24', what: '환산급여공제 45% 줄 · 세율 24% 줄', hire: '2016-08-01', last: '2026-07-31', pay: 140_000_000, months: 120, years: 10, svc: 15_000_000, conv: 150_000_000, convDed: 84_200_000, base: 65_800_000, convTax: 10_032_000, calcTax: 8_360_000, income: 8_360_000, local: 836_000, conv3: [61_700_000, 45, 100_000_000], rate3: [6_240_000, 24, 50_000_000] },
+  { id: 'R35', what: '세율 35% 줄', hire: '2016-08-01', last: '2026-07-31', pay: 200_000_000, months: 120, years: 10, svc: 15_000_000, conv: 222_000_000, convDed: 116_600_000, base: 105_400_000, convTax: 21_450_000, calcTax: 17_875_000, income: 17_875_000, local: 1_787_500, conv3: [61_700_000, 45, 100_000_000], rate3: [15_360_000, 35, 88_000_000] },
+  { id: 'R38', what: '세율 38% 줄', hire: '2016-08-01', last: '2026-07-31', pay: 348_333_333, months: 120, years: 10, svc: 15_000_000, conv: 399_999_999, convDed: 186_699_999, base: 213_300_000, convTax: 61_114_000, calcTax: 50_928_333, income: 50_928_330, local: 5_092_830, conv3: [151_700_000, 35, 300_000_000], rate3: [37_060_000, 38, 150_000_000] },
+  { id: 'R42', what: '세율 42% 줄', hire: '2016-08-01', last: '2026-07-31', pay: 848_333_333, months: 120, years: 10, svc: 15_000_000, conv: 999_999_999, convDed: 396_699_999, base: 603_300_000, convTax: 217_446_000, calcTax: 181_205_000, income: 181_205_000, local: 18_120_500, conv3: [151_700_000, 35, 300_000_000], rate3: [174_060_000, 42, 500_000_000] },
+];
+
 describe('퇴직소득세 — 국세청 프로그램과 1원까지 같다', () => {
   it.each(ROWS)('$id $what', (row) => {
-    const r = calcRetirementTax({ pay: row.pay, hireDate: row.hire, lastWorkDate: row.last });
-    expect({
-      months: r.months, years: r.years, svc: r.serviceDeduction, conv: r.converted, convDed: r.convertedDeduction,
-      base: r.taxBase, convTax: r.convertedTax, calcTax: r.calculatedTax, income: r.incomeTax, local: r.localTax,
-    }).toEqual({
-      months: row.months, years: row.years, svc: row.svc, conv: row.conv, convDed: row.convDed,
-      base: row.base, convTax: row.convTax, calcTax: row.calcTax, income: row.income, local: row.local,
-    });
-    expect(r.total).toBe(row.income + row.local);
+    expectRow(row);
+  });
+
+  it.each(ROWS_TABLE)('$id $what — 분수 손계산과 같고 고른 줄도 같다', (row) => {
+    const r = expectRow(row);
+    expect(r.brackets.converted).toEqual(row.conv3);
+    expect(r.brackets.rate).toEqual(row.rate3);
+  });
+
+  // 근속 12년(144개월) · 근속연수공제 2,000만이면 환산급여 = 퇴직급여 − 2,000만. 과세표준 목표값은 분수 손계산으로 찾은 가장 작은 환산급여.
+  it.each([
+    ['근속 20년(§48①1 「10년 초과 20년 이하」)', 100_000_000, '2006-08-01', '2026-07-31', 'service', [15_000_000, 2_500_000, 10]],
+    ['근속 21년(「20년 초과」)', 100_000_000, '2006-08-01', '2026-08-01', 'service', [40_000_000, 3_000_000, 20]],
+    ['환산급여 7,000만(§48①2)', 90_000_000, '2014-08-01', '2026-07-31', 'converted', [8_000_000, 60, 8_000_000]],
+    ['환산급여 1억', 120_000_000, '2014-08-01', '2026-07-31', 'converted', [45_200_000, 55, 70_000_000]],
+    ['환산급여 3억', 320_000_000, '2014-08-01', '2026-07-31', 'converted', [61_700_000, 45, 100_000_000]],
+    ['과세표준 5,000만(§55①)', 141_272_726, '2014-08-01', '2026-07-31', 'rate', [840_000, 15, 14_000_000]],
+    ['과세표준 8,800만', 210_363_635, '2014-08-01', '2026-07-31', 'rate', [6_240_000, 24, 50_000_000]],
+    ['과세표준 1억 5,000만', 322_615_384, '2014-08-01', '2026-07-31', 'rate', [15_360_000, 35, 88_000_000]],
+    ['과세표준 1억 5,000만 1원 → 다음 줄', 322_615_385, '2014-08-01', '2026-07-31', 'rate', [37_060_000, 38, 150_000_000]],
+    ['과세표준 3억', 553_384_614, '2014-08-01', '2026-07-31', 'rate', [37_060_000, 38, 150_000_000]],
+    ['과세표준 5억', 861_076_922, '2014-08-01', '2026-07-31', 'rate', [94_060_000, 40, 300_000_000]],
+    ['과세표준 10억', 1_630_307_691, '2014-08-01', '2026-07-31', 'rate', [174_060_000, 42, 500_000_000]],
+  ] as const)('「이하」 경계 — %s', (_what, pay, hire, last, key, row) => {
+    expect(calcRetirementTax({ pay, hireDate: hire, lastWorkDate: last }).brackets[key]).toEqual(row);
+  });
+
+  it('경계에서 고른 금액 — 과세표준 5,000만·1.5억·10억은 표 누계와 같다', () => {
+    const at = (pay: number) => calcRetirementTax({ pay, hireDate: '2014-08-01', lastWorkDate: '2026-07-31' });
+    expect([at(141_272_726).taxBase, at(141_272_726).convertedTax]).toEqual([50_000_000, 6_240_000]);
+    expect([at(322_615_384).taxBase, at(322_615_384).convertedTax]).toEqual([150_000_000, 37_060_000]);
+    expect([at(1_630_307_691).taxBase, at(1_630_307_691).convertedTax]).toEqual([1_000_000_000, 384_060_000]);
   });
 
   it('§48② 상한은 표 공제가 퇴직급여보다 클 때만 걸린다', () => {
@@ -163,5 +210,12 @@ describe('적용 범위 — 2023. 1. 1. 이후 퇴사(법률 제19196호 부칙 
     expect(() => calcRetirementTax({ pay: Number.NaN, hireDate: '2024-01-01', lastWorkDate: '2026-07-01' })).toThrow();
     expect(() => calcRetirementTax({ pay: 1_000_000.5, hireDate: '2024-01-01', lastWorkDate: '2026-07-01' })).toThrow();
     expect(() => calcRetirementTax({ pay: 2e15, hireDate: '2024-01-01', lastWorkDate: '2026-07-01' })).toThrow();
+  });
+
+  it('연도를 잘못 친 입사일(0000·0202년)은 오류 — 근속 수천 년으로 「0원」이 나오지 않는다', () => {
+    expect(() => calcRetirementTax({ pay: 1_000_000, hireDate: '0000-01-01', lastWorkDate: '2026-07-02' })).toThrow(/입사일을 확인/);
+    expect(() => calcRetirementTax({ pay: 1_000_000, hireDate: '0202-01-01', lastWorkDate: '2026-07-02' })).toThrow(/입사일을 확인/);
+    expect(() => serviceMonths('1899-12-31', '2026-07-02')).toThrow(/입사일을 확인/);
+    expect(calcRetirementTax({ pay: 1_000_000, hireDate: '1900-01-01', lastWorkDate: '2026-07-02' }).years).toBe(127);
   });
 });
