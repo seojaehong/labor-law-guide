@@ -159,6 +159,35 @@ const FEATURES: Record<string, { path: string; journey: Journey }> = {
       step('과세 급여 1,000만원 초과 — 표 밖', '소득세를 계산하지 않습니다', await answer(p));
     },
   },
+  'retirement-tax': {
+    path: '/tools/retirement-tax',
+    journey: async (p, step) => {
+      const pay = p.getByLabel('퇴직급여(원)');
+      const hire = p.getByLabel('입사일');
+      const last = p.getByLabel('퇴사일(마지막 근무일)');
+      step('퇴직급여 없음', '퇴직급여를 넣어 주세요', await answer(p));
+      await pay.fill('60000000');
+      await hire.fill('2014-01-02');
+      await last.fill('2026-07-15');
+      step('13년(151개월) · 10원 절사', /691,990원.*69,190원/, await answer(p));
+      await pay.fill('20000000');
+      await hire.fill('2021-08-01');
+      await last.fill('2026-07-31');
+      step('정확히 5년(기념일 전날 퇴사)', /280,000원.*28,000원.*5년\(60개월\)/, await answer(p));
+      await last.fill('2026-08-01');
+      step('기념일 퇴사 = 6년', /216,000원.*21,600원.*6년\(61개월\)/, await answer(p));
+      await pay.fill('2500000');
+      await hire.fill('2023-07-03');
+      await last.fill('2026-07-02');
+      step('퇴직급여 < 근속연수공제 = 0원', /0원입니다.*근속연수공제/, await answer(p));
+      await pay.fill('20000000');
+      await hire.fill('2018-01-02');
+      await last.fill('2022-12-31');
+      step('2022. 12. 31. 퇴사 = 계산하지 않음', '2023년 1월 1일 이후 퇴사만', await answer(p));
+      await last.fill('2023-01-01');
+      step('2023. 1. 1. 퇴사 = 계산', '280,000원', await answer(p));
+    },
+  },
 };
 
 async function api(step: (n: string, e: string | RegExp, g: string) => void) {
