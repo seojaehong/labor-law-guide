@@ -8,6 +8,7 @@
 //   · 계속근로 1년 = 입사일의 1년 뒤 같은 날까지 근무가 이어졌는지(만 나이 방식). 날수 365로 보지 않는다
 
 import { calcSeverance } from '@/lib/calc/severance';
+import { unitHours } from '@/lib/calc/min-wage';
 
 const DAY = 86_400_000;
 
@@ -137,15 +138,19 @@ export function estimateSeverance(hireDate: string, lastDay: string, monthlyWage
   return { periodStart: r.segments[0]?.from ?? r.retirementDate, periodDays: r.periodDays, wageTotal: monthlyWage * 3, dailyAverage: r.dailyAverage, amount: r.amount };
 }
 
-/** 월 소정근로시간 환산 — (주 소정시간 + 주휴시간) × 365 / 7 / 12, 주휴 = 주 소정시간 ÷ 5. 주 40시간 → 209 */
+/**
+ * 월 소정근로시간 환산 — (주 소정시간 + 주휴시간) × 365 / 7 / 12 반올림, 주휴 = 주 소정시간 ÷ 5(8시간까지). 주 40시간 → 209.
+ * /tools/leave-pay 와 같은 함수(min-wage unitHours)를 쓴다 — 주휴는 1일분이라 주 44시간이면 226시간(52.8시간으로 세면 229).
+ */
 export function monthlyPaidHours(weeklyHours: number): number {
-  return Math.round(((weeklyHours * 6) / 5) * 365 / 7 / 12);
+  return unitHours('month', weeklyHours);
 }
 
 export interface LeaveEstimate {
   applicable: boolean;
   hourly: number;
   dailyHours: number;
+  /** 1일 통상임금(원 미만 그대로) */
   daily: number;
   amount: number;
 }
@@ -159,8 +164,12 @@ export function estimateLeavePay(monthlyWage: number, weeklyHours: number, unuse
   const hours = monthlyPaidHours(weeklyHours);
   const hourly = hours > 0 ? monthlyWage / hours : 0;
   const dailyHours = Math.min(weeklyHours / 5, 8);
-  const daily = Math.floor(hourly * dailyHours);
-  const amount = applicable ? daily * unusedDays : 0;
+  // 1일 통상임금은 원 미만을 남겨 두고, 수당에서 한 번만 버린다 — /tools/leave-pay(calculateAllowance)와 같은 순서·같은 식.
+  // 곱셈 먼저(월급 × 1일 시간 ÷ 월 시간) 하고, 참값이 정수인데 0.999…로 나온 부동소수 잡음만 지운다.
+  const daily = hours > 0 ? (monthlyWage * dailyHours) / hours : 0;
+  const product = unusedDays * daily;
+  const raw = Math.abs(product - Math.round(product)) < 1e-6 ? Math.round(product) : product;
+  const amount = applicable ? Math.floor(raw) : 0;
   return { applicable, hourly, dailyHours, daily, amount };
 }
 

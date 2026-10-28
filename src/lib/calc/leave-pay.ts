@@ -1,7 +1,9 @@
 // 연차수당 계산기 — 남은 연차 일수 × 1일 통상임금. 새 엔진을 만들지 않고 있는 것을 잇는다.
 //   금액: src/lib/leave/leave-allowance.ts calculateAllowance(일수 × 1일 단가, 단가 기준·출처 기록, 원 미만은 마지막에 한 번 버림)
 //   시간급: ./min-wage unitHours(시행령 §6② — 월급은 (1주 소정 + 주휴) × 365 ÷ 7 ÷ 12 반올림)
-//   퇴직 누계: src/lib/leave/leave-ledger.ts buildHireDateLedger(1년 미만 월 연차 포함)
+//     주휴: 통상 근로자 = 1일 소정근로시간분(8시간까지, 근로기준법 §55①·시행령 §30①의 1일 유급휴일),
+//           단시간 근로자 = 4주 소정 ÷ 통상 근로자의 4주 소정근로일 20일(시행령 별표2 제2호나목, 제4호가목·라목)
+//   퇴직 누계: src/lib/leave/leave-ledger.ts buildHireDateLedger(1년 미만 월 연차 — 첫 1년이 2018. 5. 29. 전에 끝났으면 1년차 15일에 포함)
 // 청구권: 법조문에 「미사용수당」 명문은 없고 판례로 선다 — 대법원 2005.5.27. 2003다48549(근로관계가 끝나도 수당 청구권은 남는다),
 //   2019.10.18. 2018다239110(취업규칙 등에 정함이 없으면 통상임금으로 산정).
 // 1일 통상임금 = 시간급 × 1일 소정근로시간(근로기준법 시행령 §6③).
@@ -21,6 +23,19 @@ export const ARTICLE_SHIFT = '2027-06-10';
 export function payArticle(date: string): string {
   return date >= ARTICLE_SHIFT ? '제60조제6항' : '제60조제5항';
 }
+
+/**
+ * 1년차 연차(15일)가 이 날 이전에 생겼으면 구 근로기준법 제60조제3항이 적용된다 —
+ * 최초 1년의 근로에 대한 휴가는 1년 미만 월 연차를 포함해 15일이고, 이미 쓴 월 연차는 15일에서 뺀다.
+ *   법률 제15108호(공포 2017. 11. 28., 시행 2018. 5. 29.)가 제3항을 지웠고 적용례·경과조치는 두지 않았다.
+ *   법제처 18-0067(2018. 4. 24.): 2018. 5. 29.을 기준으로 근로한 기간이 1년 이상인 근로자에게는 구법 제3항이 적용된다
+ *     (1년이 되는 날 법률관계가 이미 확정됐으므로).
+ *   법제처 18-0404(2018. 8. 6.): 2018. 5. 30. 이후 근로기간이 1년이 되는 근로자는 1년차 11일·2년차 15일을 각각 받는다.
+ * 1년차 발생일 = 입사 1년이 끝난 다음 날(buildHireDateLedger 의 기념일, 대법원 2022다245419).
+ *   2017-05-29 입사 → 2018-05-29 발생: 그날을 기준으로 근로한 기간이 이미 1년(2017-05-29~2018-05-28)이라 구법.
+ *   2017-05-30 입사 → 2018-05-30 발생: 신법.
+ */
+export const OLD_60_3_LAST_ACCRUAL = '2018-05-29';
 
 export type LeavePayRate =
   /** 통상임금(기본) — 단위 기간 금액을 시간급으로 바꾼다 */
@@ -80,7 +95,11 @@ export interface LeavePayResult {
   dailyRate: number | null;
   /** 남은 일수 — 통상 근로자 */
   unusedDays: number | null;
-  ledger: { entries: LedgerEntry[]; total: number; used: number } | null;
+  ledger: {
+    entries: LedgerEntry[]; total: number; used: number;
+    /** 1년 미만 월 연차 — separate = 따로 셈(또는 1년 미만 근속) · included-in-15 = 구 §60③으로 1년차 15일에 포함 */
+    firstYearMonthly: 'separate' | 'included-in-15';
+  } | null;
   partTime: {
     fullTimeWeeklyHours: number;
     fullTimeDays: number;
@@ -90,8 +109,6 @@ export interface LeavePayResult {
     grantHours: number;
     usedHours: number;
     unusedHours: number;
-    /** 1일 소정근로시간 = 4주 소정 ÷ 통상 근로자 4주 소정근로일(주 5일 = 20일) */
-    dailyHours: number;
   } | null;
   /** 원 미만을 버리기 전 금액 */
   raw: number | null;
@@ -160,8 +177,11 @@ export function calcLeavePay(input: LeavePayInput): LeavePayResult {
   if (rate.basis === 'ordinary-wage') {
     if (!pos(rate.amount)) throw new Error('임금을 확인해 주세요');
     if (!pos(dailyHours) || dailyHours > 24) throw new Error('1일 소정근로시간을 확인해 주세요');
-    hours = unitHours(rate.unit, weeklyHours, rate.unit === 'day' ? dailyHours : undefined);
-    weekPaidHours = rate.unit === 'week' || rate.unit === 'month' ? unitHours('week', weeklyHours) : null;
+    // 주휴 — 통상 근로자는 1일 소정근로시간분(8시간까지). 주 6일 × 6시간이면 6시간이지 36 ÷ 5 = 7.2시간이 아니다.
+    //        단시간 근로자는 unitHours 기본값(1주 ÷ 5 = 4주 소정 ÷ 20일, 별표2 제2호나목)을 그대로 쓴다.
+    const holiday = input.partTime ? undefined : Math.min(dailyHours, 8);
+    hours = unitHours(rate.unit, weeklyHours, rate.unit === 'day' ? dailyHours : undefined, holiday);
+    weekPaidHours = rate.unit === 'week' || rate.unit === 'month' ? unitHours('week', weeklyHours, undefined, holiday) : null;
     hourly = rate.amount / hours;
   }
 
@@ -170,7 +190,8 @@ export function calcLeavePay(input: LeavePayInput): LeavePayResult {
     const { fullTimeWeeklyHours: fw, fullTimeDays: g, usedHours } = input.partTime;
     if (rate.basis !== 'ordinary-wage') throw new Error('단시간 근로자의 연차수당은 시간급을 기준으로 합니다(시행령 별표2 제4호마목). 통상임금으로 넣어 주세요');
     if (!pos(fw) || fw > 168 || weeklyHours >= fw) throw new Error('단시간 근로자는 1주 소정근로시간이 통상 근로자보다 짧아야 합니다');
-    if (!nonNeg(g) || g > 25) throw new Error('통상 근로자 기준 연차일수를 확인해 주세요');
+    // 1시간 미만 올림은 부여마다 한다 — 1년 미만 월 연차 11일과 1년차 15일이 함께 남았으면 26일로 합쳐 넣지 않고 따로 셈한다
+    if (!nonNeg(g) || g > 25) throw new Error('통상 근로자 기준 연차일수는 한 번에 생기는 일수(25일 이하)로 넣어 주세요. 1년 미만 월 연차 11일과 1년차 15일이 함께 남았으면 따로 계산해 더합니다');
     if (!nonNeg(usedHours)) throw new Error('이미 쓴 연차 시간을 확인해 주세요');
     // 연차 시간 = 통상 연차일수 × (단시간 주 소정 ÷ 통상 주 소정) × 8, 1시간 미만은 1시간 — 나눗셈은 한 번만, 잡음을 지우고 올린다
     const rawGrantHours = (g * weeklyHours * 8) / fw;
@@ -181,7 +202,7 @@ export function calcLeavePay(input: LeavePayInput): LeavePayResult {
     const raw = snap((rate.amount * unusedHours) / hours!);
     return finish({
       ...base, hours, weekPaidHours, hourly, raw, amount: Math.floor(raw),
-      partTime: { fullTimeWeeklyHours: fw, fullTimeDays: g, rawGrantHours, grantHours, usedHours, unusedHours, dailyHours: (weeklyHours * 4) / 20 },
+      partTime: { fullTimeWeeklyHours: fw, fullTimeDays: g, rawGrantHours, grantHours, usedHours, unusedHours },
       rateSource: `입력한 ${UNIT_LABEL[rate.unit]} ${rate.amount.toLocaleString('ko-KR')}원의 시간급(시행령 제6조제2항)`,
     });
   }
@@ -197,10 +218,15 @@ export function calcLeavePay(input: LeavePayInput): LeavePayResult {
     const last = checkDate(days.lastWorkDate, '마지막 재직일');
     if (last < hire) throw new Error('마지막 재직일이 입사일보다 앞섭니다');
     if (!nonNeg(days.usedDays)) throw new Error('이미 쓰거나 수당으로 받은 일수를 확인해 주세요');
-    // 1년 미만 월 연차를 늘 넣는다 — 1년 근로 후 바로 끝나면 11일, 그다음 날까지 재직하면 11 + 15 = 26일(대법원 2021다227100, 2022다245419)
-    const l = buildHireDateLedger(hire, last, { includeFirstYearMonthly: true });
+    // 1년 미만 월 연차 — 1년 근로 후 바로 끝나면 11일, 그다음 날까지 재직하면 11 + 15 = 26일(대법원 2021다227100, 2022다245419).
+    // 단, 1년차 15일이 2018. 5. 29. 이전에 생겼으면 구 §60③으로 월 연차가 그 15일에 포함된다(OLD_60_3_LAST_ACCRUAL).
+    // 1년을 채우기 전에 끝나면 15일이 아직 없으므로 구법 시기라도 월 연차만 센다.
+    const annual = buildHireDateLedger(hire, last);
+    const firstAccrual = annual.entries[0]?.accruedOn;
+    const includedIn15 = firstAccrual !== undefined && firstAccrual <= OLD_60_3_LAST_ACCRUAL;
+    const l = includedIn15 ? annual : buildHireDateLedger(hire, last, { includeFirstYearMonthly: true });
     if (days.usedDays > l.total) throw new Error('이미 쓰거나 수당으로 받은 일수가 발생 누계보다 많습니다');
-    ledger = { entries: l.entries, total: l.total, used: days.usedDays };
+    ledger = { entries: l.entries, total: l.total, used: days.usedDays, firstYearMonthly: includedIn15 ? 'included-in-15' : 'separate' };
     unusedDays = l.total - days.usedDays;
   } else {
     if (!nonNeg(days.unusedDays)) throw new Error('남은 연차 일수를 확인해 주세요');

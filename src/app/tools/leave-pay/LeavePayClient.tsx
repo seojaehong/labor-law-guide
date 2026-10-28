@@ -5,11 +5,10 @@ import { calcLeavePay, type LeavePayInput, type WageUnit } from '@/lib/calc/leav
 import AnswerCard from '@/components/tool/AnswerCard';
 import FoldedDetail from '@/components/tool/FoldedDetail';
 import { card, inputCls, ink, muted, small, todayKst } from '@/lib/tool-kit';
-import { effectLines, formulaLines, headline, promotionLines, PROMOTION_REMAINS, SCOPE_ITEMS } from './copy';
+import { effectLines, formulaLines, headline, LEDGER_HINT, partTimeUseHint, promotionLines, PROMOTION_REMAINS, SCOPE_ITEMS } from './copy';
 
 const UNIT_LABEL: Record<WageUnit, string> = { month: '월급', week: '주급', day: '일급', hour: '시급' };
 const num = (s: string) => Number(s.replace(/,/g, '').trim() || '0');
-const fmt = (n: number) => n.toLocaleString('ko-KR', { maximumFractionDigits: 2 });
 
 function Radio({ name, checked, onChange, children }: { name: string; checked: boolean; onChange: () => void; children: string }) {
   return (
@@ -40,7 +39,8 @@ export default function LeavePayClient() {
   const [last, setLast] = useState(today);
   const [usedDays, setUsedDays] = useState('0');
   const [promotion, setPromotion] = useState<NonNullable<LeavePayInput['promotion']>>('unknown');
-  const [before, setBefore] = useState(false);
+  // 퇴직 시 수당이 언제 생겼나 — 모르면 평균임금 산입 두 경우를 다 보여 준다
+  const [before, setBefore] = useState<'no' | 'yes' | 'unknown'>('unknown');
   const [paid, setPaid] = useState('');
 
   const ledger = timing === 'termination' && !partTime && byLedger;
@@ -58,7 +58,7 @@ export default function LeavePayClient() {
           partTime: partTime ? { fullTimeWeeklyHours: num(fullWeekly), fullTimeDays: num(fullDays), usedHours: num(usedHours) } : undefined,
           otherPaidHours: otherPaid && (unit === 'month' || unit === 'week'),
           promotion,
-          arisenBeforeTermination: timing === 'termination' ? before : undefined,
+          arisenBeforeTermination: timing === 'termination' && before !== 'unknown' ? before === 'yes' : undefined,
           alreadyPaid: paid.trim() ? num(paid) : undefined,
           asOf: today,
         }),
@@ -69,7 +69,6 @@ export default function LeavePayClient() {
   }, [timing, fivePlus, weekly, daily, useAverage, avgDaily, unit, amount, ledger, hire, last, usedDays, unused, partTime, fullWeekly, fullDays, usedHours, otherPaid, promotion, before, paid, today]);
 
   const r = 'r' in out ? out.r : undefined;
-  const ptDaily = num(weekly) / 5;
 
   return (
     <div className="space-y-4">
@@ -161,9 +160,7 @@ export default function LeavePayClient() {
               이미 쓴 연차 시간
               <input inputMode="decimal" className={inputCls} value={usedHours} onChange={(e) => setUsedHours(e.target.value)} />
             </label>
-            <p className={`${small} sm:col-span-2`} style={muted}>
-              하루 쉬면 1일 소정근로시간 {Number.isFinite(ptDaily) && ptDaily > 0 ? fmt(ptDaily) : '—'}시간(1주 소정근로시간 ÷ 5)만큼 씁니다.
-            </p>
+            <p className={`${small} sm:col-span-2`} style={muted}>{partTimeUseHint(num(daily))}</p>
           </>
         ) : (
           <>
@@ -190,9 +187,7 @@ export default function LeavePayClient() {
                   이미 쓰거나 수당으로 받은 일수(누계)
                   <input inputMode="decimal" className={inputCls} value={usedDays} onChange={(e) => setUsedDays(e.target.value)} />
                 </label>
-                <p className={`${small} sm:col-span-2`} style={muted}>
-                  마지막 재직일은 마지막으로 일한 날입니다. 입사 1년째 되는 날까지 재직하면 15일이 더 생기므로, 하루 차이로 일수가 달라집니다.
-                </p>
+                <p className={`${small} sm:col-span-2`} style={muted}>{LEDGER_HINT}</p>
               </>
             ) : (
               <label className={small} style={muted}>
@@ -206,8 +201,9 @@ export default function LeavePayClient() {
           <fieldset className={`${small} sm:col-span-2`} style={muted}>
             <legend className="mb-1">이 수당은 언제 생겼나요</legend>
             <div className="flex flex-wrap gap-4">
-              <Radio name="origin" checked={!before} onChange={() => setBefore(false)}>퇴직하면서 처음 생김(마지막 해에 남은 연차)</Radio>
-              <Radio name="origin" checked={before} onChange={() => setBefore(true)}>퇴직 전에 이미 생겨 있었음</Radio>
+              <Radio name="origin" checked={before === 'no'} onChange={() => setBefore('no')}>퇴직하면서 처음 생김(마지막 해에 남은 연차)</Radio>
+              <Radio name="origin" checked={before === 'yes'} onChange={() => setBefore('yes')}>퇴직 전에 이미 생겨 있었음</Radio>
+              <Radio name="origin" checked={before === 'unknown'} onChange={() => setBefore('unknown')}>잘 모름</Radio>
             </div>
           </fieldset>
         )}

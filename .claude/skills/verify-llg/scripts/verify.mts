@@ -326,6 +326,9 @@ const FEATURES: Record<string, { path: string; journey: Journey }> = {
       step('1년 근로 직후 종료 = 11일(2021다227100)', '1,320,000원', await answer(p));
       await p.getByLabel('마지막 재직일').fill('2026-11-01');
       step('366일째 재직 = 26일(2022다245419)', '3,120,000원', await answer(p));
+      await p.getByLabel('입사일', { exact: true }).fill('2016-01-01');
+      await p.getByLabel('마지막 재직일').fill('2017-01-01');
+      step('1년차가 2018. 5. 29. 전 = 월 연차가 15일에 포함(구 §60③, 법제처 18-0067)', '1,800,000원', await answer(p));
       await p.getByLabel('단시간 근로자').check();
       await p.getByLabel('시급', { exact: true }).check();
       await p.getByLabel(/^시급\(/).fill('11000');
