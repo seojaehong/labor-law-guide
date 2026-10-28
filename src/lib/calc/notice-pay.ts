@@ -50,12 +50,16 @@ export function calcNoticePay(input: NoticePayInput): NoticePayResult {
 
   const hours = unitHours(input.unit, input.weeklyHours, input.unit === 'day' ? input.dailyHours : undefined);
   const hourly = input.amount / hours;
+  // 금액 = 화면에 보이는 1일 통상임금(원 단위) × 30 — 화면 식대로 곱하면 같은 값이 나와야 한다
   const dailyOrdinary = Math.round(hourly * input.dailyHours);
-  const amount = Math.round(hourly * input.dailyHours * 30);
+  const amount = dailyOrdinary * 30;
 
-  // 3개월이 차는 날 = 입사일 3개월 뒤 같은 날의 전날(9.1 입사 → 11.30)
+  // 3개월이 차는 날 = 입사일 3개월 뒤 같은 날의 전날(9.1 입사 → 11.30).
+  // 그 달에 같은 날이 없으면 그 달 말일(민법 §160③ — 11.30 입사 → 2.28, 1.31 입사 → 4.30)
   const d = new Date(hire);
-  const threeMonths = Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 3, d.getUTCDate()) - DAY;
+  const y = d.getUTCFullYear(), m = d.getUTCMonth() + 3, day = d.getUTCDate();
+  const lastDay = new Date(Date.UTC(y, m + 1, 0)).getUTCDate();
+  const threeMonths = day > lastDay ? Date.UTC(y, m, lastDay) : Date.UTC(y, m, day) - DAY;
   const status = dismissal < threeMonths ? 'under3m' : noticeDays === null ? 'pay' : noticeDays >= 30 ? 'noticed' : 'short';
   const paid = status === 'pay' || status === 'short';
   return { status, noticeDays, hourly, dailyOrdinary: paid ? dailyOrdinary : 0, amount: paid ? amount : 0 };

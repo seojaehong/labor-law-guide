@@ -16,6 +16,7 @@ import { checkChatRateLimit, extractIp, hashIp } from '@/lib/rate-limit';
 import { getChatKillSwitch } from '@/lib/kill-switch';
 import { verifyTurnstile, isTurnstileEnabled } from '@/lib/turnstile';
 import { executeTool } from '@/lib/chat/tools/execute';
+import { severanceCalculatorLink } from '@/lib/chat/severance-link';
 import { streamRound, type RoundInfo, type ToolCallAcc } from '@/lib/chat/stream-round';
 import { withTimeout, withTimeoutTagged, RETRIEVAL_TIMEOUT_MS, FAQ_TIMEOUT_MS } from '@/lib/chat/context/with-timeout';
 import { type Retrieval, EMPTY_RETRIEVAL } from '@/lib/chat/context/result';
@@ -520,21 +521,10 @@ export async function POST(req: NextRequest) {
           });
 
           // 계산기 페이지 링크 자동 첨부
-          if (lastSeveranceArgs) {
-            const a = lastSeveranceArgs as Record<string, unknown>;
-            const params = new URLSearchParams();
-            if (typeof a.hire_date === 'string') params.set('start', a.hire_date);
-            if (typeof a.last_work_date === 'string') params.set('end', a.last_work_date);
-            const wages = Array.isArray(a.wages_3months) ? a.wages_3months : null;
-            if (wages) {
-              if (wages[0] != null) params.set('w1', String(wages[0]));
-              if (wages[1] != null) params.set('w2', String(wages[1]));
-              if (wages[2] != null) params.set('w3', String(wages[2]));
-            }
-            if (typeof a.annual_bonus === 'number' && a.annual_bonus > 0)
-              params.set('bonusTotal', String(a.annual_bonus));
-            params.set('run', '1');
-            const link = `\n\n👉 [퇴직금 계산기에서 직접 확인 (퇴직소득세 포함)](https://yellowenvelope.kr/tools/severance.html?${params.toString()})`;
+          // 계산기 입력은 퇴직일이라 하루를 더해 넘긴다 — 링크로 연 금액이 챗봇 답과 같은지는 calc-seams 시험이 본다
+          const sevLink = lastSeveranceArgs ? severanceCalculatorLink(lastSeveranceArgs) : null;
+          if (sevLink) {
+            const link = `\n\n👉 [퇴직금 계산기에서 직접 확인 (퇴직소득세 포함)](${sevLink})`;
             controller.enqueue(encoder.encode(`data: ${JSON.stringify({ content: link })}\n\n`));
           }
 

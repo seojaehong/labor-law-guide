@@ -84,6 +84,9 @@ const FEATURES: Record<string, { path: string; journey: Journey }> = {
       await p.getByLabel('알리지 않았다').check();
       await d.nth(0).fill('2026-09-02');
       step('3개월 미만', '3개월이 되지 않았습니다', await answer(p));
+      await d.nth(0).fill('2025-11-30');
+      await d.nth(1).fill('2026-02-28');
+      step('11.30 입사 → 2.28 해고(그 달 말일에 3개월)', '2,476,800원', await answer(p));
     },
   },
   severance: {
@@ -103,6 +106,10 @@ const FEATURES: Record<string, { path: string; journey: Journey }> = {
       await p.dispatchEvent('#endDate', 'change');
       const periods = await p.evaluate(() => [1, 2, 3].map((i) => document.getElementById('periodText' + i)?.textContent).join(' '));
       step('5.31 퇴직 → 3.1부터', '3.1~3.31 4.1~4.30 5.1~5.30', periods);
+      // 챗봇 답 끝 링크(src/lib/chat/severance-link.ts)와 같은 모양 — 퇴직일 = 마지막 근무일 다음 날, ?run=1 자동 계산
+      await p.goto(`${BASE}/tools/severance.html?start=2023-01-01&end=2026-01-01&w1=3000000&w2=3000000&w3=3000000&run=1`, { waitUntil: 'networkidle' });
+      await p.waitForSelector('#resultArea:visible');
+      step('챗봇 링크로 연 계산기 = 챗봇 답', /8,812,389원/, await answer(p, '#resultArea'));
     },
   },
   exit: {

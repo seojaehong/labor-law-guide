@@ -777,7 +777,7 @@
         </ol>
 
         <div class="guide-tip">
-            <b>참고:</b> 퇴직금 계산은 윤년을 고려한 정밀 재직연수로 산출됩니다. 계산 결과는 근로자퇴직급여보장법 제8조 및 근로기준법 제2조에 따릅니다.
+            <b>참고:</b> 퇴직금은 1일 평균임금 × 30 × 재직일수 ÷ 365 로 계산합니다(고용노동부 퇴직금 계산기와 같은 끝수). 계산 결과는 근로자퇴직급여보장법 제8조 및 근로기준법 제2조에 따릅니다.
         </div>
     </div>
 
@@ -1034,9 +1034,9 @@ const TAX_RATES = [
     { limit: 88_000_000, rate: 0.24, cumulative: 6_240_000 },
     { limit: 150_000_000, rate: 0.35, cumulative: 15_360_000 },
     { limit: 300_000_000, rate: 0.38, cumulative: 37_060_000 },
-    { limit: 500_000_000, rate: 0.40, cumulative: 57_060_000 },
-    { limit: 1_000_000_000, rate: 0.42, cumulative: 97_060_000 },
-    { limit: Infinity, rate: 0.45, cumulative: 127_060_000 }
+    { limit: 500_000_000, rate: 0.40, cumulative: 94_060_000 },
+    { limit: 1_000_000_000, rate: 0.42, cumulative: 174_060_000 },
+    { limit: Infinity, rate: 0.45, cumulative: 384_060_000 }
 ];
 
 const STORAGE_KEY = 'severanceCalcData_v3';
@@ -1146,6 +1146,11 @@ function calcServiceYears(startStr, endStr) {
  * 평균임금 산정기간 — 퇴직일(endStr) 3개월 전 같은 날부터 퇴직일 전날까지, 달마다 나눈다(정본 엔진).
  * 3개월 전에 그날이 없으면 그 달 말일, 2월이면 3월 1일. 입사일(startStr)이 늦으면 입사일부터.
  */
+/** 계속근로 1년 미만인가 — 엔진의 1년 되는 날과 퇴직일을 비교한다(재직일수 365 로 보면 윤년에서 하루 어긋난다) */
+function isUnderOneYear(startStr, endStr) {
+    return endStr < SeveranceEngine.oneYearDate(startStr);
+}
+
 function calc3MonthPeriod(endStr, startStr) {
     return SeveranceEngine.periodSegments(startStr || '0001-01-01', endStr).map((g) => {
         const startDay = Number(g.from.slice(8));
@@ -1193,7 +1198,8 @@ function calculateSeverance(data) {
     const w2 = parseMoney(data.wage2);
     const w3 = parseMoney(data.wage3);
     const w4 = parseMoney(data.wage4);
-    const wageSum = w1 + w2 + w3 + w4;
+    /* 산정기간에 없는 구간(입사 3개월 미만이면 1~2구간)의 칸은 더하지 않는다 */
+    const wageSum = [w1, w2, w3, w4].slice(0, periods.length).reduce((s, v) => s + v, 0);
 
     const bonus = parseMoney(data.bonusTotal);
     const annual = parseMoney(data.annualLeave);
@@ -1872,7 +1878,7 @@ function onCalculate() {
         showToast('퇴사일이 입사일보다 이후여야 합니다.', 'error');
         return;
     }
-    if (days < 365) {
+    if (isUnderOneYear(w.startDate, w.endDate)) {
         if (!confirm(`재직일수가 ${days}일로 1년 미만입니다.\n퇴직금 지급 대상이 아닐 수 있습니다.\n계속 계산하시겠습니까?`)) return;
     }
     const w1 = parseMoney(w.wage1);
@@ -2228,7 +2234,7 @@ function init() {
         if (any && (params.get('run') === '1' || params.get('autocalc') === '1')) {
             saveFormToState();
             setTimeout(() => {
-                if (typeof calculate === 'function') calculate();
+                onCalculate();
             }, 100);
         } else if (any) {
             saveFormToState();

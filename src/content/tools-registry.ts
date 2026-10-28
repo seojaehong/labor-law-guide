@@ -48,6 +48,6 @@ export const TOOLS: ToolEntry[] = [
     sitemap: { lastModified: '2026-07-31', changeFrequency: 'monthly', priority: 0.9 } },
   { href: '/tools/holiday-pay', title: '공휴일 수당 계산기', desc: '노동절(5/1)·관공서 공휴일 근무 시 추가 지급액 계산. 5인 이상/미만 × 월급·일용·시급 6분기. 시급 주휴포함 케이스 자동 분리.', badge: '참고 도구', icon: 'calculator',
     sitemap: { lastModified: '2026-04-29', changeFrequency: 'monthly', priority: 0.9 } },
-  { href: '/tools/severance.html', title: '퇴직금 계산기', desc: '평균임금·통상임금 자동 비교 + 윤년 고려 정밀 재직기간 + 퇴직소득세 산정. 산정서 PDF 출력 가능.', badge: '참고 계산', icon: 'coins', external: true,
+  { href: '/tools/severance.html', title: '퇴직금 계산기', desc: '평균임금·통상임금 자동 비교 + 재직일수 ÷ 365(고용노동부 계산기와 같은 끝수) + 퇴직소득세 산정. 산정서 PDF 출력 가능.', badge: '참고 계산', icon: 'coins', external: true,
     sitemap: { lastModified: '2026-03-15', changeFrequency: 'monthly', priority: 0.85 } },
 ];

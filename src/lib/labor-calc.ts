@@ -3,46 +3,40 @@
 // 산식 정확성: 실제 매장 급여 처리에 사용 중인 검증된 코드와 동일
 
 import { calcSeverance as severanceEngine } from './calc/severance';
+import { checkMinWage as minWageEngine } from './calc/min-wage';
+import { rateOn } from '@/content/rates';
+import { todayKst } from './tool-kit';
+import { severanceLeavePay } from './chat/severance-link';
 
 // ────────────── 1. 최저임금 ──────────────
-const MINIMUM_WAGE_HOURLY: Record<number, number> = {
-  2024: 9_860,
-  2025: 10_030,
-  2026: 10_320,
-};
+// 정본 = src/lib/calc/min-wage.ts(시행령 §5① 환산) + src/content/rates.ts(고시 금액). /tools/min-wage 와 같은 답을 낸다.
+// 고시가 없는 해는 다른 해 값으로 대신하지 않고 오류를 낸다.
 const DEFAULT_MONTHLY_HOURS = 209; // 주40h + 주휴8h = 월 209h
-
-export function getMinWage(year: number): number {
-  if (MINIMUM_WAGE_HOURLY[year]) return MINIMUM_WAGE_HOURLY[year];
-  const latest = Math.max(...Object.keys(MINIMUM_WAGE_HOURLY).map(Number));
-  return MINIMUM_WAGE_HOURLY[latest];
-}
 
 export function checkMinWage(input: {
   base_pay: number;
   fixed_allowances?: number;
   year?: number;
-  monthly_hours?: number;
+  weekly_hours?: number;
 }) {
-  const year = input.year || 2026;
-  const monthly_hours = input.monthly_hours || DEFAULT_MONTHLY_HOURS;
-  const min_hourly = getMinWage(year);
-  const min_monthly = min_hourly * monthly_hours;
-  const actual = input.base_pay + (input.fixed_allowances || 0);
-  const shortfall = Math.max(min_monthly - actual, 0);
-  const actual_hourly = monthly_hours > 0 ? Math.floor(actual / monthly_hours) : 0;
+  const year = input.year || Number(todayKst().slice(0, 4));
+  const rate = rateOn('minWageHourly', `${year}-01-01`);
+  if (!rate) throw new Error(`${year}년 최저임금 고시를 찾지 못했습니다. 고시된 해만 계산합니다.`);
+  const weekly_hours = input.weekly_hours || 40;
+  const r = minWageEngine({ unit: 'month', amount: input.base_pay + (input.fixed_allowances || 0), weeklyHours: weekly_hours, minHourly: rate.value });
+  const won = (n: number) => n.toLocaleString('ko-KR');
   return {
-    ok: actual >= min_monthly,
-    actual,
-    min_monthly,
-    min_hourly,
-    actual_hourly,
-    shortfall,
-    message:
-      actual >= min_monthly
-        ? `최저임금 충족 (시급 ${actual_hourly.toLocaleString('ko-KR')}원 ≥ ${min_hourly.toLocaleString('ko-KR')}원)`
-        : `최저임금 미달 ${shortfall.toLocaleString('ko-KR')}원 부족 (시급 ${actual_hourly.toLocaleString('ko-KR')}원 < ${min_hourly.toLocaleString('ko-KR')}원)`,
-    legal_basis: `최저임금법 제5조, 제6조 / 2026년 시급 ${min_hourly.toLocaleString('ko-KR')}원 (월 ${monthly_hours}h 환산 ${min_monthly.toLocaleString('ko-KR')}원)`,
+    ok: r.meets,
+    actual: r.counted,
+    min_monthly: r.required,
+    min_hourly: rate.value,
+    monthly_hours: r.hours,
+    actual_hourly: r.hourly,
+    shortfall: r.shortfall,
+    message: r.meets
+      ? `${year}년 최저임금 이상 (시간당 ${won(r.hourly)}원 ≥ ${won(rate.value)}원)`
+      : `${year}년 최저임금보다 한 달 ${won(r.shortfall)}원 적음 (시간당 ${won(r.hourly)}원 < ${won(rate.value)}원)`,
+    legal_basis: `최저임금법 제5조·제6조, 시행령 제5조 제1항 / ${rate.basis} 시간급 ${won(rate.value)}원 (주 ${weekly_hours}시간 → 월 ${r.hours}시간 환산 ${won(r.required)}원)`,
   };
 }
 
@@ -178,20 +172,21 @@ export function calcSeverance(input: {
   last_work_date: string;
   wages_3months: [number, number, number]; // 전3, 전2, 전1
   annual_bonus?: number;
+  /** 퇴직 전 1년 동안 받은 연차수당 총액(3/12 를 평균임금에 넣는다) */
+  annual_leave_pay?: number;
+  /** 예전 인자 — annual_leave_pay 가 없을 때만 1일 수당 × 일수로 본다 */
   unused_annual_leave_days?: number;
   annual_leave_daily_wage?: number;
   ordinary_daily_wage?: number;
   include_tax?: boolean; // true 시 퇴직소득세 함께 계산
 }) {
-  const hire = new Date(input.hire_date);
-  const last_work = new Date(input.last_work_date);
   // 정본 엔진(src/lib/calc/severance.ts) — /tools/severance.html·/exit 와 같은 값을 낸다
   const r = severanceEngine({
     hireDate: input.hire_date,
     lastWorkDate: input.last_work_date,
     wageTotal: input.wages_3months.reduce((a, b) => a + b, 0),
     annualBonus: input.annual_bonus || 0,
-    annualLeavePay: (input.annual_leave_daily_wage || 0) * (input.unused_annual_leave_days || 0),
+    annualLeavePay: severanceLeavePay(input),
     dailyOrdinaryWage: input.ordinary_daily_wage || 0,
   });
   const severance_pay = r.amount;
@@ -201,7 +196,7 @@ export function calcSeverance(input: {
     last_work_date: string;
     retirement_date: string;
     service_days: number;
-    service_fraction: number;
+    eligible: boolean;
     three_months_start: string;
     total_days_3m: number;
     wage_total: number;
@@ -220,8 +215,8 @@ export function calcSeverance(input: {
     last_work_date: input.last_work_date,
     retirement_date: r.retirementDate,
     service_days: r.serviceDays,
-    service_fraction: Number((r.serviceDays / 365).toFixed(6)),
-    three_months_start: r.segments[0]?.from ?? r.retirementDate,
+    eligible: r.eligible,
+    three_months_start: r.segments[0].from,
     total_days_3m: r.periodDays,
     wage_total: input.wages_3months.reduce((a, b) => a + b, 0),
     bonus_addition: r.bonusAdd,
@@ -234,11 +229,13 @@ export function calcSeverance(input: {
     legal_basis:
       '근로자퇴직급여 보장법 제8조 + 시행령 제3조 / ' +
       '퇴직금 = 1일평균임금 × 30 × 재직일수 ÷ 365 (고용노동부 퇴직금 계산기와 같은 끝수: 평균임금 소수 둘째 자리 올림, 퇴직금 원 단위 반올림) / ' +
-      '평균임금 = 퇴직 직전 3개월 임금총액 / 총일수 (상여금·연차수당 가산) / 통상임금이 더 높으면 통상임금 사용',
+      '평균임금 = 퇴직 직전 3개월 임금총액 / 총일수 (상여금·연차수당 가산) / 통상임금이 더 높으면 통상임금 사용' +
+      (r.eligible ? '' : ' / ★ 계속근로 1년 미만 — 퇴직급여법 제4조 제1항에 따라 퇴직금 지급 대상이 아니다(금액은 참고값)'),
   };
 
   if (input.include_tax) {
-    const service_years = _ceilServiceYears(hire, last_work);
+    // 근속연수는 퇴직일(마지막 근무일 다음 날)까지 — 계산기 calcServiceYears 와 같은 날을 쓴다
+    const service_years = _ceilServiceYears(new Date(input.hire_date), new Date(r.retirementDate));
     const tax = calcRetirementTax(severance_pay, service_years);
     result.tax = tax;
     result.net_severance = severance_pay - tax.total_tax;
