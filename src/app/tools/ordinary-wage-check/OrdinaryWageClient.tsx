@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import {
-  AGREED_WAGE_NOTICE, KIND_LABEL, OLD_ERA_NOTICE, RIGHT_TO_PAY_NOTICE, ROUNDING_NOTE, TIMES, UNIT_HOURS_NOTE,
+  AGREED_WAGE_NOTICE, KIND_LABEL, OLD_ERA_NOTICE, PERF_YEAR_LABEL, RIGHT_TO_PAY_NOTICE, ROUNDING_NOTE, TIMES, UNIT_HOURS_NOTE,
   baseHours, checkItem, directionSentence, eraLabel, eraOn, fmt2, itemNotes, splitOvertime, sumIncluded, summaryLines,
   type Answer, type Era, type ItemCheck, type ItemKind, type TimesPerYear, type WageItem,
 } from '@/lib/calc/ordinary-wage-check';
@@ -11,8 +11,11 @@ import AnswerCard from '@/components/tool/AnswerCard';
 import FoldedDetail from '@/components/tool/FoldedDetail';
 import { card, inputCls, ink, muted, small, todayKst } from '@/lib/tool-kit';
 
-const TIMES_LABEL: Record<TimesPerYear, string> = { 12: '매달(연 12번)', 6: '격월(연 6번)', 4: '분기(연 4번)', 2: '반기·명절(연 2번)', 1: '연 1번' };
+const TIMES_LABEL: Record<TimesPerYear, string> = {
+  12: '매달(연 12번)', 6: '격월(연 6번)', 4: '분기(연 4번)', 3: '연 3번(설·추석·하계 등)', 2: '반기·명절(연 2번)', 1: '연 1번',
+};
 const DEFAULT_TIMES: Partial<Record<ItemKind, TimesPerYear>> = { bonus: 6, holiday: 2, performance: 1, business: 1 };
+const defaultTimes = (k: ItemKind): TimesPerYear => DEFAULT_TIMES[k] ?? 12;
 const won = (n: number) => `${n.toLocaleString('ko-KR')}원`;
 const num = (s: string) => Number(s.replace(/,/g, '').trim() || '0');
 
@@ -30,19 +33,31 @@ interface Row {
   required: string;
   scheduled: string;
   rate: string;
-  proRata: boolean;
+  /** 지급일 전에 퇴직해도 근무일수에 비례해 지급(U09) */
+  proRataLeave: boolean;
+  /** 일수·출근율을 못 채워도 근무일수에 비례해 지급(U08) */
+  proRataDays: boolean;
   restrict: boolean;
   minimum: string;
-  perfYear: 'current' | 'previous' | 'unknown';
+  perfYear: keyof typeof PERF_YEAR_LABEL;
   baseForAll: string;
 }
 
 function newRow(id: number, kind: ItemKind, o: Partial<Row> = {}): Row {
   return {
-    id, kind, name: KIND_LABEL[kind], amount: '', times: DEFAULT_TIMES[kind] ?? 12,
+    id, kind, name: KIND_LABEL[kind], amount: '', times: defaultTimes(kind),
     regular: 'unknown', uniform: 'unknown', forWork: 'unknown',
-    payday: false, dayMode: 'none', required: '', scheduled: '', rate: '', proRata: false, restrict: false,
+    payday: false, dayMode: 'none', required: '', scheduled: '', rate: '', proRataLeave: false, proRataDays: false, restrict: false,
     minimum: '', perfYear: 'unknown', baseForAll: '', ...o,
+  };
+}
+
+/** 종류를 바꾸면 손대지 않은 이름·지급 횟수는 새 종류의 기본값으로 */
+function changeKind(r: Row, kind: ItemKind): Partial<Row> {
+  return {
+    kind,
+    ...(r.name === KIND_LABEL[r.kind] ? { name: KIND_LABEL[kind] } : {}),
+    ...(r.times === defaultTimes(r.kind) ? { times: defaultTimes(kind) } : {}),
   };
 }
 
@@ -59,7 +74,8 @@ function toItem(r: Row): WageItem {
     employedOnPayday: r.payday,
     workDays: r.dayMode === 'days' ? { required: num(r.required), scheduled: num(r.scheduled) } : undefined,
     attendanceRate: r.dayMode === 'rate' ? num(r.rate) : undefined,
-    proRataOnLeave: r.proRata,
+    proRataOnLeave: r.payday && r.proRataLeave,
+    proRataOnShortDays: r.dayMode !== 'none' && r.proRataDays,
     leaveOrDisciplineOnly: r.restrict,
     minimum: r.kind === 'performance' ? num(r.minimum) : undefined,
     performanceYear: r.kind === 'performance' ? r.perfYear : undefined,
@@ -140,8 +156,8 @@ export default function OrdinaryWageClient() {
 
   const summary = useMemo(() => {
     if (!era) return { error: '연장근로 등을 제공한 날을 넣어 주세요.' };
-    const bad = checked.find((c) => 'error' in c);
-    if (bad && 'error' in bad) return { error: `${bad.row.name}: ${bad.error}` };
+    // 입력 오류가 난 항목은 그 항목 상자에 오류를 보이고 합계에서만 뺀다 — 다른 항목의 답은 그대로 낸다
+    const invalid = checked.filter((c) => 'error' in c).length;
     const items = checked.flatMap((c) => ('item' in c ? [c.item] : []));
     try {
       const h = num(hours);
@@ -152,6 +168,8 @@ export default function OrdinaryWageClient() {
         neu: sumIncluded(items, 'new', h),
         old: sumIncluded(items, 'old', h),
         h,
+        invalid,
+        payday: items.some((i) => i.employedOnPayday),
       };
     } catch (e) {
       return { error: (e as Error).message };
@@ -190,7 +208,7 @@ export default function OrdinaryWageClient() {
             <div className="grid gap-3 sm:grid-cols-2">
               <label className={small} style={muted}>
                 종류
-                <select className={inputCls} value={r.kind} onChange={(e) => set(r.id, { kind: e.target.value as ItemKind })}>
+                <select className={inputCls} value={r.kind} onChange={(e) => set(r.id, changeKind(r, e.target.value as ItemKind))}>
                   {(Object.keys(KIND_LABEL) as ItemKind[]).map((k) => <option key={k} value={k}>{KIND_LABEL[k]}</option>)}
                 </select>
               </label>
@@ -225,10 +243,13 @@ export default function OrdinaryWageClient() {
                     </label>
                     <fieldset className={small} style={muted}>
                       <legend className="mb-1" style={ink}>그 성과급은 어느 기간의 실적분입니까?</legend>
+                      <p className="mb-1">
+                        점검 기준일이 속한 해의 실적분이면 지급이 다음 해여도 그해 통상임금 쪽으로 봅니다. 판결은 지급 시기가 아니라 지급 대상기간으로 가렸습니다(2023다216777).
+                      </p>
                       <div className="flex flex-wrap gap-4">
-                        {([['current', '지급하는 해'], ['previous', '전년도(지급 시기만 올해)'], ['unknown', '모름']] as const).map(([v, label]) => (
+                        {(Object.keys(PERF_YEAR_LABEL) as (keyof typeof PERF_YEAR_LABEL)[]).map((v) => (
                           <label key={v} className="flex items-center gap-2">
-                            <input type="radio" name={q('perfYear')} checked={r.perfYear === v} onChange={() => set(r.id, { perfYear: v })} /> {label}
+                            <input type="radio" name={q('perfYear')} checked={r.perfYear === v} onChange={() => set(r.id, { perfYear: v })} /> {PERF_YEAR_LABEL[v]}
                           </label>
                         ))}
                       </div>
@@ -236,7 +257,9 @@ export default function OrdinaryWageClient() {
                   </div>
                 ) : (
                   <Ask name={q('forWork')} legend="근무시간의 대가: 정해진 근무시간을 빠짐없이 일하면 그 대가로 받는 금액입니까?"
-                    hint="실적 평가·무사고·추가 근무처럼 별도 요건을 달성해야 받는다면 「아니오」입니다."
+                    hint={r.kind === 'family'
+                      ? '부양가족에 따라 주는 금액을 생각해 답합니다. 모두에게 주는 기본금액이 있으면 아래 칸에 넣습니다 — 그 금액은 이 답과 상관없이 봅니다.'
+                      : '실적 평가·무사고·추가 근무처럼 정해진 근무 밖의 요건을 달성해야 받는다면 「아니오」입니다. 지급일 재직·근무일수·출근율 조건은 아래 ‘붙어 있는 조건’에 적고, 그 조건만 있다면 여기는 「예」입니다.'}
                     value={r.forWork} onChange={(a) => set(r.id, { forWork: a })} />
                 )}
                 {r.kind === 'family' && (
@@ -279,10 +302,16 @@ export default function OrdinaryWageClient() {
                       <input inputMode="decimal" className={inputCls} value={r.rate} onChange={(e) => set(r.id, { rate: e.target.value })} />
                     </label>
                   )}
-                  {(r.payday || r.dayMode !== 'none') && (
+                  {r.payday && (
                     <label className="flex items-start gap-2">
-                      <input type="checkbox" className="mt-1" checked={r.proRata} onChange={(e) => set(r.id, { proRata: e.target.checked })} />
-                      지급일 전에 퇴직하거나 일수를 못 채우면 근무일수에 비례해 지급한다(2024. 12. 18.까지 제공분에만 영향)
+                      <input type="checkbox" className="mt-1" checked={r.proRataLeave} onChange={(e) => set(r.id, { proRataLeave: e.target.checked })} />
+                      지급일 전에 퇴직해도 그때까지 근무일수에 비례해 지급한다(2024. 12. 18.까지 제공분에만 영향)
+                    </label>
+                  )}
+                  {r.dayMode !== 'none' && (
+                    <label className="flex items-start gap-2">
+                      <input type="checkbox" className="mt-1" checked={r.proRataDays} onChange={(e) => set(r.id, { proRataDays: e.target.checked })} />
+                      정한 일수(출근율)를 못 채워도 일한 날만큼 일할해 지급한다(2024. 12. 18.까지 제공분에만 영향)
                     </label>
                   )}
                   <label className="flex items-start gap-2">
@@ -340,12 +369,12 @@ export default function OrdinaryWageClient() {
       {'error' in summary ? (
         <section className={card} aria-live="polite"><p className={small} style={ink}>{summary.error}</p></section>
       ) : (
-        <AnswerCard lines={summaryLines(summary.era, summary.checks, summary.cur.hourly)}>
+        <AnswerCard lines={summaryLines(summary.era, summary.checks, summary.cur.hourly, summary.invalid)}>
           <p className={`${small} mt-3`} style={muted}>
             {eraLabel('new')} 시간당 {fmt2(summary.neu.hourly)}원 · {eraLabel('old')} 시간당 {fmt2(summary.old.hourly)}원
           </p>
           {summary.era === 'old' && <p className={`${small} mt-2`} style={ink}>{OLD_ERA_NOTICE}</p>}
-          <p className={`${small} mt-2`} style={muted}>{RIGHT_TO_PAY_NOTICE}</p>
+          {summary.payday && <p className={`${small} mt-2`} style={muted}>{RIGHT_TO_PAY_NOTICE}</p>}
           <p className={`${small} mt-2`} style={muted}>{AGREED_WAGE_NOTICE}</p>
         </AnswerCard>
       )}
