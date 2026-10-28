@@ -307,7 +307,7 @@ export default function RulesReviewClient() {
                 <div key={t} className="rr-card"><b>{t}</b><p>{d}</p></div>
               ))}
             </div>
-            <p className="rr-mute">상위법령(근로기준법·고등교육법 등)과의 대조는 이 단계에 들어 있지 않습니다. 걸린 곳은 확인할 곳 목록이며 위반 여부를 정한 것이 아닙니다.</p>
+            <p className="rr-mute">상위법령(근로기준법·고등교육법 등)과의 대조는 이 단계에 들어 있지 않습니다. 걸린 곳은 확인할 곳 목록이며 어긋남 여부를 정한 것이 아닙니다.</p>
           </section>
 
           <section className="rr-step" aria-labelledby="rr-get">

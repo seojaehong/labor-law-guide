@@ -5,7 +5,8 @@ import {
   parseWorkplaceXml,
   tierFor,
 } from '@/lib/workplace-lookup';
-import { allCopy, FORBIDDEN } from '@/components/biz-no-lookup-copy';
+import { allCopy } from '@/components/biz-no-lookup-copy';
+import { bannedHits } from '@/lib/tool-kit/banned';
 
 // 2026-10-28 실측 응답(삼성전자 1248100998)에서 두 줄만 남긴 것
 const XML = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><response><header><resultCode>00</resultCode><resultMsg>NORMAL SERVICE.</resultMsg></header><body><items><item><addr>경기 수원시 영통구 삼성로 129 (매탄동)</addr><opaBoheomFg>1</opaBoheomFg><post>16677</post><saeopFg>3</saeopFg><saeopjaDrno>1248100998</saeopjaDrno><saeopjangNm>삼성전자(주)서울R&amp;D캠퍼스</saeopjangNm><sangsiInwonCnt>4806</sangsiInwonCnt><seongripDt>20151121</seongripDt><sjEopjongCd>90703</sjEopjongCd><sjEopjongNm>연구 및 개발사업</sjEopjongNm></item><item><addr>인천 서구 봉수대로 19</addr><gyEopjongCd>29199</gyEopjongCd><gyEopjongNm>그 외 기타 일반목적용 기계 제조업</gyEopjongNm><opaBoheomFg>2</opaBoheomFg><saeopjaDrno>1248100998</saeopjaDrno><saeopjangNm>(주)흥영하이테크</saeopjangNm><sangsiInwonCnt>9</sangsiInwonCnt><seongripDt>20110831</seongripDt></item></items><numOfRows>50</numOfRows><pageNo>1</pageNo><totalCount>2</totalCount></body></response>`;
@@ -104,6 +105,6 @@ describe('tierFor', () => {
 describe('copy', () => {
   it('금지어가 없다', () => {
     const text = allCopy();
-    for (const w of FORBIDDEN) expect(text).not.toContain(w);
+    expect(bannedHits(text)).toEqual([]);
   });
 });

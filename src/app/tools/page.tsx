@@ -86,7 +86,7 @@ export default function ToolsIndexPage() {
 
       {/* §3.2 규율 2 — 페이지 바탕 위 --text-xs는 --grey-700이다(secondary는 4.42:1로 미달) */}
       <p className="mt-8 text-xs" style={{ color: 'var(--grey-700)' }}>
-        본 계산기들은 참고용입니다. 분쟁 발생 시 노무사 상담을 권장합니다.
+        본 계산기들은 참고용입니다. 결과는 입력 조건에 따라 달라지니 근거 조문과 함께 확인하세요.
       </p>
     </div>
   );

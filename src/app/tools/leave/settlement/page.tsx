@@ -34,7 +34,7 @@ export default function SettlementPage() {
       </header>
 
       <p className="lv-terms">
-        <strong>무료로 쓰실 수 있습니다.</strong> 법률 자문이 아니라 계산을 도와드리는
+        <strong>무료로 쓰실 수 있습니다.</strong> 법률 판단이 아니라 계산을 도와드리는
         도구이며, 입력값 기준의 참고 결과입니다.
       </p>
 
@@ -89,14 +89,13 @@ export default function SettlementPage() {
             1년 미만 월 단위 연차(11일)는 회계연도 산정과 <strong>별개로</strong> 발생합니다
           </li>
           <li>
-            <strong>연차 사용촉진</strong>을 적법하게 해서 수당 지급 의무가 없어진 경우 —
-            적법성 판정은 사실인정이라 다루지 않습니다
+            <strong>연차 사용촉진</strong>(제61조)으로 수당 지급 의무가 없어진 경우 —
+            절차를 제대로 밟았는지는 사실 확인이 필요해 다루지 않습니다
           </li>
           <li>미사용수당 청구권의 소멸시효는 별도 검토가 필요합니다</li>
         </ul>
         <p className="lv-scope__footer">
-          입력값 기준의 참고 계산입니다. 임금채권 확정이나 분쟁 사안은 별도 검토가 필요합니다.
-         개별 사안의 법적 판단이나 임금채권 확정은 <strong>담당 공인노무사</strong>의 검토를 거치시기 바랍니다.</p>
+          입력값 기준의 참고 계산입니다. 임금채권 확정이나 분쟁 사안은 별도 검토가 필요합니다.</p>
       </section>
     </div>
   );

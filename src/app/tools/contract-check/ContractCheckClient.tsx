@@ -438,7 +438,7 @@ export default function ContractCheckClient() {
                 onChange={(v) => patch({ monthlyTotal: v })}
               />
             </Field>
-            <Field missing={miss('baseWage')} label="기본급" hint="수당을 뺀 기본급. 최저임금 판정에 사용됩니다.">
+            <Field missing={miss('baseWage')} label="기본급" hint="수당을 뺀 기본급. 최저임금 확인에 씁니다.">
               <TextInput
                 ariaLabel="기본급"
                 numeric
@@ -554,7 +554,7 @@ export default function ContractCheckClient() {
             checked={form.hasDaily}
             onChange={(v) => patch({ hasDaily: v })}
             label="주 40시간 미만 단시간 근로이고, 계약서에 요일별 근무시간이 따로 적혀 있어요"
-            hint="적혀 있는 요일별 시간을 그대로 입력하면 초과근로 판정에 사용됩니다."
+            hint="적혀 있는 요일별 시간을 그대로 입력하면 초과근로 확인에 씁니다."
           />
           {form.hasDaily && (
             <div className="space-y-3 rounded-xl border border-dashed p-3" style={{ borderColor: 'var(--color-border)' }}>
@@ -745,7 +745,7 @@ export default function ContractCheckClient() {
                 </div>
                 {f.detail && (
                   <p className="text-xs leading-relaxed" style={{ color: 'var(--color-text-secondary)' }}>
-                    {f.status === 'needs_data' ? `입력하면 판정됩니다 — ${f.detail}` : f.detail}
+                    {f.status === 'needs_data' ? `입력하면 점검합니다 — ${f.detail}` : f.detail}
                   </p>
                 )}
                 {amendMap[f.rule_code] && (
@@ -782,9 +782,8 @@ export default function ContractCheckClient() {
           </div>
 
           <p className="mt-4 text-xs leading-relaxed" style={{ color: 'var(--color-text-tertiary)' }}>
-            본 결과는 입력하신 내용만으로 판정한 간이 자가점검이며 법률자문이 아닙니다. 실제 계약서
-            문안과 근무 실태에 따라 판정이 달라질 수 있으므로, 정확한 판단이 필요하면 노무사 등
-            전문가의 검토를 받아 주세요.
+            본 결과는 입력하신 내용만으로 점검한 참고 결과이며 법률 판단이 아닙니다. 실제 계약서
+            문안과 근무 실태에 따라 결과가 달라질 수 있으니, 근거 조문과 함께 다시 확인해 주세요.
           </p>
         </div>
       )}

@@ -105,7 +105,7 @@ export function PromotionInput() {
                   <th>단계</th>
                   <th>해야 하는 기간</th>
                   <th>실제</th>
-                  <th>판정</th>
+                  <th>대조 결과</th>
                   <th>비고</th>
                 </tr>
               </thead>
@@ -120,7 +120,7 @@ export function PromotionInput() {
                       {w.from && w.to ? `${w.from} ~ ${w.to}` : w.to ? `~ ${w.to}` : "—"}
                     </td>
                     <td data-label="실제">{w.actual ?? "—"}</td>
-                    <td data-label="판정">
+                    <td data-label="대조 결과">
                       <StatusBadge
                         status={
                           w.status === "match"

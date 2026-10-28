@@ -3,7 +3,6 @@ import { DUTIES } from '@/content/duties-data';
 import { fmtDate } from '@/lib/tool-kit';
 import type { Crew, CoveredSpan, HeadcountResult, Note, Plan, PlanAnswer } from '@/lib/headcount-plan';
 
-export const FORBIDDEN = ['판정', '진단', '자문', '상담', '노무사', '적법', '확률'] as const;
 
 export { fmtDate };
 
