@@ -5,8 +5,10 @@
 //   → 기본세율(§55①) = 환산산출세액 → × 근속연수 ÷ 12 = 산출세액(§55②)
 //   → 10원 미만 버림 = 소득세 → 그 10%를 다시 10원 미만 버림 = 지방소득세(지방세법 §103의13①).
 // 근거의 층위가 셋이라 끝수 처리마다 어느 층위인지 적는다.
-//   [조문]   국고금관리법 §47① 납부세액 10원 미만 버림 · §47② 과세표준 1원 미만 버림(지방세기본법 §59 준용)
-//   [프로그램] 국세청 「퇴직소득 세액계산 프로그램」(2022~2026 판 식 동일)의 ROUNDDOWN(…, 0) — 환산급여·환산급여공제·환산산출세액·산출세액
+//   [조문]   국고금관리법 §47① 납부세액 10원 미만 버림(지방세기본법 §59 준용) — 소득세·지방소득세
+//   [프로그램] 국세청 「퇴직소득 세액계산 프로그램」(2022~2026 판 식 동일)의 ROUNDDOWN(…, 0) — 환산급여·환산급여공제·환산산출세액·산출세액.
+//            과세표준도 이 층위다: 원 미만을 버린 두 값의 차(S31 = S29 − S30)라서, 국고금관리법 §47②(과세표준 1원 미만 버림)만
+//            적용한 값보다 1원 높을 수 있다. E1~E3 에서는 그 1원이 10원 절사를 넘겨 소득세가 10원 다르다(§47② 만이면 480/980/480).
 //   [행정 실무] 근속월수 = DATEDIF(입사일, 퇴사일, "M") + 1 — 법령·서식 문구에는 없고 프로그램 영수증 T25 식이 유일한 근거
 // 정수 연산: 곱셈을 먼저 하고 나눈다. 프로그램 식은 ROUNDDOWN(S34/12*n, 0)처럼 나눗셈이 먼저지만 엑셀은 정확값을 냈고,
 //   JS 로 같은 순서를 쓰면 n=15·27·30 에서 1원 모자라 10원 절사 뒤 10원 적다(tests/unit/calc-retirement-tax.test.ts E1~E3).
@@ -16,7 +18,7 @@
 export interface RetirementTaxInput {
   /** 퇴직급여 합계(원). 비과세 소득은 빼고 넣는다 */
   pay: number;
-  /** 입사일 — 근로를 제공하기 시작한 날(시행령 §105①) */
+  /** 근속연수 기산일 — 근로를 제공하기 시작한 날(입사일), 퇴직금 중간정산을 받았으면 퇴직소득중간지급일의 다음 날(시행령 §105①) */
   hireDate: string;
   /** 퇴사일 = 마지막 근무일(서식 「퇴직한 날」). 근로관계가 끝난 다음 날(상실일·노동법상 퇴직일)이 아니다 */
   lastWorkDate: string;
@@ -60,6 +62,9 @@ export const RETIREMENT_TAX_FROM = '2023-01-01';
 
 /** 퇴직급여 상한(원) — 정수 연산이 Number 안전 범위(약 9 × 10^15)를 넘지 않게 한다 */
 const MAX_PAY = 1_000_000_000_000;
+
+/** 입사일 하한 — 법정 기준이 아니라 연도를 잘못 친 날짜(0000·0202년 등)를 막는 입력 확인. 근속 수천 년이 공제로 퇴직급여를 덮어 「0원」이 나오지 않게 한다 */
+const HIRE_FROM = '1900-01-01';
 
 /**
  * 공제표·세율 — 날짜 축. 퇴사일에 맞는 줄이 없으면 계산하지 않는다(rates.ts 와 같은 원칙).
@@ -127,6 +132,7 @@ export function serviceMonths(hireDate: string, lastWorkDate: string): number {
   // 형식을 먼저 본다 — 형식이 다른 문자열끼리 비교하면 '-'(0x2D) < '/'(0x2F) 때문에 엉뚱한 오류가 먼저 나온다
   const [y1, m1, d1] = parse(hireDate, '입사일');
   const [y2, m2, d2] = parse(lastWorkDate, '퇴사일');
+  if (hireDate < HIRE_FROM) throw new Error('입사일을 확인해 주세요');
   if (lastWorkDate < hireDate) throw new Error('퇴사일이 입사일보다 앞섭니다');
   return (y2 - y1) * 12 + (m2 - m1) - (d2 < d1 ? 1 : 0) + 1;
 }
@@ -141,6 +147,7 @@ export function calcRetirementTax(input: RetirementTaxInput): RetirementTaxResul
   if (!Number.isSafeInteger(pay) || pay < 0 || pay > MAX_PAY) throw new Error('퇴직급여를 원 단위로 확인해 주세요');
   parse(hireDate, '입사일');
   parse(lastWorkDate, '퇴사일');
+  if (hireDate < HIRE_FROM) throw new Error('입사일을 확인해 주세요');
   if (lastWorkDate < hireDate) throw new Error('퇴사일이 입사일보다 앞섭니다');
   const t = tableOn(lastWorkDate);
   if (!t) throw new Error('2023년 1월 1일 이후 퇴사만 계산합니다. 그 전 퇴사는 종전 공제표·세율이 적용됩니다(법률 제19196호 부칙 제13조·제14조).');
@@ -160,7 +167,7 @@ export function calcRetirementTax(input: RetirementTaxInput): RetirementTaxResul
   const [, cBase, cPct, cFrom] = t.converted.find(([upTo]) => converted <= upTo)!;
   const convertedDeduction = cBase + Math.floor(((converted - cFrom) * cPct) / 100);
 
-  // 과세표준 = 환산급여 − 환산급여공제 — [조문] 국고금관리법 §47② 1원 미만 버림(정수라 이미 원 단위)
+  // 과세표준 = 환산급여 − 환산급여공제 — [프로그램] 원 미만을 버린 두 값의 차(S31 = S29 − S30). 국고금관리법 §47② 만 적용한 값보다 1원 높을 수 있다(머리 주석)
   const taxBase = converted - convertedDeduction;
 
   // 환산산출세액 = 누진 누계 + 초과분 × 세율 — [프로그램] 원 미만 버림. 구간은 「이하」 포함(§55①)

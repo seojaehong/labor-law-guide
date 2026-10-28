@@ -5,7 +5,7 @@ import { calcRetirementTax } from '@/lib/calc/retirement-tax';
 import AnswerCard from '@/components/tool/AnswerCard';
 import FoldedDetail from '@/components/tool/FoldedDetail';
 import { card, fmtDate, inputCls, ink, muted, small, todayKst } from '@/lib/tool-kit';
-import { CONSEQUENCES, headline } from './copy';
+import { CONSEQUENCES, HIRE_LABEL, HIRE_NOTE, HOMETAX, NOT_COVERED, headline } from './copy';
 
 const won = (n: number) => `${n.toLocaleString('ko-KR')}원`;
 const num = (s: string) => Number(s.replace(/,/g, '').trim() || '0');
@@ -46,7 +46,7 @@ export default function RetirementTaxClient() {
           <input inputMode="numeric" className={inputCls} value={pay} onChange={(e) => setPay(e.target.value)} placeholder="예: 60000000" />
         </label>
         <label className={small} style={muted}>
-          입사일
+          {HIRE_LABEL}
           <input type="date" className={inputCls} value={hire} onChange={(e) => setHire(e.target.value)} />
         </label>
         <label className={small} style={muted}>
@@ -55,6 +55,7 @@ export default function RetirementTaxClient() {
         </label>
         <p className={`${small} sm:col-span-2`} style={muted}>
           퇴사일에는 마지막으로 일한 날을 넣습니다. 그다음 날(4대보험 상실일, 퇴직금 계산의 퇴직일)을 넣으면 근속연수가 1년 늘어 세액이 달라질 수 있습니다.
+          {' '}{HIRE_NOTE}
         </p>
       </section>
 
@@ -71,8 +72,9 @@ export default function RetirementTaxClient() {
           </p>
           <p className={`${small} mt-3`} style={muted}>
             예상 금액입니다. 세무대리·신고서 작성 대행이 아닙니다.{' '}
-            <a href="https://www.hometax.go.kr" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2">홈택스</a>(첫 화면으로 연결)에서
-            퇴직소득 모의계산 메뉴를 찾아 같은 값을 대조해 볼 수 있습니다.
+            홈택스{' '}
+            <a href={HOMETAX.href} target="_blank" rel="noopener noreferrer" className="underline underline-offset-2">{HOMETAX.name}</a>
+            {HOMETAX.note}
           </p>
         </AnswerCard>
       )}
@@ -81,7 +83,7 @@ export default function RetirementTaxClient() {
         <FoldedDetail summary="계산 과정">
           <ol className={`${small} list-decimal space-y-2 pl-5`} style={muted}>
             <li>
-              근속연수 — 입사일부터 퇴사일까지 꽉 찬 달 {r.months - 1}개월 + 1 = {r.months}개월, 12로 나눠 올림 = {r.years}년
+              근속연수 — 입사일에서 퇴사일까지 지난 개월 수 {r.months - 1}개월(1개월 미만 버림) + 1 = {r.months}개월, 12로 나눠 올림 = {r.years}년
             </li>
             <li>
               근속연수공제 — {r.brackets.service[2] === 0
@@ -121,13 +123,7 @@ export default function RetirementTaxClient() {
 
       <FoldedDetail summary="이 계산기가 다루지 않는 것">
         <ul className={`${small} list-disc space-y-1 pl-5`} style={muted}>
-          <li>비과세 퇴직소득, 임원 퇴직소득 한도를 넘는 부분 — 넣은 퇴직급여 전액을 과세 대상으로 봅니다.</li>
-          <li>중간정산(퇴직소득 중간지급)과 같은 해 이전 직장 퇴직금 합산 — 국세청 프로그램도 이 경우는 퇴직소득 확정신고 대상으로 안내합니다.</li>
-          <li>근속연수에서 빼는 기간(소득세법 시행령 제105조 제1항 단서)과 더하는 기간(같은 조 제2항)</li>
-          <li>공적연금 일시금, 건설근로자 퇴직공제금 — 근속연수를 세는 방법이 다릅니다.</li>
-          <li>연금계좌 과세이연과 이연퇴직소득세, 이미 낸 세액과 세액공제</li>
-          <li>2022년 12월 31일 이전 퇴사 — 종전 공제표·세율이 적용됩니다.</li>
-          <li>비거주자, 세액 감면</li>
+          {NOT_COVERED.map((l) => <li key={l}>{l}</li>)}
         </ul>
       </FoldedDetail>
     </div>
