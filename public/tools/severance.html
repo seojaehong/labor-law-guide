@@ -927,6 +927,102 @@
 <script>
 'use strict';
 
+/* @@severance-engine:start — scripts/build-severance-engine.mjs 가 만든다. 손으로 고치지 않는다 */
+const SeveranceEngine = (() => {
+    // 퇴직금 정본 엔진 — 사이트의 퇴직금 계산은 모두 이것을 쓴다(/tools/severance.html 은 생성 스크립트로 안에 넣는다).
+    // 식 = 1일 평균임금 × 30 × 재직일수 ÷ 365 (퇴직급여법 §8①)
+    //   평균임금 = 퇴직일 전 3개월 임금총액(+ 상여·연차수당 3/12) ÷ 그 기간 총일수 (근로기준법 §2①6)
+    //   평균임금이 통상임금보다 낮으면 통상임금 (같은 조 ②)
+    // 끝수는 고용노동부 퇴직금 계산기와 같게 — 1일 평균임금은 소수 둘째 자리까지 올림, 퇴직금은 원 단위 반올림.
+    // 계산은 정수(BigInt, 1일 임금은 전 단위)로 한다. 날짜는 YYYY-MM-DD, 모두 UTC 달력으로 센다.
+    // ⚠ 이 파일은 import 없이 홀로 선다 — html 안에 그대로 옮겨 넣기 때문이다.
+    const DAY = 86400000;
+    function parse(s, what) {
+        const ok = /^\d{4}-\d{2}-\d{2}$/.test(s || '');
+        const t = ok ? Date.parse(`${s}T00:00:00Z`) : NaN;
+        if (!Number.isFinite(t) || new Date(t).toISOString().slice(0, 10) !== s)
+            throw new Error(`${what} 날짜가 올바르지 않습니다: ${s}`);
+        return t;
+    }
+    const ymd = (t) => new Date(t).toISOString().slice(0, 10);
+    const addDays = (s, n) => ymd(parse(s, '날짜') + n * DAY);
+    const diffDays = (later, earlier) => Math.round((parse(later, '날짜') - parse(earlier, '날짜')) / DAY);
+    /**
+     * 3개월 전 같은 날. 그 달에 그날이 없으면 말일(7.31 → 4.30).
+     * 다만 2월에 그날이 없으면(5.29 평년·5.30·5.31) 3월 1일 — 고용노동부 퇴직금 계산기(retire_cal.js setDate)와 같은 규칙이다.
+     */
+    function threeMonthsBefore(s) {
+        const d = new Date(parse(s, '날짜'));
+        const y = d.getUTCFullYear();
+        const m = d.getUTCMonth() - 3;
+        const last = new Date(Date.UTC(y, m + 1, 0)).getUTCDate();
+        if (d.getUTCDate() > last && new Date(Date.UTC(y, m, 1)).getUTCMonth() === 1)
+            return ymd(Date.UTC(y, m + 1, 1));
+        return ymd(Date.UTC(y, m, Math.min(d.getUTCDate(), last)));
+    }
+    /** 평균임금 산정기간 — 퇴직일 3개월 전 같은 날(입사일이 늦으면 입사일)부터 퇴직일 전날까지, 달마다 나눈다 */
+    function periodSegments(hireDate, retirementDate) {
+        const start3 = threeMonthsBefore(retirementDate);
+        let from = start3 < hireDate ? hireDate : start3;
+        const end = addDays(retirementDate, -1);
+        const out = [];
+        while (from <= end) {
+            const d = new Date(parse(from, '날짜'));
+            const monthEnd = ymd(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 0));
+            const to = monthEnd < end ? monthEnd : end;
+            out.push({ from, to, days: diffDays(to, from) + 1, year: d.getUTCFullYear(), month: d.getUTCMonth() + 1 });
+            from = addDays(to, 1);
+        }
+        return out;
+    }
+    /** 입사일부터 1년이 차는 날(그날 퇴직하면 1년 근속). 2월 29일 입사면 다음 해 3월 1일 */
+    function oneYearDate(hireDate) {
+        const d = new Date(parse(hireDate, '입사일'));
+        return ymd(Date.UTC(d.getUTCFullYear() + 1, d.getUTCMonth(), d.getUTCDate()));
+    }
+    function calcSeverance(input) {
+        var _a, _b, _c, _d;
+        parse(input.hireDate, '입사일');
+        const retirementDate = addDays(input.lastWorkDate, 1);
+        const serviceDays = diffDays(retirementDate, input.hireDate);
+        if (serviceDays <= 0)
+            throw new Error('마지막 근무일이 입사일보다 앞섭니다');
+        const segments = periodSegments(input.hireDate, retirementDate);
+        const periodDays = segments.reduce((a, s) => a + s.days, 0);
+        const bonus = (_a = input.annualBonus) !== null && _a !== void 0 ? _a : 0;
+        const leave = (_b = input.annualLeavePay) !== null && _b !== void 0 ? _b : 0;
+        // 12배 해 두면 3/12 가산도 정수로 남는다
+        const base12 = BigInt(Math.round(input.wageTotal)) * BigInt(12) + BigInt(Math.round(bonus)) * BigInt(3) + BigInt(Math.round(leave)) * BigInt(3);
+        // 1일 평균임금(전) = 올림(임금총액 ÷ 일수, 소수 둘째 자리)
+        const den = BigInt(12) * BigInt(periodDays);
+        const avgCents = (base12 * BigInt(100) + den - BigInt(1)) / den;
+        const ordCents = BigInt(Math.round(((_c = input.dailyOrdinaryWage) !== null && _c !== void 0 ? _c : 0) * 100));
+        const wageType = (_d = input.wageType) !== null && _d !== void 0 ? _d : 'auto';
+        const applied = ordCents > BigInt(0) && (wageType === 'ordinary' || (wageType === 'auto' && ordCents > avgCents)) ? 'ordinary' : 'average';
+        const cents = applied === 'ordinary' ? ordCents : avgCents;
+        // 퇴직금 = 반올림(1일 임금 × 30 × 재직일수 ÷ 365)
+        const num = cents * BigInt(30) * BigInt(serviceDays);
+        const amount = Number((num * BigInt(2) + BigInt(36500)) / BigInt(73000));
+        const dailyAverage = Number(avgCents) / 100;
+        return {
+            retirementDate,
+            serviceDays,
+            eligible: retirementDate >= oneYearDate(input.hireDate),
+            segments,
+            periodDays,
+            bonusAdd: (bonus * 3) / 12,
+            leaveAdd: (leave * 3) / 12,
+            baseTotal: Number(base12) / 12,
+            dailyAverage,
+            applied,
+            dailyApplied: Number(cents) / 100,
+            amount,
+        };
+    }
+    return { calcSeverance, periodSegments, oneYearDate };
+})();
+/* @@severance-engine:end */
+
 /* ================================================================
    1. 상수 정의
    ================================================================ */
@@ -1011,9 +1107,9 @@ function parseDateOnlyUTC(value) {
     return date;
 }
 
-/** 해당 월의 일수 반환 (1~12월) */
-function getDaysInMonth(year, month) {
-    return new Date(Date.UTC(year, month, 0)).getUTCDate();
+/** 달력 날짜(YYYY-MM-DD)에 n일을 더한다 */
+function addDaysUTC(value, n) {
+    return new Date(parseDateOnlyUTC(value).getTime() + n * 86400000).toISOString().slice(0, 10);
 }
 
 /** 두 날짜 사이의 일수 차이 (달력일수) */
@@ -1047,116 +1143,20 @@ function calcServiceYears(startStr, endStr) {
 }
 
 /**
- * 정밀 재직연수 계산 (윤년 고려)
- * 입사일부터 퇴사일까지 실제 역년 기준으로 연수 산출
- * @returns {object} { fullYears, remainDays, daysInYear, fraction }
+ * 평균임금 산정기간 — 퇴직일(endStr) 3개월 전 같은 날부터 퇴직일 전날까지, 달마다 나눈다(정본 엔진).
+ * 3개월 전에 그날이 없으면 그 달 말일, 2월이면 3월 1일. 입사일(startStr)이 늦으면 입사일부터.
  */
-function calcPreciseServiceFraction(startStr, endStr) {
-    const start = parseDateOnlyUTC(startStr);
-    const end = parseDateOnlyUTC(endStr);
-
-    let fullYears = 0;
-    let current = new Date(start);
-
-    while (true) {
-        const next = new Date(current);
-        next.setUTCFullYear(next.getUTCFullYear() + 1);
-        if (next <= end) {
-            fullYears++;
-            current = next;
-        } else {
-            break;
-        }
-    }
-
-    /* current = 입사일 + fullYears년 */
-    const remainDays = Math.round((end - current) / (1000 * 60 * 60 * 24));
-
-    /* 현재 시점에서 다음 주년까지의 일수 (365 또는 366) */
-    const nextAnniv = new Date(current);
-    nextAnniv.setUTCFullYear(nextAnniv.getUTCFullYear() + 1);
-    const daysInYear = Math.round((nextAnniv - current) / (1000 * 60 * 60 * 24));
-
-    return {
-        fullYears,
-        remainDays,
-        daysInYear,
-        fraction: fullYears + (remainDays / daysInYear)
-    };
-}
-
-/**
- * 퇴사일 기준 직전 3개월 계산기간 산출
- * - 1일 퇴사: 직전 3개월 완전월 → 3구간
- * - 중도 퇴사: 역산 3개월 → 4구간 (첫/끝 월 일할)
- */
-function calc3MonthPeriod(endStr) {
-    const end = parseDateOnlyUTC(endStr);
-    const endYear = end.getUTCFullYear();
-    const endMonth = end.getUTCMonth() + 1;
-    const endDay = end.getUTCDate();
-
-    const periods = [];
-
-    if (endDay === 1) {
-        /* 1일 퇴사: 직전 3개월 완전월 (3구간) */
-        for (let i = 3; i >= 1; i--) {
-            let m = endMonth - i;
-            let y = endYear;
-            if (m <= 0) { m += 12; y--; }
-            const days = getDaysInMonth(y, m);
-            periods.push({
-                year: y, month: m,
-                startDay: 1, endDay: days, days: days,
-                label: `${y}년 ${m}월`,
-                periodText: `${m}.1~${m}.${days}`
-            });
-        }
-    } else {
-        /* 중도 퇴사: 역산 3개월 → 4구간 */
-        /* 3개월 전 같은 날부터 퇴사일 전일까지 */
-        let startMonth = endMonth - 3;
-        let startYear = endYear;
-        if (startMonth <= 0) { startMonth += 12; startYear--; }
-        /* 시작월의 마지막날 보정 */
-        const startMonthDays = getDaysInMonth(startYear, startMonth);
-        const actualStartDay = Math.min(endDay, startMonthDays);
-
-        /* 구간 1: 시작월 (일할) */
-        const p1Days = startMonthDays - actualStartDay + 1;
-        periods.push({
-            year: startYear, month: startMonth,
-            startDay: actualStartDay, endDay: startMonthDays, days: p1Days,
-            label: `${startYear}년 ${startMonth}월`,
-            periodText: `${startMonth}.${actualStartDay}~${startMonth}.${startMonthDays}`
-        });
-
-        /* 구간 2, 3: 중간 완전월 */
-        for (let i = 2; i >= 1; i--) {
-            let m = endMonth - i;
-            let y = endYear;
-            if (m <= 0) { m += 12; y--; }
-            const days = getDaysInMonth(y, m);
-            periods.push({
-                year: y, month: m,
-                startDay: 1, endDay: days, days: days,
-                label: `${y}년 ${m}월`,
-                periodText: `${m}.1~${m}.${days}`
-            });
-        }
-
-        /* 구간 4: 퇴사월 (일할, 퇴사일 전일까지) */
-        const p4EndDay = endDay - 1;
-        if (p4EndDay >= 1) {
-            periods.push({
-                year: endYear, month: endMonth,
-                startDay: 1, endDay: p4EndDay, days: p4EndDay,
-                label: `${endYear}년 ${endMonth}월`,
-                periodText: `${endMonth}.1~${endMonth}.${p4EndDay}`
-            });
-        }
-    }
-    return periods;
+function calc3MonthPeriod(endStr, startStr) {
+    return SeveranceEngine.periodSegments(startStr || '0001-01-01', endStr).map((g) => {
+        const startDay = Number(g.from.slice(8));
+        const endDay = Number(g.to.slice(8));
+        return {
+            year: g.year, month: g.month,
+            startDay, endDay, days: g.days,
+            label: `${g.year}년 ${g.month}월`,
+            periodText: `${g.month}.${startDay}~${g.month}.${endDay}`
+        };
+    });
 }
 
 /** 알림 토스트 표시 */
@@ -1186,7 +1186,7 @@ function calculateSeverance(data) {
     if (!Number.isFinite(serviceDays) || serviceDays <= 0) return null;
 
     const serviceYears = calcServiceYears(startDate, endDate);
-    const periods = calc3MonthPeriod(endDate);
+    const periods = calc3MonthPeriod(endDate, startDate);
     const totalCalcDays = periods.reduce((s, p) => s + p.days, 0);
 
     const w1 = parseMoney(data.wage1);
@@ -1200,29 +1200,22 @@ function calculateSeverance(data) {
     const bonusAdd = bonus * 3 / 12;
     const annualAdd = annual * 3 / 12;
 
-    const total3Month = wageSum + bonusAdd + annualAdd;
-    const avgWage = total3Month / totalCalcDays;
-
-    /* 통상임금 비교 및 적용임금 결정 (근로기준법 제2조 제2항) */
+    /* 정본 엔진 — 1일 평균임금(소수 둘째 자리 올림) × 30 × 재직일수 ÷ 365, 원 단위 반올림. 통상임금 비교는 근로기준법 제2조 제2항 */
     const dailyOrdinaryWage = parseMoney(data.dailyOrdinaryWage);
-    let appliedWage = avgWage;
-    let wageTypeApplied = 'average';
-
-    if (dailyOrdinaryWage > 0) {
-        if (data.wageType === 'auto') {
-            if (dailyOrdinaryWage > avgWage) {
-                appliedWage = dailyOrdinaryWage;
-                wageTypeApplied = 'ordinary';
-            }
-        } else if (data.wageType === 'ordinary') {
-            appliedWage = dailyOrdinaryWage;
-            wageTypeApplied = 'ordinary';
-        }
-    }
-
-    /* 정밀 재직연수 (윤년 고려) */
-    const svcFraction = calcPreciseServiceFraction(startDate, endDate);
-    const severancePay = appliedWage * 30 * svcFraction.fraction;
+    const engine = SeveranceEngine.calcSeverance({
+        hireDate: startDate,
+        lastWorkDate: addDaysUTC(endDate, -1),
+        wageTotal: wageSum,
+        annualBonus: bonus,
+        annualLeavePay: annual,
+        dailyOrdinaryWage,
+        wageType: data.wageType || 'auto'
+    });
+    const total3Month = engine.baseTotal;
+    const avgWage = engine.dailyAverage;
+    const appliedWage = engine.dailyApplied;
+    const wageTypeApplied = engine.applied;
+    const severancePay = engine.amount;
 
     const priorSev = parseMoney(data.priorSeverance);
 
@@ -1232,7 +1225,7 @@ function calculateSeverance(data) {
     let localTax = 0;
 
     if (data.autoCalcTax) {
-        taxResult = calcRetirementTax(Math.floor(severancePay), serviceYears);
+        taxResult = calcRetirementTax(severancePay, serviceYears);
         retirementTax = taxResult.incomeTax;
         localTax = taxResult.localTax;
     } else {
@@ -1242,13 +1235,12 @@ function calculateSeverance(data) {
 
     const totalTax = retirementTax + localTax;
     const totalDeduction = totalTax + priorSev;
-    const netSeverance = Math.floor(severancePay) - totalDeduction;
+    const netSeverance = severancePay - totalDeduction;
 
     return {
         /* 기본 정보 */
         serviceDays,
         serviceYears,
-        svcFraction,
         periods,
         totalCalcDays,
         /* 임금 */
@@ -1264,8 +1256,7 @@ function calculateSeverance(data) {
         dailyOrdinaryWage,
         appliedWage,
         wageTypeApplied,
-        severancePay: Math.floor(severancePay),
-        severancePayRaw: severancePay,
+        severancePay,
         /* 공제 */
         priorSev,
         retirementTax,
@@ -1546,14 +1537,14 @@ function updateDateInfo() {
     syEl.value = years + '년';
 
     /* 3개월 기간 레이블 업데이트 */
-    const periods = calc3MonthPeriod(endStr);
+    const periods = calc3MonthPeriod(endStr, startStr);
     const has4 = periods.length === 4;
 
-    for (let i = 0; i < Math.min(periods.length, 4); i++) {
+    for (let i = 0; i < 4; i++) {
         const p = periods[i];
-        document.getElementById('monthLabel' + (i + 1)).textContent = p.label;
-        document.getElementById('periodText' + (i + 1)).textContent = p.periodText;
-        document.getElementById('daysText' + (i + 1)).textContent = p.days + '일';
+        document.getElementById('monthLabel' + (i + 1)).textContent = p ? p.label : (i + 1) + '구간';
+        document.getElementById('periodText' + (i + 1)).textContent = p ? p.periodText : '-';
+        document.getElementById('daysText' + (i + 1)).textContent = p ? p.days + '일' : '-';
     }
 
     /* 4구간 열 표시/숨김 */
@@ -1691,14 +1682,6 @@ function renderResult(result) {
 
     const totalDeduction = result.retirementTax + result.localTax + result.priorSev;
 
-    /* svcFraction 호환: 구버전 저장 데이터에 없을 수 있음 */
-    const svcF = result.svcFraction || {
-        fullYears: 0,
-        remainDays: result.serviceDays,
-        daysInYear: 365,
-        fraction: result.serviceDays / 365
-    };
-
     /* 동적 구간 수에 따른 산정서 테이블 생성 */
     const periodCount = p.length;
     const colSpanPer = 2;
@@ -1821,7 +1804,7 @@ function renderResult(result) {
             <tr class="result-row">
                 <th>퇴직금</th>
                 <td colspan="3" class="left">
-                    ${formatMoney(Math.round(result.appliedWage * 100) / 100)} × 30 × (${svcF.fullYears}년 + ${svcF.remainDays}일/${svcF.daysInYear}일) = <strong>${formatMoney(result.severancePay)}원</strong>
+                    ${formatMoney(Math.round(result.appliedWage * 100) / 100)} × 30 × ${formatMoney(result.serviceDays)}일 ÷ 365 = <strong>${formatMoney(result.severancePay)}원</strong>
                 </td>
             </tr>
             <tr style="background:#F5F5F5">

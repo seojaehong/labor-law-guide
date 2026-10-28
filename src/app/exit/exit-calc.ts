@@ -7,6 +7,8 @@
 //   · 「○일 이내」 기한 = 퇴직일을 1일째로 세어 ○일째 되는 날 → 마지막 근무일 + ○일
 //   · 계속근로 1년 = 입사일의 1년 뒤 같은 날까지 근무가 이어졌는지(만 나이 방식). 날수 365로 보지 않는다
 
+import { calcSeverance } from '@/lib/calc/severance';
+
 const DAY = 86_400_000;
 
 export function parseYmd(s: string): Date | null {
@@ -37,14 +39,6 @@ export function addDays(s: string, n: number): string {
 /** n개월 뒤 같은 날. 그 달에 같은 날이 없으면 다음 달 1일로 넘어간다(Date.UTC 규칙) */
 function addMonthsRaw(d: Date, n: number): Date {
   return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + n, d.getUTCDate()));
-}
-
-/** n개월 앞 같은 날. 그 달에 같은 날이 없으면 그 달 말일 — /tools/severance.html calc3MonthPeriod 와 같다 */
-function monthsBeforeClamped(d: Date, n: number): Date {
-  const y = d.getUTCFullYear();
-  const m = d.getUTCMonth() - n;
-  const last = new Date(Date.UTC(y, m + 1, 0)).getUTCDate();
-  return new Date(Date.UTC(y, m, Math.min(d.getUTCDate(), last)));
 }
 
 export function diffDays(later: string, earlier: string): number {
@@ -135,19 +129,12 @@ export interface SeveranceEstimate {
 }
 
 /**
- * 퇴직금 확인용 추정 — 월 급여 × 3 을 3개월 임금총액으로 놓고
+ * 퇴직금 확인용 추정 — 월 급여 × 3 을 3개월 임금총액으로 놓고 정본 엔진(src/lib/calc/severance.ts)으로 센다.
  * 1일 평균임금 × 30 × 재직일수 / 365. 상여·연차수당 가산, 평균임금 제외 기간, 통상임금 비교(§2②)는 넣지 않는다.
  */
 export function estimateSeverance(hireDate: string, lastDay: string, monthlyWage: number): SeveranceEstimate {
-  const retire = retirementDate(lastDay);
-  const start = ymd(monthsBeforeClamped(must(retire, '퇴사일'), 3));
-  const periodStart = start < hireDate ? hireDate : start;
-  const periodDays = diffDays(retire, periodStart);
-  const wageTotal = monthlyWage * 3;
-  const dailyAverage = periodDays > 0 ? wageTotal / periodDays : 0;
-  const serviceDays = diffDays(retire, hireDate);
-  const amount = Math.floor((dailyAverage * 30 * serviceDays) / 365);
-  return { periodStart, periodDays, wageTotal, dailyAverage, amount };
+  const r = calcSeverance({ hireDate, lastWorkDate: lastDay, wageTotal: monthlyWage * 3 });
+  return { periodStart: r.segments[0]?.from ?? r.retirementDate, periodDays: r.periodDays, wageTotal: monthlyWage * 3, dailyAverage: r.dailyAverage, amount: r.amount };
 }
 
 /** 월 소정근로시간 환산 — (주 소정시간 + 주휴시간) × 365 / 7 / 12, 주휴 = 주 소정시간 ÷ 5. 주 40시간 → 209 */
