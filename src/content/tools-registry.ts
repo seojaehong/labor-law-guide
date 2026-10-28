@@ -23,6 +23,8 @@ export const TOOLS: ToolEntry[] = [
     sitemap: { lastModified: '2026-10-28', changeFrequency: 'monthly', priority: 0.9 } },
   { href: '/tools/weekly-holiday-pay', title: '주휴수당 계산기', desc: '시급과 1주 근무시간을 넣으면 1주·한 달 평균 주휴수당을 계산합니다. 주 15시간 미만·결근한 주를 구분하고, 단시간 근로자는 시행령 별표2 방식으로 하루 시간을 셉니다.', badge: '브라우저 계산', icon: 'calculator',
     sitemap: { lastModified: '2026-10-28', changeFrequency: 'monthly', priority: 0.9 } },
+  { href: '/tools/min-wage', title: '최저임금 확인 계산기', desc: '월급·주급·일급·시급을 시간급으로 바꿔 올해와 내년 최저임금과 비교합니다. 매달 주는 상여금·현금 식비 산입, 주 15시간 미만, 수습 90%까지 봅니다.', badge: '브라우저 계산', icon: 'calculator',
+    sitemap: { lastModified: '2026-10-28', changeFrequency: 'monthly', priority: 0.9 } },
   { href: '/tools/leave', title: '연차휴가 계산기', desc: '입사일 기준 발생일수를 계산하고 대장과 대조합니다. 엑셀·붙여넣기 입력과 결과 내려받기를 지원합니다.', badge: '브라우저 계산', icon: 'calculator',
     sitemap: { lastModified: '2026-09-01', changeFrequency: 'monthly', priority: 0.85 } },
   // 연차 도구의 하위 둘은 제목과 쓰임이 따로다 — 묶어서 /tools/leave 하나로만 올리면 그 말로 찾는 사람이 못 온다.
