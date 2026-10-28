@@ -2,6 +2,7 @@ import Link from 'next/link';
 import type { Metadata } from 'next';
 import { publicMetadata } from '@/lib/public-metadata';
 import { SITE_URL } from '@/lib/constants';
+import ToolShell from '@/components/tool/ToolShell';
 import HeadcountClient from './HeadcountClient';
 
 export const metadata: Metadata = publicMetadata({
@@ -22,35 +23,18 @@ export const metadata: Metadata = publicMetadata({
 
 export default function HeadcountPage() {
   return (
-    <div className="layout-tool">
-      <div className="mb-6">
-        <Link href="/tools" className="text-sm text-[var(--grey-700)] hover:text-[var(--color-text-primary)]">
-          ← 계산·점검 도구
-        </Link>
-      </div>
-      <h1 className="t-h2 mb-2" style={{ color: 'var(--color-text-primary)' }}>
-        상시 근로자 수 계산기
-      </h1>
-      <p className="mb-6 text-sm leading-relaxed" style={{ color: 'var(--grey-700)' }}>
-        지금 일하는 직원 수와 더 쓸 사람의 기간을 넣으면 언제부터 언제까지 5인 이상 사업장인지,
-        연차가 생기는지 바로 보여줍니다. 계산은 법이 정한 대로 날짜마다 그 전 1개월을 거슬러 셉니다.
-      </p>
-
+    <ToolShell
+      title="상시 근로자 수 계산기"
+      lead="지금 일하는 직원 수와 더 쓸 사람의 기간을 넣으면 언제부터 언제까지 5인 이상 사업장인지, 연차가 생기는지 바로 보여줍니다. 계산은 법이 정한 대로 날짜마다 그 전 1개월을 거슬러 셉니다."
+      basis={[
+        '근로기준법 시행령 제7조의2 제1항·제2항 — 기준일 전 1개월 연인원 ÷ 가동 일수, 미달일 절반 규칙',
+        '같은 조 제3항 — 연차휴가는 월 단위로 센 인원이 1년 동안 계속 5명 이상일 때',
+        '같은 조 제4항 — 기간제·단시간 포함, 파견 제외, 동거친족은 다른 근로자가 있을 때만',
+        '대법원 2023. 6. 15. 선고 2020도16228 판결 — 주휴일에 실제 근무하지 않은 근로자는 세지 않음',
+      ]}
+      basisNote={<>규모별로 달라지는 의무는 <Link href="/duties" className="underline underline-offset-2">사업장 규모별 사업주 의무</Link>에서 봅니다.</>}
+    >
       <HeadcountClient />
-
-      <div className="mt-10 rounded-xl bg-[var(--grey-100)] p-5 text-sm leading-relaxed" style={{ color: 'var(--grey-700)' }}>
-        <div className="mb-2 font-semibold text-[var(--color-text-primary)]">계산 기준</div>
-        <ul className="list-disc space-y-1 pl-5">
-          <li>근로기준법 시행령 제7조의2 제1항·제2항 — 기준일 전 1개월 연인원 ÷ 가동 일수, 미달일 절반 규칙</li>
-          <li>같은 조 제3항 — 연차휴가는 월 단위로 센 인원이 1년 동안 계속 5명 이상일 때</li>
-          <li>같은 조 제4항 — 기간제·단시간 포함, 파견 제외, 동거친족은 다른 근로자가 있을 때만</li>
-          <li>대법원 2023. 6. 15. 선고 2020도16228 판결 — 주휴일에 실제 근무하지 않은 근로자는 세지 않음</li>
-        </ul>
-        <p className="mt-3">
-          규모별로 달라지는 의무는 <Link href="/duties" className="underline underline-offset-2">사업장 규모별 사업주 의무</Link>에서 봅니다.
-          입력값으로 계산한 참고 결과이며 입력한 내용은 저장되지 않습니다.
-        </p>
-      </div>
-    </div>
+    </ToolShell>
   );
 }

@@ -1,17 +1,11 @@
 // 상시 근로자 수 계산기의 문장은 모두 여기서 만든다. 시험이 이 함수들의 출력 전부를 금지어로 훑는다.
 import { DUTIES } from '@/content/duties-data';
+import { fmtDate } from '@/lib/tool-kit';
 import type { Crew, CoveredSpan, HeadcountResult, Note, Plan, PlanAnswer } from '@/lib/headcount-plan';
 
 export const FORBIDDEN = ['판정', '진단', '자문', '상담', '노무사', '적법', '확률'] as const;
 
-const WEEK = ['일', '월', '화', '수', '목', '금', '토'];
-
-/** 「11월 17일(화)」 — 해가 다르면 「2027년 1월 2일(토)」 */
-export function fmtDate(d: string, today: string): string {
-  const [y, m, day] = d.split('-').map(Number);
-  const w = WEEK[new Date(Date.UTC(y, m - 1, day)).getUTCDay()];
-  return `${y === Number(today.slice(0, 4)) ? '' : `${y}년 `}${m}월 ${day}일(${w})`;
-}
+export { fmtDate };
 
 const short = (d: string) => `${Number(d.slice(5, 7))}.${Number(d.slice(8, 10))}`;
 const avg = (n: number) => n.toFixed(2);

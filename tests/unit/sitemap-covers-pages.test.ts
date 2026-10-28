@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
+import { TOOLS } from '@/content/tools-registry';
 
 // 🔴 2026-10-22. /duties 를 만들고도 사이트맵에 안 넣어 구글이 모르는 채였다.
 //   실측: 사이트맵 1,129건 중 /duties 0건. 같은 상태인 페이지가 여덟이었다.
@@ -41,9 +42,13 @@ function isNoindex(route: string): boolean {
   return parent.length > 1 ? isNoindex(parent) : false;
 }
 
+// 도구 주소는 route.ts 에 글자로 없고 등록부(TOOLS)에서 만들어진다. 둘을 합쳐 본다.
 const sitemapSrc = fs.readFileSync(`${APP}/sitemap/[id]/route.ts`, 'utf8');
 const inSitemap = new Set(
-  [...sitemapSrc.matchAll(/\$\{SITE_URL\}(\/[\w\-./]*)/g)].map(m => m[1]).concat('/'),
+  [...sitemapSrc.matchAll(/\$\{SITE_URL\}(\/[\w\-./]*)/g)]
+    .map(m => m[1])
+    .concat('/')
+    .concat(TOOLS.filter(t => t.sitemap).map(t => t.href)),
 );
 
 describe('만든 페이지는 사이트맵에 들어간다', () => {

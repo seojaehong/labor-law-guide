@@ -13,7 +13,10 @@ import {
   type WorkerKind,
 } from '@/lib/headcount-plan';
 import BizNoLookup from '@/components/BizNoLookup';
-import { CHANGES, basisLine, crewLabel, fmtDate, headline, leaveLines, noteLine, tenLine, whyLines } from './copy';
+import AnswerCard from '@/components/tool/AnswerCard';
+import FoldedDetail from '@/components/tool/FoldedDetail';
+import { card, fmtDate, inputCls, ink, muted, small, todayKst } from '@/lib/tool-kit';
+import { CHANGES, basisLine, crewLabel, headline, leaveLines, noteLine, tenLine, whyLines } from './copy';
 
 const WEEK = ['일', '월', '화', '수', '목', '금', '토'];
 const PRESETS: { label: string; days: number[] }[] = [
@@ -27,15 +30,8 @@ const KIND_LABEL: Record<WorkerKind, string> = {
   dispatched: '파견 직원(세지 않음)',
 };
 
-const todayKst = () => new Date(Date.now() + 9 * 3_600_000).toISOString().slice(0, 10);
 const sameDays = (a: number[], b: number[]) => a.length === b.length && a.every((x, i) => x === b[i]);
 
-const card = 'rounded-xl border border-[var(--color-border)] p-4 sm:p-5';
-const inputCls =
-  'w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-primary)] px-3 py-2 text-base focus:border-[var(--color-accent)] focus:outline-none';
-const small = 'text-sm leading-relaxed';
-const muted = { color: 'var(--grey-700)' };
-const ink = { color: 'var(--color-text-primary)' };
 const chip = (on: boolean) =>
   on
     ? { backgroundColor: 'var(--color-text-primary)', color: 'var(--color-bg-primary)', borderColor: 'var(--color-text-primary)' }
@@ -122,7 +118,6 @@ export default function HeadcountClient() {
   const inspectDate = picked ?? firstStart;
   const inspect = useMemo(() => explainDate(plan, inspectDate), [plan, inspectDate]);
   const ten = tenLine(answer, today);
-  const [lead, ...rest] = headline(answer, today);
 
   return (
     <div className="space-y-6">
@@ -170,9 +165,7 @@ export default function HeadcountClient() {
         </details>
       </section>
 
-      <section className={card} aria-live="polite">
-        <p className="text-lg font-bold leading-snug sm:text-xl" style={ink}>{lead}</p>
-        {rest.map((l) => <p key={l} className="mt-1 text-lg font-bold" style={ink}>{l}</p>)}
+      <AnswerCard lines={headline(answer, today)}>
         <ul className="mt-3 space-y-1.5">
           {whyLines(answer, today).map((l) => <li key={l} className={small} style={muted}>{l}</li>)}
         </ul>
@@ -196,11 +189,9 @@ export default function HeadcountClient() {
         <ul className="mt-5 space-y-1 border-t border-[var(--color-border)] pt-3">
           {answer.notes.map((n) => <li key={n.kind + ('crewId' in n ? n.crewId : '')} className="text-xs leading-relaxed" style={muted}>{noteLine(n, plan, today)}</li>)}
         </ul>
-      </section>
+      </AnswerCard>
 
-      <details className={card}>
-        <summary className="cursor-pointer text-base font-semibold" style={ink}>날짜별 계산 보기</summary>
-        <div className="mt-4 space-y-4">
+      <FoldedDetail summary="날짜별 계산 보기">
           <label className={`${small} block`} style={muted}>
             확인할 날(수당·해고 등 법을 적용할 일이 생긴 날)
             <input type="date" className={inputCls} value={inspectDate} onChange={(e) => setPicked(e.target.value || null)} />
@@ -225,8 +216,7 @@ export default function HeadcountClient() {
               <span key={d.date} className="tabular-nums" style={d.count < 5 ? muted : ink}>{d.date.slice(5)} {d.count}명</span>
             ))}
           </div>
-        </div>
-      </details>
+      </FoldedDetail>
     </div>
   );
 }
