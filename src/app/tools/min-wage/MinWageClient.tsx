@@ -23,10 +23,11 @@ function years(today: string) {
   });
 }
 
-function lineFor(year: number, unit: Unit, r: MinWageResult): string {
-  return r.meets
-    ? `${year}년 최저임금(시간당 ${won(r.applied)}) 이상입니다.`
-    : `${year}년 최저임금(시간당 ${won(r.applied)})보다 ${PER[unit]} ${won(r.shortfall)} 적습니다.`;
+function lineFor(year: number, min: number, unit: Unit, r: MinWageResult): string {
+  const base = r.applied === min
+    ? `${year}년 최저임금(시간당 ${won(min)})`
+    : `${year}년 수습 기준(최저임금 ${won(min)}의 90%, 시간당 ${won(r.applied)})`;
+  return r.meets ? `${base} 이상입니다.` : `${base}보다 ${PER[unit]} ${won(r.shortfall)} 적습니다.`;
 }
 
 export default function MinWageClient() {
@@ -45,6 +46,7 @@ export default function MinWageClient() {
       return {
         rows: ys.map(({ year, min }) => ({
           year,
+          min,
           r: checkMinWage({
             unit, amount: num(amount), monthlyBonus: num(bonus), monthlyWelfareCash: num(welfare),
             weeklyHours: num(weekly), dailyHours: num(daily), minHourly: min,
@@ -105,7 +107,7 @@ export default function MinWageClient() {
       ) : ys.length === 0 || !first ? (
         <section className={card} aria-live="polite"><p className={small} style={ink}>올해 최저임금 고시가 아직 반영되지 않았습니다.</p></section>
       ) : (
-        <AnswerCard lines={out.rows!.map(({ year, r }) => lineFor(year, unit, r))}>
+        <AnswerCard lines={out.rows!.map(({ year, min, r }) => lineFor(year, min, unit, r))}>
           <p className={`${small} mt-3`} style={muted}>
             {unit === 'hour'
               ? `넣은 시급 ${won(first.counted)}을 그대로 비교했습니다.`
