@@ -41,7 +41,8 @@ yarn-error.log*
 next-env.d.ts
 
 # claude / supabase scratch
-.claude/
+.claude/*
+!.claude/skills/
 .bkit/
 supabase/.temp/
 
@@ -78,3 +79,6 @@ __pycache__/
 
 # 스캔 쪽 두 번째 판독(tesseract.js) 워커·코어·한국어 자료 (scripts/copy-tesseract.mjs 가 빌드 때 복사)
 /public/tesseract/
+
+# verify-llg evidence (.claude/skills/verify-llg)
+artifacts/
