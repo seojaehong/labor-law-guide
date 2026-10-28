@@ -5,18 +5,18 @@ import { calcWageDelayInterest, type DelayKind, type WageDelayInput } from '@/li
 import AnswerCard from '@/components/tool/AnswerCard';
 import FoldedDetail from '@/components/tool/FoldedDetail';
 import { card, fmtDate, inputCls, ink, muted, small, todayKst } from '@/lib/tool-kit';
-import { CONSEQUENCES, EXCLUSION_REASONS, FORMULA, headline, itemLine, NOT_COVERED } from './copy';
+import { CONSEQUENCES, EXCLUSION_HINT, EXCLUSION_REASONS, FORMULA, headline, IN_SERVICE_HINT, itemLine, LAST_DAY_HINT, NOT_COVERED } from './copy';
 
 interface Row { kind: DelayKind; amount: string; periodicPayDate: string; paidDate: string }
 
 const num = (s: string) => Number(s.replace(/,/g, '').trim() || '0');
-// 재직 중이면 퇴직 금품은 아직 없다 — 모든 항목을 정기지급일이 있는 임금으로 본다
+// 재직 중이면 퇴직 때 정산하는 임금은 아직 없다 — 모든 항목을 정기지급일이 있는 임금으로 본다
 const kindOf = (r: Row, retired: boolean): DelayKind => (retired ? r.kind : 'periodic');
 
 export default function WageDelayInterestClient() {
   const today = todayKst();
   const [retired, setRetired] = useState(true);
-  const [retireDate, setRetireDate] = useState('');
+  const [lastWorkDay, setLastWorkDay] = useState('');
   const [rows, setRows] = useState<Row[]>([{ kind: 'retirement', amount: '', periodicPayDate: '', paidDate: today }]);
   const [hasExcl, setHasExcl] = useState(false);
   const [exFrom, setExFrom] = useState('');
@@ -25,7 +25,7 @@ export default function WageDelayInterestClient() {
   const set = (i: number, patch: Partial<Row>) => setRows((rs) => rs.map((r, j) => (j === i ? { ...r, ...patch } : r)));
 
   const out = useMemo(() => {
-    if (retired && !retireDate) return { error: '퇴직일(또는 사망일)을 넣어 주세요.' };
+    if (retired && !lastWorkDay) return { error: '마지막 근무일(또는 사망일)을 넣어 주세요.' };
     for (const [i, r] of rows.entries()) {
       if (!r.amount.trim()) return { error: `항목 ${i + 1}의 금액을 넣어 주세요.` };
       if (kindOf(r, retired) === 'periodic' && !r.periodicPayDate) return { error: `항목 ${i + 1}의 정기지급일을 넣어 주세요.` };
@@ -34,7 +34,7 @@ export default function WageDelayInterestClient() {
     if (hasExcl && (!exFrom || !exTo)) return { error: '적용 제외 기간의 시작일과 끝나는 날을 넣어 주세요.' };
     try {
       const base: WageDelayInput = {
-        retireDate: retired ? retireDate : undefined,
+        lastWorkDay: retired ? lastWorkDay : undefined,
         items: rows.map((r) => ({
           kind: kindOf(r, retired),
           amount: num(r.amount),
@@ -43,12 +43,13 @@ export default function WageDelayInterestClient() {
         })),
       };
       const full = calcWageDelayInterest(base);
-      const r = hasExcl ? calcWageDelayInterest({ ...base, exclusions: [{ from: exFrom, to: exTo }] }) : full;
-      return { r, full };
+      // full 은 적용 제외 기간을 넣었을 때만 답 문장에 넘긴다 — 「빼지 않으면」 값과 「겹치지 않아 뺀 날이 없습니다」
+      if (!hasExcl) return { r: full };
+      return { r: calcWageDelayInterest({ ...base, exclusions: [{ from: exFrom, to: exTo }] }), full };
     } catch (e) {
       return { error: (e as Error).message };
     }
-  }, [retired, retireDate, rows, hasExcl, exFrom, exTo]);
+  }, [retired, lastWorkDay, rows, hasExcl, exFrom, exTo]);
 
   const r = 'r' in out ? out.r : undefined;
 
@@ -62,16 +63,16 @@ export default function WageDelayInterestClient() {
             <label className="flex items-center gap-2"><input type="radio" name="retired" checked={!retired} onChange={() => setRetired(false)} /> 재직 중이다</label>
           </div>
         </fieldset>
-        {retired && (
+        {retired ? (
           <>
             <label className={small} style={muted}>
-              퇴직일 또는 사망일
-              <input type="date" className={inputCls} value={retireDate} onChange={(e) => setRetireDate(e.target.value)} />
+              마지막 근무일(사망이면 사망일)
+              <input type="date" className={inputCls} value={lastWorkDay} onChange={(e) => setLastWorkDay(e.target.value)} />
             </label>
-            <p className={small} style={muted}>
-              퇴직일은 근로관계가 끝난 날, 곧 마지막으로 일한 날의 다음 날입니다(4대보험 상실일과 같은 날). 마지막 근무일을 넣으면 기준일이 하루 당겨져 하루치가 더 붙습니다.
-            </p>
+            <p className={small} style={muted}>{LAST_DAY_HINT}</p>
           </>
+        ) : (
+          <p className={`${small} sm:col-span-2`} style={muted}>{IN_SERVICE_HINT}</p>
         )}
       </section>
 
@@ -90,7 +91,7 @@ export default function WageDelayInterestClient() {
               <legend className="mb-1">어떤 돈인가요</legend>
               <div className="flex flex-wrap gap-4">
                 <label className="flex items-center gap-2">
-                  <input type="radio" name={`kind-${i}`} checked={row.kind === 'retirement'} onChange={() => set(i, { kind: 'retirement' })} /> 퇴직금(일시금)·퇴직 때 정산하는 금품
+                  <input type="radio" name={`kind-${i}`} checked={row.kind === 'retirement'} onChange={() => set(i, { kind: 'retirement' })} /> 퇴직금(일시금)·퇴직 때 정산하는 임금
                 </label>
                 <label className="flex items-center gap-2">
                   <input type="radio" name={`kind-${i}`} checked={row.kind === 'periodic'} onChange={() => set(i, { kind: 'periodic' })} /> 정기지급일이 정해진 임금(월급 등)
@@ -130,6 +131,7 @@ export default function WageDelayInterestClient() {
         </label>
         {hasExcl && (
           <div className="mt-3 grid gap-4 sm:grid-cols-2">
+            <p className={`${small} sm:col-span-2`} style={ink}>{EXCLUSION_HINT}</p>
             <ul className={`${small} list-disc space-y-1 pl-5 sm:col-span-2`} style={muted}>
               {EXCLUSION_REASONS.map((l) => <li key={l}>{l}</li>)}
             </ul>
@@ -141,9 +143,6 @@ export default function WageDelayInterestClient() {
               적용 제외 끝나는 날
               <input type="date" className={inputCls} value={exTo} onChange={(e) => setExTo(e.target.value)} />
             </label>
-            <p className={`${small} sm:col-span-2`} style={muted}>
-              사유가 이어진 기간만 빼고 나머지 기간은 그대로 셉니다. 사유에 해당하는지는 이 계산기가 가리지 않습니다.
-            </p>
           </div>
         )}
       </section>
@@ -155,7 +154,7 @@ export default function WageDelayInterestClient() {
           <ul className={`${small} mt-3 space-y-1`} style={muted}>
             {r.items.map((it, i) => <li key={i}>{itemLine(it, i, today)}</li>)}
           </ul>
-          {retired && retireDate && <p className={`${small} mt-2`} style={muted}>퇴직 {fmtDate(retireDate, today)}</p>}
+          {retired && lastWorkDay && <p className={`${small} mt-2`} style={muted}>마지막 근무일 {fmtDate(lastWorkDay, today)}</p>}
         </AnswerCard>
       )}
 
