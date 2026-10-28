@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   computeHeadcount,
+  annualLeaveTimeline,
+  addDays,
   annualLeaveCoverage,
   coverageTimeline,
   type HeadcountInput,
@@ -115,6 +117,23 @@ describe('coverageTimeline — 해당 구간', () => {
   it('대원산업 사례: 11-17부터 12-15까지 5인 이상 규정이 적용된다', () => {
     const spans = coverageTimeline(daewon, '2026-10-01', '2027-01-31');
     expect(spans).toEqual([{ from: '2026-11-17', to: '2026-12-15' }]);
+  });
+});
+
+describe('annualLeaveTimeline', () => {
+  it('날짜마다 annualLeaveCoverage 를 물은 결과와 같다', () => {
+    const grow: HeadcountInput = { ...daewon, workers: [...daewon.workers.slice(0, 4), { name: 'E', start: '2026-12-01', workWeekdays: WEEKDAYS, kind: 'regular' }] };
+    const from = '2027-10-20';
+    const to = '2027-12-10';
+    const slow: { from: string; to: string }[] = [];
+    for (let d = from; d <= to; d = addDays(d, 1)) {
+      if (!annualLeaveCoverage(grow, d).covered) continue;
+      const last = slow.at(-1);
+      if (last && addDays(last.to, 1) === d) last.to = d;
+      else slow.push({ from: d, to: d });
+    }
+    expect(annualLeaveTimeline(grow, from, to)).toEqual(slow);
+    expect(slow[0].from).toBe('2027-11-17');
   });
 });
 

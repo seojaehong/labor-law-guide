@@ -1,43 +1,44 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import Link from 'next/link';
+import { useMemo, useReducer, useState } from 'react';
 import {
-  addDays,
-  annualLeaveCoverage,
-  computeHeadcount,
-  coverageTimeline,
-  type HeadcountInput,
-  type HeadcountWorker,
+  answerPlan,
+  defaultPlan,
+  editPlan,
+  explainDate,
+  nextMonthRange,
+  type Crew,
+  type PlanEdit,
   type WorkerKind,
-} from '@/lib/headcount';
+} from '@/lib/headcount-plan';
+import { CHANGES, basisLine, crewLabel, fmtDate, headline, leaveLines, noteLine, tenLine, whyLines } from './copy';
 
 const WEEK = ['일', '월', '화', '수', '목', '금', '토'];
-const WEEKDAYS = [1, 2, 3, 4, 5];
+const PRESETS: { label: string; days: number[] }[] = [
+  { label: '월~금', days: [1, 2, 3, 4, 5] },
+  { label: '월~토', days: [1, 2, 3, 4, 5, 6] },
+  { label: '매일', days: [0, 1, 2, 3, 4, 5, 6] },
+];
 const KIND_LABEL: Record<WorkerKind, string> = {
-  regular: '근로자(정규·기간제·단시간)',
-  family: '동거친족',
-  dispatched: '파견근로자(제외)',
+  regular: '직원(정규·계약·아르바이트)',
+  family: '함께 사는 가족',
+  dispatched: '파견 직원(세지 않음)',
 };
 
-type Row = HeadcountWorker & { id: number };
-
 const todayKst = () => new Date(Date.now() + 9 * 3_600_000).toISOString().slice(0, 10);
+const sameDays = (a: number[], b: number[]) => a.length === b.length && a.every((x, i) => x === b[i]);
 
-function sampleRows(base: string): Row[] {
-  const start = addDays(base, -20);
-  return [
-    ...['직원 1', '직원 2', '직원 3', '직원 4'].map((name, i) => ({
-      id: i + 1, name, start: '2025-01-01', workWeekdays: WEEKDAYS, kind: 'regular' as const,
-    })),
-    { id: 5, name: '한 달 계약직', start, end: addDays(start, 29), workWeekdays: WEEKDAYS, kind: 'regular' as const },
-  ];
-}
-
-const card = 'rounded-xl border border-[var(--color-border)] p-5';
+const card = 'rounded-xl border border-[var(--color-border)] p-4 sm:p-5';
 const inputCls =
-  'w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-primary)] px-3 py-2 text-sm focus:border-[var(--color-accent)] focus:outline-none';
-const labelCls = 'mb-1 block text-sm font-semibold';
-const fmt = (n: number) => n.toFixed(2);
+  'w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-primary)] px-3 py-2 text-base focus:border-[var(--color-accent)] focus:outline-none';
+const small = 'text-sm leading-relaxed';
+const muted = { color: 'var(--grey-700)' };
+const ink = { color: 'var(--color-text-primary)' };
+const chip = (on: boolean) =>
+  on
+    ? { backgroundColor: 'var(--color-text-primary)', color: 'var(--color-bg-primary)', borderColor: 'var(--color-text-primary)' }
+    : { borderColor: 'var(--color-border)', color: 'var(--color-text-secondary)' };
 
 function WeekToggle({ value, onChange }: { value: number[]; onChange: (v: number[]) => void }) {
   return (
@@ -45,18 +46,8 @@ function WeekToggle({ value, onChange }: { value: number[]; onChange: (v: number
       {WEEK.map((w, i) => {
         const on = value.includes(i);
         return (
-          <button
-            key={w}
-            type="button"
-            aria-pressed={on}
-            onClick={() => onChange(on ? value.filter((x) => x !== i) : [...value, i].sort())}
-            className="h-8 w-8 rounded-md border text-xs font-semibold"
-            style={
-              on
-                ? { backgroundColor: 'var(--color-text-primary)', color: 'var(--color-bg-primary)', borderColor: 'var(--color-text-primary)' }
-                : { borderColor: 'var(--color-border)', color: 'var(--color-text-secondary)' }
-            }
-          >
+          <button key={w} type="button" aria-pressed={on} className="h-10 w-10 rounded-md border text-sm font-semibold" style={chip(on)}
+            onClick={() => onChange(on ? value.filter((x) => x !== i) : [...value, i].sort())}>
             {w}
           </button>
         );
@@ -65,193 +56,172 @@ function WeekToggle({ value, onChange }: { value: number[]; onChange: (v: number
   );
 }
 
+function CrewCard({ crew, openDays, canRemove, edit }: { crew: Crew; openDays: number[]; canRemove: boolean; edit: (e: PlanEdit) => void }) {
+  const dated = !!(crew.from || crew.to);
+  const dates = (
+    <div className="grid grid-cols-2 gap-2">
+      <label className={small} style={muted}>
+        {dated ? '언제부터' : '입사일(1년 안 됐을 때)'}
+        <input type="date" className={inputCls} value={crew.from ?? ''} onChange={(e) => edit({ type: 'period', id: crew.id, from: e.target.value })} />
+      </label>
+      <label className={small} style={muted}>
+        {dated ? '언제까지(비우면 계속)' : '마지막 근무일'}
+        <input type="date" className={inputCls} value={crew.to ?? ''} onChange={(e) => edit({ type: 'period', id: crew.id, to: e.target.value })} />
+      </label>
+    </div>
+  );
+  return (
+    <div className="space-y-3 rounded-lg bg-[var(--grey-100)] p-3">
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-sm font-semibold" style={ink}>{crewLabel(crew)}</span>
+        {canRemove && (
+          <button type="button" className="text-sm" style={muted} onClick={() => edit({ type: 'remove', id: crew.id })}>빼기</button>
+        )}
+      </div>
+      <div className="flex items-center gap-2">
+        <button type="button" aria-label="한 명 줄이기" className="h-11 w-11 rounded-lg border border-[var(--color-border)] text-lg" onClick={() => edit({ type: 'count', id: crew.id, count: crew.count - 1 })}>−</button>
+        <input aria-label="인원" inputMode="numeric" className={`${inputCls} w-16 text-center`} value={crew.count}
+          onChange={(e) => edit({ type: 'count', id: crew.id, count: Number(e.target.value.replace(/\D/g, '')) })} />
+        <button type="button" aria-label="한 명 늘리기" className="h-11 w-11 rounded-lg border border-[var(--color-border)] text-lg" onClick={() => edit({ type: 'count', id: crew.id, count: crew.count + 1 })}>+</button>
+        <span className="text-base" style={ink}>명</span>
+      </div>
+      {dated && dates}
+      <details>
+        <summary className="cursor-pointer text-sm" style={muted}>자세히 — 구분·근무 요일{dated ? '' : '·입사일'}</summary>
+        <div className="mt-3 space-y-3">
+          {!dated && dates}
+          <label className={`${small} block`} style={muted}>
+            구분
+            <select className={inputCls} value={crew.kind} onChange={(e) => edit({ type: 'crew', id: crew.id, patch: { kind: e.target.value as WorkerKind } })}>
+              {(Object.keys(KIND_LABEL) as WorkerKind[]).map((k) => <option key={k} value={k}>{KIND_LABEL[k]}</option>)}
+            </select>
+          </label>
+          <div className="space-y-2">
+            <label className={`${small} flex items-center gap-2`} style={muted}>
+              <input type="checkbox" checked={crew.days === 'site'}
+                onChange={(e) => edit({ type: 'crew', id: crew.id, patch: { days: e.target.checked ? 'site' : openDays } })} />
+              문 여는 날 모두 일함
+            </label>
+            {crew.days !== 'site' && (
+              <WeekToggle value={crew.days} onChange={(v) => edit({ type: 'crew', id: crew.id, patch: { days: v } })} />
+            )}
+          </div>
+        </div>
+      </details>
+    </div>
+  );
+}
+
 export default function HeadcountClient() {
-  const [baseDate, setBaseDate] = useState(todayKst);
-  const [operatingWeekdays, setOperatingWeekdays] = useState<number[]>(WEEKDAYS);
-  const [closedText, setClosedText] = useState('');
-  const [threshold, setThreshold] = useState<5 | 10>(5);
-  const [businessStart, setBusinessStart] = useState('');
-  const [rows, setRows] = useState<Row[]>(() => sampleRows(todayKst()));
-
-  const input: HeadcountInput = useMemo(
-    () => ({
-      operatingWeekdays,
-      closedDates: closedText.match(/\d{4}-\d{2}-\d{2}/g) ?? [],
-      threshold,
-      businessStart: businessStart || undefined,
-      workers: rows.filter((r) => /^\d{4}-\d{2}-\d{2}$/.test(r.start)).map((r) => ({ name: r.name, start: r.start, end: r.end || undefined, workWeekdays: r.workWeekdays, kind: r.kind })),
-    }),
-    [operatingWeekdays, closedText, threshold, businessStart, rows],
-  );
-
-  const valid = /^\d{4}-\d{2}-\d{2}$/.test(baseDate);
-  const result = useMemo(() => (valid ? computeHeadcount(input, baseDate) : null), [input, baseDate, valid]);
-  const leave = useMemo(() => (valid ? annualLeaveCoverage(input, baseDate) : null), [input, baseDate, valid]);
-  const spans = useMemo(
-    () => (valid ? coverageTimeline(input, addDays(baseDate, -92), addDays(baseDate, 92)) : []),
-    [input, baseDate, valid],
-  );
-
-  const update = (id: number, patch: Partial<Row>) => setRows((rs) => rs.map((r) => (r.id === id ? { ...r, ...patch } : r)));
-  const nextId = () => Math.max(0, ...rows.map((r) => r.id)) + 1;
-  const n = threshold;
+  const [today] = useState(todayKst);
+  const [plan, edit] = useReducer(editPlan, today, defaultPlan);
+  const answer = useMemo(() => answerPlan(plan, today), [plan, today]);
+  const firstStart = answer.five.kind === 'spans' && answer.five.spans[0].start !== 'open' ? answer.five.spans[0].start.date : today;
+  const [picked, setPicked] = useState<string | null>(null);
+  const inspectDate = picked ?? firstStart;
+  const inspect = useMemo(() => explainDate(plan, inspectDate), [plan, inspectDate]);
+  const ten = tenLine(answer, today);
+  const [lead, ...rest] = headline(answer, today);
 
   return (
     <div className="space-y-6">
       <section className={card}>
-        <h2 className="t-h4 mb-4" style={{ color: 'var(--color-text-primary)' }}>1. 사업장</h2>
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <div>
-            <label className={labelCls} htmlFor="hc-base">기준일 (수당·해고 등 법을 적용할 일이 생긴 날)</label>
-            <input id="hc-base" type="date" className={inputCls} value={baseDate} onChange={(e) => setBaseDate(e.target.value)} />
-          </div>
-          <div>
-            <label className={labelCls} htmlFor="hc-threshold">기준 인원</label>
-            <select id="hc-threshold" className={inputCls} value={threshold} onChange={(e) => setThreshold(Number(e.target.value) as 5 | 10)}>
-              <option value={5}>5명 (근로기준법 대부분)</option>
-              <option value={10}>10명 (취업규칙 작성·신고, 제93조)</option>
-            </select>
-          </div>
-          <div>
-            <span className={labelCls}>영업 요일</span>
-            <WeekToggle value={operatingWeekdays} onChange={setOperatingWeekdays} />
-          </div>
-          <div>
-            <label className={labelCls} htmlFor="hc-start">사업 시작일 (1개월이 안 됐을 때만)</label>
-            <input id="hc-start" type="date" className={inputCls} value={businessStart} onChange={(e) => setBusinessStart(e.target.value)} />
-          </div>
-          <div className="md:col-span-2">
-            <label className={labelCls} htmlFor="hc-closed">영업 요일 중 쉰 날 (공휴일 휴무 등, YYYY-MM-DD 여러 개)</label>
-            <textarea id="hc-closed" rows={2} className={inputCls} value={closedText} onChange={(e) => setClosedText(e.target.value)} placeholder="2026-12-25, 2027-01-01" />
-          </div>
-        </div>
-      </section>
-
-      <section className={card}>
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-          <h2 className="t-h4" style={{ color: 'var(--color-text-primary)' }}>2. 근로자</h2>
-          <div className="flex gap-2 text-sm">
-            <button type="button" className="rounded-lg border border-[var(--color-border)] px-3 py-1.5" onClick={() => setRows(sampleRows(valid ? baseDate : todayKst()))}>
-              예시: 4명 + 한 달 계약직
-            </button>
-            <button
-              type="button"
-              className="rounded-lg border border-[var(--color-border)] px-3 py-1.5"
-              onClick={() => setRows((rs) => [...rs, { id: nextId(), name: '', start: '', workWeekdays: operatingWeekdays, kind: 'regular' }])}
-            >
-              + 추가
-            </button>
-          </div>
-        </div>
-        <p className="mb-4 text-xs leading-relaxed" style={{ color: 'var(--grey-700)' }}>
-          날짜 칸은 입사일, 마지막 근무일 순서입니다(계속 근무하면 비워 둡니다). 대표자는 넣지 않습니다.
-          근무 요일이 아닌 날(주휴일·휴무일)은 그 사람을 세지 않습니다.
-        </p>
+        <h2 className="t-h4 mb-1" style={ink}>사람</h2>
+        <p className="mb-4 text-sm" style={muted}>대표는 빼고, 아르바이트·계약직은 넣습니다.</p>
         <div className="space-y-3">
-          {rows.map((r) => (
-            <div key={r.id} className="grid grid-cols-1 gap-2 rounded-lg bg-[var(--grey-100)] p-3 md:grid-cols-[1fr_1.4fr_1fr_1fr_auto]">
-              <input aria-label="이름" className={inputCls} value={r.name} placeholder="이름" onChange={(e) => update(r.id, { name: e.target.value })} />
-              <select aria-label="구분" className={inputCls} value={r.kind} onChange={(e) => update(r.id, { kind: e.target.value as WorkerKind })}>
-                {(Object.keys(KIND_LABEL) as WorkerKind[]).map((k) => (
-                  <option key={k} value={k}>{KIND_LABEL[k]}</option>
-                ))}
-              </select>
-              <input aria-label="입사일" type="date" className={inputCls} value={r.start} onChange={(e) => update(r.id, { start: e.target.value })} />
-              <input aria-label="마지막 근무일" type="date" className={inputCls} value={r.end ?? ''} onChange={(e) => update(r.id, { end: e.target.value })} />
-              <button type="button" aria-label="삭제" className="text-sm text-[var(--grey-700)]" onClick={() => setRows((rs) => rs.filter((x) => x.id !== r.id))}>
-                삭제
-              </button>
-              <div className="md:col-span-5">
-                <WeekToggle value={r.workWeekdays} onChange={(v) => update(r.id, { workWeekdays: v })} />
-              </div>
-            </div>
+          {plan.crews.map((c) => (
+            <CrewCard key={c.id} crew={c} openDays={plan.site.openDays} canRemove={plan.crews.length > 1} edit={edit} />
           ))}
         </div>
+        <button type="button" className="mt-3 w-full rounded-lg border border-dashed border-[var(--color-border)] py-2.5 text-sm" style={ink}
+          onClick={() => edit({ type: 'add', ...nextMonthRange(today) })}>
+          + 기간을 정해 더 쓰는 사람
+        </button>
+
+        <h2 className="t-h4 mt-6 mb-2" style={ink}>문 여는 날</h2>
+        <div className="flex flex-wrap gap-2">
+          {PRESETS.map((p) => (
+            <button key={p.label} type="button" aria-pressed={sameDays(plan.site.openDays, p.days)} className="rounded-full border px-4 py-2 text-sm font-semibold"
+              style={chip(sameDays(plan.site.openDays, p.days))} onClick={() => edit({ type: 'site', patch: { openDays: p.days } })}>
+              {p.label}
+            </button>
+          ))}
+        </div>
+        <details className="mt-3">
+          <summary className="cursor-pointer text-sm" style={muted}>요일 직접 고르기 · 쉬는 날 · 사업 시작일</summary>
+          <div className="mt-3 space-y-3">
+            <WeekToggle value={plan.site.openDays} onChange={(v) => edit({ type: 'site', patch: { openDays: v } })} />
+            <label className={`${small} block`} style={muted}>
+              문 여는 요일 중 쉰 날(공휴일 휴무 등, 2026-12-25 처럼 여러 개)
+              <textarea rows={2} className={inputCls} defaultValue={plan.site.closedDates.join(', ')}
+                onChange={(e) => edit({ type: 'site', patch: { closedDates: e.target.value.match(/\d{4}-\d{2}-\d{2}/g) ?? [] } })} />
+            </label>
+            <label className={`${small} block`} style={muted}>
+              사업 시작일(문 연 지 1개월이 안 됐을 때만)
+              <input type="date" className={inputCls} value={plan.site.businessStart ?? ''}
+                onChange={(e) => edit({ type: 'site', patch: { businessStart: e.target.value } })} />
+            </label>
+          </div>
+        </details>
       </section>
 
-      {result && (
-        <section className={card} aria-live="polite">
-          <h2 className="t-h4 mb-3" style={{ color: 'var(--color-text-primary)' }}>3. 산정 결과</h2>
-          <p className="mb-4 text-lg font-bold" style={{ color: 'var(--color-text-primary)' }}>
-            {baseDate} 기준 — {result.covered ? `상시 ${n}명 이상 사업장으로 봅니다` : `상시 ${n}명 이상 사업장으로 보지 않습니다`}
+      <section className={card} aria-live="polite">
+        <p className="text-lg font-bold leading-snug sm:text-xl" style={ink}>{lead}</p>
+        {rest.map((l) => <p key={l} className="mt-1 text-lg font-bold" style={ink}>{l}</p>)}
+        <ul className="mt-3 space-y-1.5">
+          {whyLines(answer, today).map((l) => <li key={l} className={small} style={muted}>{l}</li>)}
+        </ul>
+
+        <h3 className="mt-5 mb-1.5 text-base font-semibold" style={ink}>연차휴가</h3>
+        <ul className="space-y-1.5">
+          {leaveLines(answer, today).map((l) => <li key={l} className={small} style={ink}>{l}</li>)}
+        </ul>
+        {ten && <p className={`${small} mt-3`} style={ink}>{ten}</p>}
+
+        {answer.five.kind !== 'none' && (
+          <>
+            <h3 className="mt-5 mb-1.5 text-base font-semibold" style={ink}>5인 이상으로 보는 기간에 생긴 일에는 다음이 적용됩니다</h3>
+            <ul className="list-disc space-y-1 pl-5">
+              {CHANGES.map((c) => <li key={c.id} className={small} style={ink}>{c.title} <span style={muted}>({c.basis})</span></li>)}
+            </ul>
+            <p className={`${small} mt-2`}><Link href="/duties" className="underline underline-offset-2">규모별 의무 전체 보기</Link></p>
+          </>
+        )}
+
+        <ul className="mt-5 space-y-1 border-t border-[var(--color-border)] pt-3">
+          {answer.notes.map((n) => <li key={n.kind + ('crewId' in n ? n.crewId : '')} className="text-xs leading-relaxed" style={muted}>{noteLine(n, plan, today)}</li>)}
+        </ul>
+      </section>
+
+      <details className={card}>
+        <summary className="cursor-pointer text-base font-semibold" style={ink}>날짜별 계산 보기</summary>
+        <div className="mt-4 space-y-4">
+          <label className={`${small} block`} style={muted}>
+            확인할 날(수당·해고 등 법을 적용할 일이 생긴 날)
+            <input type="date" className={inputCls} value={inspectDate} onChange={(e) => setPicked(e.target.value || null)} />
+          </label>
+          <p className="text-base font-semibold" style={ink}>
+            {fmtDate(inspect.baseDate, today)} — {inspect.covered ? '5인 이상으로 봅니다' : '5인 이상으로 보지 않습니다'}
           </p>
-          <dl className="grid grid-cols-2 gap-3 text-sm md:grid-cols-5">
+          <dl className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-5">
             {[
-              ['산정기간', `${result.periodStart} ~ ${result.periodEnd}`],
-              ['가동 일수', `${result.operatingDays}일`],
-              ['연인원', `${result.personDays}명`],
-              ['평균', `${fmt(result.average)}명`],
-              [`${n}명 미만인 날`, `${result.belowDays}일`],
+              ['거슬러 센 기간', `${inspect.periodStart} ~ ${inspect.periodEnd}`],
+              ['가동 일수', `${inspect.operatingDays}일`],
+              ['연인원', `${inspect.personDays}명`],
+              ['평균', `${inspect.average.toFixed(2)}명`],
+              ['5명 미만인 날', `${inspect.belowDays}일`],
             ].map(([k, v]) => (
-              <div key={k}>
-                <dt style={{ color: 'var(--grey-700)' }}>{k}</dt>
-                <dd className="font-semibold" style={{ color: 'var(--color-text-primary)' }}>{v}</dd>
-              </div>
+              <div key={k}><dt style={muted}>{k}</dt><dd className="font-semibold" style={ink}>{v}</dd></div>
             ))}
           </dl>
-          <p className="mt-4 text-sm leading-relaxed" style={{ color: 'var(--color-text-secondary)' }}>
-            {result.operatingDays === 0
-              ? '산정기간에 가동일이 없습니다. 영업 요일과 쉰 날을 확인하세요.'
-              : result.basis === 'rule1'
-                ? `평균 ${fmt(result.average)}명이고 ${n}명 미만인 날이 가동일의 ${result.covered ? '절반 미만' : '절반 이상'}입니다(시행령 제7조의2 제1항·제2항).`
-                : result.basis === 'rule2-1'
-                  ? `평균은 ${n}명 미만이지만 ${n}명 미만인 날(${result.belowDays}일)이 가동일(${result.operatingDays}일)의 절반 미만이라 ${n}명 이상 사업장으로 봅니다(제2항 제1호).`
-                  : `평균은 ${n}명 이상이지만 ${n}명 미만인 날(${result.belowDays}일)이 가동일(${result.operatingDays}일)의 절반 이상이라 ${n}명 이상 사업장으로 보지 않습니다(제2항 제2호).`}
-          </p>
-
-          <h3 className="mt-6 mb-2 text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>
-            기준일 앞뒤 3개월 중 {n}명 이상으로 보는 기간
-          </h3>
-          {spans.length === 0 ? (
-            <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>없습니다.</p>
-          ) : (
-            <ul className="list-disc pl-5 text-sm" style={{ color: 'var(--color-text-primary)' }}>
-              {spans.map((s) => (
-                <li key={s.from}>{s.from} ~ {s.to}</li>
-              ))}
-            </ul>
-          )}
-          <p className="mt-2 text-xs leading-relaxed" style={{ color: 'var(--grey-700)' }}>
-            이 기간에 생긴 연장·야간·휴일근로, 공휴일, 해고, 휴업에는 {n}명 이상 사업장 규정이 적용됩니다.
-            날짜는 그 일이 생긴 날을 기준일로 다시 넣어 확인하세요.
-          </p>
-
-          {threshold === 5 && leave && (
-            <>
-              <h3 className="mt-6 mb-2 text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>
-                연차휴가(1년 이상 근속자 15일 등) — {leave.covered ? '적용됩니다' : '적용되지 않습니다'}
-              </h3>
-              <p className="mb-2 text-xs leading-relaxed" style={{ color: 'var(--grey-700)' }}>
-                기준일 전 1년을 한 달씩 나눠 열두 달 모두 5명 이상이어야 합니다(제7조의2 제3항). 입사 1년 미만 근로자의
-                1개월 개근 1일(제60조 제2항)은 이 요건에서 빠져 위 1개월 산정으로 봅니다.
-              </p>
-              <div className="flex flex-wrap gap-1">
-                {leave.months.map((m) => (
-                  <span
-                    key={m.periodStart}
-                    title={`${m.periodStart} ~ ${m.periodEnd} 평균 ${fmt(m.average)}명`}
-                    className="rounded px-2 py-1 text-xs"
-                    style={m.covered ? { backgroundColor: 'var(--grey-200)', color: 'var(--grey-700)' } : { border: '1px solid var(--color-border)', color: 'var(--grey-700)' }}
-                  >
-                    {m.periodEnd.slice(0, 7)} {m.covered ? '5명 이상' : '미만'}
-                  </span>
-                ))}
-              </div>
-            </>
-          )}
-
-          <details className="mt-6 text-sm">
-            <summary className="cursor-pointer" style={{ color: 'var(--color-text-secondary)' }}>날짜별 인원 보기</summary>
-            <div className="mt-2 grid grid-cols-3 gap-1 md:grid-cols-6">
-              {result.days.map((d) => (
-                <span key={d.date} className="tabular-nums" style={{ color: d.count < n ? 'var(--grey-700)' : 'var(--color-text-primary)' }}>
-                  {d.date.slice(5)} {d.count}명
-                </span>
-              ))}
-            </div>
-          </details>
-        </section>
-      )}
+          <p className={small} style={muted}>{basisLine(inspect)}</p>
+          <div className="grid grid-cols-3 gap-1 text-sm sm:grid-cols-6">
+            {inspect.days.map((d) => (
+              <span key={d.date} className="tabular-nums" style={d.count < 5 ? muted : ink}>{d.date.slice(5)} {d.count}명</span>
+            ))}
+          </div>
+        </div>
+      </details>
     </div>
   );
 }
