@@ -299,6 +299,41 @@ const FEATURES: Record<string, { path: string; journey: Journey }> = {
       step('G 세 건 합계', /지연이자는 모두 305,805원.*44,985원.*30,684원.*230,136원/, await answer(p));
     },
   },
+  'leave-pay': {
+    path: '/tools/leave-pay',
+    journey: async (p, step) => {
+      // 첫 화면 = 5명 이상 · 재직 중 · 통상 근로자 주 40h·1일 8h · 월급 2,600,000 · 남은 5일
+      const weekly = p.getByLabel('1주 소정근로시간', { exact: true });
+      const paid = p.getByLabel(/^회사가 지급했거나/);
+      step('월 2,600,000 ÷ 209 × 8 × 5 = 497,607(원 미만 마지막에 버림)', '미사용 연차수당은 497,607원입니다', await answer(p));
+      await paid.fill('400000');
+      step('회사 지급액과 대조', '회사 지급액 400,000원보다 97,607원 많습니다', await answer(p));
+      await paid.fill('');
+      await p.getByLabel('4명 이하', { exact: true }).check();
+      step('상시 4명 이하 = 계산하지 않음(별표1)', /법정 연차수당을 계산하지 않습니다.*4명 이하/, await answer(p));
+      await p.getByLabel('5명 이상', { exact: true }).check();
+      await weekly.fill('14');
+      step('주 14시간 = 계산하지 않음(§18③)', '15시간 미만', await answer(p));
+      await weekly.fill('40');
+      await p.getByLabel('했다', { exact: true }).check();
+      step('촉진했다 — 금액 그대로 + 「했다면」 안내', /497,607원.*지급 의무가 없을 수 있습니다.*빼지 않은 값/, await answer(p));
+      await p.getByLabel('퇴직하면서', { exact: true }).check();
+      step('퇴직 시 — 14일 이내(§36)', /퇴직 시 미사용 연차수당은 497,607원.*14일 이내/, await answer(p));
+      await p.getByLabel('입사일로 발생 누계를 센다').check();
+      await p.getByLabel(/^월급\(/).fill('3135000');
+      await p.getByLabel('입사일', { exact: true }).fill('2025-11-01');
+      await p.getByLabel('마지막 재직일').fill('2026-10-31');
+      step('1년 근로 직후 종료 = 11일(2021다227100)', '1,320,000원', await answer(p));
+      await p.getByLabel('마지막 재직일').fill('2026-11-01');
+      step('366일째 재직 = 26일(2022다245419)', '3,120,000원', await answer(p));
+      await p.getByLabel('단시간 근로자').check();
+      await p.getByLabel('시급', { exact: true }).check();
+      await p.getByLabel(/^시급\(/).fill('11000');
+      await weekly.fill('23');
+      await p.getByLabel('통상 근로자라면 생겼을 연차일수').fill('16');
+      step('단시간 16 × 23/40 × 8 = 73.6 → 74시간 × 11,000(별표2)', /814,000원.*남은 연차 74시간/, await answer(p));
+    },
+  },
 };
 
 async function api(step: (n: string, e: string | RegExp, g: string) => void) {
