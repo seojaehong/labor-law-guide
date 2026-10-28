@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import fs from 'node:fs';
 import { calcMidyear, defaultYear, rulesFor, trunc10, type MidyearInput, type MidyearOutcome } from '@/lib/calc/midyear-settlement';
-import { allCopy, effectLines, headline, HOMETAX_LINK, HOMETAX_URL, LIMITS, SCOPE_ITEMS, whyLines } from '@/app/tools/midyear-settlement/copy';
+import {
+  allCopy, effectLines, firstMissing, headline, HOMETAX_LINK, HOMETAX_URL, INPUT_FIELDS, INPUT_GUIDE, LIMITS, SCOPE_ITEMS, SCOPE_STOP, whyLines,
+  type MoneyField,
+} from '@/app/tools/midyear-settlement/copy';
 import { bannedHits } from '@/lib/tool-kit/banned';
 import { TOOLS } from '@/content/tools-registry';
 
@@ -11,7 +14,9 @@ import { TOOLS } from '@/content/tools-registry';
 //   둘은 함께 받을 수 없다 — ⑨1호가 §52⑧ 신청을 하지 않은 경우에만 13만원을 준다.
 // 차감징수 = 결정세액 − 퇴직월 전 달까지 낸 소득세, 10원 미만은 0 쪽으로 버린다(국고금 관리법 §47①).
 // 지방소득세 = 결정세액 × 10%(지방세법 §103의13①, 원 미만 버림) − 이미 낸 지방소득세, 10원 미만 버림(지방세기본법 §59).
-// 기대값은 리서치(261028) 손 계산 · Fraction 오라클(midyear_oracle.py) · 사무소 게이트 세 가지가 맞춘 값이다. 입력은 모두 합성값.
+// 기대값은 리서치(261028) 손 계산과, 저장소 밖 도구 둘 — 법 원문으로 따로 짠 Fraction 오라클(파이썬)과
+//   사무소 게이트(verify_leaver_tax.py, 사무소 로컬) — 이 맞춘 값이다. 두 도구는 이 저장소에 없다.
+//   저장소 안에서 다시 따라갈 수 있는 근거는 아래 중간값 시험(S1·S2·S7·S9)의 손 계산이다. 입력은 모두 합성값.
 
 const base = { year: 2026, lastMonthSimpleTax: 0 };
 const input = (o: Omit<MidyearInput, 'year' | 'lastMonthSimpleTax'> & { lastMonthSimpleTax?: number }): MidyearInput => ({ ...base, ...o });
@@ -110,8 +115,8 @@ describe('중도퇴사 연말정산 — A(보험료 소득공제)·B(표준세�
     expect(rulesFor(2026)!.creditLimit.at(-1)).toEqual({ over: 120_000_000, base: 500_000, num: 1, den: 2, floor: 200_000 });
   });
 
-  // §55① 기본세율표는 퇴직소득세 엔진(labor-calc.ts)과 퇴직금 계산기(severance.html)에도 있다(PR #112 검토 2·14).
-  // 한 곳만 바뀌면 도구끼리 갈리므로, 세 벌이 같은지 여기서 본다.
+  // §55① 기본세율표는 labor-calc.ts·퇴직금 계산기(severance.html)·퇴직소득세 엔진(retirement-tax.ts)에도 있다(PR #112 검토 2·14).
+  // 한 곳만 바뀌면 도구끼리 갈리므로, 네 벌이 같은지 여기서 본다.
   it.each(['src/lib/labor-calc.ts', 'public/tools/severance.html'])('§55① 기본세율표가 %s 와 같다', (file) => {
     const src = fs.readFileSync(file, 'utf8');
     const rows = [...src.matchAll(/\{\s*limit:\s*([\d_]+|Infinity|Number\.POSITIVE_INFINITY),\s*rate:\s*([\d.]+),\s*cumulative:\s*([\d_]+)\s*\}/g)].map((m) => ({
@@ -127,6 +132,28 @@ describe('중도퇴사 연말정산 — A(보험료 소득공제)·B(표준세�
       expect(i === 0 ? 0 : rows[i - 1].limit, `${file} ${i}`).toBe(mine[i].over);
     });
     expect(rows.at(-1)!.limit).toBe(Infinity);
+  });
+
+  // 퇴직소득세 엔진(#115, 이 도구보다 먼저 병합)에도 §55① 표가 있다. 모양이 [상한, 누계, %, 하한] 이라 위 정규식에 걸리지 않아
+  // 따로 본다 — 네 벌 가운데 한 곳만 고치면 도구끼리 갈린다(PR #112 사후 검토 4·9).
+  it('§55① 기본세율표가 src/lib/calc/retirement-tax.ts 와 같다', () => {
+    const src = fs.readFileSync('src/lib/calc/retirement-tax.ts', 'utf8');
+    const block = /rates:\s*\[([\s\S]*?)\n\s*\],/.exec(src);
+    expect(block, 'retirement-tax.ts 의 rates 표를 찾지 못했다').not.toBeNull();
+    const rows = [...block![1].matchAll(/\[\s*([\d_]+|Infinity),\s*([\d_]+),\s*(\d+),\s*([\d_]+)\s*\]/g)].map((m) => ({
+      upTo: m[1] === 'Infinity' ? Infinity : Number(m[1].replace(/_/g, '')),
+      cumulative: Number(m[2].replace(/_/g, '')),
+      pct: Number(m[3]),
+      from: Number(m[4].replace(/_/g, '')),
+    }));
+    const mine = rulesFor(2026)!.taxRates;
+    expect(rows.length).toBe(mine.length);
+    rows.forEach((r, i) => {
+      expect(r.from, `retirement-tax ${i}`).toBe(mine[i].over);
+      expect(r.cumulative, `retirement-tax ${i}`).toBe(mine[i].base);
+      expect(r.pct * (mine[i].den / 100), `retirement-tax ${i}`).toBe(mine[i].num);
+      expect(r.upTo, `retirement-tax ${i}`).toBe(i + 1 < mine.length ? mine[i + 1].over : Infinity);
+    });
   });
 });
 
@@ -149,6 +176,18 @@ describe('퇴직월 간이세액 — 답에는 쓰지 않고, 회사가 먼저 �
     expect(lines).not.toContain('따로 떼지 않고 이 정산액만 반영합니다');
     expect(lines).not.toContain('이미 낸 소득세에 넣지 않았습니다');
   });
+
+  // §86 1호 — 1천원 미만 추징은 징수하지 않는다. 답에만 걸고 영수증 대조값에는 걸지 않으면, 회사가 걷지 않을
+  // 금액을 「차감징수세액」으로 안내하게 된다(PR #112 사후 검토 12).
+  it('S3 + 간이세액 60,000 — 영수증 대조값 +450 은 1천원 미만이라 징수하지 않는 금액이라고 밝힌다', () => {
+    const d = ok(calcMidyear({ ...S3, lastMonthSimpleTax: 60_000 }));
+    expect(d.settleWithSimple).toBe(450); // 1,560,456 − 1,500,000 − 60,000 = 456 → 450
+    const lines = effectLines(d).join(' ');
+    expect(lines).toContain('+450원');
+    expect(lines).toContain('1천원 미만이라 징수하지 않');
+    expect(lines).toContain('소득세법 제86조 제1호');
+    expect(lines).not.toContain('차감징수세액은 +450원으로 예상합니다');
+  });
 });
 
 describe('범위 밖은 멈춘다', () => {
@@ -157,12 +196,24 @@ describe('범위 밖은 멈춘다', () => {
     expect(o).toMatchObject({ kind: 'out', reason: 'small-amount', which: 'income' });
   });
 
-  // 지방세법 §103의13④ — 개인지방소득세 특별징수에 소득세법의 원천징수 규정을 준용 → §86 1호(1천원 미만 부징수)(PR #112 검토 9)
-  it('X3 — 소득세는 1천원 이상인데 지방소득세 추징이 1천원 미만이면 범위 밖', () => {
+  // 지방소득세는 「원천징수하는 소득세의 100분의 10 … 을 소득세 원천징수와 동시에」 특별징수한다(지방세법 §103의13①).
+  // 지방소득세 자체의 1천원 기준은 조문·해석례에서 찾지 못했다(§103의13④ 준용은 추론, §103의60 은 고지서 기준).
+  // 사무소 게이트도 지방에서 멈추지 않는다. 그래서 소득세가 1천원 이상이면 지방은 계산한 금액을 보여 주고,
+  // 확인하지 못했다고 밝힌다(PR #112 사후 검토 2·11·15).
+  it('X3 — 소득세는 1천원 이상이고 지방소득세 추징이 1천원 미만이면, 멈추지 않고 계산한 금액을 보여 준다', () => {
     const o = calcMidyear({ ...S2, paidIncomeTax: 220_000, paidLocalTax: 22_000 }); // 소득세 +5,100, 지방 22,510 − 22,000 = +510
-    expect(o).toMatchObject({ kind: 'out', reason: 'small-amount', which: 'local' });
-    expect(headline(o)[0]).toContain('더 낼 지방소득세가 510원');
-    expect(headline(o).join(' ')).toContain('지방세법 제103조의13 제4항');
+    const d = ok(o);
+    expect(d.settleIncomeTax).toBe(5_100);
+    expect(d.settleLocalTax).toBe(510);
+    expect(headline(o)[1]).toBe('지방소득세는 510원을 더 내는 것으로 예상합니다.');
+    const lines = effectLines(d).join(' ');
+    expect(lines).toContain('지방소득세 510원은 1천원 미만');
+    expect(lines).toContain('확인하지 못해');
+    expect(lines).not.toContain('준용되어');
+  });
+
+  it('지방소득세 추징이 1천원 이상이면 그 안내 문장을 붙이지 않는다', () => {
+    expect(effectLines(ok(calcMidyear(S3))).join(' ')).not.toContain('1천원 미만');
   });
 
   it('환급은 소액이어도 멈추지 않는다', () => {
@@ -217,6 +268,61 @@ describe('입력 확인', () => {
   });
 });
 
+// 화면 입력 칸 — 이름과 빈 칸 확인은 copy.ts 에 두고 화면이 그대로 쓴다.
+describe('입력 칸', () => {
+  // 보험료는 퇴직월 급여에서도 뗀다(§52① 「해당 과세기간에 … 근로자가 부담하는 보험료를 지급한 경우」, 사무소 게이트도 퇴직월분 포함).
+  // 세금 칸만 「퇴직월 전 달까지」라 보험료 칸에 끝 달이 없으면 같은 기준으로 읽고 한 달치를 빼기 쉽다(PR #112 사후 검토 3).
+  it('4대보험료 칸 이름에 「퇴직월까지」가 있고, 안내 문단이 보험료와 세금의 끝 달을 나눠 말한다', () => {
+    const label = (k: MoneyField) => INPUT_FIELDS.find((f) => f.key === k)!.label;
+    for (const k of ['pension', 'health', 'longTermCare', 'employment'] as const) expect(label(k)).toContain('퇴직월까지');
+    expect(label('paidIncomeTax')).toContain('퇴직월 전 달까지');
+    expect(label('paidLocalTax')).toContain('퇴직월 전 달까지');
+    const guide = INPUT_GUIDE.join(' ');
+    expect(guide).toContain('4대보험료는 퇴직월분까지');
+    expect(guide).toContain('이미 낸 세금은 퇴직월 전 달까지');
+  });
+
+  // 운영 절차(verify.mts)가 칸을 이 글자로 집는다 — 부분 일치라 이름이 길어져도 이 글자는 남아야 한다
+  it('칸 이름이 운영 절차가 집는 글자를 그대로 품는다', () => {
+    const labels = INPUT_FIELDS.map((f) => f.label);
+    for (const w of ['받은 급여 합계', '비과세 급여 합계', '국민연금', '건강보험료', '장기요양보험료', '고용보험료', '이미 낸 소득세', '이미 낸 지방소득세', '퇴직월 간이세액']) {
+      expect(labels.filter((l) => l.includes(w)), w).toHaveLength(1);
+    }
+  });
+
+  // 빈 칸을 0 으로 읽으면 이미 낸 세금 0 · 보험료 0 으로 계산한 답이 「예상」으로 나간다(PR #112 사후 검토 8).
+  // S2 에서 지방소득세 칸만 비우면 소득세는 −74,890 환급인데 지방은 +22,510 추징이라는 모순된 답이 나왔다.
+  const S2_TEXT = Object.fromEntries(
+    INPUT_FIELDS.map((f) => [f.key, String((S2 as unknown as Record<string, number>)[f.key])]),
+  ) as Record<MoneyField, string>;
+
+  it('S2 를 다 채우면 빈 칸 안내가 없다 · 0 도 채운 것으로 본다', () => {
+    expect(firstMissing(S2_TEXT)).toBeNull();
+    expect(firstMissing({ ...S2_TEXT, nonTaxable: '0', paidLocalTax: '0' })).toBeNull();
+  });
+
+  it('퇴직월 간이세액(대조용)은 비워도 된다', () => {
+    expect(firstMissing({ ...S2_TEXT, lastMonthSimpleTax: '' })).toBeNull();
+  });
+
+  it.each([
+    ['paidLocalTax', '이미 낸 지방소득세'],
+    ['paidIncomeTax', '이미 낸 소득세'],
+    ['health', '건강보험료'],
+    ['pension', '국민연금'],
+    ['nonTaxable', '비과세 급여 합계'],
+  ] as const)('%s 칸을 비우면 계산하지 않고 그 칸을 채워 달라고 한다', (key, word) => {
+    const msg = firstMissing({ ...S2_TEXT, [key]: '  ' });
+    expect(msg).toContain(word);
+    expect(msg).toContain('0을 넣어 주세요');
+  });
+
+  it('다 비어 있으면 받은 급여 합계부터 묻는다(운영 절차가 이 글자를 본다)', () => {
+    const blank = Object.fromEntries(INPUT_FIELDS.map((f) => [f.key, ''])) as Record<MoneyField, string>;
+    expect(firstMissing(blank)).toBe('받은 급여 합계를 넣어 주세요.');
+  });
+});
+
 describe('10원 미만 버림은 0 쪽으로', () => {
   it.each([
     [-74_896, -74_890],
@@ -264,10 +370,50 @@ describe('화면 문장', () => {
     expect(LIMITS.join(' ')).toContain('소득세법 제137조 제3항');
   });
 
-  // §59의4⑨1호가 13만원 배제 사유로 드는 §52④⑤(주택자금)·조특법 소득공제와 §51① 추가공제도 범위 질문에 넣는다(PR #112 검토 4·8)
+  // 범위 질문은 고정형과 회사 정산이 달라지는 공제를 묻는다(PR #112 검토 4·8). 그중 §59의4⑨1호가 13만원 배제 사유로 드는 것은
+  //   §59의4⑥(특별세액공제)·§52⑧(보험료·주택자금 §52①④⑤)·조특법 §95의2③(월세) 신청뿐이다.
+  //   주택청약(조특법 §87)·신용카드(조특법 §126의2) 소득공제와 §51① 추가공제는 배제 사유가 아니지만 과세표준이 달라져 묻는다
+  //   (PR #112 사후 검토 14 — 앞 주석이 ⑨1호가 조특법 소득공제를 든다고 잘못 적었다).
   it('범위 질문이 소득공제 쪽(추가공제·주택자금·주택청약·신용카드)도 묻는다', () => {
     const s = SCOPE_ITEMS.join(' ');
     for (const w of ['추가공제', '주택임차차입금', '장기주택저당차입금', '주택청약', '신용카드']) expect(s).toContain(w);
+  });
+
+  // 조특법 §92① — 2026. 12. 31. 이전 혼인신고, 1회, 그 과세기간 산출세액에서 50만원. 신청했으면 회사 정산과 50만원이 갈린다
+  // (PR #112 사후 검토 10)
+  it('범위 질문이 혼인세액공제를 묻는다', () => {
+    expect(SCOPE_ITEMS.join(' ')).toContain('혼인세액공제');
+    expect(LIMITS.join(' ')).toContain('혼인세액공제');
+  });
+
+  // 「본인 기본공제와 4대보험료만」은 B 경로(건강·장기요양·고용보험료 빼고 표준세액공제 13만원)와 맞지 않는다(PR #112 사후 검토 16)
+  it('소개 문구가 「4대보험료만 넣는」 고정형이라고 하지 않는다', () => {
+    const t = TOOLS.find((x) => x.href === '/tools/midyear-settlement')!;
+    const page = fs.readFileSync('src/app/tools/midyear-settlement/page.tsx', 'utf8');
+    for (const s of [t.desc, page, SCOPE_STOP.join(' ')]) {
+      expect(s).not.toContain('4대보험료만');
+      expect(s).toContain('표준세액공제');
+    }
+  });
+
+  // 끝수 처리를 홈택스와 대조하지 못했다고 LIMITS 에 적었으니, 근거 줄도 영수증과 「맞는다」고 단정하지 않는다(PR #112 사후 검토 5)
+  it('근거 줄이 다른 경로의 영수증 금액과 「맞습니다」라고 단정하지 않는다', () => {
+    for (const s of [S2, S3]) {
+      const lines = whyLines(ok(calcMidyear(s))).join(' ');
+      expect(lines).not.toContain('맞습니다');
+      expect(lines).toContain('대조합니다');
+    }
+  });
+
+  // 답이 아닌 경로의 정산액에도 §86 1호를 밝힌다 — S2 에서 이미 낸 소득세 321,000 이면 A 는 +840(징수하지 않음), 답은 B −95,890
+  it('A·B 근거 줄의 1천원 미만 추징에 「징수하지 않음」을 붙인다', () => {
+    const d = ok(calcMidyear({ ...S2, paidIncomeTax: 321_000, paidLocalTax: 32_000 }));
+    expect(d.method).toBe('B');
+    expect(d.a.settleIncomeTax).toBe(840);
+    expect(d.settleIncomeTax).toBe(-95_890);
+    const lines = whyLines(d).join(' ');
+    expect(lines).toContain('소득세 +840원(1천원 미만이라 징수하지 않음, 소득세법 제86조 제1호)');
+    expect(lines).toContain('소득세 −95,890원·');
   });
 
   // 홈택스 깊은 주소는 확인하지 못했다 — 첫 화면으로 간다는 것을 글자로 드러낸다(PR #112 검토 3·13)

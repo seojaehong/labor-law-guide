@@ -10,8 +10,10 @@
 //   §137③(신고서를 내지 않으면 본인 기본공제·표준세액공제만) 문언과의 관계는 제품 결정 대기(PR #112 미확정 1).
 // 차감징수 = 결정세액 − 퇴직월 전 달까지 낸 소득세. 퇴직월 간이세액은 답에 쓰지 않고,
 //   회사가 그것을 먼저 떼고 기납부(§137①3호)로 넣어 정산한 경우의 영수증 값(settleWithSimple)만 따로 낸다.
-// 범위 밖(멈춤): 기준을 넣지 않은 해 · 총급여 1.2억원 이상 · 차감 소득세 또는 지방소득세 1천원 미만 추징
-//   (소득세법 §86 1호 소액부징수, 지방소득세는 지방세법 §103의13④ 준용).
+// 범위 밖(멈춤): 기준을 넣지 않은 해 · 총급여 1.2억원 이상 · 차감 소득세 1천원 미만 추징(소득세법 §86 1호 소액부징수).
+//   지방소득세는 「원천징수하는 소득세의 100분의 10 … 을 소득세 원천징수와 동시에」 특별징수한다(지방세법 §103의13①).
+//   지방소득세 자체의 1천원 기준은 조문·해석례에서 찾지 못해(§103의13④ 준용은 추론, §103의60 은 고지서 기준) 멈추지 않고
+//   계산한 금액을 보여 준다 — 사무소 게이트와 실수령액 계산기(take-home-pay)도 같다(PR #112 사후 검토 2·11).
 //   부양가족·종전 근무지·감면(조특법 §30) 등 숫자로 알 수 없는 것은 화면이 먼저 묻는다.
 //
 // 정수 연산: 비율은 분자/분모 정수로 두고 버림은 floorDiv 하나로 한다(부동소수 누적 없음).
@@ -19,7 +21,8 @@
 // 원 미만 버림 지점은 다섯 곳 — 근로소득공제 · 과세표준 · 산출세액 · 근로소득세액공제 · 결정세액.
 //   조문 근거가 있는 것은 과세표준(국고금 관리법 §47② 「1원 미만의 끝수 … 계산하지 아니한다」)뿐이다.
 //   나머지는 근로소득 원천징수영수증 서식이 칸마다 원 단위로 적는 방식과, 국세청 영수증 4건으로 맞춘
-//   사무소 게이트(verify_leaver_tax.py)를 따른 것이다. 끝에서 한 번만 버리면 1원이 갈려 차감이 10원 어긋날 수 있다(시험 S9).
+//   사무소 게이트(verify_leaver_tax.py — 사무소 로컬 도구, 이 저장소에는 없다)를 따른 것이다.
+//   끝에서 한 번만 버리면 1원이 갈려 차감이 10원 어긋날 수 있다(시험 S9).
 
 /** 「over 초과분 × num/den + base」 한 구간 */
 interface Bracket { over: number; base: number; num: number; den: number }
@@ -194,7 +197,7 @@ export type MidyearOutcome =
   | { kind: 'ok'; detail: MidyearDetail }
   | { kind: 'out'; reason: 'year'; year: number }
   | { kind: 'out'; reason: 'high-pay'; gross: number; stop: number }
-  | { kind: 'out'; reason: 'small-amount'; which: 'income' | 'local'; detail: MidyearDetail };
+  | { kind: 'out'; reason: 'small-amount'; which: 'income'; detail: MidyearDetail };
 
 const FIELDS: [keyof MidyearInput, string][] = [
   ['totalPay', '받은 급여 합계'],
@@ -268,9 +271,8 @@ export function calcMidyear(input: MidyearInput): MidyearOutcome {
     paidIncomeTax: input.paidIncomeTax, lastMonthSimpleTax: simple, settleIncomeTax: pick.settleIncomeTax, settleWithSimple,
     decidedLocal: pick.decidedLocal, paidLocalTax: input.paidLocalTax, settleLocalTax: pick.settleLocalTax,
   };
-  // 소득세법 §86 1호 — 원천징수세액 1천원 미만은 징수하지 않는다. 더 내는 경우만(돌려받는 것은 대상 아님)
+  // 소득세법 §86 1호 — 원천징수세액 1천원 미만은 징수하지 않는다. 더 내는 경우만(돌려받는 것은 대상 아님).
+  // 지방소득세 1천원 미만 추징은 멈추지 않는다 — 위 머리 주석.
   if (detail.settleIncomeTax > 0 && detail.settleIncomeTax < 1_000) return { kind: 'out', reason: 'small-amount', which: 'income', detail };
-  // 지방세법 §103의13④ — 개인지방소득세 특별징수에 소득세법의 원천징수 규정을 준용하므로 §86 1호가 걸린다고 보고 멈춘다
-  if (detail.settleLocalTax > 0 && detail.settleLocalTax < 1_000) return { kind: 'out', reason: 'small-amount', which: 'local', detail };
   return { kind: 'ok', detail };
 }
