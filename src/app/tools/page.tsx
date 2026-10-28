@@ -30,6 +30,7 @@ interface ToolItem {
 
 const tools: ToolItem[] = [
   { href: '/duties', title: '사업장 규모별 사업주 의무', desc: '상시 근로자 수(5인 미만~50인 이상)를 고르면 지켜야 할 노동법 의무와 법정 의무교육, 위반 시 제재를 조문 기준으로 보여줍니다. 규모가 커질 때 새로 생기는 의무도 함께 봅니다.', badge: '기준 정리', Icon: FileCheck2 },
+  { href: '/tools/headcount', title: '상시 근로자 수 계산기', desc: '근로자와 근무 요일을 넣으면 기준일 전 1개월 연인원 ÷ 가동 일수로 5인 이상 여부를 세고, 5인 이상으로 보는 기간과 연차 1년 요건을 함께 보여줍니다. 한 달 계약직을 쓸 때 언제까지 영향이 남는지 확인합니다.', badge: '브라우저 계산', Icon: Calculator },
   { href: '/tools/leave', title: '연차휴가 계산기', desc: '입사일 기준 발생일수를 계산하고 대장과 대조합니다. 엑셀·붙여넣기 입력과 결과 내려받기를 지원합니다.', badge: '브라우저 계산', Icon: Calculator },
   { href: '/tools/leave/advanced', title: '연차 사용촉진', desc: '1년 이상·미만 연차의 촉구·통보 기간을 구분해 확인합니다. 실제 기록과 날짜만 대조하며 적법성을 판정하지 않습니다.', badge: '일정 대조', Icon: FileCheck2 },
   { href: '/tools/leave/settlement', title: '퇴직 연차 정산', desc: '회계연도 실제 부여 누계와 입사일 기준 누계를 비교합니다. 발생일수·사용분·수당 지급분을 구분해 입력합니다.', badge: '참고 계산', Icon: Calculator },

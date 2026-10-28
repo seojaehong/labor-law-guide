@@ -209,6 +209,9 @@ export default function DutiesClient() {
             아르바이트를 빼고 세다가 실제로는 5명 이상으로 판정되는 일이 많습니다. 그러면 연차·가산수당이 소급해서 문제가 됩니다.
             주 15시간 미만 근로자도 인원에는 들어갑니다.
           </p>
+          <p className="ed-note">
+            날짜별로 세어 보려면 <Link href="/tools/headcount">상시 근로자 수 계산기</Link>를 씁니다.
+          </p>
         </section>
 
         <section className="ed-sec">
