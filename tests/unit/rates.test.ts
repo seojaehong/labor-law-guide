@@ -47,6 +47,12 @@ describe('rates — 값 고르기', () => {
     expect(RATES.healthPremiumCap.at(-1)?.until).toBeUndefined();
     expect(rateOn('healthPremiumFloor', '2027-01-01')?.value).toBe(20_160);
   });
+
+  it('임금 지연이자율은 2005. 7. 1. 시행분부터 연 100분의 20 — 그 전은 null', () => {
+    expect(rateOn('wageDelayInterestPerMillion', '2005-06-30')).toBeNull();
+    expect(rateOn('wageDelayInterestPerMillion', '2005-07-01')?.value).toBe(200_000);
+    expect(rateOn('wageDelayInterestPerMillion', '2026-10-29')?.value).toBe(200_000);
+  });
 });
 
 describe('rates — 장부 규칙', () => {

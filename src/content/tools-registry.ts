@@ -58,4 +58,6 @@ export const TOOLS: ToolEntry[] = [
     sitemap: { lastModified: '2026-10-28', changeFrequency: 'monthly', priority: 0.85 } },
   { href: '/tools/midyear-settlement', title: '중도퇴사 연말정산 계산기', desc: '퇴사한 해 받은 급여·비과세·4대보험료·이미 낸 소득세를 넣으면 퇴직월에 돌려받거나 더 낼 소득세·지방소득세 예상액을 계산합니다. 본인 기본공제와 4대보험료만 넣는 고정형이라 부양가족·종전 근무지·감면은 다루지 않습니다.', badge: '참고 계산', icon: 'coins',
     sitemap: { lastModified: '2026-10-28', changeFrequency: 'monthly', priority: 0.8 } },
+  { href: '/tools/wage-delay-interest', title: '임금 지연이자 계산기', desc: '늦게 지급한 퇴직금·임금을 항목별로 넣으면 근로기준법 제37조의 연 20% 지연이자를 일할 계산합니다. 퇴직 때 임금·퇴직금은 마지막 근무일 + 14일, 재직 중 임금은 정기지급일(2025년 10월 23일 시행) 다음 날부터 세고, 적용 제외 기간은 뺍니다.', badge: '브라우저 계산', icon: 'coins',
+    sitemap: { lastModified: '2026-10-29', changeFrequency: 'monthly', priority: 0.8 } },
 ];

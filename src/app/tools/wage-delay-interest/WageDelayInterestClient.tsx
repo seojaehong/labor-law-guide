@@ -1,0 +1,180 @@
+'use client';
+
+import { useMemo, useState } from 'react';
+import { calcWageDelayInterest, type DelayKind, type WageDelayInput } from '@/lib/calc/wage-delay-interest';
+import AnswerCard from '@/components/tool/AnswerCard';
+import FoldedDetail from '@/components/tool/FoldedDetail';
+import { card, fmtDate, inputCls, ink, muted, small, todayKst } from '@/lib/tool-kit';
+import { CONSEQUENCES, EXCLUSION_HINT, EXCLUSION_REASONS, FORMULA, headline, IN_SERVICE_HINT, itemLine, LAST_DAY_HINT, NOT_COVERED } from './copy';
+
+interface Row { kind: DelayKind; amount: string; periodicPayDate: string; paidDate: string }
+
+const num = (s: string) => Number(s.replace(/,/g, '').trim() || '0');
+// 재직 중이면 퇴직 때 정산하는 임금은 아직 없다 — 모든 항목을 정기지급일이 있는 임금으로 본다
+const kindOf = (r: Row, retired: boolean): DelayKind => (retired ? r.kind : 'periodic');
+
+export default function WageDelayInterestClient() {
+  const today = todayKst();
+  const [retired, setRetired] = useState(true);
+  const [lastWorkDay, setLastWorkDay] = useState('');
+  const [rows, setRows] = useState<Row[]>([{ kind: 'retirement', amount: '', periodicPayDate: '', paidDate: today }]);
+  const [hasExcl, setHasExcl] = useState(false);
+  const [exFrom, setExFrom] = useState('');
+  const [exTo, setExTo] = useState('');
+
+  const set = (i: number, patch: Partial<Row>) => setRows((rs) => rs.map((r, j) => (j === i ? { ...r, ...patch } : r)));
+
+  const out = useMemo(() => {
+    if (retired && !lastWorkDay) return { error: '마지막 근무일(또는 사망일)을 넣어 주세요.' };
+    for (const [i, r] of rows.entries()) {
+      if (!r.amount.trim()) return { error: `항목 ${i + 1}의 금액을 넣어 주세요.` };
+      if (kindOf(r, retired) === 'periodic' && !r.periodicPayDate) return { error: `항목 ${i + 1}의 정기지급일을 넣어 주세요.` };
+      if (!r.paidDate) return { error: `항목 ${i + 1}의 지급한 날을 넣어 주세요.` };
+    }
+    if (hasExcl && (!exFrom || !exTo)) return { error: '적용 제외 기간의 시작일과 끝나는 날을 넣어 주세요.' };
+    try {
+      const base: WageDelayInput = {
+        lastWorkDay: retired ? lastWorkDay : undefined,
+        items: rows.map((r) => ({
+          kind: kindOf(r, retired),
+          amount: num(r.amount),
+          periodicPayDate: kindOf(r, retired) === 'periodic' ? r.periodicPayDate : undefined,
+          paidDate: r.paidDate,
+        })),
+      };
+      const full = calcWageDelayInterest(base);
+      // full 은 적용 제외 기간을 넣었을 때만 답 문장에 넘긴다 — 「빼지 않으면」 값과 「겹치지 않아 뺀 날이 없습니다」
+      if (!hasExcl) return { r: full };
+      return { r: calcWageDelayInterest({ ...base, exclusions: [{ from: exFrom, to: exTo }] }), full };
+    } catch (e) {
+      return { error: (e as Error).message };
+    }
+  }, [retired, lastWorkDay, rows, hasExcl, exFrom, exTo]);
+
+  const r = 'r' in out ? out.r : undefined;
+
+  return (
+    <div className="space-y-4">
+      <section className={`${card} grid gap-4 sm:grid-cols-2`}>
+        <fieldset className={`${small} sm:col-span-2`} style={muted}>
+          <legend className="mb-1">지금 일하고 있나요</legend>
+          <div className="flex flex-wrap gap-4">
+            <label className="flex items-center gap-2"><input type="radio" name="retired" checked={retired} onChange={() => setRetired(true)} /> 퇴직했다(또는 사망)</label>
+            <label className="flex items-center gap-2"><input type="radio" name="retired" checked={!retired} onChange={() => setRetired(false)} /> 재직 중이다</label>
+          </div>
+        </fieldset>
+        {retired ? (
+          <>
+            <label className={small} style={muted}>
+              마지막 근무일(사망이면 사망일)
+              <input type="date" className={inputCls} value={lastWorkDay} onChange={(e) => setLastWorkDay(e.target.value)} />
+            </label>
+            <p className={small} style={muted}>{LAST_DAY_HINT}</p>
+          </>
+        ) : (
+          <p className={`${small} sm:col-span-2`} style={muted}>{IN_SERVICE_HINT}</p>
+        )}
+      </section>
+
+      {rows.map((row, i) => (
+        <section key={i} aria-label={`항목 ${i + 1}`} className={`${card} grid gap-4 sm:grid-cols-2`}>
+          <div className="flex items-center justify-between sm:col-span-2">
+            <span className="text-base font-semibold" style={ink}>항목 {i + 1}</span>
+            {rows.length > 1 && (
+              <button type="button" className={`${small} underline underline-offset-2`} style={muted} onClick={() => setRows((rs) => rs.filter((_, j) => j !== i))}>
+                항목 빼기
+              </button>
+            )}
+          </div>
+          {retired && (
+            <fieldset className={`${small} sm:col-span-2`} style={muted}>
+              <legend className="mb-1">어떤 돈인가요</legend>
+              <div className="flex flex-wrap gap-4">
+                <label className="flex items-center gap-2">
+                  <input type="radio" name={`kind-${i}`} checked={row.kind === 'retirement'} onChange={() => set(i, { kind: 'retirement' })} /> 퇴직금(일시금)·퇴직 때 정산하는 임금
+                </label>
+                <label className="flex items-center gap-2">
+                  <input type="radio" name={`kind-${i}`} checked={row.kind === 'periodic'} onChange={() => set(i, { kind: 'periodic' })} /> 정기지급일이 정해진 임금(월급 등)
+                </label>
+              </div>
+            </fieldset>
+          )}
+          <label className={small} style={muted}>
+            금액(원)
+            <input inputMode="numeric" className={inputCls} value={row.amount} onChange={(e) => set(i, { amount: e.target.value })} placeholder="예: 3000000" />
+          </label>
+          {kindOf(row, retired) === 'periodic' && (
+            <label className={small} style={muted}>
+              정기지급일(취업규칙·계약에서 정한 날)
+              <input type="date" className={inputCls} value={row.periodicPayDate} onChange={(e) => set(i, { periodicPayDate: e.target.value })} />
+            </label>
+          )}
+          <label className={small} style={muted}>
+            지급한 날(아직이면 계산할 날)
+            <input type="date" className={inputCls} value={row.paidDate} onChange={(e) => set(i, { paidDate: e.target.value })} />
+          </label>
+        </section>
+      ))}
+      <button
+        type="button"
+        className={`${small} rounded-lg border border-[var(--color-border)] px-3 py-2`}
+        style={ink}
+        onClick={() => setRows((rs) => [...rs, { kind: rs[rs.length - 1]?.kind ?? 'retirement', amount: '', periodicPayDate: '', paidDate: today }])}
+      >
+        항목 더하기
+      </button>
+      <p className={small} style={muted}>일부만 늦게 지급했으면 지급한 금액과 날을 항목으로 나눠 넣습니다.</p>
+
+      <section className={card}>
+        <label className={`${small} flex items-center gap-2`} style={ink}>
+          <input type="checkbox" checked={hasExcl} onChange={(e) => setHasExcl(e.target.checked)} /> 적용 제외 사유가 있었던 기간을 뺀다
+        </label>
+        {hasExcl && (
+          <div className="mt-3 grid gap-4 sm:grid-cols-2">
+            <p className={`${small} sm:col-span-2`} style={ink}>{EXCLUSION_HINT}</p>
+            <ul className={`${small} list-disc space-y-1 pl-5 sm:col-span-2`} style={muted}>
+              {EXCLUSION_REASONS.map((l) => <li key={l}>{l}</li>)}
+            </ul>
+            <label className={small} style={muted}>
+              적용 제외 시작일
+              <input type="date" className={inputCls} value={exFrom} onChange={(e) => setExFrom(e.target.value)} />
+            </label>
+            <label className={small} style={muted}>
+              적용 제외 끝나는 날
+              <input type="date" className={inputCls} value={exTo} onChange={(e) => setExTo(e.target.value)} />
+            </label>
+          </div>
+        )}
+      </section>
+
+      {!r ? (
+        <section className={card} aria-live="polite"><p className={small} style={ink}>{'error' in out ? out.error : ''}</p></section>
+      ) : (
+        <AnswerCard lines={headline(r, 'full' in out ? out.full : undefined)}>
+          <ul className={`${small} mt-3 space-y-1`} style={muted}>
+            {r.items.map((it, i) => <li key={i}>{itemLine(it, i, today)}</li>)}
+          </ul>
+          {retired && lastWorkDay && <p className={`${small} mt-2`} style={muted}>마지막 근무일 {fmtDate(lastWorkDay, today)}</p>}
+        </AnswerCard>
+      )}
+
+      <FoldedDetail summary="계산 방법">
+        <ul className={`${small} list-disc space-y-1 pl-5`} style={muted}>
+          {FORMULA.map((l) => <li key={l}>{l}</li>)}
+        </ul>
+      </FoldedDetail>
+
+      <FoldedDetail summary="그래서 생기는 일">
+        <ul className={`${small} list-disc space-y-1 pl-5`} style={muted}>
+          {CONSEQUENCES.map((l) => <li key={l}>{l}</li>)}
+        </ul>
+      </FoldedDetail>
+
+      <FoldedDetail summary="이 계산기가 다루지 않는 것">
+        <ul className={`${small} list-disc space-y-1 pl-5`} style={muted}>
+          {NOT_COVERED.map((l) => <li key={l}>{l}</li>)}
+        </ul>
+      </FoldedDetail>
+    </div>
+  );
+}

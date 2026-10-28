@@ -236,6 +236,69 @@ const FEATURES: Record<string, { path: string; journey: Journey }> = {
       step('모두에게 주는 기본금액 2만원만 들어감(45,240,000 ÷ 12 ÷ 209)', /항목은 3개입니다.*18,038\.28원/, await answer(p));
     },
   },
+  'wage-delay-interest': {
+    path: '/tools/wage-delay-interest',
+    journey: async (p, step) => {
+      const item = (n: number) => p.locator(`section[aria-label="항목 ${n}"]`);
+      const fillItem = async (n: number, v: { amount?: string; due?: string; paid?: string }) => {
+        if (v.amount !== undefined) await item(n).getByLabel('금액(원)').fill(v.amount);
+        if (v.due !== undefined) await item(n).getByLabel(/^정기지급일\(/).fill(v.due);
+        if (v.paid !== undefined) await item(n).getByLabel(/^지급한 날/).fill(v.paid);
+      };
+      const retire = p.getByLabel('마지막 근무일(사망이면 사망일)');
+      step('마지막 근무일 없음', '마지막 근무일(또는 사망일)을 넣어 주세요', await answer(p));
+      // C — 재직 중 2호: 정기지급일 1.25 → 30일
+      await p.getByLabel('재직 중이다').check();
+      await fillItem(1, { amount: '3000000', due: '2026-01-25', paid: '2026-02-24' });
+      step('C 재직 중 정기지급일 다음 날부터 30일', '지연이자는 모두 49,315원', await answer(p));
+      // E1 — 부칙 §2: 2025.10.23 전 정기지급일은 재직 중 0
+      await fillItem(1, { due: '2025-09-25', paid: '2025-11-25' });
+      step('E1 시행 전 정기지급일 · 재직 중', /지연이자가 붙지 않습니다.*부칙 제2조/, await answer(p));
+      // E2 — 같은 임금을 못 받고 퇴직 → 1호
+      await p.getByLabel('퇴직했다(또는 사망)').check();
+      await retire.fill('2025-12-31');
+      await item(1).getByLabel(/정기지급일이 정해진 임금/).check();
+      await fillItem(1, { paid: '2026-02-27' });
+      step('E2 퇴직하면 마지막 근무일 + 14 기준', /72,328원.*제37조 제1항 제1호/, await answer(p));
+      // D — 2호 이자가 붙은 뒤 퇴직(§37②): 마지막 근무일 + 14(60,821원)로 다시 잡지 않는다
+      await retire.fill('2026-06-10');
+      await fillItem(1, { due: '2026-05-25', paid: '2026-07-31' });
+      step('D 정기지급일 기준 유지', /^(?!.*60,821원).*110,136원.*제37조 제2항/, await answer(p));
+      // A·B — 1호 퇴직금
+      await item(1).getByLabel(/퇴직금\(일시금\)/).check();
+      await retire.fill('2026-03-31');
+      await fillItem(1, { amount: '10000000', paid: '2026-06-30' });
+      step('A 마지막 근무일 + 14 → 77일', '지연이자는 모두 421,917원', await answer(p));
+      await fillItem(1, { paid: '2026-04-14' });
+      step('B1 14일째 지급 = 0원', '지연이자가 붙지 않습니다', await answer(p));
+      await fillItem(1, { paid: '2026-04-15' });
+      step('B2 15일째 지급 = 1일분', '지연이자는 모두 5,479원', await answer(p));
+      // 퇴사 정리(/exit)와 같은 기한 — 마지막 근무일 3.30이면 기한 4.13, 4.14 지급은 1일분
+      await retire.fill('2026-03-30');
+      await fillItem(1, { paid: '2026-04-14' });
+      step('퇴사 정리와 같은 기한(3.30 → 4.13)', '지연이자는 모두 5,479원', await answer(p));
+      // F — 적용 제외 기간: 뺀 값과 빼지 않은 값을 같이, 단정하지 않는다
+      await retire.fill('2026-01-31');
+      await fillItem(1, { amount: '20000000', paid: '2026-12-31' });
+      step('F 제외 없음 · 기준일 토요일 미루지 않음', '지연이자는 모두 3,506,849원', await answer(p));
+      await p.getByLabel('적용 제외 사유가 있었던 기간을 뺀다').check();
+      await p.getByLabel('적용 제외 시작일').fill('2026-02-15');
+      await p.getByLabel('적용 제외 끝나는 날').fill('2026-09-30');
+      step('F 제외 228일', /빼면 1,008,219원, 빼지 않으면 3,506,849원.*이 기간은 적용하지 않을 수 있습니다/, await answer(p));
+      await p.getByLabel('적용 제외 시작일').fill('2026-01-01');
+      await p.getByLabel('적용 제외 끝나는 날').fill('2026-02-14');
+      step('F 제외 기간이 지연 기간 밖', /3,506,849원.*겹치지 않아.*이 기간은 적용하지 않을 수 있습니다/, await answer(p));
+      await p.getByLabel('적용 제외 사유가 있었던 기간을 뺀다').uncheck();
+      // G — 여러 건: 항목마다 원 미만 버림 후 합계(합계 후 버리면 305,807원)
+      await retire.fill('2026-02-20');
+      await fillItem(1, { amount: '2345678', paid: '2026-04-10' });
+      await p.getByRole('button', { name: '항목 더하기' }).click();
+      await fillItem(2, { amount: '4000000', paid: '2026-03-20' });
+      await p.getByRole('button', { name: '항목 더하기' }).click();
+      await fillItem(3, { amount: '6000000', paid: '2026-05-15' });
+      step('G 세 건 합계', /지연이자는 모두 305,805원.*44,985원.*30,684원.*230,136원/, await answer(p));
+    },
+  },
 };
 
 async function api(step: (n: string, e: string | RegExp, g: string) => void) {
