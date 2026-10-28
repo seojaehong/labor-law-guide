@@ -101,8 +101,15 @@ const TABLES = [
 
 type Table = (typeof TABLES)[number];
 
+/**
+ * 퇴사일에 적용되는 표 — `from` 이 퇴사일 이하인 줄 가운데 가장 늦은 것. TABLES 는 `from` 오름차순으로 끝에 붙인다.
+ * rates.ts 는 `until` 로 기간을 닫지만 여기는 다음 표의 `from` 이 앞 표를 닫는다. 첫 줄부터 `find` 로 고르면
+ * 새 표(예: 2027 개정)를 끝에 붙였을 때 2023 표가 먼저 걸리므로, 끝까지 훑어 마지막으로 맞는 줄을 쓴다.
+ */
 function tableOn(date: string): Table | null {
-  return TABLES.find((t) => t.from <= date) ?? null;
+  let hit: Table | null = null;
+  for (const t of TABLES) if (t.from <= date) hit = t;
+  return hit;
 }
 
 function parse(s: string, what: string): [number, number, number] {
@@ -117,9 +124,10 @@ function parse(s: string, what: string): [number, number, number] {
  * 퇴사일의 일자가 입사일의 일자보다 작으면 그 달은 채우지 못한 것으로 본다. 「연월 양끝 포함」으로 세지 않는다.
  */
 export function serviceMonths(hireDate: string, lastWorkDate: string): number {
-  if (lastWorkDate < hireDate) throw new Error('퇴사일이 입사일보다 앞섭니다');
+  // 형식을 먼저 본다 — 형식이 다른 문자열끼리 비교하면 '-'(0x2D) < '/'(0x2F) 때문에 엉뚱한 오류가 먼저 나온다
   const [y1, m1, d1] = parse(hireDate, '입사일');
   const [y2, m2, d2] = parse(lastWorkDate, '퇴사일');
+  if (lastWorkDate < hireDate) throw new Error('퇴사일이 입사일보다 앞섭니다');
   return (y2 - y1) * 12 + (m2 - m1) - (d2 < d1 ? 1 : 0) + 1;
 }
 

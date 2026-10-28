@@ -1,10 +1,11 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { calcRetirementTax, type RetirementTaxResult } from '@/lib/calc/retirement-tax';
+import { calcRetirementTax } from '@/lib/calc/retirement-tax';
 import AnswerCard from '@/components/tool/AnswerCard';
 import FoldedDetail from '@/components/tool/FoldedDetail';
 import { card, fmtDate, inputCls, ink, muted, small, todayKst } from '@/lib/tool-kit';
+import { CONSEQUENCES, headline } from './copy';
 
 const won = (n: number) => `${n.toLocaleString('ko-KR')}원`;
 const num = (s: string) => Number(s.replace(/,/g, '').trim() || '0');
@@ -16,21 +17,6 @@ function man(n: number): string {
   const rest = m % 10_000;
   if (!eok) return `${rest.toLocaleString('ko-KR')}만원`;
   return `${eok.toLocaleString('ko-KR')}억${rest ? ` ${rest.toLocaleString('ko-KR')}만` : ''}원`;
-}
-
-function headline(r: RetirementTaxResult, pay: number): string[] {
-  if (r.incomeTax === 0) {
-    const why = r.serviceDeductionCapped
-      ? `퇴직급여가 근속연수공제(${won(r.serviceDeductionTable)})보다 적어 공제하고 남는 금액이 없습니다.`
-      : r.taxBase === 0
-        ? '환산급여가 800만원 이하라 환산급여공제를 빼면 과세표준이 0원입니다.'
-        : '산출세액이 10원이 되지 않아 10원 미만을 버리면 0원입니다.';
-    return ['예상 퇴직소득세는 0원입니다.', why];
-  }
-  return [
-    `예상 퇴직소득세는 ${won(r.incomeTax)}, 지방소득세는 ${won(r.localTax)}입니다.`,
-    `두 세금을 떼면 손에 남는 금액은 ${won(pay - r.total)}입니다.`,
-  ];
 }
 
 export default function RetirementTaxClient() {
@@ -75,7 +61,7 @@ export default function RetirementTaxClient() {
       {!r ? (
         <section className={card} aria-live="polite"><p className={small} style={ink}>{'error' in out ? out.error : ''}</p></section>
       ) : (
-        <AnswerCard lines={headline(r, p)}>
+        <AnswerCard lines={headline(r)}>
           <p className={`${small} mt-3`} style={muted}>
             근속연수 {r.years}년({r.months}개월) · 과세표준 {won(r.taxBase)}
             {r.taxBase > 0 ? ` · 세율 ${r.brackets.rate[1]}% 구간(소득세법 제55조)` : ''} · 합계 {won(r.total)}
@@ -84,9 +70,9 @@ export default function RetirementTaxClient() {
             입사 {fmtDate(hire, today)} · 퇴사 {fmtDate(last, today)}
           </p>
           <p className={`${small} mt-3`} style={muted}>
-            예상 금액입니다. 세무대리·신고서 작성 대행이 아닙니다. 같은 값을{' '}
-            <a href="https://www.hometax.go.kr" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2">홈택스</a>{' '}
-            모의계산으로 대조해 볼 수 있습니다.
+            예상 금액입니다. 세무대리·신고서 작성 대행이 아닙니다.{' '}
+            <a href="https://www.hometax.go.kr" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2">홈택스</a>(첫 화면으로 연결)에서
+            퇴직소득 모의계산 메뉴를 찾아 같은 값을 대조해 볼 수 있습니다.
           </p>
         </AnswerCard>
       )}
@@ -129,9 +115,7 @@ export default function RetirementTaxClient() {
 
       <FoldedDetail summary="그래서 생기는 일">
         <ul className={`${small} list-disc space-y-1 pl-5`} style={muted}>
-          <li>회사는 퇴직급여를 줄 때 퇴직소득세를 떼고 줍니다(소득세법 제146조 제1항). 지방소득세도 함께 뗍니다(지방세법 제103조의13 제1항).</li>
-          <li>지급일이 속한 달의 다음 달 말일까지 퇴직소득 원천징수영수증을 받습니다(소득세법 제146조 제3항). 근속연수공제·환산급여·과세표준·산출세액 칸을 이 화면의 계산 과정과 대조할 수 있습니다.</li>
-          <li>퇴직하고 받은 날부터 60일 안에 연금계좌로 옮기면 연금 외로 찾기 전까지 세금을 떼지 않습니다(소득세법 제146조 제2항). 이 계산기는 그 경우를 계산하지 않습니다.</li>
+          {CONSEQUENCES.map((l) => <li key={l}>{l}</li>)}
         </ul>
       </FoldedDetail>
 

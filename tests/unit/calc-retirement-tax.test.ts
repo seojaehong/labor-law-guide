@@ -65,6 +65,29 @@ describe('퇴직소득세 — 국세청 프로그램과 1원까지 같다', () =
     expect(calcRetirementTax({ pay: 4_500_000, hireDate: '2023-07-03', lastWorkDate: '2026-07-02' }).serviceDeductionCapped).toBe(false);
   });
 
+  // 공제표·세율표는 경계에서 이웃한 두 줄이 같은 금액을 낸다(1,400만 × 6% = 84만 = 84만 + 0 × 15%).
+  // 그래서 금액만 보면 「이하」를 「미만」으로 바꾼 변이도 통과한다. 경계 사례는 고른 줄(brackets)까지 본다.
+  it('경계값은 「이하」 줄을 고른다 — 근속 5년·10년(§48①1), 과세표준 1,400만(§55①), 환산급여 800만(§48①2)', () => {
+    const t14 = calcRetirementTax({ pay: 63_000_000, hireDate: '2014-08-01', lastWorkDate: '2026-07-31' });
+    expect(t14.taxBase).toBe(14_000_000);
+    expect(t14.brackets.rate).toEqual([0, 6, 0]);
+
+    const t03 = calcRetirementTax({ pay: 20_000_000, hireDate: '2021-08-01', lastWorkDate: '2026-07-31' });
+    expect(t03.years).toBe(5);
+    expect(t03.brackets.service).toEqual([0, 1_000_000, 0]);
+
+    const t08 = calcRetirementTax({ pay: 600_000_000, hireDate: '2016-08-01', lastWorkDate: '2026-07-31' });
+    expect(t08.years).toBe(10);
+    expect(t08.brackets.service).toEqual([5_000_000, 2_000_000, 5]);
+    expect(t08.brackets.rate).toEqual([94_060_000, 40, 300_000_000]);
+
+    // 3년 · 퇴직급여 500만 → 환산급여 (500만 − 300만) × 12 ÷ 3 = 정확히 800만
+    const c8 = calcRetirementTax({ pay: 5_000_000, hireDate: '2023-07-03', lastWorkDate: '2026-07-02' });
+    expect(c8.converted).toBe(8_000_000);
+    expect(c8.brackets.converted).toEqual([0, 100, 0]);
+    expect([c8.convertedDeduction, c8.taxBase, c8.incomeTax]).toEqual([8_000_000, 0, 0]);
+  });
+
   it('적용한 표의 줄을 함께 돌려준다 — T06(13년 · 환산급여 3,461만 · 과세표준 1,064만)', () => {
     const r = calcRetirementTax({ pay: 60_000_000, hireDate: '2014-01-02', lastWorkDate: '2026-07-15' });
     expect(r.brackets).toEqual({
@@ -108,6 +131,12 @@ describe('근속연수 — 입사일부터 마지막 근무일까지', () => {
   it('퇴사일에 퇴직일(마지막 근무일 다음 날)을 넣으면 기념일 경계에서 1년이 뛴다 — T03 ↔ T04', () => {
     expect(serviceYears('2021-08-01', '2026-07-31')).toBe(5);
     expect(serviceYears('2021-08-01', '2026-08-01')).toBe(6);
+  });
+
+  it('직접 불러도 날짜 형식을 먼저 본다 — 문자열 비교로 「앞섭니다」가 먼저 나오지 않는다', () => {
+    // '-'(0x2D) < '/'(0x2F) 라 형식을 보기 전에 비교하면 '2026-07-02' < '2026/07/01' 이 참이 된다
+    expect(() => serviceMonths('2026/07/01', '2026-07-02')).toThrow(/입사일을 확인/);
+    expect(() => serviceYears('2026-07-01', '2026.07.31')).toThrow(/퇴사일을 확인/);
   });
 });
 

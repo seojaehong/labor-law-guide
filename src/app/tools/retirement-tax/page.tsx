@@ -34,7 +34,7 @@ export default function RetirementTaxPage() {
         '국고금관리법 제47조 — 세액 10원 미만·과세표준 1원 미만 버림. 지방세법 제103조의13 제1항 — 지방소득세는 소득세의 10%',
         '법률 제19196호(2022. 12. 31.) 부칙 제13조·제14조 — 2022년 12월 31일 이전 퇴사는 종전 공제표·세율',
       ]}
-      basisNote={<>퇴직금 금액 자체는 <a href="/tools/severance.html" className="underline underline-offset-2">퇴직금 계산기</a>에서 계산합니다.</>}
+      basisNote={<>퇴직금 금액 자체는 <a href="/tools/severance.html" className="underline underline-offset-2">퇴직금 계산기</a>에서 계산합니다. 그 화면의 「산정사유발생일」에는 마지막 근무일의 다음 날을 넣습니다.</>}
     >
       <RetirementTaxClient />
     </ToolShell>
