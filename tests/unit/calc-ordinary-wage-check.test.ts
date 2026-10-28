@@ -1,3 +1,4 @@
+import fs from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import {
   allCopy,
@@ -6,8 +7,11 @@ import {
   directionSentence,
   eraLabel,
   eraOn,
+  hourlyText,
   itemNotes,
+  KIND_LABEL,
   OLD_ERA_NOTICE,
+  PERF_YEAR_HINT,
   PERF_YEAR_LABEL,
   RIGHT_TO_PAY_NOTICE,
   AGREED_WAGE_NOTICE,
@@ -72,7 +76,10 @@ describe('A — 항목 점검(분기 양쪽)', () => {
     // 판결 원문(Q12)의 병행사건 정의
     expect(SOURCES.Q12.quote).toContain('이 판결 선고 시점에 이 판결이 변경하는 법리가 재판의 전제가 되어 통상임금 해당 여부가 다투어져 법원에 계속 중인 사건들');
     expect(OLD_ERA_NOTICE).toContain('2024. 12. 18.까지 제공한 연장근로 등');
-    expect(OLD_ERA_NOTICE).toMatch(/선고.*통상임금 해당 여부.*계속 중.*병행사건/);
+    // 「변경하는 법리가 재판의 전제」를 빼면 고정성과 무관한 통상임금 소송까지 병행사건으로 읽힌다
+    expect(OLD_ERA_NOTICE).toMatch(/선고 시점에 그 판결이 변경하는 법리가 재판의 전제가 되어 통상임금 해당 여부가 다투어지며 법원에 계속 중이던 사건\(병행사건\)/);
+    // 당해사건은 두 건이다
+    expect(OLD_ERA_NOTICE).toContain('2020다247190·2023다302838');
     expect(OLD_ERA_NOTICE).toContain('판결');
     // 「그 무렵」은 선고 직후 낸 소송까지 품는다. 「적용됩니다」는 판결이 정한 것을 우리 목소리로 단정한다
     expect(OLD_ERA_NOTICE).not.toContain('그 무렵');
@@ -122,17 +129,47 @@ describe('A — 항목 점검(분기 양쪽)', () => {
     expect(r.annual).toBe(0);
     expect(itemNotes(x, r).join(' ')).toContain('붙어 있는 조건');
     expect(checkItem({ ...bonus, forWork: 'no' }, 'new').direction).toBe('unclear');
-    expect(checkItem(item({ kind: 'attendance', amount: 100_000, forWork: 'no', attendanceRate: 90 }), 'old').direction).toBe('unclear');
+    // 종전 기준은 비례 지급 없는 조건이면 어느 답이든 빠지는 쪽이다(A1-f)
+    expect(checkItem(item({ kind: 'attendance', amount: 100_000, forWork: 'no', attendanceRate: 90 }), 'old')).toMatchObject({ direction: 'out', reasons: ['Q17'] });
     // 조건이 없거나, 조건 자체가 소정근로일수를 넘으면 그대로 빠지는 쪽
     expect(checkItem(item({ kind: 'attendance', amount: 100_000, forWork: 'no' }), 'new').direction).toBe('out');
     expect(checkItem(daysItem(22, 21), 'new').direction).toBe('out');
     expect(checkItem({ ...daysItem(22, 21), forWork: 'no' }, 'new').direction).toBe('out');
   });
 
+  it('A2-d 조건과 부딪혀 보류할 때도 함께 비어 있는 질문을 돌려준다 — 「예」로 고친 뒤에야 빈 질문이 보이지 않게', () => {
+    const x = item({ kind: 'bonus', amount: 100, timesPerYear: 6, uniform: 'unknown', forWork: 'no', employedOnPayday: true });
+    const r = checkItem(x, 'new');
+    expect(r).toMatchObject({ direction: 'unclear', open: ['uniform'], reasons: ['Q06'] });
+    const notes = itemNotes(x, r).join(' ');
+    expect(notes).toContain('답이 비어 있는 질문: 지급 대상');
+    expect(notes).toContain('붙어 있는 조건');
+  });
+
+  it('A1-f 종전 기준 — 비례 지급 없는 재직·근무일수 조건이 붙으면 남은 답(모름·조건과 부딪힌 「아니오」·빈 금액)과 상관없이 빠지는 쪽(Q17)', () => {
+    for (const o of [{ regular: 'unknown' }, { uniform: 'unknown' }, { forWork: 'unknown' }, { forWork: 'no' }, { amount: 0 }] as const) {
+      expect(checkItem({ ...bonus, ...o }, 'old'), JSON.stringify(o)).toMatchObject({ direction: 'out', reasons: ['Q17'] });
+    }
+    const att = item({ kind: 'attendance', amount: 100_000, forWork: 'no', attendanceRate: 90 });
+    expect(itemNotes(att, checkItem(att, 'old')).join(' ')).not.toContain('2020다247190');
+    // 비례 지급이 있으면 그 한도에서 고정성이 있어 답이 남는다 — 보류, 근거·안내는 종전 판결(U08, 2012다89399)
+    const pro = { ...att, proRataOnShortDays: true };
+    expect(checkItem(pro, 'old')).toMatchObject({ direction: 'unclear', reasons: ['U08'] });
+    const notes = itemNotes(pro, checkItem(pro, 'old')).join(' ');
+    expect(notes).toContain('2012다89399');
+    expect(notes).not.toContain('2020다247190');
+    // 다른 「아니오」가 있으면 그 답의 근거가 먼저다
+    expect(checkItem({ ...bonus, regular: 'no' }, 'old')).toMatchObject({ direction: 'out', reasons: ['U00'] });
+  });
+
   it('A3 만근 조건 21일 = 소정 21일은 「이내」 — 들어가는 쪽, 금액은 정액 그대로', () => {
     const r = checkItem(daysItem(21, 21), 'new');
     expect(r.direction).toBe('in');
     expect(r.annual).toBe(1_200_000);
+    // R01 은 「15일은 소정근로일수에 미치지 아니하므로」 — 조건이 소정근로일수와 같으면 Q07(「이내」)·G_Q5(만근)로 충분하다
+    expect(r.reasons).toEqual(expect.arrayContaining(['Q07', 'G_Q5']));
+    expect(r.reasons).not.toContain('R01');
+    expect(checkItem(daysItem(15, 21), 'new').reasons).toContain('R01');
   });
 
   it('A4 조건 22일 > 소정 21일 — 빠지는 쪽(Q07 후단)', () => {
@@ -151,10 +188,13 @@ describe('A — 항목 점검(분기 양쪽)', () => {
     expect(checkItem(item({ kind: 'attendance', amount: 300_000, attendanceRate: 110 }), 'new').direction).toBe('out');
   });
 
-  it('A5-b 출근율 경계 — 100% 는 소정근로일수 「이내」로 들어가는 쪽, 100.01% 는 빠지는 쪽. 2021다258296 은 원문 인용으로 붙는다', () => {
+  it('A5-b 출근율 경계 — 100% 는 소정근로일수 「이내」로 들어가는 쪽, 100.01% 는 빠지는 쪽. 2021다258296 은 100% 미만 조건에만 붙는다', () => {
     const rate = (attendanceRate: number) => checkItem(item({ kind: 'attendance', amount: 300_000, attendanceRate }), 'new');
     expect(rate(100).direction).toBe('in');
-    expect(rate(100).reasons).toContain('V01');
+    // V01 원문은 「소정근로일수에 미치지 못하는 근무일수의 출근을 요구하는」 조건 — 100% 는 Q07·Q08(「초과하는지에 따라」)로 본다
+    expect(rate(100).reasons).not.toContain('V01');
+    expect(rate(100).reasons).toEqual(expect.arrayContaining(['Q13', 'Q08']));
+    expect(rate(90).reasons).toContain('V01');
     expect(rate(100.01).direction).toBe('out');
     expect(SOURCES.V01.quote).toContain('소정근로일수에 미치지 못하는 근무일수의 출근을 요구하는 출근율 조건');
   });
@@ -167,6 +207,16 @@ describe('A — 항목 점검(분기 양쪽)', () => {
     expect(r.direction).toBe('out');
     expect(r.annual).toBe(0);
     expect(r.reasons).toContain('Q10');
+  });
+
+  it('A6-b 성과급 빈 행(1회 지급액 0) — 최소 보장액을 비운 것인지 아직 안 넣은 것인지 가릴 수 없어 다른 종류처럼 보류', () => {
+    const blank = item({ kind: 'performance', amount: 0, minimum: 0, timesPerYear: 1, regular: 'unknown', uniform: 'unknown', forWork: 'unknown', performanceYear: 'unknown' });
+    const r = checkItem(blank, 'new');
+    expect(r).toMatchObject({ direction: 'unclear', annual: 0, open: ['amount', 'regular', 'uniform', 'performanceYear'] });
+    expect(itemNotes(blank, r).join(' ')).toContain('1회 지급액이 비어 있어');
+    expect(summaryLines('new', [r], 0).join(' ')).toContain('1개는 입력만으로 가리기 어려워');
+    // 1회 지급액이 들어오면 최소 보장액이 빈 것은 「없음」이다(A6)
+    expect(checkItem({ ...blank, amount: 1_000_000 }, 'new').direction).toBe('out');
   });
 
   it('A7 최소 보장 성과급(D도 기본급 50%/년) — 최소분만 들어가는 쪽, 시급 기여 498.41(÷209)', () => {
@@ -204,6 +254,16 @@ describe('A — 항목 점검(분기 양쪽)', () => {
     expect(r.reasons).toContain('U10');
   });
 
+  it('A7-c 종전 기준의 전년도 실적분은 2012다89399 「지급 시기만 늦춘 것」 문단(U12)으로 — 2025 판결(S01)은 새 기준에만', () => {
+    const prev = perf(1_250_000, 'previous');
+    const r = checkItem(prev, 'old');
+    expect(r).toMatchObject({ direction: 'in', priorYear: true });
+    expect(r.reasons).toContain('U12');
+    expect(r.reasons).not.toContain('S01');
+    expect(SOURCES.U12.quote).toContain('지급 시기만 늦춘 것');
+    expect(itemNotes(prev, r).join(' ')).not.toContain('2023다216777');
+  });
+
   it('A8 경영성과급·격려금(매년 이사회가 지급 여부·금액 결정) — 빠지는 쪽(Q04), 「모름」이 섞여도', () => {
     const r = checkItem(item({ kind: 'business', amount: 1_000_000, timesPerYear: 1, regular: 'no', uniform: 'unknown', forWork: 'no' }), 'new');
     expect(r.direction).toBe('out');
@@ -214,6 +274,15 @@ describe('A — 항목 점검(분기 양쪽)', () => {
     const r = checkItem(item({ kind: 'family', amount: 60_000, uniform: 'no' }), 'new');
     expect(r.direction).toBe('out');
     expect(r.reasons).toContain('U05');
+  });
+
+  it('A9-d 2012다89399 의 두 문단은 원문대로 나눠 싣는다 — 빠지는 쪽은 앞 문단(U05), 기본금액은 뒤 문단(U11)', () => {
+    expect(SOURCES.U05.quote).toMatch(/2003다56588 판결 등 참조\)\.$/);
+    expect(SOURCES.U05.quote).not.toContain('그러나 모든 근로자에게');
+    expect(SOURCES.U11.quote).toMatch(/^그러나 모든 근로자에게 기본금액을 가족수당 명목으로/);
+    const fam = item({ kind: 'family', amount: 80_000, uniform: 'no', baseForAll: 20_000 });
+    expect(checkItem(fam, 'new').reasons).toContain('U11');
+    expect(checkItem(fam, 'new').reasons).not.toContain('U05');
   });
 
   it('A9-b 전원 기본 2만원 + 부양가족 1인당 3만원 — 기본 2만원만 들어가는 쪽, (2,500,000+20,000)÷209 = 12,057.42', () => {
@@ -248,10 +317,25 @@ describe('A — 항목 점검(분기 양쪽)', () => {
     expect(r.reasons).toContain('Q11');
   });
 
+  it('A11-b 무사고·장애인·경영성과급은 「아니오」가 종류 자체 때문이라 조건이 붙어도 보류하지 않고 빠지는 쪽(Q11·T01·Q04)', () => {
+    // 힌트대로 「아니오」로 답했는데 보류로 돌려 「예」로 고치라고 하면, 고친 순간 들어가는 쪽이 된다
+    const extra = item({ kind: 'extra', name: '무사고수당', amount: 200_000, forWork: 'no', employedOnPayday: true });
+    expect(checkItem(extra, 'new')).toMatchObject({ direction: 'out', reasons: ['Q11', 'G_P7'] });
+    expect(checkItem({ ...extra, workDays: { required: 15, scheduled: 21 } }, 'new')).toMatchObject({ direction: 'out', reasons: ['Q11', 'G_P7'] });
+    expect(itemNotes(extra, checkItem(extra, 'new')).join(' ')).not.toContain('「예」로 다시 확인');
+    expect(checkItem(item({ kind: 'disability', amount: 50_000, forWork: 'no', employedOnPayday: true }), 'new')).toMatchObject({ direction: 'out', reasons: ['T01'] });
+    expect(checkItem(item({ kind: 'business', amount: 1_000_000, timesPerYear: 1, forWork: 'no', employedOnPayday: true }), 'new')).toMatchObject({ direction: 'out', reasons: ['Q04', 'G_P15'] });
+  });
+
   it('A12 장애인수당 — 빠지는 쪽(2019다204876, T01)', () => {
     const r = checkItem(item({ kind: 'disability', amount: 50_000, uniform: 'no', forWork: 'no' }), 'new');
     expect(r.direction).toBe('out');
     expect(r.reasons).toContain('T01');
+  });
+
+  it('A12-c 장애인수당 인용은 빅케이스의 비실명 표기(「원고 A, B」)를 빼고 판결 문장의 주어부터 싣는다', () => {
+    expect(SOURCES.T01.quote).toMatch(/^장애인수당은 소정근로의 가치 평가와 무관하게/);
+    expect(SOURCES.T01.quote).not.toMatch(/원고 [A-Z]/);
   });
 
   it('A12-b 무사고·장애인·경영성과급 종류를 세 질문 모두 「예」로 답하면 종류 이름이 가리키는 반대 근거와 주의 문장을 붙인다', () => {
@@ -271,6 +355,13 @@ describe('A — 항목 점검(분기 양쪽)', () => {
     expect(r.direction).toBe('out');
     expect(r.reasons).toEqual(['Q05']);
     expect(sumIncluded([base, wh], 'new', 209).annual).toBe(30_000_000);
+  });
+
+  it('A13-b 법정수당으로 종류를 바꿔도 남은 조건 값에서 나온 문장을 붙이지 않는다(조건 칸은 숨는다)', () => {
+    const wh = item({ kind: 'statutory', amount: 1_000, leaveOrDisciplineOnly: true, workDays: { required: 25, scheduled: 22 }, employedOnPayday: true });
+    const notes = itemNotes(wh, checkItem(wh, 'new'));
+    expect(notes).toHaveLength(1);
+    expect(notes[0]).toContain('법정수당');
   });
 
   it('A14 명절귀향비(설·추석 각 기본급 50%, 지급일 재직자) — 들어가는 쪽', () => {
@@ -399,6 +490,20 @@ describe('B — 시간급(참고)', () => {
     expect(() => sumIncluded([base], 'new', 0)).toThrow();
   });
 
+  it('월 기준시간이 한 달 시간(31일 × 24시간 = 744)을 넘으면 오류 — 오타가 「시간당 0.00원」·1,196.17원으로 나가지 않게', () => {
+    expect(sumIncluded([base], 'new', 744).count).toBe(1);
+    expect(() => sumIncluded([base], 'new', 744.01)).toThrow();
+    expect(() => sumIncluded([base], 'new', 2090)).toThrow();
+    expect(() => sumIncluded([base], 'new', 1e9)).toThrow();
+  });
+
+  it('들어가는 쪽 항목이 없으면 비교 줄에 「시간당 0.00원」 대신 항목이 없다고 적는다', () => {
+    expect(hourlyText(sumIncluded([], 'new', 209))).toBe('들어가는 쪽 항목 없음');
+    // 재직조건부 상여 하나만 — 종전 기준은 빠지는 쪽뿐이다
+    expect(hourlyText(sumIncluded([bonus], 'old', 209))).toBe('들어가는 쪽 항목 없음');
+    expect(hourlyText(sumIncluded([base], 'new', 209))).toBe('시간당 11,961.72원');
+  });
+
   it('B4 지침 Q11 — 종전 13,000 · 새 15,000 · 가산 1.5, 제공한 날로 나눈다', () => {
     const s = (hoursBefore: number, hoursAfter: number) => splitOvertime({ oldHourly: 13_000, newHourly: 15_000, hoursBefore, hoursAfter });
     expect(s(15, 10)).toEqual({ before: 292_500, after: 225_000, total: 517_500 }); // ①
@@ -453,11 +558,20 @@ describe('문장 — 단정하지 않는 점검형(리서치 R9)', () => {
     expect(lines.flatMap((l) => bannedHits(l).map((w) => `${w} | ${l}`))).toEqual([]);
   });
 
-  it('우리 문장은 단정하지 않는다 — 「확정」「산입됩니다」「해당합니다」「~쪽입니다」「의무는 생기지 않는다고 봅니다」를 쓰지 않는다', () => {
+  const ASSERTIVE = /확정|산입됩니다|산입되지 않습니다|해당합니다|해당하지 않습니다|쪽입니다|쪽으로 봅니다|생기지 않는다고 봅니다/g;
+
+  it('우리 문장은 단정하지 않는다 — 「확정」「산입됩니다」「해당합니다」「~쪽입니다」「~쪽으로 봅니다」「의무는 생기지 않는다고 봅니다」를 쓰지 않는다', () => {
     // 근거 원문(quote)과 출처를 밝힌 요지(note)는 빼고, 도구가 제 목소리로 내는 문장만 본다
     const sourced = new Set(Object.values(SOURCES).flatMap((s) => [s.quote, s.note]));
     const ours = allCopy().filter((l) => !sourced.has(l));
-    expect(ours.filter((l) => /확정|산입됩니다|산입되지 않습니다|해당합니다|해당하지 않습니다|쪽입니다|생기지 않는다고 봅니다/.test(l))).toEqual([]);
+    expect(ours).toContain(PERF_YEAR_HINT);
+    expect(ours.filter((l) => l.match(ASSERTIVE))).toEqual([]);
+  });
+
+  it('화면 소스(JSX)에 직접 쓴 문구도 단정하지 않고, 시간급은 hourlyText 로만 적는다(「시간당 0.00원」 방지)', () => {
+    const src = fs.readFileSync('src/app/tools/ordinary-wage-check/OrdinaryWageClient.tsx', 'utf8');
+    expect(src.match(ASSERTIVE) ?? []).toEqual([]);
+    expect(src).not.toMatch(/시간당 \{fmt2\(/);
   });
 
   it('근거 원문에는 생략 부호가 없다 — 요약은 인용부호 밖(note)에 둔다', () => {
@@ -467,23 +581,45 @@ describe('문장 — 단정하지 않는 점검형(리서치 R9)', () => {
     }
   });
 
-  it('근거는 기준에 맞춘다 — 종전 기준으로 들어가는 쪽·조건 때문에 빠지는 쪽에는 2024 전원합의체·2025 판결·지침을 붙이지 않는다', () => {
-    // Q17 은 2024 판결이 종전 기준을 정리한 부분이라 종전 기준 근거다
+  it('근거는 기준에 맞춘다 — 종전 기준 결과(들어가는 쪽·빠지는 쪽·보류 전부)에는 2024 전원합의체·2025 판결·지침을 붙이지 않는다', () => {
+    // Q17 은 2024 판결이 종전 기준을 정리한 부분이라 종전 기준 근거다.
+    // Q05(법정수당)는 「고정성을 … 제외하더라도」 — 종전에도 같았다는 문장이라 두 기준 공통으로 둔다.
     const NEW_ERA = /^(Q(0\d|1[0-6])|R\d|S\d|T\d|V\d|G_)/;
-    const items: WageItem[] = [
-      { ...bonus, proRataOnLeave: true },
-      item({ kind: 'attendance', amount: 1, workDays: { required: 15, scheduled: 21 }, proRataOnShortDays: true }),
-      item({ kind: 'attendance', amount: 1, workDays: { required: 22, scheduled: 21 } }),
-      item({ kind: 'attendance', amount: 1, workDays: { required: 22, scheduled: 21 }, proRataOnShortDays: true }),
-      item({ kind: 'performance', amount: 1, minimum: 1, performanceYear: 'current' }),
-      item({ kind: 'family', amount: 2, uniform: 'no', baseForAll: 1 }),
-      item({ kind: 'tenure', amount: 1, leaveOrDisciplineOnly: true }),
-      item({ kind: 'holiday', amount: 1, timesPerYear: 2 }),
-      item({ kind: 'allowance', amount: 1 }),
+    const BOTH_ERAS = new Set(['Q05']);
+    const NEW_ERA_CASES = /2020다247190|2023다302838|2019다204876|2023다216777|2021다258296|지침/;
+    // 열거하면 빠진다(이번에 extra·disability·business·전년도 성과급·보류가 빠졌다) — 종류 × 답 × 조건을 모두 돈다
+    const kinds = Object.keys(KIND_LABEL) as WageItem['kind'][];
+    const answers: Partial<WageItem>[] = [
+      {}, { regular: 'no' }, { uniform: 'no' }, { forWork: 'no' },
+      { regular: 'unknown' }, { uniform: 'unknown' }, { forWork: 'unknown' }, { amount: 0 },
     ];
-    for (const it of items) {
-      const ids = checkItem(it, 'old').reasons;
-      expect(ids.filter((id) => NEW_ERA.test(id)), `${it.kind} ${ids.join(',')}`).toEqual([]);
+    const conditions: Partial<WageItem>[] = [
+      {},
+      { employedOnPayday: true },
+      { employedOnPayday: true, proRataOnLeave: true },
+      { workDays: { required: 15, scheduled: 21 } },
+      { workDays: { required: 15, scheduled: 21 }, proRataOnShortDays: true },
+      { workDays: { required: 21, scheduled: 21 }, proRataOnShortDays: true },
+      { workDays: { required: 22, scheduled: 21 } },
+      { workDays: { required: 22, scheduled: 21 }, proRataOnShortDays: true },
+      { attendanceRate: 90, proRataOnShortDays: true },
+      { leaveOrDisciplineOnly: true },
+    ];
+    const extras: Partial<WageItem>[] = [
+      {},
+      { minimum: 0, performanceYear: 'current' }, { minimum: 1, performanceYear: 'current' },
+      { minimum: 1, performanceYear: 'previous' }, { minimum: 1, performanceYear: 'unknown' },
+      { baseForAll: 1 },
+    ];
+    let seen = 0;
+    for (const kind of kinds) for (const a of answers) for (const c of conditions) for (const x of extras) for (const timesPerYear of [12, 2] as const) {
+      const it = item({ kind, amount: 2, timesPerYear, ...a, ...c, ...x });
+      const r = checkItem(it, 'old');
+      const label = `${kind} ${JSON.stringify({ ...a, ...c, ...x })} → ${r.direction} ${r.reasons.join(',')}`;
+      expect(r.reasons.filter((id) => NEW_ERA.test(id) && !BOTH_ERAS.has(id)), label).toEqual([]);
+      expect(itemNotes(it, r).filter((n) => NEW_ERA_CASES.test(n)), label).toEqual([]);
+      seen += 1;
     }
+    expect(seen).toBeGreaterThan(5_000);
   });
 });

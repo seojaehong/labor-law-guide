@@ -86,6 +86,8 @@ export interface WageItem {
 export type Question = 'amount' | 'regular' | 'uniform' | 'forWork' | 'performanceYear';
 
 export interface ItemCheck {
+  /** 어느 기준으로 본 결과인지 — itemNotes 가 기준에 맞는 문장을 고른다 */
+  era: Era;
   direction: Direction;
   /** 통상임금 쪽으로 볼 1년 금액(원). 일부만 들어가면 그 부분, 빠지거나 보류면 0 */
   annual: number;
@@ -93,7 +95,7 @@ export interface ItemCheck {
   partial: boolean;
   /** 전년도 실적분 성과급의 최소분 — 전년도 통상임금 쪽이라 기준일이 속한 해 합계에 넣지 않는다(2023다216777, S01) */
   priorYear: boolean;
-  /** 보류일 때 비어 있는 칸. 비어 있는데 보류면 답끼리 부딪힌 것(itemNotes) */
+  /** 보류일 때 비어 있는 칸. 답끼리 부딪혀 보류해도 함께 비어 있는 칸을 담는다(itemNotes 가 둘 다 적는다) */
   open: Question[];
   reasons: SourceId[];
 }
@@ -123,22 +125,32 @@ function validate(i: WageItem) {
   if (i.attendanceRate !== undefined && !(i.attendanceRate > 0 && Number.isFinite(i.attendanceRate))) throw new Error('출근율을 확인해 주세요');
 }
 
-const out = (reasons: SourceId[]): ItemCheck => ({ direction: 'out', annual: 0, partial: false, priorYear: false, open: [], reasons });
-const unclear = (open: Question[], reasons: SourceId[]): ItemCheck => ({ direction: 'unclear', annual: 0, partial: false, priorYear: false, open, reasons });
+const out = (era: Era, reasons: SourceId[]): ItemCheck => ({ era, direction: 'out', annual: 0, partial: false, priorYear: false, open: [], reasons });
+const unclear = (era: Era, open: Question[], reasons: SourceId[]): ItemCheck => ({ era, direction: 'unclear', annual: 0, partial: false, priorYear: false, open, reasons });
 
-/** 소정근로 대가성이 없다고 답했을 때의 근거 */
-function notForWork(kind: ItemKind): SourceId[] {
+// 근거는 기준에 맞춘다 — 종전 기준 결과에는 2012다89399(U)와 2024 판결이 종전 기준을 정리한 부분(Q17)만 붙인다.
+// 2024·2025 판결과 지침(2025. 2. 6.)은 새 기준 근거다. 예외는 Q05(법정수당) 하나 — 「고정성을 … 제외하더라도」라서 종전에도 같다.
+
+/** 소정근로 대가성이 없다고 답했을 때의 근거. 종전 기준은 2012다89399 의 「소정근로의 대가」 정의(U01) */
+function notForWork(kind: ItemKind, era: Era): SourceId[] {
+  if (era === 'old') return ['U01'];
   if (kind === 'extra') return ['Q11', 'G_P7'];
   if (kind === 'disability') return ['T01'];
   if (kind === 'business') return ['Q04', 'G_P15'];
   return ['U01', 'G_P7'];
 }
 
-/** 일률성이 없다고 답했을 때의 근거 */
-function notUniform(kind: ItemKind): SourceId[] {
-  if (kind === 'family') return ['U05', 'G_Q9'];
-  if (kind === 'disability') return ['T01'];
+/** 일률성이 없다고 답했을 때의 근거. 장애 여부처럼 일의 가치와 무관한 조건은 종전 기준에서 U04 */
+function notUniform(kind: ItemKind, era: Era): SourceId[] {
+  if (kind === 'family') return era === 'new' ? ['U05', 'G_Q9'] : ['U05'];
+  if (kind === 'disability' && era === 'new') return ['T01'];
   return ['U04'];
+}
+
+/** 정해진 주기가 없다고 답했을 때의 근거. 종전 기준은 정의(U00 「정기적·일률적·고정적」) */
+function notRegular(kind: ItemKind, era: Era): SourceId[] {
+  if (era === 'old') return ['U00'];
+  return kind === 'business' ? ['Q04', 'G_P15'] : ['Q04'];
 }
 
 /** 근무일수·출근율 조건이 소정근로일수를 넘나. 출근율은 100%를 넘으면 넘는다 */
@@ -149,49 +161,58 @@ function overScheduled(i: WageItem): boolean {
 
 const dayConditioned = (i: WageItem) => Boolean(i.workDays || i.attendanceRate !== undefined);
 
-/** 가족수당 중 모두에게 주는 기본금액 — 판결이 그 금액을 소정근로의 대가로 봤다(U05) */
+/** 가족수당 중 모두에게 주는 기본금액 — 판결이 그 금액을 소정근로의 대가로 봤다(U11) */
 const familyBase = (i: WageItem) => i.kind === 'family' && (i.baseForAll ?? 0) > 0;
+
+/**
+ * 「근무시간의 대가」의 「아니오」가 종류 자체 때문일 수 있는 종류 — 성과급·무사고 등 추가 요건·장애인수당·경영성과급.
+ * notForWork 가 종류별 근거를 내는 종류들이라, 조건이 붙어 있어도 그 「아니오」를 조건 탓으로 돌려 보류하지 않는다.
+ */
+const NOT_FOR_WORK_BY_KIND: readonly ItemKind[] = ['performance', 'extra', 'disability', 'business'];
 
 /**
  * 「근무시간의 대가」에 「아니오」인데 지급일 재직이나 소정근로일수 이내의 근무일수·출근율 조건이 붙어 있다.
  * 그 조건만으로는 대가성이 부정되지 않으므로(Q06·Q07) 「아니오」가 조건 때문인지 가릴 수 없다 — 보류한다.
  */
 const forWorkConflict = (i: WageItem) =>
-  i.kind !== 'performance' && !familyBase(i) && i.forWork === 'no' && (Boolean(i.employedOnPayday) || dayConditioned(i)) && !overScheduled(i);
+  !NOT_FOR_WORK_BY_KIND.includes(i.kind) && !familyBase(i) && i.forWork === 'no' && (Boolean(i.employedOnPayday) || dayConditioned(i)) && !overScheduled(i);
 
 export function checkItem(item: WageItem, era: Era): ItemCheck {
   validate(item);
   const { kind } = item;
   // 주휴수당 같은 법정수당은 통상임금으로 계산하는 수당이라 개념상 통상임금이 될 수 없다 — 답과 상관없다(Q05)
-  if (kind === 'statutory') return out(['Q05']);
+  if (kind === 'statutory') return out(era, ['Q05']);
 
   const perf = kind === 'performance';
   const minimum = item.minimum ?? 0;
-  // 성과급은 「대가성」을 묻지 않는다 — 순수 성과급은 대가성이 없고, 평가와 무관한 최소 보장분만 대가다(Q10)
-  if (perf && minimum === 0) return out(['Q10', 'G_P15']);
+  // 성과급은 「대가성」을 묻지 않는다 — 순수 성과급은 대가성이 없고, 평가와 무관한 최소 보장분만 대가다(Q10).
+  // 종전 기준은 근무실적 평가로 정하는 임금의 고정성을 부정했다(U10 앞 문장).
+  // 1회 지급액이 비어 있으면(막 더한 빈 행) 최소 보장액을 비운 것인지 아직 안 넣은 것인지 가릴 수 없다 — 아래 보류로 보낸다.
+  if (perf && item.amount > 0 && minimum === 0) return out(era, era === 'new' ? ['Q10', 'G_P15'] : ['U10']);
 
-  // 가족수당 기본금액은 모두에게 주는 근로의 대가(U05) — 지급 대상·대가 답은 부양가족 가산분에 관한 것이라 보지 않는다
+  // 가족수당 기본금액은 모두에게 주는 근로의 대가(U11) — 지급 대상·대가 답은 부양가족 가산분에 관한 것이라 보지 않는다
   const base = familyBase(item);
   const forWork = perf || base ? 'yes' : item.forWork;
   const uniform = base ? 'yes' : item.uniform;
   const conflict = forWorkConflict(item);
 
   // 「아니오」 하나면 빠지는 쪽 — 「모름」이 섞여 있어도 그렇다. 조건과 부딪힌 「아니오」는 다른 「아니오」가 없을 때 보류
-  if (forWork === 'no' && !conflict) return out(notForWork(kind));
-  if (uniform === 'no') return out(notUniform(kind));
-  if (item.regular === 'no') return out(kind === 'business' ? ['Q04', 'G_P15'] : ['Q04']);
+  if (forWork === 'no' && !conflict) return out(era, notForWork(kind, era));
+  if (uniform === 'no') return out(era, notUniform(kind, era));
+  if (item.regular === 'no') return out(era, notRegular(kind, era));
   if (overScheduled(item)) {
     // 새 기준: 소정근로일수를 넘는 조건은 추가 근로의 대가(Q07 후단). 잠탈 목적의 소정근로일수는 효력이 부정될 수 있다(Q09 — itemNotes 가 단서로 적는다).
     // 종전 기준: 비례 지급이 없으면 고정성이 없고(Q17), 있어도 소정근로를 넘는 근로의 대가는 소정근로의 대가가 아니다(U01).
-    if (era === 'new') return out(['Q07', 'Q09']);
-    return out(item.proRataOnShortDays ? ['U01'] : ['Q17']);
+    if (era === 'new') return out(era, ['Q07', 'Q09']);
+    return out(era, item.proRataOnShortDays ? ['U01'] : ['Q17']);
   }
-  if (conflict) {
-    const why: SourceId[] = era === 'new'
-      ? [...(item.employedOnPayday ? (['Q06'] as const) : []), ...(dayConditioned(item) ? (['Q07'] as const) : [])]
-      : ['U01'];
-    return unclear([], why);
-  }
+  // 종전 기준 — 재직·근무일수 조건은 「조건 성취가 불확실」해 고정성이 없다고 봤다(Q17).
+  // 다만 지급일 전에 퇴직해도 근무일수에 비례해 주면(U09), 일수를 못 채워도 일할해 주면(U08) 그 한도에서는 고정성이 있다.
+  // 두 조건은 따로 본다 — 붙은 조건마다 그 조건의 비례 지급이 있어야 한다. 비례 없는 조건이 하나라도 있으면
+  // 남은 답(모름·조건과 부딪힌 「아니오」·빈 금액)이 무엇이든 빠지는 쪽이라 보류보다 먼저 본다.
+  const leaveFixed = !item.employedOnPayday || item.proRataOnLeave;
+  const daysFixed = !dayConditioned(item) || item.proRataOnShortDays;
+  if (era === 'old' && (!leaveFixed || !daysFixed)) return out(era, ['Q17']);
 
   const open: Question[] = [];
   if (item.amount === 0) open.push('amount');
@@ -199,7 +220,14 @@ export function checkItem(item: WageItem, era: Era): ItemCheck {
   if (uniform === 'unknown') open.push('uniform');
   if (forWork === 'unknown') open.push('forWork');
   if (perf && (item.performanceYear ?? 'unknown') === 'unknown') open.push('performanceYear');
-  if (open.length) return unclear(open, open.some((q) => q !== 'amount') ? ['Q02'] : []);
+  if (conflict) {
+    // 조건과 부딪힌 「아니오」 — 함께 비어 있는 질문도 돌려준다. 근거는 그 조건을 다룬 판결 부분
+    const why: SourceId[] = era === 'new'
+      ? [...(item.employedOnPayday ? (['Q06'] as const) : []), ...(dayConditioned(item) ? (['Q07'] as const) : [])]
+      : [...(item.employedOnPayday ? (['U09'] as const) : []), ...(dayConditioned(item) ? (['U08'] as const) : [])];
+    return unclear(era, open, why);
+  }
+  if (open.length) return unclear(era, open, open.some((q) => q !== 'amount') ? [era === 'new' ? 'Q02' : 'U00'] : []);
 
   // 일부만 들어가는 둘 — 성과급 최소 보장분, 가족수당 중 모두에게 주는 기본금액
   const partial = perf || base;
@@ -208,34 +236,39 @@ export function checkItem(item: WageItem, era: Era): ItemCheck {
   const priorYear = perf && item.performanceYear === 'previous';
 
   const reasons: SourceId[] = [];
-  if (perf) reasons.push(...(era === 'new' ? (['Q10', 'Q16'] as const) : (['U10'] as const)), ...(priorYear ? (['S01'] as const) : []));
-  else if (base) reasons.push('U05', ...(era === 'new' ? (['G_Q9'] as const) : []));
+  if (perf) {
+    // 전년도 실적분 — 새 기준은 지급 대상기간으로 가른 2023다216777(S01), 종전 기준은 「지급 시기만 늦춘 것」 문단(U12)
+    if (era === 'new') reasons.push('Q10', 'Q16', ...(priorYear ? (['S01'] as const) : []));
+    else reasons.push(priorYear ? 'U12' : 'U10');
+  } else if (base) reasons.push('U11', ...(era === 'new' ? (['G_Q9'] as const) : []));
   else reasons.push(era === 'new' ? 'Q01' : 'U01');
   if (item.timesPerYear < 12) reasons.push('U02');
   if (kind === 'tenure') reasons.push('U06');
   if (kind === 'holiday' && era === 'new') reasons.push('G_P15', 'G_Q6');
   if (item.leaveOrDisciplineOnly) reasons.push('U07');
-  // 종류 이름이 가리키는 반대 근거 — 세 질문에 「예」로 답했어도 판결·지침이 따로 다룬 종류다(itemNotes 가 주의 문장을 단다)
-  if (kind === 'extra') reasons.push('Q11');
-  if (kind === 'disability') reasons.push('T01');
-  if (kind === 'business') reasons.push('Q04', 'G_P15');
+  // 종류 이름이 가리키는 반대 근거 — 세 질문에 「예」로 답했어도 판결·지침이 따로 다룬 종류다(itemNotes 가 주의 문장을 단다).
+  // 종전 기준은 2012다89399 로 — 무사고 등 추가 요건은 U01(이미 붙었다), 장애 여부는 일의 가치와 무관한 조건(U04), 경영성과급은 정의(U00)
+  if (era === 'new') {
+    if (kind === 'extra') reasons.push('Q11');
+    if (kind === 'disability') reasons.push('T01');
+    if (kind === 'business') reasons.push('Q04', 'G_P15');
+  } else {
+    if (kind === 'disability') reasons.push('U04');
+    if (kind === 'business') reasons.push('U00');
+  }
 
   if (era === 'old') {
-    // 종전 기준 — 재직·근무일수 조건은 「조건 성취가 불확실」해 고정성이 없다고 봤다(Q17).
-    // 다만 지급일 전에 퇴직해도 근무일수에 비례해 주면(U09), 일수를 못 채워도 일할해 주면(U08) 그 한도에서는 고정성이 있다.
-    // 두 조건은 따로 본다 — 붙은 조건마다 그 조건의 비례 지급이 있어야 한다.
-    const leaveFixed = !item.employedOnPayday || item.proRataOnLeave;
-    const daysFixed = !dayConditioned(item) || item.proRataOnShortDays;
-    if (!leaveFixed || !daysFixed) return out(['Q17']);
     if (item.employedOnPayday) reasons.push('U09');
     if (dayConditioned(item)) reasons.push('U08');
   } else {
     if (item.employedOnPayday) reasons.push('Q06', ...(kind === 'bonus' ? (['Q15', 'G_Q4'] as const) : []));
-    if (item.workDays) reasons.push('Q07', 'Q13', 'R01', 'G_Q5');
-    if (item.attendanceRate !== undefined) reasons.push('Q13', 'Q08', 'V01');
+    // R01 은 「15일은 … 소정근로일수에 미치지 아니하므로」, V01 은 「소정근로일수에 미치지 못하는 근무일수의 출근을 요구하는」 조건 —
+    // 조건이 소정근로일수와 같으면(만근·출근율 100%) 글자 그대로 닿지 않아 Q07·Q13·Q08·G_Q5 만 붙인다
+    if (item.workDays) reasons.push('Q07', 'Q13', ...(item.workDays.required < item.workDays.scheduled ? (['R01'] as const) : []), 'G_Q5');
+    if (item.attendanceRate !== undefined) reasons.push('Q13', 'Q08', ...(item.attendanceRate < 100 ? (['V01'] as const) : []));
     if (kind === 'bonus' || item.employedOnPayday) reasons.push('G_Q7');
   }
-  return { direction: 'in', annual, partial, priorYear, open: [], reasons: [...new Set(reasons)] };
+  return { era, direction: 'in', annual, partial, priorYear, open: [], reasons: [...new Set(reasons)] };
 }
 
 /**
@@ -244,6 +277,9 @@ export function checkItem(item: WageItem, era: Era): ItemCheck {
  */
 const hundredths = (num: number, den: number) => Math.round((num * 100) / den) / 100;
 
+/** 월 기준시간 상한 — 31일 × 24시간 */
+const MAX_UNIT_HOURS = 31 * 24;
+
 /**
  * 들어가는 쪽 항목의 1년 합계와 시간급(참고). 보류·빠지는 쪽·전년도 실적분은 넣지 않는다.
  * 끝수: 시행령에 시간급 끝수 규정이 없어 소수 셋째 자리에서 반올림한 참고값(지침 Q8 「2,397원39전」과 같은 자리).
@@ -251,7 +287,9 @@ const hundredths = (num: number, den: number) => Math.round((num * 100) / den) /
  */
 export function sumIncluded(items: WageItem[], era: Era, unitHours: number): { annual: number; hourly: number; count: number } {
   const hours100 = Math.round(unitHours * 100);
-  if (!(unitHours > 0) || !Number.isFinite(unitHours) || Math.abs(unitHours * 100 - hours100) > 1e-6) {
+  // 위로는 한 달에 있을 수 있는 시간(31일 × 24시간)까지 — 오타(2090 등)가 그대로 시간급이 되지 않게.
+  // min-wage.ts unitHours 가 1주 168시간을 넘으면 막는 것과 같은 취지
+  if (!(unitHours > 0) || unitHours > MAX_UNIT_HOURS || !Number.isFinite(unitHours) || Math.abs(unitHours * 100 - hours100) > 1e-6) {
     throw new Error('월 기준시간을 확인해 주세요(소수 둘째 자리까지)');
   }
   let annual = 0;
@@ -308,28 +346,56 @@ const QUESTION_LABEL: Record<Question, string> = {
   performanceYear: '어느 해 실적분인지',
 };
 
-/** 종류 이름이 판결·지침이 따로 다룬 것인데 세 질문에 「예」로 답했을 때의 주의 문장 */
+/** 종류 이름이 판결·지침이 따로 다룬 것인데 세 질문에 「예」로 답했을 때의 주의 문장 — 새 기준 */
 const KIND_CAUTION: Partial<Record<ItemKind, string>> = {
   extra: '무사고처럼 정해진 근무 밖의 요건을 달성해야 받는 수당은 판결이 근무시간의 대가가 아니라고 보았습니다(2020다247190). 그런 요건 없이 정해진 근무만으로 받는지 규정을 확인해 주세요.',
   disability: '장애인수첩을 가진 사람에게만 주는 장애인수당은 판결이 근무의 대가로 볼 수 없다고 보았습니다(2019다204876). 모두에게 주는지 「지급 대상」 답을 다시 확인해 주세요.',
   business: '기업 실적에 따라 주거나 그때그때 지급 여부·금액을 정하는 경영성과급·격려금은 지침이 통상임금이 아니라고 정리합니다. 해마다 정해진 금액을 주도록 규정돼 있는지 확인해 주세요.',
 };
 
+/**
+ * 같은 주의 문장 — 종전 기준. 2024·2025 판결·지침 대신 2012다89399 의 정의(U01·U04·U00)로 적는다.
+ * 2012다89399 는 무사고수당·경영성과급을 따로 다루지 않았다 — 사건번호는 판결이 말한 정의에만 붙이고, 종류에 대한 말은 그 정의로 본 점검이다.
+ */
+const KIND_CAUTION_OLD: Partial<Record<ItemKind, string>> = {
+  extra: '종전 판결의 「소정근로의 대가」 정의(2012다89399)로 보면 무사고처럼 정해진 근무 밖의 요건을 달성해야 받는 수당은 그 대가로 보기 어려운 요소가 있습니다. 그런 요건 없이 정해진 근무만으로 받는지 규정을 확인해 주세요.',
+  disability: '종전 판결은 일률성을 따지는 조건이 소정근로의 가치 평가와 관련된 조건이라야 한다고 보았습니다(2012다89399). 장애 여부처럼 일의 가치와 무관한 조건으로 주는지, 모두에게 주는지 「지급 대상」 답을 다시 확인해 주세요.',
+  business: '종전 판결의 정의(2012다89399 — 정기적·일률적·고정적으로 지급되는 임금)로 보면 기업 실적에 따라 주거나 그때그때 지급 여부·금액을 정하는 금품은 그런 임금으로 보기 어려운 요소가 있습니다. 해마다 정해진 금액을 주도록 규정돼 있는지 확인해 주세요.',
+};
+
+const STATUTORY_NOTE = '주휴수당 같은 법정수당은 통상임금을 바탕으로 계산하는 수당이라 합계에 넣지 않습니다.';
+
+/** 「근무시간의 대가」 「아니오」가 붙어 있는 조건과 부딪혀 보류할 때 — 기준마다 그 조건을 다룬 판결로 적는다 */
+const CONFLICT_NOTE: Record<Era, string> = {
+  new: '지급일 재직 조건이나 소정근로일수 이내의 근무일수·출근율 조건이 붙었다는 사정만으로는 통상임금성이 부정되지 않는다고 판결은 보았습니다(2020다247190). 그 조건 때문에 「아니오」로 답했다면 「근무시간의 대가」는 「예」로 다시 확인해 주세요. 조건은 ‘붙어 있는 조건’에서 따로 봅니다.',
+  old: '종전 판결은 그 조건이 붙어 있어도 근무일수에 비례해 지급하는 한도에서는 고정성이 부정되지 않는다고 보았습니다(2012다89399). 그 조건 때문에 「아니오」로 답했다면 「근무시간의 대가」는 「예」로 다시 확인해 주세요. 조건은 ‘붙어 있는 조건’에서 따로 봅니다.',
+};
+
+/** 전년도 실적분 성과급의 최소 보장액을 합계에서 뺐을 때 */
+const PRIOR_YEAR_NOTE: Record<Era, string> = {
+  new: '전년도 실적분이라 그 최소 금액은 전년도 통상임금 쪽으로 볼 요소가 있어 합계에 넣지 않았습니다. 점검 기준일이 속한 해의 실적분(지급이 다음 해여도)의 최소 보장액을 따로 넣어 보세요(2023다216777).',
+  old: '전년도에 줄 것을 지급 시기만 늦춘 성과급이면 종전 판결은 최소 보장액 한도에서만 고정적인 임금으로 보았습니다(2012다89399). 전년도분으로 볼 요소가 있어 그 최소 금액은 합계에 넣지 않았습니다. 점검 기준일이 속한 해의 실적분의 최소 보장액을 따로 넣어 보세요.',
+};
+
+/** 성과급 「어느 기간의 실적분」 질문 아래 안내 */
+export const PERF_YEAR_HINT =
+  '점검 기준일이 속한 해의 실적분이면 지급이 다음 해여도 그해 통상임금 쪽으로 볼 요소가 있습니다. 판결은 지급 시기가 아니라 지급 대상기간으로 가렸습니다(2023다216777).';
+
 /** 항목 결과 아래 덧붙이는 문장 */
 export function itemNotes(i: WageItem, c: ItemCheck): string[] {
+  // 법정수당은 조건 칸이 숨는다 — 종류를 바꾸기 전에 넣은 조건 값이 남아 있어도 법정수당 문장만 낸다
+  if (i.kind === 'statutory') return [STATUTORY_NOTE];
   const n: string[] = [];
   const asked = c.open.filter((q) => q !== 'amount');
   if (c.open.includes('amount')) n.push('1회 지급액이 비어 있어 합계에서 뺐습니다.');
   if (c.direction === 'unclear' && asked.length) n.push(`답이 비어 있는 질문: ${asked.map((q) => QUESTION_LABEL[q]).join(', ')}`);
-  if (c.direction === 'unclear' && !c.open.length && forWorkConflict(i)) {
-    n.push('지급일 재직 조건이나 소정근로일수 이내의 근무일수·출근율 조건이 붙었다는 사정만으로는 통상임금성이 부정되지 않는다고 판결은 보았습니다(2020다247190). 그 조건 때문에 「아니오」로 답했다면 「근무시간의 대가」는 「예」로 다시 확인해 주세요. 조건은 ‘붙어 있는 조건’에서 따로 봅니다.');
-  }
+  if (c.direction === 'unclear' && forWorkConflict(i)) n.push(CONFLICT_NOTE[c.era]);
   if (c.direction === 'in' && i.kind === 'performance') n.push('평가와 무관하게 보장된 최소 금액만 그렇습니다.');
   if (familyBase(i)) n.push('모두에게 주는 기본금액은 판결이 근무의 대가로 보았기 때문에(2012다89399) 지급 대상·근무시간의 대가 답과 상관없이 정해진 주기만 봅니다.');
   if (c.direction === 'in' && c.partial && i.kind === 'family') n.push('기본금액만 들어가는 쪽으로 볼 요소가 있습니다. 부양가족에 따라 더 주는 금액은 빠지는 쪽으로 볼 요소가 있습니다.');
-  if (c.priorYear) n.push('전년도 실적분이라 그 최소 금액은 전년도 통상임금 쪽으로 볼 요소가 있어 합계에 넣지 않았습니다. 점검 기준일이 속한 해의 실적분(지급이 다음 해여도)의 최소 보장액을 따로 넣어 보세요(2023다216777).');
-  if (c.direction === 'in' && KIND_CAUTION[i.kind]) n.push(KIND_CAUTION[i.kind]!);
-  if (i.kind === 'statutory') n.push('주휴수당 같은 법정수당은 통상임금을 바탕으로 계산하는 수당이라 합계에 넣지 않습니다.');
+  if (c.priorYear) n.push(PRIOR_YEAR_NOTE[c.era]);
+  const caution = (c.era === 'new' ? KIND_CAUTION : KIND_CAUTION_OLD)[i.kind];
+  if (c.direction === 'in' && caution) n.push(caution);
   if (i.leaveOrDisciplineOnly) n.push('휴직자·징계 대상자에게 주지 않는 규정만으로는 「모두에게」가 부정되지 않습니다. 지급 대상 질문은 그 사람들을 빼고 답해 주세요.');
   if (overScheduled(i)) n.push('조건 일수가 그 기간의 소정근로일수를 넘으면 정해진 근무를 넘는 추가 근로의 대가로 볼 요소가 있습니다.');
   if (c.reasons.includes('Q09')) n.push('다만 통상임금에서 빼려고 근무실태와 동떨어진 소정근로일수를 정했다면 그 합의의 효력이 부정될 수 있다고 판결은 보았습니다(2020다247190).');
@@ -337,7 +403,7 @@ export function itemNotes(i: WageItem, c: ItemCheck): string[] {
 }
 
 export const OLD_ERA_NOTICE =
-  '2024. 12. 18.까지 제공한 연장근로 등에는 종전 기준(고정성)을 적용하도록 판결이 정해 결과가 달라질 수 있습니다. 다만 그 사건과, 판결 선고 시점에 통상임금 해당 여부가 재판의 전제가 되어 다투어지며 이미 법원에 계속 중이던 사건(병행사건)에는 새 기준을 소급 적용하도록 했습니다(2020다247190).';
+  '2024. 12. 18.까지 제공한 연장근로 등에는 종전 기준(고정성)을 적용하도록 판결이 정해 결과가 달라질 수 있습니다. 다만 판결이 선고된 두 사건(2020다247190·2023다302838)과, 판결 선고 시점에 그 판결이 변경하는 법리가 재판의 전제가 되어 통상임금 해당 여부가 다투어지며 법원에 계속 중이던 사건(병행사건)에는 새 기준을 소급 적용하도록 했습니다.';
 export const RIGHT_TO_PAY_NOTICE =
   '통상임금 계산에 넣는 것과, 퇴직자가 그 임금을 받을 권리는 별개입니다. 지급일 재직 조건은 특별한 사정이 없는 한 무효로 볼 수 없다고 본 판결(2019다204876)이 있고, 지침은 퇴직 등으로 지급조건을 채우지 못하면 줄 의무가 생기지 않는다고 정리합니다. 판결은 그 조건이 현저히 합리성을 잃었는지도 따로 살폈습니다.';
 export const AGREED_WAGE_NOTICE =
@@ -363,6 +429,9 @@ export function summaryLines(era: Era, checks: ItemCheck[], hourly: number, inva
 
 export const fmt2 = (n: number) => n.toLocaleString('ko-KR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
+/** 기준별 비교 줄의 시간급 — 들어가는 쪽 항목이 없으면 「시간당 0.00원」 대신 없다고 적는다(summaryLines 와 같은 원칙) */
+export const hourlyText = (s: { hourly: number; count: number }) => (s.count > 0 ? `시간당 ${fmt2(s.hourly)}원` : '들어가는 쪽 항목 없음');
+
 /** 시험용 — 화면에 나올 수 있는 문장 전부(근거 원문·요지 포함) */
 export function allCopy(): string[] {
   const kinds = Object.keys(KIND_LABEL) as ItemKind[];
@@ -380,6 +449,9 @@ export function allCopy(): string[] {
     sample('allowance', { leaveOrDisciplineOnly: true }),
     sample('attendance', { workDays: { required: 22, scheduled: 21 } }),
     sample('attendance', { forWork: 'no', workDays: { required: 15, scheduled: 21 } }),
+    // 종전 기준에서 조건과 부딪힌 보류는 비례 지급이 있을 때만 생긴다
+    sample('attendance', { forWork: 'no', uniform: 'unknown', workDays: { required: 15, scheduled: 21 }, proRataOnShortDays: true }),
+    sample('performance', { amount: 0, regular: 'unknown', uniform: 'unknown', forWork: 'unknown' }),
   ];
   const lines: string[] = [];
   for (const era of ['new', 'old'] as const) {
@@ -389,7 +461,8 @@ export function allCopy(): string[] {
     lines.push(...summaryLines(era, checks, 1234.5, 2), ...summaryLines(era, [], 0), eraLabel(era));
   }
   lines.push(...Object.values(KIND_LABEL), ...Object.values(QUESTION_LABEL), ...Object.values(PERF_YEAR_LABEL));
-  lines.push(OLD_ERA_NOTICE, RIGHT_TO_PAY_NOTICE, AGREED_WAGE_NOTICE, UNIT_HOURS_NOTE, ROUNDING_NOTE);
+  lines.push(OLD_ERA_NOTICE, RIGHT_TO_PAY_NOTICE, AGREED_WAGE_NOTICE, UNIT_HOURS_NOTE, ROUNDING_NOTE, PERF_YEAR_HINT);
+  lines.push(hourlyText({ hourly: 1234.5, count: 1 }), hourlyText({ hourly: 0, count: 0 }));
   for (const s of Object.values(SOURCES)) lines.push(s.cite, ...(s.quote ? [s.quote] : []), ...(s.note ? [s.note] : []));
   return [...new Set(lines)];
 }
