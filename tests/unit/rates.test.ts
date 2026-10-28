@@ -37,6 +37,13 @@ describe('rates — 값 고르기', () => {
     expect(rateOn('ltcEmployeePerMillion', '2026-10-28')?.value).toBe(4_724);
     expect(rateOn('employmentEmployeePerMillion', '2026-10-28')?.value).toBe(9_000);
   });
+
+  it('건강보험 월 보험료 상·하한은 해마다 다시 고시한다(시행령 제32조) — 2026년분만 있다', () => {
+    expect(rateOn('healthPremiumFloor', '2026-12-31')?.value).toBe(20_160);
+    expect(rateOn('healthPremiumCap', '2026-12-31')?.value).toBe(9_183_480);
+    expect(rateOn('healthPremiumFloor', '2027-01-01')).toBeNull();
+    expect(rateOn('healthPremiumCap', '2027-01-01')).toBeNull();
+  });
 });
 
 describe('rates — 장부 규칙', () => {
