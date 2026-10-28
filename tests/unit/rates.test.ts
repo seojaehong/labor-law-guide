@@ -38,11 +38,14 @@ describe('rates — 값 고르기', () => {
     expect(rateOn('employmentEmployeePerMillion', '2026-10-28')?.value).toBe(9_000);
   });
 
-  it('건강보험 월 보험료 상·하한은 해마다 다시 고시한다(시행령 제32조) — 2026년분만 있다', () => {
+  it('건강보험 월 보험료 상·하한 — 고시(제2025-222호)에 적용 기간이 없어 끝나는 날을 두지 않는다', () => {
+    // 고시 제4조 「2026년 12월 31일까지」는 재검토기한이다. 해마다 12월 하순(2023-12-26·2024-12-30·2025-12-24)에 개정돼
+    // 60일 전 경보를 지킬 수 없다. 끝나는 날을 두면 2026-11-02 부터 아래 「60일」 시험이 실패한다.
     expect(rateOn('healthPremiumFloor', '2026-12-31')?.value).toBe(20_160);
     expect(rateOn('healthPremiumCap', '2026-12-31')?.value).toBe(9_183_480);
-    expect(rateOn('healthPremiumFloor', '2027-01-01')).toBeNull();
-    expect(rateOn('healthPremiumCap', '2027-01-01')).toBeNull();
+    expect(RATES.healthPremiumFloor.at(-1)?.until).toBeUndefined();
+    expect(RATES.healthPremiumCap.at(-1)?.until).toBeUndefined();
+    expect(rateOn('healthPremiumFloor', '2027-01-01')?.value).toBe(20_160);
   });
 });
 
@@ -66,12 +69,19 @@ describe('rates — 장부 규칙', () => {
     }
   });
 
-  it('끝나는 날이 정해진 값은 60일 넘게 남아 있다 — 다음 고시를 미리 넣는다', () => {
-    const limit = addDays(todayKst(), 60);
-    const soon = keys.filter((k) => {
+  const soonKeys = (today: string) => {
+    const limit = addDays(today, 60);
+    return keys.filter((k) => {
       const last = RATES[k][RATES[k].length - 1];
       return last.until !== undefined && last.until < limit;
     });
-    expect(soon, '다음 고시를 원문으로 확인해 rates.ts 에 더하세요').toEqual([]);
+  };
+
+  it('끝나는 날이 정해진 값은 60일 넘게 남아 있다 — 다음 고시를 미리 넣는다', () => {
+    expect(soonKeys(todayKst()), '다음 고시를 원문으로 확인해 rates.ts 에 더하세요').toEqual([]);
+  });
+
+  it('2026-11-02 에도 이 경보가 울리지 않는다 — 고시가 연말에야 나오는 값에 끝나는 날을 지어 두지 않는다', () => {
+    expect(soonKeys('2026-11-02')).toEqual([]);
   });
 });

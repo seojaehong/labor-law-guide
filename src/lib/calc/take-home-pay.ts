@@ -11,10 +11,14 @@
 //   건강보험: 법 §107(국고금관리법 §47 끝수 계산 안 함). 총액을 버린 뒤 절반을 다시 버린다
 //     — floor10(floor10(x)/2) = floor10(x/2) 라 근로자 몫에 바로 3.595% 를 곱한 것과 같다.
 //   장기요양: 법 §64 가 국민건강보험법 §107 을 준용 — 근로자 건강보험료 × 13.14% 를 10원 미만 버림
-//     (사무소 급여 엔진·명세서 수식과 같은 식. 공단 고지와는 아직 맞춰 보지 않았다).
+//     (사무소 급여 엔진·명세서 수식과 같은 식. 법 §9① 은 건강보험 「보험료액」(총액)에 비율을 곱하라고 해서
+//     총액에 곱한 뒤 절반을 내는 셈과 10원 갈리는 금액이 있다. 공단 고지와는 아직 맞춰 보지 않았다).
 //   고용보험: 고용보험기금(국고금관리법 §2 1호·§3①2호) → §47①.
 //   지방소득세: 지방회계법 §55 는 「10원 미만은 계산하지 아니할 수 있고」(임의) — 실무대로 버린다.
 //   원천징수 비율(80·120%)을 곱한 소득세도 국고금관리법 §47① 로 10원 미만을 버린다.
+//   소득세법 §86 1호 — 근로소득 원천징수세액이 1천원 미만이면 징수하지 않는다. 표에는 1천원 미만 칸이 없지만(0 아닌 최솟값 1,030원)
+//     자녀 공제·80·120%·11명 초과 식을 거치면 생기므로, 비율까지 적용한 금액이 1천원 미만이면 소득세를 0으로 둔다(정확히 1,000원은 징수).
+//     지방소득세는 「원천징수하는 소득세의 100분의 10」(지방세법 §103의13①)이라 함께 0이 된다.
 //
 // 금액이 커도 곱이 2^53 안에 들도록 월 급여를 10억원까지만 받는다(T × 71,900 ≤ 7.2e13). BigInt 는 쓰지 않는다.
 import { rateOn } from '@/content/rates';
@@ -87,6 +91,8 @@ export interface IncomeTaxDetail {
   tableTax: number;
   childDeduction: number;
   ratio: 80 | 100 | 120;
+  /** 자녀 공제 → 원천징수 비율까지 적용한 금액(10원 미만 버림). 1천원 미만이면 incomeTax 는 0(소득세법 §86 1호) */
+  ratioTax: number;
   incomeTax: number;
   localTax: number;
 }
@@ -125,6 +131,8 @@ export function childDeduction(children: number): number {
  *   (원천징수세액은 음수가 될 수 없다 — 제3호 단서와 같은 처리. 원문에 0 처리 문구는 없다).
  */
 export function withholdingTableTax(taxable: number, family: number): { row: readonly [number, number] | null; tax: number } | null {
+  // 0명이면 col(0) 이 구간 상한(r[1])을 세액으로 돌려준다 — 다른 호출자가 생겨도 새지 않게 여기서 막는다
+  if (!Number.isInteger(family) || family < 1) throw new Error('공제대상가족 수를 확인해 주세요(본인 포함 1명 이상)');
   if (taxable < TABLE_BOTTOM) return { row: null, tax: 0 };
   if (taxable > TABLE_TOP) return null;
   const r = WITHHOLDING_ROWS.find(([lo, hi]) => (lo < hi ? lo <= taxable && taxable < hi : taxable === lo))!;
@@ -195,7 +203,9 @@ export function calcTakeHomePay(input: TakeHomeInput, rates: TakeHomeRates): Tak
 
   // 소득세 — 표 세액 − 자녀 공제(음수면 0, 제3호 단서) → 원천징수 비율(시행령 §194①, 「해당란 세액」에 곱한다)
   const cd = childDeduction(children);
-  const incomeTax = f10(div(Math.max(0, found.tax - cd) * ratio, 100));
+  const ratioTax = f10(div(Math.max(0, found.tax - cd) * ratio, 100));
+  // 소액 부징수(소득세법 §86 1호) — 1천원 미만은 징수하지 않는다
+  const incomeTax = ratioTax < 1_000 ? 0 : ratioTax;
   // 지방소득세 — 소득세의 100분의 10(지방세법 §103조의13①)
   const localTax = f10(div(incomeTax, 10));
   const deduction = insurance + incomeTax + localTax;
@@ -205,7 +215,7 @@ export function calcTakeHomePay(input: TakeHomeInput, rates: TakeHomeRates): Tak
   return {
     ...common,
     status: 'ok',
-    tax: { row: found.row, family, tableTax: found.tax, childDeduction: cd, ratio, incomeTax, localTax },
+    tax: { row: found.row, family, tableTax: found.tax, childDeduction: cd, ratio, ratioTax, incomeTax, localTax },
     deduction,
     takeHome: pay - deduction,
   };
