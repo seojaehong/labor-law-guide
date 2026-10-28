@@ -5,6 +5,8 @@ export const won = (n: number) => `${n.toLocaleString('ko-KR')}원`;
 /** 100만분의 n → 「4.75%」 */
 const pct = (perMillion: number) => `${(perMillion / 10_000).toLocaleString('ko-KR', { maximumFractionDigits: 4 })}%`;
 const thousand = (n: number) => `${(n / 1000).toLocaleString('ko-KR')}천원`;
+/** a ÷ b 를 백분율 소수 넷째 자리까지(표시만, 계산에는 쓰지 않는다) */
+const ratioPct = (a: number, b: number) => `${((a / b) * 100).toLocaleString('ko-KR', { maximumFractionDigits: 4 })}%`;
 
 export const NOTICE = '세무대리·신고서 작성 대행이 아닙니다. 입력한 숫자로 계산한 예상 금액입니다.';
 export const HOMETAX_URL = 'https://www.hometax.go.kr/';
@@ -42,7 +44,13 @@ export function items(r: TakeHomeResult): Item[] {
     );
   } else {
     rows.push(
-      { label: '소득세', amount: won(r.tax.incomeTax), basis: '소득세법 제134조제1항, 시행령 제189조제1항 [별표2]·제194조제1항' },
+      {
+        label: '소득세',
+        amount: won(r.tax.incomeTax),
+        basis: r.tax.ratioTax > 0 && r.tax.incomeTax === 0
+          ? `계산한 ${won(r.tax.ratioTax)}이 1천원 미만이라 징수하지 않습니다(소득세법 제86조제1호)`
+          : '소득세법 제134조제1항, 시행령 제189조제1항 [별표2]·제194조제1항',
+      },
       { label: '지방소득세', amount: won(r.tax.localTax), basis: '지방세법 제103조의13제1항' },
     );
   }
@@ -63,7 +71,7 @@ export function formulaLines(r: TakeHomeResult, rates: TakeHomeRates): string[] 
       ? '국민연금 = 0원(공제 대상이 아님)'
       : `국민연금 = 기준소득월액 ${won(r.npsBase)}(과세 급여의 천원 미만 버림, 하한 ${won(rates.npsFloor)}·상한 ${won(rates.npsCap)}) × ${pct(rates.npsPerMillion)} = ${won(r.nps)}(10원 미만 버림)`,
     `건강보험 = 과세 급여 × ${pct(rates.healthPerMillion * 2)} = ${won(r.healthTotal)}(10원 미만 버림, 월 하한 ${won(rates.healthPremiumFloor)}·상한 ${won(rates.healthPremiumCap)})의 절반 = ${won(r.health)}`,
-    `장기요양보험 = 건강보험료(근로자 몫) ${won(r.health)} × ${pct(rates.ltcToHealthPerMillion)}(건강보험료 대비 장기요양보험료율, ${pct(rates.ltcPerMillion * 2)} ÷ ${pct(rates.healthPerMillion * 2)}) = ${won(r.ltc)}(10원 미만 버림)`,
+    `장기요양보험 = 건강보험료(근로자 몫) ${won(r.health)} × ${pct(rates.ltcToHealthPerMillion)}(보건복지부가 공표한 건강보험료 대비 장기요양보험료율. 두 요율을 나누면 ${pct(rates.ltcPerMillion * 2)} ÷ ${pct(rates.healthPerMillion * 2)} = 약 ${ratioPct(rates.ltcPerMillion, rates.healthPerMillion)}) = ${won(r.ltc)}(10원 미만 버림). 공표 비율로 셈한 예상값이라 공단 고지와 10원 다를 수 있습니다.`,
     r.employmentExempt
       ? '고용보험 = 0원(만 65세 이후 새로 고용됨)'
       : `고용보험 = 과세 급여 × ${pct(rates.employmentPerMillion)} = ${won(r.employment)}(10원 미만 버림)`,
@@ -81,8 +89,11 @@ export function formulaLines(r: TakeHomeResult, rates: TakeHomeRates): string[] 
   const column = t.family <= 11
     ? `가족 ${t.family}명 칸 ${won(t.tableTax)}`
     : `가족 ${t.family}명(11명 초과 — 11명 칸에서 10명·11명 칸 차이 × 초과 인원을 뺌, 별표2 제4호) ${won(t.tableTax)}`;
+  const minimum = t.ratioTax > 0 && t.incomeTax === 0
+    ? ` → 1천원 미만이라 징수하지 않음(소득세법 제86조제1호) = 0원`
+    : '';
   lines.push(
-    `소득세 = 간이세액표 ${where} · ${column} − 8세 이상 20세 이하 자녀 공제 ${won(t.childDeduction)}(0원 아래로 내려가지 않음) → × ${t.ratio}% = ${won(t.incomeTax)}(10원 미만 버림)`,
+    `소득세 = 간이세액표 ${where} · ${column} − 8세 이상 20세 이하 자녀 공제 ${won(t.childDeduction)}(0원 아래로 내려가지 않음) → × ${t.ratio}% = ${won(t.ratioTax)}(10원 미만 버림)${minimum}`,
     `지방소득세 = 소득세 ${won(t.incomeTax)} × 10% = ${won(t.localTax)}(10원 미만 버림)`,
     `실수령액 = 월 급여 ${won(r.pay)} − 공제 합계 ${won(r.deduction)} = ${won(r.takeHome)}`,
   );

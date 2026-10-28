@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import { createHash } from 'node:crypto';
 import { calcTakeHomePay, takeHomeRatesOn, withholdingTableTax, type TakeHomeInput, type TakeHomeRates } from '@/lib/calc/take-home-pay';
 import { WITHHOLDING_ROWS } from '@/lib/calc/wage-withholding-2026-02-27';
-import { allCopy, headline, HOMETAX_LINE, NOTICE } from '@/app/tools/take-home-pay/copy';
+import { allCopy, formulaLines, headline, HOMETAX_LINE, NOTICE } from '@/app/tools/take-home-pay/copy';
 import { bannedHits } from '@/lib/tool-kit/banned';
 import { TOOLS } from '@/content/tools-registry';
 
@@ -114,7 +114,8 @@ describe('실수령액 — 리서치 사례', () => {
 describe('장기요양 — 근로자 건강보험료 × 건강보험료 대비 장기요양보험료율 13.14%(노인장기요양보험법 §9①)', () => {
   // 사무소 급여 엔진(salary_calc.py·insurance.py)과 명세서 수식 ROUNDDOWN(건강×13.14%,-1)과 같은 식이다.
   // 건보 「총액」에 정확한 비율 9,448/71,900 을 곱한 뒤 절반을 내는 식(앞 판)은 2,002,643·2,500,000·2,345,678·10,000,000 에서 10원 더 나온다.
-  // 공단 고지와는 아직 맞춰 보지 않았다(PR #113 미확정 1).
+  // 공단 고지와는 아직 맞춰 보지 않았다(PR #113 미확정 1). 그래서 아래 기대값은 외부 정답이 아니라 이 도구가 고른 셈의 값이고,
+  // 화면도 「공표 비율로 셈한 예상값, 공단 고지와 10원 다를 수 있음」으로 적는다. 공단 고지서 1건으로 셈을 확정하면 이 주석을 고친다.
   it.each([
     [2_000_424, 9_440],
     [2_002_643, 9_450],
@@ -173,6 +174,52 @@ describe('1,000만원 초과는 표 밖 — 소득세를 내지 않는다', () =
   });
 });
 
+describe('1천원 미만 소득세는 징수하지 않는다(소득세법 제86조제1호)', () => {
+  // 간이세액표의 0 아닌 칸은 1,030원부터라 표에는 1천원 미만 세액이 없다.
+  // 자녀 공제(제3호)·원천징수 비율(시행령 §194①)·11명 초과 식(제4호)을 거치면 생긴다 — 그 금액은 징수하지 않는다.
+  // 지방소득세는 「원천징수하는 소득세의 100분의 10」(지방세법 §103의13①)이라 소득세가 0이면 0이다.
+  it.each<[string, Partial<TakeHomeInput> & { pay: number }, number]>([
+    ['226만·가족 2·자녀 1 — 20,880 − 20,830 = 50', { pay: 2_260_000, family: 2, children: 1 }, 50],
+    ['106만·80% — 1,040 × 80% = 830', { pay: 1_060_000, ratio: 80 }, 830],
+    ['289만·가족 10·80% — 1,170 × 80% = 930', { pay: 2_890_000, family: 10, ratio: 80 }, 930],
+    ['316만·가족 12(11명 초과 식) — 240', { pay: 3_160_000, family: 12 }, 240],
+  ])('%s → 소득세·지방소득세 0원', (_n, input, beforeMinimum) => {
+    const r = calc(input);
+    if (r.status !== 'ok') throw new Error('표 안이어야 한다');
+    expect(r.tax.ratioTax).toBe(beforeMinimum);
+    expect([r.tax.incomeTax, r.tax.localTax]).toEqual([0, 0]);
+    expect(r.deduction).toBe(r.insurance);
+    expect(formulaLines(r, RATES).join('\n')).toContain('제86조');
+  });
+
+  it('정확히 1,000원은 징수한다(「미만」) — 107.5만·80%: 1,250 × 80% = 1,000 · 107만·80%: 940 → 0', () => {
+    const at = calc({ pay: 1_075_000, ratio: 80 });
+    const below = calc({ pay: 1_070_000, ratio: 80 });
+    if (at.status !== 'ok' || below.status !== 'ok') throw new Error('표 안이어야 한다');
+    expect([at.tax.incomeTax, at.tax.localTax]).toEqual([1_000, 100]);
+    expect([below.tax.ratioTax, below.tax.incomeTax, below.tax.localTax]).toEqual([940, 0, 0]);
+  });
+
+  it('표 전 행 × 가족 1~11명 × 자녀 0~3명 × 80·100·120% — 0원 초과 1천원 미만 소득세가 나오지 않는다', () => {
+    const leaks: string[] = [];
+    let zeroed = 0;
+    for (const [lo] of WITHHOLDING_ROWS) {
+      for (let family = 1; family <= 11; family++) {
+        for (let children = 0; children <= Math.min(family - 1, 3); children++) {
+          for (const ratio of [80, 100, 120] as const) {
+            const r = calc({ pay: lo, family, children, ratio });
+            if (r.status !== 'ok') continue;
+            if (r.tax.incomeTax > 0 && r.tax.incomeTax < 1_000) leaks.push(`${lo}/${family}/${children}/${ratio}`);
+            if (r.tax.ratioTax > 0 && r.tax.incomeTax === 0) zeroed++;
+          }
+        }
+      }
+    }
+    expect(leaks).toEqual([]);
+    expect(zeroed).toBeGreaterThan(0);
+  });
+});
+
 describe('공제대상가족 11명 초과(별표2 제4호)', () => {
   it('C20 — 11명 세액 − (10명 − 11명) × 초과 인원', () => {
     expect(withholdingTableTax(9_000_000, 12)?.tax).toBe(714_620);
@@ -184,6 +231,12 @@ describe('공제대상가족 11명 초과(별표2 제4호)', () => {
     expect(withholdingTableTax(2_890_000, 10)?.tax).toBe(1_170);
     expect(withholdingTableTax(2_890_000, 11)?.tax).toBe(0);
     expect(withholdingTableTax(2_890_000, 12)?.tax).toBe(0);
+  });
+
+  it('가족 수가 1 이상 정수가 아니면 표를 찾지 않는다 — 0명이면 구간 상한(r[1])을 세액으로 돌려주던 구멍', () => {
+    expect(() => withholdingTableTax(2_650_000, 0)).toThrow();
+    expect(() => withholdingTableTax(2_650_000, 1.5)).toThrow();
+    expect(() => withholdingTableTax(2_650_000, -1)).toThrow();
   });
 });
 
@@ -222,10 +275,12 @@ describe('요율은 날짜 축 — 없으면 계산하지 않는다', () => {
     expect(takeHomeRatesOn('2027-07-01')).toBeNull();
   });
 
-  it('건강보험 월 보험료 상·하한은 2026년분 고시(1월분부터) — 2027년 고시를 더하기 전에는 null', () => {
-    // 시행령 §32 가 「전전년도 평균 보수월액보험료」로 해마다 다시 정한다. 2027 국민연금 1만분의 500 과 2026 상·하한을 섞지 않는다.
+  it('건강보험 월 보험료 상·하한 고시(제2025-222호)에는 적용 기간이 없다 — 다음 고시가 바꿀 때까지 쓴다', () => {
+    // 고시 제4조의 2026. 12. 31.은 재검토기한이고, 부칙은 「2026년 1월분 보험료를 산정하는 경우부터 적용」뿐이다(법제처 원문, 2026-10-29).
+    // 그래서 2027. 1. 1.에도 화면이 멈추지 않는다. 2027년분 고시가 나오면 rates.ts 에 줄을 더한다.
     expect(takeHomeRatesOn('2026-12-31')).not.toBeNull();
-    expect(takeHomeRatesOn('2027-01-01')).toBeNull();
+    expect(takeHomeRatesOn('2027-01-01')?.healthPremiumFloor).toBe(20_160);
+    expect(takeHomeRatesOn('2027-01-01')?.npsPerMillion).toBe(50_000);
   });
 });
 
@@ -305,6 +360,17 @@ describe('화면 문장', () => {
     expect(allCopy(results[0], RATES).join('\n')).toContain('홈택스');
     // 홈택스 화면에서 확인하지 않은 메뉴 경로(「A → B → C」)를 단정하지 않는다
     expect(HOMETAX_LINE).not.toMatch(/→/);
+  });
+
+  it('장기요양 산식·근거는 공표 비율로 셈한 예상값이라 공단 고지와 10원 다를 수 있다고 적는다', () => {
+    // 법 §9① 은 건강보험 「보험료액」(총액)에 비율을 곱하라고 한다. 이 도구는 사무소 급여 실무대로 근로자 몫에 13.14% 를 곱한다.
+    const line = formulaLines(calc({ pay: 3_000_000 }), RATES).find((l) => l.startsWith('장기요양보험'))!;
+    expect(line).toContain('보건복지부가 공표한');
+    expect(line).toContain('공단 고지와 10원 다를 수 있습니다');
+    // 0.9448% ÷ 7.19% 는 13.1405% 라 13.14% 와 같다고 쓰지 않는다
+    expect(line).toContain('13.1405%');
+    expect(line).not.toMatch(/13\.14%\(건강보험료 대비 장기요양보험료율, 0\.9448% ÷ 7\.19%\)/);
+    expect(fs.readFileSync('src/app/tools/take-home-pay/page.tsx', 'utf8')).toContain('공단 고지와 10원 다를 수 있음');
   });
 
   it('페이지·입력 화면에 직접 쓴 문장도 연락을 권하지 않는다', () => {
