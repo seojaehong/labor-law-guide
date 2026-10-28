@@ -52,4 +52,6 @@ export const TOOLS: ToolEntry[] = [
     sitemap: { lastModified: '2026-03-15', changeFrequency: 'monthly', priority: 0.85 } },
   { href: '/tools/take-home-pay', title: '실수령액 계산기', desc: '월 급여와 비과세 식대, 공제대상 가족 수를 넣으면 국민연금·건강보험·장기요양·고용보험 근로자 몫과 간이세액표 소득세·지방소득세를 빼 한 달 실수령액을 예상합니다.', badge: '브라우저 계산', icon: 'coins',
     sitemap: { lastModified: '2026-10-28', changeFrequency: 'monthly', priority: 0.9 } },
+  { href: '/tools/retirement-tax', title: '퇴직소득세 계산기', desc: '퇴직급여와 입사일·퇴사일(마지막 근무일)을 넣으면 예상 퇴직소득세와 지방소득세를 계산합니다. 근속연수공제·환산급여공제·기본세율을 국세청 퇴직소득 세액계산 프로그램과 같은 순서로 보여줍니다.', badge: '브라우저 계산', icon: 'coins',
+    sitemap: { lastModified: '2026-10-28', changeFrequency: 'monthly', priority: 0.85 } },
 ];

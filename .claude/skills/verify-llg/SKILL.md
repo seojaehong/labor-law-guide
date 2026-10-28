@@ -10,7 +10,7 @@ description: labor-law-guide(일의 무늬, 운영 https://yellowenvelope.kr) �
 ## Launch
 
 - **운영(기본)**: 띄울 것이 없다. 병합 커밋의 Vercel 배포가 끝났는지만 Doctor 로 본다.
-- **로컬(선택)**: 저장소 루트에서 `npm.cmd run dev -- -p 3107` → 출력에 `Ready` 가 뜨면 `--base http://127.0.0.1:3107` 로 돌린다. 끝나면 띄운 그 터미널(그 PID)만 끈다. ⚠ 로컬 모드는 이 스킬을 만들 때 **돌려 보지 않았다**(운영으로만 증명). 처음 쓰는 사람이 한 번 돌려 확인하고 이 줄을 고친다.
+- **로컬(선택)**: 저장소 루트에서 `npm.cmd run dev -- -p 3107` → 출력에 `Ready` 가 뜨면 `--base http://127.0.0.1:3107` 로 돌린다. 끝나면 띄운 그 터미널(그 PID)만 끈다. 로컬 모드는 2026-10-28 `retirement-tax` 로 처음 돌렸다(`-p 3126`, PC·모바일 PASS). `predev` 가 hwp-editor 를 내려받아 빌드하므로 첫 기동은 1분쯤 걸린다. 다른 워크트리와 포트가 겹치지 않게 번호를 바꿔 쓴다.
 - Playwright 는 저장소 `node_modules` 의 것을 쓴다. 이 워크트리에 `node_modules` 가 없으면 `npm.cmd ci` (정션 금지). 급하면 다른 워크트리를 `NODE_PATH=<그 워크트리>/node_modules` 로 빌려 쓸 수 있다.
 
 ## Doctor — 돌릴 가치가 있는 인스턴스인가
@@ -19,7 +19,7 @@ description: labor-law-guide(일의 무늬, 운영 https://yellowenvelope.kr) �
 node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON .claude/skills/verify-llg/scripts/verify.mts doctor [--base <url>]
 ```
 
-기능 경로 6개가 전부 HTTP 200 이고, 운영이면 `origin/master` 커밋의 배포 상태가 `success` 일 때 `doctor: OK`(exit 0). 먼저 `git fetch` 해서 origin/master 가 방금 병합한 커밋인지 확인한다. 배포가 `pending` 이면 기다렸다 다시 친다 — 옛 빌드를 돌린 PASS 는 증거가 아니다.
+`FEATURES` 의 기능 경로가 전부 HTTP 200 이고, 운영이면 `origin/master` 커밋의 배포 상태가 `success` 일 때 `doctor: OK`(exit 0). 먼저 `git fetch` 해서 origin/master 가 방금 병합한 커밋인지 확인한다. 배포가 `pending` 이면 기다렸다 다시 친다 — 옛 빌드를 돌린 PASS 는 증거가 아니다.
 
 ## Drive
 

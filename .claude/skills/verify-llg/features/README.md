@@ -33,3 +33,4 @@ H1 제목, 사용자 입장 한 문단, 그다음 H2 넷을 이 순서로: `Sub-
 - [해고예고수당 계산기](./notice-pay.md) — `/tools/notice-pay`
 - [퇴직금 계산기 · 퇴사 정리 · 챗봇 계산 API](./severance.md) — `/tools/severance.html`, `/exit`, `/api/tools/calc`
 - [실수령액 계산기](./take-home-pay.md) — `/tools/take-home-pay`
+- [퇴직소득세 계산기](./retirement-tax.md) — `/tools/retirement-tax`
