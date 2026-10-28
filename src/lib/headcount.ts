@@ -104,10 +104,44 @@ export interface CoverageSpan { from: string; to: string }
 
 /** 기준일을 하루씩 옮기며 5인(10인) 이상으로 보는 구간을 묶는다 */
 export function coverageTimeline(input: HeadcountInput, from: string, to: string): CoverageSpan[] {
+  return spansWhere(from, to, (d) => computeHeadcount(input, d).covered);
+}
+
+/** ③ 연차 요건(1년 계속 5명 이상)을 채우는 기준일 구간 */
+export function annualLeaveTimeline(input: HeadcountInput, from: string, to: string): CoverageSpan[] {
+  // annualLeaveCoverage 와 같은 판단. 날짜 D 의 열두 달은 D, D-1개월, D-2개월… 이 기준일이라
+  // 앞 날짜들과 겹치므로 기준일마다 한 번만 센다.
+  const monthly = { ...input, threshold: 5 as const, businessStart: undefined };
+  const seen = new Map<string, boolean>();
+  const covered = (d: string) => {
+    let v = seen.get(d);
+    if (v === undefined) seen.set(d, (v = computeHeadcount(monthly, d).covered));
+    return v;
+  };
+  return spansWhere(from, to, (d) => {
+    let end = d;
+    for (let i = 0; i < 12; i++) {
+      if (!covered(end)) return false;
+      end = minusOneMonth(end);
+    }
+    return !input.businessStart || input.businessStart <= end;
+  });
+}
+
+/** minusOneMonth 의 반대. 다음 달에 그날이 없으면 그 달 말일 */
+export function plusOneMonth(d: string): string {
+  const [y, m, day] = d.split('-').map(Number);
+  const ny = m === 12 ? y + 1 : y;
+  const nm = m === 12 ? 1 : m + 1;
+  const last = new Date(Date.UTC(ny, nm, 0)).getUTCDate();
+  return `${ny}-${String(nm).padStart(2, '0')}-${String(Math.min(day, last)).padStart(2, '0')}`;
+}
+
+function spansWhere(from: string, to: string, holds: (d: string) => boolean): CoverageSpan[] {
   const spans: CoverageSpan[] = [];
   let open: CoverageSpan | null = null;
   for (let d = from; d <= to; d = addDays(d, 1)) {
-    if (computeHeadcount(input, d).covered) {
+    if (holds(d)) {
       if (open) open.to = d;
       else open = { from: d, to: d };
     } else if (open) {
