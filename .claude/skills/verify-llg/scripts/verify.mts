@@ -210,6 +210,30 @@ const FEATURES: Record<string, { path: string; journey: Journey }> = {
       step('총급여 1.2억 = 멈춤', '1억 2천만원 이상이라', await answer(p));
     },
   },
+  'ordinary-wage-check': {
+    path: '/tools/ordinary-wage-check',
+    journey: async (p, step) => {
+      // 첫 화면 = 기본급 2,500,000(매달) + 정기상여금 2,500,000(격월, 지급일 재직자에게만)
+      const date = p.getByLabel(/연장근로 등을 제공한 날/);
+      await date.fill('2025-03-01');
+      step('새 기준 — 재직조건부 상여도 들어가는 쪽(45,000,000 ÷ 12 ÷ 209)', /항목은 2개입니다.*17,942\.58원/, await answer(p));
+      await date.fill('2024-12-18');
+      step('2024-12-18 제공분 — 종전 기준(고정성)으로 상여 빠짐', /항목은 1개입니다.*11,961\.72원.*다투던 사건에는 새 기준/, await answer(p));
+      await p.locator('section[aria-label="항목 2"]').getByLabel(/근무일수에 비례해 지급한다/).check();
+      step('종전 기준이라도 근무일수 비례 지급이면 상여 들어감', /항목은 2개입니다.*17,942\.58원/, await answer(p));
+      await date.fill('2025-03-01');
+      await p.getByLabel('더할 항목').selectOption('family');
+      await p.getByRole('button', { name: '항목 더하기' }).click();
+      const fam = p.locator('section[aria-label="항목 3"]');
+      await fam.getByLabel(/1회 지급액/).fill('60000');
+      step('답이 빈 항목은 보류로 합계에서 뺌', /1개는 입력만으로 가리기 어려워 합계에서 뺐습니다/, await answer(p));
+      await fam.getByRole('group', { name: /^지급 대상/ }).getByLabel('아니오', { exact: true }).check();
+      step('부양가족 차등 가족수당 — 빠지는 쪽, 합계 그대로', /항목은 2개입니다.*17,942\.58원/, await answer(p));
+      step('가족수당 항목 문장', '새 기준으로도 통상임금에서 빠지는 쪽으로 볼 요소가 있습니다', (await fam.innerText()).replace(/\s+/g, ' '));
+      await fam.getByLabel(/모두에게 주는 1회 기본금액/).fill('20000');
+      step('모두에게 주는 기본금액 2만원만 들어감(45,240,000 ÷ 12 ÷ 209)', /항목은 3개입니다.*18,038\.28원/, await answer(p));
+    },
+  },
 };
 
 async function api(step: (n: string, e: string | RegExp, g: string) => void) {
