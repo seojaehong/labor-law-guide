@@ -10,7 +10,9 @@
 //   국민연금: 기준소득월액은 천원 미만 버림(시행령 §5①), 기여금은 법 §117 → 국고금관리법 §47①.
 //   건강보험: 법 §107(국고금관리법 §47 끝수 계산 안 함). 총액을 버린 뒤 절반을 다시 버린다
 //     — floor10(floor10(x)/2) = floor10(x/2) 라 근로자 몫에 바로 3.595% 를 곱한 것과 같다.
-//   장기요양: 법 §64 가 국민건강보험법 §107 을 준용. 고용보험: 고용보험기금(국고금관리법 §2 1호·§3①2호) → §47①.
+//   장기요양: 법 §64 가 국민건강보험법 §107 을 준용 — 근로자 건강보험료 × 13.14% 를 10원 미만 버림
+//     (사무소 급여 엔진·명세서 수식과 같은 식. 공단 고지와는 아직 맞춰 보지 않았다).
+//   고용보험: 고용보험기금(국고금관리법 §2 1호·§3①2호) → §47①.
 //   지방소득세: 지방회계법 §55 는 「10원 미만은 계산하지 아니할 수 있고」(임의) — 실무대로 버린다.
 //   원천징수 비율(80·120%)을 곱한 소득세도 국고금관리법 §47① 로 10원 미만을 버린다.
 //
@@ -44,8 +46,10 @@ export interface TakeHomeRates {
   npsCap: number;
   /** 건강보험 근로자 몫(보험료율의 절반) */
   healthPerMillion: number;
-  /** 장기요양 근로자 몫(보험료율의 절반) — 건강보험료에 곱하는 비율 = ltcPerMillion ÷ healthPerMillion */
+  /** 장기요양 근로자 몫(보험료율의 절반) — 산식 문장에 보여주는 값. 계산은 ltcToHealthPerMillion 으로 한다 */
   ltcPerMillion: number;
+  /** 건강보험료 대비 장기요양보험료율(13.14% = 131,400) */
+  ltcToHealthPerMillion: number;
   /** 월 보험료 총액 하한·상한 */
   healthPremiumFloor: number;
   healthPremiumCap: number;
@@ -67,8 +71,6 @@ export interface TakeHomeCommon {
   /** 건강보험료 총액(근로자 + 사업주, 상·하한 적용) */
   healthTotal: number;
   health: number;
-  /** 장기요양보험료 총액 */
-  ltcTotal: number;
   ltc: number;
   employment: number;
   /** 만 65세 이후 새로 고용됨으로 골랐는지 */
@@ -139,6 +141,7 @@ export function takeHomeRatesOn(date: string): TakeHomeRates | null {
     npsCap: rateOn('npsIncomeCap', date)?.value,
     healthPerMillion: rateOn('healthEmployeePerMillion', date)?.value,
     ltcPerMillion: rateOn('ltcEmployeePerMillion', date)?.value,
+    ltcToHealthPerMillion: rateOn('ltcToHealthPerMillion', date)?.value,
     healthPremiumFloor: rateOn('healthPremiumFloor', date)?.value,
     healthPremiumCap: rateOn('healthPremiumCap', date)?.value,
     employmentPerMillion: rateOn('employmentEmployeePerMillion', date)?.value,
@@ -174,16 +177,16 @@ export function calcTakeHomePay(input: TakeHomeInput, rates: TakeHomeRates): Tak
   const healthTotal = clamp(f10(div(T * rates.healthPerMillion * 2, 1_000_000)), rates.healthPremiumFloor, rates.healthPremiumCap);
   const health = f10(div(healthTotal, 2));
 
-  // 장기요양 — 건강보험료 총액 × 장기요양보험료율 ÷ 건강보험료율(법 §9①), 절반(§11 → 국민건강보험법 §76 준용)
-  const ltcTotal = f10(div(healthTotal * rates.ltcPerMillion, rates.healthPerMillion));
-  const ltc = f10(div(ltcTotal, 2));
+  // 장기요양 — 근로자 건강보험료 × 건강보험료 대비 장기요양보험료율(법 §9①, 보건복지부 공표 13.14%), 10원 미만 버림.
+  // 사무소 급여 엔진(salary_calc.py)·명세서 수식 ROUNDDOWN(건강×13.14%,-1)과 같다. 하한·상한을 거친 건강보험료에 곱한다.
+  const ltc = f10(div(health * rates.ltcToHealthPerMillion, 1_000_000));
 
   // 고용보험 — 보수 × 실업급여 보험료율의 절반(징수법 §13②). 65세 이후 새로 고용되면 걷지 않는다(§13③)
   const employment = input.employmentExempt ? 0 : f10(div(T * rates.employmentPerMillion, 1_000_000));
 
   const insurance = nps + health + ltc + employment;
   const common: TakeHomeCommon = {
-    pay, mealNonTax, nonTax, taxable: T, npsBase, nps, healthTotal, health, ltcTotal, ltc, employment,
+    pay, mealNonTax, nonTax, taxable: T, npsBase, nps, healthTotal, health, ltc, employment,
     employmentExempt: Boolean(input.employmentExempt), insurance,
   };
 
@@ -196,6 +199,9 @@ export function calcTakeHomePay(input: TakeHomeInput, rates: TakeHomeRates): Tak
   // 지방소득세 — 소득세의 100분의 10(지방세법 §103조의13①)
   const localTax = f10(div(incomeTax, 10));
   const deduction = insurance + incomeTax + localTax;
+  // 국민연금 기준소득월액 하한·건강보험 월 보험료 하한 때문에 과세 급여가 약 3만 1천원보다 적으면 공제가 급여를 넘는다.
+  // 만원·천원 단위로 잘못 넣은 경우가 대부분이라 음수 실수령액을 내지 않고 멈춘다.
+  if (deduction > pay) throw new Error('공제 합계(국민연금·건강보험 하한 포함)가 월 급여보다 많습니다. 금액을 원 단위로 넣었는지 확인해 주세요.');
   return {
     ...common,
     status: 'ok',

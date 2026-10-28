@@ -41,15 +41,15 @@ export default function TakeHomePayClient() {
     <div className="space-y-4">
       <section className={`${card} grid gap-4 sm:grid-cols-2`}>
         <label className={`${small} sm:col-span-2`} style={muted}>
-          월 급여(세전, 식대 등 비과세 포함 그달 받기로 한 금액 전부)
+          월 급여(원, 세전, 식대 등 비과세 포함 그달 받기로 한 금액 전부)
           <input inputMode="numeric" className={inputCls} value={pay} onChange={(e) => setPay(e.target.value)} />
         </label>
         <label className={small} style={muted}>
-          식대(식사를 따로 제공받지 않는 경우)
+          식대(원, 식사를 따로 제공받지 않는 경우)
           <input inputMode="numeric" className={inputCls} value={meal} onChange={(e) => setMeal(e.target.value)} />
         </label>
         <label className={small} style={muted}>
-          그 밖의 비과세 금액(없으면 비움)
+          그 밖의 비과세 금액(원, 없으면 비움)
           <input inputMode="numeric" className={inputCls} value={other} onChange={(e) => setOther(e.target.value)} />
         </label>
         <label className={small} style={muted}>
@@ -126,7 +126,7 @@ export default function TakeHomePayClient() {
           <li>그 밖의 비과세: 6세 이하 자녀 보육수당(자녀 1명당 월 20만원까지), 본인 차량을 업무에 쓰고 받는 자가운전보조금(월 20만원까지)처럼 비과세 한도 안의 금액만 넣습니다.</li>
           <li>공제대상가족: 본인과 배우자를 각각 1명으로 세고, 기본공제 대상 부양가족을 더합니다(별표2 제2호).</li>
           <li>원천징수 비율: 회사에 80% 또는 120%를 신청하지 않았으면 100%입니다(소득세법 시행령 제194조).</li>
-          <li>국민연금은 만 60세가 되면 의무가입이 끝나고(국민연금법 제8조제1항·제12조제1항제4호), 고용보험료는 만 65세 이후에 새로 고용된 사람에게서 걷지 않습니다(보험료징수법 제13조제3항). 65세 전부터 계속 일한 사람은 해당하지 않습니다.</li>
+          <li>국민연금은 만 60세가 되면 의무가입이 끝나고(국민연금법 제8조제1항·제12조제1항제4호), 만 65세 이후에 새로 고용된 사람은 고용보험료 중 실업급여 보험료를 내지 않습니다(보험료징수법 제13조제3항). 65세 전부터 계속 일한 사람은 해당하지 않습니다.</li>
         </ul>
       </FoldedDetail>
 

@@ -3,12 +3,13 @@ import fs from 'node:fs';
 import { createHash } from 'node:crypto';
 import { calcTakeHomePay, takeHomeRatesOn, withholdingTableTax, type TakeHomeInput, type TakeHomeRates } from '@/lib/calc/take-home-pay';
 import { WITHHOLDING_ROWS } from '@/lib/calc/wage-withholding-2026-02-27';
-import { allCopy, headline, NOTICE } from '@/app/tools/take-home-pay/copy';
+import { allCopy, headline, HOMETAX_LINE, NOTICE } from '@/app/tools/take-home-pay/copy';
 import { bannedHits } from '@/lib/tool-kit/banned';
 import { TOOLS } from '@/content/tools-registry';
 
 // 실수령액 — 월 급여에서 4대보험 근로자 몫 + 간이세액표 소득세 + 지방소득세를 뺀다.
 // 기대값은 구현과 따로 만든 리서치 스크립트(조문 식을 정수로 직접 계산, 2026-10-28)의 출력이다.
+// 장기요양을 「근로자 건보료 × 13.14%」로 바꾼 뒤(2026-10-29) C09·C18·C19·C21·C30 은 따로 만든 스크립트로 다시 셈했다.
 // 사례는 모두 합성 입력이다.
 
 const RATES: TakeHomeRates = {
@@ -17,6 +18,7 @@ const RATES: TakeHomeRates = {
   npsCap: 6_590_000,
   healthPerMillion: 35_950,
   ltcPerMillion: 4_724,
+  ltcToHealthPerMillion: 131_400,
   healthPremiumFloor: 20_160,
   healthPremiumCap: 9_183_480,
   employmentPerMillion: 9_000,
@@ -37,7 +39,7 @@ const CASES: [string, Partial<TakeHomeInput> & { pay: number }, Row][] = [
   ['C06 265만·120%', { pay: 2_650_000, ratio: 120 }, [125_870, 95_260, 12_510, 23_850, 52_760, 5_270, 2_334_480]],
   ['C07 400만·식대 20만·4인·자녀 2', { pay: 4_000_000, meal: 200_000, family: 4, children: 2 }, [180_500, 136_610, 17_950, 34_200, 28_730, 2_870, 3_599_140]],
   ['C08 400만·식대 20만·5인·자녀 3(공제가 세액보다 큼)', { pay: 4_000_000, meal: 200_000, family: 5, children: 3 }, [180_500, 136_610, 17_950, 34_200, 0, 0, 3_630_740]],
-  ['C09 250만·3인·자녀 2(공제가 세액보다 큼)', { pay: 2_500_000, family: 3, children: 2 }, [118_750, 89_870, 11_810, 22_500, 0, 0, 2_257_070]],
+  ['C09 250만·3인·자녀 2(공제가 세액보다 큼)', { pay: 2_500_000, family: 3, children: 2 }, [118_750, 89_870, 11_800, 22_500, 0, 0, 2_257_080]],
   ['C10 35만(연금 하한, 건보 하한 아님)', { pay: 350_000 }, [19_470, 12_580, 1_650, 3_150, 0, 0, 313_150]],
   ['C11 25만(건보 하한)', { pay: 250_000 }, [19_470, 10_080, 1_320, 2_250, 0, 0, 216_880]],
   ['C12 800만(연금 상한)', { pay: 8_000_000 }, [313_020, 287_600, 37_790, 72_000, 959_500, 95_950, 6_234_140]],
@@ -46,9 +48,9 @@ const CASES: [string, Partial<TakeHomeInput> & { pay: number }, Row][] = [
   ['C15 2,659,999(표 경계 바로 아래)', { pay: 2_659_999 }, [126_300, 95_620, 12_560, 23_930, 43_970, 4_390, 2_353_229]],
   ['C16 2,660,000(표 경계)', { pay: 2_660_000 }, [126_350, 95_620, 12_560, 23_940, 44_820, 4_480, 2_352_230]],
   ['C17 76만(770천원 미만)', { pay: 760_000 }, [36_100, 27_320, 3_580, 6_840, 0, 0, 686_160]],
-  ['C18 1,000만 정확히', { pay: 10_000_000 }, [313_020, 359_500, 47_240, 90_000, 1_507_400, 150_740, 7_532_100]],
+  ['C18 1,000만 정확히', { pay: 10_000_000 }, [313_020, 359_500, 47_230, 90_000, 1_507_400, 150_740, 7_532_110]],
   ['C20 900만·가족 12명(11명 초과)', { pay: 9_000_000, family: 12 }, [313_020, 323_550, 42_510, 81_000, 714_620, 71_460, 7_453_840]],
-  ['C21 2,345,678(천원 미만 버림)', { pay: 2_345_678 }, [111_380, 84_320, 11_080, 21_110, 30_450, 3_040, 2_084_298]],
+  ['C21 2,345,678(천원 미만 버림)', { pay: 2_345_678 }, [111_380, 84_320, 11_070, 21_110, 30_450, 3_040, 2_084_308]],
   ['C22 350만·식대 20만·그 밖의 비과세 20만·3인', { pay: 3_500_000, meal: 200_000, otherNonTax: 200_000, family: 3 }, [147_250, 111_440, 14_640, 27_900, 35_240, 3_520, 3_160_010]],
   ['C23 300만·3인·자녀 1', { pay: 3_000_000, family: 3, children: 1 }, [142_500, 107_850, 14_170, 27_000, 11_110, 1_110, 2_696_260]],
   ['C24 700만·5인·자녀 3(일부만 공제)', { pay: 7_000_000, family: 5, children: 3 }, [313_020, 251_650, 33_060, 63_000, 418_190, 41_810, 5_879_270]],
@@ -57,7 +59,7 @@ const CASES: [string, Partial<TakeHomeInput> & { pay: number }, Row][] = [
   ['C27 C07 에 80%(자녀 공제 → 비율)', { pay: 4_000_000, meal: 200_000, family: 4, children: 2, ratio: 80 }, [180_500, 136_610, 17_950, 34_200, 22_980, 2_290, 3_605_470]],
   ['C28 410,999(연금 하한 경계)', { pay: 410_999 }, [19_470, 14_770, 1_940, 3_690, 0, 0, 371_129]],
   ['C29 6,590,999(연금 상한 경계)', { pay: 6_590_999 }, [313_020, 236_940, 31_130, 59_310, 637_450, 63_740, 5_249_409]],
-  ['C30 250만·연금 제외 + 65세 이후 새로 고용', { pay: 2_500_000, npsExempt: true, employmentExempt: true }, [0, 89_870, 11_810, 0, 35_600, 3_560, 2_359_160]],
+  ['C30 250만·연금 제외 + 65세 이후 새로 고용', { pay: 2_500_000, npsExempt: true, employmentExempt: true }, [0, 89_870, 11_800, 0, 35_600, 3_560, 2_359_170]],
 ];
 
 describe('실수령액 — 리서치 사례', () => {
@@ -109,16 +111,51 @@ describe('실수령액 — 리서치 사례', () => {
   });
 });
 
-describe('장기요양 — 건강보험료 × 장기요양보험료율 ÷ 건강보험료율(노인장기요양보험법 §9①)', () => {
-  // 보수월액에 바로 0.4724% 를 곱하거나 근로자 건보료에 13.14% 를 곱하면 여기서 갈린다.
+describe('장기요양 — 근로자 건강보험료 × 건강보험료 대비 장기요양보험료율 13.14%(노인장기요양보험법 §9①)', () => {
+  // 사무소 급여 엔진(salary_calc.py·insurance.py)과 명세서 수식 ROUNDDOWN(건강×13.14%,-1)과 같은 식이다.
+  // 건보 「총액」에 정확한 비율 9,448/71,900 을 곱한 뒤 절반을 내는 식(앞 판)은 2,002,643·2,500,000·2,345,678·10,000,000 에서 10원 더 나온다.
+  // 공단 고지와는 아직 맞춰 보지 않았다(PR #113 미확정 1).
   it.each([
     [2_000_424, 9_440],
-    [2_002_643, 9_460],
-    [2_500_000, 11_810],
-    [250_000, 1_320],
+    [2_002_643, 9_450],
+    [2_500_000, 11_800],
+    [2_345_678, 11_070],
+    [10_000_000, 47_230],
     [760_000, 3_580],
+    // 건보 하한(총액 20,160 → 근로자 10,080)을 거친 금액에 곱한다 — §69⑥ 상·하한은 §69④ 월별 보험료액 자체를 정한다(해석)
+    [250_000, 1_320],
   ])('과세 급여 %i → %i', (pay, ltc) => {
     expect(calc({ pay }).ltc).toBe(ltc);
+  });
+
+  it('13.14% 는 rates.ts 의 장기요양·건강보험 요율 비율을 소수 넷째 자리에서 반올림한 값과 같다', () => {
+    const r = takeHomeRatesOn('2026-10-28')!;
+    expect(r.ltcToHealthPerMillion).toBe(131_400);
+    expect(Math.round((r.ltcPerMillion / r.healthPerMillion) * 10_000) * 100).toBe(r.ltcToHealthPerMillion);
+  });
+});
+
+describe('건강보험 월 보험료 상한(고시 제2025-222호 9,183,480원)', () => {
+  it('과세 급여 2억원 — 총액은 상한 9,183,480원, 근로자 몫 4,591,740원, 장기요양 603,350원', () => {
+    const r = calc({ pay: 200_000_000 });
+    expect(r.status).toBe('aboveTable');
+    expect([r.healthTotal, r.health, r.ltc]).toEqual([9_183_480, 4_591_740, 603_350]);
+  });
+});
+
+describe('공제 합계가 월 급여보다 많으면 계산하지 않는다', () => {
+  // 국민연금 기준소득월액 하한 41만원 × 4.75% = 19,470 · 건보 하한 20,160 의 절반 10,080 · 장기요양 1,320 → 약 30,870원
+  it.each<[string, Partial<TakeHomeInput> & { pay: number }]>([
+    ['월 급여 1원', { pay: 1 }],
+    ['월 급여 31,000원(실수령 −140)', { pay: 31_000 }],
+    ['만원 단위로 넣음 — 월 급여 250, 식대 20', { pay: 250, meal: 20 }],
+  ])('%s', (_n, input) => {
+    expect(() => calc(input)).toThrow(/원 단위/);
+  });
+
+  it('월 급여 32,000원은 계산한다(실수령 850원)', () => {
+    const r = calc({ pay: 32_000 });
+    expect(r.status === 'ok' && r.takeHome).toBe(850);
   });
 });
 
@@ -126,7 +163,7 @@ describe('1,000만원 초과는 표 밖 — 소득세를 내지 않는다', () =
   it('C19 10,000,001 — 보험료만 내고 소득세·지방세·실수령은 없다', () => {
     const r = calc({ pay: 10_000_001 });
     expect(r.status).toBe('aboveTable');
-    expect([r.nps, r.health, r.ltc, r.employment]).toEqual([313_020, 359_500, 47_240, 90_000]);
+    expect([r.nps, r.health, r.ltc, r.employment]).toEqual([313_020, 359_500, 47_230, 90_000]);
     expect(r).not.toHaveProperty('takeHome');
     expect(r).not.toHaveProperty('tax');
   });
@@ -180,13 +217,15 @@ describe('요율은 날짜 축 — 없으면 계산하지 않는다', () => {
     expect(takeHomeRatesOn('2026-10-28')).toEqual(RATES);
   });
 
-  it('2027년은 국민연금 근로자 몫이 1만분의 500', () => {
-    expect(takeHomeRatesOn('2027-01-01')?.npsPerMillion).toBe(50_000);
-  });
-
   it('국민연금 상·하한 고시가 없는 날은 null — 다른 해 값으로 대신하지 않는다', () => {
     expect(takeHomeRatesOn('2026-06-30')).toBeNull();
     expect(takeHomeRatesOn('2027-07-01')).toBeNull();
+  });
+
+  it('건강보험 월 보험료 상·하한은 2026년분 고시(1월분부터) — 2027년 고시를 더하기 전에는 null', () => {
+    // 시행령 §32 가 「전전년도 평균 보수월액보험료」로 해마다 다시 정한다. 2027 국민연금 1만분의 500 과 2026 상·하한을 섞지 않는다.
+    expect(takeHomeRatesOn('2026-12-31')).not.toBeNull();
+    expect(takeHomeRatesOn('2027-01-01')).toBeNull();
   });
 });
 
@@ -264,6 +303,15 @@ describe('화면 문장', () => {
   it('세무대리·신고서 작성 대행이 아니라는 안내와 홈택스', () => {
     expect(NOTICE).toContain('세무대리·신고서 작성 대행이 아닙니다');
     expect(allCopy(results[0], RATES).join('\n')).toContain('홈택스');
+    // 홈택스 화면에서 확인하지 않은 메뉴 경로(「A → B → C」)를 단정하지 않는다
+    expect(HOMETAX_LINE).not.toMatch(/→/);
+  });
+
+  it('페이지·입력 화면에 직접 쓴 문장도 연락을 권하지 않는다', () => {
+    // 금지어는 tool-banned-words.test.ts 가 src/app/tools 소스 전체를 훑는다. 여기서는 연락 유도만 본다.
+    for (const f of ['src/app/tools/take-home-pay/page.tsx', 'src/app/tools/take-home-pay/TakeHomePayClient.tsx']) {
+      expect(fs.readFileSync(f, 'utf8'), f).not.toMatch(/연락|문의/);
+    }
   });
 
   it('도구 이름·설명에 「세무」「절세」가 없다', () => {

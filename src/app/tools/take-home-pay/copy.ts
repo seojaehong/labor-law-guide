@@ -8,7 +8,8 @@ const thousand = (n: number) => `${(n / 1000).toLocaleString('ko-KR')}천원`;
 
 export const NOTICE = '세무대리·신고서 작성 대행이 아닙니다. 입력한 숫자로 계산한 예상 금액입니다.';
 export const HOMETAX_URL = 'https://www.hometax.go.kr/';
-export const HOMETAX_LINE = '홈택스 모의계산 — 매달 떼는 소득세는 「세금신고 → 원천세 신고 → 근로소득 간이세액표」, 1년 치는 「연말정산 미리보기」에서 한 번 더 볼 수 있습니다.';
+// 메뉴 경로는 홈택스 화면에서 확인하지 못해 적지 않는다(공개 안내가 「세금신고 → 원천세 신고」와 「조회·발급 → 기타조회」로 갈린다)
+export const HOMETAX_LINE = '홈택스의 「근로소득 간이세액표」(매달 떼는 소득세)와 「연말정산 미리보기」(1년 치)로 한 번 더 볼 수 있습니다.';
 
 export function headline(r: TakeHomeResult): string[] {
   if (r.status === 'aboveTable') {
@@ -62,7 +63,7 @@ export function formulaLines(r: TakeHomeResult, rates: TakeHomeRates): string[] 
       ? '국민연금 = 0원(공제 대상이 아님)'
       : `국민연금 = 기준소득월액 ${won(r.npsBase)}(과세 급여의 천원 미만 버림, 하한 ${won(rates.npsFloor)}·상한 ${won(rates.npsCap)}) × ${pct(rates.npsPerMillion)} = ${won(r.nps)}(10원 미만 버림)`,
     `건강보험 = 과세 급여 × ${pct(rates.healthPerMillion * 2)} = ${won(r.healthTotal)}(10원 미만 버림, 월 하한 ${won(rates.healthPremiumFloor)}·상한 ${won(rates.healthPremiumCap)})의 절반 = ${won(r.health)}`,
-    `장기요양보험 = 건강보험료 ${won(r.healthTotal)} × ${pct(rates.ltcPerMillion * 2)} ÷ ${pct(rates.healthPerMillion * 2)} = ${won(r.ltcTotal)}(10원 미만 버림)의 절반 = ${won(r.ltc)}`,
+    `장기요양보험 = 건강보험료(근로자 몫) ${won(r.health)} × ${pct(rates.ltcToHealthPerMillion)}(건강보험료 대비 장기요양보험료율, ${pct(rates.ltcPerMillion * 2)} ÷ ${pct(rates.healthPerMillion * 2)}) = ${won(r.ltc)}(10원 미만 버림)`,
     r.employmentExempt
       ? '고용보험 = 0원(만 65세 이후 새로 고용됨)'
       : `고용보험 = 과세 급여 × ${pct(rates.employmentPerMillion)} = ${won(r.employment)}(10원 미만 버림)`,
