@@ -18,6 +18,9 @@ import { rateOn } from '@/content/rates';
 
 export type MethodId = 'DAY_30' | 'DAY_30_DEDUCT' | 'CALENDAR' | 'WORKDAY' | 'HOUR_ACTUAL' | 'FULL';
 export const METHOD_ORDER: MethodId[] = ['DAY_30', 'DAY_30_DEDUCT', 'CALENDAR', 'WORKDAY', 'HOUR_ACTUAL', 'FULL'];
+/** 소정근로일 기준의 두 값 — 쉬는 공휴일을 날수(분모·분자)에서 빼는지 넣는지 */
+export const WORKDAY_OUT = '공휴일을 날수에서 빼면';
+export const WORKDAY_IN = '공휴일도 날수에 넣으면';
 
 export interface RoundingRule { how: Rounding; unit: RoundingUnit }
 
@@ -63,13 +66,15 @@ export interface ProrationInput {
 export interface PaidHours {
   /** 소정근로일(평일, 공휴일 제외) × 8 */
   work: number;
-  /** 쉬는 평일 공휴일 × 8 — 5명 이상은 유급, 4명 이하는 회사가 정한 바 */
+  /** 쉬는 평일 공휴일(5월 1일 빼고) × 8 — 5명 이상은 유급(§55②), 4명 이하는 회사가 정한 바 */
   publicHoliday: number;
+  /** 넣은 공휴일 중 5월 1일(노동절, 종전 근로자의 날) × 8 — 별도 법률의 유급휴일이라 사업장 규모와 상관없이 유급(근로개선정책과-1113) */
+  laborDay: number;
   /** 1주(월~일) 내내 근로관계가 있던 주의 주휴 × 8 */
   weekly: number;
-  /** 주 중간에 입사한 첫 주의 주휴 — 생기는지 정해진 해석을 찾지 못했다 */
+  /** 주 중간에 입사한 첫 주의 주휴 — 생기는지 정해진 해석을 찾지 못했다. 그 주 재직 기간에 소정근로일이 없으면 0 */
   firstWeekOpen: number;
-  /** 확정된 유급시간 = work + weekly + (5명 이상이면 publicHoliday) */
+  /** 확정된 유급시간 = work + weekly + laborDay + (5명 이상이면 publicHoliday) */
   total: number;
 }
 
@@ -103,8 +108,10 @@ export interface ProrationResult {
   /** 전액 지급을 뺀 방식들의 최솟값·최댓값(분수 그대로) */
   range: { min: number; max: number };
   minWage: MinWageSeam | null;
-  /** 참고 — 그 기간 유급시간 × 시간급 최저임금. 유급시간이 하나로 정해질 때만 */
+  /** 참고 — 그 기간 유급시간 × 시간급 최저임금. 유급시간이 하나로 정해지고 0보다 클 때만 */
   reference: { paidHours: number; minHourly: number; floor: number } | null;
+  /** 그 기간 유급시간이 0시간(일요일 하루 재직 등) — 참고 시간당 금액을 내지 않는다 */
+  zeroPaidHours: boolean;
   payslip?: { amount: number; matches: PayslipMatch[] };
 }
 
@@ -133,6 +140,8 @@ function parse(s: string | undefined, what: string): number {
 const iso = (t: number) => new Date(t).toISOString().slice(0, 10);
 const dow = (t: number) => new Date(t).getUTCDay();
 const isWeekday = (t: number) => dow(t) >= 1 && dow(t) <= 5;
+/** 5월 1일 — 노동절(종전 근로자의 날). 관공서 공휴일(§55②)이 아니라 별도 법률이 근로기준법상 유급휴일로 정한 날(근로개선정책과-1113) */
+const isLaborDay = (t: number) => iso(t).slice(5) === '05-01';
 
 function monthRange(month: string): { ps: number; pe: number; days: number; y: number } {
   if (!/^\d{4}-\d{2}$/.test(month || '')) throw new Error('급여 달을 확인해 주세요');
@@ -185,8 +194,10 @@ function viaEngine(id: PolicyId, c: Confirmed, r: RoundingRule | null | undefine
 /**
  * 급여기간 안의 날짜로 센 유급시간(날짜 기준 귀속 — 주휴일 날짜가 든 달에 넣는다. 회사 기준이 다르면 달라진다).
  * - 평일: 소정근로일 8시간, 쉬는 공휴일이면 공휴일 8시간(5명 이상 유급 — 근로기준법 §55②, 4명 이하는 별표1로 적용 제외).
+ *   넣은 공휴일이 5월 1일이면 노동절 8시간 — 별도 법률의 유급휴일이라 별표1의 §55② 적용 제외와 상관없이 유급(근로개선정책과-1113).
  * - 일요일(주휴일): 그 주 월~일 내내 근로관계가 있고 소정근로일을 개근하면 8시간(시행령 §30①, 임금근로시간과-1736 — 퇴사 주는
  *   일요일까지 근로관계가 이어져야 생긴다). 입사가 그 주 월요일보다 늦으면 첫 주 주휴는 정해진 해석을 찾지 못해 firstWeekOpen 에 둔다.
+ *   다만 입사일부터 그 일요일까지 소정근로일이 하나도 없으면(토·일 입사 등) 개근할 소정근로일이 없어 어느 해석으로도 생기지 않는다(§30①).
  * - 이 계산에서는 그 기간 소정근로일을 모두 근무한 것으로 본다(결근은 calcAbsence).
  */
 export function paidHoursOf(input: { month: string; start?: string; end?: string; fivePlus: boolean; holidays?: string[] }): PaidHours {
@@ -194,23 +205,29 @@ export function paidHoursOf(input: { month: string; start?: string; end?: string
   const start = input.start ? parse(input.start, '입사일') : -Infinity;
   const end = input.end ? parse(input.end, '퇴사일') : Infinity;
   const { set } = holidaySet(input.holidays, ps, pe);
-  const h = { work: 0, publicHoliday: 0, weekly: 0, firstWeekOpen: 0 };
+  const isWork = (t: number) => isWeekday(t) && !set.has(t);
+  const h = { work: 0, publicHoliday: 0, laborDay: 0, weekly: 0, firstWeekOpen: 0 };
   for (const t of eachDay(Math.max(start, ps), Math.min(end, pe))) {
     const d = dow(t);
     if (d >= 1 && d <= 5) {
-      if (set.has(t)) h.publicHoliday += DAILY_HOURS;
-      else h.work += DAILY_HOURS;
+      if (!set.has(t)) h.work += DAILY_HOURS;
+      else if (isLaborDay(t)) h.laborDay += DAILY_HOURS;
+      else h.publicHoliday += DAILY_HOURS;
     } else if (d === 0) {
       if (start <= t - 6 * DAY) h.weekly += DAILY_HOURS;
-      else h.firstWeekOpen += DAILY_HOURS;
+      else if ([...eachDay(start, t)].some(isWork)) h.firstWeekOpen += DAILY_HOURS;
     }
   }
-  return { ...h, total: h.work + h.weekly + (input.fivePlus ? h.publicHoliday : 0) };
+  return { ...h, total: h.work + h.weekly + h.laborDay + (input.fivePlus ? h.publicHoliday : 0) };
 }
 
 // ── 최저임금 이음새 ──
 
-/** 월급 원금을 checkMinWage 로 대조한다(최저임금법 시행령 §5①3). 그해 고시가 없으면 null — 다른 해 값으로 대신하지 않는다 */
+/**
+ * 월급 원금을 checkMinWage 로 대조한다 — 이 도구의 선택이다. 최저임금법 시행령 §5①3 은 월 단위 임금을 시간급으로 바꾸는 환산식일 뿐,
+ * 그달 중간에 입사·퇴사한 달의 일할액을 어떻게 대조하는지는 정하지 않았다(그런 조문·해석을 찾지 못했다). 일할액은 copy 가 참고 값으로 알린다.
+ * 그해 고시가 없으면 null — 다른 해 값으로 대신하지 않는다
+ */
 function minWageOf(month: string, monthlyPay: number): MinWageSeam | null {
   const rate = rateOn('minWageHourly', `${month}-01`);
   if (!rate) return null;
@@ -236,6 +253,7 @@ export function calcProration(input: ProrationInput): ProrationResult {
   if (start !== null && start > pe) throw new Error('입사일이 그 달 뒤입니다');
   if (end !== null && end < ps) throw new Error('퇴사일이 그 달 앞입니다');
   if (start !== null && end !== null && end < start) throw new Error('퇴사일이 입사일보다 앞섭니다');
+  if (input.payslip !== undefined && !(Number.isFinite(input.payslip) && input.payslip >= 0)) throw new Error('명세서 금액을 확인해 주세요');
   const { set, ignored } = holidaySet(input.holidays, ps, pe);
 
   const from = Math.max(start ?? ps, ps), to = Math.min(end ?? pe, pe);
@@ -263,7 +281,7 @@ export function calcProration(input: ProrationInput): ProrationResult {
     hourly, monthHours, minWage: minWageOf(month, pay),
   };
   if (from === ps && to === pe) {
-    return { ...base, status: 'full-month', rows: [], roundingOpen: false, range: { min: pay, max: pay }, reference: null };
+    return { ...base, status: 'full-month', rows: [], roundingOpen: false, range: { min: pay, max: pay }, reference: null, zeroPaidHours: false };
   }
 
   const v = (label: string | null, f: Fraction, amount = settle(f, rounding)): Variant => ({ label, exact: f, amount });
@@ -280,7 +298,8 @@ export function calcProration(input: ProrationInput): ProrationResult {
   rows.push({ id: 'DAY_30_DEDUCT', engine: null, variants: [v(null, frac(pay * 30 - pay * (monthDays - employedDays), 30))] });
   // 그달 달력 일수 기준 = 월급 × 재직 역일 ÷ 그달 역일(28~31)
   rows.push({ id: 'CALENDAR', engine: null, variants: [v(null, frac(pay * employedDays, monthDays))] });
-  // 소정근로일 기준 = 월급 × 재직 기간 소정근로일 ÷ 그달 소정근로일. 공휴일을 소정근로일에 넣는지는 회사 기준 → 두 값
+  // 소정근로일 기준 = 월급 × 재직 기간 소정근로일 ÷ 그달 소정근로일. 쉬는 공휴일을 날수(분모·분자)에 넣는지는 회사 기준 → 두 값.
+  // 5명 이상의 관공서 공휴일은 유급휴일(§55②)이라 소정근로일이 아니다 — 라벨은 법률 용어가 아니라 계산 방식 이름으로 쓴다.
   {
     const withOut = frac(pay * (employedWorkdays - holidaysEmployed.length), monthWorkdays - holidaysInMonth.length);
     const withIn = frac(pay * employedWorkdays, monthWorkdays);
@@ -289,7 +308,7 @@ export function calcProration(input: ProrationInput): ProrationResult {
       id: 'WORKDAY',
       engine: null,
       variants: holidaysInMonth.length && !same
-        ? [v('공휴일을 소정근로일에서 빼면', withOut), v('공휴일을 소정근로일에 넣으면', withIn)]
+        ? [v(WORKDAY_OUT, withOut), v(WORKDAY_IN, withIn)]
         : [v(null, withIn)],
     });
   }
@@ -306,7 +325,7 @@ export function calcProration(input: ProrationInput): ProrationResult {
     const variants: Variant[] = [];
     for (const p of pub) {
       for (const f of first) {
-        const h = hours.work + hours.weekly + p.h + f.h;
+        const h = hours.work + hours.weekly + hours.laborDay + p.h + f.h;
         const exact = frac(pay * h, monthHours);
         const amount = intHourly ? viaEngine('HOUR_ACTUAL', { hourly_rate: hourly.num, paid_hours: h }, rounding) : settle(exact, rounding);
         const label = [p.label, f.label].filter(Boolean).join(' · ') || null;
@@ -318,21 +337,22 @@ export function calcProration(input: ProrationInput): ProrationResult {
     }
     rows.push({ id: 'HOUR_ACTUAL', engine: 'HOUR_ACTUAL', variants });
   }
-  // 그달 월급 전액 — 취업규칙·계약이 「그달 전액 지급」으로 정했으면 일할하지 않는다(근기68207-690 단서, 근기1455-28199)
+  // 그달 월급 전액 — 취업규칙·계약이 「그달 전액 지급」으로 정했으면 일할하지 않는다(근기68207-690 단서, 근로개선정책과-2118)
   rows.push({ id: 'FULL', engine: null, variants: [v(null, frac(pay, 1), pay)] });
 
   const all = rows.filter((r) => r.id !== 'FULL').flatMap((r) => r.variants.map((x) => value(x.exact)));
   const hourRow = rows.find((r) => r.id === 'HOUR_ACTUAL')!;
   const mw = base.minWage;
+  const oneHours = hourRow.variants.length === 1 ? hourRow.variants[0]!.hours! : null;
   const result: ProrationResult = {
     ...base,
     status: 'calculated',
     rows,
     roundingOpen: rows.some((r) => r.variants.some((x) => x.amount === null)),
     range: { min: Math.min(...all), max: Math.max(...all) },
-    reference: mw && hourRow.variants.length === 1
-      ? { paidHours: hourRow.variants[0]!.hours!, minHourly: mw.minHourly, floor: hourRow.variants[0]!.hours! * mw.minHourly }
-      : null,
+    // 유급시간이 0이면 시간당 금액을 낼 수 없다(0으로 나눔) — 참고 값을 내지 않는다
+    reference: mw && oneHours ? { paidHours: oneHours, minHourly: mw.minHourly, floor: oneHours * mw.minHourly } : null,
+    zeroPaidHours: oneHours === 0,
   };
   if (input.payslip !== undefined) result.payslip = { amount: input.payslip, matches: payslipMatches(rows, input.payslip) };
   return result;
@@ -402,19 +422,32 @@ export interface AbsenceResult {
   /** 결근한 주 가운데 주휴일이 다음 달인 주 — 이 달 공제에 넣지 않았다 */
   nextMonthWeeks: number;
   rows: AbsenceRow[];
-  /** 지각·조퇴 — 통상시급 × 시간. 주휴는 빼지 않는다(근로기준과-5560, 근기01254-1103) */
+  /**
+   * 지각·조퇴 — 통상시급 × 시간. 취업규칙·근로계약에 지각·조퇴 시간만큼 빼기로 정했을 때의 값이다.
+   * 월급자는 정함이 없으면 지각·조퇴를 해도 소정 임금 전액이고, 취업규칙으로 정하면 §95 범위 안에서 감급할 수 있다(법무811-21010).
+   * 주휴는 빼지 않는다(근로기준과-5560, 근기01254-1103)
+   */
   late: Variant | null;
-  /** 실제 무노동분의 최대 = 통상시급 × 8 × (결근일 + 그 주 주휴) + 통상시급 × 지각·조퇴 시간 */
+  /** 결근일분 + 그 주 주휴 1일분의 최대 = 통상시급 × 8 × (결근일 + 그 주 주휴) */
+  absenceMax: Fraction;
+  /** 시간·일수만큼 뺀 값의 최대 = absenceMax + 통상시급 × 지각·조퇴 시간(지각·조퇴 시간분 공제를 정했을 때) */
   noWorkMax: Fraction;
   company: null | {
     amount: number;
     matches: { unit: DayUnit; holiday: boolean; how?: RoundingRule }[];
-    /** 실제 무노동분 최대보다 많이 뺀 금액 — 없으면 null */
+    /** noWorkMax 보다 많이 뺀 금액 — 없으면 null */
     excess: Fraction | null;
     /** 감급 한도(근로기준법 §95). 4명 이하는 적용 제외(시행령 별표1)라 null */
     limits: null | { perIncident: number | null; total: Fraction };
+    /** excess 를 한 번의 감급으로 보면 1회 한도를 넘는가. 여러 번의 감급을 합친 금액이면 회마다 대조한다(근로기준팀-462) */
     overPerIncident: boolean | null;
     overTotal: boolean | null;
+    /**
+     * 지각·조퇴가 있을 때만 — 법무811-21010 처럼 지각·조퇴 공제 전체를 감급으로 보면 감급액 = 회사 공제액 − absenceMax.
+     * 21010 은 「지각·조퇴 3회 = 결근 1일분 감액」 규정을 물은 회시라 시간만큼만 빼는 규정까지 감급인지는 원문으로 닫히지 않는다 —
+     * 그래서 excess 와 나란히 둔다. 결근분 이하면 null
+     */
+    lateAll: null | { amount: Fraction; overPerIncident: boolean | null; overTotal: boolean | null };
   };
   roundingOpen: boolean;
   minWage: MinWageSeam | null;
@@ -462,7 +495,11 @@ export function calcAbsence(input: AbsenceInput): AbsenceResult {
     })),
   ];
   const lateCell = late > 0 ? hourCell(late) : null;
+  const absenceMax = timesFrac(hourly, DAILY_HOURS * (n + holidayWeeks));
   const noWorkMax = timesFrac(hourly, DAILY_HOURS * (n + holidayWeeks) + late);
+  if (input.avgDailyWage !== undefined && !(Number.isFinite(input.avgDailyWage) && input.avgDailyWage > 0)) {
+    throw new Error('평균임금 1일분을 확인해 주세요');
+  }
 
   let company: AbsenceResult['company'] = null;
   if (input.companyDeduction !== undefined) {
@@ -485,22 +522,28 @@ export function calcAbsence(input: AbsenceInput): AbsenceResult {
         }
       }
     }
-    const over = amount * noWorkMax.den > noWorkMax.num;
-    const excess = over ? frac(amount * noWorkMax.den - noWorkMax.num, noWorkMax.den) : null;
+    /** amount 가 cap 보다 크면 그 차이, 아니면 null */
+    const beyond = (cap: Fraction) => (amount * cap.den > cap.num ? frac(amount * cap.den - cap.num, cap.den) : null);
+    const excess = beyond(noWorkMax);
     // 감급 한도 — 1회 평균임금 1일분의 2분의 1, 총액은 1임금지급기 임금 총액의 10분의 1(근로기준법 §95). 총액은 넣은 월급으로 잰다.
+    // 한도를 지키면 한 달에 여러 번 감급할 수 있다(근로기준팀-462) — 1회 한도는 「한 번의 감급이라면」으로만 대조한다.
     const limits = fivePlus
-      ? { perIncident: input.avgDailyWage && input.avgDailyWage > 0 ? input.avgDailyWage / 2 : null, total: frac(pay, 10) }
+      ? { perIncident: input.avgDailyWage !== undefined ? input.avgDailyWage / 2 : null, total: frac(pay, 10) }
       : null;
+    // 4명 이하 = 한도 없음(null) · 감급액 없음 = false · 평균임금을 안 넣음 = 대조 못 함(null)
+    const perIncident = (f: Fraction | null) => (!limits ? null : !f ? false : limits.perIncident === null ? null : value(f) > limits.perIncident);
+    const overTotal = (f: Fraction | null) => (limits ? (f ? value(f) > value(limits.total) : false) : null);
+    const all = late > 0 ? beyond(absenceMax) : null;
     company = {
       amount, matches, excess, limits,
-      // 4명 이하 = 한도 없음(null) · 초과분 없음 = false · 평균임금을 안 넣음 = 대조 못 함(null)
-      overPerIncident: !limits ? null : !excess ? false : limits.perIncident === null ? null : value(excess) > limits.perIncident,
-      overTotal: limits ? (excess ? value(excess) > value(limits.total) : false) : null,
+      overPerIncident: perIncident(excess),
+      overTotal: overTotal(excess),
+      lateAll: all ? { amount: all, overPerIncident: perIncident(all), overTotal: overTotal(all) } : null,
     };
   }
 
   return {
-    month, monthlyPay: pay, monthDays, hourly, absentDays: n, holidayWeeks, nextMonthWeeks, rows, late: lateCell, noWorkMax, company,
+    month, monthlyPay: pay, monthDays, hourly, absentDays: n, holidayWeeks, nextMonthWeeks, rows, late: lateCell, absenceMax, noWorkMax, company,
     roundingOpen: rows.some((r) => r.daysOnly.amount === null || r.withHoliday.amount === null) || lateCell?.amount === null,
     minWage: minWageOf(month, pay),
   };

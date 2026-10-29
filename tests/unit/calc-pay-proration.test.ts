@@ -361,7 +361,7 @@ describe('M 최저임금 이음새 — 월급 원금을 checkMinWage 로 대조,
     const r = calcProration({ month: '2026-02', monthlyPay: 2_156_880, end: '2026-02-27', fivePlus: true, holidays: ['2026-02-16', '2026-02-17', '2026-02-18'] });
     expect(r.reference).toEqual({ paidHours: 192, minHourly: 10_320, floor: 1_981_440 });
     expect(amt(r, 'DAY_30')).toEqual([1_941_192]);
-    expect(1_941_192 / 192).toBeCloseTo(10_110.38, 2);
+    expect(amt(r, 'DAY_30')[0]! / r.reference!.paidHours).toBeCloseTo(10_110.38, 2);
     expect(val(r, 'CALENDAR')[0] / 192).toBeCloseTo(10_832.54, 2);
   });
 
@@ -369,8 +369,108 @@ describe('M 최저임금 이음새 — 월급 원금을 checkMinWage 로 대조,
     expect(calcProration({ month: '2026-03', monthlyPay: BASE, start: '2026-03-18', fivePlus: true }).reference).toBeNull();
   });
 
-  it('M3 만월 3월도 유급시간은 216시간 — 그래서 이 비교는 참고다', () => {
+  it('M3 만월 3월도 유급시간은 216시간 — 월 환산 209시간과 달라 이 비교는 참고다', () => {
     expect(paidHoursOf({ month: '2026-03', fivePlus: true, holidays: ['2026-03-02'] }).total).toBe(216);
-    expect(216 * 10_320).toBe(2_229_120);
+    expect(calcProration({ month: '2026-03', monthlyPay: BASE, start: '2026-03-16', fivePlus: true }).monthHours).toBe(209);
+  });
+});
+
+// PR #127 검토 반영 — 경계·사실로 갈리는 값
+describe('F 첫 주 주휴 — 그 주 재직 기간에 소정근로일이 없으면 변형을 만들지 않는다(시행령 §30①)', () => {
+  it('토요일(3/21) 입사 — 64시간 한 값', () => {
+    const r = calcProration({ month: '2026-03', monthlyPay: BASE, start: '2026-03-21', fivePlus: true });
+    expect(r.hours).toMatchObject({ work: 56, weekly: 8, firstWeekOpen: 0 });
+    expect(row(r, 'HOUR_ACTUAL').variants.map((v) => v.hours)).toEqual([64]);
+    expect(amt(r, 'HOUR_ACTUAL')).toEqual([768_000]);
+  });
+
+  it('일요일(3/15) 입사 — 112시간 한 값, 폭의 최댓값은 30일 기준(지급식) 17/30', () => {
+    const r = calcProration({ month: '2026-03', monthlyPay: BASE, start: '2026-03-15', fivePlus: true });
+    expect(r.hours.firstWeekOpen).toBe(0);
+    expect(amt(r, 'HOUR_ACTUAL')).toEqual([1_344_000]);
+    expect(r.range.max).toBe(1_421_200);
+  });
+
+  it('일요일 하루만 재직 — 유급시간 0, 참고 시간당 금액을 내지 않는다', () => {
+    const r = calcProration({ month: '2026-03', monthlyPay: BASE, start: '2026-03-01', end: '2026-03-01', fivePlus: true });
+    expect(r.hours).toMatchObject({ work: 0, weekly: 0, firstWeekOpen: 0, total: 0 });
+    expect(amt(r, 'HOUR_ACTUAL')).toEqual([0]);
+    expect(r.reference).toBeNull();
+  });
+
+  it('수요일(3/18) 입사는 그대로 두 값', () => {
+    expect(calcProration({ month: '2026-03', monthlyPay: BASE, start: '2026-03-18', fivePlus: true }).hours.firstWeekOpen).toBe(8);
+  });
+});
+
+describe('E 경계 — 31일 달 하루 재직 · 윤년 2월', () => {
+  it('3/31 하루 재직 — 30일 기준(공제식)은 0원(월급 − 월급 ÷ 30 × 30일)', () => {
+    const r = calcProration({ month: '2026-03', monthlyPay: BASE, start: '2026-03-31', fivePlus: true });
+    expect(r.notEmployedDays).toBe(30);
+    expect(row(r, 'DAY_30_DEDUCT').variants[0].exact).toEqual({ num: 0, den: 1 });
+    expect(amt(r, 'DAY_30_DEDUCT')).toEqual([0]);
+    expect(amt(r, 'DAY_30')).toEqual([83_600]);
+    expect(amt(r, 'HOUR_ACTUAL')).toEqual([96_000]);
+    expect(r.range.min).toBe(0);
+    expect(r.reference).toEqual({ paidHours: 8, minHourly: 10_320, floor: 82_560 });
+  });
+
+  it('2028-02(29일) — 그달 날수 29를 분모로', () => {
+    const r = calcProration({ month: '2028-02', monthlyPay: BASE, start: '2028-02-15', fivePlus: true });
+    expect(r.monthDays).toBe(29);
+    expect(r.employedDays).toBe(15);
+    expect(row(r, 'CALENDAR').variants[0].exact).toEqual({ num: 37_620_000, den: 29 });
+    expect(amt(r, 'DAY_30_DEDUCT')).toEqual([1_337_600]); // 2,508,000 − 83,600 × 14
+  });
+
+  it('명세서 금액·평균임금이 숫자가 아니면 오류', () => {
+    expect(() => calcProration({ month: '2026-03', monthlyPay: BASE, start: '2026-03-16', fivePlus: true, payslip: NaN })).toThrow('명세서 금액');
+    expect(() => calcProration({ month: '2026-03', monthlyPay: BASE, start: '2026-03-16', fivePlus: true, payslip: -1 })).toThrow('명세서 금액');
+    expect(() => calcAbsence({ month: '2026-11', monthlyPay: BASE, fivePlus: true, absences: [], lateHours: 8, companyDeduction: 192_000, avgDailyWage: NaN })).toThrow('평균임금');
+  });
+});
+
+describe('L 5월 1일 노동절 — 관공서 공휴일(§55②)과 별개의 법정 유급휴일이라 4명 이하도 유급으로 센다', () => {
+  const at = (fivePlus: boolean) => calcProration({ month: '2026-05', monthlyPay: BASE, end: '2026-05-15', fivePlus, holidays: ['2026-05-01', '2026-05-05'] });
+  it('4명 이하 — 5/5만 유급·무급 두 값(104 / 96시간)', () => {
+    const r = at(false);
+    expect(r.hours).toMatchObject({ work: 72, laborDay: 8, publicHoliday: 8, weekly: 16 });
+    expect(row(r, 'HOUR_ACTUAL').variants.map((v) => v.hours)).toEqual([104, 96]);
+    expect(amt(r, 'HOUR_ACTUAL')).toEqual([1_248_000, 1_152_000]);
+  });
+  it('5명 이상 — 104시간 한 값', () => {
+    expect(row(at(true), 'HOUR_ACTUAL').variants.map((v) => v.hours)).toEqual([104]);
+  });
+});
+
+describe('K 지각·조퇴 공제와 감급 — 법무811-21010(월급자는 전액, 취업규칙에 정하면 §95 범위 감급) · 근로기준팀-462(한도 안 수회 감급)', () => {
+  const at = (extra: Partial<Parameters<typeof calcAbsence>[0]>) => calcAbsence({ month: '2026-11', monthlyPay: BASE, fivePlus: true, absences: [], ...extra });
+
+  it('지각·조퇴 공제 전체를 감급으로 보면 결근분을 넘는 공제 전부가 감급액', () => {
+    const r = at({ lateHours: 8, companyDeduction: 192_000, avgDailyWage: 7_524_000 / 92 });
+    expect(r.absenceMax).toEqual({ num: 0, den: 1 });
+    expect(r.company!.lateAll!.amount).toEqual({ num: 192_000, den: 1 });
+    expect(r.company!.lateAll!.overTotal).toBe(false); // 250,800 이하
+    expect(r.company!.lateAll!.overPerIncident).toBe(true); // 한 번의 감급이라면
+  });
+
+  it('결근도 있으면 결근일분·그 주 주휴를 뺀 나머지', () => {
+    const r = calcAbsence({ month: '2026-11', monthlyPay: BASE, fivePlus: true, absences: ['2026-11-18'], lateHours: 2, companyDeduction: 230_000 });
+    expect(r.absenceMax).toEqual({ num: 192_000, den: 1 });
+    expect(r.company!.lateAll!.amount).toEqual({ num: 38_000, den: 1 });
+    expect(r.company!.excess).toEqual({ num: 14_000, den: 1 }); // 230,000 − (192,000 + 24,000)
+  });
+
+  it('지각·조퇴가 없으면 lateAll 은 없다', () => {
+    const r = calcAbsence({ month: '2026-11', monthlyPay: BASE, fivePlus: true, absences: ['2026-11-18'], companyDeduction: 200_000 });
+    expect(r.company!.lateAll).toBeNull();
+  });
+
+  it('초과분이 1회 한도 이하면 몇 번이든 한도 안 — 큼은 「한 번이라면」', () => {
+    const r = at({ lateHours: 3, companyDeduction: 96_000, avgDailyWage: 80_000 });
+    expect(r.company!.excess).toEqual({ num: 60_000, den: 1 });
+    expect(r.company!.overPerIncident).toBe(true);
+    const small = at({ lateHours: 3, companyDeduction: 70_000, avgDailyWage: 80_000 });
+    expect(small.company!.overPerIncident).toBe(false);
   });
 });

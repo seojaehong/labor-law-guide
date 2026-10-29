@@ -367,6 +367,11 @@ const FEATURES: Record<string, { path: string; journey: Journey }> = {
       await start.fill('2026-03-18');
       await p.getByLabel(/시간 기준 —/).check();
       step('C6 첫 주 주휴 두 값', /첫 주 주휴를 넣지 않으면 1,056,000원, 첫 주 주휴를 넣으면 1,152,000원/, await answer(p));
+      // E — 3/31 하루 재직: 30일 기준(공제식) 0원 · 유급시간 8 × 최저시급 82,560원보다 적은 방식 알림(회사 기준 모름)
+      await start.fill('2026-03-31');
+      await p.getByLabel('적혀 있지 않거나 모른다', { exact: true }).check();
+      step('E 31일 달 하루 재직 — 공제식 0원 · 최저임금 참고 알림', /0원에서 119,428\.57원까지 갈립니다.*82,560원보다 적습니다/, await answer(p));
+      await p.getByLabel('적혀 있다', { exact: true }).check();
       // C3 — 2026-02 퇴사: 금요일 퇴사(주휴 없음) / 일요일까지 재직(주휴 생김)
       await start.fill('');
       await month.fill('2026-02');
@@ -388,14 +393,14 @@ const FEATURES: Record<string, { path: string; journey: Journey }> = {
       await hol.fill('');
       const abs = p.getByLabel(/^무급 결근일/);
       await abs.fill('18');
-      step('A1·A2 결근일분만 / 그 주 주휴까지', /결근일분만이면 96,000원, 그 주 주휴 1일분까지 빼면 192,000원.*회사 규정·관행/, await answer(p));
+      step('A1·A2 1일 단가 폭 · 결근일분만 / 그 주 주휴까지', /결근일분만이면 83,600원에서 96,000원 사이, 그 주 주휴 1일분까지 빼면 167,200원에서 192,000원 사이.*회사 규정·관행/, await answer(p));
       await abs.fill('18, 19');
-      step('A5 같은 주 2일 = 주휴 1일만', /결근일분만이면 192,000원, 그 주 주휴 1일분까지 빼면 288,000원/, await answer(p));
+      step('A5 같은 주 2일 = 주휴 1일만', /결근일분만이면 167,200원에서 192,000원 사이, 그 주 주휴 1일분까지 빼면 250,800원에서 288,000원 사이/, await answer(p));
       await abs.fill('');
       await p.getByLabel('지각·조퇴 합계 시간').fill('8');
       await p.getByLabel(/^회사가 공제한 금액/).fill('192000');
       await p.getByLabel(/^평균임금 1일분/).fill('81782.6');
-      step('A6·B 지각 8시간 · 192,000 공제 = 초과 96,000 · 1회 한도', /그 시간분 96,000원.*96,000원 많습니다.*1회 한도 40,891\.3원보다 큽니다/, await answer(p));
+      step('A6·B 지각 8시간 — 정했으면 96,000 / 없으면 0 · 192,000 공제 = 초과 96,000 · 1회 한도(한 번이라면)', /정했으면 그 시간분 96,000원, 정한 것이 없으면 0원.*96,000원 많습니다.*한 번의 감급이라면 1회 한도 40,891\.3원보다 큽니다.*법무811-21010 처럼/, await answer(p));
     },
   },
 };
