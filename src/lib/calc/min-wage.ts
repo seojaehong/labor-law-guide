@@ -40,24 +40,29 @@ export interface MinWageResult {
 
 const bad = (n: number | undefined) => n === undefined || !Number.isFinite(n) || n <= 0;
 
-/** 1주 소정근로시간 + 주휴 시간(주 15시간 미만이면 주휴 없음) */
-function weekHours(weeklyHours: number): number {
+/**
+ * 1주 소정근로시간 + 주휴 시간(주 15시간 미만이면 주휴 없음).
+ * 주휴는 기본으로 1주 소정 ÷ 5(8시간까지) — 주 5일로 본 1일 소정근로시간이다.
+ * holidayHours 를 주면 그 시간을 쓴다(주 6일제 통상 근로자처럼 1일 소정이 1주 ÷ 5와 다른 경우).
+ */
+function weekHours(weeklyHours: number, holidayHours?: number): number {
   const h = calcWeeklyHoliday({ hourlyWage: 1, weeklyHours, fullAttendance: true });
-  return weeklyHours + (h.status === 'paid' ? Math.min(weeklyHours / 5, 8) : 0);
+  return weeklyHours + (h.status === 'paid' ? (holidayHours ?? Math.min(weeklyHours / 5, 8)) : 0);
 }
 
 /**
  * 임금 단위 기간의 시간 수 — 시급이면 1, 일급은 1일 소정근로시간, 주급은 주 소정 + 주휴, 월급은 그 × 365 ÷ 7 ÷ 12 반올림.
  * 최저임금법 시행령 §5①과 근로기준법 시행령 §6②(통상임금 시간급)는 같은 식이다.
+ * holidayHours — 주급·월급의 주휴 시간을 따로 정할 때만(없으면 1주 ÷ 5, 8시간까지).
  */
-export function unitHours(unit: MinWageInput['unit'], weeklyHours?: number, dailyHours?: number): number {
+export function unitHours(unit: MinWageInput['unit'], weeklyHours?: number, dailyHours?: number, holidayHours?: number): number {
   if (unit === 'day') {
     if (bad(dailyHours) || dailyHours! > 24) throw new Error('1일 소정근로시간을 확인해 주세요');
     return dailyHours!;
   }
   if (unit === 'week' || unit === 'month') {
     if (bad(weeklyHours) || weeklyHours! > 168) throw new Error('1주 소정근로시간을 확인해 주세요');
-    const w = weekHours(weeklyHours!);
+    const w = weekHours(weeklyHours!, holidayHours);
     return unit === 'week' ? w : Math.round((w * 365) / 84);
   }
   return 1;

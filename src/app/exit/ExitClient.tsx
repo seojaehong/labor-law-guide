@@ -169,7 +169,7 @@ export default function ExitClient() {
                   {lv ? (lv.applicable ? won(lv.amount) : '적용 제외') : '일수 입력 시'}
                 </div>
                 <div className="ex-sum-meta">
-                  {lv && lv.applicable && <>1일 통상임금 {won(lv.daily)} × {input.unusedLeaveDays}일<br /></>}
+                  {lv && lv.applicable && <>1일 통상임금 {lv.daily.toLocaleString('ko-KR', { maximumFractionDigits: 2 })}원 × {input.unusedLeaveDays}일(원 미만은 마지막에 버림)<br /></>}
                   {lv && !lv.applicable && <>주 15시간 미만은 연차휴가 규정이 적용되지 않습니다(근로기준법 §18③)<br /></>}
                   {ent && check.hours15 && <>참고 · 마지막 근무일 기준 법정 연차 발생 {ent.days}일({ent.basisLabel})</>}
                 </div>
