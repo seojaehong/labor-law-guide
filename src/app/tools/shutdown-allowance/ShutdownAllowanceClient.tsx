@@ -6,7 +6,7 @@ import { calcShutdownAllowance, calendarBreakdown, type ShutdownAllowanceInput, 
 import AnswerCard from '@/components/tool/AnswerCard';
 import FoldedDetail from '@/components/tool/FoldedDetail';
 import { card, inputCls, ink, muted, small } from '@/lib/tool-kit';
-import { breakdownLine, DAYS_HINT, effectLines, EXCLUDE_HINT, formulaLines, headline, PAID_HINT, SCOPE_ITEMS } from './copy';
+import { BONUS_HINT, breakdownLine, DAYS_HINT, effectLines, EXCLUDE_HINT, formulaLines, headline, ORDINARY_HINT, PAID_HINT, SCOPE_ITEMS } from './copy';
 
 const UNIT_LABEL: Record<WageUnit, string> = { month: '월급', week: '주급', day: '일급', hour: '시급' };
 const num = (s: string) => Number(s.replace(/,/g, '').trim() || '0');
@@ -31,6 +31,7 @@ export default function ShutdownAllowanceClient() {
   const [total, setTotal] = useState('9000000');
   const [exclDays, setExclDays] = useState('');
   const [exclWages, setExclWages] = useState('');
+  const [bonus, setBonus] = useState('');
   const [avgDaily, setAvgDaily] = useState('');
   const [unit, setUnit] = useState<WageUnit>('month');
   const [amount, setAmount] = useState('3000000');
@@ -51,7 +52,7 @@ export default function ShutdownAllowanceClient() {
           fivePlus, cause,
           average: direct
             ? { source: 'direct', daily: num(avgDaily) }
-            : { source: 'period', hireDate: hire, startDate: start, wageTotal: num(total), excludedDays: num(exclDays), excludedWages: num(exclWages) },
+            : { source: 'period', hireDate: hire, startDate: start, wageTotal: num(total), excludedDays: num(exclDays), excludedWages: num(exclWages), annualBonus: num(bonus) },
           ordinary: { unit, amount: num(amount), weeklyHours: num(weekly), dailyHours: num(daily) },
           days: num(days),
           paidDuring: num(paid),
@@ -60,7 +61,7 @@ export default function ShutdownAllowanceClient() {
     } catch (e) {
       return { error: (e as Error).message };
     }
-  }, [calc, fivePlus, cause, direct, avgDaily, hire, start, total, exclDays, exclWages, unit, amount, weekly, daily, days, paid]);
+  }, [calc, fivePlus, cause, direct, avgDaily, hire, start, total, exclDays, exclWages, bonus, unit, amount, weekly, daily, days, paid]);
 
   const breakdown = useMemo(() => {
     if (!start || !end) return null;
@@ -142,9 +143,14 @@ export default function ShutdownAllowanceClient() {
                   <input type="date" className={inputCls} value={hire} onChange={(e) => setHire(e.target.value)} />
                 </label>
                 <label className={small} style={muted}>
-                  휴업 전 3개월 동안 받은 임금 총액(원)
+                  휴업 전 3개월 동안 받은 임금 총액(상여금은 빼고, 원)
                   <input inputMode="numeric" className={inputCls} value={total} onChange={(e) => setTotal(e.target.value)} />
                 </label>
+                <label className={small} style={muted}>
+                  12개월 동안 받은 상여금 합계(원, 없으면 비움)
+                  <input inputMode="numeric" className={inputCls} value={bonus} onChange={(e) => setBonus(e.target.value)} />
+                </label>
+                <p className={`${small} sm:col-span-2`} style={muted}>{BONUS_HINT}</p>
                 <label className={small} style={muted}>
                   뺄 기간 일수(없으면 비움)
                   <input inputMode="numeric" className={inputCls} value={exclDays} onChange={(e) => setExclDays(e.target.value)} />
@@ -168,7 +174,7 @@ export default function ShutdownAllowanceClient() {
               </div>
             </fieldset>
             <label className={small} style={muted}>
-              {UNIT_LABEL[unit]}(기본급과 매달 정해서 주는 수당)
+              {UNIT_LABEL[unit]}(기본급과 정기적·일률적으로 주는 수당·상여금)
               <input inputMode="numeric" className={inputCls} value={amount} onChange={(e) => setAmount(e.target.value)} />
             </label>
             <label className={small} style={muted}>
@@ -181,6 +187,7 @@ export default function ShutdownAllowanceClient() {
                 <input inputMode="decimal" className={inputCls} value={weekly} onChange={(e) => setWeekly(e.target.value)} />
               </label>
             )}
+            <p className={`${small} sm:col-span-2`} style={muted}>{ORDINARY_HINT}</p>
           </section>
         </>
       )}

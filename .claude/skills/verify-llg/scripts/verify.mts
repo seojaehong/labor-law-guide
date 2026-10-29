@@ -367,6 +367,15 @@ const FEATURES: Record<string, { path: string; journey: Journey }> = {
       await p.getByLabel(/^뺄 기간에 받은 임금/).fill('700000');
       await p.getByLabel(/^일급\(/).fill('130000');
       step('C10 앞선 휴업 10일·700,000 빼기 → 137,804.88 × 5 × 0.7 = 482,317.08 → 올림', '482,318원', await answer(p));
+      await p.getByLabel(/^뺄 기간 일수/).fill('');
+      await p.getByLabel(/^뺄 기간에 받은 임금/).fill('');
+      await p.getByLabel(/^12개월 동안 받은 상여금 합계/).fill('4800000');
+      await p.getByLabel(/^일급\(/).fill('100000');
+      await p.getByLabel('휴업일수', { exact: true }).fill('10');
+      step('상여금 3/12 — (12,000,000 + 1,200,000) ÷ 92 = 143,478.27 → 단서가 생긴다', /평균임금 기준 1,004,348원 이상, 또는 통상임금 기준 1,000,000원/, await answer(p));
+      await p.getByLabel('1일 소정근로시간', { exact: true }).fill('12');
+      step('1일 소정근로시간 8시간 범위(근기68207-865) — 12시간은 받지 않는다', /8시간 범위/, await answer(p));
+      await p.getByLabel('1일 소정근로시간', { exact: true }).fill('8');
       await p.getByLabel('4명 이하', { exact: true }).check();
       step('C12 상시 4명 이하 = 계산하지 않음(별표1)', /계산하지 않습니다.*4명 이하.*별표1/, await answer(p));
       await p.getByLabel('5명 이상', { exact: true }).check();
