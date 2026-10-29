@@ -7,7 +7,7 @@ import AnswerCard from '@/components/tool/AnswerCard';
 import FoldedDetail from '@/components/tool/FoldedDetail';
 import { card, inputCls, ink, muted, small } from '@/lib/tool-kit';
 import {
-  CONSEQUENCES, ELIGIBILITY_NO, ELIGIBILITY_NOTE, ELIGIBILITY_STOP, ELIGIBILITY_YES, formulaLines, headline, HOMETAX, INPUT_GUIDE, NOT_COVERED, NOTICE, NTS,
+  CONSEQUENCES, ELIGIBILITY_KINDS, ELIGIBILITY_NO, ELIGIBILITY_NOTE, ELIGIBILITY_STOP, ELIGIBILITY_YES, formulaLines, headline, HOMETAX, INPUT_GUIDE, NOT_COVERED, NOTICE, NTS,
   paymentLine, won,
 } from './copy';
 
@@ -68,7 +68,10 @@ export default function DailyWorkerTaxClient() {
       <section className={card}>
         <fieldset className={small} style={muted}>
           <legend className="mb-2 font-semibold" style={ink}>먼저 확인 — 일용근로자인가요</legend>
-          <p className="mb-3">{ELIGIBILITY_NOTE}</p>
+          <p className="mb-2">{ELIGIBILITY_NOTE}</p>
+          <ol className="mb-3 list-decimal space-y-1 pl-5">
+            {ELIGIBILITY_KINDS.map((l) => <li key={l}>{l}</li>)}
+          </ol>
           <div className="flex flex-wrap gap-4">
             <label className="flex items-center gap-2"><input type="radio" name="eligible" checked={eligible === 'yes'} onChange={() => setEligible('yes')} /> {ELIGIBILITY_YES}</label>
             <label className="flex items-center gap-2"><input type="radio" name="eligible" checked={eligible === 'no'} onChange={() => setEligible('no')} /> {ELIGIBILITY_NO}</label>

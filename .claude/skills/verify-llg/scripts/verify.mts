@@ -349,8 +349,8 @@ const FEATURES: Record<string, { path: string; journey: Journey }> = {
         await line(n, j).getByLabel('일수').fill(days);
       };
       step('일용근로자 여부를 먼저 묻는다', '먼저 일용근로자인지 골라 주세요', await answer(p));
-      await p.getByLabel('3개월(건설공사 종사자는 1년) 이상 계속 고용되어 있다', { exact: true }).check();
-      step('3개월 이상 계속 고용 = 계산하지 않음 · 간이세액표', /계산하지 않습니다.*간이세액표/, await answer(p));
+      await p.getByLabel('일용근로자가 아니다(위 셋에 해당하지 않는다)', { exact: true }).check();
+      step('일용근로자 아님(시행령 제20조 제1항 세 갈래 밖) = 계산하지 않음 · 간이세액표', /계산하지 않습니다.*간이세액표/, await answer(p));
       await p.getByLabel('일용근로자다', { exact: true }).check();
       step('일급 없음', '지급 1의 일급을 넣어 주세요', await answer(p));
       await fill(1, 1, '200000', '1');
@@ -369,6 +369,8 @@ const FEATURES: Record<string, { path: string; journey: Journey }> = {
       step('G 15만원 이하 = 과세표준 0(소액부징수가 아님)', /0원입니다.*과세표준이 0원/, await answer(p));
       await fill(1, 1, '187170', '3');
       step('K 끝수 순서로 갈리면 두 값', /3,010원, 지방소득세는 300원.*먼저 버리고 더하면 소득세 3,000원.*확인하지 못해/, await answer(p));
+      await fill(1, 1, '162350', '3');
+      step('K2 1,000원 경계에서 갈리면 1,000 / 100 대 0 / 0 과 그 까닭', /1,000원, 지방소득세는 100원.*먼저 버리고 더하면 소득세 0원, 지방소득세 0원.*999원으로 1,000원 미만이라 떼지 않습니다/, await answer(p));
       // J — 날별 일급이 다르면 날마다 계산(평균 175,000 × 2 로 넣으면 1,350)
       await fill(1, 1, '100000', '1');
       await pay(1).getByRole('button', { name: '일급이 다른 날 더하기' }).click();

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import fs from 'node:fs';
 import { calcDailyWorkerTax, expandLines, DAILY_WORKER_RULE } from '@/lib/calc/daily-worker-tax';
 import {
-  allCopy, CONSEQUENCES, ELIGIBILITY_NOTE, ELIGIBILITY_STOP, formulaLines, headline, HOMETAX, INPUT_GUIDE, NOT_COVERED, NOTICE, NTS, paymentLine, ROUNDING_NOTE,
+  allCopy, CONSEQUENCES, ELIGIBILITY_KINDS, ELIGIBILITY_NO, ELIGIBILITY_NOTE, ELIGIBILITY_STOP, formulaLines, headline, HOMETAX, INPUT_GUIDE, NOT_COVERED, NOTICE, NTS, paymentLine, ROUNDING_NOTE,
 } from '@/app/tools/daily-worker-tax/copy';
 import { bannedHits } from '@/lib/tool-kit/banned';
 import { TOOLS } from '@/content/tools-registry';
@@ -126,10 +126,49 @@ describe('끝수 순서 — 미확정이라 두 값을 함께 낸다(K)', () => 
     }
   });
 
-  it('소득세 10원 미만 버림 전후로 1,000원 비교 결과가 같다(floor10(x) ≥ 1,000 ⇔ x ≥ 1,000)', () => {
-    for (const w of [187_037, 187_038, 187_100, 187_400]) {
-      const p = calc(one(w, 1)).payments[0];
-      expect(p.small).toBe(p.milli > 0 && p.milli < 1_000_000);
+  // 기대값 = 독립 재계산(Decimal) — 187,037 = 999.999 → 0 · 187,038 = 1,000.026 → 1,000 · 187,100 = 1,001.7 → 1,000 · 187,400 = 1,009.8 → 1,000.
+  // 뗀 소득세가 0원이거나 1,000원 이상이면, 10원 미만을 버린 뒤 비교했어도 결과가 같다(floor10(x) ≥ 1,000 ⇔ x ≥ 1,000).
+  it('소득세 10원 미만 버림 전후로 1,000원 비교 결과가 같다 — 경계에서 뗀 소득세는 0원이거나 1,000원 이상', () => {
+    const floor10 = (x: number) => Math.floor(x / 10) * 10;
+    const got = [187_037, 187_038, 187_100, 187_400].map((w) => calc(one(w, 1)).incomeTax);
+    expect(got).toEqual([0, 1_000, 1_000, 1_000]);
+    for (let w = 186_990; w <= 187_400; w += 1) {
+      for (const n of [1, 2, 3]) {
+        const p = calc(one(w, n)).payments[0];
+        const won = Math.floor(p.milli / 1_000);
+        expect(p.incomeTax === 0 || p.incomeTax >= 1_000).toBe(true);
+        expect(p.incomeTax).toBe(floor10(won) >= 1_000 ? floor10(won) : 0);
+        expect(floor10(won) >= 1_000).toBe(won >= 1_000);
+      }
+    }
+  });
+
+  // 기대값 = 독립 재계산(Decimal) — 1일 333.45원 × 3 = 1,000.35원 → 1,000 / 100, 날별 버림 333 × 3 = 999원 → 1,000원 미만 0 / 0.
+  it('K2 162,350 × 3일 — 1,000원 경계에서는 징수 여부가 갈린다: 1,000 / 100 대 0 / 0', () => {
+    const r = calc(one(162_350, 3));
+    expect(r.payments[0].milli).toBe(1_000_350);
+    expect([r.incomeTax, r.localTax]).toEqual([1_000, 100]);
+    expect(r.payments[0].dailyFloor).toEqual({ sum: 999, small: true, incomeTax: 0, localTax: 0 });
+    expect(r.differs).toBe(true);
+  });
+
+  // 기대값 = 독립 재계산(Decimal) — 30,999.969원 → 30,990 / 3,090, 날별 버림 999 × 31 = 30,969원 → 30,960 / 3,090.
+  it('K3 187,037 × 31일 — 차이는 10원을 넘을 수 있다: 30,990 대 30,960', () => {
+    const r = calc(one(187_037, 31));
+    expect([r.incomeTax, r.localTax]).toEqual([30_990, 3_090]);
+    expect([r.dailyFloor.incomeTax, r.dailyFloor.localTax]).toEqual([30_960, 3_090]);
+  });
+
+  it('버리기 전 차이는 지급 건마다 (일수 − 1)원 이하이고, 하루치 지급이면 두 방식이 같다', () => {
+    for (let w = 150_001; w <= 152_000; w += 7) {
+      for (const n of [1, 2, 3, 7, 31]) {
+        const p = calc(one(w, n)).payments[0];
+        const gap = Math.floor(p.milli / 1_000) - p.dailyFloor.sum;
+        expect(gap).toBeGreaterThanOrEqual(0);
+        expect(gap).toBeLessThanOrEqual(n - 1);
+        expect(p.incomeTax).toBeGreaterThanOrEqual(p.dailyFloor.incomeTax);
+        if (n === 1) expect([p.dailyFloor.incomeTax, p.dailyFloor.localTax]).toEqual([p.incomeTax, p.localTax]);
+      }
     }
   });
 });
@@ -157,7 +196,9 @@ const CASES = {
   G: calc(one(150_000, 3)),
   J: calc({ days: [100_000, 250_000] }),
   K: calc(one(187_170, 3)),
+  K2: calc(one(162_350, 3)),
   L: calc(one(180_000, 2), one(180_000, 1)),
+  L2: calc(one(162_350, 3), one(180_000, 1)),
 };
 
 describe('답 문장', () => {
@@ -197,6 +238,20 @@ describe('답 문장', () => {
     expect(headline(CASES.B).join(' ')).not.toMatch(/먼저 버리/);
   });
 
+  it('1,000원 경계에서 갈리면 다른 쪽이 0원인 까닭(합계 999원 → 1,000원 미만)을 함께 말한다(K2)', () => {
+    const lines = headline(CASES.K2);
+    expect(lines[0]).toBe('예상 원천징수 소득세는 1,000원, 지방소득세는 100원입니다.');
+    expect(lines[1]).toMatch(/먼저 버리고 더하면 소득세 0원, 지방소득세 0원/);
+    expect(lines[1]).toMatch(/999원.*1,000원 미만/);
+    expect(lines[1]).toMatch(/확인하지 못/);
+  });
+
+  it('지급이 여러 건이면 경계에서 갈린 지급이 있다고 말하고, 그 지급 줄에 0원을 낸다(L2)', () => {
+    const lines = headline(CASES.L2);
+    expect(lines.join(' ')).toMatch(/1,000원 미만이 되어 떼지 않는 지급/);
+    expect(paymentLine(CASES.L2.payments[0], 0)).toMatch(/먼저 버리면 1,000원 미만이라 0원/);
+  });
+
   it('첫 줄은 늘 「예상」이다', () => {
     for (const r of Object.values(CASES)) expect(headline(r)[0]).toContain('예상');
   });
@@ -215,6 +270,12 @@ describe('계산 과정', () => {
 
   it('원 미만이 생기면 소수 그대로 보여 준다(K 1일 1,003.59원)', () => {
     expect(formulaLines(CASES.K).join('\n')).toMatch(/1,003\.59원/);
+  });
+
+  it('날별 버림 쪽이 1,000원 미만이면 그 까닭을 계산 과정에 적는다(K2 — 333.45원 × 3일, 날별 버림 합계 999원)', () => {
+    const s = formulaLines(CASES.K2).join('\n');
+    expect(s).toMatch(/333\.45원 × 3일 = 1,000\.35원/);
+    expect(s).toMatch(/1일 세액 원 미만 버림 합계 999원 → 1,000원 미만이라 0원/);
   });
 
   it('날마다 일급이 다르면 날마다 줄을 낸다(J)', () => {
@@ -249,9 +310,18 @@ describe('공통 장치(261028) · 금지어', () => {
     expect(INPUT_GUIDE.join(' ')).toMatch(/평균/);
   });
 
-  it('일용근로자 여부는 서식 문구로 묻고, 아니면 간이세액표로 보낸다', () => {
-    expect(ELIGIBILITY_NOTE).toContain('동일 고용주에게 3개월(건설공사 종사자는 1년) 이상 계속하여 고용되어 있는 근로자는 제외');
+  // 시행령 제20조 제1항은 세 갈래다 — 1호 건설(계속 1년 이상 고용·지휘감독 등 업무 제외) · 2호 하역(기간 상한 없음) · 3호 그 밖(근로계약에 따라 3월 이상 계속 고용 아님).
+  // 3월은 근로계약 기준이다(국세청 「일용근로소득」 안내 — 처음 3월 이상 근무 조건이면 3월 미만에 퇴직해도 일반근로자).
+  it('일용근로자 여부는 시행령 제20조 제1항 세 갈래로 묻고, 아니면 간이세액표로 보낸다', () => {
     expect(ELIGIBILITY_NOTE).toContain('소득세법 시행령 제20조 제1항');
+    expect(ELIGIBILITY_KINDS).toHaveLength(3);
+    const [build, dock, other] = ELIGIBILITY_KINDS;
+    expect(build).toMatch(/건설공사.*1년 이상.*지휘·감독.*경비.*건설기계/);
+    expect(dock).toMatch(/하역작업.*항만근로자.*고용 기간으로 빼지 않/);
+    expect(other).toMatch(/근로계약에 따라.*3개월 이상/);
+    expect(other).toMatch(/처음부터 3개월 이상 일하기로 계약했으면.*일용근로자가 아닙니다/);
+    // 지나간 기간만 묻는 문구로 고르게 하지 않는다
+    expect(ELIGIBILITY_NO).not.toMatch(/이상 계속 고용되어 있다/);
     expect(ELIGIBILITY_STOP.join(' ')).toMatch(/간이세액표/);
   });
 
@@ -266,6 +336,14 @@ describe('공통 장치(261028) · 금지어', () => {
     expect(CONSEQUENCES.join(' ')).toMatch(/여러 날분을 한 번에 지급하면 그 합계/);
     expect(ROUNDING_NOTE).toMatch(/국고금 관리법 제47조 제1항/);
     expect(ROUNDING_NOTE).toMatch(/확인하지 못/);
+    // 차이는 10원에 묶이지 않는다 — 날이 많을수록 커지고(K3 30원), 1,000원 경계에서는 징수 여부가 갈린다(K2 1,000 대 0)
+    expect(ROUNDING_NOTE).not.toMatch(/10원까지/);
+    expect(ROUNDING_NOTE).toMatch(/날이 많을수록/);
+    expect(ROUNDING_NOTE).toMatch(/1,000원.*떼지 않/);
+  });
+
+  it('엔진 주석도 차이를 10원으로 묶지 않는다', () => {
+    expect(fs.readFileSync('src/lib/calc/daily-worker-tax.ts', 'utf8')).not.toMatch(/최대 10원/);
   });
 
   it('페이지·입력 화면은 연락을 권하지 않는다', () => {
