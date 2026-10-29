@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import BizNoLookup from '@/components/BizNoLookup';
 import { calcAbsence, calcProration, METHOD_ORDER, type AbsenceResult, type MethodId, type ProrationResult, type RoundingRule } from '@/lib/calc/pay-proration';
 import type { Rounding, RoundingUnit } from '@/lib/pay-check/policies';
 import AnswerCard from '@/components/tool/AnswerCard';
@@ -130,6 +131,7 @@ export default function PayProrationClient() {
             <Radio name="size" checked={fivePlus} onChange={() => setFivePlus(true)}>5명 이상</Radio>
             <Radio name="size" checked={!fivePlus} onChange={() => setFivePlus(false)}>4명 이하</Radio>
           </div>
+          <BizNoLookup onFound={(workplace) => setFivePlus(workplace.headcount >= 5)} />
         </fieldset>
         <label className={`${small} sm:col-span-2`} style={muted}>
           그달 평일 중 쉬는 공휴일(날짜를 쉼표로)

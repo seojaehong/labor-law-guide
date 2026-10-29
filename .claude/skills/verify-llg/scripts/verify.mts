@@ -5,6 +5,7 @@ import { createRequire } from 'node:module';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { execFileSync } from 'node:child_process';
+import type { Page as BrowserPage } from 'playwright';
 import { bannedHits } from '../../../../src/lib/tool-kit/banned.ts';
 
 const require = createRequire(import.meta.url);
@@ -26,6 +27,32 @@ type Step = { name: string; expect: string | RegExp; got: string; ok: boolean };
 type Journey = (p: Page, step: (name: string, expect: string | RegExp, got: string) => void) => Promise<void>;
 
 const answer = async (p: Page, sel = 'section[aria-live]') => (await p.locator(sel).first().innerText()).replace(/\s+/g, ' ').trim();
+
+// Check the actual parent state using synthetic public-workplace responses only.
+async function workplaceScaleJourney(p: BrowserPage, step: (name: string, expected: string | RegExp, got: string) => void): Promise<void> {
+  const open = p.getByRole('button', { name: '사업자등록번호로 불러오기', exact: true });
+  const present = await open.count() === 1 && await open.isVisible();
+  step('사업자등록번호로 인원 확인 입구', 'true', String(present));
+  if (!present) return;
+  let count = 4;
+  const pattern = '**/api/tools/workplace?bizNo=*';
+  await p.route(pattern, async (route) => {
+    await route.fulfill({ json: { ok: true, rows: [{ bizNo: '0000000000', name: '합성 사업장', address: '', headcount: count, since: null, industry: null }] } });
+  });
+  try {
+    await open.click();
+    await p.getByLabel('사업자등록번호', { exact: true }).fill('0000000000');
+    for (const headcount of [4, 5]) {
+      count = headcount;
+      await p.getByRole('button', { name: '불러오기', exact: true }).click();
+      await p.locator('[data-bizno-applied]').filter({ hasText: `상시 ${headcount}명` }).waitFor();
+      const label = headcount === 4 ? '4명 이하' : '5명 이상';
+      step(`공단 인원 ${headcount}명 → ${label} 분기`, 'true', String(await p.getByLabel(label, { exact: true }).isChecked()));
+    }
+  } finally {
+    await p.unroute(pattern);
+  }
+}
 
 // 기능마다 경로와 사용자 동작. 기대값은 손으로 센 값이다(features/<id>.md 와 같다).
 const FEATURES: Record<string, { path: string; journey: Journey }> = {
@@ -341,6 +368,7 @@ const FEATURES: Record<string, { path: string; journey: Journey }> = {
   'pay-proration': {
     path: '/tools/pay-proration',
     journey: async (p, step) => {
+      await workplaceScaleJourney(p, step);
       // 첫 화면 = 입사·퇴사한 달 일할 · 월급 2,508,000(= 209 × 12,000) · 5명 이상 · 회사 기준 모름
       const month = p.getByLabel('급여 달');
       const hol = p.getByLabel(/^그달 평일 중 쉬는 공휴일/);
