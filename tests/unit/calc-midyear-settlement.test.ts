@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import fs from 'node:fs';
 import { calcMidyear, defaultYear, rulesFor, trunc10, type MidyearInput, type MidyearOutcome } from '@/lib/calc/midyear-settlement';
+import { basicTaxRatesFor } from '@/lib/calc/retirement-tax';
 import {
   allCopy, effectLines, firstMissing, headline, HOMETAX_LINK, HOMETAX_URL, INPUT_FIELDS, INPUT_GUIDE, LIMITS, SCOPE_ITEMS, SCOPE_STOP, whyLines,
   type MoneyField,
@@ -123,45 +124,32 @@ describe('중도퇴사 연말정산 — A(보험료 소득공제)·B(표준세�
     expect(rulesFor(2026)!.creditLimit.at(-1)).toEqual({ over: 120_000_000, base: 500_000, num: 1, den: 2, floor: 200_000 });
   });
 
-  // §55① 기본세율표는 labor-calc.ts·퇴직금 계산기(severance.html)·퇴직소득세 엔진(retirement-tax.ts)에도 있다(PR #112 검토 2·14).
-  // 한 곳만 바뀌면 도구끼리 갈리므로, 네 벌이 같은지 여기서 본다.
-  it.each(['src/lib/labor-calc.ts', 'public/tools/severance.html'])('§55① 기본세율표가 %s 와 같다', (file) => {
-    const src = fs.readFileSync(file, 'utf8');
-    const rows = [...src.matchAll(/\{\s*limit:\s*([\d_]+|Infinity|Number\.POSITIVE_INFINITY),\s*rate:\s*([\d.]+),\s*cumulative:\s*([\d_]+)\s*\}/g)].map((m) => ({
-      limit: /Infinity|INFINITY/.test(m[1]) ? Infinity : Number(m[1].replace(/_/g, '')),
-      rate: Number(m[2]),
-      cumulative: Number(m[3].replace(/_/g, '')),
-    }));
-    const mine = rulesFor(2026)!.taxRates;
-    expect(rows.length).toBe(mine.length);
-    rows.forEach((r, i) => {
-      expect(r.cumulative, `${file} ${i}`).toBe(mine[i].base);
-      expect(Math.round(r.rate * mine[i].den), `${file} ${i}`).toBe(mine[i].num);
-      expect(i === 0 ? 0 : rows[i - 1].limit, `${file} ${i}`).toBe(mine[i].over);
-    });
-    expect(rows.at(-1)!.limit).toBe(Infinity);
+  // §55① 기본세율표는 한 벌이다 — 퇴직소득세 엔진(retirement-tax.ts BASIC_TAX_RATES, 과세기간 날짜 축)에만 있고
+  // 이 도구·챗봇(labor-calc.ts)·퇴직금 계산기(severance.html)는 그것을 읽는다(예전엔 네 벌이라 같은지 대조했다, PR #112 검토 2·14).
+  it('§55① 기본세율 — 2026 과세기간 값(소득세법 제55조 제1항)', () => {
+    expect(rulesFor(2026)!.taxRates).toEqual([
+      { over: 0, base: 0, num: 6, den: 100 },
+      { over: 14_000_000, base: 840_000, num: 15, den: 100 },
+      { over: 50_000_000, base: 6_240_000, num: 24, den: 100 },
+      { over: 88_000_000, base: 15_360_000, num: 35, den: 100 },
+      { over: 150_000_000, base: 37_060_000, num: 38, den: 100 },
+      { over: 300_000_000, base: 94_060_000, num: 40, den: 100 },
+      { over: 500_000_000, base: 174_060_000, num: 42, den: 100 },
+      { over: 1_000_000_000, base: 384_060_000, num: 45, den: 100 },
+    ]);
   });
 
-  // 퇴직소득세 엔진(#115, 이 도구보다 먼저 병합)에도 §55① 표가 있다. 모양이 [상한, 누계, %, 하한] 이라 위 정규식에 걸리지 않아
-  // 따로 본다 — 네 벌 가운데 한 곳만 고치면 도구끼리 갈린다(PR #112 사후 검토 4·9).
-  it('§55① 기본세율표가 src/lib/calc/retirement-tax.ts 와 같다', () => {
-    const src = fs.readFileSync('src/lib/calc/retirement-tax.ts', 'utf8');
-    const block = /rates:\s*\[([\s\S]*?)\n\s*\],/.exec(src);
-    expect(block, 'retirement-tax.ts 의 rates 표를 찾지 못했다').not.toBeNull();
-    const rows = [...block![1].matchAll(/\[\s*([\d_]+|Infinity),\s*([\d_]+),\s*(\d+),\s*([\d_]+)\s*\]/g)].map((m) => ({
-      upTo: m[1] === 'Infinity' ? Infinity : Number(m[1].replace(/_/g, '')),
-      cumulative: Number(m[2].replace(/_/g, '')),
-      pct: Number(m[3]),
-      from: Number(m[4].replace(/_/g, '')),
-    }));
-    const mine = rulesFor(2026)!.taxRates;
-    expect(rows.length).toBe(mine.length);
-    rows.forEach((r, i) => {
-      expect(r.from, `retirement-tax ${i}`).toBe(mine[i].over);
-      expect(r.cumulative, `retirement-tax ${i}`).toBe(mine[i].base);
-      expect(r.pct * (mine[i].den / 100), `retirement-tax ${i}`).toBe(mine[i].num);
-      expect(r.upTo, `retirement-tax ${i}`).toBe(i + 1 < mine.length ? mine[i + 1].over : Infinity);
-    });
+  it('§55① 기본세율표는 퇴직소득세 엔진의 표 하나를 읽는다', () => {
+    const rt = basicTaxRatesFor('2026-01-01')!;
+    expect(rulesFor(2026)!.taxRates).toEqual(rt.rates.map(([, base, num, over]) => ({ over, base, num, den: 100 })));
+    expect(fs.readFileSync('src/lib/calc/midyear-settlement.ts', 'utf8')).not.toMatch(/384_?060_?000/);
+  });
+
+  // 사본이 다시 생기지 않게 — 계산기 html 은 엔진을 주입한 블록 밖을 본다
+  it.each(['src/lib/labor-calc.ts', 'public/tools/severance.html'])('%s 에 §55① 표 사본이 없다', (file) => {
+    const src = fs.readFileSync(file, 'utf8').replace(/\/\* @@retirement-tax-engine:start[\s\S]*?@@retirement-tax-engine:end \*\//, '');
+    expect(src).not.toMatch(/\{\s*limit:\s*[\d_]+,\s*rate:\s*[\d.]+,\s*cumulative:/);
+    expect(src).not.toMatch(/384_?060_?000|174_?060_?000/);
   });
 });
 

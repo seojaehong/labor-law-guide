@@ -3,6 +3,7 @@
 // 산식 정확성: 실제 매장 급여 처리에 사용 중인 검증된 코드와 동일
 
 import { calcSeverance as severanceEngine } from './calc/severance';
+import { calcRetirementTax as retirementTaxEngine } from './calc/retirement-tax';
 import { checkMinWage as minWageEngine } from './calc/min-wage';
 import { rateOn } from '@/content/rates';
 import { todayKst } from './tool-kit';
@@ -86,84 +87,33 @@ export function calcOvertime(input: {
 }
 
 // ────────────── 4. 퇴직금 ──────────────
-// 1년 미만 올림 근속연수 — HTML calcServiceYears 동치 (퇴직소득세용)
-function _ceilServiceYears(start: Date, end: Date): number {
-  let years = 0;
-  const t = new Date(start);
-  while (true) {
-    t.setFullYear(t.getFullYear() + 1);
-    if (t <= end) years++;
-    else break;
-  }
-  const exact = new Date(start);
-  exact.setFullYear(exact.getFullYear() + years);
-  if (exact.getTime() < end.getTime()) years++;
-  return Math.max(years, 1);
-}
 
-// ────────────── 4-tax. 퇴직소득세 (소득세법 시행령 제203조의5/6 + 제55조) ──────────────
-const _TAX_RATES = [
-  { limit: 14_000_000, rate: 0.06, cumulative: 0 },
-  { limit: 50_000_000, rate: 0.15, cumulative: 840_000 },
-  { limit: 88_000_000, rate: 0.24, cumulative: 6_240_000 },
-  { limit: 150_000_000, rate: 0.35, cumulative: 15_360_000 },
-  { limit: 300_000_000, rate: 0.38, cumulative: 37_060_000 },
-  { limit: 500_000_000, rate: 0.40, cumulative: 94_060_000 },
-  { limit: 1_000_000_000, rate: 0.42, cumulative: 174_060_000 },
-  { limit: Number.POSITIVE_INFINITY, rate: 0.45, cumulative: 384_060_000 },
-];
+// ────────────── 4-tax. 퇴직소득세 ──────────────
+// 정본 엔진(src/lib/calc/retirement-tax.ts) — /tools/retirement-tax·/tools/severance.html 과 같은 값을 낸다. 여기서는 응답 키만 잇는다.
+// 키는 예전 그대로(snake_case). svc_deduction 은 근속연수공제 표 값(소득세법 §48①1)이고,
+// 퇴직급여가 그보다 적을 때의 상한(§48②)은 after_deduction(= 퇴직급여 − 적용 공제)에 들어간다 — 예전 출력과 같다.
+// 엔진이 계산하지 않는 경우(2022. 12. 31. 이전 퇴사 등)는 엔진 오류를 그대로 던진다. calcSeverance 가 받아 이유만 남긴다.
+const RETIREMENT_TAX_BASIS =
+  '소득세법 제48조 제1항 제1호(근속연수공제)·제2호(환산급여공제) · 제48조 제2항(근속연수공제는 퇴직급여까지) · 제14조 제6항(과세표준) · ' +
+  '제55조 제1항·제2항(기본세율, 환산산출세액 × 근속연수 ÷ 12) · 시행령 제105조 제1항(근속연수 — 마지막 근무일까지, 1년 미만은 1년) · ' +
+  '국고금 관리법 제47조(10원 미만 버림) · 지방세법 제103조의13 제1항(지방소득세 = 소득세 × 10%) / ' +
+  '환산급여 = (퇴직급여 − 근속연수공제) × 12 ÷ 근속연수 / 2023. 1. 1. 이후 퇴사만 계산(법률 제19196호 부칙 제13조·제14조)';
 
-function _serviceYearDeduction(years: number): number {
-  if (years <= 5) return 1_000_000 * years;
-  if (years <= 10) return 5_000_000 + 2_000_000 * (years - 5);
-  if (years <= 20) return 15_000_000 + 2_500_000 * (years - 10);
-  return 40_000_000 + 3_000_000 * (years - 20);
-}
-
-function _convertedWageDeduction(cw: number): number {
-  if (cw <= 0) return 0;
-  if (cw <= 8_000_000) return cw;
-  if (cw <= 70_000_000) return 8_000_000 + (cw - 8_000_000) * 0.6;
-  if (cw <= 100_000_000) return 45_200_000 + (cw - 70_000_000) * 0.55;
-  if (cw <= 300_000_000) return 61_700_000 + (cw - 100_000_000) * 0.45;
-  return 151_700_000 + (cw - 300_000_000) * 0.35;
-}
-
-function _incomeTaxByRate(taxBase: number): number {
-  if (taxBase <= 0) return 0;
-  for (let i = 0; i < _TAX_RATES.length; i++) {
-    if (taxBase <= _TAX_RATES[i].limit) {
-      const prev = i === 0 ? 0 : _TAX_RATES[i - 1].limit;
-      return _TAX_RATES[i].cumulative + (taxBase - prev) * _TAX_RATES[i].rate;
-    }
-  }
-  return 0;
-}
-
-export function calcRetirementTax(severance_pay: number, service_years: number) {
-  const svc_deduction = _serviceYearDeduction(service_years);
-  const after_deduction = Math.max(severance_pay - svc_deduction, 0);
-  const converted_wage = service_years > 0 ? Math.floor((after_deduction * 12) / service_years) : 0;
-  const cw_deduction = Math.floor(_convertedWageDeduction(converted_wage));
-  const tax_base = Math.max(converted_wage - cw_deduction, 0);
-  const converted_tax = Math.floor(_incomeTaxByRate(tax_base));
-  const income_tax = Math.floor(Math.floor((converted_tax * service_years) / 12) / 10) * 10;
-  const local_tax = Math.floor(Math.floor(income_tax * 0.1) / 10) * 10;
+export function calcRetirementTax(severance_pay: number, hire_date: string, last_work_date: string) {
+  const r = retirementTaxEngine({ pay: severance_pay, hireDate: hire_date, lastWorkDate: last_work_date });
   return {
     severance_pay,
-    service_years,
-    svc_deduction,
-    after_deduction,
-    converted_wage,
-    cw_deduction,
-    tax_base,
-    converted_tax,
-    income_tax,
-    local_tax,
-    total_tax: income_tax + local_tax,
-    legal_basis:
-      '소득세법 시행령 제203조의5(근속연수공제) · 제203조의6(환산급여공제) · 소득세법 제55조(기본세율) / ' +
-      '환산급여 = (퇴직급여 - 근속연수공제) × 12 / 근속연수 / 산출세액 × 근속연수/12 = 소득세 / 지방소득세 = 소득세 × 10%',
+    service_years: r.years,
+    svc_deduction: r.serviceDeductionTable,
+    after_deduction: severance_pay - r.serviceDeduction,
+    converted_wage: r.converted,
+    cw_deduction: r.convertedDeduction,
+    tax_base: r.taxBase,
+    converted_tax: r.convertedTax,
+    income_tax: r.incomeTax,
+    local_tax: r.localTax,
+    total_tax: r.total,
+    legal_basis: RETIREMENT_TAX_BASIS,
   };
 }
 
@@ -234,11 +184,15 @@ export function calcSeverance(input: {
   };
 
   if (input.include_tax) {
-    // 근속연수는 퇴직일(마지막 근무일 다음 날)까지 — 계산기 calcServiceYears 와 같은 날을 쓴다
-    const service_years = _ceilServiceYears(new Date(input.hire_date), new Date(r.retirementDate));
-    const tax = calcRetirementTax(severance_pay, service_years);
-    result.tax = tax;
-    result.net_severance = severance_pay - tax.total_tax;
+    // 퇴직소득세 엔진은 마지막 근무일을 퇴사일로 받는다(국세청 프로그램 「퇴사일」). 계산기는 퇴직일에서 하루 빼서 같은 날을 넘긴다
+    try {
+      const tax = calcRetirementTax(severance_pay, input.hire_date, input.last_work_date);
+      result.tax = tax;
+      result.net_severance = severance_pay - tax.total_tax;
+    } catch (e) {
+      // 퇴직금은 그대로 내고 세액은 비운다 — 종전 표를 쓸 2022년 이전 퇴사를 현행 표로 계산하지 않는다(법률 제19196호 부칙 제13조·제14조)
+      result.legal_basis += ` / ★ 퇴직소득세는 계산하지 않았다 — ${e instanceof Error ? e.message : String(e)}`;
+    }
   }
   return result;
 }

@@ -93,10 +93,12 @@ describe('해고예고 3개월 경계 — 같은 날이 없으면 그 달 말일
 });
 
 describe('퇴직소득세', () => {
+  // 계산기의 세율표는 정본 엔진(RetirementTaxEngine.BASIC_TAX_RATES)을 읽은 것이다 — 3억 초과 구간 누진 누계까지 §55① 그대로
   it('계산기 세율표 — 3억 초과 구간 누진 누계', () => {
-    expect(run<number>('calcIncomeTaxByRate(400000000)')).toBe(134_060_000);
-    expect(run<number>('calcIncomeTaxByRate(800000000)')).toBe(300_060_000);
-    expect(run<number>('calcIncomeTaxByRate(1200000000)')).toBe(474_060_000);
+    expect(run<[number, number][]>('TAX_RATES.map((r) => [r.cumulative, r.rate])')).toEqual([
+      [0, 0.06], [840_000, 0.15], [6_240_000, 0.24], [15_360_000, 0.35], [37_060_000, 0.38], [94_060_000, 0.4], [174_060_000, 0.42], [384_060_000, 0.45],
+    ]);
+    expect(run<number[]>('TAX_RATES.slice(0, 7).map((r) => r.limit)')).toEqual([14_000_000, 50_000_000, 88_000_000, 150_000_000, 300_000_000, 500_000_000, 1_000_000_000]);
   });
 
   it('근속연수는 챗봇과 계산기가 같은 날까지 센다', () => {
