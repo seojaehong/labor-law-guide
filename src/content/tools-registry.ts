@@ -62,4 +62,6 @@ export const TOOLS: ToolEntry[] = [
     sitemap: { lastModified: '2026-10-29', changeFrequency: 'monthly', priority: 0.8 } },
   { href: '/tools/leave-pay', title: '연차수당 계산기', desc: '남은 연차 일수와 임금을 넣으면 미사용 연차수당(1일 통상임금 × 일수)을 계산합니다. 재직 중과 퇴직 시를 나누고, 퇴직하면 입사일 기준 발생 누계를 세며, 단시간 근로자는 남은 시간 × 시간급으로 봅니다. 회사가 지급한 금액과 차이도 보여줍니다.', badge: '브라우저 계산', icon: 'calculator',
     sitemap: { lastModified: '2026-10-29', changeFrequency: 'monthly', priority: 0.85 } },
+  { href: '/tools/shutdown-allowance', title: '휴업수당 계산기', desc: '회사 사정으로 쉰 기간의 휴업수당을 계산합니다. 휴업 전 3개월 임금으로 1일 평균임금을 구해 70% × 휴업일수로 셈하고, 평균임금 70%가 통상임금보다 많으면 통상임금 기준 금액도 나란히 보여줍니다. 일부 시간만 쉰 날(시행령 제26조), 상시 4명 이하, 노동위원회 승인도 구분합니다.', badge: '브라우저 계산', icon: 'calculator',
+    sitemap: { lastModified: '2026-10-29', changeFrequency: 'monthly', priority: 0.8 } },
 ];
