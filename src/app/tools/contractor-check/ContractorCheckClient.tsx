@@ -6,8 +6,8 @@ import AnswerCard from '@/components/tool/AnswerCard';
 import FoldedDetail from '@/components/tool/FoldedDetail';
 import { card, inputCls, ink, muted, small, todayKst } from '@/lib/tool-kit';
 import {
-  AFTER_LEAD, AFTER_RECOGNITION, CHECK_HEADLINE, CHECK_NOTES, HOMETAX_LINE, HOMETAX_URL, INPUT_GUIDE, MONEY_NOTES, NOTICE,
-  OUT_OF_SCOPE, SOURCE_TITLE, answerLabel, formulaLines, itemSentence, moneyHeadline, moneyRows,
+  AFTER_LEAD, AFTER_RECOGNITION, CHECK_HEADLINE, CHECK_NOTES, HOMETAX_LINK, HOMETAX_URL, INPUT_GUIDE, MONEY_NOTES, NOTICE,
+  OUT_OF_SCOPE, SOURCE_TITLE, answerLabel, formulaLines, itemSentence, itemTag, moneyHeadline, moneyRows,
 } from './copy';
 
 const num = (s: string) => Number(s.replace(/,/g, '').trim() || '0');
@@ -57,7 +57,7 @@ export default function ContractorCheckClient() {
             {items.map((i) => (
               <li key={i.id}>
                 <div style={ink}>{i.question.element} — <span className="font-semibold">{itemSentence(i)}</span></div>
-                <div className="text-xs">답: {answerLabel(i)}{i.question.light ? ' · 회사가 정할 수 있는 사정으로 본 항목' : ''}</div>
+                <div className="text-xs">답: {answerLabel(i)}{itemTag(i) ? ` · ${itemTag(i)}` : ''}</div>
               </li>
             ))}
           </ul>
@@ -119,7 +119,7 @@ export default function ContractorCheckClient() {
       </div>
       <p className={small} style={muted}>
         {NOTICE}{' '}
-        <a href={HOMETAX_URL} target="_blank" rel="noopener noreferrer" className="underline underline-offset-2">{HOMETAX_LINE}</a>
+        <a href={HOMETAX_URL} target="_blank" rel="noopener noreferrer" className="underline underline-offset-2">{HOMETAX_LINK.text}</a>{HOMETAX_LINK.after}
       </p>
       {'r' in out && (
         <FoldedDetail summary="산식">
