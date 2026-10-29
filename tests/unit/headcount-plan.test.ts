@@ -25,7 +25,7 @@ const daewonInput: HeadcountInput = {
   ],
 };
 
-describe('answerPlan — 대원 사례', () => {
+describe('answerPlan — 합성 사례(4명 + 1개월 계약직 1명)', () => {
   const a = answerPlan(daewon, TODAY);
 
   it('11-17부터 12-15까지 5인 이상이고 양 끝에 근거가 붙는다', () => {

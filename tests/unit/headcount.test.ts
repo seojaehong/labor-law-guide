@@ -114,7 +114,7 @@ describe('computeHeadcount — 시행령 제7조의2 ①②', () => {
 });
 
 describe('coverageTimeline — 해당 구간', () => {
-  it('대원산업 사례: 11-17부터 12-15까지 5인 이상 규정이 적용된다', () => {
+  it('합성 사례(4명 + 1개월 계약직 1명): 11-17부터 12-15까지 5인 이상 규정이 적용된다', () => {
     const spans = coverageTimeline(daewon, '2026-10-01', '2027-01-31');
     expect(spans).toEqual([{ from: '2026-11-17', to: '2026-12-15' }]);
   });
