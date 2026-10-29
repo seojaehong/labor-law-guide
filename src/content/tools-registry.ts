@@ -62,4 +62,6 @@ export const TOOLS: ToolEntry[] = [
     sitemap: { lastModified: '2026-10-29', changeFrequency: 'monthly', priority: 0.8 } },
   { href: '/tools/leave-pay', title: '연차수당 계산기', desc: '남은 연차 일수와 임금을 넣으면 미사용 연차수당(1일 통상임금 × 일수)을 계산합니다. 재직 중과 퇴직 시를 나누고, 퇴직하면 입사일 기준 발생 누계를 세며, 단시간 근로자는 남은 시간 × 시간급으로 봅니다. 회사가 지급한 금액과 차이도 보여줍니다.', badge: '브라우저 계산', icon: 'calculator',
     sitemap: { lastModified: '2026-10-29', changeFrequency: 'monthly', priority: 0.85 } },
+  { href: '/tools/contractor-check', title: '3.3% 계약 점검', desc: '프리랜서(사업소득 3.3%)로 계약했더라도 실제로 일한 모습을 대법원 2004다29736 판결의 근로자성 기준(업무 지시·근무시간과 장소·비품·대행·보수의 성격 등)과 항목마다 대조합니다. 같은 보수를 3.3%로 뗄 때와 근로소득으로 뗄 때의 예상 실수령도 나란히 보여줍니다.', badge: '참고 점검', icon: 'file-check',
+    sitemap: { lastModified: '2026-10-29', changeFrequency: 'monthly', priority: 0.8 } },
 ];

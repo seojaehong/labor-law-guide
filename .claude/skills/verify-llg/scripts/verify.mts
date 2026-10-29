@@ -338,6 +338,39 @@ const FEATURES: Record<string, { path: string; journey: Journey }> = {
       step('단시간 16 × 23/40 × 8 = 73.6 → 74시간 × 11,000(별표2)', /814,000원.*남은 연차 74시간/, await answer(p));
     },
   },
+  'contractor-check': {
+    path: '/tools/contractor-check',
+    journey: async (p, step) => {
+      // 첫 화면 = 질문 답 없음 · 월 보수 3,000,000 · 식대 없음 · 가족 1명. 점검 카드와 금액 카드가 따로다(data-part)
+      const check = () => answer(p, '[data-part="check"] section[aria-live]');
+      const money = () => answer(p, '[data-part="money"] section[aria-live]');
+      // 보기 글자가 입력 뒤에 와서 getByLabel 정규식(/^예/)은 앞 공백 때문에 못 찾는다 — radio 이름으로 고른다
+      const pick = async (q: RegExp, option: RegExp) => p.getByRole('group', { name: q }).getByRole('radio', { name: option }).check();
+      const Q = [/^회사가 업무 내용을/, /^회사가 근무시간과/, /^일에 쓰는 비품/, /^다른 사람을 써서/, /^보수가 일한 시간/, /^기본급이나 고정급/, /^보수에서 근로소득세를/, /^회사 취업규칙/];
+      step('답 없음 = 확인이 필요합니다', '확인이 필요합니다', await check());
+      step('M1 300만 — 나란히', /3\.3%로 떼면 2,901,000원, 근로소득으로 떼면 2,626,700원/, await money());
+      // P3 — 2004다29736 사실관계형: Q1·Q2 예, Q3·Q4 아니요, Q5 시간·일수, Q6~Q8 아니요(고정급 없음·3.3%·취업규칙 미적용)
+      for (const [i, o] of [[0, /^예/], [1, /^예/], [2, /^아니요/], [3, /^아니요/], [4, /^예/], [5, /^아니요/], [6, /^아니요/], [7, /^아니요/]] as const) await pick(Q[i], o);
+      step('P3 — Q1~Q5 있음, Q6~Q8 가벼운 항목 문장, 「적습니다」 없음', /^(?![\s\S]*적습니다)(?=[\s\S]*근로자로 볼 요소가 있습니다)[\s\S]*쉽게 볼 수 없다는 것이 판례입니다/, await check());
+      // P2 — 독립 쪽 전부
+      for (const [i, o] of [[0, /^아니요/], [1, /^아니요/], [2, /^예/], [3, /^예/], [4, /^아니요/]] as const) await pick(Q[i], o);
+      step('P2 — Q1~Q5 적음, Q6~Q8 은 「적습니다」가 아닌 문장', /^(?![\s\S]*요소가 있습니다)[\s\S]*요소가 적습니다[\s\S]*쉽게 볼 수 없다는 것이 판례입니다/, await check());
+      const pay = p.getByLabel(/^월 보수/);
+      const meal = p.getByLabel(/^그중 식대/);
+      await pay.fill('2345678');
+      step('M2 끝수 버림', /3\.3%로 떼면 2,268,278원, 근로소득으로 떼면 2,084,308원/, await money());
+      await pay.fill('3000000');
+      await meal.fill('200000');
+      step('M3 식대 20만 — 3.3%는 전액, 근로소득만 비과세', /3\.3%로 떼면 2,901,000원, 근로소득으로 떼면 2,665,440원/, await money());
+      await meal.fill('');
+      await pay.fill('12000000');
+      step('M7 표 밖 — 근로소득 소득세 계산하지 않음', /11,604,000원.*소득세를 계산하지 않고.*909,100원/, await money());
+      await pay.fill('30000');
+      step('3만원 — 근로소득 쪽은 계산하지 않고 3.3%만', /29,010원.*근로소득 쪽은 계산하지 않았습니다/, await money());
+      await pay.fill('33000');
+      step('S1 990원도 뗀다', '3.3%로 떼면 31,920원', await money());
+    },
+  },
 };
 
 async function api(step: (n: string, e: string | RegExp, g: string) => void) {
