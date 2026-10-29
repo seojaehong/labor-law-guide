@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
+import BizNoLookup from '@/components/BizNoLookup';
 import { calcShutdownAllowance, calendarBreakdown, type ShutdownAllowanceInput, type WageUnit } from '@/lib/calc/shutdown-allowance';
 import AnswerCard from '@/components/tool/AnswerCard';
 import FoldedDetail from '@/components/tool/FoldedDetail';
@@ -83,6 +84,7 @@ export default function ShutdownAllowanceClient() {
             <Radio name="size" checked={fivePlus} onChange={() => setFivePlus(true)}>5명 이상</Radio>
             <Radio name="size" checked={!fivePlus} onChange={() => setFivePlus(false)}>4명 이하</Radio>
           </div>
+          <BizNoLookup onFound={(workplace) => setFivePlus(workplace.headcount >= 5)} />
           <p className="mt-2">
             모르면 <Link href="/tools/headcount" className="underline underline-offset-2">상시 근로자 수 계산기</Link>로 셉니다. 휴업수당을 줄 사유가 생긴 날 전 1개월이 기준입니다.
           </p>
