@@ -5,12 +5,14 @@
 //   B = 표준세액공제 13만원(§59의4⑨1호), 보험료 소득공제 없음
 //   ⑨1호는 「제52조제8항 … 에 따른 소득공제 … 신청을 하지 아니한 경우」에만 13만원을 준다 — 둘을 함께 더하지 않는다.
 //   국민연금(§51의3)은 ⑨1호의 배제 목록에 없어 두 경로 모두에 들어간다.
-//   어느 쪽인지는 근로자가 보험료 공제를 신청했는지로 정해지고, 법은 「작은 쪽」을 정하지 않는다.
-//   답(method·decided)은 결정세액이 작은 쪽 = 근로자에게 유리한 쪽으로 가정한 값이고, 화면은 A·B 정산액을 다 보여 준다.
+//   어느 쪽인지는 근로자가 보험료 공제를 신청했는지로 정해지고, 법은 어느 한쪽을 정하지 않는다.
+//   그래서 하나를 고르지 않는다 — 결과는 경로별 값(a·b)만 갖고, 화면은 A·B 를 나란히 보여 준다(261029 결정).
+//   두 결정세액이 같은지만 same 으로 둔다.
 //   §137③(신고서를 내지 않으면 본인 기본공제·표준세액공제만) 문언과의 관계는 제품 결정 대기(PR #112 미확정 1).
-// 차감징수 = 결정세액 − 퇴직월 전 달까지 낸 소득세. 퇴직월 간이세액은 답에 쓰지 않고,
-//   회사가 그것을 먼저 떼고 기납부(§137①3호)로 넣어 정산한 경우의 영수증 값(settleWithSimple)만 따로 낸다.
-// 범위 밖(멈춤): 기준을 넣지 않은 해 · 총급여 1.2억원 이상 · 차감 소득세 1천원 미만 추징(소득세법 §86 1호 소액부징수).
+// 차감징수 = 결정세액 − 퇴직월 전 달까지 낸 소득세. 퇴직월 간이세액은 정산액에 쓰지 않고,
+//   회사가 그것을 먼저 떼고 기납부(§137①3호)로 넣어 정산한 경우의 영수증 값(settleWithSimple)을 경로마다 따로 낸다.
+// 범위 밖(멈춤): 기준을 넣지 않은 해 · 총급여 1.2억원 이상.
+//   차감 소득세 1천원 미만 추징(소득세법 §86 1호 소액부징수)은 멈추지 않는다 — 경로마다 문장이 「징수하지 않음」을 붙인다.
 //   지방소득세는 「원천징수하는 소득세의 100분의 10 … 을 소득세 원천징수와 동시에」 특별징수한다(지방세법 §103의13①).
 //   지방소득세 자체의 1천원 기준은 조문·해석례에서 찾지 못해(§103의13④ 준용은 추론, §103의60 은 고지서 기준) 멈추지 않고
 //   계산한 금액을 보여 준다 — 사무소 게이트와 실수령액 계산기(take-home-pay)도 같다(PR #112 사후 검토 2·11).
@@ -142,7 +144,7 @@ export interface MidyearInput {
   employment: number;
   /** 퇴직월 전 달까지 원천징수된 소득세 합계 */
   paidIncomeTax: number;
-  /** 퇴직월 간이세액 — 답에는 쓰지 않는다. 회사가 먼저 뗀 경우의 영수증 값(settleWithSimple)에만 쓴다 */
+  /** 퇴직월 간이세액 — 정산액에는 쓰지 않는다. 회사가 먼저 뗀 경우의 영수증 값(경로별 settleWithSimple)에만 쓴다 */
   lastMonthSimpleTax?: number;
   /** 퇴직월 전 달까지 특별징수된 지방소득세 합계 */
   paidLocalTax: number;
@@ -162,8 +164,10 @@ export interface MidyearPath {
   standard: number;
   /** 결정세액 */
   decided: number;
-  /** 이 경로로 정산했을 때의 차감 소득세(+ 더 냄 / − 돌려받음) */
+  /** 이 경로로 정산했을 때의 차감 소득세(+ 더 냄 / − 돌려받음). 1천원 미만 추징이어도 계산한 값 그대로(§86 1호 문구는 화면이 붙인다) */
   settleIncomeTax: number;
+  /** 회사가 퇴직월 간이세액을 먼저 떼고 기납부로 넣어 이 경로로 정산한 경우의 차감 소득세. 간이세액 칸이 0 이면 null */
+  settleWithSimple: number | null;
   decidedLocal: number;
   settleLocalTax: number;
 }
@@ -177,27 +181,21 @@ export interface MidyearDetail {
   pension: number;
   /** 건강 + 장기요양 + 고용 */
   insurance: number;
+  /** A = 보험료 소득공제를 신청한 경우 */
   a: MidyearPath;
+  /** B = 신청하지 않은 경우(표준세액공제) */
   b: MidyearPath;
-  /** 결정세액이 작은 쪽(근로자에게 유리한 쪽으로 가정). 같으면 same */
-  method: 'A' | 'B' | 'same';
-  decided: number;
+  /** 두 경로의 결정세액이 같다(그러면 정산액도 같다) */
+  same: boolean;
   paidIncomeTax: number;
   lastMonthSimpleTax: number;
-  /** + 더 냄 / − 돌려받음 */
-  settleIncomeTax: number;
-  /** 회사가 퇴직월 간이세액을 먼저 떼고 기납부로 넣어 정산한 경우의 차감 소득세. 간이세액 칸이 0 이면 null */
-  settleWithSimple: number | null;
-  decidedLocal: number;
   paidLocalTax: number;
-  settleLocalTax: number;
 }
 
 export type MidyearOutcome =
   | { kind: 'ok'; detail: MidyearDetail }
   | { kind: 'out'; reason: 'year'; year: number }
-  | { kind: 'out'; reason: 'high-pay'; gross: number; stop: number }
-  | { kind: 'out'; reason: 'small-amount'; which: 'income'; detail: MidyearDetail };
+  | { kind: 'out'; reason: 'high-pay'; gross: number; stop: number };
 
 const FIELDS: [keyof MidyearInput, string][] = [
   ['totalPay', '받은 급여 합계'],
@@ -211,7 +209,7 @@ const FIELDS: [keyof MidyearInput, string][] = [
   ['paidLocalTax', '이미 낸 지방소득세'],
 ];
 
-type PathTax = Omit<MidyearPath, 'settleIncomeTax' | 'decidedLocal' | 'settleLocalTax'>;
+type PathTax = Omit<MidyearPath, 'settleIncomeTax' | 'settleWithSimple' | 'decidedLocal' | 'settleLocalTax'>;
 
 function path(r: MidyearRules, gross: number, earnedIncome: number, pension: number, insurance: number, useInsurance: boolean): PathTax {
   // §50·§51의3·§52 — 공제가 종합소득금액을 넘으면 넘는 부분은 없는 것(§51의3③·§52⑧) → 과세표준 하한 0
@@ -243,6 +241,7 @@ export function calcMidyear(input: MidyearInput): MidyearOutcome {
   const earnedDeduction = Math.min(bracket(r.earnedDeduction, gross), r.earnedDeductionCap, gross);
   const earnedIncome = gross - earnedDeduction;
   const insurance = input.health + input.longTermCare + input.employment;
+  const simple = input.lastMonthSimpleTax ?? 0;
 
   const settle = (p: PathTax): MidyearPath => {
     // 지방세법 §103의13① 원천징수 소득세의 100분의 10 — 원 미만 버림(원천징수영수증 실물 기준, 조문 아님)
@@ -251,6 +250,8 @@ export function calcMidyear(input: MidyearInput): MidyearOutcome {
       ...p,
       // 국고금 관리법 §47① — 10원 미만 버림, 0 쪽으로. 기납부 = 퇴직월 전 달까지
       settleIncomeTax: trunc10(p.decided - input.paidIncomeTax),
+      // §137①3호 — 회사가 퇴직월 간이세액을 먼저 원천징수했다면 그것도 기납부세액이다
+      settleWithSimple: simple > 0 ? trunc10(p.decided - input.paidIncomeTax - simple) : null,
       decidedLocal,
       // 지방세기본법 §59 → 국고금 관리법 §47 준용, 10원 미만 버림
       settleLocalTax: trunc10(decidedLocal - input.paidLocalTax),
@@ -258,21 +259,12 @@ export function calcMidyear(input: MidyearInput): MidyearOutcome {
   };
   const a = settle(path(r, gross, earnedIncome, input.pension, insurance, true));
   const b = settle(path(r, gross, earnedIncome, input.pension, insurance, false));
-  // 답은 결정세액이 작은 쪽(근로자에게 유리한 쪽으로 가정). 같으면 정산액도 같다
-  const method = a.decided < b.decided ? 'A' : b.decided < a.decided ? 'B' : 'same';
-  const pick = method === 'A' ? a : b;
 
-  const simple = input.lastMonthSimpleTax ?? 0;
-  // §137①3호 — 회사가 퇴직월 간이세액을 먼저 원천징수했다면 그것도 기납부세액이다
-  const settleWithSimple = simple > 0 ? trunc10(pick.decided - input.paidIncomeTax - simple) : null;
-
-  const detail: MidyearDetail = {
-    rules: r, gross, earnedDeduction, earnedIncome, pension: input.pension, insurance, a, b, method, decided: pick.decided,
-    paidIncomeTax: input.paidIncomeTax, lastMonthSimpleTax: simple, settleIncomeTax: pick.settleIncomeTax, settleWithSimple,
-    decidedLocal: pick.decidedLocal, paidLocalTax: input.paidLocalTax, settleLocalTax: pick.settleLocalTax,
+  return {
+    kind: 'ok',
+    detail: {
+      rules: r, gross, earnedDeduction, earnedIncome, pension: input.pension, insurance, a, b, same: a.decided === b.decided,
+      paidIncomeTax: input.paidIncomeTax, lastMonthSimpleTax: simple, paidLocalTax: input.paidLocalTax,
+    },
   };
-  // 소득세법 §86 1호 — 원천징수세액 1천원 미만은 징수하지 않는다. 더 내는 경우만(돌려받는 것은 대상 아님).
-  // 지방소득세 1천원 미만 추징은 멈추지 않는다 — 위 머리 주석.
-  if (detail.settleIncomeTax > 0 && detail.settleIncomeTax < 1_000) return { kind: 'out', reason: 'small-amount', which: 'income', detail };
-  return { kind: 'ok', detail };
 }
