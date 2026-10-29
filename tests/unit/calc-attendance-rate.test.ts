@@ -1,4 +1,6 @@
+import fs from 'node:fs';
 import { describe, expect, it } from 'vitest';
+import { SCOPE_ITEMS as LEAVE_PAY_SCOPE } from '@/app/tools/leave-pay/copy';
 import {
   calcAttendanceRate,
   CAUSES,
@@ -14,6 +16,7 @@ import {
   fmtDays,
   fmtPct,
   formulaLines,
+  GROUP_COPY,
   headline,
   monthLines,
   OPEN_ITEMS,
@@ -23,7 +26,8 @@ import { calculateEntitlement } from '@/lib/leave/annual-leave';
 import { assertNoPrescriptionMath, ATTENDANCE_THRESHOLD } from '@/lib/leave/leave-advanced';
 import { bannedHits } from '@/lib/tool-kit/banned';
 
-// 연차 발생 출근율(근로기준법 §60①②⑥). 기대값은 리서치의 독립 계산 스크립트(attendance_cases.py, Fraction)와 같다.
+// 연차 발생 출근율(근로기준법 §60①②⑥). 기대값은 리서치 단계에서 분수(Fraction)로 따로 계산한 값이고, 그 스크립트는
+// 저장소에 없다. #124 검토에서 손으로 다시 셌다(375/31 · 51/5 · 15/2 · 69/5 · 57/5 · 39/46 · 43/50).
 // S 연간 소정근로일수 · A 출근 · D 출근 간주 · X 소정근로일수에서 빼는 날 · B 결근. A = S − (D + X + B).
 // 판정 3분기(2015다66052): ① (A+D)/S ≥ 80% → 전부 ② 미만이고 (A+D)/(S−X) ≥ 80% → 기본일수 × (S−X)/S ③ 그 밖 → §60② 월 개근.
 // 입력은 전부 합성 값이다.
@@ -202,11 +206,16 @@ describe('§60② 한 달 개근 — M1~M5', () => {
   it('M3 월20 전부 정당한 쟁의 → 0일(근로기준과-2373)', () => {
     expect(monthlyLeaveDay({ scheduled: 20, excluded: 20, absent: 0 })).toEqual({ day: 0, reason: 'all-excluded' });
   });
-  it('M4 월20 전부 업무상 재해 휴업(출근 간주) → 1일(임금근로시간과-30)', () => {
+  // M4·M5 — 출근 간주는 입력 칸이 따로 없다. 빼는 날·결근한 날에 넣지 않으면 출근으로 센다는 입력 약속을 본다
+  //   (그 달 전부가 출근 간주여도 개근 — 임금근로시간과-30). 출근 간주 분류 자체는 위 calcAttendanceRate 시험이 본다.
+  it('M4 월20 전부 업무상 재해 휴업 — 출근 간주는 어느 칸에도 넣지 않으므로 입력은 빼는 날0·결근0 → 1일', () => {
     expect(monthlyLeaveDay({ scheduled: 20, excluded: 0, absent: 0 }).day).toBe(1);
   });
-  it('M5 월22 · 출근18 연차2 생리1 예비군1(모두 출근 또는 출근 간주) → 1일', () => {
+  it('M5 월22 · 출근18 연차2 생리1 예비군1 — 같은 입력 약속(빼는 날0·결근0) → 1일', () => {
     expect(monthlyLeaveDay({ scheduled: 22, excluded: 0, absent: 0 }).day).toBe(1);
+  });
+  it('출근 간주 날을 결근 칸에 잘못 넣으면 개근이 아니다 — 칸을 고르는 것이 규칙의 전부다', () => {
+    expect(monthlyLeaveDay({ scheduled: 20, excluded: 0, absent: 1 }).day).toBe(0);
   });
   it('입력 확인', () => {
     expect(() => monthlyLeaveDay({ scheduled: 0, excluded: 0, absent: 0 })).toThrow();
@@ -231,9 +240,38 @@ describe('입력 확인', () => {
     expect(() => calcAttendanceRate({ ...ok, hireDate: '2026-02-30' })).toThrow();
     expect(() => calcAttendanceRate({ ...ok, accrualDate: '2024-03-03' })).toThrow();
   });
-  it('2012. 8. 2. 전에 생긴 연차는 다루지 않는다 — 그때는 80% 미만 출근자에게 §60②가 없었다(법률 제11270호)', () => {
+  it('2012. 8. 2. 전에 생긴 연차는 다루지 않는다 — 이 도구의 날짜 축 시작(법률 제11270호 시행일)', () => {
     expect(() => calcAttendanceRate({ ...ok, hireDate: '2010-03-04', accrualDate: '2012-03-04' })).toThrow(/2012/);
-    expect(calcAttendanceRate({ ...ok, hireDate: '2010-08-02', accrualDate: '2012-08-02' }).status).toBe('full');
+    // 1년 미만도 그 전은 다루지 않는다 — 1년 미만 §60②의 시행은 사업장 규모별로 나뉘어 이 도구가 가리지 못한다
+    expect(() => calcAttendanceRate({ ...ok, hireDate: '2011-09-01', accrualDate: '2012-03-01' })).toThrow(/2012/);
+  });
+  it('출근율을 따진 1년이 2012. 8. 2. 전에 시작했으면(연차가 생기는 날 2013. 8. 2. 전) 1년 이상은 다루지 않는다 — 부칙 제4조', () => {
+    // 법률 제11270호 부칙 제4조: 「이 법 시행 후의 근로기간이 최초로 1년이 되는 근로자로서 그 1년간 출근 기간이 80퍼센트 미만」부터
+    const bad = { scheduledDays: 250, days: { absence: 60 } };
+    expect(() => calcAttendanceRate({ ...bad, hireDate: '2011-03-04', accrualDate: '2013-03-04' })).toThrow(/부칙 제4조/);
+    expect(() => calcAttendanceRate({ scheduledDays: 250, days: { absence: 100 }, hireDate: '2010-08-02', accrualDate: '2012-08-02' })).toThrow(/부칙 제4조/);
+    expect(() => calcAttendanceRate({ ...bad, hireDate: '2011-08-01', accrualDate: '2013-08-01' })).toThrow(/부칙 제4조/);
+    // 80% 이상이어도 같은 창은 다루지 않는다(결과가 상태에 따라 갈리지 않게)
+    expect(() => calcAttendanceRate({ ...ok, hireDate: '2010-08-02', accrualDate: '2012-08-02' })).toThrow(/부칙 제4조/);
+    // 그 1년이 시행일에 시작하면 다룬다
+    expect(calcAttendanceRate({ scheduledDays: 250, days: { absence: 100 }, hireDate: '2011-08-02', accrualDate: '2013-08-02' }).status).toBe('monthly');
+    // 같은 창이어도 1년 미만은 §60② 1년 미만 규정(개정 전부터 있음)으로 본다
+    expect(calcAttendanceRate({ ...ok, hireDate: '2012-03-01', accrualDate: '2012-09-01' }).status).toBe('under1y');
+  });
+  it('입사 1년이 되는 날이 2018. 5. 29. 이전이면 다루지 않는다 — 구 근로기준법 제60조제3항(법률 제15108호로 삭제)', () => {
+    // 구 §60③: 최초 1년의 휴가는 1년 미만 때 생긴 휴가를 포함해 15일, 이미 쓴 일수는 15일에서 뺀다
+    expect(() => calcAttendanceRate({ ...ok, hireDate: '2016-03-02', accrualDate: '2017-03-02', days: { absence: 5 } })).toThrow(/제60조제3항/);
+    expect(() => calcAttendanceRate({ ...ok, hireDate: '2017-05-29', accrualDate: '2018-05-29' })).toThrow(/제60조제3항/);
+    expect(calcAttendanceRate({ ...ok, hireDate: '2017-05-30', accrualDate: '2018-05-30' }).status).toBe('full');
+    // 제3항은 최초 1년만 — 2년째 기념일은 그대로 다룬다
+    expect(calcAttendanceRate({ ...ok, hireDate: '2015-03-02', accrualDate: '2017-03-02' }).status).toBe('full');
+  });
+  it('입력 오류는 연차가 생기는 날과 관계없이 같은 문장으로 — 1년 미만이어도 칸 값을 먼저 본다', () => {
+    const junk = { hireDate: '2026-01-05', scheduledDays: 0, days: { absence: -3 } };
+    const msg = /1년 소정근로일수를 1~366 사이 정수로/;
+    expect(() => calcAttendanceRate({ ...junk, accrualDate: '2026-09-05' })).toThrow(msg);
+    expect(() => calcAttendanceRate({ ...junk, accrualDate: '2027-01-05' })).toThrow(msg);
+    expect(() => calcAttendanceRate({ hireDate: '2026-01-05', accrualDate: '2026-09-05', scheduledDays: 160, days: { absence: -3 } })).toThrow(/0 이상의 정수/);
   });
 });
 
@@ -340,5 +378,55 @@ describe('화면 문장', () => {
     for (const w of ['3296', '3190', '1736', '끝수', '배우자 출산휴가']) expect(o).toContain(w);
     const s = SCOPE_ITEMS.join(' ');
     for (const w of ['2018. 5. 29.', '근로시간 단축', '소정근로일수', '연차수당 계산기']) expect(s).toContain(w);
+  });
+
+  it('정당한 징계 정직 — 2008다41666은 취업규칙으로 그렇게 정할 수 있다는 판결이고, 결근 처리는 근로기준과-3296의 해석 변경이다', () => {
+    const b = CAUSE_COPY.suspension.basis;
+    expect(b).toMatch(/근로기준과-3296/);
+    expect(b).toMatch(/취업규칙.*2008다41666/);
+    const o = OPEN_ITEMS.join(' ');
+    // 종전 해석(소정근로일수에서 뺌)과 노조전임 법리(2015다66052)까지 계보를 밝힌다
+    for (const w of ['근기68207-2672', '근로기준팀-4', '2008다41666', '2015다66052', '2012가합3275']) expect(o).toContain(w);
+  });
+
+  it('배우자 출산휴가 등 — 여성고용정책과-510은 주휴 개근 해석이라고 밝힌다', () => {
+    expect(CAUSE_COPY['statutory-leave'].basis).toMatch(/주휴/);
+  });
+
+  it('정당성이 없는 직장폐쇄 — 쟁의행위로 옮기는 예외는 신중하게 보고 회사가 증명한다(2015다66052)', () => {
+    expect(CAUSE_COPY['unjust-lockout'].basis).toMatch(/명백/);
+    expect(CAUSE_COPY['unjust-lockout'].basis).toMatch(/증명/);
+  });
+
+  it('2018. 5. 29. 전 신청 육아휴직은 어느 칸에 넣는지 알려 준다 — 비워 두면 출근으로 세진다', () => {
+    const line = SCOPE_ITEMS.find((l) => l.startsWith('2018. 5. 29. 전에 신청한 육아휴직'))!;
+    expect(line).toContain(CAUSE_COPY['agreed-leave'].label.split('(')[0]);
+    // 그 칸으로 넣으면 2011다4629 대로 빼는 날이 된다 — C8 대조와 같은 7.5일
+    expect(run(250, { 'agreed-leave': 125, absence: 5 }).primary!.days).toEqual({ num: 15, den: 2 });
+  });
+
+  it('비례로 나온 경우 제60조제2항을 함께 줄지는 정해지지 않았다고 밝힌다(임금근로시간과-906 「별론」)', () => {
+    const o = OPEN_ITEMS.join(' ');
+    expect(o).toMatch(/별론/);
+    expect(o).toMatch(/임금근로시간과-906/);
+  });
+
+  it('출근 간주 조항 번호는 2027. 6. 10.부터 제7항(법률 제21784호)', () => {
+    expect(GROUP_COPY.deemed.note).toMatch(/2027\. 6\. 10\.부터 제7항/);
+  });
+});
+
+describe('다른 연차 화면이 출근율을 이 도구로 보낸다(⑥ 갈림)', () => {
+  // /tools/leave/advanced 에는 출근율 입력이 없다 — 사용촉진·반차 두 절뿐
+  it('연차 일수·퇴직 정산 화면의 링크', () => {
+    for (const f of ['src/app/tools/leave/page.tsx', 'src/app/tools/leave/settlement/page.tsx']) {
+      const src = fs.readFileSync(f, 'utf8');
+      expect(src, f).toContain('href="/tools/attendance-rate"');
+      expect(src, f).not.toMatch(/href="\/tools\/leave\/advanced">[^<]*출근율/);
+    }
+  });
+  it('연차수당 계산기의 「다루지 않는 것」', () => {
+    expect(LEAVE_PAY_SCOPE.join(' ')).toContain('출근율 계산기');
+    expect(LEAVE_PAY_SCOPE.join(' ')).not.toContain('사용촉진 화면의 출근율');
   });
 });
