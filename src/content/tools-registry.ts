@@ -56,7 +56,7 @@ export const TOOLS: ToolEntry[] = [
     sitemap: { lastModified: '2026-10-28', changeFrequency: 'monthly', priority: 0.85 } },
   { href: '/tools/ordinary-wage-check', title: '통상임금 점검', desc: '기본급·수당·상여금 항목마다 정기성·일률성·소정근로 대가성을 물어 새 기준(대법원 2024. 12. 19. 전원합의체)으로 통상임금에 들어가는 쪽인지 빠지는 쪽인지 판결 원문과 함께 보여줍니다. 2024. 12. 18.까지 제공분의 종전 기준과 시간급(참고)도 봅니다.', badge: '참고 점검', icon: 'file-check',
     sitemap: { lastModified: '2026-10-28', changeFrequency: 'monthly', priority: 0.85 } },
-  { href: '/tools/midyear-settlement', title: '중도퇴사 연말정산 계산기', desc: '퇴사한 해 받은 급여·비과세·4대보험료·이미 낸 소득세를 넣으면 퇴직월에 돌려받거나 더 낼 소득세·지방소득세 예상액을 계산합니다. 본인 기본공제와 4대보험료만 넣는 고정형이라 부양가족·종전 근무지·감면은 다루지 않습니다.', badge: '참고 계산', icon: 'coins',
+  { href: '/tools/midyear-settlement', title: '중도퇴사 연말정산 계산기', desc: '퇴사한 해 받은 급여·비과세·4대보험료·이미 낸 소득세를 넣으면 퇴직월에 돌려받거나 더 낼 소득세·지방소득세 예상액을 계산합니다. 본인 기본공제·국민연금 공제에 보험료 소득공제나 표준세액공제 중 하나만 더하는 고정형이라 부양가족·종전 근무지·감면은 다루지 않습니다.', badge: '참고 계산', icon: 'coins',
     sitemap: { lastModified: '2026-10-28', changeFrequency: 'monthly', priority: 0.8 } },
   { href: '/tools/wage-delay-interest', title: '임금 지연이자 계산기', desc: '늦게 지급한 퇴직금·임금을 항목별로 넣으면 근로기준법 제37조의 연 20% 지연이자를 일할 계산합니다. 퇴직 때 임금·퇴직금은 마지막 근무일 + 14일, 재직 중 임금은 정기지급일(2025년 10월 23일 시행) 다음 날부터 세고, 적용 제외 기간은 뺍니다.', badge: '브라우저 계산', icon: 'coins',
     sitemap: { lastModified: '2026-10-29', changeFrequency: 'monthly', priority: 0.8 } },
