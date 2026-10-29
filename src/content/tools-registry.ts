@@ -62,4 +62,6 @@ export const TOOLS: ToolEntry[] = [
     sitemap: { lastModified: '2026-10-29', changeFrequency: 'monthly', priority: 0.8 } },
   { href: '/tools/leave-pay', title: '연차수당 계산기', desc: '남은 연차 일수와 임금을 넣으면 미사용 연차수당(1일 통상임금 × 일수)을 계산합니다. 재직 중과 퇴직 시를 나누고, 퇴직하면 입사일 기준 발생 누계를 세며, 단시간 근로자는 남은 시간 × 시간급으로 봅니다. 회사가 지급한 금액과 차이도 보여줍니다.', badge: '브라우저 계산', icon: 'calculator',
     sitemap: { lastModified: '2026-10-29', changeFrequency: 'monthly', priority: 0.85 } },
+  { href: '/tools/attendance-rate', title: '출근율 계산기', desc: '1년 소정근로일수와 출근으로 보는 날·소정근로일수에서 빼는 날·결근을 넣으면 연차휴가가 생기는 출근율 80%를 채웠는지 계산합니다. 80%에 못 미쳐도 빼는 날을 뺀 출근율이 80% 이상이면 비례 일수를, 아니면 1개월 개근마다 1일을 보여주고, 해석이 갈리는 기간은 두 값을 나란히 냅니다.', badge: '브라우저 계산', icon: 'calculator',
+    sitemap: { lastModified: '2026-10-29', changeFrequency: 'monthly', priority: 0.8 } },
 ];
