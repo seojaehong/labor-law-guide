@@ -391,6 +391,54 @@ const FEATURES: Record<string, { path: string; journey: Journey }> = {
       step('F 매일 지급 5건 = 모두 0', '지급 5건의 예상 원천징수 소득세는 모두 0원, 지방소득세는 0원입니다', await answer(p));
     },
   },
+  'shutdown-allowance': {
+    path: '/tools/shutdown-allowance',
+    journey: async (p, step) => {
+      await workplaceScaleJourney(p, step);
+      // 첫 화면 = 5명 이상 · 회사 사정 · 3개월 임금 9,000,000 · 월급 3,000,000 / 주 40h / 1일 8h, 날짜·휴업일수는 비어 있다
+      step('휴업 시작일 없음', '휴업을 시작한 날을 넣어 주세요', await answer(p));
+      await p.getByLabel('휴업 시작일', { exact: true }).fill('2026-11-01');
+      await p.getByLabel(/^휴업 마지막 날/).fill('2026-11-30');
+      await p.getByLabel('입사일', { exact: true }).fill('2024-03-01');
+      await p.getByLabel('휴업일수', { exact: true }).fill('26');
+      step('C4 §2② — 평균 97,826.09 < 통상 114,832.54 → 통상 × 26 × 0.7, 원 미만 올림', /2,089,953원 이상.*제2조제2항/, await answer(p));
+      step('달력 나누기 30일 = 월~금 21 · 토 4 · 일 5', '달력으로 30일 — 월~금 21일, 토요일 4일, 일요일 5일', (await p.locator('section[aria-label="휴업기간"]').innerText()).replace(/\s+/g, ' '));
+      await p.getByLabel('휴업 시작일', { exact: true }).fill('2026-11-02');
+      await p.getByLabel(/^휴업 전 3개월 동안 받은 임금 총액/).fill('13800000');
+      await p.getByLabel('일급', { exact: true }).check();
+      await p.getByLabel(/^일급\(/).fill('100000');
+      await p.getByLabel('휴업일수', { exact: true }).fill('10');
+      step('C2 단서 — 평균 150,000 · 통상 100,000 → 두 값 나란히, 회사가 고름', /평균임금 기준 1,050,000원 이상, 또는 통상임금 기준 1,000,000원.*회사가 고릅니다/, await answer(p));
+      await p.getByLabel(/^일급\(/).fill('110000');
+      step('C1 꼴 — 0.7 × 150,000 = 105,000 ≤ 110,000 → 한 값', '휴업수당은 1,050,000원 이상입니다', await answer(p));
+      await p.getByLabel(/^일급\(/).fill('100000');
+      await p.getByLabel('휴업일수', { exact: true }).fill('5');
+      await p.getByLabel(/^휴업 중 받은 임금/).fill('250000');
+      step('C5 시행령 §26 — (750,000 − 250,000) × 0.7 = 350,000 · 단서 250,000', /평균임금 기준 350,000원 이상, 또는 통상임금 기준 250,000원/, await answer(p));
+      await p.getByLabel(/^휴업 중 받은 임금/).fill('');
+      await p.getByLabel(/^휴업 전 3개월 동안 받은 임금 총액/).fill('12000000');
+      await p.getByLabel(/^뺄 기간 일수/).fill('10');
+      await p.getByLabel(/^뺄 기간에 받은 임금/).fill('700000');
+      await p.getByLabel(/^일급\(/).fill('130000');
+      step('C10 앞선 휴업 10일·700,000 빼기 → 137,804.88 × 5 × 0.7 = 482,317.08 → 올림', '482,318원', await answer(p));
+      await p.getByLabel(/^뺄 기간 일수/).fill('');
+      await p.getByLabel(/^뺄 기간에 받은 임금/).fill('');
+      await p.getByLabel(/^12개월 동안 받은 상여금 합계/).fill('4800000');
+      await p.getByLabel(/^일급\(/).fill('100000');
+      await p.getByLabel('휴업일수', { exact: true }).fill('10');
+      step('상여금 3/12 — (12,000,000 + 1,200,000) ÷ 92 = 143,478.27 → 단서가 생긴다', /평균임금 기준 1,004,348원 이상, 또는 통상임금 기준 1,000,000원/, await answer(p));
+      await p.getByLabel('1일 소정근로시간', { exact: true }).fill('12');
+      step('1일 소정근로시간 8시간 범위(근기68207-865) — 12시간은 받지 않는다', /8시간 범위/, await answer(p));
+      await p.getByLabel('1일 소정근로시간', { exact: true }).fill('8');
+      await p.getByLabel('4명 이하', { exact: true }).check();
+      step('C12 상시 4명 이하 = 계산하지 않음(별표1)', /계산하지 않습니다.*4명 이하.*별표1/, await answer(p));
+      await p.getByLabel('5명 이상', { exact: true }).check();
+      await p.getByLabel('천재지변 등 회사가 막을 수 없는 사유', { exact: true }).check();
+      step('C13 불가항력 = 귀책사유 아님', /계산하지 않습니다.*귀책사유가 아니/, await answer(p));
+      await p.getByLabel('노동위원회 승인을 받았다(부득이한 사유)', { exact: true }).check();
+      step('C13 노동위 승인 = 승인 지급률, 별지 제4호서식', /승인된 지급률.*별지 제4호서식/, await answer(p));
+    },
+  },
 };
 
 async function api(step: (n: string, e: string | RegExp, g: string) => void) {

@@ -64,4 +64,6 @@ export const TOOLS: ToolEntry[] = [
     sitemap: { lastModified: '2026-10-29', changeFrequency: 'monthly', priority: 0.85 } },
   { href: '/tools/daily-worker-tax', title: '일용근로소득 원천징수 계산기', desc: '일용근로자의 일급과 일수를 넣으면 지급할 때 떼는 소득세와 지방소득세를 예상합니다. 날마다 1일 15만원을 공제하고 6% 세율과 55% 세액공제를 적용하며, 1,000원 미만 소액부징수는 한 번에 지급한 날들의 합계로 봅니다. 따로 지급한 건은 나눠 넣습니다.', badge: '브라우저 계산', icon: 'coins',
     sitemap: { lastModified: '2026-10-29', changeFrequency: 'monthly', priority: 0.8 } },
+  { href: '/tools/shutdown-allowance', title: '휴업수당 계산기', desc: '회사 사정으로 쉰 기간의 휴업수당을 계산합니다. 휴업 전 3개월 임금으로 1일 평균임금을 구해 70% × 휴업일수로 셈하고, 평균임금 70%가 통상임금보다 많으면 통상임금 기준 금액도 나란히 보여줍니다. 일부 시간만 쉰 날(시행령 제26조), 상시 4명 이하, 노동위원회 승인도 구분합니다.', badge: '브라우저 계산', icon: 'calculator',
+    sitemap: { lastModified: '2026-10-29', changeFrequency: 'monthly', priority: 0.8 } },
 ];

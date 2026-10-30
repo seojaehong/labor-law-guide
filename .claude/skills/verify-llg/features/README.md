@@ -39,3 +39,4 @@ H1 제목, 사용자 입장 한 문단, 그다음 H2 넷을 이 순서로: `Sub-
 - [임금 지연이자 계산기](./wage-delay-interest.md) — `/tools/wage-delay-interest`
 - [연차수당 계산기](./leave-pay.md) — `/tools/leave-pay`
 - [일용근로소득 원천징수 계산기](./daily-worker-tax.md) — `/tools/daily-worker-tax`
+- [휴업수당 계산기](./shutdown-allowance.md) — `/tools/shutdown-allowance`
