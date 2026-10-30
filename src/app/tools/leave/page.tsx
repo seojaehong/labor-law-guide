@@ -55,7 +55,8 @@ export default function LeaveToolPage() {
           <span className="lv-how__num">이어서</span>
           <p>
             <Link href="/tools/leave/settlement">퇴직자 정산</Link> ·{" "}
-            <Link href="/tools/leave/advanced">반차·출근율·사용촉진</Link>
+            <Link href="/tools/attendance-rate">출근율</Link> ·{" "}
+            <Link href="/tools/leave/advanced">반차·사용촉진</Link>
           </p>
         </div>
       </section>

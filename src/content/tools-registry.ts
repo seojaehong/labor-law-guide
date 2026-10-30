@@ -64,4 +64,12 @@ export const TOOLS: ToolEntry[] = [
     sitemap: { lastModified: '2026-10-29', changeFrequency: 'monthly', priority: 0.85 } },
   { href: '/tools/daily-worker-tax', title: '일용근로소득 원천징수 계산기', desc: '일용근로자의 일급과 일수를 넣으면 지급할 때 떼는 소득세와 지방소득세를 예상합니다. 날마다 1일 15만원을 공제하고 6% 세율과 55% 세액공제를 적용하며, 1,000원 미만 소액부징수는 한 번에 지급한 날들의 합계로 봅니다. 따로 지급한 건은 나눠 넣습니다.', badge: '브라우저 계산', icon: 'coins',
     sitemap: { lastModified: '2026-10-29', changeFrequency: 'monthly', priority: 0.8 } },
+  { href: '/tools/shutdown-allowance', title: '휴업수당 계산기', desc: '회사 사정으로 쉰 기간의 휴업수당을 계산합니다. 휴업 전 3개월 임금으로 1일 평균임금을 구해 70% × 휴업일수로 셈하고, 평균임금 70%가 통상임금보다 많으면 통상임금 기준 금액도 나란히 보여줍니다. 일부 시간만 쉰 날(시행령 제26조), 상시 4명 이하, 노동위원회 승인도 구분합니다.', badge: '브라우저 계산', icon: 'calculator',
+    sitemap: { lastModified: '2026-10-29', changeFrequency: 'monthly', priority: 0.8 } },
+  { href: '/tools/attendance-rate', title: '출근율 계산기', desc: '1년 소정근로일수와 출근으로 보는 날·소정근로일수에서 빼는 날·결근을 넣으면 연차휴가가 생기는 출근율 80%를 채웠는지 계산합니다. 80%에 못 미쳐도 빼는 날을 뺀 출근율이 80% 이상이면 비례 일수를, 아니면 1개월 개근마다 1일을 보여주고, 해석이 갈리는 기간은 두 값을 나란히 냅니다.', badge: '브라우저 계산', icon: 'calculator',
+    sitemap: { lastModified: '2026-10-29', changeFrequency: 'monthly', priority: 0.8 } },
+  { href: '/tools/contractor-check', title: '3.3% 계약 점검', desc: '프리랜서(사업소득 3.3%)로 계약했더라도 실제로 일한 모습을 대법원 2004다29736 판결의 근로자성 기준(업무 지시·근무시간과 장소·비품·대행·보수의 성격 등)과 항목마다 대조합니다. 같은 보수를 3.3%로 뗄 때와 근로소득으로 뗄 때의 예상 실수령도 나란히 보여줍니다.', badge: '참고 점검', icon: 'file-check',
+    sitemap: { lastModified: '2026-10-29', changeFrequency: 'monthly', priority: 0.8 } },
+  { href: '/tools/pay-proration', title: '급여 일할계산기', desc: '월급제 근로자가 그달 중간에 입사·퇴사하거나 결근·지각한 달의 급여를 30일 기준·그달 날수·소정근로일·시간 기준으로 나란히 계산합니다. 법은 일할 방식을 정하지 않아 회사 기준을 고르게 하고, 결근 공제는 결근일분과 그 주 주휴분을 나눠 보여줍니다.', badge: '브라우저 계산', icon: 'calculator',
+    sitemap: { lastModified: '2026-10-29', changeFrequency: 'monthly', priority: 0.8 } },
 ];
