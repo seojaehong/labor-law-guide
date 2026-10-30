@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-server';
 import { extractIp, hashIp } from '@/lib/rate-limit';
 import { sendConfirmEmail } from '@/lib/newsletter-mail';
+import { isSubscribeSource } from '@/lib/subscribe-sources';
 
 const EMAIL_RX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -45,7 +46,8 @@ export async function POST(req: Request) {
   if (typeof consent_text !== 'string' || consent_text.length < 20) {
     return NextResponse.json({ error: '수신 동의 정보가 누락되었습니다.' }, { status: 400 });
   }
-  if (!['article-footer', 'home-bottom', 'sidebar', 'contact'].includes(source || '')) {
+  // 허용목록은 src/lib/subscribe-sources.ts 한 곳에만 둔다 — 여기에 또 적으면 폼과 갈린다(2026-10-30)
+  if (!isSubscribeSource(source)) {
     return NextResponse.json({ error: '잘못된 source 값입니다.' }, { status: 400 });
   }
 

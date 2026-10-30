@@ -3,9 +3,10 @@
 import { useEffect, useState } from 'react';
 import { Mail, Check, AlertCircle } from 'lucide-react';
 import { captureFirstTouch, readFirstTouch } from '@/lib/first-touch';
+import type { SubscribeSource } from '@/lib/subscribe-sources';
 
 interface SubscribeFormProps {
-  source: 'article-footer' | 'home-bottom' | 'sidebar' | 'contact' | 'decision-footer' | 'search-results';
+  source: SubscribeSource;
   sourceSlug?: string;
   variant?: 'compact' | 'full';
 }
