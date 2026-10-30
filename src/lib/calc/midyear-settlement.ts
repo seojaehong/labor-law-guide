@@ -26,6 +26,8 @@
 //   사무소 게이트(verify_leaver_tax.py — 사무소 로컬 도구, 이 저장소에는 없다)를 따른 것이다.
 //   끝에서 한 번만 버리면 1원이 갈려 차감이 10원 어긋날 수 있다(시험 S9).
 
+import { basicTaxRatesFor } from './retirement-tax';
+
 /** 「over 초과분 × num/den + base」 한 구간 */
 interface Bracket { over: number; base: number; num: number; den: number }
 
@@ -48,8 +50,19 @@ export interface MidyearRules {
   checked: string;
 }
 
+/**
+ * §55① 기본세율 — 퇴직소득세 엔진과 같은 표 하나(retirement-tax.ts BASIC_TAX_RATES, 과세기간 날짜 축)를 「over 초과분」 모양으로 읽는다.
+ * 그 과세기간 표가 없으면 그해 기준을 만들 수 없다 — 다른 해 표로 대신하지 않고 던진다(RULES 에 그해 줄을 더할 때 드러난다).
+ */
+function basicTaxRatesOf(year: number): Bracket[] {
+  const t = basicTaxRatesFor(`${year}-01-01`);
+  if (!t) throw new Error(`${year}년 과세기간의 소득세법 제55조 제1항 세율표가 없습니다`);
+  return t.rates.map(([, base, num, over]) => ({ over, base, num, den: 100 }));
+}
+
 // 법정 숫자 — 해(귀속연도)마다 한 줄. 그해 줄이 없으면 null 이고 계산하지 않는다(다른 해 값으로 대신하지 않는다).
-// 세율·공제표는 rates.ts 의 「값 하나」 모양에 맞지 않아 여기에 둔다. 새 해는 원문을 확인해 줄을 더한다.
+// 세율·공제표는 rates.ts 의 「값 하나」 모양에 맞지 않아 여기에 둔다 — §55① 세율표만 retirement-tax.ts BASIC_TAX_RATES 에서 읽는다.
+// 새 해는 원문을 확인해 줄을 더한다.
 const RULES: MidyearRules[] = [
   {
     year: 2026,
@@ -64,17 +77,8 @@ const RULES: MidyearRules[] = [
       { over: 100_000_000, base: 14_750_000, num: 2, den: 100 },
     ],
     earnedDeductionCap: 20_000_000, // §47① 단서 — 2천만원 초과면 2천만원
-    // §55① 기본세율
-    taxRates: [
-      { over: 0, base: 0, num: 6, den: 100 },
-      { over: 14_000_000, base: 840_000, num: 15, den: 100 },
-      { over: 50_000_000, base: 6_240_000, num: 24, den: 100 },
-      { over: 88_000_000, base: 15_360_000, num: 35, den: 100 },
-      { over: 150_000_000, base: 37_060_000, num: 38, den: 100 },
-      { over: 300_000_000, base: 94_060_000, num: 40, den: 100 },
-      { over: 500_000_000, base: 174_060_000, num: 42, den: 100 },
-      { over: 1_000_000_000, base: 384_060_000, num: 45, den: 100 },
-    ],
+    // §55① 기본세율 — 퇴직소득세 엔진과 같은 표(2023. 1. 1. 이후 개시 과세기간, 법률 제19196호 부칙 §14)
+    taxRates: basicTaxRatesOf(2026),
     // §59① — 산출세액 130만원 이하 55% · 초과 71만5천원 + 초과분 30%
     credit: [
       { over: 0, base: 0, num: 55, den: 100 },

@@ -30,6 +30,7 @@ Preconditions:
 
 ## Gotchas
 
-- severance.html 은 Next 화면이 아니라 정적 html 이다. 엔진은 `node scripts/build-severance-engine.mjs` 가 주입한다 — 엔진을 고치고 이걸 안 돌리면 동기화 시험이 실패한다.
+- severance.html 은 Next 화면이 아니라 정적 html 이다. 엔진은 `node scripts/build-severance-engine.mjs` 가 주입한다 — 엔진을 고치고 이걸 안 돌리면 동기화 시험이 실패한다. 블록은 둘이다: 퇴직금(`severance.ts`)과 퇴직소득세(`retirement-tax.ts`, 261029~).
+- 퇴직소득세도 정본 엔진 하나다. 계산기는 퇴직일에서 하루 빼서 엔진에 넘긴다. 퇴직일 2023-01-01 이하(마지막 근무일 2022-12-31 이전)면 세액 칸에 「계산하지 않음」과 이유(법률 제19196호 부칙 제13조·제14조)가 나오고, 큰 글자는 「퇴직소득세 반영 전 금액」이다. API 는 같은 경우 `tax` 없이 `legal_basis` 에 이유를 붙인다.
 - 계산기 입력 칸은 퇴직일, /exit·API 는 마지막 근무일이다. 하루 차이를 헷갈리면 금액이 달라진다. 챗봇 링크는 `severance-link.ts` 가 하루를 더해 넘긴다(261028 이전에는 안 더해 8,804,348원이 나왔다).
 - 8,812,389원은 고용노동부 퇴직금 계산기(moel.go.kr/retirementpayCal.do)에 같은 입력을 넣어 받은 값이다(2026-10-28).

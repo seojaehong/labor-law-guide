@@ -21,7 +21,7 @@ export const TOOLS = [
             type: 'integer',
             description: '퇴직 전 1년 동안 지급받은 연차수당 총액(원). 퇴직하면서 정산받는 미사용 연차수당은 넣지 않는다',
           },
-          include_tax: { type: 'boolean', description: '퇴직소득세까지 함께 계산 (기본 false)' },
+          include_tax: { type: 'boolean', description: '퇴직소득세까지 함께 계산 (기본 false). 마지막 근무일이 2022-12-31 이전이면 종전 공제표·세율 대상이라 tax 없이 legal_basis 에 이유만 적는다' },
         },
         required: ['hire_date', 'last_work_date', 'wages_3months'],
       },

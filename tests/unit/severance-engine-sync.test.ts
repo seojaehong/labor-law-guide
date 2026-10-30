@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
-import { buildEngineBlock, currentBlock, HTML } from '../../scripts/build-severance-engine.mjs';
+import { BLOCKS, buildBlock, buildEngineBlock, currentBlock, currentBlockOf, HTML } from '../../scripts/build-severance-engine.mjs';
 import { calcSeverance } from '@/lib/calc/severance';
 import { estimateSeverance } from '@/app/exit/exit-calc';
 
@@ -32,6 +32,13 @@ const MOEL: [string, string, number, number, number, number, number][] = [
 describe('퇴직금 엔진 — 한 벌', () => {
   it('severance.html 안 엔진 블록이 src/lib/calc/severance.ts 와 같다 (다르면 node scripts/build-severance-engine.mjs)', () => {
     expect(currentBlock(html)).toBe(buildEngineBlock());
+  });
+
+  // 퇴직소득세 엔진(src/lib/calc/retirement-tax.ts)도 같은 스크립트가 두 번째 블록으로 넣는다. import/export 가 남으면 html 스크립트 전체가 멈춘다
+  it.each(BLOCKS.map((b) => b.id))('%s 블록이 엔진 파일과 같고 import·export 가 없다', (id) => {
+    const cur = currentBlockOf(html, id);
+    expect(cur).toBe(buildBlock(id));
+    expect(cur).not.toMatch(/^\s*(import|export)\b/m);
   });
 
   it.each(MOEL)('고용노동부 계산기와 같다 — %s ~ %s', (hire, last, total, bonus, leave, ord, expected) => {
