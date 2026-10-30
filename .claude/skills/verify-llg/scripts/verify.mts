@@ -439,6 +439,61 @@ const FEATURES: Record<string, { path: string; journey: Journey }> = {
       step('C13 노동위 승인 = 승인 지급률, 별지 제4호서식', /승인된 지급률.*별지 제4호서식/, await answer(p));
     },
   },
+  'attendance-rate': {
+    path: '/tools/attendance-rate',
+    journey: async (p, step) => {
+      // 첫 화면 = 입사 2024-03-04 · 연차가 생기는 날 2026-03-04(근속 2년, 15일) · 소정근로일수 250 · 결근 5
+      const field = (name: string) => p.getByLabel(name, { exact: true });
+      const S = field('1년 소정근로일수');
+      const absent = field('무단결근, 개인 사정으로 쉬고 휴가로 돌리지 않은 날');
+      const strike = field('정당한 쟁의행위 기간');
+      const union = field('노동조합 전임 기간');
+      const month = () => p.locator('section[aria-label="한 달 개근 확인"]').innerText();
+      step('C1 245/250 = 98% → 15일(§60①)', /출근율은 98\.00%로 80% 이상입니다.*15일이 생깁니다/, await answer(p));
+      await S.fill('248');
+      await absent.fill('49');
+      step('C2a 199/248 = 80.24% → 15일(임금근로시간과-636)', /80\.24%로 80% 이상.*15일/, await answer(p));
+      await absent.fill('50');
+      step('C2b 198/248 = 79.83%, 빼는 날 없음 → §60②', /79\.83%로 80%에 못 미칩니다.*1개월 개근할 때마다 1일/, await answer(p));
+      await field('그 달 소정근로일수').fill('20');
+      await field('그 달 빼는 날').fill('10');
+      await field('그 달 결근한 날').fill('0');
+      step('M1 월20 · 쟁의10 · 나머지 개근 → 1일(근로기준정책과-8676)', /그 달은 개근입니다 — 1일/, await month());
+      await field('그 달 결근한 날').fill('1');
+      step('M2 결근1 → 0일', /결근한 날이 있어/, await month());
+      await field('그 달 빼는 날').fill('20');
+      await field('그 달 결근한 날').fill('0');
+      step('M3 월 전부 빼는 날 → 0일(근로기준과-2373)', /전부가 빼는 날이라/, await month());
+      await S.fill('250');
+      step('C12 200/250 = 정확히 80% → 15일', /80\.00%로 80% 이상/, await answer(p));
+      await S.fill('248');
+      await strike.fill('48');
+      await absent.fill('1');
+      step('C3 빼는 날이 있어도 80% 이상이면 줄이지 않음(임금근로시간과-906)', /80\.24%.*15일.*줄이지 않습니다/, await answer(p));
+      await absent.fill('10');
+      step('C4 76.61% · 실질 95% → 15 × 200/248(2015다66052)', /76\.61%.*95\.00%.*12\.0967…일/, await answer(p));
+      await field('입사일').fill('2021-03-04');
+      await S.fill('250');
+      await strike.fill('');
+      await union.fill('100');
+      step('C5 근속 5년 17일 × 150/250 = 10.2일(근로개선정책과-3370)', /10\.2일/, await answer(p));
+      await union.fill('250');
+      await absent.fill('');
+      step('C11 노조 전임 1년 전부 → 생기지 않음', /생기지 않습니다/, await answer(p));
+      await field('입사일').fill('2024-03-04');
+      await union.fill('');
+      await field('부당하다고 확정된 정직 등 징계 기간').fill('20');
+      await absent.fill('35');
+      step('C18 두 값 — 근로기준과-3296 13.8일 / 2011다95519 유추 15일', /갈립니다.*13\.8일.*15일/, await answer(p));
+      await field('부당하다고 확정된 정직 등 징계 기간').fill('');
+      await absent.fill('');
+      await field('부당해고 기간').fill('200');
+      step('C10a 부당해고 200일 = 출근 간주 → 100%(2011다95519)', /100\.00%.*15일/, await answer(p));
+      await field('부당해고 기간').fill('');
+      await field('연차가 생기는 날').fill('2024-11-04');
+      step('입사 8개월 → §60② 월 개근만', /1년이 되지 않았습니다.*1개월 개근/, await answer(p));
+    },
+  },
 };
 
 async function api(step: (n: string, e: string | RegExp, g: string) => void) {

@@ -59,7 +59,8 @@ export default function SettlementPage() {
           <span className="lv-how__num">이어서</span>
           <p>
             <Link href="/tools/leave">연차 일수 계산</Link> ·{" "}
-            <Link href="/tools/leave/advanced">반차·출근율·사용촉진</Link>
+            <Link href="/tools/attendance-rate">출근율</Link> ·{" "}
+            <Link href="/tools/leave/advanced">반차·사용촉진</Link>
           </p>
         </div>
       </section>

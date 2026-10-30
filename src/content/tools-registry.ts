@@ -66,4 +66,6 @@ export const TOOLS: ToolEntry[] = [
     sitemap: { lastModified: '2026-10-29', changeFrequency: 'monthly', priority: 0.8 } },
   { href: '/tools/shutdown-allowance', title: '휴업수당 계산기', desc: '회사 사정으로 쉰 기간의 휴업수당을 계산합니다. 휴업 전 3개월 임금으로 1일 평균임금을 구해 70% × 휴업일수로 셈하고, 평균임금 70%가 통상임금보다 많으면 통상임금 기준 금액도 나란히 보여줍니다. 일부 시간만 쉰 날(시행령 제26조), 상시 4명 이하, 노동위원회 승인도 구분합니다.', badge: '브라우저 계산', icon: 'calculator',
     sitemap: { lastModified: '2026-10-29', changeFrequency: 'monthly', priority: 0.8 } },
+  { href: '/tools/attendance-rate', title: '출근율 계산기', desc: '1년 소정근로일수와 출근으로 보는 날·소정근로일수에서 빼는 날·결근을 넣으면 연차휴가가 생기는 출근율 80%를 채웠는지 계산합니다. 80%에 못 미쳐도 빼는 날을 뺀 출근율이 80% 이상이면 비례 일수를, 아니면 1개월 개근마다 1일을 보여주고, 해석이 갈리는 기간은 두 값을 나란히 냅니다.', badge: '브라우저 계산', icon: 'calculator',
+    sitemap: { lastModified: '2026-10-29', changeFrequency: 'monthly', priority: 0.8 } },
 ];
