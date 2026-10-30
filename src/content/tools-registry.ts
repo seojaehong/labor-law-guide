@@ -62,4 +62,6 @@ export const TOOLS: ToolEntry[] = [
     sitemap: { lastModified: '2026-10-29', changeFrequency: 'monthly', priority: 0.8 } },
   { href: '/tools/leave-pay', title: '연차수당 계산기', desc: '남은 연차 일수와 임금을 넣으면 미사용 연차수당(1일 통상임금 × 일수)을 계산합니다. 재직 중과 퇴직 시를 나누고, 퇴직하면 입사일 기준 발생 누계를 세며, 단시간 근로자는 남은 시간 × 시간급으로 봅니다. 회사가 지급한 금액과 차이도 보여줍니다.', badge: '브라우저 계산', icon: 'calculator',
     sitemap: { lastModified: '2026-10-29', changeFrequency: 'monthly', priority: 0.85 } },
+  { href: '/tools/daily-worker-tax', title: '일용근로소득 원천징수 계산기', desc: '일용근로자의 일급과 일수를 넣으면 지급할 때 떼는 소득세와 지방소득세를 예상합니다. 날마다 1일 15만원을 공제하고 6% 세율과 55% 세액공제를 적용하며, 1,000원 미만 소액부징수는 한 번에 지급한 날들의 합계로 봅니다. 따로 지급한 건은 나눠 넣습니다.', badge: '브라우저 계산', icon: 'coins',
+    sitemap: { lastModified: '2026-10-29', changeFrequency: 'monthly', priority: 0.8 } },
 ];

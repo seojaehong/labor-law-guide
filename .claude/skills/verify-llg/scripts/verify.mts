@@ -338,6 +338,59 @@ const FEATURES: Record<string, { path: string; journey: Journey }> = {
       step('단시간 16 × 23/40 × 8 = 73.6 → 74시간 × 11,000(별표2)', /814,000원.*남은 연차 74시간/, await answer(p));
     },
   },
+  'daily-worker-tax': {
+    path: '/tools/daily-worker-tax',
+    journey: async (p, step) => {
+      // 기대값 = tests/unit/calc-daily-worker-tax.test.ts 사례(리서치 독립 스크립트 값). 지급 건마다 section[aria-label="지급 N"], 줄마다 group 「줄 N」
+      const pay = (n: number) => p.locator(`section[aria-label="지급 ${n}"]`);
+      const line = (n: number, j: number) => pay(n).getByRole('group', { name: `줄 ${j}`, exact: true });
+      const fill = async (n: number, j: number, wage: string, days: string) => {
+        await line(n, j).getByLabel('일급(원)').fill(wage);
+        await line(n, j).getByLabel('일수').fill(days);
+      };
+      step('일용근로자 여부를 먼저 묻는다', '먼저 일용근로자인지 골라 주세요', await answer(p));
+      await p.getByLabel('일용근로자가 아니다(위 셋에 해당하지 않는다)', { exact: true }).check();
+      step('일용근로자 아님(시행령 제20조 제1항 세 갈래 밖) = 계산하지 않음 · 간이세액표', /계산하지 않습니다.*간이세액표/, await answer(p));
+      await p.getByLabel('일용근로자다', { exact: true }).check();
+      step('일급 없음', '지급 1의 일급을 넣어 주세요', await answer(p));
+      await fill(1, 1, '200000', '1');
+      step('A 200,000 × 1일 = 1,350 / 130', '예상 원천징수 소득세는 1,350원, 지방소득세는 130원입니다', await answer(p));
+      await fill(1, 1, '200000', '7');
+      step('B 서식 예시 7일 = 9,450 / 945 → 940', '9,450원, 지방소득세는 940원', await answer(p));
+      await fill(1, 1, '180000', '1');
+      step('D 180,000 × 1일 = 810원 → 소액부징수 0', /소득세는 0원입니다.*810원이 1,000원 미만이라 징수하지 않습니다/, await answer(p));
+      await fill(1, 1, '180000', '5');
+      step('E 같은 5일을 한 번에 지급 = 4,050 / 400', '4,050원, 지방소득세는 400원', await answer(p));
+      await fill(1, 1, '187037', '1');
+      step('I1 187,037 = 999.999원 → 0', /999\.999원이 1,000원 미만/, await answer(p));
+      await fill(1, 1, '187038', '1');
+      step('I2 187,038 = 1,000 / 100', '1,000원, 지방소득세는 100원', await answer(p));
+      await fill(1, 1, '150000', '3');
+      step('G 15만원 이하 = 과세표준 0(소액부징수가 아님)', /0원입니다.*과세표준이 0원/, await answer(p));
+      await fill(1, 1, '187170', '3');
+      step('K 끝수 순서로 갈리면 두 값', /3,010원, 지방소득세는 300원.*먼저 버리고 더하면 소득세 3,000원.*확인하지 못해/, await answer(p));
+      await fill(1, 1, '162350', '3');
+      step('K2 1,000원 경계에서 갈리면 1,000 / 100 대 0 / 0 과 그 까닭', /1,000원, 지방소득세는 100원.*먼저 버리고 더하면 소득세 0원, 지방소득세 0원.*999원으로 1,000원 미만이라 떼지 않습니다/, await answer(p));
+      // J — 날별 일급이 다르면 날마다 계산(평균 175,000 × 2 로 넣으면 1,350)
+      await fill(1, 1, '100000', '1');
+      await pay(1).getByRole('button', { name: '일급이 다른 날 더하기' }).click();
+      await fill(1, 2, '250000', '1');
+      step('J 100,000 + 250,000 = 2,700 / 270', '2,700원, 지방소득세는 270원', await answer(p));
+      await line(1, 2).getByRole('button', { name: '줄 빼기' }).click();
+      // L — 지급 2건: 2일분 1,620 / 160 + 1일분 810 → 0
+      await fill(1, 1, '180000', '2');
+      await p.getByRole('button', { name: '지급 더하기' }).click();
+      await fill(2, 1, '180000', '1');
+      step('L 지급 2건 = 1,620 / 160, 1일분은 0', /지급 2건의 예상 원천징수 소득세는 모두 1,620원, 지방소득세는 160원.*지급 2 — 1일분 180,000원: 세액 810원 → 1,000원 미만이라 0원/, await answer(p));
+      // F — 같은 5일을 매일 지급(5건) = 모두 0
+      await fill(1, 1, '180000', '1');
+      for (const n of [3, 4, 5]) {
+        await p.getByRole('button', { name: '지급 더하기' }).click();
+        await fill(n, 1, '180000', '1');
+      }
+      step('F 매일 지급 5건 = 모두 0', '지급 5건의 예상 원천징수 소득세는 모두 0원, 지방소득세는 0원입니다', await answer(p));
+    },
+  },
 };
 
 async function api(step: (n: string, e: string | RegExp, g: string) => void) {
