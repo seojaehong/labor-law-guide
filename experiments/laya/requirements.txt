@@ -1,0 +1,3 @@
+# Installation entry point for Linux x86_64 / CPython 3.12 ONLY.
+# Use --require-hashes --only-binary :all: --torch-backend cpu with uv (README).
+-r requirements-linux-x86_64-py312.lock

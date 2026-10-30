@@ -1,0 +1,38 @@
+{
+  "date_utc": "2026-10-21",
+  "environment": "selected cloud sandbox; not Oracle server1/server2",
+  "architecture": "x86_64",
+  "cpu_quota_cores": 4,
+  "memory_limit_gib": 16,
+  "package_install": {
+    "status": "completed",
+    "source": "official PyPI plus official download.pytorch.org CPU wheel index",
+    "laya": "0.4.12",
+    "torch": "2.8.0+cpu",
+    "transformers": "4.57.6",
+    "safetensors": "0.8.0",
+    "laya_wheel_sha256": "485625629bf14003e947ce13e5f901cc1ba8d298a152e52917b19017914baf80",
+    "lock_sha256": "c175722426a37e2632cd7a73bae92fbb65d8f87544648baf34c3d6115188ed85"
+  },
+  "imports_only": {
+    "elapsed_ms": 2256.74,
+    "peak_rss_mib": 214.88,
+    "meaning": "dependency imports only; no model, tokenizer or inference loaded"
+  },
+  "cuda_available": false,
+  "official_model_access": {
+    "target": "https://huggingface.co/api/models/convaiinnovations/laya-multilingual",
+    "status": "denied-by-network-proxy",
+    "reason": "Tunnel connection failed: 403 Forbidden",
+    "retried_after_explicit_resume": true,
+    "bypass_attempted": false
+  },
+  "model_weights_downloaded": false,
+  "model_inference_runs": 0,
+  "relevance_accuracy": null,
+  "inference_latency_ms": null,
+  "model_peak_rss_mib": null,
+  "production_activated": false,
+  "oracle_installed": false,
+  "oracle_measured": false
+}
