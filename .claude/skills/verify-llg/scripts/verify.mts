@@ -532,6 +532,72 @@ const FEATURES: Record<string, { path: string; journey: Journey }> = {
       step('가족 칸 비움 — 3.3% 쪽은 그대로, 근로소득 쪽만 계산하지 않음', /3\.3%로 떼면 2,901,000원[\s\S]*공제대상가족 수를 확인해 주세요/, await money());
     },
   },
+  'pay-proration': {
+    path: '/tools/pay-proration',
+    journey: async (p, step) => {
+      await workplaceScaleJourney(p, step);
+      // 첫 화면 = 입사·퇴사한 달 일할 · 월급 2,508,000(= 209 × 12,000) · 5명 이상 · 회사 기준 모름
+      const month = p.getByLabel('급여 달');
+      const hol = p.getByLabel(/^그달 평일 중 쉬는 공휴일/);
+      const start = p.getByLabel(/^입사일/);
+      const end = p.getByLabel(/^퇴사일/);
+      const rounding = p.getByLabel('원 미만 끝수 처리(회사 기준)');
+      step('입사일·퇴사일 없음', '그달 중간에 입사했으면 입사일을', await answer(p));
+      // C1 — 2026-03, 3/16(월) 입사, 3/2 대체공휴일 입력
+      await month.fill('2026-03');
+      await hol.fill('2');
+      await start.fill('2026-03-16');
+      step('C1 회사 기준 모름 = 방식별 폭', /1,254,000원에서 1,433,142\.86원까지 갈립니다.*회사에 물어볼 문장/, await answer(p));
+      await p.getByLabel('적혀 있다', { exact: true }).check();
+      await p.getByLabel(/30일 기준\(지급식\) —/).check();
+      step('C1 30일 기준(지급식) 16/30', '1,337,600원입니다', await answer(p));
+      await p.getByLabel(/시간 기준 —/).check();
+      step('C1 시간 기준 112시간', '1,344,000원입니다', await answer(p));
+      await p.getByLabel(/그달 달력 일수 기준 —/).check();
+      step('C1 달력 일수 16/31 — 끝수 기준 없음', /1,294,451\.61원입니다.*원 미만이 남는 값/, await answer(p));
+      await rounding.selectOption('FLOOR');
+      step('C1 달력 일수 — 버림·1원', '1,294,451원입니다', await answer(p));
+      await rounding.selectOption('none');
+      // C6 — 주 중간(3/18 수) 입사: 첫 주 주휴 두 값
+      await start.fill('2026-03-18');
+      await p.getByLabel(/시간 기준 —/).check();
+      step('C6 첫 주 주휴 두 값', /첫 주 주휴를 넣지 않으면 1,056,000원, 첫 주 주휴를 넣으면 1,152,000원/, await answer(p));
+      // E — 3/31 하루 재직: 30일 기준(공제식) 0원 · 유급시간 8 × 최저시급 82,560원보다 적은 방식 알림(회사 기준 모름)
+      await start.fill('2026-03-31');
+      await p.getByLabel('적혀 있지 않거나 모른다', { exact: true }).check();
+      step('E 31일 달 하루 재직 — 공제식 0원 · 최저임금 참고 알림', /0원에서 119,428\.57원까지 갈립니다.*82,560원보다 적습니다/, await answer(p));
+      await p.getByLabel('적혀 있다', { exact: true }).check();
+      // C3 — 2026-02 퇴사: 금요일 퇴사(주휴 없음) / 일요일까지 재직(주휴 생김)
+      await start.fill('');
+      await month.fill('2026-02');
+      await hol.fill('');
+      await end.fill('2026-02-13');
+      step('C3a 2/13(금) 퇴사 96시간', /1,152,000원입니다.*임금근로시간과-1736/, await answer(p));
+      await end.fill('2026-02-15');
+      step('C3b 2/15(일)까지 재직 104시간', '1,248,000원입니다', await answer(p));
+      // C5 — 4명 이하 · 설 연휴 입력: 공휴일 유급/무급 두 값
+      await end.fill('');
+      await start.fill('2026-02-02');
+      await hol.fill('16, 17, 18');
+      await p.getByLabel('4명 이하', { exact: true }).check();
+      step('C5 4명 이하 공휴일 두 값', /공휴일을 유급으로 했으면 2,208,000원, 공휴일을 무급으로 했으면 1,920,000원.*제55조 제2항/, await answer(p));
+      // A — 결근·지각 공제(2026-11)
+      await p.getByLabel('결근·지각 공제(그달 내내 재직)').check();
+      await p.getByLabel('5명 이상', { exact: true }).check();
+      await month.fill('2026-11');
+      await hol.fill('');
+      const abs = p.getByLabel(/^무급 결근일/);
+      await abs.fill('18');
+      step('A1·A2 1일 단가 폭 · 결근일분만 / 그 주 주휴까지', /결근일분만이면 83,600원에서 96,000원 사이, 그 주 주휴 1일분까지 빼면 167,200원에서 192,000원 사이.*회사 규정·관행/, await answer(p));
+      await abs.fill('18, 19');
+      step('A5 같은 주 2일 = 주휴 1일만', /결근일분만이면 167,200원에서 192,000원 사이, 그 주 주휴 1일분까지 빼면 250,800원에서 288,000원 사이/, await answer(p));
+      await abs.fill('');
+      await p.getByLabel('지각·조퇴 합계 시간').fill('8');
+      await p.getByLabel(/^회사가 공제한 금액/).fill('192000');
+      await p.getByLabel(/^평균임금 1일분/).fill('81782.6');
+      step('A6·B 지각 8시간 — 정했으면 96,000 / 없으면 0 · 192,000 공제 = 초과 96,000 · 1회 한도(한 번이라면)', /정했으면 그 시간분 96,000원, 정한 것이 없으면 0원.*96,000원 많습니다.*한 번의 감급이라면 1회 한도 40,891\.3원보다 큽니다.*법무811-21010 처럼/, await answer(p));
+    },
+  },
 };
 
 async function api(step: (n: string, e: string | RegExp, g: string) => void) {

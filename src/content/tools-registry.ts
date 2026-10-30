@@ -70,4 +70,6 @@ export const TOOLS: ToolEntry[] = [
     sitemap: { lastModified: '2026-10-29', changeFrequency: 'monthly', priority: 0.8 } },
   { href: '/tools/contractor-check', title: '3.3% 계약 점검', desc: '프리랜서(사업소득 3.3%)로 계약했더라도 실제로 일한 모습을 대법원 2004다29736 판결의 근로자성 기준(업무 지시·근무시간과 장소·비품·대행·보수의 성격 등)과 항목마다 대조합니다. 같은 보수를 3.3%로 뗄 때와 근로소득으로 뗄 때의 예상 실수령도 나란히 보여줍니다.', badge: '참고 점검', icon: 'file-check',
     sitemap: { lastModified: '2026-10-29', changeFrequency: 'monthly', priority: 0.8 } },
+  { href: '/tools/pay-proration', title: '급여 일할계산기', desc: '월급제 근로자가 그달 중간에 입사·퇴사하거나 결근·지각한 달의 급여를 30일 기준·그달 날수·소정근로일·시간 기준으로 나란히 계산합니다. 법은 일할 방식을 정하지 않아 회사 기준을 고르게 하고, 결근 공제는 결근일분과 그 주 주휴분을 나눠 보여줍니다.', badge: '브라우저 계산', icon: 'calculator',
+    sitemap: { lastModified: '2026-10-29', changeFrequency: 'monthly', priority: 0.8 } },
 ];

@@ -42,3 +42,4 @@ H1 제목, 사용자 입장 한 문단, 그다음 H2 넷을 이 순서로: `Sub-
 - [휴업수당 계산기](./shutdown-allowance.md) — `/tools/shutdown-allowance`
 - [출근율 계산기](./attendance-rate.md) — `/tools/attendance-rate`
 - [3.3% 계약 점검](./contractor-check.md) — `/tools/contractor-check`
+- [급여 일할계산기](./pay-proration.md) — `/tools/pay-proration`
