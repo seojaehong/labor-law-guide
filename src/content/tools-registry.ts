@@ -68,4 +68,6 @@ export const TOOLS: ToolEntry[] = [
     sitemap: { lastModified: '2026-10-29', changeFrequency: 'monthly', priority: 0.8 } },
   { href: '/tools/attendance-rate', title: '출근율 계산기', desc: '1년 소정근로일수와 출근으로 보는 날·소정근로일수에서 빼는 날·결근을 넣으면 연차휴가가 생기는 출근율 80%를 채웠는지 계산합니다. 80%에 못 미쳐도 빼는 날을 뺀 출근율이 80% 이상이면 비례 일수를, 아니면 1개월 개근마다 1일을 보여주고, 해석이 갈리는 기간은 두 값을 나란히 냅니다.', badge: '브라우저 계산', icon: 'calculator',
     sitemap: { lastModified: '2026-10-29', changeFrequency: 'monthly', priority: 0.8 } },
+  { href: '/tools/contractor-check', title: '3.3% 계약 점검', desc: '프리랜서(사업소득 3.3%)로 계약했더라도 실제로 일한 모습을 대법원 2004다29736 판결의 근로자성 기준(업무 지시·근무시간과 장소·비품·대행·보수의 성격 등)과 항목마다 대조합니다. 같은 보수를 3.3%로 뗄 때와 근로소득으로 뗄 때의 예상 실수령도 나란히 보여줍니다.', badge: '참고 점검', icon: 'file-check',
+    sitemap: { lastModified: '2026-10-29', changeFrequency: 'monthly', priority: 0.8 } },
 ];
