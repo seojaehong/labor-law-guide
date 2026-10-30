@@ -1,0 +1,36 @@
+{
+  "verifiedAt": "2026-10-11",
+  "verificationMethod": "Read the complete article on the linked National Law Information Center official page. This is a dated public-source snapshot, not an automatic current-law guarantee.",
+  "articles": [
+    {
+      "lawId": "001872",
+      "lawName": "근로기준법",
+      "article": "제36조",
+      "title": "금품 청산",
+      "effectiveDate": "2026-10-08",
+      "lawNumber": "21533",
+      "sourceUrl": "https://www.law.go.kr/LSW/lsLinkCommonInfo.do?lsJoLnkSeq=1025590515",
+      "body": "제36조(금품 청산) 사용자는 근로자가 사망 또는 퇴직한 경우에는 그 지급 사유가 발생한 때부터 14일 이내에 임금, 보상금, 그 밖의 모든 금품을 지급하여야 한다. 다만, 특별한 사정이 있을 경우에는 당사자 사이의 합의에 의하여 기일을 연장할 수 있다. <개정 2020. 5. 26.>"
+    },
+    {
+      "lawId": "001872",
+      "lawName": "근로기준법",
+      "article": "제43조",
+      "title": "임금 지급",
+      "effectiveDate": "2026-10-08",
+      "lawNumber": "21533",
+      "sourceUrl": "https://www.law.go.kr/lsLinkCommonInfo.do?lsJoLnkSeq=1007688469",
+      "body": "제43조(임금 지급) ① 임금은 통화(通貨)로 직접 근로자에게 그 전액을 지급하여야 한다. 다만, 법령 또는 단체협약에 특별한 규정이 있는 경우에는 임금의 일부를 공제하거나 통화 이외의 것으로 지급할 수 있다.\n② 임금은 매월 1회 이상 일정한 날짜를 정하여 지급하여야 한다. 다만, 임시로 지급하는 임금, 수당, 그 밖에 이에 준하는 것 또는 대통령령으로 정하는 임금에 대하여는 그러하지 아니하다."
+    },
+    {
+      "lawId": "001872",
+      "lawName": "근로기준법",
+      "article": "제26조",
+      "title": "해고의 예고",
+      "effectiveDate": "2026-10-08",
+      "lawNumber": "21533",
+      "sourceUrl": "https://www.law.go.kr/lsLinkCommonInfo.do?lsJoLnkSeq=1025589947",
+      "body": "제26조(해고의 예고) 사용자는 근로자를 해고(경영상 이유에 의한 해고를 포함한다)하려면 적어도 30일 전에 예고를 하여야 하고, 30일 전에 예고를 하지 아니하였을 때에는 30일분 이상의 통상임금을 지급하여야 한다. 다만, 다음 각 호의 어느 하나에 해당하는 경우에는 그러하지 아니하다. <개정 2010. 6. 4., 2019. 1. 15.>\n1. 근로자가 계속 근로한 기간이 3개월 미만인 경우\n2. 천재ㆍ사변, 그 밖의 부득이한 사유로 사업을 계속하는 것이 불가능한 경우\n3. 근로자가 고의로 사업에 막대한 지장을 초래하거나 재산상 손해를 끼친 경우로서 고용노동부령으로 정하는 사유에 해당하는 경우"
+    }
+  ]
+}
