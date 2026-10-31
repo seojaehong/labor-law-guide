@@ -8,26 +8,24 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { ChevronRight, Printer, ShieldCheck } from 'lucide-react';
-import rulesCatalog from '@/lib/contract-check/data/compliance_rules.json';
-import { amendContract } from '@/lib/contract-check/amendments';
 import { checkContract } from '@/lib/contract-check/engine';
 import { normalize } from '@/lib/contract-check/normalize';
-import type { Finding, FindingSeverity, FindingStatus } from '@/lib/contract-check/types';
+import {
+  RESULT_DISCLAIMER,
+  STATUS_CHIP_ORDER,
+  STATUS_LABEL,
+  amendmentMap,
+  countByStatus,
+  detailText,
+  ruleName,
+  sortFindings,
+} from '@/lib/contract-check/present';
+import type { Finding, FindingStatus } from '@/lib/contract-check/types';
 import PhotoUploadCard from './PhotoUploadCard';
 import { applyExtracted } from './extractMap';
 import { CLAUSE_ITEMS, INITIAL, buildContract, type FormState } from './formState';
 
-const RULE_META: Record<string, { name: string; statute: string }> = Object.fromEntries(
-  rulesCatalog.rules.map((r) => [r.code, { name: r.name, statute: r.statute }]),
-);
-
-const STATUS_LABEL: Record<FindingStatus, string> = {
-  violation: '위반',
-  risk: '리스크',
-  ok: '적정',
-  needs_data: '자료 필요',
-};
-
+// 상태 이름·정렬·규칙 이름·수정 방향·면책 문구는 present.ts(오프라인판과 공용). 색만 여기 둔다.
 // DESIGN.md §6.4 배지 4변형(위험·주의·성공·중립). 값이 아니라 이름을 붙이는 교체다 —
 // #dc2626·#059669 같은 전경색으로 "정리"하면 틴트 위 대비가 후퇴한다.
 // 단 risk 잉크만 #b45309 → --color-warn-ink(#92400e)로 바뀐다(§6.4 "주의 잉크만은 예외", 4.51→6.37:1).
@@ -37,9 +35,6 @@ const STATUS_STYLE: Record<FindingStatus, { bg: string; fg: string }> = {
   ok: { bg: 'var(--color-success-bg)', fg: 'var(--color-success-ink)' },
   needs_data: { bg: 'var(--grey-100)', fg: 'var(--grey-700)' },
 };
-
-const STATUS_ORDER: FindingStatus[] = ['violation', 'risk', 'needs_data', 'ok'];
-const SEVERITY_ORDER: FindingSeverity[] = ['critical', 'major', 'minor', 'info'];
 
 // ── UI 조각 ──────────────────────────────────────────────────────────
 
@@ -285,15 +280,8 @@ export default function ContractCheckClient() {
 
   const runCheck = () => {
     const [contract] = normalize(buildContract(form));
-    const sorted = [...checkContract(contract)].sort(
-      (a, b) =>
-        STATUS_ORDER.indexOf(a.status) - STATUS_ORDER.indexOf(b.status) ||
-        SEVERITY_ORDER.indexOf(a.severity) - SEVERITY_ORDER.indexOf(b.severity) ||
-        a.rule_code.localeCompare(b.rule_code),
-    );
-    setAmendMap(
-      Object.fromEntries(amendContract(contract, sorted).rows.map((r) => [r.rule_code, r.amendment])),
-    );
+    const sorted = sortFindings(checkContract(contract));
+    setAmendMap(amendmentMap(contract, sorted));
     setFindings(sorted);
     setStep(5);
   };
@@ -305,14 +293,7 @@ export default function ContractCheckClient() {
     setStep(1);
   };
 
-  const counts =
-    findings?.reduce(
-      (acc, f) => {
-        acc[f.status] += 1;
-        return acc;
-      },
-      { violation: 0, risk: 0, ok: 0, needs_data: 0 } as Record<FindingStatus, number>,
-    ) ?? null;
+  const counts = findings ? countByStatus(findings) : null;
 
   return (
     <div className="rounded-xl border border-[var(--color-border)] p-5">
@@ -715,7 +696,7 @@ export default function ContractCheckClient() {
           </h2>
           <div className="mb-5 flex flex-wrap gap-2 text-sm font-semibold">
             {/* 집계 칩은 아래 항목별 StatusBadge와 같은 4변형이다 — 같은 표를 쓴다(같은 화면에서 색이 갈리면 안 된다) */}
-            {(['violation', 'risk', 'ok', 'needs_data'] as FindingStatus[]).map((status) => (
+            {STATUS_CHIP_ORDER.map((status) => (
               <span
                 key={status}
                 className="rounded-lg px-3 py-1.5"
@@ -735,7 +716,7 @@ export default function ContractCheckClient() {
                 <div className="mb-1 flex flex-wrap items-center gap-2">
                   <StatusBadge status={f.status} />
                   <span className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>
-                    {RULE_META[f.rule_code]?.name ?? f.rule_code}
+                    {ruleName(f.rule_code)}
                   </span>
                   {f.statute && (
                     <span className="text-xs" style={{ color: 'var(--color-text-tertiary)' }}>
@@ -745,7 +726,7 @@ export default function ContractCheckClient() {
                 </div>
                 {f.detail && (
                   <p className="text-xs leading-relaxed" style={{ color: 'var(--color-text-secondary)' }}>
-                    {f.status === 'needs_data' ? `입력하면 점검합니다 — ${f.detail}` : f.detail}
+                    {detailText(f)}
                   </p>
                 )}
                 {amendMap[f.rule_code] && (
@@ -782,8 +763,7 @@ export default function ContractCheckClient() {
           </div>
 
           <p className="mt-4 text-xs leading-relaxed" style={{ color: 'var(--color-text-tertiary)' }}>
-            본 결과는 입력하신 내용만으로 점검한 참고 결과이며 법률 판단이 아닙니다. 실제 계약서
-            문안과 근무 실태에 따라 결과가 달라질 수 있으니, 근거 조문과 함께 다시 확인해 주세요.
+            {RESULT_DISCLAIMER}
           </p>
         </div>
       )}

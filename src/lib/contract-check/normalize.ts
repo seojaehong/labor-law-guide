@@ -1,8 +1,9 @@
 // fixtures 형식(common+contracts) 또는 단일 계약 JSON → 스키마 규격의 완전한 계약 객체 리스트.
-// Python 참조구현(contract-review-skill/scripts/normalize.py)과 동일 스펙.
+// Python 참조구현(contract-review-skill/scripts/normalize.py)에서 왔다. 261031 부터 통상시급 파생 한 줄이 다르다
+// (파이썬은 아직 항상 209 — 아래 첫 항목).
 //
 // 파생 계산:
-// - wage.ordinary_hourly_rate = BASE.amount / 209 (정수)
+// - wage.ordinary_hourly_rate = BASE.amount / (BASE.basis_hours 가 양수면 그 값, 아니면 209) (정수)
 // - work_time.weekly_actual_hours / weekly_overtime_hours — variants·breaks에서 계산
 // - signatures.retroactive_days = written_date - start_date (일수)
 // - employee.employment_type — 명시값 우선, 없으면 indefinite=false→fixed_term,
@@ -63,7 +64,10 @@ export function deriveFields(contract: Contract): Contract {
   const wage = contract.wage ?? {};
   const base = (wage.items ?? []).find((i) => i.code === 'BASE');
   if (base && base.amount) {
-    wage.ordinary_hourly_rate = Math.round(base.amount / MONTHLY_BASE_HOURS);
+    // 산출근거 시간(basis_hours)이 적혀 있으면 그 시간으로 나눈다 — 단시간 계약(예: 월 87H)을 209H 로 나누면
+    // 최저임금 미달로 잘못 나온다. 사이트 폼(buildContract)은 BASE 에 basis_hours 를 넣지 않아 종전대로 209H.
+    const hours = base.basis_hours != null && base.basis_hours > 0 ? base.basis_hours : MONTHLY_BASE_HOURS;
+    wage.ordinary_hourly_rate = Math.round(base.amount / hours);
   }
 
   const workTime = contract.work_time ?? {};

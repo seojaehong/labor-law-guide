@@ -1,0 +1,29 @@
+{
+  "rate": 4296,
+  "findings": [
+    "PAY-14D | ok | critical | 금품청산 위반 조항 없음",
+    "PAY-DIRECT | ok | critical | 조건부 지급 조항 없음",
+    "DISMISS-NOTICE | ok | critical | 즉시해고 조항 없음",
+    "DISMISS-JUST | ok | critical | 자동만료 조항 없음",
+    "NO-LAWSUIT-WAIVER | ok | major | 부제소 특약 없음",
+    "PENALTY-BAN | ok | major | 위약예정 조항 없음",
+    "MINWAGE | violation | critical | 통상시급 4,296 < 2026년 최저시급 10,320 (시간당 6,024원 미달)",
+    "WAGE-MATH | ok | major | 전 항목 산출근거-금액 정합 (±10원)",
+    "OT-RATE | ok | major | 연장근로 항목 없음",
+    "OT-COVER | ok | major | 필요 0H ≤ 약정 0H (환산시간 해석 시)",
+    "HOLIDAY-COVER | ok | minor | 포괄임금 휴일근로 약정 없음 — 비적용",
+    "WH-52CAP | ok | critical | 실근로 주 20h ≤ 한도 52h",
+    "WH-BREAK | ok | major | 휴게 총량 30분 ≥ 법정 30분, 조각 분할 없음",
+    "NIGHT-WORK | ok | major | 야간근로 없음",
+    "REST-DAY | ok | minor | 주휴일 요일 특정됨",
+    "WRITTEN-TERMS | needs_data | major | 작성일 또는 입사일 미기재 — 소급 여부 산정 불가",
+    "ANNUAL-LEAVE | ok | minor | 연차수당 선지급 없음",
+    "INCLUSIVE-WAGE | needs_data | major | 포괄임금 여부 미기재",
+    "MINWAGE-PROBATION | ok | major | 수습 감액 문구 없음",
+    "MINOR-WORKER | ok | critical | 연소자 아님",
+    "REQUIRED-TERMS | violation | major | 필수 명시사항 누락: 임금 계산방법(산출근거 없는 항목: 기본급) 미명시 · 연차유급휴가 미명시 · 취업장소 미명시 · 종사업무 미명시",
+    "REQUIRED-TERMS-FIXED | violation | major | 기간제법 §17 서면명시 누락: 임금의 구성항목·계산방법·지불방법 미명시 · 휴일·휴가 미명시 · 취업장소·종사업무 미명시 · 근로일 및 근로일별 근로시간 미명시",
+    "FIXED-TERM-2Y | ok | minor | 기간제 아님 — 비적용",
+    "PART-TIME-OT | ok | major | 근로일별 시간 미명시 — 소정=실근로 20H로 보아 초과 없음"
+  ]
+}

@@ -17,6 +17,8 @@ const ROOTS = [
   'src/components/HolidayPayCalculator.tsx',
   'src/content/tools-registry.ts',
   'src/lib/calc',
+  'src/lib/contract-check',
+  'src/offline/contract-check',
   'src/content/duties-data.ts',
   'public/tools/severance.html',
 ];

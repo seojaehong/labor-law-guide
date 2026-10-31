@@ -4,6 +4,10 @@
 - `page.tsx` — 서버 컴포넌트(metadata·canonical·OG). `ContractCheckClient.tsx` — 스텝 UI·결과 화면.
 - `formState.ts` — **순수 TS**(FormState·INITIAL·CLAUSE_ITEMS·buildContract). 컴포넌트에서 분리해 둔 이유는 unit 테스트가 tsx를 import 하지 않게 하기 위함이다. 폼 필드를 추가하면 여기부터 고친다.
 - `extractMap.ts` — 사진 추출 응답 → FormState 역매핑(순수). `PhotoUploadCard.tsx` — 업로드·압축·fetch.
+- 결과 표시 방식(상태 이름·정렬·규칙 이름·수정 방향 맵·「자료 필요」 접두어·면책 문구)은 `src/lib/contract-check/present.ts` 에 있고
+  오프라인판(`src/offline/contract-check/entry.ts`)과 함께 쓴다. 여기서 문구를 고치면 오프라인판도 바뀐다 — 색만 이 화면에 남겼다.
+- ★ 규칙 이름은 `compliance_rules.json` 에서 화면으로 바로 나간다. `tool-banned-words.test.ts` 는 .ts/.tsx 만 훑으므로
+  이름 금지어는 `contract-check-present.test.ts` 가 본다(261031 「수습 감액 적법성」 → 「수습 감액 기준 확인」).
 
 ## 함정
 - ★ **buildContract의 역함수는 대칭이 아니다.** 금액은 top-level이 아니라 `wage.items[].code`(BASE·OT_WEEKDAY·HOLIDAY_EXTRA·ANNUAL_LEAVE)로 오가고, 폼에 칸이 없는 코드(MEAL·BONUS·NIGHT·OT_WEEKEND·OTHER)는 버려진다. `breaks[]`는 폼에서 합계 한 칸. 필드를 늘리면 `extractMap.ts`도 같이 고쳐야 조용히 값이 사라지지 않는다.

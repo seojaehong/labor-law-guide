@@ -4,7 +4,7 @@
   "rules": [
     { "code": "MINWAGE", "name": "최저임금 충족", "statute": "최저임금법 §6", "severity": "critical", "auto": true,
       "logic": "wage.ordinary_hourly_rate >= 해당연도 최저시급 (2026: 10,320)" },
-    { "code": "MINWAGE-PROBATION", "name": "수습 감액 적법성", "statute": "최저임금법 §5②, 시행령 §3", "severity": "major", "auto": true,
+    { "code": "MINWAGE-PROBATION", "name": "수습 감액 기준 확인", "statute": "최저임금법 §5②, 시행령 §3", "severity": "major", "auto": true,
       "logic": "감액은 1년이상 계약 AND 수습 3개월 이내 AND 단순노무직 아님. probation.simple_labor_job=true면 감액 불가" },
     { "code": "WH-52CAP", "name": "주 52시간 상한", "statute": "근로기준법 §50·§53", "severity": "critical", "auto": true,
       "logic": "work_time.weekly_actual_hours <= 52. 정확히 52면 status=risk (여유 0)" },
