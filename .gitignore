@@ -82,3 +82,6 @@ __pycache__/
 
 # verify-llg evidence (.claude/skills/verify-llg)
 artifacts/
+
+# 근로계약서 점검 오프라인판 산출물(scripts/build-contract-check-offline.mjs) — 공개 여부 결정 전까지 올리지 않는다
+/dist-offline/
