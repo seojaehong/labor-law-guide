@@ -43,7 +43,7 @@
       "DISMISS-JUST | ok | critical | 자동만료 조항 없음",
       "NO-LAWSUIT-WAIVER | ok | major | 부제소 특약 없음",
       "PENALTY-BAN | ok | major | 위약예정 조항 없음",
-      "MINWAGE | ok | critical | 통상시급 10,320 ≥ 2026년 최저시급 10,320",
+      "MINWAGE | violation | critical | 기본급 897,840 ÷ 주휴 포함 월 104.3H((소정 20H+주휴 4H)×4.345) = 시급 8,608 < 2026년 최저시급 10,320 (시간당 1,712원 미달) — 산출근거 87H에 유급 주휴시간이 없고 주휴수당 항목도 없음",
       "WAGE-MATH | ok | major | 전 항목 산출근거-금액 정합 (±10원)",
       "OT-RATE | ok | major | 연장근로 항목 없음",
       "OT-COVER | ok | major | 필요 0H ≤ 약정 0H (환산시간 해석 시)",
@@ -107,7 +107,7 @@
       "DISMISS-JUST | ok | critical | 자동만료 조항 없음",
       "NO-LAWSUIT-WAIVER | ok | major | 부제소 특약 없음",
       "PENALTY-BAN | ok | major | 위약예정 조항 없음",
-      "MINWAGE | ok | critical | 통상시급 10,320 ≥ 2026년 최저시급 10,320",
+      "MINWAGE | violation | critical | 기본급 897,840 ÷ 주휴 포함 월 104.3H((소정 20H+주휴 4H)×4.345) = 시급 8,608 < 2026년 최저시급 10,320 (시간당 1,712원 미달) — 산출근거 87H에 유급 주휴시간이 없고 주휴수당 항목도 없음",
       "WAGE-MATH | ok | major | 전 항목 산출근거-금액 정합 (±10원)",
       "OT-RATE | ok | major | 연장근로 항목 없음",
       "OT-COVER | ok | major | 필요 0H ≤ 약정 0H (환산시간 해석 시)",
@@ -124,7 +124,7 @@
       "REQUIRED-TERMS | ok | major | 근기법 §17 필수 명시사항(임금 구성·계산·지급방법, 소정근로시간, 주휴일, 연차, 취업장소·업무) 모두 기재",
       "REQUIRED-TERMS-FIXED | ok | major | 기간제법 §17 서면명시 6개 항목 모두 기재",
       "FIXED-TERM-2Y | ok | minor | 기간제 아님 — 비적용",
-      "PART-TIME-OT | violation | major | 소정 주 20H(daily_schedules) 대비 실근로 35H — 초과 15H > 한도 12H"
+      "PART-TIME-OT | violation | major | 소정 주 20H(daily_schedules) 대비 실근로 35H — 초과 15H > 한도 12H / 초과근로 50% 가산 항목 없음(기간제법 §6③)"
     ]
   }
 ]

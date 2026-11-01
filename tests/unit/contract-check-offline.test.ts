@@ -145,7 +145,7 @@ describe('빌드 시점 고정 표시', () => {
     const info = buildInfo(new Date('2026-10-31T16:30:00Z')); // KST 11-01 01:30
     expect(info.date).toBe('2026-11-01');
     expect(info.sha).toMatch(/^([0-9a-f]{7,}|unknown)(\+수정)?$/);
-    expect(info.catalogVersion).toBe('1.0');
+    expect(info.catalogVersion).toBe('1.1');
   });
   it('--out 인자: 없으면 기본 경로, 값이 빠지면 오류', () => {
     expect(parseOut([])).toBe(DEFAULT_OUT);

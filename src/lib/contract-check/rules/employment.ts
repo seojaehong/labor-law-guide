@@ -4,8 +4,8 @@
 //   end == start+2년이면 2년+1일) → risk(무기계약 간주 검토).
 //   2년 이하는 ok — 갱신이력은 데이터에 없으므로 detail에 "갱신 누계 별도 확인".
 // PART-TIME-OT: 단시간만 적용. 소정 = daily_schedules 주간 합(휴게 미차감),
-//   없으면 소정=실근로로 보아 초과 0. weekly_actual − 소정 > 12H → violation,
-//   12H 이내 초과는 ok + 가산 50% 지급 별도 확인.
+//   없으면 소정=실근로로 보아 초과 0. weekly_actual − 소정 > 12H → violation(§6①),
+//   12H 이내 초과는 가산율 1.5 이상 OT_* 항목이 없으면 risk, 있으면 ok(§6③ 50% 가산, 261101 D2).
 
 import type { Contract, DailySchedule, Finding } from '../types';
 import { makeFinding, type RuleFn } from './index';
@@ -38,7 +38,7 @@ function fmtH(hours: number): string {
 }
 
 /** daily_schedules 주간 합(H). start/end 결손 항목이 있으면 null. */
-function weeklyScheduledHours(schedules: DailySchedule[]): number | null {
+export function weeklyScheduledHours(schedules: DailySchedule[]): number | null {
   let total = 0;
   for (const s of schedules) {
     if (!s.start || !s.end) return null;
@@ -73,6 +73,13 @@ export const ruleFixedTerm2y: RuleFn = (contract) => {
   return makeFinding('FIXED-TERM-2Y', 'ok', `계약기간 ${years}년 ≤ 2년 — 갱신 누계 별도 확인`);
 };
 
+/** 단시간 초과근로 가산(기간제법 §6③) 지급 항목 — OT_* 항목 중 가산율 1.5 이상이 하나라도 있으면 있다고 본다. */
+export function hasPartTimePremium(contract: Contract): boolean {
+  return (contract.wage?.items ?? []).some(
+    (i) => String(i.code ?? '').startsWith('OT_') && (i.rate_multiplier ?? 0) >= 1.5,
+  );
+}
+
 export const rulePartTimeOt: RuleFn = (contract) => {
   const empType = contract.employee?.employment_type ?? '';
   if (!PART_TIME_TYPES.has(empType)) {
@@ -92,19 +99,30 @@ export const rulePartTimeOt: RuleFn = (contract) => {
     );
   }
   const excess = round1(actual - contracted);
+  const premium = hasPartTimePremium(contract);
+  const noPremium = ' / 초과근로 50% 가산 항목 없음(기간제법 §6③)';
   if (excess > PART_TIME_OT_LIMIT_HOURS) {
     return makeFinding(
       'PART-TIME-OT',
       'violation',
       `소정 주 ${fmtH(contracted)}H(daily_schedules) 대비 실근로 ${fmtH(actual)}H` +
-        ` — 초과 ${fmtH(excess)}H > 한도 ${PART_TIME_OT_LIMIT_HOURS}H`,
+        ` — 초과 ${fmtH(excess)}H > 한도 ${PART_TIME_OT_LIMIT_HOURS}H` +
+        (premium ? '' : noPremium),
+    );
+  }
+  if (excess > 0 && !premium) {
+    return makeFinding(
+      'PART-TIME-OT',
+      'risk',
+      `초과 ${fmtH(excess)}H ≤ 한도 ${PART_TIME_OT_LIMIT_HOURS}H이나 가산율 1.5 이상 초과근로 항목 없음` +
+        ` — 통상임금 50% 이상 가산 지급근거 불명(기간제법 §6③)`,
     );
   }
   if (excess > 0) {
     return makeFinding(
       'PART-TIME-OT',
       'ok',
-      `초과 ${fmtH(excess)}H ≤ 한도 ${PART_TIME_OT_LIMIT_HOURS}H — 가산 50% 지급 별도 확인(기간제법 §6③)`,
+      `초과 ${fmtH(excess)}H ≤ 한도 ${PART_TIME_OT_LIMIT_HOURS}H, 가산율 1.5 이상 초과근로 항목 명시됨`,
     );
   }
   return makeFinding(

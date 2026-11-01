@@ -1,6 +1,7 @@
 // 임금 수치 규칙 — 최저임금·산출근거 정합·연장수당 가산율/충분성·휴일 포괄 충분성.
 //
-// MINWAGE: 통상시급 ≥ start_date 연도의 최저시급
+// MINWAGE: 통상시급 ≥ start_date 연도의 최저시급. 산출근거가 소정시간분뿐이고 주휴수당 항목이 없으면
+//   기본급 ÷ 주휴 포함 월 시간으로 비교(minwageHolidayBasis, 261101 D1)
 // WAGE-MATH: item.amount ≟ 통상시급 × basis_hours × (rate_multiplier or 1.0) ±10원
 // OT-RATE: OT_* 항목 rate_multiplier 미표기 → risk
 // OT-COVER: OT_* basis_hours 합 ≥ weekly_overtime_hours × 4.345 × 1.5
@@ -9,6 +10,7 @@
 
 import minwageJson from '@/lib/contract-check/data/minwage_table.json';
 import type { Contract, Finding, WageItem } from '../types';
+import { weeklyScheduledHours } from './employment';
 import { makeFinding, type RuleFn } from './index';
 
 export const MINWAGE_TABLE: Record<string, number> = minwageJson;
@@ -21,6 +23,48 @@ const HOLIDAY_NOTE_RE = /(\d+)\s*일\s*\/\s*(\d+(?:\.\d+)?)\s*H/;
 
 const round1 = (x: number) => Math.round(x * 10) / 10;
 const fmt = (n: number) => n.toLocaleString('ko-KR');
+
+export const STANDARD_WEEKLY_HOURS = 40;
+export const WEEKLY_HOLIDAY_MIN_HOURS = 15;
+const BASIS_MATCH_TOLERANCE_H = 1;
+
+export interface MinwageHolidayBasis {
+  amount: number;
+  basisHours: number;
+  /** 1주 소정근로시간(40H 상한) */
+  weekly: number;
+  /** 1주 유급 주휴시간 */
+  holiday: number;
+  /** 주휴 포함 월 시간 = (weekly+holiday)×4.345, 0.1H 반올림 */
+  hours: number;
+  rate: number;
+}
+
+/**
+ * D1(261101) — 최저임금 비교용 월 시간에 유급 주휴시간을 넣어야 하는 경우의 계산값. 해당 없으면 null.
+ * 최저임금법 시행령 §5①3호: 월급 ÷ (1주 소정 + 근기법 §55① 유급시간) × 연평균 주 수 ÷ 12.
+ * 적용 조건 — BASE.basis_hours 가 있고 그 값이 「1주 소정×4.345」(±1H)에 그치며, 주휴수당 항목(label·basis_text 에
+ * 「주휴」)이 없고, 1주 소정 ≥ 15H(근기법 §18③). basis_hours 가 없는 사이트 폼 경로(209H)는 해당 없음.
+ * 1주 소정 = daily_schedules 주간 합, 없으면 weekly_actual_hours(PART-TIME-OT 와 같은 가정), 40H 상한.
+ * 주휴시간 = 1주 소정 ÷ 5 — 근기법 시행령 별표2 2.나(4주 소정 ÷ 통상 근로자 4주 소정근로일 수)를 통상 근로자 주 5일로 본 값.
+ */
+export function minwageHolidayBasis(contract: Contract): MinwageHolidayBasis | null {
+  const items = contract.wage?.items ?? [];
+  const base = items.find((i) => i.code === 'BASE');
+  const basisHours = base?.basis_hours;
+  if (!base || !base.amount || basisHours == null || basisHours <= 0) return null;
+  if (items.some((i) => `${i.label ?? ''} ${i.basis_text ?? ''}`.includes('주휴'))) return null;
+  const wt = contract.work_time ?? {};
+  const schedules = wt.daily_schedules ?? [];
+  const scheduled = schedules.length > 0 ? weeklyScheduledHours(schedules) : wt.weekly_actual_hours;
+  if (scheduled == null || scheduled <= 0) return null;
+  const weekly = Math.min(scheduled, STANDARD_WEEKLY_HOURS);
+  if (weekly < WEEKLY_HOLIDAY_MIN_HOURS) return null;
+  if (Math.abs(basisHours - weekly * WEEKS_PER_MONTH) > BASIS_MATCH_TOLERANCE_H) return null;
+  const holiday = round1(weekly / 5);
+  const hours = round1((weekly + holiday) * WEEKS_PER_MONTH);
+  return { amount: base.amount, basisHours, weekly, holiday, hours, rate: Math.round(base.amount / hours) };
+}
 
 export const ruleMinwage: RuleFn = (contract) => {
   const rate = contract.wage?.ordinary_hourly_rate;
@@ -35,6 +79,21 @@ export const ruleMinwage: RuleFn = (contract) => {
       'MINWAGE',
       'needs_data',
       `${year}년 최저시급 미등록 — minwage_table.json 갱신 필요`,
+    );
+  }
+  const hb = minwageHolidayBasis(contract);
+  if (hb) {
+    const calc =
+      `기본급 ${fmt(hb.amount)} ÷ 주휴 포함 월 ${hb.hours}H((소정 ${hb.weekly}H+주휴 ${hb.holiday}H)×4.345)` +
+      ` = 시급 ${fmt(hb.rate)}`;
+    if (hb.rate >= minimum) {
+      return makeFinding('MINWAGE', 'ok', `${calc} ≥ ${year}년 최저시급 ${fmt(minimum)}`);
+    }
+    return makeFinding(
+      'MINWAGE',
+      'violation',
+      `${calc} < ${year}년 최저시급 ${fmt(minimum)} (시간당 ${fmt(minimum - hb.rate)}원 미달)` +
+        ` — 산출근거 ${hb.basisHours}H에 유급 주휴시간이 없고 주휴수당 항목도 없음`,
     );
   }
   if (rate >= minimum) {

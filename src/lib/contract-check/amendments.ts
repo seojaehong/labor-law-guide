@@ -7,7 +7,7 @@
 
 import { checkContract } from './engine';
 import { fixedTermsMissing, requiredTermsMissing } from './rules/required_terms';
-import { WAGE_MATH_TOLERANCE } from './rules/wage';
+import { MINWAGE_TABLE, WAGE_MATH_TOLERANCE, minwageHolidayBasis } from './rules/wage';
 import type { Contract, Finding, FindingSeverity, FindingStatus } from './types';
 
 export const PRIORITY_LABEL: Partial<Record<FindingStatus, string>> = {
@@ -81,7 +81,7 @@ export const AMEND_LIBRARY: Record<string, string> = {
     '기간의 정함이 없는 근로자로 간주됨(기간제법 §4②)을 전제로 무기계약 전환을 검토',
   'PART-TIME-OT':
     '단시간 근로자의 초과근로는 근로자 동의를 받아 주 12시간 이내로 제한하고, ' +
-    '초과근로에 대하여 통상시급의 50%를 가산하여 지급한다는 문구 명시 (기간제법 §6)',
+    '초과근로에 대하여 통상임금의 50% 이상을 가산하여 지급한다는 문구와 초과근로수당 항목(가산율 1.5) 명시 (기간제법 §6①·③)',
 };
 
 // 필수 명시사항 누락 라벨(접두 매칭, 긴 라벨 우선) → 보완 문안
@@ -197,6 +197,17 @@ export function buildRow(contract: Contract, finding: Finding): AmendmentRow {
   if (code in RULE_TAG) {
     [clause, current] = clauseRowSource(contract, code);
     amendment = AMEND_LIBRARY[code];
+  } else if (code === 'MINWAGE' && minwageHolidayBasis(contract)) {
+    const hb = minwageHolidayBasis(contract)!;
+    const year = contract.period?.start_date?.slice(0, 4) ?? '';
+    const minimum = MINWAGE_TABLE[year];
+    clause = '임금 구성항목표';
+    current = `기본급 ${fmt(hb.amount)}원 (산출근거 월 ${hb.basisHours}H, 주휴시간 미포함)`;
+    amendment =
+      `주휴수당 항목(시급 × 주휴 ${hb.holiday}H × 4.345)을 따로 두거나, 기본급 산출근거를 주휴 포함 월 ${hb.hours}H` +
+      `((소정 ${hb.weekly}H+주휴 ${hb.holiday}H)×4.345)로 고쳐 ` +
+      (minimum ? `${year}년 최저시급 × ${hb.hours}H = ${fmt(Math.ceil(minimum * hb.hours))}원 이상으로 인상` : '최저시급 이상으로 인상') +
+      ' (최저임금법 시행령 §5①3호)';
   } else if (code === 'WAGE-MATH') {
     clause = '임금 구성항목표';
     [current, amendment] = wageMathAmendment(contract);
