@@ -4,7 +4,6 @@ import { useState, useRef, useEffect, useCallback, type FormEvent } from 'react'
 import { Send, Bot, User, Loader2, X, Info } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import BetaSignupForm from './BetaSignupForm';
 import TurnstileWidget from './TurnstileWidget';
 import { activeConversation } from '@/lib/ai/conversation-query';
 
@@ -164,7 +163,6 @@ export default function ChatInterface({ injectedQuestion }: { injectedQuestion?:
   const [loading, setLoading] = useState(false);
   const [profile, setProfile] = useState<ProfileMap>({});
   const profileSuppressed = useRef(false);
-  const [showBetaCta, setShowBetaCta] = useState(false);
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -251,10 +249,6 @@ export default function ChatInterface({ injectedQuestion }: { injectedQuestion?:
           return updated;
         });
         setLoading(false);
-        // 베타 한도 도달(429) 또는 글로벌 차단(503) → 결제의향 폼 표시
-        if (info?.status === 429 || info?.status === 503) {
-          setShowBetaCta(true);
-        }
       },
       turnstileToken,
       evidence => setMessages(prev => {
@@ -364,18 +358,6 @@ export default function ChatInterface({ injectedQuestion }: { injectedQuestion?:
           </div>
         ))}
       </div>
-
-      {/* 베타 한도 도달 시 결제의향 CTA */}
-      {showBetaCta && (
-        <div className="border-t p-4" style={{ borderColor: 'var(--color-border)' }}>
-          <BetaSignupForm
-            source="rate_limit"
-            headline="오늘 무료 베타 한도를 모두 사용하셨네요"
-            subline="정식 출시 시 우선 알림 + 베타 사용자 혜택을 드릴게요. 연락처를 남겨주세요."
-            onClose={() => setShowBetaCta(false)}
-          />
-        </div>
-      )}
 
       {/* Cloudflare Turnstile (env 미설정 시 자동 미렌더) */}
       <TurnstileWidget onToken={setTurnstileToken} />

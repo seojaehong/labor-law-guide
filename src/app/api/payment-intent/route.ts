@@ -77,7 +77,7 @@ export async function POST(req: NextRequest) {
     return new Response(
       JSON.stringify({
         ok: true,
-        message: '신청 완료! 정식 출시 시 알림 드릴게요. 베타 기간 우선 혜택도 함께.',
+        message: '신청 완료! 정식 출시 시 알림 드릴게요.',
       }),
       { status: 200, headers: { 'Content-Type': 'application/json' } }
     );
