@@ -15,7 +15,6 @@ import { getCategoryColor } from '@/lib/category-colors';
 import { extractFaqFromContent } from '@/lib/faq-extractor';
 import SubscribeForm from '@/components/SubscribeForm';
 import ReadingMarkdownLink from '@/components/ReadingMarkdownLink';
-import BetaSignupForm from '@/components/BetaSignupForm';
 import { getCurrentTopicPicks } from '@/lib/topic-picks';
 
 export const dynamicParams = true;
@@ -434,17 +433,9 @@ export default async function BlogArticlePage({
               </div>
             </section>
 
-            {/* 베타 신청 폼 — 글 다 읽은 사용자 = 인텐트 max — 2026-05-08 추가 */}
-            <section className="mt-8">
-              <BetaSignupForm
-                source="blog_end"
-                headline="🎁 베타 무료 사용 + 정식 출시 우선 혜택"
-                subline="이 글이 도움됐다면, 정식 출시 시 우선 알림 + 베타 기간 무료 이용. 연락처만 남겨주세요."
-              />
-            </section>
-
             {/* 뉴스레터 구독 폼 — 글 다 읽은 사용자에게 가장 자연스러운 CTA */}
-            <section className="mt-6">
+            {/* 2026-11-01 위의 베타 신청 폼을 뺐다(재홍님). 간격을 mt-6 → mt-8 로 올린다 */}
+            <section className="mt-8">
               <SubscribeForm source="article-footer" sourceSlug={article.slug} />
             </section>
           </article>
