@@ -73,11 +73,16 @@ export const ruleFixedTerm2y: RuleFn = (contract) => {
   return makeFinding('FIXED-TERM-2Y', 'ok', `계약기간 ${years}년 ≤ 2년 — 갱신 누계 별도 확인`);
 };
 
-/** 단시간 초과근로 가산(기간제법 §6③) 지급 항목 — OT_* 항목 중 가산율 1.5 이상이 하나라도 있으면 있다고 본다. */
+/** 단시간 초과근로 가산(기간제법 §6③) 지급 항목·문구 — OT_* 항목 중 가산율 1.5 이상이 있거나,
+ * 야간·휴일 항목이 아닌 항목의 이름·산출근거에 「가산」과 「초과」(또는 「연장」) 문구가 함께 있으면 있다고 본다. */
 export function hasPartTimePremium(contract: Contract): boolean {
-  return (contract.wage?.items ?? []).some(
-    (i) => String(i.code ?? '').startsWith('OT_') && (i.rate_multiplier ?? 0) >= 1.5,
-  );
+  return (contract.wage?.items ?? []).some((i) => {
+    const code = String(i.code ?? '');
+    if (code.startsWith('OT_') && (i.rate_multiplier ?? 0) >= 1.5) return true;
+    if (code === 'NIGHT' || code === 'HOLIDAY_EXTRA') return false;
+    const text = `${i.label ?? ''} ${i.basis_text ?? ''}`;
+    return text.includes('가산') && (text.includes('초과') || text.includes('연장'));
+  });
 }
 
 export const rulePartTimeOt: RuleFn = (contract) => {

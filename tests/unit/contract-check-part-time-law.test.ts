@@ -111,6 +111,11 @@ describe('D2 단시간 소정 초과 근로 — 50% 가산', () => {
     expect(run(within([ot])).get('PART-TIME-OT').status).toBe('risk');
   });
 
+  it('가산율 칸이 비어도 항목 이름·산출근거에 「가산」 문구가 있으면 적정', () => {
+    const ot: WageItem = { code: 'OTHER', label: '초과근로 가산수당', amount: 0, basis_text: '소정 초과 시 통상임금 50% 가산' };
+    expect(run(within([ot])).get('PART-TIME-OT').status).toBe('ok');
+  });
+
   it('수정 방향 — 50% 가산 문구', () => {
     const { n, findings } = run(within());
     expect(amendmentMap(n, findings)['PART-TIME-OT']).toContain('50%');

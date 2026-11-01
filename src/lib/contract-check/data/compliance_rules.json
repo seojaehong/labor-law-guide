@@ -49,7 +49,7 @@
     { "code": "FIXED-TERM-2Y", "name": "기간제 사용기간 2년 상한", "statute": "기간제법 §4", "severity": "minor", "auto": true,
       "logic": "기간제만 적용(아니면 ok 비적용). end_date−start_date > 2년 → risk(무기계약 간주 검토). 2년 이하는 ok + detail '갱신 누계 별도 확인'(갱신이력은 데이터에 없음)" },
     { "code": "PART-TIME-OT", "name": "단시간 초과근로 12시간 제한·50% 가산", "statute": "기간제법 §6①·③", "severity": "major", "auto": true,
-      "logic": "단시간만 적용(아니면 ok 비적용). 소정(daily_schedules 주간 합, 없으면 소정=실근로로 간주) 대비 weekly_actual_hours 초과 > 12H → violation. 12H 이내 초과는 가산율 1.5 이상 OT_* 항목이 없으면 risk(§6③ 통상임금 50% 이상 가산), 있으면 ok. 12H 초과 violation 에도 가산 항목 없음을 detail 에 덧붙임" },
+      "logic": "단시간만 적용(아니면 ok 비적용). 소정(daily_schedules 주간 합, 없으면 소정=실근로로 간주) 대비 weekly_actual_hours 초과 > 12H → violation. 12H 이내 초과는 가산 항목·문구(가산율 1.5 이상 OT_* 또는 야간·휴일 외 항목 label·basis_text 에 「가산」+「초과·연장」)가 없으면 risk(§6③ 통상임금 50% 이상 가산), 있으면 ok. 12H 초과 violation 에도 가산 항목 없음을 detail 에 덧붙임" },
     { "code": "HOLIDAY-COVER", "name": "포괄임금 휴일근로 충분성", "statute": "근로기준법 §56②", "severity": "minor", "auto": true,
       "logic": "HOLIDAY_EXTRA 환산H(amount÷통상시급) ≥ 예정 공휴일 근무H×1.5. wage.public_holiday_note 'N일/M.MH' 파싱 가능하면 판정, 불가하면 needs_data. 포괄 휴일 약정·note 모두 없으면 ok 비적용" }
   ]
