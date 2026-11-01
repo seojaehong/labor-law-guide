@@ -1,18 +1,25 @@
 // fixtures 형식(common+contracts) 또는 단일 계약 JSON → 스키마 규격의 완전한 계약 객체 리스트.
-// Python 참조구현(contract-review-skill/scripts/normalize.py)에서 왔다. 261031 부터 통상시급 파생 한 줄이 다르다
-// (파이썬은 아직 항상 209 — 아래 첫 항목).
+// Python 참조구현(contract-review-skill/scripts/normalize.py)에서 왔다. 261031 부터 통상시급 파생이, 261101 부터
+// 소정근로시간 파생과 단시간 판정이 파이썬과 다르다(파이썬은 아직 항상 209·실근로 기준).
 //
 // 파생 계산:
-// - wage.ordinary_hourly_rate = BASE.amount / (BASE.basis_hours 가 양수면 그 값, 아니면 209) (정수)
 // - work_time.weekly_actual_hours / weekly_overtime_hours — variants·breaks에서 계산
+// - work_time.weekly_scheduled_hours / weekly_scheduled_days — 1주 소정근로시간·근로일. 요일별 근무표가 있으면
+//   휴게를 뺀 그 합·요일 수, 없으면 weekly_actual_hours·days_per_week
+// - wage.ordinary_hourly_rate = BASE.amount / (BASE.basis_hours 가 양수면 그 값, 아니면 최저임금 적용기준 월 시간
+//   monthlyStandardHours — 근로시간을 모르면 209) (정수)
 // - signatures.retroactive_days = written_date - start_date (일수)
 // - employee.employment_type — 명시값 우선, 없으면 indefinite=false→fixed_term,
-//   weekly_actual_hours<40→part_time, 둘 다면 fixed_term_part_time, 그 외 regular
+//   1주 소정<40→part_time, 둘 다면 fixed_term_part_time, 그 외 regular
 
 import type { Contract, FixturesInput, WorkBreak, WorkTime } from './types';
 
 export const MONTHLY_BASE_HOURS = 209;
 export const WEEKLY_STANDARD_HOURS = 40.0;
+/** 임금 규칙들이 함께 쓰는 상수 — 규칙 파일끼리 import 하지 않도록 여기 둔다(rules/wage.ts 가 다시 내보낸다) */
+export const WAGE_MATH_TOLERANCE = 10;
+export const WEEKS_PER_MONTH = 4.345;
+export const OT_PREMIUM_RATE = 1.5;
 
 function minutesOf(hhmm: string): number {
   const [h, m] = hhmm.split(':');
@@ -54,6 +61,60 @@ export function computeWeeklyHours(workTime: WorkTime): [number | null, number |
   return [actual, overtime];
 }
 
+/** 요일별 근무표 → [휴게 차감 주간 합(H), 근로일 수]. start/end 결손이 있으면 null. 익일 종업은 24시간을 더한다. */
+function dailyScheduledWeek(workTime: WorkTime): [number, number] | null {
+  const schedules = workTime.daily_schedules ?? [];
+  if (schedules.length === 0) return null;
+  const breaks = workTime.breaks ?? [];
+  let minutes = 0;
+  for (const s of schedules) {
+    if (!s.start || !s.end) return null;
+    let m = dayWorkMinutes(s.start, s.end, breaks);
+    if (minutesOf(s.end) < minutesOf(s.start)) m += 24 * 60;
+    minutes += m;
+  }
+  return [round2(minutes / 60), schedules.length];
+}
+
+/** 근로기준법 §18③ — 1주 소정 15시간 미만이면 §55(주휴) 비적용 */
+export const WEEKLY_HOLIDAY_MIN_HOURS = 15;
+/** 1주 유급 주휴시간 상한 — 1일 소정근로시간(근로기준법 §2①8호 법정 1일 8시간) */
+export const WEEKLY_HOLIDAY_MAX_HOURS = 8;
+/** 1년 평균 주 수 ÷ 12 (최저임금법 시행령 §5①3호) */
+export const WEEKS_PER_MONTH_EXACT = 365 / 7 / 12;
+/** 단시간근로자 1일 소정 = 4주 소정 ÷ 통상 근로자 총 소정근로일 수(근로기준법 시행령 별표2 2.나). 통상 근로자 근로일을 모르면 주 5일로 본다 */
+export const ASSUMED_FULLTIME_DAYS = 5;
+
+export interface WeeklyHoliday {
+  /** 1주 소정근로시간 — 40H 상한 */
+  weekly: number;
+  /** 1주 유급 주휴시간 (0.01H 반올림) */
+  holiday: number;
+  /** 단시간이라 통상 근로자 주 5일을 가정했는가 */
+  assumedFiveDays: boolean;
+}
+
+/** 1주 소정·주휴시간. 1주 소정을 모르면 null. 15H 미만이면 주휴 0. */
+export function weeklyHoliday(contract: Contract): WeeklyHoliday | null {
+  const wt = contract.work_time ?? {};
+  const scheduled = wt.weekly_scheduled_hours;
+  if (scheduled == null || scheduled <= 0) return null;
+  const weekly = Math.min(scheduled, WEEKLY_STANDARD_HOURS);
+  if (weekly < WEEKLY_HOLIDAY_MIN_HOURS) return { weekly, holiday: 0, assumedFiveDays: false };
+  const partTime = weekly < WEEKLY_STANDARD_HOURS;
+  const days = wt.weekly_scheduled_days;
+  const assumedFiveDays = partTime || !days;
+  const daily = weekly / (assumedFiveDays ? ASSUMED_FULLTIME_DAYS : (days as number));
+  return { weekly, holiday: round2(Math.min(daily, WEEKLY_HOLIDAY_MAX_HOURS)), assumedFiveDays };
+}
+
+/** 최저임금 적용기준 월 시간 = (1주 소정 + 주휴) × 365/7/12, 정수 반올림(40H → 209H). 1주 소정을 모르면 null. */
+export function monthlyStandardHours(contract: Contract): number | null {
+  const wh = weeklyHoliday(contract);
+  if (!wh) return null;
+  return Math.round((wh.weekly + wh.holiday) * WEEKS_PER_MONTH_EXACT);
+}
+
 function daysBetween(fromIso: string, toIso: string): number {
   const MS_PER_DAY = 86400000;
   return Math.round((Date.parse(toIso) - Date.parse(fromIso)) / MS_PER_DAY);
@@ -61,25 +122,38 @@ function daysBetween(fromIso: string, toIso: string): number {
 
 /** 계산 필드를 (재)계산해 채운다. in-place 후 같은 객체 반환. */
 export function deriveFields(contract: Contract): Contract {
-  const wage = contract.wage ?? {};
-  const base = (wage.items ?? []).find((i) => i.code === 'BASE');
-  if (base && base.amount) {
-    // 산출근거 시간(basis_hours)이 적혀 있으면 그 시간으로 나눈다 — 단시간 계약(예: 월 87H)을 209H 로 나누면
-    // 최저임금 미달로 잘못 나온다. 사이트 폼(buildContract)은 BASE 에 basis_hours 를 넣지 않아 종전대로 209H.
-    const hours = base.basis_hours != null && base.basis_hours > 0 ? base.basis_hours : MONTHLY_BASE_HOURS;
-    wage.ordinary_hourly_rate = Math.round(base.amount / hours);
-  }
-
   const workTime = contract.work_time ?? {};
+  contract.work_time = workTime;
   const [actual, overtime] = computeWeeklyHours(workTime);
   if (actual !== null) {
     workTime.weekly_actual_hours = actual;
     workTime.weekly_overtime_hours = overtime;
   }
+  // 1주 소정근로시간 — 요일별 근무표(휴게 차감)가 있으면 그것, 없으면 시업·종업으로 계산한 주 근로시간.
+  // 최저임금(MINWAGE)·단시간 초과근로(PART-TIME-OT)·단시간 판정이 모두 이 값을 쓴다.
+  const daily = dailyScheduledWeek(workTime);
+  if (daily) {
+    [workTime.weekly_scheduled_hours, workTime.weekly_scheduled_days] = daily;
+  } else if (workTime.weekly_actual_hours != null) {
+    workTime.weekly_scheduled_hours = workTime.weekly_actual_hours;
+    workTime.weekly_scheduled_days = workTime.days_per_week ?? null;
+  }
+
+  const wage = contract.wage ?? {};
+  const base = (wage.items ?? []).find((i) => i.code === 'BASE');
+  if (base && base.amount) {
+    // 산출근거 시간(basis_hours)이 있으면 그 시간으로, 없으면 최저임금 적용기준 월 시간((1주 소정+주휴)×365/7/12,
+    // 40H 는 209H)으로 나눈다. 근로시간을 모르면 209H.
+    const hours =
+      base.basis_hours != null && base.basis_hours > 0
+        ? base.basis_hours
+        : (monthlyStandardHours(contract) ?? MONTHLY_BASE_HOURS);
+    wage.ordinary_hourly_rate = Math.round(base.amount / hours);
+  }
 
   const employee = contract.employee ?? {};
   if (!employee.employment_type) {
-    const hours = workTime.weekly_actual_hours;
+    const hours = workTime.weekly_scheduled_hours ?? workTime.weekly_actual_hours;
     const isFixed = contract.period?.indefinite === false;
     const isPart = hours !== null && hours !== undefined && hours < WEEKLY_STANDARD_HOURS;
     if (isFixed && isPart) employee.employment_type = 'fixed_term_part_time';

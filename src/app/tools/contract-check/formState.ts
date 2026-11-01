@@ -58,6 +58,8 @@ export interface DailyRow {
 export interface FormState {
   // ① 기본
   periodType: '' | 'indefinite' | 'fixed';
+  /** 상시 5인 이상 — 계약서에 없는 사업장 정보라 사진 추출이 채우지 않는다 */
+  fivePlus: '' | 'yes' | 'no';
   startDate: string;
   endDate: string;
   probation: '' | 'yes' | 'no';
@@ -92,6 +94,7 @@ export interface FormState {
 
 export const INITIAL: FormState = {
   periodType: '',
+  fivePlus: '',
   startDate: '',
   endDate: '',
   probation: '',
@@ -171,7 +174,7 @@ export function buildContract(f: FormState): Contract {
 
   return {
     contract_id: 'web-form',
-    workplace: { name: '' },
+    workplace: { name: '', employee_count_5plus: f.fivePlus === '' ? null : f.fivePlus === 'yes' },
     employee: { name: '' },
     period: {
       start_date: f.startDate || null,

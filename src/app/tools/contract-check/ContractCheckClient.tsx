@@ -353,6 +353,20 @@ export default function ContractCheckClient() {
               onChange={(v) => patch({ periodType: v })}
             />
           </Field>
+          <Field
+            label="상시 근로자가 5명 이상인 사업장인가요?"
+            hint="단시간 근로자의 초과근로 한도·가산 규정은 5명 이상 사업장에만 적용됩니다."
+          >
+            <Choice
+              options={[
+                { value: 'yes', label: '5명 이상' },
+                { value: 'no', label: '4명 이하' },
+                { value: '', label: '모름·건너뛰기' },
+              ]}
+              value={form.fivePlus}
+              onChange={(v) => patch({ fivePlus: v })}
+            />
+          </Field>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Field missing={miss('startDate')} label="계약 시작일">
               <TextInput

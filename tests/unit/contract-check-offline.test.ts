@@ -10,6 +10,7 @@ import vm from 'node:vm';
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
+import { goldenRow } from '../fixtures/contract-check/row';
 import expectedSnapshot from '../fixtures/contract-check/synthetic-findings.json';
 import casesJson from '@/lib/contract-check/data/synthetic_edge_cases.json';
 import { checkContract } from '@/lib/contract-check/engine';
@@ -145,7 +146,7 @@ describe('빌드 시점 고정 표시', () => {
     const info = buildInfo(new Date('2026-10-31T16:30:00Z')); // KST 11-01 01:30
     expect(info.date).toBe('2026-11-01');
     expect(info.sha).toMatch(/^([0-9a-f]{7,}|unknown)(\+수정)?$/);
-    expect(info.catalogVersion).toBe('1.1');
+    expect(info.catalogVersion).toBe('1.2');
   });
   it('--out 인자: 없으면 기본 경로, 값이 빠지면 오류', () => {
     expect(parseOut([])).toBe(DEFAULT_OUT);
@@ -178,7 +179,7 @@ describe('오프라인판 — 합성 4건 findings·수정 방향 패리티', ()
   it('번들 결과 == 사람이 확인한 전체 기대값(synthetic-findings.json)', () => {
     const bundled = runBundle(casesJson);
     for (const [i, exp] of expectedSnapshot.entries()) {
-      expect(bundled[i].findings.map((f) => `${f.rule_code} | ${f.status} | ${f.severity} | ${f.detail}`)).toEqual(
+      expect(bundled[i].findings.map(goldenRow)).toEqual(
         exp.findings,
       );
     }
@@ -295,6 +296,22 @@ describe('붙여넣은 JSON 검사', () => {
 
   it('형식 검사 통과값 — null 은 비워 둠, 24:00 허용', () => {
     expect(v({ contract_id: 'x', work_time: { start: '22:00', end: '24:00', night_work: null } }).errors).toEqual([]);
+  });
+
+  it('261101 새 칸 — pay_type·includes_weekly_holiday·WEEKLY_HOLIDAY 는 받고, 형식이 틀리면 거절', () => {
+    const ok = v({
+      contract_id: 'x',
+      wage: {
+        pay_type: 'hourly',
+        items: [
+          { code: 'BASE', amount: 1, includes_weekly_holiday: true },
+          { code: 'WEEKLY_HOLIDAY', amount: 1 },
+        ],
+      },
+    });
+    expect(ok).toEqual({ errors: [], warnings: [] });
+    const bad = v({ contract_id: 'x', wage: { pay_type: 'weekly', items: [{ code: 'BASE', amount: 1, includes_weekly_holiday: 'yes' }] } });
+    expect(bad.errors.length).toBe(2);
   });
 
   it('빈 양식 — 검사 통과, 점검이 돌고 24건이 나온다', () => {

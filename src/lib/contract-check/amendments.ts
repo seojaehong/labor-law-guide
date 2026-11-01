@@ -7,7 +7,7 @@
 
 import { checkContract } from './engine';
 import { fixedTermsMissing, requiredTermsMissing } from './rules/required_terms';
-import { MINWAGE_TABLE, WAGE_MATH_TOLERANCE, minwageHolidayBasis } from './rules/wage';
+import { WAGE_MATH_TOLERANCE, minwageAssessment } from './rules/wage';
 import type { Contract, Finding, FindingSeverity, FindingStatus } from './types';
 
 export const PRIORITY_LABEL: Partial<Record<FindingStatus, string>> = {
@@ -54,7 +54,7 @@ export const AMEND_LIBRARY: Record<string, string> = {
     '연장근로수당 산출근거에 「가산율 1.5 반영 환산시간」임을 명시 — ' +
     '예: 통상시급 × 월간 19H(실연장 12.7H × 가산율 1.5 환산)',
   'OT-COVER': '약정 연장 환산시간을 법정 필요시간(주 연장 × 4.345 × 1.5) 이상으로 증액',
-  MINWAGE: '기본급을 해당연도 최저시급 × 209H 이상으로 인상',
+  MINWAGE: '기본급 등 최저임금 산입 임금을 해당연도 최저시급 × 최저임금 적용기준 월 시간 이상으로 인상',
   'MINWAGE-PROBATION':
     '수습 감액 미적용 사업장은 90% 감액 문구를 삭제하고 「수습기간 해당사항 없음」으로 통일',
   'WH-52CAP':
@@ -197,17 +197,13 @@ export function buildRow(contract: Contract, finding: Finding): AmendmentRow {
   if (code in RULE_TAG) {
     [clause, current] = clauseRowSource(contract, code);
     amendment = AMEND_LIBRARY[code];
-  } else if (code === 'MINWAGE' && minwageHolidayBasis(contract)) {
-    const hb = minwageHolidayBasis(contract)!;
-    const year = contract.period?.start_date?.slice(0, 4) ?? '';
-    const minimum = MINWAGE_TABLE[year];
+  } else if (code === 'MINWAGE') {
     clause = '임금 구성항목표';
-    current = `기본급 ${fmt(hb.amount)}원 (산출근거 월 ${hb.basisHours}H, 주휴시간 미포함)`;
-    amendment =
-      `주휴수당 항목(시급 × 주휴 ${hb.holiday}H × 4.345)을 따로 두거나, 기본급 산출근거를 주휴 포함 월 ${hb.hours}H` +
-      `((소정 ${hb.weekly}H+주휴 ${hb.holiday}H)×4.345)로 고쳐 ` +
-      (minimum ? `${year}년 최저시급 × ${hb.hours}H = ${fmt(Math.ceil(minimum * hb.hours))}원 이상으로 인상` : '최저시급 이상으로 인상') +
-      ' (최저임금법 시행령 §5①3호)';
+    current = (contract.wage?.items ?? [])
+      .filter((i) => i.code === 'BASE')
+      .map((i) => `${i.basis_text ?? i.label ?? '기본급'} = ${fmt(i.amount)}원`)
+      .join(' / ') || '—';
+    amendment = minwageAssessment(contract).amendment || AMEND_LIBRARY[code];
   } else if (code === 'WAGE-MATH') {
     clause = '임금 구성항목표';
     [current, amendment] = wageMathAmendment(contract);

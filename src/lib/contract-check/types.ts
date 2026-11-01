@@ -81,12 +81,17 @@ export interface WorkTime {
   break_total_minutes?: number | null;
   weekly_actual_hours?: number | null;
   weekly_overtime_hours?: number | null;
+  /** 파생(normalize) — 휴게를 뺀 1주 소정근로시간. 요일별 근무표가 있으면 그 합, 없으면 weekly_actual_hours */
+  weekly_scheduled_hours?: number | null;
+  /** 파생(normalize) — 1주 소정근로일 수. 요일별 근무표가 있으면 그 수, 없으면 days_per_week */
+  weekly_scheduled_days?: number | null;
   night_work?: boolean | null;
   flexible_clause?: string | null;
 }
 
 export type WageItemCode =
   | 'BASE'
+  | 'WEEKLY_HOLIDAY'
   | 'OT_WEEKDAY'
   | 'OT_WEEKEND'
   | 'ANNUAL_LEAVE'
@@ -103,12 +108,16 @@ export interface WageItem {
   basis_hours?: number | null;
   rate_multiplier?: number | null;
   basis_text?: string | null;
+  /** BASE 전용 — 시급에 주휴수당이 포함돼 있다고 계약서에 표시됨(true)·미포함(false)·표시 없음(null) */
+  includes_weekly_holiday?: boolean | null;
 }
 
 export interface Wage {
   monthly_total?: number | null;
   ordinary_hourly_rate?: number | null;
   inclusive_wage?: boolean | null;
+  /** 임금 형태 — hourly(시급 × 시간)·monthly(월 고정급). 비우면 BASE 산출근거로 추론한다(rules/wage.ts payBasis) */
+  pay_type?: 'hourly' | 'monthly' | null;
   items?: WageItem[];
   pay_period?: string | null;
   payday?: string | null;

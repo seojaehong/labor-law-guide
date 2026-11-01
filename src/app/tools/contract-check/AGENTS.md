@@ -10,7 +10,8 @@
   이름 금지어는 `contract-check-present.test.ts` 가 본다(261031 「수습 감액 적법성」 → 「수습 감액 기준 확인」).
 
 ## 함정
-- ★ **buildContract의 역함수는 대칭이 아니다.** 금액은 top-level이 아니라 `wage.items[].code`(BASE·OT_WEEKDAY·HOLIDAY_EXTRA·ANNUAL_LEAVE)로 오가고, 폼에 칸이 없는 코드(MEAL·BONUS·NIGHT·OT_WEEKEND·OTHER)는 버려진다. `breaks[]`는 폼에서 합계 한 칸. 필드를 늘리면 `extractMap.ts`도 같이 고쳐야 조용히 값이 사라지지 않는다.
+- ★ **buildContract의 역함수는 대칭이 아니다.** 금액은 top-level이 아니라 `wage.items[].code`(BASE·OT_WEEKDAY·HOLIDAY_EXTRA·ANNUAL_LEAVE)로 오가고, 폼에 칸이 없는 코드(WEEKLY_HOLIDAY·MEAL·BONUS·NIGHT·OT_WEEKEND·OTHER)는 버려진다. 폼 BASE 에는 basis_hours 가 없어 최저임금은 항상 월급제(산입 임금 ÷ 최저임금 적용기준 월 시간)로 판정된다(rules/wage.ts payBasis).
+- 「상시 5인 이상」(fivePlus → workplace.employee_count_5plus)은 계약서에 없는 사업장 정보라 사진 추출이 채우지 않는다. 비우면 단시간 초과근로 결과에 「5인 이상 사업장 전제」가 붙는다. `breaks[]`는 폼에서 합계 한 칸. 필드를 늘리면 `extractMap.ts`도 같이 고쳐야 조용히 값이 사라지지 않는다.
 - ★ **`<input type="date|time">`은 `YYYY-MM-DD`·`HH:MM`이 아니면 소리 없이 빈칸이 된다.** 추출 API는 형식을 보장하지 않으므로 `normalizeDate`/`normalizeTime`을 반드시 통과시키고, 실패한 값은 "채워짐"으로 세지 말 것(하이라이트 대상이어야 한다).
 - ★ **Vercel 서버리스는 요청 본문 ~4.5MB를 핸들러 진입 전에 잘라낸다** — 서버의 5MB/장 상한보다 낮다. `PhotoUploadCard`가 canvas로 합계 3.5MB 아래로 줄여 보내고, `resp.json()` 실패(비 JSON 응답)를 catch 해 한국어 안내로 폴백한다. 업로드 경로를 만질 때 이 두 방어를 없애지 말 것.
 - 수습은 `applied===true`일 때만 months/wage_rate_pct를 채운다 — 아니면 MINWAGE-PROBATION 오탐.

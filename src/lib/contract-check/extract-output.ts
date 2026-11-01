@@ -6,6 +6,7 @@ export const RISK_TAGS = ['금품청산', '조건부지급', '즉시해고', '�
 
 const WAGE_ITEM_CODES: WageItemCode[] = [
   'BASE',
+  'WEEKLY_HOLIDAY',
   'OT_WEEKDAY',
   'OT_WEEKEND',
   'ANNUAL_LEAVE',
@@ -124,6 +125,8 @@ export function sanitizeExtracted(raw: unknown): { contract: ExtractedContract; 
       amount: numOrNull(v.amount) ?? 0,
       basis_hours: numOrNull(v.basis_hours),
       basis_text: str(v.basis_text, 120),
+      // 주휴 포함 표시는 불리언일 때만 싣는다(없으면 칸 자체를 두지 않아 종전 출력과 같다)
+      ...(typeof v.includes_weekly_holiday === 'boolean' ? { includes_weekly_holiday: v.includes_weekly_holiday } : {}),
     }))
     .filter((v) => v.amount > 0);
 

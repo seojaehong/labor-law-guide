@@ -15,6 +15,7 @@ interface Shape {
 const EMPLOYMENT_TYPES = ['regular', 'fixed_term', 'part_time', 'fixed_term_part_time'] as const;
 const WAGE_CODES = [
   'BASE',
+  'WEEKLY_HOLIDAY',
   'OT_WEEKDAY',
   'OT_WEEKEND',
   'ANNUAL_LEAVE',
@@ -72,6 +73,8 @@ const WORK_TIME: Shape = {
   break_total_minutes: 'number',
   weekly_actual_hours: 'number',
   weekly_overtime_hours: 'number',
+  weekly_scheduled_hours: 'number',
+  weekly_scheduled_days: 'number',
   night_work: 'boolean',
   flexible_clause: 'string',
 };
@@ -82,11 +85,13 @@ const WAGE_ITEM: Shape = {
   basis_hours: 'number',
   rate_multiplier: 'number',
   basis_text: 'string',
+  includes_weekly_holiday: 'boolean',
 };
 const WAGE_FIELDS: Shape = {
   monthly_total: 'number',
   ordinary_hourly_rate: 'number',
   inclusive_wage: 'boolean',
+  pay_type: { oneOf: ['hourly', 'monthly'] },
   items: { arr: { obj: WAGE_ITEM } },
   pay_period: 'string',
   payday: 'string',
@@ -300,9 +305,20 @@ export function blankTemplate(): Record<string, unknown> {
     wage: {
       monthly_total: null,
       inclusive_wage: null,
+      pay_type: null,
       payment_method: null,
       payday: null,
-      items: [{ code: 'BASE', label: '기본급', amount: null, basis_hours: null, rate_multiplier: null, basis_text: null }],
+      items: [
+        {
+          code: 'BASE',
+          label: '기본급',
+          amount: null,
+          basis_hours: null,
+          rate_multiplier: null,
+          basis_text: null,
+          includes_weekly_holiday: null,
+        },
+      ],
     },
     holidays_leave: {
       weekly_rest: null,

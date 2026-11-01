@@ -2,7 +2,7 @@
 //
 // buildContract()의 역방향이지만 대칭이 아니다:
 //  - 금액 필드는 top-level이 아니라 wage.items[].code 로 들어온다(BASE/OT_WEEKDAY/HOLIDAY_EXTRA/ANNUAL_LEAVE).
-//    폼에 칸이 없는 코드(OT_WEEKEND·NIGHT·MEAL·BONUS·OTHER)는 버리고 warnings로 알린다.
+//    폼에 칸이 없는 코드(WEEKLY_HOLIDAY·OT_WEEKEND·NIGHT·MEAL·BONUS·OTHER)는 버리고 warnings로 알린다.
 //  - breaks[]는 합계 분으로 접는다(폼은 하루 합계 한 칸).
 //  - 날짜/시각은 <input type="date|time">이 요구하는 YYYY-MM-DD·HH:MM 로 정규화한다.
 //    정규화에 실패한 값은 "채워지지 않음"으로 처리한다 — 조용히 빈 칸이 되는 것을 막는다.

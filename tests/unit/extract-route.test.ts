@@ -238,6 +238,21 @@ describe('sanitizeExtracted', () => {
     expect(result.notes).toEqual([]);
   });
 
+  it('주휴수당 코드(WEEKLY_HOLIDAY)와 주휴 포함 표시(불리언만)를 살린다', () => {
+    const r = sanitizeExtracted({
+      wage: {
+        items: [
+          { code: 'BASE', amount: 2000000, includes_weekly_holiday: true },
+          { code: 'WEEKLY_HOLIDAY', label: '주휴수당', amount: 300000, includes_weekly_holiday: '예' },
+        ],
+      },
+    })!;
+    expect(r.contract.wage.items!.map((i) => [i.code, i.includes_weekly_holiday])).toEqual([
+      ['BASE', true],
+      ['WEEKLY_HOLIDAY', undefined],
+    ]);
+  });
+
   it('객체가 아니면 null', () => {
     expect(sanitizeExtracted('문자열')).toBeNull();
     expect(sanitizeExtracted([1, 2])).toBeNull();

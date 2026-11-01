@@ -57,10 +57,12 @@ describe('applyExtracted', () => {
             { code: 'HOLIDAY_EXTRA', amount: 100000 },
             { code: 'ANNUAL_LEAVE', amount: 50000 },
             { code: 'MEAL', label: '식대', amount: 100000 },
+            { code: 'WEEKLY_HOLIDAY', label: '주휴수당', amount: 80000 },
           ],
         },
       },
     });
+    expect(r.warnings.join()).toContain('주휴수당');
     expect(r.form.baseWage).toBe('2000000');
     expect(r.form.otAmount).toBe('300000');
     expect(r.form.otHours).toBe('20');
