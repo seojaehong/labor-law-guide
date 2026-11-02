@@ -78,6 +78,9 @@ export interface WorkTime {
   variants?: WorkTimeVariant[] | null;
   breaks?: WorkBreak[] | null;
   daily_schedules?: DailySchedule[] | null;
+  /** 사이트 폼(buildContract)이 요일·시업·종업을 덜 채워 버린 근로일별 행 수 — 이것이 있을 때만 행 수 불일치를
+   * §17 누락이 아니라 「근로일별 시간 일부 미입력」으로 본다(JSON·사진 경로에는 없다) */
+  daily_schedules_dropped?: number | null;
   break_total_minutes?: number | null;
   weekly_actual_hours?: number | null;
   weekly_overtime_hours?: number | null;

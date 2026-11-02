@@ -154,8 +154,8 @@ describe('2 폼·사진 경로가 A·B 에 닿는다(승인안)', () => {
         },
       },
     });
-    // 261102 작은 것①: 포함 칸은 시급제일 때만 — 형태 미상이면 채우지 않는다
-    expect([r.form.payType, r.form.baseWage, r.form.weeklyHolidayIncluded]).toEqual(['', '12384', '']);
+    // 261102 K2: 구조화 포함 값은 형태와 관계없이 옮긴다(칸은 시급제에서만 보이지만 버리지 않는다)
+    expect([r.form.payType, r.form.baseWage, r.form.weeklyHolidayIncluded]).toEqual(['', '12384', 'yes']);
     expect(r.form.weeklyHolidayPay).toBe('80000');
     expect(r.warnings.join()).not.toContain('주휴수당');
   });

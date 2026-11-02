@@ -10,11 +10,12 @@
 //   ①근로계약기간 ②근로시간·휴게 ③임금 구성·계산·지불 ④휴일·휴가
 //   ⑤취업장소·업무 ⑥(단시간 한정) 근로일 및 근로일별 근로시간(daily_schedules — 행이 없거나 결손이면 누락).
 //   regular → ok(비적용 명시), 누락 → violation.
-//   행 수가 주 근무일수와 다르면(폼에서 덜 채운 행을 버린 경우 등) §17 누락으로 보지 않고 「근로일별 시간 일부 미입력」 —
-//   그것만이면 needs_data, 다른 누락이 있으면 violation 에 덧붙인다. PART-TIME-OT 와 같은 문구 DAILY_MISMATCH_NOTE 를 쓴다.
+//   행 수가 주 근무일수와 다르면 §17 누락(detail 에 DAILY_MISMATCH_NOTE — PART-TIME-OT 와 같은 문구). 단 사이트 폼이 덜 채운
+//   행을 버린 표시(work_time.daily_schedules_dropped)가 있을 때만 「근로일별 시간 일부 미입력」 — 그것만이면 needs_data,
+//   다른 누락이 있으면 violation 에 덧붙인다(261102 K5 — JSON·사진 경로는 §17 위반 그대로).
 
 import { DAILY_MISMATCH_NOTE, FIXED_TERM_TYPES, PART_TIME_TYPES, dailyScheduleState } from '../normalize';
-import type { Contract, Finding, Wage } from '../types';
+import type { Contract, Finding, Wage, WorkTime } from '../types';
 import { makeFinding, type RuleFn } from './index';
 
 const DAILY_TERMS = '근로일 및 근로일별 근로시간';
@@ -87,11 +88,15 @@ export function fixedTermsMissing(contract: Contract): string[] {
   }
   if (!(holidays.weekly_rest && holidays.annual_leave_clause)) missing.push('휴일·휴가');
   if (!(job.location && job.duty)) missing.push('취업장소·종사업무');
-  const daily = dailyScheduleState(workTime);
-  if (PART_TIME_TYPES.has(empType) && (daily === 'none' || daily === 'invalid')) {
+  if (PART_TIME_TYPES.has(empType) && dailyScheduleState(workTime) !== 'ok' && !formDroppedRows(workTime)) {
     missing.push(DAILY_TERMS);
   }
   return missing;
+}
+
+/** 사이트 폼이 덜 채운 근로일별 행을 버려 행 수가 주 근무일수와 달라진 경우 */
+function formDroppedRows(workTime: WorkTime): boolean {
+  return dailyScheduleState(workTime) === 'mismatch' && (workTime.daily_schedules_dropped ?? 0) > 0;
 }
 
 export const ruleRequiredTermsFixed: RuleFn = (contract) => {
@@ -105,13 +110,15 @@ export const ruleRequiredTermsFixed: RuleFn = (contract) => {
   }
 
   const missing = fixedTermsMissing(contract);
-  const partial = PART_TIME_TYPES.has(empType) && dailyScheduleState(contract.work_time ?? {}) === 'mismatch';
+  const workTime = contract.work_time ?? {};
+  const partial = PART_TIME_TYPES.has(empType) && formDroppedRows(workTime);
   if (missing.length > 0) {
+    const mismatch = dailyScheduleState(workTime) === 'mismatch' ? `(${DAILY_MISMATCH_NOTE})` : '';
     return makeFinding(
       'REQUIRED-TERMS-FIXED',
       'violation',
       '기간제법 §17 서면명시 누락: ' +
-        missing.map((m) => `${m} 미명시`).join(' · ') +
+        missing.map((m) => (m === DAILY_TERMS ? `${m} 미명시${mismatch}` : `${m} 미명시`)).join(' · ') +
         (partial ? ` / ${DAILY_PARTIAL} — 확인 필요` : ''),
     );
   }

@@ -112,7 +112,8 @@ describe('C1 법리 B 는 구조화 칸(includes_weekly_holiday)이 true 일 때
     expect(f.status).toBe('risk');
     expect(f.detail).not.toContain('포함 여부 확인 필요');
   });
-  it('사진 경로 — extractMap 이 문구로 포함 칸을 채운다', () => {
+  // 261102 K2·F1 로 뒤집음 — 사진 경로도 문구로 포함 칸을 채우지 않는다(구조화 값만)
+  it('사진 경로 — extractMap 은 문구로 포함 칸을 채우지 않는다', () => {
     const photo = (basis_text: string) =>
       applyExtracted({
         contract: {
@@ -120,8 +121,8 @@ describe('C1 법리 B 는 구조화 칸(includes_weekly_holiday)이 true 일 때
           wage: { pay_type: 'hourly', items: [{ code: 'BASE', amount: 957000, basis_hours: 87, basis_text }] },
         },
       }).form.weeklyHolidayIncluded;
-    expect(photo('시급 11,000(주휴수당 포함)')).toBe('yes');
-    expect(photo('시급 11,000(주휴수당 포함 안함)')).toBe('no');
+    expect(photo('시급 11,000(주휴수당 포함)')).toBe('');
+    expect(photo('시급 11,000(주휴수당 포함 안함)')).toBe('');
     expect(photo('시급 11,000')).toBe('');
   });
 });
@@ -215,32 +216,34 @@ describe('C3 명시적 시급제는 209±1 창이 월급제로 바꾸지 않는�
   });
 });
 
-describe('W1 포괄 총액 ≤ 산입 제외 합계일 때만 자료 필요 — 식대·상여는 3단계', () => {
+// 261102 K4·F5 로 뒤집음 — 식대·상여 합이 (총액 − 산입 제외 합) 이상이면 남는 기본 임금이 없어 자료 필요(「시간당 0」 없음).
+// 아래 넷은 3차(W1·fable)에서 위반·「자료 필요 아님」이었다. 3단계 그대로인 쪽은 review6 K4 반대편.
+describe('W1 포괄 총액 ≤ 산입 제외 합계, 또는 식대·상여가 남은 금액 이상이면 자료 필요', () => {
   const incl = (items: WageItem[], monthly_total: number) => {
     const c = contract(5, '09:00', '19:00', items, { inclusive_wage: true, monthly_total });
     c.work_time.breaks = [{ from: '12:00', to: '13:00', minutes: 60 }];
     return run(c).get('MINWAGE');
   };
-  it('포괄 1,500,000 + 식대 1,600,000 → 위반', () => {
-    expect(incl([{ code: 'MEAL', label: '식대', amount: 1600000 }], 1500000).status).toBe('violation');
+  it('포괄 1,500,000 + 식대 1,600,000 → 자료 필요', () => {
+    expect(incl([{ code: 'MEAL', label: '식대', amount: 1600000 }], 1500000).status).toBe('needs_data');
   });
-  it('상여 3,000,000 = 총액 3,000,000 → 자료 필요가 아니다', () => {
-    expect(incl([{ code: 'BONUS', label: '상여', amount: 3000000 }], 3000000).status).not.toBe('needs_data');
+  it('상여 3,000,000 = 총액 3,000,000 → 자료 필요', () => {
+    expect(incl([{ code: 'BONUS', label: '상여', amount: 3000000 }], 3000000).status).toBe('needs_data');
   });
-  it('fable 재현 — 포괄 45H [연차 200,000·식대 300,000·상여 1,500,000] 총액 2,000,000 → 위반', () => {
+  it('fable 재현 — 포괄 45H [연차 200,000·식대 300,000·상여 1,500,000] 총액 2,000,000 → 자료 필요(남는 기본 임금 0)', () => {
     const items: WageItem[] = [
       { code: 'ANNUAL_LEAVE', label: '연차수당', amount: 200000 },
       { code: 'MEAL', label: '식대', amount: 300000 },
       { code: 'BONUS', label: '상여', amount: 1500000 },
     ];
-    expect(incl(items, 2000000).status).toBe('violation');
+    expect(incl(items, 2000000).status).toBe('needs_data');
   });
-  it('fable 재현 — 포괄 45H [연차 100,000·상여 2,000,000] 총액 2,100,000 → 위반', () => {
+  it('fable 재현 — 포괄 45H [연차 100,000·상여 2,000,000] 총액 2,100,000 → 자료 필요(남는 기본 임금 0)', () => {
     const items: WageItem[] = [
       { code: 'ANNUAL_LEAVE', label: '연차수당', amount: 100000 },
       { code: 'BONUS', label: '상여', amount: 2000000 },
     ];
-    expect(incl(items, 2100000).status).toBe('violation');
+    expect(incl(items, 2100000).status).toBe('needs_data');
   });
   it('반대편 — 총액 = 연차수당(산입 제외) → 자료 필요', () => {
     expect(incl([{ code: 'ANNUAL_LEAVE', label: '연차수당', amount: 300000 }], 300000).status).toBe('needs_data');
@@ -287,7 +290,7 @@ describe('W3 명시적 시급제·산출시간 없음 — 띠 아래도 시급, 
     expect(f.status).toBe('violation');
     expect(f.detail).toContain('5,159');
   });
-  it('pay_type hourly + 기본급 4,000(띠 하한 0.4배 아래) → 4,000 위반', () => {
+  it('pay_type hourly + 기본급 4,000(띠 하한 0.5배 아래) → 4,000 위반', () => {
     const f = run(contract(5, '09:00', '13:00', [base(4000)], { pay_type: 'hourly' })).get('MINWAGE');
     expect(f.status).toBe('violation');
     expect(f.detail).toContain('4,000');
@@ -310,18 +313,19 @@ describe('W3 명시적 시급제·산출시간 없음 — 띠 아래도 시급, 
 });
 
 describe('작은 것', () => {
-  it('① 시급제가 아니면 폼의 주휴 포함 선택을 싣지 않는다', () => {
+  // 261102 K2 로 뒤집음 — 칸은 시급제에서만 보이지만(화면 조건 그대로) 값은 급여 형태와 관계없이 싣는다(숨김 ≠ 버림)
+  it('① 주휴 포함 선택은 급여 형태와 관계없이 싣는다', () => {
     const items = (payType: FormState['payType']) =>
       buildContract(form({ payType, baseWage: '12384', hourlyWage: '12384', weeklyHolidayIncluded: 'yes' })).wage.items!;
-    expect(items('').find((i) => i.code === 'BASE')!.includes_weekly_holiday).toBeUndefined();
+    expect(items('').find((i) => i.code === 'BASE')!.includes_weekly_holiday).toBe(true);
     expect(items('hourly').find((i) => i.code === 'BASE')!.includes_weekly_holiday).toBe(true);
   });
-  it('① 사진 — pay_type 이 시급제일 때만 포함 칸을 채운다', () => {
+  it('① 사진 — 구조화 포함 값은 pay_type 과 관계없이 채운다', () => {
     const photo = (pay_type: string | null) =>
       applyExtracted({
         contract: { wage: { pay_type, items: [{ code: 'BASE', amount: 12384, includes_weekly_holiday: true }] } },
       }).form.weeklyHolidayIncluded;
-    expect([photo(null), photo('hourly')]).toEqual(['', 'yes']);
+    expect([photo(null), photo('hourly')]).toEqual(['yes', 'yes']);
   });
   /** 단시간 폼 — 주 5일, §17 다른 항목은 모두 기재 */
   const partTime = (rows: FormState['daily']) =>
@@ -346,7 +350,7 @@ describe('작은 것', () => {
     expect(run(buildContract(partTime(['월', '화', '수', '목', '금'].map((d) => row(d))))).get('REQUIRED-TERMS-FIXED').status).toBe('ok');
   });
   it('② 다른 §17 항목도 빠졌으면 위반 — 그 항목을 적고 일부 미입력도 함께 알린다', () => {
-    const f = run(buildContract({ ...partTime([row('월'), row('화')]), jobWritten: false })).get('REQUIRED-TERMS-FIXED');
+    const f = run(buildContract({ ...partTime([row('월'), row('화'), row('수', '', '')]), jobWritten: false })).get('REQUIRED-TERMS-FIXED');
     expect(f.status).toBe('violation');
     expect(f.detail).toContain('취업장소·종사업무 미명시');
     expect(f.detail).toContain('근로일별 시간 일부 미입력');

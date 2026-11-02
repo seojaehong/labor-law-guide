@@ -73,7 +73,8 @@ export interface FormState {
   hourlyWage: string;
   /** 기본급 산출근거 월 시간(선택) → BASE.basis_hours. 시급제는 시급 × 이 시간이 기본급 */
   basisHours: string;
-  /** 시급에 주휴수당이 포함돼 있다고 적혀 있나 — 시급제에서만 보이고 BASE.includes_weekly_holiday 로 싣는다 */
+  /** 시급에 주휴수당이 포함돼 있다고 적혀 있나 — 칸은 시급제에서만 보이고, 값이 있으면 급여 형태와 관계없이
+   * BASE.includes_weekly_holiday 로 싣는다(사진이 읽은 값을 버리지 않는다) */
   weeklyHolidayIncluded: '' | 'yes' | 'no';
   // ② 근로시간
   daysPerWeek: string;
@@ -162,6 +163,9 @@ export function buildContract(f: FormState): Contract {
   // 산출근거 시간은 적었을 때만 싣는다 — 비우면 키도 두지 않아 엔진이 형태를 추론한다(rules/wage.ts payBasis)
   const hours = num(f.basisHours);
   const basis = hours != null && hours > 0 ? { basis_hours: hours } : {};
+  // 주휴 포함 선택은 시급제에서만 보이지만 사진이 읽은 값은 급여 형태와 관계없이 싣는다(숨김 ≠ 버림, 261102 K2) —
+  // 법리 B 는 이 구조화 칸으로만 탄다
+  const included = f.weeklyHolidayIncluded ? { includes_weekly_holiday: f.weeklyHolidayIncluded === 'yes' } : {};
   if (f.payType === 'hourly') {
     const hourly = num(f.hourlyWage);
     if (hourly != null) {
@@ -171,14 +175,13 @@ export function buildContract(f: FormState): Contract {
         amount: hours != null && hours > 0 ? Math.round(hourly * hours) : hourly,
         ...basis,
         basis_text: basisText,
-        // 주휴 포함 선택은 시급제에서만 보이고 싣는다 — 법리 B 는 이 구조화 칸으로만 탄다
-        ...(f.weeklyHolidayIncluded ? { includes_weekly_holiday: f.weeklyHolidayIncluded === 'yes' } : {}),
+        ...included,
       });
     }
   } else {
     const base = num(f.baseWage);
     if (base != null) {
-      items.push({ code: 'BASE', label: '기본급', amount: base, ...basis, basis_text: basisText });
+      items.push({ code: 'BASE', label: '기본급', amount: base, ...basis, basis_text: basisText, ...included });
     }
   }
   const weeklyHolidayPay = num(f.weeklyHolidayPay);
@@ -212,6 +215,8 @@ export function buildContract(f: FormState): Contract {
   const daily: DailySchedule[] = f.hasDaily
     ? f.daily.filter((d) => d.day && d.start && d.end).map((d) => ({ day: d.day, start: d.start, end: d.end }))
     : [];
+  // 덜 채워 버린 행 수 — 행 수 불일치를 「일부 미입력」으로 볼 근거(261102 K5)
+  const dropped = f.hasDaily ? f.daily.length - daily.length : 0;
 
   const breakMin = num(f.breakMinutes);
   const riskClauses: RiskClause[] = CLAUSE_ITEMS.filter((c) => f.clauses[c.tag]).map((c) => ({
@@ -247,6 +252,7 @@ export function buildContract(f: FormState): Contract {
       variants: variants.length > 0 ? variants : null,
       breaks: breakMin != null ? [{ minutes: breakMin }] : null,
       daily_schedules: daily.length > 0 ? daily : null,
+      ...(dropped > 0 ? { daily_schedules_dropped: dropped } : {}),
       night_work: f.nightWork === '' ? null : f.nightWork === 'yes',
     },
     wage: {

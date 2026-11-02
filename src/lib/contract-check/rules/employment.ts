@@ -9,6 +9,8 @@
 //   다르면 그 사실(DAILY_MISMATCH_NOTE)을, 행이 없거나 결손이면 「근로일별 시간 미명시」를 적는다.
 //   초과 = normalize.partTimeExcessHours(포괄 총액 역산 D 와 같은 함수) > 12H → violation(§6①),
 //   12H 이내 초과는 partTimePremium(금액 기준, 261101 법리 E)으로 ok·risk·needs_data(§6③ 50% 가산).
+//   근로일별 행 합이 출근·퇴근 칸 합보다 길면(normalize.dailyHoursConflict) 단시간 여부도 소정·실근로도 정하지 않고 두 시간을
+//   적어 needs_data(261102 K3) — 상시 4인 이하면 그래도 비적용.
 
 import {
   DAILY_MISMATCH_NOTE,
@@ -17,6 +19,7 @@ import {
   PART_TIME_TYPES,
   WAGE_MATH_TOLERANCE,
   WEEKS_PER_MONTH,
+  dailyHoursConflict,
   dailyScheduleState,
   partTimeExcessHours,
 } from '../normalize';
@@ -106,7 +109,9 @@ export function partTimePremium(contract: Contract, excess: number): Premium {
 
 export const rulePartTimeOt: RuleFn = (contract) => {
   const empType = contract.employee?.employment_type ?? '';
-  if (!PART_TIME_TYPES.has(empType)) {
+  // 행이 칸보다 길면 행으로 정한 고용형태(통상)도 믿을 수 없다 — 「단시간 아님」으로 넘기지 않는다
+  const conflict = dailyHoursConflict(contract);
+  if (!PART_TIME_TYPES.has(empType) && !conflict) {
     return makeFinding('PART-TIME-OT', 'ok', '단시간 아님 — 비적용');
   }
   const fivePlus = contract.workplace?.employee_count_5plus;
@@ -118,6 +123,9 @@ export const rulePartTimeOt: RuleFn = (contract) => {
     );
   }
   const premise = fivePlus == null ? ' (상시 5인 이상 사업장 전제)' : '';
+  if (conflict) {
+    return makeFinding('PART-TIME-OT', 'needs_data', `${conflict} — 소정·실근로시간 확인 필요${premise}`);
+  }
   const actual = contract.work_time?.weekly_actual_hours;
   if (actual == null) {
     return makeFinding('PART-TIME-OT', 'needs_data', `주간 실근로시간 산정 불가${premise}`);

@@ -3,8 +3,8 @@
 // buildContract()의 역방향이지만 대칭이 아니다:
 //  - 금액 필드는 top-level이 아니라 wage.items[].code 로 들어온다(BASE/WEEKLY_HOLIDAY/OT_WEEKDAY/HOLIDAY_EXTRA/ANNUAL_LEAVE).
 //    BASE 는 wage.pay_type 에 따라 시급제(시급은 엔진과 같은 normalize.wageBasis)·기본급으로 가르고, basis_hours 도 폼
-//    칸으로 옮긴다. 주휴 포함 표시는 시급제일 때만 칸으로 옮기며, 구조화 값이 없으면 산출근거 문구로 채운다
-//    (주휴 포함 표시만으로 시급제로 보지 않는다).
+//    칸으로 옮긴다. 주휴 포함 표시는 추출 JSON 의 구조화 값(includes_weekly_holiday)만 급여 형태와 관계없이 옮긴다 —
+//    산출근거 문구로 채우지 않는다(261102 K2·F1, JSON 경로와 같은 결과). 주휴 포함 표시만으로 시급제로 보지 않는다.
 //    폼에 칸이 없는 코드(OT_WEEKEND·NIGHT·MEAL·BONUS·OTHER)는 버리고 warnings로 알린다.
 //  - breaks[]는 합계 분으로 접는다(폼은 하루 합계 한 칸).
 //  - 날짜/시각은 <input type="date|time">이 요구하는 YYYY-MM-DD·HH:MM 로 정규화한다.
@@ -13,7 +13,6 @@
 // null = 판독 불가/미확인 → 비워 두고 하이라이트(filled에 넣지 않는다).
 
 import { wageBasis } from '@/lib/contract-check/normalize';
-import { includesWeeklyHoliday } from '@/lib/contract-check/rules/wage';
 import type { Contract } from '@/lib/contract-check/types';
 import { CLAUSE_ITEMS, INITIAL, type FormState } from './formState';
 
@@ -209,25 +208,20 @@ export function applyExtracted(payload: unknown): ExtractResult {
       // 시급제·월급제를 가른다(normalize.wageBasis).
       const hours = Number(numText(item.basis_hours) || 0);
       if (payType === 'hourly') {
-        // 시급은 엔진과 같은 함수로 읽는다 — 「금액 ÷ 산출시간」이 시급 띠 안이면 그 몫, 아니고 금액이 띠 안이면 금액
+        // 시급은 엔진과 같은 함수로 읽는다 — 산출시간이 있으면 「금액 ÷ 산출시간」(월 규모 산출시간에서 몫이 띠 밖이면 금액)
         const wb = wageBasis({
           period: { start_date: startDate || null },
           wage: { pay_type: 'hourly', items: [{ code: 'BASE', amount: Number(amount), basis_hours: hours || null }] },
         } as unknown as Contract);
         mark('hourlyWage', wb?.rate != null ? String(Math.round(wb.rate * 100) / 100) : amount);
-        // 주휴 포함 칸은 시급제에서만 보인다. 구조화 값이 없으면 산출근거 문구로 채운다(법리 B 는 이 칸으로만 탄다)
-        const included = includesWeeklyHoliday({
-          code: 'BASE',
-          amount: Number(amount),
-          label: text(item.label),
-          basis_text: text(item.basis_text),
-          ...(typeof item.includes_weekly_holiday === 'boolean' ? { includes_weekly_holiday: item.includes_weekly_holiday } : {}),
-        });
-        if (included !== null) mark('weeklyHolidayIncluded', included ? 'yes' : 'no');
       } else {
         mark('baseWage', amount);
       }
       if (hours > 0) mark('basisHours', String(hours));
+      // 주휴 포함 칸 — 구조화 값만 옮긴다(급여 형태와 관계없이, 문구로 채우지 않는다). 법리 B 는 이 칸으로만 탄다
+      if (typeof item.includes_weekly_holiday === 'boolean') {
+        mark('weeklyHolidayIncluded', item.includes_weekly_holiday ? 'yes' : 'no');
+      }
       continue;
     }
     const key = WAGE_FIELD[text(item.code)];

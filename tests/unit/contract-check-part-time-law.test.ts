@@ -100,12 +100,14 @@ describe('B 주휴 포함 시급 — 최저시급 × (소정+주휴)/소정', ()
   it('주 40H·5일: 12,384 적정', () => {
     expect(run(incl(12384)).get('MINWAGE').status).toBe('ok');
   });
-  // 261102 C1: 문구는 판정을 바꾸지 않는다 — 구조화 칸이 비면 B 위반 대신 「주휴수당 포함 여부 확인 필요」
-  it('「주휴수당 포함」 문구만 있으면 B 가 아니라 확인 필요 리스크', () => {
+  // 261102 C1: 문구는 판정을 바꾸지 않는다 — 구조화 칸이 비면 B 위반이 아니다.
+  // 261102 F6 로 기대값을 바꿈: pay_type 없음 + 산출시간 174H(주휴를 뺀 월 소정)는 시급제·월급제가 갈리지 않아 자료 필요
+  // (이전 기대값 risk「주휴수당 포함 여부 확인 필요」 — 그 분기는 review5 C1·review6 F1 이 본다)
+  it('「주휴수당 포함」 문구만 있으면 B 가 아니다 — 174H 는 시급제·월급제 확인 필요', () => {
     const c = contract(5, '09:00', '17:00', [base(10320 * 174, 174, { basis_text: '시급 10,320(주휴수당 포함)×174H' })]);
     const f = run(c).get('MINWAGE');
-    expect(f.status).toBe('risk');
-    expect(f.detail).toContain('주휴수당 포함 여부 확인 필요');
+    expect(f.status).toBe('needs_data');
+    expect(f.detail).toContain('시급제·월급제 확인 필요');
   });
   it('주 6일 40H 정규직 — 주휴 = 40÷6 ≒ 6.67H, 12,100 적정(÷5 로 보면 위반이 되는 값)', () => {
     const f = run(incl(12100, 6, '09:00', '15:40')).get('MINWAGE');
