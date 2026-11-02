@@ -22,7 +22,7 @@ import {
 } from '@/lib/contract-check/present';
 import type { Finding, FindingStatus } from '@/lib/contract-check/types';
 import PhotoUploadCard from './PhotoUploadCard';
-import { applyExtracted } from './extractMap';
+import { applyExtracted, keepFormOnlyFields } from './extractMap';
 import { CLAUSE_ITEMS, INITIAL, buildContract, type FormState } from './formState';
 
 // 상태 이름·정렬·규칙 이름·수정 방향·면책 문구는 present.ts(오프라인판과 공용). 색만 여기 둔다.
@@ -273,7 +273,8 @@ export default function ContractCheckClient() {
 
   const onExtracted = (payload: unknown) => {
     const result = applyExtracted(payload);
-    setForm(result.form);
+    // 계약서에 없는 사업장 정보(상시 5인 이상)는 사진이 채우지 않으므로 이미 고른 값을 지킨다
+    setForm((prev) => keepFormOnlyFields(prev, result.form));
     setExtracted({ filled: result.filled, notes: result.notes, warnings: result.warnings });
     setStep(1);
   };
@@ -422,6 +423,21 @@ export default function ContractCheckClient() {
               </Field>
             </div>
           )}
+          <Field
+            missing={miss('payType')}
+            label="급여 형태"
+            hint="시급 × 근로시간으로 정하는지, 월 고정급인지에 따라 최저임금 확인 방법이 다릅니다."
+          >
+            <Choice
+              options={[
+                { value: 'hourly', label: '시급제' },
+                { value: 'monthly', label: '월급제' },
+                { value: '', label: '모름·건너뛰기' },
+              ]}
+              value={form.payType}
+              onChange={(v) => patch({ payType: v })}
+            />
+          </Field>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Field missing={miss('monthlyTotal')} label="월급여 총액" hint="세전 금액. 모르면 비워 두세요.">
               <TextInput
@@ -433,17 +449,61 @@ export default function ContractCheckClient() {
                 onChange={(v) => patch({ monthlyTotal: v })}
               />
             </Field>
-            <Field missing={miss('baseWage')} label="기본급" hint="수당을 뺀 기본급. 최저임금 확인에 씁니다.">
+            {form.payType === 'hourly' ? (
+              <Field missing={miss('hourlyWage')} label="시급" hint="계약서에 적힌 1시간당 임금. 최저임금 확인에 씁니다.">
+                <TextInput
+                  ariaLabel="시급"
+                  numeric
+                  suffix="원"
+                  placeholder="예: 10,320"
+                  value={form.hourlyWage}
+                  onChange={(v) => patch({ hourlyWage: v })}
+                />
+              </Field>
+            ) : (
+              <Field missing={miss('baseWage')} label="기본급" hint="수당을 뺀 기본급. 최저임금 확인에 씁니다.">
+                <TextInput
+                  ariaLabel="기본급"
+                  numeric
+                  suffix="원"
+                  placeholder="예: 2,096,270"
+                  value={form.baseWage}
+                  onChange={(v) => patch({ baseWage: v })}
+                />
+              </Field>
+            )}
+            <Field
+              missing={miss('basisHours')}
+              label="월 산출시간 (선택)"
+              hint={
+                form.payType === 'hourly'
+                  ? '「시급 × 월 87시간」처럼 적혀 있으면 그 시간. 없으면 비워 두세요.'
+                  : '「통상시급 × 209시간」처럼 기본급 계산 시간이 적혀 있으면 입력. 없으면 비워 두세요.'
+              }
+            >
               <TextInput
-                ariaLabel="기본급"
+                ariaLabel="월 산출시간"
                 numeric
-                suffix="원"
-                placeholder="예: 2,096,270"
-                value={form.baseWage}
-                onChange={(v) => patch({ baseWage: v })}
+                suffix="시간"
+                placeholder="예: 87"
+                value={form.basisHours}
+                onChange={(v) => patch({ basisHours: v })}
               />
             </Field>
           </div>
+          {form.payType === 'hourly' && (
+            <Field missing={miss('weeklyHolidayIncluded')} label="시급에 주휴수당이 포함돼 있다고 적혀 있나요?">
+              <Choice
+                options={[
+                  { value: 'yes', label: '포함' },
+                  { value: 'no', label: '별도·미포함' },
+                  { value: '', label: '표시 없음·모름' },
+                ]}
+                value={form.weeklyHolidayIncluded}
+                onChange={(v) => patch({ weeklyHolidayIncluded: v })}
+              />
+            </Field>
+          )}
         </div>
       )}
 
@@ -624,6 +684,19 @@ export default function ContractCheckClient() {
                 suffix="원"
                 value={form.annualLeavePay}
                 onChange={(v) => patch({ annualLeavePay: v })}
+              />
+            </Field>
+            <Field
+              missing={miss('weeklyHolidayPay')}
+              label="주휴수당 금액(월)"
+              hint="임금 항목에 주휴수당이 따로 적혀 있으면 입력. 없으면 비워 두세요."
+            >
+              <TextInput
+                ariaLabel="주휴수당 금액"
+                numeric
+                suffix="원"
+                value={form.weeklyHolidayPay}
+                onChange={(v) => patch({ weeklyHolidayPay: v })}
               />
             </Field>
           </div>

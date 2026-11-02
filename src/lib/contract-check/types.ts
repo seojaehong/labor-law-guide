@@ -85,6 +85,8 @@ export interface WorkTime {
   weekly_scheduled_hours?: number | null;
   /** 파생(normalize) — 1주 소정근로일 수. 요일별 근무표가 있으면 그 수, 없으면 days_per_week */
   weekly_scheduled_days?: number | null;
+  /** 파생(normalize) — 1주 소정의 출처. daily = 믿을 수 있는 요일별 근무표, actual = 시업·종업으로 계산한 실근로 */
+  weekly_scheduled_source?: 'daily' | 'actual' | null;
   night_work?: boolean | null;
   flexible_clause?: string | null;
 }

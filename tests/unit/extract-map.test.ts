@@ -62,7 +62,9 @@ describe('applyExtracted', () => {
         },
       },
     });
-    expect(r.warnings.join()).toContain('주휴수당');
+    // 주휴수당(WEEKLY_HOLIDAY)은 261102 부터 폼 칸이 있다 — 안내로 버리지 않는다
+    expect(r.warnings.join()).not.toContain('주휴수당');
+    expect(r.form.weeklyHolidayPay).toBe('80000');
     expect(r.form.baseWage).toBe('2000000');
     expect(r.form.otAmount).toBe('300000');
     expect(r.form.otHours).toBe('20');

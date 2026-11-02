@@ -10,6 +10,10 @@
 //   0001·0003 MINWAGE detail 은 월급제 계산식(월 산입 임금 ÷ 209H)으로 바뀌고 상태 ok 그대로.
 //   0004 요일별 근무표 종업 14:00 → 14:30: 휴게(12:00~12:30)를 소정에서 빼게 되면서 「주 20H」 산출근거와 맞추려고 데이터를
 //   고쳤다. 소정 20H·초과 15H 그대로, PART-TIME-OT detail 문구만 바뀜.
+// - 261102 교차 검토 3차(review3 #2, 재홍님 승인안): 합성 4건 그대로. 사이트 골든 part-time-monthly(급여 형태 미선택,
+//   기본급 897,840·산출시간 없음·주 20H) MINWAGE violation → needs_data 「시급제·월급제 확인 필요」 — 시급 10,320 × 87H 인
+//   시급제(법리 A, 위반 아님)와 월급제(법리 C, 8,633 미달)가 폼 입력만으로 갈리지 않는다. 폼에 급여 형태를 더해
+//   part-time-monthly-selected(월급제 → C 위반 그대로)·part-time-hourly(시급제 → A 확인 필요) 두 사례를 새로 고정.
 
 import { describe, expect, it } from 'vitest';
 
@@ -87,13 +91,17 @@ const SITE_DAILY_OT: Partial<FormState> = {
   otAmount: '100000',
 };
 const SITE_CASES: Record<string, Partial<FormState>> = {
+  // 급여 형태를 고르지 않은 종전 폼 입력 그대로 — 261102 부터 MINWAGE 「시급제·월급제 확인 필요」
   'part-time-monthly': SITE_BASE,
   'daily-schedule-ot': SITE_DAILY_OT,
   'daily-schedule-ot-4-or-fewer': { ...SITE_DAILY_OT, fivePlus: 'no' },
+  // 261102 폼 「급여 형태」 — 월급제를 고르면 C(104H) 위반, 시급제 10,320 × 월 87시간이면 A(§17② 확인 필요)
+  'part-time-monthly-selected': { ...SITE_BASE, payType: 'monthly' },
+  'part-time-hourly': { ...SITE_BASE, baseWage: '', payType: 'hourly', hourlyWage: '10320', basisHours: '87' },
 };
 
 describe('사이트 폼 경로 골든(site-form-findings.json)', () => {
-  it('buildContract 의 BASE 에는 basis_hours 칸이 없다 — 월급제(C)로 판정된다', () => {
+  it('월 산출시간을 비우면 BASE 에 basis_hours 키가 없다 — 엔진이 형태를 추론한다', () => {
     const base = buildContract({ ...INITIAL, ...SITE_BASE }).wage.items?.find((x) => x.code === 'BASE');
     expect(base).toBeDefined();
     expect(base && 'basis_hours' in base).toBe(false);

@@ -4,10 +4,11 @@
 //
 // 파생 계산:
 // - work_time.weekly_actual_hours / weekly_overtime_hours — variants·breaks에서 계산
-// - work_time.weekly_scheduled_hours / weekly_scheduled_days — 1주 소정근로시간·근로일. 요일별 근무표가 있으면
-//   휴게를 뺀 그 합·요일 수, 없으면 weekly_actual_hours·days_per_week
-// - wage.ordinary_hourly_rate = BASE.amount / (BASE.basis_hours 가 양수면 그 값, 아니면 최저임금 적용기준 월 시간
-//   monthlyStandardHours — 근로시간을 모르면 209) (정수)
+// - work_time.weekly_scheduled_hours / weekly_scheduled_days / weekly_scheduled_source — 1주 소정근로시간·근로일·출처.
+//   요일별 근무표를 믿을 수 있으면(행이 모두 유효하고 행 수 = days_per_week) 휴게를 뺀 그 합·요일 수(daily),
+//   아니면 weekly_actual_hours·days_per_week(actual)
+// - wage.ordinary_hourly_rate = BASE.amount / (BASE.basis_hours 가 양수면 그 값, pay_type hourly 면 1(기본급 = 시급),
+//   아니면 최저임금 적용기준 월 시간 monthlyStandardHours — 근로시간을 모르면 209) (정수)
 // - signatures.retroactive_days = written_date - start_date (일수)
 // - employee.employment_type — 명시값 우선, 없으면 indefinite=false→fixed_term,
 //   1주 소정<40→part_time, 둘 다면 fixed_term_part_time, 그 외 regular
@@ -26,21 +27,38 @@ function minutesOf(hhmm: string): number {
   return parseInt(h, 10) * 60 + parseInt(m, 10);
 }
 
-/** 하루 실근로 분 = (종업-시업) - 근무시간 창 안에 완전히 들어가는 휴게 분. */
+const DAY_MINUTES = 24 * 60;
+
+/** 근로기준법 §54 — 근로시간 4시간 30분, 8시간 1시간 이상 */
+function statutoryBreakMinutes(spanMinutes: number): number {
+  if (spanMinutes >= 8 * 60) return 60;
+  if (spanMinutes >= 4 * 60) return 30;
+  return 0;
+}
+
+/** 하루 실근로 분 = (종업-시업) - 근무시간 창 안에 완전히 들어가는 휴게 분 - 시각 없는 휴게 분.
+ * 종업이 시업보다 이르면 자정을 넘긴 근무로 보아 24시간을 더하고, 그 창 안의 휴게 시각도 같이 옮긴다.
+ * 시각 없는 휴게(분만 적힌 것)는 그 행 길이의 법정 휴게(4시간 이상 30분, 8시간 이상 60분)까지만 뺀다 —
+ * 폼의 「하루 휴게」 한 칸이 짧은 근로일 행에서도 통째로 빠지지 않게. 결과는 0 미만이 되지 않는다. */
 export function dayWorkMinutes(start: string, end: string, breaks: WorkBreak[]): number {
   const startM = minutesOf(start);
-  const endM = minutesOf(end);
-  let total = endM - startM;
+  const overnight = minutesOf(end) < startM;
+  const endM = minutesOf(end) + (overnight ? DAY_MINUTES : 0);
+  const shift = (m: number) => (overnight && m < startM ? m + DAY_MINUTES : m);
+  const span = endM - startM;
+  let total = span;
+  let untimed = 0;
   for (const br of breaks) {
     if (br.from && br.to) {
-      if (minutesOf(br.from) >= startM && minutesOf(br.to) <= endM) {
+      if (shift(minutesOf(br.from)) >= startM && shift(minutesOf(br.to)) <= endM) {
         total -= br.minutes;
       }
     } else {
-      total -= br.minutes;
+      untimed += br.minutes;
     }
   }
-  return total;
+  total -= Math.min(untimed, statutoryBreakMinutes(span));
+  return Math.max(0, total);
 }
 
 const round2 = (x: number) => Math.round(x * 100) / 100;
@@ -61,17 +79,19 @@ export function computeWeeklyHours(workTime: WorkTime): [number | null, number |
   return [actual, overtime];
 }
 
-/** 요일별 근무표 → [휴게 차감 주간 합(H), 근로일 수]. start/end 결손이 있으면 null. 익일 종업은 24시간을 더한다. */
+/** 요일별 근무표 → [휴게 차감 주간 합(H), 근로일 수]. 믿을 수 없으면 null — 행 하나라도 start/end 가 없거나,
+ * 주 근무일수(days_per_week)가 있는데 행 수와 다르면(예: 주 6일 정규직 계약에 토요일 한 줄) 근로일별 시간으로 보지 않는다.
+ * 자정을 넘는 행은 dayWorkMinutes 가 24시간을 더한다. */
 function dailyScheduledWeek(workTime: WorkTime): [number, number] | null {
   const schedules = workTime.daily_schedules ?? [];
   if (schedules.length === 0) return null;
+  const days = workTime.days_per_week;
+  if (days != null && days > 0 && schedules.length !== days) return null;
   const breaks = workTime.breaks ?? [];
   let minutes = 0;
   for (const s of schedules) {
     if (!s.start || !s.end) return null;
-    let m = dayWorkMinutes(s.start, s.end, breaks);
-    if (minutesOf(s.end) < minutesOf(s.start)) m += 24 * 60;
-    minutes += m;
+    minutes += dayWorkMinutes(s.start, s.end, breaks);
   }
   return [round2(minutes / 60), schedules.length];
 }
@@ -88,13 +108,14 @@ export const ASSUMED_FULLTIME_DAYS = 5;
 export interface WeeklyHoliday {
   /** 1주 소정근로시간 — 40H 상한 */
   weekly: number;
-  /** 1주 유급 주휴시간 (0.01H 반올림) */
+  /** 1주 유급 주휴시간 — 반올림하지 않은 값(표시할 때만 반올림한다. 40÷6 = 6.666…) */
   holiday: number;
   /** 단시간이라 통상 근로자 주 5일을 가정했는가 */
   assumedFiveDays: boolean;
 }
 
-/** 1주 소정·주휴시간. 1주 소정을 모르면 null. 15H 미만이면 주휴 0. */
+/** 1주 소정·주휴시간. 1주 소정을 모르면 null. 15H 미만이면 주휴 0.
+ * 1일 소정 = 40H 로 자르기 전 1주 소정 ÷ 소정근로일(8H 상한) — 48H/6일은 8H 이지 40÷6 이 아니다. */
 export function weeklyHoliday(contract: Contract): WeeklyHoliday | null {
   const wt = contract.work_time ?? {};
   const scheduled = wt.weekly_scheduled_hours;
@@ -104,8 +125,8 @@ export function weeklyHoliday(contract: Contract): WeeklyHoliday | null {
   const partTime = weekly < WEEKLY_STANDARD_HOURS;
   const days = wt.weekly_scheduled_days;
   const assumedFiveDays = partTime || !days;
-  const daily = weekly / (assumedFiveDays ? ASSUMED_FULLTIME_DAYS : (days as number));
-  return { weekly, holiday: round2(Math.min(daily, WEEKLY_HOLIDAY_MAX_HOURS)), assumedFiveDays };
+  const daily = scheduled / (assumedFiveDays ? ASSUMED_FULLTIME_DAYS : (days as number));
+  return { weekly, holiday: Math.min(daily, WEEKLY_HOLIDAY_MAX_HOURS), assumedFiveDays };
 }
 
 /** 최저임금 적용기준 월 시간 = (1주 소정 + 주휴) × 365/7/12, 정수 반올림(40H → 209H). 1주 소정을 모르면 null. */
@@ -129,24 +150,28 @@ export function deriveFields(contract: Contract): Contract {
     workTime.weekly_actual_hours = actual;
     workTime.weekly_overtime_hours = overtime;
   }
-  // 1주 소정근로시간 — 요일별 근무표(휴게 차감)가 있으면 그것, 없으면 시업·종업으로 계산한 주 근로시간.
-  // 최저임금(MINWAGE)·단시간 초과근로(PART-TIME-OT)·단시간 판정이 모두 이 값을 쓴다.
+  // 1주 소정근로시간 — 믿을 수 있는 요일별 근무표(휴게 차감)가 있으면 그것(출처 daily), 없으면 시업·종업으로
+  // 계산한 주 근로시간(출처 actual). 최저임금(MINWAGE)·단시간 초과근로(PART-TIME-OT)·단시간 판정이 모두 이 값을 쓴다.
   const daily = dailyScheduledWeek(workTime);
   if (daily) {
     [workTime.weekly_scheduled_hours, workTime.weekly_scheduled_days] = daily;
+    workTime.weekly_scheduled_source = 'daily';
   } else if (workTime.weekly_actual_hours != null) {
     workTime.weekly_scheduled_hours = workTime.weekly_actual_hours;
     workTime.weekly_scheduled_days = workTime.days_per_week ?? null;
+    workTime.weekly_scheduled_source = 'actual';
   }
 
   const wage = contract.wage ?? {};
   const base = (wage.items ?? []).find((i) => i.code === 'BASE');
   if (base && base.amount) {
-    // 산출근거 시간(basis_hours)이 있으면 그 시간으로, 없으면 최저임금 적용기준 월 시간((1주 소정+주휴)×365/7/12,
-    // 40H 는 209H)으로 나눈다. 근로시간을 모르면 209H.
-    const hours =
-      base.basis_hours != null && base.basis_hours > 0
-        ? base.basis_hours
+    // 산출근거 시간(basis_hours)이 있으면 그 시간으로 나눈다. 시급제(pay_type hourly)인데 시간이 없으면 기본급이
+    // 곧 시급이다. 그 밖에는 최저임금 적용기준 월 시간((1주 소정+주휴)×365/7/12, 40H 는 209H), 근로시간을 모르면 209H.
+    const hasBasis = base.basis_hours != null && base.basis_hours > 0;
+    const hours = hasBasis
+      ? (base.basis_hours as number)
+      : wage.pay_type === 'hourly'
+        ? 1
         : (monthlyStandardHours(contract) ?? MONTHLY_BASE_HOURS);
     wage.ordinary_hourly_rate = Math.round(base.amount / hours);
   }

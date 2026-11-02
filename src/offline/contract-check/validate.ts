@@ -75,6 +75,7 @@ const WORK_TIME: Shape = {
   weekly_overtime_hours: 'number',
   weekly_scheduled_hours: 'number',
   weekly_scheduled_days: 'number',
+  weekly_scheduled_source: { oneOf: ['daily', 'actual'] },
   night_work: 'boolean',
   flexible_clause: 'string',
 };

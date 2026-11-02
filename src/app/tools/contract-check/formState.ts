@@ -66,7 +66,15 @@ export interface FormState {
   probationMonths: string;
   probationRate: string;
   monthlyTotal: string;
+  /** 급여 형태 — 시급제(시급 × 시간, 최저임금 법리 A·B)·월급제(법리 C). 비우면 엔진이 산출근거 시간으로 추론한다 */
+  payType: '' | 'hourly' | 'monthly';
   baseWage: string;
+  /** 시급제의 시급 — 기본급 = 시급 × basisHours(비우면 시급 그대로) */
+  hourlyWage: string;
+  /** 기본급 산출근거 월 시간(선택) → BASE.basis_hours. 시급제는 시급 × 이 시간이 기본급 */
+  basisHours: string;
+  /** 시급에 주휴수당이 포함돼 있다고 적혀 있나 — 시급제에서만 BASE.includes_weekly_holiday 로 싣는다 */
+  weeklyHolidayIncluded: '' | 'yes' | 'no';
   // ② 근로시간
   daysPerWeek: string;
   workStart: string;
@@ -78,6 +86,8 @@ export interface FormState {
   hasDaily: boolean;
   daily: DailyRow[];
   // ③ 임금 구성·지급
+  /** 주휴수당 별도 항목 금액(월) → WEEKLY_HOLIDAY */
+  weeklyHolidayPay: string;
   otAmount: string;
   otHours: string;
   holidayExtra: string;
@@ -101,7 +111,11 @@ export const INITIAL: FormState = {
   probationMonths: '',
   probationRate: '',
   monthlyTotal: '',
+  payType: '',
   baseWage: '',
+  hourlyWage: '',
+  basisHours: '',
+  weeklyHolidayIncluded: '',
   daysPerWeek: '',
   workStart: '',
   workEnd: '',
@@ -111,6 +125,7 @@ export const INITIAL: FormState = {
   nightWork: '',
   hasDaily: false,
   daily: [{ day: '월', start: '', end: '' }],
+  weeklyHolidayPay: '',
   otAmount: '',
   otHours: '',
   holidayExtra: '',
@@ -133,9 +148,30 @@ export function num(s: string): number | null {
 export function buildContract(f: FormState): Contract {
   const items: WageItem[] = [];
   const basisText = f.basisWritten ? '계약서 기재' : null;
-  const base = num(f.baseWage);
-  if (base != null) {
-    items.push({ code: 'BASE', label: '기본급', amount: base, basis_text: basisText });
+  // 산출근거 시간은 적었을 때만 싣는다 — 비우면 키도 두지 않아 엔진이 형태를 추론한다(rules/wage.ts payBasis)
+  const hours = num(f.basisHours);
+  const basis = hours != null && hours > 0 ? { basis_hours: hours } : {};
+  if (f.payType === 'hourly') {
+    const hourly = num(f.hourlyWage);
+    if (hourly != null) {
+      items.push({
+        code: 'BASE',
+        label: '기본급',
+        amount: hours != null && hours > 0 ? Math.round(hourly * hours) : hourly,
+        ...basis,
+        basis_text: basisText,
+        ...(f.weeklyHolidayIncluded ? { includes_weekly_holiday: f.weeklyHolidayIncluded === 'yes' } : {}),
+      });
+    }
+  } else {
+    const base = num(f.baseWage);
+    if (base != null) {
+      items.push({ code: 'BASE', label: '기본급', amount: base, ...basis, basis_text: basisText });
+    }
+  }
+  const weeklyHolidayPay = num(f.weeklyHolidayPay);
+  if (weeklyHolidayPay != null) {
+    items.push({ code: 'WEEKLY_HOLIDAY', label: '주휴수당', amount: weeklyHolidayPay, basis_text: basisText });
   }
   const ot = num(f.otAmount);
   if (ot != null) {
@@ -203,6 +239,7 @@ export function buildContract(f: FormState): Contract {
     },
     wage: {
       monthly_total: num(f.monthlyTotal),
+      ...(f.payType ? { pay_type: f.payType } : {}),
       items,
       payday: f.payday || null,
       payment_method: f.paymentMethod || null,

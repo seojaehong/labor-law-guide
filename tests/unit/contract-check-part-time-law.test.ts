@@ -145,7 +145,8 @@ describe('C 월급제 — 산입 임금 합계 ÷ 법정 월 환산시간', () =
     expect(f.status).toBe('risk');
   });
   it('단시간 주 20H 월급 → 104H 로 나눈다, 수정 방향도 209H 가 아니다', () => {
-    const { n, findings } = run(contract(5, '09:00', '13:00', [base(897840)]));
+    // 월급제라고 밝힌다 — 형태 미상(산출시간·pay_type 없음) 단시간은 위반 대신 「시급제·월급제 확인 필요」(review3 #2)
+    const { n, findings } = run(contract(5, '09:00', '13:00', [base(897840)], { pay_type: 'monthly' }));
     const f = findings.find((x) => x.rule_code === 'MINWAGE')!;
     expect(f.status).toBe('violation');
     expect(f.detail).toContain('104H');

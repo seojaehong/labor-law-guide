@@ -1,8 +1,10 @@
 // 사진 추출 결과(API /api/tools/contract-check/extract 응답) → 폼 상태 역매핑 (US-306).
 //
 // buildContract()의 역방향이지만 대칭이 아니다:
-//  - 금액 필드는 top-level이 아니라 wage.items[].code 로 들어온다(BASE/OT_WEEKDAY/HOLIDAY_EXTRA/ANNUAL_LEAVE).
-//    폼에 칸이 없는 코드(WEEKLY_HOLIDAY·OT_WEEKEND·NIGHT·MEAL·BONUS·OTHER)는 버리고 warnings로 알린다.
+//  - 금액 필드는 top-level이 아니라 wage.items[].code 로 들어온다(BASE/WEEKLY_HOLIDAY/OT_WEEKDAY/HOLIDAY_EXTRA/ANNUAL_LEAVE).
+//    BASE 는 wage.pay_type(없으면 「시급에 주휴 포함」 표시)에 따라 시급제(시급 = amount ÷ basis_hours)·기본급으로 가르고,
+//    basis_hours·includes_weekly_holiday 도 폼 칸으로 옮긴다.
+//    폼에 칸이 없는 코드(OT_WEEKEND·NIGHT·MEAL·BONUS·OTHER)는 버리고 warnings로 알린다.
 //  - breaks[]는 합계 분으로 접는다(폼은 하루 합계 한 칸).
 //  - 날짜/시각은 <input type="date|time">이 요구하는 YYYY-MM-DD·HH:MM 로 정규화한다.
 //    정규화에 실패한 값은 "채워지지 않음"으로 처리한다 — 조용히 빈 칸이 되는 것을 막는다.
@@ -83,17 +85,22 @@ export function normalizePaymentMethod(v: unknown): string {
   return '';
 }
 
-type WageFieldKey = 'baseWage' | 'otAmount' | 'holidayExtra' | 'annualLeavePay';
+type WageFieldKey = 'otAmount' | 'holidayExtra' | 'annualLeavePay' | 'weeklyHolidayPay';
 
-/** 폼에 대응 칸이 있는 임금 항목 코드 → FormState 키 */
+/** 폼에 대응 칸이 있는 임금 항목 코드 → FormState 키(BASE 는 급여 형태에 따라 따로 옮긴다) */
 const WAGE_FIELD: Record<string, WageFieldKey> = {
-  BASE: 'baseWage',
+  WEEKLY_HOLIDAY: 'weeklyHolidayPay',
   OT_WEEKDAY: 'otAmount',
   HOLIDAY_EXTRA: 'holidayExtra',
   ANNUAL_LEAVE: 'annualLeavePay',
 };
 
 const CLAUSE_TAGS = new Set(CLAUSE_ITEMS.map((c) => c.tag));
+
+/** 사진을 올려도 사용자가 고른 값을 지키는 폼 칸 — 계약서에 없는 사업장 정보라 추출이 채우지 않는다(「상시 5인 이상」). */
+export function keepFormOnlyFields(prev: FormState, next: FormState): FormState {
+  return { ...next, fivePlus: prev.fivePlus };
+}
 
 /** 추출 응답(JSON) → 폼 상태. 응답이 이상해도 던지지 않고 빈 결과를 돌려준다. */
 export function applyExtracted(payload: unknown): ExtractResult {
@@ -181,6 +188,9 @@ export function applyExtracted(payload: unknown): ExtractResult {
   const monthlyTotal = numText(wage.monthly_total);
   if (monthlyTotal) mark('monthlyTotal', monthlyTotal);
 
+  const payType = wage.pay_type === 'hourly' || wage.pay_type === 'monthly' ? wage.pay_type : '';
+  if (payType) mark('payType', payType);
+
   const dropped: string[] = [];
   let basisSeen = false;
   for (const raw of arr(wage.items)) {
@@ -189,6 +199,21 @@ export function applyExtracted(payload: unknown): ExtractResult {
     const amount = numText(item.amount);
     if (!amount || Number(amount) <= 0) continue;
     if (text(item.basis_text)) basisSeen = true;
+    if (text(item.code) === 'BASE') {
+      // 시급제(pay_type hourly, 또는 형태 미상인데 「시급에 주휴 포함」 표시)면 시급·월 산출시간으로, 그 밖은 기본급으로.
+      // 산출근거 시간·주휴 포함 표시는 버리지 않는다 — 엔진이 그것으로 시급제·월급제를 가른다.
+      const hours = Number(numText(item.basis_hours) || 0);
+      const included = typeof item.includes_weekly_holiday === 'boolean' ? item.includes_weekly_holiday : null;
+      if (payType === 'hourly' || (payType === '' && included === true)) {
+        if (payType === '') mark('payType', 'hourly');
+        mark('hourlyWage', hours > 0 ? String(Math.round((Number(amount) / hours) * 100) / 100) : amount);
+        if (included !== null) mark('weeklyHolidayIncluded', included ? 'yes' : 'no');
+      } else {
+        mark('baseWage', amount);
+      }
+      if (hours > 0) mark('basisHours', String(hours));
+      continue;
+    }
     const key = WAGE_FIELD[text(item.code)];
     if (!key) {
       dropped.push(text(item.label) || text(item.code) || '기타 수당');

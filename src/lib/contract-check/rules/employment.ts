@@ -5,7 +5,8 @@
 //   2년 이하는 ok — 갱신이력은 데이터에 없으므로 detail에 "갱신 누계 별도 확인".
 // PART-TIME-OT: 단시간만 적용, 상시 4인 이하(employee_count_5plus=false)는 비적용(기간제법 시행령 §2 별표1),
 //   미기재면 detail 에 「5인 이상 사업장 전제」. 소정 = normalize 의 weekly_scheduled_hours(근로일별 시간, 휴게 차감).
-//   근로일별 시간이 없으면 소정=실근로로 보아 초과 0. weekly_actual − 소정 > 12H → violation(§6①),
+//   근로일별 시간이 없거나 믿을 수 없으면(weekly_scheduled_source !== 'daily') 소정=실근로로 보아 초과 0.
+//   weekly_actual − 소정 > 12H → violation(§6①),
 //   12H 이내 초과는 partTimePremium(금액 기준, 261101 법리 E)으로 ok·risk·needs_data(§6③ 50% 가산).
 
 import { OT_PREMIUM_RATE, WAGE_MATH_TOLERANCE, WEEKS_PER_MONTH } from '../normalize';
@@ -112,8 +113,9 @@ export const rulePartTimeOt: RuleFn = (contract) => {
   if (actual == null) {
     return makeFinding('PART-TIME-OT', 'needs_data', `주간 실근로시간 산정 불가${premise}`);
   }
-  const hasDaily = (contract.work_time?.daily_schedules ?? []).length > 0;
-  const contracted = hasDaily ? contract.work_time?.weekly_scheduled_hours : null;
+  // 근로일별 시간을 믿을 수 있을 때만(normalize 출처 daily — 행이 모두 유효하고 행 수 = 주 근무일수) 소정으로 본다
+  const fromDaily = contract.work_time?.weekly_scheduled_source === 'daily';
+  const contracted = fromDaily ? contract.work_time?.weekly_scheduled_hours : null;
   if (contracted == null) {
     return makeFinding(
       'PART-TIME-OT',
@@ -141,10 +143,11 @@ export const rulePartTimeOt: RuleFn = (contract) => {
     return makeFinding('PART-TIME-OT', 'ok', `${within}, 50% 가산 — ${premium.text}${premise}`);
   }
   if (premium.kind === 'unknown') {
+    const why = contract.wage?.ordinary_hourly_rate == null ? '통상시급을 알 수 없어' : '연장 항목의 시간·가산율이 없어';
     return makeFinding(
       'PART-TIME-OT',
       'needs_data',
-      `${within} — 연장 항목의 시간·가산율이 없어 통상임금 50% 가산(기간제법 §6③) 충족 여부 판단 불가: ${premium.text}${premise}`,
+      `${within} — ${why} 통상임금 50% 가산(기간제법 §6③) 충족 여부 판단 불가: ${premium.text}${premise}`,
     );
   }
   return makeFinding(

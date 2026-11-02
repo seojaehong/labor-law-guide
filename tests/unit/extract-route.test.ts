@@ -110,6 +110,9 @@ describe('POST /api/tools/contract-check/extract', () => {
     const sent = JSON.parse(fetchMock.mock.calls[0][1].body);
     expect(sent.model).toBe('claude-sonnet-5');
     expect(sent.messages[0].content[0].type).toBe('image');
+    // 임금 형태·주휴 포함 표시를 요청한다(최저임금 시급제 판단 — 법리 A·B)
+    expect(sent.system).toContain('pay_type');
+    expect(sent.system).toContain('includes_weekly_holiday');
   });
 
   it('앞에 text가 아닌 블록이 와도 첫 text 블록을 골라 파싱한다', async () => {
