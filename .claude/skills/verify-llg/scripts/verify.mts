@@ -54,6 +54,41 @@ const FEATURES: Record<string, { path: string; journey: Journey }> = {
       step('건보 동 모름 → 후보 2곳', /후보 2곳.*영등포남부지사.*영등포북부지사/, await answer(p, '[data-agency=nhis]'));
     },
   },
+  'nhis-report-form': {
+    path: '/tools/nhis-report-form',
+    journey: async (p, step) => {
+      // 합성 값만. 주민번호가 어떤 요청에도 실리지 않는지 본다(브라우저 안에서만 PDF 를 만든다)
+      const RRN = '900101-1000000';
+      const sent: string[] = [];
+      p.on('request', (r: any) => sent.push(`${r.method()} ${r.url()} ${r.postData() ?? ''}`));
+      await p.getByLabel('사업장 주소').fill('충청북도 청주시 상당구 상당로81번길 63 (서문동)');
+      await p.getByRole('button', { name: '지사 찾기' }).click();
+      await p.waitForFunction(() => (document.querySelector('[data-branch-name]') as HTMLInputElement | null)?.value, null, { timeout: 30000 });
+      step('건보 받을 지사 자동 입력', '청주동부지사', await p.locator('[data-branch-name]').inputValue());
+      await p.getByLabel('사업장관리번호').fill('12345678900');
+      await p.getByLabel('사업장 명칭').fill('가상상사');
+      await p.getByLabel('대표자 성명').fill('홍대표');
+      await p.getByLabel('성명 1').fill('김가상');
+      await p.getByLabel('주민등록번호 1').fill(RRN);
+      await p.getByLabel('마지막 근무일 1').fill('2026-05-31');
+      step('상실일 = 다음 날', '상실일 2026.06.01', await answer(p, '[data-loss-date]'));
+      await p.getByLabel('올해 보수 총액(원) 1').fill('12000000');
+      await p.getByLabel('늦어진 이유').fill('퇴사 처리 과정에서 신고를 빠뜨렸습니다.');
+      const [dl] = await Promise.all([p.waitForEvent('download', { timeout: 60000 }), p.getByRole('button', { name: 'PDF 만들기' }).click()]);
+      const path = await dl.path();
+      const buf = require('node:fs').readFileSync(path);
+      // 증거로 남긴다 — 글자가 실제로 그려졌는지는 렌더 그림으로 사람이 본다(pdf-lib 서브셋 사고는 글자 추출로 안 잡힌다)
+      mkdirSync(OUT, { recursive: true });
+      writeFileSync(resolve(OUT, `nhis-report-form-${p.viewportSize()?.width}.pdf`), buf);
+      step('PDF 내려받음', '%PDF', buf.subarray(0, 4).toString());
+      step('PDF 1MB 이하', 'true', String(buf.length < 1_000_000));
+      step('결과 안내(크기)', /PDF \d+KB/, await answer(p, '[data-result]'));
+      const leaked = sent.filter(s => s.includes('900101') || s.includes('1000000'));
+      step('주민번호가 실린 요청 0건', '0', String(leaked.length));
+      const others = sent.filter(s => !s.includes(new URL(p.url()).host));
+      step('다른 출처 요청 0건', '0', String(others.length));
+    },
+  },
   'weekly-holiday-pay': {
     path: '/tools/weekly-holiday-pay',
     journey: async (p, step) => {
