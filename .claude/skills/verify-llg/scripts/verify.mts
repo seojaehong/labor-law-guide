@@ -35,6 +35,25 @@ const FEATURES: Record<string, { path: string; journey: Journey }> = {
       step('첫 화면 답', /5인 이상|5인 이상 사업장이 되는 날이 없습니다/, await answer(p));
     },
   },
+  'branch-directory': {
+    path: '/tools/branch-directory',
+    journey: async (p, step) => {
+      const box = p.getByLabel('사업장 주소');
+      const go = async (addr: string) => {
+        await box.fill(addr);
+        await p.getByRole('button', { name: '찾기' }).click();
+        await p.locator('[data-notice]').waitFor({ timeout: 30000 });
+      };
+      await go('충청북도 청주시 상당구 상당로81번길 63 (서문동)');
+      step('안내문(관리지사 우선)', '관리지사를 먼저 확인', await answer(p, '[data-notice]'));
+      step('근복 청주지사 확정', /주소로 찾은 지사.*청주지사/, await answer(p, '[data-agency=comwel]'));
+      step('서문동 담당 행 강조', '043-229-5128', await answer(p, '[data-agency=comwel] tr[data-hit="1"]'));
+      step('건보 청주동부지사', '청주동부지사', await answer(p, '[data-agency=nhis]'));
+      step('연금 동청주지사', '동청주지사', await answer(p, '[data-agency=nps]'));
+      await go('서울특별시 영등포구 여의공원로 101');
+      step('건보 동 모름 → 후보 2곳', /후보 2곳.*영등포남부지사.*영등포북부지사/, await answer(p, '[data-agency=nhis]'));
+    },
+  },
   'weekly-holiday-pay': {
     path: '/tools/weekly-holiday-pay',
     journey: async (p, step) => {
@@ -627,7 +646,16 @@ async function drive(id: string) {
       const res = await p.goto(`${BASE}${f.path}`, { waitUntil: 'networkidle' });
       await f.journey(p, step);
       if (id === 'severance' && vp.name === 'pc') await api(step);
-      const text = await p.evaluate(() => (document.querySelector('main') ?? document.body).innerText);
+      // [data-official] = 공단 홈페이지 원문 인용(부서·담당업무). 우리 문장이 아니므로 금지어 검사에서 뺀다
+      const text = await p.evaluate(() => {
+        const root = (document.querySelector('main') ?? document.body).cloneNode(true) as HTMLElement;
+        root.querySelectorAll('[data-official]').forEach((e) => e.remove());
+        document.body.appendChild(root);
+        root.style.position = 'absolute'; root.style.left = '-99999px';
+        const t = root.innerText;
+        root.remove();
+        return t;
+      });
       const overflow = await p.evaluate(() => document.documentElement.scrollWidth > window.innerWidth);
       mkdirSync(OUT, { recursive: true });
       const shot = resolve(OUT, `${id}-${vp.name}.png`);

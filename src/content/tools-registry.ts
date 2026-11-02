@@ -21,6 +21,8 @@ export const TOOLS: ToolEntry[] = [
     sitemap: { lastModified: '2026-10-21', changeFrequency: 'monthly', priority: 0.9 } },
   { href: '/tools/headcount', title: '상시 근로자 수 계산기', desc: '지금 직원 수와 더 쓸 사람의 기간을 넣으면 언제부터 언제까지 5인 이상 사업장인지, 연차가 생기는지 바로 보여줍니다. 계산은 시행령 제7조의2 방식(전 1개월 연인원 ÷ 가동 일수)입니다.', badge: '브라우저 계산', icon: 'calculator',
     sitemap: { lastModified: '2026-10-28', changeFrequency: 'monthly', priority: 0.9 } },
+  { href: '/tools/branch-directory', title: '4대보험 관할 지사·담당자 번호 찾기', desc: '사업장 주소나 사업자등록번호로 근로복지공단·건강보험·국민연금의 관할 지사와 업무별 담당 전화·팩스를 한 번에 찾습니다. 각 공단 홈페이지 지사 안내를 모았습니다.', badge: '공단 공개 정보', icon: 'file-check',
+    sitemap: { lastModified: '2026-11-02', changeFrequency: 'monthly', priority: 0.85 } },
   { href: '/tools/weekly-holiday-pay', title: '주휴수당 계산기', desc: '시급과 1주 근무시간을 넣으면 1주·한 달 평균 주휴수당을 계산합니다. 주 15시간 미만·결근한 주를 구분하고, 단시간 근로자는 시행령 별표2 방식으로 하루 시간을 셉니다.', badge: '브라우저 계산', icon: 'calculator',
     sitemap: { lastModified: '2026-10-28', changeFrequency: 'monthly', priority: 0.9 } },
   { href: '/tools/min-wage', title: '최저임금 확인 계산기', desc: '월급·주급·일급·시급을 시간급으로 바꿔 올해와 내년 최저임금과 비교합니다. 매달 주는 상여금·현금 식비 산입, 주 15시간 미만, 수습 90%까지 봅니다.', badge: '브라우저 계산', icon: 'calculator',
