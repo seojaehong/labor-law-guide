@@ -6,6 +6,7 @@ export const RISK_TAGS = ['금품청산', '조건부지급', '즉시해고', '�
 
 const WAGE_ITEM_CODES: WageItemCode[] = [
   'BASE',
+  'WEEKLY_HOLIDAY',
   'OT_WEEKDAY',
   'OT_WEEKEND',
   'ANNUAL_LEAVE',
@@ -113,6 +114,8 @@ export function sanitizeExtracted(raw: unknown): { contract: ExtractedContract; 
     .filter((v) => v.day && v.start && v.end);
 
   const w = obj(root.wage) ?? {};
+  // 임금 형태는 hourly·monthly 만 싣는다(없으면 칸 자체를 두지 않아 종전 출력과 같다)
+  const payType = w.pay_type === 'hourly' || w.pay_type === 'monthly' ? w.pay_type : null;
   const items = arr(w.items, 12)
     .map((v) => obj(v))
     .filter((v): v is Obj => !!v)
@@ -124,6 +127,8 @@ export function sanitizeExtracted(raw: unknown): { contract: ExtractedContract; 
       amount: numOrNull(v.amount) ?? 0,
       basis_hours: numOrNull(v.basis_hours),
       basis_text: str(v.basis_text, 120),
+      // 주휴 포함 표시는 불리언일 때만 싣는다(없으면 칸 자체를 두지 않아 종전 출력과 같다)
+      ...(typeof v.includes_weekly_holiday === 'boolean' ? { includes_weekly_holiday: v.includes_weekly_holiday } : {}),
     }))
     .filter((v) => v.amount > 0);
 
@@ -166,6 +171,7 @@ export function sanitizeExtracted(raw: unknown): { contract: ExtractedContract; 
       },
       wage: {
         monthly_total: numOrNull(w.monthly_total),
+        ...(payType ? { pay_type: payType } : {}),
         items,
         payday: str(w.payday, 60),
         payment_method: str(w.payment_method, 60),

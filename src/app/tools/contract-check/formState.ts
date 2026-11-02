@@ -58,13 +58,25 @@ export interface DailyRow {
 export interface FormState {
   // ① 기본
   periodType: '' | 'indefinite' | 'fixed';
+  /** 상시 5인 이상 — 계약서에 없는 사업장 정보라 사진 추출이 채우지 않는다 */
+  fivePlus: '' | 'yes' | 'no';
   startDate: string;
   endDate: string;
   probation: '' | 'yes' | 'no';
   probationMonths: string;
   probationRate: string;
   monthlyTotal: string;
+  /** 급여 형태 — 시급제(시급 × 시간, 최저임금 법리 A·B)·월급제(법리 C). 비우면 엔진이 산출근거 시간으로 추론한다 */
+  payType: '' | 'hourly' | 'monthly';
   baseWage: string;
+  /** 시급제의 시급 — 기본급 = 시급 × basisHours(비우면 시급 그대로) */
+  hourlyWage: string;
+  /** 기본급 산출근거 월 시간(선택) → BASE.basis_hours. 시급제는 시급 × 이 시간이 기본급 */
+  basisHours: string;
+  /** 시급에 주휴수당이 포함돼 있다고 적혀 있나 — 칸은 시급제에서만 보이고, 값이 있으면 급여 형태와 관계없이
+   * BASE.includes_weekly_holiday 로 싣는다(사진이 읽은 값을 버리지 않는다). 사용자가 급여 형태를 시급제가 아닌 값으로
+   * 바꾸면 withPayType 이 비운다(P3) */
+  weeklyHolidayIncluded: '' | 'yes' | 'no';
   // ② 근로시간
   daysPerWeek: string;
   workStart: string;
@@ -76,6 +88,8 @@ export interface FormState {
   hasDaily: boolean;
   daily: DailyRow[];
   // ③ 임금 구성·지급
+  /** 주휴수당 별도 항목 금액(월) → WEEKLY_HOLIDAY */
+  weeklyHolidayPay: string;
   otAmount: string;
   otHours: string;
   holidayExtra: string;
@@ -92,13 +106,18 @@ export interface FormState {
 
 export const INITIAL: FormState = {
   periodType: '',
+  fivePlus: '',
   startDate: '',
   endDate: '',
   probation: '',
   probationMonths: '',
   probationRate: '',
   monthlyTotal: '',
+  payType: '',
   baseWage: '',
+  hourlyWage: '',
+  basisHours: '',
+  weeklyHolidayIncluded: '',
   daysPerWeek: '',
   workStart: '',
   workEnd: '',
@@ -108,6 +127,7 @@ export const INITIAL: FormState = {
   nightWork: '',
   hasDaily: false,
   daily: [{ day: '월', start: '', end: '' }],
+  weeklyHolidayPay: '',
   otAmount: '',
   otHours: '',
   holidayExtra: '',
@@ -126,13 +146,56 @@ export function num(s: string): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
+/** 숫자 입력칸 표시 — 원 단위 1,000 이상만 정수부에 천 단위 쉼표를 넣고, 소수점과 그 뒤는 친 그대로 둔다
+ * (「10320.」을 「10,320」으로 바꿔 소수점을 먹지 않는다). 그 밖은 입력값 그대로. */
+export function formatNumericInput(value: string, suffix?: string): string {
+  if (suffix !== '원') return value;
+  const m = /^([\d,\s]*)(\.\d*)?$/.exec(value || '');
+  if (!m) return value;
+  const digits = m[1].replace(/[,\s]/g, '');
+  if (!digits || Number(digits) < 1000) return value;
+  return Number(digits).toLocaleString('ko-KR') + (m[2] ?? '');
+}
+
+/** 급여 형태 칸을 바꾼다 — 시급제가 아닌 다른 값으로 바꾸면 주휴 포함 선택을 비운다. 그 칸은 시급제에서만 보이는데
+ * 값이 남으면 buildContract 가 실어 숨은 「포함」으로 법리 B 를 탄다(261102 P3). 사진 추출이 채운 값은 이 함수를 거치지
+ * 않으므로 사용자가 형태를 바꾸기 전까지 남는다(같은 값을 다시 눌러도 그대로). */
+export function withPayType(f: FormState, payType: FormState['payType']): FormState {
+  if (payType === f.payType || payType === 'hourly') return { ...f, payType };
+  return { ...f, payType, weeklyHolidayIncluded: '' };
+}
+
 /** 폼 상태 → 스키마 규격 계약 객체 (RALPH-README 매핑 지침). */
 export function buildContract(f: FormState): Contract {
   const items: WageItem[] = [];
   const basisText = f.basisWritten ? '계약서 기재' : null;
-  const base = num(f.baseWage);
-  if (base != null) {
-    items.push({ code: 'BASE', label: '기본급', amount: base, basis_text: basisText });
+  // 산출근거 시간은 적었을 때만 싣는다 — 비우면 키도 두지 않아 엔진이 형태를 추론한다(rules/wage.ts payBasis)
+  const hours = num(f.basisHours);
+  const basis = hours != null && hours > 0 ? { basis_hours: hours } : {};
+  // 주휴 포함 선택은 시급제에서만 보이지만 사진이 읽은 값은 급여 형태와 관계없이 싣는다(숨김 ≠ 버림, 261102 K2) —
+  // 법리 B 는 이 구조화 칸으로만 탄다
+  const included = f.weeklyHolidayIncluded ? { includes_weekly_holiday: f.weeklyHolidayIncluded === 'yes' } : {};
+  if (f.payType === 'hourly') {
+    const hourly = num(f.hourlyWage);
+    if (hourly != null) {
+      items.push({
+        code: 'BASE',
+        label: '기본급',
+        amount: hours != null && hours > 0 ? Math.round(hourly * hours) : hourly,
+        ...basis,
+        basis_text: basisText,
+        ...included,
+      });
+    }
+  } else {
+    const base = num(f.baseWage);
+    if (base != null) {
+      items.push({ code: 'BASE', label: '기본급', amount: base, ...basis, basis_text: basisText, ...included });
+    }
+  }
+  const weeklyHolidayPay = num(f.weeklyHolidayPay);
+  if (weeklyHolidayPay != null) {
+    items.push({ code: 'WEEKLY_HOLIDAY', label: '주휴수당', amount: weeklyHolidayPay, basis_text: basisText });
   }
   const ot = num(f.otAmount);
   if (ot != null) {
@@ -161,6 +224,8 @@ export function buildContract(f: FormState): Contract {
   const daily: DailySchedule[] = f.hasDaily
     ? f.daily.filter((d) => d.day && d.start && d.end).map((d) => ({ day: d.day, start: d.start, end: d.end }))
     : [];
+  // 덜 채워 버린 행 수 — 행 수 불일치를 「일부 미입력」으로 볼 근거(261102 K5)
+  const dropped = f.hasDaily ? f.daily.length - daily.length : 0;
 
   const breakMin = num(f.breakMinutes);
   const riskClauses: RiskClause[] = CLAUSE_ITEMS.filter((c) => f.clauses[c.tag]).map((c) => ({
@@ -171,7 +236,7 @@ export function buildContract(f: FormState): Contract {
 
   return {
     contract_id: 'web-form',
-    workplace: { name: '' },
+    workplace: { name: '', employee_count_5plus: f.fivePlus === '' ? null : f.fivePlus === 'yes' },
     employee: { name: '' },
     period: {
       start_date: f.startDate || null,
@@ -196,10 +261,12 @@ export function buildContract(f: FormState): Contract {
       variants: variants.length > 0 ? variants : null,
       breaks: breakMin != null ? [{ minutes: breakMin }] : null,
       daily_schedules: daily.length > 0 ? daily : null,
+      ...(dropped > 0 ? { daily_schedules_dropped: dropped } : {}),
       night_work: f.nightWork === '' ? null : f.nightWork === 'yes',
     },
     wage: {
       monthly_total: num(f.monthlyTotal),
+      ...(f.payType ? { pay_type: f.payType } : {}),
       items,
       payday: f.payday || null,
       payment_method: f.paymentMethod || null,

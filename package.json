@@ -11,7 +11,9 @@
     "e2e": "playwright test",
     "predev": "node scripts/copy-rhwp-wasm.mjs && node scripts/copy-tesseract.mjs && node scripts/build-hwp-editor.mjs",
     "prebuild": "node scripts/copy-rhwp-wasm.mjs && node scripts/copy-tesseract.mjs && node scripts/build-hwp-editor.mjs",
-    "build:hwp-editor": "node scripts/build-hwp-editor.mjs --force"
+    "build:hwp-editor": "node scripts/build-hwp-editor.mjs --force",
+    "build:contract-check-offline": "node scripts/build-contract-check-offline.mjs",
+    "verify:contract-check-offline": "node scripts/build-contract-check-offline.mjs && node scripts/verify-contract-check-offline.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.117.1",

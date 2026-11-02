@@ -6,8 +6,9 @@
 // 자동만료/부제소 삭제 · 가산율 1.5 환산시간 명시 · 추가수당 시간수 = amount÷통상시급(0.1H 반올림).
 
 import { checkContract } from './engine';
+import { WAGE_MATH_TOLERANCE } from './normalize';
 import { fixedTermsMissing, requiredTermsMissing } from './rules/required_terms';
-import { WAGE_MATH_TOLERANCE } from './rules/wage';
+import { minwageAssessment } from './rules/wage';
 import type { Contract, Finding, FindingSeverity, FindingStatus } from './types';
 
 export const PRIORITY_LABEL: Partial<Record<FindingStatus, string>> = {
@@ -54,7 +55,7 @@ export const AMEND_LIBRARY: Record<string, string> = {
     '연장근로수당 산출근거에 「가산율 1.5 반영 환산시간」임을 명시 — ' +
     '예: 통상시급 × 월간 19H(실연장 12.7H × 가산율 1.5 환산)',
   'OT-COVER': '약정 연장 환산시간을 법정 필요시간(주 연장 × 4.345 × 1.5) 이상으로 증액',
-  MINWAGE: '기본급을 해당연도 최저시급 × 209H 이상으로 인상',
+  MINWAGE: '기본급 등 최저임금 산입 임금을 해당연도 최저시급 × 최저임금 적용기준 월 시간 이상으로 인상',
   'MINWAGE-PROBATION':
     '수습 감액 미적용 사업장은 90% 감액 문구를 삭제하고 「수습기간 해당사항 없음」으로 통일',
   'WH-52CAP':
@@ -81,7 +82,7 @@ export const AMEND_LIBRARY: Record<string, string> = {
     '기간의 정함이 없는 근로자로 간주됨(기간제법 §4②)을 전제로 무기계약 전환을 검토',
   'PART-TIME-OT':
     '단시간 근로자의 초과근로는 근로자 동의를 받아 주 12시간 이내로 제한하고, ' +
-    '초과근로에 대하여 통상시급의 50%를 가산하여 지급한다는 문구 명시 (기간제법 §6)',
+    '초과근로에 대하여 통상임금의 50% 이상을 가산하여 지급한다는 문구와 초과근로수당 항목(가산율 1.5) 명시 (기간제법 §6①·③)',
 };
 
 // 필수 명시사항 누락 라벨(접두 매칭, 긴 라벨 우선) → 보완 문안
@@ -197,6 +198,13 @@ export function buildRow(contract: Contract, finding: Finding): AmendmentRow {
   if (code in RULE_TAG) {
     [clause, current] = clauseRowSource(contract, code);
     amendment = AMEND_LIBRARY[code];
+  } else if (code === 'MINWAGE') {
+    clause = '임금 구성항목표';
+    current = (contract.wage?.items ?? [])
+      .filter((i) => i.code === 'BASE')
+      .map((i) => `${i.basis_text ?? i.label ?? '기본급'} = ${fmt(i.amount)}원`)
+      .join(' / ') || '—';
+    amendment = minwageAssessment(contract).amendment || AMEND_LIBRARY[code];
   } else if (code === 'WAGE-MATH') {
     clause = '임금 구성항목표';
     [current, amendment] = wageMathAmendment(contract);

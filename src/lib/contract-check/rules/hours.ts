@@ -1,10 +1,11 @@
 // 근로시간 규칙 — 주 52시간 상한·휴게시간·야간근로 가산.
 //
-// WH-52CAP: weekly_actual_hours > 52 violation, == 52.0 risk(여유 0), < 52 ok
+// WH-52CAP: weekly_actual_hours > 52 violation, == 52.0 risk(여유 0), < 52 ok. 근로일별 행 합이 출근·퇴근 칸 합보다 길면
+//   (normalize.dailyHoursConflict) 실근로를 정하지 않고 두 시간을 적어 needs_data(261102 K3)
 // WH-BREAK: 4h당 30분·8h당 1h 총량 미달 violation, 총량 충족해도 10분 미만 조각 있으면 risk
 // NIGHT-WORK: night_work=true인데 NIGHT 임금항목 없으면 risk, false면 ok
 
-import { dayWorkMinutes } from '../normalize';
+import { dailyHoursConflict, dayWorkMinutes } from '../normalize';
 import type { Contract, Finding } from '../types';
 import { makeFinding, type RuleFn } from './index';
 
@@ -16,6 +17,8 @@ const round2 = (x: number) => Math.round(x * 100) / 100;
 export const ruleWh52Cap: RuleFn = (contract) => {
   const actual = contract.work_time?.weekly_actual_hours;
   if (actual == null) return makeFinding('WH-52CAP', 'needs_data', '주간 실근로시간 산정 불가');
+  const conflict = dailyHoursConflict(contract);
+  if (conflict) return makeFinding('WH-52CAP', 'needs_data', `${conflict} — 주간 실근로시간 확인 필요`);
   if (actual > WEEKLY_CAP_HOURS) {
     return makeFinding(
       'WH-52CAP',

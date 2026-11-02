@@ -110,6 +110,12 @@ describe('POST /api/tools/contract-check/extract', () => {
     const sent = JSON.parse(fetchMock.mock.calls[0][1].body);
     expect(sent.model).toBe('claude-sonnet-5');
     expect(sent.messages[0].content[0].type).toBe('image');
+    // 임금 형태·주휴 포함 표시를 요청한다(최저임금 시급제 판단 — 법리 A·B)
+    expect(sent.system).toContain('pay_type');
+    expect(sent.system).toContain('includes_weekly_holiday');
+    // BASE 는 월 금액, 주휴가 들어간 월 시간(209H)은 월급제 — 시급 × 209H 를 시급제로 오인하지 않게(261102 R2)
+    expect(sent.system).toContain('BASE.amount 는 월 금액');
+    expect(sent.system).toContain('통상시급×209H(주휴 포함)');
   });
 
   it('앞에 text가 아닌 블록이 와도 첫 text 블록을 골라 파싱한다', async () => {
@@ -236,6 +242,21 @@ describe('sanitizeExtracted', () => {
     expect(result.contract.wage.items).toEqual([]);
     expect(result.contract.risk_clauses).toEqual([]);
     expect(result.notes).toEqual([]);
+  });
+
+  it('주휴수당 코드(WEEKLY_HOLIDAY)와 주휴 포함 표시(불리언만)를 살린다', () => {
+    const r = sanitizeExtracted({
+      wage: {
+        items: [
+          { code: 'BASE', amount: 2000000, includes_weekly_holiday: true },
+          { code: 'WEEKLY_HOLIDAY', label: '주휴수당', amount: 300000, includes_weekly_holiday: '예' },
+        ],
+      },
+    })!;
+    expect(r.contract.wage.items!.map((i) => [i.code, i.includes_weekly_holiday])).toEqual([
+      ['BASE', true],
+      ['WEEKLY_HOLIDAY', undefined],
+    ]);
   });
 
   it('객체가 아니면 null', () => {

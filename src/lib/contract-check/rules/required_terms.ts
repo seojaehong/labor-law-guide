@@ -8,14 +8,18 @@
 //
 // REQUIRED-TERMS-FIXED: employment_type이 fixed_term/part_time 계열일 때만.
 //   ①근로계약기간 ②근로시간·휴게 ③임금 구성·계산·지불 ④휴일·휴가
-//   ⑤취업장소·업무 ⑥(단시간 한정) 근로일 및 근로일별 근로시간(daily_schedules).
+//   ⑤취업장소·업무 ⑥(단시간 한정) 근로일 및 근로일별 근로시간(daily_schedules — 행이 없거나 결손이면 누락).
 //   regular → ok(비적용 명시), 누락 → violation.
+//   행 수가 주 근무일수와 다르면 §17 누락(detail 에 DAILY_MISMATCH_NOTE — PART-TIME-OT 와 같은 문구). 단 사이트 폼이 덜 채운
+//   행을 버린 표시(work_time.daily_schedules_dropped)가 있을 때만 「근로일별 시간 일부 미입력」 — 그것만이면 needs_data,
+//   다른 누락이 있으면 violation 에 덧붙인다(261102 K5 — JSON·사진 경로는 §17 위반 그대로).
 
-import type { Contract, Finding, Wage } from '../types';
+import { DAILY_MISMATCH_NOTE, FIXED_TERM_TYPES, PART_TIME_TYPES, dailyScheduleState } from '../normalize';
+import type { Contract, Finding, Wage, WorkTime } from '../types';
 import { makeFinding, type RuleFn } from './index';
 
-export const PART_TIME_TYPES = new Set(['part_time', 'fixed_term_part_time']);
-export const FIXED_TERM_TYPES = new Set(['fixed_term', 'fixed_term_part_time']);
+const DAILY_TERMS = '근로일 및 근로일별 근로시간';
+const DAILY_PARTIAL = `근로일별 시간 일부 미입력(${DAILY_MISMATCH_NOTE})`;
 
 /** 임금 구성항목·계산방법·지급방법 누락 라벨 리스트. */
 function wageMissing(wage: Wage): string[] {
@@ -84,10 +88,15 @@ export function fixedTermsMissing(contract: Contract): string[] {
   }
   if (!(holidays.weekly_rest && holidays.annual_leave_clause)) missing.push('휴일·휴가');
   if (!(job.location && job.duty)) missing.push('취업장소·종사업무');
-  if (PART_TIME_TYPES.has(empType) && (workTime.daily_schedules ?? []).length === 0) {
-    missing.push('근로일 및 근로일별 근로시간');
+  if (PART_TIME_TYPES.has(empType) && dailyScheduleState(workTime) !== 'ok' && !formDroppedRows(workTime)) {
+    missing.push(DAILY_TERMS);
   }
   return missing;
+}
+
+/** 사이트 폼이 덜 채운 근로일별 행을 버려 행 수가 주 근무일수와 달라진 경우 */
+function formDroppedRows(workTime: WorkTime): boolean {
+  return dailyScheduleState(workTime) === 'mismatch' && (workTime.daily_schedules_dropped ?? 0) > 0;
 }
 
 export const ruleRequiredTermsFixed: RuleFn = (contract) => {
@@ -101,12 +110,20 @@ export const ruleRequiredTermsFixed: RuleFn = (contract) => {
   }
 
   const missing = fixedTermsMissing(contract);
+  const workTime = contract.work_time ?? {};
+  const partial = PART_TIME_TYPES.has(empType) && formDroppedRows(workTime);
   if (missing.length > 0) {
+    const mismatch = dailyScheduleState(workTime) === 'mismatch' ? `(${DAILY_MISMATCH_NOTE})` : '';
     return makeFinding(
       'REQUIRED-TERMS-FIXED',
       'violation',
-      '기간제법 §17 서면명시 누락: ' + missing.map((m) => `${m} 미명시`).join(' · '),
+      '기간제법 §17 서면명시 누락: ' +
+        missing.map((m) => (m === DAILY_TERMS ? `${m} 미명시${mismatch}` : `${m} 미명시`)).join(' · ') +
+        (partial ? ` / ${DAILY_PARTIAL} — 확인 필요` : ''),
     );
+  }
+  if (partial) {
+    return makeFinding('REQUIRED-TERMS-FIXED', 'needs_data', `${DAILY_PARTIAL} — 요일별 시업·종업을 모두 채워야 판단 가능`);
   }
   const count = PART_TIME_TYPES.has(empType) ? 6 : 5;
   return makeFinding('REQUIRED-TERMS-FIXED', 'ok', `기간제법 §17 서면명시 ${count}개 항목 모두 기재`);

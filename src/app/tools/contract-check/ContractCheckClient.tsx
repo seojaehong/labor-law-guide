@@ -8,26 +8,24 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { ChevronRight, Printer, ShieldCheck } from 'lucide-react';
-import rulesCatalog from '@/lib/contract-check/data/compliance_rules.json';
-import { amendContract } from '@/lib/contract-check/amendments';
 import { checkContract } from '@/lib/contract-check/engine';
 import { normalize } from '@/lib/contract-check/normalize';
-import type { Finding, FindingSeverity, FindingStatus } from '@/lib/contract-check/types';
+import {
+  RESULT_DISCLAIMER,
+  STATUS_CHIP_ORDER,
+  STATUS_LABEL,
+  amendmentMap,
+  countByStatus,
+  detailText,
+  ruleName,
+  sortFindings,
+} from '@/lib/contract-check/present';
+import type { Finding, FindingStatus } from '@/lib/contract-check/types';
 import PhotoUploadCard from './PhotoUploadCard';
-import { applyExtracted } from './extractMap';
-import { CLAUSE_ITEMS, INITIAL, buildContract, type FormState } from './formState';
+import { applyExtracted, keepFormOnlyFields } from './extractMap';
+import { CLAUSE_ITEMS, INITIAL, buildContract, formatNumericInput, withPayType, type FormState } from './formState';
 
-const RULE_META: Record<string, { name: string; statute: string }> = Object.fromEntries(
-  rulesCatalog.rules.map((r) => [r.code, { name: r.name, statute: r.statute }]),
-);
-
-const STATUS_LABEL: Record<FindingStatus, string> = {
-  violation: '위반',
-  risk: '리스크',
-  ok: '적정',
-  needs_data: '자료 필요',
-};
-
+// 상태 이름·정렬·규칙 이름·수정 방향·면책 문구는 present.ts(오프라인판과 공용). 색만 여기 둔다.
 // DESIGN.md §6.4 배지 4변형(위험·주의·성공·중립). 값이 아니라 이름을 붙이는 교체다 —
 // #dc2626·#059669 같은 전경색으로 "정리"하면 틴트 위 대비가 후퇴한다.
 // 단 risk 잉크만 #b45309 → --color-warn-ink(#92400e)로 바뀐다(§6.4 "주의 잉크만은 예외", 4.51→6.37:1).
@@ -37,9 +35,6 @@ const STATUS_STYLE: Record<FindingStatus, { bg: string; fg: string }> = {
   ok: { bg: 'var(--color-success-bg)', fg: 'var(--color-success-ink)' },
   needs_data: { bg: 'var(--grey-100)', fg: 'var(--grey-700)' },
 };
-
-const STATUS_ORDER: FindingStatus[] = ['violation', 'risk', 'needs_data', 'ok'];
-const SEVERITY_ORDER: FindingSeverity[] = ['critical', 'major', 'minor', 'info'];
 
 // ── UI 조각 ──────────────────────────────────────────────────────────
 
@@ -140,13 +135,7 @@ function TextInput({
   suffix?: string;
   numeric?: boolean;
 }) {
-  const display = (() => {
-    if (!numeric) return value;
-    const n = parseFloat((value || '').replace(/[,\s]/g, ''));
-    if (!Number.isFinite(n)) return value;
-    if (suffix === '원' && n >= 1000) return n.toLocaleString('ko-KR');
-    return value;
-  })();
+  const display = numeric ? formatNumericInput(value, suffix) : value;
   return (
     <div className="flex items-center gap-2">
       <input
@@ -278,22 +267,16 @@ export default function ContractCheckClient() {
 
   const onExtracted = (payload: unknown) => {
     const result = applyExtracted(payload);
-    setForm(result.form);
+    // 계약서에 없는 사업장 정보(상시 5인 이상)는 사진이 채우지 않으므로 이미 고른 값을 지킨다
+    setForm((prev) => keepFormOnlyFields(prev, result.form));
     setExtracted({ filled: result.filled, notes: result.notes, warnings: result.warnings });
     setStep(1);
   };
 
   const runCheck = () => {
     const [contract] = normalize(buildContract(form));
-    const sorted = [...checkContract(contract)].sort(
-      (a, b) =>
-        STATUS_ORDER.indexOf(a.status) - STATUS_ORDER.indexOf(b.status) ||
-        SEVERITY_ORDER.indexOf(a.severity) - SEVERITY_ORDER.indexOf(b.severity) ||
-        a.rule_code.localeCompare(b.rule_code),
-    );
-    setAmendMap(
-      Object.fromEntries(amendContract(contract, sorted).rows.map((r) => [r.rule_code, r.amendment])),
-    );
+    const sorted = sortFindings(checkContract(contract));
+    setAmendMap(amendmentMap(contract, sorted));
     setFindings(sorted);
     setStep(5);
   };
@@ -305,14 +288,7 @@ export default function ContractCheckClient() {
     setStep(1);
   };
 
-  const counts =
-    findings?.reduce(
-      (acc, f) => {
-        acc[f.status] += 1;
-        return acc;
-      },
-      { violation: 0, risk: 0, ok: 0, needs_data: 0 } as Record<FindingStatus, number>,
-    ) ?? null;
+  const counts = findings ? countByStatus(findings) : null;
 
   return (
     <div className="rounded-xl border border-[var(--color-border)] p-5">
@@ -372,6 +348,20 @@ export default function ContractCheckClient() {
               onChange={(v) => patch({ periodType: v })}
             />
           </Field>
+          <Field
+            label="상시 근로자가 5명 이상인 사업장인가요?"
+            hint="단시간 근로자의 초과근로 한도·가산 규정은 5명 이상 사업장에만 적용됩니다."
+          >
+            <Choice
+              options={[
+                { value: 'yes', label: '5명 이상' },
+                { value: 'no', label: '4명 이하' },
+                { value: '', label: '모름·건너뛰기' },
+              ]}
+              value={form.fivePlus}
+              onChange={(v) => patch({ fivePlus: v })}
+            />
+          </Field>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Field missing={miss('startDate')} label="계약 시작일">
               <TextInput
@@ -427,6 +417,21 @@ export default function ContractCheckClient() {
               </Field>
             </div>
           )}
+          <Field
+            missing={miss('payType')}
+            label="급여 형태"
+            hint="시급 × 근로시간으로 정하는지, 월 고정급인지에 따라 최저임금 확인 방법이 다릅니다."
+          >
+            <Choice
+              options={[
+                { value: 'hourly', label: '시급제' },
+                { value: 'monthly', label: '월급제' },
+                { value: '', label: '모름·건너뛰기' },
+              ]}
+              value={form.payType}
+              onChange={(v) => setForm((prev) => withPayType(prev, v))}
+            />
+          </Field>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Field missing={miss('monthlyTotal')} label="월급여 총액" hint="세전 금액. 모르면 비워 두세요.">
               <TextInput
@@ -438,17 +443,61 @@ export default function ContractCheckClient() {
                 onChange={(v) => patch({ monthlyTotal: v })}
               />
             </Field>
-            <Field missing={miss('baseWage')} label="기본급" hint="수당을 뺀 기본급. 최저임금 확인에 씁니다.">
+            {form.payType === 'hourly' ? (
+              <Field missing={miss('hourlyWage')} label="시급" hint="계약서에 적힌 1시간당 임금. 최저임금 확인에 씁니다.">
+                <TextInput
+                  ariaLabel="시급"
+                  numeric
+                  suffix="원"
+                  placeholder="예: 10,320"
+                  value={form.hourlyWage}
+                  onChange={(v) => patch({ hourlyWage: v })}
+                />
+              </Field>
+            ) : (
+              <Field missing={miss('baseWage')} label="기본급" hint="수당을 뺀 기본급. 최저임금 확인에 씁니다.">
+                <TextInput
+                  ariaLabel="기본급"
+                  numeric
+                  suffix="원"
+                  placeholder="예: 2,096,270"
+                  value={form.baseWage}
+                  onChange={(v) => patch({ baseWage: v })}
+                />
+              </Field>
+            )}
+            <Field
+              missing={miss('basisHours')}
+              label="월 산출시간 (선택)"
+              hint={
+                form.payType === 'hourly'
+                  ? '「시급 × 월 87시간」처럼 적혀 있으면 그 시간. 없으면 비워 두세요.'
+                  : '「통상시급 × 209시간」처럼 기본급 계산 시간이 적혀 있으면 입력. 없으면 비워 두세요.'
+              }
+            >
               <TextInput
-                ariaLabel="기본급"
+                ariaLabel="월 산출시간"
                 numeric
-                suffix="원"
-                placeholder="예: 2,096,270"
-                value={form.baseWage}
-                onChange={(v) => patch({ baseWage: v })}
+                suffix="시간"
+                placeholder="예: 87"
+                value={form.basisHours}
+                onChange={(v) => patch({ basisHours: v })}
               />
             </Field>
           </div>
+          {form.payType === 'hourly' && (
+            <Field missing={miss('weeklyHolidayIncluded')} label="시급에 주휴수당이 포함돼 있다고 적혀 있나요?">
+              <Choice
+                options={[
+                  { value: 'yes', label: '포함' },
+                  { value: 'no', label: '별도·미포함' },
+                  { value: '', label: '표시 없음·모름' },
+                ]}
+                value={form.weeklyHolidayIncluded}
+                onChange={(v) => patch({ weeklyHolidayIncluded: v })}
+              />
+            </Field>
+          )}
         </div>
       )}
 
@@ -631,6 +680,19 @@ export default function ContractCheckClient() {
                 onChange={(v) => patch({ annualLeavePay: v })}
               />
             </Field>
+            <Field
+              missing={miss('weeklyHolidayPay')}
+              label="주휴수당 금액(월)"
+              hint="임금 항목에 주휴수당이 따로 적혀 있으면 입력. 없으면 비워 두세요."
+            >
+              <TextInput
+                ariaLabel="주휴수당 금액"
+                numeric
+                suffix="원"
+                value={form.weeklyHolidayPay}
+                onChange={(v) => patch({ weeklyHolidayPay: v })}
+              />
+            </Field>
           </div>
           <CheckRow
             checked={form.basisWritten}
@@ -715,7 +777,7 @@ export default function ContractCheckClient() {
           </h2>
           <div className="mb-5 flex flex-wrap gap-2 text-sm font-semibold">
             {/* 집계 칩은 아래 항목별 StatusBadge와 같은 4변형이다 — 같은 표를 쓴다(같은 화면에서 색이 갈리면 안 된다) */}
-            {(['violation', 'risk', 'ok', 'needs_data'] as FindingStatus[]).map((status) => (
+            {STATUS_CHIP_ORDER.map((status) => (
               <span
                 key={status}
                 className="rounded-lg px-3 py-1.5"
@@ -735,7 +797,7 @@ export default function ContractCheckClient() {
                 <div className="mb-1 flex flex-wrap items-center gap-2">
                   <StatusBadge status={f.status} />
                   <span className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>
-                    {RULE_META[f.rule_code]?.name ?? f.rule_code}
+                    {ruleName(f.rule_code)}
                   </span>
                   {f.statute && (
                     <span className="text-xs" style={{ color: 'var(--color-text-tertiary)' }}>
@@ -745,7 +807,7 @@ export default function ContractCheckClient() {
                 </div>
                 {f.detail && (
                   <p className="text-xs leading-relaxed" style={{ color: 'var(--color-text-secondary)' }}>
-                    {f.status === 'needs_data' ? `입력하면 점검합니다 — ${f.detail}` : f.detail}
+                    {detailText(f)}
                   </p>
                 )}
                 {amendMap[f.rule_code] && (
@@ -782,8 +844,7 @@ export default function ContractCheckClient() {
           </div>
 
           <p className="mt-4 text-xs leading-relaxed" style={{ color: 'var(--color-text-tertiary)' }}>
-            본 결과는 입력하신 내용만으로 점검한 참고 결과이며 법률 판단이 아닙니다. 실제 계약서
-            문안과 근무 실태에 따라 결과가 달라질 수 있으니, 근거 조문과 함께 다시 확인해 주세요.
+            {RESULT_DISCLAIMER}
           </p>
         </div>
       )}
