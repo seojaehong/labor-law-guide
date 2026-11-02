@@ -74,6 +74,8 @@ const FEATURES: Record<string, { path: string; journey: Journey }> = {
       step('상실일 = 다음 날', '상실일 2026.06.01', await answer(p, '[data-loss-date]'));
       await p.getByLabel('올해 보수 총액(원) 1').fill('12000000');
       await p.getByLabel('늦어진 이유').fill('퇴사 처리 과정에서 신고를 빠뜨렸습니다.');
+      // 도장 — 512px 그림을 고르면 화면이 300px 로 줄여 싣는다(createImageBitmap → canvas)
+      await p.getByLabel('도장 그림(PNG, 투명 배경)').setInputFiles(resolve(process.cwd(), 'public/icon-512.png'));
       const [dl] = await Promise.all([p.waitForEvent('download', { timeout: 60000 }), p.getByRole('button', { name: 'PDF 만들기' }).click()]);
       const path = await dl.path();
       const buf = require('node:fs').readFileSync(path);
