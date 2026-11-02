@@ -1,0 +1,824 @@
+{
+ "form_id": "NHIS_8_LOSS",
+ "source_file": "NHIS_8_LOSS.pdf",
+ "source_sha256": "b1c720f870735f2cbce633ea88bb0edd4b292c8ff59d220942bfcb3af278c815",
+ "page_size": {
+  "width": 841.0,
+  "height": 595.0
+ },
+ "_about": "국민건강보험법 시행규칙 [별지 제8호서식] <개정 2022.10.26.> 1쪽(앞쪽). 법제처 별표서식 flSeq=169566361. 261102 probe 실측. 사람 4줄(줄 높이 34.8pt).",
+ "slots": {
+  "title_nps": {
+   "kind": "check",
+   "page": 1,
+   "x": 179.4,
+   "y": 88.0,
+   "size": 9,
+   "label": "국민연금 [ ] 사업장가입자 자격상실 신고서"
+  },
+  "title_ei": {
+   "kind": "check",
+   "page": 1,
+   "x": 178.8,
+   "y": 107.2,
+   "size": 9,
+   "label": "고용보험 [ ] 근로자 피보험자격상실 신고서"
+  },
+  "title_nhis": {
+   "kind": "check",
+   "page": 1,
+   "x": 523.0,
+   "y": 88.0,
+   "size": 9,
+   "label": "건강보험 [ ] 직장가입자 자격상실 신고서"
+  },
+  "title_ia": {
+   "kind": "check",
+   "page": 1,
+   "x": 523.0,
+   "y": 107.2,
+   "size": 9,
+   "label": "산재보험 [ ] 근로자 자격상실 신고서"
+  },
+  "biz_mgmt_no": {
+   "kind": "text",
+   "page": 1,
+   "x": 142,
+   "y": 195,
+   "size": 9,
+   "maxWidth": 154,
+   "label": "사업장관리번호"
+  },
+  "biz_name": {
+   "kind": "text",
+   "page": 1,
+   "x": 303,
+   "y": 195,
+   "size": 9,
+   "maxWidth": 155,
+   "label": "명칭"
+  },
+  "biz_tel": {
+   "kind": "text",
+   "page": 1,
+   "x": 465,
+   "y": 195,
+   "size": 9,
+   "maxWidth": 154,
+   "label": "전화번호"
+  },
+  "biz_fax": {
+   "kind": "text",
+   "page": 1,
+   "x": 626,
+   "y": 195,
+   "size": 9,
+   "maxWidth": 154,
+   "label": "FAX번호"
+  },
+  "biz_addr": {
+   "kind": "text",
+   "page": 1,
+   "x": 142,
+   "y": 220,
+   "size": 9,
+   "maxWidth": 495,
+   "label": "소재지"
+  },
+  "biz_zip": {
+   "kind": "text",
+   "page": 1,
+   "x": 695,
+   "y": 214,
+   "size": 9,
+   "maxWidth": 80,
+   "label": "우편번호"
+  },
+  "agent_name": {
+   "kind": "text",
+   "page": 1,
+   "x": 142,
+   "y": 247,
+   "size": 9,
+   "maxWidth": 155,
+   "label": "보험사무대행기관 명칭"
+  },
+  "agent_no": {
+   "kind": "text",
+   "page": 1,
+   "x": 303,
+   "y": 247,
+   "size": 9,
+   "maxWidth": 155,
+   "label": "보험사무대행기관 번호"
+  },
+  "date_y": {
+   "kind": "text",
+   "page": 1,
+   "x": 670,
+   "y": 504,
+   "size": 9,
+   "label": "년"
+  },
+  "date_m": {
+   "kind": "text",
+   "page": 1,
+   "x": 718,
+   "y": 504,
+   "size": 9,
+   "label": "월"
+  },
+  "date_d": {
+   "kind": "text",
+   "page": 1,
+   "x": 758,
+   "y": 504,
+   "size": 9,
+   "label": "일"
+  },
+  "reporter_name": {
+   "kind": "text",
+   "page": 1,
+   "x": 362,
+   "y": 523,
+   "size": 9,
+   "maxWidth": 86,
+   "label": "신고인ㆍ확인인(사용자ㆍ대표자) 성명"
+  },
+  "by_agent": {
+   "kind": "check",
+   "page": 1,
+   "x": 531.9,
+   "y": 518.7,
+   "size": 9,
+   "label": "[ ]보험사무대행기관"
+  },
+  "agent_sign_name": {
+   "kind": "text",
+   "page": 1,
+   "x": 630,
+   "y": 523,
+   "size": 9,
+   "maxWidth": 92,
+   "label": "보험사무대행기관 성명"
+  },
+  "seq_1": {
+   "kind": "text",
+   "page": 1,
+   "x": 65,
+   "y": 352.0,
+   "size": 8,
+   "maxWidth": 12,
+   "label": "일련번호"
+  },
+  "name_1": {
+   "kind": "text",
+   "page": 1,
+   "x": 82,
+   "y": 352.0,
+   "size": 8,
+   "maxWidth": 32,
+   "label": "성명"
+  },
+  "rrn_1": {
+   "kind": "text",
+   "page": 1,
+   "x": 119,
+   "y": 352.0,
+   "size": 7.5,
+   "maxWidth": 81,
+   "label": "주민등록번호(외국인등록번호ㆍ국내거소신고번호)"
+  },
+  "tel_1": {
+   "kind": "text",
+   "page": 1,
+   "x": 205,
+   "y": 352.0,
+   "size": 7.5,
+   "maxWidth": 61,
+   "label": "전화번호(휴대전화번호)"
+  },
+  "loss_date_1": {
+   "kind": "text",
+   "page": 1,
+   "x": 271,
+   "y": 352.0,
+   "size": 8,
+   "maxWidth": 55,
+   "label": "상실연월일(YYYY.MM.DD)"
+  },
+  "nps_code_1": {
+   "kind": "text",
+   "page": 1,
+   "x": 338,
+   "y": 352.0,
+   "size": 8,
+   "maxWidth": 20,
+   "label": "국민연금 상실부호"
+  },
+  "nps_first_day_1": {
+   "kind": "check",
+   "page": 1,
+   "x": 381.0,
+   "y": 355.4,
+   "size": 9,
+   "label": "초일취득ㆍ당월상실자 납부여부 희망[ ]"
+  },
+  "nhis_code_1": {
+   "kind": "text",
+   "page": 1,
+   "x": 410,
+   "y": 352.0,
+   "size": 8,
+   "maxWidth": 20,
+   "label": "건강보험 상실부호"
+  },
+  "nhis_pay_cur_1": {
+   "kind": "text",
+   "page": 1,
+   "x": 434,
+   "y": 352.0,
+   "size": 8,
+   "maxWidth": 50,
+   "label": "건강보험 해당 연도 보수 총액"
+  },
+  "nhis_months_cur_1": {
+   "kind": "text",
+   "page": 1,
+   "x": 493,
+   "y": 352.0,
+   "size": 8,
+   "maxWidth": 22,
+   "label": "건강보험 해당 연도 근무개월수"
+  },
+  "nhis_pay_prev_1": {
+   "kind": "text",
+   "page": 1,
+   "x": 519,
+   "y": 352.0,
+   "size": 8,
+   "maxWidth": 50,
+   "label": "건강보험 전년도 보수 총액"
+  },
+  "nhis_months_prev_1": {
+   "kind": "text",
+   "page": 1,
+   "x": 578,
+   "y": 352.0,
+   "size": 8,
+   "maxWidth": 22,
+   "label": "건강보험 전년도 근무개월수"
+  },
+  "ei_reason_1": {
+   "kind": "text",
+   "page": 1,
+   "x": 604,
+   "y": 352.0,
+   "size": 7,
+   "maxWidth": 62,
+   "label": "고용ㆍ산재 상실사유 구체적 사유"
+  },
+  "ei_code_1": {
+   "kind": "text",
+   "page": 1,
+   "x": 675,
+   "y": 352.0,
+   "size": 8,
+   "maxWidth": 18,
+   "label": "고용ㆍ산재 상실사유 구분코드"
+  },
+  "ei_pay_cur_1": {
+   "kind": "text",
+   "page": 1,
+   "x": 697,
+   "y": 343.5,
+   "size": 7,
+   "maxWidth": 40,
+   "label": "해당 연도 보수 총액 고용보험"
+  },
+  "ia_pay_cur_1": {
+   "kind": "text",
+   "page": 1,
+   "x": 697,
+   "y": 361.0,
+   "size": 7,
+   "maxWidth": 40,
+   "label": "해당 연도 보수 총액 산재보험"
+  },
+  "ei_pay_prev_1": {
+   "kind": "text",
+   "page": 1,
+   "x": 741,
+   "y": 343.5,
+   "size": 7,
+   "maxWidth": 40,
+   "label": "전년도 보수 총액 고용보험"
+  },
+  "ia_pay_prev_1": {
+   "kind": "text",
+   "page": 1,
+   "x": 741,
+   "y": 361.0,
+   "size": 7,
+   "maxWidth": 40,
+   "label": "전년도 보수 총액 산재보험"
+  },
+  "seq_2": {
+   "kind": "text",
+   "page": 1,
+   "x": 65,
+   "y": 386.8,
+   "size": 8,
+   "maxWidth": 12,
+   "label": "일련번호"
+  },
+  "name_2": {
+   "kind": "text",
+   "page": 1,
+   "x": 82,
+   "y": 386.8,
+   "size": 8,
+   "maxWidth": 32,
+   "label": "성명"
+  },
+  "rrn_2": {
+   "kind": "text",
+   "page": 1,
+   "x": 119,
+   "y": 386.8,
+   "size": 7.5,
+   "maxWidth": 81,
+   "label": "주민등록번호(외국인등록번호ㆍ국내거소신고번호)"
+  },
+  "tel_2": {
+   "kind": "text",
+   "page": 1,
+   "x": 205,
+   "y": 386.8,
+   "size": 7.5,
+   "maxWidth": 61,
+   "label": "전화번호(휴대전화번호)"
+  },
+  "loss_date_2": {
+   "kind": "text",
+   "page": 1,
+   "x": 271,
+   "y": 386.8,
+   "size": 8,
+   "maxWidth": 55,
+   "label": "상실연월일(YYYY.MM.DD)"
+  },
+  "nps_code_2": {
+   "kind": "text",
+   "page": 1,
+   "x": 338,
+   "y": 386.8,
+   "size": 8,
+   "maxWidth": 20,
+   "label": "국민연금 상실부호"
+  },
+  "nps_first_day_2": {
+   "kind": "check",
+   "page": 1,
+   "x": 381.0,
+   "y": 390.2,
+   "size": 9,
+   "label": "초일취득ㆍ당월상실자 납부여부 희망[ ]"
+  },
+  "nhis_code_2": {
+   "kind": "text",
+   "page": 1,
+   "x": 410,
+   "y": 386.8,
+   "size": 8,
+   "maxWidth": 20,
+   "label": "건강보험 상실부호"
+  },
+  "nhis_pay_cur_2": {
+   "kind": "text",
+   "page": 1,
+   "x": 434,
+   "y": 386.8,
+   "size": 8,
+   "maxWidth": 50,
+   "label": "건강보험 해당 연도 보수 총액"
+  },
+  "nhis_months_cur_2": {
+   "kind": "text",
+   "page": 1,
+   "x": 493,
+   "y": 386.8,
+   "size": 8,
+   "maxWidth": 22,
+   "label": "건강보험 해당 연도 근무개월수"
+  },
+  "nhis_pay_prev_2": {
+   "kind": "text",
+   "page": 1,
+   "x": 519,
+   "y": 386.8,
+   "size": 8,
+   "maxWidth": 50,
+   "label": "건강보험 전년도 보수 총액"
+  },
+  "nhis_months_prev_2": {
+   "kind": "text",
+   "page": 1,
+   "x": 578,
+   "y": 386.8,
+   "size": 8,
+   "maxWidth": 22,
+   "label": "건강보험 전년도 근무개월수"
+  },
+  "ei_reason_2": {
+   "kind": "text",
+   "page": 1,
+   "x": 604,
+   "y": 386.8,
+   "size": 7,
+   "maxWidth": 62,
+   "label": "고용ㆍ산재 상실사유 구체적 사유"
+  },
+  "ei_code_2": {
+   "kind": "text",
+   "page": 1,
+   "x": 675,
+   "y": 386.8,
+   "size": 8,
+   "maxWidth": 18,
+   "label": "고용ㆍ산재 상실사유 구분코드"
+  },
+  "ei_pay_cur_2": {
+   "kind": "text",
+   "page": 1,
+   "x": 697,
+   "y": 378.3,
+   "size": 7,
+   "maxWidth": 40,
+   "label": "해당 연도 보수 총액 고용보험"
+  },
+  "ia_pay_cur_2": {
+   "kind": "text",
+   "page": 1,
+   "x": 697,
+   "y": 395.8,
+   "size": 7,
+   "maxWidth": 40,
+   "label": "해당 연도 보수 총액 산재보험"
+  },
+  "ei_pay_prev_2": {
+   "kind": "text",
+   "page": 1,
+   "x": 741,
+   "y": 378.3,
+   "size": 7,
+   "maxWidth": 40,
+   "label": "전년도 보수 총액 고용보험"
+  },
+  "ia_pay_prev_2": {
+   "kind": "text",
+   "page": 1,
+   "x": 741,
+   "y": 395.8,
+   "size": 7,
+   "maxWidth": 40,
+   "label": "전년도 보수 총액 산재보험"
+  },
+  "seq_3": {
+   "kind": "text",
+   "page": 1,
+   "x": 65,
+   "y": 421.6,
+   "size": 8,
+   "maxWidth": 12,
+   "label": "일련번호"
+  },
+  "name_3": {
+   "kind": "text",
+   "page": 1,
+   "x": 82,
+   "y": 421.6,
+   "size": 8,
+   "maxWidth": 32,
+   "label": "성명"
+  },
+  "rrn_3": {
+   "kind": "text",
+   "page": 1,
+   "x": 119,
+   "y": 421.6,
+   "size": 7.5,
+   "maxWidth": 81,
+   "label": "주민등록번호(외국인등록번호ㆍ국내거소신고번호)"
+  },
+  "tel_3": {
+   "kind": "text",
+   "page": 1,
+   "x": 205,
+   "y": 421.6,
+   "size": 7.5,
+   "maxWidth": 61,
+   "label": "전화번호(휴대전화번호)"
+  },
+  "loss_date_3": {
+   "kind": "text",
+   "page": 1,
+   "x": 271,
+   "y": 421.6,
+   "size": 8,
+   "maxWidth": 55,
+   "label": "상실연월일(YYYY.MM.DD)"
+  },
+  "nps_code_3": {
+   "kind": "text",
+   "page": 1,
+   "x": 338,
+   "y": 421.6,
+   "size": 8,
+   "maxWidth": 20,
+   "label": "국민연금 상실부호"
+  },
+  "nps_first_day_3": {
+   "kind": "check",
+   "page": 1,
+   "x": 381.0,
+   "y": 425.0,
+   "size": 9,
+   "label": "초일취득ㆍ당월상실자 납부여부 희망[ ]"
+  },
+  "nhis_code_3": {
+   "kind": "text",
+   "page": 1,
+   "x": 410,
+   "y": 421.6,
+   "size": 8,
+   "maxWidth": 20,
+   "label": "건강보험 상실부호"
+  },
+  "nhis_pay_cur_3": {
+   "kind": "text",
+   "page": 1,
+   "x": 434,
+   "y": 421.6,
+   "size": 8,
+   "maxWidth": 50,
+   "label": "건강보험 해당 연도 보수 총액"
+  },
+  "nhis_months_cur_3": {
+   "kind": "text",
+   "page": 1,
+   "x": 493,
+   "y": 421.6,
+   "size": 8,
+   "maxWidth": 22,
+   "label": "건강보험 해당 연도 근무개월수"
+  },
+  "nhis_pay_prev_3": {
+   "kind": "text",
+   "page": 1,
+   "x": 519,
+   "y": 421.6,
+   "size": 8,
+   "maxWidth": 50,
+   "label": "건강보험 전년도 보수 총액"
+  },
+  "nhis_months_prev_3": {
+   "kind": "text",
+   "page": 1,
+   "x": 578,
+   "y": 421.6,
+   "size": 8,
+   "maxWidth": 22,
+   "label": "건강보험 전년도 근무개월수"
+  },
+  "ei_reason_3": {
+   "kind": "text",
+   "page": 1,
+   "x": 604,
+   "y": 421.6,
+   "size": 7,
+   "maxWidth": 62,
+   "label": "고용ㆍ산재 상실사유 구체적 사유"
+  },
+  "ei_code_3": {
+   "kind": "text",
+   "page": 1,
+   "x": 675,
+   "y": 421.6,
+   "size": 8,
+   "maxWidth": 18,
+   "label": "고용ㆍ산재 상실사유 구분코드"
+  },
+  "ei_pay_cur_3": {
+   "kind": "text",
+   "page": 1,
+   "x": 697,
+   "y": 413.1,
+   "size": 7,
+   "maxWidth": 40,
+   "label": "해당 연도 보수 총액 고용보험"
+  },
+  "ia_pay_cur_3": {
+   "kind": "text",
+   "page": 1,
+   "x": 697,
+   "y": 430.6,
+   "size": 7,
+   "maxWidth": 40,
+   "label": "해당 연도 보수 총액 산재보험"
+  },
+  "ei_pay_prev_3": {
+   "kind": "text",
+   "page": 1,
+   "x": 741,
+   "y": 413.1,
+   "size": 7,
+   "maxWidth": 40,
+   "label": "전년도 보수 총액 고용보험"
+  },
+  "ia_pay_prev_3": {
+   "kind": "text",
+   "page": 1,
+   "x": 741,
+   "y": 430.6,
+   "size": 7,
+   "maxWidth": 40,
+   "label": "전년도 보수 총액 산재보험"
+  },
+  "seq_4": {
+   "kind": "text",
+   "page": 1,
+   "x": 65,
+   "y": 456.4,
+   "size": 8,
+   "maxWidth": 12,
+   "label": "일련번호"
+  },
+  "name_4": {
+   "kind": "text",
+   "page": 1,
+   "x": 82,
+   "y": 456.4,
+   "size": 8,
+   "maxWidth": 32,
+   "label": "성명"
+  },
+  "rrn_4": {
+   "kind": "text",
+   "page": 1,
+   "x": 119,
+   "y": 456.4,
+   "size": 7.5,
+   "maxWidth": 81,
+   "label": "주민등록번호(외국인등록번호ㆍ국내거소신고번호)"
+  },
+  "tel_4": {
+   "kind": "text",
+   "page": 1,
+   "x": 205,
+   "y": 456.4,
+   "size": 7.5,
+   "maxWidth": 61,
+   "label": "전화번호(휴대전화번호)"
+  },
+  "loss_date_4": {
+   "kind": "text",
+   "page": 1,
+   "x": 271,
+   "y": 456.4,
+   "size": 8,
+   "maxWidth": 55,
+   "label": "상실연월일(YYYY.MM.DD)"
+  },
+  "nps_code_4": {
+   "kind": "text",
+   "page": 1,
+   "x": 338,
+   "y": 456.4,
+   "size": 8,
+   "maxWidth": 20,
+   "label": "국민연금 상실부호"
+  },
+  "nps_first_day_4": {
+   "kind": "check",
+   "page": 1,
+   "x": 381.0,
+   "y": 459.79999999999995,
+   "size": 9,
+   "label": "초일취득ㆍ당월상실자 납부여부 희망[ ]"
+  },
+  "nhis_code_4": {
+   "kind": "text",
+   "page": 1,
+   "x": 410,
+   "y": 456.4,
+   "size": 8,
+   "maxWidth": 20,
+   "label": "건강보험 상실부호"
+  },
+  "nhis_pay_cur_4": {
+   "kind": "text",
+   "page": 1,
+   "x": 434,
+   "y": 456.4,
+   "size": 8,
+   "maxWidth": 50,
+   "label": "건강보험 해당 연도 보수 총액"
+  },
+  "nhis_months_cur_4": {
+   "kind": "text",
+   "page": 1,
+   "x": 493,
+   "y": 456.4,
+   "size": 8,
+   "maxWidth": 22,
+   "label": "건강보험 해당 연도 근무개월수"
+  },
+  "nhis_pay_prev_4": {
+   "kind": "text",
+   "page": 1,
+   "x": 519,
+   "y": 456.4,
+   "size": 8,
+   "maxWidth": 50,
+   "label": "건강보험 전년도 보수 총액"
+  },
+  "nhis_months_prev_4": {
+   "kind": "text",
+   "page": 1,
+   "x": 578,
+   "y": 456.4,
+   "size": 8,
+   "maxWidth": 22,
+   "label": "건강보험 전년도 근무개월수"
+  },
+  "ei_reason_4": {
+   "kind": "text",
+   "page": 1,
+   "x": 604,
+   "y": 456.4,
+   "size": 7,
+   "maxWidth": 62,
+   "label": "고용ㆍ산재 상실사유 구체적 사유"
+  },
+  "ei_code_4": {
+   "kind": "text",
+   "page": 1,
+   "x": 675,
+   "y": 456.4,
+   "size": 8,
+   "maxWidth": 18,
+   "label": "고용ㆍ산재 상실사유 구분코드"
+  },
+  "ei_pay_cur_4": {
+   "kind": "text",
+   "page": 1,
+   "x": 697,
+   "y": 447.9,
+   "size": 7,
+   "maxWidth": 40,
+   "label": "해당 연도 보수 총액 고용보험"
+  },
+  "ia_pay_cur_4": {
+   "kind": "text",
+   "page": 1,
+   "x": 697,
+   "y": 465.4,
+   "size": 7,
+   "maxWidth": 40,
+   "label": "해당 연도 보수 총액 산재보험"
+  },
+  "ei_pay_prev_4": {
+   "kind": "text",
+   "page": 1,
+   "x": 741,
+   "y": 447.9,
+   "size": 7,
+   "maxWidth": 40,
+   "label": "전년도 보수 총액 고용보험"
+  },
+  "ia_pay_prev_4": {
+   "kind": "text",
+   "page": 1,
+   "x": 741,
+   "y": 465.4,
+   "size": 7,
+   "maxWidth": 40,
+   "label": "전년도 보수 총액 산재보험"
+  }
+ },
+ "stamps": {
+  "applicant": {
+   "page": 1,
+   "x": 479.7,
+   "y": 522.5,
+   "size": 30
+  },
+  "agent": {
+   "page": 1,
+   "x": 754.5,
+   "y": 522.5,
+   "size": 30
+  }
+ }
+}

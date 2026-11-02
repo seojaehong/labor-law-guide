@@ -35,6 +35,79 @@ const FEATURES: Record<string, { path: string; journey: Journey }> = {
       step('첫 화면 답', /5인 이상|5인 이상 사업장이 되는 날이 없습니다/, await answer(p));
     },
   },
+  'branch-directory': {
+    path: '/tools/branch-directory',
+    journey: async (p, step) => {
+      const box = p.getByLabel('사업장 주소');
+      const go = async (addr: string) => {
+        await box.fill(addr);
+        await p.getByRole('button', { name: '찾기' }).click();
+        await p.locator('[data-notice]').waitFor({ timeout: 30000 });
+      };
+      await go('충청북도 청주시 상당구 상당로81번길 63 (서문동)');
+      step('안내문(관리지사 우선)', '관리지사를 먼저 확인', await answer(p, '[data-notice]'));
+      step('근복 청주지사 확정', /주소로 찾은 지사.*청주지사/, await answer(p, '[data-agency=comwel]'));
+      step('서문동 담당 행 강조', '043-229-5128', await answer(p, '[data-agency=comwel] tr[data-hit="1"]'));
+      step('건보 청주동부지사', '청주동부지사', await answer(p, '[data-agency=nhis]'));
+      step('연금 동청주지사', '동청주지사', await answer(p, '[data-agency=nps]'));
+      await go('서울특별시 영등포구 여의공원로 101');
+      step('건보 동 모름 → 후보 2곳', /후보 2곳.*영등포남부지사.*영등포북부지사/, await answer(p, '[data-agency=nhis]'));
+    },
+  },
+  'nhis-report-form': {
+    path: '/tools/nhis-report-form',
+    journey: async (p, step) => {
+      // 합성 값만. 주민번호가 어떤 요청에도 실리지 않는지 본다(브라우저 안에서만 PDF 를 만든다)
+      const RRN = '900101-1000000';
+      const sent: string[] = [];
+      p.on('request', (r: any) => sent.push(`${r.method()} ${r.url()} ${r.postData() ?? ''}`));
+      await p.getByLabel('사업장 주소').fill('충청북도 청주시 상당구 상당로81번길 63 (서문동)');
+      await p.getByRole('button', { name: '지사 찾기' }).click();
+      await p.waitForFunction(() => (document.querySelector('[data-branch-name]') as HTMLInputElement | null)?.value, null, { timeout: 30000 });
+      step('건보 받을 지사 자동 입력', '청주동부지사', await p.locator('[data-branch-name]').inputValue());
+      await p.getByLabel('사업장관리번호').fill('12345678900');
+      await p.getByLabel('사업장 명칭').fill('가상상사');
+      await p.getByLabel('대표자 성명').fill('홍대표');
+      await p.getByLabel('성명 1').fill('김가상');
+      await p.getByLabel('주민등록번호 1').fill(RRN);
+      await p.getByLabel('마지막 근무일 1').fill('2026-05-31');
+      step('상실일 = 다음 날', '상실일 2026.06.01', await answer(p, '[data-loss-date]'));
+      await p.getByLabel('올해 보수 총액(원) 1').fill('12000000');
+      await p.getByLabel('늦어진 이유').fill('퇴사 처리 과정에서 신고를 빠뜨렸습니다.');
+      // 도장 — 512px 그림을 고르면 화면이 300px 로 줄여 싣는다(createImageBitmap → canvas)
+      await p.getByLabel('도장 그림(PNG, 투명 배경)').setInputFiles(resolve(process.cwd(), 'public/icon-512.png'));
+      const [dl] = await Promise.all([p.waitForEvent('download', { timeout: 60000 }), p.getByRole('button', { name: 'PDF 만들기' }).click()]);
+      const path = await dl.path();
+      const buf = require('node:fs').readFileSync(path);
+      // 증거로 남긴다 — 글자가 실제로 그려졌는지는 렌더 그림으로 사람이 본다(pdf-lib 서브셋 사고는 글자 추출로 안 잡힌다)
+      mkdirSync(OUT, { recursive: true });
+      writeFileSync(resolve(OUT, `nhis-report-form-${p.viewportSize()?.width}.pdf`), buf);
+      step('PDF 내려받음', '%PDF', buf.subarray(0, 4).toString());
+      step('PDF 1MB 이하', 'true', String(buf.length < 1_000_000));
+      step('결과 안내(크기·한도 안)', /PDF \d+KB.*한도\(\d+KB\) 안입니다/, await answer(p, '[data-result]'));
+      // 취득 분기 — 대표자 여부를 고르지 않으면 막고, 고르면 만든다
+      await p.getByRole('button', { name: '자격취득(입사)' }).click();
+      await p.getByLabel('성명 1').fill('이가상');
+      await p.getByLabel('주민등록번호 1').fill('950505-2000000');
+      await p.getByLabel('자격취득일(입사일) 1').fill('2026-03-02');
+      await p.getByLabel('월 보수액(원) 1').fill('2,500,000');
+      await p.getByRole('button', { name: 'PDF 만들기' }).click();
+      step('취득 — 대표자 여부 미선택은 막음', /대표자 여부를 골라/, await answer(p, '[data-result]'));
+      await p.getByLabel('대표자 여부 1').selectOption('no');
+      const [dl2] = await Promise.all([p.waitForEvent('download', { timeout: 60000 }), p.getByRole('button', { name: 'PDF 만들기' }).click()]);
+      const buf2 = require('node:fs').readFileSync(await dl2.path());
+      writeFileSync(resolve(OUT, `nhis-report-form-acq-${p.viewportSize()?.width}.pdf`), buf2);
+      step('취득 PDF 내려받음', '%PDF', buf2.subarray(0, 4).toString());
+      const rrnForms = ['9001011000000', '9505052000000'].flatMap(r => [r, `${r.slice(0, 6)}-${r.slice(6)}`, `${r.slice(0, 6)}%2D${r.slice(6)}`]);
+      const leaked = sent.filter(s => rrnForms.some(r => s.includes(r)));
+      step('주민번호가 실린 요청 0건', '0', String(leaked.length));
+      // 같은 출처 + 사이트 공통 분석 스크립트만 허용
+      const origin = new URL(p.url()).origin;
+      const allowed = [/^https:\/\/www\.googletagmanager\.com\//, /^https:\/\/[a-z0-9.-]*google-analytics\.com\//];
+      const others = sent.map(s => s.split(' ')[1]).filter(u => new URL(u).origin !== origin && !u.startsWith('data:') && !u.startsWith('blob:') && !allowed.some(a => a.test(u)));
+      step('다른 출처 요청 0건', '0', String(others.length) + (others.length ? ` ${others.slice(0, 3).join(' ')}` : ''));
+    },
+  },
   'weekly-holiday-pay': {
     path: '/tools/weekly-holiday-pay',
     journey: async (p, step) => {
@@ -627,7 +700,16 @@ async function drive(id: string) {
       const res = await p.goto(`${BASE}${f.path}`, { waitUntil: 'networkidle' });
       await f.journey(p, step);
       if (id === 'severance' && vp.name === 'pc') await api(step);
-      const text = await p.evaluate(() => (document.querySelector('main') ?? document.body).innerText);
+      // [data-official] = 공단 홈페이지 원문 인용(부서·담당업무). 우리 문장이 아니므로 금지어 검사에서 뺀다
+      const text = await p.evaluate(() => {
+        const root = (document.querySelector('main') ?? document.body).cloneNode(true) as HTMLElement;
+        root.querySelectorAll('[data-official]').forEach((e) => e.remove());
+        document.body.appendChild(root);
+        root.style.position = 'absolute'; root.style.left = '-99999px';
+        const t = root.innerText;
+        root.remove();
+        return t;
+      });
       const overflow = await p.evaluate(() => document.documentElement.scrollWidth > window.innerWidth);
       mkdirSync(OUT, { recursive: true });
       const shot = resolve(OUT, `${id}-${vp.name}.png`);
