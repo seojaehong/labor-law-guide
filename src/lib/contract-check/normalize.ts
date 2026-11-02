@@ -7,20 +7,29 @@
 // - work_time.weekly_scheduled_hours / weekly_scheduled_days / weekly_scheduled_source — 1주 소정근로시간·근로일·출처.
 //   요일별 근무표를 믿을 수 있으면(행이 모두 유효하고 행 수 = days_per_week) 휴게를 뺀 그 합·요일 수(daily),
 //   아니면 weekly_actual_hours·days_per_week(actual)
-// - wage.ordinary_hourly_rate = BASE.amount / (BASE.basis_hours 가 양수면 그 값, pay_type hourly 면 1(기본급 = 시급),
-//   아니면 최저임금 적용기준 월 시간 monthlyStandardHours — 근로시간을 모르면 209) (정수)
+// - wage.ordinary_hourly_rate = hourlyRateOf(기본급이 시급 띠 안이면 그 금액, 아니면 BASE.amount ÷ basis_hours),
+//   시급제인데 둘 다 아니면 null, 월급제는 BASE.amount ÷ 최저임금 적용기준 월 시간(근로시간을 모르면 209) (정수)
 // - signatures.retroactive_days = written_date - start_date (일수)
 // - employee.employment_type — 명시값 우선, 없으면 indefinite=false→fixed_term,
 //   1주 소정<40→part_time, 둘 다면 fixed_term_part_time, 그 외 regular
+
+import minwageJson from '@/lib/contract-check/data/minwage_table.json';
 
 import type { Contract, FixturesInput, WorkBreak, WorkTime } from './types';
 
 export const MONTHLY_BASE_HOURS = 209;
 export const WEEKLY_STANDARD_HOURS = 40.0;
-/** 임금 규칙들이 함께 쓰는 상수 — 규칙 파일끼리 import 하지 않도록 여기 둔다(rules/wage.ts 가 다시 내보낸다) */
+/** 규칙들이 함께 쓰는 상수 — 규칙 파일끼리 import 하지 않도록 여기 둔다(rules/wage.ts 가 일부를 다시 내보낸다) */
 export const WAGE_MATH_TOLERANCE = 10;
 export const WEEKS_PER_MONTH = 4.345;
 export const OT_PREMIUM_RATE = 1.5;
+/** 연도별 최저시급(원) */
+export const MINWAGE_TABLE: Record<string, number> = minwageJson;
+export const PART_TIME_TYPES = new Set(['part_time', 'fixed_term_part_time']);
+export const FIXED_TERM_TYPES = new Set(['fixed_term', 'fixed_term_part_time']);
+/** 기본급을 그 자체로 시급으로 볼 수 있는 폭 — 최저시급의 0.5~5배 */
+export const HOURLY_PLAUSIBLE_MIN = 0.5;
+export const HOURLY_PLAUSIBLE_MAX = 5;
 
 function minutesOf(hhmm: string): number {
   const [h, m] = hhmm.split(':');
@@ -28,6 +37,13 @@ function minutesOf(hhmm: string): number {
 }
 
 const DAY_MINUTES = 24 * 60;
+
+/** 시업~종업 길이(분). 종업이 시업보다 이르면 자정을 넘긴 근무로 본다 */
+function shiftSpan(start: string, end: string): number {
+  const s = minutesOf(start);
+  const e = minutesOf(end);
+  return e < s ? e + DAY_MINUTES - s : e - s;
+}
 
 /** 근로기준법 §54 — 근로시간 4시간 30분, 8시간 1시간 이상 */
 function statutoryBreakMinutes(spanMinutes: number): number {
@@ -80,19 +96,34 @@ export function computeWeeklyHours(workTime: WorkTime): [number | null, number |
   return [actual, overtime];
 }
 
-/** 요일별 근무표 → [휴게 차감 주간 합(H), 근로일 수]. 믿을 수 없으면 null — 행 하나라도 start/end 가 없거나,
- * 주 근무일수(days_per_week)가 있는데 행 수와 다르면(예: 주 6일 정규직 계약에 토요일 한 줄) 근로일별 시간으로 보지 않는다.
- * 자정을 넘는 행은 dayWorkMinutes 가 24시간을 더하고, 시각 없는 하루 휴게는 행 길이의 법정 휴게까지만 뺀다. */
-function dailyScheduledWeek(workTime: WorkTime): [number, number] | null {
+/** 근로일별 행 수가 주 근무일수와 다를 때 PART-TIME-OT·REQUIRED-TERMS-FIXED 가 함께 쓰는 문구 */
+export const DAILY_MISMATCH_NOTE = '근로일별 시간이 주 근무일수와 맞지 않음';
+
+/** 요일별 근무표 상태 — none(행 없음)·invalid(start/end 결손 행)·mismatch(주 근무일수와 행 수가 다름 — 예: 주 6일
+ * 정규직 계약에 토요일 한 줄)·ok. ok 일 때만 근로일별 시간을 1주 소정으로 쓴다. PART-TIME-OT·REQUIRED-TERMS-FIXED 가 같은 문구를 쓴다. */
+export function dailyScheduleState(workTime: WorkTime): 'none' | 'invalid' | 'mismatch' | 'ok' {
   const schedules = workTime.daily_schedules ?? [];
-  if (schedules.length === 0) return null;
+  if (schedules.length === 0) return 'none';
+  if (schedules.some((s) => !s.start || !s.end)) return 'invalid';
   const days = workTime.days_per_week;
-  if (days != null && days > 0 && schedules.length !== days) return null;
+  if (days != null && days > 0 && schedules.length !== days) return 'mismatch';
+  return 'ok';
+}
+
+/** 요일별 근무표 → [휴게 차감 주간 합(H), 근로일 수]. 상태가 ok 가 아니면 null.
+ * 자정을 넘는 행은 dayWorkMinutes 가 24시간을 더한다. 시각 없는 하루 휴게는 기본 근무시간(시업~종업, 없으면 가장 긴 행)과
+ * 같은 길이의 행에서는 전부 빼고, 그보다 짧은 행에서만 그 행 길이의 법정 휴게까지 뺀다. */
+function dailyScheduledWeek(workTime: WorkTime): [number, number] | null {
+  if (dailyScheduleState(workTime) !== 'ok') return null;
+  const schedules = workTime.daily_schedules ?? [];
   const breaks = workTime.breaks ?? [];
+  const reference =
+    workTime.start && workTime.end
+      ? shiftSpan(workTime.start, workTime.end)
+      : Math.max(...schedules.map((s) => shiftSpan(s.start, s.end)));
   let minutes = 0;
   for (const s of schedules) {
-    if (!s.start || !s.end) return null;
-    minutes += dayWorkMinutes(s.start, s.end, breaks, true);
+    minutes += dayWorkMinutes(s.start, s.end, breaks, shiftSpan(s.start, s.end) < reference);
   }
   return [round2(minutes / 60), schedules.length];
 }
@@ -137,6 +168,46 @@ export function monthlyStandardHours(contract: Contract): number | null {
   return Math.round((wh.weekly + wh.holiday) * WEEKS_PER_MONTH_EXACT);
 }
 
+const round1 = (x: number) => Math.round(x * 10) / 10;
+
+/** 단시간 1주 소정 초과시간 = max(0, 실근로 − 소정). 소정은 믿을 수 있는 근로일별 시간(출처 daily)일 때만 쓰고,
+ * 아니면 소정 = 실근로로 보아 0. 실근로 미상 null. PART-TIME-OT(법리 E)와 포괄 총액 역산(D)이 같이 쓴다 —
+ * 고용형태·상시 5인 여부는 부르는 쪽이 본다. */
+export function partTimeExcessHours(contract: Contract): number | null {
+  const wt = contract.work_time ?? {};
+  const actual = wt.weekly_actual_hours;
+  if (actual == null) return null;
+  if (wt.weekly_scheduled_source !== 'daily' || wt.weekly_scheduled_hours == null) return 0;
+  return round1(Math.max(0, actual - wt.weekly_scheduled_hours));
+}
+
+/** 시급 띠의 기준 최저시급 — 계약 시작 연도, 없거나 표에 없으면 표의 마지막 연도. 사진 추출 매핑(extractMap)도 쓴다. */
+export function minimumWageFor(startDate: string | null | undefined): number {
+  const year = (startDate ?? '').slice(0, 4);
+  if (MINWAGE_TABLE[year] !== undefined) return MINWAGE_TABLE[year];
+  const years = Object.keys(MINWAGE_TABLE).sort();
+  return MINWAGE_TABLE[years[years.length - 1]];
+}
+
+/** 기본급 금액이 그 자체로 시급으로 볼 만한가 — 최저시급의 0.5~5배 */
+export function isPlausibleHourly(amount: number, minimum: number): boolean {
+  return amount >= minimum * HOURLY_PLAUSIBLE_MIN && amount <= minimum * HOURLY_PLAUSIBLE_MAX;
+}
+
+/** 기본급(BASE)에서 읽는 시간당 금액 — MINWAGE 시급 경로와 통상시급 파생이 같이 쓴다.
+ * 월급제로 밝히지 않았고(pay_type ≠ monthly) 기본급이 시급 띠 안이면 그 금액이 곧 시급(from amount — 「시급 10,320 × 87H」를
+ * amount 10,320 으로 적은 경우), 아니면 basis_hours 가 있을 때 amount ÷ basis_hours(from basis). 둘 다 아니면 null. */
+export function hourlyRateOf(contract: Contract): { rate: number; from: 'amount' | 'basis' } | null {
+  const wage = contract.wage ?? {};
+  const base = (wage.items ?? []).find((i) => i.code === 'BASE');
+  if (!base || !(base.amount > 0)) return null;
+  if (wage.pay_type !== 'monthly' && isPlausibleHourly(base.amount, minimumWageFor(contract.period?.start_date))) {
+    return { rate: base.amount, from: 'amount' };
+  }
+  if (base.basis_hours != null && base.basis_hours > 0) return { rate: base.amount / base.basis_hours, from: 'basis' };
+  return null;
+}
+
 function daysBetween(fromIso: string, toIso: string): number {
   const MS_PER_DAY = 86400000;
   return Math.round((Date.parse(toIso) - Date.parse(fromIso)) / MS_PER_DAY);
@@ -155,7 +226,10 @@ export function deriveFields(contract: Contract): Contract {
   // 계산한 주 근로시간(출처 actual). 최저임금(MINWAGE)·단시간 초과근로(PART-TIME-OT)·단시간 판정이 모두 이 값을 쓴다.
   const daily = dailyScheduledWeek(workTime);
   if (daily) {
-    [workTime.weekly_scheduled_hours, workTime.weekly_scheduled_days] = daily;
+    // 소정은 실근로를 넘지 않는다
+    const actualHours = workTime.weekly_actual_hours;
+    workTime.weekly_scheduled_hours = actualHours != null ? Math.min(daily[0], actualHours) : daily[0];
+    workTime.weekly_scheduled_days = daily[1];
     workTime.weekly_scheduled_source = 'daily';
   } else if (workTime.weekly_actual_hours != null) {
     workTime.weekly_scheduled_hours = workTime.weekly_actual_hours;
@@ -166,15 +240,13 @@ export function deriveFields(contract: Contract): Contract {
   const wage = contract.wage ?? {};
   const base = (wage.items ?? []).find((i) => i.code === 'BASE');
   if (base && base.amount) {
-    // 산출근거 시간(basis_hours)이 있으면 그 시간으로 나눈다. 시급제(pay_type hourly)인데 시간이 없으면 기본급이
-    // 곧 시급이다. 그 밖에는 최저임금 적용기준 월 시간((1주 소정+주휴)×365/7/12, 40H 는 209H), 근로시간을 모르면 209H.
-    const hasBasis = base.basis_hours != null && base.basis_hours > 0;
-    const hours = hasBasis
-      ? (base.basis_hours as number)
-      : wage.pay_type === 'hourly'
-        ? 1
-        : (monthlyStandardHours(contract) ?? MONTHLY_BASE_HOURS);
-    wage.ordinary_hourly_rate = Math.round(base.amount / hours);
+    // 기본급이 시급 띠 안이면 그 금액, 산출근거 시간(basis_hours)이 있으면 그 시간으로 나눈 값(hourlyRateOf).
+    // 시급제(pay_type hourly)인데 둘 다 아니면 시급을 알 수 없다 — null(월 시간으로 나누지 않는다).
+    // 그 밖(월급제)은 최저임금 적용기준 월 시간((1주 소정+주휴)×365/7/12, 40H 는 209H), 근로시간을 모르면 209H.
+    const hr = hourlyRateOf(contract);
+    if (hr) wage.ordinary_hourly_rate = Math.round(hr.rate);
+    else if (wage.pay_type === 'hourly') wage.ordinary_hourly_rate = null;
+    else wage.ordinary_hourly_rate = Math.round(base.amount / (monthlyStandardHours(contract) ?? MONTHLY_BASE_HOURS));
   }
 
   const employee = contract.employee ?? {};

@@ -2,8 +2,8 @@
 //
 // buildContract()의 역방향이지만 대칭이 아니다:
 //  - 금액 필드는 top-level이 아니라 wage.items[].code 로 들어온다(BASE/WEEKLY_HOLIDAY/OT_WEEKDAY/HOLIDAY_EXTRA/ANNUAL_LEAVE).
-//    BASE 는 wage.pay_type(없으면 「시급에 주휴 포함」 표시)에 따라 시급제(시급 = amount ÷ basis_hours)·기본급으로 가르고,
-//    basis_hours·includes_weekly_holiday 도 폼 칸으로 옮긴다.
+//    BASE 는 wage.pay_type 에 따라 시급제(시급 = amount ÷ basis_hours, amount 가 이미 시급 띠 안이면 amount)·기본급으로
+//    가르고, basis_hours·includes_weekly_holiday 도 폼 칸으로 옮긴다(주휴 포함 표시만으로 시급제로 보지 않는다).
 //    폼에 칸이 없는 코드(OT_WEEKEND·NIGHT·MEAL·BONUS·OTHER)는 버리고 warnings로 알린다.
 //  - breaks[]는 합계 분으로 접는다(폼은 하루 합계 한 칸).
 //  - 날짜/시각은 <input type="date|time">이 요구하는 YYYY-MM-DD·HH:MM 로 정규화한다.
@@ -11,6 +11,7 @@
 //  - 지급방법은 폐쇄 선택지(계좌이체·현금)라 자유문구를 키워드로 맞춘다. 못 맞추면 비우고 안내한다.
 // null = 판독 불가/미확인 → 비워 두고 하이라이트(filled에 넣지 않는다).
 
+import { isPlausibleHourly, minimumWageFor } from '@/lib/contract-check/normalize';
 import { CLAUSE_ITEMS, INITIAL, type FormState } from './formState';
 
 export interface ExtractResult {
@@ -200,17 +201,19 @@ export function applyExtracted(payload: unknown): ExtractResult {
     if (!amount || Number(amount) <= 0) continue;
     if (text(item.basis_text)) basisSeen = true;
     if (text(item.code) === 'BASE') {
-      // 시급제(pay_type hourly, 또는 형태 미상인데 「시급에 주휴 포함」 표시)면 시급·월 산출시간으로, 그 밖은 기본급으로.
-      // 산출근거 시간·주휴 포함 표시는 버리지 않는다 — 엔진이 그것으로 시급제·월급제를 가른다.
+      // pay_type hourly 면 시급·월 산출시간으로, 그 밖은 기본급으로. 형태는 pay_type 으로만 정한다 — 「시급에 주휴 포함」
+      // 표시만으로 시급제로 보지 않는다(209H 월급 산출근거에도 붙는다). 산출근거 시간·주휴 포함 표시는 버리지 않는다 —
+      // 엔진이 그것으로 시급제·월급제를 가른다(rules/wage.ts payBasis).
       const hours = Number(numText(item.basis_hours) || 0);
       const included = typeof item.includes_weekly_holiday === 'boolean' ? item.includes_weekly_holiday : null;
-      if (payType === 'hourly' || (payType === '' && included === true)) {
-        if (payType === '') mark('payType', 'hourly');
-        mark('hourlyWage', hours > 0 ? String(Math.round((Number(amount) / hours) * 100) / 100) : amount);
-        if (included !== null) mark('weeklyHolidayIncluded', included ? 'yes' : 'no');
+      if (payType === 'hourly') {
+        // 금액이 이미 시급 띠 안이면 그 금액이 시급이다(「시급 10,320 × 87H」를 amount 10,320 으로 적은 경우)
+        const asHourly = isPlausibleHourly(Number(amount), minimumWageFor(startDate));
+        mark('hourlyWage', hours > 0 && !asHourly ? String(Math.round((Number(amount) / hours) * 100) / 100) : amount);
       } else {
         mark('baseWage', amount);
       }
+      if (included !== null && payType !== 'monthly') mark('weeklyHolidayIncluded', included ? 'yes' : 'no');
       if (hours > 0) mark('basisHours', String(hours));
       continue;
     }

@@ -73,7 +73,7 @@ export interface FormState {
   hourlyWage: string;
   /** 기본급 산출근거 월 시간(선택) → BASE.basis_hours. 시급제는 시급 × 이 시간이 기본급 */
   basisHours: string;
-  /** 시급에 주휴수당이 포함돼 있다고 적혀 있나 — 시급제에서만 BASE.includes_weekly_holiday 로 싣는다 */
+  /** 시급에 주휴수당이 포함돼 있다고 적혀 있나 — 월급제가 아닐 때(시급제·형태 미상) BASE.includes_weekly_holiday 로 싣는다 */
   weeklyHolidayIncluded: '' | 'yes' | 'no';
   // ② 근로시간
   daysPerWeek: string;
@@ -144,6 +144,17 @@ export function num(s: string): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
+/** 숫자 입력칸 표시 — 원 단위 1,000 이상만 정수부에 천 단위 쉼표를 넣고, 소수점과 그 뒤는 친 그대로 둔다
+ * (「10320.」을 「10,320」으로 바꿔 소수점을 먹지 않는다). 그 밖은 입력값 그대로. */
+export function formatNumericInput(value: string, suffix?: string): string {
+  if (suffix !== '원') return value;
+  const m = /^([\d,\s]*)(\.\d*)?$/.exec(value || '');
+  if (!m) return value;
+  const digits = m[1].replace(/[,\s]/g, '');
+  if (!digits || Number(digits) < 1000) return value;
+  return Number(digits).toLocaleString('ko-KR') + (m[2] ?? '');
+}
+
 /** 폼 상태 → 스키마 규격 계약 객체 (RALPH-README 매핑 지침). */
 export function buildContract(f: FormState): Contract {
   const items: WageItem[] = [];
@@ -151,6 +162,11 @@ export function buildContract(f: FormState): Contract {
   // 산출근거 시간은 적었을 때만 싣는다 — 비우면 키도 두지 않아 엔진이 형태를 추론한다(rules/wage.ts payBasis)
   const hours = num(f.basisHours);
   const basis = hours != null && hours > 0 ? { basis_hours: hours } : {};
+  // 주휴 포함 표시는 월급제로 고르지 않았을 때만 싣는다(형태 미상이면 엔진이 기본급·산출시간으로 시급제인지 가린다)
+  const included =
+    f.payType !== 'monthly' && f.weeklyHolidayIncluded
+      ? { includes_weekly_holiday: f.weeklyHolidayIncluded === 'yes' }
+      : {};
   if (f.payType === 'hourly') {
     const hourly = num(f.hourlyWage);
     if (hourly != null) {
@@ -160,13 +176,13 @@ export function buildContract(f: FormState): Contract {
         amount: hours != null && hours > 0 ? Math.round(hourly * hours) : hourly,
         ...basis,
         basis_text: basisText,
-        ...(f.weeklyHolidayIncluded ? { includes_weekly_holiday: f.weeklyHolidayIncluded === 'yes' } : {}),
+        ...included,
       });
     }
   } else {
     const base = num(f.baseWage);
     if (base != null) {
-      items.push({ code: 'BASE', label: '기본급', amount: base, ...basis, basis_text: basisText });
+      items.push({ code: 'BASE', label: '기본급', amount: base, ...basis, basis_text: basisText, ...included });
     }
   }
   const weeklyHolidayPay = num(f.weeklyHolidayPay);

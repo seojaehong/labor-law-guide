@@ -23,7 +23,7 @@ import {
 import type { Finding, FindingStatus } from '@/lib/contract-check/types';
 import PhotoUploadCard from './PhotoUploadCard';
 import { applyExtracted, keepFormOnlyFields } from './extractMap';
-import { CLAUSE_ITEMS, INITIAL, buildContract, type FormState } from './formState';
+import { CLAUSE_ITEMS, INITIAL, buildContract, formatNumericInput, type FormState } from './formState';
 
 // 상태 이름·정렬·규칙 이름·수정 방향·면책 문구는 present.ts(오프라인판과 공용). 색만 여기 둔다.
 // DESIGN.md §6.4 배지 4변형(위험·주의·성공·중립). 값이 아니라 이름을 붙이는 교체다 —
@@ -135,13 +135,7 @@ function TextInput({
   suffix?: string;
   numeric?: boolean;
 }) {
-  const display = (() => {
-    if (!numeric) return value;
-    const n = parseFloat((value || '').replace(/[,\s]/g, ''));
-    if (!Number.isFinite(n)) return value;
-    if (suffix === '원' && n >= 1000) return n.toLocaleString('ko-KR');
-    return value;
-  })();
+  const display = numeric ? formatNumericInput(value, suffix) : value;
   return (
     <div className="flex items-center gap-2">
       <input
@@ -491,7 +485,7 @@ export default function ContractCheckClient() {
               />
             </Field>
           </div>
-          {form.payType === 'hourly' && (
+          {form.payType !== 'monthly' && (
             <Field missing={miss('weeklyHolidayIncluded')} label="시급에 주휴수당이 포함돼 있다고 적혀 있나요?">
               <Choice
                 options={[

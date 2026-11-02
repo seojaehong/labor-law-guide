@@ -113,6 +113,9 @@ describe('POST /api/tools/contract-check/extract', () => {
     // 임금 형태·주휴 포함 표시를 요청한다(최저임금 시급제 판단 — 법리 A·B)
     expect(sent.system).toContain('pay_type');
     expect(sent.system).toContain('includes_weekly_holiday');
+    // BASE 는 월 금액, 주휴가 들어간 월 시간(209H)은 월급제 — 시급 × 209H 를 시급제로 오인하지 않게(261102 R2)
+    expect(sent.system).toContain('BASE.amount 는 월 금액');
+    expect(sent.system).toContain('통상시급×209H(주휴 포함)');
   });
 
   it('앞에 text가 아닌 블록이 와도 첫 text 블록을 골라 파싱한다', async () => {

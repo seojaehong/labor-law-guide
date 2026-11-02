@@ -5,14 +5,23 @@
 //   2년 이하는 ok — 갱신이력은 데이터에 없으므로 detail에 "갱신 누계 별도 확인".
 // PART-TIME-OT: 단시간만 적용, 상시 4인 이하(employee_count_5plus=false)는 비적용(기간제법 시행령 §2 별표1),
 //   미기재면 detail 에 「5인 이상 사업장 전제」. 소정 = normalize 의 weekly_scheduled_hours(근로일별 시간, 휴게 차감).
-//   근로일별 시간이 없거나 믿을 수 없으면(weekly_scheduled_source !== 'daily') 소정=실근로로 보아 초과 0.
-//   weekly_actual − 소정 > 12H → violation(§6①),
+//   근로일별 시간이 없거나 믿을 수 없으면(weekly_scheduled_source !== 'daily') 소정=실근로로 보아 초과 0 — 행 수가 주 근무일수와
+//   다르면 그 사실(DAILY_MISMATCH_NOTE)을, 행이 없거나 결손이면 「근로일별 시간 미명시」를 적는다.
+//   초과 = normalize.partTimeExcessHours(포괄 총액 역산 D 와 같은 함수) > 12H → violation(§6①),
 //   12H 이내 초과는 partTimePremium(금액 기준, 261101 법리 E)으로 ok·risk·needs_data(§6③ 50% 가산).
 
-import { OT_PREMIUM_RATE, WAGE_MATH_TOLERANCE, WEEKS_PER_MONTH } from '../normalize';
+import {
+  DAILY_MISMATCH_NOTE,
+  FIXED_TERM_TYPES,
+  OT_PREMIUM_RATE,
+  PART_TIME_TYPES,
+  WAGE_MATH_TOLERANCE,
+  WEEKS_PER_MONTH,
+  dailyScheduleState,
+  partTimeExcessHours,
+} from '../normalize';
 import type { Contract, Finding } from '../types';
 import { makeFinding, type RuleFn } from './index';
-import { FIXED_TERM_TYPES, PART_TIME_TYPES } from './required_terms';
 
 export const FIXED_TERM_LIMIT_YEARS = 2;
 export const PART_TIME_OT_LIMIT_HOURS = 12;
@@ -114,16 +123,14 @@ export const rulePartTimeOt: RuleFn = (contract) => {
     return makeFinding('PART-TIME-OT', 'needs_data', `주간 실근로시간 산정 불가${premise}`);
   }
   // 근로일별 시간을 믿을 수 있을 때만(normalize 출처 daily — 행이 모두 유효하고 행 수 = 주 근무일수) 소정으로 본다
-  const fromDaily = contract.work_time?.weekly_scheduled_source === 'daily';
-  const contracted = fromDaily ? contract.work_time?.weekly_scheduled_hours : null;
+  const workTime = contract.work_time ?? {};
+  const fromDaily = workTime.weekly_scheduled_source === 'daily';
+  const contracted = fromDaily ? workTime.weekly_scheduled_hours : null;
   if (contracted == null) {
-    return makeFinding(
-      'PART-TIME-OT',
-      'ok',
-      `근로일별 시간 미명시 — 소정=실근로 ${fmtH(actual)}H로 보아 초과 없음${premise}`,
-    );
+    const why = dailyScheduleState(workTime) === 'mismatch' ? DAILY_MISMATCH_NOTE : '근로일별 시간 미명시';
+    return makeFinding('PART-TIME-OT', 'ok', `${why} — 소정=실근로 ${fmtH(actual)}H로 보아 초과 없음${premise}`);
   }
-  const excess = round1(actual - contracted);
+  const excess = partTimeExcessHours(contract) ?? 0;
   const head = `소정 주 ${fmtH(contracted)}H(근로일별 시간, 휴게 제외) 대비 실근로 ${fmtH(actual)}H`;
   if (excess <= 0) {
     return makeFinding('PART-TIME-OT', 'ok', `${head} — 초과근로 없음${premise}`);

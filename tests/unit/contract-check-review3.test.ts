@@ -142,7 +142,8 @@ describe('2 폼·사진 경로가 A·B 에 닿는다(승인안)', () => {
     });
     expect([r.form.payType, r.form.baseWage, r.form.basisHours]).toEqual(['', '2156880', '209']);
   });
-  it('추출: 주휴 포함 표시 → 시급제·포함, WEEKLY_HOLIDAY → 주휴수당 금액 칸(안내로 버리지 않음)', () => {
+  // 261102 R2: 주휴 포함 표시만으로 시급제로 추론하지 않는다 — 형태는 비우고 기본급·포함 표시를 살린다(엔진이 가른다)
+  it('추출: 주휴 포함 표시 → 형태 비움·기본급·포함, WEEKLY_HOLIDAY → 주휴수당 금액 칸(안내로 버리지 않음)', () => {
     const r = applyExtracted({
       contract: {
         wage: {
@@ -153,7 +154,7 @@ describe('2 폼·사진 경로가 A·B 에 닿는다(승인안)', () => {
         },
       },
     });
-    expect([r.form.payType, r.form.hourlyWage, r.form.weeklyHolidayIncluded]).toEqual(['hourly', '12384', 'yes']);
+    expect([r.form.payType, r.form.baseWage, r.form.weeklyHolidayIncluded]).toEqual(['', '12384', 'yes']);
     expect(r.form.weeklyHolidayPay).toBe('80000');
     expect(r.warnings.join()).not.toContain('주휴수당');
   });
@@ -281,10 +282,12 @@ describe('8 포괄이어도 시급제(산출시간 있음)·구성 수당 없음
     expect(incl.status).toBe('risk');
     expect([incl.status, incl.detail]).toEqual([plain.status, plain.detail]);
   });
-  it('연장 항목이 있으면 종전처럼 월급제(C)', () => {
+  // 261102 R7: 연장 항목이 있어도 시급제면 A — 연장 충분성은 OT-COVER 몫(종전 C 는 시간당 8,633 위반을 냈다)
+  it('연장 항목이 있어도 시급제(A)', () => {
     const ot: WageItem = { code: 'OT_WEEKDAY', label: '고정연장수당', amount: 100000, basis_hours: 6.5, rate_multiplier: 1.5 };
     const f = run(contract(5, '09:00', '13:00', [base(897840, 87), ot], { inclusive_wage: true })).get('MINWAGE');
-    expect(f.detail).toContain('포괄');
+    expect(f.status).toBe('risk');
+    expect(f.detail).toContain('계약 시급 10,320');
   });
 });
 

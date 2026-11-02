@@ -8,14 +8,15 @@
 //
 // REQUIRED-TERMS-FIXED: employment_type이 fixed_term/part_time 계열일 때만.
 //   ①근로계약기간 ②근로시간·휴게 ③임금 구성·계산·지불 ④휴일·휴가
-//   ⑤취업장소·업무 ⑥(단시간 한정) 근로일 및 근로일별 근로시간(daily_schedules).
+//   ⑤취업장소·업무 ⑥(단시간 한정) 근로일 및 근로일별 근로시간(daily_schedules — 행이 없거나 결손이거나 행 수가
+//   주 근무일수와 다르면 누락, 다를 때는 PART-TIME-OT 와 같은 문구 DAILY_MISMATCH_NOTE 를 덧붙인다).
 //   regular → ok(비적용 명시), 누락 → violation.
 
+import { DAILY_MISMATCH_NOTE, FIXED_TERM_TYPES, PART_TIME_TYPES, dailyScheduleState } from '../normalize';
 import type { Contract, Finding, Wage } from '../types';
 import { makeFinding, type RuleFn } from './index';
 
-export const PART_TIME_TYPES = new Set(['part_time', 'fixed_term_part_time']);
-export const FIXED_TERM_TYPES = new Set(['fixed_term', 'fixed_term_part_time']);
+const DAILY_TERMS = '근로일 및 근로일별 근로시간';
 
 /** 임금 구성항목·계산방법·지급방법 누락 라벨 리스트. */
 function wageMissing(wage: Wage): string[] {
@@ -84,8 +85,8 @@ export function fixedTermsMissing(contract: Contract): string[] {
   }
   if (!(holidays.weekly_rest && holidays.annual_leave_clause)) missing.push('휴일·휴가');
   if (!(job.location && job.duty)) missing.push('취업장소·종사업무');
-  if (PART_TIME_TYPES.has(empType) && (workTime.daily_schedules ?? []).length === 0) {
-    missing.push('근로일 및 근로일별 근로시간');
+  if (PART_TIME_TYPES.has(empType) && dailyScheduleState(workTime) !== 'ok') {
+    missing.push(DAILY_TERMS);
   }
   return missing;
 }
@@ -102,10 +103,12 @@ export const ruleRequiredTermsFixed: RuleFn = (contract) => {
 
   const missing = fixedTermsMissing(contract);
   if (missing.length > 0) {
+    const mismatch = dailyScheduleState(contract.work_time ?? {}) === 'mismatch' ? `(${DAILY_MISMATCH_NOTE})` : '';
     return makeFinding(
       'REQUIRED-TERMS-FIXED',
       'violation',
-      '기간제법 §17 서면명시 누락: ' + missing.map((m) => `${m} 미명시`).join(' · '),
+      '기간제법 §17 서면명시 누락: ' +
+        missing.map((m) => (m === DAILY_TERMS ? `${m} 미명시${mismatch}` : `${m} 미명시`)).join(' · '),
     );
   }
   const count = PART_TIME_TYPES.has(empType) ? 6 : 5;
