@@ -1,6 +1,6 @@
 // 건강보험 자격 취득·상실 신고서 작성 화면의 문장. 시험이 allCopy() 전부를 금지어로 훑는다.
 // 이 도구는 사업주가 직접 쓰고 직접 내는 서식을 채워 줄 뿐이다 — 위임·제출을 맡는 말은 쓰지 않는다(행정사법 §2·§3).
-import { ACQ_LATE_ATTACH_NOTE } from '@/lib/nhis-forms/build';
+import { EDI_LIMIT_BYTES } from '@/lib/nhis-forms/dates';
 
 export const KIND_LABEL = { loss: '자격상실(퇴사)', acq: '자격취득(입사)' } as const;
 
@@ -60,9 +60,32 @@ export const BRANCH_LINE = {
   notice: '고지서나 EDI 에 적힌 관리지사가 따로 있으면 그 지사로 내세요.',
 };
 
-export const ACQ_NOTE = ACQ_LATE_ATTACH_NOTE;
+export const BRANCH_ERROR = {
+  limit: '지사 찾기를 잠시 너무 많이 했습니다. 1분 뒤 다시 누르거나 지사 이름을 직접 적어 주세요.',
+  failed: '지사를 찾는 중 오류가 났습니다. 다시 누르거나 지사 이름을 직접 적어 주세요.',
+};
 
-export const ATTACH_SIZE = (kb: number) => `PDF ${kb}KB — 건강보험 EDI 첨부 한도(1MB) 안입니다.`;
+export const ACQ_NOTE =
+  '6개월 이상 늦은 취득 신고는 입사 시점을 확인할 수 있는 서류(근로계약서, 임금대장, 임금명세서, 급여이체내역 등) 1부를 함께 내야 합니다.';
+
+const EDI_LIMIT_KB = Math.round(EDI_LIMIT_BYTES / 1000);
+/** size = PDF 바이트 수 */
+export const ATTACH_SIZE = (size: number, kb = Math.round(size / 1024)) =>
+  size < EDI_LIMIT_BYTES
+    ? `PDF ${kb}KB — 건강보험 EDI 첨부 한도(${EDI_LIMIT_KB}KB) 안입니다.`
+    : `PDF ${kb}KB — 건강보험 EDI 첨부 한도(${EDI_LIMIT_KB}KB)를 넘습니다. 도장 그림을 더 작게 해서 다시 만들어 주세요.`;
+
+export const CEO = { label: '대표자 여부', yes: '대표자', no: '대표자 아님', pick: '골라 주세요' };
+
+export const INPUT_ERROR = {
+  number: (label: string, i: number) => `${i}번째 사람 ${label}에는 숫자만 적어 주세요`,
+  noName: (i: number) => `${i}번째 사람 성명을 적어 주세요(다른 칸이 채워져 있습니다)`,
+  ceo: (i: number) => `${i}번째 사람 대표자 여부를 골라 주세요`,
+  stamp: '도장 그림을 읽지 못했습니다. PNG 파일인지 확인해 주세요.',
+};
+
+export const REASON_MAX = 300;
+export const REASON_COUNT = (n: number) => `${n} / ${REASON_MAX}자`;
 
 export const BUTTON = { find: '지사 찾기', add: '사람 더하기', remove: '빼기', make: 'PDF 만들기', making: '만드는 중' };
 
@@ -77,6 +100,8 @@ export function allCopy(): string[] {
   return [
     ...Object.values(KIND_LABEL), ...Object.values(STEP), ...Object.values(FIELD),
     ...LOSS_CODES.map(c => c.label), ...ACQ_CODES.map(c => c.label), LEAD, PRIVACY, LOSS_DATE_LINE('2026.06.01'),
-    ...Object.values(BRANCH_LINE), ACQ_NOTE, ATTACH_SIZE(520), ...Object.values(BUTTON), CHECK_BEFORE, failLine('x'),
+    ...Object.values(BRANCH_LINE), ...Object.values(BRANCH_ERROR), ACQ_NOTE, ATTACH_SIZE(520_000), ATTACH_SIZE(1_200_000),
+    ...Object.values(CEO), INPUT_ERROR.number('월 보수액', 1), INPUT_ERROR.noName(1), INPUT_ERROR.ceo(1), INPUT_ERROR.stamp,
+    REASON_COUNT(10), ...Object.values(BUTTON), CHECK_BEFORE, failLine('x'),
   ];
 }

@@ -82,11 +82,28 @@ const FEATURES: Record<string, { path: string; journey: Journey }> = {
       writeFileSync(resolve(OUT, `nhis-report-form-${p.viewportSize()?.width}.pdf`), buf);
       step('PDF 내려받음', '%PDF', buf.subarray(0, 4).toString());
       step('PDF 1MB 이하', 'true', String(buf.length < 1_000_000));
-      step('결과 안내(크기)', /PDF \d+KB/, await answer(p, '[data-result]'));
-      const leaked = sent.filter(s => s.includes('900101') || s.includes('1000000'));
+      step('결과 안내(크기·한도 안)', /PDF \d+KB.*한도\(\d+KB\) 안입니다/, await answer(p, '[data-result]'));
+      // 취득 분기 — 대표자 여부를 고르지 않으면 막고, 고르면 만든다
+      await p.getByRole('button', { name: '자격취득(입사)' }).click();
+      await p.getByLabel('성명 1').fill('이가상');
+      await p.getByLabel('주민등록번호 1').fill('950505-2000000');
+      await p.getByLabel('자격취득일(입사일) 1').fill('2026-03-02');
+      await p.getByLabel('월 보수액(원) 1').fill('2,500,000');
+      await p.getByRole('button', { name: 'PDF 만들기' }).click();
+      step('취득 — 대표자 여부 미선택은 막음', /대표자 여부를 골라/, await answer(p, '[data-result]'));
+      await p.getByLabel('대표자 여부 1').selectOption('no');
+      const [dl2] = await Promise.all([p.waitForEvent('download', { timeout: 60000 }), p.getByRole('button', { name: 'PDF 만들기' }).click()]);
+      const buf2 = require('node:fs').readFileSync(await dl2.path());
+      writeFileSync(resolve(OUT, `nhis-report-form-acq-${p.viewportSize()?.width}.pdf`), buf2);
+      step('취득 PDF 내려받음', '%PDF', buf2.subarray(0, 4).toString());
+      const rrnForms = ['9001011000000', '9505052000000'].flatMap(r => [r, `${r.slice(0, 6)}-${r.slice(6)}`, `${r.slice(0, 6)}%2D${r.slice(6)}`]);
+      const leaked = sent.filter(s => rrnForms.some(r => s.includes(r)));
       step('주민번호가 실린 요청 0건', '0', String(leaked.length));
-      const others = sent.filter(s => !s.includes(new URL(p.url()).host));
-      step('다른 출처 요청 0건', '0', String(others.length));
+      // 같은 출처 + 사이트 공통 분석 스크립트만 허용
+      const origin = new URL(p.url()).origin;
+      const allowed = [/^https:\/\/www\.googletagmanager\.com\//, /^https:\/\/[a-z0-9.-]*google-analytics\.com\//];
+      const others = sent.map(s => s.split(' ')[1]).filter(u => new URL(u).origin !== origin && !u.startsWith('data:') && !u.startsWith('blob:') && !allowed.some(a => a.test(u)));
+      step('다른 출처 요청 0건', '0', String(others.length) + (others.length ? ` ${others.slice(0, 3).join(' ')}` : ''));
     },
   },
   'weekly-holiday-pay': {
