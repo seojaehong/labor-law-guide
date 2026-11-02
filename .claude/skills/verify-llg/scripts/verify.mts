@@ -27,8 +27,12 @@ type Journey = (p: Page, step: (name: string, expect: string | RegExp, got: stri
 
 const answer = async (p: Page, sel = 'section[aria-live]') => (await p.locator(sel).first().innerText()).replace(/\s+/g, ' ').trim();
 
+// Cloudflare Turnstile(사진 업로드 봇 확인) iframe. 자기 CSP·개발자도구 감지 로그를 console.error 로 낸다 — 우리 페이지의 오류가 아니다
+const THIRD_PARTY_FRAMES = [/^https:\/\/challenges\.cloudflare\.com\//];
+
 // 기능마다 경로와 사용자 동작. 기대값은 손으로 센 값이다(features/<id>.md 와 같다).
-const FEATURES: Record<string, { path: string; journey: Journey }> = {
+// waitUntil 'load' = 헤드리스에서 networkidle 에 닿지 않는 화면(Turnstile 이 챌린지를 계속 돌린다). 그런 화면은 여정이 하이드레이션을 기다린다
+const FEATURES: Record<string, { path: string; journey: Journey; waitUntil?: 'load' | 'networkidle' }> = {
   headcount: {
     path: '/tools/headcount',
     journey: async (p, step) => {
@@ -605,6 +609,57 @@ const FEATURES: Record<string, { path: string; journey: Journey }> = {
       step('가족 칸 비움 — 3.3% 쪽은 그대로, 근로소득 쪽만 계산하지 않음', /3\.3%로 떼면 2,901,000원[\s\S]*공제대상가족 수를 확인해 주세요/, await money());
     },
   },
+  'contract-check': {
+    path: '/tools/contract-check',
+    waitUntil: 'load',
+    journey: async (p, step) => {
+      // 4단계 입력(기본 → 근로시간 → 임금·지급 → 문제조항) → 결과. section[aria-live] 가 없어 결과는 #cc-print-area 의 항목(li)을
+      // 규칙 이름으로 잡는다. 선택지는 radio 가 아니라 button 이다. 「다시 입력하기」는 입력값을 지우지 않아 시나리오마다 새로 연다.
+      // 기대값 = tests/unit/contract-check-part-time-law.test.ts(A·B·C)·contract-check-review3.test.ts 「2 폼·사진 경로」
+      const minwage = () => answer(p, '#cc-print-area li:has-text("최저임금 충족")');
+      const next = () => p.getByRole('button', { name: '다음', exact: true }).click();
+      const screen = async (tag: string) => {
+        const hits = bannedHits(await p.locator('main').innerText());
+        const overflow = await p.evaluate(() => document.documentElement.scrollWidth > window.innerWidth);
+        step(`${tag} — 금지어·넘침`, 'banned 0 overflow false', `banned ${hits.join(',') || 0} overflow ${overflow}`);
+      };
+      const run = async (tag: string, s: { pay: '시급제' | '월급제'; wage: string; included?: boolean }, first = false) => {
+        if (!first) await p.goto(`${BASE}/tools/contract-check`, { waitUntil: 'load' });
+        // load 직후 채우면 하이드레이션이 값을 되돌릴 수 있다 — React 가 입력칸에 이벤트를 붙인 뒤에 시작한다
+        await p.waitForFunction(() => Object.keys(document.querySelector('input[aria-label="계약 시작일"]') ?? {}).some((k) => k.startsWith('__reactProps')));
+        // 입력 단계 화면(1~4)의 금지어·넘침은 첫 시나리오에서만 본다. 계약 시작일이 없으면 최저임금 연도를 못 정해 「자료 필요」 — 2026년(10,320원)으로 고정
+        await p.getByLabel('계약 시작일', { exact: true }).fill('2026-03-02');
+        await p.getByRole('button', { name: s.pay, exact: true }).click();
+        // 「시급」 칸과 「주휴 포함」 선택은 시급제를 누른 뒤에만 나온다
+        await p.getByLabel(s.pay === '시급제' ? '시급' : '기본급', { exact: true }).fill(s.wage);
+        if (s.included) await p.getByRole('button', { name: '포함', exact: true }).click();
+        if (first) await screen(`${tag} 1단계(기본)`);
+        await next();
+        await p.getByLabel('주 근무일수', { exact: true }).fill('5');
+        await p.getByLabel('출근 시각', { exact: true }).fill('09:00');
+        await p.getByLabel('퇴근 시각', { exact: true }).fill('18:00');
+        await p.getByLabel('하루 휴게시간', { exact: true }).fill('60');
+        if (first) await screen(`${tag} 2단계(근로시간)`);
+        await next();
+        if (first) await screen(`${tag} 3단계(임금·지급)`);
+        await next();
+        if (first) await screen(`${tag} 4단계(문제조항)`);
+        await p.getByRole('button', { name: '결과 보기', exact: true }).click();
+        await p.locator('#cc-print-area').waitFor();
+        await screen(`${tag} 결과`);
+      };
+      // ① 월급제 — 2,156,880 ÷ 209H = 10,320(법리 C, 「주 40H → 209H」)
+      await run('①', { pay: '월급제', wage: '2156880' }, true);
+      step('① 월급제 2,156,880 ÷ 209H = 10,320 — 위반 아님(적정)', /^적정 최저임금 충족 .*월 산입 임금 2,156,880\(기본급\) ÷ 최저임금 적용기준 월 209H = 시간당 10,320 ≥ 2026년 최저시급 10,320/, await minwage());
+      // ② 시급제 9,000 — 계약 시급으로만 비교(법리 A). 산출시간을 비우면 시급 뒤에 판독 근거 한 구절이 붙는다
+      await run('②', { pay: '시급제', wage: '9000' });
+      step('② 시급 9,000 < 10,320 — 위반', /^위반 최저임금 충족 .*계약 시급 9,000 \(시급제·산출근거 시간 없음 — 기본급을 시급으로 봄\) < 2026년 최저시급 10,320 \(시간당 1,320원 미달\)/, await minwage());
+      // ③ 시급제 10,320 · 주휴 포함 — 10,320 × (40+8)/40 = 12,384 미달(법리 B)
+      await run('③', { pay: '시급제', wage: '10320', included: true });
+      step('③ 주휴 포함 시급 10,320 < 기준액 12,384 — 위반', /^위반 최저임금 충족 .*주휴 포함 시급 10,320 \(시급제·산출근거 시간 없음 — 기본급을 시급으로 봄\) < 기준액 = 최저시급 10,320 × \(소정 40H\+주휴 8H\)\/40H = 12,384 \(최저임금법 시행령 §5①2호\)/, await minwage());
+      step('③ 수정 방향 — 12,384원 이상', /수정 방향: 주휴 포함 시급을 2026년 최저시급 × \(소정\+주휴\)\/소정 = 12,384원 이상/, await minwage());
+    },
+  },
   'pay-proration': {
     path: '/tools/pay-proration',
     journey: async (p, step) => {
@@ -691,13 +746,19 @@ async function drive(id: string) {
     for (const vp of VIEWPORTS) {
       const p = await browser.newPage({ viewport: { width: vp.width, height: vp.height } });
       const errors: string[] = [];
-      p.on('console', (m: any) => m.type() === 'error' && errors.push(m.text()));
+      const thirdParty: string[] = [];
+      // 제3자 프레임(THIRD_PARTY_FRAMES) 안의 콘솔 오류는 report 에 따로 남기고 판정에서 뺀다. 출처를 모르면 우리 것으로 센다
+      p.on('console', (m: any) => {
+        if (m.type() !== 'error') return;
+        const from = m.location()?.url ?? '';
+        (THIRD_PARTY_FRAMES.some((r) => r.test(from)) ? thirdParty : errors).push(m.text());
+      });
       p.on('pageerror', (e: any) => errors.push(String(e)));
       p.on('dialog', (d: any) => d.dismiss());
       const steps: Step[] = [];
       const step = (name: string, expect: string | RegExp, got: string) =>
         steps.push({ name, expect: String(expect), got, ok: typeof expect === 'string' ? got.includes(expect) : expect.test(got) });
-      const res = await p.goto(`${BASE}${f.path}`, { waitUntil: 'networkidle' });
+      const res = await p.goto(`${BASE}${f.path}`, { waitUntil: f.waitUntil ?? 'networkidle' });
       await f.journey(p, step);
       if (id === 'severance' && vp.name === 'pc') await api(step);
       // [data-official] = 공단 홈페이지 원문 인용(부서·담당업무). 우리 문장이 아니므로 금지어 검사에서 뺀다
@@ -715,7 +776,7 @@ async function drive(id: string) {
       const shot = resolve(OUT, `${id}-${vp.name}.png`);
       await p.screenshot({ path: shot, fullPage: true });
       const banned = bannedHits(text);
-      report.push({ feature: id, viewport: vp.name, url: `${BASE}${f.path}`, http: res?.status(), steps, banned, overflow, consoleErrors: errors, screenshot: shot });
+      report.push({ feature: id, viewport: vp.name, url: `${BASE}${f.path}`, http: res?.status(), steps, banned, overflow, consoleErrors: errors, thirdPartyConsole: thirdParty, screenshot: shot });
       await p.close();
     }
   } finally {
@@ -765,6 +826,7 @@ if (cmd === 'list') {
     for (const s of bad) console.log(`  ✗ ${s.name}: 기대 ${s.expect} / 실제 ${s.got.slice(0, 200)}`);
     if (r.banned.length) console.log(`  ✗ 금지어 ${r.banned.join(',')}`);
     for (const e of r.consoleErrors) console.log(`  ✗ console ${e.slice(0, 200)}`);
+    if (r.thirdPartyConsole.length) console.log(`  · 제3자 프레임 콘솔 ${r.thirdPartyConsole.length}건 — 판정 제외(report.json thirdPartyConsole)`);
   }
   const ok = verdict(all);
   console.log(`evidence: ${OUT}`);
