@@ -82,9 +82,12 @@ describe('R1 주휴 포함 문구 — 토큰 스캐너', () => {
     c.wage.items![0].basis_text = '시급 10,320×월 87H(주휴수당 포함되어 있지 않음)';
     expect(run(c).get('MINWAGE').status).toBe('risk');
   });
-  it('시급 11,000(주휴수당, 식비 포함) × 87H, 주 20H → B 기준 12,384 미달 위반', () => {
+  // 261102 C1: 문구는 판정을 바꾸지 않는다 — B 는 구조화 칸이 true 일 때만, 문구만 있으면 확인 필요 리스크
+  it('시급 11,000(주휴수당, 식비 포함) × 87H, 주 20H, 칸 비움 → 「주휴수당 포함 여부 확인 필요」 리스크', () => {
     const c = contract(5, '09:00', '13:00', [base(11000 * 87, 87, { basis_text: '시급 11,000(주휴수당, 식비 포함)' })]);
-    expect(run(c).get('MINWAGE').status).toBe('violation');
+    const f = run(c).get('MINWAGE');
+    expect(f.status).toBe('risk');
+    expect(f.detail).toContain('주휴수당 포함 여부 확인 필요');
   });
 });
 
@@ -105,7 +108,8 @@ describe('R2 주휴가 들어간 월 시간(209H 등)은 형태 표시와 관계
     expect(r.form.payType).toBe('');
     expect(run(buildContract(r.form)).get('MINWAGE').status).toBe('ok');
   });
-  it('pay_type hourly + 2,156,880 / 209H → 월급제, §17② 리스크 없음', () => {
+  // 261102 C3: 명시적 시급제는 월급제로 바꾸지 않고 A — 209H 에 주휴가 들어 있어 §17② 확인도 없다
+  it('pay_type hourly + 2,156,880 / 209H → 시급제 A 적정, §17② 리스크 없음', () => {
     const f = run(contract(5, '09:00', '17:00', [base(2156880, 209)], { pay_type: 'hourly' })).get('MINWAGE');
     expect(f.status).toBe('ok');
     expect(f.detail).not.toContain('§17②');
@@ -200,12 +204,8 @@ describe('R6 근로일별 행이 기본 근무시간과 같은 길이면 휴게�
     const [a, b] = [withRows.get('MINWAGE'), noRows.get('MINWAGE')];
     expect([a.status, a.detail]).toEqual([b.status, b.detail]);
   });
-  it('소정은 실근로를 넘지 않는다', () => {
-    const x = contract(5, '10:00', '14:00', [base(1100000)]);
-    x.work_time.daily_schedules = ['월', '화', '수', '목', '금'].map((day) => ({ day, start: '09:00', end: '18:00' }));
-    const { n } = run(x);
-    expect(n.work_time.weekly_scheduled_hours).toBeLessThanOrEqual(n.work_time.weekly_actual_hours!);
-  });
+  // 261102 W2: 「소정 ≤ 실근로」로 행 소정을 출근·퇴근 칸 값으로 깎던 것은 폐기 — review5 W2 가 대신한다
+
 });
 
 describe('R7 포괄 + 시급제 + 연장 항목 → 시급제(A)', () => {

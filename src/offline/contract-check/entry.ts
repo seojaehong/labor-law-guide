@@ -9,7 +9,7 @@
 
 import samples from '@/lib/contract-check/data/synthetic_edge_cases.json';
 import { checkContract } from '@/lib/contract-check/engine';
-import { normalize } from '@/lib/contract-check/normalize';
+import { MINWAGE_TABLE, normalize } from '@/lib/contract-check/normalize';
 import {
   RESULT_DISCLAIMER,
   STATUS_CHIP_ORDER,
@@ -20,7 +20,6 @@ import {
   ruleName,
   sortFindings,
 } from '@/lib/contract-check/present';
-import { MINWAGE_TABLE } from '@/lib/contract-check/rules/wage';
 import type { Contract, Finding } from '@/lib/contract-check/types';
 
 import { blankTemplate, validateInput } from './validate';

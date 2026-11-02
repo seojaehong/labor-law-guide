@@ -485,7 +485,7 @@ export default function ContractCheckClient() {
               />
             </Field>
           </div>
-          {form.payType !== 'monthly' && (
+          {form.payType === 'hourly' && (
             <Field missing={miss('weeklyHolidayIncluded')} label="시급에 주휴수당이 포함돼 있다고 적혀 있나요?">
               <Choice
                 options={[

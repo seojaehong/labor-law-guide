@@ -154,7 +154,8 @@ describe('2 폼·사진 경로가 A·B 에 닿는다(승인안)', () => {
         },
       },
     });
-    expect([r.form.payType, r.form.baseWage, r.form.weeklyHolidayIncluded]).toEqual(['', '12384', 'yes']);
+    // 261102 작은 것①: 포함 칸은 시급제일 때만 — 형태 미상이면 채우지 않는다
+    expect([r.form.payType, r.form.baseWage, r.form.weeklyHolidayIncluded]).toEqual(['', '12384', '']);
     expect(r.form.weeklyHolidayPay).toBe('80000');
     expect(r.warnings.join()).not.toContain('주휴수당');
   });

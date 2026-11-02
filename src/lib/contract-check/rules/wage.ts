@@ -1,15 +1,18 @@
 // 임금 수치 규칙 — 최저임금·산출근거 정합·연장수당 가산율/충분성·휴일 포괄 충분성.
 //
 // MINWAGE(261101 재홍님 확정 법리 A~D, minwageAssessment):
-//   형태(payBasis) — 기본급이 시급 띠(최저시급 0.5~5배) 안이면 그 금액이 곧 시급(시급제). 산출근거 시간이 주휴가 들어간
-//     월 시간(±1H, 포괄이면 월 시간 + 주 연장×4.345×1.5 도)이면 pay_type·주휴 포함 표시와 관계없이 월급제. 그 밖은
-//     pay_type, 없으면 산출근거 시간이 있으면 시급제.
-//   A 시급제 — 계약 시급(normalize.hourlyRateOf: 띠 안 기본급, 아니면 BASE.amount ÷ basis_hours, 원 단위 반올림)만
-//     최저시급과 비교. 포괄이어도 같다(연장 충분성은 OT-COVER). 주휴수당은
+//   형태·계약 시급·출처는 normalize.wageBasis 하나(사진 추출 매핑도 같은 함수). 시급 = 「기본급 ÷ 산출시간」이 시급 띠
+//     (최저시급 0.4~5배) 안이면 그 몫, 아니고 기본급이 띠 안이면 기본급. 형태 = pay_type monthly → 월급제, pay_type hourly
+//     → 시급제(209±1 창으로 바꾸지 않는다, C3), pay_type 없음 → 기본급이 곧 시급이면 시급제, 산출시간이 주휴 포함 월 시간
+//     (±1H, 포괄이면 월 시간 + 주 연장×4.345×1.5 도)이면 월급제, 산출시간이 있으면 시급제, 없으면 월급제.
+//   A 시급제 — 계약 시급(원 단위 반올림)만 최저시급과 비교. 포괄이어도 같다(연장 충분성은 OT-COVER). 주휴수당은
 //     근기법 §55① 법정 발생이라 항목이 없어도 위반이 아니다. 1주 소정 15H 이상인데 주휴 산정·지급 방법(WEEKLY_HOLIDAY
 //     항목)이 없으면 근기법 §17② 서면 명시 확인 필요 → risk(minor). 1주 소정 미상이면 그 확인은 내지 않는다.
-//     pay_type hourly 인데 basis_hours 가 없고 기본급이 띠 밖이면 needs_data.
-//   B 시급에 주휴 포함 표시(BASE.includes_weekly_holiday 또는 「주휴…포함」 문구, includesWeeklyHoliday) — 시급 ≥ 최저시급 ×
+//     pay_type hourly 인데 basis_hours 가 없으면 기본급이 띠 아래여도 시급(미달 위반), 5배를 넘으면 needs_data.
+//     산출시간이 주휴 포함 월 시간인 시급제(C3)는 주휴가 이미 들어 있어 포함 표시를 보지 않고 계약 시급만(§17② 확인 없음).
+//     구조화 칸이 비었는데 label·basis_text 에 주휴가 보이면 risk「주휴수당 포함 여부 확인 필요」 — 문구 읽기
+//     (includesWeeklyHoliday)는 그 문장에만 쓰고 판정을 바꾸지 않는다(C1).
+//   B 시급에 주휴 포함 표시(구조화 칸 BASE.includes_weekly_holiday === true 일 때만 — 폼 선택·사진 추출이 채운다) — 시급 ≥ 최저시급 ×
 //     (1주 소정 + 주휴)/1주 소정(반올림 전 주휴시간으로 계산). 주휴 = 1일 소정(40H 로 자르기 전 1주 소정 ÷ 소정근로일,
 //     8H 상한), 단시간은 ÷5(시행령 별표2 2.나, 통상 근로자 주 5일 가정), 15H 미만은 0.
 //   C 월급제 — 산입 임금 합계 ÷ 최저임금 적용기준 월 시간(시행령 §5①3호, normalize.monthlyStandardHours).
@@ -20,7 +23,8 @@
 //   D 포괄(inclusive_wage=true, 월급제) — 연장·야간·휴일 항목이 나뉘어 있으면 C 와 같고(그 수당의 충분성은
 //     OT-COVER·WAGE-MATH). 총액만이면 (총액 − 산입 제외 항목) ÷ (월 시간 + 주 연장 × 4.345 × 1.5),
 //     BONUS·MEAL 은 C 와 같은 3단계. 단시간(5인 이상 전제)은 주 연장 대신 소정 초과(normalize.partTimeExcessHours,
-//     법리 E 와 같은 함수). 근로시간을 모르거나 야간근로가 있거나 그 여부를 모르면, 총액이 산입 제외 항목 합계 이하이면 needs_data.
+//     법리 E 와 같은 함수). 근로시간을 모르거나 야간근로가 있거나 그 여부를 모르면, 총액이 산입 제외 항목(OT_*·NIGHT·
+//     HOLIDAY_EXTRA·ANNUAL_LEAVE) 합계 이하이면 needs_data. 식대·상여가 총액을 넘는 것은 3단계 판정에 맡긴다.
 // WAGE-MATH: item.amount ≟ 통상시급 × basis_hours × (rate_multiplier or 1.0) ±10원. BASE 는 통상시급의 출처라 보지 않는다.
 // OT-RATE: OT_* 항목 rate_multiplier 미표기 → risk
 // OT-COVER: OT_* basis_hours 합 ≥ weekly_overtime_hours × 4.345 × 1.5
@@ -35,15 +39,14 @@ import {
   WAGE_MATH_TOLERANCE,
   WEEKLY_STANDARD_HOURS,
   WEEKS_PER_MONTH,
-  hourlyRateOf,
   monthlyStandardHours,
   partTimeExcessHours,
+  wageBasis,
   weeklyHoliday,
+  type WageBasis,
 } from '../normalize';
 import type { Contract, Finding, FindingSeverity, FindingStatus, WageItem } from '../types';
 import { makeFinding, type RuleFn } from './index';
-
-export { MINWAGE_TABLE, OT_PREMIUM_RATE, WAGE_MATH_TOLERANCE, WEEKS_PER_MONTH };
 
 export const HOLIDAY_PREMIUM_RATE = 1.5;
 const HOLIDAY_NOTE_RE = /(\d+)\s*일\s*\/\s*(\d+(?:\.\d+)?)\s*H/;
@@ -52,8 +55,6 @@ const round1 = (x: number) => Math.round(x * 10) / 10;
 const fmt = (n: number) => n.toLocaleString('ko-KR');
 const fmtH = (h: number) => String(Math.round(h * 100) / 100);
 
-/** 산출근거 시간이 최저임금 적용기준 월 시간과 이 폭 안이면 주휴가 들어간 월급 산출근거로 본다 */
-const MONTHLY_BASIS_TOLERANCE_H = 1;
 /** 최저임금 산입에서 빼는 항목(최저임금법 §6④1호, 시행규칙 §2① — 연장·야간·휴일 가산, 연차 미사용수당) */
 const NOT_INCLUDED = new Set(['OT_WEEKDAY', 'OT_WEEKEND', 'NIGHT', 'HOLIDAY_EXTRA', 'ANNUAL_LEAVE']);
 /** 산입 비율을 원문으로 확인하지 못한 항목(상여금·복리후생비 — 최저임금법 §6④2·3호와 부칙) */
@@ -71,10 +72,14 @@ const WH_TAIL = /^(?:수당)?(?:은|는|이|가|을|를|도|과|와|에)?/;
 const WH_REACH_WORDS = 6;
 /** 미포함·불포함·비포함 — 「포함」과 한 낱말일 때만 부정 */
 const NEG_PREFIX_INCLUDE = /^[미불비]포함/;
-/** 낱말 안의 부정 꼬리 — 「포함하지않음」「별도없이」 */
-const NEG_IN_WORD = /(?:않|아니|아님|안됨|안돼|없)/;
-/** 뒤따르는 부정 낱말 — 않음·않습니다·아니함·아님·안(됨)·없이·없음 */
-const NEG_WORD = /^(?:않|아니|아님|안$|안됨|안돼|없)/;
+/** 낱말 안의 부정 꼬리 — 「포함하지않음」「포함안함」「포함X」「별도없이」 */
+const NEG_IN_WORD = /(?:않|아니|아님|안[함됨돼되]|없|^안$|^[XxＸ✕✗]$)/;
+/** 뒤따르는 부정 낱말 — 않음·않습니다·아니함·아님·안(함·됨)·없이·없음 */
+const NEG_WORD = /^(?:않|아니|아님|안$|안[함됨돼되]|없)/;
+/** 「포함 X」의 X — 마지막 낱말이거나 쉼표 앞일 때만 부정(「포함 x 209H」의 x 는 곱하기) */
+const NEG_MARK = /^[XxＸ✕✗]$/;
+/** 「포함 여부: 미포함」의 「여부」 — 서식 칸 이름이라 그 뒤 답을 읽는다 */
+const FIELD_LABEL = /^여부/;
 /** 주휴에 대한 제외 — 별도·제외·없음 */
 const EXCLUDE = /별도|제외|없음/;
 /** 부정 낱말을 찾는 거리(쉼표를 넘지 않음) */
@@ -83,7 +88,7 @@ const NEG_LOOKAHEAD = 2;
 function scanWords(s: string): string[] {
   return s
     .replace(/[,，、]/g, ' , ')
-    .replace(/[·ㆍ/]/g, ' ')
+    .replace(/[·ㆍ/:：\-–—「」『』"“”'‘’<>《》〈〉]/g, ' ')
     .split(/\s+/)
     .filter(Boolean);
 }
@@ -93,6 +98,7 @@ function negationAfter(ws: string[], i: number): number {
   for (let j = i + 1; j < ws.length && j <= i + NEG_LOOKAHEAD; j++) {
     if (ws[j] === ',') break;
     if (NEG_WORD.test(ws[j])) return j;
+    if (NEG_MARK.test(ws[j]) && (j === ws.length - 1 || ws[j + 1] === ',')) return j;
   }
   return -1;
 }
@@ -114,7 +120,14 @@ function scanWeeklyHoliday(rest: string): { yes: boolean; no: boolean } {
     if (WH_TOKEN_ONE.test(w) || ++count > WH_REACH_WORDS) break;
     const at = w.indexOf('포함');
     if (at >= 0) {
-      if (NEG_PREFIX_INCLUDE.test(w) || NEG_IN_WORD.test(w.slice(at + 2)) || negationAfter(ws, i) >= 0) no = true;
+      const tail = w.slice(at + 2);
+      // 「포함 여부: 미포함」 — 칸 이름이면 「여부」를 건너 그 뒤 답을 읽는다
+      if (FIELD_LABEL.test(tail)) continue;
+      if (FIELD_LABEL.test(ws[i + 1] ?? '')) {
+        i += 1;
+        continue;
+      }
+      if (NEG_PREFIX_INCLUDE.test(w) || NEG_IN_WORD.test(tail) || negationAfter(ws, i) >= 0) no = true;
       else yes = true;
       break;
     }
@@ -128,9 +141,15 @@ function scanWeeklyHoliday(rest: string): { yes: boolean; no: boolean } {
   return { yes, no };
 }
 
+/** label·basis_text 에 주휴(주휴일 아님) 낱말이 있나 */
+function mentionsWeeklyHoliday(item: WageItem): boolean {
+  return WH_TOKEN_ONE.test(`${item.label ?? ''} ${item.basis_text ?? ''}`);
+}
+
 /** 시급에 주휴 포함 표시 — 구조화 칸 우선, 없으면 label·basis_text 문구를 낱말 단위로 읽는다(scanWeeklyHoliday).
  * 괄호에서 끊되(「주휴 포함(연장 별도)」의 별도는 주휴 말이 아니다) 주휴 낱말만 든 괄호는 걷는다. 긍정·부정이 둘 다
- * 잡히면 어느 쪽인지 알 수 없어 null. */
+ * 잡히면 어느 쪽인지 알 수 없어 null. 문구 읽기는 판정을 바꾸지 않는다(261102 C1) — 엔진은 「확인 필요」 문장에만,
+ * 사진 추출 매핑(extractMap)은 포함 칸을 채우는 데 쓴다. 법리 B 는 구조화 칸이 true 일 때만 탄다. */
 export function includesWeeklyHoliday(item: WageItem | undefined): boolean | null {
   if (!item) return null;
   if (typeof item.includes_weekly_holiday === 'boolean') return item.includes_weekly_holiday;
@@ -150,27 +169,9 @@ export function includesWeeklyHoliday(item: WageItem | undefined): boolean | nul
   return no ? false : null;
 }
 
-/** BASE 산출근거 시간이 주휴가 들어간 월 시간인가 — 최저임금 적용기준 월 시간(근로시간 미상이면 209H) ±1H.
- * 포괄이면 월 시간 + 주 연장 × 4.345 × 1.5 ±1H 도 월 시간이다(「시급 × 241.6H(주휴·연장 포함)」). */
-function isMonthlyBasisHours(contract: Contract, basis: number): boolean {
-  const monthly = monthlyStandardHours(contract) ?? MONTHLY_BASE_HOURS;
-  if (Math.abs(basis - monthly) <= MONTHLY_BASIS_TOLERANCE_H) return true;
-  const ot = contract.work_time?.weekly_overtime_hours;
-  if (contract.wage?.inclusive_wage !== true || ot == null || ot <= 0) return false;
-  return Math.abs(basis - (monthly + ot * WEEKS_PER_MONTH * OT_PREMIUM_RATE)) <= MONTHLY_BASIS_TOLERANCE_H;
-}
-
-/** 임금 형태. ①기본급이 시급 띠 안(hourlyRateOf from amount)이면 hourly ②산출근거 시간이 주휴가 들어간 월 시간이면
- * pay_type·주휴 포함 표시와 관계없이 monthly ③pay_type 명시값 ④산출근거 시간이 있으면 hourly, 없으면 monthly. */
+/** 임금 형태 — normalize.wageBasis 의 형태(기본급이 없으면 월급제). */
 export function payBasis(contract: Contract): 'hourly' | 'monthly' {
-  if (hourlyRateOf(contract)?.from === 'amount') return 'hourly';
-  const base = (contract.wage?.items ?? []).find((i) => i.code === 'BASE');
-  const basis = base?.basis_hours;
-  const hasBasis = basis != null && basis > 0;
-  if (hasBasis && isMonthlyBasisHours(contract, basis)) return 'monthly';
-  const explicit = contract.wage?.pay_type;
-  if (explicit === 'hourly' || explicit === 'monthly') return explicit;
-  return hasBasis ? 'hourly' : 'monthly';
+  return wageBasis(contract)?.form ?? 'monthly';
 }
 
 export interface MinwageAssessment {
@@ -183,21 +184,30 @@ export interface MinwageAssessment {
 
 const won = (n: number) => `${fmt(Math.ceil(n))}원`;
 
-/** 시급제(A·B). hourlyRaw = BASE.amount ÷ basis_hours(또는 산출시간 없는 시급제의 기본급). 비교는 원 단위로
- * 반올림한 시급으로 한다(월급제 경로와 같게 — 179,361÷17.38H = 10,319.96 은 10,320). note 는 판독 근거 한 구절. */
+/** 주휴 포함 시급 기준액 = 최저시급 × (1주 소정 + 주휴)/1주 소정 — 반올림하지 않은 주휴시간으로 계산하고(40÷6 = 6.666…H),
+ * 비교·표시만 소수 둘째 자리로 맞춘다 */
+function includedRequired(minimum: number, wh: { weekly: number; holiday: number }): number {
+  return Math.round(((minimum * (wh.weekly + wh.holiday)) / wh.weekly) * 100) / 100;
+}
+
+/** 시급제(A·B). hourlyRaw = normalize.wageBasis 의 계약 시급. 비교는 원 단위로 반올림한 시급으로 한다(월급제 경로와
+ * 같게 — 179,361÷17.38H = 10,319.96 은 10,320). note 는 판독 근거 한 구절.
+ * B 는 구조화 칸 includes_weekly_holiday 가 true 일 때만(261102 C1). monthlyHours(산출시간이 주휴 포함 월 시간, C3)면
+ * 주휴가 이미 들어 있어 포함 표시를 보지 않고 A 만. 칸이 비었는데 문구에 주휴가 보이면 「주휴수당 포함 여부 확인 필요」. */
 function assessHourly(
   contract: Contract,
   hourlyRaw: number,
   minimum: number,
   year: string,
   note = '',
+  monthlyHours = false,
 ): MinwageAssessment {
   const items = contract.wage?.items ?? [];
   const base = items.find((i) => i.code === 'BASE')!;
   const hourly = Math.round(hourlyRaw);
   const hourlyText = `${fmt(hourly)}${note}`;
   const wh = weeklyHoliday(contract);
-  if (includesWeeklyHoliday(base) === true) {
+  if (!monthlyHours && base.includes_weekly_holiday === true) {
     if (!wh) {
       return {
         status: 'needs_data',
@@ -205,8 +215,7 @@ function assessHourly(
         amendment: '',
       };
     }
-    // 기준액은 반올림하지 않은 주휴시간으로 계산하고(40÷6 = 6.666…H), 비교·표시만 소수 둘째 자리로 맞춘다
-    const required = Math.round(((minimum * (wh.weekly + wh.holiday)) / wh.weekly) * 100) / 100;
+    const required = includedRequired(minimum, wh);
     const basisText =
       wh.holiday === 0
         ? `1주 소정 ${fmtH(wh.weekly)}H < 15H — 주휴 없음(근로기준법 §18③), 기준액 = 최저시급 ${fmt(minimum)}`
@@ -230,6 +239,25 @@ function assessHourly(
     };
   }
   const ok = `계약 시급 ${hourlyText} ≥ ${year}년 최저시급 ${fmt(minimum)}`;
+  // C3 — 산출시간(209H 등)에 주휴가 이미 들어 있다. 주휴 산정 방법도 그 시간으로 적혀 있는 셈이라 §17② 확인도 없다
+  if (monthlyHours) return { status: 'ok', detail: ok, amendment: '' };
+  if (typeof base.includes_weekly_holiday !== 'boolean' && mentionsWeeklyHoliday(base) && !(wh && wh.holiday === 0)) {
+    // C1 — 문구 읽기는 판정을 바꾸지 않는다. 읽은 결과는 문장에만 적는다
+    const reading = includesWeeklyHoliday(base);
+    const readText = reading === true ? '문구상 포함' : reading === false ? '문구상 미포함' : '문구로는 알 수 없음';
+    const required = wh ? includedRequired(minimum, wh) : null;
+    return {
+      status: 'risk',
+      detail:
+        `${ok} — 주휴수당 포함 여부 확인 필요: 산출근거 문구에 주휴 표시가 있으나(${readText}) 포함 여부가 정해지지 않음` +
+        (required != null
+          ? `. 시급에 주휴수당이 포함돼 있다면 기준액 ${fmt(required)}(최저시급 × (소정+주휴)/소정) 이상이어야 함(최저임금법 시행령 §5①2호)`
+          : ''),
+      amendment:
+        '시급에 주휴수당이 포함되는지 산출근거에 분명히 적기' +
+        (required != null ? ` — 포함이면 시급을 ${year}년 최저시급 × (소정+주휴)/소정 = ${won(required)} 이상으로` : ''),
+    };
+  }
   if (items.some((i) => i.code === 'WEEKLY_HOLIDAY')) {
     return { status: 'ok', detail: `${ok}, 주휴수당 항목 별도 명시`, amendment: '' };
   }
@@ -284,15 +312,16 @@ function assessMonthly(contract: Contract, minimum: number, year: string): Minwa
     const pending = items.filter((i) => RATIO_UNCONFIRMED.has(i.code));
     const excludedSum = sumAmount(excluded);
     const pendingSum = sumAmount(pending);
-    if (total <= excludedSum + pendingSum) {
-      // 총액이 그 안의 항목 합계보다 작거나 같다 — 금액이 서로 맞지 않아 역산하지 않는다(「시간당 0」을 내지 않는다)
+    if (total <= excludedSum) {
+      // 총액이 산입 제외 항목 합계 이하 — 금액이 서로 맞지 않아 역산하지 않는다(「시간당 0」 위반을 내지 않는다).
+      // 식대·상여(산입 비율 확인 항목)가 총액을 넘는 것은 아래 3단계 판정에 맡긴다(261102 W1)
       return {
         status: 'needs_data',
-        detail: `포괄 총액 ${fmt(total)}이 산입 제외·확인 항목 합계 ${fmt(excludedSum + pendingSum)} 이하 — 총액·항목 금액 확인 필요`,
+        detail: `포괄 총액 ${fmt(total)}이 산입 제외 항목 합계 ${fmt(excludedSum)} 이하 — 총액·항목 금액 확인 필요`,
         amendment: '',
       };
     }
-    const core = total - excludedSum - pendingSum;
+    const core = Math.max(0, total - excludedSum - pendingSum);
     const otHours = round1(otWeekly * WEEKS_PER_MONTH * OT_PREMIUM_RATE);
     const denom = round1(hours + otHours);
     const rate = Math.round(core / denom);
@@ -362,6 +391,20 @@ function assessMonthly(contract: Contract, minimum: number, year: string): Minwa
   };
 }
 
+/** 계약 시급을 어디서 읽었나 한 구절 — 기본급 그대로(amount)면 그 근거, 산출시간이 주휴 포함 월 시간이면(C3) 그 사실 */
+function hourlyNote(contract: Contract, wb: WageBasis): string {
+  const parts: string[] = [];
+  if (wb.from === 'amount') {
+    if (wb.basisHours != null) parts.push(`기본급이 시급 금액 — 산출근거 ${fmtH(wb.basisHours)}H 로 나누지 않음`);
+    else if (contract.wage?.pay_type === 'hourly') parts.push('시급제·산출근거 시간 없음 — 기본급을 시급으로 봄');
+    else parts.push('산출근거 시간 없음 — 기본급이 시급 금액이라 시급으로 봄');
+  }
+  if (wb.monthlyHours && wb.basisHours != null) {
+    parts.push(`산출시간 ${fmtH(wb.basisHours)}H 는 주휴가 들어간 월 시간 — 주휴 포함 표시와 관계없이 계약 시급만 비교`);
+  }
+  return parts.map((p) => ` (${p})`).join('');
+}
+
 /** MINWAGE 판정과 수정 방향 — 규칙과 수정안(amendments.ts)이 같은 계산을 쓴다. */
 export function minwageAssessment(contract: Contract): MinwageAssessment {
   const start = contract.period?.start_date;
@@ -377,21 +420,13 @@ export function minwageAssessment(contract: Contract): MinwageAssessment {
     return { status: 'needs_data', detail: `${year}년 최저시급 미등록 — minwage_table.json 갱신 필요`, amendment: '' };
   }
   // 시급제는 A·B — 포괄이고 연장·야간·휴일 항목이 있어도 같다(그 수당의 충분성은 OT-COVER 몫).
-  if (payBasis(contract) === 'hourly' && base?.amount) {
-    const hr = hourlyRateOf(contract);
-    if (hr?.from === 'basis') return assessHourly(contract, hr.rate, minimum, year);
-    if (hr) {
-      // 기본급이 시급 띠 안 — 그 금액이 곧 시급이다(산출근거 시간이 있어도 그 시간으로 나누지 않는다)
-      const basis = base.basis_hours != null && base.basis_hours > 0 ? base.basis_hours : null;
-      const note =
-        basis != null
-          ? ` (기본급이 시급 금액 — 산출근거 ${fmtH(basis)}H 로 나누지 않음)`
-          : contract.wage?.pay_type === 'hourly'
-            ? ' (시급제·산출근거 시간 없음 — 기본급을 시급으로 봄)'
-            : ' (산출근거 시간 없음 — 기본급이 시급 금액이라 시급으로 봄)';
-      return assessHourly(contract, hr.rate, minimum, year, note);
+  // 형태·시급·출처는 normalize.wageBasis 하나에서 온다(사진 추출 매핑과 같은 함수).
+  const wb = wageBasis(contract);
+  if (wb?.form === 'hourly' && base?.amount) {
+    if (wb.rate != null) {
+      return assessHourly(contract, wb.rate, minimum, year, hourlyNote(contract, wb), wb.monthlyHours);
     }
-    // pay_type hourly 인데 산출근거 시간이 없고 기본급이 시급으로 볼 수 없는 값 — 자료 필요
+    // pay_type hourly 인데 산출근거 시간이 없고 기본급이 최저시급의 5배를 넘어 시급으로 볼 수 없는 값 — 자료 필요
     return {
       status: 'needs_data',
       detail: `시급제인데 산출근거 시간 없음 — 기본급 ${fmt(base.amount)}원을 시급으로 볼 수 없어 시간당 임금 산정 불가`,

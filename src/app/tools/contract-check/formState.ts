@@ -73,7 +73,7 @@ export interface FormState {
   hourlyWage: string;
   /** 기본급 산출근거 월 시간(선택) → BASE.basis_hours. 시급제는 시급 × 이 시간이 기본급 */
   basisHours: string;
-  /** 시급에 주휴수당이 포함돼 있다고 적혀 있나 — 월급제가 아닐 때(시급제·형태 미상) BASE.includes_weekly_holiday 로 싣는다 */
+  /** 시급에 주휴수당이 포함돼 있다고 적혀 있나 — 시급제에서만 보이고 BASE.includes_weekly_holiday 로 싣는다 */
   weeklyHolidayIncluded: '' | 'yes' | 'no';
   // ② 근로시간
   daysPerWeek: string;
@@ -162,11 +162,6 @@ export function buildContract(f: FormState): Contract {
   // 산출근거 시간은 적었을 때만 싣는다 — 비우면 키도 두지 않아 엔진이 형태를 추론한다(rules/wage.ts payBasis)
   const hours = num(f.basisHours);
   const basis = hours != null && hours > 0 ? { basis_hours: hours } : {};
-  // 주휴 포함 표시는 월급제로 고르지 않았을 때만 싣는다(형태 미상이면 엔진이 기본급·산출시간으로 시급제인지 가린다)
-  const included =
-    f.payType !== 'monthly' && f.weeklyHolidayIncluded
-      ? { includes_weekly_holiday: f.weeklyHolidayIncluded === 'yes' }
-      : {};
   if (f.payType === 'hourly') {
     const hourly = num(f.hourlyWage);
     if (hourly != null) {
@@ -176,13 +171,14 @@ export function buildContract(f: FormState): Contract {
         amount: hours != null && hours > 0 ? Math.round(hourly * hours) : hourly,
         ...basis,
         basis_text: basisText,
-        ...included,
+        // 주휴 포함 선택은 시급제에서만 보이고 싣는다 — 법리 B 는 이 구조화 칸으로만 탄다
+        ...(f.weeklyHolidayIncluded ? { includes_weekly_holiday: f.weeklyHolidayIncluded === 'yes' } : {}),
       });
     }
   } else {
     const base = num(f.baseWage);
     if (base != null) {
-      items.push({ code: 'BASE', label: '기본급', amount: base, ...basis, basis_text: basisText, ...included });
+      items.push({ code: 'BASE', label: '기본급', amount: base, ...basis, basis_text: basisText });
     }
   }
   const weeklyHolidayPay = num(f.weeklyHolidayPay);

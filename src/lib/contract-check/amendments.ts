@@ -6,8 +6,9 @@
 // 자동만료/부제소 삭제 · 가산율 1.5 환산시간 명시 · 추가수당 시간수 = amount÷통상시급(0.1H 반올림).
 
 import { checkContract } from './engine';
+import { WAGE_MATH_TOLERANCE } from './normalize';
 import { fixedTermsMissing, requiredTermsMissing } from './rules/required_terms';
-import { WAGE_MATH_TOLERANCE, minwageAssessment } from './rules/wage';
+import { minwageAssessment } from './rules/wage';
 import type { Contract, Finding, FindingSeverity, FindingStatus } from './types';
 
 export const PRIORITY_LABEL: Partial<Record<FindingStatus, string>> = {
