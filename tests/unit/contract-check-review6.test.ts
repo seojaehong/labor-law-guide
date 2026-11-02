@@ -153,7 +153,7 @@ describe('K1 산출시간이 있으면 몫이 시급 — 금액 예외는 월 �
   });
 });
 
-describe('F6 pay_type 없음 + 산출시간 174±1H(주휴를 뺀 월 소정) — 시급제로 추론하지 않는다', () => {
+describe('F6 pay_type 없음 + 산출시간 174±1H(주휴를 뺀 월 소정) — 기본급이 시급 띠 밖이면 시급제로 추론하지 않는다', () => {
   const at = (amount: number, hours: number, extra: Partial<Contract['wage']> = {}) =>
     run(contract(5, '09:00', '17:00', [base(amount, hours)], extra)).get('MINWAGE');
   it.each([173, 174, 175])('1,900,000 ÷ %iH → 시급제·월급제 확인 필요(두 값을 적는다)', (hours) => {
@@ -174,6 +174,38 @@ describe('F6 pay_type 없음 + 산출시간 174±1H(주휴를 뺀 월 소정) �
     expect(f.detail).toContain('어느 쪽으로 보아도');
     expect(f.detail).toContain('계약 시급 5,747');
     expect(f.detail).toContain('209H = 시간당 4,785');
+  });
+  // Q1 — 174±1H 라도 기본급이 시급 띠 안이면 그 금액이 시급이다(87H 금액 예외와 같다)
+  it.each([
+    [10320, 174, '10,320'],
+    [12000, 174, '12,000'],
+    [12000, 173, '12,000'],
+  ])('Q1 %i ÷ %iH — 기본급이 시급 띠 안이면 시급 %s, 위반 아님', (amount, hours, rate) => {
+    const f = at(amount, hours);
+    expect(f.status).not.toBe('violation');
+    expect(f.status).not.toBe('needs_data');
+    expect(f.detail).toContain(`계약 시급 ${rate}`);
+  });
+  it('Q1 10,320 ÷ 174H, 1주 소정 미상 → 위반 아님(시급 10,320)', () => {
+    const c = contract(5, '09:00', '17:00', [base(10320, 174)]);
+    c.work_time = { days_per_week: null, start: null, end: null, breaks: [], daily_schedules: null, night_work: false };
+    const f = run(c).get('MINWAGE');
+    expect(f.status).not.toBe('violation');
+    expect(f.detail).toContain('계약 시급 10,320');
+  });
+  it('Q1 폼 모름 + 기본급 10,320 + 산출시간 174 → 위반 아님', () => {
+    const f = site({ payType: '', baseWage: '10320', basisHours: '174' }).get('MINWAGE');
+    expect(f.status).not.toBe('violation');
+    expect(f.detail).toContain('계약 시급 10,320');
+  });
+  it('Q1 사진 pay_type null + 10,320 / 174H → 위반 아님', () => {
+    const photo = applyExtracted({
+      contract: { period: { start_date: '2026-03-01' }, wage: { pay_type: null, items: [{ code: 'BASE', amount: 10320, basis_hours: 174 }] } },
+    }).form;
+    expect([photo.payType, photo.baseWage, photo.basisHours]).toEqual(['', '10320', '174']);
+    const f = site({ payType: photo.payType, baseWage: photo.baseWage, basisHours: photo.basisHours }).get('MINWAGE');
+    expect(f.status).not.toBe('violation');
+    expect(f.detail).toContain('계약 시급 10,320');
   });
   it('P2 2,500,000 ÷ 174H — 시급제 14,368·월급제 11,962 모두 충족 → 충족(위반·자료 필요 아님), 두 값을 적는다', () => {
     const f = at(2500000, 174);
@@ -203,7 +235,7 @@ describe('P2 두 해석이 같은 결론이면 그 결론 — 몫(시급제)과 
   });
 });
 
-describe('F7 시급제도 매월 식대(산입범위)를 넣는다 — 계약 시급 + 식대 ÷ 월 소정(주휴 포함, 산출시간이 주휴 포함 월 시간이면 그 값)', () => {
+describe('F7 시급제도 매월 식대(산입범위)를 넣는다 — 계약 시급 + 식대 ÷ 월 소정근로시간(주휴 포함, 연장 제외)', () => {
   const meal = (amount: number): WageItem => ({ code: 'MEAL', label: '식대', amount });
   const bonus = (amount: number): WageItem => ({ code: 'BONUS', label: '상여', amount });
   const hourly = (days: number, start: string, end: string, items: WageItem[]) =>
@@ -268,6 +300,25 @@ describe('F7 시급제도 매월 식대(산입범위)를 넣는다 — 계약 �
     expect(f.status).toBe('ok');
     expect(f.detail).toContain('100,000 ÷ 104H = 시간당 10,962');
     expect(hourly(5, '09:00', '13:00', [base(12000 * 87, 87, { includes_weekly_holiday: true })]).status).toBe('violation');
+  });
+  // Q2 — 연장은 소정근로시간이 아니다. 포괄의 「월 시간 + 연장 환산」 산출시간(241.6H)도 분모로 쓰지 않는다
+  it.each([
+    ['포괄', true],
+    ['포괄 아님', false],
+  ])('Q2 시급제 %s, 주 45H(연장 5H) 10,000 × 241.6H + 식대 70,000 → 10,000 + 70,000 ÷ 209H = 10,335 충족', (_, inclusive) => {
+    const c = contract(5, '09:00', '18:00', [base(2416000, 241.6), meal(70000)], { pay_type: 'hourly', inclusive_wage: inclusive });
+    const f = run(c).get('MINWAGE');
+    expect(f.status).not.toBe('violation');
+    expect(f.status).not.toBe('needs_data');
+    expect(f.detail).toContain('식대 70,000 ÷ 209H = 시간당 10,335');
+    // 상태 차이는 분모가 아니라 C3 에서 온다 — 포괄이면 241.6H 가 주휴 포함 월 시간이라 §17② 확인 없음, 아니면 risk(minor)
+    expect(f.status).toBe(inclusive ? 'ok' : 'risk');
+  });
+  it('Q2 같은 조건(포괄)에 식대 50,000 → 10,000 + 50,000 ÷ 209H = 10,239 위반', () => {
+    const c = contract(5, '09:00', '18:00', [base(2416000, 241.6), meal(50000)], { pay_type: 'hourly', inclusive_wage: true });
+    const f = run(c).get('MINWAGE');
+    expect(f.status).toBe('violation');
+    expect(f.detail).toContain('식대 50,000 ÷ 209H = 시간당 10,239');
   });
   it('지급 주기를 알 수 없는 상여는 3단계 — 시급 10,000 × 209H + 상여 300,000 → 넣어야만 충족이라 risk', () => {
     const f = hourly(5, '09:00', '17:00', [base(10000 * 209, 209), bonus(300000)]);

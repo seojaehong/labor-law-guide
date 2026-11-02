@@ -229,7 +229,7 @@ export interface WageBasis {
  *   산출시간이 없으면 기본급이 띠 안일 때 그 금액.
  * 형태: ①pay_type monthly → 월급제 ②pay_type hourly → 시급제(209±1 창으로 바꾸지 않는다). 산출시간 없이 띠 아래 기본급(W3)도
  *   그 값, 띠 위면 null ③pay_type 없음 → 산출시간이 174±1H(주휴를 뺀 월 소정)이면 unknown(F6 — 구조화 칸이 주휴 포함
- *   true 면 빼고), 주휴 포함 월 시간이면
+ *   true 이거나 기본급이 띠 안(Q1 — 그 금액이 시급)이면 빼고), 주휴 포함 월 시간이면
  *   월급제(몫·기본급이 띠 밖이어도), 기본급이 곧 시급(amount)이거나 산출시간이 있으면 시급제, 없으면 월급제.
  *   BASE 금액이 없으면 null. */
 export function wageBasis(contract: Contract): WageBasis | null {
@@ -241,20 +241,22 @@ export function wageBasis(contract: Contract): WageBasis | null {
   const monthlyHours = basisHours != null && isMonthlyBasisHours(contract, basisHours);
   const monthly: WageBasis = { form: 'monthly', rate: null, from: null, basisHours, monthlyHours };
   if (wage.pay_type === 'monthly') return monthly;
-  // F6 — 구조화 칸이 「시급에 주휴 포함」(true)이면 「시급 × 소정시간」이 계약서에 적힌 셈이라 갈림이 없다(법리 B)
+
+  const minimum = minimumWageFor(contract.period?.start_date);
+  const max = minimum * HOURLY_PLAUSIBLE_MAX;
+  const inBand = (x: number) => x >= minimum * HOURLY_PLAUSIBLE_MIN && x <= max;
+  // F6 — 구조화 칸이 「시급에 주휴 포함」(true)이면 「시급 × 소정시간」이 계약서에 적힌 셈이라 갈림이 없다(법리 B).
+  // 기본급이 시급 띠 안이면 그 금액이 시급이라 갈림이 없다(Q1 — 아래 월 규모 금액 예외와 같다)
   if (
     wage.pay_type == null &&
     basisHours != null &&
     !monthlyHours &&
     base.includes_weekly_holiday !== true &&
+    !inBand(amount) &&
     Math.abs(basisHours - SCHEDULED_MONTH_HOURS) <= MONTHLY_BASIS_TOLERANCE_H
   ) {
     return { form: 'unknown', rate: null, from: null, basisHours, monthlyHours };
   }
-
-  const minimum = minimumWageFor(contract.period?.start_date);
-  const max = minimum * HOURLY_PLAUSIBLE_MAX;
-  const inBand = (x: number) => x >= minimum * HOURLY_PLAUSIBLE_MIN && x <= max;
   const hourly = (rate: number | null, from: WageBasis['from']): WageBasis => ({
     form: 'hourly',
     rate,
