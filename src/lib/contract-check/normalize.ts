@@ -36,11 +36,12 @@ function statutoryBreakMinutes(spanMinutes: number): number {
   return 0;
 }
 
-/** 하루 실근로 분 = (종업-시업) - 근무시간 창 안에 완전히 들어가는 휴게 분 - 시각 없는 휴게 분.
+/** 하루 실근로 분 = (종업-시업) - 근무시간 창 안에 완전히 들어가는 휴게 분 - 시각 없는 휴게 분. 0 미만이 되지 않는다.
  * 종업이 시업보다 이르면 자정을 넘긴 근무로 보아 24시간을 더하고, 그 창 안의 휴게 시각도 같이 옮긴다.
- * 시각 없는 휴게(분만 적힌 것)는 그 행 길이의 법정 휴게(4시간 이상 30분, 8시간 이상 60분)까지만 뺀다 —
- * 폼의 「하루 휴게」 한 칸이 짧은 근로일 행에서도 통째로 빠지지 않게. 결과는 0 미만이 되지 않는다. */
-export function dayWorkMinutes(start: string, end: string, breaks: WorkBreak[]): number {
+ * 시각 없는 휴게(분만 적힌 것)는 전부 뺀다 — 법정 휴게(근기법 §54)는 하한이라 더 길게 준 휴게도 근로시간이 아니다.
+ * capUntimed 면(근로일별 행에 하루 휴게 한 칸이 일괄 적용될 때) 그 행 길이의 법정 휴게(4시간 이상 30분, 8시간 이상
+ * 60분)까지만 뺀다 — 폼의 「하루 휴게 60」이 3.5시간 행에서도 통째로 빠지지 않게. */
+export function dayWorkMinutes(start: string, end: string, breaks: WorkBreak[], capUntimed = false): number {
   const startM = minutesOf(start);
   const overnight = minutesOf(end) < startM;
   const endM = minutesOf(end) + (overnight ? DAY_MINUTES : 0);
@@ -57,7 +58,7 @@ export function dayWorkMinutes(start: string, end: string, breaks: WorkBreak[]):
       untimed += br.minutes;
     }
   }
-  total -= Math.min(untimed, statutoryBreakMinutes(span));
+  total -= capUntimed ? Math.min(untimed, statutoryBreakMinutes(span)) : untimed;
   return Math.max(0, total);
 }
 
@@ -81,7 +82,7 @@ export function computeWeeklyHours(workTime: WorkTime): [number | null, number |
 
 /** 요일별 근무표 → [휴게 차감 주간 합(H), 근로일 수]. 믿을 수 없으면 null — 행 하나라도 start/end 가 없거나,
  * 주 근무일수(days_per_week)가 있는데 행 수와 다르면(예: 주 6일 정규직 계약에 토요일 한 줄) 근로일별 시간으로 보지 않는다.
- * 자정을 넘는 행은 dayWorkMinutes 가 24시간을 더한다. */
+ * 자정을 넘는 행은 dayWorkMinutes 가 24시간을 더하고, 시각 없는 하루 휴게는 행 길이의 법정 휴게까지만 뺀다. */
 function dailyScheduledWeek(workTime: WorkTime): [number, number] | null {
   const schedules = workTime.daily_schedules ?? [];
   if (schedules.length === 0) return null;
@@ -91,7 +92,7 @@ function dailyScheduledWeek(workTime: WorkTime): [number, number] | null {
   let minutes = 0;
   for (const s of schedules) {
     if (!s.start || !s.end) return null;
-    minutes += dayWorkMinutes(s.start, s.end, breaks);
+    minutes += dayWorkMinutes(s.start, s.end, breaks, true);
   }
   return [round2(minutes / 60), schedules.length];
 }

@@ -322,27 +322,40 @@ describe('10 자정 넘는 근무', () => {
   });
 });
 
-describe('11 시각 없는 분 휴게 — 0 미만 금지, 행 길이의 법정 휴게까지만', () => {
+// 법정 휴게(근기법 §54)는 하한이라 더 길게 준 휴게도 근로시간이 아니다 — 기본 근무시간(시업·종업)에서는 적힌 분을
+// 전부 빼고 0 미만만 막는다. 법정 휴게 상한은 근로일별 행(daily_schedules)에 시각 없는 하루 휴게가 일괄 적용될 때만
+// (폼 「하루 휴게 60」이 3.5시간 행에서도 60분 빠지던 문제). 261102 재홍님 결정.
+describe('11 시각 없는 분 휴게 — 기본 근무시간은 전부 차감, 근로일별 행만 법정 휴게까지, 0 미만 금지', () => {
   const wk = (start: string, end: string, minutes: number) =>
     computeWeeklyHours({ days_per_week: 5, start, end, breaks: [{ minutes }] })[0];
-  it('10:00~13:30 휴게 60 → 3.5H 행(법정 0분)이라 빼지 않음 → 17.5H', () => {
-    expect(wk('10:00', '13:30', 60)).toBe(17.5);
+  /** 근로일별 start~end × 5행, 기본 근무시간 09:00~18:00, 시각 없는 휴게 minutes */
+  const dailyRows = (start: string, end: string, minutes: number) => {
+    const c = contract(5, '09:00', '18:00', [base(2156880)]);
+    c.work_time.breaks = [{ minutes }];
+    c.work_time.daily_schedules = ['월', '화', '수', '목', '금'].map((day) => ({ day, start, end }));
+    return run(c).n;
+  };
+  it('① 기본 근무시간 09:00~18:00 휴게 90분 → 37.5H 유지(법정 60분으로 줄이지 않는다)', () => {
+    expect(wk('09:00', '18:00', 90)).toBe(37.5);
   });
-  it('10:00~10:30 휴게 60 → 음수가 아니라 2.5H', () => {
-    expect(wk('10:00', '10:30', 60)).toBe(2.5);
+  it('② 기본 근무시간 08:00~20:00 휴게 120분 → 50H 유지', () => {
+    expect(wk('08:00', '20:00', 120)).toBe(50);
   });
-  it('10:00~15:30 휴게 60 → 5.5H 행은 30분까지만 → 25H', () => {
-    expect(wk('10:00', '15:30', 60)).toBe(25);
-  });
-  it('09:00~18:00 휴게 60 → 그대로 40H', () => {
+  it('기본 근무시간 09:00~18:00 휴게 60 → 40H', () => {
     expect(wk('09:00', '18:00', 60)).toBe(40);
   });
-  it('10:00~13:30 휴게 60 계약은 주휴 대상(17.5H ≥ 15H)', () => {
-    const c = contract(5, '10:00', '13:30', [base(10320 * 76, 76)]);
-    c.work_time.breaks = [{ minutes: 60 }];
-    const { n } = run(c);
+  it('③ 근로일별 10:00~13:30 × 5 + 휴게 60 → 3.5H 행(법정 0분)이라 빼지 않음 → 소정 17.5H, 주휴 대상', () => {
+    const n = dailyRows('10:00', '13:30', 60);
+    expect(n.work_time.weekly_scheduled_source).toBe('daily');
     expect(n.work_time.weekly_scheduled_hours).toBe(17.5);
     expect(weeklyHoliday(n)!.holiday).toBeGreaterThan(0);
+  });
+  it('근로일별 10:00~15:30 × 5 + 휴게 60 → 5.5H 행은 30분까지만 → 소정 25H', () => {
+    expect(dailyRows('10:00', '15:30', 60).work_time.weekly_scheduled_hours).toBe(25);
+  });
+  it('④ 10:00~10:30 + 휴게 60 → 0 미만 없음(기본 근무시간 0H, 근로일별 행 2.5H)', () => {
+    expect(wk('10:00', '10:30', 60)).toBe(0);
+    expect(dailyRows('10:00', '10:30', 60).work_time.weekly_scheduled_hours).toBe(2.5);
   });
 });
 
