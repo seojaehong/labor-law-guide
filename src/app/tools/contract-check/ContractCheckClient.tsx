@@ -23,7 +23,7 @@ import {
 import type { Finding, FindingStatus } from '@/lib/contract-check/types';
 import PhotoUploadCard from './PhotoUploadCard';
 import { applyExtracted, keepFormOnlyFields } from './extractMap';
-import { CLAUSE_ITEMS, INITIAL, buildContract, formatNumericInput, type FormState } from './formState';
+import { CLAUSE_ITEMS, INITIAL, buildContract, formatNumericInput, withPayType, type FormState } from './formState';
 
 // 상태 이름·정렬·규칙 이름·수정 방향·면책 문구는 present.ts(오프라인판과 공용). 색만 여기 둔다.
 // DESIGN.md §6.4 배지 4변형(위험·주의·성공·중립). 값이 아니라 이름을 붙이는 교체다 —
@@ -429,7 +429,7 @@ export default function ContractCheckClient() {
                 { value: '', label: '모름·건너뛰기' },
               ]}
               value={form.payType}
-              onChange={(v) => patch({ payType: v })}
+              onChange={(v) => setForm((prev) => withPayType(prev, v))}
             />
           </Field>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">

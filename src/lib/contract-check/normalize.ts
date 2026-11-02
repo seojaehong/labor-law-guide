@@ -210,7 +210,8 @@ export interface WageBasis {
   /** 임금 형태 — unknown 은 시급제·월급제가 갈리지 않음(pay_type 없음 + 산출시간 174±1H) */
   form: 'hourly' | 'monthly' | 'unknown';
   /** 계약 시급 — 시급제에서만. 시급제인데 시급으로 볼 수 없으면 null(산출시간 없이 5배 초과, 또는 월 규모 산출시간인데
-   * 몫도 기본급도 띠 밖 — 금액과 산출시간이 맞지 않음), 월급제·unknown 은 null */
+   * 몫도 기본급도 띠 밖 — 금액과 산출시간이 맞지 않음), 월급제·unknown 은 null. 산출시간이 있는데 null(띠 밖)이거나
+   * unknown 이면 MINWAGE 가 시급제·월급제 두 해석을 다 본다(rules/wage.ts bothReadings, 261102 P2) */
   rate: number | null;
   /** 시급의 출처 — basis(기본급 ÷ 산출근거 시간)·amount(기본급 그대로) */
   from: 'basis' | 'amount' | null;

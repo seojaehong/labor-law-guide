@@ -74,7 +74,8 @@ export interface FormState {
   /** 기본급 산출근거 월 시간(선택) → BASE.basis_hours. 시급제는 시급 × 이 시간이 기본급 */
   basisHours: string;
   /** 시급에 주휴수당이 포함돼 있다고 적혀 있나 — 칸은 시급제에서만 보이고, 값이 있으면 급여 형태와 관계없이
-   * BASE.includes_weekly_holiday 로 싣는다(사진이 읽은 값을 버리지 않는다) */
+   * BASE.includes_weekly_holiday 로 싣는다(사진이 읽은 값을 버리지 않는다). 사용자가 급여 형태를 시급제가 아닌 값으로
+   * 바꾸면 withPayType 이 비운다(P3) */
   weeklyHolidayIncluded: '' | 'yes' | 'no';
   // ② 근로시간
   daysPerWeek: string;
@@ -154,6 +155,14 @@ export function formatNumericInput(value: string, suffix?: string): string {
   const digits = m[1].replace(/[,\s]/g, '');
   if (!digits || Number(digits) < 1000) return value;
   return Number(digits).toLocaleString('ko-KR') + (m[2] ?? '');
+}
+
+/** 급여 형태 칸을 바꾼다 — 시급제가 아닌 다른 값으로 바꾸면 주휴 포함 선택을 비운다. 그 칸은 시급제에서만 보이는데
+ * 값이 남으면 buildContract 가 실어 숨은 「포함」으로 법리 B 를 탄다(261102 P3). 사진 추출이 채운 값은 이 함수를 거치지
+ * 않으므로 사용자가 형태를 바꾸기 전까지 남는다(같은 값을 다시 눌러도 그대로). */
+export function withPayType(f: FormState, payType: FormState['payType']): FormState {
+  if (payType === f.payType || payType === 'hourly') return { ...f, payType };
+  return { ...f, payType, weeklyHolidayIncluded: '' };
 }
 
 /** 폼 상태 → 스키마 규격 계약 객체 (RALPH-README 매핑 지침). */

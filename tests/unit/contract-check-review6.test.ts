@@ -1,5 +1,6 @@
-// 근로계약서 점검 엔진 — 7113cf1 재검토(opus) K1~K6 회귀시험. 시험값은 전부 가상값이다.
-// 원칙: 두 신호가 어긋나면 한쪽을 골라 위반·적정을 내지 않고 자료 필요로 낸다. 분기가 갈리는 것은 양쪽을 다 넣는다.
+// 근로계약서 점검 엔진 — 7113cf1 재검토(opus) K1~K6·F1~F7, d20abe2 재검토 P1~P4 회귀시험. 시험값은 전부 가상값이다.
+// 원칙: 두 신호가 어긋나면 두 해석을 다 본다 — 같은 결론이면 그 결론(두 값을 문장에), 갈리면 자료 필요(261102 P2).
+// 분기가 갈리는 것은 양쪽을 다 넣는다.
 
 import { describe, expect, it } from 'vitest';
 
@@ -8,7 +9,7 @@ import { checkContract } from '@/lib/contract-check/engine';
 import { normalize } from '@/lib/contract-check/normalize';
 import type { Contract, Finding, WageItem } from '@/lib/contract-check/types';
 import { applyExtracted } from '@/app/tools/contract-check/extractMap';
-import { type FormState, INITIAL, buildContract } from '@/app/tools/contract-check/formState';
+import { type FormState, INITIAL, buildContract, withPayType } from '@/app/tools/contract-check/formState';
 
 const clone = <T,>(v: T): T => JSON.parse(JSON.stringify(v)) as T;
 const raw = (id: string) => clone((casesJson as unknown as Contract[]).find((c) => c.contract_id === id)!);
@@ -93,15 +94,31 @@ describe('K1 산출시간이 있으면 몫이 시급 — 금액 예외는 월 �
     expect(f.status).toBe('violation');
     expect(f.detail).toContain('계약 시급 4,000');
   });
+  // P2 로 기대값을 바꿈(이전 needs_data): 몫 1,149(시급제)도 100,000 ÷ 월 104H = 962(월급제)도 미달 — 두 해석이 같은 결론
   it.each([
     ['hourly', { pay_type: 'hourly' as const }],
     ['없음', {}],
-  ])('월 규모인데 몫도 금액도 띠 밖(pay_type %s, 100,000 ÷ 87H) → 자료 필요, 두 값을 적는다', (_, extra) => {
+  ])('월 규모인데 몫도 금액도 띠 밖(pay_type %s, 100,000 ÷ 87H) — 두 해석 모두 미달이라 위반, 두 값을 적는다', (_, extra) => {
     const f = run(contract(5, '09:00', '13:00', [base(100000, 87)], extra)).get('MINWAGE');
-    expect(f.status).toBe('needs_data');
+    expect(f.status).toBe('violation');
     expect(f.detail).toContain('금액과 산출시간이 맞지 않음');
     expect(f.detail).toContain('100,000');
     expect(f.detail).toContain('87H');
+    expect(f.detail).toContain('계약 시급 1,149');
+    expect(f.detail).toContain('시간당 962');
+  });
+  it('P2 갈림 — 1,100,000 ÷ 220H(주 20H): 몫 5,000 미달·월급 1,100,000 ÷ 104H = 10,577 충족 → 자료 필요', () => {
+    const f = run(contract(5, '09:00', '13:00', [base(1100000, 220)])).get('MINWAGE');
+    expect(f.status).toBe('needs_data');
+    expect(f.detail).toContain('금액과 산출시간이 맞지 않음');
+    expect(f.detail).toContain('시간당 5,000');
+    expect(f.detail).toContain('시간당 10,577');
+  });
+  it('P2 둘 다 충족 — 시급제 20,000,000 ÷ 87H(주 20H)는 몫·금액 모두 띠 위지만 어느 쪽으로 보아도 충족', () => {
+    const f = run(contract(5, '09:00', '13:00', [base(20000000, 87)], { pay_type: 'hourly' })).get('MINWAGE');
+    expect(f.status).not.toBe('violation');
+    expect(f.status).not.toBe('needs_data');
+    expect(f.detail).toContain('어느 쪽으로 보아도');
   });
   it('반대편 — pay_type 없음·산출시간이 주휴 포함 월 시간(209H)이면 몫이 띠 밖이어도 월급제(C)', () => {
     expect(at(800000, 209).get('MINWAGE').status).toBe('violation');
@@ -150,9 +167,43 @@ describe('F6 pay_type 없음 + 산출시간 174±1H(주휴를 뺀 월 소정) �
     expect(f.status).toBe('risk');
     expect(f.detail).toContain('계약 시급 10,920');
   });
+  // P2 — 두 해석이 같은 결론이면 그 결론
+  it('P2 1,000,000 ÷ 174H — 시급제 5,747·월급제 1,000,000 ÷ 209H = 4,785 모두 미달 → 위반, 두 값을 적는다', () => {
+    const f = at(1000000, 174);
+    expect(f.status).toBe('violation');
+    expect(f.detail).toContain('어느 쪽으로 보아도');
+    expect(f.detail).toContain('계약 시급 5,747');
+    expect(f.detail).toContain('209H = 시간당 4,785');
+  });
+  it('P2 2,500,000 ÷ 174H — 시급제 14,368·월급제 11,962 모두 충족 → 충족(위반·자료 필요 아님), 두 값을 적는다', () => {
+    const f = at(2500000, 174);
+    expect(f.status).not.toBe('violation');
+    expect(f.status).not.toBe('needs_data');
+    expect(f.detail).toContain('어느 쪽으로 보아도');
+    expect(f.detail).toContain('계약 시급 14,368');
+    expect(f.detail).toContain('209H = 시간당 11,962');
+  });
 });
 
-describe('F7 시급제도 매월 식대(산입범위)를 넣는다 — 계약 시급 + 식대 ÷ 월 소정(주휴 포함, 월 규모 산출시간이면 그 값)', () => {
+describe('P2 두 해석이 같은 결론이면 그 결론 — 몫(시급제)과 기본급 ÷ 월 시간(월급제)을 둘 다 최저시급과 비교', () => {
+  it('폼 시급제 4,000 × 209H → 위반(몫 4,000·월급 836,000 ÷ 209H 모두 미달)', () => {
+    const f = site({ payType: 'hourly', hourlyWage: '4000', basisHours: '209' }).get('MINWAGE');
+    expect(f.status).toBe('violation');
+    expect(f.detail).toContain('계약 시급 4,000');
+  });
+  it.each([
+    ['hourly 1,000,000 ÷ 209H(주 40H)', 5, '09:00', '17:00', 1000000, 209, { pay_type: 'hourly' as const }],
+    ['pay_type 없음 1,000,000 ÷ 200H(주 40H)', 5, '09:00', '17:00', 1000000, 200, {}],
+    ['hourly 5,000 × 87H(주 20H)', 5, '09:00', '13:00', 5000 * 87, 87, { pay_type: 'hourly' as const }],
+    ['hourly 5,000 × 209H(주 40H)', 5, '09:00', '17:00', 5000 * 209, 209, { pay_type: 'hourly' as const }],
+  ])('%s → 위반', (_, days, start, end, amount, hours, extra) => {
+    const f = run(contract(days, start, end, [base(amount, hours)], extra)).get('MINWAGE');
+    expect(f.status).toBe('violation');
+    expect(f.detail).toContain('어느 쪽으로 보아도');
+  });
+});
+
+describe('F7 시급제도 매월 식대(산입범위)를 넣는다 — 계약 시급 + 식대 ÷ 월 소정(주휴 포함, 산출시간이 주휴 포함 월 시간이면 그 값)', () => {
   const meal = (amount: number): WageItem => ({ code: 'MEAL', label: '식대', amount });
   const bonus = (amount: number): WageItem => ({ code: 'BONUS', label: '상여', amount });
   const hourly = (days: number, start: string, end: string, items: WageItem[]) =>
@@ -165,15 +216,39 @@ describe('F7 시급제도 매월 식대(산입범위)를 넣는다 — 계약 �
   it('반대편 — 시급 10,000 × 209H, 산입 항목 없음 → 위반', () => {
     expect(hourly(5, '09:00', '17:00', [base(10000 * 209, 209)]).status).toBe('violation');
   });
-  it('시급 9,000 × 87H(주 20H) + 식대 50,000 → 9,000 + 50,000 ÷ 87H = 9,575 위반', () => {
+  // P1 로 기대값을 바꿈 — 87H 는 주휴를 뺀 월 소정이라 분모가 아니다. 분모 = 주 20H 의 월 소정(주휴 포함) 104H
+  it('시급 9,000 × 87H(주 20H) + 식대 50,000 → 9,000 + 50,000 ÷ 104H = 9,481 위반', () => {
     const f = hourly(5, '09:00', '13:00', [base(9000 * 87, 87), meal(50000)]);
     expect(f.status).toBe('violation');
-    expect(f.detail).toContain('계약 시급 9,000 + 식대 50,000 ÷ 87H = 시간당 9,575');
+    expect(f.detail).toContain('계약 시급 9,000 + 식대 50,000 ÷ 104H = 시간당 9,481');
   });
-  it('같은 조건에 식대 200,000 → 시간당 11,299(원 단위 반올림) — 최저임금은 충족, 주휴 항목이 없어 §17② 확인 risk(minor)', () => {
+  it('같은 조건에 식대 200,000 → 시간당 10,923 — 최저임금은 충족, 주휴 항목이 없어 §17② 확인 risk(minor)', () => {
     const f = hourly(5, '09:00', '13:00', [base(9000 * 87, 87), meal(200000)]);
     expect([f.status, f.severity]).toEqual(['risk', 'minor']);
-    expect(f.detail).toContain('계약 시급 9,000 + 식대 200,000 ÷ 87H = 시간당 11,299 ≥');
+    expect(f.detail).toContain('계약 시급 9,000 + 식대 200,000 ÷ 104H = 시간당 10,923 ≥');
+  });
+  // P1 — 분모는 산출시간이 주휴 포함 월 시간(209±1 등)일 때만 그 값, 그 밖에는 월 소정근로시간(주휴 포함)
+  it('P1 주 40H 시급 1,740,000 ÷ 174H + 식대 60,000 → 10,000 + 60,000 ÷ 209H = 10,287 위반', () => {
+    const f = hourly(5, '09:00', '17:00', [base(1740000, 174), meal(60000)]);
+    expect(f.status).toBe('violation');
+    expect(f.detail).toContain('계약 시급 10,000 + 식대 60,000 ÷ 209H = 시간당 10,287');
+  });
+  it('P1 주 20H 시급 9,000 × 87H + 식대 120,000 → 9,000 + 120,000 ÷ 104H = 10,154 위반', () => {
+    const f = hourly(5, '09:00', '13:00', [base(9000 * 87, 87), meal(120000)]);
+    expect(f.status).toBe('violation');
+    expect(f.detail).toContain('식대 120,000 ÷ 104H = 시간당 10,154');
+  });
+  it('P1 주휴 포함 시급 12,000 × 87H(주 20H) + 식대 30,000 → 10,000 + 30,000 ÷ 104H = 10,288 위반', () => {
+    const f = hourly(5, '09:00', '13:00', [base(12000 * 87, 87, { includes_weekly_holiday: true }), meal(30000)]);
+    expect(f.status).toBe('violation');
+    expect(f.detail).toContain('식대 30,000 ÷ 104H = 시간당 10,288');
+  });
+  it('P1 산출시간 87H 인데 1주 소정을 모르면 분모가 없다 — 9,000 + 식대 200,000 → 자료 필요(87H 로 나누지 않는다)', () => {
+    const c = contract(5, '09:00', '13:00', [base(9000 * 87, 87), meal(200000)], { pay_type: 'hourly' });
+    c.work_time = { days_per_week: null, start: null, end: null, breaks: [], daily_schedules: null, night_work: false };
+    const f = run(c).get('MINWAGE');
+    expect(f.status).toBe('needs_data');
+    expect(f.detail).toContain('월 소정근로시간을 알 수 없어');
   });
   it('시급만 있고 월 소정근로시간을 구할 수 없음 + 식대 → 자료 필요(넣으면·빼면 두 경우를 적는다)', () => {
     const c = contract(5, '09:00', '17:00', [base(10000), meal(300000)], { pay_type: 'hourly' });
@@ -188,10 +263,10 @@ describe('F7 시급제도 매월 식대(산입범위)를 넣는다 — 계약 �
     c.work_time = { days_per_week: null, start: null, end: null, breaks: [], daily_schedules: null, night_work: false };
     expect(run(c).get('MINWAGE').status).toBe('ok');
   });
-  it('B — 주휴 포함 시급 12,000 × 87H(주 20H)는 미달이지만 식대 100,000 을 넣으면 12,000×20/24 + 100,000 ÷ 87H = 11,149 충족', () => {
+  it('B — 주휴 포함 시급 12,000 × 87H(주 20H)는 미달이지만 식대 100,000 을 넣으면 12,000×20/24 + 100,000 ÷ 104H = 10,962 충족', () => {
     const f = hourly(5, '09:00', '13:00', [base(12000 * 87, 87, { includes_weekly_holiday: true }), meal(100000)]);
     expect(f.status).toBe('ok');
-    expect(f.detail).toContain('시간당 11,149');
+    expect(f.detail).toContain('100,000 ÷ 104H = 시간당 10,962');
     expect(hourly(5, '09:00', '13:00', [base(12000 * 87, 87, { includes_weekly_holiday: true })]).status).toBe('violation');
   });
   it('지급 주기를 알 수 없는 상여는 3단계 — 시급 10,000 × 209H + 상여 300,000 → 넣어야만 충족이라 risk', () => {
@@ -425,10 +500,45 @@ describe('K6 주휴수당 별도 지급 — 항목 확인이 문구 확인보다
     const f = run(contract(5, '09:00', '13:00', [base(10320 * 87, 87, { basis_text })])).get('MINWAGE');
     expect([f.status, f.severity]).toEqual(['risk', 'minor']);
   });
+  it.each([
+    ['금액 0', 0],
+    ['금액 없음', null],
+  ])('P4 주휴 항목이 있어도 %s 이면 「별도 명시」 근거가 아니다 → §17② 확인 risk(minor)', (_, amount) => {
+    const wh: WageItem = { code: 'WEEKLY_HOLIDAY', label: '주휴수당', amount: amount as number };
+    const f = run(contract(5, '09:00', '13:00', [base(10320 * 87, 87), wh])).get('MINWAGE');
+    expect([f.status, f.severity]).toEqual(['risk', 'minor']);
+    expect(f.detail).not.toContain('주휴수당 항목 별도 명시');
+    expect(f.detail).toContain('근로기준법 §17②');
+  });
   it('반대편 — 문구만 있고 칸이 비면 「주휴수당 포함 여부 확인 필요」 risk, severity minor', () => {
     const f = run(contract(5, '09:00', '13:00', [base(10320 * 87, 87, { basis_text: '시급 10,320(주휴수당 포함)' })])).get('MINWAGE');
     expect(f.status).toBe('risk');
     expect(f.severity).toBe('minor');
     expect(f.detail).toContain('주휴수당 포함 여부 확인 필요');
+  });
+});
+
+describe('P3 폼에서 급여 형태를 시급제가 아닌 값으로 바꾸면 주휴 포함 선택을 비운다 — 사진이 채운 값은 형태를 바꾸기 전까지 둔다', () => {
+  const start = { ...INITIAL, ...SITE40 } as FormState;
+  it('시급제 → 포함 → 모름 + 기본급 12,000(주 40H) → 위반이 아니다(숨은 「포함」이 법리 B 를 태우지 않는다)', () => {
+    let f = withPayType(start, 'hourly');
+    f = { ...f, weeklyHolidayIncluded: 'yes' };
+    f = { ...withPayType(f, ''), baseWage: '12000' };
+    expect(f.weeklyHolidayIncluded).toBe('');
+    expect(run(buildContract(f)).get('MINWAGE').status).not.toBe('violation');
+    // 비우지 않았다면 숨은 「포함」이 실려 12,000 < 12,384(B) 위반이 됐다
+    expect(run(buildContract({ ...f, weeklyHolidayIncluded: 'yes' })).get('MINWAGE').status).toBe('violation');
+  });
+  it('시급제 → 포함 → 월급제 도 비운다', () => {
+    const f = withPayType({ ...start, payType: 'hourly', weeklyHolidayIncluded: 'yes' }, 'monthly');
+    expect([f.payType, f.weeklyHolidayIncluded]).toEqual(['monthly', '']);
+  });
+  it('반대편 — 시급제로 바꾸면 그대로 둔다', () => {
+    const f = withPayType({ ...start, payType: '', weeklyHolidayIncluded: 'yes' }, 'hourly');
+    expect([f.payType, f.weeklyHolidayIncluded]).toEqual(['hourly', 'yes']);
+  });
+  it('반대편 — 사진이 채운 값(월급제 + 포함)은 같은 형태를 다시 눌러도 그대로 둔다', () => {
+    const f = withPayType({ ...start, payType: 'monthly', weeklyHolidayIncluded: 'yes' }, 'monthly');
+    expect(f.weeklyHolidayIncluded).toBe('yes');
   });
 });
