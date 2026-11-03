@@ -3,7 +3,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { calcTakeHomePay, takeHomeRatesOn } from '@/lib/calc/take-home-pay';
-import { checkWritten, designFromForm, nightHoursOf, toContract, type WriteForm } from '@/lib/contract-write/contract';
+import { checkWritten, designFromForm, nightHoursOf, reviewWritten, toContract, type WriteForm } from '@/lib/contract-write/contract';
 import { buildContractDocument, documentLines } from '@/lib/contract-write/document';
 import { netToGross } from '@/lib/contract-write/net-gross';
 import { bannedHits } from '@/lib/tool-kit/banned';
@@ -44,7 +44,7 @@ const PART: WriteForm = {
   duty: '홀 보조',
 };
 
-const text = (form: WriteForm) => documentLines(buildContractDocument(form, designFromForm(form, 10_320))).join('\n');
+const text = (form: WriteForm) => documentLines(buildContractDocument(form, designFromForm(form))).join('\n');
 
 describe('야간시간', () => {
   it('22:00~06:00 과 겹친 시간(자정 넘김 포함)', () => {
@@ -58,7 +58,7 @@ describe('야간시간', () => {
 
 describe('월급제 야간 → 점검·본문', () => {
   it('야간근로수당 항목이 생기고 점검에서 손볼 것이 없다', () => {
-    const design = designFromForm(MONTHLY, 10_320);
+    const design = designFromForm(MONTHLY);
     expect(design.items.map((i) => i.key)).toContain('night');
     const contract = toContract(MONTHLY, design);
     expect(contract.work_time.night_work).toBe(true);
@@ -69,7 +69,7 @@ describe('월급제 야간 → 점검·본문', () => {
 
   it('5명 미만이면 가산 항목 없이 점검을 통과하고 본문에 가산·연차 미적용을 적는다', () => {
     const form = { ...MONTHLY, employeeCount5plus: false };
-    const design = designFromForm(form, 10_320);
+    const design = designFromForm(form);
     expect(design.items.map((i) => i.key)).toEqual(['base', 'overtime']);
     expect(checkWritten(form, design)).toEqual([]);
     expect(text(form)).toContain('상시 5명 미만');
@@ -78,7 +78,7 @@ describe('월급제 야간 → 점검·본문', () => {
 
 describe('시급·일급 파트 → 점검·본문', () => {
   it('일 지급액 78,000원을 나누고 점검에서 손볼 것이 없다', () => {
-    const design = designFromForm(PART, 10_320);
+    const design = designFromForm(PART);
     expect(design.period).toBe('day');
     expect(design.total).toBe(78_000);
     expect(checkWritten(PART, design)).toEqual([]);
@@ -90,7 +90,7 @@ describe('시급·일급 파트 → 점검·본문', () => {
 
   it('주 15시간 미만이면 주휴·연차를 넣지 않고 본문에 그 사유를 적는다', () => {
     const form: WriteForm = { ...PART, workDays: ['토', '일'], daysPerWeek: 2 };
-    const design = designFromForm(form, 10_320);
+    const design = designFromForm(form);
     expect(design.hours.weeklyHoliday).toBe(0);
     expect(checkWritten(form, design)).toEqual([]);
     expect(text(form)).toContain('제18조 제3항');
@@ -98,7 +98,7 @@ describe('시급·일급 파트 → 점검·본문', () => {
 
   it('시간당 지급액이 낮아 통상시급이 최저 아래면 점검이 최저임금 위반을 낸다(자기시험)', () => {
     const form = { ...PART, hourlyWage: 10_320 };
-    const codes = checkWritten(form, designFromForm(form, 10_320)).map((f) => `${f.rule_code}:${f.status}`);
+    const codes = checkWritten(form, designFromForm(form)).map((f) => `${f.rule_code}:${f.status}`);
     expect(codes).toContain('MINWAGE:violation');
   });
 
@@ -116,7 +116,7 @@ describe('수습', () => {
     expect(t).toContain('수습기간: 계약 시작일부터 3개월');
     expect(t).toContain('100분의 90');
     expect(t).toContain('2,970,000원');
-    const findings = checkWritten(PROB, designFromForm(PROB, 10_320));
+    const findings = checkWritten(PROB, designFromForm(PROB));
     expect(findings.find((f) => f.rule_code === 'MINWAGE-PROBATION')).toBeUndefined();
   });
 
@@ -150,7 +150,7 @@ describe('기간제 + 소수 통상시급 표본', () => {
   };
 
   it('통상시급을 소수 둘째 자리로 적고, 계약기간을 적고, 점검에서 손볼 것이 없다', () => {
-    const design = designFromForm(FIXED, 10_320);
+    const design = designFromForm(FIXED);
     expect(design.totalHours).toBeCloseTo(217, 10);
     const rate = (Math.round((2_345_678 / 217) * 100) / 100).toLocaleString('ko-KR', { minimumFractionDigits: 2 });
     const t = text(FIXED);
@@ -200,7 +200,7 @@ describe('주 6일 — 1주 40시간 넘는 연장', () => {
     holidayDaysPerYear: 0,
   };
   it('설계 연장 = 엔진 weekly_overtime_hours(8시간) × 1.5 × 4.345, 점검에서 손볼 것이 없다', () => {
-    const design = designFromForm(SIX, 10_320);
+    const design = designFromForm(SIX);
     const [contract] = normalize([toContract(SIX, design)]);
     expect(contract.work_time?.weekly_overtime_hours).toBe(8);
     expect(design.hours.overtime).toBeCloseTo(8 * 1.5 * 4.345, 6);
@@ -217,31 +217,60 @@ describe('주 6일 — 1주 40시간 넘는 연장', () => {
 // #139 적대 검토 2·8 — 계약서에 없는 사실(서명·교부·주휴일 특정)을 상수로 넘기지 않는다. 작성일은 입력에서
 describe('toContract — 상수 대신 입력에서', () => {
   it('서명·교부 여부는 모른다(null), 작성일은 작성일 칸', () => {
-    const c = toContract({ ...MONTHLY, writtenDate: '2026-10-20' }, designFromForm(MONTHLY, 10_320));
+    const c = toContract({ ...MONTHLY, writtenDate: '2026-10-20' }, designFromForm(MONTHLY));
     expect(c.signatures).toEqual({ written_date: '2026-10-20', employer_signed: null, employee_signed: null, copy_delivered_confirmed: null });
   });
   it('입사 후 31일 넘겨 작성하면 점검이 소급 작성을 짚는다(자기시험)', () => {
     const late = { ...MONTHLY, writtenDate: '2026-12-15' };
-    expect(checkWritten(late, designFromForm(late, 10_320)).map((f) => f.rule_code)).toContain('WRITTEN-TERMS');
+    expect(checkWritten(late, designFromForm(late)).map((f) => f.rule_code)).toContain('WRITTEN-TERMS');
   });
   it('본문 서명 날짜 = 작성일', () => {
     expect(text({ ...MONTHLY, writtenDate: '2026-10-20' })).toContain('2026년 10월 20일');
   });
   it('연차 미리 지급 시간 = 설계 연차 시간(월)', () => {
-    const design = designFromForm(MONTHLY, 10_320);
+    const design = designFromForm(MONTHLY);
     expect(toContract(MONTHLY, design).holidays_leave!.annual_leave_prepaid_hours_per_month).toBeCloseTo(design.hours.leave, 6);
-    const pd = designFromForm(PART, 10_320);
+    const pd = designFromForm(PART);
     expect(toContract(PART, pd).holidays_leave!.annual_leave_prepaid_hours_per_month).toBeCloseTo(pd.hours.leave * 5 * 4.345, 6);
   });
   it('연차 조항은 본문과 같은 문장 — 5명 미만이면 「적용하지 않는다」', () => {
     const small = { ...MONTHLY, employeeCount5plus: false };
-    const c = toContract(small, designFromForm(small, 10_320));
+    const c = toContract(small, designFromForm(small));
     expect(c.holidays_leave!.annual_leave_clause).toContain('적용하지 않는다');
     expect(text(small)).toContain(c.holidays_leave!.annual_leave_clause!);
   });
   it('주휴일은 요일로 받고 계약서에 「매주 ○요일」로 적는다', () => {
-    const c = toContract(MONTHLY, designFromForm(MONTHLY, 10_320));
+    const c = toContract(MONTHLY, designFromForm(MONTHLY));
     expect(c.holidays_leave!.weekly_rest).toBe('주휴일: 매주 일요일(유급)');
     expect(c.holidays_leave!.weekly_rest_day_specified).toBe(true);
+  });
+});
+
+// #139 적대 검토 5 — 최저임금 줄은 설계 검사가 아니라 점검 규칙 MINWAGE 판정에서. 표에 없는 해는 마지막 해로 대신하지 않는다
+describe('최저임금 한 줄(점검 규칙에서)', () => {
+  const line = (form: WriteForm) => reviewWritten(form, designFromForm(form)).minimumWage;
+  it('충족이면 그해 최저시급 이상', () => {
+    expect(line(MONTHLY)).toEqual({ text: expect.stringContaining('(2026년 최저시급 10,320원 이상)'), warn: false });
+  });
+  it('미달이면 낮다고 말하고 손볼 것에 최저임금 위반', () => {
+    const low = { ...MONTHLY, monthlyTotal: 2_000_000 };
+    expect(line(low)).toEqual({ text: expect.stringContaining('2026년 최저시급 10,320원보다 낮습니다'), warn: true });
+    expect(checkWritten(low, designFromForm(low)).map((f) => `${f.rule_code}:${f.status}`)).toContain('MINWAGE:violation');
+  });
+  it('2027년은 10,700원(최저임금 고시 2026. 8. 5.)', () => {
+    const y = { ...MONTHLY, startDate: '2027-01-04', writtenDate: '2027-01-02' };
+    expect(line(y).text).toContain('2027년 최저시급 10,700원');
+  });
+  it('표에 없는 해(2028)는 「미등록」 — 다른 해 값으로 비교하지 않는다', () => {
+    const y = { ...MONTHLY, startDate: '2028-01-03', writtenDate: '2028-01-02' };
+    expect(line(y)).toEqual({ text: expect.stringContaining('2028년 최저시급 미등록'), warn: true });
+  });
+  it('1주 연장 12시간 초과는 점검 규칙이 짚는다(주 5일 × 하루 11시간 = 15시간)', () => {
+    const long = { ...MONTHLY, start: '09:00', end: '21:00', breakMinutes: 60 };
+    expect(checkWritten(long, designFromForm(long)).map((f) => f.rule_code)).toContain('WH-52CAP');
+  });
+  it('점검 규칙 글에 「포괄」이 나오지 않는다', () => {
+    const odd = { ...MONTHLY, monthlyTotal: 1_000_000 };
+    for (const f of checkWritten(odd, designFromForm(odd))) expect(f.detail).not.toContain('포괄');
   });
 });

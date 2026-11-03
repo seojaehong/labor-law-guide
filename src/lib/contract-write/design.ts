@@ -26,12 +26,10 @@ export interface DesignInput {
   /** 상시 5명 이상(기본 true). 5명 미만이면 연장·야간 가산, 공휴일 유급휴일, 연차를 넣지 않는다(근로기준법 시행령 제7조 별표 1) */
   fivePlus?: boolean;
   /** 계약서에 박힌 시간이 있으면 그 값을 쓴다(수원: 연장 65.2·휴일 25·연차 10) */
-  overrides?: { baseHours?: number; overtimeHours?: number; holidayHours?: number; leaveHours?: number };
+  overrides?: { overtimeHours?: number; holidayHours?: number; leaveHours?: number };
   rounding?: Rounding;
   /** 잔액을 받는 항목. 기본 = 기본급(재홍님 261103) */
   absorbInto?: ItemKey;
-  /** 비교할 최저시급. 없으면 검사 결과 ok = null */
-  minimumWage?: number;
 }
 
 export interface DesignItem {
@@ -52,16 +50,9 @@ export interface DesignResult {
   total: number;
   hours: Record<ItemKey, number>;
   totalHours: number;
-  /** 계산 시급(내리지 않음). 항목 금액은 이 값으로 낸다 */
+  /** 계산 시급(내리지 않음). 항목 금액은 이 값으로 낸다. 최저임금·1주 연장 한도는 점검 규칙(MINWAGE·WH-52CAP)이 본다 */
   rate: number;
-  /** 화면 표시·최저임금 비교용 = 계산 시급 원 단위 내림 */
-  displayRate: number;
   items: DesignItem[];
-  checks: {
-    minimumWage: { ok: boolean | null; minimum: number | null };
-    /** 근로기준법 제53조 제1항 — 1주 연장 12시간 */
-    weeklyOvertime: { ok: boolean; hours: number };
-  };
 }
 
 export const ITEM_LABEL: Record<ItemKey, string> = {
@@ -104,7 +95,7 @@ export function designHours(input: DesignInput): Record<ItemKey, number> {
   const leave = fivePlus ? (weekly / 40) * 8 : 0;
   const o = input.overrides ?? {};
   return {
-    base: o.baseHours ?? base,
+    base,
     weeklyHoliday: 0,
     overtime: o.overtimeHours ?? overtime,
     night,
@@ -150,20 +141,5 @@ export function designMonthlyWage(input: DesignInput): DesignResult {
   // 기존 4항목(기본·연장·휴일·연차)은 0시간이어도 표에 남긴다(5명 미만은 휴일·연차를 법상 넣지 않으므로 뺀다). 야간은 있을 때만
   const keep: ItemKey[] = (input.fivePlus ?? true) ? ['base', 'overtime', 'holiday', 'leave'] : ['base', 'overtime'];
   const { items, totalHours, rate } = splitTotal(input.monthlyTotal, hours, MONTHLY_ORDER, { rounding: input.rounding, absorbInto: input.absorbInto, keep });
-  const displayRate = Math.floor(rate);
-  const minimum = input.minimumWage ?? null;
-  const weeklyOvertimeHours = Math.max(input.dailyWorkHours - 8, 0) * input.daysPerWeek;
-  return {
-    period: 'month',
-    total: input.monthlyTotal,
-    hours,
-    totalHours,
-    rate,
-    displayRate,
-    items,
-    checks: {
-      minimumWage: { ok: minimum === null ? null : displayRate >= minimum, minimum },
-      weeklyOvertime: { ok: weeklyOvertimeHours <= 12 + 1e-9, hours: weeklyOvertimeHours },
-    },
-  };
+  return { period: 'month', total: input.monthlyTotal, hours, totalHours, rate, items };
 }

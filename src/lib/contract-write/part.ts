@@ -28,7 +28,6 @@ export interface HourlyDesignInput {
   includeUnder15?: boolean;
   rounding?: Rounding;
   absorbInto?: ItemKey;
-  minimumWage?: number;
 }
 
 const ORDER: ItemKey[] = ['base', 'weeklyHoliday', 'overtime', 'night', 'leave', 'holiday'];
@@ -60,21 +59,13 @@ export function designHourlyWage(input: HourlyDesignInput): DesignResult {
   if (!(hours.base > 0)) throw new Error('하루 실근무시간이 0보다 커야 합니다');
   const total = Math.round(input.hourlyWage * input.stayHours);
   const { items, totalHours, rate } = splitTotal(total, hours, ORDER, { rounding: input.rounding, absorbInto: input.absorbInto, keep: ['base'] });
-  const displayRate = Math.floor(rate);
-  const minimum = input.minimumWage ?? null;
-  const weeklyOvertimeHours = Math.max(input.stayHours - input.breakMinutes / 60 - 8, 0) * input.daysPerWeek;
   return {
     period: 'day',
     total,
     hours,
     totalHours,
     rate,
-    displayRate,
     // 파트의 기본급은 주휴를 따로 둔다
     items: items.map((i) => (i.key === 'base' ? { ...i, label: '기본급' } : i)),
-    checks: {
-      minimumWage: { ok: minimum === null ? null : displayRate >= minimum, minimum },
-      weeklyOvertime: { ok: weeklyOvertimeHours <= 12 + 1e-9, hours: weeklyOvertimeHours },
-    },
   };
 }

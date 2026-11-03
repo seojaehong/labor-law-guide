@@ -6,10 +6,9 @@
 import { useMemo, useState } from 'react';
 
 import { ruleName } from '@/lib/contract-check/present';
-import { checkWritten, designFromForm } from '@/lib/contract-write/contract';
+import { designFromForm, publicText, reviewWritten } from '@/lib/contract-write/contract';
 import { ITEM_LABEL, type ItemKey, type Rounding } from '@/lib/contract-write/design';
 import { buildContractDocument } from '@/lib/contract-write/document';
-import { minimumWageFor } from '@/lib/contract-check/normalize';
 
 import type { WeekDay } from '@/lib/contract-write/contract';
 
@@ -114,9 +113,9 @@ export default function ContractWriteClient() {
   const result = useMemo(() => {
     if (!parsed.form) return null;
     try {
-      const minimum = minimumWageFor(parsed.form.startDate);
-      const design = designFromForm(parsed.form, minimum);
-      return { design, minimum, findings: checkWritten(parsed.form, design), doc: buildContractDocument(parsed.form, design) };
+      const design = designFromForm(parsed.form);
+      const review = reviewWritten(parsed.form, design);
+      return { design, findings: review.problems, minimumWage: review.minimumWage, doc: buildContractDocument(parsed.form, design) };
     } catch (e) {
       return { error: e instanceof Error ? e.message : String(e) };
     }
@@ -323,17 +322,9 @@ export default function ContractWriteClient() {
                 하루 지급액 {won(result.design.total)} · 한 달 예상 {won(Math.round(result.design.total * parsed.form!.daysPerWeek * 4.345))}(주 {parsed.form!.daysPerWeek}일 × 4.345주, 실제 근무일 기준으로 지급)
               </p>
             )}
-            <p className="text-sm">
-              통상시급 {result.design.rate.toLocaleString('ko-KR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}원
-              {result.design.checks.minimumWage.ok === false
-                ? ` — ${parsed.form!.startDate.slice(0, 4)}년 최저시급 ${won(result.minimum)}보다 낮습니다`
-                : ` (${parsed.form!.startDate.slice(0, 4)}년 최저시급 ${won(result.minimum)} 이상)`}
+            <p className="text-sm" style={result.minimumWage.warn ? { color: 'var(--color-warn-ink)' } : undefined}>
+              {result.minimumWage.text}
             </p>
-            {!result.design.checks.weeklyOvertime.ok && (
-              <p className="text-sm" style={{ color: 'var(--color-warn-ink)' }}>
-                1주 연장근로가 {hours(result.design.checks.weeklyOvertime.hours)}으로 12시간을 넘습니다(근로기준법 제53조 제1항).
-              </p>
-            )}
             <div className="rounded-lg p-3 text-sm" style={{ backgroundColor: 'var(--grey-100)' }}>
               <p className="font-semibold">근로계약서 점검 규칙으로 다시 본 결과</p>
               {result.findings.length === 0 ? (
@@ -342,7 +333,7 @@ export default function ContractWriteClient() {
                 <ul className="mt-1 list-disc space-y-1 pl-5">
                   {result.findings.map((f) => (
                     <li key={f.rule_code}>
-                      {ruleName(f.rule_code)}: {f.detail}
+                      {publicText(ruleName(f.rule_code))}: {f.detail}
                     </li>
                   ))}
                 </ul>

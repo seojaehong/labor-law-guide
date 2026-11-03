@@ -39,7 +39,7 @@ const SUWON: WriteForm = {
 };
 
 function problems(form: WriteForm) {
-  const [contract] = normalize([toContract(form, designFromForm(form, 10_320))]);
+  const [contract] = normalize([toContract(form, designFromForm(form))]);
   return checkContract(contract).filter((f) => f.status === 'violation' || f.status === 'needs_data' || (f.status === 'risk' && f.severity !== 'minor' && f.severity !== 'info'));
 }
 
@@ -58,7 +58,7 @@ describe('작성 → 점검 되먹임', () => {
   });
 
   it('연장수당을 3,000원 줄이면 단시간 초과근로 가산 부족을 낸다(자기시험 — 반올림 전 5.6667H 기준)', () => {
-    const design = designFromForm(UIJEONGBU, 10_320);
+    const design = designFromForm(UIJEONGBU);
     const contract = toContract(UIJEONGBU, design);
     const ot = contract.wage.items!.find((i) => i.code === 'OT_WEEKDAY')!;
     ot.amount -= 3_000;
@@ -85,7 +85,7 @@ describe('금액 단위 × 잔액 항목 매트릭스', () => {
           const f = { ...form, rounding, absorbInto } as WriteForm;
           let design;
           try {
-            design = designFromForm(f, 10_320);
+            design = designFromForm(f);
           } catch (e) {
             // 단위 맞춤은 기본급만 잔액을 받는다 — 가산 항목이 잔액을 받으면 산정 기준보다 적어진다
             expect(rounding).not.toBe('won');
@@ -103,14 +103,14 @@ describe('금액 단위 × 잔액 항목 매트릭스', () => {
 describe('단위 올림 표시 — 엔진 허용 폭(자기시험)', () => {
   const f = { ...UIJEONGBU, rounding: 'ceil100' } as WriteForm;
   const shifted = (delta: number) => {
-    const contract = toContract(f, designFromForm(f, 10_320));
+    const contract = toContract(f, designFromForm(f));
     contract.wage.items!.find((i) => i.code === 'OT_WEEKDAY')!.amount! += delta;
     const [c] = normalize([contract]);
     return checkContract(c).find((x) => x.rule_code === 'WAGE-MATH')!;
   };
   it('올린 그대로면 정합, 산출근거에 「100원 단위 올림」', () => {
     expect(shifted(0).status).toBe('ok');
-    expect(toContract(f, designFromForm(f, 10_320)).wage.items!.find((i) => i.code === 'OT_WEEKDAY')!.basis_text).toContain('100원 단위 올림');
+    expect(toContract(f, designFromForm(f)).wage.items!.find((i) => i.code === 'OT_WEEKDAY')!.basis_text).toContain('100원 단위 올림');
   });
   it('적은 쪽은 여전히 ±10원 — 130원 줄여 계산값보다 40원 남짓 적으면 위반', () => {
     expect(shifted(-130).status).toBe('violation');

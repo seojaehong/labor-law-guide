@@ -101,12 +101,6 @@ describe('designHourlyWage — 법 기준 기본값', () => {
     expect(r.hours.weeklyHoliday).toBeCloseTo(1.6, 10);
   });
 
-  it('통상시급이 최저시급보다 낮으면 검사가 실패한다', () => {
-    const r = designHourlyWage({ ...A, hourlyWage: 10_320, minimumWage: 10_320 });
-    expect(r.checks.minimumWage.ok).toBe(false);
-    expect(designHourlyWage({ ...A, minimumWage: 10_320 }).checks.minimumWage.ok).toBe(true);
-  });
-
   it('흡수 항목·단위 선택은 월급제와 같다 — 단위 올림이면 기본급만 잔액을 받는다', () => {
     const r = designHourlyWage({ ...A, rounding: 'ceil10' });
     const by = Object.fromEntries(r.items.map((i) => [i.key, i.amount]));

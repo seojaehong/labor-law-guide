@@ -7,8 +7,7 @@
 //   scripts/verify-contract-write-offline.mjs(실브라우저 요청 캡처)가 확인한다.
 
 import { ruleName } from '@/lib/contract-check/present';
-import { minimumWageFor } from '@/lib/contract-check/normalize';
-import { checkWritten, designFromForm } from '@/lib/contract-write/contract';
+import { designFromForm, publicText, reviewWritten } from '@/lib/contract-write/contract';
 import { ITEM_LABEL, type ItemKey } from '@/lib/contract-write/design';
 import { buildContractDocument, type ContractDocument } from '@/lib/contract-write/document';
 import { buildContractHwpx, buildContractPdf, buildContractXlsx } from '@/lib/contract-write/export';
@@ -26,19 +25,19 @@ export interface OfflineOutcome {
   total: number | null;
   period: 'month' | 'day' | null;
   rate: number | null;
-  minimum: number | null;
+  minimumWage: { text: string; warn: boolean } | null;
   findings: Finding[];
   doc: ContractDocument | null;
 }
 
 /** 화면 상태 → 설계·되먹임·본문. 화면과 시험이 같이 쓴다 */
 export function compute(state: WriteState): OfflineOutcome {
-  const empty: OfflineOutcome = { missing: [], error: null, netNote: null, rows: [], total: null, period: null, rate: null, minimum: null, findings: [], doc: null };
+  const empty: OfflineOutcome = { missing: [], error: null, netNote: null, rows: [], total: null, period: null, rate: null, minimumWage: null, findings: [], doc: null };
   const parsed = toWriteForm(state);
   if (!parsed.form) return { ...empty, missing: parsed.missing, error: parsed.error ?? null };
   try {
-    const minimum = minimumWageFor(parsed.form.startDate);
-    const design = designFromForm(parsed.form, minimum);
+    const design = designFromForm(parsed.form);
+    const review = reviewWritten(parsed.form, design);
     return {
       ...empty,
       netNote: parsed.netNote ?? null,
@@ -46,8 +45,8 @@ export function compute(state: WriteState): OfflineOutcome {
       total: design.total,
       period: design.period,
       rate: design.rate,
-      minimum,
-      findings: checkWritten(parsed.form, design),
+      minimumWage: review.minimumWage,
+      findings: review.problems,
       doc: buildContractDocument(parsed.form, design),
     };
   } catch (e) {
@@ -218,17 +217,13 @@ function mount(): void {
     tot.appendChild(el('td', 'num', won(r.total!)));
     table.appendChild(tot);
     out.appendChild(table);
-    const year = state.startDate.slice(0, 4);
-    const ok = Math.floor(r.rate!) >= r.minimum!;
-    out.appendChild(
-      el('p', ok ? '' : 'warn', `통상시급 ${r.rate!.toLocaleString('ko-KR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}원 ${ok ? `(${year}년 최저시급 ${won(r.minimum!)} 이상)` : `— ${year}년 최저시급 ${won(r.minimum!)}보다 낮습니다`}`),
-    );
+    out.appendChild(el('p', r.minimumWage!.warn ? 'warn' : '', r.minimumWage!.text));
     const fb = el('div', 'feedback');
     fb.appendChild(el('strong', '', '근로계약서 점검 규칙으로 다시 본 결과'));
     if (r.findings.length === 0) fb.appendChild(el('p', '', '손볼 항목이 없습니다.'));
     else {
       const ul = el('ul');
-      for (const f of r.findings) ul.appendChild(el('li', '', `${ruleName(f.rule_code)}: ${f.detail}`));
+      for (const f of r.findings) ul.appendChild(el('li', '', `${publicText(ruleName(f.rule_code))}: ${f.detail}`));
       fb.appendChild(ul);
     }
     out.appendChild(fb);

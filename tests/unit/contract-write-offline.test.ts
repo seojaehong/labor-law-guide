@@ -113,7 +113,7 @@ describe('오프라인판 — 소스와 같은 계산', () => {
   for (const [label, state] of [['의정부 주4 월급', UIJEONGBU], ['파트 양식 a', PART]] as const) {
     it(`${label}: 번들 compute == 소스 designFromForm`, () => {
       const got = plain(api().compute(state));
-      const want = designFromForm(toWriteForm(state).form!, 10_320);
+      const want = designFromForm(toWriteForm(state).form!);
       expect(got.error).toBeNull();
       expect(got.total).toBe(want.total);
       expect(got.rows.map((r) => r.amount)).toEqual(want.items.map((i) => i.amount));

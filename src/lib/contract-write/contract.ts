@@ -2,7 +2,7 @@
 // 작성한 계약서를 같은 사이트의 근로계약서 점검 규칙으로 다시 돌려, 만든 문서가 점검에서 걸리지 않는지 본다.
 
 import { checkContract } from '@/lib/contract-check/engine';
-import { dayWorkMinutes, normalize } from '@/lib/contract-check/normalize';
+import { dayWorkMinutes, MINWAGE_TABLE, normalize } from '@/lib/contract-check/normalize';
 import type { Contract, Finding, WageItem, WageItemCode } from '@/lib/contract-check/types';
 
 import { designMonthlyWage, ROUNDING_UNIT, weeklySchedule, WEEKS_PER_MONTH, type DesignResult, type ItemKey, type Rounding } from './design';
@@ -146,7 +146,7 @@ export function leaveTerms(form: WriteForm): string[] {
   ];
 }
 
-export function designFromForm(form: WriteForm, minimumWage?: number): DesignResult {
+export function designFromForm(form: WriteForm): DesignResult {
   const issue = probationIssue(form);
   if (issue) throw new Error(issue);
   if (form.payType === 'hourly') {
@@ -161,7 +161,6 @@ export function designFromForm(form: WriteForm, minimumWage?: number): DesignRes
       fivePlus: form.employeeCount5plus,
       rounding: form.rounding,
       absorbInto: form.absorbInto,
-      minimumWage,
     });
   }
   if (!(form.monthlyTotal && form.monthlyTotal > 0)) throw new Error('월 임금 총액을 넣어 주세요');
@@ -175,19 +174,46 @@ export function designFromForm(form: WriteForm, minimumWage?: number): DesignRes
     overrides: form.overrides,
     rounding: form.rounding,
     absorbInto: form.absorbInto,
-    minimumWage,
   });
 }
 
-/** 작성한 계약을 근로계약서 점검 규칙으로 다시 돌린 결과 중 손볼 것(위반·확인 필요·주요 위험). 화면과 시험이 같이 쓴다 */
-export function checkWritten(form: WriteForm, design: DesignResult): Finding[] {
+/** 점검 규칙 글을 화면·계약서에 옮길 때 — 공개 명칭은 「임금 구성」이라 「포괄」을 쓰지 않는다 */
+export function publicText(text: string): string {
+  return text.replace(/포괄임금/g, '임금 구성').replace(/포괄/g, '임금 구성');
+}
+
+export interface WrittenReview {
+  /** 손볼 것(위반·확인 필요·주요 위험) */
+  problems: Finding[];
+  /** 최저임금 한 줄 — 점검 규칙 MINWAGE 판정에서 */
+  minimumWage: { text: string; warn: boolean };
+}
+
+/** 작성한 계약을 근로계약서 점검 규칙으로 다시 돌린 결과. 화면·오프라인판·시험이 같이 쓴다 */
+export function reviewWritten(form: WriteForm, design: DesignResult): WrittenReview {
   const [contract] = normalize([toContract(form, design)]);
   const under15 = isUnder15(form);
-  return checkContract(contract).filter((f) => {
+  const findings = checkContract(contract).map((f) => ({ ...f, detail: f.detail == null ? f.detail : publicText(f.detail) }));
+  const problems = findings.filter((f) => {
     // 1주 15시간 미만은 주휴일 자체가 없어 「특정했는가」를 물을 수 없다 — 작성 단계라 해당 없음(근로기준법 제18조 제3항)
     if (f.rule_code === 'REST-DAY' && f.status === 'needs_data' && under15) return false;
     return f.status === 'violation' || f.status === 'needs_data' || (f.status === 'risk' && f.severity !== 'minor' && f.severity !== 'info');
   });
+  const year = form.startDate.slice(0, 4);
+  const minimum = MINWAGE_TABLE[year];
+  const rate = `통상시급 ${rateText(design.rate)}원`;
+  const minwage = findings.find((f) => f.rule_code === 'MINWAGE');
+  let line: WrittenReview['minimumWage'];
+  // 표에 없는 해는 마지막 해 값으로 대신하지 않는다 — 비교하지 않았다고 말한다
+  if (minimum === undefined) line = { text: `${rate} — ${year}년 최저시급 미등록(비교하지 않았습니다)`, warn: true };
+  else if (minwage?.status === 'ok') line = { text: `${rate} (${year}년 최저시급 ${minimum.toLocaleString('ko-KR')}원 이상)`, warn: false };
+  else if (minwage?.status === 'violation') line = { text: `${rate} — ${year}년 최저시급 ${minimum.toLocaleString('ko-KR')}원보다 낮습니다`, warn: true };
+  else line = { text: `${rate} — 최저임금: ${minwage?.detail ?? '판단하지 못했습니다'}`, warn: true };
+  return { problems, minimumWage: line };
+}
+
+export function checkWritten(form: WriteForm, design: DesignResult): Finding[] {
+  return reviewWritten(form, design).problems;
 }
 
 /** 항목의 실시간·가산율 — 인정시간(가산 반영)을 실시간 × 가산율로 푼다. 휴일은 1.5·2.0 이 섞여 환산시간 그대로 둔다 */

@@ -33,7 +33,7 @@ const FORM: WriteForm = {
   paymentMethod: '근로자 명의 계좌이체',
 };
 
-const doc = buildContractDocument(FORM, designFromForm(FORM, 10_320));
+const doc = buildContractDocument(FORM, designFromForm(FORM));
 const AMOUNTS = ['1,870,364원', '414,013원', '243,879원', '71,744원', '2,600,000원'];
 
 describe('계약서 본문', () => {

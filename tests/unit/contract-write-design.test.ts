@@ -34,7 +34,6 @@ describe('designMonthlyWage — 기본값(원 단위 반올림, 기본급이 잔
     expect(r.hours.overtime).toBeCloseTo(36.9325, 6);
     expect(r.hours.leave).toBeCloseTo(6.4, 6);
     expect(r.hours.holiday).toBeCloseTo(21.7556, 4);
-    expect(r.displayRate).toBe(11_209);
     expect(amounts(UIJEONGBU)).toEqual({ base: 1_870_364, overtime: 414_013, holiday: 243_879, leave: 71_744 });
   });
 
@@ -98,20 +97,7 @@ describe('designMonthlyWage — 단위·흡수 항목 선택(재홍님 261103)',
   });
 });
 
-describe('designMonthlyWage — 검사', () => {
-  it('최저임금: 내린 시급이 10,320 이상이면 통과, 아래면 미달', () => {
-    const ok = designMonthlyWage({ monthlyTotal: 2_156_880, daysPerWeek: 5, dailyWorkHours: 8, holidayDaysPerYear: 0, overrides: { leaveHours: 0 }, minimumWage: 10_320 });
-    expect(ok.displayRate).toBe(10_320);
-    expect(ok.checks.minimumWage.ok).toBe(true);
-    const low = designMonthlyWage({ monthlyTotal: 2_156_879, daysPerWeek: 5, dailyWorkHours: 8, holidayDaysPerYear: 0, overrides: { leaveHours: 0 }, minimumWage: 10_320 });
-    expect(low.checks.minimumWage.ok).toBe(false);
-  });
-
-  it('주 연장 12시간 초과면 경고(주5·11h = 15h)', () => {
-    expect(designMonthlyWage({ ...SUWON, overrides: undefined, dailyWorkHours: 11 }).checks.weeklyOvertime.ok).toBe(false);
-    expect(designMonthlyWage(UIJEONGBU).checks.weeklyOvertime).toMatchObject({ ok: true });
-  });
-});
+// 최저임금·1주 연장 한도는 설계가 아니라 점검 규칙(MINWAGE·WH-52CAP)이 본다 — tests/unit/contract-write-form.test.ts 「최저임금 한 줄」
 
 describe('designMonthlyWage — 야간·5명 미만(261103 전수 개선)', () => {
   // 수원 홀 10:00~22:30 · 휴게 2시간 30분 · 실근로 10h → 22:00~22:30 야간 0.5h
