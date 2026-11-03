@@ -5,25 +5,64 @@
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 import fs from 'node:fs';
+import http from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+// work-rules 묶음 — 오늘을 고정하고(시행 예정 개수가 날짜에 따라 바뀌지 않게), 법제처 Open API 는 이 PC 안의 가짜 법제처로 돌린다.
+// 가짜 법제처는 tests/fixtures/laws/drf 의 고정 응답(실응답을 줄인 것 + 합성 줄)을 준다. OC 가 다르면 법제처처럼 「사용자 정보 검증」 실패를 준다.
+// 실제 법제처는 이 셸에 LAW_OC 가 있을 때만 끝에서 두 번 부른다(없으면 SKIP).
+process.env.LLG_TODAY = '2026-10-21';
+const REAL_OC = process.env.LAW_OC || null;
+const MOCK_OC = 'synthetic-smoke-oc';
+const drfFix = fileURLToPath(new URL('../../tests/fixtures/laws/drf/', import.meta.url));
+const hasDrfFix = fs.existsSync(drfFix);
+const DRF_LAW_FILES = { '285279-20261208': 'law-285279-20261208.json', '285279-20270101': 'law-285279-20270101.json', '900001-20270101': 'law-285279-20270101.json' };
+const drfCalls = [];
+const mockDrf = http.createServer((req, res) => {
+  const u = new URL(req.url, 'http://mock');
+  const p = Object.fromEntries(u.searchParams);
+  drfCalls.push({ path: u.pathname, oc: p.OC === MOCK_OC, type: p.type, target: p.target, query: p.query, ancYd: p.ancYd, MST: p.MST, efYd: p.efYd });
+  const json = (body) => { res.writeHead(200, { 'content-type': 'application/json;charset=UTF-8' }); res.end(body); };
+  const file = (f) => {
+    try {
+      json(fs.readFileSync(path.join(drfFix, f)));
+    } catch {
+      res.writeHead(500);
+      res.end();
+    }
+  };
+  if (p.OC !== MOCK_OC) return file('auth-fail.json');
+  if (u.pathname === '/DRF/lawSearch.do') {
+    if (p.ancYd) return file('search-recent.json');
+    if ((p.query ?? '').includes('근로기준법')) return file('search-lsa.json');
+    return json(JSON.stringify({ LawSearch: { totalCnt: '0', resultCode: '00' } }));
+  }
+  if (u.pathname === '/DRF/lawService.do' && DRF_LAW_FILES[`${p.MST}-${p.efYd}`]) return file(DRF_LAW_FILES[`${p.MST}-${p.efYd}`]);
+  res.writeHead(200, { 'content-type': 'text/html;charset=UTF-8' });
+  res.end('<!DOCTYPE html><html><body>법령 정보가 없습니다.</body></html>');
+});
+await new Promise((ok) => mockDrf.listen(0, '127.0.0.1', ok));
+const MOCK_BASE = `http://127.0.0.1:${mockDrf.address().port}/DRF`;
+const mockEnv = { ...process.env, LLG_DRF_BASE: MOCK_BASE, LAW_OC: MOCK_OC };
+
 const target = process.argv[2] || fileURLToPath(new URL('./dist/server.mjs', import.meta.url));
 const extra = process.argv.slice(3);
-const transport = /\.cmd$/i.test(target)
-  ? new StdioClientTransport({ command: 'cmd', args: ['/c', target, 'mcp', ...extra], env: process.env })
-  : new StdioClientTransport({ command: process.execPath, args: [target, 'mcp', ...extra], env: process.env });
+const spawn = (env, args = extra) => (/\.cmd$/i.test(target)
+  ? new StdioClientTransport({ command: 'cmd', args: ['/c', target, 'mcp', ...args], env })
+  : new StdioClientTransport({ command: process.execPath, args: [target, 'mcp', ...args], env }));
 
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'ilmunui-mcp-'));
 const c = new Client({ name: 'smoke', version: '0' });
-await c.connect(transport);
+await c.connect(spawn(mockEnv));
 const fails = [];
 const check = (label, cond) => { console.log(`${cond ? 'PASS' : 'FAIL'} ${label}`); if (!cond) fails.push(label); };
-const callJson = async (name, args) => {
-  const r = await c.callTool({ name, arguments: args });
+const callJson = async (name, args, client = c) => {
+  const r = await client.callTool({ name, arguments: args });
   const t = r.content[0].text;
   check(`${name}: 응답에 가상 주민번호 없음`, !t.includes('9001011234568') && !t.includes('900101-1234568'));
+  check(`${name}: 응답에 OC·요청 주소 없음`, !t.includes(MOCK_OC) && !t.includes(MOCK_BASE) && !/[?&]OC=/.test(t) && (!REAL_OC || !t.includes(REAL_OC)));
   return JSON.parse(t);
 };
 
@@ -83,6 +122,9 @@ const ANN = {
   make_contract_files: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
   ...Object.fromEntries(['check_min_wage', 'calc_weekly_holiday_pay', 'count_regular_workers', 'calc_take_home_pay', 'calc_notice_pay', 'calc_leave_pay']
     .map((n) => [n, { readOnlyHint: true, destructiveHint: false, openWorldHint: false }])),
+  ...Object.fromEntries(['list_law_revisions', 'get_law_article', 'compare_law_versions', 'check_work_rules_revisions', 'check_work_rules_file']
+    .map((n) => [n, { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true }])),
+  make_work_rules_report_forms: { readOnlyHint: false, destructiveHint: false, openWorldHint: true },
 };
 for (const t of (await c.listTools()).tools.filter((x) => ANN[x.name])) {
   const a = t.annotations || {};
@@ -203,7 +245,317 @@ if (tools.includes('calc_leave_pay')) {
   const err = await callTool('calc_leave_pay', { timing: 'employed', fivePlus: true, weeklyHours: 40, dailyHours: 8, rate: { basis: 'ordinary-wage', unit: 'month', amount: 2_600_000 }, asOf: '2026-10-29' });
   check(`leave_pay 일수 없으면 오류(${err.error})`, err.ok === false && !!err.error);
 }
+// ── work-rules 묶음 ──
+// 금지어: 이 묶음이 쓰는 글은 전부 보고, 법령·개정 자료에서 그대로 옮긴 칸(LAW_TEXT_FIELDS)만 뺀다(법령 원문 변조 금지).
+// groups/work-rules.mjs 의 LAW_TEXT_FIELDS 와 같아야 한다
+const LAW_TEXT_FIELDS = new Set([
+  'law', 'short', 'headline', 'summary', 'changes', 'standard', 'topic', 'point', 'proposal', 'basis', 'article', 'before', 'after', 'note', 'label', 'rows',
+  'articleTitle', 'articleText', 'candidates', 'laws',
+]);
+const ownStrings = (v, key = '') => {
+  if (LAW_TEXT_FIELDS.has(key)) return [];
+  if (typeof v === 'string') return [v];
+  if (Array.isArray(v)) return v.flatMap((x) => ownStrings(x));
+  if (v && typeof v === 'object') return Object.entries(v).flatMap(([k, x]) => ownStrings(x, k));
+  return [];
+};
+const callRules = async (name, args, client = c) => {
+  const j = await callJson(name, args, client);
+  const h = bannedIn(ownStrings(j).join('\n'));
+  check(`${name}: 이 묶음이 쓴 글 금지어 없음${h.length ? ` (${h.join(',')})` : ''}`, h.length === 0);
+  return j;
+};
+const repo = fileURLToPath(new URL('../../', import.meta.url));
+const inRepo = fs.existsSync(path.join(repo, 'public/data/laws/index.json'));
+// 사이트 엔진을 esbuild 로 직접 불러 「화면 계산」의 기대값을 만든다(RulesCheck.PeriodResults 와 같은 집계)
+let siteEngine = null;
+if (inRepo) {
+  const { build } = await import('esbuild');
+  const entry = path.join(tmp, 'site-engine.ts');
+  fs.writeFileSync(entry, `export { periodCheck, splitArticles } from ${JSON.stringify(path.join(repo, 'src/lib/laws/standard-check.ts').replace(/\\/g, '/'))};`);
+  const out = await build({ entryPoints: [entry], bundle: true, format: 'esm', platform: 'node', write: false, logLevel: 'silent', alias: { '@': path.join(repo, 'src') } });
+  siteEngine = await import(`data:text/javascript;base64,${Buffer.from(out.outputFiles[0].text).toString('base64')}`);
+}
+const readJson = (f) => JSON.parse(fs.readFileSync(path.join(repo, 'public/data/laws', f), 'utf8'));
+/** 화면(RulesCheck.PeriodResults)과 같은 집계 — 같은 오늘(LLG_TODAY) */
+function screenView(textIn, from, to) {
+  const std = readJson('standard.json');
+  const idx = readJson('index.json');
+  const r = siteEngine.periodCheck({ text: textIn, std: std.articles, events: idx.events, rules: readJson('rules.json').rules, art93: std.art93, from, to, today: '20261021' });
+  const hasText = siteEngine.splitArticles(textIn).length > 0;
+  const open = r.items.filter((i) => i.status !== '반영됨');
+  const ok = r.items.filter((i) => i.status === '반영됨');
+  const fixN = open.filter((i) => i.status === '고칠 것' || i.status === '조문 추가').length;
+  const soonN = open.filter((i) => i.status === '시행 예정').length;
+  const shown = (it) => (hasText ? it.status : it.verdicts.length ? '바꿀 문안' : '법령 확인');
+  return {
+    counts: hasText ? { '고칠 것': fixN, '시행 예정': soonN, '확인·선택': open.length - fixN - soonN, '문구 일치': ok.length } : { '바꿀 조문': fixN, '시행 예정': soonN, '확인·선택': open.length - fixN - soonN },
+    items: open.map((it) => `${it.std.no}(${it.std.title}):${shown(it)}`),
+    earlier: r.earlier.length, missing93: r.missing93.length, missingRequired: r.missingRequired.length,
+  };
+}
+const mcpView = (j) => ({ counts: j.counts, items: (j.items || []).map((i) => `${i.standard}:${i.status}`), earlier: j.earlier?.length, missing93: j.missing93?.length, missingRequired: j.missingRequired?.length });
+const SAMPLE = inRepo ? fs.readFileSync(path.join(repo, 'src/app/laws/RulesCheck.tsx'), 'utf8').match(/export const SAMPLE = `([\s\S]*?)`;/)?.[1] : null;
+
+// 법제처 파서 — 고정 응답으로(네트워크 없음)
+const drf = await import('./lib/law-drf.mjs');
+const fixJson = (f) => JSON.parse(fs.readFileSync(path.join(drfFix, f), 'utf8'));
+if (hasDrfFix) {
+  const s = drf.parseSearch(fixJson('search-lsa.json'));
+  const lsa = s.rows.filter((r) => r.lawId === '001872');
+  check(`drf 목록 파서(${s.rows.length}줄, 근로기준법 ${lsa.length}판, 상세링크 안 옮김)`, s.total === s.rows.length && lsa.length === 6 && s.rows.every((r) => !JSON.stringify(r).includes('lawService')));
+  const one = drf.parseSearch({ LawSearch: { totalCnt: '1', law: fixJson('search-lsa.json').LawSearch.law[1] } });
+  check('drf 목록 파서 — 한 줄이면 배열이 아닌 객체로 온다', one.rows.length === 1 && one.rows[0].mst === '290781');
+  check('drf 가운뎃점·공백 정규화(U+00B7 = U+318D)', drf.normName('남녀고용평등과 일·가정 양립') === drf.normName('남녀고용평등과 일ㆍ가정양립 '));
+  check('drf 조문 번호 읽기', ['제60조', '60조', '60', '제 60 조'].every((x) => drf.articleKey(x) === '제60조') && drf.articleKey('76조의2') === '제76조의2' && drf.articleKey('별표1의2') === '별표 1의2' && drf.articleKey('육십조') === null);
+  const at = (d) => { const v = drf.versionAt(lsa, d); return v && `${v.mst}@${v.effective}`; };
+  check(`drf 그날 시행 판(10.1=${at('20261001')}, 12.31=${at('20261231')}, 1.1=${at('20270101')})`, at('20261001') === '283457@20260820' && at('20261231') === '285279@20261208' && at('20270101') === '900001@20270101');
+  const A = fixJson('law-285279-20261208.json').법령;
+  const B = fixJson('law-285279-20270101.json').법령;
+  const artsA = drf.articles(A);
+  check(`drf 본문 파서(장 제목 뺌·별표 넣음: ${Object.values(artsA).map((x) => x.article).join(' ')})`,
+    !Object.values(artsA).some((x) => /제1장/.test(x.text)) && Object.values(artsA).some((x) => x.article === '별표') && drf.findArticle(artsA, '제60조')?.text.startsWith('제60조(연차 유급휴가)\n①'));
+  const ch = drf.compareArticles(artsA, drf.articles(B));
+  const flag44 = [].concat(B.조문.조문단위).find((u) => u.조문번호 === '44' && u.조문가지번호 === '4')?.조문변경여부;
+  check(`drf 판 비교 = ${ch.map((x) => x.article + x.kind).join(', ')} (제44조의4 조문변경여부=${flag44}, 삭제로 남은 제102조는 안 나옴)`,
+    ch.map((x) => `${x.article}${x.kind}`).join() === '제43조의6개정,제44조의4신설,제54조개정,제116조개정' && flag44 !== 'Y');
+}
+
+if (tools.includes('get_law_article') && hasDrfFix) {
+  const g = await callRules('get_law_article', { law: '근로기준법', article: '제60조', date: '2026-12-31' });
+  const want = drf.findArticle(drf.articles(fixJson('law-285279-20261208.json').법령), '제60조');
+  check(`get_law_article 원문 = 법제처 응답 그대로(${g.law} ${g.article}(${g.articleTitle}) ${g.version?.effective} 시행 판)`,
+    g.ok && g.articleText === want.text && g.articleTitle === '연차 유급휴가' && g.version?.mst === '285279' && g.version.effective === '2026-12-08' && g.version.link.startsWith('https://www.law.go.kr/lsInfoP.do'));
+  const g2 = await callRules('get_law_article', { law: '근로기준법', article: '44조의4', date: '2027-01-01' });
+  check(`get_law_article 시행 예정 판의 신설 조문(${g2.article} · 판 ${g2.version?.mst})`, g2.ok && g2.article === '제44조의4' && g2.version?.mst === '900001');
+  const gNo = await callRules('get_law_article', { law: '근로기준법', article: '제999조', date: '2026-12-31' });
+  check(`get_law_article 없는 조문(${gNo.error})`, gNo.ok === false);
+  const gUnknown = await callRules('get_law_article', { law: '가상법', article: '제1조' });
+  check('get_law_article 못 찾은 법령은 이름 목록과 함께 오류', gUnknown.ok === false && Array.isArray(gUnknown.candidates));
+  const gHtml = await callRules('get_law_article', { law: '근로기준법', article: '제60조' });
+  check(`get_law_article 법제처 오류 화면은 주소 없이 오류로(${gHtml.error})`, gHtml.ok === false && /JSON 이 아닌/.test(gHtml.error));
+  const gBad = await callRules('get_law_article', { law: '근로기준법', article: '육십조' });
+  check('get_law_article 조문 번호 형식 오류', gBad.ok === false);
+}
+if (tools.includes('compare_law_versions') && hasDrfFix) {
+  const cv = await callRules('compare_law_versions', { law: '근로기준법', dateA: '2026-12-08', dateB: '2027-01-01' });
+  check(`compare_law_versions ${JSON.stringify(cv.counts)} — ${cv.changes?.map((x) => x.article + x.kind).join(', ')}`,
+    cv.ok && cv.changes?.map((x) => `${x.article}${x.kind}`).join() === '제43조의6개정,제44조의4신설,제54조개정,제116조개정'
+    && cv.changes[1].before === null && cv.from?.mst === '285279' && cv.to?.mst === '900001' && cv.between?.length === 2);
+  const cvLatest = await callRules('compare_law_versions', { law: '근로기준법', dateA: '2026-12-08' });
+  check(`compare_law_versions dateB 없으면 가장 늦은 판(${cvLatest.to?.mst}@${cvLatest.to?.effective})`, cvLatest.ok && cvLatest.to?.mst === '900001' && cvLatest.changes?.length === 4);
+  const cv1 = await callRules('compare_law_versions', { law: '근로기준법', dateA: '2026-12-08', dateB: '2027-01-01', article: '제54조' });
+  check('compare_law_versions 조문 하나만', cv1.ok && cv1.changes?.length === 1 && cv1.changes[0].before !== cv1.changes[0].after);
+  const cvBad = await callRules('compare_law_versions', { law: '근로기준법', dateA: '2027-01-01', dateB: '2026-12-08' });
+  check('compare_law_versions 날짜 거꾸로면 오류', cvBad.ok === false);
+  const cvSame = await callRules('compare_law_versions', { law: '근로기준법', dateA: '2026-12-08', dateB: '2026-12-09' });
+  check('compare_law_versions 같은 판이면 바뀐 조문 없음', cvSame.ok && cvSame.changes?.length === 0);
+}
+
+if (tools.includes('list_law_revisions')) {
+  const lr = await callRules('list_law_revisions', { from: '2026-01-01', to: '2026-12-31', workRulesOnly: true });
+  check(`list_law_revisions 2026 취업규칙 관련 ${lr.count}건 · 시행 예정 ${lr.upcoming}건`, lr.ok && lr.count > 0 && lr.events.every((e) => e.date >= '2026-01-01' && e.date <= '2026-12-31' && e.workRules.length > 0));
+  if (hasDrfFix) {
+    check(`list_law_revisions 법제처 실시간 확인(${lr.live?.mode})`, lr.live?.ok === true && lr.source === '묶은 자료 + 법제처 실시간 확인');
+    const lw = await callRules('list_law_revisions', { from: '2026-10-01', to: '2027-12-31', law: '근로기준법' });
+    const ev = lw.events?.filter((e) => e.id === '001872-20270101') ?? [];
+    check(`list_law_revisions 법령별 — 묶은 자료 뒤 공포분을 같은 시행일 개정에 붙임(${ev[0]?.addedPromulgations?.join()})`,
+      lw.live?.ok && lw.live.laws?.includes('근로기준법') && ev.length === 1 && ev[0].addedPromulgations?.some((x) => x.includes('제99999호')));
+    const lrec = await callRules('list_law_revisions', { from: '2026-10-01', to: '2027-12-31' });
+    const stat = await callRules('list_law_revisions', { from: '2026-10-01', to: '2027-12-31', live: false });
+    const nev = lrec.events?.find((e) => e.id === '006859-20270301');
+    check(`list_law_revisions 최근 공포분 — 새 개정 1건 더함(${lrec.count} = 묶은 자료 ${stat.count} + 1: ${nev?.law})`,
+      lrec.live?.ok && lrec.count === stat.count + 1 && !!nev?.source && nev.link.startsWith('https://www.law.go.kr/lsInfoP.do') && !lrec.events.some((e) => /항만법/.test(e.law)));
+    check('list_law_revisions live:false 는 묶은 자료만', stat.source === '묶은 자료' && stat.live?.ok === false);
+    check(`가짜 법제처 요청 ${drfCalls.length}건 전부 OC·JSON·eflaw`, drfCalls.length > 0 && drfCalls.every((x) => x.oc && x.type === 'JSON' && x.target === 'eflaw'));
+  }
+  check('list_law_revisions 오늘(2026-10-21) 뒤는 시행 예정', lr.events.every((e) => (e.date > '2026-10-21') === e.when.startsWith('시행 예정')));
+  if (inRepo) {
+    const want = readJson('index.json').events.filter((e) => e.date >= '20260101' && e.date <= '20261231' && e.rules.length).length;
+    check(`list_law_revisions 건수 = 자료(${want})`, lr.count === want);
+  }
+  const lb = await callRules('list_law_revisions', { from: '2026-10-01', to: '2026-10-31', law: '근로기준법', detail: true });
+  check(`list_law_revisions 법령 거르기·요지(${lb.count}건)`, lb.ok && lb.events.every((e) => e.law.includes('근로기준법') && typeof e.summary === 'string' && Array.isArray(e.changes)));
+  const bad = await callRules('list_law_revisions', { from: '2026-12-31', to: '2026-01-01' });
+  check('list_law_revisions 기간 거꾸로면 오류', bad.ok === false);
+}
+if (tools.includes('check_work_rules_revisions')) {
+  // ① 화면 예시 본문(RulesCheck.SAMPLE) — 화면 기본 기간 2025-01-01 ~ 오늘
+  const ex = await callRules('check_work_rules_revisions', { text: SAMPLE ?? '제1조(목적) 시험', lastRevised: '2025-01-01', asOf: '2026-10-21' });
+  console.log(`  예시 본문 집계: ${JSON.stringify(ex.counts)}`);
+  check(`check_work_rules 예시 본문 조문 ${ex.articlesRead}개 읽음`, ex.ok && ex.articlesRead === (SAMPLE ? 6 : 1));
+  if (siteEngine && SAMPLE) {
+    const s = screenView(SAMPLE, '20250101', '20261021');
+    check(`check_work_rules 예시 본문 = 화면 계산(집계·항목 ${s.items.length}개·놓친 개정·제93조·필수 조문)`, JSON.stringify(mcpView(ex)) === JSON.stringify(s));
+  }
+  check('check_work_rules 바꿀 문안에 최저 기준 안내(사이트 FLOOR_NOTE 와 같은 글)', !inRepo || ex.proposalNotice.split('십시오. ').every((p) => fs.readFileSync(path.join(repo, 'src/app/laws/RulesCheck.tsx'), 'utf8').includes(p)));
+  check(`check_work_rules reportChanges ${ex.reportChanges?.length}건(조문·현행·개정안·근거)`, Array.isArray(ex.reportChanges) && ex.reportChanges.every((r) => r.article && typeof r.after === 'string'));
+  // ② 표준취업규칙 2026 본문 자체(저장소 standard.json) — 2023-01-01 ~ 2027-12-31, 오늘 2026-10-21 (laws-upcoming-split 시험과 같은 조건)
+  if (inRepo) {
+    const stdText = readJson('standard.json').articles.map((a) => a.text).join('\n\n');
+    const st = await callRules('check_work_rules_revisions', { text: stdText, lastRevised: '2023-01-01', asOf: '2027-12-31', includeOk: false });
+    console.log(`  표준취업규칙 집계: ${JSON.stringify(st.counts)}`);
+    const s = screenView(stdText, '20230101', '20271231');
+    check(`check_work_rules 표준취업규칙 = 화면 계산(항목 ${s.items.length}개)`, JSON.stringify(mcpView(st)) === JSON.stringify(s));
+    const soon = (st.items || []).filter((i) => i.status === '시행 예정');
+    check(`check_work_rules 시행 예정 ${soon.length}건은 전부 오늘 뒤 시행`, soon.length > 0 && soon.every((i) => i.rules.filter((r) => r.required).every((r) => r.effective > '2026-10-21')));
+  }
+  // ③ 본문 없이 기간만 — 문안 묶음
+  const empty = await callRules('check_work_rules_revisions', { lastRevised: '2025-01-01', asOf: '2026-10-21' });
+  check(`check_work_rules 본문 없이 문안 묶음(${JSON.stringify(empty.counts)})`, empty.ok && '바꿀 조문' in empty.counts && !!empty.notice);
+  if (siteEngine) check('check_work_rules 문안 묶음 = 화면 계산', JSON.stringify(mcpView(empty)) === JSON.stringify(screenView('', '20250101', '20261021')));
+  const rev = await callRules('check_work_rules_revisions', { text: SAMPLE ?? '제1조(목적) 시험', lastRevised: '2026-10-21', asOf: '2026-10-21' });
+  check(`check_work_rules 기간 오류(${rev.error})`, rev.ok === false);
+  const noArt = await callRules('check_work_rules_revisions', { text: '조문 머리 없는 글입니다.', lastRevised: '2025-01-01' });
+  check(`check_work_rules 조문 인식 실패면 점검 안 함`, noArt.ok === false && /조문을 인식하지/.test(noArt.error));
+  const rrn = await callRules('check_work_rules_revisions', { text: '제1조(목적) 900101-1234568', lastRevised: '2025-01-01' });
+  check('check_work_rules 주민번호 모양이면 점검 안 함', rrn.ok === false);
+  // ④ refresh — 묶은 자료 뒤 공포분(가짜 법제처의 합성 2줄)만 따로 싣고, 자동 대조는 그대로
+  if (hasDrfFix && SAMPLE) {
+    const plain = await callRules('check_work_rules_revisions', { text: SAMPLE, lastRevised: '2025-01-01', asOf: '2027-12-31' });
+    const fresh = await callRules('check_work_rules_revisions', { text: SAMPLE, lastRevised: '2025-01-01', asOf: '2027-12-31', refresh: true });
+    const adds = (fresh.liveAdditions || []).map((x) => `${x.law}@${x.effective}`);
+    check(`check_work_rules refresh — 묶은 자료 뒤 공포분 ${adds.join(', ')}(범위 밖·이미 있는 판은 뺌)`,
+      adds.join() === '근로기준법@2027-01-01,근로기준법 시행규칙@2027-03-01' && !!fresh.liveNotice && fresh.liveAdditions[0].compare?.dateB === '2027-01-01' && !('liveAdditions' in plain));
+    check('check_work_rules refresh 는 자동 대조 결과를 바꾸지 않음', JSON.stringify(mcpView(fresh)) === JSON.stringify(mcpView(plain)));
+  }
+}
+if (tools.includes('check_work_rules_file')) {
+  if (SAMPLE) {
+    const txt = path.join(tmp, 'rules.txt');
+    fs.writeFileSync(txt, SAMPLE);
+    const viaFile = await callRules('check_work_rules_file', { filePath: txt, lastRevised: '2025-01-01', asOf: '2026-10-21' });
+    const viaText = await callRules('check_work_rules_revisions', { text: SAMPLE, lastRevised: '2025-01-01', asOf: '2026-10-21' });
+    check('check_work_rules_file txt = 글자 입력 결과', viaFile.ok && JSON.stringify(mcpView(viaFile)) === JSON.stringify(mcpView(viaText)) && viaFile.file?.kind === 'txt');
+  }
+  const fx = path.join(repo, 'tests/fixtures/laws');
+  if (fs.existsSync(fx)) {
+    const got = {};
+    for (const k of ['hwp', 'hwpx']) {
+      const r = await callRules('check_work_rules_file', { filePath: path.join(fx, `sample-rules.${k}`), lastRevised: '2025-01-01', asOf: '2026-10-21' });
+      got[k] = r;
+      check(`check_work_rules_file ${k} 읽음(조문 ${r.articlesRead}개${r.ok ? '' : ` · ${r.error}`})`, r.ok && r.articlesRead === 3);
+    }
+    check('check_work_rules_file hwp = hwpx 결과', JSON.stringify(mcpView(got.hwp)) === JSON.stringify(mcpView(got.hwpx)));
+    // sample-rules.pdf 는 글자 쪽과 그림 쪽이 섞인 시험본 — 사이트도 일부만 점검하지 않고 거절한다(tests/unit/rules-check-pdf-runtime.test.ts)
+    const mixed = await callRules('check_work_rules_file', { filePath: path.join(fx, 'sample-rules.pdf'), lastRevised: '2025-01-01', asOf: '2026-10-21' });
+    check(`check_work_rules_file 글자·그림 섞인 pdf 는 사이트처럼 거절(${mixed.error?.slice(0, 50)}…)`, mixed.ok === false && /일부만 점검하지 않습니다/.test(mixed.error));
+  }
+  // 글자 pdf — 예시 본문을 나눔고딕으로 그린 합성 pdf
+  if (SAMPLE && inRepo) {
+    const { createRequire } = await import('node:module');
+    const rq = createRequire(path.join(repo, 'package.json'));
+    const { PDFDocument } = rq('pdf-lib');
+    const doc = await PDFDocument.create();
+    doc.registerFontkit(rq('@pdf-lib/fontkit'));
+    const font = await doc.embedFont(fs.readFileSync(path.join(repo, 'public/fonts/NanumGothic-Regular.ttf')), { subset: false });
+    const page = doc.addPage([595, 842]);
+    SAMPLE.split('\n').forEach((l, i) => page.drawText(l.replace(/[①-⑳]/g, ''), { x: 30, y: 810 - i * 11, size: 8, font }));
+    const pf = path.join(tmp, 'rules-text.pdf');
+    fs.writeFileSync(pf, await doc.save());
+    const viaPdf = await callRules('check_work_rules_file', { filePath: pf, lastRevised: '2025-01-01', asOf: '2026-10-21' });
+    check(`check_work_rules_file 글자 pdf 읽음(조문 ${viaPdf.articlesRead}개${viaPdf.ok ? '' : ` · ${viaPdf.error}`})`, viaPdf.ok && viaPdf.articlesRead === 6 && viaPdf.file?.kind === 'pdf' && !!viaPdf.pdfNotice);
+  }
+  const none = await callRules('check_work_rules_file', { filePath: path.join(tmp, 'none.hwpx'), lastRevised: '2025-01-01' });
+  check('check_work_rules_file 없는 파일은 오류', none.ok === false);
+}
+let fullReport = null;
+if (tools.includes('make_work_rules_report_forms')) {
+  const outDir = path.join(tmp, 'report');
+  const empty = await callRules('make_work_rules_report_forms', { kind: 'change', workplace: {}, outDir });
+  check(`report_forms 빈 칸이면 만들지 않음(${empty.blanks?.length}칸)`, empty.ok === false && empty.blanks?.includes('사업장명') && empty.blanks.includes('근로자수') && !fs.existsSync(outDir));
+  // 합성 사업장 — 실재하지 않는 이름·번호
+  const WP = { name: '가상상회', businessType: '소매업', ownerName: '김대표', bizNo: '000-00-00000', address: '서울특별시 가상구 가상로 1', tel: '02-000-0000', workers: 12, male: 7, female: 5, unionMembers: 0 };
+  const CHANGES = [
+    { article: '제40조(배우자 출산휴가)', before: '① 회사는 근로자가 배우자의 출산을 이유로 휴가를 청구하는 경우 10일의 유급휴가를 준다.', after: '① 회사는 근로자가 배우자의 출산을 이유로 휴가를 청구하는 경우 20일의 유급휴가를 준다.', note: '남녀고용평등법 제18조의2 (2025. 2. 23. 시행)' },
+    { article: '제25조(휴일)', before: '① 주휴일은 일요일로 한다.\n② 근로자의 날은 유급휴일로 한다.', after: '① 주휴일은 일요일로 한다.\n② 노동절은 유급휴일로 한다.', note: '명칭 변경', disadvantage: true },
+    ...(hasDrfFix ? [{ article: '제45조(연차 유급휴가)', before: '① 1년간 80퍼센트 이상 출근한 근로자에게 15일의 유급휴가를 준다.', after: '① 회사는 1년간 80퍼센트 이상 출근한 근로자에게 15일의 유급휴가를 준다.', note: '문구 정리', lawRef: { law: '근로기준법', article: '제60조', date: '2026-12-31' } }] : []),
+  ];
+  const full = { kind: 'change', workplace: WP, opinionDate: '2026-10-20', office: '서울지방고용노동청 서울가상지청', writtenDate: '2026-10-21', changes: CHANGES, effectiveDate: '2026-11-01', outDir, formats: ['pdf', 'hwpx', 'docx', 'xlsx'] };
+  fullReport = full;
+  const bizBad = await callRules('make_work_rules_report_forms', { ...full, workplace: { ...WP, bizNo: '123' } });
+  check(`report_forms 형식 오류면 만들지 않음(${bizBad.errors?.[0]})`, bizBad.ok === false && bizBad.errors?.length > 0 && !fs.existsSync(outDir));
+  const sum = await callRules('make_work_rules_report_forms', { ...full, workplace: { ...WP, male: 6 } });
+  check('report_forms 남·여 합이 근로자수와 다르면 오류', sum.ok === false);
+  const mk = await callRules('make_work_rules_report_forms', full);
+  const magic = (mk.files || []).map((f) => `${f.format}:${fs.readFileSync(f.path).subarray(0, 4).toString('latin1')}`);
+  console.log(`  report_forms 파일: ${(mk.files || []).map((f) => path.basename(f.path)).join(', ')}`);
+  check(`report_forms 변경신고 4종 10파일(신고서·대비표 4형식·의견청취서·동의서)`, mk.ok && mk.files?.length === 10 && !mk.skipped
+    && magic.every((m) => (m.startsWith('pdf:') ? m === 'pdf:%PDF' : m.endsWith('PK\u0003\u0004'))));
+  check(`report_forms 날인 필요 안내(${mk.sealRequired?.length}곳)`, mk.sealRequired?.length === 3 && mk.sealRequired.every((s) => s.startsWith('날인 필요')));
+  check(`report_forms 제출 경로 안내(${mk.submit?.url})`, mk.submit?.url === 'https://labor.moel.go.kr/minwonApply/minwonApply.do?searchGubun=3');
+  if (hasDrfFix) check(`report_forms lawRef — 근거 조문 원문을 법제처에서 받아 붙임(${JSON.stringify(mk.quoted)})`, mk.quoted?.length === 1 && mk.quoted[0].article === '제60조' && mk.quoted[0].effective === '2026-12-08' && !mk.warnings);
+  const again = await callRules('make_work_rules_report_forms', full);
+  check(`report_forms 덮어쓰지 않음(${again.exists?.length}개)`, again.ok === false && again.exists?.length === 10);
+  const neu = await callRules('make_work_rules_report_forms', { ...full, kind: 'new', changes: [], majorityUnion: '가상노동조합', workplace: { ...WP, unionMembers: 8 }, outDir: path.join(tmp, 'report-new'), formats: undefined });
+  check(`report_forms 최초 신고·과반수 노동조합(${neu.files?.length}파일, 대비표·동의서 없음)`, neu.ok && neu.files?.length === 4 && neu.files.every((f) => !/대비표|동의서/.test(f.path)));
+  const rrnIn = await callRules('make_work_rules_report_forms', { ...full, agent: '900101-1234568', outDir: path.join(tmp, 'report-rrn') });
+  check('report_forms 주민번호 모양이면 만들지 않음', rrnIn.ok === false && !fs.existsSync(path.join(tmp, 'report-rrn')));
+  // 서류 글자 — 한글 파일을 다시 읽어 서식 문구·금지어를 본다(저장소 안에서만)
+  if (inRepo && mk.ok) {
+    const { createRequire } = await import('node:module');
+    const JSZip = createRequire(path.join(repo, 'package.json'))('jszip');
+    const hwpxText = async (f) => {
+      const z = await JSZip.loadAsync(fs.readFileSync(f));
+      return (await z.file('Contents/section0.xml').async('string')).replace(/<[^>]+>/g, ' ');
+    };
+    const docText = {};
+    for (const f of mk.files.filter((x) => x.format === 'hwpx')) docText[path.basename(f.path)] = await hwpxText(f.path);
+    const report = Object.entries(docText).find(([k]) => k.includes('신고서'))?.[1] ?? '';
+    check('report_forms 신고서에 별지 제15호서식·[√] 변경신고서·의견청취일', /별지 제15호서식/.test(report) && /\[  \] 신고서\s+\[√\] 변경신고서/.test(report) && /2026년 10월 20일/.test(report) && /000-00-00000/.test(report));
+    const consent = Object.entries(docText).find(([k]) => k.includes('동의서'))?.[1] ?? '';
+    check('report_forms 동의서에 불리한 변경 조문·서명 빈 줄 12줄', /제25조\(휴일\)/.test(consent) && /제94조 제1항 단서/.test(consent) && (consent.match(/>\s*12\s*</g) || consent.includes(' 12 ')));
+    if (hasDrfFix) {
+      const cmp = Object.entries(docText).find(([k]) => k.includes('대비표'))?.[1] ?? '';
+      // 한글 파일 안에서 「<개정 …>」 꼬리표는 &lt; 로 적히므로 그 앞까지 본다
+      const want60 = drf.findArticle(drf.articles(fixJson('law-285279-20261208.json').법령), '제60조').text.split('\n')[1].split(' <')[0];
+      check(`report_forms 대비표 아래 근거 법령 원문(법제처 2026. 12. 8. 시행 판 제60조 제1항 글자 그대로: ${want60.slice(0, 20)}…)·비고에서 가리킴`,
+        /근거 법령 원문\(법제처 국가법령정보에서 받은 글자 그대로\)/.test(cmp) && /근로기준법 제60조 — 2026\. 12\. 8\. 시행 판/.test(cmp) && cmp.includes(want60) && cmp.includes('근거 법령 원문 1 참조'));
+    }
+    const hits = bannedIn(Object.values(docText).join('\n'));
+    check(`report_forms 서류 글자 금지어 없음${hits.length ? ` (${hits.join(',')})` : ''}`, hits.length === 0);
+  }
+  console.log(`  report_forms 폴더: ${outDir}`);
+}
+
+// ── OC 없이 — 묶은 자료로만 답하고 LAW_OC 를 알려 준다(홈 폴더를 임시 폴더로 바꿔 ~/.claude/.env 도 읽지 않게) ──
+if (tools.includes('get_law_article')) {
+  const noOcEnv = { ...process.env, HOME: tmp, USERPROFILE: tmp };
+  delete noOcEnv.LAW_OC;
+  delete noOcEnv.LLG_DRF_BASE;
+  const c2 = new Client({ name: 'smoke-no-oc', version: '0' });
+  await c2.connect(spawn(noOcEnv, ['--groups', 'work-rules']));
+  const l2 = await callRules('list_law_revisions', { from: '2026-01-01', to: '2026-12-31', workRulesOnly: true }, c2);
+  check(`OC 없음 — list_law_revisions 는 묶은 자료로 답함(${l2.count}건, ${l2.live?.error?.slice(0, 40)}…)`, l2.ok && l2.count > 0 && l2.source === '묶은 자료' && /LAW_OC/.test(l2.live?.error ?? ''));
+  const g2 = await callRules('get_law_article', { law: '근로기준법', article: '제60조' }, c2);
+  check('OC 없음 — get_law_article 은 LAW_OC 를 알려 줌', g2.ok === false && /LAW_OC/.test(g2.error));
+  const v2 = await callRules('compare_law_versions', { law: '근로기준법', dateA: '2026-01-01' }, c2);
+  check('OC 없음 — compare_law_versions 도 같음', v2.ok === false && /LAW_OC/.test(v2.error));
+  const k2 = await callRules('check_work_rules_revisions', { lastRevised: '2025-01-01', asOf: '2026-10-21', refresh: true }, c2);
+  check('OC 없음 — refresh 는 liveError 로 알리고 대조 결과는 그대로', k2.ok && /LAW_OC/.test(k2.liveError ?? '') && !k2.liveAdditions);
+  if (fullReport && hasDrfFix) {
+    const f2 = await callRules('make_work_rules_report_forms', { ...fullReport, outDir: path.join(tmp, 'report-no-oc'), formats: ['hwpx'] }, c2);
+    check('OC 없음 — 서류는 만들고 원문을 못 붙였다고 알림', f2.ok && !f2.quoted && f2.warnings?.some((w) => /근거 조문 원문을 붙이지 못했습니다/.test(w)));
+  }
+  await c2.close();
+
+  // 실제 법제처 — 이 셸에 LAW_OC 가 있을 때만 도구 두 번(목록 조회 2번 + 본문 3번)
+  if (!REAL_OC) console.log('SKIP 실제 법제처 호출 — 이 셸에 LAW_OC 가 없습니다');
+  else {
+    const liveEnv = { ...process.env };
+    delete liveEnv.LLG_DRF_BASE;
+    const c3 = new Client({ name: 'smoke-live', version: '0' });
+    await c3.connect(spawn(liveEnv, ['--groups', 'work-rules']));
+    const g3 = await callRules('get_law_article', { law: '근로기준법', article: '제60조' }, c3);
+    check(`실제 법제처 — 근로기준법 제60조(${g3.version?.effective} 시행 판, ${g3.articleText?.length}자${g3.ok ? '' : ` · ${g3.error}`})`, g3.ok && g3.articleText?.startsWith('제60조(연차 유급휴가)'));
+    const v3 = await callRules('compare_law_versions', { law: '근로기준법', dateA: '2026-12-08', dateB: '2027-01-01' }, c3);
+    check(`실제 법제처 — 2026. 12. 8. → 2027. 1. 1. 판 비교(${v3.changes?.map((x) => x.article + x.kind[0]).join(', ') ?? v3.error})`, v3.ok && v3.changes?.some((x) => x.article === '제44조의4' && x.kind === '신설'));
+    await c3.close();
+  }
+}
+
 await c.close();
+mockDrf.close();
 console.log(`tmp ${tmp}`);
 console.log(fails.length ? `FAIL ${fails.length}건` : 'ALL PASS');
 process.exit(fails.length ? 1 : 0);

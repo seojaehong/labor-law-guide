@@ -90,6 +90,12 @@ claude mcp add --scope user ilmunui -- npx -y ilmunui-mcp mcp --groups nhis
 | `calc` | `calc_take_home_pay` | 실수령액(4대보험 근로자 몫·간이세액표 소득세·지방소득세) |
 | `calc` | `calc_notice_pay` | 해고예고수당 |
 | `calc` | `calc_leave_pay` | 연차수당(남은 일수 또는 퇴직 시 발생 누계, 단시간 근로자) |
+| `work-rules` | `list_law_revisions` | 기간 안에 시행되는 노동 관계 법령 개정·시행 예정 목록. 묶은 자료에 법제처 Open API 실시간 확인을 더합니다 |
+| `work-rules` | `get_law_article` | 법령명·조문 번호로 그날 시행 중인 판의 조문 원문(법제처 Open API) |
+| `work-rules` | `compare_law_versions` | 법령 하나의 두 시점 판을 조문 단위로 글자 비교 — 신설·개정·삭제와 개정 전·후 원문(법제처 Open API) |
+| `work-rules` | `check_work_rules_revisions` | 취업규칙 본문(글자)과 최종 개정일로, 그 뒤 시행되는 개정이 반영됐는지 표준취업규칙 2026 조문에 짝지어 대조 |
+| `work-rules` | `check_work_rules_file` | 같은 대조를 취업규칙 파일(hwp·hwpx·docx·pdf·txt)로 **(로컬 전용)** |
+| `work-rules` | `make_work_rules_report_forms` | 취업규칙 신고·변경신고 서류(별지 제15호서식 신고서·신구 조문 대비표·의견청취서·동의서)를 PDF·한글로 저장 **(로컬 전용)** |
 
 ### 묶음 고르기
 
@@ -118,6 +124,29 @@ claude mcp add --scope user ilmunui -- npx -y ilmunui-mcp mcp --groups contract,
 > 「주4 월화수목 10:00~22:00, 휴게 155분, 공휴일 22일, 월 260만원으로 근로계약서 임금 구성 짜 줘.」
 > 「시급 10,320원, 주 22.5시간이면 주휴수당 얼마야?」
 
+### work-rules 묶음
+
+사이트 노동법 개정 알림판(/laws)의 자료(개정 이벤트·표준취업규칙 2026·매핑)와 「취업규칙 점검」 엔진을 그대로 묶었습니다. 같은 본문·같은 기간·같은 오늘이면 사이트 화면과 같은 항목이 나옵니다(묶을 때의 자료 기준).
+
+- **법령 범위** — 저장소 `scripts/laws/labor_laws.json`(법령이 정한 노동 관계 법령 목록, 38개 법률)과 그 시행령·시행규칙(`subordinate_laws.json`)입니다.
+- **법제처 Open API(DRF)** — 묶은 자료 뒤에 공포된 판과 조문 원문은 국가법령정보 공동활용 Open API 로 그때그때 받습니다. 본인 OC(이용자 ID)를 `LAW_OC` 에 넣어야 하고, 기본값은 없습니다. OC 가 없거나 법제처가 막으면 묶은 자료로만 답하고 그 사실을 응답(`live.error`·`liveError`)에 적습니다.
+  - `list_law_revisions` 는 기본으로 실시간 확인을 더합니다(`live: false` 면 묶은 자료만). `law` 를 주면 그 법령들의 판 목록을, 안 주면 묶은 자료 생성일 뒤 공포분을 봅니다. 실시간으로 더한 개정에는 개정 요지·취업규칙 연결이 아직 없습니다.
+  - `compare_law_versions` 는 두 판의 전문을 조문 단위로 직접 비교합니다. 법제처 본문의 「조문변경여부」 표시는 새로 생긴 조문을 놓쳐서(예: 근로기준법 2027. 1. 1. 판의 제44조의4) 쓰지 않습니다.
+  - `check_work_rules_revisions`·`check_work_rules_file` 은 `refresh: true` 일 때 묶은 자료 뒤 공포분을 `liveAdditions` 로 따로 싣습니다. 자동 대조 결과는 바뀌지 않습니다. 법제처에는 날짜만 묻고 본문은 보내지 않습니다.
+  - `make_work_rules_report_forms` 의 `changes[].lawRef` 를 주면 그 조문 원문을 받아 대비표 아래 「근거 법령 원문」에 글자 그대로 싣습니다.
+  - **법제처는 해외 IP 를 막습니다.** 원격(HTTP)판에 올릴 때는 **국내 리전 필요(Vercel icn1)**. OC 신청 때 등록한 IP·도메인이 아니면 「사용자 정보 검증에 실패하였습니다」가 옵니다.
+- **신고 서류** — 근로기준법 시행규칙 제15조·[별지 제15호서식] <개정 2021. 4. 5.> 신고서, 신·구 조문 대비표(변경신고), 의견청취서(제94조 제1항), 불리한 변경 동의서(같은 항 단서)를 만듭니다. 사업장명·대표자·상시 근로자 수 같은 칸이 비면 만들지 않고 빈 칸 목록을 돌려줍니다. 작성일은 기본 오늘이고, **서명·날인 칸은 비워 두며 응답에 「날인 필요」로 알립니다.** 이미 있는 파일은 덮어쓰지 않습니다. 제출은 사용자가 고용노동부 노동포털(민원신청 › 취업규칙·퇴직연금)이나 관할 지방고용노동관서에 합니다.
+- PDF 글꼴(나눔고딕)에 없는 항 번호 ①~⑳ 은 원과 숫자로 그려 넣습니다. 그 밖에 글꼴에 없는 글자(한자 등)가 있으면 그 PDF 만 만들지 않고(`skipped`) 한글·워드 파일은 만듭니다.
+- 원격(HTTP)판에 실어도 되는 도구 = `workRulesRemoteSafe`(목록·조문 원문·판 비교·글자 점검). 파일을 읽거나 쓰는 도구는 `workRulesLocalOnly`.
+- 법령명·조문 원문·개정 요지는 법제처·사이트 자료 글자를 고치지 않고 싣습니다.
+
+```bash
+claude mcp add --scope user ilmunui -e LAW_OC=내OC -- npx -y ilmunui-mcp mcp --groups work-rules
+```
+
+> 「우리 취업규칙(C:/규정/취업규칙.hwpx) 2024-03-01 개정본인데, 그 뒤 시행된 노동법 개정 반영됐는지 봐 줘. 법제처 최신 공포분도 같이.」
+> 「근로기준법 2026. 12. 8. 판과 2027. 1. 1. 판 뭐가 바뀌었는지 조문별로 보여 줘.」
+
 ---
 
 ## ⚙️ 환경변수
@@ -135,9 +164,12 @@ claude mcp add --scope user ilmunui -- npx -y ilmunui-mcp mcp --groups contract,
 | `POPBILL_IS_TEST` | 선택 | 기본 `true`(팝빌 테스트환경). 운영환경으로 보내려면 `false` |
 | `LLG_MCP_GROUPS` | 선택 | 켤 묶음(쉼표로 구분) |
 | `LLG_SITE` | 선택 | 사업자번호 조회에 쓰는 사이트 주소(기본 `https://yellowenvelope.kr`) |
+| `LAW_OC` | 법제처 실시간 | 법제처 국가법령정보 Open API 이용자 ID(OC). 기본값 없음. 없으면 `work-rules` 는 묶은 자료로만 답합니다 |
 | `LLG_ROOT` | 선택 | 개발용. 저장소 경로를 주면 서식·글꼴을 패키지 안이 아니라 저장소 `public/` 에서 읽습니다 |
+| `LLG_TODAY` | 시험용 | 「오늘」을 그 날(YYYY-MM-DD)로 고정합니다(smoke 가 씁니다) |
+| `LLG_DRF_BASE` | 시험용 | 법제처 Open API 주소를 바꿉니다(smoke 의 가짜 법제처) |
 
-- 환경변수가 우선입니다. 없으면 `~/.claude/.env` 의 `POPBILL_*` 줄을 읽습니다.
+- 환경변수가 우선입니다. 없으면 `~/.claude/.env` 의 `POPBILL_*`·`LAW_OC` 줄을 읽습니다.
 - 키 값은 도구 응답이나 로그 어디에도 찍지 않습니다.
 - `find_branch` 와 `make_form` 은 팝빌 설정 없이 씁니다.
 
@@ -149,11 +181,14 @@ claude mcp add --scope user ilmunui -- npx -y ilmunui-mcp mcp --groups contract,
 - 주민등록번호는 이 PC 안에서 PDF 로만 만들어집니다. 도구 응답에는 싣지 않고, 응답에 주민등록번호 모양이 섞이면 나가기 전에 가립니다.
 - 문자 본문에 주민등록번호 모양이 있으면 `send_sms` 가 보내지 않습니다.
 - 팩스·문자는 `confirm:true` 를 준 호출에서만 실제로 나갑니다. 그 전에는 미리보기만 돌려줍니다.
-- 밖으로 나가는 것은 두 가지뿐입니다. ① `find_branch` 에 사업자등록번호를 주면 그 번호만 일의 무늬 사이트로 보내 주소를 받아 옵니다(주소를 주면 아무것도 나가지 않습니다). ② `send_fax`·`send_sms` 는 본인 팝빌 계정으로 PDF·문자를 보냅니다.
+- 밖으로 나가는 것은 세 가지뿐입니다. ① `find_branch` 에 사업자등록번호를 주면 그 번호만 일의 무늬 사이트로 보내 주소를 받아 옵니다(주소를 주면 아무것도 나가지 않습니다). ② `send_fax`·`send_sms` 는 본인 팝빌 계정으로 PDF·문자를 보냅니다. ③ `work-rules` 묶음은 법제처 Open API 에 법령명·날짜·판 번호만 묻습니다. 취업규칙 본문과 사업장 정보는 보내지 않습니다.
+- 취업규칙 본문·파일은 이 PC 안에서만 대조합니다. 본문에 주민등록번호 모양이 있으면 점검하지 않고, 신고 서류 도구는 주민등록번호를 받지 않습니다.
 
 ## 🙅 하지 않는 일
 
 - **신고를 접수하지 않습니다.** 신고서 PDF 를 만들고, 사용자가 확인한 뒤 **본인 팝빌 계정과 본인 번호로** 보내도록 돕는 데까지입니다. 공단 접수 여부와 처리 결과는 공단에서 확인해 주세요.
+- 취업규칙 신고도 접수하지 않습니다. 서류를 만들고 날인이 필요한 곳을 알려 주는 데까지입니다.
+- 취업규칙 대조는 낱말을 맞춰 본 1차 결과입니다. 바꿀 문안은 법이 정한 최저 기준이라 회사 사정에 맞게 확인한 뒤 씁니다.
 - 받을 팩스 번호를 스스로 고르지 않습니다. `find_branch` 결과 가운데 사람이 확인한 번호만 씁니다. 고지서나 EDI 에 적힌 관리지사가 따로 있으면 그 지사가 우선입니다.
 - 입력값을 저장하거나 모으지 않습니다.
 
@@ -166,10 +201,13 @@ claude mcp add --scope user ilmunui -- npx -y ilmunui-mcp mcp --groups contract,
 ```bash
 cd tools/ilmunui-mcp
 npm.cmd install
-npm.cmd run build        # dist/server.mjs + dist/assets/(서식 PDF 2종·글꼴·OFL.txt, 계약서 PDF 용 나눔고딕·라이선스)
-node smoke.mjs           # 합성 값 시험, 전송 안 함
+npm.cmd run build        # dist/server.mjs + dist/assets/(서식 PDF 2종·글꼴·OFL.txt, 계약서 PDF 용 나눔고딕·라이선스, hwp 읽기 rhwp WASM)
+node smoke.mjs           # 합성 값 시험, 전송 안 함. 법제처는 가짜 법제처(tests/fixtures/laws/drf 고정 응답)로
 npm.cmd pack --dry-run   # 올라갈 파일 확인
 ```
+
+- 셸에 `LAW_OC` 가 있으면 smoke 가 끝에서 실제 법제처를 도구 두 번(조문 원문·판 비교)만 부르고, 없으면 `SKIP` 을 찍습니다.
+- `work-rules` 묶음은 사이트 자료(`public/data/laws`)와 pdf.js 를 묶어 `dist/server.mjs` 가 약 17MB 이고, hwp 읽기 부품 `dist/assets/rhwp_bg.wasm`(약 12MB, 저장소 루트 `node_modules/@rhwp/core` 에서 복사)이 따로 붙습니다. wasm 이 없으면 hwp 파일만 「hwpx 로 저장해 다시」로 안내합니다.
 
 - 새 묶음 = `groups/<이름>.mjs` 에 `register…(server)` 를 만들고 `server.mjs` 의 `GROUPS` 에 한 줄 더합니다.
 - `contract`·`calc` 묶음은 저장소 루트의 의존성(exceljs·jszip 등)을 함께 묶으므로, 빌드 전에 저장소 루트에서도 `npm.cmd ci` 를 해 둡니다.
@@ -180,4 +218,6 @@ npm.cmd pack --dry-run   # 올라갈 파일 확인
 - 코드: MIT (`LICENSE`)
 - 글꼴 `dist/assets/LLGFormsSans-Regular.ttf`: 나눔고딕(Copyright (c) 2010, NHN Corporation)을 줄이고 이름을 바꾼 것으로 SIL Open Font License 1.1 을 따릅니다. 전문은 `dist/assets/OFL.txt` 에 함께 들어 있습니다.
 - 서식 PDF: 국민건강보험공단 공식 서식(빈 양식)
-- 글꼴 `dist/assets/NanumGothic-Regular.ttf`(근로계약서 PDF): 나눔고딕(Copyright (c) 2010, NHN Corporation), SIL Open Font License 1.1. 전문은 `dist/assets/NanumGothic-OFL.txt`.
+- 글꼴 `dist/assets/NanumGothic-Regular.ttf`(근로계약서·취업규칙 신고 서류 PDF): 나눔고딕(Copyright (c) 2010, NHN Corporation), SIL Open Font License 1.1. 전문은 `dist/assets/NanumGothic-OFL.txt`.
+- `dist/assets/rhwp_bg.wasm`(hwp 읽기): rhwp, MIT. 전문은 `dist/assets/rhwp-LICENSE.txt`.
+- 법령 원문: 법제처 국가법령정보 공동활용 Open API.
