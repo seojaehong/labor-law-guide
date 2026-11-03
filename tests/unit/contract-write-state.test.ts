@@ -66,3 +66,9 @@ describe('toWriteForm — 글 칸 정리(#139 적대 검토 6)', () => {
     expect(parse({ location: '\u0001\u0002' }).missing).toEqual(['근무장소']);
   });
 });
+
+describe('toWriteForm — ㈜(#139 적대 검토 7)', () => {
+  it('㈜ 는 (주) 로 바꾼다 — 글꼴·한글 파일에서 깨지지 않게', () => {
+    expect(parse({ workplaceName: '㈜합성테스트' }).form!.workplaceName).toBe('(주)합성테스트');
+  });
+});

@@ -5,7 +5,7 @@ import { takeHomeRatesOn } from '@/lib/calc/take-home-pay';
 import type { ItemKey, Rounding } from '@/lib/contract-write/design';
 import { dailyWorkHours, spanMinutes, WEEK_DAYS, type WeekDay, type WriteForm } from '@/lib/contract-write/contract';
 import { netToGross } from '@/lib/contract-write/net-gross';
-import { stripControl } from '@/lib/contract-write/text';
+import { cleanInput } from '@/lib/contract-write/text';
 import { todayKst } from '@/lib/tool-kit';
 
 export { WEEK_DAYS };
@@ -105,8 +105,8 @@ function ratesDate(startDate: string, today: string): string {
   return takeHomeRatesOn(startDate) ? startDate : today;
 }
 
-/** 글 칸 — 제어문자를 지우고 앞뒤 빈칸을 뗀다(한글·엑셀 파일이 깨지지 않게) */
-const t = (v: string) => stripControl(v).trim();
+/** 글 칸 — 제어문자를 지우고 ㈜ 를 (주) 로, 앞뒤 빈칸을 뗀다(한글·엑셀·PDF 가 깨지지 않게) */
+const t = cleanInput;
 
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 const TIME = /^\d{2}:\d{2}$/;

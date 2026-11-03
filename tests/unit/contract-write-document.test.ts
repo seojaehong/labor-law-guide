@@ -136,3 +136,15 @@ describe('한글 — 제어문자', () => {
     }
   });
 });
+
+// #139 적대 검토 7 — 글꼴에 없는 글자는 PDF 에 빈칸으로 조용히 빠진다. 만들지 않고 그 글자를 댄다(nhis-forms 71a9f1b 와 같은 기준)
+describe('PDF — 글꼴에 없는 글자', () => {
+  const font = new Uint8Array(readFileSync('public/fonts/NanumGothic-Regular.ttf'));
+  it('없는 글자(ꙮ·😀)가 있으면 그 글자를 대며 거부한다', async () => {
+    const odd = buildContractDocument({ ...FORM, workplaceName: '합성ꙮ사업장', duty: '홀 😀' }, designFromForm(FORM));
+    await expect(buildContractPdf(odd, font)).rejects.toThrow(/ꙮ.*😀|😀.*ꙮ/);
+  });
+  it('본문 글자는 모두 글꼴에 있다', async () => {
+    await expect(buildContractPdf(doc, font)).resolves.toBeInstanceOf(Uint8Array);
+  });
+});

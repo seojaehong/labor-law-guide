@@ -131,7 +131,10 @@ export default function ContractWriteClient() {
       if (kind === 'xlsx') download(await ex.buildContractXlsx(result.doc), `${fileBase}.xlsx`, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
       if (kind === 'hwpx') download(await ex.buildContractHwpx(result.doc), `${fileBase}.hwpx`, 'application/hwp+zip');
       if (kind === 'pdf') {
-        const font = new Uint8Array(await (await fetch('/fonts/NanumGothic-Regular.ttf')).arrayBuffer());
+        const res = await fetch('/fonts/NanumGothic-Regular.ttf');
+        // 404·오류 페이지를 글꼴로 넣으면 엉뚱한 오류가 난다 — 받지 못했다고 말한다
+        if (!res.ok) throw new Error(`PDF 글꼴을 받지 못했습니다(HTTP ${res.status}). 잠시 뒤 다시 눌러 주세요`);
+        const font = new Uint8Array(await res.arrayBuffer());
         download(await ex.buildContractPdf(result.doc, font), `${fileBase}.pdf`, 'application/pdf');
       }
     } catch (e) {

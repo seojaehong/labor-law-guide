@@ -2,7 +2,7 @@
 // 🔒 브라우저에서만 만든다. 서버로 아무것도 보내지 않는다. 라이브러리는 동적 import 라 첫 화면 용량에 영향이 없다.
 // 브라우저 API(Blob·URL)는 쓰지 않는다 — node 시험이 같은 함수로 파일을 만들어 다시 읽는다.
 
-import type { ContractDocument } from './document';
+import { documentLines, type ContractDocument } from './document';
 import { HEADER_XML } from './hwpx-header';
 import { stripControl } from './text';
 
@@ -166,6 +166,10 @@ export async function buildContractHwpx(doc: ContractDocument): Promise<Uint8Arr
 export async function buildContractPdf(doc: ContractDocument, fontBytes: Uint8Array): Promise<Uint8Array> {
   const { PDFDocument, rgb } = await import('pdf-lib');
   const fontkit = (await import('@pdf-lib/fontkit')).default;
+  // 글꼴에 없는 글자는 PDF 에 빈칸으로 조용히 빠진다 — 만들지 않고 그 글자를 댄다(nhis-forms missingGlyphs 와 같은 기준)
+  const face = fontkit.create(fontBytes as unknown as Buffer) as unknown as { hasGlyphForCodePoint(c: number): boolean };
+  const missing = [...new Set([...documentLines(doc).join('')])].filter((ch) => !/\s/.test(ch) && !face.hasGlyphForCodePoint(ch.codePointAt(0)!));
+  if (missing.length) throw new Error(`PDF 글꼴에 없는 글자가 있어 PDF 를 만들 수 없습니다: ${missing.join(' ')} — 그 글자를 고쳐 주세요(엑셀·한글은 받을 수 있습니다)`);
   const pdf = await PDFDocument.create();
   pdf.registerFontkit(fontkit);
   pdf.setTitle(doc.title);
