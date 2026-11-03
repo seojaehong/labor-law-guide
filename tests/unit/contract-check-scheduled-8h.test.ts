@@ -46,6 +46,36 @@ describe('1일 소정 8시간 상한', () => {
     expect(c.work_time.weekly_scheduled_hours).toBe(32);
   });
 
+  it('주간 연장 = 하루 8시간 넘는 시간 포함(주4일 9.42H → 5.67H, 주5일 10H → 10H, 주6일 8H → 8H)', () => {
+    const ot = (wt: Contract['work_time']) => normalize([contract(wt, [{ code: 'BASE', amount: 2_000_000 }], 2_000_000)])[0].work_time.weekly_overtime_hours;
+    expect(ot(FOUR_DAYS)).toBeCloseTo(5.67, 2);
+    expect(ot({ days_per_week: 5, start: '09:00', end: '20:00', breaks: [{ minutes: 60 }] })).toBe(10);
+    expect(ot({ days_per_week: 6, start: '09:00', end: '18:00', breaks: [{ minutes: 60 }] })).toBe(8);
+    expect(ot({ days_per_week: 5, start: '09:00', end: '18:00', breaks: [{ minutes: 60 }] })).toBe(0);
+  });
+
+  it('OT-COVER 는 가산율이 적혀 있으면 시간 × 가산율로 본다(43.47H × 1.5 = 65.2H ≥ 필요 65.2H)', () => {
+    const wt = { days_per_week: 5, start: '09:00', end: '20:00', breaks: [{ minutes: 60 }] };
+    const items = [
+      { code: 'BASE' as const, amount: 2_163_001, basis_hours: 209 },
+      { code: 'OT_WEEKDAY' as const, amount: 674_774, basis_hours: 43.4667, rate_multiplier: 1.5 },
+    ];
+    const [c] = normalize([contract(wt, items, 2_837_775)]);
+    expect(checkContract(c).find((f) => f.rule_code === 'OT-COVER')?.status).toBe('ok');
+    const [short] = normalize([contract(wt, [items[0], { ...items[1], basis_hours: 40 }], 2_837_775)]);
+    expect(checkContract(short).find((f) => f.rule_code === 'OT-COVER')?.status).toBe('violation');
+  });
+
+  it('통상시급을 소수까지 적었고 기본급 ÷ 시간과 원 단위로 같으면 그 값을 쓴다(수원 10,349.29)', () => {
+    const wt = { days_per_week: 5, start: '09:00', end: '20:00', breaks: [{ minutes: 60 }] };
+    const c0 = contract(wt, [{ code: 'BASE', amount: 2_163_001, basis_hours: 209 }], 2_163_001);
+    c0.wage.ordinary_hourly_rate = 10_349.29;
+    expect(normalize([c0])[0].wage.ordinary_hourly_rate).toBe(10_349.29);
+    const c1 = contract(wt, [{ code: 'BASE', amount: 2_163_001, basis_hours: 209 }], 2_163_001);
+    c1.wage.ordinary_hourly_rate = 11_000;
+    expect(normalize([c1])[0].wage.ordinary_hourly_rate).toBe(10_349);
+  });
+
   it('하루 8시간 이하 근무는 그대로(주5일 09:00~18:00 휴게 60분 → 40H)', () => {
     const [c] = normalize([contract({ days_per_week: 5, start: '09:00', end: '18:00', breaks: [{ minutes: 60 }] }, [{ code: 'BASE', amount: 2_156_880 }], 2_156_880)]);
     expect(c.work_time.weekly_scheduled_hours).toBe(40);

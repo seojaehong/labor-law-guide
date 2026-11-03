@@ -637,7 +637,7 @@ const FEATURES: Record<string, { path: string; journey: Journey; waitUntil?: 'lo
         const overflow = await p.evaluate(() => document.documentElement.scrollWidth > window.innerWidth);
         step(`${tag} — 금지어·넘침`, 'banned 0 overflow false', `banned ${hits.join(',') || 0} overflow ${overflow}`);
       };
-      const run = async (tag: string, s: { pay: '시급제' | '월급제'; wage: string; included?: boolean }, first = false) => {
+      const run = async (tag: string, s: { pay: '시급제' | '월급제'; wage: string; included?: boolean; days?: string; start?: string; end?: string; rest?: string }, first = false) => {
         if (!first) await p.goto(`${BASE}/tools/contract-check`, { waitUntil: 'load' });
         // load 직후 채우면 하이드레이션이 값을 되돌릴 수 있다 — React 가 입력칸에 이벤트를 붙인 뒤에 시작한다
         await p.waitForFunction(() => Object.keys(document.querySelector('input[aria-label="계약 시작일"]') ?? {}).some((k) => k.startsWith('__reactProps')));
@@ -649,10 +649,10 @@ const FEATURES: Record<string, { path: string; journey: Journey; waitUntil?: 'lo
         if (s.included) await p.getByRole('button', { name: '포함', exact: true }).click();
         if (first) await screen(`${tag} 1단계(기본)`);
         await next();
-        await p.getByLabel('주 근무일수', { exact: true }).fill('5');
-        await p.getByLabel('출근 시각', { exact: true }).fill('09:00');
-        await p.getByLabel('퇴근 시각', { exact: true }).fill('18:00');
-        await p.getByLabel('하루 휴게시간', { exact: true }).fill('60');
+        await p.getByLabel('주 근무일수', { exact: true }).fill(s.days ?? '5');
+        await p.getByLabel('출근 시각', { exact: true }).fill(s.start ?? '09:00');
+        await p.getByLabel('퇴근 시각', { exact: true }).fill(s.end ?? '18:00');
+        await p.getByLabel('하루 휴게시간', { exact: true }).fill(s.rest ?? '60');
         if (first) await screen(`${tag} 2단계(근로시간)`);
         await next();
         if (first) await screen(`${tag} 3단계(임금·지급)`);
@@ -672,6 +672,9 @@ const FEATURES: Record<string, { path: string; journey: Journey; waitUntil?: 'lo
       await run('③', { pay: '시급제', wage: '10320', included: true });
       step('③ 주휴 포함 시급 10,320 < 기준액 12,384 — 위반', /^위반 최저임금 충족 .*주휴 포함 시급 10,320 \(시급제·산출근거 시간 없음 — 기본급을 시급으로 봄\) < 기준액 = 최저시급 10,320 × \(소정 40H\+주휴 8H\)\/40H = 12,384 \(최저임금법 시행령 §5①2호\)/, await minwage());
       step('③ 수정 방향 — 12,384원 이상', /수정 방향: 주휴 포함 시급을 2026년 최저시급 × \(소정\+주휴\)\/소정 = 12,384원 이상/, await minwage());
+      // ④ 주4일 10:00~22:00 휴게 155분(하루 9.42H) — 소정은 하루 8H 까지(§50②, #137) → 32H+주휴 6.4H, 196H 로 나누지 않는다
+      await run('④', { pay: '월급제', wage: '1870364', days: '4', start: '10:00', end: '22:00', rest: '155' });
+      step('④ 주4일·하루 9.42H 기본급 1,870,364 — 소정 하루 8H 상한으로 적정', /^적정 최저임금 충족 .*1,870,364.*시간당 11,2\d\d ≥ 2026년 최저시급 10,320/, await minwage());
     },
   },
   'pay-proration': {
