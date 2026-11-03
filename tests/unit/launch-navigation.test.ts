@@ -10,6 +10,11 @@ describe('selected launch navigation', () => {
     for (const href of ['/ai', '/guide', '/news', '/wiki', '/tools/severance.html']) expect(items).not.toContain(`href:'${href}'`);
     expect(nav).toContain('소개·상담');
   });
+  it('puts the tools directory first, in the desktop menu and the mobile rail (261103)', () => {
+    expect(items.indexOf("href:'/tools'")).toBeGreaterThan(-1);
+    expect(items.indexOf("href:'/tools'")).toBeLessThan(items.indexOf("href:'/blog'"));
+    expect(nav).not.toContain('editorial-desktop-service" href="/tools"');
+  });
   it('preserves legacy URLs with a clear review status instead of global AI promotion', () => {
     expect(layout).not.toContain('<FloatingChatButton');
     expect(layout).not.toContain('<BetaBanner');
