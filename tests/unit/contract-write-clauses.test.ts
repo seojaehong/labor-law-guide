@@ -6,6 +6,8 @@ import { describe, expect, it } from 'vitest';
 import { absorbOptions, INITIAL, toWriteForm, type WriteState } from '@/app/tools/contract-write/formState';
 import { checkWritten, designFromForm, reviewWritten, toContract, type WriteForm } from '@/lib/contract-write/contract';
 import { buildContractDocument, documentLines } from '@/lib/contract-write/document';
+import { laborDayOffPay } from '@/lib/contract-write/part';
+import { wonText } from '@/lib/contract-write/text';
 import { bannedHits } from '@/lib/tool-kit/banned';
 
 const MONTHLY: WriteForm = {
@@ -201,9 +203,71 @@ describe('노동절 — 파트 제5조 「근무하지 않은 소정근로일」
   });
 });
 
+// 노동절이 소정근로일이 아닌 날(휴무일·주휴일)에 들 때 — 시급·일급제는 1일분을 따로 지급한다(근로기준과-2156 「통상의 1일 근로를 제공하였을 때
+// 지급해야 할 임금」). 1일분 = 시행령 별표 2 제2호 가·나목 일급 통상임금 = 1주 소정 ÷ 5 × 통상시급(임금근로시간정책과-1384, 통상 근로자 주 5일 가정).
+// 주휴일과 겹치면 1일분만(근로기준정책과-6852·근로기준과-2571) — 일 지급액에 나눠 준 주휴수당이 같은 양이라 추가 없음. 결근으로 그 주 주휴를
+// 정산했으면 노동절 1일분은 남는다(노동절은 개근 요건이 없다). 15시간 미만은 주휴일이 없어 겹침 문장이 없다. 월급제는 소정 월급으로 충족(2156)
+const laborDayOff = (hours: string, amount: string) =>
+  `노동절(5월 1일)이 소정근로일이 아닌 날에 들면 1주 소정근로시간을 5로 나눈 ${hours}에 통상시급을 곱한 ${amount}을 그 달 임금에 더해 지급한다(근로기준법 시행령 별표 2 제2호 나목의 1일 소정근로시간 기준).`;
+const OVERLAP_DEDUCT = '노동절이 주휴일과 겹치면 일 지급액에 나누어 지급한 주휴수당으로 갈음하되, 그 주의 주휴수당을 결근으로 정산한 경우에는 위 금액을 지급한다.';
+const OVERLAP_KEEP = '노동절이 주휴일과 겹치면 일 지급액에 나누어 지급한 주휴수당으로 갈음한다.';
+const offAmount = (form: WriteForm, weeklyHours: number) => wonText(laborDayOffPay(weeklyHours / 5, designFromForm(form).rate));
+// 표가 기본급·주휴수당뿐이라 통상시급이 딱 떨어지는 합성 표본 — 5명 미만, 주 3일 × 8시간(휴게 60분), 시간당 12,800원 → 115,200 ÷ 9.6 = 12,000원
+const PART_3X8: WriteForm = { ...PART_UNDER5, workDays: ['월', '수', '금'], start: '09:00', end: '18:00', breakMinutes: 60, hourlyWage: 12_800 };
+
+describe('노동절 — 소정근로일이 아닌 날의 1일분(파트 제5조)', () => {
+  it('주 3일 × 8시간·통상시급 12,000원 → 4시간 48분 × 12,000 = 57,600원(8시간분 96,000원이 아니다)', () => {
+    expect(designFromForm(PART_3X8).rate).toBeCloseTo(12_000, 6);
+    const lines = clause(PART_3X8, 5);
+    expect(lines).toContain(`${laborDayOff('4시간 48분', '57,600원')} ${OVERLAP_DEDUCT}`);
+    // 96,000원(8시간 × 12,000)은 그날 일 지급액의 기본급 — 휴무일 노동절 1일분이 아니다
+    expect(lines.find((l) => l.includes('소정근로일이 아닌 날에 들면'))).not.toContain('96,000원');
+  });
+  it('5명 이상·15시간 이상 — 확정 문구 바로 다음 줄, 주휴일 겹침·결근 정산 단서까지', () => {
+    const lines = clause(PART, 5);
+    expect(lines[lines.indexOf(PAID_DAY) + 1]).toBe(`${laborDayOff('5시간 30분', offAmount(PART, 27.5))} ${OVERLAP_DEDUCT}`);
+  });
+  it('5명 미만·15시간 이상 — 노동절 소정근로일 문장 바로 다음 줄(같은 금액 식)', () => {
+    const lines = clause(PART_UNDER5, 5);
+    expect(lines[lines.indexOf(laborDayPaid('기본급과 주휴수당')) + 1]).toBe(`${laborDayOff('5시간 30분', offAmount(PART_UNDER5, 27.5))} ${OVERLAP_DEDUCT}`);
+  });
+  it('결근 주 주휴수당을 공제하지 않기로 하면 결근 정산 단서를 달지 않는다', () => {
+    const form: WriteForm = { ...PART, absentWeekHoliday: 'keep' };
+    expect(clause(form, 5)).toContain(`${laborDayOff('5시간 30분', offAmount(form, 27.5))} ${OVERLAP_KEEP}`);
+    expect(text(form)).not.toContain('결근으로 정산한 경우');
+  });
+  it('15시간 미만(5명 이상·미만) — 주휴일이 없어 겹침 문장 없이 1일분만(1주 11시간 ÷ 5 = 2시간 12분)', () => {
+    for (const form of [PART_UNDER15, PART_UNDER5_15]) {
+      const lines = clause(form, 5);
+      expect(lines[lines.indexOf(laborDayPaid('기본급')) + 1]).toBe(laborDayOff('2시간 12분', offAmount(form, 11)));
+      expect(text(form)).not.toContain('노동절이 주휴일과 겹치면');
+    }
+  });
+  it('월급제에는 넣지 않는다(소정의 월급으로 충족 — 근로기준과-2156)', () => {
+    for (const form of [MONTHLY, { ...MONTHLY, employeeCount5plus: false }]) expect(text(form)).not.toContain('소정근로일이 아닌 날에 들면');
+  });
+  it('일 지급액 표에는 넣지 않는다 — 표 행·합계가 그대로다', () => {
+    const rows = docOf(PART).clauses.find((c) => c.table)!.table!.rows.map((r) => r.label);
+    expect(rows).not.toContain('노동절');
+    expect(docOf(PART).clauses.find((c) => c.table)!.table!.total).toBe(designFromForm(PART).total);
+  });
+});
+
+// 파트도 표의 휴일 시간은 공휴일 근무 예정으로 미리 정한 시간 — 실제 휴일근로가 넘으면 따로 지급(월급제 문장과 같은 뜻).
+// 1주 15시간 미만의 노동절 근무 가산(제56조 제2항 — 제18조 제3항이 빼지 않는다)은 표에 없고 이 문장과 제4조가 덮는다
+describe('파트 제5조 — 표의 연장·휴일 시간은 미리 정한 시간', () => {
+  const WIDE = '표의 연장·휴일 시간은 제3조·제4조의 근무를 기준으로 미리 정한 시간이다. 실제 근로가 이 시간을 넘으면 넘는 시간의 수당을 따로 계산해 추가로 지급한다.';
+  it('네 분기 모두 같은 문장', () => {
+    for (const form of [PART, PART_UNDER5, PART_UNDER15, PART_UNDER5_15]) {
+      expect(clause(form, 5)).toContain(WIDE);
+      expect(text(form)).not.toContain('표의 연장 시간은');
+    }
+  });
+});
+
 describe('확정 문구 · 금지어', () => {
   it('파트·월급제 본문과 화면 안내에 금지어·「포괄」이 없다', () => {
-    for (const form of [PART, { ...PART, absentWeekHoliday: 'keep' as const }, MONTHLY, { ...MONTHLY, employeeCount5plus: false, end: '19:00' }, PART_UNDER5, PART_UNDER15, PART_UNDER5_15]) {
+    for (const form of [PART, { ...PART, absentWeekHoliday: 'keep' as const }, MONTHLY, { ...MONTHLY, employeeCount5plus: false, end: '19:00' }, PART_UNDER5, PART_UNDER15, PART_UNDER5_15, PART_3X8]) {
       expect(bannedHits(text(form))).toEqual([]);
       expect(text(form)).not.toContain('포괄');
     }

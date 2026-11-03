@@ -88,12 +88,20 @@ export function designHours(input: DesignInput): Record<ItemKey, number> {
   const extra = Math.max(daily - 8, 0);
   const { scheduled: weekly, overtime: weeklyOvertime } = weeklySchedule(daily, days);
   // 1주 소정 15시간 미만은 제55조(주휴일·공휴일 유급휴일)·제60조(연차)가 적용되지 않는다(근로기준법 제18조 제3항) — 파트(part.ts)와 같다.
-  // 공휴일도 법정 휴일이 아니어서 그날 근무는 휴일근로(제56조 제2항)가 아니다. 이때는 계약서 제4·6조도 미적용이라 직접 정한 시간도 넣지 않는다
+  // 관공서 공휴일은 제55조 제2항 경로로만 유급휴일이라 이들에게는 법정 휴일이 아니고 그날 근무는 휴일근로(제56조 제2항)가 아니다
+  // (취업규칙·계약으로 약정휴일로 정하지 않은 경우). 노동절은 다르다 — 노동절 제정에 관한 법률의 유급휴일이라 15시간 미만에도 유급이고,
+  // 5명 이상이면 그날 근무는 휴일근로다(제18조 제3항은 제56조를 빼지 않는다, 근로기준정책과-4361). 그 가산은 표에 넣지 않고
+  // 계약서 제4조 노동절 줄·제5조 「표의 연장·휴일 시간」 문장이 덮는다(표 밖 지급).
+  // 이때는 계약서 제4·6조도 미적용이라 직접 정한 시간도 넣지 않는다
   const eligible = weekly >= 15;
   const weeklyHoliday = eligible ? (weekly / 40) * 8 : 0;
   const base = weekly === 40 ? 209 : (weekly + weeklyHoliday) * WEEKS_PER_MONTH;
   const overtime = weeklyOvertime * (fivePlus ? 1.5 : 1) * WEEKS_PER_MONTH;
   const night = fivePlus ? (input.nightHoursPerDay ?? 0) * NIGHT_PREMIUM * days * WEEKS_PER_MONTH : 0;
+  // 휴일 = 유급휴일에 근무한 시간의 100% + 가산 50%(8시간 넘는 시간은 100%) — 유급휴일분 100% 는 기본급(209시간) 안이다
+  // (대법원 2024.2.8. 2018다206899·1998.4.24. 97다28421, 임금근로시간과-653). 휴일근로 8시간 이내에 연장 가산을 겹치지 않는다(2011다112391 전합).
+  // 위 연장(overtime)은 공휴일이 든 주도 주 5일로 세어, 공휴일 당일 8시간 넘는 시간에 연장 1.5 가 한 번 더 든다(합 3.5, 법정 2.0) —
+  // 계약의 통상시급 기준으로는 법정 수당보다 많이 잡히는 쪽이나, 총액이 고정이라 그만큼 통상시급이 낮아진다. 고칠지는 사람 판단(PR 「사람 확인」)
   const holiday = fivePlus && eligible ? ((regular * 1.5 + extra * 2) * holidayDaysPerYear * (Math.min(days, 5) / 5)) / 12 : 0;
   const leave = fivePlus && eligible ? (weekly / 40) * 8 : 0;
   const o = input.overrides ?? {};

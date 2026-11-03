@@ -41,7 +41,10 @@ export function hourlyDesignHours(input: HourlyDesignInput): Record<ItemKey, num
   const { scheduled: weekly } = weeklySchedule(work, days);
   const base = weekly / days;
   const eligible = weekly >= 15 || Boolean(input.includeUnder15);
-  // 공휴일 하루의 근로는 그날 실근무 — 8시간까지 1.5배, 넘는 시간은 2.0배(근로기준법 제56조 제2항). 1주 한도와 무관하다
+  // 공휴일 하루의 근로는 그날 실근무 — 8시간까지 1.5배, 넘는 시간은 2.0배(근로기준법 제56조 제2항). 1주 한도와 무관하다.
+  // 소정근로일인 공휴일에 근무하면 그날 일 지급액의 기본급(100%) = 유급휴일 임금, 이 항목(1.5) = 근무 100% + 가산 50% → 합 250%
+  // (임금근로시간과-653·근로기준과-2156). 8시간 넘는 시간은 일 지급액의 연장(1.5)과 이 항목(2.0)이 겹쳐 3.5(법정 2.0)로 인정시간이
+  // 많아지고 그만큼 통상시급이 낮아진다 — 계수를 고칠지는 사람 판단이라 그대로 둔다(양식 표본 e 와 연결, PR 「사람 확인」)
   const holidayDay = Math.min(work, 8) * 1.5 + Math.max(work - 8, 0) * 2;
   return {
     base,
@@ -52,6 +55,22 @@ export function hourlyDesignHours(input: HourlyDesignInput): Record<ItemKey, num
     leave: eligible && fivePlus ? weekly / 5 / days / WEEKS_PER_MONTH : 0,
     holiday: eligible && fivePlus ? (holidayDay * input.holidayDaysPerYear) / ((days * 365) / 7) : 0,
   };
+}
+
+/**
+ * 노동절(5월 1일)이 소정근로일이 아닌 날에 들 때 주는 1일분의 시간 — 근로기준법 시행령 별표 2 제2호 가·나목의 1일 소정근로시간
+ * = 4주 소정근로시간 ÷ 그 기간 통상 근로자의 총 소정근로일 수. 통상 근로자 주 5일(4주 20일)을 가정해 1주 소정 ÷ 5 다(임금근로시간정책과-1384).
+ * 하루 실근무(8시간 등)가 아니다. 위 hourlyDesignHours 의 1주 주휴(weekly / 5)와 같은 양이라 주휴일과 겹치면 추가가 없다(근로기준정책과-6852).
+ * 1주 15시간 미만도 같은 식으로 센다(근로기준정책과-4361 — 노동절은 제18조 제3항과 상관없다).
+ * 연 1회·소정근로일이 아닌 날에만 생기는 돈이라 일 지급액 구성(ORDER)에는 넣지 않는다 — 계약서 제5조가 금액을 적는다(document.ts)
+ */
+export function laborDayOffHours(dailyWorkHours: number, daysPerWeek: number): number {
+  return weeklySchedule(dailyWorkHours, daysPerWeek).scheduled / 5;
+}
+
+/** 노동절 1일분 금액 — 시간 × 통상시급, 끝수는 근로자에게 불리하지 않게 원 단위로 올린다(임금근로시간정책과-1384). 1e-6 = 부동소수 오차 */
+export function laborDayOffPay(hours: number, rate: number): number {
+  return Math.ceil(hours * rate - 1e-6);
 }
 
 export function designHourlyWage(input: HourlyDesignInput): DesignResult {

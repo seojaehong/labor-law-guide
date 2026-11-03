@@ -4,7 +4,7 @@
 // 양식 재현은 includeUnder15 로만 한다.
 import { describe, expect, it } from 'vitest';
 
-import { designHourlyWage, type HourlyDesignInput } from '@/lib/contract-write/part';
+import { designHourlyWage, laborDayOffHours, laborDayOffPay, type HourlyDesignInput } from '@/lib/contract-write/part';
 
 const base = { hourlyWage: 13_000, includeUnder15: true } as const;
 const A: HourlyDesignInput = { ...base, stayHours: 6, breakMinutes: 30, nightHours: 0, daysPerWeek: 5, holidayDaysPerYear: 16 };
@@ -127,5 +127,25 @@ describe('designHourlyWage — 1주 40시간 넘는 연장', () => {
     expect(r.hours.base + r.hours.overtime / 1.5).toBeCloseTo(work, 10);
     // 주휴 1주 합 = min(소정, 40) ÷ 40 × 8
     expect(r.hours.weeklyHoliday * 6).toBeCloseTo((Math.min(Math.min(work, 8) * 6, 40) / 40) * 8, 10);
+  });
+});
+
+// 노동절(5월 1일)이 소정근로일이 아닌 날에 들 때의 1일분 — 근로기준법 시행령 별표 2 제2호 가·나목의 일급 통상임금
+// = 4주 소정근로시간 ÷ 통상 근로자 4주 소정근로일(주 5일 가정 20일) × 시간급 = 1주 소정 ÷ 5 × 통상시급(임금근로시간정책과-1384).
+// 하루 소정근로시간(8시간) × 통상시급이 아니다. 1주 15시간 미만도 같은 식으로 센다(근로기준정책과-4361). 표에는 넣지 않는다
+describe('laborDayOffHours · laborDayOffPay — 노동절 1일분(별표 2 제2호 나목)', () => {
+  it('주 3일 × 8시간, 통상시급 12,000원 → 4.8시간 × 12,000 = 57,600원(8시간분 96,000원이 아니다)', () => {
+    expect(laborDayOffHours(8, 3)).toBeCloseTo(4.8, 10);
+    expect(laborDayOffPay(laborDayOffHours(8, 3), 12_000)).toBe(57_600);
+  });
+  it('1주 15시간 미만(주 2일 × 6시간)도 1주 소정 ÷ 5 = 2.4시간', () => {
+    expect(laborDayOffHours(6, 2)).toBeCloseTo(2.4, 10);
+  });
+  it('1주 소정은 하루 8시간·1주 40시간 한도 — 주 6일 × 9시간이면 40 ÷ 5 = 8시간', () => {
+    expect(laborDayOffHours(9, 6)).toBeCloseTo(8, 10);
+  });
+  it('끝수는 근로자에게 불리하지 않게 원 단위로 올린다(임금근로시간정책과-1384)', () => {
+    expect(laborDayOffPay(5.5, 10_598.595166490586)).toBe(58_293);
+    expect(laborDayOffPay(4.8, 115_200 / 9.6)).toBe(57_600);
   });
 });

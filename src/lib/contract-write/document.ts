@@ -6,6 +6,7 @@
 
 import { ROUNDING_UNIT, weeklySchedule, type DesignResult, type ItemKey } from './design';
 import { dailyWorkHours, leaveTerms, PROBATION_PCT, rateText, reducedMonthsOf, restDayTerm, type WriteForm } from './contract';
+import { laborDayOffHours, laborDayOffPay } from './part';
 import { hoursText, wonText } from './text';
 
 export interface WageRow {
@@ -93,19 +94,47 @@ function absentWeekLines(form: WriteForm, design: DesignResult): string[] {
  * 파트 일 지급액은 근무한 날에만 생긴다 — 유급휴일·법정 유급휴가로 쉰 소정근로일에 줄 금액(PR #140 검토 6, 재홍님 261103 확정 문구).
  * 문장이 드는 공휴일 유급휴일(제55조 제2항)·연차(제60조)는 5명 이상·1주 15시간 이상에만 있다. 5명 미만은 둘 다 적용하지 않고
  * (시행령 제7조 별표 1, 제4·6조가 그렇게 적는다) 15시간 미만은 제55조·제60조 자체가 없어(제18조 제3항) 확정 문구는 넣지 않는다.
- * 노동절은 확정 문구의 「등 유급휴일」이 덮는다(관공서의 공휴일에 관한 규정 제2조 제6호에도 든다). 5명 미만·15시간 미만에는
+ * 노동절은 확정 문구의 「등 유급휴일」이 덮는다(관공서의 공휴일에 관한 규정 제2조 제6호에도 든다 — 2026.4.30. 개정 대통령령 제36290호,
+ * 시행일은 변경이력 5.1.·조문 머리 5.11.이 달라 부칙 확인 필요). 5명 미만·15시간 미만에는
  * 노동절 한 문장만 둔다 — 별도 법률(노동절 제정에 관한 법률)의 유급휴일이라 별표 1·제18조 제3항과 상관없다(근로기준정책과-4361).
- * 노동절이 소정근로일이 아닌 날에 드는 경우의 금액은 금액 설계 판단이라 여기서 정하지 않는다(PR 본문 「남은 것」)
+ * 둘째 줄 = 노동절이 소정근로일이 아닌 날에 들 때의 1일분(laborDayOffLine)
  */
 function paidDayOffLines(form: WriteForm, design: DesignResult, under15: boolean): string[] {
   const weekly = design.items.find((i) => i.key === 'weeklyHoliday');
-  const paid = weekly && weekly.amount > 0 ? '기본급과 주휴수당' : '기본급';
+  const hasWeekly = Boolean(weekly && weekly.amount > 0);
+  const paid = hasWeekly ? '기본급과 주휴수당' : '기본급';
+  const offDay = laborDayOffLine(form, design, hasWeekly);
   if (!form.employeeCount5plus || under15) {
-    return [`노동절(5월 1일)로 근무하지 않은 소정근로일에는 그날의 일 지급액 중 ${paid}을 지급한다. 이날은 결근으로 보지 않는다.`];
+    return [`노동절(5월 1일)로 근무하지 않은 소정근로일에는 그날의 일 지급액 중 ${paid}을 지급한다. 이날은 결근으로 보지 않는다.`, offDay];
   }
   return [
     `관공서의 공휴일·대체공휴일 등 유급휴일과 연차유급휴가 등 법정 유급휴가로 근무하지 않은 소정근로일에는 그날의 일 지급액 중 ${paid}을 지급한다. 이런 날은 결근으로 보지 않는다.`,
+    offDay,
   ];
+}
+
+/**
+ * 파트 — 노동절이 소정근로일이 아닌 날(휴무일·주휴일)에 들면 1일분을 따로 지급한다. 시급·일급제는 휴무일이어도 「통상의 1일 근로를
+ * 제공하였을 때 지급해야 할 임금」을 지급한다(근로기준과-2156). 1일분 = 시행령 별표 2 제2호 가·나목의 일급 통상임금(laborDayOffHours).
+ * 법적 근거는 분기마다 다르다 —
+ *  · 5명 이상·15시간 이상: 노동절이 관공서의 공휴일에 관한 규정 제2조 제6호에 들어 제55조 제2항 유급휴일 → 별표 2 제4호 가·라목이 직접 건다.
+ *  · 5명 미만(별표 1 이 제55조 제2항을 뺀다)·15시간 미만(제18조 제3항이 제55조를 뺀다): 라목은 「가목(제55조 유급휴일)의 경우」라 직접 닿지
+ *    않으나, 별표 2 는 제18조 제1·2항의 위임이고(별표 1 적용조문에 제18조, 제18조 제3항은 제55조·제60조만 뺀다) 제2호 가·나목 정의 +
+ *    근로기준과-2156·임금근로시간정책과-1384·근로기준정책과-4361(15시간 미만도 노동절 유급휴일)로 같은 금액이 된다.
+ * 주휴일과 겹치면 1일분만(근로기준정책과-6852·근로기준과-2571) — 일 지급액에 나눠 준 1주 주휴(1주 소정 ÷ 5 × 통상시급)가 같은 양이라 갈음한다.
+ * 결근으로 그 주 주휴수당을 정산했으면 노동절 1일분은 남는다(노동절은 개근 요건이 없다). 15시간 미만은 주휴일이 없어 겹침 문장이 없다.
+ * 표(일 지급액 구성)에는 넣지 않는다 — 연 1회·소정근로일이 아닌 날에만 생긴다. 월급제는 소정 월급으로 충족해 넣지 않는다(근로기준과-2156)
+ */
+function laborDayOffLine(form: WriteForm, design: DesignResult, hasWeekly: boolean): string {
+  const hours = laborDayOffHours(dailyWorkHours(form), form.workDays.length);
+  const pay = laborDayOffPay(hours, design.rate);
+  const line =
+    `노동절(5월 1일)이 소정근로일이 아닌 날에 들면 1주 소정근로시간을 5로 나눈 ${hm(hours)}에 통상시급을 곱한 ${wonText(pay)}을 ` +
+    '그 달 임금에 더해 지급한다(근로기준법 시행령 별표 2 제2호 나목의 1일 소정근로시간 기준).';
+  if (!hasWeekly) return line;
+  return form.absentWeekHoliday === 'keep'
+    ? `${line} 노동절이 주휴일과 겹치면 일 지급액에 나누어 지급한 주휴수당으로 갈음한다.`
+    : `${line} 노동절이 주휴일과 겹치면 일 지급액에 나누어 지급한 주휴수당으로 갈음하되, 그 주의 주휴수당을 결근으로 정산한 경우에는 위 금액을 지급한다.`;
 }
 
 /**
@@ -180,7 +209,9 @@ export function buildContractDocument(form: WriteForm, design: DesignResult): Co
         '월 임금은 그 달에 실제 근무한 날의 일 지급액을 합한 금액으로 한다.',
         ...paidDayOffLines(form, design, under15),
         ...absentWeekLines(form, design),
-        '표의 연장 시간은 제3조의 근무를 기준으로 미리 정한 시간이다. 실제 근로가 이 시간을 넘으면 넘는 시간의 수당을 따로 계산해 추가로 지급한다.',
+        // 표의 휴일 시간도 공휴일 근무 예정(제4조)으로 미리 정한 시간이다 — 월급제 문장과 같은 뜻. 1주 15시간 미만의 노동절 근무 가산
+        // (제56조 제2항 — 제18조 제3항이 빼지 않는다)은 표에 없어 이 문장과 제4조 노동절 줄이 덮는다(표 밖 지급)
+        '표의 연장·휴일 시간은 제3조·제4조의 근무를 기준으로 미리 정한 시간이다. 실제 근로가 이 시간을 넘으면 넘는 시간의 수당을 따로 계산해 추가로 지급한다.',
       ]
     : [
         `월 임금 총액: ${wonText(design.total)}(구성은 아래 표)`,
