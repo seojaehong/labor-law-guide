@@ -53,8 +53,8 @@ function ChatExample() {
       >
         출근길에 넘어져서 다쳤어요. 아직 치료 중이고 다른 사람 잘못은 아니에요. 요양급여 신청하려면 뭐가 필요해요?
       </p>
-      <p className="mt-4 flex items-center gap-2 text-xs" style={sub}>
-        <span aria-hidden className="inline-block h-1.5 w-1.5 rounded-full" style={{ background: 'var(--color-success)' }} />
+      <p className="mt-4 text-xs leading-5" style={sub}>
+        <span aria-hidden className="mr-2 inline-block h-1.5 w-1.5 rounded-full align-middle" style={{ background: 'var(--color-success)' }} />
         산재 신청 도우미가 <span style={{ fontFamily: MONO }}>list_required_forms</span> 를 실행했습니다
       </p>
       <div className="mt-3 space-y-3 text-sm leading-6" style={ink}>
