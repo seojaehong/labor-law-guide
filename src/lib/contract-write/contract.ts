@@ -45,6 +45,8 @@ export interface WriteForm {
   monthlyTotal?: number;
   /** 시급·일급 필수 — 휴게를 포함한 출근~퇴근 시간에 곱한다 */
   hourlyWage?: number;
+  /** 시급·일급 — 결근한 주에 미리 준 주휴수당을 공제한다(deduct, 기본) / 공제하지 않는다(keep) */
+  absentWeekHoliday?: 'deduct' | 'keep';
   holidayDaysPerYear: number;
   overrides?: { overtimeHours?: number; holidayHours?: number; leaveHours?: number };
   rounding?: Rounding;

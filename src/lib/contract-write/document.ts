@@ -70,6 +70,16 @@ function basisText(key: ItemKey, period: DesignResult['period'], fivePlus: boole
   }
 }
 
+/** 파트 일 지급액에 나눠 넣은 주휴수당을 결근한 주에 어떻게 할지(재홍님 261103 — 선택, 기본 = 공제) */
+function absentWeekLines(form: WriteForm, design: DesignResult): string[] {
+  const weekly = design.items.find((i) => i.key === 'weeklyHoliday');
+  if (!weekly || weekly.amount <= 0) return [];
+  const lead = '일 지급액의 주휴수당은 1주 소정근로일을 개근한 주의 주휴수당을 근무일마다 나누어 미리 지급하는 것이다.';
+  return form.absentWeekHoliday === 'keep'
+    ? [`${lead} 소정근로일에 결근한 주에도 그 주 근무일에 지급한 주휴수당은 공제하지 않는다.`]
+    : [`${lead} 소정근로일에 결근한 주에는 그 주 근무일에 미리 지급한 주휴수당을 그 달 임금에서 공제한다(근로기준법 제55조 제1항, 같은 법 시행령 제30조 제1항).`];
+}
+
 export function buildContractDocument(form: WriteForm, design: DesignResult): ContractDocument {
   const daily = dailyWorkHours(form);
   const scheduledDaily = Math.min(daily, 8);
@@ -121,6 +131,7 @@ export function buildContractDocument(form: WriteForm, design: DesignResult): Co
         `일 지급액: ${wonText(design.total)}(구성은 아래 표)`,
         `통상시급: ${rateText(design.rate)}원(일 지급액 ÷ 아래 표의 하루 인정시간 합 ${hoursText(design.totalHours)})`,
         '월 임금은 그 달에 실제 근무한 날의 일 지급액을 합한 금액으로 한다.',
+        ...absentWeekLines(form, design),
         '표의 연장 시간은 제3조의 근무를 기준으로 미리 정한 시간이다. 실제 근로가 이 시간을 넘으면 넘는 시간의 수당을 따로 계산해 추가로 지급한다.',
       ]
     : [
