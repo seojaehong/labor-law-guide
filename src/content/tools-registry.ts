@@ -50,7 +50,7 @@ export const TOOLS: ToolEntry[] = [
     sitemap: { lastModified: '2026-10-25', changeFrequency: 'monthly', priority: 0.8 } },
   { href: '/tools/contract-check', title: '근로계약서 점검', desc: '계약서 내용을 폼에 입력하면 필수 명시사항·최저임금·위약금 등 25개 항목을 즉시 점검. 위반·리스크별 수정 방향 제시. 입력한 내용은 저장되지 않습니다.', badge: '참고 도구', icon: 'file-check',
     sitemap: { lastModified: '2026-07-31', changeFrequency: 'monthly', priority: 0.9 } },
-  { href: '/tools/contract-write', title: '근로계약서 작성', desc: '월 임금 총액과 근무형태를 넣으면 기본급·연장·휴일·연차 항목별 시간과 금액을 나누고, 근로계약서 점검 규칙으로 다시 확인한 뒤 엑셀·한글·PDF로 내려받습니다. 입력한 내용은 브라우저 밖으로 나가지 않습니다.', badge: '브라우저 작성', icon: 'file-check',
+  { href: '/tools/contract-write', title: '근로계약서 작성', desc: '월급(총액·실수령액)이나 시급과 근무형태를 넣으면 기본급·주휴·연장·야간·휴일·연차 항목별 시간과 금액을 나누고, 근로계약서 점검 규칙으로 다시 확인한 뒤 엑셀·한글·PDF로 내려받습니다. 입력한 내용은 브라우저 밖으로 나가지 않습니다.', badge: '브라우저 작성', icon: 'file-check',
     sitemap: { lastModified: '2026-11-03', changeFrequency: 'monthly', priority: 0.85 } },
   { href: '/tools/holiday-pay', title: '공휴일 수당 계산기', desc: '노동절(5/1)·관공서 공휴일 근무 시 추가 지급액 계산. 5인 이상/미만 × 월급·일용·시급 6분기. 시급 주휴포함 케이스 자동 분리.', badge: '참고 도구', icon: 'calculator',
     sitemap: { lastModified: '2026-04-29', changeFrequency: 'monthly', priority: 0.9 } },

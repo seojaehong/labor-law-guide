@@ -715,6 +715,24 @@ const FEATURES: Record<string, { path: string; journey: Journey; waitUntil?: 'lo
         writeFileSync(resolve(OUT, `contract-write-${width}.${ext}`), buf);
         step(`${ext} 내려받음`, magic, buf.subarray(0, magic.length).toString());
       }
+      // 야간(261103 전수 개선) — 22:30 퇴근이면 22:00~22:30 야간 가산 항목이 생긴다
+      await p.getByLabel('퇴근 시각', { exact: true }).fill('22:30');
+      step('22:30 퇴근 — 야간근로수당 항목', /야간근로수당 \d/, await answer(p, '#cw-result'));
+      // 시급·일급 파트 — 수원 파트 양식 a(평일 11:00~17:00 · 휴게 30분 · 시간당 13,000원 · 공휴일 16일). 기대값 = tests/unit/contract-write-part.test.ts
+      await p.getByRole('button', { name: '시급·일급 파트', exact: true }).click();
+      await p.getByRole('button', { name: '금', exact: true }).click();
+      await p.getByLabel('출근 시각', { exact: true }).fill('11:00');
+      await p.getByLabel('퇴근 시각', { exact: true }).fill('17:00');
+      await p.getByLabel('하루 휴게시간', { exact: true }).fill('30');
+      await p.getByLabel('연간 공휴일 근무 예정 일수', { exact: true }).fill('16');
+      await p.getByLabel('시간당 지급액', { exact: true }).fill('13000');
+      const part = await answer(p, '#cw-result');
+      step('파트 — 일 지급액 78,000원 구성', /기본급\(잔액\) 5\.5시간 58,293원 주휴수당 1\.1시간 11,658원 연차수당 0\.25시간 2,683원 휴일근로수당 0\.51시간 5,366원 합계 7\.36시간 78,000원/, part);
+      step('파트 — 통상시급 10,598.60원 · 되먹임 손볼 항목 없음', /통상시급 10,598\.60원 .*손볼 항목이 없습니다/, part);
+      const [partDl] = await Promise.all([p.waitForEvent('download', { timeout: 60000 }), p.getByRole('button', { name: '한글로 받기', exact: true }).click()]);
+      const partBuf = require('node:fs').readFileSync(await partDl.path());
+      writeFileSync(resolve(OUT, `contract-write-part-${width}.hwpx`), partBuf);
+      step('파트 hwpx 내려받음', 'PK', partBuf.subarray(0, 2).toString());
       // 입력값이 실린 요청 0건 — 계산·파일 생성은 브라우저 안에서만(글꼴 파일 GET 만 허용)
       const leaked = sent.filter((s) => s.includes('2600000') || s.includes('%ED%95%A9%EC%84%B1%EA%B7%BC%EB%A1%9C%EC%9E%90') || s.includes('합성근로자'));
       step('입력값이 실린 요청 0건', '0', String(leaked.length));

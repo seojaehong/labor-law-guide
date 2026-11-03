@@ -5,7 +5,7 @@ import { SITE_URL } from '@/lib/constants';
 import ContractWriteClient from './ContractWriteClient';
 
 const DESCRIPTION =
-  '월 임금 총액과 근무형태를 넣으면 기본급·연장·휴일·연차 항목별 시간과 금액을 나누고, 근로계약서를 엑셀·한글·PDF로 만듭니다. 입력한 내용은 브라우저 안에서만 계산하고 서버로 보내지 않습니다.';
+  '월 임금 총액(또는 실수령액)이나 시간당 지급액과 근무형태를 넣으면 기본급·주휴·연장·야간·휴일·연차 항목별 시간과 금액을 나누고, 근로계약서를 엑셀·한글·PDF로 만듭니다. 입력한 내용은 브라우저 안에서만 계산하고 서버로 보내지 않습니다.';
 
 export const metadata: Metadata = publicMetadata({
   title: '근로계약서 작성 | 임금 구성·엑셀·한글·PDF',
@@ -33,7 +33,7 @@ export default function ContractWritePage() {
         근로계약서 작성
       </h1>
       <p className="mb-6 text-sm leading-relaxed" style={{ color: 'var(--grey-500)' }}>
-        월 임금 총액과 근무형태를 넣으면 항목별 시간과 금액을 나누고, 만든 계약서를 근로계약서 점검 규칙으로 다시 확인한 뒤
+        월 임금 총액(또는 실수령액)이나 시간당 지급액과 근무형태를 넣으면 항목별 시간과 금액을 나누고, 만든 계약서를 근로계약서 점검 규칙으로 다시 확인한 뒤
         엑셀·한글·PDF로 내려받습니다.
       </p>
 
