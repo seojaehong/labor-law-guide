@@ -30,6 +30,9 @@ const assets = [
   'public/forms/nhis/NHIS_6_ACQ.pdf',
   'public/fonts/llg-forms/LLGFormsSans-Regular.ttf',
   'public/fonts/llg-forms/OFL.txt', // 글꼴(나눔고딕 축소·개명본) SIL OFL 1.1 — 글꼴과 함께 배포해야 한다
+  // contract 묶음 — 근로계약서 PDF 는 사이트와 같이 나눔고딕 전체를 쓴다(서브셋은 글자가 빠진다)
+  'public/fonts/NanumGothic-Regular.ttf',
+  'public/fonts/NanumGothic-OFL.txt',
 ];
 fs.mkdirSync(path.join(dist, 'assets'), { recursive: true });
 for (const rel of assets) {

@@ -81,6 +81,15 @@ claude mcp add --scope user ilmunui -- npx -y ilmunui-mcp mcp --groups nhis
 | `popbill` | `popbill_status` | 내 팝빌 계정의 연결·잔액·팩스/문자 권한·등록된 발신번호 조회(보내지 않음) |
 | `popbill` | `send_fax` / `fax_result` | 내 계정·내 번호로 팩스 전송(`confirm:true` 일 때만) · 결과 조회 |
 | `popbill` | `send_sms` / `sms_result` | 내 계정·내 번호로 문자 전송(`confirm:true` 일 때만) · 결과 조회 |
+| `contract` | `design_contract_wage` | 근로계약서 임금 구성 설계 — 월 총액(또는 실수령액)·파트 시급과 근무형태로 항목별 시간·금액·통상시급, 점검 규칙으로 다시 본 결과, 입력 오류 |
+| `contract` | `check_contract` | 근로계약서 점검 — 사이트 점검·오프라인판과 같은 입력(계약 JSON)으로 항목별 위반·리스크·적정·자료 필요와 수정 방향 |
+| `contract` | `make_contract_files` | 근로계약서 엑셀(xlsx)·한글(hwpx)·PDF 를 폴더에 저장 **(로컬 전용)** |
+| `calc` | `check_min_wage` | 최저임금 비교(시간급 환산, 올해·내년 고시) |
+| `calc` | `calc_weekly_holiday_pay` | 주휴수당 |
+| `calc` | `count_regular_workers` | 상시 근로자 수 — 5명 이상으로 보는 기간, 10명 이상 기간, 1년 이상 근속자 연차 적용 |
+| `calc` | `calc_take_home_pay` | 실수령액(4대보험 근로자 몫·간이세액표 소득세·지방소득세) |
+| `calc` | `calc_notice_pay` | 해고예고수당 |
+| `calc` | `calc_leave_pay` | 연차수당(남은 일수 또는 퇴직 시 발생 누계, 단시간 근로자) |
 
 ### 묶음 고르기
 
@@ -92,6 +101,22 @@ claude mcp add --scope user ilmunui -- npx -y ilmunui-mcp mcp --groups nhis
 ```bash
 npx -y ilmunui-mcp --help
 ```
+
+### contract · calc 묶음
+
+사이트 근로계약서 작성(/tools/contract-write)·점검(/tools/contract-check)과 계산기(/tools/min-wage·weekly-holiday-pay·headcount·take-home-pay·notice-pay·leave-pay)의 엔진을 그대로 묶었습니다. 같은 입력이면 사이트와 같은 값이 나옵니다.
+
+- **주민등록번호를 받지 않습니다.** 근로자 이름은 선택이고, 없으면 「근로자」로 적습니다. `check_contract` 는 입력에 주민등록번호 모양이 있으면 점검하지 않습니다.
+- `design_contract_wage` 는 사업체명·근무장소·업무가 없어도 금액을 계산하고, 빠진 칸을 `contractFieldsMissing` 으로 알려 줍니다. `make_contract_files` 는 그 칸이 있어야 파일을 만들고, 이미 있는 파일은 덮어쓰지 않습니다.
+- 결과 문구는 사이트 화면과 같습니다. 점검 규칙 글의 임금 구조 용어도 사이트처럼 「임금 구성」으로 바꿔 냅니다.
+- 각 묶음 파일이 원격(HTTP)판에 실어도 되는 도구 목록을 내보냅니다 — `contractRemoteSafe`(설계·점검), `calcRemoteSafe`(전부). 파일을 쓰는 `make_contract_files` 는 `contractLocalOnly` 로 따로 표시했습니다.
+
+```bash
+claude mcp add --scope user ilmunui -- npx -y ilmunui-mcp mcp --groups contract,calc
+```
+
+> 「주4 월화수목 10:00~22:00, 휴게 155분, 공휴일 22일, 월 260만원으로 근로계약서 임금 구성 짜 줘.」
+> 「시급 10,320원, 주 22.5시간이면 주휴수당 얼마야?」
 
 ---
 
@@ -141,12 +166,13 @@ npx -y ilmunui-mcp --help
 ```bash
 cd tools/ilmunui-mcp
 npm.cmd install
-npm.cmd run build        # dist/server.mjs + dist/assets/(서식 PDF 2종·글꼴·OFL.txt)
+npm.cmd run build        # dist/server.mjs + dist/assets/(서식 PDF 2종·글꼴·OFL.txt, 계약서 PDF 용 나눔고딕·라이선스)
 node smoke.mjs           # 합성 값 시험, 전송 안 함
 npm.cmd pack --dry-run   # 올라갈 파일 확인
 ```
 
 - 새 묶음 = `groups/<이름>.mjs` 에 `register…(server)` 를 만들고 `server.mjs` 의 `GROUPS` 에 한 줄 더합니다.
+- `contract`·`calc` 묶음은 저장소 루트의 의존성(exceljs·jszip 등)을 함께 묶으므로, 빌드 전에 저장소 루트에서도 `npm.cmd ci` 를 해 둡니다.
 - 저장소 빌드본을 바로 등록할 때: `claude mcp add <이름> -s user -- node <이 폴더>/dist/server.mjs`
 
 ## 📄 라이선스
@@ -154,3 +180,4 @@ npm.cmd pack --dry-run   # 올라갈 파일 확인
 - 코드: MIT (`LICENSE`)
 - 글꼴 `dist/assets/LLGFormsSans-Regular.ttf`: 나눔고딕(Copyright (c) 2010, NHN Corporation)을 줄이고 이름을 바꾼 것으로 SIL Open Font License 1.1 을 따릅니다. 전문은 `dist/assets/OFL.txt` 에 함께 들어 있습니다.
 - 서식 PDF: 국민건강보험공단 공식 서식(빈 양식)
+- 글꼴 `dist/assets/NanumGothic-Regular.ttf`(근로계약서 PDF): 나눔고딕(Copyright (c) 2010, NHN Corporation), SIL Open Font License 1.1. 전문은 `dist/assets/NanumGothic-OFL.txt`.
