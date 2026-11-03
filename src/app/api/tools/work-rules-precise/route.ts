@@ -3,9 +3,14 @@
 // - 본문 전체가 이 서버를 거쳐 Anthropic(외부 AI 제공사)으로 간다. 본문은 로그에 남기지 않는다.
 // - 본문 저장은 사용자가 동의(store=true)했을 때만 — 동의가 없으면 행의 조문 원문(현행·개정안)을 비우고 점검 결과만 남긴다.
 // - 결과는 노무사 검수 전 초안이다. 화면 문구가 그 점을 알린다(RulesCheck.tsx).
+// - 서버 간 호출(일의 무늬 MCP): Authorization: Bearer <키> 가 WORK_RULES_PRECISE_MCP_KEY 와 맞으면 자동 확인(turnstile)을 건너뛰고
+//   IP 한도 대신 키 한도(WORK_RULES_PRECISE_MCP_DAILY_LIMIT, 기본 20)로 센다. 전체 한도는 화면과 함께 쓴다.
+//   키 한도는 DB 를 못 읽으면 막는다(fail-closed) — 자동 확인을 건너뛰는 경로라 화면 경로보다 엄하게 둔다.
+//   키가 맞지 않으면 401(그 IP 의 하루 횟수를 하나 쓴다). env 에 키가 없으면 이 경로는 꺼져 Bearer 를 무시한다.
 import { createClient } from '@supabase/supabase-js';
 import { isTurnstileEnabled, verifyTurnstile } from '@/lib/turnstile';
 import { extractIp, hashIp } from '@/lib/client-ip';
+import { mcpAuth } from '@/lib/laws/precise/mcp-key';
 import type { RuleSpec } from '@/lib/laws/rules-check';
 import { anthropicAsk, BATCH_RUNS, usd, type Usage } from '@/lib/laws/precise/judge';
 import { splitArticles } from '@/lib/laws/precise/articles';
@@ -21,6 +26,7 @@ const MAX_CHARS = 300_000; // 취업규칙 한 벌은 5만~10만 자다
 const IP_DAILY_LIMIT = parseInt(process.env.WORK_RULES_PRECISE_IP_DAILY_LIMIT || '3', 10);
 // 비용 폭주 방어선. 1건 ≈ $0.5~1 → 50건이면 하루 최대 $50 선에서 멈춘다
 const GLOBAL_DAILY_LIMIT = parseInt(process.env.WORK_RULES_PRECISE_GLOBAL_DAILY_LIMIT || '50', 10);
+const KEY_DAILY_LIMIT = parseInt(process.env.WORK_RULES_PRECISE_MCP_DAILY_LIMIT || '20', 10);
 
 type Obj = Record<string, unknown>;
 const json = (status: number, body: Obj) => Response.json(body, { status, headers: { 'Cache-Control': 'no-store' } });
@@ -31,26 +37,29 @@ function db() {
   return url && key ? createClient(url, key, { auth: { autoRefreshToken: false, persistSession: false } }) : null;
 }
 
-/** 챗·계약서 판독과 같은 공용 카운터. DB 오류면 fail-open 하되 로그를 남긴다(contract-check 와 같다). */
-async function underLimit(scope: 'ip' | 'global', key: string, max: number): Promise<boolean> {
+/** 챗·계약서 판독과 같은 공용 카운터. unknown = DB 를 못 읽었다(env 없음·오류·모양 다름). 로그를 남긴다. */
+async function limitState(scope: 'ip' | 'global', key: string, max: number): Promise<'ok' | 'over' | 'unknown'> {
   const client = db();
   if (!client) {
     console.error('[work-rules-precise] rate limit skipped: supabase env missing');
-    return true;
+    return 'unknown';
   }
   try {
     const { data, error } = await client.rpc('incr_rate_limit', { p_scope: scope, p_key: key, p_max: max });
     const row = (Array.isArray(data) ? data[0] : data) as { allowed?: boolean } | undefined;
     if (error || !row || typeof row.allowed !== 'boolean') {
-      console.error('[work-rules-precise] rate limit fail-open', scope, error?.message ?? 'shape');
-      return true;
+      console.error('[work-rules-precise] rate limit unavailable', scope, error?.message ?? 'shape');
+      return 'unknown';
     }
-    return row.allowed;
+    return row.allowed ? 'ok' : 'over';
   } catch (err) {
     console.error('[work-rules-precise] rate limit exception', scope, err instanceof Error ? err.message : 'unknown');
-    return true;
+    return 'unknown';
   }
 }
+
+/** 화면 경로 — DB 오류면 fail-open(contract-check 와 같다) */
+const underLimit = async (scope: 'ip' | 'global', key: string, max: number) => (await limitState(scope, key, max)) !== 'over';
 
 const str = (v: unknown) => (typeof v === 'string' ? v : '');
 
@@ -60,6 +69,14 @@ export async function POST(req: Request): Promise<Response> {
   if (process.env.WORK_RULES_PRECISE_ENABLED !== '1' || !apiKey) {
     return json(501, { error: 'not_configured', message: '정밀 점검을 준비 중입니다.' });
   }
+  const auth = mcpAuth(req.headers.get('authorization'), process.env.WORK_RULES_PRECISE_MCP_KEY);
+  if (auth.kind === 'bad') {
+    // 틀린 키로 두드려 보는 것도 그 IP 의 하루 횟수를 쓴다. 키·본문은 로그에 남기지 않는다
+    console.warn('[work-rules-precise] mcp key rejected');
+    await limitState('ip', `wrp:${hashIp(extractIp(req))}`, IP_DAILY_LIMIT);
+    return json(401, { error: 'unauthorized', message: '연결 키가 맞지 않습니다.' });
+  }
+  const viaKey = auth.kind === 'key';
   let input: Obj;
   try {
     input = (await req.json()) as Obj;
@@ -88,15 +105,22 @@ export async function POST(req: Request): Promise<Response> {
   }
 
   const ip = extractIp(req);
-  if (isTurnstileEnabled()) {
-    const ts = await verifyTurnstile(str(input.turnstileToken) || null, ip);
-    if (!ts.skipped && !ts.success) {
-      return json(403, { error: 'bot_check_failed', message: '자동 확인에 실패했습니다. 잠시 후 다시 시도해 주세요.' });
+  if (auth.kind === 'key') {
+    // 서버 간 호출 — 자동 확인 대신 키 한도. 키 한도를 못 읽으면 막는다
+    const state = await limitState('ip', auth.limitKey, KEY_DAILY_LIMIT);
+    if (state === 'unknown') return json(503, { error: 'limit_unavailable', message: '이용 한도를 확인하지 못했습니다. 잠시 후 다시 시도해 주세요.' });
+    if (state === 'over') return json(429, { error: 'rate_limited', message: `이 연결 키의 정밀 점검은 하루 ${KEY_DAILY_LIMIT}회까지입니다.` });
+  } else {
+    if (isTurnstileEnabled()) {
+      const ts = await verifyTurnstile(str(input.turnstileToken) || null, ip);
+      if (!ts.skipped && !ts.success) {
+        return json(403, { error: 'bot_check_failed', message: '자동 확인에 실패했습니다. 잠시 후 다시 시도해 주세요.' });
+      }
     }
-  }
-  // 개인 횟수를 먼저 본다 — 이미 막힌 한 사람이 전체 한도를 깎지 못하게
-  if (!(await underLimit('ip', `wrp:${hashIp(ip)}`, IP_DAILY_LIMIT))) {
-    return json(429, { error: 'rate_limited', message: `정밀 점검은 하루 ${IP_DAILY_LIMIT}회까지 이용할 수 있습니다.` });
+    // 개인 횟수를 먼저 본다 — 이미 막힌 한 사람이 전체 한도를 깎지 못하게
+    if (!(await underLimit('ip', `wrp:${hashIp(ip)}`, IP_DAILY_LIMIT))) {
+      return json(429, { error: 'rate_limited', message: `정밀 점검은 하루 ${IP_DAILY_LIMIT}회까지 이용할 수 있습니다.` });
+    }
   }
   if (!(await underLimit('global', 'wrp_all', GLOBAL_DAILY_LIMIT))) {
     return json(429, { error: 'rate_limited', message: '오늘 정밀 점검 한도가 찼습니다. 내일 다시 이용해 주세요.' });
@@ -136,6 +160,6 @@ export async function POST(req: Request): Promise<Response> {
     });
     if (error) console.error('[work-rules-precise] run insert failed', error.code ?? 'unknown');
   }
-  console.log('[work-rules-precise] done', result.articles, result.flagged, cost, seconds);
+  console.log('[work-rules-precise] done', viaKey ? 'mcp' : 'web', result.articles, result.flagged, cost, seconds);
   return json(200, { runId, rows: result.rows, articles: result.articles, flagged: result.flagged, seconds });
 }
