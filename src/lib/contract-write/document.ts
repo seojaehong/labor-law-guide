@@ -6,11 +6,7 @@
 
 import { ROUNDING_UNIT, weeklySchedule, type DesignResult, type ItemKey } from './design';
 import { dailyWorkHours, leaveTerms, PROBATION_PCT, rateText, restDayTerm, type WriteForm } from './contract';
-
-export interface ContractClause {
-  heading: string;
-  lines: string[];
-}
+import { hoursText, wonText } from './text';
 
 export interface WageRow {
   label: string;
@@ -19,17 +15,32 @@ export interface WageRow {
   amount: number;
 }
 
+export interface WageTable {
+  caption: string;
+  header: string[];
+  rows: WageRow[];
+  total: number;
+}
+
+export interface ContractClause {
+  heading: string;
+  lines: string[];
+  /** 조항 아래 붙는 표(제5조 임금 구성). 출력은 조항 이름을 찾지 않고 이 칸으로 표 자리를 안다 */
+  table?: WageTable;
+}
+
 export interface ContractDocument {
   title: string;
   preamble: string;
   clauses: ContractClause[];
-  /** 제5조 아래 임금 구성 표 */
-  wageTable: { caption: string; header: string[]; rows: WageRow[]; total: number };
   signature: { date: string; employer: string[]; employee: string[] };
 }
 
-const won = (n: number) => `${n.toLocaleString('ko-KR')}원`;
-const h2 = (n: number) => `${(Math.round(n * 100) / 100).toLocaleString('ko-KR', { maximumFractionDigits: 2 })}시간`;
+/** 표를 칸 글자로(머리행·항목·합계) — 한글·PDF·줄 글자가 같은 행을 쓴다 */
+export function wageTableCells(t: WageTable): string[][] {
+  return [t.header, ...t.rows.map((r) => [r.label, r.hours, r.basis, wonText(r.amount)]), ['합계', '', '', wonText(t.total)]];
+}
+
 
 function dateText(iso: string): string {
   const [y, m, d] = iso.split('-').map(Number);
@@ -106,15 +117,15 @@ export function buildContractDocument(form: WriteForm, design: DesignResult): Co
 
   const wageLines = hourly
     ? [
-        `시간당 지급액: ${won(form.hourlyWage!)}(휴게시간을 포함한 출근~퇴근 시간 기준)`,
-        `일 지급액: ${won(design.total)}(구성은 아래 표)`,
-        `통상시급: ${rateText(design.rate)}원(일 지급액 ÷ 아래 표의 하루 인정시간 합 ${h2(design.totalHours)})`,
+        `시간당 지급액: ${wonText(form.hourlyWage!)}(휴게시간을 포함한 출근~퇴근 시간 기준)`,
+        `일 지급액: ${wonText(design.total)}(구성은 아래 표)`,
+        `통상시급: ${rateText(design.rate)}원(일 지급액 ÷ 아래 표의 하루 인정시간 합 ${hoursText(design.totalHours)})`,
         '월 임금은 그 달에 실제 근무한 날의 일 지급액을 합한 금액으로 한다.',
         '표의 연장 시간은 제3조의 근무를 기준으로 미리 정한 시간이다. 실제 근로가 이 시간을 넘으면 넘는 시간의 수당을 따로 계산해 추가로 지급한다.',
       ]
     : [
-        `월 임금 총액: ${won(design.total)}(구성은 아래 표)`,
-        `통상시급: ${rateText(design.rate)}원(월 임금 총액 ÷ 아래 표의 월 인정시간 합 ${h2(design.totalHours)})`,
+        `월 임금 총액: ${wonText(design.total)}(구성은 아래 표)`,
+        `통상시급: ${rateText(design.rate)}원(월 임금 총액 ÷ 아래 표의 월 인정시간 합 ${hoursText(design.totalHours)})`,
         '표의 연장·휴일 시간은 제3조·제4조의 근무를 기준으로 미리 정한 월 예정 시간이다. 실제 근로가 이 시간을 넘으면 넘는 시간의 수당을 따로 계산해 추가로 지급한다.',
       ];
   // 출력 숫자를 다시 셈할 수 있게(#139 적대 검토 9) — 시간은 둘째 자리로 줄여 적지만 금액은 줄이기 전 시간으로 셈했다
@@ -125,38 +136,38 @@ export function buildContractDocument(form: WriteForm, design: DesignResult): Co
     wageLines.push(`${absorber.label}을 뺀 항목 금액은 ${unit}원 단위로 올렸고, 남는 금액은 ${absorber.label}에 넣었다.`);
   }
   if (prob?.reduced) {
-    wageLines.push(`수습 감액 기간의 ${hourly ? '일 지급액' : '월 임금 총액'}: ${won(Math.round((design.total * PROBATION_PCT) / 100))}(100분의 ${PROBATION_PCT})`);
+    wageLines.push(`수습 감액 기간의 ${hourly ? '일 지급액' : '월 임금 총액'}: ${wonText(Math.round((design.total * PROBATION_PCT) / 100))}(100분의 ${PROBATION_PCT})`);
   }
   wageLines.push(`임금 지급일: ${form.payday}`, `지급방법: ${form.paymentMethod}`);
 
   const leaveLines = leaveTerms(form);
+
+  const rows: WageRow[] = design.items
+    .filter((item) => item.amount !== 0 || item.hours > 0)
+    .map((item) => ({ label: item.label, hours: hoursText(item.hours), basis: basisText(item.key, design.period, fivePlus), amount: item.amount }));
+  const table: WageTable = {
+    caption: hourly ? '일 지급액 구성(항목별 하루 인정시간·금액)' : '임금 구성(항목별 월 인정시간·금액)',
+    header: ['항목', hourly ? '하루 인정시간' : '월 인정시간', '산정 기준', '금액'],
+    rows,
+    total: design.total,
+  };
 
   const clauses: ContractClause[] = [
     { heading: '제1조(계약기간)', lines: periodLines },
     { heading: '제2조(근무장소와 업무)', lines: [`근무장소: ${form.location}`, `업무: ${form.duty}`] },
     { heading: '제3조(근로일과 근로시간)', lines: workLines },
     { heading: '제4조(휴일)', lines: restLines },
-    { heading: '제5조(임금)', lines: wageLines },
+    { heading: '제5조(임금)', lines: wageLines, table },
     { heading: '제6조(연차유급휴가)', lines: leaveLines },
     { heading: '제7조(사회보험)', lines: ['고용보험·산재보험·국민연금·건강보험에 가입한다.'] },
     { heading: '제8조(계약서 교부)', lines: ['사업주는 이 계약을 맺는 즉시 계약서 사본을 근로자에게 교부한다(근로기준법 제17조 제2항).'] },
     { heading: '제9조(그 밖의 사항)', lines: ['이 계약에 정하지 않은 사항은 근로기준법 등 관계 법령에 따른다.'] },
   ];
 
-  const rows: WageRow[] = design.items
-    .filter((item) => item.amount !== 0 || item.hours > 0)
-    .map((item) => ({ label: item.label, hours: h2(item.hours), basis: basisText(item.key, design.period, fivePlus), amount: item.amount }));
-
   return {
     title: '근로계약서',
     preamble: `${form.workplaceName}(이하 「사업주」)와 ${form.employeeName}(이하 「근로자」)은 다음과 같이 근로계약을 맺는다.`,
     clauses,
-    wageTable: {
-      caption: hourly ? '일 지급액 구성(항목별 하루 인정시간·금액)' : '임금 구성(항목별 월 인정시간·금액)',
-      header: ['항목', hourly ? '하루 인정시간' : '월 인정시간', '산정 기준', '금액'],
-      rows,
-      total: design.total,
-    },
     signature: {
       date: dateText(form.writtenDate),
       employer: [`사업체명: ${form.workplaceName}`, `대표자: ${form.ownerName ?? ''}  (서명 또는 인)`],
@@ -170,11 +181,7 @@ export function documentLines(doc: ContractDocument): string[] {
   const out = [doc.title, doc.preamble];
   for (const c of doc.clauses) {
     out.push(c.heading, ...c.lines);
-    if (c.heading.startsWith('제5조')) {
-      out.push(doc.wageTable.caption, doc.wageTable.header.join(' '));
-      for (const r of doc.wageTable.rows) out.push(`${r.label} ${r.hours} ${r.basis} ${won(r.amount)}`);
-      out.push(`합계 ${won(doc.wageTable.total)}`);
-    }
+    if (c.table) out.push(c.table.caption, ...wageTableCells(c.table).map((r) => r.filter(Boolean).join(' ')));
   }
   out.push(doc.signature.date, ...doc.signature.employer, ...doc.signature.employee);
   return out;

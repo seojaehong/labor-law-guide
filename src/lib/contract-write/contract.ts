@@ -29,7 +29,6 @@ export interface WriteForm {
   endDate?: string | null;
   location: string;
   duty: string;
-  daysPerWeek: number;
   /** HH:MM */
   start: string;
   end: string;
@@ -95,11 +94,11 @@ const ITEM_CODE: Record<ItemKey, WageItemCode> = {
 const rate2 = (rate: number) => Math.round(rate * 100) / 100;
 export const rateText = (rate: number) => rate2(rate).toLocaleString('ko-KR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-/** 점검 규칙 HOLIDAY-COVER 가 읽는 'N일/M.MH' — M = 월 평균 공휴일 실근로시간 */
+/** 점검 규칙 HOLIDAY-COVER 가 읽는 'N일/M.MH' — N = 월 평균 공휴일 근무 일수, M = 그 실근로시간 */
 function holidayNote(form: WriteForm): string {
-  const monthlyDays = (form.holidayDaysPerYear * (Math.min(form.daysPerWeek, 5) / 5)) / 12;
+  const monthlyDays = (form.holidayDaysPerYear * (Math.min(form.workDays.length, 5) / 5)) / 12;
   const planned = Math.round(monthlyDays * dailyWorkHours(form) * 100) / 100;
-  return `연 ${form.holidayDaysPerYear}일 근무 예정, 월 평균 ${Math.round(form.holidayDaysPerYear)}일/${planned}H`;
+  return `연 ${form.holidayDaysPerYear}일 근무 예정, 월 평균 ${Math.round(monthlyDays * 100) / 100}일/${planned}H`;
 }
 
 /** 시작일부터 종료일까지가 1년 이상인지(종료일 = 시작일 + 1년 − 1일이면 1년) */
@@ -156,7 +155,7 @@ export function designFromForm(form: WriteForm): DesignResult {
       stayHours: spanMinutes(form) / 60,
       breakMinutes: form.breakMinutes,
       nightHours: nightHoursOf(form),
-      daysPerWeek: form.daysPerWeek,
+      daysPerWeek: form.workDays.length,
       holidayDaysPerYear: form.holidayDaysPerYear,
       fivePlus: form.employeeCount5plus,
       rounding: form.rounding,
@@ -166,7 +165,7 @@ export function designFromForm(form: WriteForm): DesignResult {
   if (!(form.monthlyTotal && form.monthlyTotal > 0)) throw new Error('월 임금 총액을 넣어 주세요');
   return designMonthlyWage({
     monthlyTotal: form.monthlyTotal,
-    daysPerWeek: form.daysPerWeek,
+    daysPerWeek: form.workDays.length,
     dailyWorkHours: dailyWorkHours(form),
     nightHoursPerDay: nightHoursOf(form),
     holidayDaysPerYear: form.holidayDaysPerYear,
@@ -229,7 +228,7 @@ function basisOf(key: ItemKey, hours: number, fivePlus: boolean): { basis: numbe
  */
 export function toContract(form: WriteForm, design: DesignResult): Contract {
   const fivePlus = form.employeeCount5plus;
-  const scale = design.period === 'day' ? form.daysPerWeek * WEEKS_PER_MONTH : 1;
+  const scale = design.period === 'day' ? form.workDays.length * WEEKS_PER_MONTH : 1;
   // 파트는 계산값(exact)을 월로 환산해 넣으므로 단위 올림이 점검에 닿지 않는다 — 월급제만 단위를 밝힌다
   const unit = design.period === 'month' ? ROUNDING_UNIT[form.rounding ?? 'won'] : 0;
   const items: WageItem[] = design.items
@@ -243,7 +242,7 @@ export function toContract(form: WriteForm, design: DesignResult): Contract {
         amount: design.period === 'day' ? Math.round(item.exact * scale) : item.amount,
         basis_hours: Number(basis.toFixed(4)),
         rate_multiplier: multiplier,
-        basis_text: `통상시급 ${rateText(design.rate)}원 × ${hours.toFixed(2)}시간${multiplier !== 1 ? `(가산 ${multiplier}배 반영)` : ''}${unit && !item.absorbs ? `(${unit}원 단위 올림)` : ''}`,
+        basis_text: `통상시급 ${rateText(design.rate)}원 × ${hours.toFixed(2)}시간${multiplier > 1 ? `(${multiplier}배, 가산 포함)` : multiplier < 1 ? `(가산분 ${multiplier}배)` : ''}${unit && !item.absorbs ? `(${unit}원 단위 올림)` : ''}`,
         ...(item.key === 'base' ? { includes_weekly_holiday: design.period === 'month' } : {}),
       };
     });
@@ -251,7 +250,7 @@ export function toContract(form: WriteForm, design: DesignResult): Contract {
   const prob = form.probation;
   return {
     contract_id: 'contract-write',
-    workplace: { name: form.workplaceName, owner_name: form.ownerName ?? null, employee_count_5plus: fivePlus } as Contract['workplace'],
+    workplace: { name: form.workplaceName, owner_name: form.ownerName ?? null, employee_count_5plus: fivePlus },
     employee: { name: form.employeeName, hire_date: form.startDate, employment_type: null },
     period: {
       start_date: form.startDate,
@@ -263,7 +262,7 @@ export function toContract(form: WriteForm, design: DesignResult): Contract {
     },
     job: { location: form.location, duty: form.duty },
     work_time: {
-      days_per_week: form.daysPerWeek,
+      days_per_week: form.workDays.length,
       start: form.start,
       end: form.end,
       breaks: [{ minutes: form.breakMinutes }],

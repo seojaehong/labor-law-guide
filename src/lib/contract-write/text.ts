@@ -12,3 +12,9 @@ export function stripControl(s: string): string {
 export function cleanInput(s: string): string {
   return stripControl(s).replace(/㈜/g, '(주)').trim();
 }
+
+/** 금액 — 1,234,567원 */
+export const wonText = (n: number) => `${n.toLocaleString('ko-KR')}원`;
+
+/** 시간 — 소수 둘째 자리까지(계약서 제5조: 금액은 줄이기 전 시간으로 계산) */
+export const hoursText = (n: number) => `${(Math.round(n * 100) / 100).toLocaleString('ko-KR', { maximumFractionDigits: 2 })}시간`;

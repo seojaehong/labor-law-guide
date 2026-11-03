@@ -8,12 +8,12 @@
 
 import { ruleName } from '@/lib/contract-check/present';
 import { designFromForm, publicText, reviewWritten } from '@/lib/contract-write/contract';
-import { ITEM_LABEL, type ItemKey } from '@/lib/contract-write/design';
 import { buildContractDocument, type ContractDocument } from '@/lib/contract-write/document';
 import { buildContractHwpx, buildContractPdf, buildContractXlsx } from '@/lib/contract-write/export';
+import { hoursText, wonText } from '@/lib/contract-write/text';
 import type { Finding } from '@/lib/contract-check/types';
 
-import { INITIAL, toWriteForm, WEEK_DAYS, type WriteState } from '@/app/tools/contract-write/formState';
+import { absorbOptions, INITIAL, toWriteForm, WEEK_DAYS, type WriteState } from '@/app/tools/contract-write/formState';
 
 declare const __CW_BUILD__: { date: string; sha: string };
 
@@ -68,9 +68,6 @@ type Field =
   | { key: keyof WriteState; label: string; kind: 'select'; options: Array<[string, string]>; hint?: string; when?: (s: WriteState) => boolean };
 
 const monthly = (s: WriteState) => s.payType === 'monthly';
-const absorbKeys = (s: WriteState): ItemKey[] =>
-  s.payType === 'hourly' ? ['base', 'weeklyHoliday', 'overtime', 'night', 'leave', 'holiday'] : ['base', 'overtime', 'night', 'holiday', 'leave'];
-
 const FIELDS: Field[] = [
   { key: 'workplaceName', label: '사업체명', kind: 'text' },
   { key: 'ownerName', label: '대표자', kind: 'text' },
@@ -109,8 +106,6 @@ function el<K extends keyof HTMLElementTagNameMap>(tag: K, className?: string, t
   return node;
 }
 
-const won = (n: number) => `${n.toLocaleString('ko-KR')}원`;
-const hoursText = (n: number) => `${(Math.round(n * 100) / 100).toLocaleString('ko-KR')}시간`;
 
 function fontBytes(): Uint8Array {
   const b64 = (document.getElementById('cw-font')?.textContent ?? '').trim();
@@ -164,7 +159,7 @@ function mount(): void {
       if (f.kind === 'select') {
         const sel = el('select');
         sel.setAttribute('aria-label', f.label);
-        const options = f.key === 'absorbInto' ? absorbKeys(state).map((k) => [k, state.payType === 'hourly' && k === 'base' ? '기본급' : ITEM_LABEL[k]]) : f.options;
+        const options = f.key === 'absorbInto' ? absorbOptions(state.payType).map((o): [string, string] => [o.value, o.label]) : f.options;
         for (const [v, t] of options) {
           const o = el('option', '', t);
           o.value = v;
@@ -208,13 +203,13 @@ function mount(): void {
       const tr = el('tr');
       tr.appendChild(el('td', '', `${row.label}${row.absorbs ? '(잔액)' : ''}`));
       tr.appendChild(el('td', 'num', hoursText(row.hours)));
-      tr.appendChild(el('td', 'num', won(row.amount)));
+      tr.appendChild(el('td', 'num', wonText(row.amount)));
       table.appendChild(tr);
     }
     const tot = el('tr', 'total');
     tot.appendChild(el('td', '', '합계'));
     tot.appendChild(el('td', 'num', hoursText(r.rows.reduce((s, x) => s + x.hours, 0))));
-    tot.appendChild(el('td', 'num', won(r.total!)));
+    tot.appendChild(el('td', 'num', wonText(r.total!)));
     table.appendChild(tot);
     out.appendChild(table);
     out.appendChild(el('p', r.minimumWage!.warn ? 'warn' : '', r.minimumWage!.text));

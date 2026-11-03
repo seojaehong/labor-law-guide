@@ -7,6 +7,7 @@ import { checkWritten, designFromForm, nightHoursOf, reviewWritten, toContract, 
 import { buildContractDocument, documentLines } from '@/lib/contract-write/document';
 import { netToGross } from '@/lib/contract-write/net-gross';
 import { bannedHits } from '@/lib/tool-kit/banned';
+import { checkContract } from '@/lib/contract-check/engine';
 import { normalize } from '@/lib/contract-check/normalize';
 
 const MONTHLY: WriteForm = {
@@ -18,7 +19,6 @@ const MONTHLY: WriteForm = {
   endDate: null,
   location: '합성테스트 본점',
   duty: '홀 서비스',
-  daysPerWeek: 5,
   workDays: ['월', '화', '수', '목', '금'],
   start: '10:00',
   end: '22:30',
@@ -89,7 +89,7 @@ describe('시급·일급 파트 → 점검·본문', () => {
   });
 
   it('주 15시간 미만이면 주휴·연차를 넣지 않고 본문에 그 사유를 적는다', () => {
-    const form: WriteForm = { ...PART, workDays: ['토', '일'], daysPerWeek: 2 };
+    const form: WriteForm = { ...PART, workDays: ['토', '일'] };
     const design = designFromForm(form);
     expect(design.hours.weeklyHoliday).toBe(0);
     expect(checkWritten(form, design)).toEqual([]);
@@ -192,7 +192,6 @@ describe('주 6일 — 1주 40시간 넘는 연장', () => {
   const SIX: WriteForm = {
     ...MONTHLY,
     workDays: ['월', '화', '수', '목', '금', '토'],
-    daysPerWeek: 6,
     start: '09:00',
     end: '18:00',
     breakMinutes: 60,
@@ -272,5 +271,18 @@ describe('최저임금 한 줄(점검 규칙에서)', () => {
   it('점검 규칙 글에 「포괄」이 나오지 않는다', () => {
     const odd = { ...MONTHLY, monthlyTotal: 1_000_000 };
     for (const f of checkWritten(odd, designFromForm(odd))) expect(f.detail).not.toContain('포괄');
+  });
+});
+
+// #139 적대 검토 10 — 「월 평균」 자리에 연 일수(19일)를 적었다. 월 평균 일수를 적고, 점검 규칙도 그 일수를 읽는다
+describe('공휴일 메모(HOLIDAY-COVER 입력)', () => {
+  it('월 평균 일수 = 연 18.75일 ÷ 12 = 1.56일, 점검 결과 글에도 1.56일', () => {
+    const design = designFromForm(MONTHLY);
+    const c = toContract(MONTHLY, design);
+    expect(c.wage.public_holiday_note).toMatch(/월 평균 1\.56일\/\d+(\.\d+)?H/);
+    const [n] = normalize([c]);
+    const f = checkContract(n).find((x) => x.rule_code === 'HOLIDAY-COVER')!;
+    expect(f.status).toBe('ok');
+    expect(f.detail).toContain('공휴일 1.56일');
   });
 });

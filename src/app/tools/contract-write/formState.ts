@@ -2,7 +2,7 @@
 // 입력은 문자열로 들고, toWriteForm 이 숫자로 바꾸며 빠진 칸과 맞지 않는 값을 모은다.
 
 import { takeHomeRatesOn } from '@/lib/calc/take-home-pay';
-import type { ItemKey, Rounding } from '@/lib/contract-write/design';
+import { ITEM_LABEL, type ItemKey, type Rounding } from '@/lib/contract-write/design';
 import { dailyWorkHours, spanMinutes, WEEK_DAYS, type WeekDay, type WriteForm } from '@/lib/contract-write/contract';
 import { netToGross } from '@/lib/contract-write/net-gross';
 import { cleanInput } from '@/lib/contract-write/text';
@@ -192,7 +192,6 @@ export function toWriteForm(s: WriteState, today = todayKst()): ParsedForm {
       writtenDate: s.writtenDate || today,
       location: t(s.location),
       duty: t(s.duty),
-      daysPerWeek: s.workDays.length,
       workDays: WEEK_DAYS.filter((d) => s.workDays.includes(d)),
       start: s.start,
       end: s.end,
@@ -215,4 +214,10 @@ export function toWriteForm(s: WriteState, today = todayKst()): ParsedForm {
     missing: [],
     netNote,
   };
+}
+
+/** 끝에 남는 금액을 받을 수 있는 항목(표 순서)과 그 이름 — 화면·오프라인판 공용. 파트의 기본급은 주휴를 따로 둔다 */
+export function absorbOptions(payType: WriteState['payType']): Array<{ value: ItemKey; label: string }> {
+  const keys: ItemKey[] = payType === 'hourly' ? ['base', 'weeklyHoliday', 'overtime', 'night', 'leave', 'holiday'] : ['base', 'overtime', 'night', 'holiday', 'leave'];
+  return keys.map((k) => ({ value: k, label: payType === 'hourly' && k === 'base' ? '기본급' : ITEM_LABEL[k] }));
 }

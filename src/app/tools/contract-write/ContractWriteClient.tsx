@@ -7,12 +7,13 @@ import { useMemo, useState } from 'react';
 
 import { ruleName } from '@/lib/contract-check/present';
 import { designFromForm, publicText, reviewWritten } from '@/lib/contract-write/contract';
-import { ITEM_LABEL, type ItemKey, type Rounding } from '@/lib/contract-write/design';
+import { type Rounding } from '@/lib/contract-write/design';
 import { buildContractDocument } from '@/lib/contract-write/document';
+import { hoursText, wonText } from '@/lib/contract-write/text';
 
 import type { WeekDay } from '@/lib/contract-write/contract';
 
-import { INITIAL, toWriteForm, WEEK_DAYS, type WriteState } from './formState';
+import { absorbOptions, INITIAL, toWriteForm, WEEK_DAYS, type WriteState } from './formState';
 
 const inputClass =
   'w-full rounded-lg border px-3 py-2 text-base focus:border-[var(--color-accent)] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]/20';
@@ -81,18 +82,11 @@ const ROUNDING: { value: Rounding; label: string }[] = [
   { value: 'ceil10', label: '10원 단위 올림' },
   { value: 'ceil100', label: '100원 단위 올림' },
 ];
-const absorbOptions = (payType: WriteState['payType']): { value: ItemKey; label: string }[] =>
-  (payType === 'hourly'
-    ? (['base', 'weeklyHoliday', 'overtime', 'night', 'leave', 'holiday'] as ItemKey[])
-    : (['base', 'overtime', 'night', 'holiday', 'leave'] as ItemKey[])
-  ).map((k) => ({ value: k, label: payType === 'hourly' && k === 'base' ? '기본급' : ITEM_LABEL[k] }));
 const YES_NO = [
   { value: 'no' as const, label: '아니오' },
   { value: 'yes' as const, label: '예' },
 ];
 
-const won = (n: number) => `${n.toLocaleString('ko-KR')}원`;
-const hours = (n: number) => `${(Math.round(n * 100) / 100).toLocaleString('ko-KR')}시간`;
 
 function download(bytes: Uint8Array, name: string, type: string) {
   const url = URL.createObjectURL(new Blob([bytes as BlobPart], { type }));
@@ -308,21 +302,21 @@ export default function ContractWriteClient() {
                         {i.label}
                         {i.absorbs && <span className="ml-1 text-xs" style={{ color: 'var(--color-text-secondary)' }}>(잔액)</span>}
                       </td>
-                      <td className="py-1.5 pr-2 text-right">{hours(i.hours)}</td>
-                      <td className="py-1.5 text-right">{won(i.amount)}</td>
+                      <td className="py-1.5 pr-2 text-right">{hoursText(i.hours)}</td>
+                      <td className="py-1.5 text-right">{wonText(i.amount)}</td>
                     </tr>
                   ))}
                   <tr className="border-t border-[var(--color-border)] font-semibold">
                     <td className="py-1.5">합계</td>
-                    <td className="py-1.5 pr-2 text-right">{hours(result.design.totalHours)}</td>
-                    <td className="py-1.5 text-right">{won(result.design.total)}</td>
+                    <td className="py-1.5 pr-2 text-right">{hoursText(result.design.totalHours)}</td>
+                    <td className="py-1.5 text-right">{wonText(result.design.total)}</td>
                   </tr>
                 </tbody>
               </table>
             </div>
             {result.design.period === 'day' && (
               <p className="text-sm">
-                하루 지급액 {won(result.design.total)} · 한 달 예상 {won(Math.round(result.design.total * parsed.form!.daysPerWeek * 4.345))}(주 {parsed.form!.daysPerWeek}일 × 4.345주, 실제 근무일 기준으로 지급)
+                하루 지급액 {wonText(result.design.total)} · 한 달 예상 {wonText(Math.round(result.design.total * parsed.form!.workDays.length * 4.345))}(주 {parsed.form!.workDays.length}일 × 4.345주, 실제 근무일 기준으로 지급)
               </p>
             )}
             <p className="text-sm" style={result.minimumWage.warn ? { color: 'var(--color-warn-ink)' } : undefined}>

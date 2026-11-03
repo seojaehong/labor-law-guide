@@ -64,7 +64,7 @@ import type { Contract, Finding, FindingSeverity, FindingStatus, WageItem } from
 import { makeFinding, type RuleFn } from './index';
 
 export const HOLIDAY_PREMIUM_RATE = 1.5;
-const HOLIDAY_NOTE_RE = /(\d+)\s*일\s*\/\s*(\d+(?:\.\d+)?)\s*H/;
+const HOLIDAY_NOTE_RE = /(\d+(?:\.\d+)?)\s*일\s*\/\s*(\d+(?:\.\d+)?)\s*H/;
 
 const round1 = (x: number) => Math.round(x * 10) / 10;
 const fmt = (n: number) => n.toLocaleString('ko-KR');
@@ -719,7 +719,8 @@ export const ruleHolidayCover: RuleFn = (contract) => {
       "공휴일 예정 근무('N일/M.MH') 파싱 불가 — public_holiday_note 확인 필요",
     );
   }
-  const days = parseInt(match[1], 10);
+  // 일수는 월 평균이라 소수일 수 있다(1.56일)
+  const days = parseFloat(match[1]);
   const planned = parseFloat(match[2]);
   const rate = wage.ordinary_hourly_rate;
   if (rate == null) {

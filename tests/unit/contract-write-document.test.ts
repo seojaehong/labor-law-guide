@@ -22,7 +22,6 @@ const FORM: WriteForm = {
   endDate: null,
   location: '합성테스트 본점',
   duty: '홀 서비스',
-  daysPerWeek: 4,
   workDays: ['월', '화', '수', '목'],
   start: '10:00',
   end: '22:00',

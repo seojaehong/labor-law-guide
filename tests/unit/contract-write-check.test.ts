@@ -13,7 +13,6 @@ const UIJEONGBU: WriteForm = {
   endDate: null,
   location: '합성테스트 본점',
   duty: '홀 서비스',
-  daysPerWeek: 4,
   start: '10:00',
   end: '22:00',
   breakMinutes: 155,
@@ -28,7 +27,6 @@ const UIJEONGBU: WriteForm = {
 
 const SUWON: WriteForm = {
   ...UIJEONGBU,
-  daysPerWeek: 5,
   workDays: ['월', '화', '수', '목', '금'],
   start: '10:00',
   end: '21:00',
@@ -38,9 +36,9 @@ const SUWON: WriteForm = {
   overrides: { overtimeHours: 65.2, holidayHours: 25, leaveHours: 10 },
 };
 
+// 화면과 같은 함수(checkWritten)로 본다 — 시험이 필터 사본을 들고 있으면 둘이 어긋나도 모른다
 function problems(form: WriteForm) {
-  const [contract] = normalize([toContract(form, designFromForm(form))]);
-  return checkContract(contract).filter((f) => f.status === 'violation' || f.status === 'needs_data' || (f.status === 'risk' && f.severity !== 'minor' && f.severity !== 'info'));
+  return checkWritten(form, designFromForm(form));
 }
 
 describe('작성 → 점검 되먹임', () => {
@@ -77,7 +75,7 @@ describe('작성 → 점검 되먹임', () => {
 describe('금액 단위 × 잔액 항목 매트릭스', () => {
   const ROUNDINGS = ['won', 'ceil10', 'ceil100'] as const;
   const ABSORBERS = ['base', 'overtime', 'holiday', 'leave'] as const;
-  const PART_FORM: WriteForm = { ...UIJEONGBU, payType: 'hourly', monthlyTotal: undefined, hourlyWage: 15_000, workDays: ['월', '화', '수', '목', '금'], daysPerWeek: 5, start: '10:00', end: '20:00', breakMinutes: 60, holidayDaysPerYear: 16 };
+  const PART_FORM: WriteForm = { ...UIJEONGBU, payType: 'hourly', monthlyTotal: undefined, hourlyWage: 15_000, workDays: ['월', '화', '수', '목', '금'], start: '10:00', end: '20:00', breakMinutes: 60, holidayDaysPerYear: 16 };
   for (const [name, form] of [['의정부 주4 월급', UIJEONGBU], ['파트(연장 있음)', PART_FORM]] as const) {
     for (const rounding of ROUNDINGS) {
       for (const absorbInto of ABSORBERS) {
@@ -117,5 +115,17 @@ describe('단위 올림 표시 — 엔진 허용 폭(자기시험)', () => {
   });
   it('많은 쪽도 단위를 넘으면 위반 — 200원 늘리면 위반', () => {
     expect(shifted(200).status).toBe('violation');
+  });
+});
+
+// #139 적대 검토 10 — 연장 1.5배는 가산(0.5)을 포함한 배율이다. 「가산 1.5배」라고 적지 않는다
+describe('산출근거 배율 문구', () => {
+  it('연장 = 「1.5배, 가산 포함」, 야간 = 「가산분 0.5배」', () => {
+    const night = { ...UIJEONGBU, end: '22:30' } as WriteForm;
+    const items = toContract(night, designFromForm(night)).wage.items!;
+    const text = (code: string) => items.find((i) => i.code === code)!.basis_text!;
+    expect(text('OT_WEEKDAY')).toContain('(1.5배, 가산 포함)');
+    expect(text('OT_WEEKDAY')).not.toContain('가산 1.5배');
+    expect(text('NIGHT')).toContain('(가산분 0.5배)');
   });
 });
