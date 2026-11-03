@@ -688,7 +688,8 @@ export const ruleOtCover: RuleFn = (contract) => {
     return makeFinding('OT-COVER', 'needs_data', '주간 연장근로시간 산정 불가');
   }
   const required = round1(weeklyOt * WEEKS_PER_MONTH * OT_PREMIUM_RATE);
-  const agreed = round1(otItems(contract).reduce((sum, i) => sum + (i.basis_hours ?? 0), 0));
+  // 가산율이 적혀 있으면 시간은 실시간이다(WAGE-MATH 와 같은 해석). 없으면 환산시간으로 본다
+  const agreed = round1(otItems(contract).reduce((sum, i) => sum + (i.basis_hours ?? 0) * (i.rate_multiplier ?? 1), 0));
   if (agreed >= required) {
     return makeFinding('OT-COVER', 'ok', `필요 ${required}H ≤ 약정 ${agreed}H (환산시간 해석 시)`);
   }

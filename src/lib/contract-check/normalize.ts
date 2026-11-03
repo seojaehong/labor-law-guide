@@ -82,34 +82,35 @@ export function dayWorkMinutes(start: string, end: string, breaks: WorkBreak[], 
 }
 
 const round2 = (x: number) => Math.round(x * 100) / 100;
+const round4 = (x: number) => Math.round(x * 10000) / 10000;
 
 /** work_time(variants·breaks) → [weekly_actual_hours, weekly_overtime_hours]. 계산 불가 시 [null, null]. */
 export function computeWeeklyHours(workTime: WorkTime): [number | null, number | null] {
-  const { start, end, days_per_week: days } = workTime;
-  if (!start || !end || !days) return [null, null];
-  const breaks = workTime.breaks ?? [];
-  const variants = workTime.variants ?? [];
-  const variantDays = variants.reduce((sum, v) => sum + (v.per_week ?? 0), 0);
-  let weeklyMin = (days - variantDays) * dayWorkMinutes(start, end, breaks);
-  for (const v of variants) {
-    weeklyMin += (v.per_week ?? 0) * dayWorkMinutes(v.start ?? start, v.end ?? end, breaks);
-  }
-  const actual = round2(weeklyMin / 60);
+  const exact = weeklyHoursExact(workTime);
+  if (exact == null) return [null, null];
+  const actual = round2(exact);
   const overtime = round2(Math.max(0, actual - WEEKLY_STANDARD_HOURS));
   return [actual, overtime];
 }
 
-/** 출근·퇴근 칸으로 본 1주 소정근로시간 — 하루마다 8시간까지만 센다(§50②). 칸이 없으면 null */
-export function scheduledFromTimes(workTime: WorkTime): number | null {
+/** 출근·퇴근 칸으로 본 1주 근로시간(반올림 전). capDaily = 하루 8시간까지만 센 소정(§50②). 칸이 없으면 null.
+ * 휴게 155분처럼 시간이 딱 떨어지지 않으면 표시값(소수 둘째 자리)으로 연장 수당을 계산할 때 수천 원이 어긋나서 계산에는 이 값을 쓴다 */
+export function weeklyHoursExact(workTime: WorkTime, capDaily = false): number | null {
   const { start, end, days_per_week: days } = workTime;
   if (!start || !end || !days) return null;
   const breaks = workTime.breaks ?? [];
   const variants = workTime.variants ?? [];
   const variantDays = variants.reduce((sum, v) => sum + (v.per_week ?? 0), 0);
-  const capped = (s: string, e: string) => Math.min(dayWorkMinutes(s, e, breaks), DAILY_SCHEDULED_MAX_MINUTES);
-  let weeklyMin = (days - variantDays) * capped(start, end);
-  for (const v of variants) weeklyMin += (v.per_week ?? 0) * capped(v.start ?? start, v.end ?? end);
-  return round2(weeklyMin / 60);
+  const day = (s: string, e: string) => (capDaily ? Math.min(dayWorkMinutes(s, e, breaks), DAILY_SCHEDULED_MAX_MINUTES) : dayWorkMinutes(s, e, breaks));
+  let weeklyMin = (days - variantDays) * day(start, end);
+  for (const v of variants) weeklyMin += (v.per_week ?? 0) * day(v.start ?? start, v.end ?? end);
+  return weeklyMin / 60;
+}
+
+/** 출근·퇴근 칸으로 본 1주 소정근로시간 — 하루마다 8시간까지만 센다(§50②). 칸이 없으면 null */
+export function scheduledFromTimes(workTime: WorkTime): number | null {
+  const exact = weeklyHoursExact(workTime, true);
+  return exact == null ? null : round2(exact);
 }
 
 /** 근로일별 행 수가 주 근무일수와 다를 때 PART-TIME-OT·REQUIRED-TERMS-FIXED 가 함께 쓰는 문구 */
@@ -186,7 +187,6 @@ export function monthlyStandardHours(contract: Contract): number | null {
   return Math.round((wh.weekly + wh.holiday) * WEEKS_PER_MONTH_EXACT);
 }
 
-const round1 = (x: number) => Math.round(x * 10) / 10;
 
 /** 단시간 1주 소정 초과시간 = max(0, 실근로 − 소정). 소정은 믿을 수 있는 근로일별 시간(출처 daily)일 때만 쓰고,
  * 아니면 소정 = 실근로로 보아 0. 실근로 미상 null. PART-TIME-OT(법리 E)와 포괄 총액 역산(D)이 같이 쓴다 —
@@ -196,7 +196,8 @@ export function partTimeExcessHours(contract: Contract): number | null {
   const actual = wt.weekly_actual_hours;
   if (actual == null) return null;
   if (wt.weekly_scheduled_source !== 'daily' || wt.weekly_scheduled_hours == null) return 0;
-  return round1(Math.max(0, actual - wt.weekly_scheduled_hours));
+  // 반올림 전 실근로로 낸다 — 표시값(37.67)·한 자리 반올림(5.7)으로 가산 수당을 계산하면 수천 원이 어긋난다(261103)
+  return round4(Math.max(0, (weeklyHoursExact(wt) ?? actual) - wt.weekly_scheduled_hours));
 }
 
 /** 시급 띠의 기준 최저시급 — 계약 시작 연도, 없거나 표에 없으면 표의 마지막 연도. 사진 추출 매핑(extractMap)도 쓴다. */
@@ -321,7 +322,12 @@ export function deriveFields(contract: Contract): Contract {
   const [actual, overtime] = computeWeeklyHours(workTime);
   if (actual !== null) {
     workTime.weekly_actual_hours = actual;
-    workTime.weekly_overtime_hours = overtime;
+    // 연장(§56) = 하루 8시간 넘는 시간 + 하루 8시간 이내 합이 주 40시간 넘는 시간 = 실근로 − min(하루 8H 상한 합, 40)(261103)
+    // 계산값이라 반올림 전 시간으로 낸다(소수 넷째 자리)
+    const exact = weeklyHoursExact(workTime);
+    const capped = weeklyHoursExact(workTime, true);
+    workTime.weekly_overtime_hours =
+      exact == null || capped == null ? overtime : round4(Math.max(0, exact - Math.min(capped, WEEKLY_STANDARD_HOURS)));
   }
   // 1주 소정근로시간 — 믿을 수 있는 요일별 근무표(휴게 차감)가 있으면 그것(출처 daily), 없으면 시업·종업으로
   // 계산한 주 근로시간(출처 actual). 최저임금(MINWAGE)·단시간 초과근로(PART-TIME-OT)·단시간 판정이 모두 이 값을 쓴다.
@@ -349,7 +355,11 @@ export function deriveFields(contract: Contract): Contract {
         base.basis_hours != null && base.basis_hours > 0
           ? base.basis_hours
           : (monthlyStandardHours(contract) ?? MONTHLY_BASE_HOURS);
-      wage.ordinary_hourly_rate = Math.round(base.amount / hours);
+      // 계약서가 통상시급을 소수까지 적었고(10,349.29) 기본급 ÷ 시간과 원 단위로 같으면 그 값을 쓴다 — 정수로 다시 잡으면
+      // 그 시급으로 계산한 연장·휴일 수당이 수십 원 어긋나 WAGE-MATH 가 걸린다(261103 수원 표본 +19원)
+      const derived = base.amount / hours;
+      const stated = wage.ordinary_hourly_rate;
+      wage.ordinary_hourly_rate = stated != null && Math.round(stated) === Math.round(derived) ? stated : Math.round(derived);
     }
   }
 

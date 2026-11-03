@@ -49,7 +49,8 @@ function addYears(d: Date, years: number): Date {
 }
 
 function fmtH(hours: number): string {
-  return String(hours);
+  // 초과시간은 반올림 전 값(5.6667)으로 계산하고 표시만 소수 둘째 자리로
+  return String(Math.round(hours * 100) / 100);
 }
 
 const fmt = (n: number) => n.toLocaleString('ko-KR');
