@@ -5,7 +5,7 @@
 // 사업장 양식의 자동 종료 조항(매년 재계약 자동종료·불응 시 자동만료)은 넣지 않는다(HRMS 수원 건 재홍님 결정).
 
 import { weeklySchedule, type DesignResult, type ItemKey } from './design';
-import { dailyWorkHours, PROBATION_PCT, rateText, type WriteForm } from './contract';
+import { dailyWorkHours, leaveTerms, PROBATION_PCT, rateText, restDayTerm, type WriteForm } from './contract';
 
 export interface ContractClause {
   heading: string;
@@ -97,12 +97,7 @@ export function buildContractDocument(form: WriteForm, design: DesignResult): Co
   }
   if (design.hours.night > 0) workLines.push('22시부터 다음 날 6시 사이의 근로는 야간근로이며, 통상임금의 100분의 50을 가산한다(근로기준법 제56조 제3항).');
 
-  const restLines: string[] = [];
-  if (under15) {
-    restLines.push('1주 소정근로시간이 15시간 미만이므로 주휴일과 연차유급휴가는 적용하지 않는다(근로기준법 제18조 제3항).');
-  } else {
-    restLines.push(`주휴일: ${form.weeklyRestDay}(유급)`);
-  }
+  const restLines = [restDayTerm(form)];
   if (fivePlus) {
     if (!under15) restLines.push('관공서의 공휴일과 대체공휴일은 근로기준법 제55조 제2항에 따른 유급휴일로 하고, 그날 근무하면 휴일근로수당을 지급한다.');
   } else {
@@ -127,13 +122,7 @@ export function buildContractDocument(form: WriteForm, design: DesignResult): Co
   }
   wageLines.push(`임금 지급일: ${form.payday}`, `지급방법: ${form.paymentMethod}`);
 
-  const leaveLines =
-    under15 || !fivePlus
-      ? [under15 ? '1주 소정근로시간이 15시간 미만이므로 연차유급휴가는 적용하지 않는다(근로기준법 제18조 제3항).' : '상시 5명 미만 사업장이므로 근로기준법 제60조(연차유급휴가)는 적용하지 않는다(근로기준법 시행령 제7조 별표 1).']
-      : [
-          '근로기준법 제60조에 따라 부여한다.',
-          '표의 연차수당은 쓰지 않은 연차유급휴가에 대한 수당을 매월 나누어 미리 지급하는 것이며, 근로자의 연차유급휴가 사용을 제한하지 않는다.',
-        ];
+  const leaveLines = leaveTerms(form);
 
   const clauses: ContractClause[] = [
     { heading: '제1조(계약기간)', lines: periodLines },
@@ -162,7 +151,7 @@ export function buildContractDocument(form: WriteForm, design: DesignResult): Co
       total: design.total,
     },
     signature: {
-      date: dateText(form.startDate),
+      date: dateText(form.writtenDate),
       employer: [`사업체명: ${form.workplaceName}`, `대표자: ${form.ownerName ?? ''}  (서명 또는 인)`],
       employee: [`성명: ${form.employeeName}  (서명 또는 인)`],
     },

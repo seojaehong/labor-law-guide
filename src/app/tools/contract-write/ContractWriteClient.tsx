@@ -11,6 +11,8 @@ import { ITEM_LABEL, type ItemKey, type Rounding } from '@/lib/contract-write/de
 import { buildContractDocument } from '@/lib/contract-write/document';
 import { minimumWageFor } from '@/lib/contract-check/normalize';
 
+import type { WeekDay } from '@/lib/contract-write/contract';
+
 import { INITIAL, toWriteForm, WEEK_DAYS, type WriteState } from './formState';
 
 const inputClass =
@@ -158,6 +160,7 @@ export default function ContractWriteClient() {
           </Field>
           <Field label="계약 시작일"><Input label="계약 시작일" type="date" value={s.startDate} onChange={(v) => patch({ startDate: v })} /></Field>
           <Field label="계약 종료일" hint="비우면 기간의 정함이 없는 계약"><Input label="계약 종료일" type="date" value={s.endDate} onChange={(v) => patch({ endDate: v })} /></Field>
+          <Field label="작성일" hint="비우면 오늘. 서명 날짜로 적습니다"><Input label="작성일" type="date" value={s.writtenDate} onChange={(v) => patch({ writtenDate: v })} /></Field>
           <Field label="근무장소"><Input label="근무장소" value={s.location} onChange={(v) => patch({ location: v })} /></Field>
           <Field label="업무"><Input label="업무" value={s.duty} onChange={(v) => patch({ duty: v })} /></Field>
         </div>
@@ -203,7 +206,15 @@ export default function ContractWriteClient() {
           <Field label="하루 휴게시간(분)"><Input label="하루 휴게시간" value={s.breakMinutes} onChange={(v) => patch({ breakMinutes: v.replace(/[^\d]/g, '') })} /></Field>
         </div>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <Field label="주휴일"><Input label="주휴일" value={s.weeklyRestDay} onChange={(v) => patch({ weeklyRestDay: v })} /></Field>
+          <Field label="주휴일" hint="근무 요일이 아닌 요일 하나">
+            <select aria-label="주휴일" value={s.weeklyRestDay} onChange={(e) => patch({ weeklyRestDay: e.target.value as WeekDay })} className={inputClass} style={inputStyle}>
+              {WEEK_DAYS.map((d) => (
+                <option key={d} value={d}>
+                  매주 {d}요일
+                </option>
+              ))}
+            </select>
+          </Field>
           <Field label="연간 공휴일 근무 예정 일수" hint="공휴일에 쉬면 0. 주 5일 기준 일수를 넣으면 주 4일 이하는 비례로 줄입니다">
             <Input label="연간 공휴일 근무 예정 일수" value={s.holidayDaysPerYear} onChange={(v) => patch({ holidayDaysPerYear: v.replace(/[^\d.]/g, '') })} />
           </Field>

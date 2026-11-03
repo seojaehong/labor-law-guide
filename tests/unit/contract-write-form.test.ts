@@ -23,7 +23,8 @@ const MONTHLY: WriteForm = {
   start: '10:00',
   end: '22:30',
   breakMinutes: 150,
-  weeklyRestDay: '매주 일요일',
+  weeklyRestDay: '일',
+  writtenDate: '2026-10-25',
   monthlyTotal: 3_300_000,
   holidayDaysPerYear: 18.75,
   payday: '매월 10일',
@@ -144,6 +145,7 @@ describe('기간제 + 소수 통상시급 표본', () => {
     monthlyTotal: 2_345_678,
     holidayDaysPerYear: 0,
     startDate: '2026-04-01',
+    writtenDate: '2026-03-30',
     endDate: '2027-03-31',
   };
 
@@ -209,5 +211,37 @@ describe('주 6일 — 1주 40시간 넘는 연장', () => {
     expect(t).toContain('1주 40시간을 넘는');
     expect(t).toContain('1주 8시간');
     expect(t).not.toMatch(/하루 8시간, 1주 40시간/);
+  });
+});
+
+// #139 적대 검토 2·8 — 계약서에 없는 사실(서명·교부·주휴일 특정)을 상수로 넘기지 않는다. 작성일은 입력에서
+describe('toContract — 상수 대신 입력에서', () => {
+  it('서명·교부 여부는 모른다(null), 작성일은 작성일 칸', () => {
+    const c = toContract({ ...MONTHLY, writtenDate: '2026-10-20' }, designFromForm(MONTHLY, 10_320));
+    expect(c.signatures).toEqual({ written_date: '2026-10-20', employer_signed: null, employee_signed: null, copy_delivered_confirmed: null });
+  });
+  it('입사 후 31일 넘겨 작성하면 점검이 소급 작성을 짚는다(자기시험)', () => {
+    const late = { ...MONTHLY, writtenDate: '2026-12-15' };
+    expect(checkWritten(late, designFromForm(late, 10_320)).map((f) => f.rule_code)).toContain('WRITTEN-TERMS');
+  });
+  it('본문 서명 날짜 = 작성일', () => {
+    expect(text({ ...MONTHLY, writtenDate: '2026-10-20' })).toContain('2026년 10월 20일');
+  });
+  it('연차 미리 지급 시간 = 설계 연차 시간(월)', () => {
+    const design = designFromForm(MONTHLY, 10_320);
+    expect(toContract(MONTHLY, design).holidays_leave!.annual_leave_prepaid_hours_per_month).toBeCloseTo(design.hours.leave, 6);
+    const pd = designFromForm(PART, 10_320);
+    expect(toContract(PART, pd).holidays_leave!.annual_leave_prepaid_hours_per_month).toBeCloseTo(pd.hours.leave * 5 * 4.345, 6);
+  });
+  it('연차 조항은 본문과 같은 문장 — 5명 미만이면 「적용하지 않는다」', () => {
+    const small = { ...MONTHLY, employeeCount5plus: false };
+    const c = toContract(small, designFromForm(small, 10_320));
+    expect(c.holidays_leave!.annual_leave_clause).toContain('적용하지 않는다');
+    expect(text(small)).toContain(c.holidays_leave!.annual_leave_clause!);
+  });
+  it('주휴일은 요일로 받고 계약서에 「매주 ○요일」로 적는다', () => {
+    const c = toContract(MONTHLY, designFromForm(MONTHLY, 10_320));
+    expect(c.holidays_leave!.weekly_rest).toBe('주휴일: 매주 일요일(유급)');
+    expect(c.holidays_leave!.weekly_rest_day_specified).toBe(true);
   });
 });

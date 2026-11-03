@@ -31,11 +31,14 @@ try {
   await page.goto(pageUrl);
   const text = async () => ((await page.textContent('#cw-result')) ?? '').replace(/\s+/g, ' ');
 
-  checks.empty = (await text()).includes('입력이 필요합니다: 사업체명, 근로자 성명, 계약 시작일, 월 임금 총액');
+  checks.empty = (await text()).includes('입력이 필요합니다: 사업체명, 근로자 성명, 계약 시작일, 근무장소, 업무, 월 임금 총액');
   const fill = (label, v) => page.getByLabel(label, { exact: true }).fill(v);
   await fill('사업체명', '합성테스트 사업장');
   await fill('근로자 성명', '합성근로자');
   await fill('계약 시작일', '2026-03-01');
+  await fill('작성일', '2026-02-26');
+  await fill('근무장소', '합성테스트 본점');
+  await fill('업무', '홀 서비스');
   await page.getByRole('button', { name: '금', exact: true }).click();
   await fill('출근 시각', '10:00');
   await fill('퇴근 시각', '22:00');

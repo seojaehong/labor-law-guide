@@ -684,11 +684,14 @@ const FEATURES: Record<string, { path: string; journey: Journey; waitUntil?: 'lo
       const sent: string[] = [];
       p.on('request', (r: any) => sent.push(`${r.method()} ${r.url()} ${r.postData() ?? ''}`));
       await p.waitForFunction(() => Object.keys(document.querySelector('input[aria-label="사업체명"]') ?? {}).some((k) => k.startsWith('__reactProps')));
-      step('빈 입력 — 필요한 칸 안내', /입력이 필요합니다: 사업체명, 근로자 성명, 계약 시작일, 월 임금 총액/, await answer(p, '#cw-result'));
+      step('빈 입력 — 필요한 칸 안내', /입력이 필요합니다: 사업체명, 근로자 성명, 계약 시작일, 근무장소, 업무, 월 임금 총액/, await answer(p, '#cw-result'));
       await p.getByLabel('사업체명', { exact: true }).fill('합성테스트 사업장');
       await p.getByLabel('대표자', { exact: true }).fill('합성대표');
       await p.getByLabel('근로자 성명', { exact: true }).fill('합성근로자');
       await p.getByLabel('계약 시작일', { exact: true }).fill('2026-03-01');
+      await p.getByLabel('작성일', { exact: true }).fill('2026-02-26');
+      await p.getByLabel('근무장소', { exact: true }).fill('합성테스트 본점');
+      await p.getByLabel('업무', { exact: true }).fill('홀 서비스');
       await p.getByRole('button', { name: '금', exact: true }).click();
       await p.getByLabel('출근 시각', { exact: true }).fill('10:00');
       await p.getByLabel('퇴근 시각', { exact: true }).fill('22:00');

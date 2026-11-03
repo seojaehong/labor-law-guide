@@ -50,6 +50,9 @@ const UIJEONGBU: WriteState = {
   workplaceName: '합성테스트 사업장',
   employeeName: '합성01',
   startDate: '2026-03-01',
+  writtenDate: '2026-02-26',
+  location: '합성테스트 본점',
+  duty: '홀 서비스',
   workDays: ['월', '화', '수', '목'],
   start: '10:00',
   end: '22:00',
@@ -119,7 +122,7 @@ describe('오프라인판 — 소스와 같은 계산', () => {
   }
 
   it('빈 입력이면 필요한 칸을 알려준다', () => {
-    expect(plain(api().compute(INITIAL)).missing).toEqual(['사업체명', '근로자 성명', '계약 시작일', '월 임금 총액']);
+    expect(plain(api().compute(INITIAL)).missing).toEqual(['사업체명', '근로자 성명', '계약 시작일', '근무장소', '업무', '월 임금 총액']);
   });
 
   it('바닥줄 = 빌드 날짜·커밋', () => {

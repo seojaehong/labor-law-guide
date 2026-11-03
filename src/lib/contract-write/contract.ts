@@ -5,7 +5,7 @@ import { checkContract } from '@/lib/contract-check/engine';
 import { dayWorkMinutes, normalize } from '@/lib/contract-check/normalize';
 import type { Contract, Finding, WageItem, WageItemCode } from '@/lib/contract-check/types';
 
-import { designMonthlyWage, WEEKS_PER_MONTH, type DesignResult, type ItemKey, type Rounding } from './design';
+import { designMonthlyWage, weeklySchedule, WEEKS_PER_MONTH, type DesignResult, type ItemKey, type Rounding } from './design';
 import { designHourlyWage } from './part';
 
 export interface Probation {
@@ -15,6 +15,9 @@ export interface Probation {
   /** 단순노무업무 고시 직종 — 감액할 수 없다 */
   simpleLabor: boolean;
 }
+
+export const WEEK_DAYS = ['월', '화', '수', '목', '금', '토', '일'] as const;
+export type WeekDay = (typeof WEEK_DAYS)[number];
 
 export interface WriteForm {
   workplaceName: string;
@@ -33,7 +36,10 @@ export interface WriteForm {
   breakMinutes: number;
   /** 근무 요일(월~일). 계약서에 근로일·근로일별 시간으로 적는다(단시간이면 기간제법 §17 필수) */
   workDays: string[];
-  weeklyRestDay: string;
+  /** 주휴일 요일. 근무 요일과 겹치면 안 된다(formState 가 막는다) */
+  weeklyRestDay: WeekDay;
+  /** 계약서 작성일(YYYY-MM-DD). 서명 날짜와 점검 소급 작성 판단에 쓴다 */
+  writtenDate: string;
   /** monthly = 월 임금 총액을 나눈다(기본), hourly = 시간당 지급액 × 체류시간(일 지급액)을 나눈다 */
   payType?: 'monthly' | 'hourly';
   /** 월급제 필수 */
@@ -116,6 +122,30 @@ export function probationIssue(form: WriteForm): string | null {
 
 export const PROBATION_PCT = 90;
 
+/** 1주 소정근로가 15시간 미만 — 주휴·연차를 적용하지 않는다(근로기준법 제18조 제3항) */
+export function isUnder15(form: Pick<WriteForm, 'start' | 'end' | 'breakMinutes' | 'workDays'>): boolean {
+  return weeklySchedule(dailyWorkHours(form), form.workDays.length).scheduled < 15;
+}
+
+/** 주휴일 조항 첫 줄 — 계약서 본문(제4조)과 점검 입력이 같은 문장을 쓴다 */
+export function restDayTerm(form: WriteForm): string {
+  return isUnder15(form)
+    ? '1주 소정근로시간이 15시간 미만이므로 주휴일과 연차유급휴가는 적용하지 않는다(근로기준법 제18조 제3항).'
+    : `주휴일: 매주 ${form.weeklyRestDay}요일(유급)`;
+}
+
+/** 연차유급휴가 조항 — 계약서 본문(제6조)과 점검 입력이 같은 문장을 쓴다 */
+export function leaveTerms(form: WriteForm): string[] {
+  if (isUnder15(form)) return ['1주 소정근로시간이 15시간 미만이므로 연차유급휴가는 적용하지 않는다(근로기준법 제18조 제3항).'];
+  if (!form.employeeCount5plus) {
+    return ['상시 5명 미만 사업장이므로 근로기준법 제60조(연차유급휴가)는 적용하지 않는다(근로기준법 시행령 제7조 별표 1).'];
+  }
+  return [
+    '근로기준법 제60조에 따라 부여한다.',
+    '표의 연차수당은 쓰지 않은 연차유급휴가에 대한 수당을 매월 나누어 미리 지급하는 것이며, 근로자의 연차유급휴가 사용을 제한하지 않는다.',
+  ];
+}
+
 export function designFromForm(form: WriteForm, minimumWage?: number): DesignResult {
   const issue = probationIssue(form);
   if (issue) throw new Error(issue);
@@ -152,9 +182,12 @@ export function designFromForm(form: WriteForm, minimumWage?: number): DesignRes
 /** 작성한 계약을 근로계약서 점검 규칙으로 다시 돌린 결과 중 손볼 것(위반·확인 필요·주요 위험). 화면과 시험이 같이 쓴다 */
 export function checkWritten(form: WriteForm, design: DesignResult): Finding[] {
   const [contract] = normalize([toContract(form, design)]);
-  return checkContract(contract).filter(
-    (f) => f.status === 'violation' || f.status === 'needs_data' || (f.status === 'risk' && f.severity !== 'minor' && f.severity !== 'info'),
-  );
+  const under15 = isUnder15(form);
+  return checkContract(contract).filter((f) => {
+    // 1주 15시간 미만은 주휴일 자체가 없어 「특정했는가」를 물을 수 없다 — 작성 단계라 해당 없음(근로기준법 제18조 제3항)
+    if (f.rule_code === 'REST-DAY' && f.status === 'needs_data' && under15) return false;
+    return f.status === 'violation' || f.status === 'needs_data' || (f.status === 'risk' && f.severity !== 'minor' && f.severity !== 'info');
+  });
 }
 
 /** 항목의 실시간·가산율 — 인정시간(가산 반영)을 실시간 × 가산율로 푼다. 휴일은 1.5·2.0 이 섞여 환산시간 그대로 둔다 */
@@ -222,11 +255,14 @@ export function toContract(form: WriteForm, design: DesignResult): Contract {
       payment_method: form.paymentMethod,
     },
     holidays_leave: {
-      weekly_rest: form.weeklyRestDay,
-      weekly_rest_day_specified: true,
-      annual_leave_clause: '근로기준법 제60조에 따라 부여',
+      weekly_rest: restDayTerm(form),
+      // 15시간 미만은 주휴일이 없다 — 특정 여부를 물을 대상이 아니다(checkWritten 이 REST-DAY 확인 필요를 뺀다)
+      weekly_rest_day_specified: isUnder15(form) ? null : true,
+      annual_leave_clause: leaveTerms(form).join(' '),
+      annual_leave_prepaid_hours_per_month: design.hours.leave * scale,
     },
     risk_clauses: [],
-    signatures: { written_date: form.startDate, employer_signed: true, employee_signed: true, copy_delivered_confirmed: true },
+    // 서명·교부는 계약서를 만든 뒤의 일이라 작성 단계에서는 모른다
+    signatures: { written_date: form.writtenDate, employer_signed: null, employee_signed: null, copy_delivered_confirmed: null },
   };
 }
