@@ -5,7 +5,7 @@ import { checkContract } from '@/lib/contract-check/engine';
 import { dayWorkMinutes, normalize } from '@/lib/contract-check/normalize';
 import type { Contract, Finding, WageItem, WageItemCode } from '@/lib/contract-check/types';
 
-import { designMonthlyWage, weeklySchedule, WEEKS_PER_MONTH, type DesignResult, type ItemKey, type Rounding } from './design';
+import { designMonthlyWage, ROUNDING_UNIT, weeklySchedule, WEEKS_PER_MONTH, type DesignResult, type ItemKey, type Rounding } from './design';
 import { designHourlyWage } from './part';
 
 export interface Probation {
@@ -204,6 +204,8 @@ function basisOf(key: ItemKey, hours: number, fivePlus: boolean): { basis: numbe
 export function toContract(form: WriteForm, design: DesignResult): Contract {
   const fivePlus = form.employeeCount5plus;
   const scale = design.period === 'day' ? form.daysPerWeek * WEEKS_PER_MONTH : 1;
+  // 파트는 계산값(exact)을 월로 환산해 넣으므로 단위 올림이 점검에 닿지 않는다 — 월급제만 단위를 밝힌다
+  const unit = design.period === 'month' ? ROUNDING_UNIT[form.rounding ?? 'won'] : 0;
   const items: WageItem[] = design.items
     .filter((item) => item.hours > 0)
     .map((item) => {
@@ -215,7 +217,7 @@ export function toContract(form: WriteForm, design: DesignResult): Contract {
         amount: design.period === 'day' ? Math.round(item.exact * scale) : item.amount,
         basis_hours: Number(basis.toFixed(4)),
         rate_multiplier: multiplier,
-        basis_text: `통상시급 ${rateText(design.rate)}원 × ${hours.toFixed(2)}시간${multiplier !== 1 ? `(가산 ${multiplier}배 반영)` : ''}`,
+        basis_text: `통상시급 ${rateText(design.rate)}원 × ${hours.toFixed(2)}시간${multiplier !== 1 ? `(가산 ${multiplier}배 반영)` : ''}${unit && !item.absorbs ? `(${unit}원 단위 올림)` : ''}`,
         ...(item.key === 'base' ? { includes_weekly_holiday: design.period === 'month' } : {}),
       };
     });
@@ -250,6 +252,7 @@ export function toContract(form: WriteForm, design: DesignResult): Contract {
       public_holiday_included: fivePlus && design.hours.holiday > 0,
       public_holiday_note: fivePlus && design.hours.holiday > 0 ? holidayNote(form) : null,
       pay_type: design.period === 'day' ? 'hourly' : 'monthly',
+      amount_rounding_unit: unit || null,
       items,
       payday: form.payday,
       payment_method: form.paymentMethod,

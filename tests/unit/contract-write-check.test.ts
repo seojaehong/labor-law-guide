@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 
 import { checkContract } from '@/lib/contract-check/engine';
 import { normalize } from '@/lib/contract-check/normalize';
-import { designFromForm, toContract, type WriteForm } from '@/lib/contract-write/contract';
+import { checkWritten, designFromForm, toContract, type WriteForm } from '@/lib/contract-write/contract';
 
 const UIJEONGBU: WriteForm = {
   workplaceName: '합성테스트 사업장',
@@ -70,5 +70,52 @@ describe('작성 → 점검 되먹임', () => {
 
   it('하루 실근로 = 퇴근 − 출근 − 휴게', () => {
     expect(designFromForm(UIJEONGBU).hours.overtime).toBeCloseTo(36.9325, 6);
+  });
+});
+
+// #139 적대 검토 4 — 금액 단위 3 × 잔액 항목 4 = 12칸. 도구가 만든 계약서를 자기 점검이 위반으로 잡지 않는다
+describe('금액 단위 × 잔액 항목 매트릭스', () => {
+  const ROUNDINGS = ['won', 'ceil10', 'ceil100'] as const;
+  const ABSORBERS = ['base', 'overtime', 'holiday', 'leave'] as const;
+  const PART_FORM: WriteForm = { ...UIJEONGBU, payType: 'hourly', monthlyTotal: undefined, hourlyWage: 15_000, workDays: ['월', '화', '수', '목', '금'], daysPerWeek: 5, start: '10:00', end: '20:00', breakMinutes: 60, holidayDaysPerYear: 16 };
+  for (const [name, form] of [['의정부 주4 월급', UIJEONGBU], ['파트(연장 있음)', PART_FORM]] as const) {
+    for (const rounding of ROUNDINGS) {
+      for (const absorbInto of ABSORBERS) {
+        it(`${name} · ${rounding} · 잔액 ${absorbInto}`, () => {
+          const f = { ...form, rounding, absorbInto } as WriteForm;
+          let design;
+          try {
+            design = designFromForm(f, 10_320);
+          } catch (e) {
+            // 단위 맞춤은 기본급만 잔액을 받는다 — 가산 항목이 잔액을 받으면 산정 기준보다 적어진다
+            expect(rounding).not.toBe('won');
+            expect(absorbInto).not.toBe('base');
+            expect(String(e)).toContain('기본급');
+            return;
+          }
+          expect(checkWritten(f, design).map((x) => `${x.rule_code}:${x.status} ${x.detail}`)).toEqual([]);
+        });
+      }
+    }
+  }
+});
+
+describe('단위 올림 표시 — 엔진 허용 폭(자기시험)', () => {
+  const f = { ...UIJEONGBU, rounding: 'ceil100' } as WriteForm;
+  const shifted = (delta: number) => {
+    const contract = toContract(f, designFromForm(f, 10_320));
+    contract.wage.items!.find((i) => i.code === 'OT_WEEKDAY')!.amount! += delta;
+    const [c] = normalize([contract]);
+    return checkContract(c).find((x) => x.rule_code === 'WAGE-MATH')!;
+  };
+  it('올린 그대로면 정합, 산출근거에 「100원 단위 올림」', () => {
+    expect(shifted(0).status).toBe('ok');
+    expect(toContract(f, designFromForm(f, 10_320)).wage.items!.find((i) => i.code === 'OT_WEEKDAY')!.basis_text).toContain('100원 단위 올림');
+  });
+  it('적은 쪽은 여전히 ±10원 — 130원 줄여 계산값보다 40원 남짓 적으면 위반', () => {
+    expect(shifted(-130).status).toBe('violation');
+  });
+  it('많은 쪽도 단위를 넘으면 위반 — 200원 늘리면 위반', () => {
+    expect(shifted(200).status).toBe('violation');
   });
 });

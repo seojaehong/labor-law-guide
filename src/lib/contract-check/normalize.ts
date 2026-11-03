@@ -348,8 +348,11 @@ export function deriveFields(contract: Contract): Contract {
   if (base && wb) {
     // 시급제는 wageBasis 의 계약 시급(시급으로 볼 수 없으면 null — 월 시간으로 나누지 않는다).
     // 월급제·unknown 은 산출근거 시간, 없으면 최저임금 적용기준 월 시간((1주 소정+주휴)×365/7/12, 40H 는 209H), 근로시간을 모르면 209H.
+    const stated = wage.ordinary_hourly_rate;
     if (wb.form === 'hourly') {
-      wage.ordinary_hourly_rate = wb.rate == null ? null : Math.round(wb.rate);
+      // 월급제와 같이 — 적힌 통상시급(소수)이 계약 시급과 원 단위로 같으면 그 값을 쓴다
+      wage.ordinary_hourly_rate =
+        wb.rate == null ? null : stated != null && Math.round(stated) === Math.round(wb.rate) ? stated : Math.round(wb.rate);
     } else {
       const hours =
         base.basis_hours != null && base.basis_hours > 0
@@ -358,8 +361,13 @@ export function deriveFields(contract: Contract): Contract {
       // 계약서가 통상시급을 소수까지 적었고(10,349.29) 기본급 ÷ 시간과 원 단위로 같으면 그 값을 쓴다 — 정수로 다시 잡으면
       // 그 시급으로 계산한 연장·휴일 수당이 수십 원 어긋나 WAGE-MATH 가 걸린다(261103 수원 표본 +19원)
       const derived = base.amount / hours;
-      const stated = wage.ordinary_hourly_rate;
-      wage.ordinary_hourly_rate = stated != null && Math.round(stated) === Math.round(derived) ? stated : Math.round(derived);
+      // 다른 항목을 단위(10·100원)로 올리고 끝수를 기본급이 받았다고 밝힌 계약(wage.amount_rounding_unit)은 기본급이
+      // 항목 수 × 단위까지 적을 수 있다 — 그 폭 안에서 적힌 통상시급이 더 높으면 적힌 값을 쓴다(근로자에게 불리하지 않은 쪽)
+      const unit = wage.amount_rounding_unit ?? 0;
+      const rounded = (wage.items ?? []).filter((i) => i.code !== 'BASE').length;
+      const lowered = unit > 0 && stated != null && stated >= derived && (stated - derived) * hours <= unit * rounded;
+      wage.ordinary_hourly_rate =
+        stated != null && (Math.round(stated) === Math.round(derived) || lowered) ? stated : Math.round(derived);
     }
   }
 

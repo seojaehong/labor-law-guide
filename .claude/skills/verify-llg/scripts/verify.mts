@@ -704,8 +704,8 @@ const FEATURES: Record<string, { path: string; journey: Journey; waitUntil?: 'lo
       step('통상시급 11,209.99원 · 최저시급 이상', /통상시급 11,209\.99원 \(2026년 최저시급 10,320원 이상\)/, result);
       step('점검 규칙 되먹임 — 손볼 항목 없음', /손볼 항목이 없습니다/, result);
       // 단위·흡수 선택(재홍님 261103)
-      await p.getByRole('button', { name: '100원 미만 버림', exact: true }).click();
-      step('100원 미만 버림 — 기본급 1,870,500원', /1,870,500원.*414,000원.*243,800원.*71,700원/, await answer(p, '#cw-result'));
+      await p.getByRole('button', { name: '100원 단위 올림', exact: true }).click();
+      step('100원 단위 올림 — 기본급 1,870,200원·되먹임 손볼 항목 없음', /1,870,200원.*414,100원.*243,900원.*71,800원.*손볼 항목이 없습니다/, await answer(p, '#cw-result'));
       await p.getByRole('button', { name: '원 단위(반올림)', exact: true }).click();
       await p.getByRole('button', { name: '휴일근로수당', exact: true }).click();
       step('잔액을 휴일근로수당으로', /휴일근로수당\(잔액\) 21\.76시간 243,879원/, await answer(p, '#cw-result'));

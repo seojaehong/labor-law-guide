@@ -15,7 +15,7 @@
     { "code": "OT-COVER", "name": "포괄임금 연장수당 충분성", "statute": "근로기준법 §56", "severity": "major", "auto": true,
       "logic": "약정 연장환산H >= weekly_overtime_hours × 4.345 × 1.5. workplace.employee_count_5plus=false 면 × 1.0(시행령 §7 별표1 — §56 가산 미적용)" },
     { "code": "WAGE-MATH", "name": "산출근거-금액 정합", "statute": "근로기준법 §17", "severity": "major", "auto": true,
-      "logic": "item.amount == ordinary_hourly_rate × basis_hours × (rate_multiplier or 1) ± 10원. BASE 는 통상시급의 출처라 보지 않는다. 통상시급 = 시급제는 normalize.wageBasis 의 계약 시급(시급으로 볼 수 없으면 미상 → needs_data), 월급제는 BASE.amount÷(basis_hours, 없으면 최저임금 적용기준 월 시간)" },
+      "logic": "item.amount == ordinary_hourly_rate × basis_hours × (rate_multiplier or 1) ± 10원(wage.amount_rounding_unit 이 있으면 많은 쪽은 그 단위까지 더 받아준다 — 작성 도구의 10·100원 단위 올림). BASE 는 통상시급의 출처라 보지 않는다. 통상시급 = 시급제는 normalize.wageBasis 의 계약 시급(시급으로 볼 수 없으면 미상 → needs_data), 월급제는 BASE.amount÷(basis_hours, 없으면 최저임금 적용기준 월 시간)" },
     { "code": "PAY-14D", "name": "퇴직 금품청산 14일", "statute": "근로기준법 §36", "severity": "critical", "auto": true,
       "logic": "risk_clauses tags에 '금품청산' — 지급기일 퇴직 후 14일 초과 약정 또는 조건부 지급 조항 존재 시 violation" },
     { "code": "PAY-DIRECT", "name": "임금 직접·전액 지급", "statute": "근로기준법 §43", "severity": "critical", "auto": true,

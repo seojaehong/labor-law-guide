@@ -649,6 +649,8 @@ export const ruleWageMath: RuleFn = (contract) => {
     return makeFinding('WAGE-MATH', 'needs_data', '통상시급 또는 임금 구성항목 없음');
   }
   const mismatches: string[] = [];
+  // 단위 올림을 밝힌 계약은 많은 쪽으로 그 단위까지 받아준다(적은 쪽은 그대로 ±10원)
+  const roundUp = Math.max(0, wage.amount_rounding_unit ?? 0);
   for (const item of items) {
     // 기본급은 통상시급을 끌어낸 출처라 다시 맞춰 보면 반올림 차이만 나온다(2,200,000 ÷ 209 → 10,526 × 209 = 2,199,934)
     if (item.code === 'BASE') continue;
@@ -656,7 +658,7 @@ export const ruleWageMath: RuleFn = (contract) => {
     if (amount == null || hours == null) continue;
     const expected = Math.round(rate * hours * (item.rate_multiplier ?? 1.0));
     const diff = amount - expected;
-    if (Math.abs(diff) > WAGE_MATH_TOLERANCE) {
+    if (diff < -WAGE_MATH_TOLERANCE || diff > WAGE_MATH_TOLERANCE + roundUp) {
       mismatches.push(
         `${item.code} ${fmt(amount)} ≠ 기대 ${fmt(expected)} (차액 ${diff > 0 ? '+' : ''}${fmt(diff)})`,
       );
@@ -665,7 +667,7 @@ export const ruleWageMath: RuleFn = (contract) => {
   if (mismatches.length > 0) {
     return makeFinding('WAGE-MATH', 'violation', mismatches.join(' / '));
   }
-  return makeFinding('WAGE-MATH', 'ok', '전 항목 산출근거-금액 정합 (±10원)');
+  return makeFinding('WAGE-MATH', 'ok', `전 항목 산출근거-금액 정합 (±10원${roundUp ? `, ${fmt(roundUp)}원 단위 올림` : ''})`);
 };
 
 function otItems(contract: Contract): WageItem[] {

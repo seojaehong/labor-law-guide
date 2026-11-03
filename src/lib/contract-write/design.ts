@@ -7,8 +7,12 @@
 
 export type ItemKey = 'base' | 'weeklyHoliday' | 'overtime' | 'night' | 'holiday' | 'leave';
 
-/** 흡수하지 않는 항목의 금액 단위. won = 원 단위 반올림(기본), floor10·floor100 = 그 단위 아래 버림 */
-export type Rounding = 'won' | 'floor10' | 'floor100';
+/** 흡수하지 않는 항목의 금액 단위. won = 원 단위 반올림(기본), ceil10·ceil100 = 그 단위로 올림.
+ * 올리는 까닭: 내리면 연장·야간·휴일 수당이 「통상시급 × 시간 × 가산율」보다 적어져 법정 가산에 못 미친다(#139 적대 검토 4) */
+export type Rounding = 'won' | 'ceil10' | 'ceil100';
+
+/** 단위 맞춤의 원 단위(원 단위 반올림이면 0) — 점검 엔진에 산출근거 허용 폭으로 넘긴다 */
+export const ROUNDING_UNIT: Record<Rounding, number> = { won: 0, ceil10: 10, ceil100: 100 };
 
 export interface DesignInput {
   monthlyTotal: number;
@@ -73,9 +77,9 @@ export const WEEKS_PER_MONTH = 4.345;
 const NIGHT_PREMIUM = 0.5;
 
 function roundAmount(value: number, rounding: Rounding): number {
-  if (rounding === 'floor10') return Math.floor(value / 10) * 10;
-  if (rounding === 'floor100') return Math.floor(value / 100) * 100;
-  return Math.round(value);
+  const unit = ROUNDING_UNIT[rounding];
+  // 1e-6 = 부동소수 오차로 정확히 떨어지는 값이 한 단위 더 올라가지 않게
+  return unit ? Math.ceil(value / unit - 1e-6) * unit : Math.round(value);
 }
 
 /** 1주 소정근로(하루 8시간·1주 40시간 한도)와 그것을 넘는 1주 연장 — 근로기준법 제50조·제53조 제1항.
@@ -122,6 +126,10 @@ export function splitTotal(
   const rounding = opts.rounding ?? 'won';
   const absorbInto = opts.absorbInto ?? 'base';
   if (!(hours[absorbInto] > 0)) throw new Error(`${ITEM_LABEL[absorbInto]}의 시간이 0이라 잔액을 받을 수 없습니다`);
+  // 다른 항목을 올리면 잔액 항목은 계산값보다 적어진다. 그 항목이 가산·연차 수당이면 산정 기준에 못 미치므로 기본급만 받는다
+  if (rounding !== 'won' && absorbInto !== 'base') {
+    throw new Error('금액을 10원·100원 단위로 올릴 때는 끝에 남는 금액을 기본급이 받아야 합니다(다른 항목은 산정 기준보다 적어집니다)');
+  }
   const keys = order.filter((k) => hours[k] > 0 || opts.keep?.includes(k));
   const totalHours = keys.reduce((s, k) => s + hours[k], 0);
   const rate = total / totalHours;

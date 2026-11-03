@@ -62,14 +62,21 @@ describe('designMonthlyWage — 기본값(원 단위 반올림, 기본급이 잔
 });
 
 describe('designMonthlyWage — 단위·흡수 항목 선택(재홍님 261103)', () => {
-  it('10원 절사: 흡수하지 않는 항목은 10원 아래를 버리고 기본급이 나머지를 받는다', () => {
-    const a = amounts({ ...UIJEONGBU, rounding: 'floor10' });
-    expect(a).toEqual({ base: 1_870_380, overtime: 414_010, holiday: 243_870, leave: 71_740 });
+  // #139 적대 검토 4 — 버리면 연장·휴일 수당이 「통상시급 × 시간 × 가산율」보다 적어진다. 올리고 기본급이 나머지를 받는다
+  it('10원 단위 올림: 흡수하지 않는 항목은 10원 단위로 올리고 기본급이 나머지를 받는다', () => {
+    const a = amounts({ ...UIJEONGBU, rounding: 'ceil10' });
+    expect(a).toEqual({ base: 1_870_350, overtime: 414_020, holiday: 243_880, leave: 71_750 });
   });
 
-  it('100원 절사', () => {
-    const a = amounts({ ...UIJEONGBU, rounding: 'floor100' });
-    expect(a).toEqual({ base: 1_870_500, overtime: 414_000, holiday: 243_800, leave: 71_700 });
+  it('100원 단위 올림', () => {
+    const a = amounts({ ...UIJEONGBU, rounding: 'ceil100' });
+    expect(a).toEqual({ base: 1_870_200, overtime: 414_100, holiday: 243_900, leave: 71_800 });
+  });
+
+  it('단위 올림 항목은 계산값 이상이다', () => {
+    for (const rounding of ['ceil10', 'ceil100'] as const) {
+      for (const i of designMonthlyWage({ ...UIJEONGBU, rounding }).items) if (!i.absorbs) expect(i.amount).toBeGreaterThanOrEqual(i.exact);
+    }
   });
 
   it('흡수 항목을 공휴일로 바꾸면 기본급은 계산값, 공휴일이 잔액', () => {
@@ -80,11 +87,10 @@ describe('designMonthlyWage — 단위·흡수 항목 선택(재홍님 261103)',
     expect(a.holiday).toBe(2_600_000 - 1_870_364 - 414_013 - 71_744);
   });
 
-  it('흡수 항목을 연장근로수당으로 바꿀 수 있다', () => {
-    const a = amounts({ ...SUWON, absorbInto: 'overtime', rounding: 'floor100' });
+  it('흡수 항목을 연장근로수당으로 바꿀 수 있다(원 단위) — 단위 올림과는 함께 쓸 수 없다', () => {
+    const a = amounts({ ...SUWON, absorbInto: 'overtime' });
     expect(a.base + a.overtime + a.holiday + a.leave).toBe(3_200_000);
-    expect(a.base % 100).toBe(0);
-    expect(a.holiday % 100).toBe(0);
+    expect(() => amounts({ ...SUWON, absorbInto: 'overtime', rounding: 'ceil100' })).toThrow('기본급');
   });
 
   it('시간이 0인 항목은 흡수 항목으로 고를 수 없다(연장 0h)', () => {

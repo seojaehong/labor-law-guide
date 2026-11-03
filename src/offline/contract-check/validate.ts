@@ -100,6 +100,7 @@ const WAGE_FIELDS: Shape = {
   severance_clause: 'string',
   public_holiday_included: 'boolean',
   public_holiday_note: 'string',
+  amount_rounding_unit: 'number',
 };
 const HOLIDAYS_LEAVE: Shape = {
   weekly_rest: 'string',

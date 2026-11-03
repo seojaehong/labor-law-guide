@@ -97,7 +97,7 @@ const FIELDS: Field[] = [
   { key: 'netPay', label: '월 실수령액(원)', kind: 'text', when: (s) => monthly(s) && s.amountMode === 'net' },
   { key: 'family', label: '공제대상가족 수(본인 포함)', kind: 'text', when: (s) => monthly(s) && s.amountMode === 'net' },
   { key: 'hourlyWage', label: '시간당 지급액(원)', kind: 'text', hint: '휴게시간을 포함한 출근~퇴근 시간에 곱합니다', when: (s) => !monthly(s) },
-  { key: 'rounding', label: '금액 단위', kind: 'select', options: [['won', '원 단위(반올림)'], ['floor10', '10원 미만 버림'], ['floor100', '100원 미만 버림']] },
+  { key: 'rounding', label: '금액 단위', kind: 'select', options: [['won', '원 단위(반올림)'], ['ceil10', '10원 단위 올림'], ['ceil100', '100원 단위 올림']], hint: '올리면 잔액은 기본급이 받습니다' },
   { key: 'absorbInto', label: '끝에 남는 금액을 넣을 항목', kind: 'select', options: [] },
   { key: 'payday', label: '임금 지급일', kind: 'text' },
   { key: 'paymentMethod', label: '지급방법', kind: 'text' },
@@ -174,7 +174,7 @@ function mount(): void {
         sel.value = String(state[f.key]);
         sel.addEventListener('change', () => {
           (state as unknown as Record<string, string>)[f.key] = sel.value;
-          if (f.key === 'payType') state.absorbInto = 'base';
+          if (f.key === 'payType' || (f.key === 'rounding' && sel.value !== 'won')) state.absorbInto = 'base';
           renderForm();
           renderResult();
         });

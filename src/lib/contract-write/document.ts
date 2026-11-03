@@ -4,7 +4,7 @@
 // 「포괄」은 쓰지 않는다(공개 명칭 = 임금 구성).
 // 사업장 양식의 자동 종료 조항(매년 재계약 자동종료·불응 시 자동만료)은 넣지 않는다(HRMS 수원 건 재홍님 결정).
 
-import { weeklySchedule, type DesignResult, type ItemKey } from './design';
+import { ROUNDING_UNIT, weeklySchedule, type DesignResult, type ItemKey } from './design';
 import { dailyWorkHours, leaveTerms, PROBATION_PCT, rateText, restDayTerm, type WriteForm } from './contract';
 
 export interface ContractClause {
@@ -117,6 +117,13 @@ export function buildContractDocument(form: WriteForm, design: DesignResult): Co
         `통상시급: ${rateText(design.rate)}원(월 임금 총액 ÷ 아래 표의 월 인정시간 합 ${h2(design.totalHours)})`,
         '표의 연장·휴일 시간은 제3조·제4조의 근무를 기준으로 미리 정한 월 예정 시간이다. 실제 근로가 이 시간을 넘으면 넘는 시간의 수당을 따로 계산해 추가로 지급한다.',
       ];
+  // 출력 숫자를 다시 셈할 수 있게(#139 적대 검토 9) — 시간은 둘째 자리로 줄여 적지만 금액은 줄이기 전 시간으로 셈했다
+  wageLines.push('표의 시간은 소수 둘째 자리까지 적었고, 금액은 그 전의 시간(통상시급 × 시간)으로 계산했다.');
+  const absorber = design.items.find((i) => i.absorbs);
+  const unit = ROUNDING_UNIT[form.rounding ?? 'won'];
+  if (absorber && unit) {
+    wageLines.push(`${absorber.label}을 뺀 항목 금액은 ${unit}원 단위로 올렸고, 남는 금액은 ${absorber.label}에 넣었다.`);
+  }
   if (prob?.reduced) {
     wageLines.push(`수습 감액 기간의 ${hourly ? '일 지급액' : '월 임금 총액'}: ${won(Math.round((design.total * PROBATION_PCT) / 100))}(100분의 ${PROBATION_PCT})`);
   }

@@ -79,8 +79,8 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 
 const ROUNDING: { value: Rounding; label: string }[] = [
   { value: 'won', label: '원 단위(반올림)' },
-  { value: 'floor10', label: '10원 미만 버림' },
-  { value: 'floor100', label: '100원 미만 버림' },
+  { value: 'ceil10', label: '10원 단위 올림' },
+  { value: 'ceil100', label: '100원 단위 올림' },
 ];
 const absorbOptions = (payType: WriteState['payType']): { value: ItemKey; label: string }[] =>
   (payType === 'hourly'
@@ -259,8 +259,8 @@ export default function ContractWriteClient() {
           </Field>
         )}
         <Field label="임금 지급일"><Input label="임금 지급일" value={s.payday} onChange={(v) => patch({ payday: v })} /></Field>
-        <Field label="금액 단위" hint="잔액을 받는 항목 말고는 이 단위로 맞춥니다">
-          <Choice options={ROUNDING} value={s.rounding} onChange={(v) => patch({ rounding: v })} />
+        <Field label="금액 단위" hint="잔액을 받는 항목 말고는 이 단위로 올립니다(수당이 산정 기준보다 적어지지 않게). 올리면 잔액은 기본급이 받습니다">
+          <Choice options={ROUNDING} value={s.rounding} onChange={(v) => patch(v === 'won' ? { rounding: v } : { rounding: v, absorbInto: 'base' })} />
         </Field>
         <Field label="끝에 남는 금액을 넣을 항목">
           <Choice options={absorbOptions(s.payType)} value={s.absorbInto} onChange={(v) => patch({ absorbInto: v })} />

@@ -58,15 +58,16 @@ describe('designHourlyWage — 양식 「_2026」 a~e 재현(includeUnder15)', (
     expect(x.holiday).toBeCloseTo(4_463.87, 2);
   });
 
-  it('e 주말 11:00~22:30 주2(실근무 10.25h → 연장 2.25h)', () => {
+  // 양식과 다른 점(법 기준) — 공휴일 하루 10.25시간 중 8시간 넘는 2.25시간은 2.0배(근로기준법 제56조 제2항).
+  // 양식은 8시간 × 1.5 만 넣어 휴일 0.6904H·합 14.2837H(기본급 83,732.10원)였다. 휴일 말고 시간은 양식과 같다
+  it('e 주말 11:00~22:30 주2(실근무 10.25h → 연장 2.25h, 공휴일 8시간 넘는 시간 2.0배)', () => {
     const r = designHourlyWage(E);
     expect(r.total).toBe(149_500);
-    expect(r.totalHours).toBeCloseTo(14.283650314485238, 10);
-    const x = exact(E);
-    expect(x.base).toBeCloseTo(83_732.1, 2);
-    expect(x.weeklyHoliday).toBeCloseTo(16_746.42, 2);
-    expect(x.overtime).toBeCloseTo(35_324.48, 2);
-    expect(x.holiday).toBeCloseTo(7_226.19, 2);
+    expect(r.hours.base).toBe(8);
+    expect(r.hours.weeklyHoliday).toBeCloseTo(1.6, 10);
+    expect(r.hours.overtime).toBeCloseTo(3.375, 10);
+    expect(r.hours.holiday).toBeCloseTo(((8 * 1.5 + 2.25 * 2) * 6) / ((2 * 365) / 7), 10);
+    expect(r.totalHours - r.hours.holiday).toBeCloseTo(14.283650314485238 - (8 * 1.5 * 6) / ((2 * 365) / 7), 10);
   });
 
   it('원 단위 금액 합은 언제나 일 지급액이다(기본급이 잔액)', () => {
@@ -106,13 +107,16 @@ describe('designHourlyWage — 법 기준 기본값', () => {
     expect(designHourlyWage({ ...A, minimumWage: 10_320 }).checks.minimumWage.ok).toBe(true);
   });
 
-  it('흡수 항목·단위 선택은 월급제와 같다', () => {
-    const r = designHourlyWage({ ...A, rounding: 'floor10', absorbInto: 'weeklyHoliday' });
+  it('흡수 항목·단위 선택은 월급제와 같다 — 단위 올림이면 기본급만 잔액을 받는다', () => {
+    const r = designHourlyWage({ ...A, rounding: 'ceil10' });
     const by = Object.fromEntries(r.items.map((i) => [i.key, i.amount]));
-    expect(by.base).toBe(58_290);
-    expect(by.leave).toBe(2_680);
-    expect(by.holiday).toBe(5_360);
-    expect(by.weeklyHoliday).toBe(78_000 - 58_290 - 2_680 - 5_360);
+    expect(by.weeklyHoliday).toBe(11_660);
+    expect(by.leave).toBe(2_690);
+    expect(by.holiday).toBe(5_370);
+    expect(by.base).toBe(78_000 - 11_660 - 2_690 - 5_370);
+    expect(() => designHourlyWage({ ...A, rounding: 'ceil10', absorbInto: 'weeklyHoliday' })).toThrow('기본급');
+    const w = designHourlyWage({ ...A, absorbInto: 'weeklyHoliday' });
+    expect(w.items.find((i) => i.key === 'weeklyHoliday')!.absorbs).toBe(true);
   });
 });
 
