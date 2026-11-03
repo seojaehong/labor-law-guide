@@ -5,6 +5,7 @@ import { checkMinWage, type MinWageInput, type MinWageResult } from '@/lib/calc/
 import { rateOn } from '@/content/rates';
 import AnswerCard from '@/components/tool/AnswerCard';
 import FoldedDetail from '@/components/tool/FoldedDetail';
+import ToolSplit from '@/components/tool/ToolSplit';
 import { card, inputCls, ink, muted, small, todayKst } from '@/lib/tool-kit';
 
 type Unit = MinWageInput['unit'];
@@ -61,7 +62,8 @@ export default function MinWageClient() {
 
   const first = 'rows' in out ? out.rows![0]?.r : undefined;
   return (
-    <div className="space-y-4">
+    <ToolSplit
+      inputs={
       <section className={`${card} grid gap-4 sm:grid-cols-2`}>
         <fieldset className={`${small} sm:col-span-2`} style={muted}>
           <legend className="mb-1">임금을 어떤 단위로 정했나요</legend>
@@ -101,8 +103,9 @@ export default function MinWageClient() {
           </>
         )}
       </section>
-
-      {'error' in out ? (
+      }
+      result={
+      'error' in out ? (
         <section className={card} aria-live="polite"><p className={small} style={ink}>{out.error}</p></section>
       ) : ys.length === 0 || !first ? (
         <section className={card} aria-live="polite"><p className={small} style={ink}>올해 최저임금 고시가 아직 반영되지 않았습니다.</p></section>
@@ -114,8 +117,9 @@ export default function MinWageClient() {
               : `${PER[unit]} ${won(first.counted)} ÷ ${first.hours.toLocaleString('ko-KR', { maximumFractionDigits: 2 })}시간 = 시간당 ${won(first.hourly)}`}
           </p>
         </AnswerCard>
-      )}
-
+      )
+      }
+    >
       <FoldedDetail summary="수습 중이라면">
         <label className={`${small} flex items-center gap-2`} style={muted}>
           <input type="checkbox" checked={prob.on} onChange={(e) => setProb({ ...prob, on: e.target.checked })} /> 수습 기간이다
@@ -144,6 +148,6 @@ export default function MinWageClient() {
           <li>주 15시간 미만이면 주휴 시간 없이 셉니다.</li>
         </ul>
       </FoldedDetail>
-    </div>
+    </ToolSplit>
   );
 }

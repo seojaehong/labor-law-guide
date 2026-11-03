@@ -30,7 +30,7 @@ export default function GlassNav() {
     document.addEventListener('keydown',close);
     return () => document.removeEventListener('keydown',close);
   },[mobileOpen]);
-  const links = NAV_ITEMS.map(item => <Link key={item.href} href={item.href} className="nav-link editorial-nav-link" aria-current={active(item.href,pathname)?'page':undefined} onClick={()=>setMobileOpen(false)}><span>{item.href === '/decisions' ? <>판례·<wbr />행정해석</> : item.href === '/tools' ? <>계산·<wbr />점검 도구</> : item.label}</span></Link>);
+  const links = NAV_ITEMS.map(item => <Link key={item.href} href={item.href} className="nav-link editorial-nav-link" aria-current={active(item.href,pathname)?'page':undefined} onClick={()=>setMobileOpen(false)}><span>{item.href === '/decisions' ? <>판례·<wbr />행정해석</> : item.href === '/tools' ? <>계산·점검<span className="nav-tools-suffix"> 도구</span></> : item.label}</span></Link>);
   return <nav className="glass-nav editorial-nav sticky top-0 z-50" aria-label="주요 탐색">
     <div className="layout-wide layout-wide--chrome editorial-nav-inner">
       <Link href="/" className="editorial-wordmark" aria-current={pathname==='/'?'page':undefined}>
