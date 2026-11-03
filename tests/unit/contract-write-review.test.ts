@@ -228,6 +228,15 @@ describe('검토 8 · 계약 기간에 걸친 해의 최저임금', () => {
     expect(later).toEqual([{ text: expect.stringContaining('2028년 최저시급 미등록'), warn: false }]);
   });
 
+  it('시급·일급 파트도 같은 점검 규칙으로 다음 해와 비교한다(수원 파트 a: 시간당 13,000원 → 통상시급 약 10,599원)', () => {
+    const part: WriteForm = { ...BASE, payType: 'hourly', hourlyWage: 13_000, monthlyTotal: undefined, start: '11:00', end: '17:00', breakMinutes: 30, holidayDaysPerYear: 16 };
+    const design = designFromForm(part);
+    expect(design.rate).toBeGreaterThan(10_320);
+    expect(design.rate).toBeLessThan(10_700);
+    expect(review(part).minimumWageLater.map((l) => l.text).join()).toContain('2027년 최저시급 10,700원');
+    expect(review({ ...part, hourlyWage: 14_000 }).minimumWageLater).toEqual([]);
+  });
+
   it('미등록 해가 여럿이면 한 줄로 적는다(3년 기간제 2026~2029 → 2028·2029년)', () => {
     const later = review({ ...SPAN, startDate: '2026-11-04', endDate: '2029-11-03', monthlyTotal: 3_000_000 }).minimumWageLater;
     expect(later).toEqual([{ text: expect.stringContaining('2028·2029년 최저시급 미등록'), warn: false }]);
