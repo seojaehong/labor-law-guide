@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { TOOLS } from '@/content/tools-registry';
-import { TOOL_GROUPS, TOOL_INDEX, groupedTools, searchTools } from '@/content/tools-groups';
+import { HOME_PICKS, TOOL_GROUPS, TOOL_INDEX, groupedTools, searchTools } from '@/content/tools-groups';
 import { bannedHits } from '@/lib/tool-kit/banned';
 
 // /tools 목록은 상황 묶음으로 나눠 보여 준다. 등록부에 도구를 더하면 여기에도 자리를 정해야 한다.
@@ -28,6 +28,17 @@ describe('도구 상황 묶음', () => {
       expect(m.summary.length, href).toBeLessThanOrEqual(36);
       expect(bannedHits(m.summary), href).toEqual([]);
       expect(m.summary.includes('포괄'), href).toBe(false);
+    }
+  });
+
+  it('홈 바로가기는 등록부에 있는 도구이고, 제 묶음 안에 있다', () => {
+    for (const g of TOOL_GROUPS) {
+      const picks = HOME_PICKS[g.id];
+      expect(picks.length, g.id).toBeGreaterThan(0);
+      for (const p of picks) {
+        expect(TOOL_INDEX[p.href]?.group, p.href).toBe(g.id);
+        expect(bannedHits(p.label), p.href).toEqual([]);
+      }
     }
   });
 

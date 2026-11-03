@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { ArrowRight, Search } from 'lucide-react';
 import SubscribeForm from '@/components/SubscribeForm';
+import { HOME_PICKS, TOOL_GROUPS } from '@/content/tools-groups';
 import '@/components/editorial-home.css';
 
 interface LatestBlogArticle {
@@ -53,7 +54,7 @@ export default function HomeClient({ totalCases, totalAdmin, latestBlogArticles,
     <div className="editorial-home">
       <section className="editorial-shell editorial-search-band" aria-labelledby="home-search-heading">
         <div>
-          <h1 id="home-search-heading">노동법 자료 검색과 실무 정보</h1>
+          <h1 id="home-search-heading">노동법 자료 검색과 <span className="whitespace-nowrap">계산·점검 도구</span></h1>
           <p>판례 {totalCases.toLocaleString()}건 · 공개 행정해석 {totalAdmin.toLocaleString()}건</p>
         </div>
         <form action="/decisions" method="get" role="search" className="editorial-search-form">
@@ -68,6 +69,24 @@ export default function HomeClient({ totalCases, totalAdmin, latestBlogArticles,
           <Link href="/laws">법령 개정</Link>
           <Link href="/tools/work-rules">취업규칙 점검</Link>
         </nav>
+      </section>
+
+      {/* 첫 화면은 도구가 먼저 — 뉴스는 레터로 가므로 아래로 내렸다(재홍님 261103) */}
+      <section className="editorial-shell editorial-situations" aria-labelledby="home-tools-heading">
+        <div className="editorial-section-heading">
+          <h2 id="home-tools-heading">상황별 계산·점검 도구</h2>
+          <Link href="/tools">도구 전체 보기 <ArrowRight size={14} aria-hidden="true" /></Link>
+        </div>
+        <ul className="editorial-situation-grid">
+          {TOOL_GROUPS.map(g => (
+            <li key={g.id}>
+              <Link className="editorial-situation-name" href={`/tools#${g.id}`}>{g.label}</Link>
+              <ul>
+                {HOME_PICKS[g.id].map(p => <li key={p.href}>{p.href.endsWith('.html') ? <a href={p.href}>{p.label}</a> : <Link href={p.href}>{p.label}</Link>}</li>)}
+              </ul>
+            </li>
+          ))}
+        </ul>
       </section>
 
       {featured && (

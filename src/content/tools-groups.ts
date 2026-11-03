@@ -68,6 +68,39 @@ export const TOOL_INDEX: Record<string, ToolIndexEntry> = {
   '/tools/rules-review': { group: 'docs', glyph: 'files', summary: '규정 묶음끼리 인용·조문 번호 맞추기' },
 };
 
+/** 홈 첫 화면 「상황별 도구」 — 묶음마다 먼저 찾는 도구 2~3개와 짧은 이름 */
+export const HOME_PICKS: Record<ToolGroupId, { href: string; label: string }[]> = {
+  hire: [
+    { href: '/tools/contract-write', label: '근로계약서 작성' },
+    { href: '/tools/contract-check', label: '근로계약서 점검' },
+    { href: '/tools/headcount', label: '상시 근로자 수' },
+  ],
+  pay: [
+    { href: '/tools/min-wage', label: '최저임금 확인' },
+    { href: '/tools/weekly-holiday-pay', label: '주휴수당' },
+    { href: '/tools/take-home-pay', label: '실수령액' },
+  ],
+  leave: [
+    { href: '/tools/leave', label: '연차휴가' },
+    { href: '/tools/holiday-pay', label: '공휴일 수당' },
+    { href: '/tools/leave-pay', label: '연차수당' },
+  ],
+  exit: [
+    { href: '/tools/severance.html', label: '퇴직금' },
+    { href: '/tools/retirement-tax', label: '퇴직소득세' },
+    { href: '/tools/notice-pay', label: '해고예고수당' },
+  ],
+  insurance: [
+    { href: '/tools/branch-directory', label: '관할 지사 번호' },
+    { href: '/tools/nhis-report-form', label: '건강보험 신고서' },
+  ],
+  docs: [
+    { href: '/hwp-editor', label: '한글 문서 편집' },
+    { href: '/tools/work-rules', label: '취업규칙 점검' },
+    { href: '/tools/rules-review', label: '규정 정비 점검' },
+  ],
+};
+
 export type IndexedTool = ToolEntry & ToolIndexEntry;
 
 function indexed(): IndexedTool[] {
