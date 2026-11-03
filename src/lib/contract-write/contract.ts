@@ -1,7 +1,9 @@
 // 근로계약서 작성 — 화면 입력 → 임금 구성 설계 → 점검 엔진(Contract) 모양.
 // 작성한 계약서를 같은 사이트의 근로계약서 점검 규칙으로 다시 돌려, 만든 문서가 점검에서 걸리지 않는지 본다.
 
-import type { Contract, WageItem, WageItemCode } from '@/lib/contract-check/types';
+import { checkContract } from '@/lib/contract-check/engine';
+import { normalize } from '@/lib/contract-check/normalize';
+import type { Contract, Finding, WageItem, WageItemCode } from '@/lib/contract-check/types';
 
 import { designMonthlyWage, type DesignResult, type ItemKey, type Rounding } from './design';
 
@@ -74,6 +76,14 @@ export function designFromForm(form: WriteForm, minimumWage?: number): DesignRes
     absorbInto: form.absorbInto,
     minimumWage,
   });
+}
+
+/** 작성한 계약을 근로계약서 점검 규칙으로 다시 돌린 결과 중 손볼 것(위반·확인 필요·주요 위험). 화면과 시험이 같이 쓴다 */
+export function checkWritten(form: WriteForm, design: DesignResult): Finding[] {
+  const [contract] = normalize([toContract(form, design)]);
+  return checkContract(contract).filter(
+    (f) => f.status === 'violation' || f.status === 'needs_data' || (f.status === 'risk' && f.severity !== 'minor' && f.severity !== 'info'),
+  );
 }
 
 /** 설계 결과를 점검 엔진 입력으로. 시간은 가산을 반영한 인정시간이고 basis_text 에 시급×시간을 적는다 */
