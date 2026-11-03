@@ -267,16 +267,16 @@ describe('W2 근로일별 행이 있으면 소정은 행에서 — 출근·퇴�
   it('출근·퇴근 09~13 이든 09~18 이든 소정 26.5H', () => {
     expect([opus('09:00', '13:00'), opus('09:00', '18:00')]).toEqual([26.5, 26.5]);
   });
-  it('출근·퇴근 10~14 + 근로일별 09~18 × 5 → 소정은 행(45H), 출근·퇴근(20H)으로 깎지 않는다', () => {
+  it('출근·퇴근 10~14 + 근로일별 09~18 × 5 → 소정은 행(하루 8시간 상한 → 40H, 261103), 출근·퇴근(20H)으로 깎지 않는다', () => {
     const c = contract(5, '10:00', '14:00', [base(2200000)]);
     c.work_time.daily_schedules = ['월', '화', '수', '목', '금'].map((day) => ({ day, start: '09:00', end: '18:00' }));
-    expect(run(c).n.work_time.weekly_scheduled_hours).toBe(45);
+    expect(run(c).n.work_time.weekly_scheduled_hours).toBe(40);
   });
-  it('fable 재현 — 출근·퇴근 09~17(휴게 60분) + 근로일별 09~19 × 5 → 소정은 행(45H), 35H 로 깎지 않는다', () => {
+  it('fable 재현 — 출근·퇴근 09~17(휴게 60분) + 근로일별 09~19 × 5 → 소정은 행(하루 8시간 상한 → 40H, 261103), 35H 로 깎지 않는다', () => {
     const c = contract(5, '09:00', '17:00', [base(2200000)]);
     c.work_time.breaks = [{ minutes: 60 }];
     c.work_time.daily_schedules = ['월', '화', '수', '목', '금'].map((day) => ({ day, start: '09:00', end: '19:00' }));
-    expect(run(c).n.work_time.weekly_scheduled_hours).toBe(45);
+    expect(run(c).n.work_time.weekly_scheduled_hours).toBe(40);
   });
   it('반대편 — 0004(출근·퇴근 10:00~17:30, 근로일별 10:00~14:30)는 소정 20H·실근로 35H 그대로', () => {
     const { n } = run(raw('syn-part-ot-0004'));

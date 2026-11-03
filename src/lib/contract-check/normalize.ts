@@ -6,7 +6,8 @@
 // - work_time.weekly_actual_hours / weekly_overtime_hours — variants·breaks에서 계산
 // - work_time.weekly_scheduled_hours / weekly_scheduled_days / weekly_scheduled_source — 1주 소정근로시간·근로일·출처.
 //   요일별 근무표를 믿을 수 있으면(행이 모두 유효하고 행 수 = days_per_week) 휴게를 뺀 그 합·요일 수(daily — 출근·퇴근
-//   칸 값으로 깎지 않는다), 아니면 weekly_actual_hours·days_per_week(actual)
+//   칸 값으로 깎지 않는다), 아니면 출근·퇴근 칸·days_per_week(actual).
+//   어느 쪽이든 하루 8시간까지만 소정으로 센다(근로기준법 §50②, 261103)
 // - wage.ordinary_hourly_rate = wageBasis 의 시급(시급제), 시급제인데 시급으로 볼 수 없으면 null,
 //   월급제는 BASE.amount ÷ (basis_hours, 없으면 최저임금 적용기준 월 시간 — 근로시간을 모르면 209) (정수)
 // - signatures.retroactive_days = written_date - start_date (일수)
@@ -19,6 +20,8 @@ import type { Contract, FixturesInput, WorkBreak, WorkTime } from './types';
 
 export const MONTHLY_BASE_HOURS = 209;
 export const WEEKLY_STANDARD_HOURS = 40.0;
+/** 1일 소정근로시간 상한 — 근로기준법 §50②(1일 8시간). 넘는 시간은 연장근로라 소정에 넣지 않는다(재홍님 261103) */
+export const DAILY_SCHEDULED_MAX_MINUTES = 8 * 60;
 /** 규칙들이 함께 쓰는 상수 — 규칙 파일끼리 import 하지 않도록 여기 둔다 */
 export const WAGE_MATH_TOLERANCE = 10;
 export const WEEKS_PER_MONTH = 4.345;
@@ -96,6 +99,19 @@ export function computeWeeklyHours(workTime: WorkTime): [number | null, number |
   return [actual, overtime];
 }
 
+/** 출근·퇴근 칸으로 본 1주 소정근로시간 — 하루마다 8시간까지만 센다(§50②). 칸이 없으면 null */
+export function scheduledFromTimes(workTime: WorkTime): number | null {
+  const { start, end, days_per_week: days } = workTime;
+  if (!start || !end || !days) return null;
+  const breaks = workTime.breaks ?? [];
+  const variants = workTime.variants ?? [];
+  const variantDays = variants.reduce((sum, v) => sum + (v.per_week ?? 0), 0);
+  const capped = (s: string, e: string) => Math.min(dayWorkMinutes(s, e, breaks), DAILY_SCHEDULED_MAX_MINUTES);
+  let weeklyMin = (days - variantDays) * capped(start, end);
+  for (const v of variants) weeklyMin += (v.per_week ?? 0) * capped(v.start ?? start, v.end ?? end);
+  return round2(weeklyMin / 60);
+}
+
 /** 근로일별 행 수가 주 근무일수와 다를 때 PART-TIME-OT·REQUIRED-TERMS-FIXED 가 함께 쓰는 문구 */
 export const DAILY_MISMATCH_NOTE = '근로일별 시간이 주 근무일수와 맞지 않음';
 
@@ -113,8 +129,9 @@ export function dailyScheduleState(workTime: WorkTime): 'none' | 'invalid' | 'mi
 /** 요일별 근무표 → [휴게 차감 주간 합(H), 근로일 수]. 상태가 ok 가 아니면 null.
  * 자정을 넘는 행은 dayWorkMinutes 가 24시간을 더한다. 시각 없는 하루 휴게는 가장 긴 하루(가장 긴 행, 출근·퇴근 칸이 더
  * 길면 그것)와 같은 길이의 행에서는 전부 빼고, 그보다 짧은 행에서만 그 행 길이의 법정 휴게까지 뺀다. 출근·퇴근 칸이 짧아도
- * 행 소정은 줄지 않는다(그 칸은 기준을 늘릴 뿐 — 월·화 09~18, 수~금 09~13 은 칸이 09~13 이든 09~18 이든 26.5H). */
-function dailyScheduledWeek(workTime: WorkTime): [number, number] | null {
+ * 행 소정은 줄지 않는다(그 칸은 기준을 늘릴 뿐 — 월·화 09~18, 수~금 09~13 은 칸이 09~13 이든 09~18 이든 26.5H).
+ * capDaily = 하루 8시간 상한(§50②). 행과 칸이 맞는지 볼 때(dailyHoursConflict)만 끈다. */
+function dailyScheduledWeek(workTime: WorkTime, capDaily = true): [number, number] | null {
   if (dailyScheduleState(workTime) !== 'ok') return null;
   const schedules = workTime.daily_schedules ?? [];
   const breaks = workTime.breaks ?? [];
@@ -123,7 +140,8 @@ function dailyScheduledWeek(workTime: WorkTime): [number, number] | null {
     workTime.start && workTime.end ? Math.max(longestRow, shiftSpan(workTime.start, workTime.end)) : longestRow;
   let minutes = 0;
   for (const s of schedules) {
-    minutes += dayWorkMinutes(s.start, s.end, breaks, shiftSpan(s.start, s.end) < reference);
+    const day = dayWorkMinutes(s.start, s.end, breaks, shiftSpan(s.start, s.end) < reference);
+    minutes += capDaily ? Math.min(day, DAILY_SCHEDULED_MAX_MINUTES) : day;
   }
   return [round2(minutes / 60), schedules.length];
 }
@@ -284,9 +302,10 @@ export function wageBasis(contract: Contract): WageBasis | null {
  * 행 합 ≤ 칸 합이면 소정은 행, 실근로는 칸(초과근로 방향 — 0004). */
 export function dailyHoursConflict(contract: Contract): string | null {
   const wt = contract.work_time ?? {};
-  const scheduled = wt.weekly_scheduled_hours;
+  // 하루 8시간 상한을 걸기 전 행 합으로 비교한다 — 칸과 행이 같은 근무를 적었는지 보는 것이라 소정 계산과 다르다
+  const scheduled = wt.weekly_scheduled_source === 'daily' ? dailyScheduledWeek(wt, false)?.[0] : null;
   const actual = wt.weekly_actual_hours;
-  if (wt.weekly_scheduled_source !== 'daily' || scheduled == null || actual == null || scheduled <= actual) return null;
+  if (scheduled == null || actual == null || scheduled <= actual) return null;
   return `근로일별 시간(주 ${round2(scheduled)}H)이 출근·퇴근 시간(주 ${round2(actual)}H)보다 김`;
 }
 
@@ -308,11 +327,11 @@ export function deriveFields(contract: Contract): Contract {
   // 계산한 주 근로시간(출처 actual). 최저임금(MINWAGE)·단시간 초과근로(PART-TIME-OT)·단시간 판정이 모두 이 값을 쓴다.
   const daily = dailyScheduledWeek(workTime);
   if (daily) {
-    // 근로일별 행이 소정이다 — 출근·퇴근 칸(실근로)으로 깎지 않는다
+    // 근로일별 행이 소정이다 — 출근·퇴근 칸(실근로)으로 깎지 않는다. 하루 8시간 넘는 행은 8시간까지만(§50②)
     [workTime.weekly_scheduled_hours, workTime.weekly_scheduled_days] = daily;
     workTime.weekly_scheduled_source = 'daily';
   } else if (workTime.weekly_actual_hours != null) {
-    workTime.weekly_scheduled_hours = workTime.weekly_actual_hours;
+    workTime.weekly_scheduled_hours = scheduledFromTimes(workTime) ?? workTime.weekly_actual_hours;
     workTime.weekly_scheduled_days = workTime.days_per_week ?? null;
     workTime.weekly_scheduled_source = 'actual';
   }
