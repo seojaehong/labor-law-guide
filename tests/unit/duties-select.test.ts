@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { DUTIES } from '@/content/duties-data';
 import { dutiesAt, howAt, TIER_MINS } from '@/lib/duties';
 
-// /duties 화면과 korea-labor-mcp list_employer_duties 가 같이 쓰는 고르기 규칙
+// /duties 화면과 k-labor list_employer_duties 가 같이 쓰는 고르기 규칙
 describe('dutiesAt', () => {
   it('규모마다 적용 = min 이하 · 새로 생김 = min 이 그 규모(1~4명 제외) · 다음 규모 목록', () => {
     for (const tier of TIER_MINS) {
