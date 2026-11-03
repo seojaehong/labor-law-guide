@@ -65,7 +65,21 @@ const FEATURES: Record<string, { path: string; journey: Journey; waitUntil?: 'lo
       const RRN = '900101-1000000';
       const sent: string[] = [];
       p.on('request', (r: any) => sent.push(`${r.method()} ${r.url()} ${r.postData() ?? ''}`));
+      // 사업자번호 → 공개 사업장 목록(여럿) → 고르면 주소·명칭이 채워진다(삼성전자 공개 번호)
+      await p.getByLabel('사업자등록번호').fill('123');
+      await p.getByRole('button', { name: '사업자번호로 찾기' }).click();
+      await p.getByText('사업자등록번호 10자리를 확인해 주세요.').waitFor({ timeout: 15000 });
+      step('사업자번호 자릿수 틀림 안내', /10자리를 확인/, await answer(p, '[data-step=branch]'));
+      await p.getByLabel('사업자등록번호').fill('124-81-00998');
+      await p.getByRole('button', { name: '사업자번호로 찾기' }).click();
+      await p.locator('[data-biz-pick] button').first().waitFor({ timeout: 30000 });
+      await p.locator('[data-biz-pick] button').first().click();
+      await p.waitForFunction(() => (document.querySelector('[data-branch-name]') as HTMLInputElement | null)?.value, null, { timeout: 30000 });
+      step('사업자번호 → 주소 채움', /경기.*수원시/, await p.getByLabel('사업장 주소').inputValue());
+      step('사업자번호 → 명칭 채움', /삼성전자/, await p.getByLabel('사업장 명칭').inputValue());
+      await p.getByLabel('사업장 명칭').fill('');
       await p.getByLabel('사업장 주소').fill('충청북도 청주시 상당구 상당로81번길 63 (서문동)');
+      await p.locator('[data-branch-name]').fill('');
       await p.getByRole('button', { name: '지사 찾기' }).click();
       await p.waitForFunction(() => (document.querySelector('[data-branch-name]') as HTMLInputElement | null)?.value, null, { timeout: 30000 });
       step('건보 받을 지사 자동 입력', '청주동부지사', await p.locator('[data-branch-name]').inputValue());

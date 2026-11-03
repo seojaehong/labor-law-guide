@@ -14,6 +14,7 @@ export const STEP = {
 
 export const FIELD = {
   addr: '사업장 주소',
+  bizNo: '사업자등록번호',
   mgmtNo: '사업장관리번호',
   bizName: '사업장 명칭',
   owner: '대표자 성명',
@@ -49,7 +50,7 @@ export const LEAD =
   '공식 서식(국민건강보험법 시행규칙 별지 제6호·제8호)에 입력한 값을 채우고, 늦어진 이유를 적은 사업주확인서를 붙여 PDF 한 파일로 내려받습니다. 제출은 사업주가 EDI·팩스·방문으로 직접 합니다.';
 
 export const PRIVACY =
-  '주민등록번호를 포함한 입력값은 이 브라우저 안에서만 PDF 로 만들어지고 서버로 보내지 않습니다. 지사를 찾을 때는 사업장 주소만 보냅니다.';
+  '주민등록번호를 포함한 입력값은 이 브라우저 안에서만 PDF 로 만들어지고 서버로 보내지 않습니다. 지사를 찾을 때는 사업장 주소나 사업자등록번호만 보냅니다.';
 
 export const LOSS_DATE_LINE = (d: string) => `상실일 ${d} (마지막 근무일 다음 날)`;
 
@@ -63,6 +64,8 @@ export const BRANCH_LINE = {
 export const BRANCH_ERROR = {
   limit: '지사 찾기를 잠시 너무 많이 했습니다. 1분 뒤 다시 누르거나 지사 이름을 직접 적어 주세요.',
   failed: '지사를 찾는 중 오류가 났습니다. 다시 누르거나 지사 이름을 직접 적어 주세요.',
+  bizNone: '이 사업자등록번호로 공개된 사업장을 찾지 못했습니다. 주소를 직접 적어 주세요.',
+  bizInvalid: '사업자등록번호 10자리를 확인해 주세요.',
 };
 
 export const ACQ_NOTE =
@@ -87,7 +90,9 @@ export const INPUT_ERROR = {
 export const REASON_MAX = 300;
 export const REASON_COUNT = (n: number) => `${n} / ${REASON_MAX}자`;
 
-export const BUTTON = { find: '지사 찾기', add: '사람 더하기', remove: '빼기', make: 'PDF 만들기', making: '만드는 중' };
+export const BIZ_PICK = '사업장이 여러 곳입니다. 신고할 곳을 고르세요.';
+
+export const BUTTON = { findBiz: '사업자번호로 찾기', find: '지사 찾기', add: '사람 더하기', remove: '빼기', make: 'PDF 만들기', making: '만드는 중' };
 
 export const CHECK_BEFORE =
   '내려받은 PDF 를 열어 칸이 맞게 들어갔는지 확인한 뒤 내세요. 사업장관리번호·보수 총액은 공단 고지 자료와 같아야 합니다.';
@@ -100,7 +105,7 @@ export function allCopy(): string[] {
   return [
     ...Object.values(KIND_LABEL), ...Object.values(STEP), ...Object.values(FIELD),
     ...LOSS_CODES.map(c => c.label), ...ACQ_CODES.map(c => c.label), LEAD, PRIVACY, LOSS_DATE_LINE('2026.06.01'),
-    ...Object.values(BRANCH_LINE), ...Object.values(BRANCH_ERROR), ACQ_NOTE, ATTACH_SIZE(520_000), ATTACH_SIZE(1_200_000),
+    ...Object.values(BRANCH_LINE), ...Object.values(BRANCH_ERROR), BIZ_PICK, ACQ_NOTE, ATTACH_SIZE(520_000), ATTACH_SIZE(1_200_000),
     ...Object.values(CEO), INPUT_ERROR.number('월 보수액', 1), INPUT_ERROR.noName(1), INPUT_ERROR.ceo(1), INPUT_ERROR.stamp,
     REASON_COUNT(10), ...Object.values(BUTTON), CHECK_BEFORE, failLine('x'),
   ];

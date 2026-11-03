@@ -6,7 +6,7 @@ import { useState } from 'react';
 import { MAX_PEOPLE, lossDateOf, parseYmd } from '@/lib/nhis-forms/dates';
 import type { AcqPerson, LossPerson, PacketInput } from '@/lib/nhis-forms/build';
 import {
-  ACQ_CODES, ACQ_NOTE, ATTACH_SIZE, BRANCH_ERROR, BRANCH_LINE, BUTTON, CEO, CHECK_BEFORE, FIELD, INPUT_ERROR, KIND_LABEL,
+  ACQ_CODES, ACQ_NOTE, BIZ_PICK, ATTACH_SIZE, BRANCH_ERROR, BRANCH_LINE, BUTTON, CEO, CHECK_BEFORE, FIELD, INPUT_ERROR, KIND_LABEL,
   LOSS_CODES, LOSS_DATE_LINE, PRIVACY, REASON_COUNT, REASON_MAX, STEP, failLine,
 } from './copy';
 
@@ -60,7 +60,9 @@ export default function NhisReportFormClient() {
   const [kind, setKind] = useState<Kind>('loss');
   const [addr, setAddr] = useState('');
   const [cands, setCands] = useState<string[] | null>(null);
-  const [branchStatus, setBranchStatus] = useState<'confirmed' | 'candidates' | 'none' | 'limit' | 'failed' | null>(null);
+  const [branchStatus, setBranchStatus] = useState<'confirmed' | 'candidates' | 'none' | 'limit' | 'failed' | 'bizNone' | 'bizInvalid' | null>(null);
+  const [bizNo, setBizNo] = useState('');
+  const [bizPick, setBizPick] = useState<{ name: string; address: string }[] | null>(null);
   const [branch, setBranch] = useState('');
   const [biz, setBiz] = useState({ mgmtNo: '', name: '', ownerName: '', tel: '', fax: '', zip: '' });
   const [people, setPeople] = useState<P[]>([blank('loss')]);
@@ -73,14 +75,18 @@ export default function NhisReportFormClient() {
   const switchKind = (k: Kind) => { setKind(k); setPeople([blank(k)]); setDone(null); setMsg(null); };
   const setP = (i: number, patch: Partial<P>) => setPeople(ps => ps.map((p, j) => (j === i ? { ...p, ...patch } : p)));
 
-  const find = async () => {
-    if (!addr.trim()) return;
-    setCands(null); setBranchStatus(null);
+  /** q = address=… 또는 bizNo=… . 사업자번호면 서버가 근복 공개 사업장 주소로 바꿔 찾는다(여럿이면 고를 목록) */
+  const lookup = async (q: string) => {
+    setCands(null); setBranchStatus(null); setBizPick(null);
     try {
-      const res = await fetch(`/api/tools/branch-directory?address=${encodeURIComponent(addr.trim())}`);
+      const res = await fetch(`/api/tools/branch-directory?${q}`);
       if (res.status === 429) { setBranchStatus('limit'); return; }
       const r = await res.json();
+      if (res.status === 400 && q.startsWith('bizNo=')) { setBranchStatus('bizInvalid'); return; }
+      if (!r.ok && (r.reason === 'none' || r.reason === 'mismatch')) { setBranchStatus('bizNone'); return; }
       if (!res.ok || !r.ok) { setBranchStatus('failed'); return; }
+      if (r.pick) { setBizPick(r.pick); return; }
+      setAddr(r.address);
       const n: { status: 'confirmed' | 'candidates' | 'none'; candidates: { name: string }[] } = r.result.nhis;
       const names = n.candidates.map(c => c.name);
       setBranchStatus(n.status); setCands(names);
@@ -89,6 +95,17 @@ export default function NhisReportFormClient() {
     } catch {
       setBranchStatus('failed');
     }
+  };
+  const find = () => { if (addr.trim()) lookup(`address=${encodeURIComponent(addr.trim())}`); };
+  const findBiz = () => {
+    const d = bizNo.replace(/[\s-]/g, '');
+    if (!d) return;
+    if (!/^\d{10}$/.test(d)) { setBizPick(null); setCands(null); setBranchStatus('bizInvalid'); return; }
+    lookup(`bizNo=${d}`);
+  };
+  const choose = (w: { name: string; address: string }) => {
+    setBiz(b => ({ ...b, name: b.name.trim() ? b.name : w.name }));
+    lookup(`address=${encodeURIComponent(w.address)}`);
   };
 
   /** 화면 값 → 엔진 입력. 화면에서만 알 수 있는 문제(숫자 아닌 글자, 성명 없이 채운 줄, 대표자 여부)는 여기서 잡는다 */
@@ -159,13 +176,23 @@ export default function NhisReportFormClient() {
 
       <section style={card} data-step="branch">
         <h2 style={h}>{STEP.branch}</h2>
+        <form style={{ display: 'flex', gap: 6, marginBottom: 6 }} onSubmit={e => { e.preventDefault(); findBiz(); }}>
+          <input aria-label={FIELD.bizNo} style={{ ...inp, flex: 1 }} value={bizNo} onChange={e => setBizNo(e.target.value)} placeholder="123-45-67890" inputMode="numeric" autoComplete="off" />
+          <button type="submit" style={btn}>{BUTTON.findBiz}</button>
+        </form>
+        {bizPick ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 6 }} data-biz-pick>
+            <p style={small}>{BIZ_PICK}</p>
+            {bizPick.map((w, i) => <button key={i} type="button" style={{ ...btn, textAlign: 'left' }} onClick={() => choose(w)}>{w.name} · {w.address}</button>)}
+          </div>
+        ) : null}
         <form style={{ display: 'flex', gap: 6 }} onSubmit={e => { e.preventDefault(); find(); }}>
           <input aria-label={FIELD.addr} style={{ ...inp, flex: 1 }} value={addr} onChange={e => setAddr(e.target.value)} placeholder="예: 충북 청주시 상당구 상당로81번길 63 (서문동)" autoComplete="off" />
           <button type="submit" style={on}>{BUTTON.find}</button>
         </form>
         {branchStatus === 'none' ? <p style={{ ...small, marginTop: 6 }}>{BRANCH_LINE.none}</p> : null}
         {branchStatus === 'candidates' ? <p style={{ ...small, marginTop: 6 }}>{BRANCH_LINE.candidates}</p> : null}
-        {branchStatus === 'limit' || branchStatus === 'failed' ? <p style={{ ...small, marginTop: 6 }}>{BRANCH_ERROR[branchStatus]}</p> : null}
+        {branchStatus === 'limit' || branchStatus === 'failed' || branchStatus === 'bizNone' || branchStatus === 'bizInvalid' ? <p style={{ ...small, marginTop: 6 }}>{BRANCH_ERROR[branchStatus]}</p> : null}
         {cands && cands.length && branchStatus === 'candidates' ? (
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 6 }}>
             {cands.map(c => <button key={c} type="button" style={branch === c ? on : btn} onClick={() => setBranch(c)}>{c}</button>)}
