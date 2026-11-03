@@ -90,6 +90,8 @@ fi
 #   여기서 한 번 더 본다. 어긋나면 PR 을 열지 않고 멈춘다(node 가 없어도 여기서 잡힌다).
 rv_rc=0
 node scripts/laws/rule_version.mjs > "$TMP/rule_version.txt" 2>&1 || rv_rc=$?
+# 아무 말 없이 0 으로 끝나면(스크립트가 돌지 않은 것) 맞은 것으로 보지 않는다
+[ -s "$TMP/rule_version.txt" ] || { [ "$rv_rc" != "0" ] || rv_rc=5; echo "rule_version.mjs 가 아무것도 출력하지 않았다" > "$TMP/rule_version.txt"; }
 cat "$TMP/rule_version.txt"
 if [ "$rv_rc" != "0" ]; then
   notify "🔴 /laws 매일 수집 — 관리자 검토기록 규칙 버전(RULE_VERSION)이 공개 데이터와 달라 멈췄습니다.

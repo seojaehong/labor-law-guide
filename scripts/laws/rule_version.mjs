@@ -12,7 +12,7 @@
 //   node scripts/laws/rule_version.mjs          # 맞는지 본다(다르면 종료코드 1)
 //   node scripts/laws/rule_version.mjs --write  # 상수를 공개 데이터에 맞춘다
 import { createHash } from 'node:crypto';
-import { readFileSync, writeFileSync } from 'node:fs';
+import { readFileSync, realpathSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -50,4 +50,12 @@ function main(args) {
   return 0;
 }
 
-if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) process.exitCode = main(process.argv.slice(2));
+// 직접 실행일 때만 — 경로 표기가 달라(심볼릭 링크 등) 조용히 아무것도 안 하고 0 으로 끝나지 않게 실경로로 비교한다
+const real = (p) => {
+  try {
+    return realpathSync(p);
+  } catch {
+    return resolve(p);
+  }
+};
+if (process.argv[1] && real(process.argv[1]) === real(fileURLToPath(import.meta.url))) process.exitCode = main(process.argv.slice(2));
