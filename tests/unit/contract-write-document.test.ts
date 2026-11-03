@@ -82,7 +82,12 @@ describe('세 파일이 같은 금액을 싣는다', () => {
     expect(Object.keys(zip.files).some((n) => n.startsWith('Preview') || n.startsWith('BinData'))).toBe(false);
     const section = await zip.file('Contents/section0.xml')!.async('string');
     for (const a of AMOUNTS) expect(section).toContain(a);
-    expect(section).toContain('rowCnt="6"');
+    // 표 제목은 표 첫 행(4칸 병합)이다 — 제목 문단만 쪽 끝에 남지 않게(261103). 표는 쪽을 넘기지 않는다
+    expect(section).toContain('rowCnt="7"');
+    expect(section).toContain('pageBreak="NONE"');
+    expect(section).toMatch(/colSpan="4"[^]*?임금 구성|임금 구성[^]*?colSpan="4"/);
+    const captionAt = section.indexOf('임금 구성(항목별');
+    expect(captionAt).toBeGreaterThan(section.indexOf('<hp:tbl'));
   });
 
   it('PDF: 나눔고딕 전체 내장, 1쪽 이상', async () => {

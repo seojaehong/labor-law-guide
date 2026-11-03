@@ -40,7 +40,7 @@
 //     K4·F5) needs_data — 「시간당 0」을 내지 않는다.
 // WAGE-MATH: item.amount ≟ 통상시급 × basis_hours × (rate_multiplier or 1.0) ±10원. BASE 는 통상시급의 출처라 보지 않는다.
 // OT-RATE: OT_* 항목 rate_multiplier 미표기 → risk
-// OT-COVER: OT_* basis_hours 합 ≥ weekly_overtime_hours × 4.345 × 1.5
+// OT-COVER: OT_* basis_hours 합 ≥ weekly_overtime_hours × 4.345 × 1.5. 상시 5명 미만은 가산 없이 × 1.0(시행령 §7 별표1, 261103)
 // HOLIDAY-COVER: HOLIDAY_EXTRA 환산H(amount÷통상시급) ≥ 공휴일 예정 근무H × 1.5
 //   (public_holiday_note "N일/M.MH" 파싱, 불가 시 needs_data)
 
@@ -687,11 +687,13 @@ export const ruleOtCover: RuleFn = (contract) => {
   if (weeklyOt == null) {
     return makeFinding('OT-COVER', 'needs_data', '주간 연장근로시간 산정 불가');
   }
-  const required = round1(weeklyOt * WEEKS_PER_MONTH * OT_PREMIUM_RATE);
+  // 상시 5명 미만은 §56 가산이 적용되지 않는다(시행령 §7 별표1) — 연장 실시간만 덮으면 된다
+  const under5 = contract.workplace?.employee_count_5plus === false;
+  const required = round1(weeklyOt * WEEKS_PER_MONTH * (under5 ? 1 : OT_PREMIUM_RATE));
   // 가산율이 적혀 있으면 시간은 실시간이다(WAGE-MATH 와 같은 해석). 없으면 환산시간으로 본다
   const agreed = round1(otItems(contract).reduce((sum, i) => sum + (i.basis_hours ?? 0) * (i.rate_multiplier ?? 1), 0));
   if (agreed >= required) {
-    return makeFinding('OT-COVER', 'ok', `필요 ${required}H ≤ 약정 ${agreed}H (환산시간 해석 시)`);
+    return makeFinding('OT-COVER', 'ok', `필요 ${required}H ≤ 약정 ${agreed}H (환산시간 해석 시${under5 && required > 0 ? ', 상시 5명 미만 — 가산 미적용' : ''})`);
   }
   return makeFinding(
     'OT-COVER',

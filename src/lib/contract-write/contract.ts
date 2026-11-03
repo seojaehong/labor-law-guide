@@ -5,7 +5,16 @@ import { checkContract } from '@/lib/contract-check/engine';
 import { normalize } from '@/lib/contract-check/normalize';
 import type { Contract, Finding, WageItem, WageItemCode } from '@/lib/contract-check/types';
 
-import { designMonthlyWage, type DesignResult, type ItemKey, type Rounding } from './design';
+import { designMonthlyWage, WEEKS_PER_MONTH, type DesignResult, type ItemKey, type Rounding } from './design';
+import { designHourlyWage } from './part';
+
+export interface Probation {
+  months: number;
+  /** 처음 3개월 임금을 100분의 90 으로 정한다(최저임금법 제5조 제2항·시행령 제3조) */
+  reduced: boolean;
+  /** 단순노무업무 고시 직종 — 감액할 수 없다 */
+  simpleLabor: boolean;
+}
 
 export interface WriteForm {
   workplaceName: string;
@@ -25,11 +34,17 @@ export interface WriteForm {
   /** 근무 요일(월~일). 계약서에 근로일·근로일별 시간으로 적는다(단시간이면 기간제법 §17 필수) */
   workDays: string[];
   weeklyRestDay: string;
-  monthlyTotal: number;
+  /** monthly = 월 임금 총액을 나눈다(기본), hourly = 시간당 지급액 × 체류시간(일 지급액)을 나눈다 */
+  payType?: 'monthly' | 'hourly';
+  /** 월급제 필수 */
+  monthlyTotal?: number;
+  /** 시급·일급 필수 — 휴게를 포함한 출근~퇴근 시간에 곱한다 */
+  hourlyWage?: number;
   holidayDaysPerYear: number;
   overrides?: { overtimeHours?: number; holidayHours?: number; leaveHours?: number };
   rounding?: Rounding;
   absorbInto?: ItemKey;
+  probation?: Probation | null;
   payday: string;
   paymentMethod: string;
 }
@@ -39,20 +54,37 @@ function minutesOf(hhmm: string): number {
   return h * 60 + m;
 }
 
+/** 출근~퇴근 분(자정 넘김 허용) */
+function spanMinutes(form: Pick<WriteForm, 'start' | 'end'>): number {
+  const span = minutesOf(form.end) - minutesOf(form.start);
+  return span <= 0 ? span + 24 * 60 : span;
+}
+
 /** 하루 실근로시간 = 퇴근 − 출근 − 휴게(자정 넘김 허용) */
 export function dailyWorkHours(form: Pick<WriteForm, 'start' | 'end' | 'breakMinutes'>): number {
-  let span = minutesOf(form.end) - minutesOf(form.start);
-  if (span <= 0) span += 24 * 60;
-  return (span - form.breakMinutes) / 60;
+  return (spanMinutes(form) - form.breakMinutes) / 60;
+}
+
+/** 출근~퇴근 중 22:00~06:00 과 겹치는 시간. 휴게가 어디 있는지 모르므로 휴게는 야간 밖에 둔다고 본다(사무소 양식과 같다) */
+export function nightHoursOf(form: Pick<WriteForm, 'start' | 'end'>): number {
+  const s = minutesOf(form.start);
+  const e = s + spanMinutes(form);
+  const windows = [
+    [0, 6 * 60],
+    [22 * 60, 30 * 60],
+    [46 * 60, 54 * 60],
+  ];
+  return windows.reduce((sum, [a, b]) => sum + Math.max(0, Math.min(e, b) - Math.max(s, a)), 0) / 60;
 }
 
 const ITEM_CODE: Record<ItemKey, WageItemCode> = {
   base: 'BASE',
+  weeklyHoliday: 'WEEKLY_HOLIDAY',
   overtime: 'OT_WEEKDAY',
+  night: 'NIGHT',
   holiday: 'HOLIDAY_EXTRA',
   leave: 'ANNUAL_LEAVE',
 };
-const MULTIPLIER: Record<ItemKey, number> = { base: 1, overtime: 1.5, holiday: 1.5, leave: 1 };
 
 // 계약서에 적는 통상시급 = 계산 시급 소수 둘째 자리. 원 단위로 내리면 항목 금액(계산 시급 × 시간)과 수십 원 어긋난다
 const rate2 = (rate: number) => Math.round(rate * 100) / 100;
@@ -65,12 +97,52 @@ function holidayNote(form: WriteForm): string {
   return `연 ${form.holidayDaysPerYear}일 근무 예정, 월 평균 ${Math.round(form.holidayDaysPerYear)}일/${planned}H`;
 }
 
+/** 시작일부터 종료일까지가 1년 이상인지(종료일 = 시작일 + 1년 − 1일이면 1년) */
+function atLeastOneYear(start: string, end: string): boolean {
+  const [y, m, d] = start.split('-').map(Number);
+  const oneYearLast = new Date(Date.UTC(y + 1, m - 1, d - 1)).toISOString().slice(0, 10);
+  return end >= oneYearLast;
+}
+
+/** 수습 감액을 쓸 수 없는 사유. 없으면 null */
+export function probationIssue(form: WriteForm): string | null {
+  const p = form.probation;
+  if (!p?.reduced) return null;
+  if (p.simpleLabor) return '단순노무업무로 고시된 직종은 수습 중에도 최저임금을 감액할 수 없습니다(최저임금법 제5조 제2항 단서).';
+  if (form.endDate && !atLeastOneYear(form.startDate, form.endDate)) {
+    return '수습 감액은 1년 이상의 기간을 정한 계약에만 쓸 수 있습니다(최저임금법 제5조 제2항). 계약기간을 늘리거나 감액을 끄세요.';
+  }
+  return null;
+}
+
+export const PROBATION_PCT = 90;
+
 export function designFromForm(form: WriteForm, minimumWage?: number): DesignResult {
+  const issue = probationIssue(form);
+  if (issue) throw new Error(issue);
+  if (form.payType === 'hourly') {
+    if (!(form.hourlyWage && form.hourlyWage > 0)) throw new Error('시간당 지급액을 넣어 주세요');
+    return designHourlyWage({
+      hourlyWage: form.hourlyWage,
+      stayHours: spanMinutes(form) / 60,
+      breakMinutes: form.breakMinutes,
+      nightHours: nightHoursOf(form),
+      daysPerWeek: form.daysPerWeek,
+      holidayDaysPerYear: form.holidayDaysPerYear,
+      fivePlus: form.employeeCount5plus,
+      rounding: form.rounding,
+      absorbInto: form.absorbInto,
+      minimumWage,
+    });
+  }
+  if (!(form.monthlyTotal && form.monthlyTotal > 0)) throw new Error('월 임금 총액을 넣어 주세요');
   return designMonthlyWage({
     monthlyTotal: form.monthlyTotal,
     daysPerWeek: form.daysPerWeek,
     dailyWorkHours: dailyWorkHours(form),
+    nightHoursPerDay: nightHoursOf(form),
     holidayDaysPerYear: form.holidayDaysPerYear,
+    fivePlus: form.employeeCount5plus,
     overrides: form.overrides,
     rounding: form.rounding,
     absorbInto: form.absorbInto,
@@ -86,26 +158,49 @@ export function checkWritten(form: WriteForm, design: DesignResult): Finding[] {
   );
 }
 
-/** 설계 결과를 점검 엔진 입력으로. 시간은 가산을 반영한 인정시간이고 basis_text 에 시급×시간을 적는다 */
+/** 항목의 실시간·가산율 — 인정시간(가산 반영)을 실시간 × 가산율로 푼다. 휴일은 1.5·2.0 이 섞여 환산시간 그대로 둔다 */
+function basisOf(key: ItemKey, hours: number, fivePlus: boolean): { basis: number; multiplier: number } {
+  if (key === 'overtime' && fivePlus) return { basis: hours / 1.5, multiplier: 1.5 };
+  if (key === 'night') return { basis: hours / 0.5, multiplier: 0.5 };
+  return { basis: hours, multiplier: 1 };
+}
+
+/**
+ * 설계 결과를 점검 엔진 입력으로. 시간은 가산을 반영한 인정시간이고 basis_text 에 시급×시간을 적는다.
+ * 시급·일급 파트는 하루 금액·시간을 월 환산(주근무일 × 4.345주)해 넣는다 — 점검 규칙이 월 금액을 기준으로 본다.
+ */
 export function toContract(form: WriteForm, design: DesignResult): Contract {
+  const fivePlus = form.employeeCount5plus;
+  const scale = design.period === 'day' ? form.daysPerWeek * WEEKS_PER_MONTH : 1;
   const items: WageItem[] = design.items
     .filter((item) => item.hours > 0)
-    .map((item) => ({
-      code: ITEM_CODE[item.key],
-      label: item.label,
-      amount: item.amount,
-      // 연장은 실시간 × 가산율 1.5 로 적는다(점검 WAGE-MATH·OT-COVER·PART-TIME-OT 가 같은 해석).
-      // 휴일은 8시간 이내 1.5·넘는 시간 2.0 이 섞여 환산시간 그대로 둔다
-      basis_hours: Number((item.key === 'overtime' ? item.hours / 1.5 : item.hours).toFixed(4)),
-      rate_multiplier: item.key === 'overtime' ? 1.5 : 1,
-      basis_text: `통상시급 ${rateText(design.rate)}원 × ${item.hours.toFixed(2)}시간${MULTIPLIER[item.key] !== 1 ? `(가산 ${MULTIPLIER[item.key]}배 반영)` : ''}`,
-      ...(item.key === 'base' ? { includes_weekly_holiday: true } : {}),
-    }));
+    .map((item) => {
+      const hours = item.hours * scale;
+      const { basis, multiplier } = basisOf(item.key, hours, fivePlus);
+      return {
+        code: ITEM_CODE[item.key],
+        label: item.label,
+        amount: design.period === 'day' ? Math.round(item.exact * scale) : item.amount,
+        basis_hours: Number(basis.toFixed(4)),
+        rate_multiplier: multiplier,
+        basis_text: `통상시급 ${rateText(design.rate)}원 × ${hours.toFixed(2)}시간${multiplier !== 1 ? `(가산 ${multiplier}배 반영)` : ''}`,
+        ...(item.key === 'base' ? { includes_weekly_holiday: design.period === 'month' } : {}),
+      };
+    });
+  const monthlyTotal = design.period === 'day' ? items.reduce((s, i) => s + i.amount, 0) : design.total;
+  const prob = form.probation;
   return {
     contract_id: 'contract-write',
-    workplace: { name: form.workplaceName, owner_name: form.ownerName ?? null, employee_count_5plus: form.employeeCount5plus } as Contract['workplace'],
+    workplace: { name: form.workplaceName, owner_name: form.ownerName ?? null, employee_count_5plus: fivePlus } as Contract['workplace'],
     employee: { name: form.employeeName, hire_date: form.startDate, employment_type: null },
-    period: { start_date: form.startDate, end_date: form.endDate ?? null, indefinite: !form.endDate },
+    period: {
+      start_date: form.startDate,
+      end_date: form.endDate ?? null,
+      indefinite: !form.endDate,
+      probation: prob
+        ? { applied: true, months: prob.months, wage_rate_pct: prob.reduced ? PROBATION_PCT : 100, simple_labor_job: prob.simpleLabor }
+        : null,
+    },
     job: { location: form.location, duty: form.duty },
     work_time: {
       days_per_week: form.daysPerWeek,
@@ -113,16 +208,16 @@ export function toContract(form: WriteForm, design: DesignResult): Contract {
       end: form.end,
       breaks: [{ minutes: form.breakMinutes }],
       daily_schedules: form.workDays.map((day) => ({ day, start: form.start, end: form.end })),
-      night_work: false,
+      night_work: nightHoursOf(form) > 0,
     },
     wage: {
-      monthly_total: form.monthlyTotal,
+      monthly_total: monthlyTotal,
       ordinary_hourly_rate: rate2(design.rate),
       // 근무시각이 고정이고 항목마다 시간을 적으므로 시간 산정이 가능한 정액 수당 구조로 본다
       inclusive_wage: false,
-      public_holiday_included: form.holidayDaysPerYear > 0,
-      public_holiday_note: form.holidayDaysPerYear > 0 ? holidayNote(form) : null,
-      pay_type: 'monthly',
+      public_holiday_included: fivePlus && design.hours.holiday > 0,
+      public_holiday_note: fivePlus && design.hours.holiday > 0 ? holidayNote(form) : null,
+      pay_type: design.period === 'day' ? 'hourly' : 'monthly',
       items,
       payday: form.payday,
       payment_method: form.paymentMethod,

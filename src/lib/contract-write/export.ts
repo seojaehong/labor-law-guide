@@ -6,7 +6,6 @@ import type { ContractDocument } from './document';
 import { HEADER_XML } from './hwpx-header';
 
 const won = (n: number) => `${n.toLocaleString('ko-KR')}원`;
-const WAGE_HEADER = ['항목', '월 인정시간', '산정 기준', '금액'];
 
 // ── 엑셀 ─────────────────────────────────────────────
 
@@ -36,7 +35,7 @@ export async function buildContractXlsx(doc: ContractDocument): Promise<Uint8Arr
     for (const l of c.lines) line(l);
     if (c.heading.startsWith('제5조')) {
       line(doc.wageTable.caption, { bold: true, size: 10 });
-      const head = ws.addRow(WAGE_HEADER);
+      const head = ws.addRow(doc.wageTable.header);
       head.eachCell((cell) => {
         cell.font = { bold: true };
         cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFEFF1F5' } };
@@ -85,27 +84,32 @@ const para = (text: string, paraPr = 20, charPr = 7) =>
 const COL_WIDTHS = [11000, 9000, 18188, 10000];
 const ROW_H = 1582;
 
-function cell(text: string, col: number, row: number, header: boolean): string {
+function cell(text: string, col: number, row: number, header: boolean, colSpan = 1): string {
   const [paraPr, charPr, fill] = header ? [28, 14, 4] : [27, 13, 3];
+  const width = COL_WIDTHS.slice(col, col + colSpan).reduce((s, w) => s + w, 0);
   return (
     `<hp:tc name="" header="${header ? 1 : 0}" hasMargin="0" protect="0" editable="0" dirty="1" borderFillIDRef="${fill}">` +
     '<hp:subList id="" textDirection="HORIZONTAL" lineWrap="BREAK" vertAlign="CENTER" linkListIDRef="0" linkListNextIDRef="0" textWidth="0" textHeight="0" hasTextRef="0" hasNumRef="0">' +
     para(text, paraPr, charPr) +
-    `</hp:subList><hp:cellAddr colAddr="${col}" rowAddr="${row}"/><hp:cellSpan colSpan="1" rowSpan="1"/><hp:cellSz width="${COL_WIDTHS[col]}" height="${ROW_H}"/><hp:cellMargin left="510" right="510" top="141" bottom="141"/></hp:tc>`
+    `</hp:subList><hp:cellAddr colAddr="${col}" rowAddr="${row}"/><hp:cellSpan colSpan="${colSpan}" rowSpan="1"/><hp:cellSz width="${width}" height="${ROW_H}"/><hp:cellMargin left="510" right="510" top="141" bottom="141"/></hp:tc>`
   );
 }
 
+// 표 제목은 표 첫 행(4칸 병합)에 넣는다 — 제목 문단의 「다음 문단과 함께」를 한글이 지키지 않아 제목만 쪽 끝에 남았다(261103).
+// 표는 쪽을 넘기지 않게(pageBreak NONE) 한 덩어리로 둔다 — 항목이 7행 이내라 한 쪽에 들어간다.
 function wageTableXml(doc: ContractDocument): string {
   const rows = [
-    WAGE_HEADER,
+    doc.wageTable.header,
     ...doc.wageTable.rows.map((r) => [r.label, r.hours, r.basis, won(r.amount)]),
     ['합계', '', '', won(doc.wageTable.total)],
   ];
-  const trs = rows.map((r, ri) => `<hp:tr>${r.map((t, ci) => cell(t, ci, ri, ri === 0)).join('')}</hp:tr>`).join('');
+  const captionRow = `<hp:tr>${cell(doc.wageTable.caption, 0, 0, true, 4)}</hp:tr>`;
+  const trs = captionRow + rows.map((r, ri) => `<hp:tr>${r.map((t, ci) => cell(t, ci, ri + 1, ri === 0)).join('')}</hp:tr>`).join('');
+  const rowCnt = rows.length + 1;
   return (
     '<hp:p id="2147483648" paraPrIDRef="27" styleIDRef="0" pageBreak="0" columnBreak="0" merged="0"><hp:run charPrIDRef="13">' +
-    `<hp:tbl id="1001" zOrder="0" numberingType="TABLE" textWrap="TOP_AND_BOTTOM" textFlow="BOTH_SIDES" lock="0" dropcapstyle="None" pageBreak="CELL" repeatHeader="1" rowCnt="${rows.length}" colCnt="4" cellSpacing="0" borderFillIDRef="3" noAdjust="0">` +
-    `<hp:sz width="48188" widthRelTo="ABSOLUTE" height="${ROW_H * rows.length}" heightRelTo="ABSOLUTE" protect="0"/>` +
+    `<hp:tbl id="1001" zOrder="0" numberingType="TABLE" textWrap="TOP_AND_BOTTOM" textFlow="BOTH_SIDES" lock="0" dropcapstyle="None" pageBreak="NONE" repeatHeader="1" rowCnt="${rowCnt}" colCnt="4" cellSpacing="0" borderFillIDRef="3" noAdjust="0">` +
+    `<hp:sz width="48188" widthRelTo="ABSOLUTE" height="${ROW_H * rowCnt}" heightRelTo="ABSOLUTE" protect="0"/>` +
     '<hp:pos treatAsChar="1" affectLSpacing="0" flowWithText="1" allowOverlap="0" holdAnchorAndSO="0" vertRelTo="PARA" horzRelTo="COLUMN" vertAlign="TOP" horzAlign="LEFT" vertOffset="0" horzOffset="0"/>' +
     '<hp:outMargin left="0" right="0" top="0" bottom="0"/><hp:inMargin left="510" right="510" top="141" bottom="141"/>' +
     `${trs}</hp:tbl><hp:t/></hp:run></hp:p>`
@@ -119,7 +123,7 @@ export function contractSectionXml(doc: ContractDocument): string {
   for (const c of doc.clauses) {
     body.push(para(c.heading, 22, 9));
     for (const l of c.lines) body.push(para(l));
-    if (c.heading.startsWith('제5조')) body.push(para(doc.wageTable.caption), wageTableXml(doc));
+    if (c.heading.startsWith('제5조')) body.push(wageTableXml(doc));
   }
   body.push(para(''), para(doc.signature.date, 21, 7), para(''), para('(사업주)', 22, 9));
   for (const l of doc.signature.employer) body.push(para(l));
@@ -202,7 +206,7 @@ export async function buildContractPdf(doc: ContractDocument, fontBytes: Uint8Ar
   };
   const colW = [usable * 0.22, usable * 0.17, usable * 0.4, usable * 0.21];
   const table = () => {
-    const rows = [WAGE_HEADER, ...doc.wageTable.rows.map((r) => [r.label, r.hours, r.basis, won(r.amount)]), ['합계', '', '', won(doc.wageTable.total)]];
+    const rows = [doc.wageTable.header, ...doc.wageTable.rows.map((r) => [r.label, r.hours, r.basis, won(r.amount)]), ['합계', '', '', won(doc.wageTable.total)]];
     const size = 9;
     for (const [ri, r] of rows.entries()) {
       const cells = r.map((t, ci) => wrap(t, size, colW[ci] - 8));
@@ -228,6 +232,8 @@ export async function buildContractPdf(doc: ContractDocument, fontBytes: Uint8Ar
     text(c.heading, 11.5, { gap: 1 });
     for (const l of c.lines) text(l);
     if (c.heading.startsWith('제5조')) {
+      // 표 제목과 표가 쪽을 갈라 앉지 않게 — 제목 + 머리행 + 둘째 행 높이를 먼저 확보한다
+      ensure(9.5 * 1.6 + (9 * 1.4 + 8) * 3);
       text(doc.wageTable.caption, 9.5);
       table();
     }
