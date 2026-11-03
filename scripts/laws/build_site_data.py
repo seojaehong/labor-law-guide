@@ -5,6 +5,8 @@
 """
 import json
 import re
+import shutil
+import subprocess
 import sys
 from datetime import date
 from pathlib import Path
@@ -228,6 +230,7 @@ def main():
                                 if e["lawId"] == r["lawId"] and e["date"] == r["effective"] and e["promulgations"]), None)}
                   for r in RULES["rules"]],
     }, ensure_ascii=False), encoding="utf-8")
+    sync_rule_version()
     up = sum(e["upcoming"] for e in events)
     print(f"이벤트 {len(events)} (시행예정 {up}) · 법령 {len(laws)} · 취업규칙 매핑 {sum(len(e['rules']) for e in events)} → {OUT.relative_to(ROOT)}")
     # 상시 점검(always) 매핑은 수집 기간(since) 이전 개정이라 이벤트가 없다 — 대조에서 뺀다
@@ -237,6 +240,22 @@ def main():
     if unmatched:
         print("✗ 매핑이 개정 조문과 안 맞음:", [(r["lawId"], r["article"], r["effective"]) for r in unmatched])
         sys.exit(2)
+
+
+def sync_rule_version():
+    """public/data/laws 를 다시 만들었으면 관리자 검토기록의 RULE_VERSION 상수도 같이 맞춘다.
+
+    상수가 공개 데이터와 다르면 /laws 검토기록 저장이 전부 400 이다(2026-10-19 #37·10-30 #96 뒤 실제로 그랬다).
+    해시는 JSON.stringify 기준이라 node 로 셈한다(scripts/laws/rule_version.mjs). node 가 없으면 멈추지 않고 알리기만 한다 —
+    매일 수집(daily_update.sh)은 뒤에서 --check 로 다시 보고 어긋나면 PR 을 열지 않는다.
+    """
+    node = shutil.which("node")
+    script = ROOT / "scripts" / "laws" / "rule_version.mjs"
+    if not node:
+        print("✗ node 를 찾지 못해 RULE_VERSION 을 맞추지 못했다 — node scripts/laws/rule_version.mjs --write 를 직접 돌린다")
+        return
+    if subprocess.run([node, str(script), "--write"], cwd=ROOT).returncode != 0:
+        print("✗ RULE_VERSION 을 맞추지 못했다 — node scripts/laws/rule_version.mjs --write 출력을 본다")
 
 
 if __name__ == "__main__":

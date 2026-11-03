@@ -146,11 +146,64 @@ describe('5명 미만 제3조 — 제53조를 적지 않는다(시행령 제7조
     expect(clause({ ...WEEK, employeeCount5plus: true }, 3)).toContain('하루 8시간 또는 1주 40시간을 넘는 시간(1주 2시간)은 연장근로이며, 근로자는 이에 동의한다(근로기준법 제53조 제1항).');
     expect(clause({ ...DAY, employeeCount5plus: true }, 3)).toContain('하루 8시간을 넘는 1시간은 연장근로이며, 근로자는 이에 동의한다(근로기준법 제53조 제1항).');
   });
+  // 별표 1 제4장에서 5명 미만에 적용하는 것은 제54조·제55조 제1항·제63조뿐 — 제50조도 없다. 소정근로를 40시간으로 자르는 계산은 그대로 둔다
+  it('소정근로시간 줄에 「(근로기준법 제50조 제1항 한도)」를 달지 않는다', () => {
+    expect(clause(WEEK, 3)).toContain('소정근로시간: 1주 40시간, 하루 7시간 이내');
+    expect(text(WEEK)).not.toContain('제50조');
+  });
+  it('5명 이상은 그대로 제50조 제1항 한도', () => {
+    expect(clause({ ...WEEK, employeeCount5plus: true }, 3)).toContain('소정근로시간: 1주 40시간(근로기준법 제50조 제1항 한도), 하루 7시간 이내');
+  });
+});
+
+// 노동절(5월 1일) — 「노동절 제정에 관한 법률」(2025. 11. 11. 전부개정, 종전 근로자의 날)이 근로기준법에 따른 유급휴일로 정한다.
+// 근로기준법 제55조가 아닌 별도 법률이라 5명 미만(시행령 제7조 별표 1)·1주 15시간 미만(제18조 제3항)에도 유급휴일이다(근로기준정책과-4361).
+const LABOR_DAY = '노동절(5월 1일)은 노동절 제정에 관한 법률에 따른 유급휴일로 하고, 그날 근무하면 유급휴일 임금과 별도로 휴일근로수당을 지급한다.';
+const LABOR_DAY_UNDER5 = '다만 노동절(5월 1일)은 노동절 제정에 관한 법률에 따른 유급휴일로 하고, 그날 근무하면 유급휴일 임금과 별도로 근무한 시간의 임금을 지급한다.';
+const PUBLIC_HOLIDAY = '관공서의 공휴일과 대체공휴일은 근로기준법 제55조 제2항에 따른 유급휴일로 하고, 그날 근무하면 휴일근로수당을 지급한다.';
+const UNDER5_REST = '상시 5명 미만 사업장이므로 근로기준법 제55조 제2항(공휴일 유급휴일)과 제56조(연장·야간·휴일 가산)는 적용하지 않는다(근로기준법 시행령 제7조 별표 1).';
+const UNDER15_REST = '1주 소정근로시간이 15시간 미만이므로 주휴일과 연차유급휴가는 적용하지 않는다(근로기준법 제18조 제3항).';
+const laborDayPaid = (paid: string) => `노동절(5월 1일)로 근무하지 않은 소정근로일에는 그날의 일 지급액 중 ${paid}을 지급한다. 이날은 결근으로 보지 않는다.`;
+const PART_UNDER5_15: WriteForm = { ...PART_UNDER15, employeeCount5plus: false };
+
+describe('노동절 — 제4조 네 분기 모두', () => {
+  it('5명 이상·15시간 이상(월급제·파트) — 주휴일 다음, 관공서 공휴일 앞', () => {
+    for (const form of [MONTHLY, PART]) expect(clause(form, 4)).toEqual(['주휴일: 매주 일요일(유급)', LABOR_DAY, PUBLIC_HOLIDAY]);
+  });
+  it('5명 이상·15시간 미만 — 공휴일 줄은 없어도 노동절은 유급휴일, 근무하면 가산(제18조 제3항은 제56조를 빼지 않는다)', () => {
+    expect(clause(PART_UNDER15, 4)).toEqual([UNDER15_REST, LABOR_DAY]);
+  });
+  it('5명 미만(월급제·파트) — 미적용 문장 다음에 「다만」, 가산 없이 근무한 시간 임금', () => {
+    for (const form of [{ ...MONTHLY, employeeCount5plus: false }, PART_UNDER5]) expect(clause(form, 4)).toEqual(['주휴일: 매주 일요일(유급)', UNDER5_REST, LABOR_DAY_UNDER5]);
+  });
+  it('5명 미만·15시간 미만', () => {
+    expect(clause(PART_UNDER5_15, 4)).toEqual([UNDER15_REST, UNDER5_REST, LABOR_DAY_UNDER5]);
+  });
+});
+
+describe('노동절 — 파트 제5조 「근무하지 않은 소정근로일」', () => {
+  it('5명 이상·15시간 이상은 확정 문구(관공서의 공휴일·대체공휴일 등 유급휴일)가 이미 덮어 따로 넣지 않는다', () => {
+    expect(clause(PART, 5)).toContain(PAID_DAY);
+    expect(text(PART)).not.toContain('노동절(5월 1일)로 근무하지 않은');
+  });
+  it('5명 미만·15시간 이상 — 확정 문구 자리에 노동절 한 문장(기본급과 주휴수당)', () => {
+    const lines = clause(PART_UNDER5, 5);
+    expect(lines[lines.indexOf(ACTUAL_DAYS) + 1]).toBe(laborDayPaid('기본급과 주휴수당'));
+  });
+  it('15시간 미만은 주휴가 없어 기본급만(5명 이상·미만 모두)', () => {
+    for (const form of [PART_UNDER15, PART_UNDER5_15]) {
+      const lines = clause(form, 5);
+      expect(lines[lines.indexOf(ACTUAL_DAYS) + 1]).toBe(laborDayPaid('기본급'));
+    }
+  });
+  it('월급제에는 넣지 않는다(근로자의 날이 어느 요일이든 소정의 월급을 지급 — 근로기준과-2156)', () => {
+    for (const form of [MONTHLY, { ...MONTHLY, employeeCount5plus: false }]) expect(text(form)).not.toContain('노동절(5월 1일)로 근무하지 않은');
+  });
 });
 
 describe('확정 문구 · 금지어', () => {
   it('파트·월급제 본문과 화면 안내에 금지어·「포괄」이 없다', () => {
-    for (const form of [PART, { ...PART, absentWeekHoliday: 'keep' as const }, MONTHLY, { ...MONTHLY, employeeCount5plus: false, end: '19:00' }]) {
+    for (const form of [PART, { ...PART, absentWeekHoliday: 'keep' as const }, MONTHLY, { ...MONTHLY, employeeCount5plus: false, end: '19:00' }, PART_UNDER5, PART_UNDER15, PART_UNDER5_15]) {
       expect(bannedHits(text(form))).toEqual([]);
       expect(text(form)).not.toContain('포괄');
     }
