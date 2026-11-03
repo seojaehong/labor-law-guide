@@ -303,8 +303,10 @@ describe('파트 결근 주 주휴', () => {
     expect(t).not.toContain('임금명세서에 해당 주와 금액을 적는다');
   });
   it('주휴가 없는 경우(월급제·주 15시간 미만)에는 이 문장을 넣지 않는다', () => {
-    expect(text(MONTHLY)).not.toContain('결근한 주');
+    // 공제·빼지 않음 두 분기가 같이 쓰는 첫 문장으로 본다(공제 문구에는 「결근한 주」가 더는 없다)
+    expect(text(MONTHLY)).not.toContain('일 지급액의 주휴수당은');
     const under15 = { ...PART, workDays: ['토', '일'], weeklyRestDay: '월' as const };
-    expect(text(under15)).not.toContain('결근한 주');
+    expect(text(under15)).not.toContain('일 지급액의 주휴수당은');
+    expect(text({ ...under15, absentWeekHoliday: 'keep' })).not.toContain('일 지급액의 주휴수당은');
   });
 });
