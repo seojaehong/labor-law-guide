@@ -113,10 +113,10 @@ describe('B 주휴 포함 시급 — 최저시급 × (소정+주휴)/소정', ()
     const f = run(incl(12100, 6, '09:00', '15:40')).get('MINWAGE');
     expect(f.status).toBe('ok');
   });
-  it('주 4일 × 10H — 1일 소정 10H 이지만 주휴는 8H 상한', () => {
+  it('주 4일 × 10H — 1일 소정은 8H 상한(§50②, 261103)이라 소정 32H·주휴 6.4H, 경계는 그대로 12,384', () => {
     const f = run(incl(12384, 4, '08:00', '18:00')).get('MINWAGE');
     expect(f.status).toBe('ok');
-    expect(f.detail).toContain('주휴 8H');
+    expect(f.detail).toContain('소정 32H+주휴 6.4H');
     expect(run(incl(12383, 4, '08:00', '18:00')).get('MINWAGE').status).toBe('violation');
   });
   it('단시간 주 15H — 주휴 15÷5 = 3H(통상근로자 주 5일 가정을 밝힌다), 10,320 은 위반', () => {
