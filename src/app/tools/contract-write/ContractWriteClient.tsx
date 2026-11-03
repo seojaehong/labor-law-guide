@@ -254,6 +254,18 @@ export default function ContractWriteClient() {
             <Input label="시간당 지급액" value={s.hourlyWage} onChange={(v) => patch({ hourlyWage: v.replace(/[^\d,]/g, '') })} placeholder="예: 13,000" />
           </Field>
         )}
+        {s.payType === 'hourly' && (
+          <Field label="결근한 주의 주휴수당" hint="일 지급액에 나눠 넣은 주휴수당은 그 주를 개근해야 생깁니다. 결근한 주에 이미 준 몫을 뺄지 정해 계약서에 적습니다">
+            <Choice
+              options={[
+                { value: 'deduct', label: '그 주 몫을 뺀다' },
+                { value: 'keep', label: '빼지 않는다' },
+              ]}
+              value={s.absentWeekHoliday}
+              onChange={(v) => patch({ absentWeekHoliday: v })}
+            />
+          </Field>
+        )}
         <Field label="임금 지급일"><Input label="임금 지급일" value={s.payday} onChange={(v) => patch({ payday: v })} /></Field>
         <Field label="금액 단위" hint="잔액을 받는 항목 말고는 이 단위로 올립니다(수당이 산정 기준보다 적어지지 않게). 올리면 잔액은 기본급이 받습니다">
           <Choice options={ROUNDING} value={s.rounding} onChange={(v) => patch(v === 'won' ? { rounding: v } : { rounding: v, absorbInto: 'base' })} />

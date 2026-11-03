@@ -37,6 +37,7 @@ export interface WriteState {
   netPay: string;
   family: string;
   hourlyWage: string;
+  absentWeekHoliday: 'deduct' | 'keep';
   holidayDaysPerYear: string;
   overtimeHours: string;
   holidayHours: string;
@@ -72,6 +73,7 @@ export const INITIAL: WriteState = {
   netPay: '',
   family: '1',
   hourlyWage: '',
+  absentWeekHoliday: 'deduct',
   holidayDaysPerYear: '0',
   overtimeHours: '',
   holidayHours: '',
@@ -200,6 +202,7 @@ export function toWriteForm(s: WriteState, today = todayKst()): ParsedForm {
       payType: s.payType,
       monthlyTotal,
       hourlyWage: hourly ? num(s.hourlyWage)! : undefined,
+      absentWeekHoliday: hourly ? s.absentWeekHoliday : undefined,
       holidayDaysPerYear: num(s.holidayDaysPerYear) ?? 0,
       overrides: !hourly && Object.keys(overrides).length ? overrides : undefined,
       rounding: s.rounding,
