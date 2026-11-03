@@ -51,6 +51,6 @@
     { "code": "PART-TIME-OT", "name": "단시간 초과근로 12시간 제한·50% 가산", "statute": "기간제법 §6", "severity": "major", "auto": true,
       "logic": "단시간만 적용(아니면 ok 비적용 — 단 근로일별 행 합 > 출근·퇴근 칸 합이면 행으로 정한 고용형태도 믿지 않는다). workplace.employee_count_5plus=false 면 비적용 ok(시행령 §2 별표1), null 이면 detail 에 5인 이상 전제. 소정(weekly_scheduled_hours — daily_schedules 휴게 차감 합, 근로일별 시간이 없거나 믿을 수 없으면(행 결손·행 수 ≠ days_per_week, weekly_scheduled_source≠daily) 소정=실근로로 간주) 대비 weekly_actual_hours(출근·퇴근 칸) 초과(normalize.partTimeExcessHours — 포괄 총액 역산과 같은 함수, 음수는 0) > 12H → violation. 행 수 ≠ days_per_week 이면 detail 에 「근로일별 시간이 주 근무일수와 맞지 않음」. 12H 이내 초과는 OT_* 금액으로 가산 판정: 가산율이 적혀 있고 1.5 미만이면 risk, Σ지급액 ≥ 통상시급×초과H×4.345×1.5(±10원)면 ok, 모자라면 risk — 단 항목에 가산율·시간이 모두 없으면 needs_data. 통상시급 미상이면 Σbasis_hours×가산율로 본다. 근로일별 행 합 > 출근·퇴근 칸 합(normalize.dailyHoursConflict)이면 두 시간을 적고 needs_data(상시 4인 이하는 그래도 비적용 ok)" },
     { "code": "HOLIDAY-COVER", "name": "포괄임금 휴일근로 충분성", "statute": "근로기준법 §56②", "severity": "minor", "auto": true,
-      "logic": "HOLIDAY_EXTRA 환산H(amount÷통상시급) ≥ 예정 공휴일 근무H×1.5. wage.public_holiday_note 'N일/M.MH' 파싱 가능하면 판정, 불가하면 needs_data. 포괄 휴일 약정·note 모두 없으면 ok 비적용" }
+      "logic": "HOLIDAY_EXTRA 환산H(amount÷통상시급) ≥ 예정 공휴일 근무H×1.5. note 가 '8시간 넘는 xH'(소정근로일 공휴일의 하루 8시간 넘는 시간)를 밝히면 그 시간은 ×0.5 — 연장 1.5 는 OT-COVER 가 요구해 합 2.0(§56② 2호, 연장 가산 중복 없음). wage.public_holiday_note 'N일/M.MH' 파싱 가능하면 판정, 불가하면 needs_data. 포괄 휴일 약정·note 모두 없으면 ok 비적용" }
   ]
 }
