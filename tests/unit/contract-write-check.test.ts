@@ -17,6 +17,7 @@ const UIJEONGBU: WriteForm = {
   start: '10:00',
   end: '22:00',
   breakMinutes: 155,
+  workDays: ['월', '화', '수', '목'],
   weeklyRestDay: '매주 일요일',
   monthlyTotal: 2_600_000,
   holidayDaysPerYear: 22,
@@ -27,6 +28,7 @@ const UIJEONGBU: WriteForm = {
 const SUWON: WriteForm = {
   ...UIJEONGBU,
   daysPerWeek: 5,
+  workDays: ['월', '화', '수', '목', '금'],
   start: '10:00',
   end: '21:00',
   breakMinutes: 60,
@@ -52,6 +54,17 @@ describe('작성 → 점검 되먹임', () => {
   it('총액을 최저 아래로 낮추면 점검이 최저임금 위반을 낸다(자기시험)', () => {
     const codes = problems({ ...UIJEONGBU, monthlyTotal: 2_000_000 }).map((f) => `${f.rule_code}:${f.status}`);
     expect(codes).toContain('MINWAGE:violation');
+  });
+
+  it('연장수당을 3,000원 줄이면 단시간 초과근로 가산 부족을 낸다(자기시험 — 반올림 전 5.6667H 기준)', () => {
+    const design = designFromForm(UIJEONGBU, 10_320);
+    const contract = toContract(UIJEONGBU, design);
+    const ot = contract.wage.items!.find((i) => i.code === 'OT_WEEKDAY')!;
+    ot.amount -= 3_000;
+    const [c] = normalize([contract]);
+    const f = checkContract(c).find((x) => x.rule_code === 'PART-TIME-OT');
+    expect(f?.status).not.toBe('ok');
+    expect(f?.detail).toContain('부족');
   });
 
   it('하루 실근로 = 퇴근 − 출근 − 휴게', () => {

@@ -17,7 +17,7 @@ export interface DesignInput {
   /** 연간 공휴일 근로 예정 일수(주5 기준). 주4 이하면 주근무일/5 비례 */
   holidayDaysPerYear: number;
   /** 계약서에 박힌 시간이 있으면 그 값을 쓴다(수원: 연장 65.2·휴일 25·연차 10) */
-  overrides?: Partial<Record<Exclude<ItemKey, 'base'>, number>> & { baseHours?: number };
+  overrides?: { baseHours?: number; overtimeHours?: number; holidayHours?: number; leaveHours?: number };
   rounding?: Rounding;
   /** 잔액을 받는 항목. 기본 = 기본급(재홍님 261103) */
   absorbInto?: ItemKey;

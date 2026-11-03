@@ -20,6 +20,8 @@ export interface WriteForm {
   start: string;
   end: string;
   breakMinutes: number;
+  /** 근무 요일(월~일). 계약서에 근로일·근로일별 시간으로 적는다(단시간이면 기간제법 §17 필수) */
+  workDays: string[];
   weeklyRestDay: string;
   monthlyTotal: number;
   holidayDaysPerYear: number;
@@ -82,8 +84,10 @@ export function toContract(form: WriteForm, design: DesignResult): Contract {
       code: ITEM_CODE[item.key],
       label: item.label,
       amount: item.amount,
-      basis_hours: Number(item.hours.toFixed(4)),
-      rate_multiplier: 1,
+      // 연장은 실시간 × 가산율 1.5 로 적는다(점검 WAGE-MATH·OT-COVER·PART-TIME-OT 가 같은 해석).
+      // 휴일은 8시간 이내 1.5·넘는 시간 2.0 이 섞여 환산시간 그대로 둔다
+      basis_hours: Number((item.key === 'overtime' ? item.hours / 1.5 : item.hours).toFixed(4)),
+      rate_multiplier: item.key === 'overtime' ? 1.5 : 1,
       basis_text: `통상시급 ${rateText(design.rate)}원 × ${item.hours.toFixed(2)}시간${MULTIPLIER[item.key] !== 1 ? `(가산 ${MULTIPLIER[item.key]}배 반영)` : ''}`,
       ...(item.key === 'base' ? { includes_weekly_holiday: true } : {}),
     }));
@@ -98,6 +102,7 @@ export function toContract(form: WriteForm, design: DesignResult): Contract {
       start: form.start,
       end: form.end,
       breaks: [{ minutes: form.breakMinutes }],
+      daily_schedules: form.workDays.map((day) => ({ day, start: form.start, end: form.end })),
       night_work: false,
     },
     wage: {
