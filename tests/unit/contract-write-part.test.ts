@@ -115,3 +115,19 @@ describe('designHourlyWage — 법 기준 기본값', () => {
     expect(by.weeklyHoliday).toBe(78_000 - 58_290 - 2_680 - 5_360);
   });
 });
+
+// #139 적대 검토 1 — 파트도 1주 40시간을 넘는 시간은 연장. 주휴는 1주 소정(40시간 한도) ÷ 40 × 8 을 근무일에 나눈다
+describe('designHourlyWage — 1주 40시간 넘는 연장', () => {
+  it.each([
+    [9, 8 / 6],
+    [11, 20 / 6],
+    [8, 2 / 6],
+  ])('주 6일 × 체류 %s시간(휴게 60분) → 하루 연장 %s시간', (stay, otPerDay) => {
+    const r = designHourlyWage({ ...A, stayHours: stay, breakMinutes: 60, daysPerWeek: 6 });
+    expect(r.hours.overtime).toBeCloseTo(otPerDay * 1.5, 10);
+    const work = stay - 1;
+    expect(r.hours.base + r.hours.overtime / 1.5).toBeCloseTo(work, 10);
+    // 주휴 1주 합 = min(소정, 40) ÷ 40 × 8
+    expect(r.hours.weeklyHoliday * 6).toBeCloseTo((Math.min(Math.min(work, 8) * 6, 40) / 40) * 8, 10);
+  });
+});

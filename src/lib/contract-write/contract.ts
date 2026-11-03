@@ -2,7 +2,7 @@
 // 작성한 계약서를 같은 사이트의 근로계약서 점검 규칙으로 다시 돌려, 만든 문서가 점검에서 걸리지 않는지 본다.
 
 import { checkContract } from '@/lib/contract-check/engine';
-import { normalize } from '@/lib/contract-check/normalize';
+import { dayWorkMinutes, normalize } from '@/lib/contract-check/normalize';
 import type { Contract, Finding, WageItem, WageItemCode } from '@/lib/contract-check/types';
 
 import { designMonthlyWage, WEEKS_PER_MONTH, type DesignResult, type ItemKey, type Rounding } from './design';
@@ -54,15 +54,14 @@ function minutesOf(hhmm: string): number {
   return h * 60 + m;
 }
 
-/** 출근~퇴근 분(자정 넘김 허용) */
-function spanMinutes(form: Pick<WriteForm, 'start' | 'end'>): number {
-  const span = minutesOf(form.end) - minutesOf(form.start);
-  return span <= 0 ? span + 24 * 60 : span;
+/** 출근~퇴근 분. 퇴근이 출근보다 이르면 자정을 넘긴 근무, 같으면 0(점검 엔진 dayWorkMinutes 와 같다) */
+export function spanMinutes(form: Pick<WriteForm, 'start' | 'end'>): number {
+  return dayWorkMinutes(form.start, form.end, []);
 }
 
-/** 하루 실근로시간 = 퇴근 − 출근 − 휴게(자정 넘김 허용) */
+/** 하루 실근로시간 = 퇴근 − 출근 − 휴게. 점검 엔진과 같은 함수로 센다 */
 export function dailyWorkHours(form: Pick<WriteForm, 'start' | 'end' | 'breakMinutes'>): number {
-  return (spanMinutes(form) - form.breakMinutes) / 60;
+  return dayWorkMinutes(form.start, form.end, [{ minutes: form.breakMinutes }]) / 60;
 }
 
 /** 출근~퇴근 중 22:00~06:00 과 겹치는 시간. 휴게가 어디 있는지 모르므로 휴게는 야간 밖에 둔다고 본다(사무소 양식과 같다) */

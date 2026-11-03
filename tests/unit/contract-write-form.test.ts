@@ -7,6 +7,7 @@ import { checkWritten, designFromForm, nightHoursOf, toContract, type WriteForm 
 import { buildContractDocument, documentLines } from '@/lib/contract-write/document';
 import { netToGross } from '@/lib/contract-write/net-gross';
 import { bannedHits } from '@/lib/tool-kit/banned';
+import { normalize } from '@/lib/contract-check/normalize';
 
 const MONTHLY: WriteForm = {
   workplaceName: '합성테스트 사업장',
@@ -181,5 +182,32 @@ describe('실수령액 → 월 총액', () => {
 
   it('요율이 없는 날짜는 오류', () => {
     expect(() => netToGross(2_000_000, { family: 1, date: '1999-01-01' })).toThrow();
+  });
+});
+
+// #139 적대 검토 1 — 주 6일 근무: 1주 40시간을 넘는 시간을 연장으로 설계하고, 점검 엔진이 계산한 1주 연장과 같아야 한다
+describe('주 6일 — 1주 40시간 넘는 연장', () => {
+  const SIX: WriteForm = {
+    ...MONTHLY,
+    workDays: ['월', '화', '수', '목', '금', '토'],
+    daysPerWeek: 6,
+    start: '09:00',
+    end: '18:00',
+    breakMinutes: 60,
+    monthlyTotal: 3_000_000,
+    holidayDaysPerYear: 0,
+  };
+  it('설계 연장 = 엔진 weekly_overtime_hours(8시간) × 1.5 × 4.345, 점검에서 손볼 것이 없다', () => {
+    const design = designFromForm(SIX, 10_320);
+    const [contract] = normalize([toContract(SIX, design)]);
+    expect(contract.work_time?.weekly_overtime_hours).toBe(8);
+    expect(design.hours.overtime).toBeCloseTo(8 * 1.5 * 4.345, 6);
+    expect(checkWritten(SIX, design)).toEqual([]);
+  });
+  it('본문은 1주 소정 40시간과 그것을 넘는 연장을 함께 적는다(하루 8시간 × 6일 = 48시간과 어긋나지 않게)', () => {
+    const t = text(SIX);
+    expect(t).toContain('1주 40시간을 넘는');
+    expect(t).toContain('1주 8시간');
+    expect(t).not.toMatch(/하루 8시간, 1주 40시간/);
   });
 });

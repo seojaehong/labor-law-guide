@@ -133,3 +133,21 @@ describe('designMonthlyWage — 야간·5명 미만(261103 전수 개선)', () =
     expect(r.items.map((i) => i.key)).toEqual(['base', 'overtime']);
   });
 });
+
+// #139 적대 검토 1 — 주 6일처럼 하루 8시간 이내여도 1주 40시간을 넘으면 그 시간은 연장근로다(근로기준법 제50조 제1항·제53조 제1항).
+// 점검 엔진 normalize 와 같은 식: 1주 연장 = Σ하루 실근로 − min(Σmin(하루, 8), 40)
+describe('designMonthlyWage — 1주 40시간 넘는 연장', () => {
+  const six = (daily: number): DesignInput => ({ monthlyTotal: 3_500_000, daysPerWeek: 6, dailyWorkHours: daily, holidayDaysPerYear: 0 });
+  it.each([
+    [8, 8],
+    [10, 20],
+    [7, 2],
+  ])('주 6일 × 하루 %s시간 → 1주 연장 %s시간', (daily, weeklyOt) => {
+    const r = designMonthlyWage(six(daily));
+    expect(r.hours.overtime).toBeCloseTo(weeklyOt * 1.5 * 4.345, 6);
+    expect(r.hours.base).toBe(209);
+  });
+  it('주 5일 × 하루 10시간은 그대로 1주 10시간', () => {
+    expect(designMonthlyWage({ ...six(10), daysPerWeek: 5 }).hours.overtime).toBeCloseTo(10 * 1.5 * 4.345, 6);
+  });
+});

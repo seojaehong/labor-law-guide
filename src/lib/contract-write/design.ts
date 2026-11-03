@@ -78,16 +78,23 @@ function roundAmount(value: number, rounding: Rounding): number {
   return Math.round(value);
 }
 
-/** 항목별 월 인정시간 — 사무소 양식 식 그대로 */
+/** 1주 소정근로(하루 8시간·1주 40시간 한도)와 그것을 넘는 1주 연장 — 근로기준법 제50조·제53조 제1항.
+ * 점검 엔진 normalize(deriveFields)의 weekly_overtime_hours 와 같은 식이다: Σ실근로 − min(Σmin(하루, 8), 40) */
+export function weeklySchedule(dailyWorkHours: number, daysPerWeek: number): { scheduled: number; overtime: number } {
+  const scheduled = Math.min(Math.min(dailyWorkHours, 8) * daysPerWeek, 40);
+  return { scheduled, overtime: Math.max(0, dailyWorkHours * daysPerWeek - scheduled) };
+}
+
+/** 항목별 월 인정시간 — 사무소 양식 식에 1주 40시간 연장을 더했다 */
 export function designHours(input: DesignInput): Record<ItemKey, number> {
   const { daysPerWeek: days, dailyWorkHours: daily, holidayDaysPerYear } = input;
   const fivePlus = input.fivePlus ?? true;
   const regular = Math.min(daily, 8);
   const extra = Math.max(daily - 8, 0);
-  const weekly = Math.min(regular * days, 40);
+  const { scheduled: weekly, overtime: weeklyOvertime } = weeklySchedule(daily, days);
   const weeklyHoliday = weekly >= 15 ? (weekly / 40) * 8 : 0;
   const base = weekly === 40 ? 209 : (weekly + weeklyHoliday) * WEEKS_PER_MONTH;
-  const overtime = extra * days * (fivePlus ? 1.5 : 1) * WEEKS_PER_MONTH;
+  const overtime = weeklyOvertime * (fivePlus ? 1.5 : 1) * WEEKS_PER_MONTH;
   const night = fivePlus ? (input.nightHoursPerDay ?? 0) * NIGHT_PREMIUM * days * WEEKS_PER_MONTH : 0;
   const holiday = fivePlus ? ((regular * 1.5 + extra * 2) * holidayDaysPerYear * (Math.min(days, 5) / 5)) / 12 : 0;
   const leave = fivePlus ? (weekly / 40) * 8 : 0;

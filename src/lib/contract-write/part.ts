@@ -7,7 +7,7 @@
 //   제55조·제60조 미적용). 양식은 이 경우에도 넣는다 — 양식 재현은 includeUnder15 로만 한다.
 // ★ 브라우저 안에서만 쓴다.
 
-import { splitTotal, WEEKS_PER_MONTH, type DesignResult, type ItemKey, type Rounding } from './design';
+import { splitTotal, weeklySchedule, WEEKS_PER_MONTH, type DesignResult, type ItemKey, type Rounding } from './design';
 
 export interface HourlyDesignInput {
   /** 시간당 지급액 — 휴게를 포함한 체류시간에 곱해 하루 지급액을 만든다 */
@@ -34,16 +34,22 @@ const ORDER: ItemKey[] = ['base', 'weeklyHoliday', 'overtime', 'night', 'leave',
 /** 항목별 하루 인정시간(가산 반영) */
 export function hourlyDesignHours(input: HourlyDesignInput): Record<ItemKey, number> {
   const fivePlus = input.fivePlus ?? true;
+  const days = input.daysPerWeek;
   const work = input.stayHours - input.breakMinutes / 60;
-  const base = Math.min(work, 8);
-  const eligible = base * input.daysPerWeek >= 15 || Boolean(input.includeUnder15);
+  // 하루 소정 = 1주 소정(하루 8시간·1주 40시간 한도) ÷ 근무일. 주 5일 이하·하루 8시간 이내면 실근무 그대로다
+  const { scheduled: weekly } = weeklySchedule(work, days);
+  const base = weekly / days;
+  const eligible = weekly >= 15 || Boolean(input.includeUnder15);
+  // 공휴일 하루의 근로는 그날 실근무(8시간까지) — 1주 한도와 무관하다
+  const holidayDay = Math.min(work, 8);
   return {
     base,
-    weeklyHoliday: eligible ? base / 5 : 0,
-    overtime: Math.max(work - 8, 0) * (fivePlus ? 1.5 : 1),
+    // 1주 주휴 = 1주 소정 ÷ 40 × 8 = 1주 소정 ÷ 5, 근무일에 나눈다
+    weeklyHoliday: eligible ? weekly / 5 / days : 0,
+    overtime: Math.max(work - base, 0) * (fivePlus ? 1.5 : 1),
     night: fivePlus ? input.nightHours * 0.5 : 0,
-    leave: eligible && fivePlus ? base / 5 / WEEKS_PER_MONTH : 0,
-    holiday: eligible && fivePlus ? (base * input.holidayDaysPerYear * 1.5) / ((input.daysPerWeek * 365) / 7) : 0,
+    leave: eligible && fivePlus ? weekly / 5 / days / WEEKS_PER_MONTH : 0,
+    holiday: eligible && fivePlus ? (holidayDay * input.holidayDaysPerYear * 1.5) / ((days * 365) / 7) : 0,
   };
 }
 

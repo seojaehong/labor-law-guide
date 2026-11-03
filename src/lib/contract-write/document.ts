@@ -4,7 +4,7 @@
 // 「포괄」은 쓰지 않는다(공개 명칭 = 임금 구성).
 // 사업장 양식의 자동 종료 조항(매년 재계약 자동종료·불응 시 자동만료)은 넣지 않는다(HRMS 수원 건 재홍님 결정).
 
-import type { DesignResult, ItemKey } from './design';
+import { weeklySchedule, type DesignResult, type ItemKey } from './design';
 import { dailyWorkHours, PROBATION_PCT, rateText, type WriteForm } from './contract';
 
 export interface ContractClause {
@@ -49,7 +49,7 @@ function basisText(key: ItemKey, period: DesignResult['period'], fivePlus: boole
     case 'weeklyHoliday':
       return '하루 소정근로 ÷ 5(1주 소정근로 비례)';
     case 'overtime':
-      return fivePlus ? '하루 8시간 넘는 시간 × 1.5' : '하루 8시간 넘는 시간(가산 없음)';
+      return fivePlus ? '하루 8시간·1주 40시간 넘는 시간 × 1.5' : '하루 8시간·1주 40시간 넘는 시간(가산 없음)';
     case 'night':
       return '22시~06시 근로 × 0.5';
     case 'holiday':
@@ -82,12 +82,17 @@ export function buildContractDocument(form: WriteForm, design: DesignResult): Co
     }
   }
 
+  const weeklyOvertime = weeklySchedule(daily, form.workDays.length).overtime;
   const workLines = [
     `근로일: 매주 ${days}(주 ${form.workDays.length}일)`,
     `근로일별 근로시간: ${days} 각 ${form.start}~${form.end}, 휴게시간 ${form.breakMinutes}분(실근로 ${hm(daily)})`,
-    `소정근로시간: 하루 ${hm(scheduledDaily)}, 1주 ${hm(weeklyScheduled)}`,
+    weeklyScheduledRaw > 40
+      ? `소정근로시간: 1주 40시간(근로기준법 제50조 제1항 한도), 하루 ${hm(scheduledDaily)} 이내`
+      : `소정근로시간: 하루 ${hm(scheduledDaily)}, 1주 ${hm(weeklyScheduled)}`,
   ];
-  if (extraDaily > 0) {
+  if (weeklyOvertime > extraDaily * form.workDays.length + 1e-9) {
+    workLines.push(`하루 8시간 또는 1주 40시간을 넘는 시간(1주 ${hm(weeklyOvertime)})은 연장근로이며, 근로자는 이에 동의한다(근로기준법 제53조 제1항).`);
+  } else if (extraDaily > 0) {
     workLines.push(`하루 8시간을 넘는 ${hm(extraDaily)}은 연장근로이며, 근로자는 이에 동의한다(근로기준법 제53조 제1항).`);
   }
   if (design.hours.night > 0) workLines.push('22시부터 다음 날 6시 사이의 근로는 야간근로이며, 통상임금의 100분의 50을 가산한다(근로기준법 제56조 제3항).');
