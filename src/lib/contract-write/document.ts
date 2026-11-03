@@ -97,7 +97,7 @@ function absentWeekLines(form: WriteForm, design: DesignResult): string[] {
  * 노동절은 확정 문구의 「등 유급휴일」이 덮는다(관공서의 공휴일에 관한 규정 제2조 제6호에도 든다 — 2026.4.30. 개정 대통령령 제36290호,
  * 시행일은 변경이력 5.1.·조문 머리 5.11.이 달라 부칙 확인 필요). 5명 미만·15시간 미만에는
  * 노동절 한 문장만 둔다 — 별도 법률(노동절 제정에 관한 법률)의 유급휴일이라 별표 1·제18조 제3항과 상관없다(근로기준정책과-4361).
- * 둘째 줄 = 노동절이 소정근로일이 아닌 날에 들 때의 1일분(laborDayOffLine)
+ * 둘째 줄 = 노동절이 소정근로일이 아닌 날에 들 때의 1일분과, 노동절로 쉰 소정근로일의 하한(laborDayOffLine)
  */
 function paidDayOffLines(form: WriteForm, design: DesignResult, under15: boolean): string[] {
   const weekly = design.items.find((i) => i.key === 'weeklyHoliday');
@@ -123,18 +123,29 @@ function paidDayOffLines(form: WriteForm, design: DesignResult, under15: boolean
  *    근로기준과-2156·임금근로시간정책과-1384·근로기준정책과-4361(15시간 미만도 노동절 유급휴일)로 같은 금액이 된다.
  * 주휴일과 겹치면 1일분만(근로기준정책과-6852·근로기준과-2571) — 일 지급액에 나눠 준 1주 주휴(1주 소정 ÷ 5 × 통상시급)가 같은 양이라 갈음한다.
  * 결근으로 그 주 주휴수당을 정산했으면 노동절 1일분은 남는다(노동절은 개근 요건이 없다). 15시간 미만은 주휴일이 없어 겹침 문장이 없다.
+ * 하한(#151 적대 검토) — 노동절로 쉰 소정근로일에도 1일분 아래로는 주지 않는다. 별표 2 제4호 라목은 소정근로일에 든 유급휴일도 같은 일급
+ * 통상임금을 기준으로 하는데, 바로 앞 줄의 「그날 일 지급액 중 기본급(과 주휴수당)」은 이보다 적을 수 있다 — ① 주휴가 없으면(15시간 미만)
+ * 기본급 = 1주 소정 ÷ 근무일이라 주 6일이면 1주 소정 ÷ 5 보다 적다 ② 결근 주 공제(deduct)로 그 주 주휴수당을 정산하면 기본급만 남아 같다
+ * ③ 기본급이 단위 올림 잔액을 받으면(design.ts splitTotal) 주 5일도 몇 원~몇십 원 적다. 「주 6일 이하면 기본급과 주휴수당이 1일분 이상이라
+ * 그대로 둔다」는 앞선 판단은 주휴수당이 실제로 남아 있고 올림이 없을 때만 맞아 고쳤다. 하한이 걸리지 않는 입력(keep·주 5일 이하·원 단위)도
+ * 있지만 근무일 수·금액 단위·결근 정산이 겹치는 경우를 숫자로 가려 넣다 빼면 1원 차이로 문장이 생겼다 없어져 모든 파트 계약서에 둔다.
+ * 확정 문구(paidDayOffLines 첫 줄)는 고치지 않고 이 줄 끝에 둔다.
  * 표(일 지급액 구성)에는 넣지 않는다 — 연 1회·소정근로일이 아닌 날에만 생긴다. 월급제는 소정 월급으로 충족해 넣지 않는다(근로기준과-2156)
  */
 function laborDayOffLine(form: WriteForm, design: DesignResult, hasWeekly: boolean): string {
   const hours = laborDayOffHours(dailyWorkHours(form), form.workDays.length);
-  const pay = laborDayOffPay(hours, design.rate);
+  const amount = wonText(laborDayOffPay(hours, design.rate));
   const line =
-    `노동절(5월 1일)이 소정근로일이 아닌 날에 들면 1주 소정근로시간을 5로 나눈 ${hm(hours)}에 통상시급을 곱한 ${wonText(pay)}을 ` +
+    `노동절(5월 1일)이 소정근로일이 아닌 날에 들면 1주 소정근로시간을 5로 나눈 ${hm(hours)}에 통상시급을 곱한 ${amount}을 ` +
     '그 달 임금에 더해 지급한다(근로기준법 시행령 별표 2 제2호 나목의 1일 소정근로시간 기준).';
-  if (!hasWeekly) return line;
-  return form.absentWeekHoliday === 'keep'
-    ? `${line} 노동절이 주휴일과 겹치면 일 지급액에 나누어 지급한 주휴수당으로 갈음한다.`
-    : `${line} 노동절이 주휴일과 겹치면 일 지급액에 나누어 지급한 주휴수당으로 갈음하되, 그 주의 주휴수당을 결근으로 정산한 경우에는 위 금액을 지급한다.`;
+  const deduct = hasWeekly && form.absentWeekHoliday !== 'keep';
+  // 결근 주 공제면 그날 몫의 주휴수당도 정산될 수 있어 정산한 뒤 금액과 비교한다(정산 범위를 따로 정하지 않아도 하한이 걸린다)
+  const paidOnDay = deduct ? '지급하는 금액(그 주의 주휴수당을 결근으로 정산한 경우에는 정산한 뒤의 금액)' : '지급하는 금액';
+  const floor = `노동절로 근무하지 않은 소정근로일에 ${paidOnDay}이 ${amount}보다 적으면 ${amount}을 지급한다.`;
+  if (!hasWeekly) return `${line} ${floor}`;
+  return deduct
+    ? `${line} 노동절이 주휴일과 겹치면 일 지급액에 나누어 지급한 주휴수당으로 갈음하되, 그 주의 주휴수당을 결근으로 정산한 경우에는 위 금액을 지급한다. ${floor}`
+    : `${line} 노동절이 주휴일과 겹치면 일 지급액에 나누어 지급한 주휴수당으로 갈음한다. ${floor}`;
 }
 
 /**
