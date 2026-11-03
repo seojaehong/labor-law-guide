@@ -106,3 +106,30 @@ describe('designMonthlyWage — 검사', () => {
     expect(designMonthlyWage(UIJEONGBU).checks.weeklyOvertime).toMatchObject({ ok: true });
   });
 });
+
+describe('designMonthlyWage — 야간·5명 미만(261103 전수 개선)', () => {
+  // 수원 홀 10:00~22:30 · 휴게 2시간 30분 · 실근로 10h → 22:00~22:30 야간 0.5h
+  const NIGHT: DesignInput = { monthlyTotal: 3_200_000, daysPerWeek: 5, dailyWorkHours: 10, holidayDaysPerYear: 18.75, nightHoursPerDay: 0.5 };
+
+  it('야간 가중시간 = 하루 야간h × 0.5 × 주근무일 × 4.345', () => {
+    const r = designMonthlyWage(NIGHT);
+    expect(r.hours.night).toBeCloseTo(0.5 * 0.5 * 5 * 4.345, 10);
+    const night = r.items.find((i) => i.key === 'night')!;
+    expect(night.label).toBe('야간근로수당');
+    expect(night.amount).toBe(Math.round(r.rate * r.hours.night));
+    expect(r.items.reduce((s, i) => s + i.amount, 0)).toBe(3_200_000);
+  });
+
+  it('야간이 없으면 항목에 넣지 않는다(기존 4항목 그대로)', () => {
+    expect(designMonthlyWage(UIJEONGBU).items.map((i) => i.key)).toEqual(['base', 'overtime', 'holiday', 'leave']);
+  });
+
+  it('5명 미만이면 연장은 실시간(가산 없음), 야간·휴일·연차는 0', () => {
+    const r = designMonthlyWage({ ...NIGHT, fivePlus: false });
+    expect(r.hours.overtime).toBeCloseTo(2 * 5 * 4.345, 10);
+    expect(r.hours.night).toBe(0);
+    expect(r.hours.holiday).toBe(0);
+    expect(r.hours.leave).toBe(0);
+    expect(r.items.map((i) => i.key)).toEqual(['base', 'overtime']);
+  });
+});
