@@ -92,6 +92,9 @@ const num = (s: string): number | null => {
   return Number.isFinite(n) && n >= 0 ? n : NaN;
 };
 
+/** 금액 칸 입력 거르개 — 숫자·쉼표·소수점만 남긴다. 소수점을 지우면 「10,500.5」가 「105,005」로 바뀌므로 남겨 두고 toWriteForm 이 다시 넣어 달라고 한다 */
+export const amountInput = (v: string): string => v.replace(/[^\d,.]/g, '');
+
 export interface ParsedForm {
   form: WriteForm | null;
   /** 비었거나 잘못된 칸 이름 */
@@ -149,8 +152,21 @@ export function toWriteForm(s: WriteState, today = todayKst()): ParsedForm {
     ['수습 개월 수', s.probationMonths, s.probation === 'yes'],
   ];
   const bad = numeric.filter(([, v, used]) => used && Number.isNaN(num(v))).map(([label]) => label);
+  // 금액 칸은 원 단위 정수만 받는다 — 소수점을 지우거나 반올림해 금액을 바꾸지 않고 다시 넣어 달라고 한다(PR #140 추가 경계 입력)
+  const wonFields: Array<[string, string, boolean]> = [
+    ['시간당 지급액', s.hourlyWage, hourly],
+    ['월 임금 총액', s.monthlyTotal, !hourly && !net],
+    ['월 실수령액', s.netPay, !hourly && net],
+  ];
+  const fractional = wonFields
+    .filter(([, v, used]) => {
+      const n = num(v);
+      return used && n != null && Number.isFinite(n) && !Number.isInteger(n);
+    })
+    .map(([label]) => label);
   const problems: string[] = [];
   if (bad.length) problems.push(`숫자로 읽을 수 없는 칸: ${bad.join(', ')}.`);
+  if (fractional.length) problems.push(`금액은 원 단위 정수로 넣어 주세요(소수점 없이): ${fractional.join(', ')}.`);
   if (s.writtenDate && !DATE.test(s.writtenDate)) problems.push('작성일을 YYYY-MM-DD 로 넣어 주세요.');
   if (s.endDate && (!DATE.test(s.endDate) || s.endDate < s.startDate)) problems.push('계약 종료일이 시작일보다 빠릅니다.');
   const times = { start: s.start, end: s.end, breakMinutes: breakMin ?? 0 };

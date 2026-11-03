@@ -26,13 +26,14 @@ export interface OfflineOutcome {
   period: 'month' | 'day' | null;
   rate: number | null;
   minimumWage: { text: string; warn: boolean } | null;
+  minimumWageLater: Array<{ text: string; warn: boolean }>;
   findings: Finding[];
   doc: ContractDocument | null;
 }
 
 /** 화면 상태 → 설계·되먹임·본문. 화면과 시험이 같이 쓴다 */
 export function compute(state: WriteState): OfflineOutcome {
-  const empty: OfflineOutcome = { missing: [], error: null, netNote: null, rows: [], total: null, period: null, rate: null, minimumWage: null, findings: [], doc: null };
+  const empty: OfflineOutcome = { missing: [], error: null, netNote: null, rows: [], total: null, period: null, rate: null, minimumWage: null, minimumWageLater: [], findings: [], doc: null };
   const parsed = toWriteForm(state);
   if (!parsed.form) return { ...empty, missing: parsed.missing, error: parsed.error ?? null };
   try {
@@ -46,6 +47,7 @@ export function compute(state: WriteState): OfflineOutcome {
       period: design.period,
       rate: design.rate,
       minimumWage: review.minimumWage,
+      minimumWageLater: review.minimumWageLater,
       findings: review.problems,
       doc: buildContractDocument(parsed.form, design),
     };
@@ -213,6 +215,7 @@ function mount(): void {
     table.appendChild(tot);
     out.appendChild(table);
     out.appendChild(el('p', r.minimumWage!.warn ? 'warn' : '', r.minimumWage!.text));
+    for (const l of r.minimumWageLater) out.appendChild(el('p', l.warn ? 'warn' : '', l.text));
     const fb = el('div', 'feedback');
     fb.appendChild(el('strong', '', '근로계약서 점검 규칙으로 다시 본 결과'));
     if (r.findings.length === 0) fb.appendChild(el('p', '', '손볼 항목이 없습니다.'));

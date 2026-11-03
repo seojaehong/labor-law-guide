@@ -87,21 +87,29 @@ export function designHours(input: DesignInput): Record<ItemKey, number> {
   const regular = Math.min(daily, 8);
   const extra = Math.max(daily - 8, 0);
   const { scheduled: weekly, overtime: weeklyOvertime } = weeklySchedule(daily, days);
-  const weeklyHoliday = weekly >= 15 ? (weekly / 40) * 8 : 0;
+  // 1주 소정 15시간 미만은 제55조(주휴일·공휴일 유급휴일)·제60조(연차)가 적용되지 않는다(근로기준법 제18조 제3항) — 파트(part.ts)와 같다.
+  // 공휴일도 법정 휴일이 아니어서 그날 근무는 휴일근로(제56조 제2항)가 아니다. 이때는 계약서 제4·6조도 미적용이라 직접 정한 시간도 넣지 않는다
+  const eligible = weekly >= 15;
+  const weeklyHoliday = eligible ? (weekly / 40) * 8 : 0;
   const base = weekly === 40 ? 209 : (weekly + weeklyHoliday) * WEEKS_PER_MONTH;
   const overtime = weeklyOvertime * (fivePlus ? 1.5 : 1) * WEEKS_PER_MONTH;
   const night = fivePlus ? (input.nightHoursPerDay ?? 0) * NIGHT_PREMIUM * days * WEEKS_PER_MONTH : 0;
-  const holiday = fivePlus ? ((regular * 1.5 + extra * 2) * holidayDaysPerYear * (Math.min(days, 5) / 5)) / 12 : 0;
-  const leave = fivePlus ? (weekly / 40) * 8 : 0;
+  const holiday = fivePlus && eligible ? ((regular * 1.5 + extra * 2) * holidayDaysPerYear * (Math.min(days, 5) / 5)) / 12 : 0;
+  const leave = fivePlus && eligible ? (weekly / 40) * 8 : 0;
   const o = input.overrides ?? {};
   return {
     base,
     weeklyHoliday: 0,
     overtime: o.overtimeHours ?? overtime,
     night,
-    holiday: o.holidayHours ?? holiday,
-    leave: o.leaveHours ?? leave,
+    holiday: eligible ? (o.holidayHours ?? holiday) : 0,
+    leave: eligible ? (o.leaveHours ?? leave) : 0,
   };
+}
+
+/** 1주 소정근로 15시간 이상 — 주휴·공휴일·연차 적용 대상(근로기준법 제18조 제3항의 반대) */
+export function weeklyHolidayEligible(dailyWorkHours: number, daysPerWeek: number): boolean {
+  return weeklySchedule(dailyWorkHours, daysPerWeek).scheduled >= 15;
 }
 
 /**
@@ -126,7 +134,17 @@ export function splitTotal(
   const rate = total / totalHours;
   const amounts = {} as Record<ItemKey, number>;
   for (const key of keys) if (key !== absorbInto) amounts[key] = roundAmount(rate * hours[key], rounding);
-  amounts[absorbInto] = total - keys.filter((k) => k !== absorbInto).reduce((s, k) => s + amounts[k], 0);
+  const others = keys.filter((k) => k !== absorbInto).reduce((s, k) => s + amounts[k], 0);
+  amounts[absorbInto] = total - others;
+  // 극소액에서 단위 올림이 총액을 넘기면 잔액 항목이 음수가 된다(PR #140 추가 경계 입력) — 계약서를 만들지 않고 까닭을 말한다
+  if (amounts[absorbInto] < 0) {
+    const unit = ROUNDING_UNIT[rounding];
+    const name = absorbInto === 'base' ? '기본급' : ITEM_LABEL[absorbInto];
+    const fix = unit ? '총액을 늘리거나 금액 단위를 원 단위로 바꿔 주세요' : absorbInto === 'base' ? '총액을 늘려 주세요' : '총액을 늘리거나 잔액을 넣을 항목을 기본급으로 바꿔 주세요';
+    throw new Error(
+      `총액 ${total.toLocaleString('ko-KR')}원이 너무 작아 ${unit ? `${unit}원 단위로 올린 ` : ''}다른 항목 합(${others.toLocaleString('ko-KR')}원)을 빼면 ${name}이 음수가 됩니다. ${fix}`,
+    );
+  }
   return {
     totalHours,
     rate,
@@ -138,8 +156,17 @@ const MONTHLY_ORDER: ItemKey[] = ['base', 'overtime', 'night', 'holiday', 'leave
 
 export function designMonthlyWage(input: DesignInput): DesignResult {
   const hours = designHours(input);
-  // 기존 4항목(기본·연장·휴일·연차)은 0시간이어도 표에 남긴다(5명 미만은 휴일·연차를 법상 넣지 않으므로 뺀다). 야간은 있을 때만
-  const keep: ItemKey[] = (input.fivePlus ?? true) ? ['base', 'overtime', 'holiday', 'leave'] : ['base', 'overtime'];
+  const eligible = weeklyHolidayEligible(input.dailyWorkHours, input.daysPerWeek);
+  // 기존 4항목(기본·연장·휴일·연차)은 0시간이어도 표에 남긴다(5명 미만·1주 15시간 미만은 휴일·연차를 법상 넣지 않으므로 뺀다). 야간은 있을 때만
+  const keep: ItemKey[] = (input.fivePlus ?? true) && eligible ? ['base', 'overtime', 'holiday', 'leave'] : ['base', 'overtime'];
   const { items, totalHours, rate } = splitTotal(input.monthlyTotal, hours, MONTHLY_ORDER, { rounding: input.rounding, absorbInto: input.absorbInto, keep });
-  return { period: 'month', total: input.monthlyTotal, hours, totalHours, rate, items };
+  return {
+    period: 'month',
+    total: input.monthlyTotal,
+    hours,
+    totalHours,
+    rate,
+    // 1주 15시간 미만은 주휴가 없다 — 기본급 이름에 「주휴 포함」을 적지 않는다(파트와 같다)
+    items: eligible ? items : items.map((i) => (i.key === 'base' ? { ...i, label: '기본급' } : i)),
+  };
 }

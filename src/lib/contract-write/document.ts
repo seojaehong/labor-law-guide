@@ -5,7 +5,7 @@
 // 사업장 양식의 자동 종료 조항(매년 재계약 자동종료·불응 시 자동만료)은 넣지 않는다(HRMS 수원 건 재홍님 결정).
 
 import { ROUNDING_UNIT, weeklySchedule, type DesignResult, type ItemKey } from './design';
-import { dailyWorkHours, leaveTerms, PROBATION_PCT, rateText, restDayTerm, type WriteForm } from './contract';
+import { dailyWorkHours, leaveTerms, PROBATION_PCT, rateText, reducedMonthsOf, restDayTerm, type WriteForm } from './contract';
 import { hoursText, wonText } from './text';
 
 export interface WageRow {
@@ -53,10 +53,12 @@ function hm(hours: number): string {
   return m ? `${Math.floor(total / 60)}시간 ${m}분` : `${total / 60}시간`;
 }
 
-function basisText(key: ItemKey, period: DesignResult['period'], fivePlus: boolean): string {
+function basisText(key: ItemKey, period: DesignResult['period'], fivePlus: boolean, under15: boolean): string {
   switch (key) {
     case 'base':
-      return period === 'month' ? '소정근로 + 주휴' : '소정근로(하루 8시간 이내)';
+      if (period === 'day') return '소정근로(하루 8시간 이내)';
+      // 1주 15시간 미만은 주휴가 없다(근로기준법 제18조 제3항)
+      return under15 ? '소정근로' : '소정근로 + 주휴';
     case 'weeklyHoliday':
       return '하루 소정근로 ÷ 5(1주 소정근로 비례)';
     case 'overtime':
@@ -96,7 +98,7 @@ export function buildContractDocument(form: WriteForm, design: DesignResult): Co
   if (prob) {
     periodLines.push(`수습기간: 계약 시작일부터 ${prob.months}개월`);
     if (prob.reduced) {
-      const reducedMonths = Math.min(prob.months, 3);
+      const reducedMonths = reducedMonthsOf(prob);
       periodLines.push(
         `수습을 시작한 날부터 ${reducedMonths}개월 동안은 제5조 임금의 100분의 ${PROBATION_PCT}를 지급한다. 다만 시간급으로 환산한 금액이 최저임금법 제5조 제2항과 같은 법 시행령 제3조에 따른 금액(시간급 최저임금의 100분의 90) 이상이 되게 한다.`,
       );
@@ -155,7 +157,7 @@ export function buildContractDocument(form: WriteForm, design: DesignResult): Co
 
   const rows: WageRow[] = design.items
     .filter((item) => item.amount !== 0 || item.hours > 0)
-    .map((item) => ({ label: item.label, hours: hoursText(item.hours), basis: basisText(item.key, design.period, fivePlus), amount: item.amount }));
+    .map((item) => ({ label: item.label, hours: hoursText(item.hours), basis: basisText(item.key, design.period, fivePlus, under15), amount: item.amount }));
   const table: WageTable = {
     caption: hourly ? '일 지급액 구성(항목별 하루 인정시간·금액)' : '임금 구성(항목별 월 인정시간·금액)',
     header: ['항목', hourly ? '하루 인정시간' : '월 인정시간', '산정 기준', '금액'],
