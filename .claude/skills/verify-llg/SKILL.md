@@ -32,6 +32,8 @@ node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON .claude/skills/verify-llg/sc
 - 기능마다 `features/<id>.md` 의 「Driving it」 절차가 스크립트 `FEATURES[<id>].journey` 와 같다. 한쪽을 고치면 다른 쪽도 같은 PR 에서 고친다.
 - 손잡이는 접근 가능한 이름(`getByLabel('알렸다')`)과 답 카드 `section[aria-live]` 를 쓴다. 위치(nth)를 쓰는 곳은 입력 순서가 화면 계약인 곳뿐이다.
 - 결과 한 줄 = `PASS|FAIL 기능 폭 steps n/m banned k overflow x console y`. 하나라도 FAIL 이면 exit 1 이고 어긋난 단계의 기대·실제를 찍는다.
+- 페이지는 기본으로 `networkidle` 까지 기다려 연다. 헤드리스에서 거기 닿지 않는 화면(Cloudflare Turnstile 이 챌린지를 계속 돌리는 근로계약서 점검)은 `FEATURES[<id>].waitUntil: 'load'` 로 열고, 여정이 하이드레이션을 기다린 뒤 채운다.
+- 콘솔 오류 중 제3자 프레임(`THIRD_PARTY_FRAMES` — Turnstile iframe `challenges.cloudflare.com`) 것은 `report.json` 의 `thirdPartyConsole` 에 남기고 판정에서 뺀다(그 줄 아래 `· 제3자 프레임 콘솔 k건`). 출처를 모르는 오류는 우리 것으로 센다.
 - 금지어 목록은 `src/lib/tool-kit/banned.ts` 를 그대로 import 한다(허용 구절 포함). 따로 적지 않는다.
 
 ## Evidence

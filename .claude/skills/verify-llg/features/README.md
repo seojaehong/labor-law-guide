@@ -12,9 +12,9 @@
 ## 운전 규칙
 
 - 각 절차는 페이지를 새로 연 상태에서 시작한다.
-- 답은 답 카드(`section[aria-live]`) 글자로 판정한다. 퇴직금 계산기는 `#resultArea`, /exit 는 `section[aria-label="확인용 추정"]`.
+- 답은 답 카드(`section[aria-live]`) 글자로 판정한다. 퇴직금 계산기는 `#resultArea`, /exit 는 `section[aria-label="확인용 추정"]`, 근로계약서 점검은 `#cc-print-area` 의 항목 `li`(규칙 이름으로 고른다).
 - 접근 가능한 이름이 있는 컨트롤은 이름으로 누른다.
-- 화면 공통 점검: 금지어 0(`src/lib/tool-kit/banned.ts`), `document.documentElement.scrollWidth > innerWidth` 거짓, 콘솔 오류 0.
+- 화면 공통 점검: 금지어 0(`src/lib/tool-kit/banned.ts`), `document.documentElement.scrollWidth > innerWidth` 거짓, 콘솔 오류 0. 제3자 프레임(`THIRD_PARTY_FRAMES` — 지금은 Cloudflare Turnstile iframe) 안의 콘솔 오류는 `report.json` 의 `thirdPartyConsole` 에 남기고 판정에서 뺀다. 출처를 알 수 없는 오류는 우리 것으로 센다.
 
 ## 증거·건너뜀 보고
 
@@ -42,4 +42,5 @@ H1 제목, 사용자 입장 한 문단, 그다음 H2 넷을 이 순서로: `Sub-
 - [휴업수당 계산기](./shutdown-allowance.md) — `/tools/shutdown-allowance`
 - [출근율 계산기](./attendance-rate.md) — `/tools/attendance-rate`
 - [3.3% 계약 점검](./contractor-check.md) — `/tools/contractor-check`
+- [근로계약서 점검](./contract-check.md) — `/tools/contract-check`
 - [급여 일할계산기](./pay-proration.md) — `/tools/pay-proration`
