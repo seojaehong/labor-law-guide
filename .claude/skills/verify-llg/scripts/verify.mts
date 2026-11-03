@@ -677,6 +677,49 @@ const FEATURES: Record<string, { path: string; journey: Journey; waitUntil?: 'lo
       step('④ 주4일·하루 9.42H 기본급 1,870,364 — 소정 하루 8H 상한으로 적정', /^적정 최저임금 충족 .*1,870,364.*시간당 11,2\d\d ≥ 2026년 최저시급 10,320/, await minwage());
     },
   },
+  'contract-write': {
+    path: '/tools/contract-write',
+    journey: async (p, step) => {
+      // 의정부 주4 회귀 표본(261103 교정) — 기대값 = tests/unit/contract-write-design.test.ts·contract-write-document.test.ts
+      const sent: string[] = [];
+      p.on('request', (r: any) => sent.push(`${r.method()} ${r.url()} ${r.postData() ?? ''}`));
+      await p.waitForFunction(() => Object.keys(document.querySelector('input[aria-label="사업체명"]') ?? {}).some((k) => k.startsWith('__reactProps')));
+      step('빈 입력 — 필요한 칸 안내', /입력이 필요합니다: 사업체명, 근로자 성명, 계약 시작일, 월 임금 총액/, await answer(p, '#cw-result'));
+      await p.getByLabel('사업체명', { exact: true }).fill('합성테스트 사업장');
+      await p.getByLabel('대표자', { exact: true }).fill('합성대표');
+      await p.getByLabel('근로자 성명', { exact: true }).fill('합성근로자');
+      await p.getByLabel('계약 시작일', { exact: true }).fill('2026-03-01');
+      await p.getByRole('button', { name: '금', exact: true }).click();
+      await p.getByLabel('출근 시각', { exact: true }).fill('10:00');
+      await p.getByLabel('퇴근 시각', { exact: true }).fill('22:00');
+      await p.getByLabel('하루 휴게시간', { exact: true }).fill('155');
+      await p.getByLabel('연간 공휴일 근무 예정 일수', { exact: true }).fill('22');
+      await p.getByLabel('월 임금 총액', { exact: true }).fill('2600000');
+      const result = await answer(p, '#cw-result');
+      step('기본급이 잔액 — 1,870,364원', /기본급\(주휴 포함\)\(잔액\) 166\.85시간 1,870,364원/, result);
+      step('연장 414,013 · 휴일 243,879 · 연차 71,744', /연장근로수당 36\.93시간 414,013원 휴일근로수당 21\.76시간 243,879원 연차수당 6\.4시간 71,744원/, result);
+      step('통상시급 11,209.99원 · 최저시급 이상', /통상시급 11,209\.99원 \(2026년 최저시급 10,320원 이상\)/, result);
+      step('점검 규칙 되먹임 — 손볼 항목 없음', /손볼 항목이 없습니다/, result);
+      // 단위·흡수 선택(재홍님 261103)
+      await p.getByRole('button', { name: '100원 미만 버림', exact: true }).click();
+      step('100원 미만 버림 — 기본급 1,870,500원', /1,870,500원.*414,000원.*243,800원.*71,700원/, await answer(p, '#cw-result'));
+      await p.getByRole('button', { name: '원 단위(반올림)', exact: true }).click();
+      await p.getByRole('button', { name: '휴일근로수당', exact: true }).click();
+      step('잔액을 휴일근로수당으로', /휴일근로수당\(잔액\) 21\.76시간 243,879원/, await answer(p, '#cw-result'));
+      await p.getByRole('button', { name: '기본급(주휴 포함)', exact: true }).click();
+      mkdirSync(OUT, { recursive: true });
+      const width = p.viewportSize()?.width;
+      for (const [label, ext, magic] of [['엑셀로 받기', 'xlsx', 'PK'], ['한글로 받기', 'hwpx', 'PK'], ['PDF로 받기', 'pdf', '%PDF']] as const) {
+        const [dl] = await Promise.all([p.waitForEvent('download', { timeout: 60000 }), p.getByRole('button', { name: label, exact: true }).click()]);
+        const buf = require('node:fs').readFileSync(await dl.path());
+        writeFileSync(resolve(OUT, `contract-write-${width}.${ext}`), buf);
+        step(`${ext} 내려받음`, magic, buf.subarray(0, magic.length).toString());
+      }
+      // 입력값이 실린 요청 0건 — 계산·파일 생성은 브라우저 안에서만(글꼴 파일 GET 만 허용)
+      const leaked = sent.filter((s) => s.includes('2600000') || s.includes('%ED%95%A9%EC%84%B1%EA%B7%BC%EB%A1%9C%EC%9E%90') || s.includes('합성근로자'));
+      step('입력값이 실린 요청 0건', '0', String(leaked.length));
+    },
+  },
   'pay-proration': {
     path: '/tools/pay-proration',
     journey: async (p, step) => {

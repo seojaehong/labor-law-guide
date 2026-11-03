@@ -206,6 +206,7 @@ export default function RootLayout({
               { title: '검토 중 기능', links: [
                 { href: '/checklist', label: '점검 체크리스트' },
                 { href: '/tools/contract-check', label: '근로계약서 점검' },
+                { href: '/tools/contract-write', label: '근로계약서 작성' },
                 { href: '/tools/severance.html', label: '퇴직금 계산' },
                 { href: '/subsidy', label: '지원금 안내' },
                 { href: '/ai', label: 'AI 질의응답' },

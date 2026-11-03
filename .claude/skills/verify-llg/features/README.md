@@ -43,4 +43,5 @@ H1 제목, 사용자 입장 한 문단, 그다음 H2 넷을 이 순서로: `Sub-
 - [출근율 계산기](./attendance-rate.md) — `/tools/attendance-rate`
 - [3.3% 계약 점검](./contractor-check.md) — `/tools/contractor-check`
 - [근로계약서 점검](./contract-check.md) — `/tools/contract-check`
+- [근로계약서 작성](./contract-write.md) — `/tools/contract-write`
 - [급여 일할계산기](./pay-proration.md) — `/tools/pay-proration`
