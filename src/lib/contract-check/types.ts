@@ -32,7 +32,10 @@ export interface Employee {
 
 export interface Probation {
   applied?: boolean | null;
+  /** 수습 기간 전체(개월) */
   months?: number | null;
+  /** 그중 임금을 감액하는 기간(개월). 비우면 수습 기간 전체를 감액 기간으로 본다(근로계약서 작성이 채운다 — 처음 3개월) */
+  reduced_months?: number | null;
   wage_rate_pct?: number | null;
   wage_amount?: number | null;
   simple_labor_job?: boolean | null;

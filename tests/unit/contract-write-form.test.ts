@@ -48,11 +48,11 @@ const text = (form: WriteForm) => documentLines(buildContractDocument(form, desi
 
 describe('야간시간', () => {
   it('22:00~06:00 과 겹친 시간(자정 넘김 포함)', () => {
-    expect(nightHoursOf({ start: '10:00', end: '22:30' })).toBeCloseTo(0.5, 10);
-    expect(nightHoursOf({ start: '18:00', end: '02:00' })).toBeCloseTo(4, 10);
-    expect(nightHoursOf({ start: '05:00', end: '14:00' })).toBeCloseTo(1, 10);
-    expect(nightHoursOf({ start: '09:00', end: '18:00' })).toBe(0);
-    expect(nightHoursOf({ start: '21:00', end: '07:00' })).toBeCloseTo(8, 10);
+    expect(nightHoursOf({ start: '10:00', end: '22:30', breakMinutes: 0 })).toBeCloseTo(0.5, 10);
+    expect(nightHoursOf({ start: '18:00', end: '02:00', breakMinutes: 0 })).toBeCloseTo(4, 10);
+    expect(nightHoursOf({ start: '05:00', end: '14:00', breakMinutes: 0 })).toBeCloseTo(1, 10);
+    expect(nightHoursOf({ start: '09:00', end: '18:00', breakMinutes: 0 })).toBe(0);
+    expect(nightHoursOf({ start: '21:00', end: '07:00', breakMinutes: 0 })).toBeCloseTo(8, 10);
   });
 });
 
