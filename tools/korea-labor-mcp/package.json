@@ -1,10 +1,10 @@
 {
-  "name": "ilmunui-mcp",
+  "name": "korea-labor-mcp",
   "version": "0.1.0",
-  "description": "일의 무늬(yellowenvelope.kr) 도구를 한 패키지로 묶은 로컬 MCP — 건강보험 관할 지사 찾기·자격취득·상실 신고서 PDF·내 팝빌 계정으로 팩스/문자",
+  "description": "노동 업무 도구(Korea Labor Tools) — 4대보험 신고서·근로계약서·노동 계산기·취업규칙 점검을 내 PC 의 AI 에서 쓰는 로컬 MCP. 만든 곳 일의 무늬(yellowenvelope.kr)",
   "type": "module",
   "bin": {
-    "ilmunui-mcp": "dist/server.mjs"
+    "korea-labor-mcp": "dist/server.mjs"
   },
   "files": [
     "dist"
@@ -22,7 +22,7 @@
   "repository": {
     "type": "git",
     "url": "git+https://github.com/seojaehong/labor-law-guide.git",
-    "directory": "tools/ilmunui-mcp"
+    "directory": "tools/korea-labor-mcp"
   },
   "homepage": "https://yellowenvelope.kr",
   "keywords": [

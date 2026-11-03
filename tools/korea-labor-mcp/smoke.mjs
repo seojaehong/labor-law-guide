@@ -53,7 +53,7 @@ const spawn = (env, args = extra) => (/\.cmd$/i.test(target)
   ? new StdioClientTransport({ command: 'cmd', args: ['/c', target, 'mcp', ...args], env })
   : new StdioClientTransport({ command: process.execPath, args: [target, 'mcp', ...args], env }));
 
-const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'ilmunui-mcp-'));
+const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'korea-labor-mcp-'));
 const c = new Client({ name: 'smoke', version: '0' });
 await c.connect(spawn(mockEnv));
 const fails = [];

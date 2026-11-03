@@ -1,6 +1,6 @@
 // 일의 무늬 도구 MCP — 사이트가 만드는 도구를 한 패키지에 묶는다. 도구는 묶음(group) 단위로 켠다.
-//   npx -y ilmunui-mcp mcp                    → 전 묶음
-//   npx -y ilmunui-mcp mcp --groups nhis      → 일부 묶음만 (환경변수 LLG_MCP_GROUPS=nhis,popbill 도 같다)
+//   npx -y korea-labor-mcp mcp                    → 전 묶음
+//   npx -y korea-labor-mcp mcp --groups nhis      → 일부 묶음만 (환경변수 LLG_MCP_GROUPS=nhis,popbill 도 같다)
 // 인자가 없으면 mcp 로 본다(node dist/server.mjs 로 등록한 경우).
 // ★ 주민번호는 이 PC 안에서만 PDF 로 만들어진다. 도구 응답에는 싣지 않는다(lib/common.mjs 의 text 가 가린다).
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
@@ -25,9 +25,9 @@ const ALIAS = { fax: 'popbill', sms: 'popbill', rules: 'work-rules', 'work_rules
 
 function usage() {
   const lines = [
-    `ilmunui-mcp ${VERSION} — 일의 무늬 도구 MCP (stdio)`,
+    `korea-labor-mcp ${VERSION} — 노동 업무 도구 MCP — 일의 무늬 (stdio)`,
     '',
-    '사용: ilmunui-mcp mcp [--groups 묶음,묶음]',
+    '사용: korea-labor-mcp mcp [--groups 묶음,묶음]',
     '      환경변수 LLG_MCP_GROUPS=묶음,묶음 도 됩니다(--groups 가 우선).',
     '',
     '묶음:',
@@ -60,7 +60,7 @@ if (unknown.length) {
   process.exit(2);
 }
 
-const server = new McpServer({ name: 'ilmunui-mcp', version: VERSION });
+const server = new McpServer({ name: 'korea-labor-mcp', version: VERSION });
 for (const g of wanted) GROUPS[g].register(server);
 await server.connect(new StdioServerTransport());
-console.error(`ilmunui-mcp ready — 묶음: ${wanted.join(', ')}`);
+console.error(`korea-labor-mcp ready — 묶음: ${wanted.join(', ')}`);
