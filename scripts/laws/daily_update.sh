@@ -83,6 +83,23 @@ $(cat "$TMP/guard.txt")
   exit 3
 fi
 
+# 🔴 관리자 검토기록의 RULE_VERSION 이 새 공개 데이터와 같아야 한다 (2026-11-03).
+#   상수(src/lib/laws/observation-version.ts)가 public/data/laws 와 다르면 병합 뒤 /laws 검토기록 저장이 전부 400 이다.
+#   10-19(#37)·10-30(#96) 수집 PR 이 index.json 만 바꾸고 상수를 안 바꿔 실제로 그랬다 — 이 PR 들에는 vitest 를 돌리는
+#   CI 가 없어 tests/unit/work-rule-observations.test.ts 가 못 막았다. build_site_data.py 가 끝에서 맞추고(node 필요),
+#   여기서 한 번 더 본다. 어긋나면 PR 을 열지 않고 멈춘다(node 가 없어도 여기서 잡힌다).
+rv_rc=0
+node scripts/laws/rule_version.mjs > "$TMP/rule_version.txt" 2>&1 || rv_rc=$?
+cat "$TMP/rule_version.txt"
+if [ "$rv_rc" != "0" ]; then
+  notify "🔴 /laws 매일 수집 — 관리자 검토기록 규칙 버전(RULE_VERSION)이 공개 데이터와 달라 멈췄습니다.
+$(cat "$TMP/rule_version.txt")
+
+node scripts/laws/rule_version.mjs --write 로 맞추면 풀립니다(node 가 없으면 PATH 를 확인). PR 은 열지 않았습니다."
+  git checkout -q -- . && git clean -fdq -- data/law-diffs public/data/laws && git checkout -q "$start"
+  exit 4
+fi
+
 python3 scripts/laws/fingerprint.py --compare "$TMP/before.txt" > "$TMP/changes.md"
 
 if [ ! -s "$TMP/changes.md" ]; then
@@ -98,19 +115,25 @@ if [ "${DRY_RUN:-0}" = "1" ]; then
   exit 0
 fi
 
+rv_changed=0
+git diff --quiet -- src/lib/laws/observation-version.ts || rv_changed=1
 git checkout -q -B "$BRANCH"
-git add data/law-revisions.json data/law-diffs public/data/laws
+git add data/law-revisions.json data/law-diffs public/data/laws src/lib/laws/observation-version.ts
 git commit -q -m "chore(laws): 법령 개정 자동 수집 $day"
 git push -q -f origin "$BRANCH"
 {
   echo "법제처 Open API 매일 수집(서버1)에서 바뀐 개정이 잡혔다."
   echo
   cat "$TMP/changes.md"
+  if [ "$rv_changed" = "1" ]; then
+    echo "관리자 검토기록 규칙 버전(\`RULE_VERSION\`)을 새 공개 데이터에 맞췄다(\`scripts/laws/rule_version.mjs\`)."
+    echo
+  fi
   echo "### 병합 전에 사람이 할 것"
   echo "- 제목이 **없음**인 개정은 바뀐 조문 원문을 보고 \`scripts/laws/headlines.json\` 에 한 줄 제목을 쓴다"
   echo "- 취업규칙에 걸리는 개정이면 \`scripts/laws/work_rules_map.json\` 에 매핑을 더한다(/노동법개정반영)"
   echo "- 하위법령(시행령·시행규칙)이 새로 공포됐으면 그 법률 매핑의 「시행령 공포 후 확정」 문안을 다시 본다"
-  echo "- 위를 고친 뒤 \`python3 scripts/laws/build_site_data.py\` 를 다시 돌려 커밋한다"
+  echo "- 위를 고친 뒤 \`python3 scripts/laws/build_site_data.py\` 를 다시 돌려 커밋한다 — \`src/lib/laws/observation-version.ts\`(RULE_VERSION)가 같이 바뀌면 함께 커밋한다(node 필요, 확인은 \`node scripts/laws/rule_version.mjs\`)"
 } > "$TMP/body.md"
 # PR 단계가 실패해도 **원래 브랜치로는 반드시 돌아온다.**
 # 종전에는 여기서 죽으면 레포가 bot/law-revisions 에 남아, 다음 사람이 그 위에서 작업했다.

@@ -54,7 +54,11 @@ describe('검토 1 · 주 15시간 미만 월급제', () => {
     expect(t).not.toContain('주휴 포함');
     expect(t).not.toContain('소정근로 + 주휴');
     expect(t).not.toContain('연차수당');
-    expect(t).not.toContain('휴일근로수당');
+    // 휴일근로수당은 제4조 노동절 줄에만 — 노동절은 15시간 미만에도 유급휴일이고(근로기준정책과-4361) 5명 이상이면 근무 시 가산한다
+    // (제18조 제3항이 빼는 것은 제55조·제60조뿐). 표·공휴일 줄에는 여전히 없다
+    const laborDay = '노동절(5월 1일)은 노동절 제정에 관한 법률에 따른 유급휴일로 하고, 그날 근무하면 유급휴일 임금과 별도로 휴일근로수당을 지급한다.';
+    expect(t).toContain(laborDay);
+    expect(t.replace(laborDay, '')).not.toContain('휴일근로수당');
     expect(t).toContain('제18조 제3항');
   });
 

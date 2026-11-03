@@ -92,15 +92,31 @@ function absentWeekLines(form: WriteForm, design: DesignResult): string[] {
 /**
  * 파트 일 지급액은 근무한 날에만 생긴다 — 유급휴일·법정 유급휴가로 쉰 소정근로일에 줄 금액(PR #140 검토 6, 재홍님 261103 확정 문구).
  * 문장이 드는 공휴일 유급휴일(제55조 제2항)·연차(제60조)는 5명 이상·1주 15시간 이상에만 있다. 5명 미만은 둘 다 적용하지 않고
- * (시행령 제7조 별표 1, 제4·6조가 그렇게 적는다) 15시간 미만은 제55조·제60조 자체가 없어(제18조 제3항) 넣지 않는다
+ * (시행령 제7조 별표 1, 제4·6조가 그렇게 적는다) 15시간 미만은 제55조·제60조 자체가 없어(제18조 제3항) 확정 문구는 넣지 않는다.
+ * 노동절은 확정 문구의 「등 유급휴일」이 덮는다(관공서의 공휴일에 관한 규정 제2조 제6호에도 든다). 5명 미만·15시간 미만에는
+ * 노동절 한 문장만 둔다 — 별도 법률(노동절 제정에 관한 법률)의 유급휴일이라 별표 1·제18조 제3항과 상관없다(근로기준정책과-4361).
+ * 노동절이 소정근로일이 아닌 날에 드는 경우의 금액은 금액 설계 판단이라 여기서 정하지 않는다(PR 본문 「남은 것」)
  */
 function paidDayOffLines(form: WriteForm, design: DesignResult, under15: boolean): string[] {
-  if (!form.employeeCount5plus || under15) return [];
   const weekly = design.items.find((i) => i.key === 'weeklyHoliday');
   const paid = weekly && weekly.amount > 0 ? '기본급과 주휴수당' : '기본급';
+  if (!form.employeeCount5plus || under15) {
+    return [`노동절(5월 1일)로 근무하지 않은 소정근로일에는 그날의 일 지급액 중 ${paid}을 지급한다. 이날은 결근으로 보지 않는다.`];
+  }
   return [
     `관공서의 공휴일·대체공휴일 등 유급휴일과 연차유급휴가 등 법정 유급휴가로 근무하지 않은 소정근로일에는 그날의 일 지급액 중 ${paid}을 지급한다. 이런 날은 결근으로 보지 않는다.`,
   ];
+}
+
+/**
+ * 제4조 노동절 줄 — 「노동절 제정에 관한 법률」(5월 1일을 근로기준법에 따른 유급휴일로 한다)은 사업장 규모·소정근로시간과 상관없이 적용한다.
+ * 5명 이상은 1주 15시간 미만이어도 근무하면 휴일근로 가산(제56조 제2항 — 제18조 제3항이 빼는 것은 제55조·제60조뿐).
+ * 5명 미만은 제56조가 없어(시행령 제7조 별표 1) 가산 없이 근무한 시간의 임금을 유급휴일 임금과 별도로 준다. 바로 앞 미적용 문장의 예외라 「다만」
+ */
+function laborDayLine(fivePlus: boolean): string {
+  return fivePlus
+    ? '노동절(5월 1일)은 노동절 제정에 관한 법률에 따른 유급휴일로 하고, 그날 근무하면 유급휴일 임금과 별도로 휴일근로수당을 지급한다.'
+    : '다만 노동절(5월 1일)은 노동절 제정에 관한 법률에 따른 유급휴일로 하고, 그날 근무하면 유급휴일 임금과 별도로 근무한 시간의 임금을 지급한다.';
 }
 
 export function buildContractDocument(form: WriteForm, design: DesignResult): ContractDocument {
@@ -130,8 +146,10 @@ export function buildContractDocument(form: WriteForm, design: DesignResult): Co
   const workLines = [
     `근로일: 매주 ${days}(주 ${form.workDays.length}일)`,
     `근로일별 근로시간: ${days} 각 ${form.start}~${form.end}, 휴게시간 ${form.breakMinutes}분(실근로 ${hm(daily)})`,
+    // 5명 미만은 제50조를 적용하지 않아(시행령 제7조 별표 1 — 제4장은 제54조·제55조 제1항·제63조뿐) 한도 법조를 달지 않는다.
+    // 소정근로를 1주 40시간으로 자르는 계산(주휴·통상시급에 닿는다)은 그대로 둔다
     weeklyScheduledRaw > 40
-      ? `소정근로시간: 1주 40시간(근로기준법 제50조 제1항 한도), 하루 ${hm(scheduledDaily)} 이내`
+      ? `소정근로시간: 1주 40시간${fivePlus ? '(근로기준법 제50조 제1항 한도)' : ''}, 하루 ${hm(scheduledDaily)} 이내`
       : `소정근로시간: 하루 ${hm(scheduledDaily)}, 1주 ${hm(weeklyScheduled)}`,
   ];
   // 5명 미만은 제53조(연장근로 한도·합의)를 적용하지 않는다(시행령 제7조 별표 1) — 법조 없이 소정근로시간을 넘는 근로로 적는다.
@@ -147,9 +165,11 @@ export function buildContractDocument(form: WriteForm, design: DesignResult): Co
 
   const restLines = [restDayTerm(form)];
   if (fivePlus) {
+    restLines.push(laborDayLine(true));
     if (!under15) restLines.push('관공서의 공휴일과 대체공휴일은 근로기준법 제55조 제2항에 따른 유급휴일로 하고, 그날 근무하면 휴일근로수당을 지급한다.');
   } else {
     restLines.push('상시 5명 미만 사업장이므로 근로기준법 제55조 제2항(공휴일 유급휴일)과 제56조(연장·야간·휴일 가산)는 적용하지 않는다(근로기준법 시행령 제7조 별표 1).');
+    restLines.push(laborDayLine(false));
   }
 
   const wageLines = hourly
