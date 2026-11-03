@@ -3,7 +3,7 @@
 
 import { takeHomeRatesOn } from '@/lib/calc/take-home-pay';
 import { ITEM_LABEL, type ItemKey, type Rounding } from '@/lib/contract-write/design';
-import { dailyWorkHours, spanMinutes, WEEK_DAYS, type WeekDay, type WriteForm } from '@/lib/contract-write/contract';
+import { dailyWorkHours, isUnder15, itemHoursOf, spanMinutes, WEEK_DAYS, type WeekDay, type WriteForm } from '@/lib/contract-write/contract';
 import { netToGross } from '@/lib/contract-write/net-gross';
 import { cleanInput } from '@/lib/contract-write/text';
 import { todayKst } from '@/lib/tool-kit';
@@ -116,6 +116,18 @@ const t = cleanInput;
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 const TIME = /^\d{2}:\d{2}$/;
 
+/** 월 인정시간 직접 정하기 칸(비운 칸은 넣지 않는다) */
+function overridesOf(s: WriteState): NonNullable<WriteForm['overrides']> {
+  const overtime = num(s.overtimeHours);
+  const holiday = num(s.holidayHours);
+  const leave = num(s.leaveHours);
+  return {
+    ...(overtime != null ? { overtimeHours: overtime } : {}),
+    ...(holiday != null ? { holidayHours: holiday } : {}),
+    ...(leave != null ? { leaveHours: leave } : {}),
+  };
+}
+
 export function toWriteForm(s: WriteState, today = todayKst()): ParsedForm {
   const missing: string[] = [];
   const hourly = s.payType === 'hourly';
@@ -191,14 +203,7 @@ export function toWriteForm(s: WriteState, today = todayKst()): ParsedForm {
     }
   }
 
-  const overtime = num(s.overtimeHours);
-  const holiday = num(s.holidayHours);
-  const leave = num(s.leaveHours);
-  const overrides = {
-    ...(overtime != null ? { overtimeHours: overtime } : {}),
-    ...(holiday != null ? { holidayHours: holiday } : {}),
-    ...(leave != null ? { leaveHours: leave } : {}),
-  };
+  const overrides = overridesOf(s);
   return {
     form: {
       workplaceName: t(s.workplaceName),
@@ -222,7 +227,7 @@ export function toWriteForm(s: WriteState, today = todayKst()): ParsedForm {
       holidayDaysPerYear: num(s.holidayDaysPerYear) ?? 0,
       overrides: !hourly && Object.keys(overrides).length ? overrides : undefined,
       rounding: s.rounding,
-      absorbInto: s.absorbInto,
+      absorbInto: effectiveAbsorb(s),
       probation:
         s.probation === 'yes'
           ? { months: num(s.probationMonths)!, reduced: s.probationReduced === 'yes', simpleLabor: s.simpleLabor === 'yes' }
@@ -235,8 +240,36 @@ export function toWriteForm(s: WriteState, today = todayKst()): ParsedForm {
   };
 }
 
-/** 끝에 남는 금액을 받을 수 있는 항목(표 순서)과 그 이름 — 화면·오프라인판 공용. 파트의 기본급은 주휴를 따로 둔다 */
-export function absorbOptions(payType: WriteState['payType']): Array<{ value: ItemKey; label: string }> {
-  const keys: ItemKey[] = payType === 'hourly' ? ['base', 'weeklyHoliday', 'overtime', 'night', 'leave', 'holiday'] : ['base', 'overtime', 'night', 'holiday', 'leave'];
-  return keys.map((k) => ({ value: k, label: payType === 'hourly' && k === 'base' ? '기본급' : ITEM_LABEL[k] }));
+/**
+ * 끝에 남는 금액을 받을 수 있는 항목 = 표에 금액이 실리는 행(인정시간 > 0)과 그 이름, 표 순서 — 화면·오프라인판 공용.
+ * 5명 미만·1주 15시간 미만처럼 표에 없는 항목(휴일·연차·「주휴 포함」 기본급)은 내지 않는다. 0시간 행은 잔액을 받을 수 없다(splitTotal).
+ * 파트의 기본급과 1주 15시간 미만 월급제의 기본급은 주휴를 담지 않아 「기본급」이다(design.ts·part.ts 와 같다).
+ */
+export function absorbOptions(s: WriteState): Array<{ value: ItemKey; label: string }> {
+  const hourly = s.payType === 'hourly';
+  const keys: ItemKey[] = hourly ? ['base', 'weeklyHoliday', 'overtime', 'night', 'leave', 'holiday'] : ['base', 'overtime', 'night', 'holiday', 'leave'];
+  const breakMinutes = num(s.breakMinutes);
+  const holidayDays = num(s.holidayDaysPerYear);
+  const times = { start: s.start, end: s.end, breakMinutes: breakMinutes ?? NaN };
+  // 근무형태를 아직 읽을 수 없으면 기본급만 — 계산 결과 칸이 무엇이 빠졌는지 따로 알린다
+  const readable = TIME.test(s.start) && TIME.test(s.end) && s.workDays.length > 0 && breakMinutes != null && Number.isFinite(breakMinutes) && dailyWorkHours(times) > 0;
+  if (!readable) return [{ value: 'base', label: hourly ? '기본급' : ITEM_LABEL.base }];
+  const workDays = WEEK_DAYS.filter((d) => s.workDays.includes(d));
+  const hours = itemHoursOf({
+    payType: s.payType,
+    start: s.start,
+    end: s.end,
+    breakMinutes,
+    workDays,
+    holidayDaysPerYear: holidayDays != null && Number.isFinite(holidayDays) ? holidayDays : 0,
+    employeeCount5plus: s.fivePlus === 'yes',
+    overrides: hourly ? undefined : overridesOf(s),
+  });
+  const plainBase = hourly || isUnder15({ ...times, breakMinutes, workDays });
+  return keys.filter((k) => hours[k] > 0).map((k) => ({ value: k, label: k === 'base' && plainBase ? '기본급' : ITEM_LABEL[k] }));
+}
+
+/** 잔액을 받을 항목 — 고른 항목이 선택지에서 빠졌으면(5명 미만으로 바꿈 등) 기본급. 화면 선택 표시와 계산이 같은 값을 쓴다 */
+export function effectiveAbsorb(s: WriteState): ItemKey {
+  return absorbOptions(s).some((o) => o.value === s.absorbInto) ? s.absorbInto : 'base';
 }

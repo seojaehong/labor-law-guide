@@ -6,8 +6,8 @@ import { dayWorkMinutes, MINWAGE_TABLE, normalize } from '@/lib/contract-check/n
 import { minwageAssessment } from '@/lib/contract-check/rules/wage';
 import type { Contract, Finding, WageItem, WageItemCode } from '@/lib/contract-check/types';
 
-import { designMonthlyWage, ROUNDING_UNIT, weeklySchedule, WEEKS_PER_MONTH, type DesignResult, type ItemKey, type Rounding } from './design';
-import { designHourlyWage } from './part';
+import { designHours, designMonthlyWage, ROUNDING_UNIT, weeklySchedule, WEEKS_PER_MONTH, type DesignResult, type ItemKey, type Rounding } from './design';
+import { designHourlyWage, hourlyDesignHours } from './part';
 
 export interface Probation {
   months: number;
@@ -150,16 +150,54 @@ export function restDayTerm(form: WriteForm): string {
     : `주휴일: 매주 ${form.weeklyRestDay}요일(유급)`;
 }
 
-/** 연차유급휴가 조항 — 계약서 본문(제6조)과 점검 입력이 같은 문장을 쓴다 */
-export function leaveTerms(form: WriteForm): string[] {
+/** 표에 연차수당(금액 > 0)이 실려 미리 지급하는지 — 연차 인정시간을 0 으로 정하면 표에서 빠진다 */
+function prepaysLeave(design: DesignResult): boolean {
+  return design.items.some((i) => i.key === 'leave' && i.amount > 0);
+}
+
+/** 연차유급휴가 조항 — 계약서 본문(제6조)과 점검 입력이 같은 문장을 쓴다.
+ * 선지급·정산 문장은 표에 연차수당이 있을 때만(PR #140 검토 7, 재홍님 261103 확정 문구) */
+export function leaveTerms(form: WriteForm, design: DesignResult): string[] {
   if (isUnder15(form)) return ['1주 소정근로시간이 15시간 미만이므로 연차유급휴가는 적용하지 않는다(근로기준법 제18조 제3항).'];
   if (!form.employeeCount5plus) {
     return ['상시 5명 미만 사업장이므로 근로기준법 제60조(연차유급휴가)는 적용하지 않는다(근로기준법 시행령 제7조 별표 1).'];
   }
+  if (!prepaysLeave(design)) return ['근로기준법 제60조에 따라 부여한다.'];
   return [
     '근로기준법 제60조에 따라 부여한다.',
     '표의 연차수당은 쓰지 않은 연차유급휴가에 대한 수당을 매월 나누어 미리 지급하는 것이며, 근로자의 연차유급휴가 사용을 제한하지 않는다.',
+    '연차유급휴가를 사용한 날에도 제5조의 임금을 그대로 지급하며, 미리 지급한 연차수당을 이유로 돌려받거나 공제하지 않는다.',
+    '연차유급휴가 사용기간이 끝난 때와 퇴직한 때에는 실제로 사용하지 않은 일수로 계산한 연차유급휴가 미사용수당과 미리 지급한 연차수당 합계를 비교하여, 모자라면 그 차액을 지급한다.',
   ];
+}
+
+/**
+ * 항목별 인정시간만(금액 없이) — 잔액 항목 선택지를 표 행과 맞출 때 쓴다(금액을 넣기 전에도 고를 수 있게).
+ * designFromForm 이 설계 함수에 넘기는 값과 같은 값으로 센다(tests/unit/contract-write-clauses.test.ts 가 표 행과 대조한다).
+ */
+export function itemHoursOf(
+  form: Pick<WriteForm, 'payType' | 'start' | 'end' | 'breakMinutes' | 'workDays' | 'holidayDaysPerYear' | 'employeeCount5plus' | 'overrides'>,
+): Record<ItemKey, number> {
+  if (form.payType === 'hourly') {
+    return hourlyDesignHours({
+      hourlyWage: 0,
+      stayHours: spanMinutes(form) / 60,
+      breakMinutes: form.breakMinutes,
+      nightHours: nightHoursOf(form),
+      daysPerWeek: form.workDays.length,
+      holidayDaysPerYear: form.holidayDaysPerYear,
+      fivePlus: form.employeeCount5plus,
+    });
+  }
+  return designHours({
+    monthlyTotal: 0,
+    daysPerWeek: form.workDays.length,
+    dailyWorkHours: dailyWorkHours(form),
+    nightHoursPerDay: nightHoursOf(form),
+    holidayDaysPerYear: form.holidayDaysPerYear,
+    fivePlus: form.employeeCount5plus,
+    overrides: form.overrides,
+  });
 }
 
 export function designFromForm(form: WriteForm): DesignResult {
@@ -205,7 +243,15 @@ export interface WrittenReview {
   minimumWage: { text: string; warn: boolean };
   /** 계약 기간이 다음 해 이후로 이어질 때 그 해 최저시급과 비교한 줄(낮아지는 해·미등록 해). 없으면 빈 배열 */
   minimumWageLater: Array<{ text: string; warn: boolean }>;
+  /** 손볼 것은 아니지만 계약 뒤에 확인할 안내(화면·오프라인판 공용). 없으면 빈 배열 */
+  notes: string[];
 }
+
+/**
+ * 연차수당 선지급 안내 — 점검 규칙 ANNUAL-LEAVE(사소한 위험)는 연차수당을 미리 주는 계약마다 나와 손볼 것에 올리지 않는다.
+ * 계약서 제6조가 차액 정산을 적었으므로 「손볼 것」이 아니라 계약 뒤 확인할 일로 한 줄 알린다(PR #140 검토 7, 재홍님 261103)
+ */
+const LEAVE_PREPAID_NOTE = '미리 지급하는 연차수당이 실제 발생분보다 적을 수 있으니 연차 사용기간이 끝날 때와 퇴직할 때 차액을 확인하세요';
 
 /** 기간제 2년 초과 — 점검 규칙은 사소한 위험(minor)으로 두지만, 작성 단계에서는 예외에 해당하는지 확인할 일이라 남긴다(PR #140 검토 3) */
 function fixedTermText(detail: string | null | undefined): string {
@@ -271,7 +317,7 @@ export function reviewWritten(form: WriteForm, design: DesignResult): WrittenRev
   else line = { text: `${rate} — 최저임금: ${minwage?.detail ?? '판단하지 못했습니다'}`, warn: true };
   // 시작 연도부터 낮으면 다음 해도 낮다 — 같은 말을 되풀이하지 않는다
   const later = minwage?.status === 'violation' ? [] : laterMinimumWage(form, raw);
-  return { problems, minimumWage: line, minimumWageLater: later };
+  return { problems, minimumWage: line, minimumWageLater: later, notes: prepaysLeave(design) ? [LEAVE_PREPAID_NOTE] : [] };
 }
 
 export function checkWritten(form: WriteForm, design: DesignResult): Finding[] {
@@ -357,7 +403,7 @@ export function toContract(form: WriteForm, design: DesignResult): Contract {
       weekly_rest: restDayTerm(form),
       // 15시간 미만은 주휴일이 없다 — 특정 여부를 물을 대상이 아니다(checkWritten 이 REST-DAY 확인 필요를 뺀다)
       weekly_rest_day_specified: isUnder15(form) ? null : true,
-      annual_leave_clause: leaveTerms(form).join(' '),
+      annual_leave_clause: leaveTerms(form, design).join(' '),
       annual_leave_prepaid_hours_per_month: design.hours.leave * scale,
     },
     risk_clauses: [],

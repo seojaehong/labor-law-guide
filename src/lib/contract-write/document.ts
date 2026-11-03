@@ -77,9 +77,30 @@ function absentWeekLines(form: WriteForm, design: DesignResult): string[] {
   const weekly = design.items.find((i) => i.key === 'weeklyHoliday');
   if (!weekly || weekly.amount <= 0) return [];
   const lead = '일 지급액의 주휴수당은 1주 소정근로일을 개근한 주의 주휴수당을 근무일마다 나누어 미리 지급하는 것이다.';
+  // 공제 문구 = PR #144 검토(결근 아닌 날·정산 한도·시기·명세서) 뒤 재홍님 261103 확정 문구. 법조는 개근 요건(시행령 제30조 제1항)이라
+  // 명세서 기재(제48조 제2항 영역) 뒤가 아니라 「주휴일이 발생하지 않은 주 … 정산하고」 뒤에 둔다
   return form.absentWeekHoliday === 'keep'
     ? [`${lead} 소정근로일에 결근한 주에도 그 주 근무일에 지급한 주휴수당은 공제하지 않는다.`]
-    : [`${lead} 소정근로일에 결근한 주에는 그 주 근무일에 미리 지급한 주휴수당을 그 달 임금에서 공제한다(근로기준법 제55조 제1항, 같은 법 시행령 제30조 제1항).`];
+    : [
+        `${lead} 지각·조퇴와 유급휴일·법정 유급휴가로 근무하지 않은 날은 결근으로 보지 않는다. ` +
+          '소정근로일에 결근하여 주휴일이 발생하지 않은 주에는 그 주 근무일에 미리 지급한 주휴수당 합계에 한하여, ' +
+          '그 주의 마지막 날이 속한 달의 임금(그 달 임금을 지급한 뒤에 확정된 경우에는 다음 달 임금, 퇴직하는 경우에는 마지막 임금)에서 ' +
+          '정산하고(근로기준법 제55조 제1항, 같은 법 시행령 제30조 제1항), 임금명세서에 해당 주와 금액을 적는다.',
+      ];
+}
+
+/**
+ * 파트 일 지급액은 근무한 날에만 생긴다 — 유급휴일·법정 유급휴가로 쉰 소정근로일에 줄 금액(PR #140 검토 6, 재홍님 261103 확정 문구).
+ * 문장이 드는 공휴일 유급휴일(제55조 제2항)·연차(제60조)는 5명 이상·1주 15시간 이상에만 있다. 5명 미만은 둘 다 적용하지 않고
+ * (시행령 제7조 별표 1, 제4·6조가 그렇게 적는다) 15시간 미만은 제55조·제60조 자체가 없어(제18조 제3항) 넣지 않는다
+ */
+function paidDayOffLines(form: WriteForm, design: DesignResult, under15: boolean): string[] {
+  if (!form.employeeCount5plus || under15) return [];
+  const weekly = design.items.find((i) => i.key === 'weeklyHoliday');
+  const paid = weekly && weekly.amount > 0 ? '기본급과 주휴수당' : '기본급';
+  return [
+    `관공서의 공휴일·대체공휴일 등 유급휴일과 연차유급휴가 등 법정 유급휴가로 근무하지 않은 소정근로일에는 그날의 일 지급액 중 ${paid}을 지급한다. 이런 날은 결근으로 보지 않는다.`,
+  ];
 }
 
 export function buildContractDocument(form: WriteForm, design: DesignResult): ContractDocument {
@@ -113,10 +134,14 @@ export function buildContractDocument(form: WriteForm, design: DesignResult): Co
       ? `소정근로시간: 1주 40시간(근로기준법 제50조 제1항 한도), 하루 ${hm(scheduledDaily)} 이내`
       : `소정근로시간: 하루 ${hm(scheduledDaily)}, 1주 ${hm(weeklyScheduled)}`,
   ];
+  // 5명 미만은 제53조(연장근로 한도·합의)를 적용하지 않는다(시행령 제7조 별표 1) — 법조 없이 소정근로시간을 넘는 근로로 적는다.
+  // 가산하지 않는다는 것은 제4조가 적는다
+  const overWork = fivePlus ? '연장근로' : '소정근로시간을 넘는 근로';
+  const overCite = fivePlus ? '(근로기준법 제53조 제1항)' : '';
   if (weeklyOvertime > extraDaily * form.workDays.length + 1e-9) {
-    workLines.push(`하루 8시간 또는 1주 40시간을 넘는 시간(1주 ${hm(weeklyOvertime)})은 연장근로이며, 근로자는 이에 동의한다(근로기준법 제53조 제1항).`);
+    workLines.push(`하루 8시간 또는 1주 40시간을 넘는 시간(1주 ${hm(weeklyOvertime)})은 ${overWork}이며, 근로자는 이에 동의한다${overCite}.`);
   } else if (extraDaily > 0) {
-    workLines.push(`하루 8시간을 넘는 ${hm(extraDaily)}은 연장근로이며, 근로자는 이에 동의한다(근로기준법 제53조 제1항).`);
+    workLines.push(`하루 8시간을 넘는 ${hm(extraDaily)}은 ${overWork}이며, 근로자는 이에 동의한다${overCite}.`);
   }
   if (design.hours.night > 0) workLines.push('22시부터 다음 날 6시 사이의 근로는 야간근로이며, 통상임금의 100분의 50을 가산한다(근로기준법 제56조 제3항).');
 
@@ -133,6 +158,7 @@ export function buildContractDocument(form: WriteForm, design: DesignResult): Co
         `일 지급액: ${wonText(design.total)}(구성은 아래 표)`,
         `통상시급: ${rateText(design.rate)}원(일 지급액 ÷ 아래 표의 하루 인정시간 합 ${hoursText(design.totalHours)})`,
         '월 임금은 그 달에 실제 근무한 날의 일 지급액을 합한 금액으로 한다.',
+        ...paidDayOffLines(form, design, under15),
         ...absentWeekLines(form, design),
         '표의 연장 시간은 제3조의 근무를 기준으로 미리 정한 시간이다. 실제 근로가 이 시간을 넘으면 넘는 시간의 수당을 따로 계산해 추가로 지급한다.',
       ]
@@ -153,7 +179,7 @@ export function buildContractDocument(form: WriteForm, design: DesignResult): Co
   }
   wageLines.push(`임금 지급일: ${form.payday}`, `지급방법: ${form.paymentMethod}`);
 
-  const leaveLines = leaveTerms(form);
+  const leaveLines = leaveTerms(form, design);
 
   const rows: WageRow[] = design.items
     .filter((item) => item.amount !== 0 || item.hours > 0)

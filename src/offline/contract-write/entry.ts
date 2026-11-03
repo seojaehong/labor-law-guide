@@ -13,7 +13,7 @@ import { buildContractHwpx, buildContractPdf, buildContractXlsx } from '@/lib/co
 import { hoursText, wonText } from '@/lib/contract-write/text';
 import type { Finding } from '@/lib/contract-check/types';
 
-import { absorbOptions, INITIAL, toWriteForm, WEEK_DAYS, type WriteState } from '@/app/tools/contract-write/formState';
+import { absorbOptions, effectiveAbsorb, INITIAL, toWriteForm, WEEK_DAYS, type WriteState } from '@/app/tools/contract-write/formState';
 
 declare const __CW_BUILD__: { date: string; sha: string };
 
@@ -27,13 +27,27 @@ export interface OfflineOutcome {
   rate: number | null;
   minimumWage: { text: string; warn: boolean } | null;
   minimumWageLater: Array<{ text: string; warn: boolean }>;
+  notes: string[];
   findings: Finding[];
   doc: ContractDocument | null;
 }
 
 /** 화면 상태 → 설계·되먹임·본문. 화면과 시험이 같이 쓴다 */
 export function compute(state: WriteState): OfflineOutcome {
-  const empty: OfflineOutcome = { missing: [], error: null, netNote: null, rows: [], total: null, period: null, rate: null, minimumWage: null, minimumWageLater: [], findings: [], doc: null };
+  const empty: OfflineOutcome = {
+    missing: [],
+    error: null,
+    netNote: null,
+    rows: [],
+    total: null,
+    period: null,
+    rate: null,
+    minimumWage: null,
+    minimumWageLater: [],
+    notes: [],
+    findings: [],
+    doc: null,
+  };
   const parsed = toWriteForm(state);
   if (!parsed.form) return { ...empty, missing: parsed.missing, error: parsed.error ?? null };
   try {
@@ -48,6 +62,7 @@ export function compute(state: WriteState): OfflineOutcome {
       rate: design.rate,
       minimumWage: review.minimumWage,
       minimumWageLater: review.minimumWageLater,
+      notes: review.notes,
       findings: review.problems,
       doc: buildContractDocument(parsed.form, design),
     };
@@ -133,6 +148,19 @@ function mount(): void {
   if (!form || !out) return;
   if (build) build.textContent = buildLine();
   const state: WriteState = { ...INITIAL, workDays: [...INITIAL.workDays] };
+  // 잔액 항목 선택지는 근무형태에 따라 바뀐다(표 행과 같게). 글 칸을 고칠 때는 폼 전체가 아니라 이 선택지만 다시 채운다(입력 중인 칸이 포커스를 잃지 않게)
+  let absorbSelect: HTMLSelectElement | null = null;
+  const fillAbsorb = () => {
+    if (!absorbSelect) return;
+    absorbSelect.replaceChildren(
+      ...absorbOptions(state).map((o) => {
+        const opt = el('option', '', o.label);
+        opt.value = o.value;
+        return opt;
+      }),
+    );
+    absorbSelect.value = effectiveAbsorb(state);
+  };
 
   const renderForm = () => {
     form.replaceChildren();
@@ -161,13 +189,17 @@ function mount(): void {
       if (f.kind === 'select') {
         const sel = el('select');
         sel.setAttribute('aria-label', f.label);
-        const options = f.key === 'absorbInto' ? absorbOptions(state.payType).map((o): [string, string] => [o.value, o.label]) : f.options;
-        for (const [v, t] of options) {
-          const o = el('option', '', t);
-          o.value = v;
-          sel.appendChild(o);
+        if (f.key === 'absorbInto') {
+          absorbSelect = sel;
+          fillAbsorb();
+        } else {
+          for (const [v, t] of f.options) {
+            const o = el('option', '', t);
+            o.value = v;
+            sel.appendChild(o);
+          }
+          sel.value = String(state[f.key]);
         }
-        sel.value = String(state[f.key]);
         sel.addEventListener('change', () => {
           (state as unknown as Record<string, string>)[f.key] = sel.value;
           if (f.key === 'payType' || (f.key === 'rounding' && sel.value !== 'won')) state.absorbInto = 'base';
@@ -182,6 +214,7 @@ function mount(): void {
         input.value = String(state[f.key] ?? '');
         input.addEventListener('input', () => {
           (state as unknown as Record<string, string>)[f.key] = input.value;
+          fillAbsorb();
           renderResult();
         });
         wrap.appendChild(input);
@@ -216,6 +249,7 @@ function mount(): void {
     out.appendChild(table);
     out.appendChild(el('p', r.minimumWage!.warn ? 'warn' : '', r.minimumWage!.text));
     for (const l of r.minimumWageLater) out.appendChild(el('p', l.warn ? 'warn' : '', l.text));
+    for (const n of r.notes) out.appendChild(el('p', '', n));
     const fb = el('div', 'feedback');
     fb.appendChild(el('strong', '', '근로계약서 점검 규칙으로 다시 본 결과'));
     if (r.findings.length === 0) fb.appendChild(el('p', '', '손볼 항목이 없습니다.'));
