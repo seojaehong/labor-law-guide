@@ -46,7 +46,8 @@ try {
   await fill('연간 공휴일 근무 예정 일수', '22');
   await fill('월 임금 총액(원)', '2600000');
   const monthly = await text();
-  checks.monthly = /기본급\(주휴포함\)\(잔액\)166\.85시간1,870,364원/.test(monthly.replace(/ /g, '')) && monthly.includes('414,013원') && monthly.includes('통상시급 11,209.99원');
+  // #151 — 공휴일 8시간 넘는 시간 연장 1.5 + 휴일 0.5(법정 2.0). 교정 표본 1,870,364 · 414,013 · 11,209.99 에서 휴일 시간만 줄었다
+  checks.monthly = /기본급\(주휴포함\)\(잔액\)166\.85시간1,895,839원/.test(monthly.replace(/ /g, '')) && monthly.includes('419,652원') && monthly.includes('통상시급 11,362.67원');
   checks.monthlyFeedback = monthly.includes('손볼 항목이 없습니다');
 
   const got = {};

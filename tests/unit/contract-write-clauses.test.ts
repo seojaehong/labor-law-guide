@@ -315,6 +315,17 @@ describe('파트 제5조 — 표의 연장·휴일 시간은 미리 정한 시�
   });
 });
 
+// #151 — 공휴일 하루 8시간 넘는 시간은 통상임금의 2.0배(근로기준법 제56조 제2항 제2호)이고 연장 가산을 겹치지 않는다.
+// 그 시간의 1.5 는 연장근로수당이 이미 담아 휴일 행은 0.5 만 더한다 — 표의 산정 기준 글자도 그 식대로(다시 셈할 수 있게, #139 적대 검토 9)
+describe('임금 구성 표 — 월급제 휴일 행 산정 기준(#151)', () => {
+  it('8시간 넘는 시간은 × 0.5, 연장근로수당 × 1.5와 합해 2.0', () => {
+    const form: WriteForm = { ...MONTHLY, end: '20:00', holidayDaysPerYear: 16 };
+    const row = docOf(form).clauses.find((c) => c.table)!.table!.rows.find((r) => r.label === '휴일근로수당')!;
+    expect(row.basis).toBe('공휴일 근무 예정 × 1.5(8시간 넘는 시간은 × 0.5, 연장근로수당 × 1.5와 합해 2.0)');
+    expect(text(form)).not.toContain('8시간 넘는 시간 × 2.0');
+  });
+});
+
 describe('확정 문구 · 금지어', () => {
   it('파트·월급제 본문과 화면 안내에 금지어·「포괄」이 없다', () => {
     for (const form of [PART, { ...PART, absentWeekHoliday: 'keep' as const }, MONTHLY, { ...MONTHLY, employeeCount5plus: false, end: '19:00' }, PART_UNDER5, PART_UNDER15, PART_UNDER5_15, PART_3X8, SIX_2H, SIX_4H]) {

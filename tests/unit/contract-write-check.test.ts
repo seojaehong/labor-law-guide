@@ -157,4 +157,16 @@ describe('HOLIDAY-COVER — 공휴일 하루 8시간 넘는 시간(#151)', () =>
     expect(holidayCover(NOTE, 18.6389).status).toBe('violation');
     expect(holidayCover(NOTE, 20.8).status).toBe('ok');
   });
+  it('작성 기능의 메모는 하루 8시간 넘는 시간을 밝히고(의정부 주4), 자기 점검이 그 식으로 통과한다', () => {
+    const contract = toContract(UIJEONGBU, designFromForm(UIJEONGBU));
+    expect(contract.wage.public_holiday_note).toBe(`${NOTE}(8시간 넘는 2.08H)`);
+    const [c] = normalize([contract]);
+    const f = checkContract(c).find((x) => x.rule_code === 'HOLIDAY-COVER')!;
+    expect(f.status).toBe('ok');
+    expect(f.detail).toBe('공휴일 1.47일 13.81H 중 8시간 이내 11.73H×1.5 + 8시간 넘는 2.08H×0.5=18.6H ≤ HOLIDAY_EXTRA 환산 18.6H');
+  });
+  it('하루 8시간 이내면 메모에 넣지 않는다(종전 메모 그대로)', () => {
+    const eight: WriteForm = { ...UIJEONGBU, workDays: ['월', '화', '수', '목', '금'], start: '09:00', end: '18:00', breakMinutes: 60, holidayDaysPerYear: 16 };
+    expect(toContract(eight, designFromForm(eight)).wage.public_holiday_note).toBe('연 16일 근무 예정, 월 평균 1.33일/10.67H');
+  });
 });

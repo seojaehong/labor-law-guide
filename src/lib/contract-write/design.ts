@@ -66,6 +66,8 @@ export const ITEM_LABEL: Record<ItemKey, string> = {
 
 export const WEEKS_PER_MONTH = 4.345;
 const NIGHT_PREMIUM = 0.5;
+/** 공휴일 하루 8시간 넘는 시간에 휴일 항목이 더하는 배율 — 연장 항목의 1.5 와 합해 2.0(근로기준법 제56조 제2항 제2호, #151) */
+export const HOLIDAY_OVER8_REST = 0.5;
 
 function roundAmount(value: number, rounding: Rounding): number {
   const unit = ROUNDING_UNIT[rounding];
@@ -98,11 +100,12 @@ export function designHours(input: DesignInput): Record<ItemKey, number> {
   const base = weekly === 40 ? 209 : (weekly + weeklyHoliday) * WEEKS_PER_MONTH;
   const overtime = weeklyOvertime * (fivePlus ? 1.5 : 1) * WEEKS_PER_MONTH;
   const night = fivePlus ? (input.nightHoursPerDay ?? 0) * NIGHT_PREMIUM * days * WEEKS_PER_MONTH : 0;
-  // 휴일 = 유급휴일에 근무한 시간의 100% + 가산 50%(8시간 넘는 시간은 100%) — 유급휴일분 100% 는 기본급(209시간) 안이다
-  // (대법원 2024.2.8. 2018다206899·1998.4.24. 97다28421, 임금근로시간과-653). 휴일근로 8시간 이내에 연장 가산을 겹치지 않는다(2011다112391 전합).
-  // 위 연장(overtime)은 공휴일이 든 주도 주 5일로 세어, 공휴일 당일 8시간 넘는 시간에 연장 1.5 가 한 번 더 든다(합 3.5, 법정 2.0) —
-  // 계약의 통상시급 기준으로는 법정 수당보다 많이 잡히는 쪽이나, 총액이 고정이라 그만큼 통상시급이 낮아진다. 고칠지는 사람 판단(PR 「사람 확인」)
-  const holiday = fivePlus && eligible ? ((regular * 1.5 + extra * 2) * holidayDaysPerYear * (Math.min(days, 5) / 5)) / 12 : 0;
+  // 휴일 = 유급휴일에 근무한 시간의 100% + 가산 50% — 유급휴일분 100% 는 기본급(209시간) 안이다(1998.4.24. 97다28421, 임금근로시간과-653).
+  // 8시간 넘는 시간은 통상임금의 200%(근로 100% + 가산 100%, 제56조 제2항 제2호)이고 같은 항이 「제1항에도 불구하고」라 연장 가산을 겹치지 않는다
+  // (대법원 2024. 2. 8. 선고 2018다206899 판결 — 2018. 6. 21. 선고 2011다112391 전원합의체 판결 인용). 위 연장(overtime)은 공휴일이 든 주도
+  // 주 근무일 전부로 세어 공휴일 당일 8시간 넘는 시간의 1.5(근로 100% + 가산 50%)를 이미 담는다 — 그래서 휴일 쪽은 그 시간에 0.5 만 더한다(합 2.0).
+  // #151 전에는 2.0 을 더해 3.5 였다(의정부 교정 표본·수원 계약서 휴일 25h 가 이 값). 점검 HOLIDAY-COVER 가 같은 식으로 본다(contract.ts holidayNote)
+  const holiday = fivePlus && eligible ? ((regular * 1.5 + extra * HOLIDAY_OVER8_REST) * holidayDaysPerYear * (Math.min(days, 5) / 5)) / 12 : 0;
   const leave = fivePlus && eligible ? (weekly / 40) * 8 : 0;
   const o = input.overrides ?? {};
   return {

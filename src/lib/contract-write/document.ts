@@ -67,7 +67,8 @@ function basisText(key: ItemKey, period: DesignResult['period'], fivePlus: boole
     case 'night':
       return '22시~06시 근로 × 0.5';
     case 'holiday':
-      return period === 'month' ? '공휴일 근무 예정 × 1.5(8시간 넘는 시간 × 2.0)' : '공휴일 근무 예정 × 1.5, 근무일 평균';
+      // 8시간 넘는 시간의 1.5 는 연장근로수당이 담는다(design.ts HOLIDAY_OVER8_REST, #151)
+      return period === 'month' ? '공휴일 근무 예정 × 1.5(8시간 넘는 시간은 × 0.5, 연장근로수당 × 1.5와 합해 2.0)' : '공휴일 근무 예정 × 1.5, 근무일 평균';
     case 'leave':
       return period === 'month' ? '연차유급휴가 미사용분 월 평균' : '연차유급휴가 미사용분 근무일 평균';
   }
