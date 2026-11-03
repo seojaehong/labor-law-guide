@@ -288,19 +288,25 @@ describe('공휴일 메모(HOLIDAY-COVER 입력)', () => {
 });
 
 // 재홍님 261103 — 파트 계약에서 결근한 주의 주휴를 뺄지 말지 고른다(기본 = 뺀다, 근로기준법 제55조 제1항·시행령 제30조 제1항)
+// 공제 문구는 PR #144 검토 뒤 확정 문구(261103 「초안대로」) — 결근이 아닌 날과 정산 한도·시기·명세서 기재를 적는다
 describe('파트 결근 주 주휴', () => {
-  it('기본은 결근한 주에 미리 준 주휴수당을 공제한다고 적는다', () => {
+  it('기본은 결근하여 주휴일이 발생하지 않은 주에 미리 준 주휴수당 합계에 한하여 정산한다고 적는다', () => {
     const t = text(PART);
-    expect(t).toContain('결근한 주에는 그 주 근무일에 미리 지급한 주휴수당을 그 달 임금에서 공제한다');
+    expect(t).toContain('지각·조퇴와 유급휴일·법정 유급휴가로 근무하지 않은 날은 결근으로 보지 않는다.');
+    expect(t).toContain('소정근로일에 결근하여 주휴일이 발생하지 않은 주에는 그 주 근무일에 미리 지급한 주휴수당 합계에 한하여,');
+    expect(t).toContain('임금명세서에 해당 주와 금액을 적는다.');
   });
   it('공제하지 않음을 고르면 그렇게 적는다', () => {
     const t = text({ ...PART, absentWeekHoliday: 'keep' });
     expect(t).toContain('결근한 주에도 그 주 근무일에 지급한 주휴수당은 공제하지 않는다');
-    expect(t).not.toContain('그 달 임금에서 공제한다');
+    expect(t).not.toContain('주휴수당 합계에 한하여');
+    expect(t).not.toContain('임금명세서에 해당 주와 금액을 적는다');
   });
   it('주휴가 없는 경우(월급제·주 15시간 미만)에는 이 문장을 넣지 않는다', () => {
-    expect(text(MONTHLY)).not.toContain('결근한 주');
+    // 공제·빼지 않음 두 분기가 같이 쓰는 첫 문장으로 본다(공제 문구에는 「결근한 주」가 더는 없다)
+    expect(text(MONTHLY)).not.toContain('일 지급액의 주휴수당은');
     const under15 = { ...PART, workDays: ['토', '일'], weeklyRestDay: '월' as const };
-    expect(text(under15)).not.toContain('결근한 주');
+    expect(text(under15)).not.toContain('일 지급액의 주휴수당은');
+    expect(text({ ...under15, absentWeekHoliday: 'keep' })).not.toContain('일 지급액의 주휴수당은');
   });
 });

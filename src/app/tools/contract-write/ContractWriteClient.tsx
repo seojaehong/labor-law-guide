@@ -13,7 +13,7 @@ import { hoursText, wonText } from '@/lib/contract-write/text';
 
 import type { WeekDay } from '@/lib/contract-write/contract';
 
-import { absorbOptions, amountInput, INITIAL, toWriteForm, WEEK_DAYS, type WriteState } from './formState';
+import { absorbOptions, amountInput, effectiveAbsorb, INITIAL, toWriteForm, WEEK_DAYS, type WriteState } from './formState';
 
 const inputClass =
   'w-full rounded-lg border px-3 py-2 text-base focus:border-[var(--color-accent)] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]/20';
@@ -109,7 +109,14 @@ export default function ContractWriteClient() {
     try {
       const design = designFromForm(parsed.form);
       const review = reviewWritten(parsed.form, design);
-      return { design, findings: review.problems, minimumWage: review.minimumWage, minimumWageLater: review.minimumWageLater, doc: buildContractDocument(parsed.form, design) };
+      return {
+        design,
+        findings: review.problems,
+        minimumWage: review.minimumWage,
+        minimumWageLater: review.minimumWageLater,
+        notes: review.notes,
+        doc: buildContractDocument(parsed.form, design),
+      };
     } catch (e) {
       return { error: e instanceof Error ? e.message : String(e) };
     }
@@ -271,7 +278,7 @@ export default function ContractWriteClient() {
           <Choice options={ROUNDING} value={s.rounding} onChange={(v) => patch(v === 'won' ? { rounding: v } : { rounding: v, absorbInto: 'base' })} />
         </Field>
         <Field label="끝에 남는 금액을 넣을 항목">
-          <Choice options={absorbOptions(s.payType)} value={s.absorbInto} onChange={(v) => patch({ absorbInto: v })} />
+          <Choice options={absorbOptions(s)} value={effectiveAbsorb(s)} onChange={(v) => patch({ absorbInto: v })} />
         </Field>
         {s.payType === 'monthly' && (
         <details className="rounded-xl border border-dashed p-3">
@@ -337,6 +344,11 @@ export default function ContractWriteClient() {
             {result.minimumWageLater.map((l) => (
               <p key={l.text} className="text-sm" style={l.warn ? { color: 'var(--color-warn-ink)' } : undefined}>
                 {l.text}
+              </p>
+            ))}
+            {result.notes.map((n) => (
+              <p key={n} className="text-sm">
+                {n}
               </p>
             ))}
             <div className="rounded-lg p-3 text-sm" style={{ backgroundColor: 'var(--grey-100)' }}>
