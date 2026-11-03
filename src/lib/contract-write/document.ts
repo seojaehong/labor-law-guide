@@ -245,6 +245,12 @@ export function buildContractDocument(form: WriteForm, design: DesignResult): Co
   }
   if (prob?.reduced) {
     wageLines.push(`수습 감액 기간의 ${hourly ? '일 지급액' : '월 임금 총액'}: ${wonText(Math.round((design.total * PROBATION_PCT) / 100))}(100분의 ${PROBATION_PCT})`);
+    if (hourly) {
+      // #151 — 감액 기간은 통상시급도 100분의 90이라 유급휴일 1일분(1일 소정근로시간 × 통상시급, 별표 2 제2호 가목·제4호 라목)도 그 시급으로 센다.
+      // 1일분만 따로 깎는 것이 아니다(엘박스·슈퍼로이어 일치). 최저임금 하한은 제1조 단서가 적는다. 끝수는 1일분과 같이 올림(laborDayOffPay)
+      const reducedDayOff = laborDayOffPay(laborDayOffHours(dailyWorkHours(form), form.workDays.length), (design.rate * PROBATION_PCT) / 100);
+      wageLines.push(`수습 감액 기간에는 위 노동절 금액과 하한 금액도 통상시급의 100분의 ${PROBATION_PCT}으로 계산한 ${wonText(reducedDayOff)}으로 한다.`);
+    }
   }
   wageLines.push(`임금 지급일: ${form.payday}`, `지급방법: ${form.paymentMethod}`);
 

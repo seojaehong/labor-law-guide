@@ -342,6 +342,25 @@ describe('하한 — 5명 이상·15시간 이상은 유급휴일 전체(#151 �
   });
 });
 
+// #151 — 수습 감액 기간의 노동절 금액·하한. 제1조가 「제5조 임금의 100분의 90」이라 이 기간의 통상시급도 100분의 90이고, 유급휴일 임금은
+// 1일 소정근로시간 × 그 통상시급(별표 2 제2호 가목·제4호 라목)이라 같은 비율로 계산한다 — 1일분만 따로 깎는 것이 아니다(엘박스·슈퍼로이어 일치).
+// 하한은 최저임금법 제5조 제2항·시행령 제3조(시간급 최저임금의 100분의 90) — 제1조 단서가 이미 적는다. 끝수는 1일분과 같이 원 단위 올림
+describe('수습 감액 기간의 노동절 금액·하한(#151)', () => {
+  const PROB: WriteForm = { ...PART, probation: { months: 3, reduced: true, simpleLabor: false } };
+  it('파트는 감액 기간의 금액을 통상시급의 100분의 90으로 계산해 적는다', () => {
+    const design = designFromForm(PROB);
+    const full = laborDayOffPay(5.5, design.rate);
+    const reduced = laborDayOffPay(5.5, (design.rate * 90) / 100);
+    expect(reduced).toBeLessThan(full);
+    expect(reduced).toBeGreaterThanOrEqual(Math.floor(full * 0.9));
+    expect(clause(PROB, 5)).toContain(`수습 감액 기간에는 위 노동절 금액과 하한 금액도 통상시급의 100분의 90으로 계산한 ${wonText(reduced)}으로 한다.`);
+  });
+  it('감액 없는 수습·월급제에는 넣지 않는다', () => {
+    expect(text({ ...PART, probation: { months: 3, reduced: false, simpleLabor: false } })).not.toContain('위 노동절 금액과 하한 금액');
+    expect(text({ ...MONTHLY, probation: { months: 3, reduced: true, simpleLabor: false } })).not.toContain('위 노동절 금액과 하한 금액');
+  });
+});
+
 // 파트도 표의 휴일 시간은 공휴일 근무 예정으로 미리 정한 시간 — 실제 휴일근로가 넘으면 따로 지급(월급제 문장과 같은 뜻).
 // 1주 15시간 미만의 노동절 근무 가산(제56조 제2항 — 제18조 제3항이 빼지 않는다)은 표에 없고 이 문장과 제4조가 덮는다
 describe('파트 제5조 — 표의 연장·휴일 시간은 미리 정한 시간', () => {
