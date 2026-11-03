@@ -5,6 +5,7 @@ import { calcWeeklyHoliday, type WeeklyHolidayResult } from '@/lib/calc/weekly-h
 import { rateOn } from '@/content/rates';
 import AnswerCard from '@/components/tool/AnswerCard';
 import FoldedDetail from '@/components/tool/FoldedDetail';
+import ToolSplit from '@/components/tool/ToolSplit';
 import { card, inputCls, ink, muted, small, todayKst } from '@/lib/tool-kit';
 
 const won = (n: number) => `${n.toLocaleString('ko-KR')}원`;
@@ -34,7 +35,8 @@ export default function WeeklyHolidayClient() {
 
   const w = num(weekly);
   return (
-    <div className="space-y-4">
+    <ToolSplit
+      inputs={
       <section className={`${card} grid gap-4 sm:grid-cols-2`}>
         <label className={small} style={muted}>
           시급(원)
@@ -52,8 +54,9 @@ export default function WeeklyHolidayClient() {
           </div>
         </fieldset>
       </section>
-
-      {'error' in out ? (
+      }
+      result={
+      'error' in out ? (
         <section className={card} aria-live="polite"><p className={small} style={ink}>{out.error}</p></section>
       ) : (
         <AnswerCard lines={headline(out.r!, w)}>
@@ -68,8 +71,9 @@ export default function WeeklyHolidayClient() {
             </p>
           )}
         </AnswerCard>
-      )}
-
+      )
+      }
+    >
       <FoldedDetail summary="더 정확히 — 통상근로자 근무일 수와 계산식">
         <label className={`${small} block max-w-xs`} style={muted}>
           같은 일을 하는 정규 직원의 1주 근무일 수
@@ -82,6 +86,6 @@ export default function WeeklyHolidayClient() {
           <li>월급에 주휴수당이 이미 들어 있는 경우(월급제)는 따로 더하지 않습니다.</li>
         </ul>
       </FoldedDetail>
-    </div>
+    </ToolSplit>
   );
 }

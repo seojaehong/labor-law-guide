@@ -1,0 +1,48 @@
+/* /tools 목록 — 상황 묶음 + 검색. 카드 대신 신문 지면처럼 줄로 나눈 목록(사이트 editorial 톤과 같게). */
+
+.tools-dir__finder { margin-block: 8px 40px; }
+.tools-dir__label { display: block; margin-bottom: 8px; font-size: 14px; font-weight: 600; color: var(--color-text-primary); }
+.tools-dir__search {
+  display: flex; align-items: center; gap: 10px; max-inline-size: 34rem; min-height: 52px; padding-inline: 16px;
+  border: 1.5px solid var(--color-text-primary); border-radius: 4px; background: var(--color-bg-surface); color: var(--grey-700);
+}
+.tools-dir__search:focus-within { outline: 3px solid var(--color-brand-solid); outline-offset: 2px; }
+.tools-dir__search input { flex: 1; min-width: 0; border: 0; background: transparent; font-size: 16px; color: var(--color-text-primary); outline: none; }
+.tools-dir__search input::placeholder { color: var(--grey-500); }
+
+.tools-dir__jump { display: flex; flex-wrap: wrap; gap: 4px 20px; margin-top: 16px; }
+.tools-dir__jump a {
+  display: inline-flex; align-items: baseline; gap: 6px; min-height: 36px; padding-block: 6px;
+  font-size: 15px; font-weight: 600; color: var(--color-text-primary); text-decoration: underline;
+  text-decoration-color: var(--color-brand-solid); text-decoration-thickness: 2px; text-underline-offset: 6px;
+}
+.tools-dir__jump a span { font-size: 12px; font-weight: 500; color: var(--grey-700); font-variant-numeric: tabular-nums; }
+
+.tools-dir__group { scroll-margin-top: var(--reading-anchor-offset); margin-bottom: 48px; }
+.tools-dir__group-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 14px; padding-top: 14px; border-top: 2px solid var(--color-text-primary); margin-bottom: 4px; }
+.tools-dir__group-title { font-size: 20px; font-weight: 750; letter-spacing: -0.01em; color: var(--color-text-primary); }
+.tools-dir__group-head p { font-size: 14px; color: var(--grey-700); }
+
+.tools-dir__grid { display: grid; grid-template-columns: minmax(0, 1fr); column-gap: 32px; }
+@media (min-width: 640px) { .tools-dir__grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (min-width: 1024px) { .tools-dir__grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+
+.tools-dir__item {
+  display: flex; gap: 12px; height: 100%; padding: 16px 4px 18px; border-bottom: 1px solid var(--color-border);
+  color: inherit; text-decoration: none;
+}
+.tools-dir__item:hover .tools-dir__title { text-decoration: underline; text-decoration-color: var(--color-brand-solid); text-decoration-thickness: 2px; text-underline-offset: 4px; }
+.tools-dir__item:focus-visible { outline: 3px solid var(--color-brand-solid); outline-offset: 2px; border-radius: 2px; }
+.tools-dir__icon {
+  display: inline-flex; flex: none; align-items: center; justify-content: center; width: 36px; height: 36px;
+  border-radius: 6px; background: var(--color-brand-surface); color: var(--color-brand-ink);
+}
+.tools-dir__text { display: flex; min-width: 0; flex-direction: column; gap: 3px; }
+.tools-dir__title { font-size: 16px; font-weight: 650; line-height: 1.4; color: var(--color-text-primary); word-break: keep-all; }
+.tools-dir__summary { font-size: 14px; line-height: 1.5; color: var(--color-text-secondary); word-break: keep-all; }
+/* 배지는 한 줄 — 모바일에서 두 줄로 깨지던 것(261103 캡처) */
+.tools-dir__badge { margin-top: 2px; font-size: 12px; color: var(--grey-700); white-space: nowrap; }
+.tools-dir__badge--new { align-self: flex-start; padding: 0 6px; border-radius: 3px; background: var(--brand-300); color: #191f28; font-weight: 700; }
+
+.tools-dir__empty { padding-block: 16px 32px; font-size: 15px; line-height: 1.7; color: var(--color-text-secondary); }
+.tools-dir__empty button { font-weight: 600; color: var(--color-text-primary); text-decoration: underline; text-underline-offset: 4px; }

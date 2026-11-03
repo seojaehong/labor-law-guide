@@ -6,12 +6,14 @@
 import { useMemo, useState } from 'react';
 
 import { ruleName } from '@/lib/contract-check/present';
-import { checkWritten, designFromForm } from '@/lib/contract-write/contract';
-import { ITEM_LABEL, type ItemKey, type Rounding } from '@/lib/contract-write/design';
+import { designFromForm, publicText, reviewWritten } from '@/lib/contract-write/contract';
+import { type Rounding } from '@/lib/contract-write/design';
 import { buildContractDocument } from '@/lib/contract-write/document';
-import { minimumWageFor } from '@/lib/contract-check/normalize';
+import { hoursText, wonText } from '@/lib/contract-write/text';
 
-import { INITIAL, toWriteForm, WEEK_DAYS, type WriteState } from './formState';
+import type { WeekDay } from '@/lib/contract-write/contract';
+
+import { absorbOptions, INITIAL, toWriteForm, WEEK_DAYS, type WriteState } from './formState';
 
 const inputClass =
   'w-full rounded-lg border px-3 py-2 text-base focus:border-[var(--color-accent)] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]/20';
@@ -77,13 +79,14 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 
 const ROUNDING: { value: Rounding; label: string }[] = [
   { value: 'won', label: '원 단위(반올림)' },
-  { value: 'floor10', label: '10원 미만 버림' },
-  { value: 'floor100', label: '100원 미만 버림' },
+  { value: 'ceil10', label: '10원 단위 올림' },
+  { value: 'ceil100', label: '100원 단위 올림' },
 ];
-const ABSORB: { value: ItemKey; label: string }[] = (['base', 'overtime', 'holiday', 'leave'] as ItemKey[]).map((k) => ({ value: k, label: ITEM_LABEL[k] }));
+const YES_NO = [
+  { value: 'no' as const, label: '아니오' },
+  { value: 'yes' as const, label: '예' },
+];
 
-const won = (n: number) => `${n.toLocaleString('ko-KR')}원`;
-const hours = (n: number) => `${(Math.round(n * 100) / 100).toLocaleString('ko-KR')}시간`;
 
 function download(bytes: Uint8Array, name: string, type: string) {
   const url = URL.createObjectURL(new Blob([bytes as BlobPart], { type }));
@@ -104,9 +107,9 @@ export default function ContractWriteClient() {
   const result = useMemo(() => {
     if (!parsed.form) return null;
     try {
-      const minimum = minimumWageFor(parsed.form.startDate);
-      const design = designFromForm(parsed.form, minimum);
-      return { design, minimum, findings: checkWritten(parsed.form, design), doc: buildContractDocument(parsed.form, design) };
+      const design = designFromForm(parsed.form);
+      const review = reviewWritten(parsed.form, design);
+      return { design, findings: review.problems, minimumWage: review.minimumWage, doc: buildContractDocument(parsed.form, design) };
     } catch (e) {
       return { error: e instanceof Error ? e.message : String(e) };
     }
@@ -122,7 +125,10 @@ export default function ContractWriteClient() {
       if (kind === 'xlsx') download(await ex.buildContractXlsx(result.doc), `${fileBase}.xlsx`, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
       if (kind === 'hwpx') download(await ex.buildContractHwpx(result.doc), `${fileBase}.hwpx`, 'application/hwp+zip');
       if (kind === 'pdf') {
-        const font = new Uint8Array(await (await fetch('/fonts/NanumGothic-Regular.ttf')).arrayBuffer());
+        const res = await fetch('/fonts/NanumGothic-Regular.ttf');
+        // 404·오류 페이지를 글꼴로 넣으면 엉뚱한 오류가 난다 — 받지 못했다고 말한다
+        if (!res.ok) throw new Error(`PDF 글꼴을 받지 못했습니다(HTTP ${res.status}). 잠시 뒤 다시 눌러 주세요`);
+        const font = new Uint8Array(await res.arrayBuffer());
         download(await ex.buildContractPdf(result.doc, font), `${fileBase}.pdf`, 'application/pdf');
       }
     } catch (e) {
@@ -150,9 +156,24 @@ export default function ContractWriteClient() {
           </Field>
           <Field label="계약 시작일"><Input label="계약 시작일" type="date" value={s.startDate} onChange={(v) => patch({ startDate: v })} /></Field>
           <Field label="계약 종료일" hint="비우면 기간의 정함이 없는 계약"><Input label="계약 종료일" type="date" value={s.endDate} onChange={(v) => patch({ endDate: v })} /></Field>
+          <Field label="작성일" hint="비우면 오늘. 서명 날짜로 적습니다"><Input label="작성일" type="date" value={s.writtenDate} onChange={(v) => patch({ writtenDate: v })} /></Field>
           <Field label="근무장소"><Input label="근무장소" value={s.location} onChange={(v) => patch({ location: v })} /></Field>
           <Field label="업무"><Input label="업무" value={s.duty} onChange={(v) => patch({ duty: v })} /></Field>
         </div>
+        <Field label="수습기간">
+          <Choice options={[{ value: 'none', label: '없음' }, { value: 'yes', label: '있음' }]} value={s.probation} onChange={(v) => patch({ probation: v })} />
+        </Field>
+        {s.probation === 'yes' && (
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            <Field label="수습 개월 수"><Input label="수습 개월 수" value={s.probationMonths} onChange={(v) => patch({ probationMonths: v.replace(/[^\d]/g, '') })} /></Field>
+            <Field label="처음 3개월 임금 90%" hint="1년 이상 계약만 가능(최저임금법 제5조 제2항)">
+              <Choice options={YES_NO} value={s.probationReduced} onChange={(v) => patch({ probationReduced: v })} />
+            </Field>
+            <Field label="단순노무 업무" hint="고시된 단순노무 직종은 감액할 수 없습니다">
+              <Choice options={YES_NO} value={s.simpleLabor} onChange={(v) => patch({ simpleLabor: v })} />
+            </Field>
+          </div>
+        )}
       </Section>
 
       <Section title="2. 근무형태">
@@ -181,7 +202,15 @@ export default function ContractWriteClient() {
           <Field label="하루 휴게시간(분)"><Input label="하루 휴게시간" value={s.breakMinutes} onChange={(v) => patch({ breakMinutes: v.replace(/[^\d]/g, '') })} /></Field>
         </div>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <Field label="주휴일"><Input label="주휴일" value={s.weeklyRestDay} onChange={(v) => patch({ weeklyRestDay: v })} /></Field>
+          <Field label="주휴일" hint="근무 요일이 아닌 요일 하나">
+            <select aria-label="주휴일" value={s.weeklyRestDay} onChange={(e) => patch({ weeklyRestDay: e.target.value as WeekDay })} className={inputClass} style={inputStyle}>
+              {WEEK_DAYS.map((d) => (
+                <option key={d} value={d}>
+                  매주 {d}요일
+                </option>
+              ))}
+            </select>
+          </Field>
           <Field label="연간 공휴일 근무 예정 일수" hint="공휴일에 쉬면 0. 주 5일 기준 일수를 넣으면 주 4일 이하는 비례로 줄입니다">
             <Input label="연간 공휴일 근무 예정 일수" value={s.holidayDaysPerYear} onChange={(v) => patch({ holidayDaysPerYear: v.replace(/[^\d.]/g, '') })} />
           </Field>
@@ -189,16 +218,62 @@ export default function ContractWriteClient() {
       </Section>
 
       <Section title="3. 임금">
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <Field label="월 임금 총액(원)"><Input label="월 임금 총액" value={s.monthlyTotal} onChange={(v) => patch({ monthlyTotal: v.replace(/[^\d,]/g, '') })} placeholder="예: 2,600,000" /></Field>
-          <Field label="임금 지급일"><Input label="임금 지급일" value={s.payday} onChange={(v) => patch({ payday: v })} /></Field>
-        </div>
-        <Field label="금액 단위" hint="잔액을 받는 항목 말고는 이 단위로 맞춥니다">
-          <Choice options={ROUNDING} value={s.rounding} onChange={(v) => patch({ rounding: v })} />
+        <Field label="임금 형태">
+          <Choice
+            options={[
+              { value: 'monthly', label: '월급 정직원' },
+              { value: 'hourly', label: '시급·일급 파트' },
+            ]}
+            value={s.payType}
+            onChange={(v) => patch({ payType: v, absorbInto: 'base' })}
+          />
+        </Field>
+        {s.payType === 'monthly' ? (
+          <>
+            <Field label="금액 넣는 방식">
+              <Choice
+                options={[
+                  { value: 'gross', label: '월 총액(세전)' },
+                  { value: 'net', label: '월 실수령액' },
+                ]}
+                value={s.amountMode}
+                onChange={(v) => patch({ amountMode: v })}
+              />
+            </Field>
+            {s.amountMode === 'gross' ? (
+              <Field label="월 임금 총액(원)"><Input label="월 임금 총액" value={s.monthlyTotal} onChange={(v) => patch({ monthlyTotal: v.replace(/[^\d,]/g, '') })} placeholder="예: 2,600,000" /></Field>
+            ) : (
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <Field label="월 실수령액(원)" hint="4대보험 근로자 몫과 소득세를 뺀 뒤 받는 금액"><Input label="월 실수령액" value={s.netPay} onChange={(v) => patch({ netPay: v.replace(/[^\d,]/g, '') })} placeholder="예: 2,300,000" /></Field>
+                <Field label="공제대상가족 수(본인 포함)"><Input label="공제대상가족 수" value={s.family} onChange={(v) => patch({ family: v.replace(/[^\d]/g, '') })} /></Field>
+              </div>
+            )}
+          </>
+        ) : (
+          <Field label="시간당 지급액(원)" hint="휴게시간을 포함한 출근~퇴근 시간에 곱해 하루 지급액을 정하고, 그 금액을 기본급·주휴·연차 등으로 나눕니다">
+            <Input label="시간당 지급액" value={s.hourlyWage} onChange={(v) => patch({ hourlyWage: v.replace(/[^\d,]/g, '') })} placeholder="예: 13,000" />
+          </Field>
+        )}
+        {s.payType === 'hourly' && (
+          <Field label="결근한 주의 주휴수당" hint="일 지급액에 나눠 넣은 주휴수당은 그 주를 개근해야 생깁니다. 결근한 주에 이미 준 몫을 뺄지 정해 계약서에 적습니다">
+            <Choice
+              options={[
+                { value: 'deduct', label: '그 주 몫을 뺀다' },
+                { value: 'keep', label: '빼지 않는다' },
+              ]}
+              value={s.absentWeekHoliday}
+              onChange={(v) => patch({ absentWeekHoliday: v })}
+            />
+          </Field>
+        )}
+        <Field label="임금 지급일"><Input label="임금 지급일" value={s.payday} onChange={(v) => patch({ payday: v })} /></Field>
+        <Field label="금액 단위" hint="잔액을 받는 항목 말고는 이 단위로 올립니다(수당이 산정 기준보다 적어지지 않게). 올리면 잔액은 기본급이 받습니다">
+          <Choice options={ROUNDING} value={s.rounding} onChange={(v) => patch(v === 'won' ? { rounding: v } : { rounding: v, absorbInto: 'base' })} />
         </Field>
         <Field label="끝에 남는 금액을 넣을 항목">
-          <Choice options={ABSORB} value={s.absorbInto} onChange={(v) => patch({ absorbInto: v })} />
+          <Choice options={absorbOptions(s.payType)} value={s.absorbInto} onChange={(v) => patch({ absorbInto: v })} />
         </Field>
+        {s.payType === 'monthly' && (
         <details className="rounded-xl border border-dashed p-3">
           <summary className="cursor-pointer text-sm font-semibold">월 인정시간을 직접 정하기(선택)</summary>
           <p className="mt-2 text-xs" style={{ color: 'var(--color-text-secondary)' }}>
@@ -210,13 +285,16 @@ export default function ContractWriteClient() {
             <Field label="연차"><Input label="연차 인정시간" value={s.leaveHours} onChange={(v) => patch({ leaveHours: v.replace(/[^\d.]/g, '') })} /></Field>
           </div>
         </details>
+        )}
       </Section>
 
       <section aria-live="polite" id="cw-result" className="space-y-4 rounded-xl border border-[var(--color-border)] p-5">
         <h2 className="t-h4" style={{ color: 'var(--color-text-primary)' }}>
           임금 구성
         </h2>
-        {!result && <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>입력이 필요합니다: {parsed.missing.join(', ')}</p>}
+        {!result && parsed.error && <p className="text-sm" style={{ color: 'var(--color-warn-ink)' }}>{parsed.error}</p>}
+        {!result && !parsed.error && <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>입력이 필요합니다: {parsed.missing.join(', ')}</p>}
+        {result && parsed.netNote && <p className="text-sm">{parsed.netNote}</p>}
         {result && 'error' in result && <p className="text-sm" style={{ color: 'var(--color-warn-ink)' }}>{result.error}</p>}
         {result && 'design' in result && result.design && (
           <>
@@ -225,7 +303,7 @@ export default function ContractWriteClient() {
                 <thead>
                   <tr className="text-left" style={{ color: 'var(--color-text-secondary)' }}>
                     <th className="py-1 pr-2">항목</th>
-                    <th className="py-1 pr-2 text-right">월 인정시간</th>
+                    <th className="py-1 pr-2 text-right">{result.design.period === 'day' ? '하루 인정시간' : '월 인정시간'}</th>
                     <th className="py-1 text-right">금액</th>
                   </tr>
                 </thead>
@@ -236,29 +314,26 @@ export default function ContractWriteClient() {
                         {i.label}
                         {i.absorbs && <span className="ml-1 text-xs" style={{ color: 'var(--color-text-secondary)' }}>(잔액)</span>}
                       </td>
-                      <td className="py-1.5 pr-2 text-right">{hours(i.hours)}</td>
-                      <td className="py-1.5 text-right">{won(i.amount)}</td>
+                      <td className="py-1.5 pr-2 text-right">{hoursText(i.hours)}</td>
+                      <td className="py-1.5 text-right">{wonText(i.amount)}</td>
                     </tr>
                   ))}
                   <tr className="border-t border-[var(--color-border)] font-semibold">
                     <td className="py-1.5">합계</td>
-                    <td className="py-1.5 pr-2 text-right">{hours(result.design.totalHours)}</td>
-                    <td className="py-1.5 text-right">{won(parsed.form!.monthlyTotal)}</td>
+                    <td className="py-1.5 pr-2 text-right">{hoursText(result.design.totalHours)}</td>
+                    <td className="py-1.5 text-right">{wonText(result.design.total)}</td>
                   </tr>
                 </tbody>
               </table>
             </div>
-            <p className="text-sm">
-              통상시급 {result.design.rate.toLocaleString('ko-KR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}원
-              {result.design.checks.minimumWage.ok === false
-                ? ` — ${parsed.form!.startDate.slice(0, 4)}년 최저시급 ${won(result.minimum)}보다 낮습니다`
-                : ` (${parsed.form!.startDate.slice(0, 4)}년 최저시급 ${won(result.minimum)} 이상)`}
-            </p>
-            {!result.design.checks.weeklyOvertime.ok && (
-              <p className="text-sm" style={{ color: 'var(--color-warn-ink)' }}>
-                1주 연장근로가 {hours(result.design.checks.weeklyOvertime.hours)}으로 12시간을 넘습니다(근로기준법 제53조 제1항).
+            {result.design.period === 'day' && (
+              <p className="text-sm">
+                하루 지급액 {wonText(result.design.total)} · 한 달 예상 {wonText(Math.round(result.design.total * parsed.form!.workDays.length * 4.345))}(주 {parsed.form!.workDays.length}일 × 4.345주, 실제 근무일 기준으로 지급)
               </p>
             )}
+            <p className="text-sm" style={result.minimumWage.warn ? { color: 'var(--color-warn-ink)' } : undefined}>
+              {result.minimumWage.text}
+            </p>
             <div className="rounded-lg p-3 text-sm" style={{ backgroundColor: 'var(--grey-100)' }}>
               <p className="font-semibold">근로계약서 점검 규칙으로 다시 본 결과</p>
               {result.findings.length === 0 ? (
@@ -267,7 +342,7 @@ export default function ContractWriteClient() {
                 <ul className="mt-1 list-disc space-y-1 pl-5">
                   {result.findings.map((f) => (
                     <li key={f.rule_code}>
-                      {ruleName(f.rule_code)}: {f.detail}
+                      {publicText(ruleName(f.rule_code))}: {f.detail}
                     </li>
                   ))}
                 </ul>

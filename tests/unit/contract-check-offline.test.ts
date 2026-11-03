@@ -140,7 +140,7 @@ describe('오프라인판 산출 HTML — 화면 금지어 0 (정본 banned.ts)'
 
 describe('빌드 시점 고정 표시', () => {
   it('바닥줄 = 빌드 날짜·커밋·카탈로그 버전·최저시급 수록 연도', () => {
-    expect(api().buildLine()).toBe('빌드 2026-10-31 · 커밋 abc1234 · 규칙 카탈로그 1.0 · 최저시급 수록 2024~2026');
+    expect(api().buildLine()).toBe('빌드 2026-10-31 · 커밋 abc1234 · 규칙 카탈로그 1.0 · 최저시급 수록 2024~2027');
   });
   it('buildInfo() — KST 날짜·짧은 SHA·카탈로그 버전', () => {
     const info = buildInfo(new Date('2026-10-31T16:30:00Z')); // KST 11-01 01:30
@@ -330,13 +330,13 @@ describe('최저시급 표에 없는 연도 안내', () => {
     wage: { items: [{ code: 'BASE', amount: 2200000 }] },
   });
 
-  it('2027년 계약 → 「입력하면 점검합니다」 대신 새 판 안내', () => {
-    const [r] = runBundle(contract('2027-01-01'));
+  it('2028년 계약 → 「입력하면 점검합니다」 대신 새 판 안내', () => {
+    const [r] = runBundle(contract('2028-01-01'));
     const f = r.findings.find((x) => x.rule_code === 'MINWAGE')!;
     expect(f.status).toBe('needs_data');
-    expect(r.minwage_year_missing).toBe('2027');
+    expect(r.minwage_year_missing).toBe('2028');
     expect(api().detailFor(r, f)).toBe(
-      '이 파일에는 2027년 최저시급이 들어 있지 않습니다(수록: 2024~2026). 새 판을 받으세요.',
+      '이 파일에는 2028년 최저시급이 들어 있지 않습니다(수록: 2024~2027). 새 판을 받으세요.',
     );
   });
 

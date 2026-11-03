@@ -7,6 +7,7 @@ import { Menu, X } from 'lucide-react';
 import ThemeToggle from './ThemeToggle';
 import { BRAND_NAME } from '@/lib/constants';
 const NAV_ITEMS = [
+  { href:'/tools', label:'계산·점검 도구' },
   { href:'/blog', label:'글' },
   { href:'/laws', label:'법령 개정' },
   { href:'/tools/work-rules', label:'취업규칙 점검' },
@@ -15,6 +16,8 @@ const NAV_ITEMS = [
 function active(href: string, pathname: string) {
   if (href === '/decisions') return /^\/(decisions|cases|interpretations|faq)(\/|$)/.test(pathname);
   if (href === '/tools/work-rules') return pathname.startsWith('/tools/work-rules');
+  // 취업규칙 점검은 따로 메뉴가 있으니 거기서만 표시한다
+  if (href === '/tools') return /^\/(tools|duties|hwp-editor)(\/|$)/.test(pathname) && !pathname.startsWith('/tools/work-rules');
   return pathname === href || pathname.startsWith(href + '/');
 }
 export default function GlassNav() {
@@ -27,7 +30,7 @@ export default function GlassNav() {
     document.addEventListener('keydown',close);
     return () => document.removeEventListener('keydown',close);
   },[mobileOpen]);
-  const links = NAV_ITEMS.map(item => <Link key={item.href} href={item.href} className="nav-link editorial-nav-link" aria-current={active(item.href,pathname)?'page':undefined} onClick={()=>setMobileOpen(false)}><span>{item.href === '/decisions' ? <>판례·<wbr />행정해석</> : item.label}</span></Link>);
+  const links = NAV_ITEMS.map(item => <Link key={item.href} href={item.href} className="nav-link editorial-nav-link" aria-current={active(item.href,pathname)?'page':undefined} onClick={()=>setMobileOpen(false)}><span>{item.href === '/decisions' ? <>판례·<wbr />행정해석</> : item.href === '/tools' ? <>계산·점검<span className="nav-tools-suffix"> 도구</span></> : item.label}</span></Link>);
   return <nav className="glass-nav editorial-nav sticky top-0 z-50" aria-label="주요 탐색">
     <div className="layout-wide layout-wide--chrome editorial-nav-inner">
       <Link href="/" className="editorial-wordmark" aria-current={pathname==='/'?'page':undefined}>
@@ -35,7 +38,7 @@ export default function GlassNav() {
         <Image className="editorial-logo-dark" src="/brand/work-patterns-wordmark-original-dark.svg" width={141} height={40} alt={BRAND_NAME} priority />
       </Link>
       <div className="editorial-desktop-links">{links}</div>
-      <div className="editorial-nav-controls"><ThemeToggle /><Link className="editorial-service-link editorial-desktop-service" href="/tools">계산·점검 도구</Link><Link className="editorial-service-link editorial-desktop-service" href="/contact">소개·상담</Link>
+      <div className="editorial-nav-controls"><ThemeToggle /><Link className="editorial-service-link editorial-desktop-service" href="/contact">소개·상담</Link>
         <button ref={trigger} className="editorial-menu-toggle" onClick={()=>setMobileOpen(!mobileOpen)} aria-expanded={mobileOpen} aria-controls="mobile-navigation" aria-label={mobileOpen?'추가 메뉴 닫기':'추가 메뉴 열기'}>{mobileOpen?<X size={20}/>:<Menu size={20}/>}</button>
       </div>
     </div>

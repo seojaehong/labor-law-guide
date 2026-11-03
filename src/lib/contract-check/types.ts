@@ -130,6 +130,8 @@ export interface Wage {
   severance_clause?: string | null;
   public_holiday_included?: boolean | null;
   public_holiday_note?: string | null;
+  /** 항목 금액을 이 단위(10·100원)로 올려 적었다는 표시 — 근로계약서 작성 도구가 넣는다. WAGE-MATH 가 그만큼 많은 쪽 차이를 받아준다 */
+  amount_rounding_unit?: number | null;
 }
 
 export interface HolidaysLeave {

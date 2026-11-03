@@ -3,7 +3,8 @@
 // WH-52CAP: weekly_actual_hours > 52 violation, == 52.0 risk(여유 0), < 52 ok. 근로일별 행 합이 출근·퇴근 칸 합보다 길면
 //   (normalize.dailyHoursConflict) 실근로를 정하지 않고 두 시간을 적어 needs_data(261102 K3)
 // WH-BREAK: 4h당 30분·8h당 1h 총량 미달 violation, 총량 충족해도 10분 미만 조각 있으면 risk
-// NIGHT-WORK: night_work=true인데 NIGHT 임금항목 없으면 risk, false면 ok
+// NIGHT-WORK: night_work=true인데 NIGHT 임금항목 없으면 risk, false면 ok. 상시 5명 미만(employee_count_5plus=false)은
+//   §56③ 이 적용되지 않아 ok(시행령 §7 별표1, 261103)
 
 import { dailyHoursConflict, dayWorkMinutes } from '../normalize';
 import type { Contract, Finding } from '../types';
@@ -72,6 +73,9 @@ export const ruleNightWork: RuleFn = (contract) => {
   const night = contract.work_time?.night_work;
   if (night == null) return makeFinding('NIGHT-WORK', 'needs_data', '야간근로 여부 미기재');
   if (!night) return makeFinding('NIGHT-WORK', 'ok', '야간근로 없음');
+  if (contract.workplace?.employee_count_5plus === false) {
+    return makeFinding('NIGHT-WORK', 'ok', '야간근로 있으나 상시 5명 미만 — §56③ 가산 미적용(시행령 §7 별표1)');
+  }
   const hasNightItem = (contract.wage?.items ?? []).some((i) =>
     String(i.code ?? '').includes('NIGHT'),
   );

@@ -1,0 +1,27 @@
+/* 계산기 2단 틀(ToolSplit). 결과 칸 폭은 --layout-tool-rail 을 조금 넓혀 쓴다 — 답 문장이 두 줄 안에 들도록. */
+
+.tool-split { display: grid; grid-template-columns: minmax(0, 1fr); grid-template-areas: "in" "res" "det"; gap: 16px; }
+.tool-split__inputs { grid-area: in; min-width: 0; }
+.tool-split__result { grid-area: res; min-width: 0; scroll-margin-top: var(--reading-anchor-offset); }
+.tool-split__result:focus { outline: none; }
+.tool-split__result:focus-visible { outline: 3px solid var(--color-brand-solid); outline-offset: 4px; border-radius: 8px; }
+.tool-split__details { grid-area: det; min-width: 0; display: grid; gap: 16px; align-content: start; }
+
+@media (min-width: 1024px) {
+  .tool-split {
+    grid-template-columns: minmax(0, 1fr) calc(var(--layout-tool-rail) + 4rem);
+    grid-template-areas: "in res" "det res";
+    grid-template-rows: auto 1fr;
+    column-gap: var(--layout-gap);
+    align-items: start;
+  }
+  .tool-split__result { position: sticky; top: calc(var(--site-nav-height, 72px) + 20px); }
+  .tool-split__jump { display: none; }
+}
+
+.tool-split__jump {
+  position: fixed; inset-inline: 16px; bottom: max(16px, env(safe-area-inset-bottom)); z-index: 40;
+  min-height: 52px; border-radius: 6px; background: var(--color-text-primary); color: var(--color-bg-surface);
+  font-size: 16px; font-weight: 700; box-shadow: 0 6px 20px rgba(0, 0, 0, .18);
+}
+.tool-split__jump:focus-visible { outline: 3px solid var(--color-brand-solid); outline-offset: 3px; }
