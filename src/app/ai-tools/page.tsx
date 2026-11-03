@@ -28,7 +28,7 @@ const link = { color: 'var(--color-accent-ink, var(--color-accent))' } as const;
 function Code({ children }: { children: string }) {
   return (
     <pre
-      className="overflow-x-auto rounded-lg border px-4 py-3 text-[13px] leading-6"
+      className="whitespace-pre-wrap rounded-lg border px-4 py-3 text-[13px] leading-6 [overflow-wrap:anywhere]"
       style={{ fontFamily: MONO, borderColor: 'var(--color-border)', background: 'var(--color-bg-primary)', ...ink }}
     >
       <code>{children}</code>
@@ -190,7 +190,7 @@ const FAQ: { q: string; a: React.ReactNode }[] = [
 
 export default function AiToolsPage() {
   return (
-    <main className="layout-tool">
+    <div className="layout-tool">
       {/* 첫 화면 — 설명 + 대화 예시 */}
       <section className="grid items-center gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)] lg:gap-12">
         <div>
@@ -226,7 +226,7 @@ export default function AiToolsPage() {
         </p>
         <div className="mt-5 divide-y rounded-2xl border" style={{ borderColor: 'var(--color-border)', background: 'var(--color-bg-surface)' }}>
           {ROUTES.map((r) => (
-            <div key={r.name} className="grid gap-3 p-5 md:grid-cols-[14rem_minmax(0,1fr)] md:gap-8 md:p-6" style={{ borderColor: 'var(--color-border)' }}>
+            <div key={r.name} className="grid gap-3 p-5 md:grid-cols-[18rem_minmax(0,1fr)] md:gap-8 md:p-6" style={{ borderColor: 'var(--color-border)' }}>
               <div>
                 <h3 className="text-base font-semibold" style={ink}>{r.name}</h3>
                 <p className="mt-1 text-sm leading-6" style={sub}>{r.where}</p>
@@ -273,6 +273,6 @@ export default function AiToolsPage() {
           ))}
         </dl>
       </section>
-    </main>
+    </div>
   );
 }
