@@ -4,6 +4,8 @@ import { readFileSync } from 'node:fs';
 import ExcelJS from 'exceljs';
 import JSZip from 'jszip';
 import { PDFDocument } from 'pdf-lib';
+// saxes = 엑셀 라이브러리(exceljs)가 쓰는 XML 파서 — 새 의존성 없이 XML 1.0 적격성을 본다
+import { SaxesParser } from 'saxes';
 import { describe, expect, it } from 'vitest';
 
 import { bannedHits } from '@/lib/tool-kit/banned';
@@ -20,19 +22,19 @@ const FORM: WriteForm = {
   endDate: null,
   location: '합성테스트 본점',
   duty: '홀 서비스',
-  daysPerWeek: 4,
   workDays: ['월', '화', '수', '목'],
   start: '10:00',
   end: '22:00',
   breakMinutes: 155,
-  weeklyRestDay: '매주 일요일',
+  weeklyRestDay: '일',
+  writtenDate: '2026-02-25',
   monthlyTotal: 2_600_000,
   holidayDaysPerYear: 22,
   payday: '매월 10일',
   paymentMethod: '근로자 명의 계좌이체',
 };
 
-const doc = buildContractDocument(FORM, designFromForm(FORM, 10_320));
+const doc = buildContractDocument(FORM, designFromForm(FORM));
 const AMOUNTS = ['1,870,364원', '414,013원', '243,879원', '71,744원', '2,600,000원'];
 
 describe('계약서 본문', () => {
@@ -82,7 +84,12 @@ describe('세 파일이 같은 금액을 싣는다', () => {
     expect(Object.keys(zip.files).some((n) => n.startsWith('Preview') || n.startsWith('BinData'))).toBe(false);
     const section = await zip.file('Contents/section0.xml')!.async('string');
     for (const a of AMOUNTS) expect(section).toContain(a);
-    expect(section).toContain('rowCnt="6"');
+    // 표 제목은 표 첫 행(4칸 병합)이다 — 제목 문단만 쪽 끝에 남지 않게(261103). 표는 쪽을 넘기지 않는다
+    expect(section).toContain('rowCnt="7"');
+    expect(section).toContain('pageBreak="NONE"');
+    expect(section).toMatch(/colSpan="4"[^]*?임금 구성|임금 구성[^]*?colSpan="4"/);
+    const captionAt = section.indexOf('임금 구성(항목별');
+    expect(captionAt).toBeGreaterThan(section.indexOf('<hp:tbl'));
   });
 
   it('PDF: 나눔고딕 전체 내장, 1쪽 이상', async () => {
@@ -102,5 +109,41 @@ describe('세 파일이 같은 금액을 싣는다', () => {
     writeFileSync(`${dir}/계약서.xlsx`, await buildContractXlsx(doc));
     writeFileSync(`${dir}/계약서.hwpx`, await buildContractHwpx(doc));
     writeFileSync(`${dir}/계약서.pdf`, await buildContractPdf(doc, font));
+  });
+});
+
+// #139 적대 검토 6 — 붙여 넣은 글자에 XML 1.0 이 허용하지 않는 제어문자가 섞여도 한글 파일이 깨지지 않는다
+describe('한글 — 제어문자', () => {
+  const xmlErrors = (xml: string) => {
+    const parser = new SaxesParser();
+    const errors: string[] = [];
+    parser.on('error', (e) => errors.push(String(e.message)));
+    parser.write(xml).close();
+    return errors;
+  };
+  it('section0.xml 을 XML 파서가 오류 없이 읽는다(사업체명에 \u0001·\u000B·\uFFFF)', async () => {
+    const dirty = buildContractDocument({ ...FORM, workplaceName: '합성\u0001테스트\u000B사업장￿' }, designFromForm(FORM));
+    const zip = await JSZip.loadAsync(await buildContractHwpx(dirty));
+    const section = await zip.file('Contents/section0.xml')!.async('string');
+    expect(xmlErrors(section)).toEqual([]);
+    expect(section).toContain('합성테스트사업장');
+  });
+  it('깨끗한 본문도 오류 없이 읽는다', async () => {
+    const zip = await JSZip.loadAsync(await buildContractHwpx(doc));
+    for (const name of ['Contents/section0.xml', 'Contents/header.xml', 'Contents/content.hpf']) {
+      expect(xmlErrors(await zip.file(name)!.async('string'))).toEqual([]);
+    }
+  });
+});
+
+// #139 적대 검토 7 — 글꼴에 없는 글자는 PDF 에 빈칸으로 조용히 빠진다. 만들지 않고 그 글자를 댄다(nhis-forms 71a9f1b 와 같은 기준)
+describe('PDF — 글꼴에 없는 글자', () => {
+  const font = new Uint8Array(readFileSync('public/fonts/NanumGothic-Regular.ttf'));
+  it('없는 글자(ꙮ·😀)가 있으면 그 글자를 대며 거부한다', async () => {
+    const odd = buildContractDocument({ ...FORM, workplaceName: '합성ꙮ사업장', duty: '홀 😀' }, designFromForm(FORM));
+    await expect(buildContractPdf(odd, font)).rejects.toThrow(/ꙮ.*😀|😀.*ꙮ/);
+  });
+  it('본문 글자는 모두 글꼴에 있다', async () => {
+    await expect(buildContractPdf(doc, font)).resolves.toBeInstanceOf(Uint8Array);
   });
 });

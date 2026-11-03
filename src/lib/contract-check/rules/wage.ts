@@ -40,7 +40,7 @@
 //     K4·F5) needs_data — 「시간당 0」을 내지 않는다.
 // WAGE-MATH: item.amount ≟ 통상시급 × basis_hours × (rate_multiplier or 1.0) ±10원. BASE 는 통상시급의 출처라 보지 않는다.
 // OT-RATE: OT_* 항목 rate_multiplier 미표기 → risk
-// OT-COVER: OT_* basis_hours 합 ≥ weekly_overtime_hours × 4.345 × 1.5
+// OT-COVER: OT_* basis_hours 합 ≥ weekly_overtime_hours × 4.345 × 1.5. 상시 5명 미만은 가산 없이 × 1.0(시행령 §7 별표1, 261103)
 // HOLIDAY-COVER: HOLIDAY_EXTRA 환산H(amount÷통상시급) ≥ 공휴일 예정 근무H × 1.5
 //   (public_holiday_note "N일/M.MH" 파싱, 불가 시 needs_data)
 
@@ -64,7 +64,7 @@ import type { Contract, Finding, FindingSeverity, FindingStatus, WageItem } from
 import { makeFinding, type RuleFn } from './index';
 
 export const HOLIDAY_PREMIUM_RATE = 1.5;
-const HOLIDAY_NOTE_RE = /(\d+)\s*일\s*\/\s*(\d+(?:\.\d+)?)\s*H/;
+const HOLIDAY_NOTE_RE = /(\d+(?:\.\d+)?)\s*일\s*\/\s*(\d+(?:\.\d+)?)\s*H/;
 
 const round1 = (x: number) => Math.round(x * 10) / 10;
 const fmt = (n: number) => n.toLocaleString('ko-KR');
@@ -649,6 +649,8 @@ export const ruleWageMath: RuleFn = (contract) => {
     return makeFinding('WAGE-MATH', 'needs_data', '통상시급 또는 임금 구성항목 없음');
   }
   const mismatches: string[] = [];
+  // 단위 올림을 밝힌 계약은 많은 쪽으로 그 단위까지 받아준다(적은 쪽은 그대로 ±10원)
+  const roundUp = Math.max(0, wage.amount_rounding_unit ?? 0);
   for (const item of items) {
     // 기본급은 통상시급을 끌어낸 출처라 다시 맞춰 보면 반올림 차이만 나온다(2,200,000 ÷ 209 → 10,526 × 209 = 2,199,934)
     if (item.code === 'BASE') continue;
@@ -656,7 +658,7 @@ export const ruleWageMath: RuleFn = (contract) => {
     if (amount == null || hours == null) continue;
     const expected = Math.round(rate * hours * (item.rate_multiplier ?? 1.0));
     const diff = amount - expected;
-    if (Math.abs(diff) > WAGE_MATH_TOLERANCE) {
+    if (diff < -WAGE_MATH_TOLERANCE || diff > WAGE_MATH_TOLERANCE + roundUp) {
       mismatches.push(
         `${item.code} ${fmt(amount)} ≠ 기대 ${fmt(expected)} (차액 ${diff > 0 ? '+' : ''}${fmt(diff)})`,
       );
@@ -665,7 +667,7 @@ export const ruleWageMath: RuleFn = (contract) => {
   if (mismatches.length > 0) {
     return makeFinding('WAGE-MATH', 'violation', mismatches.join(' / '));
   }
-  return makeFinding('WAGE-MATH', 'ok', '전 항목 산출근거-금액 정합 (±10원)');
+  return makeFinding('WAGE-MATH', 'ok', `전 항목 산출근거-금액 정합 (±10원${roundUp ? `, ${fmt(roundUp)}원 단위 올림` : ''})`);
 };
 
 function otItems(contract: Contract): WageItem[] {
@@ -687,11 +689,13 @@ export const ruleOtCover: RuleFn = (contract) => {
   if (weeklyOt == null) {
     return makeFinding('OT-COVER', 'needs_data', '주간 연장근로시간 산정 불가');
   }
-  const required = round1(weeklyOt * WEEKS_PER_MONTH * OT_PREMIUM_RATE);
+  // 상시 5명 미만은 §56 가산이 적용되지 않는다(시행령 §7 별표1) — 연장 실시간만 덮으면 된다
+  const under5 = contract.workplace?.employee_count_5plus === false;
+  const required = round1(weeklyOt * WEEKS_PER_MONTH * (under5 ? 1 : OT_PREMIUM_RATE));
   // 가산율이 적혀 있으면 시간은 실시간이다(WAGE-MATH 와 같은 해석). 없으면 환산시간으로 본다
   const agreed = round1(otItems(contract).reduce((sum, i) => sum + (i.basis_hours ?? 0) * (i.rate_multiplier ?? 1), 0));
   if (agreed >= required) {
-    return makeFinding('OT-COVER', 'ok', `필요 ${required}H ≤ 약정 ${agreed}H (환산시간 해석 시)`);
+    return makeFinding('OT-COVER', 'ok', `필요 ${required}H ≤ 약정 ${agreed}H (환산시간 해석 시${under5 && required > 0 ? ', 상시 5명 미만 — 가산 미적용' : ''})`);
   }
   return makeFinding(
     'OT-COVER',
@@ -715,7 +719,8 @@ export const ruleHolidayCover: RuleFn = (contract) => {
       "공휴일 예정 근무('N일/M.MH') 파싱 불가 — public_holiday_note 확인 필요",
     );
   }
-  const days = parseInt(match[1], 10);
+  // 일수는 월 평균이라 소수일 수 있다(1.56일)
+  const days = parseFloat(match[1]);
   const planned = parseFloat(match[2]);
   const rate = wage.ordinary_hourly_rate;
   if (rate == null) {
