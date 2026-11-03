@@ -5,6 +5,7 @@ import { takeHomeRatesOn } from '@/lib/calc/take-home-pay';
 import type { ItemKey, Rounding } from '@/lib/contract-write/design';
 import { dailyWorkHours, spanMinutes, WEEK_DAYS, type WeekDay, type WriteForm } from '@/lib/contract-write/contract';
 import { netToGross } from '@/lib/contract-write/net-gross';
+import { stripControl } from '@/lib/contract-write/text';
 import { todayKst } from '@/lib/tool-kit';
 
 export { WEEK_DAYS };
@@ -104,6 +105,9 @@ function ratesDate(startDate: string, today: string): string {
   return takeHomeRatesOn(startDate) ? startDate : today;
 }
 
+/** 글 칸 — 제어문자를 지우고 앞뒤 빈칸을 뗀다(한글·엑셀 파일이 깨지지 않게) */
+const t = (v: string) => stripControl(v).trim();
+
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 const TIME = /^\d{2}:\d{2}$/;
 
@@ -112,11 +116,11 @@ export function toWriteForm(s: WriteState, today = todayKst()): ParsedForm {
   const hourly = s.payType === 'hourly';
   const net = s.amountMode === 'net';
   const breakMin = num(s.breakMinutes);
-  if (!s.workplaceName.trim()) missing.push('사업체명');
-  if (!s.employeeName.trim()) missing.push('근로자 성명');
+  if (!t(s.workplaceName)) missing.push('사업체명');
+  if (!t(s.employeeName)) missing.push('근로자 성명');
   if (!DATE.test(s.startDate)) missing.push('계약 시작일');
-  if (!s.location.trim()) missing.push('근무장소');
-  if (!s.duty.trim()) missing.push('업무');
+  if (!t(s.location)) missing.push('근무장소');
+  if (!t(s.duty)) missing.push('업무');
   if (s.workDays.length === 0) missing.push('근무 요일');
   if (!TIME.test(s.start) || !TIME.test(s.end)) missing.push('출근·퇴근 시각');
   if (breakMin == null) missing.push('휴게시간');
@@ -179,15 +183,15 @@ export function toWriteForm(s: WriteState, today = todayKst()): ParsedForm {
   };
   return {
     form: {
-      workplaceName: s.workplaceName.trim(),
-      ownerName: s.ownerName.trim() || undefined,
+      workplaceName: t(s.workplaceName),
+      ownerName: t(s.ownerName) || undefined,
       employeeCount5plus: s.fivePlus === 'yes',
-      employeeName: s.employeeName.trim(),
+      employeeName: t(s.employeeName),
       startDate: s.startDate,
       endDate: s.endDate || null,
       writtenDate: s.writtenDate || today,
-      location: s.location.trim(),
-      duty: s.duty.trim(),
+      location: t(s.location),
+      duty: t(s.duty),
       daysPerWeek: s.workDays.length,
       workDays: WEEK_DAYS.filter((d) => s.workDays.includes(d)),
       start: s.start,
@@ -205,8 +209,8 @@ export function toWriteForm(s: WriteState, today = todayKst()): ParsedForm {
         s.probation === 'yes'
           ? { months: num(s.probationMonths)!, reduced: s.probationReduced === 'yes', simpleLabor: s.simpleLabor === 'yes' }
           : null,
-      payday: s.payday.trim(),
-      paymentMethod: s.paymentMethod.trim(),
+      payday: t(s.payday),
+      paymentMethod: t(s.paymentMethod),
     },
     missing: [],
     netNote,

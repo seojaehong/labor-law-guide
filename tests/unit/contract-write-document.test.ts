@@ -4,6 +4,8 @@ import { readFileSync } from 'node:fs';
 import ExcelJS from 'exceljs';
 import JSZip from 'jszip';
 import { PDFDocument } from 'pdf-lib';
+// saxes = 엑셀 라이브러리(exceljs)가 쓰는 XML 파서 — 새 의존성 없이 XML 1.0 적격성을 본다
+import { SaxesParser } from 'saxes';
 import { describe, expect, it } from 'vitest';
 
 import { bannedHits } from '@/lib/tool-kit/banned';
@@ -108,5 +110,29 @@ describe('세 파일이 같은 금액을 싣는다', () => {
     writeFileSync(`${dir}/계약서.xlsx`, await buildContractXlsx(doc));
     writeFileSync(`${dir}/계약서.hwpx`, await buildContractHwpx(doc));
     writeFileSync(`${dir}/계약서.pdf`, await buildContractPdf(doc, font));
+  });
+});
+
+// #139 적대 검토 6 — 붙여 넣은 글자에 XML 1.0 이 허용하지 않는 제어문자가 섞여도 한글 파일이 깨지지 않는다
+describe('한글 — 제어문자', () => {
+  const xmlErrors = (xml: string) => {
+    const parser = new SaxesParser();
+    const errors: string[] = [];
+    parser.on('error', (e) => errors.push(String(e.message)));
+    parser.write(xml).close();
+    return errors;
+  };
+  it('section0.xml 을 XML 파서가 오류 없이 읽는다(사업체명에 \u0001·\u000B·\uFFFF)', async () => {
+    const dirty = buildContractDocument({ ...FORM, workplaceName: '합성\u0001테스트\u000B사업장￿' }, designFromForm(FORM));
+    const zip = await JSZip.loadAsync(await buildContractHwpx(dirty));
+    const section = await zip.file('Contents/section0.xml')!.async('string');
+    expect(xmlErrors(section)).toEqual([]);
+    expect(section).toContain('합성테스트사업장');
+  });
+  it('깨끗한 본문도 오류 없이 읽는다', async () => {
+    const zip = await JSZip.loadAsync(await buildContractHwpx(doc));
+    for (const name of ['Contents/section0.xml', 'Contents/header.xml', 'Contents/content.hpf']) {
+      expect(xmlErrors(await zip.file(name)!.async('string'))).toEqual([]);
+    }
   });
 });

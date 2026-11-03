@@ -55,3 +55,14 @@ describe('toWriteForm — 맞지 않는 입력', () => {
     expect(parse({ start: '22:00', end: '06:00' }).form).not.toBeNull();
   });
 });
+
+describe('toWriteForm — 글 칸 정리(#139 적대 검토 6)', () => {
+  it('붙여 넣은 제어문자를 지운다', () => {
+    const f = parse({ workplaceName: '합성\u0001테스트\u000B 사업장', duty: '\u0007홀 서비스' }).form!;
+    expect(f.workplaceName).toBe('합성테스트 사업장');
+    expect(f.duty).toBe('홀 서비스');
+  });
+  it('제어문자만 있으면 빈 칸', () => {
+    expect(parse({ location: '\u0001\u0002' }).missing).toEqual(['근무장소']);
+  });
+});
