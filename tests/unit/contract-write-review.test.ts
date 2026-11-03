@@ -227,6 +227,11 @@ describe('검토 8 · 계약 기간에 걸친 해의 최저임금', () => {
     const later = review({ ...SPAN, monthlyTotal: 2_400_000, endDate: '2028-06-30' }).minimumWageLater;
     expect(later).toEqual([{ text: expect.stringContaining('2028년 최저시급 미등록'), warn: false }]);
   });
+
+  it('미등록 해가 여럿이면 한 줄로 적는다(3년 기간제 2026~2029 → 2028·2029년)', () => {
+    const later = review({ ...SPAN, startDate: '2026-11-04', endDate: '2029-11-03', monthlyTotal: 3_000_000 }).minimumWageLater;
+    expect(later).toEqual([{ text: expect.stringContaining('2028·2029년 최저시급 미등록'), warn: false }]);
+  });
 });
 
 // 추가 경계 입력 — 극소액 + 단위 올림, 소수점 금액

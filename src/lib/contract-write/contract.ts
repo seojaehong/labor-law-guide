@@ -224,10 +224,11 @@ function laterMinimumWage(form: WriteForm, raw: Contract): WrittenReview['minimu
   const first = Number(form.startDate.slice(0, 4));
   const last = form.endDate ? Number(form.endDate.slice(0, 4)) : Math.max(first, ...Object.keys(MINWAGE_TABLE).map(Number));
   const out: WrittenReview['minimumWageLater'] = [];
+  const unregistered: number[] = [];
   for (let y = first + 1; y <= last; y += 1) {
     const minimum = MINWAGE_TABLE[String(y)];
     if (minimum === undefined) {
-      out.push({ text: `${y}년 최저시급 미등록 — 계약이 ${y}년까지 이어지지만 비교하지 않았습니다(고시 뒤 다시 확인)`, warn: false });
+      unregistered.push(y);
       continue;
     }
     const [shifted] = normalize([{ ...raw, period: { ...raw.period, start_date: `${y}-01-01` } }]);
@@ -237,6 +238,9 @@ function laterMinimumWage(form: WriteForm, raw: Contract): WrittenReview['minimu
         warn: true,
       });
     }
+  }
+  if (unregistered.length) {
+    out.push({ text: `${unregistered.join('·')}년 최저시급 미등록 — 계약이 그 해까지 이어지지만 비교하지 않았습니다(고시 뒤 다시 확인)`, warn: false });
   }
   return out;
 }
