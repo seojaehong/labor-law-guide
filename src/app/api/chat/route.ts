@@ -82,7 +82,7 @@ export async function POST(req: NextRequest) {
       return respond(
         JSON.stringify({
           error:
-            '현재 AI 챗 서비스가 일시 중단되었습니다. 잠시 후 다시 시도해주세요. (베타 일일 한도 도달)',
+            '현재 AI 챗 서비스가 일시 중단되었습니다. 잠시 후 다시 시도해주세요. (일일 한도 도달)',
           reason: kill.reason || 'kill_switch',
         }),
         { status: 503, headers: { 'Retry-After': '3600' } }
@@ -131,13 +131,13 @@ export async function POST(req: NextRequest) {
     if (!rl.allowed) {
       const msgByScope: Record<string, string> = {
         global:
-          '오늘 베타 전체 무료 사용 한도를 모두 사용했습니다. 내일 다시 이용해주세요. 정식 출시 시 알림을 받으시려면 결제의향 폼을 이용해주세요.',
-        ip: `오늘 IP 기준 무료 베타 한도(${rl.reason.max}건)를 모두 사용했습니다. 내일 다시 이용해주세요.`,
-        session: `오늘 세션 기준 무료 베타 한도(${rl.reason.max}건)를 모두 사용했습니다. 정식 출시 시 알림을 받으시려면 결제의향 폼을 이용해주세요.`,
+          '오늘 전체 무료 사용 한도를 모두 사용했습니다. 내일 다시 이용해주세요.',
+        ip: `오늘 IP 기준 무료 사용 한도(${rl.reason.max}건)를 모두 사용했습니다. 내일 다시 이용해주세요.`,
+        session: `오늘 세션 기준 무료 사용 한도(${rl.reason.max}건)를 모두 사용했습니다. 내일 다시 이용해주세요.`,
       };
       return respond(
         JSON.stringify({
-          error: msgByScope[rl.reason.scope] || '오늘 베타 한도를 초과했습니다.',
+          error: msgByScope[rl.reason.scope] || '오늘 사용 한도를 초과했습니다.',
           scope: rl.reason.scope,
           count: rl.reason.count,
           max: rl.reason.max,
