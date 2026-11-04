@@ -2,6 +2,7 @@ import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import HomeClient from '@/app/HomeClient';
+import { HOME_PICKS, TOOL_GROUPS } from '@/content/tools-groups';
 
 const articles = Array.from({ length: 4 }, (_, index) => ({
   id: `article-${index + 1}`,
@@ -32,7 +33,11 @@ describe('Home launch scope', () => {
   it('promotes the approved four sections with an explicit law review status', () => {
     const html = renderHome();
     const hrefs = [...html.matchAll(/\shref="([^"]+)"/g)].map(match => match[1]);
-    expect(new Set(hrefs.filter(href => !href.startsWith('/blog/')))).toEqual(new Set(['/blog', '/laws', '/tools/work-rules', '/decisions', '/contact']));
+    // #141(261103) — 첫 화면에 「상황별 계산·점검 도구」 지면을 올렸다: 도구 전체 보기, 묶음 이름 → /tools#묶음, 묶음별 대표 도구 바로가기.
+    // 그 링크는 도구 묶음 등록부(tools-groups.ts)에서만 온다. 그 밖의 링크가 새로 올라오면 여전히 실패한다
+    const toolLinks = ['/tools', ...TOOL_GROUPS.flatMap(g => [`/tools#${g.id}`, ...HOME_PICKS[g.id].map(p => p.href)])];
+    expect(new Set(hrefs.filter(href => !href.startsWith('/blog/')))).toEqual(new Set(['/blog', '/laws', '/tools/work-rules', '/decisions', '/contact', ...toolLinks]));
+    expect(html).toContain('상황별 계산·점검 도구');
     for (const label of ['글', '법령 개정', '취업규칙 점검', '판례·행정해석']) expect(html).toContain(label);
     expect(html).toContain('법령 검수 전 자료입니다.');
   });

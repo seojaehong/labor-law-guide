@@ -66,6 +66,8 @@ export const ITEM_LABEL: Record<ItemKey, string> = {
 
 export const WEEKS_PER_MONTH = 4.345;
 const NIGHT_PREMIUM = 0.5;
+/** 공휴일 하루 8시간 넘는 시간에 휴일 항목이 더하는 배율 — 연장 항목의 1.5 와 합해 2.0(근로기준법 제56조 제2항 제2호, #151) */
+export const HOLIDAY_OVER8_REST = 0.5;
 
 function roundAmount(value: number, rounding: Rounding): number {
   const unit = ROUNDING_UNIT[rounding];
@@ -80,6 +82,30 @@ export function weeklySchedule(dailyWorkHours: number, daysPerWeek: number): { s
   return { scheduled, overtime: Math.max(0, dailyWorkHours * daysPerWeek - scheduled) };
 }
 
+/** 공휴일 하루 근무가 1주 연장에서 빠지는 시간 중 그날 8시간 넘는 시간을 뺀 것 — 공휴일 근로시간은 1주 52시간 한도에는 들지만 가산은
+ * 제56조 제2항(휴일)만 붙고 1주 40시간 초과 연장 가산을 겹치지 않는다(같은 항 「제1항에도 불구하고」, 대법원 2024. 2. 8. 선고 2018다206899
+ * 판결·2018. 6. 21. 선고 2011다112391 전원합의체 판결). 그래서 공휴일이 든 주의 연장은 공휴일이 아닌 날로만 센다(근무일 − 1).
+ * 그날 8시간 넘는 시간은 연장 1.5 + 휴일 0.5 로 세므로(#151) 연장에 남긴다. 주 5일 이하는 1주 40시간에 닿지 않아 0, 주 6일부터 생긴다 */
+export function holidayWeekDroppedOvertime(dailyWorkHours: number, daysPerWeek: number): number {
+  if (daysPerWeek < 1) return 0;
+  const drop = weeklySchedule(dailyWorkHours, daysPerWeek).overtime - weeklySchedule(dailyWorkHours, daysPerWeek - 1).overtime;
+  return Math.max(0, drop - Math.max(dailyWorkHours - 8, 0));
+}
+
+/** 설·추석 연휴(각 3일)는 한 주에 몰려 날짜마다 빼면 그 주 연장보다 많이 뺀다(3일 연휴 주 6일 × 8시간 — 날짜마다면 24시간, 실제 8시간).
+ * 연간 일수만으로는 어느 날이 몰리는지 몰라 연휴 6일은 아예 빼지 않는다 — 덜 빼면 연장을 더 잡을 뿐 모자라지 않는다(적대 검토 261104) */
+export const HOLIDAY_CLUSTER_DAYS = 6;
+
+/** 연간 공휴일 근무 일수(소정근로일에 드는 것) 중 1주 연장을 빼는 날 수 — 휴일 항목과 같은 min(근무일, 5) ÷ 5 를 쓰고 연휴 6일을 뺀다 */
+export function holidayWeekDropDaysPerYear(holidayDaysPerYear: number, daysPerWeek: number): number {
+  return Math.max(0, holidayDaysPerYear * (Math.min(daysPerWeek, 5) / 5) - HOLIDAY_CLUSTER_DAYS);
+}
+
+/** 월 평균 공휴일 주에 빠지는 1주 연장(실시간) — 설계와 점검 메모(contract.ts holidayNote)가 같은 값을 쓴다 */
+export function monthlyHolidayWeekDrop(dailyWorkHours: number, daysPerWeek: number, holidayDaysPerYear: number): number {
+  return (holidayWeekDroppedOvertime(dailyWorkHours, daysPerWeek) * holidayWeekDropDaysPerYear(holidayDaysPerYear, daysPerWeek)) / 12;
+}
+
 /** 항목별 월 인정시간 — 사무소 양식 식에 1주 40시간 연장을 더했다 */
 export function designHours(input: DesignInput): Record<ItemKey, number> {
   const { daysPerWeek: days, dailyWorkHours: daily, holidayDaysPerYear } = input;
@@ -87,21 +113,43 @@ export function designHours(input: DesignInput): Record<ItemKey, number> {
   const regular = Math.min(daily, 8);
   const extra = Math.max(daily - 8, 0);
   const { scheduled: weekly, overtime: weeklyOvertime } = weeklySchedule(daily, days);
-  const weeklyHoliday = weekly >= 15 ? (weekly / 40) * 8 : 0;
+  // 1주 소정 15시간 미만은 제55조(주휴일·공휴일 유급휴일)·제60조(연차)가 적용되지 않는다(근로기준법 제18조 제3항) — 파트(part.ts)와 같다.
+  // 관공서 공휴일은 제55조 제2항 경로로만 유급휴일이라 이들에게는 법정 휴일이 아니고 그날 근무는 휴일근로(제56조 제2항)가 아니다
+  // (취업규칙·계약으로 약정휴일로 정하지 않은 경우). 노동절은 다르다 — 노동절 제정에 관한 법률의 유급휴일이라 15시간 미만에도 유급이고,
+  // 5명 이상이면 그날 근무는 휴일근로다(제18조 제3항은 제56조를 빼지 않는다, 근로기준정책과-4361). 그 가산은 표에 넣지 않고
+  // 계약서 제4조 노동절 줄·제5조 「표의 연장·휴일 시간」 문장이 덮는다(표 밖 지급).
+  // 이때는 계약서 제4·6조도 미적용이라 직접 정한 시간도 넣지 않는다
+  const eligible = weekly >= 15;
+  const weeklyHoliday = eligible ? (weekly / 40) * 8 : 0;
   const base = weekly === 40 ? 209 : (weekly + weeklyHoliday) * WEEKS_PER_MONTH;
-  const overtime = weeklyOvertime * (fivePlus ? 1.5 : 1) * WEEKS_PER_MONTH;
-  const night = fivePlus ? (input.nightHoursPerDay ?? 0) * NIGHT_PREMIUM * days * WEEKS_PER_MONTH : 0;
-  const holiday = fivePlus ? ((regular * 1.5 + extra * 2) * holidayDaysPerYear * (Math.min(days, 5) / 5)) / 12 : 0;
-  const leave = fivePlus ? (weekly / 40) * 8 : 0;
+  const holidayDaysPerMonth = (holidayDaysPerYear * (Math.min(days, 5) / 5)) / 12;
   const o = input.overrides ?? {};
+  const night = fivePlus ? (input.nightHoursPerDay ?? 0) * NIGHT_PREMIUM * days * WEEKS_PER_MONTH : 0;
+  // 휴일 = 유급휴일에 근무한 시간의 100% + 가산 50% — 유급휴일분 100% 는 기본급(209시간) 안이다(1998.4.24. 97다28421, 임금근로시간과-653).
+  // 8시간 넘는 시간은 통상임금의 200%(근로 100% + 가산 100%, 제56조 제2항 제2호)이고 같은 항이 「제1항에도 불구하고」라 연장 가산을 겹치지 않는다
+  // (대법원 2024. 2. 8. 선고 2018다206899 판결 — 2018. 6. 21. 선고 2011다112391 전원합의체 판결 인용). 위 연장(overtime)은 공휴일이 든 주도
+  // 주 근무일 전부로 세어 공휴일 당일 8시간 넘는 시간의 1.5(근로 100% + 가산 50%)를 이미 담는다 — 그래서 휴일 쪽은 그 시간에 0.5 만 더한다(합 2.0).
+  // #151 전에는 2.0 을 더해 3.5 였다(의정부 교정 표본·수원 계약서 휴일 25h 가 이 값). 점검 HOLIDAY-COVER 가 같은 식으로 본다(contract.ts holidayNote)
+  const holiday = fivePlus && eligible ? (regular * 1.5 + extra * HOLIDAY_OVER8_REST) * holidayDaysPerMonth : 0;
+  // 공휴일이 든 주의 1주 연장 — 월 평균 빼는 날 수 × 그날 빠지는 시간(holidayWeekDroppedOvertime). 휴일 항목이 0 이면(5명 미만·15시간 미만·
+  // 휴일 시간 0 직접 지정) 빼지 않는다 — 점검에 밝히는 메모가 휴일 항목이 있을 때만 생긴다(contract.ts holidayNote)
+  const holidayHours = eligible ? (o.holidayHours ?? holiday) : 0;
+  const droppedOvertime = fivePlus && holidayHours > 0 ? monthlyHolidayWeekDrop(daily, days, holidayDaysPerYear) : 0;
+  const overtime = (weeklyOvertime * WEEKS_PER_MONTH - droppedOvertime) * (fivePlus ? 1.5 : 1);
+  const leave = fivePlus && eligible ? (weekly / 40) * 8 : 0;
   return {
     base,
     weeklyHoliday: 0,
     overtime: o.overtimeHours ?? overtime,
     night,
-    holiday: o.holidayHours ?? holiday,
-    leave: o.leaveHours ?? leave,
+    holiday: holidayHours,
+    leave: eligible ? (o.leaveHours ?? leave) : 0,
   };
+}
+
+/** 1주 소정근로 15시간 이상 — 주휴·공휴일·연차 적용 대상(근로기준법 제18조 제3항의 반대) */
+export function weeklyHolidayEligible(dailyWorkHours: number, daysPerWeek: number): boolean {
+  return weeklySchedule(dailyWorkHours, daysPerWeek).scheduled >= 15;
 }
 
 /**
@@ -126,7 +174,17 @@ export function splitTotal(
   const rate = total / totalHours;
   const amounts = {} as Record<ItemKey, number>;
   for (const key of keys) if (key !== absorbInto) amounts[key] = roundAmount(rate * hours[key], rounding);
-  amounts[absorbInto] = total - keys.filter((k) => k !== absorbInto).reduce((s, k) => s + amounts[k], 0);
+  const others = keys.filter((k) => k !== absorbInto).reduce((s, k) => s + amounts[k], 0);
+  amounts[absorbInto] = total - others;
+  // 극소액에서 단위 올림이 총액을 넘기면 잔액 항목이 음수가 된다(PR #140 추가 경계 입력) — 계약서를 만들지 않고 까닭을 말한다
+  if (amounts[absorbInto] < 0) {
+    const unit = ROUNDING_UNIT[rounding];
+    const name = absorbInto === 'base' ? '기본급' : ITEM_LABEL[absorbInto];
+    const fix = unit ? '총액을 늘리거나 금액 단위를 원 단위로 바꿔 주세요' : absorbInto === 'base' ? '총액을 늘려 주세요' : '총액을 늘리거나 잔액을 넣을 항목을 기본급으로 바꿔 주세요';
+    throw new Error(
+      `총액 ${total.toLocaleString('ko-KR')}원이 너무 작아 ${unit ? `${unit}원 단위로 올린 ` : ''}다른 항목 합(${others.toLocaleString('ko-KR')}원)을 빼면 ${name}이 음수가 됩니다. ${fix}`,
+    );
+  }
   return {
     totalHours,
     rate,
@@ -138,8 +196,17 @@ const MONTHLY_ORDER: ItemKey[] = ['base', 'overtime', 'night', 'holiday', 'leave
 
 export function designMonthlyWage(input: DesignInput): DesignResult {
   const hours = designHours(input);
-  // 기존 4항목(기본·연장·휴일·연차)은 0시간이어도 표에 남긴다(5명 미만은 휴일·연차를 법상 넣지 않으므로 뺀다). 야간은 있을 때만
-  const keep: ItemKey[] = (input.fivePlus ?? true) ? ['base', 'overtime', 'holiday', 'leave'] : ['base', 'overtime'];
+  const eligible = weeklyHolidayEligible(input.dailyWorkHours, input.daysPerWeek);
+  // 기존 4항목(기본·연장·휴일·연차)은 0시간이어도 표에 남긴다(5명 미만·1주 15시간 미만은 휴일·연차를 법상 넣지 않으므로 뺀다). 야간은 있을 때만
+  const keep: ItemKey[] = (input.fivePlus ?? true) && eligible ? ['base', 'overtime', 'holiday', 'leave'] : ['base', 'overtime'];
   const { items, totalHours, rate } = splitTotal(input.monthlyTotal, hours, MONTHLY_ORDER, { rounding: input.rounding, absorbInto: input.absorbInto, keep });
-  return { period: 'month', total: input.monthlyTotal, hours, totalHours, rate, items };
+  return {
+    period: 'month',
+    total: input.monthlyTotal,
+    hours,
+    totalHours,
+    rate,
+    // 1주 15시간 미만은 주휴가 없다 — 기본급 이름에 「주휴 포함」을 적지 않는다(파트와 같다)
+    items: eligible ? items : items.map((i) => (i.key === 'base' ? { ...i, label: '기본급' } : i)),
+  };
 }
