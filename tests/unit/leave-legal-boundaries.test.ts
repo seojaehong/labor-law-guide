@@ -26,6 +26,6 @@ describe('official legal examples within original supported inputs', () => {
     expect(r.windows.map(w=>[w.from,w.to])).toEqual([['2026-10-01','2026-10-10'],[null,'2026-11-30'],['2026-12-01','2026-12-05'],[null,'2026-12-21']]);
     expect(r.windows[2].status).toBe('match');
     expect(r.overall).toBe('diff');
-    expect(r.disclaimer).toContain('적법성은 확인하지 않았습니다');
+    expect(r.disclaimer).toContain('절차 요건은 확인하지 않았습니다');
   });
 });

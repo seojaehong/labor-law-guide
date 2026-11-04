@@ -83,14 +83,14 @@ check("게이트: 적법성·수당면제 판정 필드가 없다", () => {
     firstNoticeSentOn: "2026-07-02", firstNoticeReceivedOn: "2026-07-02",
     workerRepliedOn: "2026-07-08", secondNoticeSentOn: "2026-10-20",
   });
-  // disclaimer 는 "적법성은 확인하지 않았습니다"라는 **부정문**이라 검사에서 뺀다.
+  // disclaimer 는 "절차 요건은 확인하지 않았습니다"라는 **부정문**이라 검사에서 뺀다.
   // 금지하려는 것은 "적법하다"고 단정하는 출력이다.
   const { disclaimer, ...rest } = r;
   const payload = JSON.stringify(rest);
   for (const banned of ["lawful", "적법", "수당면제", "exempt", "촉진 완료"]) {
     assert.ok(!payload.includes(banned), `금지 표현이 결과에 있다: ${banned}`);
   }
-  assert.ok(disclaimer.includes("적법성은 확인하지 않았습니다"),
+  assert.ok(disclaimer.includes("절차 요건은 확인하지 않았습니다"),
     "한계 고지는 반드시 있어야 한다");
 });
 

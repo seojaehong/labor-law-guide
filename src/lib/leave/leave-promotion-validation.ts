@@ -5,7 +5,7 @@ import { normalizeDate } from './leave-sheet';
 export function checkedPromotionSchedule(input: PromotionScheduleInput): PromotionScheduleResult {
   const dates = [input.usagePeriodEnd, input.firstNoticeSentOn, input.firstNoticeReceivedOn, input.workerRepliedOn, input.secondNoticeSentOn];
   if (dates.some(date => date && normalizeDate(date) !== date)) {
-    return { kind: input.kind, usagePeriodEnd: input.usagePeriodEnd, windows: [], overall: 'unknown', disclaimer: '날짜 입력을 확인해 주세요. 존재하는 YYYY-MM-DD 날짜가 필요합니다. 적법성은 판정하지 않습니다.' };
+    return { kind: input.kind, usagePeriodEnd: input.usagePeriodEnd, windows: [], overall: 'unknown', disclaimer: '날짜 입력을 확인해 주세요. 존재하는 YYYY-MM-DD 날짜가 필요합니다. 서면·도달 같은 절차 요건은 확인하지 않습니다.' };
   }
   const result = buildPromotionSchedule(input);
   const { firstNoticeSentOn: sent, firstNoticeReceivedOn: received, workerRepliedOn: replied, secondNoticeSentOn: second } = input;
