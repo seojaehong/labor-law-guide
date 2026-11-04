@@ -4,8 +4,12 @@ import { z } from 'zod';
 import { calcRetirementTax } from '@/lib/calc/retirement-tax';
 import { headline, CONSEQUENCES, NOT_COVERED, HIRE_NOTE, HOMETAX } from '@/app/tools/retirement-tax/copy';
 import { text } from '../lib/common.mjs';
+// 중도퇴사자 연말정산(/tools/midyear-settlement)·일용근로자 원천세(/tools/daily-worker-tax) — 도구마다 한 파일(groups/more)
+import * as midyear from './more/calc_midyear_settlement.mjs';
+import * as dailyWorkerTax from './more/calc_daily_worker_tax.mjs';
 
-export const taxTools = ['calc_retirement_tax'];
+const MORE = [midyear, dailyWorkerTax];
+export const taxTools = ['calc_retirement_tax', ...MORE.map((m) => m.name)];
 /** 원격(HTTP)판에 실어도 되는 도구 — 전부 */
 export const taxRemoteSafe = [...taxTools];
 
@@ -13,6 +17,7 @@ const SITE = 'https://yellowenvelope.kr';
 const READ_ONLY = { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false };
 
 export function registerTax(server) {
+  for (const m of MORE) m.register(server);
   server.registerTool(
     'calc_retirement_tax',
     {

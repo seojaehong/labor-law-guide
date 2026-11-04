@@ -116,6 +116,8 @@ const callTool = async (name, args) => {
   return JSON.parse(t);
 };
 
+// 사이트 도구 7개 — 도구마다 smoke-more/<이름>.mjs 가 엔진 단위 시험의 기대값으로 부른다(callNew·check)
+const MORE_TOOLS = ['calc_midyear_settlement', 'calc_daily_worker_tax', 'check_ordinary_wage', 'calc_wage_delay_interest', 'calc_attendance_rate', 'check_contractor', 'check_monthly_pay'];
 const ANN = {
   design_contract_wage: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
   check_contract: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
@@ -127,9 +129,10 @@ const ANN = {
   make_work_rules_report_forms: { readOnlyHint: false, destructiveHint: false, openWorldHint: true },
   ...Object.fromEntries(['calc_severance', 'calc_holiday_pay', 'calc_pay_proration', 'calc_shutdown_allowance', 'calc_annual_leave', 'settle_leave_on_exit', 'calc_retirement_tax', 'list_employer_duties']
     .map((n) => [n, { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false }])),
+  ...Object.fromEntries(MORE_TOOLS.map((n) => [n, { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false }])),
 };
-// 이 판에서 더한 도구 8개 — 「대신·대행·대리」도 함께 막는다
-const NEW_TOOLS = ['calc_severance', 'calc_holiday_pay', 'calc_pay_proration', 'calc_shutdown_allowance', 'calc_annual_leave', 'settle_leave_on_exit', 'calc_retirement_tax', 'list_employer_duties'];
+// 이 판에서 더한 도구 8개 + 사이트 도구 7개(groups/more) — 「대신·대행·대리」도 함께 막는다
+const NEW_TOOLS = ['calc_severance', 'calc_holiday_pay', 'calc_pay_proration', 'calc_shutdown_allowance', 'calc_annual_leave', 'settle_leave_on_exit', 'calc_retirement_tax', 'list_employer_duties', ...MORE_TOOLS];
 const NEW_WORDS = [...WORDS, '대신', '대행', '대리'];
 const bannedNew = (s) => (banned ? banned.bannedHits(s, NEW_WORDS) : []);
 for (const n of NEW_TOOLS) check(`${n}: 도구 목록에 있음`, tools.includes(n));
@@ -261,6 +264,16 @@ const callNew = async (name, args) => {
   check(`${name}: 응답 금지어 없음(대신·대행·대리 포함)${h.length ? ` (${h.join(',')})` : ''}`, h.length === 0);
   return JSON.parse(t);
 };
+for (const n of MORE_TOOLS) {
+  if (!tools.includes(n)) continue;
+  const run = (await import(new URL(`./smoke-more/${n}.mjs`, import.meta.url))).default;
+  await run(callNew, check);
+}
+// 새 도구 7개는 설명·입력 설명에도 금지어(대신·대행·대리·포괄 포함)가 없다
+for (const t of (await c.listTools()).tools.filter((x) => MORE_TOOLS.includes(x.name))) {
+  const h = banned ? banned.bannedHits(JSON.stringify([t.title, t.description, t.inputSchema]), [...NEW_WORDS, '포괄']) : [];
+  check(`${t.name}: 설명 금지어 없음${h.length ? ` (${h.join(',')})` : ''}`, h.length === 0);
+}
 if (tools.includes('calc_severance')) {
   // calc-severance.test.ts 「재직 3년(1,096일)」 — 1일 평균임금 97,826.09, 퇴직금 = 반올림(9,782,609전 × 30 × 1,096 ÷ 36,500)
   const s = await callNew('calc_severance', { hireDate: '2023-01-01', lastWorkDate: '2025-12-31', wageTotal: 9_000_000 });
