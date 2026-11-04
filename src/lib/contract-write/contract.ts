@@ -109,8 +109,11 @@ export const rateText = (rate: number) => rate2(rate).toLocaleString('ko-KR', { 
 /** 점검 규칙 HOLIDAY-COVER 가 읽는 'N일/M.MH' — N = 월 평균 공휴일 근무 일수, M = 그 실근로시간 */
 function holidayNote(form: WriteForm): string {
   const monthlyDays = (form.holidayDaysPerYear * (Math.min(form.workDays.length, 5) / 5)) / 12;
-  const planned = Math.round(monthlyDays * dailyWorkHours(form) * 100) / 100;
-  return `연 ${form.holidayDaysPerYear}일 근무 예정, 월 평균 ${Math.round(monthlyDays * 100) / 100}일/${planned}H`;
+  const daily = dailyWorkHours(form);
+  const planned = Math.round(monthlyDays * daily * 100) / 100;
+  const note = `연 ${form.holidayDaysPerYear}일 근무 예정, 월 평균 ${Math.round(monthlyDays * 100) / 100}일/${planned}H`;
+  // 소정근로일 공휴일의 하루 8시간 넘는 시간 — 설계가 그 시간을 휴일 × 0.5 로 세므로(연장 1.5 와 합해 2.0, #151) 점검 HOLIDAY-COVER 에 밝힌다
+  return daily > 8 ? `${note}(8시간 넘는 ${Math.round(monthlyDays * (daily - 8) * 100) / 100}H)` : note;
 }
 
 /** 시작일부터 종료일까지가 1년 이상인지(종료일 = 시작일 + 1년 − 1일이면 1년) */

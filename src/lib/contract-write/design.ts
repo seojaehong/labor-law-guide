@@ -66,6 +66,8 @@ export const ITEM_LABEL: Record<ItemKey, string> = {
 
 export const WEEKS_PER_MONTH = 4.345;
 const NIGHT_PREMIUM = 0.5;
+/** 공휴일 하루 8시간 넘는 시간에 휴일 항목이 더하는 배율 — 연장 항목의 1.5 와 합해 2.0(근로기준법 제56조 제2항 제2호, #151) */
+export const HOLIDAY_OVER8_REST = 0.5;
 
 function roundAmount(value: number, rounding: Rounding): number {
   const unit = ROUNDING_UNIT[rounding];
@@ -88,13 +90,22 @@ export function designHours(input: DesignInput): Record<ItemKey, number> {
   const extra = Math.max(daily - 8, 0);
   const { scheduled: weekly, overtime: weeklyOvertime } = weeklySchedule(daily, days);
   // 1주 소정 15시간 미만은 제55조(주휴일·공휴일 유급휴일)·제60조(연차)가 적용되지 않는다(근로기준법 제18조 제3항) — 파트(part.ts)와 같다.
-  // 공휴일도 법정 휴일이 아니어서 그날 근무는 휴일근로(제56조 제2항)가 아니다. 이때는 계약서 제4·6조도 미적용이라 직접 정한 시간도 넣지 않는다
+  // 관공서 공휴일은 제55조 제2항 경로로만 유급휴일이라 이들에게는 법정 휴일이 아니고 그날 근무는 휴일근로(제56조 제2항)가 아니다
+  // (취업규칙·계약으로 약정휴일로 정하지 않은 경우). 노동절은 다르다 — 노동절 제정에 관한 법률의 유급휴일이라 15시간 미만에도 유급이고,
+  // 5명 이상이면 그날 근무는 휴일근로다(제18조 제3항은 제56조를 빼지 않는다, 근로기준정책과-4361). 그 가산은 표에 넣지 않고
+  // 계약서 제4조 노동절 줄·제5조 「표의 연장·휴일 시간」 문장이 덮는다(표 밖 지급).
+  // 이때는 계약서 제4·6조도 미적용이라 직접 정한 시간도 넣지 않는다
   const eligible = weekly >= 15;
   const weeklyHoliday = eligible ? (weekly / 40) * 8 : 0;
   const base = weekly === 40 ? 209 : (weekly + weeklyHoliday) * WEEKS_PER_MONTH;
   const overtime = weeklyOvertime * (fivePlus ? 1.5 : 1) * WEEKS_PER_MONTH;
   const night = fivePlus ? (input.nightHoursPerDay ?? 0) * NIGHT_PREMIUM * days * WEEKS_PER_MONTH : 0;
-  const holiday = fivePlus && eligible ? ((regular * 1.5 + extra * 2) * holidayDaysPerYear * (Math.min(days, 5) / 5)) / 12 : 0;
+  // 휴일 = 유급휴일에 근무한 시간의 100% + 가산 50% — 유급휴일분 100% 는 기본급(209시간) 안이다(1998.4.24. 97다28421, 임금근로시간과-653).
+  // 8시간 넘는 시간은 통상임금의 200%(근로 100% + 가산 100%, 제56조 제2항 제2호)이고 같은 항이 「제1항에도 불구하고」라 연장 가산을 겹치지 않는다
+  // (대법원 2024. 2. 8. 선고 2018다206899 판결 — 2018. 6. 21. 선고 2011다112391 전원합의체 판결 인용). 위 연장(overtime)은 공휴일이 든 주도
+  // 주 근무일 전부로 세어 공휴일 당일 8시간 넘는 시간의 1.5(근로 100% + 가산 50%)를 이미 담는다 — 그래서 휴일 쪽은 그 시간에 0.5 만 더한다(합 2.0).
+  // #151 전에는 2.0 을 더해 3.5 였다(의정부 교정 표본·수원 계약서 휴일 25h 가 이 값). 점검 HOLIDAY-COVER 가 같은 식으로 본다(contract.ts holidayNote)
+  const holiday = fivePlus && eligible ? ((regular * 1.5 + extra * HOLIDAY_OVER8_REST) * holidayDaysPerYear * (Math.min(days, 5) / 5)) / 12 : 0;
   const leave = fivePlus && eligible ? (weekly / 40) * 8 : 0;
   const o = input.overrides ?? {};
   return {

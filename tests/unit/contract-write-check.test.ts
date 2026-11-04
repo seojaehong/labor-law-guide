@@ -129,3 +129,44 @@ describe('산출근거 배율 문구', () => {
     expect(text('NIGHT')).toContain('(가산분 0.5배)');
   });
 });
+
+// #151 — 휴일근로 8시간 넘는 시간 = 통상임금의 200%(근로 100% + 가산 100%, 근로기준법 제56조 제2항 제2호). 같은 항이 「제1항에도 불구하고」라
+// 연장 가산 50% 를 겹치지 않는다(대법원 2024. 2. 8. 선고 2018다206899 판결 — 2018. 6. 21. 선고 2011다112391 전원합의체 판결 인용).
+// OT-COVER 가 공휴일이 든 주도 1주 연장 × 4.345 × 1.5 로 세어 그 시간의 1.5 를 이미 요구하므로, 메모가 「8시간 넘는 xH」를 밝히면
+// HOLIDAY-COVER 는 그 시간에 0.5 만 더 요구한다(합 2.0). 밝히지 않은 메모(외부 계약서)는 종전대로 전부 × 1.5
+describe('HOLIDAY-COVER — 공휴일 하루 8시간 넘는 시간(#151)', () => {
+  const holidayCover = (note: string, hours: number) => {
+    const contract = toContract(UIJEONGBU, designFromForm(UIJEONGBU));
+    const rate = contract.wage.ordinary_hourly_rate!;
+    contract.wage.public_holiday_note = note;
+    contract.wage.items!.find((i) => i.code === 'HOLIDAY_EXTRA')!.amount = Math.round(rate * hours);
+    const [c] = normalize([contract]);
+    return checkContract(c).find((x) => x.rule_code === 'HOLIDAY-COVER')!;
+  };
+  const NOTE = '연 22일 근무 예정, 월 평균 1.47일/13.81H';
+  // 의정부 주4: 월 평균 1.4667일 × (8 × 1.5 + 1.4167 × 0.5) = 18.64H
+  it('메모가 8시간 넘는 시간을 밝히면 그 시간은 × 0.5 — 8시간 이내 × 1.5 와 합해 18.6H 요구', () => {
+    const f = holidayCover(`${NOTE}(8시간 넘는 2.08H)`, 18.6389);
+    expect(f.status).toBe('ok');
+    expect(f.detail).toContain('8시간 넘는 2.08H×0.5');
+  });
+  it('밝힌 메모라도 휴일 시간이 모자라면 위반(자기시험 — 18.3H)', () => {
+    expect(holidayCover(`${NOTE}(8시간 넘는 2.08H)`, 18.3).status).toBe('violation');
+  });
+  it('메모에 8시간 넘는 시간이 없으면(외부 계약서) 종전대로 전부 × 1.5 = 20.7H 요구', () => {
+    expect(holidayCover(NOTE, 18.6389).status).toBe('violation');
+    expect(holidayCover(NOTE, 20.8).status).toBe('ok');
+  });
+  it('작성 기능의 메모는 하루 8시간 넘는 시간을 밝히고(의정부 주4), 자기 점검이 그 식으로 통과한다', () => {
+    const contract = toContract(UIJEONGBU, designFromForm(UIJEONGBU));
+    expect(contract.wage.public_holiday_note).toBe(`${NOTE}(8시간 넘는 2.08H)`);
+    const [c] = normalize([contract]);
+    const f = checkContract(c).find((x) => x.rule_code === 'HOLIDAY-COVER')!;
+    expect(f.status).toBe('ok');
+    expect(f.detail).toBe('공휴일 1.47일 13.81H 중 8시간 이내 11.73H×1.5 + 8시간 넘는 2.08H×0.5=18.6H ≤ HOLIDAY_EXTRA 환산 18.6H');
+  });
+  it('하루 8시간 이내면 메모에 넣지 않는다(종전 메모 그대로)', () => {
+    const eight: WriteForm = { ...UIJEONGBU, workDays: ['월', '화', '수', '목', '금'], start: '09:00', end: '18:00', breakMinutes: 60, holidayDaysPerYear: 16 };
+    expect(toContract(eight, designFromForm(eight)).wage.public_holiday_note).toBe('연 16일 근무 예정, 월 평균 1.33일/10.67H');
+  });
+});

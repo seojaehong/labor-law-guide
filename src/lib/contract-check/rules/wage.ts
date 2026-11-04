@@ -42,7 +42,7 @@
 // OT-RATE: OT_* 항목 rate_multiplier 미표기 → risk
 // OT-COVER: OT_* basis_hours 합 ≥ weekly_overtime_hours × 4.345 × 1.5. 상시 5명 미만은 가산 없이 × 1.0(시행령 §7 별표1, 261103)
 // HOLIDAY-COVER: HOLIDAY_EXTRA 환산H(amount÷통상시급) ≥ 공휴일 예정 근무H × 1.5
-//   (public_holiday_note "N일/M.MH" 파싱, 불가 시 needs_data)
+//   (public_holiday_note "N일/M.MH" 파싱, 불가 시 needs_data). 메모가 「8시간 넘는 xH」를 밝히면 그 시간은 × 0.5(연장 1.5 는 OT-COVER, #151)
 
 import {
   MINWAGE_TABLE,
@@ -64,7 +64,10 @@ import type { Contract, Finding, FindingSeverity, FindingStatus, WageItem } from
 import { makeFinding, type RuleFn } from './index';
 
 export const HOLIDAY_PREMIUM_RATE = 1.5;
+/** 공휴일 하루 8시간 넘는 시간에 휴일 쪽이 더 요구하는 배율 — 연장(OT-COVER) 1.5 와 합해 2.0(근로기준법 제56조 제2항 제2호) */
+export const HOLIDAY_OVER8_REST_RATE = 0.5;
 const HOLIDAY_NOTE_RE = /(\d+(?:\.\d+)?)\s*일\s*\/\s*(\d+(?:\.\d+)?)\s*H/;
+const HOLIDAY_OVER8_RE = /8시간\s*넘는\s*(\d+(?:\.\d+)?)\s*H/;
 
 const round1 = (x: number) => Math.round(x * 10) / 10;
 const fmt = (n: number) => n.toLocaleString('ko-KR');
@@ -726,20 +729,26 @@ export const ruleHolidayCover: RuleFn = (contract) => {
   if (rate == null) {
     return makeFinding('HOLIDAY-COVER', 'needs_data', '통상시급 미기재 — 환산 불가');
   }
-  const required = round1(planned * HOLIDAY_PREMIUM_RATE);
+  // 메모가 「8시간 넘는 xH」(소정근로일 공휴일의 하루 8시간 넘는 시간, 월 합)를 밝히면 그 시간은 × 0.5 만 요구한다(#151).
+  // 휴일근로 8시간 넘는 시간은 통상임금의 200%(제56조 제2항 제2호)이고 「제1항에도 불구하고」라 연장 가산을 겹치지 않는다(대법원 2024. 2. 8.
+  // 선고 2018다206899 판결 — 2011다112391 전합 인용). 그 시간의 1.5(근로 100% + 가산 50%)는 OT-COVER 가 이미 요구한다 — 공휴일이 든 주도
+  // 1주 연장 × 4.345 로 센다. 그래서 여기서 1.5 를 다시 요구하면 3.0 이 된다. ★ 0.5 는 이 전제에 기대므로 OT-COVER 식을 바꾸면 같이 본다.
+  // 밝히지 않은 메모(외부 계약서)는 종전대로 전부 × 1.5 — 공휴일이 소정근로일이 아닌 날이면 그 초과시간은 OT-COVER 에 들지 않는다
+  const over8Match = HOLIDAY_OVER8_RE.exec(note ?? '');
+  const over8 = over8Match ? Math.min(parseFloat(over8Match[1]), planned) : 0;
+  const required = round1((planned - over8) * HOLIDAY_PREMIUM_RATE + over8 * HOLIDAY_OVER8_REST_RATE);
   const agreed = round1(extras.reduce((sum, i) => sum + (i.amount ?? 0), 0) / rate);
+  const basis =
+    over8 > 0
+      ? `공휴일 ${days}일 ${planned}H 중 8시간 이내 ${Math.round((planned - over8) * 100) / 100}H×1.5 + 8시간 넘는 ${over8}H×0.5`
+      : `공휴일 ${days}일 ${planned}H×1.5`;
   if (agreed >= required) {
-    return makeFinding(
-      'HOLIDAY-COVER',
-      'ok',
-      `공휴일 ${days}일 ${planned}H×1.5=${required}H ≤ HOLIDAY_EXTRA 환산 ${agreed}H`,
-    );
+    return makeFinding('HOLIDAY-COVER', 'ok', `${basis}=${required}H ≤ HOLIDAY_EXTRA 환산 ${agreed}H`);
   }
   return makeFinding(
     'HOLIDAY-COVER',
     'violation',
-    `HOLIDAY_EXTRA 환산 ${agreed}H < 필요 ${required}H` +
-      ` (공휴일 ${days}일 ${planned}H×1.5) — 부족 ${round1(required - agreed)}H`,
+    `HOLIDAY_EXTRA 환산 ${agreed}H < 필요 ${required}H` + ` (${basis}) — 부족 ${round1(required - agreed)}H`,
   );
 };
 
