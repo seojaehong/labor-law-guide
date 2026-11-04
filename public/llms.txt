@@ -13,6 +13,7 @@
 - [판례검색](https://yellowenvelope.kr/database): 판례 2,900+건, 행정해석 890+건 통합검색
 - [뉴스](https://yellowenvelope.kr/news): 노란봉투법 관련 최신 뉴스
 - [AI 상담](https://yellowenvelope.kr/ai): 노란봉투법 관련 AI 즉시 질의응답
+- [AI 연결 도구](https://yellowenvelope.kr/ai-tools): 내 PC 의 AI(Claude Code 등)에 붙이는 MCP 도구 — 산재 신청 도우미(sanjae-apply), 4대보험 신고서·근로계약서·노동 계산기·취업규칙 점검(k-labor)
 - [전문가 상담](https://yellowenvelope.kr/contact): 노무법인 위너스 전문가 상담 문의
 
 ## 상세 콘텐츠

@@ -3,8 +3,7 @@
 4대보험 신고서·근로계약서·노동 계산기·취업규칙 점검을 [일의 무늬](https://yellowenvelope.kr)가 만든 그대로 **내 PC 의 AI(Claude Code·Claude Desktop 등)** 에서 쓰도록 한 패키지로 묶은 로컬 MCP 서버입니다.
 도구는 **묶음(group)** 단위로 들어 있고, 필요한 묶음만 켤 수 있습니다. 묶음은 앞으로 늘어납니다.
 
-> [!NOTE]
-> 아직 npm 에 올리지 않은 준비판입니다. 아래 설치 줄은 배포 뒤에 그대로 쓰는 형태입니다.
+npm [`k-labor`](https://www.npmjs.com/package/k-labor) · 공식 MCP 레지스트리 이름 `io.github.seojaehong/k-labor` · 도구 안내 https://yellowenvelope.kr/ai-tools
 
 ---
 

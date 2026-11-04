@@ -1,10 +1,65 @@
 // AI 연결 도구(MCP) 안내 페이지의 데이터. 도구를 더할 때 여기 한 줄을 더한다.
 // status 'preparing' 은 설치 명령을 싣지 않는다(아직 없는 패키지를 남이 깔지 않게).
+// 이 파일이 도구 목록의 정본이다. server-card.json·k-labor server.json 은 시험(ai-tools.test.ts)이 여기와 대조한다.
+
+// 등재 단위 = 패키지(MCP 서버). 카드 여러 장이 같은 패키지의 다른 묶음일 수 있다.
+// 버전은 싣지 않는다 — npm·MCP 레지스트리가 정본이다.
+export interface AiPackage {
+  id: 'sanjae-apply' | 'k-labor';
+  title: string;
+  description: string; // 레지스트리 description 과 같은 영어 한 줄(100자 이하)
+  mcpName: string; // 공식 MCP 레지스트리 이름
+  npm: string;
+  repo: string;
+  websiteUrl: string;
+  remote?: string; // 원격(streamable-http) 주소. 없으면 로컬(stdio)판만
+}
+
+export const AI_PACKAGES: AiPackage[] = [
+  {
+    id: 'sanjae-apply',
+    title: '산재 신청 도우미 (sanjae-apply)',
+    description: "Korean workers' compensation claims: required KCOMWEL forms and articles; fills official PDF forms.",
+    mcpName: 'io.github.seojaehong/sanjae-apply',
+    npm: 'sanjae-apply',
+    repo: 'https://github.com/seojaehong/sanjae-apply',
+    websiteUrl: 'https://sanjae-apply.vercel.app/',
+    remote: 'https://sanjae-apply.vercel.app/api/mcp/mcp',
+  },
+  {
+    id: 'k-labor',
+    title: '노동 업무 도구 (k-labor)',
+    description: 'Korean labor tools: NHIS report forms, employment contracts, wage/leave/tax calculators, work rules.',
+    mcpName: 'io.github.seojaehong/k-labor',
+    npm: 'k-labor',
+    repo: 'https://github.com/seojaehong/labor-law-guide',
+    websiteUrl: 'https://yellowenvelope.kr/ai-tools',
+  },
+];
+
+// /.well-known/mcp/server-card.json 의 내용. 이 사이트가 원격 MCP 를 직접 열지 않으므로
+// 레지스트리 server.json 모양으로 패키지마다 설치 경로만 알린다.
+export function serverCard() {
+  return {
+    name: '일의 무늬 AI 연결 도구',
+    url: 'https://yellowenvelope.kr/ai-tools',
+    servers: AI_PACKAGES.map((p) => ({
+      name: p.mcpName,
+      title: p.title,
+      description: p.description,
+      repository: { url: p.repo, source: 'github' },
+      websiteUrl: p.websiteUrl,
+      packages: [{ registryType: 'npm', identifier: p.npm, transport: { type: 'stdio' } }],
+      ...(p.remote ? { remotes: [{ type: 'streamable-http', url: p.remote }] } : {}),
+    })),
+  };
+}
 
 export interface AiTool {
   id: string;
   name: string;
   status: 'public' | 'preparing';
+  package?: AiPackage['id']; // MCP 카드만. 설치형 프로그램은 없음
   summary: string;
   does: string[];
   privacy: string;
@@ -42,6 +97,7 @@ export const AI_TOOLS: AiTool[] = [
     id: 'sanjae-apply',
     name: '산재 신청 도우미',
     status: 'public',
+    package: 'sanjae-apply',
     summary: '급여 종류와 재해 상황을 말하면 필요한 서식·첨부·근거 조문을 알려 주고, 근로복지공단 정본 PDF 서식을 채웁니다.',
     does: [
       '급여 9종 × 사고·출퇴근·질병 분기별 필요 서식과 첨부 목록',
@@ -64,6 +120,7 @@ export const AI_TOOLS: AiTool[] = [
     id: 'insurance-forms',
     name: '4대보험 신고서 도구',
     status: 'public',
+    package: 'k-labor',
     summary: '사업장 주소나 사업자등록번호로 관할 지사와 담당 번호를 찾고, 건강보험 자격취득·상실 신고서와 늦어진 사유를 적은 사업주확인서를 공식 서식 그대로 만듭니다.',
     does: [
       '주소·사업자등록번호 → 건강보험 관할 지사, 업무별 담당 전화·팩스',
@@ -83,6 +140,7 @@ export const AI_TOOLS: AiTool[] = [
     id: 'contract',
     name: '근로계약서 도구',
     status: 'public',
+    package: 'k-labor',
     summary: '월 총액이나 시급과 근무형태를 말하면 임금 항목을 나눠 설계하고, 이미 쓴 계약서를 항목별로 점검하고, 엑셀·한글·PDF 파일로 저장합니다.',
     does: [
       '월 총액(또는 실수령액)·파트 시급 → 기본급·주휴·연장 등 항목별 시간과 금액, 통상시급',
@@ -100,6 +158,7 @@ export const AI_TOOLS: AiTool[] = [
     id: 'calc',
     name: '임금·수당 계산기 묶음',
     status: 'public',
+    package: 'k-labor',
     summary: '사이트 계산기를 대화창에서 씁니다. 계산 결과와 함께 근거가 된 고시·조문을 알려 줍니다.',
     does: [
       '최저임금 비교(시간급 환산, 올해·내년 고시) · 실수령액(4대보험 근로자 몫·간이세액표 소득세)',
@@ -118,6 +177,7 @@ export const AI_TOOLS: AiTool[] = [
     id: 'leave-tax',
     name: '연차·세금 계산기 묶음',
     status: 'public',
+    package: 'k-labor',
     summary: '입사일과 기준일로 연차를 세고 퇴직할 때 남은 연차를 정산합니다. 퇴직소득세·일용근로소득 세금·중도퇴사자 연말정산도 계산합니다.',
     does: [
       '연차 발생일수(입사일·회계연도 기준) · 출근율 80% 확인',
@@ -138,6 +198,7 @@ export const AI_TOOLS: AiTool[] = [
     id: 'checks',
     name: '임금·계약 점검 묶음',
     status: 'public',
+    package: 'k-labor',
     summary: '월급과 계약 형태를 넣으면 확인할 항목을 짚어 줍니다. 사업장 규모에 따라 지켜야 하는 사업주 의무도 목록으로 보여 줍니다.',
     does: [
       '월급 대조 — 중도입사·중도퇴사·결근 공제·시급제 주휴수당 중 하나를 골라 명세서 금액과 대조',
@@ -158,6 +219,7 @@ export const AI_TOOLS: AiTool[] = [
     id: 'work-rules',
     name: '취업규칙·법령 도구',
     status: 'public',
+    package: 'k-labor',
     summary: '법제처에서 조문 원문을 실시간으로 가져와, 내 취업규칙에 개정 법령이 반영됐는지 조문별로 짚고 신고 서류를 만듭니다.',
     does: [
       '노동법 개정·시행 예정 목록',
