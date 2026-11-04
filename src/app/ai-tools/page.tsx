@@ -5,14 +5,14 @@ import { SITE_URL } from '@/lib/constants';
 import { AI_TOOLS, type AiTool } from '@/content/ai-tools';
 
 export const metadata: Metadata = publicMetadata({
-  title: 'AI 연결 도구(MCP) | Claude에 붙여 쓰는 4대보험·산재 서식 도구 | 일의 무늬',
+  title: 'AI 연결 도구(MCP) | Claude에 붙여 쓰는 노동 업무 도구 | 일의 무늬',
   description:
-    'Claude 같은 AI 도구에 MCP 로 연결해 쓰는 일의 무늬 도구 모음입니다. 산재 신청 서식 채우기, 4대보험 관할 지사 찾기와 건강보험 신고서 만들기를 대화로 씁니다.',
-  keywords: ['MCP', 'Claude 연결 도구', '산재 신청 MCP', '4대보험 신고서 MCP', 'Claude Code MCP'],
+    'Claude 같은 AI 도구에 MCP 로 연결해 쓰는 일의 무늬 도구 모음입니다. 산재 신청 서식 채우기, 4대보험 신고서, 근로계약서, 임금·연차·세금 계산, 취업규칙 점검을 대화로 씁니다.',
+  keywords: ['MCP', 'Claude 연결 도구', '산재 신청 MCP', '4대보험 신고서 MCP', 'Claude Code MCP', 'k-labor', '노동 계산기 MCP', '취업규칙 MCP'],
   alternates: { canonical: `${SITE_URL}/ai-tools` },
   openGraph: {
     title: 'AI 연결 도구(MCP) | 일의 무늬',
-    description: 'Claude 에 붙여 쓰는 4대보험·산재 서식 도구 모음.',
+    description: 'Claude 에 붙여 쓰는 산재·4대보험·계산기·취업규칙 도구 모음.',
     url: `${SITE_URL}/ai-tools`,
     type: 'website',
     locale: 'ko_KR',
@@ -213,6 +213,9 @@ export default function AiToolsPage() {
       {/* 도구 */}
       <section className="mt-16" aria-labelledby="list">
         <h2 id="list" className="t-h3 scroll-mt-24" style={ink}>도구</h2>
+        <p className="mt-2 text-sm leading-7" style={sub}>
+          「공개 준비 중」 묶음은 노동 업무 도구(k-labor) 한 패키지로 함께 공개합니다. 필요한 묶음만 골라 켤 수 있습니다.
+        </p>
         <div className="mt-5 grid gap-5 md:grid-cols-2">
           {AI_TOOLS.map((t) => <ToolCard key={t.id} t={t} />)}
         </div>
