@@ -27,6 +27,33 @@ type Journey = (p: Page, step: (name: string, expect: string | RegExp, got: stri
 
 const answer = async (p: Page, sel = 'section[aria-live]') => (await p.locator(sel).first().innerText()).replace(/\s+/g, ' ').trim();
 
+// 사업자번호로 인원 불러오기(BizNoLookup) → 4명 이하·5명 이상 분기. 공단 응답은 합성 사업장으로 바꿔 끼운다.
+// #131 이 호출만 master 에 들이고 정의(codex f25d1a6)는 빠져 휴업수당·일할계산 드라이브가 ReferenceError 로 멈췄다(261104)
+async function workplaceScaleJourney(p: Page, step: (name: string, expect: string | RegExp, got: string) => void): Promise<void> {
+  const open = p.getByRole('button', { name: '사업자등록번호로 불러오기', exact: true });
+  const present = (await open.count()) === 1 && (await open.isVisible());
+  step('사업자등록번호로 인원 확인 입구', 'true', String(present));
+  if (!present) return;
+  let count = 4;
+  const pattern = '**/api/tools/workplace?bizNo=*';
+  await p.route(pattern, async (route: any) => {
+    await route.fulfill({ json: { ok: true, rows: [{ bizNo: '0000000000', name: '합성 사업장', address: '', headcount: count, since: null, industry: null }] } });
+  });
+  try {
+    await open.click();
+    await p.getByLabel('사업자등록번호', { exact: true }).fill('0000000000');
+    for (const headcount of [4, 5]) {
+      count = headcount;
+      await p.getByRole('button', { name: '불러오기', exact: true }).click();
+      await p.locator('[data-bizno-applied]').filter({ hasText: `상시 ${headcount}명` }).waitFor();
+      const label = headcount === 4 ? '4명 이하' : '5명 이상';
+      step(`공단 인원 ${headcount}명 → ${label} 분기`, 'true', String(await p.getByLabel(label, { exact: true }).isChecked()));
+    }
+  } finally {
+    await p.unroute(pattern);
+  }
+}
+
 // Cloudflare Turnstile(사진 업로드 봇 확인) iframe. 자기 CSP·개발자도구 감지 로그를 console.error 로 낸다 — 우리 페이지의 오류가 아니다
 const THIRD_PARTY_FRAMES = [/^https:\/\/challenges\.cloudflare\.com\//];
 
@@ -75,7 +102,8 @@ const FEATURES: Record<string, { path: string; journey: Journey; waitUntil?: 'lo
       await p.locator('[data-biz-pick] button').first().waitFor({ timeout: 30000 });
       await p.locator('[data-biz-pick] button').first().click();
       await p.waitForFunction(() => (document.querySelector('[data-branch-name]') as HTMLInputElement | null)?.value, null, { timeout: 30000 });
-      step('사업자번호 → 주소 채움', /경기.*수원시/, await p.getByLabel('사업장 주소').inputValue());
+      // 공개 사업장 목록의 순서는 공단 자료를 따라 바뀐다(261104 첫 줄이 수원 → 천안). 어느 사업장이든 시·군·구 주소가 채워지면 된다
+      step('사업자번호 → 주소 채움', /^[가-힣]+ [가-힣]+[시군구] /, await p.getByLabel('사업장 주소').inputValue());
       step('사업자번호 → 명칭 채움', /삼성전자/, await p.getByLabel('사업장 명칭').inputValue());
       await p.getByLabel('사업장 명칭').fill('');
       await p.getByLabel('사업장 주소').fill('충청북도 청주시 상당구 상당로81번길 63 (서문동)');

@@ -23,7 +23,9 @@ sys.stdout.reconfigure(encoding="utf-8")
 ROOT = Path(__file__).resolve().parents[2]
 REVS = ROOT / "data" / "law-revisions.json"
 OUT = ROOT / "data" / "law-diffs"
-OC = __import__("os").environ.get("LAW_GO_KR_OC", "iceamericano9")
+from law_oc import law_oc
+
+OC = law_oc()
 API = "https://www.law.go.kr/DRF/lawService.do"
 
 

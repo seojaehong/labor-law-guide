@@ -6,7 +6,7 @@
 - **korean-law MCP 서버** (v2.2.0): `https://korean-law-mcp.fly.dev/mcp`
   - settings.json에 등록 완료
   - 법제처 API 기반 법령 조회
-  - 환경변수: `LAW_OC=iceamericano9`
+  - 환경변수: `LAW_OC=<open.law.go.kr 이용자 ID>`
 
 - **취업규칙 검토 스킬**: `~/.claude/skills/employment-rules-review.md`
   - 7단계 워크플로우

@@ -230,7 +230,7 @@ export default function AiToolsPage() {
       <section className="mt-16" aria-labelledby="list">
         <h2 id="list" className="t-h3 scroll-mt-24" style={ink}>도구</h2>
         <p className="mt-2 text-sm leading-7" style={sub}>
-          「공개 준비 중」 묶음은 노동 업무 도구(k-labor) 한 패키지로 함께 공개합니다. 필요한 묶음만 골라 켤 수 있습니다.
+          4대보험·근로계약서·계산기·점검·취업규칙 묶음은 노동 업무 도구(k-labor) 한 패키지입니다. 카드의 명령은 그 묶음만 켜고, <code style={{ fontFamily: MONO }}>--groups</code> 를 빼면 전부 켭니다.
         </p>
         <div className="mt-5 grid gap-5 md:grid-cols-2">
           {AI_TOOLS.map((t) => <ToolCard key={t.id} t={t} />)}
