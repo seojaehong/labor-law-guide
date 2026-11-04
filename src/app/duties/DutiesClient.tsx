@@ -6,19 +6,11 @@ import { ChevronDown } from 'lucide-react';
 import TierStair from './TierStair';
 import BizNoLookup from '@/components/BizNoLookup';
 import { tierFor } from '@/lib/workplace-lookup';
-import { CHECKED, COUNT_RULES, DUTIES, GROUPS, SOURCES, TIERS, type Duty, type Group, type TierMin } from '@/content/duties-data';
-
-const TIER_MINS = TIERS.map(t => t.min) as TierMin[];
+import { dutiesAt, howAt, TIER_MINS } from '@/lib/duties';
+import { CHECKED, COUNT_RULES, DUTIES, GROUPS, SOURCES, TIERS, type Group, type TierMin } from '@/content/duties-data';
 
 function tierOf(min: TierMin) {
   return TIERS.find(t => t.min === min)!;
-}
-
-// 고른 규모에서 적용되는 이행 방법 — by 의 키 중 고른 규모 이하에서 가장 큰 것
-function howAt(d: Duty, tier: TierMin) {
-  if (!d.by) return null;
-  const keys = (Object.keys(d.by).map(Number) as TierMin[]).filter(k => k <= tier).sort((a, b) => b - a);
-  return keys.length ? d.by[keys[0]] ?? null : null;
 }
 
 function fromLabel(min: TierMin) {
@@ -48,12 +40,9 @@ export default function DutiesClient() {
     window.history.replaceState(null, '', url);
   };
 
-  const applies = useMemo(() => DUTIES.filter(d => d.min <= tier), [tier]);
+  const at = useMemo(() => dutiesAt(tier), [tier]);
+  const { applies, fresh, nextMin, upcoming, changedHow } = at;
   const shown = useMemo(() => applies.filter(d => !group || d.group === group), [applies, group]);
-  const fresh = applies.filter(d => d.min === tier && tier !== 1);
-  const nextMin = TIER_MINS.find(m => m > tier);
-  const upcoming = nextMin ? DUTIES.filter(d => d.min === nextMin) : [];
-  const changedHow = nextMin ? DUTIES.filter(d => d.by?.[nextMin]) : [];
   const t = tierOf(tier);
 
   const say = (msg: string) => {

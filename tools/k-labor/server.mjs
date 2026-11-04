@@ -1,6 +1,6 @@
 // 일의 무늬 도구 MCP — 사이트가 만드는 도구를 한 패키지에 묶는다. 도구는 묶음(group) 단위로 켠다.
-//   npx -y korea-labor-mcp mcp                    → 전 묶음
-//   npx -y korea-labor-mcp mcp --groups nhis      → 일부 묶음만 (환경변수 LLG_MCP_GROUPS=nhis,popbill 도 같다)
+//   npx -y k-labor mcp                    → 전 묶음
+//   npx -y k-labor mcp --groups nhis      → 일부 묶음만 (환경변수 LLG_MCP_GROUPS=nhis,popbill 도 같다)
 // 인자가 없으면 mcp 로 본다(node dist/server.mjs 로 등록한 경우).
 // ★ 주민번호는 이 PC 안에서만 PDF 로 만들어진다. 도구 응답에는 싣지 않는다(lib/common.mjs 의 text 가 가린다).
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
@@ -10,6 +10,9 @@ import { registerPopbill, popbillTools } from './groups/popbill.mjs';
 import { registerContract, contractTools } from './groups/contract.mjs';
 import { registerCalc, calcTools } from './groups/calc.mjs';
 import { registerWorkRules, workRulesTools } from './groups/work-rules.mjs';
+import { registerLeave, leaveTools } from './groups/leave.mjs';
+import { registerTax, taxTools } from './groups/tax.mjs';
+import { registerDuties, dutiesTools } from './groups/duties.mjs';
 
 const VERSION = '0.1.0';
 
@@ -18,16 +21,19 @@ const GROUPS = {
   nhis: { register: registerNhis, tools: nhisTools, about: '건강보험 관할 지사 찾기 · 자격취득·상실 신고서 PDF' },
   popbill: { register: registerPopbill, tools: popbillTools, about: '내 팝빌 계정으로 팩스·문자 보내기 · 결과 조회' },
   contract: { register: registerContract, tools: contractTools, about: '근로계약서 임금 구성 설계 · 점검 · xlsx·hwpx·pdf 만들기(파일은 로컬 전용)' },
-  calc: { register: registerCalc, tools: calcTools, about: '최저임금 · 주휴수당 · 상시 근로자 수 · 실수령액 · 해고예고수당 · 연차수당 계산' },
+  calc: { register: registerCalc, tools: calcTools, about: '최저임금 · 주휴수당 · 상시 근로자 수 · 실수령액 · 해고예고수당 · 연차수당 · 퇴직금 · 공휴일 근로 수당 · 급여 일할 · 휴업수당 계산' },
+  leave: { register: registerLeave, tools: leaveTools, about: '연차 발생일수 · 퇴직 때 연차 재정산(입사일 기준 대 회계연도 기준)' },
+  tax: { register: registerTax, tools: taxTools, about: '퇴직소득세 · 지방소득세 계산' },
+  duties: { register: registerDuties, tools: dutiesTools, about: '사업장 규모별 사업주 의무 · 의무교육 · 위반 시 제재(묶은 자료)' },
   'work-rules': { register: registerWorkRules, tools: workRulesTools, about: '노동법 개정 목록 · 법령 조문 원문·두 시점 비교(법제처 Open API, LAW_OC) · 취업규칙 개정 반영 점검(글자·파일) · 신고·변경신고 서류(파일은 로컬 전용)' },
 };
 const ALIAS = { fax: 'popbill', sms: 'popbill', rules: 'work-rules', 'work_rules': 'work-rules' };
 
 function usage() {
   const lines = [
-    `korea-labor-mcp ${VERSION} — 노동 업무 도구 MCP — 일의 무늬 (stdio)`,
+    `k-labor ${VERSION} — 노동 업무 도구 MCP — 일의 무늬 (stdio)`,
     '',
-    '사용: korea-labor-mcp mcp [--groups 묶음,묶음]',
+    '사용: k-labor mcp [--groups 묶음,묶음]',
     '      환경변수 LLG_MCP_GROUPS=묶음,묶음 도 됩니다(--groups 가 우선).',
     '',
     '묶음:',
@@ -60,7 +66,7 @@ if (unknown.length) {
   process.exit(2);
 }
 
-const server = new McpServer({ name: 'korea-labor-mcp', version: VERSION });
+const server = new McpServer({ name: 'k-labor', version: VERSION });
 for (const g of wanted) GROUPS[g].register(server);
 await server.connect(new StdioServerTransport());
-console.error(`korea-labor-mcp ready — 묶음: ${wanted.join(', ')}`);
+console.error(`k-labor ready — 묶음: ${wanted.join(', ')}`);

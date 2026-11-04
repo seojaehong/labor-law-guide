@@ -1,4 +1,4 @@
-# korea-labor-mcp — 노동 업무 도구 (Korea Labor Tools)
+# k-labor — 노동 업무 도구 (Korea Labor Tools)
 
 4대보험 신고서·근로계약서·노동 계산기·취업규칙 점검을 [일의 무늬](https://yellowenvelope.kr)가 만든 그대로 **내 PC 의 AI(Claude Code·Claude Desktop 등)** 에서 쓰도록 한 패키지로 묶은 로컬 MCP 서버입니다.
 도구는 **묶음(group)** 단위로 들어 있고, 필요한 묶음만 켤 수 있습니다. 묶음은 앞으로 늘어납니다.
@@ -15,13 +15,13 @@ Node.js 20 이상만 있으면 됩니다.
 ### Claude Code
 
 ```bash
-claude mcp add --scope user korea-labor -- npx -y korea-labor-mcp mcp
+claude mcp add --scope user k-labor -- npx -y k-labor mcp
 ```
 
 일부 묶음만 켜려면 `--groups` 를 붙입니다.
 
 ```bash
-claude mcp add --scope user korea-labor -- npx -y korea-labor-mcp mcp --groups nhis
+claude mcp add --scope user k-labor -- npx -y k-labor mcp --groups nhis
 ```
 
 ### Claude Desktop
@@ -31,9 +31,9 @@ claude mcp add --scope user korea-labor -- npx -y korea-labor-mcp mcp --groups n
 ```json
 {
   "mcpServers": {
-    "korea-labor": {
+    "k-labor": {
       "command": "npx",
-      "args": ["-y", "korea-labor-mcp", "mcp"],
+      "args": ["-y", "k-labor", "mcp"],
       "env": {
         "POPBILL_LINK_ID": "내 링크아이디",
         "POPBILL_SECRET_KEY": "내 비밀키",
@@ -53,7 +53,7 @@ claude mcp add --scope user korea-labor -- npx -y korea-labor-mcp mcp --groups n
 ```json
 {
   "mcpServers": {
-    "korea-labor": { "command": "cmd", "args": ["/c", "npx", "-y", "korea-labor-mcp", "mcp"] }
+    "k-labor": { "command": "cmd", "args": ["/c", "npx", "-y", "k-labor", "mcp"] }
   }
 }
 ```
@@ -90,6 +90,14 @@ claude mcp add --scope user korea-labor -- npx -y korea-labor-mcp mcp --groups n
 | `calc` | `calc_take_home_pay` | 실수령액(4대보험 근로자 몫·간이세액표 소득세·지방소득세) |
 | `calc` | `calc_notice_pay` | 해고예고수당 |
 | `calc` | `calc_leave_pay` | 연차수당(남은 일수 또는 퇴직 시 발생 누계, 단시간 근로자) |
+| `calc` | `calc_severance` | 퇴직금(퇴직일 전 3개월 평균임금 + 상여·연차수당 3/12, 통상임금이 높으면 통상임금) |
+| `calc` | `calc_holiday_pay` | 노동절·관공서 공휴일에 일한 날의 임금 — 월급제·일용직·시급제, 5명 이상·4명 이하 |
+| `calc` | `calc_pay_proration` | 급여 일할계산 — 중간 입사·퇴사한 달의 방식별 값(30일·달력 일수·소정근로일·시간·전액), 결근·지각 공제 |
+| `calc` | `calc_shutdown_allowance` | 휴업수당(평균임금 70% 본문과 통상임금 단서를 나란히, 휴업 중 받은 임금 반영) |
+| `leave` | `calc_annual_leave` | 입사일 기준 연차 발생일수(1년 미만 월 1일·15일·2년마다 1일, 최대 25일) |
+| `leave` | `settle_leave_on_exit` | 퇴직 때 연차 재정산 — 입사일 기준 누계와 회계연도 부여 누계 중 유리한 쪽에서 쓴 일수를 뺀 일수 |
+| `tax` | `calc_retirement_tax` | 퇴직소득세·지방소득세(국세청 퇴직소득 세액계산 프로그램과 같은 칸 순서, 2023. 1. 1. 이후 퇴사) |
+| `duties` | `list_employer_duties` | 상시 근로자 수에 맞는 사업주 의무·법정 의무교육·위반 시 제재, 다음 규모에서 더 생기는 의무 |
 | `work-rules` | `list_law_revisions` | 기간 안에 시행되는 노동 관계 법령 개정·시행 예정 목록. 묶은 자료에 법제처 Open API 실시간 확인을 더합니다 |
 | `work-rules` | `get_law_article` | 법령명·조문 번호로 그날 시행 중인 판의 조문 원문(법제처 Open API) |
 | `work-rules` | `compare_law_versions` | 법령 하나의 두 시점 판을 조문 단위로 글자 비교 — 신설·개정·삭제와 개정 전·후 원문(법제처 Open API) |
@@ -105,12 +113,12 @@ claude mcp add --scope user korea-labor -- npx -y korea-labor-mcp mcp --groups n
 - 없는 묶음 이름을 넣으면 서버가 뜨지 않고 있는 묶음 목록을 알려 줍니다.
 
 ```bash
-npx -y korea-labor-mcp --help
+npx -y k-labor --help
 ```
 
 ### contract · calc 묶음
 
-사이트 근로계약서 작성(/tools/contract-write)·점검(/tools/contract-check)과 계산기(/tools/min-wage·weekly-holiday-pay·headcount·take-home-pay·notice-pay·leave-pay)의 엔진을 그대로 묶었습니다. 같은 입력이면 사이트와 같은 값이 나옵니다.
+사이트 근로계약서 작성(/tools/contract-write)·점검(/tools/contract-check)과 계산기(/tools/min-wage·weekly-holiday-pay·headcount·take-home-pay·notice-pay·leave-pay·severance.html·holiday-pay·pay-proration·shutdown-allowance)의 엔진을 그대로 묶었습니다. 같은 입력이면 사이트와 같은 값이 나옵니다.
 
 - **주민등록번호를 받지 않습니다.** 근로자 이름은 선택이고, 없으면 「근로자」로 적습니다. `check_contract` 는 입력에 주민등록번호 모양이 있으면 점검하지 않습니다.
 - `design_contract_wage` 는 사업체명·근무장소·업무가 없어도 금액을 계산하고, 빠진 칸을 `contractFieldsMissing` 으로 알려 줍니다. `make_contract_files` 는 그 칸이 있어야 파일을 만들고, 이미 있는 파일은 덮어쓰지 않습니다.
@@ -118,11 +126,28 @@ npx -y korea-labor-mcp --help
 - 각 묶음 파일이 원격(HTTP)판에 실어도 되는 도구 목록을 내보냅니다 — `contractRemoteSafe`(설계·점검), `calcRemoteSafe`(전부). 파일을 쓰는 `make_contract_files` 는 `contractLocalOnly` 로 따로 표시했습니다.
 
 ```bash
-claude mcp add --scope user korea-labor -- npx -y korea-labor-mcp mcp --groups contract,calc
+claude mcp add --scope user k-labor -- npx -y k-labor mcp --groups contract,calc
 ```
 
 > 「주4 월화수목 10:00~22:00, 휴게 155분, 공휴일 22일, 월 260만원으로 근로계약서 임금 구성 짜 줘.」
 > 「시급 10,320원, 주 22.5시간이면 주휴수당 얼마야?」
+
+- `calc_holiday_pay` 는 월급에 휴일·연장 가산이 들어 있다는 약정 칸을 받지 않습니다(사이트 화면에만 있는 칸). 법정 기준 값만 냅니다.
+- `calc_pay_proration` 은 회사 기준을 모르면 방식마다 값을 나란히 내고, 원 미만이 남는데 끝수 기준(`rounding`)이 없으면 금액을 `null` 로 둡니다.
+
+### leave · tax · duties 묶음
+
+- `leave` — 사이트 연차 계산기(/tools/leave)와 퇴직 정산(/tools/leave/settlement) 엔진. 날짜·일수만 받습니다. `settle_leave_on_exit` 는 빈 칸을 0 으로 보지 않고, 회계연도 쪽이 많을 때 취업규칙 재산정 규정 유무를 모르면 확정하지 않습니다(`verdict: insufficient-input`). 일수만 세고 금액은 `calc_leave_pay` 로 냅니다.
+- `tax` — 퇴직소득세 계산기(/tools/retirement-tax) 엔진과 화면 문장(연금계좌로 받는 경우·원천징수영수증·홈택스 모의계산 안내)을 그대로 싣습니다.
+- `duties` — 사이트 /duties 의 묶은 자료(법제처 현행 법령 원문 확인일 포함)와 같은 고르기 규칙(`src/lib/duties.ts`, 화면과 같은 함수)으로 답합니다. 네트워크를 쓰지 않습니다.
+- 원격(HTTP)판에 실어도 되는 도구 = `leaveRemoteSafe`·`taxRemoteSafe`·`dutiesRemoteSafe`(전부).
+
+```bash
+claude mcp add --scope user k-labor -- npx -y k-labor mcp --groups calc,leave,tax,duties
+```
+
+> 「2014년 1월 2일 입사, 2026년 7월 15일 퇴사, 퇴직금 6,000만원이면 퇴직소득세 얼마야?」
+> 「상시 근로자 7명 사업장이 지켜야 할 의무 알려 줘.」
 
 ### work-rules 묶음
 
@@ -141,7 +166,7 @@ claude mcp add --scope user korea-labor -- npx -y korea-labor-mcp mcp --groups c
 - 법령명·조문 원문·개정 요지는 법제처·사이트 자료 글자를 고치지 않고 싣습니다.
 
 ```bash
-claude mcp add --scope user korea-labor -e LAW_OC=내OC -- npx -y korea-labor-mcp mcp --groups work-rules
+claude mcp add --scope user k-labor -e LAW_OC=내OC -- npx -y k-labor mcp --groups work-rules
 ```
 
 > 「우리 취업규칙(C:/규정/취업규칙.hwpx) 2024-03-01 개정본인데, 그 뒤 시행된 노동법 개정 반영됐는지 봐 줘. 법제처 최신 공포분도 같이.」
@@ -199,7 +224,7 @@ claude mcp add --scope user korea-labor -e LAW_OC=내OC -- npx -y korea-labor-mc
 이 패키지는 사이트 엔진(`src/lib/nhis-forms`·`src/lib/branch-directory`)과 지사 데이터(`data/branch-directory/`)를 esbuild 로 묶어 서식이 사이트와 한 벌로 유지됩니다. 엔진을 고치면 다시 빌드해야 반영됩니다.
 
 ```bash
-cd tools/korea-labor-mcp
+cd tools/k-labor
 npm.cmd install
 npm.cmd run build        # dist/server.mjs + dist/assets/(서식 PDF 2종·글꼴·OFL.txt, 계약서 PDF 용 나눔고딕·라이선스, hwp 읽기 rhwp WASM)
 node smoke.mjs           # 합성 값 시험, 전송 안 함. 법제처는 가짜 법제처(tests/fixtures/laws/drf 고정 응답)로

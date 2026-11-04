@@ -53,7 +53,7 @@ const spawn = (env, args = extra) => (/\.cmd$/i.test(target)
   ? new StdioClientTransport({ command: 'cmd', args: ['/c', target, 'mcp', ...args], env })
   : new StdioClientTransport({ command: process.execPath, args: [target, 'mcp', ...args], env }));
 
-const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'korea-labor-mcp-'));
+const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'k-labor-'));
 const c = new Client({ name: 'smoke', version: '0' });
 await c.connect(spawn(mockEnv));
 const fails = [];
@@ -125,13 +125,20 @@ const ANN = {
   ...Object.fromEntries(['list_law_revisions', 'get_law_article', 'compare_law_versions', 'check_work_rules_revisions', 'check_work_rules_file']
     .map((n) => [n, { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true }])),
   make_work_rules_report_forms: { readOnlyHint: false, destructiveHint: false, openWorldHint: true },
+  ...Object.fromEntries(['calc_severance', 'calc_holiday_pay', 'calc_pay_proration', 'calc_shutdown_allowance', 'calc_annual_leave', 'settle_leave_on_exit', 'calc_retirement_tax', 'list_employer_duties']
+    .map((n) => [n, { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false }])),
 };
+// 이 판에서 더한 도구 8개 — 「대신·대행·대리」도 함께 막는다
+const NEW_TOOLS = ['calc_severance', 'calc_holiday_pay', 'calc_pay_proration', 'calc_shutdown_allowance', 'calc_annual_leave', 'settle_leave_on_exit', 'calc_retirement_tax', 'list_employer_duties'];
+const NEW_WORDS = [...WORDS, '대신', '대행', '대리'];
+const bannedNew = (s) => (banned ? banned.bannedHits(s, NEW_WORDS) : []);
+for (const n of NEW_TOOLS) check(`${n}: 도구 목록에 있음`, tools.includes(n));
 for (const t of (await c.listTools()).tools.filter((x) => ANN[x.name])) {
   const a = t.annotations || {};
   const same = Object.entries(ANN[t.name]).every(([k, v]) => a[k] === v);
   console.log(`  ${t.name} | ${t.title} | ro=${a.readOnlyHint} destr=${a.destructiveHint} idem=${a.idempotentHint} open=${a.openWorldHint}`);
   check(`${t.name}: title·annotations`, !!t.title && same);
-  const h = bannedIn(`${t.title} ${t.description} ${JSON.stringify(t.inputSchema)}`);
+  const h = (NEW_TOOLS.includes(t.name) ? bannedNew : bannedIn)(`${t.title} ${t.description} ${JSON.stringify(t.inputSchema)}`);
   check(`${t.name}: 이름·설명·입력 설명 금지어 없음${h.length ? ` (${h.join(',')})` : ''}`, h.length === 0);
 }
 
@@ -245,6 +252,114 @@ if (tools.includes('calc_leave_pay')) {
   const err = await callTool('calc_leave_pay', { timing: 'employed', fivePlus: true, weeklyHours: 40, dailyHours: 8, rate: { basis: 'ordinary-wage', unit: 'month', amount: 2_600_000 }, asOf: '2026-10-29' });
   check(`leave_pay 일수 없으면 오류(${err.error})`, err.ok === false && !!err.error);
 }
+// ── 이 판에서 더한 도구 8개(calc 4 · leave 2 · tax 1 · duties 1) ──
+// 기대값 = 사이트 단위 시험(tests/unit/calc-severance·calc-retirement-tax·calc-pay-proration·calc-shutdown-allowance,
+// tests/leave-source/leave-ledger.crosscheck.mts) 또는 엔진 식을 손으로 푼 값. 전부 합성 값이다.
+const callNew = async (name, args) => {
+  const t = await callJson(name, args).then((j) => JSON.stringify(j));
+  const h = bannedNew(t);
+  check(`${name}: 응답 금지어 없음(대신·대행·대리 포함)${h.length ? ` (${h.join(',')})` : ''}`, h.length === 0);
+  return JSON.parse(t);
+};
+if (tools.includes('calc_severance')) {
+  // calc-severance.test.ts 「재직 3년(1,096일)」 — 1일 평균임금 97,826.09, 퇴직금 = 반올림(9,782,609전 × 30 × 1,096 ÷ 36,500)
+  const s = await callNew('calc_severance', { hireDate: '2023-01-01', lastWorkDate: '2025-12-31', wageTotal: 9_000_000 });
+  const want = Math.round((9_782_609 * 30 * 1096) / 36_500);
+  check(`severance 3년 1,096일 · 97,826.09 → ${want}(${s.headline?.[0]})`, s.ok && s.result?.serviceDays === 1096 && s.result.dailyAverage === 97_826.09 && s.result.amount === want && s.result.eligible === true);
+  const short = await callNew('calc_severance', { hireDate: '2026-03-02', lastWorkDate: '2026-10-30', wageTotal: 7_500_000 });
+  check(`severance 1년 미만은 지급 대상 아님(${short.headline?.[0]})`, short.ok && short.result?.eligible === false && /1년/.test(short.headline?.[0] ?? ''));
+  const bad = await callNew('calc_severance', { hireDate: '2026-03-02', lastWorkDate: '2026-02-01', wageTotal: 7_500_000 });
+  check(`severance 날짜 거꾸로면 오류(${bad.error})`, bad.ok === false && !!bad.error);
+}
+if (tools.includes('calc_holiday_pay')) {
+  // 엔진 식 — 월급 2,090,000 ÷ 209 = 통상시급 10,000. 월급제는 가산분만: 10,000 × 0.5 × 8 = 40,000
+  const m = await callNew('calc_holiday_pay', { workerType: 'monthly', fivePlus: true, holidayKind: 'public_holiday', monthlyPay: 2_090_000, workedHours: 8 });
+  check(`holiday_pay 월급제 5인 이상 8시간 → 가산 40,000(${m.headline?.[0]})`, m.ok && m.result?.total === 40_000 && m.result.base_hourly === 10_000 && m.result.already_in_monthly_pay === true);
+  // 시급 10,320 × 8 = 82,560 + 가산 41,280 = 123,840
+  const h = await callNew('calc_holiday_pay', { workerType: 'hourly', fivePlus: true, holidayKind: 'labor_day', hourlyWage: 10_320, workedHours: 8, weeklyHours: 40 });
+  check(`holiday_pay 시급 10,320 노동절 8시간 → 123,840(${h.headline?.[0]})`, h.ok && h.result?.total === 123_840);
+  const small = await callNew('calc_holiday_pay', { workerType: 'monthly', fivePlus: false, holidayKind: 'public_holiday', monthlyPay: 2_090_000, workedHours: 8 });
+  check('holiday_pay 4명 이하 관공서 공휴일은 가산 없음·안내', small.ok && small.result?.total === 0 && !!small.result.warning);
+  const zero = await callNew('calc_holiday_pay', { workerType: 'daily', fivePlus: true, holidayKind: 'public_holiday', dailyWage: 0, workedHours: 8 });
+  check(`holiday_pay 일급 0이면 오류(${zero.error})`, zero.ok === false && /일급/.test(zero.error ?? ''));
+}
+if (tools.includes('calc_pay_proration')) {
+  // calc-pay-proration.test.ts C1 — 2026-03 월급 2,508,000, 3/16 입사, 5명 이상
+  const p = await callNew('calc_pay_proration', { mode: 'prorate', month: '2026-03', monthlyPay: 2_508_000, start: '2026-03-16', fivePlus: true, payslip: 1_337_600 });
+  const amt = (id) => p.methods?.find((x) => x.id === id)?.amounts;
+  check(`pay_proration 3/16 입사 30일 기준 1,337,600 · 명세서 일치 DAY_30(${p.headline?.[0]})`, p.ok && p.result?.employedDays === 16 && JSON.stringify(amt('DAY_30')) === '[1337600]' && p.result.payslip?.matches?.map((x) => x.id).join() === 'DAY_30');
+  const fl = await callNew('calc_pay_proration', { mode: 'prorate', month: '2026-03', monthlyPay: 2_508_000, start: '2026-03-16', fivePlus: true, rounding: { how: 'FLOOR', unit: 1 }, method: 'CALENDAR' });
+  check(`pay_proration 달력 일수 기준 버림 1,294,451(${fl.headline?.[0]})`, fl.ok && JSON.stringify(fl.methods?.find((x) => x.id === 'CALENDAR')?.amounts) === '[1294451]' && /회사 기준/.test(fl.headline?.[0] ?? ''));
+  // A1·A2 — 2026-11-18(수) 결근: 통상시급 × 8 = 96,000 / 그 주 주휴까지 192,000
+  const a = await callNew('calc_pay_proration', { mode: 'absence', month: '2026-11', monthlyPay: 2_508_000, fivePlus: true, absences: ['2026-11-18'] });
+  const h8 = a.result?.rows?.find((x) => x.unit === 'HOUR8');
+  check(`pay_proration 결근 1일 96,000 / 192,000(${a.headline?.[0]})`, a.ok && h8?.daysOnly?.amount === 96_000 && h8.withHoliday?.amount === 192_000);
+  const none = await callNew('calc_pay_proration', { mode: 'prorate', month: '2026-03', monthlyPay: 2_508_000, fivePlus: true });
+  check(`pay_proration 입사일·퇴사일 둘 다 없으면 오류(${none.error})`, none.ok === false && /입사일/.test(none.error ?? ''));
+}
+if (tools.includes('calc_shutdown_allowance')) {
+  // calc-shutdown-allowance.test.ts C2 — 3개월 13,800,000 ÷ 92 = 150,000, 통상 100,000, 10일 → 본문 1,050,000 · 단서 1,000,000
+  const avg = { source: 'period', hireDate: '2024-03-01', startDate: '2026-11-02', wageTotal: 13_800_000 };
+  const ord = { unit: 'day', amount: 100_000, dailyHours: 8 };
+  const s2 = await callNew('calc_shutdown_allowance', { fivePlus: true, cause: 'employer', average: avg, ordinary: ord, days: 10 });
+  check(`shutdown C2 본문 1,050,000 · 단서 1,000,000(${s2.headline?.[0]})`, s2.ok && s2.result?.main === 1_050_000 && s2.result.proviso === 1_000_000);
+  const s1 = await callNew('calc_shutdown_allowance', { fivePlus: true, cause: 'employer', average: { ...avg, wageTotal: 11_040_000 }, ordinary: ord, days: 10 });
+  check(`shutdown C1 840,000 한 값(${s1.headline?.[0]})`, s1.ok && s1.result?.main === 840_000 && s1.result.proviso === null);
+  const u5 = await callNew('calc_shutdown_allowance', { fivePlus: false, cause: 'employer', average: avg, ordinary: ord, days: 10 });
+  check('shutdown 4명 이하는 계산하지 않음', u5.ok && u5.result?.status === 'under5' && u5.result.main === null);
+  const over8 = await callNew('calc_shutdown_allowance', { fivePlus: true, cause: 'employer', average: avg, ordinary: { ...ord, dailyHours: 9 }, days: 10 });
+  check(`shutdown 1일 소정 8시간 넘으면 오류(${over8.error?.slice(0, 30)}…)`, over8.ok === false && /8시간/.test(over8.error ?? ''));
+}
+if (tools.includes('calc_annual_leave')) {
+  // 근로기준법 제60조 — 근속 3년 15 + 1 = 16일 · 1년 미만 8개월 8일
+  const y3 = await callNew('calc_annual_leave', { hireDate: '2023-01-01', asOf: '2026-01-01' });
+  check(`annual_leave 근속 3년 16일(${y3.headline?.[0]})`, y3.ok && y3.result?.days === 16 && y3.result.serviceYears === 3);
+  const m8 = await callNew('calc_annual_leave', { hireDate: '2026-01-12', asOf: '2026-09-30' });
+  check(`annual_leave 1년 미만 8개월 8일(${m8.headline?.[0]})`, m8.ok && m8.result?.days === 8 && m8.result.completedMonths === 8);
+  const big = await callNew('calc_annual_leave', { hireDate: '1990-01-01', asOf: '2026-01-01' });
+  check('annual_leave 상한 25일', big.ok && big.result?.days === 25);
+  const rev = await callNew('calc_annual_leave', { hireDate: '2026-01-12', asOf: '2025-09-30' });
+  check(`annual_leave 기준일이 입사일보다 빠르면 오류(${rev.error})`, rev.ok === false && !!rev.error);
+}
+if (tools.includes('settle_leave_on_exit')) {
+  // leave-ledger.crosscheck.mts — 입사 2004-08-01 · 퇴사 2009-09-30: 입사일 기준 79 > 회계연도 69, 사용 53 → 26일
+  const s = await callNew('settle_leave_on_exit', { hireDate: '2004-08-01', endDate: '2009-09-30', fiscalGrantedTotal: 69, usedOrPaidTotal: 53, includeFirstYearMonthly: false });
+  check(`settle 79 − 53 = 26일(${s.headline?.[0]})`, s.ok && s.result?.hireDateTotal === 79 && s.result.guaranteedTotal === 79 && s.result.shortfallDays === 26 && s.result.verdict === 'shortfall');
+  const gate = await callNew('settle_leave_on_exit', { hireDate: '2004-08-01', endDate: '2009-07-30', fiscalGrantedTotal: 69, usedOrPaidTotal: 69, includeFirstYearMonthly: false });
+  check(`settle 회계연도가 많고 규정 유무 모르면 확정 안 함(${gate.headline?.[0]})`, gate.ok && gate.result?.verdict === 'insufficient-input' && gate.result.shortfallDays === null);
+  const miss = await callNew('settle_leave_on_exit', { hireDate: '2004-08-01', endDate: '2009-09-30' });
+  check('settle 빈 칸은 0으로 보지 않음', miss.ok && miss.result?.verdict === 'insufficient-input');
+  const monthly = await callNew('settle_leave_on_exit', { hireDate: '2004-08-01', endDate: '2009-09-30', fiscalGrantedTotal: 69, usedOrPaidTotal: 53 });
+  check('settle 1년 이상이면 월차 포함 여부를 묻는다', monthly.ok && monthly.result?.verdict === 'insufficient-input' && /월/.test(monthly.result.groundNote ?? ''));
+  const badDate = await callNew('settle_leave_on_exit', { hireDate: '2004-8-1', endDate: '2009-09-30', fiscalGrantedTotal: 69, usedOrPaidTotal: 53 });
+  check(`settle 날짜 형식 오류(${badDate.error})`, badDate.ok === false);
+}
+if (tools.includes('calc_retirement_tax')) {
+  // calc-retirement-tax.test.ts T06 — 13년, 6,000만원 → 소득세 691,990 · 지방소득세 69,190
+  const t = await callNew('calc_retirement_tax', { pay: 60_000_000, hireDate: '2014-01-02', lastWorkDate: '2026-07-15' });
+  check(`retirement_tax T06 691,990 · 69,190(${t.headline?.[0]})`, t.ok && t.result?.years === 13 && t.result.incomeTax === 691_990 && t.result.localTax === 69_190 && !!t.hometax?.href);
+  const z = await callNew('calc_retirement_tax', { pay: 2_500_000, hireDate: '2023-07-03', lastWorkDate: '2026-07-02' });
+  check(`retirement_tax T10 공제 상한 → 0원(${z.headline?.[1]})`, z.ok && z.result?.incomeTax === 0 && z.result.serviceDeductionCapped === true);
+  const old = await callNew('calc_retirement_tax', { pay: 20_000_000, hireDate: '2015-01-01', lastWorkDate: '2022-12-31' });
+  check(`retirement_tax 2022년 퇴사는 계산하지 않음(${old.error?.slice(0, 30)}…)`, old.ok === false && /2023년/.test(old.error ?? ''));
+}
+if (tools.includes('list_employer_duties')) {
+  let dutiesData = null;
+  const dutiesTs = fileURLToPath(new URL('../../src/content/duties-data.ts', import.meta.url));
+  if (fs.existsSync(dutiesTs)) {
+    const { build } = await import('esbuild');
+    const out = await build({ entryPoints: [dutiesTs], bundle: true, format: 'esm', platform: 'node', write: false, logLevel: 'silent' });
+    dutiesData = await import(`data:text/javascript;base64,${Buffer.from(out.outputFiles[0].text).toString('base64')}`);
+  }
+  const want = (tier) => dutiesData?.DUTIES.filter((d) => d.min <= tier).length;
+  const d7 = await callNew('list_employer_duties', { headcount: 7 });
+  check(`duties 7명 → 5~9명 구간 의무 ${d7.count}개(자료 ${want(5)}) · 다음 구간 10~29명`, d7.ok && d7.tier?.min === 5 && (!dutiesData || d7.count === want(5)) && d7.next?.tier?.min === 10 && d7.duties.every((x) => x.title && x.basis && x.penalty));
+  const d0 = await callNew('list_employer_duties', { headcount: 0 });
+  check(`duties 0명 → 1~4명 구간(${d0.count}개)`, d0.ok && d0.tier?.min === 1 && (!dutiesData || d0.count === want(1)) && d0.newAtThisTier?.length === 0);
+  const d50 = await callNew('list_employer_duties', { headcount: 120, group: '의무교육' });
+  check(`duties 120명 의무교육만(${d50.duties?.length}개) · 다음 구간 없음`, d50.ok && d50.tier?.min === 50 && d50.duties.every((x) => x.group === '의무교육') && d50.next === null && d50.count === (dutiesData ? want(50) : d50.count));
+}
+
 // ── work-rules 묶음 ──
 // 금지어: 이 묶음이 쓰는 글은 전부 보고, 법령·개정 자료에서 그대로 옮긴 칸(LAW_TEXT_FIELDS)만 뺀다(법령 원문 변조 금지).
 // groups/work-rules.mjs 의 LAW_TEXT_FIELDS 와 같아야 한다
