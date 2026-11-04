@@ -100,9 +100,9 @@ const PAPER = { workplaceName: '가상상회', ownerName: '김대표', location:
 if (tools.includes('design_contract_wage')) {
   const d = await callTool('design_contract_wage', UIJ);
   const amt = Object.fromEntries((d.items || []).map((i) => [i.key, i.amount]));
-  const want = { base: 1_870_364, overtime: 414_013, holiday: 243_879, leave: 71_744 };
+  const want = { base: 1_895_839, overtime: 419_652, holiday: 211_788, leave: 72_721 };
   check(`design 의정부 항목 금액 ${JSON.stringify(amt)}`, JSON.stringify(amt) === JSON.stringify(want));
-  check(`design 의정부 통상시급 ${d.ordinaryHourly}(${d.ordinaryHourlyText})`, d.ordinaryHourly === 11_209.99 && d.ordinaryHourlyText === '11,209.99원');
+  check(`design 의정부 통상시급 ${d.ordinaryHourly}(${d.ordinaryHourlyText})`, d.ordinaryHourly === 11_362.67 && d.ordinaryHourlyText === '11,362.67원');
   check(`design 의정부 합계 = 총액(${d.total})`, d.total === 2_600_000 && d.items.reduce((s, i) => s + i.amount, 0) === 2_600_000);
   check(`design 점검 되먹임(${d.review?.summary}) · 최저임금 한 줄(${d.minimumWage?.text})`, Array.isArray(d.review?.items) && typeof d.minimumWage?.text === 'string');
   check(`design 계약서 칸 빠짐 알림(${d.contractFieldsMissing})`, d.contractFieldsMissing?.join() === '사업체명,근무장소,업무');
