@@ -22,7 +22,7 @@ export function leaveExportRow({ row, result }: LeaveResultRow): (string | numbe
 }
 
 export function leaveCsv(rows: LeaveResultRow[], asOf: string): string {
-  const header = ['이름', '입사일', '기준일', '발생일수', '대장기재', '차이', '판정', '적용근거'];
+  const header = ['이름', '입사일', '기준일', '발생일수', '대장기재', '차이', '대조 결과', '적용근거'];
   const data = rows.map(item => {
     const cells = leaveExportRow(item);
     return [...cells.slice(0, 2), asOf, ...cells.slice(2)];
@@ -38,7 +38,7 @@ export function spreadsheetCell(cell: string | number): string {
 }
 
 export function leaveTsv(rows: LeaveResultRow[], asOf: string): string {
-  const header = ['이름', '입사일', '기준일', '발생일수', '대장기재', '차이', '판정', '적용근거'];
+  const header = ['이름', '입사일', '기준일', '발생일수', '대장기재', '차이', '대조 결과', '적용근거'];
   const data = rows.map(item => {
     const cells = leaveExportRow(item);
     return [...cells.slice(0, 2), asOf, ...cells.slice(2)];

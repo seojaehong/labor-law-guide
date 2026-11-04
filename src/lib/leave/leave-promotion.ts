@@ -67,7 +67,7 @@ function rollUp(ws: ScheduleWindow[]): ScheduleStatus {
 }
 
 const DISCLAIMER =
-  "입력한 사용기간 종료일과 대상 유형을 전제로 계산한 일정입니다. 서면·도달·실제 사용 보장 등 적법성은 확인하지 않았습니다.";
+  "입력한 사용기간 종료일과 대상 유형을 전제로 계산한 일정입니다. 서면·도달·실제 사용 보장 등 절차 요건은 확인하지 않았습니다.";
 
 function parse(d: string): Date {
   const [y, m, day] = d.split("-").map(Number);

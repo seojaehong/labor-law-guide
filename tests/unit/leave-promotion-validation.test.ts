@@ -24,7 +24,7 @@ describe('promotion input chronology', () => {
       const result = checkedPromotionSchedule({ ...base, secondNoticeSentOn: second });
       expect(result.windows.some(window => window.actual === sent && window.label.startsWith('1차') && window.status === 'match')).toBe(true);
       expect(result.windows.filter(window => window.label.startsWith('2차') && window.actual).every(window => window.status === 'unknown')).toBe(true);
-      expect(result.disclaimer).toContain('적법성');
+      expect(result.disclaimer).toContain('절차 요건');
     });
   }
   it('does not accept receipt before sending', () => {
