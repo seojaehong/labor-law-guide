@@ -4,7 +4,7 @@
 // 양식 재현은 includeUnder15 로만 한다.
 import { describe, expect, it } from 'vitest';
 
-import { designHourlyWage, type HourlyDesignInput } from '@/lib/contract-write/part';
+import { designHourlyWage, laborDayOffHours, laborDayOffPay, type HourlyDesignInput } from '@/lib/contract-write/part';
 
 const base = { hourlyWage: 13_000, includeUnder15: true } as const;
 const A: HourlyDesignInput = { ...base, stayHours: 6, breakMinutes: 30, nightHours: 0, daysPerWeek: 5, holidayDaysPerYear: 16 };
@@ -58,15 +58,17 @@ describe('designHourlyWage — 양식 「_2026」 a~e 재현(includeUnder15)', (
     expect(x.holiday).toBeCloseTo(4_463.87, 2);
   });
 
-  // 양식과 다른 점(법 기준) — 공휴일 하루 10.25시간 중 8시간 넘는 2.25시간은 2.0배(근로기준법 제56조 제2항).
-  // 양식은 8시간 × 1.5 만 넣어 휴일 0.6904H·합 14.2837H(기본급 83,732.10원)였다. 휴일 말고 시간은 양식과 같다
-  it('e 주말 11:00~22:30 주2(실근무 10.25h → 연장 2.25h, 공휴일 8시간 넘는 시간 2.0배)', () => {
+  // 양식과 다른 점(법 기준) — 공휴일 하루 10.25시간 중 8시간 넘는 2.25시간은 통상임금의 2.0배(근로기준법 제56조 제2항 제2호).
+  // 그 시간의 1.5 는 일 지급액의 연장(공휴일에 근무한 날도 하루 연장 2.25시간)이 이미 담으므로 휴일 쪽은 0.5 만 더한다 — #151 전에는
+  // 2.0 을 더해 3.5배였다(연장 가산 중복 없음, 대법원 2024. 2. 8. 선고 2018다206899 판결). 양식은 8시간 × 1.5 만 넣어 휴일 0.6904H·
+  // 합 14.2837H(기본급 83,732.10원)였다 — 이제 그 2.25시간에 0.5 만큼 더 많다. 휴일 말고 시간은 양식과 같다
+  it('e 주말 11:00~22:30 주2(실근무 10.25h → 연장 2.25h, 공휴일 8시간 넘는 시간은 연장 1.5 + 휴일 0.5 = 2.0배)', () => {
     const r = designHourlyWage(E);
     expect(r.total).toBe(149_500);
     expect(r.hours.base).toBe(8);
     expect(r.hours.weeklyHoliday).toBeCloseTo(1.6, 10);
     expect(r.hours.overtime).toBeCloseTo(3.375, 10);
-    expect(r.hours.holiday).toBeCloseTo(((8 * 1.5 + 2.25 * 2) * 6) / ((2 * 365) / 7), 10);
+    expect(r.hours.holiday).toBeCloseTo(((8 * 1.5 + 2.25 * 0.5) * 6) / ((2 * 365) / 7), 10);
     expect(r.totalHours - r.hours.holiday).toBeCloseTo(14.283650314485238 - (8 * 1.5 * 6) / ((2 * 365) / 7), 10);
   });
 
@@ -114,18 +116,54 @@ describe('designHourlyWage — 법 기준 기본값', () => {
   });
 });
 
-// #139 적대 검토 1 — 파트도 1주 40시간을 넘는 시간은 연장. 주휴는 1주 소정(40시간 한도) ÷ 40 × 8 을 근무일에 나눈다
+// #139 적대 검토 1 — 파트도 1주 40시간을 넘는 시간은 연장. 주휴는 1주 소정(40시간 한도) ÷ 40 × 8 을 근무일에 나눈다. 공휴일 주 연장은 아래 별도 시험(공휴일 0일)
 describe('designHourlyWage — 1주 40시간 넘는 연장', () => {
   it.each([
     [9, 8 / 6],
     [11, 20 / 6],
     [8, 2 / 6],
   ])('주 6일 × 체류 %s시간(휴게 60분) → 하루 연장 %s시간', (stay, otPerDay) => {
-    const r = designHourlyWage({ ...A, stayHours: stay, breakMinutes: 60, daysPerWeek: 6 });
+    const r = designHourlyWage({ ...A, stayHours: stay, breakMinutes: 60, daysPerWeek: 6, holidayDaysPerYear: 0 });
     expect(r.hours.overtime).toBeCloseTo(otPerDay * 1.5, 10);
     const work = stay - 1;
     expect(r.hours.base + r.hours.overtime / 1.5).toBeCloseTo(work, 10);
     // 주휴 1주 합 = min(소정, 40) ÷ 40 × 8
     expect(r.hours.weeklyHoliday * 6).toBeCloseTo((Math.min(Math.min(work, 8) * 6, 40) / 40) * 8, 10);
+  });
+});
+
+// 노동절(5월 1일)이 소정근로일이 아닌 날에 들 때의 1일분 — 근로기준법 시행령 별표 2 제2호 가·나목의 일급 통상임금
+// = 4주 소정근로시간 ÷ 통상 근로자 4주 소정근로일(주 5일 가정 20일) × 시간급 = 1주 소정 ÷ 5 × 통상시급(임금근로시간정책과-1384).
+// 하루 소정근로시간(8시간) × 통상시급이 아니다. 1주 15시간 미만도 같은 식으로 센다(근로기준정책과-4361). 표에는 넣지 않는다
+describe('laborDayOffHours · laborDayOffPay — 노동절 1일분(별표 2 제2호 나목)', () => {
+  it('주 3일 × 8시간, 통상시급 12,000원 → 4.8시간 × 12,000 = 57,600원(8시간분 96,000원이 아니다)', () => {
+    expect(laborDayOffHours(8, 3)).toBeCloseTo(4.8, 10);
+    expect(laborDayOffPay(laborDayOffHours(8, 3), 12_000)).toBe(57_600);
+  });
+  it('1주 15시간 미만(주 2일 × 6시간)도 1주 소정 ÷ 5 = 2.4시간', () => {
+    expect(laborDayOffHours(6, 2)).toBeCloseTo(2.4, 10);
+  });
+  it('1주 소정은 하루 8시간·1주 40시간 한도 — 주 6일 × 9시간이면 40 ÷ 5 = 8시간', () => {
+    expect(laborDayOffHours(9, 6)).toBeCloseTo(8, 10);
+  });
+  it('끝수는 근로자에게 불리하지 않게 원 단위로 올린다(임금근로시간정책과-1384)', () => {
+    expect(laborDayOffPay(5.5, 10_598.595166490586)).toBe(58_293);
+    expect(laborDayOffPay(4.8, 115_200 / 9.6)).toBe(57_600);
+  });
+});
+
+// 공휴일이 든 주의 1주 40시간 연장(design.ts holidayWeekDroppedOvertime) — 주 6일 × 하루 8시간: 하루 연장 = (8 − 40 ÷ 6) × 1.5 = 2.0.
+// 공휴일 주는 나머지 5일 40시간이라 1주 연장 8시간이 빠진다 → 연 12일 중 설·추석 연휴 6일을 뺀 6일 ÷ 근무일(6 × 365 ÷ 7) 비율로 하루에 나눠 뺀다
+describe('designHourlyWage — 공휴일이 든 주의 1주 40시간 연장', () => {
+  const SIX: HourlyDesignInput = { hourlyWage: 13_000, stayHours: 9, breakMinutes: 60, nightHours: 0, daysPerWeek: 6, holidayDaysPerYear: 12 };
+  it('하루 연장에서 빠지는 시간을 공휴일 비율로 뺀다', () => {
+    const workdays = (6 * 365) / 7;
+    expect(designHourlyWage(SIX).hours.overtime).toBeCloseTo((8 - 40 / 6 - (8 * (12 - 6)) / workdays) * 1.5, 6);
+  });
+  it('공휴일이 없으면 그대로', () => {
+    expect(designHourlyWage({ ...SIX, holidayDaysPerYear: 0 }).hours.overtime).toBeCloseTo((8 - 40 / 6) * 1.5, 6);
+  });
+  it('주 5일 이하는 그대로(하루 9시간 — 하루 8시간 넘는 1시간만 연장)', () => {
+    expect(designHourlyWage({ ...SIX, stayHours: 10, daysPerWeek: 5 }).hours.overtime).toBeCloseTo(1.5, 6);
   });
 });

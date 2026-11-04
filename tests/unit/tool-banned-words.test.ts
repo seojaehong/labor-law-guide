@@ -8,6 +8,8 @@ import { bannedHits } from '@/lib/tool-kit/banned';
 
 const ROOTS = [
   'src/app/tools',
+  'src/app/ai-tools',
+  'src/content/ai-tools.ts',
   'src/app/duties',
   'src/app/exit-employer',
   'src/components/tool',
