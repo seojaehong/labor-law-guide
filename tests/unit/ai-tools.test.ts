@@ -21,9 +21,24 @@ describe('AI 연결 도구 목록', () => {
     }
   });
 
-  it('산재 신청 도우미는 공개, 4대보험 신고서 도구는 준비 중', () => {
+  it('산재 신청 도우미와 k-labor 묶음은 공개 — k-labor 카드는 자기 묶음만 켜는 명령을 싣는다', () => {
     expect(AI_TOOLS.find((t) => t.id === 'sanjae-apply')?.status).toBe('public');
-    expect(AI_TOOLS.find((t) => t.id === 'insurance-forms')?.status).toBe('preparing');
+    const groups: Record<string, string> = {
+      'insurance-forms': 'nhis',
+      contract: 'contract',
+      calc: 'calc',
+      'leave-tax': 'leave,tax',
+      checks: 'calc,duties',
+      'work-rules': 'work-rules',
+    };
+    for (const [id, g] of Object.entries(groups)) {
+      const t = AI_TOOLS.find((x) => x.id === id);
+      expect(t?.status, id).toBe('public');
+      expect(t?.install?.claudeCode, id).toMatch(new RegExp(`npx -y k-labor mcp --groups ${g}$`));
+    }
+    // 묶음 이름은 패키지 server.mjs 의 GROUPS 와 같아야 한다
+    const server = fs.readFileSync('tools/k-labor/server.mjs', 'utf8');
+    for (const g of new Set(Object.values(groups).flatMap((s) => s.split(',')))) expect(server, g).toMatch(new RegExp(`\\n\\s+'?${g}'?: \\{ register`));
   });
 
   it('문구에 금지어가 없다', () => {

@@ -63,16 +63,18 @@ export const AI_TOOLS: AiTool[] = [
   {
     id: 'insurance-forms',
     name: '4대보험 신고서 도구',
-    status: 'preparing',
+    status: 'public',
     summary: '사업장 주소나 사업자등록번호로 관할 지사와 담당 번호를 찾고, 건강보험 자격취득·상실 신고서와 늦어진 사유를 적은 사업주확인서를 공식 서식 그대로 만듭니다.',
     does: [
       '주소·사업자등록번호 → 건강보험 관할 지사, 업무별 담당 전화·팩스',
       '건강보험 자격상실(별지 제8호)·자격취득(별지 제6호) 신고서 PDF',
       '늦어진 신고의 사유를 적은 사업주확인서',
-      '사업주 본인 팝빌 계정으로 팩스·문자를 보내고 전송 결과를 확인하는 기능(시험 중)',
+      '사업주 본인 팝빌 계정으로 팩스·문자를 보내고 전송 결과를 확인하는 기능(시험 중, popbill 묶음을 따로 켭니다)',
     ],
     privacy: '사람 명단은 PC 안의 파일로만 받습니다. 도구가 그 파일을 직접 읽어 PDF 를 만들기 때문에 주민등록번호가 AI 대화에 실리지 않습니다.',
+    install: { claudeCode: 'claude mcp add --scope user k-labor -- npx -y k-labor mcp --groups nhis' },
     links: [
+      { label: 'npm', href: 'https://www.npmjs.com/package/k-labor' },
       { label: '웹에서 신고서 만들기', href: '/tools/nhis-report-form' },
       { label: '관할 지사 찾기', href: '/tools/branch-directory' },
     ],
@@ -80,7 +82,7 @@ export const AI_TOOLS: AiTool[] = [
   {
     id: 'contract',
     name: '근로계약서 도구',
-    status: 'preparing',
+    status: 'public',
     summary: '월 총액이나 시급과 근무형태를 말하면 임금 항목을 나눠 설계하고, 이미 쓴 계약서를 항목별로 점검하고, 엑셀·한글·PDF 파일로 저장합니다.',
     does: [
       '월 총액(또는 실수령액)·파트 시급 → 기본급·주휴·연장 등 항목별 시간과 금액, 통상시급',
@@ -88,6 +90,7 @@ export const AI_TOOLS: AiTool[] = [
       '근로계약서 엑셀(xlsx)·한글(hwpx)·PDF 저장(내 PC 에서만)',
     ],
     privacy: '주민등록번호는 받지 않습니다. 점검 입력에 주민번호 모양이 있으면 거절하고, 근로자 이름도 비워 두면 「근로자」로 씁니다.',
+    install: { claudeCode: 'claude mcp add --scope user k-labor -- npx -y k-labor mcp --groups contract' },
     links: [
       { label: '웹에서 계약서 쓰기', href: '/tools/contract-write' },
       { label: '웹에서 계약서 점검', href: '/tools/contract-check' },
@@ -96,7 +99,7 @@ export const AI_TOOLS: AiTool[] = [
   {
     id: 'calc',
     name: '임금·수당 계산기 묶음',
-    status: 'preparing',
+    status: 'public',
     summary: '사이트 계산기를 대화창에서 씁니다. 계산 결과와 함께 근거가 된 고시·조문을 알려 줍니다.',
     does: [
       '최저임금 비교(시간급 환산, 올해·내년 고시) · 실수령액(4대보험 근로자 몫·간이세액표 소득세)',
@@ -106,6 +109,7 @@ export const AI_TOOLS: AiTool[] = [
       '상시 근로자 수 — 5명 이상·10명 이상으로 보는 기간',
     ],
     privacy: '계산에 필요한 금액·시간·날짜만 받습니다. 이름이나 주민등록번호는 필요하지 않습니다.',
+    install: { claudeCode: 'claude mcp add --scope user k-labor -- npx -y k-labor mcp --groups calc' },
     links: [
       { label: '웹 계산기 모음', href: '/tools' },
     ],
@@ -113,7 +117,7 @@ export const AI_TOOLS: AiTool[] = [
   {
     id: 'leave-tax',
     name: '연차·세금 계산기 묶음',
-    status: 'preparing',
+    status: 'public',
     summary: '입사일과 기준일로 연차를 세고 퇴직할 때 남은 연차를 정산합니다. 퇴직소득세·일용근로소득 세금·중도퇴사자 연말정산도 계산합니다.',
     does: [
       '연차 발생일수(입사일·회계연도 기준) · 출근율 80% 확인',
@@ -123,6 +127,7 @@ export const AI_TOOLS: AiTool[] = [
       '중도퇴사자 연말정산 — 결정세액과 기납부세액의 차액',
     ],
     privacy: '날짜와 금액만 받습니다. 이름이나 주민등록번호는 필요하지 않습니다.',
+    install: { claudeCode: 'claude mcp add --scope user k-labor -- npx -y k-labor mcp --groups leave,tax' },
     links: [
       { label: '연차 계산기', href: '/tools/leave' },
       { label: '퇴직소득세', href: '/tools/retirement-tax' },
@@ -132,7 +137,7 @@ export const AI_TOOLS: AiTool[] = [
   {
     id: 'checks',
     name: '임금·계약 점검 묶음',
-    status: 'preparing',
+    status: 'public',
     summary: '월급과 계약 형태를 넣으면 확인할 항목을 짚어 줍니다. 사업장 규모에 따라 지켜야 하는 사업주 의무도 목록으로 보여 줍니다.',
     does: [
       '월급 대조 — 중도입사·중도퇴사·결근 공제·시급제 주휴수당 중 하나를 골라 명세서 금액과 대조',
@@ -141,6 +146,7 @@ export const AI_TOOLS: AiTool[] = [
       '사업장 규모별 사업주 의무 — 상시 근로자 수에 따라 생기는 의무 목록',
     ],
     privacy: '이름과 주민등록번호 칸이 없습니다. 금액·시간·근무 조건만 받습니다.',
+    install: { claudeCode: 'claude mcp add --scope user k-labor -- npx -y k-labor mcp --groups calc,duties' },
     links: [
       { label: '월급 대조', href: '/tools/pay-check' },
       { label: '통상임금 점검', href: '/tools/ordinary-wage-check' },
@@ -151,7 +157,7 @@ export const AI_TOOLS: AiTool[] = [
   {
     id: 'work-rules',
     name: '취업규칙·법령 도구',
-    status: 'preparing',
+    status: 'public',
     summary: '법제처에서 조문 원문을 실시간으로 가져와, 내 취업규칙에 개정 법령이 반영됐는지 조문별로 짚고 신고 서류를 만듭니다.',
     does: [
       '노동법 개정·시행 예정 목록',
@@ -159,7 +165,8 @@ export const AI_TOOLS: AiTool[] = [
       '취업규칙 개정 법령 반영 점검과 신·구 조문 대비표',
       '취업규칙 신고 서류(별지 제15호서식) 만들기(내 PC 에서만)',
     ],
-    privacy: '취업규칙 파일은 내 PC 에서 읽습니다. 법제처에는 법령 이름과 조문 번호만 보냅니다.',
+    privacy: '취업규칙 파일은 내 PC 에서 읽습니다. 법제처에는 법령 이름과 조문 번호만 보냅니다. 법제처 실시간 조회는 본인의 국가법령정보 Open API 이용자 ID(OC)를 넣어야 켜지고, 없으면 묶어 둔 자료로 답합니다.',
+    install: { claudeCode: 'claude mcp add --scope user k-labor -e LAW_OC=내OC -- npx -y k-labor mcp --groups work-rules' },
     links: [
       { label: '노동법 개정 알림판', href: '/laws' },
     ],

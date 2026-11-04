@@ -15,7 +15,9 @@ from pathlib import Path
 
 sys.stdout.reconfigure(encoding="utf-8")
 ROOT = Path(__file__).resolve().parents[2]
-OC = __import__("os").environ.get("LAW_GO_KR_OC", "iceamericano9")
+from law_oc import law_oc
+
+OC = law_oc()
 TARGETS = json.loads((ROOT / "scripts" / "laws" / "labor_laws.json").read_text(encoding="utf-8"))["laws"]
 REVS = json.loads((ROOT / "data" / "law-revisions.json").read_text(encoding="utf-8"))
 OUT = ROOT / "scripts" / "laws" / "subordinate_laws.json"

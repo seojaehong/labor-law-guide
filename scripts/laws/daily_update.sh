@@ -58,6 +58,19 @@ start=$(git rev-parse --abbrev-ref HEAD)
 git fetch -q origin master
 git checkout -q --detach origin/master
 
+# 법제처 OC — 코드에 기본값을 두지 않는다(261104 공개 저장소에서 뺌). cron 은 env 를 안 물려받으니 env 파일에서 읽는다
+if [ -z "${LAW_GO_KR_OC:-}${LAW_OC:-}" ]; then
+  for f in "$HOME/work-orchestrator/.env" "$HOME/.claude/.env"; do
+    [ -f "$f" ] || continue
+    v=$(grep -m1 -E '^(export )?(LAW_GO_KR_OC|LAW_OC)=' "$f" | cut -d= -f2- | tr -d "\"'\r" || true)
+    [ -n "$v" ] && { export LAW_GO_KR_OC="$v"; break; }
+  done
+fi
+if [ -z "${LAW_GO_KR_OC:-}${LAW_OC:-}" ]; then
+  notify "🔴 /laws 매일 수집 — 법제처 OC 가 없어 멈췄습니다. ~/work-orchestrator/.env 에 LAW_OC=<이용자 ID> 를 넣어 주세요."
+  git checkout -q "$start"; exit 1
+fi
+
 python3 scripts/laws/fingerprint.py > "$TMP/before.txt"
 # 시작일은 커밋된 데이터의 since 를 그대로 쓴다. 스크립트 기본값(오늘−365일)은 매일 밀려
 # 「목록에서 빠진 개정」이 날마다 생긴다(2026-10-05 서버1 시험 — 168건이 146건으로 줄었다)

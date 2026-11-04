@@ -24,7 +24,9 @@ ROOT = Path(__file__).resolve().parents[2]
 TARGETS = ROOT / "scripts" / "laws" / "labor_laws.json"
 SUBS = ROOT / "scripts" / "laws" / "subordinate_laws.json"
 OUT = ROOT / "data" / "law-revisions.json"
-OC = os.environ.get("LAW_GO_KR_OC", "iceamericano9")
+from law_oc import law_oc
+
+OC = law_oc()
 API = "https://www.law.go.kr/DRF/lawSearch.do"
 PAGE = 100
 
