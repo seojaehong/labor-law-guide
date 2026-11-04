@@ -9,6 +9,7 @@ import { registerNhis, nhisTools } from './groups/nhis.mjs';
 import { registerPopbill, popbillTools } from './groups/popbill.mjs';
 import { registerContract, contractTools } from './groups/contract.mjs';
 import { registerCalc, calcTools } from './groups/calc.mjs';
+import { registerWorkRules, workRulesTools } from './groups/work-rules.mjs';
 
 const VERSION = '0.1.0';
 
@@ -18,8 +19,9 @@ const GROUPS = {
   popbill: { register: registerPopbill, tools: popbillTools, about: '내 팝빌 계정으로 팩스·문자 보내기 · 결과 조회' },
   contract: { register: registerContract, tools: contractTools, about: '근로계약서 임금 구성 설계 · 점검 · xlsx·hwpx·pdf 만들기(파일은 로컬 전용)' },
   calc: { register: registerCalc, tools: calcTools, about: '최저임금 · 주휴수당 · 상시 근로자 수 · 실수령액 · 해고예고수당 · 연차수당 계산' },
+  'work-rules': { register: registerWorkRules, tools: workRulesTools, about: '노동법 개정 목록 · 법령 조문 원문·두 시점 비교(법제처 Open API, LAW_OC) · 취업규칙 개정 반영 점검(글자·파일) · 신고·변경신고 서류(파일은 로컬 전용)' },
 };
-const ALIAS = { fax: 'popbill', sms: 'popbill' };
+const ALIAS = { fax: 'popbill', sms: 'popbill', rules: 'work-rules', 'work_rules': 'work-rules' };
 
 function usage() {
   const lines = [
@@ -29,7 +31,7 @@ function usage() {
     '      환경변수 LLG_MCP_GROUPS=묶음,묶음 도 됩니다(--groups 가 우선).',
     '',
     '묶음:',
-    ...Object.entries(GROUPS).map(([k, g]) => `  ${k.padEnd(8)} ${g.about}\n           도구: ${g.tools.join(', ')}`),
+    ...Object.entries(GROUPS).map(([k, g]) => `  ${k.padEnd(10)} ${g.about}\n             도구: ${g.tools.join(', ')}`),
   ];
   return lines.join('\n');
 }

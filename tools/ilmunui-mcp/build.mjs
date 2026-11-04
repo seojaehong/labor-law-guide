@@ -34,10 +34,24 @@ const assets = [
   'public/fonts/NanumGothic-Regular.ttf',
   'public/fonts/NanumGothic-OFL.txt',
 ];
+// 있으면 넣고 없으면 건너뛰는 자산 — work-rules 묶음의 hwp 읽기(rhwp WASM, MIT, 약 12MB).
+// 없으면 hwp 파일만 「hwpx 로 저장해 다시」로 안내하고 나머지는 그대로 돈다.
+const optional = [
+  'node_modules/@rhwp/core/rhwp_bg.wasm',
+  'node_modules/@rhwp/core/LICENSE',
+];
 fs.mkdirSync(path.join(dist, 'assets'), { recursive: true });
 for (const rel of assets) {
   const src = path.join(repo, rel);
   if (!fs.existsSync(src)) { console.error(`자산이 없습니다: ${rel}`); process.exit(1); }
   fs.copyFileSync(src, path.join(dist, 'assets', path.basename(rel)));
 }
-console.error(`built dist/server.mjs + ${assets.length} assets`);
+let extra = 0;
+for (const rel of optional) {
+  const src = path.join(repo, rel);
+  if (!fs.existsSync(src)) { console.error(`(선택 자산 없음, 건너뜀) ${rel}`); continue; }
+  const name = rel.endsWith('LICENSE') ? 'rhwp-LICENSE.txt' : path.basename(rel);
+  fs.copyFileSync(src, path.join(dist, 'assets', name));
+  extra += 1;
+}
+console.error(`built dist/server.mjs + ${assets.length + extra} assets`);
