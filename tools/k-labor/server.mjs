@@ -21,9 +21,9 @@ const GROUPS = {
   nhis: { register: registerNhis, tools: nhisTools, about: '건강보험 관할 지사 찾기 · 자격취득·상실 신고서 PDF' },
   popbill: { register: registerPopbill, tools: popbillTools, about: '내 팝빌 계정으로 팩스·문자 보내기 · 결과 조회' },
   contract: { register: registerContract, tools: contractTools, about: '근로계약서 임금 구성 설계 · 점검 · xlsx·hwpx·pdf 만들기(파일은 로컬 전용)' },
-  calc: { register: registerCalc, tools: calcTools, about: '최저임금 · 주휴수당 · 상시 근로자 수 · 실수령액 · 해고예고수당 · 연차수당 · 퇴직금 · 공휴일 근로 수당 · 급여 일할 · 휴업수당 계산' },
-  leave: { register: registerLeave, tools: leaveTools, about: '연차 발생일수 · 퇴직 때 연차 재정산(입사일 기준 대 회계연도 기준)' },
-  tax: { register: registerTax, tools: taxTools, about: '퇴직소득세 · 지방소득세 계산' },
+  calc: { register: registerCalc, tools: calcTools, about: '최저임금 · 주휴수당 · 상시 근로자 수 · 실수령액 · 해고예고수당 · 연차수당 · 퇴직금 · 공휴일 근로 수당 · 급여 일할 · 휴업수당 계산 · 통상임금 점검 · 임금 체불 지연이자 · 근로자성 점검 · 월급 대조' },
+  leave: { register: registerLeave, tools: leaveTools, about: '연차 발생일수 · 퇴직 때 연차 재정산(입사일 기준 대 회계연도 기준) · 출근율(1년 80%)' },
+  tax: { register: registerTax, tools: taxTools, about: '퇴직소득세 · 지방소득세 · 중도퇴사자 연말정산 · 일용근로자 원천세 계산' },
   duties: { register: registerDuties, tools: dutiesTools, about: '사업장 규모별 사업주 의무 · 의무교육 · 위반 시 제재(묶은 자료)' },
   'work-rules': { register: registerWorkRules, tools: workRulesTools, about: '노동법 개정 목록 · 법령 조문 원문·두 시점 비교(법제처 Open API, LAW_OC) · 취업규칙 개정 반영 점검(글자·파일) · 신고·변경신고 서류(파일은 로컬 전용)' },
 };

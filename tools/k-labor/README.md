@@ -94,9 +94,16 @@ claude mcp add --scope user k-labor -- npx -y k-labor mcp --groups nhis
 | `calc` | `calc_holiday_pay` | 노동절·관공서 공휴일에 일한 날의 임금 — 월급제·일용직·시급제, 5명 이상·4명 이하 |
 | `calc` | `calc_pay_proration` | 급여 일할계산 — 중간 입사·퇴사한 달의 방식별 값(30일·달력 일수·소정근로일·시간·전액), 결근·지각 공제 |
 | `calc` | `calc_shutdown_allowance` | 휴업수당(평균임금 70% 본문과 통상임금 단서를 나란히, 휴업 중 받은 임금 반영) |
+| `calc` | `check_ordinary_wage` | 통상임금 점검 — 항목마다 정해진 주기·지급 대상·근무시간의 대가와 붙은 조건으로 들어가는지, 2024. 12. 19. 전후 기준을 나란히 |
+| `calc` | `calc_wage_delay_interest` | 늦게 준 임금·퇴직금의 지연이자(연 20%) — 퇴직 정산분은 마지막 근무일 + 14일, 재직 중 임금은 정기지급일부터 |
+| `calc` | `check_contractor` | 3.3% 계약(도급·프리랜서)이 근로자에 가까운지 — 질문 8개의 답으로 요소별 정리 |
+| `calc` | `check_monthly_pay` | 월급 대조 — 중도입사·중도퇴사·결근 공제·시급제 주휴가 있는 달의 월급을 다시 계산해 받은 금액과 나란히(이름·주민등록번호는 받지 않음) |
 | `leave` | `calc_annual_leave` | 입사일 기준 연차 발생일수(1년 미만 월 1일·15일·2년마다 1일, 최대 25일) |
 | `leave` | `settle_leave_on_exit` | 퇴직 때 연차 재정산 — 입사일 기준 누계와 회계연도 부여 누계 중 유리한 쪽에서 쓴 일수를 뺀 일수 |
+| `leave` | `calc_attendance_rate` | 출근율 — 연차 발생 요건(1년 80% 이상)을 출근으로 보는 날·빼는 날을 나눠 계산 |
 | `tax` | `calc_retirement_tax` | 퇴직소득세·지방소득세(국세청 퇴직소득 세액계산 프로그램과 같은 칸 순서, 2023. 1. 1. 이후 퇴사) |
+| `tax` | `calc_midyear_settlement` | 중도퇴사자 연말정산 예상 — 보험료 소득공제 신청 여부 두 가지로 퇴직월 정산액 |
+| `tax` | `calc_daily_worker_tax` | 일용근로소득 원천징수(일 15만 원 공제·6%·근로소득세액공제 55%·소액부징수) |
 | `duties` | `list_employer_duties` | 상시 근로자 수에 맞는 사업주 의무·법정 의무교육·위반 시 제재, 다음 규모에서 더 생기는 의무 |
 | `work-rules` | `list_law_revisions` | 기간 안에 시행되는 노동 관계 법령 개정·시행 예정 목록. 묶은 자료에 법제처 Open API 실시간 확인을 더합니다 |
 | `work-rules` | `get_law_article` | 법령명·조문 번호로 그날 시행 중인 판의 조문 원문(법제처 Open API) |

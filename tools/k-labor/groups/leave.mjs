@@ -6,8 +6,11 @@ import { calculateEntitlement } from '@/lib/leave/annual-leave';
 import { settleOnTermination } from '@/lib/leave/leave-ledger';
 import { todayKst } from '@/lib/tool-kit';
 import { text } from '../lib/common.mjs';
+// 출근율(/tools/attendance-rate) — 연차 발생 요건(1년 80% 이상)을 따지는 계산이라 이 묶음에 둔다(groups/more)
+import * as attendance from './more/calc_attendance_rate.mjs';
 
-export const leaveTools = ['calc_annual_leave', 'settle_leave_on_exit'];
+const MORE = [attendance];
+export const leaveTools = ['calc_annual_leave', 'settle_leave_on_exit', ...MORE.map((m) => m.name)];
 /** 원격(HTTP)판에 실어도 되는 도구 — 전부 */
 export const leaveRemoteSafe = [...leaveTools];
 
@@ -38,6 +41,7 @@ const MONTHLY_NOTE =
   '근속 1년 이상이면 입사 후 1년 미만 기간에 월 단위로 생긴 연차(최대 11일)를 입사일 기준 누계에 넣을지 includeFirstYearMonthly 로 알려 주세요. 회계연도로 부여한 누계에 그 일수가 들어 있다면 넣어야 같은 기준으로 비교됩니다(최영우 『실무노동법』 산정 예 — 입사일 기준 11일 / 6일). 사용 촉진으로 이미 소멸한 일수는 넣지 않습니다.';
 
 export function registerLeave(server) {
+  for (const m of MORE) m.register(server);
   // ── 연차 발생일수 ──
   server.registerTool(
     'calc_annual_leave',

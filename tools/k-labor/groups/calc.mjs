@@ -24,10 +24,17 @@ import {
 import { calcShutdownAllowance } from '@/lib/calc/shutdown-allowance';
 import { headline as saHeadline, formulaLines as saFormula, effectLines as saEffect, SCOPE_ITEMS as SA_SCOPE } from '@/app/tools/shutdown-allowance/copy';
 import { text } from '../lib/common.mjs';
+// 통상임금 점검·임금 체불 지연이자·근로자성 점검·월급 대조 — 도구마다 한 파일(groups/more). 이름·주민등록번호를 받지 않는다
+import * as ordinaryWage from './more/check_ordinary_wage.mjs';
+import * as wageDelay from './more/calc_wage_delay_interest.mjs';
+import * as contractor from './more/check_contractor.mjs';
+import * as monthlyPay from './more/check_monthly_pay.mjs';
 
+const MORE = [ordinaryWage, wageDelay, contractor, monthlyPay];
 export const calcTools = [
   'check_min_wage', 'calc_weekly_holiday_pay', 'count_regular_workers', 'calc_take_home_pay', 'calc_notice_pay', 'calc_leave_pay',
   'calc_severance', 'calc_holiday_pay', 'calc_pay_proration', 'calc_shutdown_allowance',
+  ...MORE.map((m) => m.name),
 ];
 /** 원격(HTTP)판에 실어도 되는 도구 — 전부 */
 export const calcRemoteSafe = [...calcTools];
@@ -50,6 +57,7 @@ const UNIT = z.enum(['hour', 'day', 'week', 'month']);
 const UNIT_DESC = '임금 단위 — hour(시급)·day(일급)·week(주급)·month(월급)';
 
 export function registerCalc(server) {
+  for (const m of MORE) m.register(server);
   // ── 최저임금 ──
   const PER = { month: '한 달', week: '1주', day: '하루', hour: '1시간' };
   server.registerTool(

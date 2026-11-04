@@ -22,8 +22,13 @@ const RRN_DASH = /(?<!\d)\d{6}\s*-\s*[1-8]\d{0,6}(?!\d)/g;
 export const mask = (s) => s.replace(RRN_FULL, '******-*******').replace(RRN_DASH, '******-*******');
 export const looksLikeRrn = (s) => /\d{6}\s*-?\s*[1-8]\d{6}/.test(s);
 
-/** MCP 텍스트 응답. 나가기 전에 주민번호 모양을 가린다. */
+/** MCP 텍스트 응답. 나가기 전에 주민번호 모양을 가린다.
+ * 객체는 글자 값만 가린다 — 직렬화한 JSON 전체에 정규식을 걸면 13자리 금액(숫자)이 「******-*******」로 바뀌어 JSON 이 깨진다
+ * (적대 검토 261104 — 일용근로 원천세 milli·지연이자 금액). 주민번호는 모든 도구가 글자로만 받는다. */
 export const text = (obj) => ({
-  content: [{ type: 'text', text: mask(typeof obj === 'string' ? obj : JSON.stringify(obj, null, 2)) }],
+  content: [{
+    type: 'text',
+    text: typeof obj === 'string' ? mask(obj) : JSON.stringify(obj, (_k, v) => (typeof v === 'string' ? mask(v) : v), 2),
+  }],
 });
 export const digits = (s) => String(s ?? '').replace(/\D/g, '');
