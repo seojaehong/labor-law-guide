@@ -165,6 +165,21 @@ describe('HOLIDAY-COVER — 공휴일 하루 8시간 넘는 시간(#151)', () =>
     expect(f.status).toBe('ok');
     expect(f.detail).toBe('공휴일 1.47일 13.81H 중 8시간 이내 11.73H×1.5 + 8시간 넘는 2.08H×0.5=18.6H ≤ HOLIDAY_EXTRA 환산 18.6H');
   });
+  it('주 6일 × 8시간 — 메모가 공휴일 주에 빠지는 1주 연장을 밝히고, 자기 점검 OT-COVER 가 그만큼 덜 요구해 통과한다', () => {
+    const six: WriteForm = { ...UIJEONGBU, workDays: ['월', '화', '수', '목', '금', '토'], start: '09:00', end: '18:00', breakMinutes: 60, holidayDaysPerYear: 12, monthlyTotal: 3_500_000 };
+    const contract = toContract(six, designFromForm(six));
+    expect(contract.wage.public_holiday_note).toBe('연 12일 근무 예정, 월 평균 1일/8H(공휴일 주에 빠지는 1주 연장 8H)');
+    expect(problems(six)).toEqual([]);
+    const [c] = normalize([contract]);
+    expect(checkContract(c).find((x) => x.rule_code === 'OT-COVER')!.detail).toContain('공휴일 주에 빠지는 1주 연장 8H');
+  });
+  it('메모가 빠지는 연장을 밝히지 않으면 OT-COVER 는 종전대로 전부 요구한다(자기시험)', () => {
+    const six: WriteForm = { ...UIJEONGBU, workDays: ['월', '화', '수', '목', '금', '토'], start: '09:00', end: '18:00', breakMinutes: 60, holidayDaysPerYear: 12, monthlyTotal: 3_500_000 };
+    const contract = toContract(six, designFromForm(six));
+    contract.wage.public_holiday_note = '연 12일 근무 예정, 월 평균 1일/8H';
+    const [c] = normalize([contract]);
+    expect(checkContract(c).find((x) => x.rule_code === 'OT-COVER')!.status).toBe('violation');
+  });
   it('하루 8시간 이내면 메모에 넣지 않는다(종전 메모 그대로)', () => {
     const eight: WriteForm = { ...UIJEONGBU, workDays: ['월', '화', '수', '목', '금'], start: '09:00', end: '18:00', breakMinutes: 60, holidayDaysPerYear: 16 };
     expect(toContract(eight, designFromForm(eight)).wage.public_holiday_note).toBe('연 16일 근무 예정, 월 평균 1.33일/10.67H');

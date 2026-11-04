@@ -82,6 +82,16 @@ export function weeklySchedule(dailyWorkHours: number, daysPerWeek: number): { s
   return { scheduled, overtime: Math.max(0, dailyWorkHours * daysPerWeek - scheduled) };
 }
 
+/** 공휴일 하루 근무가 1주 연장에서 빠지는 시간 중 그날 8시간 넘는 시간을 뺀 것 — 공휴일 근로시간은 1주 52시간 한도에는 들지만 가산은
+ * 제56조 제2항(휴일)만 붙고 1주 40시간 초과 연장 가산을 겹치지 않는다(같은 항 「제1항에도 불구하고」, 대법원 2024. 2. 8. 선고 2018다206899
+ * 판결·2018. 6. 21. 선고 2011다112391 전원합의체 판결). 그래서 공휴일이 든 주의 연장은 공휴일이 아닌 날로만 센다(근무일 − 1).
+ * 그날 8시간 넘는 시간은 연장 1.5 + 휴일 0.5 로 세므로(#151) 연장에 남긴다. 주 5일 이하는 1주 40시간에 닿지 않아 0, 주 6일부터 생긴다 */
+export function holidayWeekDroppedOvertime(dailyWorkHours: number, daysPerWeek: number): number {
+  if (daysPerWeek < 1) return 0;
+  const drop = weeklySchedule(dailyWorkHours, daysPerWeek).overtime - weeklySchedule(dailyWorkHours, daysPerWeek - 1).overtime;
+  return Math.max(0, drop - Math.max(dailyWorkHours - 8, 0));
+}
+
 /** 항목별 월 인정시간 — 사무소 양식 식에 1주 40시간 연장을 더했다 */
 export function designHours(input: DesignInput): Record<ItemKey, number> {
   const { daysPerWeek: days, dailyWorkHours: daily, holidayDaysPerYear } = input;
@@ -98,14 +108,17 @@ export function designHours(input: DesignInput): Record<ItemKey, number> {
   const eligible = weekly >= 15;
   const weeklyHoliday = eligible ? (weekly / 40) * 8 : 0;
   const base = weekly === 40 ? 209 : (weekly + weeklyHoliday) * WEEKS_PER_MONTH;
-  const overtime = weeklyOvertime * (fivePlus ? 1.5 : 1) * WEEKS_PER_MONTH;
+  // 월 평균 공휴일 근무 일수(아래 휴일과 같은 식) × 그날 1주 연장에서 빠지는 시간. 5명 미만·15시간 미만은 휴일 가산이 없어 빼지 않는다
+  const holidayDaysPerMonth = (holidayDaysPerYear * (Math.min(days, 5) / 5)) / 12;
+  const droppedOvertime = fivePlus && eligible ? holidayWeekDroppedOvertime(daily, days) * holidayDaysPerMonth : 0;
+  const overtime = (weeklyOvertime * WEEKS_PER_MONTH - droppedOvertime) * (fivePlus ? 1.5 : 1);
   const night = fivePlus ? (input.nightHoursPerDay ?? 0) * NIGHT_PREMIUM * days * WEEKS_PER_MONTH : 0;
   // 휴일 = 유급휴일에 근무한 시간의 100% + 가산 50% — 유급휴일분 100% 는 기본급(209시간) 안이다(1998.4.24. 97다28421, 임금근로시간과-653).
   // 8시간 넘는 시간은 통상임금의 200%(근로 100% + 가산 100%, 제56조 제2항 제2호)이고 같은 항이 「제1항에도 불구하고」라 연장 가산을 겹치지 않는다
   // (대법원 2024. 2. 8. 선고 2018다206899 판결 — 2018. 6. 21. 선고 2011다112391 전원합의체 판결 인용). 위 연장(overtime)은 공휴일이 든 주도
   // 주 근무일 전부로 세어 공휴일 당일 8시간 넘는 시간의 1.5(근로 100% + 가산 50%)를 이미 담는다 — 그래서 휴일 쪽은 그 시간에 0.5 만 더한다(합 2.0).
   // #151 전에는 2.0 을 더해 3.5 였다(의정부 교정 표본·수원 계약서 휴일 25h 가 이 값). 점검 HOLIDAY-COVER 가 같은 식으로 본다(contract.ts holidayNote)
-  const holiday = fivePlus && eligible ? ((regular * 1.5 + extra * HOLIDAY_OVER8_REST) * holidayDaysPerYear * (Math.min(days, 5) / 5)) / 12 : 0;
+  const holiday = fivePlus && eligible ? (regular * 1.5 + extra * HOLIDAY_OVER8_REST) * holidayDaysPerMonth : 0;
   const leave = fivePlus && eligible ? (weekly / 40) * 8 : 0;
   const o = input.overrides ?? {};
   return {

@@ -9,7 +9,7 @@
 // ★ 1주 40시간을 넘는 시간도 연장이다(주 6일 등, #139 적대 검토 1). 양식 표본 a~e 는 모두 40시간 이하라 그대로다.
 // ★ 브라우저 안에서만 쓴다.
 
-import { HOLIDAY_OVER8_REST, splitTotal, weeklySchedule, WEEKS_PER_MONTH, type DesignResult, type ItemKey, type Rounding } from './design';
+import { HOLIDAY_OVER8_REST, holidayWeekDroppedOvertime, splitTotal, weeklySchedule, WEEKS_PER_MONTH, type DesignResult, type ItemKey, type Rounding } from './design';
 
 export interface HourlyDesignInput {
   /** 시간당 지급액 — 휴게를 포함한 체류시간에 곱해 하루 지급액을 만든다 */
@@ -47,11 +47,14 @@ export function hourlyDesignHours(input: HourlyDesignInput): Record<ItemKey, num
   // 합 2.0(제56조 제2항 제2호, 「제1항에도 불구하고」라 연장 가산을 겹치지 않는다 — 대법원 2024. 2. 8. 선고 2018다206899 판결). #151 전에는
   // 2.0 을 더해 3.5 였다. 양식(표본 e)은 8시간 × 1.5 만 넣는다 — 그보다 8시간 넘는 시간 × 0.5 만큼 많다
   const holidayDay = Math.min(work, 8) * 1.5 + Math.max(work - 8, 0) * HOLIDAY_OVER8_REST;
+  // 공휴일이 든 주는 1주 40시간 연장을 공휴일이 아닌 날로만 센다(design.ts holidayWeekDroppedOvertime) — 주 6일부터 빠지는 시간을 근무일 평균으로 뺀다
+  const holidayShare = eligible && fivePlus ? input.holidayDaysPerYear / ((days * 365) / 7) : 0;
+  const droppedPerDay = holidayWeekDroppedOvertime(work, days) * holidayShare;
   return {
     base,
     // 1주 주휴 = 1주 소정 ÷ 40 × 8 = 1주 소정 ÷ 5, 근무일에 나눈다
     weeklyHoliday: eligible ? weekly / 5 / days : 0,
-    overtime: Math.max(work - base, 0) * (fivePlus ? 1.5 : 1),
+    overtime: Math.max(work - base - droppedPerDay, 0) * (fivePlus ? 1.5 : 1),
     night: fivePlus ? input.nightHours * 0.5 : 0,
     leave: eligible && fivePlus ? weekly / 5 / days / WEEKS_PER_MONTH : 0,
     holiday: eligible && fivePlus ? (holidayDay * input.holidayDaysPerYear) / ((days * 365) / 7) : 0,

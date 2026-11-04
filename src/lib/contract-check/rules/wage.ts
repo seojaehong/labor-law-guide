@@ -68,6 +68,7 @@ export const HOLIDAY_PREMIUM_RATE = 1.5;
 export const HOLIDAY_OVER8_REST_RATE = 0.5;
 const HOLIDAY_NOTE_RE = /(\d+(?:\.\d+)?)\s*일\s*\/\s*(\d+(?:\.\d+)?)\s*H/;
 const HOLIDAY_OVER8_RE = /8시간\s*넘는\s*(\d+(?:\.\d+)?)\s*H/;
+const HOLIDAY_WEEK_DROP_RE = /공휴일\s*주에\s*빠지는\s*1주\s*연장\s*(\d+(?:\.\d+)?)\s*H/;
 
 const round1 = (x: number) => Math.round(x * 10) / 10;
 const fmt = (n: number) => n.toLocaleString('ko-KR');
@@ -694,16 +695,21 @@ export const ruleOtCover: RuleFn = (contract) => {
   }
   // 상시 5명 미만은 §56 가산이 적용되지 않는다(시행령 §7 별표1) — 연장 실시간만 덮으면 된다
   const under5 = contract.workplace?.employee_count_5plus === false;
-  const required = round1(weeklyOt * WEEKS_PER_MONTH * (under5 ? 1 : OT_PREMIUM_RATE));
+  // 공휴일 메모가 「공휴일 주에 빠지는 1주 연장 zH」(월 합)를 밝히면 그만큼 덜 요구한다 — 공휴일 근로시간은 1주 40시간 초과 연장 가산을
+  // 겹치지 않아(제56조 제2항 「제1항에도 불구하고」, 대법원 2018다206899) 공휴일이 든 주의 연장은 나머지 날로만 센다. 밝히지 않은 메모는 종전대로
+  const dropMatch = under5 ? null : HOLIDAY_WEEK_DROP_RE.exec(contract.wage?.public_holiday_note ?? '');
+  const dropped = dropMatch ? Math.min(parseFloat(dropMatch[1]), weeklyOt * WEEKS_PER_MONTH) : 0;
+  const required = round1((weeklyOt * WEEKS_PER_MONTH - dropped) * (under5 ? 1 : OT_PREMIUM_RATE));
+  const dropText = dropped > 0 ? `, 공휴일 주에 빠지는 1주 연장 ${dropped}H 제외` : '';
   // 가산율이 적혀 있으면 시간은 실시간이다(WAGE-MATH 와 같은 해석). 없으면 환산시간으로 본다
   const agreed = round1(otItems(contract).reduce((sum, i) => sum + (i.basis_hours ?? 0) * (i.rate_multiplier ?? 1), 0));
   if (agreed >= required) {
-    return makeFinding('OT-COVER', 'ok', `필요 ${required}H ≤ 약정 ${agreed}H (환산시간 해석 시${under5 && required > 0 ? ', 상시 5명 미만 — 가산 미적용' : ''})`);
+    return makeFinding('OT-COVER', 'ok', `필요 ${required}H ≤ 약정 ${agreed}H (환산시간 해석 시${under5 && required > 0 ? ', 상시 5명 미만 — 가산 미적용' : ''}${dropText})`);
   }
   return makeFinding(
     'OT-COVER',
     'violation',
-    `약정 연장환산 ${agreed}H < 필요 ${required}H (부족 ${round1(required - agreed)}H)`,
+    `약정 연장환산 ${agreed}H < 필요 ${required}H (부족 ${round1(required - agreed)}H${dropText})`,
   );
 };
 
