@@ -13,7 +13,7 @@ import { hoursText, wonText } from '@/lib/contract-write/text';
 
 import type { WeekDay } from '@/lib/contract-write/contract';
 
-import { absorbOptions, INITIAL, toWriteForm, WEEK_DAYS, type WriteState } from './formState';
+import { absorbOptions, amountInput, effectiveAbsorb, INITIAL, toWriteForm, WEEK_DAYS, type WriteState } from './formState';
 
 const inputClass =
   'w-full rounded-lg border px-3 py-2 text-base focus:border-[var(--color-accent)] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]/20';
@@ -109,7 +109,14 @@ export default function ContractWriteClient() {
     try {
       const design = designFromForm(parsed.form);
       const review = reviewWritten(parsed.form, design);
-      return { design, findings: review.problems, minimumWage: review.minimumWage, doc: buildContractDocument(parsed.form, design) };
+      return {
+        design,
+        findings: review.problems,
+        minimumWage: review.minimumWage,
+        minimumWageLater: review.minimumWageLater,
+        notes: review.notes,
+        doc: buildContractDocument(parsed.form, design),
+      };
     } catch (e) {
       return { error: e instanceof Error ? e.message : String(e) };
     }
@@ -241,17 +248,17 @@ export default function ContractWriteClient() {
               />
             </Field>
             {s.amountMode === 'gross' ? (
-              <Field label="월 임금 총액(원)"><Input label="월 임금 총액" value={s.monthlyTotal} onChange={(v) => patch({ monthlyTotal: v.replace(/[^\d,]/g, '') })} placeholder="예: 2,600,000" /></Field>
+              <Field label="월 임금 총액(원)"><Input label="월 임금 총액" value={s.monthlyTotal} onChange={(v) => patch({ monthlyTotal: amountInput(v) })} placeholder="예: 2,600,000" /></Field>
             ) : (
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <Field label="월 실수령액(원)" hint="4대보험 근로자 몫과 소득세를 뺀 뒤 받는 금액"><Input label="월 실수령액" value={s.netPay} onChange={(v) => patch({ netPay: v.replace(/[^\d,]/g, '') })} placeholder="예: 2,300,000" /></Field>
+                <Field label="월 실수령액(원)" hint="4대보험 근로자 몫과 소득세를 뺀 뒤 받는 금액"><Input label="월 실수령액" value={s.netPay} onChange={(v) => patch({ netPay: amountInput(v) })} placeholder="예: 2,300,000" /></Field>
                 <Field label="공제대상가족 수(본인 포함)"><Input label="공제대상가족 수" value={s.family} onChange={(v) => patch({ family: v.replace(/[^\d]/g, '') })} /></Field>
               </div>
             )}
           </>
         ) : (
           <Field label="시간당 지급액(원)" hint="휴게시간을 포함한 출근~퇴근 시간에 곱해 하루 지급액을 정하고, 그 금액을 기본급·주휴·연차 등으로 나눕니다">
-            <Input label="시간당 지급액" value={s.hourlyWage} onChange={(v) => patch({ hourlyWage: v.replace(/[^\d,]/g, '') })} placeholder="예: 13,000" />
+            <Input label="시간당 지급액" value={s.hourlyWage} onChange={(v) => patch({ hourlyWage: amountInput(v) })} placeholder="예: 13,000" />
           </Field>
         )}
         {s.payType === 'hourly' && (
@@ -271,7 +278,7 @@ export default function ContractWriteClient() {
           <Choice options={ROUNDING} value={s.rounding} onChange={(v) => patch(v === 'won' ? { rounding: v } : { rounding: v, absorbInto: 'base' })} />
         </Field>
         <Field label="끝에 남는 금액을 넣을 항목">
-          <Choice options={absorbOptions(s.payType)} value={s.absorbInto} onChange={(v) => patch({ absorbInto: v })} />
+          <Choice options={absorbOptions(s)} value={effectiveAbsorb(s)} onChange={(v) => patch({ absorbInto: v })} />
         </Field>
         {s.payType === 'monthly' && (
         <details className="rounded-xl border border-dashed p-3">
@@ -334,6 +341,16 @@ export default function ContractWriteClient() {
             <p className="text-sm" style={result.minimumWage.warn ? { color: 'var(--color-warn-ink)' } : undefined}>
               {result.minimumWage.text}
             </p>
+            {result.minimumWageLater.map((l) => (
+              <p key={l.text} className="text-sm" style={l.warn ? { color: 'var(--color-warn-ink)' } : undefined}>
+                {l.text}
+              </p>
+            ))}
+            {result.notes.map((n) => (
+              <p key={n} className="text-sm">
+                {n}
+              </p>
+            ))}
             <div className="rounded-lg p-3 text-sm" style={{ backgroundColor: 'var(--grey-100)' }}>
               <p className="font-semibold">근로계약서 점검 규칙으로 다시 본 결과</p>
               {result.findings.length === 0 ? (

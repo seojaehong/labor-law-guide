@@ -4,7 +4,8 @@
 // WRITTEN-TERMS: retroactive_days > 30 → risk (소급작성)
 // ANNUAL-LEAVE: 연차수당 선지급 시간 > 0 → risk (사용권 보장·미사용 정산 별도)
 // INCLUSIVE-WAGE: inclusive_wage=true → risk (고정 스케줄이면 산정 가능)
-// MINWAGE-PROBATION: 감액 문구 있으나 applied=false/null → minor risk (문구 정리 권고)
+// MINWAGE-PROBATION: 감액 문구 있으나 applied=false/null → minor risk (문구 정리 권고). 감액 기간 = reduced_months(있으면) 또는
+//   months — 3개월 넘으면 violation. 근로계약서 작성은 수습 6개월 중 처음 3개월만 감액하므로 reduced_months 를 따로 넘긴다(PR #140 검토 5)
 // MINOR-WORKER: is_minor=true → risk, 아니면 ok
 
 import type { Contract, Finding } from '../types';
@@ -73,11 +74,20 @@ export const ruleMinwageProbation: RuleFn = (contract) => {
       `단순노무직 수습 감액 ${pct}% — 최저임금법 시행령 §3 감액 불가`,
     );
   }
-  if ((prob.months ?? 0) > 3) {
+  // 감액 기간을 따로 적었으면(근로계약서 작성 — 수습 6개월 중 처음 3개월) 그 기간으로 본다. 없으면 수습 기간 전체
+  const reducedMonths = prob.reduced_months ?? prob.months ?? 0;
+  if (reducedMonths > 3) {
     return makeFinding(
       'MINWAGE-PROBATION',
       'violation',
-      `수습 감액 기간 ${prob.months}개월 > 한도 3개월`,
+      `수습 감액 기간 ${reducedMonths}개월 > 한도 3개월`,
+    );
+  }
+  if (prob.reduced_months != null && (prob.months ?? 0) > prob.reduced_months) {
+    return makeFinding(
+      'MINWAGE-PROBATION',
+      'ok',
+      `수습 ${prob.months}개월 중 처음 ${prob.reduced_months}개월만 ${pct}% 감액 — 3개월 이내 적용, 요건 충족`,
     );
   }
   return makeFinding('MINWAGE-PROBATION', 'ok', `수습 ${pct}% 감액 — 3개월 이내 적용, 요건 충족`);

@@ -35,7 +35,8 @@ const FORM: WriteForm = {
 };
 
 const doc = buildContractDocument(FORM, designFromForm(FORM));
-const AMOUNTS = ['1,870,364원', '414,013원', '243,879원', '71,744원', '2,600,000원'];
+// #151 — 공휴일 8시간 넘는 시간 연장 1.5 + 휴일 0.5(법정 2.0). 교정 표본(1,870,364 / 414,013 / 243,879 / 71,744)에서 휴일 시간만 줄었다
+const AMOUNTS = ['1,895,839원', '419,652원', '211,788원', '72,721원', '2,600,000원'];
 
 describe('계약서 본문', () => {
   it('금지어·「포괄」이 없다', () => {
@@ -54,7 +55,7 @@ describe('계약서 본문', () => {
 
   it('통상시급은 소수 둘째 자리, 실제 근로가 넘으면 추가 지급을 적는다', () => {
     const text = documentLines(doc).join('\n');
-    expect(text).toContain('통상시급: 11,209.99원');
+    expect(text).toContain('통상시급: 11,362.67원');
     expect(text).toContain('넘는 시간의 수당을 따로 계산해 추가로 지급한다');
   });
 
@@ -72,7 +73,7 @@ describe('세 파일이 같은 금액을 싣는다', () => {
     wb.worksheets[0].eachRow((row) => row.eachCell((c) => (typeof c.value === 'number' ? numbers.push(c.value) : cells.push(c.text))));
     const text = cells.join('\n');
     // 금액 칸은 숫자(서식 #,##0"원") — 엑셀에서 바로 더하고 고칠 수 있게
-    expect(numbers).toEqual([1_870_364, 414_013, 243_879, 71_744, 2_600_000]);
+    expect(numbers).toEqual([1_895_839, 419_652, 211_788, 72_721, 2_600_000]);
     expect(bannedHits(text)).toEqual([]);
   });
 

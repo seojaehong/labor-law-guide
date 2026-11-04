@@ -28,13 +28,26 @@ describe('designMonthlyWage — 기본값(원 단위 반올림, 기본급이 잔
     expect(amounts(SUWON)).toEqual({ base: 2_163_001, overtime: 674_774, holiday: 258_732, leave: 103_493 });
   });
 
-  it('의정부 주4 260만 ÷ 231.936H 는 교정 표본과 같다', () => {
+  // ★ #151 — 교정 표본(261103)은 231.936H(휴일 21.7556H)·기본급 1,870,364원이었다. 공휴일 하루 8시간 넘는 1.4167시간에 연장(1.5)과
+  // 휴일(2.0)이 겹쳐 3.5배였던 것을 법정 2.0(제56조 제2항 제2호, 연장 가산 중복 없음 — 대법원 2024. 2. 8. 선고 2018다206899 판결)으로
+  // 고쳤다 — 휴일 쪽 그 시간 계수 2.0 → 0.5. 바뀐 것은 휴일 시간 하나(21.7556 → 18.6389H)이고 기본·연장·연차 시간은 그대로다
+  it('의정부 주4 260만 ÷ 228.819H — 휴일 시간만 바뀌고(공휴일 8시간 넘는 시간 연장 1.5 + 휴일 0.5) 기본·연장·연차 시간은 교정 표본 그대로', () => {
     const r = designMonthlyWage(UIJEONGBU);
     expect(r.hours.base).toBeCloseTo(166.848, 6);
     expect(r.hours.overtime).toBeCloseTo(36.9325, 6);
     expect(r.hours.leave).toBeCloseTo(6.4, 6);
-    expect(r.hours.holiday).toBeCloseTo(21.7556, 4);
-    expect(amounts(UIJEONGBU)).toEqual({ base: 1_870_364, overtime: 414_013, holiday: 243_879, leave: 71_744 });
+    expect(r.hours.holiday).toBeCloseTo(((8 * 1.5 + (12 - 155 / 60 - 8) * 0.5) * 22 * 0.8) / 12, 10);
+    expect(r.hours.holiday).toBeCloseTo(18.6389, 4);
+    // 교정 표본과의 차 = 8시간 넘는 시간 × 1.5 × 월 평균 공휴일 근무일(22 × 4/5 ÷ 12)
+    expect(21.755555555555556 - r.hours.holiday).toBeCloseTo((12 - 155 / 60 - 8) * 1.5 * ((22 * 0.8) / 12), 10);
+    expect(r.totalHours).toBeCloseTo(228.8193889, 6);
+    expect(r.rate).toBeCloseTo(11_362.6735, 3);
+    expect(amounts(UIJEONGBU)).toEqual({ base: 1_895_839, overtime: 419_652, holiday: 211_788, leave: 72_721 });
+  });
+
+  it('하루 8시간 이내면 휴일 시간은 그대로(8시간 × 1.5) — 바뀐 계수는 8시간 넘는 시간에만 닿는다', () => {
+    const r = designMonthlyWage({ monthlyTotal: 3_000_000, daysPerWeek: 5, dailyWorkHours: 8, holidayDaysPerYear: 16 });
+    expect(r.hours.holiday).toBeCloseTo((8 * 1.5 * 16) / 12, 10);
   });
 
   it('항목 합은 언제나 월 총액이다', () => {
@@ -52,10 +65,13 @@ describe('designMonthlyWage — 기본값(원 단위 반올림, 기본급이 잔
     expect(designMonthlyWage({ monthlyTotal: 600_000, daysPerWeek: 2, dailyWorkHours: 7, holidayDaysPerYear: 0 }).hours.base).toBeCloseTo(14 * 4.345, 6);
   });
 
-  it('공식 시간: 주5·10h·18.75일이면 연장 65.175h·휴일 25h·연차 8h', () => {
+  // 수원 계약서·사무소 양식의 휴일 25h = (8 × 1.5 + 2 × 2.0) × 18.75 ÷ 12 — 8시간 넘는 2시간이 연장 65.175h 에도 들어 3.5배였다(#151).
+  // 공식은 그 2시간을 휴일 쪽 × 0.5 로 센다(연장 1.5 와 합해 법정 2.0). 수원 표본은 계약서 시간(overrides)을 그대로 쓰므로 금액이 바뀌지 않는다
+  it('공식 시간: 주5·10h·18.75일이면 연장 65.175h·휴일 20.3125h(사무소 양식 25h 와 다름)·연차 8h', () => {
     const r = designMonthlyWage({ ...SUWON, overrides: undefined });
     expect(r.hours.overtime).toBeCloseTo(65.175, 6);
-    expect(r.hours.holiday).toBeCloseTo(25, 6);
+    expect(r.hours.holiday).toBeCloseTo(((8 * 1.5 + 2 * 0.5) * 18.75) / 12, 10);
+    expect(r.hours.holiday).toBeCloseTo(20.3125, 6);
     expect(r.hours.leave).toBeCloseTo(8, 6);
   });
 });
@@ -64,12 +80,12 @@ describe('designMonthlyWage — 단위·흡수 항목 선택(재홍님 261103)',
   // #139 적대 검토 4 — 버리면 연장·휴일 수당이 「통상시급 × 시간 × 가산율」보다 적어진다. 올리고 기본급이 나머지를 받는다
   it('10원 단위 올림: 흡수하지 않는 항목은 10원 단위로 올리고 기본급이 나머지를 받는다', () => {
     const a = amounts({ ...UIJEONGBU, rounding: 'ceil10' });
-    expect(a).toEqual({ base: 1_870_350, overtime: 414_020, holiday: 243_880, leave: 71_750 });
+    expect(a).toEqual({ base: 1_895_820, overtime: 419_660, holiday: 211_790, leave: 72_730 });
   });
 
   it('100원 단위 올림', () => {
     const a = amounts({ ...UIJEONGBU, rounding: 'ceil100' });
-    expect(a).toEqual({ base: 1_870_200, overtime: 414_100, holiday: 243_900, leave: 71_800 });
+    expect(a).toEqual({ base: 1_895_700, overtime: 419_700, holiday: 211_800, leave: 72_800 });
   });
 
   it('단위 올림 항목은 계산값 이상이다', () => {
@@ -80,10 +96,10 @@ describe('designMonthlyWage — 단위·흡수 항목 선택(재홍님 261103)',
 
   it('흡수 항목을 공휴일로 바꾸면 기본급은 계산값, 공휴일이 잔액', () => {
     const a = amounts({ ...UIJEONGBU, absorbInto: 'holiday' });
-    expect(a.base).toBe(1_870_364);
-    expect(a.overtime).toBe(414_013);
-    expect(a.leave).toBe(71_744);
-    expect(a.holiday).toBe(2_600_000 - 1_870_364 - 414_013 - 71_744);
+    expect(a.base).toBe(1_895_839);
+    expect(a.overtime).toBe(419_652);
+    expect(a.leave).toBe(72_721);
+    expect(a.holiday).toBe(2_600_000 - 1_895_839 - 419_652 - 72_721);
   });
 
   it('흡수 항목을 연장근로수당으로 바꿀 수 있다(원 단위) — 단위 올림과는 함께 쓸 수 없다', () => {
@@ -141,5 +157,41 @@ describe('designMonthlyWage — 1주 40시간 넘는 연장', () => {
   });
   it('주 5일 × 하루 10시간은 그대로 1주 10시간', () => {
     expect(designMonthlyWage({ ...six(10), daysPerWeek: 5 }).hours.overtime).toBeCloseTo(10 * 1.5 * 4.345, 6);
+  });
+});
+
+// 공휴일이 든 주 — 공휴일 근로시간은 1주 52시간 한도에는 들지만 가산은 제56조 제2항(휴일)만 붙고 1주 40시간 초과 연장 가산을 겹치지 않는다
+// (제56조 제2항 「제1항에도 불구하고」, 대법원 2018다206899·2011다112391 전합). 그 주 연장은 공휴일이 아닌 날로만 센다.
+// 연 18일 중 설·추석 연휴 6일을 뺀 12일 = 월 1일만 뺀다(연휴는 한 주에 몰려 날짜마다 빼면 과다 — design.ts HOLIDAY_CLUSTER_DAYS). 휴일 항목은 18일 전부(월 1.5일).
+// 주 6일 × 8시간: 평소 1주 연장 8시간, 공휴일 주는 나머지 5일 40시간이라 연장 0
+describe('designMonthlyWage — 공휴일이 든 주의 1주 40시간 연장', () => {
+  const six = (daily: number): DesignInput => ({ monthlyTotal: 3_500_000, daysPerWeek: 6, dailyWorkHours: daily, holidayDaysPerYear: 18 });
+  it.each([
+    // [하루, 평소 1주 연장, 공휴일 주에 빠지는 연장(하루 8시간 넘는 시간 말고), 휴일 시간]
+    [8, 8, 8, 8 * 1.5],
+    [10, 20, 8, 8 * 1.5 + 2 * 0.5],
+    [7, 2, 2, 7 * 1.5],
+  ])('주 6일 × 하루 %s시간 — 연장 = (1주 %s시간 × 4.345 − 월 1일 × %s시간) × 1.5', (daily, weeklyOt, dropped, holiday) => {
+    const r = designMonthlyWage(six(daily));
+    expect(r.hours.overtime).toBeCloseTo((weeklyOt * 4.345 - dropped) * 1.5, 6);
+    expect(r.hours.holiday).toBeCloseTo(holiday * 1.5, 6);
+  });
+  it('주 5일 이하는 공휴일 주에 빠지는 연장이 하루 8시간 넘는 시간뿐이라 그대로(휴일 0.5 와 합해 2.0)', () => {
+    const five = designMonthlyWage({ ...six(10), daysPerWeek: 5 });
+    expect(five.hours.overtime).toBeCloseTo(10 * 1.5 * 4.345, 6);
+    expect(designMonthlyWage(UIJEONGBU).hours.overtime).toBeCloseTo(36.9325, 4);
+  });
+  it('설·추석 연휴 6일까지는 빼지 않는다(한 주에 몰리면 날짜마다 빼서 과다 — 적대 검토 261104)', () => {
+    expect(designMonthlyWage({ ...six(8), holidayDaysPerYear: 6 }).hours.overtime).toBeCloseTo(8 * 4.345 * 1.5, 6);
+    expect(designMonthlyWage({ ...six(8), holidayDaysPerYear: 7 }).hours.overtime).toBeCloseTo((8 * 4.345 - 8 / 12) * 1.5, 6);
+  });
+  it('휴일 시간을 0으로 직접 정하면 연장을 빼지 않는다 — 점검에 밝힐 메모가 없다', () => {
+    expect(designMonthlyWage({ ...six(8), overrides: { holidayHours: 0 } }).hours.overtime).toBeCloseTo(8 * 4.345 * 1.5, 6);
+  });
+  it('연장 시간을 직접 정했으면 그 값을 쓴다', () => {
+    expect(designMonthlyWage({ ...six(8), overrides: { overtimeHours: 50 } }).hours.overtime).toBe(50);
+  });
+  it('5명 미만은 휴일 가산이 없어 빼지 않는다(연장 실시간)', () => {
+    expect(designMonthlyWage({ ...six(8), fivePlus: false }).hours.overtime).toBeCloseTo(8 * 4.345, 6);
   });
 });

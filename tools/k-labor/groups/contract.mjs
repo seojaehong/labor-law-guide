@@ -131,12 +131,14 @@ function compute(a, { fillPaper }) {
     return { ok: false, error: 'monthlyTotal(총액)과 netPay(실수령액) 중 하나만 넣어 주세요.' };
   }
   const absorb = a.absorbInto ?? 'base';
-  const options = absorbOptions(payType);
+  const state = toState(a, fillPaper);
+  // 화면과 같이 근무형태로 시간이 생기는 항목만 고를 수 있다
+  const options = absorbOptions(state);
   if (!options.some((o) => o.value === absorb)) {
     return { ok: false, error: `absorbInto 는 ${options.map((o) => `${o.value}(${o.label})`).join(', ')} 가운데 하나입니다.` };
   }
   const paperMissing = PAPER_FIELDS.filter(([k]) => !(a[k] ?? '').trim()).map(([, label]) => label);
-  const parsed = toWriteForm(toState(a, fillPaper));
+  const parsed = toWriteForm(state);
   if (!parsed.form) {
     return parsed.missing.length
       ? { ok: false, missing: parsed.missing, error: `비었거나 형식이 맞지 않는 칸: ${parsed.missing.join(', ')}` }
