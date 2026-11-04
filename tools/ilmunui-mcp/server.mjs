@@ -7,6 +7,8 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { registerNhis, nhisTools } from './groups/nhis.mjs';
 import { registerPopbill, popbillTools } from './groups/popbill.mjs';
+import { registerContract, contractTools } from './groups/contract.mjs';
+import { registerCalc, calcTools } from './groups/calc.mjs';
 
 const VERSION = '0.1.0';
 
@@ -14,6 +16,8 @@ const VERSION = '0.1.0';
 const GROUPS = {
   nhis: { register: registerNhis, tools: nhisTools, about: '건강보험 관할 지사 찾기 · 자격취득·상실 신고서 PDF' },
   popbill: { register: registerPopbill, tools: popbillTools, about: '내 팝빌 계정으로 팩스·문자 보내기 · 결과 조회' },
+  contract: { register: registerContract, tools: contractTools, about: '근로계약서 임금 구성 설계 · 점검 · xlsx·hwpx·pdf 만들기(파일은 로컬 전용)' },
+  calc: { register: registerCalc, tools: calcTools, about: '최저임금 · 주휴수당 · 상시 근로자 수 · 실수령액 · 해고예고수당 · 연차수당 계산' },
 };
 const ALIAS = { fax: 'popbill', sms: 'popbill' };
 
