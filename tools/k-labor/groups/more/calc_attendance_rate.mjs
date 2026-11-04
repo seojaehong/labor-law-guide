@@ -14,9 +14,15 @@ export const name = 'calc_attendance_rate';
 const SITE = 'https://yellowenvelope.kr/tools/attendance-rate';
 const READ_ONLY = { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false };
 
-// 응답에 싣지 않는 말 — 사이트 금지어 + 「대신·대행·대리·포괄」. 사이트 문구에 들어 있으면 그 문장을 뺀다.
+// 응답에 싣지 않는 말 — 사이트 금지어 + 「대신·대행·대리·포괄」. 사이트 문구에 들어 있으면 아래 바꿔 쓴 문장으로 갈음하고,
+// 바꿔 쓴 문장이 없을 때만 뺀다(copy.ts 전수 확인 — 금지어가 든 화면 문장은 monthly 의 한 줄뿐).
 const WORDS = [...SERVICE_BANNED, ...RESULT_BANNED, '대신', '대행', '대리', '포괄'];
-const clean = (lines) => lines.filter((l) => bannedHits(l, WORDS).length === 0);
+const REWORD = {
+  '1년치 연차 대신 1개월 개근할 때마다 1일이 생깁니다(근로기준법 제60조제2항).':
+    '1년치 연차는 생기지 않고, 1개월 개근할 때마다 1일이 생깁니다(근로기준법 제60조제2항).',
+};
+const isClean = (l) => bannedHits(l, WORDS).length === 0;
+const clean = (lines) => lines.map((l) => (isClean(l) ? l : REWORD[l] ?? null)).filter((l) => l !== null && isClean(l));
 
 const GROUP_TAG = { deemed: '출근한 것으로 보는 날', excluded: '소정근로일수에서 빼는 날', absent: '결근으로 세는 날' };
 
@@ -63,7 +69,16 @@ export function register(server) {
     async (a) => {
       try {
         const r = calcAttendanceRate({ hireDate: a.hireDate, accrualDate: a.accrualDate, scheduledDays: a.scheduledDays, days: a.days ?? {} });
-        const m = a.month ? monthlyLeaveDay(a.month) : null;
+        // 한 달 개근은 따로 계산한다 — month 칸이 잘못돼도 연간 결과는 그대로 내고 month 에만 오류를 단다(화면 AttendanceRateClient 와 같음).
+        let month = null;
+        if (a.month) {
+          try {
+            const m = monthlyLeaveDay(a.month);
+            month = { ...m, lines: clean(monthLines(m)) };
+          } catch (e) {
+            month = { error: e instanceof Error ? e.message : String(e) };
+          }
+        }
         const entered = CAUSE_IDS.filter((c) => (a.days?.[c] ?? 0) > 0).map((c) => ({
           cause: c,
           label: CAUSE_COPY[c].label,
@@ -78,18 +93,24 @@ export function register(server) {
           formula: clean(formulaLines(r)),
           result: { ...r, primaryText: outcomeText(r.primary), altText: outcomeText(r.alt) },
           entered: entered.map((e) => ({ ...e, basis: clean([e.basis])[0] ?? null })),
-          ...(m ? { month: { ...m, lines: clean(monthLines(m)) }, monthRules: clean(MONTH_RULES) } : {}),
+          ...(month ? { month, monthRules: clean(MONTH_RULES) } : {}),
           openItems: clean(OPEN_ITEMS),
           notCovered: clean(SCOPE_ITEMS),
+          // 화면 page.tsx 의 계산 기준과 같은 목록(설명은 줄였다)
           basis: [
-            '근로기준법 제60조제1항·제2항·제4항',
+            '근로기준법 제60조제1항·제4항',
+            '근로기준법 제60조제2항(80% 미만 부분은 법률 제11270호, 2012. 8. 2. 시행 — 부칙 제4조에 따라 시행 뒤의 근로기간이 처음 1년이 되는 근로자부터)',
             '근로기준법 제60조제6항(2027. 6. 10.부터 제7항) — 출근한 것으로 보는 기간',
             '대법원 2013. 12. 26. 선고 2011다4629 판결',
             '대법원 2019. 2. 14. 선고 2015다66052 판결',
             '대법원 2014. 3. 13. 선고 2011다95519 판결',
             '대법원 2017. 5. 17. 선고 2014다232296, 232302 판결',
+            '대법원 2008. 10. 9. 선고 2008다41666 판결',
             '고용노동부 「연차유급휴가 등의 부여 시 소정근로일수 및 출근여부 판단기준」(임금근로시간정책팀-3228, 2007. 10. 25.)',
-            '임금근로시간과-906·-636, 근로개선정책과-3370, 근로기준과-3296, 임금근로시간과-1818',
+            '임금근로시간과-906(2021. 4. 15.)·-636(2021. 3. 19.)',
+            '근로개선정책과-3370(2014. 6. 13.)',
+            '근로기준과-3296(2009. 9. 1.)',
+            '임금근로시간과-1818(2021. 8. 12.)',
           ],
           site: SITE,
         });

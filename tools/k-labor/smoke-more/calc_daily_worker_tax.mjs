@@ -36,4 +36,5 @@ export default async function (callNew, check) {
   // 일용근로자가 아니면 계산하지 않는다
   const no = await callNew(N, { dailyWorker: false, payments: [pay(200_000, 1)] });
   check('daily 일용근로자 아님 → 계산하지 않음', no.ok && no.stop === true && no.result === undefined);
+  check('daily 일용근로자 아님 → 실수령액 계산기 안내(next)', no.next?.tool === 'calc_take_home_pay' && no.next?.site === 'https://yellowenvelope.kr/tools/take-home-pay');
 }

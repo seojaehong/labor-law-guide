@@ -50,4 +50,20 @@ export default async function (callNew, check) {
   // 입력 오류 — 음수 (시험 :269)
   const neg = await callNew(n, { ...base, ...S2, health: -1 });
   check(`midyear 음수 보험료는 오류(${neg.error})`, neg.ok === false && /건강보험료/.test(neg.error ?? ''));
+
+  // 근거 목록은 화면(page.tsx) basis 그대로 — 마지막 줄 귀속 기준·조문 확인일까지
+  check(`midyear basis 마지막 줄 = 귀속 기준·조문 확인일(${s2.basis?.at(-1)})`, s2.basis?.at(-1) === '2026년 귀속 기준, 조문 확인 2026. 10. 29.');
+
+  // 금지어 거르기는 문장 단위 — NOTICE 둘째 줄의 금지어 없는 뒷문장은 남는다(계산한 경우·멈춘 경우 모두)
+  const keep = '원천징수영수증이나 신고서를 만들지 않습니다.';
+  check(`midyear notice 에 「${keep}」 남음`, s2.notice?.includes(keep) === true && stop.notice?.includes(keep) === true && s2.notice?.length === 2);
+
+  // 설명의 지방소득세 식에 10원 미만 0 쪽 버림(엔진 settleLocalTax = trunc10). 설치본처럼 소스가 없으면 건너뛴다
+  const fs = await import('node:fs');
+  const src = new URL('../groups/more/calc_midyear_settlement.mjs', import.meta.url);
+  const desc = fs.existsSync(src) ? fs.readFileSync(src, 'utf8') : null;
+  check(
+    'midyear 설명: 지방소득세도 10원 미만 0 쪽 버림',
+    desc === null || /이미 낸 지방소득세, 10원 미만은 0 쪽으로 버림/.test(desc),
+  );
 }

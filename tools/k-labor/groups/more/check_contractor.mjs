@@ -24,6 +24,22 @@ const cleanAll = (arr) => arr.filter((s) => clean(s) !== undefined);
 /** 사이트 글자가 금지어를 품어 빠지는 항목의 요소 이름 — 판결 요소를 중립 낱말로 다시 적은 것(요약, 인용 아님) */
 const ELEMENT_FALLBACK = { Q4: '제3자를 고용해 일을 맡길 수 있는지' };
 
+/** YYYY-MM-DD 이고 달력에 있는 날짜인지(2026-02-30 같은 것은 거른다) */
+function isRealDate(s) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s);
+  if (!m) return false;
+  const [y, mo, d] = [Number(m[1]), Number(m[2]), Number(m[3])];
+  const t = new Date(Date.UTC(y, mo - 1, d));
+  return t.getUTCFullYear() === y && t.getUTCMonth() === mo - 1 && t.getUTCDate() === d;
+}
+
+/** 사이트 머리말 — 기준일을 받은 때 요율이 없으면 「오늘 날짜」가 아니라 그 날짜를 말한다 */
+function moneyLines(r, givenDate) {
+  const lines = moneyHeadline(r);
+  if (r.wage.status !== 'noRates' || givenDate === undefined) return lines;
+  return [lines[0], `근로소득 쪽은 ${givenDate} 기준 보험료율·기준이 아직 반영되지 않아 계산하지 않았습니다.`];
+}
+
 const ANSWER = z.enum(['yes', 'no', 'unknown']);
 const q = (d) => ANSWER.optional().describe(d);
 
@@ -71,14 +87,26 @@ export function register(server) {
     },
     async (a) => {
       try {
+        if (a.date !== undefined && !isRealDate(a.date)) {
+          return text({ ok: false, field: 'date', error: '기준일(date)을 확인해 주세요. YYYY-MM-DD 형식의 실제 날짜여야 합니다.' });
+        }
         const items = checkItems(a.answers ?? {});
         const date = a.date ?? todayKst();
         const meal = a.meal ?? 0;
-        const r = a.pay === undefined ? null : compareTakeHome({ pay: a.pay, meal, family: a.family ?? 1 }, date);
+        // 금액 비교는 대조와 따로 돈다 — 월 보수가 틀려도 Q1~Q8 대조는 내고 금액 쪽에만 오류를 단다(화면과 같다)
+        let r = null;
+        let moneyError;
+        if (a.pay !== undefined) {
+          try {
+            r = compareTakeHome({ pay: a.pay, meal, family: a.family ?? 1 }, date);
+          } catch (e) {
+            moneyError = e instanceof Error ? e.message : String(e);
+          }
+        }
         return text({
           ok: true,
           date,
-          headline: cleanAll([...CHECK_HEADLINE, ...(r ? moneyHeadline(r) : [])]),
+          headline: cleanAll([...CHECK_HEADLINE, ...(r ? moneyLines(r, a.date) : [])]),
           items: items.map((i) => ({
             id: i.id,
             element: clean(i.question.element) ?? ELEMENT_FALLBACK[i.id],
@@ -100,7 +128,9 @@ export function register(server) {
                   notes: cleanAll(MONEY_NOTES),
                 },
               }
-            : {}),
+            : moneyError !== undefined
+              ? { money: { error: moneyError } }
+              : {}),
           result: {
             items: items.map((i) => ({ id: i.id, answer: i.answer, reading: i.reading })),
             ...(r ? { money: r } : {}),

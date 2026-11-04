@@ -269,6 +269,13 @@ for (const n of MORE_TOOLS) {
   const run = (await import(new URL(`./smoke-more/${n}.mjs`, import.meta.url))).default;
   await run(callNew, check);
 }
+// 13자리 금액은 주민번호 가림에 걸리지 않는다 — 글자 값만 가린다(lib/common.mjs text, 적대 검토 261104)
+if (tools.includes('calc_daily_worker_tax')) {
+  const raw = (await c.callTool({ name: 'calc_daily_worker_tax', arguments: { dailyWorker: true, payments: [{ lines: [{ dailyWage: 1_000_000_000, days: 366 }] }] } })).content?.[0]?.text ?? '';
+  let parsed = null;
+  try { parsed = JSON.parse(raw); } catch { /* 깨진 JSON */ }
+  check('13자리 금액 응답이 올바른 JSON(주민번호 가림이 숫자를 바꾸지 않음)', parsed !== null && !raw.includes('******'));
+}
 // 새 도구 7개는 설명·입력 설명에도 금지어(대신·대행·대리·포괄 포함)가 없다
 for (const t of (await c.listTools()).tools.filter((x) => MORE_TOOLS.includes(x.name))) {
   const h = banned ? banned.bannedHits(JSON.stringify([t.title, t.description, t.inputSchema]), [...NEW_WORDS, '포괄']) : [];

@@ -23,11 +23,16 @@ export default async function (callNew, check) {
   check(`attendance C5 가산 포함 비례 51/5일(${c5.result?.primaryText?.days})`,
     c5.ok && c5.result?.baseDays === 17 && c5.result.status === 'prorated' && c5.result.primary?.days?.num === 51 && c5.result.primary.days.den === 5);
 
-  // C2b(시험 55~60행) — S248 결근50 → 198/248, 빼는 날 없음 → 월 개근(「대신」 문장은 응답에서 빠진다)
+  // C2b(시험 55~60행) — S248 결근50 → 198/248, 빼는 날 없음 → 월 개근(금지어 문장은 바꿔 쓴 문장으로 갈음된다)
   const c2b = await callNew(n, { ...Y2, scheduledDays: 248, days: { absence: 50 } });
   check(`attendance C2b 79.84% → 월 개근(${c2b.headline?.join(' / ')})`,
     c2b.ok && c2b.result?.status === 'monthly' && c2b.result.primary?.days === null && c2b.result.primary.realRate === null
     && !JSON.stringify(c2b).includes('대신'));
+
+  // 결함 1 회귀 — 금지어 문장을 지우지 않고 갈음해 「1개월 개근할 때마다 1일」 결과 문장이 응답에 남는다
+  const reworded = '1년치 연차는 생기지 않고, 1개월 개근할 때마다 1일이 생깁니다(근로기준법 제60조제2항).';
+  check('attendance 월 개근 결과 문장이 갈음되어 남는다',
+    c2b.ok && [...(c2b.headline ?? []), ...(c2b.effect ?? [])].includes(reworded));
 
   // C18(시험 160~169행) — 부당 정직 20 · 결근35 → 빼는 날로 보면 69/5일, 출근으로 보면 43/50 → 15일
   const c18 = await callNew(n, { ...Y2, scheduledDays: 250, days: { 'unfair-suspension': 20, absence: 35 } });
@@ -39,6 +44,17 @@ export default async function (callNew, check) {
   // M1(시험 200~202행) — 월20 · 빼는 날10 · 결근0 → 1일
   const m1 = await callNew(n, { ...Y2, scheduledDays: 250, days: { absence: 5 }, month: { scheduled: 20, excluded: 10, absent: 0 } });
   check(`attendance M1 그 달 개근 1일(${m1.month?.lines?.[0]})`, m1.ok && m1.month?.day === 1 && m1.month.reason === 'perfect');
+
+  // 결함 2 회귀 — month 칸이 잘못돼도(빼는 날 30 > 그 달 20) 연간 결과는 ok:true 로 내고 month 에만 오류를 단다
+  const mBad = await callNew(n, { ...Y2, scheduledDays: 250, days: { absence: 5 }, month: { scheduled: 20, excluded: 30, absent: 0 } });
+  check(`attendance month 오류는 month 에만(${mBad.month?.error})`,
+    mBad.ok === true && mBad.result?.status === 'full' && mBad.result.primary?.days?.num === 15
+    && typeof mBad.month?.error === 'string' && mBad.month.error.length > 0 && mBad.month.day === undefined);
+
+  // 결함 3 회귀 — basis 가 화면 page.tsx 계산 기준과 맞는다(2008다41666 · 법률 제11270호 부칙 제4조)
+  const basisText = (c1.basis ?? []).join(' | ');
+  check('attendance basis 에 2008다41666 · 법률 제11270호 부칙 제4조',
+    basisText.includes('2008. 10. 9. 선고 2008다41666 판결') && basisText.includes('법률 제11270호') && basisText.includes('부칙 제4조'));
 
   // 입력 오류(시험 236행) — 결근200 + 쟁의51 = 251 > 250
   const bad = await callNew(n, { ...Y2, scheduledDays: 250, days: { absence: 200, 'lawful-strike': 51 } });

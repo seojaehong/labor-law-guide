@@ -46,4 +46,16 @@ export default async function (callNew, check) {
   // 화면 「정상 근무월」 — build-input.ts OUTSIDE_NOTE
   const normal = await callNew('check_monthly_pay', { scenario: 'NORMAL_MONTH' });
   check('check_monthly_pay 정상 근무월은 범위 밖', normal.ok && normal.result?.status === 'OUTSIDE_SCOPE' && /범위 밖/.test(normal.observation ?? ''));
+
+  // 결함 1 — basis 에는 그 예외에 엔진이 실제로 쓴 조문(citations)만. 화면 footer 조문 목록은 toolStatutes 로 따로.
+  check('check_monthly_pay basis = 엔진 citations 만(중도퇴사 [] · 결근 공제 시행령 제30조제1항 · 범위 밖 [])',
+    JSON.stringify(leave.basis) === JSON.stringify(leave.result?.citations ?? null) && leave.basis.length === 0
+    && JSON.stringify(same.basis) === '["근로기준법 시행령 제30조제1항"]'
+    && Array.isArray(normal.basis) && normal.basis.length === 0
+    && leave.toolStatutes?.length === 4 && normal.toolStatutes?.length === 4 && same.toolStatutes?.includes('근로기준법 제18조제3항'));
+
+  // 결함 2 — 범위 밖 목록에서 지웠던 정액 수당 약정 항목을 금지어 없는 말로 되살림
+  const FIXED_OT = '연장·야간·휴일수당을 미리 정해 월급에 넣은 정액 약정(고정OT)';
+  check('check_monthly_pay 범위 밖 목록에 고정OT 항목이 있고 금지어 「포괄」은 없다',
+    [leave, normal].every((r) => Array.isArray(r.notCovered) && r.notCovered.includes(FIXED_OT) && !r.notCovered.join(' ').includes('포괄')));
 }

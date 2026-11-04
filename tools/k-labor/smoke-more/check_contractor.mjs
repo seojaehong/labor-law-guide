@@ -44,7 +44,23 @@ export default async function (callNew, check) {
     f0.ok && f0.result?.money?.business?.takeHome === 2_901_000 && f0.result.money.wage?.status === 'notComputed'
       && /공제대상가족 수를 확인해 주세요/.test(f0.result.money.wage.reason ?? ''));
 
-  // 입력 오류(126~130행) — 월 보수 0 이면 두 쪽 다 낼 수 없어 멈춘다(엔진 문구 그대로)
-  const bad = await callNew('check_contractor', { pay: 0, date: DATE });
-  check(`contractor 월 보수 0 은 오류(${bad.error})`, bad.ok === false && /월 보수를 확인해 주세요/.test(bad.error ?? ''));
+  // 입력 오류(126~130행) — 월 보수 0 이면 금액 비교만 멈춘다(엔진 문구 그대로). 대조·안내·판결 출처는 그대로 낸다(화면과 같다)
+  const bad = await callNew('check_contractor', { answers: WORKER, pay: 0, date: DATE });
+  check(`contractor 월 보수 0 — 대조는 ok, 금액 쪽에만 오류(${bad.money?.error})`,
+    bad.ok === true && bad.items?.length === 8 && (bad.checkNotes ?? []).length > 0 && typeof bad.source?.cite === 'string'
+      && /월 보수를 확인해 주세요/.test(bad.money?.error ?? '') && bad.money?.rows === undefined && bad.result?.money === undefined
+      && Object.values(readings(bad)).every((x) => x === 'worker'));
+
+  // 기준일 형식 — YYYY-MM-DD 가 아니거나 달력에 없는 날이면 date 칸 오류
+  const d1 = await callNew('check_contractor', { answers: WORKER, pay: 3_000_000, date: '2026/10/29' });
+  check(`contractor 기준일 2026/10/29 는 date 칸 오류(${d1.error})`, d1.ok === false && d1.field === 'date' && /YYYY-MM-DD/.test(d1.error ?? ''));
+  const d2 = await callNew('check_contractor', { pay: 3_000_000, date: '2026-02-30' });
+  check(`contractor 기준일 2026-02-30 은 date 칸 오류(${d2.error})`, d2.ok === false && d2.field === 'date');
+
+  // 요율이 없는 기준일 — 머리말이 「오늘 날짜」가 아니라 받은 날짜를 말한다
+  const nr = await callNew('check_contractor', { pay: 3_000_000, date: '2020-01-01' });
+  const nrText = (nr.headline ?? []).join(' ');
+  check(`contractor 기준일 2020-01-01 요율 없음 — 그 날짜로 말함(${nr.headline?.[nr.headline.length - 1]})`,
+    nr.ok && nr.result?.money?.wage?.status === 'noRates' && nrText.includes('2020-01-01 기준 보험료율·기준이 아직 반영되지 않아')
+      && !nrText.includes('오늘 날짜'));
 }

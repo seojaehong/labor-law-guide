@@ -16,16 +16,17 @@ const READ_ONLY = { readOnlyHint: true, destructiveHint: false, idempotentHint: 
 // 클라이언트 파일은 React·next/link 를 끌고 와 불러오지 않는다.
 const DISCLAIMER = '이 결과는 입력하고 확인한 값의 대조이며 법률 판단이 아닙니다.';
 
-// 화면 아래 「이 도구가 쓰는 조문」 목록(PayCheckClient.tsx footer). 결과마다 엔진이 붙이는 조문은 뒤에 더한다.
-const SCREEN_BASIS = [
+// 화면 아래 「이 도구가 쓰는 조문」 목록(PayCheckClient.tsx footer). 결과 근거(basis)와 섞지 않고 toolStatutes 칸에 따로 싣는다.
+// basis 에는 엔진 결과의 citations(그 예외에 실제로 쓴 조문)만 싣는다.
+const TOOL_STATUTES = [
   '근로기준법 제18조제3항',
   '근로기준법 제55조제1항',
   '근로기준법 시행령 제30조제1항',
   '근로기준법 시행령 [별표 2] 제2호나목',
 ];
 
-// 화면 footer 「범위 밖」 문장에서 금지어가 든 항목 하나를 뺀 목록.
-const NOT_COVERED = ['두 가지 이상 겹친 예외', '교대제', '가산수당', '연차', '퇴직금', '보험', '세액'];
+// 화면 footer 「범위 밖」 문장과 같은 목록. 금지어가 든 낱말 하나는 같은 뜻으로 풀어 썼다.
+const NOT_COVERED = ['두 가지 이상 겹친 예외', '연장·야간·휴일수당을 미리 정해 월급에 넣은 정액 약정(고정OT)', '교대제', '가산수당', '연차', '퇴직금', '보험', '세액'];
 
 const SCENARIO_IDS = PICKS.map((p) => p.id);
 const POLICY_IDS = Object.keys(POLICY_NAME);
@@ -72,7 +73,7 @@ const DESCRIPTION =
   '주휴 고정 스케줄 = 시급 × (평균 기간 약정 소정근로시간 ÷ 같은 기간 통상 근로자 소정근로일수) × 주수(시행령 [별표 2] 제2호나목). 4주(4주 미만 근로면 그 기간) 평균 1주 15시간 미만은 주휴 대조 밖(근로기준법 제18조제3항). ' +
   '차이 = 계산값 − 명세서(결근 공제는 명세서 − 계산값), 양수면 근로자가 덜 받는 쪽. 결과는 대조 일치·어긋남 가능성·계산 기준 확인 필요·범위 밖 넷 중 하나다. ' +
   '회사 기준을 모르면(policy 없음) 금액을 만들지 않고 회사에 물어볼 문장을 낸다. 기준은 골랐지만 문서에서 확인하지 못했으면 참고 계산으로 내고 「계산 기준 문서 미확인」을 남긴다. 끝수가 생겼는데 처리 방법·단위 중 하나라도 모르면 금액을 만들지 않는다. ' +
-  '빈 칸은 모름이며 대조를 멈춘다. 날짜를 고치거나 기준을 짐작하지 않는다. 정상 근무월, 두 가지 이상 겹친 예외, 교대제·가산수당·연차·퇴직금·보험·세액은 다루지 않는다. 결과는 법률 판단이 아니다.';
+  '빈 칸은 모름이며 대조를 멈춘다. 날짜를 고치거나 기준을 짐작하지 않는다. 정상 근무월, 두 가지 이상 겹친 예외, 연장·야간·휴일수당을 미리 정해 월급에 넣은 정액 약정(고정OT), 교대제·가산수당·연차·퇴직금·보험·세액은 다루지 않는다. 결과는 법률 판단이 아니다.';
 
 /** 화면 buildInput 과 같은 규칙: 그 예외·기준의 칸만 넣고, 빈 칸(undefined)은 키를 뺀다. null 은 「모름」으로 그대로 넣는다. */
 function toInput(a) {
@@ -127,7 +128,8 @@ export function register(server) {
             observation: OUTSIDE_NOTE[a.scenario],
             notCovered: NOT_COVERED,
             disclaimer: DISCLAIMER,
-            basis: SCREEN_BASIS,
+            basis: [],
+            toolStatutes: TOOL_STATUTES,
             site: SITE,
           });
         }
@@ -156,7 +158,8 @@ export function register(server) {
           disclaimer: DISCLAIMER,
           ...(ignored.length ? { ignoredFields: ignored } : {}),
           notCovered: NOT_COVERED,
-          basis: [...SCREEN_BASIS, ...r.citations.filter((x) => !SCREEN_BASIS.includes(x))],
+          basis: r.citations,
+          toolStatutes: TOOL_STATUTES,
           site: SITE,
         });
       } catch (e) {

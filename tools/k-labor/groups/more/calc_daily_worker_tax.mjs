@@ -45,7 +45,7 @@ export function register(server) {
     async (a) => {
       try {
         if (!a.dailyWorker) {
-          return text({ ok: true, headline: ELIGIBILITY_STOP, stop: true, site: SITE });
+          return text({ ok: true, headline: ELIGIBILITY_STOP, stop: true, site: SITE, next: { tool: 'calc_take_home_pay', site: 'https://yellowenvelope.kr/tools/take-home-pay' } });
         }
         const r = calcDailyWorkerTax({ payments: a.payments.map((p) => ({ days: expandLines(p.lines) })) });
         return text({
