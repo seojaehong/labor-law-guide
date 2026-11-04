@@ -6,7 +6,7 @@ import { dayWorkMinutes, MINWAGE_TABLE, normalize } from '@/lib/contract-check/n
 import { minwageAssessment } from '@/lib/contract-check/rules/wage';
 import type { Contract, Finding, WageItem, WageItemCode } from '@/lib/contract-check/types';
 
-import { designHours, designMonthlyWage, ROUNDING_UNIT, weeklySchedule, WEEKS_PER_MONTH, type DesignResult, type ItemKey, type Rounding } from './design';
+import { designHours, designMonthlyWage, monthlyHolidayWeekDrop, ROUNDING_UNIT, weeklySchedule, WEEKS_PER_MONTH, type DesignResult, type ItemKey, type Rounding } from './design';
 import { designHourlyWage, hourlyDesignHours } from './part';
 
 export interface Probation {
@@ -113,7 +113,11 @@ function holidayNote(form: WriteForm): string {
   const planned = Math.round(monthlyDays * daily * 100) / 100;
   const note = `연 ${form.holidayDaysPerYear}일 근무 예정, 월 평균 ${Math.round(monthlyDays * 100) / 100}일/${planned}H`;
   // 소정근로일 공휴일의 하루 8시간 넘는 시간 — 설계가 그 시간을 휴일 × 0.5 로 세므로(연장 1.5 와 합해 2.0, #151) 점검 HOLIDAY-COVER 에 밝힌다
-  return daily > 8 ? `${note}(8시간 넘는 ${Math.round(monthlyDays * (daily - 8) * 100) / 100}H)` : note;
+  const over8 = daily > 8 ? `(8시간 넘는 ${Math.round(monthlyDays * (daily - 8) * 100) / 100}H)` : '';
+  // 공휴일이 든 주에 1주 연장에서 빠지는 시간(주 6일부터) — 설계가 연장에서 뺐으므로 점검 OT-COVER 에 밝힌다(design.ts monthlyHolidayWeekDrop).
+  // 0.01H 단위로 올린다 — 반올림하면 메모가 설계보다 적어 점검이 0.1H 부족을 낸다(적대 검토 261104). 올리면 점검이 설계보다 덜 요구할 뿐이다
+  const dropped = Math.ceil(monthlyHolidayWeekDrop(daily, form.workDays.length, form.holidayDaysPerYear) * 100 - 1e-6) / 100;
+  return `${note}${over8}${dropped > 0 ? `(공휴일 주에 빠지는 1주 연장 ${dropped}H)` : ''}`;
 }
 
 /** 시작일부터 종료일까지가 1년 이상인지(종료일 = 시작일 + 1년 − 1일이면 1년) */

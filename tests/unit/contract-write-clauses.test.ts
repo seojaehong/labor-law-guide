@@ -123,7 +123,12 @@ const DEDUCT =
 
 describe('PR #144 검토 · 결근 주 주휴수당 정산 문구', () => {
   it('공제(기본)는 확정 문구 — 법조는 「정산하고」 뒤에 둔다', () => {
-    expect(clause(PART, 5)).toContain(DEDUCT);
+    expect(clause(PART, 5).some((line) => line.startsWith(DEDUCT))).toBe(true);
+  });
+  // 법률검증 261104 — 유급휴일 임금(최소 1일분)은 개근 요건이 없어(시행령 제30조 제2항) 공제할 수 없고, 1일분을 넘는 몫은 직접 근거가 없어
+  // 정산 대상에서 뺀다(엘박스·슈퍼로이어·법제처 일치). 확정 문구 뒤에 덧붙인다
+  it('유급휴일·법정 유급휴가로 쉰 날 지급한 금액은 정산에 넣지 않는다 — 확정 문구 바로 뒤', () => {
+    expect(clause(PART, 5)).toContain(`${DEDUCT} 유급휴일·법정 유급휴가로 근무하지 않은 날에 지급한 금액은 이 정산에 넣지 않는다.`);
   });
   it('공제하지 않음은 그대로(첫 문장을 같이 쓴다)', () => {
     expect(clause({ ...PART, absentWeekHoliday: 'keep' }, 5)).toContain(`${LEAD} 소정근로일에 결근한 주에도 그 주 근무일에 지급한 주휴수당은 공제하지 않는다.`);

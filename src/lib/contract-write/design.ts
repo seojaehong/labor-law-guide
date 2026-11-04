@@ -82,6 +82,30 @@ export function weeklySchedule(dailyWorkHours: number, daysPerWeek: number): { s
   return { scheduled, overtime: Math.max(0, dailyWorkHours * daysPerWeek - scheduled) };
 }
 
+/** 공휴일 하루 근무가 1주 연장에서 빠지는 시간 중 그날 8시간 넘는 시간을 뺀 것 — 공휴일 근로시간은 1주 52시간 한도에는 들지만 가산은
+ * 제56조 제2항(휴일)만 붙고 1주 40시간 초과 연장 가산을 겹치지 않는다(같은 항 「제1항에도 불구하고」, 대법원 2024. 2. 8. 선고 2018다206899
+ * 판결·2018. 6. 21. 선고 2011다112391 전원합의체 판결). 그래서 공휴일이 든 주의 연장은 공휴일이 아닌 날로만 센다(근무일 − 1).
+ * 그날 8시간 넘는 시간은 연장 1.5 + 휴일 0.5 로 세므로(#151) 연장에 남긴다. 주 5일 이하는 1주 40시간에 닿지 않아 0, 주 6일부터 생긴다 */
+export function holidayWeekDroppedOvertime(dailyWorkHours: number, daysPerWeek: number): number {
+  if (daysPerWeek < 1) return 0;
+  const drop = weeklySchedule(dailyWorkHours, daysPerWeek).overtime - weeklySchedule(dailyWorkHours, daysPerWeek - 1).overtime;
+  return Math.max(0, drop - Math.max(dailyWorkHours - 8, 0));
+}
+
+/** 설·추석 연휴(각 3일)는 한 주에 몰려 날짜마다 빼면 그 주 연장보다 많이 뺀다(3일 연휴 주 6일 × 8시간 — 날짜마다면 24시간, 실제 8시간).
+ * 연간 일수만으로는 어느 날이 몰리는지 몰라 연휴 6일은 아예 빼지 않는다 — 덜 빼면 연장을 더 잡을 뿐 모자라지 않는다(적대 검토 261104) */
+export const HOLIDAY_CLUSTER_DAYS = 6;
+
+/** 연간 공휴일 근무 일수(소정근로일에 드는 것) 중 1주 연장을 빼는 날 수 — 휴일 항목과 같은 min(근무일, 5) ÷ 5 를 쓰고 연휴 6일을 뺀다 */
+export function holidayWeekDropDaysPerYear(holidayDaysPerYear: number, daysPerWeek: number): number {
+  return Math.max(0, holidayDaysPerYear * (Math.min(daysPerWeek, 5) / 5) - HOLIDAY_CLUSTER_DAYS);
+}
+
+/** 월 평균 공휴일 주에 빠지는 1주 연장(실시간) — 설계와 점검 메모(contract.ts holidayNote)가 같은 값을 쓴다 */
+export function monthlyHolidayWeekDrop(dailyWorkHours: number, daysPerWeek: number, holidayDaysPerYear: number): number {
+  return (holidayWeekDroppedOvertime(dailyWorkHours, daysPerWeek) * holidayWeekDropDaysPerYear(holidayDaysPerYear, daysPerWeek)) / 12;
+}
+
 /** 항목별 월 인정시간 — 사무소 양식 식에 1주 40시간 연장을 더했다 */
 export function designHours(input: DesignInput): Record<ItemKey, number> {
   const { daysPerWeek: days, dailyWorkHours: daily, holidayDaysPerYear } = input;
@@ -98,22 +122,27 @@ export function designHours(input: DesignInput): Record<ItemKey, number> {
   const eligible = weekly >= 15;
   const weeklyHoliday = eligible ? (weekly / 40) * 8 : 0;
   const base = weekly === 40 ? 209 : (weekly + weeklyHoliday) * WEEKS_PER_MONTH;
-  const overtime = weeklyOvertime * (fivePlus ? 1.5 : 1) * WEEKS_PER_MONTH;
+  const holidayDaysPerMonth = (holidayDaysPerYear * (Math.min(days, 5) / 5)) / 12;
+  const o = input.overrides ?? {};
   const night = fivePlus ? (input.nightHoursPerDay ?? 0) * NIGHT_PREMIUM * days * WEEKS_PER_MONTH : 0;
   // 휴일 = 유급휴일에 근무한 시간의 100% + 가산 50% — 유급휴일분 100% 는 기본급(209시간) 안이다(1998.4.24. 97다28421, 임금근로시간과-653).
   // 8시간 넘는 시간은 통상임금의 200%(근로 100% + 가산 100%, 제56조 제2항 제2호)이고 같은 항이 「제1항에도 불구하고」라 연장 가산을 겹치지 않는다
   // (대법원 2024. 2. 8. 선고 2018다206899 판결 — 2018. 6. 21. 선고 2011다112391 전원합의체 판결 인용). 위 연장(overtime)은 공휴일이 든 주도
   // 주 근무일 전부로 세어 공휴일 당일 8시간 넘는 시간의 1.5(근로 100% + 가산 50%)를 이미 담는다 — 그래서 휴일 쪽은 그 시간에 0.5 만 더한다(합 2.0).
   // #151 전에는 2.0 을 더해 3.5 였다(의정부 교정 표본·수원 계약서 휴일 25h 가 이 값). 점검 HOLIDAY-COVER 가 같은 식으로 본다(contract.ts holidayNote)
-  const holiday = fivePlus && eligible ? ((regular * 1.5 + extra * HOLIDAY_OVER8_REST) * holidayDaysPerYear * (Math.min(days, 5) / 5)) / 12 : 0;
+  const holiday = fivePlus && eligible ? (regular * 1.5 + extra * HOLIDAY_OVER8_REST) * holidayDaysPerMonth : 0;
+  // 공휴일이 든 주의 1주 연장 — 월 평균 빼는 날 수 × 그날 빠지는 시간(holidayWeekDroppedOvertime). 휴일 항목이 0 이면(5명 미만·15시간 미만·
+  // 휴일 시간 0 직접 지정) 빼지 않는다 — 점검에 밝히는 메모가 휴일 항목이 있을 때만 생긴다(contract.ts holidayNote)
+  const holidayHours = eligible ? (o.holidayHours ?? holiday) : 0;
+  const droppedOvertime = fivePlus && holidayHours > 0 ? monthlyHolidayWeekDrop(daily, days, holidayDaysPerYear) : 0;
+  const overtime = (weeklyOvertime * WEEKS_PER_MONTH - droppedOvertime) * (fivePlus ? 1.5 : 1);
   const leave = fivePlus && eligible ? (weekly / 40) * 8 : 0;
-  const o = input.overrides ?? {};
   return {
     base,
     weeklyHoliday: 0,
     overtime: o.overtimeHours ?? overtime,
     night,
-    holiday: eligible ? (o.holidayHours ?? holiday) : 0,
+    holiday: holidayHours,
     leave: eligible ? (o.leaveHours ?? leave) : 0,
   };
 }

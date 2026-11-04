@@ -4,7 +4,7 @@
 // 「포괄」은 쓰지 않는다(공개 명칭 = 임금 구성).
 // 사업장 양식의 자동 종료 조항(매년 재계약 자동종료·불응 시 자동만료)은 넣지 않는다(HRMS 수원 건 재홍님 결정).
 
-import { ROUNDING_UNIT, weeklySchedule, type DesignResult, type ItemKey } from './design';
+import { monthlyHolidayWeekDrop, ROUNDING_UNIT, weeklySchedule, type DesignResult, type ItemKey } from './design';
 import { dailyWorkHours, leaveTerms, PROBATION_PCT, rateText, reducedMonthsOf, restDayTerm, type WriteForm } from './contract';
 import { laborDayOffHours, laborDayOffPay } from './part';
 import { hoursText, wonText } from './text';
@@ -54,7 +54,7 @@ function hm(hours: number): string {
   return m ? `${Math.floor(total / 60)}시간 ${m}분` : `${total / 60}시간`;
 }
 
-function basisText(key: ItemKey, period: DesignResult['period'], fivePlus: boolean, under15: boolean): string {
+function basisText(key: ItemKey, period: DesignResult['period'], fivePlus: boolean, under15: boolean, holidayWeek = false): string {
   switch (key) {
     case 'base':
       if (period === 'day') return '소정근로(하루 8시간 이내)';
@@ -63,6 +63,8 @@ function basisText(key: ItemKey, period: DesignResult['period'], fivePlus: boole
     case 'weeklyHoliday':
       return '하루 소정근로 ÷ 5(1주 소정근로 비례)';
     case 'overtime':
+      // 공휴일이 든 주의 1주 연장은 공휴일이 아닌 날로만 센다(design.ts holidayWeekDroppedOvertime) — 월 시간이 1주 연장 × 4.345 보다 적은 까닭을 적는다
+      if (holidayWeek) return '하루 8시간·1주 40시간 넘는 시간 × 1.5(공휴일이 든 주의 1주 40시간은 공휴일이 아닌 날로 셈)';
       return fivePlus ? '하루 8시간·1주 40시간 넘는 시간 × 1.5' : '하루 8시간·1주 40시간 넘는 시간(가산 없음)';
     case 'night':
       return '22시~06시 근로 × 0.5';
@@ -87,7 +89,10 @@ function absentWeekLines(form: WriteForm, design: DesignResult): string[] {
         `${lead} 지각·조퇴와 유급휴일·법정 유급휴가로 근무하지 않은 날은 결근으로 보지 않는다. ` +
           '소정근로일에 결근하여 주휴일이 발생하지 않은 주에는 그 주 근무일에 미리 지급한 주휴수당 합계에 한하여, ' +
           '그 주의 마지막 날이 속한 달의 임금(그 달 임금을 지급한 뒤에 확정된 경우에는 다음 달 임금, 퇴직하는 경우에는 마지막 임금)에서 ' +
-          '정산하고(근로기준법 제55조 제1항, 같은 법 시행령 제30조 제1항), 임금명세서에 해당 주와 금액을 적는다.',
+          '정산하고(근로기준법 제55조 제1항, 같은 법 시행령 제30조 제1항), 임금명세서에 해당 주와 금액을 적는다.' +
+          // 법률검증 261104(#151 사람 확인 14) — 유급휴일 임금은 개근 요건이 없어(시행령 제30조 제2항) 1일분은 공제할 수 없고, 그 위 몫도
+          // 직접 근거가 없어 정산에서 뺀다. 「근무일」만으로는 노동절 등으로 쉰 날이 들어가는지 애매해 밝힌다. 확정 문구는 고치지 않고 뒤에 둔다
+          ' 유급휴일·법정 유급휴가로 근무하지 않은 날에 지급한 금액은 이 정산에 넣지 않는다.',
       ];
 }
 
@@ -256,9 +261,11 @@ export function buildContractDocument(form: WriteForm, design: DesignResult): Co
 
   const leaveLines = leaveTerms(form, design);
 
+  const holidayWeek =
+    fivePlus && design.hours.holiday > 0 && monthlyHolidayWeekDrop(dailyWorkHours(form), form.workDays.length, form.holidayDaysPerYear) > 0;
   const rows: WageRow[] = design.items
     .filter((item) => item.amount !== 0 || item.hours > 0)
-    .map((item) => ({ label: item.label, hours: hoursText(item.hours), basis: basisText(item.key, design.period, fivePlus, under15), amount: item.amount }));
+    .map((item) => ({ label: item.label, hours: hoursText(item.hours), basis: basisText(item.key, design.period, fivePlus, under15, holidayWeek), amount: item.amount }));
   const table: WageTable = {
     caption: hourly ? '일 지급액 구성(항목별 하루 인정시간·금액)' : '임금 구성(항목별 월 인정시간·금액)',
     header: ['항목', hourly ? '하루 인정시간' : '월 인정시간', '산정 기준', '금액'],

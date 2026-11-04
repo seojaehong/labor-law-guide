@@ -116,14 +116,14 @@ describe('designHourlyWage — 법 기준 기본값', () => {
   });
 });
 
-// #139 적대 검토 1 — 파트도 1주 40시간을 넘는 시간은 연장. 주휴는 1주 소정(40시간 한도) ÷ 40 × 8 을 근무일에 나눈다
+// #139 적대 검토 1 — 파트도 1주 40시간을 넘는 시간은 연장. 주휴는 1주 소정(40시간 한도) ÷ 40 × 8 을 근무일에 나눈다. 공휴일 주 연장은 아래 별도 시험(공휴일 0일)
 describe('designHourlyWage — 1주 40시간 넘는 연장', () => {
   it.each([
     [9, 8 / 6],
     [11, 20 / 6],
     [8, 2 / 6],
   ])('주 6일 × 체류 %s시간(휴게 60분) → 하루 연장 %s시간', (stay, otPerDay) => {
-    const r = designHourlyWage({ ...A, stayHours: stay, breakMinutes: 60, daysPerWeek: 6 });
+    const r = designHourlyWage({ ...A, stayHours: stay, breakMinutes: 60, daysPerWeek: 6, holidayDaysPerYear: 0 });
     expect(r.hours.overtime).toBeCloseTo(otPerDay * 1.5, 10);
     const work = stay - 1;
     expect(r.hours.base + r.hours.overtime / 1.5).toBeCloseTo(work, 10);
@@ -149,5 +149,21 @@ describe('laborDayOffHours · laborDayOffPay — 노동절 1일분(별표 2 제2
   it('끝수는 근로자에게 불리하지 않게 원 단위로 올린다(임금근로시간정책과-1384)', () => {
     expect(laborDayOffPay(5.5, 10_598.595166490586)).toBe(58_293);
     expect(laborDayOffPay(4.8, 115_200 / 9.6)).toBe(57_600);
+  });
+});
+
+// 공휴일이 든 주의 1주 40시간 연장(design.ts holidayWeekDroppedOvertime) — 주 6일 × 하루 8시간: 하루 연장 = (8 − 40 ÷ 6) × 1.5 = 2.0.
+// 공휴일 주는 나머지 5일 40시간이라 1주 연장 8시간이 빠진다 → 연 12일 중 설·추석 연휴 6일을 뺀 6일 ÷ 근무일(6 × 365 ÷ 7) 비율로 하루에 나눠 뺀다
+describe('designHourlyWage — 공휴일이 든 주의 1주 40시간 연장', () => {
+  const SIX: HourlyDesignInput = { hourlyWage: 13_000, stayHours: 9, breakMinutes: 60, nightHours: 0, daysPerWeek: 6, holidayDaysPerYear: 12 };
+  it('하루 연장에서 빠지는 시간을 공휴일 비율로 뺀다', () => {
+    const workdays = (6 * 365) / 7;
+    expect(designHourlyWage(SIX).hours.overtime).toBeCloseTo((8 - 40 / 6 - (8 * (12 - 6)) / workdays) * 1.5, 6);
+  });
+  it('공휴일이 없으면 그대로', () => {
+    expect(designHourlyWage({ ...SIX, holidayDaysPerYear: 0 }).hours.overtime).toBeCloseTo((8 - 40 / 6) * 1.5, 6);
+  });
+  it('주 5일 이하는 그대로(하루 9시간 — 하루 8시간 넘는 1시간만 연장)', () => {
+    expect(designHourlyWage({ ...SIX, stayHours: 10, daysPerWeek: 5 }).hours.overtime).toBeCloseTo(1.5, 6);
   });
 });
