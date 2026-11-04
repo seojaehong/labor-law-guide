@@ -153,12 +153,12 @@ describe('laborDayOffHours · laborDayOffPay — 노동절 1일분(별표 2 제2
 });
 
 // 공휴일이 든 주의 1주 40시간 연장(design.ts holidayWeekDroppedOvertime) — 주 6일 × 하루 8시간: 하루 연장 = (8 − 40 ÷ 6) × 1.5 = 2.0.
-// 공휴일 주는 나머지 5일 40시간이라 1주 연장 8시간이 빠진다 → 연 12일 ÷ 근무일(6 × 365 ÷ 7) 비율로 하루에 나눠 뺀다
+// 공휴일 주는 나머지 5일 40시간이라 1주 연장 8시간이 빠진다 → 연 12일 중 설·추석 연휴 6일을 뺀 6일 ÷ 근무일(6 × 365 ÷ 7) 비율로 하루에 나눠 뺀다
 describe('designHourlyWage — 공휴일이 든 주의 1주 40시간 연장', () => {
   const SIX: HourlyDesignInput = { hourlyWage: 13_000, stayHours: 9, breakMinutes: 60, nightHours: 0, daysPerWeek: 6, holidayDaysPerYear: 12 };
   it('하루 연장에서 빠지는 시간을 공휴일 비율로 뺀다', () => {
     const workdays = (6 * 365) / 7;
-    expect(designHourlyWage(SIX).hours.overtime).toBeCloseTo((8 - 40 / 6 - (8 * 12) / workdays) * 1.5, 6);
+    expect(designHourlyWage(SIX).hours.overtime).toBeCloseTo((8 - 40 / 6 - (8 * (12 - 6)) / workdays) * 1.5, 6);
   });
   it('공휴일이 없으면 그대로', () => {
     expect(designHourlyWage({ ...SIX, holidayDaysPerYear: 0 }).hours.overtime).toBeCloseTo((8 - 40 / 6) * 1.5, 6);

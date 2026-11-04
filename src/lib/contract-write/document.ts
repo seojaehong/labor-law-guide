@@ -4,7 +4,7 @@
 // 「포괄」은 쓰지 않는다(공개 명칭 = 임금 구성).
 // 사업장 양식의 자동 종료 조항(매년 재계약 자동종료·불응 시 자동만료)은 넣지 않는다(HRMS 수원 건 재홍님 결정).
 
-import { ROUNDING_UNIT, weeklySchedule, type DesignResult, type ItemKey } from './design';
+import { monthlyHolidayWeekDrop, ROUNDING_UNIT, weeklySchedule, type DesignResult, type ItemKey } from './design';
 import { dailyWorkHours, leaveTerms, PROBATION_PCT, rateText, reducedMonthsOf, restDayTerm, type WriteForm } from './contract';
 import { laborDayOffHours, laborDayOffPay } from './part';
 import { hoursText, wonText } from './text';
@@ -54,7 +54,7 @@ function hm(hours: number): string {
   return m ? `${Math.floor(total / 60)}시간 ${m}분` : `${total / 60}시간`;
 }
 
-function basisText(key: ItemKey, period: DesignResult['period'], fivePlus: boolean, under15: boolean): string {
+function basisText(key: ItemKey, period: DesignResult['period'], fivePlus: boolean, under15: boolean, holidayWeek = false): string {
   switch (key) {
     case 'base':
       if (period === 'day') return '소정근로(하루 8시간 이내)';
@@ -63,6 +63,8 @@ function basisText(key: ItemKey, period: DesignResult['period'], fivePlus: boole
     case 'weeklyHoliday':
       return '하루 소정근로 ÷ 5(1주 소정근로 비례)';
     case 'overtime':
+      // 공휴일이 든 주의 1주 연장은 공휴일이 아닌 날로만 센다(design.ts holidayWeekDroppedOvertime) — 월 시간이 1주 연장 × 4.345 보다 적은 까닭을 적는다
+      if (holidayWeek) return '하루 8시간·1주 40시간 넘는 시간 × 1.5(공휴일이 든 주의 1주 40시간은 공휴일이 아닌 날로 셈)';
       return fivePlus ? '하루 8시간·1주 40시간 넘는 시간 × 1.5' : '하루 8시간·1주 40시간 넘는 시간(가산 없음)';
     case 'night':
       return '22시~06시 근로 × 0.5';
@@ -259,9 +261,11 @@ export function buildContractDocument(form: WriteForm, design: DesignResult): Co
 
   const leaveLines = leaveTerms(form, design);
 
+  const holidayWeek =
+    fivePlus && design.hours.holiday > 0 && monthlyHolidayWeekDrop(dailyWorkHours(form), form.workDays.length, form.holidayDaysPerYear) > 0;
   const rows: WageRow[] = design.items
     .filter((item) => item.amount !== 0 || item.hours > 0)
-    .map((item) => ({ label: item.label, hours: hoursText(item.hours), basis: basisText(item.key, design.period, fivePlus, under15), amount: item.amount }));
+    .map((item) => ({ label: item.label, hours: hoursText(item.hours), basis: basisText(item.key, design.period, fivePlus, under15, holidayWeek), amount: item.amount }));
   const table: WageTable = {
     caption: hourly ? '일 지급액 구성(항목별 하루 인정시간·금액)' : '임금 구성(항목별 월 인정시간·금액)',
     header: ['항목', hourly ? '하루 인정시간' : '월 인정시간', '산정 기준', '금액'],

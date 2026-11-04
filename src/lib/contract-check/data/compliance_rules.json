@@ -13,7 +13,7 @@
     { "code": "OT-RATE", "name": "연장·야간·휴일 가산율 명시", "statute": "근로기준법 §56", "severity": "major", "auto": true,
       "logic": "wage.items[OT_*].rate_multiplier == null → risk. 환산시간 여부 문구 확인" },
     { "code": "OT-COVER", "name": "포괄임금 연장수당 충분성", "statute": "근로기준법 §56", "severity": "major", "auto": true,
-      "logic": "약정 연장환산H >= (weekly_overtime_hours × 4.345 − 공휴일 주에 빠지는 1주 연장) × 1.5. public_holiday_note 가 「공휴일 주에 빠지는 1주 연장 zH」(월 합 — 공휴일 근로시간은 1주 40시간 초과 연장 가산과 겹치지 않아 그 주 연장은 나머지 날로만 센다, §56② 「제1항에도 불구하고」·대법원 2018다206899)를 밝히면 z 를 빼고, 없으면 0. workplace.employee_count_5plus=false 면 × 1.0(시행령 §7 별표1 — §56 가산 미적용)이고 빼지 않는다" },
+      "logic": "약정 연장환산H >= (weekly_overtime_hours × 4.345 − 공휴일 주에 빠지는 1주 연장) × 1.5. public_holiday_note 가 「공휴일 주에 빠지는 1주 연장 zH」(월 합 — 공휴일 근로시간은 1주 40시간 초과 연장 가산과 겹치지 않아 그 주 연장은 나머지 날로만 센다, §56② 「제1항에도 불구하고」·대법원 2018다206899)를 밝히면 min(z, 같은 메모의 공휴일 근무 M 시간, 1주 연장 × 4.345)를 빼고, 「N일/MH」를 못 읽거나 z 가 없으면 0. 작성기는 설·추석 연휴 6일을 빼고 z 를 0.01H 단위로 올려 적는다. workplace.employee_count_5plus=false 면 × 1.0(시행령 §7 별표1 — §56 가산 미적용)이고 빼지 않는다" },
     { "code": "WAGE-MATH", "name": "산출근거-금액 정합", "statute": "근로기준법 §17", "severity": "major", "auto": true,
       "logic": "item.amount == ordinary_hourly_rate × basis_hours × (rate_multiplier or 1) ± 10원(wage.amount_rounding_unit 이 있으면 많은 쪽은 그 단위까지 더 받아준다 — 작성 도구의 10·100원 단위 올림). BASE 는 통상시급의 출처라 보지 않는다. 통상시급 = 시급제는 normalize.wageBasis 의 계약 시급(시급으로 볼 수 없으면 미상 → needs_data), 월급제는 BASE.amount÷(basis_hours, 없으면 최저임금 적용기준 월 시간)" },
     { "code": "PAY-14D", "name": "퇴직 금품청산 14일", "statute": "근로기준법 §36", "severity": "critical", "auto": true,

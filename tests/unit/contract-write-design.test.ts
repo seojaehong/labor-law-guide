@@ -162,9 +162,10 @@ describe('designMonthlyWage — 1주 40시간 넘는 연장', () => {
 
 // 공휴일이 든 주 — 공휴일 근로시간은 1주 52시간 한도에는 들지만 가산은 제56조 제2항(휴일)만 붙고 1주 40시간 초과 연장 가산을 겹치지 않는다
 // (제56조 제2항 「제1항에도 불구하고」, 대법원 2018다206899·2011다112391 전합). 그 주 연장은 공휴일이 아닌 날로만 센다.
-// 연 12일이면 월 1일 — 주 6일 × 8시간: 평소 1주 연장 8시간, 공휴일 주는 나머지 5일 40시간이라 연장 0
+// 연 18일 중 설·추석 연휴 6일을 뺀 12일 = 월 1일만 뺀다(연휴는 한 주에 몰려 날짜마다 빼면 과다 — design.ts HOLIDAY_CLUSTER_DAYS). 휴일 항목은 18일 전부(월 1.5일).
+// 주 6일 × 8시간: 평소 1주 연장 8시간, 공휴일 주는 나머지 5일 40시간이라 연장 0
 describe('designMonthlyWage — 공휴일이 든 주의 1주 40시간 연장', () => {
-  const six = (daily: number): DesignInput => ({ monthlyTotal: 3_500_000, daysPerWeek: 6, dailyWorkHours: daily, holidayDaysPerYear: 12 });
+  const six = (daily: number): DesignInput => ({ monthlyTotal: 3_500_000, daysPerWeek: 6, dailyWorkHours: daily, holidayDaysPerYear: 18 });
   it.each([
     // [하루, 평소 1주 연장, 공휴일 주에 빠지는 연장(하루 8시간 넘는 시간 말고), 휴일 시간]
     [8, 8, 8, 8 * 1.5],
@@ -173,12 +174,19 @@ describe('designMonthlyWage — 공휴일이 든 주의 1주 40시간 연장', (
   ])('주 6일 × 하루 %s시간 — 연장 = (1주 %s시간 × 4.345 − 월 1일 × %s시간) × 1.5', (daily, weeklyOt, dropped, holiday) => {
     const r = designMonthlyWage(six(daily));
     expect(r.hours.overtime).toBeCloseTo((weeklyOt * 4.345 - dropped) * 1.5, 6);
-    expect(r.hours.holiday).toBeCloseTo(holiday, 6);
+    expect(r.hours.holiday).toBeCloseTo(holiday * 1.5, 6);
   });
   it('주 5일 이하는 공휴일 주에 빠지는 연장이 하루 8시간 넘는 시간뿐이라 그대로(휴일 0.5 와 합해 2.0)', () => {
     const five = designMonthlyWage({ ...six(10), daysPerWeek: 5 });
     expect(five.hours.overtime).toBeCloseTo(10 * 1.5 * 4.345, 6);
     expect(designMonthlyWage(UIJEONGBU).hours.overtime).toBeCloseTo(36.9325, 4);
+  });
+  it('설·추석 연휴 6일까지는 빼지 않는다(한 주에 몰리면 날짜마다 빼서 과다 — 적대 검토 261104)', () => {
+    expect(designMonthlyWage({ ...six(8), holidayDaysPerYear: 6 }).hours.overtime).toBeCloseTo(8 * 4.345 * 1.5, 6);
+    expect(designMonthlyWage({ ...six(8), holidayDaysPerYear: 7 }).hours.overtime).toBeCloseTo((8 * 4.345 - 8 / 12) * 1.5, 6);
+  });
+  it('휴일 시간을 0으로 직접 정하면 연장을 빼지 않는다 — 점검에 밝힐 메모가 없다', () => {
+    expect(designMonthlyWage({ ...six(8), overrides: { holidayHours: 0 } }).hours.overtime).toBeCloseTo(8 * 4.345 * 1.5, 6);
   });
   it('연장 시간을 직접 정했으면 그 값을 쓴다', () => {
     expect(designMonthlyWage({ ...six(8), overrides: { overtimeHours: 50 } }).hours.overtime).toBe(50);

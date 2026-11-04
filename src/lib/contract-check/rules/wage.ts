@@ -697,8 +697,11 @@ export const ruleOtCover: RuleFn = (contract) => {
   const under5 = contract.workplace?.employee_count_5plus === false;
   // 공휴일 메모가 「공휴일 주에 빠지는 1주 연장 zH」(월 합)를 밝히면 그만큼 덜 요구한다 — 공휴일 근로시간은 1주 40시간 초과 연장 가산을
   // 겹치지 않아(제56조 제2항 「제1항에도 불구하고」, 대법원 2018다206899) 공휴일이 든 주의 연장은 나머지 날로만 센다. 밝히지 않은 메모는 종전대로
-  const dropMatch = under5 ? null : HOLIDAY_WEEK_DROP_RE.exec(contract.wage?.public_holiday_note ?? '');
-  const dropped = dropMatch ? Math.min(parseFloat(dropMatch[1]), weeklyOt * WEEKS_PER_MONTH) : 0;
+  // 빠지는 시간은 같은 메모의 공휴일 근무 M 시간을 넘을 수 없다(하루에 빠지는 연장 ≤ 그날 근로시간) — 'N일/MH' 를 못 읽으면 빼지 않는다(적대 검토 261104)
+  const note = contract.wage?.public_holiday_note ?? '';
+  const dropMatch = under5 ? null : HOLIDAY_WEEK_DROP_RE.exec(note);
+  const plannedMatch = HOLIDAY_NOTE_RE.exec(note);
+  const dropped = dropMatch && plannedMatch ? Math.min(parseFloat(dropMatch[1]), parseFloat(plannedMatch[2]), weeklyOt * WEEKS_PER_MONTH) : 0;
   const required = round1((weeklyOt * WEEKS_PER_MONTH - dropped) * (under5 ? 1 : OT_PREMIUM_RATE));
   const dropText = dropped > 0 ? `, 공휴일 주에 빠지는 1주 연장 ${dropped}H 제외` : '';
   // 가산율이 적혀 있으면 시간은 실시간이다(WAGE-MATH 와 같은 해석). 없으면 환산시간으로 본다
