@@ -1,6 +1,6 @@
-# ilmunui-mcp
+# korea-labor-mcp — 노동 업무 도구 (Korea Labor Tools)
 
-[일의 무늬](https://yellowenvelope.kr)가 만드는 도구를 **내 PC 의 AI(Claude Code·Claude Desktop 등)** 에서 쓰도록 한 패키지로 묶은 로컬 MCP 서버입니다.
+4대보험 신고서·근로계약서·노동 계산기·취업규칙 점검을 [일의 무늬](https://yellowenvelope.kr)가 만든 그대로 **내 PC 의 AI(Claude Code·Claude Desktop 등)** 에서 쓰도록 한 패키지로 묶은 로컬 MCP 서버입니다.
 도구는 **묶음(group)** 단위로 들어 있고, 필요한 묶음만 켤 수 있습니다. 묶음은 앞으로 늘어납니다.
 
 > [!NOTE]
@@ -15,13 +15,13 @@ Node.js 20 이상만 있으면 됩니다.
 ### Claude Code
 
 ```bash
-claude mcp add --scope user ilmunui -- npx -y ilmunui-mcp mcp
+claude mcp add --scope user korea-labor -- npx -y korea-labor-mcp mcp
 ```
 
 일부 묶음만 켜려면 `--groups` 를 붙입니다.
 
 ```bash
-claude mcp add --scope user ilmunui -- npx -y ilmunui-mcp mcp --groups nhis
+claude mcp add --scope user korea-labor -- npx -y korea-labor-mcp mcp --groups nhis
 ```
 
 ### Claude Desktop
@@ -31,9 +31,9 @@ claude mcp add --scope user ilmunui -- npx -y ilmunui-mcp mcp --groups nhis
 ```json
 {
   "mcpServers": {
-    "ilmunui": {
+    "korea-labor": {
       "command": "npx",
-      "args": ["-y", "ilmunui-mcp", "mcp"],
+      "args": ["-y", "korea-labor-mcp", "mcp"],
       "env": {
         "POPBILL_LINK_ID": "내 링크아이디",
         "POPBILL_SECRET_KEY": "내 비밀키",
@@ -53,7 +53,7 @@ claude mcp add --scope user ilmunui -- npx -y ilmunui-mcp mcp --groups nhis
 ```json
 {
   "mcpServers": {
-    "ilmunui": { "command": "cmd", "args": ["/c", "npx", "-y", "ilmunui-mcp", "mcp"] }
+    "korea-labor": { "command": "cmd", "args": ["/c", "npx", "-y", "korea-labor-mcp", "mcp"] }
   }
 }
 ```
@@ -105,7 +105,7 @@ claude mcp add --scope user ilmunui -- npx -y ilmunui-mcp mcp --groups nhis
 - 없는 묶음 이름을 넣으면 서버가 뜨지 않고 있는 묶음 목록을 알려 줍니다.
 
 ```bash
-npx -y ilmunui-mcp --help
+npx -y korea-labor-mcp --help
 ```
 
 ### contract · calc 묶음
@@ -118,7 +118,7 @@ npx -y ilmunui-mcp --help
 - 각 묶음 파일이 원격(HTTP)판에 실어도 되는 도구 목록을 내보냅니다 — `contractRemoteSafe`(설계·점검), `calcRemoteSafe`(전부). 파일을 쓰는 `make_contract_files` 는 `contractLocalOnly` 로 따로 표시했습니다.
 
 ```bash
-claude mcp add --scope user ilmunui -- npx -y ilmunui-mcp mcp --groups contract,calc
+claude mcp add --scope user korea-labor -- npx -y korea-labor-mcp mcp --groups contract,calc
 ```
 
 > 「주4 월화수목 10:00~22:00, 휴게 155분, 공휴일 22일, 월 260만원으로 근로계약서 임금 구성 짜 줘.」
@@ -141,7 +141,7 @@ claude mcp add --scope user ilmunui -- npx -y ilmunui-mcp mcp --groups contract,
 - 법령명·조문 원문·개정 요지는 법제처·사이트 자료 글자를 고치지 않고 싣습니다.
 
 ```bash
-claude mcp add --scope user ilmunui -e LAW_OC=내OC -- npx -y ilmunui-mcp mcp --groups work-rules
+claude mcp add --scope user korea-labor -e LAW_OC=내OC -- npx -y korea-labor-mcp mcp --groups work-rules
 ```
 
 > 「우리 취업규칙(C:/규정/취업규칙.hwpx) 2024-03-01 개정본인데, 그 뒤 시행된 노동법 개정 반영됐는지 봐 줘. 법제처 최신 공포분도 같이.」
@@ -199,7 +199,7 @@ claude mcp add --scope user ilmunui -e LAW_OC=내OC -- npx -y ilmunui-mcp mcp --
 이 패키지는 사이트 엔진(`src/lib/nhis-forms`·`src/lib/branch-directory`)과 지사 데이터(`data/branch-directory/`)를 esbuild 로 묶어 서식이 사이트와 한 벌로 유지됩니다. 엔진을 고치면 다시 빌드해야 반영됩니다.
 
 ```bash
-cd tools/ilmunui-mcp
+cd tools/korea-labor-mcp
 npm.cmd install
 npm.cmd run build        # dist/server.mjs + dist/assets/(서식 PDF 2종·글꼴·OFL.txt, 계약서 PDF 용 나눔고딕·라이선스, hwp 읽기 rhwp WASM)
 node smoke.mjs           # 합성 값 시험, 전송 안 함. 법제처는 가짜 법제처(tests/fixtures/laws/drf 고정 응답)로
