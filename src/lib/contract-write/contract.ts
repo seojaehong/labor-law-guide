@@ -3,10 +3,11 @@
 
 import { checkContract } from '@/lib/contract-check/engine';
 import { dayWorkMinutes, MINWAGE_TABLE, normalize } from '@/lib/contract-check/normalize';
+import { minwageAssessment } from '@/lib/contract-check/rules/wage';
 import type { Contract, Finding, WageItem, WageItemCode } from '@/lib/contract-check/types';
 
-import { designMonthlyWage, ROUNDING_UNIT, weeklySchedule, WEEKS_PER_MONTH, type DesignResult, type ItemKey, type Rounding } from './design';
-import { designHourlyWage } from './part';
+import { designHours, designMonthlyWage, monthlyHolidayWeekDrop, ROUNDING_UNIT, weeklySchedule, WEEKS_PER_MONTH, type DesignResult, type ItemKey, type Rounding } from './design';
+import { designHourlyWage, hourlyDesignHours } from './part';
 
 export interface Probation {
   months: number;
@@ -71,8 +72,16 @@ export function dailyWorkHours(form: Pick<WriteForm, 'start' | 'end' | 'breakMin
   return dayWorkMinutes(form.start, form.end, [{ minutes: form.breakMinutes }]) / 60;
 }
 
-/** 출근~퇴근 중 22:00~06:00 과 겹치는 시간. 휴게가 어디 있는지 모르므로 휴게는 야간 밖에 둔다고 본다(사무소 양식과 같다) */
-export function nightHoursOf(form: Pick<WriteForm, 'start' | 'end'>): number {
+/**
+ * 하루 야간근로(22:00~06:00) 시간. 화면은 휴게가 몇 시에 있는지 받지 않으므로, 실제 야간근로는
+ * [겹친 시간 − 휴게, min(겹친 시간, 실근로)] 사이 어딘가다. 그 위쪽 끝 min(겹친 시간, 실근로)을 쓴다.
+ * - 휴게를 야간 밖에 둘 수 있으면(낮 구간 ≥ 휴게) 겹친 시간 그대로다(사무소 양식과 같다).
+ * - 근무 전체가 야간이면 휴게도 야간 안이라 실근로가 상한이다(22:00~06:00 휴게 60분 → 7시간, PR #140 검토 2).
+ * 위쪽 끝을 고른 까닭: 월 총액을 나누는 설계라 야간 수당은 미리 정한 고정액이다. 휴게가 실제로 야간 밖에 있을 때 이 값보다 적게 잡으면
+ * 고정 야간수당이 실제 야간 가산(근로기준법 제56조 제3항)에 못 미친다. 반대로 휴게가 야간 안에 있으면 통상시급이 조금 낮아지는데,
+ * 그 낮아진 시급을 최저임금 점검(MINWAGE)이 그대로 본다.
+ */
+export function nightHoursOf(form: Pick<WriteForm, 'start' | 'end' | 'breakMinutes'>): number {
   const s = minutesOf(form.start);
   const e = s + spanMinutes(form);
   const windows = [
@@ -80,7 +89,8 @@ export function nightHoursOf(form: Pick<WriteForm, 'start' | 'end'>): number {
     [22 * 60, 30 * 60],
     [46 * 60, 54 * 60],
   ];
-  return windows.reduce((sum, [a, b]) => sum + Math.max(0, Math.min(e, b) - Math.max(s, a)), 0) / 60;
+  const overlap = windows.reduce((sum, [a, b]) => sum + Math.max(0, Math.min(e, b) - Math.max(s, a)), 0) / 60;
+  return Math.min(overlap, dailyWorkHours(form));
 }
 
 const ITEM_CODE: Record<ItemKey, WageItemCode> = {
@@ -99,8 +109,15 @@ export const rateText = (rate: number) => rate2(rate).toLocaleString('ko-KR', { 
 /** 점검 규칙 HOLIDAY-COVER 가 읽는 'N일/M.MH' — N = 월 평균 공휴일 근무 일수, M = 그 실근로시간 */
 function holidayNote(form: WriteForm): string {
   const monthlyDays = (form.holidayDaysPerYear * (Math.min(form.workDays.length, 5) / 5)) / 12;
-  const planned = Math.round(monthlyDays * dailyWorkHours(form) * 100) / 100;
-  return `연 ${form.holidayDaysPerYear}일 근무 예정, 월 평균 ${Math.round(monthlyDays * 100) / 100}일/${planned}H`;
+  const daily = dailyWorkHours(form);
+  const planned = Math.round(monthlyDays * daily * 100) / 100;
+  const note = `연 ${form.holidayDaysPerYear}일 근무 예정, 월 평균 ${Math.round(monthlyDays * 100) / 100}일/${planned}H`;
+  // 소정근로일 공휴일의 하루 8시간 넘는 시간 — 설계가 그 시간을 휴일 × 0.5 로 세므로(연장 1.5 와 합해 2.0, #151) 점검 HOLIDAY-COVER 에 밝힌다
+  const over8 = daily > 8 ? `(8시간 넘는 ${Math.round(monthlyDays * (daily - 8) * 100) / 100}H)` : '';
+  // 공휴일이 든 주에 1주 연장에서 빠지는 시간(주 6일부터) — 설계가 연장에서 뺐으므로 점검 OT-COVER 에 밝힌다(design.ts monthlyHolidayWeekDrop).
+  // 0.01H 단위로 올린다 — 반올림하면 메모가 설계보다 적어 점검이 0.1H 부족을 낸다(적대 검토 261104). 올리면 점검이 설계보다 덜 요구할 뿐이다
+  const dropped = Math.ceil(monthlyHolidayWeekDrop(daily, form.workDays.length, form.holidayDaysPerYear) * 100 - 1e-6) / 100;
+  return `${note}${over8}${dropped > 0 ? `(공휴일 주에 빠지는 1주 연장 ${dropped}H)` : ''}`;
 }
 
 /** 시작일부터 종료일까지가 1년 이상인지(종료일 = 시작일 + 1년 − 1일이면 1년) */
@@ -123,6 +140,11 @@ export function probationIssue(form: WriteForm): string | null {
 
 export const PROBATION_PCT = 90;
 
+/** 수습 중 감액하는 기간 = 수습 기간과 3개월 중 짧은 쪽(최저임금법 시행령 제3조). 계약서 제1조와 점검 입력이 같은 값을 쓴다 */
+export function reducedMonthsOf(p: Probation): number {
+  return Math.min(p.months, 3);
+}
+
 /** 1주 소정근로가 15시간 미만 — 주휴·연차를 적용하지 않는다(근로기준법 제18조 제3항) */
 export function isUnder15(form: Pick<WriteForm, 'start' | 'end' | 'breakMinutes' | 'workDays'>): boolean {
   return weeklySchedule(dailyWorkHours(form), form.workDays.length).scheduled < 15;
@@ -135,16 +157,54 @@ export function restDayTerm(form: WriteForm): string {
     : `주휴일: 매주 ${form.weeklyRestDay}요일(유급)`;
 }
 
-/** 연차유급휴가 조항 — 계약서 본문(제6조)과 점검 입력이 같은 문장을 쓴다 */
-export function leaveTerms(form: WriteForm): string[] {
+/** 표에 연차수당(금액 > 0)이 실려 미리 지급하는지 — 연차 인정시간을 0 으로 정하면 표에서 빠진다 */
+function prepaysLeave(design: DesignResult): boolean {
+  return design.items.some((i) => i.key === 'leave' && i.amount > 0);
+}
+
+/** 연차유급휴가 조항 — 계약서 본문(제6조)과 점검 입력이 같은 문장을 쓴다.
+ * 선지급·정산 문장은 표에 연차수당이 있을 때만(PR #140 검토 7, 재홍님 261103 확정 문구) */
+export function leaveTerms(form: WriteForm, design: DesignResult): string[] {
   if (isUnder15(form)) return ['1주 소정근로시간이 15시간 미만이므로 연차유급휴가는 적용하지 않는다(근로기준법 제18조 제3항).'];
   if (!form.employeeCount5plus) {
     return ['상시 5명 미만 사업장이므로 근로기준법 제60조(연차유급휴가)는 적용하지 않는다(근로기준법 시행령 제7조 별표 1).'];
   }
+  if (!prepaysLeave(design)) return ['근로기준법 제60조에 따라 부여한다.'];
   return [
     '근로기준법 제60조에 따라 부여한다.',
     '표의 연차수당은 쓰지 않은 연차유급휴가에 대한 수당을 매월 나누어 미리 지급하는 것이며, 근로자의 연차유급휴가 사용을 제한하지 않는다.',
+    '연차유급휴가를 사용한 날에도 제5조의 임금을 그대로 지급하며, 미리 지급한 연차수당을 이유로 돌려받거나 공제하지 않는다.',
+    '연차유급휴가 사용기간이 끝난 때와 퇴직한 때에는 실제로 사용하지 않은 일수로 계산한 연차유급휴가 미사용수당과 미리 지급한 연차수당 합계를 비교하여, 모자라면 그 차액을 지급한다.',
   ];
+}
+
+/**
+ * 항목별 인정시간만(금액 없이) — 잔액 항목 선택지를 표 행과 맞출 때 쓴다(금액을 넣기 전에도 고를 수 있게).
+ * designFromForm 이 설계 함수에 넘기는 값과 같은 값으로 센다(tests/unit/contract-write-clauses.test.ts 가 표 행과 대조한다).
+ */
+export function itemHoursOf(
+  form: Pick<WriteForm, 'payType' | 'start' | 'end' | 'breakMinutes' | 'workDays' | 'holidayDaysPerYear' | 'employeeCount5plus' | 'overrides'>,
+): Record<ItemKey, number> {
+  if (form.payType === 'hourly') {
+    return hourlyDesignHours({
+      hourlyWage: 0,
+      stayHours: spanMinutes(form) / 60,
+      breakMinutes: form.breakMinutes,
+      nightHours: nightHoursOf(form),
+      daysPerWeek: form.workDays.length,
+      holidayDaysPerYear: form.holidayDaysPerYear,
+      fivePlus: form.employeeCount5plus,
+    });
+  }
+  return designHours({
+    monthlyTotal: 0,
+    daysPerWeek: form.workDays.length,
+    dailyWorkHours: dailyWorkHours(form),
+    nightHoursPerDay: nightHoursOf(form),
+    holidayDaysPerYear: form.holidayDaysPerYear,
+    fivePlus: form.employeeCount5plus,
+    overrides: form.overrides,
+  });
 }
 
 export function designFromForm(form: WriteForm): DesignResult {
@@ -186,20 +246,72 @@ export function publicText(text: string): string {
 export interface WrittenReview {
   /** 손볼 것(위반·확인 필요·주요 위험) */
   problems: Finding[];
-  /** 최저임금 한 줄 — 점검 규칙 MINWAGE 판정에서 */
+  /** 최저임금 한 줄 — 점검 규칙 MINWAGE 판정에서(계약 시작 연도) */
   minimumWage: { text: string; warn: boolean };
+  /** 계약 기간이 다음 해 이후로 이어질 때 그 해 최저시급과 비교한 줄(낮아지는 해·미등록 해). 없으면 빈 배열 */
+  minimumWageLater: Array<{ text: string; warn: boolean }>;
+  /** 손볼 것은 아니지만 계약 뒤에 확인할 안내(화면·오프라인판 공용). 없으면 빈 배열 */
+  notes: string[];
+}
+
+/**
+ * 연차수당 선지급 안내 — 점검 규칙 ANNUAL-LEAVE(사소한 위험)는 연차수당을 미리 주는 계약마다 나와 손볼 것에 올리지 않는다.
+ * 계약서 제6조가 차액 정산을 적었으므로 「손볼 것」이 아니라 계약 뒤 확인할 일로 한 줄 알린다(PR #140 검토 7, 재홍님 261103)
+ */
+const LEAVE_PREPAID_NOTE = '미리 지급하는 연차수당이 실제 발생분보다 적을 수 있으니 연차 사용기간이 끝날 때와 퇴직할 때 차액을 확인하세요';
+
+/** 기간제 2년 초과 — 점검 규칙은 사소한 위험(minor)으로 두지만, 작성 단계에서는 예외에 해당하는지 확인할 일이라 남긴다(PR #140 검토 3) */
+function fixedTermText(detail: string | null | undefined): string {
+  const span = detail?.split(' — ')[0] ?? '계약기간 2년 초과';
+  return (
+    `${span} — 기간제 근로자를 2년을 넘어 사용하면 기간의 정함이 없는 근로자로 봅니다(기간제법 제4조 제2항). ` +
+    '사업의 완료에 필요한 기간을 정한 경우나 55세 이상 고령자와 맺는 계약 등 같은 조 제1항 단서의 예외에 해당하는지 확인이 필요합니다'
+  );
+}
+
+/**
+ * 계약 기간이 걸친 시작 다음 해부터의 최저시급 비교(PR #140 검토 8). 같은 계약을 그 해 1월 1일 시작으로 놓고 점검 규칙 MINWAGE 를 다시 돌린다.
+ * 기간의 정함이 없으면 표에 등록된 다음 해들과만 비교한다(끝이 없으므로 미등록 해는 적지 않는다).
+ */
+function laterMinimumWage(form: WriteForm, raw: Contract): WrittenReview['minimumWageLater'] {
+  const first = Number(form.startDate.slice(0, 4));
+  const last = form.endDate ? Number(form.endDate.slice(0, 4)) : Math.max(first, ...Object.keys(MINWAGE_TABLE).map(Number));
+  const out: WrittenReview['minimumWageLater'] = [];
+  const unregistered: number[] = [];
+  for (let y = first + 1; y <= last; y += 1) {
+    const minimum = MINWAGE_TABLE[String(y)];
+    if (minimum === undefined) {
+      unregistered.push(y);
+      continue;
+    }
+    const [shifted] = normalize([{ ...raw, period: { ...raw.period, start_date: `${y}-01-01` } }]);
+    if (minwageAssessment(shifted).status === 'violation') {
+      out.push({
+        text: `${y}년 최저시급 ${minimum.toLocaleString('ko-KR')}원보다 낮습니다 — 계약이 ${y}년까지 이어지므로 ${y}년 1월 1일부터는 임금을 올려 다시 정해야 합니다`,
+        warn: true,
+      });
+    }
+  }
+  if (unregistered.length) {
+    out.push({ text: `${unregistered.join('·')}년 최저시급 미등록 — 계약이 그 해까지 이어지지만 비교하지 않았습니다(고시 뒤 다시 확인)`, warn: false });
+  }
+  return out;
 }
 
 /** 작성한 계약을 근로계약서 점검 규칙으로 다시 돌린 결과. 화면·오프라인판·시험이 같이 쓴다 */
 export function reviewWritten(form: WriteForm, design: DesignResult): WrittenReview {
-  const [contract] = normalize([toContract(form, design)]);
+  const raw = toContract(form, design);
+  const [contract] = normalize([raw]);
   const under15 = isUnder15(form);
   const findings = checkContract(contract).map((f) => ({ ...f, detail: f.detail == null ? f.detail : publicText(f.detail) }));
-  const problems = findings.filter((f) => {
-    // 1주 15시간 미만은 주휴일 자체가 없어 「특정했는가」를 물을 수 없다 — 작성 단계라 해당 없음(근로기준법 제18조 제3항)
-    if (f.rule_code === 'REST-DAY' && f.status === 'needs_data' && under15) return false;
-    return f.status === 'violation' || f.status === 'needs_data' || (f.status === 'risk' && f.severity !== 'minor' && f.severity !== 'info');
-  });
+  const problems = findings
+    .filter((f) => {
+      // 1주 15시간 미만은 주휴일 자체가 없어 「특정했는가」를 물을 수 없다 — 작성 단계라 해당 없음(근로기준법 제18조 제3항)
+      if (f.rule_code === 'REST-DAY' && f.status === 'needs_data' && under15) return false;
+      if (f.rule_code === 'FIXED-TERM-2Y' && f.status === 'risk') return true;
+      return f.status === 'violation' || f.status === 'needs_data' || (f.status === 'risk' && f.severity !== 'minor' && f.severity !== 'info');
+    })
+    .map((f) => (f.rule_code === 'FIXED-TERM-2Y' && f.status === 'risk' ? { ...f, detail: fixedTermText(f.detail) } : f));
   const year = form.startDate.slice(0, 4);
   const minimum = MINWAGE_TABLE[year];
   const rate = `통상시급 ${rateText(design.rate)}원`;
@@ -210,7 +322,9 @@ export function reviewWritten(form: WriteForm, design: DesignResult): WrittenRev
   else if (minwage?.status === 'ok') line = { text: `${rate} (${year}년 최저시급 ${minimum.toLocaleString('ko-KR')}원 이상)`, warn: false };
   else if (minwage?.status === 'violation') line = { text: `${rate} — ${year}년 최저시급 ${minimum.toLocaleString('ko-KR')}원보다 낮습니다`, warn: true };
   else line = { text: `${rate} — 최저임금: ${minwage?.detail ?? '판단하지 못했습니다'}`, warn: true };
-  return { problems, minimumWage: line };
+  // 시작 연도부터 낮으면 다음 해도 낮다 — 같은 말을 되풀이하지 않는다
+  const later = minwage?.status === 'violation' ? [] : laterMinimumWage(form, raw);
+  return { problems, minimumWage: line, minimumWageLater: later, notes: prepaysLeave(design) ? [LEAVE_PREPAID_NOTE] : [] };
 }
 
 export function checkWritten(form: WriteForm, design: DesignResult): Finding[] {
@@ -245,7 +359,8 @@ export function toContract(form: WriteForm, design: DesignResult): Contract {
         basis_hours: Number(basis.toFixed(4)),
         rate_multiplier: multiplier,
         basis_text: `통상시급 ${rateText(design.rate)}원 × ${hours.toFixed(2)}시간${multiplier > 1 ? `(${multiplier}배, 가산 포함)` : multiplier < 1 ? `(가산분 ${multiplier}배)` : ''}${unit && !item.absorbs ? `(${unit}원 단위 올림)` : ''}`,
-        ...(item.key === 'base' ? { includes_weekly_holiday: design.period === 'month' } : {}),
+        // 월급제 기본급은 주휴를 담는다 — 1주 15시간 미만은 주휴가 없어 담지 않는다(근로기준법 제18조 제3항, PR #140 검토 1)
+        ...(item.key === 'base' ? { includes_weekly_holiday: design.period === 'month' && !isUnder15(form) } : {}),
       };
     });
   const monthlyTotal = design.period === 'day' ? items.reduce((s, i) => s + i.amount, 0) : design.total;
@@ -259,7 +374,14 @@ export function toContract(form: WriteForm, design: DesignResult): Contract {
       end_date: form.endDate ?? null,
       indefinite: !form.endDate,
       probation: prob
-        ? { applied: true, months: prob.months, wage_rate_pct: prob.reduced ? PROBATION_PCT : 100, simple_labor_job: prob.simpleLabor }
+        ? {
+            applied: true,
+            months: prob.months,
+            // 문서 제1조와 같은 감액 기간(처음 3개월) — 수습 전체를 감액 기간으로 보면 6개월 수습이 위반으로 잡힌다(PR #140 검토 5)
+            reduced_months: prob.reduced ? reducedMonthsOf(prob) : null,
+            wage_rate_pct: prob.reduced ? PROBATION_PCT : 100,
+            simple_labor_job: prob.simpleLabor,
+          }
         : null,
     },
     job: { location: form.location, duty: form.duty },
@@ -288,7 +410,7 @@ export function toContract(form: WriteForm, design: DesignResult): Contract {
       weekly_rest: restDayTerm(form),
       // 15시간 미만은 주휴일이 없다 — 특정 여부를 물을 대상이 아니다(checkWritten 이 REST-DAY 확인 필요를 뺀다)
       weekly_rest_day_specified: isUnder15(form) ? null : true,
-      annual_leave_clause: leaveTerms(form).join(' '),
+      annual_leave_clause: leaveTerms(form, design).join(' '),
       annual_leave_prepaid_hours_per_month: design.hours.leave * scale,
     },
     risk_clauses: [],

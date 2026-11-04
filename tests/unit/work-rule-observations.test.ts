@@ -10,6 +10,7 @@ import {knownRuleIds,validObservation} from '@/lib/laws/observation-contract';
 import {observationId,captureIdentity,sameObservation,safeClauseId,safeClauseIds} from '@/lib/laws/observation-payload';
 import standard from '../../public/data/laws/standard.json';
 import {MATCHER_VERSION,RULE_VERSION} from '@/lib/laws/observation-version';
+import {ruleVersion} from '../../scripts/laws/rule_version.mjs';
 let identity='';
 const payload=()=>({id:identity,run_id:'22222222-2222-4222-8222-222222222222',period_from:'20250101',period_to:'20261013',standard_article_id:standard.articles[0].id,rule_id:[...knownRuleIds][0],candidate_clause_ids:['제1조','제2조'],selected_clause_ids:['제2조'],verdict:'반영됨',reason:'period_check_output' as const,missing_count:0,stale_count:0,user_false_positive:true,matcher_version:MATCHER_VERSION,rule_version:RULE_VERSION});
 const req=(method='POST',body:unknown=payload(),token='admin')=>new Request('http://localhost/api/admin/work-rule-observations',{method,headers:{'x-admin-token':token},body:method==='GET'?undefined:JSON.stringify(body)});
@@ -17,6 +18,8 @@ beforeEach(async()=>{identity=await observationId(payload(),payload().standard_a
 afterEach(()=>vi.unstubAllEnvs());
 describe('admin-only metadata observations',()=>{
  it('pins the exact public input data and matcher source versions',()=>{expect(createHash('sha256').update(JSON.stringify([standard,index,rules])).digest('hex')).toBe(RULE_VERSION);expect(createHash('sha256').update(readFileSync('src/lib/laws/standard-check.ts', 'utf8').replace(/\r\n/g, '\n')).update(readFileSync('src/lib/laws/rules-check.ts', 'utf8').replace(/\r\n/g, '\n')).digest('hex')).toBe(MATCHER_VERSION);});
+ // build_site_data.py·daily_update.sh 가 부르는 갱신 스크립트가 위 시험과 같은 값을 셈하는지(#96 뒤 상수가 안 바뀌어 저장이 400 이던 것)
+ it('the RULE_VERSION sync script computes the same pinned value',()=>expect(ruleVersion()).toBe(RULE_VERSION));
  it('has unique stable IDs for all catalog rules',()=>expect(knownRuleIds.size).toBe(44));
  it('denies all unauthenticated methods before DB access',async()=>{for(const [fn,method] of [[GET,'GET'],[POST,'POST'],[PATCH,'PATCH']] as const)expect((await fn(req(method,payload(),'wrong'))).status).toBe(401);expect(from).not.toHaveBeenCalled();});
  it('fails closed with missing admin config even in development',async()=>{vi.stubEnv('ADMIN_TOKEN','');vi.stubEnv('NODE_ENV','development');expect((await GET(req('GET'))).status).toBe(503);expect(from).not.toHaveBeenCalled();});
