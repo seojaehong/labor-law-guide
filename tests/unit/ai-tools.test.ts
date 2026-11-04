@@ -13,8 +13,11 @@ describe('AI 연결 도구 목록', () => {
 
   it('설치 명령은 공개된 도구에만 있다', () => {
     for (const t of AI_TOOLS) {
-      if (t.status === 'preparing') expect(t.install, t.id).toBeUndefined();
-      else expect(t.install?.claudeCode, t.id).toMatch(/^claude mcp add /);
+      if (t.status === 'preparing') {
+        expect(t.install, t.id).toBeUndefined();
+        expect(t.download, t.id).toBeUndefined();
+      } else if (t.install) expect(t.install.claudeCode, t.id).toMatch(/^claude mcp add /);
+      else expect(t.download?.href, t.id).toMatch(/^https:\/\/github\.com\/[\w.-]+\/[\w.-]+\/releases\//);
     }
   });
 

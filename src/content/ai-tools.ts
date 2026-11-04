@@ -9,10 +9,35 @@ export interface AiTool {
   does: string[];
   privacy: string;
   install?: { claudeCode: string; remote?: string };
+  // MCP 가 아닌 설치형 프로그램. 공개 카드는 install 또는 download 중 하나가 있어야 한다.
+  download?: { href: string; label: string; requires: string; note?: string };
   links: { label: string; href: string }[];
 }
 
 export const AI_TOOLS: AiTool[] = [
+  {
+    id: 'gov-login',
+    name: '공단 로그인',
+    status: 'public',
+    summary: '근로복지공단 토탈서비스·국민연금 EDI·건강보험 EDI에 공동인증서로 들어가는 윈도우 프로그램입니다. 키 하나로 계정별 크롬 창을 열고 로그인 상태를 보여 줍니다.',
+    does: [
+      '계정과 사이트를 키로 배치하고, 키를 누르면 그 계정 전용 크롬 창을 엽니다',
+      '계정 여러 개를 동시에 열어도 창끼리 로그인이 끊기지 않습니다',
+      '「전체 열기」와 숫자 키 조합으로 여러 창을 한 번에 엽니다',
+      '창마다 로그인 상태를 6초 간격으로 표시합니다',
+      '처음 실행하면 설정 화면에서 인증서를 고르고 비밀번호를 한 번 넣습니다',
+    ],
+    privacy: '인증서 비밀번호와 사업장 비밀번호는 이 PC의 윈도우 보안 저장소(DPAPI)에만 암호화해 두고, 서버로 보내지 않습니다. 보안 키패드는 우회하지 않습니다.',
+    download: {
+      href: 'https://github.com/seojaehong/gov-cert-login/releases/latest',
+      label: 'Windows 설치 파일 내려받기',
+      requires: 'Windows 10/11 64비트, 구글 크롬, 공동인증서(하드디스크 또는 USB), 사이트별 보안프로그램(건강보험 EDI의 AnySign4PC 등). 홈택스는 준비 중입니다.',
+      note: '코드 서명 전이라 처음 실행할 때 「Windows의 PC 보호」가 뜨면 「추가 정보 → 실행」을 누릅니다.',
+    },
+    links: [
+      { label: '소스 코드(MIT)', href: 'https://github.com/seojaehong/gov-cert-login' },
+    ],
+  },
   {
     id: 'sanjae-apply',
     name: '산재 신청 도우미',

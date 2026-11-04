@@ -115,6 +115,22 @@ function ToolCard({ t }: { t: AiTool }) {
       </ul>
 
       <div className="mt-5 flex-1 space-y-3 text-sm">
+        {t.download && (
+          <>
+            <a
+              href={t.download.href}
+              className="inline-block rounded-lg px-4 py-2.5 font-semibold"
+              style={{ background: 'var(--color-accent)', color: 'var(--color-bg-surface)' }}
+              rel="noopener"
+            >
+              {t.download.label}
+            </a>
+            <p className="leading-6" style={sub}>
+              <strong style={ink}>필요한 것</strong> {t.download.requires}
+            </p>
+            {t.download.note && <p className="leading-6" style={sub}>{t.download.note}</p>}
+          </>
+        )}
         {t.install ? (
           <>
             <p className="font-semibold" style={ink}>Claude Code 에서 한 줄로 연결</p>
@@ -126,7 +142,7 @@ function ToolCard({ t }: { t: AiTool }) {
               </>
             )}
           </>
-        ) : (
+        ) : t.download ? null : (
           <p className="rounded-lg px-4 py-3 leading-6" style={{ background: 'var(--color-bg-primary)', ...sub }}>
             설치판은 시험을 마친 뒤 공개합니다. 그 전에도 같은 서식을 웹 화면에서 바로 만들 수 있습니다.
           </p>
