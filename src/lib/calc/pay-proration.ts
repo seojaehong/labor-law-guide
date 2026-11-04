@@ -140,7 +140,12 @@ function parse(s: string | undefined, what: string): number {
 const iso = (t: number) => new Date(t).toISOString().slice(0, 10);
 const dow = (t: number) => new Date(t).getUTCDay();
 const isWeekday = (t: number) => dow(t) >= 1 && dow(t) <= 5;
-/** 5월 1일 — 노동절(종전 근로자의 날). 관공서 공휴일(§55②)이 아니라 별도 법률이 근로기준법상 유급휴일로 정한 날(근로개선정책과-1113) */
+/**
+ * 5월 1일 — 노동절(종전 근로자의 날). 별도 법률(노동절 제정에 관한 법률, 법률 제21134호)이 근로기준법상 유급휴일로 정한 날이라
+ * 사업장 규모·소정근로시간과 상관없이 유급(근로개선정책과-1113). 2026.4.30. 개정(대통령령 제36290호)으로 관공서의 공휴일에 관한 규정
+ * 제2조 제6호에도 들어 5명 이상에서는 §55②의 공휴일이기도 하고, 토·일과 겹치면 같은 영 제3조의 대체공휴일 대상이 된다 —
+ * 대체공휴일은 §55② 경로라 5명 미만에는 미치지 않는다. 개정 규정의 시행일(변경이력 5.1.·조문 머리 5.11.)은 부칙 확인 필요
+ */
 const isLaborDay = (t: number) => iso(t).slice(5) === '05-01';
 
 function monthRange(month: string): { ps: number; pe: number; days: number; y: number } {

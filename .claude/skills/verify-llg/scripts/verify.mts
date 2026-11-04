@@ -699,16 +699,17 @@ const FEATURES: Record<string, { path: string; journey: Journey; waitUntil?: 'lo
       await p.getByLabel('연간 공휴일 근무 예정 일수', { exact: true }).fill('22');
       await p.getByLabel('월 임금 총액', { exact: true }).fill('2600000');
       const result = await answer(p, '#cw-result');
-      step('기본급이 잔액 — 1,870,364원', /기본급\(주휴 포함\)\(잔액\) 166\.85시간 1,870,364원/, result);
-      step('연장 414,013 · 휴일 243,879 · 연차 71,744', /연장근로수당 36\.93시간 414,013원 휴일근로수당 21\.76시간 243,879원 연차수당 6\.4시간 71,744원/, result);
-      step('통상시급 11,209.99원 · 최저시급 이상', /통상시급 11,209\.99원 \(2026년 최저시급 10,320원 이상\)/, result);
+      // #151 — 공휴일 8시간 넘는 시간을 연장 1.5 + 휴일 0.5(법정 2.0)로 고쳐 교정 표본(1,870,364 · 휴일 21.76시간)에서 휴일 시간만 바뀌었다
+      step('기본급이 잔액 — 1,895,839원', /기본급\(주휴 포함\)\(잔액\) 166\.85시간 1,895,839원/, result);
+      step('연장 419,652 · 휴일 211,788 · 연차 72,721', /연장근로수당 36\.93시간 419,652원 휴일근로수당 18\.64시간 211,788원 연차수당 6\.4시간 72,721원/, result);
+      step('통상시급 11,362.67원 · 최저시급 이상', /통상시급 11,362\.67원 \(2026년 최저시급 10,320원 이상\)/, result);
       step('점검 규칙 되먹임 — 손볼 항목 없음', /손볼 항목이 없습니다/, result);
       // 단위·흡수 선택(재홍님 261103)
       await p.getByRole('button', { name: '100원 단위 올림', exact: true }).click();
-      step('100원 단위 올림 — 기본급 1,870,200원·되먹임 손볼 항목 없음', /1,870,200원.*414,100원.*243,900원.*71,800원.*손볼 항목이 없습니다/, await answer(p, '#cw-result'));
+      step('100원 단위 올림 — 기본급 1,895,700원·되먹임 손볼 항목 없음', /1,895,700원.*419,700원.*211,800원.*72,800원.*손볼 항목이 없습니다/, await answer(p, '#cw-result'));
       await p.getByRole('button', { name: '원 단위(반올림)', exact: true }).click();
       await p.getByRole('button', { name: '휴일근로수당', exact: true }).click();
-      step('잔액을 휴일근로수당으로', /휴일근로수당\(잔액\) 21\.76시간 243,879원/, await answer(p, '#cw-result'));
+      step('잔액을 휴일근로수당으로', /휴일근로수당\(잔액\) 18\.64시간 211,788원/, await answer(p, '#cw-result'));
       await p.getByRole('button', { name: '기본급(주휴 포함)', exact: true }).click();
       mkdirSync(OUT, { recursive: true });
       const width = p.viewportSize()?.width;
