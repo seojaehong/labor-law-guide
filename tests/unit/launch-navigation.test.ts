@@ -8,7 +8,9 @@ describe('selected launch navigation', () => {
   it('keeps the approved four destinations and secondary service visible', () => {
     for (const href of ['/blog', '/laws', '/tools/work-rules', '/decisions']) expect(items).toContain(`href:'${href}'`);
     for (const href of ['/ai', '/guide', '/news', '/wiki', '/tools/severance.html']) expect(items).not.toContain(`href:'${href}'`);
-    expect(nav).toContain('소개·상담');
+    // 261105 — /contact 가 「서비스 문의」 창구로 바뀌어 메뉴 라벨도 바꿨다(종전 「소개·상담」).
+    expect(nav).toContain('서비스 문의');
+    expect(nav).not.toContain('상담');
   });
   it('puts the tools directory first, in the desktop menu and the mobile rail (261103)', () => {
     expect(items.indexOf("href:'/tools'")).toBeGreaterThan(-1);

@@ -1,67 +1,47 @@
 import { publicMetadata } from '@/lib/public-metadata';
 import type { Metadata } from 'next';
-import Link from 'next/link';
 import ContactForm from '@/components/ContactForm';
-import { Mail, MapPin, ExternalLink, FileText, ClipboardCheck, Scale } from 'lucide-react';
-import { SITE_URL } from '@/lib/constants';
+import { Mail } from 'lucide-react';
+import { SITE_URL, BRAND_NAME } from '@/lib/constants';
+import { CONTACT_EMAIL } from '@/lib/site-contact';
 
+// 261105 — 이 페이지는 「서비스 문의」(오류 제보·기능 제안·제휴) 창구다. 개별 사안 접수 창구가 아니다.
 const CONTACT_URL = `${SITE_URL}/contact`;
-const DESCRIPTION = '부당해고, 임금체불, 직장내괴롭힘, 노란봉투법, 4대보험까지 — 노무법인 위너스에 온라인으로 노무 상담을 접수하세요. 공인노무사가 직접 검토합니다.';
+const DESCRIPTION = `${BRAND_NAME} 서비스 문의 창구입니다. 오류 제보, 기능 제안, 제휴 문의를 남겨 주세요. 구체적인 노동 사안은 고용노동부(1350)·노동위원회 등 공공 창구를 이용해 주세요.`;
 
 export const metadata: Metadata = publicMetadata({
-  title: '노무 상담 문의 | 부당해고·임금체불·괴롭힘·노란봉투법 | 노무법인 위너스',
+  title: `서비스 문의 | 오류 제보·기능 제안·제휴 | ${BRAND_NAME}`,
   description: DESCRIPTION,
   alternates: { canonical: CONTACT_URL },
   openGraph: {
-    title: '노무법인 위너스 종합 상담 문의',
+    title: `${BRAND_NAME} 서비스 문의`,
     description: DESCRIPTION,
     type: 'website',
     url: CONTACT_URL,
   },
   twitter: {
     card: 'summary_large_image',
-    title: '노무법인 위너스 종합 상담 문의',
+    title: `${BRAND_NAME} 서비스 문의`,
     description: DESCRIPTION,
   },
 });
 
-const quickLinks = [
-  {
-    href: '/guide',
-    label: '핵심 가이드 보기',
-    description: '사용자 범위 확대와 쟁점 구조를 먼저 정리합니다.',
-    icon: FileText,
-  },
-  {
-    href: '/checklist',
-    label: '점검 체크리스트',
-    description: '우리 사업장에 교섭 의무 가능성이 있는지 빠르게 점검합니다.',
-    icon: ClipboardCheck,
-  },
-  {
-    href: '/manual',
-    label: '교섭절차 가이드',
-    description: '교섭요구 공고부터 단체교섭까지 절차를 단계별로 봅니다.',
-    icon: Scale,
-  },
-];
-
 const contactFaqItems = [
   {
-    question: '어떤 상담을 받을 수 있나요?',
-    answer: '부당해고·징계, 임금체불·퇴직금, 직장내괴롭힘·성희롱, 노란봉투법(원청 교섭), 4대보험, 고용지원금 등 노동법 전반에 걸친 상담이 가능합니다. 문의 유형을 선택해 주시면 담당 노무사가 배정됩니다.',
+    question: '개별 노동 사건도 물어볼 수 있나요?',
+    answer: '이 창구는 서비스 오류 제보, 기능 제안, 제휴 문의만 받습니다. 해고·임금·괴롭힘 같은 구체적인 사안은 고용노동부(1350)·노동위원회 등 공공 창구를 이용해 주세요.',
   },
   {
-    question: '문의 폼에는 어떤 내용을 적으면 좋나요?',
-    answer: '회사명, 근로자/사업주 입장, 현재 쟁점(해고·임금·괴롭힘·교섭 등), 급한 일정이 있으면 함께 적어 주세요. 구체적일수록 첫 회신이 빨라집니다.',
+    question: '오류를 제보할 때 무엇을 적으면 좋나요?',
+    answer: '문제가 생긴 페이지 주소, 입력한 값, 화면에 나온 결과와 기대한 결과를 적어 주세요. 사용한 기기와 브라우저를 함께 적어 주시면 확인이 빨라집니다.',
   },
   {
-    question: '상담 비용이 있나요?',
-    answer: '초기 문의 접수와 간단한 방향 안내는 무료입니다. 사건 수임이나 서면 검토가 필요한 경우 별도 안내드립니다.',
+    question: '회신을 받을 수 있나요?',
+    answer: '이메일을 남겨 주시면 접수 확인 메일이 자동으로 발송됩니다. 내용 확인이 더 필요하면 그 주소로 연락드립니다.',
   },
   {
-    question: '얼마나 빨리 회신 받을 수 있나요?',
-    answer: '영업일 기준 1일 이내 1차 회신을 드립니다. 긴급한 일정(노동위원회 출석, 해고 통보 등)이 있으면 폼에 꼭 적어 주세요.',
+    question: '이메일로 직접 보내도 되나요?',
+    answer: `네. ${CONTACT_EMAIL} 로 보내셔도 됩니다.`,
   },
 ] as const;
 
@@ -72,20 +52,9 @@ const contactJsonLd = {
       '@type': 'ContactPage',
       '@id': `${CONTACT_URL}/#webpage`,
       url: CONTACT_URL,
-      name: '노무법인 위너스 종합 상담 문의',
+      name: `${BRAND_NAME} 서비스 문의`,
       description: DESCRIPTION,
       isPartOf: { '@id': `${SITE_URL}/#website` },
-      about: {
-        '@type': 'Service',
-        name: '노무법인 위너스 노동법 종합 상담',
-        serviceType: '부당해고·임금체불·괴롭힘·노란봉투법·4대보험 자문',
-        provider: { '@id': `${SITE_URL}/#organization` },
-        areaServed: { '@type': 'Country', name: 'KR' },
-        availableChannel: {
-          '@type': 'ServiceChannel',
-          serviceUrl: CONTACT_URL,
-        },
-      },
       breadcrumb: { '@id': `${CONTACT_URL}/#breadcrumb` },
     },
     {
@@ -93,7 +62,7 @@ const contactJsonLd = {
       '@id': `${CONTACT_URL}/#breadcrumb`,
       itemListElement: [
         { '@type': 'ListItem', position: 1, name: '홈', item: SITE_URL },
-        { '@type': 'ListItem', position: 2, name: '노무법인 위너스 종합 상담 문의', item: CONTACT_URL },
+        { '@type': 'ListItem', position: 2, name: '서비스 문의', item: CONTACT_URL },
       ],
     },
     {
@@ -118,11 +87,11 @@ export default function ContactPage() {
       <div className="layout-tool editorial-tool">
         <header className="editorial-tool-header">
         <h1 className="t-h2 mb-2" style={{ color: 'var(--color-text-primary)' }}>
-          노무법인 위너스 종합 상담 문의
+          서비스 문의
         </h1>
         <p className="mb-10 max-w-[var(--reading-measure)] text-sm leading-6" style={{ color: 'var(--grey-700)' }}>
-          부당해고·징계, 임금체불·퇴직금, 직장내괴롭힘·성희롱, 노란봉투법(원청 교섭), 4대보험, 고용지원금까지 — 노동법 전반에 걸친 상담을 접수할 수 있습니다.
-          회사명, 현재 쟁점, 급한 일정이 있으면 함께 적어 주세요. 공인노무사가 직접 검토합니다.
+          {BRAND_NAME}를 쓰다가 발견한 오류, 있었으면 하는 기능, 제휴 제안을 남겨 주세요.
+          구체적인 노동 사안은 고용노동부(1350)·노동위원회 등 공공 창구를 이용해 주세요.
         </p>
       </header>
 
@@ -133,7 +102,7 @@ export default function ContactPage() {
                 <div>
                   <h2 className="t-h4" style={{ color: 'var(--color-text-primary)' }}>문의 접수</h2>
                   <p className="mt-1 text-sm" style={{ color: 'var(--grey-700)' }}>
-                    회사명, 현재 쟁점, 교섭요구 여부, 일정 급박성까지 적어주시면 분류가 빨라집니다.
+                    문제가 생긴 페이지 주소와 상황을 함께 적어 주시면 확인이 빨라집니다.
                   </p>
                 </div>
                 <span className="rounded-full px-3 py-1 text-xs font-medium" style={{ backgroundColor: 'var(--grey-100)', color: 'var(--color-text-primary)' }}>
@@ -144,18 +113,17 @@ export default function ContactPage() {
             </div>
 
             <section className="rounded-md border p-6" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }}>
-              <h2 className="t-h4 mb-3" style={{ color: 'var(--color-text-primary)' }}>이런 경우 바로 문의하는 편이 좋습니다</h2>
+              <h2 className="t-h4 mb-3" style={{ color: 'var(--color-text-primary)' }}>이런 내용을 보내 주세요</h2>
               <ul className="space-y-2 text-sm leading-6" style={{ color: 'var(--grey-700)' }}>
-                <li>• 해고·징계 통보를 받았거나 예고 없이 퇴사 처리된 경우</li>
-                <li>• 퇴직금·연장수당·주휴수당 등 임금이 체불되고 있는 경우</li>
-                <li>• 직장내괴롭힘·성희롱 피해를 입었거나 사내 조사가 진행 중인 경우</li>
-                <li>• 하청 노조가 원청에 교섭을 요구해 노란봉투법 대응이 필요한 경우</li>
-                <li>• 4대보험 취득·상실, 고용지원금 신청을 검토하고 있는 경우</li>
+                <li>• 계산 결과나 화면 표시가 이상한 경우</li>
+                <li>• 법령·판례 원문 링크가 끊겼거나 개정 전 내용이 보이는 경우</li>
+                <li>• 있었으면 하는 기능이나 자료</li>
+                <li>• 제휴·자료 제공 제안</li>
               </ul>
             </section>
 
             <section className="rounded-md border p-6" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }}>
-              <h2 className="t-h4 mb-3" style={{ color: 'var(--color-text-primary)' }}>상담 전 많이 묻는 질문</h2>
+              <h2 className="t-h4 mb-3" style={{ color: 'var(--color-text-primary)' }}>자주 묻는 질문</h2>
               <div className="space-y-4">
                 {contactFaqItems.map((item) => (
                   <div key={item.question} className="rounded-md border p-4" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }}>
@@ -163,27 +131,6 @@ export default function ContactPage() {
                     <p className="mt-2 text-sm leading-6" style={{ color: 'var(--grey-700)' }}>{item.answer}</p>
                   </div>
                 ))}
-              </div>
-            </section>
-
-            <section className="rounded-md border p-6" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }}>
-              <h2 className="t-h4 mb-4" style={{ color: 'var(--color-text-primary)' }}>먼저 읽어보면 상담이 빨라지는 자료</h2>
-              <div className="grid gap-3 md:grid-cols-3">
-                {quickLinks.map((item) => {
-                  const Icon = item.icon;
-                  return (
-                    <Link
-                      key={item.href}
-                      href={item.href}
-                      className="rounded-md border p-4 transition-colors hover:border-[var(--color-accent)] hover:bg-[var(--grey-50)]"
-                      style={{ borderColor: 'var(--color-border)' }}
-                    >
-                      <Icon size={18} style={{ color: 'var(--color-accent-ink)' }} />
-                      <p className="mt-3 text-sm font-bold" style={{ color: 'var(--grey-900)' }}>{item.label}</p>
-                      <p className="mt-1 text-xs leading-5" style={{ color: 'var(--grey-700)' }}>{item.description}</p>
-                    </Link>
-                  );
-                })}
               </div>
             </section>
           </div>
@@ -195,36 +142,22 @@ export default function ContactPage() {
                 <div className="flex gap-3">
                   <Mail size={18} style={{ color: 'var(--color-accent-ink)' }} />
                   <div>
-                    <p className="font-medium" style={{ color: 'var(--grey-800)' }}>상담 접수 방식</p>
-                    <p>이 페이지의 문의 폼으로 내용을 남겨 주세요.</p>
-                  </div>
-                </div>
-                <div className="flex gap-3">
-                  <MapPin size={18} style={{ color: 'var(--color-accent-ink)' }} />
-                  <div>
-                    <p className="font-medium" style={{ color: 'var(--grey-800)' }}>주소</p>
-                    <p>서울시 서초구 나루터로 61, 402호(태승빌딩)</p>
-                  </div>
-                </div>
-                <div className="flex gap-3">
-                  <ExternalLink size={18} style={{ color: 'var(--color-accent-ink)' }} />
-                  <div>
-                    <p className="font-medium" style={{ color: 'var(--grey-800)' }}>공식 홈페이지</p>
-                    {/* §6.8 — 네비·버튼·카드가 아니라 본문 안의 단독 링크다(밑줄 예외에 해당하지 않는다).
-                        색 하나로만 구분되던 자리라 상시 밑줄 + --color-accent-ink로 옮긴다. */}
-                    <a href="https://winhr.co.kr" target="_blank" rel="noopener noreferrer" className="underline underline-offset-[0.2em] decoration-1" style={{ color: 'var(--color-accent-ink)' }}>winhr.co.kr</a>
+                    <p className="font-medium" style={{ color: 'var(--grey-800)' }}>이메일</p>
+                    <p>이 페이지의 문의 폼이나 이메일로 보내 주세요.</p>
+                    {/* §6.8 — 본문 안의 단독 링크라 상시 밑줄 + --color-accent-ink. */}
+                    <a href={`mailto:${CONTACT_EMAIL}`} className="underline underline-offset-[0.2em] decoration-1" style={{ color: 'var(--color-accent-ink)' }}>{CONTACT_EMAIL}</a>
                   </div>
                 </div>
               </div>
             </div>
 
             <div className="rounded-md p-6" style={{ backgroundColor: 'var(--grey-100)' }}>
-              <h2 className="mb-2 text-sm font-bold" style={{ color: 'var(--color-text-primary)' }}>상담 메모에 같이 남기면 좋은 정보</h2>
+              <h2 className="mb-2 text-sm font-bold" style={{ color: 'var(--color-text-primary)' }}>문의에 같이 적으면 좋은 정보</h2>
               <ul className="space-y-1.5 text-sm" style={{ color: 'var(--grey-700)' }}>
-                <li>• 근로자 / 사업주 중 어느 입장인지</li>
-                <li>• 현재 쟁점 (해고·임금·괴롭힘·교섭·보험 등)</li>
-                <li>• 회사 규모와 근속 기간</li>
-                <li>• 검토가 급한 날짜나 예정된 일정이 있는지</li>
+                <li>• 문제가 생긴 페이지 주소</li>
+                <li>• 입력한 값과 화면에 나온 결과</li>
+                <li>• 사용한 기기와 브라우저</li>
+                <li>• 제휴 문의라면 기관·회사명과 연락 방법</li>
               </ul>
             </div>
           </div>

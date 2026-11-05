@@ -52,7 +52,7 @@ export default function ContactForm() {
       <div className="grid gap-5 md:grid-cols-2">
         <div>
           <label htmlFor="contact-name" className="mb-1 block text-sm font-medium" style={{ color: 'var(--grey-700)' }}>이름 *</label>
-          <input id="contact-name" name="name" required autoComplete="name" placeholder="담당자 성함" className="min-h-[44px] w-full rounded-lg border px-4 py-2.5 text-[16px] outline-none transition-colors focus-visible:outline-2 focus-visible:outline-[var(--color-accent)] focus-visible:outline-offset-2 focus:border-[var(--color-accent)]" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }} />
+          <input id="contact-name" name="name" required autoComplete="name" placeholder="이름" className="min-h-[44px] w-full rounded-lg border px-4 py-2.5 text-[16px] outline-none transition-colors focus-visible:outline-2 focus-visible:outline-[var(--color-accent)] focus-visible:outline-offset-2 focus:border-[var(--color-accent)]" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }} />
         </div>
         <div>
           <label htmlFor="contact-phone" className="mb-1 block text-sm font-medium" style={{ color: 'var(--grey-700)' }}>연락처 *</label>
@@ -66,17 +66,14 @@ export default function ContactForm() {
       <div>
         <label htmlFor="contact-type" className="mb-1 block text-sm font-medium" style={{ color: 'var(--grey-700)' }}>문의 유형</label>
         <select id="contact-type" name="type" className="min-h-[44px] w-full rounded-lg border px-4 py-2.5 text-[16px] outline-none focus-visible:outline-2 focus-visible:outline-[var(--color-accent)] focus-visible:outline-offset-2" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }}>
-          <option>노란봉투법 문의</option>
-          <option>부당해고/징계 문의</option>
-          <option>퇴직금/임금 문의</option>
-          <option>직장내괴롭힘/성희롱 문의</option>
-          <option>고용지원금 문의</option>
-          <option>기타 노무 문의</option>
+          <option>오류 제보</option>
+          <option>기능 제안</option>
+          <option>기타</option>
         </select>
       </div>
       <div>
         <label htmlFor="contact-message" className="mb-1 block text-sm font-medium" style={{ color: 'var(--grey-700)' }}>문의 내용 *</label>
-        <textarea id="contact-message" name="message" required rows={6} className="min-h-[44px] w-full rounded-lg border px-4 py-2.5 text-[16px] outline-none transition-colors focus-visible:outline-2 focus-visible:outline-[var(--color-accent)] focus-visible:outline-offset-2 focus:border-[var(--color-accent)]" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }} placeholder="회사명, 원청/하청/발주처 중 위치, 교섭요구서 또는 노조 연락 수령 여부, 급한 일정(회의·공고·노동위 대응), 궁금한 쟁점을 적어주세요." />
+        <textarea id="contact-message" name="message" required rows={6} className="min-h-[44px] w-full rounded-lg border px-4 py-2.5 text-[16px] outline-none transition-colors focus-visible:outline-2 focus-visible:outline-[var(--color-accent)] focus-visible:outline-offset-2 focus:border-[var(--color-accent)]" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }} placeholder="문제가 생긴 페이지 주소, 입력한 값과 화면에 나온 결과, 제안하고 싶은 기능이나 제휴 내용을 적어 주세요." />
       </div>
 
       {error && <p className="text-sm" style={{ color: '#dc2626' }}>{error}</p>}

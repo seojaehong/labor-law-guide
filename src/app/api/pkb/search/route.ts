@@ -88,7 +88,7 @@ export async function POST(req: Request) {
     })
     .join('\n\n---\n\n');
 
-  const prompt = `당신은 공인노무사 서재홍의 개인 지식관리 비서입니다.
+  const prompt = `당신은 운영자의 개인 지식관리 비서입니다.
 아래 발췌(vault 본인 자문/상담/사건/레퍼런스/브리핑 + 참고자료)를 근거로 질문에 답하세요.
 
 규칙:

@@ -523,7 +523,7 @@ export default function SanctionPage() {
         {/* Disclaimer */}
         <div className="border-t border-border/15 px-4 py-1.5">
           <p className="text-center text-[length:var(--text-xs)] text-muted-foreground">
-            본 결과는 유사 판정례 비교에 기반한 참고용입니다. 최종 결정 전 반드시 노무사와 상담하세요.
+            본 결과는 유사 판정례 비교에 기반한 참고용입니다. 구체적인 사안은 고용노동부(1350)·노동위원회 등 공공 창구에서 확인하세요.
           </p>
         </div>
 

@@ -5,8 +5,9 @@
     "description": "노동법 실무 가이드 및 AI 상담 API",
     "version": "1.0.0",
     "contact": {
-      "name": "노무법인 위너스",
-      "url": "https://www.xn--o80bk8isxeinax68f.com"
+      "name": "일의 무늬",
+      "url": "https://www.xn--o80bk8isxeinax68f.com",
+      "email": "hello@yellowenvelope.kr"
     }
   },
   "servers": [
