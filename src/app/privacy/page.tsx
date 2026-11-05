@@ -97,6 +97,7 @@ export default function PrivacyPage() {
           <li><strong>Anthropic PBC</strong>(미국) — AI 답변·문서 읽기. 대화 내용, 검색어, 사건 설명, 계약서 파일, 스캔 쪽 이미지, 취업규칙 본문.</li>
           <li><strong>OpenAI, L.L.C.</strong>(미국) — AI 답변·검색. 질문, 검색어, 사건 설명.</li>
           <li><strong>Google LLC</strong>(미국 법인) — AI 답변(Vertex AI·Gemini, 대화 내용·사건 설명), 이용 통계(Google Analytics, 접속 정보).</li>
+          <li><strong>TypeSafe AI, Inc.</strong>(미국) — AI 질문에 맞는 안내 글 고르기. 질문과 안내 글 후보 제목.</li>
           <li><strong>Resend, Inc.</strong>(미국) — 메일 발송. 이메일 주소, 문의 내용, 소식지 수신 기록.</li>
         </ul>
         <p>
