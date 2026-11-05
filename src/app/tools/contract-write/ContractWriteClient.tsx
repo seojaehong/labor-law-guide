@@ -2,6 +2,7 @@
 
 // 근로계약서 작성 — 입력 → 임금 구성 설계 → 점검 규칙 되먹임 → 엑셀·한글·PDF 내려받기.
 // 🔒 전부 브라우저 안에서 한다. 서버로 보내는 것은 PDF 글꼴 파일을 받아오는 요청(같은 사이트의 정적 파일) 하나뿐이다.
+// 사업장 카드(WorkplacePicker)는 사용자가 「카드에 저장」을 누를 때만 이 브라우저 저장소에 쓴다(leave-workspaces 와 같은 정책).
 
 import { useMemo, useState } from 'react';
 
@@ -13,6 +14,9 @@ import { hoursText, wonText } from '@/lib/contract-write/text';
 
 import type { WeekDay } from '@/lib/contract-write/contract';
 
+import { WorkplacePicker } from '@/components/workplace/WorkplacePicker';
+
+import { CARD_COPY } from './cardState';
 import { absorbOptions, amountInput, effectiveAbsorb, INITIAL, toWriteForm, WEEK_DAYS, type WriteState } from './formState';
 
 const inputClass =
@@ -150,8 +154,10 @@ export default function ContractWriteClient() {
   return (
     <div className="space-y-5">
       <p className="rounded-lg px-3 py-2 text-xs leading-relaxed" style={{ backgroundColor: 'var(--grey-100)', color: 'var(--grey-700)' }}>
-        입력한 내용은 이 브라우저 안에서만 계산하고 파일로 만듭니다. 서버로 보내거나 저장하지 않습니다.
+        {CARD_COPY.pageNotice}
       </p>
+
+      <WorkplacePicker state={s} onPatch={patch} />
 
       <Section title="1. 당사자와 계약기간">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">

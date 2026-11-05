@@ -9,6 +9,8 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
+import type { WorkspaceMember } from "../../src/lib/leave/leave-workspaces";
+
 // ── 두 저장소를 따로 흉내낸다. 어디에 쓰였는지 구분하는 것이 이 테스트의 핵심이다.
 const localData = new Map<string, string>();
 const sessionData = new Map<string, string>();
@@ -116,12 +118,15 @@ ck("기억하기를 끄면 다시 세션으로 돌아오고 브라우저에서 �
 ck("사업장 목록·역할에는 사람 정보가 없다", () => {
   const ws = W.createWorkspace("가나상사", "client")!;
   W.setMembers(ws, [{ name: "홍길동", hireDate: "2019-03-02" }]);
+  W.upsertMember(ws, { name: "김영희", hireDate: "2020-01-01", terms: { duty: "홀 서비스" } });
   W.setAudience("advisor");
   const metaBlobs = [...localData.entries()]
     .filter(([k]) => !k.includes("members"))
     .map(([, v]) => v)
     .join(" ");
   assert.ok(!metaBlobs.includes("홍길동"), "목록·역할에 이름이 섞였다");
+  assert.ok(!metaBlobs.includes("김영희"), "목록·역할에 이름이 섞였다");
+  assert.ok(!metaBlobs.includes("홀 서비스"), "목록·역할에 계약 조건이 섞였다");
 });
 
 // ── 명부 규칙 (leave-roster 에서 옮겨 온 것) ────────────────
@@ -164,11 +169,205 @@ ck("형식이 깨진 것은 버린다", () => {
   assert.deepEqual(W.getMembers(ws), []);
 });
 
-ck("이름과 입사일만 저장한다 (호출부가 더 넣어도)", () => {
+// ── 허용한 칸만 저장 — 사업장 카드(근로계약서 작성)가 계약 조건을 더하면서 넓어졌다 ──
+const TERM_KEYS = [
+  "amountMode", "breakMinutes", "duty", "end", "hourlyWage", "location",
+  "monthlyTotal", "payType", "start", "weeklyRestDay", "workDays",
+].sort();
+/** 어디에도 저장되면 안 되는 칸 — 키 이름과 값 둘 다 본다 */
+const PERSONAL = {
+  rrn: "900101-1234567",
+  주민번호: "900101-1234568",
+  birthDate: "1990-01-01",
+  address: "서울특별시 가상구 가상로 1",
+  phone: "010-1234-5678",
+  email: "hong@example.com",
+  account: "110-123-456789",
+  // 사업장 id(UUID)에 우연히 들어 있을 수 없는 값 — 「18」은 UUID 에 섞여 들어가 시험이 가끔 틀렸다
+  recordedDays: 987654321,
+};
+function rawAll(): string {
+  return [...localData.values(), ...sessionData.values()].join("\n");
+}
+function assertNoPersonal() {
+  const raw = rawAll();
+  for (const [k, v] of Object.entries(PERSONAL)) {
+    assert.ok(!raw.includes(`"${k}"`), `키 ${k} 가 저장됐다`);
+    assert.ok(!raw.includes(String(v)), `값 ${v} 가 저장됐다`);
+  }
+}
+
+ck("허용한 칸만 저장 — 주민번호·생년월일·주소·연락처는 버린다", () => {
   const ws = W.createWorkspace("A", "client")!;
-  // @ts-expect-error 의도적으로 여분 필드
-  W.setMembers(ws, [{ name: "홍길동", hireDate: "2019-03-02", recordedDays: 18, 주민번호: "900101-1234567" }]);
+  // 호출부가 사람 정보를 섞어 넣어도(명부·계약 조건·사업장 정보 세 군데 모두)
+  const dirtyTerms = { ...PERSONAL, duty: "홀 서비스", monthlyTotal: "2,600,000", workDays: ["월", "화"] };
+  const dirty = { name: "홍길동", hireDate: "2019-03-02", ...PERSONAL, terms: dirtyTerms } as unknown as WorkspaceMember;
+  W.setMembers(ws, [dirty]);
+  W.upsertMember(ws, { ...dirty, name: "김영희" } as WorkspaceMember);
+  W.updateWorkspace(ws.id, { ownerName: "김대표", fivePlus: "no", ...PERSONAL } as unknown as Parameters<typeof W.updateWorkspace>[1]);
+  assertNoPersonal();
+  const m = W.getMembers(ws);
+  assert.equal(m.length, 2);
+  assert.deepEqual(Object.keys(m[0]).sort(), ["hireDate", "name", "terms"]);
+  for (const k of Object.keys(m[0].terms ?? {})) assert.ok(TERM_KEYS.includes(k), `허용하지 않은 조건 칸 ${k}`);
+  assert.equal(m[0].terms?.duty, "홀 서비스");
+  assert.deepEqual(Object.keys(W.listWorkspaces()[0]).sort(), ["fivePlus", "id", "kind", "name", "remember"], "대표자명이 목록(항상 localStorage)에 들어갔다");
+  assert.deepEqual(W.getWorkspaceDetails(ws), { ownerName: "김대표" });
+});
+
+ck("계약 조건이 없는 사람은 terms 칸 자체가 없다 (옛 형식 그대로)", () => {
+  const ws = W.createWorkspace("A", "client")!;
+  W.setMembers(ws, [{ name: "홍길동", hireDate: "2019-03-02" }]);
   assert.deepEqual(Object.keys(W.getMembers(ws)[0]).sort(), ["hireDate", "name"]);
+});
+
+ck("저장된 계약 조건이 손상돼 있으면 그 칸만 버린다", () => {
+  const ws = W.createWorkspace("A", "client")!;
+  sessionData.set("work-patterns.leave.members.v1:" + ws.id, JSON.stringify([
+    { name: "홍길동", hireDate: "2019-03-02", terms: { start: "09:00", duty: 3, payType: "weekly", workDays: ["월", "x", 5], weeklyRestDay: "일요일", rrn: PERSONAL.rrn } },
+    { name: "김영희", hireDate: "2020-01-01", terms: "깨진 값" },
+  ]));
+  const m = W.getMembers(ws);
+  assert.deepEqual(m[0].terms, { start: "09:00", workDays: ["월"] });
+  assert.ok(!("terms" in m[1]), "객체가 아닌 terms 를 그대로 돌려줬다");
+});
+
+// ── 연차 화면과 계약서 화면이 같은 명부를 쓴다 ─────────────
+ck("연차 화면이 명부를 통째로 덮어써도 계약서에서 넣은 조건은 남는다", () => {
+  const ws = W.createWorkspace("A", "client")!;
+  W.upsertMember(ws, { name: "홍길동", hireDate: "2019-03-02", terms: { duty: "홀 서비스", monthlyTotal: "2,600,000" } });
+  W.setMembers(ws, [{ name: "홍길동", hireDate: "2019-03-02" }, { name: "김영희", hireDate: "2020-01-01" }]);
+  const m = W.getMembers(ws);
+  assert.deepEqual(m.find((x) => x.name === "홍길동")?.terms, { monthlyTotal: "2,600,000", duty: "홀 서비스" });
+  assert.ok(!("terms" in m.find((x) => x.name === "김영희")!), "새 사람에게 조건이 붙었다");
+});
+
+ck("이름이나 입사일이 바뀐 사람은 새 사람이다 — 이전 조건을 물려받지 않는다", () => {
+  const ws = W.createWorkspace("A", "client")!;
+  W.upsertMember(ws, { name: "홍길동", hireDate: "2019-03-02", terms: { duty: "홀 서비스" } });
+  W.setMembers(ws, [{ name: "홍길동", hireDate: "2019-03-03" }]);
+  const m = W.getMembers(ws);
+  assert.equal(m.length, 1);
+  assert.ok(!("terms" in m[0]));
+});
+
+ck("setMembers 가 돌려준 값과 저장소에서 다시 읽은 값이 같다 (연차 화면 「저장됨」 표시)", () => {
+  const ws = W.createWorkspace("A", "client")!;
+  W.upsertMember(ws, { name: "홍길동", hireDate: "2019-03-02", terms: { duty: "홀 서비스", workDays: ["월", "화"] } });
+  const expected = W.setMembers(ws, [{ name: "홍길동", hireDate: "2019-03-02" }, { name: "김영희", hireDate: "2020-01-01" }]);
+  assert.equal(JSON.stringify(W.getMembers(ws)), JSON.stringify(expected));
+});
+
+ck("upsertMember — 같은 사람이면 조건을 새 값으로 바꾸고, 없으면 더한다", () => {
+  const ws = W.createWorkspace("A", "client")!;
+  W.setMembers(ws, [{ name: "김영희", hireDate: "2020-01-01" }]);
+  W.upsertMember(ws, { name: "홍길동", hireDate: "2019-03-02", terms: { duty: "홀 서비스", monthlyTotal: "2,600,000" } });
+  const after = W.upsertMember(ws, { name: "홍길동", hireDate: "2019-03-02", terms: { duty: "주방 보조" } });
+  assert.equal(after.length, 2);
+  assert.deepEqual(after.find((x) => x.name === "홍길동")?.terms, { duty: "주방 보조" });
+  assert.equal(JSON.stringify(W.getMembers(ws)), JSON.stringify(after));
+});
+
+ck("upsertMember — 형식이 깨진 사람은 넣지 않는다", () => {
+  const ws = W.createWorkspace("A", "client")!;
+  W.upsertMember(ws, { name: "홍길동", hireDate: "언젠가" });
+  W.upsertMember(ws, { name: "  ", hireDate: "2019-03-02" });
+  assert.deepEqual(W.getMembers(ws), []);
+});
+
+ck("upsertMember 도 기본은 sessionStorage 에만 쓴다", () => {
+  const ws = W.createWorkspace("A", "client")!;
+  W.upsertMember(ws, { name: "홍길동", hireDate: "2019-03-02", terms: { duty: "홀 서비스" } });
+  assert.equal([...sessionData.keys()].filter((k) => k.includes("members")).length, 1);
+  assert.equal([...localData.keys()].filter((k) => k.includes("members")).length, 0, "켜지 않았는데 브라우저에 남았다");
+});
+
+ck("기억하기를 켜고 꺼도 계약 조건이 따라간다", () => {
+  const ws = W.createWorkspace("A", "client")!;
+  W.upsertMember(ws, { name: "홍길동", hireDate: "2019-03-02", terms: { duty: "홀 서비스" } });
+  W.setRemember(ws.id, true);
+  assert.equal(W.getMembers(W.getActiveWorkspace())[0].terms?.duty, "홀 서비스");
+  W.setRemember(ws.id, false);
+  assert.equal(W.getMembers(W.getActiveWorkspace())[0].terms?.duty, "홀 서비스");
+  assert.equal([...localData.keys()].filter((k) => k.includes("members")).length, 0);
+});
+
+// ── 사업장 정보(대표자·5명 이상) ──────────────────────────────
+ck("updateWorkspace — 대표자·5명 이상 여부를 넣고, 대표자를 비우면 그 칸을 지운다", () => {
+  const ws = W.createWorkspace("가나상사", "own")!;
+  events.length = 0;
+  W.updateWorkspace(ws.id, { ownerName: "  김대표 ", fivePlus: "no" });
+  assert.ok(events.includes(W.WORKSPACES_CHANGED), "바뀐 것을 알리지 않았다");
+  assert.deepEqual(W.getWorkspaceDetails(ws), { ownerName: "김대표" });
+  assert.equal(W.listWorkspaces()[0].fivePlus, "no");
+  W.updateWorkspace(ws.id, { ownerName: "   " });
+  assert.deepEqual(W.getWorkspaceDetails(ws), {}, "빈 대표자를 남겼다");
+  assert.equal([...sessionData.keys()].filter((k) => k.includes("details")).length, 0, "빈 details 키를 남겼다");
+  assert.equal(W.listWorkspaces()[0].fivePlus, "no", "건드리지 않은 칸이 바뀌었다");
+  W.updateWorkspace(ws.id, { fivePlus: "maybe" as "yes" });
+  assert.equal(W.listWorkspaces()[0].fivePlus, "no", "모르는 값을 받았다");
+});
+
+ck("기억하기 꺼진 사업장의 대표자명은 localStorage 원문 어디에도 없다", () => {
+  const ws = W.createWorkspace("가나상사", "own")!;
+  W.updateWorkspace(ws.id, { ownerName: "김대표", fivePlus: "no" });
+  assert.ok(![...localData.values()].join("\n").includes("김대표"), "켜지 않았는데 대표자명이 브라우저에 남는다");
+  assert.ok([...sessionData.keys()].some((k) => k === "work-patterns.leave.details.v1:" + ws.id), "대표자명이 세션 details 키에 없다");
+  assert.deepEqual(W.getWorkspaceDetails(ws), { ownerName: "김대표" });
+});
+
+ck("대표자명도 기억하기를 켜면 localStorage 로, 끄면 sessionStorage 로 옮겨진다", () => {
+  const ws = W.createWorkspace("가나상사", "own")!;
+  W.updateWorkspace(ws.id, { ownerName: "김대표" });
+  W.setRemember(ws.id, true);
+  assert.ok(![...sessionData.values()].join("\n").includes("김대표"), "이전 저장소(세션)에 남았다");
+  assert.ok([...localData.values()].join("\n").includes("김대표"));
+  assert.deepEqual(W.getWorkspaceDetails(W.getActiveWorkspace()), { ownerName: "김대표" });
+  W.setRemember(ws.id, false);
+  assert.ok(![...localData.values()].join("\n").includes("김대표"), "끈 뒤에도 브라우저에 남았다");
+  assert.deepEqual(W.getWorkspaceDetails(W.getActiveWorkspace()), { ownerName: "김대표" });
+});
+
+ck("사업장을 지우거나 전부 지우면 두 저장소에 details 가 없다", () => {
+  const details = () => [...localData.keys(), ...sessionData.keys()].filter((k) => k.includes("details"));
+  const a = W.createWorkspace("A", "own", true)!;
+  W.updateWorkspace(a.id, { ownerName: "김대표" });
+  const b = W.createWorkspace("B", "own")!;
+  W.updateWorkspace(b.id, { ownerName: "이대표" });
+  W.deleteWorkspace(a.id);
+  assert.deepEqual(details(), ["work-patterns.leave.details.v1:" + b.id]);
+  W.setRemember(b.id, true);
+  W.forgetEverything();
+  assert.deepEqual(details(), []);
+  assert.ok(!rawAll().includes("대표"), "대표자명이 남았다");
+});
+
+ck("사업장 선택 칸 — 없어도 읽고, 타입이 틀리면 그 사업장을 버린다", () => {
+  localData.set("work-patterns.leave.workspaces.v1", JSON.stringify([
+    { id: "a", name: "A", kind: "own", remember: false },
+    { id: "c", name: "C", kind: "own", remember: false, fivePlus: "maybe" },
+    { id: "d", name: "D", kind: "own", remember: false, fivePlus: "yes" },
+  ]));
+  assert.deepEqual(W.listWorkspaces().map((w) => w.id), ["a", "d"]);
+});
+
+ck("목록에 남은 옛 ownerName 칸은 읽지 않는다(이 브랜치에서만 생긴 값)", () => {
+  localData.set("work-patterns.leave.workspaces.v1", JSON.stringify([
+    { id: "b", name: "B", kind: "own", remember: false, ownerName: 3 },
+    { id: "d", name: "D", kind: "own", remember: false, ownerName: "김대표" },
+  ]));
+  const list = W.listWorkspaces();
+  assert.deepEqual(list.map((w) => w.id), ["b", "d"], "읽지 않을 칸 때문에 사업장을 버렸다");
+  assert.deepEqual(W.getWorkspaceDetails(list[1]), {}, "목록의 옛 대표자명을 읽었다");
+});
+
+ck("이미 기억된 명부(옛 형식)가 키 그대로 읽힌다", () => {
+  localData.set("work-patterns.leave.workspaces.v1", JSON.stringify([{ id: "old1", name: "가나상사", kind: "client", remember: true }]));
+  localData.set("work-patterns.leave.workspace.active.v1", JSON.stringify("old1"));
+  localData.set("work-patterns.leave.members.v1:old1", JSON.stringify([{ name: "홍길동", hireDate: "2019-03-02" }, { name: "김영희", hireDate: "2020-01-01" }]));
+  const ws = W.getActiveWorkspace();
+  assert.equal(ws?.id, "old1");
+  assert.deepEqual(W.getMembers(ws), [{ name: "홍길동", hireDate: "2019-03-02" }, { name: "김영희", hireDate: "2020-01-01" }]);
 });
 
 ck("저장된 값이 손상돼 있어도 터지지 않는다", () => {
@@ -249,4 +448,4 @@ ck("명부를 localStorage 에 쓰는 것은 remember 를 거쳐야만 가능하
 });
 
 if (fail) { console.error(`\nleave-workspaces: 실패 ${fail}건`); throw new Error("Original regression assertions failed"); }
-console.log("leave-workspaces: 24건 통과 (사업장 분리·저장소 전환·덮어쓰기·개인정보 최소화)");
+console.log("leave-workspaces: 40건 통과 (사업장 분리·저장소 전환·덮어쓰기·개인정보 최소화·사업장 카드 계약 조건)");
