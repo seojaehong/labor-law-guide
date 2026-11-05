@@ -6,7 +6,9 @@ import { registerRemote } from '../../../../../tools/k-labor/remote.mjs';
 import pkg from '../../../../../tools/k-labor/package.json';
 
 export const dynamic = 'force-dynamic';
-// 사이트 기본 리전은 sin1 — 이 라우트만 서울에서 돈다(법제처는 해외 IP 를 막고, 국외 처리를 줄인다)
+// 사이트 기본 리전은 sin1. 서울을 원하지만 Hobby 플랜은 함수 리전이 하나뿐이라 이 값이 무시된다
+// (261105 미리보기 실측 x-vercel-id = icn1::sin1). 지금 싣는 도구는 개인정보·법제처 호출이 없어 sin1 로 둔다.
+// work-rules(법제처)를 넣기 전에 Pro 전환·별도 프로젝트 중 하나를 고른다.
 export const preferredRegion = 'icn1';
 export const maxDuration = 60;
 
