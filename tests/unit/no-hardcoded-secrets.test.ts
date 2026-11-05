@@ -1,6 +1,6 @@
-import { describe, expect, it, beforeEach, afterEach } from 'vitest';
+import { describe, expect, it } from 'vitest';
+import fs from 'node:fs';
 import { execFileSync } from 'node:child_process';
-import { POST } from '@/app/api/intake-call/route';
 
 // 공개 레포다. Supabase JWT(서비스 키 포함)가 소스에 박히면 히스토리에 영구히 남는다(261105 intake-call 실측).
 describe('소스에 비밀값이 없다', () => {
@@ -15,14 +15,9 @@ describe('소스에 비밀값이 없다', () => {
   });
 });
 
-describe('intake-call 은 env 가 없으면 닫힌다', () => {
-  const saved = { ...process.env };
-  beforeEach(() => { delete process.env.INTAKE_CALL_TOKEN; });
-  afterEach(() => { process.env = { ...saved }; });
-
-  it('INTAKE_CALL_TOKEN 이 없으면 토큰을 맞춰도 503', async () => {
-    const req = new Request('https://yellowenvelope.kr/api/intake-call', { method: 'POST', headers: { 'x-intake-token': 'winhr_call_32719' } });
-    const res = await POST(req as never);
-    expect(res.status).toBe(503);
+// 처리방침에 없는 수집 경로였다. 자료는 OneDrive 로 옮기고 지웠다(261105 재홍님).
+describe('지운 수집 API 가 돌아오지 않는다', () => {
+  it.each(['src/app/api/intake-call', 'src/app/api/payment-intent', 'src/components/BetaSignupForm.tsx', 'src/components/BetaBanner.tsx'])('%s 없음', (p) => {
+    expect(fs.existsSync(p)).toBe(false);
   });
 });
