@@ -1,22 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
-const INTAKE_TOKEN = "winhr_call_32719";
-// server-side only: service role key for storage bypass RLS
-const SUPABASE_URL = "https://mewqgevgdgghhatqtuos.supabase.co";
-const SUPABASE_SERVICE_KEY =
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1ld3FnZXZnZGdnaGhhdHF0dW9zIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3MjcxNTUxMCwiZXhwIjoyMDg4MjkxNTEwfQ.cfDNqZoMmoUTzSWJtt4y90R0gPMr2yRVA-OAj_ZSl-Y";
-
+// 비밀값은 env 로만 받는다(공개 레포). INTAKE_CALL_TOKEN 이 없으면 닫힌다.
 export async function POST(req: NextRequest) {
-  const token =
-    req.headers.get("x-intake-token") ||
-    req.nextUrl.searchParams.get("token");
+  const intakeToken = process.env.INTAKE_CALL_TOKEN;
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!intakeToken || !supabaseUrl || !serviceKey) {
+    return NextResponse.json({ error: "intake disabled" }, { status: 503 });
+  }
 
-  if (token !== INTAKE_TOKEN) {
+  const token = req.headers.get("x-intake-token");
+  if (token !== intakeToken) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 
-  const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
+  const supabase = createClient(supabaseUrl, serviceKey);
 
   try {
     const formData = await req.formData();
