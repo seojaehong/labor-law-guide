@@ -10,7 +10,7 @@ import { fetchAllRows } from '@/lib/supabase-paged';
 import { SITE_URL } from '@/lib/constants';
 import { articleShare } from '@/lib/share-text';
 import { cleanBlogSummary, extractBlogLead } from '@/lib/blog-summary';
-import { ArrowLeft, Calendar, Tag, BookOpen, ArrowRight, MessageSquare, ClipboardCheck } from 'lucide-react';
+import { ArrowLeft, Calendar, User, Tag, BookOpen, ArrowRight, MessageSquare, ClipboardCheck } from 'lucide-react';
 import { getCategoryColor } from '@/lib/category-colors';
 import { extractFaqFromContent } from '@/lib/faq-extractor';
 import SubscribeForm from '@/components/SubscribeForm';
@@ -256,7 +256,7 @@ export default async function BlogArticlePage({
                   className="flex items-center gap-1 text-[12px]"
                   style={{ color: 'var(--grey-700)' }}
                 >
-                  <span>작성 표기</span>
+                  <User size={12} />
                   {article.author}
                 </span>
               </div>
