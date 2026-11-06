@@ -340,6 +340,87 @@ export function memberKey(m: WorkspaceMember): string {
   return `${m.name} ${m.hireDate}`;
 }
 
+// ── 카드 파일(내보내기·가져오기) ─────────────────────────────
+// 다른 브라우저·PC 로 카드를 옮기는 길. 이용자가 파일을 직접 내려받고 직접 고른다 — 여기는 그 내용만 만들고 읽는다.
+
+const CARD_FILE_KIND = "llg-workplace-cards";
+
+export type CardExport = {
+  kind: typeof CARD_FILE_KIND;
+  version: 1;
+  exportedAt: string;
+  /** id·remember 는 넣지 않는다 — 가져오는 브라우저가 새로 정한다 */
+  workspaces: Array<{ name: string; kind: WorkspaceKind; fivePlus?: "yes" | "no"; ownerName?: string; members: WorkspaceMember[] }>;
+};
+
+export type CardImportResult = { ok: boolean; added: number; merged: number; skipped: number };
+
+/** 지금 이 브라우저에 있는 사업장 전부(기억 여부와 상관없이) */
+export function exportCards(now: Date = new Date()): CardExport {
+  return {
+    kind: CARD_FILE_KIND,
+    version: 1,
+    exportedAt: now.toISOString(),
+    workspaces: listWorkspaces().map((w) => {
+      const { ownerName } = getWorkspaceDetails(w);
+      return {
+        name: w.name,
+        kind: w.kind,
+        ...(w.fivePlus ? { fivePlus: w.fivePlus } : {}),
+        ...(ownerName ? { ownerName } : {}),
+        members: getMembers(w),
+      };
+    }),
+  };
+}
+
+/**
+ * 카드 파일을 가져온다. 이름이 같은 사업장은 합치고(명부 = upsertMember 규칙, 대표자·5명 이상은 파일에 값이 있을 때만 덮음)
+ * 없으면 새로 만든다. 새 사업장만 `remember` 를 따르고, 이미 있는 사업장의 기억 여부와 지금 고른 사업장은 바꾸지 않는다.
+ * ★ 파일의 객체를 펼쳐 넣지 않는다 — 이름을 댄 칸만 기존 검증(isWorkspace·isMember·pickTerms)을 거쳐 옮긴다.
+ * 카드 파일이 아니면(kind·version·workspaces) 아무것도 바꾸지 않는다.
+ */
+export function importCards(json: unknown, { remember }: { remember: boolean }): CardImportResult {
+  let data = json;
+  if (typeof data === "string") {
+    try { data = JSON.parse(data); } catch { data = null; }
+  }
+  const file = typeof data === "object" && data !== null && !Array.isArray(data) ? (data as Record<string, unknown>) : null;
+  if (!file || file.kind !== CARD_FILE_KIND || file.version !== 1 || !Array.isArray(file.workspaces)) {
+    return { ok: false, added: 0, merged: 0, skipped: 0 };
+  }
+  const result: CardImportResult = { ok: true, added: 0, merged: 0, skipped: 0 };
+  for (const entry of file.workspaces as unknown[]) {
+    const e = typeof entry === "object" && entry !== null ? (entry as Record<string, unknown>) : {};
+    const name = typeof e.name === "string" ? e.name.trim() : "";
+    const candidate = { id: "import", name, kind: e.kind, remember, fivePlus: e.fivePlus };
+    if (!isWorkspace(candidate)) {
+      result.skipped += 1;
+      continue;
+    }
+    let target = listWorkspaces().find((w) => w.name === name);
+    if (target) {
+      result.merged += 1;
+    } else {
+      target = { id: newId(), name, kind: candidate.kind, remember };
+      write(meta(), INDEX_KEY, [...listWorkspaces(), target]);
+      result.added += 1;
+    }
+    const owner = typeof e.ownerName === "string" ? e.ownerName.trim() : "";
+    updateWorkspace(target.id, { ...(owner ? { ownerName: owner } : {}), ...(candidate.fivePlus ? { fivePlus: candidate.fivePlus } : {}) });
+    for (const m of Array.isArray(e.members) ? e.members : []) {
+      if (typeof m !== "object" || m === null) continue;
+      const r = m as Record<string, unknown>;
+      // 파일에 계약 조건이 없는 사람은 이미 있는 조건을 지우지 않는다(손으로 고친 파일 대비)
+      const exists = getMembers(target).some((x) => x.name === r.name && x.hireDate === r.hireDate);
+      if (exists && Object.keys(pickTerms(r.terms)).length === 0) continue;
+      upsertMember(target, { name: r.name, hireDate: r.hireDate, terms: r.terms } as WorkspaceMember);
+    }
+  }
+  notify();
+  return result;
+}
+
 /** 이 브라우저에 남아 있는 것을 전부 지운다 — 공용 PC 에서 쓰는 비상 버튼. */
 export function forgetEverything(): void {
   const all = listWorkspaces();
