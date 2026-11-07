@@ -31,8 +31,22 @@ export const CARD_COPY = {
   remember: (workspace: string) => `이 브라우저에 「${workspace}」 카드를 기억하기`,
   rememberOff: '이 탭을 닫으면 대표자·직원 정보가 사라집니다. 사업장 이름과 5명 이상 여부만 이 브라우저에 남습니다.',
   rememberOn: '이 브라우저에만 남습니다. 서버로 보내지 않습니다.',
-  pageNotice: '입력한 내용은 이 브라우저 안에서만 계산하고 파일로 만듭니다. 서버로 보내지 않습니다. 사업장 카드에 저장한 내용만 이 브라우저에 남습니다.',
+  pageNotice: '입력한 내용은 이 브라우저 안에서만 계산하고 파일로 만듭니다. 서버로 보내지 않습니다. 사업장 카드에 저장한 내용과 기억하기를 켠 최근 입력만 이 브라우저에 남습니다.',
+  // 카드 파일(내보내기·가져오기)
+  fileExport: '카드 파일로 내보내기',
+  fileImport: '카드 파일 가져오기',
+  fileRemember: '가져온 카드를 이 브라우저에 기억하기',
+  fileNotice: '파일에는 대표자·직원 이름과 계약 조건이 들어 있습니다. 보관·전달에 주의하세요.',
+  fileResult: (added: number, merged: number) => `사업장 ${added}곳을 더하고 ${merged}곳을 합쳤습니다.`,
+  fileSkipped: (skipped: number) => `형식이 맞지 않는 ${skipped}곳은 건너뛰었습니다.`,
+  fileInvalid: '사업장 카드 파일이 아닙니다. 「카드 파일로 내보내기」로 만든 파일을 골라 주세요.',
+  fileReadError: '파일을 읽지 못했습니다. 다시 골라 주세요.',
 } as const;
+
+/** 내보낼 카드 파일 이름 — today 는 KST YYYY-MM-DD(todayKst) */
+export function cardFileName(today: string): string {
+  return `사업장카드_${today.replace(/-/g, '')}.json`;
+}
 
 /**
  * 카드에서 채울 칸 — 카드에 값이 있는 칸만. 작성일(writtenDate)은 채우지 않는다.
