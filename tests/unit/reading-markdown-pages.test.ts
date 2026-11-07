@@ -20,7 +20,6 @@ vi.mock('@/lib/supabase-server', () => {
 });
 vi.mock('@/lib/topic-picks', () => ({ getCurrentTopicPicks: async () => [] }));
 vi.mock('@/components/SubscribeForm', () => ({ default: () => null }));
-vi.mock('@/components/BetaSignupForm', () => ({ default: () => null }));
 
 import BlogArticlePage from '@/app/blog/[slug]/page';
 import MarkdownSnippet from '@/app/database/_components/MarkdownSnippet';
