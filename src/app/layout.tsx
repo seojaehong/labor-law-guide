@@ -6,6 +6,7 @@ import GlassNav from "@/components/GlassNav";
 import SiteSurface from "@/components/SiteSurface";
 import "@/components/site-refactor.css";
 import { SITE_URL, BRAND_NAME, BRAND_DESCRIPTION } from "@/lib/constants";
+import { CONTACT_EMAIL } from "@/lib/site-contact";
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
@@ -29,7 +30,7 @@ export const metadata: Metadata = {
     '노란봉투법 점검', '노란봉투법 체크리스트', '노란봉투법 교섭',
     '개정 노동조합법', '사용자 범위 확대', '원하청 교섭', '노동쟁의', '사용자성 판단',
     '교섭창구 단일화', '위장도급', '불법파견', '교섭절차', '하청 교섭',
-    '노동조합법 2026', '계약외사용자', '부당노동행위', '노무법인 위너스',
+    '노동조합법 2026', '계약외사용자', '부당노동행위',
     '원청 교섭 의무', '교섭단위 분리', '사내하청 교섭',
   ],
   alternates: {
@@ -147,16 +148,9 @@ export default function RootLayout({
                 {
                   '@type': 'Organization',
                   '@id': `${SITE_URL}/#organization`,
-                  name: '노무법인 위너스',
-                  url: 'https://winhr.co.kr',
-                  address: {
-                    '@type': 'PostalAddress',
-                    streetAddress: '나루터로 61, 402호(태승빌딩)',
-                    addressLocality: '서초구',
-                    addressRegion: '서울특별시',
-                    postalCode: '06653',
-                    addressCountry: 'KR',
-                  },
+                  name: BRAND_NAME,
+                  url: SITE_URL,
+                  email: CONTACT_EMAIL,
                   areaServed: { '@type': 'Country', name: 'KR' },
                   contactPoint: [
                     {
@@ -180,7 +174,7 @@ export default function RootLayout({
               메뉴에 올릴 만큼은 아니지만 닿을 수 없으면 안 되는 것들이다. */}
           <div className="layout-wide layout-wide--chrome editorial-footer-brand">
             <p className="font-semibold">{BRAND_NAME}</p>
-            <p className="text-sm">노무법인 위너스</p>
+            <p className="text-sm">{BRAND_DESCRIPTION}</p>
           </div>
           <div className="layout-wide layout-wide--chrome mb-8 grid grid-cols-2 gap-x-6 gap-y-7 text-left sm:grid-cols-4">
             {[
@@ -193,7 +187,7 @@ export default function RootLayout({
               { title: '실무도구·문의', links: [
                 { href: '/tools/holiday-pay', label: '공휴일·노동절 수당 참고 계산' },
                 { href: '/duties', label: '사업장 규모별 사업주 의무' },
-                { href: '/contact', label: '전문서비스 문의' },
+                { href: '/contact', label: '서비스 문의' },
                 { href: 'https://www.safeclaw.kr', label: '산업안전 점검 — SafeClaw', external: true },
               ] },
               { title: '검토 중 자료', links: [
@@ -236,8 +230,8 @@ export default function RootLayout({
             <p className="mt-1 text-xs" style={{ color: 'var(--grey-700)' }}>
               {/* §6.8 — 산문 링크는 상시 밑줄 + --color-accent-ink. 이 푸터는 전 라우트에 뜨므로
                   hover-only 밑줄 + --color-accent(3.55:1)는 사이트 전체에서 1.4.1·1.4.3을 어긴다. */}
-              <a href="https://winhr.co.kr" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2" style={{ color: 'var(--color-accent-ink)' }}>노무법인 위너스</a>
-              {' '}| 서울시 서초구 나루터로 61, 402호 |{' '}
+              <a href={`mailto:${CONTACT_EMAIL}`} className="underline underline-offset-2" style={{ color: 'var(--color-accent-ink)' }}>{CONTACT_EMAIL}</a>
+              {' '}|{' '}
               <a href="/contact" className="underline underline-offset-2" style={{ color: 'var(--color-accent-ink)' }}>문의 접수</a>
               {' '}| <a href="/privacy" className="underline underline-offset-2" style={{ color: 'var(--color-accent-ink)' }}>개인정보처리방침</a>
               {' '}| <a href="/terms" className="underline underline-offset-2" style={{ color: 'var(--color-accent-ink)' }}>이용약관</a>

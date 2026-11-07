@@ -87,7 +87,7 @@ def generate_deepdive_article(news_item):
     summary = news_item.get('summary', '') or title
     source = news_item.get('source', '언론사 미상')
 
-    prompt = f"""당신은 노무법인 위너스의 노동법 전문 에디터입니다.
+    prompt = f"""당신은 일의 무늬의 노동법 해설 에디터입니다.
 다음 뉴스를 기반으로 노무사/인사담당자를 위한 딥다이브 분석 기사를 작성하세요.
 
 뉴스 제목: {title}
@@ -159,7 +159,7 @@ def insert_article(slug, article_data, news_id, published_at):
         'summary': summary,
         'category': article_data.get('category', '종합'),
         'tags': article_data.get('tags', []),
-        'author': '위너스 에디터',
+        'author': '해설 에디터',
         'published_at': published_at,
         'seo_title': article_data.get('seo_title', '')[:60] if article_data.get('seo_title') else '',
         'seo_description': article_data.get('seo_description', '')[:155] if article_data.get('seo_description') else '',

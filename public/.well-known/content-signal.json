@@ -2,7 +2,7 @@
   "version": "1.0.0",
   "self": "https://yellowenvelope.kr/.well-known/content-signal.json",
   "publisher": {
-    "name": "노무법인 위너스",
+    "name": "일의 무늬",
     "url": "https://yellowenvelope.kr",
     "contact": "https://yellowenvelope.kr/contact"
   },

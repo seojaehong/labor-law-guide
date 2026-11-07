@@ -1,7 +1,6 @@
 import { publicMetadata } from '@/lib/public-metadata';
 import type { Metadata } from 'next';
-import Link from 'next/link';
-import { ExternalLink, BadgeCheck, BookOpen, MessageSquare } from 'lucide-react';
+import { ExternalLink, BadgeCheck, BookOpen } from 'lucide-react';
 import { SITE_URL } from '@/lib/constants';
 
 const SUBSIDY_URL = `${SITE_URL}/subsidy`;
@@ -11,18 +10,18 @@ const DESCRIPTION = '고용지원금 종류·신청 요건·절차를 한눈에 
 // 메뉴에서 내리고 색인도 끈다 (2026-09-12). 페이지와 주소는 그대로다.
 export const metadata: Metadata = publicMetadata({
   robots: { index: false, follow: true },
-  title: '고용지원금 가이드 | 두루누리·출산육아기지원금·워라밸포인트제 | 노무법인 위너스',
+  title: '고용지원금 가이드 | 두루누리·출산육아기지원금·워라밸포인트제',
   description: DESCRIPTION,
   alternates: { canonical: SUBSIDY_URL },
   openGraph: {
-    title: '고용지원금 가이드 — 노무법인 위너스',
+    title: '고용지원금 가이드',
     description: DESCRIPTION,
     type: 'website',
     url: SUBSIDY_URL,
   },
   twitter: {
     card: 'summary_large_image',
-    title: '고용지원금 가이드 — 노무법인 위너스',
+    title: '고용지원금 가이드',
     description: DESCRIPTION,
   },
 });
@@ -67,7 +66,7 @@ export default function SubsidyPage() {
           고용지원금 가이드
         </h1>
         <p className="mb-10 max-w-[var(--reading-measure)] text-sm leading-6" style={{ color: 'var(--grey-700)' }}>
-          우리 사업장에서 받을 수 있는 고용지원금을 한눈에 확인하고, 노무사에게 신청 절차까지 맡기세요.
+          우리 사업장에서 받을 수 있는 고용지원금을 한눈에 확인하세요.
         </p>
       </header>
 
@@ -104,20 +103,6 @@ export default function SubsidyPage() {
           </div>
 
           <div className="space-y-6">
-            <div className="rounded-md border p-6" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }}>
-              <h2 className="mb-3 font-bold" style={{ color: 'var(--color-text-primary)' }}>신청이 어려우신가요?</h2>
-              <p className="text-sm leading-6" style={{ color: 'var(--grey-700)' }}>
-                요건 판단부터 서류 작성, 신청 대행까지 노무법인 위너스가 도와드립니다. 아래 버튼으로 상담을 접수해 주세요.
-              </p>
-              <Link
-                href="/contact"
-                className="mt-4 w-full inline-flex min-h-[44px] items-center justify-center gap-2 rounded-md px-5 py-2.5 text-[15px] font-semibold transition-[background-color,transform] hover:-translate-y-px bg-[var(--color-accent-ink)] text-[var(--color-on-accent-ink)] hover:bg-[var(--color-accent-ink-hover)]"
-              >
-                <MessageSquare size={16} />
-                노무 상담 접수하기
-              </Link>
-            </div>
-
             <div className="rounded-md p-6" style={{ backgroundColor: 'var(--grey-100)' }}>
               <h2 className="mb-2 text-sm font-bold" style={{ color: 'var(--color-text-primary)' }}>이런 사업장이라면 꼭 확인하세요</h2>
               <ul className="space-y-1.5 text-sm" style={{ color: 'var(--grey-700)' }}>

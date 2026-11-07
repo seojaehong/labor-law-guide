@@ -442,7 +442,7 @@ export default function AdminClient() {
                 onChange={(e) => { setAuthor(e.target.value); setPage(1); }}
               >
                 <option value="all">전체 필자</option>
-                {['뉴스룸', '위너스 에디터', '판례 분석팀', '실무 가이드', '데일리 브리핑', '노무법인 위너스'].map((a) => (
+                {['뉴스룸', '해설 에디터', '판례 분석팀', '실무 가이드', '데일리 브리핑'].map((a) => (
                   <option key={a} value={a}>{a}</option>
                 ))}
               </select>

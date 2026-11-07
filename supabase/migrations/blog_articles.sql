@@ -7,7 +7,7 @@ CREATE TABLE blog_articles (
   summary TEXT,
   category TEXT DEFAULT 'general',
   tags TEXT[] DEFAULT '{}',
-  author TEXT DEFAULT '노무법인 위너스',
+  author TEXT DEFAULT '해설 에디터',
   cover_image TEXT,
   published_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW(),

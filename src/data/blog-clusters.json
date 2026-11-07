@@ -348,7 +348,7 @@
       "exception_rule": "SATURATED 예외는 뉴스룸만 · 서브클러스터당 주 1회 · 예외 발동도 카운트 반영"
     },
     "blog-labor": {
-      "role": "법령·행정해석 해설 (위너스 에디터)",
+      "role": "법령·행정해석 해설 (해설 에디터)",
       "primary_clusters": ["contract", "union_formation", "collective_agreement", "wage_system", "leave_family", "youth_labor", "company_change"],
       "cross_clusters": ["harassment", "dismissal", "dispute_resolution"],
       "saturation_exception": false

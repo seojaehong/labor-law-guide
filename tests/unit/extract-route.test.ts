@@ -147,7 +147,8 @@ describe('POST /api/tools/contract-check/extract', () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it('IP당 일 5회 초과면 429 + 상담 안내', async () => {
+  // 261105 — 노무사 상담 안내를 사이트에서 뺐다. 429 문구는 직접 입력 안내만 남는다.
+  it('IP당 일 5회 초과면 429 + 직접 입력 안내(상담 안내 없음)', async () => {
     vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', 'https://example.supabase.co');
     vi.stubEnv('SUPABASE_SERVICE_ROLE_KEY', 'service-role-key');
     // 전역 캡은 통과, IP 캡에서 막힌다
@@ -160,7 +161,8 @@ describe('POST /api/tools/contract-check/extract', () => {
 
     const body = await resp.json();
     expect(body.error).toBe('rate_limited');
-    expect(body.message).toContain('상담');
+    expect(body.message).toContain('직접 입력');
+    expect(body.message).not.toContain('상담');
     expect(fetchMock).not.toHaveBeenCalled();
 
     // 챗과 같은 공용 RPC를 쓴다 — scope는 기존 값, key만 cc: 네임스페이스

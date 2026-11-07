@@ -24,6 +24,8 @@ const nextConfig: NextConfig = {
       { source: '/database', destination: '/decisions', permanent: true },
       // 사업장 규모 카드는 단독 페이지를 접고 인원을 받는 도구마다 「사업자등록번호로 불러오기」로 넣었다(261028)
       { source: '/tools/workplace', destination: '/duties', permanent: true },
+      // 강의 페이지(/lecture/ai-isan-2026·교재)를 내렸다(261105). 옛 주소는 홈으로 임시 이동.
+      { source: '/lecture/:path*', destination: '/', permanent: false },
     ];
   },
   async rewrites() {
