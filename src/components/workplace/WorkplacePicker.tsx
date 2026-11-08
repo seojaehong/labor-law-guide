@@ -6,7 +6,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 
-import { CARD_COPY, cardFromState, cardPatch, saveCardFromState } from '@/app/tools/contract-write/cardState';
+import { CARD_COPY, cardFromState, NO_ORIGIN, originAfterSave, saveCardFromState, selectMember, selectWorkspace, type CardChange, type CardOrigin } from '@/app/tools/contract-write/cardState';
 import type { WriteState } from '@/app/tools/contract-write/formState';
 import { getMembers, getWorkspaceDetails, listWorkspaces, memberKey, setRemember, WORKSPACES_CHANGED, type Workspace } from '@/lib/leave/leave-workspaces';
 
@@ -25,6 +25,7 @@ export function WorkplacePicker({ state, onPatch }: { state: WriteState; onPatch
   const [selectedId, setSelectedId] = useState('');
   const [pickedMember, setPickedMember] = useState('');
   const [message, setMessage] = useState<string | null>(null);
+  const [origin, setOrigin] = useState<CardOrigin>(NO_ORIGIN);
 
   useEffect(() => {
     const sync = () => {
@@ -41,23 +42,31 @@ export function WorkplacePicker({ state, onPatch }: { state: WriteState; onPatch
   const members = useMemo(() => (selected ? getMembers(selected) : []), [selected]);
   const card = cardFromState(state);
 
+  const applyChange = (change: CardChange) => {
+    setOrigin(change.origin);
+    setMessage(change.notice);
+    onPatch(change.patch);
+  };
   const pickWorkspace = (id: string) => {
     setSelectedId(id);
     setPickedMember('');
     const ws = list.find((w) => w.id === id);
-    setMessage(ws && !ws.fivePlus ? CARD_COPY.fivePlusUnknown : null);
-    if (ws) onPatch(cardPatch(ws, null, getWorkspaceDetails(ws), { clearEmployee: pickedMember !== '' }));
+    if (ws) applyChange(selectWorkspace(state, ws, getWorkspaceDetails(ws), origin));
+    else setMessage(null);
   };
   const pickMember = (key: string) => {
     setPickedMember(key);
-    setMessage(null);
     const m = members.find((x) => memberKey(x) === key);
-    if (m) onPatch(cardPatch(null, m));
+    if (m) applyChange(selectMember(m, origin));
+    else setMessage(null);
   };
   const save = () => {
-    const r = saveCardFromState(state, selectedId || null);
-    if (r.ok) setSelectedId(r.workspace.id);
+    const r = saveCardFromState(state, selectedId || null, pickedMember || null);
     setMessage(r.ok ? r.message : r.reason);
+    if (!r.ok) return;
+    setSelectedId(r.workspace.id);
+    setPickedMember(r.memberKey);
+    setOrigin(originAfterSave(state));
   };
 
   return (

@@ -7,6 +7,7 @@ import {
   getMembers,
   getWorkspaceDetails,
   listWorkspaces,
+  memberKey,
   pickTerms,
   updateWorkspace,
   upsertMember,
@@ -31,7 +32,13 @@ export const CARD_COPY = {
   save: '이 근로자를 카드에 저장',
   saved: (workspace: string, employee: string) => `「${workspace}」 카드에 ${employee} 님의 계약 조건을 저장했습니다.`,
   saveFailed: '저장하지 못했습니다. 브라우저 저장 공간이 가득 찼거나 저장이 막혀 있습니다. 브라우저 설정을 확인해 주세요.',
-  fivePlusUnknown: '이 카드에는 5명 이상 여부가 없어 「5명 이상」으로 돌렸습니다. 사업장에 맞게 골라 주세요.',
+  conflict: (employee: string, start: string) =>
+    `${employee} 님(${start})은 이미 다른 계약 조건으로 저장돼 있어 덮어쓰지 않았습니다. 같은 사람을 고치려면 위 「불러올 직원」에서 고른 뒤 저장해 주세요. 다른 사람이면 이름을 구분해 저장해 주세요.`,
+  sameNameAdded: '이름이 같은 직원이 이미 있어 새 줄로 저장했습니다. 같은 사람의 재계약이면 위 「불러올 직원」에서 고른 뒤 저장해 주세요.',
+  netNotStored: '실수령액과 공제대상가족 수는 저장하지 않았습니다. 불러온 뒤 다시 넣어 주세요.',
+  startFromHire: (hireDate: string) => `이 직원은 저장된 계약 시작일이 없어 입사일(${hireDate})로 채웠습니다. 재계약이면 계약 시작일을 고쳐 주세요.`,
+  fivePlusUnknown: '이 카드에는 5명 이상 여부가 없어 앞 카드의 값을 「5명 이상」으로 돌렸습니다. 사업장에 맞게 골라 주세요.',
+  fivePlusAsIs: '이 카드에는 5명 이상 여부가 없어 화면의 값을 그대로 두었습니다. 사업장에 맞는지 확인해 주세요.',
   fivePlusKept: '5명 이상 여부는 카드에 있던 값을 그대로 두었습니다. 바꾸려면 위에서 이 사업장을 고른 뒤 저장해 주세요.',
   rememberFailed: '옮기지 못해 기억하기 설정을 바꾸지 않았습니다. 저장된 내용은 그대로입니다. 브라우저 저장 공간을 확인해 주세요.',
   remember: (workspace: string) => `이 브라우저에 「${workspace}」 카드를 기억하기`,
@@ -53,32 +60,70 @@ function blankEmployee(): Partial<WriteState> {
  * 카드에서 채울 칸 — 카드에 없는 칸은 처음 값으로 돌린다. 앞 사업장·앞 직원 값이 다른 사람 계약서로 넘어가면 안 된다.
  * 작성일(writtenDate)·지급일·지급방법은 채우지도 비우지도 않는다.
  * 대표자는 사업장 목록이 아니라 details(getWorkspaceDetails)에 있어 따로 받는다.
+ * 계약 시작일은 저장한 조건에서 읽고, 조건에 없을 때만(옛 형식·연차 명부만 있는 사람) 입사일로 채운다.
  * clearEmployee = 카드에서 불러온 직원이 화면에 남아 있어 사업장을 옮길 때 그 직원 칸을 함께 비운다.
+ * resetFivePlus = 5명 이상 여부가 없는 카드라도 화면 값이 앞 카드에서 온 것이면 처음 값으로 돌린다. 이용자가 고른 값은 두지 않으면 뒤집힌다.
  */
 export function cardPatch(
   ws: Workspace | null,
   member: WorkspaceMember | null,
   details: WorkspaceDetails = {},
-  { clearEmployee = false }: { clearEmployee?: boolean } = {},
+  { clearEmployee = false, resetFivePlus = false }: { clearEmployee?: boolean; resetFivePlus?: boolean } = {},
 ): Partial<WriteState> {
   const p: Partial<WriteState> = clearEmployee || member ? blankEmployee() : {};
   if (ws) {
     p.workplaceName = ws.name;
     p.ownerName = details.ownerName ?? INITIAL.ownerName;
-    p.fivePlus = ws.fivePlus ?? INITIAL.fivePlus;
+    if (ws.fivePlus || resetFivePlus) p.fivePlus = ws.fivePlus ?? INITIAL.fivePlus;
   }
   if (member) {
     p.employeeName = member.name;
-    p.startDate = member.hireDate;
     // 카드 조건 칸의 이름·타입이 WriteState 와 어긋나면 이 대입에서 tsc 가 멈춘다
     const terms: Partial<WriteState> = pickTerms(member.terms);
     Object.assign(p, terms);
+    p.startDate = terms.startDate || member.hireDate;
   }
   return p;
 }
 
 export function applyCardToState(state: WriteState, ws: Workspace | null, member: WorkspaceMember | null, details: WorkspaceDetails = {}): WriteState {
   return { ...state, ...cardPatch(ws, member, details) };
+}
+
+const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
+
+/** 입력 칸 중 카드에서 온 값. 사업장을 옮길 때 이 값이 화면에 남아 있는지로 비울지를 정한다. 직접 쓴 값은 건드리지 않는다 */
+export type CardOrigin = { fivePlus: WriteState['fivePlus'] | null; employee: Partial<WriteState> | null };
+export const NO_ORIGIN: CardOrigin = { fivePlus: null, employee: null };
+
+export type CardChange = { patch: Partial<WriteState>; origin: CardOrigin; notice: string | null };
+
+/** 카드에서 온 직원 값이 화면에 하나라도 남아 있는가 — 처음 값과 같은 칸은 카드에서 왔다는 근거가 못 된다 */
+function holdsCardEmployee(state: WriteState, employee: Partial<WriteState> | null): boolean {
+  if (!employee) return false;
+  return (Object.keys(employee) as (keyof WriteState)[]).some((k) => !same(employee[k], INITIAL[k]) && same(employee[k], state[k]));
+}
+
+export function selectWorkspace(state: WriteState, ws: Workspace, details: WorkspaceDetails, origin: CardOrigin): CardChange {
+  const resetFivePlus = origin.fivePlus !== null && origin.fivePlus === state.fivePlus;
+  const patch = cardPatch(ws, null, details, { clearEmployee: holdsCardEmployee(state, origin.employee), resetFivePlus });
+  return {
+    patch,
+    origin: { fivePlus: ws.fivePlus ?? null, employee: null },
+    notice: ws.fivePlus ? null : resetFivePlus ? CARD_COPY.fivePlusUnknown : CARD_COPY.fivePlusAsIs,
+  };
+}
+
+export function selectMember(member: WorkspaceMember, origin: CardOrigin = NO_ORIGIN): CardChange {
+  const patch = cardPatch(null, member);
+  return { patch, origin: { ...origin, employee: patch }, notice: member.terms?.startDate ? null : CARD_COPY.startFromHire(member.hireDate) };
+}
+
+/** 저장한 뒤의 화면 값은 그 카드의 값이다 — 다음 사업장으로 넘어가면 안 된다 */
+export function originAfterSave(state: WriteState): CardOrigin {
+  const employee: Partial<WriteState> = { ...state };
+  for (const k of NOT_EMPLOYEE_KEYS) delete employee[k];
+  return { fivePlus: state.fivePlus, employee };
 }
 
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
@@ -105,33 +150,50 @@ export function cardFromState(state: WriteState): CardFromState {
   };
 }
 
-export type SaveResult = { ok: true; workspace: Workspace; message: string } | { ok: false; reason: string };
+export type SaveResult =
+  | { ok: true; workspace: Workspace; memberKey: string; message: string }
+  | { ok: false; kind: 'invalid' | 'storage' | 'conflict'; reason: string };
 
 /**
  * 「이 근로자를 카드에 저장」. 넣을 카드 = 고른 카드(이름이 사업체명과 같을 때) → 같은 이름의 카드 → 새 카드(기억하기 꺼짐).
  * 이름은 입력 칸과 같은 정리(㈜ → (주))를 거쳐 맞춘다.
  * 대표자는 넣었을 때만 바꾼다(비워 두고 저장해도 카드의 대표자를 지우지 않는다).
  * 5명 이상 여부는 고른 카드이거나 값이 없는 카드에만 쓴다 — 고르지 않았으면 화면 값은 고른 값이 아니라 기본값일 수 있다.
+ * 명부에서 고른 사람(pickedKey, 이름이 같을 때)은 입사일을 지키고 조건만 바꾼다. 새 사람은 입사일 = 계약 시작일이다.
+ * 고르지 않았는데 같은 사람으로 보이는 줄의 조건이 다르면 아무것도 쓰지 않고 conflict 를 돌려준다.
  * 저장소에서 다시 읽어 맞는지 본 뒤에만 저장했다고 말한다.
  */
-export function saveCardFromState(state: WriteState, selectedId: string | null): SaveResult {
+export function saveCardFromState(state: WriteState, selectedId: string | null, pickedKey: string | null = null): SaveResult {
   const card = cardFromState(state);
-  if (!card.ok) return card;
+  if (!card.ok) return { ok: false, kind: 'invalid', reason: card.reason };
   const all = listWorkspaces();
   const sameName = (w: Workspace) => cleanInput(w.name) === card.workplaceName;
   const selected = all.find((w) => w.id === selectedId && sameName(w));
-  const target = selected ?? all.find(sameName) ?? createWorkspace(card.workplaceName, 'own', false);
-  if (!target) return { ok: false, reason: CARD_COPY.saveFailed };
+  const existing = selected ?? all.find(sameName) ?? null;
+  const roster = getMembers(existing);
+  const sameEmployee = (m: WorkspaceMember) => cleanInput(m.name) === card.member.name;
+  const picked = selected && pickedKey ? roster.find((m) => memberKey(m) === pickedKey && sameEmployee(m)) : undefined;
+  const person = picked ?? roster.find((m) => sameEmployee(m) && (m.hireDate === state.startDate || m.terms?.startDate === state.startDate));
+  const member = person ? { ...card.member, name: person.name, hireDate: person.hireDate } : card.member;
+  if (!picked && person?.terms && !same(cardPatch(null, person), cardPatch(null, member))) {
+    return { ok: false, kind: 'conflict', reason: CARD_COPY.conflict(card.member.name, state.startDate) };
+  }
+  const target = existing ?? createWorkspace(card.workplaceName, 'own', false);
+  if (!target) return { ok: false, kind: 'storage', reason: CARD_COPY.saveFailed };
   const fivePlus = selected || !target.fivePlus ? card.fivePlus : undefined;
   updateWorkspace(target.id, { ...(card.ownerName ? { ownerName: card.ownerName } : {}), ...(fivePlus ? { fivePlus } : {}) });
-  const expected = upsertMember(target, card.member);
+  const expected = upsertMember(target, member);
   const stored = listWorkspaces().find((w) => w.id === target.id);
   const saved =
     stored !== undefined &&
-    JSON.stringify(getMembers(stored)) === JSON.stringify(expected) &&
+    same(getMembers(stored), expected) &&
     (!card.ownerName || getWorkspaceDetails(stored).ownerName === card.ownerName) &&
     (!fivePlus || stored.fivePlus === fivePlus);
-  if (!saved) return { ok: false, reason: CARD_COPY.saveFailed };
-  const keptFivePlus = !fivePlus && target.fivePlus !== card.fivePlus ? ` ${CARD_COPY.fivePlusKept}` : '';
-  return { ok: true, workspace: target, message: `${CARD_COPY.saved(target.name, card.member.name)}${keptFivePlus}` };
+  if (!saved) return { ok: false, kind: 'storage', reason: CARD_COPY.saveFailed };
+  const notes = [
+    !fivePlus && target.fivePlus !== card.fivePlus ? CARD_COPY.fivePlusKept : '',
+    !person && roster.some(sameEmployee) ? CARD_COPY.sameNameAdded : '',
+    state.amountMode === 'net' ? CARD_COPY.netNotStored : '',
+  ];
+  return { ok: true, workspace: target, memberKey: memberKey(member), message: [CARD_COPY.saved(target.name, card.member.name), ...notes].filter(Boolean).join(' ') };
 }

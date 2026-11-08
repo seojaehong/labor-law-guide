@@ -49,22 +49,32 @@ const TERM_DAYS = ["월", "화", "수", "목", "금", "토", "일"] as const;
 type TermDay = (typeof TERM_DAYS)[number];
 const isTermDay = (v: unknown): v is TermDay => typeof v === "string" && (TERM_DAYS as readonly string[]).includes(v);
 
+/** 계약서에 쓰는 글자 칸. startDate = 이 계약의 시작일(입사일 hireDate 와 다를 수 있다) */
+const TERM_TEXT = [
+  "startDate", "endDate", "probationMonths", "monthlyTotal", "hourlyWage", "start", "end", "breakMinutes",
+  "holidayDaysPerYear", "overtimeHours", "holidayHours", "leaveHours", "duty", "location",
+] as const;
+
+/** 정해진 값만 받는 칸 */
+const TERM_CHOICES = {
+  payType: ["monthly", "hourly"],
+  amountMode: ["gross", "net"],
+  probation: ["none", "yes"],
+  probationReduced: ["no", "yes"],
+  simpleLabor: ["no", "yes"],
+  absentWeekHoliday: ["deduct", "keep"],
+  rounding: ["won", "ceil10", "ceil100"],
+  absorbInto: ["base", "weeklyHoliday", "overtime", "night", "holiday", "leave"],
+} as const;
+
 /**
  * 근로자에 딸린 계약 조건 — 근로계약서 작성 입력(WriteState)의 같은 이름 칸만.
- * 이 모듈은 계약서 쪽을 import 하지 않는다(연차 화면 번들에 섞이지 않게). 칸 이름·타입이 맞는지는 시험이 고정한다.
+ * 이 모듈은 계약서 쪽을 import 하지 않는다(연차 화면 번들에 섞이지 않게). 칸 이름·타입·선택지가 맞는지는 시험이 고정한다.
+ * 실수령액·공제대상가족 수는 담지 않는다. 불러온 뒤 다시 넣는다.
  */
-export type MemberTerms = {
-  payType?: "monthly" | "hourly";
-  amountMode?: "gross" | "net";
-  monthlyTotal?: string;
-  hourlyWage?: string;
+export type MemberTerms = { [K in (typeof TERM_TEXT)[number]]?: string } & { [K in keyof typeof TERM_CHOICES]?: (typeof TERM_CHOICES)[K][number] } & {
   workDays?: string[];
-  start?: string;
-  end?: string;
-  breakMinutes?: string;
   weeklyRestDay?: TermDay;
-  duty?: string;
-  location?: string;
 };
 
 export type WorkspaceMember = {
@@ -136,9 +146,15 @@ function isWorkspace(v: unknown): v is Workspace {
     typeof w.id === "string" && w.id !== "" &&
     typeof w.name === "string" && w.name.trim() !== "" &&
     (w.kind === "client" || w.kind === "own") &&
-    typeof w.remember === "boolean" &&
-    (w.fivePlus === undefined || w.fivePlus === "yes" || w.fivePlus === "no")
+    typeof w.remember === "boolean"
   );
+}
+/** 5명 이상 여부가 모르는 값이면 그 칸만 버린다 — 값 하나 때문에 사업장과 명부를 잃으면 안 된다 */
+function knownFivePlus(w: Workspace): Workspace {
+  if (w.fivePlus === "yes" || w.fivePlus === "no") return w;
+  const known = { ...w };
+  delete known.fivePlus;
+  return known;
 }
 function isMember(v: unknown): v is WorkspaceMember {
   if (typeof v !== "object" || v === null) return false;
@@ -149,18 +165,17 @@ function isMember(v: unknown): v is WorkspaceMember {
   );
 }
 
-const TERM_TEXT = ["monthlyTotal", "hourlyWage", "start", "end", "breakMinutes", "duty", "location"] as const;
-
 /**
- * 계약 조건 화이트리스트 — 이 11칸만, 타입이 맞는 것만 옮긴다. 나머지는 버린다.
- * ★ 주민번호·생년월일·주소·연락처·계좌는 칸 자체가 없어 구조상 저장되지 않는다(시험으로 고정).
+ * 계약 조건 화이트리스트 — 위 표의 칸만, 타입과 선택지가 맞는 것만 옮긴다. 나머지는 버린다.
+ * ★ 주민번호·생년월일·집 주소·연락처·계좌는 칸 자체가 없어 구조상 저장되지 않는다(시험으로 고정).
  */
 export function pickTerms(v: unknown): MemberTerms {
   if (typeof v !== "object" || v === null || Array.isArray(v)) return {};
   const s = v as Record<string, unknown>;
   const out: MemberTerms = {};
-  if (s.payType === "monthly" || s.payType === "hourly") out.payType = s.payType;
-  if (s.amountMode === "gross" || s.amountMode === "net") out.amountMode = s.amountMode;
+  for (const [k, allowed] of Object.entries(TERM_CHOICES)) {
+    if ((allowed as readonly unknown[]).includes(s[k])) Object.assign(out, { [k]: s[k] });
+  }
   for (const k of TERM_TEXT) {
     const value = s[k];
     if (typeof value === "string") out[k] = value;
@@ -198,7 +213,7 @@ export function setAudience(a: Audience): void {
 // ── 사업장 ───────────────────────────────────────────────────
 export function listWorkspaces(): Workspace[] {
   const raw = read<unknown[]>(meta(), INDEX_KEY, []);
-  return Array.isArray(raw) ? raw.filter(isWorkspace) : [];
+  return Array.isArray(raw) ? raw.filter(isWorkspace).map(knownFivePlus) : [];
 }
 
 export function getActiveWorkspace(): Workspace | null {

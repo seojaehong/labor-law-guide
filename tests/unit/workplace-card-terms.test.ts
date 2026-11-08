@@ -45,15 +45,12 @@ const SHARED: Partial<WriteState> = {
   weeklyRestDay: '월',
   probation: 'yes',
   probationMonths: '2',
-  probationReduced: 'yes',
-  simpleLabor: 'yes',
   holidayDaysPerYear: '5',
-  rounding: 'ceil100',
 };
 
-const MONTHLY: WriteState = { ...INITIAL, ...SHARED, monthlyTotal: '3,000,000', overtimeHours: '10', holidayHours: '8', leaveHours: '4', absorbInto: 'overtime' };
-const HOURLY: WriteState = { ...INITIAL, ...SHARED, payType: 'hourly', hourlyWage: '13,000', absentWeekHoliday: 'keep', absorbInto: 'weeklyHoliday' };
-const NET: WriteState = { ...INITIAL, ...SHARED, amountMode: 'net', netPay: '2,500,000', family: '3' };
+const MONTHLY: WriteState = { ...INITIAL, ...SHARED, endDate: '2027-02-28', probationReduced: 'yes', monthlyTotal: '3,000,000', overtimeHours: '10', holidayHours: '8', leaveHours: '4', absorbInto: 'overtime' };
+const HOURLY: WriteState = { ...INITIAL, ...SHARED, simpleLabor: 'yes', payType: 'hourly', hourlyWage: '13,000', absentWeekHoliday: 'keep', rounding: 'ceil100' };
+const NET: WriteState = { ...INITIAL, ...SHARED, startDate: '2026-11-01', endDate: '2027-08-31', amountMode: 'net', netPay: '2,500,000', family: '3', rounding: 'ceil10' };
 
 const docOf = (s: WriteState) => {
   const { form } = toWriteForm(s, TODAY);
