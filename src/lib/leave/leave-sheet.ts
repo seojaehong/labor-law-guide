@@ -39,7 +39,8 @@ export function parseLines(text: string): ParsedRow[] {
     .map((l) => l.trim())
     .filter(Boolean)
     .map((line) => {
-      const cols = line.split(/\t|,|\s{2,}/).map((c) => c.trim()).filter(Boolean);
+      // 탭이 있으면 탭으로만 나눈다 — 엑셀 복사와 명부 표시가 탭이고, 이름에 쉼표·겹빈칸이 있을 수 있다(NGUYEN, VAN A)
+      const cols = (line.includes("\t") ? line.split("\t") : line.split(/,|\s{2,}/)).map((c) => c.trim()).filter(Boolean);
       if (cols.length < 2) {
         return { name: cols[0] ?? "", hireDate: "", recordedDays: null, raw: line,
                  error: "이름과 입사일이 필요합니다" };
@@ -66,6 +67,15 @@ export function parseLines(text: string): ParsedRow[] {
       }
       return { name, hireDate, recordedDays, recordedRaw, raw: line };
     });
+}
+
+/**
+ * 입력창 → 명부에 쓸 사람. 읽지 못한 줄이 있으면 null — 고치는 도중이거나 잘못 들어온 줄이라
+ * 그 줄의 사람을 명부에서 지우면 안 된다.
+ */
+export function rosterFromRows(rows: ParsedRow[]): { name: string; hireDate: string }[] | null {
+  if (rows.some((r) => r.error || !r.hireDate)) return null;
+  return rows.map((r) => ({ name: r.name, hireDate: r.hireDate }));
 }
 
 /**

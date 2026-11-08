@@ -297,15 +297,22 @@ export function getMembers(ws: Workspace | null): WorkspaceMember[] {
  *
  * 같은 `이름 입사일` 의 사람은 이미 저장된 계약 조건(terms)을 지킨다 — 연차 화면은 이름·입사일만
  * 넘기므로, 그대로 덮으면 근로계약서 작성에서 넣은 조건이 사라진다. 이름·입사일이 바뀐 사람은 새 사람이다.
+ *
+ * 계약 조건이 있는 사람은 입력창에서 사라져도 지우지 않는다 — 연차 화면은 글자마다 저장하므로
+ * 이름을 고치는 도중의 글자만으로 조건이 영구히 사라진다. 지우는 길은 removeMembers 하나다.
  */
 export function setMembers(ws: Workspace | null, members: WorkspaceMember[]): WorkspaceMember[] {
   if (!ws) return [];
-  const kept = new Map(getMembers(ws).map((m) => [memberKey(m), m.terms]));
+  const before = getMembers(ws);
+  const kept = new Map(before.map((m) => [memberKey(m), m.terms]));
   const map = new Map<string, WorkspaceMember>();
   for (const m of members.filter(isMember)) {
     const key = `${m.name} ${m.hireDate}`;
     const terms = m.terms !== undefined ? pickTerms(m.terms) : kept.get(key);
     map.set(key, cleanMember(m.name, m.hireDate, terms));
+  }
+  for (const m of before) {
+    if (m.terms && !map.has(memberKey(m))) map.set(memberKey(m), m);
   }
   const clean = [...map.values()];
   const store = membersStore(ws);
@@ -331,6 +338,15 @@ export function upsertMember(ws: Workspace | null, member: WorkspaceMember): Wor
   const list = current.some((m) => memberKey(m) === key)
     ? current.map((m) => (memberKey(m) === key ? next : m))
     : [...current, next];
+  write(membersStore(ws), MEMBERS_PREFIX + ws.id, list);
+  notify();
+  return list;
+}
+
+/** 사람을 명부에서 지운다 — 계약 조건도 함께 사라진다. 이용자가 직접 고를 때만 부른다. */
+export function removeMembers(ws: Workspace | null, keys: string[]): WorkspaceMember[] {
+  if (!ws) return [];
+  const list = getMembers(ws).filter((m) => !keys.includes(memberKey(m)));
   write(membersStore(ws), MEMBERS_PREFIX + ws.id, list);
   notify();
   return list;
