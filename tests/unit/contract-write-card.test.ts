@@ -5,8 +5,8 @@ import { resolve } from 'node:path';
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { applyCardToState, CARD_COPY, cardFromState, saveCardFromState } from '@/app/tools/contract-write/cardState';
-import { INITIAL, type WriteState } from '@/app/tools/contract-write/formState';
+import { applyCardToState, CARD_COPY, cardFromState, cardPatch, saveCardFromState } from '@/app/tools/contract-write/cardState';
+import { INITIAL, toWriteForm, type WriteState } from '@/app/tools/contract-write/formState';
 import { getMembers, getWorkspaceDetails, listWorkspaces, pickTerms, type Workspace, type WorkspaceMember } from '@/lib/leave/leave-workspaces';
 import { bannedHits, RESULT_BANNED, SERVICE_BANNED } from '@/lib/tool-kit/banned';
 
@@ -92,10 +92,82 @@ describe('카드에서 불러오기', () => {
     expect(s.endDate).toBe(INITIAL.endDate);
   });
 
-  it('카드에 값이 없는 칸은 덮지 않는다(대표자·5명 이상·조건 없는 직원)', () => {
-    const before: WriteState = { ...INITIAL, ownerName: '이미 쓴 대표', fivePlus: 'no', duty: '이미 쓴 업무' };
-    const s = applyCardToState(before, { id: 'w2', name: '나다물산', kind: 'own', remember: false }, { name: '김영희', hireDate: '2025-01-02' });
-    expect(s).toMatchObject({ workplaceName: '나다물산', ownerName: '이미 쓴 대표', fivePlus: 'no', employeeName: '김영희', startDate: '2025-01-02', duty: '이미 쓴 업무' });
+  it('사업장을 고르면 그 카드에 없는 대표자·5명 이상 칸은 앞 사업장 값을 남기지 않는다', () => {
+    const afterA = applyCardToState(INITIAL, WS, null, DETAILS);
+    expect(afterA).toMatchObject({ ownerName: '김대표', fivePlus: 'no' });
+    const afterB = applyCardToState(afterA, { id: 'w2', name: '나다물산', kind: 'own', remember: false }, null);
+    expect(afterB).toMatchObject({ workplaceName: '나다물산', ownerName: '', fivePlus: INITIAL.fivePlus });
+  });
+
+  it('5명 미만 카드 다음에 값 없는 카드를 고르면 계약서의 연장 가산이 앞 사업장 값으로 계산되지 않는다', () => {
+    const afterA = applyCardToState(FILLED, WS, null, DETAILS);
+    const afterB = applyCardToState(afterA, { id: 'w2', name: '나다물산', kind: 'own', remember: false }, null);
+    expect(toWriteForm(afterB, '2026-03-01').form?.employeeCount5plus).toBe(INITIAL.fivePlus === 'yes');
+  });
+
+  const GAP: WriteState = {
+    ...INITIAL,
+    workplaceName: '가나상사',
+    payday: '매월 25일',
+    paymentMethod: '현금',
+    writtenDate: '2026-02-26',
+    employeeName: '갑',
+    startDate: '2024-01-02',
+    endDate: '2026-12-31',
+    location: '본점',
+    duty: '주방',
+    probation: 'yes',
+    probationMonths: '2',
+    probationReduced: 'yes',
+    simpleLabor: 'yes',
+    workDays: ['월', '화', '수'],
+    start: '10:00',
+    end: '15:00',
+    breakMinutes: '30',
+    weeklyRestDay: '토',
+    payType: 'monthly',
+    amountMode: 'net',
+    monthlyTotal: '3,000,000',
+    netPay: '2,500,000',
+    family: '3',
+    hourlyWage: '20,000',
+    absentWeekHoliday: 'keep',
+    holidayDaysPerYear: '5',
+    overtimeHours: '10',
+    holidayHours: '8',
+    leaveHours: '4',
+    rounding: 'ceil100',
+    absorbInto: 'overtime',
+  };
+
+  it('조건이 없는 직원을 고르면 앞 직원의 조건이 하나도 남지 않는다', () => {
+    const s = applyCardToState(GAP, null, { name: '을', hireDate: '2025-05-01' });
+    expect(s).toEqual({
+      ...INITIAL,
+      workplaceName: '가나상사',
+      payday: '매월 25일',
+      paymentMethod: '현금',
+      writtenDate: '2026-02-26',
+      employeeName: '을',
+      startDate: '2025-05-01',
+    });
+  });
+
+  it('실수령액으로 저장한 직원을 고르면 앞 직원의 실수령액·가족 수로 총액을 만들지 않는다', () => {
+    const net: WorkspaceMember = { name: '을', hireDate: '2026-03-01', terms: { payType: 'monthly', amountMode: 'net', monthlyTotal: '', start: '09:00', end: '18:00', breakMinutes: '60', workDays: ['월', '화', '수', '목', '금'], weeklyRestDay: '일', duty: '사무', location: '본점' } };
+    const s = applyCardToState(GAP, null, net);
+    expect(s).toMatchObject({ amountMode: 'net', netPay: '', family: INITIAL.family, monthlyTotal: '' });
+    const parsed = toWriteForm(s, '2026-03-01');
+    expect(parsed.form).toBeNull();
+    expect(parsed.missing).toContain('월 실수령액');
+  });
+
+  it('직원을 불러온 뒤 사업장을 바꾸면 앞 직원 칸을 비운다 — 직접 쓴 칸은 직원을 불러오지 않았으면 그대로', () => {
+    const b = { id: 'w2', name: '나다물산', kind: 'own' as const, remember: false };
+    const switched = { ...GAP, ...cardPatch(b, null, {}, { clearEmployee: true }) };
+    expect(switched).toMatchObject({ workplaceName: '나다물산', employeeName: '', startDate: '', monthlyTotal: '', duty: '', writtenDate: '2026-02-26', payday: '매월 25일' });
+    const typed = { ...GAP, ...cardPatch(b, null, {}) };
+    expect(typed).toMatchObject({ workplaceName: '나다물산', employeeName: '갑', duty: '주방' });
   });
 
   it('카드가 없으면 첫 화면은 INITIAL 그대로', () => {
