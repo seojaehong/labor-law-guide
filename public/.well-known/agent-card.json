@@ -7,12 +7,6 @@
     "organization": "일의 무늬",
     "url": "https://yellowenvelope.kr"
   },
-  "supportedInterfaces": [
-    {
-      "url": "https://yellowenvelope.kr/api",
-      "transport": "https"
-    }
-  ],
   "capabilities": {
     "streaming": true,
     "pushNotifications": false

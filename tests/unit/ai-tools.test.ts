@@ -98,6 +98,7 @@ describe('AI 연결 도구 목록', () => {
     }
     const card = JSON.parse(fs.readFileSync('public/.well-known/agent-card.json', 'utf8'));
     expect(card.url).toBe('https://yellowenvelope.kr');
+    expect(card.supportedInterfaces).toBeUndefined();
     expect(card.skills.map((s: { id: string }) => s.id)).not.toContain('ai-consultation');
   });
 
