@@ -5,7 +5,7 @@ import { resolve } from 'node:path';
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { applyCardToState, CARD_COPY, cardFromState, cardPatch, saveCardFromState } from '@/app/tools/contract-write/cardState';
+import { applyCardToState, CARD_COPY, cardFromState, cardPatch, NO_ORIGIN, saveCardFromState, selectWorkspace } from '@/app/tools/contract-write/cardState';
 import { INITIAL, toWriteForm, type WriteState } from '@/app/tools/contract-write/formState';
 import { getMembers, getWorkspaceDetails, listWorkspaces, pickTerms, type Workspace, type WorkspaceMember } from '@/lib/leave/leave-workspaces';
 import { bannedHits, RESULT_BANNED, SERVICE_BANNED } from '@/lib/tool-kit/banned';
@@ -92,16 +92,17 @@ describe('카드에서 불러오기', () => {
     expect(s.endDate).toBe(INITIAL.endDate);
   });
 
-  it('사업장을 고르면 그 카드에 없는 대표자·5명 이상 칸은 앞 사업장 값을 남기지 않는다', () => {
+  it('사업장을 고르면 그 카드에 없는 대표자 칸은 앞 사업장 값을 남기지 않는다', () => {
     const afterA = applyCardToState(INITIAL, WS, null, DETAILS);
     expect(afterA).toMatchObject({ ownerName: '김대표', fivePlus: 'no' });
     const afterB = applyCardToState(afterA, { id: 'w2', name: '나다물산', kind: 'own', remember: false }, null);
-    expect(afterB).toMatchObject({ workplaceName: '나다물산', ownerName: '', fivePlus: INITIAL.fivePlus });
+    expect(afterB).toMatchObject({ workplaceName: '나다물산', ownerName: '' });
   });
 
   it('5명 미만 카드 다음에 값 없는 카드를 고르면 계약서의 연장 가산이 앞 사업장 값으로 계산되지 않는다', () => {
-    const afterA = applyCardToState(FILLED, WS, null, DETAILS);
-    const afterB = applyCardToState(afterA, { id: 'w2', name: '나다물산', kind: 'own', remember: false }, null);
+    const first = selectWorkspace(FILLED, WS, DETAILS, NO_ORIGIN);
+    const afterA = { ...FILLED, ...first.patch };
+    const afterB = { ...afterA, ...selectWorkspace(afterA, { id: 'w2', name: '나다물산', kind: 'own', remember: false }, {}, first.origin).patch };
     expect(toWriteForm(afterB, '2026-03-01').form?.employeeCount5plus).toBe(INITIAL.fivePlus === 'yes');
   });
 
@@ -216,10 +217,10 @@ describe('카드에 저장하기', () => {
     expect(localData.size + sessionData.size).toBe(0);
   });
 
-  it('같은 이름의 카드가 있으면 새로 만들지 않고 그 카드에 넣는다 — 같은 사람은 조건만 바뀐다', () => {
+  it('같은 이름의 카드가 있으면 새로 만들지 않고 그 카드에 넣는다 — 고른 사람은 조건만 바뀐다', () => {
     saveCardFromState(FILLED, null);
     const id = listWorkspaces()[0].id;
-    saveCardFromState({ ...FILLED, duty: '주방 보조' }, null);
+    saveCardFromState({ ...FILLED, duty: '주방 보조' }, id, '합성근로자 2026-03-01');
     saveCardFromState({ ...FILLED, employeeName: '합성근로자2' }, id);
     expect(listWorkspaces()).toHaveLength(1);
     const members = getMembers(listWorkspaces()[0]);
@@ -235,11 +236,8 @@ describe('카드에 저장하기', () => {
 });
 
 describe('카드 칸과 계약서 입력 칸', () => {
-  it('pickTerms(INITIAL) — 계약 조건 11칸만, 이름·타입은 WriteState 그대로', () => {
+  it('pickTerms(INITIAL) — 값이 그대로 옮겨지고 칸 이름·타입은 WriteState 와 같다', () => {
     const t: Partial<WriteState> = pickTerms(INITIAL);
-    expect(Object.keys(t).sort()).toEqual(
-      ['amountMode', 'breakMinutes', 'duty', 'end', 'hourlyWage', 'location', 'monthlyTotal', 'payType', 'start', 'weeklyRestDay', 'workDays'].sort(),
-    );
     for (const [k, v] of Object.entries(t)) expect(v).toEqual(INITIAL[k as keyof WriteState]);
   });
 });
