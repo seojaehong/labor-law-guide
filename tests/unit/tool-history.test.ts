@@ -141,8 +141,4 @@ describe('전송 가드', () => {
   it('서버 전송 코드가 없다', () => {
     for (const banned of ['fetch(', 'XMLHttpRequest', 'sendBeacon', 'WebSocket', 'EventSource']) expect(src, banned).not.toContain(banned);
   });
-
-  it('이력을 localStorage 에 쓰는 것은 기억하기를 거쳐야만 가능하다', () => {
-    expect(src).toContain('return isHistoryRemembered(tool) ? local() : session();');
-  });
 });

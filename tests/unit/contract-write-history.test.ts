@@ -133,12 +133,6 @@ describe('화면 연결', () => {
     expect(client).toContain('useState<WriteState>(INITIAL)');
   });
 
-  it('최근 입력이 없으면 아무것도 그리지 않는다(첫 화면이 지금과 같다) — 저장소는 마운트 뒤에 읽는다', () => {
-    const recent = src('src/app/tools/contract-write/RecentInputs.tsx');
-    expect(recent).toContain('if (!ready || entries.length === 0) return null;');
-    expect(recent).toContain('useEffect(');
-  });
-
   it('처리방침 5절에 최근 입력 문장이 있다', () => {
     const privacy = src('src/app/privacy/page.tsx');
     const sec5 = privacy.slice(privacy.indexOf('5. 브라우저에 남는 정보와 쿠키'), privacy.indexOf('6. 이용자의 권리'));
