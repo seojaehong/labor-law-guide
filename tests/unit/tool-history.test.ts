@@ -119,6 +119,16 @@ describe('기억하기 전환·지우기', () => {
     expect(listHistory('severance').map((e) => e.label)).toEqual(['S']);
   });
 
+  it('지우면 기억하기도 꺼져 다음 입력이 탭 안에만 남는다', () => {
+    setHistoryRemember(T, true);
+    addHistory(T, 'A', { a: 1 }, at(1));
+    clearHistory(T);
+    expect(isHistoryRemembered(T)).toBe(false);
+    addHistory(T, 'B', { a: 2 }, at(2));
+    expect([...localData.keys()].filter((k) => k.includes('history'))).toEqual([]);
+    expect([...sessionData.keys()]).toEqual(['llg.history.v1:contract-write']);
+  });
+
   it('기억하기 설정 값이 손상돼 있으면 꺼진 것으로 본다', () => {
     localData.set('llg.history.remember.v1:contract-write', '"네"');
     expect(isHistoryRemembered(T)).toBe(false);

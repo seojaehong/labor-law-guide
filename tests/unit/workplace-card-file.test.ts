@@ -171,7 +171,7 @@ describe('카드 파일 가져오기', () => {
     expect(merged).toMatchObject({ name: '가나상사', kind: 'client', remember: true, fivePlus: 'yes' });
     expect(getWorkspaceDetails(merged)).toEqual({ ownerName: '김대표' });
     expect(getMembers(merged)).toEqual([
-      { name: '홍길동', hireDate: '2019-03-02', terms: { duty: '주방 보조' } },
+      { name: '홍길동', hireDate: '2019-03-02', terms: { duty: '주방 보조', workDays: ['월', '화'], payType: 'hourly', hourlyWage: '13,000' } },
       { name: '김영희', hireDate: '2020-01-01' },
       { name: '박민수', hireDate: '2025-02-03', terms: { duty: '배달' } },
     ]);
@@ -248,7 +248,7 @@ describe('카드 파일 가져오기', () => {
       },
       { remember: false },
     );
-    expect(r).toEqual({ ok: true, added: 1, merged: 0, skipped: 5 });
+    expect(r).toEqual({ ok: true, added: 1, merged: 0, skipped: 6 });
     expect(listWorkspaces().map((w) => w.name)).toEqual(['라마상회']);
     expect(getMembers(listWorkspaces()[0])).toEqual([{ name: '김영희', hireDate: '2020-01-01' }]);
   });

@@ -68,6 +68,19 @@ describe('남길 칸', () => {
     expect(savedAtText('2026-11-06T05:07:00.000Z')).toBe('2026-11-06 14:07');
     expect(savedAtText('언젠가')).toBe('');
   });
+
+  it('저장 시각이 표시 범위를 넘으면 터지지 않고 빈칸이다', () => {
+    expect(savedAtText('+275760-09-13T00:00:00.000Z')).toBe('');
+  });
+
+  it('주민번호·계좌 꼴 문자열은 최근 입력에도 남기지 않는다', () => {
+    const dirty = { ...FILLED, duty: '주방 900101-1234567', employeeName: '합성 110-123-456789' };
+    const saved = toHistoryState(dirty);
+    expect(JSON.stringify(saved)).not.toContain('900101-1234567');
+    expect(JSON.stringify(saved)).not.toContain('110-123-456789');
+    expect(historyLabel(dirty)).not.toContain('110-123-456789');
+    expect(saved.duty).toBe('주방');
+  });
 });
 
 describe('불러오기', () => {
