@@ -247,8 +247,8 @@ ck("이름이나 입사일이 바뀐 사람은 새 사람이다 — 이전 조�
   W.upsertMember(ws, { name: "홍길동", hireDate: "2019-03-02", terms: { duty: "홀 서비스" } });
   W.setMembers(ws, [{ name: "홍길동", hireDate: "2019-03-03" }]);
   const m = W.getMembers(ws);
-  assert.equal(m.length, 1);
-  assert.ok(!("terms" in m[0]));
+  assert.ok(!("terms" in m.find((x) => x.hireDate === "2019-03-03")!), "새 사람에게 조건이 붙었다");
+  assert.deepEqual(m.find((x) => x.hireDate === "2019-03-02")?.terms, { duty: "홀 서비스" }, "입력창을 고쳤다고 저장한 조건이 사라졌다");
 });
 
 ck("setMembers 가 돌려준 값과 저장소에서 다시 읽은 값이 같다 (연차 화면 「저장됨」 표시)", () => {
