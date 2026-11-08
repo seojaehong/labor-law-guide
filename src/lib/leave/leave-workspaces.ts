@@ -105,9 +105,23 @@ function read<T>(store: Storage | null, key: string, fallback: T): T {
     return fallback;
   }
 }
-function write(store: Storage | null, key: string, value: unknown): void {
+/** 썼으면 true. 저장소가 막혔거나 용량 초과면 false */
+function write(store: Storage | null, key: string, value: unknown): boolean {
+  if (!store) return false;
+  try {
+    store.setItem(key, JSON.stringify(value));
+    return true;
+  } catch {
+    return false;
+  }
+}
+/** prefix 로 시작하는 키를 지운다 — 사업장 목록이 손상돼도 명부가 남지 않게 목록을 거치지 않는다 */
+function removeByPrefix(store: Storage | null, ...prefixes: string[]): void {
   if (!store) return;
-  try { store.setItem(key, JSON.stringify(value)); } catch { /* 용량 초과 등 */ }
+  try {
+    const keys = Array.from({ length: store.length }, (_, i) => store.key(i));
+    for (const k of keys) if (k && prefixes.some((p) => k.startsWith(p))) store.removeItem(k);
+  } catch { /* 무시 */ }
 }
 function notify(): void {
   if (typeof window === "undefined") return;
@@ -207,7 +221,7 @@ export function createWorkspace(
   const trimmed = name.trim();
   if (trimmed === "") return null;
   const ws: Workspace = { id: newId(), name: trimmed, kind, remember };
-  write(meta(), INDEX_KEY, [...listWorkspaces(), ws]);
+  if (!write(meta(), INDEX_KEY, [...listWorkspaces(), ws])) return null;
   write(meta(), ACTIVE_KEY, ws.id);
   notify();
   return ws;
@@ -250,21 +264,28 @@ export function getWorkspaceDetails(ws: Workspace | null): WorkspaceDetails {
   return typeof owner === "string" && owner.trim() !== "" ? { ownerName: owner.trim() } : {};
 }
 
-/** 기억 여부를 바꾼다 — 명부와 대표자(details)를 새 저장소로 옮기고 이전 저장소에서 지운다. */
-export function setRemember(id: string, remember: boolean): void {
+/**
+ * 기억 여부를 바꾼다 — 명부와 대표자(details)를 새 저장소에 먼저 쓰고, 다 써졌을 때만 이전 저장소에서 지운다.
+ * 새 저장소가 가득 찼거나 막혀 있으면 아무것도 바꾸지 않고 false 를 돌려준다.
+ */
+export function setRemember(id: string, remember: boolean): boolean {
   const all = listWorkspaces();
   const ws = all.find((w) => w.id === id);
-  if (!ws || ws.remember === remember) return;
+  if (!ws || ws.remember === remember) return true;
   const members = getMembers(ws);
   const details = getWorkspaceDetails(ws);
-  // 이전 저장소에서 제거
-  try { membersStore(ws)?.removeItem(MEMBERS_PREFIX + id); } catch { /* 무시 */ }
-  try { membersStore(ws)?.removeItem(DETAILS_PREFIX + id); } catch { /* 무시 */ }
   const next = { ...ws, remember };
-  write(meta(), INDEX_KEY, all.map((w) => (w.id === id ? next : w)));
-  write(membersStore(next), MEMBERS_PREFIX + id, members);
-  if (details.ownerName) write(membersStore(next), DETAILS_PREFIX + id, details);
+  const from = membersStore(ws);
+  const to = membersStore(next);
+  const moved =
+    write(to, MEMBERS_PREFIX + id, members) &&
+    (!details.ownerName || write(to, DETAILS_PREFIX + id, details)) &&
+    write(meta(), INDEX_KEY, all.map((w) => (w.id === id ? next : w)));
+  for (const prefix of [MEMBERS_PREFIX, DETAILS_PREFIX]) {
+    try { (moved ? from : to)?.removeItem(prefix + id); } catch { /* 무시 */ }
+  }
   notify();
+  return moved;
 }
 
 /** 사업장과 그 명부를 함께 지운다. 두 저장소 모두에서 지운다. */
@@ -358,13 +379,7 @@ export function memberKey(m: WorkspaceMember): string {
 
 /** 이 브라우저에 남아 있는 것을 전부 지운다 — 공용 PC 에서 쓰는 비상 버튼. */
 export function forgetEverything(): void {
-  const all = listWorkspaces();
-  for (const w of all) {
-    for (const prefix of [MEMBERS_PREFIX, DETAILS_PREFIX]) {
-      try { session()?.removeItem(prefix + w.id); } catch { /* 무시 */ }
-      try { local()?.removeItem(prefix + w.id); } catch { /* 무시 */ }
-    }
-  }
+  for (const store of [session(), local()]) removeByPrefix(store, MEMBERS_PREFIX, DETAILS_PREFIX);
   try {
     meta()?.removeItem(INDEX_KEY);
     meta()?.removeItem(ACTIVE_KEY);

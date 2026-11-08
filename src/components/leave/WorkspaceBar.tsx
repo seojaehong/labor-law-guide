@@ -22,12 +22,15 @@ import type { Audience, Workspace } from "@/lib/leave/leave-workspaces";
  * 처음 오면 역할을 한 번 묻는다. 그 값에 따라 문구와 기본 사업장 성격이 갈린다.
  * 서버로 아무것도 보내지 않는다. 저장 위치는 사업장마다 사용자가 켠다.
  */
+const CREATE_FAILED = "사업장을 만들지 못했습니다. 브라우저 저장 설정을 확인해 주세요.";
+
 export function WorkspaceBar() {
   const [audience, setAud] = useState<Audience | null>(null);
   const [list, setList] = useState<Workspace[]>([]);
   const [active, setActive] = useState<Workspace | null>(null);
   const [adding, setAdding] = useState(false);
   const [newName, setNewName] = useState("");
+  const [storeNote, setStoreNote] = useState<string | null>(null);
   /** 마운트 전에는 아무것도 그리지 않는다 — 저장소는 브라우저에만 있다 */
   const [ready, setReady] = useState(false);
 
@@ -79,6 +82,7 @@ export function WorkspaceBar() {
           onSubmit={(e) => {
             e.preventDefault();
             if (createWorkspace(newName, isAdvisor ? "client" : "own")) setNewName("");
+            else if (newName.trim()) setStoreNote(CREATE_FAILED);
           }}
         >
           <label className="lv-input__field">
@@ -99,6 +103,7 @@ export function WorkspaceBar() {
             ? "사업장별로 직원 명부가 따로 유지됩니다. 여러 곳을 만들어 위에서 전환하며 쓰실 수 있습니다."
             : "직원 명부를 여기에 두면 화면을 옮겨도 다시 올리지 않아도 됩니다."}
         </p>
+        {storeNote && <p className="lv-ws__note" role="status">{storeNote}</p>}
       </section>
     );
   }
@@ -129,6 +134,9 @@ export function WorkspaceBar() {
               if (createWorkspace(newName, isAdvisor ? "client" : "own")) {
                 setNewName("");
                 setAdding(false);
+                setStoreNote(null);
+              } else if (newName.trim()) {
+                setStoreNote(CREATE_FAILED);
               }
             }}
           >
@@ -159,7 +167,9 @@ export function WorkspaceBar() {
             <input
               type="checkbox"
               checked={active.remember}
-              onChange={(e) => setRemember(active.id, e.target.checked)}
+              onChange={(e) =>
+                setStoreNote(setRemember(active.id, e.target.checked) ? null : "옮기지 못해 기억하기 설정을 바꾸지 않았습니다. 명부는 그대로입니다. 브라우저 저장 공간을 확인해 주세요.")
+              }
             />
             이 브라우저에 「{active.name}」 명부를 기억하기
           </label>
@@ -190,6 +200,7 @@ export function WorkspaceBar() {
           >
             전부 지우기
           </button>
+          {storeNote && <span className="lv-ws__state" role="status">{storeNote}</span>}
         </div>
       )}
     </section>

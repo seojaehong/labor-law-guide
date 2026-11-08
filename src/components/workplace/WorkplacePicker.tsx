@@ -118,7 +118,7 @@ export function WorkplacePicker({ state, onPatch }: { state: WriteState; onPatch
           {selected && (
             <div className="space-y-1">
               <label className="flex items-center gap-2">
-                <input type="checkbox" checked={selected.remember} onChange={(e) => setRemember(selected.id, e.target.checked)} />
+                <input type="checkbox" checked={selected.remember} onChange={(e) => setMessage(setRemember(selected.id, e.target.checked) ? null : CARD_COPY.rememberFailed)} />
                 {CARD_COPY.remember(selected.name)}
               </label>
               <p className="text-xs" style={secondary}>

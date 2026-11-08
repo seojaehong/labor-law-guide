@@ -4,6 +4,8 @@
 
 import {
   createWorkspace,
+  getMembers,
+  getWorkspaceDetails,
   listWorkspaces,
   pickTerms,
   updateWorkspace,
@@ -28,7 +30,10 @@ export const CARD_COPY = {
   noMembers: '이 카드에 저장한 직원이 없습니다.',
   save: '이 근로자를 카드에 저장',
   saved: (workspace: string, employee: string) => `「${workspace}」 카드에 ${employee} 님의 계약 조건을 저장했습니다.`,
+  saveFailed: '저장하지 못했습니다. 브라우저 저장 공간이 가득 찼거나 저장이 막혀 있습니다. 브라우저 설정을 확인해 주세요.',
   fivePlusUnknown: '이 카드에는 5명 이상 여부가 없어 「5명 이상」으로 돌렸습니다. 사업장에 맞게 골라 주세요.',
+  fivePlusKept: '5명 이상 여부는 카드에 있던 값을 그대로 두었습니다. 바꾸려면 위에서 이 사업장을 고른 뒤 저장해 주세요.',
+  rememberFailed: '옮기지 못해 기억하기 설정을 바꾸지 않았습니다. 저장된 내용은 그대로입니다. 브라우저 저장 공간을 확인해 주세요.',
   remember: (workspace: string) => `이 브라우저에 「${workspace}」 카드를 기억하기`,
   rememberOff: '이 탭을 닫으면 대표자·직원 정보가 사라집니다. 사업장 이름과 5명 이상 여부만 이 브라우저에 남습니다.',
   rememberOn: '이 브라우저에만 남습니다. 서버로 보내지 않습니다.',
@@ -104,18 +109,29 @@ export type SaveResult = { ok: true; workspace: Workspace; message: string } | {
 
 /**
  * 「이 근로자를 카드에 저장」. 넣을 카드 = 고른 카드(이름이 사업체명과 같을 때) → 같은 이름의 카드 → 새 카드(기억하기 꺼짐).
+ * 이름은 입력 칸과 같은 정리(㈜ → (주))를 거쳐 맞춘다.
  * 대표자는 넣었을 때만 바꾼다(비워 두고 저장해도 카드의 대표자를 지우지 않는다).
+ * 5명 이상 여부는 고른 카드이거나 값이 없는 카드에만 쓴다 — 고르지 않았으면 화면 값은 고른 값이 아니라 기본값일 수 있다.
+ * 저장소에서 다시 읽어 맞는지 본 뒤에만 저장했다고 말한다.
  */
 export function saveCardFromState(state: WriteState, selectedId: string | null): SaveResult {
   const card = cardFromState(state);
   if (!card.ok) return card;
   const all = listWorkspaces();
-  const selected = all.find((w) => w.id === selectedId);
-  const target =
-    (selected && selected.name === card.workplaceName ? selected : all.find((w) => w.name === card.workplaceName)) ??
-    createWorkspace(card.workplaceName, 'own', false);
-  if (!target) return { ok: false, reason: '카드를 만들지 못했습니다.' };
-  updateWorkspace(target.id, card.ownerName ? { ownerName: card.ownerName, fivePlus: card.fivePlus } : { fivePlus: card.fivePlus });
-  upsertMember(target, card.member);
-  return { ok: true, workspace: target, message: CARD_COPY.saved(target.name, card.member.name) };
+  const sameName = (w: Workspace) => cleanInput(w.name) === card.workplaceName;
+  const selected = all.find((w) => w.id === selectedId && sameName(w));
+  const target = selected ?? all.find(sameName) ?? createWorkspace(card.workplaceName, 'own', false);
+  if (!target) return { ok: false, reason: CARD_COPY.saveFailed };
+  const fivePlus = selected || !target.fivePlus ? card.fivePlus : undefined;
+  updateWorkspace(target.id, { ...(card.ownerName ? { ownerName: card.ownerName } : {}), ...(fivePlus ? { fivePlus } : {}) });
+  const expected = upsertMember(target, card.member);
+  const stored = listWorkspaces().find((w) => w.id === target.id);
+  const saved =
+    stored !== undefined &&
+    JSON.stringify(getMembers(stored)) === JSON.stringify(expected) &&
+    (!card.ownerName || getWorkspaceDetails(stored).ownerName === card.ownerName) &&
+    (!fivePlus || stored.fivePlus === fivePlus);
+  if (!saved) return { ok: false, reason: CARD_COPY.saveFailed };
+  const keptFivePlus = !fivePlus && target.fivePlus !== card.fivePlus ? ` ${CARD_COPY.fivePlusKept}` : '';
+  return { ok: true, workspace: target, message: `${CARD_COPY.saved(target.name, card.member.name)}${keptFivePlus}` };
 }
