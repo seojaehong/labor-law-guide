@@ -130,7 +130,18 @@ const ANN = {
   ...Object.fromEntries(['calc_severance', 'calc_holiday_pay', 'calc_pay_proration', 'calc_shutdown_allowance', 'calc_annual_leave', 'settle_leave_on_exit', 'calc_retirement_tax', 'list_employer_duties']
     .map((n) => [n, { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false }])),
   ...Object.fromEntries(MORE_TOOLS.map((n) => [n, { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false }])),
+  // nhis·popbill — 지사 찾기·팝빌 조회는 바깥 API 를 읽기만, 신고서는 PDF 를 쓴다, 팩스·문자는 되돌릴 수 없는 발송
+  ...Object.fromEntries(['find_branch', 'popbill_status', 'fax_result', 'sms_result']
+    .map((n) => [n, { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true }])),
+  make_form: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
+  ...Object.fromEntries(['send_fax', 'send_sms'].map((n) => [n, { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: true }])),
 };
+// 커넥터 디렉터리 심사 — 빠진 도구 없이 전부 title 과 네 칸이 있다
+{
+  const all = (await c.listTools()).tools;
+  const bare = all.filter((t) => !t.title || !ANN[t.name] || ['readOnlyHint', 'destructiveHint', 'idempotentHint', 'openWorldHint'].some((k) => typeof t.annotations?.[k] !== 'boolean'));
+  check(`모든 도구(${all.length})에 title·annotations 네 칸${bare.length ? ` — 빠짐: ${bare.map((t) => t.name).join(',')}` : ''}`, bare.length === 0);
+}
 // 이 판에서 더한 도구 8개 + 사이트 도구 7개(groups/more) — 「대신·대행·대리」도 함께 막는다
 const NEW_TOOLS = ['calc_severance', 'calc_holiday_pay', 'calc_pay_proration', 'calc_shutdown_allowance', 'calc_annual_leave', 'settle_leave_on_exit', 'calc_retirement_tax', 'list_employer_duties', ...MORE_TOOLS];
 const NEW_WORDS = [...WORDS, '대신', '대행', '대리'];
