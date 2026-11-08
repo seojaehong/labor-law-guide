@@ -183,7 +183,7 @@ export function WorkspaceBar() {
             className="lv-linklike"
             onClick={() => {
               if (confirm(`「${active.name}」과 그 명부를 지웁니다. 계속할까요?`)) {
-                deleteWorkspace(active.id);
+                if (!deleteWorkspace(active.id)) setStoreNote("지우지 못했습니다. 브라우저 저장 설정을 확인해 주세요. 사업장과 명부는 그대로입니다.");
               }
             }}
           >
