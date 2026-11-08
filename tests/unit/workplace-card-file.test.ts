@@ -248,9 +248,10 @@ describe('카드 파일 가져오기', () => {
       },
       { remember: false },
     );
-    expect(r).toEqual({ ok: true, added: 1, merged: 0, skipped: 6 });
-    expect(listWorkspaces().map((w) => w.name)).toEqual(['라마상회']);
-    expect(getMembers(listWorkspaces()[0])).toEqual([{ name: '김영희', hireDate: '2020-01-01' }]);
+    expect(r).toEqual({ ok: true, added: 2, merged: 0, skipped: 5 });
+    expect(listWorkspaces().find((w) => w.name === '나다물산')).not.toHaveProperty('fivePlus');
+    expect(listWorkspaces().map((w) => w.name)).toEqual(['나다물산', '라마상회']);
+    expect(getMembers(listWorkspaces()[1])).toEqual([{ name: '김영희', hireDate: '2020-01-01' }]);
   });
 
   it('카드 파일이 아니면 아무것도 바꾸지 않는다', () => {

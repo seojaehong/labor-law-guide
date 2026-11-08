@@ -173,8 +173,10 @@ ck("형식이 깨진 것은 버린다", () => {
 
 // ── 허용한 칸만 저장 — 사업장 카드(근로계약서 작성)가 계약 조건을 더하면서 넓어졌다 ──
 const TERM_KEYS = [
-  "amountMode", "breakMinutes", "duty", "end", "hourlyWage", "location",
-  "monthlyTotal", "payType", "start", "weeklyRestDay", "workDays",
+  "absentWeekHoliday", "absorbInto", "amountMode", "breakMinutes", "duty", "end", "endDate",
+  "holidayDaysPerYear", "holidayHours", "hourlyWage", "leaveHours", "location", "monthlyTotal",
+  "overtimeHours", "payType", "probation", "probationMonths", "probationReduced", "rounding",
+  "simpleLabor", "start", "startDate", "weeklyRestDay", "workDays",
 ].sort();
 /** 어디에도 저장되면 안 되는 칸 — 키 이름과 값 둘 다 본다 */
 const PERSONAL = {
@@ -344,13 +346,16 @@ ck("사업장을 지우거나 전부 지우면 두 저장소에 details 가 없�
   assert.ok(!rawAll().includes("대표"), "대표자명이 남았다");
 });
 
-ck("사업장 선택 칸 — 없어도 읽고, 타입이 틀리면 그 사업장을 버린다", () => {
+ck("사업장 선택 칸 — 없어도 읽고, 모르는 값이면 그 칸만 버리고 사업장은 지킨다", () => {
   localData.set("work-patterns.leave.workspaces.v1", JSON.stringify([
     { id: "a", name: "A", kind: "own", remember: false },
     { id: "c", name: "C", kind: "own", remember: false, fivePlus: "maybe" },
     { id: "d", name: "D", kind: "own", remember: false, fivePlus: "yes" },
   ]));
-  assert.deepEqual(W.listWorkspaces().map((w) => w.id), ["a", "d"]);
+  const list = W.listWorkspaces();
+  assert.deepEqual(list.map((w) => w.id), ["a", "c", "d"], "모르는 값 하나로 사업장을 통째로 버렸다");
+  assert.ok(!("fivePlus" in list[1]), "모르는 값을 그대로 돌려줬다");
+  assert.equal(list[2].fivePlus, "yes");
 });
 
 ck("목록에 남은 옛 ownerName 칸은 읽지 않는다(이 브랜치에서만 생긴 값)", () => {

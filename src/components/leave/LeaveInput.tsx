@@ -138,6 +138,7 @@ export function LeaveInput() {
   const [rosterSavedCount, setRosterSavedCount] = useState<number | null>(null);
   /** 입력창에 없지만 계약 조건이 있어 명부에 남은 사람 */
   const [keptOutside, setKeptOutside] = useState<WorkspaceMember[]>([]);
+  const [removeFailed, setRemoveFailed] = useState(false);
   const editorWorkspace = useRef<string | null | undefined>(undefined);
   useEffect(() => {
     const sync = () => {
@@ -532,13 +533,15 @@ export function LeaveInput() {
             className="lv-linklike"
             onClick={() => {
               if (confirm("계약 조건까지 지웁니다. 계속할까요?")) {
-                removeMembers(ws, keptOutside.map(memberKey));
-                setKeptOutside([]);
+                const removed = removeMembers(ws, keptOutside.map(memberKey));
+                setRemoveFailed(!removed);
+                if (removed) setKeptOutside([]);
               }
             }}
           >
             계약 조건까지 지우기
           </button>
+          {removeFailed && <span role="status"> 지우지 못했습니다. 브라우저 저장 공간을 확인해 주세요. 명부는 그대로입니다.</span>}
         </p>
       )}
     </section>
