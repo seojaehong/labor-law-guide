@@ -14,7 +14,7 @@ import {
 } from '@/lib/leave/leave-workspaces';
 import { cleanInput } from '@/lib/contract-write/text';
 
-import type { WriteState } from './formState';
+import { INITIAL, type WriteState } from './formState';
 
 /** 카드 영역 화면 문구 — 금지어 시험이 여기를 본다 */
 export const CARD_COPY = {
@@ -28,22 +28,39 @@ export const CARD_COPY = {
   noMembers: '이 카드에 저장한 직원이 없습니다.',
   save: '이 근로자를 카드에 저장',
   saved: (workspace: string, employee: string) => `「${workspace}」 카드에 ${employee} 님의 계약 조건을 저장했습니다.`,
+  fivePlusUnknown: '이 카드에는 5명 이상 여부가 없어 「5명 이상」으로 돌렸습니다. 사업장에 맞게 골라 주세요.',
   remember: (workspace: string) => `이 브라우저에 「${workspace}」 카드를 기억하기`,
   rememberOff: '이 탭을 닫으면 대표자·직원 정보가 사라집니다. 사업장 이름과 5명 이상 여부만 이 브라우저에 남습니다.',
   rememberOn: '이 브라우저에만 남습니다. 서버로 보내지 않습니다.',
   pageNotice: '입력한 내용은 이 브라우저 안에서만 계산하고 파일로 만듭니다. 서버로 보내지 않습니다. 사업장 카드에 저장한 내용만 이 브라우저에 남습니다.',
 } as const;
 
+/** 직원을 바꿔도 남는 칸 — 사업장 칸과 문서·지급 관행 칸. 나머지는 전부 직원 칸이라 WriteState 에 칸이 늘면 저절로 비워진다 */
+const NOT_EMPLOYEE_KEYS = ['workplaceName', 'ownerName', 'fivePlus', 'writtenDate', 'payday', 'paymentMethod'] as const satisfies readonly (keyof WriteState)[];
+
+function blankEmployee(): Partial<WriteState> {
+  const blank: Partial<WriteState> = { ...INITIAL, workDays: [...INITIAL.workDays] };
+  for (const k of NOT_EMPLOYEE_KEYS) delete blank[k];
+  return blank;
+}
+
 /**
- * 카드에서 채울 칸 — 카드에 값이 있는 칸만. 작성일(writtenDate)은 채우지 않는다.
+ * 카드에서 채울 칸 — 카드에 없는 칸은 처음 값으로 돌린다. 앞 사업장·앞 직원 값이 다른 사람 계약서로 넘어가면 안 된다.
+ * 작성일(writtenDate)·지급일·지급방법은 채우지도 비우지도 않는다.
  * 대표자는 사업장 목록이 아니라 details(getWorkspaceDetails)에 있어 따로 받는다.
+ * clearEmployee = 카드에서 불러온 직원이 화면에 남아 있어 사업장을 옮길 때 그 직원 칸을 함께 비운다.
  */
-export function cardPatch(ws: Workspace | null, member: WorkspaceMember | null, details: WorkspaceDetails = {}): Partial<WriteState> {
-  const p: Partial<WriteState> = {};
+export function cardPatch(
+  ws: Workspace | null,
+  member: WorkspaceMember | null,
+  details: WorkspaceDetails = {},
+  { clearEmployee = false }: { clearEmployee?: boolean } = {},
+): Partial<WriteState> {
+  const p: Partial<WriteState> = clearEmployee || member ? blankEmployee() : {};
   if (ws) {
     p.workplaceName = ws.name;
-    if (details.ownerName) p.ownerName = details.ownerName;
-    if (ws.fivePlus) p.fivePlus = ws.fivePlus;
+    p.ownerName = details.ownerName ?? INITIAL.ownerName;
+    p.fivePlus = ws.fivePlus ?? INITIAL.fivePlus;
   }
   if (member) {
     p.employeeName = member.name;

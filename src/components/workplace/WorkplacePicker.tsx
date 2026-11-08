@@ -44,9 +44,9 @@ export function WorkplacePicker({ state, onPatch }: { state: WriteState; onPatch
   const pickWorkspace = (id: string) => {
     setSelectedId(id);
     setPickedMember('');
-    setMessage(null);
     const ws = list.find((w) => w.id === id);
-    if (ws) onPatch(cardPatch(ws, null, getWorkspaceDetails(ws)));
+    setMessage(ws && !ws.fivePlus ? CARD_COPY.fivePlusUnknown : null);
+    if (ws) onPatch(cardPatch(ws, null, getWorkspaceDetails(ws), { clearEmployee: pickedMember !== '' }));
   };
   const pickMember = (key: string) => {
     setPickedMember(key);
