@@ -9,12 +9,12 @@
     "subfolder": "tools/k-labor"
   },
   "websiteUrl": "https://yellowenvelope.kr/ai-tools",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "packages": [
     {
       "registryType": "npm",
       "identifier": "k-labor",
-      "version": "0.1.1",
+      "version": "0.1.2",
       "transport": { "type": "stdio" },
       "packageArguments": [{ "type": "positional", "value": "mcp" }],
       "environmentVariables": [
