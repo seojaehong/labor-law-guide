@@ -42,12 +42,23 @@ function read(store: Storage | null, key: string): unknown {
     return null;
   }
 }
-function write(store: Storage | null, key: string, value: unknown): void {
-  if (!store) return;
-  try { store.setItem(key, JSON.stringify(value)); } catch { /* 용량 초과 등 */ }
+/** 썼으면 true. 저장소가 막혔거나 용량 초과면 false */
+function write(store: Storage | null, key: string, value: unknown): boolean {
+  if (!store) return false;
+  try {
+    store.setItem(key, JSON.stringify(value));
+    return true;
+  } catch {
+    return false;
+  }
 }
-function remove(store: Storage | null, key: string): void {
-  try { store?.removeItem(key); } catch { /* 무시 */ }
+function remove(store: Storage | null, key: string): boolean {
+  try {
+    store?.removeItem(key);
+    return true;
+  } catch {
+    return false;
+  }
 }
 function notify(): void {
   if (typeof window === "undefined") return;
@@ -88,15 +99,35 @@ export function addHistory(tool: string, label: string, state: Record<string, un
   return next;
 }
 
-/** 기억하기를 바꾼다 — 이력을 새 저장소로 옮기고 이전 저장소에서 지운다 */
-export function setHistoryRemember(tool: string, remember: boolean): void {
-  if (isHistoryRemembered(tool) === remember) return;
+/**
+ * 기억하기를 바꾼다 — 새 저장소에 먼저 쓰고, 설정을 바꾼 뒤에야 이전 저장소에서 지운다.
+ * 어느 단계든 실패하면 쓴 사본을 치우고 아무것도 바꾸지 않은 채 false 를 돌려준다.
+ */
+export function setHistoryRemember(tool: string, remember: boolean): boolean {
+  if (isHistoryRemembered(tool) === remember) return true;
+  const key = HISTORY_PREFIX + tool;
   const entries = listHistory(tool);
-  remove(historyStore(tool), HISTORY_PREFIX + tool);
-  if (remember) write(local(), REMEMBER_PREFIX + tool, true);
-  else remove(local(), REMEMBER_PREFIX + tool);
-  if (entries.length) write(historyStore(tool), HISTORY_PREFIX + tool, entries);
+  const from = historyStore(tool);
+  const to = remember ? local() : session();
+  if (entries.length && !write(to, key, entries)) return false;
+  if (!(remember ? write(local(), REMEMBER_PREFIX + tool, true) : remove(local(), REMEMBER_PREFIX + tool))) {
+    if (entries.length) remove(to, key);
+    return false;
+  }
+  remove(from, key);
   notify();
+  return true;
+}
+
+/** 이 브라우저에 최근 입력이나 기억하기 설정이 남아 있는가 — 「전부 지우기」를 보일지 정한다 */
+export function hasAnyHistory(): boolean {
+  for (const store of [session(), local()]) {
+    if (!store) continue;
+    try {
+      for (let i = 0; i < store.length; i++) if (store.key(i)?.startsWith(ALL_PREFIX)) return true;
+    } catch { /* 무시 */ }
+  }
+  return false;
 }
 
 /** 이 도구의 최근 입력을 두 저장소 모두에서 지우고 기억하기도 끈다 — 화면이 사라진 뒤 다음 입력이 조용히 브라우저에 남지 않게 */

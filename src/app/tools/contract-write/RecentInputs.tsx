@@ -9,7 +9,7 @@ import { useEffect, useState } from 'react';
 import { clearHistory, HISTORY_CHANGED, isHistoryRemembered, listHistory, setHistoryRemember, type HistoryEntry } from '@/lib/tool-history';
 
 import type { WriteState } from './formState';
-import { fromHistoryState, HISTORY_COPY, HISTORY_TOOL, savedAtText } from './historyState';
+import { fromHistoryState, HISTORY_COPY, HISTORY_TOOL, recentInputsVisible, savedAtText } from './historyState';
 
 const secondary: React.CSSProperties = { color: 'var(--color-text-secondary)' };
 
@@ -31,7 +31,7 @@ export function RecentInputs({ onLoad }: { onLoad: (s: WriteState) => void }) {
     return () => window.removeEventListener(HISTORY_CHANGED, sync);
   }, []);
 
-  if (!ready || entries.length === 0) return null;
+  if (!recentInputsVisible(ready, entries.length, remember)) return null;
 
   return (
     <details className="rounded-xl border border-dashed p-3" style={{ borderColor: 'var(--color-border)' }}>
@@ -64,7 +64,7 @@ export function RecentInputs({ onLoad }: { onLoad: (s: WriteState) => void }) {
         {message && <p role="status">{message}</p>}
         <div className="space-y-1">
           <label className="flex items-center gap-2">
-            <input type="checkbox" checked={remember} onChange={(e) => setHistoryRemember(HISTORY_TOOL, e.target.checked)} />
+            <input type="checkbox" checked={remember} onChange={(e) => setMessage(setHistoryRemember(HISTORY_TOOL, e.target.checked) ? null : HISTORY_COPY.rememberFailed)} />
             {HISTORY_COPY.remember}
           </label>
           <p className="text-xs" style={secondary}>

@@ -6,23 +6,21 @@
 
 import { useState } from 'react';
 
-import { CARD_COPY, cardFileName } from '@/app/tools/contract-write/cardState';
-import { CARD_FILE_MAX_BYTES, exportCards, importCards, type CardImportResult } from '@/lib/leave/leave-workspaces';
+import { CARD_COPY, cardFileName, cardFileTooLarge, cardImportMessage } from '@/app/tools/contract-write/cardState';
+import { exportCardsJson, importCards } from '@/lib/leave/leave-workspaces';
 import { todayKst } from '@/lib/tool-kit';
 import { download } from '@/lib/tool-kit/download';
 
 const secondary: React.CSSProperties = { color: 'var(--color-text-secondary)' };
 const buttonClass = 'inline-flex min-h-[44px] cursor-pointer items-center justify-center rounded-md border px-4 py-2 text-sm font-semibold disabled:opacity-60';
 
-const importFailure = (problem: CardImportResult['problem']) =>
-  problem === 'too-large' ? CARD_COPY.fileTooLarge : problem === 'storage' ? CARD_COPY.fileStorageFailed : CARD_COPY.fileInvalid;
-
 export function CardFileTools({ hasCards }: { hasCards: boolean }) {
   const [remember, setRemember] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
   const exportFile = () => {
-    const json = JSON.stringify(exportCards(), null, 2);
+    const json = exportCardsJson();
+    if (json === null) return setMessage(CARD_COPY.fileExportTooLarge);
     download(new TextEncoder().encode(json), cardFileName(todayKst()), 'application/json');
     setMessage(null);
   };
@@ -31,12 +29,10 @@ export function CardFileTools({ hasCards }: { hasCards: boolean }) {
     const file = input.files?.[0];
     input.value = ''; // 같은 파일을 다시 골라도 읽게
     if (!file) return;
-    if (file.size > CARD_FILE_MAX_BYTES) return setMessage(CARD_COPY.fileTooLarge);
+    if (cardFileTooLarge(file.size)) return setMessage(CARD_COPY.fileTooLarge);
     const reader = new FileReader();
     reader.onload = () => {
-      const r = importCards(typeof reader.result === 'string' ? reader.result : null, { remember });
-      if (!r.ok) return setMessage(importFailure(r.problem));
-      setMessage([CARD_COPY.fileResult(r.added, r.merged), r.skipped ? CARD_COPY.fileSkipped(r.skipped) : ''].filter(Boolean).join(' '));
+      setMessage(cardImportMessage(importCards(typeof reader.result === 'string' ? reader.result : null, { remember }), remember));
     };
     reader.onerror = () => setMessage(CARD_COPY.fileReadError);
     reader.readAsText(file);

@@ -263,7 +263,7 @@ describe('카드 파일 가져오기', () => {
       '[]',
       42,
       { kind: 'other-file', version: 1, workspaces: [] },
-      { kind: 'llg-workplace-cards', version: 2, workspaces: [{ name: '새 사업장', kind: 'own', members: [] }] },
+      { kind: 'llg-workplace-cards', version: 0, workspaces: [{ name: '새 사업장', kind: 'own', members: [] }] },
       { kind: 'llg-workplace-cards', version: 1, workspaces: { name: '새 사업장' } },
       { kind: 'llg-workplace-cards', version: 1 },
     ];

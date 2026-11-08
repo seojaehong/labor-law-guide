@@ -9,7 +9,9 @@ import {
   listWorkspaces,
   memberKey,
   pickTerms,
-  stripIdNumbers,
+  cleanCardName,
+  CARD_FILE_MAX_BYTES,
+  type CardImportResult,
   updateWorkspace,
   upsertMember,
   type Workspace,
@@ -52,13 +54,36 @@ export const CARD_COPY = {
   fileRemember: '가져온 카드를 이 브라우저에 기억하기',
   fileNotice: '파일에는 대표자·직원 이름과 계약 조건이 들어 있습니다. 보관·전달에 주의하세요.',
   fileResult: (added: number, merged: number) => `사업장 ${added}곳을 더하고 ${merged}곳을 합쳤습니다.`,
+  fileValuesWin: '이미 있던 직원은 파일에 값이 있는 칸을 파일 값으로 바꿨습니다.',
+  fileTabOnly: '기억하기를 켜지 않아, 새로 더한 사업장의 대표자·직원 정보는 이 탭을 닫으면 사라집니다.',
   fileSkipped: (skipped: number) => `형식이 맞지 않는 사업장·직원 ${skipped}건은 건너뛰었습니다.`,
   fileInvalid: '사업장 카드 파일이 아닙니다. 「카드 파일로 내보내기」로 만든 파일을 골라 주세요.',
+  fileNewerVersion: '이 화면보다 새 버전에서 만든 카드 파일입니다. 페이지를 새로고침한 뒤 다시 가져와 주세요.',
+  fileExportTooLarge: '카드가 너무 많아 파일 하나로 내보낼 수 없습니다. 사업장 200곳·직원 5,000명·4MB 이하로 줄인 뒤 다시 내보내 주세요.',
   fileMergeNotice: '이미 있는 사업장에 합칠 때는 그 사업장의 기억하기 설정을 따릅니다. 기억하기를 켠 사업장에 합치면 이 브라우저에 남습니다.',
-  fileTooLarge: '파일이 너무 큽니다. 사업장 200곳·직원 5,000명·2MB 이하로 나누어 가져와 주세요.',
+  fileTooLarge: '파일이 너무 큽니다. 사업장 200곳·직원 5,000명·4MB 이하로 나누어 가져와 주세요.',
   fileStorageFailed: '브라우저 저장 공간이 가득 찼거나 저장이 막혀 있어 가져오지 못했습니다. 아무것도 바뀌지 않았습니다.',
   fileReadError: '파일을 읽지 못했습니다. 다시 골라 주세요.',
 } as const;
+
+/** 고른 파일을 읽기 전에 멈출 크기 */
+export const cardFileTooLarge = (bytes: number): boolean => bytes > CARD_FILE_MAX_BYTES;
+
+/** 가져오기 결과를 화면 문구로 */
+export function cardImportMessage(r: CardImportResult, remember: boolean): string {
+  if (!r.ok) {
+    if (r.problem === 'too-large') return CARD_COPY.fileTooLarge;
+    if (r.problem === 'storage') return CARD_COPY.fileStorageFailed;
+    if (r.problem === 'newer-version') return CARD_COPY.fileNewerVersion;
+    return CARD_COPY.fileInvalid;
+  }
+  return [
+    CARD_COPY.fileResult(r.added, r.merged),
+    r.merged ? CARD_COPY.fileValuesWin : '',
+    r.added && !remember ? CARD_COPY.fileTabOnly : '',
+    r.skipped ? CARD_COPY.fileSkipped(r.skipped) : '',
+  ].filter(Boolean).join(' ');
+}
 
 /** 내보낼 카드 파일 이름 — today 는 KST YYYY-MM-DD(todayKst) */
 export function cardFileName(today: string): string {
@@ -150,8 +175,8 @@ export type CardFromState =
 
 /** 지금 입력에서 카드에 넣을 값 — 사업체명·근로자 성명·계약 시작일이 있어야 한다 */
 export function cardFromState(state: WriteState): CardFromState {
-  const workplaceName = stripIdNumbers(cleanInput(state.workplaceName));
-  const employeeName = stripIdNumbers(cleanInput(state.employeeName));
+  const workplaceName = cleanCardName(state.workplaceName);
+  const employeeName = cleanCardName(state.employeeName);
   const missing: string[] = [];
   if (!workplaceName) missing.push('사업체명');
   if (!employeeName) missing.push('근로자 성명');
@@ -160,7 +185,7 @@ export function cardFromState(state: WriteState): CardFromState {
   return {
     ok: true,
     workplaceName,
-    ownerName: stripIdNumbers(cleanInput(state.ownerName)),
+    ownerName: cleanCardName(state.ownerName),
     fivePlus: state.fivePlus,
     member: { name: employeeName, hireDate: state.startDate, terms: pickTerms(state) },
   };

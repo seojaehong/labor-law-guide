@@ -245,3 +245,14 @@ describe('화면 문구 연결', () => {
     expect(FORGET_ALL_CONFIRM).toContain('사업장');
   });
 });
+
+describe('목록이 깨진 뒤 가져와도 숨은 명부 키가 남지 않는다', () => {
+  it('옛 명부 키를 지우고 가져온 사업장의 키만 남긴다', () => {
+    const old = createWorkspace('합성옛곳', 'own', true)!;
+    upsertMember(old, { name: '합성옛직원', hireDate: '2020-01-02' });
+    localData.set('work-patterns.leave.workspaces.v1', '[[[깨짐');
+    expect(importCards({ ...FILE, workspaces: [{ name: '합성새곳', kind: 'own', members: [HONG] }] }, { remember: true }).ok).toBe(true);
+    expect([...localData.values()].join('\n')).not.toContain('합성옛직원');
+    expect(getMembers(listWorkspaces()[0]).map((m) => m.name)).toEqual([HONG.name]);
+  });
+});

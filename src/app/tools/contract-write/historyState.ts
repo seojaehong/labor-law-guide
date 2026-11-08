@@ -21,7 +21,13 @@ export const HISTORY_COPY = {
   rememberOff: '이 탭을 닫으면 최근 입력이 사라집니다.',
   rememberOn: '이 브라우저에만 남습니다. 서버로 보내지 않습니다.',
   clear: '최근 입력 지우기',
+  rememberFailed: '옮기지 못해 기억하기 설정을 바꾸지 않았습니다. 최근 입력은 그대로입니다. 브라우저 저장 공간을 확인해 주세요.',
 } as const;
+
+/** 영역을 그릴지 — 이력이 없어도 기억하기가 켜져 있으면 끌 곳이 있어야 한다 */
+export function recentInputsVisible(ready: boolean, entries: number, remembered: boolean): boolean {
+  return ready && (entries > 0 || remembered);
+}
 
 export type HistoryState = Omit<WriteState, 'writtenDate'>;
 type HistoryKey = keyof HistoryState;
