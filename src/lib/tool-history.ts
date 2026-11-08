@@ -15,6 +15,8 @@ export const HISTORY_MAX = 5;
 
 const HISTORY_PREFIX = "llg.history.v1:";
 const REMEMBER_PREFIX = "llg.history.remember.v1:";
+/** 위 두 키의 공통 머리 */
+const ALL_PREFIX = "llg.history.";
 
 export type HistoryEntry = {
   /** ISO 시각 */
@@ -97,9 +99,22 @@ export function setHistoryRemember(tool: string, remember: boolean): void {
   notify();
 }
 
-/** 이 도구의 최근 입력을 두 저장소 모두에서 지운다 */
+/** 이 도구의 최근 입력을 두 저장소 모두에서 지우고 기억하기도 끈다 — 화면이 사라진 뒤 다음 입력이 조용히 브라우저에 남지 않게 */
 export function clearHistory(tool: string): void {
   remove(session(), HISTORY_PREFIX + tool);
   remove(local(), HISTORY_PREFIX + tool);
+  remove(local(), REMEMBER_PREFIX + tool);
+  notify();
+}
+
+/** 모든 도구의 최근 입력과 기억하기 설정을 지운다 — 사업장 카드의 「전부 지우기」 */
+export function forgetAllHistory(): void {
+  for (const store of [session(), local()]) {
+    if (!store) continue;
+    try {
+      const keys = Array.from({ length: store.length }, (_, i) => store.key(i));
+      for (const k of keys) if (k?.startsWith(ALL_PREFIX)) store.removeItem(k);
+    } catch { /* 무시 */ }
+  }
   notify();
 }

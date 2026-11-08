@@ -8,6 +8,7 @@ import {
   getWorkspaceDetails,
   listWorkspaces,
   pickTerms,
+  stripIdNumbers,
   updateWorkspace,
   upsertMember,
   type Workspace,
@@ -16,7 +17,7 @@ import {
 } from '@/lib/leave/leave-workspaces';
 import { cleanInput } from '@/lib/contract-write/text';
 
-import { INITIAL, type WriteState } from './formState';
+import { INITIAL, isRealDate, type WriteState } from './formState';
 
 /** 카드 영역 화면 문구 — 금지어 시험이 여기를 본다 */
 export const CARD_COPY = {
@@ -44,8 +45,11 @@ export const CARD_COPY = {
   fileRemember: '가져온 카드를 이 브라우저에 기억하기',
   fileNotice: '파일에는 대표자·직원 이름과 계약 조건이 들어 있습니다. 보관·전달에 주의하세요.',
   fileResult: (added: number, merged: number) => `사업장 ${added}곳을 더하고 ${merged}곳을 합쳤습니다.`,
-  fileSkipped: (skipped: number) => `형식이 맞지 않는 ${skipped}곳은 건너뛰었습니다.`,
+  fileSkipped: (skipped: number) => `형식이 맞지 않는 사업장·직원 ${skipped}건은 건너뛰었습니다.`,
   fileInvalid: '사업장 카드 파일이 아닙니다. 「카드 파일로 내보내기」로 만든 파일을 골라 주세요.',
+  fileMergeNotice: '이미 있는 사업장에 합칠 때는 그 사업장의 기억하기 설정을 따릅니다. 기억하기를 켠 사업장에 합치면 이 브라우저에 남습니다.',
+  fileTooLarge: '파일이 너무 큽니다. 사업장 200곳·직원 5,000명·2MB 이하로 나누어 가져와 주세요.',
+  fileStorageFailed: '브라우저 저장 공간이 가득 찼거나 저장이 막혀 있어 가져오지 못했습니다. 아무것도 바뀌지 않았습니다.',
   fileReadError: '파일을 읽지 못했습니다. 다시 골라 주세요.',
 } as const;
 
@@ -95,25 +99,23 @@ export function applyCardToState(state: WriteState, ws: Workspace | null, member
   return { ...state, ...cardPatch(ws, member, details) };
 }
 
-const DATE = /^\d{4}-\d{2}-\d{2}$/;
-
 export type CardFromState =
   | { ok: true; workplaceName: string; ownerName: string; fivePlus: WriteState['fivePlus']; member: WorkspaceMember }
   | { ok: false; reason: string };
 
 /** 지금 입력에서 카드에 넣을 값 — 사업체명·근로자 성명·계약 시작일이 있어야 한다 */
 export function cardFromState(state: WriteState): CardFromState {
-  const workplaceName = cleanInput(state.workplaceName);
-  const employeeName = cleanInput(state.employeeName);
+  const workplaceName = stripIdNumbers(cleanInput(state.workplaceName));
+  const employeeName = stripIdNumbers(cleanInput(state.employeeName));
   const missing: string[] = [];
   if (!workplaceName) missing.push('사업체명');
   if (!employeeName) missing.push('근로자 성명');
-  if (!DATE.test(state.startDate)) missing.push('계약 시작일');
+  if (!isRealDate(state.startDate)) missing.push('계약 시작일');
   if (missing.length) return { ok: false, reason: `저장하려면 넣어 주세요: ${missing.join(', ')}` };
   return {
     ok: true,
     workplaceName,
-    ownerName: cleanInput(state.ownerName),
+    ownerName: stripIdNumbers(cleanInput(state.ownerName)),
     fivePlus: state.fivePlus,
     member: { name: employeeName, hireDate: state.startDate, terms: pickTerms(state) },
   };

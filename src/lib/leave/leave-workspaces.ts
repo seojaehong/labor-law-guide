@@ -16,6 +16,9 @@
  * ★ 서버로는 어떤 경우에도 나가지 않는다. 전송 코드가 없다(테스트로 고정).
  */
 
+import { forgetAllHistory } from "../tool-history";
+import { normalizeDate } from "./leave-sheet";
+
 export const WORKSPACES_CHANGED = "work-patterns:leave-workspaces-changed";
 
 const INDEX_KEY = "work-patterns.leave.workspaces.v1";
@@ -151,6 +154,14 @@ function isMember(v: unknown): v is WorkspaceMember {
 
 const TERM_TEXT = ["monthlyTotal", "hourlyWage", "start", "end", "breakMinutes", "duty", "location"] as const;
 
+/** 주민번호·계좌·전화번호 꼴 — 숫자 10자리 이상이 하이픈으로만 이어진 덩어리. 날짜(8자리)·금액(쉼표)은 걸리지 않는다 */
+const ID_SHAPED = /\d(?:-?\d){9,}/g;
+
+/** 글자 칸 안의 번호 꼴 문자열을 뺀다 — 칸이 허용돼도 그 안에 주민번호·계좌를 저장하지 않는다 */
+export function stripIdNumbers(text: string): string {
+  return text.replace(ID_SHAPED, "").trim();
+}
+
 /**
  * 계약 조건 화이트리스트 — 이 11칸만, 타입이 맞는 것만 옮긴다. 나머지는 버린다.
  * ★ 주민번호·생년월일·주소·연락처·계좌는 칸 자체가 없어 구조상 저장되지 않는다(시험으로 고정).
@@ -163,7 +174,7 @@ export function pickTerms(v: unknown): MemberTerms {
   if (s.amountMode === "gross" || s.amountMode === "net") out.amountMode = s.amountMode;
   for (const k of TERM_TEXT) {
     const value = s[k];
-    if (typeof value === "string") out[k] = value;
+    if (typeof value === "string") out[k] = stripIdNumbers(value);
   }
   if (Array.isArray(s.workDays)) out.workDays = s.workDays.filter(isTermDay);
   if (isTermDay(s.weeklyRestDay)) out.weeklyRestDay = s.weeklyRestDay;
@@ -218,7 +229,7 @@ export function createWorkspace(
   kind: WorkspaceKind,
   remember = false
 ): Workspace | null {
-  const trimmed = name.trim();
+  const trimmed = stripIdNumbers(name);
   if (trimmed === "") return null;
   const ws: Workspace = { id: newId(), name: trimmed, kind, remember };
   if (!write(meta(), INDEX_KEY, [...listWorkspaces(), ws])) return null;
@@ -247,7 +258,7 @@ export function updateWorkspace(id: string, patch: { ownerName?: string; fivePlu
     write(meta(), INDEX_KEY, all.map((w) => (w.id === id ? { ...w, fivePlus } : w)));
   }
   if (patch.ownerName !== undefined) {
-    const owner = typeof patch.ownerName === "string" ? patch.ownerName.trim() : "";
+    const owner = typeof patch.ownerName === "string" ? stripIdNumbers(patch.ownerName) : "";
     const store = membersStore(ws);
     if (owner) write(store, DETAILS_PREFIX + id, { ownerName: owner });
     else try { store?.removeItem(DETAILS_PREFIX + id); } catch { /* 무시 */ }
@@ -328,9 +339,11 @@ export function setMembers(ws: Workspace | null, members: WorkspaceMember[]): Wo
   const kept = new Map(before.map((m) => [memberKey(m), m.terms]));
   const map = new Map<string, WorkspaceMember>();
   for (const m of members.filter(isMember)) {
-    const key = `${m.name} ${m.hireDate}`;
+    const name = stripIdNumbers(m.name);
+    if (!name) continue;
+    const key = `${name} ${m.hireDate}`;
     const terms = m.terms !== undefined ? pickTerms(m.terms) : kept.get(key);
-    map.set(key, cleanMember(m.name, m.hireDate, terms));
+    map.set(key, cleanMember(name, m.hireDate, terms));
   }
   for (const m of before) {
     if (m.terms && !map.has(memberKey(m))) map.set(memberKey(m), m);
@@ -354,7 +367,9 @@ export function upsertMember(ws: Workspace | null, member: WorkspaceMember): Wor
   if (!ws) return [];
   const current = getMembers(ws);
   if (!isMember(member)) return current;
-  const next = cleanMember(member.name, member.hireDate, pickTerms(member.terms));
+  const name = stripIdNumbers(member.name);
+  if (!name) return current;
+  const next = cleanMember(name, member.hireDate, pickTerms(member.terms));
   const key = memberKey(next);
   const list = current.some((m) => memberKey(m) === key)
     ? current.map((m) => (memberKey(m) === key ? next : m))
@@ -390,7 +405,24 @@ export type CardExport = {
   workspaces: Array<{ name: string; kind: WorkspaceKind; fivePlus?: "yes" | "no"; ownerName?: string; members: WorkspaceMember[] }>;
 };
 
-export type CardImportResult = { ok: boolean; added: number; merged: number; skipped: number };
+/** skipped = 건너뛴 사업장 + 직원. problem 이 없는 실패는 카드 파일이 아니라는 뜻이다 */
+export type CardImportResult = { ok: boolean; added: number; merged: number; skipped: number; problem?: "too-large" | "storage" };
+
+export const CARD_FILE_MAX_BYTES = 2 * 1024 * 1024;
+export const CARD_FILE_MAX_WORKSPACES = 200;
+export const CARD_FILE_MAX_MEMBERS = 5000;
+
+const TIME = /^([01]\d|2[0-3]):[0-5]\d$/;
+
+/** 가져온 계약 조건 — 값이 있고 맞는 칸만 남긴다. 비었거나 틀린 칸은 없는 것으로 봐서 이미 있는 조건을 지우지 않는다 */
+function importedTerms(v: unknown): MemberTerms {
+  const terms = pickTerms(v);
+  for (const k of TERM_TEXT) if (!terms[k]) delete terms[k];
+  if (terms.start && !TIME.test(terms.start)) delete terms.start;
+  if (terms.end && !TIME.test(terms.end)) delete terms.end;
+  if (!terms.workDays?.length) delete terms.workDays;
+  return terms;
+}
 
 /** 지금 이 브라우저에 있는 사업장 전부(기억 여부와 상관없이) */
 export function exportCards(now: Date = new Date()): CardExport {
@@ -412,47 +444,83 @@ export function exportCards(now: Date = new Date()): CardExport {
 }
 
 /**
- * 카드 파일을 가져온다. 이름이 같은 사업장은 합치고(명부 = upsertMember 규칙, 대표자·5명 이상은 파일에 값이 있을 때만 덮음)
- * 없으면 새로 만든다. 새 사업장만 `remember` 를 따르고, 이미 있는 사업장의 기억 여부와 지금 고른 사업장은 바꾸지 않는다.
- * ★ 파일의 객체를 펼쳐 넣지 않는다 — 이름을 댄 칸만 기존 검증(isWorkspace·isMember·pickTerms)을 거쳐 옮긴다.
- * 카드 파일이 아니면(kind·version·workspaces) 아무것도 바꾸지 않는다.
+ * 카드 파일을 가져온다. 이름이 같은 사업장은 합치고(대표자·5명 이상은 파일에 값이 있을 때만 덮음) 없으면 새로 만든다.
+ * 명부는 같은 사람이면 파일에 있는 칸만 바꾼다 — 부분·깨진 조건이 이미 있는 조건을 지우지 않는다.
+ * 새 사업장만 `remember` 를 따르고, 이미 있는 사업장의 기억 여부와 지금 고른 사업장은 바꾸지 않는다.
+ * ★ 파일의 객체를 펼쳐 넣지 않는다 — 이름을 댄 칸만 검증을 거쳐 옮긴다. 입사일은 달력에 있는 날짜만 받는다.
+ * 카드 파일이 아니거나 상한을 넘으면 아무것도 바꾸지 않는다. 저장이 실패하면 쓴 것을 되돌린다 — 일부만 들어가지 않는다.
  */
 export function importCards(json: unknown, { remember }: { remember: boolean }): CardImportResult {
+  const refused = (problem?: CardImportResult["problem"]): CardImportResult => ({ ok: false, added: 0, merged: 0, skipped: 0, ...(problem ? { problem } : {}) });
   let data = json;
   if (typeof data === "string") {
+    if (data.length > CARD_FILE_MAX_BYTES) return refused("too-large");
     try { data = JSON.parse(data); } catch { data = null; }
   }
   const file = typeof data === "object" && data !== null && !Array.isArray(data) ? (data as Record<string, unknown>) : null;
-  if (!file || file.kind !== CARD_FILE_KIND || file.version !== 1 || !Array.isArray(file.workspaces)) {
-    return { ok: false, added: 0, merged: 0, skipped: 0 };
-  }
+  if (!file || file.kind !== CARD_FILE_KIND || file.version !== 1 || !Array.isArray(file.workspaces)) return refused();
+  const entries = file.workspaces.map((entry: unknown) => (typeof entry === "object" && entry !== null ? (entry as Record<string, unknown>) : {}));
+  const memberCount = entries.reduce((n, e) => n + (Array.isArray(e.members) ? e.members.length : 0), 0);
+  if (entries.length > CARD_FILE_MAX_WORKSPACES || memberCount > CARD_FILE_MAX_MEMBERS) return refused("too-large");
+
   const result: CardImportResult = { ok: true, added: 0, merged: 0, skipped: 0 };
-  for (const entry of file.workspaces as unknown[]) {
-    const e = typeof entry === "object" && entry !== null ? (entry as Record<string, unknown>) : {};
-    const name = typeof e.name === "string" ? e.name.trim() : "";
+  const index = listWorkspaces();
+  const plans = new Map<string, { ws: Workspace; members: Map<string, WorkspaceMember>; owner: string }>();
+  for (const e of entries) {
+    const name = typeof e.name === "string" ? stripIdNumbers(e.name) : "";
     const candidate = { id: "import", name, kind: e.kind, remember, fivePlus: e.fivePlus };
     if (!isWorkspace(candidate)) {
       result.skipped += 1;
       continue;
     }
-    let target = listWorkspaces().find((w) => w.name === name);
-    if (target) {
+    let at = index.findIndex((w) => w.name === name);
+    if (at >= 0) {
       result.merged += 1;
     } else {
-      target = { id: newId(), name, kind: candidate.kind, remember };
-      write(meta(), INDEX_KEY, [...listWorkspaces(), target]);
+      at = index.push({ id: newId(), name, kind: candidate.kind, remember }) - 1;
       result.added += 1;
     }
-    const owner = typeof e.ownerName === "string" ? e.ownerName.trim() : "";
-    updateWorkspace(target.id, { ...(owner ? { ownerName: owner } : {}), ...(candidate.fivePlus ? { fivePlus: candidate.fivePlus } : {}) });
-    for (const m of Array.isArray(e.members) ? e.members : []) {
-      if (typeof m !== "object" || m === null) continue;
-      const r = m as Record<string, unknown>;
-      // 파일에 계약 조건이 없는 사람은 이미 있는 조건을 지우지 않는다(손으로 고친 파일 대비)
-      const exists = getMembers(target).some((x) => x.name === r.name && x.hireDate === r.hireDate);
-      if (exists && Object.keys(pickTerms(r.terms)).length === 0) continue;
-      upsertMember(target, { name: r.name, hireDate: r.hireDate, terms: r.terms } as WorkspaceMember);
+    if (candidate.fivePlus) index[at] = { ...index[at], fivePlus: candidate.fivePlus };
+    const ws = index[at];
+    let plan = plans.get(ws.id);
+    if (!plan) {
+      plan = { ws, members: new Map(getMembers(ws).map((m) => [memberKey(m), m])), owner: "" };
+      plans.set(ws.id, plan);
     }
+    const owner = typeof e.ownerName === "string" ? stripIdNumbers(e.ownerName) : "";
+    if (owner) plan.owner = owner;
+    for (const m of Array.isArray(e.members) ? e.members : []) {
+      const r = typeof m === "object" && m !== null ? (m as Record<string, unknown>) : {};
+      const memberName = typeof r.name === "string" ? stripIdNumbers(r.name) : "";
+      if (!memberName || typeof r.hireDate !== "string" || normalizeDate(r.hireDate) !== r.hireDate) {
+        result.skipped += 1;
+        continue;
+      }
+      const key = `${memberName} ${r.hireDate}`;
+      plan.members.set(key, cleanMember(memberName, r.hireDate, { ...plan.members.get(key)?.terms, ...importedTerms(r.terms) }));
+    }
+  }
+
+  const undo: Array<() => void> = [];
+  const put = (store: Storage | null, key: string, value: unknown): boolean => {
+    const before = store?.getItem(key) ?? null;
+    if (!write(store, key, value)) return false;
+    undo.push(() => {
+      try {
+        if (before === null) store?.removeItem(key);
+        else store?.setItem(key, before);
+      } catch { /* 무시 */ }
+    });
+    return true;
+  };
+  let saved = true;
+  for (const { ws, members, owner } of plans.values()) {
+    saved = (members.size === 0 || put(membersStore(ws), MEMBERS_PREFIX + ws.id, [...members.values()])) && (!owner || put(membersStore(ws), DETAILS_PREFIX + ws.id, { ownerName: owner }));
+    if (!saved) break;
+  }
+  if (!saved || !put(meta(), INDEX_KEY, index)) {
+    undo.reverse().forEach((restore) => restore());
+    return refused("storage");
   }
   notify();
   return result;
@@ -461,6 +529,7 @@ export function importCards(json: unknown, { remember }: { remember: boolean }):
 /** 이 브라우저에 남아 있는 것을 전부 지운다 — 공용 PC 에서 쓰는 비상 버튼. */
 export function forgetEverything(): void {
   for (const store of [session(), local()]) removeByPrefix(store, MEMBERS_PREFIX, DETAILS_PREFIX);
+  forgetAllHistory();
   try {
     meta()?.removeItem(INDEX_KEY);
     meta()?.removeItem(ACTIVE_KEY);

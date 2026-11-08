@@ -177,7 +177,7 @@ export function LeaveInput() {
     const expected = setMembers(ws, members);
     const stored = getMembers(ws);
     const onScreen = new Set(members.map((m) => `${m.name} ${m.hireDate}`));
-    const outside = stored.filter((m) => !onScreen.has(memberKey(m)));
+    const outside = stored.filter((m) => m.terms && !onScreen.has(memberKey(m)));
     setKeptOutside(outside);
     setRosterSavedCount(ws && JSON.stringify(stored) === JSON.stringify(expected) ? stored.length - outside.length : null);
   }, [rows, ws]);

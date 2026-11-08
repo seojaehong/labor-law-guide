@@ -5,6 +5,7 @@
 
 import { ITEM_LABEL, type ItemKey } from '@/lib/contract-write/design';
 import { cleanInput } from '@/lib/contract-write/text';
+import { stripIdNumbers } from '@/lib/leave/leave-workspaces';
 
 import { INITIAL, WEEK_DAYS, type WriteState } from './formState';
 
@@ -50,20 +51,20 @@ export function toHistoryState(s: WriteState): HistoryState {
   const out: Record<string, unknown> = {};
   for (const k of HISTORY_KEYS) {
     const v = s[k];
-    out[k] = Array.isArray(v) ? [...v] : v;
+    out[k] = Array.isArray(v) ? [...v] : stripIdNumbers(v);
   }
   return out as HistoryState;
 }
 
 /** 목록에 보일 이름표 */
 export function historyLabel(s: WriteState): string {
-  return `${cleanInput(s.employeeName) || '이름 없음'} · ${s.startDate} · ${cleanInput(s.workplaceName)}`;
+  return stripIdNumbers(`${cleanInput(s.employeeName) || '이름 없음'} · ${s.startDate} · ${cleanInput(s.workplaceName)}`);
 }
 
 /** 저장 시각(ISO) → 한국 시각 「YYYY-MM-DD HH:mm」. 읽을 수 없으면 빈 문자열 */
 export function savedAtText(iso: string): string {
-  const t = Date.parse(iso);
-  return Number.isFinite(t) ? new Date(t + 9 * 3_600_000).toISOString().slice(0, 16).replace('T', ' ') : '';
+  const kst = new Date(Date.parse(iso) + 9 * 3_600_000);
+  return Number.isNaN(kst.getTime()) ? '' : kst.toISOString().slice(0, 16).replace('T', ' ');
 }
 
 /**

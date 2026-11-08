@@ -7,12 +7,15 @@
 import { useState } from 'react';
 
 import { CARD_COPY, cardFileName } from '@/app/tools/contract-write/cardState';
-import { exportCards, importCards } from '@/lib/leave/leave-workspaces';
+import { CARD_FILE_MAX_BYTES, exportCards, importCards, type CardImportResult } from '@/lib/leave/leave-workspaces';
 import { todayKst } from '@/lib/tool-kit';
 import { download } from '@/lib/tool-kit/download';
 
 const secondary: React.CSSProperties = { color: 'var(--color-text-secondary)' };
 const buttonClass = 'inline-flex min-h-[44px] cursor-pointer items-center justify-center rounded-md border px-4 py-2 text-sm font-semibold disabled:opacity-60';
+
+const importFailure = (problem: CardImportResult['problem']) =>
+  problem === 'too-large' ? CARD_COPY.fileTooLarge : problem === 'storage' ? CARD_COPY.fileStorageFailed : CARD_COPY.fileInvalid;
 
 export function CardFileTools({ hasCards }: { hasCards: boolean }) {
   const [remember, setRemember] = useState(false);
@@ -28,10 +31,11 @@ export function CardFileTools({ hasCards }: { hasCards: boolean }) {
     const file = input.files?.[0];
     input.value = ''; // 같은 파일을 다시 골라도 읽게
     if (!file) return;
+    if (file.size > CARD_FILE_MAX_BYTES) return setMessage(CARD_COPY.fileTooLarge);
     const reader = new FileReader();
     reader.onload = () => {
       const r = importCards(typeof reader.result === 'string' ? reader.result : null, { remember });
-      if (!r.ok) return setMessage(CARD_COPY.fileInvalid);
+      if (!r.ok) return setMessage(importFailure(r.problem));
       setMessage([CARD_COPY.fileResult(r.added, r.merged), r.skipped ? CARD_COPY.fileSkipped(r.skipped) : ''].filter(Boolean).join(' '));
     };
     reader.onerror = () => setMessage(CARD_COPY.fileReadError);
@@ -54,7 +58,7 @@ export function CardFileTools({ hasCards }: { hasCards: boolean }) {
         </label>
       </div>
       <p className="text-xs" style={secondary}>
-        {CARD_COPY.fileNotice}
+        {CARD_COPY.fileNotice} {CARD_COPY.fileMergeNotice}
       </p>
       {message && <p role="status">{message}</p>}
     </div>
