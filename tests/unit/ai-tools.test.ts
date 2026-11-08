@@ -88,6 +88,28 @@ describe('AI 연결 도구 목록', () => {
     expect(fs.readFileSync('tools/k-labor/README.md', 'utf8')).not.toMatch(/아직 npm 에 올리지/);
   });
 
+  // AI 가 사이트를 읽는 입구(llms.txt·agent-card·WebMCP)도 화면과 같은 말을 쓴다 — 「AI 상담」「자가진단」은 화면에서 이미 뺐다.
+  it('AI 입구 파일에 금지어와 옛 도메인이 없다', () => {
+    const files = ['public/llms.txt', 'public/llms-full.txt', 'public/.well-known/agent-card.json'];
+    for (const f of files) {
+      const s = fs.readFileSync(f, 'utf8');
+      expect(bannedHits(s), f).toEqual([]);
+      expect(s, f).not.toMatch(/xn--o80bk8isxeinax68f/);
+    }
+    const card = JSON.parse(fs.readFileSync('public/.well-known/agent-card.json', 'utf8'));
+    expect(card.url).toBe('https://yellowenvelope.kr');
+    expect(card.supportedInterfaces).toBeUndefined();
+    expect(card.skills.map((s: { id: string }) => s.id)).not.toContain('ai-consultation');
+  });
+
+  it('WebMCP 도구 등록에 금지어가 없고 옛 「ai-consultation」 이름을 쓰지 않는다', () => {
+    const layout = fs.readFileSync('src/app/layout.tsx', 'utf8');
+    const block = layout.match(/id="webmcp-init"[\s\S]*?<\/Script>/)?.[0] ?? '';
+    expect(block).toContain('provideContext');
+    expect(bannedHits(block)).toEqual([]);
+    expect(block).not.toContain('ai-consultation');
+  });
+
   it('사이트맵에 들어간다', () => {
     const src = fs.readFileSync('src/app/sitemap/[id]/route.ts', 'utf8');
     expect(src).toContain('${SITE_URL}/ai-tools`');
