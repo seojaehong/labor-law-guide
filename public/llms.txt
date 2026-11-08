@@ -10,7 +10,7 @@
 - [점검 체크리스트](https://yellowenvelope.kr/checklist): 약식(체크박스)·심층(18항목 4단계) 2-트랙 사용자성·교섭 의무 점검
 - [교섭절차](https://yellowenvelope.kr/manual): 원·하청 교섭절차 6단계 매뉴얼
 - [핵심판례](https://yellowenvelope.kr/cases): 사용자성 판단 핵심 판례 6건 쟁점별 정리
-- [판례·행정해석](https://yellowenvelope.kr/decisions): 판례 2,900+건, 행정해석 890+건 통합검색
+- [판례·행정해석](https://yellowenvelope.kr/decisions): 판례·행정해석 통합검색
 - [계산·점검 도구](https://yellowenvelope.kr/tools): 퇴직금·연차·주휴수당·최저임금 등 계산기와 근로계약서·취업규칙 점검
 - [법령 개정](https://yellowenvelope.kr/laws): 노동법 개정·시행 예정 목록
 - [뉴스](https://yellowenvelope.kr/news): 노란봉투법 관련 최신 뉴스
