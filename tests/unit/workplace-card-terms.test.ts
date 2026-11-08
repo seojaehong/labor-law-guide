@@ -58,11 +58,11 @@ const docOf = (s: WriteState) => {
   return buildContractDocument(form, designFromForm(form));
 };
 
-/** 화면이 하는 순서 그대로 — 새 화면에서 사업장을 고르고 직원을 고른다. 카드에 없는 작성일·지급일·지급방법은 그 화면 값이 그대로다 */
+/** 화면이 하는 순서 그대로 — 새 화면에서 사업장을 고르고 직원을 고른다. 카드에 없는 작성일만 그 화면 값이 그대로다 */
 function loadFresh(saved: WriteState): WriteState {
   const [ws] = listWorkspaces();
   const [member] = getMembers(ws);
-  const fresh: WriteState = { ...INITIAL, writtenDate: saved.writtenDate, payday: saved.payday, paymentMethod: saved.paymentMethod };
+  const fresh: WriteState = { ...INITIAL, writtenDate: saved.writtenDate };
   return { ...fresh, ...cardPatch(ws, null, getWorkspaceDetails(ws)), ...cardPatch(null, member) };
 }
 
@@ -90,7 +90,7 @@ describe('저장했다 불러와도 계약서가 그대로다', () => {
   });
 
   it('입력 칸은 전부 저장하거나 저장하지 않는다고 정해져 있다 — 칸이 늘면 여기서 멈춘다', () => {
-    const notTerms: (keyof WriteState)[] = ['workplaceName', 'ownerName', 'fivePlus', 'employeeName', 'writtenDate', 'payday', 'paymentMethod', 'netPay', 'family'];
+    const notTerms: (keyof WriteState)[] = ['workplaceName', 'ownerName', 'fivePlus', 'employeeName', 'writtenDate', 'netPay', 'family'];
     expect([...Object.keys(pickTerms(INITIAL)), ...notTerms].sort()).toEqual(Object.keys(INITIAL).sort());
   });
 
@@ -106,7 +106,7 @@ describe('저장했다 불러와도 계약서가 그대로다', () => {
     const [withTerms, plain] = getMembers(ws);
     expect(withTerms).toEqual({ name: '옛직원', hireDate: '2024-01-02', terms: old });
     expect(plain).toEqual({ name: '옛연차', hireDate: '2020-05-06' });
-    expect(cardPatch(null, withTerms)).toMatchObject({ hourlyWage: '13,000', startDate: '2024-01-02', endDate: INITIAL.endDate, probation: INITIAL.probation, rounding: INITIAL.rounding });
+    expect(cardPatch(null, withTerms)).toMatchObject({ hourlyWage: '13,000', startDate: '2024-01-02', endDate: INITIAL.endDate, probation: INITIAL.probation, rounding: INITIAL.rounding, payday: INITIAL.payday, paymentMethod: INITIAL.paymentMethod });
   });
 });
 
@@ -248,12 +248,81 @@ describe('이름·시작일이 같은 다른 조건을 몰래 덮지 않는다',
     const c = cardFromState(FIRST);
     expect(c.ok && c.member.terms?.startDate).toBe('2026-03-01');
   });
+
+  it('지급일만 다른 줄도 다른 조건이다 — 몰래 덮지 않는다', () => {
+    expect(saveCardFromState(FIRST, null).ok).toBe(true);
+    const r = saveCardFromState({ ...FIRST, payday: '매월 5일' }, null);
+    expect(r.ok).toBe(false);
+    expect(!r.ok && r.kind).toBe('conflict');
+  });
+});
+
+describe('명부에 없는 사람의 입사일은 계약 시작일로 적었다고 말한다', () => {
+  const FIRST: WriteState = { ...MONTHLY, employeeName: '합성동명' };
+  const hinted = (r: ReturnType<typeof saveCardFromState>) => r.ok && r.message.includes(CARD_COPY.hireFromStart(FIRST.startDate));
+
+  it('안내가 그 날짜와 고칠 곳을 말한다', () => {
+    expect(CARD_COPY.hireFromStart('2026-03-01')).toContain('2026-03-01');
+    expect(CARD_COPY.hireFromStart('2026-03-01')).toContain('연차');
+  });
+
+  it('새 사람을 저장하면 시작일이 입사일로 기록됐다고 알린다', () => {
+    const r = saveCardFromState(FIRST, null);
+    expect(hinted(r)).toBe(true);
+    expect(getMembers(listWorkspaces()[0])[0].hireDate).toBe(FIRST.startDate);
+  });
+
+  it('이름만 같은 사람과 다른 줄로 저장해도 알린다', () => {
+    const ws = createWorkspace(FIRST.workplaceName, 'own')!;
+    setMembers(ws, [{ name: FIRST.employeeName, hireDate: '2019-03-02' }]);
+    expect(hinted(saveCardFromState(FIRST, null))).toBe(true);
+  });
+
+  it('명부의 같은 사람에게 넣으면 입사일을 건드리지 않았으니 알리지 않는다', () => {
+    const ws = createWorkspace(FIRST.workplaceName, 'own')!;
+    setMembers(ws, [{ name: FIRST.employeeName, hireDate: FIRST.startDate }]);
+    expect(hinted(saveCardFromState(FIRST, null))).toBe(false);
+  });
+
+  it('명부에서 고른 사람을 저장하면 입사일을 지키니 알리지 않는다', () => {
+    const ws = createWorkspace(FIRST.workplaceName, 'own')!;
+    setMembers(ws, [{ name: FIRST.employeeName, hireDate: '2019-03-02' }]);
+    const r = saveCardFromState(FIRST, ws.id, `${FIRST.employeeName} 2019-03-02`);
+    expect(r.ok && r.message).not.toContain('입사일');
+  });
 });
 
 describe('사업장을 옮길 때 앞 사람 값이 남지 않는다', () => {
   const NEXT: Workspace = { id: 'w2', name: '합성다음곳', kind: 'own', remember: false, fivePlus: 'yes' };
   const HONG = { name: '합성홍', hireDate: '2026-03-01', terms: { monthlyTotal: '2,600,000', location: '합성본점', duty: '홀' } };
   const apply = (s: WriteState, p: Partial<WriteState>): WriteState => ({ ...s, ...p });
+
+  it('불러온 직원 칸을 비우면 비웠다고 말한다 — 직접 고친 값도 함께 비워진다', () => {
+    const picked = selectMember(HONG, NO_ORIGIN);
+    const form = apply(INITIAL, { ...picked.patch, overtimeHours: '12' });
+    const r = selectWorkspace(form, NEXT, {}, picked.origin);
+    expect(apply(form, r.patch)).toMatchObject({ employeeName: '', monthlyTotal: '', overtimeHours: INITIAL.overtimeHours });
+    expect(r.notice).toContain(CARD_COPY.employeeCleared);
+    expect(CARD_COPY.employeeCleared).toMatch(/직접 고친 값/);
+  });
+
+  it('비운 안내와 5명 이상 여부 안내를 함께 낸다', () => {
+    const picked = selectMember(HONG, NO_ORIGIN);
+    const form = apply(INITIAL, picked.patch);
+    const r = selectWorkspace(form, { ...NEXT, fivePlus: undefined }, {}, picked.origin);
+    expect(r.notice).toContain(CARD_COPY.employeeCleared);
+    expect(r.notice).toContain(CARD_COPY.fivePlusAsIs);
+  });
+
+  it('비울 것이 없으면 비웠다고 말하지 않는다', () => {
+    const r = selectWorkspace(MONTHLY, NEXT, {}, NO_ORIGIN);
+    expect(r.notice).toBeNull();
+  });
+
+  it('지급일·지급방법도 직원 칸이다 — 다음 사업장으로 넘어가지 않는다', () => {
+    const switched = apply(MONTHLY, selectWorkspace(MONTHLY, NEXT, {}, originAfterSave(MONTHLY)).patch);
+    expect(switched).toMatchObject({ payday: INITIAL.payday, paymentMethod: INITIAL.paymentMethod, writtenDate: MONTHLY.writtenDate });
+  });
 
   it('직원을 고른 뒤 「직원 고르기」로 되돌리고 사업장을 옮겨도 앞 직원 값을 비운다', () => {
     const picked = selectMember(HONG, NO_ORIGIN);

@@ -6,7 +6,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { CARD_COPY, saveCardFromState } from '@/app/tools/contract-write/cardState';
 import { INITIAL, type WriteState } from '@/app/tools/contract-write/formState';
-import { createWorkspace, deleteWorkspace, forgetEverything, getMembers, getWorkspaceDetails, listWorkspaces, removeMembers, setRemember, updateWorkspace, upsertMember } from '@/lib/leave/leave-workspaces';
+import { createWorkspace, deleteWorkspace, forgetEverything, getMembers, getWorkspaceDetails, listWorkspaces, removeMembers, renameWorkspace, setRemember, updateWorkspace, upsertMember } from '@/lib/leave/leave-workspaces';
 
 const localData = new Map<string, string>();
 const sessionData = new Map<string, string>();
@@ -193,8 +193,10 @@ describe('전부 지우기·안내', () => {
   });
 });
 
-describe('목록에서 사라진 사업장의 명부가 숨어 남지 않는다', () => {
+describe('목록을 믿을 수 있을 때만 목록에 없는 사업장의 키를 치운다', () => {
   const keysOf = (id: string) => allKeys().filter((k) => k.endsWith(`:${id}`));
+  const rosterOf = (id: string) =>
+    [...localData.entries(), ...sessionData.entries()].filter(([k]) => k.endsWith(`:${id}`)).sort();
 
   function seeded(remember: boolean) {
     const ws = createWorkspace('합성옛곳', 'own', remember)!;
@@ -203,23 +205,127 @@ describe('목록에서 사라진 사업장의 명부가 숨어 남지 않는다'
     return ws;
   }
 
-  it.each([[true], [false]])('목록이 깨진 뒤 저장하면 옛 명부·대표자 키를 지운다(기억하기 %s)', (remember) => {
-    const old = seeded(remember);
-    localData.set(INDEX, '[[[깨짐');
-    expect(saveCardFromState(STATE, null).ok).toBe(true);
-    expect(keysOf(old.id)).toEqual([]);
-    expect([...localData.values(), ...sessionData.values()].join('\n')).not.toContain('합성옛직원');
+  it('온전한 목록에 없는 id 의 명부·대표자 키는 치우고 목록에 있는 사업장은 지킨다', () => {
+    const alive = seeded(true);
+    localData.set('work-patterns.leave.members.v1:ghost', '[{"name":"합성숨은직원","hireDate":"2020-01-02"}]');
+    sessionData.set('work-patterns.leave.details.v1:ghost', '{"ownerName":"합성숨은대표"}');
+    expect(createWorkspace('합성새곳', 'own')).not.toBeNull();
+    expect(keysOf('ghost')).toEqual([]);
+    expect(getMembers(alive).map((m) => m.name)).toEqual(['합성옛직원']);
   });
 
-  it('목록의 한 항목만 깨졌으면 그 사업장의 키만 지우고 나머지는 지킨다', () => {
-    const broken = seeded(true);
+  it('처음 쓰는 브라우저는 온전한 목록으로 시작한다 — 숨은 키가 뒤에 생겨도 치운다', () => {
+    const first = createWorkspace('합성첫곳', 'own')!;
+    sessionData.set('work-patterns.leave.members.v1:ghost', '[]');
+    renameWorkspace(first.id, '합성첫곳2');
+    expect(keysOf('ghost')).toEqual([]);
+  });
+
+  describe.each([
+    ['JSON 이 아닌 글자', 'not json'],
+    ['깨진 JSON', '[[[깨짐'],
+    ['배열이 아닌 객체', '{"a":1}'],
+    ['null', 'null'],
+    ['빈 글자', ''],
+  ])('목록이 %s 이면', (_label, damaged) => {
+    it.each([[true], [false]])('새 사업장을 만들고 또 써도 옛 명부·대표자가 글자 그대로 남는다(기억하기 %s)', (remember) => {
+      const old = seeded(remember);
+      const before = rosterOf(old.id);
+      localData.set(INDEX, damaged);
+      const made = createWorkspace('합성새곳', 'own')!;
+      expect(rosterOf(old.id)).toEqual(before);
+      renameWorkspace(made.id, '합성새곳2');
+      updateWorkspace(made.id, { fivePlus: 'no' });
+      expect(createWorkspace('합성또곳', 'own')).not.toBeNull();
+      expect(rosterOf(old.id)).toEqual(before);
+    });
+  });
+
+  it.each([[true], [false]])('목록이 깨진 뒤 카드를 저장해도 옛 명부·대표자가 남는다(기억하기 %s)', (remember) => {
+    const old = seeded(remember);
+    const before = rosterOf(old.id);
+    localData.set(INDEX, '[[[깨짐');
+    expect(saveCardFromState(STATE, null).ok).toBe(true);
+    expect(rosterOf(old.id)).toEqual(before);
+  });
+
+  it('모르는 kind 항목의 명부는 다른 사업장 이름을 몇 번 바꿔도 남는다', () => {
+    const franchise = seeded(true);
     const alive = createWorkspace('합성산곳', 'own', true)!;
     upsertMember(alive, { name: '합성산직원', hireDate: '2021-01-02' });
+    const before = rosterOf(franchise.id);
+    const list = JSON.parse(localData.get(INDEX)!) as Array<Record<string, unknown>>;
+    localData.set(INDEX, JSON.stringify(list.map((w) => (w.id === franchise.id ? { ...w, kind: 'franchise' } : w))));
+    renameWorkspace(alive.id, '합성산곳2');
+    expect(rosterOf(franchise.id)).toEqual(before);
+    renameWorkspace(alive.id, '합성산곳3');
+    expect(rosterOf(franchise.id)).toEqual(before);
+    expect(getMembers(listWorkspaces()[0]).map((m) => m.name)).toEqual(['합성산직원']);
+  });
+
+  it('목록의 한 항목만 깨졌어도 그 사업장의 키를 지우지 않는다', () => {
+    const broken = seeded(true);
+    const before = rosterOf(broken.id);
     const list = JSON.parse(localData.get(INDEX)!) as Array<Record<string, unknown>>;
     localData.set(INDEX, JSON.stringify(list.map((w) => (w.id === broken.id ? { ...w, name: '' } : w))));
-    expect(createWorkspace('합성새곳', 'own')).not.toBeNull();
-    expect(keysOf(broken.id)).toEqual([]);
-    expect(getMembers(alive).map((m) => m.name)).toEqual(['합성산직원']);
+    const made = createWorkspace('합성새곳', 'own')!;
+    renameWorkspace(made.id, '합성새곳2');
+    expect(rosterOf(broken.id)).toEqual(before);
+  });
+
+  it('5명 이상 여부가 모르는 값인 항목은 깨진 것이 아니다 — 숨은 키는 그대로 치운다', () => {
+    const ws = createWorkspace('합성옛곳', 'own')!;
+    const list = JSON.parse(localData.get(INDEX)!) as Array<Record<string, unknown>>;
+    localData.set(INDEX, JSON.stringify(list.map((w) => ({ ...w, fivePlus: 'maybe' }))));
+    sessionData.set('work-patterns.leave.members.v1:ghost', '[]');
+    renameWorkspace(ws.id, '합성옛곳2');
+    expect(keysOf('ghost')).toEqual([]);
+  });
+
+  it('목록 키 자체가 없는데 명부가 있으면 지우지 않는다', () => {
+    const old = seeded(true);
+    const before = rosterOf(old.id);
+    localData.delete(INDEX);
+    const made = createWorkspace('합성새곳', 'own')!;
+    renameWorkspace(made.id, '합성새곳2');
+    expect(rosterOf(old.id)).toEqual(before);
+  });
+
+  it('손상을 기록하지 못하면 목록도 덮어쓰지 않는다 — 다음 저장에서 명부를 지우지 않게', () => {
+    const old = seeded(true);
+    const before = rosterOf(old.id);
+    localData.set(INDEX, '[[[깨짐');
+    refuse = (s, k) => s === 'local' && k !== INDEX;
+    expect(createWorkspace('합성새곳', 'own')).toBeNull();
+    expect(localData.get(INDEX)).toBe('[[[깨짐');
+    refuse = null;
+    expect(rosterOf(old.id)).toEqual(before);
+  });
+
+  it('목록이 손상된 뒤에도 지운 사업장의 명부·대표자는 사라지고, 다른 키는 남는다', () => {
+    const hidden = seeded(true);
+    const hiddenBefore = rosterOf(hidden.id);
+    const target = createWorkspace('합성지울곳', 'own', true)!;
+    updateWorkspace(target.id, { ownerName: '합성지울대표' });
+    upsertMember(target, { name: '합성지울직원', hireDate: '2021-01-02' });
+    const list = JSON.parse(localData.get(INDEX)!) as Array<Record<string, unknown>>;
+    localData.set(INDEX, JSON.stringify(list.map((w) => (w.id === hidden.id ? { ...w, kind: 'franchise' } : w))));
+    expect(deleteWorkspace(target.id)).toBe(true);
+    expect(keysOf(target.id)).toEqual([]);
+    expect(rosterOf(hidden.id)).toEqual(hiddenBefore);
+  });
+
+  it('전부 지우기는 남겨 둔 키까지 지우고, 그 뒤로는 숨은 키를 다시 치운다', () => {
+    const old = seeded(true);
+    localData.set(INDEX, '[[[깨짐');
+    createWorkspace('합성새곳', 'own');
+    forgetEverything();
+    expect(keysOf(old.id)).toEqual([]);
+    expect(allKeys()).toEqual([]);
+    const next = createWorkspace('합성다음곳', 'own')!;
+    sessionData.set('work-patterns.leave.members.v1:ghost', '[]');
+    renameWorkspace(next.id, '합성다음곳2');
+    expect(keysOf('ghost')).toEqual([]);
   });
 
   it('목록을 못 쓰면 아무 키도 지우지 않는다', () => {
@@ -281,7 +387,8 @@ describe('화면과 처리방침이 저장 범위를 사실대로 말한다', ()
   });
 
   it('저장하지 않는 칸을 이름으로 말한다', () => {
-    for (const label of ['실수령액', '공제대상가족 수', '작성일', '지급일', '지급방법']) expect(CARD_COPY.intro).toContain(label);
+    for (const label of ['실수령액', '공제대상가족 수', '작성일']) expect(CARD_COPY.intro).toContain(label);
+    expect(CARD_COPY.intro).not.toMatch(/지급일|지급방법/);
   });
 
   it('실수령액으로 넣고 저장하면 저장 안내에 그 사실을 덧붙인다', () => {

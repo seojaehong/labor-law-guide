@@ -33,14 +33,21 @@ export function normalizeDate(text: string): string | null {
   return iso;
 }
 
+/** 탭이 있으면 탭으로만 나눈다 — 엑셀 복사와 명부 표시가 탭이고, 이름에 쉼표·겹빈칸이 있을 수 있다(NGUYEN, VAN A) */
+function splitColumns(line: string): string[] {
+  return (line.includes("\t") ? line.split("\t") : line.split(/,|\s{2,}/)).map((c) => c.trim()).filter(Boolean);
+}
+
+/** 붙여넣기도 엑셀 올리기와 같이 첫 줄의 제목을 건너뛴다 — 제목줄이 읽지 못한 줄로 남으면 명부 저장 전체가 멈춘다 */
 export function parseLines(text: string): ParsedRow[] {
-  return text
+  const lines = text
     .split(/\r?\n/)
     .map((l) => l.trim())
-    .filter(Boolean)
+    .filter(Boolean);
+  return lines
+    .slice(looksLikeHeader(lines.slice(0, 1).map(splitColumns)) ? 1 : 0)
     .map((line) => {
-      // 탭이 있으면 탭으로만 나눈다 — 엑셀 복사와 명부 표시가 탭이고, 이름에 쉼표·겹빈칸이 있을 수 있다(NGUYEN, VAN A)
-      const cols = (line.includes("\t") ? line.split("\t") : line.split(/,|\s{2,}/)).map((c) => c.trim()).filter(Boolean);
+      const cols = splitColumns(line);
       if (cols.length < 2) {
         return { name: cols[0] ?? "", hireDate: "", recordedDays: null, raw: line,
                  error: "이름과 입사일이 필요합니다" };

@@ -24,6 +24,8 @@ export const WORKSPACES_CHANGED = "work-patterns:leave-workspaces-changed";
 
 const INDEX_KEY = "work-patterns.leave.workspaces.v1";
 const ACTIVE_KEY = "work-patterns.leave.workspace.active.v1";
+/** 목록이 손상된 적이 있다는 표시 — 사람 정보가 없다 */
+const INDEX_DAMAGED_KEY = "work-patterns.leave.workspaces.damaged.v1";
 const MEMBERS_PREFIX = "work-patterns.leave.members.v1:";
 /** 사업장 대표자 등 — 명부와 같은 저장소 */
 const DETAILS_PREFIX = "work-patterns.leave.details.v1:";
@@ -56,7 +58,7 @@ const isTermDay = (v: unknown): v is TermDay => typeof v === "string" && (TERM_D
 /** 계약서에 쓰는 글자 칸. startDate = 이 계약의 시작일(입사일 hireDate 와 다를 수 있다) */
 const TERM_TEXT = [
   "startDate", "endDate", "probationMonths", "monthlyTotal", "hourlyWage", "start", "end", "breakMinutes",
-  "holidayDaysPerYear", "overtimeHours", "holidayHours", "leaveHours", "duty", "location",
+  "holidayDaysPerYear", "overtimeHours", "holidayHours", "leaveHours", "duty", "location", "payday", "paymentMethod",
 ] as const;
 
 /** 정해진 값만 받는 칸 */
@@ -129,31 +131,59 @@ function write(store: Storage | null, key: string, value: unknown): boolean {
     return false;
   }
 }
+function storedKeys(store: Storage | null): string[] {
+  if (!store) return [];
+  return Array.from({ length: store.length }, (_, i) => store.key(i)).filter((k) => k !== null);
+}
 function removeKeys(store: Storage | null, matches: (key: string) => boolean): void {
   if (!store) return;
   try {
-    const keys = Array.from({ length: store.length }, (_, i) => store.key(i));
-    for (const k of keys) if (k && matches(k)) store.removeItem(k);
+    for (const k of storedKeys(store)) if (matches(k)) store.removeItem(k);
   } catch { /* 무시 */ }
 }
 /** 사업장별 저장 키 — 목록에 없는 id 의 키는 화면에서 볼 수도 지울 수도 없다 */
 const PER_WORKSPACE = [MEMBERS_PREFIX, DETAILS_PREFIX];
+const isPerWorkspaceKey = (key: string) => PER_WORKSPACE.some((p) => key.startsWith(p));
+
 /**
- * 사업장 목록을 쓰고, 목록에 없는 사업장의 명부·대표자 키를 두 저장소에서 지운다.
- * 목록이 깨져 사라진 사업장의 명부는 이름을 되찾을 길이 없다. 사람 정보를 보이지 않게 남겨 두지 않는다. 목록을 못 썼으면 아무것도 지우지 않는다.
+ * 저장된 목록이 명부 키의 주인을 다 말해 주는가 — 읽히는 배열이고 버려진 항목이 없어야 한다.
+ * 목록 키가 없으면 명부 키도 없어야 온전하다(처음 쓰는 브라우저). 정상 경로의 삭제는 빈 배열을 남기고 키를 없애지 않는다.
  */
-function writeIndex(list: Workspace[]): boolean {
-  if (!write(meta(), INDEX_KEY, list)) return false;
-  removeOrphans(list);
-  return true;
+function indexIntact(): boolean {
+  try {
+    const text = meta()?.getItem(INDEX_KEY);
+    if (text === null || text === undefined) return ![session(), local()].some((s) => storedKeys(s).some(isPerWorkspaceKey));
+    const raw: unknown = JSON.parse(text);
+    return Array.isArray(raw) && raw.every(isWorkspace);
+  } catch {
+    return false;
+  }
 }
+/**
+ * 목록을 덮어쓰기 직전에 부른다. 덮어쓰면 손상 흔적이 사라지므로 표시를 남겨, 남겨 둔 명부를 다음 저장에서 지우지 않게 한다.
+ * 표시를 못 남겼으면 false — 호출부는 목록을 덮어쓰지 않는다.
+ */
+function recordIndexDamage(): boolean {
+  return indexIntact() || write(meta(), INDEX_DAMAGED_KEY, true);
+}
+/**
+ * 목록에 없는 사업장의 명부·대표자 키를 두 저장소에서 지운다. 지우면 되찾을 수 없으므로 목록을 믿을 수 있을 때만 지운다.
+ * 목록이 손상된 적이 있으면 주인을 알 수 없는 키를 그대로 둔다. 전부 지우기(forgetEverything)는 이 키까지 지운다.
+ */
 function removeOrphans(list: Workspace[]): void {
+  if (read(meta(), INDEX_DAMAGED_KEY, false)) return;
   const ids = new Set(list.map((w) => w.id));
   const orphan = (key: string) => {
     const prefix = PER_WORKSPACE.find((p) => key.startsWith(p));
     return prefix !== undefined && !ids.has(key.slice(prefix.length));
   };
   for (const store of [session(), local()]) removeKeys(store, orphan);
+}
+/** 사업장 목록을 쓰고 고아 키를 치운다. 목록을 못 썼으면 아무것도 지우지 않는다. */
+function writeIndex(list: Workspace[]): boolean {
+  if (!recordIndexDamage() || !write(meta(), INDEX_KEY, list)) return false;
+  removeOrphans(list);
+  return true;
 }
 function notify(): void {
   if (typeof window === "undefined") return;
@@ -355,6 +385,7 @@ export function setRemember(id: string, remember: boolean): boolean {
 export function deleteWorkspace(id: string): boolean {
   const remaining = listWorkspaces().filter((w) => w.id !== id);
   if (!writeIndex(remaining)) return false;
+  for (const store of [session(), local()]) removeKeys(store, (k) => PER_WORKSPACE.some((p) => k === p + id));
   const active = read<string | null>(meta(), ACTIVE_KEY, null);
   if (active === id) write(meta(), ACTIVE_KEY, remaining[0]?.id ?? null);
   notify();
@@ -619,10 +650,11 @@ export const FORGET_ALL_CONFIRM = "이 브라우저에 저장된 사업장·명�
 
 /** 이 브라우저에 남아 있는 것을 전부 지운다 — 공용 PC 에서 쓰는 비상 버튼. */
 export function forgetEverything(): void {
-  for (const store of [session(), local()]) removeKeys(store, (k) => PER_WORKSPACE.some((p) => k.startsWith(p)));
+  for (const store of [session(), local()]) removeKeys(store, isPerWorkspaceKey);
   forgetAllHistory();
   try {
     meta()?.removeItem(INDEX_KEY);
+    meta()?.removeItem(INDEX_DAMAGED_KEY);
     meta()?.removeItem(ACTIVE_KEY);
     meta()?.removeItem(AUDIENCE_KEY);
   } catch { /* 무시 */ }

@@ -25,7 +25,7 @@ import { INITIAL, isRealDate, type WriteState } from './formState';
 /** 카드 영역 화면 문구 — 금지어 시험이 여기를 본다 */
 export const CARD_COPY = {
   summary: '사업장 카드에서 불러오기 (선택)',
-  intro: '사업장과 직원의 계약 조건을 이 브라우저에 카드로 두고 다음에 다시 불러옵니다. 가입이 없고 서버로 보내지 않습니다. 근무장소는 계약 조건으로 저장합니다. 주민등록번호·집 주소·연락처·계좌는 칸이 없어 담기지 않습니다. 실수령액·공제대상가족 수·작성일·임금 지급일·지급방법은 저장하지 않으니 불러온 뒤 확인해 주세요.',
+  intro: '사업장과 직원의 계약 조건을 이 브라우저에 카드로 두고 다음에 다시 불러옵니다. 가입이 없고 서버로 보내지 않습니다. 근무장소는 계약 조건으로 저장합니다. 주민등록번호·집 주소·연락처·계좌는 칸이 없어 담기지 않습니다. 실수령액·공제대상가족 수·작성일은 저장하지 않으니 불러온 뒤 확인해 주세요.',
   empty: '저장한 카드가 없습니다. 아래 칸을 채운 뒤 「이 근로자를 카드에 저장」을 누르면 카드가 생깁니다.',
   pickWorkspace: '불러올 사업장',
   pickWorkspaceNone: '사업장 고르기',
@@ -40,7 +40,9 @@ export const CARD_COPY = {
   sameNameAdded: '이름이 같은 직원이 이미 있어 새 줄로 저장했습니다. 같은 사람의 재계약이면 위 「불러올 직원」에서 고른 뒤 저장해 주세요.',
   netNotStored: '실수령액과 공제대상가족 수는 저장하지 않았습니다. 불러온 뒤 다시 넣어 주세요.',
   startFromHire: (hireDate: string) => `이 직원은 저장된 계약 시작일이 없어 입사일(${hireDate})로 채웠습니다. 재계약이면 계약 시작일을 고쳐 주세요.`,
-  fivePlusUnknown: '이 카드에는 5명 이상 여부가 없어 앞 카드의 값을 「5명 이상」으로 돌렸습니다. 사업장에 맞게 골라 주세요.',
+  hireFromStart: (start: string) => `입사일은 계약 시작일(${start})로 기록했습니다. 실제 입사일이 다르면 연차 도구의 직원 명부에서 고칠 수 있습니다.`,
+  employeeCleared: '사업장을 바꾸면서 앞 직원의 칸을 비웠습니다. 불러온 뒤 직접 고친 값도 함께 비워졌으니 직원을 다시 고르거나 새로 넣어 주세요.',
+  fivePlusUnknown:'이 카드에는 5명 이상 여부가 없어 앞 카드의 값을 「5명 이상」으로 돌렸습니다. 사업장에 맞게 골라 주세요.',
   fivePlusAsIs: '이 카드에는 5명 이상 여부가 없어 화면의 값을 그대로 두었습니다. 사업장에 맞는지 확인해 주세요.',
   fivePlusKept: '5명 이상 여부는 카드에 있던 값을 그대로 두었습니다. 바꾸려면 위에서 이 사업장을 고른 뒤 저장해 주세요.',
   rememberFailed: '옮기지 못해 기억하기 설정을 바꾸지 않았습니다. 저장된 내용은 그대로입니다. 브라우저 저장 공간을 확인해 주세요.',
@@ -90,8 +92,8 @@ export function cardFileName(today: string): string {
   return `사업장카드_${today.replace(/-/g, '')}.json`;
 }
 
-/** 직원을 바꿔도 남는 칸 — 사업장 칸과 문서·지급 관행 칸. 나머지는 전부 직원 칸이라 WriteState 에 칸이 늘면 저절로 비워진다 */
-const NOT_EMPLOYEE_KEYS = ['workplaceName', 'ownerName', 'fivePlus', 'writtenDate', 'payday', 'paymentMethod'] as const satisfies readonly (keyof WriteState)[];
+/** 직원을 바꿔도 남는 칸 — 사업장 칸과 작성일. 나머지는 전부 직원 칸이라 WriteState 에 칸이 늘면 저절로 비워진다 */
+const NOT_EMPLOYEE_KEYS = ['workplaceName', 'ownerName', 'fivePlus', 'writtenDate'] as const satisfies readonly (keyof WriteState)[];
 
 function blankEmployee(): Partial<WriteState> {
   const blank: Partial<WriteState> = { ...INITIAL, workDays: [...INITIAL.workDays] };
@@ -101,7 +103,7 @@ function blankEmployee(): Partial<WriteState> {
 
 /**
  * 카드에서 채울 칸 — 카드에 없는 칸은 처음 값으로 돌린다. 앞 사업장·앞 직원 값이 다른 사람 계약서로 넘어가면 안 된다.
- * 작성일(writtenDate)·지급일·지급방법은 채우지도 비우지도 않는다.
+ * 작성일(writtenDate)은 채우지도 비우지도 않는다. 옛 형식 카드의 지급일·지급방법은 없는 칸이라 처음 값으로 돌아간다.
  * 대표자는 사업장 목록이 아니라 details(getWorkspaceDetails)에 있어 따로 받는다.
  * 계약 시작일은 저장한 조건에서 읽고, 조건에 없을 때만(옛 형식·연차 명부만 있는 사람) 입사일로 채운다.
  * clearEmployee = 카드에서 불러온 직원이 화면에 남아 있어 사업장을 옮길 때 그 직원 칸을 함께 비운다.
@@ -135,7 +137,7 @@ export function applyCardToState(state: WriteState, ws: Workspace | null, member
 
 const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
 
-/** 입력 칸 중 카드에서 온 값. 사업장을 옮길 때 이 값이 화면에 남아 있는지로 비울지를 정한다. 직접 쓴 값은 건드리지 않는다 */
+/** 입력 칸 중 카드에서 온 값. 사업장을 옮길 때 이 값이 하나라도 화면에 남아 있으면 직접 고친 칸까지 직원 칸 전체를 비우고 알린다 */
 export type CardOrigin = { fivePlus: WriteState['fivePlus'] | null; employee: Partial<WriteState> | null };
 export const NO_ORIGIN: CardOrigin = { fivePlus: null, employee: null };
 
@@ -149,11 +151,16 @@ function holdsCardEmployee(state: WriteState, employee: Partial<WriteState> | nu
 
 export function selectWorkspace(state: WriteState, ws: Workspace, details: WorkspaceDetails, origin: CardOrigin): CardChange {
   const resetFivePlus = origin.fivePlus !== null && origin.fivePlus === state.fivePlus;
-  const patch = cardPatch(ws, null, details, { clearEmployee: holdsCardEmployee(state, origin.employee), resetFivePlus });
+  const clearEmployee = holdsCardEmployee(state, origin.employee);
+  const patch = cardPatch(ws, null, details, { clearEmployee, resetFivePlus });
+  const notes = [
+    clearEmployee ? CARD_COPY.employeeCleared : '',
+    ws.fivePlus ? '' : resetFivePlus ? CARD_COPY.fivePlusUnknown : CARD_COPY.fivePlusAsIs,
+  ];
   return {
     patch,
     origin: { fivePlus: ws.fivePlus ?? null, employee: null },
-    notice: ws.fivePlus ? null : resetFivePlus ? CARD_COPY.fivePlusUnknown : CARD_COPY.fivePlusAsIs,
+    notice: notes.filter(Boolean).join(' ') || null,
   };
 }
 
@@ -200,7 +207,7 @@ export type SaveResult =
  * 이름은 입력 칸과 같은 정리(㈜ → (주))를 거쳐 맞춘다.
  * 대표자는 넣었을 때만 바꾼다(비워 두고 저장해도 카드의 대표자를 지우지 않는다).
  * 5명 이상 여부는 고른 카드이거나 값이 없는 카드에만 쓴다 — 고르지 않았으면 화면 값은 고른 값이 아니라 기본값일 수 있다.
- * 명부에서 고른 사람(pickedKey, 이름이 같을 때)은 입사일을 지키고 조건만 바꾼다. 새 사람은 입사일 = 계약 시작일이다.
+ * 명부에서 고른 사람(pickedKey, 이름이 같을 때)은 입사일을 지키고 조건만 바꾼다. 새 사람은 입사일 = 계약 시작일이고 그렇게 적었다고 알린다.
  * 고르지 않았는데 같은 사람으로 보이는 줄의 조건이 다르면 아무것도 쓰지 않고 conflict 를 돌려준다.
  * 저장소에서 다시 읽어 맞는지 본 뒤에만 저장했다고 말한다.
  */
@@ -234,6 +241,7 @@ export function saveCardFromState(state: WriteState, selectedId: string | null, 
   const notes = [
     !fivePlus && target.fivePlus !== card.fivePlus ? CARD_COPY.fivePlusKept : '',
     !person && roster.some(sameEmployee) ? CARD_COPY.sameNameAdded : '',
+    !person ? CARD_COPY.hireFromStart(state.startDate) : '',
     state.amountMode === 'net' ? CARD_COPY.netNotStored : '',
   ];
   return { ok: true, workspace: target, memberKey: memberKey(member), message: [CARD_COPY.saved(target.name, card.member.name), ...notes].filter(Boolean).join(' ') };

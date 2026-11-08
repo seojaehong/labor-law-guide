@@ -69,8 +69,8 @@ const MEMBER: WorkspaceMember = {
 const membersRaw = () => [...sessionData.entries(), ...localData.entries()].filter(([k]) => k.includes('members')).map(([, v]) => v).join('\n');
 
 describe('카드에서 불러오기', () => {
-  it('카드에서 직원을 고르면 사업장·근로자·계약 조건 칸이 채워진다 — 작성일과 다른 칸은 그대로', () => {
-    const before: WriteState = { ...INITIAL, writtenDate: '2026-02-26', payday: '매월 25일' };
+  it('카드에서 직원을 고르면 사업장·근로자·계약 조건 칸이 채워진다 — 작성일은 화면 값 그대로, 카드에 없는 지급일·지급방법은 처음 값', () => {
+    const before: WriteState = { ...INITIAL, writtenDate: '2026-02-26', payday: '매월 25일', paymentMethod: '현금' };
     const s = applyCardToState(before, WS, MEMBER, DETAILS);
     expect(s).toMatchObject({
       workplaceName: '가나상사',
@@ -88,7 +88,8 @@ describe('카드에서 불러오기', () => {
       location: '본점',
     });
     expect(s.writtenDate).toBe('2026-02-26');
-    expect(s.payday).toBe('매월 25일');
+    expect(s.payday).toBe(INITIAL.payday);
+    expect(s.paymentMethod).toBe(INITIAL.paymentMethod);
     expect(s.endDate).toBe(INITIAL.endDate);
   });
 
@@ -146,8 +147,6 @@ describe('카드에서 불러오기', () => {
     expect(s).toEqual({
       ...INITIAL,
       workplaceName: '가나상사',
-      payday: '매월 25일',
-      paymentMethod: '현금',
       writtenDate: '2026-02-26',
       employeeName: '을',
       startDate: '2025-05-01',
@@ -166,7 +165,7 @@ describe('카드에서 불러오기', () => {
   it('직원을 불러온 뒤 사업장을 바꾸면 앞 직원 칸을 비운다 — 직접 쓴 칸은 직원을 불러오지 않았으면 그대로', () => {
     const b = { id: 'w2', name: '나다물산', kind: 'own' as const, remember: false };
     const switched = { ...GAP, ...cardPatch(b, null, {}, { clearEmployee: true }) };
-    expect(switched).toMatchObject({ workplaceName: '나다물산', employeeName: '', startDate: '', monthlyTotal: '', duty: '', writtenDate: '2026-02-26', payday: '매월 25일' });
+    expect(switched).toMatchObject({ workplaceName: '나다물산', employeeName: '', startDate: '', monthlyTotal: '', duty: '', writtenDate: '2026-02-26', payday: INITIAL.payday, paymentMethod: INITIAL.paymentMethod });
     const typed = { ...GAP, ...cardPatch(b, null, {}) };
     expect(typed).toMatchObject({ workplaceName: '나다물산', employeeName: '갑', duty: '주방' });
   });
@@ -194,17 +193,16 @@ describe('카드에 저장하기', () => {
     expect(m.terms).toMatchObject({ payType: 'hourly', hourlyWage: '13,000', duty: '홀 서비스', location: '합성테스트 본점', workDays: ['월', '화', '수'] });
     expect([...sessionData.keys()].some((k) => k.includes('members'))).toBe(true);
     expect([...localData.keys()].some((k) => k.includes('members'))).toBe(false);
-    // 계약 조건이 아닌 칸(작성일·지급일·지급방법)은 카드에 넣지 않는다
+    // 작성일은 카드에 넣지 않고, 지급일·지급방법은 직원마다 넣는다
     expect(membersRaw()).not.toContain('2026-02-26');
-    expect(membersRaw()).not.toContain('매월 25일');
-    expect(membersRaw()).not.toContain('계좌이체');
+    expect(m.terms).toMatchObject({ payday: '매월 25일', paymentMethod: INITIAL.paymentMethod });
   });
 
   it('저장한 카드를 다시 불러오면 같은 계약 조건이 된다', () => {
     saveCardFromState(FILLED, null);
     const [ws] = listWorkspaces();
     const [m] = getMembers(ws);
-    const back = applyCardToState({ ...INITIAL, writtenDate: FILLED.writtenDate, payday: FILLED.payday }, ws, m, getWorkspaceDetails(ws));
+    const back = applyCardToState({ ...INITIAL, writtenDate: FILLED.writtenDate }, ws, m, getWorkspaceDetails(ws));
     expect(back).toEqual(FILLED);
   });
 

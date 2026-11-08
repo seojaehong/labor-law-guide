@@ -114,4 +114,35 @@ describe('파일과 붙여넣기 구분', () => {
     expect(parseLines('합성김,2021-05-06,15')[0]).toMatchObject({ name: '합성김', hireDate: '2021-05-06', recordedDays: 15 });
     expect(parseLines('합성김  2021-05-06')[0]).toMatchObject({ name: '합성김', hireDate: '2021-05-06' });
   });
+
+  it.each([
+    ['탭', '이름\t입사일\n합성김\t2021-05-06\n합성이\t2022-01-02'],
+    ['쉼표', '성명,입사일,연차\n합성김,2021-05-06\n합성이,2022-01-02'],
+    ['여러 칸 공백', '직원명  입사일자\n합성김  2021-05-06\n합성이  2022-01-02'],
+    ['앞 빈 줄', '\n\n이름\t입사일\n합성김\t2021-05-06\n합성이\t2022-01-02'],
+  ])('붙여넣은 명부의 제목줄은 건너뛴다 — %s', (_label, text) => {
+    expect(rosterFromRows(parseLines(text))).toEqual([
+      { name: '합성김', hireDate: '2021-05-06' },
+      { name: '합성이', hireDate: '2022-01-02' },
+    ]);
+  });
+
+  it('제목줄 뒤의 읽지 못한 줄은 전처럼 저장을 멈춘다', () => {
+    expect(rosterFromRows(parseLines('이름\t입사일\n합성김\t2021-05-'))).toBeNull();
+  });
+
+  it('제목이 아닌 첫 줄의 오타는 건너뛰지 않고 그 줄의 오류로 남는다', () => {
+    const rows = parseLines('합성김\t입사일\n합성이\t2022-01-02');
+    expect(rows.map((r) => r.name)).toEqual(['합성김', '합성이']);
+    expect(rows[0].error).toBeTruthy();
+    expect(rosterFromRows(rows)).toBeNull();
+  });
+
+  it('둘째 줄 이후의 제목 모양 줄은 제목으로 보지 않는다', () => {
+    expect(rosterFromRows(parseLines('합성김\t2021-05-06\n이름\t입사일'))).toBeNull();
+  });
+
+  it('제목줄만 있으면 사람도 오류도 없다', () => {
+    expect(parseLines('이름\t입사일')).toEqual([]);
+  });
 });
