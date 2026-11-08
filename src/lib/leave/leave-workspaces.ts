@@ -495,11 +495,14 @@ export const CARD_FILE_MAX_MEMBERS = 5000;
 
 const TIME = /^([01]\d|2[0-3]):[0-5]\d$/;
 const CARD_TERM_TEXT_MAX = 1000;
+const PAY_TEXT_MAX = 100;
 
 const isTime = (v: string) => TIME.test(v);
 const isCalendarDate = (v: string) => normalizeDate(v) === v;
 const isWon = (v: string) => /^(?:\d+|\d{1,3}(?:,\d{3})+)$/.test(v);
 const isCount = (v: string) => /^\d+(?:\.\d+)?$/.test(v);
+/** 계약서 임금 조항의 한 줄 — 긴 글자는 지급일·지급방법이 아니다 */
+const isPayText = (v: string) => v.length <= PAY_TEXT_MAX;
 
 /** 형식이 정해진 글자 칸의 검사 — 표에 없는 칸은 글 칸이다 */
 const TERM_FORMAT: Partial<Record<(typeof TERM_TEXT)[number], (v: string) => boolean>> = {
@@ -515,6 +518,8 @@ const TERM_FORMAT: Partial<Record<(typeof TERM_TEXT)[number], (v: string) => boo
   holidayHours: isCount,
   leaveHours: isCount,
   probationMonths: isCount,
+  payday: isPayText,
+  paymentMethod: isPayText,
 };
 
 /** 가져온 계약 조건 — 손으로 넣을 때와 같이 정리하고, 값이 있고 맞는 칸만 남긴다. 비었거나 틀린 칸은 없는 것으로 봐서 이미 있는 조건을 지우지 않는다 */
@@ -619,6 +624,8 @@ export function importCards(json: unknown, { remember }: { remember: boolean }):
       plan.members.set(key, cleanMember(memberName, r.hireDate, { ...plan.members.get(key)?.terms, ...importedTerms(r.terms) }));
     }
   }
+
+  if (!recordIndexDamage()) return refused("storage");
 
   const undo: Array<() => void> = [];
   const put = (store: Storage | null, key: string, value: unknown): boolean => {
