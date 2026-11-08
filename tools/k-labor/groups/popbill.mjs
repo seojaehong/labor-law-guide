@@ -62,9 +62,9 @@ function pb() {
 const call = (fn) => new Promise((res) => fn((r) => res({ ok: true, r }), (e) => res({ ok: false, code: e?.code, message: e?.message })));
 const eucBytes = (s) => [...s].reduce((n, ch) => n + (ch.charCodeAt(0) > 0x7f ? 2 : 1), 0);
 
-// 도구 표시(annotations) — 조회는 팝빌 API 를 읽기만, 팩스·문자는 바깥으로 나가 되돌릴 수 없다(두 번 부르면 두 번 간다)
+// 조회는 팝빌 API 를 읽기만 한다. 팩스·문자는 제3자에게 되돌릴 수 없게 나가고 잔액이 줄어 추가 갱신(destructive:false)이라 할 수 없다. confirm 은 모델이 넣는 값이라 사람 확인이 아니다.
 const LOOKUP = { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true };
-const SEND = { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: true };
+const SEND = { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: true };
 
 export function registerPopbill(server) {
   server.registerTool('popbill_status', { title: '팝빌 계정 상태 조회', description: '내 팝빌 계정의 연결·잔액·팩스/문자 권한·등록된 발신번호를 조회한다(보내지 않는다).', inputSchema: {}, annotations: LOOKUP }, async () => {

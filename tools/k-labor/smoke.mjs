@@ -84,6 +84,14 @@ if (tools.includes('make_form')) {
   });
   const head = made.ok ? fs.readFileSync(made.outPath).subarray(0, 5).toString() : '';
   check(`make_form ok (${made.bytes} bytes, EDI 한도 안: ${made.withinEdiLimit})`, made.ok && head === '%PDF-');
+  const other = path.join(tmp, 'keep.txt.pdf');
+  fs.writeFileSync(other, 'KEEP');
+  const refused = await callJson('make_form', {
+    kind: 'loss', peopleFile: pf, reason: '퇴사 처리 과정에서 상실 신고를 놓쳐 늦게 신고합니다.',
+    biz: { mgmtNo: '12345678901', name: '가상사업장', addr: '충북 청주시 상당구 상당로 155', ownerName: '김대표' },
+    outPath: other,
+  });
+  check('make_form 있는 파일을 덮어쓰지 않음', refused.ok === false && fs.readFileSync(other, 'utf8') === 'KEEP');
 }
 if (tools.includes('popbill_status')) {
   const st = await callJson('popbill_status', {});
@@ -134,7 +142,7 @@ const ANN = {
   ...Object.fromEntries(['find_branch', 'popbill_status', 'fax_result', 'sms_result']
     .map((n) => [n, { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true }])),
   make_form: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
-  ...Object.fromEntries(['send_fax', 'send_sms'].map((n) => [n, { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: true }])),
+  ...Object.fromEntries(['send_fax', 'send_sms'].map((n) => [n, { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: true }])),
 };
 // 커넥터 디렉터리 심사 — 빠진 도구 없이 전부 title 과 네 칸이 있다
 {

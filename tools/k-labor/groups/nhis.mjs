@@ -54,20 +54,21 @@ export function registerNhis(server) {
     'make_form',
     {
       title: '건강보험 자격취득·상실 신고서 PDF 만들기',
-      // PDF 를 outPath 에 쓴다(지우지는 않는다) — make_contract_files 와 같은 표시
+      // PDF 를 outPath 에 쓴다. 있는 파일은 덮어쓰지 않는다(make_contract_files 와 같다)
       annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
       description: '건강보험 자격상실(별지 8호)·자격취득(별지 6호) 신고서 + 지연 사유 사업주확인서를 사이트와 같은 서식으로 PDF 한 파일로 만든다. 주민번호가 모델 대화에 실리지 않도록 사람 명단은 peopleFile(JSON 배열 경로)로만 받는다 — 도구가 그 파일을 직접 읽는다. loss 사람 = {name,rrn,lastWorkDay(YYYY-MM-DD),nhisCode("01" 등),payCur?,monthsCur?,payPrev?,monthsPrev?}, acq 사람 = {name,rrn,acqDate,monthlyPay,nhisCode("00" 등),ceo}.',
       inputSchema: {
-      kind: z.enum(['loss', 'acq']),
-      biz: bizSchema,
-      peopleFile: z.string().describe('사람 명단 JSON 배열 파일 경로'),
-      reason: z.string().describe('늦어진 이유(300자 이내)'),
-      branchName: z.string().optional().describe('받을 지사 이름(예: 청주동부지사)'),
-      stampPath: z.string().optional().describe('사업장 도장 PNG(투명 배경) 경로'),
-      outPath: z.string().describe('저장할 PDF 경로'),
+        kind: z.enum(['loss', 'acq']),
+        biz: bizSchema,
+        peopleFile: z.string().describe('사람 명단 JSON 배열 파일 경로'),
+        reason: z.string().describe('늦어진 이유(300자 이내)'),
+        branchName: z.string().optional().describe('받을 지사 이름(예: 청주동부지사)'),
+        stampPath: z.string().optional().describe('사업장 도장 PNG(투명 배경) 경로'),
+        outPath: z.string().describe('저장할 PDF 경로(이미 있으면 쓰지 않는다)'),
       },
     },
     async ({ kind, biz, peopleFile, reason, branchName, stampPath, outPath }) => {
+      if (fs.existsSync(outPath)) return text({ ok: false, reason: '이미 있는 파일은 덮어쓰지 않습니다', exists: [outPath] });
       let list;
       try {
         list = JSON.parse(fs.readFileSync(peopleFile, 'utf8'));
@@ -81,7 +82,7 @@ export function registerNhis(server) {
         const stamp = stampPath ? new Uint8Array(fs.readFileSync(stampPath)) : undefined;
         const p = await buildPacket({ formPdf: new Uint8Array(formPdf), font: new Uint8Array(font) }, { kind, biz, people: list, reason, branchName, stamp });
         fs.mkdirSync(path.dirname(outPath), { recursive: true });
-        fs.writeFileSync(outPath, p.bytes);
+        fs.writeFileSync(outPath, p.bytes, { flag: 'wx' });
         return text({ ok: true, outPath, bytes: p.bytes.length, withinEdiLimit: p.withinLimit, people: list.length, pages: 2, check: '보내기 전에 PDF 를 열어 칸이 맞는지 확인하세요.' });
       } catch (e) {
         if (e instanceof PacketError) return text({ ok: false, problems: e.problems });
