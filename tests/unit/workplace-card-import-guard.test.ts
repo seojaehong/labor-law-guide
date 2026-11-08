@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { CARD_COPY, cardFromState, saveCardFromState } from '@/app/tools/contract-write/cardState';
 import { INITIAL, toWriteForm, type WriteState } from '@/app/tools/contract-write/formState';
-import { CARD_FILE_MAX_BYTES, CARD_FILE_MAX_MEMBERS, CARD_FILE_MAX_WORKSPACES, createWorkspace, forgetEverything, getMembers, getWorkspaceDetails, importCards, listWorkspaces, updateWorkspace, upsertMember } from '@/lib/leave/leave-workspaces';
+import { CARD_FILE_MAX_BYTES, CARD_FILE_MAX_MEMBERS, CARD_FILE_MAX_WORKSPACES, createWorkspace, exportCards, forgetEverything, getMembers, getWorkspaceDetails, importCards, listWorkspaces, updateWorkspace, upsertMember } from '@/lib/leave/leave-workspaces';
 import { addHistory, isHistoryRemembered, setHistoryRemember } from '@/lib/tool-history';
 
 const localData = new Map<string, string>();
@@ -64,6 +64,48 @@ describe('부분·깨진 계약 조건이 기존 조건을 지우지 않는다',
     const ws = seeded();
     importOne({ monthlyTotal: '', duty: '  ' });
     expect(hongTerms(ws.id)).toEqual(FULL);
+  });
+});
+
+describe('지급일·지급방법', () => {
+  const PAY = { payday: '익월 5일', paymentMethod: '현금' };
+
+  it('파일의 값을 가져오고, 내보내면 같은 값이 있다', () => {
+    const ws = seeded();
+    expect(importOne(PAY).ok).toBe(true);
+    expect(hongTerms(ws.id)).toEqual({ ...FULL, ...PAY });
+    const exported = exportCards().workspaces[0].members.find((m) => m.name === HONG.name);
+    expect(exported?.terms).toMatchObject(PAY);
+  });
+
+  it('값이 없는 옛 파일은 저장된 값을 지우지 않는다', () => {
+    const ws = seeded();
+    importOne(PAY);
+    importOne({ duty: '배송' });
+    expect(hongTerms(ws.id)).toEqual({ ...FULL, ...PAY, duty: '배송' });
+  });
+
+  it('100자는 받고 그보다 길면 그 칸만 버려 저장된 값을 지킨다', () => {
+    const ws = seeded();
+    importOne(PAY);
+    importOne({ payday: '가'.repeat(100) });
+    expect(hongTerms(ws.id)?.payday).toBe('가'.repeat(100));
+    importOne({ payday: '가'.repeat(101), paymentMethod: '나'.repeat(101), duty: '배송' });
+    expect(hongTerms(ws.id)).toMatchObject({ payday: '가'.repeat(100), paymentMethod: PAY.paymentMethod, duty: '배송' });
+  });
+
+  it('글자가 아니면 버린다', () => {
+    const ws = seeded();
+    importOne(PAY);
+    importOne({ payday: 25, paymentMethod: ['현금'] });
+    expect(hongTerms(ws.id)).toMatchObject(PAY);
+  });
+
+  it('지급방법 칸의 계좌번호 꼴은 빼고 저장한다', () => {
+    const ws = seeded();
+    importOne({ paymentMethod: '계좌이체 110-123-456789' });
+    expect(hongTerms(ws.id)?.paymentMethod).toBe('계좌이체');
+    expect(allText()).not.toContain('110-123-456789');
   });
 });
 

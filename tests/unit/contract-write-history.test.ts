@@ -6,6 +6,7 @@ import { resolve } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
+import { CARD_COPY } from '@/app/tools/contract-write/cardState';
 import { fromHistoryState, HISTORY_COPY, HISTORY_TOOL, historyLabel, savedAtText, toHistoryState } from '@/app/tools/contract-write/historyState';
 import { INITIAL, type WriteState } from '@/app/tools/contract-write/formState';
 import { bannedHits, RESULT_BANNED, SERVICE_BANNED } from '@/lib/tool-kit/banned';
@@ -147,6 +148,13 @@ describe('화면 문구·전송 가드', () => {
   it('새 화면 문구에 금지어가 없다', () => {
     expect(texts.length).toBeGreaterThan(5);
     expect(texts.flatMap((t) => bannedHits(t, [...SERVICE_BANNED, ...RESULT_BANNED, ...EXTRA_BANNED]).map((h) => `${h} | ${t}`))).toEqual([]);
+  });
+
+  it('페이지 안내가 저장 위치와 맞다 — 기억하기를 켜지 않은 최근 입력도 탭을 닫을 때까지 남는다', () => {
+    expect(CARD_COPY.pageNotice).not.toContain('기억하기를 켠 최근 입력만');
+    expect(CARD_COPY.pageNotice).toContain('최근 입력은 탭을 닫으면 사라지고');
+    expect(CARD_COPY.pageNotice).toContain('기억하기를 켜면 이 브라우저에 남습니다');
+    expect(bannedHits(CARD_COPY.pageNotice, [...SERVICE_BANNED, ...RESULT_BANNED, ...EXTRA_BANNED])).toEqual([]);
   });
 
   it('새 문구 상수 밖 처리방침 문장에도 금지어가 없다', () => {

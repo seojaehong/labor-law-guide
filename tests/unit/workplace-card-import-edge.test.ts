@@ -246,13 +246,49 @@ describe('화면 문구 연결', () => {
   });
 });
 
-describe('목록이 깨진 뒤 가져와도 숨은 명부 키가 남지 않는다', () => {
-  it('옛 명부 키를 지우고 가져온 사업장의 키만 남긴다', () => {
+describe('손상된 목록에 가져와도 명부를 지우지 않는다', () => {
+  const INDEX = 'work-patterns.leave.workspaces.v1';
+  const rosterOf = (id: string) => [...localData.entries(), ...sessionData.entries()].filter(([k]) => k.endsWith(`:${id}`)).sort();
+  const fileOf = (name: string) => ({ ...FILE, workspaces: [{ name, kind: 'own', members: [HONG] }] });
+  const seededOld = () => {
     const old = createWorkspace('합성옛곳', 'own', true)!;
     upsertMember(old, { name: '합성옛직원', hireDate: '2020-01-02' });
-    localData.set('work-patterns.leave.workspaces.v1', '[[[깨짐');
-    expect(importCards({ ...FILE, workspaces: [{ name: '합성새곳', kind: 'own', members: [HONG] }] }, { remember: true }).ok).toBe(true);
-    expect([...localData.values()].join('\n')).not.toContain('합성옛직원');
+    return old;
+  };
+
+  it('깨진 목록에 가져오고 또 가져와도 옛 명부가 글자 그대로 남는다', () => {
+    const old = seededOld();
+    const before = rosterOf(old.id);
+    localData.set(INDEX, '[[[깨짐');
+    expect(importCards(fileOf('합성새곳'), { remember: true }).ok).toBe(true);
+    expect(rosterOf(old.id)).toEqual(before);
+    expect(importCards(fileOf('합성또곳'), { remember: true }).ok).toBe(true);
+    expect(rosterOf(old.id)).toEqual(before);
     expect(getMembers(listWorkspaces()[0]).map((m) => m.name)).toEqual([HONG.name]);
+  });
+
+  it('모르는 kind 항목의 명부도 가져오기로 지워지지 않는다', () => {
+    const old = seededOld();
+    const before = rosterOf(old.id);
+    const list = JSON.parse(localData.get(INDEX)!) as Array<Record<string, unknown>>;
+    localData.set(INDEX, JSON.stringify(list.map((w) => ({ ...w, kind: 'franchise' }))));
+    expect(importCards(fileOf('합성새곳'), { remember: true }).ok).toBe(true);
+    expect(rosterOf(old.id)).toEqual(before);
+  });
+
+  it('온전한 목록이면 숨은 키를 치우고 있던 사업장은 지킨다', () => {
+    const old = seededOld();
+    localData.set('work-patterns.leave.members.v1:ghost', '[]');
+    expect(importCards(fileOf('합성새곳'), { remember: true }).ok).toBe(true);
+    expect([...localData.keys()].filter((k) => k.endsWith(':ghost'))).toEqual([]);
+    expect(rosterOf(old.id).length).toBeGreaterThan(0);
+  });
+
+  it('처음 쓰는 브라우저에 가져오는 것은 손상이 아니다 — 뒤에 생긴 숨은 키를 치운다', () => {
+    expect(importCards(fileOf('합성새곳'), { remember: true }).ok).toBe(true);
+    const [ws] = listWorkspaces();
+    localData.set('work-patterns.leave.members.v1:ghost', '[]');
+    renameWorkspace(ws.id, '합성새곳2');
+    expect([...localData.keys()].filter((k) => k.endsWith(':ghost'))).toEqual([]);
   });
 });
