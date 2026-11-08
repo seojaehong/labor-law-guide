@@ -4,9 +4,9 @@ import { resolve } from 'node:path';
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { saveCardFromState } from '@/app/tools/contract-write/cardState';
+import { CARD_COPY, saveCardFromState } from '@/app/tools/contract-write/cardState';
 import { INITIAL, type WriteState } from '@/app/tools/contract-write/formState';
-import { createWorkspace, forgetEverything, getMembers, getWorkspaceDetails, listWorkspaces, setRemember, updateWorkspace, upsertMember } from '@/lib/leave/leave-workspaces';
+import { createWorkspace, deleteWorkspace, forgetEverything, getMembers, getWorkspaceDetails, listWorkspaces, removeMembers, setRemember, updateWorkspace, upsertMember } from '@/lib/leave/leave-workspaces';
 
 const localData = new Map<string, string>();
 const sessionData = new Map<string, string>();
@@ -190,5 +190,106 @@ describe('전부 지우기·안내', () => {
   it('처리방침이 브라우저에 남는 5명 이상 여부를 적는다', () => {
     const src = readFileSync(resolve(__dirname, '../../src/app/privacy/page.tsx'), 'utf8');
     expect(src).toContain('사업장명·5명 이상 여부·대표자');
+  });
+});
+
+describe('목록에서 사라진 사업장의 명부가 숨어 남지 않는다', () => {
+  const keysOf = (id: string) => allKeys().filter((k) => k.endsWith(`:${id}`));
+
+  function seeded(remember: boolean) {
+    const ws = createWorkspace('합성옛곳', 'own', remember)!;
+    updateWorkspace(ws.id, { ownerName: '합성옛대표' });
+    upsertMember(ws, { name: '합성옛직원', hireDate: '2020-01-02', terms: { duty: '홀' } });
+    return ws;
+  }
+
+  it.each([[true], [false]])('목록이 깨진 뒤 저장하면 옛 명부·대표자 키를 지운다(기억하기 %s)', (remember) => {
+    const old = seeded(remember);
+    localData.set(INDEX, '[[[깨짐');
+    expect(saveCardFromState(STATE, null).ok).toBe(true);
+    expect(keysOf(old.id)).toEqual([]);
+    expect([...localData.values(), ...sessionData.values()].join('\n')).not.toContain('합성옛직원');
+  });
+
+  it('목록의 한 항목만 깨졌으면 그 사업장의 키만 지우고 나머지는 지킨다', () => {
+    const broken = seeded(true);
+    const alive = createWorkspace('합성산곳', 'own', true)!;
+    upsertMember(alive, { name: '합성산직원', hireDate: '2021-01-02' });
+    const list = JSON.parse(localData.get(INDEX)!) as Array<Record<string, unknown>>;
+    localData.set(INDEX, JSON.stringify(list.map((w) => (w.id === broken.id ? { ...w, name: '' } : w))));
+    expect(createWorkspace('합성새곳', 'own')).not.toBeNull();
+    expect(keysOf(broken.id)).toEqual([]);
+    expect(getMembers(alive).map((m) => m.name)).toEqual(['합성산직원']);
+  });
+
+  it('목록을 못 쓰면 아무 키도 지우지 않는다', () => {
+    const old = seeded(true);
+    localData.set(INDEX, '[[[깨짐');
+    refuse = (s, k) => s === 'local' && k === INDEX;
+    expect(saveCardFromState(STATE, null).ok).toBe(false);
+    expect(keysOf(old.id).length).toBeGreaterThan(0);
+  });
+});
+
+describe('지우기가 실패하면 지웠다고 하지 않고 남은 것을 잃지 않는다', () => {
+  function seeded() {
+    const ws = createWorkspace('합성한빛', 'own', true)!;
+    updateWorkspace(ws.id, { ownerName: '합성대표' });
+    upsertMember(ws, { name: '합성근로자', hireDate: '2026-03-01', terms: { duty: '홀 서비스' } });
+    return ws;
+  }
+
+  it('removeMembers — 쓰지 못하면 false 이고 명부가 그대로다', () => {
+    const ws = seeded();
+    refuse = (s, k) => s === 'local' && isMembers(k);
+    expect(removeMembers(ws, ['합성근로자 2026-03-01'])).toBe(false);
+    refuse = null;
+    expect(getMembers(ws).map((m) => m.name)).toEqual(['합성근로자']);
+  });
+
+  it('removeMembers — 쓰면 true 이고 그 사람만 사라진다', () => {
+    const ws = seeded();
+    expect(removeMembers(ws, ['합성근로자 2026-03-01'])).toBe(true);
+    expect(getMembers(ws)).toEqual([]);
+  });
+
+  it('deleteWorkspace — 목록을 못 쓰면 false 이고 명부·대표자를 지우지 않는다', () => {
+    const ws = seeded();
+    refuse = (s, k) => s === 'local' && k === INDEX;
+    expect(deleteWorkspace(ws.id)).toBe(false);
+    refuse = null;
+    expect(listWorkspaces().map((w) => w.id)).toEqual([ws.id]);
+    expect(getMembers(ws).map((m) => m.name)).toEqual(['합성근로자']);
+    expect(getWorkspaceDetails(ws)).toEqual({ ownerName: '합성대표' });
+  });
+
+  it('deleteWorkspace — 쓰면 true 이고 두 저장소에서 사라진다', () => {
+    const ws = seeded();
+    sessionData.set(`work-patterns.leave.members.v1:${ws.id}`, '[]');
+    expect(deleteWorkspace(ws.id)).toBe(true);
+    expect(allKeys().filter((k) => isMembers(k) || isDetails(k))).toEqual([]);
+  });
+});
+
+describe('화면과 처리방침이 저장 범위를 사실대로 말한다', () => {
+  const privacy = readFileSync(resolve(__dirname, '../../src/app/privacy/page.tsx'), 'utf8');
+
+  it('근무장소는 저장한다고 말하고, 담지 않는 것은 집 주소라고 적는다', () => {
+    expect(CARD_COPY.intro).toContain('근무장소');
+    expect(CARD_COPY.intro).toContain('집 주소');
+    expect(CARD_COPY.intro).not.toMatch(/등록번호·주소/);
+  });
+
+  it('저장하지 않는 칸을 이름으로 말한다', () => {
+    for (const label of ['실수령액', '공제대상가족 수', '작성일', '지급일', '지급방법']) expect(CARD_COPY.intro).toContain(label);
+  });
+
+  it('실수령액으로 넣고 저장하면 저장 안내에 그 사실을 덧붙인다', () => {
+    const r = saveCardFromState({ ...STATE, amountMode: 'net', netPay: '2,000,000' }, null);
+    expect(r.ok && r.message).toContain(CARD_COPY.netNotStored);
+  });
+
+  it('처리방침이 연차 직원 명단에 계약 조건이 담길 수 있다고 적는다', () => {
+    expect(privacy.replace(/\s+/g, ' ')).toContain('직원 명단에 계약 조건');
   });
 });
