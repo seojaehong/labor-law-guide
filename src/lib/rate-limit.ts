@@ -2,7 +2,7 @@ import { supabaseAdmin } from '@/lib/supabase-server';
 import { supabase } from '@/lib/supabase';
 import { extractIp, hashIp } from '@/lib/client-ip';
 
-// 기존 호출부(api/chat·payment-intent·subscribers)가 여기서 가져다 쓰고 있어 그대로 재수출한다.
+// 기존 호출부(api/chat·subscribers)가 여기서 가져다 쓰고 있어 그대로 재수출한다.
 export { extractIp, hashIp };
 
 const db = supabaseAdmin || supabase;

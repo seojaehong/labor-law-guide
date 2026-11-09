@@ -1,14 +1,15 @@
 import { Resend } from 'resend';
 import { SITE_URL } from './constants';
+import { CONTACT_EMAIL } from './site-contact';
 
 // Resend에 verified된 root 도메인 사용 — send. subdomain은 미인증 (2026-05-08)
 // 🔴 2026-10-16 개명. 종전 「노동법 위클리」인데 **실제로는 매일 나간다**(크론 0 0 * * *).
 // 구독자가 「왜 위클리냐」고 물었고, 동의 문구도 「주 1~2회」였다 — 표기가 아니라 **동의 문제**였다.
 // 재홍님 결정: 발송은 매일 그대로 두고 이름·문구를 실제에 맞춘다.
 const FROM = '일의 무늬 · 오늘의 일 <news@yellowenvelope.kr>';
-const REPLY_TO = 'abc@winhr.co.kr';
+const REPLY_TO = CONTACT_EMAIL;
 // mailto 해지도 같은 사람이 읽는 주소로 보낸다. 자동 처리는 없으므로 사람이 손으로 뺀다.
-const UNSUB_MAILBOX = 'abc@winhr.co.kr';
+const UNSUB_MAILBOX = CONTACT_EMAIL;
 
 /**
  * 메일 클라이언트의 「수신거부」 버튼을 위한 헤더 (RFC 2369 · RFC 8058).
@@ -103,7 +104,7 @@ export async function sendConfirmEmail(opts: {
         이 메일을 받으신 적이 없다면 무시하셔도 좋아요.
       </p>
       <div style="${footerStyle}">
-        <strong>오늘의 일</strong> · 일의 무늬 (노무법인 위너스)<br>
+        <strong>오늘의 일</strong> · 일의 무늬<br>
         발신: news@send.yellowenvelope.kr · 답장: ${REPLY_TO}
       </div>
     </div>
@@ -145,7 +146,7 @@ export async function sendWelcomeEmail(opts: {
         <a href="${SITE_URL}/blog" style="${buttonStyle};background-color:#f3f4f6;color:#374151;margin-left:8px">지난 글 모음</a>
       </p>
       <div style="${footerStyle}">
-        <strong>오늘의 일</strong> · 일의 무늬 (노무법인 위너스)<br>
+        <strong>오늘의 일</strong> · 일의 무늬<br>
         발신: news@yellowenvelope.kr · 답장: ${REPLY_TO}<br>
         수신을 원치 않으시면 <a href="${unsubUrl}" style="color:#6b7280">여기를 클릭</a>해주세요.
       </div>
@@ -281,7 +282,7 @@ export async function sendDailyNewsletter(opts: {
     <div style="background:#f2f4f6;padding:24px 28px;text-align:center">
       <p style="margin:0 0 6px;color:${TEXT_PRIMARY};font-size:12px;font-weight:700">오늘의 일</p>
       <p style="margin:0;color:${TEXT_SECONDARY};font-size:11px;line-height:1.7">
-        노란봉투법 가이드 · 노무법인 위너스<br>
+        일의 무늬<br>
         발신: news@yellowenvelope.kr · 답장: ${REPLY_TO}<br>
         <a href="${SITE_URL}" style="color:${ACCENT};text-decoration:none">yellowenvelope.kr</a> ·
         <a href="${unsubUrl}" style="color:${TEXT_SECONDARY};text-decoration:underline">수신 거부</a>

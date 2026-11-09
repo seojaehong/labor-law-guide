@@ -62,8 +62,12 @@ function pb() {
 const call = (fn) => new Promise((res) => fn((r) => res({ ok: true, r }), (e) => res({ ok: false, code: e?.code, message: e?.message })));
 const eucBytes = (s) => [...s].reduce((n, ch) => n + (ch.charCodeAt(0) > 0x7f ? 2 : 1), 0);
 
+// 조회는 팝빌 API 를 읽기만 한다. 팩스·문자는 제3자에게 되돌릴 수 없게 나가고 잔액이 줄어 추가 갱신(destructive:false)이라 할 수 없다. confirm 은 모델이 넣는 값이라 사람 확인이 아니다.
+const LOOKUP = { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true };
+const SEND = { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: true };
+
 export function registerPopbill(server) {
-  server.tool('popbill_status', '내 팝빌 계정의 연결·잔액·팩스/문자 권한·등록된 발신번호를 조회한다(보내지 않는다).', {}, async () => {
+  server.registerTool('popbill_status', { title: '팝빌 계정 상태 조회', description: '내 팝빌 계정의 연결·잔액·팩스/문자 권한·등록된 발신번호를 조회한다(보내지 않는다).', inputSchema: {}, annotations: LOOKUP }, async () => {
     const m = missing();
     if (m.length) return notConfigured(m);
     const { fax, msg } = pb();
@@ -79,12 +83,16 @@ export function registerPopbill(server) {
     return text({ env: env(), corp: CORP, member, balance: bal, partnerBalance: partner, faxCharge, smsCharge, faxSenders, smsSenders, defaultFaxSender: FAX_SENDER || null, defaultSmsSender: SMS_SENDER || null });
   });
 
-  server.tool(
+  server.registerTool(
     'send_fax',
-    'PDF 를 내 팝빌 계정·내 발신번호로 팩스 전송한다. confirm 이 true 가 아니면 보내지 않고 미리보기만 돌려준다. 받는 번호는 find_branch 의 지사 팩스를 사람이 확인한 값만 쓴다.',
     {
-      pdfPath: z.string(), to: z.string(), toName: z.string().describe('받는 곳(예: 국민건강보험공단 청주동부지사 자격부)'),
-      title: z.string().optional(), sender: z.string().optional().describe('발신번호(없으면 POPBILL_FAX_SENDER)'), confirm: z.boolean().optional(),
+      title: '팩스 보내기(팝빌)',
+      description: 'PDF 를 내 팝빌 계정·내 발신번호로 팩스 전송한다. confirm 이 true 가 아니면 보내지 않고 미리보기만 돌려준다. 받는 번호는 find_branch 의 지사 팩스를 사람이 확인한 값만 쓴다.',
+      inputSchema: {
+        pdfPath: z.string(), to: z.string(), toName: z.string().describe('받는 곳(예: 국민건강보험공단 청주동부지사 자격부)'),
+        title: z.string().optional(), sender: z.string().optional().describe('발신번호(없으면 POPBILL_FAX_SENDER)'), confirm: z.boolean().optional(),
+      },
+      annotations: SEND,
     },
     async ({ pdfPath, to, toName, title, sender, confirm }) => {
       const from = digits(sender) || FAX_SENDER;
@@ -99,7 +107,7 @@ export function registerPopbill(server) {
     },
   );
 
-  server.tool('fax_result', '팩스 접수번호로 전송 결과를 조회한다.', { receiptNum: z.string() }, async ({ receiptNum }) => {
+  server.registerTool('fax_result', { title: '팩스 전송 결과 조회', description: '팩스 접수번호로 전송 결과를 조회한다.', inputSchema: { receiptNum: z.string() }, annotations: LOOKUP }, async ({ receiptNum }) => {
     const m = missing();
     if (m.length) return notConfigured(m);
     const r = await call((s, e) => pb().fax.getFaxResult(CORP, receiptNum, '', s, e));
@@ -107,10 +115,14 @@ export function registerPopbill(server) {
     return text({ ok: true, env: env(), results: (r.r || []).map((x) => ({ to: x.receiveNum, toName: x.receiveName, state: x.state, result: x.result, pages: x.sendPageCnt, successPages: x.successPageCnt, failPages: x.failPageCnt, sent: x.sendDT, done: x.resultDT })) });
   });
 
-  server.tool(
+  server.registerTool(
     'send_sms',
-    '문자를 내 팝빌 계정·내 발신번호로 보낸다(90바이트 이하 단문, 넘으면 장문). confirm 이 true 가 아니면 미리보기만. 주민번호 등 개인 식별번호는 넣지 않는다.',
-    { to: z.string(), text: z.string(), subject: z.string().optional(), sender: z.string().optional().describe('발신번호(없으면 POPBILL_SMS_SENDER)'), toName: z.string().optional(), confirm: z.boolean().optional() },
+    {
+      title: '문자 보내기(팝빌)',
+      description: '문자를 내 팝빌 계정·내 발신번호로 보낸다(90바이트 이하 단문, 넘으면 장문). confirm 이 true 가 아니면 미리보기만. 주민번호 등 개인 식별번호는 넣지 않는다.',
+      inputSchema: { to: z.string(), text: z.string(), subject: z.string().optional(), sender: z.string().optional().describe('발신번호(없으면 POPBILL_SMS_SENDER)'), toName: z.string().optional(), confirm: z.boolean().optional() },
+      annotations: SEND,
+    },
     async ({ to, text: body, subject, sender, toName, confirm }) => {
       if (looksLikeRrn(body)) return text({ ok: false, reason: '본문에 주민번호 모양이 있습니다' });
       const from = digits(sender) || SMS_SENDER;
@@ -127,7 +139,7 @@ export function registerPopbill(server) {
     },
   );
 
-  server.tool('sms_result', '문자 접수번호로 전송 결과를 조회한다.', { receiptNum: z.string() }, async ({ receiptNum }) => {
+  server.registerTool('sms_result', { title: '문자 전송 결과 조회', description: '문자 접수번호로 전송 결과를 조회한다.', inputSchema: { receiptNum: z.string() }, annotations: LOOKUP }, async ({ receiptNum }) => {
     const m = missing();
     if (m.length) return notConfigured(m);
     const r = await call((s, e) => pb().msg.getMessages(CORP, receiptNum, '', s, e));

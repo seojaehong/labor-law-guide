@@ -15,6 +15,7 @@
 
 import { downloadXlsx } from "./leave-xlsx";
 import type { SheetSpec } from "./leave-xlsx";
+import { CONTACT_EMAIL } from "../site-contact";
 
 /**
  * 서식의 내용 — 왕복 테스트가 이 명세를 그대로 쓴다.
@@ -60,8 +61,8 @@ export const LEAVE_TEMPLATE_SHEETS: SheetSpec[] = [
       ["계산 결과는 입력값 기준의 참고 자료입니다. 개별 사안의 법적 판단이나"],
       ["임금채권 확정이나 분쟁 사안은 별도 검토가 필요합니다."],
       [""],
-      ["이 서식과 계산 도구를 만든 곳 — 노무법인 위너스"],
-      ["safeclaw.kr/tools/leave · abc@winhr.co.kr"],
+      ["이 서식과 계산 도구를 만든 곳 — 일의 무늬"],
+      [`yellowenvelope.kr/tools/leave · ${CONTACT_EMAIL}`],
     ],
   },
 ];

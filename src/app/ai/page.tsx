@@ -77,7 +77,7 @@ export default function AIPage() {
         AI 질의응답 & 참고자료
       </h1>
       <p className="mb-8 text-sm" style={{ color: 'var(--grey-700)' }}>
-        노동법 전반에 대한 궁금증을 AI가 답변해 드립니다 | 노무법인 위너스
+        노동법 전반에 대한 궁금증을 AI가 답변해 드립니다
       </p>
       </header>
 

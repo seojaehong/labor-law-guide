@@ -555,7 +555,7 @@ function DatabaseContent({ initialTotalCases, initialTotalAdmin, initialTotalNlr
         )}
 
         {searched && currentResults.length > 0 && (
-          <div className="mt-8 grid gap-4 sm:grid-cols-2">
+          <div className="mt-8 grid gap-4">
             <Link
               href={`/ai?q=${encodeURIComponent(query)}`}
               className="flex items-center gap-3 rounded-xl border p-5 transition-shadow hover:shadow-md"
@@ -567,19 +567,6 @@ function DatabaseContent({ initialTotalCases, initialTotalAdmin, initialTotalNlr
               <div>
                 <p className="text-sm font-bold" style={{ color: 'var(--color-text-primary)' }}>AI에게 해석 물어보기</p>
                 <p className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>검색 결과를 기반으로 AI가 쉽게 풀어드립니다</p>
-              </div>
-            </Link>
-            <Link
-              href="/contact"
-              className="flex items-center gap-3 rounded-xl border p-5 transition-shadow hover:shadow-md"
-              style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }}
-            >
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg" style={{ backgroundColor: '#191f28' }}>
-                <ArrowRight size={18} style={{ color: 'white' }} />
-              </div>
-              <div>
-                <p className="text-sm font-bold" style={{ color: 'var(--color-text-primary)' }}>전문가에게 직접 상담</p>
-                <p className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>구체적인 사안은 노무법인 위너스가 직접 봅니다</p>
               </div>
             </Link>
           </div>

@@ -165,7 +165,7 @@ export default function HomeClient({ totalCases, totalAdmin, latestBlogArticles,
               href="/contact"
               className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-md px-5 py-2.5 text-[15px] font-semibold transition-[background-color,transform] hover:-translate-y-px border border-[var(--color-border)] bg-[var(--color-bg-surface)] text-[var(--color-text-primary)] hover:bg-[var(--grey-100)]"
             >
-              상담·협업 문의 <ArrowRight size={16} />
+              서비스 문의 <ArrowRight size={16} />
             </Link>
           </div>
         </div>

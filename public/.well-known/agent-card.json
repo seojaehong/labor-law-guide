@@ -1,18 +1,12 @@
 {
-  "name": "노란봉투법 가이드 에이전트",
-  "version": "1.0.0",
-  "description": "대한민국 노동법 실무 가이드 에이전트. 노란봉투법, 부당해고, 임금체불, 직장내괴롭힘, 4대보험, 고용지원금 정보 제공. 확률/점수 출력 없이 근거 기반 안내.",
-  "url": "https://www.xn--o80bk8isxeinax68f.com",
+  "name": "일의 무늬 노동법 가이드",
+  "version": "1.1.0",
+  "description": "대한민국 노동법 실무 가이드. 노란봉투법 해설, 교섭절차, 판례·행정해석 검색, 노동 계산·점검 도구 안내. 점수나 가능성 숫자를 내지 않고 근거 조문·판례와 함께 안내합니다.",
+  "url": "https://yellowenvelope.kr",
   "provider": {
-    "organization": "노무법인 위너스",
-    "url": "https://www.xn--o80bk8isxeinax68f.com"
+    "organization": "일의 무늬",
+    "url": "https://yellowenvelope.kr"
   },
-  "supportedInterfaces": [
-    {
-      "url": "https://www.xn--o80bk8isxeinax68f.com/api",
-      "transport": "https"
-    }
-  ],
   "capabilities": {
     "streaming": true,
     "pushNotifications": false
@@ -21,12 +15,12 @@
     {
       "id": "labor-law-guide",
       "name": "노동법 실무 가이드",
-      "description": "노란봉투법 해설, FAQ, 교섭절차, 자가진단"
+      "description": "노란봉투법 해설, FAQ, 교섭절차, 점검 체크리스트"
     },
     {
-      "id": "ai-consultation",
-      "name": "AI 노동법 상담",
-      "description": "노동법 전반 질의응답"
+      "id": "ai-qna",
+      "name": "AI 질의응답",
+      "description": "노란봉투법 관련 질문에 AI가 근거와 함께 답합니다"
     }
   ]
 }

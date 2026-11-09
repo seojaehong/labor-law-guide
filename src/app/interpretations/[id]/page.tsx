@@ -12,7 +12,6 @@ import { decisionDate } from '@/lib/decision-date';
 import TagRow from '@/app/database/_components/TagRow';
 import {
   ArrowLeft,
-  ArrowRight,
   Calendar,
   FileText,
   MessageSquare,
@@ -340,17 +339,6 @@ export default async function InterpretationDetailPage({
                   </div>
                 </Link>
               </div>
-              <div className="rounded-xl p-6 sm:p-8 text-center" style={{ backgroundColor: '#191f28' }}>
-                <p className="text-lg font-bold text-white">노무사 상담이 필요하신가요?</p>
-                <p className="mt-2 text-sm text-white/70">노무법인 위너스에서 사업장 맞춤 상담을 제공합니다.</p>
-                <Link
-                  href="/contact"
-                  className="mt-4 inline-flex min-h-[44px] items-center justify-center gap-2 rounded-md px-5 py-2.5 text-[15px] font-semibold transition-transform hover:-translate-y-px"
-                  style={{ backgroundColor: 'var(--color-bg-surface)', color: 'var(--grey-900)' }}
-                >
-                  무료 상담 신청하기 <ArrowRight size={14} />
-                </Link>
-              </div>
             </section>
           </article>
 
@@ -384,20 +372,6 @@ export default async function InterpretationDetailPage({
                     </div>
                   )}
                 </dl>
-              </div>
-
-              <div className="rounded-xl p-5" style={{ backgroundColor: '#191f28' }}>
-                <p className="text-[14px] font-bold text-white mb-2">노무사 상담 문의</p>
-                <p className="text-[12px] text-white/70 mb-4 leading-relaxed">
-                  이 행정해석의 적용 여부가 궁금하시면 노무법인 위너스에 문의하세요.
-                </p>
-                <Link
-                  href="/contact"
-                  className="inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-[13px] font-medium"
-                  style={{ backgroundColor: 'var(--color-bg-surface)', color: 'var(--grey-900)' }}
-                >
-                  상담 문의 <ArrowRight size={12} />
-                </Link>
               </div>
             </div>
           </aside>

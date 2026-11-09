@@ -84,6 +84,14 @@ if (tools.includes('make_form')) {
   });
   const head = made.ok ? fs.readFileSync(made.outPath).subarray(0, 5).toString() : '';
   check(`make_form ok (${made.bytes} bytes, EDI 한도 안: ${made.withinEdiLimit})`, made.ok && head === '%PDF-');
+  const other = path.join(tmp, 'keep.txt.pdf');
+  fs.writeFileSync(other, 'KEEP');
+  const refused = await callJson('make_form', {
+    kind: 'loss', peopleFile: pf, reason: '퇴사 처리 과정에서 상실 신고를 놓쳐 늦게 신고합니다.',
+    biz: { mgmtNo: '12345678901', name: '가상사업장', addr: '충북 청주시 상당구 상당로 155', ownerName: '김대표' },
+    outPath: other,
+  });
+  check('make_form 있는 파일을 덮어쓰지 않음', refused.ok === false && fs.readFileSync(other, 'utf8') === 'KEEP');
 }
 if (tools.includes('popbill_status')) {
   const st = await callJson('popbill_status', {});
@@ -130,7 +138,18 @@ const ANN = {
   ...Object.fromEntries(['calc_severance', 'calc_holiday_pay', 'calc_pay_proration', 'calc_shutdown_allowance', 'calc_annual_leave', 'settle_leave_on_exit', 'calc_retirement_tax', 'list_employer_duties']
     .map((n) => [n, { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false }])),
   ...Object.fromEntries(MORE_TOOLS.map((n) => [n, { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false }])),
+  // nhis·popbill — 지사 찾기·팝빌 조회는 바깥 API 를 읽기만, 신고서는 PDF 를 쓴다, 팩스·문자는 되돌릴 수 없는 발송
+  ...Object.fromEntries(['find_branch', 'popbill_status', 'fax_result', 'sms_result']
+    .map((n) => [n, { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true }])),
+  make_form: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
+  ...Object.fromEntries(['send_fax', 'send_sms'].map((n) => [n, { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: true }])),
 };
+// 커넥터 디렉터리 심사 — 빠진 도구 없이 전부 title 과 네 칸이 있다
+{
+  const all = (await c.listTools()).tools;
+  const bare = all.filter((t) => !t.title || !ANN[t.name] || ['readOnlyHint', 'destructiveHint', 'idempotentHint', 'openWorldHint'].some((k) => typeof t.annotations?.[k] !== 'boolean'));
+  check(`모든 도구(${all.length})에 title·annotations 네 칸${bare.length ? ` — 빠짐: ${bare.map((t) => t.name).join(',')}` : ''}`, bare.length === 0);
+}
 // 이 판에서 더한 도구 8개 + 사이트 도구 7개(groups/more) — 「대신·대행·대리」도 함께 막는다
 const NEW_TOOLS = ['calc_severance', 'calc_holiday_pay', 'calc_pay_proration', 'calc_shutdown_allowance', 'calc_annual_leave', 'settle_leave_on_exit', 'calc_retirement_tax', 'list_employer_duties', ...MORE_TOOLS];
 const NEW_WORDS = [...WORDS, '대신', '대행', '대리'];

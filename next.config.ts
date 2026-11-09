@@ -24,6 +24,8 @@ const nextConfig: NextConfig = {
       { source: '/database', destination: '/decisions', permanent: true },
       // 사업장 규모 카드는 단독 페이지를 접고 인원을 받는 도구마다 「사업자등록번호로 불러오기」로 넣었다(261028)
       { source: '/tools/workplace', destination: '/duties', permanent: true },
+      // 강의 페이지(/lecture/ai-isan-2026·교재)를 내렸다(261105). 옛 주소는 홈으로 임시 이동.
+      { source: '/lecture/:path*', destination: '/', permanent: false },
     ];
   },
   async rewrites() {
@@ -33,10 +35,6 @@ const nextConfig: NextConfig = {
       { source: '/mcp/server-card.json', destination: '/.well-known/mcp/server-card.json' },
       { source: '/agent-skills/index.json', destination: '/.well-known/agent-skills/index.json' },
       { source: '/agent-skills/:path*', destination: '/.well-known/agent-skills/:path*' },
-      { source: '/api-catalog', destination: '/.well-known/api-catalog' },
-      { source: '/openapi.json', destination: '/.well-known/openapi.json' },
-      { source: '/oauth-authorization-server', destination: '/.well-known/oauth-authorization-server' },
-      { source: '/oauth-protected-resource', destination: '/.well-known/oauth-protected-resource' },
       { source: '/agent-card.json', destination: '/.well-known/agent-card.json' },
     ];
   },
@@ -62,35 +60,11 @@ const nextConfig: NextConfig = {
         ],
       },
       {
-        source: '/api-catalog',
-        headers: [{ key: 'Content-Type', value: 'application/json; charset=utf-8' }],
-      },
-      {
-        source: '/oauth-authorization-server',
-        headers: [{ key: 'Content-Type', value: 'application/json; charset=utf-8' }],
-      },
-      {
-        source: '/oauth-protected-resource',
-        headers: [{ key: 'Content-Type', value: 'application/json; charset=utf-8' }],
-      },
-      {
-        source: '/.well-known/api-catalog',
-        headers: [{ key: 'Content-Type', value: 'application/json; charset=utf-8' }],
-      },
-      {
-        source: '/.well-known/oauth-authorization-server',
-        headers: [{ key: 'Content-Type', value: 'application/json; charset=utf-8' }],
-      },
-      {
-        source: '/.well-known/oauth-protected-resource',
-        headers: [{ key: 'Content-Type', value: 'application/json; charset=utf-8' }],
-      },
-      {
         source: '/',
         headers: [
           {
             key: 'Link',
-            value: '</.well-known/api-catalog>; rel="api-catalog", </.well-known/mcp/server-card.json>; rel="mcp-server", </.well-known/agent-card.json>; rel="agent-card", </llms.txt>; rel="llms-txt"',
+            value: '</.well-known/mcp/server-card.json>; rel="mcp-server", </.well-known/agent-card.json>; rel="agent-card", </llms.txt>; rel="llms-txt"',
           },
         ],
       },
