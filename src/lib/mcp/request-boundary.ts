@@ -4,6 +4,22 @@ export const MAX_MCP_JSON_DEPTH = 32;
 export const MAX_MCP_JSON_ELEMENTS = 2000;
 export const MAX_MCP_TOOL_ELEMENTS = 1000;
 
+export const MCP_RATE_LIMIT_PER_MINUTE = 60;
+const MCP_RATE_WINDOW_MS = 60_000;
+
+/** 무인증 공개 끝점의 IP별 호출 한도. 함수 인스턴스별 메모리라 대략의 상한이다. */
+export function createMcpIpLimiter() {
+  const windows = new Map<string, { startedAt: number; count: number }>();
+  return (ip: string, now = Date.now()): number | null => {
+    for (const [key, w] of windows) if (now - w.startedAt >= MCP_RATE_WINDOW_MS) windows.delete(key);
+    const current = windows.get(ip) ?? { startedAt: now, count: 0 };
+    windows.set(ip, current);
+    if (current.count >= MCP_RATE_LIMIT_PER_MINUTE) return Math.ceil((current.startedAt + MCP_RATE_WINDOW_MS - now) / 1000);
+    current.count += 1;
+    return null;
+  };
+}
+
 export function mcpError(status: number, code: number, message: string) {
   return Response.json(
     { jsonrpc: '2.0', id: null, error: { code, message } },

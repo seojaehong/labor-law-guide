@@ -1,10 +1,11 @@
-// 원격 k-labor: /api/mcp/mcp. stdio와 달리 입력은 서버로 전송된다.
-// 개인정보 처리 고지·실제 리전·남용 방지·호스트 검증 후에만 명시적으로 활성화한다.
+// 원격 k-labor: /api/mcp/mcp. 무인증 공개 끝점이며 입력은 서버로 전송되지만 저장하지 않는다.
+// 긴급 차단은 K_LABOR_REMOTE_ENABLED=false.
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { WebStandardStreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js';
 import { registerRemote } from '../../../../../tools/k-labor/remote.mjs';
 import pkg from '../../../../../tools/k-labor/package.json';
-import { MAX_MCP_BODY_BYTES, MAX_MCP_TOOL_ELEMENTS, mcpError, readMcpJson } from '@/lib/mcp/request-boundary';
+import { extractIp } from '@/lib/client-ip';
+import { MAX_MCP_BODY_BYTES, MAX_MCP_TOOL_ELEMENTS, createMcpIpLimiter, mcpError, readMcpJson } from '@/lib/mcp/request-boundary';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -12,12 +13,21 @@ export const runtime = 'nodejs';
 export const preferredRegion = 'icn1';
 export const maxDuration = 60;
 
+const retryAfterSeconds = createMcpIpLimiter();
+
 export async function POST(request: Request) {
   if (new URL(request.url).pathname !== '/api/mcp/mcp') {
     return mcpError(404, -32000, 'Not found');
   }
-  if (process.env.K_LABOR_REMOTE_ENABLED !== 'true') {
+  if (process.env.K_LABOR_REMOTE_ENABLED === 'false') {
     return mcpError(503, -32000, 'Remote MCP is not enabled');
+  }
+  const ip = extractIp(request);
+  const wait = ip === 'unknown' ? null : retryAfterSeconds(ip);
+  if (wait !== null) {
+    const limited = mcpError(429, -32000, 'Too many requests');
+    limited.headers.set('retry-after', String(wait));
+    return limited;
   }
   const parsed = await readMcpJson(request);
   if (parsed.response) return parsed.response;
@@ -27,7 +37,7 @@ export async function POST(request: Request) {
     { name: 'k-labor', version: pkg.version },
     {
       maxToolInputElements: MAX_MCP_TOOL_ELEMENTS,
-      instructions: '원격 계산 도구입니다. 입력은 서버로 전송됩니다. 이름, 주소, 연락처, 주민등록번호 등 식별정보를 입력하지 마세요. 실제 개인정보를 쓰기 전에 서비스의 처리방침과 처리 지역을 확인하세요.',
+      instructions: '원격 노동 계산·계약서 점검 도구입니다. 입력은 서버로 전송되지만 저장하지 않습니다.',
     },
   );
   const transport = new WebStandardStreamableHTTPServerTransport({

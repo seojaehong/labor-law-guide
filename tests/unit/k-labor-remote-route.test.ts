@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import * as route from '@/app/api/mcp/[transport]/route';
-import { MAX_MCP_BODY_BYTES, MAX_MCP_JSON_ELEMENTS, MAX_MCP_TOOL_ELEMENTS } from '@/lib/mcp/request-boundary';
+import { MAX_MCP_BODY_BYTES, MAX_MCP_JSON_ELEMENTS, MAX_MCP_TOOL_ELEMENTS, MCP_RATE_LIMIT_PER_MINUTE } from '@/lib/mcp/request-boundary';
 import { REMOTE_TOOLS } from '../../tools/k-labor/remote.mjs';
 
 // 서버/SDK까지 로컬 메모리에서 실행한다. 네트워크·개인정보·실제 호스트 설정은 쓰지 않는다.
@@ -30,9 +30,23 @@ describe('원격 k-labor 라우트', () => {
     expect(route.runtime).toBe('nodejs');
   });
 
-  it.each([undefined, '', 'false', '1'])('명시적 활성화 전 닫혀 있다: %s', async (value) => {
-    vi.stubEnv('K_LABOR_REMOTE_ENABLED', value);
+  it('K_LABOR_REMOTE_ENABLED=false 이면 닫힌다', async () => {
+    vi.stubEnv('K_LABOR_REMOTE_ENABLED', 'false');
     expect((await rpc(list)).status).toBe(503);
+  });
+
+  it.each([undefined, '', '1'])('별도 설정이 없으면 열려 있다: %s', async (value) => {
+    vi.stubEnv('K_LABOR_REMOTE_ENABLED', value);
+    expect((await rpc(list)).status).toBe(200);
+  });
+
+  it('같은 IP 가 분당 한도를 넘으면 429, 다른 IP 는 영향이 없다', async () => {
+    const send = (ip: string) => route.POST(req(JSON.stringify(list), { ...HEAD, 'cf-connecting-ip': ip }));
+    for (let i = 0; i < MCP_RATE_LIMIT_PER_MINUTE; i++) expect((await send('203.0.113.9')).status).toBe(200);
+    const over = await send('203.0.113.9');
+    expect(over.status).toBe(429);
+    expect(over.headers.get('retry-after')).toBeTruthy();
+    expect((await send('203.0.113.10')).status).toBe(200);
   });
 
   it('initialize에 원격 입력 전송 고지와 도구 기능이 있다', async () => {
@@ -47,15 +61,14 @@ describe('원격 k-labor 라우트', () => {
     expect(headers.get('mcp-session-id')).toBeNull();
   });
 
-  it('tools/list는 계약 도구를 제외한 21개만 공개하며 응답을 캐시하지 않는다', async () => {
+  it('tools/list는 계약 도구를 포함한 23개를 공개하며 응답을 캐시하지 않는다', async () => {
     const { status, json, headers } = await rpc(list);
     expect(status).toBe(200);
     const names = json.result.tools.map((t: { name: string }) => t.name).sort();
     expect(names).toEqual([...REMOTE_TOOLS].sort());
-    expect(names).toHaveLength(21);
+    expect(names).toHaveLength(23);
     expect(headers.get('content-type')).toContain('application/json');
     expect(headers.get('cache-control')).toBe('no-store');
-    expect(JSON.stringify(json.result.tools)).not.toMatch(/employeeName|ownerName|workplaceName/);
   });
 
   it('주휴수당의 정확한 계산값과 요청 ID를 보존한다', async () => {
@@ -73,7 +86,7 @@ describe('원격 k-labor 라우트', () => {
     expect(json.result.content[0].text).toContain('hourlyWage');
   });
 
-  it.each(['design_contract_wage', 'check_contract', 'make_form', 'send_fax'])('%s 호출을 허용하지 않는다', async (name) => {
+  it.each(['make_form', 'send_fax'])('%s 호출을 허용하지 않는다', async (name) => {
     const { json } = await call(name, {});
     expect(json.result.isError).toBe(true);
     expect(json.result.content[0].text).toMatch(/not found/i);
@@ -174,7 +187,7 @@ describe('원격 k-labor 라우트', () => {
     });
     try {
       await client.connect(transport);
-      expect((await client.listTools()).tools).toHaveLength(21);
+      expect((await client.listTools()).tools).toHaveLength(23);
       const result = await client.callTool({ name: 'calc_weekly_holiday_pay', arguments: { hourlyWage: 10320, weeklyHours: 40 } });
       expect(result.isError).not.toBe(true);
       expect(JSON.stringify(result.content)).toContain('82,560');
