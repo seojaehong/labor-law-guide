@@ -1,18 +1,20 @@
 # 노란봉투법 완벽 가이드
 
-> 2026년 3월 10일 시행 개정 노동조합법(노란봉투법) 해석지침, 교섭절차 매뉴얼, 자가진단 체크리스트, 핵심판례, AI 상담 제공 사이트입니다.
+> 2026년 3월 10일 시행 개정 노동조합법(노란봉투법) 해석지침, 교섭절차 매뉴얼, 점검 체크리스트, 핵심판례, AI 질의응답과 노동 계산·점검 도구를 제공하는 사이트입니다.
 > 일의 무늬 운영. 문의: hello@yellowenvelope.kr
 
 ## 사이트 구조
 
 - [홈](https://yellowenvelope.kr/): 노란봉투법 핵심 변화 요약
 - [해석지침](https://yellowenvelope.kr/guide): 사용자 범위 확대, 노동쟁의 확대, 손해배상 제한 조문별 해설
-- [자가진단](https://yellowenvelope.kr/checklist): 약식(체크박스) + 심층(18항목 4단계) 2-트랙 사용자성·교섭의무 자가진단
+- [점검 체크리스트](https://yellowenvelope.kr/checklist): 약식(체크박스)·심층(18항목 4단계) 2-트랙 사용자성·교섭 의무 점검
 - [교섭절차](https://yellowenvelope.kr/manual): 원·하청 교섭절차 6단계 매뉴얼
 - [핵심판례](https://yellowenvelope.kr/cases): 사용자성 판단 핵심 판례 6건 쟁점별 정리
-- [판례검색](https://yellowenvelope.kr/database): 판례 2,900+건, 행정해석 890+건 통합검색
+- [판례·행정해석](https://yellowenvelope.kr/decisions): 판례·행정해석 통합검색
+- [계산·점검 도구](https://yellowenvelope.kr/tools): 퇴직금·연차·주휴수당·최저임금 등 계산기와 근로계약서·취업규칙 점검
+- [법령 개정](https://yellowenvelope.kr/laws): 노동법 개정·시행 예정 목록
 - [뉴스](https://yellowenvelope.kr/news): 노란봉투법 관련 최신 뉴스
-- [AI 상담](https://yellowenvelope.kr/ai): 노란봉투법 관련 AI 즉시 질의응답
+- [AI 질의응답](https://yellowenvelope.kr/ai): 노란봉투법 관련 질문에 AI가 근거와 함께 답합니다
 - [AI 연결 도구](https://yellowenvelope.kr/ai-tools): 내 PC 의 AI(Claude Code 등)에 붙이는 MCP 도구 — 산재 신청 도우미(sanjae-apply), 4대보험 신고서·근로계약서·노동 계산기·취업규칙 점검(k-labor)
 - [서비스 문의](https://yellowenvelope.kr/contact): 오류 제보·기능 제안·제휴 문의
 

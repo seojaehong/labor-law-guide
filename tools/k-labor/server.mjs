@@ -14,7 +14,7 @@ import { registerLeave, leaveTools } from './groups/leave.mjs';
 import { registerTax, taxTools } from './groups/tax.mjs';
 import { registerDuties, dutiesTools } from './groups/duties.mjs';
 
-const VERSION = '0.1.1';
+const VERSION = '0.1.2';
 
 // 새 도구 묶음은 여기에 한 줄 더한다.
 const GROUPS = {
