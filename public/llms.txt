@@ -15,7 +15,7 @@
 - [법령 개정](https://yellowenvelope.kr/laws): 노동법 개정·시행 예정 목록
 - [뉴스](https://yellowenvelope.kr/news): 노란봉투법 관련 최신 뉴스
 - [AI 질의응답](https://yellowenvelope.kr/ai): 노란봉투법 관련 질문에 AI가 근거와 함께 답합니다
-- [AI 연결 도구](https://yellowenvelope.kr/ai-tools): 내 PC 의 AI(Claude Code 등)에 붙이는 MCP 도구 — 산재 신청 도우미(sanjae-apply), 4대보험 신고서·근로계약서·노동 계산기·취업규칙 점검(k-labor)
+- [AI 연결 도구](https://yellowenvelope.kr/ai-tools): Claude 앱에 주소만 붙여 연결하거나(원격, 토큰 없음: https://yellowenvelope.kr/api/mcp/mcp 도구 23개, https://sanjae-apply.vercel.app/api/mcp/mcp 도구 8개) 내 PC 의 AI(Claude Code 등)에 설치해 쓰는 MCP 도구 — 산재 신청 도우미(sanjae-apply), 4대보험 신고서·근로계약서·노동 계산기·취업규칙 점검(k-labor). 4대보험 신고서·취업규칙 점검은 PC 설치판에서만 씁니다
 - [서비스 문의](https://yellowenvelope.kr/contact): 오류 제보·기능 제안·제휴 문의
 
 ## 상세 콘텐츠

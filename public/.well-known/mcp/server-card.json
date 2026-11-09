@@ -17,7 +17,8 @@
       "description": "Korean labor tools: NHIS report forms, employment contracts, wage/leave/tax calculators, work rules.",
       "repository": { "url": "https://github.com/seojaehong/labor-law-guide", "source": "github" },
       "websiteUrl": "https://yellowenvelope.kr/ai-tools",
-      "packages": [{ "registryType": "npm", "identifier": "k-labor", "transport": { "type": "stdio" } }]
+      "packages": [{ "registryType": "npm", "identifier": "k-labor", "transport": { "type": "stdio" } }],
+      "remotes": [{ "type": "streamable-http", "url": "https://yellowenvelope.kr/api/mcp/mcp" }]
     }
   ]
 }
