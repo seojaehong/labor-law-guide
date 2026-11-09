@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { compareRow } from "@/lib/leave/annual-leave";
-import { buildText, looksLikeHeader, parseLines, readGrid } from "@/lib/leave/leave-sheet";
+import { buildText, looksLikeHeader, parseLines, readGrid, rosterFromRows } from "@/lib/leave/leave-sheet";
 import { isLeaveCalculationError, leaveTsv, leaveExportRow } from "@/lib/leave/leave-export";
 import { downloadXlsx } from "@/lib/leave/leave-xlsx";
 import { downloadLeaveTemplate } from "@/lib/leave/leave-template-xlsx";
@@ -12,9 +12,11 @@ import {
   WORKSPACES_CHANGED,
   getActiveWorkspace,
   getMembers,
+  memberKey,
+  removeMembers,
   setMembers,
 } from "@/lib/leave/leave-workspaces";
-import type { Workspace } from "@/lib/leave/leave-workspaces";
+import type { Workspace, WorkspaceMember } from "@/lib/leave/leave-workspaces";
 import { StatusBadge } from "@/components/leave/LeaveUI";
 import { MAX_FILE_BYTES } from '@/lib/laws/doc-io';
 import { boundedLeaveArchive } from '@/lib/leave/leave-archive';
@@ -134,6 +136,9 @@ export function LeaveInput() {
   /** 지금 고른 사업장 — 읽어낸 직원은 여기로 들어간다 */
   const [ws, setWs] = useState<Workspace | null>(null);
   const [rosterSavedCount, setRosterSavedCount] = useState<number | null>(null);
+  /** 입력창에 없지만 계약 조건이 있어 명부에 남은 사람 */
+  const [keptOutside, setKeptOutside] = useState<WorkspaceMember[]>([]);
+  const [removeFailed, setRemoveFailed] = useState(false);
   const editorWorkspace = useRef<string | null | undefined>(undefined);
   useEffect(() => {
     const sync = () => {
@@ -164,14 +169,18 @@ export function LeaveInput() {
   // ★ 합치지 않고 **덮어쓴다.** 이 입력창의 내용이 곧 명부 전체다.
   //   합치면 타이핑 중간 상태("홍" → "홍길" → "홍길동")가 전부 남아 드롭다운이
   //   쓰레기로 찬다. 날짜 오타를 고쳐도 틀린 것이 같이 남는다.
+  // ★ 읽지 못한 줄이 있는 동안에는 쓰지 않는다. 고치는 도중의 줄 때문에 그 사람이 지워지면 안 된다.
+  const rosterHeld = rows.some((r) => r.error || !r.hireDate);
   useEffect(() => {
     if (editorWorkspace.current !== (ws?.id ?? null)) return;
-    const members = rows
-        .filter((r) => !r.error && r.hireDate)
-        .map((r) => ({ name: r.name, hireDate: r.hireDate }));
+    const members = rosterFromRows(rows);
+    if (!members) return;
     const expected = setMembers(ws, members);
     const stored = getMembers(ws);
-    setRosterSavedCount(ws && JSON.stringify(stored) === JSON.stringify(expected) ? stored.length : null);
+    const onScreen = new Set(members.map((m) => `${m.name} ${m.hireDate}`));
+    const outside = stored.filter((m) => m.terms && !onScreen.has(memberKey(m)));
+    setKeptOutside(outside);
+    setRosterSavedCount(ws && JSON.stringify(stored) === JSON.stringify(expected) ? stored.length - outside.length : null);
   }, [rows, ws]);
   const results = useMemo(
     () =>
@@ -435,7 +444,9 @@ export function LeaveInput() {
               (.lv-offer 스타일은 그때 재사용할 수 있게 남겨 둔다) */}
 
           <p className="lv-roster__note" style={{ marginTop: 12 }}>
-            {ws && rosterSavedCount !== null ? <>
+            {ws && rosterHeld ? (
+              "읽지 못한 줄이 있어 명부는 이전 그대로 두었습니다. 그 줄을 고치면 저장합니다."
+            ) : ws && rosterSavedCount !== null ? <>
               이름·입사일 <strong>{rosterSavedCount}명</strong>을 「{ws.name}」 명부에 저장했습니다.{' '}
               <a href="/tools/leave/settlement">퇴직 연차 정산</a>에서 골라 쓸 수 있습니다.
               {ws.remember ? " 이 브라우저에 남습니다." : " 탭을 닫으면 사라집니다."}
@@ -512,6 +523,26 @@ export function LeaveInput() {
             잔여일수가 아니므로, 대장과 비교할 때는 같은 기간·같은 기준인지 확인해 주세요.
           </p>
         </>
+      )}
+
+      {ws && keptOutside.length > 0 && (
+        <p className="lv-roster__note">
+          계약 조건을 저장한 {keptOutside.map((m) => `${m.name}(${m.hireDate})`).join(", ")}은 입력창에서 지워도 명부에 남습니다.{" "}
+          <button
+            type="button"
+            className="lv-linklike"
+            onClick={() => {
+              if (confirm("계약 조건까지 지웁니다. 계속할까요?")) {
+                const removed = removeMembers(ws, keptOutside.map(memberKey));
+                setRemoveFailed(!removed);
+                if (removed) setKeptOutside([]);
+              }
+            }}
+          >
+            계약 조건까지 지우기
+          </button>
+          {removeFailed && <span role="status"> 지우지 못했습니다. 브라우저 저장 공간을 확인해 주세요. 명부는 그대로입니다.</span>}
+        </p>
       )}
     </section>
   );

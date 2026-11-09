@@ -6,6 +6,7 @@ import { ITEM_LABEL, type ItemKey, type Rounding } from '@/lib/contract-write/de
 import { dailyWorkHours, isUnder15, itemHoursOf, spanMinutes, WEEK_DAYS, type WeekDay, type WriteForm } from '@/lib/contract-write/contract';
 import { netToGross } from '@/lib/contract-write/net-gross';
 import { cleanInput } from '@/lib/contract-write/text';
+import { normalizeDate } from '@/lib/leave/leave-sheet';
 import { todayKst } from '@/lib/tool-kit';
 
 export { WEEK_DAYS };
@@ -113,8 +114,9 @@ function ratesDate(startDate: string, today: string): string {
 /** 글 칸 — 제어문자를 지우고 ㈜ 를 (주) 로, 앞뒤 빈칸을 뗀다(한글·엑셀·PDF 가 깨지지 않게) */
 const t = cleanInput;
 
-const DATE = /^\d{4}-\d{2}-\d{2}$/;
-const TIME = /^\d{2}:\d{2}$/;
+/** YYYY-MM-DD 이면서 달력에 있는 날짜 */
+export const isRealDate = (s: string): boolean => normalizeDate(s) === s;
+const TIME = /^([01]\d|2[0-3]):[0-5]\d$/;
 
 /** 월 인정시간 직접 정하기 칸(비운 칸은 넣지 않는다) */
 function overridesOf(s: WriteState): NonNullable<WriteForm['overrides']> {
@@ -135,7 +137,7 @@ export function toWriteForm(s: WriteState, today = todayKst()): ParsedForm {
   const breakMin = num(s.breakMinutes);
   if (!t(s.workplaceName)) missing.push('사업체명');
   if (!t(s.employeeName)) missing.push('근로자 성명');
-  if (!DATE.test(s.startDate)) missing.push('계약 시작일');
+  if (!isRealDate(s.startDate)) missing.push('계약 시작일');
   if (!t(s.location)) missing.push('근무장소');
   if (!t(s.duty)) missing.push('업무');
   if (s.workDays.length === 0) missing.push('근무 요일');
@@ -179,8 +181,9 @@ export function toWriteForm(s: WriteState, today = todayKst()): ParsedForm {
   const problems: string[] = [];
   if (bad.length) problems.push(`숫자로 읽을 수 없는 칸: ${bad.join(', ')}.`);
   if (fractional.length) problems.push(`금액은 원 단위 정수로 넣어 주세요(소수점 없이): ${fractional.join(', ')}.`);
-  if (s.writtenDate && !DATE.test(s.writtenDate)) problems.push('작성일을 YYYY-MM-DD 로 넣어 주세요.');
-  if (s.endDate && (!DATE.test(s.endDate) || s.endDate < s.startDate)) problems.push('계약 종료일이 시작일보다 빠릅니다.');
+  if (s.writtenDate && !isRealDate(s.writtenDate)) problems.push('작성일을 YYYY-MM-DD 로 넣어 주세요.');
+  if (s.endDate && !isRealDate(s.endDate)) problems.push('계약 종료일을 YYYY-MM-DD 로 넣어 주세요.');
+  else if (s.endDate && s.endDate < s.startDate) problems.push('계약 종료일이 시작일보다 빠릅니다.');
   const times = { start: s.start, end: s.end, breakMinutes: breakMin ?? 0 };
   if (s.start === s.end) problems.push('출근과 퇴근 시각이 같습니다.');
   else if (!bad.length && dailyWorkHours(times) <= 0) {
