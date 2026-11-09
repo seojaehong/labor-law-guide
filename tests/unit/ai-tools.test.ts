@@ -55,9 +55,18 @@ describe('AI 연결 도구 목록', () => {
       const p = AI_PACKAGES.find((x) => x.id === t.package);
       expect(p, t.id).toBeDefined();
       expect(t.install.claudeCode, t.id).toContain(`npx -y ${p!.npm} mcp`);
-      expect(t.install.remote, t.id).toBe(p!.remote);
+      if (t.install.remote) expect(t.install.remote, t.id).toBe(p!.remote);
     }
     for (const p of AI_PACKAGES) expect(AI_TOOLS.some((t) => t.package === p.id), p.id).toBe(true);
+  });
+
+  // 원격판에는 contract·calc·leave·tax·duties 만 올라간다. nhis·work-rules 카드에 원격 주소를 달면 없는 도구를 찾게 된다.
+  it('원격에서 되는 카드에만 원격 주소를 싣는다', () => {
+    const remote = (id: string) => AI_TOOLS.find((t) => t.id === id)?.install?.remote;
+    expect(AI_PACKAGES.find((p) => p.id === 'k-labor')?.remote).toBe('https://yellowenvelope.kr/api/mcp/mcp');
+    for (const id of ['contract', 'calc', 'leave-tax', 'checks']) expect(remote(id), id).toBe('https://yellowenvelope.kr/api/mcp/mcp');
+    for (const id of ['insurance-forms', 'work-rules']) expect(remote(id), id).toBeUndefined();
+    expect(remote('sanjae-apply')).toBe('https://sanjae-apply.vercel.app/api/mcp/mcp');
   });
 
   it('k-labor 의 package.json·server.json 이 목록과 같다', () => {
@@ -84,7 +93,11 @@ describe('AI 연결 도구 목록', () => {
   });
 
   it('llms.txt 가 AI 연결 도구 안내를 가리키고, k-labor 안내에 게시 전 문구가 남지 않았다', () => {
-    expect(fs.readFileSync('public/llms.txt', 'utf8')).toContain('https://yellowenvelope.kr/ai-tools');
+    const llms = fs.readFileSync('public/llms.txt', 'utf8');
+    expect(llms).toContain('https://yellowenvelope.kr/ai-tools');
+    expect(llms).toContain('https://yellowenvelope.kr/api/mcp/mcp');
+    expect(llms).toContain('https://sanjae-apply.vercel.app/api/mcp/mcp');
+    expect(llms).not.toMatch(/내 PC 의 AI\(Claude Code 등\)에 붙이는/);
     expect(fs.readFileSync('tools/k-labor/README.md', 'utf8')).not.toMatch(/아직 npm 에 올리지/);
   });
 

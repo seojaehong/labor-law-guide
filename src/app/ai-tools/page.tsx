@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { publicMetadata } from '@/lib/public-metadata';
 import { SITE_URL } from '@/lib/constants';
 import { AI_TOOLS, type AiTool } from '@/content/ai-tools';
+import ConnectGuide from './ConnectGuide';
 
 export const metadata: Metadata = publicMetadata({
   title: 'AI 연결 도구(MCP) | Claude에 붙여 쓰는 노동 업무 도구 | 일의 무늬',
@@ -186,7 +187,7 @@ const ROUTES: { name: string; where: string; code: string }[] = [
   },
   {
     name: 'claude.ai',
-    where: '설정 → 커넥터 → 사용자 지정 커넥터 추가에 원격 주소를 넣습니다. 설치가 필요 없습니다.',
+    where: '설정 → 커넥터 → 커스텀 커넥터 추가에 원격 주소를 넣습니다. 설치가 필요 없습니다.',
     code: 'https://sanjae-apply.vercel.app/api/mcp/mcp',
   },
 ];
@@ -201,17 +202,19 @@ const FAQ: { q: string; a: React.ReactNode }[] = [
     ),
   },
   { q: '요금이 있나요?', a: '연결과 서식 만들기는 무료입니다. 팩스·문자는 이용자 본인의 팝빌 계정 요금이 듭니다.' },
-  { q: '어떤 AI 에서 되나요?', a: 'MCP 를 지원하는 도구에서 씁니다. Claude Code, Claude Desktop, claude.ai 사용자 지정 커넥터 등입니다.' },
+  { q: '어떤 AI 에서 되나요?', a: 'MCP 를 지원하는 도구에서 씁니다. Claude Code, Claude Desktop, claude.ai 커스텀 커넥터 등입니다.' },
 ];
 
 export default function AiToolsPage() {
   return (
     <div className="layout-tool">
-      {/* 첫 화면 — 설명 + 대화 예시 */}
-      <section className="grid items-center gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)] lg:gap-12">
+      <h1 className="t-h2" style={ink}>AI 연결 도구</h1>
+      <ConnectGuide />
+
+      {/* 설명 + 대화 예시 */}
+      <section className="mt-16 grid items-center gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)] lg:gap-12">
         <div>
-          <h1 className="t-h2" style={ink}>AI 연결 도구</h1>
-          <p className="mt-4 text-[17px] leading-8" style={ink}>
+          <p className="text-[17px] leading-8" style={ink}>
             Claude 같은 AI 에 일의 무늬 도구를 붙여 두면, 대화하면서 필요한 서식을 찾고 채울 수 있습니다.
           </p>
           <p className="mt-3 text-sm leading-7" style={sub}>

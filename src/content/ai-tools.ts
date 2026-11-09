@@ -13,6 +13,7 @@ export interface AiPackage {
   repo: string;
   websiteUrl: string;
   remote?: string; // 원격(streamable-http) 주소. 없으면 로컬(stdio)판만
+  remoteTools?: number; // 원격 주소에서 쓸 수 있는 도구 수
 }
 
 export const AI_PACKAGES: AiPackage[] = [
@@ -25,6 +26,7 @@ export const AI_PACKAGES: AiPackage[] = [
     repo: 'https://github.com/seojaehong/sanjae-apply',
     websiteUrl: 'https://sanjae-apply.vercel.app/',
     remote: 'https://sanjae-apply.vercel.app/api/mcp/mcp',
+    remoteTools: 8,
   },
   {
     id: 'k-labor',
@@ -34,11 +36,16 @@ export const AI_PACKAGES: AiPackage[] = [
     npm: 'k-labor',
     repo: 'https://github.com/seojaehong/labor-law-guide',
     websiteUrl: 'https://yellowenvelope.kr/ai-tools',
+    remote: 'https://yellowenvelope.kr/api/mcp/mcp',
+    remoteTools: 23,
   },
 ];
 
-// /.well-known/mcp/server-card.json 의 내용. 이 사이트가 원격 MCP 를 직접 열지 않으므로
-// 레지스트리 server.json 모양으로 패키지마다 설치 경로만 알린다.
+// 「Claude 앱에 연결하기」 절에 싣는 순서.
+export const REMOTE_CONNECTORS = (['k-labor', 'sanjae-apply'] as const).map((id) => AI_PACKAGES.find((p) => p.id === id)!);
+
+// /.well-known/mcp/server-card.json 의 내용. 레지스트리 server.json 모양으로
+// 패키지마다 설치 경로와, 있으면 원격 주소를 알린다.
 export function serverCard() {
   return {
     name: '일의 무늬 AI 연결 도구',
@@ -148,7 +155,7 @@ export const AI_TOOLS: AiTool[] = [
       '근로계약서 엑셀(xlsx)·한글(hwpx)·PDF 저장(내 PC 에서만)',
     ],
     privacy: '주민등록번호는 받지 않습니다. 점검 입력에 주민번호 모양이 있으면 거절하고, 근로자 이름도 비워 두면 「근로자」로 씁니다.',
-    install: { claudeCode: 'claude mcp add --scope user k-labor -- npx -y k-labor mcp --groups contract' },
+    install: { claudeCode: 'claude mcp add --scope user k-labor -- npx -y k-labor mcp --groups contract', remote: 'https://yellowenvelope.kr/api/mcp/mcp' },
     links: [
       { label: '웹에서 계약서 쓰기', href: '/tools/contract-write' },
       { label: '웹에서 계약서 점검', href: '/tools/contract-check' },
@@ -168,7 +175,7 @@ export const AI_TOOLS: AiTool[] = [
       '상시 근로자 수 — 5명 이상·10명 이상으로 보는 기간',
     ],
     privacy: '계산에 필요한 금액·시간·날짜만 받습니다. 이름이나 주민등록번호는 필요하지 않습니다.',
-    install: { claudeCode: 'claude mcp add --scope user k-labor -- npx -y k-labor mcp --groups calc' },
+    install: { claudeCode: 'claude mcp add --scope user k-labor -- npx -y k-labor mcp --groups calc', remote: 'https://yellowenvelope.kr/api/mcp/mcp' },
     links: [
       { label: '웹 계산기 모음', href: '/tools' },
     ],
@@ -187,7 +194,7 @@ export const AI_TOOLS: AiTool[] = [
       '중도퇴사자 연말정산 — 결정세액과 기납부세액의 차액',
     ],
     privacy: '날짜와 금액만 받습니다. 이름이나 주민등록번호는 필요하지 않습니다.',
-    install: { claudeCode: 'claude mcp add --scope user k-labor -- npx -y k-labor mcp --groups leave,tax' },
+    install: { claudeCode: 'claude mcp add --scope user k-labor -- npx -y k-labor mcp --groups leave,tax', remote: 'https://yellowenvelope.kr/api/mcp/mcp' },
     links: [
       { label: '연차 계산기', href: '/tools/leave' },
       { label: '퇴직소득세', href: '/tools/retirement-tax' },
@@ -207,7 +214,7 @@ export const AI_TOOLS: AiTool[] = [
       '사업장 규모별 사업주 의무 — 상시 근로자 수에 따라 생기는 의무 목록',
     ],
     privacy: '이름과 주민등록번호 칸이 없습니다. 금액·시간·근무 조건만 받습니다.',
-    install: { claudeCode: 'claude mcp add --scope user k-labor -- npx -y k-labor mcp --groups calc,duties' },
+    install: { claudeCode: 'claude mcp add --scope user k-labor -- npx -y k-labor mcp --groups calc,duties', remote: 'https://yellowenvelope.kr/api/mcp/mcp' },
     links: [
       { label: '월급 대조', href: '/tools/pay-check' },
       { label: '통상임금 점검', href: '/tools/ordinary-wage-check' },

@@ -3,6 +3,7 @@ import Script from "next/script";
 import "./globals.css";
 import "@/components/editorial-navigation.css";
 import GlassNav from "@/components/GlassNav";
+import ConnectorBanner from "@/components/ConnectorBanner";
 import SiteSurface from "@/components/SiteSurface";
 import "@/components/site-refactor.css";
 import { SITE_URL, BRAND_NAME, BRAND_DESCRIPTION } from "@/lib/constants";
@@ -166,6 +167,7 @@ export default function RootLayout({
           }}
         />
         <a className="editorial-skip-link" href="#site-main">본문 바로가기</a>
+        <ConnectorBanner />
         <GlassNav />
         <main id="site-main" tabIndex={-1}><SiteSurface>{children}</SiteSurface></main>
         <footer className="editorial-footer border-t py-10" style={{ borderColor: 'var(--color-border)' }}>
