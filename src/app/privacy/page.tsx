@@ -17,7 +17,7 @@ export default function PrivacyPage() {
   return (
     <main className="layout-reading">
       <h1 className="t-h2" style={{ color: 'var(--color-text-primary)' }}>개인정보처리방침</h1>
-      <p className="mt-4 text-sm text-gray-600">시행일: 2026-11-05</p>
+      <p className="mt-4 text-sm text-gray-600">시행일: 2026-11-09</p>
 
       <div className="mt-8 space-y-4 text-sm leading-7 text-gray-800">
         <p>
