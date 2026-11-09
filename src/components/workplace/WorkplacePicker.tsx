@@ -10,6 +10,8 @@ import { CARD_COPY, cardFromState, NO_ORIGIN, originAfterSave, saveCardFromState
 import type { WriteState } from '@/app/tools/contract-write/formState';
 import { getMembers, getWorkspaceDetails, listWorkspaces, memberKey, setRemember, WORKSPACES_CHANGED, type Workspace } from '@/lib/leave/leave-workspaces';
 
+import { CardFileTools } from './CardFileTools';
+
 const selectClass = 'w-full rounded-lg border px-3 py-2 text-base focus:border-[var(--color-accent)] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]/20';
 const selectStyle: React.CSSProperties = {
   borderColor: 'var(--color-border)',
@@ -135,6 +137,7 @@ export function WorkplacePicker({ state, onPatch }: { state: WriteState; onPatch
               </p>
             </div>
           )}
+          <CardFileTools hasCards={list.length > 0} />
         </div>
       )}
     </details>

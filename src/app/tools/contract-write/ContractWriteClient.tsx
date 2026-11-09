@@ -3,6 +3,7 @@
 // 근로계약서 작성 — 입력 → 임금 구성 설계 → 점검 규칙 되먹임 → 엑셀·한글·PDF 내려받기.
 // 🔒 전부 브라우저 안에서 한다. 서버로 보내는 것은 PDF 글꼴 파일을 받아오는 요청(같은 사이트의 정적 파일) 하나뿐이다.
 // 사업장 카드(WorkplacePicker)는 사용자가 「카드에 저장」을 누를 때만 이 브라우저 저장소에 쓴다(leave-workspaces 와 같은 정책).
+// 최근 입력(RecentInputs)은 파일을 내려받을 때 1건 남는다(작성일 제외, tool-history — 기본 sessionStorage, 기억하기를 켜면 localStorage).
 
 import { useMemo, useState } from 'react';
 
@@ -11,6 +12,8 @@ import { designFromForm, publicText, reviewWritten } from '@/lib/contract-write/
 import { type Rounding } from '@/lib/contract-write/design';
 import { buildContractDocument } from '@/lib/contract-write/document';
 import { hoursText, wonText } from '@/lib/contract-write/text';
+import { addHistory } from '@/lib/tool-history';
+import { download } from '@/lib/tool-kit/download';
 
 import type { WeekDay } from '@/lib/contract-write/contract';
 
@@ -18,6 +21,8 @@ import { WorkplacePicker } from '@/components/workplace/WorkplacePicker';
 
 import { CARD_COPY } from './cardState';
 import { absorbOptions, amountInput, effectiveAbsorb, INITIAL, toWriteForm, WEEK_DAYS, type WriteState } from './formState';
+import { HISTORY_TOOL, historyLabel, toHistoryState } from './historyState';
+import { RecentInputs } from './RecentInputs';
 
 const inputClass =
   'w-full rounded-lg border px-3 py-2 text-base focus:border-[var(--color-accent)] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]/20';
@@ -91,16 +96,6 @@ const YES_NO = [
   { value: 'yes' as const, label: '예' },
 ];
 
-
-function download(bytes: Uint8Array, name: string, type: string) {
-  const url = URL.createObjectURL(new Blob([bytes as BlobPart], { type }));
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = name;
-  a.click();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
-}
-
 export default function ContractWriteClient() {
   const [s, setS] = useState<WriteState>(INITIAL);
   const [busy, setBusy] = useState<string | null>(null);
@@ -142,6 +137,8 @@ export default function ContractWriteClient() {
         const font = new Uint8Array(await res.arrayBuffer());
         download(await ex.buildContractPdf(result.doc, font), `${fileBase}.pdf`, 'application/pdf');
       }
+      // 파일을 만든 뒤에만 남긴다 — 작성일은 빼고(불러오면 오늘), 계산 결과는 남기지 않는다
+      addHistory(HISTORY_TOOL, historyLabel(s), toHistoryState(s));
     } catch (e) {
       setError(`파일을 만들지 못했습니다: ${e instanceof Error ? e.message : String(e)}`);
     } finally {
@@ -158,6 +155,7 @@ export default function ContractWriteClient() {
       </p>
 
       <WorkplacePicker state={s} onPatch={patch} />
+      <RecentInputs onLoad={setS} />
 
       <Section title="1. 당사자와 계약기간">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">

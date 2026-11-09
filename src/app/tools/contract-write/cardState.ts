@@ -9,6 +9,9 @@ import {
   listWorkspaces,
   memberKey,
   pickTerms,
+  cleanCardName,
+  CARD_FILE_MAX_BYTES,
+  type CardImportResult,
   updateWorkspace,
   upsertMember,
   type Workspace,
@@ -17,7 +20,7 @@ import {
 } from '@/lib/leave/leave-workspaces';
 import { cleanInput } from '@/lib/contract-write/text';
 
-import { INITIAL, type WriteState } from './formState';
+import { INITIAL, isRealDate, type WriteState } from './formState';
 
 /** 카드 영역 화면 문구 — 금지어 시험이 여기를 본다 */
 export const CARD_COPY = {
@@ -46,8 +49,48 @@ export const CARD_COPY = {
   remember: (workspace: string) => `이 브라우저에 「${workspace}」 카드를 기억하기`,
   rememberOff: '이 탭을 닫으면 대표자·직원 정보가 사라집니다. 사업장 이름과 5명 이상 여부만 이 브라우저에 남습니다.',
   rememberOn: '이 브라우저에만 남습니다. 서버로 보내지 않습니다.',
-  pageNotice: '입력한 내용은 이 브라우저 안에서만 계산하고 파일로 만듭니다. 서버로 보내지 않습니다. 사업장 카드에 저장한 내용만 이 브라우저에 남습니다.',
+  pageNotice: '입력한 내용은 이 브라우저 안에서만 계산하고 파일로 만듭니다. 서버로 보내지 않습니다. 사업장 카드의 대표자·직원 정보와 최근 입력은 탭을 닫으면 사라지고, 기억하기를 켜면 이 브라우저에 남습니다. 사업장 이름과 5명 이상 여부는 이 브라우저에 남습니다.',
+  // 카드 파일(내보내기·가져오기)
+  fileExport: '카드 파일로 내보내기',
+  fileImport: '카드 파일 가져오기',
+  fileRemember: '가져온 카드를 이 브라우저에 기억하기',
+  fileNotice: '파일에는 대표자·직원 이름과 계약 조건이 들어 있습니다. 보관·전달에 주의하세요.',
+  fileResult: (added: number, merged: number) => `사업장 ${added}곳을 더하고 ${merged}곳을 합쳤습니다.`,
+  fileValuesWin: '이미 있던 직원은 파일에 값이 있는 칸을 파일 값으로 바꿨습니다.',
+  fileTabOnly: '기억하기를 켜지 않아, 새로 더한 사업장의 대표자·직원 정보는 이 탭을 닫으면 사라집니다.',
+  fileSkipped: (skipped: number) => `형식이 맞지 않는 사업장·직원 ${skipped}건은 건너뛰었습니다.`,
+  fileInvalid: '사업장 카드 파일이 아닙니다. 「카드 파일로 내보내기」로 만든 파일을 골라 주세요.',
+  fileNewerVersion: '이 화면보다 새 버전에서 만든 카드 파일입니다. 페이지를 새로고침한 뒤 다시 가져와 주세요.',
+  fileExportTooLarge: '카드가 너무 많아 파일 하나로 내보낼 수 없습니다. 사업장 200곳·직원 5,000명·4MB 이하로 줄인 뒤 다시 내보내 주세요.',
+  fileMergeNotice: '이미 있는 사업장에 합칠 때는 그 사업장의 기억하기 설정을 따릅니다. 기억하기를 켠 사업장에 합치면 이 브라우저에 남습니다.',
+  fileTooLarge: '파일이 너무 큽니다. 사업장 200곳·직원 5,000명·4MB 이하로 나누어 가져와 주세요.',
+  fileStorageFailed: '브라우저 저장 공간이 가득 찼거나 저장이 막혀 있어 가져오지 못했습니다. 아무것도 바뀌지 않았습니다.',
+  fileReadError: '파일을 읽지 못했습니다. 다시 골라 주세요.',
 } as const;
+
+/** 고른 파일을 읽기 전에 멈출 크기 */
+export const cardFileTooLarge = (bytes: number): boolean => bytes > CARD_FILE_MAX_BYTES;
+
+/** 가져오기 결과를 화면 문구로 */
+export function cardImportMessage(r: CardImportResult, remember: boolean): string {
+  if (!r.ok) {
+    if (r.problem === 'too-large') return CARD_COPY.fileTooLarge;
+    if (r.problem === 'storage') return CARD_COPY.fileStorageFailed;
+    if (r.problem === 'newer-version') return CARD_COPY.fileNewerVersion;
+    return CARD_COPY.fileInvalid;
+  }
+  return [
+    CARD_COPY.fileResult(r.added, r.merged),
+    r.merged ? CARD_COPY.fileValuesWin : '',
+    r.added && !remember ? CARD_COPY.fileTabOnly : '',
+    r.skipped ? CARD_COPY.fileSkipped(r.skipped) : '',
+  ].filter(Boolean).join(' ');
+}
+
+/** 내보낼 카드 파일 이름 — today 는 KST YYYY-MM-DD(todayKst) */
+export function cardFileName(today: string): string {
+  return `사업장카드_${today.replace(/-/g, '')}.json`;
+}
 
 /** 직원을 바꿔도 남는 칸 — 사업장 칸과 작성일. 나머지는 전부 직원 칸이라 WriteState 에 칸이 늘면 저절로 비워진다 */
 const NOT_EMPLOYEE_KEYS = ['workplaceName', 'ownerName', 'fivePlus', 'writtenDate'] as const satisfies readonly (keyof WriteState)[];
@@ -133,25 +176,23 @@ export function originAfterSave(state: WriteState): CardOrigin {
   return { fivePlus: state.fivePlus, employee };
 }
 
-const DATE = /^\d{4}-\d{2}-\d{2}$/;
-
 export type CardFromState =
   | { ok: true; workplaceName: string; ownerName: string; fivePlus: WriteState['fivePlus']; member: WorkspaceMember }
   | { ok: false; reason: string };
 
 /** 지금 입력에서 카드에 넣을 값 — 사업체명·근로자 성명·계약 시작일이 있어야 한다 */
 export function cardFromState(state: WriteState): CardFromState {
-  const workplaceName = cleanInput(state.workplaceName);
-  const employeeName = cleanInput(state.employeeName);
+  const workplaceName = cleanCardName(state.workplaceName);
+  const employeeName = cleanCardName(state.employeeName);
   const missing: string[] = [];
   if (!workplaceName) missing.push('사업체명');
   if (!employeeName) missing.push('근로자 성명');
-  if (!DATE.test(state.startDate)) missing.push('계약 시작일');
+  if (!isRealDate(state.startDate)) missing.push('계약 시작일');
   if (missing.length) return { ok: false, reason: `저장하려면 넣어 주세요: ${missing.join(', ')}` };
   return {
     ok: true,
     workplaceName,
-    ownerName: cleanInput(state.ownerName),
+    ownerName: cleanCardName(state.ownerName),
     fivePlus: state.fivePlus,
     member: { name: employeeName, hireDate: state.startDate, terms: pickTerms(state) },
   };
