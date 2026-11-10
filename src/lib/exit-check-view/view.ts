@@ -3,7 +3,9 @@
 //
 // 읽는 것: 항목의 상태·사유·칸 이름, 근거의 자료 묶음·행·열, 날짜·시각 칸의 정규화 값, 자료 통과 결과, 대조 항목 이름.
 // 읽지 않는 것: details(날짜 후보·조문 등), source_value, 머리글 원문(source_header), 파일 이름, 시트 이름, 키 원문, run_state.
-// 묶음: 확인할 항목 = 값 확인(checkItems) + 대조하지 못한 항목(notComparedItems, 따로 적는다). 대조에서 뺀 항목·대조에 쓰지 못한 자료는 따로 센다.
+// 묶음: 확인이 필요한 항목(checkItems)과 대조하지 못한 항목(notComparedItems)은 따로 센다(합친 수는 내지 않는다). 대조에서 뺀 항목·대조에 쓰지 못한 자료도 따로 센다.
+// 싣지 않는 대조 항목: R-009(날짜 관계)는 사장님 결정 B4 전에는 세지도 싣지도 않고(범위 문장에 「대조하지 않은 항목」으로 적는다),
+//   위치 기록 점검(file_sha256_and_locator_present)은 엔진 내부 점검이라 「대조한 항목」으로 세지 않는다.
 
 import type { CoreReport, Evidence, Finding, ItemStatus } from '@/lib/exit-check-demo/types';
 import * as C from './copy';
@@ -13,9 +15,8 @@ import {
   FILE_GROUP_LABEL,
   GATE_REASON_TEXT,
   IGNORED_KIND_LABEL,
-  NOT_COMPARED_LABEL,
-  NOT_COMPUTED_TEXT,
   REASON_TEXT,
+  REASON_TEXT_MANY_FILES,
   REASON_TEXT_ONE_FILE,
   SCHEME_LABEL,
   STATUS_LABEL,
@@ -29,7 +30,7 @@ export interface ViewItem {
 
 export interface ExitCheckView {
   summary: string;
-  counts: { confirm: number; checkItems: number; notCompared: number; compared: number; unusableFiles: number; excluded: number };
+  counts: { checkItems: number; notCompared: number; compared: number; unusableFiles: number; excluded: number };
   zeroNote: string | null;
   scopeNote: string;
   cutoffNote: string | null;
@@ -74,7 +75,13 @@ const BUCKET: Record<ItemStatus | 'SCHEMA_BLOCKED', Bucket> = {
   SCHEMA_BLOCKED: 'skip',
 };
 
-const NOT_COMPUTED_ITEM = 'deadline_candidates_not_computed';
+/** 사장님 결정 B4 전에는 싣지 않는 규칙(날짜 관계). 셈하지 못한 표시(deadline_candidates_not_computed)도 이 규칙에서 온다. */
+const HELD_RULE = 'R-009';
+/** 엔진 내부 점검 — 「대조한 항목」으로 세지 않는다. */
+const INTERNAL_ITEMS: readonly string[] = ['file_sha256_and_locator_present'];
+const TRIPLET_ITEM = 'identifier_triplet_present_in';
+const TRIPLET_ALL = 'identifier_triplet_present_in_4_families';
+const PERSONNEL_GROUP = 'personnel_exit';
 const COLUMN_LETTERS = /^[A-Z]{1,3}$/;
 
 function lookup<T>(table: Readonly<Record<string, T>>, key: string | null | undefined): T | undefined {
@@ -152,8 +159,9 @@ function sourceCount(f: Finding): number {
 
 function findingText(f: Finding): string {
   const p = parseField(f.field);
-  const oneFile = sourceCount(f) <= 1 ? lookup(REASON_TEXT_ONE_FILE, f.reason_code) : undefined;
-  const template = oneFile ?? lookup(REASON_TEXT, f.reason_code) ?? C.REASON_FALLBACK;
+  const n = sourceCount(f);
+  const byCount = n <= 1 ? lookup(REASON_TEXT_ONE_FILE, f.reason_code) : n >= 3 ? lookup(REASON_TEXT_MANY_FILES, f.reason_code) : undefined;
+  const template = byCount ?? lookup(REASON_TEXT, f.reason_code) ?? C.REASON_FALLBACK;
   return fill(template, {
     field: fieldPhrase(p),
     column: columnPhrase(p) ?? C.FIELD_FALLBACK,
@@ -187,7 +195,8 @@ function placeOf(e: Evidence): string {
   const group = groupLabel(e.file_group);
   const loc = e.locator;
   let place: string;
-  if (!loc || !Number.isInteger(loc.row) || loc.row < 1) {
+  const hasRow = !!loc && Number.isInteger(loc.row) && loc.row >= 1;
+  if (!hasRow) {
     place = fill(e.file_sha256 === null && e.role === 'observed' ? C.PLACE_INLINE : C.PLACE_GROUP, { group });
   } else if (typeof loc.column === 'string' && COLUMN_LETTERS.test(loc.column)) {
     place = fill(C.PLACE_CELL, { group, row: String(loc.row), col: loc.column });
@@ -198,6 +207,8 @@ function placeOf(e: Evidence): string {
     const value = formatDateValue(e.normalized);
     if (value !== null) place = fill(C.PLACE_WITH_VALUE, { place, value });
   }
+  // 기준 행(anchor)은 값을 본 자리가 아니다 — 왜 그 행이 붙었는지 글자로 적는다.
+  if (e.role === 'anchor' && hasRow) place = fill(C.PLACE_ANCHOR, { place });
   return place;
 }
 
@@ -219,7 +230,8 @@ function comparedLabel(base: string, param: string | undefined): string {
         ? fill(C.TARGET_WITH_SCHEME, { group: groupLabel(param.slice(0, colon)), scheme: schemeLabel(param.slice(colon + 1)) })
         : groupLabel(param);
   return fill(template, {
-    groups: parts.map(groupLabel).join(C.NAME_JOIN),
+    // 자료 이름에는 가운뎃점이 들어 있어(인사·퇴사 자료) 자료끼리는 쉼표로 잇는다.
+    groups: parts.map(groupLabel).join(C.LIST_JOIN),
     schemes: parts.map(schemeLabel).join(C.NAME_JOIN),
     target,
   });
@@ -227,31 +239,32 @@ function comparedLabel(base: string, param: string | undefined): string {
 
 export function toExitCheckView(report: CoreReport): ExitCheckView {
   const checkItems: ViewItem[] = [];
-  const notComparedFindings: ViewItem[] = [];
-  const notComputed: ViewItem[] = [];
+  const notComparedItems: ViewItem[] = [];
   const excluded: ViewItem[] = [];
   const unusableFiles: ViewItem[] = [];
   const unusedColumns: string[] = [];
   const comparedItems: string[] = [];
   let compared = 0;
+  let endedCount = 0;
+  let fourFamilies = 0;
 
   for (const f of report.findings) {
     const bucket = lookup(BUCKET, f.status) ?? 'check';
     if (bucket === 'skip') continue;
     const item: ViewItem = { status: lookup(STATUS_LABEL, f.status) ?? C.STATUS_FALLBACK, text: findingText(f), places: placesOf(f) };
     if (bucket === 'check') checkItems.push(item);
-    else if (bucket === 'notCompared') notComparedFindings.push(item);
+    else if (bucket === 'notCompared') notComparedItems.push(item);
     else excluded.push(item);
   }
 
   for (const c of report.compared_items) {
+    if (c.rule_id === HELD_RULE || INTERNAL_ITEMS.includes(c.item)) continue;
     const colon = c.item.indexOf(':');
     const base = colon >= 0 ? c.item.slice(0, colon) : c.item;
     const param = colon >= 0 ? c.item.slice(colon + 1) : undefined;
-    if (base === NOT_COMPUTED_ITEM) {
-      notComputed.push({ status: NOT_COMPARED_LABEL, text: lookup(NOT_COMPUTED_TEXT, param) ?? C.NOT_COMPUTED_FALLBACK, places: [] });
-      continue;
-    }
+    // 퇴사로 적힌 근로자(고용 차수)마다 엔진이 사업장·근로자·고용 차수 짝 항목을 하나씩 낸다.
+    if (base === TRIPLET_ITEM || base === TRIPLET_ALL) endedCount += 1;
+    if (base === TRIPLET_ALL) fourFamilies += 1;
     compared += 1;
     const label = comparedLabel(base, param);
     if (!comparedItems.includes(label)) comparedItems.push(label);
@@ -280,9 +293,7 @@ export function toExitCheckView(report: CoreReport): ExitCheckView {
     if (e.status !== 'ACCEPTED') unusableFiles.push({ status: blockedStatus, text: fill(C.INLINE_BLOCKED, { group: groupLabel(e.file_group) }), places: [] });
   }
 
-  const notComparedItems = [...notComparedFindings, ...notComputed];
   const counts = {
-    confirm: checkItems.length + notComparedItems.length,
     checkItems: checkItems.length,
     notCompared: notComparedItems.length,
     compared,
@@ -290,17 +301,33 @@ export function toExitCheckView(report: CoreReport): ExitCheckView {
     excluded: excluded.length,
   };
 
-  const summary = [fill(C.SUMMARY_CONFIRM, { n: String(counts.confirm) }), fill(C.SUMMARY_COMPARED, { n: String(counts.compared) })];
+  const summary = [fill(C.SUMMARY_CONFIRM, { n: String(counts.checkItems) })];
+  if (counts.notCompared > 0) summary.push(fill(C.SUMMARY_NOT_COMPARED, { n: String(counts.notCompared) }));
+  summary.push(fill(C.SUMMARY_COMPARED, { n: String(counts.compared) }));
   if (counts.unusableFiles > 0) summary.push(fill(C.SUMMARY_UNUSABLE, { n: String(counts.unusableFiles) }));
   if (counts.excluded > 0) summary.push(fill(C.SUMMARY_EXCLUDED, { n: String(counts.excluded) }));
 
-  const zero = counts.confirm === 0 && counts.unusableFiles === 0 && counts.compared > 0;
+  // 0건 문장은 run_state 가 아니라 화면 묶음과 자료 통과 결과로 정한다.
+  // 네 자료가 모두 대조에 쓰였고(ACCEPTED, 막힌 것 없음), 퇴사로 적힌 근로자가 한 명 이상이며 그 모두를 네 자료에서 맞춰 봤을 때만.
+  const nothingOpen = counts.checkItems === 0 && counts.notCompared === 0 && counts.unusableFiles === 0;
+  const accepted = (g: string) =>
+    report.file_gate_results.some((r) => r.file_group === g && r.status === 'ACCEPTED') &&
+    !report.file_gate_results.some((r) => r.file_group === g && r.status !== 'ACCEPTED');
+  const allFour = Object.keys(FILE_GROUP_LABEL).every(accepted);
+  let zeroNote: string | null = null;
+  if (nothingOpen && allFour && endedCount >= 1 && fourFamilies === endedCount) {
+    zeroNote = [fill(C.ZERO_NOTE, { n: String(counts.compared) }), counts.excluded > 0 ? C.ZERO_EXCLUDED_NOTE : null, C.SCOPE_NOTE]
+      .filter((s): s is string => s !== null)
+      .join(' ');
+  } else if (nothingOpen && endedCount === 0 && accepted(PERSONNEL_GROUP)) {
+    zeroNote = `${C.NO_EXITED_NOTE} ${C.SCOPE_NOTE}`;
+  }
   const cutoff = formatDateValue(report.cutoff_at, C.CUTOFF_FORMAT);
 
   return {
     summary: summary.join(C.SUMMARY_JOIN),
     counts,
-    zeroNote: zero ? `${fill(C.ZERO_NOTE, { n: String(counts.compared) })} ${C.SCOPE_NOTE}` : null,
+    zeroNote,
     scopeNote: C.SCOPE_NOTE,
     cutoffNote: cutoff === null ? null : fill(C.CUTOFF_NOTE, { cutoff }),
     checkItems,

@@ -50,9 +50,36 @@ const BANNED = [
   ]),
 ];
 
+/**
+ * 금지 꼴 — 낱말 목록은 적힌 글자 그대로만 막는다. 합니다체로 쓴 결론형·넓은 보증·기한 서술·자격 표시·의뢰 유도·시정 지시·
+ * 「읽다」 활용형은 낱말 목록을 지나가므로 서술 꼴로 막는다(조각 2 검수 — 변형 24개 중 23개를 이 꼴이 잡는다. 남는 하나인
+ * 머리글 원문은 아래 구조 시험이 본다). 운영자 표시를 개인 명의로 두므로 의뢰 유도·자격 표시 꼴은 빼지 않는다(법률검증 2차).
+ */
+const PATTERNS: Array<[string, RegExp]> = [
+  ['문제…없', /문제\s*(가|는|도)?\s*없/],
+  ['이상…없', /이상\s*(이|은|도)?\s*없/],
+  ['정상', /정상/],
+  ['넓은 보증', /모두|전부|모든|빠짐없이/],
+  ['일치', /일치/],
+  ['맞습니다', /맞습니다|맞았습니다/],
+  ['어기다', /어긴|어겼|어기/],
+  ['○일 이내', /\d+\s*일\s*(이내|안에|내에)/],
+  ['…까지 …해야', /까지\s*[^.]{0,14}(해야|하셔야|내야|하세요|하십시오)/],
+  ['늦었·지났·넘겼', /늦었|늦게\s|지났|넘겼|경과/],
+  ['지급하지 않', /지급(하지|되지)\s*않/],
+  ['빠뜨리다', /빠뜨|빠진|빠졌/],
+  ['전문가·자격자', /전문가|자격자/],
+  ['문의·연락 유도', /문의|연락(해|을|\s*주)/],
+  ['명령형', /세요|십시오/],
+  ['해야 합니다', /해야\s*(합니다|함)|하셔야|바랍니다/],
+  ['읽다 활용형', /열어\s*보지|읽어|읽은|읽습|읽는/],
+  ['제재', /과태료|벌금|벌칙|처벌|제재/],
+];
+
 /** 문자열 하나의 위반 목록. 라틴 글자는 셀 열 표기(「H열」「AB열」)만 허용한다 — 코드·식별자·파일 이름·시트 이름·키가 다 여기서 걸린다. */
 function wordingHits(s: string): string[] {
   const hits: string[] = BANNED.filter((w) => s.includes(w)).map((w) => `금지어 ${w}`);
+  for (const [name, re] of PATTERNS) if (re.test(s)) hits.push(`꼴 ${name}`);
   const latin = s.replace(/[A-Z]{1,3}열/g, '');
   if (/[A-Za-z]/.test(latin)) hits.push('라틴 글자');
   if (s.includes('_')) hits.push('밑줄');
@@ -70,11 +97,42 @@ function hrefHits(s: string): string[] {
   return links.filter((l) => l.includes('?') || SAMPLE_VALUE.test(l));
 }
 
-/** 금액: 금액을 적는 문장은 「입력값 기준」을 함께 적는다(법률검증 2차). 지금 화면 모델에는 금액이 없다. */
+/**
+ * 금액: 금액을 적는 문장은 「입력값 기준 계산액」을 함께 적는다. 법률검증 2차 권고 8 은 「입력값 기준 추정액」이라 했지만
+ * 이 도구는 「추정」을 금지어로 막으므로 권고 7 의 표현 「입력값 기준 계산액」으로 하나로 정했다. 지금 화면 모델에는 금액이 없다.
+ */
+const AMOUNT_TAG = '입력값 기준 계산액';
 function amountHits(s: string): string[] {
   const m = s.match(/\d[\d,]*\s*(원|만원|억원)/g) ?? [];
-  return m.length > 0 && !s.includes('입력값 기준') ? m : [];
+  return m.length > 0 && !s.includes(AMOUNT_TAG) ? m : [];
 }
+
+/** 조각 2 검수가 고치지 않은 문구 시험을 초록으로 지나간 변형 문장(머리글 원문 하나는 구조 시험이 본다). */
+const VARIANTS = [
+  '이 자료에는 문제가 없습니다.',
+  '이상이 없습니다.',
+  '문제없습니다.',
+  '이상 없습니다.',
+  '모두 확인했습니다.',
+  '정상입니다.',
+  '모든 항목이 맞습니다.',
+  '법을 어긴 곳은 없습니다.',
+  '지급일이 14일 이내입니다.',
+  '다음 달 15일까지 신고해야 합니다.',
+  '신고가 늦었습니다.',
+  '지급하지 않은 금품이 있습니다.',
+  '빠뜨린 신고가 있습니다.',
+  '전문가가 확인한 결과입니다.',
+  '전문가에게 문의하세요.',
+  '도움이 필요하면 연락해 주세요.',
+  '상실 신고를 다시 내세요.',
+  '지급일을 수정하세요.',
+  '정정 신고를 해야 합니다.',
+  '이 열은 열어 보지 않았습니다.',
+  '이 열의 값은 읽어 들이지 않습니다.',
+  '과태료가 부과될 수 있습니다.',
+  '네 자료가 모두 일치합니다.',
+];
 
 /** 모듈이 내보내는 문자열 전부(표의 값·키는 값만). 자리표시자 {이름} 은 빼고 본다. */
 function exportedStrings(mod: Record<string, unknown>): Array<{ where: string; text: string }> {
@@ -126,12 +184,31 @@ describe('검사기 자기시험 — 심어 둔 위반을 잡는다', () => {
     expect(wordingHits('/exit-employer?exit=2026-09-30#hi-loss').some((h) => h.startsWith('링크'))).toBe(true);
   });
 
-  it('금액: 「입력값 기준」 없이 금액을 적으면 잡는다', () => {
+  it('금액: 「입력값 기준 계산액」 없이 금액을 적으면 잡는다(「추정액」은 금지어로도 걸린다)', () => {
     expect(amountHits('퇴직금 1,234,000원')).toEqual(['1,234,000원']);
-    expect(amountHits('입력값 기준 퇴직금 1,234,000원')).toEqual([]);
+    expect(amountHits('퇴직금 입력값 기준 계산액 1,234,000원')).toEqual([]);
+    expect(amountHits('퇴직금 입력값 기준 1,234,000원')).toEqual(['1,234,000원']);
+    expect(wordingHits('퇴직금 입력값 기준 추정액 1,234,000원')).toEqual(expect.arrayContaining(['금지어 추정', '금액 1,234,000원']));
     expect(amountHits('2026.10.8.')).toEqual([]);
   });
+
+  it.each(VARIANTS)('낱말 목록을 지나가던 변형을 꼴로 잡는다: %s', (s) => {
+    expect(wordingHits(s).filter((h) => h.startsWith('꼴 '))).not.toEqual([]);
+  });
+
+  it('머리글 원문 검사: 우리 낱말에 없는 머리글 글자가 화면 글자에 있으면 잡는다', () => {
+    expect(headerLeaks(['근로자토큰', '지급일'], ['머리글 근로자토큰 칸입니다.'])).toEqual(['근로자토큰']);
+    expect(headerLeaks(['지급일'], ['급여 정산 자료 2행 F열'])).toEqual([]);
+  });
 });
+
+/** 문안 두 파일에 나오는 낱말 — 머리글 원문 검사에서 「우리 낱말」로 본다(예: 머리글 「지급일」은 라벨 「지급일」과 같은 글자다). */
+const VOCAB = [...exportedStrings(LABELS as Record<string, unknown>), ...exportedStrings(COPY as Record<string, unknown>)].map((x) => x.text).join('\n');
+/** 화면 글자에 들어간 머리글 원문 — 우리 낱말에 없는 머리글 칸만 본다. */
+function headerLeaks(headers: string[], shown: string[]): string[] {
+  const all = shown.join('\n');
+  return [...new Set(headers)].filter((h) => h.trim() !== '' && !VOCAB.includes(h) && all.includes(h));
+}
 
 describe('문안 두 파일(labels.ts·copy.ts)', () => {
   const all = [...exportedStrings(LABELS as Record<string, unknown>).map((x) => ({ ...x, where: `labels ${x.where}` })), ...exportedStrings(COPY as Record<string, unknown>).map((x) => ({ ...x, where: `copy ${x.where}` }))];
@@ -145,11 +222,28 @@ describe('문안 두 파일(labels.ts·copy.ts)', () => {
     expect(bad).toEqual([]);
   });
 
-  it('법률검증 2차 C-운영자표시 문장 꼴을 그대로 쓴다(0건 문장 · 확인이 필요한 항목 · 두 자료의 ○○이 다릅니다)', () => {
-    expect(COPY.ZERO_NOTE).toBe('대조한 {n}개 항목에서 차이가 발견되지 않았습니다.');
+  it('법률검증 2차 C-운영자표시 문장 꼴을 쓴다(0건 문장은 권고 7 틀을 능동으로 · 확인이 필요한 항목 · 두 자료의 ○○이 다릅니다)', () => {
+    // 권고 7 「대조한 ○개 항목에서 차이가 발견되지 않았습니다」의 틀을 지키고 피동만 고쳤다(검수 B3 선택지 가). 결정 대기.
+    expect(COPY.ZERO_NOTE).toBe('대조한 {n}개 항목에서 차이를 찾지 못했습니다.');
     expect(COPY.SCOPE_NOTE.startsWith('대조하지 않은 항목: ')).toBe(true);
     expect(COPY.HEADING_CHECK).toBe('확인이 필요한 항목');
     expect(LABELS.REASON_TEXT.SAME_CONCEPT_VALUES_DIFFER).toBe('두 자료의 {field} 값이 다릅니다.');
+  });
+
+  it('문장 품질(검수 지적 15) — 피동·비유·내부 말·두 뜻 낱말을 고친 문장을 고정한다', () => {
+    const R = LABELS.REASON_TEXT;
+    expect(R.EMPTY_WITH_SUBMITTED_STATUS).toBe('처리 상태가 제출 이후 단계로 적혀 있는데 {field} 칸이 비어 있습니다.'); // ③
+    expect(R.SUPERSEDES_CYCLE).toBe('{group}의 정정 대상이 서로를 가리킵니다.'); // ④ 비유 「돌고 있습니다」
+    expect(R.OLDER_THAN_APPROVED_MAX_AGE).toBe('{field} 값과 대조 기준 시각의 간격이 정해 둔 기간보다 깁니다.'); // ⑤
+    expect(LABELS.STATUS_LABEL.NOT_APPLICABLE).toBe('대조에서 뺌'); // ⑥ 내부 말 「해당 없음 기록」
+    expect(LABELS.IGNORED_KIND_LABEL.unmapped).toBe('이 대조에서 쓰는 칸이 아닌 열'); // ⑥
+    expect(COPY.UNUSED_COLUMNS).not.toMatch(/[—–]/); // ⑦ 줄표
+    expect(COPY.REASON_FALLBACK).not.toMatch(/[—–]/); // ⑦
+    // ⑨ 열 전체는 「열」, 한 칸은 「칸」.
+    expect(R.COLUMN_NOT_PROVIDED).toBe('{group}에 {column} 열이 없습니다.');
+    expect(R.KEY_COLUMN_NOT_PROVIDED).toBe('{group}에 {column} 열이 없어 다른 자료와 맞춰 보지 못했습니다.');
+    expect(LABELS.FIELD_LABEL.source_as_of).toBe('자료 기준 시각'); // ⑩ 대조 기준 시각과 가른다
+    expect(Object.values(LABELS.COMPARED_ITEM_LABEL).filter((s) => s.includes('짝'))).toEqual([]); // ⑪ 값은 셋이다
   });
 
   it('자료 묶음 이름은 넷 다 「자료」로 끝난다(문장 틀이 「자료에·자료를·자료가」로 조사를 고정해 둔다)', () => {
@@ -320,16 +414,48 @@ describe('화면 모델 글자 — 17개 fixture 전부', () => {
     expect(bad).toEqual([]);
   });
 
-  it('0건 문장은 범위 한정 문장과 함께만 나온다', () => {
+  it('0건 문장은 범위 한정 문장과 함께만 나오고, 확인이 필요한 항목·대조하지 못한 항목·대조에 쓰지 못한 자료가 모두 0일 때뿐이다', () => {
+    let seen = 0;
     for (const [id, r] of reports) {
       const v = toExitCheckView(r);
       if (v.zeroNote === null) continue;
+      seen += 1;
       expect(v.zeroNote, id).toContain(COPY.SCOPE_NOTE);
-      expect(v.counts.confirm, id).toBe(0);
+      expect(v.counts.checkItems, id).toBe(0);
+      expect(v.counts.notCompared, id).toBe(0);
       expect(v.counts.unusableFiles, id).toBe(0);
     }
+    expect(seen).toBeGreaterThan(0);
+  });
+
+  it('머리글 원문(우리 낱말에 없는 머리글 칸)이 화면 글자에 없다', () => {
+    const bad: string[] = [];
+    for (const sc of EXIT_CHECK_SCENARIOS) {
+      const headers = Object.values(sc.files).flatMap((lines) => (lines[0] ?? '').split(','));
+      for (const h of headerLeaks(headers, viewStrings(toExitCheckView(reports.get(sc.id)!)))) bad.push(`${sc.id}: ${h}`);
+    }
+    expect(bad).toEqual([]);
+    // 한글 머리글 fixture 가 있어야 이 시험이 무언가를 본다.
+    expect(EXIT_CHECK_SCENARIOS.some((sc) => Object.values(sc.files).some((l) => /[가-힣]/.test(l[0] ?? '')))).toBe(true);
+  });
+
+  it('대조한 항목 개수 = 목록 줄 수(근로자 한 명). 여러 근로자 fixture 는 같은 이름을 합쳐 줄 수가 적다 — 여러 근로자 표시는 계획 범위 밖', () => {
+    const multi: string[] = [];
+    for (const [id, r] of reports) {
+      const v = toExitCheckView(r);
+      const workers = new Set(r.compared_items.map((c) => c.key));
+      if (workers.size > 1) {
+        multi.push(id);
+        continue;
+      }
+      expect(v.comparedItems.length, id).toBe(v.counts.compared);
+    }
+    expect(multi.sort()).toEqual(MULTI_WORKER);
   });
 });
+
+/** 근로자가 둘 이상인 fixture(대조한 항목 개수와 목록 줄 수가 다를 수 있다). 여러 근로자 표시를 정하는 조각에서 이 목록을 없앤다. */
+const MULTI_WORKER = ['S07'];
 
 describe('view.ts — 한국어 글자를 품지 않는다(문안은 labels.ts·copy.ts 두 파일에만)', () => {
   it('주석을 지운 view.ts 에 한글이 없다', () => {

@@ -206,12 +206,23 @@ describe('실행 입구 — 결과가 지문과 같다', () => {
     expect(read(`${DEMO_DIR}/samples.ts`).includes('\r')).toBe(false);
   });
 
-  it(`내장 표본 전체에서 R-009(기한 후보) 항목이 0건이다 — ${B4}`, async () => {
+  it(`내장 표본: R-009(날짜 관계) 발견 0건, 그리고 화면 모델의 개수·목록·문장에 R-009 에서 온 것이 0건(대조한 항목 포함) — ${B4}`, async () => {
+    // 엔진은 표본마다 R-009 대조 항목을 낸다(S01 7개: 상실일 3·지급일 1·제출 시각 3, S03 5개). 화면 모델은 B4 전에는 이것을 세지도 싣지도 않는다.
+    // 기한 표본을 더하거나 화면 모델이 R-009 를 싣기 시작하면 여기서 붉어진다 — 그 일은 B4 를 정한 뒤 조각 4 에서 한다.
+    const { toExitCheckView } = await import('@/lib/exit-check-view/view');
     const run = await import('@/lib/exit-check-demo/run');
+    const expectRaw: Record<string, number> = { S01: 7, S03: 5 };
     for (const id of run.SCENARIO_IDS) {
       const r = await run.runScenario(id);
-      const r009 = r.core_report.findings.filter((f) => f.rule_id === 'R-009');
-      expect(r009.map((f) => `${f.field} ${f.reason_code}`), `${id}: ${B4}`).toEqual([]);
+      const findings = r.core_report.findings.filter((f) => f.rule_id === 'R-009');
+      expect(findings.map((f) => `${f.field} ${f.reason_code}`), `${id}: ${B4}`).toEqual([]);
+      const raw = r.core_report.compared_items.filter((c) => c.rule_id === 'R-009');
+      expect(raw.length, `${id} 엔진 R-009 대조 항목`).toBe(expectRaw[id]);
+      const v = toExitCheckView(r.core_report);
+      const locator = r.core_report.compared_items.filter((c) => c.item === 'file_sha256_and_locator_present').length;
+      expect(v.counts.compared, `${id}: ${B4}`).toBe(r.core_report.compared_items.length - raw.length - locator);
+      const shown = [...v.comparedItems, ...[...v.checkItems, ...v.notComparedItems, ...v.excluded].map((i) => i.text), v.summary];
+      expect(shown.filter((s) => s.includes('날짜 관계')), `${id}: ${B4}`).toEqual([]);
     }
   }, 60_000);
 });
