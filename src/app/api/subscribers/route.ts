@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-server';
 import { extractIp, hashIp } from '@/lib/rate-limit';
-import { sendConfirmEmail } from '@/lib/newsletter-mail';
+import { sendWelcomeEmail } from '@/lib/newsletter-mail';
 import { isSubscribeSource } from '@/lib/subscribe-sources';
 
 const EMAIL_RX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -56,7 +56,7 @@ export async function POST(req: Request) {
   const ipHashed = hashIp(ip);
   const userAgent = req.headers.get('user-agent')?.slice(0, 500) ?? null;
 
-  // upsert: 이미 unsubscribed인 사용자도 재구독 가능 (status=pending으로 재설정)
+  // upsert: 이미 unsubscribed인 사용자도 재구독 가능 (status=confirmed로 재설정)
   const { data: existing } = await supabaseAdmin
     .from('subscribers')
     .select('id, status, confirm_token')
@@ -71,11 +71,18 @@ export async function POST(req: Request) {
         message: '이미 구독 중인 이메일입니다.',
       });
     }
-    // pending or unsubscribed → pending으로 갱신
-    const { data: updated } = await supabaseAdmin
+    // 🔴 2026-11-10 — 확인 클릭(더블 옵트인)을 뺀다. 재홍님 「이제 확인 클릭은 빼도 되겠어」.
+    //   동의는 가입 칸에서 이미 받고 consent_at·consent_text·ip_hash 로 남긴다.
+    //   확인 클릭은 법정 요건이 아니라 우리 편의였는데, 실제로는 들어온 사람을 막고 있었다
+    //   (11-10 기준 대기 2명 중 한 명은 8일째였다). 대신 환영 메일에 해지 버튼을 둔다.
+    // pending or unsubscribed → 바로 confirmed
+    const { data: updated, error } = await supabaseAdmin
       .from('subscribers')
       .update({
-        status: 'pending',
+        status: 'confirmed',
+        confirmed_at: new Date().toISOString(),
+        // 발송 대상은 confirmed이면서 unsubscribed_at이 비어 있는 구독자다.
+        unsubscribed_at: null,
         source: source!,
         source_slug: source_slug ?? null,
         referrer: trim(referrer, 300),
@@ -88,20 +95,24 @@ export async function POST(req: Request) {
         consent_text,
       })
       .eq('id', existing.id)
-      .select('confirm_token')
+      .select('unsubscribe_token')
       .maybeSingle();
 
-    const token = updated?.confirm_token || existing.confirm_token;
+    if (error || !updated) {
+      return NextResponse.json({ error: '신청 저장에 실패했습니다.' }, { status: 500 });
+    }
+
+    const token = updated.unsubscribe_token;
     if (token) {
       try {
-        await sendConfirmEmail({ to: normalized, confirmToken: token });
+        await sendWelcomeEmail({ to: normalized, unsubscribeToken: token });
       } catch (err) {
-        console.error('[subscribers] confirm email send failed:', err);
+        console.error('[subscribers] welcome email send failed:', err);
       }
     }
     return NextResponse.json({
       success: true,
-      message: '확인 메일을 보냈어요. 받은편지함에서 링크를 눌러주세요.',
+      message: '구독이 시작됐어요. 내일 아침부터 보내드려요.',
     });
   }
 
@@ -109,7 +120,8 @@ export async function POST(req: Request) {
     .from('subscribers')
     .insert({
       email: normalized,
-      status: 'pending',
+      status: 'confirmed',
+      confirmed_at: new Date().toISOString(),
       source,
       source_slug: source_slug ?? null,
       referrer: trim(referrer, 300),
@@ -121,23 +133,23 @@ export async function POST(req: Request) {
       consent_at: new Date().toISOString(),
       consent_text,
     })
-    .select('confirm_token')
+    .select('unsubscribe_token')
     .maybeSingle();
 
   if (error || !inserted) {
     return NextResponse.json({ error: '신청 저장에 실패했습니다.' }, { status: 500 });
   }
 
-  if (inserted.confirm_token) {
+  if (inserted.unsubscribe_token) {
     try {
-      await sendConfirmEmail({ to: normalized, confirmToken: inserted.confirm_token });
+      await sendWelcomeEmail({ to: normalized, unsubscribeToken: inserted.unsubscribe_token });
     } catch (err) {
-      console.error('[subscribers] confirm email send failed:', err);
+      console.error('[subscribers] welcome email send failed:', err);
     }
   }
 
   return NextResponse.json({
     success: true,
-    message: '확인 메일을 보냈어요. 받은편지함에서 링크를 눌러주세요.',
+    message: '구독이 시작됐어요. 내일 아침부터 보내드려요.',
   });
 }
