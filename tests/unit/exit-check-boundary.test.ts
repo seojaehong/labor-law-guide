@@ -3,7 +3,7 @@
 // 앞으로 만들 합성 예시 입구(src/lib/exit-check-demo/**)뿐이다. 정적·동적 가져오기, '@/lib/exit-check' 별칭과
 // 상대 경로를 모두 실제 경로로 풀어 판정한다.
 // ESLint no-restricted-imports 는 동적 import() 와 상대 경로 우회를 보지 않으므로 이 시험이 경계의 본체다.
-// import type … 문장은 컴파일하면 지워져 실행 코드를 끌어오지 않으므로 허용한다(조각 2 의 화면 모델이 타입만 쓴다).
+// import type 도 가져오기로 센다(과제 문장 그대로). 조각 2 에서 화면 모델이 타입만 써야 하면 그 PR 에서 이 규칙을 고친다.
 // 인자가 계산식인 import(`…${x}`) 는 풀 수 없어 이 시험이 보지 못한다.
 
 import { readdirSync, readFileSync, statSync } from 'node:fs';
@@ -19,12 +19,10 @@ const SOURCE = /\.(ts|tsx|js|jsx|mjs|cjs|mts|cts)$/;
 /** file 은 저장소 기준 posix 경로. 경계를 넘는 가져오기를 「경로: 종류 지정자」로 돌려준다. */
 function violations(file: string, text: string): string[] {
   if (ALLOWED.some((d) => isInside(file, d))) return [];
-  return importRefs(text)
-    .filter((r) => !r.typeOnly)
-    .flatMap((r) => {
-      const target = resolveSiteSpecifier(file, r.spec);
-      return target !== null && isInside(target, COPY) ? [`${file}: ${r.kind} ${r.spec}`] : [];
-    });
+  return importRefs(text).flatMap((r) => {
+    const target = resolveSiteSpecifier(file, r.spec);
+    return target !== null && isInside(target, COPY) ? [`${file}: ${r.kind} ${r.spec}`] : [];
+  });
 }
 
 function walk(dir: string): string[] {
@@ -51,16 +49,20 @@ describe('엔진 사본 가져오기 경계 — 검사기 자기시험', () => {
     ['부수 효과 가져오기', `import '@/lib/exit-check/core/run';`],
     ['require()', `const r = require("@/lib/exit-check/config");`],
     ['JSON', `import rules from '@/lib/exit-check/deadline-rules.json';`],
+    ['import type 문장', `import type { CoreReport } from '@/lib/exit-check/core/run';`],
+    ['export type 문장', `export type { Finding } from '@/lib/exit-check/core/types';`],
+    ['import() 괄호 안의 주석', `const m = await import(/* webpackChunkName: "x" */ '@/lib/exit-check/config');`],
+    ['여러 줄 가져오기 안의 따옴표 든 주석', `import {\n  runCore, // don't use elsewhere\n} from "@/lib/exit-check/core/run";`],
   ])('심어 둔 위반을 잡는다: %s', (_label, text) => {
     expect(violations(page, `'use client';\n${text}\nexport default function X() { return null; }\n`)).toHaveLength(1);
   });
 
   it.each([
     ['합성 예시 입구(이름 앞부분만 같은 폴더)', `import { runScenario } from '@/lib/exit-check-demo/run';`],
-    ['import type 문장', `import type { CoreReport } from '@/lib/exit-check/core/run';`],
-    ['export type 문장', `export type { Finding } from '@/lib/exit-check/core/types';`],
     ['그냥 문자열', `const s = "@/lib/exit-check/config";`],
     ['주석 처리된 가져오기', `// import { runCore } from '@/lib/exit-check/core/run';`],
+    ['블록 주석 안의 가져오기', `/*\n * import { runCore } from '@/lib/exit-check/core/run';\n */`],
+    ['주소 문자열 안의 //', `const u = 'https://example.invalid/lib/exit-check'; import { x } from '@/lib/headcount-plan';`],
     ['다른 lib', `import { toInput } from '@/lib/headcount-plan';`],
   ])('위반이 아닌 것은 잡지 않는다: %s', (_label, text) => {
     expect(violations(page, text)).toEqual([]);

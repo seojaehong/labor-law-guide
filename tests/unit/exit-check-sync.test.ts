@@ -2,7 +2,7 @@
 // 엔진 ~/dev/exit-check 는 원격이 없는 로컬 저장소라 CI·Vercel 에는 없다. 그래서 두 단계로 본다.
 //  1) 언제나: 사본 파일 집합 = 지문 키, 머리 줄 = 지문 commit, 정규화 내용 해시 = 지문,
 //     deadline-rules.json 정렬 직렬화 해시 = 지문, 합성 fixture 를 사본으로 돌린 core 해시 = 지문(원본 빌드로 계산한 값).
-//  2) 엔진 폴더가 있으면(EXIT_CHECK_ENGINE_DIR 또는 ~/dev/exit-check): 고정 커밋을 git show 로 읽어 정규화한 내용 = 사본,
+//  2) 엔진 폴더가 있으면(EXIT_CHECK_ENGINE_DIR 또는 ~/dev/exit-check): 고정 커밋을 git(ls-tree·cat-file --batch)으로 읽어 정규화한 내용 = 사본,
 //     src/config.ts 의 가져오기 닫힘 집합 = 사본 목록.
 // 정규화 = 머리 줄(「// 원본: …」) 제거, CR 제거, 상대 경로 가져오기 지정자의 .js 제거.
 // 사본은 손으로 고치지 않는다. 엔진을 다시 옮기려면 `node scripts/exit-check/sync-engine.mjs` 를 돌린다.
@@ -56,8 +56,29 @@ function engineHasCommit(): boolean {
   }
 }
 const ENGINE = engineHasCommit();
-const engineShow = (path: string) =>
-  execFileSync('git', ['-C', ENGINE_DIR, 'show', `${fingerprint.commit}:${path}`], { maxBuffer: 64 << 20 }).toString('utf8');
+
+/** 고정 커밋의 src/**·rules/** 를 git 두 번(ls-tree, cat-file --batch)으로 읽는다. 파일마다 git 을 띄우면 부하가 클 때 느리다. */
+function engineBlobs(): Map<string, string> {
+  const git = (args: string[], input?: string) =>
+    execFileSync('git', ['-C', ENGINE_DIR, ...args], { input, maxBuffer: 64 << 20 });
+  const paths = git(['ls-tree', '-r', '--name-only', fingerprint.commit, '--', 'src', 'rules'])
+    .toString('utf8')
+    .split('\n')
+    .filter(Boolean);
+  const out = git(['cat-file', '--batch'], paths.map((p) => `${fingerprint.commit}:${p}\n`).join(''));
+  const blobs = new Map<string, string>();
+  let pos = 0;
+  for (const p of paths) {
+    const nl = out.indexOf(0x0a, pos);
+    const header = out.subarray(pos, nl).toString('utf8');
+    const m = /^[0-9a-f]+ blob (\d+)$/.exec(header);
+    if (!m) throw new Error(`엔진 ${p}: ${header}`);
+    const size = Number(m[1]);
+    blobs.set(p, out.subarray(nl + 1, nl + 1 + size).toString('utf8'));
+    pos = nl + 1 + size + 1;
+  }
+  return blobs;
+}
 
 // .js 를 빼는 자리: 「from "./…"」(한 줄 문장과 여러 줄 문장의 닫는 줄 `} from "./types.js";`, export … from 포함),
 // 문장 첫머리의 「import "./…"」, 「import("./…")」. 줄 첫머리가 import 인 줄만 보는 pay-check 방식은 닫는 줄을 놓친다.
@@ -173,26 +194,27 @@ describe('엔진 사본 — 글자 지문', () => {
 });
 
 describe.skipIf(!ENGINE)(`엔진 원본 대조 — 엔진 폴더나 고정 커밋이 없으면 건너뛴다(${ENGINE_DIR} @${fingerprint.commit.slice(0, 7)})`, () => {
-  const originals = new Map<string, string>();
+  let blobs = new Map<string, string>();
   let closure: string[] = [];
 
   beforeAll(() => {
+    blobs = engineBlobs();
     // src/config.ts 에서 시작해 상대 경로 가져오기를 따라간다(타입 가져오기 포함).
     const seen = new Set<string>();
     const queue = [fingerprint.entry];
     while (queue.length > 0) {
       const p = queue.shift()!;
       if (seen.has(p)) continue;
+      const text = blobs.get(p);
+      if (text === undefined) throw new Error(`고정 커밋에 ${p} 가 없다`);
       seen.add(p);
-      const text = engineShow(p);
-      originals.set(p, text);
       for (const r of importRefs(text)) {
         if (!r.spec.startsWith('.')) continue;
         queue.push(posix.normalize(posix.join(posix.dirname(p), r.spec)).replace(/\.js$/, '.ts'));
       }
     }
     closure = [...seen].sort();
-  }, 60_000);
+  }, 180_000);
 
   it('config.ts 의 가져오기 닫힘 집합 = 사본 목록', () => {
     expect(closure.map((p) => p.replace(/^src\//, '')).sort()).toEqual(tsKeys());
@@ -200,12 +222,12 @@ describe.skipIf(!ENGINE)(`엔진 원본 대조 — 엔진 폴더나 고정 커�
     expect(closure.some((p) => p.startsWith('src/report/'))).toBe(false);
   });
 
-  it('git show <commit>:<경로> 를 정규화한 내용 = 사본', () => {
-    for (const p of closure) expect(normalize(copyText(p.replace(/^src\//, ''))), p).toBe(normalize(originals.get(p)!));
+  it('고정 커밋에서 읽은 원본을 정규화한 내용 = 사본', () => {
+    for (const p of closure) expect(normalize(copyText(p.replace(/^src\//, ''))), p).toBe(normalize(blobs.get(p)!));
   });
 
-  it('git show 한 deadline-rules.json 의 정렬 직렬화 = 사본', () => {
-    expect(canonical(JSON.parse(engineShow(fingerprint.deadline_rules_source)))).toBe(canonical(JSON.parse(copyText(RULES_COPY))));
+  it('고정 커밋의 deadline-rules.json 정렬 직렬화 = 사본', () => {
+    expect(canonical(JSON.parse(blobs.get(fingerprint.deadline_rules_source)!))).toBe(canonical(JSON.parse(copyText(RULES_COPY))));
   });
 });
 
