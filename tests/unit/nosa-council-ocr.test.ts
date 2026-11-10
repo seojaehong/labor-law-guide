@@ -54,7 +54,7 @@ async function scannedFrom(pdfPath: string) {
 describe('스캔 회의록 문자 인식', () => {
   it('글자층 없는 pdf·사진은 문자 인식으로 읽고(인식한 쪽을 알린다), 글자층 있는 pdf 는 예전대로 — 네트워크 호출 0', async () => {
     const made = await call('make_council_meeting_docs', {
-      kind: 'minutes', workplace: { name: '가상제조' }, meeting: { kind: '정기', number: 1, date: '2026-03-05' }, seats: { worker: 5, employer: 5 }, attendance: { worker: 5, employer: 5 },
+      kind: 'minutes', workplace: { name: '가상제조' }, meeting: { kind: '정기', number: 1, date: '2026-03-05', time: '14:00', place: '본관 2층 회의실' }, seats: { worker: 5, employer: 5 }, attendance: { worker: 5, employer: 5 },
       agenda: [{ title: '야간 작업 순환 방식', type: '협의', article: '20-7' }, { title: '안전화 지급 기준', type: '의결', article: '21-3', inFavor: 9 }],
       writtenDate: '2026-03-06', outDir: dir, formats: ['pdf'],
     });
@@ -78,7 +78,9 @@ describe('스캔 회의록 문자 인식', () => {
       expect(r.ok, JSON.stringify(r).slice(0, 300)).toBe(true);
       expect(r.ocrPages).toEqual([1]);
       expect(r.warnings.join()).toMatch(/문자 인식/);
-      for (const w of ['회의록', '야간', '안전화']) expect(r.text, w).toContain(w);
+      // 머리표(일시·장소) 칸도 읽어야 한다 — 쪽 나눔 방식에 따라 표 칸이 통째로 빠진 적이 있다(261110 실주행)
+      const flat = r.text.replace(/\s/g, '');
+      for (const w of ['회의록', '야간', '안전화', '본관2층회의실', '2026년3월5일']) expect(flat, w).toContain(w);
       const img = await call('import_council_minutes', { dir, source: scanPng });
       expect(img.ok).toBe(true);
       expect(img.kind).toBe('png');

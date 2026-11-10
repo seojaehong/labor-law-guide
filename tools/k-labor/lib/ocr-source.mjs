@@ -32,7 +32,10 @@ export async function ocrAvailable() {
 async function ocrWorker() {
   const { createWorker } = await import('tesseract.js');
   const langPath = path.join(path.dirname(req.resolve('@tesseract.js-data/kor/package.json')), '4.0.0_best_int');
-  return createWorker('kor', 1, { langPath, gzip: true, cacheMethod: 'none' });
+  const w = await createWorker('kor', 1, { langPath, gzip: true, cacheMethod: 'none' });
+  // 쪽 나눔 4(크기가 다른 글자가 한 단으로 흐름) — 기본값 3(자동)은 회의록 머리표(일시·장소·출석) 칸을 통째로 빠뜨렸다(261110 실주행, 4 에서 5/5)
+  await w.setParameters({ tessedit_pageseg_mode: '4' });
+  return w;
 }
 
 const lines = (s) => s.split(/\r?\n/).map((l) => l.replace(/\s+/g, ' ').trim()).filter(Boolean);
