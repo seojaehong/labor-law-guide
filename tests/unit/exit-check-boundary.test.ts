@@ -1,7 +1,7 @@
 // 엔진 사본(src/lib/exit-check) 가져오기 경계.
 // src/ 아래에서 사본의 실행 코드를 가져올 수 있는 곳은 사본 자신(src/lib/exit-check/**)과
-// 앞으로 만들 합성 예시 입구(src/lib/exit-check-demo/**)뿐이다. 정적·동적 가져오기, '@/lib/exit-check' 별칭과
-// 상대 경로를 모두 실제 경로로 풀어 판정한다.
+// 합성 예시 입구의 두 파일(src/lib/exit-check-demo/run.ts, 타입 다시 내보내기 types.ts)뿐이다(조각 2 에서 폴더 전체 → 두 파일로 좁힘).
+// 정적·동적 가져오기, '@/lib/exit-check' 별칭과 상대 경로를 모두 실제 경로로 풀어 판정한다.
 // ESLint no-restricted-imports 는 동적 import() 와 상대 경로 우회를 보지 않으므로 이 시험이 경계의 본체다.
 // import type 도 가져오기로 센다(과제 문장 그대로). 조각 2 에서 화면 모델이 타입만 써야 하면 그 PR 에서 이 규칙을 고친다.
 // 인자가 계산식인 import(`…${x}`) 는 풀 수 없어 이 시험이 보지 못한다.
@@ -13,7 +13,7 @@ import { importRefs, isInside, resolveSiteSpecifier } from './exit-check-imports
 
 const ROOT = join(__dirname, '..', '..');
 const COPY = 'src/lib/exit-check';
-const ALLOWED = [COPY, 'src/lib/exit-check-demo'];
+const ALLOWED = [COPY, 'src/lib/exit-check-demo/run.ts', 'src/lib/exit-check-demo/types.ts'];
 const SOURCE = /\.(ts|tsx|js|jsx|mjs|cjs|mts|cts)$/;
 
 /** file 은 저장소 기준 posix 경로. 경계를 넘는 가져오기를 「경로: 종류 지정자」로 돌려준다. */
@@ -68,17 +68,24 @@ describe('엔진 사본 가져오기 경계 — 검사기 자기시험', () => {
     expect(violations(page, text)).toEqual([]);
   });
 
-  it('사본 자신과 합성 예시 입구 폴더 안의 가져오기는 허용한다', () => {
+  it('사본 자신과 합성 예시 입구의 run.ts·types.ts 안의 가져오기는 허용한다', () => {
     const text = `import { prepareFromManifest } from '@/lib/exit-check/config';`;
     expect(violations('src/lib/exit-check-demo/run.ts', text)).toEqual([]);
+    expect(violations('src/lib/exit-check-demo/types.ts', `export type { Finding } from '@/lib/exit-check/core/types';`)).toEqual([]);
     expect(violations('src/lib/exit-check/rules/r009_deadlines.ts', `import { addDays } from "../core/values";`)).toEqual([]);
     expect(violations('src/lib/exit-check-view/view.ts', text)).toHaveLength(1);
+  });
+
+  it('합성 예시 입구 폴더의 다른 파일(새로 더한 파일·표본)은 사본을 가져오지 못한다', () => {
+    const text = `import { prepareFromManifest } from '@/lib/exit-check/config';`;
+    expect(violations('src/lib/exit-check-demo/zz-open.ts', text)).toHaveLength(1);
+    expect(violations('src/lib/exit-check-demo/samples.ts', `import { runCore } from '../exit-check/core/run';`)).toHaveLength(1);
   });
 });
 
 describe('엔진 사본 가져오기 경계 — 실제 src/', () => {
   it(
-    'src/ 에서 src/lib/exit-check/** 를 실행 코드로 가져오는 파일은 사본 자신과 src/lib/exit-check-demo/** 뿐이다',
+    'src/ 에서 src/lib/exit-check/** 를 가져오는 파일은 사본 자신과 src/lib/exit-check-demo/run.ts·types.ts 뿐이다',
     () => {
       const files = walk(join(ROOT, 'src'));
       expect(files.length).toBeGreaterThan(100);
