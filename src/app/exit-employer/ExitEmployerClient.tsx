@@ -11,6 +11,7 @@ import {
 import { computeExitDates, fmtIso, fmtKo, isWeekend, parseYmd, servedMonths, type ExitDates } from './exit-dates';
 import BizNoLookup from '@/components/BizNoLookup';
 import { tierFor } from '@/lib/workplace-lookup';
+import { nhisLossHref } from '@/lib/nhis-forms/prefill';
 
 const TIER_MINS = TIERS.map(t => t.min) as TierMin[];
 const REASON_IDS = REASONS.map(r => r.id) as ReasonId[];
@@ -250,6 +251,14 @@ export default function ExitEmployerClient() {
                       <div className="ee-detail">
                         <p className="ee-what">{s.what}</p>
                         {note && <div className="ee-how">{note}</div>}
+                        {s.tool && (
+                          // 새 탭으로 연다 — 이 화면의 체크 표시가 남고, 링크 미리 받기도 없다.
+                          // noreferrer: 이 화면 주소(?exit=날짜)가 새 탭 요청의 Referer·분석 스크립트로 따라가지 않게 한다
+                          <a className="ee-btn ee-btn-ghost" target="_blank" rel="noopener noreferrer" data-step-tool={s.id}
+                            href={s.tool.passLastDay ? nhisLossHref(last ? fmtIso(last) : '') : s.tool.href}>
+                            {s.tool.label}
+                          </a>
+                        )}
                         <div className="ee-pen"><b>법정 상한·효과</b> · {s.penalty}</div>
                         <label className="ee-check">
                           <input

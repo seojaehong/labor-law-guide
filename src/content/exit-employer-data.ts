@@ -40,6 +40,8 @@ export interface ExitStep {
   what: string;
   penalty: string;
   cond?: string; // 해당하는 경우만 — 배지
+  /** 항목에서 바로 여는 도구(새 탭). href 는 tools-registry 에 있는 주소여야 한다 — 시험이 본다 */
+  tool?: { label: string; href: string; /** 마지막 근무일을 넘겨 칸을 채운다 */ passLastDay?: boolean };
 }
 
 export const STEPS: ExitStep[] = [
@@ -107,6 +109,7 @@ export const STEPS: ExitStep[] = [
     due: 'settle',
     what: '퇴직할 때 남은 연차휴가가 있으면 그 수당을 14일 안에 정산할 금품에 넣어 확인합니다. 5명 미만 사업장에는 연차휴가 규정(§60)이 적용되지 않습니다.',
     penalty: '금품 청산 위반과 같습니다(§107①)',
+    tool: { label: '연차수당 계산하기', href: '/tools/leave-pay' },
   },
   {
     id: 'severance', phase: '금품 청산', min: 1,
@@ -116,6 +119,7 @@ export const STEPS: ExitStep[] = [
     cond: '1년 이상 근속',
     what: '계속근로기간 1년 이상, 4주 평균 1주 소정근로시간 15시간 이상이면 퇴직금 대상입니다. 지급 사유가 생긴 날부터 14일 이내에 지급하고, 특별한 사정이 있으면 당사자 합의로 연장할 수 있습니다. 퇴직금은 근로자가 지정한 개인형퇴직연금(IRP) 계정으로 이전하는 방법으로 지급합니다. 55세 이후 퇴직, 고용노동부 고시 금액 이하, 사망 등은 예외입니다(시행령 §3의2). 계좌를 지정하지 않으면 근로자 명의 IRP 계정으로 이전합니다(§9③).',
     penalty: '5년 이하 징역 또는 5천만원 이하 벌금(§43, 2026.9.18. 시행)',
+    tool: { label: '퇴직금 계산하기', href: '/tools/severance.html' },
   },
 
   // ── 4대보험 신고 ──
@@ -142,6 +146,8 @@ export const STEPS: ExitStep[] = [
     due: 'health14',
     what: '사용관계가 끝난 날의 다음 날 직장가입자 자격이 바뀝니다. 자격이 바뀐 날부터 14일 이내가 신고 기한입니다. 사용자는 직장가입자 자격상실 신고서로 공단에 신고합니다.',
     penalty: '이 신고를 직접 대상으로 한 과태료 조항은 법 §119에 없습니다. 기한 안에 신고할 것',
+    // 신고서 도구는 늦은 신고용(사업주확인서를 함께 만든다) — 기한 안 신고는 EDI 에서 바로 한다
+    tool: { label: '기한을 넘겼다면: 상실신고서·사업주확인서(지연사유) PDF 만들기', href: '/tools/nhis-report-form', passLastDay: true },
   },
   {
     id: 'np-loss', phase: '4대보험 신고', min: 1,
@@ -180,6 +186,7 @@ export const STEPS: ExitStep[] = [
     due: 'pay',
     what: '퇴직하는 달의 근로소득을 지급할 때, 그해 1월부터 퇴직일까지의 근로소득으로 연말정산을 해서 추가로 낼 세금을 원천징수하거나 환급합니다.',
     penalty: '납부하지 않거나 적게 내면 원천징수 납부지연가산세. 미납세액의 50% 한도(국세기본법 §47의5①)',
+    tool: { label: '중도퇴사 연말정산 계산하기', href: '/tools/midyear-settlement' },
   },
   {
     id: 'retire-tax', phase: '세금', min: 1,
@@ -189,6 +196,7 @@ export const STEPS: ExitStep[] = [
     cond: '퇴직금 지급 시',
     what: '퇴직금을 지급할 때 퇴직소득세를 원천징수하고, 징수한 달의 다음 달 10일까지 납부합니다. 반기별 납부를 승인받은 사업장은 반기 마지막 달의 다음 달 10일까지 냅니다(§128②). 퇴직금이 연금계좌로 이전되면 원천징수하지 않습니다(§146②).',
     penalty: '납부하지 않거나 적게 내면 원천징수 납부지연가산세. 미납세액의 50% 한도(국세기본법 §47의5①)',
+    tool: { label: '퇴직소득세 계산하기', href: '/tools/retirement-tax' },
   },
   {
     id: 'receipt', phase: '세금', min: 1,
