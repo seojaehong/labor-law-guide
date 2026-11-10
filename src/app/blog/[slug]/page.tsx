@@ -9,11 +9,13 @@ import { supabaseServer } from '@/lib/supabase-server';
 import { fetchAllRows } from '@/lib/supabase-paged';
 import { SITE_URL } from '@/lib/constants';
 import { articleShare } from '@/lib/share-text';
+import { byline } from '@/lib/byline';
 import { cleanBlogSummary, extractBlogLead } from '@/lib/blog-summary';
 import { ArrowLeft, Calendar, User, Tag, BookOpen, ArrowRight, MessageSquare, ClipboardCheck } from 'lucide-react';
 import { getCategoryColor } from '@/lib/category-colors';
 import { extractFaqFromContent } from '@/lib/faq-extractor';
 import SubscribeForm from '@/components/SubscribeForm';
+import AuthorFooter from '@/components/AuthorFooter';
 import ReadingMarkdownLink from '@/components/ReadingMarkdownLink';
 import { getCurrentTopicPicks } from '@/lib/topic-picks';
 
@@ -120,7 +122,7 @@ export async function generateMetadata({
       type: 'article',
       publishedTime: article.published_at,
       modifiedTime: article.updated_at,
-      authors: [article.author],
+      authors: [byline(article.author)],
       locale: 'ko_KR',
       images: [{ url: `${SITE_URL}/og/${slug}` }],
     },
@@ -190,7 +192,7 @@ export default async function BlogArticlePage({
         dateModified: article.updated_at,
         author: {
           '@type': 'Organization',
-          name: article.author,
+          name: byline(article.author),
           url: SITE_URL,
         },
         publisher: { '@id': `${SITE_URL}/#organization` },
@@ -257,7 +259,7 @@ export default async function BlogArticlePage({
                   style={{ color: 'var(--grey-700)' }}
                 >
                   <User size={12} />
-                  {article.author}
+                  {byline(article.author)}
                 </span>
               </div>
 
@@ -340,6 +342,9 @@ export default async function BlogArticlePage({
                 {article.content}
               </ReactMarkdown>
             </div>
+
+            {/* 필자 — 261110. 글이 매체처럼만 읽히던 것을 사람 이름으로 받친다 */}
+            <AuthorFooter />
 
             {/* More Articles */}
             {latest.length > 0 && (
