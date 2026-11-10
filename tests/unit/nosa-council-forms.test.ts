@@ -100,9 +100,10 @@ describe('근거 두 줄은 05·07 에 글자 그대로', () => {
 });
 
 describe('서류 고르기', () => {
-  it('직접선거 + 겸임이면 12(위촉통지서)를 빼고 13건', () => {
+  it('직접선거 + 겸임이면 12(위촉통지서)를 빼고 협의회규정(00)과 13건', () => {
     const r = nosaDocs(BASE);
     expect(r.made.map((d) => d.id)).toEqual([
+      '00_협의회규정',
       '01_설치의무_확인서', '02_선출방식_확인서', '03_선거관리규정', '04_선거인명부', '05_정족수_확인서', '06_당선공고', '07_근로자대표_겸임_선출_확인서',
       '08_회의_소집통보서', '09_안건_구분표', '10_고충처리위원_선임_의결서', '11_고충처리_운영지침', '13_협의회규정_필수기재_점검표', '14_노동포털_제출_입력값',
     ]);
@@ -110,8 +111,33 @@ describe('서류 고르기', () => {
   });
   it('과반수 노동조합 위촉이면 선거 서류(03~06)를 빼고 위촉통지서를 만든다', () => {
     const r = nosaDocs({ ...BASE, majorityUnion: true, concurrentRep: false });
-    expect(r.made.map((d) => d.id.slice(0, 2))).toEqual(['01', '02', '08', '09', '10', '11', '12', '13', '14']);
+    expect(r.made.map((d) => d.id.slice(0, 2))).toEqual(['00', '01', '02', '08', '09', '10', '11', '12', '13', '14']);
     expect(r.skipped.map((x) => x.id.slice(0, 2))).toEqual(['03', '04', '05', '06', '07']);
+  });
+});
+
+describe('00 협의회규정 — 서류 입력에서 채운다', () => {
+  const rules = (i: NosaFormInput) => all(nosaDocs(i).made[0].doc);
+  it('사업장명·협의회 명칭·설치단위(사업)·위원 수·고충처리위원 수·정기회의·시행일(기본 설치일)', () => {
+    const t = rules(BASE);
+    expect(t).toContain('가상제조 노사협의회 규정');
+    expect(t).toContain('는 가상제조에 두며, 명칭은 가상제조 노사협의회로 한다.');
+    expect(t).toContain('각 5명으로 구성한다.');
+    expect(t).toContain('노사를 대표하는 3명(3명 이내)');
+    expect(t).toContain('정기회의는 3월·6월·9월·12월 둘째 주 화요일에 연다.');
+    expect(t).toContain('이 규정은 2026년 12월 1일부터 시행한다.');
+  });
+  it('rules 선택값이 넘어간다(공동의장·노동조합 명칭·간접선출 사유·시행일)', () => {
+    expect(rules({ ...BASE, rules: { coChair: true } })).toContain('공동의장');
+    expect(rules({ ...BASE, majorityUnion: true, rules: { unionName: '가상노동조합' } })).toContain('근로자위원은 가상노동조합의 대표자와');
+    expect(rules({ ...BASE, indirectReason: '작업부서별 특성이 현저히 다르다' })).toContain('부득이한 사유: 작업부서별 특성이 현저히 다르다');
+    expect(rules({ ...BASE, rules: { effectiveDate: '2027-01-02' } })).toContain('이 규정은 2027년 1월 2일부터 시행한다.');
+  });
+  it('위원 수 3 미만·10 초과, 양쪽 수가 다르면 서류 전체를 만들지 않는다', () => {
+    expect(nosaErrors({ ...BASE, workerMembers: 11, employerMembers: 11 }).join(' ')).toMatch(/3명 이상 10명 이하/);
+    expect(nosaErrors({ ...BASE, workerMembers: 2, employerMembers: 2 }).join(' ')).toMatch(/3명 이상 10명 이하/);
+    expect(nosaErrors({ ...BASE, employerMembers: 4 }).join(' ')).toMatch(/같은 수/);
+    expect(nosaErrors({ ...BASE, rules: { effectiveDate: '2027-02-30' } }).join(' ')).toMatch(/시행일/);
   });
   it('서류 제목은 확인서 이름 상수를 쓴다', () => {
     const t = nosaDocs(BASE).made.map((d) => d.doc.title);
@@ -188,6 +214,12 @@ describe('14 노동포털 제출 입력값(SN012)', () => {
   it('첨부 확장자 안내 — hwpx·docx 없음, pdf 또는 hwp', () => {
     expect(t).toMatch(/hwpx·docx·xlsx 는 목록에 없/);
     expect(t).toMatch(/pdf 또는 hwp/);
+  });
+  it('첨부 칸에 협의회규정(00) 파일 이름을 적는다', () => {
+    const row = (doc: FormDoc) => doc.blocks.flatMap((b) => (b.kind === 'table' ? b.rows : [])).find((r) => r[1]?.text === '구비서류')?.[3].text ?? '';
+    expect(row(d)).toContain('00_협의회규정');
+    const named = nosaDocs(BASE, { attach: '노사협의회_20261110_00_협의회규정.pdf' }).made.find((x) => x.id.startsWith('14'))!.doc;
+    expect(row(named)).toContain('노사협의회_20261110_00_협의회규정.pdf');
   });
 });
 

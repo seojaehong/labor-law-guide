@@ -1,5 +1,6 @@
 // 노사협의회 서류 모델(FormDoc) — work-rules-report/render.ts 가 PDF·한글로 그린다(두 파일이 같은 모델에서 나온다).
-// 출발점은 노사협의회신고 스킬 build_new_docs.py(261110)의 13개 문서이고, 14번 「노동포털 제출 입력값」(SN012 화면 실측 261110)을 더했다.
+// 출발점은 노사협의회신고 스킬 build_new_docs.py(261110)의 13개 문서이고, 14번 「노동포털 제출 입력값」(SN012 화면 실측 261110)과
+// 00번 협의회규정 견본(rules-template.ts, 매뉴얼 [부록 1] 개정판)을 더했다.
 // 바꾼 것:
 //   - 「…판정서」 → 「…확인서」(assess.ts DOC_NAMES 한 곳). 「판정 근거」 → 「기준별 근거」. 근거 두 줄의 글자는 그대로다.
 //   - 고충처리 운영지침의 「임금 체불」 → 「임금 미지급」, 겸임 확인서 빈 칸 안내의 「포괄 위임」 → 「묶어 맡기는 문구」(공개 문구 금지어)
@@ -13,6 +14,13 @@ import {
   assess, BOUNDARY_NOTICE, DOC_NAMES, ELECTOR_SCOPE, electionCheck, electionErrors, isoDate, addDays, MINUTES_REQUIRED, REGULATION_REQUIRED,
   REP_BASIS_ADMIN, REP_BASIS_SUPPORT, REPORT_DAYS, type Assessment, type ElectionCheck, type ElectionInput, type QuorumStage,
 } from './assess';
+import { councilRulesDoc, rulesErrors, type RulesInput } from './rules-template';
+
+/** 협의회규정 견본(00)에만 쓰는 칸 — 나머지(사업장명·위원 수·고충처리위원 수·협의회 명칭·정기회의·설치단위·간접선출 사유)는 서류 입력에서 가져온다 */
+export type RulesOptions = Pick<
+  RulesInput,
+  'unionName' | 'unitName' | 'effectiveDate' | 'coChair' | 'chairTerm' | 'employerPositions' | 'allowanceHours' | 'subcommitteeMembers' | 'electionCommitteeMembers' | 'tieBreak' | 'districts' | 'arbitrationMembers' | 'grievanceDesk'
+>;
 
 export interface NosaFormInput {
   workplace: { name?: string; ownerName?: string; bizNo?: string; address?: string; tel?: string };
@@ -42,6 +50,8 @@ export interface NosaFormInput {
   /** 관할 지방고용노동관서 */
   office?: string;
   writtenDate: string;
+  /** 협의회규정 견본(00)의 칸 */
+  rules?: RulesOptions;
 }
 
 export const DATE_FIELDS = ['installDate', 'regulationDate', 'electionDate', 'termStart', 'rosterDate', 'writtenDate'] as const;
@@ -76,7 +86,27 @@ export function nosaErrors(input: NosaFormInput): string[] {
   if (!blank(w.bizNo) && digits(w.bizNo).length !== 10) out.push('사업자등록번호는 숫자 10자리입니다.');
   if (!blank(input.council?.unitBizNo) && digits(input.council?.unitBizNo).length !== 10) out.push('해당사업장 사업자등록번호는 숫자 10자리입니다.');
   if (input.election) out.push(...electionErrors(input.election, isIndirect(input)));
+  // 협의회규정(00)을 만들 수 없는 값(위원 수 3~10명·같은 수, 고충처리위원 3명 이내 등)이면 서류 전체를 만들지 않는다
+  out.push(...rulesErrors(rulesInput(input)));
   return out;
+}
+
+/** 서류 입력 → 협의회규정 견본 입력. 시행일은 rules.effectiveDate → 규정 제정·변경일 → 설치일 순 */
+export function rulesInput(input: NosaFormInput): RulesInput {
+  const r = input.rules ?? {};
+  return {
+    ...r,
+    workplaceName: input.workplace?.name,
+    majorityUnion: input.majorityUnion,
+    indirectReason: input.indirectReason,
+    workerMembers: input.workerMembers,
+    employerMembers: input.employerMembers,
+    grievanceMembers: input.grievanceMembers,
+    councilName: input.council?.name,
+    regularMeetings: input.council?.regularMeetings,
+    unit: input.unit,
+    effectiveDate: r.effectiveDate ?? isoDate(input.regulationDate) ?? isoDate(input.installDate) ?? undefined,
+  };
 }
 
 // ── 공용 ──────────────────────────────────────────────
@@ -651,8 +681,8 @@ export const PORTAL_FIELDS: PortalField[] = [
   F('등록인', '처리상황 알림'), F('등록인', '전자문서 통지 동의'),
 ];
 
-/** 노동포털 첨부 칸에 올릴 협의회규정 — 사용자가 준비한 파일 */
-export const PORTAL_ATTACH_RULES = '협의회규정 — 사용자가 준비한 파일(pdf 또는 hwp)';
+/** 노동포털 첨부 칸에 올릴 협의회규정 — 00_협의회규정의 pdf. 도구는 실제 파일 이름을 넘긴다 */
+export const PORTAL_ATTACH_RULES = '00_협의회규정 pdf(hwp 도 됨)';
 
 export function portalDoc(input: NosaFormInput, attachRules = PORTAL_ATTACH_RULES): FormDoc {
   const c = ctx(input);
@@ -681,7 +711,7 @@ export function portalDoc(input: NosaFormInput, attachRules = PORTAL_ATTACH_RULE
     '노사협의회 정보|정기회의 개최일자': t(k.regularMeetings),
     '노사협의회 정보|노사협의회 위원 수(근로자위원 / 사용자위원)': membersGiven ? `근로자위원 ${c.a.members.worker}명 / 사용자위원 ${c.a.members.employer}명` : '',
     '관할관서·첨부|관할관서': t(input.office),
-    '관할관서·첨부|구비서류': `① ${attachRules}\n② 신·구조문대비표(변경일 때)\n③ 참고(추가)자료(선택)`,
+    '관할관서·첨부|구비서류': `① 협의회규정 — ${attachRules}(○○ 칸을 채우고 협의회에서 의결한 것)\n② 신·구조문대비표(변경일 때)\n③ 참고(추가)자료(선택)`,
     '등록인|사업장명': t(w.name),
     '등록인|사업장소재지': t(w.address),
     '등록인|대표자 성명': t(w.ownerName),
@@ -716,7 +746,12 @@ export interface NosaDoc {
 }
 
 type When = 'always' | 'election' | 'concurrent' | 'union';
-const PLAN: [string, (i: NosaFormInput) => FormDoc, When][] = [
+export interface NosaDocsOptions {
+  /** 14번 첨부 칸에 적을 협의회규정 파일 이름(도구가 정한 이름) */
+  attach?: string;
+}
+const PLAN: [string, (i: NosaFormInput, o: NosaDocsOptions) => FormDoc, When][] = [
+  ['00_협의회규정', (i) => councilRulesDoc(rulesInput(i)), 'always'],
   ['01_설치의무_확인서', installDoc, 'always'],
   ['02_선출방식_확인서', methodDoc, 'always'],
   ['03_선거관리규정', electionRulesDoc, 'election'],
@@ -730,11 +765,11 @@ const PLAN: [string, (i: NosaFormInput) => FormDoc, When][] = [
   ['11_고충처리_운영지침', grievanceGuideDoc, 'always'],
   ['12_위촉통지서', appointDoc, 'union'],
   ['13_협의회규정_필수기재_점검표', regulationChecklistDoc, 'always'],
-  ['14_노동포털_제출_입력값', portalDoc, 'always'],
+  ['14_노동포털_제출_입력값', (i, o) => portalDoc(i, o.attach), 'always'],
 ];
 
-/** 빈 칸·오류가 없을 때 부른다. 파이썬판 DOCS 와 같은 조건으로 고른다(07 은 겸임이면 방식과 상관없이 만든다) */
-export function nosaDocs(input: NosaFormInput): { made: NosaDoc[]; skipped: { id: string; reason: string }[]; assessment: Assessment; election?: ElectionCheck } {
+/** 빈 칸·오류가 없을 때 부른다. 파이썬판 DOCS 와 같은 조건으로 고른다(07 은 겸임이면 방식과 상관없이 만든다). 00 협의회규정은 언제나 만든다 */
+export function nosaDocs(input: NosaFormInput, opts: NosaDocsOptions = {}): { made: NosaDoc[]; skipped: { id: string; reason: string }[]; assessment: Assessment; election?: ElectionCheck } {
   const c = ctx(input);
   const union = c.a.selection.method === '위촉';
   const made: NosaDoc[] = [];
@@ -743,7 +778,7 @@ export function nosaDocs(input: NosaFormInput): { made: NosaDoc[]; skipped: { id
     if (when === 'election' && union) skipped.push({ id, reason: '과반수 노동조합 위촉이므로 선거 서류를 만들지 않음' });
     else if (when === 'union' && !union) skipped.push({ id, reason: '선거 방식이므로 만들지 않음' });
     else if (when === 'concurrent' && !input.concurrentRep) skipped.push({ id, reason: '근로자대표 겸임이 아님' });
-    else made.push({ id, doc: fn(input) });
+    else made.push({ id, doc: fn(input, opts) });
   }
   return { made, skipped, assessment: c.a, election: c.el };
 }

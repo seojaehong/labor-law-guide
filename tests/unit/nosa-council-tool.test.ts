@@ -149,26 +149,53 @@ describe('make_labor_council_forms(로컬 전용)', () => {
     const out = path.join(tmp, 'full');
     const r = await call('make_labor_council_forms', { ...FULL, outDir: out });
     expect(r.ok).toBe(true);
-    expect(r.files).toHaveLength(13 * 2);
+    expect(r.files).toHaveLength(14 * 2);
     expect(r.files.every((f: { path: string }) => fs.existsSync(f.path))).toBe(true);
-    expect(r.files.map((f: { path: string }) => path.basename(f.path))).toContain('노사협의회_20261110_05_정족수_확인서.pdf');
+    const names = r.files.map((f: { path: string }) => path.basename(f.path));
+    expect(names).toContain('노사협의회_20261110_05_정족수_확인서.pdf');
+    expect(names).toContain('노사협의회_20261110_00_협의회규정.pdf');
+    expect(names).toContain('노사협의회_20261110_00_협의회규정.hwpx');
     expect(r.skippedDocuments).toEqual([{ id: '12_위촉통지서', reason: '선거 방식이므로 만들지 않음' }]);
     expect(r.sealRequired.length).toBeGreaterThan(3);
     expect(r.submit.url).toBe('https://labor.moel.go.kr/minwonRqst/SN012.do');
     expect(r.submit.deadline).toBe('2026-12-16');
+    expect(r.submit.attach).toBe('노사협의회_20261110_00_협의회규정.pdf');
+    expect(r.notice).toContain('고용노동부 『노사협의회 운영 매뉴얼』(2022. 12.) [부록 1]을 2022. 12. 11. 시행 법령에 맞추어 고침');
     expect(bannedHits(JSON.stringify(r), NOSA_WORDS)).toEqual([]);
+    // 14 노동포털 제출 입력값의 첨부 칸에 협의회규정 pdf 파일 이름이 들어간다(한글 파일 본문에서 확인)
+    const JSZip = (await import('jszip')).default;
+    const portal = r.files.find((f: { path: string; format: string }) => f.format === 'hwpx' && f.path.includes('14_노동포털'));
+    const sec = await (await JSZip.loadAsync(fs.readFileSync(portal.path))).file('Contents/section0.xml')!.async('string');
+    expect(sec).toContain('노사협의회_20261110_00_협의회규정.pdf');
+    // 출처 문장은 협의회규정 본문에 없다
+    const rules = r.files.find((f: { path: string; format: string }) => f.format === 'hwpx' && f.path.includes('00_협의회규정'));
+    const rsec = await (await JSZip.loadAsync(fs.readFileSync(rules.path))).file('Contents/section0.xml')!.async('string');
+    expect(rsec).toContain('가상제조 노사협의회 규정');
+    expect(rsec).not.toContain('부록');
   }, 60_000);
 
   it('이미 있는 파일은 덮어쓰지 않는다', async () => {
     const r = await call('make_labor_council_forms', { ...FULL, outDir: path.join(tmp, 'full') });
     expect(r.ok).toBe(false);
-    expect(r.exists).toHaveLength(26);
+    expect(r.exists).toHaveLength(28);
   });
+
+  it('위원 수가 3 미만·10 초과면 만들지 않는다', async () => {
+    const r = await call('make_labor_council_forms', { ...FULL, workerMembers: 11, employerMembers: 11, outDir: path.join(tmp, 'eleven') });
+    expect(r.ok).toBe(false);
+    expect(r.errors.join()).toMatch(/3명 이상 10명 이하/);
+    expect(fs.existsSync(path.join(tmp, 'eleven'))).toBe(false);
+  });
+
+  it('pdf 를 고르지 않으면 첨부 안내는 한글 파일을 pdf·hwp 로 저장하라고 적는다', async () => {
+    const r = await call('make_labor_council_forms', { ...FULL, outDir: path.join(tmp, 'hwpx-only'), formats: ['hwpx'] });
+    expect(r.submit.attach).toMatch(/00_협의회규정\.hwpx.*pdf 또는 hwp/);
+  }, 30_000);
 
   it('형식을 고를 수 있다', async () => {
     const r = await call('make_labor_council_forms', { ...FULL, outDir: path.join(tmp, 'hwpx'), formats: ['hwpx'], fileBase: '시험' });
     expect(r.files.every((f: { format: string; path: string }) => f.format === 'hwpx' && path.basename(f.path).startsWith('시험_'))).toBe(true);
-  });
+  }, 30_000);
 
   it('사업장명이 비면 만들지 않고 빈 칸을 댄다, 맞지 않는 칸도 댄다', async () => {
     const r = await call('make_labor_council_forms', { ...FULL, workplace: {}, installDate: '2026-02-30', outDir: path.join(tmp, 'blank') });
@@ -188,5 +215,5 @@ describe('make_labor_council_forms(로컬 전용)', () => {
     const r = await call('make_labor_council_forms', { ...FULL, election: { electors: 100, voters: 40 }, outDir: path.join(tmp, 'short'), formats: ['hwpx'] });
     expect(r.ok).toBe(true);
     expect(r.warnings.join()).toMatch(/정족수가 미달/);
-  });
+  }, 30_000);
 });

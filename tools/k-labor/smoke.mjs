@@ -422,10 +422,13 @@ if (tools.includes('make_labor_council_forms')) {
   check(`nosa 서류 사업장명이 비면 만들지 않음(${nb.blanks})`, nb.ok === false && nb.blanks?.includes('사업장명') && !fs.existsSync(NF.outDir));
   const nm = await callNew('make_labor_council_forms', NF);
   const nmagic = (nm.files || []).map((f) => `${f.format}:${fs.readFileSync(f.path).subarray(0, 4).toString('latin1')}`);
-  check(`nosa 서류 13종 26파일(위촉통지서 없음) · 신고 기한 ${nm.submit?.deadline}`, nm.ok && nm.files?.length === 26 && !nm.skipped && nm.submit?.deadline === '2026-12-16'
+  check(`nosa 서류 협의회규정 포함 14종 28파일(위촉통지서 없음) · 신고 기한 ${nm.submit?.deadline}`, nm.ok && nm.files?.length === 28 && !nm.skipped && nm.submit?.deadline === '2026-12-16'
     && nm.skippedDocuments?.[0]?.id === '12_위촉통지서' && nmagic.every((m) => (m.startsWith('pdf:') ? m === 'pdf:%PDF' : m.endsWith('PK\u0003\u0004'))));
+  check(`nosa 협의회규정 첨부 이름(${nm.submit?.attach}) · 견본 출처는 notice 로만`, nm.submit?.attach === '노사협의회_20261110_00_협의회규정.pdf' && /부록 1/.test(nm.notice ?? ''));
   const na = await callNew('make_labor_council_forms', NF);
-  check(`nosa 서류 덮어쓰지 않음(${na.exists?.length}개)`, na.ok === false && na.exists?.length === 26);
+  check(`nosa 서류 덮어쓰지 않음(${na.exists?.length}개)`, na.ok === false && na.exists?.length === 28);
+  const n11 = await callNew('make_labor_council_forms', { ...NF, workerMembers: 11, outDir: path.join(tmp, 'nosa-11') });
+  check('nosa 위원 수 10명 초과면 만들지 않음', n11.ok === false && !fs.existsSync(path.join(tmp, 'nosa-11')));
   const nr = await callNew('make_labor_council_forms', { ...NF, workplace: { name: '가상상사', tel: '900101-1234568' }, outDir: path.join(tmp, 'nosa-rrn') });
   check('nosa 서류 주민번호 모양이면 만들지 않음', nr.ok === false && !fs.existsSync(path.join(tmp, 'nosa-rrn')));
 }

@@ -13,6 +13,7 @@ import {
   addDays, assess, BOUNDARY_NOTICE, deadline, electionCheck, electionErrors, INDIRECT_REASONS, isoDate, quorumMeeting, REPORT_DAYS,
 } from '@/lib/nosa-council/assess';
 import { nosaBlanks, nosaDocs, nosaErrors } from '@/lib/nosa-council/forms';
+import { RULES_SOURCE } from '@/lib/nosa-council/rules-template';
 import { formHwpx, formPdf } from '@/lib/work-rules-report/render';
 import { looksLikeRrn, text } from '../lib/common.mjs';
 
@@ -171,11 +172,11 @@ export function registerNosa(server) {
     {
       title: '노사협의회 서류 만들기(로컬 전용)',
       description:
-        '노사협의회 설치·선출·신고 서류를 outDir 에 PDF·한글(hwpx)로 만든다: 01 설치의무 확인서 · 02 선출방식 확인서 · 03 선거관리규정 · 04 선거인명부(빈 줄) · 05 정족수 확인서 · 06 당선공고 · 07 근로자대표 겸임 선출 확인서(겸임일 때) · 08 회의 소집통보서 · 09 안건 구분표 · ' +
+        '노사협의회 설치·선출·신고 서류를 outDir 에 PDF·한글(hwpx)로 만든다: 00 협의회규정 견본(입력값으로 칸을 채우고 모르는 칸은 ○○, 과반수 노동조합·선거구·위원선거인·공동의장은 입력에 따라 한 가지만 남김) · 01 설치의무 확인서 · 02 선출방식 확인서 · 03 선거관리규정 · 04 선거인명부(빈 줄) · 05 정족수 확인서 · 06 당선공고 · 07 근로자대표 겸임 선출 확인서(겸임일 때) · 08 회의 소집통보서 · 09 안건 구분표 · ' +
         '10 고충처리위원 선임 의결서 · 11 고충처리 운영지침 · 12 위촉통지서(과반수 노동조합일 때) · 13 협의회규정 필수기재 점검표 · 14 노동포털 제출 입력값(SN012 신청 화면 칸과 채울 값). ' +
         '과반수 노동조합이면 선거 서류(03~06)를 만들지 않는다. election 을 주면 05 에 정족수 결과를 채운다. 사업장명이 비면 만들지 않고 빈 칸을 돌려준다. 작성일은 기본 오늘. ' +
         '근로자·위원·후보 이름은 받지 않고 서류에도 비워 둔다. 서명·날인 칸은 비워 둔다. 이미 있는 파일은 덮어쓰지 않는다. 주민등록번호는 받지 않는다. ' +
-        '협의회규정 본문은 사용자가 준비한다(노동포털 첨부는 pdf 또는 hwp). 제출은 사용자가 노동포털이나 관할 지방고용노동관서에 한다.',
+        '위원 수가 3명 미만·10명 초과이거나 양쪽 수가 다르면 만들지 않는다. 협의회규정은 ○○ 칸을 채우고 협의회에서 의결한 뒤 pdf 로 노동포털에 첨부한다(hwpx 는 편집용, 첨부 확장자 목록에 없다). 제출은 사용자가 노동포털이나 관할 지방고용노동관서에 한다.',
       inputSchema: {
         workplace: z.object({
           name: str().describe('사업장명(필수)'),
@@ -214,6 +215,21 @@ export function registerNosa(server) {
           regularMeetings: str().describe('정기회의 개최일자(예: 3월·6월·9월·12월 둘째 주 화요일)'),
         }).optional().describe('노동포털 제출 칸 — 노사협의회 정보'),
         office: str().describe('관할 지방고용노동관서(예: 서울지방고용노동청 서울강남지청)'),
+        rules: z.object({
+          unionName: str().describe('과반수 노동조합 명칭(제6조② — 노동조합이 근로자위원을 위촉할 때)'),
+          unitName: str().describe('설치단위 이름(예: 가상상사 본사). 비우고 설치단위가 「사업」이면 사업장명'),
+          effectiveDate: date('규정 시행일(기본 규정 제정·변경일, 없으면 설치일).'),
+          coChair: z.boolean().optional().describe('근로자위원·사용자위원 각 1명을 공동의장으로 한다(제7조①)'),
+          chairTerm: z.string().max(30).optional().describe('의장 임기(예: 1년)'),
+          employerPositions: z.array(z.string().max(40)).max(9).optional().describe('사용자위원 직위(이름 아님, 예: 인사팀장)'),
+          allowanceHours: z.number().positive().max(24).optional().describe('회의 1회당 이동·자료 검토를 근로한 시간으로 보는 한도(시간)'),
+          subcommitteeMembers: count().optional().describe('실무소위원회 노사 각 위원 수'),
+          electionCommitteeMembers: count().optional().describe('선거관리위원회 위원 수 상한'),
+          tieBreak: z.string().max(60).optional().describe('득표수가 같을 때 정하는 기준(예: 근속기간이 긴 사람)'),
+          districts: z.array(z.object({ label: z.string().max(30).optional(), seats: count().optional() })).max(30).optional().describe('선거구별 선출 — 선거구 이름과 근로자위원 수(별표)'),
+          arbitrationMembers: count().optional().describe('협의회 중재기구 노사 각 위원 수'),
+          grievanceDesk: z.string().max(100).optional().describe('고충 신고 창구(예: 고충처리위원에게 직접 또는 전자우편)'),
+        }).optional().describe('00 협의회규정 견본의 칸 — 비운 칸은 ○○ 로 남는다'),
         writtenDate: date('작성일(기본 오늘).'),
         outDir: z.string().describe('저장할 폴더(없으면 만든다)'),
         fileBase: str().describe('파일 이름 앞부분(기본 「노사협의회_」 + 작성일)'),
@@ -230,16 +246,18 @@ export function registerNosa(server) {
         concurrentRep: a.concurrentRep, concurrentScope: a.concurrentScope, electronicVoting: a.electronicVoting, unit: a.unit,
         installDate: a.installDate, regulationDate: a.regulationDate, regulationKind: a.regulationKind, electionDate: a.electionDate,
         termStart: a.termStart, rosterDate: a.rosterDate, electors: a.electors, election: a.election, council: a.council, office: a.office,
-        writtenDate: written ?? a.writtenDate,
+        writtenDate: written ?? a.writtenDate, rules: a.rules,
       };
       const blanks = nosaBlanks(input);
       const errors = nosaErrors(input);
       if (blanks.length || errors.length) {
         return text({ ok: false, ...(blanks.length ? { blanks } : {}), ...(errors.length ? { errors } : {}), error: '빈 칸이나 맞지 않는 칸이 있어 서류를 만들지 않았습니다. 채워서 다시 부르세요.' });
       }
-      const { made, skipped: skippedDocuments, assessment, election } = nosaDocs(input);
       const want = new Set(a.formats?.length ? a.formats : ['pdf', 'hwpx']);
       const base = safeName((a.fileBase ?? '').trim() || `노사협의회_${written.replace(/-/g, '')}`);
+      // 노동포털 첨부는 협의회규정 pdf — 14번 첨부 칸에 그 파일 이름을 적는다(hwpx 는 첨부 확장자 목록에 없다)
+      const attach = want.has('pdf') ? `${base}_00_협의회규정.pdf` : `${base}_00_협의회규정.hwpx 를 한글에서 pdf 또는 hwp 로 저장한 파일`;
+      const { made, skipped: skippedDocuments, assessment, election } = nosaDocs(input, { attach });
       const targets = made.flatMap((d) => ['pdf', 'hwpx'].filter((f) => want.has(f)).map((f) => ({ d, f, path: path.join(a.outDir, `${base}_${d.id}.${f}`) })));
       const exists = targets.filter((x) => fs.existsSync(x.path)).map((x) => x.path);
       if (exists.length) return fail('이미 있는 파일은 덮어쓰지 않습니다. fileBase 나 outDir 를 바꿔 주세요.', { exists });
@@ -270,13 +288,15 @@ export function registerNosa(server) {
         ...(skipped.length ? { skipped } : {}),
         skippedDocuments,
         sealRequired: Object.entries(SEALS).filter(([k]) => made2.has(k)).map(([, s]) => `서명 필요 — ${s}`),
-        regulation: '협의회규정 본문은 사용자가 준비한다. 필수기재사항 7개는 13번 점검표로 확인하고, 노동포털에는 pdf 또는 hwp 로 첨부한다(hwpx·docx 는 첨부 확장자 목록에 없다).',
+        regulation: '00 협의회규정은 견본이다. ○○ 칸을 채우고 제1차 회의에서 의결한 뒤 낸다(시행령 제5조제2항). 고쳐 쓰면 필수기재사항 7개가 남았는지 13번 점검표로 확인한다. 노동포털에는 pdf 또는 hwp 로 첨부한다(hwpx·docx 는 첨부 확장자 목록에 없다).',
         submit: {
           online: '고용노동부 노동포털 민원 「노사협의회규정 (제정/변경) 제출서」(SN012) — 입력 칸과 채울 값은 14번 서류',
           url: SN012,
           ...(install ? { deadline: addDays(install, REPORT_DAYS) } : {}),
+          attach,
           paper: '관할 지방고용노동관서에 방문·우편 제출(근로자참여 및 협력증진에 관한 법률 시행규칙 제3조제1항)',
         },
+        notice: `협의회규정 견본: ${RULES_SOURCE}`,
         ...(warnings.length ? { warnings } : {}),
         boundary: BOUNDARY_NOTICE,
         check: '제출 전에 파일을 열어 사업장 정보·날짜·인원을 확인하고, 빈 칸(이름·서명)을 채운 뒤 냅니다.',
