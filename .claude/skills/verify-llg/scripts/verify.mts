@@ -152,6 +152,24 @@ const FEATURES: Record<string, { path: string; journey: Journey; waitUntil?: 'lo
       const allowed = [/^https:\/\/www\.googletagmanager\.com\//, /^https:\/\/[a-z0-9.-]*google-analytics\.com\//];
       const others = sent.map(s => s.split(' ')[1]).filter(u => new URL(u).origin !== origin && !u.startsWith('data:') && !u.startsWith('blob:') && !allowed.some(a => a.test(u)));
       step('다른 출처 요청 0건', '0', String(others.length) + (others.length ? ` ${others.slice(0, 3).join(' ')}` : ''));
+      // nf-prefill — 퇴사 체크리스트의 건강보험 상실 항목에서 새 탭으로 넘어오면 마지막 근무일이 채워진다.
+      // 날짜는 해시(#)로만 넘어간다: 새 탭의 어떤 요청 주소·Referer 에도 실리지 않아야 한다
+      await p.goto(`${BASE}/exit-employer?exit=2026-05-31`);
+      await p.locator('#hi-loss summary').click();
+      const link = p.locator('[data-step-tool="hi-loss"]');
+      step('체크리스트 → 신고서 주소(해시)', '/tools/nhis-report-form#kind=loss&last=2026-05-31', (await link.getAttribute('href')) ?? '');
+      await p.locator('#hi-loss input[type=checkbox]').check();
+      const popSent: string[] = [];
+      const [pop] = await Promise.all([p.context().waitForEvent('page'), link.click()]);
+      pop.on('request', (r: any) => popSent.push(`${r.url()} ${r.headers().referer ?? ''}`));
+      await pop.waitForLoadState('load');
+      await pop.locator('[data-loss-date]').waitFor({ timeout: 15000 });
+      step('새 탭 — 마지막 근무일 채움', '2026-05-31', await pop.getByLabel('마지막 근무일 1').inputValue());
+      step('새 탭 — 상실일 = 다음 날', '상실일 2026.06.01', (await pop.locator('[data-loss-date]').innerText()).trim());
+      step('새 탭 — 읽은 해시를 주소에서 지움', '/tools/nhis-report-form', new URL(pop.url()).pathname + new URL(pop.url()).search + new URL(pop.url()).hash);
+      step('새 탭 — 날짜가 실린 요청·Referer 0건', '0', String(popSent.filter(s => s.includes('2026-05-31')).length));
+      await pop.close();
+      step('체크리스트 — 체크 표시가 남아 있다', 'true', String(await p.locator('#hi-loss input[type=checkbox]').isChecked()));
     },
   },
   'weekly-holiday-pay': {

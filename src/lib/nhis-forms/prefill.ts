@@ -1,26 +1,18 @@
-// 다른 화면(/exit-employer 등)에서 신고서 도구로 넘어올 때 주소창 값으로 칸을 미리 채운다.
-// 주소창에는 종류와 날짜만 싣는다 — 이름·주민등록번호 같은 값은 읽지도 만들지도 않는다.
+// 다른 화면(/exit-employer)에서 신고서 도구로 넘어올 때 마지막 근무일을 미리 채운다.
+// 값은 주소의 # 뒤(해시)에 싣는다 — 해시는 서버 요청·Referer 에 실리지 않는다.
+// 종류와 날짜만 다룬다. 이름·주민등록번호 같은 값은 읽지도 만들지도 않는다.
 import { parseYmd } from './dates';
-
-export type PrefillKind = 'loss' | 'acq';
-export interface Prefill {
-  kind?: PrefillKind;
-  /** 상실이면 마지막 근무일, 취득이면 취득일 (YYYY-MM-DD) */
-  last?: string;
-}
 
 const PATH = '/tools/nhis-report-form';
 
-export function readPrefill(search: string): Prefill {
-  const p = new URLSearchParams(search);
-  const k = p.get('kind');
-  if (k !== 'loss' && k !== 'acq') return {};
-  const out: Prefill = { kind: k };
+/** 상실 미리 채움이 아니면 null. 날짜가 틀리면 last 없이 돌려준다 */
+export function readPrefill(hash: string): { last?: string } | null {
+  const p = new URLSearchParams(hash.replace(/^#/, ''));
+  if (p.get('kind') !== 'loss') return null;
   const d = p.get('last') ?? '';
-  if (parseYmd(d)) out.last = d;
-  return out;
+  return parseYmd(d) ? { last: d } : {};
 }
 
 export function nhisLossHref(lastWorkDay: string): string {
-  return parseYmd(lastWorkDay) ? `${PATH}?kind=loss&last=${lastWorkDay}` : `${PATH}?kind=loss`;
+  return parseYmd(lastWorkDay) ? `${PATH}#kind=loss&last=${lastWorkDay}` : `${PATH}#kind=loss`;
 }

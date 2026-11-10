@@ -9,13 +9,17 @@
 - `nf-acq` 취득 — 취득일·월 보수액·취득부호, 6개월 이상 지연 시 입사 시점 입증서류 첨부 안내.
 - `nf-pdf` 브라우저 안에서 PDF 생성(주민번호 서버 미경유), 1MB 이하(약 500KB), 도장 PNG 선택.
 
+- `nf-prefill` 퇴사 체크리스트(`/exit-employer`) 「건강보험 직장가입자 자격상실 신고」 항목의 버튼 → 새 탭으로 열리고 마지막 근무일 1 이 채워진다. 값은 해시(`#kind=loss&last=YYYY-MM-DD`)로만 넘어가 서버 요청·Referer 에 실리지 않고, 읽은 뒤 주소에서 지운다. 상실만 받는다. 만드는 곳 = `src/lib/nhis-forms/prefill.ts`, 버튼 정의 = `src/content/exit-employer-data.ts` 의 `tool`.
+
 ## How to get to it (user POV)
 
 - `/tools` 목록 「건강보험 자격 취득·상실 신고서 작성」, 또는 `/tools/nhis-report-form`.
+- `/exit-employer` 에 마지막 근무일을 넣고 건강보험 상실 항목을 펼쳐 「기한을 넘겼다면: …」 버튼.
 
 ## Driving it with verify.mts
 
 - `drive --feature nhis-report-form` — 사업자번호 「123」 → 10자리 안내 · 124-81-00998(삼성전자 공개 번호) → 목록 첫 곳 → 주소(시·군·구까지, 첫 곳은 공단 자료 순서라 바뀐다 — 261104 수원→천안)·명칭 채움 → 청주 서문동 주소 → 청주동부지사 자동 입력 → 합성 1명(김가상·900101-1000000·마지막 근무일 2026-05-31) → 「상실일 2026.06.01」 → PDF 내려받기(`%PDF`, 1MB 이하) → 결과 「PDF nKB」 → **주민번호가 실린 요청 0건 · 다른 출처 요청 0건**.
+- 이어서 `/exit-employer?exit=2026-05-31` → 건강보험 상실 항목 체크 → 버튼 주소가 `/tools/nhis-report-form#kind=loss&last=2026-05-31` → 새 탭에서 마지막 근무일 2026-05-31·「상실일 2026.06.01」·주소에서 해시 지워짐·**날짜가 실린 요청·Referer 0건** → 원래 탭 체크 표시 유지.
 - 내려받은 PDF 를 `<out>/nhis-report-form-<폭>.pdf` 로 남긴다. **글자가 실제로 그려졌는지는 렌더 그림으로 본다** — pdf-lib 서브셋 사고(261102)는 글자 추출이 정상이라 단계 검사로 안 잡힌다.
 
 ## Gotchas

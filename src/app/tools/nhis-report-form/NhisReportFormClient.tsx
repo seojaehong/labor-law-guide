@@ -75,12 +75,13 @@ export default function NhisReportFormClient() {
 
   const switchKind = (k: Kind) => { setKind(k); setPeople([blank(k)]); setDone(null); setMsg(null); };
 
-  // 퇴사 체크리스트(/exit-employer)에서 넘어오면 종류와 날짜만 채운다
+  // 퇴사 체크리스트(/exit-employer)에서 넘어오면 마지막 근무일을 채운다.
+  // 읽은 해시는 주소에서 지운다 — 새로 고쳐도 옛 값으로 돌아가지 않는다
   useEffect(() => {
-    const pre = readPrefill(window.location.search);
-    if (!pre.kind) return;
-    setKind(pre.kind);
-    setPeople([{ ...blank(pre.kind), date: pre.last ?? '' }]);
+    const pre = readPrefill(window.location.hash);
+    if (!pre) return;
+    if (pre.last) setPeople([{ ...blank('loss'), date: pre.last }]);
+    window.history.replaceState(null, '', window.location.pathname + window.location.search);
   }, []);
   const setP = (i: number, patch: Partial<P>) => setPeople(ps => ps.map((p, j) => (j === i ? { ...p, ...patch } : p)));
 
