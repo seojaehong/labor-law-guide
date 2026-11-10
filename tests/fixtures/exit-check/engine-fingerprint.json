@@ -32,6 +32,26 @@
     "rules/r009_deadlines.ts": "ba0ab0e3e0e8bf56dda0f25562a92028f9c2644a9af330a86236e5b0f03df0a4",
     "rules/registry.ts": "dfd03024406ea7d9be20506dfdf6cf5095c14f02ebe64b59de008c70260e337b"
   },
+  "samples": {
+    "S01": {
+      "core_report_sha256": "sha256:3fe54da030d1dd4c34f39a89ecdcdd368d12d9656dc66efeecbd482b0b937c79",
+      "files": {
+        "annual_leave_ledger.csv": "sha256:9135b982fe84087b1fe0b06399dda50ce9d49df543a1f32f73d9ca3ebc7ddb5a",
+        "final_payroll_settlement.csv": "sha256:d2f5b2d4bf294a636669705878675126c2baff48841e475f6db84d20d3f0e255",
+        "insurance_loss.csv": "sha256:8236f1d312bf625c85ce05c8d57c90f2ff4cb5b113172be4dfef803501a809e1",
+        "personnel_exit.csv": "sha256:0e6fed01c4ecb024f0965ab2b1d447d003dc3f04c025584cdfb2190763cdd380"
+      }
+    },
+    "S03": {
+      "core_report_sha256": "sha256:a0e4629ff174890144d73a2ed9be8be10b7dd299ee1a2787a0c7dd61185c2430",
+      "files": {
+        "annual_leave_ledger.csv": "sha256:b98d5f4d5e85dbc82f2adee98049534a711c098fd6155b59bf983005f76c36f4",
+        "final_payroll_settlement.csv": "sha256:5f14a72d380c0f450aabd891fd93cc40ede96c6544afaf5f5a2e45a55ae23e9c",
+        "insurance_loss.csv": "sha256:e4269f1719f0092c2fd5e0ab7ffd000a9b8a122de7a6afe24f17ed68fce32b8c",
+        "personnel_exit.csv": "sha256:570c6303015b4630bf696fce1906e7550f356ac40f03f50fdc28609cc5b4c28f"
+      }
+    }
+  },
   "scenarios": {
     "S01": {
       "compared_item_count": 14,

@@ -13,6 +13,8 @@
 //   4) 원본(사본 아님)을 node_modules/.cache/exit-check-engine/ 에 꺼내 사이트의 typescript 로 빌드하고,
 //      합성 fixture 를 prepareFromManifest → runCore 로 돌려 동작 지문의 기준값을 잰다.
 //   5) tests/fixtures/exit-check/engine-fingerprint.json 과 tests/fixtures/exit-check/scenarios.ts 를 쓴다.
+//   6) 화면에 싣는 합성 예시(DEMO_SAMPLE_IDS)를 src/lib/exit-check-demo/samples.ts 로 쓴다 — CSV 줄 배열·manifest·파일별 sha256.
+//      지문에는 samples 절(표본별 파일 sha256 과 core_report_sha256)을 더한다.
 // 같은 커밋으로 두 번 돌리면 결과 파일이 바이트 단위로 같다(git diff 0).
 
 import { execFileSync } from 'node:child_process';
@@ -32,6 +34,11 @@ const RULES_COPY = 'deadline-rules.json';
 const COPY_DIR = join(SITE, 'src', 'lib', 'exit-check');
 const FIXTURE_OUT = join(SITE, 'tests', 'fixtures', 'exit-check');
 const CACHE_DIR = join(SITE, 'node_modules', '.cache', 'exit-check-engine');
+const DEMO_DIR = join(SITE, 'src', 'lib', 'exit-check-demo');
+
+// 화면에 싣는 합성 예시. 계획 B2 권고값 — 어긋난 곳이 없는 예시(S01)와 있는 예시(S03, 국민연금 상실 신고 행 하나 빠짐).
+// 답이 다르면 이 목록을 바꾸고 다시 돌린다. 화면 모델 기대값(tests/unit/exit-check-view.test.ts)도 함께 고친다.
+const DEMO_SAMPLE_IDS = ['S01', 'S03'];
 
 // 싣지 않는 fixture. 계획(조각 1)에 적힌 두 개이고, 아래 내용 검사로 같은 집합인지 매번 다시 확인한다.
 const SKIPPED = {
@@ -278,7 +285,21 @@ if (flaggedKey !== skipKey) {
 }
 if (nonCsv.length > 0) fail(`CSV 가 아닌 입력이 든 fixture: ${nonCsv.join(', ')} — 싣지 않는 목록과 이유를 정한다`);
 
-// ---- 5. 지문·시나리오 파일 ----
+// ---- 5. 화면에 싣는 합성 예시 ----
+
+const demoSamples = {};
+const demoPrints = {};
+for (const id of DEMO_SAMPLE_IDS) {
+  const sc = scenarios.find((s) => s.id === id);
+  if (!sc) fail(`화면 예시 ${id} 가 실을 fixture 목록에 없다(싣지 않는 목록이거나 CSV 가 아니다)`);
+  if (flagged.includes(id)) fail(`화면 예시 ${id} 에 사람 정보 형태가 있다`);
+  if (sc.manifest.synthetic !== true) fail(`화면 예시 ${id}: manifest 에 synthetic: true 가 없다`);
+  const fileSha = Object.fromEntries(Object.entries(prints[id].input_sha256).map(([p, h]) => [p, `sha256:${h}`]));
+  demoSamples[id] = { manifest: sc.manifest, files: sc.files, file_sha256: fileSha };
+  demoPrints[id] = { files: fileSha, core_report_sha256: prints[id].core_report_sha256 };
+}
+
+// ---- 6. 지문·시나리오 파일 ----
 
 const fingerprint = sortKeysDeep({
   commit,
@@ -291,6 +312,7 @@ const fingerprint = sortKeysDeep({
     '원본을 node_modules/.cache/exit-check-engine 에 git show 로 꺼내 사이트 typescript 로 빌드하고 prepareFromManifest → runCore 로 잰 값(scripts/exit-check/sync-engine.mjs)',
   scenarios: prints,
   skipped_scenarios: SKIPPED,
+  samples: demoPrints,
 });
 if (writeIfChanged(join(FIXTURE_OUT, 'engine-fingerprint.json'), `${JSON.stringify(fingerprint, null, 2)}\n`)) changed++;
 
@@ -311,7 +333,24 @@ const ts = [
 ].join('\n');
 if (writeIfChanged(join(FIXTURE_OUT, 'scenarios.ts'), ts)) changed++;
 
-console.log(`sync-engine: ${SOURCE_LABEL} @${short} — 사본 ${closure.length}파일 + ${RULES_COPY}, fixture ${scenarios.length}개(싣지 않음 ${skipKey}), 바뀐 파일 ${changed}개`);
+const samplesTs = [
+  `// 생성물 — scripts/exit-check/sync-engine.mjs 가 쓴다. 손으로 고치지 않는다.`,
+  `// 원본: ${SOURCE_LABEL} @${short} fixtures/${DEMO_SAMPLE_IDS.join('·')}/ (꾸며 낸 합성 자료, manifest synthetic: true).`,
+  `// 화면에 싣는 예시는 이 파일의 표본뿐이다. 실행 입구(./run)는 file_sha256 과 바이트가 같을 때만 엔진 사본을 부른다.`,
+  `// files 는 manifest 의 path → CSV 줄 배열이다. LF 한 글자로 이어 붙이면 원본 바이트와 같다(마지막 빈 문자열 = 끝 줄바꿈).`,
+  ``,
+  `export interface DemoSample {`,
+  `  manifest: Record<string, unknown>;`,
+  `  files: Record<string, readonly string[]>;`,
+  `  file_sha256: Record<string, string>;`,
+  `}`,
+  ``,
+  `export const DEMO_SAMPLES: Readonly<Record<string, DemoSample>> = ${JSON.stringify(demoSamples, null, 2)};`,
+  ``,
+].join('\n');
+if (writeIfChanged(join(DEMO_DIR, 'samples.ts'), samplesTs)) changed++;
+
+console.log(`sync-engine: ${SOURCE_LABEL} @${short} — 사본 ${closure.length}파일 + ${RULES_COPY}, fixture ${scenarios.length}개(싣지 않음 ${skipKey}), 화면 예시 ${DEMO_SAMPLE_IDS.join(',')}, 바뀐 파일 ${changed}개`);
 for (const [id, p] of Object.entries(prints)) {
   console.log(`  ${id} 발견 ${p.finding_count} · 대조 ${p.compared_item_count} · ${p.run_state}`);
 }

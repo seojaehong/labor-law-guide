@@ -3,4 +3,5 @@ data/tax/*.csv text eol=lf
 data/tax/*.sha256 text eol=lf
 # 엔진 사본·지문 fixture 는 해시로 고정한다 — 동기화 스크립트가 쓰는 LF 와 체크아웃 결과가 같게
 src/lib/exit-check/** text eol=lf
+src/lib/exit-check-demo/** text eol=lf
 tests/fixtures/exit-check/** text eol=lf
