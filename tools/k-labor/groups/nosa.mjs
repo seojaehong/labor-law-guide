@@ -533,7 +533,7 @@ export function registerNosa(server) {
         vote: z.object({ time: z.string().max(40).optional().describe('투표 시간'), place: z.string().max(100).optional().describe('투표 장소') }).optional().describe('투표'),
         committee: z.array(z.object({ position: z.string().max(40).optional().describe('직위(역할)'), name: realName(), dept: z.string().max(60).optional().describe('소속') })).max(15).optional().describe('선거관리위원'),
         candidates: z.array(z.object({
-          name: realName(), dept: z.string().max(60).optional().describe('소속'), position: z.string().max(40).optional().describe('직책'), district: z.string().max(30).optional().describe('선거구'),
+          name: realName(), dept: z.string().max(60).optional().describe('소속'), position: z.string().max(40).optional().describe('직책'), district: z.string().max(30).optional().describe('선거구 — 모든 후보에게 적으면 선거구마다 투표용지 한 쪽(후보 수 ≤ 뽑을 인원이면 찬반형)'),
           votes: count().optional().describe('다수득표 — 득표수'), inFavor: count().optional().describe('찬반 — 찬성 수'), against: count().optional().describe('찬반 — 반대 수'),
           elected: z.boolean().optional().describe('당선(찬반투표는 선거관리규정 기준으로 정해 넣는다)'),
         })).max(60).optional().describe('후보 — 기호 순서대로'),
@@ -586,6 +586,7 @@ export function registerNosa(server) {
         skippedDocuments: r.skipped,
         dates: r.dates,
         ballot: r.ballot,
+        ...(r.districtBallots ? { districtBallots: r.districtBallots.map((d) => ({ label: d.label, seats: d.seats, candidates: d.candidates.length, method: d.ballot.method })) } : {}),
         check: r.check,
         elected: r.elected,
         sealRequired: seals,
