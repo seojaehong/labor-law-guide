@@ -133,6 +133,17 @@ describe('00 협의회규정 — 서류 입력에서 채운다', () => {
     expect(rules({ ...BASE, indirectReason: '작업부서별 특성이 현저히 다르다' })).toContain('부득이한 사유: 작업부서별 특성이 현저히 다르다');
     expect(rules({ ...BASE, rules: { effectiveDate: '2027-01-02' } })).toContain('이 규정은 2027년 1월 2일부터 시행한다.');
   });
+  it('선거 결과가 선거구별이면 협의회규정에도 선거구 항과 별표가 들어간다(05 와 어긋나지 않게)', () => {
+    const t = rules({ ...BASE, election: { electors: 100, voters: 55, districts: [{ label: '생산', electors: 40, voters: 30 }, { label: '사무', electors: 60, voters: 25 }] } });
+    expect(t).toContain('근로자위원을 선거구별로 선출하는 경우');
+    expect(t).toContain('[별표] 선거구별 근로자위원 수');
+    expect(t).toContain('생산');
+    expect(rules({ ...BASE, rules: { districts: [{ label: '본사', seats: 5 }] }, election: { electors: 100, voters: 55, districts: [{ label: '생산', electors: 40, voters: 30 }] } })).toContain('본사');
+  });
+  it('위원선거인(간접) 숫자를 넣으려면 부득이한 사유가 있어야 한다(02·05·00 이 같은 방식을 말하게)', () => {
+    expect(nosaErrors({ ...BASE, election: { electors: 200, voters: 120, delegateElectors: 20, delegateVoters: 15 } }).join(' ')).toMatch(/부득이한 사유/);
+    expect(nosaErrors({ ...BASE, indirectReason: '작업부서별 특성이 현저히 다르다', election: { electors: 200, voters: 120, delegateElectors: 20, delegateVoters: 15 } })).toEqual([]);
+  });
   it('위원 수 3 미만·10 초과, 양쪽 수가 다르면 서류 전체를 만들지 않는다', () => {
     expect(nosaErrors({ ...BASE, workerMembers: 11, employerMembers: 11 }).join(' ')).toMatch(/3명 이상 10명 이하/);
     expect(nosaErrors({ ...BASE, workerMembers: 2, employerMembers: 2 }).join(' ')).toMatch(/3명 이상 10명 이하/);

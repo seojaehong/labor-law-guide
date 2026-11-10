@@ -86,16 +86,23 @@ export function nosaErrors(input: NosaFormInput): string[] {
   if (!blank(w.bizNo) && digits(w.bizNo).length !== 10) out.push('사업자등록번호는 숫자 10자리입니다.');
   if (!blank(input.council?.unitBizNo) && digits(input.council?.unitBizNo).length !== 10) out.push('해당사업장 사업자등록번호는 숫자 10자리입니다.');
   if (input.election) out.push(...electionErrors(input.election, isIndirect(input)));
+  // 위원선거인(간접) 숫자만 있고 사유가 없으면 02(직접선거)·05(간접 2단계)·00(위원선거인 항 없음)이 서로 다른 방식을 말하게 된다
+  if (!input.majorityUnion && blank(input.indirectReason) && input.election?.delegateElectors != null) {
+    out.push('위원선거인(간접선거) 숫자를 넣으려면 부득이한 사유(indirectReason)를 함께 적어야 합니다(법 제6조제2항 단서).');
+  }
   // 협의회규정(00)을 만들 수 없는 값(위원 수 3~10명·같은 수, 고충처리위원 3명 이내 등)이면 서류 전체를 만들지 않는다
   out.push(...rulesErrors(rulesInput(input)));
   return out;
 }
 
-/** 서류 입력 → 협의회규정 견본 입력. 시행일은 rules.effectiveDate → 규정 제정·변경일 → 설치일 순 */
+/** 서류 입력 → 협의회규정 견본 입력. 시행일은 rules.effectiveDate → 규정 제정·변경일 → 설치일 순.
+ *  선거구는 rules.districts → 선거 결과의 선거구 이름(인원 ○○) 순 — 05 가 선거구별이면 00 에도 선거구 항이 있어야 한다 */
 export function rulesInput(input: NosaFormInput): RulesInput {
   const r = input.rules ?? {};
+  const fromElection = (input.election?.districts ?? []).map((d) => ({ label: d.label }));
   return {
     ...r,
+    districts: r.districts?.length ? r.districts : fromElection.length ? fromElection : undefined,
     workplaceName: input.workplace?.name,
     majorityUnion: input.majorityUnion,
     indirectReason: input.indirectReason,
