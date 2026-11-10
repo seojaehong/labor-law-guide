@@ -150,6 +150,9 @@ describe('맞지 않는 입력', () => {
     expect(meetingErrors({ ...M, meetingDate: '2026-02-30' }).join()).toMatch(/meetingDate/);
     expect(meetingErrors({ ...M, noticeDate: '2026-12-04' }).join()).toMatch(/통보일/);
     expect(meetingErrors({ ...M, agenda: [{ type: '의결', inFavor: 3 }] }).join()).toMatch(/출석/);
+    // 보고 안건은 표결하지 않는다 · 협의 안건은 의결할 수 있다(법 제20조제2항)
+    expect(meetingErrors({ ...M, workerPresent: 5, employerPresent: 5, agenda: [{ type: '보고', inFavor: 7 }] }).join()).toMatch(/보고 안건/);
+    expect(meetingErrors({ ...M, workerPresent: 5, employerPresent: 5, agenda: [{ type: '협의', inFavor: 7 }] })).toEqual([]);
     expect(meetingErrors({ ...M, workerPresent: 4 }).join()).toMatch(/함께/);
     expect(meetingErrors({ ...M, workerPresent: 4, employerPresent: 5 })).toEqual([]);
   });

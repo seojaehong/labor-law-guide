@@ -93,7 +93,23 @@ export const implLabel = (e: { status: ImplStatus; evidence?: string }) => (e.st
 const closed = (e: ImplEntry | undefined) => !!e && ((e.status === '완료' && !!t(e.evidence)) || e.status === '철회');
 
 export function isConfirmed(m: MinutesLike, events: readonly DocEvent[]): boolean {
-  return !m.import || events.some((e) => e.stage === '가져옴 확인' && e.meetingKey === m.meeting.key);
+  if (!m.import) return true;
+  const src = m.import.source?.sha256;
+  // 확인은 그때 가져온 원본 해시에 걸린다 — 같은 키로 다시 가져오면 다시 확인해야 한다(해시 없는 옛 기록은 키로만)
+  return events.some((e) => e.stage === '가져옴 확인' && e.meetingKey === m.meeting.key && (!e.sha256 || !src || e.sha256 === src));
+}
+
+/** 대소문자만 다른 파일 경로 쌍 — 윈도우·macOS 기본 파일 시스템에서는 한 파일이 된다 */
+export function caseCollisions(paths: readonly string[]): [string, string][] {
+  const seen = new Map<string, string>();
+  const out: [string, string][] = [];
+  for (const p of paths) {
+    const k = p.toLowerCase();
+    const prev = seen.get(k);
+    if (prev != null && prev !== p) out.push([prev, p]);
+    else seen.set(k, p);
+  }
+  return out;
 }
 const byDate = <T extends { meeting: { date: string; key: string } }>(a: T, b: T) => a.meeting.date.localeCompare(b.meeting.date) || a.meeting.key.localeCompare(b.meeting.key);
 
@@ -142,7 +158,7 @@ export function resolutions(minutes: readonly MinutesLike[], events: readonly Do
 /** 다음 회의록의 「전분기 의결된 사항의 이행 상황」 — meetingDate 앞 회의의 의결 중 직전 회의 전에 끝나지 않은 것. 회의일 뒤 기록은 보지 않는다 */
 export function previousResolutionsFor(minutes: readonly MinutesLike[], records: readonly ImplRecord[], meetingDate: string, events: readonly DocEvent[] = []): PreviousResolutionInput[] {
   const earlier = minutes.filter((m) => m.meeting.date < meetingDate);
-  const prevDate = earlier.reduce((d, m) => (m.meeting.date > d ? m.meeting.date : d), '');
+  const prevDate = earlier.filter((m) => isConfirmed(m, events)).reduce((d, m) => (m.meeting.date > d ? m.meeting.date : d), '');
   const hist = implHistory(earlier, records.filter((r) => r.date <= meetingDate));
   const out: PreviousResolutionInput[] = [];
   for (const r of resolutions(earlier, events)) {

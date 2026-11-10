@@ -208,7 +208,8 @@ export function meetingErrors(i: MeetingCheckInput): string[] {
   const present = i.workerPresent != null && i.employerPresent != null ? i.workerPresent + i.employerPresent : null;
   for (const [k, a] of (i.agenda ?? []).entries()) {
     if (a.inFavor == null) continue;
-    if (!int0(a.inFavor)) out.push(`안건 ${k + 1} 찬성 수는 0 이상의 정수입니다.`);
+    if (a.type === '보고') out.push(`안건 ${k + 1}은 보고 안건이라 찬성 수를 넣지 않습니다(표결은 협의·의결 안건에서만).`);
+    else if (!int0(a.inFavor)) out.push(`안건 ${k + 1} 찬성 수는 0 이상의 정수입니다.`);
     else if (present == null) out.push(`안건 ${k + 1} 찬성 수를 넣으려면 출석 수(workerPresent·employerPresent)를 함께 넣습니다.`);
     else if (a.inFavor > present) out.push(`안건 ${k + 1} 찬성(${a.inFavor}명)이 출석위원(${present}명)보다 많습니다.`);
   }

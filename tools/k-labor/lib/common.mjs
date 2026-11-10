@@ -19,7 +19,12 @@ export function assetPath(name) {
 // 전화번호(11자리 이하)·접수번호(18자리)는 앞뒤 숫자 경계로 걸러져 가려지지 않는다.
 const RRN_FULL = /(?<!\d)\d{6}\s*-?\s*[1-8]\d{6}(?!\d)/g;
 const RRN_DASH = /(?<!\d)\d{6}\s*-\s*[1-8]\d{0,6}(?!\d)/g;
-export const mask = (s) => s.replace(RRN_FULL, '******-*******').replace(RRN_DASH, '******-*******');
+// SHA-256 16진 문자열(64자)은 숫자가 13자리 이어질 수 있어 주민번호 모양으로 잘못 잡힌다 — 해시는 검사·가림에서 뺀다
+const HEX64 = /^[0-9a-f]{64}$/i;
+const HEX64_IN = /\b[0-9a-f]{64}\b/gi;
+export const mask = (s) => (HEX64.test(s) ? s : s.replace(RRN_FULL, '******-*******').replace(RRN_DASH, '******-*******'));
+/** 도구 입력 전체(JSON)에서 주민번호 모양을 찾는다. 파일 해시는 뺀다 */
+export const argsLookLikeRrn = (a) => looksLikeRrn(JSON.stringify(a).replace(HEX64_IN, ''));
 export const looksLikeRrn = (s) => /\d{6}\s*-?\s*[1-8]\d{6}/.test(s);
 
 /** MCP 텍스트 응답. 나가기 전에 주민번호 모양을 가린다.

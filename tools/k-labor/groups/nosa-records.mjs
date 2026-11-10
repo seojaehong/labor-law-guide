@@ -12,10 +12,10 @@ import { BOUNDARY_NOTICE, isoDate } from '@/lib/nosa-council/assess';
 import { ARTICLE_KEYS } from '@/lib/nosa-council/meeting';
 import { IMPL_STATUSES } from '@/lib/nosa-council/meeting-docs';
 import {
-  councilVault, DOC_LOG, DOC_STAGES, docEventErrors, IMPL_LOG, implHistory, implLabel, implRecordErrors, importedMinutes, importErrors, importMatches,
+  caseCollisions, councilVault, DOC_LOG, DOC_STAGES, docEventErrors, IMPL_LOG, implHistory, implLabel, implRecordErrors, importedMinutes, importErrors, importMatches,
   importTextWarnings, IMPORTED, RESULT_NODES, wikilinks,
 } from '@/lib/nosa-council/records';
-import { looksLikeRrn, text } from '../lib/common.mjs';
+import { argsLookLikeRrn, looksLikeRrn, text } from '../lib/common.mjs';
 import { appendJsonl, loadCouncilDir, sha256File } from '../lib/council-dir.mjs';
 import { readRulesFile, RULES_FILE_KINDS } from '../lib/rules-file.mjs';
 import { todayKst } from './nosa.mjs';
@@ -79,7 +79,7 @@ export function registerNosaRecords(server) {
       annotations: WRITES,
     },
     async (a) => {
-      if (looksLikeRrn(JSON.stringify(a))) return fail(RRN_STOP);
+      if (argsLookLikeRrn(a)) return fail(RRN_STOP);
       let data;
       try {
         data = loadCouncilDir(a.dir);
@@ -107,7 +107,10 @@ export function registerNosaRecords(server) {
         if (!sha256) errors.push(`파일이 없습니다: ${e.path}`);
       }
       if (errors.length) return text({ ok: false, errors, error: '맞지 않는 칸이 있어 덧붙이지 않았습니다.' });
-      if (!data.minutes.some((m) => m.meeting.key === e.meetingKey)) warnings.push(`기록 폴더에 회의 ${e.meetingKey} 의 회의록 .json 이 없다 — 회의 키를 확인한다.`);
+      const target = data.minutes.find((m) => m.meeting.key === e.meetingKey);
+      // 「가져옴 확인」은 그때 가져온 원본 해시에 묶는다 — 같은 키로 다시 가져오면 다시 확인해야 한다
+      if (e.stage === '가져옴 확인' && !sha256 && target?.import?.source?.sha256) sha256 = target.import.source.sha256;
+      if (!target) warnings.push(`기록 폴더에 회의 ${e.meetingKey} 의 회의록 .json 이 없다 — 회의 키를 확인한다.`);
       const rec = appendJsonl(path.join(a.dir, DOC_LOG), { meetingKey: e.meetingKey.trim(), stage: e.stage, date: isoDate(e.date), version: e.version, reason: e.reason, path: e.path, sha256 });
       return text({ ok: true, file: path.join(a.dir, DOC_LOG), record: rec, ...(warnings.length ? { warnings } : {}) });
     },
@@ -129,7 +132,7 @@ export function registerNosaRecords(server) {
       annotations: WRITES,
     },
     async (a) => {
-      if (looksLikeRrn(JSON.stringify(a))) return fail(RRN_STOP);
+      if (argsLookLikeRrn(a)) return fail(RRN_STOP);
       const today = a.today ? isoDate(a.today) : todayKst();
       if (!today) return fail(`today 는 YYYY-MM-DD 날짜입니다(받은 값: ${a.today}).`);
       let data;
@@ -142,6 +145,8 @@ export function registerNosaRecords(server) {
       const paths = [...data.events.map((e) => e.path), ...data.minutes.map((m) => m.import?.source?.path)].filter(Boolean);
       const hashes = Object.fromEntries([...new Set(paths)].map((p) => [p, sha256File(p)]));
       const v = councilVault(data.minutes, data.records, data.events, hashes, today);
+      const clashes = caseCollisions(v.files.map((f) => f.path));
+      if (clashes.length) return fail('대소문자만 다른 안건 ID 가 있어 한 파일로 겹칩니다. 회의록의 안건 ID 를 고쳐 주세요.', { clashes: clashes.slice(0, 20) });
       const targets = [...v.files.map((f) => f.path), '_회의록대장.xlsx'].map((p) => path.join(a.outDir, p));
       const exists = targets.filter((p) => fs.existsSync(p));
       if (exists.length) return fail('이미 있는 파일은 덮어쓰지 않습니다. outDir 를 바꿔 주세요.', { exists: exists.slice(0, 20) });
@@ -241,7 +246,7 @@ export function registerNosaRecords(server) {
       annotations: WRITES,
     },
     async (a) => {
-      if (looksLikeRrn(JSON.stringify(a))) return fail(RRN_STOP);
+      if (argsLookLikeRrn(a)) return fail(RRN_STOP);
       let data;
       let read;
       try {

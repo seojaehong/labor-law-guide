@@ -11,6 +11,7 @@ import { registerNosaRecords, nosaRecordsTools } from '../../tools/k-labor/group
 import { nosaRemoteSafe } from '../../tools/k-labor/groups/nosa.mjs';
 import { bannedHits } from '@/lib/tool-kit/banned';
 import { wikilinks } from '@/lib/nosa-council/records';
+import { argsLookLikeRrn, mask } from '../../tools/k-labor/lib/common.mjs';
 
 type Handler = (a: Record<string, unknown>) => Promise<{ content: { text: string }[] }>;
 type Reg = { name: string; cfg: { title?: string; description?: string; inputSchema?: Record<string, unknown>; annotations?: Record<string, boolean> }; handler: Handler };
@@ -27,6 +28,16 @@ const dir = path.join(tmp, '기록');
 const M = (n: number, date: string, agenda: unknown[], extra: Record<string, unknown> = {}) => ({
   kind: 'minutes', workplace: { name: '가상제조' }, meeting: { kind: '정기', number: n, date }, seats: { worker: 5, employer: 5 }, attendance: { worker: 5, employer: 5 },
   agenda, writtenDate: date, outDir: dir, formats: ['hwpx'], ...extra,
+});
+
+describe('주민번호 거름 — 파일 해시는 잡지 않는다', () => {
+  it('숫자가 13자리 이어지는 SHA-256 은 통과하고 가리지 않는다 · 진짜 모양은 잡는다', () => {
+    const h = `900101${'1234567'}${'a'.repeat(51)}`;
+    expect(argsLookLikeRrn({ sha256: h })).toBe(false);
+    expect(mask(h)).toBe(h);
+    expect(argsLookLikeRrn({ note: '900101-1234567' })).toBe(true);
+    expect(argsLookLikeRrn({ note: `${h} 900101-1234567` })).toBe(true);
+  });
 });
 
 describe('nosa 기록 묶음 — 목록', () => {
@@ -180,7 +191,8 @@ describe('import_council_minutes — 원문 글자 → 모델 제안 → 도구 
     expect(wikilinks(fs.readFileSync(path.join(tmp, 'vault-imp1', '회의', '2026-정기-3차.md'), 'utf8'))).toEqual([]);
     const c = await call('record_council_history', { dir, kind: 'minutes', minutes: { meetingKey: '2026-정기-3차', stage: '가져옴 확인', date: '2026-09-10' } });
     expect(c.ok).toBe(true);
-    const v2 = await call('export_council_vault', { dir, outDir: path.join(tmp, 'vault-imp2'), today: '2026-09-10' });
+    expect(c.record.sha256).toMatch(/^[0-9a-f]{64}$/); // 그때 가져온 원본 해시에 묶는다
+    const v2 =await call('export_council_vault', { dir, outDir: path.join(tmp, 'vault-imp2'), today: '2026-09-10' });
     expect(v2.dashboard.unconfirmed).toEqual([]);
     expect(v2.counts.carried).toBe(2);
     expect(v2.brokenLinks).toEqual([]);

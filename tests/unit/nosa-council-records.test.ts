@@ -3,7 +3,7 @@ import { bannedHits } from '@/lib/tool-kit/banned';
 import { minutesRecord, type MeetingDocsInput } from '@/lib/nosa-council/meeting-docs';
 import { retentionEnd } from '@/lib/nosa-council/meeting';
 import {
-  appendRecord, councilDashboard, councilGraph, councilLedger, councilVault, implHistory, implLabel, importedMinutes, importErrors, importMatches,
+  appendRecord, caseCollisions, councilDashboard, councilGraph, isConfirmed, councilLedger, councilVault, implHistory, implLabel, importedMinutes, importErrors, importMatches,
   importTextWarnings, IMPORTED, minutesShapeErrors, previousResolutionsFor, wikilinks,
   type DocEvent, type ImplRecord, type ImportProposal, type MinutesLike,
 } from '@/lib/nosa-council/records';
@@ -86,6 +86,28 @@ describe('이행 이력 — 덧붙이기만', () => {
     // A-20260305-01 은 2차(06-04)에서 완료(근거 있음)로 확인됐고 3차가 그 뒤라 3차 회의록에는 싣지 않는다
     expect(previousResolutionsFor(ALL, [], '2026-12-03').map((x) => x.agendaId)).toEqual([]);
     expect(previousResolutionsFor([M1], [], '2026-06-04')).toEqual([{ agendaId: 'A-20260305-01', title: '안전화 지급 기준', action: '지급', due: '2026-04-30', status: '미착수' }]);
+  });
+  it('확인 전(가져옴) 회의록은 「직전 회의」 기준일이 되지 않는다', () => {
+    // 2차(06-04)가 확인 전이면 직전 확인 회의는 1차(03-05) — 03-20 에 끝난 1차 의결은 1차 뒤에 끝났으므로 다음 회의록에 싣는다
+    const imp: MinutesLike = { ...M2, previousResolutions: [], import: { status: IMPORTED, source: { path: 'C:/옛/2차.hwp', sha256: 'ab'.repeat(32) } } };
+    const done = appendRecord<ImplRecord>([], { date: '2026-03-20', agendaId: 'A-20260305-01', status: '완료', evidence: '지급 대장' });
+    expect(previousResolutionsFor([M1, imp], done, '2026-09-01').map((x) => x.agendaId)).toEqual(['A-20260305-01']);
+    const ok: DocEvent = { seq: 1, meetingKey: '2026-정기-2차', stage: '가져옴 확인', date: '2026-08-01', sha256: 'ab'.repeat(32) };
+    expect(previousResolutionsFor([M1, imp], done, '2026-09-01', [ok]).map((x) => x.agendaId)).toEqual([]);
+  });
+  it('「가져옴 확인」은 그때의 원본 해시에만 걸린다 — 같은 키로 다시 가져오면 다시 확인해야 한다', () => {
+    const imp = (sha: string): MinutesLike => ({ ...M2, import: { status: IMPORTED, source: { path: 'C:/옛/2차.hwp', sha256: sha } } });
+    const ev: DocEvent = { seq: 1, meetingKey: '2026-정기-2차', stage: '가져옴 확인', date: '2026-08-01', sha256: 'ab'.repeat(32) };
+    expect(isConfirmed(imp('ab'.repeat(32)), [ev])).toBe(true);
+    expect(isConfirmed(imp('cd'.repeat(32)), [ev])).toBe(false);
+    expect(isConfirmed(imp('cd'.repeat(32)), [{ ...ev, sha256: undefined }])).toBe(true); // 해시 없는 옛 기록은 키로만
+  });
+});
+
+describe('보관함 파일 이름 — 대소문자만 다른 이름은 윈도우에서 한 파일이 된다', () => {
+  it('충돌을 찾는다', () => {
+    expect(caseCollisions(['안건/A-1.md', '안건/a-1.md', '회의/x.md'])).toEqual([['안건/A-1.md', '안건/a-1.md']]);
+    expect(caseCollisions(['안건/A-1.md', '안건/A-2.md'])).toEqual([]);
   });
 });
 
