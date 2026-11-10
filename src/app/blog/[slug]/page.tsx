@@ -14,6 +14,7 @@ import { ArrowLeft, Calendar, User, Tag, BookOpen, ArrowRight, MessageSquare, Cl
 import { getCategoryColor } from '@/lib/category-colors';
 import { extractFaqFromContent } from '@/lib/faq-extractor';
 import SubscribeForm from '@/components/SubscribeForm';
+import AuthorFooter from '@/components/AuthorFooter';
 import ReadingMarkdownLink from '@/components/ReadingMarkdownLink';
 import { getCurrentTopicPicks } from '@/lib/topic-picks';
 
@@ -340,6 +341,9 @@ export default async function BlogArticlePage({
                 {article.content}
               </ReactMarkdown>
             </div>
+
+            {/* 필자 — 261110. 글이 매체처럼만 읽히던 것을 사람 이름으로 받친다 */}
+            <AuthorFooter />
 
             {/* More Articles */}
             {latest.length > 0 && (
