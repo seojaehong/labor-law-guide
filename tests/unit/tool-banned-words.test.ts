@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { bannedHits } from '@/lib/tool-kit/banned';
 import { registerNosa } from '../../tools/k-labor/groups/nosa.mjs';
@@ -82,10 +83,40 @@ describe('nosa 묶음 금지어', () => {
   const tools: NosaReg[] = [];
   registerNosa({ registerTool: (name: string, cfg: NosaReg['cfg'], handler: NosaReg['handler']) => tools.push({ name, cfg, handler }) });
 
+  // 묶인 칸(workplace·council·election)의 안쪽 설명까지 훑는다 — optional·array·object 를 풀어 내려간다
+  type Z = { description?: string; shape?: Record<string, Z>; element?: Z; unwrap?: () => Z };
+  const descs = (v: Z): string[] => [
+    v.description ?? '',
+    ...(typeof v.unwrap === 'function' ? descs(v.unwrap()) : []),
+    ...(v.element ? descs(v.element) : []),
+    ...(v.shape ? Object.values(v.shape).flatMap(descs) : []),
+  ];
+
   it('도구 이름·설명·입력 설명', () => {
+    expect(tools.map((t) => t.name)).toEqual(['assess_labor_council', 'make_labor_council_forms']);
     for (const t of tools) {
-      const schema = Object.values(t.cfg.inputSchema ?? {}).map((v) => v.description ?? '').join('\n');
+      const schema = Object.values(t.cfg.inputSchema ?? {}).flatMap((v) => descs(v as Z)).join('\n');
       expect(bannedHits(`${t.cfg.title}\n${t.cfg.description}\n${schema}`, NOSA_WORDS), t.name).toEqual([]);
+    }
+  });
+
+  it('make_labor_council_forms 결과 글자', async () => {
+    process.env.LLG_ROOT = process.cwd();
+    const t = tools.find((x) => x.name === 'make_labor_council_forms')!;
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'nosa-banned-'));
+    const inputs = [
+      { workplace: { name: '가상상사' }, headcount: 120, majorityUnion: false, concurrentRep: true, installDate: '2026-12-01', election: { electors: 100, voters: 40, candidates: 2, seats: 3, notified: true }, writtenDate: '2026-11-10', outDir: path.join(dir, 'a'), formats: ['hwpx'] },
+      { workplace: { name: '가상상사' }, headcount: 45, majorityUnion: true, writtenDate: '2026-11-10', outDir: path.join(dir, 'b'), formats: ['hwpx'] },
+      { workplace: { name: '' }, headcount: 45, majorityUnion: false, installDate: '2026-13-01', outDir: path.join(dir, 'c') },
+      { workplace: { name: '가상상사', tel: '900101-1234568' }, headcount: 45, majorityUnion: false, outDir: path.join(dir, 'd') },
+    ];
+    try {
+      for (const a of inputs) {
+        const out = (await t.handler(a)).content[0].text;
+        expect(bannedHits(out, NOSA_WORDS), out.slice(0, 80)).toEqual([]);
+      }
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
     }
   });
 

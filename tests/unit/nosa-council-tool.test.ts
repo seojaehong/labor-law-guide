@@ -2,6 +2,8 @@
 // 사업장은 합성 값만 쓴다. 주민번호는 체크섬과 무관한 가상 모양만 쓴다.
 import { describe, expect, it } from 'vitest';
 import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 
 import { registerNosa, nosaLocalOnly, nosaRemoteSafe, nosaTools } from '../../tools/k-labor/groups/nosa.mjs';
 import { bannedHits } from '@/lib/tool-kit/banned';
@@ -123,5 +125,68 @@ describe('assess_labor_council', () => {
     const all = JSON.stringify(outs);
     expect(bannedHits(all, NOSA_WORDS)).toEqual([]);
     for (const x of ['-263', '-994', '8048', 'manual-crosscheck', '겸임 성립']) expect(all).not.toContain(x);
+  });
+});
+
+describe('make_labor_council_forms(로컬 전용)', () => {
+  process.env.LLG_ROOT = process.cwd();
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'nosa-forms-'));
+  const FULL = {
+    workplace: { name: '가상제조', ownerName: '김대표', bizNo: '0000000000', address: '서울특별시 가상구 가상로 1', tel: '02-000-0000' },
+    headcount: 120, majorityUnion: false, workerMembers: 5, employerMembers: 5, grievanceMembers: 3,
+    concurrentRep: true, concurrentScope: ['탄력적 근로시간제 서면합의'], installDate: '2026-12-01', electionDate: '2026-11-19', termStart: '2026-12-01',
+    election: { electors: 100, voters: 60, candidates: 5, notified: true, supporters: 40 }, unit: '사업', office: '서울지방고용노동청 서울가상지청',
+    writtenDate: '2026-11-10',
+  };
+
+  it('로컬 전용 목록에 있고 원격 가능 목록에는 없다', () => {
+    expect(nosaLocalOnly).toEqual(['make_labor_council_forms']);
+    expect(nosaRemoteSafe).not.toContain('make_labor_council_forms');
+    expect(tool('make_labor_council_forms').cfg.annotations).toMatchObject({ readOnlyHint: false, destructiveHint: false });
+  });
+
+  it('서류를 PDF·한글로 만들고, 만들지 않은 서류와 날인할 곳을 알린다', async () => {
+    const out = path.join(tmp, 'full');
+    const r = await call('make_labor_council_forms', { ...FULL, outDir: out });
+    expect(r.ok).toBe(true);
+    expect(r.files).toHaveLength(13 * 2);
+    expect(r.files.every((f: { path: string }) => fs.existsSync(f.path))).toBe(true);
+    expect(r.files.map((f: { path: string }) => path.basename(f.path))).toContain('노사협의회_20261110_05_정족수_확인서.pdf');
+    expect(r.skippedDocuments).toEqual([{ id: '12_위촉통지서', reason: '선거 방식이므로 만들지 않음' }]);
+    expect(r.sealRequired.length).toBeGreaterThan(3);
+    expect(r.submit.url).toBe('https://labor.moel.go.kr/minwonRqst/SN012.do');
+    expect(r.submit.deadline).toBe('2026-12-16');
+    expect(bannedHits(JSON.stringify(r), NOSA_WORDS)).toEqual([]);
+  }, 60_000);
+
+  it('이미 있는 파일은 덮어쓰지 않는다', async () => {
+    const r = await call('make_labor_council_forms', { ...FULL, outDir: path.join(tmp, 'full') });
+    expect(r.ok).toBe(false);
+    expect(r.exists).toHaveLength(26);
+  });
+
+  it('형식을 고를 수 있다', async () => {
+    const r = await call('make_labor_council_forms', { ...FULL, outDir: path.join(tmp, 'hwpx'), formats: ['hwpx'], fileBase: '시험' });
+    expect(r.files.every((f: { format: string; path: string }) => f.format === 'hwpx' && path.basename(f.path).startsWith('시험_'))).toBe(true);
+  });
+
+  it('사업장명이 비면 만들지 않고 빈 칸을 댄다, 맞지 않는 칸도 댄다', async () => {
+    const r = await call('make_labor_council_forms', { ...FULL, workplace: {}, installDate: '2026-02-30', outDir: path.join(tmp, 'blank') });
+    expect(r.ok).toBe(false);
+    expect(r.blanks).toEqual(['사업장명']);
+    expect(r.errors.join()).toMatch(/installDate/);
+    expect(fs.existsSync(path.join(tmp, 'blank'))).toBe(false);
+  });
+
+  it('주민등록번호 모양이 있으면 폴더도 만들지 않는다', async () => {
+    const r = await call('make_labor_council_forms', { ...FULL, workplace: { ...FULL.workplace, tel: '900101-1234568' }, outDir: path.join(tmp, 'rrn') });
+    expect(r.ok).toBe(false);
+    expect(fs.existsSync(path.join(tmp, 'rrn'))).toBe(false);
+  });
+
+  it('정족수 미달이면 알린다', async () => {
+    const r = await call('make_labor_council_forms', { ...FULL, election: { electors: 100, voters: 40 }, outDir: path.join(tmp, 'short'), formats: ['hwpx'] });
+    expect(r.ok).toBe(true);
+    expect(r.warnings.join()).toMatch(/정족수가 미달/);
   });
 });

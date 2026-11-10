@@ -145,6 +145,8 @@ const ANN = {
   ...Object.fromEntries(['send_fax', 'send_sms'].map((n) => [n, { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: true }])),
   // nosa — 확인은 읽기 전용(원격판에도 싣는다)
   assess_labor_council: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+  // 서류는 이 PC 에 파일을 쓴다(로컬 전용). 같은 이름이 있으면 멈추므로 다시 불러도 결과가 같지 않다
+  make_labor_council_forms: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
 };
 // 커넥터 디렉터리 심사 — 빠진 도구 없이 전부 title 과 네 칸이 있다
 {
@@ -153,7 +155,7 @@ const ANN = {
   check(`모든 도구(${all.length})에 title·annotations 네 칸${bare.length ? ` — 빠짐: ${bare.map((t) => t.name).join(',')}` : ''}`, bare.length === 0);
 }
 // 이 판에서 더한 도구 8개 + 사이트 도구 7개(groups/more) — 「대신·대행·대리」도 함께 막는다
-const NOSA_TOOLS = ['assess_labor_council'];
+const NOSA_TOOLS = ['assess_labor_council', 'make_labor_council_forms'];
 const NEW_TOOLS = ['calc_severance', 'calc_holiday_pay', 'calc_pay_proration', 'calc_shutdown_allowance', 'calc_annual_leave', 'settle_leave_on_exit', 'calc_retirement_tax', 'list_employer_duties', ...MORE_TOOLS, ...NOSA_TOOLS];
 const NEW_WORDS = [...WORDS, '대신', '대행', '대리'];
 const bannedNew = (s) => (banned ? banned.bannedHits(s, NEW_WORDS) : []);
@@ -412,6 +414,20 @@ if (tools.includes('assess_labor_council')) {
   check(`nosa 투표율 파이썬 round 와 같음(32명 중 1명 → ${n2.election?.workerMembers?.stages?.[0]?.turnout})`, n2.ok && n2.election.workerMembers.stages[0].turnout === 3.12);
   const n3 = await callNew('assess_labor_council', { headcount: 900101_1234568 });
   check('nosa 주민번호 모양이면 멈춤', n3.ok === false);
+}
+if (tools.includes('make_labor_council_forms')) {
+  // 합성 사업장 — 실재하지 않는 이름·번호
+  const NF = { workplace: { name: '가상상사', ownerName: '김대표', bizNo: '000-00-00000' }, headcount: 120, majorityUnion: false, concurrentRep: true, installDate: '2026-12-01', election: { electors: 100, voters: 60, candidates: 3, seats: 3, notified: true }, writtenDate: '2026-11-10', outDir: path.join(tmp, 'nosa') };
+  const nb = await callNew('make_labor_council_forms', { ...NF, workplace: { name: '' } });
+  check(`nosa 서류 사업장명이 비면 만들지 않음(${nb.blanks})`, nb.ok === false && nb.blanks?.includes('사업장명') && !fs.existsSync(NF.outDir));
+  const nm = await callNew('make_labor_council_forms', NF);
+  const nmagic = (nm.files || []).map((f) => `${f.format}:${fs.readFileSync(f.path).subarray(0, 4).toString('latin1')}`);
+  check(`nosa 서류 13종 26파일(위촉통지서 없음) · 신고 기한 ${nm.submit?.deadline}`, nm.ok && nm.files?.length === 26 && !nm.skipped && nm.submit?.deadline === '2026-12-16'
+    && nm.skippedDocuments?.[0]?.id === '12_위촉통지서' && nmagic.every((m) => (m.startsWith('pdf:') ? m === 'pdf:%PDF' : m.endsWith('PK\u0003\u0004'))));
+  const na = await callNew('make_labor_council_forms', NF);
+  check(`nosa 서류 덮어쓰지 않음(${na.exists?.length}개)`, na.ok === false && na.exists?.length === 26);
+  const nr = await callNew('make_labor_council_forms', { ...NF, workplace: { name: '가상상사', tel: '900101-1234568' }, outDir: path.join(tmp, 'nosa-rrn') });
+  check('nosa 서류 주민번호 모양이면 만들지 않음', nr.ok === false && !fs.existsSync(path.join(tmp, 'nosa-rrn')));
 }
 
 // ── work-rules 묶음 ──
