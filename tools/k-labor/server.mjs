@@ -16,7 +16,7 @@ import { registerDuties, dutiesTools } from './groups/duties.mjs';
 import { registerNosa, nosaTools } from './groups/nosa.mjs';
 import { registerNosaRecords, nosaRecordsTools } from './groups/nosa-records.mjs';
 
-const VERSION = '0.1.2';
+const VERSION = '0.2.0';
 
 // 새 도구 묶음은 여기에 한 줄 더한다.
 const GROUPS = {
