@@ -281,6 +281,17 @@ describe('가져온 회의록 — 모델이 구조를 제안하고 도구가 확
     expect(councilLedger([...ALL, imported], [], { [src.path]: 'd'.repeat(64) }, '2027-03-10').warnings.join()).toMatch(/2027-정기-1차 가져온 원본.*바뀌었다/);
   });
 
+  it('대장 — 확인 전 회의록의 값으로는 서명·공지·보존·정기회의 간격을 점검하지 않는다(확인하면 점검한다)', () => {
+    // 3차(2026-12-03) 뒤 1차(2027-03-04)는 「확인 필요」 간격 — 확인 전이면 대장도 대시보드처럼 보지 않는다
+    const before = councilLedger([...ALL, imported], [], {}, '2027-03-10').warnings;
+    const mine = before.filter((w) => w.includes('2027-정기-1차'));
+    expect(mine).toEqual([expect.stringMatching(new RegExp(`2027-정기-1차.*${IMPORTED}.*가져옴 확인`))]);
+    expect(before.join()).not.toMatch(/2027-정기-1차: 직전 정기회의/);
+    const after = councilLedger([...ALL, imported], [ok('2027-정기-1차')], {}, '2027-03-10').warnings.join('\n');
+    expect(after).toMatch(/2027-정기-1차 회의록에 서명 완료 기록이 없다/);
+    expect(after).toMatch(/2027-정기-1차: 직전 정기회의\(2026-12-03\)/);
+  });
+
   it('금지어가 없다', () => {
     const r = importedMinutes(P({ attendance: { worker: 5, employer: 5 }, agenda: [{ id: 'X-1', title: '휴게실', type: '의결', result: '의결', inFavor: 4 }] }), src);
     expect(bannedHits(JSON.stringify(r) + importTextWarnings(imported, '').join() + importErrors(P({ meeting: { kind: '정기', date: '2027-03-04' } })).join(), WORDS)).toEqual([]);

@@ -203,24 +203,34 @@ export function councilLedger(minutes: readonly MinutesLike[], events: readonly 
       notice: conv?.onTime == null ? '통보일 없음' : conv.onTime ? '기한 안' : '기한 경과',
       quorum: m.check?.quorum ? (m.check.quorum.held ? '성립' : '불성립') : '',
       agendaCount: m.agenda.length, resolvedCount: resolved, signedDate: signed?.date ?? null, postedDate: post?.date ?? null, posted,
-      keepUntil: keep, version, path: current?.path ?? src?.path ?? null, sha256: current?.sha256 ?? src?.sha256 ?? null, status: m.import ? (isConfirmed(m, events) ? '확인됨' : IMPORTED) : '확인됨',
+      keepUntil: keep, version, path: current?.path ?? src?.path ?? null, sha256: current?.sha256 ?? src?.sha256 ?? null, status: isConfirmed(m, events) ? '확인됨' : IMPORTED,
     });
+    // 가져온 원본의 해시 변경은 확인 전에도 본다(경로·해시는 도구가 잰 값이다)
+    const source = src && !withFile.some((e) => e.path === src.path) ? src : undefined;
+    hashCheck(key, [['서명본', signed], ['현재 판', current !== signed ? current : undefined], ['가져온 원본', source]], hashes, warnings);
+    // 확인 전 값(모델이 원문에서 읽은 날짜·결과)으로는 점검하지 않는다 — 대시보드와 같다
+    if (!isConfirmed(m, events)) {
+      warnings.push(`${key} ${IMPORTED} — 서명·공지·보존 기간·정기회의 간격 점검은 원본과 맞춰 본 뒤(가져옴 확인 기록) 한다.`);
+      continue;
+    }
     if (!signed) warnings.push(`${key} 회의록에 서명 완료 기록이 없다 — 출석위원 전원이 서명하거나 날인한다(시행령 제6조).`);
     if (posted === '기한 경과') warnings.push(`${key} 의결사항 공지(${post!.date})가 기한(${due})보다 늦었다.`);
     if (posted === '공지 전' && due && today > due) warnings.push(`${key} 의결사항 공지 기록이 없고 기한(${due})이 지났다.`);
     if (today > keep) warnings.push(`${key} 회의록 보존 기간이 지났다(${keep}까지, 작성일부터 3년 — 법 제19조제2항). 폐기 여부를 정한다.`);
     else if (addDays(today, KEEP_SOON_DAYS) >= keep) warnings.push(`${key} 회의록 보존 만료 임박(${keep}까지, 작성일부터 3년 — 법 제19조제2항).`);
-    // 가져온 원본은 이력에 같은 경로가 없을 때만 따로 본다(같은 파일을 두 번 알리지 않는다)
-    const source = src && !withFile.some((e) => e.path === src.path) ? src : undefined;
-    for (const [label, e] of [['서명본', signed], ['현재 판', current !== signed ? current : undefined], ['가져온 원본', source]] as const) {
-      if (!e?.path || !e.sha256 || !(e.path in hashes)) continue;
-      const now = hashes[e.path];
-      if (now === null) warnings.push(`${key} ${label} 파일이 없다(${e.path}).`);
-      else if (now !== e.sha256) warnings.push(`${key} ${label}(${e.path})의 해시가 기록과 달라 ${label === '서명본' ? '서명 뒤' : '기록 뒤'} 바뀌었다.`);
-    }
   }
-  for (const g of regularGaps(sorted, today)) warnings.push(g.explanation);
+  for (const g of regularGaps(sorted.filter((m) => isConfirmed(m, events)), today)) warnings.push(g.explanation);
   return { rows, warnings };
+}
+
+/** 기록한 해시와 지금 파일 비교. 가져온 원본은 이력에 같은 경로가 없을 때만 넘긴다(같은 파일을 두 번 알리지 않는다) */
+function hashCheck(key: string, list: readonly (readonly [string, { path?: string; sha256?: string } | undefined])[], hashes: Record<string, string | null>, warnings: string[]) {
+  for (const [label, e] of list) {
+    if (!e?.path || !e.sha256 || !(e.path in hashes)) continue;
+    const now = hashes[e.path];
+    if (now === null) warnings.push(`${key} ${label} 파일이 없다(${e.path}).`);
+    else if (now !== e.sha256) warnings.push(`${key} ${label}(${e.path})의 해시가 기록과 달라 ${label === '서명본' ? '서명 뒤' : '기록 뒤'} 바뀌었다.`);
+  }
 }
 
 export interface Gap { from: string; to: string | null; status: IntervalStatus; explanation: string }
