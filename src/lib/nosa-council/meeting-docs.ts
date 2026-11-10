@@ -7,7 +7,7 @@ import type { FormBlock, FormCell, FormDoc } from '@/lib/work-rules-report/rende
 import { dateKo } from '@/lib/work-rules-report/forms';
 import { isoDate, MINUTES_KEEP_YEARS } from './assess';
 import {
-  addYears, articleOf, CONVENE_NOTE, meetingCheck, meetingErrors, OPEN_SECRET_LINE, REPORT_ITEMS, REPORT_KEYS,
+  articleOf, retentionEnd, CONVENE_NOTE, meetingCheck, meetingErrors, OPEN_SECRET_LINE, REPORT_ITEMS, REPORT_KEYS,
   type AgendaResult, type AgendaType, type MeetingCheck, type MeetingCheckInput, type MeetingKind, type ReportKey,
 } from './meeting';
 
@@ -320,7 +320,7 @@ function materialsDoc(x: Ctx): FormDoc {
 
 // ── 회의록 ───────────────────────────────────────────────
 
-const keepUntil = (written: string) => addYears(written, MINUTES_KEEP_YEARS);
+const keepUntil = (written: string) => retentionEnd(written, MINUTES_KEEP_YEARS);
 
 function formCells(x: Ctx): Record<(typeof MINUTES_FORM_LABELS)[number], string> {
   const q = x.c.quorum!;

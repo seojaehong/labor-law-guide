@@ -19,7 +19,9 @@ import { IMPL_STATUSES, meetingDocs, meetingDocsErrors, minutesRecord } from '@/
 import { DATE_KEYS as ELECTION_DATE_KEYS, ELECTION_DOC_IDS, electionDocs, electionDocsErrors } from '@/lib/nosa-council/election-docs';
 import { RULES_SOURCE } from '@/lib/nosa-council/rules-template';
 import { formHwpx, formPdf } from '@/lib/work-rules-report/render';
+import { implLabel, previousResolutionsFor } from '@/lib/nosa-council/records';
 import { looksLikeRrn, text } from '../lib/common.mjs';
+import { loadCouncilDir } from '../lib/council-dir.mjs';
 
 export const nosaTools = ['assess_labor_council', 'check_council_meeting', 'make_labor_council_forms', 'make_council_meeting_docs', 'make_council_election_docs'];
 /** 원격(HTTP)판에 실어도 되는 도구 — 읽기 전용, 파일·네트워크를 건드리지 않는다 */
@@ -430,6 +432,7 @@ export function registerNosa(server) {
           status: z.enum(IMPL_STATUSES).describe('상태'),
           evidence: z.string().max(300).optional().describe('근거(문서 경로·회의 ID) — 「완료」인데 비우면 「완료(근거 없음)」'),
         })).max(60).optional().describe('전분기 의결사항 이행 상황'),
+        historyDir: z.string().optional().describe('기록 폴더(회의록 .json·이행 기록) — 주면 전분기 의결사항 이행 상황을 그 이력에서 채운다(previousResolutions 를 직접 주면 그것을 쓴다)'),
         noticeDays: z.number().int().min(1).max(60).optional().describe('의결사항 공지 기한(일) — 협의회규정 값(견본 제29조 10일)'),
         otherNotes: z.string().max(1000).optional().describe('그 밖의 참고사항'),
         writtenDate: date('작성일(기본 오늘).'),
@@ -442,9 +445,22 @@ export function registerNosa(server) {
     async (a) => {
       if (looksLikeRrn(JSON.stringify(a))) return fail('입력에 주민등록번호 모양의 숫자가 있어 만들지 않았습니다. 이 도구는 주민등록번호를 받지 않습니다.');
       const written = a.writtenDate ? isoDate(a.writtenDate) : todayKst();
+      // 전분기 이행 상황 — 직접 주지 않았고 기록 폴더를 주면 그 이력(회의록의 이행 상황 + 이행 기록)에서 채운다
+      let previous = a.previousResolutions;
+      let previousFilled = null;
+      const md = isoDate(a.meeting?.date);
+      if (a.historyDir && !previous?.length && md) {
+        try {
+          const h = loadCouncilDir(a.historyDir);
+          previous = previousResolutionsFor(h.minutes, h.records, md, h.events);
+          previousFilled = previous.map((p) => ({ agendaId: p.agendaId, status: implLabel(p) }));
+        } catch (e) {
+          return fail(e instanceof Error ? e.message : String(e));
+        }
+      }
       const input = {
         workplace: a.workplace ?? {}, councilName: a.councilName, meeting: a.meeting, seats: a.seats, current: a.current, attendance: a.attendance,
-        recipients: a.recipients, agenda: a.agenda ?? [], reports: a.reports, previousResolutions: a.previousResolutions, noticeDays: a.noticeDays,
+        recipients: a.recipients, agenda: a.agenda ?? [], reports: a.reports, previousResolutions: previous, noticeDays: a.noticeDays,
         otherNotes: a.otherNotes, writtenDate: written ?? a.writtenDate,
       };
       const errors = meetingDocsErrors(input, a.kind);
@@ -477,6 +493,7 @@ export function registerNosa(server) {
         files,
         ...(skipped.length ? { skipped } : {}),
         agendaIds,
+        ...(previousFilled ? { previousFilled } : {}),
         check: { convene: check.convene, interval: check.interval, quorum: check.quorum, agenda: check.agenda, reports: check.reports, resolutionNotice: check.resolutionNotice },
         sealRequired: seal,
         ...(record ? { keepUntil: record.keepUntil, keep: '회의록은 작성일부터 3년 보존한다(법 제19조제2항).' } : {}),

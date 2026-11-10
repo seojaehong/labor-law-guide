@@ -5,7 +5,7 @@
 // 설계서와 다르게 한 곳: 정기회의 간격. 설계서는 「직전 정기회의부터 3개월 이내」라고 적었으나 manual-crosscheck B11
 // (노사관계법제과-1591, 매뉴얼 122쪽)은 「3개월마다」를 「3개월 기간마다 1회 이상(직전 회의 + 3개월이 아님)」으로 본다.
 // 그래서 3개월 안이면 「3개월 이내」, 3~6개월은 「확인 필요」(규정상 기간 확인), 6개월 초과는 「빈 기간 있음」으로 알리기만 하고 서류를 막지 않는다.
-import { CONVENE_NOTICE_DAYS, deadline, isoDate, quorumMeeting, REGULAR_MEETING_MONTHS, type Deadline } from './assess';
+import { addDays, CONVENE_NOTICE_DAYS, deadline, isoDate, quorumMeeting, REGULAR_MEETING_MONTHS, type Deadline } from './assess';
 
 export type MeetingKind = '정기' | '임시';
 export type AgendaType = '보고' | '협의' | '의결';
@@ -111,7 +111,7 @@ export interface MeetingCheck {
   meetingDate: string;
   /** 소집 통보 기한 */
   convene: Deadline & { noticeDate: string | null; onTime: boolean | null };
-  interval: { previous: string; within: string; sixMonths: string; status: '3개월 이내' | '확인 필요' | '빈 기간 있음'; explanation: string; basis: string } | null;
+  interval: RegularInterval | null;
   quorum: {
     held: boolean;
     seats: { worker: number; employer: number };
@@ -143,6 +143,39 @@ export function addMonths(iso: string, n: number): string {
 
 /** 해 더하기 — 2월 29일은 평년이면 2월 28일 */
 export const addYears = (iso: string, n: number) => addMonths(iso, n * 12);
+
+/** 「작성한 날부터 N년간」 보존의 마지막 날 — 민법 제157조(초일 불산입)·제160조.
+ *  기산일(작성 다음 날)의 N년 뒤 같은 날의 전날. 그 달에 같은 날이 없으면(2월 29일) 그 달 말일.
+ *  예) 2026-12-04 → 2029-12-04 · 2025-02-28 → 2028-02-29 · 2024-02-28 → 2027-02-28 · 2024-02-29 → 2027-02-28 */
+export function retentionEnd(written: string, years: number): string {
+  const start = addDays(written, 1);
+  const [y, m, d] = start.split('-').map(Number);
+  const ty = y + years;
+  const last = new Date(Date.UTC(ty, m, 0)).getUTCDate();
+  return d > last ? `${ty}-${pad(m)}-${pad(last)}` : addDays(`${ty}-${pad(m)}-${pad(d)}`, -1);
+}
+
+export type IntervalStatus = '3개월 이내' | '확인 필요' | '빈 기간 있음';
+export interface RegularInterval { previous: string; within: string; sixMonths: string; status: IntervalStatus; explanation: string; basis: string }
+
+/** 정기회의 간격 — 3개월 기간마다 1회 이상(B11, 노사관계법제과-1591). 회의 확인·회의록 대장·보관함 대시보드가 같은 규칙을 쓴다.
+ *  직전 + 3개월 안 → 3개월 이내, 6개월 안 → 확인 필요(협의회규정의 기간 확인), 6개월 넘음 → 빈 기간 있음 */
+export function regularInterval(previous: string, date: string): RegularInterval {
+  const within = addMonths(previous, REGULAR_MEETING_MONTHS);
+  const sixMonths = addMonths(previous, REGULAR_MEETING_MONTHS * 2);
+  const basis = '법 제12조제1항, 노사관계법제과-1591(2019. 5. 29.)·매뉴얼 122쪽';
+  if (date <= within) return { previous, within, sixMonths, status: '3개월 이내', explanation: `직전 정기회의(${previous})부터 3개월(${within}) 안에 열린다.`, basis };
+  if (date <= sixMonths) {
+    return {
+      previous, within, sixMonths, status: '확인 필요', basis,
+      explanation: `직전 정기회의(${previous})부터 3개월(${within})이 지났다. 「3개월마다」는 3개월 기간마다 1회 이상이라는 뜻이므로(직전 회의 + 3개월이 아니다) 협의회규정이 정한 기간(분기 등)마다 한 번씩 열렸는지 확인한다.`,
+    };
+  }
+  return {
+    previous, within, sixMonths, status: '빈 기간 있음', basis,
+    explanation: `직전 정기회의(${previous})부터 6개월(${sixMonths})이 지나 정기회의를 열지 않은 3개월 기간이 있다(정기회의 미개최는 200만원 이하 벌금, 법 제32조). 근로자위원 미선출 등 사용자 책임이 없는 사유였다면 미개최 위반이 아니다.`,
+  };
+}
 
 const int0 = (n: number | undefined) => n == null || (Number.isInteger(n) && n >= 0);
 
@@ -196,28 +229,9 @@ export function meetingCheck(i: MeetingCheckInput, today: string): MeetingCheck 
   if (onTime === false) warnings.push(`통보일(${nd})이 기한(${d.due})보다 늦다 — 회의 개최 ${CONVENE_NOTICE_DAYS}일 전까지 통보해야 한다(법 제13조제3항). 개최일을 미루거나 다시 통보한다.`);
 
   // ② 정기회의 3개월 — 3개월 기간마다 1회 이상(B11). 막지 않고 알린다
-  let interval: MeetingCheck['interval'] = null;
   const pd = isoDate(i.previousRegularDate);
-  if (i.kind === '정기' && pd) {
-    const within = addMonths(pd, REGULAR_MEETING_MONTHS);
-    const sixMonths = addMonths(pd, REGULAR_MEETING_MONTHS * 2);
-    const basis = '법 제12조제1항, 노사관계법제과-1591(2019. 5. 29.)·매뉴얼 122쪽';
-    if (md <= within) {
-      interval = { previous: pd, within, sixMonths, status: '3개월 이내', explanation: `직전 정기회의(${pd})부터 3개월(${within}) 안에 열린다.`, basis };
-    } else if (md <= sixMonths) {
-      interval = {
-        previous: pd, within, sixMonths, status: '확인 필요', basis,
-        explanation: `직전 정기회의(${pd})부터 3개월(${within})이 지났다. 「3개월마다」는 3개월 기간마다 1회 이상이라는 뜻이므로(직전 회의 + 3개월이 아니다) 협의회규정이 정한 기간(분기 등)마다 한 번씩 열렸는지 확인한다.`,
-      };
-      warnings.push(interval.explanation);
-    } else {
-      interval = {
-        previous: pd, within, sixMonths, status: '빈 기간 있음', basis,
-        explanation: `직전 정기회의(${pd})부터 6개월(${sixMonths})이 지나 정기회의를 열지 않은 3개월 기간이 있다(정기회의 미개최는 200만원 이하 벌금, 법 제32조). 근로자위원 미선출 등 사용자 책임이 없는 사유였다면 미개최 위반이 아니다.`,
-      };
-      warnings.push(interval.explanation);
-    }
-  }
+  const interval = i.kind === '정기' && pd ? regularInterval(pd, md) : null;
+  if (interval && interval.status !== '3개월 이내') warnings.push(interval.explanation);
 
   // ③ 개최 정족수 — 정원 기준 각 과반(노사관계법제과-3091)
   let quorum: MeetingCheck['quorum'] = null;

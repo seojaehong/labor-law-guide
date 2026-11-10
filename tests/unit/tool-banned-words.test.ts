@@ -4,6 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { bannedHits } from '@/lib/tool-kit/banned';
 import { registerNosa } from '../../tools/k-labor/groups/nosa.mjs';
+import { registerNosaRecords } from '../../tools/k-labor/groups/nosa-records.mjs';
 
 // 도구 화면 소스의 글자(JSX 글자·문자열·정적 HTML)에 금지어가 없는지 본다. 주석은 빼고 본다.
 // 첫 화면과 고정 문구를 지키는 시험이다. 계산 결과 문장은 도구마다 copy 시험이 allCopy 로 훑는다.
@@ -81,7 +82,9 @@ type NosaReg = { name: string; cfg: { title?: string; description?: string; inpu
 
 describe('nosa 묶음 금지어', () => {
   const tools: NosaReg[] = [];
-  registerNosa({ registerTool: (name: string, cfg: NosaReg['cfg'], handler: NosaReg['handler']) => tools.push({ name, cfg, handler }) });
+  const fake = { registerTool: (name: string, cfg: NosaReg['cfg'], handler: NosaReg['handler']) => tools.push({ name, cfg, handler }) };
+  registerNosa(fake);
+  registerNosaRecords(fake);
 
   // 묶인 칸(workplace·council·election)의 안쪽 설명까지 훑는다 — optional·array·object 를 풀어 내려간다
   type Z = { description?: string; shape?: Record<string, Z>; element?: Z; unwrap?: () => Z };
@@ -93,7 +96,7 @@ describe('nosa 묶음 금지어', () => {
   ];
 
   it('도구 이름·설명·입력 설명', () => {
-    expect(tools.map((t) => t.name)).toEqual(['assess_labor_council', 'check_council_meeting', 'make_labor_council_forms', 'make_council_meeting_docs', 'make_council_election_docs']);
+    expect(tools.map((t) => t.name)).toEqual(['assess_labor_council', 'check_council_meeting', 'make_labor_council_forms', 'make_council_meeting_docs', 'make_council_election_docs', 'record_council_history', 'export_council_vault']);
     for (const t of tools) {
       const schema = Object.values(t.cfg.inputSchema ?? {}).flatMap((v) => descs(v as Z)).join('\n');
       expect(bannedHits(`${t.cfg.title}\n${t.cfg.description}\n${schema}`, NOSA_WORDS), t.name).toEqual([]);

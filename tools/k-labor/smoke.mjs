@@ -150,6 +150,9 @@ const ANN = {
   make_labor_council_forms: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
   make_council_meeting_docs: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
   make_council_election_docs: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
+  // 기록은 덧붙이기(같은 호출을 두 번 하면 두 줄), 보관함은 덮어쓰지 않으므로 다시 불러도 결과가 같지 않다
+  record_council_history: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
+  export_council_vault: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
 };
 // 커넥터 디렉터리 심사 — 빠진 도구 없이 전부 title 과 네 칸이 있다
 {
@@ -158,7 +161,7 @@ const ANN = {
   check(`모든 도구(${all.length})에 title·annotations 네 칸${bare.length ? ` — 빠짐: ${bare.map((t) => t.name).join(',')}` : ''}`, bare.length === 0);
 }
 // 이 판에서 더한 도구 8개 + 사이트 도구 7개(groups/more) — 「대신·대행·대리」도 함께 막는다
-const NOSA_TOOLS = ['assess_labor_council', 'check_council_meeting', 'make_labor_council_forms', 'make_council_meeting_docs', 'make_council_election_docs'];
+const NOSA_TOOLS = ['assess_labor_council', 'check_council_meeting', 'make_labor_council_forms', 'make_council_meeting_docs', 'make_council_election_docs', 'record_council_history', 'export_council_vault'];
 const NEW_TOOLS = ['calc_severance', 'calc_holiday_pay', 'calc_pay_proration', 'calc_shutdown_allowance', 'calc_annual_leave', 'settle_leave_on_exit', 'calc_retirement_tax', 'list_employer_duties', ...MORE_TOOLS, ...NOSA_TOOLS];
 const NEW_WORDS = [...WORDS, '대신', '대행', '대리'];
 const bannedNew = (s) => (banned ? banned.bannedHits(s, NEW_WORDS) : []);
@@ -457,6 +460,14 @@ if (tools.includes('make_council_meeting_docs')) {
   check('nosa 통보 늦으면 소집 통보서 만들지 않음', ml.ok === false && /2026-11-25/.test(ml.errors?.join() ?? '') && !fs.existsSync(path.join(tmp, 'nosa-late')));
   const mo = await callNew('make_council_meeting_docs', { ...MD, kind: 'minutes' });
   check(`nosa 회의록 덮어쓰지 않음(${mo.exists?.length}개)`, mo.ok === false && mo.exists?.length === 5);
+  if (tools.includes('export_council_vault')) {
+    // 위 회의록 폴더를 기록 폴더로 — 이행 기록 하나 덧붙이고 보관함으로
+    const rh = await callNew('record_council_history', { dir: MD.outDir, kind: 'implementation', implementation: { date: '2026-12-20', agendaId: 'A-20261203-01', status: '완료' } });
+    check(`nosa 이행 기록 덧붙임(${rh.record?.seq}번 · ${rh.current})`, rh.ok && rh.record.seq === 1 && rh.current === '완료(근거 없음)');
+    const vx = await callNew('export_council_vault', { dir: MD.outDir, outDir: path.join(tmp, 'nosa-vault'), today: '2027-01-10' });
+    check(`nosa 보관함 ${vx.files}파일 · 깨진 링크 ${vx.brokenLinks?.length} · 미이행 ${vx.dashboard?.overdue?.map((x) => x.status).join()}`, vx.ok && vx.brokenLinks.length === 0
+      && fs.existsSync(path.join(tmp, 'nosa-vault', '_대시보드.md')) && fs.existsSync(path.join(tmp, 'nosa-vault', '_회의록대장.xlsx')) && vx.dashboard.overdue[0]?.status === '완료(근거 없음)');
+  }
 }
 if (tools.includes('make_council_election_docs')) {
   // 합성 선거 — 후보 3 · 정원 3(찬반형) · 선거인 100 중 60 참여
