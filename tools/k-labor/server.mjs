@@ -13,6 +13,7 @@ import { registerWorkRules, workRulesTools } from './groups/work-rules.mjs';
 import { registerLeave, leaveTools } from './groups/leave.mjs';
 import { registerTax, taxTools } from './groups/tax.mjs';
 import { registerDuties, dutiesTools } from './groups/duties.mjs';
+import { registerNosa, nosaTools } from './groups/nosa.mjs';
 
 const VERSION = '0.1.2';
 
@@ -26,8 +27,9 @@ const GROUPS = {
   tax: { register: registerTax, tools: taxTools, about: '퇴직소득세 · 지방소득세 · 중도퇴사자 연말정산 · 일용근로자 원천세 계산' },
   duties: { register: registerDuties, tools: dutiesTools, about: '사업장 규모별 사업주 의무 · 의무교육 · 위반 시 제재(묶은 자료)' },
   'work-rules': { register: registerWorkRules, tools: workRulesTools, about: '노동법 개정 목록 · 법령 조문 원문·두 시점 비교(법제처 Open API, LAW_OC) · 취업규칙 개정 반영 점검(글자·파일) · 신고·변경신고 서류(파일은 로컬 전용)' },
+  nosa: { register: registerNosa, tools: nosaTools, about: '노사협의회 설치의무 · 근로자위원 선출방식 · 선출·회의 정족수 · 소집·신고·고충 기한 · 일정 역산 확인' },
 };
-const ALIAS = { fax: 'popbill', sms: 'popbill', rules: 'work-rules', 'work_rules': 'work-rules' };
+const ALIAS = { fax: 'popbill', sms: 'popbill', rules: 'work-rules', 'work_rules': 'work-rules', council: 'nosa' };
 
 function usage() {
   const lines = [

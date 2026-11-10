@@ -7,6 +7,7 @@ import { leaveRemoteSafe } from '../../tools/k-labor/groups/leave.mjs';
 import { taxRemoteSafe } from '../../tools/k-labor/groups/tax.mjs';
 import { dutiesRemoteSafe } from '../../tools/k-labor/groups/duties.mjs';
 import { workRulesLocalOnly } from '../../tools/k-labor/groups/work-rules.mjs';
+import { nosaRemoteSafe, nosaLocalOnly } from '../../tools/k-labor/groups/nosa.mjs';
 
 type Reg = { name: string; cfg?: { title?: string; annotations?: Record<string, boolean> }; legacy?: boolean };
 function fakeServer() {
@@ -26,14 +27,14 @@ describe('k-labor 원격판 도구 목록', () => {
   const names = s.tools.map((t) => t.name).sort();
 
   it('원격 가능 배열의 합과 정확히 같다(work-rules 는 법제처 icn1 실측 전까지 뺀다)', () => {
-    const expected = [...contractRemoteSafe, ...calcRemoteSafe, ...leaveRemoteSafe, ...taxRemoteSafe, ...dutiesRemoteSafe].sort();
+    const expected = [...contractRemoteSafe, ...calcRemoteSafe, ...leaveRemoteSafe, ...taxRemoteSafe, ...dutiesRemoteSafe, ...nosaRemoteSafe].sort();
     expect(names).toEqual(expected);
-    expect(names).toHaveLength(23);
+    expect(names).toHaveLength(24);
     expect([...REMOTE_TOOLS].sort()).toEqual(expected);
   });
 
   it('명단·발송·파일 도구가 없다', () => {
-    for (const n of ['find_branch', 'make_form', 'popbill_status', 'send_fax', 'fax_result', 'send_sms', 'sms_result', ...contractLocalOnly, ...workRulesLocalOnly])
+    for (const n of ['find_branch', 'make_form', 'popbill_status', 'send_fax', 'fax_result', 'send_sms', 'sms_result', ...contractLocalOnly, ...workRulesLocalOnly, ...nosaLocalOnly, 'make_labor_council_forms'])
       expect(names, n).not.toContain(n);
   });
 

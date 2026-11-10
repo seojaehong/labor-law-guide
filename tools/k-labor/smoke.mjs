@@ -143,6 +143,8 @@ const ANN = {
     .map((n) => [n, { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true }])),
   make_form: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
   ...Object.fromEntries(['send_fax', 'send_sms'].map((n) => [n, { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: true }])),
+  // nosa — 확인은 읽기 전용(원격판에도 싣는다)
+  assess_labor_council: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
 };
 // 커넥터 디렉터리 심사 — 빠진 도구 없이 전부 title 과 네 칸이 있다
 {
@@ -151,7 +153,8 @@ const ANN = {
   check(`모든 도구(${all.length})에 title·annotations 네 칸${bare.length ? ` — 빠짐: ${bare.map((t) => t.name).join(',')}` : ''}`, bare.length === 0);
 }
 // 이 판에서 더한 도구 8개 + 사이트 도구 7개(groups/more) — 「대신·대행·대리」도 함께 막는다
-const NEW_TOOLS = ['calc_severance', 'calc_holiday_pay', 'calc_pay_proration', 'calc_shutdown_allowance', 'calc_annual_leave', 'settle_leave_on_exit', 'calc_retirement_tax', 'list_employer_duties', ...MORE_TOOLS];
+const NOSA_TOOLS = ['assess_labor_council'];
+const NEW_TOOLS = ['calc_severance', 'calc_holiday_pay', 'calc_pay_proration', 'calc_shutdown_allowance', 'calc_annual_leave', 'settle_leave_on_exit', 'calc_retirement_tax', 'list_employer_duties', ...MORE_TOOLS, ...NOSA_TOOLS];
 const NEW_WORDS = [...WORDS, '대신', '대행', '대리'];
 const bannedNew = (s) => (banned ? banned.bannedHits(s, NEW_WORDS) : []);
 for (const n of NEW_TOOLS) check(`${n}: 도구 목록에 있음`, tools.includes(n));
@@ -397,6 +400,18 @@ if (tools.includes('list_employer_duties')) {
   check(`duties 0명 → 1~4명 구간(${d0.count}개)`, d0.ok && d0.tier?.min === 1 && (!dutiesData || d0.count === want(1)) && d0.newAtThisTier?.length === 0);
   const d50 = await callNew('list_employer_duties', { headcount: 120, group: '의무교육' });
   check(`duties 120명 의무교육만(${d50.duties?.length}개) · 다음 구간 없음`, d50.ok && d50.tier?.min === 50 && d50.duties.every((x) => x.group === '의무교육') && d50.next === null && d50.count === (dutiesData ? want(50) : d50.count));
+}
+
+// ── nosa 묶음(노사협의회) — 기대값 = tests/unit/nosa-council-assess.test.ts(파이썬 assess.py 정답) ──
+if (tools.includes('assess_labor_council')) {
+  const n1 = await callNew('assess_labor_council', { headcount: 120, concurrentRep: true, installDate: '2026-11-20', meetingDate: '2026-12-03', election: { electors: 100, voters: 60, candidates: 3, seats: 3, notified: true, supporters: 40 }, today: '2026-11-10' });
+  check(`nosa 신고 기한 ${n1.deadlines?.report?.due} · 소집 통보 ${n1.deadlines?.convene?.due} · 찬반투표 · 겸임 두 기준 따로`,
+    n1.ok && n1.deadlines.report.due === '2026-12-05' && n1.deadlines.convene.due === '2026-11-25' && n1.election.ballot.method === '찬반투표'
+    && n1.election.workerRep.adminInterpretation.met === true && n1.election.workerRep.majoritySupport.met === false);
+  const n2 = await callNew('assess_labor_council', { headcount: 32, election: { electors: 32, voters: 1 }, today: '2026-11-10' });
+  check(`nosa 투표율 파이썬 round 와 같음(32명 중 1명 → ${n2.election?.workerMembers?.stages?.[0]?.turnout})`, n2.ok && n2.election.workerMembers.stages[0].turnout === 3.12);
+  const n3 = await callNew('assess_labor_council', { headcount: 900101_1234568 });
+  check('nosa 주민번호 모양이면 멈춤', n3.ok === false);
 }
 
 // ── work-rules 묶음 ──

@@ -37,7 +37,7 @@ export const AI_PACKAGES: AiPackage[] = [
     repo: 'https://github.com/seojaehong/labor-law-guide',
     websiteUrl: 'https://yellowenvelope.kr/ai-tools',
     remote: 'https://yellowenvelope.kr/api/mcp/mcp',
-    remoteTools: 23,
+    remoteTools: 24,
   },
 ];
 

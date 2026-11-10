@@ -61,12 +61,12 @@ describe('원격 k-labor 라우트', () => {
     expect(headers.get('mcp-session-id')).toBeNull();
   });
 
-  it('tools/list는 계약 도구를 포함한 23개를 공개하며 응답을 캐시하지 않는다', async () => {
+  it('tools/list는 계약 도구를 포함한 24개를 공개하며 응답을 캐시하지 않는다', async () => {
     const { status, json, headers } = await rpc(list);
     expect(status).toBe(200);
     const names = json.result.tools.map((t: { name: string }) => t.name).sort();
     expect(names).toEqual([...REMOTE_TOOLS].sort());
-    expect(names).toHaveLength(23);
+    expect(names).toHaveLength(24);
     expect(headers.get('content-type')).toContain('application/json');
     expect(headers.get('cache-control')).toBe('no-store');
   });
@@ -77,6 +77,15 @@ describe('원격 k-labor 라우트', () => {
     expect(json.id).toBe(2);
     expect(json.result.isError).not.toBe(true);
     expect(json.result.content[0].text).toContain('82,560');
+  });
+
+  it('노사협의회 확인 도구가 원격판에서 신고 기한을 낸다(숫자·날짜만 받는다)', async () => {
+    const { status, json } = await call('assess_labor_council', { headcount: 45, installDate: '2026-11-20', today: '2026-11-10' });
+    expect(status).toBe(200);
+    expect(json.result.isError).not.toBe(true);
+    const r = JSON.parse(json.result.content[0].text);
+    expect(r.installation.result).toBe('설치 의무 있음');
+    expect(r.deadlines.report.due).toBe('2026-12-05');
   });
 
   it('잘못된 도구 입력은 구조화된 오류를 낸다', async () => {
@@ -187,7 +196,7 @@ describe('원격 k-labor 라우트', () => {
     });
     try {
       await client.connect(transport);
-      expect((await client.listTools()).tools).toHaveLength(23);
+      expect((await client.listTools()).tools).toHaveLength(24);
       const result = await client.callTool({ name: 'calc_weekly_holiday_pay', arguments: { hourlyWage: 10320, weeklyHours: 40 } });
       expect(result.isError).not.toBe(true);
       expect(JSON.stringify(result.content)).toContain('82,560');

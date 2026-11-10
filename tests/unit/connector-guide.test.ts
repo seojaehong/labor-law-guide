@@ -25,7 +25,7 @@ describe('Claude 앱에 연결하기 절', () => {
     expect(html).toContain('Claude 앱에 연결하기');
     expect(html).toContain(K);
     expect(html).toContain(S);
-    expect(html).toContain('도구 23개');
+    expect(html).toContain('도구 24개');
     expect(html).toContain('도구 8개');
     expect(html.match(/<button/g)).toHaveLength(2);
   });

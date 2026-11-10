@@ -110,6 +110,7 @@ claude mcp add --scope user k-labor -- npx -y k-labor mcp --groups nhis
 | `work-rules` | `check_work_rules_revisions` | 취업규칙 본문(글자)과 최종 개정일로, 그 뒤 시행되는 개정이 반영됐는지 표준취업규칙 2026 조문에 짝지어 대조 |
 | `work-rules` | `check_work_rules_file` | 같은 대조를 취업규칙 파일(hwp·hwpx·docx·pdf·txt)로 **(로컬 전용)** |
 | `work-rules` | `make_work_rules_report_forms` | 취업규칙 신고·변경신고 서류(별지 제15호서식 신고서·신구 조문 대비표·의견청취서·동의서)를 PDF·한글로 저장 **(로컬 전용)** |
+| `nosa` | `assess_labor_council` | 노사협의회 설치의무(상시 30명)·근로자위원 선출방식(위촉·직접·간접)·위원 수·선출 정족수(과반수 참여, 간접 1·2단계, 선거구별)·근로자대표 겸임 두 기준·회의 정족수·소집·신고·고충 기한·일정 역산. 숫자·날짜만 받습니다 |
 
 ### 묶음 고르기
 

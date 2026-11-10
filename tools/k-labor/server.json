@@ -18,7 +18,7 @@
       "transport": { "type": "stdio" },
       "packageArguments": [{ "type": "positional", "value": "mcp" }],
       "environmentVariables": [
-        { "name": "LLG_MCP_GROUPS", "description": "켤 묶음(쉼표 구분: nhis, popbill, contract, calc, leave, tax, duties, work-rules). 비우면 전부", "isRequired": false },
+        { "name": "LLG_MCP_GROUPS", "description": "켤 묶음(쉼표 구분: nhis, popbill, contract, calc, leave, tax, duties, work-rules, nosa). 비우면 전부", "isRequired": false },
         { "name": "LAW_OC", "description": "법제처 국가법령정보 Open API 이용자 ID(OC). 없으면 work-rules 는 묶은 자료로만 답합니다", "isRequired": false },
         { "name": "POPBILL_LINK_ID", "description": "팩스·문자용 본인 팝빌 링크아이디", "isRequired": false },
         { "name": "POPBILL_SECRET_KEY", "description": "팩스·문자용 본인 팝빌 비밀키", "isRequired": false, "isSecret": true },
