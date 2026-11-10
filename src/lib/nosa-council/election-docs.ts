@@ -126,6 +126,13 @@ export function electionDocsErrors(i: ElectionDocsInput): string[] {
   before('vote', 'termStart');
   const ds = i.districts ?? [];
   if (ds.some((x) => !t(x.label))) out.push('선거구마다 이름(label)을 넣습니다.');
+  const withDistrict = (i.candidates ?? []).filter((c) => t(c.district));
+  if (ds.length && withDistrict.length) {
+    const labels = new Set(ds.map((x) => t(x.label)));
+    if (withDistrict.length !== (i.candidates ?? []).length) out.push('후보별 선거구를 적을 때는 선거구를 모든 후보에게 적습니다(candidates[].district).');
+    for (const c of withDistrict) if (!labels.has(t(c.district))) out.push(`후보 선거구 「${t(c.district)}」가 선거구 목록(districts)에 없습니다.`);
+    if (ds.some((x) => x.seats == null)) out.push('선거구별 투표용지를 만들려면 선거구마다 뽑을 인원(districts[].seats)을 넣습니다.');
+  }
   if (ds.length && ds.every((x) => x.seats != null)) {
     const sum = ds.reduce((s, x) => s + (x.seats ?? 0), 0);
     if (sum !== i.seats) out.push(`선거구별 근로자위원 수의 합(${sum}명)이 뽑을 인원(${i.seats}명)과 다릅니다.`);
@@ -182,8 +189,50 @@ function candidateLabel(c: CandidateInput) {
   return t(c.name);
 }
 
+export interface DistrictBallot { label: string; seats: number; candidates: CandidateInput[]; ballot: Ballot }
+/** 후보마다 선거구를 적었으면 선거구별 투표 방식(후보 수 ≤ 뽑을 인원이면 찬반). 아니면 null */
+export function districtBallots(i: ElectionDocsInput): DistrictBallot[] | null {
+  const ds = i.districts ?? [];
+  const cs = i.candidates ?? [];
+  if (!ds.length || !cs.length || cs.some((c) => !t(c.district)) || ds.some((d) => d.seats == null)) return null;
+  return ds.map((d) => {
+    const mine = cs.filter((c) => t(c.district) === t(d.label));
+    return { label: t(d.label), seats: d.seats!, candidates: mine, ballot: ballotOf(mine.length, d.seats!) };
+  });
+}
+
+function rankSeats(cs: CandidateInput[], seats: number, tieBreak: string | undefined, warnings: string[], where = ''): CandidateInput[] | null {
+  if (cs.some((c) => c.votes == null)) return null;
+  const ranked = [...cs].sort((a, b2) => (b2.votes ?? 0) - (a.votes ?? 0));
+  const cut = ranked[seats - 1]?.votes;
+  const next = ranked[seats]?.votes;
+  if (cut != null && next != null && cut === next) {
+    const tied = ranked.filter((c) => c.votes === cut).map(candidateLabel).filter(Boolean);
+    warnings.push(`${where}${seats}번째 자리에서 득표가 같다(동점 ${cut}표${tied.length ? `: ${tied.join(', ')}` : ''}) — 협의회규정의 동점자 기준(${t(tieBreak) || '○○'})으로 정해 candidates[].elected 로 넣는다.`);
+    return null;
+  }
+  return ranked.slice(0, seats);
+}
+
 function decide(i: ElectionDocsInput, b: Ballot | null, check: ElectionCheck | null, warnings: string[]): CandidateInput[] | null {
   const cs = i.candidates ?? [];
+  const per = districtBallots(i);
+  if (per) {
+    if (!check?.workerMembers.met) return cs.some((c) => c.elected) ? cs.filter((c) => c.elected) : null;
+    const out: CandidateInput[] = [];
+    for (const d of per) {
+      const flagged = d.candidates.filter((c) => c.elected);
+      if (flagged.length) { out.push(...flagged); continue; }
+      if (d.ballot.method === '찬반투표') {
+        warnings.push(`선거구 ${d.label}은 찬반투표다 — 당선 기준은 선거관리규정을 따르고, 당선자를 candidates[].elected 로 넣으면 당선공고에 채운다.`);
+        return null;
+      }
+      const w = rankSeats(d.candidates, d.seats, i.tieBreak, warnings, `선거구 ${d.label}: `);
+      if (!w) return null;
+      out.push(...w);
+    }
+    return out;
+  }
   const flagged = cs.filter((c) => c.elected);
   if (flagged.length) return flagged;
   if (!check?.workerMembers.met || !b || !cs.length) return null;
@@ -191,16 +240,7 @@ function decide(i: ElectionDocsInput, b: Ballot | null, check: ElectionCheck | n
     warnings.push('찬반투표의 당선 기준은 선거관리규정에서 정한 기준을 따른다 — 당선자를 정해 candidates[].elected 로 넣으면 당선공고에 채운다.');
     return null;
   }
-  if (cs.some((c) => c.votes == null)) return null;
-  const ranked = [...cs].sort((a, b2) => (b2.votes ?? 0) - (a.votes ?? 0));
-  const cut = ranked[i.seats - 1]?.votes;
-  const next = ranked[i.seats]?.votes;
-  if (cut != null && next != null && cut === next) {
-    const tied = ranked.filter((c) => c.votes === cut).map(candidateLabel).filter(Boolean);
-    warnings.push(`${i.seats}번째 자리에서 득표가 같다(동점 ${cut}표${tied.length ? `: ${tied.join(', ')}` : ''}) — 협의회규정의 동점자 기준(${t(i.tieBreak) || '○○'})으로 정해 candidates[].elected 로 넣는다.`);
-    return null;
-  }
-  return ranked.slice(0, i.seats);
+  return rankSeats(cs, i.seats, i.tieBreak, warnings);
 }
 
 function ctx(i: ElectionDocsInput): Ctx {
@@ -213,7 +253,7 @@ function ctx(i: ElectionDocsInput): Ctx {
   if (d.committee && d.announce && daysBetween(d.committee, d.announce) < COMMITTEE_LEAD_DAYS) {
     warnings.push(`선거관리위원회 구성(${d.committee})이 선거 공고(${d.announce}) 14일 전보다 늦다(선거관리규정 견본 제2조②).`);
   }
-  if (i.districts?.length) warnings.push('선거구별 선거는 선거구마다 후보 수와 뽑을 인원을 견주어 찬반투표 여부를 정한다 — 투표용지 형식은 전체 후보 수로 골랐으니 선거구별로 확인한다.');
+  if (i.districts?.length && !districtBallots(i)) warnings.push('선거구별 선거는 선거구마다 후보 수와 뽑을 인원을 견주어 찬반투표 여부를 정한다 — 투표용지 형식은 전체 후보 수로 골랐으니 선거구별로 확인한다.');
   const winners = decide(i, b, check, warnings);
   return {
     i, d, name: t(i.workplace.name), council: t(i.councilName) || '노사협의회', ballot: b, check,
@@ -362,8 +402,29 @@ function candidatesDoc(x: Ctx): FormDoc {
 // ── 05 투표용지 ───────────────────────────────────────────
 
 function ballotDoc(x: Ctx): FormDoc {
-  const b = x.ballot!;
   const title = '노사협의회 근로자위원 선거 투표용지';
+  const tail = [...(x.i.concurrentRep ? [SPACE(), NOTE(`${CONCURRENT} 권한 범위: ${scopeList(x).join(', ')}`)] : []), SPACE(10), RIGHT(`${COMMITTEE} 확인 (     )`)];
+  const per = districtBallots(x.i);
+  if (per) {
+    // 선거구마다 한 쪽 — 기호는 선거구 안에서 1부터, 형식은 그 선거구의 후보 수와 뽑을 인원으로
+    const blocks: FormBlock[] = [];
+    for (const [k, d] of per.entries()) {
+      const yesNo = d.ballot.method === '찬반투표';
+      const head = ['기호', '성명', '소속', ...(yesNo ? ['찬성', '반대'] : ['기표'])];
+      const marks = x.i.marksPerBallot != null ? Math.min(x.i.marksPerBallot, d.seats) : '○';
+      if (k) blocks.push({ kind: 'pageBreak' });
+      blocks.push(
+        { kind: 'title', text: title },
+        P(`선거구 ${d.label} (뽑을 인원 ${d.seats}명 · 후보 ${d.candidates.length}명)`, 4),
+        P(`투표일  ${ko(x.d.vote)}`, 4),
+        P(yesNo ? '후보자마다 찬성·반대 가운데 한 칸에 기표합니다.' : `${marks}명에게 기표합니다.`, 8),
+        GRID(head, d.candidates.map((c, n) => [String(n + 1), t(c.name), t(c.dept), ...(yesNo ? ['', ''] : [''])]), widthsFor(head.length, [10, 28, 28]), 34),
+        ...tail,
+      );
+    }
+    return { title, blocks };
+  }
+  const b = x.ballot!;
   const yesNo = b.method === '찬반투표';
   const head = candHead(x, yesNo ? ['찬성', '반대'] : ['기표']);
   return {
@@ -373,9 +434,7 @@ function ballotDoc(x: Ctx): FormDoc {
       P(`투표일  ${ko(x.d.vote)}`, 4),
       P(yesNo ? '후보자마다 찬성·반대 가운데 한 칸에 기표합니다.' : `${x.i.marksPerBallot ?? '○'}명에게 기표합니다.`, 8),
       GRID(head, candRows(x, () => (yesNo ? ['', ''] : [''])), widthsFor(head.length, [10, 28, 28]), 34),
-      ...(x.i.concurrentRep ? [SPACE(), NOTE(`${CONCURRENT} 권한 범위: ${scopeList(x).join(', ')}`)] : []),
-      SPACE(10),
-      RIGHT(`${COMMITTEE} 확인 (     )`),
+      ...tail,
     ],
   };
 }
@@ -483,5 +542,5 @@ export function electionDocs(input: ElectionDocsInput, only?: readonly string[])
       made.push({ id, doc: BUILD[id](x) });
     }
   }
-  return { made, skipped, warnings: x.warnings, dates: x.d, ballot: x.ballot, check: x.check, elected: x.elected };
+  return { made, skipped, warnings: x.warnings, dates: x.d, ballot: x.ballot, districtBallots: districtBallots(input), check: x.check, elected: x.elected };
 }

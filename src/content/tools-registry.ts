@@ -48,6 +48,8 @@ export const TOOLS: ToolEntry[] = [
     sitemap: { lastModified: '2026-10-21', changeFrequency: 'weekly', priority: 0.9 } },
   { href: '/tools/rules-review', title: '규정 정비 점검', desc: '기관 규정 묶음(zip)을 올리면 규정끼리 인용·위임·별표·조문 번호·용어를 맞춰 보고, 담당자가 확인한 항목으로 신·구조문대비표와 반영본을 만듭니다.', badge: '브라우저 대조', icon: 'file-check',
     sitemap: { lastModified: '2026-10-25', changeFrequency: 'monthly', priority: 0.8 } },
+  { href: '/tools/council-graph', title: '노사협의회 회의록 그래프', desc: '노사협의회 기록 폴더(회의록·이행 기록·고충 대장)를 열면 회의·안건·이월·이행·고충이 어떻게 이어지는지 그래프로 보여줍니다. 기한이 지난 이행과 고충만 골라 볼 수 있습니다. 파일은 브라우저 안에서만 읽습니다.', badge: '브라우저 처리', icon: 'file-check',
+    sitemap: { lastModified: '2026-11-10', changeFrequency: 'monthly', priority: 0.7 } },
   { href: '/tools/contract-check', title: '근로계약서 점검', desc: '계약서 내용을 폼에 입력하면 필수 명시사항·최저임금·위약금 등 25개 항목을 즉시 점검. 위반·리스크별 수정 방향 제시. 입력한 내용은 저장되지 않습니다.', badge: '참고 도구', icon: 'file-check',
     sitemap: { lastModified: '2026-07-31', changeFrequency: 'monthly', priority: 0.9 } },
   { href: '/tools/contract-write', title: '근로계약서 작성', desc: '월급(총액·실수령액)이나 시급과 근무형태를 넣으면 기본급·주휴·연장·야간·휴일·연차 항목별 시간과 금액을 나누고, 근로계약서 점검 규칙으로 다시 확인한 뒤 엑셀·한글·PDF로 내려받습니다. 입력한 내용은 브라우저 밖으로 나가지 않습니다.', badge: '브라우저 작성', icon: 'file-check',

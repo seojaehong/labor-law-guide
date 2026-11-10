@@ -1,11 +1,13 @@
 // 노사협의회 기록 폴더 — 회의록 .json(make_council_meeting_docs·import_council_minutes)과 덧붙이기 기록 두 개를 읽는다.
 //   _이행기록.jsonl   이행 기록(고치지 않고 덧붙인다)
 //   _회의록이력.jsonl 회의록 판·서명·공지·가져옴 확인(판마다 경로 + SHA-256)
+//   _고충대장.jsonl   고충 청취·통보·협의회 부의·종결(사건 번호·분류·날짜만)
 // ★ 파일만 다룬다(네트워크 없음). 무거운 모듈(pdf.js·rhwp·exceljs)을 불러오지 않는다 — nosa.mjs(원격판 번들)도 이 파일을 쓴다.
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { DOC_LOG, IMPL_LOG, minutesShapeErrors } from '@/lib/nosa-council/records';
+import { GRIEVANCE_LOG } from '@/lib/nosa-council/grievance';
 
 export function sha256File(p) {
   try {
@@ -58,7 +60,8 @@ export function loadCouncilDir(dir) {
   }
   const records = readJsonl(path.join(dir, IMPL_LOG), skipped);
   const events = readJsonl(path.join(dir, DOC_LOG), skipped);
-  return { minutes, records, events, skipped };
+  const grievances = readJsonl(path.join(dir, GRIEVANCE_LOG), skipped);
+  return { minutes, records, events, grievances, skipped };
 }
 
 /** 덧붙이기 — 앞 줄은 건드리지 않는다. seq = 지금 줄 수 + 1 */

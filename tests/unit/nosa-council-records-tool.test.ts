@@ -115,6 +115,22 @@ describe('이력 덧붙이기 → 다음 회의록 자동 채움 → 보관함',
     expect(v.warnings.join()).toMatch(/2026-정기-1차 서명본.*바뀌었다/);
   }, 60_000);
 
+  it('고충 — 청취·부의를 _고충대장.jsonl 에 덧붙이고 보관함에 고충 노드·통보 기한을 싣는다, 이름 같은 사건 번호는 막는다', async () => {
+    const h = await call('record_council_history', { dir, kind: 'grievance', grievance: { caseId: 'G-2026-001', stage: '청취', date: '2026-03-02', category: '작업환경·안전' } });
+    expect(h.ok).toBe(true);
+    expect(h.case).toMatchObject({ due: '2026-03-12', status: '청취' });
+    const ref = await call('record_council_history', { dir, kind: 'grievance', grievance: { caseId: 'G-2026-001', stage: '회의 부의', date: '2026-03-04', agendaId: 'A-20260305-02' } });
+    expect(ref.ok).toBe(true);
+    expect(fs.readFileSync(path.join(dir, '_고충대장.jsonl'), 'utf8').split('\n').filter(Boolean)).toHaveLength(2);
+    const bad = await call('record_council_history', { dir, kind: 'grievance', grievance: { caseId: '가상일', stage: '청취', date: '2026-03-02', category: '임금' } });
+    expect(bad.ok).toBe(false);
+    const v = await call('export_council_vault', { dir, outDir: path.join(tmp, 'vault-g'), today: '2026-12-10' });
+    expect(v.counts.grievances).toBe(1);
+    expect(v.dashboard.grievancesLate).toEqual([{ caseId: 'G-2026-001', due: '2026-03-12', notified: null }]);
+    expect(wikilinks(fs.readFileSync(path.join(tmp, 'vault-g', '고충', 'G-2026-001.md'), 'utf8'))).toContain('A-20260305-02');
+    expect(v.brokenLinks).toEqual([]);
+  }, 60_000);
+
   it('주민등록번호 모양이면 기록하지 않는다', async () => {
     const r = await call('record_council_history', { dir, kind: 'implementation', implementation: { date: '2026-05-01', agendaId: 'A-20260305-01', status: '진행', content: '900101-1234568' } });
     expect(r.ok).toBe(false);

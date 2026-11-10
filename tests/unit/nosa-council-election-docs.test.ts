@@ -139,6 +139,48 @@ describe('개표록·당선공고', () => {
   });
 });
 
+describe('선거구별 투표용지 — 선거구마다 후보 수와 뽑을 인원으로 형식을 고른다', () => {
+  const DIST: ElectionDocsInput = {
+    ...BASE,
+    districts: [{ label: '생산', seats: 2 }, { label: '사무', seats: 1 }],
+    marksPerBallot: 2,
+    candidates: [
+      { name: '가상일', dept: '생산1팀', district: '생산' },
+      { name: '가상이', dept: '생산2팀', district: '생산' },
+      { name: '가상삼', dept: '생산3팀', district: '생산' },
+      { name: '가상사', dept: '총무팀', district: '사무' },
+    ],
+  };
+  it('한 선거에서 생산(후보 3 > 2)은 다수득표, 사무(후보 1 ≤ 1)는 찬반 — 선거구마다 한 쪽', () => {
+    const r = electionDocs(DIST);
+    expect(r.districtBallots?.map((d) => [d.label, d.ballot.method])).toEqual([['생산', '다수득표'], ['사무', '찬반투표']]);
+    const b = doc(r, '05_투표용지');
+    expect(b.blocks.filter((x) => x.kind === 'pageBreak')).toHaveLength(1);
+    const t = all(b);
+    expect(t).toMatch(/선거구 생산[\s\S]*2명에게 기표[\s\S]*선거구 사무[\s\S]*찬성·반대/);
+    expect(t.indexOf('가상사')).toBeGreaterThan(t.indexOf('선거구 사무'));
+    expect(r.warnings.join()).not.toMatch(/전체 후보 수로 골랐으니/);
+  });
+  it('당선은 선거구마다 — 다수득표 선거구는 득표순, 찬반 선거구는 표시한 사람', () => {
+    const votes = [30, 25, 10];
+    const cs = DIST.candidates!.map((c, k) => (c.district === '생산' ? { ...c, votes: votes[k] } : { ...c, inFavor: 40, against: 5, elected: true }));
+    const r = electionDocs({ ...DIST, candidates: cs, result: { electors: 100, voters: 60 } });
+    expect(r.elected).toEqual(['가상일', '가상이', '가상사']);
+    const unmarked = electionDocs({ ...DIST, candidates: cs.map((c) => ({ ...c, elected: undefined })), result: { electors: 100, voters: 60 } });
+    expect(unmarked.elected).toBeNull();
+  });
+  it('없는 선거구·일부만 적은 선거구·뽑을 인원 없는 선거구는 오류', () => {
+    expect(electionDocsErrors({ ...DIST, candidates: [...DIST.candidates!.slice(0, 3), { name: '가상사', district: '연구' }] }).join()).toMatch(/연구/);
+    expect(electionDocsErrors({ ...DIST, candidates: [...DIST.candidates!.slice(0, 3), { name: '가상사' }] }).join()).toMatch(/선거구를 모든 후보/);
+    expect(electionDocsErrors({ ...DIST, districts: [{ label: '생산', seats: 2 }, { label: '사무' }] }).join()).toMatch(/뽑을 인원/);
+  });
+  it('후보에 선거구를 적지 않으면 예전처럼 전체 후보 수로 한 장(알림)', () => {
+    const r = electionDocs({ ...BASE, districts: [{ label: '본사', seats: 1 }, { label: '공장', seats: 2 }] });
+    expect(r.districtBallots).toBeNull();
+    expect(r.warnings.join()).toMatch(/전체 후보 수로 골랐으니/);
+  });
+});
+
 describe('서류 묶음', () => {
   it('일곱 가지 서류 ID · 고른 것만 만든다', () => {
     expect([...ELECTION_DOC_IDS]).toEqual(['01_선관위구성공고', '02_선거공고문', '03_입후보신청서', '04_후보자공고', '05_투표용지', '06_개표록', '07_당선공고']);

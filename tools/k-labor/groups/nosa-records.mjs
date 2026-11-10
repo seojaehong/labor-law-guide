@@ -15,9 +15,27 @@ import {
   caseCollisions, councilVault, DOC_LOG, DOC_STAGES, docEventErrors, IMPL_LOG, implHistory, implLabel, implRecordErrors, importedMinutes, importErrors, importMatches,
   importTextWarnings, IMPORTED, RESULT_NODES, wikilinks,
 } from '@/lib/nosa-council/records';
+import { GRIEVANCE_CATEGORIES, GRIEVANCE_KEEP_NOTE, GRIEVANCE_LOG, GRIEVANCE_STAGES, grievanceCases, grievanceRecordErrors } from '@/lib/nosa-council/grievance';
 import { argsLookLikeRrn, looksLikeRrn, text } from '../lib/common.mjs';
 import { appendJsonl, loadCouncilDir, sha256File } from '../lib/council-dir.mjs';
 import { readRulesFile, RULES_FILE_KINDS } from '../lib/rules-file.mjs';
+import { OCR_IMAGE_KINDS, ocrAvailable, ocrImage, readPdfWithOcr } from '../lib/ocr-source.mjs';
+
+/** 회의록 원본 읽기 — hwp·hwpx·docx·txt 는 규정 읽기와 같고, pdf 는 글자층 없는 쪽만 문자 인식, 사진(png·jpg)은 문자 인식 */
+async function readMinutesSource(source) {
+  const p = String(source ?? '').trim();
+  const kind = path.extname(p).toLowerCase().slice(1);
+  if (kind !== 'pdf' && !OCR_IMAGE_KINDS.includes(kind)) return readRulesFile(p);
+  if (!fs.existsSync(p) || !fs.statSync(p).isFile()) throw new Error(`파일이 없습니다: ${p}`);
+  const missing = await ocrAvailable();
+  if (missing) {
+    if (kind === 'pdf') return readRulesFile(p); // 글자층 있는 pdf 는 그대로 읽힌다 — 스캔 쪽이면 예전 안내
+    throw new Error(`사진에서 글자를 읽으려면 문자 인식 묶음이 필요합니다. ${missing}`);
+  }
+  const r = kind === 'pdf' ? await readPdfWithOcr(p) : await ocrImage(p);
+  if (!r.text.trim()) throw new Error('읽을 수 있는 글자가 없습니다. 글자를 직접 붙여넣으세요');
+  return { kind, text: r.text, ocrPages: r.ocrPages };
+}
 import { todayKst } from './nosa.mjs';
 
 export const nosaRecordsTools = ['record_council_history', 'export_council_vault', 'import_council_minutes'];
@@ -53,10 +71,19 @@ export function registerNosaRecords(server) {
       description:
         '기록 폴더(회의록 .json 이 있는 폴더)에 한 줄을 덧붙인다. 고치거나 지우지 않는다 — 잘못 적었으면 corrects(고칠 기록 번호)를 단 새 기록을 붙인다. ' +
         'kind = implementation: 의결 안건의 이행 기록(_이행기록.jsonl — 일자·상태(미착수/진행/완료/보류/철회)·담당 직위·내용·근거·확인한 회의). 현재 상태는 마지막 기록이고, 근거 없는 완료는 「완료(근거 없음)」으로 본다. ' +
-        'kind = minutes: 회의록 이력(_회의록이력.jsonl — 초안·회람·수정(사유)·서명 완료·공지·가져옴 확인). 파일 경로를 주면 그 판의 SHA-256 을 함께 남겨 서명본이 나중에 바뀌었는지 대장에서 본다. 주민등록번호는 받지 않는다.',
+        'kind = minutes: 회의록 이력(_회의록이력.jsonl — 초안·회람·수정(사유)·서명 완료·공지·가져옴 확인). 파일 경로를 주면 그 판의 SHA-256 을 함께 남겨 서명본이 나중에 바뀌었는지 대장에서 본다. ' +
+        'kind = grievance: 고충처리 대장(_고충대장.jsonl — 사건 번호 G-…·단계(청취/통보/회의 부의/종결)·날짜·분류·부의한 안건 ID). 처리결과 통보 기한은 청취일부터 10일(법 제28조제1항), 처리하기 곤란한 사항은 협의회 회의에 부친다(같은 조 제2항), 대장은 1년간 보존(시행령 제9조). 이름·사연은 받지 않는다. 주민등록번호는 받지 않는다.',
       inputSchema: {
         dir: z.string().describe('기록 폴더(회의록 .json 이 있는 폴더)'),
-        kind: z.enum(['implementation', 'minutes']).describe('implementation 이행 기록 / minutes 회의록 이력'),
+        kind: z.enum(['implementation', 'minutes', 'grievance']).describe('implementation 이행 기록 / minutes 회의록 이력 / grievance 고충처리 대장'),
+        grievance: z.object({
+          caseId: z.string().max(30).describe('사건 번호 — G- 로 시작하는 영문·숫자(예: G-2026-001). 이름을 넣지 않는다'),
+          stage: z.enum(GRIEVANCE_STAGES).describe('단계 — 청취(기한의 기산점)·통보·회의 부의·종결'),
+          date: z.string().describe('그 단계의 날짜 YYYY-MM-DD'),
+          category: z.enum(GRIEVANCE_CATEGORIES).optional().describe('분류 — 청취에 꼭'),
+          agendaId: z.string().max(40).optional().describe('회의 부의 — 협의회 안건 ID'),
+          corrects: z.number().int().min(1).optional().describe('정정 — 고칠 기록 번호(seq)'),
+        }).optional().describe('kind = grievance 일 때'),
         implementation: z.object({
           date: z.string().describe('일자 YYYY-MM-DD'),
           agendaId: z.string().max(40).describe('의결 안건 ID'),
@@ -87,6 +114,16 @@ export function registerNosaRecords(server) {
         return fail(e instanceof Error ? e.message : String(e));
       }
       const warnings = [];
+      if (a.kind === 'grievance') {
+        const r = a.grievance ?? {};
+        const rec0 = { caseId: r.caseId?.trim(), stage: r.stage, date: isoDate(r.date) ?? r.date, category: r.category, agendaId: r.agendaId?.trim() || undefined, corrects: r.corrects };
+        const errors = grievanceRecordErrors(rec0, data.grievances);
+        if (errors.length) return text({ ok: false, errors, error: '맞지 않는 칸이 있어 덧붙이지 않았습니다.' });
+        if (rec0.agendaId && !data.minutes.some((m) => m.agenda.some((x) => x.id === rec0.agendaId))) warnings.push(`기록 폴더의 회의록에서 안건 ${rec0.agendaId} 를 찾지 못했다 — 부의한 회의의 회의록을 만든 뒤에 보관함에서 이어진다.`);
+        const rec = appendJsonl(path.join(a.dir, GRIEVANCE_LOG), rec0);
+        const c = grievanceCases([...data.grievances, rec], todayKst()).find((x) => x.caseId === rec.caseId);
+        return text({ ok: true, file: path.join(a.dir, GRIEVANCE_LOG), record: rec, case: c, keep: GRIEVANCE_KEEP_NOTE, ...(warnings.length ? { warnings } : {}) });
+      }
       if (a.kind === 'implementation') {
         const r = a.implementation ?? {};
         const errors = implRecordErrors({ ...r, date: isoDate(r.date) ?? r.date });
@@ -144,7 +181,7 @@ export function registerNosaRecords(server) {
       if (!data.minutes.length) return text({ ok: false, error: '기록 폴더에 회의록 .json 이 없습니다.', ...(data.skipped.length ? { skippedFiles: data.skipped } : {}) });
       const paths = [...data.events.map((e) => e.path), ...data.minutes.map((m) => m.import?.source?.path)].filter(Boolean);
       const hashes = Object.fromEntries([...new Set(paths)].map((p) => [p, sha256File(p)]));
-      const v = councilVault(data.minutes, data.records, data.events, hashes, today);
+      const v = councilVault(data.minutes, data.records, data.events, hashes, today, data.grievances);
       const clashes = caseCollisions(v.files.map((f) => f.path));
       if (clashes.length) return fail('대소문자만 다른 안건 ID 가 있어 한 파일로 겹칩니다. 회의록의 안건 ID 를 고쳐 주세요.', { clashes: clashes.slice(0, 20) });
       const targets = [...v.files.map((f) => f.path), '_회의록대장.xlsx'].map((p) => path.join(a.outDir, p));
@@ -169,6 +206,7 @@ export function registerNosaRecords(server) {
           agenda: v.graph.nodes.filter((n) => n.type === '안건').length,
           edges: v.graph.edges.length,
           carried: v.graph.edges.filter((e) => e.type === '이월').length,
+          grievances: d.grievances.length,
         },
         brokenLinks,
         dashboard: {
@@ -179,6 +217,7 @@ export function registerNosaRecords(server) {
           missingReports: d.missingReports.map((x) => x.meeting),
           unconfirmed: d.unconfirmed,
           candidates: d.candidates.length,
+          grievancesLate: d.grievancesLate.map((c) => ({ caseId: c.caseId, due: c.due, notified: c.notified })),
         },
         ...(v.ledger.warnings.length ? { warnings: v.ledger.warnings } : {}),
         ...(data.skipped.length ? { skippedFiles: data.skipped } : {}),
@@ -197,13 +236,13 @@ export function registerNosaRecords(server) {
     {
       title: '노사협의회 옛 회의록 가져오기(로컬 전용)',
       description:
-        `이미 있는 회의록 파일(${RULES_FILE_KINDS.join('·')})을 기록 폴더로 가져온다. 두 번 부른다 — ① proposal 없이 부르면 원본 글자·SHA-256 과 기록 폴더의 회의 키·안건 ID 를 돌려주고 아무것도 쓰지 않는다. ` +
+        `이미 있는 회의록 파일(${[...RULES_FILE_KINDS, ...OCR_IMAGE_KINDS].join('·')})을 기록 폴더로 가져온다. 두 번 부른다 — ① proposal 없이 부르면 원본 글자·SHA-256 과 기록 폴더의 회의 키·안건 ID 를 돌려주고 아무것도 쓰지 않는다. ` +
         '② 원문에서 읽은 구조(회의 종류·차수·개최일·정원·안건별 ID·제목·구분·법조문 분류·제안 측·결과·이월)를 proposal 로 넣어 다시 부르면 도구가 확인한다(구분과 결과의 짝·ID 형식과 중복·날짜·원문에 개최일과 제목이 있는지·읽은 뒤 원본이 바뀌었는지). ' +
         `통과하면 기록 폴더에 「${IMPORTED}」 회의록 .json 을 쓴다. 원본은 옮기거나 고치지 않고 경로·SHA-256 만 남긴다. 확인 전 회의록은 보관함에서 다른 노드와 잇지 않는다 — 사람이 원본과 맞춰 본 뒤 record_council_history(kind = minutes, stage = 가져옴 확인)를 붙이면 잇는다. ` +
-        '이월 안건은 앞 회의의 같은 ID 를 쓰고, 제목만 비슷한 안건은 「후보」로만 보인다. 원문에 없는 값은 비운다. 스캔(그림뿐인) pdf 는 읽지 않는다. 이름은 받지 않는다(직위·구분만). 주민등록번호는 받지 않는다. 이미 있는 파일은 덮어쓰지 않는다.',
+        '이월 안건은 앞 회의의 같은 ID 를 쓰고, 제목만 비슷한 안건은 「후보」로만 보인다. 원문에 없는 값은 비운다. 글자층 없는 pdf 쪽과 사진(png·jpg)은 이 PC 안에서 문자 인식(tesseract, 한국어)으로 읽고 인식한 쪽을 ocrPages 로 알린다 — 네트워크를 쓰지 않고, 잘못 읽은 글자가 있을 수 있어 원본과 맞춰 본다. 이름은 받지 않는다(직위·구분만). 주민등록번호는 받지 않는다. 이미 있는 파일은 덮어쓰지 않는다.',
       inputSchema: {
         dir: z.string().describe('기록 폴더 — 가져온 회의록 .json 을 여기에 쓴다'),
-        source: z.string().describe(`원본 회의록 파일(${RULES_FILE_KINDS.join('·')}, 10MB 이하) — 옮기지 않는다`),
+        source: z.string().describe(`원본 회의록 파일(${[...RULES_FILE_KINDS, ...OCR_IMAGE_KINDS].join('·')} — 스캔 pdf·사진은 문자 인식) — 옮기지 않는다`),
         sourceSha256: z.string().regex(/^[0-9a-f]{64}$/).optional().describe('①에서 받은 SHA-256 — 주면 그 사이 원본이 바뀌었는지 본다'),
         proposal: z.object({
           workplace: z.object({ name: z.string().max(100).optional().describe('사업장명(필수)') }).describe('사업장'),
@@ -251,7 +290,7 @@ export function registerNosaRecords(server) {
       let read;
       try {
         data = loadCouncilDir(a.dir);
-        read = await readRulesFile(a.source);
+        read = await readMinutesSource(a.source);
       } catch (e) {
         return fail(e instanceof Error ? e.message : String(e));
       }
@@ -269,7 +308,13 @@ export function registerNosaRecords(server) {
           chars: read.text.length,
           text: read.text.slice(0, TEXT_MAX),
           ...(read.text.length > TEXT_MAX ? { truncated: `글자가 ${read.text.length}자라 앞 ${TEXT_MAX}자만 실었다.` } : {}),
-          ...(looksLikeRrn(read.text) ? { warnings: ['원문에 주민등록번호 모양의 숫자가 있어 응답에서 가렸다. 가져온 회의록에는 싣지 않는다.'] } : {}),
+          ...(read.ocrPages?.length ? { ocrPages: read.ocrPages } : {}),
+          ...(() => {
+            const w = [];
+            if (read.ocrPages?.length) w.push(`글자층이 없어 문자 인식으로 읽은 쪽: ${read.ocrPages.join(', ')} — 잘못 읽은 글자가 있을 수 있으니 원본과 맞춰 보며 구조를 제안한다(가져온 회의록은 「가져옴 확인」 전까지 잇지 않는다).`);
+            if (looksLikeRrn(read.text)) w.push('원문에 주민등록번호 모양의 숫자가 있어 응답에서 가렸다. 가져온 회의록에는 싣지 않는다.');
+            return w.length ? { warnings: w } : {};
+          })(),
           existing: { meetings: data.minutes.map((m) => m.meeting.key), agenda: [...agenda.values()].slice(0, 300) },
           next: '원문에서 읽은 값으로 proposal 을 채워 sourceSha256 과 함께 다시 부른다. 결과는 원문에 적힌 대로, 이월 안건은 existing.agenda 의 같은 ID 를 쓴다. 원문에 없는 값은 비운다.',
         });

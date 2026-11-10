@@ -20,7 +20,8 @@ await build({
   target: 'node20',
   alias: { '@': path.join(repo, 'src') },
   // popbill 은 CJS 이고 내부에서 require 를 쓴다 — 묶지 않고 node_modules 에서 읽는다
-  external: ['popbill'],
+  // 문자 인식(스캔 회의록) — 네이티브(@napi-rs/canvas)·워커 스크립트·언어 자료가 있어 묶지 않고 설치본 node_modules 에서 읽는다(optionalDependencies)
+  external: ['popbill', '@napi-rs/canvas', 'tesseract.js', '@tesseract.js-data/kor'],
   banner: { js: "#!/usr/bin/env node\nimport { createRequire as __llgCreateRequire } from 'node:module'; const require = __llgCreateRequire(import.meta.url);" },
   logLevel: 'warning',
 });
