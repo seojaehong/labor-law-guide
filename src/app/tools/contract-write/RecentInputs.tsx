@@ -19,6 +19,8 @@ export function RecentInputs({ onLoad }: { onLoad: (s: WriteState) => void }) {
   const [entries, setEntries] = useState<HistoryEntry[]>([]);
   const [remember, setRemember] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [rememberRetry, setRememberRetry] = useState<boolean | null>(null);
+  const [clearFailed, setClearFailed] = useState(false);
 
   useEffect(() => {
     const sync = () => {
@@ -31,7 +33,13 @@ export function RecentInputs({ onLoad }: { onLoad: (s: WriteState) => void }) {
     return () => window.removeEventListener(HISTORY_CHANGED, sync);
   }, []);
 
-  if (!recentInputsVisible(ready, entries.length, remember)) return null;
+  if (!ready || (!recentInputsVisible(ready, entries.length, remember) && rememberRetry === null && !clearFailed)) return null;
+
+  const changeRemember = (next: boolean) => {
+    const changed = setHistoryRemember(HISTORY_TOOL, next);
+    setRememberRetry(changed ? null : next);
+    setMessage(null);
+  };
 
   return (
     <details className="rounded-xl border border-dashed p-3" style={{ borderColor: 'var(--color-border)' }}>
@@ -62,20 +70,27 @@ export function RecentInputs({ onLoad }: { onLoad: (s: WriteState) => void }) {
           ))}
         </ul>
         {message && <p role="status">{message}</p>}
+        {rememberRetry !== null && <p role="status">{HISTORY_COPY.rememberFailed}</p>}
+        {clearFailed && <p role="status">{HISTORY_COPY.clearFailed}</p>}
         <div className="space-y-1">
           <label className="flex items-center gap-2">
-            <input type="checkbox" checked={remember} onChange={(e) => setMessage(setHistoryRemember(HISTORY_TOOL, e.target.checked) ? null : HISTORY_COPY.rememberFailed)} />
+            <input type="checkbox" checked={remember} onChange={(e) => changeRemember(e.target.checked)} />
             {HISTORY_COPY.remember}
           </label>
-          <p className="text-xs" style={secondary}>
+          {rememberRetry === null && !clearFailed && <p className="text-xs" style={secondary}>
             {remember ? HISTORY_COPY.rememberOn : HISTORY_COPY.rememberOff}
-          </p>
+          </p>}
+          {rememberRetry !== null && <button type="button" className="min-h-[44px] underline" onClick={() => changeRemember(rememberRetry)}>{HISTORY_COPY.retryRemember}</button>}
         </div>
         <button
           type="button"
           onClick={() => {
-            setMessage(null);
-            clearHistory(HISTORY_TOOL);
+            const cleared = clearHistory(HISTORY_TOOL);
+            setClearFailed(!cleared);
+            if (cleared) {
+              setMessage(null);
+              setRememberRetry(null);
+            }
           }}
           className="inline-flex min-h-[44px] items-center justify-center rounded-md border px-4 py-2 text-sm font-semibold"
           style={{ borderColor: 'var(--color-border)' }}
