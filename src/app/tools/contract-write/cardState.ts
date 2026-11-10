@@ -37,6 +37,9 @@ export const CARD_COPY = {
   saveFailed: '저장하지 못했습니다. 브라우저 저장 공간이 가득 찼거나 저장이 막혀 있습니다. 브라우저 설정을 확인해 주세요.',
   conflict: (employee: string, start: string) =>
     `${employee} 님(${start})은 이미 다른 계약 조건으로 저장돼 있어 덮어쓰지 않았습니다. 같은 사람을 고치려면 위 「불러올 직원」에서 고른 뒤 저장해 주세요. 다른 사람이면 이름을 구분해 저장해 주세요.`,
+  ambiguousEmployee: '이름이 같은 다른 직원의 입사일 또는 계약 시작일과 겹쳐 저장하지 않았습니다. 위 「불러올 직원」에서 저장할 직원을 다시 고르고 날짜를 확인해 주세요.',
+  confirmNamesakeRenewal: (employee: string, hireDate: string, start: string) =>
+    `${employee} 님(입사일 ${hireDate})의 계약 시작일을 ${start}로 바꾸시겠습니까? 다른 동명 직원의 날짜와 같습니다. 명부에서는 선택한 직원의 조건만 바뀌고, 입사일과 다른 직원의 정보는 그대로입니다.`,
   sameNameAdded: '이름이 같은 직원이 이미 있어 새 줄로 저장했습니다. 같은 사람의 재계약이면 위 「불러올 직원」에서 고른 뒤 저장해 주세요.',
   netNotStored: '실수령액과 공제대상가족 수는 저장하지 않았습니다. 불러온 뒤 다시 넣어 주세요.',
   startFromHire: (hireDate: string) => `이 직원은 저장된 계약 시작일이 없어 입사일(${hireDate})로 채웠습니다. 재계약이면 계약 시작일을 고쳐 주세요.`,
@@ -200,7 +203,7 @@ export function cardFromState(state: WriteState): CardFromState {
 
 export type SaveResult =
   | { ok: true; workspace: Workspace; memberKey: string; message: string }
-  | { ok: false; kind: 'invalid' | 'storage' | 'conflict'; reason: string };
+  | { ok: false; kind: 'invalid' | 'storage' | 'conflict'; reason: string; confirmRenewal?: { key: string; message: string } };
 
 /**
  * 「이 근로자를 카드에 저장」. 넣을 카드 = 고른 카드(이름이 사업체명과 같을 때) → 같은 이름의 카드 → 새 카드(기억하기 꺼짐).
@@ -208,10 +211,12 @@ export type SaveResult =
  * 대표자는 넣었을 때만 바꾼다(비워 두고 저장해도 카드의 대표자를 지우지 않는다).
  * 5명 이상 여부는 고른 카드이거나 값이 없는 카드에만 쓴다 — 고르지 않았으면 화면 값은 고른 값이 아니라 기본값일 수 있다.
  * 명부에서 고른 사람(pickedKey, 이름이 같을 때)은 입사일을 지키고 조건만 바꾼다. 새 사람은 입사일 = 계약 시작일이고 그렇게 적었다고 알린다.
+ * 고른 직원의 시작일을 다른 동명 직원의 날짜로 바꾸면 입사일을 함께 보여 주고 재계약인지 확인한다.
+ * 고르지 않은 날짜가 여러 직원과 맞으면 저장 대상을 추측하지 않는다.
  * 고르지 않았는데 같은 사람으로 보이는 줄의 조건이 다르면 아무것도 쓰지 않고 conflict 를 돌려준다.
  * 저장소에서 다시 읽어 맞는지 본 뒤에만 저장했다고 말한다.
  */
-export function saveCardFromState(state: WriteState, selectedId: string | null, pickedKey: string | null = null): SaveResult {
+export function saveCardFromState(state: WriteState, selectedId: string | null, pickedKey: string | null = null, confirmedRenewalKey: string | null = null): SaveResult {
   const card = cardFromState(state);
   if (!card.ok) return { ok: false, kind: 'invalid', reason: card.reason };
   const all = listWorkspaces();
@@ -221,7 +226,18 @@ export function saveCardFromState(state: WriteState, selectedId: string | null, 
   const roster = getMembers(existing);
   const sameEmployee = (m: WorkspaceMember) => cleanInput(m.name) === card.member.name;
   const picked = selected && pickedKey ? roster.find((m) => memberKey(m) === pickedKey && sameEmployee(m)) : undefined;
-  const person = picked ?? roster.find((m) => sameEmployee(m) && (m.hireDate === state.startDate || m.terms?.startDate === state.startDate));
+  const matches = roster.filter((m) => sameEmployee(m) && (m.hireDate === state.startDate || m.terms?.startDate === state.startDate));
+  const movedToNamesake = picked && state.startDate !== (picked.terms?.startDate || picked.hireDate) && matches.some((m) => memberKey(m) !== memberKey(picked));
+  if (movedToNamesake && confirmedRenewalKey !== memberKey(picked)) {
+    return {
+      ok: false, kind: 'conflict', reason: CARD_COPY.ambiguousEmployee,
+      confirmRenewal: { key: memberKey(picked), message: CARD_COPY.confirmNamesakeRenewal(picked.name, picked.hireDate, state.startDate) },
+    };
+  }
+  if (!picked && matches.length > 1) {
+    return { ok: false, kind: 'conflict', reason: CARD_COPY.ambiguousEmployee };
+  }
+  const person = picked ?? matches[0];
   const member = person ? { ...card.member, name: person.name, hireDate: person.hireDate } : card.member;
   if (!picked && person?.terms && !same(cardPatch(null, person), cardPatch(null, member))) {
     return { ok: false, kind: 'conflict', reason: CARD_COPY.conflict(card.member.name, state.startDate) };
