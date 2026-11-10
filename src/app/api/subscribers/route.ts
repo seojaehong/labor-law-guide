@@ -56,7 +56,7 @@ export async function POST(req: Request) {
   const ipHashed = hashIp(ip);
   const userAgent = req.headers.get('user-agent')?.slice(0, 500) ?? null;
 
-  // upsert: 이미 unsubscribed인 사용자도 재구독 가능 (status=pending으로 재설정)
+  // upsert: 이미 unsubscribed인 사용자도 재구독 가능 (status=confirmed로 재설정)
   const { data: existing } = await supabaseAdmin
     .from('subscribers')
     .select('id, status, confirm_token')
@@ -76,11 +76,13 @@ export async function POST(req: Request) {
     //   확인 클릭은 법정 요건이 아니라 우리 편의였는데, 실제로는 들어온 사람을 막고 있었다
     //   (11-10 기준 대기 2명 중 한 명은 8일째였다). 대신 환영 메일에 해지 버튼을 둔다.
     // pending or unsubscribed → 바로 confirmed
-    const { data: updated } = await supabaseAdmin
+    const { data: updated, error } = await supabaseAdmin
       .from('subscribers')
       .update({
         status: 'confirmed',
         confirmed_at: new Date().toISOString(),
+        // 발송 대상은 confirmed이면서 unsubscribed_at이 비어 있는 구독자다.
+        unsubscribed_at: null,
         source: source!,
         source_slug: source_slug ?? null,
         referrer: trim(referrer, 300),
@@ -96,7 +98,11 @@ export async function POST(req: Request) {
       .select('unsubscribe_token')
       .maybeSingle();
 
-    const token = updated?.unsubscribe_token;
+    if (error || !updated) {
+      return NextResponse.json({ error: '신청 저장에 실패했습니다.' }, { status: 500 });
+    }
+
+    const token = updated.unsubscribe_token;
     if (token) {
       try {
         await sendWelcomeEmail({ to: normalized, unsubscribeToken: token });
