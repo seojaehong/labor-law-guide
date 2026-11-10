@@ -91,7 +91,7 @@ describe('퇴사 기한 세 벌 고정 — 마지막 근무일 2026-01-01 ~ 2028
   );
 
   it(
-    '(b) 엔진 상실일 산출(국민연금·건강보험·고용보험 n=1) = 사이트 상실일 — 퇴직일 칸 기준 셋 모두',
+    '(b) 엔진 상실일 산출(국민연금·건강보험·고용보험 n=1) = 사이트 상실일 — 기준 처리는 시험 안에 옮겨 적은 것(엔진 경로는 동작 지문 S19 가 지킨다)',
     () => {
       const lossRules = ['NPS12_LOSS_DATE', 'NHIS9_CHANGE_DATE', 'EI14_LOSS_DATE'].map(rule);
       for (const r of lossRules) {
