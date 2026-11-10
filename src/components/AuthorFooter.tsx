@@ -2,7 +2,8 @@ import { CONTACT_EMAIL } from '@/lib/site-contact';
 
 // 261110 — 글 끝에 「누가 쓰고 확인했는가」를 둔다.
 // 필자명이 「뉴스룸」·「위너스 에디터」 같은 데스크명이라 글이 매체처럼만 읽혔다.
-// 사진은 넣지 않는다(재홍님 261110). 상담 유도 문구도 넣지 않는다 —
+// 사진은 넣지 않는다(재홍님 261110). 법인명도 넣지 않는다 — 사이트에서 「위너스」
+// 표기를 전부 뺐다(0bbaf7b). 상담 유도 문구도 넣지 않는다 —
 // 이 사이트는 개별 사안 접수 창구가 아니다(contact/page.tsx 주석 참조).
 export default function AuthorFooter() {
   return (
@@ -27,12 +28,6 @@ export default function AuthorFooter() {
           style={{ color: 'var(--color-text-primary)' }}
         >
           공인노무사 서재홍
-          <span
-            className="ml-2 text-[13px] font-medium"
-            style={{ color: 'var(--color-text-secondary)' }}
-          >
-            노무법인 위너스
-          </span>
         </p>
         <p
           className="mt-1.5 text-[13px] leading-relaxed"

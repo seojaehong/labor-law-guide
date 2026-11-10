@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { byline } from '@/lib/byline';
 import { SITE_URL } from '@/lib/constants';
 import { supabaseServer } from '@/lib/supabase-server';
 
@@ -61,7 +62,7 @@ export async function GET() {
       <pubDate>${pubDate}</pubDate>
       <description>${escapeXml(toDescription(a.summary, a.content))}</description>
       ${a.category ? `<category>${escapeXml(a.category)}</category>` : ''}
-      ${a.author ? `<author>${escapeXml(a.author)}</author>` : ''}
+      ${`<author>${escapeXml(byline(a.author))}</author>`}
     </item>`;
     })
     .join('\n');

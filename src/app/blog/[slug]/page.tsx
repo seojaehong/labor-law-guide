@@ -9,6 +9,7 @@ import { supabaseServer } from '@/lib/supabase-server';
 import { fetchAllRows } from '@/lib/supabase-paged';
 import { SITE_URL } from '@/lib/constants';
 import { articleShare } from '@/lib/share-text';
+import { byline } from '@/lib/byline';
 import { cleanBlogSummary, extractBlogLead } from '@/lib/blog-summary';
 import { ArrowLeft, Calendar, User, Tag, BookOpen, ArrowRight, MessageSquare, ClipboardCheck } from 'lucide-react';
 import { getCategoryColor } from '@/lib/category-colors';
@@ -121,7 +122,7 @@ export async function generateMetadata({
       type: 'article',
       publishedTime: article.published_at,
       modifiedTime: article.updated_at,
-      authors: [article.author],
+      authors: [byline(article.author)],
       locale: 'ko_KR',
       images: [{ url: `${SITE_URL}/og/${slug}` }],
     },
@@ -191,7 +192,7 @@ export default async function BlogArticlePage({
         dateModified: article.updated_at,
         author: {
           '@type': 'Organization',
-          name: article.author,
+          name: byline(article.author),
           url: SITE_URL,
         },
         publisher: { '@id': `${SITE_URL}/#organization` },
@@ -258,7 +259,7 @@ export default async function BlogArticlePage({
                   style={{ color: 'var(--grey-700)' }}
                 >
                   <User size={12} />
-                  {article.author}
+                  {byline(article.author)}
                 </span>
               </div>
 
