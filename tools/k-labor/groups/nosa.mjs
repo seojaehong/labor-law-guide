@@ -16,15 +16,16 @@ import {
 import { nosaBlanks, nosaDocs, nosaErrors } from '@/lib/nosa-council/forms';
 import { ARTICLE_KEYS, meetingCheck, meetingErrors, REPORT_KEYS } from '@/lib/nosa-council/meeting';
 import { IMPL_STATUSES, meetingDocs, meetingDocsErrors, minutesRecord } from '@/lib/nosa-council/meeting-docs';
+import { DATE_KEYS as ELECTION_DATE_KEYS, ELECTION_DOC_IDS, electionDocs, electionDocsErrors } from '@/lib/nosa-council/election-docs';
 import { RULES_SOURCE } from '@/lib/nosa-council/rules-template';
 import { formHwpx, formPdf } from '@/lib/work-rules-report/render';
 import { looksLikeRrn, text } from '../lib/common.mjs';
 
-export const nosaTools = ['assess_labor_council', 'check_council_meeting', 'make_labor_council_forms', 'make_council_meeting_docs'];
+export const nosaTools = ['assess_labor_council', 'check_council_meeting', 'make_labor_council_forms', 'make_council_meeting_docs', 'make_council_election_docs'];
 /** 원격(HTTP)판에 실어도 되는 도구 — 읽기 전용, 파일·네트워크를 건드리지 않는다 */
 export const nosaRemoteSafe = ['assess_labor_council', 'check_council_meeting'];
 /** 이 PC 에 파일을 쓰는 도구 — 원격판에서 뺀다 */
-export const nosaLocalOnly = ['make_labor_council_forms', 'make_council_meeting_docs'];
+export const nosaLocalOnly = ['make_labor_council_forms', 'make_council_meeting_docs', 'make_council_election_docs'];
 
 // 서류 PDF 글꼴 — 계약서·취업규칙 신고 서류와 같은 나눔고딕 전체(OFL). 묶은 뒤에는 dist/server.mjs 하나라 here = dist/ 다.
 // (work-rules 묶음의 같은 함수를 부르지 않고 따로 둔다 — 그 묶음은 법제처·.env 모듈을 함께 불러온다)
@@ -482,6 +483,98 @@ export function registerNosa(server) {
         ...(warnings.length ? { warnings } : {}),
         boundary: BOUNDARY_NOTICE,
         review: '파일을 열어 날짜·인원·안건과 입력한 글을 확인하고, 서명 칸은 회의에서 받습니다.',
+      });
+    },
+  );
+
+  // ── 선거 서류(로컬 전용) — 한 입력에서 일곱 서류, docs 로 고른다 ──
+  server.registerTool(
+    'make_council_election_docs',
+    {
+      title: '노사협의회 근로자위원 선거 서류 만들기(로컬 전용)',
+      description:
+        '근로자위원 선거 서류를 outDir 에 PDF·한글(hwpx)로 만든다: 01 선거관리위원회 구성 공고 · 02 선거공고문(직접·비밀·무기명, 근로자 과반수 참여, 선거인 범위, 입후보 기간, 후보 수 ≤ 정원이면 찬반투표, 동점자 기준, 겸임이면 근로자대표 권한 범위) · ' +
+        '03 입후보 신청서(성명·소속·직책·연락처·서명 — 주민등록번호 칸·추천서 없음) · 04 후보자 공고 · 05 투표용지(후보 수와 정원으로 찬반형·다수득표형을 고름) · 06 개표록(선거인·투표자 수로 과반수 참여 확인, 선거구별·간접선거 2단계, 후보별 표) · 07 당선공고(설치·신고 서류의 당선공고와 같은 틀, 겸임 문구). ' +
+        '날짜를 비우면 설치 목표일에서 거꾸로 잡은 일정을 쓴다. 참여가 과반수에 못 미치면 당선공고를 만들지 않는다. 찬반투표의 당선 기준은 선거관리규정에서 정하므로 도구는 찬성·반대 수만 적고 당선 여부는 elected 로 받는다. ' +
+        '이름은 넣을 때만 싣고 서명 칸은 비워 둔다. 주민등록번호는 받지 않는다. 이미 있는 파일은 덮어쓰지 않는다. 과반수 노동조합이 있으면(위촉) 만들지 않는다.',
+      inputSchema: {
+        workplace: z.object({ name: z.string().max(100).optional().describe('사업장명(필수)') }).describe('사업장'),
+        councilName: z.string().max(100).optional().describe('노사협의회 명칭'),
+        seats: z.number().int().describe('뽑을 근로자위원 수(3~10)'),
+        majorityUnion: z.boolean().optional().describe('근로자의 과반수로 조직된 노동조합이 있다(있으면 선거 없이 위촉)'),
+        indirectReason: z.string().max(200).optional().describe('간접선거를 쓰는 부득이한 사유(법 제6조제2항 단서). 비우면 직접선거'),
+        districts: z.array(z.object({ label: z.string().max(30), seats: count().optional() })).max(30).optional().describe('선거구별 선출 — 선거구 이름과 근로자위원 수'),
+        concurrentRep: z.boolean().optional().describe('근로자위원이 근로기준법상 근로자대표를 겸한다'),
+        concurrentScope: z.array(z.string().max(100)).max(20).optional().describe('겸임 권한 범위를 하나씩'),
+        tieBreak: z.string().max(60).optional().describe('동점자 기준(협의회규정 값, 예: 근속기간이 긴 사람)'),
+        marksPerBallot: z.number().int().min(1).optional().describe('다수득표형 — 한 사람이 기표하는 수(선거관리규정 값)'),
+        targetInstallDate: date('협의회 설치 목표일 — 날짜를 비우면 여기서 거꾸로 잡는다.'),
+        dates: z.object(Object.fromEntries(ELECTION_DATE_KEYS.map((k) => [k, date({
+          committee: '선거관리위원회 구성일.', announce: '선거 공고일.', candidacyStart: '입후보 시작일(기본 공고일).', candidacyEnd: '입후보 마감일.',
+          roster: '선거인명부 확정일.', vote: '선거일.', winnerNotice: '당선 공고일.', termStart: '임기 시작일.',
+        }[k])]))).optional().describe('날짜 — 넣은 칸이 일정역산 값보다 앞선다'),
+        vote: z.object({ time: z.string().max(40).optional().describe('투표 시간'), place: z.string().max(100).optional().describe('투표 장소') }).optional().describe('투표'),
+        committee: z.array(z.object({ position: z.string().max(40).optional().describe('직위(역할)'), name: realName(), dept: z.string().max(60).optional().describe('소속') })).max(15).optional().describe('선거관리위원'),
+        candidates: z.array(z.object({
+          name: realName(), dept: z.string().max(60).optional().describe('소속'), position: z.string().max(40).optional().describe('직책'), district: z.string().max(30).optional().describe('선거구'),
+          votes: count().optional().describe('다수득표 — 득표수'), inFavor: count().optional().describe('찬반 — 찬성 수'), against: count().optional().describe('찬반 — 반대 수'),
+          elected: z.boolean().optional().describe('당선(찬반투표는 선거관리규정 기준으로 정해 넣는다)'),
+        })).max(60).optional().describe('후보 — 기호 순서대로'),
+        candidateCount: z.number().int().min(1).optional().describe('후보 이름 없이 수만 알 때'),
+        result: z.object({
+          electors: count().describe('선거인 수(간접선거면 1단계 모수)'),
+          voters: count().describe('투표자 수'),
+          delegateElectors: count().optional().describe('간접선거 2단계 — 위원선거인 수'),
+          delegateVoters: count().optional().describe('간접선거 2단계 — 그중 투표한 수'),
+          districts: z.array(z.object({ label: z.string().max(30).optional(), electors: count(), voters: count() })).max(30).optional().describe('선거구마다 선거인·투표자 수'),
+          invalid: count().optional().describe('무효표 수'),
+        }).optional().describe('개표 결과(숫자) — 06 개표록·07 당선공고에 쓴다'),
+        docs: z.array(z.enum(ELECTION_DOC_IDS)).optional().describe('만들 서류(기본 전부)'),
+        writtenDate: date('작성일(기본 오늘).'),
+        outDir: z.string().describe('저장할 폴더(없으면 만든다)'),
+        fileBase: z.string().max(80).optional().describe('파일 이름 앞부분(기본 노사협의회선거_선거일)'),
+        formats: z.array(z.enum(['pdf', 'hwpx'])).optional().describe('만들 형식(기본 pdf·hwpx)'),
+      },
+      annotations: WRITES,
+    },
+    async (a) => {
+      if (looksLikeRrn(JSON.stringify(a))) return fail('입력에 주민등록번호 모양의 숫자가 있어 만들지 않았습니다. 이 도구는 주민등록번호를 받지 않습니다.');
+      const written = a.writtenDate ? isoDate(a.writtenDate) : todayKst();
+      const input = {
+        workplace: a.workplace ?? {}, councilName: a.councilName, seats: a.seats, majorityUnion: a.majorityUnion, indirectReason: a.indirectReason, districts: a.districts,
+        concurrentRep: a.concurrentRep, concurrentScope: a.concurrentScope, tieBreak: a.tieBreak, marksPerBallot: a.marksPerBallot, targetInstallDate: a.targetInstallDate,
+        dates: a.dates, vote: a.vote, committee: a.committee, candidates: a.candidates, candidateCount: a.candidateCount, result: a.result, writtenDate: written ?? a.writtenDate,
+      };
+      const errors = electionDocsErrors(input);
+      if (errors.length) return text({ ok: false, errors, error: '맞지 않는 칸이 있어 서류를 만들지 않았습니다. 고쳐서 다시 부르세요.' });
+      const want = new Set(a.formats?.length ? a.formats : ['pdf', 'hwpx']);
+      const r = electionDocs(input, a.docs);
+      const base = safeName((a.fileBase ?? '').trim() || `노사협의회선거_${(r.dates.vote ?? written).replace(/-/g, '')}`);
+      const targets = r.made.flatMap((d) => ['pdf', 'hwpx'].filter((f) => want.has(f)).map((f) => ({ d, f, path: path.join(a.outDir, `${base}_${d.id}.${f}`) })));
+      const exists = targets.filter((x) => fs.existsSync(x.path)).map((x) => x.path);
+      if (exists.length) return fail('이미 있는 파일은 덮어쓰지 않습니다. fileBase 나 outDir 를 바꿔 주세요.', { exists });
+      if (!targets.length) return text({ ok: false, skippedDocuments: r.skipped, warnings: r.warnings, error: '만들 서류가 없습니다.' });
+
+      fs.mkdirSync(a.outDir, { recursive: true });
+      const { files, skipped } = await writeForms(targets);
+      const made = new Set(r.made.map((d) => d.id));
+      const seals = [
+        ['03_입후보신청서', '입후보 신청서 — 신청인 서명'],
+        ['06_개표록', '개표록 — 선거관리위원회 위원장·위원·참관인 서명'],
+      ].filter(([id]) => made.has(id)).map(([, s]) => `서명 필요 — ${s}`);
+      return text({
+        ok: files.length > 0,
+        files,
+        ...(skipped.length ? { skipped } : {}),
+        skippedDocuments: r.skipped,
+        dates: r.dates,
+        ballot: r.ballot,
+        check: r.check,
+        elected: r.elected,
+        sealRequired: seals,
+        ...(r.warnings.length ? { warnings: r.warnings } : {}),
+        boundary: BOUNDARY_NOTICE,
+        review: '파일을 열어 날짜·인원·후보를 확인합니다. 공고문은 선거관리위원회 이름으로 게시합니다.',
       });
     },
   );

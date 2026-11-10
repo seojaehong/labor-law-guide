@@ -149,6 +149,7 @@ const ANN = {
   // 서류는 이 PC 에 파일을 쓴다(로컬 전용). 같은 이름이 있으면 멈추므로 다시 불러도 결과가 같지 않다
   make_labor_council_forms: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
   make_council_meeting_docs: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
+  make_council_election_docs: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
 };
 // 커넥터 디렉터리 심사 — 빠진 도구 없이 전부 title 과 네 칸이 있다
 {
@@ -157,7 +158,7 @@ const ANN = {
   check(`모든 도구(${all.length})에 title·annotations 네 칸${bare.length ? ` — 빠짐: ${bare.map((t) => t.name).join(',')}` : ''}`, bare.length === 0);
 }
 // 이 판에서 더한 도구 8개 + 사이트 도구 7개(groups/more) — 「대신·대행·대리」도 함께 막는다
-const NOSA_TOOLS = ['assess_labor_council', 'check_council_meeting', 'make_labor_council_forms', 'make_council_meeting_docs'];
+const NOSA_TOOLS = ['assess_labor_council', 'check_council_meeting', 'make_labor_council_forms', 'make_council_meeting_docs', 'make_council_election_docs'];
 const NEW_TOOLS = ['calc_severance', 'calc_holiday_pay', 'calc_pay_proration', 'calc_shutdown_allowance', 'calc_annual_leave', 'settle_leave_on_exit', 'calc_retirement_tax', 'list_employer_duties', ...MORE_TOOLS, ...NOSA_TOOLS];
 const NEW_WORDS = [...WORDS, '대신', '대행', '대리'];
 const bannedNew = (s) => (banned ? banned.bannedHits(s, NEW_WORDS) : []);
@@ -456,6 +457,14 @@ if (tools.includes('make_council_meeting_docs')) {
   check('nosa 통보 늦으면 소집 통보서 만들지 않음', ml.ok === false && /2026-11-25/.test(ml.errors?.join() ?? '') && !fs.existsSync(path.join(tmp, 'nosa-late')));
   const mo = await callNew('make_council_meeting_docs', { ...MD, kind: 'minutes' });
   check(`nosa 회의록 덮어쓰지 않음(${mo.exists?.length}개)`, mo.ok === false && mo.exists?.length === 5);
+}
+if (tools.includes('make_council_election_docs')) {
+  // 합성 선거 — 후보 3 · 정원 3(찬반형) · 선거인 100 중 60 참여
+  const ED = { workplace: { name: '가상상사' }, seats: 3, targetInstallDate: '2026-12-15', candidates: [{ dept: '생산1팀' }, { dept: '생산2팀' }, { dept: '품질팀' }], result: { electors: 100, voters: 60 }, writtenDate: '2026-11-10', outDir: path.join(tmp, 'nosa-election') };
+  const ee = await callNew('make_council_election_docs', ED);
+  check(`nosa 선거 서류 7종 14파일 · 선거일 ${ee.dates?.vote} · ${ee.ballot?.method}`, ee.ok && ee.files?.length === 14 && ee.dates.vote === '2026-12-03' && ee.ballot.method === '찬반투표' && ee.check.workerMembers.met);
+  const es = await callNew('make_council_election_docs', { ...ED, result: { electors: 100, voters: 40 }, outDir: path.join(tmp, 'nosa-election-short') });
+  check('nosa 선거 참여 미달이면 당선공고 만들지 않음', es.ok && es.skippedDocuments?.some((s) => s.id === '07_당선공고') && es.files.length === 12);
 }
 
 // ── work-rules 묶음 ──

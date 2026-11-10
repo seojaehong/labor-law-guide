@@ -93,7 +93,7 @@ describe('nosa 묶음 금지어', () => {
   ];
 
   it('도구 이름·설명·입력 설명', () => {
-    expect(tools.map((t) => t.name)).toEqual(['assess_labor_council', 'check_council_meeting', 'make_labor_council_forms', 'make_council_meeting_docs']);
+    expect(tools.map((t) => t.name)).toEqual(['assess_labor_council', 'check_council_meeting', 'make_labor_council_forms', 'make_council_meeting_docs', 'make_council_election_docs']);
     for (const t of tools) {
       const schema = Object.values(t.cfg.inputSchema ?? {}).flatMap((v) => descs(v as Z)).join('\n');
       expect(bannedHits(`${t.cfg.title}\n${t.cfg.description}\n${schema}`, NOSA_WORDS), t.name).toEqual([]);
@@ -151,6 +151,27 @@ describe('nosa 묶음 금지어', () => {
       }
       const json = fs.readFileSync(path.join(dir, 'minutes', '노사협의회_20261203_정기2차_회의록.json'), 'utf8');
       expect(bannedHits(json, NOSA_WORDS)).toEqual([]);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  }, 60_000);
+
+  it('make_council_election_docs 결과 글자', async () => {
+    process.env.LLG_ROOT = process.cwd();
+    const t = tools.find((x) => x.name === 'make_council_election_docs')!;
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'nosa-banned-election-'));
+    const E = { workplace: { name: '가상상사' }, seats: 3, targetInstallDate: '2026-12-15', concurrentRep: true, candidateCount: 4, writtenDate: '2026-11-10', formats: ['hwpx'] };
+    const inputs = [
+      { ...E, outDir: path.join(dir, 'a') },
+      { ...E, candidateCount: 2, result: { electors: 100, voters: 40 }, outDir: path.join(dir, 'b') },
+      { ...E, candidateCount: undefined, candidates: [{ votes: 10 }, { votes: 10 }, { votes: 5 }, { votes: 10 }], result: { electors: 100, voters: 60 }, outDir: path.join(dir, 'c') },
+      { ...E, majorityUnion: true, seats: 11, dates: { announce: '2026-12-30' }, outDir: path.join(dir, 'd') },
+    ];
+    try {
+      for (const a of inputs) {
+        const out = (await t.handler(a)).content[0].text;
+        expect(bannedHits(out, NOSA_WORDS), out.slice(0, 80)).toEqual([]);
+      }
     } finally {
       fs.rmSync(dir, { recursive: true, force: true });
     }

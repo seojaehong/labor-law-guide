@@ -345,3 +345,49 @@ describe('make_council_meeting_docs(로컬 전용)', () => {
     expect(na.errors.join()).toMatch(/출석/);
   });
 });
+
+describe('make_council_election_docs(로컬 전용)', () => {
+  process.env.LLG_ROOT = process.cwd();
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'nosa-election-'));
+  const E = {
+    workplace: { name: '가상제조' }, seats: 3, targetInstallDate: '2026-12-15', vote: { place: '본관 1층' }, concurrentRep: true, concurrentScope: ['탄력적 근로시간제 서면합의'],
+    candidates: [{ name: '가상일', dept: '생산1팀' }, { name: '가상이', dept: '생산2팀' }, { name: '가상삼', dept: '품질팀' }], writtenDate: '2026-11-10',
+  };
+
+  it('로컬 전용 목록에 있고 원격 가능 목록에는 없다', () => {
+    expect(nosaLocalOnly).toContain('make_council_election_docs');
+    expect(nosaRemoteSafe).not.toContain('make_council_election_docs');
+  });
+
+  it('일곱 서류를 PDF·한글로 — 날짜는 일정역산, 후보 3·정원 3 이면 찬반형 투표용지', async () => {
+    const r = await call('make_council_election_docs', { ...E, result: { electors: 100, voters: 60 }, outDir: path.join(tmp, 'all') });
+    expect(r.ok).toBe(true);
+    expect(r.files).toHaveLength(14);
+    expect(r.files.map((f: { path: string }) => path.basename(f.path))).toContain('노사협의회선거_20261203_05_투표용지.pdf');
+    expect(r.dates.vote).toBe('2026-12-03');
+    expect(r.ballot.method).toBe('찬반투표');
+    expect(r.check.workerMembers.met).toBe(true);
+    expect(r.sealRequired.join()).toMatch(/참관인/);
+    expect(bannedHits(JSON.stringify(r), NOSA_WORDS)).toEqual([]);
+  }, 60_000);
+
+  it('고른 서류만 만들고, 덮어쓰지 않는다', async () => {
+    const out = path.join(tmp, 'pick');
+    const r = await call('make_council_election_docs', { ...E, docs: ['03_입후보신청서'], outDir: out, formats: ['hwpx'] });
+    expect(r.files.map((f: { path: string }) => path.basename(f.path))).toEqual(['노사협의회선거_20261203_03_입후보신청서.hwpx']);
+    const again = await call('make_council_election_docs', { ...E, docs: ['03_입후보신청서'], outDir: out, formats: ['hwpx'] });
+    expect(again.ok).toBe(false);
+    expect(again.exists).toHaveLength(1);
+  }, 30_000);
+
+  it('참여 미달이면 당선공고를 만들지 않는다 · 과반수 노동조합·주민번호 모양이면 만들지 않는다', async () => {
+    const short = await call('make_council_election_docs', { ...E, result: { electors: 100, voters: 40 }, docs: ['06_개표록', '07_당선공고'], outDir: path.join(tmp, 'short'), formats: ['hwpx'] });
+    expect(short.skippedDocuments.map((s: { id: string }) => s.id)).toEqual(['07_당선공고']);
+    const union = await call('make_council_election_docs', { ...E, majorityUnion: true, outDir: path.join(tmp, 'union') });
+    expect(union.ok).toBe(false);
+    expect(fs.existsSync(path.join(tmp, 'union'))).toBe(false);
+    const rrn = await call('make_council_election_docs', { ...E, candidates: [{ name: '900101-1234568' }], outDir: path.join(tmp, 'rrn') });
+    expect(rrn.ok).toBe(false);
+    expect(fs.existsSync(path.join(tmp, 'rrn'))).toBe(false);
+  }, 30_000);
+});

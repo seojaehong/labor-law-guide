@@ -377,24 +377,37 @@ export function quorumDoc(input: NosaFormInput): FormDoc {
 
 // ── 06 당선공고 ──────────────────────────────────────────
 
-export function noticeDoc(input: NosaFormInput): FormDoc {
-  const c = ctx(input);
-  const s = c.el?.kind === '직접선거' && c.el.workerMembers.met ? c.el.workerMembers.stages[0] : null;
-  const scope = (input.concurrentScope ?? []).map((x) => x.trim()).filter(Boolean);
+/** 당선공고 한 틀 — 설치·신고 서류(06)와 선거 서류(07)가 같이 쓴다 */
+export interface WinnerNotice {
+  electionDate?: string;
+  termStart?: string;
+  /** 참여 요건 문장. 비우면 ○○ 자리로 둔다 */
+  participation?: string;
+  concurrentRep?: boolean;
+  scope?: string[];
+  /** 당선자 — 이름은 사용자가 넣을 때만 */
+  winners?: { name?: string; dept?: string; votes?: string }[];
+  written: string;
+}
+export const directParticipation = (s: QuorumStage) => `선거인 ${s.electors}명 중 ${s.voters}명이 참여하여 근로자 과반수 참여 요건을 충족하였습니다(근참법 제6조제2항).`;
+
+export function winnerNoticeDoc(o: WinnerNotice): FormDoc {
+  const scope = (o.scope ?? []).map((x) => x.trim()).filter(Boolean);
+  const rows = o.winners?.length ? o.winners.map((w, k) => [String(k + 1), (w.name ?? '').trim(), (w.dept ?? '').trim(), w.votes ?? '']) : [['', '', '', '']];
   return {
     title: '근로자위원 당선자 공고',
     blocks: [
       { kind: 'title', text: '공  고' },
       P('제목  노사협의회 근로자위원 당선자 공고', 8),
-      P(`노사협의회 선거관리위원회는 ${ko(input.electionDate, '(선거일)')} 실시한 근로자위원 선거 결과를 다음과 같이 공고합니다.`),
+      P(`노사협의회 선거관리위원회는 ${ko(o.electionDate, '(선거일)')} 실시한 근로자위원 선거 결과를 다음과 같이 공고합니다.`),
       H('1. 당선자'),
-      GRID(['연번', '성명', '소속', '득표수'], [['', '', '', '']], [12, 30, 38, 20]),
+      GRID(['연번', '성명', '소속', '득표수'], rows, [12, 30, 38, 20]),
       SPACE(),
       H('2. 정족수 충족'),
-      P(`선거인 ${s ? s.electors : '○○'}명 중 ${s ? s.voters : '○○'}명이 참여하여 근로자 과반수 참여 요건을 충족하였습니다(근참법 제6조제2항).`),
+      P(o.participation ?? '선거인 ○○명 중 ○○명이 참여하여 근로자 과반수 참여 요건을 충족하였습니다(근참법 제6조제2항).'),
       H('3. 임기'),
-      P(`${ko(input.termStart, '(기재)')}부터 3년(근참법 제8조제1항)`),
-      ...(input.concurrentRep
+      P(`${ko(o.termStart, '(기재)')}부터 3년(근참법 제8조제1항)`),
+      ...(o.concurrentRep
         ? [
             H('4. 근로자대표 겸임'),
             P('본 선거는 선거 공고문 및 투표용지에 명시한 바에 따라, 당선된 근로자위원이 그 임기 동안 근로기준법상 근로자대표의 권한을 겸하여 행사하는 것을 내용으로 합니다. 권한 범위는 다음과 같습니다.'),
@@ -402,11 +415,20 @@ export function noticeDoc(input: NosaFormInput): FormDoc {
           ]
         : []),
       SPACE(8),
-      RIGHT(dateKo(c.written)),
+      RIGHT(dateKo(o.written)),
       RIGHT('노사협의회 선거관리위원회'),
       ...BANNER,
     ],
   };
+}
+
+export function noticeDoc(input: NosaFormInput): FormDoc {
+  const c = ctx(input);
+  const s = c.el?.kind === '직접선거' && c.el.workerMembers.met ? c.el.workerMembers.stages[0] : null;
+  return winnerNoticeDoc({
+    electionDate: input.electionDate, termStart: input.termStart, participation: s ? directParticipation(s) : undefined,
+    concurrentRep: input.concurrentRep, scope: input.concurrentScope, written: c.written,
+  });
 }
 
 // ── 07 근로자대표 겸임 선출 확인서 ─────────────────────────
