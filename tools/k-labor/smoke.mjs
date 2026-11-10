@@ -143,6 +143,17 @@ const ANN = {
     .map((n) => [n, { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true }])),
   make_form: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
   ...Object.fromEntries(['send_fax', 'send_sms'].map((n) => [n, { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: true }])),
+  // nosa — 확인은 읽기 전용(원격판에도 싣는다)
+  assess_labor_council: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+  check_council_meeting: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+  // 서류는 이 PC 에 파일을 쓴다(로컬 전용). 같은 이름이 있으면 멈추므로 다시 불러도 결과가 같지 않다
+  make_labor_council_forms: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
+  make_council_meeting_docs: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
+  make_council_election_docs: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
+  // 기록은 덧붙이기(같은 호출을 두 번 하면 두 줄), 보관함은 덮어쓰지 않으므로 다시 불러도 결과가 같지 않다
+  record_council_history: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
+  export_council_vault: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
+  import_council_minutes: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
 };
 // 커넥터 디렉터리 심사 — 빠진 도구 없이 전부 title 과 네 칸이 있다
 {
@@ -151,7 +162,8 @@ const ANN = {
   check(`모든 도구(${all.length})에 title·annotations 네 칸${bare.length ? ` — 빠짐: ${bare.map((t) => t.name).join(',')}` : ''}`, bare.length === 0);
 }
 // 이 판에서 더한 도구 8개 + 사이트 도구 7개(groups/more) — 「대신·대행·대리」도 함께 막는다
-const NEW_TOOLS = ['calc_severance', 'calc_holiday_pay', 'calc_pay_proration', 'calc_shutdown_allowance', 'calc_annual_leave', 'settle_leave_on_exit', 'calc_retirement_tax', 'list_employer_duties', ...MORE_TOOLS];
+const NOSA_TOOLS = ['assess_labor_council', 'check_council_meeting', 'make_labor_council_forms', 'make_council_meeting_docs', 'make_council_election_docs', 'record_council_history', 'export_council_vault', 'import_council_minutes'];
+const NEW_TOOLS = ['calc_severance', 'calc_holiday_pay', 'calc_pay_proration', 'calc_shutdown_allowance', 'calc_annual_leave', 'settle_leave_on_exit', 'calc_retirement_tax', 'list_employer_duties', ...MORE_TOOLS, ...NOSA_TOOLS];
 const NEW_WORDS = [...WORDS, '대신', '대행', '대리'];
 const bannedNew = (s) => (banned ? banned.bannedHits(s, NEW_WORDS) : []);
 for (const n of NEW_TOOLS) check(`${n}: 도구 목록에 있음`, tools.includes(n));
@@ -397,6 +409,87 @@ if (tools.includes('list_employer_duties')) {
   check(`duties 0명 → 1~4명 구간(${d0.count}개)`, d0.ok && d0.tier?.min === 1 && (!dutiesData || d0.count === want(1)) && d0.newAtThisTier?.length === 0);
   const d50 = await callNew('list_employer_duties', { headcount: 120, group: '의무교육' });
   check(`duties 120명 의무교육만(${d50.duties?.length}개) · 다음 구간 없음`, d50.ok && d50.tier?.min === 50 && d50.duties.every((x) => x.group === '의무교육') && d50.next === null && d50.count === (dutiesData ? want(50) : d50.count));
+}
+
+// ── nosa 묶음(노사협의회) — 기대값 = tests/unit/nosa-council-assess.test.ts(파이썬 assess.py 정답) ──
+if (tools.includes('assess_labor_council')) {
+  const n1 = await callNew('assess_labor_council', { headcount: 120, concurrentRep: true, installDate: '2026-11-20', meetingDate: '2026-12-03', election: { electors: 100, voters: 60, candidates: 3, seats: 3, notified: true, supporters: 40 }, today: '2026-11-10' });
+  check(`nosa 신고 기한 ${n1.deadlines?.report?.due} · 소집 통보 ${n1.deadlines?.convene?.due} · 찬반투표 · 겸임 두 기준 따로`,
+    n1.ok && n1.deadlines.report.due === '2026-12-05' && n1.deadlines.convene.due === '2026-11-25' && n1.election.ballot.method === '찬반투표'
+    && n1.election.workerRep.adminInterpretation.met === true && n1.election.workerRep.majoritySupport.met === false);
+  const n2 = await callNew('assess_labor_council', { headcount: 32, election: { electors: 32, voters: 1 }, today: '2026-11-10' });
+  check(`nosa 투표율 파이썬 round 와 같음(32명 중 1명 → ${n2.election?.workerMembers?.stages?.[0]?.turnout})`, n2.ok && n2.election.workerMembers.stages[0].turnout === 3.12);
+  const n3 = await callNew('assess_labor_council', { headcount: 900101_1234568 });
+  check('nosa 주민번호 모양이면 멈춤', n3.ok === false);
+}
+if (tools.includes('check_council_meeting')) {
+  const cm = await callNew('check_council_meeting', { kind: '정기', meetingDate: '2026-12-03', noticeDate: '2026-11-26', workerSeats: 10, employerSeats: 10, workerCurrent: 7, workerPresent: 4, employerPresent: 6, agenda: [{ type: '의결', inFavor: 9 }], today: '2026-11-10' });
+  check(`nosa 회의 확인 — 통보 기한 ${cm.convene?.due}(늦음) · 정원 10 출석 4 불성립 · 의결되지 않음`, cm.ok && cm.convene.due === '2026-11-25' && cm.convene.onTime === false && cm.quorum.held === false && cm.agenda[0].result === '의결되지 않음');
+  const cv = await callNew('check_council_meeting', { kind: '임시', meetingDate: '2026-12-03', workerSeats: 5, employerSeats: 5, workerPresent: 4, employerPresent: 5, agenda: [{ type: '의결', inFavor: 6 }, { type: '의결', inFavor: 5 }], today: '2026-11-10' });
+  check(`nosa 회의 확인 — 출석 9 찬성 6 의결 · 찬성 5 의결되지 않음 · 공지 ${cv.resolutionNotice?.due}`, cv.ok && cv.agenda[0].result === '의결' && cv.agenda[1].result === '의결되지 않음' && cv.resolutionNotice.due === '2026-12-13');
+}
+if (tools.includes('make_labor_council_forms')) {
+  // 합성 사업장 — 실재하지 않는 이름·번호
+  const NF = { workplace: { name: '가상상사', ownerName: '김대표', bizNo: '000-00-00000' }, headcount: 120, majorityUnion: false, concurrentRep: true, installDate: '2026-12-01', election: { electors: 100, voters: 60, candidates: 3, seats: 3, notified: true }, writtenDate: '2026-11-10', outDir: path.join(tmp, 'nosa') };
+  const nb = await callNew('make_labor_council_forms', { ...NF, workplace: { name: '' } });
+  check(`nosa 서류 사업장명이 비면 만들지 않음(${nb.blanks})`, nb.ok === false && nb.blanks?.includes('사업장명') && !fs.existsSync(NF.outDir));
+  const nm = await callNew('make_labor_council_forms', NF);
+  const nmagic = (nm.files || []).map((f) => `${f.format}:${fs.readFileSync(f.path).subarray(0, 4).toString('latin1')}`);
+  check(`nosa 서류 협의회규정 포함 14종 28파일(위촉통지서 없음) · 신고 기한 ${nm.submit?.deadline}`, nm.ok && nm.files?.length === 28 && !nm.skipped && nm.submit?.deadline === '2026-12-16'
+    && nm.skippedDocuments?.[0]?.id === '12_위촉통지서' && nmagic.every((m) => (m.startsWith('pdf:') ? m === 'pdf:%PDF' : m.endsWith('PK\u0003\u0004'))));
+  check(`nosa 협의회규정 첨부 이름(${nm.submit?.attach}) · 견본 출처는 notice 로만`, nm.submit?.attach === '노사협의회_20261110_00_협의회규정.pdf' && /부록 1/.test(nm.notice ?? ''));
+  const na = await callNew('make_labor_council_forms', NF);
+  check(`nosa 서류 덮어쓰지 않음(${na.exists?.length}개)`, na.ok === false && na.exists?.length === 28);
+  const n11 = await callNew('make_labor_council_forms', { ...NF, workerMembers: 11, outDir: path.join(tmp, 'nosa-11') });
+  check('nosa 위원 수 10명 초과면 만들지 않음', n11.ok === false && !fs.existsSync(path.join(tmp, 'nosa-11')));
+  const nr = await callNew('make_labor_council_forms', { ...NF, workplace: { name: '가상상사', tel: '900101-1234568' }, outDir: path.join(tmp, 'nosa-rrn') });
+  check('nosa 서류 주민번호 모양이면 만들지 않음', nr.ok === false && !fs.existsSync(path.join(tmp, 'nosa-rrn')));
+}
+if (tools.includes('make_council_meeting_docs')) {
+  // 합성 회의 — 출석 9(정원 5·5) · 의결 1건 찬성 6 · 이월 협의 1건 · 보고 1건
+  const MD = {
+    workplace: { name: '가상상사' }, meeting: { kind: '정기', number: 4, date: '2026-12-03', place: '회의실', noticeDate: '2026-11-25' }, seats: { worker: 5, employer: 5 }, attendance: { worker: 4, employer: 5 },
+    agenda: [{ title: '교육훈련 기본계획', type: '의결', article: '21-1', inFavor: 6 }, { id: 'A-20260903-05', title: '야간 작업 순환', type: '협의', carriedOver: true }, { title: '3분기 실적', type: '보고', article: '22-1' }],
+    writtenDate: '2026-12-04', outDir: path.join(tmp, 'nosa-meeting'),
+  };
+  const mm = await callNew('make_council_meeting_docs', { ...MD, kind: 'minutes' });
+  const mj = mm.files?.find((f) => f.format === 'json');
+  const rec = mj ? JSON.parse(fs.readFileSync(mj.path, 'utf8')) : {};
+  check(`nosa 회의록 4파일 + .json(${rec.meeting?.key}) · 결과 ${rec.agenda?.map((x) => x.result).join('/')}`, mm.ok && mm.files.length === 5 && rec.schema === 'nosa-council-minutes/1'
+    && rec.agenda?.map((x) => x.result).join() === '의결,계속 협의,보고 완료' && rec.agenda[1].id === 'A-20260903-05' && rec.keepUntil === '2029-12-04');
+  const ml = await callNew('make_council_meeting_docs', { ...MD, kind: 'notice', meeting: { ...MD.meeting, noticeDate: '2026-11-26' }, outDir: path.join(tmp, 'nosa-late') });
+  check('nosa 통보 늦으면 소집 통보서 만들지 않음', ml.ok === false && /2026-11-25/.test(ml.errors?.join() ?? '') && !fs.existsSync(path.join(tmp, 'nosa-late')));
+  const mo = await callNew('make_council_meeting_docs', { ...MD, kind: 'minutes' });
+  check(`nosa 회의록 덮어쓰지 않음(${mo.exists?.length}개)`, mo.ok === false && mo.exists?.length === 5);
+  if (tools.includes('export_council_vault')) {
+    // 위 회의록 폴더를 기록 폴더로 — 이행 기록 하나 덧붙이고 보관함으로
+    const rh = await callNew('record_council_history', { dir: MD.outDir, kind: 'implementation', implementation: { date: '2026-12-20', agendaId: 'A-20261203-01', status: '완료' } });
+    check(`nosa 이행 기록 덧붙임(${rh.record?.seq}번 · ${rh.current})`, rh.ok && rh.record.seq === 1 && rh.current === '완료(근거 없음)');
+    const vx = await callNew('export_council_vault', { dir: MD.outDir, outDir: path.join(tmp, 'nosa-vault'), today: '2027-01-10' });
+    check(`nosa 보관함 ${vx.files}파일 · 깨진 링크 ${vx.brokenLinks?.length} · 미이행 ${vx.dashboard?.overdue?.map((x) => x.status).join()}`, vx.ok && vx.brokenLinks.length === 0
+      && fs.existsSync(path.join(tmp, 'nosa-vault', '_대시보드.md')) && fs.existsSync(path.join(tmp, 'nosa-vault', '_회의록대장.xlsx')) && vx.dashboard.overdue[0]?.status === '완료(근거 없음)');
+  }
+  if (tools.includes('import_council_minutes')) {
+    // 옛 회의록(합성 txt) → ① 글자 읽기 → ② 제안 구조 확인 → 「가져옴 — 확인 전」 .json, 원본은 그대로
+    const old = path.join(tmp, 'nosa-old-minutes.txt');
+    fs.writeFileSync(old, '제5차 정기 노사협의회 회의록\n회의일시: 2027. 3. 4. 14:00\n1. 야간 작업 순환 — 계속 협의\n2. 휴게실 냉난방 — 의결\n');
+    const ir = await callNew('import_council_minutes', { dir: MD.outDir, source: old });
+    const ip = await callNew('import_council_minutes', {
+      dir: MD.outDir, source: old, sourceSha256: ir.sha256,
+      proposal: { workplace: { name: '가상상사' }, meeting: { kind: '정기', number: 5, date: '2027-03-04' }, seats: { worker: 5, employer: 5 }, writtenDate: '2027-03-04',
+        agenda: [{ id: 'A-20260903-05', title: '야간 작업 순환', type: '협의', result: '계속 협의', carriedOver: true }, { title: '휴게실 냉난방', type: '의결', article: '20-11', result: '의결' }] },
+    });
+    check(`nosa 옛 회의록 가져옴(${ip.meetingKey} · ${ip.status} · 같은 ID ${ip.sameId?.length}건 · 원문 대조 알림 ${ip.textWarnings?.length ?? 0})`, ir.ok && ir.step === 'read' && /휴게실/.test(ir.text)
+      && ip.ok && ip.status === '가져옴 — 확인 전' && fs.existsSync(ip.file) && fs.existsSync(old) && ip.sameId?.[0]?.id === 'A-20260903-05' && !ip.textWarnings);
+  }
+}
+if (tools.includes('make_council_election_docs')) {
+  // 합성 선거 — 후보 3 · 정원 3(찬반형) · 선거인 100 중 60 참여
+  const ED = { workplace: { name: '가상상사' }, seats: 3, targetInstallDate: '2026-12-15', candidates: [{ dept: '생산1팀' }, { dept: '생산2팀' }, { dept: '품질팀' }], result: { electors: 100, voters: 60 }, writtenDate: '2026-11-10', outDir: path.join(tmp, 'nosa-election') };
+  const ee = await callNew('make_council_election_docs', ED);
+  check(`nosa 선거 서류 7종 14파일 · 선거일 ${ee.dates?.vote} · ${ee.ballot?.method}`, ee.ok && ee.files?.length === 14 && ee.dates.vote === '2026-12-03' && ee.ballot.method === '찬반투표' && ee.check.workerMembers.met);
+  const es = await callNew('make_council_election_docs', { ...ED, result: { electors: 100, voters: 40 }, outDir: path.join(tmp, 'nosa-election-short') });
+  check('nosa 선거 참여 미달이면 당선공고 만들지 않음', es.ok && es.skippedDocuments?.some((s) => s.id === '07_당선공고') && es.files.length === 12);
 }
 
 // ── work-rules 묶음 ──
