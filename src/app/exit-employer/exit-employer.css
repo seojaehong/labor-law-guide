@@ -166,3 +166,5 @@
 .ee-card.is-done .ee-title { text-decoration: line-through; text-decoration-color: var(--ee-hair-strong); }
 .ee-card.is-done { opacity: 0.8; }
 .ee-next a { color: var(--ee-link-deep); text-decoration: underline; text-underline-offset: 3px; }
+/* 항목 안 도구 버튼 — 긴 문구가 grid 열을 밀어 카드 밖으로 나가지 않게 줄바꿈을 허용한다 */
+.ee-detail .ee-btn { white-space: normal; justify-self: start; max-width: 100%; padding: 10px 14px; line-height: 1.5; }

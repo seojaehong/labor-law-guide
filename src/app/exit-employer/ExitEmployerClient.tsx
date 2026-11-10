@@ -11,6 +11,17 @@ import {
 import { computeExitDates, fmtIso, fmtKo, isWeekend, parseYmd, servedMonths, type ExitDates } from './exit-dates';
 import BizNoLookup from '@/components/BizNoLookup';
 import { tierFor } from '@/lib/workplace-lookup';
+import { nhisLossHref } from '@/lib/nhis-forms/prefill';
+
+// 항목에서 바로 여는 도구 — 퇴사 한 번에(조각 0). 신고서는 마지막 근무일을 넘겨 칸을 채운다.
+const STEP_TOOLS: Record<string, (exit: string) => { label: string; href: string }> = {
+  // 신고서 도구는 늦은 신고용(지연사유 확인서를 함께 만든다) — 기한 안 신고는 EDI 에서 바로 한다
+  'hi-loss': exit => ({ label: '기한을 넘겼다면: 상실신고서·지연사유 확인서 PDF 만들기', href: nhisLossHref(exit) }),
+  severance: () => ({ label: '퇴직금 계산하기', href: '/tools/severance.html' }),
+  'annual-pay': () => ({ label: '연차수당 계산하기', href: '/tools/leave-pay' }),
+  'retire-tax': () => ({ label: '퇴직소득세 계산하기', href: '/tools/retirement-tax' }),
+  'year-end': () => ({ label: '중도퇴사 연말정산 계산하기', href: '/tools/midyear-settlement' }),
+};
 
 const TIER_MINS = TIERS.map(t => t.min) as TierMin[];
 const REASON_IDS = REASONS.map(r => r.id) as ReasonId[];
@@ -250,6 +261,13 @@ export default function ExitEmployerClient() {
                       <div className="ee-detail">
                         <p className="ee-what">{s.what}</p>
                         {note && <div className="ee-how">{note}</div>}
+                        {STEP_TOOLS[s.id] && (() => {
+                          const t = STEP_TOOLS[s.id](exit);
+                          // .html 정적 계산기는 앱 경로가 아니라 <a> 로 건다(기존 화면과 같다)
+                          return t.href.endsWith('.html')
+                            ? <a className="ee-btn ee-btn-ghost" href={t.href} data-step-tool={s.id}>{t.label}</a>
+                            : <Link className="ee-btn ee-btn-ghost" href={t.href} data-step-tool={s.id}>{t.label}</Link>;
+                        })()}
                         <div className="ee-pen"><b>법정 상한·효과</b> · {s.penalty}</div>
                         <label className="ee-check">
                           <input

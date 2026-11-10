@@ -2,8 +2,9 @@
 
 // 입력값(주민등록번호 포함)은 이 컴포넌트 안에서만 PDF 로 만든다. 서버로 가는 요청은 지사 찾기(사업장 주소)와 같은 출처 정적 자산뿐이다.
 // PDF 엔진(pdf-lib·글꼴·서식 지도)은 「PDF 만들기」를 누를 때 받는다.
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { MAX_PEOPLE, lossDateOf, parseYmd } from '@/lib/nhis-forms/dates';
+import { readPrefill } from '@/lib/nhis-forms/prefill';
 import type { AcqPerson, LossPerson, PacketInput } from '@/lib/nhis-forms/build';
 import {
   ACQ_CODES, ACQ_NOTE, BIZ_PICK, ATTACH_SIZE, BRANCH_ERROR, BRANCH_LINE, BUTTON, CEO, CHECK_BEFORE, FIELD, INPUT_ERROR, KIND_LABEL,
@@ -73,6 +74,14 @@ export default function NhisReportFormClient() {
   const [done, setDone] = useState<number | null>(null);
 
   const switchKind = (k: Kind) => { setKind(k); setPeople([blank(k)]); setDone(null); setMsg(null); };
+
+  // 퇴사 체크리스트(/exit-employer)에서 넘어오면 종류와 날짜만 채운다
+  useEffect(() => {
+    const pre = readPrefill(window.location.search);
+    if (!pre.kind) return;
+    setKind(pre.kind);
+    setPeople([{ ...blank(pre.kind), date: pre.last ?? '' }]);
+  }, []);
   const setP = (i: number, patch: Partial<P>) => setPeople(ps => ps.map((p, j) => (j === i ? { ...p, ...patch } : p)));
 
   /** q = address=… 또는 bizNo=… . 사업자번호면 서버가 근복 공개 사업장 주소로 바꿔 찾는다(여럿이면 고를 목록) */
