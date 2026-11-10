@@ -144,6 +144,20 @@ describe('화면 모델 — 시험 fixture', () => {
     expect(v.summary).toContain('대조에서 뺀 항목 1건');
   }, 60_000);
 
+  it('「두 자료의 ○○ 값이 다릅니다」는 근거가 두 파일 이상일 때만 쓰고, 한 파일 안의 차이(S05)는 「○○ 안에서 … 행마다 다릅니다」로 쓴다', async () => {
+    // S05 인사·퇴사 자료 한 파일의 2행(2026-09-30)·3행(2026-10-15) 고용 종료일이 다르다 — 「두 자료」가 아니다.
+    const r = await runFixture('S05');
+    const v = toExitCheckView(r);
+    const one = v.checkItems.find((i) => i.status === '자료 사이 차이');
+    expect(one?.text).toBe('인사·퇴사 자료 안에서 고용 종료일 값이 행마다 다릅니다.');
+    expect(one?.places).toEqual(['인사·퇴사 자료 2행 D열(2026.9.30.)', '인사·퇴사 자료 3행 D열(2026.10.15.)']);
+    // 같은 결과에서 둘째 근거를 다른 파일(4대보험 상실 자료)로 바꾸면 법률검증 2차 꼴 「두 자료의 ○○이 다릅니다」가 된다.
+    const f = r.findings.find((x) => x.reason_code === 'SAME_CONCEPT_VALUES_DIFFER')!;
+    const ev = f.evidence.map((e, i) => (i === 1 ? { ...e, file_group: 'insurance_loss' as const, file_sha256: 'sha256:other' } : e));
+    const two = toExitCheckView({ ...r, findings: [{ ...f, evidence: ev }] } as CoreReport);
+    expect(two.checkItems[0]!.text).toBe('두 자료의 고용 종료일 값이 다릅니다.');
+  }, 60_000);
+
   it('날짜 관계를 셈하지 못한 표시(deadline_candidates_not_computed)는 대조한 항목에서 빼고 대조하지 못한 항목으로 적는다(S05)', async () => {
     const r = await runFixture('S05');
     const notComputed = r.compared_items.filter((c) => c.item.startsWith('deadline_candidates_not_computed:'));

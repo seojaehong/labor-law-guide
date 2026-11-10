@@ -128,6 +128,11 @@ export const REASON_TEXT: Readonly<Record<string, string>> = {
   NO_FILE_HASH_OR_LOCATOR: '{group}의 일부 값에 파일·행 위치 기록이 없습니다.',
 };
 
+/** 근거가 한 파일 안에만 있을 때 바꿔 쓰는 문장(「두 자료의」가 사실이 아닐 때). */
+export const REASON_TEXT_ONE_FILE: Readonly<Record<string, string>> = {
+  SAME_CONCEPT_VALUES_DIFFER: '{group} 안에서 {column} 값이 행마다 다릅니다.',
+};
+
 /** 자료를 대조에 쓰지 못한 사유 → 문장. */
 export const GATE_REASON_TEXT: Readonly<Record<string, string>> = {
   MISSING_KEY_COLUMN: '{group}에 맞춰 보는 데 꼭 필요한 칸({fields})이 없어 이 자료를 대조에 쓰지 못했습니다.',

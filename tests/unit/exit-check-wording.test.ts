@@ -145,6 +145,13 @@ describe('문안 두 파일(labels.ts·copy.ts)', () => {
     expect(bad).toEqual([]);
   });
 
+  it('법률검증 2차 C-운영자표시 문장 꼴을 그대로 쓴다(0건 문장 · 확인이 필요한 항목 · 두 자료의 ○○이 다릅니다)', () => {
+    expect(COPY.ZERO_NOTE).toBe('대조한 {n}개 항목에서 차이가 발견되지 않았습니다.');
+    expect(COPY.SCOPE_NOTE.startsWith('대조하지 않은 항목: ')).toBe(true);
+    expect(COPY.HEADING_CHECK).toBe('확인이 필요한 항목');
+    expect(LABELS.REASON_TEXT.SAME_CONCEPT_VALUES_DIFFER).toBe('두 자료의 {field} 값이 다릅니다.');
+  });
+
   it('자료 묶음 이름은 넷 다 「자료」로 끝난다(문장 틀이 「자료에·자료를·자료가」로 조사를 고정해 둔다)', () => {
     expect(Object.keys(LABELS.FILE_GROUP_LABEL).sort()).toEqual([...FILE_GROUPS].sort());
     for (const v of Object.values(LABELS.FILE_GROUP_LABEL)) expect(v).toMatch(/자료$/);

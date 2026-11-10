@@ -16,6 +16,7 @@ import {
   NOT_COMPARED_LABEL,
   NOT_COMPUTED_TEXT,
   REASON_TEXT,
+  REASON_TEXT_ONE_FILE,
   SCHEME_LABEL,
   STATUS_LABEL,
 } from './labels';
@@ -143,9 +144,16 @@ function findingGroup(f: Finding, p: ParsedField): string | null {
   return ev?.file_group ?? null;
 }
 
+/** 값을 본 근거(observed·reference)가 걸친 파일 수. 직접 입력 행은 파일 하나로 센다. */
+function sourceCount(f: Finding): number {
+  const seen = f.evidence.filter((e) => e.role === 'observed' || e.role === 'reference').map((e) => e.file_sha256 ?? 'inline');
+  return new Set(seen).size;
+}
+
 function findingText(f: Finding): string {
   const p = parseField(f.field);
-  const template = lookup(REASON_TEXT, f.reason_code) ?? C.REASON_FALLBACK;
+  const oneFile = sourceCount(f) <= 1 ? lookup(REASON_TEXT_ONE_FILE, f.reason_code) : undefined;
+  const template = oneFile ?? lookup(REASON_TEXT, f.reason_code) ?? C.REASON_FALLBACK;
   return fill(template, {
     field: fieldPhrase(p),
     column: columnPhrase(p) ?? C.FIELD_FALLBACK,
