@@ -15,6 +15,7 @@ import {
   caseCollisions, councilVault, DOC_LOG, DOC_STAGES, docEventErrors, IMPL_LOG, implHistory, implLabel, implRecordErrors, importedMinutes, importErrors, importMatches,
   importTextWarnings, IMPORTED, RESULT_NODES, wikilinks,
 } from '@/lib/nosa-council/records';
+import { GRIEVANCE_CATEGORIES, GRIEVANCE_KEEP_NOTE, GRIEVANCE_LOG, GRIEVANCE_STAGES, grievanceCases, grievanceRecordErrors } from '@/lib/nosa-council/grievance';
 import { argsLookLikeRrn, looksLikeRrn, text } from '../lib/common.mjs';
 import { appendJsonl, loadCouncilDir, sha256File } from '../lib/council-dir.mjs';
 import { readRulesFile, RULES_FILE_KINDS } from '../lib/rules-file.mjs';
@@ -53,10 +54,19 @@ export function registerNosaRecords(server) {
       description:
         '기록 폴더(회의록 .json 이 있는 폴더)에 한 줄을 덧붙인다. 고치거나 지우지 않는다 — 잘못 적었으면 corrects(고칠 기록 번호)를 단 새 기록을 붙인다. ' +
         'kind = implementation: 의결 안건의 이행 기록(_이행기록.jsonl — 일자·상태(미착수/진행/완료/보류/철회)·담당 직위·내용·근거·확인한 회의). 현재 상태는 마지막 기록이고, 근거 없는 완료는 「완료(근거 없음)」으로 본다. ' +
-        'kind = minutes: 회의록 이력(_회의록이력.jsonl — 초안·회람·수정(사유)·서명 완료·공지·가져옴 확인). 파일 경로를 주면 그 판의 SHA-256 을 함께 남겨 서명본이 나중에 바뀌었는지 대장에서 본다. 주민등록번호는 받지 않는다.',
+        'kind = minutes: 회의록 이력(_회의록이력.jsonl — 초안·회람·수정(사유)·서명 완료·공지·가져옴 확인). 파일 경로를 주면 그 판의 SHA-256 을 함께 남겨 서명본이 나중에 바뀌었는지 대장에서 본다. ' +
+        'kind = grievance: 고충처리 대장(_고충대장.jsonl — 사건 번호 G-…·단계(청취/통보/회의 부의/종결)·날짜·분류·부의한 안건 ID). 처리결과 통보 기한은 청취일부터 10일(법 제28조제1항), 처리하기 곤란한 사항은 협의회 회의에 부친다(같은 조 제2항), 대장은 1년간 보존(시행령 제9조). 이름·사연은 받지 않는다. 주민등록번호는 받지 않는다.',
       inputSchema: {
         dir: z.string().describe('기록 폴더(회의록 .json 이 있는 폴더)'),
-        kind: z.enum(['implementation', 'minutes']).describe('implementation 이행 기록 / minutes 회의록 이력'),
+        kind: z.enum(['implementation', 'minutes', 'grievance']).describe('implementation 이행 기록 / minutes 회의록 이력 / grievance 고충처리 대장'),
+        grievance: z.object({
+          caseId: z.string().max(30).describe('사건 번호 — G- 로 시작하는 영문·숫자(예: G-2026-001). 이름을 넣지 않는다'),
+          stage: z.enum(GRIEVANCE_STAGES).describe('단계 — 청취(기한의 기산점)·통보·회의 부의·종결'),
+          date: z.string().describe('그 단계의 날짜 YYYY-MM-DD'),
+          category: z.enum(GRIEVANCE_CATEGORIES).optional().describe('분류 — 청취에 꼭'),
+          agendaId: z.string().max(40).optional().describe('회의 부의 — 협의회 안건 ID'),
+          corrects: z.number().int().min(1).optional().describe('정정 — 고칠 기록 번호(seq)'),
+        }).optional().describe('kind = grievance 일 때'),
         implementation: z.object({
           date: z.string().describe('일자 YYYY-MM-DD'),
           agendaId: z.string().max(40).describe('의결 안건 ID'),
@@ -87,6 +97,16 @@ export function registerNosaRecords(server) {
         return fail(e instanceof Error ? e.message : String(e));
       }
       const warnings = [];
+      if (a.kind === 'grievance') {
+        const r = a.grievance ?? {};
+        const rec0 = { caseId: r.caseId?.trim(), stage: r.stage, date: isoDate(r.date) ?? r.date, category: r.category, agendaId: r.agendaId?.trim() || undefined, corrects: r.corrects };
+        const errors = grievanceRecordErrors(rec0, data.grievances);
+        if (errors.length) return text({ ok: false, errors, error: '맞지 않는 칸이 있어 덧붙이지 않았습니다.' });
+        if (rec0.agendaId && !data.minutes.some((m) => m.agenda.some((x) => x.id === rec0.agendaId))) warnings.push(`기록 폴더의 회의록에서 안건 ${rec0.agendaId} 를 찾지 못했다 — 부의한 회의의 회의록을 만든 뒤에 보관함에서 이어진다.`);
+        const rec = appendJsonl(path.join(a.dir, GRIEVANCE_LOG), rec0);
+        const c = grievanceCases([...data.grievances, rec], todayKst()).find((x) => x.caseId === rec.caseId);
+        return text({ ok: true, file: path.join(a.dir, GRIEVANCE_LOG), record: rec, case: c, keep: GRIEVANCE_KEEP_NOTE, ...(warnings.length ? { warnings } : {}) });
+      }
       if (a.kind === 'implementation') {
         const r = a.implementation ?? {};
         const errors = implRecordErrors({ ...r, date: isoDate(r.date) ?? r.date });
@@ -144,7 +164,7 @@ export function registerNosaRecords(server) {
       if (!data.minutes.length) return text({ ok: false, error: '기록 폴더에 회의록 .json 이 없습니다.', ...(data.skipped.length ? { skippedFiles: data.skipped } : {}) });
       const paths = [...data.events.map((e) => e.path), ...data.minutes.map((m) => m.import?.source?.path)].filter(Boolean);
       const hashes = Object.fromEntries([...new Set(paths)].map((p) => [p, sha256File(p)]));
-      const v = councilVault(data.minutes, data.records, data.events, hashes, today);
+      const v = councilVault(data.minutes, data.records, data.events, hashes, today, data.grievances);
       const clashes = caseCollisions(v.files.map((f) => f.path));
       if (clashes.length) return fail('대소문자만 다른 안건 ID 가 있어 한 파일로 겹칩니다. 회의록의 안건 ID 를 고쳐 주세요.', { clashes: clashes.slice(0, 20) });
       const targets = [...v.files.map((f) => f.path), '_회의록대장.xlsx'].map((p) => path.join(a.outDir, p));
@@ -169,6 +189,7 @@ export function registerNosaRecords(server) {
           agenda: v.graph.nodes.filter((n) => n.type === '안건').length,
           edges: v.graph.edges.length,
           carried: v.graph.edges.filter((e) => e.type === '이월').length,
+          grievances: d.grievances.length,
         },
         brokenLinks,
         dashboard: {
@@ -179,6 +200,7 @@ export function registerNosaRecords(server) {
           missingReports: d.missingReports.map((x) => x.meeting),
           unconfirmed: d.unconfirmed,
           candidates: d.candidates.length,
+          grievancesLate: d.grievancesLate.map((c) => ({ caseId: c.caseId, due: c.due, notified: c.notified })),
         },
         ...(v.ledger.warnings.length ? { warnings: v.ledger.warnings } : {}),
         ...(data.skipped.length ? { skippedFiles: data.skipped } : {}),

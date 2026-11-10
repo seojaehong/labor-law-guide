@@ -5,6 +5,7 @@
 // 가져온 회의록(import.status = 「가져옴 — 확인 전」)은 「가져옴 확인」 기록이 생기기 전까지 선을 만들지 않는다.
 // 파일 읽기·쓰기·해시 계산은 도구(tools/k-labor)가 하고, 여기는 받은 값만 계산한다(오늘 날짜도 받는다).
 import { addDays, isoDate, MINUTES_KEEP_YEARS } from './assess';
+import { GRIEVANCE_KEEP_NOTE, grievanceCases, type GrievanceRecord } from './grievance';
 import { ARTICLES, articleOf, regularInterval, retentionEnd, type IntervalStatus } from './meeting';
 import {
   IMPL_STATUSES, meetingDocsErrors, minutesRecord, type AgendaDocInput, type GraphResult, type ImplStatus, type MeetingDocsInput, type MinutesRecord, type PreviousResolutionInput,
@@ -271,8 +272,8 @@ function regularGaps(sorted: readonly MinutesLike[], today: string): Gap[] {
 
 // ── 그래프 ───────────────────────────────────────────────
 
-export type NodeType = '협의회' | '회의' | '안건' | '결과' | '이행' | '법조문' | '위원';
-export type EdgeType = '개최' | '다룸' | '분류' | '결과' | '이월' | '이행' | '제안';
+export type NodeType = '협의회' | '회의' | '안건' | '결과' | '이행' | '법조문' | '위원' | '고충';
+export type EdgeType = '개최' | '다룸' | '분류' | '결과' | '이월' | '이행' | '제안' | '부의';
 export interface GEdge { type: EdgeType; from: string; to: string; agenda?: string; meeting?: string }
 export interface GNode { id: string; type: NodeType }
 
@@ -282,7 +283,7 @@ export const councilName = (minutes: readonly MinutesLike[]) => `${t(minutes[0]?
 const implNode = (id: string) => `${id} 이행`;
 
 /** 노드·선 — 확인된 회의록의 구조화 값에서만 */
-export function councilGraph(minutes: readonly MinutesLike[], records: readonly ImplRecord[], events: readonly DocEvent[]) {
+export function councilGraph(minutes: readonly MinutesLike[], records: readonly ImplRecord[], events: readonly DocEvent[], grievances: readonly GrievanceRecord[] = []) {
   const ok = [...minutes].filter((m) => isConfirmed(m, events)).sort(byDate);
   const nodes = new Map<string, GNode>();
   const edges: GEdge[] = [];
@@ -327,6 +328,11 @@ export function councilGraph(minutes: readonly MinutesLike[], records: readonly 
     node(implNode(r.agendaId), '이행');
     edge({ type: '이행', from: r.agendaId, to: implNode(r.agendaId) });
   }
+  // 고충 — 사건 번호만 노드로. 부의 선은 확인된 회의록에 그 안건 ID 가 있을 때만(법 제28조제2항)
+  for (const c of grievanceCases(grievances, '9999-12-31')) {
+    node(c.caseId, '고충');
+    if (c.referredAgendaId && occ.has(c.referredAgendaId)) edge({ type: '부의', from: c.caseId, to: c.referredAgendaId });
+  }
   return { nodes: [...nodes.values()], edges, hist, confirmed: ok };
 }
 
@@ -347,8 +353,8 @@ export function titleSimilarity(a: string, b: string): number {
 }
 export const SIMILAR_AT = 0.5;
 
-export function councilDashboard(minutes: readonly MinutesLike[], records: readonly ImplRecord[], events: readonly DocEvent[], today: string) {
-  const g = councilGraph(minutes, records, events);
+export function councilDashboard(minutes: readonly MinutesLike[], records: readonly ImplRecord[], events: readonly DocEvent[], today: string, grievances: readonly GrievanceRecord[] = []) {
+  const g = councilGraph(minutes, records, events, grievances);
   const ok = g.confirmed;
   const overdue = resolutions(ok, events).flatMap((r) => {
     const cur = (g.hist[r.agendaId] ?? []).filter((e) => e.date >= r.date).at(-1);
@@ -369,7 +375,9 @@ export function councilDashboard(minutes: readonly MinutesLike[], records: reado
     .map((m) => ({ meeting: m.meeting.key, missing: m.check.reports.missing }));
   const unconfirmed = minutes.filter((m) => !isConfirmed(m, events)).map((m) => m.meeting.key);
   const candidates = similarPairs(minutes.filter((m) => !isConfirmed(m, events)), ok);
-  return { overdue, carried, untouched, gaps, missingReports, unconfirmed, candidates };
+  const grievances_ = grievanceCases(grievances, today);
+  const grievancesLate = grievances_.filter((c) => c.late && !c.closed);
+  return { overdue, carried, untouched, gaps, missingReports, unconfirmed, candidates, grievances: grievances_, grievancesLate };
 }
 
 /** 가져온 안건과 제목이 비슷한(ID 는 다른) 확인된 안건 — 「후보」로만 보이고 선은 만들지 않는다. 같은 쌍은 한 번만 */
@@ -398,9 +406,9 @@ const STATUS_MEETING = (m: MinutesLike, events: readonly DocEvent[]) => (isConfi
 
 export interface VaultFile { path: string; text: string }
 
-export function councilVault(minutes: readonly MinutesLike[], records: readonly ImplRecord[], events: readonly DocEvent[], hashes: Record<string, string | null>, today: string) {
-  const g = councilGraph(minutes, records, events);
-  const d = councilDashboard(minutes, records, events, today);
+export function councilVault(minutes: readonly MinutesLike[], records: readonly ImplRecord[], events: readonly DocEvent[], hashes: Record<string, string | null>, today: string, grievances: readonly GrievanceRecord[] = []) {
+  const g = councilGraph(minutes, records, events, grievances);
+  const d = councilDashboard(minutes, records, events, today, grievances);
   const ledger = councilLedger(minutes, events, hashes, today);
   const files: VaultFile[] = [];
   const add = (path: string, front: Record<string, unknown>, body: string[]) => files.push({ path, text: `${yaml(front)}${body.join('\n')}\n` });
@@ -484,6 +492,17 @@ export function councilVault(minutes: readonly MinutesLike[], records: readonly 
     add(`법조문/${lawName(k)}.md`, { type: '법조문', id: lawName(k), key: k }, [`# ${lawName(k)}`, '', a.text]);
   }
   for (const side of ['근로자위원', '사용자위원'] as const) if (g.nodes.some((n) => n.id === side)) add(`위원/${side}.md`, { type: '위원', id: side }, [`# ${side}`, '', '직위·구분만 둔다. 실명은 회의록 파일에만 있다.']);
+  for (const c of d.grievances) {
+    const linked = g.edges.some((e) => e.type === '부의' && e.from === c.caseId);
+    add(`고충/${c.caseId}.md`, { type: '고충', id: c.caseId, category: c.category, status: c.status, heard: c.heard, due: c.due, notified: c.notified, late: c.late, closed: c.closed }, [
+      `# 고충 ${c.caseId}`,
+      '',
+      `분류 ${c.category ?? ''} · 청취 ${c.heard} · 처리결과 통보 기한 ${c.due}(법 제28조제1항, 청취일부터 10일)${c.notified ? ` · 통보 ${c.notified}` : ''}${c.late ? ' **기한 경과**' : ''}${c.closed ? ` · 종결 ${c.closed}` : ''}`,
+      ...(c.referredAgendaId ? ['', `협의회 부의(법 제28조제2항): ${linked ? L(c.referredAgendaId) : `\`${c.referredAgendaId}\` — 확인된 회의록에 이 안건이 없어 잇지 않았다`}`] : []),
+      '',
+      `이름·사연은 이 보관함에 두지 않는다. ${GRIEVANCE_KEEP_NOTE}`,
+    ]);
+  }
 
   const dash = [
     `# 노사협의회 대시보드 (${today})`,
@@ -504,6 +523,10 @@ export function councilVault(minutes: readonly MinutesLike[], records: readonly 
     '',
     '## 정기회의 보고사항 누락(법 제22조제1항)',
     ...(d.missingReports.length ? d.missingReports.map((x) => `- ${L(x.meeting)} 빠진 보고: ${x.missing.join(', ')}`) : ['- 없음']),
+    '',
+    '## 고충 처리결과 통보 기한 경과(법 제28조제1항, 청취일부터 10일)',
+    ...(d.grievancesLate.length ? d.grievancesLate.map((c) => `- ${L(c.caseId)} ${c.category ?? ''} — 청취 ${c.heard} · 기한 ${c.due}${c.notified ? ` · 통보 ${c.notified}(늦음)` : ' · 통보 기록 없음'}`) : ['- 없음']),
+    ...(d.grievances.length ? [`- ${GRIEVANCE_KEEP_NOTE}`] : []),
     '',
     `## ${IMPORTED}`,
     ...(d.unconfirmed.length ? d.unconfirmed.map((k) => `- ${L(k)} — 확인하면(가져옴 확인 기록) 선이 생긴다`) : ['- 없음']),

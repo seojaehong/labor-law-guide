@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { bannedHits } from '@/lib/tool-kit/banned';
 import { minutesRecord, type MeetingDocsInput } from '@/lib/nosa-council/meeting-docs';
 import { retentionEnd } from '@/lib/nosa-council/meeting';
+import { appendGrievance } from '@/lib/nosa-council/grievance';
 import {
   appendRecord, caseCollisions, councilDashboard, councilGraph, isConfirmed, councilLedger, councilVault, implHistory, implLabel, importedMinutes, importErrors, importMatches,
   importTextWarnings, IMPORTED, minutesShapeErrors, previousResolutionsFor, wikilinks,
@@ -101,6 +102,34 @@ describe('이행 이력 — 덧붙이기만', () => {
     expect(isConfirmed(imp('ab'.repeat(32)), [ev])).toBe(true);
     expect(isConfirmed(imp('cd'.repeat(32)), [ev])).toBe(false);
     expect(isConfirmed(imp('cd'.repeat(32)), [{ ...ev, sha256: undefined }])).toBe(true); // 해시 없는 옛 기록은 키로만
+  });
+});
+
+describe('고충 노드 — 사건 번호·분류·단계만, 부의 선은 확인된 회의록의 안건에만', () => {
+  let gs = appendGrievance([], { caseId: 'G-2026-001', stage: '청취', date: '2026-03-02', category: '작업환경·안전' });
+  gs = appendGrievance(gs, { caseId: 'G-2026-001', stage: '회의 부의', date: '2026-03-04', agendaId: 'A-20260305-02' });
+  gs = appendGrievance(gs, { caseId: 'G-2026-002', stage: '청취', date: '2026-11-01', category: '임금' });
+  gs = appendGrievance(gs, { caseId: 'G-2026-002', stage: '회의 부의', date: '2026-11-03', agendaId: 'A-29990101-01' });
+  it('그래프 — 고충 노드 둘, 부의 선은 회의록에 있는 안건으로만', () => {
+    const g = councilGraph(ALL, [], [], gs);
+    expect(g.nodes.filter((n) => n.type === '고충').map((n) => n.id)).toEqual(['G-2026-001', 'G-2026-002']);
+    expect(g.edges.filter((e) => e.type === '부의')).toEqual([{ type: '부의', from: 'G-2026-001', to: 'A-20260305-02' }]);
+  });
+  it('대시보드·보관함 — 통보 기한 경과를 알리고, 대장 1년 보존을 적고, 깨진 링크가 없다', () => {
+    const d = councilDashboard(ALL, [], [], '2026-11-20', gs);
+    expect(d.grievancesLate.map((c) => c.caseId)).toEqual(['G-2026-001', 'G-2026-002']);
+    const v = councilVault(ALL, [], [], {}, '2026-11-20', gs);
+    const f = v.files.find((x) => x.path === '고충/G-2026-001.md')!.text;
+    expect(f).toMatch(/^type: "고충"$/m);
+    expect(f).toMatch(/^due: "2026-03-12"$/m);
+    expect(wikilinks(f)).toContain('A-20260305-02');
+    expect(wikilinks(v.files.find((x) => x.path === '고충/G-2026-002.md')!.text)).not.toContain('A-29990101-01');
+    const dash = v.files.find((x) => x.path === '_대시보드.md')!.text;
+    expect(dash).toContain('G-2026-002');
+    expect(dash).toContain('1년간 보존');
+    const names = new Set(v.files.map((x) => x.path.split('/').pop()!.replace(/\.md$/, '')));
+    expect(v.files.flatMap((x) => wikilinks(x.text).filter((t) => !names.has(t)))).toEqual([]);
+    expect(bannedHits(v.files.map((x) => x.text).join('\n'), WORDS)).toEqual([]);
   });
 });
 
