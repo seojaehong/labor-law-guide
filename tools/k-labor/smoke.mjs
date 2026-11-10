@@ -145,6 +145,7 @@ const ANN = {
   ...Object.fromEntries(['send_fax', 'send_sms'].map((n) => [n, { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: true }])),
   // nosa — 확인은 읽기 전용(원격판에도 싣는다)
   assess_labor_council: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+  check_council_meeting: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
   // 서류는 이 PC 에 파일을 쓴다(로컬 전용). 같은 이름이 있으면 멈추므로 다시 불러도 결과가 같지 않다
   make_labor_council_forms: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
 };
@@ -155,7 +156,7 @@ const ANN = {
   check(`모든 도구(${all.length})에 title·annotations 네 칸${bare.length ? ` — 빠짐: ${bare.map((t) => t.name).join(',')}` : ''}`, bare.length === 0);
 }
 // 이 판에서 더한 도구 8개 + 사이트 도구 7개(groups/more) — 「대신·대행·대리」도 함께 막는다
-const NOSA_TOOLS = ['assess_labor_council', 'make_labor_council_forms'];
+const NOSA_TOOLS = ['assess_labor_council', 'check_council_meeting', 'make_labor_council_forms'];
 const NEW_TOOLS = ['calc_severance', 'calc_holiday_pay', 'calc_pay_proration', 'calc_shutdown_allowance', 'calc_annual_leave', 'settle_leave_on_exit', 'calc_retirement_tax', 'list_employer_duties', ...MORE_TOOLS, ...NOSA_TOOLS];
 const NEW_WORDS = [...WORDS, '대신', '대행', '대리'];
 const bannedNew = (s) => (banned ? banned.bannedHits(s, NEW_WORDS) : []);
@@ -414,6 +415,12 @@ if (tools.includes('assess_labor_council')) {
   check(`nosa 투표율 파이썬 round 와 같음(32명 중 1명 → ${n2.election?.workerMembers?.stages?.[0]?.turnout})`, n2.ok && n2.election.workerMembers.stages[0].turnout === 3.12);
   const n3 = await callNew('assess_labor_council', { headcount: 900101_1234568 });
   check('nosa 주민번호 모양이면 멈춤', n3.ok === false);
+}
+if (tools.includes('check_council_meeting')) {
+  const cm = await callNew('check_council_meeting', { kind: '정기', meetingDate: '2026-12-03', noticeDate: '2026-11-26', workerSeats: 10, employerSeats: 10, workerCurrent: 7, workerPresent: 4, employerPresent: 6, agenda: [{ type: '의결', inFavor: 9 }], today: '2026-11-10' });
+  check(`nosa 회의 확인 — 통보 기한 ${cm.convene?.due}(늦음) · 정원 10 출석 4 불성립 · 의결되지 않음`, cm.ok && cm.convene.due === '2026-11-25' && cm.convene.onTime === false && cm.quorum.held === false && cm.agenda[0].result === '의결되지 않음');
+  const cv = await callNew('check_council_meeting', { kind: '임시', meetingDate: '2026-12-03', workerSeats: 5, employerSeats: 5, workerPresent: 4, employerPresent: 5, agenda: [{ type: '의결', inFavor: 6 }, { type: '의결', inFavor: 5 }], today: '2026-11-10' });
+  check(`nosa 회의 확인 — 출석 9 찬성 6 의결 · 찬성 5 의결되지 않음 · 공지 ${cv.resolutionNotice?.due}`, cv.ok && cv.agenda[0].result === '의결' && cv.agenda[1].result === '의결되지 않음' && cv.resolutionNotice.due === '2026-12-13');
 }
 if (tools.includes('make_labor_council_forms')) {
   // 합성 사업장 — 실재하지 않는 이름·번호

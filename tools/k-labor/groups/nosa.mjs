@@ -13,13 +13,14 @@ import {
   addDays, assess, BOUNDARY_NOTICE, deadline, electionCheck, electionErrors, INDIRECT_REASONS, isoDate, quorumMeeting, REPORT_DAYS,
 } from '@/lib/nosa-council/assess';
 import { nosaBlanks, nosaDocs, nosaErrors } from '@/lib/nosa-council/forms';
+import { ARTICLE_KEYS, meetingCheck, meetingErrors, REPORT_KEYS } from '@/lib/nosa-council/meeting';
 import { RULES_SOURCE } from '@/lib/nosa-council/rules-template';
 import { formHwpx, formPdf } from '@/lib/work-rules-report/render';
 import { looksLikeRrn, text } from '../lib/common.mjs';
 
-export const nosaTools = ['assess_labor_council', 'make_labor_council_forms'];
+export const nosaTools = ['assess_labor_council', 'check_council_meeting', 'make_labor_council_forms'];
 /** 원격(HTTP)판에 실어도 되는 도구 — 읽기 전용, 파일·네트워크를 건드리지 않는다 */
-export const nosaRemoteSafe = ['assess_labor_council'];
+export const nosaRemoteSafe = ['assess_labor_council', 'check_council_meeting'];
 /** 이 PC 에 파일을 쓰는 도구 — 원격판에서 뺀다 */
 export const nosaLocalOnly = ['make_labor_council_forms'];
 
@@ -161,6 +162,54 @@ export function registerNosa(server) {
         boundary: BOUNDARY_NOTICE,
         documents: '서류(설치의무·선출방식·정족수 확인서, 선거관리규정, 선거인명부, 당선공고, 소집통보서, 고충처리 서류, 노동포털 제출 입력값)는 로컬 전용 make_labor_council_forms 로 PDF·한글 파일을 만든다.',
         notice: '근로자참여 및 협력증진에 관한 법률·같은 법 시행령과 고용노동부 「노사협의회 운영 매뉴얼」(2022. 12.)을 정리한 일반 기준이다. 사업장 사정에 따라 달라질 수 있으니 원문과 함께 확인한다.',
+      });
+    },
+  );
+
+  // ── 회의 확인(원격 가능) — 서류 도구와 같은 meetingCheck 결과를 낸다 ──
+  server.registerTool(
+    'check_council_meeting',
+    {
+      title: '노사협의회 회의 확인',
+      description:
+        '노사협의회 회의 하나를 확인한다: ① 소집 통보 기한(개최일 − 8일 — 통보일은 세지 않고 개최일 전 7일, 법 제13조제3항) ② 정기회의 3개월(법 제12조제1항 — 3개월 기간마다 1회 이상이라 직전 정기회의 + 3개월이 지나면 「확인 필요」, 6개월이 지나면 「빈 기간 있음」으로 알린다) ' +
+        '③ 개최 정족수(협의회규정상 정원 기준 근로자위원·사용자위원 각 과반수 출석, 현원 기준이 아니다) ④ 안건별 의결(출석위원 3분의 2 이상, 올림) ⑤ 법 제21조 의결사항을 의결하지 못하면 임의 중재(법 제25조) 안내 ⑥ 정기회의 보고사항(법 제22조제1항 4개) 누락 ⑦ 의결사항 공지 기한(협의회규정 값, 견본 10일). ' +
+        '숫자·날짜·선택지만 받고 안건 제목·이름은 받지 않는다. 통보서·회의자료·회의록·공지문은 로컬 전용 서류 도구로 만든다. 일반 기준을 정리한 참고 결과다.',
+      inputSchema: {
+        kind: z.enum(['정기', '임시']).describe('회의 종류'),
+        meetingDate: z.string().describe('개최일 YYYY-MM-DD'),
+        noticeDate: date('소집 통보일.'),
+        previousRegularDate: date('직전 정기회의일(정기회의 간격을 볼 때).'),
+        workerSeats: z.number().int().min(1).describe('협의회규정상 근로자위원 정원'),
+        employerSeats: z.number().int().min(1).describe('협의회규정상 사용자위원 정원'),
+        workerCurrent: count().optional().describe('근로자위원 현원(결원이 있을 때 — 정족수는 정원 기준이라 알림에만 쓴다)'),
+        employerCurrent: count().optional().describe('사용자위원 현원'),
+        workerPresent: count().optional().describe('출석 근로자위원 수'),
+        employerPresent: count().optional().describe('출석 사용자위원 수'),
+        agenda: z.array(z.object({
+          type: z.enum(['보고', '협의', '의결']).describe('안건 구분'),
+          article: z.enum(ARTICLE_KEYS).optional().describe('법조문 분류 — 20-1~20-17(법 제20조제1항 협의사항 각 호), 21-1~21-5(법 제21조 의결사항 각 호), 22-1~22-4(법 제22조제1항 보고사항 각 호)'),
+          resolutionItem: z.boolean().optional().describe('법 제21조 의결사항(article 이 21- 이면 자동)'),
+          inFavor: count().optional().describe('찬성 수(표결했을 때)'),
+        })).max(40).optional().describe('안건 순서대로'),
+        reportsCovered: z.array(z.enum(REPORT_KEYS)).max(4).optional().describe('정기회의에서 보고·설명한 사항(법 제22조제1항): 경영계획·생산계획·인력계획·재정상황'),
+        noticeDays: z.number().int().min(1).max(60).optional().describe('의결사항 공지 기한(일) — 협의회규정 값(견본 제29조 10일)'),
+        today: date('기준일(기본 오늘, KST).'),
+      },
+      annotations: READ_ONLY,
+    },
+    async (a) => {
+      if (looksLikeRrn(JSON.stringify(a))) return fail('입력에 주민등록번호 모양의 숫자가 있어 멈췄습니다. 이 도구는 숫자·날짜만 받습니다.');
+      const today = a.today ? isoDate(a.today) : todayKst();
+      const errors = [...(a.today && !today ? [`today 는 YYYY-MM-DD 날짜입니다(받은 값: ${a.today}).`] : []), ...meetingErrors(a)];
+      if (errors.length) return text({ ok: false, errors, error: '맞지 않는 칸이 있어 확인하지 않았습니다.' });
+      const r = meetingCheck(a, today);
+      return text({
+        ok: true,
+        today,
+        ...r,
+        boundary: BOUNDARY_NOTICE,
+        notice: '근로자참여 및 협력증진에 관한 법률과 고용노동부 「노사협의회 운영 매뉴얼」(2022. 12.)을 정리한 일반 기준이다. 협의회규정이 법보다 엄격하면 그 규정을 따른다.',
       });
     },
   );

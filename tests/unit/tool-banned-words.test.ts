@@ -93,10 +93,23 @@ describe('nosa 묶음 금지어', () => {
   ];
 
   it('도구 이름·설명·입력 설명', () => {
-    expect(tools.map((t) => t.name)).toEqual(['assess_labor_council', 'make_labor_council_forms']);
+    expect(tools.map((t) => t.name)).toEqual(['assess_labor_council', 'check_council_meeting', 'make_labor_council_forms']);
     for (const t of tools) {
       const schema = Object.values(t.cfg.inputSchema ?? {}).flatMap((v) => descs(v as Z)).join('\n');
       expect(bannedHits(`${t.cfg.title}\n${t.cfg.description}\n${schema}`, NOSA_WORDS), t.name).toEqual([]);
+    }
+  });
+
+  it('check_council_meeting 결과 글자', async () => {
+    const t = tools.find((x) => x.name === 'check_council_meeting')!;
+    const inputs = [
+      { kind: '정기', meetingDate: '2026-12-03', noticeDate: '2026-11-30', previousRegularDate: '2026-04-01', workerSeats: 10, employerSeats: 10, workerCurrent: 7, workerPresent: 4, employerPresent: 6, agenda: [{ type: '의결', article: '21-1', inFavor: 9 }, { type: '협의', resolutionItem: true }], today: '2026-11-10' },
+      { kind: '정기', meetingDate: '2026-12-01', previousRegularDate: '2026-08-31', workerSeats: 5, employerSeats: 5, workerPresent: 4, employerPresent: 5, agenda: [{ type: '의결', inFavor: 9 }, { type: '보고', article: '22-2' }], today: '2026-11-10' },
+      { kind: '임시', meetingDate: '2026-13-01', workerSeats: 5, employerSeats: 5 },
+    ];
+    for (const a of inputs) {
+      const out = (await t.handler(a)).content[0].text;
+      expect(bannedHits(out, NOSA_WORDS), out.slice(0, 80)).toEqual([]);
     }
   });
 

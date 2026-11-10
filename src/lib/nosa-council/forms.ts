@@ -15,6 +15,7 @@ import {
   REP_BASIS_ADMIN, REP_BASIS_SUPPORT, REPORT_DAYS, type Assessment, type ElectionCheck, type ElectionInput, type QuorumStage,
 } from './assess';
 import { councilRulesDoc, rulesErrors, type RulesInput } from './rules-template';
+import { CONVENE_NOTE } from './meeting';
 
 /** 협의회규정 견본(00)에만 쓰는 칸 — 나머지(사업장명·위원 수·고충처리위원 수·협의회 명칭·정기회의·설치단위·간접선출 사유)는 서류 입력에서 가져온다 */
 export type RulesOptions = Pick<
@@ -468,7 +469,7 @@ export function conveneDoc(input: NosaFormInput): FormDoc {
     blocks: [
       ...head(title, c),
       KV([['회의 구분', '정기회의 / 임시회의'], ['회차', '제    차'], ['일시', ''], ['장소', ''], ['통보일', '']]),
-      NOTE('회의 개최 7일 전까지 위원에게 통보하여야 한다(근참법 제13조제3항). 통보한 날은 세지 않고 개최일 전날까지 7일이 있어야 한다 — 15일 회의면 7일까지 통보.'),
+      NOTE(CONVENE_NOTE),
       H('의제'),
       GRID(['구분', '안건', '근거'], [['협의', '', '법 제20조'], ['의결', '', '법 제21조'], ['보고', '', '법 제22조']], [16, 60, 24]),
       SPACE(),

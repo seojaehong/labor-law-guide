@@ -31,7 +31,7 @@ describe('nosa 묶음 — 도구 목록', () => {
   it('등록한 도구 = nosaTools, 원격 가능 + 로컬 전용 = 전부', () => {
     expect(s.tools.map((t) => t.name).sort()).toEqual([...nosaTools].sort());
     expect([...nosaRemoteSafe, ...nosaLocalOnly].sort()).toEqual([...nosaTools].sort());
-    expect(nosaRemoteSafe).toEqual(['assess_labor_council']);
+    expect(nosaRemoteSafe).toEqual(['assess_labor_council', 'check_council_meeting']);
   });
   it('원격 가능 도구는 읽기 전용 주석·title 을 달고, 이름 칸을 받지 않는다', () => {
     for (const n of nosaRemoteSafe) {
@@ -50,6 +50,44 @@ describe('nosa 묶음 — 도구 목록', () => {
   });
   it('nosa.mjs 는 work-rules 묶음(법제처 .env 읽기)을 불러오지 않는다', () => {
     expect(fs.readFileSync('tools/k-labor/groups/nosa.mjs', 'utf8')).not.toMatch(/work-rules\.mjs|law-drf|rules-file/);
+  });
+});
+
+describe('check_council_meeting(원격 가능)', () => {
+  const BASE = { kind: '정기', meetingDate: '2026-12-03', workerSeats: 5, employerSeats: 5, today: TODAY };
+  it('통보 늦음 · 정원 10 현원 7 출석 4 불성립 · §21 안건 의결되지 않음 → 임의중재 · 보고 누락', async () => {
+    const r = await call('check_council_meeting', {
+      ...BASE, noticeDate: '2026-11-26', previousRegularDate: '2026-05-01', workerSeats: 10, employerSeats: 10, workerCurrent: 7, workerPresent: 4, employerPresent: 6,
+      agenda: [{ type: '의결', article: '21-1', inFavor: 9 }, { type: '보고', article: '22-1' }],
+    });
+    expect(r.ok).toBe(true);
+    expect(r.today).toBe(TODAY);
+    expect(r.convene).toMatchObject({ due: '2026-11-25', onTime: false });
+    expect(r.interval.status).toBe('빈 기간 있음');
+    expect(r.quorum.held).toBe(false);
+    expect(r.quorum.currentNote).toMatch(/현원\(7명\)/);
+    expect(r.agenda[0]).toMatchObject({ result: '의결되지 않음', resolutionItem: true });
+    expect(r.agenda[0].arbitration).toMatch(/법 제25조/);
+    expect(r.reports.missing).toHaveLength(3);
+    expect(r.resolutionNotice).toBeNull();
+    expect(bannedHits(JSON.stringify(r), NOSA_WORDS)).toEqual([]);
+  });
+  it('출석 9 찬성 6 → 의결, 찬성 5 → 의결되지 않음 · 공지 기한(규정 값)', async () => {
+    const r = await call('check_council_meeting', { ...BASE, workerPresent: 4, employerPresent: 5, noticeDays: 7, agenda: [{ type: '의결', inFavor: 6 }, { type: '의결', inFavor: 5 }] });
+    expect(r.agenda.map((a: { result: string }) => a.result)).toEqual(['의결', '의결되지 않음']);
+    expect(r.resolutionNotice.due).toBe('2026-12-10');
+  });
+  it('맞지 않는 입력·주민번호 모양은 멈춘다', async () => {
+    const bad = await call('check_council_meeting', { ...BASE, workerPresent: 6, employerPresent: 5 });
+    expect(bad.ok).toBe(false);
+    expect(bad.errors.join()).toMatch(/정원/);
+    const rrn = await call('check_council_meeting', { ...BASE, workerSeats: 900101_1234568 });
+    expect(rrn.ok).toBe(false);
+  });
+  it('안건 제목·이름 칸이 없다(숫자·날짜·선택지만)', () => {
+    const agenda = (tool('check_council_meeting').cfg.inputSchema as Record<string, { element?: { shape?: Record<string, unknown> } }>).agenda;
+    const inner = (agenda as unknown as { unwrap: () => { element: { shape: Record<string, unknown> } } }).unwrap().element.shape;
+    expect(Object.keys(inner).sort()).toEqual(['article', 'inFavor', 'resolutionItem', 'type']);
   });
 });
 

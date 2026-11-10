@@ -29,7 +29,7 @@ describe('k-labor 원격판 도구 목록', () => {
   it('원격 가능 배열의 합과 정확히 같다(work-rules 는 법제처 icn1 실측 전까지 뺀다)', () => {
     const expected = [...contractRemoteSafe, ...calcRemoteSafe, ...leaveRemoteSafe, ...taxRemoteSafe, ...dutiesRemoteSafe, ...nosaRemoteSafe].sort();
     expect(names).toEqual(expected);
-    expect(names).toHaveLength(24);
+    expect(names).toHaveLength(25);
     expect([...REMOTE_TOOLS].sort()).toEqual(expected);
   });
 
