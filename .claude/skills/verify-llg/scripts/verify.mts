@@ -60,6 +60,26 @@ const THIRD_PARTY_FRAMES = [/^https:\/\/challenges\.cloudflare\.com\//];
 // 기능마다 경로와 사용자 동작. 기대값은 손으로 센 값이다(features/<id>.md 와 같다).
 // waitUntil 'load' = 헤드리스에서 networkidle 에 닿지 않는 화면(Turnstile 이 챌린지를 계속 돌린다). 그런 화면은 여정이 하이드레이션을 기다린다
 const FEATURES: Record<string, { path: string; journey: Journey; waitUntil?: 'load' | 'networkidle' }> = {
+  'council-graph': {
+    path: '/tools/council-graph',
+    journey: async (p, step) => {
+      await p.getByRole('button', { name: '가상 예시 보기' }).click();
+      const summary = p.getByText(/^가상 예시 · 회의/);
+      await summary.waitFor();
+      step('가상 예시 요약', /회의 3건 · 안건 7건 · 이월 2번 · 이행 3건 · 고충 2건 · 기한 경과 3건/, await summary.innerText());
+      await p.locator('[data-testid="council-graph"] canvas').first().waitFor();
+      step('그래프 캔버스(sigma)', 'true', String((await p.locator('[data-testid="council-graph"] canvas').count()) > 0));
+      const shown = async () => Number((await p.getByTestId('shown-count').innerText()).replace(/\D/g, ''));
+      const all = await shown();
+      await p.getByLabel('기한 지난 이행·고충만').check();
+      const open = await shown();
+      step('기한 지난 것만 — 노드가 줄어든다', 'true', String(open > 0 && open < all));
+      await p.getByLabel('기한 지난 이행·고충만').uncheck();
+      await p.getByLabel('기간 시작').fill('2026-06-01');
+      await p.getByLabel('기간 끝').fill('2026-06-30');
+      step('기간 2026-06 — 노드가 줄어든다', 'true', String((await shown()) < all));
+    },
+  },
   headcount: {
     path: '/tools/headcount',
     journey: async (p, step) => {

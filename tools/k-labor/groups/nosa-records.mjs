@@ -19,6 +19,23 @@ import { GRIEVANCE_CATEGORIES, GRIEVANCE_KEEP_NOTE, GRIEVANCE_LOG, GRIEVANCE_STA
 import { argsLookLikeRrn, looksLikeRrn, text } from '../lib/common.mjs';
 import { appendJsonl, loadCouncilDir, sha256File } from '../lib/council-dir.mjs';
 import { readRulesFile, RULES_FILE_KINDS } from '../lib/rules-file.mjs';
+import { OCR_IMAGE_KINDS, ocrAvailable, ocrImage, readPdfWithOcr } from '../lib/ocr-source.mjs';
+
+/** 회의록 원본 읽기 — hwp·hwpx·docx·txt 는 규정 읽기와 같고, pdf 는 글자층 없는 쪽만 문자 인식, 사진(png·jpg)은 문자 인식 */
+async function readMinutesSource(source) {
+  const p = String(source ?? '').trim();
+  const kind = path.extname(p).toLowerCase().slice(1);
+  if (kind !== 'pdf' && !OCR_IMAGE_KINDS.includes(kind)) return readRulesFile(p);
+  if (!fs.existsSync(p) || !fs.statSync(p).isFile()) throw new Error(`파일이 없습니다: ${p}`);
+  const missing = await ocrAvailable();
+  if (missing) {
+    if (kind === 'pdf') return readRulesFile(p); // 글자층 있는 pdf 는 그대로 읽힌다 — 스캔 쪽이면 예전 안내
+    throw new Error(`사진에서 글자를 읽으려면 문자 인식 묶음이 필요합니다. ${missing}`);
+  }
+  const r = kind === 'pdf' ? await readPdfWithOcr(p) : await ocrImage(p);
+  if (!r.text.trim()) throw new Error('읽을 수 있는 글자가 없습니다. 글자를 직접 붙여넣으세요');
+  return { kind, text: r.text, ocrPages: r.ocrPages };
+}
 import { todayKst } from './nosa.mjs';
 
 export const nosaRecordsTools = ['record_council_history', 'export_council_vault', 'import_council_minutes'];
@@ -219,13 +236,13 @@ export function registerNosaRecords(server) {
     {
       title: '노사협의회 옛 회의록 가져오기(로컬 전용)',
       description:
-        `이미 있는 회의록 파일(${RULES_FILE_KINDS.join('·')})을 기록 폴더로 가져온다. 두 번 부른다 — ① proposal 없이 부르면 원본 글자·SHA-256 과 기록 폴더의 회의 키·안건 ID 를 돌려주고 아무것도 쓰지 않는다. ` +
+        `이미 있는 회의록 파일(${[...RULES_FILE_KINDS, ...OCR_IMAGE_KINDS].join('·')})을 기록 폴더로 가져온다. 두 번 부른다 — ① proposal 없이 부르면 원본 글자·SHA-256 과 기록 폴더의 회의 키·안건 ID 를 돌려주고 아무것도 쓰지 않는다. ` +
         '② 원문에서 읽은 구조(회의 종류·차수·개최일·정원·안건별 ID·제목·구분·법조문 분류·제안 측·결과·이월)를 proposal 로 넣어 다시 부르면 도구가 확인한다(구분과 결과의 짝·ID 형식과 중복·날짜·원문에 개최일과 제목이 있는지·읽은 뒤 원본이 바뀌었는지). ' +
         `통과하면 기록 폴더에 「${IMPORTED}」 회의록 .json 을 쓴다. 원본은 옮기거나 고치지 않고 경로·SHA-256 만 남긴다. 확인 전 회의록은 보관함에서 다른 노드와 잇지 않는다 — 사람이 원본과 맞춰 본 뒤 record_council_history(kind = minutes, stage = 가져옴 확인)를 붙이면 잇는다. ` +
-        '이월 안건은 앞 회의의 같은 ID 를 쓰고, 제목만 비슷한 안건은 「후보」로만 보인다. 원문에 없는 값은 비운다. 스캔(그림뿐인) pdf 는 읽지 않는다. 이름은 받지 않는다(직위·구분만). 주민등록번호는 받지 않는다. 이미 있는 파일은 덮어쓰지 않는다.',
+        '이월 안건은 앞 회의의 같은 ID 를 쓰고, 제목만 비슷한 안건은 「후보」로만 보인다. 원문에 없는 값은 비운다. 글자층 없는 pdf 쪽과 사진(png·jpg)은 이 PC 안에서 문자 인식(tesseract, 한국어)으로 읽고 인식한 쪽을 ocrPages 로 알린다 — 네트워크를 쓰지 않고, 잘못 읽은 글자가 있을 수 있어 원본과 맞춰 본다. 이름은 받지 않는다(직위·구분만). 주민등록번호는 받지 않는다. 이미 있는 파일은 덮어쓰지 않는다.',
       inputSchema: {
         dir: z.string().describe('기록 폴더 — 가져온 회의록 .json 을 여기에 쓴다'),
-        source: z.string().describe(`원본 회의록 파일(${RULES_FILE_KINDS.join('·')}, 10MB 이하) — 옮기지 않는다`),
+        source: z.string().describe(`원본 회의록 파일(${[...RULES_FILE_KINDS, ...OCR_IMAGE_KINDS].join('·')} — 스캔 pdf·사진은 문자 인식) — 옮기지 않는다`),
         sourceSha256: z.string().regex(/^[0-9a-f]{64}$/).optional().describe('①에서 받은 SHA-256 — 주면 그 사이 원본이 바뀌었는지 본다'),
         proposal: z.object({
           workplace: z.object({ name: z.string().max(100).optional().describe('사업장명(필수)') }).describe('사업장'),
@@ -273,7 +290,7 @@ export function registerNosaRecords(server) {
       let read;
       try {
         data = loadCouncilDir(a.dir);
-        read = await readRulesFile(a.source);
+        read = await readMinutesSource(a.source);
       } catch (e) {
         return fail(e instanceof Error ? e.message : String(e));
       }
@@ -291,7 +308,13 @@ export function registerNosaRecords(server) {
           chars: read.text.length,
           text: read.text.slice(0, TEXT_MAX),
           ...(read.text.length > TEXT_MAX ? { truncated: `글자가 ${read.text.length}자라 앞 ${TEXT_MAX}자만 실었다.` } : {}),
-          ...(looksLikeRrn(read.text) ? { warnings: ['원문에 주민등록번호 모양의 숫자가 있어 응답에서 가렸다. 가져온 회의록에는 싣지 않는다.'] } : {}),
+          ...(read.ocrPages?.length ? { ocrPages: read.ocrPages } : {}),
+          ...(() => {
+            const w = [];
+            if (read.ocrPages?.length) w.push(`글자층이 없어 문자 인식으로 읽은 쪽: ${read.ocrPages.join(', ')} — 잘못 읽은 글자가 있을 수 있으니 원본과 맞춰 보며 구조를 제안한다(가져온 회의록은 「가져옴 확인」 전까지 잇지 않는다).`);
+            if (looksLikeRrn(read.text)) w.push('원문에 주민등록번호 모양의 숫자가 있어 응답에서 가렸다. 가져온 회의록에는 싣지 않는다.');
+            return w.length ? { warnings: w } : {};
+          })(),
           existing: { meetings: data.minutes.map((m) => m.meeting.key), agenda: [...agenda.values()].slice(0, 300) },
           next: '원문에서 읽은 값으로 proposal 을 채워 sourceSha256 과 함께 다시 부른다. 결과는 원문에 적힌 대로, 이월 안건은 existing.agenda 의 같은 ID 를 쓴다. 원문에 없는 값은 비운다.',
         });

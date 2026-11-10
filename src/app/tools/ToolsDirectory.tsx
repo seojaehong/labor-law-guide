@@ -4,7 +4,7 @@ import Link from 'next/link';
 import {
   ArrowLeftRight, BellRing, BookOpen, Building2, CalendarCheck, CalendarDays, CalendarRange, CirclePause,
   ClipboardList, Coins, FilePen, FilePenLine, FileSearch, FileSpreadsheet, FileText, Files, Gauge, Landmark,
-  ListChecks, MailWarning, Percent, Phone, PiggyBank, Receipt, ReceiptText, Scale, Search, Sun, Timer, Users, Wallet,
+  ListChecks, MailWarning, Network, Percent, Phone, PiggyBank, Receipt, ReceiptText, Scale, Search, Sun, Timer, Users, Wallet,
 } from 'lucide-react';
 import { groupedTools, searchTools, TOOL_GROUPS, type IndexedTool, type ToolGlyph } from '@/content/tools-groups';
 import './tools-directory.css';
@@ -16,7 +16,7 @@ const GLYPHS: Record<ToolGlyph, React.ComponentType<{ className?: string; 'aria-
   'calendar-check': CalendarCheck, bell: BellRing, percent: Percent, sun: Sun, coins: Coins,
   'piggy-bank': PiggyBank, landmark: Landmark, spreadsheet: FileSpreadsheet, 'mail-warning': MailWarning, arrows: ArrowLeftRight, timer: Timer,
   phone: Phone, clipboard: ClipboardList,
-  'file-text': FileText, 'file-pen-line': FilePenLine, book: BookOpen, files: Files,
+  'file-text': FileText, 'file-pen-line': FilePenLine, book: BookOpen, files: Files, network: Network,
 };
 
 function ToolItem({ t }: { t: IndexedTool }) {
