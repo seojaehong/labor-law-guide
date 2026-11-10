@@ -93,7 +93,7 @@ describe('nosa 묶음 금지어', () => {
   ];
 
   it('도구 이름·설명·입력 설명', () => {
-    expect(tools.map((t) => t.name)).toEqual(['assess_labor_council', 'check_council_meeting', 'make_labor_council_forms']);
+    expect(tools.map((t) => t.name)).toEqual(['assess_labor_council', 'check_council_meeting', 'make_labor_council_forms', 'make_council_meeting_docs']);
     for (const t of tools) {
       const schema = Object.values(t.cfg.inputSchema ?? {}).flatMap((v) => descs(v as Z)).join('\n');
       expect(bannedHits(`${t.cfg.title}\n${t.cfg.description}\n${schema}`, NOSA_WORDS), t.name).toEqual([]);
@@ -132,6 +132,29 @@ describe('nosa 묶음 금지어', () => {
       fs.rmSync(dir, { recursive: true, force: true });
     }
   });
+
+  it('make_council_meeting_docs 결과 글자', async () => {
+    process.env.LLG_ROOT = process.cwd();
+    const t = tools.find((x) => x.name === 'make_council_meeting_docs')!;
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'nosa-banned-meeting-'));
+    const M = {
+      workplace: { name: '가상상사' }, meeting: { kind: '정기', number: 2, date: '2026-12-03', noticeDate: '2026-11-25', previousRegularDate: '2026-04-01' }, seats: { worker: 5, employer: 5 },
+      current: { worker: 4 }, attendance: { worker: 2, employer: 5 }, agenda: [{ title: '교육훈련 기본계획', type: '의결', article: '21-1', inFavor: 6 }, { title: '휴게실', type: '협의', inFavor: 3 }],
+      previousResolutions: [{ agendaId: 'A-1', status: '완료' }], writtenDate: '2026-12-04',
+    };
+    const inputs = ['notice', 'materials', 'minutes', 'resolution'].map((kind) => ({ ...M, kind, outDir: path.join(dir, kind), formats: ['hwpx'] }));
+    inputs.push({ ...M, kind: 'notice', meeting: { ...M.meeting, noticeDate: '2026-12-01' }, outDir: path.join(dir, 'late'), formats: ['hwpx'] });
+    try {
+      for (const a of inputs) {
+        const out = (await t.handler(a)).content[0].text;
+        expect(bannedHits(out, NOSA_WORDS), out.slice(0, 80)).toEqual([]);
+      }
+      const json = fs.readFileSync(path.join(dir, 'minutes', '노사협의회_20261203_정기2차_회의록.json'), 'utf8');
+      expect(bannedHits(json, NOSA_WORDS)).toEqual([]);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  }, 60_000);
 
   it('assess_labor_council 결과 글자', async () => {
     const t = tools.find((x) => x.name === 'assess_labor_council')!;

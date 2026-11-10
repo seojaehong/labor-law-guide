@@ -5,6 +5,7 @@
 // ★ 등록 함수에 파일·네트워크 I/O 를 넣지 않는다(원격 라우트는 요청마다 McpServer 를 새로 만든다).
 // ★ 공개 문구 금지어(src/lib/tool-kit/banned.ts) + 포괄·대신·대행·대리·지도를 이 묶음의 글(설명·결과)에 쓰지 않는다.
 // ★ make_labor_council_forms 는 이 PC 에 파일을 쓰므로 로컬 전용이다(nosaLocalOnly). 근로자 이름 칸은 받지 않고 서류에도 비워 둔다.
+// ★ make_council_meeting_docs 도 로컬 전용이다. 위원 이름은 사용자가 넣을 때만 싣고, 서명 칸은 비워 둔다.
 import { z } from 'zod';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -14,15 +15,16 @@ import {
 } from '@/lib/nosa-council/assess';
 import { nosaBlanks, nosaDocs, nosaErrors } from '@/lib/nosa-council/forms';
 import { ARTICLE_KEYS, meetingCheck, meetingErrors, REPORT_KEYS } from '@/lib/nosa-council/meeting';
+import { IMPL_STATUSES, meetingDocs, meetingDocsErrors, minutesRecord } from '@/lib/nosa-council/meeting-docs';
 import { RULES_SOURCE } from '@/lib/nosa-council/rules-template';
 import { formHwpx, formPdf } from '@/lib/work-rules-report/render';
 import { looksLikeRrn, text } from '../lib/common.mjs';
 
-export const nosaTools = ['assess_labor_council', 'check_council_meeting', 'make_labor_council_forms'];
+export const nosaTools = ['assess_labor_council', 'check_council_meeting', 'make_labor_council_forms', 'make_council_meeting_docs'];
 /** 원격(HTTP)판에 실어도 되는 도구 — 읽기 전용, 파일·네트워크를 건드리지 않는다 */
 export const nosaRemoteSafe = ['assess_labor_council', 'check_council_meeting'];
 /** 이 PC 에 파일을 쓰는 도구 — 원격판에서 뺀다 */
-export const nosaLocalOnly = ['make_labor_council_forms'];
+export const nosaLocalOnly = ['make_labor_council_forms', 'make_council_meeting_docs'];
 
 // 서류 PDF 글꼴 — 계약서·취업규칙 신고 서류와 같은 나눔고딕 전체(OFL). 묶은 뒤에는 dist/server.mjs 하나라 here = dist/ 다.
 // (work-rules 묶음의 같은 함수를 부르지 않고 따로 둔다 — 그 묶음은 법제처·.env 모듈을 함께 불러온다)
@@ -41,7 +43,25 @@ const SEALS = {
 };
 
 const READ_ONLY = { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false };
+const WRITES = { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false };
 const fail = (error, extra = {}) => text({ ok: false, error, ...extra });
+
+/** 서류를 파일로 쓴다. 한 파일이 실패해도(예: PDF 글꼴에 없는 글자) 나머지는 쓴다 */
+async function writeForms(targets) {
+  const font = targets.some((x) => x.f === 'pdf') ? new Uint8Array(fs.readFileSync(fontPath())) : null;
+  const files = [];
+  const skipped = [];
+  for (const t of targets) {
+    try {
+      const bytes = t.f === 'pdf' ? await formPdf([t.d.doc], font) : await formHwpx([t.d.doc]);
+      fs.writeFileSync(t.path, bytes);
+      files.push({ document: t.d.doc.title, format: t.f, path: t.path, bytes: bytes.length });
+    } catch (e) {
+      skipped.push({ document: t.d.doc.title, format: t.f, error: e instanceof Error ? e.message : String(e) });
+    }
+  }
+  return { files, skipped };
+}
 
 /** 오늘(KST, YYYY-MM-DD). 시험용으로 LLG_TODAY 를 주면 그날로 본다 */
 export function todayKst() {
@@ -284,7 +304,7 @@ export function registerNosa(server) {
         fileBase: str().describe('파일 이름 앞부분(기본 「노사협의회_」 + 작성일)'),
         formats: z.array(z.enum(['pdf', 'hwpx'])).optional().describe('만들 형식(기본 pdf·hwpx)'),
       },
-      annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
+      annotations: WRITES,
     },
     async (a) => {
       if (looksLikeRrn(JSON.stringify(a))) return fail('입력에 주민등록번호 모양의 숫자가 있어 만들지 않았습니다. 이 도구는 주민등록번호를 받지 않습니다.');
@@ -312,18 +332,7 @@ export function registerNosa(server) {
       if (exists.length) return fail('이미 있는 파일은 덮어쓰지 않습니다. fileBase 나 outDir 를 바꿔 주세요.', { exists });
 
       fs.mkdirSync(a.outDir, { recursive: true });
-      const font = want.has('pdf') ? new Uint8Array(fs.readFileSync(fontPath())) : null;
-      const files = [];
-      const skipped = [];
-      for (const t of targets) {
-        try {
-          const bytes = t.f === 'pdf' ? await formPdf([t.d.doc], font) : await formHwpx([t.d.doc]);
-          fs.writeFileSync(t.path, bytes);
-          files.push({ document: t.d.doc.title, format: t.f, path: t.path, bytes: bytes.length });
-        } catch (e) {
-          skipped.push({ document: t.d.doc.title, format: t.f, error: e instanceof Error ? e.message : String(e) });
-        }
-      }
+      const { files, skipped } = await writeForms(targets);
       const install = isoDate(input.installDate);
       const warnings = [
         ...assessment.warnings,
@@ -349,6 +358,130 @@ export function registerNosa(server) {
         ...(warnings.length ? { warnings } : {}),
         boundary: BOUNDARY_NOTICE,
         check: '제출 전에 파일을 열어 사업장 정보·날짜·인원을 확인하고, 빈 칸(이름·서명)을 채운 뒤 냅니다.',
+      });
+    },
+  );
+
+  // ── 회의 서류(로컬 전용) — 통보·자료·회의록·공지가 한 입력과 한 meetingCheck 를 쓴다(kind 로 고른다) ──
+  const side = z.enum(['근로자위원', '사용자위원']);
+  const position = () => z.string().max(40).optional().describe('직위(예: 생산1팀 대표, 인사팀장)');
+  const realName = () => z.string().max(30).optional().describe('실명 — 사용자가 넣을 때만 싣는다');
+  const long = (d) => z.string().max(2000).optional().describe(d);
+  const member = z.object({ side, position: position(), name: realName() });
+  server.registerTool(
+    'make_council_meeting_docs',
+    {
+      title: '노사협의회 회의 서류 만들기(로컬 전용)',
+      description:
+        '노사협의회 회의 하나의 서류를 outDir 에 PDF·한글(hwpx)로 만든다. kind 로 고른다: notice = 소집 통보서(받는 위원을 주면 위원마다 한 장)·소집 공고 · materials = 회의자료(안건 목록, 정기회의 보고사항 4개 칸, 안건별 배경·현황·노사 제안·쟁점·요청 결정, 전분기 의결 이행 점검표) · ' +
+        'minutes = 회의록(시행규칙 별지 제3호서식 칸 7개 그대로 + 참석위원 서명 칸)과 상세 회의록, 그리고 같은 이름의 .json(안건 ID·구분·법조문 분류·제안 측·결과·이월을 담은 구조화 원본) · resolution = 의결사항 공지. ' +
+        '정족수·의결 문장은 출석·찬성 수로 넣는다(정원 기준 각 과반 출석, 출석 3분의 2 찬성 — 못 미치면 「의결되지 않음」). 통보일이 기한(개최일 − 8일)보다 늦으면 소집 통보서를 만들지 않는다. 회의가 성립하지 않아도 회의록은 만들고 알린다. ' +
+        '안건 설명·발언 요지·의결 내용은 입력으로 받은 것만 싣는다. 이름은 넣을 때만 싣고 서명 칸은 비워 둔다. 주민등록번호 칸은 없다. 이미 있는 파일은 덮어쓰지 않는다. 일반 기준을 정리한 서식이며 협의회규정이 다르면 고쳐 쓴다.',
+      inputSchema: {
+        kind: z.enum(['notice', 'materials', 'minutes', 'resolution']).describe('만들 서류 — notice 소집 통보서·공고 / materials 회의자료 / minutes 회의록·상세 회의록·.json / resolution 의결사항 공지'),
+        workplace: z.object({ name: z.string().max(100).optional().describe('사업장명(필수)') }).describe('사업장'),
+        councilName: z.string().max(100).optional().describe('노사협의회 명칭(비우면 「노사협의회」)'),
+        meeting: z.object({
+          kind: z.enum(['정기', '임시']).describe('회의 종류'),
+          number: z.number().int().min(1).optional().describe('차수(회의록에는 필수 — 회의 키 YYYY-정기|임시-N차)'),
+          date: z.string().describe('개최일 YYYY-MM-DD'),
+          time: z.string().max(20).optional().describe('시각(예: 14:00)'),
+          place: z.string().max(100).optional().describe('장소'),
+          noticeDate: date('소집 통보일(notice 는 비우면 작성일).'),
+          previousRegularDate: date('직전 정기회의일.'),
+        }).describe('회의'),
+        seats: z.object({ worker: z.number().int().min(1), employer: z.number().int().min(1) }).describe('협의회규정상 정원(근로자위원·사용자위원)'),
+        current: z.object({ worker: count().optional(), employer: count().optional() }).optional().describe('현원(결원이 있을 때 — 정족수는 정원 기준이라 알림에만 쓴다)'),
+        attendance: z.object({
+          worker: count().describe('출석 근로자위원 수'),
+          employer: count().describe('출석 사용자위원 수'),
+          members: z.array(member).max(20).optional().describe('출석위원 직위(서명 칸 줄에 적는다)'),
+        }).optional().describe('출석(회의록·공지에 필수)'),
+        recipients: z.array(member).max(20).optional().describe('소집 통보서를 받을 위원 — 주면 위원마다 한 장'),
+        agenda: z.array(z.object({
+          id: z.string().max(40).optional().describe('안건 ID — 처음 상정 때 발급된 값. 이월 안건은 그 ID 를 그대로 넣는다. 비우면 A-개최일-순번'),
+          title: z.string().max(200).describe('안건 제목'),
+          type: z.enum(['보고', '협의', '의결']).describe('구분'),
+          article: z.enum(ARTICLE_KEYS).optional().describe('법조문 분류 — 20-1~20-17(법 제20조제1항 각 호), 21-1~21-5(법 제21조 각 호), 22-1~22-4(법 제22조제1항 각 호)'),
+          proposer: side.optional().describe('제안 측'),
+          carriedOver: z.boolean().optional().describe('앞선 회의에서 넘어온 안건'),
+          inFavor: count().optional().describe('찬성 수(표결했을 때 — 의결 안건은 회의록·공지에 필수)'),
+          background: long('배경'),
+          status: long('현황'),
+          laborProposal: long('근로자위원 제안'),
+          managementProposal: long('사용자위원 제안'),
+          issues: long('쟁점'),
+          discussion: z.array(z.object({
+            side: z.enum(['근로자위원', '사용자위원', '의장', '간사']),
+            position: position(),
+            name: realName(),
+            summary: z.string().max(2000).describe('발언 요지 — 그대로 싣는다'),
+          })).max(40).optional().describe('발언 요지(상세 회의록)'),
+          decision: z.string().max(1000).optional().describe('의결된 내용'),
+          implementation: z.object({ action: z.string().max(300).optional(), owner: z.string().max(40).optional().describe('담당 직위'), due: date('이행 기한.') }).optional().describe('이행 계획'),
+        })).min(1).max(40).describe('안건 순서대로'),
+        reports: z.object({ 경영계획: long('경영계획 전반 및 실적'), 생산계획: long('분기별 생산계획과 실적'), 인력계획: long('인력계획'), 재정상황: long('기업의 경제적·재정적 상황') }).optional().describe('정기회의 보고사항(법 제22조제1항) — 보고한 내용'),
+        previousResolutions: z.array(z.object({
+          agendaId: z.string().max(40).describe('의결 안건 ID'),
+          title: z.string().max(200).optional(),
+          action: z.string().max(300).optional().describe('조치'),
+          due: date('기한.'),
+          status: z.enum(IMPL_STATUSES).describe('상태'),
+          evidence: z.string().max(300).optional().describe('근거(문서 경로·회의 ID) — 「완료」인데 비우면 「완료(근거 없음)」'),
+        })).max(60).optional().describe('전분기 의결사항 이행 상황'),
+        noticeDays: z.number().int().min(1).max(60).optional().describe('의결사항 공지 기한(일) — 협의회규정 값(견본 제29조 10일)'),
+        otherNotes: z.string().max(1000).optional().describe('그 밖의 참고사항'),
+        writtenDate: date('작성일(기본 오늘).'),
+        outDir: z.string().describe('저장할 폴더(없으면 만든다)'),
+        fileBase: z.string().max(80).optional().describe('파일 이름 앞부분(기본 노사협의회_개최일_정기N차)'),
+        formats: z.array(z.enum(['pdf', 'hwpx'])).optional().describe('만들 형식(기본 pdf·hwpx). 회의록 .json 은 늘 만든다'),
+      },
+      annotations: WRITES,
+    },
+    async (a) => {
+      if (looksLikeRrn(JSON.stringify(a))) return fail('입력에 주민등록번호 모양의 숫자가 있어 만들지 않았습니다. 이 도구는 주민등록번호를 받지 않습니다.');
+      const written = a.writtenDate ? isoDate(a.writtenDate) : todayKst();
+      const input = {
+        workplace: a.workplace ?? {}, councilName: a.councilName, meeting: a.meeting, seats: a.seats, current: a.current, attendance: a.attendance,
+        recipients: a.recipients, agenda: a.agenda ?? [], reports: a.reports, previousResolutions: a.previousResolutions, noticeDays: a.noticeDays,
+        otherNotes: a.otherNotes, writtenDate: written ?? a.writtenDate,
+      };
+      const errors = meetingDocsErrors(input, a.kind);
+      if (errors.length) return text({ ok: false, errors, error: '맞지 않는 칸이 있어 서류를 만들지 않았습니다. 고쳐서 다시 부르세요.' });
+      const want = new Set(a.formats?.length ? a.formats : ['pdf', 'hwpx']);
+      const m = input.meeting;
+      const base = safeName((a.fileBase ?? '').trim() || `노사협의회_${m.date.replace(/-/g, '')}_${m.kind}${m.number != null ? `${m.number}차` : ''}`);
+      const { made, warnings, check, agendaIds } = meetingDocs(input, a.kind);
+      const targets = made.flatMap((d) => ['pdf', 'hwpx'].filter((f) => want.has(f)).map((f) => ({ d, f, path: path.join(a.outDir, `${base}_${d.id}.${f}`) })));
+      const jsonPath = a.kind === 'minutes' ? path.join(a.outDir, `${base}_회의록.json`) : null;
+      const exists = [...targets.map((x) => x.path), ...(jsonPath ? [jsonPath] : [])].filter((p) => fs.existsSync(p));
+      if (exists.length) return fail('이미 있는 파일은 덮어쓰지 않습니다. fileBase 나 outDir 를 바꿔 주세요.', { exists });
+
+      fs.mkdirSync(a.outDir, { recursive: true });
+      const { files, skipped } = await writeForms(targets);
+      let record = null;
+      if (jsonPath) {
+        record = minutesRecord(input);
+        const body = `${JSON.stringify(record, null, 2)}\n`;
+        fs.writeFileSync(jsonPath, body);
+        files.push({ document: '회의록 구조화 원본', format: 'json', path: jsonPath, bytes: Buffer.byteLength(body) });
+      }
+      const seal = {
+        notice: ['서명 필요 — 소집 통보서: 의장'],
+        minutes: ['서명 필요 — 회의록(별지 제3호서식): 출석위원 전원 서명 또는 날인(시행령 제6조)'],
+      }[a.kind] ?? [];
+      return text({
+        ok: files.some((f) => f.format !== 'json'),
+        kind: a.kind,
+        files,
+        ...(skipped.length ? { skipped } : {}),
+        agendaIds,
+        check: { convene: check.convene, interval: check.interval, quorum: check.quorum, agenda: check.agenda, reports: check.reports, resolutionNotice: check.resolutionNotice },
+        sealRequired: seal,
+        ...(record ? { keepUntil: record.keepUntil, keep: '회의록은 작성일부터 3년 보존한다(법 제19조제2항).' } : {}),
+        ...(warnings.length ? { warnings } : {}),
+        boundary: BOUNDARY_NOTICE,
+        review: '파일을 열어 날짜·인원·안건과 입력한 글을 확인하고, 서명 칸은 회의에서 받습니다.',
       });
     },
   );

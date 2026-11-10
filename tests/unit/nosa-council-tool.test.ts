@@ -178,7 +178,7 @@ describe('make_labor_council_forms(로컬 전용)', () => {
   };
 
   it('로컬 전용 목록에 있고 원격 가능 목록에는 없다', () => {
-    expect(nosaLocalOnly).toEqual(['make_labor_council_forms']);
+    expect(nosaLocalOnly).toContain('make_labor_council_forms');
     expect(nosaRemoteSafe).not.toContain('make_labor_council_forms');
     expect(tool('make_labor_council_forms').cfg.annotations).toMatchObject({ readOnlyHint: false, destructiveHint: false });
   });
@@ -254,4 +254,94 @@ describe('make_labor_council_forms(로컬 전용)', () => {
     expect(r.ok).toBe(true);
     expect(r.warnings.join()).toMatch(/정족수가 미달/);
   }, 30_000);
+});
+
+describe('make_council_meeting_docs(로컬 전용)', () => {
+  process.env.LLG_ROOT = process.cwd();
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'nosa-meeting-'));
+  const M = {
+    workplace: { name: '가상제조' },
+    councilName: '가상제조 노사협의회',
+    meeting: { kind: '정기', number: 4, date: '2026-12-03', time: '14:00', place: '본관 2층 회의실', noticeDate: '2026-11-25', previousRegularDate: '2026-09-03' },
+    seats: { worker: 5, employer: 5 },
+    attendance: { worker: 4, employer: 5 },
+    agenda: [
+      { title: '2027년 교육훈련 기본계획', type: '의결', article: '21-1', proposer: '사용자위원', inFavor: 6, decision: '원안대로 의결', implementation: { action: '교육 일정 공지', owner: '인사팀장', due: '2027-01-15' } },
+      { id: 'A-20260903-05', title: '야간 작업 순환 방식', type: '협의', article: '20-7', proposer: '근로자위원', carriedOver: true, discussion: [{ side: '근로자위원', position: '생산1팀 대표', summary: '주 2회 이내로 줄이자는 의견' }] },
+      { title: '3분기 경영실적', type: '보고', article: '22-1' },
+    ],
+    reports: { 경영계획: '3분기 매출 목표 대비 96% 달성' },
+    previousResolutions: [{ agendaId: 'A-20260903-02', title: '식당 운영 시간', action: '30분 연장', status: '완료' }],
+    writtenDate: '2026-12-04',
+  };
+
+  it('로컬 전용 목록에 있고 원격 가능 목록에는 없다', () => {
+    expect(nosaLocalOnly).toContain('make_council_meeting_docs');
+    expect(nosaRemoteSafe).not.toContain('make_council_meeting_docs');
+    expect(tool('make_council_meeting_docs').cfg.annotations).toMatchObject({ readOnlyHint: false, destructiveHint: false });
+  });
+
+  it('회의록 — 별지 제3호서식·상세 회의록을 PDF·한글로, 같은 이름의 .json(구조화 원본)을 옆에 둔다', async () => {
+    const out = path.join(tmp, 'minutes');
+    const r = await call('make_council_meeting_docs', { ...M, kind: 'minutes', outDir: out });
+    expect(r.ok).toBe(true);
+    const names = r.files.map((f: { path: string }) => path.basename(f.path)).sort();
+    expect(names).toEqual([
+      '노사협의회_20261203_정기4차_상세회의록.hwpx', '노사협의회_20261203_정기4차_상세회의록.pdf',
+      '노사협의회_20261203_정기4차_회의록.hwpx', '노사협의회_20261203_정기4차_회의록.json', '노사협의회_20261203_정기4차_회의록.pdf',
+    ]);
+    expect(r.files.every((f: { path: string }) => fs.existsSync(f.path))).toBe(true);
+    const json = JSON.parse(fs.readFileSync(path.join(out, '노사협의회_20261203_정기4차_회의록.json'), 'utf8'));
+    expect(json.schema).toBe('nosa-council-minutes/1');
+    expect(json.meeting.key).toBe('2026-정기-4차');
+    expect(json.agenda.map((a: { id: string; result: string }) => [a.id, a.result])).toEqual([
+      ['A-20261203-01', '의결'], ['A-20260903-05', '계속 협의'], ['A-20261203-03', '보고 완료'],
+    ]);
+    expect(json.previousResolutions[0].evidenceMissing).toBe(true);
+    expect(r.agendaIds).toEqual(['A-20261203-01', 'A-20260903-05', 'A-20261203-03']);
+    expect(r.check.quorum.held).toBe(true);
+    expect(r.sealRequired.join()).toMatch(/출석위원 전원/);
+    expect(r.warnings.join()).toMatch(/완료\(근거 없음\)/);
+    expect(bannedHits(JSON.stringify(r) + JSON.stringify(json), NOSA_WORDS)).toEqual([]);
+    expect(JSON.stringify(json)).not.toContain('주민등록번호');
+  }, 60_000);
+
+  it('이미 있는 파일은 덮어쓰지 않는다(.json 포함)', async () => {
+    const r = await call('make_council_meeting_docs', { ...M, kind: 'minutes', outDir: path.join(tmp, 'minutes') });
+    expect(r.ok).toBe(false);
+    expect(r.exists).toHaveLength(5);
+  });
+
+  it('통보가 늦으면 소집 통보서를 만들지 않고 폴더도 만들지 않는다', async () => {
+    const out = path.join(tmp, 'late');
+    const r = await call('make_council_meeting_docs', { ...M, kind: 'notice', meeting: { ...M.meeting, noticeDate: '2026-11-26' }, outDir: out });
+    expect(r.ok).toBe(false);
+    expect(r.errors.join()).toMatch(/2026-11-25/);
+    expect(fs.existsSync(out)).toBe(false);
+  });
+
+  it('소집 통보서·공고와 의결사항 공지를 만든다', async () => {
+    const n = await call('make_council_meeting_docs', { ...M, kind: 'notice', outDir: path.join(tmp, 'notice'), formats: ['hwpx'] });
+    expect(n.files.map((f: { path: string }) => path.basename(f.path))).toEqual(['노사협의회_20261203_정기4차_소집통보서.hwpx', '노사협의회_20261203_정기4차_소집공고.hwpx']);
+    const res = await call('make_council_meeting_docs', { ...M, kind: 'resolution', noticeDays: 7, outDir: path.join(tmp, 'notice'), formats: ['hwpx'] });
+    expect(res.ok).toBe(true);
+    expect(res.check.resolutionNotice.due).toBe('2026-12-10');
+  }, 30_000);
+
+  it('PDF 글꼴에 없는 글자가 있으면 PDF 만 건너뛰고 한글 파일은 만든다', async () => {
+    const r = await call('make_council_meeting_docs', { ...M, kind: 'materials', agenda: [{ ...M.agenda[0], title: '교육 계획 1〜2분기' }], outDir: path.join(tmp, 'glyph') });
+    expect(r.ok).toBe(true);
+    expect(r.skipped.map((x: { format: string }) => x.format)).toEqual(['pdf']);
+    expect(r.files.map((f: { format: string }) => f.format)).toEqual(['hwpx']);
+  }, 30_000);
+
+  it('주민등록번호 모양이 있으면 폴더도 만들지 않는다, 출석 수가 없으면 회의록을 만들지 않는다', async () => {
+    const out = path.join(tmp, 'rrn');
+    const r = await call('make_council_meeting_docs', { ...M, kind: 'minutes', agenda: [{ ...M.agenda[1], discussion: [{ side: '근로자위원', summary: '900101-1234568' }] }], outDir: out });
+    expect(r.ok).toBe(false);
+    expect(fs.existsSync(out)).toBe(false);
+    const na = await call('make_council_meeting_docs', { ...M, kind: 'minutes', attendance: undefined, outDir: path.join(tmp, 'na') });
+    expect(na.ok).toBe(false);
+    expect(na.errors.join()).toMatch(/출석/);
+  });
 });

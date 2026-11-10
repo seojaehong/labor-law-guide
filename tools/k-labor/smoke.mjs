@@ -148,6 +148,7 @@ const ANN = {
   check_council_meeting: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
   // 서류는 이 PC 에 파일을 쓴다(로컬 전용). 같은 이름이 있으면 멈추므로 다시 불러도 결과가 같지 않다
   make_labor_council_forms: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
+  make_council_meeting_docs: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
 };
 // 커넥터 디렉터리 심사 — 빠진 도구 없이 전부 title 과 네 칸이 있다
 {
@@ -156,7 +157,7 @@ const ANN = {
   check(`모든 도구(${all.length})에 title·annotations 네 칸${bare.length ? ` — 빠짐: ${bare.map((t) => t.name).join(',')}` : ''}`, bare.length === 0);
 }
 // 이 판에서 더한 도구 8개 + 사이트 도구 7개(groups/more) — 「대신·대행·대리」도 함께 막는다
-const NOSA_TOOLS = ['assess_labor_council', 'check_council_meeting', 'make_labor_council_forms'];
+const NOSA_TOOLS = ['assess_labor_council', 'check_council_meeting', 'make_labor_council_forms', 'make_council_meeting_docs'];
 const NEW_TOOLS = ['calc_severance', 'calc_holiday_pay', 'calc_pay_proration', 'calc_shutdown_allowance', 'calc_annual_leave', 'settle_leave_on_exit', 'calc_retirement_tax', 'list_employer_duties', ...MORE_TOOLS, ...NOSA_TOOLS];
 const NEW_WORDS = [...WORDS, '대신', '대행', '대리'];
 const bannedNew = (s) => (banned ? banned.bannedHits(s, NEW_WORDS) : []);
@@ -438,6 +439,23 @@ if (tools.includes('make_labor_council_forms')) {
   check('nosa 위원 수 10명 초과면 만들지 않음', n11.ok === false && !fs.existsSync(path.join(tmp, 'nosa-11')));
   const nr = await callNew('make_labor_council_forms', { ...NF, workplace: { name: '가상상사', tel: '900101-1234568' }, outDir: path.join(tmp, 'nosa-rrn') });
   check('nosa 서류 주민번호 모양이면 만들지 않음', nr.ok === false && !fs.existsSync(path.join(tmp, 'nosa-rrn')));
+}
+if (tools.includes('make_council_meeting_docs')) {
+  // 합성 회의 — 출석 9(정원 5·5) · 의결 1건 찬성 6 · 이월 협의 1건 · 보고 1건
+  const MD = {
+    workplace: { name: '가상상사' }, meeting: { kind: '정기', number: 4, date: '2026-12-03', place: '회의실', noticeDate: '2026-11-25' }, seats: { worker: 5, employer: 5 }, attendance: { worker: 4, employer: 5 },
+    agenda: [{ title: '교육훈련 기본계획', type: '의결', article: '21-1', inFavor: 6 }, { id: 'A-20260903-05', title: '야간 작업 순환', type: '협의', carriedOver: true }, { title: '3분기 실적', type: '보고', article: '22-1' }],
+    writtenDate: '2026-12-04', outDir: path.join(tmp, 'nosa-meeting'),
+  };
+  const mm = await callNew('make_council_meeting_docs', { ...MD, kind: 'minutes' });
+  const mj = mm.files?.find((f) => f.format === 'json');
+  const rec = mj ? JSON.parse(fs.readFileSync(mj.path, 'utf8')) : {};
+  check(`nosa 회의록 4파일 + .json(${rec.meeting?.key}) · 결과 ${rec.agenda?.map((x) => x.result).join('/')}`, mm.ok && mm.files.length === 5 && rec.schema === 'nosa-council-minutes/1'
+    && rec.agenda?.map((x) => x.result).join() === '의결,계속 협의,보고 완료' && rec.agenda[1].id === 'A-20260903-05' && rec.keepUntil === '2029-12-04');
+  const ml = await callNew('make_council_meeting_docs', { ...MD, kind: 'notice', meeting: { ...MD.meeting, noticeDate: '2026-11-26' }, outDir: path.join(tmp, 'nosa-late') });
+  check('nosa 통보 늦으면 소집 통보서 만들지 않음', ml.ok === false && /2026-11-25/.test(ml.errors?.join() ?? '') && !fs.existsSync(path.join(tmp, 'nosa-late')));
+  const mo = await callNew('make_council_meeting_docs', { ...MD, kind: 'minutes' });
+  check(`nosa 회의록 덮어쓰지 않음(${mo.exists?.length}개)`, mo.ok === false && mo.exists?.length === 5);
 }
 
 // ── work-rules 묶음 ──
