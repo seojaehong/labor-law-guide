@@ -100,5 +100,9 @@ export async function DELETE(req: NextRequest) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  return NextResponse.json({ success: true });
+  // 261110 — 내린 글이 24시간 더 읽혔다. 행을 지워도 상세 페이지 ISR 항목은 그대로
+  // 남아서, 재생성될 때까지 본문이 계속 나간다. 지우는 쪽이 캐시를 함께 비운다.
+  revalidateArticle(slug);
+
+  return NextResponse.json({ success: true, revalidated: true });
 }

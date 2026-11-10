@@ -21,8 +21,9 @@ export async function POST(
     .maybeSingle();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  if (!data) return NextResponse.json({ error: 'Article not found' }, { status: 404 });
 
-  revalidateArticle(data.slug);
-  return NextResponse.json({ revalidated: true, slug: data.slug });
+  // 261110 — 행이 없을 때가 오히려 비워야 할 때다. 종전에는 404 로 거절해서
+  // 내린 글의 캐시를 비울 방법이 없었다. 없으면 경로만 비우고 missing 을 알린다.
+  revalidateArticle(data?.slug ?? id);
+  return NextResponse.json({ revalidated: true, slug: data?.slug ?? id, missing: !data });
 }
