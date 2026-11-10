@@ -29,7 +29,7 @@ const GROUPS = {
   duties: { register: registerDuties, tools: dutiesTools, about: '사업장 규모별 사업주 의무 · 의무교육 · 위반 시 제재(묶은 자료)' },
   'work-rules': { register: registerWorkRules, tools: workRulesTools, about: '노동법 개정 목록 · 법령 조문 원문·두 시점 비교(법제처 Open API, LAW_OC) · 취업규칙 개정 반영 점검(글자·파일) · 신고·변경신고 서류(파일은 로컬 전용)' },
   // 기록 묶음(nosa-records)은 원격판에 싣지 않는다 — stdio 판의 nosa 묶음으로만 켠다
-  nosa: { register: (s) => { registerNosa(s); registerNosaRecords(s); }, tools: [...nosaTools, ...nosaRecordsTools], about: '노사협의회 설치의무 · 근로자위원 선출방식 · 선출·회의 정족수 · 소집·신고·고충 기한 · 일정 역산 · 회의 확인(통보 기한·정기회의 3개월·안건별 의결·보고사항·공지 기한) · 협의회규정 견본과 설치·신고 서류 · 회의 서류(소집 통보서·회의자료·회의록·의결사항 공지) · 근로자위원 선거 서류 · 회의록 보관함(이행·회의록 이력, 옵시디언 보관함·회의록 대장)' },
+  nosa: { register: (s) => { registerNosa(s); registerNosaRecords(s); }, tools: [...nosaTools, ...nosaRecordsTools], about: '노사협의회 설치의무 · 근로자위원 선출방식 · 선출·회의 정족수 · 소집·신고·고충 기한 · 일정 역산 · 회의 확인(통보 기한·정기회의 3개월·안건별 의결·보고사항·공지 기한) · 협의회규정 견본과 설치·신고 서류 · 회의 서류(소집 통보서·회의자료·회의록·의결사항 공지) · 근로자위원 선거 서류 · 회의록 보관함(이행·회의록 이력, 옵시디언 보관함·회의록 대장, 옛 회의록 가져오기)' },
 };
 const ALIAS = { fax: 'popbill', sms: 'popbill', rules: 'work-rules', 'work_rules': 'work-rules', council: 'nosa' };
 

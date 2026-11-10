@@ -153,6 +153,7 @@ const ANN = {
   // 기록은 덧붙이기(같은 호출을 두 번 하면 두 줄), 보관함은 덮어쓰지 않으므로 다시 불러도 결과가 같지 않다
   record_council_history: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
   export_council_vault: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
+  import_council_minutes: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
 };
 // 커넥터 디렉터리 심사 — 빠진 도구 없이 전부 title 과 네 칸이 있다
 {
@@ -161,7 +162,7 @@ const ANN = {
   check(`모든 도구(${all.length})에 title·annotations 네 칸${bare.length ? ` — 빠짐: ${bare.map((t) => t.name).join(',')}` : ''}`, bare.length === 0);
 }
 // 이 판에서 더한 도구 8개 + 사이트 도구 7개(groups/more) — 「대신·대행·대리」도 함께 막는다
-const NOSA_TOOLS = ['assess_labor_council', 'check_council_meeting', 'make_labor_council_forms', 'make_council_meeting_docs', 'make_council_election_docs', 'record_council_history', 'export_council_vault'];
+const NOSA_TOOLS = ['assess_labor_council', 'check_council_meeting', 'make_labor_council_forms', 'make_council_meeting_docs', 'make_council_election_docs', 'record_council_history', 'export_council_vault', 'import_council_minutes'];
 const NEW_TOOLS = ['calc_severance', 'calc_holiday_pay', 'calc_pay_proration', 'calc_shutdown_allowance', 'calc_annual_leave', 'settle_leave_on_exit', 'calc_retirement_tax', 'list_employer_duties', ...MORE_TOOLS, ...NOSA_TOOLS];
 const NEW_WORDS = [...WORDS, '대신', '대행', '대리'];
 const bannedNew = (s) => (banned ? banned.bannedHits(s, NEW_WORDS) : []);
@@ -467,6 +468,19 @@ if (tools.includes('make_council_meeting_docs')) {
     const vx = await callNew('export_council_vault', { dir: MD.outDir, outDir: path.join(tmp, 'nosa-vault'), today: '2027-01-10' });
     check(`nosa 보관함 ${vx.files}파일 · 깨진 링크 ${vx.brokenLinks?.length} · 미이행 ${vx.dashboard?.overdue?.map((x) => x.status).join()}`, vx.ok && vx.brokenLinks.length === 0
       && fs.existsSync(path.join(tmp, 'nosa-vault', '_대시보드.md')) && fs.existsSync(path.join(tmp, 'nosa-vault', '_회의록대장.xlsx')) && vx.dashboard.overdue[0]?.status === '완료(근거 없음)');
+  }
+  if (tools.includes('import_council_minutes')) {
+    // 옛 회의록(합성 txt) → ① 글자 읽기 → ② 제안 구조 확인 → 「가져옴 — 확인 전」 .json, 원본은 그대로
+    const old = path.join(tmp, 'nosa-old-minutes.txt');
+    fs.writeFileSync(old, '제5차 정기 노사협의회 회의록\n회의일시: 2027. 3. 4. 14:00\n1. 야간 작업 순환 — 계속 협의\n2. 휴게실 냉난방 — 의결\n');
+    const ir = await callNew('import_council_minutes', { dir: MD.outDir, source: old });
+    const ip = await callNew('import_council_minutes', {
+      dir: MD.outDir, source: old, sourceSha256: ir.sha256,
+      proposal: { workplace: { name: '가상상사' }, meeting: { kind: '정기', number: 5, date: '2027-03-04' }, seats: { worker: 5, employer: 5 }, writtenDate: '2027-03-04',
+        agenda: [{ id: 'A-20260903-05', title: '야간 작업 순환', type: '협의', result: '계속 협의', carriedOver: true }, { title: '휴게실 냉난방', type: '의결', article: '20-11', result: '의결' }] },
+    });
+    check(`nosa 옛 회의록 가져옴(${ip.meetingKey} · ${ip.status} · 같은 ID ${ip.sameId?.length}건 · 원문 대조 알림 ${ip.textWarnings?.length ?? 0})`, ir.ok && ir.step === 'read' && /휴게실/.test(ir.text)
+      && ip.ok && ip.status === '가져옴 — 확인 전' && fs.existsSync(ip.file) && fs.existsSync(old) && ip.sameId?.[0]?.id === 'A-20260903-05' && !ip.textWarnings);
   }
 }
 if (tools.includes('make_council_election_docs')) {

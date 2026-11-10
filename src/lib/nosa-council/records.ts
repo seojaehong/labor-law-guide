@@ -6,7 +6,9 @@
 // 파일 읽기·쓰기·해시 계산은 도구(tools/k-labor)가 하고, 여기는 받은 값만 계산한다(오늘 날짜도 받는다).
 import { addDays, isoDate, MINUTES_KEEP_YEARS } from './assess';
 import { ARTICLES, articleOf, regularInterval, retentionEnd, type IntervalStatus } from './meeting';
-import { IMPL_STATUSES, type GraphResult, type ImplStatus, type MinutesRecord, type PreviousResolutionInput } from './meeting-docs';
+import {
+  IMPL_STATUSES, meetingDocsErrors, minutesRecord, type AgendaDocInput, type GraphResult, type ImplStatus, type MeetingDocsInput, type MinutesRecord, type PreviousResolutionInput,
+} from './meeting-docs';
 
 export const IMPL_LOG = '_이행기록.jsonl';
 export const DOC_LOG = '_회의록이력.jsonl';
@@ -189,6 +191,7 @@ export function councilLedger(minutes: readonly MinutesLike[], events: readonly 
     const post = last('공지');
     const withFile = ev.filter((e) => t(e.path));
     const current = withFile.at(-1);
+    const src = m.import?.source;
     const version = Math.max(1, ...ev.map((e) => e.version ?? 0));
     const resolved = m.agenda.filter((a) => a.result === '의결').length;
     const due = m.check?.resolutionNotice?.due ?? null;
@@ -200,14 +203,16 @@ export function councilLedger(minutes: readonly MinutesLike[], events: readonly 
       notice: conv?.onTime == null ? '통보일 없음' : conv.onTime ? '기한 안' : '기한 경과',
       quorum: m.check?.quorum ? (m.check.quorum.held ? '성립' : '불성립') : '',
       agendaCount: m.agenda.length, resolvedCount: resolved, signedDate: signed?.date ?? null, postedDate: post?.date ?? null, posted,
-      keepUntil: keep, version, path: current?.path ?? null, sha256: current?.sha256 ?? null, status: m.import ? (isConfirmed(m, events) ? '확인됨' : IMPORTED) : '확인됨',
+      keepUntil: keep, version, path: current?.path ?? src?.path ?? null, sha256: current?.sha256 ?? src?.sha256 ?? null, status: m.import ? (isConfirmed(m, events) ? '확인됨' : IMPORTED) : '확인됨',
     });
     if (!signed) warnings.push(`${key} 회의록에 서명 완료 기록이 없다 — 출석위원 전원이 서명하거나 날인한다(시행령 제6조).`);
     if (posted === '기한 경과') warnings.push(`${key} 의결사항 공지(${post!.date})가 기한(${due})보다 늦었다.`);
     if (posted === '공지 전' && due && today > due) warnings.push(`${key} 의결사항 공지 기록이 없고 기한(${due})이 지났다.`);
     if (today > keep) warnings.push(`${key} 회의록 보존 기간이 지났다(${keep}까지, 작성일부터 3년 — 법 제19조제2항). 폐기 여부를 정한다.`);
     else if (addDays(today, KEEP_SOON_DAYS) >= keep) warnings.push(`${key} 회의록 보존 만료 임박(${keep}까지, 작성일부터 3년 — 법 제19조제2항).`);
-    for (const [label, e] of [['서명본', signed], ['현재 판', current !== signed ? current : undefined]] as const) {
+    // 가져온 원본은 이력에 같은 경로가 없을 때만 따로 본다(같은 파일을 두 번 알리지 않는다)
+    const source = src && !withFile.some((e) => e.path === src.path) ? src : undefined;
+    for (const [label, e] of [['서명본', signed], ['현재 판', current !== signed ? current : undefined], ['가져온 원본', source]] as const) {
       if (!e?.path || !e.sha256 || !(e.path in hashes)) continue;
       const now = hashes[e.path];
       if (now === null) warnings.push(`${key} ${label} 파일이 없다(${e.path}).`);
@@ -337,10 +342,20 @@ export function councilDashboard(minutes: readonly MinutesLike[], records: reado
     .filter((m) => m.meeting.kind === '정기' && (m.check?.reports?.missing ?? []).length)
     .map((m) => ({ meeting: m.meeting.key, missing: m.check.reports.missing }));
   const unconfirmed = minutes.filter((m) => !isConfirmed(m, events)).map((m) => m.meeting.key);
-  const candidates = minutes
-    .filter((m) => !isConfirmed(m, events))
-    .flatMap((m) => m.agenda.flatMap((a) => ok.flatMap((o) => o.agenda.filter((b) => b.id !== a.id && titleSimilarity(a.title, b.title) >= SIMILAR_AT).map((b) => ({ imported: { meeting: m.meeting.key, id: a.id, title: a.title }, existing: { meeting: o.meeting.key, id: b.id, title: b.title }, similarity: Math.round(titleSimilarity(a.title, b.title) * 100) / 100 })))));
+  const candidates = similarPairs(minutes.filter((m) => !isConfirmed(m, events)), ok);
   return { overdue, carried, untouched, gaps, missingReports, unconfirmed, candidates };
+}
+
+/** 가져온 안건과 제목이 비슷한(ID 는 다른) 확인된 안건 — 「후보」로만 보이고 선은 만들지 않는다. 같은 쌍은 한 번만 */
+function similarPairs(from: readonly MinutesLike[], to: readonly MinutesLike[]) {
+  const seen = new Set<string>();
+  return from.flatMap((m) => m.agenda.flatMap((a) => to.flatMap((o) => o.agenda.flatMap((b) => {
+    const s = titleSimilarity(a.title, b.title);
+    const k = `${m.meeting.key}|${a.id}|${b.id}`;
+    if (b.id === a.id || s < SIMILAR_AT || seen.has(k)) return [];
+    seen.add(k);
+    return [{ imported: { meeting: m.meeting.key, id: a.id, title: a.title }, existing: { meeting: o.meeting.key, id: b.id, title: b.title }, similarity: Math.round(s * 100) / 100 }];
+  }))));
 }
 
 // ── 옵시디언 보관함 ───────────────────────────────────────
@@ -504,4 +519,60 @@ export function minutesShapeErrors(x: unknown): string[] {
   if (!Array.isArray(m.agenda) || m.agenda.some((a) => !a || !KEY_RE.test(String(a.id ?? '')) || !RESULT_NODES.includes(a.result as GraphResult))) out.push('agenda(id·result)가 맞지 않습니다.');
   if (!isoDate(m.writtenDate)) out.push('writtenDate 가 날짜가 아닙니다.');
   return out;
+}
+
+// ── 가져온 회의록(import_council_minutes) ─────────────────
+// 모델이 원문 글자를 읽어 구조를 제안하고, 여기서 확인한다. 결과는 원문에 적힌 대로 받는다(찬성 수가 없는 옛 회의록이 많다).
+// 가져온 값은 「가져옴 — 확인 전」이고 「가져옴 확인」 기록 전까지 선을 만들지 않는다. 원본은 옮기지 않고 경로·해시만 남긴다.
+
+export interface ImportAgenda extends AgendaDocInput { result: GraphResult }
+export interface ImportProposal extends MeetingDocsInput { agenda: ImportAgenda[] }
+export interface ImportSource { path: string; sha256: string }
+
+/** 제안된 구조 확인 — 회의 서류 입력 규칙(찬성 수·출석은 없어도 된다) + 차수 · 결과 · 구분과 결과의 짝 · 법조문 분류 */
+export function importErrors(p: ImportProposal): string[] {
+  const out = meetingDocsErrors(p, 'materials');
+  if (p.meeting?.number == null) out.push('회의 차수(meeting.number)가 있어야 가져온다(회의 키 YYYY-정기|임시-N차).');
+  for (const [k, a] of (p.agenda ?? []).entries()) {
+    const n = `안건 ${k + 1}(${t(a.title)})`;
+    if (!RESULT_NODES.includes(a.result)) out.push(`${n}의 결과(result)는 ${RESULT_NODES.join('·')} 중 하나입니다.`);
+    else if (a.type === '보고' && a.result !== '보고 완료') out.push(`${n}은 보고 안건이라 결과가 「보고 완료」입니다.`);
+    else if (a.type !== '보고' && a.result === '보고 완료') out.push(`${n}은 ${a.type} 안건이라 결과가 「보고 완료」일 수 없습니다.`);
+    if (a.article && !articleOf(a.article)) out.push(`${n}의 법조문 분류(${a.article})가 목록에 없습니다(20-1~20-17, 21-1~21-5, 22-1~22-4).`);
+  }
+  return out;
+}
+
+/** 확인을 통과한 제안 → 회의록 .json(가져옴 — 확인 전). 출석·찬성 수가 있어 계산한 결과가 원문과 다르면 원문대로 두고 알린다 */
+export function importedMinutes(p: ImportProposal, source: ImportSource): { record: MinutesLike; warnings: string[] } {
+  const base = minutesRecord(p);
+  const warnings: string[] = [];
+  const agenda = base.agenda.map((a, k) => {
+    const stated = p.agenda[k].result;
+    if (a.vote && a.result !== stated) warnings.push(`${a.id}: 원문 결과는 「${stated}」인데 출석·찬성 수로 계산하면 「${a.result}」이다 — 원문대로 두었다. 숫자를 다시 확인한다.`);
+    return { ...a, result: stated };
+  });
+  return { record: { ...base, agenda, import: { status: IMPORTED, source } }, warnings };
+}
+
+const squash = (s: string) => s.replace(/[\s\p{P}\p{S}]/gu, '');
+/** 원문 대조 — 제안된 개최일·안건 제목이 원문 글자에 있는지(띄어쓰기·문장부호는 보지 않는다) */
+export function importTextWarnings(m: MinutesLike, text: string): string[] {
+  const out: string[] = [];
+  const [y, mo, d] = m.meeting.date.split('-').map(Number);
+  const day = new RegExp(`${y}\\s*(?:[.\\-/]|년)\\s*0?${mo}\\s*(?:[.\\-/]|월)\\s*0?${d}(?!\\d)`);
+  if (!day.test(text)) out.push(`개최일(${m.meeting.date})을 원문에서 찾지 못했다 — 날짜를 다시 확인한다.`);
+  const body = squash(text);
+  for (const a of m.agenda) if (!body.includes(squash(a.title))) out.push(`안건 ${a.id} 제목 「${a.title}」을 원문에서 찾지 못했다 — 줄였거나 잘못 읽었을 수 있다.`);
+  return out;
+}
+
+/** 기록 폴더의 확인된 회의록과 맞춰 보기 — 같은 ID(확인하면 이월 선이 생긴다)와 제목이 비슷한 후보(선 없음) */
+export function importMatches(m: MinutesLike, minutes: readonly MinutesLike[], events: readonly DocEvent[]) {
+  const ok = minutes.filter((x) => isConfirmed(x, events) && x.meeting.key !== m.meeting.key).sort(byDate);
+  const sameId = m.agenda.flatMap((a) => {
+    const meetings = ok.filter((o) => o.agenda.some((b) => b.id === a.id)).map((o) => o.meeting.key);
+    return meetings.length ? [{ id: a.id, meetings }] : [];
+  });
+  return { sameId, candidates: similarPairs([m], ok) };
 }

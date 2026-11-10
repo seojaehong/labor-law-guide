@@ -3,6 +3,7 @@
 import { describe, expect, it } from 'vitest';
 import fs from 'node:fs';
 import os from 'node:os';
+import crypto from 'node:crypto';
 import path from 'node:path';
 
 import { registerNosa } from '../../tools/k-labor/groups/nosa.mjs';
@@ -30,7 +31,7 @@ const M = (n: number, date: string, agenda: unknown[], extra: Record<string, unk
 
 describe('nosa 기록 묶음 — 목록', () => {
   it('로컬 전용이고 원격 가능 목록에 없다 · 금지어 없음', () => {
-    expect(nosaRecordsTools).toEqual(['record_council_history', 'export_council_vault']);
+    expect(nosaRecordsTools).toEqual(['record_council_history', 'export_council_vault', 'import_council_minutes']);
     for (const n of nosaRecordsTools) {
       expect(nosaRemoteSafe).not.toContain(n);
       const t = tools.find((x) => x.name === n)!;
@@ -107,4 +108,84 @@ describe('이력 덧붙이기 → 다음 회의록 자동 채움 → 보관함',
     const r = await call('record_council_history', { dir, kind: 'implementation', implementation: { date: '2026-05-01', agendaId: 'A-20260305-01', status: '진행', content: '900101-1234568' } });
     expect(r.ok).toBe(false);
   });
+});
+
+describe('import_council_minutes — 원문 글자 → 모델 제안 → 도구 확인 → 가져옴(확인 전)', () => {
+  const srcDir = path.join(tmp, '옛 회의록');
+  const hash = (p: string) => crypto.createHash('sha256').update(fs.readFileSync(p)).digest('hex');
+  const jsons = () => fs.readdirSync(dir).filter((n) => n.endsWith('.json')).sort();
+  let source = '';
+  let sha = '';
+  const proposal = {
+    workplace: { name: '가상제조' }, meeting: { kind: '정기', number: 3, date: '2026-09-03' }, seats: { worker: 5, employer: 5 },
+    agenda: [
+      { id: 'A-20260305-02', title: '야간 작업 순환', type: '협의', article: '20-7', result: '계속 협의', carriedOver: true },
+      { id: 'A-20260903-02', title: '야간작업 순환 방식', type: '의결', article: '20-7', proposer: '근로자위원', result: '의결', decision: '4주 단위 순환' },
+    ],
+    writtenDate: '2026-09-04',
+  };
+
+  it('읽기 — 원본 글자·해시와 기록 폴더의 회의 키·안건 ID 를 돌려주고 아무것도 쓰지 않는다', async () => {
+    const made = await call('make_council_meeting_docs', M(3, '2026-09-03', [{ title: '야간 작업 순환', type: '협의' }, { title: '야간작업 순환 방식', type: '의결', inFavor: 9 }], { outDir: srcDir }));
+    source = made.files.find((f: { path: string }) => f.path.endsWith('_상세회의록.hwpx')).path;
+    const before = fs.readdirSync(dir).sort();
+    const r = await call('import_council_minutes', { dir, source });
+    expect(r.ok).toBe(true);
+    expect(r.step).toBe('read');
+    expect(r.sha256).toBe(hash(source));
+    sha = r.sha256;
+    expect(r.text).toContain('야간작업 순환 방식');
+    expect(r.existing.meetings).toEqual(['2026-정기-1차', '2026-정기-2차']);
+    expect(r.existing.agenda).toContainEqual(expect.objectContaining({ id: 'A-20260305-02' }));
+    expect(fs.readdirSync(dir).sort()).toEqual(before);
+  }, 60_000);
+
+  it('저장 — 확인을 통과하면 「가져옴 — 확인 전」 .json 을 쓰고, 원본은 옮기지 않고 경로·해시만 남긴다', async () => {
+    const r = await call('import_council_minutes', { dir, source, sourceSha256: sha, proposal });
+    expect(r.ok).toBe(true);
+    expect(r.status).toBe('가져옴 — 확인 전');
+    expect(r.meetingKey).toBe('2026-정기-3차');
+    expect(path.dirname(r.file)).toBe(path.resolve(dir));
+    const json = JSON.parse(fs.readFileSync(r.file, 'utf8'));
+    expect(json.import).toEqual({ status: '가져옴 — 확인 전', source: { path: path.resolve(source), sha256: sha } });
+    expect(json.agenda.map((a: { result: string }) => a.result)).toEqual(['계속 협의', '의결']);
+    expect(fs.existsSync(source) && hash(source)).toBe(sha);
+    expect(r.sameId).toEqual([{ id: 'A-20260305-02', meetings: ['2026-정기-1차', '2026-정기-2차'] }]);
+    expect(r.candidates.length).toBeGreaterThan(0);
+    expect(r.textWarnings ?? []).toEqual([]);
+    expect(bannedHits(JSON.stringify(r) + JSON.stringify(json), WORDS)).toEqual([]);
+    const again = await call('import_council_minutes', { dir, source, sourceSha256: sha, proposal });
+    expect(again.ok).toBe(false);
+  }, 60_000);
+
+  it('막는다 — 읽은 뒤 원본이 바뀌었거나, 구조가 맞지 않거나, 주민등록번호 모양이면 쓰지 않는다', async () => {
+    const before = jsons();
+    const other = (n: number) => ({ ...proposal, meeting: { ...proposal.meeting, number: n } });
+    const changed = await call('import_council_minutes', { dir, source, sourceSha256: '0'.repeat(64), proposal: other(4) });
+    expect(changed.ok).toBe(false);
+    expect(changed.error).toMatch(/바뀌었/);
+    const bad = await call('import_council_minutes', { dir, source, proposal: { ...other(5), agenda: [{ id: 'X-1', title: '야간 작업 순환', type: '보고', result: '의결' }] } });
+    expect(bad.ok).toBe(false);
+    expect(bad.errors.join()).toMatch(/보고 완료/);
+    const rrn = await call('import_council_minutes', { dir, source, proposal: { ...other(6), otherNotes: '900101-1234568' } });
+    expect(rrn.ok).toBe(false);
+    expect(jsons()).toEqual(before);
+  });
+
+  it('확인 전에는 보관함에서 잇지 않고, 「가져옴 확인」 뒤에 이월 선이 생긴다 · 원본이 바뀌면 대장이 알린다', async () => {
+    const v1 = await call('export_council_vault', { dir, outDir: path.join(tmp, 'vault-imp1'), today: '2026-09-10' });
+    expect(v1.dashboard.unconfirmed).toEqual(['2026-정기-3차']);
+    expect(v1.counts.carried).toBe(1);
+    expect(v1.brokenLinks).toEqual([]);
+    expect(wikilinks(fs.readFileSync(path.join(tmp, 'vault-imp1', '회의', '2026-정기-3차.md'), 'utf8'))).toEqual([]);
+    const c = await call('record_council_history', { dir, kind: 'minutes', minutes: { meetingKey: '2026-정기-3차', stage: '가져옴 확인', date: '2026-09-10' } });
+    expect(c.ok).toBe(true);
+    const v2 = await call('export_council_vault', { dir, outDir: path.join(tmp, 'vault-imp2'), today: '2026-09-10' });
+    expect(v2.dashboard.unconfirmed).toEqual([]);
+    expect(v2.counts.carried).toBe(2);
+    expect(v2.brokenLinks).toEqual([]);
+    fs.appendFileSync(source, 'x');
+    const v3 = await call('export_council_vault', { dir, outDir: path.join(tmp, 'vault-imp3'), today: '2026-09-10' });
+    expect(v3.warnings.join()).toMatch(/2026-정기-3차 가져온 원본.*바뀌었다/);
+  }, 60_000);
 });

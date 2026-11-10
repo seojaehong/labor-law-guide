@@ -3,8 +3,9 @@ import { bannedHits } from '@/lib/tool-kit/banned';
 import { minutesRecord, type MeetingDocsInput } from '@/lib/nosa-council/meeting-docs';
 import { retentionEnd } from '@/lib/nosa-council/meeting';
 import {
-  appendRecord, councilDashboard, councilGraph, councilLedger, councilVault, implHistory, implLabel, previousResolutionsFor, wikilinks,
-  type DocEvent, type ImplRecord, type MinutesLike,
+  appendRecord, councilDashboard, councilGraph, councilLedger, councilVault, implHistory, implLabel, importedMinutes, importErrors, importMatches,
+  importTextWarnings, IMPORTED, minutesShapeErrors, previousResolutionsFor, wikilinks,
+  type DocEvent, type ImplRecord, type ImportProposal, type MinutesLike,
 } from '@/lib/nosa-council/records';
 
 // 회의록 보관함 — 이행 이력(덧붙이기만) · 회의록 이력(판·해시) · 회의록 대장 · 그래프 · 대시보드.
@@ -202,5 +203,86 @@ describe('옵시디언 보관함', () => {
   });
   it('금지어가 없다', () => {
     expect(bannedHits(v.files.map((f) => f.text).join('\n'), WORDS)).toEqual([]);
+  });
+});
+
+describe('가져온 회의록 — 모델이 구조를 제안하고 도구가 확인한다', () => {
+  const src = { path: 'C:/옛 회의록/2027-1차.hwpx', sha256: 'c'.repeat(64) };
+  const P = (over: Partial<ImportProposal> = {}): ImportProposal => ({
+    workplace: { name: '가상제조' },
+    meeting: { kind: '정기', number: 1, date: '2027-03-04' },
+    seats: { worker: 5, employer: 5 },
+    agenda: [
+      { id: 'A-20260305-02', title: '야간 작업 순환', type: '협의', article: '20-7', result: '계속 협의', carriedOver: true },
+      { id: 'A-20270304-02', title: '야간작업 순환 방식 개선', type: '의결', article: '20-7', proposer: '근로자위원', result: '의결', decision: '4주 단위 순환', implementation: { action: '순환표 게시', due: '2027-04-30' } },
+    ],
+    writtenDate: '2027-03-05',
+    ...over,
+  });
+  const imported = importedMinutes(P(), src).record;
+  const ok = (key: string): DocEvent => ({ seq: 1, meetingKey: key, stage: '가져옴 확인', date: '2027-03-20' });
+
+  it('구조 확인 — 구분과 결과가 맞지 않거나 법조문·ID·차수가 틀리면 막는다', () => {
+    expect(importErrors(P())).toEqual([]);
+    expect(importErrors(P({ agenda: [{ id: 'X-1', title: '실적', type: '보고', result: '의결' }] })).join()).toMatch(/보고/);
+    expect(importErrors(P({ agenda: [{ id: 'X-1', title: '휴게실', type: '협의', result: '보고 완료' }] })).join()).toMatch(/보고 완료/);
+    expect(importErrors(P({ agenda: [{ id: 'X-1', title: '휴게실', type: '협의', result: '통과' as never }] })).join()).toMatch(/결과/);
+    expect(importErrors(P({ agenda: [{ id: 'X-1', title: '휴게실', type: '협의', article: '20-99', result: '계속 협의' }] })).join()).toMatch(/법조문/);
+    expect(importErrors(P({ agenda: [{ id: 'X-1', title: 'a', type: '협의', result: '계속 협의' }, { id: 'X-1', title: 'b', type: '협의', result: '계속 협의' }] })).join()).toMatch(/같은 안건 ID/);
+    expect(importErrors(P({ meeting: { kind: '정기', date: '2027-03-04' } })).join()).toMatch(/차수/);
+  });
+
+  it('가져온 값은 「가져옴 — 확인 전」이고 원본은 경로·해시만 남긴다 · 결과는 원문대로(찬성 수가 없어도)', () => {
+    expect(imported.import).toEqual({ status: IMPORTED, source: src });
+    expect(minutesShapeErrors(imported)).toEqual([]);
+    expect(imported.meeting.key).toBe('2027-정기-1차');
+    expect(imported.agenda.map((a) => a.result)).toEqual(['계속 협의', '의결']);
+  });
+
+  it('찬성 수가 있어 계산한 결과가 원문 결과와 다르면 알린다(원문대로 둔다)', () => {
+    const r = importedMinutes(P({ attendance: { worker: 5, employer: 5 }, agenda: [{ id: 'X-1', title: '휴게실', type: '의결', result: '의결', inFavor: 4 }] }), src);
+    expect(r.record.agenda[0].result).toBe('의결');
+    expect(r.warnings.join()).toMatch(/X-1.*의결되지 않음/);
+  });
+
+  it('확인 전에는 선이 없다 — 가져온 회의록끼리 같은 ID 여도 · 확인하면 이월 선이 생긴다', () => {
+    const second = importedMinutes(P({ meeting: { kind: '정기', number: 2, date: '2027-06-03' }, writtenDate: '2027-06-04' }), src).record;
+    const g = councilGraph([...ALL, imported, second], [], []);
+    const touches = (e: (typeof g.edges)[number]) => [e.from, e.to, e.meeting].some((x) => x === '2027-정기-1차' || x === '2027-정기-2차' || x === 'A-20270304-02');
+    expect(g.edges.filter(touches)).toEqual([]);
+    expect(g.nodes.map((n) => n.id)).not.toContain('A-20270304-02');
+    expect(g.edges.filter((e) => e.type === '이월' && e.agenda === 'A-20260305-02')).toHaveLength(2);
+    const after = councilGraph([...ALL, imported, second], [], [ok('2027-정기-1차')]);
+    expect(after.edges).toContainEqual({ type: '이월', from: '2026-정기-3차', to: '2027-정기-1차', agenda: 'A-20260305-02' });
+    expect(after.edges.filter((e) => [e.from, e.to, e.meeting].includes('2027-정기-2차'))).toEqual([]);
+  });
+
+  it('제목이 비슷하면 「후보」로만 보이고 선은 만들지 않는다 · 같은 ID 는 확인하면 이어진다고 알린다', () => {
+    const x = importMatches(imported, ALL, []);
+    expect(x.sameId).toEqual([{ id: 'A-20260305-02', meetings: ['2026-정기-1차', '2026-정기-2차', '2026-정기-3차'] }]);
+    expect(x.candidates).toContainEqual(expect.objectContaining({ imported: expect.objectContaining({ id: 'A-20270304-02' }), existing: expect.objectContaining({ id: 'A-20260604-02' }) }));
+    const after = councilGraph([...ALL, imported], [], [ok('2027-정기-1차')]);
+    expect(after.edges.some((e) => [e.from, e.to].includes('A-20270304-02') && [e.from, e.to].includes('A-20260604-02'))).toBe(false);
+  });
+
+  it('원문 대조 — 원문에서 찾지 못한 개최일·안건 제목을 알린다', () => {
+    const text = '제1차 정기 노사협의회 회의록\n개최 일시: 2027. 3. 4. 14:00\n1. 야간 작업 순환\n2. 야간작업 순환방식 개선';
+    expect(importTextWarnings(imported, text)).toEqual([]);
+    expect(importTextWarnings(imported, '2027년 3월 4일 야간 작업 순환 · 야간작업 순환 방식 개선')).toEqual([]);
+    const w = importTextWarnings(imported, '개최 일시: 2027. 3. 5.\n1. 야간 작업 순환').join('\n');
+    expect(w).toMatch(/개최일/);
+    expect(w).toMatch(/A-20270304-02/);
+  });
+
+  it('대장 — 가져온 회의록은 원본 경로·해시를 현재 판으로 보이고, 원본이 바뀌면 알린다', () => {
+    const l = councilLedger([...ALL, imported], [], { [src.path]: src.sha256 }, '2027-03-10');
+    expect(l.rows.at(-1)).toMatchObject({ key: '2027-정기-1차', status: IMPORTED, path: src.path, sha256: src.sha256 });
+    expect(l.warnings.join()).not.toMatch(/가져온 원본/);
+    expect(councilLedger([...ALL, imported], [], { [src.path]: 'd'.repeat(64) }, '2027-03-10').warnings.join()).toMatch(/2027-정기-1차 가져온 원본.*바뀌었다/);
+  });
+
+  it('금지어가 없다', () => {
+    const r = importedMinutes(P({ attendance: { worker: 5, employer: 5 }, agenda: [{ id: 'X-1', title: '휴게실', type: '의결', result: '의결', inFavor: 4 }] }), src);
+    expect(bannedHits(JSON.stringify(r) + importTextWarnings(imported, '').join() + importErrors(P({ meeting: { kind: '정기', date: '2027-03-04' } })).join(), WORDS)).toEqual([]);
   });
 });
