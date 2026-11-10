@@ -1,0 +1,310 @@
+{
+  "baseline": "원본을 node_modules/.cache/exit-check-engine 에 git show 로 꺼내 사이트 typescript 로 빌드하고 prepareFromManifest → runCore 로 잰 값(scripts/exit-check/sync-engine.mjs)",
+  "commit": "cab1cce0748930ddd4226b5717909622198e08db",
+  "deadline_rules_canonical_sha256": "d908f299bad2cc75d573b664aa6de1f4a53b6423a28d2758c10c812ccf13328b",
+  "deadline_rules_source": "rules/deadline-rules.json",
+  "entry": "src/config.ts",
+  "files": {
+    "config.ts": "d404e1e77d13f4e320a4543ab10313ea56533396528289fb5a99797a8652a771",
+    "core/aliases.ts": "328d4d6d036c4dd2d3ea8fa289d32d1f70f13549fdc628d4ac0db9382a083147",
+    "core/canonical.ts": "67fb09e0b86eba1d3851165c9cf69d587060b020a933eee349bb9b568d5ce3a6",
+    "core/context.ts": "aa68a0821c6fd44257190deb2c8219a713fa846cf81fd1203b4abf80023d6f5f",
+    "core/deadlines.ts": "084f8bb6f28fda8a977748863fe21576917a2ed2b3af278de1cf8c5e7e7ea164",
+    "core/normalize.ts": "87cf5f76a1869279b14d8074b4d566298453f9ec6eb32614c331c5f225606d2c",
+    "core/rrn.ts": "20324c1fa9aff751c06f5e8ce5278266fe9c54b9402a747437fdbda9e318f5f1",
+    "core/run.ts": "1aed1c9ce4d0fa5d94097f12471757705982235ab469875f9088147b16070584",
+    "core/sha256.ts": "b6f2d46f1665ce9846ccc25b33711f977fdf076c9dc5b9f6879a1613d0b639dd",
+    "core/types.ts": "3790896a9cae19308bba8e963ff1e040f5769fb06b7438572b0348bb3965c064",
+    "core/values.ts": "24bd742a794c0e6b64cedeb6d30d7c9026a0b98e12ac873f951d70facfd13454",
+    "parse/csv.ts": "34ac6029b56d06b069b137c8a27eabc3adfe58764fc815e48f78d575506fe5d4",
+    "parse/input.ts": "795547c8dc574c1c40026672bd7fe5a2a648b2498fd15269165bef509143e306",
+    "parse/xlsx.ts": "276964ddca3195cffafd32b2bbebb70c639ee815f55ed806428ed003f3c726a2",
+    "parse/zipcheck.ts": "7211af56fa6935c5371e6ce2281957360c8904dd83ff9e38e53eef8c76bf5cb0",
+    "rules/common.ts": "96cd97547961fd87569abe0d250fca6bb5d55acaba1adfa87f6d9ca61dcfb08f",
+    "rules/r001_keys.ts": "e2305b7d18761e750e178e64c68fe4d7034dc8fdb728d733731dcbbff0ad9d6b",
+    "rules/r002_dates.ts": "35b9a89b2e758b73e1f6e5d8abd723858b10395ec9034e48a5b2049fa27abd90",
+    "rules/r003_insurance.ts": "92ab62848b8ef2f5dcea4edeb500f4c4d005382063ebd554b0061984db72985e",
+    "rules/r004_freshness.ts": "37e90d625ac64da0f5ba151e38940fd92ac8e4aec33bf84670e59fc0957a02f9",
+    "rules/r005_settlement.ts": "f9df2e477701d1eb10184c8710f56fc529cb06bf51ac155b22be0d342473342b",
+    "rules/r006_leave.ts": "41a59bee17df8511b0e3708981e034a84608704111e18a16deb786c205c6fe4c",
+    "rules/r007_corrections.ts": "0ce618a367aacc0025ffe38545151a9aca4396ef3f93b8c504d8f203e9d661fc",
+    "rules/r008_evidence.ts": "7f983def3018ef51019f2d082afa0f8e5868ef8808803fec996a5601f705af9d",
+    "rules/r009_deadlines.ts": "ba0ab0e3e0e8bf56dda0f25562a92028f9c2644a9af330a86236e5b0f03df0a4",
+    "rules/registry.ts": "dfd03024406ea7d9be20506dfdf6cf5095c14f02ebe64b59de008c70260e337b"
+  },
+  "scenarios": {
+    "S01": {
+      "compared_item_count": 14,
+      "core_report_sha256": "sha256:3fe54da030d1dd4c34f39a89ecdcdd368d12d9656dc66efeecbd482b0b937c79",
+      "finding_count": 0,
+      "findings_by_status": {},
+      "input_sha256": {
+        "annual_leave_ledger.csv": "9135b982fe84087b1fe0b06399dda50ce9d49df543a1f32f73d9ca3ebc7ddb5a",
+        "final_payroll_settlement.csv": "d2f5b2d4bf294a636669705878675126c2baff48841e475f6db84d20d3f0e255",
+        "insurance_loss.csv": "8236f1d312bf625c85ce05c8d57c90f2ff4cb5b113172be4dfef803501a809e1",
+        "personnel_exit.csv": "0e6fed01c4ecb024f0965ab2b1d447d003dc3f04c025584cdfb2190763cdd380"
+      },
+      "manifest_core_sha256": "sha256:c8bb74069e5df8cd80ec5481120b0dba54f0b402e03fee48299631b01e259bc4",
+      "run_state": "CORE_COMPARED"
+    },
+    "S02": {
+      "compared_item_count": 7,
+      "core_report_sha256": "sha256:2846a89d191f1493529232749877bdacfe6b3af17d5058c551f255b7b06b4ed7",
+      "finding_count": 1,
+      "findings_by_status": {
+        "MISSING_INPUT": 1
+      },
+      "input_sha256": {
+        "annual_leave_ledger.csv": "dc51e043cafe13b412dbf54766a9b61e08d3a35859c74e5ba87cc42654256f61",
+        "final_payroll_settlement.csv": "43cccdfcf1eeb0db8d957e54e369abaab867080feb842a2bc061d22cefb99a99",
+        "personnel_exit.csv": "1d4b73725ea7250e5860d23ca321055fbaf84f53c8ea97a049136dbe66b6c11e"
+      },
+      "manifest_core_sha256": "sha256:3bbd0254cfccf5ee9ba630aa342cd095780f79b209e240ada153f19dfff07d28",
+      "run_state": "REVIEW_REQUIRED"
+    },
+    "S03": {
+      "compared_item_count": 12,
+      "core_report_sha256": "sha256:a0e4629ff174890144d73a2ed9be8be10b7dd299ee1a2787a0c7dd61185c2430",
+      "finding_count": 1,
+      "findings_by_status": {
+        "INCOMPLETE": 1
+      },
+      "input_sha256": {
+        "annual_leave_ledger.csv": "b98d5f4d5e85dbc82f2adee98049534a711c098fd6155b59bf983005f76c36f4",
+        "final_payroll_settlement.csv": "5f14a72d380c0f450aabd891fd93cc40ede96c6544afaf5f5a2e45a55ae23e9c",
+        "insurance_loss.csv": "e4269f1719f0092c2fd5e0ab7ffd000a9b8a122de7a6afe24f17ed68fce32b8c",
+        "personnel_exit.csv": "570c6303015b4630bf696fce1906e7550f356ac40f03f50fdc28609cc5b4c28f"
+      },
+      "manifest_core_sha256": "sha256:dacca0ebacacadb04ece3783d80f661e2185042e0566d9eaa9a2739f76c2233b",
+      "run_state": "REVIEW_REQUIRED"
+    },
+    "S04": {
+      "compared_item_count": 11,
+      "core_report_sha256": "sha256:ed3e3dad42b7c24a0ff941bb8838c006a6cf8cf7cd33895f03f19f14278d3f17",
+      "finding_count": 4,
+      "findings_by_status": {
+        "REVIEW_REQUIRED": 3,
+        "STALE": 1
+      },
+      "input_sha256": {
+        "annual_leave_ledger.csv": "09d5636191b3cae39ec146a33bcd74723fc31eb0d21c9501e3cd4afaf78d2ad0",
+        "final_payroll_settlement.csv": "38bdfc85952d0af53cb9a089d8f991adcfee694a58728566b7865cedc3d209fa",
+        "insurance_loss.csv": "c0d09c5ec99b7f4887fdd53c82bc23222611a0f332fdfcf8f6a3adee646ca39f",
+        "personnel_exit.csv": "5fafd9b3b45801be3f943318935d53671b51d8fa750d9310422533f4bf76555d"
+      },
+      "manifest_core_sha256": "sha256:3b7e678cf58f6b31553442f0276eadd2e720a4d95d31e16a6503e29e59f1a842",
+      "run_state": "REVIEW_REQUIRED"
+    },
+    "S05": {
+      "compared_item_count": 7,
+      "core_report_sha256": "sha256:d31aa50685296bccb2f168568fe071e2c1d36c55fdbdfa1412d5292f96378b5e",
+      "finding_count": 1,
+      "findings_by_status": {
+        "DISCREPANCY": 1
+      },
+      "input_sha256": {
+        "annual_leave_ledger.csv": "c1fc2c78c2c7b948113ef4ecc7abfe46d09c6ad27941ae947bc6925ccbc729d3",
+        "final_payroll_settlement.csv": "f10c4aa6d266676ce7d33d542674f4288a1f3ef21f659710097bec12b5d4b488",
+        "insurance_loss.csv": "9dba73b52cc41d0ae0ea9ed468e097ca2b9159682fd0e362eab8ddd895d92816",
+        "personnel_exit.csv": "a36759b1ce965c324c8aa0f54b33812b1180c4b560e1d58de016d53c765e1aec"
+      },
+      "manifest_core_sha256": "sha256:367af81ecc24f61b583d877a9e4d987a5b037f39c05184b9db072ba0288433a7",
+      "run_state": "REVIEW_REQUIRED"
+    },
+    "S06": {
+      "compared_item_count": 14,
+      "core_report_sha256": "sha256:c0c626bb41b8e6671a77464f3e86f537a8a22b39aa6ac7b0f24d83fd91522135",
+      "finding_count": 0,
+      "findings_by_status": {},
+      "input_sha256": {
+        "annual_leave_ledger.csv": "e82fe67a14248d3142dc30b15c97a9eeb90e982ba6d28b624c68f0e0e513afd2",
+        "final_payroll_settlement.csv": "49650317c95ff40007a8f7eece88ae866ffbd7f7a2413da6c2962e1ef39016ab",
+        "insurance_loss.csv": "c3d0be9556ea39bfc321b684b8d41fb4e7da6938f69fae3350a698e1933f951c",
+        "personnel_exit.csv": "7b14671d1ac6a2d806d9890ccccdfd49184540ae6f5d47bb9c728a7fca7dc4c1"
+      },
+      "manifest_core_sha256": "sha256:9b1a4676ed593a47941deff1351dbc335afb117c95f23e5849a44d30431033b0",
+      "run_state": "CORE_COMPARED"
+    },
+    "S07": {
+      "compared_item_count": 27,
+      "core_report_sha256": "sha256:097d7ea7ce10bba7aca94c0d170976c4108e8d59f303217702dae97a70fa90b6",
+      "finding_count": 1,
+      "findings_by_status": {
+        "INCOMPLETE": 1
+      },
+      "input_sha256": {
+        "annual_leave_ledger.csv": "f5ed2e73290ed7a5dc6867b3cb809e4eb6b57027e03ec5af5eac120c38b1a068",
+        "final_payroll_settlement.csv": "f56819613cfc75580375bed9c0ff26b0ecee2f9d7a4b0847d57e7b6900bfc9d6",
+        "insurance_loss.csv": "37d1124e607a7457dd13fa3372dd34fdb33e923a7c4b0a837ee78928b3400808",
+        "personnel_exit.csv": "ca1ebd593569719cbb181757d90321540cb6db20985adc1777a97f7b4501dc28"
+      },
+      "manifest_core_sha256": "sha256:a734c70f3b7fa3b1da76b555bd43317bc3f13be454ba8057143c3e4e2aa81665",
+      "run_state": "REVIEW_REQUIRED"
+    },
+    "S09": {
+      "compared_item_count": 14,
+      "core_report_sha256": "sha256:da747ffb4d8ee9c01e542752ce28294ecf3a93ad0149a74f2685f2175a97d6ec",
+      "finding_count": 1,
+      "findings_by_status": {
+        "ON_HOLD": 1
+      },
+      "input_sha256": {
+        "annual_leave_ledger.csv": "b548670b3c8918131bdab46932ca46fe57aaec779a730b991a975b90289d44f2",
+        "final_payroll_settlement.csv": "2a671a2709c2cba708bfd33b134a82c834507b933ef1d698d7c39a2753d9e4e2",
+        "insurance_loss.csv": "423c77f5be42034e8ea42da425c29448c617dab2e268d3aa9e0c0ff94e988ccf",
+        "personnel_exit.csv": "d5a72c47ebc39bd4232f402d03dde590e7c6ca1ddc843251e9672759618eac95"
+      },
+      "manifest_core_sha256": "sha256:031c42b616537f49b2f0300a11ca8acc24246738ad1b5e1b243a0a2cd795cbc9",
+      "run_state": "REVIEW_REQUIRED"
+    },
+    "S10": {
+      "compared_item_count": 13,
+      "core_report_sha256": "sha256:66c43d132835d81247fe97c14283aab4fcc37569850d713b767eae297db727c8",
+      "finding_count": 1,
+      "findings_by_status": {
+        "INCOMPLETE": 1
+      },
+      "input_sha256": {
+        "annual_leave_ledger.csv": "1c3f5e045dafb85b6057e3aaa707cabbd23b9c237e5b36396bbdbb96f784aa79",
+        "final_payroll_settlement.csv": "acc7f60c2833a895f8537287fe5d0db902b42b9e88f62091fa5a13872cfeae0a",
+        "insurance_loss.csv": "ab2edbb301f742a30e56e732e345601ba24a93a0fe513aebfe8103f8263ed4ee",
+        "personnel_exit.csv": "bface25b3719872e06b61ecd03084966af03ae9fd89269daecc12785e40a23f8"
+      },
+      "manifest_core_sha256": "sha256:b5fd6b50899925c36d275237a54c6060105634ca09640637a1ab8d3b9e95c000",
+      "run_state": "REVIEW_REQUIRED"
+    },
+    "S12": {
+      "compared_item_count": 11,
+      "core_report_sha256": "sha256:b20f6aaa9bb896fa0f89c1a45544bfd4b1b91242b50dd70d0fd1bccf0ac30669",
+      "finding_count": 5,
+      "findings_by_status": {
+        "INCOMPLETE": 2,
+        "MISSING_INPUT": 2,
+        "SCHEMA_BLOCKED": 1
+      },
+      "input_sha256": {
+        "annual_leave_ledger.csv": "255be53da119ec073086b8e7c09d04249066d3514a8632a3285735042523593d",
+        "final_payroll_settlement.csv": "98b5fad06a39e6c44f9bf8b37744cce7a36f9f4dddeb108b46dc5b24ad7b7e99",
+        "insurance_loss.csv": "74d424231eef8cfb848f686d943e1d4d082c3be0315742c993699718470741b9",
+        "personnel_exit.csv": "6013a8827ee7c139c1a8bffe3ca74ca92f071ab954131cb17591199f59aed4dc"
+      },
+      "manifest_core_sha256": "sha256:4e47213b7a7d2aa8b31ee1e4c98d71835f7cfd0469504185344f16e13d9c1576",
+      "run_state": "REVIEW_REQUIRED"
+    },
+    "S13": {
+      "compared_item_count": 13,
+      "core_report_sha256": "sha256:55fd6a368aaa981c42be21fa33da80e300b955ef56de1e84cacbae27a548a18f",
+      "finding_count": 1,
+      "findings_by_status": {
+        "REVIEW_REQUIRED": 1
+      },
+      "input_sha256": {
+        "annual_leave_ledger.csv": "c024c22257c3b2a34f243c967485a7bc393a1c72c9908d56062440aa8b7d750e",
+        "final_payroll_settlement.csv": "c1dd1e0c8c58a9cf5da5f9f9cc08ad33eba6bc91861245e45158bcc15b86c0a2",
+        "insurance_loss.csv": "ae9a5272ffd7ec556194cae4e41ee1d731e6cbe05464bcde608b977c907a9df6",
+        "personnel_exit.csv": "94c9dde5e641500eceec13ae28f33f6de3f8ddadf817a0fc818433e82b7a8b04"
+      },
+      "manifest_core_sha256": "sha256:5ec0d63c5a2d8276c629c2b662eb26cc2a7dddf92dad26d7b3bb0f4af73b9104",
+      "run_state": "REVIEW_REQUIRED"
+    },
+    "S14": {
+      "compared_item_count": 13,
+      "core_report_sha256": "sha256:dec9ab3637d13c2135c6ea541a7d5cb04f76955ea24648ddb9389b33aef34992",
+      "finding_count": 1,
+      "findings_by_status": {
+        "INCOMPLETE": 1
+      },
+      "input_sha256": {
+        "annual_leave_ledger.csv": "fd03e7d45d070a2d5beca71d17c3abf6652303e49679b9ea74e965b48497f5a5",
+        "final_payroll_settlement.csv": "b6812b00ac967b0c376ac4cd8bad83d4117d97000ad4472da0cec12a4a54e751",
+        "insurance_loss.csv": "8dd8bc0bc3e7f3fd44e78c8478e6a7d2d6e5cd8f3c11686597f0a3aa6251d09f",
+        "personnel_exit.csv": "2ea27f21bd314a0a5e5cef0a3ea81637493d7dadd9e7d7d135c2a7530e4912f5"
+      },
+      "manifest_core_sha256": "sha256:bf02583fa2d48b32f3dc98baa52a2469b2845c29f09f6c8acb5c0044eb84f6dc",
+      "run_state": "REVIEW_REQUIRED"
+    },
+    "S15": {
+      "compared_item_count": 13,
+      "core_report_sha256": "sha256:d9589986393414df30ff0264fd8d3d688593af3c25a51fd1d8d9b7e92b95fc14",
+      "finding_count": 1,
+      "findings_by_status": {
+        "INCOMPLETE": 1
+      },
+      "input_sha256": {
+        "annual_leave_ledger.csv": "2838eec628e24314ea127dfcb97bd90f26c47adda278c127191ddac30ac6e2aa",
+        "final_payroll_settlement.csv": "fcd828ccd3f87c10edeb5bb869c39b5f11a5a1e3111ab0215f652c241e8caed2",
+        "insurance_loss.csv": "4be802ccb486f653c23bd5fed511efc515b457924edbc7298fa5f08c2da0e331",
+        "personnel_exit.csv": "0847c70001395cd517a139fb6d6b01a474a79b7d29688d3467e47eaac56e2062"
+      },
+      "manifest_core_sha256": "sha256:1ce0fa008e4a3913114c338dfb1965df99cbcf8ad578ef7be52a69faa6a1fa0a",
+      "run_state": "EVIDENCE_INCOMPLETE"
+    },
+    "S16": {
+      "compared_item_count": 14,
+      "core_report_sha256": "sha256:a79759cdfb9603b7ccbb191afd9b6abdc8e6469ffb1fba20fc280ea17c4c561b",
+      "finding_count": 0,
+      "findings_by_status": {},
+      "input_sha256": {
+        "annual_leave_ledger.csv": "6b7c20b1c3fbe99b2c57f083cba842bf886d31c6447511aca4981566d25e4709",
+        "final_payroll_settlement.csv": "c550e35140742add4e00bdfbb9c4a329527e6f33ba065834bc701a49a51bf858",
+        "insurance_loss.csv": "550b7198b44546c029d2daec7e09f5dfa6192fdfc9d1cd0d6008721fc55264b9",
+        "personnel_exit.csv": "86f236b5c258a414bfd790809cdb803081c4088f677788860c1cba05fd7d8443"
+      },
+      "manifest_core_sha256": "sha256:efc4b95a3b35c55ad1e6b7dac1dd973be0262689465d33ae8e090d428696a0e1",
+      "run_state": "CORE_COMPARED"
+    },
+    "S17": {
+      "compared_item_count": 12,
+      "core_report_sha256": "sha256:5b536db4d203f80bf53cad274266905a9de54301a6164e6b53f8b04d01aa7ee2",
+      "finding_count": 1,
+      "findings_by_status": {
+        "NOT_APPLICABLE": 1
+      },
+      "input_sha256": {
+        "annual_leave_ledger.csv": "10c524871461d4400ebafeb961694c4639750c9c78a88ce273b2ee46b0120025",
+        "final_payroll_settlement.csv": "08c0cb8452da55247021e8d91ad144924fadc694c7a7e2e3fa0c67bd7a1248ee",
+        "insurance_loss.csv": "caf250bfd0893f5a2dfdffaa196f8e4c1e736fe75e1933853014d5ea29aa6ca8",
+        "personnel_exit.csv": "66d2317b5eb7a887f6fbd70a9159e375ecc07ea2bbe4bda5b3928e0e41fdab5f"
+      },
+      "manifest_core_sha256": "sha256:df255b5d89f1158a45353d5289cb1dc0b83555c15846814d0064af8f7cf12256",
+      "run_state": "CORE_COMPARED"
+    },
+    "S18": {
+      "compared_item_count": 11,
+      "core_report_sha256": "sha256:83becb800b5bc182be48221771a420e8932be4eb48decb6cafaf66c6daeeb235",
+      "finding_count": 4,
+      "findings_by_status": {
+        "REVIEW_REQUIRED": 3,
+        "STALE": 1
+      },
+      "input_sha256": {
+        "annual_leave_ledger.csv": "09d5636191b3cae39ec146a33bcd74723fc31eb0d21c9501e3cd4afaf78d2ad0",
+        "final_payroll_settlement.csv": "38bdfc85952d0af53cb9a089d8f991adcfee694a58728566b7865cedc3d209fa",
+        "insurance_loss.csv": "c0d09c5ec99b7f4887fdd53c82bc23222611a0f332fdfcf8f6a3adee646ca39f",
+        "personnel_exit.csv": "3cab5fba56002d43119b42dfad7ba8a819e468c2606070fa763fb5bf795a198e",
+        "personnel_exit_v2.csv": "18cf02272cec08d7eb782c9ca7278fcf5327d0d81b8e98534186bac4d6c9e5c0"
+      },
+      "manifest_core_sha256": "sha256:f92e477380857ecb147259073d2c6bcb88a03982e862efe8cffffabc0b864e16",
+      "run_state": "REVIEW_REQUIRED"
+    },
+    "S19": {
+      "compared_item_count": 14,
+      "core_report_sha256": "sha256:64466572f4b7b4e551fd3384f960193fe25e62c5b8c5581cc1c5230ab6a85ae2",
+      "finding_count": 0,
+      "findings_by_status": {},
+      "input_sha256": {
+        "annual_leave_ledger.csv": "9135b982fe84087b1fe0b06399dda50ce9d49df543a1f32f73d9ca3ebc7ddb5a",
+        "final_payroll_settlement.csv": "d2f5b2d4bf294a636669705878675126c2baff48841e475f6db84d20d3f0e255",
+        "insurance_loss.csv": "8236f1d312bf625c85ce05c8d57c90f2ff4cb5b113172be4dfef803501a809e1",
+        "personnel_exit.csv": "ee0b71a4c4388d8dc439a5da2fb73fd71902670a3414accaada9048ca4782399"
+      },
+      "manifest_core_sha256": "sha256:dc8cccc56c4f987997eeb300e411ea723233a630f532abca37fcd106e840204c",
+      "run_state": "CORE_COMPARED"
+    }
+  },
+  "skipped_scenarios": {
+    "S08": "가짜 이름 열(worker_name 「홍길동」)이 있다. 사람 이름 형태 값은 사이트 저장소에 싣지 않는다(계획 조각 1).",
+    "S11": "메모 칸에 주민등록번호 형태 시험값이 있다. 그 형태 값은 사이트 저장소에 싣지 않는다(계획 조각 1)."
+  },
+  "source": "~/dev/exit-check"
+}
