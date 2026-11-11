@@ -41,10 +41,10 @@ export function viewStrings(v: unknown): string[] {
 
 const SCOPE =
   '대조하지 않은 항목: 금액(임금·퇴직금·연차수당), 고용 종료일·상실일·지급일·상실 신고 제출 시각 사이의 날짜 관계, 연차 일수 계산, ' +
-  '급여 귀속 기간이 퇴사 시점과 맞는지, 신고 처리 결과(접수·반려), 퇴직 사유, 세금 신고, 이직확인서. 대조한 항목 목록에 없는 것은 대조하지 않았습니다.';
+  '급여 귀속 기간이 퇴사 시점과 맞는지, 신고 처리 결과(접수·반려), 퇴직 사유, 세금 신고, 이직확인서. 점검한 항목 목록에 없는 것은 점검하지 않았습니다.';
 const CUTOFF = '이 예시는 2026.10.20. 23:59:59(한국 시간) 기준으로 대조했습니다.';
 
-/** 근로자 한 명·네 자료가 다 맞을 때 대조한 항목 목록(엔진 규칙 순서). {schemes} 만 표본마다 다르다. */
+/** 근로자 한 명·네 자료가 다 맞을 때 점검한 항목 목록(엔진 규칙 순서). {schemes} 만 표본마다 다르다. */
 const comparedFor = (schemes: string) => [
   '네 자료에 같은 사업장·근로자·고용 차수가 있는지',
   '인사·퇴사 자료에 고용 종료일 값이 있는지',
@@ -55,7 +55,7 @@ const comparedFor = (schemes: string) => [
 ];
 
 describe('화면 모델 — 내장 표본 두 개(S01·S03)', () => {
-  it('S01: 확인이 필요한 항목 0건 · 대조한 항목 6개, 범위 한정 문장이 붙은 0건 문장', async () => {
+  it('S01: 확인이 필요한 항목 0건 · 점검한 항목 6개, 범위 한정 문장이 붙은 0건 문장', async () => {
     // 손으로 센 근거(S01 CSV): 근로자 1명·고용 차수 1. 인사·퇴사 1행, 급여 정산 1행(지급일 2026-10-08), 4대보험 상실 3행(국민연금·건강보험·고용보험), 연차 대장 1행.
     // 엔진 대조 항목 14 = 네 자료 1 + 고용 종료일 1 + 상실 신고 행(세 제도 한 항목) 1 + 자료 기준 시각 1 + 급여 정산 칸 1 + 연차 대장 칸 1 + 위치 기록 1 = 7
     //                    + R-009 날짜 관계(상실일 3 + 지급일 1 + 제출 시각 3) = 7.
@@ -63,8 +63,8 @@ describe('화면 모델 — 내장 표본 두 개(S01·S03)', () => {
     const r = await runScenario('S01');
     const v = toExitCheckView(r.core_report);
     expect(v.counts).toEqual({ checkItems: 0, notCompared: 0, compared: 6, unusableFiles: 0, excluded: 0 });
-    expect(v.summary).toBe('확인이 필요한 항목 0건 · 대조한 항목 6개');
-    expect(v.zeroNote).toBe(`대조한 6개 항목에서 차이를 찾지 못했습니다. ${SCOPE}`);
+    expect(v.summary).toBe('확인이 필요한 항목 0건 · 점검한 항목 6개');
+    expect(v.zeroNote).toBe(`점검한 6개 항목에서 확인이 필요한 항목이 나오지 않았습니다. ${SCOPE}`);
     expect(v.scopeNote).toBe(SCOPE);
     expect(v.cutoffNote).toBe(CUTOFF);
     expect(v.checkItems).toEqual([]);
@@ -72,7 +72,7 @@ describe('화면 모델 — 내장 표본 두 개(S01·S03)', () => {
     expect(v.comparedItems).toEqual(comparedFor('국민연금·건강보험·고용보험'));
   }, 60_000);
 
-  it('S03: 확인이 필요한 항목 1건 · 대조한 항목 6개, 국민연금 문장, 근거 위치는 「대조 기준 행: 인사·퇴사 자료 2행」', async () => {
+  it('S03: 확인이 필요한 항목 1건 · 점검한 항목 6개, 국민연금 문장, 근거 위치는 「대조 기준 행: 인사·퇴사 자료 2행」', async () => {
     // 손으로 센 근거(S03 CSV): S01 과 같은 꼴에서 4대보험 상실 자료의 국민연금 행이 없다(건강보험·고용보험 2행).
     // 엔진 대조 항목 12 = 7(위와 같음, 상실 신고 행은 건강보험·고용보험 한 항목) + R-009 날짜 관계(상실일 2 + 지급일 1 + 제출 시각 2) 5.
     // 화면 = 12 − 5 − 위치 기록 1 = 6.  확인이 필요한 항목 = 국민연금 행 없음 1.
@@ -80,7 +80,7 @@ describe('화면 모델 — 내장 표본 두 개(S01·S03)', () => {
     const r = await runScenario('S03');
     const v = toExitCheckView(r.core_report);
     expect(v.counts).toEqual({ checkItems: 1, notCompared: 0, compared: 6, unusableFiles: 0, excluded: 0 });
-    expect(v.summary).toBe('확인이 필요한 항목 1건 · 대조한 항목 6개');
+    expect(v.summary).toBe('확인이 필요한 항목 1건 · 점검한 항목 6개');
     expect(v.zeroNote).toBeNull();
     expect(v.scopeNote).toBe(SCOPE);
     expect(v.checkItems).toEqual([
@@ -91,7 +91,7 @@ describe('화면 모델 — 내장 표본 두 개(S01·S03)', () => {
 });
 
 describe('화면 모델 — 시험 fixture', () => {
-  it('S12: 확인이 필요한 항목 2건 · 대조하지 못한 항목 2건(따로 적는다) · 대조한 항목 4개 · 대조에 쓰지 못한 자료 1개', async () => {
+  it('S12: 확인이 필요한 항목 2건 · 대조하지 못한 항목 2건(따로 적는다) · 점검한 항목 4개 · 대조에 쓰지 못한 자료 1개', async () => {
     // 손으로 센 근거(S12 CSV): 급여 정산 자료 머리글에 고용 차수 열이 없다 → 그 자료 전체를 대조에 쓰지 못함(1개).
     //   그 결과 ① 고용 차수 열 없음(대조하지 못함) ② 급여 정산 대조 못함(대조하지 못함).
     //   연차 대장 2행의 고용 차수 칸이 비었다 → ③ 빈 칸(확인) ④ 같은 근로자·차수의 연차 행을 못 찾음(확인).
@@ -101,7 +101,7 @@ describe('화면 모델 — 시험 fixture', () => {
     // 대조하지 못한 항목은 0건으로 세지 않고 notComparedItems 로 따로 적는다(개발게이트 G2: 비교 근거 없음 ≠ 어긋남 없음).
     const v = toExitCheckView(await runFixture('S12'));
     expect(v.counts).toEqual({ checkItems: 2, notCompared: 2, compared: 4, unusableFiles: 1, excluded: 0 });
-    expect(v.summary).toBe('확인이 필요한 항목 2건 · 대조하지 못한 항목 2건 · 대조한 항목 4개 · 대조에 쓰지 못한 자료 1개');
+    expect(v.summary).toBe('확인이 필요한 항목 2건 · 대조하지 못한 항목 2건 · 점검한 항목 4개 · 대조에 쓰지 못한 자료 1개');
     expect(v.zeroNote).toBeNull();
     expect(v.checkItems).toEqual([
       { status: '자료 확인', text: '연차 대장 자료의 고용 차수 칸이 비어 있습니다.', places: ['연차 대장 자료 2행 C열'] },
@@ -139,7 +139,7 @@ describe('화면 모델 — 시험 fixture', () => {
     expect(v.zeroNote).toBeNull();
   }, 60_000);
 
-  it('검수 변형 O — 인사·퇴사 자료 하나에 재직자 한 명뿐이면 0건 문장 대신 「퇴사로 적힌 근로자가 없어…」를 낸다(대조한 항목 1개와 어긋나지 않게)', async () => {
+  it('검수 변형 O — 인사·퇴사 자료 하나에 재직자 한 명뿐이면 0건 문장 대신 「퇴사로 적힌 근로자가 없어…」를 낸다(점검한 항목 1개와 어긋나지 않게)', async () => {
     // 퇴사로 적힌 근로자가 없으니 네 자료를 맞춰 볼 대상이 없다. 엔진은 재직자 한 명에 대해 「퇴사 관련 행이 없는지」 하나만 대조한다.
     const report = await runFixture('S01', (files, manifest) => {
       files['personnel_exit.csv']![1] = 'C-A,W-01,1,,,active,2026-10-01T09:00:00+09:00';
@@ -148,10 +148,10 @@ describe('화면 모델 — 시험 fixture', () => {
     });
     const v = toExitCheckView(report);
     expect(v.counts).toEqual({ checkItems: 0, notCompared: 0, compared: 1, unusableFiles: 0, excluded: 0 });
-    expect(v.summary).toBe('확인이 필요한 항목 0건 · 대조한 항목 1개');
+    expect(v.summary).toBe('확인이 필요한 항목 0건 · 점검한 항목 1개');
     expect(v.comparedItems).toEqual(['재직으로 적힌 근로자에게 고용 종료일 값이나 퇴사 관련 행이 없는지']);
     expect(v.zeroNote).toBe(`인사·퇴사 자료에 퇴사로 적힌 근로자가 없어 네 자료를 맞춰 보지 않았습니다. ${SCOPE}`);
-    expect(v.zeroNote).not.toContain('차이를 찾지 못했습니다');
+    expect(v.zeroNote).not.toContain('나오지 않았습니다');
   }, 60_000);
 
   it('네 자료 가운데 하나를 대조에 쓰지 않았으면(자료가 빠졌거나 막힘) 0건 문장을 내지 않는다', async () => {
@@ -240,7 +240,7 @@ describe('화면 모델 — 시험 fixture', () => {
       { status: '대조에서 뺌', text: '건강보험 항목은 대조에서 빼기로 한 기록이 있어 대조하지 않았습니다.', places: ['대조 기준 행: 인사·퇴사 자료 2행'] },
     ]);
     expect(v.summary).toContain('대조에서 뺀 항목 1건');
-    expect(v.zeroNote).toBe(`대조한 ${v.counts.compared}개 항목에서 차이를 찾지 못했습니다. 대조에서 뺀 항목은 이 문장에 넣지 않았습니다. ${SCOPE}`);
+    expect(v.zeroNote).toBe(`점검한 ${v.counts.compared}개 항목에서 확인이 필요한 항목이 나오지 않았습니다. 대조에서 뺀 항목은 이 문장에 넣지 않았습니다. ${SCOPE}`);
   }, 60_000);
 
   it('「두 자료의 ○○ 값이 다릅니다」는 근거가 정확히 두 파일일 때만 쓴다 — 한 파일 안(S05)·세 파일 이상은 각각 다른 문장', async () => {
@@ -272,7 +272,7 @@ describe('화면 모델 — 시험 fixture', () => {
     expect(shown.filter((s) => s.includes('날짜 관계') || s.includes('고용 종료일을 기준으로 보는 날짜'))).toEqual([]);
   }, 60_000);
 
-  it.todo('조각 4(B4 뒤) 선행 조건: 제출 시각이 빈 상실 신고 행은 「대조한 항목」으로 세지 않는다(검수 변형 A — r009_deadlines.ts:154·164)');
+  it.todo('조각 4(B4 뒤) 선행 조건: 제출 시각이 빈 상실 신고 행은 「점검한 항목」으로 세지 않는다(검수 변형 A — r009_deadlines.ts:154·164)');
 });
 
 describe('화면 모델 — 값은 날짜·시각 칸만, 머리글·자유 글은 싣지 않는다', () => {

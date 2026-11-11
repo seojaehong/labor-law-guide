@@ -6,24 +6,24 @@
 /** 요약 한 줄 조각. 가운뎃점으로 잇는다. 확인이 필요한 항목과 대조하지 못한 항목은 따로 센다(합치지 않는다). */
 export const SUMMARY_CONFIRM = '확인이 필요한 항목 {n}건';
 export const SUMMARY_NOT_COMPARED = '대조하지 못한 항목 {n}건';
-export const SUMMARY_COMPARED = '대조한 항목 {n}개';
+export const SUMMARY_COMPARED = '점검한 항목 {n}개';
 export const SUMMARY_UNUSABLE = '대조에 쓰지 못한 자료 {n}개';
 export const SUMMARY_EXCLUDED = '대조에서 뺀 항목 {n}건';
 export const SUMMARY_JOIN = ' · ';
 
 /**
- * 대조 범위 — 이 대조가 보지 않는 것. 「대조한 항목」 목록에 없는 것을 모두 적는다.
+ * 대조 범위 — 이 대조가 보지 않는 것. 「점검한 항목」 목록에 없는 것을 모두 적는다.
  * 고용 종료일과 다른 날짜의 관계(R-009)는 사장님 결정 B4 전에는 싣지 않으므로 여기 적는다(조각 4 에서 다시 본다).
  */
 export const SCOPE_NOTE =
   '대조하지 않은 항목: 금액(임금·퇴직금·연차수당), 고용 종료일·상실일·지급일·상실 신고 제출 시각 사이의 날짜 관계, 연차 일수 계산, ' +
-  '급여 귀속 기간이 퇴사 시점과 맞는지, 신고 처리 결과(접수·반려), 퇴직 사유, 세금 신고, 이직확인서. 대조한 항목 목록에 없는 것은 대조하지 않았습니다.';
+  '급여 귀속 기간이 퇴사 시점과 맞는지, 신고 처리 결과(접수·반려), 퇴직 사유, 세금 신고, 이직확인서. 점검한 항목 목록에 없는 것은 점검하지 않았습니다.';
 
 /**
  * 0건 문장 — 네 자료를 다 썼고, 퇴사로 적힌 근로자 모두를 네 자료에서 맞춰 봤고, 확인이 필요한 항목·대조하지 못한 항목·
  * 대조에 쓰지 못한 자료가 모두 0일 때만. 범위 문장을 꼭 붙인다. (다른 안: 「점검한 {n}개 항목에서 확인이 필요한 항목이 나오지 않았습니다.」 — B3)
  */
-export const ZERO_NOTE = '대조한 {n}개 항목에서 차이를 찾지 못했습니다.';
+export const ZERO_NOTE = '점검한 {n}개 항목에서 확인이 필요한 항목이 나오지 않았습니다.';
 /** 대조에서 뺀 항목이 있을 때 0건 문장 뒤에 붙인다. */
 export const ZERO_EXCLUDED_NOTE = '대조에서 뺀 항목은 이 문장에 넣지 않았습니다.';
 /** 퇴사로 적힌 근로자가 없어 네 자료를 맞춰 볼 대상이 없을 때 0건 문장 대신. */
@@ -37,7 +37,7 @@ export const HEADING_CHECK = '확인이 필요한 항목';
 export const HEADING_NOT_COMPARED = '대조하지 못한 항목';
 export const HEADING_UNUSABLE = '대조에 쓰지 못한 자료';
 export const HEADING_EXCLUDED = '대조에서 뺀 항목';
-export const HEADING_COMPARED = '대조한 항목';
+export const HEADING_COMPARED = '점검한 항목';
 export const HEADING_UNUSED_COLUMNS = '대조에 쓰지 않은 열';
 /** 대조하지 못한 항목 묶음이 있을 때만 그 묶음 아래 붙인다(조각 3). */
 export const NOTE_NOT_COMPARED = '대조하지 못한 항목은 차이가 없는 것으로 세지 않고 따로 적었습니다.';

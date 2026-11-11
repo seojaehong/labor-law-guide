@@ -173,7 +173,7 @@ export const GATE_REASON_TEXT: Readonly<Record<string, string>> = {
 };
 
 /**
- * 대조한 항목 이름 — 엔진이 실제로 한 일 그대로 적는다(값끼리 견준 것인지, 칸에 값이 있는지만 본 것인지).
+ * 점검한 항목 이름 — 엔진이 실제로 한 일 그대로 적는다(값끼리 견준 것인지, 칸에 값이 있는지만 본 것인지).
  * {groups}·{schemes}·{target} 은 콜론 뒤 값을 바꾼 이름이다.
  */
 export const COMPARED_ITEM_LABEL: Readonly<Record<string, string>> = {

@@ -223,8 +223,8 @@ describe('문안 두 파일(labels.ts·copy.ts)', () => {
   });
 
   it('법률검증 2차 C-운영자표시 문장 꼴을 쓴다(0건 문장은 권고 7 틀을 능동으로 · 확인이 필요한 항목 · 두 자료의 ○○이 다릅니다)', () => {
-    // 권고 7 「대조한 ○개 항목에서 차이가 발견되지 않았습니다」의 틀을 지키고 피동만 고쳤다(검수 B3 선택지 가). 결정 대기.
-    expect(COPY.ZERO_NOTE).toBe('대조한 {n}개 항목에서 차이를 찾지 못했습니다.');
+    // 권고 7 「대조한 ○개 항목에서 차이가 발견되지 않았습니다」의 틀에서 「대조」를 「점검」으로 바꿨다(261111 재홍님 승인, 검수 B3 선택지 나 — 값이 있는지만 본 항목이 섞여 있다). 결정 대기.
+    expect(COPY.ZERO_NOTE).toBe('점검한 {n}개 항목에서 확인이 필요한 항목이 나오지 않았습니다.');
     expect(COPY.SCOPE_NOTE.startsWith('대조하지 않은 항목: ')).toBe(true);
     expect(COPY.HEADING_CHECK).toBe('확인이 필요한 항목');
     expect(LABELS.REASON_TEXT.SAME_CONCEPT_VALUES_DIFFER).toBe('두 자료의 {field} 값이 다릅니다.');
@@ -439,7 +439,7 @@ describe('화면 모델 글자 — 17개 fixture 전부', () => {
     expect(EXIT_CHECK_SCENARIOS.some((sc) => Object.values(sc.files).some((l) => /[가-힣]/.test(l[0] ?? '')))).toBe(true);
   });
 
-  it('대조한 항목 개수 = 목록 줄 수(근로자 한 명). 여러 근로자 fixture 는 같은 이름을 합쳐 줄 수가 적다 — 여러 근로자 표시는 계획 범위 밖', () => {
+  it('점검한 항목 개수 = 목록 줄 수(근로자 한 명). 여러 근로자 fixture 는 같은 이름을 합쳐 줄 수가 적다 — 여러 근로자 표시는 계획 범위 밖', () => {
     const multi: string[] = [];
     for (const [id, r] of reports) {
       const v = toExitCheckView(r);
@@ -454,7 +454,7 @@ describe('화면 모델 글자 — 17개 fixture 전부', () => {
   });
 });
 
-/** 근로자가 둘 이상인 fixture(대조한 항목 개수와 목록 줄 수가 다를 수 있다). 여러 근로자 표시를 정하는 조각에서 이 목록을 없앤다. */
+/** 근로자가 둘 이상인 fixture(점검한 항목 개수와 목록 줄 수가 다를 수 있다). 여러 근로자 표시를 정하는 조각에서 이 목록을 없앤다. */
 const MULTI_WORKER = ['S07'];
 
 describe('view.ts — 한국어 글자를 품지 않는다(문안은 labels.ts·copy.ts 두 파일에만)', () => {

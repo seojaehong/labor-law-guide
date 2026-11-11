@@ -5,7 +5,7 @@
 // 읽지 않는 것: details(날짜 후보·조문 등), source_value, 머리글 원문(source_header), 파일 이름, 시트 이름, 키 원문, run_state.
 // 묶음: 확인이 필요한 항목(checkItems)과 대조하지 못한 항목(notComparedItems)은 따로 센다(합친 수는 내지 않는다). 대조에서 뺀 항목·대조에 쓰지 못한 자료도 따로 센다.
 // 싣지 않는 대조 항목: R-009(날짜 관계)는 사장님 결정 B4 전에는 세지도 싣지도 않고(범위 문장에 「대조하지 않은 항목」으로 적는다),
-//   위치 기록 점검(file_sha256_and_locator_present)은 엔진 내부 점검이라 「대조한 항목」으로 세지 않는다.
+//   위치 기록 점검(file_sha256_and_locator_present)은 엔진 내부 점검이라 「점검한 항목」으로 세지 않는다.
 
 import type { CoreReport, Evidence, Finding, ItemStatus } from '@/lib/exit-check-demo/types';
 import * as C from './copy';
@@ -77,7 +77,7 @@ const BUCKET: Record<ItemStatus | 'SCHEMA_BLOCKED', Bucket> = {
 
 /** 사장님 결정 B4 전에는 싣지 않는 규칙(날짜 관계). 셈하지 못한 표시(deadline_candidates_not_computed)도 이 규칙에서 온다. */
 const HELD_RULE = 'R-009';
-/** 엔진 내부 점검 — 「대조한 항목」으로 세지 않는다. */
+/** 엔진 내부 점검 — 「점검한 항목」으로 세지 않는다. */
 const INTERNAL_ITEMS: readonly string[] = ['file_sha256_and_locator_present'];
 const TRIPLET_ITEM = 'identifier_triplet_present_in';
 const TRIPLET_ALL = 'identifier_triplet_present_in_4_families';
