@@ -171,6 +171,32 @@ export async function sendWelcomeEmail(opts: {
 //   - Gmail 다크모드 색 변환 회피 위해 헤더 흰색
 //   - full content (preview 아닌 본문 전체)
 //   - 둘러보기 카드 + light footer
+
+/** 메일 본문에서 「한 줄 브리핑」 목록을 MAIL_ROUNDUP_MAX 개까지만 남긴다(글은 건드리지 않는다). */
+const MAIL_ROUNDUP_MAX = 8;
+
+export function capMailRoundup(html: string): string {
+  // 섹션 머리(이모지가 붙든 안 붙든)와 그 뒤 첫 <ul>…</ul> 를 찾는다.
+  const head = /<h2[^>]*>[^<]*한\s*줄\s*브리핑[^<]*<\/h2>/i.exec(html);
+  if (!head) return html;
+  const after = html.slice(head.index + head[0].length);
+  const ul = /<ul[^>]*>([\s\S]*?)<\/ul>/i.exec(after);
+  if (!ul) return html;
+
+  const items = ul[1].match(/<li[\s\S]*?<\/li>/gi) || [];
+  if (items.length <= MAIL_ROUNDUP_MAX) return html;
+
+  const rest = items.length - MAIL_ROUNDUP_MAX;
+  const kept = items.slice(0, MAIL_ROUNDUP_MAX).join('');
+  const more =
+    `<li style="list-style:none;margin-top:10px">` +
+    `<a href="${SITE_URL}/blog" style="color:#1b64da;text-decoration:none;font-weight:700">` +
+    `→ 나머지 ${rest}건은 사이트에서 봅니다</a></li>`;
+
+  const start = head.index + head[0].length + ul.index;
+  return html.slice(0, start) + `<ul>${kept}${more}</ul>` + after.slice(ul.index + ul[0].length);
+}
+
 export async function sendDailyNewsletter(opts: {
   to: string;
   unsubscribeToken: string;
@@ -225,6 +251,13 @@ export async function sendDailyNewsletter(opts: {
   // 메일 클라이언트는 base URL 없어 상대 URL이 깨짐 — 사이트 절대 URL로 자동 치환 (DB 데이터 누락 케이스 방어)
   safeContent = safeContent.replace(/href="\/(?!\/)/g, `href="${SITE_URL}/`);
   safeContent = safeContent.replace(/src="\/(?!\/)/g, `src="${SITE_URL}/`);
+
+  // 🔴 2026-11-11 — 「한 줄 브리핑」은 메일에서만 줄인다.
+  //   재홍님 지적: 「뉴스링크(레터 하단에)가 아직 그대론거같은데」.
+  //   원칙은 「전부 싣는다」인데 그 원칙이 적용되는 곳은 **글**이다. 메일에 59개 링크가
+  //   들어가면 읽는 사람은 아무것도 누르지 않는다. 글은 그대로 두고 메일만 자른다.
+  //   실측(2026-11-11): 한 줄 브리핑 59항목 · 글 전체 링크 69개. 11-10 은 79/86 이었다.
+  safeContent = capMailRoundup(safeContent);
 
   // subject — 50자 제한
   let subject = `[${kstDt.getUTCMonth() + 1}월 ${kstDt.getUTCDate()}일] ${displayTitle}`;
