@@ -13,6 +13,9 @@
 //   4) 원본(사본 아님)을 node_modules/.cache/exit-check-engine/ 에 꺼내 사이트의 typescript 로 빌드하고,
 //      합성 fixture 를 prepareFromManifest → runCore 로 돌려 동작 지문의 기준값을 잰다.
 //   5) tests/fixtures/exit-check/engine-fingerprint.json 과 tests/fixtures/exit-check/scenarios.ts 를 쓴다.
+//   6) 화면에 싣는 합성 예시(DEMO_SAMPLE_IDS)를 src/lib/exit-check-demo/samples.ts(CSV 줄 배열·manifest, 깊게 얼림)로,
+//      그 허용 해시(파일별 sha256 · 원본 빌드의 canonicalSha256(manifest))를 표본과 따로 allowlist.ts 로 쓴다.
+//      지문에는 samples 절(표본별 파일 sha256·manifest_sha256·core_report_sha256)을 더한다.
 // 같은 커밋으로 두 번 돌리면 결과 파일이 바이트 단위로 같다(git diff 0).
 
 import { execFileSync } from 'node:child_process';
@@ -32,6 +35,11 @@ const RULES_COPY = 'deadline-rules.json';
 const COPY_DIR = join(SITE, 'src', 'lib', 'exit-check');
 const FIXTURE_OUT = join(SITE, 'tests', 'fixtures', 'exit-check');
 const CACHE_DIR = join(SITE, 'node_modules', '.cache', 'exit-check-engine');
+const DEMO_DIR = join(SITE, 'src', 'lib', 'exit-check-demo');
+
+// 화면에 싣는 합성 예시. 계획 B2 권고값 — 어긋난 곳이 없는 예시(S01)와 있는 예시(S03, 국민연금 상실 신고 행 하나 빠짐).
+// 답이 다르면 이 목록을 바꾸고 다시 돌린다. 화면 모델 기대값(tests/unit/exit-check-view.test.ts)도 함께 고친다.
+const DEMO_SAMPLE_IDS = ['S01', 'S03'];
 
 // 싣지 않는 fixture. 계획(조각 1)에 적힌 두 개이고, 아래 내용 검사로 같은 집합인지 매번 다시 확인한다.
 const SKIPPED = {
@@ -209,6 +217,7 @@ const { prepareFromManifest } = await import(dist('config.js'));
 const { runCore } = await import(dist('core/run.js'));
 const { hasRrnValue, isRrnHeader } = await import(dist('core/rrn.js'));
 const { isNameContactHeader } = await import(dist('core/aliases.js'));
+const { canonicalSha256 } = await import(dist('core/canonical.js'));
 
 // ---- 4. fixture: 내용 검사·바이트 왕복·기준 실행 ----
 
@@ -278,7 +287,24 @@ if (flaggedKey !== skipKey) {
 }
 if (nonCsv.length > 0) fail(`CSV 가 아닌 입력이 든 fixture: ${nonCsv.join(', ')} — 싣지 않는 목록과 이유를 정한다`);
 
-// ---- 5. 지문·시나리오 파일 ----
+// ---- 5. 화면에 싣는 합성 예시 ----
+
+const demoSamples = {};
+const demoAllow = {};
+const demoPrints = {};
+for (const id of DEMO_SAMPLE_IDS) {
+  const sc = scenarios.find((s) => s.id === id);
+  if (!sc) fail(`화면 예시 ${id} 가 실을 fixture 목록에 없다(싣지 않는 목록이거나 CSV 가 아니다)`);
+  if (flagged.includes(id)) fail(`화면 예시 ${id} 에 사람 정보 형태가 있다`);
+  if (sc.manifest.synthetic !== true) fail(`화면 예시 ${id}: manifest 에 synthetic: true 가 없다`);
+  const fileSha = Object.fromEntries(Object.entries(prints[id].input_sha256).map(([p, h]) => [p, `sha256:${h}`]));
+  const manifestSha = canonicalSha256(sc.manifest);
+  demoSamples[id] = { manifest: sc.manifest, files: sc.files };
+  demoAllow[id] = { files: fileSha, manifest: manifestSha };
+  demoPrints[id] = { files: fileSha, manifest_sha256: manifestSha, core_report_sha256: prints[id].core_report_sha256 };
+}
+
+// ---- 6. 지문·시나리오 파일 ----
 
 const fingerprint = sortKeysDeep({
   commit,
@@ -291,6 +317,7 @@ const fingerprint = sortKeysDeep({
     '원본을 node_modules/.cache/exit-check-engine 에 git show 로 꺼내 사이트 typescript 로 빌드하고 prepareFromManifest → runCore 로 잰 값(scripts/exit-check/sync-engine.mjs)',
   scenarios: prints,
   skipped_scenarios: SKIPPED,
+  samples: demoPrints,
 });
 if (writeIfChanged(join(FIXTURE_OUT, 'engine-fingerprint.json'), `${JSON.stringify(fingerprint, null, 2)}\n`)) changed++;
 
@@ -311,7 +338,54 @@ const ts = [
 ].join('\n');
 if (writeIfChanged(join(FIXTURE_OUT, 'scenarios.ts'), ts)) changed++;
 
-console.log(`sync-engine: ${SOURCE_LABEL} @${short} — 사본 ${closure.length}파일 + ${RULES_COPY}, fixture ${scenarios.length}개(싣지 않음 ${skipKey}), 바뀐 파일 ${changed}개`);
+// 생성 파일 둘이 함께 쓰는 「깊게 얼리기」. 가져오기 없이 각 파일 안에 둔다(두 파일은 아무것도 가져오지 않는다 — 시험이 본다).
+const freezeTs = [
+  `function freeze<T>(value: T): T {`,
+  `  if (value !== null && typeof value === 'object') {`,
+  `    for (const v of Object.values(value)) freeze(v);`,
+  `    Object.freeze(value);`,
+  `  }`,
+  `  return value;`,
+  `}`,
+];
+
+const samplesTs = [
+  `// 생성물 — scripts/exit-check/sync-engine.mjs 가 쓴다. 손으로 고치지 않는다.`,
+  `// 원본: ${SOURCE_LABEL} @${short} fixtures/${DEMO_SAMPLE_IDS.join('·')}/ (꾸며 낸 합성 자료, manifest synthetic: true).`,
+  `// 화면에 싣는 예시는 이 파일의 표본뿐이다. 실행 입구(./run)만 가져오고, 바이트·manifest 가 ./allowlist 의 해시와 같을 때만 엔진 사본을 부른다.`,
+  `// 허용 해시는 이 파일에 두지 않는다 — 표본을 바꾸는 쪽이 해시를 함께 바꾸지 못하게. 값은 깊게 얼려 실행 중에 바꿀 수 없다.`,
+  `// files 는 manifest 의 path → CSV 줄 배열이다. LF 한 글자로 이어 붙이면 원본 바이트와 같다(마지막 빈 문자열 = 끝 줄바꿈).`,
+  ``,
+  `export interface DemoSample {`,
+  `  readonly manifest: Readonly<Record<string, unknown>>;`,
+  `  readonly files: Readonly<Record<string, readonly string[]>>;`,
+  `}`,
+  ``,
+  ...freezeTs,
+  ``,
+  `export const DEMO_SAMPLES: Readonly<Record<string, DemoSample>> = freeze(${JSON.stringify(demoSamples, null, 2)});`,
+  ``,
+].join('\n');
+if (writeIfChanged(join(DEMO_DIR, 'samples.ts'), samplesTs)) changed++;
+
+const allowTs = [
+  `// 생성물 — scripts/exit-check/sync-engine.mjs 가 쓴다. 손으로 고치지 않는다.`,
+  `// 원본: ${SOURCE_LABEL} @${short}. 화면 예시 표본(./samples)의 허용 해시 — 실행 입구(./run)만 가져온다.`,
+  `// files: 파일별 sha256(바이트) · manifest: 원본 빌드의 canonicalSha256(manifest). 지문 samples 절과 같은 값이다(시험이 본다).`,
+  ``,
+  `export interface SampleAllow {`,
+  `  readonly files: Readonly<Record<string, string>>;`,
+  `  readonly manifest: string;`,
+  `}`,
+  ``,
+  ...freezeTs,
+  ``,
+  `export const SAMPLE_ALLOWLIST: Readonly<Record<string, SampleAllow>> = freeze(${JSON.stringify(sortKeysDeep(demoAllow), null, 2)});`,
+  ``,
+].join('\n');
+if (writeIfChanged(join(DEMO_DIR, 'allowlist.ts'), allowTs)) changed++;
+
+console.log(`sync-engine: ${SOURCE_LABEL} @${short} — 사본 ${closure.length}파일 + ${RULES_COPY}, fixture ${scenarios.length}개(싣지 않음 ${skipKey}), 화면 예시 ${DEMO_SAMPLE_IDS.join(',')}, 바뀐 파일 ${changed}개`);
 for (const [id, p] of Object.entries(prints)) {
   console.log(`  ${id} 발견 ${p.finding_count} · 대조 ${p.compared_item_count} · ${p.run_state}`);
 }
