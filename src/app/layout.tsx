@@ -8,6 +8,7 @@ import SiteSurface from "@/components/SiteSurface";
 import "@/components/site-refactor.css";
 import { SITE_URL, BRAND_NAME, BRAND_DESCRIPTION } from "@/lib/constants";
 import { CONTACT_EMAIL } from "@/lib/site-contact";
+import { DISMISSED_CLASS as BANNER_DISMISSED_CLASS, STORAGE_KEY as BANNER_STORAGE_KEY } from "@/lib/connector-banner";
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
@@ -90,6 +91,13 @@ export default function RootLayout({
         <script
           dangerouslySetInnerHTML={{
             __html: `try{var s=localStorage.getItem('theme');if(s==='dark'||(!s&&matchMedia('(prefers-color-scheme: dark)').matches)){document.documentElement.classList.add('dark')}}catch(e){}`,
+          }}
+        />
+        {/* 261112 — 상단 안내 띠를 닫은 사람은 첫 페인트 전에 숨긴다. 서버는 띠를 그려 보내므로(CLS 방지)
+            이 스크립트가 없으면 닫은 사람에게 잠깐 보인다. 키·클래스는 src/lib/connector-banner.ts 와 같아야 한다. */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `try{if(localStorage.getItem('${BANNER_STORAGE_KEY}')==='1'){document.documentElement.classList.add('${BANNER_DISMISSED_CLASS}')}}catch(e){}`,
           }}
         />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
