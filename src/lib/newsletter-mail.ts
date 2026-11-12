@@ -310,7 +310,11 @@ export async function sendDailyNewsletter(opts: {
       <p style="margin:0 0 12px;font-size:13px;font-weight:700;color:${TEXT_PRIMARY}">📌 오늘의 일 둘러보기</p>
       <p style="margin:0 0 4px;font-size:13px"><a href="${SITE_URL}/blog" style="color:${ACCENT};text-decoration:none">→ 지난 딥다이브 모음</a></p>
       <p style="margin:0 0 4px;font-size:13px"><a href="${SITE_URL}/" style="color:${ACCENT};text-decoration:none">→ AI 챗봇 (노동법 질문)</a></p>
-      <p style="margin:0;font-size:13px"><a href="${SITE_URL}/decisions" style="color:${ACCENT};text-decoration:none">→ 판정례·판례 검색 (6만건)</a></p>
+      <p style="margin:0 0 4px;font-size:13px"><a href="${SITE_URL}/decisions" style="color:${ACCENT};text-decoration:none">→ 판정례·판례 검색 (6만건)</a></p>
+      <!-- 261112 재홍님 지시 — 「뉴스레터에도 하단에 에이아이도구 넣어주고」.
+           홈 전면 배치(PR #190)와 같은 곳으로 보낸다. 한 줄 설명을 붙인다 —
+           「AI 도구」만 적으면 챗봇과 구분이 안 된다(위 줄이 이미 챗봇이다). -->
+      <p style="margin:0;font-size:13px"><a href="${SITE_URL}/ai-tools" style="color:${ACCENT};text-decoration:none">→ AI에 연결해서 쓰기 (쓰시는 AI 가 계산·점검을 직접)</a></p>
     </div>
     <div style="background:#f2f4f6;padding:24px 28px;text-align:center">
       <p style="margin:0 0 6px;color:${TEXT_PRIMARY};font-size:12px;font-weight:700">오늘의 일</p>
