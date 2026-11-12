@@ -4,7 +4,7 @@ import { AlertCircle, MailX } from 'lucide-react';
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = publicMetadata({
-  title: '구독 해지 확인 — 노란봉투법 가이드',
+  title: '구독 해지 확인 — 일의 무늬',
   robots: { index: false, follow: false },
 });
 

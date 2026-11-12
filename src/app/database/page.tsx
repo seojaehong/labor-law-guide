@@ -110,7 +110,7 @@ export default async function DatabasePage() {
         '@type': 'CollectionPage',
         '@id': `${pageUrl}#webpage`,
         url: pageUrl,
-        name: '노란봉투법 판례·행정해석 검색',
+        name: '노동 판례·행정해석 검색',
         description: `판례 ${totalCases.toLocaleString()}건, 행정해석 ${totalAdmin.toLocaleString()}건, 노동위결정문 ${totalNlrc.toLocaleString()}건을 탐색하는 검색 페이지`,
         isPartOf: { '@id': `${SITE_URL}/#website` },
         breadcrumb: { '@id': `${pageUrl}#breadcrumb` },
@@ -149,7 +149,7 @@ export default async function DatabasePage() {
           검색보다 이해 중심으로 찾는 페이지
         </h1>
         <p className="mt-4 text-[15px] leading-7 md:text-[16px]" style={{ color: 'var(--color-text-secondary)' }}>
-          이 페이지는 노란봉투법과 직접 맞닿는 쟁점인 사용자성, 단체교섭, 부당노동행위, 파견·도급, 손해배상 관련 자료를 빠르게 찾을 수 있도록 구성했습니다.
+          이 페이지는 사용자성, 단체교섭, 부당노동행위, 파견·도급, 손해배상 같은 집단적 노사관계 쟁점의 자료를 빠르게 찾을 수 있도록 구성했습니다.
           판례 {totalCases.toLocaleString()}건, 행정해석 {totalAdmin.toLocaleString()}건, 노동위결정문 {totalNlrc.toLocaleString()}건을 검색할 수 있고, 먼저 대표 사례를 읽은 뒤 바로 유사 자료로 확장해볼 수 있습니다.
         </p>
       </section>

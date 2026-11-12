@@ -12,12 +12,12 @@ export const metadata: Metadata = publicMetadata({
   ],
   alternates: { canonical: `${SITE_URL}/harassment` },
   openGraph: {
-    title: '직장 내 괴롭힘 판례·판정례 검색 | 노란봉투법 가이드',
+    title: '직장 내 괴롭힘 판례·판정례 검색 | 일의 무늬',
     description: '인정·기각 사례 비교, 근기법 제76조의2·제76조의3 기준과 판정례 정리.',
     url: `${SITE_URL}/harassment`,
     type: 'website',
     locale: 'ko_KR',
-    siteName: '노란봉투법 가이드',
+    siteName: '일의 무늬',
   },
   // 2026-09-12 — 메뉴에서 내리면서 색인도 끈다. 페이지와 주소는 그대로이고
   // 링크를 아는 사람은 계속 쓴다. 서버 렌더 본문이 300~800자뿐이라 크롤러 눈에는

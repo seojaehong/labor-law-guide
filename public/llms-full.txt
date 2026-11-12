@@ -1,4 +1,8 @@
-# 노란봉투법 완벽 가이드 — 전체 콘텐츠
+# 일의 무늬 — 노동법 계산·점검 도구와 자료 (상세 콘텐츠)
+
+> 일의 무늬(https://yellowenvelope.kr)는 노동 계산·점검 도구, AI 연결(MCP) 도구, 판례·행정해석 검색, 법령 개정 목록을 제공하는 노동법 정보 사이트입니다.
+> 계산·점검 도구는 https://yellowenvelope.kr/tools, AI 연결 도구는 https://yellowenvelope.kr/ai-tools, 판례·행정해석은 https://yellowenvelope.kr/decisions, 법령 개정은 https://yellowenvelope.kr/laws 에 있습니다.
+> 아래 본문은 주제 페이지 중 하나인 개정 노동조합법(이른바 노란봉투법) 해설(/guide)·점검 체크리스트(/checklist)·교섭절차(/manual)·핵심판례(/cases)를 옮긴 것입니다.
 
 ## 1. 노란봉투법이란?
 
