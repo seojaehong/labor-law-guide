@@ -86,6 +86,15 @@ describe('네 계산기가 같은 1일 통상임금을 쓴다 — 월 3,000,000�
     expect(shutdown.proviso).toBe(1_148_326);
   });
 
+  it('휴업수당 단서 26일 = 2,985,645.93 → 2,985,646 — 1일 통상임금을 114,832.54 로 반올림해 곱하던 값(2,985,646.04 → 2,985,647)보다 1원 적다', () => {
+    const s26 = calcShutdownAllowance({
+      fivePlus: true, cause: 'employer', average: { source: 'direct', daily: 200_000 },
+      ordinary: { unit: 'month', amount: 3_000_000, weeklyHours: 40, dailyHours: 8 }, days: 26,
+    });
+    expect(s26.provisoExact).toBeCloseTo(2_985_645.933014, 5);
+    expect(s26.proviso).toBe(2_985_646);
+  });
+
   it('공휴일 가산(월급제 8시간 × 0.5) = 3,000,000 × 4 ÷ 209 = 57,416.27 → 57,417 (전에는 통상시급 14,354 로 버려 57,416)', () => {
     expect(holiday.total).toBe(57_417);
     expect(holiday.notes.join(' ')).toContain('14,354.07원');
@@ -99,6 +108,32 @@ describe('정수로 떨어지는 경우는 바뀌지 않는다 — 월 2,090,000
     const s = calcShutdownAllowance({ fivePlus: true, cause: 'employer', average: { source: 'direct', daily: 200_000 }, ordinary: { unit: 'month', amount: 2_090_000, weeklyHours: 40, dailyHours: 8 }, days: 10 });
     expect([s.dailyOrdinary, s.proviso]).toEqual([80_000, 800_000]);
     expect(calcHolidayPay({ worker_type: 'monthly', site_size: 'large', holiday_kind: 'public_holiday', monthly_pay: 2_090_000, worked_hours: 8 }).total).toBe(40_000);
+  });
+});
+
+describe('공휴일 수당 — 일용·시급(주휴 포함) 경로', () => {
+  it('시급 10,030원에 주휴 포함 → 통상시급 10,030 × 5 ÷ 6 = 8,358.33…, 줄마다 올림: 66,867 + 33,434 = 100,301 (전에는 8,358 로 버려 100,296)', () => {
+    const r = calcHolidayPay({ worker_type: 'hourly', site_size: 'large', holiday_kind: 'labor_day', hourly_wage: 10_030, hourly_includes_weekly: true, weekly_hours: 40, worked_hours: 8 });
+    expect(r.base_hourly).toBeCloseTo(8_358.333333, 5);
+    expect(r.breakdown.map((b) => b.amount)).toEqual([66_867, 33_434]);
+    expect(r.total).toBe(100_301);
+    expect(r.total).toBe(r.breakdown.reduce((s, b) => s + b.amount, 0)); // 합계 = 줄의 합
+    expect(r.notes.join(' ')).toContain('8,358.33원');
+  });
+
+  it('일급 100,000원 · 8시간 → 통상시급 12,500, 8시간 + 2시간 초과 + 야간 2시간', () => {
+    const r = calcHolidayPay({ worker_type: 'daily', site_size: 'large', holiday_kind: 'public_holiday', daily_wage: 100_000, worked_hours: 10, night_hours: 2, paid_continuously: true });
+    expect(r.base_hourly).toBe(12_500);
+    expect(r.breakdown.map((b) => b.amount)).toEqual([125_000, 50_000, 25_000, 12_500]);
+    expect(r.total).toBe(212_500);
+  });
+
+  it('월 3,000,000원 · 10시간 · 야간 2시간 — 줄마다 올리므로 합계가 정확한 합의 올림보다 1~2원 많을 수 있다', () => {
+    const r = calcHolidayPay({ worker_type: 'monthly', site_size: 'large', holiday_kind: 'public_holiday', monthly_pay: 3_000_000, worked_hours: 10, night_hours: 2 });
+    const exact = (3_000_000 * (0.5 * 8 + 1 * 2 + 0.5 * 2)) / 209; // 100,478.47
+    expect(r.breakdown.map((b) => b.amount)).toEqual([0, 57_417, 28_709, 14_355]);
+    expect(r.total).toBe(100_481);
+    expect(r.total - Math.ceil(exact)).toBe(2);
   });
 });
 
