@@ -157,7 +157,8 @@ export default function FaqClient({ initialFaqs, categoryCounts, totalCount, ini
               className="mb-3 w-full rounded-lg px-3 py-2 text-left text-sm font-medium transition-colors"
               style={{
                 backgroundColor: !activeCategory ? 'var(--color-accent)' : 'transparent',
-                color: !activeCategory ? 'white' : 'var(--color-text-primary)',
+                // 261112 — 'white' 는 다크 accent(#a3cfc8) 위에서 1.71:1 이었다. 테마로 뒤집히는 잉크를 쓴다.
+                color: !activeCategory ? 'var(--color-on-accent-ink)' : 'var(--color-text-primary)',
               }}
             >
               전체 ({totalFaqCount.toLocaleString()})
@@ -187,7 +188,7 @@ export default function FaqClient({ initialFaqs, categoryCounts, totalCount, ini
                         className="w-full rounded-lg px-3 py-1.5 text-left text-[13px] transition-colors"
                         style={{
                           backgroundColor: activeCategory === cat ? 'var(--color-accent)' : 'transparent',
-                          color: activeCategory === cat ? 'white' : 'var(--color-text-secondary)',
+                          color: activeCategory === cat ? 'var(--color-on-accent-ink)' : 'var(--color-text-secondary)',
                           fontWeight: activeCategory === cat ? 600 : 400,
                         }}
                       >

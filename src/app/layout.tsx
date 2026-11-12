@@ -8,6 +8,7 @@ import SiteSurface from "@/components/SiteSurface";
 import "@/components/site-refactor.css";
 import { SITE_URL, BRAND_NAME, BRAND_DESCRIPTION } from "@/lib/constants";
 import { CONTACT_EMAIL } from "@/lib/site-contact";
+import { DISMISSED_CLASS as BANNER_DISMISSED_CLASS, STORAGE_KEY as BANNER_STORAGE_KEY } from "@/lib/connector-banner";
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
@@ -23,19 +24,19 @@ export const metadata: Metadata = {
     template: '%s',
   },
   description: BRAND_DESCRIPTION,
+  // 261112 — 「노란봉투법 사이트」에서 「노동법 도구·정보 사이트」로. 종전 35개가 전부 노란봉투법(개정 노동조합법)
+  // 쟁점이었다(「노란봉투법」 낱말이 든 것 19개 + 원하청 교섭·교섭단위 분리 등 16개).
+  // 노란봉투법 페이지(/guide 등)는 그대로 살아 있으니 두 개만 남긴다.
   keywords: [
-    '노란봉투법', '노란봉투법 뜻', '노란봉투법 뜻 쉽게', '노란봉투법이란', '노란봉투법이란 무엇인가',
-    '노란봉투법 내용', '노란봉투법 정리', '노란봉투법 요약', '노란봉투법 대응',
-    '노란봉투법 시행', '노란봉투법 시행일', '노란봉투법 시행령',
-    '노란봉투법 하도급', '노란봉투법 공공기관', '노란봉투법 손해배상', '노란봉투법 폐지',
-    '노란봉투법 점검', '노란봉투법 체크리스트', '노란봉투법 교섭',
-    '개정 노동조합법', '사용자 범위 확대', '원하청 교섭', '노동쟁의', '사용자성 판단',
-    '교섭창구 단일화', '위장도급', '불법파견', '교섭절차', '하청 교섭',
-    '노동조합법 2026', '계약외사용자', '부당노동행위',
-    '원청 교섭 의무', '교섭단위 분리', '사내하청 교섭',
+    '노동법', '근로기준법', '노동법 계산기', '퇴직금 계산', '주휴수당 계산', '연차휴가 계산',
+    '최저임금 확인', '실수령액 계산', '해고예고수당', '근로계약서 점검', '취업규칙 점검',
+    '판례', '행정해석', '노동위원회 판정례', '법령 개정', '4대보험 신고', '퇴사 점검',
+    '노란봉투법', '개정 노동조합법',
   ],
   alternates: {
-    canonical: SITE_URL,
+    // 🔴 canonical 은 여기 두지 않는다(261112). 여기 두면 alternates 를 안 적은 페이지가 홈 주소를 물려받아
+    //    「홈의 사본」으로 신고된다 — /tools/work-rules 가 그랬다. 홈 canonical 은 src/app/page.tsx 에 있다.
+    //    tests/unit/canonical-self.test.ts 가 막는다.
     // 네이버 서치어드바이저는 RSS를 사이트맵보다 적극적으로 수집한다.
     // <link rel="alternate" type="application/rss+xml">로 노출시켜 자동 발견을 돕는다.
     types: { 'application/rss+xml': `${SITE_URL}/rss.xml` },
@@ -92,6 +93,13 @@ export default function RootLayout({
             __html: `try{var s=localStorage.getItem('theme');if(s==='dark'||(!s&&matchMedia('(prefers-color-scheme: dark)').matches)){document.documentElement.classList.add('dark')}}catch(e){}`,
           }}
         />
+        {/* 261112 — 상단 안내 띠를 닫은 사람은 첫 페인트 전에 숨긴다. 서버는 띠를 그려 보내므로(CLS 방지)
+            이 스크립트가 없으면 닫은 사람에게 잠깐 보인다. 키·클래스는 src/lib/connector-banner.ts 와 같아야 한다. */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `try{if(localStorage.getItem('${BANNER_STORAGE_KEY}')==='1'){document.documentElement.classList.add('${BANNER_DISMISSED_CLASS}')}}catch(e){}`,
+          }}
+        />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         {/* §9 P6-1 브라우저 크롬 색 — 종전 #1d4ed8은 팔레트에 없는 제3의 파랑이었다.
             "크롬 색 = 페이지 최상단에 보이는 것"으로 맞춘다: 라이트는 glass 네비가 흰색으로 렌더되므로
@@ -109,7 +117,7 @@ export default function RootLayout({
               tools: [
                 {
                   name: 'search-labor-law',
-                  description: '노동법 판례·행정해석을 검색합니다. 노란봉투법, 부당해고, 임금, 직장 내 괴롭힘, 4대보험 등.',
+                  description: '노동법 판례·행정해석을 검색합니다. 부당해고, 임금, 퇴직금, 직장 내 괴롭힘, 4대보험, 노동조합 등.',
                   inputSchema: { type: 'object', properties: { query: { type: 'string', description: '검색 키워드' } }, required: ['query'] },
                   execute: async (input) => { window.location.href = '/decisions?q=' + encodeURIComponent(input.query); return { success: true }; }
                 },
@@ -204,7 +212,7 @@ export default function RootLayout({
               ] },
             ].map((col) => (
               <div key={col.title}>
-                <p className="mb-2.5 text-xs font-semibold" style={{ color: 'var(--grey-700)' }}>
+                <p className="mb-2.5 text-[13px] font-semibold" style={{ color: 'var(--grey-700)' }}>
                   {col.title}
                 </p>
                 {col.title.startsWith('검토 중') && <p className="mb-3 text-xs" style={{ color: 'var(--grey-700)' }}>내용과 적용 조건을 확인 중입니다. 이용 전 원문과 전문가 확인이 필요합니다.</p>}
@@ -233,9 +241,11 @@ export default function RootLayout({
               {' '}| <a href="/privacy" className="underline underline-offset-2" style={{ color: 'var(--color-accent-ink)' }}>개인정보처리방침</a>
               {' '}| <a href="/terms" className="underline underline-offset-2" style={{ color: 'var(--color-accent-ink)' }}>이용약관</a>
             </p>
-            <p className="mt-2 text-xs" style={{ color: 'var(--color-text-tertiary)' }}>
+            {/* 261112 — 종전 12px · --color-text-tertiary 로 1.89:1 이었다. 푸터는 .public-surface 밖이라
+                그쪽의 13px·tertiary 재매핑이 닿지 않는다. 13px · --grey-700 + 상시 밑줄 링크(§6.8)로 올린다. */}
+            <p className="mt-2 text-[13px]" style={{ color: 'var(--grey-700)' }}>
               관련 블로그:{' '}
-              <a href="https://node.pe.kr" target="_blank" rel="noopener" className="hover:underline" style={{ color: 'var(--color-accent)' }}>NODE — 노동·HR 딥다이브</a>
+              <a href="https://node.pe.kr" target="_blank" rel="noopener" className="underline underline-offset-2" style={{ color: 'var(--color-accent-ink)' }}>NODE — 노동·HR 딥다이브</a>
             </p>
           </div>
         </footer>

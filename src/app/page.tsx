@@ -1,3 +1,4 @@
+import type { Metadata } from 'next';
 import { SITE_URL, BRAND_NAME } from '@/lib/constants';
 import { supabaseServer } from '@/lib/supabase-server';
 import { getCurrentTopicPicks } from '@/lib/topic-picks';
@@ -16,42 +17,17 @@ interface LatestBlogArticle {
   published_at: string;
 }
 
-const homeFaqItems = [
-  {
-    question: '노란봉투법이란?',
-    answer:
-      '2026년 3월 10일 시행 개정 노동조합법의 별칭으로, 사용자 범위를 확대하고 노동쟁의 범위를 넓힌 법률입니다. 근로계약 당사자가 아니더라도 근로조건을 실질적·구체적으로 지배·결정하는 자도 사용자로 보게 됩니다.',
+// 261112 — 홈의 「자주 묻는 질문」 7개는 전부 노란봉투법 문답이라 섹션과 FAQPage JSON-LD 를 함께 뺐다.
+// 노란봉투법 페이지(/guide·/manual·/checklist·/cases·/news)는 그대로 있다. 일반 노동법 FAQ 는 /faq 에 있다.
+
+// 홈 canonical 은 여기서 적는다. 루트 layout 에 두면 alternates 를 안 적은 페이지가 홈을 물려받는다.
+// alternates 는 통째로 바뀌므로 RSS 자동 발견 링크도 같이 적는다.
+export const metadata: Metadata = {
+  alternates: {
+    canonical: SITE_URL,
+    types: { 'application/rss+xml': `${SITE_URL}/rss.xml` },
   },
-  {
-    question: '원청도 사용자에 해당하나요?',
-    answer:
-      '원청이 하청 근로자의 채용·해고, 임금, 근로시간, 업무지시 등 근로조건을 실질적·구체적으로 지배·결정하는 경우 개정법상 사용자에 해당할 수 있습니다. 점검 체크리스트로 대략적인 판단이 가능합니다.',
-  },
-  {
-    question: '하청이 교섭을 요구하면 반드시 응해야 하나요?',
-    answer:
-      '사용자성이 인정되는 범위 내에서는 교섭에 응할 의무가 있으며, 정당한 이유 없는 거부는 부당노동행위(형사처벌 대상)에 해당합니다.',
-  },
-  {
-    question: '노란봉투법 시행일은 언제인가요?',
-    answer: '2026년 3월 10일부터 시행됩니다. 시행 즉시 하청 노동조합이 원청에 교섭을 요구할 수 있습니다.',
-  },
-  {
-    question: '사용자성은 전부 인정되나요 일부만 인정되나요?',
-    answer:
-      '일부 근로조건에 대해서만 사용자성이 인정될 수 있습니다. 원청은 실질적 지배력이 미치는 범위 내에서만 사용자로서의 의무를 부담합니다.',
-  },
-  {
-    question: '교섭요구 사실 공고를 안 하면 어떻게 되나요?',
-    answer:
-      '하청노동조합이 노동위원회에 시정신청을 할 수 있고, 노동위원회가 공고를 명할 수 있습니다. 시정명령에도 불응하면 교섭 거부·해태의 부당노동행위로 처벌될 수 있습니다.',
-  },
-  {
-    question: '교섭단위 분리는 어떻게 하나요?',
-    answer:
-      '노동위원회에 교섭단위 분리 신청을 할 수 있습니다. 직무별, 상급단체별, 하청기업 특성별 등 다양한 형태로 분리가 가능하며, 노동위원회가 여러 요소를 종합 고려하여 결정합니다.',
-  },
-] as const;
+};
 
 async function getHomeStats() {
   const [casesResult, adminResult, newsResult, blogResult] = await Promise.all([
@@ -87,11 +63,6 @@ export default async function Home() {
         url: SITE_URL,
         name: BRAND_NAME,
         isPartOf: { '@id': `${SITE_URL}/#website` },
-        about: {
-          '@type': 'Article',
-          name: '개정 노동조합법(노란봉투법)',
-          datePublished: '2026-03-10',
-        },
         breadcrumb: { '@id': `${SITE_URL}/#breadcrumb` },
       },
       {
@@ -100,18 +71,6 @@ export default async function Home() {
         itemListElement: [
           { '@type': 'ListItem', position: 1, name: '홈', item: SITE_URL },
         ],
-      },
-      {
-        '@type': 'FAQPage',
-        '@id': `${SITE_URL}/#faq`,
-        mainEntity: homeFaqItems.map((item) => ({
-          '@type': 'Question',
-          name: item.question,
-          acceptedAnswer: {
-            '@type': 'Answer',
-            text: item.answer,
-          },
-        })),
       },
     ],
   };
@@ -127,7 +86,6 @@ export default async function Home() {
         totalAdmin={totalAdmin}
         totalNews={totalNews}
         latestBlogArticles={latestBlogArticles}
-        faqItems={homeFaqItems}
         topicPicksSlot={<TopicPicks items={topicPicks} variant="home" />}
       />
     </>

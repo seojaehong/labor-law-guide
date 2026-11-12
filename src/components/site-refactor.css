@@ -5,6 +5,12 @@
 .public-surface { --grey-400:var(--color-text-secondary); --grey-500:var(--color-text-secondary); --color-text-tertiary:var(--color-text-secondary); --color-accent-soft:var(--color-accent-light); --color-success:#047857; --blue-600:var(--color-accent-ink); --blue-700:var(--color-accent-ink); }
 .dark { --color-accent:#a3cfc8; --color-accent-ink:#a3cfc8; --color-accent-hover:#c5e1dc; --color-accent-ink-hover:#c5e1dc; --color-accent-light:rgba(80,140,130,.17); --color-info:#a3cfc8; --color-info-ink:#c5e1dc; --color-info-bg:rgba(80,140,130,.17); --accent:var(--color-accent-light); --accent-foreground:var(--color-accent-ink); --ring:var(--color-accent); }
 body { font-size:16px; line-height:1.7; }
+/* 261112 CLS — 본문은 SiteSurface 의 Suspense 경계 뒤에서 스트리밍으로 끼워진다(HTML 에는 <!--$?--> 자리만 있다).
+   첫 페인트 때 main 이 비어 푸터가 화면 위쪽(y≈109)에 그려졌다가 본문이 들어오면 아래로 밀려 데스크톱 CLS 0.72 가 났다.
+   main 이 첫 화면을 채우게 해 푸터를 접힌 선 아래에서 시작시킨다. 화면 밖 요소의 이동은 CLS 에 들지 않는다. */
+#site-main { min-height:calc(100vh - var(--site-nav-height)); }
+/* 안내 띠를 닫은 사람 — layout.tsx 선반영 스크립트가 붙이는 클래스. src/lib/connector-banner.ts DISMISSED_CLASS 와 같은 이름 */
+.connector-banner-dismissed .connector-banner { display:none; }
 .editorial-nav-inner { gap:12px; }
 .editorial-desktop-links { display:flex; align-items:center; gap:6px; }
 .editorial-nav-controls { display:flex; gap:4px; align-items:center; }

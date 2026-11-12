@@ -7,7 +7,7 @@ import { REMOTE_CONNECTORS } from '@/content/ai-tools';
 import { REMOTE_TOOLS } from '../../tools/k-labor/remote.mjs';
 import ConnectGuide from '@/app/ai-tools/ConnectGuide';
 import ConnectorBanner from '@/components/ConnectorBanner';
-import { getServerSnapshot, shouldShowBanner } from '@/lib/connector-banner';
+import { DISMISSED_CLASS, STORAGE_KEY, getServerSnapshot, shouldShowBanner } from '@/lib/connector-banner';
 
 let pathname = '/';
 vi.mock('next/navigation', () => ({ usePathname: () => pathname }));
@@ -81,13 +81,28 @@ describe('닫을 수 있는 띠 배너', () => {
   beforeEach(() => vi.unstubAllGlobals());
   afterEach(() => vi.unstubAllGlobals());
 
-  it('서버 렌더는 저장소와 무관하게 비어 있어 hydration 이 어긋나지 않는다', () => {
-    expect(getServerSnapshot()).toBe(true);
+  // 261112 — 종전에는 서버 렌더가 비어 있었고 hydration 뒤 띠가 끼어들며 페이지를 밀었다(CLS).
+  // 이제 서버는 저장소와 무관하게 띠를 그리고, 닫은 사람은 <head> 선반영 스크립트 + CSS 로 첫 페인트 전에 숨긴다.
+  it('서버 렌더는 저장소와 무관하게 띠를 그려 hydration 이 어긋나지 않고 화면이 밀리지 않는다', () => {
+    expect(getServerSnapshot()).toBe(false);
     for (const initial of [{}, { 'connector-banner-dismissed': '1' }] as Record<string, string>[]) {
       vi.stubGlobal('localStorage', fakeStorage(initial));
       pathname = '/';
-      expect(renderToString(createElement(ConnectorBanner))).toBe('');
+      const html = renderToString(createElement(ConnectorBanner));
+      expect(html).toContain('내 Claude에서 바로 쓰기');
+      expect(html).toContain('connector-banner');
     }
+    pathname = '/ai-tools';
+    expect(renderToString(createElement(ConnectorBanner))).toBe('');
+  });
+
+  it('닫은 사람은 첫 페인트 전에 숨긴다 — 선반영 스크립트와 CSS 가 같은 키·클래스를 쓴다', () => {
+    const layout = fs.readFileSync('src/app/layout.tsx', 'utf8');
+    const css = fs.readFileSync('src/components/site-refactor.css', 'utf8');
+    expect(STORAGE_KEY).toBe('connector-banner-dismissed');
+    expect(layout).toContain('localStorage.getItem(\'${BANNER_STORAGE_KEY}\')');
+    expect(layout).toContain('classList.add(\'${BANNER_DISMISSED_CLASS}\')');
+    expect(css).toContain(`.${DISMISSED_CLASS} .connector-banner { display:none; }`);
   });
 
   it('/ai-tools 와 그 아래에서는 숨기고 그 밖에서는 보인다', () => {

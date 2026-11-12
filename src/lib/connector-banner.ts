@@ -14,9 +14,14 @@ export function getSnapshot(): boolean {
   }
 }
 
-// 서버와 hydration 첫 렌더는 숨긴 상태로 맞춘다. 닫은 사람에게 잠깐 보이지 않게 하는 쪽을 택했다.
+// 서버와 hydration 첫 렌더는 「보이는」 상태로 맞춘다(261112).
+// 종전에는 숨긴 상태로 맞춰, 닫지 않은 방문자에게는 hydration 뒤 띠가 끼어들며 페이지 전체를 35px 밀었다
+// (운영 실측 CLS 데스크톱 0.022 · 모바일 0.036). 닫은 사람은 layout.tsx <head> 의 선반영 스크립트가
+// <html> 에 DISMISSED_CLASS 를 붙여 첫 페인트 전에 CSS 로 숨기고, hydration 직후 getSnapshot 이 띠를 걷는다.
+export const STORAGE_KEY = KEY;
+export const DISMISSED_CLASS = 'connector-banner-dismissed';
 export function getServerSnapshot(): boolean {
-  return true;
+  return false;
 }
 
 export function subscribe(listener: () => void): () => void {

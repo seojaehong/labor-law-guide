@@ -20,6 +20,7 @@ export type ToolGlyph =
   | 'building' | 'users' | 'file-search' | 'file-pen' | 'scale'
   | 'gauge' | 'calendar-days' | 'wallet' | 'receipt-text' | 'calendar-range' | 'list-checks' | 'receipt' | 'pause'
   | 'calendar-check' | 'bell' | 'percent' | 'sun' | 'coins'
+  | 'door-open' | 'clipboard-check'
   | 'piggy-bank' | 'landmark' | 'spreadsheet' | 'mail-warning' | 'arrows' | 'timer'
   | 'phone' | 'clipboard'
   | 'file-text' | 'file-pen-line' | 'book' | 'files' | 'network';
@@ -52,6 +53,8 @@ export const TOOL_INDEX: Record<string, ToolIndexEntry> = {
   '/tools/holiday-pay': { group: 'leave', glyph: 'sun', summary: '공휴일·노동절에 일하면 더 줄 돈' },
   '/tools/leave-pay': { group: 'leave', glyph: 'coins', summary: '쓰지 못한 연차를 돈으로 받을 때' },
 
+  '/exit': { group: 'exit', glyph: 'door-open', summary: '그만두는 사람이 챙길 기한을 날짜순으로' },
+  '/exit-employer': { group: 'exit', glyph: 'clipboard-check', summary: '직원이 그만둘 때 회사가 할 일과 기한' },
   '/tools/severance.html': { group: 'exit', glyph: 'piggy-bank', summary: '평균임금과 재직일수로 퇴직금' },
   '/tools/retirement-tax': { group: 'exit', glyph: 'landmark', summary: '퇴직금에서 뗄 퇴직소득세' },
   '/tools/midyear-settlement': { group: 'exit', glyph: 'spreadsheet', summary: '퇴사한 해 소득세를 돌려받거나 더 낼 돈' },
