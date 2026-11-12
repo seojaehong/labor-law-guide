@@ -9,6 +9,7 @@
     <meta property="og:description" content="평균임금·퇴직금 계산과 산정서 확인">
     <meta property="og:type" content="website">
     <meta property="og:url" content="https://yellowenvelope.kr/tools/severance.html">
+    <link rel="canonical" href="https://yellowenvelope.kr/tools/severance.html">
     <meta property="og:image" content="https://yellowenvelope.kr/og/page?title=%ED%87%B4%EC%A7%81%EA%B8%88%20%EA%B3%84%EC%82%B0">
 
     <style>
@@ -716,9 +717,10 @@
     <link rel="stylesheet" href="/tools/severance-brand.css">
     <meta property="og:title" content="퇴직금 계산 프로그램 | 일의 무늬">
     <meta property="og:description" content="평균임금과 퇴직금 산정의 참고 계산 도구입니다.">
-    <meta property="og:image" content="https://yellowenvelope.kr/og/page?title=퇴직금%20계산%20프로그램">
 </head>
 <body>
+<!-- 사이트(layout.tsx)와 같은 판정식 — 저장한 값이 없으면 기기 설정(prefers-color-scheme)을 따른다. 그리기 전에 돈다 -->
+<script id="tool-theme-init">try{var s=localStorage.getItem('theme');if(s==='dark'||(!s&&matchMedia('(prefers-color-scheme: dark)').matches)){document.body.classList.add('dark')}}catch(e){}</script>
 <nav class="work-nav" aria-label="주요 탐색"><a href="/"><img src="/brand/work-patterns-wordmark-original.svg" alt="일의 무늬"></a><button type="button" class="tool-theme" onclick="toggleToolTheme()" aria-label="어두운 화면으로 전환">화면 테마</button><div class="work-nav-links"><a href="/blog">글</a><a href="/laws">법령 개정</a><a href="/tools/work-rules">취업규칙 점검</a><a href="/decisions">판례·행정해석</a></div></nav>
 
 
@@ -746,7 +748,7 @@
 
         <h4>2. 근무 기간 입력</h4>
         <ol>
-            <li><b>채용년월일(입사일)</b>과 <b>산정사유발생일(퇴사일)</b>을 입력합니다.</li>
+            <li><b>채용년월일(입사일)</b>과 <b>산정사유발생일(퇴사일)</b>을 입력합니다. 산정사유발생일은 마지막 근무일 다음 날입니다.</li>
             <li>입력 즉시 <b>재직일수</b>와 <b>근속연수</b>가 자동 계산되고, 아래 임금 정보의 월 구간이 자동 설정됩니다.</li>
             <li>퇴사일이 월 1일이면 3구간, 월 중도이면 4구간이 자동으로 나타납니다.</li>
         </ol>
@@ -809,7 +811,8 @@
                 <label for="startDate">채용년월일(입사일)</label>
                 <input type="text" id="startDate" class="date-input" placeholder="YYYY-MM-DD" maxlength="10">
                 <label for="endDate">산정사유발생일(퇴사일)</label>
-                <input type="text" id="endDate" class="date-input" placeholder="YYYY-MM-DD" maxlength="10">
+                <input type="text" id="endDate" class="date-input" placeholder="YYYY-MM-DD" maxlength="10" aria-describedby="endDateHint">
+                <p id="endDateHint" class="field-hint">마지막 근무일 다음 날(퇴직일)을 넣습니다. 3월 31일까지 일했다면 4월 1일입니다.</p>
 
                 <label>재직일수</label>
                 <input type="text" id="serviceDays" readonly value="-">
@@ -892,6 +895,9 @@
             </div>
         </div>
     </div>
+
+    <!-- 입력 확인 안내 — 사라지는 토스트 대신 버튼 바로 위에 남긴다(261112). 비어 있어도 자리를 두어야 화면낭독기가 읽는다 -->
+    <p id="calcStatus" class="calc-status no-print" role="status" aria-live="polite"></p>
 
     <!-- 버튼 영역 -->
     <div class="button-area">
@@ -1272,6 +1278,12 @@ function parseMoney(str) {
     return parseFloat(String(str).replace(/,/g, '')) || 0;
 }
 
+/** 금액 칸 글자가 0 이상의 숫자인가(쉼표·앞뒤 빈칸·끝의 「원」 허용, 비어 있으면 0). 아니면 parseMoney 가 0·앞자리로 바꿔 버리므로 먼저 본다 */
+function isMoneyText(str) {
+    const s = String(str == null ? '' : str).replace(/,/g, '').trim().replace(/\s*원$/, '');
+    return s === '' || /^\d+(\.\d+)?$/.test(s);
+}
+
 /** 날짜 입력은 시간대 없는 달력 날짜이므로 UTC 자정으로만 연산한다. */
 function parseDateOnlyUTC(value) {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(value || '')) return new Date(NaN);
@@ -1325,6 +1337,58 @@ function calc3MonthPeriod(endStr, startStr) {
             periodText: `${g.month}.${startDay}~${g.month}.${endDay}`
         };
     });
+}
+
+/**
+ * 계산 전 입력 확인 — 문제가 없으면 null, 있으면 { field: 입력칸 id, message }.
+ * 화면을 건드리지 않는다(시험이 DOM 없이 부른다). 표시는 setCalcStatus 가 한다.
+ */
+function validateWorkerInput(w) {
+    const dateWord = { startDate: '입사일(채용년월일)', endDate: '산정사유발생일(퇴사일)' };
+    for (const field of ['startDate', 'endDate']) {
+        if (!w[field]) return { field, message: `${dateWord[field]}을 입력해 주세요.` };
+        if (Number.isNaN(parseDateOnlyUTC(w[field]).getTime())) {
+            return { field, message: `${dateWord[field]}이 올바른 날짜가 아닙니다. 2023-03-01처럼 연-월-일로 입력해 주세요.` };
+        }
+    }
+    if (!(dateDiffDays(w.startDate, w.endDate) > 0)) {
+        return { field: 'endDate', message: '산정사유발생일(퇴사일)은 입사일보다 뒤여야 합니다.' };
+    }
+    /* 산정기간에 없는 구간(퇴직일이 1일이면 4구간, 입사 3개월 미만이면 뒤 구간)은 화면에서 숨고 계산에도 안 쓴다 */
+    const periodCount = calc3MonthPeriod(w.endDate, w.startDate).length;
+    const money = [];
+    for (let i = 1; i <= periodCount; i++) money.push([`wage${i}`, `${i}구간 월급여`]);
+    money.push(['bonusTotal', '1년분 상여금 총액'], ['annualLeave', '연월차수당'], ['priorSeverance', '퇴직금 중간정산'], ['dailyOrdinaryWage', '1일 통상임금']);
+    if (!w.autoCalcTax) money.push(['retirementTax', '퇴직소득세']);
+    for (const [field, label] of money) {
+        if (!isMoneyText(w[field])) return { field, message: `「${label}」 칸에는 0 이상의 숫자만 넣을 수 있습니다(예: 3,000,000).` };
+    }
+    let wageSum = 0;
+    for (let i = 1; i <= periodCount; i++) wageSum += parseMoney(w[`wage${i}`]);
+    if (wageSum <= 0) return { field: 'wage1', message: '월급여를 1개 구간 이상 입력해 주세요.' };
+    if (w.wageType === 'ordinary' && parseMoney(w.dailyOrdinaryWage) <= 0) {
+        return { field: 'dailyOrdinaryWage', message: '통상임금으로 계산하려면 1일 통상임금을 입력해 주세요.' };
+    }
+    return null;
+}
+
+/** 버튼 위 안내 줄 — problem 이 없으면 비우고 칸의 오류 표시를 걷는다 */
+function setCalcStatus(problem) {
+    const box = document.getElementById('calcStatus');
+    if (!box) return;
+    document.querySelectorAll('[aria-invalid="true"]').forEach(el => {
+        el.removeAttribute('aria-invalid');
+        const rest = (el.getAttribute('aria-describedby') || '').split(' ').filter(id => id && id !== 'calcStatus');
+        if (rest.length) el.setAttribute('aria-describedby', rest.join(' '));
+        else el.removeAttribute('aria-describedby');
+    });
+    box.textContent = problem ? problem.message : '';
+    if (!problem) return;
+    const el = document.getElementById(problem.field);
+    if (!el) return;
+    el.setAttribute('aria-invalid', 'true');
+    const ids = (el.getAttribute('aria-describedby') || '').split(' ').filter(Boolean);
+    if (!ids.includes('calcStatus')) el.setAttribute('aria-describedby', ids.concat('calcStatus').join(' '));
 }
 
 /** 알림 토스트 표시 */
@@ -1510,6 +1574,7 @@ function renderTabs() {
 
 function switchWorker(index) {
     hideContext();
+    setCalcStatus(null);
     saveFormToState();
     state.currentIndex = index;
     loadFormFromState();
@@ -1532,6 +1597,7 @@ function addWorker() {
         showToast(`최대 ${MAX_WORKERS}명까지 추가할 수 있습니다.`, 'error');
         return;
     }
+    setCalcStatus(null);
     saveFormToState();
     const newWorker = createDefaultWorker();
     /* 첫 번째 근로자의 사업장명/사업주명 자동 복사 */
@@ -1551,6 +1617,7 @@ function removeWorker(index) {
     if (state.workers.length <= 1) return;
     if (!confirm(`근로자 ${index + 1} (${state.workers[index].workerName || '이름 없음'})의 데이터를 삭제하시겠습니까?`)) return;
     hideContext();
+    setCalcStatus(null);
     state.workers.splice(index, 1);
     if (state.currentIndex >= state.workers.length) {
         state.currentIndex = state.workers.length - 1;
@@ -1772,11 +1839,14 @@ function setupDateInputs() {
 function setupMoneyInputs() {
     document.querySelectorAll('.money-input').forEach(input => {
         input.addEventListener('blur', function () {
+            /* 숫자가 아닌 글자(abc·-100)는 친 그대로 둔다 — 0 으로 바꾸면 계산하기에서 무엇이 틀렸는지 알릴 수 없다 */
+            if (!isMoneyText(this.value)) return;
             const val = parseMoney(this.value);
             if (val === 0 && this.value === '') return;
             this.value = formatMoney(val);
         });
         input.addEventListener('focus', function () {
+            if (!isMoneyText(this.value)) return;
             const val = parseMoney(this.value);
             if (val === 0) {
                 this.value = '';
@@ -1992,35 +2062,18 @@ function onCalculate() {
     saveFormToState();
     const w = state.workers[state.currentIndex];
 
-    /* 유효성 검증 */
-    if (!w.startDate || !w.endDate) {
-        showToast('입사일과 퇴사일을 입력해 주세요.', 'error');
-        return;
-    }
+    /* 유효성 검증 — 잘못된 칸과 까닭을 버튼 위에 남긴다(사라지는 토스트로만 알리면 놓친다) */
+    const problem = validateWorkerInput(w);
+    setCalcStatus(problem);
+    if (problem) return;
     const days = dateDiffDays(w.startDate, w.endDate);
-    if (!Number.isFinite(days) || days <= 0) {
-        showToast('퇴사일이 입사일보다 이후여야 합니다.', 'error');
-        return;
-    }
     if (isUnderOneYear(w.startDate, w.endDate)) {
         if (!confirm(`재직일수가 ${days}일로 1년 미만입니다.\n퇴직금 지급 대상이 아닐 수 있습니다.\n계속 계산하시겠습니까?`)) return;
-    }
-    const w1 = parseMoney(w.wage1);
-    const w2 = parseMoney(w.wage2);
-    const w3 = parseMoney(w.wage3);
-    const w4 = parseMoney(w.wage4);
-    if (w1 === 0 && w2 === 0 && w3 === 0 && w4 === 0) {
-        showToast('월급여를 1개 이상 입력해 주세요.', 'error');
-        return;
-    }
-    if (w.wageType === 'ordinary' && parseMoney(w.dailyOrdinaryWage) <= 0) {
-        showToast('통상임금으로 계산하려면 1일 통상임금을 입력해 주세요.', 'error');
-        return;
     }
 
     const result = calculateSeverance(w);
     if (!result) {
-        showToast('계산 중 오류가 발생했습니다.', 'error');
+        setCalcStatus({ field: 'endDate', message: '계산하지 못했습니다. 입사일과 산정사유발생일을 다시 확인해 주세요.' });
         return;
     }
 
@@ -2190,6 +2243,7 @@ function renderContext(d, w) {
 function onReset() {
     if (!confirm('현재 근로자의 모든 입력값을 초기화하시겠습니까?')) return;
     hideContext();
+    setCalcStatus(null);
     const biz = state.workers[0].businessName;
     const owner = state.workers[0].ownerName;
     state.workers[state.currentIndex] = createDefaultWorker();
@@ -2387,7 +2441,8 @@ function toggleToolTheme() {
     updateToolTheme(dark);
     try { localStorage.setItem('theme', dark ? 'dark' : 'light'); } catch {}
 }
-try { updateToolTheme(localStorage.getItem('theme') === 'dark'); } catch {}
+/* 처음 테마는 <body> 바로 뒤 tool-theme-init 이 정했다(사이트와 같은 판정식). 여기서는 로고·버튼 이름만 맞춘다 */
+updateToolTheme(document.body.classList.contains('dark'));
 </script>
 </body>
 </html>

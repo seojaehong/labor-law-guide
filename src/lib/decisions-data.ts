@@ -66,7 +66,17 @@ export async function countBySource(): Promise<{ nlrc: number; court: number }> 
   return { nlrc: all.count! - court, court };
 }
 
-export async function getRecent(): Promise<Recent[]> {
+/** 허브 「최근 판정례·법원 판례」 한 쪽의 건수 */
+export const RECENT_PAGE_SIZE = 30;
+
+/**
+ * 허브 최근 목록 — 2026-11-12 부터 쪽을 넘긴다(종전엔 최근 30건만 보이고 ?page=2 도 같은 30건).
+ * 같은 날짜가 많아 id 로 순서를 고정한다(쪽 경계에서 겹치거나 빠지지 않게). 한 건 더 받아 다음 쪽 유무를 안다.
+ */
+export async function getRecent(page = 1): Promise<{ rows: Recent[]; hasMore: boolean }> {
+  const offset = (page - 1) * RECENT_PAGE_SIZE;
+  // 쪽 번호 검사(decisions-query)는 20건 기준이라 30건 쪽에서는 정수 상한을 넘을 수 있다 — 그런 쪽은 비어 있다
+  if (offset + RECENT_PAGE_SIZE > 2147483647) return { rows: [], hasMore: false };
   const { data, error } = await supabase
     .from("nlrc_decisions")
     // 2026-09-02 복구로 실제 번호가 들어왔다. 마스킹된 case_number 만 보면 72%가 빈칸이 된다.
@@ -75,9 +85,11 @@ export async function getRecent(): Promise<Recent[]> {
     .gte("confidence_level", 0.8)
     .not("decision_date", "is", null)
     .order("decision_date", { ascending: false })
-    .limit(30);
+    .order("id", { ascending: true })
+    .range(offset, offset + RECENT_PAGE_SIZE);
   if (error) throw new Error("Recent decisions failed");
-  return (data as Recent[]) || [];
+  const raw = (data as Recent[]) || [];
+  return { rows: raw.slice(0, RECENT_PAGE_SIZE), hasMore: raw.length > RECENT_PAGE_SIZE };
 }
 
 // ── 검색 ────────────────────────────────────────────────────────────

@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react';
 import { calcNoticePay, type NoticePayInput, type NoticePayResult } from '@/lib/calc/notice-pay';
 import AnswerCard from '@/components/tool/AnswerCard';
 import FoldedDetail from '@/components/tool/FoldedDetail';
-import { card, fmtDate, inputCls, ink, muted, small, todayKst } from '@/lib/tool-kit';
+import { card, fmtDateWithYear, inputCls, ink, muted, small, todayKst } from '@/lib/tool-kit';
 
 type Unit = NoticePayInput['unit'];
 const UNIT_LABEL: Record<Unit, string> = { month: '월급', week: '주급', day: '일급', hour: '시급' };
@@ -110,7 +110,7 @@ export default function NoticePayClient() {
               {out.r!.status === 'short' ? '. 예고를 했더라도 30일에 못 미치면 모자란 날만큼이 아니라 30일분 전액입니다.' : ''}
             </p>
           )}
-          {hire && dismissal && <p className={`${small} mt-2`} style={muted}>입사 {fmtDate(hire, today)} · 해고 {fmtDate(dismissal, today)}</p>}
+          {hire && dismissal && <p className={`${small} mt-2`} style={muted}>입사 {fmtDateWithYear(hire)} · 해고 {fmtDateWithYear(dismissal)}</p>}
         </AnswerCard>
       )}
 

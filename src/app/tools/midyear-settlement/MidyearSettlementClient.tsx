@@ -60,6 +60,8 @@ export default function MidyearSettlementClient() {
             <label className="flex items-center gap-2"><input type="radio" name="scope" checked={scope === 'none'} onChange={() => setScope('none')} /> 하나도 없다</label>
             <label className="flex items-center gap-2"><input type="radio" name="scope" checked={scope === 'some'} onChange={() => setScope('some')} /> 하나라도 있다</label>
           </div>
+          {/* 결과 자리(입력칸 아래)의 「먼저 … 골라 주세요」는 화면 밖이라 못 본다 — 질문 바로 아래에도 알린다(261112) */}
+          {!scope && <p role="status" className="mt-3 font-semibold" style={{ color: 'var(--color-warn-ink)' }}>이 질문에 먼저 답해야 계산 결과가 나옵니다.</p>}
         </fieldset>
       </section>
 

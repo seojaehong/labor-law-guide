@@ -5,7 +5,7 @@
 // 단 사진 자동 입력(PhotoUploadCard)은 이미지를 서버로 POST 한다 — "전송 없음"으로 뭉뚱그리지 말 것.
 // 모르는 항목은 건너뛰기 허용(needs_data).
 
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import Link from 'next/link';
 import { ChevronRight, Printer, ShieldCheck } from 'lucide-react';
 import { checkContract } from '@/lib/contract-check/engine';
@@ -23,7 +23,7 @@ import {
 import type { Finding, FindingStatus } from '@/lib/contract-check/types';
 import PhotoUploadCard from './PhotoUploadCard';
 import { applyExtracted, keepFormOnlyFields } from './extractMap';
-import { CLAUSE_ITEMS, INITIAL, buildContract, formatNumericInput, withPayType, type FormState } from './formState';
+import { CLAUSE_ITEMS, INITIAL, buildContract, daysPerWeekError, formatNumericInput, withPayType, type FormState } from './formState';
 
 // 상태 이름·정렬·규칙 이름·수정 방향·면책 문구는 present.ts(오프라인판과 공용). 색만 여기 둔다.
 // DESIGN.md §6.4 배지 4변형(위험·주의·성공·중립). 값이 아니라 이름을 붙이는 교체다 —
@@ -126,6 +126,7 @@ function TextInput({
   type = 'text',
   suffix,
   numeric,
+  validate,
 }: {
   value: string;
   onChange: (v: string) => void;
@@ -134,16 +135,34 @@ function TextInput({
   type?: string;
   suffix?: string;
   numeric?: boolean;
+  /** 주면 친 글자를 지우지 않고 그대로 보여 주며 틀린 까닭을 칸 아래에 쓴다. 틀린 값은 폼에 빈칸('')으로 싣는다 */
+  validate?: (raw: string) => string | null;
 }) {
-  const display = numeric ? formatNumericInput(value, suffix) : value;
-  return (
+  const [rejected, setRejected] = useState<string | null>(null);
+  // 사진 자동 입력 등으로 폼 값이 채워지면 친 글자 대신 그 값을 보인다
+  const shown = validate && rejected !== null && value === '' ? rejected : null;
+  const error = shown === null ? null : validate!(shown);
+  const display = shown ?? (numeric ? formatNumericInput(value, suffix) : value);
+  const errId = useId();
+  const row = (
     <div className="flex items-center gap-2">
       <input
         type={type}
         inputMode={numeric ? 'decimal' : undefined}
         aria-label={ariaLabel}
+        aria-invalid={error ? true : undefined}
+        aria-describedby={error ? errId : undefined}
         value={display}
-        onChange={(e) => onChange(numeric ? e.target.value.replace(/[^\d.,]/g, '') : e.target.value)}
+        onChange={(e) => {
+          const raw = e.target.value;
+          if (validate) {
+            const bad = validate(raw);
+            setRejected(bad ? raw : null);
+            onChange(bad ? '' : raw.replace(/[^\d.,]/g, ''));
+            return;
+          }
+          onChange(numeric ? raw.replace(/[^\d.,]/g, '') : raw);
+        }}
         placeholder={placeholder}
         className={inputClass}
         style={inputStyle}
@@ -152,6 +171,17 @@ function TextInput({
         <span className="flex-shrink-0 text-sm" style={{ color: 'var(--color-text-secondary)' }}>
           {suffix}
         </span>
+      )}
+    </div>
+  );
+  if (!validate) return row;
+  return (
+    <div>
+      {row}
+      {error && (
+        <p id={errId} role="status" className="mt-1 text-xs" style={{ color: 'var(--color-danger-ink)' }}>
+          {error}
+        </p>
       )}
     </div>
   );
@@ -511,6 +541,7 @@ export default function ContractCheckClient() {
                 suffix="일"
                 placeholder="예: 5"
                 value={form.daysPerWeek}
+                validate={daysPerWeekError}
                 onChange={(v) => patch({ daysPerWeek: v })}
               />
             </Field>

@@ -40,8 +40,15 @@ body.dark .wage-table td.label-cell { background:var(--bg); color:var(--text); }
 body.dark .wage-table .total-cell { background:var(--card-bg); color:var(--text); }
 body.dark { --warning:#fca5a5; }
 @media print { .statement { max-width:none; overflow:visible; } .work-nav,.ctx { display:none; } }
+/* 입력 확인 안내(계산하기 위)와 산정사유발생일 도움말 — 색은 테마 변수만 쓴다(라이트·다크 둘 다 대비 4.5 이상) */
+.calc-status { margin:16px 0 0; text-align:center; font-size:14px; font-weight:600; line-height:1.6; color:var(--warning); }
+.calc-status:empty { margin:0; }
+[aria-invalid="true"] { border-color:var(--warning) !important; }
+.form-grid .field-hint { grid-column:4; margin:-4px 0 0; font-size:12px; line-height:1.5; color:var(--text-light); }
+@media(max-width:768px) { .form-grid .field-hint { grid-column:2; } }
 body.dark { --primary:#a3cfc8; --primary-light:#c5e1dc; --accent:#a3cfc8; --accent-light:#a3cfc8; --bg:#191d19; --card-bg:#202620; --text:#f0f0e7; --text-light:#b9c0b4; --border:#414a3d; --border-light:#414a3d; }
 body.dark .tab-btn.active,body.dark .btn-primary { color:#191d19; }
+body.dark .guide-box .guide-tip { background:var(--bg); border-color:var(--border); color:var(--text); }
 @media(max-width:600px) { .container { padding:24px 20px; } .work-nav { gap:4px; } .work-nav-links { width:100%; gap:0 !important; justify-content:space-between; } .work-nav-links a { font-size:13px; } .card { padding:20px 16px; } }
 
 /* Statement: summary first, supporting data below; paper readable in both themes. */

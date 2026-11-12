@@ -35,3 +35,17 @@ test('4스텝 폼을 진행하면 결과 화면에 도달한다', async ({ page 
   await expect(page.getByRole('heading', { name: '점검 결과' })).toBeVisible();
   await expect(page.getByText(/^위반 \d+$/)).toBeVisible();
 });
+
+// 261112 운영 실측: 주 근무일수 -100 이 빼기표만 지워져 100 으로 들어갔다 — 고쳐 넣지 않고 알린다.
+test('주 근무일수에 음수를 넣으면 지우지 않고 알린다', async ({ page }) => {
+  await page.goto('/tools/contract-check');
+  await page.getByRole('button', { name: '다음' }).click();
+  const days = page.getByLabel('주 근무일수');
+  await days.fill('-100');
+  await expect(days).toHaveValue('-100');
+  await expect(days).toHaveAttribute('aria-invalid', 'true');
+  await expect(page.getByText('주 근무일수는 1일부터 7일까지 숫자로 넣어 주세요.', { exact: false })).toBeVisible();
+  await days.fill('5');
+  await expect(days).toHaveValue('5');
+  await expect(page.getByText('주 근무일수는 1일부터 7일까지', { exact: false })).toHaveCount(0);
+});

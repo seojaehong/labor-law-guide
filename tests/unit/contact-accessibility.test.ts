@@ -25,6 +25,17 @@ describe('contact form mobile accessibility', () => {
       expect(control).toContain('min-h-[44px]');
     });
   });
+  it('states the privacy notice right above the submit button, from the privacy policy values', () => {
+    const notice = html.slice(html.lastIndexOf('<p', html.indexOf('수집 항목')), html.indexOf('type="submit"'));
+    expect(notice).toContain('수집 항목: 이름, 연락처, 이메일, 문의 내용');
+    expect(notice).toContain('목적: 문의 회신');
+    // 처리방침 2절과 같은 값(src/lib/privacy-retention.ts)
+    expect(notice).toContain('보유기간: 처리 후 1년');
+    expect(notice).toContain('href="/privacy"');
+    expect(html.indexOf('수집 항목')).toBeGreaterThan(html.indexOf('id="contact-message"'));
+    // 처리방침이 동의 체크를 요구하지 않는다 — 입력 칸은 그대로 5개
+    expect(html).not.toContain('type="checkbox"');
+  });
   it('enlarges list/card view targets without changing their behavior', () => {
     const css = readFileSync('src/components/editorial-home.css', 'utf8');
     const rule = css.match(/\.editorial-view-toggle button \{[^}]+\}/)?.[0] ?? '';

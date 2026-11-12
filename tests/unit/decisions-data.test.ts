@@ -120,7 +120,41 @@ describe('shared decision row source contract', () => {
     expect(html.split(RESULT_LABELS.granted)).toHaveLength(2);
     for (const record of records) expect(html).toContain(`href="/decisions/${record.id}"`);
     expect(chain.gte).toHaveBeenCalledWith('confidence_level', 0.8);
-    expect(chain.limit).toHaveBeenCalledWith(30);
+    // 최근 목록도 쪽을 넘긴다(261112) — 30건씩, 같은 날짜는 id 로 순서를 고정해야 쪽 경계에서 겹치거나 빠지지 않는다
+    expect(chain.range).toHaveBeenCalledWith(0, 30);
+    expect(chain.order.mock.calls).toContainEqual(['id', { ascending: true }]);
+  });
+
+  it('pages the recent list 30 at a time with stable ordering', async () => {
+    const chain = query(Array.from({ length: 31 }, (_, i) => row(i)));
+    const page2 = await getRecent(2);
+    expect(chain.range).toHaveBeenCalledWith(30, 60);
+    expect(chain.order.mock.calls).toEqual([['decision_date', { ascending: false }], ['id', { ascending: true }]]);
+    expect(page2.hasMore).toBe(true);
+    expect(page2.rows).toHaveLength(30);
+    query(Array.from({ length: 30 }, (_, i) => row(i)));
+    expect((await getRecent(3)).hasMore).toBe(false);
+    // 주소창에 큰 쪽 번호를 넣어도 DB 범위(정수 상한)를 넘기지 않고 빈 쪽으로 답한다
+    const far = query([row(1)]);
+    expect(await getRecent(100_000_000)).toEqual({ rows: [], hasMore: false });
+    expect(far.range).not.toHaveBeenCalled();
+  });
+
+  it('renders ?page=2 of the hub as the next 30 recent cases with prev/next links and noindex', async () => {
+    const chain = query(Array.from({ length: 31 }, (_, i) => ({ ...row(100 + i), decision_date: '2026-01-01' })));
+    const page = await DecisionsIndexPage({ searchParams: Promise.resolve({ page: '2' }) });
+    const hub = page.props.children.at(-1);
+    const html = renderToStaticMarkup(await hub.type(hub.props));
+    expect(chain.range).toHaveBeenCalledWith(30, 60);
+    expect(html).toContain('href="/decisions/100"');
+    expect(html).not.toContain('href="/decisions/130"');
+    expect(html).toContain('href="/decisions"');
+    expect(html).toContain('href="/decisions?page=3"');
+    expect(html).toContain('2 페이지');
+    expect(html).not.toContain('유형별로 찾기');
+    const { generateMetadata } = await import('@/app/decisions/page');
+    const meta = await generateMetadata({ searchParams: Promise.resolve({ page: '2' }) });
+    expect(meta.robots).toEqual({ index: false, follow: true });
   });
 
   it.each(['court', 'admin'] as const)('preserves the dedicated %s RPC card contract', async type => {

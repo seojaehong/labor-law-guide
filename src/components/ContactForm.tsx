@@ -1,7 +1,12 @@
 'use client';
 
 import { useState, type FormEvent } from 'react';
+import Link from 'next/link';
 import { Send, CheckCircle } from 'lucide-react';
+import { RETENTION } from '@/lib/privacy-retention';
+
+/** 처리방침 2절 「문의 메일」 보유기간 — 한쪽만 고치지 않게 같은 표에서 읽는다 */
+const INQUIRY_RETENTION = RETENTION.find((r) => r.item === '문의 메일')!.period;
 
 export default function ContactForm() {
   const [submitted, setSubmitted] = useState(false);
@@ -78,8 +83,15 @@ export default function ContactForm() {
 
       {error && <p className="text-sm" style={{ color: '#dc2626' }}>{error}</p>}
 
+      {/* 개인정보 수집·이용 안내 — 값은 처리방침(/privacy) 1·2절과 같다. 처리방침이 동의 체크를 두지 않으므로 체크칸은 없다 */}
+      <p id="contact-privacy" className="text-xs leading-relaxed" style={{ color: 'var(--grey-700)' }}>
+        수집 항목: 이름, 연락처, 이메일, 문의 내용 · 목적: 문의 회신 · 보유기간: {INQUIRY_RETENTION} ·{' '}
+        <Link href="/privacy" className="underline underline-offset-2">개인정보 처리방침</Link>
+      </p>
+
       <button
         type="submit"
+        aria-describedby="contact-privacy"
         disabled={loading}
         className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-md px-5 py-2.5 text-[15px] font-semibold text-[var(--color-on-accent-ink)] transition-transform hover:-translate-y-px"
         style={{ backgroundColor: loading ? 'var(--grey-400)' : 'var(--color-accent-ink)' }}

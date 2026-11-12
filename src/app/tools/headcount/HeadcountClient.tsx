@@ -16,7 +16,7 @@ import BizNoLookup from '@/components/BizNoLookup';
 import AnswerCard from '@/components/tool/AnswerCard';
 import FoldedDetail from '@/components/tool/FoldedDetail';
 import { card, fmtDate, inputCls, ink, muted, small, todayKst } from '@/lib/tool-kit';
-import { CHANGES, basisLine, crewLabel, headline, leaveLines, noteLine, tenLine, whyLines } from './copy';
+import { CHANGES, basisLine, countInputError, crewLabel, headline, leaveLines, noteLine, tenLine, whyLines } from './copy';
 
 const WEEK = ['일', '월', '화', '수', '목', '금', '토'];
 const PRESETS: { label: string; days: number[] }[] = [
@@ -55,6 +55,16 @@ function WeekToggle({ value, onChange }: { value: number[]; onChange: (v: number
 
 function CrewCard({ crew, openDays, canRemove, edit }: { crew: Crew; openDays: number[]; canRemove: boolean; edit: (e: PlanEdit) => void }) {
   const dated = !!(crew.from || crew.to);
+  // 틀린 인원(-100·0·100)은 1~99로 고쳐 넣지 않고 친 그대로 보여 주며 알린다. 계산은 마지막으로 맞게 넣은 인원으로 한다.
+  // base: 그 글자를 칠 때의 인원 — 버튼·사업자번호 불러오기로 인원이 바뀌면 그 글자는 버린다
+  const [draft, setDraft] = useState<{ text: string; base: number } | null>(null);
+  const typed = draft && draft.base === crew.count ? draft.text : null;
+  const countErr = typed === null ? null : countInputError(typed);
+  const errId = `${crew.id}-count-error`;
+  const setCount = (count: number) => {
+    setDraft(null);
+    edit({ type: 'count', id: crew.id, count });
+  };
   const dates = (
     <div className="grid grid-cols-2 gap-2">
       <label className={small} style={muted}>
@@ -76,12 +86,22 @@ function CrewCard({ crew, openDays, canRemove, edit }: { crew: Crew; openDays: n
         )}
       </div>
       <div className="flex items-center gap-2">
-        <button type="button" aria-label="한 명 줄이기" className="h-11 w-11 rounded-lg border border-[var(--color-border)] text-lg" onClick={() => edit({ type: 'count', id: crew.id, count: crew.count - 1 })}>−</button>
-        <input aria-label="인원" inputMode="numeric" className={`${inputCls} w-16 text-center`} value={crew.count}
-          onChange={(e) => edit({ type: 'count', id: crew.id, count: Number(e.target.value.replace(/\D/g, '')) })} />
-        <button type="button" aria-label="한 명 늘리기" className="h-11 w-11 rounded-lg border border-[var(--color-border)] text-lg" onClick={() => edit({ type: 'count', id: crew.id, count: crew.count + 1 })}>+</button>
+        <button type="button" aria-label="한 명 줄이기" className="h-11 w-11 rounded-lg border border-[var(--color-border)] text-lg" onClick={() => setCount(crew.count - 1)}>−</button>
+        <input aria-label="인원" inputMode="numeric" className={`${inputCls} w-16 text-center`} value={typed ?? crew.count}
+          aria-invalid={countErr ? true : undefined} aria-describedby={countErr ? errId : undefined}
+          onChange={(e) => {
+            const v = e.target.value;
+            if (countInputError(v)) setDraft({ text: v, base: crew.count });
+            else setCount(Number(v.trim()));
+          }} />
+        <button type="button" aria-label="한 명 늘리기" className="h-11 w-11 rounded-lg border border-[var(--color-border)] text-lg" onClick={() => setCount(crew.count + 1)}>+</button>
         <span className="text-base" style={ink}>명</span>
       </div>
+      {countErr && (
+        <p id={errId} role="status" className="text-sm" style={{ color: 'var(--color-danger-ink)' }}>
+          {countErr} 지금 결과는 {crew.count}명으로 셉니다.
+        </p>
+      )}
       {dated && dates}
       <details>
         <summary className="cursor-pointer text-sm" style={muted}>자세히 — 구분·근무 요일{dated ? '' : '·입사일'}</summary>
