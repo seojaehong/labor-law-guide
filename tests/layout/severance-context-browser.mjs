@@ -4,7 +4,7 @@ const b=await chromium.launch({executablePath:'C:/Users/iceam/AppData/Local/ms-p
 p.on('pageerror',e=>errors.push(e.message));p.on('dialog',d=>d.accept());
 await p.route('**/*',r=>new URL(r.request().url()).origin!==base||new URL(r.request().url()).pathname.startsWith('/api/')?r.abort():r.continue());
 await p.addInitScript(()=>{window.__contextCalls=[];window.__pending=[];const original=window.fetch;window.fetch=(url,init)=>{if(String(url)!=='/api/tools/severance-context')return original(url,init);window.__contextCalls.push(JSON.parse(init.body));return new Promise(resolve=>window.__pending.push(data=>resolve({ok:data!==null,json:async()=>data})));};});
-const calc=async()=>p.evaluate(()=>{for(const[id,v]of Object.entries({startDate:'2020-01-01',endDate:'2026-10-05',wage1:'3000000',wage2:'3000000',wage3:'3000000',wage4:'3000000'}))document.getElementById(id).value=v;onCalculate();});
+const calc=async()=>p.evaluate(()=>{for(const[id,v]of Object.entries({startDate:'2020-01-01',endDate:'2026-10-04',wage1:'3000000',wage2:'3000000',wage3:'3000000',wage4:'3000000'}))document.getElementById(id).value=v;onCalculate();});
 const resolve=async(index,title)=>p.evaluate(({index,title})=>window.__pending[index]({checks:[{level:'info',title,body:'검증용 응답',basis:'합성 근거'}],sources:{},next:[]}),{index,title});
 try{
  await p.goto(base+'/tools/severance.html',{waitUntil:'networkidle'});await calc();assert.equal(await p.evaluate(()=>__contextCalls.length),0);assert.ok(await p.getByText('검색에 쓰는 일반 쟁점 문장',{exact:false}).count());

@@ -14,7 +14,7 @@ import { POST } from '@/app/api/tools/calc/route';
 
 // 퇴직소득세 엔진 한 벌 — 퇴직금 계산기(public/tools/severance.html)와 챗봇·/api/tools/calc(src/lib/labor-calc.ts)가
 // 정본 엔진(src/lib/calc/retirement-tax.ts)을 부른다. 숫자는 엔진이 내고 두 곳은 입력 날짜와 응답 모양만 잇는다.
-// 날짜 뜻: 계산기 칸 = 퇴직일(마지막 근무일 다음 날, 임금근로시간과-844), 엔진·챗봇 = 마지막 근무일(국세청 프로그램 「퇴사일」).
+// 날짜 뜻: 계산기 칸·엔진·챗봇 모두 마지막 근무일(국세청 프로그램 「퇴사일」, 261112 통일). 계산기는 퇴직일(그 다음 날, 임금근로시간과-844)을 화면에서만 만든다.
 // 기대값은 조문 식(소득세법 §48①·②, §14⑥, §55①·②, 국고금 관리법 §47, 지방세법 §103의13①)을 분수·정수로 푼 값이다(합성 입력).
 
 const html = readFileSync(build.HTML, 'utf8');
@@ -26,7 +26,6 @@ const htmlFn = <F,>(name: string): F => vm.runInContext(name, context) as F;
 
 const DAY = 86_400_000;
 const iso = (t: number) => new Date(t).toISOString().slice(0, 10);
-const plusDay = (s: string) => iso(Date.parse(`${s}T00:00:00Z`) + DAY);
 
 /** 국세청 「퇴직소득 세액계산 프로그램」(2026 하반기 D251229) T25 = DATEDIF(기산일, 퇴사일, "M") + 1, 근속연수 = 올림(÷12) */
 function datedifM(a: string, b: string): number {
@@ -48,7 +47,7 @@ const htmlYears = htmlFn<(start: string, end: string) => number | null>('calcSer
 // 세 곳이 같은 칸을 같은 값으로 내는가 — 엔진 값이 기대값이다
 function expectSame(pay: number, hire: string, last: string) {
   const e = engineTax({ pay, hireDate: hire, lastWorkDate: last });
-  const h = htmlTax(pay, hire, plusDay(last));
+  const h = htmlTax(pay, hire, last);
   const c = chat.calcRetirementTax(pay, hire, last);
   const want = {
     years: e.years, svc: e.serviceDeductionTable, after: pay - e.serviceDeduction, conv: e.converted, convDed: e.convertedDeduction,
@@ -125,8 +124,8 @@ describe('응답 모양 그대로 — 계산기 calculateSeverance', () => {
     cwDeduction: 17_149_733, taxBase: 6_099_823, convertedTax: 365_989, incomeTax: 91_490, localTax: 9_140, totalTax: 100_630,
   };
 
-  it('H1 입사 2023-01-01 · 퇴직일 2026-01-01 · 9,000,000원', () => {
-    const r = run<Record<string, unknown>>(`calculateSeverance({...createDefaultWorker(),startDate:'2023-01-01',endDate:'2026-01-01',wage1:'9000000'})`);
+  it('H1 입사 2023-01-01 · 마지막 근무일 2025-12-31(퇴직일 2026-01-01) · 9,000,000원', () => {
+    const r = run<Record<string, unknown>>(`calculateSeverance({...createDefaultWorker(),startDate:'2023-01-01',endDate:'2025-12-31',wage1:'9000000'})`);
     expect(r).toMatchObject({ serviceDays: 1096, serviceYears: 3, severancePay: 8_812_389, priorSev: 0, retirementTax: 91_490, localTax: 9_140, totalTax: 100_630, netSeverance: 8_711_759 });
     expect(r.taxResult).toEqual(H1_TAX);
   });
@@ -134,7 +133,7 @@ describe('응답 모양 그대로 — 계산기 calculateSeverance', () => {
   // 조건 4 — 중간정산 칸은 지급액에서만 뺀다. 세금은 전체 퇴직금으로 센다(예전 동작 그대로)
   it('H3 중간정산 5,000,000원 — 세액은 퇴직금 전액으로, 실수령에서만 뺀다', () => {
     const r = run<{ severancePay: number; priorSev: number; retirementTax: number; localTax: number; netSeverance: number; taxResult: HtmlTax }>(
-      `calculateSeverance({...createDefaultWorker(),startDate:'2010-01-04',endDate:'2026-10-28',wage1:'21000000',bonusTotal:'10000000',priorSeverance:'5000000'})`,
+      `calculateSeverance({...createDefaultWorker(),startDate:'2010-01-04',endDate:'2026-10-27',wage1:'21000000',bonusTotal:'10000000',priorSeverance:'5000000'})`,
     );
     expect(r.severancePay).toBe(128_928_086);
     expect(r.priorSev).toBe(5_000_000);
@@ -149,9 +148,9 @@ describe('응답 모양 그대로 — 계산기 calculateSeverance', () => {
 });
 
 // ─────────────────────────────────────────────────────────────
-// 2. 날짜 — 계산기는 퇴직일을 받아 하루 빼서 엔진에 넘긴다(조건 1). 챗봇은 마지막 근무일을 그대로 넘긴다.
+// 2. 날짜 — 계산기·챗봇 모두 마지막 근무일을 받아 그대로 엔진에 넘긴다(261112 계산기 입력을 마지막 근무일로 통일).
 // ─────────────────────────────────────────────────────────────
-describe('근속연수 — 계산기 calcServiceYears(입사, 퇴직일) = 엔진 serviceYears(입사, 마지막 근무일)', () => {
+describe('근속연수 — 계산기 calcServiceYears(입사, 마지막 근무일) = 엔진 serviceYears(입사, 마지막 근무일)', () => {
   // [id, 입사, 마지막 근무일, 근속월수, 근속연수]
   const D: [string, string, string, number, number][] = [
     ['D1 5년 꽉 참(기념일 전날)', '2021-08-01', '2026-07-31', 60, 5],
@@ -167,24 +166,24 @@ describe('근속연수 — 계산기 calcServiceYears(입사, 퇴직일) = 엔�
     expect(serviceMonths(hire, last)).toBe(months);
     expect(serviceYears(hire, last)).toBe(years);
     expect(ntsYears(hire, last)).toBe(years);
-    expect(htmlYears(hire, plusDay(last))).toBe(years);
+    expect(htmlYears(hire, last)).toBe(years);
     expect(chat.calcRetirementTax(20_000_000, hire, last).service_years).toBe(years);
   });
 
-  it('N1 하루를 빼지 않으면 6년이 되어 216,000원이 나온다 — 계산기는 280,000원(T3)을 낸다', () => {
+  it('N1 퇴직일(다음 날)을 마지막 근무일로 넣으면 6년이 되어 216,000원이 나온다 — 마지막 근무일 7.31 이면 280,000원(T3)', () => {
     const wrong = engineTax({ pay: 20_000_000, hireDate: '2021-08-01', lastWorkDate: '2026-08-01' });
     expect([wrong.years, wrong.incomeTax, wrong.localTax]).toEqual([6, 216_000, 21_600]);
-    const h = htmlTax(20_000_000, '2021-08-01', '2026-08-01');
+    const h = htmlTax(20_000_000, '2021-08-01', '2026-07-31');
     expect([h.serviceYears, h.incomeTax, h.localTax]).toEqual([5, 280_000, 28_000]);
   });
 
   it('입사일이 1900년 전이면(연도 오타) 근속연수 칸은 null — 엔진이 거부하는 날짜로 계산하지 않는다', () => {
-    expect(htmlYears('0202-01-01', '2026-07-02')).toBeNull();
-    expect(htmlYears('2021-08-01', '2026-08-01')).toBe(5);
+    expect(htmlYears('0202-01-01', '2026-07-01')).toBeNull();
+    expect(htmlYears('2021-08-01', '2026-07-31')).toBe(5);
   });
 
   // 리드 증명(blast-radius 261029)을 정식 시험으로 — 2019~2024 입사 전 일자 × 마지막 근무일 0~2200일 = 4,824,592쌍
-  it('전수 — 국세청 DATEDIF 식 = 엔진 = 계산기(퇴직일 −1)', { timeout: 900_000 }, () => {
+  it('전수 — 국세청 DATEDIF 식 = 엔진 = 계산기(마지막 근무일 그대로)', { timeout: 900_000 }, () => {
     // 날짜 글자와 [연, 월, 일]은 한 번만 만든다(쌍마다 만들면 그것만으로 수 분이 걸린다)
     const t0 = Date.UTC(2019, 0, 1);
     const hires = (Date.UTC(2024, 11, 31) - t0) / DAY + 1;
@@ -199,7 +198,7 @@ describe('근속연수 — 계산기 calcServiceYears(입사, 퇴직일) = 엔�
         const want = Math.ceil(((y2 - y1) * 12 + (m2 - m1) - (d2 < d1 ? 1 : 0) + 1) / 12);
         n++;
         const e = serviceYears(days[h], days[h + k]);
-        const w = htmlYears(days[h], days[h + k + 1]);
+        const w = htmlYears(days[h], days[h + k]);
         if ((e !== want || w !== want) && bad.length < 10) bad.push(`${days[h]}~${days[h + k]} nts=${want} engine=${e} html=${w}`);
       }
     }
@@ -287,10 +286,10 @@ describe('2023. 1. 1. 이전 퇴사 — 세액을 내지 않고 이유를 적는
     expect(() => engineTax({ pay: 50_000_000, hireDate: '2012-01-02', lastWorkDate: '2022-12-31' })).toThrow(/2023/);
   });
 
-  it('P1 계산기 — 퇴직일 2023-01-01 이면 세액 칸 대신 이유, 퇴직금은 그대로(예전엔 603,990원을 조용히 냈다)', () => {
-    expect(htmlTax(50_000_000, '2012-01-02', '2023-01-01')).toEqual({ skipped: expect.stringMatching(/부칙 제13조·제14조/) });
+  it('P1 계산기 — 마지막 근무일 2022-12-31(퇴직일 2023-01-01)이면 세액 칸 대신 이유, 퇴직금은 그대로(예전엔 603,990원을 조용히 냈다)', () => {
+    expect(htmlTax(50_000_000, '2012-01-02', '2022-12-31')).toEqual({ skipped: expect.stringMatching(/부칙 제13조·제14조/) });
     const r = run<{ severancePay: number; taxResult: unknown; retirementTax: number; localTax: number; netSeverance: number; taxNotice: string }>(
-      `calculateSeverance({...createDefaultWorker(),startDate:'2012-01-02',endDate:'2023-01-01',wage1:'15000000'})`,
+      `calculateSeverance({...createDefaultWorker(),startDate:'2012-01-02',endDate:'2022-12-31',wage1:'15000000'})`,
     );
     expect(r.severancePay).toBe(53_831_150);
     expect(r.taxResult).toBeNull();
@@ -301,9 +300,9 @@ describe('2023. 1. 1. 이전 퇴사 — 세액을 내지 않고 이유를 적는
     expect(r.netSeverance).toBe(53_831_150);
   });
 
-  it('T9 경계 — 계산기 퇴직일 2023-01-02(마지막 근무 2023-01-01)는 계산한다', () => {
+  it('T9 경계 — 계산기 마지막 근무일 2023-01-01(퇴직일 2023-01-02)은 계산한다', () => {
     const r = run<{ taxResult: HtmlTax | null; taxNotice: string }>(
-      `calculateSeverance({...createDefaultWorker(),startDate:'2018-01-02',endDate:'2023-01-02',wage1:'15000000'})`,
+      `calculateSeverance({...createDefaultWorker(),startDate:'2018-01-02',endDate:'2023-01-01',wage1:'15000000'})`,
     );
     expect(r.taxResult).not.toBeNull();
     expect(r.taxNotice).toBe('');
@@ -311,7 +310,7 @@ describe('2023. 1. 1. 이전 퇴사 — 세액을 내지 않고 이유를 적는
 
   it('자동 계산을 끄고 넣은 세액은 2022년 퇴사도 그대로 쓴다(직접 입력 경로)', () => {
     const r = run<{ retirementTax: number; localTax: number; taxNotice: string }>(
-      `calculateSeverance({...createDefaultWorker(),startDate:'2012-01-02',endDate:'2023-01-01',wage1:'15000000',autoCalcTax:false,retirementTax:'1,281,990'})`,
+      `calculateSeverance({...createDefaultWorker(),startDate:'2012-01-02',endDate:'2022-12-31',wage1:'15000000',autoCalcTax:false,retirementTax:'1,281,990'})`,
     );
     expect([r.retirementTax, r.localTax, r.taxNotice]).toEqual([1_281_990, 128_190, '']);
   });

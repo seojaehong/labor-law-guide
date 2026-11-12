@@ -748,9 +748,9 @@
 
         <h4>2. 근무 기간 입력</h4>
         <ol>
-            <li><b>채용년월일(입사일)</b>과 <b>산정사유발생일(퇴사일)</b>을 입력합니다. 산정사유발생일은 마지막 근무일 다음 날입니다.</li>
-            <li>입력 즉시 <b>재직일수</b>와 <b>근속연수</b>가 자동 계산되고, 아래 임금 정보의 월 구간이 자동 설정됩니다.</li>
-            <li>퇴사일이 월 1일이면 3구간, 월 중도이면 4구간이 자동으로 나타납니다.</li>
+            <li><b>채용년월일(입사일)</b>과 <b>마지막 근무일</b>을 입력합니다. 퇴직일(산정사유발생일)은 마지막 근무일 다음 날로 자동 계산됩니다.</li>
+            <li>입력 즉시 <b>퇴직일</b>, <b>재직일수</b>와 <b>근속연수</b>가 자동 계산되고, 아래 임금 정보의 월 구간이 자동 설정됩니다.</li>
+            <li>말일까지 일했으면(퇴직일이 월 1일) 3구간, 월 중간에 그만두면 4구간이 자동으로 나타납니다.</li>
         </ol>
 
         <h4>3. 임금 정보 입력</h4>
@@ -810,10 +810,12 @@
             <div class="form-grid">
                 <label for="startDate">채용년월일(입사일)</label>
                 <input type="text" id="startDate" class="date-input" placeholder="YYYY-MM-DD" maxlength="10">
-                <label for="endDate">산정사유발생일(퇴사일)</label>
+                <label for="endDate">마지막 근무일</label>
                 <input type="text" id="endDate" class="date-input" placeholder="YYYY-MM-DD" maxlength="10" aria-describedby="endDateHint">
-                <p id="endDateHint" class="field-hint">마지막 근무일 다음 날(퇴직일)을 넣습니다. 3월 31일까지 일했다면 4월 1일입니다.</p>
+                <p id="endDateHint" class="field-hint">마지막으로 일한 날을 넣습니다. 3월 31일까지 일했다면 3월 31일입니다. 퇴직일(산정사유발생일)은 그다음 날로 계산합니다.</p>
 
+                <label for="retireDate">퇴직일(산정사유발생일)</label>
+                <input type="text" id="retireDate" readonly value="-">
                 <label>재직일수</label>
                 <input type="text" id="serviceDays" readonly value="-">
                 <label>근속연수</label>
@@ -1218,7 +1220,9 @@ const RetirementTaxEngine = (() => {
 const TAX_RATES = RetirementTaxEngine.BASIC_TAX_RATES[RetirementTaxEngine.BASIC_TAX_RATES.length - 1].rates
     .map(([limit, cumulative, pct]) => ({ limit, rate: pct / 100, cumulative }));
 
-const STORAGE_KEY = 'severanceCalcData_v3';
+/* v4 부터 근로자의 endDate 는 마지막 근무일이다. v3 까지는 퇴직일(마지막 근무일 다음 날)이라 읽을 때 하루 빼서 옮긴다(migrateLegacyState) */
+const STORAGE_KEY = 'severanceCalcData_v4';
+const LEGACY_STORAGE_KEY = 'severanceCalcData_v3';
 const MAX_WORKERS = 4;
 
 /* ================================================================
@@ -1305,29 +1309,36 @@ function dateDiffDays(startStr, endStr) {
 }
 
 /**
- * 퇴직소득세 근속연수(1년 미만은 1년, 소득세법 제48조 제1항) — 정본 엔진.
- * 이 화면의 퇴사일 칸은 퇴직일(마지막 근무일 다음 날)이고 엔진은 마지막 근무일을 받으므로 하루 뺀다.
+ * 퇴직일(산정사유발생일) = 마지막 근무일 다음 날 — /exit·/tools/retirement-tax 와 같이 사람은 마지막 근무일을 넣고 퇴직일은 여기서만 만든다.
+ * 날짜가 아니면 ''.
+ */
+function retirementDateOf(lastStr) {
+    return Number.isNaN(parseDateOnlyUTC(lastStr).getTime()) ? '' : addDaysUTC(lastStr, 1);
+}
+
+/**
+ * 퇴직소득세 근속연수(1년 미만은 1년, 소득세법 제48조 제1항) — 정본 엔진. 엔진도 마지막 근무일(퇴사일)을 받는다.
  * 엔진이 받지 않는 날짜(입사일 1900년 전 등)면 null.
  */
-function calcServiceYears(startStr, endStr) {
+function calcServiceYears(startStr, lastStr) {
     try {
-        return RetirementTaxEngine.serviceYears(startStr, addDaysUTC(endStr, -1));
+        return RetirementTaxEngine.serviceYears(startStr, lastStr);
     } catch (e) {
         return null;
     }
 }
 
-/**
- * 평균임금 산정기간 — 퇴직일(endStr) 3개월 전 같은 날부터 퇴직일 전날까지, 달마다 나눈다(정본 엔진).
- * 3개월 전에 그날이 없으면 그 달 말일, 2월이면 3월 1일. 입사일(startStr)이 늦으면 입사일부터.
- */
 /** 계속근로 1년 미만인가 — 엔진의 1년 되는 날과 퇴직일을 비교한다(재직일수 365 로 보면 윤년에서 하루 어긋난다) */
-function isUnderOneYear(startStr, endStr) {
-    return endStr < SeveranceEngine.oneYearDate(startStr);
+function isUnderOneYear(startStr, lastStr) {
+    return retirementDateOf(lastStr) < SeveranceEngine.oneYearDate(startStr);
 }
 
-function calc3MonthPeriod(endStr, startStr) {
-    return SeveranceEngine.periodSegments(startStr || '0001-01-01', endStr).map((g) => {
+/**
+ * 평균임금 산정기간 — 퇴직일(마지막 근무일 다음 날) 3개월 전 같은 날부터 마지막 근무일까지, 달마다 나눈다(정본 엔진).
+ * 3개월 전에 그날이 없으면 그 달 말일, 2월이면 3월 1일. 입사일(startStr)이 늦으면 입사일부터.
+ */
+function calc3MonthPeriod(lastStr, startStr) {
+    return SeveranceEngine.periodSegments(startStr || '0001-01-01', retirementDateOf(lastStr)).map((g) => {
         const startDay = Number(g.from.slice(8));
         const endDay = Number(g.to.slice(8));
         return {
@@ -1344,17 +1355,18 @@ function calc3MonthPeriod(endStr, startStr) {
  * 화면을 건드리지 않는다(시험이 DOM 없이 부른다). 표시는 setCalcStatus 가 한다.
  */
 function validateWorkerInput(w) {
-    const dateWord = { startDate: '입사일(채용년월일)', endDate: '산정사유발생일(퇴사일)' };
+    const dateWord = { startDate: '입사일(채용년월일)', endDate: '마지막 근무일' };
     for (const field of ['startDate', 'endDate']) {
         if (!w[field]) return { field, message: `${dateWord[field]}을 입력해 주세요.` };
         if (Number.isNaN(parseDateOnlyUTC(w[field]).getTime())) {
             return { field, message: `${dateWord[field]}이 올바른 날짜가 아닙니다. 2023-03-01처럼 연-월-일로 입력해 주세요.` };
         }
     }
-    if (!(dateDiffDays(w.startDate, w.endDate) > 0)) {
-        return { field: 'endDate', message: '산정사유발생일(퇴사일)은 입사일보다 뒤여야 합니다.' };
+    /* 입사한 날 하루만 일하고 그만둔 것(마지막 근무일 = 입사일)까지는 날짜로 받는다 — /exit 와 같다 */
+    if (dateDiffDays(w.startDate, w.endDate) < 0) {
+        return { field: 'endDate', message: '마지막 근무일이 입사일보다 앞섭니다. 날짜를 확인해 주세요.' };
     }
-    /* 산정기간에 없는 구간(퇴직일이 1일이면 4구간, 입사 3개월 미만이면 뒤 구간)은 화면에서 숨고 계산에도 안 쓴다 */
+    /* 산정기간에 없는 구간(말일까지 일해 퇴직일이 1일이면 4구간, 입사 3개월 미만이면 뒤 구간)은 화면에서 숨고 계산에도 안 쓴다 */
     const periodCount = calc3MonthPeriod(w.endDate, w.startDate).length;
     const money = [];
     for (let i = 1; i <= periodCount; i++) money.push([`wage${i}`, `${i}구간 월급여`]);
@@ -1410,15 +1422,18 @@ function showToast(message, type) {
  */
 function calculateSeverance(data) {
     const startDate = data.startDate;
-    const endDate = data.endDate;
+    /* endDate 칸 = 마지막 근무일. 퇴직일(산정사유발생일)은 그 다음 날 */
+    const lastWorkDate = data.endDate;
 
-    if (!startDate || !endDate) return null;
+    if (!startDate || !lastWorkDate) return null;
+    const retireDate = retirementDateOf(lastWorkDate);
+    if (!retireDate) return null;
 
-    const serviceDays = dateDiffDays(startDate, endDate);
+    const serviceDays = dateDiffDays(startDate, retireDate);
     if (!Number.isFinite(serviceDays) || serviceDays <= 0) return null;
 
-    const serviceYears = calcServiceYears(startDate, endDate);
-    const periods = calc3MonthPeriod(endDate, startDate);
+    const serviceYears = calcServiceYears(startDate, lastWorkDate);
+    const periods = calc3MonthPeriod(lastWorkDate, startDate);
     const totalCalcDays = periods.reduce((s, p) => s + p.days, 0);
 
     const w1 = parseMoney(data.wage1);
@@ -1437,7 +1452,7 @@ function calculateSeverance(data) {
     const dailyOrdinaryWage = parseMoney(data.dailyOrdinaryWage);
     const engine = SeveranceEngine.calcSeverance({
         hireDate: startDate,
-        lastWorkDate: addDaysUTC(endDate, -1),
+        lastWorkDate,
         wageTotal: wageSum,
         annualBonus: bonus,
         annualLeavePay: annual,
@@ -1459,7 +1474,7 @@ function calculateSeverance(data) {
     let localTax = 0;
 
     if (data.autoCalcTax) {
-        const t = calcRetirementTax(severancePay, startDate, endDate);
+        const t = calcRetirementTax(severancePay, startDate, lastWorkDate);
         if (t.skipped) {
             /* 세액을 0원으로 보이지 않는다 — 산정서에 계산하지 않은 이유를 적는다 */
             taxNotice = t.skipped;
@@ -1479,6 +1494,8 @@ function calculateSeverance(data) {
 
     return {
         /* 기본 정보 */
+        lastWorkDate,
+        retireDate,
         serviceDays,
         serviceYears,
         periods,
@@ -1516,15 +1533,14 @@ function calculateSeverance(data) {
 
 /**
  * 퇴직소득세 — 정본 엔진(src/lib/calc/retirement-tax.ts, 소득세법 제48조·제55조)을 부르는 연결 함수. 숫자는 엔진이 낸다.
- * endStr 은 이 화면의 퇴직일(마지막 근무일 다음 날)이라 하루 빼서 엔진의 퇴사일(마지막 근무일)로 넘긴다.
+ * lastWorkDate 는 이 화면의 마지막 근무일 칸 그대로다 — 엔진의 퇴사일도 마지막 근무일이라 날짜를 바꾸지 않고 넘긴다.
  * 돌려주는 키는 예전 그대로다. svcDeduction 은 근속연수공제 표 값이고, 퇴직급여보다 크면 퇴직급여까지만 뺀다(같은 조 제2항, afterDeduction).
  * 엔진이 계산하지 않는 경우는 { skipped: 이유 } — 다른 표로 대신하거나 0원으로 두지 않는다.
  */
-function calcRetirementTax(severancePay, startStr, endStr) {
-    const lastWorkDate = addDaysUTC(endStr, -1);
+function calcRetirementTax(severancePay, startStr, lastWorkDate) {
     if (lastWorkDate < RetirementTaxEngine.RETIREMENT_TAX_FROM) {
         return {
-            skipped: '마지막 근무일이 2022. 12. 31. 이전(이 화면의 퇴사일 2023. 1. 1. 이전)이면 퇴직소득세를 자동 계산하지 않습니다. ' +
+            skipped: '마지막 근무일이 2022. 12. 31. 이전이면 퇴직소득세를 자동 계산하지 않습니다. ' +
                 '종전 근속연수공제·세율이 적용되는 퇴사입니다(소득세법(법률 제19196호) 부칙 제13조·제14조). 세액을 알면 「자동」을 끄고 직접 넣어 주세요.'
         };
     }
@@ -1704,6 +1720,10 @@ function updateDateInfo() {
     const endStr = document.getElementById('endDate').value;
     const sdEl = document.getElementById('serviceDays');
     const syEl = document.getElementById('serviceYears');
+    const rdEl = document.getElementById('retireDate');
+    /* endDate 칸 = 마지막 근무일. 퇴직일(산정사유발생일)은 그 다음 날로 보여 준다 */
+    const retireStr = retirementDateOf(endStr);
+    rdEl.value = retireStr || '-';
 
     if (!startStr || !endStr) {
         sdEl.value = '-';
@@ -1712,7 +1732,7 @@ function updateDateInfo() {
         return;
     }
 
-    const days = dateDiffDays(startStr, endStr);
+    const days = retireStr ? dateDiffDays(startStr, retireStr) : NaN;
     if (!Number.isFinite(days) || days <= 0) {
         sdEl.value = '날짜 오류';
         syEl.value = '-';
@@ -1866,7 +1886,8 @@ function renderResult(result) {
     const w = state.workers[state.currentIndex];
     showContextPrompt(w);
     const p = result.periods;
-    const endDate = parseDateOnlyUTC(w.endDate);
+    const lastWorkDate = parseDateOnlyUTC(w.endDate);
+    const retireDate = parseDateOnlyUTC(retirementDateOf(w.endDate));
     const startDate = parseDateOnlyUTC(w.startDate);
 
     const formatDate = (d) => `${d.getUTCFullYear()}. ${String(d.getUTCMonth()+1).padStart(2,'0')}. ${String(d.getUTCDate()).padStart(2,'0')}.`;
@@ -1923,7 +1944,8 @@ function renderResult(result) {
             <div><dt>생년월일</dt><dd>${esc(w.birthDate || '-')}</dd></div>
             <div><dt>사업주성명</dt><dd>${esc(w.ownerName || '-')}</dd></div>
             <div><dt>채용년월일</dt><dd>${formatDate(startDate)}</dd></div>
-            <div><dt>산정사유발생일</dt><dd>${formatDate(endDate)}</dd></div>
+            <div><dt>마지막 근무일</dt><dd>${formatDate(lastWorkDate)}</dd></div>
+            <div><dt>퇴직일(산정사유발생일)</dt><dd>${formatDate(retireDate)}</dd></div>
             <div><dt>재직일수</dt><dd>${formatMoney(result.serviceDays)}일</dd></div>
         </dl>
 
@@ -2066,14 +2088,14 @@ function onCalculate() {
     const problem = validateWorkerInput(w);
     setCalcStatus(problem);
     if (problem) return;
-    const days = dateDiffDays(w.startDate, w.endDate);
+    const days = dateDiffDays(w.startDate, retirementDateOf(w.endDate));
     if (isUnderOneYear(w.startDate, w.endDate)) {
         if (!confirm(`재직일수가 ${days}일로 1년 미만입니다.\n퇴직금 지급 대상이 아닐 수 있습니다.\n계속 계산하시겠습니까?`)) return;
     }
 
     const result = calculateSeverance(w);
     if (!result) {
-        setCalcStatus({ field: 'endDate', message: '계산하지 못했습니다. 입사일과 산정사유발생일을 다시 확인해 주세요.' });
+        setCalcStatus({ field: 'endDate', message: '계산하지 못했습니다. 입사일과 마지막 근무일을 다시 확인해 주세요.' });
         return;
     }
 
@@ -2127,7 +2149,7 @@ function getContextOptions(w) {
 }
 function contextHeader(w) {
     const options = getContextOptions(w);
-    return '<h2>근거 조회</h2><p class="privacy">계산은 이 기기에서 처리됩니다. 아래 버튼을 누르면 입사일·퇴사일·재직일수·평균임금·통상임금·퇴직금과 선택한 제도·미지급 여부를 서버로 보내 근거를 조회합니다. 이름·사업장명·사업주명·생년월일은 보내지 않습니다. 검색에 쓰는 일반 쟁점 문장은 외부 AI 서비스(OpenAI)로 전달될 수 있습니다. 금액과 날짜는 이 검색 문장에 포함되지 않습니다.</p>' +
+    return '<h2>근거 조회</h2><p class="privacy">계산은 이 기기에서 처리됩니다. 아래 버튼을 누르면 입사일·퇴직일·재직일수·평균임금·통상임금·퇴직금과 선택한 제도·미지급 여부를 서버로 보내 근거를 조회합니다. 이름·사업장명·사업주명·생년월일은 보내지 않습니다. 검색에 쓰는 일반 쟁점 문장은 외부 AI 서비스(OpenAI)로 전달될 수 있습니다. 금액과 날짜는 이 검색 문장에 포함되지 않습니다.</p>' +
       '<div class="ask"><label for="ctxPension">퇴직급여 제도</label><select id="ctxPension">' +
       ['unknown|모름 / 확인 안 해봤습니다', 'severance|퇴직금제도', 'db|퇴직연금 DB(확정급여형)', 'dc|퇴직연금 DC(확정기여형)'].map(o=>{const [v,t]=o.split('|');return '<option value="'+v+'"'+(options.pension===v?' selected':'')+'>'+t+'</option>';}).join('') +
       '</select></div><label class="ask"><input type="checkbox" id="ctxUnpaid"'+(options.unpaid?' checked':'')+'> 아직 퇴직금을 받지 못했습니다</label><button type="button" class="btn btn-primary" id="contextLookup">근거 조회하기</button><p id="contextStatus" role="status" aria-live="polite"></p>';
@@ -2162,7 +2184,8 @@ async function loadContext(w, result) {
     document.getElementById('contextStatus').textContent = '근거를 조회하고 있습니다.';
     const body = {
         startDate: w.startDate,
-        endDate: w.endDate,
+        /* 근거 조회 API 의 endDate 는 퇴직일(1년 경계·14일 기한을 센다) — 마지막 근무일 다음 날로 보낸다 */
+        endDate: retirementDateOf(w.endDate),
         serviceDays: result.serviceDays,
         avgWage: result.avgWage,
         ordinaryWage: result.dailyOrdinaryWage || undefined,
@@ -2292,11 +2315,52 @@ function saveToStorage() {
     }
 }
 
+/**
+ * v3 저장값 옮기기 — v3 의 endDate 는 퇴직일(마지막 근무일 다음 날)이었다. 하루 빼서 마지막 근무일로 바꾼다.
+ * 날짜가 아닌 값(빈칸·쓰다 만 날짜)은 무엇을 뜻했는지 알 수 없어 비운다. 화면을 건드리지 않는다(시험이 DOM 없이 부른다).
+ */
+function migrateLegacyState(parsed) {
+    if (parsed && Array.isArray(parsed.workers)) {
+        parsed.workers.forEach(w => {
+            if (!w || typeof w !== 'object') return;
+            const retire = parseDateOnlyUTC(w.endDate);
+            w.endDate = Number.isNaN(retire.getTime()) ? '' : addDaysUTC(w.endDate, -1);
+        });
+    }
+    return parsed;
+}
+
+/**
+ * 링크로 받은 마지막 근무일. ?last= · ?lastWorkDate= 는 그대로 쓴다.
+ * 옛 링크(챗봇 답 끝 링크 src/lib/chat/severance-link.ts 포함)의 ?end= · ?endDate= 는 퇴직일(마지막 근무일 다음 날)이라 하루 뺀다.
+ * 날짜가 아닌 end 는 무엇을 뜻했는지 알 수 없어 비운다(''). 어느 것도 없으면 null. get = 이름 → 값(없으면 null)
+ */
+function lastWorkDateFromQuery(get) {
+    const last = get('lastWorkDate') ?? get('last');
+    if (last != null) return last;
+    const end = get('endDate') ?? get('end');
+    if (end == null) return null;
+    return Number.isNaN(parseDateOnlyUTC(end).getTime()) ? '' : addDaysUTC(end, -1);
+}
+
 function loadFromStorage() {
     try {
+        let parsed = null;
         const saved = localStorage.getItem(STORAGE_KEY);
         if (saved) {
-            const parsed = JSON.parse(saved);
+            parsed = JSON.parse(saved);
+        } else {
+            const legacy = localStorage.getItem(LEGACY_STORAGE_KEY);
+            if (legacy) {
+                parsed = migrateLegacyState(JSON.parse(legacy));
+                /* 옮긴 값을 새 이름으로 쓰고 옛 값은 지운다 — 다음에 열 때 하루를 또 빼지 않는다 */
+                try {
+                    localStorage.setItem(STORAGE_KEY, JSON.stringify(parsed));
+                    localStorage.removeItem(LEGACY_STORAGE_KEY);
+                } catch (e) { /* 못 써도 옛 값이 그대로라 다음에 같은 결과로 다시 옮긴다 */ }
+            }
+        }
+        if (parsed) {
             if (parsed.workers && Array.isArray(parsed.workers) && parsed.workers.length > 0) {
                 state = parsed;
                 state.currentIndex = Math.min(state.currentIndex || 0, state.workers.length - 1);
@@ -2389,7 +2453,6 @@ function init() {
         let any = false;
         const map = {
             startDate: 'startDate', start: 'startDate',
-            endDate: 'endDate', end: 'endDate',
             workerName: 'workerName', name: 'workerName',
             businessName: 'businessName', biz: 'businessName',
             ownerName: 'ownerName', owner: 'ownerName',
@@ -2399,6 +2462,8 @@ function init() {
             const v = params.get(k);
             if (v != null) { setVal(target, v); any = true; }
         }
+        const last = lastWorkDateFromQuery(k => params.get(k));
+        if (last != null) { setVal('endDate', last); any = true; }
         // 임금 4구간: ?wage1=... 또는 ?w1=...
         for (let i = 1; i <= 4; i++) {
             const v = params.get(`wage${i}`) || params.get(`w${i}`);

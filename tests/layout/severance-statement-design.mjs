@@ -14,7 +14,7 @@ for(const version of ['before','after']){
  const context=await browser.newContext({viewport:{width:390,height:844}}),page=await context.newPage();
  await page.route('**/*',r=>{const u=new URL(r.request().url());if(u.origin!==base||u.pathname.startsWith('/api/'))return r.abort();if(version==='before'&&u.pathname==='/tools/severance.html')return r.fulfill({body:oldHtml,contentType:'text/html'});if(version==='before'&&u.pathname==='/tools/severance-brand.css')return r.fulfill({body:oldCss,contentType:'text/css'});return r.continue();});
  await page.goto(base+'/tools/severance.html');
- for(const[id,value]of Object.entries({startDate:'2020-01-01',endDate:'2026-10-05',workerName:'합성 근로자',businessName:'합성 사업장',ownerName:'합성 사업주',wage1:'3000000',wage2:'3000000',wage3:'3000000',wage4:'3000000'}))await page.locator('#'+id).fill(value);
+ for(const[id,value]of Object.entries({startDate:'2020-01-01',endDate:version==='before'?'2026-10-05':'2026-10-04',workerName:'합성 근로자',businessName:'합성 사업장',ownerName:'합성 사업주',wage1:'3000000',wage2:'3000000',wage3:'3000000',wage4:'3000000'}))await page.locator('#'+id).fill(value);
  await page.evaluate(()=>{document.activeElement?.blur();onCalculate();});await page.waitForTimeout(3200);
  results.push(await page.evaluate(()=>state.workers[0].result));
  for(const theme of ['light','dark']){await page.evaluate(t=>updateToolTheme(t==='dark'),theme);await page.locator('.statement').screenshot({path:`${out}/${version}-${theme}-390.png`,animations:'disabled'});}
