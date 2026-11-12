@@ -348,6 +348,7 @@ export default function LawsClient({ index }: { index: LawIndex }) {
                 onChange={(e) => setQ(e.target.value)}
                 placeholder="법령·조문·내용 검색 (예: 연차, 휴게, 성희롱)"
                 aria-label="개정 검색"
+                aria-keyshortcuts="/"
               />
               {q ? (
                 <button onClick={() => setQ('')} aria-label="검색어 지우기" style={{ border: 0, background: 'none', cursor: 'pointer', color: 'var(--lr-mute)' }}>

@@ -237,7 +237,7 @@ export default function ExitEmployerClient() {
                           {s.cond && <span className="ee-badge cond">{s.cond}</span>}
                         </div>
                         <div>
-                          <div className="ee-title">{s.title}</div>
+                          <div className="ee-title" id={`ee-title-${s.id}`}>{s.title}</div>
                           <div className="ee-basis">{s.basis}</div>
                           {d && (
                             <div className="ee-due">
@@ -260,13 +260,16 @@ export default function ExitEmployerClient() {
                           </a>
                         )}
                         <div className="ee-pen"><b>법정 상한·효과</b> · {s.penalty}</div>
-                        <label className="ee-check">
+                        {/* 체크칸 이름 = 「단계 제목 + 처리했습니다」 — 15개가 모두 「처리했습니다」로만 읽히지 않게 */}
+                        <label className="ee-check" htmlFor={`ee-done-${s.id}`}>
                           <input
                             type="checkbox"
+                            id={`ee-done-${s.id}`}
+                            aria-labelledby={`ee-title-${s.id} ee-done-label-${s.id}`}
                             checked={!!done[s.id]}
                             onChange={e => setDone(prev => ({ ...prev, [s.id]: e.target.checked }))}
                           />
-                          처리했습니다
+                          <span id={`ee-done-label-${s.id}`}>처리했습니다</span>
                         </label>
                       </div>
                     </details>
