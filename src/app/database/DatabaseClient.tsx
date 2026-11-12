@@ -565,8 +565,8 @@ function DatabaseContent({ initialTotalCases, initialTotalAdmin, initialTotalNlr
                 <MessageSquare size={18} style={{ color: 'white' }} />
               </div>
               <div>
-                <p className="text-sm font-bold" style={{ color: 'var(--color-text-primary)' }}>AI에게 해석 물어보기</p>
-                <p className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>검색 결과를 기반으로 AI가 쉽게 풀어드립니다</p>
+                <p className="text-sm font-bold" style={{ color: 'var(--color-text-primary)' }}>근거 자료 찾기</p>
+                <p className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>같은 질문으로 조문·FAQ·판례·행정해석을 함께 찾기</p>
               </div>
             </Link>
           </div>

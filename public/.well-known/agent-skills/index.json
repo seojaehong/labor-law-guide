@@ -3,7 +3,7 @@
     {
       "name": "labor-law-guide",
       "type": "skill",
-      "description": "노동법 실무 가이드 — 노란봉투법(개정 노동조합법) 해설, 점검 체크리스트, 교섭절차, FAQ, 상황별 가이드",
+      "description": "노동법 계산·점검 도구와 자료 — 계산기·근로계약서 점검, AI 연결(MCP), 판례·행정해석, 법령 개정, FAQ, 주제별 해설(개정 노동조합법 포함)",
       "url": "/.well-known/agent-skills/labor-law-guide/SKILL.md"
     },
     {

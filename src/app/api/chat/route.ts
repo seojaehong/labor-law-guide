@@ -3,14 +3,8 @@ import { NextRequest } from 'next/server';
 import { SYSTEM_PROMPT } from '@/content/ai-knowledge';
 import { supabase } from '@/lib/supabase';
 import { supabaseAdmin } from '@/lib/supabase-server';
-import {
-  getSituation,
-  upsertSituation,
-  formatSituationForPrompt,
-  extractDelta,
-  mergeSituation,
-  type UserSituation,
-} from '@/lib/user-situation';
+// 261112 — 세션별 개인 사정 추출(@/lib/user-situation)은 이 경로에서 뺐다. /ai 는 「근거 자료 찾기」라
+// 개인 사정에 맞춘 답을 내지 않는다. 저장된 값을 읽는 /api/chat/situation 과 모듈 파일은 그대로 두었다.
 import { verifyCitations } from '@/lib/legal-verify';
 import { checkChatRateLimit, extractIp, hashIp } from '@/lib/rate-limit';
 import { getChatKillSwitch } from '@/lib/kill-switch';
@@ -30,7 +24,8 @@ import { hasVerifiedCitation, type EvidenceId } from '@/lib/chat/citations';
 import { buildSearchQuery } from '@/lib/chat/search-query';
 import { IncompleteGenerationError } from '@/lib/chat/completion';
 import { activeConversation } from '@/lib/ai/conversation-query';
-import { buildNewsContext } from '@/lib/chat/context/news';
+import { buildBlogSources } from '@/lib/chat/context/blog';
+import { faqSourceItems, type SourceItem } from '@/lib/chat/sources';
 
 // Next.js segment config: literal value 필수 (import const 불가)
 export const maxDuration = 60;
@@ -82,7 +77,7 @@ export async function POST(req: NextRequest) {
       return respond(
         JSON.stringify({
           error:
-            '현재 AI 챗 서비스가 일시 중단되었습니다. 잠시 후 다시 시도해주세요. (일일 한도 도달)',
+            '현재 자료 찾기·요약 기능이 일시 중단되었습니다. 잠시 후 다시 시도해주세요. (일일 한도 도달)',
           reason: kill.reason || 'kill_switch',
         }),
         { status: 503, headers: { 'Retry-After': '3600' } }
@@ -150,17 +145,20 @@ export async function POST(req: NextRequest) {
     // Vertex 자격증명 확인. 단, Vertex 가 죽어도 Anthropic 폴백이 있으면 계속 진행한다.
     // (2026-08-18: 이 게이트가 streamRound 앞에 있어서, 폴백을 붙여도 Vertex 설정 오류
     //  단계에서 503 으로 끊겨 폴백까지 도달하지 못하는 문제가 로컬 검증에서 드러남)
+    // 261112 — 둘 다 없어도 503 으로 끊지 않는다. /ai 의 주 기능은 자료 목록이고 요약은 덧붙는
+    // 참고용이라, 목록을 보낸 뒤 요약 자리에만 준비 안 됨을 알린다. 킬 스위치·봇 검증·사용 한도는
+    // 위에서 이미 걸렀다(아래 임베딩 1회가 유료다).
+    let summaryReady = true;
     try {
       getVertexClient();
     } catch (err) {
       if (!isAnthropicConfigured()) {
-        return respond(JSON.stringify({ error: 'AI 서비스가 준비되지 않았습니다.' }), {
-          status: 503,
+        summaryReady = false;
+      } else {
+        console.warn('[chat] Vertex 클라이언트 생성 실패 — Anthropic 폴백으로 진행', {
+          msg: (err as Error)?.message?.slice(0, 200),
         });
       }
-      console.warn('[chat] Vertex 클라이언트 생성 실패 — Anthropic 폴백으로 진행', {
-        msg: (err as Error)?.message?.slice(0, 200),
-      });
     }
 
     // 구간별 소요시간을 남긴다.
@@ -185,27 +183,15 @@ export async function POST(req: NextRequest) {
     let caseContext = '';
     let topFaqIds: number[] = [];
     let evidence: EvidenceId[] = [];
-    let situationContext = '';
-    let mergedProfile: UserSituation = {};
+    // 화면이 요약보다 먼저 보여 줄 자료 목록. 아래 검색이 프롬프트에 넣은 그 행으로만 만든다.
+    let sources: SourceItem[] = [];
 
-    // (1) 임베딩과 무관한 작업을 먼저 시작한다
-    const newsPromise = lastUserMsg
-      ? withTimeout(buildNewsContext(supabase, lastUserMsg.content), RETRIEVAL_TIMEOUT_MS, '뉴스 컨텍스트', '')
-      : Promise.resolve('');
-
-    const situationPromise =
-      sessionId && lastUserMsg && !active.resetsContext
-        ? withTimeout(
-            (async () => {
-              const prev = await getSituation(sessionId);
-              const delta = await extractDelta(lastUserMsg.content, prev);
-              return { prev, delta };
-            })(),
-            RETRIEVAL_TIMEOUT_MS,
-            '상황 추출',
-            null as { prev: UserSituation; delta: UserSituation } | null
-          )
-        : Promise.resolve(null);
+    // (1) 임베딩과 무관한 작업을 먼저 시작한다.
+    // 261112 — 개인 사정 추출(LLM 1회)과 뉴스 컨텍스트를 뺐다. 뉴스는 화면 목록에 없는 자료라
+    // 「보인 자료만 정리한다」는 요약 규칙과 맞지 않는다. 해설 글은 DB 조회 1회이고 목록에만 보인다.
+    const blogPromise: Promise<SourceItem[]> = lastUserMsg
+      ? withTimeout(buildBlogSources(supabase, lastUserMsg.content), RETRIEVAL_TIMEOUT_MS, '해설 글 검색', [])
+      : Promise.resolve([]);
 
     // (2) 임베딩이 필요한 검색들
     if (lastUserMsg) {
@@ -279,6 +265,13 @@ export async function POST(req: NextRequest) {
       ];
       // 조문을 앞에 둔다 — 1차 자료이고, 뒤쪽은 길어서 잘릴 수 있다
       caseContext = laws.value.ctx + nlrc.value.ctx + interp.value.ctx + court.value.ctx;
+      sources = [
+        ...(laws.value.items ?? []),
+        ...(faq.matched ? faqSourceItems(faq.selectedFaqs) : []),
+        ...(nlrc.value.items ?? []),
+        ...(court.value.items ?? []),
+        ...(interp.value.items ?? []),
+      ];
 
       // 왜 비었는지까지 남긴다.
       //
@@ -320,38 +313,38 @@ export async function POST(req: NextRequest) {
         .then(null, () => {});
     }
 
-    // (3) 병렬로 돌던 것을 회수한다
-    const situation = await situationPromise;
-    if (situation && sessionId) {
-      mergedProfile = mergeSituation(situation.prev, situation.delta);
-      situationContext = formatSituationForPrompt(mergedProfile);
-      // 저장은 답변에 필요 없다. 기다리지 않는다.
-      upsertSituation(sessionId, situation.prev, situation.delta, 1).catch(() => {});
-    }
+    // (3) 병렬로 돌던 것을 회수한다. 해설 글은 목록 맨 뒤에 붙인다(요약 프롬프트에는 넣지 않는다).
+    sources = [...sources, ...(await blogPromise)];
 
+    // /ai 화면은 질문마다 한 건만 보낸다. 여러 턴이 와도 지시어 해석에만 쓴다.
     const multiturnHint =
       messages.length > 2
-        ? '\n\n═══ 멀티턴 대화 안내 ═══\n사용자의 직전 질문과 답변을 반드시 참조하여 후속 질문을 해석하세요. "그럼", "이건", "그건" 같은 지시어가 무엇을 가리키는지 이전 맥락에서 추론. 사용자 상황(회사 규모·근속기간·임금 등)이 이전 턴에 나왔다면 이를 토대로 맞춤 답변.'
+        ? '\n\n═══ 이전 질문 안내 ═══\n직전 질문은 "그럼", "그건" 같은 지시어가 무엇을 가리키는지 해석하는 데만 참고한다. 이전 턴에 나온 개인 사정에 맞춰 결론을 내지 않는다.'
         : '';
 
-    const newsContext = await newsPromise;
     mark.ctxReady = Date.now() - t0;
-    const systemPrompt =
-      SYSTEM_PROMPT + faqContext + caseContext + situationContext + multiturnHint + newsContext;
+    const systemPrompt = SYSTEM_PROMPT + faqContext + caseContext + multiturnHint;
 
     const encoder = new TextEncoder();
     const decoder = new TextDecoder();
 
-    const toolHint =
-      /퇴직금|통상임금|연장수당|야간수당|휴일수당|최저임금|시급.*환산|월급.*환산|얼마.*받|계산해/.test(
-        lastUserMsg?.content || ''
-      );
+    // 261112 — 요약 라운드에는 계산 도구를 붙이지 않는다. 계산은 개별 사안의 금액을 내는 일이라
+    // 「찾은 자료의 요약」 범위를 넘고, 도구를 부르면 유료 생성이 한 라운드 더 돈다.
+    // 계산은 /tools 의 계산기가 맡는다. 아래 2라운드 처리 코드는 시험이 덮고 있어 그대로 둔다.
+    const toolHint = false;
 
     stage = 'stream';
     const stream = new ReadableStream({
       async start(controller) {
         try {
-        controller.enqueue(encoder.encode(`data: ${JSON.stringify({ evidence })}\n\n`));
+        controller.enqueue(encoder.encode(`data: ${JSON.stringify({ evidence, sources })}\n\n`));
+        if (!summaryReady) {
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ error: '자료 요약 기능이 준비되지 않았습니다.' })}\n\n`));
+          controller.enqueue(encoder.encode('data: [DONE]\n\n'));
+          controller.close();
+          observation.finish({ stage: 'generation', outcome: sources.length > 0 ? 'partial_failure' : 'failure', error_code: 'not_configured', result_count: 0 });
+          return;
+        }
         const lastRoundInfo: RoundInfo = { provider: 'unknown', vertexFailMs: 0 };
         let assembledAnswer = '';
         let streamFailed = false;
@@ -466,7 +459,7 @@ export async function POST(req: NextRequest) {
               topFaqCount: topFaqIds.length,
             });
             const fallback =
-              '⚠️ 답변 생성에 실패했습니다. 질문을 더 구체적으로 작성해주시거나 잠시 후 다시 시도해주세요. 빠른 답변이 필요하시면 우측 하단 채팅으로 문의해주세요.';
+              '⚠️ 요약을 만들지 못했습니다. 위에 찾은 자료를 직접 확인하시거나 잠시 후 다시 시도해주세요.';
             controller.enqueue(
               encoder.encode(`data: ${JSON.stringify({ content: fallback })}\n\n`)
             );

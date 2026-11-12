@@ -122,8 +122,8 @@ export default function RootLayout({
                   execute: async (input) => { window.location.href = '/decisions?q=' + encodeURIComponent(input.query); return { success: true }; }
                 },
                 {
-                  name: 'ask-ai',
-                  description: 'AI 질의응답 화면을 열어 노동법 질문을 넣습니다.',
+                  name: 'find-sources',
+                  description: '근거 자료 찾기 화면을 열어 질문을 넣습니다. 질문과 관련된 법령 조문·FAQ·판례·행정해석을 사이트 자료에서 찾습니다.',
                   inputSchema: { type: 'object', properties: { question: { type: 'string', description: '질문 내용' } }, required: ['question'] },
                   execute: async (input) => { window.location.href = '/ai?q=' + encodeURIComponent(input.question); return { success: true }; }
                 }
@@ -208,7 +208,7 @@ export default function RootLayout({
                 { href: '/tools/contract-write', label: '근로계약서 작성' },
                 { href: '/tools/severance.html', label: '퇴직금 계산' },
                 { href: '/subsidy', label: '지원금 안내' },
-                { href: '/ai', label: 'AI 질의응답' },
+                { href: '/ai', label: '근거 자료 찾기' },
               ] },
             ].map((col) => (
               <div key={col.title}>

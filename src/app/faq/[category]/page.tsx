@@ -18,10 +18,11 @@ export async function generateMetadata({ params }: { params: Promise<{ category:
 
   return publicMetadata({
     title: `${category} FAQ — 노동법 질문과 답변`,
-    description: `${category} 관련 자주 묻는 질문과 답변을 확인하세요. 공인노무사가 검수한 신뢰할 수 있는 노동법 FAQ입니다.`,
+    // 261112 — 「공인노무사가 검수한」 주장을 뺐다. 전 항목 검수를 보장하지 않는다.
+    description: `${category} 관련 자주 묻는 질문과 답변을 모았습니다. 관련 조문과 원문을 함께 확인하세요.`,
     alternates: { canonical: `${SITE_URL}/faq/${categoryToSlug(category)}` },
     openGraph: {
-      title: `${category} FAQ | 노란봉투법 가이드`,
+      title: `${category} FAQ | 일의 무늬`,
       description: `${category} 관련 노동법 Q&A`,
       url: `${SITE_URL}/faq/${categoryToSlug(category)}`,
       type: 'website',
