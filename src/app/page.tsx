@@ -1,3 +1,4 @@
+import type { Metadata } from 'next';
 import { SITE_URL, BRAND_NAME } from '@/lib/constants';
 import { supabaseServer } from '@/lib/supabase-server';
 import { getCurrentTopicPicks } from '@/lib/topic-picks';
@@ -15,6 +16,15 @@ interface LatestBlogArticle {
   category: string;
   published_at: string;
 }
+
+// 홈 canonical 은 여기서 적는다. 루트 layout 에 두면 alternates 를 안 적은 페이지가 홈을 물려받는다.
+// alternates 는 통째로 바뀌므로 RSS 자동 발견 링크도 같이 적는다.
+export const metadata: Metadata = {
+  alternates: {
+    canonical: SITE_URL,
+    types: { 'application/rss+xml': `${SITE_URL}/rss.xml` },
+  },
+};
 
 const homeFaqItems = [
   {

@@ -36,7 +36,9 @@ export const metadata: Metadata = {
     '원청 교섭 의무', '교섭단위 분리', '사내하청 교섭',
   ],
   alternates: {
-    canonical: SITE_URL,
+    // 🔴 canonical 은 여기 두지 않는다(261112). 여기 두면 alternates 를 안 적은 페이지가 홈 주소를 물려받아
+    //    「홈의 사본」으로 신고된다 — /tools/work-rules 가 그랬다. 홈 canonical 은 src/app/page.tsx 에 있다.
+    //    tests/unit/canonical-self.test.ts 가 막는다.
     // 네이버 서치어드바이저는 RSS를 사이트맵보다 적극적으로 수집한다.
     // <link rel="alternate" type="application/rss+xml">로 노출시켜 자동 발견을 돕는다.
     types: { 'application/rss+xml': `${SITE_URL}/rss.xml` },
