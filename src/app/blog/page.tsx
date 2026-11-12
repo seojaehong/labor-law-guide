@@ -59,14 +59,15 @@ export async function generateMetadata(
     cat === 'all' ? `${SITE_URL}/blog` : `${SITE_URL}/blog/category/${encodeURIComponent(cat)}`);
   if (page > 1) canonical.searchParams.set('page', String(page));
 
+  // 261112 — 종전 <title> 은 「글」 한 글자였다(루트 template 이 '%s' 라 접미사도 안 붙는다).
   return publicMetadata({
-    title: `글${suffix}${pageSuffix}`,
+    title: `노동법 글·해설${suffix}${pageSuffix} | ${BRAND_NAME}`,
     description:
-      '노란봉투법, 노동조합법, 판례분석, 뉴스해설, 실무가이드 등 노동법 심층 분석 콘텐츠를 제공합니다.',
+      '노동법 해설, 판례분석, 뉴스해설, 실무가이드 등 노동법 심층 분석 글을 모았습니다.',
     alternates: { canonical: canonical.toString() },
     robots: noindex ? { index: false, follow: true } : undefined,
     openGraph: {
-      title: `글 | ${BRAND_NAME}`,
+      title: `노동법 글·해설 | ${BRAND_NAME}`,
       description: '노동법 심층 분석 콘텐츠. 판례분석, 뉴스해설, 실무가이드.',
       url: canonical.toString(),
       type: 'website',
@@ -75,7 +76,7 @@ export async function generateMetadata(
     },
     twitter: {
       card: 'summary_large_image',
-      title: `글 | ${BRAND_NAME}`,
+      title: `노동법 글·해설 | ${BRAND_NAME}`,
       description: '노동법 심층 분석 콘텐츠. 판례분석, 뉴스해설, 실무가이드.',
     },
   });

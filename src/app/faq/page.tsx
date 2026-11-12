@@ -1,18 +1,20 @@
 import { publicMetadata } from '@/lib/public-metadata';
 import type { Metadata } from 'next';
 import { supabaseServer } from '@/lib/supabase-server';
-import { SITE_URL } from '@/lib/constants';
+import { BRAND_NAME, SITE_URL } from '@/lib/constants';
 import FaqClient from './FaqClient';
 
 export const revalidate = 3600;
 
+// 261112 — 종전 「1,600건+」는 실제와 달랐다. 화면의 「전체」 수는 10,871건(운영 실측), 카테고리는 33개다.
+// 수가 매일 바뀌니 자릿수만 적는다. 「공인노무사가 검수한」은 1만 건 전부에 대해 확인할 수 없는 말이라 뺐다.
 export const metadata: Metadata = publicMetadata({
-  title: '노동법 FAQ — 1,600건+ 핵심 질문과 답변',
-  description: '임금, 해고, 근로시간, 퇴직금, 연차휴가 등 30개 카테고리별 노동법 FAQ를 검색하세요. 공인노무사가 검수한 핵심 실무 Q&A를 제공합니다.',
+  title: '노동법 FAQ — 1만 건+ 질문과 답변',
+  description: '임금, 해고, 근로시간, 퇴직금, 연차휴가 등 30여 개 카테고리별 노동법 FAQ 1만 건+를 검색하세요.',
   alternates: { canonical: `${SITE_URL}/faq` },
   openGraph: {
-    title: '노동법 FAQ | 노란봉투법 가이드',
-    description: '30개 카테고리, 1,600건+ 핵심 노동법 Q&A. 임금·해고·퇴직금·연차 등.',
+    title: `노동법 FAQ | ${BRAND_NAME}`,
+    description: '30여 개 카테고리, 1만 건+ 노동법 Q&A. 임금·해고·퇴직금·연차 등.',
     url: `${SITE_URL}/faq`,
     type: 'website',
     locale: 'ko_KR',
@@ -62,7 +64,7 @@ export default async function FaqPage() {
         '@type': 'FAQPage',
         '@id': `${SITE_URL}/faq`,
         name: '노동법 FAQ',
-        description: '30개 카테고리, 1,600건+ 핵심 노동법 질문과 답변',
+        description: '30여 개 카테고리, 1만 건+ 노동법 질문과 답변',
         inLanguage: 'ko',
         mainEntity: topFaqs.map((faq: { question: string; answer: string }) => ({
           '@type': 'Question',
