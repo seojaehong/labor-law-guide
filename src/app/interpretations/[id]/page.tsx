@@ -334,8 +334,8 @@ export default async function InterpretationDetailPage({
                     <MessageSquare size={18} style={{ color: 'white' }} />
                   </div>
                   <div>
-                    <p className="text-sm font-bold" style={{ color: 'var(--color-text-primary)' }}>AI에게 질문하기</p>
-                    <p className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>이 해석이 우리 상황에 적용되는지 확인</p>
+                    <p className="text-sm font-bold" style={{ color: 'var(--color-text-primary)' }}>근거 자료 찾기</p>
+                    <p className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>질문으로 관련 조문·FAQ·판례·행정해석 찾기</p>
                   </div>
                 </Link>
               </div>

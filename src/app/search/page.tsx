@@ -651,14 +651,14 @@ function SearchContentInner({
         <div className="mt-10 rounded-xl border border-primary/30 bg-primary/5 p-5">
           <h3 className="font-bold text-base mb-2">원하는 답을 못 찾으셨나요?</h3>
           <p className="text-sm text-muted-foreground mb-4">
-            검색으로 찾기 어려운 구체적인 상황은 AI 노동법 상담에 직접 물어보세요. 판례·행정해석 1만 건 이상을 근거로 답변합니다.
+            키워드로 찾기 어려우면 질문 문장으로 찾아 보세요. 근거 자료 찾기가 관련 조문·FAQ·판정례·판례·행정해석을 함께 찾아 줍니다.
           </p>
           <div className="flex flex-col gap-2 sm:flex-row">
             <Link
               href={`/ai${query ? `?q=${encodeURIComponent(query)}` : ""}`}
               className="inline-flex items-center justify-center rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90"
             >
-              AI 질의응답으로 이어서 묻기 →
+              근거 자료 찾기로 이어서 찾기 →
             </Link>
             <Link
               href="/sanction"

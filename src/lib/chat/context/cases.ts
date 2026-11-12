@@ -1,5 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { type Retrieval } from './result';
+import { citationHref } from '../citations';
+import { excerpt, joinMeta, type SourceItem } from '../sources';
 
 type NlrcRow = {
   id: string;
@@ -40,8 +42,19 @@ function renderNlrc(cases: NlrcRow[]): string {
     ctx += `\n#${c.id} [${date}${c.decision_result ? ' / ' + c.decision_result : ''}] ${c.title}\n  ${summary}\n`;
   }
   ctx +=
-    '\n[판정례 인용 규칙] 답변에서 위 노동위 판정례 인용 시 `[CASE#id]` 형식 사용. 사용자 케이스와 사실관계가 다르면 차이점 명시.';
+    '\n[판정례 인용 규칙] 위 노동위 판정례를 인용할 때 `[CASE#id]` 형식을 쓴다. 판정례는 그 사건의 사실관계에 대한 판단이므로 일반 기준처럼 단정하지 않는다.';
   return ctx;
+}
+
+function nlrcItems(cases: NlrcRow[]): SourceItem[] {
+  return cases.map(c => ({
+    type: 'CASE' as const,
+    id: String(c.id),
+    title: c.title,
+    href: citationHref({ type: 'CASE', id: String(c.id) }),
+    meta: joinMeta(c.decision_date ? String(c.decision_date).slice(0, 10) : null, c.decision_result),
+    excerpt: excerpt(c.holding_summary || c.key_issue),
+  }));
 }
 
 /** 우회 경로 — 임베딩 없는 키워드 전문검색. RPC 가 실패했을 때만 쓴다. */
@@ -66,7 +79,7 @@ async function nlrcByFullText(db: SupabaseClient, searchQuery: string): Promise<
     console.warn('[cases.ts] nlrc fts 0 rows:', terms.join(' | '));
     return { ctx: '', rows: 0, via: 'fts', status: '0rows' };
   }
-  return { ctx: renderNlrc(rows), evidenceIds: rows.map(row => String(row.id)), rows: rows.length, via: 'fts', status: 'ok' };
+  return { ctx: renderNlrc(rows), evidenceIds: rows.map(row => String(row.id)), items: nlrcItems(rows), rows: rows.length, via: 'fts', status: 'ok' };
 }
 
 /**
@@ -105,7 +118,7 @@ export async function buildNlrcCasesContext(
       console.warn('[cases.ts] nlrc rpc 0 rows — fts 로 폴백:', searchQuery.slice(0, 60));
       return await nlrcByFullText(db, searchQuery);
     }
-    return { ctx: renderNlrc(rows), evidenceIds: rows.map(row => String(row.id)), rows: rows.length, via: 'rpc', status: 'ok' };
+    return { ctx: renderNlrc(rows), evidenceIds: rows.map(row => String(row.id)), items: nlrcItems(rows), rows: rows.length, via: 'rpc', status: 'ok' };
   } catch (err) {
     console.error('[cases.ts] nlrc 예외 — fts 로 폴백:', (err as Error)?.message?.slice(0, 150));
     try {
@@ -153,7 +166,15 @@ export async function buildCourtCasesContext(
       '1) 답변에서 위 판례 중 관련된 것을 인용할 때 반드시 `[COURT#id]` 형식 사용 (id는 위 #뒤 문자열 그대로). 예: "대법원은 정기상여금이 통상임금 요건을 충족하면 인정한다고 판시 [COURT#대법원_2023다302838].".\n' +
       '2) 일반적인 "대법원은 ... 라고 판시" 식으로 답변하지 말고 위 DB의 구체적 판례 id를 사용하세요.\n' +
       '3) 학습 데이터에 있는 판례번호("2020다247190" 등)를 임의로 인용하지 말고, 반드시 위 DB에 있는 id만 인용하세요.';
-    return { ctx, evidenceIds: courts.map(row => String(row.id)), rows: courts.length, via: 'rpc', status: 'ok' };
+    const items: SourceItem[] = courts.map(c => ({
+      type: 'COURT' as const,
+      id: String(c.id),
+      title: c.title,
+      href: citationHref({ type: 'COURT', id: String(c.id) }),
+      meta: joinMeta(c.court, c.decision_date && c.decision_date !== '0001-01-01' ? c.decision_date : null, c.verdict_type),
+      excerpt: excerpt(c.summary),
+    }));
+    return { ctx, evidenceIds: courts.map(row => String(row.id)), items, rows: courts.length, via: 'rpc', status: 'ok' };
   } catch (err) {
     console.error('[cases.ts] court 예외:', (err as Error)?.message?.slice(0, 150));
     return { ctx: '', rows: 0, via: 'rpc', status: 'error' };

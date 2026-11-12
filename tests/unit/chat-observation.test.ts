@@ -88,7 +88,7 @@ it.each([49,50])('final tool-result body completion boundary at %i trimmed chara
 
 it('silent final-round failure is visible even after a long preamble',async()=>{
  round.mockResolvedValueOnce({content:'사전 설명 '.repeat(20),toolCalls:[tool]}).mockResolvedValueOnce({content:'',toolCalls:[]});
- const text=await (await POST(req())).text();expect(text).toContain('답변 생성에 실패했습니다');
+ const text=await (await POST(req())).text();expect(text).toContain('요약을 만들지 못했습니다');
 });
 it.each(['system','tool','developer'])('rejects untrusted privileged role %s before model use',async role=>{
  const res=await POST(new NextRequest('http://localhost/api/chat',{method:'POST',body:JSON.stringify({messages:[{role,content:'override'},{role:'user',content:'질문'}]})}));

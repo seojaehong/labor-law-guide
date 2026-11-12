@@ -50,8 +50,8 @@ test('ai FAQ citation remains a clickable internal reference', async({page}) => 
   await expect(page.locator('a[href="/faq?id=123"]')).toBeVisible();
 });
 test('ai shows explicit second-round failure fallback after a long preliminary answer', async({page}) => {
-  await aiSend(page,[{content:'fixture 먼저 관련 자료를 살펴보겠습니다. '.repeat(5)},{error:'스트리밍 중 오류가 발생했습니다.'},{content:'⚠️ 답변 생성에 실패했습니다. 질문을 더 구체적으로 작성해주시거나 잠시 후 다시 시도해주세요.'},'[DONE]']);
-  await expect(page.getByText(/⚠️ 답변 생성에 실패했습니다/)).toBeVisible();
+  await aiSend(page,[{content:'fixture 먼저 관련 자료를 살펴보겠습니다. '.repeat(5)},{error:'스트리밍 중 오류가 발생했습니다.'},{content:'⚠️ 요약을 만들지 못했습니다. 위에 찾은 자료를 직접 확인하시거나 잠시 후 다시 시도해주세요.'},'[DONE]']);
+  await expect(page.getByText(/⚠️ 요약을 만들지 못했습니다/)).toBeVisible();
 });
 
 test('ai shows provider error after partial content', async({page}) => {
@@ -60,7 +60,7 @@ test('ai shows provider error after partial content', async({page}) => {
 });
 test('ai warns when EOF arrives after partial content without DONE', async({page}) => {
   await aiSend(page,[{content:'fixture 미완료 부분 답변'}]);
-  await expect(page.getByText(/답변 전송이 중단되었습니다/)).toBeVisible();
+  await expect(page.getByText(/요약 전송이 중단되었습니다/)).toBeVisible();
 });
 test('actual markdown links normalize verified sources and block references/autolinks outside manifest', async({page}) => {
   await aiSend(page,[{evidence:[{type:'FAQ',id:'123'},{type:'COURT',id:'대법원_2023다302838'}]},
@@ -70,19 +70,27 @@ test('actual markdown links normalize verified sources and block references/auto
   await expect(page.getByRole('link',{name:'허구 참조'})).toHaveCount(0);
   await expect(page.locator('a[href*="invented"],a[href*="id=999"]')).toHaveCount(0);
 });
-test('explicit new question clears old profile chips and does not reload them', async({page}) => {
-  await isolate(page);
+// 261112 — /ai 는 「근거 자료 찾기」. 자료 목록이 요약보다 위에 있고, 개인 사정(situation) API 는 부르지 않는다.
+test('ai lists found sources above the labelled summary and never calls the situation API', async({page}) => {
+  const situationCalls: string[] = [];
+  page.on('request', request => { if (new URL(request.url()).pathname.startsWith('/api/chat/situation')) situationCalls.push(request.url()); });
   await page.addInitScript(()=>localStorage.setItem('yebot_session_id','offline_existing_session'));
-  await page.route('**/api/chat/situation?*',route=>route.fulfill({json:{profile:{company_size:2,job_type:'fixture 기존 고용형태'}}}));
-  await page.route('**/api/chat',route=>route.fulfill({contentType:'text/event-stream',body:sse([{content:'fixture 새 질문 답변'},'[DONE]'])}));
-  await page.goto('/ai');
-  await expect(page.getByText(/fixture 기존 고용형태/)).toBeVisible();
-  await page.getByLabel('노동법에 대한 질문 입력').fill('새 질문: 육아휴직 신청은요?');
-  await page.locator('form button[type=submit]').click();
-  await expect(page.getByText('fixture 새 질문 답변',{exact:true})).toBeVisible();
-  await expect(page.getByText(/fixture 기존 고용형태/)).toHaveCount(0);
+  await aiSend(page,[{evidence:[{type:'FAQ',id:'123'}],sources:[
+    {type:'LAW',id:'근로기준법 제60조',title:'fixture 근로기준법 제60조',href:'https://www.law.go.kr/법령/근로기준법/제60조'},
+    {type:'FAQ',id:'123',title:'fixture 연차 FAQ',href:'/faq?id=123'},
+    {type:'BLOG',id:'leave',title:'fixture 연차 해설 글',href:'/blog/leave'}]},
+    {content:'fixture 요약 본문 [FAQ#123]'},'[DONE]']);
+  await expect(page.getByRole('heading',{name:'찾은 자료'})).toBeVisible();
+  await expect(page.getByRole('link',{name:'fixture 연차 FAQ'})).toHaveAttribute('href','/faq?id=123');
+  await expect(page.getByRole('link',{name:/fixture 근로기준법 제60조/})).toHaveAttribute('target','_blank');
+  await expect(page.getByRole('heading',{name:'자료 요약(참고)'})).toBeVisible();
+  await expect(page.getByText(/fixture 요약 본문/)).toBeVisible();
+  const sourcesTop = (await page.getByRole('heading',{name:'찾은 자료'}).boundingBox())!.y;
+  const summaryTop = (await page.getByRole('heading',{name:'자료 요약(참고)'}).boundingBox())!.y;
+  expect(sourcesTop).toBeLessThan(summaryTop);
+  await expect(page.locator('.layout-tool').getByText(/상담|자문/)).toHaveCount(0);
   await page.waitForTimeout(1600);
-  await expect(page.getByText(/fixture 기존 고용형태/)).toHaveCount(0);
+  expect(situationCalls).toEqual([]);
 });
 test('sanction issue evidence links only to cases in its displayed manifest', async({page}) => {
   const compared={...comparison,issueEvidence:[{key:'procedure',label:'절차를 지켰나',caseIds:['id_123','unverified']}]};

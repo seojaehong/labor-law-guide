@@ -25,6 +25,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { jevRerank } from './jev';
 import { toLexQuery } from './lex-query';
 import { type Retrieval } from './result';
+import { excerpt, joinMeta, lawArticleHref, type SourceItem } from '../sources';
 
 type LawRow = {
   law_name: string;
@@ -230,7 +231,16 @@ export async function buildLawsContext(
       '[★ 잘린 조문] 「…(이하 생략)」이 붙은 조문은 뒷부분이 잘렸다. **조문은 원칙을 앞에, ' +
       '예외·준용·세부기준을 뒤에 쓴다.** 그러므로 잘린 조문으로 「예외는 없다」·「전부 해당한다」 ' +
       '같은 단정을 하지 말고, 단서나 준용 규정이 뒤에 있을 수 있다고 밝힌 뒤 원문 확인을 권한다.';
-    return { ctx, rows: rows.length, via: 'rpc', status: 'ok' };
+    // 조문은 사이트 상세 페이지가 없어 법제처 원문으로 잇는다. 인용 id 는 「법령명 조문」이다.
+    const items: SourceItem[] = rows.map((r) => ({
+      type: 'LAW' as const,
+      id: `${r.law_name} ${r.article_label}`,
+      title: `${r.law_name} ${r.article_label}${r.article_title ? ` (${r.article_title})` : ''}`,
+      href: lawArticleHref(r.law_name, r.article_label),
+      meta: joinMeta(r.effective_date ? `시행 ${r.effective_date}` : null),
+      excerpt: excerpt((r.body || '').replace(/^\s*제\d+조(?:의\d+)?\s*\([^)]*\)\s*/, '')),
+    }));
+    return { ctx, items, rows: rows.length, via: 'rpc', status: 'ok' };
   } catch (err) {
     console.error('[laws.ts] 예외:', (err as Error)?.message?.slice(0, 150));
     return { ctx: '', rows: 0, via: 'rpc', status: 'error' };

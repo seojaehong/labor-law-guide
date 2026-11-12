@@ -5,10 +5,14 @@
  * (1) 판정례 RPC 가 죽어도 빈 문자열이라 8일 동안 아무도 몰랐다.
  * (2) 상한에 걸려 잘린 것과 0건이 마커에 똑같이 0 으로 찍혀 원인을 좁힐 수 없었다.
  */
+import type { SourceItem } from '../sources';
+
 export type Retrieval = {
   ctx: string;
   /** Exact IDs of rows included in ctx, never parsed from model prose. */
   evidenceIds?: string[];
+  /** ctx 에 넣은 같은 행의 화면 표시용 목록(/ai 「근거 자료 찾기」, 261112). */
+  items?: SourceItem[];
   rows: number;
   /** 어느 경로로 얻었는지. 우회와 정상 경로를 사후에 구분하기 위한 것. */
   via: 'rpc' | 'fts' | 'none';
