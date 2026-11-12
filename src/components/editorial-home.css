@@ -26,6 +26,15 @@
   .editorial-situation-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); row-gap: 8px; }
   .editorial-situation-grid > li:nth-child(3n+1) { padding-left: 0; border-left: 0; }
 }
+/* 261112 터치 영역 — 모바일 감사에서 「바로 읽기」 링크가 20px, 묶음별 도구 링크가 32px 높이였다.
+   글자 크기는 그대로 두고 누르는 상자만 44px 로 키운다. 데스크톱 행 간격은 건드리지 않는다. */
+@media (max-width: 767px) {
+  .editorial-issue-links { row-gap: 0; }
+  /* 「글」은 한 글자라 폭이 10px 이었다 — 좌우 8px 를 누르는 자리로 넓히고 같은 만큼 당겨 글자 위치는 그대로 둔다(간격 16px 안) */
+  .editorial-issue-links a { display: inline-flex; align-items: center; min-height: 44px; padding-inline: 8px; margin-inline: -8px; }
+  .editorial-situation-grid ul { gap: 0; }
+  .editorial-situation-grid ul a { min-height: 44px; }
+}
 @media (max-width: 640px) {
   .editorial-situation-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .editorial-situation-grid > li { padding: 4px 12px 16px; border-left: 1px solid var(--color-border); }

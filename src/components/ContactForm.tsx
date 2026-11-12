@@ -81,7 +81,7 @@ export default function ContactForm() {
       <button
         type="submit"
         disabled={loading}
-        className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-md px-5 py-2.5 text-[15px] font-semibold text-white transition-transform hover:-translate-y-px"
+        className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-md px-5 py-2.5 text-[15px] font-semibold text-[var(--color-on-accent-ink)] transition-transform hover:-translate-y-px"
         style={{ backgroundColor: loading ? 'var(--grey-400)' : 'var(--color-accent-ink)' }}
       >
         <Send size={16} />

@@ -214,7 +214,7 @@ export default function RootLayout({
               ] },
             ].map((col) => (
               <div key={col.title}>
-                <p className="mb-2.5 text-xs font-semibold" style={{ color: 'var(--grey-700)' }}>
+                <p className="mb-2.5 text-[13px] font-semibold" style={{ color: 'var(--grey-700)' }}>
                   {col.title}
                 </p>
                 {col.title.startsWith('검토 중') && <p className="mb-3 text-xs" style={{ color: 'var(--grey-700)' }}>내용과 적용 조건을 확인 중입니다. 이용 전 원문과 전문가 확인이 필요합니다.</p>}
@@ -243,9 +243,11 @@ export default function RootLayout({
               {' '}| <a href="/privacy" className="underline underline-offset-2" style={{ color: 'var(--color-accent-ink)' }}>개인정보처리방침</a>
               {' '}| <a href="/terms" className="underline underline-offset-2" style={{ color: 'var(--color-accent-ink)' }}>이용약관</a>
             </p>
-            <p className="mt-2 text-xs" style={{ color: 'var(--color-text-tertiary)' }}>
+            {/* 261112 — 종전 12px · --color-text-tertiary 로 1.89:1 이었다. 푸터는 .public-surface 밖이라
+                그쪽의 13px·tertiary 재매핑이 닿지 않는다. 13px · --grey-700 + 상시 밑줄 링크(§6.8)로 올린다. */}
+            <p className="mt-2 text-[13px]" style={{ color: 'var(--grey-700)' }}>
               관련 블로그:{' '}
-              <a href="https://node.pe.kr" target="_blank" rel="noopener" className="hover:underline" style={{ color: 'var(--color-accent)' }}>NODE — 노동·HR 딥다이브</a>
+              <a href="https://node.pe.kr" target="_blank" rel="noopener" className="underline underline-offset-2" style={{ color: 'var(--color-accent-ink)' }}>NODE — 노동·HR 딥다이브</a>
             </p>
           </div>
         </footer>

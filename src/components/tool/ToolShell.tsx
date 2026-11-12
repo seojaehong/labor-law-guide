@@ -16,7 +16,8 @@ export default function ToolShell({ title, lead, basis, basisNote, children }: {
   return (
     <div className="layout-tool">
       <div className="mb-6">
-        <Link href="/tools" className="text-sm text-[var(--grey-700)] hover:text-[var(--color-text-primary)]">
+        {/* 261112 터치 영역 — 글자 줄(약 20px)만 눌렸다. 상자를 44px 로 키우고 위아래 -12px 로 자리는 종전대로 둔다 */}
+        <Link href="/tools" className="-my-3 inline-flex min-h-[44px] items-center text-sm text-[var(--grey-700)] hover:text-[var(--color-text-primary)]">
           ← 계산·점검 도구
         </Link>
       </div>
