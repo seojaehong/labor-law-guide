@@ -412,7 +412,11 @@ export default function HolidayPayCalculator() {
       return;
     }
     const s = document.createElement('script');
-    s.src = 'https://t1.kakaocdn.net/kakao_js_sdk/2.7.4/kakao.share.min.js';
+    // 카카오 공식 설치 안내의 경로·integrity 그대로. 2.7.4 에는 공유 전용 묶음 파일이 없다(261112 운영 404).
+    // integrity 를 쓰려면 crossOrigin 이 있어야 하고, 둘 다 src 보다 먼저 정해 둔다.
+    s.integrity = 'sha384-DKYJZ8NLiK8MN4/C5P2dtSmLQ4KwPaoqAfyA/DfmEc1VDxu4yyC7wy6K1Hs90nka';
+    s.crossOrigin = 'anonymous';
+    s.src = 'https://t1.kakaocdn.net/kakao_js_sdk/2.7.4/kakao.min.js';
     s.async = true;
     s.dataset.kakaoSdk = '1';
     s.onload = initIfReady;
