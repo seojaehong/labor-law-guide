@@ -3,7 +3,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import {
   ArrowLeftRight, BellRing, BookOpen, Building2, CalendarCheck, CalendarDays, CalendarRange, CirclePause,
-  ClipboardList, Coins, FilePen, FilePenLine, FileSearch, FileSpreadsheet, FileText, Files, Gauge, Landmark,
+  ClipboardCheck, ClipboardList, Coins, DoorOpen, FilePen, FilePenLine, FileSearch, FileSpreadsheet, FileText, Files, Gauge, Landmark,
   ListChecks, MailWarning, Network, Percent, Phone, PiggyBank, Receipt, ReceiptText, Scale, Search, Sun, Timer, Users, Wallet,
 } from 'lucide-react';
 import { groupedTools, searchTools, TOOL_GROUPS, type IndexedTool, type ToolGlyph } from '@/content/tools-groups';
@@ -14,6 +14,7 @@ const GLYPHS: Record<ToolGlyph, React.ComponentType<{ className?: string; 'aria-
   gauge: Gauge, 'calendar-days': CalendarDays, wallet: Wallet, 'receipt-text': ReceiptText, 'calendar-range': CalendarRange,
   'list-checks': ListChecks, receipt: Receipt, pause: CirclePause,
   'calendar-check': CalendarCheck, bell: BellRing, percent: Percent, sun: Sun, coins: Coins,
+  'door-open': DoorOpen, 'clipboard-check': ClipboardCheck,
   'piggy-bank': PiggyBank, landmark: Landmark, spreadsheet: FileSpreadsheet, 'mail-warning': MailWarning, arrows: ArrowLeftRight, timer: Timer,
   phone: Phone, clipboard: ClipboardList,
   'file-text': FileText, 'file-pen-line': FilePenLine, book: BookOpen, files: Files, network: Network,

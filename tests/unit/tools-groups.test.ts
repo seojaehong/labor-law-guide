@@ -42,6 +42,14 @@ describe('도구 상황 묶음', () => {
     }
   });
 
+  it('퇴사 점검표 둘은 퇴사·정산 묶음에 있고, 사이트맵에 두 번 실리지 않는다(261112)', () => {
+    const exit = groupedTools().find((g) => g.id === 'exit')!.tools.map((t) => t.href);
+    expect(exit).toEqual(expect.arrayContaining(['/exit', '/exit-employer']));
+    // 사이트맵 정적 목록(sitemap/[id]/route.ts)에 이미 있다 — 등록부에서 sitemap 값을 주면 중복된다
+    for (const href of ['/exit', '/exit-employer']) expect(TOOLS.find((t) => t.href === href)?.sitemap).toBeUndefined();
+    expect(searchTools('퇴사').map((t) => t.href)).toEqual(expect.arrayContaining(['/exit', '/exit-employer']));
+  });
+
   it('검색은 제목·요약·설명 부분일치, 띄어쓰기 무시', () => {
     expect(searchTools('퇴직금').map((t) => t.href)).toContain('/tools/severance.html');
     expect(searchTools('주휴 수당').map((t) => t.href)).toContain('/tools/weekly-holiday-pay');

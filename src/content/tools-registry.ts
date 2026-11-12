@@ -58,6 +58,10 @@ export const TOOLS: ToolEntry[] = [
     sitemap: { lastModified: '2026-04-29', changeFrequency: 'monthly', priority: 0.9 } },
   { href: '/tools/severance.html', title: '퇴직금 계산기', desc: '평균임금·통상임금 자동 비교 + 재직일수 ÷ 365(고용노동부 계산기와 같은 끝수) + 퇴직소득세 산정. 산정서 PDF 출력 가능.', badge: '참고 계산', icon: 'coins', external: true,
     sitemap: { lastModified: '2026-03-15', changeFrequency: 'monthly', priority: 0.85 } },
+  // 퇴사 점검표 둘은 /tools 밖 주소다. 사이트맵에는 sitemap/[id]/route.ts 의 정적 목록에 이미 있어
+  // 여기서 sitemap 값을 주면 두 번 실린다 — 목록에만 올린다(261112).
+  { href: '/exit', title: '퇴사 점검표', desc: '마지막 근무일을 넣으면 퇴사 전 연차·사직서 확인부터 14일 안 금품 청산, 4대보험 상실 신고 기한, 이직확인서, 실업급여 수급기간까지 날짜순으로 정리합니다. 퇴직금 요건과 확인용 추정 금액도 함께 보여줍니다.', badge: '날짜 정리', icon: 'file-check' },
+  { href: '/exit-employer', title: '직원 퇴사 처리 점검', desc: '마지막 근무일·입사일·사업장 규모·퇴사 사유를 고르면 금품 청산 14일, 4대보험 상실 신고, 이직확인서, 원천징수영수증, 서류 보존까지 날짜순 점검표를 조문 기준으로 보여줍니다.', badge: '날짜 정리', icon: 'file-check' },
   { href: '/tools/take-home-pay', title: '실수령액 계산기', desc: '월 급여와 비과세 식대, 공제대상 가족 수를 넣으면 국민연금·건강보험·장기요양·고용보험 근로자 몫과 간이세액표 소득세·지방소득세를 빼 한 달 실수령액을 예상합니다.', badge: '브라우저 계산', icon: 'coins',
     sitemap: { lastModified: '2026-10-28', changeFrequency: 'monthly', priority: 0.9 } },
   { href: '/tools/retirement-tax', title: '퇴직소득세 계산기', desc: '퇴직급여와 입사일·퇴사일(마지막 근무일)을 넣으면 예상 퇴직소득세와 지방소득세를 계산합니다. 근속연수공제·환산급여공제·기본세율을 국세청 퇴직소득 세액계산 프로그램과 같은 순서로 보여줍니다.', badge: '브라우저 계산', icon: 'coins',
