@@ -85,21 +85,21 @@ export const AI_TOOLS: AiTool[] = [
     name: 'SafeClaw 안전관리 (외부)',
     status: 'public',
     summary:
-      '산업안전 점검·문서 작업을 AI 에이전트가 직접 하도록 SafeClaw 가 여는 MCP 서버입니다. 일의 무늬 도구가 아니라 SafeClaw(safeclaw.kr) 쪽 서버이고, 쓰려면 SafeClaw 에 로그인해 토큰을 발급받아야 합니다.',
+      '산업안전 점검·문서 작업을 AI 에이전트가 직접 하도록 SafeClaw 가 여는 MCP 서버입니다. 일의 무늬 도구가 아니라 SafeClaw(safeclaw.kr) 쪽 서버입니다. 토큰 없이 붙으면 안전 지식 조회와 위험성평가표 초안(서식 파일 포함)을 쓸 수 있고, 현장 단위 문서 작업은 SafeClaw 에 로그인해 토큰을 발급받아야 합니다.',
     does: [
-      '사업장(현장) 단위로 안전 점검·문서 작업을 도구 10개로 나눠 제공합니다',
-      '안전 문서 묶음(docpack)을 만들면 그 결과를 해당 현장에 귀속해 저장합니다',
+      '토큰 없이 — 안전 지식·근거 조회, 인용 검증, 위험성평가표 초안과 엑셀·한글 서식 파일',
+      '토큰으로 — 사업장(현장) 단위 문서 묶음 생성·검수. 결과를 그 현장에 귀속해 저장합니다',
       '토큰마다 접근 범위가 현장·조직 단위로 묶여 있어, 토큰 하나가 다른 현장을 보지 못합니다',
     ],
     privacy:
-      '토큰은 SafeClaw 가 해시로만 보관하고 평문을 저장·기록하지 않습니다. 90일이 지나면 만료되고, 발급 화면에서 언제든 끌 수 있습니다. 일의 무늬는 이 토큰을 받지도 보관하지도 않습니다.',
+      '토큰 없이 쓰는 범위는 현장·조직 데이터에 닿지 않습니다. 토큰은 SafeClaw 가 해시로만 보관하고 평문을 저장·기록하지 않으며 90일이 지나면 만료됩니다. 일의 무늬는 이 토큰을 받지도 보관하지도 않습니다.',
     install: {
       claudeCode:
-        'claude mcp add --transport http safeclaw https://www.safeclaw.kr/api/mcp/mcp -H "Authorization: Bearer <발급받은_토큰>"',
+        'claude mcp add --transport http safeclaw https://www.safeclaw.kr/api/mcp/mcp',
       remote: 'https://www.safeclaw.kr/api/mcp/mcp',
     },
     links: [
-      { label: '토큰 발급 (SafeClaw 로그인 → 설정 → 내 AI 연결)', href: 'https://www.safeclaw.kr/settings/ai-connect' },
+      { label: '현장 문서 작업까지 쓰려면 — 토큰 발급 (SafeClaw 로그인 → 설정 → 내 AI 연결)', href: 'https://www.safeclaw.kr/settings/ai-connect' },
       { label: 'SafeClaw 사이트', href: 'https://www.safeclaw.kr' },
     ],
   },

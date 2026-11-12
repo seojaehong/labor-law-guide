@@ -102,7 +102,8 @@ export default function HomeClient({ totalCases, totalAdmin, latestBlogArticles,
           <li>
             <Link className="editorial-situation-name" href="/ai-tools#safeclaw">SafeClaw 안전관리</Link>
             <ul>
-              <li><a href="https://www.safeclaw.kr/settings/ai-connect">토큰 발급하고 연결</a></li>
+              <li><Link href="/ai-tools#safeclaw">토큰 없이 위험성평가표 초안</Link></li>
+              <li><a href="https://www.safeclaw.kr/settings/ai-connect">현장 문서 작업 — 토큰 발급</a></li>
             </ul>
           </li>
         </ul>
