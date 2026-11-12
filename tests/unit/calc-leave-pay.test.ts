@@ -29,26 +29,29 @@ describe('C1 시급제 — 시간급 × 1일 소정근로시간 × 일수', () =
   });
 });
 
-describe('C2 월급 — 209시간 환산, 원 미만은 마지막에 한 번 버림', () => {
-  it('2,600,000 ÷ 209 × 8 × 5 = 497,607.655 → 497,607', () => {
+describe('C2 월급 — 209시간 환산, 원 미만은 마지막에 한 번 올림', () => {
+  it('2,600,000 ÷ 209 × 8 × 5 = 497,607.655 → 497,608', () => {
     const r = calcLeavePay(C2);
     expect(r.hours).toBe(209);
     expect(r.weekPaidHours).toBe(48);
     expect(r.hourly!).toBeCloseTo(12_440.1914, 4);
     expect(r.dailyRate!).toBeCloseTo(99_521.5311, 4);
-    expect(r.amount).toBe(497_607);
+    expect(r.raw!).toBeCloseTo(497_607.6555, 4);
+    expect(r.amount).toBe(497_608);
   });
 
-  it('대조 — 1일 단가를 먼저 버리면 497,605(99,521 × 5), 반올림 없는 208.57시간이면 498,630 — 둘 다 아니다', () => {
+  it('대조 — 1일 단가를 먼저 버리면 497,605(99,521 × 5), 마지막에 버리면 497,607, 반올림 없는 208.57시간이면 498,630 — 모두 아니다', () => {
     expect(Math.floor((2_600_000 * 8) / 209) * 5).toBe(497_605);
+    expect(Math.floor((2_600_000 * 8 * 5) / 209)).toBe(497_607);
     expect(Math.floor((2_600_000 * 8 * 5 * 84) / (48 * 365))).toBe(498_630);
     expect(amount(C2)).not.toBe(497_605);
+    expect(amount(C2)).not.toBe(497_607);
     expect(amount(C2)).not.toBe(498_630);
   });
 
-  it('이음새 — 퇴사 정리(/exit)의 연차수당 추정은 이 계산기와 같은 값을 낸다(같은 시간 환산, 마지막에 한 번 버림)', () => {
+  it('이음새 — 퇴사 정리(/exit)의 연차수당 추정은 이 계산기와 같은 값을 낸다(같은 시간 환산, 마지막에 한 번 올림)', () => {
     expect(estimateLeavePay(2_600_000, 40, 5).amount).toBe(amount(C2));
-    expect(estimateLeavePay(2_600_000, 40, 5).amount).toBe(497_607);
+    expect(estimateLeavePay(2_600_000, 40, 5).amount).toBe(497_608);
     // 주 44시간 — 주휴는 1일분(8시간까지): (44 + 8) × 365 ÷ 84 = 225.95 → 226. 주 소정 × 6/5 로 세면 229
     expect(monthlyPaidHours(44)).toBe(226);
     expect(monthlyPaidHours(44)).toBe(unitHours('month', 44));
@@ -60,12 +63,12 @@ describe('C2 월급 — 209시간 환산, 원 미만은 마지막에 한 번 버
 });
 
 describe('C2b 월급·주급의 주휴 — 통상 근로자는 1일 소정근로시간분(8시간까지), 단시간은 4주 소정 ÷ 20일', () => {
-  it('주 6일 × 6시간 = 36시간 → 주휴 6시간, (36 + 6) × 365 ÷ 84 = 182.5 → 183시간, 2,000,000 × 6 × 5 ÷ 183 = 327,868', () => {
+  it('주 6일 × 6시간 = 36시간 → 주휴 6시간, (36 + 6) × 365 ÷ 84 = 182.5 → 183시간, 2,000,000 × 6 × 5 ÷ 183 = 327,868.85 → 327,869', () => {
     const r = calcLeavePay({ ...C2, weeklyHours: 36, dailyHours: 6, rate: { basis: 'ordinary-wage', unit: 'month', amount: 2_000_000 } });
     expect(r.weekPaidHours).toBe(42);
     expect(r.hours).toBe(183);
-    expect(r.amount).toBe(327_868);
-    expect(r.amount).not.toBe(319_148); // 주휴를 36 ÷ 5 = 7.2시간으로 잡으면 188시간
+    expect(r.amount).toBe(327_869);
+    expect(r.amount).not.toBe(319_149); // 주휴를 36 ÷ 5 = 7.2시간으로 잡으면 188시간
   });
 
   it('주 5일이면 그대로 — 40/8 → 209, 35/7 → 183, 44(토 4시간)/8 → 226', () => {
@@ -225,7 +228,7 @@ describe('C6 주 15시간 경계(근로기준법 §18③) — 양쪽', () => {
     expect(r.status).toBe('calculated');
     expect(r.hours).toBe(78);
     expect(r.partTime!.grantHours).toBe(45);
-    expect(r.amount).toBe(470_192); // 815,000 × 45 ÷ 78 = 470,192.3
+    expect(r.amount).toBe(470_193); // 815,000 × 45 ÷ 78 = 470,192.3 → 원 미만 올림
   });
 });
 
@@ -238,8 +241,8 @@ describe('C7 상시 근로자 수 경계(시행령 §7 별표1) — 양쪽', () 
     expect(effectLines(r).join(' ')).toMatch(/약정/);
   });
 
-  it('7b 상시 5명 이상 — C2 와 같은 497,607', () => {
-    expect(amount({ ...C2, fivePlus: true })).toBe(497_607);
+  it('7b 상시 5명 이상 — C2 와 같은 497,608', () => {
+    expect(amount({ ...C2, fivePlus: true })).toBe(497_608);
   });
 
   it('4명 이하이면 임금이 비어 있어도 오류를 내지 않는다', () => {
@@ -333,8 +336,8 @@ describe('C8·C9 퇴직 — 입사일·마지막 재직일로 발생 누계(buil
 });
 
 describe('C10 사용 촉진(§61) — 금액을 깎지 않고 「했다면」 안내만', () => {
-  it.each(['none', 'claimed', 'unknown'] as const)('촉진 %s — 금액은 늘 497,607', (promotion) => {
-    expect(amount({ ...C2, promotion })).toBe(497_607);
+  it.each(['none', 'claimed', 'unknown'] as const)('촉진 %s — 금액은 늘 497,608', (promotion) => {
+    expect(amount({ ...C2, promotion })).toBe(497_608);
   });
 
   it('10a 했다고 하면 세 단계를 조건으로 「지급 의무가 없을 수 있습니다」 — 단정하지 않는다', () => {
@@ -357,13 +360,13 @@ describe('C10 사용 촉진(§61) — 금액을 깎지 않고 「했다면」 �
     expect(s).toMatch(/하지 않은 경우.*근로기준과-161/); // 10e
   });
 
-  it('남은 10일 × 99,521.53 = 995,215 — 일부만 정한 경우(10d)의 나머지 날은 사용자가 그 일수를 넣는다(엔진은 촉진으로 일수를 가르지 않는다)', () => {
-    expect(amount({ ...C2, days: { source: 'unused', unusedDays: 10 } })).toBe(995_215);
+  it('남은 10일 × 99,521.53 = 995,215.31 → 995,216 — 일부만 정한 경우(10d)의 나머지 날은 사용자가 그 일수를 넣는다(엔진은 촉진으로 일수를 가르지 않는다)', () => {
+    expect(amount({ ...C2, days: { source: 'unused', unusedDays: 10 } })).toBe(995_216);
   });
 
   it('10g 「했다」면 답 줄에도 조건을 단다 — 금액 줄은 그대로', () => {
     const h = headline(calcLeavePay({ ...C2, promotion: 'claimed' }));
-    expect(h[0]).toBe('미사용 연차수당은 497,607원입니다.');
+    expect(h[0]).toBe('미사용 연차수당은 497,608원입니다.');
     expect(h[1]).toMatch(/촉진.*지급하지 않을 수 있습니다/);
     expect(headline(calcLeavePay({ ...C2, promotion: 'none' })).join(' ')).not.toContain('촉진');
   });
@@ -392,11 +395,11 @@ describe('C10 사용 촉진(§61) — 금액을 깎지 않고 「했다면」 �
 });
 
 describe('C11 월 기준시간 반올림 경계 — 주 35시간', () => {
-  it('(35 + 7) × 365 ÷ 84 = 182.5 → 183, 2,000,000 ÷ 183 × 7 × 3 = 229,508', () => {
+  it('(35 + 7) × 365 ÷ 84 = 182.5 → 183, 2,000,000 ÷ 183 × 7 × 3 = 229,508.20 → 229,509', () => {
     const r = calcLeavePay({ ...C2, weeklyHours: 35, dailyHours: 7, rate: { basis: 'ordinary-wage', unit: 'month', amount: 2_000_000 }, days: { source: 'unused', unusedDays: 3 } });
     expect(r.hours).toBe(183);
-    expect(r.amount).toBe(229_508);
-    expect(r.amount).not.toBe(230_136); // 182.5 그대로면
+    expect(r.amount).toBe(229_509);
+    expect(r.amount).not.toBe(230_137); // 182.5 그대로면
   });
 });
 
@@ -405,7 +408,7 @@ describe('C12 주휴 말고 유급처리시간이 있으면 지원 범위 밖', 
     const r = calcLeavePay({ ...C2, otherPaidHours: true });
     expect(r.status).toBe('out-of-scope');
     expect(r.amount).toBeNull();
-    expect(amount(C2)).toBe(497_607);
+    expect(amount(C2)).toBe(497_608);
   });
 
   it('평균임금 단가·시급·일급은 1주 기준시간을 쓰지 않으니 막지 않는다', () => {
@@ -443,21 +446,34 @@ describe('C14 취업규칙이 평균임금으로 정한 경우 — 단가를 받
   });
 });
 
-describe('부동소수 — 정수로 떨어지는 금액에서 1원 덜 나오지 않는다', () => {
+describe('부동소수 — 정수로 떨어지는 금액에서 1원 틀리지 않는다', () => {
   it('1,159,000 × 8 × 11 ÷ 209 = 488,000 (곱한 순서대로면 487,999.9999…)', () => {
-    expect(Math.floor(11 * ((1_159_000 * 8) / 209))).toBe(487_999); // 고치기 전 엔진이 하던 계산
+    expect(Math.floor(11 * ((1_159_000 * 8) / 209))).toBe(487_999); // 버림이던 시절 엔진이 하던 계산
     expect(calculateAllowance({ unusedDays: 11, dailyRate: (1_159_000 * 8) / 209, rateBasis: 'ordinary-wage', rateSource: '합성' }).amount).toBe(488_000);
     expect(amount({ ...C2, rate: { basis: 'ordinary-wage', unit: 'month', amount: 1_159_000 }, days: { source: 'unused', unusedDays: 11 } })).toBe(488_000);
   });
 
-  it('월급 100만~120만(천원 단위) × 주 5일 1일 4~8시간 × 1~30일 — 정수 나눗셈과 전부 같다', () => {
+  it('올림 쪽 잡음 — 참값이 정수인데 조금 넘게 나와도 1원 더 붙지 않는다', () => {
+    expect(calculateAllowance({ unusedDays: 1, dailyRate: 488_000.0000001, rateBasis: 'ordinary-wage', rateSource: '합성' }).amount).toBe(488_000);
+    expect(calculateAllowance({ unusedDays: 1, dailyRate: 488_000.01, rateBasis: 'ordinary-wage', rateSource: '합성' }).amount).toBe(488_001);
+  });
+
+  it('회사 규정을 재현할 때만 버림·반올림을 고른다 — 기본은 올림', () => {
+    const base = { unusedDays: 5, dailyRate: (2_600_000 * 8) / 209, rateBasis: 'ordinary-wage' as const, rateSource: '합성' };
+    expect(calculateAllowance(base).amount).toBe(497_608);
+    expect(calculateAllowance({ ...base, rounding: 'floor' }).amount).toBe(497_607);
+    expect(calculateAllowance({ ...base, rounding: 'round' }).amount).toBe(497_608);
+  });
+
+  it('월급 100만~120만(천원 단위) × 주 5일 1일 4~8시간 × 1~30일 — 정수 올림 나눗셈과 전부 같다', () => {
     // 월 기준시간 = (5 × 1일 + 1일 주휴) × 365 ÷ 84 반올림 — 1일 4~8시간이면 104·130·156·183·209(따로 셈)
     const monthHours: Record<number, number> = { 4: 104, 5: 130, 6: 156, 7: 183, 8: 209 };
     const miss: string[] = [];
     for (let pay = 1_000_000; pay <= 1_200_000; pay += 1_000) {
       for (let dh = 4; dh <= 8; dh++) {
         for (let u = 1; u <= 30; u++) {
-          const exact = Number((BigInt(pay) * BigInt(dh) * BigInt(u)) / BigInt(monthHours[dh]));
+          const n = BigInt(pay) * BigInt(dh) * BigInt(u), d = BigInt(monthHours[dh]);
+          const exact = Number((n + d - BigInt(1)) / d);
           const got = amount({ ...C2, weeklyHours: dh * 5, dailyHours: dh, rate: { basis: 'ordinary-wage', unit: 'month', amount: pay }, days: { source: 'unused', unusedDays: u } });
           if (got !== exact) miss.push(`${pay}/${dh}/${u}: ${got} ≠ ${exact}`);
         }
@@ -494,7 +510,7 @@ describe('화면 문장 — 금지어 0 · 시효를 일수와 엮지 않음(제
     C2,
     { ...C2, promotion: 'claimed', alreadyPaid: 400_000 },
     { ...C2, promotion: 'unknown', alreadyPaid: 600_000 },
-    { ...C2, timing: 'termination', arisenBeforeTermination: true, alreadyPaid: 497_607 },
+    { ...C2, timing: 'termination', arisenBeforeTermination: true, alreadyPaid: 497_608 },
     { ...C2, timing: 'termination', days: { source: 'ledger', hireDate: '2025-11-01', lastWorkDate: '2026-11-01', usedDays: 3 } },
     { ...C2, timing: 'termination', promotion: 'claimed', days: { source: 'ledger', hireDate: '2016-01-01', lastWorkDate: '2026-10-31', usedDays: 100 } },
     { ...C2, timing: 'termination', arisenBeforeTermination: false },
@@ -531,9 +547,9 @@ describe('화면 문장 — 금지어 0 · 시효를 일수와 엮지 않음(제
   });
 
   it('계산한 결과는 답 첫 줄에 금액, 회사 지급액을 넣으면 차이를 말한다', () => {
-    expect(headline(outs[0])[0]).toContain('497,607원');
-    expect(headline(outs[1]).join(' ')).toMatch(/회사 지급액 400,000원보다 97,607원 많습니다/);
-    expect(headline(outs[2]).join(' ')).toMatch(/회사 지급액 600,000원이 102,393원 많습니다/);
+    expect(headline(outs[0])[0]).toContain('497,608원');
+    expect(headline(outs[1]).join(' ')).toMatch(/회사 지급액 400,000원보다 97,608원 많습니다/);
+    expect(headline(outs[2]).join(' ')).toMatch(/회사 지급액 600,000원이 102,392원 많습니다/);
     expect(headline(outs[3]).join(' ')).toContain('회사 지급액과 같습니다');
   });
 
@@ -541,7 +557,7 @@ describe('화면 문장 — 금지어 0 · 시효를 일수와 엮지 않음(제
     const f = formulaLines(outs[0]).join(' ');
     expect(f).toContain('(40 + 8) × 365 ÷ 7 ÷ 12');
     expect(f).toContain('209시간');
-    expect(f).toMatch(/원 미만.*버/);
+    expect(f).toMatch(/원 미만.*올립니다/);
     expect(f).toMatch(/반올림/);
   });
 

@@ -280,7 +280,7 @@ export function registerCalc(server) {
           pay: [`해고예고수당은 ${won(r.amount)}입니다.`, '30일 전에 예고하지 않았으면 30일분 통상임금입니다.'],
         }[r.status];
         return text({
-          ok: true, headline, ...r, hourly: Math.round(r.hourly * 100) / 100,
+          ok: true, headline, ...r, hourly: Math.round(r.hourly * 100) / 100, dailyOrdinary: Math.round(r.dailyOrdinary * 100) / 100,
           basis: ['근로기준법 제26조(해고의 예고)', '근로기준법 시행령 제6조제2항·제3항(통상임금 시간급·1일 통상임금)', '근로기준법 제26조 단서 제1호(계속 근로 3개월 미만)'],
           site: `${SITE}/tools/notice-pay`,
         });
@@ -417,11 +417,13 @@ export function registerCalc(server) {
         const r = calcHolidayPay(input);
         const day = HOLIDAY_KIND[a.holidayKind];
         const premium = r.already_in_monthly_pay ? r.total : r.total - r.regular_pay_equivalent;
+        // 통상시급은 끝수 그대로 온다 — 소수 둘째 자리까지 보인다(사이트와 같은 표시)
+        const hourly = `${(Math.round(r.base_hourly * 100) / 100).toLocaleString('ko-KR')}원`;
         const headline = r.already_in_monthly_pay
-          ? [`${day}에 ${hoursText(common.worked_hours)} 일했을 때 월급 외에 더 줄 금액은 ${won(r.total)}입니다.`, `통상시급 ${won(r.base_hourly)} 기준 가산분이고, 1.0배분은 월급에 들어 있습니다.`]
-          : [`${day}에 ${hoursText(common.worked_hours)} 일했을 때 줄 임금은 ${won(r.total)}입니다.`, `통상시급 ${won(r.base_hourly)} 기준 1.0배분 ${won(r.regular_pay_equivalent)}${premium > 0 ? ` + 가산분 ${won(premium)}` : '(가산 없음)'}`];
+          ? [`${day}에 ${hoursText(common.worked_hours)} 일했을 때 월급 외에 더 줄 금액은 ${won(r.total)}입니다.`, `통상시급 ${hourly} 기준 가산분이고, 1.0배분은 월급에 들어 있습니다.`]
+          : [`${day}에 ${hoursText(common.worked_hours)} 일했을 때 줄 임금은 ${won(r.total)}입니다.`, `통상시급 ${hourly} 기준 1.0배분 ${won(r.regular_pay_equivalent)}${premium > 0 ? ` + 가산분 ${won(premium)}` : '(가산 없음)'}`];
         return text({
-          ok: true, headline, result: r,
+          ok: true, headline, result: { ...r, base_hourly: Math.round(r.base_hourly * 100) / 100 },
           basis: r.legal_basis,
           site: `${SITE}/tools/holiday-pay`,
         });

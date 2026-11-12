@@ -9,6 +9,7 @@
 
 import { calcSeverance } from '@/lib/calc/severance';
 import { unitHours } from '@/lib/calc/min-wage';
+import { dailyOrdinaryWage, payableWon } from '@/lib/calc/wage-rounding';
 
 const DAY = 86_400_000;
 
@@ -176,12 +177,10 @@ export function estimateLeavePay(monthlyWage: number, weeklyHours: number, unuse
   const hours = monthlyPaidHours(weeklyHours);
   const hourly = hours > 0 ? monthlyWage / hours : 0;
   const dailyHours = Math.min(weeklyHours / 5, 8);
-  // 1일 통상임금은 원 미만을 남겨 두고, 수당에서 한 번만 버린다 — /tools/leave-pay(calculateAllowance)와 같은 순서·같은 식.
-  // 곱셈 먼저(월급 × 1일 시간 ÷ 월 시간) 하고, 참값이 정수인데 0.999…로 나온 부동소수 잡음만 지운다.
-  const daily = hours > 0 ? (monthlyWage * dailyHours) / hours : 0;
-  const product = unusedDays * daily;
-  const raw = Math.abs(product - Math.round(product)) < 1e-6 ? Math.round(product) : product;
-  const amount = applicable ? Math.floor(raw) : 0;
+  // 1일 통상임금은 원 미만을 남겨 두고, 수당에서 한 번만 올린다 — /tools/leave-pay(calculateAllowance)와 같은 순서·같은 식.
+  // 곱셈 먼저(월급 × 1일 시간 ÷ 월 시간) 하고, 부동소수 잡음은 지운다(src/lib/calc/wage-rounding.ts).
+  const daily = hours > 0 ? dailyOrdinaryWage(monthlyWage, dailyHours, hours) : 0;
+  const amount = applicable ? payableWon(unusedDays * daily) : 0;
   return { applicable, hourly, dailyHours, daily, amount };
 }
 

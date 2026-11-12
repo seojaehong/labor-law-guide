@@ -131,9 +131,9 @@ export function formulaLines(r: ShutdownAllowanceResult): string[] {
   const unitName = UNIT_NAME[r.unit!];
   if (r.unit !== 'hour') {
     lines.push(`시간급 = ${won(r.ordinaryAmount!)} ÷ ${dec(r.hours!)}시간 = ${dec(r.hourly!)}원`);
-    lines.push(`1일 통상임금 = ${unitName} ${won(r.ordinaryAmount!)} × 1일 소정근로시간 ${dec(r.dailyHours!)}시간 ÷ ${dec(r.hours!)}시간 = ${dec(O)}원(근로기준법 시행령 제6조제3항). 소수 둘째 자리까지 반올림했습니다. 단시간 근로자의 1일 소정근로시간은 근로기준법 시행령 별표2로 셉니다(근로기준정책과-3405).`);
+    lines.push(`1일 통상임금 = ${unitName} ${won(r.ordinaryAmount!)} × 1일 소정근로시간 ${dec(r.dailyHours!)}시간 ÷ ${dec(r.hours!)}시간 = ${dec(O)}원(근로기준법 시행령 제6조제3항). 끝수는 버리지 않고 계산하며 화면에는 소수 둘째 자리까지 적습니다. 단시간 근로자의 1일 소정근로시간은 근로기준법 시행령 별표2로 셉니다(근로기준정책과-3405).`);
   } else {
-    lines.push(`1일 통상임금 = ${unitName} ${won(r.ordinaryAmount!)} × 1일 소정근로시간 ${dec(r.dailyHours!)}시간 = ${dec(O)}원(근로기준법 시행령 제6조제3항). 소수 둘째 자리까지 반올림했습니다. 단시간 근로자의 1일 소정근로시간은 근로기준법 시행령 별표2로 셉니다(근로기준정책과-3405).`);
+    lines.push(`1일 통상임금 = ${unitName} ${won(r.ordinaryAmount!)} × 1일 소정근로시간 ${dec(r.dailyHours!)}시간 = ${dec(O)}원(근로기준법 시행령 제6조제3항). 끝수는 버리지 않고 계산하며 화면에는 소수 둘째 자리까지 적습니다. 단시간 근로자의 1일 소정근로시간은 근로기준법 시행령 별표2로 셉니다(근로기준정책과-3405).`);
   }
 
   // §2②
@@ -166,7 +166,7 @@ export function formulaLines(r: ShutdownAllowanceResult): string[] {
     lines.push(`단서 비교 — 평균임금의 70% ${seventy}원이 통상임금 ${dec(O)}원을 넘지 않아 단서에 해당하지 않습니다. 같을 때도 「초과」가 아니어서 해당하지 않습니다.`);
   }
 
-  lines.push('원 미만 처리는 법령에 정함이 없습니다. 「100분의 70 이상」에 못 미치지 않도록 원 미만을 올렸습니다 — 연차수당 계산기처럼 버리면 1원 적게 나올 수 있습니다.');
+  lines.push('원 미만 처리는 법령에 정함이 없습니다. 「100분의 70 이상」에 못 미치지 않도록 원 미만을 올렸습니다 — 버리면 1원 적게 나올 수 있습니다. 이 사이트의 다른 수당 계산기(해고예고수당·연차수당·공휴일 수당)도 같은 방식입니다.');
   return lines;
 }
 

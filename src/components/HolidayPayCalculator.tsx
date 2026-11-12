@@ -204,7 +204,8 @@ export default function HolidayPayCalculator() {
     setStep('result');
   };
 
-  const formatNumber = (n: number) => n.toLocaleString('ko-KR');
+  // 통상시급은 끝수 그대로 오므로 소수 둘째 자리까지 보인다(src/lib/calc/wage-rounding.ts). 금액은 원 단위 정수다
+  const formatNumber = (n: number) => n.toLocaleString('ko-KR', { maximumFractionDigits: 2 });
 
   const buildShareText = useCallback(() => {
     if (!result) return '';

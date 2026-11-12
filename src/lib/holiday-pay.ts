@@ -8,6 +8,9 @@
 //   - 행정해석 임금근로시간과-956 (2026.4. — 휴일대체. 노동절이 관공서 공휴일에도 든 2026 개정 뒤 유지 여부 사람 확인 필요)
 //   - 행정해석 근기 68207-2508 (일용직 통상임금)
 //   - 대법원 2024.12.19. 전합 2020다247190 (통상임금 고정성 요건 폐기)
+// 끝수: 통상시급은 버리지 않고, 원 미만은 각 지급 항목에서 올린다(src/lib/calc/wage-rounding.ts, 261112).
+
+import { dec2, payableWon } from './calc/wage-rounding';
 
 export type SiteSize = 'large' | 'small';
 // large: 5인 이상 (가산수당 의무)
@@ -80,15 +83,24 @@ const DEFAULT_MONTHLY_HOURS = 209;
 const DEFAULT_DAILY_HOURS = 8;
 
 // ────────────── 통상시급 계산 ──────────────
+// 끝수 규칙(src/lib/calc/wage-rounding.ts) — 통상시급은 버리지 않고 분수(금액 ÷ 시간)로 둔다.
+// 각 줄은 「금액 × 배율 × 시간 ÷ 기준시간」으로 곱셈을 먼저 하고, 원 미만은 그 줄(지급 항목)에서 한 번 올린다.
+// 합계 = 줄의 합 — 임금명세서에 항목별 금액이 적히므로 줄과 합계가 어긋나지 않게 한다.
 
-function ordinaryHourlyMonthly(monthly_pay: number, monthly_hours: number): number {
-  if (monthly_hours <= 0) return 0;
-  return Math.floor(monthly_pay / monthly_hours);
+/** 통상시급 = num ÷ den */
+interface HourlyRate { num: number; den: number }
+
+function ordinaryHourlyMonthly(monthly_pay: number, monthly_hours: number): HourlyRate {
+  return monthly_hours > 0 ? { num: monthly_pay, den: monthly_hours } : { num: 0, den: 1 };
 }
 
-function ordinaryHourlyDaily(daily_wage: number, daily_hours: number): number {
-  if (daily_hours <= 0) return 0;
-  return Math.floor(daily_wage / daily_hours);
+function ordinaryHourlyDaily(daily_wage: number, daily_hours: number): HourlyRate {
+  return daily_hours > 0 ? { num: daily_wage, den: daily_hours } : { num: 0, den: 1 };
+}
+
+/** 통상시급 × 배율 × 시간 — 원 미만 올림 */
+function lineAmount(rate: HourlyRate, multiplier: number, hours: number): number {
+  return payableWon((rate.num * multiplier * hours) / rate.den);
 }
 
 // 시급에 주휴수당이 포함되어 있으면, 통상시급은 주휴분을 뺀 "기본시급"
@@ -99,17 +111,17 @@ function ordinaryHourlyHourly(
   hourly_wage: number,
   includes_weekly: boolean,
   weekly_hours: number
-): { base: number; includes: boolean; ratio: number } {
+): { base: HourlyRate; includes: boolean; ratio: number } {
   // 주 15시간 미만은 주휴수당 미발생 → 시급 그대로 통상시급
   if (!includes_weekly || weekly_hours < 15) {
-    return { base: hourly_wage, includes: false, ratio: 1.0 };
+    return { base: { num: hourly_wage, den: 1 }, includes: false, ratio: 1.0 };
   }
   // 주 40h 이상 → 1.2배 가정 (주휴 8h)
   // 주 15~40h → 비례: ratio = (weekly_hours + weekly_hours/5) / weekly_hours = 1.2
   // 주 15h 이상이면 주휴 = 주 소정근로의 1/5
+  // ÷ 1.2 = × 5 ÷ 6 — 1.2 는 이진 소수로 딱 떨어지지 않아 정수 분수로 둔다
   const ratio = 1.2;
-  const base = Math.floor(hourly_wage / ratio);
-  return { base, includes: true, ratio };
+  return { base: { num: hourly_wage * 5, den: 6 }, includes: true, ratio };
 }
 
 // ────────────── 가산율 결정 ──────────────
@@ -138,7 +150,8 @@ export function calcHolidayPay(input: Input): Result {
   const { within8, over8 } = premiumRate(input.worked_hours);
   const night_hours = input.night_hours || 0;
 
-  // ── 통상시급 계산 ──
+  // ── 통상시급 계산 ── rate = 끝수 그대로의 분수, base_hourly = 그 값(화면은 소수 둘째 자리까지)
+  let rate: HourlyRate = { num: 0, den: 1 };
   let base_hourly = 0;
   let ordinary_hourly_displayed = 0;
   let already_includes_holiday_pay = false;
@@ -148,11 +161,12 @@ export function calcHolidayPay(input: Input): Result {
 
   if (input.worker_type === 'monthly') {
     const monthly_hours = input.monthly_hours || DEFAULT_MONTHLY_HOURS;
-    base_hourly = ordinaryHourlyMonthly(input.monthly_pay, monthly_hours);
+    rate = ordinaryHourlyMonthly(input.monthly_pay, monthly_hours);
+    base_hourly = rate.num / rate.den;
     ordinary_hourly_displayed = base_hourly;
     already_includes_holiday_pay = true;
     notes.push(
-      `통상시급 = 월급 ${input.monthly_pay.toLocaleString('ko-KR')}원 ÷ 월 소정근로 ${monthly_hours}시간 = ${base_hourly.toLocaleString('ko-KR')}원`
+      `통상시급 = 월급 ${input.monthly_pay.toLocaleString('ko-KR')}원 ÷ 월 소정근로 ${monthly_hours}시간 = ${dec2(base_hourly)}원`
     );
     notes.push(
       '월급제는 월급에 유급휴일 임금(1.0배)이 이미 포함되어 있어, 휴일근로 시 가산분(8h 이내 0.5배 / 8h 초과 1.0배)만 추가 지급합니다.'
@@ -168,11 +182,12 @@ export function calcHolidayPay(input: Input): Result {
     }
   } else if (input.worker_type === 'daily') {
     const daily_hours = input.daily_hours || DEFAULT_DAILY_HOURS;
-    base_hourly = ordinaryHourlyDaily(input.daily_wage, daily_hours);
+    rate = ordinaryHourlyDaily(input.daily_wage, daily_hours);
+    base_hourly = rate.num / rate.den;
     ordinary_hourly_displayed = base_hourly;
     already_includes_holiday_pay = false;
     notes.push(
-      `통상시급 = 일급 ${input.daily_wage.toLocaleString('ko-KR')}원 ÷ 1일 ${daily_hours}시간 = ${base_hourly.toLocaleString('ko-KR')}원`
+      `통상시급 = 일급 ${input.daily_wage.toLocaleString('ko-KR')}원 ÷ 1일 ${daily_hours}시간 = ${dec2(base_hourly)}원`
     );
     if (!input.paid_continuously) {
       // 단발성 일용직 → 통상임금 산정 대상 아님 → 가산수당 없음 (일급만)
@@ -182,10 +197,10 @@ export function calcHolidayPay(input: Input): Result {
         '명칭과 관계없이 동일 사업장에서 지속적으로 근로(반복 호출)하는 경우에 한해 통상임금이 인정됩니다 (행정해석 근기 68207-2508).';
       legal.push('행정해석 근기 68207-2508 — 일용직 통상임금 인정 요건');
       // 가산수당 0 — 휴일근로 임금만 (1.0배)
-      const wage = Math.floor(base_hourly * input.worked_hours);
+      const wage = lineAmount(rate, 1, input.worked_hours);
       breakdown.push({
         label: '일당 (가산 미적용)',
-        formula: `통상시급 ${base_hourly.toLocaleString('ko-KR')}원 × ${input.worked_hours}시간`,
+        formula: `통상시급 ${dec2(base_hourly)}원 × ${input.worked_hours}시간`,
         amount: wage,
       });
       const total_warn = breakdown.reduce((s, b) => s + b.amount, 0);
@@ -212,13 +227,14 @@ export function calcHolidayPay(input: Input): Result {
     const weekly_hours = input.weekly_hours || 0;
     const includes_weekly = !!input.hourly_includes_weekly;
     const result = ordinaryHourlyHourly(input.hourly_wage, includes_weekly, weekly_hours);
-    base_hourly = result.base;
+    rate = result.base;
+    base_hourly = rate.num / rate.den;
     ordinary_hourly_displayed = input.hourly_wage;
     already_includes_holiday_pay = false;
     if (result.includes) {
       notes.push(
         `시급 ${input.hourly_wage.toLocaleString('ko-KR')}원에 주휴수당이 포함되어 있어, ` +
-        `통상시급(가산수당 산정 기준) = ${input.hourly_wage.toLocaleString('ko-KR')} ÷ ${result.ratio} = ${base_hourly.toLocaleString('ko-KR')}원`
+        `통상시급(가산수당 산정 기준) = ${input.hourly_wage.toLocaleString('ko-KR')} ÷ ${result.ratio} = ${dec2(base_hourly)}원`
       );
       notes.push('가산수당은 주휴분을 제외한 "기본시급"으로 계산합니다.');
     } else if (weekly_hours > 0 && weekly_hours < 15) {
@@ -254,10 +270,10 @@ export function calcHolidayPay(input: Input): Result {
 
   // (A) 휴일근로분 임금 (1.0배) — 일용/시급제만 추가 지급
   if (!already_includes_holiday_pay && input.worked_hours > 0) {
-    const wage = Math.floor(base_hourly * input.worked_hours);
+    const wage = lineAmount(rate, 1, input.worked_hours);
     breakdown.push({
       label: '휴일근로 임금 (1.0배)',
-      formula: `통상시급 ${base_hourly.toLocaleString('ko-KR')}원 × ${input.worked_hours}시간`,
+      formula: `통상시급 ${dec2(base_hourly)}원 × ${input.worked_hours}시간`,
       amount: wage,
     });
   } else if (already_includes_holiday_pay) {
@@ -270,30 +286,30 @@ export function calcHolidayPay(input: Input): Result {
 
   // (B) 휴일 8h 이내 가산수당 (0.5배)
   if (apply_premium && within8 > 0) {
-    const amt = Math.floor(base_hourly * 0.5 * within8);
+    const amt = lineAmount(rate, 0.5, within8);
     breakdown.push({
       label: '휴일 8시간 이내 가산수당 (0.5배)',
-      formula: `통상시급 ${base_hourly.toLocaleString('ko-KR')}원 × 0.5 × ${within8}시간`,
+      formula: `통상시급 ${dec2(base_hourly)}원 × 0.5 × ${within8}시간`,
       amount: amt,
     });
   }
 
   // (C) 휴일 8h 초과 가산수당 (1.0배)
   if (apply_premium && over8 > 0) {
-    const amt = Math.floor(base_hourly * 1.0 * over8);
+    const amt = lineAmount(rate, 1, over8);
     breakdown.push({
       label: '휴일 8시간 초과 가산수당 (1.0배)',
-      formula: `통상시급 ${base_hourly.toLocaleString('ko-KR')}원 × 1.0 × ${over8}시간`,
+      formula: `통상시급 ${dec2(base_hourly)}원 × 1.0 × ${over8}시간`,
       amount: amt,
     });
   }
 
   // (D) 야간근로 가산수당 (0.5배)
   if (apply_premium && night_hours > 0) {
-    const amt = Math.floor(base_hourly * 0.5 * night_hours);
+    const amt = lineAmount(rate, 0.5, night_hours);
     breakdown.push({
       label: '야간근로 가산수당 (0.5배, 22:00~06:00)',
-      formula: `통상시급 ${base_hourly.toLocaleString('ko-KR')}원 × 0.5 × ${night_hours}시간`,
+      formula: `통상시급 ${dec2(base_hourly)}원 × 0.5 × ${night_hours}시간`,
       amount: amt,
     });
   } else if (!apply_premium && night_hours > 0) {
@@ -301,7 +317,7 @@ export function calcHolidayPay(input: Input): Result {
   }
 
   const total = breakdown.reduce((s, b) => s + b.amount, 0);
-  const regular_pay_equivalent = Math.floor(base_hourly * input.worked_hours);
+  const regular_pay_equivalent = lineAmount(rate, 1, input.worked_hours);
   // 가산수당 합계 (월급제: total = 가산만 / 시급·일용: total = 1.0배 + 가산이므로 가산만 = total - regular)
   const premium_only = already_includes_holiday_pay ? total : total - regular_pay_equivalent;
   const gross_holiday_pay = regular_pay_equivalent + premium_only;

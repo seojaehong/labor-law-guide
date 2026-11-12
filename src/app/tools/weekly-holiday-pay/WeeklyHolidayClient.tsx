@@ -85,7 +85,7 @@ export default function WeeklyHolidayClient() {
         <ul className={`${small} list-disc space-y-1 pl-5`} style={muted}>
           <li>주휴수당 = 시급 × 1일 소정근로시간</li>
           <li>1일 소정근로시간 = 4주 소정근로시간 ÷ 그 4주 동안 정규 직원의 총 근무일 수. 주마다 시간이 다르면 4주를 평균해 넣습니다.</li>
-          <li>한 달 평균은 1주 금액 × 365 ÷ 7 ÷ 12 입니다. 원 미만은 반올림했습니다.</li>
+          <li>1주 금액의 원 미만은 근로자에게 불리하지 않게 올립니다. 한 달 평균은 1주 금액 × 365 ÷ 7 ÷ 12 이고 참고값이라 원 미만을 반올림했습니다.</li>
           <li>월급에 주휴수당이 이미 들어 있는 경우(월급제)는 따로 더하지 않습니다.</li>
         </ul>
       </FoldedDetail>

@@ -3,7 +3,8 @@
 //   1일 소정근로시간 = 4주 소정근로시간 ÷ 그 기간 통상근로자 총 소정근로일 수 (근로기준법 시행령 별표2 제2호나목)
 //   = 1주 소정근로시간 ÷ 통상근로자 1주 소정근로일 수(보통 5일), 하루 8시간을 넘지 않는다(근로기준법 §50②)
 // 주 15시간 미만이면 주휴가 없고(§18③), 그 주 소정근로일을 개근해야 생긴다(시행령 §30①).
-// 원 미만은 반올림 — 법이 끝수를 정하지 않아 참고값으로 맞춘 것이다.
+// 원 미만 — 법이 끝수를 정하지 않았다. 사이트 끝수 규칙(./wage-rounding.ts)대로 1주 금액에서 올린다. 한 달 평균은 참고값이라 반올림한다.
+import { payableWon } from './wage-rounding';
 
 export interface WeeklyHolidayInput {
   hourlyWage: number;
@@ -38,6 +39,6 @@ export function calcWeeklyHoliday(input: WeeklyHolidayInput): WeeklyHolidayResul
   const status = weeklyHours < 15 ? 'under15' : fullAttendance ? 'paid' : 'absent';
   if (status !== 'paid') return { status, dailyHours, amount: 0, monthly: 0 };
 
-  const amount = Math.round(capped ? hourlyWage * 8 : (hourlyWage * weeklyHours) / days);
+  const amount = payableWon(capped ? hourlyWage * 8 : (hourlyWage * weeklyHours) / days);
   return { status, dailyHours, amount, monthly: Math.round((amount * 365) / 84) };
 }

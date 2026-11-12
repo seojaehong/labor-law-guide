@@ -280,7 +280,7 @@ if (tools.includes('calc_leave_pay')) {
     timing: 'employed', fivePlus: true, weeklyHours: 40, dailyHours: 8,
     rate: { basis: 'ordinary-wage', unit: 'month', amount: 2_600_000 }, days: { source: 'unused', unusedDays: 5 }, asOf: '2026-10-29',
   });
-  check(`leave_pay 260만 ÷ 209 × 8 × 5 = 497,607(${l.headline?.[0]})`, l.result?.hours === 209 && l.result?.amount === 497_607);
+  check(`leave_pay 260만 ÷ 209 × 8 × 5 = 497,607.66 → 원 미만 올림 497,608(${l.headline?.[0]})`, l.result?.hours === 209 && l.result?.amount === 497_608);
   const u5 = await callTool('calc_leave_pay', { timing: 'employed', fivePlus: false, weeklyHours: 40, dailyHours: 8, rate: { basis: 'ordinary-wage', unit: 'month', amount: 2_600_000 }, asOf: '2026-10-29' });
   check('leave_pay 4명 이하는 계산하지 않음', u5.result?.status === 'under5' && u5.result.amount === null);
   const err = await callTool('calc_leave_pay', { timing: 'employed', fivePlus: true, weeklyHours: 40, dailyHours: 8, rate: { basis: 'ordinary-wage', unit: 'month', amount: 2_600_000 }, asOf: '2026-10-29' });

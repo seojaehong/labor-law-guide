@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { calcNoticePay, type NoticePayInput, type NoticePayResult } from '@/lib/calc/notice-pay';
+import { dec2 } from '@/lib/calc/wage-rounding';
 import AnswerCard from '@/components/tool/AnswerCard';
 import FoldedDetail from '@/components/tool/FoldedDetail';
 import { card, fmtDateWithYear, inputCls, ink, muted, small, todayKst } from '@/lib/tool-kit';
@@ -106,8 +107,8 @@ export default function NoticePayClient() {
         <AnswerCard lines={headline(out.r!)}>
           {out.r!.amount > 0 && (
             <p className={`${small} mt-3`} style={muted}>
-              1일 통상임금 {won(out.r!.dailyOrdinary)}(시간당 {(Math.round(out.r!.hourly * 100) / 100).toLocaleString('ko-KR')}원 × {num(daily)}시간) × 30일
-              {out.r!.status === 'short' ? '. 예고를 했더라도 30일에 못 미치면 모자란 날만큼이 아니라 30일분 전액입니다.' : ''}
+              1일 통상임금 {dec2(out.r!.dailyOrdinary)}원(시간당 {dec2(out.r!.hourly)}원 × {num(daily)}시간) × 30일. 시간급과 1일 통상임금은 끝수를 버리지 않고 곱하며, 원 미만은 마지막 금액에서 올립니다.
+              {out.r!.status === 'short' ? ' 예고를 했더라도 30일에 못 미치면 모자란 날만큼이 아니라 30일분 전액입니다.' : ''}
             </p>
           )}
           {hire && dismissal && <p className={`${small} mt-2`} style={muted}>입사 {fmtDateWithYear(hire)} · 해고 {fmtDateWithYear(dismissal)}</p>}

@@ -17,17 +17,18 @@
 //   상여금: 12개월 합계의 3/12을 더한다(임금68207-513 · 근기01254-15508 — 퇴직금이 아니라 평균임금 산정사유 일반). 3개월 임금
 //     총액에는 넣지 않는다. severance.ts 와 같이 12배 해 정수로 셈한다(뺄 기간이 없으면 calcSeverance().dailyAverage 와 같다).
 //   1일 평균임금 끝수 = 소수 둘째 자리 올림(severance.ts calcSeverance 와 같은 식, 고용노동부 퇴직금 계산기 관행 — 법령 규정 아님).
-// 통상임금: 시간급(시행령 §6②, ./min-wage unitHours) × 1일 소정근로시간(시행령 §6③), 소수 둘째 자리 반올림
-//   (severance.ts 가 dailyOrdinaryWage 를 전 단위로 반올림하는 것과 같다).
+// 통상임금: 시간급(시행령 §6②, ./min-wage unitHours) × 1일 소정근로시간(시행령 §6③). 끝수를 버리거나 반올림하지 않고
+//   분수 그대로 비교·곱셈한다(사이트 끝수 규칙 — ./wage-rounding.ts, 261112). 화면은 소수 둘째 자리까지 보인다.
 //   1일 소정근로시간은 8시간 범위(법 §2①8 「제50조 … 근로시간의 범위에서」, 근기68207-865 「통상임금 산정을 위한 1일
 //     소정근로시간이란 1일 8시간 범위내에서 노사가 정한 시간」) — 넘으면 오류.
 //   주휴(월급·주급): 1일 소정근로시간분(8시간까지, 법 §55①) — leave-pay.ts 와 같다. 주 6일 × 7시간이면 7시간이지 42 ÷ 5 → 8시간이 아니다.
 //     단시간 근로자는 화면이 별표2의 1일 소정(4주 소정 ÷ 20일)을 넣게 하므로 unitHours 기본값(1주 ÷ 5)과 같은 값이 된다.
-// 최종 원 미만: 법령에 정함이 없다. §46①이 「100분의 70 이상」이라 못 미치지 않게 올린다(설계 선택 — 연차수당 계산기는 버림).
+// 최종 원 미만: 법령에 정함이 없다. §46①이 「100분의 70 이상」이라 못 미치지 않게 올린다 — 사이트 끝수 규칙(./wage-rounding.ts)과 같다.
 //   단서 금액(통상임금 − 받은 임금)도 같은 방식으로 올린다.
-// 계산은 정수(BigInt, 1일 임금은 전 단위)로 한다. BigInt 리터럴(12n)은 쓰지 않는다 — BigInt(12).
+// 계산은 정수(BigInt — 1일 평균임금은 전 단위, 1일 통상임금은 전 단위 분수)로 한다. BigInt 리터럴(12n)은 쓰지 않는다 — BigInt(12).
 import { periodSegments, type Segment } from './severance';
 import { unitHours, type MinWageInput } from './min-wage';
+import { ceilDiv, hourlyOrdinaryWage, snapWon } from './wage-rounding';
 
 export type WageUnit = MinWageInput['unit'];
 
@@ -140,9 +141,6 @@ export function calendarBreakdown(from: string, to: string): { total: number; we
   return out;
 }
 
-/** 올림 나눗셈(음이 아닌 정수) */
-const ceilDiv = (a: bigint, b: bigint) => (a + b - BigInt(1)) / b;
-
 function empty(status: ShutdownAllowanceResult['status'], input: ShutdownAllowanceInput): ShutdownAllowanceResult {
   return {
     status, averageSource: null, segments: null, periodDays: null, excludedDays: 0, excludedWages: 0, baseDays: null, baseTotal: null, annualBonus: 0, bonusAdd: 0,
@@ -211,33 +209,40 @@ export function calcShutdownAllowance(input: ShutdownAllowanceInput): ShutdownAl
   const holiday = o.dailyHours;
   const hours = unitHours(o.unit, o.weeklyHours, o.unit === 'day' ? o.dailyHours : undefined, holiday);
   const weekPaidHours = o.unit === 'week' || o.unit === 'month' ? unitHours('week', o.weeklyHours, undefined, holiday) : null;
-  const hourly = o.amount / hours;
-  const ordCents = BigInt(Math.round((o.amount * o.dailyHours * 100) / hours));
+  const hourly = hourlyOrdinaryWage(o.amount, hours);
+  // 1일 통상임금 O(전) = 금액 × 1일 시간 ÷ 기준시간 — 끝수를 버리지 않고 분수(oNum ÷ oDen)로 둔다(./wage-rounding.ts).
+  // 금액·시간은 소수 둘째 자리까지 받는다고 보고 100배 해 정수로 만든다: O(전) = 금액(전) × 1일 시간(×100) ÷ 기준시간(×100)
+  const cents = (x: number) => BigInt(Math.round(x * 100));
+  const oNum = cents(o.amount) * cents(o.dailyHours);
+  const oDen = cents(hours);
 
-  // §2② — 평균임금이 통상임금보다 「적으면」 통상임금
-  const ordinaryAsAverage = ordCents > avgCents;
-  const applied = ordinaryAsAverage ? ordCents : avgCents;
+  // §2② — 평균임금이 통상임금보다 「적으면」 통상임금. 적용 단가 A 도 분수(aNum ÷ aDen, 전)
+  const ordinaryAsAverage = oNum > avgCents * oDen;
+  const aNum = ordinaryAsAverage ? oNum : avgCents;
+  const aDen = ordinaryAsAverage ? oDen : BigInt(1);
 
-  // 본문 = (A × N − P) × 0.7. D = A(전) × N − P × 100 → 원 = 7D ÷ 1000
+  // 본문 = (A × N − P) × 0.7. D = A(전) × N − P × 100 → 원 = 7D ÷ 1000, 원 미만 올림
   const N = BigInt(days);
   const P = BigInt(paid) * BigInt(100);
   const zero = BigInt(0);
-  const d = applied * N - P;
+  const d = aNum * N - P * aDen;
   const mainClamped = d <= zero;
   const mainNum = mainClamped ? zero : BigInt(7) * d;
-  const mainExact = Number(mainNum) / 1000;
-  const main = Number(ceilDiv(mainNum, BigInt(1000)));
+  const mainDen = BigInt(1000) * aDen;
+  const mainExact = Number(mainNum) / Number(mainDen);
+  const main = Number(ceilDiv(mainNum, mainDen));
 
-  // 단서 — 0.7A > O(엄격), 정수로: 7A > 10O. 통상임금 × N − P(70%를 곱하지 않는다)
+  // 단서 — 0.7A > O(엄격), 정수로: 7A > 10O. 통상임금 × N − P(70%를 곱하지 않는다), 원 미만 올림
   let provisoExact: number | null = null;
   let proviso: number | null = null;
   let provisoClamped = false;
-  if (BigInt(7) * applied > BigInt(10) * ordCents) {
-    const e = ordCents * N - P;
+  if (BigInt(7) * aNum * oDen > BigInt(10) * oNum * aDen) {
+    const e = oNum * N - P * oDen;
     provisoClamped = e <= zero;
     const eNum = provisoClamped ? zero : e;
-    provisoExact = Number(eNum) / 100;
-    proviso = Number(ceilDiv(eNum, BigInt(100)));
+    const eDen = BigInt(100) * oDen;
+    provisoExact = Number(eNum) / Number(eDen);
+    proviso = Number(ceilDiv(eNum, eDen));
   }
 
   return {
@@ -259,9 +264,9 @@ export function calcShutdownAllowance(input: ShutdownAllowanceInput): ShutdownAl
     weeklyHours: o.unit === 'week' || o.unit === 'month' ? (o.weeklyHours ?? null) : null,
     dailyHours: o.dailyHours,
     hourly,
-    dailyOrdinary: Number(ordCents) / 100,
+    dailyOrdinary: snapWon(Number(oNum) / Number(oDen)) / 100,
     ordinaryAsAverage,
-    dailyApplied: Number(applied) / 100,
+    dailyApplied: snapWon(Number(aNum) / Number(aDen)) / 100,
     days,
     paidDuring: paid,
     mainExact,
