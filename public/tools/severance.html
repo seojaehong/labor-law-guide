@@ -1278,9 +1278,9 @@ function parseMoney(str) {
     return parseFloat(String(str).replace(/,/g, '')) || 0;
 }
 
-/** 금액 칸 글자가 0 이상의 숫자인가(쉼표·빈칸 허용, 비어 있으면 0). 아니면 parseMoney 가 0·앞자리로 바꿔 버리므로 먼저 본다 */
+/** 금액 칸 글자가 0 이상의 숫자인가(쉼표·앞뒤 빈칸·끝의 「원」 허용, 비어 있으면 0). 아니면 parseMoney 가 0·앞자리로 바꿔 버리므로 먼저 본다 */
 function isMoneyText(str) {
-    const s = String(str == null ? '' : str).replace(/[,\s]/g, '');
+    const s = String(str == null ? '' : str).replace(/,/g, '').trim().replace(/\s*원$/, '');
     return s === '' || /^\d+(\.\d+)?$/.test(s);
 }
 

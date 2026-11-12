@@ -64,6 +64,8 @@ describe('severance.html input validation', () => {
 
   it('leaves non-numeric money text as typed instead of turning it into 0 on blur', () => {
     expect(run(`['abc','-100','12abc','3,000,000','', '0'].map(isMoneyText)`)).toEqual([false, false, false, true, true, true]);
+    // master 가 계산하던 「3,000,000원」·앞뒤 빈칸은 그대로 받는다. 가운데 빈칸은 parseMoney 가 앞자리(3)만 읽으므로 막는다
+    expect(run(`['3,000,000원',' 3,000,000 ','3000000 원','3 000 000'].map(isMoneyText)`)).toEqual([true, true, true, false]);
   });
 });
 
