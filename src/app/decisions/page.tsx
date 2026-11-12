@@ -32,8 +32,8 @@ const TABS: { key: Kind; label: string }[] = [
 export async function generateMetadata(
   { searchParams }: { searchParams: Promise<Search> }
 ): Promise<Metadata> {
-  const { q, reasonProvided } = parse(await searchParams);
-  // 검색 결과는 색인시키지 않는다 — 같은 사건이 질의마다 다른 주소로 중복된다.
+  const { q, reasonProvided, page } = parse(await searchParams);
+  // 검색 결과는 색인시키지 않는다 — 같은 사건이 질의마다 다른 주소로 중복된다. 최근 목록 2쪽 이후도 같다(대표 주소는 /decisions).
   return publicMetadata({
     title: q
       ? `${q} 검색 결과 | 노동위 판정례·법원 판례`
@@ -41,7 +41,7 @@ export async function generateMetadata(
     description:
       "부당해고 구제신청, 징계, 전보, 갱신기대권 등 노동위원회 판정례와 법원 판례, 행정해석을 한곳에서 찾습니다. 사건번호·쟁점·판정결과로 유사 사례를 비교해 보세요.",
     alternates: { canonical: `${SITE_URL}/decisions` },
-    robots: q || reasonProvided ? { index: false, follow: true } : { index: true, follow: true },
+    robots: q || reasonProvided || page > 1 ? { index: false, follow: true } : { index: true, follow: true },
     openGraph: {
       title: "노동위 판정례·법원 판례 검색",
       description: "노동위 판정례·법원 판례와 행정해석을 한곳에서.",
@@ -114,7 +114,7 @@ export default async function DecisionsIndexPage(
           <Link href={tabHref(q, type)}>노동위·법원 통합 자료 검색</Link>
         </div>
       ) : reason ? <CategoryView reason={reason} page={page} />
-        : q ? <SearchView q={q} type={type} page={page} /> : type!=="nlrc" ? <><SearchTabs q="" type={type} /><p className="py-10 text-sm">선택한 자료에서 찾을 검색어를 입력하세요.</p></> : <HubView />}
+        : q ? <SearchView q={q} type={type} page={page} /> : type!=="nlrc" ? <><SearchTabs q="" type={type} /><p className="py-10 text-sm">선택한 자료에서 찾을 검색어를 입력하세요.</p></> : <HubView page={page} />}
     </main>
   );
 }
@@ -184,16 +184,34 @@ const getHubData = unstable_cache(
   async () => {
     const [counts, recent, sources] = await Promise.all([
       Promise.all(REASON_KEYS.map(async (r) => ({ reason: r, count: await countByReason(r) }))),
-      getRecent(),
+      getRecent(1),
       countBySource(),
     ]);
     return { counts, recent, sources };
   },
-  ["decisions-hub-v3"],
+  // v4(261112) — recent 가 { rows, hasMore } 로 바뀌고 같은 날짜는 id 순으로 고정했다
+  ["decisions-hub-v4"],
   { revalidate: 21600 }
 );
 
-async function HubView() {
+// 최근 목록 2쪽 이후 — 허브와 같은 6시간 캐시(쪽 번호가 캐시 키에 들어간다)
+const getRecentPage = unstable_cache(getRecent, ["decisions-recent-v1"], { revalidate: 21600 });
+
+/** 최근 목록 쪽 넘기기 — 유형별 화면(CategoryView)과 같은 서버 링크. 첫 쪽 주소는 /decisions 그대로 */
+function RecentPager({ page, hasMore }: { page: number; hasMore: boolean }) {
+  if (page <= 1 && !hasMore) return null;
+  const href = (p: number) => (p > 1 ? `/decisions?page=${p}` : "/decisions");
+  return (
+    <nav aria-label="최근 판정례 페이지" className="mt-8 flex flex-wrap items-center justify-center gap-4 text-sm">
+      {page > 1 && <><Link href={href(1)}>첫 페이지</Link><Link href={href(page - 1)}>← 이전</Link></>}
+      <span>{page} 페이지</span>
+      {hasMore && <Link href={href(page + 1)}>다음 →</Link>}
+    </nav>
+  );
+}
+
+async function HubView({ page = 1 }: { page?: number }) {
+  if (page > 1) return recentPageView(page);
   let hub;
   try {
     hub = await getHubData();
@@ -241,7 +259,7 @@ async function HubView() {
       <section>
         <h2 className="mb-4 text-lg font-semibold">최근 판정례·법원 판례</h2>
         <ul className="border-t" style={{ borderColor: "var(--color-border)" }}>
-          {recent.map((d) => (
+          {recent.rows.map((d) => (
             <ResultRow
               key={d.id}
               // 허브는 쟁점 전문을 넉넉히 싣는다.
@@ -249,8 +267,32 @@ async function HubView() {
             />
           ))}
         </ul>
+        <RecentPager page={1} hasMore={recent.hasMore} />
       </section>
     </>
+  );
+}
+
+/** /decisions?page=N(N ≥ 2) — 유형 카드·절차 그림은 첫 쪽에만 두고, 여기는 최근 목록 다음 30건만 보인다 */
+async function recentPageView(page: number) {
+  let recent;
+  try {
+    recent = await getRecentPage(page);
+  } catch {
+    return <LoadError href={`/decisions?page=${page}`} />;
+  }
+  return (
+    <section>
+      <h2 className="mb-4 text-lg font-semibold">최근 판정례·법원 판례 · {page} 페이지</h2>
+      {recent.rows.length ? (
+        <ul className="border-t" style={{ borderColor: "var(--color-border)" }}>
+          {recent.rows.map((d) => <ResultRow key={d.id} row={decisionRow(d, 600)} />)}
+        </ul>
+      ) : (
+        <p className="py-10 text-sm">이 페이지에 결과가 없습니다.</p>
+      )}
+      <RecentPager page={page} hasMore={recent.hasMore} />
+    </section>
   );
 }
 
