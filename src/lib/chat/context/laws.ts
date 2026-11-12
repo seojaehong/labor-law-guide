@@ -96,6 +96,55 @@ function lawHint(text: string): string | null {
 }
 
 /**
+ * ★ 261113 — 조문 후보는 노동 법령 허용 목록으로 거른 뒤 순위를 매긴다.
+ *
+ * 미리보기 실측: 「연차휴가는 언제 생기나요?」의 조문 1위가 공무원연금법 제89조(효력발생기간),
+ * 「퇴직금 계산 기간」은 공무원연금법 제25조(재직기간의 계산)였다. 어휘 점수가 「발생」·「기간」에
+ * 걸렸다. 예전에는 모델이 프롬프트 안에서 걸렀지만 /ai 가 이 목록을 화면에 그대로 보여 주므로
+ * 검색 단계에서 버린다. 화면 목록과 요약 프롬프트는 같은 행을 쓰므로 둘 다 걸린다.
+ *
+ * 시행령·시행규칙은 근로기준법만 함께 허용한다(261113 지시 문구 그대로). 다른 법의 시행령까지
+ * 넣으려면 DECREES_TOO 에 법령명을 더한다. 질문에 법령 이름이 적혀 있으면 목록 밖이어도 그 법은 남긴다.
+ * 공인노무사법은 이름이 적혀 있어도 넣지 않는다.
+ */
+const LABOR_LAWS = [
+  '근로기준법',
+  '최저임금법',
+  '근로자퇴직급여 보장법',
+  '남녀고용평등과 일ㆍ가정 양립 지원에 관한 법률',
+  '노동조합 및 노동관계조정법',
+  '근로자참여 및 협력증진에 관한 법률',
+  '기간제 및 단시간근로자 보호 등에 관한 법률',
+  '파견근로자 보호 등에 관한 법률',
+  '산업안전보건법',
+  '중대재해 처벌 등에 관한 법률',
+  '고용보험법',
+  '산업재해보상보험법',
+  '고용보험 및 산업재해보상보험의 보험료징수 등에 관한 법률',
+  '임금채권보장법',
+  '외국인근로자의 고용 등에 관한 법률',
+  '고용상 연령차별금지 및 고령자고용촉진에 관한 법률',
+  '장애인고용촉진 및 직업재활법',
+  '직업안정법',
+];
+const DECREES_TOO = ['근로기준법'];
+const NEVER = '공인노무사법';
+
+/** 띄어쓰기와 가운뎃점(·ㆍ・) 표기 차이를 지운다. 법제처 표기는 「일ㆍ가정」이다. */
+const normLawName = (s: string) => s.replace(/[\s·ㆍ・]/g, '');
+const LABOR_SET = new Set(LABOR_LAWS.map(normLawName));
+const DECREE_SET = new Set(DECREES_TOO.map(normLawName));
+
+export function isAllowedLaw(lawName: string, userText: string): boolean {
+  const n = normLawName(lawName);
+  if (n.startsWith(NEVER)) return false;
+  if (LABOR_SET.has(n)) return true;
+  const base = n.replace(/(시행령|시행규칙)$/, '');
+  if (base !== n && DECREE_SET.has(base)) return true;
+  return normLawName(userText).includes(n);
+}
+
+/**
  * ★ 실무 용어 → 법령 용어. 어휘검색의 근본 한계를 메운다.
  *
  * 2026-10-05 실측 — 질의 5건 중 3건이 **후보 20개 밖**이었다. Jev 로도 못 꺼낸다
@@ -179,9 +228,15 @@ export async function buildLawsContext(
       console.error('[laws.ts] rpc error:', JSON.stringify(error));
       return { ctx: '', rows: 0, via: 'rpc', status: 'error' };
     }
-    let rows = (data ?? []) as LawRow[];
-    if (rows.length === 0) {
+    const fetched = (data ?? []) as LawRow[];
+    if (fetched.length === 0) {
       console.warn(`[laws.ts] rpc 0 rows (lex="${lex.slice(0, 40)}")`);
+      return { ctx: '', rows: 0, via: 'rpc', status: '0rows' };
+    }
+    // 허용 목록 밖 조문을 먼저 버린다. 아래 재선택·자르기는 남은 후보의 원래 순서 위에서 돈다.
+    let rows = fetched.filter((r) => isAllowedLaw(r.law_name, userText));
+    if (rows.length === 0) {
+      console.warn(`[laws.ts] 허용 목록 밖 후보만 ${fetched.length}건 — 조문 없음`);
       return { ctx: '', rows: 0, via: 'rpc', status: '0rows' };
     }
 

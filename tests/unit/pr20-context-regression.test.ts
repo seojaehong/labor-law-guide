@@ -37,7 +37,8 @@ function makeFaq(id: number) {
 
 function makeLaw(id: number, body = `Fixture body ${id}`) {
   return {
-    law_name: '테스트법',
+    // 261113 — 조문 후보는 노동 법령 허용 목록으로 거른다. 합성 데이터도 목록 안의 법령명을 쓴다.
+    law_name: '근로기준법',
     article_label: `제${id}조`,
     article_title: `검증 제목 ${id}`,
     body,
@@ -53,7 +54,7 @@ function faqIds(context: string) {
 }
 
 function lawIds(context: string) {
-  return [...context.matchAll(/^\[테스트법 제(\d+)조 /gm)].map((match) => Number(match[1]));
+  return [...context.matchAll(/^\[근로기준법 제(\d+)조 /gm)].map((match) => Number(match[1]));
 }
 
 // These exercise the real context builders with synthetic data, not legal quality.
