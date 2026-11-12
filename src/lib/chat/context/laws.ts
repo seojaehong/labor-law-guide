@@ -141,7 +141,10 @@ export function isAllowedLaw(lawName: string, userText: string): boolean {
   if (LABOR_SET.has(n)) return true;
   const base = n.replace(/(시행령|시행규칙)$/, '');
   if (base !== n && DECREE_SET.has(base)) return true;
-  return normLawName(userText).includes(n);
+  // 질문에 그 법령 이름이 적혔는지 본다. 글자 사이 띄어쓰기·가운뎃점은 허용하고, 바로 앞이 한글이면
+  // 다른 낱말의 일부로 본다(「재해보상법」 안의 「상법」을 상법으로 읽지 않는다).
+  const pattern = [...n].map((c) => c.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('[\\s·ㆍ・]*');
+  return new RegExp(`(?<![가-힣])${pattern}`).test(userText);
 }
 
 /**

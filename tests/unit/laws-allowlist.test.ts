@@ -18,13 +18,15 @@ const rpc = (rows: Row[]) => ({
 const row = (law_name: string, article_label: string, article_title: string | null, body = `${article_label}(${article_title ?? ''}) 본문`): Row =>
   ({ law_name, article_label, article_title, body });
 
+// e07ae17 미리보기에서 거른 뒤 상위 3건이 산재법 제5조 · 근로기준법 제56조 · 제60조 순이었다. 그 순서를 그대로 둔다.
 const LEAVE_SEARCH = [
   row('공무원연금법', '제89조', '효력발생기간'),
   row('공무원 재해보상법', '제55조', '효력발생기간'),
+  row('군인연금법', '제12조', '급여의 제한'),
+  row('산업재해보상보험법', '제5조', '정의'),
+  row('근로기준법', '제56조', '연장ㆍ야간 및 휴일 근로'),
   row('근로기준법', '제60조', '연차 유급휴가'),
   row('근로기준법', '제61조', '연차 유급휴가의 사용 촉진'),
-  row('군인연금법', '제12조', '급여의 제한'),
-  row('근로기준법 시행령', '제33조', '휴가수당의 지급일'),
 ];
 
 const SEVERANCE_SEARCH = [
@@ -38,11 +40,11 @@ const SEVERANCE_SEARCH = [
   row('근로기준법', '제2조', '정의'),
 ];
 
-it.each(['false', 'true'])('연차 질문(JEV_ON=%s) — 공무원 연금·재해보상법을 버리고 근로기준법 제60조가 1위', async (jev) => {
+it.each(['false', 'true'])('연차 질문(JEV_ON=%s) — 공무원·군인 연금법과 공무원 재해보상법을 버리고 근로기준법 제60조가 상위 3건에 든다', async (jev) => {
   vi.stubEnv('JEV_ON', jev);
   const laws = await buildLawsContext(rpc(LEAVE_SEARCH), '연차휴가는 언제 생기나요?');
-  expect(laws.items?.[0].id).toBe('근로기준법 제60조');
-  expect(laws.items?.map(i => i.id)).toEqual(['근로기준법 제60조', '근로기준법 제61조', '근로기준법 시행령 제33조']);
+  // 순위 자체는 기존 어휘 점수 그대로다 — 허용 목록 안에서 제60조를 1위로 올리는 처리는 하지 않았다
+  expect(laws.items?.map(i => i.id)).toEqual(['산업재해보상보험법 제5조', '근로기준법 제56조', '근로기준법 제60조']);
   // 요약 프롬프트에 들어가는 조문 후보에도 같은 필터가 걸린다
   expect(laws.ctx).not.toMatch(/공무원|군인연금/);
   expect(laws.ctx).toContain('[근로기준법 제60조 (연차 유급휴가)]');
@@ -74,6 +76,13 @@ it('허용 목록은 띄어쓰기·가운뎃점 표기 차이를 가리지 않�
     row('공인노무사법', '제2조', '직무의 범위'),
   ]), '육아휴직은 어떻게 하나요?');
   expect(laws.items?.map(i => i.id)).toEqual(['남녀고용평등과 일ㆍ가정 양립 지원에 관한 법률 제19조', '근로기준법 시행규칙 제15조']);
+});
+
+it('질문 속 다른 법령명의 일부(「재해보상법」 안의 「상법」)는 법령 이름을 적은 것으로 보지 않는다', async () => {
+  vi.stubEnv('JEV_ON', 'false');
+  const laws = await buildLawsContext(rpc([row('상법', '제1조', '상사적용법규'), row('공무원 재해보상법', '제8조', '요양급여'), row('산업재해보상보험법', '제40조', '요양급여')]),
+    '공무원 재해보상법 요양급여는요?');
+  expect(laws.items?.map(i => i.id)).toEqual(['공무원 재해보상법 제8조', '산업재해보상보험법 제40조']);
 });
 
 it('공인노무사법은 질문에 이름이 있어도 넣지 않는다', async () => {
