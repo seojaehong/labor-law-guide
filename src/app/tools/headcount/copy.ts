@@ -6,6 +6,13 @@ import type { Crew, CoveredSpan, HeadcountResult, Note, Plan, PlanAnswer } from 
 
 export { fmtDate };
 
+/** 인원 칸 글자 확인 — 맞으면 null. 틀린 값(-100·0·100·소수)을 1~99로 고쳐 넣지 않고 알린다(261112) */
+export function countInputError(raw: string): string | null {
+  const s = raw.trim();
+  if (s === '') return '인원을 넣어 주세요(1~99명).';
+  return /^\d+$/.test(s) && Number(s) >= 1 && Number(s) <= 99 ? null : '인원은 1명부터 99명까지 숫자로 넣어 주세요.';
+}
+
 const short = (d: string) => `${Number(d.slice(5, 7))}.${Number(d.slice(8, 10))}`;
 const avg = (n: number) => n.toFixed(2);
 

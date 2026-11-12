@@ -157,6 +157,15 @@ export function formatNumericInput(value: string, suffix?: string): string {
   return Number(digits).toLocaleString('ko-KR') + (m[2] ?? '');
 }
 
+/** 주 근무일수 칸 글자 확인 — 맞거나 비면 null. 빼기표·글자를 지워 다른 값(-100 → 100)으로 만들지 않고 알린다(261112).
+ * 틀린 값은 폼에 싣지 않으므로(빈칸과 같다) 엔진 규칙은 그대로다. */
+export function daysPerWeekError(raw: string): string | null {
+  const s = raw.replace(/\s/g, '');
+  if (s === '') return null;
+  const ok = /^\d+(\.\d*)?$/.test(s) && Number(s) > 0 && Number(s) <= 7;
+  return ok ? null : '주 근무일수는 1일부터 7일까지 숫자로 넣어 주세요. 이 값은 점검에 쓰지 않았습니다.';
+}
+
 /** 급여 형태 칸을 바꾼다 — 시급제가 아닌 다른 값으로 바꾸면 주휴 포함 선택을 비운다. 그 칸은 시급제에서만 보이는데
  * 값이 남으면 buildContract 가 실어 숨은 「포함」으로 법리 B 를 탄다(261102 P3). 사진 추출이 채운 값은 이 함수를 거치지
  * 않으므로 사용자가 형태를 바꾸기 전까지 남는다(같은 값을 다시 눌러도 그대로). */
