@@ -30,8 +30,9 @@
    글자 크기는 그대로 두고 누르는 상자만 44px 로 키운다. 데스크톱 행 간격은 건드리지 않는다. */
 @media (max-width: 767px) {
   .editorial-issue-links { row-gap: 0; }
-  /* 「글」은 한 글자라 폭이 10px 이었다 — 좌우 8px 를 누르는 자리로 넓히고 같은 만큼 당겨 글자 위치는 그대로 둔다(간격 16px 안) */
-  .editorial-issue-links a { display: inline-flex; align-items: center; min-height: 44px; padding-inline: 8px; margin-inline: -8px; }
+  /* 「글」은 한 글자라 폭이 10px 이었다 — 좌우 8px 를 누르는 자리로 넓히고 같은 만큼 당긴다.
+     그래도 26px 이라 최소 폭 44px 를 준다(「글」 뒤 링크만 18px 밀린다. 나머지 링크는 이미 44px 보다 넓다) */
+  .editorial-issue-links a { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; min-width: 44px; padding-inline: 8px; margin-inline: -8px; }
   .editorial-situation-grid ul { gap: 0; }
   .editorial-situation-grid ul a { min-height: 44px; }
 }
