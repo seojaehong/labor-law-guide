@@ -178,7 +178,9 @@ export default function RootLayout({
             <p className="font-semibold">{BRAND_NAME}</p>
             <p className="text-sm">{BRAND_DESCRIPTION}</p>
           </div>
-          <div className="layout-wide layout-wide--chrome mb-8 grid grid-cols-2 gap-x-6 gap-y-7 text-left sm:grid-cols-4">
+          {/* 261112 재홍님 — 「노란봉투법 껍데기는 벗는다」. 노란봉투법 전용 페이지(가이드·교섭절차·체크리스트·
+              핵심판례·뉴스) 링크를 푸터에서 뺐다. 페이지와 사이트맵은 그대로 두어 검색 유입은 유지한다. */}
+          <div className="layout-wide layout-wide--chrome mb-8 grid grid-cols-2 gap-x-6 gap-y-7 text-left sm:grid-cols-3">
             {[
               { title: '읽고 찾기', links: [
                 { href: '/blog', label: '글' },
@@ -192,15 +194,8 @@ export default function RootLayout({
                 { href: '/contact', label: '서비스 문의' },
                 { href: 'https://www.safeclaw.kr', label: '산업안전 점검 — SafeClaw', external: true },
               ] },
-              { title: '검토 중 자료', links: [
-                { href: '/guide', label: '핵심 가이드' },
-                { href: '/manual', label: '교섭절차' },
+              { title: '검토 중 자료·기능', links: [
                 { href: '/faq', label: 'FAQ' },
-                { href: '/cases', label: '핵심 판례 해설' },
-                { href: '/news', label: '노동 뉴스' },
-              ] },
-              { title: '검토 중 기능', links: [
-                { href: '/checklist', label: '점검 체크리스트' },
                 { href: '/tools/contract-check', label: '근로계약서 점검' },
                 { href: '/tools/contract-write', label: '근로계약서 작성' },
                 { href: '/tools/severance.html', label: '퇴직금 계산' },
