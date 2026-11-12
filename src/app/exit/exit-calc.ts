@@ -106,6 +106,18 @@ export function validate(i: Input): InputError[] {
   return errs;
 }
 
+/**
+ * 「확인용 추정」 카드가 안 보이는 까닭 — 무언가 넣었는데 맞지 않는 칸만 말한다(빈칸은 첫 화면이라 말하지 않는다).
+ * 날짜 칸(type=date)은 틀린 글자가 들어오지 않고, 날짜 순서는 화면이 따로 알린다.
+ */
+export function estimateBlockers(errs: InputError[], raw: { wage: string; hours: string; leave: string }): string[] {
+  const lines: string[] = [];
+  if (errs.includes('wage') && raw.wage.trim() !== '') lines.push('월 급여는 0보다 큰 숫자로 넣어 주세요(예: 2,500,000). 맞게 넣으면 퇴직금 추정이 나옵니다.');
+  if (errs.includes('hours') && raw.hours.trim() !== '') lines.push('주 소정근로시간은 0보다 크고 168 이하인 숫자로 넣어 주세요.');
+  if (errs.includes('leave') && raw.leave.trim() !== '') lines.push('남은 연차 일수는 0부터 400까지 숫자로 넣어 주세요.');
+  return lines;
+}
+
 export interface SeveranceCheck {
   serviceDays: number;
   oneYear: boolean;

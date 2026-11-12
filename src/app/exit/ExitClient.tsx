@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { CHECKED, COUNTING_NOTE, ESTIMATE_LIMITS, PHASES, SOURCES, STEPS, type Step } from '@/content/exit-worker-data';
 import { calculateEntitlement } from '@/lib/leave/annual-leave';
 import {
+  estimateBlockers,
   estimateLeavePay,
   estimateSeverance,
   milestones,
@@ -136,6 +137,10 @@ export default function ExitClient() {
             <input inputMode="decimal" placeholder="회사에 확인한 일수" value={leave} onChange={e => setLeave(e.target.value)} aria-invalid={!!leave && err('leave')} />
           </label>
           {touched && err('order') && <p className="ex-err" role="alert">마지막 근무일이 입사일보다 빠릅니다.</p>}
+          {/* 칸이 틀려 「확인용 추정」 카드가 빠질 때 말없이 사라지지 않게 까닭을 남긴다(261112) */}
+          {estimateBlockers(errs, { wage, hours, leave }).map(line => (
+            <p key={line} className="ex-err" role="status">{line}</p>
+          ))}
         </section>
 
         {ready && check && (
