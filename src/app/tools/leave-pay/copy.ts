@@ -102,7 +102,7 @@ export function formulaLines(r: LeavePayResult): string[] {
     }
     lines.push(`수당 = ${dec(r.unusedDays!)}일 × ${dec(r.dailyRate!)}원 = ${dec(r.raw!)}원 → ${won(r.amount!)}`);
   }
-  lines.push('원 미만 처리는 법령에 정함이 없어 마지막에 한 번 버립니다. 1일 통상임금을 먼저 원 단위로 버리면 몇 원 적게 나올 수 있습니다.');
+  lines.push('원 미만 처리는 법령에 정함이 없어 근로자에게 불리하지 않게 마지막 금액에서 한 번 올립니다. 시간급과 1일 통상임금은 끝수를 버리지 않고 곱합니다(화면에는 소수 둘째 자리까지).');
   return lines;
 }
 

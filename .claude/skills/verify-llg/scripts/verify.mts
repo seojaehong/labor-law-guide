@@ -249,9 +249,11 @@ const FEATURES: Record<string, { path: string; journey: Journey; waitUntil?: 'lo
   severance: {
     path: '/tools/severance.html',
     journey: async (p, step) => {
+      // 입력 칸 = 마지막 근무일(261112 통일 — /exit·/tools/retirement-tax 와 같다). 퇴직일은 화면이 하루 더해 보인다
       await p.fill('#startDate', '2023-01-01');
-      await p.fill('#endDate', '2026-01-01');
+      await p.fill('#endDate', '2025-12-31');
       await p.dispatchEvent('#endDate', 'change');
+      step('퇴직일(산정사유발생일) = 마지막 근무일 다음 날', '2026-01-01', await p.inputValue('#retireDate'));
       await p.fill('#wage1', '9000000');
       await p.dispatchEvent('#wage1', 'input');
       await p.click('button.btn-primary:has-text("계산하기")');
@@ -259,13 +261,18 @@ const FEATURES: Record<string, { path: string; journey: Journey; waitUntil?: 'lo
       step('퇴직금 계산기(고용노동부 계산기 값)', '97,826.09 × 30 × 1,096일 ÷ 365 = 8,812,389원', await answer(p, '#resultArea'));
       await p.goto(`${BASE}/tools/severance.html`, { waitUntil: 'networkidle' });
       await p.fill('#startDate', '2021-06-01');
-      await p.fill('#endDate', '2026-05-31');
+      await p.fill('#endDate', '2026-05-30');
       await p.dispatchEvent('#endDate', 'change');
       const periods = await p.evaluate(() => [1, 2, 3].map((i) => document.getElementById('periodText' + i)?.textContent).join(' '));
-      step('5.31 퇴직 → 3.1부터', '3.1~3.31 4.1~4.30 5.1~5.30', periods);
-      // 챗봇 답 끝 링크(src/lib/chat/severance-link.ts)와 같은 모양 — 퇴직일 = 마지막 근무일 다음 날, ?run=1 자동 계산
+      step('5.30 마지막 근무(5.31 퇴직) → 3.1부터', '3.1~3.31 4.1~4.30 5.1~5.30', periods);
+      // /exit 와 같은 사람 — 입사 2023-03-01 · 마지막 근무일 2026-10-31 · 월 300만 → 1,341일 · 10,782,311원(/exit 운영 실측값)
+      await p.goto(`${BASE}/tools/severance.html?start=2023-03-01&last=2026-10-31&w1=3000000&w2=3000000&w3=3000000&run=1`, { waitUntil: 'networkidle' });
+      await p.waitForSelector('#resultArea:visible');
+      step('?last= 마지막 근무일 = /exit 와 같은 퇴직금', /× 30 × 1,341일 ÷ 365 = 10,782,311원/, await answer(p, '#resultArea'));
+      // 챗봇 답 끝 링크(src/lib/chat/severance-link.ts)와 같은 모양 — end = 퇴직일(마지막 근무일 다음 날), 계산기가 하루 뺀다. ?run=1 자동 계산
       await p.goto(`${BASE}/tools/severance.html?start=2023-01-01&end=2026-01-01&w1=3000000&w2=3000000&w3=3000000&run=1`, { waitUntil: 'networkidle' });
       await p.waitForSelector('#resultArea:visible');
+      step('옛 ?end= 링크 → 마지막 근무일 칸 2025-12-31', '2025-12-31', await p.inputValue('#endDate'));
       step('챗봇 링크로 연 계산기 = 챗봇 답', /8,812,389원/, await answer(p, '#resultArea'));
     },
   },
@@ -463,9 +470,9 @@ const FEATURES: Record<string, { path: string; journey: Journey; waitUntil?: 'lo
       // 첫 화면 = 5명 이상 · 재직 중 · 통상 근로자 주 40h·1일 8h · 월급 2,600,000 · 남은 5일
       const weekly = p.getByLabel('1주 소정근로시간', { exact: true });
       const paid = p.getByLabel(/^회사가 지급했거나/);
-      step('월 2,600,000 ÷ 209 × 8 × 5 = 497,607(원 미만 마지막에 버림)', '미사용 연차수당은 497,607원입니다', await answer(p));
+      step('월 2,600,000 ÷ 209 × 8 × 5 = 497,607.66 → 497,608(원 미만 마지막에 올림)', '미사용 연차수당은 497,608원입니다', await answer(p));
       await paid.fill('400000');
-      step('회사 지급액과 대조', '회사 지급액 400,000원보다 97,607원 많습니다', await answer(p));
+      step('회사 지급액과 대조', '회사 지급액 400,000원보다 97,608원 많습니다', await answer(p));
       await paid.fill('');
       await p.getByLabel('4명 이하', { exact: true }).check();
       step('상시 4명 이하 = 계산하지 않음(별표1)', /법정 연차수당을 계산하지 않습니다.*4명 이하/, await answer(p));
@@ -474,9 +481,9 @@ const FEATURES: Record<string, { path: string; journey: Journey; waitUntil?: 'lo
       step('주 14시간 = 계산하지 않음(§18③)', '15시간 미만', await answer(p));
       await weekly.fill('40');
       await p.getByLabel('했다', { exact: true }).check();
-      step('촉진했다 — 금액 그대로 + 「했다면」 안내', /497,607원.*지급 의무가 없을 수 있습니다.*빼지 않은 값/, await answer(p));
+      step('촉진했다 — 금액 그대로 + 「했다면」 안내', /497,608원.*지급 의무가 없을 수 있습니다.*빼지 않은 값/, await answer(p));
       await p.getByLabel('퇴직하면서', { exact: true }).check();
-      step('퇴직 시 — 14일 이내(§36)', /퇴직 시 미사용 연차수당은 497,607원.*14일 이내/, await answer(p));
+      step('퇴직 시 — 14일 이내(§36)', /퇴직 시 미사용 연차수당은 497,608원.*14일 이내/, await answer(p));
       await p.getByLabel('입사일로 발생 누계를 센다').check();
       await p.getByLabel(/^월급\(/).fill('3135000');
       await p.getByLabel('입사일', { exact: true }).fill('2025-11-01');

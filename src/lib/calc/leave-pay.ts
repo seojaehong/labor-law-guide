@@ -1,5 +1,5 @@
 // 연차수당 계산기 — 남은 연차 일수 × 1일 통상임금. 새 엔진을 만들지 않고 있는 것을 잇는다.
-//   금액: src/lib/leave/leave-allowance.ts calculateAllowance(일수 × 1일 단가, 단가 기준·출처 기록, 원 미만은 마지막에 한 번 버림)
+//   금액: src/lib/leave/leave-allowance.ts calculateAllowance(일수 × 1일 단가, 단가 기준·출처 기록, 원 미만은 마지막에 한 번 올림 — ./wage-rounding.ts)
 //   시간급: ./min-wage unitHours(시행령 §6② — 월급은 (1주 소정 + 주휴) × 365 ÷ 7 ÷ 12 반올림)
 //     주휴: 통상 근로자 = 1일 소정근로시간분(8시간까지, 근로기준법 §55①·시행령 §30①의 1일 유급휴일),
 //           단시간 근로자 = 4주 소정 ÷ 통상 근로자의 4주 소정근로일 20일(시행령 별표2 제2호나목, 제4호가목·라목)
@@ -12,6 +12,7 @@
 // 하지 않는 것: 사용 촉진(§61)·소멸시효로 금액을 깎는 일. 촉진은 「했다면」 안내만 붙인다(leave-promotion.ts 게이트).
 import { unitHours, type MinWageInput } from './min-wage';
 import { calculateAllowance } from '../leave/leave-allowance';
+import { dailyOrdinaryWage, payableWon, snapWon as snap } from './wage-rounding';
 import { buildHireDateLedger, type LedgerEntry } from '../leave/leave-ledger';
 
 export type WageUnit = MinWageInput['unit'];
@@ -125,12 +126,6 @@ export interface LeavePayResult {
 
 const UNIT_LABEL: Record<WageUnit, string> = { month: '월급', week: '주급', day: '일급', hour: '시급' };
 
-/**
- * 부동소수 잡음만 지운다 — 참값이 정수인데 0.999…로 나온 것을 정수로 돌린다.
- * 참값의 소수 부분은 1/기준시간(209 등, 250 이하) 단위라 1e-6 안쪽에 오지 않는다.
- */
-const snap = (x: number) => (Math.abs(x - Math.round(x)) < 1e-6 ? Math.round(x) : x);
-
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 function checkDate(s: string, what: string): string {
   const t = DATE.test(s || '') ? Date.parse(`${s}T00:00:00Z`) : NaN;
@@ -198,10 +193,10 @@ export function calcLeavePay(input: LeavePayInput): LeavePayResult {
     const grantHours = Math.ceil(snap(rawGrantHours));
     if (usedHours > grantHours) throw new Error('이미 쓴 시간이 연차 시간보다 많습니다');
     const unusedHours = snap(grantHours - usedHours);
-    // 곱셈 먼저, 나눗셈 마지막(정수로 떨어지는 금액에서 1원 덜 나오지 않게) — 원 미만은 마지막에 한 번 버린다(법령에 정함 없음)
+    // 곱셈 먼저, 나눗셈 마지막(정수로 떨어지는 금액에서 1원 틀리지 않게) — 원 미만은 마지막에 한 번 올린다(./wage-rounding.ts)
     const raw = snap((rate.amount * unusedHours) / hours!);
     return finish({
-      ...base, hours, weekPaidHours, hourly, raw, amount: Math.floor(raw),
+      ...base, hours, weekPaidHours, hourly, raw, amount: payableWon(raw),
       partTime: { fullTimeWeeklyHours: fw, fullTimeDays: g, rawGrantHours, grantHours, usedHours, unusedHours },
       rateSource: `입력한 ${UNIT_LABEL[rate.unit]} ${rate.amount.toLocaleString('ko-KR')}원의 시간급(시행령 제6조제2항)`,
     });
@@ -236,8 +231,8 @@ export function calcLeavePay(input: LeavePayInput): LeavePayResult {
   let dailyRate: number;
   let rateSource: string;
   if (rate.basis === 'ordinary-wage') {
-    // 1일 통상임금 = 시간급 × 1일 소정근로시간(시행령 §6③). 곱셈 먼저 — 단가는 소수 그대로 넘기고 원 미만은 엔진이 마지막에 버린다
-    dailyRate = (rate.amount * dailyHours) / hours!;
+    // 1일 통상임금 = 시간급 × 1일 소정근로시간(시행령 §6③). 곱셈 먼저 — 단가는 소수 그대로 넘기고 원 미만은 엔진이 마지막에 올린다
+    dailyRate = dailyOrdinaryWage(rate.amount, dailyHours, hours!);
     rateSource = `입력한 ${UNIT_LABEL[rate.unit]} ${rate.amount.toLocaleString('ko-KR')}원의 시간급 × 1일 ${dailyHours}시간(시행령 제6조)`;
   } else {
     if (!pos(rate.dailyRate)) throw new Error('1일 평균임금을 확인해 주세요');

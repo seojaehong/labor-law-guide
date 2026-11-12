@@ -4,6 +4,7 @@
 // 날짜는 YYYY-MM-DD, 해고일 = 근로관계가 끝나는 날(보통 마지막 근무일).
 // 예고했지만 30일이 안 된 경우도 30일분 전액이다 — 모자란 날만큼으로 줄이지 않는다(30일 예고는 강행규정. 근기1451-20718, 1984.10.12 — 「미경과 일수분만」설을 받지 않고 「통상임금의 30일분 이상」).
 import { unitHours, type MinWageInput } from './min-wage';
+import { dailyOrdinaryWage, hourlyOrdinaryWage, payableWon } from './wage-rounding';
 
 export interface NoticePayInput {
   unit: MinWageInput['unit'];
@@ -22,8 +23,11 @@ export interface NoticePayResult {
   /** pay = 예고 없음 · short = 30일 안 되게 예고 · noticed = 30일 전에 예고 · under3m = 계속 근로 3개월 미만 */
   status: 'pay' | 'short' | 'noticed' | 'under3m';
   noticeDays: number | null;
+  /** 시간급 통상임금 — 끝수 그대로 */
   hourly: number;
+  /** 1일 통상임금 — 끝수 그대로(화면은 소수 둘째 자리까지) */
   dailyOrdinary: number;
+  /** 30일분 — 원 미만 올림 */
   amount: number;
 }
 
@@ -49,10 +53,10 @@ export function calcNoticePay(input: NoticePayInput): NoticePayResult {
   }
 
   const hours = unitHours(input.unit, input.weeklyHours, input.unit === 'day' ? input.dailyHours : undefined);
-  const hourly = input.amount / hours;
-  // 금액 = 화면에 보이는 1일 통상임금(원 단위) × 30 — 화면 식대로 곱하면 같은 값이 나와야 한다
-  const dailyOrdinary = Math.round(hourly * input.dailyHours);
-  const amount = dailyOrdinary * 30;
+  // 끝수 규칙(wage-rounding.ts) — 시간급·1일 통상임금은 끝수 그대로, 원 미만은 30일분 금액에서 한 번 올린다
+  const hourly = hourlyOrdinaryWage(input.amount, hours);
+  const dailyOrdinary = dailyOrdinaryWage(input.amount, input.dailyHours, hours);
+  const amount = payableWon((input.amount * input.dailyHours * 30) / hours);
 
   // 3개월이 차는 날 = 입사일 3개월 뒤 같은 날의 전날(9.1 입사 → 11.30).
   // 그 달에 같은 날이 없으면 그 달 말일(민법 §160③ — 11.30 입사 → 2.28, 1.31 입사 → 4.30)

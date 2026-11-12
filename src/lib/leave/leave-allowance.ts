@@ -20,7 +20,10 @@
  *   §60⑤(2027-06-10부터 §60⑥) — 휴가 기간에는 취업규칙 등에서 정하는 통상임금 또는 평균임금을 지급
  *   정함이 없으면 통상임금으로 산정한다(대법원 2019.10.18. 2018다239110)
  *   → 그래서 `rateBasis` 를 입력받아 **무엇을 기준으로 삼았는지 기록**한다.
+ *   원 미만 — 사이트 끝수 규칙(src/lib/calc/wage-rounding.ts): 단가는 끝수 그대로, 수당에서 한 번 올린다.
  */
+
+import { dec2, payableWon, snapWon } from "../calc/wage-rounding";
 
 export type RateBasis = "ordinary-wage" | "average-wage" | "custom";
 
@@ -36,7 +39,7 @@ export interface AllowanceInput {
   rateBasis: RateBasis;
   /** 단가의 출처 설명 (예: "2026-09 급여대장 통상임금") */
   rateSource: string;
-  /** 원 단위 처리 방식. 기본은 버림(근로자에게 불리하지 않게 하려면 호출자가 정한다) */
+  /** 원 단위 처리 방식. 기본은 원 미만 올림(사이트 끝수 규칙 — src/lib/calc/wage-rounding.ts). 회사 규정을 따로 재현할 때만 바꾼다 */
   rounding?: "floor" | "round" | "ceil";
 }
 
@@ -67,9 +70,9 @@ export function rateBasisLabel(basis: RateBasis): string {
 }
 
 function applyRounding(value: number, mode: AllowanceInput["rounding"]): number {
-  if (mode === "ceil") return Math.ceil(value);
+  if (mode === "floor") return Math.floor(value);
   if (mode === "round") return Math.round(value);
-  return Math.floor(value);
+  return payableWon(value);
 }
 
 /**
@@ -123,17 +126,15 @@ export function calculateAllowance(input: AllowanceInput): AllowanceResult {
   }
 
   // 부동소수 잡음만 지운다 — 단가가 시간급 × 시간(예: 1,159,000 × 8 ÷ 209)이면 참값이 정수인데
-  // 곱한 값이 487,999.9999… 가 되어 버림에서 1원이 빠진다(2026-10-29 실측, 600만 입력 중 0.11%).
-  // 참값의 소수 부분은 1/기준시간(250 이하) 단위라 1e-6 안쪽에 오지 않으므로 정수가 아닌 값은 건드리지 않는다.
-  const product = unusedDays * dailyRate;
-  const raw = Math.abs(product - Math.round(product)) < 1e-6 ? Math.round(product) : product;
+  // 곱한 값이 487,999.9999… 가 되어 버림에서 1원이 빠지고, 488,000.0000001 이면 올림에서 1원이 붙는다(2026-10-29 실측, 600만 입력 중 0.11%).
+  const raw = snapWon(unusedDays * dailyRate);
   const amount = applyRounding(raw, input.rounding);
 
   return {
     ...base,
     verdict: "calculated",
     amount,
-    formulaNote: `${unusedDays}일 × ${dailyRate.toLocaleString("ko-KR")}원(${BASIS_LABEL[rateBasis]}, ${rateSource}) = ${amount.toLocaleString("ko-KR")}원`,
+    formulaNote: `${unusedDays}일 × ${dec2(dailyRate)}원(${BASIS_LABEL[rateBasis]}, ${rateSource}) = ${amount.toLocaleString("ko-KR")}원`,
   };
 }
 

@@ -68,11 +68,11 @@ describe('휴업수당 — 본문과 단서(§46①)', () => {
     expect(r.periodDays).toBe(92); // 2026-08-01 ~ 2026-10-31
     expect(r.hours).toBe(209);
     expect(r.dailyAverage).toBe(97_826.09); // 9,000,000 ÷ 92 = 97,826.0869… → 소수 둘째 자리 올림
-    expect(r.dailyOrdinary).toBe(114_832.54); // 3,000,000 ÷ 209 × 8 = 114,832.5358… → 소수 둘째 자리 반올림
+    expect(r.dailyOrdinary).toBeCloseTo(114_832.535885, 5); // 3,000,000 × 8 ÷ 209 = 114,832.5358… — 끝수 그대로(wage-rounding.ts)
     expect(r.ordinaryAsAverage).toBe(true);
-    expect(r.dailyApplied).toBe(114_832.54);
+    expect(r.dailyApplied).toBeCloseTo(114_832.535885, 5);
     expect(r.proviso).toBeNull(); // §2②가 발동하면 0.7A < O — 단서는 나올 수 없다
-    expect(r.mainExact).toBeCloseTo(2_089_952.228, 6);
+    expect(r.mainExact).toBeCloseTo(2_089_952.153110, 5); // 24,000,000 ÷ 209 × 26 × 0.7
     expect(r.main).toBe(2_089_953); // 원 미만 올림(「이상」) — 버리면 2,089,952
     expect(r.main).not.toBe(1_780_435); // §2②를 빼먹은 값(0.7 × 97,826.09 × 26 = 1,780,434.838)
   });
@@ -202,9 +202,9 @@ describe('월급·주급의 주휴 — 1일 소정근로시간분(8시간까지)
     expect(r.weekPaidHours).toBe(49);
     expect(r.hours).toBe(213);
     expect(r.dailyAverage).toBe(97_826.09);
-    expect(r.dailyOrdinary).toBe(98_591.55); // 3,000,000 × 7 ÷ 213 = 98,591.549… → 반올림
+    expect(r.dailyOrdinary).toBeCloseTo(98_591.549296, 5); // 3,000,000 × 7 ÷ 213 = 98,591.549… — 끝수 그대로
     expect(r.ordinaryAsAverage).toBe(true);
-    expect(r.main).toBe(690_141); // 98,591.55 × 10 × 0.7 = 690,140.85 → 올림
+    expect(r.main).toBe(690_141); // 98,591.549… × 10 × 0.7 = 690,140.85 → 올림
     expect(r.main).not.toBe(684_783); // 주휴를 42 ÷ 5 → 8시간으로 잡으면 217시간, §2② 미발동
     const f = formulaLines(r).join(' ');
     expect(f).toContain('(42 + 7) × 365 ÷ 7 ÷ 12');

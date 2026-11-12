@@ -30,13 +30,27 @@ describe('챗봇 → 퇴직금 계산기 링크', () => {
     annual_leave_pay: 400_000,
   };
 
-  it('링크로 연 계산기가 챗봇 답과 같은 금액을 낸다(퇴직일 = 마지막 근무일 다음 날)', () => {
+  it('링크로 연 계산기가 챗봇 답과 같은 금액을 낸다(링크 end = 퇴직일, 칸 = 마지막 근무일)', () => {
     const p = new URL(severanceCalculatorLink(args)!).searchParams;
     expect(p.get('end')).toBe('2026-01-01');
+    const query = JSON.stringify(Object.fromEntries(p));
+    // 계산기는 링크의 end(퇴직일)에서 하루 빼 「마지막 근무일」 칸에 넣는다
+    const last = run<string>(`lastWorkDateFromQuery(k => (${query})[k] ?? null)`);
+    expect(last).toBe(args.last_work_date);
     const r = run<{ severancePay: number }>(
-      `calculateSeverance({...createDefaultWorker(),startDate:'${p.get('start')}',endDate:'${p.get('end')}',wage1:'${p.get('w1')}',wage2:'${p.get('w2')}',wage3:'${p.get('w3')}',bonusTotal:'${p.get('bonusTotal')}',annualLeave:'${p.get('annualLeave') ?? 0}'})`,
+      `calculateSeverance({...createDefaultWorker(),startDate:'${p.get('start')}',endDate:'${last}',wage1:'${p.get('w1')}',wage2:'${p.get('w2')}',wage3:'${p.get('w3')}',bonusTotal:'${p.get('bonusTotal')}',annualLeave:'${p.get('annualLeave') ?? 0}'})`,
     );
     expect(r.severancePay).toBe(calcSeverance(args).severance_pay);
+  });
+
+  it('?last= 는 마지막 근무일 그대로, 옛 ?end= 는 하루 빼고, 날짜가 아닌 end 는 비운다', () => {
+    const q = (o: Record<string, string>) => run<string | null>(`lastWorkDateFromQuery(k => (${JSON.stringify(o)})[k] ?? null)`);
+    expect(q({ last: '2026-10-31' })).toBe('2026-10-31');
+    expect(q({ lastWorkDate: '2026-10-31', end: '2026-01-01' })).toBe('2026-10-31');
+    expect(q({ end: '2026-11-01' })).toBe('2026-10-31');
+    expect(q({ endDate: '2024-03-01' })).toBe('2024-02-29');
+    expect(q({ end: '2026-13-01' })).toBe('');
+    expect(q({ start: '2023-03-01' })).toBeNull();
   });
 
   it('?run=1 은 실제로 있는 계산 함수를 부른다', () => {
@@ -85,10 +99,11 @@ describe('해고예고 3개월 경계 — 같은 날이 없으면 그 달 말일
     expect(calcNoticePay({ ...base, hireDate: hire, dismissalDate: before }).status).toBe('under3m');
   });
 
-  it('금액 = 화면에 보이는 1일 통상임금 × 30', () => {
+  it('1일 통상임금은 끝수 그대로 곱하고 원 미만은 30일분에서 올린다 — 2,500,000 × 8 × 30 ÷ 209 = 2,870,813.40 → 2,870,814', () => {
     const r = calcNoticePay({ unit: 'month', amount: 2_500_000, weeklyHours: 40, dailyHours: 8, hireDate: '2025-01-02', dismissalDate: '2026-11-30' });
-    expect(r.dailyOrdinary).toBe(95_694);
-    expect(r.amount).toBe(95_694 * 30);
+    expect(r.dailyOrdinary).toBeCloseTo(95_693.779904, 5);
+    expect(r.amount).toBe(2_870_814);
+    expect(r.amount).toBeLessThan(95_694 * 30); // 1일 통상임금을 원 단위로 반올림한 뒤 곱하던 값(2,870,820)보다 정확한 값에 가깝다
   });
 });
 
@@ -109,9 +124,9 @@ describe('퇴직소득세', () => {
 });
 
 describe('1년 판정은 엔진 하나', () => {
-  it('계산기 경고 — 2023.3.1 입사 · 퇴직일 2024.2.29 는 1년 미만', () => {
-    expect(run<boolean>(`isUnderOneYear('2023-03-01','2024-02-29')`)).toBe(true);
-    expect(run<boolean>(`isUnderOneYear('2023-03-01','2024-03-01')`)).toBe(false);
+  it('계산기 경고 — 2023.3.1 입사 · 마지막 근무일 2024.2.28(퇴직일 2.29)은 1년 미만, 2.29(퇴직일 3.1)는 1년', () => {
+    expect(run<boolean>(`isUnderOneYear('2023-03-01','2024-02-28')`)).toBe(true);
+    expect(run<boolean>(`isUnderOneYear('2023-03-01','2024-02-29')`)).toBe(false);
   });
 
   it('챗봇 결과에 1년 여부가 실린다', () => {
@@ -122,9 +137,9 @@ describe('1년 판정은 엔진 하나', () => {
 });
 
 describe('산정기간이 2구간 이하이면 없는 구간 임금을 더하지 않는다', () => {
-  it('입사 2026.3.15 · 퇴직일 2026.5.1', () => {
+  it('입사 2026.3.15 · 마지막 근무일 2026.4.30(퇴직일 5.1)', () => {
     const r = run<{ wageSum: number }>(
-      `calculateSeverance({...createDefaultWorker(),startDate:'2026-03-15',endDate:'2026-05-01',wage1:'3000000',wage2:'3000000',wage3:'3000000'})`,
+      `calculateSeverance({...createDefaultWorker(),startDate:'2026-03-15',endDate:'2026-04-30',wage1:'3000000',wage2:'3000000',wage3:'3000000'})`,
     );
     expect(r.wageSum).toBe(6_000_000);
   });
