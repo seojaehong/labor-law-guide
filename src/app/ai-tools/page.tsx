@@ -85,11 +85,14 @@ function ChatExample() {
 
 function ToolCard({ t }: { t: AiTool }) {
   const ready = t.status === 'public';
+  // 261112 — 홈에서 카드로 바로 보낼 수 있게 id 앵커를 붙였다. 종전에는 data 속성만 있어
+  // `/ai-tools#calc` 같은 링크가 페이지 맨 위로 떨어졌다.
   return (
     <article
-      className="flex flex-col rounded-2xl border p-6"
+      className="flex flex-col rounded-2xl border p-6 scroll-mt-24"
       style={{ borderColor: 'var(--color-border)', background: 'var(--color-bg-surface)' }}
       data-ai-tool={t.id}
+      id={t.id}
     >
       <div className="flex flex-wrap items-center gap-2">
         <h3 className="t-h4" style={{ ...ink, margin: 0 }}>{t.name}</h3>

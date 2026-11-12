@@ -78,6 +78,32 @@ export interface AiTool {
 
 export const AI_TOOLS: AiTool[] = [
   {
+    // 261112 신설 — 재홍님 지적 「세이프클로 엠씨피가 빠진거같은데」. 실제로 빠져 있었다.
+    // 다른 카드와 다른 점: **우리 패키지가 아니고 토큰이 필요하다.** 그래서 package 를 두지 않고
+    // 설치 명령에 Bearer 자리를 남긴다. 토큰은 SafeClaw 로그인 뒤 본인이 발급한다.
+    id: 'safeclaw',
+    name: 'SafeClaw 안전관리 (외부)',
+    status: 'public',
+    summary:
+      '산업안전 점검·문서 작업을 AI 에이전트가 직접 하도록 SafeClaw 가 여는 MCP 서버입니다. 일의 무늬 도구가 아니라 SafeClaw(safeclaw.kr) 쪽 서버이고, 쓰려면 SafeClaw 에 로그인해 토큰을 발급받아야 합니다.',
+    does: [
+      '사업장(현장) 단위로 안전 점검·문서 작업을 도구 10개로 나눠 제공합니다',
+      '안전 문서 묶음(docpack)을 만들면 그 결과를 해당 현장에 귀속해 저장합니다',
+      '토큰마다 접근 범위가 현장·조직 단위로 묶여 있어, 토큰 하나가 다른 현장을 보지 못합니다',
+    ],
+    privacy:
+      '토큰은 SafeClaw 가 해시로만 보관하고 평문을 저장·기록하지 않습니다. 90일이 지나면 만료되고, 발급 화면에서 언제든 끌 수 있습니다. 일의 무늬는 이 토큰을 받지도 보관하지도 않습니다.',
+    install: {
+      claudeCode:
+        'claude mcp add --transport http safeclaw https://www.safeclaw.kr/api/mcp/mcp -H "Authorization: Bearer <발급받은_토큰>"',
+      remote: 'https://www.safeclaw.kr/api/mcp/mcp',
+    },
+    links: [
+      { label: '토큰 발급 (SafeClaw 로그인 → 설정 → 내 AI 연결)', href: 'https://www.safeclaw.kr/settings/ai-connect' },
+      { label: 'SafeClaw 사이트', href: 'https://www.safeclaw.kr' },
+    ],
+  },
+  {
     id: 'gov-login',
     name: '공단 로그인',
     status: 'public',

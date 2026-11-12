@@ -71,6 +71,43 @@ export default function HomeClient({ totalCases, totalAdmin, latestBlogArticles,
         </nav>
       </section>
 
+      {/* 🔴 261112 — AI 도구를 전면으로(재홍님 지시). 종전에는 /ai-tools 가 푸터 링크
+          하나로만 닿았다. 검색 띠 바로 아래, 계산·점검 도구보다 위에 둔다.
+          여기서 「전면」은 홈 첫 화면에서 보이는 것을 말한다. 순서를 내리려면 이 블록을
+          아래 situations 섹션 뒤로 옮기면 된다. */}
+      <section className="editorial-shell editorial-situations" aria-labelledby="home-ai-heading">
+        <div className="editorial-section-heading">
+          <h2 id="home-ai-heading">AI에 연결해서 쓰기</h2>
+          <Link href="/ai-tools">연결 도구 전체 보기 <ArrowRight size={14} aria-hidden="true" /></Link>
+        </div>
+        <p className="text-[14px] leading-relaxed" style={{ color: 'var(--color-text-secondary)' }}>
+          쓰시는 AI(Claude·OpenClaw 등)에 한 줄로 붙이면, 계산·점검·서류 작업을 AI가 직접 합니다.
+          화면을 오가지 않아도 됩니다.
+        </p>
+        <ul className="editorial-situation-grid">
+          <li>
+            <Link className="editorial-situation-name" href="/ai-tools#list">노동 업무 도구 묶음</Link>
+            <ul>
+              <li><Link href="/ai-tools#calc">임금·수당 계산</Link></li>
+              <li><Link href="/ai-tools#checks">임금·계약 점검</Link></li>
+              <li><Link href="/ai-tools#work-rules">취업규칙·법령</Link></li>
+            </ul>
+          </li>
+          <li>
+            <Link className="editorial-situation-name" href="/ai-tools#sanjae-apply">산재 신청 도우미</Link>
+            <ul>
+              <li><Link href="/ai-tools#sanjae-apply">신청 서류 묶음 만들기</Link></li>
+            </ul>
+          </li>
+          <li>
+            <Link className="editorial-situation-name" href="/ai-tools#safeclaw">SafeClaw 안전관리</Link>
+            <ul>
+              <li><a href="https://www.safeclaw.kr/settings/ai-connect">토큰 발급하고 연결</a></li>
+            </ul>
+          </li>
+        </ul>
+      </section>
+
       {/* 첫 화면은 도구가 먼저 — 뉴스는 레터로 가므로 아래로 내렸다(재홍님 261103) */}
       <section className="editorial-shell editorial-situations" aria-labelledby="home-tools-heading">
         <div className="editorial-section-heading">
