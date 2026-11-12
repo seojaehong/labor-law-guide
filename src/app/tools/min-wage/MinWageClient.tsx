@@ -6,7 +6,7 @@ import { rateOn } from '@/content/rates';
 import AnswerCard from '@/components/tool/AnswerCard';
 import FoldedDetail from '@/components/tool/FoldedDetail';
 import ToolSplit from '@/components/tool/ToolSplit';
-import { card, inputCls, ink, muted, small, todayKst } from '@/lib/tool-kit';
+import { card, inputCls, ink, muted, small, todayKst, wonInputError } from '@/lib/tool-kit';
 
 type Unit = MinWageInput['unit'];
 const UNIT_LABEL: Record<Unit, string> = { month: '월급', week: '주급', day: '일급', hour: '시급' };
@@ -43,6 +43,10 @@ export default function MinWageClient() {
   const [prob, setProb] = useState({ on: false, oneYearContract: false, withinThreeMonths: false, simpleLabor: false });
 
   const out = useMemo(() => {
+    // 빈칸·0 은 0원으로 비교하지 않고, 금액은 10억원까지(실수령액 계산기와 같은 한도) — 계산식은 그대로다
+    const bad = wonInputError(UNIT_LABEL[unit], amount, { required: true })
+      ?? (unit === 'month' ? wonInputError('정기상여금', bonus) ?? wonInputError('식비·교통비 등', welfare) : null);
+    if (bad) return { error: bad };
     try {
       return {
         rows: ys.map(({ year, min }) => ({

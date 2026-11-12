@@ -6,7 +6,7 @@ import { rateOn } from '@/content/rates';
 import AnswerCard from '@/components/tool/AnswerCard';
 import FoldedDetail from '@/components/tool/FoldedDetail';
 import ToolSplit from '@/components/tool/ToolSplit';
-import { card, inputCls, ink, muted, small, todayKst } from '@/lib/tool-kit';
+import { card, inputCls, ink, muted, small, todayKst, wonInputError } from '@/lib/tool-kit';
 
 const won = (n: number) => `${n.toLocaleString('ko-KR')}원`;
 const num = (s: string) => Number(s.replace(/,/g, '').trim());
@@ -26,6 +26,9 @@ export default function WeeklyHolidayClient() {
   const [days, setDays] = useState('5');
 
   const out = useMemo(() => {
+    // 시급은 10억원까지(실수령액 계산기와 같은 한도). 빈칸·0 은 계산하지 않고 알린다 — 계산식은 그대로다
+    const bad = wonInputError('시급', wage, { required: true });
+    if (bad) return { error: bad };
     try {
       return { r: calcWeeklyHoliday({ hourlyWage: num(wage), weeklyHours: num(weekly), fullAttendance: attended, fullTimeDays: num(days) }) };
     } catch (e) {
