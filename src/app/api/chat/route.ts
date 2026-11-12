@@ -145,17 +145,20 @@ export async function POST(req: NextRequest) {
     // Vertex 자격증명 확인. 단, Vertex 가 죽어도 Anthropic 폴백이 있으면 계속 진행한다.
     // (2026-08-18: 이 게이트가 streamRound 앞에 있어서, 폴백을 붙여도 Vertex 설정 오류
     //  단계에서 503 으로 끊겨 폴백까지 도달하지 못하는 문제가 로컬 검증에서 드러남)
+    // 261112 — 둘 다 없어도 503 으로 끊지 않는다. /ai 의 주 기능은 자료 목록이고 요약은 덧붙는
+    // 참고용이라, 목록을 보낸 뒤 요약 자리에만 준비 안 됨을 알린다. 킬 스위치·봇 검증·사용 한도는
+    // 위에서 이미 걸렀다(아래 임베딩 1회가 유료다).
+    let summaryReady = true;
     try {
       getVertexClient();
     } catch (err) {
       if (!isAnthropicConfigured()) {
-        return respond(JSON.stringify({ error: '자료 요약 기능이 준비되지 않았습니다.' }), {
-          status: 503,
+        summaryReady = false;
+      } else {
+        console.warn('[chat] Vertex 클라이언트 생성 실패 — Anthropic 폴백으로 진행', {
+          msg: (err as Error)?.message?.slice(0, 200),
         });
       }
-      console.warn('[chat] Vertex 클라이언트 생성 실패 — Anthropic 폴백으로 진행', {
-        msg: (err as Error)?.message?.slice(0, 200),
-      });
     }
 
     // 구간별 소요시간을 남긴다.
@@ -335,6 +338,13 @@ export async function POST(req: NextRequest) {
       async start(controller) {
         try {
         controller.enqueue(encoder.encode(`data: ${JSON.stringify({ evidence, sources })}\n\n`));
+        if (!summaryReady) {
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ error: '자료 요약 기능이 준비되지 않았습니다.' })}\n\n`));
+          controller.enqueue(encoder.encode('data: [DONE]\n\n'));
+          controller.close();
+          observation.finish({ stage: 'generation', outcome: sources.length > 0 ? 'partial_failure' : 'failure', error_code: 'not_configured', result_count: 0 });
+          return;
+        }
         const lastRoundInfo: RoundInfo = { provider: 'unknown', vertexFailMs: 0 };
         let assembledAnswer = '';
         let streamFailed = false;

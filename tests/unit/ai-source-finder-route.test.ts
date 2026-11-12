@@ -4,6 +4,7 @@ import { NextRequest } from 'next/server';
 const m = vi.hoisted(() => ({
   finish: vi.fn(), round: vi.fn(), faq: vi.fn(), laws: vi.fn(), nlrc: vi.fn(), court: vi.fn(), interp: vi.fn(), blog: vi.fn(),
   getSituation: vi.fn(), extractDelta: vi.fn(), upsertSituation: vi.fn(),
+  vertex: vi.fn(), anthropicOk: vi.fn(),
 }));
 vi.mock('@/lib/observations/service-completion', () => ({ startServiceObservation: () => ({ finish: m.finish }) }));
 vi.mock('@/lib/supabase', () => ({ supabase: {} }));
@@ -15,8 +16,8 @@ vi.mock('@/lib/kill-switch', () => ({ getChatKillSwitch: async () => ({ disabled
 vi.mock('@/lib/turnstile', () => ({ isTurnstileEnabled: () => false, verifyTurnstile: vi.fn() }));
 vi.mock('@/lib/chat/tools/execute', () => ({ executeTool: async () => ({}) }));
 vi.mock('@/lib/chat/stream-round', () => ({ streamRound: m.round }));
-vi.mock('@/lib/chat/anthropic-fallback', () => ({ isAnthropicConfigured: () => false }));
-vi.mock('@/lib/vertex/client', () => ({ getVertexClient: () => ({}) }));
+vi.mock('@/lib/chat/anthropic-fallback', () => ({ isAnthropicConfigured: () => m.anthropicOk() }));
+vi.mock('@/lib/vertex/client', () => ({ getVertexClient: () => m.vertex() }));
 vi.mock('@/lib/chat/context/faq', () => ({ buildFaqContext: m.faq }));
 vi.mock('@/lib/chat/context/news', () => ({ buildNewsContext: async () => 'PRIVATE_NEWS_CONTEXT' }));
 vi.mock('@/lib/chat/context/cases', () => ({ buildNlrcCasesContext: m.nlrc, buildCourtCasesContext: m.court }));
@@ -37,6 +38,8 @@ beforeEach(() => {
   vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, json: async () => ({ data: [{ embedding: [0] }] }) })));
   vi.spyOn(console, 'log').mockImplementation(() => {});
   vi.spyOn(console, 'warn').mockImplementation(() => {});
+  m.vertex.mockImplementation(() => ({}));
+  m.anthropicOk.mockImplementation(() => false);
   m.faq.mockResolvedValue({ context: 'FAQ_CTX', topIds: [123], matched: true, count: 1, categories: [], failed: false,
     selectedFaqs: [{ id: 123, unified_category: '연차유급휴가', question: '연차는 언제 생기나요?', answer: '15일' }] });
   m.laws.mockResolvedValue({ ...empty, ctx: 'LAW_CTX', rows: 1, status: 'ok',
@@ -90,6 +93,23 @@ it('요약을 못 만들면 찾은 자료를 보라고 안내하고 채팅 문�
   const text = await (await post('해고예고는 며칠 전에 해야 하나요?')).text();
   expect(text).toContain('요약을 만들지 못했습니다');
   expect(text).not.toContain('채팅으로 문의');
+});
+
+it('요약 모델이 준비되지 않아도 찾은 자료는 보내고, 요약 자리에 준비 안 됨을 알린 뒤 끝낸다', async () => {
+  m.vertex.mockImplementation(() => { throw new Error('no credentials'); });
+  const res = await post('연차휴가는 언제 생기나요?');
+  expect(res.status).toBe(200);
+  const text = await res.text();
+  const out = frames(text);
+  const src = out.find(f => Array.isArray(f.sources));
+  expect((src?.sources as Array<{ type: string }>).map(s => s.type)).toEqual(['LAW', 'FAQ', 'CASE', 'BLOG']);
+  const errIdx = out.findIndex(f => typeof f.error === 'string');
+  expect(out[errIdx].error).toContain('요약 기능이 준비되지 않았습니다');
+  expect(out.indexOf(src!)).toBeLessThan(errIdx);
+  expect(m.round).not.toHaveBeenCalled();
+  expect(text).toContain('[DONE]');
+  expect(m.finish).toHaveBeenCalledTimes(1);
+  expect(m.finish).toHaveBeenCalledWith(expect.objectContaining({ error_code: 'not_configured' }));
 });
 
 it('시스템 프롬프트는 자료 정리 역할이고 상담·자문·노란봉투법 범위를 말하지 않는다', () => {
