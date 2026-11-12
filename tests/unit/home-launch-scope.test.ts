@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
@@ -14,20 +15,19 @@ const articles = Array.from({ length: 4 }, (_, index) => ({
   published_at: `2026-09-${20 - index}T23:30:00-09:00`,
 }));
 
-const faqItems = [
-  { question: 'Existing FAQ question', answer: 'Existing FAQ answer, without edits.' },
-] as const;
-
 function renderHome(latestBlogArticles = articles) {
   return renderToStaticMarkup(createElement(HomeClient, {
     totalCases: 1234,
     totalAdmin: 567,
     totalNews: 987654,
     latestBlogArticles,
-    faqItems,
     topicPicksSlot: createElement('div', { 'data-topic-picks': 'preserved' }, 'Existing topic picks'),
   }));
 }
+
+// #190(261112) — 「AI에 연결해서 쓰기」 지면이 홈 전면에 올라왔다. 링크는 /ai-tools 의 절과 SafeClaw 연결 화면뿐이다.
+const AI_LINKS = ['/ai-tools', '/ai-tools#list', '/ai-tools#calc', '/ai-tools#checks', '/ai-tools#work-rules',
+  '/ai-tools#sanjae-apply', '/ai-tools#safeclaw', 'https://www.safeclaw.kr/settings/ai-connect'];
 
 describe('Home launch scope', () => {
   it('promotes the approved four sections with an explicit law review status', () => {
@@ -36,7 +36,8 @@ describe('Home launch scope', () => {
     // #141(261103) — 첫 화면에 「상황별 계산·점검 도구」 지면을 올렸다: 도구 전체 보기, 묶음 이름 → /tools#묶음, 묶음별 대표 도구 바로가기.
     // 그 링크는 도구 묶음 등록부(tools-groups.ts)에서만 온다. 그 밖의 링크가 새로 올라오면 여전히 실패한다
     const toolLinks = ['/tools', ...TOOL_GROUPS.flatMap(g => [`/tools#${g.id}`, ...HOME_PICKS[g.id].map(p => p.href)])];
-    expect(new Set(hrefs.filter(href => !href.startsWith('/blog/')))).toEqual(new Set(['/blog', '/laws', '/tools/work-rules', '/decisions', '/contact', ...toolLinks]));
+    // 261112 — 노란봉투법 FAQ 섹션을 빼면서 그 아래 /contact 버튼도 빠졌다(문의는 상단 메뉴·푸터에 있다).
+    expect(new Set(hrefs.filter(href => !href.startsWith('/blog/')))).toEqual(new Set(['/blog', '/laws', '/tools/work-rules', '/decisions', ...AI_LINKS, ...toolLinks]));
     expect(html).toContain('상황별 계산·점검 도구');
     for (const label of ['글', '법령 개정', '취업규칙 점검', '판례·행정해석']) expect(html).toContain(label);
     expect(html).toContain('법령 검수 전 자료입니다.');
@@ -89,18 +90,24 @@ describe('Home launch scope', () => {
   // (PR 체크 둘은 Vercel 빌드다). 그래서 단정을 지우는 대신 **뒤집었다** —
   // 실측으로 홈 하단 폼이 구독 유입 1위다(17명 중 10명, source='home-bottom').
   // 폼이 사라지면 가장 큰 유입구가 닫히는 것이므로, 없어지는 쪽을 실패로 잡는다.
-  it('retains FAQ text, secondary contact, and the newsletter form that drives signups', () => {
+  it('keeps the newsletter form that drives signups', () => {
     const html = renderHome();
-    const contactLink = html.match(/<a\b[^>]*href="\/contact"[^>]*>/)?.[0] ?? '';
 
-    expect(html).toContain(faqItems[0].question);
-    expect(html).toContain(faqItems[0].answer);
     expect(html).toContain('type="email"');
     expect(html).toContain('aria-label="이메일 주소"');
     expect(html).toContain('type="checkbox"');   // 수신 동의 — 없으면 동의 없이 받는 셈이 된다
     expect(html).toContain('구독하기');
-    expect(contactLink).toContain('border-[var(--color-border)]');
-    expect(contactLink).not.toContain('bg-[var(--color-accent-ink)]');
-    expect(html.match(/href="\/contact"/g)).toHaveLength(1);
+  });
+
+  // 261112 — 홈은 노란봉투법 사이트로 보이지 않는다. 노란봉투법 페이지 자체는 /guide 등에 그대로 있다.
+  it('does not present the home as a 노란봉투법 site', () => {
+    const html = renderHome();
+    const page = readFileSync('src/app/page.tsx', 'utf8');
+
+    expect(html).not.toContain('노란봉투법');
+    expect(html).not.toContain('자주 묻는 질문');
+    expect(page).not.toContain("'@type': 'FAQPage'");
+    expect(page).not.toContain('homeFaqItems');
+    expect(page).not.toContain('개정 노동조합법(노란봉투법)'); // JSON-LD about
   });
 });

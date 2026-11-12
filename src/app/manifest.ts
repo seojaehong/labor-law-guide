@@ -1,10 +1,13 @@
 import type { MetadataRoute } from 'next';
+import { BRAND_DESCRIPTION, BRAND_NAME } from '@/lib/constants';
 
+// 261112 — 종전 이름은 「노란봉투법 완벽 가이드」였다. 홈 화면에 추가하면 앱 이름으로 그대로 보인다.
+// 이름·설명은 브랜드 상수 한 곳에서 온다.
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: '노란봉투법 완벽 가이드',
-    short_name: '노란봉투법',
-    description: '2026년 3월 시행 개정 노동조합법(노란봉투법) 해석지침, 교섭절차 매뉴얼, 점검 체크리스트, AI 질의응답.',
+    name: BRAND_NAME,
+    short_name: BRAND_NAME,
+    description: BRAND_DESCRIPTION,
     theme_color: '#1d4ed8',
     background_color: '#ffffff',
     display: 'standalone',

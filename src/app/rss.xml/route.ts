@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { byline } from '@/lib/byline';
-import { SITE_URL } from '@/lib/constants';
+import { BRAND_NAME, SITE_URL } from '@/lib/constants';
 import { supabaseServer } from '@/lib/supabase-server';
 
 /**
@@ -70,9 +70,9 @@ export async function GET() {
   const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
   <channel>
-    <title>노란봉투법 가이드 — 노동 딥다이브</title>
+    <title>${BRAND_NAME} — 노동법 글·해설</title>
     <link>${SITE_URL}/blog</link>
-    <description>노동법·판례·행정해석을 공인노무사가 검수해 매일 정리합니다. 노란봉투법(개정 노동조합법) 해석지침, 판례분석, 실무가이드.</description>
+    <description>노동법 해설, 판례분석, 뉴스해설, 실무가이드 글을 모았습니다.</description>
     <language>ko</language>
     <lastBuildDate>${lastBuild}</lastBuildDate>
     <atom:link href="${SITE_URL}/rss.xml" rel="self" type="application/rss+xml" />

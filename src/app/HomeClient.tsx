@@ -16,17 +16,11 @@ interface LatestBlogArticle {
   published_at: string;
 }
 
-interface HomeFaqItem {
-  question: string;
-  answer: string;
-}
-
 type HomeClientProps = {
   totalCases: number;
   totalAdmin: number;
   totalNews: number;
   latestBlogArticles: LatestBlogArticle[];
-  faqItems: readonly HomeFaqItem[];
   topicPicksSlot?: React.ReactNode;
 };
 
@@ -40,7 +34,7 @@ function BlogCategoryBadge({ category }: { category: string }) {
   return <span className="editorial-category">{category === 'general' ? '일반' : category}</span>;
 }
 
-export default function HomeClient({ totalCases, totalAdmin, latestBlogArticles, faqItems, topicPicksSlot }: HomeClientProps) {
+export default function HomeClient({ totalCases, totalAdmin, latestBlogArticles, topicPicksSlot }: HomeClientProps) {
   const sections = [
     { title: '글', description: '노동과 일터의 쟁점을 다룬 글을 읽습니다.', href: '/blog' },
     { title: '법령 개정', description: '시행일, 개정 내용과 관련 조문을 확인합니다. 법령 검수 전 자료입니다.', href: '/laws' },
@@ -168,50 +162,14 @@ export default function HomeClient({ totalCases, totalAdmin, latestBlogArticles,
         </div>
       </section>
 
-      <section className="px-5 pb-16 sm:pb-20">
-        <div className="mx-auto max-w-[var(--layout-list-max)] rounded-xl border p-5 sm:p-8 md:p-10" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)', boxShadow: 'var(--shadow-sm)' }}>
-          <div className="max-w-[var(--layout-intro-max)]">
-            <p className="text-sm font-medium" style={{ color: 'var(--color-accent)' }}>자주 묻는 질문</p>
-            <h2 className="t-h3 mt-2 tracking-tight" style={{ color: 'var(--color-text-primary)' }}>
-              노란봉투법, 원청 사용자성, 하청 교섭요구 대응에서 많이 묻는 핵심 질문
-            </h2>
-            <p className="mt-3 text-sm leading-6" style={{ color: 'var(--color-text-secondary)' }}>
-              노란봉투법과 교섭 절차에 관한 질문입니다. 관련 판례와 행정해석도 함께 살펴보세요.
-            </p>
-          </div>
-          <div className="mt-6 sm:mt-8 grid gap-4 md:grid-cols-2">
-            {faqItems.map((item) => (
-              <div
-                key={item.question}
-                className="rounded-xl border p-4 sm:p-5"
-                style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-surface)' }}
-              >
-                <h3 className="text-[15px] font-bold leading-6" style={{ color: 'var(--color-text-primary)' }}>{item.question}</h3>
-                <p className="mt-2 text-sm leading-6" style={{ color: 'var(--color-text-secondary)' }}>{item.answer}</p>
-              </div>
-            ))}
-          </div>
-          <div className="mt-6 sm:mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-            <Link
-              href="/decisions"
-              className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-md px-5 py-2.5 text-[15px] font-semibold transition-[background-color,transform] hover:-translate-y-px bg-[var(--color-accent-ink)] text-[var(--color-on-accent-ink)] hover:bg-[var(--color-accent-ink-hover)]"
-            >
-              판례·행정해석 찾아보기 <ArrowRight size={16} />
-            </Link>
-            <Link
-              href="/contact"
-              className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-md px-5 py-2.5 text-[15px] font-semibold transition-[background-color,transform] hover:-translate-y-px border border-[var(--color-border)] bg-[var(--color-bg-surface)] text-[var(--color-text-primary)] hover:bg-[var(--grey-100)]"
-            >
-              서비스 문의 <ArrowRight size={16} />
-            </Link>
-          </div>
-        </div>
-      </section>
+      {/* 261112 — 이 자리에 있던 「자주 묻는 질문」(노란봉투법 문답 7개)과 그 아래 「판례·행정해석 찾아보기」·
+          「서비스 문의」 버튼을 뺐다. 노란봉투법 사이트로 보이게 하던 마지막 큰 덩어리였다.
+          두 버튼의 행선지는 위 「메뉴 안내」와 상단 메뉴·푸터에 그대로 있다. */}
 
       {/* 🔴 2026-10-16 복구. 홈 구독 상자가 **2026-10-04 개편(67dca86) 때 빠져 있었다.**
           유입 경로를 세어 보니 구독자 16명 중 home-bottom 이 9명(56%) 으로 가장 큰 입구였는데,
           10-04 이후 home-bottom 가입이 0명이다. 2주 가까이 닫혀 있었다.
-          자리는 FAQ 다음 — 글을 읽고 내려온 사람에게 묻는 것이 자연스럽고,
+          자리는 「메뉴 안내」 다음(종전 FAQ 자리) — 글을 읽고 내려온 사람에게 묻는 것이 자연스럽고,
           source="home-bottom" 이 그 이름 그대로 「홈 맨 아래」를 뜻한다. */}
       <section className="px-5 pb-16 sm:pb-20" aria-label="뉴스레터 구독">
         <div className="mx-auto max-w-[var(--layout-list-max)]">
