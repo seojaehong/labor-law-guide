@@ -76,6 +76,8 @@ export default function DailyWorkerTaxClient() {
             <label className="flex items-center gap-2"><input type="radio" name="eligible" checked={eligible === 'yes'} onChange={() => setEligible('yes')} /> {ELIGIBILITY_YES}</label>
             <label className="flex items-center gap-2"><input type="radio" name="eligible" checked={eligible === 'no'} onChange={() => setEligible('no')} /> {ELIGIBILITY_NO}</label>
           </div>
+          {/* 결과 자리(입력칸 아래)의 「먼저 … 골라 주세요」는 화면 밖이라 못 본다 — 질문 바로 아래에도 알린다(261112) */}
+          {!eligible && <p role="status" className="mt-3 font-semibold" style={{ color: 'var(--color-warn-ink)' }}>이 질문에 먼저 답해야 계산 결과가 나옵니다.</p>}
         </fieldset>
       </section>
 
