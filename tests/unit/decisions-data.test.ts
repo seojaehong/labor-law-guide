@@ -134,6 +134,10 @@ describe('shared decision row source contract', () => {
     expect(page2.rows).toHaveLength(30);
     query(Array.from({ length: 30 }, (_, i) => row(i)));
     expect((await getRecent(3)).hasMore).toBe(false);
+    // 주소창에 큰 쪽 번호를 넣어도 DB 범위(정수 상한)를 넘기지 않고 빈 쪽으로 답한다
+    const far = query([row(1)]);
+    expect(await getRecent(100_000_000)).toEqual({ rows: [], hasMore: false });
+    expect(far.range).not.toHaveBeenCalled();
   });
 
   it('renders ?page=2 of the hub as the next 30 recent cases with prev/next links and noindex', async () => {

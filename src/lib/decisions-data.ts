@@ -75,6 +75,8 @@ export const RECENT_PAGE_SIZE = 30;
  */
 export async function getRecent(page = 1): Promise<{ rows: Recent[]; hasMore: boolean }> {
   const offset = (page - 1) * RECENT_PAGE_SIZE;
+  // 쪽 번호 검사(decisions-query)는 20건 기준이라 30건 쪽에서는 정수 상한을 넘을 수 있다 — 그런 쪽은 비어 있다
+  if (offset + RECENT_PAGE_SIZE > 2147483647) return { rows: [], hasMore: false };
   const { data, error } = await supabase
     .from("nlrc_decisions")
     // 2026-09-02 복구로 실제 번호가 들어왔다. 마스킹된 case_number 만 보면 72%가 빈칸이 된다.
