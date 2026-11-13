@@ -46,17 +46,19 @@ export const TOOLS = [
     type: 'function' as const,
     function: {
       name: 'calc_overtime',
-      description: '연장·야간·휴일근로 가산수당 계산.',
+      description: '연장·야간·휴일근로 가산수당 계산. 통상시급(끝수 그대로) 또는 월 통상임금 중 하나를 준다. 원 미만은 수당마다 올린다.',
       parameters: {
         type: 'object',
         properties: {
-          ordinary_hourly: { type: 'integer', description: '통상시급 (원)' },
+          ordinary_hourly: { type: 'number', description: '통상시급 (원, 끝수 그대로 — calc_ordinary_wage 의 ordinary_hourly 를 반올림하지 말고 넘긴다)' },
+          monthly_fixed_pay: { type: 'integer', description: '월 통상임금 (원). 주면 통상시급 대신 이것으로 계산한다' },
+          monthly_hours: { type: 'integer', description: '월 소정근로시간 (기본 209). monthly_fixed_pay 와 함께 쓴다' },
           overtime_hours: { type: 'number', description: '연장근로 시간' },
           night_hours: { type: 'number', description: '야간근로 시간 (22:00~06:00)' },
           holiday_hours_within_8: { type: 'number', description: '휴일 8h 이내' },
           holiday_hours_over_8: { type: 'number', description: '휴일 8h 초과' },
         },
-        required: ['ordinary_hourly'],
+        required: [],
       },
     },
   },

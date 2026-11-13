@@ -8,6 +8,7 @@ import { checkMinWage as minWageEngine } from './calc/min-wage';
 import { rateOn } from '@/content/rates';
 import { todayKst } from './tool-kit';
 import { severanceLeavePay } from './chat/severance-link';
+import { dailyOrdinaryWage, dec2, hourlyOrdinaryWage, payableWon } from './calc/wage-rounding';
 
 // ────────────── 1. 최저임금 ──────────────
 // 정본 = src/lib/calc/min-wage.ts(시행령 §5① 환산) + src/content/rates.ts(고시 금액). /tools/min-wage 와 같은 답을 낸다.
@@ -48,31 +49,46 @@ export function calcOrdinaryWage(input: {
 }) {
   const monthly_hours = input.monthly_hours || DEFAULT_MONTHLY_HOURS;
   const ordinary_monthly = input.monthly_fixed_pay;
-  const ordinary_hourly = monthly_hours > 0 ? Math.floor(ordinary_monthly / monthly_hours) : 0;
-  const ordinary_daily = ordinary_hourly * 8;
+  // 261113 — 끝수 규칙(src/lib/calc/wage-rounding.ts): 시간급·1일 통상임금은 버리지 않고 끝수 그대로 둔다.
+  // 예전에는 시급을 원 단위로 버려(14,354원) 수당이 정확값보다 적게 나왔다.
+  const ordinary_hourly = monthly_hours > 0 ? hourlyOrdinaryWage(ordinary_monthly, monthly_hours) : 0;
+  const ordinary_daily = monthly_hours > 0 ? dailyOrdinaryWage(ordinary_monthly, 8, monthly_hours) : 0;
   return {
     ordinary_monthly,
     ordinary_hourly,
     ordinary_daily,
+    ordinary_hourly_text: dec2(ordinary_hourly),
+    ordinary_daily_text: dec2(ordinary_daily),
+    rounding: '시간급·1일 통상임금은 끝수를 버리지 않는다. 수당은 마지막 금액에서 원 미만을 올린다. calc_overtime 에는 ordinary_hourly 를 끝수 그대로 넘기거나 monthly_fixed_pay 를 넘긴다.',
     legal_basis:
       '근로기준법 시행령 제6조 / 통상임금 = 정기·일률·고정 임금 / 월 소정근로시간(209h, 주40h+주휴) / ' +
-      '2024.12.19 대법원 전원합의체 판결(2020다247190)로 "고정성" 요건 폐기, 정기성·일률성만 충족하면 인정.',
+      '2024.12.19 대법원 전원합의체 판결(2020다247190)로 "고정성" 요건 폐기, 정기성·일률성만 충족하면 인정. / ' +
+      '끝수: 법령에 통상임금 끝수 규정 없음(임금복지과-183) — 원 미만 올림은 퇴직연금복지과-777 취지에 맞춘 사이트 규칙.',
   };
 }
 
 // ────────────── 3. 연장·야간·휴일수당 ──────────────
 export function calcOvertime(input: {
-  ordinary_hourly: number;
+  ordinary_hourly?: number; // 통상시급 — 끝수 그대로(calc_ordinary_wage 의 ordinary_hourly)
+  monthly_fixed_pay?: number; // 또는 월 통상임금 — 주면 곱셈을 먼저 하고 나눗셈은 한 번만 한다
+  monthly_hours?: number; // 월 통상근로시간 (기본 209)
   overtime_hours?: number; // 연장근로 시간
   night_hours?: number; // 야간근로 시간 (22:00~06:00)
   holiday_hours_within_8?: number; // 휴일 8시간 이내
   holiday_hours_over_8?: number; // 휴일 8시간 초과
 }) {
-  const h = input.ordinary_hourly;
-  const overtime_pay = Math.floor(h * 1.5 * (input.overtime_hours || 0));
-  const night_pay = Math.floor(h * 0.5 * (input.night_hours || 0)); // 가산 0.5
-  const holiday_pay_normal = Math.floor(h * 1.5 * (input.holiday_hours_within_8 || 0));
-  const holiday_pay_extra = Math.floor(h * 2.0 * (input.holiday_hours_over_8 || 0));
+  // 261113 — 끝수 규칙(src/lib/calc/wage-rounding.ts): 원 미만은 수당마다 마지막 금액에서 한 번 올린다.
+  const monthly = input.monthly_fixed_pay;
+  const hours = input.monthly_hours || DEFAULT_MONTHLY_HOURS;
+  if (!(monthly && monthly > 0) && !(input.ordinary_hourly && input.ordinary_hourly > 0)) {
+    throw new Error('통상시급(ordinary_hourly) 또는 월 통상임금(monthly_fixed_pay)이 필요합니다.');
+  }
+  const pay = (rate: number, h: number | undefined) =>
+    payableWon(monthly && monthly > 0 ? (monthly * rate * (h || 0)) / hours : (input.ordinary_hourly as number) * rate * (h || 0));
+  const overtime_pay = pay(1.5, input.overtime_hours);
+  const night_pay = pay(0.5, input.night_hours); // 가산 0.5
+  const holiday_pay_normal = pay(1.5, input.holiday_hours_within_8);
+  const holiday_pay_extra = pay(2.0, input.holiday_hours_over_8);
   const total = overtime_pay + night_pay + holiday_pay_normal + holiday_pay_extra;
   return {
     overtime_pay,
