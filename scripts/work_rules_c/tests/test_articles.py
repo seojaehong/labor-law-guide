@@ -15,7 +15,7 @@ def test_supplementary_does_not_override_body():
 
 
 def test_duplicate_number_keeps_both():
-    """번호가 두 번 나오면 뒤 조문이 앞 조문을 덮어쓰지 않는다(2026-10-22 강동 제55조)."""
+    """번호가 두 번 나오면 뒤 조문이 앞 조문을 덮어쓰지 않는다(2026-10-22 고객사 A 제55조)."""
     t = "제55조(예방교육) 연 1회 교육한다.\n제55조(예방·대응조직) 담당자를 둔다.\n제56조(접수) 신고한다."
     arts = split_articles(t)
     assert [a.no for a in arts] == ["제55조", "제55조(번호 중복)", "제56조"]
@@ -23,7 +23,7 @@ def test_duplicate_number_keeps_both():
 
 
 def test_same_title_repeat_is_not_duplicate():
-    """목차 항목에 군더더기 줄이 붙어도, 제목이 같은 본문 조문은 번호 중복이 아니다(2026-10-22 드리븐 종전 제32조)."""
+    """목차 항목에 군더더기 줄이 붙어도, 제목이 같은 본문 조문은 번호 중복이 아니다(2026-10-22 고객사 B 종전 제32조)."""
     t = "제32조(대기발령)\n(인사)\n제32조(대기발령) ① 대기발령할 수 있다."
     arts = split_articles(t)
     assert [(a.no, a.body) for a in arts] == [("제32조", "① 대기발령할 수 있다.")]
