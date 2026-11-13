@@ -43,8 +43,8 @@ const SEVERANCE_SEARCH = [
 it.each(['false', 'true'])('연차 질문(JEV_ON=%s) — 공무원·군인 연금법과 공무원 재해보상법을 버리고 근로기준법 제60조가 상위 3건에 든다', async (jev) => {
   vi.stubEnv('JEV_ON', jev);
   const laws = await buildLawsContext(rpc(LEAVE_SEARCH), '연차휴가는 언제 생기나요?');
-  // 순위 자체는 기존 어휘 점수 그대로다 — 허용 목록 안에서 제60조를 1위로 올리는 처리는 하지 않았다
-  expect(laws.items?.map(i => i.id)).toEqual(['산업재해보상보험법 제5조', '근로기준법 제56조', '근로기준법 제60조']);
+  // 261113 — 최종 3건은 조문 제목이 질문 낱말과 많이 겹치는 순으로 다시 세운다. 제60조(연차 유급휴가)가 1위
+  expect(laws.items?.map(i => i.id)).toEqual(['근로기준법 제60조', '산업재해보상보험법 제5조', '근로기준법 제56조']);
   // 요약 프롬프트에 들어가는 조문 후보에도 같은 필터가 걸린다
   expect(laws.ctx).not.toMatch(/공무원|군인연금/);
   expect(laws.ctx).toContain('[근로기준법 제60조 (연차 유급휴가)]');
@@ -67,7 +67,7 @@ it('질문에 법령 이름이 적혀 있으면 허용 목록 밖이어도 그 �
   expect(laws.items?.map(i => i.id)).toEqual(['공무원연금법 제25조']);
 });
 
-it('허용 목록은 띄어쓰기·가운뎃점 표기 차이를 가리지 않고, 근로기준법만 시행령·시행규칙을 함께 허용한다', async () => {
+it('허용 목록은 띄어쓰기·가운뎃점 표기 차이를 가리지 않고, 노동 법령의 시행령·시행규칙을 함께 허용한다', async () => {
   vi.stubEnv('JEV_ON', 'false');
   const laws = await buildLawsContext(rpc([
     row('남녀고용평등과 일ㆍ가정 양립 지원에 관한 법률', '제19조', '육아휴직'),
@@ -75,7 +75,8 @@ it('허용 목록은 띄어쓰기·가운뎃점 표기 차이를 가리지 않�
     row('고용보험법 시행령', '제95조', '육아휴직 급여'),
     row('공인노무사법', '제2조', '직무의 범위'),
   ]), '육아휴직은 어떻게 하나요?');
-  expect(laws.items?.map(i => i.id)).toEqual(['남녀고용평등과 일ㆍ가정 양립 지원에 관한 법률 제19조', '근로기준법 시행규칙 제15조']);
+  // 제목이 질문과 겹치는 고용보험법 시행령 제95조(육아휴직 급여)가 제목 없는 근기법 시행규칙보다 앞선다
+  expect(laws.items?.map(i => i.id)).toEqual(['남녀고용평등과 일ㆍ가정 양립 지원에 관한 법률 제19조', '고용보험법 시행령 제95조', '근로기준법 시행규칙 제15조']);
 });
 
 it('질문 속 다른 법령명의 일부(「재해보상법」 안의 「상법」)는 법령 이름을 적은 것으로 보지 않는다', async () => {
@@ -96,4 +97,32 @@ it('후보가 전부 허용 목록 밖이면 조문 없이 0건으로 돌려준�
   const laws = await buildLawsContext(rpc([row('공무원연금법', '제89조', '효력발생기간')]), '연차휴가는 언제 생기나요?');
   expect(laws).toMatchObject({ ctx: '', rows: 0, status: '0rows' });
   expect(laws.items ?? []).toEqual([]);
+});
+
+it('「연차휴가」 질문은 검색어에 법령 용어 「연차 유급휴가」를 보태 넘긴다', async () => {
+  vi.stubEnv('JEV_ON', 'false');
+  const db = rpc([row('근로기준법', '제60조', '연차 유급휴가')]);
+  await buildLawsContext(db, '연차휴가는 언제 생기나요?');
+  const arg = (db.rpc as unknown as ReturnType<typeof vi.fn>).mock.calls[0][1] as { query_text: string };
+  expect(arg.query_text).toMatch(/유급휴가/);
+});
+
+it('최저임금법·퇴직급여법 시행령도 허용한다(노동 법령 시행령 전체)', async () => {
+  vi.stubEnv('JEV_ON', 'false');
+  const laws = await buildLawsContext(rpc([
+    row('최저임금법 시행령', '제5조', '최저임금의 적용을 위한 임금의 환산'),
+    row('근로자퇴직급여 보장법 시행령', '제3조', '퇴직금의 중간정산 사유'),
+    row('국민연금법 시행령', '제2조', '정의'),
+  ]), '최저임금 환산은 어떻게 하나요?');
+  expect(laws.items?.map(i => i.id)).toEqual(['최저임금법 시행령 제5조', '근로자퇴직급여 보장법 시행령 제3조']);
+});
+
+it('제목 겹침이 같으면 제목이 짧은(질문에 더 꼭 맞는) 조문이 앞선다 — 제60조가 제61조(사용 촉진)보다 먼저', async () => {
+  vi.stubEnv('JEV_ON', 'false');
+  const laws = await buildLawsContext(rpc([
+    row('근로기준법', '제61조', '연차 유급휴가의 사용 촉진'),
+    row('근로기준법', '제2조', '정의'),
+    row('근로기준법', '제60조', '연차 유급휴가'),
+  ]), '연차휴가 며칠인가요?');
+  expect(laws.items?.map(i => i.id)).toEqual(['근로기준법 제60조', '근로기준법 제61조', '근로기준법 제2조']);
 });

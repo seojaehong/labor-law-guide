@@ -1,8 +1,7 @@
 // 통상임금 끝수 규칙 — 시간급·1일 통상임금으로 수당을 내는 사이트 계산기는 모두 이 파일을 쓴다(261112 재홍님 결정 「추천안대로」).
 //   해고예고수당(notice-pay) · 연차수당(leave-pay, leave-allowance, /exit 추정) · 휴업수당(shutdown-allowance) · 공휴일 수당(holiday-pay)
-//   · 주휴수당(weekly-holiday)
-//   아직 따르지 않는 곳: 챗봇 도구 calc_ordinary_wage·calc_overtime(src/lib/labor-calc.ts — 통상시급을 원 단위로 버린다.
-//   도구 정의가 통상시급을 정수로 받게 되어 있어 챗봇 쪽과 함께 고친다).
+//   · 주휴수당(weekly-holiday) · 챗봇 도구 calc_ordinary_wage·calc_overtime(src/lib/labor-calc.ts, 261113 — 통상시급을
+//   끝수 그대로 넘기고, 월 통상임금을 받으면 곱셈 먼저 한다)
 //
 // 규칙
 //   1. 시간급·1일 통상임금은 끝수를 버리거나 반올림하지 않는다. 곱셈을 먼저 하고 나눗셈은 한 번만 한다

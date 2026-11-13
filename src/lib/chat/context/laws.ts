@@ -103,8 +103,9 @@ function lawHint(text: string): string | null {
  * 걸렸다. 예전에는 모델이 프롬프트 안에서 걸렀지만 /ai 가 이 목록을 화면에 그대로 보여 주므로
  * 검색 단계에서 버린다. 화면 목록과 요약 프롬프트는 같은 행을 쓰므로 둘 다 걸린다.
  *
- * 시행령·시행규칙은 근로기준법만 함께 허용한다(261113 지시 문구 그대로). 다른 법의 시행령까지
- * 넣으려면 DECREES_TOO 에 법령명을 더한다. 질문에 법령 이름이 적혀 있으면 목록 밖이어도 그 법은 남긴다.
+ * 시행령·시행규칙은 처음에 근로기준법만 허용했다가, 261113 후속(재홍님 「고」)으로 아래 노동 법령 전부의
+ * 시행령·시행규칙을 함께 허용한다(최저임금 환산 = 최저임금법 시행령 §5, 육아휴직 급여 = 고용보험법 시행령 등).
+ * 질문에 법령 이름이 적혀 있으면 목록 밖이어도 그 법은 남긴다.
  * 공인노무사법은 이름이 적혀 있어도 넣지 않는다.
  */
 const LABOR_LAWS = [
@@ -127,7 +128,7 @@ const LABOR_LAWS = [
   '장애인고용촉진 및 직업재활법',
   '직업안정법',
 ];
-const DECREES_TOO = ['근로기준법'];
+const DECREES_TOO = LABOR_LAWS;
 const NEVER = '공인노무사법';
 
 /** 띄어쓰기와 가운뎃점(·ㆍ・) 표기 차이를 지운다. 법제처 표기는 「일ㆍ가정」이다. */
@@ -172,6 +173,9 @@ export function isAllowedLaw(lawName: string, userText: string): boolean {
  */
 const TERM_EXPAND: Array<[RegExp, string]> = [
   [/주휴수당|주휴일/, '유급휴일 휴일'],
+  // 261113 실측 — 「연차휴가 언제 생기」 만으로는 근기법 제60조가 후보 60건 밖이었다(1위 공무원연금법 효력발생기간).
+  // 법 조문 제목은 「연차 유급휴가」다. 보태면 제60조가 후보 1위로 온다.
+  [/연차/, '연차 유급휴가'],
   [/임금체불|체불/, '금품 청산 임금 지급 벌칙'],
   [/안전보건\s*조치|안전조치/, '안전조치 보건조치'],
   [/가산수당|할증/, '연장 야간 휴일 근로'],
@@ -201,6 +205,31 @@ function expandTerms(lex: string, raw: string): string {
     .split(/\s+/)
     .filter((w) => w && !seen.has(w));
   return [lex, ...new Set(extra)].join(' ');
+}
+
+/**
+ * ★ 261113 — 최종 조문(FINAL_N건)의 화면 순서를 조문 제목과 질문 낱말의 겹침으로 다시 세운다.
+ * /ai 는 이 순서를 그대로 보여 주는데, 「연차휴가는 언제 생기나요?」의 제60조(연차 유급휴가)가 3위였다.
+ * 고르는 일(어떤 3건인가)은 그대로 두고 순서만 바꾼다.
+ *   점수 = 질문 내용어의 두 글자 묶음 중 제목(띄어쓰기·가운뎃점 제거)에 든 개수.
+ *   같으면 제목이 짧을수록(겹친 비율이 높을수록) 앞 — 제60조 「연차 유급휴가」가 제61조 「…의 사용 촉진」보다 앞.
+ *   그래도 같으면 원래 순서(재선택 결과)를 지킨다.
+ */
+function orderByTitle(rows: LawRow[], userText: string): LawRow[] {
+  const grams = new Set<string>();
+  for (const t of (toLexQuery(userText) || '').split(/\s+/)) {
+    for (let i = 0; i + 1 < t.length; i++) grams.add(t.slice(i, i + 2));
+  }
+  if (grams.size === 0) return rows;
+  const scored = rows.map((r, i) => {
+    const title = normLawName(r.article_title || '').replace(/\d/g, ''); // 숫자는 길이 비교에서 뺀다
+    let hit = 0;
+    for (const g of grams) if (title.includes(g)) hit++;
+    const ratio = title.length > 1 ? hit / (title.length - 1) : 0;
+    return { r, i, hit, ratio };
+  });
+  scored.sort((a, b) => b.hit - a.hit || (a.hit > 0 ? b.ratio - a.ratio : 0) || a.i - b.i);
+  return scored.map((s) => s.r);
 }
 
 export async function buildLawsContext(
@@ -272,6 +301,7 @@ export async function buildLawsContext(
     } else {
       rows = rows.slice(0, FINAL_N);
     }
+    rows = orderByTitle(rows, userText);
 
     let ctx = `\n\n═══ 관련 법령 조문 (${rows.length}건, 법제처 원문) ═══\n`;
     for (const r of rows) {
