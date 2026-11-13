@@ -52,6 +52,14 @@ describe('AI 연결 도구 목록', () => {
   it('MCP 카드는 패키지에 매달리고 설치 명령이 그 패키지를 부른다', () => {
     for (const t of AI_TOOLS) {
       if (!t.install) continue;
+      if (t.external) {
+        // 남의 서버(safeclaw) — 우리 패키지에 매달지 않는다. 원격 주소로만 깔고 토큰 자리를 남긴다
+        expect(t.package, t.id).toBeUndefined();
+        expect(t.install.remote, t.id).toMatch(/^https:\/\//);
+        expect(t.install.claudeCode, t.id).toContain(`--transport http ${t.id} ${t.install.remote}`);
+        expect(t.install.claudeCode, t.id).toContain('Bearer <');
+        continue;
+      }
       const p = AI_PACKAGES.find((x) => x.id === t.package);
       expect(p, t.id).toBeDefined();
       expect(t.install.claudeCode, t.id).toContain(`npx -y ${p!.npm} mcp`);

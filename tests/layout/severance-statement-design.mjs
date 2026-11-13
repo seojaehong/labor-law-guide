@@ -26,7 +26,8 @@ for(const version of ['before','after']){
  }
  await page.evaluate(()=>updateToolTheme(false));await page.emulateMedia({media:'print'});await page.pdf({path:`${out}/${version}-a4.pdf`,format:'A4',printBackground:true,margin:{top:'10mm',bottom:'10mm',left:'10mm',right:'10mm'}});await context.close();
 }
-assert.deepEqual(results[0],results[1]);
-fs.writeFileSync(`${out}/design-checks.json`,JSON.stringify({baseline:'33d9d72',calculationIdentical:true,realApiCalls:0,matrix,keyboardTableScroll:true,koreanLabelsUnbroken:true,longUrlWithoutPageOverflow:true,result:results[1]},null,2));
-console.log('Statement design: identical calculation; 5 widths; keyboard table scroll; before/after PNG and A4 PDFs rendered');
+// 261113 — 예전에는 before(33d9d72)·after 계산이 똑같아야 했다. #104(퇴직금 엔진을 고용노동부 계산기와 일치)가 계속근로기간을 「햇수+잔여일/365」에서 「총일수/365」로, 평균임금을 원 미만 둘째 자리 올림으로 바꿔 의도적으로 달라졌다(26,447,885 → 26,469,328). 디자인 시험이므로 before 계산은 비교하지 않고, after 를 현재 정본 값에 고정한다: 12,000,000 ÷ 92 = 130,434.79(올림) × 30 × 2,469 ÷ 365.
+{const r=results[1];assert.equal(r.serviceDays,2469);assert.equal(r.avgWage,130434.79);assert.equal(r.severancePay,26469328);assert.equal(r.totalTax,337980);assert.equal(r.netSeverance,26131348);assert.equal(r.lastWorkDate,'2026-10-04');assert.equal(r.retireDate,'2026-10-05');}
+fs.writeFileSync(`${out}/design-checks.json`,JSON.stringify({baseline:'33d9d72',calculationPinned:{severancePay:26469328,avgWage:130434.79,serviceDays:2469},realApiCalls:0,matrix,keyboardTableScroll:true,koreanLabelsUnbroken:true,longUrlWithoutPageOverflow:true,result:results[1]},null,2));
+console.log('Statement design: calculation pinned to current engine; 5 widths; keyboard table scroll; before/after PNG and A4 PDFs rendered');
 }finally{await browser.close();}

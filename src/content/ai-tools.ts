@@ -67,6 +67,8 @@ export interface AiTool {
   name: string;
   status: 'public' | 'preparing';
   package?: AiPackage['id']; // MCP 카드만. 설치형 프로그램은 없음
+  // 우리 패키지가 아닌 남의 MCP 서버(토큰 필요). package 를 두지 않고 원격 주소로만 설치한다(261113 — safeclaw)
+  external?: true;
   summary: string;
   does: string[];
   privacy: string;
@@ -83,6 +85,7 @@ export const AI_TOOLS: AiTool[] = [
     // 설치 명령에 Bearer 자리를 남긴다. 토큰은 SafeClaw 로그인 뒤 본인이 발급한다.
     id: 'safeclaw',
     name: 'SafeClaw 안전관리 (외부)',
+    external: true,
     status: 'public',
     summary:
       '산업안전 점검·문서 작업을 AI 에이전트가 직접 하도록 SafeClaw 가 여는 MCP 서버입니다. 일의 무늬 도구가 아니라 SafeClaw(safeclaw.kr) 쪽 서버이고, 쓰려면 SafeClaw 에 로그인해 토큰을 발급받아야 합니다.',
