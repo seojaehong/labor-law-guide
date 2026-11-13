@@ -24,9 +24,9 @@
 
 ## Review Focus
 
-1. 부칙·별지의 「제1조」가 본칙 제1조를 덮어쓴다(10/21 드리븐 대조에서 실제로 났다) — 본칙만 남아야 한다. → Task 1 `test_supplementary_does_not_override_body`
+1. 부칙·별지의 「제1조」가 본칙 제1조를 덮어쓴다(10/21 고객사 B 대조에서 실제로 났다) — 본칙만 남아야 한다. → Task 1 `test_supplementary_does_not_override_body`
 2. 내용이 다른 이름 조문 안에 있다(배우자 출산휴가가 「경조사 휴가」 조 안) — 「누락」으로 보면 안 된다. → Task 3 `test_rule_found_in_differently_titled_article`
-3. 법정 기준에 맞추느라 종전의 더 유리한 수치를 깎는다(드리븐 제50조 「총 3년」→「1년 이내」) — 불이익변경 신호가 떠야 하고, 늘어난 경우(10일→20일)는 뜨면 안 된다. → Task 2 `test_drop_detected` · `test_increase_not_flagged`
+3. 법정 기준에 맞추느라 종전의 더 유리한 수치를 깎는다(고객사 B 제50조 「총 3년」→「1년 이내」) — 불이익변경 신호가 떠야 하고, 늘어난 경우(10일→20일)는 뜨면 안 된다. → Task 2 `test_drop_detected` · `test_increase_not_flagged`
 4. Haiku 호출이 실패·거부·스키마 오류를 낸다 — 그 조문은 「문제없음」이 아니라 위로 올라가야 한다. → Task 4 `test_api_error_escalates` · `test_refusal_escalates`
 5. PDF 추출 텍스트의 쪽 표시(`- 12 -`)가 조문 본문에 섞인다 — 대조에서 「변경」으로 잡히면 안 된다. → Task 1 `test_page_markers_ignored`
 
@@ -440,7 +440,7 @@ def test_bad_asof_exits_2(tmp_path):
 **Interfaces:**
 - Consumes: `comparison.json`(Task 6 형식)
 - Produces:
-  - 정답지 형식(로컬 전용 파일, 레포에 안 넣음): `{"case": "드리븐_261021", "items": [{"조문": "제50조", "불이익변경": "해당"}, {"조문": "제26조", "점검 결과": "현행 수정 필요"}, ...]}`
+  - 정답지 형식(로컬 전용 파일, 레포에 안 넣음): `{"case": "고객사B_261021", "items": [{"조문": "제50조", "불이익변경": "해당"}, {"조문": "제26조", "점검 결과": "현행 수정 필요"}, ...]}`
   - `evaluate(pred: dict, gold: dict) -> dict` — `{"case", "gold_items", "found", "missed": [조문...], "disadvantage_missed": [조문...]}`. 정답 항목은 같은 조문 행이 있고, 그 항목에 적힌 키의 값이 같으면 찾은 것으로 친다
   - CLI: `python3 scripts/work_rules_c/eval.py --pred <comparison.json> --gold <gold.json>` → 위 dict 를 콘솔에 JSON 으로. 놓친 항목이 있으면 종료 코드 1
 
@@ -463,4 +463,4 @@ def test_disadvantage_missed_listed():
 - [ ] **Step 3: `eval.py` 구현**
 - [ ] **Step 4: 통과 확인** → `2 passed`
 - [ ] **Step 5: 커밋** — `git commit -m "feat(work-rules-c): gold comparison eval"`
-- [ ] **Step 6: 실측(커밋 안 함)** — 정답지 3건으로 `--triage haiku` · `jev` · `openai` 세 번씩 `run.py` → `eval.py` 를 돌린다(API 비용 발생 — 실행 전 재홍님 승인). Jev 는 키가 있는 서버1에서, 또는 재홍님이 로컬 `~/.claude/.env` 에 키를 직접 넣은 뒤 로컬에서 돌린다(키를 채팅·노션·로그로 옮기지 않는다). 고객 원문을 서버1로 보내는 것은 루트 CLAUDE.md 금지선 밖이지만 판단 모델 공급자(TypeSafe·OpenAI)로는 나간다 — 실측 전에 재홍님께 한 줄 확인. 결과 표(사례 · 백엔드 · 놓친 항목 · 불이익변경 놓침 · 올라간 조문 수 · triage USD · judge USD · 합계 · 응답시간 중위)를 노션 지식위키 「드리븐 … 조문 대조표」 페이지 아래에 붙인다. 비교 기준 = 10/5 Opus C 건당 $3.3~4.5
+- [ ] **Step 6: 실측(커밋 안 함)** — 정답지 3건으로 `--triage haiku` · `jev` · `openai` 세 번씩 `run.py` → `eval.py` 를 돌린다(API 비용 발생 — 실행 전 재홍님 승인). Jev 는 키가 있는 서버1에서, 또는 재홍님이 로컬 `~/.claude/.env` 에 키를 직접 넣은 뒤 로컬에서 돌린다(키를 채팅·노션·로그로 옮기지 않는다). 고객 원문을 서버1로 보내는 것은 루트 CLAUDE.md 금지선 밖이지만 판단 모델 공급자(TypeSafe·OpenAI)로는 나간다 — 실측 전에 재홍님께 한 줄 확인. 결과 표(사례 · 백엔드 · 놓친 항목 · 불이익변경 놓침 · 올라간 조문 수 · triage USD · judge USD · 합계 · 응답시간 중위)를 노션 지식위키의 해당 고객사 조문 대조표 페이지 아래에 붙인다. 비교 기준 = 10/5 Opus C 건당 $3.3~4.5
