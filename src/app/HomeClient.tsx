@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { formatPublicationDate } from '@/lib/publication-date';
 import { ArrowRight, Search } from 'lucide-react';
 import SubscribeForm from '@/components/SubscribeForm';
 import { HOME_PICKS, TOOL_GROUPS } from '@/content/tools-groups';
@@ -23,12 +24,6 @@ type HomeClientProps = {
   latestBlogArticles: LatestBlogArticle[];
   topicPicksSlot?: React.ReactNode;
 };
-
-function formatDate(dateStr: string) {
-  const match = dateStr.match(/^(\d{4})-(\d{2})-(\d{2})/);
-  if (match) return `${match[1]}.${match[2]}.${match[3]}`;
-  return dateStr.slice(0, 10).replace(/-/g, '.');
-}
 
 function BlogCategoryBadge({ category }: { category: string }) {
   return <span className="editorial-category">{category === 'general' ? '일반' : category}</span>;
@@ -129,7 +124,7 @@ export default function HomeClient({ totalCases, totalAdmin, latestBlogArticles,
           </div>
           <div className="editorial-front-grid">
             <article className="editorial-lead-story">
-              <div className="editorial-meta"><BlogCategoryBadge category={featured.category} /><time dateTime={featured.published_at}>{formatDate(featured.published_at)}</time></div>
+              <div className="editorial-meta"><BlogCategoryBadge category={featured.category} /><time dateTime={featured.published_at}>{formatPublicationDate(featured.published_at)}</time></div>
               <h3><Link href={`/blog/${featured.slug}`}>{featured.title}</Link></h3>
               {featured.subtitle && <p className="editorial-lead-subtitle">{featured.subtitle}</p>}
               {featured.summary && <p className="editorial-lead-deck">{featured.summary}</p>}
@@ -138,7 +133,7 @@ export default function HomeClient({ totalCases, totalAdmin, latestBlogArticles,
             <div className="editorial-support-stories">
               {supporting.map(article => (
                 <article key={article.slug}>
-                  <div className="editorial-meta"><BlogCategoryBadge category={article.category} /><time dateTime={article.published_at}>{formatDate(article.published_at)}</time></div>
+                  <div className="editorial-meta"><BlogCategoryBadge category={article.category} /><time dateTime={article.published_at}>{formatPublicationDate(article.published_at)}</time></div>
                   <h3><Link href={`/blog/${article.slug}`}>{article.title}</Link></h3>
                   {(article.subtitle || article.summary) && <p>{article.subtitle || article.summary}</p>}
                 </article>

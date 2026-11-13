@@ -1,3 +1,4 @@
+import { formatPublicationDate } from '@/lib/publication-date';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
@@ -135,11 +136,7 @@ export async function generateMetadata({
   };
 }
 
-function formatDate(dateStr: string) {
-  const match = dateStr.match(/^(\d{4})-(\d{2})-(\d{2})/);
-  if (match) return `${match[1]}년 ${parseInt(match[2])}월 ${parseInt(match[3])}일`;
-  return dateStr.slice(0, 10);
-}
+
 
 function CategoryBadge({ category }: { category: string }) {
   const color = getCategoryColor(category);
@@ -252,7 +249,7 @@ export default async function BlogArticlePage({
                   style={{ color: 'var(--grey-700)' }}
                 >
                   <Calendar size={12} />
-                  {formatDate(article.published_at)}
+                  {formatPublicationDate(article.published_at, 'long')}
                 </span>
                 <span
                   className="flex items-center gap-1 text-[12px]"
@@ -492,7 +489,7 @@ export default async function BlogArticlePage({
                           className="mt-0.5 text-[12px]"
                           style={{ color: 'var(--grey-700)' }}
                         >
-                          {formatDate(a.published_at)}
+                          {formatPublicationDate(a.published_at, 'long')}
                         </p>
                       </Link>
                     ))}

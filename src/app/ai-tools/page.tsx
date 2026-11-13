@@ -137,8 +137,15 @@ function ToolCard({ t }: { t: AiTool }) {
         )}
         {t.install ? (
           <>
-            <p className="font-semibold" style={ink}>Claude Code 에서 한 줄로 연결</p>
+            <p className="font-semibold" style={ink}>{t.install.authenticatedClaudeCode ? '공개 도구: 토큰 없이 Claude Code에 연결' : 'Claude Code 에서 한 줄로 연결'}</p>
             <Code>{t.install.claudeCode}</Code>
+            {t.install.authenticatedClaudeCode && (
+              <>
+                <p className="font-semibold" style={ink}>현장 작업: 발급한 토큰으로 별도 연결 설정</p>
+                <p className="leading-6" style={sub}>기존 공개 연결이 있다면 AI 앱의 연결 설정에서 인증 정보를 바꾸세요. 토큰은 대화창에 붙이지 마세요.</p>
+                <Code>{t.install.authenticatedClaudeCode}</Code>
+              </>
+            )}
             {t.install.remote && (
               <>
                 <p className="font-semibold" style={ink}>설치 없이 원격 주소로 연결</p>
@@ -222,7 +229,7 @@ export default function AiToolsPage() {
           </p>
           <p className="mt-3 text-sm leading-7" style={sub}>
             연결은 MCP(Model Context Protocol)라는 공개 표준으로 합니다. 도구는 정해진 일만 하고,
-            주민등록번호 같은 값은 대화창을 거치지 않게 설계합니다.
+            주민등록번호 같은 민감한 값은 대화창에 적지 마세요. 전송·저장 범위는 도구와 연결 방식에 따라 다릅니다.
           </p>
           <p className="mt-6 flex flex-wrap gap-x-5 gap-y-2 text-sm">
             <a href="#list" className="font-semibold underline underline-offset-4" style={link}>도구 보기</a>
@@ -267,13 +274,13 @@ export default function AiToolsPage() {
         <div aria-labelledby="privacy">
           <h2 id="privacy" className="t-h3" style={ink}>개인정보 원칙</h2>
           <p className="mt-3 text-sm leading-7" style={sub}>
-            AI 대화에 적은 내용은 그 AI 서비스의 대화 기록에 남습니다. 그래서 주민등록번호처럼 민감한 값은
-            대화창에 적지 않는 것을 기본으로 설계합니다.
+            AI 대화에 적은 내용은 그 AI 서비스의 대화 기록에 남을 수 있습니다. 주민등록번호처럼 민감한 값은
+            대화창에 적지 마세요. 아래 카드의 개인정보 안내와 사용하는 AI 서비스의 설정을 함께 확인하세요.
           </p>
           <ul className="mt-3 space-y-2 text-sm leading-6" style={sub}>
-            <li className="flex gap-2"><span aria-hidden style={{ color: 'var(--color-accent)' }}>✓</span>명단은 PC 안의 파일로 넘기고, 도구가 그 파일을 직접 읽습니다.</li>
-            <li className="flex gap-2"><span aria-hidden style={{ color: 'var(--color-accent)' }}>✓</span>도구 응답에는 주민등록번호를 싣지 않습니다.</li>
-            <li className="flex gap-2"><span aria-hidden style={{ color: 'var(--color-accent)' }}>✓</span>팩스·문자를 보내는 도구는 확인을 거친 뒤에만 보냅니다.</li>
+            <li className="flex gap-2"><span aria-hidden style={{ color: 'var(--color-accent)' }}>✓</span>로컬 4대보험 서식 도구의 명단은 PC 안의 파일로 전달합니다. 파일을 AI 대화에 첨부하는 방식과는 다릅니다.</li>
+            <li className="flex gap-2"><span aria-hidden style={{ color: 'var(--color-accent)' }}>✓</span>원격 MCP는 호출 입력을 해당 도구 서버로 전송합니다. 로컬 설치 방식과 전송 범위가 다릅니다.</li>
+            <li className="flex gap-2"><span aria-hidden style={{ color: 'var(--color-accent)' }}>✓</span>SafeClaw의 인증된 문서 묶음 작업은 결과를 현장에 저장합니다. 공단 로그인 프로그램은 인증 정보를 해당 PC의 보안 저장소에 보관합니다.</li>
           </ul>
         </div>
         <div aria-labelledby="not">
@@ -281,7 +288,7 @@ export default function AiToolsPage() {
           <ul className="mt-3 space-y-2 text-sm leading-6" style={sub}>
             <li className="flex gap-2"><span aria-hidden style={{ color: 'var(--color-text-tertiary)' }}>✕</span>신고와 제출은 사업주가 직접 합니다. 이 도구들은 서식을 찾고 채우는 일을 돕습니다.</li>
             <li className="flex gap-2"><span aria-hidden style={{ color: 'var(--color-text-tertiary)' }}>✕</span>공단의 승인이나 처리 결과를 미리 말하지 않습니다.</li>
-            <li className="flex gap-2"><span aria-hidden style={{ color: 'var(--color-text-tertiary)' }}>✕</span>입력한 값을 저장하지 않습니다.</li>
+            <li className="flex gap-2"><span aria-hidden style={{ color: 'var(--color-text-tertiary)' }}>✕</span>AI 응답만으로 법적 결론을 확정하지 않습니다. 제출·사용 전에 근거와 내용을 확인하세요.</li>
           </ul>
         </div>
       </section>

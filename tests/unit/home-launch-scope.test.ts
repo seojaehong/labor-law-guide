@@ -3,6 +3,7 @@ import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import HomeClient from '@/app/HomeClient';
+import { formatPublicationDate } from '@/lib/publication-date';
 import { HOME_PICKS, TOOL_GROUPS } from '@/content/tools-groups';
 
 const articles = Array.from({ length: 4 }, (_, index) => ({
@@ -58,7 +59,7 @@ describe('Home launch scope', () => {
     articles.forEach(article => {
       expect(html).toContain(`href="/blog/${article.slug}"`);
       expect(html).toContain(article.title);
-      expect(html).toContain(`<time dateTime="${article.published_at}">${article.published_at.slice(0, 10).replace(/-/g, '.')}</time>`);
+      expect(html).toContain(`<time dateTime="${article.published_at}">${formatPublicationDate(article.published_at)}</time>`);
     });
     expect(html).toContain(articles[0].summary);
     expect(html).toContain(articles[2].summary);
