@@ -51,14 +51,21 @@ describe('article cache refresh', () => {
     expect(mocks.tag).toHaveBeenCalledWith('blog-article-lists', { expire: 0 });
   });
 
-  it.each([
-    [{ data: null, error: null }, 404],
-    [{ data: null, error: { message: 'DB unavailable' } }, 500],
-  ])('does not invalidate a missing or failed lookup', async (result, status) => {
-    mocks.maybeSingle.mockResolvedValue(result);
-    expect((await POST(request('POST'), context)).status).toBe(status);
+  it('does not invalidate a failed lookup', async () => {
+    mocks.maybeSingle.mockResolvedValue({ data: null, error: { message: 'DB unavailable' } });
+    expect((await POST(request('POST'), context)).status).toBe(500);
     expect(mocks.path).not.toHaveBeenCalled();
     expect(mocks.tag).not.toHaveBeenCalled();
+  });
+
+  // #179(261110) — 지운 글이 행이 없을 때가 오히려 캐시를 비워야 할 때다. 404 로 거절하지 않고 경로를 비운 뒤 missing 을 알린다.
+  it('still invalidates a missing row and reports missing', async () => {
+    mocks.maybeSingle.mockResolvedValue({ data: null, error: null });
+    const res = await POST(request('POST'), context);
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ revalidated: true, slug, missing: true });
+    expect(mocks.path.mock.calls).toEqual([[`/blog/${slug}`], [`/og/${slug}`]]);
+    expect(mocks.tag).toHaveBeenCalledWith('blog-article-lists', { expire: 0 });
   });
 
   it('invalidates only after a successful save', async () => {
