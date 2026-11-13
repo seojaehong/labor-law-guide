@@ -1,5 +1,6 @@
 'use client';
 
+import { formatPublicationDate } from '@/lib/publication-date';
 import { useState, useEffect, useTransition } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -33,19 +34,14 @@ const CATEGORIES = [
 
 
 
-function formatDate(dateStr: string) {
-  // timezone 차이로 인한 hydration mismatch 방지 — Date 객체 대신 문자열 직접 파싱
-  const match = dateStr.match(/^(\d{4})-(\d{2})-(\d{2})/);
-  if (match) return `${match[1]}.${match[2]}.${match[3]}`;
-  return dateStr.slice(0, 10).replace(/-/g, '.');
-}
+
 
 function ArticleEntry({ article, card = false }: { article: BlogArticle; card?: boolean }) {
   return (
     <article className={card ? 'editorial-blog-card' : 'editorial-text-row'}>
       <div className="editorial-row-meta editorial-meta">
         <span className="editorial-category">{article.category === 'general' ? '일반' : article.category}</span>
-        <time dateTime={article.published_at}>{formatDate(article.published_at)}</time>
+        <time dateTime={article.published_at}>{formatPublicationDate(article.published_at)}</time>
         {article.subtype === 'deep-dive' && <span>딥다이브</span>}
       </div>
       <div className="editorial-row-content">
