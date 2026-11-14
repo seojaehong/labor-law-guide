@@ -139,13 +139,21 @@ export function clearHistory(tool: string): void {
 }
 
 /** 모든 도구의 최근 입력과 기억하기 설정을 지운다 — 사업장 카드의 「전부 지우기」 */
-export function forgetAllHistory(): void {
+export function forgetAllHistory(): boolean {
+  let removed = true;
   for (const store of [session(), local()]) {
-    if (!store) continue;
+    if (!store) { removed = false; continue; }
     try {
       const keys = Array.from({ length: store.length }, (_, i) => store.key(i));
-      for (const k of keys) if (k?.startsWith(ALL_PREFIX)) store.removeItem(k);
-    } catch { /* 무시 */ }
+      for (const key of keys) {
+        if (!key?.startsWith(ALL_PREFIX)) continue;
+        try {
+          store.removeItem(key);
+          if (store.getItem(key) !== null) removed = false;
+        } catch { removed = false; }
+      }
+    } catch { removed = false; }
   }
   notify();
+  return removed;
 }
