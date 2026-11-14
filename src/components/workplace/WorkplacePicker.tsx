@@ -63,7 +63,10 @@ export function WorkplacePicker({ state, onPatch }: { state: WriteState; onPatch
     else setMessage(null);
   };
   const save = () => {
-    const r = saveCardFromState(state, selectedId || null, pickedMember || null);
+    let r = saveCardFromState(state, selectedId || null, pickedMember || null);
+    if (!r.ok && r.confirmRenewal && window.confirm(r.confirmRenewal.message)) {
+      r = saveCardFromState(state, selectedId || null, pickedMember || null, r.confirmRenewal.key);
+    }
     setMessage(r.ok ? r.message : r.reason);
     if (!r.ok) return;
     setSelectedId(r.workspace.id);
