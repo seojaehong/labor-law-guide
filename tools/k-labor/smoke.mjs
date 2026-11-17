@@ -150,6 +150,8 @@ const ANN = {
   make_labor_council_forms: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
   make_council_meeting_docs: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
   make_council_election_docs: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
+  // 협의회규정 본문 점검 — 읽기 전용이지만 본문에 이름이 있을 수 있어 로컬 전용
+  check_council_rules: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
   // 기록은 덧붙이기(같은 호출을 두 번 하면 두 줄), 보관함은 덮어쓰지 않으므로 다시 불러도 결과가 같지 않다
   record_council_history: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
   export_council_vault: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
@@ -162,7 +164,7 @@ const ANN = {
   check(`모든 도구(${all.length})에 title·annotations 네 칸${bare.length ? ` — 빠짐: ${bare.map((t) => t.name).join(',')}` : ''}`, bare.length === 0);
 }
 // 이 판에서 더한 도구 8개 + 사이트 도구 7개(groups/more) — 「대신·대행·대리」도 함께 막는다
-const NOSA_TOOLS = ['assess_labor_council', 'check_council_meeting', 'make_labor_council_forms', 'make_council_meeting_docs', 'make_council_election_docs', 'record_council_history', 'export_council_vault', 'import_council_minutes'];
+const NOSA_TOOLS = ['assess_labor_council', 'check_council_meeting', 'make_labor_council_forms', 'make_council_meeting_docs', 'make_council_election_docs', 'check_council_rules', 'record_council_history', 'export_council_vault', 'import_council_minutes'];
 const NEW_TOOLS = ['calc_severance', 'calc_holiday_pay', 'calc_pay_proration', 'calc_shutdown_allowance', 'calc_annual_leave', 'settle_leave_on_exit', 'calc_retirement_tax', 'list_employer_duties', ...MORE_TOOLS, ...NOSA_TOOLS];
 const NEW_WORDS = [...WORDS, '대신', '대행', '대리'];
 const bannedNew = (s) => (banned ? banned.bannedHits(s, NEW_WORDS) : []);
@@ -490,6 +492,15 @@ if (tools.includes('make_council_election_docs')) {
   check(`nosa 선거 서류 7종 14파일 · 선거일 ${ee.dates?.vote} · ${ee.ballot?.method}`, ee.ok && ee.files?.length === 14 && ee.dates.vote === '2026-12-03' && ee.ballot.method === '찬반투표' && ee.check.workerMembers.met);
   const es = await callNew('make_council_election_docs', { ...ED, result: { electors: 100, voters: 40 }, outDir: path.join(tmp, 'nosa-election-short') });
   check('nosa 선거 참여 미달이면 당선공고 만들지 않음', es.ok && es.skippedDocuments?.some((s) => s.id === '07_당선공고') && es.files.length === 12);
+}
+if (tools.includes('check_council_rules')) {
+  // 합성 규정 — 과반수 참여 문구 없음 · 10명 추천 요건 · 협의사항 16개 호
+  const RT = ['제1조(구성) ① 협의회는 근로자위원과 사용자위원 각 3명으로 구성한다.', '② 근로자위원은 직접·비밀·무기명 투표로 선출한다.',
+    '제2조(후보) 입후보하려는 사람은 근로자 10명 이상의 추천을 받아야 한다.', '제3조(협의사항) ① 협의회는 다음 각 호를 협의한다.',
+    ...['생산성 향상', '채용', '고충처리', '작업환경', '노무관리', '고용조정', '휴게', '지불방법', '신기계', '작업수칙', '재산형성', '직무 발명', '복지증진', '감시', '모성보호', '그 밖의 노사협조'].map((t, i) => `${i + 1}. ${t}`)].join('\n');
+  const cr = await callNew('check_council_rules', { text: RT });
+  const ids = (cr.findings ?? []).filter((f) => f.grade === '필수').map((f) => f.id);
+  check(`nosa 협의회규정 점검(필수 ${cr.counts?.['필수']} · 권장 ${cr.counts?.['권장']})`, cr.ok && ['direct-majority', 'nomination-requirement', 'topics'].every((x) => ids.includes(x)));
 }
 
 // ── work-rules 묶음 ──

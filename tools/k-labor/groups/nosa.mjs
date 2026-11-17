@@ -6,6 +6,7 @@
 // ★ 공개 문구 금지어(src/lib/tool-kit/banned.ts) + 포괄·대신·대행·대리·지도를 이 묶음의 글(설명·결과)에 쓰지 않는다.
 // ★ make_labor_council_forms 는 이 PC 에 파일을 쓰므로 로컬 전용이다(nosaLocalOnly). 근로자 이름 칸은 받지 않고 서류에도 비워 둔다.
 // ★ make_council_meeting_docs 도 로컬 전용이다. 위원 이름은 사용자가 넣을 때만 싣고, 서명 칸은 비워 둔다.
+// ★ check_council_rules 는 읽기 전용이지만 로컬 전용이다 — 협의회규정 본문·별지에 대표자·위원 이름이 들어 있을 수 있다(원격판은 이름 칸을 받지 않는다).
 import { z } from 'zod';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -18,16 +19,17 @@ import { ARTICLE_KEYS, meetingCheck, meetingErrors, REPORT_KEYS } from '@/lib/no
 import { IMPL_STATUSES, meetingDocs, meetingDocsErrors, minutesRecord } from '@/lib/nosa-council/meeting-docs';
 import { DATE_KEYS as ELECTION_DATE_KEYS, ELECTION_DOC_IDS, electionDocs, electionDocsErrors } from '@/lib/nosa-council/election-docs';
 import { RULES_SOURCE } from '@/lib/nosa-council/rules-template';
+import { checkCouncilRules } from '@/lib/nosa-council/rules-check';
 import { formHwpx, formPdf } from '@/lib/work-rules-report/render';
 import { implLabel, previousResolutionsFor } from '@/lib/nosa-council/records';
 import { looksLikeRrn, text } from '../lib/common.mjs';
 import { loadCouncilDir } from '../lib/council-dir.mjs';
 
-export const nosaTools = ['assess_labor_council', 'check_council_meeting', 'make_labor_council_forms', 'make_council_meeting_docs', 'make_council_election_docs'];
+export const nosaTools = ['assess_labor_council', 'check_council_meeting', 'make_labor_council_forms', 'make_council_meeting_docs', 'make_council_election_docs', 'check_council_rules'];
 /** 원격(HTTP)판에 실어도 되는 도구 — 읽기 전용, 파일·네트워크를 건드리지 않는다 */
 export const nosaRemoteSafe = ['assess_labor_council', 'check_council_meeting'];
-/** 이 PC 에 파일을 쓰는 도구 — 원격판에서 뺀다 */
-export const nosaLocalOnly = ['make_labor_council_forms', 'make_council_meeting_docs', 'make_council_election_docs'];
+/** 이 PC 에 파일을 쓰는 도구, 이름이 들어 있을 수 있는 자유 글(협의회규정 본문)을 받는 도구 — 원격판에서 뺀다 */
+export const nosaLocalOnly = ['make_labor_council_forms', 'make_council_meeting_docs', 'make_council_election_docs', 'check_council_rules'];
 
 // 서류 PDF 글꼴 — 계약서·취업규칙 신고 서류와 같은 나눔고딕 전체(OFL). 묶은 뒤에는 dist/server.mjs 하나라 here = dist/ 다.
 // (work-rules 묶음의 같은 함수를 부르지 않고 따로 둔다 — 그 묶음은 법제처·.env 모듈을 함께 불러온다)
@@ -593,6 +595,40 @@ export function registerNosa(server) {
         ...(r.warnings.length ? { warnings: r.warnings } : {}),
         boundary: BOUNDARY_NOTICE,
         review: '파일을 열어 날짜·인원·후보를 확인합니다. 공고문은 선거관리위원회 이름으로 게시합니다.',
+      });
+    },
+  );
+
+  // ── 협의회규정 본문 점검(로컬 전용 — 본문에 대표자·위원 이름이 들어 있을 수 있다. 파일은 쓰지 않는다) ──
+  server.registerTool(
+    'check_council_rules',
+    {
+      title: '노사협의회 협의회규정 본문 점검(로컬 전용)',
+      description:
+        '사업장이 가진 노사협의회 협의회규정 본문(글자)을 현행 근로자참여 및 협력증진에 관한 법률(2022. 12. 11. 시행)·같은 법 시행령(2022. 11. 8. 공포)과 협의회규정 견본(make_labor_council_forms 00)에 조항별로 대조한다. ' +
+        '항목마다 등급(필수 = 규정 글자가 현행 법령과 다르게 정했거나 시행령 제5조제1항 기재사항이 없음 / 권장 = 오기·빈 시행일·고정 회의일·별지 서식에 남은 글자 등 운영에 도움이 되는 정리), 규정 위치(제N조제N항제N호), 근거 법령 조문, 지금 글, 고칠 방향을 준다. ' +
+        '보는 것: 근로자위원 선출의 「근로자 과반수가 참여」(법 제6조제2항, 위원선거인 간접선출은 두 단계 모두) · 삭제된 입후보 추천 요건(시행령 제3조) · 차점자 충원 조건(시행령 제4조) · 협의사항 17개 호(법 제20조제1항, 16호 성희롱 예방) · 임의 중재 대상(법 제25조제1항) · 고충처리위원 3명 이내·청취일 기산(법 제27조·제28조) · 정족수(법 제15조) · 정기회의 3개월(법 제12조) · 시행령 제5조제1항 기재사항 7개 · 부칙 시행일 · 제출 15일(법 제18조) · 별지 서식(다른 회사 이름·추천 요건·위촉 근거 조문). ' +
+        '「제N조(제목)」이 줄 처음에 오게 한글·워드에서 복사한 본문을 넣는다. 본문은 이 PC 밖으로 나가지 않고 파일도 쓰지 않는다. 주민등록번호 모양의 숫자가 있으면 멈춘다. 일반 기준을 정리한 참고 결과다.',
+      inputSchema: {
+        text: z.string().min(1).max(300_000).describe('협의회규정 본문(별지 서식까지 붙여도 된다). 「제N조(제목)」이 줄 처음에 오게'),
+        workplaceName: z.string().max(100).optional().describe('사업장명 — 비우면 본문의 「사업장명 :」 줄에서 찾는다. 별지 서식에 남은 다른 이름을 찾을 때 쓴다'),
+      },
+      annotations: READ_ONLY,
+    },
+    async (a) => {
+      if (looksLikeRrn(a.text) || looksLikeRrn(a.workplaceName ?? '')) return fail('본문에 주민등록번호 모양의 숫자가 있어 점검하지 않았습니다. 지우고 다시 넣어 주세요.');
+      const r = checkCouncilRules({ text: a.text, workplaceName: a.workplaceName });
+      if (!r.parsed.articles) return fail('「제N조(제목)」 모양의 조문을 찾지 못했습니다. 조문 제목이 줄 처음에 오도록 본문을 넣어 주세요.');
+      return text({
+        ok: true,
+        counts: r.counts,
+        findings: r.findings,
+        requiredItems: r.requiredItems,
+        parsed: r.parsed,
+        basis: '근로자참여 및 협력증진에 관한 법률(2022. 6. 10. 공포, 2022. 12. 11. 시행) · 같은 법 시행령(2022. 11. 8. 공포, 2022. 12. 11. 시행) — 법제처 원문',
+        template: `협의회규정 견본 — ${RULES_SOURCE}. make_labor_council_forms 의 00 협의회규정으로 만든다`,
+        boundary: BOUNDARY_NOTICE,
+        notice: '글자 대조로 찾은 항목이다. 조문 번호·표현이 견본과 많이 다르면 놓치거나 더 찾을 수 있으니 규정 원문과 함께 확인한다. 고친 규정은 협의회 의결을 거쳐(시행령 제5조제2항) 변경한 날부터 15일 이내에 제출한다(법 제18조제1항).',
       });
     },
   );
