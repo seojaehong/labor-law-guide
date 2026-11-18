@@ -102,7 +102,7 @@ const candidateRows = (i: ElectionDocsInput) => i.candidates?.length ?? i.candid
 export function electionDocsErrors(i: ElectionDocsInput): string[] {
   const out: string[] = [];
   if (!t(i.workplace?.name)) out.push('사업장명(workplace.name)이 비어 있습니다.');
-  if (i.majorityUnion) out.push('근로자의 과반수로 조직된 노동조합이 있으면 근로자위원은 그 노동조합이 위촉합니다(법 제6조제2항) — 선거 서류를 만들지 않습니다.');
+  if (i.majorityUnion) out.push('근로자의 과반수로 조직된 노동조합이 있으면 근로자위원은 그 노동조합이 위촉합니다(법 제6조제2항). 선거 서류를 만들지 않습니다.');
   if (!Number.isInteger(i.seats) || i.seats < MEMBERS_MIN || i.seats > MEMBERS_MAX) out.push(`근로자위원 수(seats)는 ${MEMBERS_MIN}명 이상 ${MEMBERS_MAX}명 이하입니다(법 제6조제1항).`);
   if (!isoDate(i.writtenDate)) out.push(`writtenDate 는 YYYY-MM-DD 날짜입니다(받은 값: ${i.writtenDate ?? ''}).`);
   if (i.targetInstallDate && !isoDate(i.targetInstallDate)) out.push(`targetInstallDate 는 YYYY-MM-DD 날짜입니다(받은 값: ${i.targetInstallDate}).`);
@@ -317,7 +317,7 @@ function announceDoc(x: Ctx): FormDoc {
         ['선출 인원', seatsText(x)],
         ['선출 방법', methodText(x)],
         ['선거인', `${ELECTOR_SCOPE}\n선거인명부 확정일: ${ko(x.d.roster)}`],
-        ['입후보', `선거인은 누구든지 입후보할 수 있다.\n기간: ${ko(x.d.candidacyStart)}부터 ${ko(x.d.candidacyEnd)}까지 — 입후보 신청서를 선거관리위원회에 낸다.`],
+        ['입후보', `선거인은 누구든지 입후보할 수 있다.\n기간: ${ko(x.d.candidacyStart)}부터 ${ko(x.d.candidacyEnd)}까지. 입후보 신청서를 선거관리위원회에 낸다.`],
         ['투표 일시', voteWhen(x)],
         ['투표 장소', t(x.i.vote?.place)],
         ['임기', `${ko(x.d.termStart)}부터 3년(근참법 제8조제1항)`],
@@ -453,7 +453,7 @@ function countDoc(x: Ctx): FormDoc {
   const c = x.check;
   if (c && c.kind === '직접선거') {
     const s = c.workerMembers.stages[0];
-    blocks.push(P(`선거인 ${s.electors}명 중 ${s.voters}명 참여 — 필요 ${s.needed}명, 투표율 ${pct(s)}\n결과: ${s.result}`));
+    blocks.push(P(`선거인 ${s.electors}명 중 ${s.voters}명 참여, 필요 ${s.needed}명, 투표율 ${pct(s)}\n결과: ${s.result}`));
   } else if (c) {
     blocks.push(
       GRID(['단계', '모수', '투표자', '필요', '투표율', '결과'], c.workerMembers.stages.map((s) => [s.stage, String(s.electors), String(s.voters), String(s.needed), pct(s), s.result]), [24, 10, 10, 10, 12, 34]),

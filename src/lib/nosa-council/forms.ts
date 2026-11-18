@@ -329,7 +329,7 @@ export function quorumDoc(input: NosaFormInput): FormDoc {
   const el = c.el;
   if (el && el.kind !== '직접선거') {
     blocks.push(
-      P(el.kind === '간접선거' ? '간접선거 (법 제6조제2항 단서) — 두 단계를 각각 확인' : '선거구별 — 선거구마다 근로자 과반수 참여를 확인(매뉴얼 44쪽)'),
+      P(el.kind === '간접선거' ? '간접선거(법 제6조제2항 단서): 두 단계를 각각 확인' : '선거구별: 선거구마다 근로자 과반수 참여를 확인(매뉴얼 44쪽)'),
       GRID(['단계', '모수', '투표자', '필요', '투표율', '결과'], el.workerMembers.stages.map((s) => [s.stage, String(s.electors), String(s.voters), String(s.needed), pct(s), s.result]), [24, 10, 10, 10, 12, 34]),
       P(`종합 결과: ${el.workerMembers.result}`),
       NOTE('과반수는 참여(투표율) 요건이다.'),
@@ -347,7 +347,7 @@ export function quorumDoc(input: NosaFormInput): FormDoc {
     );
   }
   blocks.push(NOTE(`선거인 범위: ${ELECTOR_SCOPE}`), H('2. 득표 결과'));
-  if (el?.ballot) blocks.push(P(`투표 방식: ${el.ballot.method} (후보 ${el.ballot.candidates}명 / 정원 ${el.ballot.seats}명)${el.ballot.warning ? ` — ${el.ballot.warning}` : ''}`));
+  if (el?.ballot) blocks.push(P(`투표 방식: ${el.ballot.method} (후보 ${el.ballot.candidates}명 / 정원 ${el.ballot.seats}명)${el.ballot.warning ? `. ${el.ballot.warning}` : ''}`));
   blocks.push(GRID(['후보자', '소속', '득표수', '당선 여부'], [['', '', '', '']], [30, 30, 20, 20]), NOTE('부서 인원 10명 미만 단위의 결과는 분리 공개하지 않는다.'));
   if (input.concurrentRep) {
     blocks.push(H('3. 근기법상 근로자대표 겸임'));
