@@ -1,6 +1,8 @@
 // 취업규칙 파일 읽기(hwpx·docx → 문단 글자)와 신구대조표 docx 쓰기. 모두 브라우저 안에서 한다.
 // DOMParser 대신 정규식으로 읽는다 — 테스트(node)와 브라우저에서 같은 코드가 돈다.
 import JSZip from 'jszip';
+import { underlineParts } from './underline';
+export { UL_OPEN, UL_CLOSE, unmarkUnderline, underlineParts } from './underline';
 
 export const MAX_FILE_BYTES = 10 * 1024 * 1024;
 export const MAX_EXPANDED_BYTES = 20 * 1024 * 1024;
@@ -109,13 +111,14 @@ export async function readDocText(data: ArrayBuffer | Uint8Array, kind: DocKind)
 
 const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
+
 function runs(text: string, bold = false, size = 20, color = '202B33'): string {
-  const rpr = `<w:rPr><w:rFonts w:ascii="Arial" w:eastAsia="맑은 고딕" w:hAnsi="Arial"/>${bold ? '<w:b/>' : ''}<w:color w:val="${color}"/><w:sz w:val="${size}"/></w:rPr>`;
-  return text.split('\n').map((line,i)=>`${i?'<w:r><w:br/></w:r>':''}<w:r>${rpr}<w:t xml:space="preserve">${esc(line)}</w:t></w:r>`).join('');
+  const rpr = (u: boolean) => `<w:rPr><w:rFonts w:ascii="Arial" w:eastAsia="맑은 고딕" w:hAnsi="Arial"/>${bold ? '<w:b/>' : ''}<w:color w:val="${color}"/><w:sz w:val="${size}"/>${u ? '<w:u w:val="single"/>' : ''}</w:rPr>`;
+  return text.split('\n').map((line,i)=>`${i?'<w:r><w:br/></w:r>':''}${(underlineParts(line).length?underlineParts(line):[['',false] as [string,boolean]]).map(([t,u])=>`<w:r>${rpr(u)}<w:t xml:space="preserve">${esc(t)}</w:t></w:r>`).join('')}`).join('');
 }
-const para=(text:string,bold=false,size=20,color='202B33')=>`<w:p><w:pPr><w:spacing w:after="80" w:line="276" w:lineRule="auto"/><w:widowControl/><w:keepNext w:val="0"/></w:pPr>${runs(text,bold,size,color)}</w:p>`;
-const cell=(text:string,w:number,index:number,head=false)=>`<w:tc><w:tcPr><w:tcW w:w="${w}" w:type="dxa"/><w:vAlign w:val="top"/><w:shd w:val="clear" w:fill="${head?'285E77':index===1?'F4F6F8':index===2?'EDF4F7':'FFFFFF'}"/></w:tcPr>${para(text,head||index===0,20,head?'FFFFFF':'202B33')}</w:tc>`;
-export type ComparisonOptions={title:string;intro:string[];head:string[];widths:number[];rows:string[][];foot:string[]};
+const para=(text:string,bold=false,size=20,color='202B33')=>`<w:p><w:pPr><w:keepNext w:val="0"/><w:widowControl/><w:spacing w:after="80" w:line="276" w:lineRule="auto"/></w:pPr>${runs(text,bold,size,color)}</w:p>`;
+const cell=(text:string,w:number,index:number,head=false)=>`<w:tc><w:tcPr><w:tcW w:w="${w}" w:type="dxa"/><w:shd w:val="clear" w:fill="${head?'285E77':index===1?'F4F6F8':index===2?'EDF4F7':'FFFFFF'}"/><w:vAlign w:val="top"/></w:tcPr>${para(text,head||index===0,20,head?'FFFFFF':'202B33')}</w:tc>`;
+export type ComparisonOptions={title:string;intro:string[];head:string[];widths:number[];rows:string[][];foot:string[];/** false 면 첫 열을 굵은 머리 열로 두지 않는다(현행·개정안 두 열 대비표) */labelColumn?:boolean};
 /** Editable fixed-grid A4 landscape. Body rows can split across pages; header repeats. */
 export async function compareDocx(opts:ComparisonOptions):Promise<Blob>{
   const {title,intro,head,rows,foot}=opts;
@@ -124,11 +127,11 @@ export async function compareDocx(opts:ComparisonOptions):Promise<Blob>{
   const widths=opts.widths.map(w=>Math.floor(w*Math.min(1,limit/total)));
   const tableWidth=widths.reduce((a,b)=>a+b,0);
   const border=['top','left','bottom','right','insideH','insideV'].map(side=>`<w:${side} w:val="single" w:sz="4" w:color="B8C3CE"/>`).join('');
-  const table=`<w:tbl><w:tblPr><w:tblW w:w="${tableWidth}" w:type="dxa"/><w:tblLayout w:type="fixed"/><w:tblBorders>${border}</w:tblBorders><w:tblCellMar><w:top w:w="100" w:type="dxa"/><w:bottom w:w="100" w:type="dxa"/><w:left w:w="120" w:type="dxa"/><w:right w:w="120" w:type="dxa"/></w:tblCellMar></w:tblPr><w:tblGrid>${widths.map(w=>`<w:gridCol w:w="${w}"/>`).join('')}</w:tblGrid><w:tr><w:trPr><w:tblHeader/><w:cantSplit/></w:trPr>${head.map((h,i)=>cell(h,widths[i],i,true)).join('')}</w:tr>${rows.map(r=>`<w:tr>${r.map((c,i)=>cell(c,widths[i],i)).join('')}</w:tr>`).join('')}</w:tbl>`;
+  const table=`<w:tbl><w:tblPr><w:tblW w:w="${tableWidth}" w:type="dxa"/><w:tblBorders>${border}</w:tblBorders><w:tblLayout w:type="fixed"/><w:tblCellMar><w:top w:w="100" w:type="dxa"/><w:left w:w="120" w:type="dxa"/><w:bottom w:w="100" w:type="dxa"/><w:right w:w="120" w:type="dxa"/></w:tblCellMar></w:tblPr><w:tblGrid>${widths.map(w=>`<w:gridCol w:w="${w}"/>`).join('')}</w:tblGrid><w:tr><w:trPr><w:tblHeader/><w:cantSplit/></w:trPr>${head.map((h,i)=>cell(h,widths[i],i,true)).join('')}</w:tr>${rows.map(r=>`<w:tr>${r.map((c,i)=>cell(c,widths[i],opts.labelColumn===false?i+1:i)).join('')}</w:tr>`).join('')}</w:tbl>`;
   const body=para(title,true,30)+intro.map(t=>para(t,false,18)).join('')+table+foot.map(t=>para(t,false,16)).join('')+`<w:sectPr><w:pgSz w:w="16838" w:h="11906" w:orient="landscape"/><w:pgMar w:top="1000" w:right="900" w:bottom="1000" w:left="900" w:header="500" w:footer="500" w:gutter="0"/></w:sectPr>`;
   const zip=new JSZip();
   zip.file('[Content_Types].xml','<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/></Types>');
-  zip.file('_rels/.rels','<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>');
-  zip.file('word/document.xml',`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>${body}</w:body></w:document>`);
+  zip.file('_rels/.rels','<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>', { createFolders: false });
+  zip.file('word/document.xml',`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>${body}</w:body></w:document>`, { createFolders: false });
   return zip.generateAsync({type:'blob',mimeType:'application/vnd.openxmlformats-officedocument.wordprocessingml.document'});
 }

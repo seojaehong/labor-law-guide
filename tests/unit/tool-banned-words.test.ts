@@ -96,10 +96,11 @@ describe('nosa 묶음 금지어', () => {
   ];
 
   it('도구 이름·설명·입력 설명', () => {
-    expect(tools.map((t) => t.name)).toEqual(['assess_labor_council', 'check_council_meeting', 'make_labor_council_forms', 'make_council_meeting_docs', 'make_council_election_docs', 'check_council_rules', 'record_council_history', 'export_council_vault', 'import_council_minutes']);
+    expect(tools.map((t) => t.name)).toEqual(['assess_labor_council', 'check_council_meeting', 'make_labor_council_forms', 'make_council_meeting_docs', 'make_council_election_docs', 'check_council_rules', 'record_council_history', 'export_council_vault', 'import_council_minutes', 'make_council_rules_comparison']);
     for (const t of tools) {
       const schema = Object.values(t.cfg.inputSchema ?? {}).flatMap((v) => descs(v as Z)).join('\n');
       expect(bannedHits(`${t.cfg.title}\n${t.cfg.description}\n${schema}`, NOSA_WORDS), t.name).toEqual([]);
+      if (['check_council_rules', 'make_council_rules_comparison'].includes(t.name)) expect(`${t.cfg.title}\n${t.cfg.description}\n${schema}`, t.name).not.toContain('—');
     }
   });
 
@@ -191,6 +192,25 @@ describe('nosa 묶음 금지어', () => {
     for (const a of inputs) {
       const out = (await t.handler(a)).content[0].text;
       expect(bannedHits(out, NOSA_WORDS), out.slice(0, 80)).toEqual([]);
+    }
+  });
+
+  it('check_council_rules · make_council_rules_comparison 결과 글자(줄표 없음)', async () => {
+    const sample = fs.readFileSync('tests/fixtures/nosa-council/rules-sample-2021.txt', 'utf8');
+    const amended = sample.replace('증진함으로서', '증진함으로써').replace(' 16. 기타 노사협조에 관한 사항', ' 16. 직장 내 성희롱 예방에 관한 사항\n\n 17. 그 밖의 노사협조에 관한 사항');
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'nosa-banned-'));
+    try {
+      const outs = [
+        (await tools.find((x) => x.name === 'check_council_rules')!.handler({ text: sample })).content[0].text,
+        (await tools.find((x) => x.name === 'make_council_rules_comparison')!.handler({ currentText: sample, amendedText: amended, outDir: dir, formats: ['docx'] })).content[0].text,
+        (await tools.find((x) => x.name === 'make_council_rules_comparison')!.handler({ currentText: sample, amendedText: sample, outDir: dir })).content[0].text,
+      ];
+      for (const out of outs) {
+        expect(bannedHits(out, NOSA_WORDS), out.slice(0, 80)).toEqual([]);
+        expect(out, out.slice(0, 80)).not.toContain('—');
+      }
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
     }
   });
 });

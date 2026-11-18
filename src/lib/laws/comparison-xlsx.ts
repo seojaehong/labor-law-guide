@@ -70,6 +70,8 @@ export async function comparisonXlsx(opts:ComparisonSheet):Promise<Blob>{
   // XML parsers normalize literal CR/CRLF; character references preserve the source.
   const zip=await JSZip.loadAsync(bytes);
   const strings=zip.file('xl/sharedStrings.xml');
-  if(strings)zip.file('xl/sharedStrings.xml',(await strings.async('string')).replace(/\r/g,'&#13;'));
+  if(strings)zip.file('xl/sharedStrings.xml',(await strings.async('string')).replace(/\r/g,'&#13;'),{createFolders:false});
+  // 폴더 항목(「xl/」 등)은 빼고 파일만 담는다(클라우드 공동 편집이 폴더 항목 있는 파일을 거부한 적이 있다). remove 는 안쪽 파일까지 지우므로 항목만 뺀다
+  for(const name of Object.keys(zip.files))if(zip.files[name].dir)delete zip.files[name];
   return new Blob([new Uint8Array(await zip.generateAsync({type:'uint8array'}))],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
 }

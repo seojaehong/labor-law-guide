@@ -459,7 +459,7 @@ export function concurrentDoc(input: NosaFormInput): FormDoc {
       GRID(
         ['구분', '모수', '충족 인원', '결과'],
         [
-          ['근참법상 근로자위원 — 근로자 과반수 참여', '', '', ''],
+          ['근참법상 근로자위원: 근로자 과반수 참여', '', '', ''],
           ['근기법상 근로자대표 ① 권한 부여 사실 주지 + 근로자 과반수 참여', '', '', ''],
           ['근기법상 근로자대표 ② 근로자 과반수 지지', '', '', ''],
         ],
@@ -741,7 +741,7 @@ export function portalDoc(input: NosaFormInput, attachRules = PORTAL_ATTACH_RULE
     '노사협의회 정보|정기회의 개최일자': t(k.regularMeetings),
     '노사협의회 정보|노사협의회 위원 수(근로자위원 / 사용자위원)': membersGiven ? `근로자위원 ${c.a.members.worker}명 / 사용자위원 ${c.a.members.employer}명` : '',
     '관할관서·첨부|관할관서': t(input.office),
-    '관할관서·첨부|구비서류': `① 협의회규정 — ${attachRules}(○○ 칸을 채우고 협의회에서 의결한 것)\n② 신·구조문대비표(변경일 때)\n③ 참고(추가)자료(선택)`,
+    '관할관서·첨부|구비서류': `① 협의회규정: ${attachRules}(○○ 칸을 채우고 협의회에서 의결한 것)\n② 신·구조문대비표(변경일 때)\n③ 참고(추가)자료(선택)`,
     '등록인|사업장명': t(w.name),
     '등록인|사업장소재지': t(w.address),
     '등록인|대표자 성명': t(w.ownerName),
@@ -758,7 +758,7 @@ export function portalDoc(input: NosaFormInput, attachRules = PORTAL_ATTACH_RULE
       GRID(['구분', '입력 칸', '필수', '값'], rows, [17, 31, 9, 43]),
       SPACE(),
       P(`제출 문구: 「시행규칙 제3조제1항에 따라 ${kind}된 노사협의회규정을 제출합니다」`),
-      ...(install ? [P(`제출 기한: 협의회 설치일(${dateKo(install)})부터 15일 이내 — ${dateKo(addDays(install, REPORT_DAYS))}까지(법 제18조제1항)`)] : []),
+      ...(install ? [P(`제출 기한: 협의회 설치일(${dateKo(install)})부터 15일 이내, ${dateKo(addDays(install, REPORT_DAYS))}까지(법 제18조제1항)`)] : []),
       NOTE('첨부 파일 확장자는 hwp·doc·pdf·txt·xls·gif·jpg·bmp·zip·jpeg(500MB 이하)다. hwpx·docx·xlsx 는 목록에 없으므로 협의회규정은 pdf 또는 hwp 로 올린다.'),
       NOTE('신청 주소 https://labor.moel.go.kr/minwonRqst/SN012.do · 신청자격 사업주(기업회원) · 처리기간 0일 · 수수료 없음 · 접수 관할 지방고용노동관서(노사협력정책과).'),
       NOTE('신청 화면에는 파일 첨부와 제출 버튼이 있으나 안내 쪽은 접수방법을 방문·우편으로 적고 있다. 실제 접수가 되는지는 확인하지 않았다(2026. 11. 10. 화면 확인). 화면 제출이 되지 않으면 관할 관서에 방문·우편으로 낸다.'),

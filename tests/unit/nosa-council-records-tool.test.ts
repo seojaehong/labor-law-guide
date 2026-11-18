@@ -42,7 +42,7 @@ describe('주민번호 거름 — 파일 해시는 잡지 않는다', () => {
 
 describe('nosa 기록 묶음 — 목록', () => {
   it('로컬 전용이고 원격 가능 목록에 없다 · 금지어 없음', () => {
-    expect(nosaRecordsTools).toEqual(['record_council_history', 'export_council_vault', 'import_council_minutes']);
+    expect(nosaRecordsTools).toEqual(['record_council_history', 'export_council_vault', 'import_council_minutes', 'make_council_rules_comparison']);
     for (const n of nosaRecordsTools) {
       expect(nosaRemoteSafe).not.toContain(n);
       const t = tools.find((x) => x.name === n)!;

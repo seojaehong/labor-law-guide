@@ -19,7 +19,7 @@ import { ARTICLE_KEYS, meetingCheck, meetingErrors, REPORT_KEYS } from '@/lib/no
 import { IMPL_STATUSES, meetingDocs, meetingDocsErrors, minutesRecord } from '@/lib/nosa-council/meeting-docs';
 import { DATE_KEYS as ELECTION_DATE_KEYS, ELECTION_DOC_IDS, electionDocs, electionDocsErrors } from '@/lib/nosa-council/election-docs';
 import { RULES_SOURCE } from '@/lib/nosa-council/rules-template';
-import { checkCouncilRules } from '@/lib/nosa-council/rules-check';
+import { AMEND_SUBMISSION_NOTE, checkCouncilRules } from '@/lib/nosa-council/rules-check';
 import { formHwpx, formPdf } from '@/lib/work-rules-report/render';
 import { implLabel, previousResolutionsFor } from '@/lib/nosa-council/records';
 import { looksLikeRrn, text } from '../lib/common.mjs';
@@ -606,12 +606,12 @@ export function registerNosa(server) {
       title: '노사협의회 협의회규정 본문 점검(로컬 전용)',
       description:
         '사업장이 가진 노사협의회 협의회규정 본문(글자)을 현행 근로자참여 및 협력증진에 관한 법률(2022. 12. 11. 시행)·같은 법 시행령(2022. 11. 8. 공포)과 협의회규정 견본(make_labor_council_forms 00)에 조항별로 대조한다. ' +
-        '항목마다 등급(필수 = 규정 글자가 현행 법령과 다르게 정했거나 시행령 제5조제1항 기재사항이 없음 / 권장 = 오기·빈 시행일·고정 회의일·별지 서식에 남은 글자 등 운영에 도움이 되는 정리), 규정 위치(제N조제N항제N호), 근거 법령 조문, 지금 글, 고칠 방향을 준다. ' +
-        '보는 것: 근로자위원 선출의 「근로자 과반수가 참여」(법 제6조제2항, 위원선거인 간접선출은 두 단계 모두) · 삭제된 입후보 추천 요건(시행령 제3조) · 차점자 충원 조건(시행령 제4조) · 협의사항 17개 호(법 제20조제1항, 16호 성희롱 예방) · 임의 중재 대상(법 제25조제1항) · 고충처리위원 3명 이내·청취일 기산(법 제27조·제28조) · 정족수(법 제15조) · 정기회의 3개월(법 제12조) · 시행령 제5조제1항 기재사항 7개 · 부칙 시행일 · 제출 15일(법 제18조) · 별지 서식(다른 회사 이름·추천 요건·위촉 근거 조문). ' +
+        '항목마다 등급(필수 = 규정 글자가 법령 문언과 다르거나 법령이 요구하는 것이 빠짐 / 선택 = 법령이 정하지 않아 노사가 정하고 규정이 매뉴얼 예시와 같은 방식으로 쓴 것 / 권장 = 오기·빈 시행일·별지 서식에 남은 글자 등 정리), 규정 위치(제N조제N항제N호), 근거 법령 조문, 지금 글, 고칠 방향을 준다. ' +
+        '보는 것: 근로자위원 선출의 「근로자 과반수가 참여」(법 제6조제2항, 위원선거인 간접선출은 두 단계 모두, 선거 공고의 당선 요건) · 입후보 추천 요건(선택) · 결원 30일 이내 충원(시행령 제4조) · 차점자 충원 조건(시행령 제4조) · 협의사항 17개 호(법 제20조제1항, 16호 성희롱 예방) · 임의 중재 대상(법 제25조제1항) · 고충처리위원 3명 이내·청취일 기산(법 제27조·제28조) · 정족수(법 제15조) · 정기회의 3개월(법 제12조) · 시행령 제5조제1항 기재사항 7개 · 부칙 시행일 · 제출 15일(법 제18조) · 별지 서식(다른 회사 이름·추천 요건·위촉 근거 조문). ' +
         '「제N조(제목)」이 줄 처음에 오게 한글·워드에서 복사한 본문을 넣는다. 본문은 이 PC 밖으로 나가지 않고 파일도 쓰지 않는다. 주민등록번호 모양의 숫자가 있으면 멈춘다. 일반 기준을 정리한 참고 결과다.',
       inputSchema: {
         text: z.string().min(1).max(300_000).describe('협의회규정 본문(별지 서식까지 붙여도 된다). 「제N조(제목)」이 줄 처음에 오게'),
-        workplaceName: z.string().max(100).optional().describe('사업장명 — 비우면 본문의 「사업장명 :」 줄에서 찾는다. 별지 서식에 남은 다른 이름을 찾을 때 쓴다'),
+        workplaceName: z.string().max(100).optional().describe('사업장명. 비우면 본문의 「사업장명 :」 줄에서 찾는다. 별지 서식에 남은 다른 이름을 찾을 때 쓴다'),
       },
       annotations: READ_ONLY,
     },
@@ -625,10 +625,11 @@ export function registerNosa(server) {
         findings: r.findings,
         requiredItems: r.requiredItems,
         parsed: r.parsed,
-        basis: '근로자참여 및 협력증진에 관한 법률(2022. 6. 10. 공포, 2022. 12. 11. 시행) · 같은 법 시행령(2022. 11. 8. 공포, 2022. 12. 11. 시행) — 법제처 원문',
-        template: `협의회규정 견본 — ${RULES_SOURCE}. make_labor_council_forms 의 00 협의회규정으로 만든다`,
+        basis: '근로자참여 및 협력증진에 관한 법률(2022. 6. 10. 공포, 2022. 12. 11. 시행) · 같은 법 시행령(2022. 11. 8. 공포, 2022. 12. 11. 시행), 법제처 원문',
+        template: `협의회규정 견본: ${RULES_SOURCE}. make_labor_council_forms 의 00 협의회규정으로 만든다`,
         boundary: BOUNDARY_NOTICE,
-        notice: '글자 대조로 찾은 항목이다. 조문 번호·표현이 견본과 많이 다르면 놓치거나 더 찾을 수 있으니 규정 원문과 함께 확인한다. 고친 규정은 협의회 의결을 거쳐(시행령 제5조제2항) 변경한 날부터 15일 이내에 제출한다(법 제18조제1항).',
+        submission: AMEND_SUBMISSION_NOTE,
+        notice: '글자 대조로 찾은 항목이다. 조문 번호·표현이 견본과 많이 다르면 놓치거나 더 찾을 수 있으니 규정 원문과 함께 확인한다. 선택 항목은 고치지 않아도 된다. 고친 규정의 제출 서류는 submission 을 본다(신·구조문대비표는 make_council_rules_comparison 으로 만든다).',
       });
     },
   );

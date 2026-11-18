@@ -62,7 +62,7 @@ export const articleOf = (key: string | undefined): Article | undefined => ARTIC
 export const RESOLUTION_NOTICE_DAYS = 10;
 
 /** 소집 통보 기한 안내 — 설치·신고 서류(08)와 회의 서류(소집 통보서)가 같은 글을 쓴다 */
-export const CONVENE_NOTE = '회의 개최 7일 전까지 위원에게 통보하여야 한다(근참법 제13조제3항). 통보한 날은 세지 않고 개최일 전날까지 7일이 있어야 한다 — 15일 회의면 7일까지 통보.';
+export const CONVENE_NOTE = '회의 개최 7일 전까지 위원에게 통보하여야 한다(근참법 제13조제3항). 통보한 날은 세지 않고 개최일 전날까지 7일이 있어야 한다. 예: 15일 회의면 7일까지 통보.';
 /** 회의 공개·비밀 유지 — 회의록 머리에 한 줄(법 제16조·제17조) */
 export const OPEN_SECRET_LINE = '협의회의 회의는 공개한다. 다만, 협의회의 의결로 공개하지 아니할 수 있다(법 제16조). 협의회의 위원은 협의회에서 알게 된 비밀을 누설하여서는 아니 된다(법 제17조).';
 
