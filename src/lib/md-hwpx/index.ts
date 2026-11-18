@@ -1,0 +1,266 @@
+// 마크다운 → 한글(hwpx). 로컬 스킬 「한글변환」 generate_hwpx.py(261001 판)의 규칙을 그대로 옮겼다 — 같은 md 를 넣으면 같은 문단·표가 나와야 한다.
+// 바탕(header.xml·구역 설정)은 근로계약서 작성(src/lib/contract-write)과 같은 것을 쓴다. 그 바탕의 글자 모양 7~16·문단 모양 20~29 가
+// 파이썬 판이 만들어 넣는 값과 같아, 프리셋은 행간(tribunal 200%)과 여백만 바꾼다. 바탕 파일을 복사하지 않으므로 다른 문서의 미리보기가 따라오지 않는다.
+// 브라우저 API 를 쓰지 않는다 — node(MCP·시험)와 브라우저가 같은 함수를 쓴다.
+import { HEADER_XML } from '@/lib/contract-write/hwpx-header';
+import { NS, SEC_PR, XML_HEAD } from '@/lib/contract-write/export';
+import { stripControl } from '@/lib/contract-write/text';
+import { packHwpx } from '@/lib/work-rules-report/render';
+
+export type MdPreset = 'internal' | 'tribunal';
+export type CellAlign = 'LEFT' | 'CENTER' | 'RIGHT';
+
+export type MdItem =
+  | { kind: 'h1' | 'h2' | 'h3' | 'h4'; text: string; pageBreak: boolean }
+  | { kind: 'body' | 'list' | 'sig' | 'empty'; text: string }
+  | { kind: 'table'; rows: string[][]; aligns: CellAlign[] };
+
+export interface MdHwpxOptions {
+  /** internal = 내부 문서(행간 160%·여백 20mm) / tribunal = 법원·위원회 제출(행간 200%·위 45·아래 30mm). 기본 internal */
+  preset?: MdPreset;
+  /** 로마숫자(Ⅰ~Ⅹ)로 시작하는 ## 앞에서 쪽을 나눈다. 기본 true */
+  pageBreak?: boolean;
+  /** 아래 가운데 「- N -」 쪽번호. 기본 true */
+  footer?: boolean;
+}
+
+const PRESETS: Record<MdPreset, { lineSpacing: number; top: number; bottom: number; left: number; right: number }> = {
+  internal: { lineSpacing: 160, top: 5670, bottom: 5670, left: 5670, right: 5670 },
+  tribunal: { lineSpacing: 200, top: 12758, bottom: 8505, left: 5670, right: 5670 },
+};
+const BODY_PT = 1200;
+
+// 글자 모양: 7 본문 · 8~11 제목 1~4단계(굵게) · 12 본문 굵게 · 13/14 표(굵게) · 15/16 7열 이상 표(굵게)
+// 문단 모양: 20 본문 · 21~24 제목 1~4단계(다음 문단과 붙임) · 25 목록 · 26 서명부(오른쪽) · 27/28/29 표 칸 왼쪽/가운데/오른쪽
+const HEAD: Record<'h1' | 'h2' | 'h3' | 'h4', [number, number]> = { h1: [8, 21], h2: [9, 22], h3: [10, 23], h4: [11, 24] };
+const BOLD = 12;
+const TABLE_PARA = [27, 28, 29] as const;
+
+// 판례 번호 자동 굵게 — 「대법원 2017. 12. 22. 선고 2016다202947 판결」·「중앙노동위원회 2024차별34」
+const CASE_CITE =
+  '((?:대법원|서울고등법원|서울중앙지방법원|청주지방법원|춘천지방법원|중앙노동위원회|지방노동위원회|서울행정법원|서울고법|부산고등법원|[가-힣]+(?:법원|노동위원회))\\s*(?:\\d{4}\\.\\s*\\d+\\.\\s*\\d+\\.\\s*선고\\s*)?[0-9]{4}[가-힣]+\\d+(?:\\s*판결)?)';
+const CASE_SPLIT = new RegExp(CASE_CITE);
+const CASE_FULL = new RegExp(`^${CASE_CITE}$`);
+const ROMAN = /^[ⅠⅡⅢⅣⅤⅥⅦⅧⅨⅩ]/;
+const SIG_DATE = /^\d{4}\.\s*(\d+|○)\.\s*(\d+|○)\.?\s*$/;
+
+const esc = (s: string) => stripControl(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+const stripBold = (s: string) => s.replace(/\*\*(.+?)\*\*/g, '$1');
+
+/** 곧은 큰따옴표를 여닫는 둥근 따옴표로 */
+function fixQuotes(s: string): string {
+  let open = false;
+  return s.replace(/"/g, () => ((open = !open) ? '“' : '”'));
+}
+
+/** md 를 줄 단위 항목으로 나눈다. 빈 줄은 서명부 바로 앞 것만 남는다(간격은 문단 모양이 맡는다) */
+export function parseMarkdown(md: string, opts: Pick<MdHwpxOptions, 'pageBreak'> = {}): MdItem[] {
+  const raw = fixQuotes(md).split(/\r?\n/);
+  if (raw.length && raw[raw.length - 1] === '') raw.pop();
+  // 서명부 = 끝 15줄 안의 「날짜만 있는 줄」부터. 본문의 날짜 문장은 서명부가 아니다
+  let sig = -1;
+  for (let i = raw.length - 1; i > Math.max(-1, raw.length - 16); i--) {
+    if (SIG_DATE.test(raw[i].trim())) {
+      sig = i;
+      break;
+    }
+  }
+  const out: MdItem[] = [];
+  let i = 0;
+  while (i < raw.length) {
+    const line = raw[i];
+    const t = line.trim();
+    if (sig >= 0 && i >= sig) {
+      out.push(!t || t === '---' ? { kind: 'empty', text: '' } : { kind: 'sig', text: t });
+      i++;
+      continue;
+    }
+    if (!t || /^---+\s*$/.test(t)) {
+      out.push({ kind: 'empty', text: '' });
+      i++;
+      continue;
+    }
+    const h = /^(#{1,4})\s+(.+)$/.exec(line);
+    if (h) {
+      const level = h[1].length;
+      const text = stripBold(h[2].trim());
+      if (level === 2) {
+        const roman = ROMAN.test(text);
+        out.push({ kind: 'h2', text: roman ? text : `□ ${text}`, pageBreak: roman && opts.pageBreak !== false });
+      } else out.push({ kind: `h${level}` as 'h1' | 'h3' | 'h4', text, pageBreak: false });
+      i++;
+      continue;
+    }
+    if (t.startsWith('|')) {
+      const rows: string[][] = [];
+      let aligns: CellAlign[] = [];
+      while (i < raw.length && raw[i].trim().startsWith('|')) {
+        const cells = raw[i].trim().replace(/^\|+|\|+$/g, '').split('|').map((c) => c.trim());
+        if (cells.every((c) => /^[-: ]*$/.test(c))) aligns = cells.map((c) => (c.startsWith(':') && c.endsWith(':') ? 'CENTER' : c.endsWith(':') ? 'RIGHT' : 'LEFT'));
+        else rows.push(cells);
+        i++;
+      }
+      if (rows.length) out.push({ kind: 'table', rows, aligns });
+      continue;
+    }
+    const ul = /^(\s*)-\s+(.+)$/.exec(line);
+    if (ul) {
+      out.push({ kind: 'list', text: /^(\d+\.|[가-힣]\.|[①-⑳])/.test(ul[2]) ? `    ${ul[2]}` : `  - ${ul[2]}` });
+      i++;
+      continue;
+    }
+    const ol = /^(\s*)(\d+\.)\s+(.+)$/.exec(line);
+    if (ol) {
+      out.push({ kind: 'list', text: `  ${ol[2]} ${ol[3]}` });
+      i++;
+      continue;
+    }
+    out.push({ kind: 'body', text: `  ${t}` });
+    i++;
+  }
+  return out.filter((x, k) => x.kind !== 'empty' || out[k + 1]?.kind === 'sig');
+}
+
+/** **굵게** 와 판례 번호를 굵은 런으로 나눈다 */
+function runs(text: string, base: number, bold: number): [string, number][] {
+  const r: [string, number][] = [];
+  for (const part of text.split(/(\*\*.+?\*\*)/)) {
+    if (!part) continue;
+    if (part.length >= 4 && part.startsWith('**') && part.endsWith('**')) {
+      r.push([part.slice(2, -2), bold]);
+      continue;
+    }
+    for (const sp of part.split(CASE_SPLIT)) if (sp) r.push([sp, CASE_FULL.test(sp) ? bold : base]);
+  }
+  return r;
+}
+const run = (t: string, c: number) => `<hp:run charPrIDRef="${c}"><hp:t>${esc(t)}</hp:t></hp:run>`;
+const para = (inner: string, paraPr: number, pageBreak = false) =>
+  `<hp:p id="2147483648" paraPrIDRef="${paraPr}" styleIDRef="0" pageBreak="${pageBreak ? 1 : 0}" columnBreak="0" merged="0">${inner}</hp:p>`;
+
+/** 표시 폭 근사 — 한글·전각 2, 그 밖 1. 칸 안 <br> 이 있으면 가장 긴 줄 */
+const dispLen = (s: string) => Math.max(...s.split(/<br\s*\/?>/i).map((seg) => [...stripBold(seg)].reduce((n, ch) => n + (ch.codePointAt(0)! > 0x2e7f ? 2 : 1), 0)));
+
+function tableXml(rows0: string[][], aligns: CellAlign[], usable: number, bodyH: number, id: number): string {
+  const ncol = Math.max(...rows0.map((r) => r.length));
+  const rows = rows0.map((r) => [...r, ...Array(ncol - r.length).fill('')]);
+  const small = ncol >= 7;
+  const [bodyC, headC] = small ? [15, 16] : [13, 14];
+  const fh = BODY_PT - (small ? 400 : 200);
+  const half = Math.floor(fh / 2);
+  const pad = 510 * 2 + 200;
+  const col = (j: number) => rows.map((r) => dispLen(r[j]));
+  const lens = Array.from({ length: ncol }, (_, j) => Math.min(60, Math.max(6, ...col(j))));
+  const lsum = lens.reduce((s, x) => s + x, 0);
+  const widths = lens.map((L) => Math.floor((usable * L) / lsum));
+  // 하한 = 머리행 글자 한 줄. 내용이 짧은 열(최장 14 이하)은 가장 긴 칸도 한 줄
+  const maxl = Array.from({ length: ncol }, (_, j) => Math.max(...col(j)));
+  const floors = Array.from({ length: ncol }, (_, j) =>
+    Math.min(Math.max(dispLen(rows[0][j]), maxl[j] <= 14 ? maxl[j] : 0) * half + pad, Math.floor(usable / ncol) * 2),
+  );
+  if (floors.reduce((s, x) => s + x, 0) <= usable) {
+    const short = widths.map((w, j) => (w < floors[j] ? j : -1)).filter((j) => j >= 0);
+    if (short.length) {
+      const need = short.reduce((s, j) => s + floors[j] - widths[j], 0);
+      const rich = widths.map((_, j) => j).filter((j) => !short.includes(j));
+      const spare = rich.reduce((s, j) => s + (widths[j] > floors[j] ? widths[j] - floors[j] : 0), 0);
+      for (const j of short) widths[j] = floors[j];
+      if (spare > 0) for (const j of rich) widths[j] -= Math.floor((need * Math.max(0, widths[j] - floors[j])) / spare);
+    }
+  }
+  widths[ncol - 1] += usable - widths.reduce((s, x) => s + x, 0);
+  const lineH = Math.floor((fh * 130) / 100);
+  const rowHs = rows.map((r) => Math.max(...r.map((c, j) => Math.max(1, Math.ceil((dispLen(c) * half) / Math.max(1, widths[j] - pad))))) * lineH + 282);
+  const asChar = rowHs.reduce((s, x) => s + x, 0) < Math.floor((bodyH * 55) / 100);
+  const ROW_H = 1400;
+  const trs = rows.map((r, ri) => {
+    const head = ri === 0;
+    const tcs = r.map((cell, ci) => {
+      const rs = runs(cell, head ? headC : bodyC, headC);
+      const runXml = (rs.map(([t, c]) => run(t, c)).join('') || `<hp:run charPrIDRef="${bodyC}"/>`).replace(/&lt;br\s*\/?&gt;/gi, '<hp:lineBreak/>');
+      const al = aligns[ci] ?? 'LEFT';
+      const pp = head || al === 'CENTER' ? TABLE_PARA[1] : al === 'RIGHT' ? TABLE_PARA[2] : TABLE_PARA[0];
+      return (
+        `<hp:tc name="" header="${head ? 1 : 0}" hasMargin="0" protect="0" editable="0" dirty="1" borderFillIDRef="${head ? 4 : 3}">` +
+        '<hp:subList id="" textDirection="HORIZONTAL" lineWrap="BREAK" vertAlign="CENTER" linkListIDRef="0" linkListNextIDRef="0" textWidth="0" textHeight="0" hasTextRef="0" hasNumRef="0">' +
+        `${para(runXml, pp)}</hp:subList><hp:cellAddr colAddr="${ci}" rowAddr="${ri}"/><hp:cellSpan colSpan="1" rowSpan="1"/>` +
+        `<hp:cellSz width="${widths[ci]}" height="${Math.max(ROW_H, rowHs[ri])}"/><hp:cellMargin left="510" right="510" top="141" bottom="141"/></hp:tc>`
+      );
+    });
+    return `<hp:tr>${tcs.join('')}</hp:tr>`;
+  });
+  const totalH = rowHs.reduce((s, h) => s + Math.max(ROW_H, h), 0);
+  const tbl =
+    `<hp:tbl id="${id}" zOrder="0" numberingType="TABLE" textWrap="TOP_AND_BOTTOM" textFlow="BOTH_SIDES" lock="0" dropcapstyle="None" pageBreak="CELL" repeatHeader="1" rowCnt="${rows.length}" colCnt="${ncol}" cellSpacing="0" borderFillIDRef="3" noAdjust="0">` +
+    `<hp:sz width="${usable}" widthRelTo="ABSOLUTE" height="${totalH}" heightRelTo="ABSOLUTE" protect="0"/>` +
+    `<hp:pos treatAsChar="${asChar ? 1 : 0}" affectLSpacing="0" flowWithText="1" allowOverlap="0" holdAnchorAndSO="0" vertRelTo="PARA" horzRelTo="COLUMN" vertAlign="TOP" horzAlign="LEFT" vertOffset="0" horzOffset="0"/>` +
+    '<hp:outMargin left="0" right="0" top="0" bottom="0"/><hp:inMargin left="510" right="510" top="141" bottom="141"/>' +
+    `${trs.join('')}</hp:tbl>`;
+  return para(`<hp:run charPrIDRef="${bodyC}">${tbl}<hp:t/></hp:run>`, TABLE_PARA[0]);
+}
+
+const FOOTER =
+  '<hp:subList id="0" subListType="FOOTER" textDirection="HORIZONTAL" lineWrap="BREAK" vertAlign="BASELINE" linkListIDRef="0" linkListCount="0">' +
+  '<hp:p id="2147483648" paraPrIDRef="21" styleIDRef="0" pageBreak="0" columnBreak="0" merged="0">' +
+  '<hp:run charPrIDRef="7"><hp:t>- </hp:t></hp:run><hp:run charPrIDRef="7"><hp:ctrl><hp:autoNum numType="PAGE" suffixChar="NONE"/></hp:ctrl></hp:run><hp:run charPrIDRef="7"><hp:t> -</hp:t></hp:run>' +
+  '</hp:p></hp:subList>';
+
+/** 구역 본문(section0.xml) */
+export function mdSectionXml(items: MdItem[], opts: MdHwpxOptions = {}): string {
+  const p = PRESETS[opts.preset ?? 'internal'];
+  let secPr = SEC_PR.replace(
+    /(<hp:margin\s+header="[^"]*"\s+footer="[^"]*"\s+gutter="[^"]*"\s+)left="[^"]*"\s+right="[^"]*"\s+top="[^"]*"\s+bottom="[^"]*"/,
+    `$1left="${p.left}" right="${p.right}" top="${p.top}" bottom="${p.bottom}"`,
+  );
+  if (opts.footer !== false) secPr = secPr.replace('</hp:secPr>', `${FOOTER}</hp:secPr>`);
+  const pageW = Number(/<hp:pagePr[^>]*\bwidth="(\d+)"/.exec(secPr)?.[1] ?? 59528);
+  const pageH = Number(/<hp:pagePr[^>]*\bheight="(\d+)"/.exec(secPr)?.[1] ?? 84186);
+  const usable = pageW - p.left - p.right;
+  const bodyH = pageH - p.top - p.bottom;
+  let tableId = 1000;
+  const body = [para(`<hp:run charPrIDRef="7">${secPr}</hp:run>`, 20)];
+  for (const x of items) {
+    if (x.kind === 'table') body.push(tableXml(x.rows, x.aligns, usable, bodyH, ++tableId));
+    else if (x.kind === 'empty' || !x.text) body.push(para('<hp:run charPrIDRef="7"/>', 20));
+    else if (x.kind === 'h1' || x.kind === 'h2' || x.kind === 'h3' || x.kind === 'h4') {
+      const [c, pp] = HEAD[x.kind];
+      body.push(para(run(x.text, c), pp, x.pageBreak));
+    } else if (x.kind === 'sig') body.push(para(run(x.text, 7), 26));
+    else body.push(para(runs(x.text, 7, BOLD).map(([t, c]) => run(t, c)).join(''), x.kind === 'list' ? 25 : 20));
+  }
+  return `${XML_HEAD}<hs:sec ${NS}>${body.join('')}</hs:sec>`;
+}
+
+/** 프리셋 header.xml — 바탕의 행간을 프리셋 값으로(표 칸 27~29 는 130%) */
+export function presetHeader(preset: MdPreset = 'internal'): string {
+  const ls = PRESETS[preset].lineSpacing;
+  return HEADER_XML.replace(/(<hh:lineSpacing type="PERCENT" value=")\d+(" unit="HWPUNIT"\/>)/g, `$1${ls}$2`).replace(
+    /<hh:paraPr id="(27|28|29)"[\s\S]*?<\/hh:paraPr>/g,
+    (m) => m.replace(/(<hh:lineSpacing type="PERCENT" value=")\d+/g, '$1130'),
+  );
+}
+
+/** 변환 결과 요약 — 확인용 수와 옮기지 못한 마크다운 기호(남으면 렌더러가 다루지 못한 문법이다) */
+export function mdHwpxSummary(items: MdItem[]) {
+  const count = (k: MdItem['kind']) => items.filter((x) => x.kind === k).length;
+  const texts = items.flatMap((x) => (x.kind === 'table' ? x.rows.flat() : [x.text]));
+  const bold = texts.reduce((n, t) => n + runs(t, 7, BOLD).filter(([, c]) => c === BOLD).length, 0);
+  const leftovers = ['](', '<u>', '~~', '```', '> '].filter((k) => texts.some((t) => stripBold(t).includes(k)));
+  return {
+    headings: count('h1') + count('h2') + count('h3') + count('h4'),
+    paragraphs: count('body') + count('list'),
+    tables: count('table'),
+    tableCells: items.reduce((n, x) => n + (x.kind === 'table' ? x.rows.flat().length : 0), 0),
+    boldRuns: bold,
+    signatureLines: count('sig'),
+    pageBreaks: items.filter((x) => 'pageBreak' in x && x.pageBreak).length,
+    leftovers,
+  };
+}
+
+/** md 한 편 → hwpx 바이트. 제목 메타 = 첫 # 제목 */
+export async function mdToHwpx(md: string, opts: MdHwpxOptions = {}): Promise<Uint8Array> {
+  const items = parseMarkdown(md, opts);
+  const title = items.find((x) => x.kind === 'h1');
+  return packHwpx(presetHeader(opts.preset), mdSectionXml(items, opts), title && 'text' in title ? title.text : '');
+}

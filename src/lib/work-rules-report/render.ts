@@ -331,26 +331,33 @@ export function formSectionXml(docs: FormDoc[], layout: HwpxLayout = {}): string
 }
 
 export async function formHwpx(docs: FormDoc[], layout: HwpxLayout = {}): Promise<Uint8Array> {
+  return packHwpx(withUnderlineCharPr(HEADER_XML), formSectionXml(docs, layout), docs[0]?.title ?? '');
+}
+
+/** 한글 꾸러미 — header·section 한 벌과 제목 메타로 hwpx 를 묶는다(md 변환 src/lib/md-hwpx 도 쓴다) */
+export async function packHwpx(headerXml: string, sectionXml: string, title: string): Promise<Uint8Array> {
   const JSZip = (await import('jszip')).default;
   const zip = new JSZip();
+  // 폴더 항목을 넣지 않는다(docs/office-generation-rules.md D2 — 폴더 항목이 있는 파일을 거부한 소비자가 있다)
+  const add = (name: string, data: string, o: Record<string, unknown> = {}) => zip.file(name, data, { createFolders: false, ...o });
   // mimetype 은 첫 항목·무압축이어야 한글이 연다
-  zip.file('mimetype', 'application/hwp+zip', { compression: 'STORE' });
-  zip.file(
+  add('mimetype', 'application/hwp+zip', { compression: 'STORE' });
+  add(
     'version.xml',
     `${XML_HEAD}<hv:HCFVersion xmlns:hv="http://www.hancom.co.kr/hwpml/2011/version" tagetApplication="WORDPROCESSOR" major="5" minor="1" micro="1" buildNumber="0" os="1" xmlVersion="1.5" application="Hancom Office Hangul" appVersion="13, 0, 0, 1053 WIN32LEWindows_10"/>`,
   );
-  zip.file(
+  add(
     'META-INF/container.xml',
     `${XML_HEAD}<ocf:container xmlns:ocf="urn:oasis:names:tc:opendocument:xmlns:container" xmlns:hpf="http://www.hancom.co.kr/schema/2011/hpf"><ocf:rootfiles><ocf:rootfile full-path="Contents/content.hpf" media-type="application/hwpml-package+xml"/></ocf:rootfiles></ocf:container>`,
   );
-  zip.file('META-INF/manifest.xml', `${XML_HEAD}<odf:manifest xmlns:odf="urn:oasis:names:tc:opendocument:xmlns:manifest:1.0"/>`);
-  zip.file(
+  add('META-INF/manifest.xml', `${XML_HEAD}<odf:manifest xmlns:odf="urn:oasis:names:tc:opendocument:xmlns:manifest:1.0"/>`);
+  add(
     'Contents/content.hpf',
-    `${XML_HEAD}<opf:package ${NS} version="" unique-identifier="" id=""><opf:metadata><opf:title>${esc(docs[0]?.title ?? '')}</opf:title><opf:language>ko</opf:language></opf:metadata><opf:manifest><opf:item id="header" href="Contents/header.xml" media-type="application/xml"/><opf:item id="section0" href="Contents/section0.xml" media-type="application/xml"/><opf:item id="settings" href="settings.xml" media-type="application/xml"/></opf:manifest><opf:spine><opf:itemref idref="header" linear="yes"/><opf:itemref idref="section0" linear="yes"/></opf:spine></opf:package>`,
+    `${XML_HEAD}<opf:package ${NS} version="" unique-identifier="" id=""><opf:metadata><opf:title>${esc(title)}</opf:title><opf:language>ko</opf:language></opf:metadata><opf:manifest><opf:item id="header" href="Contents/header.xml" media-type="application/xml"/><opf:item id="section0" href="Contents/section0.xml" media-type="application/xml"/><opf:item id="settings" href="settings.xml" media-type="application/xml"/></opf:manifest><opf:spine><opf:itemref idref="header" linear="yes"/><opf:itemref idref="section0" linear="yes"/></opf:spine></opf:package>`,
   );
-  zip.file('Contents/header.xml', withUnderlineCharPr(HEADER_XML));
-  zip.file('Contents/section0.xml', formSectionXml(docs, layout));
-  zip.file(
+  add('Contents/header.xml', headerXml);
+  add('Contents/section0.xml', sectionXml);
+  add(
     'settings.xml',
     `${XML_HEAD}<ha:HWPApplicationSetting xmlns:ha="http://www.hancom.co.kr/hwpml/2011/app" xmlns:config="urn:oasis:names:tc:opendocument:xmlns:config:1.0"><ha:CaretPosition listIDRef="0" paraIDRef="0" pos="0"/></ha:HWPApplicationSetting>`,
   );

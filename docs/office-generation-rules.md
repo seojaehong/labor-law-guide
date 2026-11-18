@@ -18,6 +18,7 @@
 | `src/lib/leave/leave-xlsx.ts` | 연차 결과 xlsx |
 | `src/lib/contract-write/export.ts` | 근로계약서 xlsx·hwpx·pdf |
 | `src/lib/work-rules-report/render.ts` (`nosa-council/forms.ts` 가 씀) | 서식 hwpx·pdf |
+| `src/lib/md-hwpx/index.ts` (`make_hwpx_from_markdown`) | 마크다운 원고 hwpx |
 | `src/lib/hwp/apply.ts` | 개정안 반영본 hwpx (rhwp 직렬화) |
 | `src/lib/nhis-forms/build.ts` | 건강보험 신고 pdf |
 
@@ -80,9 +81,9 @@ pptx writer 가 없다. 검사 경로(`validate.py` 의 PPTX 검증기)는 pytho
 | H13 | 어절 단위 줄나눔(`breakNonLatinWord`): `KEEP_WORD` 가 실제로는 글자 단위로 끊긴 사례와, `BREAK_WORD` 로 바꾸자 양쪽 정렬 줄이 크게 벌어진 사례가 둘 다 있다 | **확인 필요** — `contract-write/hwpx-header.ts` 는 KEEP_WORD 24·BREAK_WORD 6. 검사기에는 넣지 않았다. 렌더해서 눈으로 판정 |
 | H14 | 쪽 배치(제목·서명부가 쪽 끝에 홀로, 빈 쪽)는 XML 로 판정할 수 없다 — 렌더 PDF 를 만들어 본다 | 검사기는 옆에 같은 이름 PDF 가 있을 때만 쪽수·빈 쪽·마지막 쪽을 본다. 엔진에 hwpx→pdf 렌더 경로가 없어 이번 견본에서는 건너뜀 |
 
-### 마크다운→hwpx 내부 생성기에는 있고 TS 엔진에는 없는 것
+### 마크다운→hwpx — `src/lib/md-hwpx` 로 옮김(make_hwpx_from_markdown)
 
-내부 md→hwpx 생성기가 갖춘 기능 중 `work-rules-report/render.ts`·`contract-write/export.ts` 에 없는 것. 지금은 옮기지 않고 목록만 둔다.
+내부 md→hwpx 생성기(generate_hwpx.py 261001 판)의 아래 기능을 `src/lib/md-hwpx` 로 옮겼다. 같은 md 3종(의견서형·표 기능·40행 표)×프리셋 2종에서 section0 문단 열·header 글자/문단 모양·한글 PDF 쪽수와 쪽별 글자가 파이썬 판과 같다(2026-11-19 대조). `work-rules-report/render.ts`·`contract-write/export.ts` 의 서식 작성기는 이 기능을 쓰지 않는다.
 
 - **표 배치 자동 판단** — 추정 높이(열 폭·글자 수로 줄 수 계산)가 본문 높이의 55% 미만이면 글자처럼 취급, 이상이면 떠 있는 표 + 셀 단위 쪽 넘김 (H5 를 고치는 방법)
 - **열 폭 자동 배분** — 열별 최장 표시 폭(한글 2·반각 1) 비례, 머리행 글자가 한 줄에 들어가는 하한(「담당부 서」처럼 끊기지 않게), 7열 이상이면 작은 글자

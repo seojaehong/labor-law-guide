@@ -17,6 +17,7 @@ import { buildContractDocument } from '@/lib/contract-write/document';
 import { buildContractHwpx, buildContractPdf, buildContractXlsx } from '@/lib/contract-write/export';
 import { nosaDocs, type NosaFormInput } from '@/lib/nosa-council/forms';
 import { formHwpx, formPdf } from '@/lib/work-rules-report/render';
+import { mdToHwpx } from '@/lib/md-hwpx';
 import { parseRegulation, type Regulation } from '@/lib/rules-review/model';
 import { runChecks } from '@/lib/rules-review/checks';
 import { bundleDocx, itemsFor, requestXlsx, reviewXlsx } from '@/lib/rules-review/outputs';
@@ -89,6 +90,10 @@ async function engineSamples(): Promise<Record<string, Uint8Array>> {
   const docs = nosaDocs(NOSA).made.map((d) => d.doc);
   await make('nosa-forms.hwpx', () => formHwpx(docs));
   await make('nosa-forms-pdf.pdf', () => formPdf(docs, read('public/fonts/NanumGothic-Regular.ttf')));
+  const MD = ['# 합성 검토 메모', '', '## Ⅰ. 개요', '', '본문 **굵게**.', '', '| 연번 | 내용 | 금액 |', '|:---:|---|---:|',
+    ...Array.from({ length: 40 }, (_, i) => `| ${i + 1} | 합성 항목 ${i + 1}<br>둘째 줄 | ${(i + 1) * 1000} |`), '', '2026. 11. 19.', '', '가상상사'].join('\n');
+  await make('md-internal.hwpx', () => mdToHwpx(MD, { preset: 'internal' }));
+  await make('md-tribunal.hwpx', () => mdToHwpx(MD, { preset: 'tribunal' }));
   const ws = workspace();
   await make('rules-bundle.docx', async () => bytesOf(await bundleDocx(ws)));
   await make('rules-review.xlsx', async () => bytesOf(await reviewXlsx(ws)));

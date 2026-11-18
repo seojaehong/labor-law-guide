@@ -157,6 +157,8 @@ const ANN = {
   export_council_vault: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
   import_council_minutes: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
   make_council_rules_comparison: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
+  // md → hwpx 파일 쓰기(덮어쓰지 않으므로 다시 불러도 결과가 같지 않다)
+  make_hwpx_from_markdown: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
 };
 // 커넥터 디렉터리 심사 — 빠진 도구 없이 전부 title 과 네 칸이 있다
 {
@@ -166,7 +168,7 @@ const ANN = {
 }
 // 이 판에서 더한 도구 8개 + 사이트 도구 7개(groups/more) — 「대신·대행·대리」도 함께 막는다
 const NOSA_TOOLS = ['assess_labor_council', 'check_council_meeting', 'make_labor_council_forms', 'make_council_meeting_docs', 'make_council_election_docs', 'check_council_rules', 'record_council_history', 'export_council_vault', 'import_council_minutes', 'make_council_rules_comparison'];
-const NEW_TOOLS = ['calc_severance', 'calc_holiday_pay', 'calc_pay_proration', 'calc_shutdown_allowance', 'calc_annual_leave', 'settle_leave_on_exit', 'calc_retirement_tax', 'list_employer_duties', ...MORE_TOOLS, ...NOSA_TOOLS];
+const NEW_TOOLS = ['calc_severance', 'calc_holiday_pay', 'calc_pay_proration', 'calc_shutdown_allowance', 'calc_annual_leave', 'settle_leave_on_exit', 'calc_retirement_tax', 'list_employer_duties', ...MORE_TOOLS, ...NOSA_TOOLS, 'make_hwpx_from_markdown'];
 const NEW_WORDS = [...WORDS, '대신', '대행', '대리'];
 const bannedNew = (s) => (banned ? banned.bannedHits(s, NEW_WORDS) : []);
 for (const n of NEW_TOOLS) check(`${n}: 도구 목록에 있음`, tools.includes(n));
@@ -513,6 +515,17 @@ if (tools.includes('check_council_rules')) {
     check(`nosa 신·구조문대비표 ${mc.rows}줄(${mc.places?.join(' ')}) · ${mc.files?.length}파일`, mc.ok && mc.files?.length === 3 && mc.files.every((f) => fs.existsSync(f.path))
       && mc.kinds?.['삭제'] === 1 && /<u>/.test(mc.markdown ?? '') && /<신 설>/.test(mc.markdown ?? ''));
   }
+}
+
+// ── docs 묶음 ── 합성 원고 → hwpx(파일 쓰기 · 같은 이름은 거절)
+if (tools.includes('make_hwpx_from_markdown')) {
+  const MDX = '# 가상 검토 메모\n\n## Ⅰ. 개요\n\n본문 **굵게** 대법원 2017. 12. 22. 선고 2016다202947 판결.\n\n| 구분 | 금액 |\n|:---:|---:|\n| 기본급 | 2,000,000 |\n\n2026. 11. 19.\n\n가상상사\n';
+  const dir = path.join(tmp, 'docs-md');
+  const mh = await callNew('make_hwpx_from_markdown', { markdown: MDX, preset: 'tribunal', outDir: dir });
+  check(`docs md→hwpx ${mh.file?.bytes}B (제목 ${mh.headings}·표 ${mh.tables}·굵게 ${mh.boldRuns}·서명부 ${mh.signatureLines})`, mh.ok && fs.existsSync(mh.file.path)
+    && mh.headings === 2 && mh.tables === 1 && mh.boldRuns === 2 && mh.signatureLines === 2 && mh.leftovers?.length === 0);
+  const again = await callNew('make_hwpx_from_markdown', { markdown: MDX, preset: 'tribunal', outDir: dir });
+  check('docs 같은 이름은 덮어쓰지 않음', again.ok === false && again.exists === mh.file.path);
 }
 
 // ── work-rules 묶음 ──
