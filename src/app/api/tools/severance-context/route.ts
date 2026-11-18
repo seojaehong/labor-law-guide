@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-server';
 import { supabase } from '@/lib/supabase';
 import { toLexQuery } from '@/lib/chat/context/lex-query';
+import { decisionDate } from '@/lib/decision-date';
 
 /**
  * 퇴직금 계산 결과에 **근거와 다음 단계**를 붙인다 (2026-10-05 신설).
@@ -289,7 +290,7 @@ export async function POST(req: NextRequest) {
       for (const it of (interp.data ?? []) as Array<Record<string, string>>) {
         sources.interpretations.push({
           id: it.id, title: it.title,
-          date: it.decision_date || undefined,
+          date: decisionDate(it.decision_date) ?? undefined,
           url: `/interpretations/${encodeURIComponent(it.id)}`,
         });
       }
