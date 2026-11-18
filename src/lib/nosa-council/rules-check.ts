@@ -1,14 +1,26 @@
 // 협의회규정 본문 점검 — 사업장이 가진 노사협의회 규정 글자를 현행 법령·견본(rules-template.ts)과 조항별로 대조한다.
 // 대조 기준(법제처 원문 261117 재확인): 근로자참여 및 협력증진에 관한 법률(2022. 6. 10. 공포, 2022. 12. 11. 시행)
 //   · 같은 법 시행령(2022. 11. 8. 공포, 2022. 12. 11. 시행). 견본 변경표 R1~R12 = 노사협의회신고 스킬 references/council-rules-template-261110.md §1.
-// 등급: 필수 = 규정 글자가 현행 법령과 다르게 정하고 있거나 시행령 제5조제1항 기재사항이 없다.
-//       권장 = 법령 사항은 아니나 고쳐 두면 운영에 도움이 된다(오기·빈 시행일·고정 회의일·별지 서식 잔재 등).
+// 등급(기준 하나): 필수 = 규정 글자가 법령 문언과 다르거나 법령이 정한 사항이 빠졌다(시행령 제5조제1항 기재사항, 법 제20조제1항제16호 포함 —
+//         매뉴얼 부록1 예시 규정에 없는 것도 법령이 정하면 필수다).
+//       선택 = 법령이 정하지 않은 사항을 고용노동부 「노사협의회 운영 매뉴얼」(2022. 12.) 부록1 예시 규정과 같은 방식으로 정했다 — 협의회가 정한다
+//         (입후보 추천 인원·정기회의 고정일·임의중재 추가 사유 등).
+//       권장 = 법령 사항은 아니나 고쳐 두면 운영에 도움이 된다(오기·빈 시행일·별지 서식 잔재 등).
+// 대조 기준(매뉴얼): 부록1 노사협의회운영규정(예시) 인쇄 153~163쪽. 시행규칙 제3조제1항(2023. 6. 8. 개정)은 변경 제출 때 신·구조문대비표를 요구한다
+//   (매뉴얼에 실린 시행규칙은 개정 전 판이라 대비표 첨부가 없다) — AMEND_SUBMISSION_NOTE.
 // ★ 결과 글에 공개 문구 금지어(tool-kit/banned.ts)와 포괄·대신·대행·대리·지도를 쓰지 않는다. 「현재」 칸은 사용자 글을 그대로 옮긴다.
 // ★ 글자 대조는 공백을 지운 글(sq)로 한다 — 한글에서 복사한 본문은 낱말 중간에 줄바꿈 공백이 끼어 있다(「협 의」).
 import { REGULATION_REQUIRED } from './assess';
 import { COUNCIL_TOPICS } from './meeting';
 
-export type RulesGrade = '필수' | '권장';
+export type RulesGrade = '필수' | '권장' | '선택';
+export const RULES_GRADES: RulesGrade[] = ['필수', '권장', '선택'];
+
+/** 규정을 고친 뒤 제출 안내 — 점검 결과·신·구조문대비표 도구가 항목과 따로 늘 싣는다 */
+export const AMEND_SUBMISSION_NOTE =
+  '협의회규정을 변경한 경우에도 변경한 날부터 15일 이내에 관할 지방고용노동관서의 장에게 제출한다(법 제18조제1항 「변경한 경우에도 또한 같다」). ' +
+  '변경 제출 서류는 제정·변경 협의회규정 제출서(시행규칙 별지 제1호서식)에 변경된 협의회규정과 신·구조문대비표를 붙인 것이다(시행규칙 제3조제1항제1호·제2호, 2023. 6. 8. 개정). ' +
+  '고용노동부 「노사협의회 운영 매뉴얼」(2022. 12.)에 실린 시행규칙 제3조는 개정 전 판이라 신·구조문대비표가 빠져 있다. 규정 변경은 협의회 의결을 거친다(시행령 제5조제2항).';
 
 export interface RulesFinding {
   grade: RulesGrade;
@@ -42,11 +54,13 @@ export interface RulesCheck {
 
 // ── 본문 나누기 ─────────────────────────────────────────
 
-interface Item { no: number; text: string }
-interface Para { no: number; text: string; items: Item[] }
-interface Article { no: number; sub?: number; title: string; paras: Para[]; prefix: string }
+export interface Item { no: number; text: string }
+/** no 0 = 항 번호 없는 본문 */
+export interface Para { no: number; text: string; items: Item[] }
+/** title 은 공백을 지운 제목(대조용), head 는 원문 머리(「제8조(의장 및 위원)」) */
+export interface Article { no: number; sub?: number; title: string; head: string; paras: Para[]; prefix: string }
 
-const CIRCLED = '①②③④⑤⑥⑦⑧⑨⑩⑪⑫⑬⑭⑮⑯⑰⑱⑲⑳';
+export const CIRCLED = '①②③④⑤⑥⑦⑧⑨⑩⑪⑫⑬⑭⑮⑯⑰⑱⑲⑳';
 const sq = (s: string) => s.replace(/\s+/g, '');
 const clip = (s: string, n = 160) => {
   const t = s.replace(/\s+/g, ' ').trim();
@@ -54,7 +68,11 @@ const clip = (s: string, n = 160) => {
 };
 /** 가운뎃점 변형(‧ ․ ㆍ ・ ･)을 · 로, 전각 괄호를 반각으로 */
 function normalize(text: string): string {
-  return text.replace(/[‧․ㆍ・･]/g, '·').replace(/（/g, '(').replace(/）/g, ')').replace(/\r\n?/g, '\n');
+  return normalizeLines(text).replace(/[‧․ㆍ・･]/g, '·').replace(/（/g, '(').replace(/）/g, ')');
+}
+/** 줄바꿈 통일 + 마크다운 머리 표시(「## 제 1 장」·「# 제목」)만 지운다 — 글자는 그대로(신·구조문대비표가 이 글을 쓴다) */
+export function normalizeLines(text: string): string {
+  return text.replace(/\r\n?/g, '\n').replace(/^[ \t]*#{1,6}[ \t]+/gm, '');
 }
 
 const ART_RE = /^제\s*(\d+)\s*조(?:\s*의\s*(\d+))?\s*\(([^)]*)\)\s*(.*)$/;
@@ -63,16 +81,19 @@ const ITEM_RE = /^(\d{1,2})\s*\.\s*(.*)$/;
 const isAddendumHead = (line: string) => /^부칙(\(|<|$)/.test(sq(line));
 const isFormsHead = (line: string) => /^[[<［〔]/.test(line.trim()) || /^(위원등명부|위촉장|공고$|추천서$|별지)/.test(sq(line));
 
-function parseArticles(lines: string[], prefix: string): Article[] {
+/** 조문·항·호로 나눈다. 한 문단이 여러 줄로 끊긴 곳은 이어 붙인다 — 앞 줄 끝에 공백이 없고 앞뒤가 한글이면 붙여 쓰고(「불 / 이익한」), 아니면 한 칸 띄운다 */
+export function parseArticles(lines: string[], prefix: string): Article[] {
   const out: Article[] = [];
   let cur: Article | null = null;
   let para: Para | null = null;
   let item: Item | null = null;
+  let prevRaw = '';
   const startPara = (no: number, text: string) => {
     para = { no, text, items: [] };
     item = null;
     cur!.paras.push(para);
   };
+  const glue = (before: string, line: string) => (!/\s$/.test(prevRaw) && /[가-힣]$/.test(before) && /^[가-힣]/.test(line) ? '' : ' ');
   const addText = (raw: string) => {
     const line = raw.trim();
     if (!line || !cur) return;
@@ -85,22 +106,24 @@ function parseArticles(lines: string[], prefix: string): Article[] {
       return;
     }
     if (!para) return startPara(0, line);
-    if (item) (item as Item).text += ` ${line}`;
-    else (para as Para).text += ` ${line}`;
+    if (item) (item as Item).text += glue((item as Item).text, line) + line;
+    else (para as Para).text += glue((para as Para).text, line) + line;
   };
   for (const raw of lines) {
     const line = raw.trim();
     if (!line || CHAPTER_RE.test(line)) continue;
     const a = ART_RE.exec(line);
     if (a) {
-      cur = { no: Number(a[1]), sub: a[2] ? Number(a[2]) : undefined, title: sq(a[3]), paras: [], prefix };
+      cur = { no: Number(a[1]), sub: a[2] ? Number(a[2]) : undefined, title: sq(a[3]), head: line.slice(0, line.length - a[4].length).trim(), paras: [], prefix };
       para = null;
       item = null;
       out.push(cur);
       if (a[4].trim()) addText(a[4]);
+      prevRaw = raw;
       continue;
     }
     addText(line);
+    prevRaw = raw;
   }
   return out;
 }
@@ -133,8 +156,24 @@ export interface RulesCheckInput {
 
 const coreName = (s: string) => sq(s).replace(/\(주\)|㈜|주식회사|\(유\)|유한회사/g, '');
 
-export function checkCouncilRules(input: RulesCheckInput): RulesCheck {
-  const lines = normalize(input.text).split('\n');
+/** 규정 글을 표지·본문·부칙·별지로 나눈 것(줄 단위, 글자 그대로) */
+export interface RulesParts {
+  /** 첫 장·조 머리 앞 줄(표지) */
+  cover: string[];
+  /** 본문 줄(표지 포함) */
+  body: string[];
+  /** 첫 부칙 머리 줄 번호(없으면 -1) */
+  addIdx: number;
+  /** 부칙 머리 다음 줄부터 별지 앞까지 — 부칙이 여럿이면 뒤 부칙의 머리 줄도 들어 있다 */
+  addLines: string[];
+  /** 부칙마다 머리 줄과 그 아래 줄 */
+  addenda: { head: string; lines: string[] }[];
+  /** 별지 서식 줄 */
+  tail: string[];
+}
+
+/** 표지·본문·부칙·별지 나누기 — 점검(checkCouncilRules)과 신·구조문대비표(rules-compare.ts)가 같이 쓴다. 글자는 바꾸지 않는다 */
+export function splitRules(lines: string[]): RulesParts {
   const addIdx = lines.findIndex(isAddendumHead);
   const bodyLines = addIdx >= 0 ? lines.slice(0, addIdx) : lines;
   const restLines = addIdx >= 0 ? lines.slice(addIdx + 1) : [];
@@ -151,6 +190,21 @@ export function checkCouncilRules(input: RulesCheckInput): RulesCheck {
       tail = bodyLines.slice(t);
     }
   }
+  const first = body.findIndex((l) => ART_RE.test(l.trim()) || CHAPTER_RE.test(l.trim()));
+  const addenda: RulesParts['addenda'] = [];
+  if (addIdx >= 0) {
+    addenda.push({ head: lines[addIdx].trim(), lines: [] });
+    for (const l of addLines) {
+      if (isAddendumHead(l)) addenda.push({ head: l.trim(), lines: [] });
+      else addenda[addenda.length - 1].lines.push(l);
+    }
+  }
+  return { cover: first >= 0 ? body.slice(0, first) : [], body, addIdx, addLines, addenda, tail };
+}
+
+export function checkCouncilRules(input: RulesCheckInput): RulesCheck {
+  const lines = normalize(input.text).split('\n');
+  const { body, addIdx, addLines, tail } = splitRules(lines);
   const arts = parseArticles(body, '');
   const addArts = parseArticles(addLines, '부칙 ');
   const addText = addLines.join('\n');
@@ -194,13 +248,27 @@ export function checkCouncilRules(input: RulesCheckInput): RulesCheck {
     }
   }
 
-  // 3. 입후보 추천 요건 — 시행령 제3조(2022. 11. 8. 개정으로 추천 요건 삭제)
+  // 3. 입후보 추천 요건 — 시행령 제3조(2022. 11. 8. 개정으로 추천 요건 삭제). 매뉴얼 예시 제16조제1항도 추천을 두므로 선택
   for (const a of allArts) for (const p of a.paras) {
     if (RECOMMEND_RE.test(sq(paraAll(p)))) {
       push({
-        grade: '필수', id: 'nomination-requirement', regulation: loc(a, p), law: '시행령 제3조',
-        issue: '입후보에 근로자 일정 수 이상의 추천을 요구합니다. 이 요건은 옛 시행령 제3조제2항에 있던 것으로 2022. 11. 8. 개정(2022. 12. 11. 시행)으로 삭제되었습니다. 현행 시행령 제3조는 입후보 자격을 「해당 사업이나 사업장의 근로자」로만 정합니다. 옛 법령 문구가 남아 있는 것입니다.',
-        change: '근로자위원으로 입후보하려는 사람은 해당 사업 또는 사업장의 근로자여야 한다.(추천 요건 삭제)',
+        grade: '선택', id: 'nomination-requirement', regulation: loc(a, p), law: '시행령 제3조',
+        issue: '입후보에 근로자 일정 수 이상의 추천을 요구합니다. 시행령 제3조의 추천 요건은 2022. 11. 8. 개정(2022. 12. 11. 시행)으로 삭제되어, 현행 시행령은 입후보 자격(해당 사업이나 사업장의 근로자)만 정합니다. '
+          + '고용노동부 「노사협의회 운영 매뉴얼」(2022. 12.) 예시 규정 제16조제1항도 근로자 10명 이상의 추천을 두고, 주석에 「근로자참여법 개정으로 근로자 10명 이상 추천요건은 삭제되었으나 협의회규정으로 달리 정할 수 있음」이라 적습니다(매뉴얼 159쪽).',
+        change: '추천 인원을 그대로 둘지, 줄이거나 없앨지는 노사가 협의회에서 정한다. 없애려면 「근로자위원으로 입후보하려는 사람은 해당 사업 또는 사업장의 근로자여야 한다.」로 쓴다.',
+        current: clip(paraAll(p)),
+      });
+    }
+  }
+
+  // 3-1. 결원 충원을 「위촉」만으로 — 시행령 제4조(30일 이내에 보궐위원을 위촉하거나 선출). 선거로 뽑힌 근로자위원은 위촉만으로 채울 수 없다
+  for (const a of arts) for (const p of a.paras) {
+    const s = sq(p.text);
+    if (/결원/.test(s) && /30일이내/.test(s) && /위촉/.test(s) && !/선출/.test(s) && !/사용자위원/.test(s) && !/노동조합/.test(s)) {
+      push({
+        grade: '필수', id: 'vacancy-fill', regulation: loc(a, p), law: '시행령 제4조',
+        issue: '위원 결원을 「위촉」으로만 채우도록 정했습니다. 시행령 제4조는 결원이 생기면 30일 이내에 보궐위원을 「위촉하거나 선출」하도록 정합니다. 투표로 뽑힌 근로자위원의 결원은 위촉만으로 채울 수 없습니다.',
+        change: '…30일 이내에 위촉하거나 선출한다.',
         current: clip(paraAll(p)),
       });
     }
@@ -272,9 +340,10 @@ export function checkCouncilRules(input: RulesCheckInput): RulesCheck {
       const s = sq(it.text);
       if (/(기타|그밖에|그밖의)/.test(s) && /중재/.test(s) && /필요/.test(s)) {
         push({
-          grade: '권장', id: 'arbitration-other', regulation: loc(arbArt, p, it), law: '법 제25조제1항',
-          issue: '임의 중재 대상에 「그 밖에 중재가 필요한 경우」가 있습니다. 법의 중재 대상은 ① 법 제21조 의결사항을 의결하지 못한 경우 ② 의결된 사항의 해석·이행 방법에 의견이 일치하지 않는 경우 두 가지입니다.',
-          change: '이 호를 삭제한다.',
+          grade: '선택', id: 'arbitration-other', regulation: loc(arbArt, p, it), law: '법 제25조제1항',
+          issue: '임의 중재 대상에 「그 밖에 중재가 필요한 경우」가 있습니다. 법 제25조제1항은 ① 법 제21조 의결사항을 의결하지 못한 경우 ② 의결된 사항의 해석·이행 방법에 의견이 일치하지 않는 경우 두 가지를 정하나, '
+            + '추가 사유도 같은 항 본문의 근로자위원·사용자위원 합의를 전제로 합니다. 매뉴얼 예시 규정 제31조제2항제3호(노사가 공동으로 신청한 경우, 매뉴얼 162쪽)도 같은 방식입니다.',
+          change: '두거나 고칠지는 노사가 협의회에서 정한다. 예시 규정처럼 쓰려면 「노사가 공동으로 중재를 신청한 경우」로 쓴다.',
           current: clip(it.text),
         });
       }
@@ -347,9 +416,9 @@ export function checkCouncilRules(input: RulesCheckInput): RulesCheck {
       });
     } else if (WEEKDAY_FIXED.test(s)) {
       push({
-        grade: '권장', id: 'regular-fixed-date', regulation: loc(meetingArt, p), law: '법 제12조제1항',
-        issue: '정기회의 날짜를 특정 요일로 고정해 두었습니다. 법은 3개월마다 정기회의를 열도록 할 뿐 날짜를 정하지 않으며(3개월 기간마다 1회 이상), 고정일과 실제 회의일이 다르면 규정과 운영이 어긋나 보입니다.',
-        change: '협의회는 3개월마다 정기회의를 열며, 개최일은 협의회가 정한다.',
+        grade: '선택', id: 'regular-fixed-date', regulation: loc(meetingArt, p), law: '법 제12조제1항',
+        issue: '정기회의 날짜를 특정 요일로 고정해 두었습니다. 법은 3개월마다 정기회의를 열도록 할 뿐 날짜를 정하지 않습니다. 매뉴얼 예시 규정 제19조제1항도 「매분기 말월 첫째주」로 고정합니다(매뉴얼 160쪽). 고정일과 실제 회의일이 다르면 규정과 운영이 어긋나 보입니다.',
+        change: '날짜를 그대로 둘지 바꿀지는 노사가 협의회에서 정한다. 고정하지 않으려면 「협의회는 3개월마다 정기회의를 열며, 개최일은 협의회가 정한다.」로 쓴다.',
         current: clip(p.text),
       });
     }
@@ -458,7 +527,7 @@ export function checkCouncilRules(input: RulesCheckInput): RulesCheck {
     }
     if (others.size) {
       push({
-        grade: '권장', id: 'forms-other-name', regulation: '별지 서식', law: '—',
+        grade: '권장', id: 'forms-other-name', regulation: '별지 서식', law: '시행령 제3조',
         issue: `별지 서식에 이 사업장(${workplaceName})이 아닌 이름이 남아 있습니다: ${[...others].map((x) => `「${x}」`).join(', ')}. 다른 회사 서식을 옮겨 오며 남은 글자로 보입니다.`,
         change: '사업장명으로 고친다.',
       });
@@ -466,10 +535,20 @@ export function checkCouncilRules(input: RulesCheckInput): RulesCheck {
     const recLine = tail.find((l) => RECOMMEND_RE.test(sq(l)));
     if (recLine) {
       push({
-        grade: '권장', id: 'forms-nomination', regulation: '별지 서식', law: '시행령 제3조',
-        issue: '별지 서식(선거 공고·회의록 예시 등)에 삭제된 입후보 추천 요건이 남아 있습니다.',
-        change: '추천 요건 문구와 추천서 서식을 뺀다. 입후보 자격은 해당 사업 또는 사업장의 근로자.',
+        grade: '선택', id: 'forms-nomination', regulation: '별지 서식', law: '시행령 제3조',
+        issue: '별지 서식(선거 공고·회의록 예시 등)에 입후보 추천 인원이 적혀 있습니다. 시행령 제3조의 추천 요건은 2022. 11. 8. 개정으로 삭제되었으나, 매뉴얼 예시 규정 제16조제1항처럼 협의회규정으로 추천을 둘 수 있습니다(매뉴얼 159쪽).',
+        change: '본문의 입후보 조항과 같게 맞춘다. 추천을 두면 서식의 인원을 본문과 같게, 없애면 추천 문구와 추천서 서식을 함께 뺀다.',
         current: clip(recLine),
+      });
+    }
+    // 선거 공고의 당선 요건 — 법 제6조제2항(근로자 과반수가 참여한 투표). 다수득표만으로 당선을 정하면 필수
+    const winLine = tail.find((l) => { const s = sq(l); return /당선/.test(s) && /다수득표/.test(s) && !/과반수가?참여/.test(s); });
+    if (winLine) {
+      push({
+        grade: '필수', id: 'forms-election-majority', regulation: '별지 서식(선거 공고)', law: '법 제6조제2항',
+        issue: '선거 공고의 당선 요건이 근로자 과반수 참여 요건 없이 다수득표만으로 당선을 정합니다. 법은 근로자위원을 근로자 과반수가 참여한 직접·비밀·무기명 투표로 선출하도록 정합니다. 과반수 노동조합이 있어 지금 쓰지 않는 서식이라도, 노동조합이 과반수 지위를 잃으면 이 서식으로 선거합니다.',
+        change: '「당선 요건 : 근로자 과반수가 참여한 직접·비밀·무기명 투표에서 다수득표자 순으로 당선자를 정한다」로 고친다(득표수가 같을 때의 기준은 그대로 둘 수 있다).',
+        current: clip(winLine),
       });
     }
     for (const l of tail) {
@@ -484,20 +563,19 @@ export function checkCouncilRules(input: RulesCheckInput): RulesCheck {
       }
       if (/제26조제1항/.test(s) && /고충처리위원/.test(s)) {
         push({
-          grade: '권장', id: 'forms-basis-grievance', regulation: '별지 서식(위촉장)', law: '법 제26조·제27조제1항',
-          issue: '고충처리위원 근거를 법 제26조제1항으로 적었습니다. 제26조는 항이 나뉘지 않고, 협의회가 있는 곳의 선임 근거는 제27조제1항입니다.',
-          change: '「법 제26조 및 제27조제1항에 따라」',
+          grade: '권장', id: 'forms-basis-grievance', regulation: '별지 서식(위촉장)', law: '법 제27조제1항',
+          issue: '고충처리위원 근거를 법 제26조제1항으로 적었습니다. 제26조는 항이 나뉘지 않는 설치 조문이고, 협의회가 있는 곳의 선임 근거는 제27조제1항입니다.',
+          change: '「법 제27조제1항에 따라」',
           current: clip(l),
         });
       }
     }
   }
 
-  const order = (f: RulesFinding) => (f.grade === '필수' ? 0 : 1);
-  findings.sort((x, y) => order(x) - order(y));
+  findings.sort((x, y) => RULES_GRADES.indexOf(x.grade) - RULES_GRADES.indexOf(y.grade));
   return {
     findings,
-    counts: { 필수: findings.filter((f) => f.grade === '필수').length, 권장: findings.filter((f) => f.grade === '권장').length },
+    counts: { 필수: findings.filter((f) => f.grade === '필수').length, 권장: findings.filter((f) => f.grade === '권장').length, 선택: findings.filter((f) => f.grade === '선택').length },
     requiredItems,
     parsed: { articles: arts.length, addendum: addIdx >= 0, formsTail: tail.length > 0, ...(workplaceName ? { workplaceName } : {}) },
   };

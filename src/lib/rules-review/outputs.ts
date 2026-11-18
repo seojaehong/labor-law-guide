@@ -206,7 +206,7 @@ export function manualItems(ws: Workspace): Finding[] {
 // ── docx ──
 const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 function runs(text: string, bold = false, size = 20, color = '202B33'): string {
-  const rpr = (u: boolean) => `<w:rPr><w:rFonts w:ascii="Arial" w:eastAsia="맑은 고딕" w:hAnsi="Arial"/>${bold || u ? '<w:b/>' : ''}${u ? '<w:u w:val="single"/>' : ''}<w:color w:val="${u ? '1F4E79' : color}"/><w:sz w:val="${size}"/></w:rPr>`;
+  const rpr = (u: boolean) => `<w:rPr><w:rFonts w:ascii="Arial" w:eastAsia="맑은 고딕" w:hAnsi="Arial"/>${bold || u ? '<w:b/>' : ''}<w:color w:val="${u ? '1F4E79' : color}"/><w:sz w:val="${size}"/>${u ? '<w:u w:val="single"/>' : ''}</w:rPr>`;
   // 밑줄 표시(U0…U1)는 줄을 넘지 않는다 — 한 줄 안에서 조각으로 나눠 밑줄 런을 만든다
   return text.split('\n').map((line, i) => {
     const parts = line.split(/([^]*)/).filter(Boolean);
@@ -222,8 +222,8 @@ const pageBreak = '<w:p><w:r><w:br w:type="page"/></w:r></w:p>';
 function table(head: string[], widths: number[], rows: string[][]): string {
   const border = ['top', 'left', 'bottom', 'right', 'insideH', 'insideV'].map((s) => `<w:${s} w:val="single" w:sz="4" w:color="B8C3CE"/>`).join('');
   const cell = (t: string, w: number, h: boolean) =>
-    `<w:tc><w:tcPr><w:tcW w:w="${w}" w:type="dxa"/><w:vAlign w:val="${h ? 'center' : 'top'}"/><w:shd w:val="clear" w:fill="${h ? '285E77' : 'FFFFFF'}"/></w:tcPr><w:p><w:pPr><w:spacing w:after="40" w:line="264" w:lineRule="auto"/>${h ? '<w:jc w:val="center"/>' : ''}</w:pPr>${runs(t, h, 19, h ? 'FFFFFF' : '202B33')}</w:p></w:tc>`;
-  return `<w:tbl><w:tblPr><w:tblW w:w="${widths.reduce((a, b) => a + b, 0)}" w:type="dxa"/><w:tblLayout w:type="fixed"/><w:tblBorders>${border}</w:tblBorders><w:tblCellMar><w:top w:w="80" w:type="dxa"/><w:bottom w:w="80" w:type="dxa"/><w:left w:w="110" w:type="dxa"/><w:right w:w="110" w:type="dxa"/></w:tblCellMar></w:tblPr><w:tblGrid>${widths.map((w) => `<w:gridCol w:w="${w}"/>`).join('')}</w:tblGrid>`
+    `<w:tc><w:tcPr><w:tcW w:w="${w}" w:type="dxa"/><w:shd w:val="clear" w:fill="${h ? '285E77' : 'FFFFFF'}"/><w:vAlign w:val="${h ? 'center' : 'top'}"/></w:tcPr><w:p><w:pPr><w:spacing w:after="40" w:line="264" w:lineRule="auto"/>${h ? '<w:jc w:val="center"/>' : ''}</w:pPr>${runs(t, h, 19, h ? 'FFFFFF' : '202B33')}</w:p></w:tc>`;
+  return `<w:tbl><w:tblPr><w:tblW w:w="${widths.reduce((a, b) => a + b, 0)}" w:type="dxa"/><w:tblBorders>${border}</w:tblBorders><w:tblLayout w:type="fixed"/><w:tblCellMar><w:top w:w="80" w:type="dxa"/><w:left w:w="110" w:type="dxa"/><w:bottom w:w="80" w:type="dxa"/><w:right w:w="110" w:type="dxa"/></w:tblCellMar></w:tblPr><w:tblGrid>${widths.map((w) => `<w:gridCol w:w="${w}"/>`).join('')}</w:tblGrid>`
     + `<w:tr><w:trPr><w:tblHeader/><w:cantSplit/></w:trPr>${head.map((h, i) => cell(h, widths[i], true)).join('')}</w:tr>`
     + rows.map((r) => `<w:tr>${r.map((c, i) => cell(c, widths[i], false)).join('')}</w:tr>`).join('') + '</w:tbl>' + para('', false, 10, 120);
 }
@@ -231,9 +231,9 @@ function table(head: string[], widths: number[], rows: string[][]): string {
 async function docx(body: string): Promise<Blob> {
   const zip = new JSZip();
   zip.file('[Content_Types].xml', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/></Types>');
-  zip.file('_rels/.rels', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>');
+  zip.file('_rels/.rels', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>', { createFolders: false });
   const sect = '<w:sectPr><w:pgSz w:w="16838" w:h="11906" w:orient="landscape"/><w:pgMar w:top="1000" w:right="900" w:bottom="1000" w:left="900" w:header="500" w:footer="500" w:gutter="0"/></w:sectPr>';
-  zip.file('word/document.xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>${body}${sect}</w:body></w:document>`);
+  zip.file('word/document.xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>${body}${sect}</w:body></w:document>`, { createFolders: false });
   return zip.generateAsync({ type: 'blob', mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
 }
 

@@ -2,6 +2,7 @@
 //   record_council_history  이행 기록·회의록 이력(판·서명·공지·가져옴 확인)을 덧붙인다 — 고치거나 지우지 않는다
 //   export_council_vault    기록 폴더 → 옵시디언 보관함(md + YAML 앞머리 + [[위키링크]]) · _대시보드.md · _회의록대장.md·.xlsx
 // 계산은 src/lib/nosa-council/records.ts(정본). 선은 구조화 값에서만 만든다(minutes-graph-spec-261110).
+//   make_council_rules_comparison  현행·개정 협의회규정 → 신·구조문대비표(마크다운 + docx·hwpx·xlsx). 대조는 src/lib/nosa-council/rules-compare.ts
 // ★ 이 파일은 원격판(remote.mjs)에서 불러오지 않는다 — 파일을 읽고 쓰며 exceljs 를 쓴다. stdio 판(server.mjs)의 nosa 묶음으로만 켠다.
 // ★ 공개 문구 금지어 + 포괄·대신·대행·대리·지도를 이 묶음의 글(설명·결과)에 쓰지 않는다.
 import { z } from 'zod';
@@ -20,6 +21,11 @@ import { argsLookLikeRrn, looksLikeRrn, text } from '../lib/common.mjs';
 import { appendJsonl, loadCouncilDir, sha256File } from '../lib/council-dir.mjs';
 import { readRulesFile, RULES_FILE_KINDS } from '../lib/rules-file.mjs';
 import { OCR_IMAGE_KINDS, ocrAvailable, ocrImage, readPdfWithOcr } from '../lib/ocr-source.mjs';
+import { AMEND_SUBMISSION_NOTE } from '@/lib/nosa-council/rules-check';
+import { compareCouncilRules, comparisonFormDoc, comparisonMarkdown, comparisonSheet } from '@/lib/nosa-council/rules-compare';
+import { compareDocx } from '@/lib/laws/doc-io';
+import { comparisonXlsx } from '@/lib/laws/comparison-xlsx';
+import { formHwpx } from '@/lib/work-rules-report/render';
 
 /** 회의록 원본 읽기 — hwp·hwpx·docx·txt 는 규정 읽기와 같고, pdf 는 글자층 없는 쪽만 문자 인식, 사진(png·jpg)은 문자 인식 */
 async function readMinutesSource(source) {
@@ -38,7 +44,7 @@ async function readMinutesSource(source) {
 }
 import { todayKst } from './nosa.mjs';
 
-export const nosaRecordsTools = ['record_council_history', 'export_council_vault', 'import_council_minutes'];
+export const nosaRecordsTools = ['record_council_history', 'export_council_vault', 'import_council_minutes', 'make_council_rules_comparison'];
 
 const WRITES = { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false };
 const fail = (error, extra = {}) => text({ ok: false, error, ...extra });
@@ -346,6 +352,83 @@ export function registerNosaRecords(server) {
         ...(textWarnings.length ? { textWarnings } : {}),
         ...(warnings.length || record.check.warnings.length ? { warnings: [...warnings, ...record.check.warnings] } : {}),
         next: `원본을 열어 값을 맞춰 본 뒤 record_council_history(kind = minutes, meetingKey = ${key}, stage = 가져옴 확인)를 붙이면 보관함에서 잇는다. 틀린 값이 있으면 이 .json 을 지우고 다시 가져온다.`,
+      });
+    },
+  );
+
+  // ── 협의회규정 신·구조문대비표(로컬 전용: 규정 본문을 읽고 이 PC 에 파일을 쓴다) ──
+  // 대조는 src/lib/nosa-council/rules-compare.ts(점검 도구와 같은 조·항·호 나누기). docx = doc-io compareDocx · hwpx = work-rules-report formHwpx(가로) · xlsx = comparison-xlsx(밑줄 없음).
+  const sourceText = async (label, t, f) => {
+    if ((t ?? '').trim() && (f ?? '').trim()) throw new Error(`${label}은 글(Text)과 파일(File) 중 하나만 줍니다`);
+    if ((f ?? '').trim()) return (await readRulesFile(f)).text;
+    if ((t ?? '').trim()) return t;
+    throw new Error(`${label} 글이나 파일을 주세요`);
+  };
+  server.registerTool(
+    'make_council_rules_comparison',
+    {
+      title: '노사협의회 협의회규정 신·구조문대비표 만들기(로컬 전용)',
+      description:
+        '현행 협의회규정 전문과 개정 협의회규정 전문을 받아 바뀐 곳만 「현 행 | 개 정 안」 신·구조문대비표로 만든다(시행규칙 제3조제1항제2호, 2023. 6. 8. 개정: 규정을 변경해 제출할 때 붙이는 서류). ' +
+        '표지·조·항·호·부칙·별지 서식으로 나눠 글자가 비슷한 것끼리 짝짓고(번호가 밀린 호도 내용으로 맞춘다), 바뀐 글자는 어절 단위로 양쪽에 밑줄을 긋는다. 안 바뀐 항·호는 현행 쪽 「(생략)」, 개정안 쪽 「(현행과 같음)」, 새로 생긴 것은 「<신 설>」, 없앤 것은 「<삭 제>」로 적는다. ' +
+        `마크다운 표를 결과로 돌려주고, outDir 에 docx·hwpx(가로 A4, 밑줄)·xlsx(밑줄 없음)를 만든다. 규정은 글(currentText·amendedText)이나 이 PC 의 파일(${RULES_FILE_KINDS.join('·')}) 경로로 준다. ` +
+        '이미 있는 파일은 덮어쓰지 않는다. 본문은 이 PC 밖으로 나가지 않는다. 주민등록번호 모양의 숫자가 있으면 멈춘다. 별지 서식의 표는 글자로 읽힌 만큼만 대조한다.',
+      inputSchema: {
+        currentText: z.string().max(300_000).optional().describe('현행 협의회규정 전문(글). currentFile 과 둘 중 하나'),
+        currentFile: z.string().max(400).optional().describe(`현행 협의회규정 파일 경로(${RULES_FILE_KINDS.join('·')}, 10MB 이하)`),
+        amendedText: z.string().max(300_000).optional().describe('개정 협의회규정 전문(글). amendedFile 과 둘 중 하나'),
+        amendedFile: z.string().max(400).optional().describe(`개정 협의회규정 파일 경로(${RULES_FILE_KINDS.join('·')}, 10MB 이하)`),
+        workplaceName: z.string().max(100).optional().describe('사업장명(제목). 비우면 본문의 「사업장명 :」 줄에서 찾는다'),
+        amendDate: z.string().max(40).optional().describe('개정일(제목 아래에 적는다, 예: 2026. 12. 1.)'),
+        outDir: z.string().describe('저장할 폴더(없으면 만든다)'),
+        fileBase: z.string().max(80).optional().describe('파일 이름 앞부분(기본 「협의회규정」)'),
+        formats: z.array(z.enum(['docx', 'hwpx', 'xlsx'])).optional().describe('만들 형식(기본 docx·hwpx)'),
+      },
+      annotations: WRITES,
+    },
+    async (a) => {
+      if (argsLookLikeRrn({ ...a, outDir: '', currentFile: '', amendedFile: '' })) return fail(RRN_STOP);
+      let current, amended;
+      try {
+        current = await sourceText('현행 규정', a.currentText, a.currentFile);
+        amended = await sourceText('개정 규정', a.amendedText, a.amendedFile);
+      } catch (e) {
+        return fail(`규정을 읽지 못했습니다: ${e instanceof Error ? e.message : String(e)}`);
+      }
+      if (looksLikeRrn(current) || looksLikeRrn(amended)) return fail(RRN_STOP);
+      const r = compareCouncilRules(current, amended);
+      if (!r.parsed.current.articles || !r.parsed.amended.articles) return fail('「제N조(제목)」 모양의 조문을 찾지 못했습니다. 조문 제목이 줄 처음에 오도록 두 규정을 넣어 주세요.', { parsed: r.parsed });
+      const meta = { workplaceName: (a.workplaceName ?? '').trim() || r.workplaceName, amendDate: (a.amendDate ?? '').trim() || undefined };
+      const kinds = Object.fromEntries(['개정', '신설', '삭제'].map((k) => [k, r.rows.filter((x) => x.kind === k).length]));
+      const head = { rows: r.rows.length, kinds, places: r.rows.map((x) => `${x.where}(${x.kind})`), parsed: r.parsed, submission: AMEND_SUBMISSION_NOTE };
+      if (!r.rows.length) return text({ ok: true, ...head, files: [], notice: '두 규정의 글자가 같아 대비표를 만들지 않았습니다.' });
+      const want = new Set(a.formats?.length ? a.formats : ['docx', 'hwpx']);
+      const base = safeName((a.fileBase ?? '').trim() || '협의회규정');
+      const targets = ['docx', 'hwpx', 'xlsx'].filter((f) => want.has(f)).map((f) => ({ f, path: path.join(a.outDir, `${base}_신구조문대비표.${f}`) }));
+      const exists = targets.filter((x) => fs.existsSync(x.path)).map((x) => x.path);
+      if (exists.length) return fail('이미 있는 파일은 덮어쓰지 않습니다. fileBase 나 outDir 를 바꿔 주세요.', { exists });
+      fs.mkdirSync(a.outDir, { recursive: true });
+      const files = [];
+      const skipped = [];
+      for (const t of targets) {
+        try {
+          let bytes;
+          if (t.f === 'hwpx') bytes = await formHwpx([comparisonFormDoc(r.rows, meta)], { landscape: true });
+          else if (t.f === 'docx') bytes = new Uint8Array(await (await compareDocx({ ...comparisonSheet(r.rows, meta), widths: [7519, 7519], labelColumn: false })).arrayBuffer());
+          else bytes = new Uint8Array(await (await comparisonXlsx({ ...comparisonSheet(r.rows, meta, { plain: true }), widths: [60, 60] })).arrayBuffer());
+          fs.writeFileSync(t.path, bytes);
+          files.push({ format: t.f, path: t.path, bytes: bytes.length });
+        } catch (e) {
+          skipped.push({ format: t.f, error: e instanceof Error ? e.message : String(e) });
+        }
+      }
+      return text({
+        ok: files.length > 0,
+        ...head,
+        markdown: comparisonMarkdown(r.rows, meta),
+        files,
+        ...(skipped.length ? { skipped } : {}),
+        notice: '글자 대조로 만든 표다. 밑줄은 어절 단위라 조사까지 함께 그어질 수 있고, 별지 서식의 표는 글자로 읽힌 만큼만 대조한다. 규정 원문과 맞춰 본 뒤 낸다.',
       });
     },
   );

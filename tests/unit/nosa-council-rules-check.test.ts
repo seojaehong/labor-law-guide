@@ -35,11 +35,20 @@ describe('checkCouncilRules — 2021 규정 표본(이름 가림)', () => {
     expect(f[0].issue).toMatch(/위원선거인 과반수가 참여/);
   });
 
-  it('제7조④ 근로자 10인 이상 추천 — 필수, 시행령 제3조(2022. 11. 8. 개정 삭제)', () => {
+  it('제7조④ 근로자 10인 이상 추천 — 선택(법령이 정하지 않고 매뉴얼 예시도 추천을 둔다), 없애라고 하지 않는다', () => {
     const f = find(r, 'nomination-requirement');
     expect(f.map((x) => x.regulation)).toEqual(['제7조제4항']);
-    expect(f[0]).toMatchObject({ grade: '필수', law: '시행령 제3조' });
-    expect(f[0].issue).toMatch(/2022\. 11\. 8\./);
+    expect(f[0]).toMatchObject({ grade: '선택', law: '시행령 제3조' });
+    expect(f[0].issue).not.toMatch(/옛 법령 문구가 남아/);
+    expect(f[0].change).toMatch(/노사가 협의회에서 정한다/);
+    expect(f[0].change).not.toMatch(/삭제한다|지운다/);
+  });
+
+  it('제10조④ 결원 30일 이내 「위촉」만 — 근로자위원은 선출이라 필수, 시행령 제4조', () => {
+    const f = find(r, 'vacancy-fill');
+    expect(f).toHaveLength(1);
+    expect(f[0]).toMatchObject({ grade: '필수', regulation: '제10조제4항', law: '시행령 제4조' });
+    expect(f[0].change).toMatch(/위촉하거나 선출한다/);
   });
 
   it('제18조① 16개 호 — 16호 성희롱 예방 없음, 필수', () => {
@@ -49,8 +58,8 @@ describe('checkCouncilRules — 2021 규정 표본(이름 가림)', () => {
     expect(f[0].issue).toMatch(/성희롱/);
   });
 
-  it('제23조①3호 「기타 중재가 필요한 경우」 — 권장, 법 제25조제1항', () => {
-    expect(find(r, 'arbitration-other')).toEqual([expect.objectContaining({ grade: '권장', regulation: '제23조제1항제3호', law: '법 제25조제1항' })]);
+  it('제23조①3호 「기타 중재가 필요한 경우」 — 선택, 법 제25조제1항', () => {
+    expect(find(r, 'arbitration-other')).toEqual([expect.objectContaining({ grade: '선택', regulation: '제23조제1항제3호', law: '법 제25조제1항' })]);
     expect(find(r, 'arbitration-target')).toEqual([]);
   });
 
@@ -62,8 +71,8 @@ describe('checkCouncilRules — 2021 규정 표본(이름 가림)', () => {
     expect(find(r, 'addendum-date')).toEqual([expect.objectContaining({ grade: '권장', regulation: '부칙' })]);
   });
 
-  it('제11조① 회의일을 「제 3 금요일」로 고정 — 권장, 법 제12조제1항', () => {
-    expect(find(r, 'regular-fixed-date')).toEqual([expect.objectContaining({ grade: '권장', regulation: '제11조제1항', law: '법 제12조제1항' })]);
+  it('제11조① 회의일을 「제 3 금요일」로 고정 — 선택, 법 제12조제1항', () => {
+    expect(find(r, 'regular-fixed-date')).toEqual([expect.objectContaining({ grade: '선택', regulation: '제11조제1항', law: '법 제12조제1항' })]);
     expect(find(r, 'regular-interval')).toEqual([]);
   });
 
@@ -73,14 +82,19 @@ describe('checkCouncilRules — 2021 규정 표본(이름 가림)', () => {
     expect(r.requiredItems.map((x) => x.where)).toEqual(['제7조제1항', '제7조제2항', '제7조제5항', '제10조제3항', '제12조제1항', '제23조제1항', '제27조제1항']);
   });
 
-  it('별지 서식 — 다른 이름 「다라」, 추천 요건, 위촉 근거 조문 2곳 — 권장', () => {
+  it('별지 서식 — 다른 이름 「다라」·위촉 근거 조문 2곳은 권장, 추천 요건은 선택', () => {
     const other = find(r, 'forms-other-name');
     expect(other).toHaveLength(1);
-    expect(other[0]).toMatchObject({ grade: '권장', regulation: '별지 서식' });
+    expect(other[0]).toMatchObject({ grade: '권장', regulation: '별지 서식', law: '시행령 제3조' });
     expect(other[0].issue).toMatch(/「다라」/);
-    expect(find(r, 'forms-nomination')).toHaveLength(1);
-    expect(find(r, 'forms-basis-employer')).toHaveLength(1);
-    expect(find(r, 'forms-basis-grievance')).toHaveLength(1);
+    expect(find(r, 'forms-nomination')).toEqual([expect.objectContaining({ grade: '선택' })]);
+    expect(find(r, 'forms-basis-employer')).toEqual([expect.objectContaining({ grade: '권장' })]);
+    expect(find(r, 'forms-basis-grievance')).toEqual([expect.objectContaining({ grade: '권장', law: '법 제27조제1항' })]);
+    expect(find(r, 'forms-basis-grievance')[0].change).toMatch(/법 제27조제1항에 따라/);
+  });
+
+  it('선거 공고의 당선 요건에 과반수 참여가 없음 — 필수, 법 제6조제2항', () => {
+    expect(find(r, 'forms-election-majority')).toEqual([expect.objectContaining({ grade: '필수', regulation: '별지 서식(선거 공고)', law: '법 제6조제2항' })]);
   });
 
   it('이미 맞춘 조항은 내지 않는다 — 불이익 금지(R2)·차점자 조건(R5)·12호 직무발명(R6)·고충 3인·청취 기산(R8)·15일 제출(R9)', () => {
@@ -90,9 +104,9 @@ describe('checkCouncilRules — 2021 규정 표본(이름 가림)', () => {
     }
   });
 
-  it('전체 — 필수 4 · 권장 8, 필수가 앞', () => {
-    expect(r.counts).toEqual({ 필수: 4, 권장: 8 });
-    expect(r.findings.slice(0, 4).every((f) => f.grade === '필수')).toBe(true);
+  it('전체 — 필수 5 · 권장 5 · 선택 4, 필수 → 권장 → 선택 순', () => {
+    expect(r.counts).toEqual({ 필수: 5, 권장: 5, 선택: 4 });
+    expect(r.findings.map((f) => f.grade)).toEqual([...Array(5).fill('필수'), ...Array(5).fill('권장'), ...Array(4).fill('선택')]);
   });
 
   it('결과 글자에 금지어가 없다', () => {
@@ -124,6 +138,7 @@ describe('checkCouncilRules — 견본(make_labor_council_forms 00)', () => {
     const r = checkCouncilRules({ text: formLines(councilRulesDoc({ majorityUnion: false })).join('\n') });
     expect(r.findings.filter((f) => f.grade === '필수')).toEqual([]);
     expect(r.findings.map((f) => f.id)).toEqual(['addendum-date']);
+    expect(JSON.stringify(r)).not.toContain('—');
   });
 });
 
@@ -150,6 +165,7 @@ describe('checkCouncilRules — 옛 견본(2011) 문구 반례', () => {
     // 시행령 제5조제1항 — 후보 등록·사용자위원 자격·근로 간주 시간·회의 소집이 없다
     expect(r.requiredItems.filter((x) => !x.found).map((x) => x.no)).toEqual([2, 3, 4, 5]);
     for (const no of [2, 3, 4, 5]) expect(ids, `required-${no}`).toContain(`required-${no}`);
+    expect(JSON.stringify(r), '결과 글자에 줄표 없음').not.toContain('—');
   });
 });
 
@@ -174,11 +190,15 @@ describe('check_council_rules 도구(로컬 전용)', () => {
     expect(t.cfg.annotations).toMatchObject({ readOnlyHint: true, destructiveHint: false });
     expect(bannedHits(`${t.cfg.title}\n${t.cfg.description}`, NOSA_WORDS)).toEqual([]);
   });
-  it('표본 → 필수 4 · 권장 8, 결과 글자에 금지어 없음', async () => {
+  it('표본 → 필수 5 · 권장 5 · 선택 4, 제출 서류 안내, 결과 글자에 금지어·줄표 없음', async () => {
     const r = await call({ text: SAMPLE });
     expect(r.ok).toBe(true);
-    expect(r.counts).toEqual({ 필수: 4, 권장: 8 });
+    expect(r.counts).toEqual({ 필수: 5, 권장: 5, 선택: 4 });
+    expect(r.submission).toMatch(/별지 제1호서식/);
+    expect(r.submission).toMatch(/신·구조문대비표/);
+    expect(r.submission).toMatch(/시행규칙 제3조제1항/);
     expect(bannedHits(JSON.stringify(r), NOSA_WORDS)).toEqual([]);
+    expect(JSON.stringify(r)).not.toContain('—');
   });
   it('주민등록번호 모양이면 멈춘다 · 조문이 없으면 멈춘다', async () => {
     expect((await call({ text: `${SAMPLE}\n주민등록번호 : 900101-1234568` })).ok).toBe(false);

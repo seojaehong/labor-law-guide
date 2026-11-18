@@ -156,6 +156,7 @@ const ANN = {
   record_council_history: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
   export_council_vault: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
   import_council_minutes: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
+  make_council_rules_comparison: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
 };
 // 커넥터 디렉터리 심사 — 빠진 도구 없이 전부 title 과 네 칸이 있다
 {
@@ -164,7 +165,7 @@ const ANN = {
   check(`모든 도구(${all.length})에 title·annotations 네 칸${bare.length ? ` — 빠짐: ${bare.map((t) => t.name).join(',')}` : ''}`, bare.length === 0);
 }
 // 이 판에서 더한 도구 8개 + 사이트 도구 7개(groups/more) — 「대신·대행·대리」도 함께 막는다
-const NOSA_TOOLS = ['assess_labor_council', 'check_council_meeting', 'make_labor_council_forms', 'make_council_meeting_docs', 'make_council_election_docs', 'check_council_rules', 'record_council_history', 'export_council_vault', 'import_council_minutes'];
+const NOSA_TOOLS = ['assess_labor_council', 'check_council_meeting', 'make_labor_council_forms', 'make_council_meeting_docs', 'make_council_election_docs', 'check_council_rules', 'record_council_history', 'export_council_vault', 'import_council_minutes', 'make_council_rules_comparison'];
 const NEW_TOOLS = ['calc_severance', 'calc_holiday_pay', 'calc_pay_proration', 'calc_shutdown_allowance', 'calc_annual_leave', 'settle_leave_on_exit', 'calc_retirement_tax', 'list_employer_duties', ...MORE_TOOLS, ...NOSA_TOOLS];
 const NEW_WORDS = [...WORDS, '대신', '대행', '대리'];
 const bannedNew = (s) => (banned ? banned.bannedHits(s, NEW_WORDS) : []);
@@ -500,7 +501,18 @@ if (tools.includes('check_council_rules')) {
     ...['생산성 향상', '채용', '고충처리', '작업환경', '노무관리', '고용조정', '휴게', '지불방법', '신기계', '작업수칙', '재산형성', '직무 발명', '복지증진', '감시', '모성보호', '그 밖의 노사협조'].map((t, i) => `${i + 1}. ${t}`)].join('\n');
   const cr = await callNew('check_council_rules', { text: RT });
   const ids = (cr.findings ?? []).filter((f) => f.grade === '필수').map((f) => f.id);
-  check(`nosa 협의회규정 점검(필수 ${cr.counts?.['필수']} · 권장 ${cr.counts?.['권장']})`, cr.ok && ['direct-majority', 'nomination-requirement', 'topics'].every((x) => ids.includes(x)));
+  const optional = (cr.findings ?? []).filter((f) => f.grade === '선택').map((f) => f.id);
+  check(`nosa 협의회규정 점검(필수 ${cr.counts?.['필수']} · 권장 ${cr.counts?.['권장']} · 선택 ${cr.counts?.['선택']}, 추천 요건은 선택)`, cr.ok && ['direct-majority', 'topics'].every((x) => ids.includes(x))
+    && optional.includes('nomination-requirement') && /신·구조문대비표/.test(cr.submission ?? ''));
+  if (tools.includes('make_council_rules_comparison')) {
+    // 같은 합성 규정을 고친 개정안 — 과반수 참여 문구 · 추천 조 삭제 · 16호 신설(옛 16호는 17호로)
+    const AT = RT.replace('② 근로자위원은 직접·비밀·무기명', '② 근로자위원은 근로자 과반수가 참여하여 직접·비밀·무기명')
+      .replace('제2조(후보) 입후보하려는 사람은 근로자 10명 이상의 추천을 받아야 한다.\n', '')
+      .replace('16. 그 밖의 노사협조', '16. 직장 내 성희롱 예방\n17. 그 밖의 노사협조');
+    const mc = await callNew('make_council_rules_comparison', { currentText: RT, amendedText: AT, workplaceName: '가상상사', outDir: path.join(tmp, 'nosa-compare'), formats: ['docx', 'hwpx', 'xlsx'] });
+    check(`nosa 신·구조문대비표 ${mc.rows}줄(${mc.places?.join(' ')}) · ${mc.files?.length}파일`, mc.ok && mc.files?.length === 3 && mc.files.every((f) => fs.existsSync(f.path))
+      && mc.kinds?.['삭제'] === 1 && /<u>/.test(mc.markdown ?? '') && /<신 설>/.test(mc.markdown ?? ''));
+  }
 }
 
 // ── work-rules 묶음 ──

@@ -6,6 +6,7 @@
 import { HEADER_XML } from '@/lib/contract-write/hwpx-header';
 import { NS, SEC_PR, XML_HEAD } from '@/lib/contract-write/export';
 import { stripControl } from '@/lib/contract-write/text';
+import { underlineParts, unmarkUnderline } from '@/lib/laws/underline';
 
 export type Align = 'left' | 'center' | 'right';
 export type Size = 'small' | 'normal' | 'large';
@@ -32,6 +33,8 @@ export type FormBlock =
       /** 행 최소 높이(pt) */
       minRowHeight?: number;
       size?: Size;
+      /** 한글에서 쪽을 넘겨 나뉘는 긴 표 — 글자처럼 취급하지 않는다(글자처럼 취급한 표는 쪽을 넘지 못하고 잘린다). 신·구조문대비표처럼 몇 쪽짜리 표에 쓴다 */
+      split?: boolean;
     }
   | { kind: 'space'; pt?: number }
   | { kind: 'pageBreak' };
@@ -235,9 +238,35 @@ const CHAR: Record<Size, number> = { small: 2, normal: 7, large: 9 };
 const p = (text: string, paraPr: number, charPr: number, pageBreak = false) =>
   `<hp:p id="2147483648" paraPrIDRef="${paraPr}" styleIDRef="0" pageBreak="${pageBreak ? 1 : 0}" columnBreak="0" merged="0"><hp:run charPrIDRef="${charPr}">${text ? `<hp:t>${esc(text)}</hp:t>` : ''}</hp:run></hp:p>`;
 
+// 밑줄 — 표 칸 글자에 밑줄 표시(doc-io UL_OPEN·UL_CLOSE)가 있으면 그 조각만 밑줄 글자 모양으로 쓴다.
+// 바탕 header.xml 에는 밑줄 글자 모양이 없어, 만들 때 표 글자(13·15)를 복제해 밑줄만 켠 모양(17·18)을 더한다(withUnderlineCharPr).
+const UNDERLINED: Record<number, number> = { 13: 17, 15: 18 };
+function cellPara(text: string, paraPr: number, charPr: number): string {
+  const parts = underlineParts(text);
+  if (!parts.some(([, u]) => u) || !UNDERLINED[charPr]) return p(unmarkUnderline(text), paraPr, charPr);
+  const runs = parts.map(([t, u]) => `<hp:run charPrIDRef="${u ? UNDERLINED[charPr] : charPr}"><hp:t>${esc(t)}</hp:t></hp:run>`).join('');
+  return `<hp:p id="2147483648" paraPrIDRef="${paraPr}" styleIDRef="0" pageBreak="0" columnBreak="0" merged="0">${runs}</hp:p>`;
+}
+/** 바탕 header.xml 에 밑줄 글자 모양(17 = 13 + 밑줄, 18 = 15 + 밑줄)을 더한다 */
+export function withUnderlineCharPr(header: string): string {
+  let add = '';
+  for (const [base, id] of Object.entries(UNDERLINED)) {
+    const m = new RegExp(`<hh:charPr id="${base}"[\\s\\S]*?</hh:charPr>`).exec(header);
+    if (!m) throw new Error(`바탕 글자 모양 ${base} 이 없습니다`);
+    add += m[0].replace(`id="${base}"`, `id="${id}"`).replace(/<hh:underline type="NONE"/, '<hh:underline type="BOTTOM"');
+  }
+  return header
+    .replace(/<hh:charProperties itemCnt="(\d+)"/, (_, n) => `<hh:charProperties itemCnt="${Number(n) + Object.keys(UNDERLINED).length}"`)
+    .replace('</hh:charProperties>', `${add}</hh:charProperties>`);
+}
+
+/** 용지 방향 — 가로면 구역 설정의 방향만 바꾸고(용지 크기 값은 같다) 본문 폭을 넓힌다 */
+export interface HwpxLayout { landscape?: boolean }
+const LANDSCAPE_BODY_W = 84186 - 5670 * 2;
+
 let tableId = 2000;
 
-function tableXml(b: Extract<FormBlock, { kind: 'table' }>, pageBreak: boolean): string {
+function tableXml(b: Extract<FormBlock, { kind: 'table' }>, pageBreak: boolean, BODY_W: number): string {
   checkTable(b.widths, b.rows);
   const small = b.size === 'small';
   const sum = b.widths.reduce((s, w) => s + w, 0);
@@ -254,7 +283,7 @@ function tableXml(b: Extract<FormBlock, { kind: 'table' }>, pageBreak: boolean):
           const width = colW.slice(col, col + span).reduce((s, w) => s + w, 0);
           const align = c.align ?? (c.head ? 'center' : 'left');
           const charPr = c.head ? (small ? 16 : 14) : small ? 15 : 13;
-          const paras = c.text.split('\n').map((l) => p(l, CELL_ALIGN[align], charPr)).join('');
+          const paras = c.text.split('\n').map((l) => cellPara(l, CELL_ALIGN[align], charPr)).join('');
           const td =
             `<hp:tc name="" header="${ri < heads ? 1 : 0}" hasMargin="0" protect="0" editable="0" dirty="1" borderFillIDRef="${c.head ? 4 : 3}">` +
             '<hp:subList id="" textDirection="HORIZONTAL" lineWrap="BREAK" vertAlign="CENTER" linkListIDRef="0" linkListNextIDRef="0" textWidth="0" textHeight="0" hasTextRef="0" hasNumRef="0">' +
@@ -272,14 +301,16 @@ function tableXml(b: Extract<FormBlock, { kind: 'table' }>, pageBreak: boolean):
     `<hp:p id="2147483648" paraPrIDRef="27" styleIDRef="0" pageBreak="${pageBreak ? 1 : 0}" columnBreak="0" merged="0"><hp:run charPrIDRef="13">` +
     `<hp:tbl id="${id}" zOrder="0" numberingType="TABLE" textWrap="TOP_AND_BOTTOM" textFlow="BOTH_SIDES" lock="0" dropcapstyle="None" pageBreak="CELL" repeatHeader="${heads ? 1 : 0}" rowCnt="${b.rows.length}" colCnt="${b.widths.length}" cellSpacing="0" borderFillIDRef="3" noAdjust="0">` +
     `<hp:sz width="${BODY_W}" widthRelTo="ABSOLUTE" height="${minH * b.rows.length}" heightRelTo="ABSOLUTE" protect="0"/>` +
-    '<hp:pos treatAsChar="1" affectLSpacing="0" flowWithText="1" allowOverlap="0" holdAnchorAndSO="0" vertRelTo="PARA" horzRelTo="COLUMN" vertAlign="TOP" horzAlign="LEFT" vertOffset="0" horzOffset="0"/>' +
+    `<hp:pos treatAsChar="${b.split ? 0 : 1}" affectLSpacing="0" flowWithText="1" allowOverlap="0" holdAnchorAndSO="0" vertRelTo="PARA" horzRelTo="COLUMN" vertAlign="TOP" horzAlign="LEFT" vertOffset="0" horzOffset="0"/>` +
     '<hp:outMargin left="0" right="0" top="0" bottom="0"/><hp:inMargin left="510" right="510" top="141" bottom="141"/>' +
     `${trs}</hp:tbl><hp:t/></hp:run></hp:p>`
   );
 }
 
-export function formSectionXml(docs: FormDoc[]): string {
-  const body: string[] = [`<hp:p id="0" paraPrIDRef="20" styleIDRef="0" pageBreak="0" columnBreak="0" merged="0"><hp:run charPrIDRef="7">${SEC_PR}</hp:run></hp:p>`];
+export function formSectionXml(docs: FormDoc[], layout: HwpxLayout = {}): string {
+  const secPr = layout.landscape ? SEC_PR.replace('landscape="WIDELY"', 'landscape="NARROWLY"') : SEC_PR;
+  const width = layout.landscape ? LANDSCAPE_BODY_W : BODY_W;
+  const body: string[] = [`<hp:p id="0" paraPrIDRef="20" styleIDRef="0" pageBreak="0" columnBreak="0" merged="0"><hp:run charPrIDRef="7">${secPr}</hp:run></hp:p>`];
   let pendingBreak = false;
   docs.forEach((doc, di) => {
     if (di > 0) pendingBreak = true;
@@ -293,13 +324,13 @@ export function formSectionXml(docs: FormDoc[]): string {
       if (b.kind === 'title') body.push(p(b.text, 21, 8, br));
       else if (b.kind === 'text') body.push(...b.text.split('\n').map((l, i) => p(l, PARA_ALIGN[b.align ?? 'left'], CHAR[b.size ?? 'normal'], br && i === 0)));
       else if (b.kind === 'space') body.push(p('', 20, 2, br));
-      else body.push(tableXml(b, br));
+      else body.push(tableXml(b, br, width));
     }
   });
   return `${XML_HEAD}<hs:sec ${NS}>${body.join('')}</hs:sec>`;
 }
 
-export async function formHwpx(docs: FormDoc[]): Promise<Uint8Array> {
+export async function formHwpx(docs: FormDoc[], layout: HwpxLayout = {}): Promise<Uint8Array> {
   const JSZip = (await import('jszip')).default;
   const zip = new JSZip();
   // mimetype 은 첫 항목·무압축이어야 한글이 연다
@@ -317,8 +348,8 @@ export async function formHwpx(docs: FormDoc[]): Promise<Uint8Array> {
     'Contents/content.hpf',
     `${XML_HEAD}<opf:package ${NS} version="" unique-identifier="" id=""><opf:metadata><opf:title>${esc(docs[0]?.title ?? '')}</opf:title><opf:language>ko</opf:language></opf:metadata><opf:manifest><opf:item id="header" href="Contents/header.xml" media-type="application/xml"/><opf:item id="section0" href="Contents/section0.xml" media-type="application/xml"/><opf:item id="settings" href="settings.xml" media-type="application/xml"/></opf:manifest><opf:spine><opf:itemref idref="header" linear="yes"/><opf:itemref idref="section0" linear="yes"/></opf:spine></opf:package>`,
   );
-  zip.file('Contents/header.xml', HEADER_XML);
-  zip.file('Contents/section0.xml', formSectionXml(docs));
+  zip.file('Contents/header.xml', withUnderlineCharPr(HEADER_XML));
+  zip.file('Contents/section0.xml', formSectionXml(docs, layout));
   zip.file(
     'settings.xml',
     `${XML_HEAD}<ha:HWPApplicationSetting xmlns:ha="http://www.hancom.co.kr/hwpml/2011/app" xmlns:config="urn:oasis:names:tc:opendocument:xmlns:config:1.0"><ha:CaretPosition listIDRef="0" paraIDRef="0" pos="0"/></ha:HWPApplicationSetting>`,
