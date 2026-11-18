@@ -105,7 +105,7 @@ export async function sendConfirmEmail(opts: {
       </p>
       <div style="${footerStyle}">
         <strong>오늘의 일</strong> · 일의 무늬<br>
-        발신: news@send.yellowenvelope.kr · 답장: ${REPLY_TO}
+        발신: news@yellowenvelope.kr · 답장: ${REPLY_TO}
       </div>
     </div>
   `;
