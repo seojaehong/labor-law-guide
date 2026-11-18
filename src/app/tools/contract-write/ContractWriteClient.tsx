@@ -98,9 +98,15 @@ const YES_NO = [
 
 export default function ContractWriteClient() {
   const [s, setS] = useState<WriteState>(INITIAL);
+  const [cardSelectionVersion, setCardSelectionVersion] = useState(0);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const patch = (p: Partial<WriteState>) => setS((prev) => ({ ...prev, ...p }));
+  const loadHistory = (state: WriteState) => {
+    setS(state);
+    // 최근 입력에는 카드의 식별자가 없다. 이전 선택·출처·저장 안내를 함께 버린다.
+    setCardSelectionVersion((version) => version + 1);
+  };
 
   const parsed = useMemo(() => toWriteForm(s), [s]);
   const result = useMemo(() => {
@@ -154,8 +160,8 @@ export default function ContractWriteClient() {
         {CARD_COPY.pageNotice}
       </p>
 
-      <WorkplacePicker state={s} onPatch={patch} />
-      <RecentInputs onLoad={setS} />
+      <WorkplacePicker key={cardSelectionVersion} state={s} onPatch={patch} />
+      <RecentInputs onLoad={loadHistory} />
 
       <Section title="1. 당사자와 계약기간">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
