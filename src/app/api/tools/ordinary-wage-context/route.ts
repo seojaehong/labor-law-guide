@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-server';
 import { supabase } from '@/lib/supabase';
 import { toLexQuery } from '@/lib/chat/context/lex-query';
+import { decisionDate } from '@/lib/decision-date';
 
 /**
  * 통상임금 — 확인할 점 · 근거 · 다음 단계 (2026-10-05 신설).
@@ -218,7 +219,7 @@ export async function POST(req: NextRequest) {
       if (!interp.error) {
         for (const it of (interp.data ?? []) as Array<Record<string, string>>) {
           if (sources.interpretations.some((x) => x.id === it.id)) continue;
-          const d = it.decision_date || '';
+          const d = decisionDate(it.decision_date) ?? '';
           sources.interpretations.push({
             id: it.id, title: it.title, date: d || undefined,
             url: `/interpretations/${encodeURIComponent(it.id)}`,

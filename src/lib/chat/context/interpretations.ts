@@ -2,6 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { type Retrieval } from './result';
 import { citationHref } from '../citations';
 import { excerpt, joinMeta, type SourceItem } from '../sources';
+import { decisionDate } from '@/lib/decision-date';
 
 const MIN_SIMILARITY = 0.35;
 
@@ -48,7 +49,7 @@ export async function buildInterpretationsContext(
     // 건수를 하드코딩하지 않는다. 3건을 요청해도 1건만 올 수 있다(실측).
     let ctx = `\n\n═══ 관련 행정해석 (${interps.length}건, 답변 시 [INTERP#id] 인용) ═══\n`;
     for (const it of interps) {
-      const date = it.decision_date || '';
+      const date = decisionDate(it.decision_date) ?? '';
       const summary = (it.answer_summary || it.inquiry_summary || '').slice(0, 280);
       ctx += `\n#${it.id} [${it.case_number || ''} ${date}] ${it.title}\n  ${summary}\n`;
     }
@@ -65,7 +66,7 @@ export async function buildInterpretationsContext(
       id: String(it.id),
       title: it.title,
       href: citationHref({ type: 'INTERP', id: String(it.id) }),
-      meta: joinMeta(it.case_number, it.decision_date),
+      meta: joinMeta(it.case_number, decisionDate(it.decision_date)),
       excerpt: excerpt(it.answer_summary || it.inquiry_summary),
     }));
     return { ctx, evidenceIds: interps.map(row => String(row.id)), items, rows: interps.length, via: 'rpc', status: 'ok' };
