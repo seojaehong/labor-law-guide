@@ -59,6 +59,11 @@ export function normalizeSnippetMarkdown(raw: string): string {
     .trim();
 }
 
+/** 행정해석 번호 표시·중복 판정용. DB 함수 admin_interp_doc_norm 과 같은 규칙(#218): 대시류 → '-', 공백 제거. */
+export function displayDocNumber(value: string | null | undefined): string {
+  return (value ?? '').replace(/[－—–]/g, '-').replace(/\s+/g, '');
+}
+
 export function dedupeResults<T extends { id: string; summary?: string | null; holding_points?: string | null; decision_date?: string | null; title?: string | null }>(
   items: T[],
   getKey: (item: T) => string,

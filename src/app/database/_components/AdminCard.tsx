@@ -2,7 +2,7 @@ import OfficialSourceLink from "@/components/OfficialSourceLink";
 import Link from 'next/link';
 import { ChevronDown, ChevronUp, ArrowRight } from 'lucide-react';
 import type { AdminResult } from './types';
-import { highlightText, formatDecisionDate, getPreferredSummary, getPreferredDetail } from './utils';
+import { highlightText, formatDecisionDate, getPreferredSummary, getPreferredDetail, displayDocNumber } from './utils';
 import MarkdownSnippet from './MarkdownSnippet';
 import TagRow from './TagRow';
 
@@ -20,7 +20,7 @@ export default function AdminCard({ item, query, expanded, onToggle }: { item: A
         <span className="rounded-md px-2 py-0.5 font-medium" style={{ backgroundColor: 'var(--color-accent-light)', color: 'var(--color-accent)' }}>
           행정해석
         </span>
-        {item.doc_number && <span style={{ color: 'var(--color-text-tertiary)' }}>{item.doc_number}</span>}
+        {item.doc_number && <span style={{ color: 'var(--color-text-tertiary)' }}>{displayDocNumber(item.doc_number)}</span>}
         {formattedDate && <span style={{ color: 'var(--color-text-tertiary)' }}>{formattedDate}</span>}
       </div>
       <h3 className="mt-1.5 text-[15px] font-semibold leading-snug" style={{ color: 'var(--color-text-primary)' }}>

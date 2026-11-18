@@ -8,7 +8,7 @@ import { supabase } from '@/lib/supabase';
 
 import type { TabType, CaseResult, AdminResult, NlrcResult, DatabaseClientProps } from './_components/types';
 import { TABS, PAGE_SIZE, SEARCH_LIMIT, SUGGESTED_KEYWORDS, REASON_CATEGORY_LABELS } from './_components/types';
-import { dedupeResults } from './_components/utils';
+import { dedupeResults, displayDocNumber } from './_components/utils';
 
 const COURT_LEVELS = [
   { key: '대법원', label: '대법원' },
@@ -131,7 +131,7 @@ function DatabaseContent({ initialTotalCases, initialTotalAdmin, initialTotalNlr
         if (error) throw error;
         if (data) {
           const typed = data as unknown as AdminResult[];
-          const deduped = dedupeResults(typed, (item) => item.doc_number || item.id);
+          const deduped = dedupeResults(typed, (item) => displayDocNumber(item.doc_number) || item.id);
           setHasMore(typed.length > SEARCH_LIMIT || deduped.length > PAGE_SIZE);
           setAdmins(deduped.slice(0, PAGE_SIZE));
         }
@@ -188,8 +188,9 @@ function DatabaseContent({ initialTotalCases, initialTotalAdmin, initialTotalNlr
         setSearchTotal(count);
         setHasMore((count || 0) > offset + PAGE_SIZE);
       } else {
-        let q = supabase.from('admin_interpretations')
+        const q = supabase.from('admin_interpretations')
           .select('id, title, doc_number, decision_date, summary, summary_short, key_issue, holding_points', { count: 'exact' })
+          .is('duplicate_of', null)   // #218 띄어쓰기만 다른 중복 행
           .order('decision_date', { ascending: false })
           .range(offset, offset + PAGE_SIZE - 1);
         const { data, count, error } = await q;
