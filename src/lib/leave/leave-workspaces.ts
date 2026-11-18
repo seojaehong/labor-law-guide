@@ -135,11 +135,57 @@ function storedKeys(store: Storage | null): string[] {
   if (!store) return [];
   return Array.from({ length: store.length }, (_, i) => store.key(i)).filter((k) => k !== null);
 }
-function removeKeys(store: Storage | null, matches: (key: string) => boolean): void {
-  if (!store) return;
+/** 한 키가 막혀도 나머지는 지운다. 저장소에 접근할 수 없으면 완료로 보지 않는다. */
+function removeKeys(store: Storage | null, matches: (key: string) => boolean): boolean {
+  if (!store) return false;
+  let removed = true;
   try {
-    for (const k of storedKeys(store)) if (matches(k)) store.removeItem(k);
-  } catch { /* 무시 */ }
+    for (const key of storedKeys(store)) {
+      if (!matches(key)) continue;
+      try {
+        store.removeItem(key);
+        if (store.getItem(key) !== null) removed = false;
+      } catch { removed = false; }
+    }
+  } catch { removed = false; }
+  return removed;
+}
+
+type StorageChange = { store: Storage | null; key: string; value: string | null; recoveryCopy?: boolean };
+/**
+ * 바꾸기 전에 원문을 모두 읽고, 도중 실패하면 이미 건드린 키를 되돌린다.
+ * Web Storage 는 트랜잭션이 없으므로 복구까지 막힐 수 있다. false 일 때 화면은 원상 복구를 장담하지 않는다.
+ * 목록 쓰기를 삭제보다 먼저 확인하되, 전부 끝나기 전에는 변경 알림을 보내지 않는다.
+ */
+function applyStorageChanges(changes: StorageChange[]): boolean {
+  const attempted: Array<{ store: Storage; key: string; before: string | null; recoveryCopy?: boolean }> = [];
+  try {
+    const snapshots = changes.map(({ store, key, value, recoveryCopy }) => {
+      if (!store) throw new Error("storage unavailable");
+      return { store, key, value, recoveryCopy, before: store.getItem(key) };
+    });
+    for (const { store, key, value, before, recoveryCopy } of snapshots) {
+      if (before === value) continue;
+      attempted.push({ store, key, before, recoveryCopy });
+      if (value === null) store.removeItem(key);
+      else store.setItem(key, value);
+      if (store.getItem(key) !== value) throw new Error("storage change not applied");
+    }
+    return true;
+  } catch {
+    let restoreFailed = false;
+    for (const { store, key, before, recoveryCopy } of attempted.reverse()) {
+      // 원본/설정을 복구하지 못했다면 새 저장소의 사본까지 지워 유일한 자료를 잃지 않는다.
+      if (restoreFailed && recoveryCopy) continue;
+      try {
+        if (store.getItem(key) === before) continue;
+        if (before === null) store.removeItem(key);
+        else store.setItem(key, before);
+        if (store.getItem(key) !== before) restoreFailed = true;
+      } catch { restoreFailed = true; }
+    }
+    return false;
+  }
 }
 /** 사업장별 저장 키 — 목록에 없는 id 의 키는 화면에서 볼 수도 지울 수도 없다 */
 const PER_WORKSPACE = [MEMBERS_PREFIX, DETAILS_PREFIX];
@@ -357,39 +403,45 @@ export function getWorkspaceDetails(ws: Workspace | null): WorkspaceDetails {
   return typeof owner === "string" && owner.trim() !== "" ? { ownerName: owner.trim() } : {};
 }
 
-/**
- * 기억 여부를 바꾼다 — 명부와 대표자(details)를 새 저장소에 먼저 쓰고, 다 써졌을 때만 이전 저장소에서 지운다.
- * 새 저장소가 가득 찼거나 막혀 있으면 아무것도 바꾸지 않고 false 를 돌려준다.
- */
+/** 기억 여부를 바꾼다. 새 사본 저장·설정 쓰기·옛 사본 삭제를 모두 확인해야 성공이다. */
 export function setRemember(id: string, remember: boolean): boolean {
   const all = listWorkspaces();
   const ws = all.find((w) => w.id === id);
-  if (!ws || ws.remember === remember) return true;
-  const members = getMembers(ws);
-  const details = getWorkspaceDetails(ws);
+  if (!ws) return false;
+  if (ws.remember === remember) return true;
   const next = { ...ws, remember };
   const from = membersStore(ws);
   const to = membersStore(next);
-  const moved =
-    write(to, MEMBERS_PREFIX + id, members) &&
-    (!details.ownerName || write(to, DETAILS_PREFIX + id, details)) &&
-    writeIndex(all.map((w) => (w.id === id ? next : w)));
-  for (const prefix of [MEMBERS_PREFIX, DETAILS_PREFIX]) {
-    try { (moved ? from : to)?.removeItem(prefix + id); } catch { /* 무시 */ }
-  }
+  if (!from || !to || !recordIndexDamage()) return false;
+  const index = all.map((w) => (w.id === id ? next : w));
+  let moved = false;
+  try {
+    // 읽기 실패를 빈 명부로 취급하지 않는다. 없는 칸은 대상의 옛 사본도 지운다.
+    const copies = PER_WORKSPACE.map((prefix) => ({ store: to, key: prefix + id, value: from.getItem(prefix + id), recoveryCopy: true }));
+    moved = applyStorageChanges([
+      ...copies,
+      { store: meta(), key: INDEX_KEY, value: JSON.stringify(index) },
+      ...PER_WORKSPACE.map((prefix) => ({ store: from, key: prefix + id, value: null })),
+    ]);
+  } catch { /* 원본을 읽지 못했으면 아무것도 옮기지 않는다. */ }
+  if (moved) removeOrphans(index);
   notify();
   return moved;
 }
 
-/** 사업장과 그 명부를 함께 지운다. 목록을 못 쓰면 명부도 그대로 두고 false 를 돌려준다. */
+/** 사업장과 그 명부를 함께 지운다. 실패하면 원문을 복구하고 false 를 돌려준다. */
 export function deleteWorkspace(id: string): boolean {
   const remaining = listWorkspaces().filter((w) => w.id !== id);
-  if (!writeIndex(remaining)) return false;
-  for (const store of [session(), local()]) removeKeys(store, (k) => PER_WORKSPACE.some((p) => k === p + id));
+  if (!recordIndexDamage()) return false;
   const active = read<string | null>(meta(), ACTIVE_KEY, null);
-  if (active === id) write(meta(), ACTIVE_KEY, remaining[0]?.id ?? null);
+  const removed = applyStorageChanges([
+    { store: meta(), key: INDEX_KEY, value: JSON.stringify(remaining) },
+    ...(active === id ? [{ store: meta(), key: ACTIVE_KEY, value: JSON.stringify(remaining[0]?.id ?? null) }] : []),
+    ...[session(), local()].flatMap((store) => PER_WORKSPACE.map((prefix) => ({ store, key: prefix + id, value: null }))),
+  ]);
+  if (removed) removeOrphans(remaining);
   notify();
-  return true;
+  return removed;
 }
 
 // ── 명부 ─────────────────────────────────────────────────────
@@ -655,15 +707,17 @@ export function importCards(json: unknown, { remember }: { remember: boolean }):
 
 export const FORGET_ALL_CONFIRM = "이 브라우저에 저장된 사업장·명부와 최근 입력을 전부 지웁니다. 계속할까요?";
 
-/** 이 브라우저에 남아 있는 것을 전부 지운다 — 공용 PC 에서 쓰는 비상 버튼. */
-export function forgetEverything(): void {
-  for (const store of [session(), local()]) removeKeys(store, isPerWorkspaceKey);
-  forgetAllHistory();
-  try {
-    meta()?.removeItem(INDEX_KEY);
-    meta()?.removeItem(INDEX_DAMAGED_KEY);
-    meta()?.removeItem(ACTIVE_KEY);
-    meta()?.removeItem(AUDIENCE_KEY);
-  } catch { /* 무시 */ }
+/**
+ * 이 브라우저에 남아 있는 것을 전부 지운다 — 공용 PC 에서 쓰는 비상 버튼.
+ * 일부 실패 시 나머지 삭제는 계속하되, 재시도할 수 있도록 목록·역할은 남기고 false 를 돌려준다.
+ */
+export function forgetEverything(): boolean {
+  const sessionRemoved = removeKeys(session(), isPerWorkspaceKey);
+  const localRemoved = removeKeys(local(), isPerWorkspaceKey);
+  const historyRemoved = forgetAllHistory();
+  const removed = sessionRemoved && localRemoved && historyRemoved && applyStorageChanges(
+    [INDEX_DAMAGED_KEY, ACTIVE_KEY, AUDIENCE_KEY, INDEX_KEY].map((key) => ({ store: meta(), key, value: null }))
+  );
   notify();
+  return removed;
 }

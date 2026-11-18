@@ -24,6 +24,8 @@ import { hasAnyHistory } from "@/lib/tool-history";
  * 처음 오면 역할을 한 번 묻는다. 그 값에 따라 문구와 기본 사업장 성격이 갈린다.
  * 서버로 아무것도 보내지 않는다. 저장 위치는 사업장마다 사용자가 켠다.
  */
+const REMOVE_FAILED = "삭제를 완료하지 못했습니다. 일부 자료가 브라우저에 남아 있을 수 있습니다. 저장 설정을 확인한 뒤 다시 지워 주세요.";
+const REMEMBER_FAILED = "기억하기 변경을 완료하지 못했습니다. 일부 정보가 브라우저에 남아 있을 수 있습니다. 저장 설정을 확인한 뒤 다시 시도해 주세요.";
 const CREATE_FAILED = "사업장을 만들지 못했습니다. 브라우저 저장 설정을 확인해 주세요.";
 
 export function WorkspaceBar() {
@@ -53,7 +55,7 @@ export function WorkspaceBar() {
   if (!ready) return null;
 
   const forgetAll = () => {
-    if (confirm(FORGET_ALL_CONFIRM)) forgetEverything();
+    if (confirm(FORGET_ALL_CONFIRM)) setStoreNote(forgetEverything() ? null : REMOVE_FAILED);
   };
 
   // ── ① 역할을 아직 안 고름
@@ -74,6 +76,12 @@ export function WorkspaceBar() {
         <p className="lv-ws__note">
           고르신 값은 화면 구성에만 씁니다. 가입이 아니고 서버로 가지 않습니다.
         </p>
+        {storeNote && <p className="lv-ws__note" role="status">{storeNote}</p>}
+        {(list.length > 0 || hasHistory || storeNote) && (
+          <button type="button" className="lv-linklike" onClick={forgetAll}>
+            전부 지우기
+          </button>
+        )}
       </section>
     );
   }
@@ -112,7 +120,7 @@ export function WorkspaceBar() {
             : "직원 명부를 여기에 두면 화면을 옮겨도 다시 올리지 않아도 됩니다."}
         </p>
         {storeNote && <p className="lv-ws__note" role="status">{storeNote}</p>}
-        {hasHistory && (
+        {(hasHistory || storeNote) && (
           <button type="button" className="lv-linklike" onClick={forgetAll}>
             전부 지우기
           </button>
@@ -181,7 +189,7 @@ export function WorkspaceBar() {
               type="checkbox"
               checked={active.remember}
               onChange={(e) =>
-                setStoreNote(setRemember(active.id, e.target.checked) ? null : "옮기지 못해 기억하기 설정을 바꾸지 않았습니다. 명부는 그대로입니다. 브라우저 저장 공간을 확인해 주세요.")
+                setStoreNote(setRemember(active.id, e.target.checked) ? null : REMEMBER_FAILED)
               }
             />
             이 브라우저에 「{active.name}」 명부를 기억하기
@@ -196,7 +204,7 @@ export function WorkspaceBar() {
             className="lv-linklike"
             onClick={() => {
               if (confirm(`「${active.name}」과 그 명부를 지웁니다. 계속할까요?`)) {
-                if (!deleteWorkspace(active.id)) setStoreNote("지우지 못했습니다. 브라우저 저장 설정을 확인해 주세요. 사업장과 명부는 그대로입니다.");
+                setStoreNote(deleteWorkspace(active.id) ? null : REMOVE_FAILED);
               }
             }}
           >
