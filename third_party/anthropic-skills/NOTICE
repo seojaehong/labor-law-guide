@@ -1,0 +1,41 @@
+Anthropic Agent Skills — document skills (docx, pptx, xlsx, pdf)
+
+Source:   https://github.com/anthropics/skills
+Commit:   e4bb5d960d87126ff3b3a8af1a104b7db67560ba (2026-11-16,
+          "Update docx, pptx and xlsx skills: zipfile unpack, zip -y,
+          validate.py and soffice.py fixes (#2221)")
+Vendored: 2026-11-19
+License:  Apache License 2.0 — see LICENSE.txt in this directory. Each of the
+          upstream folders skills/docx, skills/pptx, skills/xlsx and skills/pdf
+          carries an identical copy of that LICENSE.txt, and each SKILL.md says
+          "license: Complete terms in LICENSE.txt".
+
+Files and where they came from (upstream path → path here):
+
+  skills/docx/scripts/office/**        → scripts/office/**
+      validate.py, soffice.py, helpers/, validators/ and schemas/ (39 XSD
+      files: ECMA-376 / ISO/IEC 29500-4:2016, Markup Compatibility, and
+      Microsoft Word extension schemas, as distributed by upstream).
+      Upstream ships the same scripts/office/ folder three times
+      (skills/docx, skills/pptx, skills/xlsx). All three trees have
+      identical git blob hashes at this commit, so one copy is kept.
+  skills/xlsx/scripts/recalc.py        → scripts/recalc.py
+  skills/pptx/scripts/thumbnail.py     → scripts/thumbnail.py
+  skills/pdf/scripts/check_fillable_fields.py   → scripts/pdf/check_fillable_fields.py
+  skills/pdf/scripts/extract_form_field_info.py → scripts/pdf/extract_form_field_info.py
+  skills/{docx,pptx,xlsx,pdf}/SKILL.md → skills/{docx,pptx,xlsx,pdf}/SKILL.md
+      (kept as reference for docs/office-generation-rules.md; their script
+      paths refer to the upstream layout)
+  skills/docx/LICENSE.txt              → LICENSE.txt
+
+Modifications: none. Every file above was written from the upstream git blob
+at the commit named above and is byte-identical to it. recalc.py and
+thumbnail.py import "office.*", so scripts/office/ is kept beside them.
+
+Not modified, worked around instead: on Windows, scripts/office/soffice.py
+probes socket.AF_UNIX, which does not exist there, and recalc.py then aborts.
+tools/office-check/run_recalc.py (our code, not part of this vendored set)
+patches that probe in-process before calling the unmodified recalc.main().
+
+Upstream THIRD_PARTY_NOTICES.md lists imageio, imageio-ffmpeg, FFmpeg, Pillow
+and a set of fonts. None of those components is included here.
