@@ -26,7 +26,7 @@ describe('공단 업무 도구 모음', () => {
     const g = GOV_TOOLS.find((t) => t.id === 'gov-login')!;
     expect(g.requires).toBeTruthy();
     expect(g.actions.some((a) => a.href.includes('/releases/latest'))).toBe(true);
-    expect(g.actions.some((a) => a.href.includes('docs/'))).toBe(true);
+    expect(g.actions.some((a) => a.href.startsWith('https://seojaehong.github.io/gov-cert-login'))).toBe(true);
   });
 
   it('문구에 금지어가 없다', () => {
