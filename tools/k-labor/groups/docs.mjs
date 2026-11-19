@@ -35,6 +35,14 @@ export function registerDocs(server) {
         fileBase: z.string().max(120).optional().describe('파일 이름(확장자 빼고). 비우면 첫 # 제목, 그것도 없으면 md 파일 이름'),
         pageBreak: z.boolean().optional().describe('Ⅰ~Ⅹ 로 시작하는 ## 앞에서 쪽을 나눈다(기본 true)'),
         footer: z.boolean().optional().describe('아래 가운데 「- N -」 쪽번호(기본 true)'),
+        features: z
+          .object({
+            indent: z.boolean().optional().describe('기호 문단 내어쓰기·공백 들여쓰기 없앰'),
+            underline: z.boolean().optional().describe('문장 안 **강조** = 굵게+밑줄, <u> = 밑줄'),
+            quote: z.boolean().optional().describe('> 인용 블록(휴먼고딕 11pt·180%)'),
+          })
+          .optional()
+          .describe('편집 기술 선택값(기본 모두 끔). 끄면 지금까지와 같은 파일이 나온다'),
       },
       annotations: WRITES,
     },
@@ -49,17 +57,17 @@ export function registerDocs(server) {
       }
       if (!md.trim()) return fail('markdown 이나 markdownFile 중 하나를 주세요.');
       if (looksLikeRrn(md.replace(HEX_TOKEN, ''))) return fail(RRN_STOP);
-      const items = parseMarkdown(md, { pageBreak: a.pageBreak });
+      const items = parseMarkdown(md, { pageBreak: a.pageBreak, features: a.features });
       const h1 = items.find((x) => x.kind === 'h1');
       const base = safeName(
         (a.fileBase ?? '').trim() || (h1 && 'text' in h1 ? h1.text : '') || (a.markdownFile ? path.basename(a.markdownFile, path.extname(a.markdownFile)) : '') || '문서',
       );
       const out = path.join(a.outDir, `${base}.hwpx`);
       if (fs.existsSync(out)) return fail('이미 있는 파일은 덮어쓰지 않습니다. fileBase 나 outDir 를 바꿔 주세요.', { exists: out });
-      const bytes = await mdToHwpx(md, { preset: a.preset, pageBreak: a.pageBreak, footer: a.footer });
+      const bytes = await mdToHwpx(md, { preset: a.preset, pageBreak: a.pageBreak, footer: a.footer, features: a.features });
       fs.mkdirSync(a.outDir, { recursive: true });
       fs.writeFileSync(out, bytes);
-      const summary = mdHwpxSummary(items);
+      const summary = mdHwpxSummary(items, a.features);
       return text({
         ok: true,
         file: { path: out, bytes: bytes.length },

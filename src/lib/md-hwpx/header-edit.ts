@@ -83,20 +83,51 @@ export interface ParaPatch {
   align?: 'JUSTIFY' | 'LEFT' | 'RIGHT' | 'CENTER' | 'DISTRIBUTE';
   keepWithNext?: boolean;
   breakNonLatinWord?: 'KEEP_WORD' | 'BREAK_WORD';
+  /** true 면 left·intent·right·prev·next 를 pt 로 받아 한글이 저장하는 꼴로 쓴다 — case = pt×100, default = pt×200.
+   *  근거: 한글로 저장한 법령안 hwpx 는 모든 문단에서 default 가 case 의 2배(intent −1400/−2800 = 14pt, 261119 실측).
+   *  false(기본)면 받은 HWPUNIT 값을 두 벌에 그대로 쓴다. 어느 쪽이 맞는지는 한글 렌더로 확정한다(U2-갈림) */
+  pt?: boolean;
 }
 
-/** 문단 모양 복제: case·default 두 벌에 같은 값을 쓴다 */
+/** 문단 모양 복제: case·default 두 벌에 같이 쓴다(pt 면 100:200 비) */
 export function clonePara(header: string, src: number, patch: ParaPatch): Edited {
   let x = getItem(header, PARA, src);
+  const setIn = (part: RegExp, k: string, v: number) => {
+    x = x.replace(part, (seg) => seg.replace(new RegExp(`(<hc:${k} value=")-?\\d+"`), `$1${v}"`));
+  };
   for (const k of ['left', 'intent', 'right', 'prev', 'next'] as const) {
     const v = patch[k];
-    if (v !== undefined) x = x.replace(new RegExp(`(<hc:${k} value=")-?\\d+"`, 'g'), `$1${v}"`);
+    if (v === undefined) continue;
+    if (patch.pt) {
+      setIn(/<hp:case\b[\s\S]*?<\/hp:case>/, k, Math.round(v * 100));
+      setIn(/<hp:default>[\s\S]*?<\/hp:default>/, k, Math.round(v * 200));
+    } else x = x.replace(new RegExp(`(<hc:${k} value=")-?\\d+"`, 'g'), `$1${v}"`);
   }
   if (patch.lineSpacing !== undefined) x = x.replace(/(<hh:lineSpacing type="PERCENT" value=")\d+"/g, `$1${patch.lineSpacing}"`);
   if (patch.align) x = x.replace(/(<hh:align horizontal=")[A-Z]+"/, `$1${patch.align}"`);
   if (patch.keepWithNext !== undefined) x = x.replace(/(keepWithNext=")\d"/, `$1${patch.keepWithNext ? 1 : 0}"`);
   if (patch.breakNonLatinWord) x = x.replace(/(breakNonLatinWord=")[A-Z_]+"/, `$1${patch.breakNonLatinWord}"`);
   return appendItem(header, PARA, x);
+}
+
+/** 글꼴 추가 — 언어 7칸(fontface) 끝에 같은 이름을 붙이고 번호를 돌려준다. 이미 있으면 그 번호.
+ *  fontface 는 itemCnt 가 아니라 fontCnt 를 쓴다. 번호는 언어마다 따로 세므로 7칸 개수가 같을 때만 하나의 번호로 쓸 수 있다 */
+export function addFont(header: string, face: string): Edited {
+  const faces = [...header.matchAll(/<hh:fontface\b[^>]*>[\s\S]*?<\/hh:fontface>/g)];
+  if (!faces.length) throw new Error('header 에 fontface 가 없습니다');
+  const ids = faces.map((f) => [...f[0].matchAll(/<hh:font id="(\d+)" face="([^"]*)"/g)]);
+  const found = ids.map((list) => list.find((m) => m[2] === face)?.[1]);
+  if (found.every((v) => v !== undefined) && new Set(found).size === 1) return { header, id: Number(found[0]) };
+  const n = ids[0].length;
+  if (ids.some((list) => list.length !== n)) throw new Error('언어별 글꼴 수가 달라 한 번호로 붙일 수 없습니다');
+  let out = header;
+  for (const f of faces.reverse()) {
+    const first = /<hh:font id="\d+"[\s\S]*?<\/hh:font>/.exec(f[0])![0];
+    const add = first.replace(/id="\d+"/, `id="${n}"`).replace(/face="[^"]*"/, `face="${face}"`);
+    const next = f[0].replace(/fontCnt="\d+"/, `fontCnt="${n + 1}"`).replace('</hh:fontface>', `${add}</hh:fontface>`);
+    out = out.slice(0, f.index) + next + out.slice(f.index! + f[0].length);
+  }
+  return { header: out, id: n };
 }
 
 /** 문단 모양의 case·default 여백 값(시험·검사용) */

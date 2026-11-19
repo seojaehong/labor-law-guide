@@ -6,6 +6,8 @@ import { HEADER_XML } from '@/lib/contract-write/hwpx-header';
 import { NS, SEC_PR, XML_HEAD } from '@/lib/contract-write/export';
 import { stripControl } from '@/lib/contract-write/text';
 import { packHwpx } from '@/lib/work-rules-report/render';
+import { checkHeader } from './header-check';
+import { addFont, cloneChar, clonePara, type CharPatch, type ParaPatch } from './header-edit';
 
 export type MdPreset = 'internal' | 'tribunal';
 export type CellAlign = 'LEFT' | 'CENTER' | 'RIGHT';
@@ -13,7 +15,18 @@ export type CellAlign = 'LEFT' | 'CENTER' | 'RIGHT';
 export type MdItem =
   | { kind: 'h1' | 'h2' | 'h3' | 'h4'; text: string; pageBreak: boolean }
   | { kind: 'body' | 'list' | 'sig' | 'empty'; text: string }
-  | { kind: 'table'; rows: string[][]; aligns: CellAlign[] };
+  | { kind: 'table'; rows: string[][]; aligns: CellAlign[] }
+  | { kind: 'quote'; text: string };
+
+/** 편집 기술 조각 — 전부 선택값. 기본(끔) 출력은 파이썬 쌍둥이(generate_hwpx.py)와 같아야 하므로 바꾸지 않는다 */
+export interface MdFeatures {
+  /** S2 — 기호 문단은 내어쓰기(첫 줄 기호, 둘째 줄부터 기호 뒤 글자에 맞춤), 기호 없는 문단은 intent 0, 공백 글자 들여쓰기 없음 */
+  indent?: boolean;
+  /** S3 — 문장 안 **강조** = 굵게+밑줄, 줄 전체 ** = 굵게만, <u>…</u> = 밑줄 */
+  underline?: boolean;
+  /** S4 — > 인용 블록: 휴먼고딕 11pt·줄간격 180%·모든 줄 같은 x, 「[관련 판결] …」 제목줄만 굵게 */
+  quote?: boolean;
+}
 
 export interface MdHwpxOptions {
   /** internal = 내부 문서(행간 160%·여백 20mm) / tribunal = 법원·위원회 제출(행간 200%·위 45·아래 30mm). 기본 internal */
@@ -22,6 +35,8 @@ export interface MdHwpxOptions {
   pageBreak?: boolean;
   /** 아래 가운데 「- N -」 쪽번호. 기본 true */
   footer?: boolean;
+  /** 편집 기술 조각(선택값) */
+  features?: MdFeatures;
 }
 
 const PRESETS: Record<MdPreset, { lineSpacing: number; top: number; bottom: number; left: number; right: number }> = {
@@ -79,7 +94,7 @@ function fixQuotes(s: string): string {
 }
 
 /** md 를 줄 단위 항목으로 나눈다. 빈 줄은 서명부 바로 앞 것만 남는다(간격은 문단 모양이 맡는다) */
-export function parseMarkdown(md: string, opts: Pick<MdHwpxOptions, 'pageBreak'> = {}): MdItem[] {
+export function parseMarkdown(md: string, opts: Pick<MdHwpxOptions, 'pageBreak' | 'features'> = {}): MdItem[] {
   const raw = bridgeBold(fixQuotes(md).split(/\r?\n/));
   if (raw.length && raw[raw.length - 1] === '') raw.pop();
   // 서명부 = 끝 15줄 안의 「날짜만 있는 줄」부터. 본문의 날짜 문장은 서명부가 아니다
@@ -102,6 +117,11 @@ export function parseMarkdown(md: string, opts: Pick<MdHwpxOptions, 'pageBreak'>
     }
     if (!t || /^---+\s*$/.test(t)) {
       out.push({ kind: 'empty', text: '' });
+      i++;
+      continue;
+    }
+    if (opts.features?.quote && t.startsWith('>')) {
+      out.push({ kind: 'quote', text: t.replace(/^>\s?/, '').trim() });
       i++;
       continue;
     }
@@ -149,7 +169,7 @@ export function parseMarkdown(md: string, opts: Pick<MdHwpxOptions, 'pageBreak'>
 }
 
 /** **굵게** 와 판례 번호를 굵은 런으로 나눈다 */
-function runs(text: string, base: number, bold: number): [string, number][] {
+function runs(text: string, base: number, bold: number, cite = bold): [string, number][] {
   const r: [string, number][] = [];
   for (const part of text.split(/(\*\*.+?\*\*)/)) {
     if (!part) continue;
@@ -157,7 +177,7 @@ function runs(text: string, base: number, bold: number): [string, number][] {
       r.push([part.slice(2, -2), bold]);
       continue;
     }
-    for (const sp of part.split(CASE_SPLIT)) if (sp) r.push([sp, CASE_FULL.test(sp) ? bold : base]);
+    for (const sp of part.split(CASE_SPLIT)) if (sp) r.push([sp, CASE_FULL.test(sp) ? cite : base]);
   }
   return r;
 }
@@ -232,8 +252,46 @@ const FOOTER =
   '<hp:run charPrIDRef="7"><hp:t>- </hp:t></hp:run><hp:run charPrIDRef="7"><hp:ctrl><hp:autoNum numType="PAGE" suffixChar="NONE"/></hp:ctrl></hp:run><hp:run charPrIDRef="7"><hp:t> -</hp:t></hp:run>' +
   '</hp:p></hp:subList>';
 
+/** header 를 들고 다니며 필요한 모양을 끝에 붙인다(U3·U4). 같은 모양은 한 번만 붙는다 */
+class Styles {
+  constructor(public header: string) {}
+  char(src: number, patch: CharPatch): number {
+    const r = cloneChar(this.header, src, patch);
+    this.header = r.header;
+    return r.id;
+  }
+  para(src: number, patch: ParaPatch): number {
+    const r = clonePara(this.header, src, patch);
+    this.header = r.header;
+    return r.id;
+  }
+  font(face: string): number {
+    const r = addFont(this.header, face);
+    this.header = r.header;
+    return r.id;
+  }
+}
+
+// S2 머리 기호 — 내어쓰기 대상(A1~A3). 기호 뒤 공백까지가 기호 폭이다
+const MARKER = /^(?:[○●◦▲△▶▷※·□■◇◆√]|[①-⑳]|[㉠-㉭]|-|\p{Nd}+[.)]|[가-힣][.)]|\(\p{Nd}+\)|\([가-힣]\))\s+/u;
+/** 기호 폭(pt) — 전각(한글·기호)은 1em, 반각은 0.5em, 공백은 0.5em 으로 근사. 미실측: 한글 렌더로 확정할 값(U2) */
+function markerPt(marker: string, fontPt: number): number {
+  const m = `${marker.trim()} `;
+  return [...m].reduce((s, ch) => s + (ch.codePointAt(0)! >= 0x2000 ? 1 : 0.5), 0) * fontPt;
+}
+const BODY_FONT_PT = BODY_PT / 100;
+const QUOTE_LEFT_PT = 16.5; // A9 인용 = 본문 + 16.5pt (260824 실측 x 좌표)
+const QUOTE_TITLE = /^\[관련 [^\]]+\]/;
+
 /** 구역 본문(section0.xml) */
 export function mdSectionXml(items: MdItem[], opts: MdHwpxOptions = {}): string {
+  return mdDocXml(items, opts).section;
+}
+
+/** header 와 section 을 함께 만든다 — 선택값이 모양을 더하면 header 가 바뀐다. 기본(끔)이면 header = presetHeader */
+export function mdDocXml(items: MdItem[], opts: MdHwpxOptions = {}): { header: string; section: string } {
+  const f = opts.features ?? {};
+  const st = new Styles(presetHeader(opts.preset));
   const p = PRESETS[opts.preset ?? 'internal'];
   let secPr = SEC_PR.replace(
     /(<hp:margin\s+header="[^"]*"\s+footer="[^"]*"\s+gutter="[^"]*"\s+)left="[^"]*"\s+right="[^"]*"\s+top="[^"]*"\s+bottom="[^"]*"/,
@@ -248,14 +306,51 @@ export function mdSectionXml(items: MdItem[], opts: MdHwpxOptions = {}): string 
   const body = [para(`<hp:run charPrIDRef="7">${secPr}</hp:run>`, 20)];
   for (const x of items) {
     if (x.kind === 'table') body.push(tableXml(x.rows, x.aligns, usable, bodyH, ++tableId));
-    else if (x.kind === 'empty' || !x.text) body.push(para('<hp:run charPrIDRef="7"/>', 20));
+    else if (x.kind === 'empty' || (!x.text && x.kind !== 'quote')) body.push(para('<hp:run charPrIDRef="7"/>', 20));
     else if (x.kind === 'h1' || x.kind === 'h2' || x.kind === 'h3' || x.kind === 'h4') {
       const [c, pp] = HEAD[x.kind];
       body.push(para(run(x.text, c), pp, x.pageBreak));
     } else if (x.kind === 'sig') body.push(para(run(x.text, 7), 26));
-    else body.push(para(runs(x.text, 7, BOLD).map(([t, c]) => run(t, c)).join(''), x.kind === 'list' ? 25 : 20));
+    else if (x.kind === 'quote') {
+      // S4 인용 — 휴먼고딕 11pt, 줄간격 180%, left = 본문 + 16.5pt, intent 0. 인용 안 빈 줄도 인용 서식
+      const font = st.font('휴먼고딕');
+      const qc = st.char(7, { height: 1100, font });
+      const qb = st.char(7, { height: 1100, font, bold: true });
+      const qp = st.para(20, { pt: true, left: QUOTE_LEFT_PT, intent: 0, lineSpacing: 180 });
+      if (!x.text) body.push(para(`<hp:run charPrIDRef="${qc}"/>`, qp));
+      else if (QUOTE_TITLE.test(x.text)) body.push(para(run(stripBold(x.text), qb), qp));
+      else body.push(para(runs(x.text, qc, qb).map(([t, c]) => run(t, c)).join(''), qp));
+    } else {
+      const list = x.kind === 'list';
+      let text = x.text;
+      let pp = list ? 25 : 20;
+      if (f.indent) {
+        // S2 — 공백 글자 들여쓰기를 없애고 기호 폭만큼 내어쓴다. 목록은 left 4pt(바탕 25 의 default 800 = 4pt)
+        text = text.replace(/^\s+/, '');
+        const m = MARKER.exec(text);
+        pp = st.para(list ? 25 : 20, { pt: true, left: list ? 4 : 0, intent: m ? -markerPt(m[0], BODY_FONT_PT) : 0 });
+      }
+      body.push(para(emphasis(text, st, f).map(([t, c]) => run(t, c)).join(''), pp));
+    }
   }
-  return `${XML_HEAD}<hs:sec ${NS}>${body.join('')}</hs:sec>`;
+  return { header: st.header, section: `${XML_HEAD}<hs:sec ${NS}>${body.join('')}</hs:sec>` };
+}
+
+/** 본문 강조 런. 기본 = **굵게**·판례 번호 굵게. S3 이면 문장 안 ** 는 굵게+밑줄, 줄 전체 ** 는 굵게, <u> 는 밑줄 */
+function emphasis(text: string, st: Styles, f: MdFeatures): [string, number][] {
+  if (!f.underline) return runs(text, 7, BOLD);
+  const lead = MARKER.exec(text)?.[0] ?? '';
+  const rest = text.slice(lead.length).trim();
+  if (/^\*\*[^*]+\*\*$/.test(rest)) return runs(text, 7, BOLD);
+  const bu = st.char(BOLD, { underline: true });
+  const out: [string, number][] = [];
+  for (const part of text.split(/(<u>.*?<\/u>)/)) {
+    if (!part) continue;
+    const u = /^<u>(.*)<\/u>$/.exec(part);
+    if (u) out.push([stripBold(u[1]), st.char(7, { underline: true })]);
+    else out.push(...runs(part, 7, bu, BOLD));
+  }
+  return out;
 }
 
 /** 프리셋 header.xml — 바탕의 행간을 프리셋 값으로(표 칸 27~29 는 130%) */
@@ -268,11 +363,13 @@ export function presetHeader(preset: MdPreset = 'internal'): string {
 }
 
 /** 변환 결과 요약 — 확인용 수와 옮기지 못한 마크다운 기호(남으면 렌더러가 다루지 못한 문법이다) */
-export function mdHwpxSummary(items: MdItem[]) {
+export function mdHwpxSummary(items: MdItem[], features: MdFeatures = {}) {
   const count = (k: MdItem['kind']) => items.filter((x) => x.kind === k).length;
   const texts = items.flatMap((x) => (x.kind === 'table' ? x.rows.flat() : [x.text]));
   const bold = texts.reduce((n, t) => n + runs(t, 7, BOLD).filter(([, c]) => c === BOLD).length, 0);
-  const leftovers = ['](', '<u>', '~~', '```', '> '].filter((k) => texts.some((t) => stripBold(t).includes(k)));
+  // 본문의 <u> 는 S3 가 켜져 있으면 밑줄로 옮겨진다(표 칸 안 <u> 는 아직 못 옮긴다)
+  const uTexts = features.underline ? items.flatMap((x) => (x.kind === 'body' || x.kind === 'list' ? [] : x.kind === 'table' ? x.rows.flat() : [x.text])) : texts;
+  const leftovers = ['](', '<u>', '~~', '```', '> '].filter((k) => (k === '<u>' ? uTexts : texts).some((t) => stripBold(t).includes(k)));
   return {
     headings: count('h1') + count('h2') + count('h3') + count('h4'),
     paragraphs: count('body') + count('list'),
@@ -289,5 +386,9 @@ export function mdHwpxSummary(items: MdItem[]) {
 export async function mdToHwpx(md: string, opts: MdHwpxOptions = {}): Promise<Uint8Array> {
   const items = parseMarkdown(md, opts);
   const title = items.find((x) => x.kind === 'h1');
-  return packHwpx(presetHeader(opts.preset), mdSectionXml(items, opts), title && 'text' in title ? title.text : '');
+  const { header, section } = mdDocXml(items, opts);
+  // S0 — 순서·개수·참조 범위가 어긋난 파일은 한글이 오류 없이 다른 모양으로 그린다. 내보내기 전에 막는다
+  const issues = checkHeader(header, section);
+  if (issues.length) throw new Error(`hwpx header 불변식 위반: ${issues.map((x) => x.message).join(' / ')}`);
+  return packHwpx(header, section, title && 'text' in title ? title.text : '');
 }

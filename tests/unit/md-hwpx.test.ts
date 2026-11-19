@@ -10,7 +10,7 @@ const findPara = (xml: string, text: string) => paras(xml).find((m) => runText(m
 
 describe('parseMarkdown — 줄 분류', () => {
   it('번호·기호로 시작하는 2단계 제목에는 □ 를 겹치지 않는다(261119)', () => {
-    const texts = parseMarkdown('## 1. 수신 경위\n\n## 가. 쟁점\n\n## ① 첫째\n\n## □ 이미 기호\n\n## 개요\n\n## 2026년 계획').filter((x) => x.kind === 'h2').map((x) => x.text);
+    const texts = parseMarkdown('## 1. 수신 경위\n\n## 가. 쟁점\n\n## ① 첫째\n\n## □ 이미 기호\n\n## 개요\n\n## 2026년 계획').flatMap((x) => (x.kind === 'h2' ? [x.text] : []));
     expect(texts).toEqual(['1. 수신 경위', '가. 쟁점', '① 첫째', '□ 이미 기호', '□ 개요', '□ 2026년 계획']);
   });
 
