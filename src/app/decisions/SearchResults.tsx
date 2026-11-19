@@ -47,6 +47,8 @@ export interface Row {
   date: string | null;
   tag: string | null;
   result: string | null;
+  /** 검색어 둘레 발췌(검색 결과에만, 261119 S4) */
+  excerpt?: string | null;
 }
 
 export function ResultRow({ row }: { row: Row }) {
@@ -72,6 +74,12 @@ export function ResultRow({ row }: { row: Row }) {
             {row.date ? <span>{row.date}</span> : null}
             {row.tag ? <span>{row.tag}</span> : null}
           </div>
+          {row.excerpt ? (
+            <p className="mt-1.5 line-clamp-2 text-[13px] leading-relaxed break-words"
+               style={{ color: "var(--color-text-secondary)" }}>
+              {row.excerpt}
+            </p>
+          ) : null}
         </div>
         {res ? (
           <span className="mt-0.5 shrink-0 rounded px-1.5 py-0.5 text-[12px] font-semibold"

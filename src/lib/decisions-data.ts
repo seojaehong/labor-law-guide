@@ -1,7 +1,8 @@
 import { supabase } from "@/lib/supabase";
 import { decisionDate } from '@/lib/decision-date';
 import type { ReasonCategory } from "@/lib/types";
-import { PAGE_SIZE } from "@/lib/decisions-query";
+import { PAGE_SIZE, type Sort } from "@/lib/decisions-query";
+import { stripMarkdownFormatting } from "@/lib/format-holding";
 import { resolveDecisionSourceContract } from "@/lib/search/source-contracts";
 import { realCaseNumber, headline, reasonLabel, type Row, type Kind } from "@/app/decisions/SearchResults";
 
@@ -103,22 +104,48 @@ export function zeroHitLogLine(q: string, type: Kind): string {
 }
 
 /** 세 표의 전문검색 RPC. 브라우저에서 부르던 것을 서버로 옮겼다. */
-export async function runSearch(q: string, type: Kind, page: number): Promise<DecisionResult> {
+/** 「최신순」이 날짜로 다시 세우는 관련 상위 건수. 그 밖은 관련도순으로만 본다. */
+export const DATE_SORT_POOL = 100;
+
+/** 검색 결과 발췌 — 검색어(2글자 이상 낱말)가 처음 나오는 칸·자리 둘레 max 자. 없으면 첫 칸 앞부분. */
+export function searchExcerpt(texts: (string | null | undefined)[], q: string, max = 120): string | null {
+  const clean = texts.map((t) => stripMarkdownFormatting(t || "").replace(/\s+/g, " ").trim()).filter(Boolean);
+  if (!clean.length) return null;
+  const words = q.split(/\s+/).filter((w) => w.length >= 2);
+  for (const text of clean) {
+    const at = Math.min(...words.map((w) => text.indexOf(w)).filter((i) => i >= 0));
+    if (!Number.isFinite(at)) continue;
+    const start = Math.max(0, at - 40);
+    const body = text.slice(start, start + max);
+    return (start > 0 ? "…" : "") + body + (start + max < text.length ? "…" : "");
+  }
+  return clean[0].length > max ? clean[0].slice(0, max) + "…" : clean[0];
+}
+
+export async function runSearch(q: string, type: Kind, page: number, sort: Sort = "relevance"): Promise<DecisionResult> {
   const offset = (page - 1) * PAGE_SIZE;
   // RPC 에 넣기 전에 구문 문자를 턴다. 없애도 전문검색 결과는 달라지지 않는다.
   const safe = q.replace(/[%_\\'"();]/g, " ").trim();
   if (safe.length < 2) return { ok: true, rows: [], hasMore: false };
+  const byDate = sort === "date";
+  if (byDate && offset >= DATE_SORT_POOL) return { ok: true, rows: [], hasMore: false };
 
   const fn = type === "court" ? "search_cases" : type === "admin" ? "search_admin" : "search_nlrc";
   try {
+    // 최신순은 관련 상위 100건을 한 번 받아 날짜로 다시 세운다 — RPC 는 그대로(DB 변경 없음)
     const { data, error } = await supabase.rpc(fn, {
       query: safe,
-      result_limit: PAGE_SIZE + 1,
-      page_offset: offset,
+      result_limit: byDate ? DATE_SORT_POOL : PAGE_SIZE + 1,
+      page_offset: byDate ? 0 : offset,
     });
     if (error) return { ok: false };
 
-    const raw = (data || []) as Record<string, unknown>[];
+    let raw = (data || []) as Record<string, unknown>[];
+    if (byDate) {
+      raw = [...raw]
+        .sort((a, b) => String(b.decision_date ?? "").localeCompare(String(a.decision_date ?? "")))
+        .slice(offset, offset + PAGE_SIZE + 1);
+    }
     const hasMore = raw.length > PAGE_SIZE;
     const visible=raw.slice(0,PAGE_SIZE).map(r=>({...r}));
     // Existing search_nlrc RPC omits primary type. Enrich only displayed rows,
@@ -135,6 +162,18 @@ export async function runSearch(q: string, type: Kind, page: number): Promise<De
       }
     }
     const rows: Row[] = visible.map((r) => {
+      // 발췌 칸 — RPC 가 이미 돌려주는 요지·판단(노동위 key_issue 는 제목 자리에 쓰므로 뺀다). 없으면 칸을 붙이지 않는다
+      const excerpt = searchExcerpt([r.holding_summary, r.summary, r.summary_short, r.holding_points] as (string | null)[], safe);
+      return excerpt ? { ...toRow(r), excerpt } : toRow(r);
+    });
+    // 1쪽이 비면 정답 세트 재료로 남긴다(뒷페이지가 빈 것은 결과 끝, 오류는 위에서 이미 돌아감)
+    if (page === 1 && rows.length === 0) console.info(zeroHitLogLine(safe, type));
+    return { ok: true, rows, hasMore };
+  } catch {
+    return { ok: false };
+  }
+
+  function toRow(r: Record<string, unknown>): Row {
       const id = String(r.id ?? "");
       if (type === "admin") {
         return {
@@ -159,12 +198,6 @@ export async function runSearch(q: string, type: Kind, page: number): Promise<De
         };
       }
       return decisionRow(r);
-    });
-    // 1쪽이 비면 정답 세트 재료로 남긴다(뒷페이지가 빈 것은 결과 끝, 오류는 위에서 이미 돌아감)
-    if (page === 1 && rows.length === 0) console.info(zeroHitLogLine(safe, type));
-    return { ok: true, rows, hasMore };
-  } catch {
-    return { ok: false };
   }
 }
 
