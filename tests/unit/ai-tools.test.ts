@@ -34,7 +34,10 @@ describe('AI 연결 도구 목록', () => {
     for (const [id, g] of Object.entries(groups)) {
       const t = AI_TOOLS.find((x) => x.id === id);
       expect(t?.status, id).toBe('public');
-      expect(t?.install?.claudeCode, id).toMatch(new RegExp(`npx -y k-labor mcp --groups ${g}$`));
+      // "--"·"a,b" 는 PowerShell(claude.ps1)에서 깨지지 않게 따옴표로 감싼다(261119)
+      expect(t?.install?.claudeCode, id).toContain('"--" npx');
+      const q = g.includes(',') ? `"${g}"` : g;
+      expect(t?.install?.claudeCode, id).toMatch(new RegExp(`npx -y k-labor mcp --groups ${q}$`));
     }
     // 묶음 이름은 패키지 server.mjs 의 GROUPS 와 같아야 한다
     const server = fs.readFileSync('tools/k-labor/server.mjs', 'utf8');

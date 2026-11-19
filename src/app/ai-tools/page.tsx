@@ -184,7 +184,7 @@ const ROUTES: { name: string; where: string; code: string }[] = [
   {
     name: 'Claude Code',
     where: '터미널에서 한 줄을 실행합니다.',
-    code: 'claude mcp add --scope user sanjae-apply -- npx -y sanjae-apply mcp',
+    code: 'claude mcp add --scope user sanjae-apply "--" npx -y sanjae-apply mcp',
   },
   {
     name: 'Claude Desktop',
