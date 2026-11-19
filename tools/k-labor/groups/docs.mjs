@@ -7,6 +7,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { mdHwpxSummary, mdToHwpx, parseMarkdown } from '@/lib/md-hwpx';
 import { fillCells, replaceText } from '@/lib/md-hwpx/postedit';
+import { mdToHwpxWithTemplate } from '@/lib/md-hwpx/template';
 import { argsLookLikeRrn, looksLikeRrn, text } from '../lib/common.mjs';
 
 export const docsTools = ['make_hwpx_from_markdown', 'edit_hwpx_text'];
@@ -36,6 +37,11 @@ export function registerDocs(server) {
         fileBase: z.string().max(120).optional().describe('파일 이름(확장자 빼고). 비우면 첫 # 제목, 그것도 없으면 md 파일 이름'),
         pageBreak: z.boolean().optional().describe('Ⅰ~Ⅹ 로 시작하는 ## 앞에서 쪽을 나눈다(기본 true)'),
         footer: z.boolean().optional().describe('아래 가운데 「- N -」 쪽번호(기본 true)'),
+        templateFile: z.string().max(400).optional().describe('기관·고객 양식 hwpx 경로. 주면 양식의 글자·문단 모양과 쪽 설정을 그대로 쓰고 본문만 새로 채운다(양식 미리보기 그림은 옮기지 않음)'),
+        templateSamples: z
+          .object({ body: z.string().max(200).optional(), h1: z.string().max(200).optional(), h2: z.string().max(200).optional(), h3: z.string().max(200).optional(), h4: z.string().max(200).optional() })
+          .optional()
+          .describe('양식 안에서 역할별 모양을 찾을 글자(그 글자가 든 문단의 모양을 쓴다). body 를 비우면 양식에서 가장 많이 쓴 본문 모양'),
         features: z
           .object({
             indent: z.boolean().optional().describe('기호 문단 내어쓰기·공백 들여쓰기 없앰'),
@@ -83,7 +89,12 @@ export function registerDocs(server) {
       }
       let bytes;
       try {
-        bytes = await mdToHwpx(md, { preset: a.preset, pageBreak: a.pageBreak, footer: a.footer, features: a.features, images });
+        const o = { preset: a.preset, pageBreak: a.pageBreak, footer: a.footer, features: a.features, images };
+        if (a.templateFile) {
+          const tp = String(a.templateFile).trim();
+          if (!/\.hwpx$/i.test(tp) || !fs.existsSync(tp) || !fs.statSync(tp).isFile()) return fail(`양식 hwpx 파일이 없습니다: ${tp}`);
+          bytes = await mdToHwpxWithTemplate(md, new Uint8Array(fs.readFileSync(tp)), { ...o, samples: a.templateSamples });
+        } else bytes = await mdToHwpx(md, o);
       } catch (e) {
         return fail(e instanceof Error ? e.message : String(e));
       }

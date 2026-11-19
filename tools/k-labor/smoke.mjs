@@ -538,6 +538,9 @@ if (tools.includes('make_hwpx_from_markdown')) {
   check(`docs 글자만 고치기 ${ed.file?.bytes}B`, ed.ok && fs.existsSync(ed.file.path) && fs.readFileSync(mh.file.path).equals(before));
   const none = await callNew('edit_hwpx_text', { file: mh.file.path, edits: [{ old: '없는 글자', new: 'x' }], outFile: path.join(dir, 'none.hwpx') });
   check('docs 글자 고치기 0번이면 멈춤', none.ok === false && !fs.existsSync(path.join(dir, 'none.hwpx')));
+  // 양식 모드 — 앞서 만든 파일을 양식으로 다시 쓴다
+  const tm = await callNew('make_hwpx_from_markdown', { markdown: '# 가상 양식본\n\n양식 모양으로 채운 본문.', preset: 'internal', outDir: dir, templateFile: mh.file.path });
+  check(`docs 양식 모드 ${tm.file?.bytes}B`, tm.ok && fs.existsSync(tm.file.path));
 }
 
 // ── work-rules 묶음 ──

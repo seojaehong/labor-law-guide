@@ -341,6 +341,8 @@ export async function packHwpx(
   title: string,
   /** 그림(BinData) — md 변환 S10. 없으면 지금까지와 같은 꾸러미 */
   bins: { id: string; href: string; media: string; data: Uint8Array }[] = [],
+  /** S13 T4 — 미리보기 글(Preview/PrvText.txt). 없으면 넣지 않는다(지금까지와 같은 꾸러미) */
+  extra: { prvText?: string } = {},
 ): Promise<Uint8Array> {
   const JSZip = (await import('jszip')).default;
   const zip = new JSZip();
@@ -364,6 +366,7 @@ export async function packHwpx(
   add('Contents/header.xml', headerXml);
   add('Contents/section0.xml', sectionXml);
   for (const b of bins) zip.file(b.href, b.data, { createFolders: false, compression: 'STORE' });
+  if (extra.prvText !== undefined) add('Preview/PrvText.txt', extra.prvText);
   add(
     'settings.xml',
     `${XML_HEAD}<ha:HWPApplicationSetting xmlns:ha="http://www.hancom.co.kr/hwpml/2011/app" xmlns:config="urn:oasis:names:tc:opendocument:xmlns:config:1.0"><ha:CaretPosition listIDRef="0" paraIDRef="0" pos="0"/></ha:HWPApplicationSetting>`,

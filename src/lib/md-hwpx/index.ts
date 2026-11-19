@@ -58,6 +58,8 @@ export interface MdHwpxOptions {
   features?: MdFeatures;
   /** S10 그림 바이트 — md 의 경로 글자 그대로를 열쇠로 */
   images?: Record<string, Uint8Array>;
+  /** S13 템플릿 모드 — 양식의 쪽 설정(hp:pagePr 통째). 주면 프리셋 여백 대신 이것을 쓴다 */
+  pagePr?: string;
 }
 
 const PRESETS: Record<MdPreset, { lineSpacing: number; top: number; bottom: number; left: number; right: number }> = {
@@ -415,11 +417,13 @@ export function mdDocXml(items: MdItem[], opts: MdHwpxOptions = {}): { header: s
     /(<hp:margin\s+header="[^"]*"\s+footer="[^"]*"\s+gutter="[^"]*"\s+)left="[^"]*"\s+right="[^"]*"\s+top="[^"]*"\s+bottom="[^"]*"/,
     `$1left="${p.left}" right="${p.right}" top="${p.top}" bottom="${p.bottom}"`,
   );
+  if (opts.pagePr) secPr = secPr.replace(/<hp:pagePr\b[\s\S]*?<\/hp:pagePr>/, opts.pagePr);
   if (opts.footer !== false) secPr = secPr.replace('</hp:secPr>', `${FOOTER}</hp:secPr>`);
   const pageW = Number(/<hp:pagePr[^>]*\bwidth="(\d+)"/.exec(secPr)?.[1] ?? 59528);
   const pageH = Number(/<hp:pagePr[^>]*\bheight="(\d+)"/.exec(secPr)?.[1] ?? 84186);
-  const usable = pageW - p.left - p.right;
-  const bodyH = pageH - p.top - p.bottom;
+  const mg = (k: string, d: number) => Number(new RegExp(`<hp:margin\\b[^>]*\\b${k}="(\\d+)"`).exec(secPr)?.[1] ?? d);
+  const usable = pageW - mg('left', p.left) - mg('right', p.right);
+  const bodyH = pageH - mg('top', p.top) - mg('bottom', p.bottom);
   let tableId = 1000;
   const bins: BinItem[] = [];
   const body = [para(`<hp:run charPrIDRef="7">${secPr}</hp:run>`, 20)];

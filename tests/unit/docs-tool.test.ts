@@ -45,6 +45,11 @@ describe('docs 묶음', () => {
       fs.writeFileSync(file, '﻿본문만 있는 원고');
       const f = await call({ markdownFile: file, preset: 'tribunal', outDir: dir });
       expect(f.file.path).toBe(path.join(dir, '원고.hwpx'));
+      // 양식 모드 — 만든 파일을 양식으로 다시 쓴다. 없는 양식·없는 샘플은 멈춘다
+      const t = await call({ markdown: '# 양식본\n\n새 본문', preset: 'internal', outDir: dir, templateFile: r.file.path, templateSamples: { body: '본문' } });
+      expect(t.ok).toBe(true);
+      expect((await call({ markdown: '# x', preset: 'internal', outDir: dir, templateFile: path.join(dir, '없음.hwpx') })).error).toContain('양식');
+      expect((await call({ markdown: '# y', preset: 'internal', outDir: dir, templateFile: r.file.path, templateSamples: { body: '없는샘플' } })).error).toContain('샘플');
     } finally {
       fs.rmSync(dir, { recursive: true, force: true });
     }
