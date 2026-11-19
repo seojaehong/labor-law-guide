@@ -60,3 +60,8 @@ it('결과 행은 발췌를 제목 아래에 보여준다', () => {
   const html = renderToStaticMarkup(createElement(ResultRow, { row: { kind: 'court', href: '/cases/x', title: '제목', caseNumber: null, date: null, tag: null, result: null, excerpt: '발췌 문장' } }));
   expect(html).toContain('발췌 문장');
 });
+
+it('AI 요약 표시는 남기고 줄 안에 붙은 제목 기호(#)는 지운다', () => {
+  expect(searchExcerpt(['[AI요약] # 징계처분 취소소송 ## 결과 요약 - 원고 청구 기각'], '없는말'))
+    .toBe('[AI요약] 징계처분 취소소송 결과 요약 - 원고 청구 기각');
+});
