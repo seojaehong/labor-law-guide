@@ -38,7 +38,7 @@ nav.toc a:hover{background:#E3E6EC;color:var(--ink)}
 @media (max-width:400px){.crumb .home,.crumb .sep{display:none}}
 
 /* 키캡 */
-.key{display:inline-flex;flex-direction:column;justify-content:space-between;min-width:44px;padding:8px 10px 9px;border-radius:12px;background:var(--cap);box-shadow:0 5px 0 var(--cap-side),0 6px 12px rgba(20,26,36,.10);color:var(--ink);font-weight:700;line-height:1.25;position:relative;border:0;font:inherit;font-weight:700;text-align:left}
+.key{display:inline-flex;flex-direction:column;justify-content:space-between;min-width:44px;padding:8px 10px 9px;border-radius:12px;background:var(--cap);box-shadow:0 5px 0 var(--cap-side),0 6px 12px rgba(20,26,36,.10);color:var(--ink);position:relative;border:0;font:inherit;font-weight:700;line-height:1.25;text-align:left}
 .key.mod{background:var(--mod);color:#fff;box-shadow:0 5px 0 var(--mod-side),0 6px 12px rgba(20,26,36,.18)}
 .key .led{position:absolute;right:9px;top:9px;width:8px;height:8px;border-radius:50%;background:var(--off)}
 .key .led.on{background:var(--on);box-shadow:0 0 8px var(--on)}

@@ -80,7 +80,7 @@
         <button type="button" class="key" data-g="tax" data-n="3" data-r="3" aria-pressed="false"><span class="led"></span>세금<small>퇴직·일용·중도퇴사</small></button>
         <button type="button" class="key" data-g="duties" data-n="1" data-r="1" aria-pressed="false"><span class="led"></span>사업주 의무<small>규모별 목록</small></button>
         <button type="button" class="key" data-g="work-rules" data-n="6" data-r="0" aria-pressed="false"><span class="led"></span>취업규칙·법령<small>법제처 실시간</small></button>
-        <button type="button" class="key" data-g="nosa" data-n="10" data-r="2" aria-pressed="false"><span class="led"></span>노사협의회<small>설치·회의·서류</small></button>
+        <button type="button" class="key" data-g="nosa" data-n="8" data-r="2" aria-pressed="false"><span class="led"></span>노사협의회<small>설치·회의·서류</small></button>
         <button type="button" class="key mod all" data-all aria-pressed="false">전체 켜기</button>
       </div>
       <div class="cmd"><pre><code id="pick-cmd">claude mcp add --scope user k-labor -- npx -y k-labor mcp --groups contract,calc</code></pre><button type="button" class="copy">복사</button></div>
@@ -93,7 +93,7 @@
 
 <div class="facts">
   <div class="wrap">
-    <div><b>47개</b><span>9개 묶음, 필요한 것만 켭니다</span></div>
+    <div><b>45개</b><span>9개 묶음, 필요한 것만 켭니다</span></div>
     <div><b>25개</b><span>설치 없이 원격 주소로</span></div>
     <div><b>같은 값</b><span>사이트 계산기와 같은 엔진</span></div>
     <div><b>대화에 싣지 않음</b><span>주민등록번호는 PC 안에서만</span></div>
@@ -102,15 +102,15 @@
 
 <section id="ways" class="sec" aria-labelledby="ways-h">
   <div class="wrap">
-    <div class="sec-head"><span class="no">01 · 연결 방법</span><h2 id="ways-h">내 PC에 설치하거나, 주소만 넣거나</h2><p>설치하면 전 묶음을 씁니다. 원격 주소는 설치가 필요 없지만 파일을 만들거나 보내는 도구는 빠집니다.</p></div>
+    <div class="sec-head"><span class="no">01 · 연결 방법</span><h2 id="ways-h">내 PC에 설치하거나, 주소만 넣거나</h2><p>설치하면 전 묶음을 씁니다. 원격 주소는 설치가 필요 없지만 계산·점검 도구만 붙고, 파일·팩스·법제처 조회처럼 내 PC나 내 계정이 필요한 도구는 빠집니다.</p></div>
     <div class="sites ways">
       <article class="site">
         <header><span class="badge" style="background:var(--mod)">PC</span><div><h3>내 PC에 설치</h3><span class="host">npx -y k-labor mcp</span></div></header>
-        <dl><dt>쓰는 곳</dt><dd>Claude Code · Claude Desktop · Cursor · Windsurf</dd><dt>도구</dt><dd>9개 묶음 47개 전부</dd><dt>필요한 것</dt><dd>Node.js 20 이상</dd><dt>여기서만</dt><dd>계약서·신고서 파일 만들기, 팩스·문자, 취업규칙 파일 읽기, 법제처 실시간 조회</dd></dl>
+        <dl><dt>쓰는 곳</dt><dd>Claude Code · Claude Desktop · Cursor · Windsurf</dd><dt>도구</dt><dd>9개 묶음 45개 전부</dd><dt>필요한 것</dt><dd>Node.js 20 이상</dd><dt>여기서만</dt><dd>계약서·신고서 파일 만들기, 팩스·문자, 취업규칙 파일 읽기, 법제처 실시간 조회</dd></dl>
       </article>
       <article class="site">
         <header><span class="badge" style="background:var(--ink)">URL</span><div><h3>원격 주소로 연결</h3><span class="host">https://yellowenvelope.kr/api/mcp/mcp</span></div></header>
-        <dl><dt>쓰는 곳</dt><dd>claude.ai · Claude 앱의 커스텀 커넥터</dd><dt>도구</dt><dd>25개 — 근로계약서 설계·점검, 임금·수당, 연차, 세금, 사업주 의무, 노사협의회 계산</dd><dt>필요한 것</dt><dd>없음. 주소만 넣습니다</dd><dt>빠지는 것</dt><dd>파일 만들기·팩스·문자·건강보험 신고서·취업규칙 점검</dd></dl>
+        <dl><dt>쓰는 곳</dt><dd>claude.ai · Claude 앱의 커스텀 커넥터</dd><dt>도구</dt><dd>25개 — 근로계약서 설계·점검, 임금·수당, 연차, 세금, 사업주 의무, 노사협의회 계산</dd><dt>필요한 것</dt><dd>없음. 주소만 넣습니다</dd><dt>빠지는 것</dt><dd>건강보험 신고·팩스·문자·취업규칙·법령 묶음 전체, 근로계약서 파일 저장, 노사협의회 서류·기록</dd><dt>입력값</dt><dd>도구에 넣은 값이 일의 무늬 서버로 전송됩니다. 저장하지 않습니다</dd></dl>
       </article>
     </div>
   </div>
@@ -127,7 +127,7 @@
       </article>
       <article class="site">
         <header><span class="badge" style="background:var(--mod)">팩스</span><div><h3>팩스·문자</h3><span class="host">--groups popbill · 도구 5개</span></div></header>
-        <p>내 팝빌 계정과 내 번호로 팩스·문자를 보내고 결과를 조회합니다. 잔액과 등록된 발신번호도 확인합니다. 실제 전송은 확인을 거친 호출에서만 합니다.</p>
+        <p>내 팝빌 계정과 내 번호로 팩스·문자를 보내고 결과를 조회합니다. 잔액과 등록된 발신번호도 확인합니다. 실제 전송은 AI가 보내기 표시(<code>confirm: true</code>)를 넣어 부른 호출에서만 합니다. AI 앱의 도구 승인 창을 켜 두고 미리보기를 읽은 뒤 승인하세요.</p>
         <div><span class="tag amber">내 PC에서만</span> <span class="tag grey">팝빌 계정 필요</span></div>
       </article>
       <article class="site">
@@ -161,8 +161,8 @@
         <div><span class="tag amber">내 PC에서만</span> <span class="tag grey">법제처 OC 필요</span></div>
       </article>
       <article class="site">
-        <header><span class="badge" style="background:var(--mod)">노사</span><div><h3>노사협의회</h3><span class="host">--groups nosa · 도구 10개</span></div></header>
-        <p>설치의무와 근로자위원 선출방식·정족수·기한을 계산하고, 회의 하나의 통보 기한·의결을 확인합니다. 협의회규정 점검, 선거·회의 서류, 회의록 기록은 내 PC에서 파일로 만듭니다.</p>
+        <header><span class="badge" style="background:var(--mod)">노사</span><div><h3>노사협의회</h3><span class="host">--groups nosa · 도구 8개</span></div></header>
+        <p>설치의무와 근로자위원 선출방식·정족수·기한을 계산하고, 회의 하나의 통보 기한·의결을 확인합니다. 선거·회의 서류와 회의록 기록은 내 PC에서 파일로 만듭니다. 협의회규정 점검(읽기만 하고 파일은 만들지 않음)과 신·구조문대비표는 다음 판(0.2.1)에 들어갑니다.</p>
         <div><span class="tag">원격 2개</span> <span class="tag amber">서류·기록은 내 PC</span></div>
       </article>
     </div>
@@ -204,8 +204,8 @@
       <div class="card"><p class="ask">주4 월화수목 10:00~22:00, 휴게 155분, 월 260만원으로 근로계약서 임금 구성 짜 줘.</p><div class="who"><span class="key mod">근로계약서</span>항목별 시간·금액</div></div>
       <div class="card"><p class="ask">2014년 1월 2일 입사, 2026년 7월 15일 퇴사, 퇴직금 6,000만원이면 퇴직소득세 얼마야?</p><div class="who"><span class="key mod">세금</span>퇴직소득세·지방소득세</div></div>
       <div class="card"><p class="ask">상시 근로자 7명 사업장이 지켜야 할 의무 알려 줘.</p><div class="who"><span class="key mod">사업주 의무</span>의무·교육·제재 목록</div></div>
-      <div class="card"><p class="ask">충북 청주시 상당구 상당로 155 사업장의 건강보험 관할 지사 팩스 번호 찾아줘.</p><div class="who"><span class="key mod">건강보험 신고</span>관할 지사·담당 번호</div></div>
-      <div class="card"><p class="ask">우리 취업규칙(C:/규정/취업규칙.hwpx) 2024-03-01 개정본인데, 그 뒤 개정 법령이 반영됐는지 봐 줘.</p><div class="who"><span class="key mod">취업규칙·법령</span>조문별 대조</div></div>
+      <div class="card"><p class="ask">충북 청주시 상당구 상당로 155 사업장의 건강보험 관할 지사 팩스 번호 찾아줘.</p><div class="who"><span class="key mod">건강보험 신고</span>관할 지사·담당 번호 <span class="tag amber">내 PC</span></div></div>
+      <div class="card"><p class="ask">우리 취업규칙(C:/규정/취업규칙.hwpx) 2024-03-01 개정본인데, 그 뒤 개정 법령이 반영됐는지 봐 줘.</p><div class="who"><span class="key mod">취업규칙·법령</span>조문별 대조 <span class="tag amber">내 PC</span></div></div>
     </div>
   </div>
 </section>
@@ -241,14 +241,15 @@
     <div class="sec-head"><span class="no">06 · 개인정보</span><h2 id="privacy-h">주민등록번호는 AI 대화에 실리지 않습니다</h2><p>계산·계약 도구는 주민등록번호를 받지 않습니다. 신고서처럼 꼭 필요한 곳은 명단을 파일 경로로만 받아 도구가 직접 읽습니다.</p></div>
     <div class="vault">
       <div class="diagram" aria-label="데이터가 머무는 곳 그림">
-        <div style="font-weight:700">내 PC 안에서만</div>
+        <div style="font-weight:700">내 PC에 설치했을 때</div>
         <div class="box"><h4>명단·서류</h4><span class="chip lock">신고서 명단 파일(peopleFile)</span><span class="chip lock">신고서 PDF</span><span class="chip lock">취업규칙 본문·파일</span><span class="chip lock">계약서 파일</span></div>
-        <div class="box out"><h4>밖으로 나가는 것은 세 가지뿐</h4><ol><li>사업자등록번호로 관할 지사를 찾을 때 그 번호만 일의 무늬로 보냅니다. 주소로 찾으면 아무것도 나가지 않습니다.</li><li>팩스·문자는 본인 팝빌 계정으로 보냅니다.</li><li>법제처에는 법령명·날짜·판 번호만 묻습니다.</li></ol></div>
-        <p style="margin:16px 0 0"><span class="x">✕</span> 입력값을 저장하거나 모으지 않습니다</p>
+        <div class="box out"><h4>설치판에서 밖으로 나가는 것은 세 가지뿐</h4><ol><li>사업자등록번호로 관할 지사를 찾을 때 그 번호만 일의 무늬로 보냅니다. 주소로 찾으면 아무것도 나가지 않습니다.</li><li>팩스·문자는 본인 팝빌 계정으로 보냅니다.</li><li>법제처에는 법령명·날짜·판 번호만 묻습니다.</li></ol></div>
+        <div class="box out"><h4>원격 주소로 쓸 때</h4><p style="margin:0">도구에 넣는 값이 일의 무늬 서버로 전송돼 계산됩니다. 주민등록번호를 받는 도구는 원격 주소에 없습니다.</p></div>
+        <p style="margin:16px 0 0"><span class="x">✕</span> 일의 무늬는 입력값을 저장하거나 모으지 않습니다</p>
       </div>
       <div>
         <div class="note tip"><h4>응답에서도 가립니다</h4><p>도구 응답에 주민등록번호 모양이 섞이면 나가기 전에 가립니다. 근로계약서 점검은 입력에 주민등록번호 모양이 있으면 점검하지 않습니다.</p></div>
-        <div class="note amber" style="margin-top:14px"><h4>보내기 전에 미리보기</h4><p>팩스·문자는 확인을 거친 호출에서만 실제로 나갑니다. 그 전에는 미리보기만 돌려줍니다. 문자 본문에 주민등록번호 모양이 있으면 보내지 않습니다.</p></div>
+        <div class="note amber" style="margin-top:14px"><h4>보내기 전에 미리보기</h4><p>팩스·문자는 AI가 보내기 표시(<code>confirm: true</code>)를 넣어 부른 호출에서만 실제로 나가고, 그 전에는 미리보기만 돌려줍니다. 이 표시는 AI가 넣는 값이니 AI 앱의 도구 승인 창을 켜 두고 미리보기를 읽은 뒤 승인하세요. 문자 본문에 주민등록번호 모양이 있으면 보내지 않습니다.</p></div>
       </div>
     </div>
   </div>
@@ -260,7 +261,7 @@
     <details class="qa"><summary>Claude Desktop에 도구가 안 보여요</summary><div class="a"><p>설정 파일을 고친 뒤 Claude Desktop을 완전히 껐다 켜야 합니다. Windows에서 npx를 못 찾는 경우가 많으니 위의 <code>cmd /c</code> 설정으로 바꿔 보세요.</p></div></details>
     <details class="qa"><summary>서버가 뜨지 않고 묶음 목록만 나와요</summary><div class="a"><p>없는 묶음 이름을 넣은 경우입니다. 묶음 이름은 <code>nhis</code>·<code>popbill</code>·<code>contract</code>·<code>calc</code>·<code>leave</code>·<code>tax</code>·<code>duties</code>·<code>work-rules</code>·<code>nosa</code>입니다. <code>fax</code>·<code>sms</code>는 <code>popbill</code>로 받습니다.</p><div class="cmd"><pre><code>npx -y k-labor --help</code></pre><button type="button" class="copy">복사</button></div></div></details>
     <details class="qa"><summary>Node 버전 오류가 나요</summary><div class="a"><p><code>node -v</code>가 <code>v20</code>보다 낮으면 nodejs.org에서 LTS 판으로 올립니다.</p></div></details>
-    <details class="qa"><summary>원격 주소에 파일 만들기 도구가 없어요</summary><div class="a"><p>정상입니다. 파일을 만들거나 읽거나 보내는 도구는 내 PC 설치판에만 있습니다. 근로계약서 파일, 건강보험 신고서, 취업규칙 점검이 필요하면 내 PC에 설치하세요.</p></div></details>
+    <details class="qa"><summary>원격 주소에 없는 도구가 있어요</summary><div class="a"><p>정상입니다. 원격 주소에는 계산·점검 도구 25개만 있습니다. 건강보험 신고(관할 지사 찾기 포함)·팩스·문자·취업규칙·법령 묶음 전체, 근로계약서 파일 저장, 노사협의회 서류·기록은 내 PC 설치판에만 있습니다. 이것들이 필요하면 내 PC에 설치하세요.</p></div></details>
     <details class="qa"><summary>팩스가 안 나가요</summary><div class="a"><p>응답에 빠진 값이 적혀 있습니다. 발신번호가 팝빌에 등록돼 있는지, <code>POPBILL_IS_TEST</code>가 기본값(테스트환경)으로 남아 있지 않은지 확인하세요.</p></div></details>
   </div>
 </section>
@@ -279,8 +280,8 @@
         <div class="sec-head"><span class="no">09 · 하지 않는 일</span><h2>이 도구가 하지 않는 일</h2></div>
         <ul class="nots">
           <li>4대보험·취업규칙 신고를 접수하지 않습니다. 서류를 만들고 날인이 필요한 곳을 알려 주는 데까지입니다</li>
-          <li>받을 팩스 번호를 스스로 고르지 않습니다. 사람이 확인한 번호만 씁니다</li>
-          <li>입력값을 저장하거나 모으지 않습니다</li>
+          <li>받을 팩스 번호를 정해 두지 않습니다. 관할 지사 찾기로 나온 번호를 사람이 확인해 넣도록 안내합니다</li>
+          <li>일의 무늬는 입력값을 저장하거나 모으지 않습니다</li>
           <li>기본 팝빌 계정·기본 발신번호를 넣어 두지 않습니다</li>
           <li>서명·날인 칸을 채우지 않습니다</li>
         </ul>

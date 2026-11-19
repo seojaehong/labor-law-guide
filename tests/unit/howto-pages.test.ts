@@ -41,11 +41,13 @@ describe('도구 안내 페이지', () => {
     expect(bannedHits(text(read(slug)))).toEqual([]);
   });
 
-  it('k-labor 묶음 키의 도구 수 합이 전체 47개·원격 25개와 맞는다', () => {
+  // 페이지는 npm 에 게시된 판(0.2.0, 45개) 기준이다. 0.2.1 을 게시하면 nosa 10·전체 47 로 함께 올린다.
+  it('k-labor 묶음 키의 도구 수 합이 게시판 45개·원격 25개와 맞는다', () => {
     const html = read('k-labor');
     const n = [...html.matchAll(/data-n="(\d+)"/g)].reduce((s, m) => s + Number(m[1]), 0);
     const r = [...html.matchAll(/data-r="(\d+)"/g)].reduce((s, m) => s + Number(m[1]), 0);
-    expect(n).toBe(47);
+    expect(n).toBe(45);
+    expect(html).toContain('<b>45개</b>');
     expect(r).toBe(AI_PACKAGES.find((p) => p.id === 'k-labor')!.remoteTools);
   });
 });
