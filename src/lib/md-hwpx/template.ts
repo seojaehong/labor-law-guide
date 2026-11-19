@@ -11,8 +11,8 @@
 import JSZip from 'jszip';
 import { packHwpx } from '@/lib/work-rules-report/render';
 import { checkHeader } from './header-check';
-import { appendItem, BORDER, CHAR, cloneChar, getItem, PARA } from './header-edit';
-import { mdDocXml, parseMarkdown, type MdHwpxOptions } from './index';
+import { appendItem, BORDER, CHAR, cloneChar, getItem, PARA, patchChar, patchPara } from './header-edit';
+import { mdDocXml, parseMarkdown, type CloneLog, type MdHwpxOptions } from './index';
 
 export type TemplateSamples = { body?: string; h1?: string; h2?: string; h3?: string; h4?: string };
 export type RolePair = { para: number; char: number };
@@ -85,7 +85,7 @@ function fontIn(header: string, lang: string, src: FontRow): { header: string; i
 }
 
 /** 우리 header·section 을 양식 header 로 옮긴다. roles 에 든 우리 번호는 양식 번호로 바로 바꾼다 */
-export function transplant(ours: { header: string; section: string }, tplHeader: string, roles: Partial<Record<keyof TemplateSamples, RolePair>>): { header: string; section: string } {
+export function transplant(ours: { header: string; section: string; clones?: CloneLog }, tplHeader: string, roles: Partial<Record<keyof TemplateSamples, RolePair>>): { header: string; section: string } {
   let h = cleanFillBrush(tplHeader);
   const fontMap = new Map<string, number>();
   const bfMap = new Map<number, number>();
@@ -112,8 +112,22 @@ export function transplant(ours: { header: string; section: string }, tplHeader:
     }
     return bfMap.get(id)!;
   };
-  const char = (id: number) => {
+  const char = (id: number): number => {
     if (!charMap.has(id)) {
+      const cl = ours.clones?.char.get(id);
+      if (cl) {
+        // 선택값이 만든 복제(밑줄·인용 글자 등)는 양식의 역할 모양 위에서 같은 patch 로 다시 만든다
+        const base = roleChar.get(cl.src) ?? char(cl.src);
+        let x = patchChar(getItem(h, CHAR, base), { ...cl.patch, font: undefined });
+        if (cl.patch.font !== undefined) {
+          const f = cl.patch.font;
+          x = x.replace(/<hh:fontRef\b[^>]*\/>/, `<hh:fontRef ${LANGS.map(([attr, lang]) => `${attr}="${font(lang, f)}"`).join(' ')}/>`);
+        }
+        const r = appendItem(h, CHAR, x);
+        h = r.header;
+        charMap.set(id, r.id);
+        return r.id;
+      }
       let x = getItem(ours.header, CHAR, id);
       x = x.replace(/<hh:fontRef\b[^>]*\/>/, (ref) => {
         let out = ref;
@@ -127,8 +141,16 @@ export function transplant(ours: { header: string; section: string }, tplHeader:
     }
     return charMap.get(id)!;
   };
-  const para = (id: number) => {
+  const para = (id: number): number => {
     if (!paraMap.has(id)) {
+      const cl = ours.clones?.para.get(id);
+      if (cl) {
+        const base = rolePara.get(cl.src) ?? para(cl.src);
+        const r = appendItem(h, PARA, patchPara(getItem(h, PARA, base), cl.patch));
+        h = r.header;
+        paraMap.set(id, r.id);
+        return r.id;
+      }
       let x = getItem(ours.header, PARA, id);
       x = x.replace(/\btabPrIDRef="\d+"/, 'tabPrIDRef="0"').replace(/<hh:heading type="[A-Z]+" idRef="\d+" level="\d+"\/>/, '<hh:heading type="NONE" idRef="0" level="0"/>');
       x = x.replace(/(<hh:border\b[^>]*?\bborderFillIDRef=")(\d+)"/, (_, a, v) => `${a}${bf(Number(v))}"`);

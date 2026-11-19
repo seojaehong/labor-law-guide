@@ -7,7 +7,7 @@ import { NS, SEC_PR, XML_HEAD } from '@/lib/contract-write/export';
 import { stripControl } from '@/lib/contract-write/text';
 import { packHwpx } from '@/lib/work-rules-report/render';
 import { checkHeader } from './header-check';
-import { binItem, imageSize, picXml, type BinItem } from './image';
+import { binItem, imageName, imageSize, picXml, type BinItem } from './image';
 import { addFont, appendItem, BORDER, cloneChar, clonePara, type CharPatch, type ParaPatch } from './header-edit';
 
 export type MdPreset = 'internal' | 'tribunal';
@@ -253,31 +253,35 @@ function tableXml(rows0: string[][], aligns: CellAlign[], usable: number, bodyH:
   }
   widths[ncol - 1] += usable - widths.reduce((s, x) => s + x, 0);
   if (tf.width === 'fit') widths.splice(0, ncol, ...fitWidths(rows, usable, half, pad, dashes));
-  // S8 가로 병합 — 내용이 「<」 하나뿐인 칸은 왼쪽 칸에 합친다(첫 열 제외)
-  const merged = (r: string[], ci: number) => !!tf.merge && ci > 0 && r[ci].trim() === '<';
-  const spanOf = (r: string[], ci: number) => {
-    let n = 1;
-    while (ci + n < r.length && merged(r, ci + n)) n++;
-    return n;
-  };
-  const spanW = (r: string[], ci: number) => widths.slice(ci, ci + spanOf(r, ci)).reduce((s, x) => s + x, 0);
-  // S9 세로 병합 — 둘째 행부터, 위 칸이 머리행이 아니고 가로 병합에 걸리지 않은 칸만
-  const vUp = (ri: number, ci: number) => !!tf.vmerge && ri > 1 && rows[ri][ci].trim() === '^' && !merged(rows[ri], ci) && spanOf(rows[ri], ci) === 1;
-  const rowSpanOf = (ri: number, ci: number) => {
-    let n = 1;
-    while (ri + n < rows.length && vUp(ri + n, ci) && spanOf(rows[ri], ci) === 1) n++;
-    return n;
-  };
+  // S8·S9 칸 소유 격자 — 칸마다 {cs, rs}(이 칸이 덮는 범위) 또는 null(다른 칸에 덮임).
+  // 「<」 = 왼쪽 칸과 합침(첫 열 제외), 「^」 = 위 칸과 합침(머리행과는 합치지 않음). 위 칸이 가로로 합쳐져 있으면
+  // 그 폭 전체가 「^」 일 때만 아래로 늘린다 — 일부만 「^」 면 글자 그대로 둔다(칸이 비는 격자를 만들지 않는다)
+  const grid: ({ cs: number; rs: number } | null)[][] = rows.map((r) => r.map(() => ({ cs: 1, rs: 1 })));
+  const is = (ri: number, ci: number, mark: string) => grid[ri][ci] !== null && rows[ri][ci].trim() === mark;
+  for (let ri = 0; ri < rows.length; ri++) {
+    for (let ci = 0; ci < ncol; ci++) {
+      if (grid[ri][ci] === null) continue;
+      let cs = 1;
+      while (tf.merge && ci + cs < ncol && is(ri, ci + cs, '<')) cs++;
+      let rs = 1;
+      while (tf.vmerge && ri > 0 && ri + rs < rows.length && Array.from({ length: cs }, (_, k) => is(ri + rs, ci + k, '^')).every(Boolean)) rs++;
+      grid[ri][ci] = { cs, rs };
+      for (let a = 0; a < rs; a++) for (let b = 0; b < cs; b++) if (a || b) grid[ri + a][ci + b] = null;
+    }
+  }
+  const area = grid.flat().reduce((s, g) => s + (g ? g.cs * g.rs : 0), 0);
+  if (area !== rows.length * ncol) throw new Error(`표 칸 격자가 맞지 않습니다(${area}/${rows.length * ncol})`);
+  const spanW = (ri: number, ci: number) => widths.slice(ci, ci + (grid[ri][ci]?.cs ?? 1)).reduce((s, x) => s + x, 0);
   const lineH = Math.floor((fh * 130) / 100);
-  const rowHs = rows.map((r, ri) => Math.max(...r.map((c, j) => (merged(r, j) || vUp(ri, j) ? 1 : Math.max(1, Math.ceil((dispLen(c) * half) / Math.max(1, spanW(r, j) - pad)))))) * lineH + 282);
+  const rowHs = rows.map((r, ri) => Math.max(...r.map((c, j) => (grid[ri][j] === null ? 1 : Math.max(1, Math.ceil((dispLen(c) * half) / Math.max(1, spanW(ri, j) - pad)))))) * lineH + 282);
   const asChar = rowHs.reduce((s, x) => s + x, 0) < Math.floor((bodyH * 55) / 100);
   const ROW_H = 1400;
   const trs = rows.map((r, ri) => {
     const head = ri === 0;
     const tcs = r.map((cell, ci) => {
-      if (merged(r, ci) || vUp(ri, ci)) return '';
-      const sp = spanOf(r, ci);
-      const rsp = rowSpanOf(ri, ci);
+      const g = grid[ri][ci];
+      if (!g) return '';
+      const { cs: sp, rs: rsp } = g;
       const cellH = rowHs.slice(ri, ri + rsp).reduce((s2, h) => s2 + Math.max(ROW_H, h), 0);
       const rs = runs(cell, head ? headC : bodyC, headC);
       const runXml = (rs.map(([t, c]) => run(t, c)).join('') || `<hp:run charPrIDRef="${bodyC}"/>`).replace(/&lt;br\s*\/?&gt;/gi, '<hp:lineBreak/>');
@@ -289,7 +293,7 @@ function tableXml(rows0: string[][], aligns: CellAlign[], usable: number, bodyH:
         `<hp:tc name="" header="${head ? 1 : 0}" hasMargin="0" protect="0" editable="0" dirty="1" borderFillIDRef="${bf}">` +
         '<hp:subList id="" textDirection="HORIZONTAL" lineWrap="BREAK" vertAlign="CENTER" linkListIDRef="0" linkListNextIDRef="0" textWidth="0" textHeight="0" hasTextRef="0" hasNumRef="0">' +
         `${para(runXml, pp)}</hp:subList><hp:cellAddr colAddr="${ci}" rowAddr="${ri}"/><hp:cellSpan colSpan="${sp}" rowSpan="${rsp}"/>` +
-        `<hp:cellSz width="${spanW(r, ci)}" height="${cellH}"/><hp:cellMargin left="${mLR}" right="${mLR}" top="${mTB}" bottom="${mTB}"/></hp:tc>`
+        `<hp:cellSz width="${spanW(ri, ci)}" height="${cellH}"/><hp:cellMargin left="${mLR}" right="${mLR}" top="${mTB}" bottom="${mTB}"/></hp:tc>`
       );
     });
     return `<hp:tr>${tcs.join('')}</hp:tr>`;
@@ -379,15 +383,21 @@ const FOOTER =
   '</hp:p></hp:subList>';
 
 /** header 를 들고 다니며 필요한 모양을 끝에 붙인다(U3·U4). 같은 모양은 한 번만 붙는다 */
+/** 복제 출처 — S13 양식 모드가 「무엇을 어떻게 바꾼 복제인가」를 양식 header 위에서 다시 만들 때 쓴다 */
+export type CloneLog = { char: Map<number, { src: number; patch: CharPatch }>; para: Map<number, { src: number; patch: ParaPatch }> };
+
 class Styles {
+  readonly clones: CloneLog = { char: new Map(), para: new Map() };
   constructor(public header: string) {}
   char(src: number, patch: CharPatch): number {
     const r = cloneChar(this.header, src, patch);
+    if (r.header !== this.header) this.clones.char.set(r.id, { src, patch });
     this.header = r.header;
     return r.id;
   }
   para(src: number, patch: ParaPatch): number {
     const r = clonePara(this.header, src, patch);
+    if (r.header !== this.header) this.clones.para.set(r.id, { src, patch });
     this.header = r.header;
     return r.id;
   }
@@ -404,7 +414,7 @@ class Styles {
 }
 
 // S2 머리 기호 — 내어쓰기 대상(A1~A3). 기호 뒤 공백까지가 기호 폭이다
-const MARKER = /^(?:[○●◦▲△▶▷※·□■◇◆√]|[①-⑳]|[⑴-⒇]|[㈀-㈛]|[㉠-㉻]|-|\p{Nd}+[.)]|[가-힣][.)]|\(\p{Nd}+\)|\([가-힣]\))\s+/u;
+const MARKER = /^(?:[○●◦▲△▶▷※·□■◇◆√]|[①-⑳]|[⑴-⒇]|[㈀-㈛]|[㉠-㉻]|-|\p{Nd}{1,2}[.)]|[가-힣][.)]|\(\p{Nd}{1,2}\)|\([가-힣]\))\s+/u; // 숫자는 1~2자리 — 「2024. 3. 5.」 날짜를 기호로 보지 않는다
 /** 글자 폭(em) — 휴먼명조 12pt 한글 렌더 실측(261119 calib): 한글·전각 기호·「·」 1, 「.」 0.269, 「( )」 0.312, 숫자·「-」·공백 0.5.
  *  첫 줄은 양쪽 정렬이 공백을 늘려 1~2pt 더 들어갈 수 있다(둘째 줄 위치는 이 폭대로 맞는다) */
 const CHAR_EM: Record<string, number> = { '.': 0.269, '(': 0.312, ')': 0.312, '·': 1 };
@@ -422,7 +432,7 @@ export function mdSectionXml(items: MdItem[], opts: MdHwpxOptions = {}): string 
 }
 
 /** header 와 section 을 함께 만든다 — 선택값이 모양을 더하면 header 가 바뀐다. 기본(끔)이면 header = presetHeader */
-export function mdDocXml(items: MdItem[], opts: MdHwpxOptions = {}): { header: string; section: string; bins: BinItem[] } {
+export function mdDocXml(items: MdItem[], opts: MdHwpxOptions = {}): { header: string; section: string; bins: BinItem[]; clones: CloneLog } {
   const f = opts.features ?? {};
   const st = new Styles(presetHeader(opts.preset));
   const p = PRESETS[opts.preset ?? 'internal'];
@@ -458,7 +468,7 @@ export function mdDocXml(items: MdItem[], opts: MdHwpxOptions = {}): { header: s
       const b = binItem(n, { data, ext: px.ext });
       bins.push(b);
       const center = st.para(20, { align: 'CENTER' });
-      body.push(para(`<hp:run charPrIDRef="7">${picXml(n, b.id, px, usable, Math.floor((bodyH * 60) / 100), x.text || x.src)}<hp:t/></hp:run>`, center));
+      body.push(para(`<hp:run charPrIDRef="7">${picXml(n, b.id, px, usable, Math.floor((bodyH * 60) / 100), x.text || imageName(x.src))}<hp:t/></hp:run>`, center));
       if (x.text) body.push(para(run(x.text, 7), center));
     } else if (x.kind === 'quote') {
       // S4 인용 — 휴먼고딕 11pt, 줄간격 180%, left = 본문 + 16.5pt, intent 0. 인용 안 빈 줄도 인용 서식
@@ -482,14 +492,16 @@ export function mdDocXml(items: MdItem[], opts: MdHwpxOptions = {}): { header: s
       body.push(para(emphasis(text, st, f).map(([t, c]) => run(t, c)).join(''), pp));
     }
   });
-  return { header: st.header, section: `${XML_HEAD}<hs:sec ${NS}>${body.join('')}</hs:sec>`, bins };
+  return { header: st.header, section: `${XML_HEAD}<hs:sec ${NS}>${body.join('')}</hs:sec>`, bins, clones: st.clones };
 }
 
 /** 본문 강조 런. 기본 = **굵게**·판례 번호 굵게. S3 이면 문장 안 ** 는 굵게+밑줄, 줄 전체 ** 는 굵게, <u> 는 밑줄 */
 function emphasis(text: string, st: Styles, f: MdFeatures): [string, number][] {
   if (!f.underline) return runs(text, 7, BOLD);
-  const lead = MARKER.exec(text)?.[0] ?? '';
-  const rest = text.slice(lead.length).trim();
+  // 내어쓰기(S2)를 끈 문단은 앞 공백이 남아 있다 — 기호 판정은 공백을 떼고 한다(S2 켜짐과 같은 결과)
+  const bare = text.trimStart();
+  const lead = MARKER.exec(bare)?.[0] ?? '';
+  const rest = bare.slice(lead.length).trim();
   if (/^\*\*[^*]+\*\*$/.test(rest)) return runs(text, 7, BOLD);
   const bu = st.char(BOLD, { underline: true });
   const out: [string, number][] = [];

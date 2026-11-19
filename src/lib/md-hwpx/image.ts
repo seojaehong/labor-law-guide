@@ -11,7 +11,17 @@ const MEDIA: Record<PicData['ext'], string> = { png: 'image/png', jpg: 'image/jp
 const PX = 75;
 
 /** 그림 크기(px). 모르는 형식이면 오류 — 글자로 인쇄되는 사고(260916)보다 멈추는 편이 낫다 */
+/** 그림 크기 — 머리만 맞고 크기가 이상한 파일(짧은 PNG·글 파일 등)은 거부한다 */
 export function imageSize(b: Uint8Array): { w: number; h: number; ext: PicData['ext'] } {
+  const r = sniff(b);
+  if (!(r.w > 0 && r.h > 0 && r.w <= 30000 && r.h <= 30000)) throw new Error('그림 크기를 읽지 못했습니다(PNG·JPEG·GIF·BMP 만 받습니다)');
+  return r;
+}
+
+/** 캡션이 없을 때 그림 설명 — 파일 이름만(PC 경로·폴더 이름을 문서에 넣지 않는다) */
+export const imageName = (src: string) => src.split(/[\\/]/).pop() || '그림';
+
+function sniff(b: Uint8Array): { w: number; h: number; ext: PicData['ext'] } {
   const u16be = (i: number) => (b[i] << 8) | b[i + 1];
   const u32be = (i: number) => ((b[i] << 24) >>> 0) + (b[i + 1] << 16) + (b[i + 2] << 8) + b[i + 3];
   if (b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4e && b[3] === 0x47) return { w: u32be(16), h: u32be(20), ext: 'png' };

@@ -55,7 +55,12 @@ export interface CharPatch {
 
 /** 글자 모양 복제: src 를 복사해 patch 만 바꾸고 끝에 붙인다 */
 export function cloneChar(header: string, src: number, patch: CharPatch): Edited {
-  let x = getItem(header, CHAR, src);
+  return appendItem(header, CHAR, patchChar(getItem(header, CHAR, src), patch));
+}
+
+/** charPr XML 한 개에 patch 를 입힌다(header 와 무관한 순수 함수 — S13 양식 header 로 옮길 때도 쓴다) */
+export function patchChar(xml: string, patch: CharPatch): string {
+  let x = xml;
   if (patch.height !== undefined) x = x.replace(/(<hh:charPr\s[^>]*?\bheight=")\d+"/, `$1${patch.height}"`);
   if (patch.color !== undefined) x = x.replace(/(<hh:charPr\s[^>]*?\btextColor=")[^"]*"/, `$1${patch.color}"`);
   if (patch.font !== undefined) x = x.replace(/<hh:fontRef\b[^>]*\/>/, `<hh:fontRef ${['hangul', 'latin', 'hanja', 'japanese', 'other', 'symbol', 'user'].map((k) => `${k}="${patch.font}"`).join(' ')}/>`);
@@ -69,7 +74,7 @@ export function cloneChar(header: string, src: number, patch: CharPatch): Edited
     if (patch.bold) x = x.replace(/(<hh:offset\b[^>]*\/>(?:<hh:italic\/>)?)/, '$1<hh:bold/>');
   }
   if (patch.underline !== undefined) x = x.replace(/(<hh:underline\s+type=")[A-Z_]+"/, `$1${patch.underline ? 'BOTTOM' : 'NONE'}"`);
-  return appendItem(header, CHAR, x);
+  return x;
 }
 
 export interface ParaPatch {
@@ -91,7 +96,12 @@ export interface ParaPatch {
 
 /** 문단 모양 복제: case·default 두 벌에 같이 쓴다(pt 면 100:200 비) */
 export function clonePara(header: string, src: number, patch: ParaPatch): Edited {
-  let x = getItem(header, PARA, src);
+  return appendItem(header, PARA, patchPara(getItem(header, PARA, src), patch));
+}
+
+/** paraPr XML 한 개에 patch 를 입힌다(순수 함수) */
+export function patchPara(xml: string, patch: ParaPatch): string {
+  let x = xml;
   const setIn = (part: RegExp, k: string, v: number) => {
     x = x.replace(part, (seg) => seg.replace(new RegExp(`(<hc:${k} value=")-?\\d+"`), `$1${v}"`));
   };
@@ -107,7 +117,7 @@ export function clonePara(header: string, src: number, patch: ParaPatch): Edited
   if (patch.align) x = x.replace(/(<hh:align horizontal=")[A-Z]+"/, `$1${patch.align}"`);
   if (patch.keepWithNext !== undefined) x = x.replace(/(keepWithNext=")\d"/, `$1${patch.keepWithNext ? 1 : 0}"`);
   if (patch.breakNonLatinWord) x = x.replace(/(breakNonLatinWord=")[A-Z_]+"/, `$1${patch.breakNonLatinWord}"`);
-  return appendItem(header, PARA, x);
+  return x;
 }
 
 /** 글꼴 추가 — 언어 7칸(fontface) 끝에 같은 이름을 붙이고 번호를 돌려준다. 이미 있으면 그 번호.
