@@ -83,9 +83,9 @@
         <button type="button" class="key" data-g="nosa" data-n="8" data-r="2" aria-pressed="false"><span class="led"></span>노사협의회<small>설치·회의·서류</small></button>
         <button type="button" class="key mod all" data-all aria-pressed="false">전체 켜기</button>
       </div>
-      <div class="cmd"><pre><code id="pick-cmd">claude mcp add --scope user k-labor -- npx -y k-labor mcp --groups contract,calc</code></pre><button type="button" class="copy">복사</button></div>
+      <div class="cmd"><pre><code id="pick-cmd">claude mcp add --scope user k-labor "--" npx -y k-labor mcp --groups "contract,calc"</code></pre><button type="button" class="copy">복사</button></div>
       <div class="count" aria-live="polite"><span>켠 도구 <b id="pick-n">17</b>개</span><span>이 중 원격 주소에도 있는 것 <b id="pick-r">16</b>개</span></div>
-      <p class="warn-line" id="pick-law" hidden>취업규칙·법령 묶음은 법제처 이용자 ID(OC)를 넣어야 실시간 조회가 켜집니다. 명령의 <code>내OC</code>를 바꿔 넣으세요.</p>
+      <p class="warn-line" id="pick-law" hidden>취업규칙·법령 묶음은 법제처 이용자 ID(OC)가 있어야 실시간 조회가 켜집니다. 없으면 묶어 둔 자료로만 답합니다. 넣는 법은 <a href="#popbill">법제처 설정</a>을 보세요.</p>
       <p class="warn-line" id="pick-fax" hidden>팩스·문자 묶음은 본인 팝빌 계정 값이 있어야 보냅니다. <a href="#popbill">팩스·문자 설정</a>을 보세요.</p>
     </div>
   </div>
@@ -105,11 +105,11 @@
     <div class="sec-head"><span class="no">01 · 연결 방법</span><h2 id="ways-h">내 PC에 설치하거나, 주소만 넣거나</h2><p>설치하면 전 묶음을 씁니다. 원격 주소는 설치가 필요 없지만 계산·점검 도구만 붙고, 파일·팩스·법제처 조회처럼 내 PC나 내 계정이 필요한 도구는 빠집니다.</p></div>
     <div class="sites ways">
       <article class="site">
-        <header><span class="badge" style="background:var(--mod)">PC</span><div><h3>내 PC에 설치</h3><span class="host">npx -y k-labor mcp</span></div></header>
+        <header><span class="badge t-mod">PC</span><div><h3>내 PC에 설치</h3><span class="host">npx -y k-labor mcp</span></div></header>
         <dl><dt>쓰는 곳</dt><dd>Claude Code · Claude Desktop · Cursor · Windsurf</dd><dt>도구</dt><dd>9개 묶음 45개 전부</dd><dt>필요한 것</dt><dd>Node.js 20 이상</dd><dt>여기서만</dt><dd>계약서·신고서 파일 만들기, 팩스·문자, 취업규칙 파일 읽기, 법제처 실시간 조회</dd></dl>
       </article>
       <article class="site">
-        <header><span class="badge" style="background:var(--ink)">URL</span><div><h3>원격 주소로 연결</h3><span class="host">https://yellowenvelope.kr/api/mcp/mcp</span></div></header>
+        <header><span class="badge t-ink">URL</span><div><h3>원격 주소로 연결</h3><span class="host">https://yellowenvelope.kr/api/mcp/mcp</span></div></header>
         <dl><dt>쓰는 곳</dt><dd>claude.ai · Claude 앱의 커스텀 커넥터</dd><dt>도구</dt><dd>25개 — 근로계약서 설계·점검, 임금·수당, 연차, 세금, 사업주 의무, 노사협의회 계산</dd><dt>필요한 것</dt><dd>없음. 주소만 넣습니다</dd><dt>빠지는 것</dt><dd>건강보험 신고·팩스·문자·취업규칙·법령 묶음 전체, 근로계약서 파일 저장, 노사협의회 서류·기록</dd><dt>입력값</dt><dd>도구에 넣은 값이 일의 무늬 서버로 전송됩니다. 저장하지 않습니다</dd></dl>
       </article>
     </div>
@@ -121,47 +121,47 @@
     <div class="sec-head"><span class="no">02 · 묶음</span><h2 id="groups-h">아홉 개 묶음 가운데 필요한 것만 켭니다</h2><p>아무것도 고르지 않으면 전 묶음이 켜집니다. 켠 도구가 많을수록 AI가 고를 것이 많아지니, 자주 쓰는 묶음만 켜는 편이 낫습니다.</p></div>
     <div class="sites g3">
       <article class="site">
-        <header><span class="badge" style="background:var(--mod)">건보</span><div><h3>건강보험 신고</h3><span class="host">--groups nhis · 도구 2개</span></div></header>
+        <header><span class="badge t-mod">건보</span><div><h3>건강보험 신고</h3><span class="host">--groups nhis · 도구 2개</span></div></header>
         <p>주소나 사업자등록번호로 건강보험 관할 지사와 자격 담당 전화·팩스를 찾습니다. 자격취득·상실 신고서와 늦어진 사유를 적은 사업주확인서를 공식 서식 PDF 한 파일로 만듭니다.</p>
         <div><span class="tag amber">내 PC에서만</span></div>
       </article>
       <article class="site">
-        <header><span class="badge" style="background:var(--mod)">팩스</span><div><h3>팩스·문자</h3><span class="host">--groups popbill · 도구 5개</span></div></header>
+        <header><span class="badge t-mod">팩스</span><div><h3>팩스·문자</h3><span class="host">--groups popbill · 도구 5개</span></div></header>
         <p>내 팝빌 계정과 내 번호로 팩스·문자를 보내고 결과를 조회합니다. 잔액과 등록된 발신번호도 확인합니다. 실제 전송은 AI가 보내기 표시(<code>confirm: true</code>)를 넣어 부른 호출에서만 합니다. AI 앱의 도구 승인 창을 켜 두고 미리보기를 읽은 뒤 승인하세요.</p>
         <div><span class="tag amber">내 PC에서만</span> <span class="tag grey">팝빌 계정 필요</span></div>
       </article>
       <article class="site">
-        <header><span class="badge" style="background:var(--mod)">계약</span><div><h3>근로계약서</h3><span class="host">--groups contract · 도구 3개</span></div></header>
+        <header><span class="badge t-mod">계약</span><div><h3>근로계약서</h3><span class="host">--groups contract · 도구 3개</span></div></header>
         <p>월 총액이나 시급과 근무형태로 임금 항목을 나눠 설계하고, 이미 쓴 계약서를 항목별로 점검합니다. 엑셀·한글·PDF 파일 저장은 내 PC에서만 됩니다.</p>
         <div><span class="tag">원격 2개</span> <span class="tag amber">파일 저장은 내 PC</span></div>
       </article>
       <article class="site">
-        <header><span class="badge" style="background:var(--mod)">계산</span><div><h3>임금·수당 계산</h3><span class="host">--groups calc · 도구 14개</span></div></header>
+        <header><span class="badge t-mod">계산</span><div><h3>임금·수당 계산</h3><span class="host">--groups calc · 도구 14개</span></div></header>
         <p>최저임금 비교, 주휴수당, 상시 근로자 수, 실수령액, 해고예고수당, 연차수당, 퇴직금, 공휴일 근로 수당, 일할계산, 휴업수당, 통상임금 점검, 지연이자, 3.3% 계약의 근로자성, 월급 대조.</p>
         <div><span class="tag">원격 14개 전부</span></div>
       </article>
       <article class="site">
-        <header><span class="badge" style="background:var(--mod)">연차</span><div><h3>연차</h3><span class="host">--groups leave · 도구 3개</span></div></header>
+        <header><span class="badge t-mod">연차</span><div><h3>연차</h3><span class="host">--groups leave · 도구 3개</span></div></header>
         <p>입사일 기준 연차 발생일수, 퇴직할 때 입사일 기준과 회계연도 기준 중 유리한 쪽으로 남은 연차 정산, 연차 요건이 되는 출근율(1년 80%)을 셉니다.</p>
         <div><span class="tag">원격 3개 전부</span></div>
       </article>
       <article class="site">
-        <header><span class="badge" style="background:var(--mod)">세금</span><div><h3>세금</h3><span class="host">--groups tax · 도구 3개</span></div></header>
+        <header><span class="badge t-mod">세금</span><div><h3>세금</h3><span class="host">--groups tax · 도구 3개</span></div></header>
         <p>퇴직소득세·지방소득세(국세청 계산 프로그램과 같은 칸 순서), 중도퇴사자 연말정산 예상, 일용근로소득 원천징수를 계산합니다.</p>
         <div><span class="tag">원격 3개 전부</span></div>
       </article>
       <article class="site">
-        <header><span class="badge" style="background:var(--mod)">의무</span><div><h3>사업주 의무</h3><span class="host">--groups duties · 도구 1개</span></div></header>
+        <header><span class="badge t-mod">의무</span><div><h3>사업주 의무</h3><span class="host">--groups duties · 도구 1개</span></div></header>
         <p>상시 근로자 수에 맞는 사업주 의무, 법정 의무교육, 위반 시 제재를 목록으로 냅니다. 다음 규모가 되면 더 생기는 의무도 알려 줍니다.</p>
         <div><span class="tag">원격 1개</span></div>
       </article>
       <article class="site">
-        <header><span class="badge" style="background:var(--mod)">규칙</span><div><h3>취업규칙·법령</h3><span class="host">--groups work-rules · 도구 6개</span></div></header>
+        <header><span class="badge t-mod">규칙</span><div><h3>취업규칙·법령</h3><span class="host">--groups work-rules · 도구 6개</span></div></header>
         <p>노동법 개정·시행 예정 목록, 그날 시행 중인 조문 원문, 두 시점 판의 조문 비교를 법제처에서 가져옵니다. 취업규칙에 그 뒤 개정이 반영됐는지 표준취업규칙 조문에 짝지어 대조하고 신고 서류를 만듭니다.</p>
         <div><span class="tag amber">내 PC에서만</span> <span class="tag grey">법제처 OC 필요</span></div>
       </article>
       <article class="site">
-        <header><span class="badge" style="background:var(--mod)">노사</span><div><h3>노사협의회</h3><span class="host">--groups nosa · 도구 8개</span></div></header>
+        <header><span class="badge t-mod">노사</span><div><h3>노사협의회</h3><span class="host">--groups nosa · 도구 8개</span></div></header>
         <p>설치의무와 근로자위원 선출방식·정족수·기한을 계산하고, 회의 하나의 통보 기한·의결을 확인합니다. 선거·회의 서류와 회의록 기록은 내 PC에서 파일로 만듭니다. 협의회규정 점검(읽기만 하고 파일은 만들지 않음)과 신·구조문대비표는 다음 판(0.2.1)에 들어갑니다.</p>
         <div><span class="tag">원격 2개</span> <span class="tag amber">서류·기록은 내 PC</span></div>
       </article>
@@ -175,7 +175,7 @@
     <div class="two">
       <ol class="flow">
         <li><div><h3>Node.js 20 이상 확인</h3><p>명령 창에서 아래를 실행해 <code>v20</code> 이상이 나오면 됩니다. 없으면 nodejs.org에서 LTS 판을 설치합니다.</p><div class="cmd"><pre><code>node -v</code></pre><button type="button" class="copy">복사</button></div></div></li>
-        <li><div><h3>AI에 등록</h3><p><b>Claude Code</b>는 명령 한 줄입니다. 묶음을 고르려면 맨 위 <a href="#pick-h">묶음 고르기</a>에서 만든 명령을 씁니다.</p><div class="cmd"><pre><code>claude mcp add --scope user k-labor -- npx -y k-labor mcp</code></pre><button type="button" class="copy">복사</button></div>
+        <li><div><h3>AI에 등록</h3><p><b>Claude Code</b>는 명령 한 줄입니다. 묶음을 고르려면 맨 위 <a href="#pick-h">묶음 고르기</a>에서 만든 명령을 씁니다.</p><div class="cmd"><pre><code>claude mcp add --scope user k-labor "--" npx -y k-labor mcp</code></pre><button type="button" class="copy">복사</button></div>
           <p style="margin-top:16px"><b>Claude Desktop</b>은 설정 파일 <code>claude_desktop_config.json</code>에 넣습니다.</p><div class="cmd"><pre><code>{
   "mcpServers": {
     "k-labor": { "command": "npx", "args": ["-y", "k-labor", "mcp"] }
@@ -229,7 +229,7 @@
         </table>
       </div>
       <div>
-        <div class="note tip"><h4>넣는 곳</h4><p>Claude Desktop은 설정 파일의 <code>"env"</code> 칸에, Claude Code는 등록할 때 <code>-e 이름=값</code>으로 넣습니다.</p><div class="cmd"><pre><code>claude mcp add --scope user k-labor -e LAW_OC=내OC -- npx -y k-labor mcp --groups work-rules</code></pre><button type="button" class="copy">복사</button></div></div>
+        <div class="note tip"><h4>넣는 곳</h4><p>Claude Desktop은 설정 파일의 <code>"env"</code> 칸에, Claude Code는 등록할 때 <code>-e 이름=값</code>으로 넣습니다.</p><div class="cmd"><pre><code>claude mcp add --scope user k-labor -e LAW_OC=내OC "--" npx -y k-labor mcp --groups work-rules</code></pre><button type="button" class="copy">복사</button></div><p class="cmd-cap"><code>내OC</code>를 법제처에서 받은 ID로 바꿉니다. <code>"--"</code>의 따옴표는 PowerShell에서 <code>--</code>가 빠지지 않게 하려는 것으로, 다른 명령 창에서도 그대로 써도 됩니다.</p></div>
         <div class="note amber" style="margin-top:14px"><h4>법제처 조회가 막힐 때</h4><p>법제처는 OC를 신청할 때 등록한 IP·도메인이 아니면 「사용자 정보 검증에 실패하였습니다」로 거절합니다. 해외 IP도 막습니다.</p></div>
       </div>
     </div>
@@ -294,9 +294,9 @@
   <div class="wrap">
     <h2 id="others-h">일의 무늬가 만든 업무 도구</h2>
     <ul>
-      <li><a href="/howto/gov-login"><i style="background:#2F4BD8"></i><div><b>공단 로그인</b><span>공단 사이트 네 곳에 키 하나로 로그인하는 윈도우 프로그램</span></div></a></li>
-      <li><a href="/howto/k-labor" aria-current="page"><i style="background:#5B3FD6"></i><div><b>노동 업무 도구 (k-labor)</b><span>계산·근로계약서·신고서·취업규칙 점검을 AI 대화창에서</span></div></a></li>
-      <li><a href="/gov-tools"><i style="background:#141A24"></i><div><b>공단 업무 도구 모음</b><span>관할 지사 찾기·신고서 만들기 등 웹에서 바로 쓰는 도구</span></div></a></li>
+      <li><a href="/howto/gov-login"><i class="t-gov-login"></i><div><b>공단 로그인</b><span>공단 사이트 네 곳에 키 하나로 로그인하는 윈도우 프로그램</span></div></a></li>
+      <li><a href="/howto/k-labor" aria-current="page"><i class="t-k-labor"></i><div><b>노동 업무 도구 (k-labor)</b><span>계산·근로계약서·신고서·취업규칙 점검을 AI 대화창에서</span></div></a></li>
+      <li><a href="/gov-tools"><i class="t-ink"></i><div><b>공단 업무 도구 모음</b><span>관할 지사 찾기·신고서 만들기 등 웹에서 바로 쓰는 도구</span></div></a></li>
     </ul>
   </div>
 </section>
@@ -346,9 +346,9 @@
       return;
     }
     copyBtn.disabled = false;
-    var env = hasLaw ? ' -e LAW_OC=내OC' : '';
-    var groups = every ? '' : ' --groups ' + on.map(function (k) { return k.dataset.g; }).join(',');
-    cmd.textContent = 'claude mcp add --scope user k-labor' + env + ' -- npx -y k-labor mcp' + groups;
+    // "--"·"a,b" 는 따옴표로 감싼다 — PowerShell(claude.ps1)에서 맨 -- 는 빠지고 a,b 는 배열로 갈린다. bash·cmd 에서도 같은 뜻.
+    var groups = every ? '' : ' --groups "' + on.map(function (k) { return k.dataset.g; }).join(',') + '"';
+    cmd.textContent = 'claude mcp add --scope user k-labor "--" npx -y k-labor mcp' + groups;
   }
   keys.forEach(function (k) {
     k.addEventListener('click', function () {

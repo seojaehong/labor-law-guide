@@ -236,3 +236,20 @@ details.qa .a ol,details.qa .a ul{margin:0;padding-left:20px}
 footer.foot{padding:28px 0 40px;background:var(--ink);color:#8C95A6;font-size:13.5px;border-top:1px solid var(--ink-2)}
 footer.foot .wrap{display:flex;flex-wrap:wrap;gap:10px 24px;justify-content:space-between}
 footer.foot a{color:#B7BFCE}
+
+/* ---------- 색 유틸 (.t-*) ----------
+   HTML 인라인 style 의 색을 모은 것. 인라인 style 처럼 다른 규칙을 이기도록 !important 를 붙인다.
+   배경 = .t-<이름> · 글자색 = .t-text-<이름>. 페이지마다 --mod 가 달라 다른 페이지 색은 값으로 적는다. */
+.t-mod{background:var(--mod)!important}
+.t-ink{background:var(--ink)!important}
+.t-on{background:var(--on)!important}
+.t-off{background:var(--off)!important}
+.t-wait{background:#F1B544!important}
+.t-comwel{background:#0B6E4F!important}
+.t-nps{background:#1D5FB8!important}
+.t-nhis{background:#0E8C8C!important}
+.t-hyosung{background:#6B46C1!important}
+.t-gov-login{background:#2F4BD8!important}
+.t-k-labor{background:#5B3FD6!important}
+.t-text-mute{color:var(--mute)!important}
+.t-text-mod-ink{color:#C9D3FF!important}

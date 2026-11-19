@@ -147,7 +147,7 @@ export const AI_TOOLS: AiTool[] = [
     ],
     privacy: '로컬 설치판은 PC 밖으로 입력을 보내지 않습니다. 다만 대화창에 적은 값은 AI 대화 기록에 남으니, 주민등록번호 같은 칸은 비워 두고 출력한 뒤 손으로 적으세요.',
     install: {
-      claudeCode: 'claude mcp add --scope user sanjae-apply -- npx -y sanjae-apply mcp',
+      claudeCode: 'claude mcp add --scope user sanjae-apply "--" npx -y sanjae-apply mcp',
       remote: 'https://sanjae-apply.vercel.app/api/mcp/mcp',
     },
     links: [
@@ -169,7 +169,7 @@ export const AI_TOOLS: AiTool[] = [
       '사업주 본인 팝빌 계정으로 팩스·문자를 보내고 전송 결과를 확인하는 기능(시험 중, popbill 묶음을 따로 켭니다)',
     ],
     privacy: '사람 명단은 PC 안의 파일로만 받습니다. 도구가 그 파일을 직접 읽어 PDF 를 만들기 때문에 주민등록번호가 AI 대화에 실리지 않습니다.',
-    install: { claudeCode: 'claude mcp add --scope user k-labor -- npx -y k-labor mcp --groups nhis' },
+    install: { claudeCode: 'claude mcp add --scope user k-labor "--" npx -y k-labor mcp --groups nhis' },
     links: [
       { label: '사용 안내', href: '/howto/k-labor' },
       { label: 'npm', href: 'https://www.npmjs.com/package/k-labor' },
@@ -189,7 +189,7 @@ export const AI_TOOLS: AiTool[] = [
       '근로계약서 엑셀(xlsx)·한글(hwpx)·PDF 저장(내 PC 에서만)',
     ],
     privacy: '주민등록번호는 받지 않습니다. 점검 입력에 주민번호 모양이 있으면 거절하고, 근로자 이름도 비워 두면 「근로자」로 씁니다.',
-    install: { claudeCode: 'claude mcp add --scope user k-labor -- npx -y k-labor mcp --groups contract', remote: 'https://yellowenvelope.kr/api/mcp/mcp' },
+    install: { claudeCode: 'claude mcp add --scope user k-labor "--" npx -y k-labor mcp --groups contract', remote: 'https://yellowenvelope.kr/api/mcp/mcp' },
     links: [
       { label: '사용 안내', href: '/howto/k-labor' },
       { label: '웹에서 계약서 쓰기', href: '/tools/contract-write' },
@@ -210,7 +210,7 @@ export const AI_TOOLS: AiTool[] = [
       '상시 근로자 수 — 5명 이상·10명 이상으로 보는 기간',
     ],
     privacy: '계산에 필요한 금액·시간·날짜만 받습니다. 이름이나 주민등록번호는 필요하지 않습니다.',
-    install: { claudeCode: 'claude mcp add --scope user k-labor -- npx -y k-labor mcp --groups calc', remote: 'https://yellowenvelope.kr/api/mcp/mcp' },
+    install: { claudeCode: 'claude mcp add --scope user k-labor "--" npx -y k-labor mcp --groups calc', remote: 'https://yellowenvelope.kr/api/mcp/mcp' },
     links: [
       { label: '사용 안내', href: '/howto/k-labor' },
       { label: '웹 계산기 모음', href: '/tools' },
@@ -230,7 +230,7 @@ export const AI_TOOLS: AiTool[] = [
       '중도퇴사자 연말정산 — 결정세액과 기납부세액의 차액',
     ],
     privacy: '날짜와 금액만 받습니다. 이름이나 주민등록번호는 필요하지 않습니다.',
-    install: { claudeCode: 'claude mcp add --scope user k-labor -- npx -y k-labor mcp --groups leave,tax', remote: 'https://yellowenvelope.kr/api/mcp/mcp' },
+    install: { claudeCode: 'claude mcp add --scope user k-labor "--" npx -y k-labor mcp --groups "leave,tax"', remote: 'https://yellowenvelope.kr/api/mcp/mcp' },
     links: [
       { label: '사용 안내', href: '/howto/k-labor' },
       { label: '연차 계산기', href: '/tools/leave' },
@@ -251,7 +251,7 @@ export const AI_TOOLS: AiTool[] = [
       '사업장 규모별 사업주 의무 — 상시 근로자 수에 따라 생기는 의무 목록',
     ],
     privacy: '이름과 주민등록번호 칸이 없습니다. 금액·시간·근무 조건만 받습니다.',
-    install: { claudeCode: 'claude mcp add --scope user k-labor -- npx -y k-labor mcp --groups calc,duties', remote: 'https://yellowenvelope.kr/api/mcp/mcp' },
+    install: { claudeCode: 'claude mcp add --scope user k-labor "--" npx -y k-labor mcp --groups "calc,duties"', remote: 'https://yellowenvelope.kr/api/mcp/mcp' },
     links: [
       { label: '사용 안내', href: '/howto/k-labor' },
       { label: '월급 대조', href: '/tools/pay-check' },
@@ -273,7 +273,7 @@ export const AI_TOOLS: AiTool[] = [
       '취업규칙 신고 서류(별지 제15호서식) 만들기(내 PC 에서만)',
     ],
     privacy: '취업규칙 파일은 내 PC 에서 읽습니다. 법제처에는 법령 이름과 조문 번호만 보냅니다. 법제처 실시간 조회는 본인의 국가법령정보 Open API 이용자 ID(OC)를 넣어야 켜지고, 없으면 묶어 둔 자료로 답합니다.',
-    install: { claudeCode: 'claude mcp add --scope user k-labor -e LAW_OC=내OC -- npx -y k-labor mcp --groups work-rules' },
+    install: { claudeCode: 'claude mcp add --scope user k-labor -e LAW_OC=내OC "--" npx -y k-labor mcp --groups work-rules' },
     links: [
       { label: '사용 안내', href: '/howto/k-labor' },
       { label: '노동법 개정 알림판', href: '/laws' },
