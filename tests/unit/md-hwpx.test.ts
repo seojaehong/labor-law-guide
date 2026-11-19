@@ -9,6 +9,11 @@ const runText = (inner: string) => [...inner.matchAll(/<hp:t>([^<]*)<\/hp:t>/g)]
 const findPara = (xml: string, text: string) => paras(xml).find((m) => runText(m[3]) === text);
 
 describe('parseMarkdown — 줄 분류', () => {
+  it('번호·기호로 시작하는 2단계 제목에는 □ 를 겹치지 않는다(261119)', () => {
+    const texts = parseMarkdown('## 1. 수신 경위\n\n## 가. 쟁점\n\n## ① 첫째\n\n## □ 이미 기호\n\n## 개요\n\n## 2026년 계획').filter((x) => x.kind === 'h2').map((x) => x.text);
+    expect(texts).toEqual(['1. 수신 경위', '가. 쟁점', '① 첫째', '□ 이미 기호', '□ 개요', '□ 2026년 계획']);
+  });
+
   it('제목 단계·□ 붙이기·로마숫자 쪽나눔', () => {
     const items = parseMarkdown('# 검토 의견\n\n## 사실관계\n\n## Ⅱ. 검토\n\n### 1. 쟁점\n\n#### 가. 세부\n');
     expect(items.map((x) => x.kind)).toEqual(['h1', 'h2', 'h2', 'h3', 'h4']);
@@ -141,5 +146,22 @@ describe('mdToHwpx — 꾸러미', () => {
     const header = await zip.file('Contents/header.xml')!.async('string');
     expect(header).toContain('value="200"');
     expect(await zip.file('Contents/section0.xml')!.async('string')).toContain('<hp:t>굵게</hp:t>');
+  });
+});
+
+describe('실제 원고 루브릭에서 찾은 것(261119)', () => {
+  it('전각 숫자 「１.」 줄도 번호 목록이다(파이썬 \d 는 유니코드 숫자를 잡는다)', () => {
+    expect(parseMarkdown('１.  비위행위 : 정의')).toEqual([{ kind: 'list', text: '  １. 비위행위 : 정의' }]);
+  });
+  it('여러 줄에 걸친 **굵게** 는 줄마다 닫고 다시 연다 — 기호가 글자로 남지 않는다', () => {
+    const items = parseMarkdown('- 앞 **굵은 시작\n이어지는 끝** 뒤');
+    expect(items.map((x) => ('text' in x ? x.text : ''))).toEqual(['  - 앞 **굵은 시작**', '  **이어지는 끝** 뒤']);
+    const sec = mdSectionXml(items);
+    expect(sec).not.toContain('**');
+    expect(sec).toContain('<hp:t>굵은 시작</hp:t>');
+  });
+  it('짝이 없는 ** 는 건드리지 않는다(다음 줄에 닫는 짝이 없거나 코드 안)', () => {
+    expect(parseMarkdown('제외 목록에 `**` 를 더했다\n다음 줄')[0]).toEqual({ kind: 'body', text: '  제외 목록에 `**` 를 더했다' });
+    expect(parseMarkdown('별표 ** 하나\n\n다른 문단 ** 하나').map((x) => ('text' in x ? x.text : ''))).toEqual(['  별표 ** 하나', '  다른 문단 ** 하나']);
   });
 });

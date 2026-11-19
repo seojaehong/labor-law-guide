@@ -38,11 +38,36 @@ const TABLE_PARA = [27, 28, 29] as const;
 
 // 판례 번호 자동 굵게 — 「대법원 2017. 12. 22. 선고 2016다202947 판결」·「중앙노동위원회 2024차별34」
 const CASE_CITE =
-  '((?:대법원|서울고등법원|서울중앙지방법원|청주지방법원|춘천지방법원|중앙노동위원회|지방노동위원회|서울행정법원|서울고법|부산고등법원|[가-힣]+(?:법원|노동위원회))\\s*(?:\\d{4}\\.\\s*\\d+\\.\\s*\\d+\\.\\s*선고\\s*)?[0-9]{4}[가-힣]+\\d+(?:\\s*판결)?)';
-const CASE_SPLIT = new RegExp(CASE_CITE);
-const CASE_FULL = new RegExp(`^${CASE_CITE}$`);
+  '((?:대법원|서울고등법원|서울중앙지방법원|청주지방법원|춘천지방법원|중앙노동위원회|지방노동위원회|서울행정법원|서울고법|부산고등법원|[가-힣]+(?:법원|노동위원회))\\s*(?:\\p{Nd}{4}\\.\\s*\\p{Nd}+\\.\\s*\\p{Nd}+\\.\\s*선고\\s*)?[0-9]{4}[가-힣]+\\p{Nd}+(?:\\s*판결)?)';
+// 숫자는 \p{Nd} — 파이썬 re 의 \d 는 전각 숫자(１)도 잡는다. JS \d 로 두면 같은 원고가 다른 문단이 된다(261119 루브릭)
+const CASE_SPLIT = new RegExp(CASE_CITE, 'u');
+const CASE_FULL = new RegExp(`^${CASE_CITE}$`, 'u');
 const ROMAN = /^[ⅠⅡⅢⅣⅤⅥⅦⅧⅨⅩ]/;
-const SIG_DATE = /^\d{4}\.\s*(\d+|○)\.\s*(\d+|○)\.?\s*$/;
+const H2_MARKED = /^(\p{Nd}+[.)]\s|[가-힣][.)]\s|[①-⑳]|[□○■◇◆])/u;
+const SIG_DATE = /^\p{Nd}{4}\.\s*(\p{Nd}+|○)\.\s*(\p{Nd}+|○)\.?\s*$/u;
+const BOLD_MARK = /\*\*/g;
+const LINE_LEAD = /^(\s*(?:-\s+|\p{Nd}+\.\s+)?)(.*)$/u;
+const countBold = (s: string) => (s.replace(/`[^`]*`/g, '').match(BOLD_MARK) ?? []).length;
+const isTextLine = (s: string) => !!s.trim() && !/^(#{1,4}\s|\||---+\s*$)/.test(s.trim());
+
+/** 원고가 한 문장을 여러 줄로 끊어 쓰면 「**」 가 줄을 넘는다. 줄마다 닫고 다음 줄에서 다시 연다.
+ * 닫는 짝이 같은 문단(빈 줄·제목·표 전까지)에 있을 때만 — 짝 없는 별표는 글자 그대로 둔다 */
+function bridgeBold(lines: string[]): string[] {
+  const out = [...lines];
+  for (let i = 0; i < out.length; i++) {
+    if (!isTextLine(out[i]) || countBold(out[i]) % 2 === 0) continue;
+    let k = i + 1;
+    while (k < out.length && isTextLine(out[k]) && countBold(out[k]) % 2 === 0) k++;
+    if (k >= out.length || !isTextLine(out[k])) continue;
+    out[i] = `${out[i].replace(/\s+$/, '')}**`;
+    for (let j = i + 1; j <= k; j++) {
+      const [, lead, rest] = LINE_LEAD.exec(out[j])!;
+      out[j] = `${lead}**${rest}${j < k ? '**' : ''}`;
+    }
+    i = k;
+  }
+  return out;
+}
 
 const esc = (s: string) => stripControl(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 const stripBold = (s: string) => s.replace(/\*\*(.+?)\*\*/g, '$1');
@@ -55,7 +80,7 @@ function fixQuotes(s: string): string {
 
 /** md 를 줄 단위 항목으로 나눈다. 빈 줄은 서명부 바로 앞 것만 남는다(간격은 문단 모양이 맡는다) */
 export function parseMarkdown(md: string, opts: Pick<MdHwpxOptions, 'pageBreak'> = {}): MdItem[] {
-  const raw = fixQuotes(md).split(/\r?\n/);
+  const raw = bridgeBold(fixQuotes(md).split(/\r?\n/));
   if (raw.length && raw[raw.length - 1] === '') raw.pop();
   // 서명부 = 끝 15줄 안의 「날짜만 있는 줄」부터. 본문의 날짜 문장은 서명부가 아니다
   let sig = -1;
@@ -86,7 +111,9 @@ export function parseMarkdown(md: string, opts: Pick<MdHwpxOptions, 'pageBreak'>
       const text = stripBold(h[2].trim());
       if (level === 2) {
         const roman = ROMAN.test(text);
-        out.push({ kind: 'h2', text: roman ? text : `□ ${text}`, pageBreak: roman && opts.pageBreak !== false });
+        // 이미 번호·기호로 시작하는 제목(1. / 가. / ① / □ ○ ■)에는 □ 를 겹쳐 붙이지 않는다(261119 — 「□ 1.」 는 공문 관행에 없다)
+        const marked = roman || H2_MARKED.test(text);
+        out.push({ kind: 'h2', text: marked ? text : `□ ${text}`, pageBreak: roman && opts.pageBreak !== false });
       } else out.push({ kind: `h${level}` as 'h1' | 'h3' | 'h4', text, pageBreak: false });
       i++;
       continue;
@@ -105,11 +132,11 @@ export function parseMarkdown(md: string, opts: Pick<MdHwpxOptions, 'pageBreak'>
     }
     const ul = /^(\s*)-\s+(.+)$/.exec(line);
     if (ul) {
-      out.push({ kind: 'list', text: /^(\d+\.|[가-힣]\.|[①-⑳])/.test(ul[2]) ? `    ${ul[2]}` : `  - ${ul[2]}` });
+      out.push({ kind: 'list', text: /^(\p{Nd}+\.|[가-힣]\.|[①-⑳])/u.test(ul[2]) ? `    ${ul[2]}` : `  - ${ul[2]}` });
       i++;
       continue;
     }
-    const ol = /^(\s*)(\d+\.)\s+(.+)$/.exec(line);
+    const ol = /^(\s*)(\p{Nd}+\.)\s+(.+)$/u.exec(line);
     if (ol) {
       out.push({ kind: 'list', text: `  ${ol[2]} ${ol[3]}` });
       i++;

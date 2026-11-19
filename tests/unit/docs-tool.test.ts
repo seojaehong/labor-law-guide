@@ -53,7 +53,11 @@ describe('docs 묶음', () => {
       expect((await call({ markdownFile: path.join(dir, '없음.md'), preset: 'internal', outDir: dir })).error).toContain('파일이 없습니다');
       const rrn = await call({ markdown: '번호 900101-1234568', preset: 'internal', outDir: dir });
       expect(rrn.ok).toBe(false);
+      expect((await call({ markdown: '번호9001011234568번', preset: 'internal', outDir: dir })).ok).toBe(false);
       expect(fs.readdirSync(dir)).toEqual([]);
+      // 줄인 파일 해시(16진)는 숫자 13자리가 이어져도 주민번호가 아니다(261119 루브릭 — 검수 기록 원고)
+      const hash = await call({ markdown: '해시 a1234567b1d1234f / b9001011234568e9 · xlsx', preset: 'internal', outDir: dir, fileBase: 'hash' });
+      expect(hash.ok).toBe(true);
     } finally {
       fs.rmSync(dir, { recursive: true, force: true });
     }

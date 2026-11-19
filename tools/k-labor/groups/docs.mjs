@@ -15,6 +15,8 @@ const fail = (error, extra = {}) => text({ ok: false, error, ...extra });
 const RRN_STOP = '입력에 주민등록번호 모양의 숫자가 있어 멈췄습니다. 이 도구는 주민등록번호를 받지 않습니다.';
 const safeName = (s) => s.replace(/[\\/:*?"<>|\u0000-\u001f]/g, '_');
 const MAX_FILE = 2 * 1024 * 1024;
+// 원고 안의 16진 해시 조각(a-f 글자가 섞인 12자 이상)은 숫자 13자리가 이어져도 주민번호가 아니다 — 검사에서 뺀다(261119)
+const HEX_TOKEN = /\b(?=[0-9a-f]*[a-f])[0-9a-f]{12,}\b/gi;
 
 export function registerDocs(server) {
   server.registerTool(
@@ -46,7 +48,7 @@ export function registerDocs(server) {
         md = fs.readFileSync(p, 'utf8').replace(/^﻿/, '');
       }
       if (!md.trim()) return fail('markdown 이나 markdownFile 중 하나를 주세요.');
-      if (looksLikeRrn(md)) return fail(RRN_STOP);
+      if (looksLikeRrn(md.replace(HEX_TOKEN, ''))) return fail(RRN_STOP);
       const items = parseMarkdown(md, { pageBreak: a.pageBreak });
       const h1 = items.find((x) => x.kind === 'h1');
       const base = safeName(
