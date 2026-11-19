@@ -76,6 +76,8 @@ AS $function$
 DECLARE
   tsquery_val tsquery := plainto_tsquery('simple', query);
   qnums TEXT[] := case_numbers_in(query);
+  -- 번호 끝 일련번호 숫자 — 저장값에 이 숫자가 들어 있는 행에서만 case_numbers_in 을 부른다(4천 행 전부 부르면 +0.4초, 261119 실측)
+  qtails TEXT[] := array(SELECT substring(x from '(\d+)$') FROM unnest(case_numbers_in(query)) x);
 BEGIN
   RETURN QUERY
   SELECT
@@ -83,7 +85,8 @@ BEGIN
     c.case_type, c.verdict_type, c.keywords_matched, c.summary, c.holding_points,
     c.law_references, c.url, c.original_url,
     (
-      CASE WHEN cardinality(qnums) > 0 AND case_numbers_in(c.case_number) && qnums
+      CASE WHEN CASE WHEN EXISTS (SELECT 1 FROM unnest(qtails) t WHERE strpos(c.case_number, t) > 0)
+                THEN case_numbers_in(c.case_number) && qnums ELSE false END
            THEN 10 + CASE WHEN EXISTS (SELECT 1 FROM unnest(court_variants(c.court)) v WHERE position(v in query) > 0)
                           THEN 1 ELSE 0 END
            ELSE 0 END
@@ -96,7 +99,8 @@ BEGIN
     )::REAL AS relevance
   FROM cases c
   WHERE
-    (cardinality(qnums) > 0 AND case_numbers_in(c.case_number) && qnums)
+    (CASE WHEN EXISTS (SELECT 1 FROM unnest(qtails) t WHERE strpos(c.case_number, t) > 0)
+                THEN case_numbers_in(c.case_number) && qnums ELSE false END)
     OR c.search_tsv @@ tsquery_val
     OR c.title ILIKE '%' || query || '%'
     OR c.summary ILIKE '%' || query || '%'
