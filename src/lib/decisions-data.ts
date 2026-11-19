@@ -170,7 +170,8 @@ export async function runSearch(q: string, type: Kind, page: number, sort: Sort 
       return excerpt ? { ...toRow(r), excerpt } : toRow(r);
     });
     // 1쪽이 비면 정답 세트 재료로 남긴다(뒷페이지가 빈 것은 결과 끝, 오류는 위에서 이미 돌아감)
-    if (page === 1 && rows.length === 0) console.info(zeroHitLogLine(safe, type));
+    // console.* 는 운영 빌드에서 removeConsole 로 지워진다(next.config) → 표준출력에 직접 쓴다(Vercel 런타임 로그로 간다)
+    if (page === 1 && rows.length === 0) process.stdout.write(zeroHitLogLine(safe, type) + "\n");
     return { ok: true, rows, hasMore };
   } catch {
     return { ok: false };

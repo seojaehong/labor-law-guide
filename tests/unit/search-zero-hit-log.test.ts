@@ -9,11 +9,12 @@ import { runSearch, zeroHitLogLine } from '@/lib/decisions-data';
 beforeEach(() => vi.restoreAllMocks());
 
 it('결과 0건인 1쪽 검색만 한 줄 남긴다', async () => {
-  const info = vi.spyOn(console, 'info').mockImplementation(() => {});
+  // 운영 빌드는 removeConsole 로 console.* 를 지운다(next.config) → 표준출력에 직접 쓴다
+  const info = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
   mocks.rpc.mockResolvedValueOnce({ data: [], error: null });
   await runSearch('없는 검색어', 'admin', 1);
   expect(info).toHaveBeenCalledTimes(1);
-  expect(info.mock.calls[0][0]).toBe('[zero-hit] type=admin q=없는 검색어');
+  expect(info.mock.calls[0][0]).toBe('[zero-hit] type=admin q=없는 검색어\n');
 
   info.mockClear();
   mocks.rpc.mockResolvedValueOnce({ data: [], error: null });
