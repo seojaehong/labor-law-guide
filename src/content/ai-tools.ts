@@ -129,7 +129,7 @@ export const AI_TOOLS: AiTool[] = [
     },
     links: [
       { label: '공단 업무 도구 모음', href: '/gov-tools' },
-      { label: '사용설명서', href: 'https://github.com/seojaehong/gov-cert-login/blob/main/docs/%EC%82%AC%EC%9A%A9%EC%84%A4%EB%AA%85%EC%84%9C.md' },
+      { label: '사용설명서', href: 'https://seojaehong.github.io/gov-cert-login/' },
       { label: '소스 코드(MIT)', href: 'https://github.com/seojaehong/gov-cert-login' },
     ],
   },
