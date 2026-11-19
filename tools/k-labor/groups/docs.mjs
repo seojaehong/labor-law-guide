@@ -46,6 +46,7 @@ export function registerDocs(server) {
                 pageBreak: z.enum(['CELL', 'TABLE']).optional().describe('쪽 나눔 단위(기본 CELL)'),
                 width: z.enum(['fit']).optional().describe('열 폭: 짧은 열 먼저·최장 낱말 하한·구분행 대시 비율'),
                 style: z.enum(['threeLine']).optional().describe('삼선표'),
+                merge: z.boolean().optional().describe('가로 병합: 칸 내용이 < 하나면 왼쪽 칸과 합침'),
               })
               .optional(),
           })

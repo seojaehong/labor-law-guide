@@ -39,6 +39,8 @@ export interface TableFeatures {
   width?: 'fit';
   /** S7 — 삼선표: 머리행 회색·윗선 0.4mm·바깥 세로선 없음, 가운데 행 아래 0.12mm, 끝 행 아래 0.3mm, 칸 여백 283/113, 칸 줄간격 110%(A12) */
   style?: 'threeLine';
+  /** S8 — 가로 병합: 칸 내용이 「<」 하나면 왼쪽 칸과 합친다(C1, md 문법은 제안) */
+  merge?: boolean;
 }
 
 export interface MdHwpxOptions {
@@ -235,24 +237,34 @@ function tableXml(rows0: string[][], aligns: CellAlign[], usable: number, bodyH:
   }
   widths[ncol - 1] += usable - widths.reduce((s, x) => s + x, 0);
   if (tf.width === 'fit') widths.splice(0, ncol, ...fitWidths(rows, usable, half, pad, dashes));
+  // S8 가로 병합 — 내용이 「<」 하나뿐인 칸은 왼쪽 칸에 합친다(첫 열 제외)
+  const merged = (r: string[], ci: number) => !!tf.merge && ci > 0 && r[ci].trim() === '<';
+  const spanOf = (r: string[], ci: number) => {
+    let n = 1;
+    while (ci + n < r.length && merged(r, ci + n)) n++;
+    return n;
+  };
+  const spanW = (r: string[], ci: number) => widths.slice(ci, ci + spanOf(r, ci)).reduce((s, x) => s + x, 0);
   const lineH = Math.floor((fh * 130) / 100);
-  const rowHs = rows.map((r) => Math.max(...r.map((c, j) => Math.max(1, Math.ceil((dispLen(c) * half) / Math.max(1, widths[j] - pad))))) * lineH + 282);
+  const rowHs = rows.map((r) => Math.max(...r.map((c, j) => (merged(r, j) ? 1 : Math.max(1, Math.ceil((dispLen(c) * half) / Math.max(1, spanW(r, j) - pad)))))) * lineH + 282);
   const asChar = rowHs.reduce((s, x) => s + x, 0) < Math.floor((bodyH * 55) / 100);
   const ROW_H = 1400;
   const trs = rows.map((r, ri) => {
     const head = ri === 0;
     const tcs = r.map((cell, ci) => {
+      if (merged(r, ci)) return '';
+      const sp = spanOf(r, ci);
       const rs = runs(cell, head ? headC : bodyC, headC);
       const runXml = (rs.map(([t, c]) => run(t, c)).join('') || `<hp:run charPrIDRef="${bodyC}"/>`).replace(/&lt;br\s*\/?&gt;/gi, '<hp:lineBreak/>');
       const al = aligns[ci] ?? 'LEFT';
       const pp0 = head || al === 'CENTER' ? TABLE_PARA[1] : al === 'RIGHT' ? TABLE_PARA[2] : TABLE_PARA[0];
       const pp = three ? st!.para(pp0, { lineSpacing: 110 }) : pp0;
-      const bf = three ? threeLineBF(st!, ri, rows.length, ci, ncol) : head ? 4 : 3;
+      const bf = three ? threeLineBF(st!, ri, rows.length, ci, ncol, sp) : head ? 4 : 3;
       return (
         `<hp:tc name="" header="${head ? 1 : 0}" hasMargin="0" protect="0" editable="0" dirty="1" borderFillIDRef="${bf}">` +
         '<hp:subList id="" textDirection="HORIZONTAL" lineWrap="BREAK" vertAlign="CENTER" linkListIDRef="0" linkListNextIDRef="0" textWidth="0" textHeight="0" hasTextRef="0" hasNumRef="0">' +
-        `${para(runXml, pp)}</hp:subList><hp:cellAddr colAddr="${ci}" rowAddr="${ri}"/><hp:cellSpan colSpan="1" rowSpan="1"/>` +
-        `<hp:cellSz width="${widths[ci]}" height="${Math.max(ROW_H, rowHs[ri])}"/><hp:cellMargin left="${mLR}" right="${mLR}" top="${mTB}" bottom="${mTB}"/></hp:tc>`
+        `${para(runXml, pp)}</hp:subList><hp:cellAddr colAddr="${ci}" rowAddr="${ri}"/><hp:cellSpan colSpan="${sp}" rowSpan="1"/>` +
+        `<hp:cellSz width="${spanW(r, ci)}" height="${Math.max(ROW_H, rowHs[ri])}"/><hp:cellMargin left="${mLR}" right="${mLR}" top="${mTB}" bottom="${mTB}"/></hp:tc>`
       );
     });
     return `<hp:tr>${tcs.join('')}</hp:tr>`;
@@ -323,14 +335,14 @@ function lineBF(st: Styles, s: Sides): number {
   );
 }
 /** S7 삼선표 — 행 위치(머리·가운데·끝) × 열 위치(왼·가운데·오른)마다 다른 테두리 */
-function threeLineBF(st: Styles, ri: number, nRows: number, ci: number, nCols: number): number {
+function threeLineBF(st: Styles, ri: number, nRows: number, ci: number, nCols: number, span = 1): number {
   const head = ri === 0;
   const last = ri === nRows - 1;
   return lineBF(st, {
     top: head ? 0.4 : 0.12,
     bottom: last ? 0.3 : 0.12,
     left: ci === 0 ? undefined : 0.12,
-    right: ci === nCols - 1 ? undefined : 0.12,
+    right: ci + span - 1 === nCols - 1 ? undefined : 0.12,
     fill: head ? '#E5E5E5' : undefined,
   });
 }

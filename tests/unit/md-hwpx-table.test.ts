@@ -54,6 +54,32 @@ describe('S6 — 열 폭', () => {
   });
 });
 
+describe('S8 — 가로 병합', () => {
+  const md = '| 구분 | 1분기 | 2분기 | 3분기 |\n|---|---|---|---|\n| 합계 | 300 | < | < |\n| 가 | 1 | 2 | 3 |\n| 나 | 소계 | < | 9 |';
+  it('행마다 span 합 = colCnt, colAddr = 누적 위치, cellSz 합 = 표 폭', () => {
+    const { header, section } = doc(md, { table: { merge: true, style: 'threeLine' } });
+    expect(section).toContain('colCnt="4"');
+    const trs = [...section.matchAll(/<hp:tr>([\s\S]*?)<\/hp:tr>/g)].map((m) =>
+      [...m[1].matchAll(/<hp:cellAddr colAddr="(\d+)" rowAddr="\d+"\/><hp:cellSpan colSpan="(\d+)" rowSpan="1"\/><hp:cellSz width="(\d+)"/g)].map((c) => ({ col: +c[1], span: +c[2], w: +c[3] })),
+    );
+    expect(trs.map((r) => r.length)).toEqual([4, 2, 4, 3]);
+    for (const r of trs) {
+      expect(r.reduce((s, c) => s + c.span, 0)).toBe(4);
+      let at = 0;
+      for (const c of r) {
+        expect(c.col).toBe(at);
+        at += c.span;
+      }
+      expect(r.reduce((s, c) => s + c.w, 0)).toBe(USABLE);
+    }
+    expect(section).not.toContain('<hp:t>&lt;</hp:t>');
+    expect(checkHeader(header, section)).toEqual([]);
+  });
+  it('끄면 「<」 는 글자 그대로', () => {
+    expect(doc(md, {}).section).toContain('<hp:t>&lt;</hp:t>');
+  });
+});
+
 describe('S7 — 삼선표', () => {
   it('머리·가운데·끝 행 테두리가 위치별, 바깥 세로선 없음, 칸 여백 283/113, 칸 줄간격 110%', () => {
     const { header, section } = doc(TABLE, { table: { style: 'threeLine' } });
