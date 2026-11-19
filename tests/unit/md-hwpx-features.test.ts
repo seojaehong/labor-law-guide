@@ -30,6 +30,17 @@ describe('S2 — 기호 내어쓰기', () => {
     for (const p of paras(section)) if (p.text) expect(p.text.startsWith(' '), p.text).toBe(false);
     expect(checkHeader(header, section)).toEqual([]);
   });
+  it('기호 폭은 휴먼명조 12pt 한글 렌더 실측값(261119): ㉮·㈎·⑴ 도 기호, 「·」 1em, 「.」 0.27em, 「( )」 0.31em', () => {
+    const m2 = '㉮ 가 항목\n\n㈎ 나 항목\n\n⑴ 다 항목\n\n· 라 항목\n\n1. 마 항목\n\n(1) 바 항목';
+    const { header, section } = doc(m2, { indent: true });
+    const hang = (s: string) => -paraMargins(header, paraOf(section, s).pp).case.intent / 100;
+    expect(hang('㉮ 가')).toBe(18);
+    expect(hang('㈎ 나')).toBe(18);
+    expect(hang('⑴ 다')).toBe(18);
+    expect(hang('· 라')).toBe(18); // 1em + 공백 0.5em
+    expect(hang('1. 마')).toBeCloseTo(15.24, 1); // 0.5 + 0.27 + 0.5
+    expect(hang('(1) 바')).toBeCloseTo(19.49, 1); // 0.312 + 0.5 + 0.312 + 0.5
+  });
   it('끄면 기존 출력(공백 들여쓰기) 그대로', () => {
     const { header, section } = doc(md, {});
     expect(header).toBe(presetHeader('internal'));

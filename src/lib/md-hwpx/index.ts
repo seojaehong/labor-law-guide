@@ -404,11 +404,13 @@ class Styles {
 }
 
 // S2 머리 기호 — 내어쓰기 대상(A1~A3). 기호 뒤 공백까지가 기호 폭이다
-const MARKER = /^(?:[○●◦▲△▶▷※·□■◇◆√]|[①-⑳]|[㉠-㉭]|-|\p{Nd}+[.)]|[가-힣][.)]|\(\p{Nd}+\)|\([가-힣]\))\s+/u;
-/** 기호 폭(pt) — 전각(한글·기호)은 1em, 반각은 0.5em, 공백은 0.5em 으로 근사. 미실측: 한글 렌더로 확정할 값(U2) */
+const MARKER = /^(?:[○●◦▲△▶▷※·□■◇◆√]|[①-⑳]|[⑴-⒇]|[㈀-㈛]|[㉠-㉻]|-|\p{Nd}+[.)]|[가-힣][.)]|\(\p{Nd}+\)|\([가-힣]\))\s+/u;
+/** 글자 폭(em) — 휴먼명조 12pt 한글 렌더 실측(261119 calib): 한글·전각 기호·「·」 1, 「.」 0.269, 「( )」 0.312, 숫자·「-」·공백 0.5.
+ *  첫 줄은 양쪽 정렬이 공백을 늘려 1~2pt 더 들어갈 수 있다(둘째 줄 위치는 이 폭대로 맞는다) */
+const CHAR_EM: Record<string, number> = { '.': 0.269, '(': 0.312, ')': 0.312, '·': 1 };
 function markerPt(marker: string, fontPt: number): number {
   const m = `${marker.trim()} `;
-  return [...m].reduce((s, ch) => s + (ch.codePointAt(0)! >= 0x2000 ? 1 : 0.5), 0) * fontPt;
+  return Math.round([...m].reduce((s, ch) => s + (CHAR_EM[ch] ?? (ch.codePointAt(0)! >= 0x1100 ? 1 : 0.5)), 0) * fontPt * 100) / 100;
 }
 const BODY_FONT_PT = BODY_PT / 100;
 const QUOTE_LEFT_PT = 16.5; // A9 인용 = 본문 + 16.5pt (260824 실측 x 좌표)
