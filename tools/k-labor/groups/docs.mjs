@@ -40,6 +40,14 @@ export function registerDocs(server) {
             indent: z.boolean().optional().describe('기호 문단 내어쓰기·공백 들여쓰기 없앰'),
             underline: z.boolean().optional().describe('문장 안 **강조** = 굵게+밑줄, <u> = 밑줄'),
             quote: z.boolean().optional().describe('> 인용 블록(휴먼고딕 11pt·180%)'),
+            table: z
+              .object({
+                float: z.boolean().optional().describe('떠 있는 표(아래 여백 8.5mm)'),
+                pageBreak: z.enum(['CELL', 'TABLE']).optional().describe('쪽 나눔 단위(기본 CELL)'),
+                width: z.enum(['fit']).optional().describe('열 폭: 짧은 열 먼저·최장 낱말 하한·구분행 대시 비율'),
+                style: z.enum(['threeLine']).optional().describe('삼선표'),
+              })
+              .optional(),
           })
           .optional()
           .describe('편집 기술 선택값(기본 모두 끔). 끄면 지금까지와 같은 파일이 나온다'),

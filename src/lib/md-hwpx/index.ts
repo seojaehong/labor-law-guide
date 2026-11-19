@@ -7,7 +7,7 @@ import { NS, SEC_PR, XML_HEAD } from '@/lib/contract-write/export';
 import { stripControl } from '@/lib/contract-write/text';
 import { packHwpx } from '@/lib/work-rules-report/render';
 import { checkHeader } from './header-check';
-import { addFont, cloneChar, clonePara, type CharPatch, type ParaPatch } from './header-edit';
+import { addFont, appendItem, BORDER, cloneChar, clonePara, type CharPatch, type ParaPatch } from './header-edit';
 
 export type MdPreset = 'internal' | 'tribunal';
 export type CellAlign = 'LEFT' | 'CENTER' | 'RIGHT';
@@ -15,7 +15,7 @@ export type CellAlign = 'LEFT' | 'CENTER' | 'RIGHT';
 export type MdItem =
   | { kind: 'h1' | 'h2' | 'h3' | 'h4'; text: string; pageBreak: boolean }
   | { kind: 'body' | 'list' | 'sig' | 'empty'; text: string }
-  | { kind: 'table'; rows: string[][]; aligns: CellAlign[] }
+  | { kind: 'table'; rows: string[][]; aligns: CellAlign[]; dashes?: number[] }
   | { kind: 'quote'; text: string };
 
 /** 편집 기술 조각 — 전부 선택값. 기본(끔) 출력은 파이썬 쌍둥이(generate_hwpx.py)와 같아야 하므로 바꾸지 않는다 */
@@ -26,6 +26,19 @@ export interface MdFeatures {
   underline?: boolean;
   /** S4 — > 인용 블록: 휴먼고딕 11pt·줄간격 180%·모든 줄 같은 x, 「[관련 판결] …」 제목줄만 굵게 */
   quote?: boolean;
+  /** S5·S6·S7 — 표 */
+  table?: TableFeatures;
+}
+
+export interface TableFeatures {
+  /** S5 — 떠 있는 표(treatAsChar 0 + 아래 바깥 여백 850, A14). 기본은 55% 규칙 */
+  float?: boolean;
+  /** S5 — 쪽 나눔 단위. 기본 CELL(칸 안에서도 나눔). TABLE = 행 경계에서만(쪽보다 긴 행은 미실측) */
+  pageBreak?: 'CELL' | 'TABLE';
+  /** S6 — fit = 균등 상한 + 짧은 열 먼저 + 칸 안 최장 낱말 하한 + 머리글 한 줄 하한, 구분행 대시 수가 열마다 다르면 그 비율(A11) */
+  width?: 'fit';
+  /** S7 — 삼선표: 머리행 회색·윗선 0.4mm·바깥 세로선 없음, 가운데 행 아래 0.12mm, 끝 행 아래 0.3mm, 칸 여백 283/113, 칸 줄간격 110%(A12) */
+  style?: 'threeLine';
 }
 
 export interface MdHwpxOptions {
@@ -141,13 +154,16 @@ export function parseMarkdown(md: string, opts: Pick<MdHwpxOptions, 'pageBreak' 
     if (t.startsWith('|')) {
       const rows: string[][] = [];
       let aligns: CellAlign[] = [];
+      let dashes: number[] = [];
       while (i < raw.length && raw[i].trim().startsWith('|')) {
         const cells = raw[i].trim().replace(/^\|+|\|+$/g, '').split('|').map((c) => c.trim());
-        if (cells.every((c) => /^[-: ]*$/.test(c))) aligns = cells.map((c) => (c.startsWith(':') && c.endsWith(':') ? 'CENTER' : c.endsWith(':') ? 'RIGHT' : 'LEFT'));
-        else rows.push(cells);
+        if (cells.every((c) => /^[-: ]*$/.test(c))) {
+          aligns = cells.map((c) => (c.startsWith(':') && c.endsWith(':') ? 'CENTER' : c.endsWith(':') ? 'RIGHT' : 'LEFT'));
+          dashes = cells.map((c) => (c.match(/-/g) ?? []).length);
+        } else rows.push(cells);
         i++;
       }
-      if (rows.length) out.push({ kind: 'table', rows, aligns });
+      if (rows.length) out.push(opts.features?.table?.width === 'fit' ? { kind: 'table', rows, aligns, dashes } : { kind: 'table', rows, aligns });
       continue;
     }
     const ul = /^(\s*)-\s+(.+)$/.exec(line);
@@ -188,14 +204,16 @@ const para = (inner: string, paraPr: number, pageBreak = false) =>
 /** 표시 폭 근사 — 한글·전각 2, 그 밖 1. 칸 안 <br> 이 있으면 가장 긴 줄 */
 const dispLen = (s: string) => Math.max(...s.split(/<br\s*\/?>/i).map((seg) => [...stripBold(seg)].reduce((n, ch) => n + (ch.codePointAt(0)! > 0x2e7f ? 2 : 1), 0)));
 
-function tableXml(rows0: string[][], aligns: CellAlign[], usable: number, bodyH: number, id: number): string {
+function tableXml(rows0: string[][], aligns: CellAlign[], usable: number, bodyH: number, id: number, tf: TableFeatures = {}, st?: Styles, dashes?: number[]): string {
+  const three = tf.style === 'threeLine' && !!st;
+  const [mLR, mTB] = three ? [283, 113] : [510, 141];
   const ncol = Math.max(...rows0.map((r) => r.length));
   const rows = rows0.map((r) => [...r, ...Array(ncol - r.length).fill('')]);
   const small = ncol >= 7;
   const [bodyC, headC] = small ? [15, 16] : [13, 14];
   const fh = BODY_PT - (small ? 400 : 200);
   const half = Math.floor(fh / 2);
-  const pad = 510 * 2 + 200;
+  const pad = mLR * 2 + 200;
   const col = (j: number) => rows.map((r) => dispLen(r[j]));
   const lens = Array.from({ length: ncol }, (_, j) => Math.min(60, Math.max(6, ...col(j))));
   const lsum = lens.reduce((s, x) => s + x, 0);
@@ -216,6 +234,7 @@ function tableXml(rows0: string[][], aligns: CellAlign[], usable: number, bodyH:
     }
   }
   widths[ncol - 1] += usable - widths.reduce((s, x) => s + x, 0);
+  if (tf.width === 'fit') widths.splice(0, ncol, ...fitWidths(rows, usable, half, pad, dashes));
   const lineH = Math.floor((fh * 130) / 100);
   const rowHs = rows.map((r) => Math.max(...r.map((c, j) => Math.max(1, Math.ceil((dispLen(c) * half) / Math.max(1, widths[j] - pad))))) * lineH + 282);
   const asChar = rowHs.reduce((s, x) => s + x, 0) < Math.floor((bodyH * 55) / 100);
@@ -226,24 +245,94 @@ function tableXml(rows0: string[][], aligns: CellAlign[], usable: number, bodyH:
       const rs = runs(cell, head ? headC : bodyC, headC);
       const runXml = (rs.map(([t, c]) => run(t, c)).join('') || `<hp:run charPrIDRef="${bodyC}"/>`).replace(/&lt;br\s*\/?&gt;/gi, '<hp:lineBreak/>');
       const al = aligns[ci] ?? 'LEFT';
-      const pp = head || al === 'CENTER' ? TABLE_PARA[1] : al === 'RIGHT' ? TABLE_PARA[2] : TABLE_PARA[0];
+      const pp0 = head || al === 'CENTER' ? TABLE_PARA[1] : al === 'RIGHT' ? TABLE_PARA[2] : TABLE_PARA[0];
+      const pp = three ? st!.para(pp0, { lineSpacing: 110 }) : pp0;
+      const bf = three ? threeLineBF(st!, ri, rows.length, ci, ncol) : head ? 4 : 3;
       return (
-        `<hp:tc name="" header="${head ? 1 : 0}" hasMargin="0" protect="0" editable="0" dirty="1" borderFillIDRef="${head ? 4 : 3}">` +
+        `<hp:tc name="" header="${head ? 1 : 0}" hasMargin="0" protect="0" editable="0" dirty="1" borderFillIDRef="${bf}">` +
         '<hp:subList id="" textDirection="HORIZONTAL" lineWrap="BREAK" vertAlign="CENTER" linkListIDRef="0" linkListNextIDRef="0" textWidth="0" textHeight="0" hasTextRef="0" hasNumRef="0">' +
         `${para(runXml, pp)}</hp:subList><hp:cellAddr colAddr="${ci}" rowAddr="${ri}"/><hp:cellSpan colSpan="1" rowSpan="1"/>` +
-        `<hp:cellSz width="${widths[ci]}" height="${Math.max(ROW_H, rowHs[ri])}"/><hp:cellMargin left="510" right="510" top="141" bottom="141"/></hp:tc>`
+        `<hp:cellSz width="${widths[ci]}" height="${Math.max(ROW_H, rowHs[ri])}"/><hp:cellMargin left="${mLR}" right="${mLR}" top="${mTB}" bottom="${mTB}"/></hp:tc>`
       );
     });
     return `<hp:tr>${tcs.join('')}</hp:tr>`;
   });
   const totalH = rowHs.reduce((s, h) => s + Math.max(ROW_H, h), 0);
   const tbl =
-    `<hp:tbl id="${id}" zOrder="0" numberingType="TABLE" textWrap="TOP_AND_BOTTOM" textFlow="BOTH_SIDES" lock="0" dropcapstyle="None" pageBreak="CELL" repeatHeader="1" rowCnt="${rows.length}" colCnt="${ncol}" cellSpacing="0" borderFillIDRef="3" noAdjust="0">` +
+    `<hp:tbl id="${id}" zOrder="0" numberingType="TABLE" textWrap="TOP_AND_BOTTOM" textFlow="BOTH_SIDES" lock="0" dropcapstyle="None" pageBreak="${tf.pageBreak ?? 'CELL'}" repeatHeader="1" rowCnt="${rows.length}" colCnt="${ncol}" cellSpacing="0" borderFillIDRef="${three ? lineBF(st!, {}) : 3}" noAdjust="0">` +
     `<hp:sz width="${usable}" widthRelTo="ABSOLUTE" height="${totalH}" heightRelTo="ABSOLUTE" protect="0"/>` +
-    `<hp:pos treatAsChar="${asChar ? 1 : 0}" affectLSpacing="0" flowWithText="1" allowOverlap="0" holdAnchorAndSO="0" vertRelTo="PARA" horzRelTo="COLUMN" vertAlign="TOP" horzAlign="LEFT" vertOffset="0" horzOffset="0"/>` +
-    '<hp:outMargin left="0" right="0" top="0" bottom="0"/><hp:inMargin left="510" right="510" top="141" bottom="141"/>' +
+    `<hp:pos treatAsChar="${asChar && !tf.float ? 1 : 0}" affectLSpacing="0" flowWithText="1" allowOverlap="0" holdAnchorAndSO="0" vertRelTo="PARA" horzRelTo="COLUMN" vertAlign="TOP" horzAlign="LEFT" vertOffset="0" horzOffset="0"/>` +
+    `<hp:outMargin left="0" right="0" top="0" bottom="${tf.float ? 850 : 0}"/><hp:inMargin left="${mLR}" right="${mLR}" top="${mTB}" bottom="${mTB}"/>` +
     `${trs.join('')}</hp:tbl>`;
   return para(`<hp:run charPrIDRef="${bodyC}">${tbl}<hp:t/></hp:run>`, TABLE_PARA[0]);
+}
+
+/** S6 열 폭(A11) — 비례 축소 대신: 균등 상한 → 내용이 짧은 열은 제 폭만 갖고 남는 폭을 나머지가 균등히 나눔 →
+ *  칸 안 최장 낱말·머리글 한 줄 하한을 채우되 여유 있는 열에서 비례로 덜어 온다. 구분행 대시 수가 열마다 다르면 그 비율 */
+export function fitWidths(rows: string[][], usable: number, half: number, pad: number, dashes?: number[]): number[] {
+  const n = rows[0].length;
+  let w: number[];
+  if (dashes && dashes.length === n && new Set(dashes).size > 1 && dashes.every((d) => d > 0)) {
+    const sum = dashes.reduce((s, x) => s + x, 0);
+    w = dashes.map((d) => Math.floor((usable * d) / sum));
+  } else {
+    const natural = Array.from({ length: n }, (_, j) => Math.max(...rows.map((r) => dispLen(r[j] ?? ''))) * half + pad);
+    w = Array(n).fill(0);
+    let open = Array.from({ length: n }, (_, j) => j);
+    let left = usable;
+    for (;;) {
+      const cap = Math.floor(left / open.length);
+      const short = open.filter((j) => natural[j] <= cap);
+      if (!short.length) {
+        for (const j of open) w[j] = cap;
+        break;
+      }
+      for (const j of short) {
+        w[j] = natural[j];
+        left -= natural[j];
+      }
+      open = open.filter((j) => !short.includes(j));
+      if (!open.length) {
+        // 모두 짧으면 남는 폭을 비례로 더 준다
+        const tot = w.reduce((s, x) => s + x, 0);
+        w = w.map((x) => Math.floor((x * usable) / tot));
+        break;
+      }
+    }
+    const word = (s: string) => Math.max(0, ...stripBold(s).split(/\s+|<br\s*\/?>/i).map(dispLen));
+    const floor = Array.from({ length: n }, (_, j) => Math.max(dispLen(rows[0][j] ?? ''), ...rows.map((r) => word(r[j] ?? ''))) * half + pad);
+    if (floor.reduce((s, x) => s + x, 0) <= usable) {
+      const need = w.reduce((s, x, j) => s + Math.max(0, floor[j] - x), 0);
+      const spare = w.reduce((s, x, j) => s + Math.max(0, x - floor[j]), 0);
+      if (need > 0 && spare > 0) w = w.map((x, j) => (x < floor[j] ? floor[j] : x - Math.floor((need * (x - floor[j])) / spare)));
+    }
+  }
+  w[n - 1] += usable - w.reduce((s, x) => s + x, 0);
+  return w;
+}
+
+type Sides = { top?: number; bottom?: number; left?: number; right?: number; fill?: string };
+/** 선 굵기(mm, 없으면 선 없음)로 borderFill 을 끝에 붙인다 */
+function lineBF(st: Styles, s: Sides): number {
+  const side = (k: 'left' | 'right' | 'top' | 'bottom') =>
+    s[k] ? `<hh:${k}Border type="SOLID" width="${s[k]} mm" color="#000000"/>` : `<hh:${k}Border type="NONE" width="0.1 mm" color="#000000"/>`;
+  const fill = s.fill ? `<hc:fillBrush><hc:winBrush faceColor="${s.fill}" hatchColor="#999999" alpha="0"/></hc:fillBrush>` : '';
+  return st.border(
+    '<hh:borderFill id="0" threeD="0" shadow="0" centerLine="NONE" breakCellSeparateLine="0"><hh:slash type="NONE" Crooked="0" isCounter="0"/><hh:backSlash type="NONE" Crooked="0" isCounter="0"/>' +
+      `${side('left')}${side('right')}${side('top')}${side('bottom')}<hh:diagonal type="NONE" width="0.1 mm" color="#000000"/>${fill}</hh:borderFill>`,
+  );
+}
+/** S7 삼선표 — 행 위치(머리·가운데·끝) × 열 위치(왼·가운데·오른)마다 다른 테두리 */
+function threeLineBF(st: Styles, ri: number, nRows: number, ci: number, nCols: number): number {
+  const head = ri === 0;
+  const last = ri === nRows - 1;
+  return lineBF(st, {
+    top: head ? 0.4 : 0.12,
+    bottom: last ? 0.3 : 0.12,
+    left: ci === 0 ? undefined : 0.12,
+    right: ci === nCols - 1 ? undefined : 0.12,
+    fill: head ? '#E5E5E5' : undefined,
+  });
 }
 
 const FOOTER =
@@ -262,6 +351,11 @@ class Styles {
   }
   para(src: number, patch: ParaPatch): number {
     const r = clonePara(this.header, src, patch);
+    this.header = r.header;
+    return r.id;
+  }
+  border(xml: string): number {
+    const r = appendItem(this.header, BORDER, xml);
     this.header = r.header;
     return r.id;
   }
@@ -304,8 +398,10 @@ export function mdDocXml(items: MdItem[], opts: MdHwpxOptions = {}): { header: s
   const bodyH = pageH - p.top - p.bottom;
   let tableId = 1000;
   const body = [para(`<hp:run charPrIDRef="7">${secPr}</hp:run>`, 20)];
-  for (const x of items) {
-    if (x.kind === 'table') body.push(tableXml(x.rows, x.aligns, usable, bodyH, ++tableId));
+  items.forEach((x, k) => {
+    // S5 — 떠 있는 표 바로 뒤 제목은 앞 여백(prev)이 먹지 않아 표에 붙는다 → 빈 문단을 하나 둔다(A14)
+    if (f.table?.float && items[k - 1]?.kind === 'table' && /^h[1-4]$/.test(x.kind)) body.push(para('<hp:run charPrIDRef="7"/>', 20));
+    if (x.kind === 'table') body.push(tableXml(x.rows, x.aligns, usable, bodyH, ++tableId, f.table, st, x.dashes));
     else if (x.kind === 'empty' || (!x.text && x.kind !== 'quote')) body.push(para('<hp:run charPrIDRef="7"/>', 20));
     else if (x.kind === 'h1' || x.kind === 'h2' || x.kind === 'h3' || x.kind === 'h4') {
       const [c, pp] = HEAD[x.kind];
@@ -332,7 +428,7 @@ export function mdDocXml(items: MdItem[], opts: MdHwpxOptions = {}): { header: s
       }
       body.push(para(emphasis(text, st, f).map(([t, c]) => run(t, c)).join(''), pp));
     }
-  }
+  });
   return { header: st.header, section: `${XML_HEAD}<hs:sec ${NS}>${body.join('')}</hs:sec>` };
 }
 
