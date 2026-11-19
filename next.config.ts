@@ -5,7 +5,8 @@ const nextConfig: NextConfig = {
     formats: ['image/avif', 'image/webp'],
   },
   compiler: {
-    removeConsole: process.env.NODE_ENV === 'production',
+    // 운영 빌드에서도 오류·경고는 남긴다 — 다 지우면 서버 오류가 Vercel 로그에 안 남는다(261119)
+    removeConsole: process.env.NODE_ENV === 'production' ? { exclude: ['error', 'warn'] } : false,
   },
   experimental: {
     optimizePackageImports: ['lucide-react', 'date-fns', 'react-markdown', 'remark-gfm'],
