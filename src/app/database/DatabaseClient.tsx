@@ -8,7 +8,7 @@ import { supabase } from '@/lib/supabase';
 
 import type { TabType, CaseResult, AdminResult, NlrcResult, DatabaseClientProps } from './_components/types';
 import { TABS, PAGE_SIZE, SEARCH_LIMIT, SUGGESTED_KEYWORDS, REASON_CATEGORY_LABELS } from './_components/types';
-import { dedupeResults, displayDocNumber } from './_components/utils';
+import { adminDedupeKey, dedupeResults } from './_components/utils';
 
 const COURT_LEVELS = [
   { key: '대법원', label: '대법원' },
@@ -131,7 +131,7 @@ function DatabaseContent({ initialTotalCases, initialTotalAdmin, initialTotalNlr
         if (error) throw error;
         if (data) {
           const typed = data as unknown as AdminResult[];
-          const deduped = dedupeResults(typed, (item) => displayDocNumber(item.doc_number) || item.id);
+          const deduped = dedupeResults(typed, adminDedupeKey);
           setHasMore(typed.length > SEARCH_LIMIT || deduped.length > PAGE_SIZE);
           setAdmins(deduped.slice(0, PAGE_SIZE));
         }

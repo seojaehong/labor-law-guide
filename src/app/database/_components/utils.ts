@@ -64,6 +64,11 @@ export function displayDocNumber(value: string | null | undefined): string {
   return (value ?? '').replace(/[－—–]/g, '-').replace(/\s+/g, '');
 }
 
+/** 행정해석 목록 중복 키 — 같은 번호를 다른 해에 다시 쓴 별개 회시는 따로 남긴다. */
+export function adminDedupeKey(item: { id: string; doc_number?: string | null; decision_date?: string | null }): string {
+  return `${displayDocNumber(item.doc_number) || item.id}|${item.decision_date ?? ''}`;
+}
+
 export function dedupeResults<T extends { id: string; summary?: string | null; holding_points?: string | null; decision_date?: string | null; title?: string | null }>(
   items: T[],
   getKey: (item: T) => string,

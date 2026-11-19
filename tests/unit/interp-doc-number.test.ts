@@ -29,6 +29,6 @@ it('목록 화면은 표시용 번호를 쓰고, 직접 조회는 중복 표시 
   const card = readFileSync('src/app/database/_components/AdminCard.tsx', 'utf8');
   const client = readFileSync('src/app/database/DatabaseClient.tsx', 'utf8');
   expect(card).toContain('displayDocNumber(item.doc_number)');
-  expect(client).toContain("displayDocNumber(item.doc_number)");
+  expect(client).toContain('dedupeResults(typed, adminDedupeKey)');
   expect(client).toMatch(/from\('admin_interpretations'\)[\s\S]{0,300}\.is\('duplicate_of', null\)/);
 });
