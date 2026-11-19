@@ -112,7 +112,7 @@ export const AI_TOOLS: AiTool[] = [
     id: 'gov-login',
     name: '공단 로그인',
     status: 'public',
-    summary: '근로복지공단 토탈서비스·국민연금 EDI·건강보험 EDI에 공동인증서로 들어가는 윈도우 프로그램입니다. 키 하나로 계정별 크롬 창을 열고 로그인 상태를 보여 줍니다.',
+    summary: '근로복지공단 토탈서비스·국민연금 EDI·건강보험 EDI·효성CMS에 공동인증서로 들어가는 윈도우 프로그램입니다. 키 하나로 계정별 크롬 창을 열고 로그인 상태를 보여 줍니다.',
     does: [
       '계정과 사이트를 키로 배치하고, 키를 누르면 그 계정 전용 크롬 창을 엽니다',
       '계정 여러 개를 동시에 열어도 창끼리 로그인이 끊기지 않습니다',
@@ -128,6 +128,8 @@ export const AI_TOOLS: AiTool[] = [
       note: '코드 서명 전이라 처음 실행할 때 「Windows의 PC 보호」가 뜨면 「추가 정보 → 실행」을 누릅니다.',
     },
     links: [
+      { label: '공단 업무 도구 모음', href: '/gov-tools' },
+      { label: '사용설명서', href: 'https://github.com/seojaehong/gov-cert-login/blob/main/docs/%EC%82%AC%EC%9A%A9%EC%84%A4%EB%AA%85%EC%84%9C.md' },
       { label: '소스 코드(MIT)', href: 'https://github.com/seojaehong/gov-cert-login' },
     ],
   },
