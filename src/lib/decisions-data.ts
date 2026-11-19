@@ -109,7 +109,10 @@ export const DATE_SORT_POOL = 100;
 
 /** 검색 결과 발췌 — 검색어(2글자 이상 낱말)가 처음 나오는 칸·자리 둘레 max 자. 없으면 첫 칸 앞부분. */
 export function searchExcerpt(texts: (string | null | undefined)[], q: string, max = 120): string | null {
-  const clean = texts.map((t) => stripMarkdownFormatting(t || "").replace(/\s+/g, " ").trim()).filter(Boolean);
+  // 요약 칸은 줄바꿈 없이 「# 제목 ## 결과 요약」처럼 제목 기호가 줄 중간에 붙어 오기도 한다
+  const clean = texts
+    .map((t) => stripMarkdownFormatting(t || "").replace(/(^|\s)#{1,6}(?=\s)/g, "$1").replace(/\s+/g, " ").trim())
+    .filter(Boolean);
   if (!clean.length) return null;
   const words = q.split(/\s+/).filter((w) => w.length >= 2);
   for (const text of clean) {
