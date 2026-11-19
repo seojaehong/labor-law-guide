@@ -335,7 +335,13 @@ export async function formHwpx(docs: FormDoc[], layout: HwpxLayout = {}): Promis
 }
 
 /** 한글 꾸러미 — header·section 한 벌과 제목 메타로 hwpx 를 묶는다(md 변환 src/lib/md-hwpx 도 쓴다) */
-export async function packHwpx(headerXml: string, sectionXml: string, title: string): Promise<Uint8Array> {
+export async function packHwpx(
+  headerXml: string,
+  sectionXml: string,
+  title: string,
+  /** 그림(BinData) — md 변환 S10. 없으면 지금까지와 같은 꾸러미 */
+  bins: { id: string; href: string; media: string; data: Uint8Array }[] = [],
+): Promise<Uint8Array> {
   const JSZip = (await import('jszip')).default;
   const zip = new JSZip();
   // 폴더 항목을 넣지 않는다(docs/office-generation-rules.md D2 — 폴더 항목이 있는 파일을 거부한 소비자가 있다)
@@ -353,10 +359,11 @@ export async function packHwpx(headerXml: string, sectionXml: string, title: str
   add('META-INF/manifest.xml', `${XML_HEAD}<odf:manifest xmlns:odf="urn:oasis:names:tc:opendocument:xmlns:manifest:1.0"/>`);
   add(
     'Contents/content.hpf',
-    `${XML_HEAD}<opf:package ${NS} version="" unique-identifier="" id=""><opf:metadata><opf:title>${esc(title)}</opf:title><opf:language>ko</opf:language></opf:metadata><opf:manifest><opf:item id="header" href="Contents/header.xml" media-type="application/xml"/><opf:item id="section0" href="Contents/section0.xml" media-type="application/xml"/><opf:item id="settings" href="settings.xml" media-type="application/xml"/></opf:manifest><opf:spine><opf:itemref idref="header" linear="yes"/><opf:itemref idref="section0" linear="yes"/></opf:spine></opf:package>`,
+    `${XML_HEAD}<opf:package ${NS} version="" unique-identifier="" id=""><opf:metadata><opf:title>${esc(title)}</opf:title><opf:language>ko</opf:language></opf:metadata><opf:manifest><opf:item id="header" href="Contents/header.xml" media-type="application/xml"/><opf:item id="section0" href="Contents/section0.xml" media-type="application/xml"/><opf:item id="settings" href="settings.xml" media-type="application/xml"/>${bins.map((b) => `<opf:item id="${b.id}" href="${b.href}" media-type="${b.media}" isEmbeded="1"/>`).join('')}</opf:manifest><opf:spine><opf:itemref idref="header" linear="yes"/><opf:itemref idref="section0" linear="yes"/></opf:spine></opf:package>`,
   );
   add('Contents/header.xml', headerXml);
   add('Contents/section0.xml', sectionXml);
+  for (const b of bins) zip.file(b.href, b.data, { createFolders: false, compression: 'STORE' });
   add(
     'settings.xml',
     `${XML_HEAD}<ha:HWPApplicationSetting xmlns:ha="http://www.hancom.co.kr/hwpml/2011/app" xmlns:config="urn:oasis:names:tc:opendocument:xmlns:config:1.0"><ha:CaretPosition listIDRef="0" paraIDRef="0" pos="0"/></ha:HWPApplicationSetting>`,

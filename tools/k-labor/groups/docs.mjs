@@ -40,6 +40,7 @@ export function registerDocs(server) {
             indent: z.boolean().optional().describe('기호 문단 내어쓰기·공백 들여쓰기 없앰'),
             underline: z.boolean().optional().describe('문장 안 **강조** = 굵게+밑줄, <u> = 밑줄'),
             quote: z.boolean().optional().describe('> 인용 블록(휴먼고딕 11pt·180%)'),
+            image: z.boolean().optional().describe('![캡션](경로) 한 줄을 그림으로(경로는 md 파일 폴더 기준, PNG·JPEG·GIF·BMP)'),
             table: z
               .object({
                 float: z.boolean().optional().describe('떠 있는 표(아래 여백 8.5mm)'),
@@ -73,7 +74,18 @@ export function registerDocs(server) {
       );
       const out = path.join(a.outDir, `${base}.hwpx`);
       if (fs.existsSync(out)) return fail('이미 있는 파일은 덮어쓰지 않습니다. fileBase 나 outDir 를 바꿔 주세요.', { exists: out });
-      const bytes = await mdToHwpx(md, { preset: a.preset, pageBreak: a.pageBreak, footer: a.footer, features: a.features });
+      const images = {};
+      for (const x of items) {
+        if (x.kind !== 'image') continue;
+        const p = path.isAbsolute(x.src) ? x.src : path.join(a.markdownFile ? path.dirname(String(a.markdownFile).trim()) : process.cwd(), x.src);
+        if (fs.existsSync(p) && fs.statSync(p).isFile() && fs.statSync(p).size <= 15 * 1024 * 1024) images[x.src] = new Uint8Array(fs.readFileSync(p));
+      }
+      let bytes;
+      try {
+        bytes = await mdToHwpx(md, { preset: a.preset, pageBreak: a.pageBreak, footer: a.footer, features: a.features, images });
+      } catch (e) {
+        return fail(e instanceof Error ? e.message : String(e));
+      }
       fs.mkdirSync(a.outDir, { recursive: true });
       fs.writeFileSync(out, bytes);
       const summary = mdHwpxSummary(items, a.features);

@@ -7,6 +7,7 @@ import { NS, SEC_PR, XML_HEAD } from '@/lib/contract-write/export';
 import { stripControl } from '@/lib/contract-write/text';
 import { packHwpx } from '@/lib/work-rules-report/render';
 import { checkHeader } from './header-check';
+import { binItem, imageSize, picXml, type BinItem } from './image';
 import { addFont, appendItem, BORDER, cloneChar, clonePara, type CharPatch, type ParaPatch } from './header-edit';
 
 export type MdPreset = 'internal' | 'tribunal';
@@ -16,7 +17,8 @@ export type MdItem =
   | { kind: 'h1' | 'h2' | 'h3' | 'h4'; text: string; pageBreak: boolean }
   | { kind: 'body' | 'list' | 'sig' | 'empty'; text: string }
   | { kind: 'table'; rows: string[][]; aligns: CellAlign[]; dashes?: number[] }
-  | { kind: 'quote'; text: string };
+  | { kind: 'quote'; text: string }
+  | { kind: 'image'; text: string; src: string };
 
 /** 편집 기술 조각 — 전부 선택값. 기본(끔) 출력은 파이썬 쌍둥이(generate_hwpx.py)와 같아야 하므로 바꾸지 않는다 */
 export interface MdFeatures {
@@ -26,6 +28,8 @@ export interface MdFeatures {
   underline?: boolean;
   /** S4 — > 인용 블록: 휴먼고딕 11pt·줄간격 180%·모든 줄 같은 x, 「[관련 판결] …」 제목줄만 굵게 */
   quote?: boolean;
+  /** S10 — `![캡션](경로)` 한 줄을 그림으로. 그림 바이트는 MdHwpxOptions.images 로 받는다 */
+  image?: boolean;
   /** S5·S6·S7 — 표 */
   table?: TableFeatures;
 }
@@ -52,6 +56,8 @@ export interface MdHwpxOptions {
   footer?: boolean;
   /** 편집 기술 조각(선택값) */
   features?: MdFeatures;
+  /** S10 그림 바이트 — md 의 경로 글자 그대로를 열쇠로 */
+  images?: Record<string, Uint8Array>;
 }
 
 const PRESETS: Record<MdPreset, { lineSpacing: number; top: number; bottom: number; left: number; right: number }> = {
@@ -132,6 +138,12 @@ export function parseMarkdown(md: string, opts: Pick<MdHwpxOptions, 'pageBreak' 
     }
     if (!t || /^---+\s*$/.test(t)) {
       out.push({ kind: 'empty', text: '' });
+      i++;
+      continue;
+    }
+    const img = opts.features?.image ? /^!\[([^\]]*)\]\(([^)\s]+)\)$/.exec(t) : null;
+    if (img) {
+      out.push({ kind: 'image', text: img[1], src: img[2] });
       i++;
       continue;
     }
@@ -395,7 +407,7 @@ export function mdSectionXml(items: MdItem[], opts: MdHwpxOptions = {}): string 
 }
 
 /** header 와 section 을 함께 만든다 — 선택값이 모양을 더하면 header 가 바뀐다. 기본(끔)이면 header = presetHeader */
-export function mdDocXml(items: MdItem[], opts: MdHwpxOptions = {}): { header: string; section: string } {
+export function mdDocXml(items: MdItem[], opts: MdHwpxOptions = {}): { header: string; section: string; bins: BinItem[] } {
   const f = opts.features ?? {};
   const st = new Styles(presetHeader(opts.preset));
   const p = PRESETS[opts.preset ?? 'internal'];
@@ -409,17 +421,29 @@ export function mdDocXml(items: MdItem[], opts: MdHwpxOptions = {}): { header: s
   const usable = pageW - p.left - p.right;
   const bodyH = pageH - p.top - p.bottom;
   let tableId = 1000;
+  const bins: BinItem[] = [];
   const body = [para(`<hp:run charPrIDRef="7">${secPr}</hp:run>`, 20)];
   items.forEach((x, k) => {
     // S5 — 떠 있는 표 바로 뒤 제목은 앞 여백(prev)이 먹지 않아 표에 붙는다 → 빈 문단을 하나 둔다(A14)
     if (f.table?.float && items[k - 1]?.kind === 'table' && /^h[1-4]$/.test(x.kind)) body.push(para('<hp:run charPrIDRef="7"/>', 20));
     if (x.kind === 'table') body.push(tableXml(x.rows, x.aligns, usable, bodyH, ++tableId, f.table, st, x.dashes));
-    else if (x.kind === 'empty' || (!x.text && x.kind !== 'quote')) body.push(para('<hp:run charPrIDRef="7"/>', 20));
+    else if (x.kind === 'empty' || (!x.text && x.kind !== 'quote' && x.kind !== 'image')) body.push(para('<hp:run charPrIDRef="7"/>', 20));
     else if (x.kind === 'h1' || x.kind === 'h2' || x.kind === 'h3' || x.kind === 'h4') {
       const [c, pp] = HEAD[x.kind];
       body.push(para(run(x.text, c), pp, x.pageBreak));
     } else if (x.kind === 'sig') body.push(para(run(x.text, 7), 26));
-    else if (x.kind === 'quote') {
+    else if (x.kind === 'image') {
+      // S10 그림 — 가운데 문단에 글자처럼 취급(treatAsChar 1), 캡션은 그 아래 가운데
+      const data = opts.images?.[x.src];
+      if (!data) throw new Error(`그림 파일이 없습니다: ${x.src}`);
+      const n = bins.length + 1;
+      const px = imageSize(data);
+      const b = binItem(n, { data, ext: px.ext });
+      bins.push(b);
+      const center = st.para(20, { align: 'CENTER' });
+      body.push(para(`<hp:run charPrIDRef="7">${picXml(n, b.id, px, usable, Math.floor((bodyH * 60) / 100), x.text || x.src)}<hp:t/></hp:run>`, center));
+      if (x.text) body.push(para(run(x.text, 7), center));
+    } else if (x.kind === 'quote') {
       // S4 인용 — 휴먼고딕 11pt, 줄간격 180%, left = 본문 + 16.5pt, intent 0. 인용 안 빈 줄도 인용 서식
       const font = st.font('휴먼고딕');
       const qc = st.char(7, { height: 1100, font });
@@ -441,7 +465,7 @@ export function mdDocXml(items: MdItem[], opts: MdHwpxOptions = {}): { header: s
       body.push(para(emphasis(text, st, f).map(([t, c]) => run(t, c)).join(''), pp));
     }
   });
-  return { header: st.header, section: `${XML_HEAD}<hs:sec ${NS}>${body.join('')}</hs:sec>` };
+  return { header: st.header, section: `${XML_HEAD}<hs:sec ${NS}>${body.join('')}</hs:sec>`, bins };
 }
 
 /** 본문 강조 런. 기본 = **굵게**·판례 번호 굵게. S3 이면 문장 안 ** 는 굵게+밑줄, 줄 전체 ** 는 굵게, <u> 는 밑줄 */
@@ -494,9 +518,9 @@ export function mdHwpxSummary(items: MdItem[], features: MdFeatures = {}) {
 export async function mdToHwpx(md: string, opts: MdHwpxOptions = {}): Promise<Uint8Array> {
   const items = parseMarkdown(md, opts);
   const title = items.find((x) => x.kind === 'h1');
-  const { header, section } = mdDocXml(items, opts);
+  const { header, section, bins } = mdDocXml(items, opts);
   // S0 — 순서·개수·참조 범위가 어긋난 파일은 한글이 오류 없이 다른 모양으로 그린다. 내보내기 전에 막는다
   const issues = checkHeader(header, section);
   if (issues.length) throw new Error(`hwpx header 불변식 위반: ${issues.map((x) => x.message).join(' / ')}`);
-  return packHwpx(header, section, title && 'text' in title ? title.text : '');
+  return packHwpx(header, section, title && 'text' in title ? title.text : '', bins);
 }
