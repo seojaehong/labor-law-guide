@@ -36,7 +36,7 @@ describe('reading-first layout contract', () => {
     expect(source).not.toContain('1fr_320px');
   });
   it('opts legal detail typography in without enlarging compact list previews', () => {
-    expect(read('src/app/database/_components/MarkdownSnippet.tsx')).toContain("variant = 'snippet'");
+    expect(read('src/components/decision-detail/MarkdownSnippet.tsx')).toContain("variant = 'snippet'");
     for (const route of ['cases', 'interpretations']) {
       expect(read(`src/app/${route}/[id]/page.tsx`)).toContain(route === 'interpretations' ? '<CollectedSourceBody text={summary}' : '<MarkdownSnippet variant="reading"');
     }

@@ -3,12 +3,8 @@
 import { readFileSync } from 'node:fs';
 import { expect, it } from 'vitest';
 
-const client = readFileSync('src/app/database/DatabaseClient.tsx', 'utf8');
+// 261119 — 총건수를 쓰던 /database 화면(DatabaseClient)은 지웠다. 운영 검색은 /decisions(runSearch)이고 총건수를 쓰지 않는다.
 const migration = readFileSync('supabase/migrations/20261119b_admin_search_number_substring.sql', 'utf8');
-
-it('행정해석 탭의 총건수는 search_admin_count RPC 로 센다', () => {
-  expect(client).toMatch(/rpc\('search_admin_count',\s*\{\s*query:\s*rpcQuery\s*\}\)/);
-});
 
 it('목록과 건수는 같은 조건(admin_search_where)을 쓴다', () => {
   expect(migration.match(/admin_search_where\(use_num, longest IS NOT NULL\)/g)).toHaveLength(2);

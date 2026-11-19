@@ -40,7 +40,7 @@ vi.mock('@/lib/supabase', () => ({
 vi.mock('@/components/SubscribeForm', () => ({ default: () => null }));
 
 import DecisionPage from '@/app/decisions/[id]/page';
-import MarkdownSnippet from '@/app/database/_components/MarkdownSnippet';
+import MarkdownSnippet from '@/components/decision-detail/MarkdownSnippet';
 
 const sourceUrl = 'https://example.invalid/judgment?case=synthetic&section=legal';
 const legalText = '근로기준법 제23조 제1항에 따라 정당한 이유를 판단한다.';

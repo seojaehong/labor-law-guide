@@ -7,10 +7,10 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { supabaseServer } from '@/lib/supabase-server';
 import { SITE_URL } from '@/lib/constants';
-import { formatDecisionDate, getPreferredSummary, getPreferredDetail } from '@/app/database/_components/utils';
+import { formatDecisionDate, getPreferredSummary, getPreferredDetail } from '@/components/decision-detail/utils';
 import { decisionDate } from '@/lib/decision-date';
-import TagRow from '@/app/database/_components/TagRow';
-import MarkdownSnippet from '@/app/database/_components/MarkdownSnippet';
+import TagRow from '@/components/decision-detail/TagRow';
+import MarkdownSnippet from '@/components/decision-detail/MarkdownSnippet';
 import {
   ArrowLeft,
   Calendar,
