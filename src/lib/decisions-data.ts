@@ -93,6 +93,15 @@ export async function getRecent(page = 1): Promise<{ rows: Recent[]; hasMore: bo
 }
 
 // ── 검색 ────────────────────────────────────────────────────────────
+/** 결과 0건 검색어를 서버 로그(Vercel)에 남길 한 줄. DB 에 쓰지 않는다. 주민번호·전화번호 모양은 가린다. */
+export function zeroHitLogLine(q: string, type: Kind): string {
+  const masked = q
+    .replace(/\d{6}\s*-\s*\d{7}/g, "[가림]")
+    .replace(/01\d\s*-?\s*\d{3,4}\s*-?\s*\d{4}/g, "[가림]")
+    .slice(0, 80);
+  return `[zero-hit] type=${type} q=${masked}`;
+}
+
 /** 세 표의 전문검색 RPC. 브라우저에서 부르던 것을 서버로 옮겼다. */
 export async function runSearch(q: string, type: Kind, page: number): Promise<DecisionResult> {
   const offset = (page - 1) * PAGE_SIZE;
@@ -151,6 +160,8 @@ export async function runSearch(q: string, type: Kind, page: number): Promise<De
       }
       return decisionRow(r);
     });
+    // 1쪽이 비면 정답 세트 재료로 남긴다(뒷페이지가 빈 것은 결과 끝, 오류는 위에서 이미 돌아감)
+    if (page === 1 && rows.length === 0) console.info(zeroHitLogLine(safe, type));
     return { ok: true, rows, hasMore };
   } catch {
     return { ok: false };
