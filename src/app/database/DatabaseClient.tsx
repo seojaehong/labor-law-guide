@@ -102,15 +102,19 @@ function DatabaseContent({ initialTotalCases, initialTotalAdmin, initialTotalNlr
     const countFilter = tab === 'nlrc'
       ? `title.ilike.%${safeQ}%,holding_summary.ilike.%${safeQ}%,key_issue.ilike.%${safeQ}%`
       : `title.ilike.%${safeQ}%,summary.ilike.%${safeQ}%,holding_points.ilike.%${safeQ}%`;
-    const countPromise = supabase
-      .from(tableMap[tab])
-      .select('id', { count: 'exact', head: true })
-      .or(countFilter)
-      .then(({ count }) => setSearchTotal(count));
+    const rpcQuery = trimmed.replace(/[%_\\'"();]/g, '');
+    // 행정해석은 목록 RPC 와 같은 조건(문서번호·부분일치 포함)으로 센다
+    const countPromise = tab === 'admin'
+      ? supabase.rpc('search_admin_count', { query: rpcQuery })
+          .then(({ data }) => setSearchTotal(typeof data === 'number' ? data : null))
+      : supabase
+          .from(tableMap[tab])
+          .select('id', { count: 'exact', head: true })
+          .or(countFilter)
+          .then(({ count }) => setSearchTotal(count));
 
     try {
       setSearchError(null);
-      const rpcQuery = trimmed.replace(/[%_\\'"();]/g, '');
       if (!rpcQuery || rpcQuery.length < 2) return;
 
       if (tab === 'cases') {
