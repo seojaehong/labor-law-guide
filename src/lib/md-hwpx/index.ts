@@ -45,6 +45,8 @@ export interface TableFeatures {
   style?: 'threeLine';
   /** S8 — 가로 병합: 칸 내용이 「<」 하나면 왼쪽 칸과 합친다(C1, md 문법은 제안) */
   merge?: boolean;
+  /** S9 — 세로 병합: 칸 내용이 「^」 하나면 위 칸과 합친다(머리행과는 합치지 않는다, 가로 병합 칸은 대상 아님). 한글 열림 실측 전 보류(C2) */
+  vmerge?: boolean;
 }
 
 export interface MdHwpxOptions {
@@ -259,26 +261,35 @@ function tableXml(rows0: string[][], aligns: CellAlign[], usable: number, bodyH:
     return n;
   };
   const spanW = (r: string[], ci: number) => widths.slice(ci, ci + spanOf(r, ci)).reduce((s, x) => s + x, 0);
+  // S9 세로 병합 — 둘째 행부터, 위 칸이 머리행이 아니고 가로 병합에 걸리지 않은 칸만
+  const vUp = (ri: number, ci: number) => !!tf.vmerge && ri > 1 && rows[ri][ci].trim() === '^' && !merged(rows[ri], ci) && spanOf(rows[ri], ci) === 1;
+  const rowSpanOf = (ri: number, ci: number) => {
+    let n = 1;
+    while (ri + n < rows.length && vUp(ri + n, ci) && spanOf(rows[ri], ci) === 1) n++;
+    return n;
+  };
   const lineH = Math.floor((fh * 130) / 100);
-  const rowHs = rows.map((r) => Math.max(...r.map((c, j) => (merged(r, j) ? 1 : Math.max(1, Math.ceil((dispLen(c) * half) / Math.max(1, spanW(r, j) - pad)))))) * lineH + 282);
+  const rowHs = rows.map((r, ri) => Math.max(...r.map((c, j) => (merged(r, j) || vUp(ri, j) ? 1 : Math.max(1, Math.ceil((dispLen(c) * half) / Math.max(1, spanW(r, j) - pad)))))) * lineH + 282);
   const asChar = rowHs.reduce((s, x) => s + x, 0) < Math.floor((bodyH * 55) / 100);
   const ROW_H = 1400;
   const trs = rows.map((r, ri) => {
     const head = ri === 0;
     const tcs = r.map((cell, ci) => {
-      if (merged(r, ci)) return '';
+      if (merged(r, ci) || vUp(ri, ci)) return '';
       const sp = spanOf(r, ci);
+      const rsp = rowSpanOf(ri, ci);
+      const cellH = rowHs.slice(ri, ri + rsp).reduce((s2, h) => s2 + Math.max(ROW_H, h), 0);
       const rs = runs(cell, head ? headC : bodyC, headC);
       const runXml = (rs.map(([t, c]) => run(t, c)).join('') || `<hp:run charPrIDRef="${bodyC}"/>`).replace(/&lt;br\s*\/?&gt;/gi, '<hp:lineBreak/>');
       const al = aligns[ci] ?? 'LEFT';
       const pp0 = head || al === 'CENTER' ? TABLE_PARA[1] : al === 'RIGHT' ? TABLE_PARA[2] : TABLE_PARA[0];
       const pp = three ? st!.para(pp0, { lineSpacing: 110 }) : pp0;
-      const bf = three ? threeLineBF(st!, ri, rows.length, ci, ncol, sp) : head ? 4 : 3;
+      const bf = three ? threeLineBF(st!, ri + rsp - 1, rows.length, ci, ncol, sp) : head ? 4 : 3;
       return (
         `<hp:tc name="" header="${head ? 1 : 0}" hasMargin="0" protect="0" editable="0" dirty="1" borderFillIDRef="${bf}">` +
         '<hp:subList id="" textDirection="HORIZONTAL" lineWrap="BREAK" vertAlign="CENTER" linkListIDRef="0" linkListNextIDRef="0" textWidth="0" textHeight="0" hasTextRef="0" hasNumRef="0">' +
-        `${para(runXml, pp)}</hp:subList><hp:cellAddr colAddr="${ci}" rowAddr="${ri}"/><hp:cellSpan colSpan="${sp}" rowSpan="1"/>` +
-        `<hp:cellSz width="${spanW(r, ci)}" height="${Math.max(ROW_H, rowHs[ri])}"/><hp:cellMargin left="${mLR}" right="${mLR}" top="${mTB}" bottom="${mTB}"/></hp:tc>`
+        `${para(runXml, pp)}</hp:subList><hp:cellAddr colAddr="${ci}" rowAddr="${ri}"/><hp:cellSpan colSpan="${sp}" rowSpan="${rsp}"/>` +
+        `<hp:cellSz width="${spanW(r, ci)}" height="${cellH}"/><hp:cellMargin left="${mLR}" right="${mLR}" top="${mTB}" bottom="${mTB}"/></hp:tc>`
       );
     });
     return `<hp:tr>${tcs.join('')}</hp:tr>`;

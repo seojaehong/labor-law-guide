@@ -99,3 +99,25 @@ describe('S7 — 삼선표', () => {
     expect(checkHeader(header, section)).toEqual([]);
   });
 });
+
+describe('S9 — 세로 병합', () => {
+  const md = '| 구분 | 항목 | 값 |\n|---|---|---|\n| 가 | 1 | 10 |\n| ^ | 2 | 20 |\n| ^ | 3 | 30 |\n| 나 | 4 | 40 |\n| ^ | 5 | ^ |';
+  it('아래 행 tc 생략 수 = rowSpan−1, 병합 칸 높이 = 걸친 행 높이 합, S0 통과', () => {
+    const { header, section } = doc(md, { table: { vmerge: true } });
+    const cells = [...section.matchAll(/<hp:cellAddr colAddr="(\d+)" rowAddr="(\d+)"\/><hp:cellSpan colSpan="(\d+)" rowSpan="(\d+)"\/><hp:cellSz width="\d+" height="(\d+)"/g)].map((m) => ({ col: +m[1], row: +m[2], rs: +m[4], h: +m[5] }));
+    const trs = [...section.matchAll(/<hp:tr>([\s\S]*?)<\/hp:tr>/g)].map((m) => (m[1].match(/<hp:tc /g) ?? []).length);
+    expect(trs).toEqual([3, 3, 2, 2, 3, 1]);
+    const a = cells.find((c) => c.col === 0 && c.row === 1)!;
+    expect(a.rs).toBe(3);
+    const rowH = (r: number) => cells.find((c) => c.row === r && c.rs === 1)!.h;
+    expect(a.h).toBe(rowH(1) + rowH(2) + rowH(3));
+    expect(cells.find((c) => c.col === 0 && c.row === 4)!.rs).toBe(2);
+    expect(cells.find((c) => c.col === 2 && c.row === 4)!.rs).toBe(2);
+    expect(section).not.toContain('<hp:t>^</hp:t>');
+    expect(checkHeader(header, section)).toEqual([]);
+  });
+  it('머리행과는 합치지 않고, 끄면 「^」 는 글자 그대로', () => {
+    expect(doc('| a | b |\n|---|---|\n| ^ | 1 |', { table: { vmerge: true } }).section).toContain('<hp:t>^</hp:t>');
+    expect(doc(md, {}).section).toContain('<hp:t>^</hp:t>');
+  });
+});
