@@ -159,6 +159,8 @@ const ANN = {
   make_council_rules_comparison: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
   // md → hwpx 파일 쓰기(덮어쓰지 않으므로 다시 불러도 결과가 같지 않다)
   make_hwpx_from_markdown: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
+  // 새 파일로 쓰고 원본·있는 파일은 건드리지 않는다
+  edit_hwpx_text: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
 };
 // 커넥터 디렉터리 심사 — 빠진 도구 없이 전부 title 과 네 칸이 있다
 {
@@ -168,7 +170,7 @@ const ANN = {
 }
 // 이 판에서 더한 도구 8개 + 사이트 도구 7개(groups/more) — 「대신·대행·대리」도 함께 막는다
 const NOSA_TOOLS = ['assess_labor_council', 'check_council_meeting', 'make_labor_council_forms', 'make_council_meeting_docs', 'make_council_election_docs', 'check_council_rules', 'record_council_history', 'export_council_vault', 'import_council_minutes', 'make_council_rules_comparison'];
-const NEW_TOOLS = ['calc_severance', 'calc_holiday_pay', 'calc_pay_proration', 'calc_shutdown_allowance', 'calc_annual_leave', 'settle_leave_on_exit', 'calc_retirement_tax', 'list_employer_duties', ...MORE_TOOLS, ...NOSA_TOOLS, 'make_hwpx_from_markdown'];
+const NEW_TOOLS = ['calc_severance', 'calc_holiday_pay', 'calc_pay_proration', 'calc_shutdown_allowance', 'calc_annual_leave', 'settle_leave_on_exit', 'calc_retirement_tax', 'list_employer_duties', ...MORE_TOOLS, ...NOSA_TOOLS, 'make_hwpx_from_markdown', 'edit_hwpx_text'];
 const NEW_WORDS = [...WORDS, '대신', '대행', '대리'];
 const bannedNew = (s) => (banned ? banned.bannedHits(s, NEW_WORDS) : []);
 for (const n of NEW_TOOLS) check(`${n}: 도구 목록에 있음`, tools.includes(n));
@@ -526,6 +528,16 @@ if (tools.includes('make_hwpx_from_markdown')) {
     && mh.headings === 2 && mh.tables === 1 && mh.boldRuns === 2 && mh.signatureLines === 2 && mh.leftovers?.length === 0);
   const again = await callNew('make_hwpx_from_markdown', { markdown: MDX, preset: 'tribunal', outDir: dir });
   check('docs 같은 이름은 덮어쓰지 않음', again.ok === false && again.exists === mh.file.path);
+  // 편집 기술 선택값을 모두 켠 판(합성 원고) — 남은 기호 없음
+  const MDF = '# 가상 선택값 문서\n\n○ 기호 문단에 **문장 안 강조**가 있다.\n\n> [관련 판결] 대법원 2020. 1. 1. 선고 2019다1 판결\n> 인용 문장\n\n| 구분 | 1분기 | 2분기 |\n|--|----|----|\n| 합계 | 300 | < |\n';
+  const mf = await callNew('make_hwpx_from_markdown', { markdown: MDF, preset: 'internal', outDir: dir, features: { indent: true, underline: true, quote: true, table: { width: 'fit', style: 'threeLine', merge: true, float: true } } });
+  check(`docs 선택값 전부 켬 ${mf.file?.bytes}B (남은 기호 ${mf.leftovers?.length})`, mf.ok && fs.existsSync(mf.file.path) && mf.leftovers?.length === 0);
+  // 글자만 고치기 — 새 파일, 원본 그대로, 0번이면 멈춤
+  const before = fs.readFileSync(mh.file.path);
+  const ed = await callNew('edit_hwpx_text', { file: mh.file.path, edits: [{ old: '가상상사', new: '가상상회' }], fills: [{ table: 0, row: 1, col: 1, text: '2,100,000' }] });
+  check(`docs 글자만 고치기 ${ed.file?.bytes}B`, ed.ok && fs.existsSync(ed.file.path) && fs.readFileSync(mh.file.path).equals(before));
+  const none = await callNew('edit_hwpx_text', { file: mh.file.path, edits: [{ old: '없는 글자', new: 'x' }], outFile: path.join(dir, 'none.hwpx') });
+  check('docs 글자 고치기 0번이면 멈춤', none.ok === false && !fs.existsSync(path.join(dir, 'none.hwpx')));
 }
 
 // ── work-rules 묶음 ──

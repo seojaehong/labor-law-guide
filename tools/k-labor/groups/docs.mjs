@@ -6,9 +6,10 @@ import { z } from 'zod';
 import fs from 'node:fs';
 import path from 'node:path';
 import { mdHwpxSummary, mdToHwpx, parseMarkdown } from '@/lib/md-hwpx';
+import { fillCells, replaceText } from '@/lib/md-hwpx/postedit';
 import { argsLookLikeRrn, looksLikeRrn, text } from '../lib/common.mjs';
 
-export const docsTools = ['make_hwpx_from_markdown'];
+export const docsTools = ['make_hwpx_from_markdown', 'edit_hwpx_text'];
 
 const WRITES = { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false };
 const fail = (error, extra = {}) => text({ ok: false, error, ...extra });
@@ -25,7 +26,7 @@ export function registerDocs(server) {
       title: '마크다운을 한글(hwpx) 파일로 만들기(로컬 전용)',
       description:
         '마크다운 원고(의견서·답변서·검토 메모·양식집·보고서)를 한글 파일로 만든다. # ~ #### 제목(## 은 앞에 □, Ⅰ~Ⅹ 로 시작하면 쪽을 나눔), 본문 **굵게**, 판례 번호(「대법원 … 선고 … 판결」) 자동 굵게, 목록, 표(첫 행 = 머리행 음영·반복, 열 폭 자동, :---: 가운데·---: 오른쪽, 칸 안 <br> 줄바꿈, 7열 이상은 작은 글자, 긴 표는 쪽을 넘긴다), ' +
-        '끝 15줄 안의 날짜만 있는 줄부터 서명부(오른쪽 정렬), 아래 가운데 쪽번호를 넣는다. 병합 칸·밑줄·인용 블록·링크는 만들지 못한다(결과 leftovers 에 남은 기호로 알린다). ' +
+        '끝 15줄 안의 날짜만 있는 줄부터 서명부(오른쪽 정렬), 아래 가운데 쪽번호를 넣는다. 기본으로는 병합 칸·밑줄·인용 블록·그림·링크를 만들지 않는다(결과 leftovers 에 남은 기호로 알린다). features 를 켜면 기호 내어쓰기·강조 밑줄·인용 블록·그림·표 선택값(떠 있는 표·열 폭·삼선표·가로 병합)을 쓴다. ' +
         'preset = internal(내부 문서: 행간 160%·여백 20mm) / tribunal(법원·위원회 제출: 행간 200%·위 45·아래 30·좌우 20mm). 기관 서식이 따로 있으면 그 서식을 따른다. 이미 있는 파일은 덮어쓰지 않는다.',
       inputSchema: {
         markdown: z.string().max(1_000_000).optional().describe('마크다운 원고(글). markdownFile 과 둘 중 하나'),
@@ -98,6 +99,44 @@ export function registerDocs(server) {
           (summary.leftovers.length ? `옮기지 못한 마크다운 기호가 있습니다(${summary.leftovers.join(' ')}). 원고를 고치거나 한글에서 손봐 주세요. ` : '') +
           '쪽 나눔·표가 쪽에 걸치는 모양은 파일 안 글자로는 알 수 없습니다. 한글에서 열거나 PDF 로 바꿔 쪽마다 확인한 뒤 냅니다.',
       });
+    },
+  );
+
+  server.registerTool(
+    'edit_hwpx_text',
+    {
+      title: '한글(hwpx) 파일의 글자만 고치기(로컬 전용)',
+      description:
+        '이미 있는 hwpx 의 서식(header)은 바이트 그대로 두고 글자만 바꿔 새 파일로 저장한다. edits = 찾을 글자와 바꿀 글자 목록(찾는 글자는 문서 전체에서 정확히 1번, 한 글자 모양 안에 있어야 한다. 0번·2번 이상·강조 경계를 넘으면 아무것도 바꾸지 않고 멈춘다). ' +
+        'fills = 표 칸 채우기(표 번호는 문서 순서 0부터, 행·열은 0부터). 넣은 글자는 예시 서식(파랑·기울임)을 물려받지 않고 header 에 있는 검정 글자 모양을 쓴다. 원본은 고치지 않고, 이미 있는 파일은 덮어쓰지 않는다. 쪽 나눔이 바뀌었는지는 한글에서 열어 고치기 전후 쪽을 대조한다.',
+      inputSchema: {
+        file: z.string().max(400).describe('고칠 hwpx 파일 경로'),
+        edits: z.array(z.object({ old: z.string().min(1).max(2000), new: z.string().max(2000) })).max(200).optional().describe('글자 바꾸기 목록'),
+        fills: z.array(z.object({ table: z.number().int().min(0), row: z.number().int().min(0), col: z.number().int().min(0), text: z.string().max(4000) })).max(500).optional().describe('표 칸 채우기 목록'),
+        outFile: z.string().max(400).optional().describe('저장할 파일 경로(비우면 원래 이름 뒤에 _수정)'),
+      },
+      annotations: WRITES,
+    },
+    async (a) => {
+      if (argsLookLikeRrn({ edits: a.edits, fills: a.fills })) return fail(RRN_STOP);
+      const src = String(a.file).trim();
+      if (!/\.hwpx$/i.test(src)) return fail('hwpx 파일만 받습니다.');
+      if (!fs.existsSync(src) || !fs.statSync(src).isFile()) return fail(`파일이 없습니다: ${src}`);
+      if (!a.edits?.length && !a.fills?.length) return fail('edits 나 fills 중 하나를 주세요.');
+      const out = (a.outFile ?? '').trim() || src.replace(/\.hwpx$/i, '_수정.hwpx');
+      if (path.resolve(out) === path.resolve(src)) return fail('원본 파일에는 쓰지 않습니다. outFile 을 바꿔 주세요.');
+      if (fs.existsSync(out)) return fail('이미 있는 파일은 덮어쓰지 않습니다. outFile 을 바꿔 주세요.', { exists: out });
+      try {
+        let bytes = new Uint8Array(fs.readFileSync(src));
+        let preview = [];
+        if (a.edits?.length) ({ bytes, preview } = await replaceText(bytes, a.edits));
+        if (a.fills?.length) bytes = await fillCells(bytes, a.fills);
+        fs.mkdirSync(path.dirname(out), { recursive: true });
+        fs.writeFileSync(out, bytes);
+        return text({ ok: true, file: { path: out, bytes: bytes.length }, edits: preview, fills: a.fills?.length ?? 0, notice: '서식(header)은 그대로입니다. 한글에서 열어 고치기 전후 쪽마다 첫 줄과 끝 줄을 대조해 주세요.' });
+      } catch (e) {
+        return fail(e instanceof Error ? e.message : String(e));
+      }
     },
   );
 }

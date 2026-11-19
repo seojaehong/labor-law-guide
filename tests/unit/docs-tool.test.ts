@@ -12,15 +12,19 @@ type Reg = { name: string; cfg: { title?: string; description?: string; inputSch
 const tools: Reg[] = [];
 registerDocs({ registerTool: (name: string, cfg: Reg['cfg'], handler: Reg['handler']) => tools.push({ name, cfg, handler }) });
 const tool = tools[0];
+const edit = tools[1];
+const callEdit = async (a: object) => JSON.parse((await edit.handler(a)).content[0].text);
 const call = async (a: object) => JSON.parse((await tool.handler(a)).content[0].text);
 
 describe('docs 묶음', () => {
   it('도구 이름·설명·입력 설명에 금지어와 em dash 가 없다', () => {
-    expect(tools.map((t) => t.name)).toEqual(['make_hwpx_from_markdown']);
-    const schema = Object.values(tool.cfg.inputSchema ?? {}).map((v) => v.description ?? '').join('\n');
-    const all = `${tool.cfg.title}\n${tool.cfg.description}\n${schema}`;
-    expect(bannedHits(all, WORDS)).toEqual([]);
-    expect(all).not.toContain('—');
+    expect(tools.map((t) => t.name)).toEqual(['make_hwpx_from_markdown', 'edit_hwpx_text']);
+    for (const t of tools) {
+      const schema = Object.values(t.cfg.inputSchema ?? {}).map((v) => v.description ?? '').join('\n');
+      const all = `${t.cfg.title}\n${t.cfg.description}\n${schema}`;
+      expect(bannedHits(all, WORDS), t.name).toEqual([]);
+      expect(all).not.toContain('—');
+    }
   });
 
   it('파일을 쓰고, 같은 이름은 덮어쓰지 않는다', async () => {
@@ -58,6 +62,27 @@ describe('docs 묶음', () => {
       // 줄인 파일 해시(16진)는 숫자 13자리가 이어져도 주민번호가 아니다(261119 루브릭 — 검수 기록 원고)
       const hash = await call({ markdown: '해시 a1234567b1d1234f / b9001011234568e9 · xlsx', preset: 'internal', outDir: dir, fileBase: 'hash' });
       expect(hash.ok).toBe(true);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('edit_hwpx_text: 글자만 바꿔 새 파일로, 원본·있는 파일은 건드리지 않고 거부는 멈춘다', async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'md-hwpx-'));
+    try {
+      const made = await call({ markdown: '# 원본\n\n고칠 낱말이 하나 있다.\n\n| 가 | 나 |\n|---|---|\n| 1 |  |', preset: 'internal', outDir: dir });
+      const src = made.file.path;
+      const before = fs.readFileSync(src);
+      const r = await callEdit({ file: src, edits: [{ old: '고칠 낱말', new: '고친 낱말' }], fills: [{ table: 0, row: 1, col: 1, text: '채움' }] });
+      expect(r.ok).toBe(true);
+      expect(r.file.path).toBe(src.replace(/\.hwpx$/, '_수정.hwpx'));
+      expect(r.edits[0]).toMatchObject({ old: '고칠 낱말', new: '고친 낱말' });
+      expect(fs.readFileSync(src).equals(before)).toBe(true);
+      expect((await callEdit({ file: src, edits: [{ old: '고칠 낱말', new: 'x' }] })).exists).toBe(r.file.path);
+      expect((await callEdit({ file: src, edits: [{ old: '없는 글자', new: 'x' }], outFile: path.join(dir, 'b.hwpx') })).error).toContain('없습니다');
+      expect(fs.existsSync(path.join(dir, 'b.hwpx'))).toBe(false);
+      expect((await callEdit({ file: src, edits: [{ old: 'a', new: 'b' }], outFile: src })).ok).toBe(false);
+      expect(bannedHits(JSON.stringify(r), WORDS)).toEqual([]);
     } finally {
       fs.rmSync(dir, { recursive: true, force: true });
     }
