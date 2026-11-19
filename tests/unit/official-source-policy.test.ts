@@ -3,7 +3,7 @@ import {renderToStaticMarkup} from 'react-dom/server';
 import {createElement} from 'react';
 import {officialSource} from '@/lib/public-source-url';
 import OfficialSourceLink from '@/components/OfficialSourceLink';
-import MarkdownSnippet from '@/app/database/_components/MarkdownSnippet';
+import MarkdownSnippet from '@/components/decision-detail/MarkdownSnippet';
 import CollectedSourceBody from '@/components/CollectedSourceBody';
 it.each(['http://www.law.go.kr/LSW/precInfoP.do?precSeq=1','//www.law.go.kr/LSW/precInfoP.do?precSeq=1','https://law.go.kr@evil.example/LSW/precInfoP.do?precSeq=1','https://evil.example@law.go.kr/LSW/precInfoP.do?precSeq=1','https://www.law.go.kr:8443/LSW/precInfoP.do?precSeq=1','https://www.law.go.kr/LSW/precInfoP.do?precSeq=1&url=https://bigcase.ai','javascript:alert(1)','data:text/html,x','https://bigcase.ai/cases/123','https://elbox.io/case/1','https://superlawyer.ai/x','https://ilabor.co.kr/x','https://elabor.co.kr/x','https://www.law.go.kr.evil.invalid/LSW/precInfoP.do?precSeq=372172','https://www.law.go.kr/','https://www.law.go.kr/search?q=372172','https://labor.moel.go.kr/redirect?id=18820','https://www.law.go.kr/LSW/precInfoP.do?precSeq=1&precSeq=2'])('rejects private, spoofed, non-document and ambiguous source URLs %s',url=>{
  expect(officialSource(url)).toBeNull();const html=renderToStaticMarkup(createElement(OfficialSourceLink,{urls:[url]}));expect(html).toContain('공식 원문 미확인');expect(html).not.toContain('href=');

@@ -1,8 +1,8 @@
 import { expect,it } from 'vitest';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { createElement } from 'react';
-import { normalizeSnippetMarkdown } from '@/app/database/_components/utils';
-import MarkdownSnippet from '@/app/database/_components/MarkdownSnippet';
+import { normalizeSnippetMarkdown } from '@/components/decision-detail/utils';
+import MarkdownSnippet from '@/components/decision-detail/MarkdownSnippet';
 it.each(['처분을 취소한다. 다음 문장이다.','임금을 지급받았다. 판단한다.','책무가 있습니다. 해당 경우.'])('does not split Korean sentence endings: %s',text=>{
  expect(normalizeSnippetMarkdown(text)).toBe(text);
  const html=renderToStaticMarkup(createElement(MarkdownSnippet,{value:text}));expect(html).toContain(text);expect(html.match(/<p>/g)).toHaveLength(1);

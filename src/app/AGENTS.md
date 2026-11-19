@@ -377,7 +377,7 @@ prose-blockquote:… prose-code:…`를 20여 개 달고 있지만 **`@tailwindc
 
 - 실제 사례(US-016 시점): `BetaBanner:38-40`(전 라우트) · `contact:136,219-220` · `subsidy:117-118` ·
   `ArticleCard:13` · `components/CaseCard:20` · `StepDiagram:8` · `ComparisonTable:17` · `HomeClient:135` ·
-  `HolidayPayCalculator:450` · `cases/[id]` · `faq` · `database/_components/*` · `ChatInterface`.
+  `HolidayPayCalculator:450` · `cases/[id]` · `faq` · `components/decision-detail/*` · `ChatInterface`.
 - **규칙: 잉크·전경은 역할 토큰으로 쓴다** — `--color-info` / `--color-info-ink` / `--color-accent-ink`.
   역할 토큰은 `.dark`에 전부 반전값이 있다(`--color-info: var(--blue-300)` 등). 램프 직접 참조는 **배경 전용**으로 본다.
 - 같은 함정의 다른 얼굴: `--color-accent`는 `.dark`에 **선언 자체가 없다** — DESIGN.md §3.3 표는 다크 `#4593fc`라고
