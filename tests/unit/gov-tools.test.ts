@@ -17,7 +17,9 @@ describe('공단 업무 도구 모음', () => {
   it('사이트 안 주소는 실제 페이지가 있다', () => {
     for (const t of GOV_TOOLS) {
       for (const a of t.actions.filter((x) => x.href.startsWith('/'))) {
-        expect(existsSync(join(process.cwd(), 'src/app', a.href, 'page.tsx')), a.href).toBe(true);
+        const page = existsSync(join(process.cwd(), 'src/app', a.href, 'page.tsx'));
+        const howto = existsSync(join(process.cwd(), 'public', a.href, 'index.html')); // /howto/* 정적 안내
+        expect(page || howto, a.href).toBe(true);
       }
     }
   });
@@ -26,7 +28,7 @@ describe('공단 업무 도구 모음', () => {
     const g = GOV_TOOLS.find((t) => t.id === 'gov-login')!;
     expect(g.requires).toBeTruthy();
     expect(g.actions.some((a) => a.href.includes('/releases/latest'))).toBe(true);
-    expect(g.actions.some((a) => a.href.startsWith('https://seojaehong.github.io/gov-cert-login'))).toBe(true);
+    expect(g.actions.some((a) => a.href === '/howto/gov-login')).toBe(true);
   });
 
   it('문구에 금지어가 없다', () => {

@@ -38,7 +38,7 @@ export const GOV_TOOLS: GovTool[] = [
       '인증서 비밀번호는 그 PC의 윈도우 보안 저장소(DPAPI)에만 암호화해 둡니다. 여러 사람이 함께 쓰는 PC에서는 쓰지 마세요. 코드 서명 전이라 처음 실행할 때 「Windows의 PC 보호」가 뜨면 「추가 정보 → 실행」을 누릅니다.',
     actions: [
       { label: 'Windows 설치 파일 내려받기', href: 'https://github.com/seojaehong/gov-cert-login/releases/latest' },
-      { label: '사용설명서', href: 'https://seojaehong.github.io/gov-cert-login/' },
+      { label: '사용설명서', href: '/howto/gov-login' },
       { label: '소스 코드(MIT)', href: 'https://github.com/seojaehong/gov-cert-login' },
     ],
   },

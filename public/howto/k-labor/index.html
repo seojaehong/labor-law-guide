@@ -1,0 +1,367 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>노동 업무 도구 k-labor 사용 안내 | 일의 무늬</title>
+<meta name="description" content="Claude 같은 AI에 연결해 퇴직금·주휴수당·연차 계산, 근로계약서·건강보험 신고서 작성, 취업규칙 개정 반영 점검을 대화로 하는 도구 묶음. 설치·묶음 고르기·개인정보·문제 해결.">
+<link rel="canonical" href="https://yellowenvelope.kr/howto/k-labor">
+<meta property="og:title" content="노동 업무 도구 k-labor — 대화창에서 노동 계산과 서류">
+<meta property="og:description" content="필요한 묶음만 골라 AI에 연결합니다. 사이트 계산기와 같은 엔진, 주민등록번호는 대화에 싣지 않습니다.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://yellowenvelope.kr/howto/k-labor">
+<meta property="og:image" content="https://yellowenvelope.kr/og/page?title=%EB%85%B8%EB%8F%99%20%EC%97%85%EB%AC%B4%20%EB%8F%84%EA%B5%AC%20k-labor">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect x='3' y='5' width='26' height='22' rx='6' fill='%234129A8'/%3E%3Crect x='3' y='3' width='26' height='21' rx='6' fill='%235B3FD6'/%3E%3Ccircle cx='23' cy='9' r='2.4' fill='%232BC274'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<link rel="stylesheet" href="/howto/howto.css">
+<style>
+/* 이 도구의 색 — 공통 체계에서 바꾸는 것은 이 다섯 개뿐 */
+:root{--mod:#5B3FD6;--mod-side:#4129A8;--mod-soft:#ECE8FC;--mod-line:#D3CAF7;--mod-ink:#D9D0FF}
+
+/* 묶음 고르기 판 */
+.plate.pick{grid-template-columns:repeat(3,1fr)}
+.pick button.key{min-height:74px;font-size:14px;padding-right:22px}
+.pick button.key small{display:block;font-weight:500;font-size:11.5px;color:var(--mute)}
+.pick button.key[aria-pressed="true"]{background:var(--mod);color:#fff;box-shadow:0 5px 0 var(--mod-side),0 6px 12px rgba(20,26,36,.18)}
+.pick button.key[aria-pressed="true"] small{color:var(--mod-ink)}
+.pick button.key[aria-pressed="true"] .led{background:var(--on);box-shadow:0 0 8px var(--on)}
+.pick button.key[aria-pressed="true"]:active{box-shadow:0 1px 0 var(--mod-side)}
+.pick .all{grid-column:1/-1;min-height:46px!important;flex-direction:row!important;align-items:center;justify-content:center!important;gap:8px}
+.board .count{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:13px;color:var(--mute);margin:14px 4px 0}
+.board .count b{color:var(--ink)}
+.board .warn-line{font-size:13px;color:#8A5A12;background:var(--amber-soft);border:1px solid #F2DDB2;border-radius:10px;padding:8px 12px;margin:10px 0 0}
+.board .warn-line[hidden]{display:none}
+@media (max-width:420px){.plate.pick{grid-template-columns:repeat(2,1fr)}}
+
+/* 연결 방법 두 갈래 */
+.ways .site dl{grid-template-columns:5.5em 1fr}
+
+/* 이렇게 말해 보세요 */
+.ask{position:relative;background:#fff;border:1px solid var(--line);border-radius:16px 16px 16px 4px;padding:14px 16px;font-size:15px;line-height:1.6;margin-bottom:14px}
+.alt .ask{background:#fff}
+.use .card .who{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--mute)}
+.use .card .who .key{min-height:0;min-width:0;padding:3px 9px 4px;font-size:12px;border-radius:8px;box-shadow:0 3px 0 var(--mod-side)}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap">
+    <div class="crumb"><a class="home" href="/">일의 무늬</a><span class="sep">/</span><a class="brand" href="/howto/k-labor"><i></i>노동 업무 도구</a></div>
+    <nav class="toc" aria-label="목차">
+      <a href="#ways">연결 방법</a><a href="#groups">묶음</a><a href="#install">설치</a><a href="#ask">말 거는 법</a><a href="#popbill">팩스·문자</a><a href="#privacy">개인정보</a><a href="#trouble">문제 해결</a><a href="#faq">묻는 질문</a>
+    </nav>
+    <a class="dl-mini" href="#pick-h">설치 명령</a>
+  </div>
+</header>
+
+<main>
+<section class="hero" aria-labelledby="hero-h">
+  <div class="wrap">
+    <div>
+      <span class="eyebrow"><b></b>Claude·Cursor 등 MCP 지원 AI · 무료 · 소스 공개(MIT)</span>
+      <h1 id="hero-h">대화창에서<br><em>노동 계산과 서류</em>를<br>바로 처리합니다</h1>
+      <p class="lead">AI에 연결해 쓰는 도구 묶음입니다. 퇴직금·주휴수당·연차를 계산하고, 근로계약서와 건강보험 신고서를 만들고, 취업규칙에 개정 법령이 반영됐는지 짚습니다. 일의 무늬 사이트 계산기와 같은 엔진이라 같은 입력이면 같은 값이 나옵니다.</p>
+      <div class="cta">
+        <a class="btn pri" href="#install">설치 순서 보기 <small>Node.js 20 이상</small></a>
+        <a class="btn sec" href="#ways">설치 없이 쓰기</a>
+      </div>
+      <p class="fine">입력값을 저장하지 않습니다 · 신고를 접수하지 않습니다 · 주민등록번호는 내 PC 안에서만 다룹니다</p>
+    </div>
+
+    <div class="board" aria-labelledby="pick-h">
+      <div class="bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span>&nbsp;<b id="pick-h">묶음 고르기</b> · 키를 눌러 켜고 끕니다</div>
+      <div class="plate pick" role="group" aria-label="켤 묶음">
+        <button type="button" class="key" data-g="nhis" data-n="2" data-r="0" aria-pressed="false"><span class="led"></span>건강보험 신고<small>관할 지사·신고서</small></button>
+        <button type="button" class="key" data-g="popbill" data-n="5" data-r="0" aria-pressed="false"><span class="led"></span>팩스·문자<small>내 팝빌 계정</small></button>
+        <button type="button" class="key" data-g="contract" data-n="3" data-r="2" aria-pressed="true"><span class="led"></span>근로계약서<small>설계·점검·파일</small></button>
+        <button type="button" class="key" data-g="calc" data-n="14" data-r="14" aria-pressed="true"><span class="led"></span>임금·수당<small>계산·점검 14개</small></button>
+        <button type="button" class="key" data-g="leave" data-n="3" data-r="3" aria-pressed="false"><span class="led"></span>연차<small>발생·정산·출근율</small></button>
+        <button type="button" class="key" data-g="tax" data-n="3" data-r="3" aria-pressed="false"><span class="led"></span>세금<small>퇴직·일용·중도퇴사</small></button>
+        <button type="button" class="key" data-g="duties" data-n="1" data-r="1" aria-pressed="false"><span class="led"></span>사업주 의무<small>규모별 목록</small></button>
+        <button type="button" class="key" data-g="work-rules" data-n="6" data-r="0" aria-pressed="false"><span class="led"></span>취업규칙·법령<small>법제처 실시간</small></button>
+        <button type="button" class="key" data-g="nosa" data-n="10" data-r="2" aria-pressed="false"><span class="led"></span>노사협의회<small>설치·회의·서류</small></button>
+        <button type="button" class="key mod all" data-all aria-pressed="false">전체 켜기</button>
+      </div>
+      <div class="cmd"><pre><code id="pick-cmd">claude mcp add --scope user k-labor -- npx -y k-labor mcp --groups contract,calc</code></pre><button type="button" class="copy">복사</button></div>
+      <div class="count" aria-live="polite"><span>켠 도구 <b id="pick-n">17</b>개</span><span>이 중 원격 주소에도 있는 것 <b id="pick-r">16</b>개</span></div>
+      <p class="warn-line" id="pick-law" hidden>취업규칙·법령 묶음은 법제처 이용자 ID(OC)를 넣어야 실시간 조회가 켜집니다. 명령의 <code>내OC</code>를 바꿔 넣으세요.</p>
+      <p class="warn-line" id="pick-fax" hidden>팩스·문자 묶음은 본인 팝빌 계정 값이 있어야 보냅니다. <a href="#popbill">팩스·문자 설정</a>을 보세요.</p>
+    </div>
+  </div>
+</section>
+
+<div class="facts">
+  <div class="wrap">
+    <div><b>47개</b><span>9개 묶음, 필요한 것만 켭니다</span></div>
+    <div><b>25개</b><span>설치 없이 원격 주소로</span></div>
+    <div><b>같은 값</b><span>사이트 계산기와 같은 엔진</span></div>
+    <div><b>대화에 싣지 않음</b><span>주민등록번호는 PC 안에서만</span></div>
+  </div>
+</div>
+
+<section id="ways" class="sec" aria-labelledby="ways-h">
+  <div class="wrap">
+    <div class="sec-head"><span class="no">01 · 연결 방법</span><h2 id="ways-h">내 PC에 설치하거나, 주소만 넣거나</h2><p>설치하면 전 묶음을 씁니다. 원격 주소는 설치가 필요 없지만 파일을 만들거나 보내는 도구는 빠집니다.</p></div>
+    <div class="sites ways">
+      <article class="site">
+        <header><span class="badge" style="background:var(--mod)">PC</span><div><h3>내 PC에 설치</h3><span class="host">npx -y k-labor mcp</span></div></header>
+        <dl><dt>쓰는 곳</dt><dd>Claude Code · Claude Desktop · Cursor · Windsurf</dd><dt>도구</dt><dd>9개 묶음 47개 전부</dd><dt>필요한 것</dt><dd>Node.js 20 이상</dd><dt>여기서만</dt><dd>계약서·신고서 파일 만들기, 팩스·문자, 취업규칙 파일 읽기, 법제처 실시간 조회</dd></dl>
+      </article>
+      <article class="site">
+        <header><span class="badge" style="background:var(--ink)">URL</span><div><h3>원격 주소로 연결</h3><span class="host">https://yellowenvelope.kr/api/mcp/mcp</span></div></header>
+        <dl><dt>쓰는 곳</dt><dd>claude.ai · Claude 앱의 커스텀 커넥터</dd><dt>도구</dt><dd>25개 — 근로계약서 설계·점검, 임금·수당, 연차, 세금, 사업주 의무, 노사협의회 계산</dd><dt>필요한 것</dt><dd>없음. 주소만 넣습니다</dd><dt>빠지는 것</dt><dd>파일 만들기·팩스·문자·건강보험 신고서·취업규칙 점검</dd></dl>
+      </article>
+    </div>
+  </div>
+</section>
+
+<section id="groups" class="sec alt" aria-labelledby="groups-h">
+  <div class="wrap">
+    <div class="sec-head"><span class="no">02 · 묶음</span><h2 id="groups-h">아홉 개 묶음 가운데 필요한 것만 켭니다</h2><p>아무것도 고르지 않으면 전 묶음이 켜집니다. 켠 도구가 많을수록 AI가 고를 것이 많아지니, 자주 쓰는 묶음만 켜는 편이 낫습니다.</p></div>
+    <div class="sites g3">
+      <article class="site">
+        <header><span class="badge" style="background:var(--mod)">건보</span><div><h3>건강보험 신고</h3><span class="host">--groups nhis · 도구 2개</span></div></header>
+        <p>주소나 사업자등록번호로 건강보험 관할 지사와 자격 담당 전화·팩스를 찾습니다. 자격취득·상실 신고서와 늦어진 사유를 적은 사업주확인서를 공식 서식 PDF 한 파일로 만듭니다.</p>
+        <div><span class="tag amber">내 PC에서만</span></div>
+      </article>
+      <article class="site">
+        <header><span class="badge" style="background:var(--mod)">팩스</span><div><h3>팩스·문자</h3><span class="host">--groups popbill · 도구 5개</span></div></header>
+        <p>내 팝빌 계정과 내 번호로 팩스·문자를 보내고 결과를 조회합니다. 잔액과 등록된 발신번호도 확인합니다. 실제 전송은 확인을 거친 호출에서만 합니다.</p>
+        <div><span class="tag amber">내 PC에서만</span> <span class="tag grey">팝빌 계정 필요</span></div>
+      </article>
+      <article class="site">
+        <header><span class="badge" style="background:var(--mod)">계약</span><div><h3>근로계약서</h3><span class="host">--groups contract · 도구 3개</span></div></header>
+        <p>월 총액이나 시급과 근무형태로 임금 항목을 나눠 설계하고, 이미 쓴 계약서를 항목별로 점검합니다. 엑셀·한글·PDF 파일 저장은 내 PC에서만 됩니다.</p>
+        <div><span class="tag">원격 2개</span> <span class="tag amber">파일 저장은 내 PC</span></div>
+      </article>
+      <article class="site">
+        <header><span class="badge" style="background:var(--mod)">계산</span><div><h3>임금·수당 계산</h3><span class="host">--groups calc · 도구 14개</span></div></header>
+        <p>최저임금 비교, 주휴수당, 상시 근로자 수, 실수령액, 해고예고수당, 연차수당, 퇴직금, 공휴일 근로 수당, 일할계산, 휴업수당, 통상임금 점검, 지연이자, 3.3% 계약의 근로자성, 월급 대조.</p>
+        <div><span class="tag">원격 14개 전부</span></div>
+      </article>
+      <article class="site">
+        <header><span class="badge" style="background:var(--mod)">연차</span><div><h3>연차</h3><span class="host">--groups leave · 도구 3개</span></div></header>
+        <p>입사일 기준 연차 발생일수, 퇴직할 때 입사일 기준과 회계연도 기준 중 유리한 쪽으로 남은 연차 정산, 연차 요건이 되는 출근율(1년 80%)을 셉니다.</p>
+        <div><span class="tag">원격 3개 전부</span></div>
+      </article>
+      <article class="site">
+        <header><span class="badge" style="background:var(--mod)">세금</span><div><h3>세금</h3><span class="host">--groups tax · 도구 3개</span></div></header>
+        <p>퇴직소득세·지방소득세(국세청 계산 프로그램과 같은 칸 순서), 중도퇴사자 연말정산 예상, 일용근로소득 원천징수를 계산합니다.</p>
+        <div><span class="tag">원격 3개 전부</span></div>
+      </article>
+      <article class="site">
+        <header><span class="badge" style="background:var(--mod)">의무</span><div><h3>사업주 의무</h3><span class="host">--groups duties · 도구 1개</span></div></header>
+        <p>상시 근로자 수에 맞는 사업주 의무, 법정 의무교육, 위반 시 제재를 목록으로 냅니다. 다음 규모가 되면 더 생기는 의무도 알려 줍니다.</p>
+        <div><span class="tag">원격 1개</span></div>
+      </article>
+      <article class="site">
+        <header><span class="badge" style="background:var(--mod)">규칙</span><div><h3>취업규칙·법령</h3><span class="host">--groups work-rules · 도구 6개</span></div></header>
+        <p>노동법 개정·시행 예정 목록, 그날 시행 중인 조문 원문, 두 시점 판의 조문 비교를 법제처에서 가져옵니다. 취업규칙에 그 뒤 개정이 반영됐는지 표준취업규칙 조문에 짝지어 대조하고 신고 서류를 만듭니다.</p>
+        <div><span class="tag amber">내 PC에서만</span> <span class="tag grey">법제처 OC 필요</span></div>
+      </article>
+      <article class="site">
+        <header><span class="badge" style="background:var(--mod)">노사</span><div><h3>노사협의회</h3><span class="host">--groups nosa · 도구 10개</span></div></header>
+        <p>설치의무와 근로자위원 선출방식·정족수·기한을 계산하고, 회의 하나의 통보 기한·의결을 확인합니다. 협의회규정 점검, 선거·회의 서류, 회의록 기록은 내 PC에서 파일로 만듭니다.</p>
+        <div><span class="tag">원격 2개</span> <span class="tag amber">서류·기록은 내 PC</span></div>
+      </article>
+    </div>
+  </div>
+</section>
+
+<section id="install" class="sec" aria-labelledby="install-h">
+  <div class="wrap">
+    <div class="sec-head"><span class="no">03 · 설치</span><h2 id="install-h">명령 한 줄이면 등록됩니다</h2><p>설치 파일을 따로 받지 않습니다. AI가 도구를 부를 때 npm에서 k-labor를 받아 내 PC에서 실행합니다.</p></div>
+    <div class="two">
+      <ol class="flow">
+        <li><div><h3>Node.js 20 이상 확인</h3><p>명령 창에서 아래를 실행해 <code>v20</code> 이상이 나오면 됩니다. 없으면 nodejs.org에서 LTS 판을 설치합니다.</p><div class="cmd"><pre><code>node -v</code></pre><button type="button" class="copy">복사</button></div></div></li>
+        <li><div><h3>AI에 등록</h3><p><b>Claude Code</b>는 명령 한 줄입니다. 묶음을 고르려면 맨 위 <a href="#pick-h">묶음 고르기</a>에서 만든 명령을 씁니다.</p><div class="cmd"><pre><code>claude mcp add --scope user k-labor -- npx -y k-labor mcp</code></pre><button type="button" class="copy">복사</button></div>
+          <p style="margin-top:16px"><b>Claude Desktop</b>은 설정 파일 <code>claude_desktop_config.json</code>에 넣습니다.</p><div class="cmd"><pre><code>{
+  "mcpServers": {
+    "k-labor": { "command": "npx", "args": ["-y", "k-labor", "mcp"] }
+  }
+}</code></pre><button type="button" class="copy">복사</button></div>
+          <p class="cmd-cap">Cursor·Windsurf 등도 같은 command·args를 그 프로그램의 MCP 설정에 넣습니다.</p></div></li>
+        <li><div><h3>다시 열고 말 걸기</h3><p>Claude Desktop은 껐다 켜고, Claude Code는 새 대화를 엽니다. 「k-labor 도구 목록 보여 줘」라고 하면 켜진 도구가 나옵니다.</p></div></li>
+      </ol>
+      <div>
+        <div class="note tip"><h4>설치 없이 — 원격 주소</h4><p>claude.ai에서 <b>설정 → 커넥터 → 커스텀 커넥터 추가</b>를 누르고 아래 주소를 넣습니다. 도구 25개가 붙습니다.</p><div class="cmd"><pre><code>https://yellowenvelope.kr/api/mcp/mcp</code></pre><button type="button" class="copy">복사</button></div></div>
+        <div class="note amber" style="margin-top:14px"><h4>Windows에서 Claude Desktop이 npx를 못 찾으면</h4><p><code>cmd /c</code>로 감쌉니다.</p><div class="cmd"><pre><code>{
+  "mcpServers": {
+    "k-labor": { "command": "cmd", "args": ["/c", "npx", "-y", "k-labor", "mcp"] }
+  }
+}</code></pre><button type="button" class="copy">복사</button></div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="ask" class="sec alt" aria-labelledby="ask-h">
+  <div class="wrap">
+    <div class="sec-head"><span class="no">04 · 말 거는 법</span><h2 id="ask-h">평소 말로 부탁하면 AI가 도구를 고릅니다</h2><p>도구 이름을 몰라도 됩니다. 숫자·날짜·주소처럼 계산에 필요한 값을 함께 말하면 한 번에 끝납니다.</p></div>
+    <div class="use">
+      <div class="card"><p class="ask">시급 10,320원, 주 22.5시간이면 주휴수당 얼마야?</p><div class="who"><span class="key mod">임금·수당</span>주휴수당 계산</div></div>
+      <div class="card"><p class="ask">주4 월화수목 10:00~22:00, 휴게 155분, 월 260만원으로 근로계약서 임금 구성 짜 줘.</p><div class="who"><span class="key mod">근로계약서</span>항목별 시간·금액</div></div>
+      <div class="card"><p class="ask">2014년 1월 2일 입사, 2026년 7월 15일 퇴사, 퇴직금 6,000만원이면 퇴직소득세 얼마야?</p><div class="who"><span class="key mod">세금</span>퇴직소득세·지방소득세</div></div>
+      <div class="card"><p class="ask">상시 근로자 7명 사업장이 지켜야 할 의무 알려 줘.</p><div class="who"><span class="key mod">사업주 의무</span>의무·교육·제재 목록</div></div>
+      <div class="card"><p class="ask">충북 청주시 상당구 상당로 155 사업장의 건강보험 관할 지사 팩스 번호 찾아줘.</p><div class="who"><span class="key mod">건강보험 신고</span>관할 지사·담당 번호</div></div>
+      <div class="card"><p class="ask">우리 취업규칙(C:/규정/취업규칙.hwpx) 2024-03-01 개정본인데, 그 뒤 개정 법령이 반영됐는지 봐 줘.</p><div class="who"><span class="key mod">취업규칙·법령</span>조문별 대조</div></div>
+    </div>
+  </div>
+</section>
+
+<section id="popbill" class="sec" aria-labelledby="popbill-h">
+  <div class="wrap">
+    <div class="sec-head"><span class="no">05 · 팩스·문자와 법제처</span><h2 id="popbill-h">보내는 도구는 내 계정 값을 넣어야 켜집니다</h2><p>이 패키지에는 기본 계정도 기본 발신번호도 없습니다. 값이 빠지면 무엇이 빠졌는지 알려 주고 아무것도 보내지 않습니다.</p></div>
+    <div class="two">
+      <div class="tbl-wrap">
+        <table class="tbl">
+          <thead><tr><th>이름</th><th>뜻</th></tr></thead>
+          <tbody>
+            <tr><td><code>POPBILL_LINK_ID</code></td><td>팝빌 연동 링크아이디</td></tr>
+            <tr><td><code>POPBILL_SECRET_KEY</code></td><td>팝빌 연동 비밀키</td></tr>
+            <tr><td><code>POPBILL_CORP_NUM</code></td><td>팝빌에 가입한 사업자등록번호(숫자 10자리)</td></tr>
+            <tr><td><code>POPBILL_FAX_SENDER</code></td><td>팝빌에 등록한 팩스 발신번호</td></tr>
+            <tr><td><code>POPBILL_SMS_SENDER</code></td><td>팝빌에 등록한 문자 발신번호</td></tr>
+            <tr><td><code>POPBILL_IS_TEST</code></td><td>기본은 테스트환경. 실제로 보내려면 <code>false</code></td></tr>
+            <tr><td><code>LAW_OC</code></td><td>법제처 국가법령정보 Open API 이용자 ID. 없으면 묶어 둔 자료로만 답합니다</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div>
+        <div class="note tip"><h4>넣는 곳</h4><p>Claude Desktop은 설정 파일의 <code>"env"</code> 칸에, Claude Code는 등록할 때 <code>-e 이름=값</code>으로 넣습니다.</p><div class="cmd"><pre><code>claude mcp add --scope user k-labor -e LAW_OC=내OC -- npx -y k-labor mcp --groups work-rules</code></pre><button type="button" class="copy">복사</button></div></div>
+        <div class="note amber" style="margin-top:14px"><h4>법제처 조회가 막힐 때</h4><p>법제처는 OC를 신청할 때 등록한 IP·도메인이 아니면 「사용자 정보 검증에 실패하였습니다」로 거절합니다. 해외 IP도 막습니다.</p></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="privacy" class="sec alt" aria-labelledby="privacy-h">
+  <div class="wrap">
+    <div class="sec-head"><span class="no">06 · 개인정보</span><h2 id="privacy-h">주민등록번호는 AI 대화에 실리지 않습니다</h2><p>계산·계약 도구는 주민등록번호를 받지 않습니다. 신고서처럼 꼭 필요한 곳은 명단을 파일 경로로만 받아 도구가 직접 읽습니다.</p></div>
+    <div class="vault">
+      <div class="diagram" aria-label="데이터가 머무는 곳 그림">
+        <div style="font-weight:700">내 PC 안에서만</div>
+        <div class="box"><h4>명단·서류</h4><span class="chip lock">신고서 명단 파일(peopleFile)</span><span class="chip lock">신고서 PDF</span><span class="chip lock">취업규칙 본문·파일</span><span class="chip lock">계약서 파일</span></div>
+        <div class="box out"><h4>밖으로 나가는 것은 세 가지뿐</h4><ol><li>사업자등록번호로 관할 지사를 찾을 때 그 번호만 일의 무늬로 보냅니다. 주소로 찾으면 아무것도 나가지 않습니다.</li><li>팩스·문자는 본인 팝빌 계정으로 보냅니다.</li><li>법제처에는 법령명·날짜·판 번호만 묻습니다.</li></ol></div>
+        <p style="margin:16px 0 0"><span class="x">✕</span> 입력값을 저장하거나 모으지 않습니다</p>
+      </div>
+      <div>
+        <div class="note tip"><h4>응답에서도 가립니다</h4><p>도구 응답에 주민등록번호 모양이 섞이면 나가기 전에 가립니다. 근로계약서 점검은 입력에 주민등록번호 모양이 있으면 점검하지 않습니다.</p></div>
+        <div class="note amber" style="margin-top:14px"><h4>보내기 전에 미리보기</h4><p>팩스·문자는 확인을 거친 호출에서만 실제로 나갑니다. 그 전에는 미리보기만 돌려줍니다. 문자 본문에 주민등록번호 모양이 있으면 보내지 않습니다.</p></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="trouble" class="sec" aria-labelledby="trouble-h">
+  <div class="wrap">
+    <div class="sec-head"><span class="no">07 · 문제 해결</span><h2 id="trouble-h">안 될 때 먼저 볼 것</h2></div>
+    <details class="qa"><summary>Claude Desktop에 도구가 안 보여요</summary><div class="a"><p>설정 파일을 고친 뒤 Claude Desktop을 완전히 껐다 켜야 합니다. Windows에서 npx를 못 찾는 경우가 많으니 위의 <code>cmd /c</code> 설정으로 바꿔 보세요.</p></div></details>
+    <details class="qa"><summary>서버가 뜨지 않고 묶음 목록만 나와요</summary><div class="a"><p>없는 묶음 이름을 넣은 경우입니다. 묶음 이름은 <code>nhis</code>·<code>popbill</code>·<code>contract</code>·<code>calc</code>·<code>leave</code>·<code>tax</code>·<code>duties</code>·<code>work-rules</code>·<code>nosa</code>입니다. <code>fax</code>·<code>sms</code>는 <code>popbill</code>로 받습니다.</p><div class="cmd"><pre><code>npx -y k-labor --help</code></pre><button type="button" class="copy">복사</button></div></div></details>
+    <details class="qa"><summary>Node 버전 오류가 나요</summary><div class="a"><p><code>node -v</code>가 <code>v20</code>보다 낮으면 nodejs.org에서 LTS 판으로 올립니다.</p></div></details>
+    <details class="qa"><summary>원격 주소에 파일 만들기 도구가 없어요</summary><div class="a"><p>정상입니다. 파일을 만들거나 읽거나 보내는 도구는 내 PC 설치판에만 있습니다. 근로계약서 파일, 건강보험 신고서, 취업규칙 점검이 필요하면 내 PC에 설치하세요.</p></div></details>
+    <details class="qa"><summary>팩스가 안 나가요</summary><div class="a"><p>응답에 빠진 값이 적혀 있습니다. 발신번호가 팝빌에 등록돼 있는지, <code>POPBILL_IS_TEST</code>가 기본값(테스트환경)으로 남아 있지 않은지 확인하세요.</p></div></details>
+  </div>
+</section>
+
+<section id="faq" class="sec alt" aria-labelledby="faq-h">
+  <div class="wrap">
+    <div class="two">
+      <div>
+        <div class="sec-head"><span class="no">08 · 자주 묻는 질문</span><h2 id="faq-h">묻는 질문</h2></div>
+        <details class="qa"><summary>돈이 드나요?</summary><div class="a"><p>도구는 무료이고 소스 코드도 MIT 라이선스로 공개돼 있습니다. 팩스·문자는 본인 팝빌 요금이 듭니다.</p></div></details>
+        <details class="qa"><summary>사이트 계산기와 결과가 같나요?</summary><div class="a"><p>같은 엔진을 묶었습니다. 같은 입력이면 사이트 화면과 같은 값이 나옵니다.</p></div></details>
+        <details class="qa"><summary>어떤 AI에서 되나요?</summary><div class="a"><p>MCP를 지원하는 도구에서 됩니다. Claude Code, Claude Desktop, claude.ai 커스텀 커넥터, Cursor, Windsurf 등입니다.</p></div></details>
+        <details class="qa"><summary>결과를 그대로 써도 되나요?</summary><div class="a"><p>계산과 대조의 1차 결과입니다. 취업규칙 대조는 낱말을 맞춰 본 것이고, 바꿀 문안은 법이 정한 최저 기준이라 회사 사정에 맞게 확인한 뒤 씁니다.</p></div></details>
+      </div>
+      <div>
+        <div class="sec-head"><span class="no">09 · 하지 않는 일</span><h2>이 도구가 하지 않는 일</h2></div>
+        <ul class="nots">
+          <li>4대보험·취업규칙 신고를 접수하지 않습니다. 서류를 만들고 날인이 필요한 곳을 알려 주는 데까지입니다</li>
+          <li>받을 팩스 번호를 스스로 고르지 않습니다. 사람이 확인한 번호만 씁니다</li>
+          <li>입력값을 저장하거나 모으지 않습니다</li>
+          <li>기본 팝빌 계정·기본 발신번호를 넣어 두지 않습니다</li>
+          <li>서명·날인 칸을 채우지 않습니다</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="others" aria-labelledby="others-h">
+  <div class="wrap">
+    <h2 id="others-h">일의 무늬가 만든 업무 도구</h2>
+    <ul>
+      <li><a href="/howto/gov-login"><i style="background:#2F4BD8"></i><div><b>공단 로그인</b><span>공단 사이트 네 곳에 키 하나로 로그인하는 윈도우 프로그램</span></div></a></li>
+      <li><a href="/howto/k-labor" aria-current="page"><i style="background:#5B3FD6"></i><div><b>노동 업무 도구 (k-labor)</b><span>계산·근로계약서·신고서·취업규칙 점검을 AI 대화창에서</span></div></a></li>
+      <li><a href="/gov-tools"><i style="background:#141A24"></i><div><b>공단 업무 도구 모음</b><span>관할 지사 찾기·신고서 만들기 등 웹에서 바로 쓰는 도구</span></div></a></li>
+    </ul>
+  </div>
+</section>
+
+<section class="closing" aria-labelledby="closing-h">
+  <div class="wrap">
+    <h2 id="closing-h">자주 쓰는 묶음만 골라 연결하세요</h2>
+    <p>명령 한 줄을 붙여 넣거나, claude.ai에 주소 하나를 넣으면 됩니다.</p>
+    <div class="cta">
+      <a class="btn pri" href="#pick-h">묶음 고르기</a>
+      <a class="btn sec" href="https://www.npmjs.com/package/k-labor">npm에서 보기</a>
+    </div>
+  </div>
+</section>
+</main>
+
+<footer class="foot">
+  <div class="wrap">
+    <span>노동 업무 도구 k-labor · MIT License · <a href="/">일의 무늬</a></span>
+    <span><a href="/ai-tools">AI 연결 도구 모음</a> · <a href="https://www.npmjs.com/package/k-labor">npm</a> · <a href="https://github.com/seojaehong/labor-law-guide/tree/master/tools/k-labor">소스 코드</a></span>
+  </div>
+</footer>
+
+<script src="/howto/howto.js" defer></script>
+<script>
+(function () {
+  var keys = Array.prototype.slice.call(document.querySelectorAll('.pick button[data-g]'));
+  var all = document.querySelector('.pick [data-all]');
+  var cmd = document.getElementById('pick-cmd');
+  var nEl = document.getElementById('pick-n'), rEl = document.getElementById('pick-r');
+  var law = document.getElementById('pick-law'), fax = document.getElementById('pick-fax');
+  var copyBtn = cmd.closest('.cmd').querySelector('.copy');
+  function render() {
+    var on = keys.filter(function (k) { return k.getAttribute('aria-pressed') === 'true'; });
+    var n = 0, r = 0;
+    on.forEach(function (k) { n += +k.dataset.n; r += +k.dataset.r; });
+    nEl.textContent = n; rEl.textContent = r;
+    var every = on.length === keys.length;
+    all.textContent = every ? '전체 끄기' : '전체 켜기';
+    all.setAttribute('aria-pressed', every ? 'true' : 'false');
+    var hasLaw = on.some(function (k) { return k.dataset.g === 'work-rules'; });
+    law.hidden = !hasLaw;
+    fax.hidden = !on.some(function (k) { return k.dataset.g === 'popbill'; });
+    if (!on.length) {
+      cmd.textContent = '묶음을 하나 이상 켜세요';
+      copyBtn.disabled = true;
+      return;
+    }
+    copyBtn.disabled = false;
+    var env = hasLaw ? ' -e LAW_OC=내OC' : '';
+    var groups = every ? '' : ' --groups ' + on.map(function (k) { return k.dataset.g; }).join(',');
+    cmd.textContent = 'claude mcp add --scope user k-labor' + env + ' -- npx -y k-labor mcp' + groups;
+  }
+  keys.forEach(function (k) {
+    k.addEventListener('click', function () {
+      k.setAttribute('aria-pressed', k.getAttribute('aria-pressed') === 'true' ? 'false' : 'true');
+      render();
+    });
+  });
+  all.addEventListener('click', function () {
+    var every = keys.every(function (k) { return k.getAttribute('aria-pressed') === 'true'; });
+    keys.forEach(function (k) { k.setAttribute('aria-pressed', every ? 'false' : 'true'); });
+    render();
+  });
+  render();
+})();
+</script>
+</body>
+</html>

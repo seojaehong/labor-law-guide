@@ -129,7 +129,7 @@ export const AI_TOOLS: AiTool[] = [
     },
     links: [
       { label: '공단 업무 도구 모음', href: '/gov-tools' },
-      { label: '사용설명서', href: 'https://seojaehong.github.io/gov-cert-login/' },
+      { label: '사용설명서', href: '/howto/gov-login' },
       { label: '소스 코드(MIT)', href: 'https://github.com/seojaehong/gov-cert-login' },
     ],
   },
@@ -171,6 +171,7 @@ export const AI_TOOLS: AiTool[] = [
     privacy: '사람 명단은 PC 안의 파일로만 받습니다. 도구가 그 파일을 직접 읽어 PDF 를 만들기 때문에 주민등록번호가 AI 대화에 실리지 않습니다.',
     install: { claudeCode: 'claude mcp add --scope user k-labor -- npx -y k-labor mcp --groups nhis' },
     links: [
+      { label: '사용 안내', href: '/howto/k-labor' },
       { label: 'npm', href: 'https://www.npmjs.com/package/k-labor' },
       { label: '웹에서 신고서 만들기', href: '/tools/nhis-report-form' },
       { label: '관할 지사 찾기', href: '/tools/branch-directory' },
@@ -190,6 +191,7 @@ export const AI_TOOLS: AiTool[] = [
     privacy: '주민등록번호는 받지 않습니다. 점검 입력에 주민번호 모양이 있으면 거절하고, 근로자 이름도 비워 두면 「근로자」로 씁니다.',
     install: { claudeCode: 'claude mcp add --scope user k-labor -- npx -y k-labor mcp --groups contract', remote: 'https://yellowenvelope.kr/api/mcp/mcp' },
     links: [
+      { label: '사용 안내', href: '/howto/k-labor' },
       { label: '웹에서 계약서 쓰기', href: '/tools/contract-write' },
       { label: '웹에서 계약서 점검', href: '/tools/contract-check' },
     ],
@@ -210,6 +212,7 @@ export const AI_TOOLS: AiTool[] = [
     privacy: '계산에 필요한 금액·시간·날짜만 받습니다. 이름이나 주민등록번호는 필요하지 않습니다.',
     install: { claudeCode: 'claude mcp add --scope user k-labor -- npx -y k-labor mcp --groups calc', remote: 'https://yellowenvelope.kr/api/mcp/mcp' },
     links: [
+      { label: '사용 안내', href: '/howto/k-labor' },
       { label: '웹 계산기 모음', href: '/tools' },
     ],
   },
@@ -229,6 +232,7 @@ export const AI_TOOLS: AiTool[] = [
     privacy: '날짜와 금액만 받습니다. 이름이나 주민등록번호는 필요하지 않습니다.',
     install: { claudeCode: 'claude mcp add --scope user k-labor -- npx -y k-labor mcp --groups leave,tax', remote: 'https://yellowenvelope.kr/api/mcp/mcp' },
     links: [
+      { label: '사용 안내', href: '/howto/k-labor' },
       { label: '연차 계산기', href: '/tools/leave' },
       { label: '퇴직소득세', href: '/tools/retirement-tax' },
       { label: '중도퇴사 연말정산', href: '/tools/midyear-settlement' },
@@ -249,6 +253,7 @@ export const AI_TOOLS: AiTool[] = [
     privacy: '이름과 주민등록번호 칸이 없습니다. 금액·시간·근무 조건만 받습니다.',
     install: { claudeCode: 'claude mcp add --scope user k-labor -- npx -y k-labor mcp --groups calc,duties', remote: 'https://yellowenvelope.kr/api/mcp/mcp' },
     links: [
+      { label: '사용 안내', href: '/howto/k-labor' },
       { label: '월급 대조', href: '/tools/pay-check' },
       { label: '통상임금 점검', href: '/tools/ordinary-wage-check' },
       { label: '근로자성 점검', href: '/tools/contractor-check' },
@@ -270,6 +275,7 @@ export const AI_TOOLS: AiTool[] = [
     privacy: '취업규칙 파일은 내 PC 에서 읽습니다. 법제처에는 법령 이름과 조문 번호만 보냅니다. 법제처 실시간 조회는 본인의 국가법령정보 Open API 이용자 ID(OC)를 넣어야 켜지고, 없으면 묶어 둔 자료로 답합니다.',
     install: { claudeCode: 'claude mcp add --scope user k-labor -e LAW_OC=내OC -- npx -y k-labor mcp --groups work-rules' },
     links: [
+      { label: '사용 안내', href: '/howto/k-labor' },
       { label: '노동법 개정 알림판', href: '/laws' },
     ],
   },
