@@ -22,7 +22,7 @@ import { RULES_SOURCE } from '@/lib/nosa-council/rules-template';
 import { AMEND_SUBMISSION_NOTE, checkCouncilRules } from '@/lib/nosa-council/rules-check';
 import { formHwpx, formPdf } from '@/lib/work-rules-report/render';
 import { implLabel, previousResolutionsFor } from '@/lib/nosa-council/records';
-import { looksLikeRrn, text } from '../lib/common.mjs';
+import { looksLikeRrn, text, writeNew } from '../lib/common.mjs';
 import { loadCouncilDir } from '../lib/council-dir.mjs';
 
 export const nosaTools = ['assess_labor_council', 'check_council_meeting', 'make_labor_council_forms', 'make_council_meeting_docs', 'make_council_election_docs', 'check_council_rules'];
@@ -50,8 +50,11 @@ const SEALS = {
 const READ_ONLY = { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false };
 const WRITES = { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false };
 const fail = (error, extra = {}) => text({ ok: false, error, ...extra });
+const EXISTS = '이미 있는 파일은 덮어쓰지 않습니다. fileBase 나 outDir 를 바꿔 주세요.';
+/** 쓰는 도중 같은 이름이 먼저 생겼을 때(동시 호출) — 앞 검사와 같은 거절. 이 호출이 이미 쓴 파일이 있으면 함께 알린다 */
+const clashed = (clash, files) => fail(EXISTS, { exists: [clash], ...(files.length ? { written: files.map((f) => f.path) } : {}) });
 
-/** 서류를 파일로 쓴다. 한 파일이 실패해도(예: PDF 글꼴에 없는 글자) 나머지는 쓴다 */
+/** 서류를 파일로 쓴다. 한 파일이 실패해도(예: PDF 글꼴에 없는 글자) 나머지는 쓴다. 같은 이름이 이미 생겼으면(동시 호출) 거기서 멈추고 clash 로 알린다 */
 async function writeForms(targets) {
   const font = targets.some((x) => x.f === 'pdf') ? new Uint8Array(fs.readFileSync(fontPath())) : null;
   const files = [];
@@ -59,7 +62,7 @@ async function writeForms(targets) {
   for (const t of targets) {
     try {
       const bytes = t.f === 'pdf' ? await formPdf([t.d.doc], font) : await formHwpx([t.d.doc]);
-      fs.writeFileSync(t.path, bytes);
+      if (!writeNew(t.path, bytes)) return { files, skipped, clash: t.path };
       files.push({ document: t.d.doc.title, format: t.f, path: t.path, bytes: bytes.length });
     } catch (e) {
       skipped.push({ document: t.d.doc.title, format: t.f, error: e instanceof Error ? e.message : String(e) });
@@ -337,7 +340,8 @@ export function registerNosa(server) {
       if (exists.length) return fail('이미 있는 파일은 덮어쓰지 않습니다. fileBase 나 outDir 를 바꿔 주세요.', { exists });
 
       fs.mkdirSync(a.outDir, { recursive: true });
-      const { files, skipped } = await writeForms(targets);
+      const { files, skipped, clash } = await writeForms(targets);
+      if (clash) return clashed(clash, files);
       const install = isoDate(input.installDate);
       const warnings = [
         ...assessment.warnings,
@@ -477,12 +481,13 @@ export function registerNosa(server) {
       if (exists.length) return fail('이미 있는 파일은 덮어쓰지 않습니다. fileBase 나 outDir 를 바꿔 주세요.', { exists });
 
       fs.mkdirSync(a.outDir, { recursive: true });
-      const { files, skipped } = await writeForms(targets);
+      const { files, skipped, clash } = await writeForms(targets);
+      if (clash) return clashed(clash, files);
       let record = null;
       if (jsonPath) {
         record = minutesRecord(input);
         const body = `${JSON.stringify(record, null, 2)}\n`;
-        fs.writeFileSync(jsonPath, body);
+        if (!writeNew(jsonPath, body)) return clashed(jsonPath, files);
         files.push({ document: '회의록 구조화 원본', format: 'json', path: jsonPath, bytes: Buffer.byteLength(body) });
       }
       const seal = {
@@ -575,7 +580,8 @@ export function registerNosa(server) {
       if (!targets.length) return text({ ok: false, skippedDocuments: r.skipped, warnings: r.warnings, error: '만들 서류가 없습니다.' });
 
       fs.mkdirSync(a.outDir, { recursive: true });
-      const { files, skipped } = await writeForms(targets);
+      const { files, skipped, clash } = await writeForms(targets);
+      if (clash) return clashed(clash, files);
       const made = new Set(r.made.map((d) => d.id));
       const seals = [
         ['03_입후보신청서', '입후보 신청서 — 신청인 서명'],

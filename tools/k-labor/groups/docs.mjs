@@ -8,7 +8,7 @@ import path from 'node:path';
 import { mdHwpxSummary, mdToHwpx, parseMarkdown } from '@/lib/md-hwpx';
 import { fillCells, replaceText } from '@/lib/md-hwpx/postedit';
 import { mdToHwpxWithTemplate } from '@/lib/md-hwpx/template';
-import { argsLookLikeRrn, looksLikeRrn, text } from '../lib/common.mjs';
+import { argsLookLikeRrn, looksLikeRrn, text, writeNew } from '../lib/common.mjs';
 
 export const docsTools = ['make_hwpx_from_markdown', 'edit_hwpx_text'];
 
@@ -16,17 +16,7 @@ const WRITES = { readOnlyHint: false, destructiveHint: false, idempotentHint: fa
 const fail = (error, extra = {}) => text({ ok: false, error, ...extra });
 const EXISTS_MD = '이미 있는 파일은 덮어쓰지 않습니다. fileBase 나 outDir 를 바꿔 주세요.';
 const EXISTS_EDIT = '이미 있는 파일은 덮어쓰지 않습니다. outFile 을 바꿔 주세요.';
-// 있는지 먼저 보는 것만으로는 같은 이름으로 동시에 부른 두 호출이 둘 다 통과해 한쪽이 덮인다(261120 적대 검토).
-// 마지막 쓰기를 「없을 때만 만들기(wx)」로 해 늦은 쪽은 앞 검사와 같은 거절을 받는다. 덮였는지 여부를 쓰기 한 번이 정한다
-const writeNew = (file, bytes) => {
-  try {
-    fs.writeFileSync(file, bytes, { flag: 'wx' });
-    return true;
-  } catch (e) {
-    if (e?.code === 'EEXIST') return false;
-    throw e;
-  }
-};
+// 마지막 쓰기는 공용 writeNew(없을 때만 만들기, wx) — 늦은 쪽은 앞 검사와 같은 거절을 받는다(261120 적대 검토)
 const RRN_STOP = '입력에 주민등록번호 모양의 숫자가 있어 멈췄습니다. 이 도구는 주민등록번호를 받지 않습니다.';
 const safeName = (s) => s.replace(/[\\/:*?"<>|\u0000-\u001f]/g, '_');
 const MAX_FILE = 2 * 1024 * 1024;

@@ -1,9 +1,26 @@
-// 도구 묶음이 함께 쓰는 것 — 응답 만들기, 숫자만 남기기, 자산 경로.
+// 도구 묶음이 함께 쓰는 것 — 응답 만들기, 숫자만 남기기, 자산 경로, 새 파일 쓰기.
+import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 // 묶은 뒤에는 dist/server.mjs 하나라 here = dist/ 다. 자산은 dist/assets/ 에 복사된다.
 const here = path.dirname(fileURLToPath(import.meta.url));
+
+/**
+ * 새 파일만 쓴다(flag 'wx'). 이미 있으면 쓰지 않고 false.
+ * 있는지 먼저 보는 것만으로는 같은 이름으로 동시에 부른 두 호출이 둘 다 통과해 한쪽이 덮인다(261120 적대 검토).
+ * 여러 파일을 쓰는 도구는 false 를 받으면 거기서 멈춘다 — 같은 순서로 쓰므로 첫 파일을 먼저 쓴 호출이 전부 쓰고,
+ * 늦은 호출은 아무것도 쓰지 않은 채 거절된다. 덧붙이는 기록(.jsonl)은 이것을 쓰지 않는다.
+ */
+export function writeNew(file, bytes) {
+  try {
+    fs.writeFileSync(file, bytes, { flag: 'wx' });
+    return true;
+  } catch (e) {
+    if (e?.code === 'EEXIST') return false;
+    throw e;
+  }
+}
 
 /** 서식·글꼴 경로. LLG_ROOT 를 주면 저장소의 public/ 에서, 아니면 패키지 안 dist/assets 에서 읽는다. */
 export function assetPath(name) {

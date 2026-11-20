@@ -25,7 +25,7 @@ import standardJson from '../../../public/data/laws/standard.json';
 import rulesJson from '../../../public/data/laws/rules.json';
 import laborLawsJson from '../../../scripts/laws/labor_laws.json';
 import subordinateJson from '../../../scripts/laws/subordinate_laws.json';
-import { looksLikeRrn, text } from '../lib/common.mjs';
+import { looksLikeRrn, text, writeNew } from '../lib/common.mjs';
 import { readRulesFile } from '../lib/rules-file.mjs';
 import {
   DRF_SOURCE, DrfError, articles as lawArticles, compareArticles, fetchLaw, findArticle, articleKey, latestVersion, lawInfo, normName,
@@ -679,7 +679,7 @@ export function registerWorkRules(server) {
               const blob = t.f === 'docx' ? await compareDocx({ ...sheet, widths: [2200, 5600, 5600, 2200] }) : await comparisonXlsx({ ...sheet, widths: [18, 55, 55, 22] });
               bytes = new Uint8Array(await blob.arrayBuffer());
             }
-            fs.writeFileSync(t.path, bytes);
+            if (!writeNew(t.path, bytes)) return fail('이미 있는 파일은 덮어쓰지 않습니다. fileBase 나 outDir 를 바꿔 주세요.', { exists: [t.path], ...(files.length ? { written: files.map((x) => x.path) } : {}) });
             files.push({ document: doc.title, format: t.f, path: t.path, bytes: bytes.length });
           } catch (e) {
             skipped.push({ document: doc.title, format: t.f, error: e instanceof Error ? e.message : String(e) });
