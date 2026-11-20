@@ -523,6 +523,28 @@ export function presetHeader(preset: MdPreset = 'internal'): string {
   );
 }
 
+// 렌더러가 옮기지 않는 강조·코드 기호 — 렌더된 글자에 남으면 leftovers 로 알린다(261120 적대 검토).
+// __ 는 「__글자__」 모양만 — 서식의 빈칸(______)·낱개 __ 는 원고가 일부러 쓴 글자다
+const US_EMPH = /(?<!_)__(?=[^_\s])(?:(?!__).)*?[^_\s]__(?!_)/;
+const INLINE_MARKS: [string, (t: string) => boolean][] = [
+  ['**', (t) => t.includes('**')],
+  ['__', (t) => US_EMPH.test(t)],
+  ['`', (t) => t.replace(/```/g, '').includes('`')],
+];
+
+/** 렌더러가 <hp:t> 에 싣는 글자 — mdDocXml 과 같은 길을 밟는다. 제목·서명부·그림 캡션은 글자 그대로,
+ * 본문·목록은 emphasis, 표 칸은 runs, 인용은 제목줄 stripBold·나머지 runs. 모양 번호는 버림용 header 에만 붙는다 */
+function renderedTexts(items: MdItem[], f: MdFeatures): string[] {
+  const st = new Styles(presetHeader());
+  const plain = (rs: [string, number][]) => rs.map(([t]) => t).join('');
+  return items.flatMap((x): string[] => {
+    if (x.kind === 'table') return x.rows.flat().map((c) => plain(runs(c, 7, BOLD)));
+    if (x.kind === 'body' || x.kind === 'list') return [plain(emphasis(x.text, st, f))];
+    if (x.kind === 'quote') return [QUOTE_TITLE.test(x.text) ? stripBold(x.text) : plain(runs(x.text, 7, BOLD))];
+    return [x.text];
+  });
+}
+
 /** 변환 결과 요약 — 확인용 수와 옮기지 못한 마크다운 기호(남으면 렌더러가 다루지 못한 문법이다) */
 export function mdHwpxSummary(items: MdItem[], features: MdFeatures = {}) {
   const count = (k: MdItem['kind']) => items.filter((x) => x.kind === k).length;
@@ -530,7 +552,11 @@ export function mdHwpxSummary(items: MdItem[], features: MdFeatures = {}) {
   const bold = texts.reduce((n, t) => n + runs(t, 7, BOLD).filter(([, c]) => c === BOLD).length, 0);
   // 본문의 <u> 는 S3 가 켜져 있으면 밑줄로 옮겨진다(표 칸 안 <u> 는 아직 못 옮긴다)
   const uTexts = features.underline ? items.flatMap((x) => (x.kind === 'body' || x.kind === 'list' ? [] : x.kind === 'table' ? x.rows.flat() : [x.text])) : texts;
-  const leftovers = ['](', '<u>', '~~', '```', '> '].filter((k) => (k === '<u>' ? uTexts : texts).some((t) => stripBold(t).includes(k)));
+  const shown = renderedTexts(items, features);
+  const leftovers = [
+    ...['](', '<u>', '~~', '```', '> '].filter((k) => (k === '<u>' ? uTexts : texts).some((t) => stripBold(t).includes(k))),
+    ...INLINE_MARKS.filter(([, hit]) => shown.some(hit)).map(([k]) => k),
+  ];
   return {
     headings: count('h1') + count('h2') + count('h3') + count('h4'),
     paragraphs: count('body') + count('list'),

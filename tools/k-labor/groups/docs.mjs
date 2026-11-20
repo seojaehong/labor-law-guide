@@ -14,6 +14,19 @@ export const docsTools = ['make_hwpx_from_markdown', 'edit_hwpx_text'];
 
 const WRITES = { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false };
 const fail = (error, extra = {}) => text({ ok: false, error, ...extra });
+const EXISTS_MD = '이미 있는 파일은 덮어쓰지 않습니다. fileBase 나 outDir 를 바꿔 주세요.';
+const EXISTS_EDIT = '이미 있는 파일은 덮어쓰지 않습니다. outFile 을 바꿔 주세요.';
+// 있는지 먼저 보는 것만으로는 같은 이름으로 동시에 부른 두 호출이 둘 다 통과해 한쪽이 덮인다(261120 적대 검토).
+// 마지막 쓰기를 「없을 때만 만들기(wx)」로 해 늦은 쪽은 앞 검사와 같은 거절을 받는다. 덮였는지 여부를 쓰기 한 번이 정한다
+const writeNew = (file, bytes) => {
+  try {
+    fs.writeFileSync(file, bytes, { flag: 'wx' });
+    return true;
+  } catch (e) {
+    if (e?.code === 'EEXIST') return false;
+    throw e;
+  }
+};
 const RRN_STOP = '입력에 주민등록번호 모양의 숫자가 있어 멈췄습니다. 이 도구는 주민등록번호를 받지 않습니다.';
 const safeName = (s) => s.replace(/[\\/:*?"<>|\u0000-\u001f]/g, '_');
 const MAX_FILE = 2 * 1024 * 1024;
@@ -81,7 +94,7 @@ export function registerDocs(server) {
         (a.fileBase ?? '').trim() || (h1 && 'text' in h1 ? h1.text : '') || (a.markdownFile ? path.basename(a.markdownFile, path.extname(a.markdownFile)) : '') || '문서',
       );
       const out = path.join(a.outDir, `${base}.hwpx`);
-      if (fs.existsSync(out)) return fail('이미 있는 파일은 덮어쓰지 않습니다. fileBase 나 outDir 를 바꿔 주세요.', { exists: out });
+      if (fs.existsSync(out)) return fail(EXISTS_MD, { exists: out });
       const images = {};
       for (const x of items) {
         if (x.kind !== 'image') continue;
@@ -100,7 +113,7 @@ export function registerDocs(server) {
         return fail(e instanceof Error ? e.message : String(e));
       }
       fs.mkdirSync(a.outDir, { recursive: true });
-      fs.writeFileSync(out, bytes);
+      if (!writeNew(out, bytes)) return fail(EXISTS_MD, { exists: out });
       const summary = mdHwpxSummary(items, a.features);
       return text({
         ok: true,
@@ -137,14 +150,14 @@ export function registerDocs(server) {
       if (!a.edits?.length && !a.fills?.length) return fail('edits 나 fills 중 하나를 주세요.');
       const out = (a.outFile ?? '').trim() || src.replace(/\.hwpx$/i, '_수정.hwpx');
       if (path.resolve(out) === path.resolve(src)) return fail('원본 파일에는 쓰지 않습니다. outFile 을 바꿔 주세요.');
-      if (fs.existsSync(out)) return fail('이미 있는 파일은 덮어쓰지 않습니다. outFile 을 바꿔 주세요.', { exists: out });
+      if (fs.existsSync(out)) return fail(EXISTS_EDIT, { exists: out });
       try {
         let bytes = new Uint8Array(fs.readFileSync(src));
         let preview = [];
         if (a.edits?.length) ({ bytes, preview } = await replaceText(bytes, a.edits));
         if (a.fills?.length) bytes = await fillCells(bytes, a.fills);
         fs.mkdirSync(path.dirname(out), { recursive: true });
-        fs.writeFileSync(out, bytes);
+        if (!writeNew(out, bytes)) return fail(EXISTS_EDIT, { exists: out });
         return text({ ok: true, file: { path: out, bytes: bytes.length }, edits: preview, fills: a.fills?.length ?? 0, notice: '서식(header)은 그대로입니다. 한글에서 열어 고치기 전후 쪽마다 첫 줄과 끝 줄을 대조해 주세요.' });
       } catch (e) {
         return fail(e instanceof Error ? e.message : String(e));

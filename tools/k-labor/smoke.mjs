@@ -869,6 +869,41 @@ if (!/\.cmd$/i.test(target)) {
   check('call — 입력 검사 실패도 종료 코드 1', run().status === 1);
   check('call — 없는 도구는 종료 코드 1', run('no_such_tool').status === 1);
   check('call — 인자 파일이 없으면 종료 코드 2', spawnSync(process.execPath, [target, 'call', 'check_min_wage', path.join(dir, '없음.json')], { encoding: 'utf8' }).status === 2);
+  // JSON 이 아닌 인자 파일 — 파서 오류문은 파일 내용 조각을 싣는다(261120 적대 검토). 경로·위치·종류만 알리고 내용은 내보내지 않는다
+  const MARK = 'SYNTHMARK7Q';
+  fs.writeFileSync(argf, `${MARK} {`);
+  const bad = run();
+  check('call — JSON 이 아닌 인자 파일: 종료 코드 2 · 경로는 알리고 내용 조각은 싣지 않음', bad.status === 2 && bad.stderr.includes(argf) && !bad.stderr.includes(MARK) && !bad.stdout.includes(MARK));
+  fs.writeFileSync(argf, `{"note": "${MARK}" oops}`);
+  const bad2 = run();
+  check('call — JSON 중간 오류: 위치만 알리고 내용 조각은 싣지 않음', bad2.status === 2 && /위치 \d+/.test(bad2.stderr) && !bad2.stderr.includes(MARK) && !bad2.stdout.includes(MARK));
+  fs.writeFileSync(argf, String.fromCharCode(0xfeff) + JSON.stringify({ unit: 'hour', amount: 20000, year: 2026 }));
+  check('call — BOM 이 붙은 인자 파일도 읽는다', run().status === 0);
+}
+
+// 빌드 출처 — server.mjs 옆 build-info.json(빌드 커밋·잠금파일·server.mjs 해시)과 --version 둘째 줄. .cmd 설치본 시험에서는 건너뛴다
+if (!/\.cmd$/i.test(target)) {
+  const { spawnSync } = await import('node:child_process');
+  const { createHash } = await import('node:crypto');
+  const sha = (b) => createHash('sha256').update(b).digest('hex');
+  let info = null;
+  try {
+    info = JSON.parse(fs.readFileSync(path.join(path.dirname(target), 'build-info.json'), 'utf8'));
+  } catch { /* 없음 */ }
+  const v = spawnSync(process.execPath, [target, '--version'], { encoding: 'utf8' });
+  const [v1 = '', v2 = ''] = v.stdout.trim().split(/\r?\n/);
+  const KEYS = ['builtAt', 'commit', 'dirty', 'lockfileSha256', 'node', 'serverSha256', 'version'];
+  check('build-info.json 이 server.mjs 옆에 있고 칸이 7개', !!info && JSON.stringify(Object.keys(info).sort()) === JSON.stringify(KEYS));
+  check(`build-info version(${info?.version}) = --version 첫 줄(${v1}) · node(${info?.node}) · builtAt(${info?.builtAt})`,
+    info?.version === v1 && /^\d+\.\d+\.\d+$/.test(v1) && /^v\d+\./.test(info?.node ?? '') && !Number.isNaN(Date.parse(info?.builtAt ?? '')));
+  check('build-info serverSha256 = 지금 server.mjs 의 sha256', info?.serverSha256 === sha(fs.readFileSync(target)));
+  check(`build-info 모양 — lockfileSha256(${String(info?.lockfileSha256).slice(0, 12)}) · commit(${String(info?.commit).slice(0, 12)}) · dirty(${info?.dirty})`,
+    /^[0-9a-f]{64}$/.test(info?.lockfileSha256 ?? '') && (info?.commit === null || /^[0-9a-f]{40}$/.test(info?.commit ?? '')) && (info?.dirty === null || typeof info?.dirty === 'boolean'));
+  check('--version 첫 줄 = 맨 버전, 둘째 줄 = 커밋·server 해시 앞 12자·빌드 시각', v.status === 0 && !!info && v2.includes(info.serverSha256.slice(0, 12)) && v2.includes(info.builtAt)
+    && (info.commit === null || v2.includes(info.commit.slice(0, 12))));
+  const pkgDir = path.dirname(path.dirname(target));
+  const strays = fs.readdirSync(pkgDir).filter((n) => /^\.?dist[.-](tmp|old)/.test(n));
+  check(`빌드 임시·이전 폴더가 남지 않음${strays.length ? ` (${strays.join(', ')})` : ''}`, strays.length === 0);
 }
 
 await c.close();

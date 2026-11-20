@@ -3,6 +3,9 @@
 //   npx -y k-labor mcp --groups nhis      → 일부 묶음만 (환경변수 LLG_MCP_GROUPS=nhis,popbill 도 같다)
 // 인자가 없으면 mcp 로 본다(node dist/server.mjs 로 등록한 경우).
 // ★ 주민번호는 이 PC 안에서만 PDF 로 만들어진다. 도구 응답에는 싣지 않는다(lib/common.mjs 의 text 가 가린다).
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { registerNhis, nhisTools } from './groups/nhis.mjs';
@@ -66,7 +69,16 @@ for (let i = 0; i < argv.length; i++) {
   else { console.error(`알 수 없는 인자: ${a}\n\n${usage()}`); process.exit(2); }
 }
 if (cmd === 'help') { console.log(usage()); process.exit(0); }
-if (cmd === 'version') { console.log(VERSION); process.exit(0); }
+// 첫 줄은 맨 버전 그대로(이 줄을 읽는 쪽이 있다). 묶은 판이면 옆의 build-info.json(build.mjs 가 쓴다)으로 어느 커밋·어느 파일인지 한 줄 더
+if (cmd === 'version') {
+  console.log(VERSION);
+  try {
+    const b = JSON.parse(fs.readFileSync(path.join(path.dirname(fileURLToPath(import.meta.url)), 'build-info.json'), 'utf8'));
+    const commit = b.commit ? `${b.commit.slice(0, 12)}${b.dirty ? '+dirty' : ''}` : 'unknown';
+    console.log(`commit ${commit} · server ${String(b.serverSha256 ?? '').slice(0, 12)} · built ${b.builtAt}`);
+  } catch { /* 저장소에서 바로 돌리면 build-info 가 없다 */ }
+  process.exit(0);
+}
 
 const wanted = groupsArg.trim()
   ? [...new Set(groupsArg.split(',').map((s) => s.trim().toLowerCase()).filter(Boolean).map((s) => ALIAS[s] || s))]
@@ -85,12 +97,24 @@ for (const g of wanted) GROUPS[g].register(server);
 // 결과 = 도구 응답 글자를 그대로 stdout 에, 도구가 실패(isError)면 종료 코드 1.
 if (cmd === 'call') {
   if (!callTool || !callArgsFile) { console.error(`사용: k-labor call <도구이름> <인자.json>\n\n${usage()}`); process.exit(2); }
-  const fsm = await import('node:fs');
+  // 인자 파일에는 고객 자료가 들어 있을 수 있다. JSON 파서 오류문은 파일 내용 조각을 싣는다(「Unexpected token 'x', "…" is not valid JSON」)
+  // → 오류문은 내보내지 않고 경로·종류·위치(숫자)만 알린다(261120 적대 검토)
+  let raw;
+  try {
+    raw = fs.readFileSync(callArgsFile, 'utf8');
+  } catch (e) {
+    console.error(`인자 파일을 읽지 못했습니다: ${callArgsFile} (${e?.code || 'read error'})`);
+    process.exit(2);
+  }
   let args;
   try {
-    args = JSON.parse(fsm.readFileSync(callArgsFile, 'utf8').replace(/^﻿/, ''));
+    args = JSON.parse(raw.charCodeAt(0) === 0xfeff ? raw.slice(1) : raw); // 앞의 BOM 은 뗀다
   } catch (e) {
-    console.error(`인자 파일을 읽지 못했습니다: ${callArgsFile} — ${e instanceof Error ? e.message : e}`);
+    const msg = e instanceof Error ? e.message : '';
+    const pos = /\bposition (\d+)/.exec(msg)?.[1];
+    const lc = /\bline (\d+) column (\d+)/.exec(msg);
+    const where = pos ? ` 위치 ${pos}${lc ? `(${lc[1]}줄 ${lc[2]}칸)` : ''}` : '';
+    console.error(`인자 파일이 JSON 형식이 아닙니다: ${callArgsFile} (${e?.name || 'SyntaxError'}${where})`);
     process.exit(2);
   }
   const { Client } = await import('@modelcontextprotocol/sdk/client/index.js');
