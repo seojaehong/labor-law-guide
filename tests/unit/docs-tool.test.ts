@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import JSZip from 'jszip';
 import { bannedHits } from '@/lib/tool-kit/banned';
 import { registerDocs } from '../../tools/k-labor/groups/docs.mjs';
 
@@ -67,6 +68,9 @@ describe('docs 묶음', () => {
       // 줄인 파일 해시(16진)는 숫자 13자리가 이어져도 주민번호가 아니다(261119 루브릭 — 검수 기록 원고)
       const hash = await call({ markdown: '해시 a1234567b1d1234f / b9001011234568e9 · xlsx', preset: 'internal', outDir: dir, fileBase: 'hash' });
       expect(hash.ok).toBe(true);
+      // 261120 — 14자리 접수번호(합성)·법령 판 번호(6자리-시행일)는 주민번호가 아니다. 숫자 경계·생년월일로 거른다
+      const receipt = await call({ markdown: '접수번호 90010112345678 · 판 000130-20261127', preset: 'internal', outDir: dir, fileBase: 'receipt' });
+      expect(receipt.ok).toBe(true);
     } finally {
       fs.rmSync(dir, { recursive: true, force: true });
     }
@@ -88,6 +92,56 @@ describe('docs 묶음', () => {
       expect(fs.existsSync(path.join(dir, 'b.hwpx'))).toBe(false);
       expect((await callEdit({ file: src, edits: [{ old: 'a', new: 'b' }], outFile: src })).ok).toBe(false);
       expect(bannedHits(JSON.stringify(r), WORDS)).toEqual([]);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});
+
+// 261120 적대 검토 — 있는지 먼저 보고 나중에 쓰면, 같은 이름으로 동시에 부른 두 호출이 둘 다 ok 를 받고 한쪽 문서가 조용히 덮인다
+describe('docs 묶음 — 같은 파일에 동시에 쓰기', () => {
+  const sectionOf = async (file: string) => (await JSZip.loadAsync(fs.readFileSync(file))).file('Contents/section0.xml')!.async('string');
+
+  it('make_hwpx_from_markdown: 같은 outDir·fileBase 로 동시에 두 번 부르면 하나만 쓰고 이긴 쪽 내용이 그대로 남는다', async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'md-hwpx-'));
+    try {
+      const args = (k: string) => ({ markdown: `# 합성 동시 원고\n\n동시 원고 ${k}-표지 문장.`, preset: 'internal', outDir: dir, fileBase: '같은 이름' });
+      const rs = await Promise.all(['가', '나'].map((k) => call(args(k))));
+      const won = rs.filter((r) => r.ok);
+      expect(won).toHaveLength(1);
+      const lost = rs.find((r) => !r.ok);
+      const pre = await call(args('다'));
+      expect(lost).toEqual(pre);
+      expect(lost.exists).toBe(path.join(dir, '같은 이름.hwpx'));
+      const mine = rs.indexOf(won[0]) === 0 ? '가' : '나';
+      const sec = await sectionOf(won[0].file.path);
+      expect(sec).toContain(`동시 원고 ${mine}-표지`);
+      expect(sec).not.toContain(`동시 원고 ${mine === '가' ? '나' : '가'}-표지`);
+      expect(fs.statSync(won[0].file.path).size).toBe(won[0].file.bytes);
+      expect(fs.readdirSync(dir)).toEqual(['같은 이름.hwpx']);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('edit_hwpx_text: 같은 outFile 로 동시에 두 번 고치면 하나만 쓰고 이긴 쪽 내용이 그대로 남는다', async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'md-hwpx-'));
+    try {
+      const made = await call({ markdown: '# 합성 원본\n\n고칠 낱말이 하나 있다.', preset: 'internal', outDir: dir });
+      const out = path.join(dir, '동시 수정.hwpx');
+      const args = (n: string) => ({ file: made.file.path, edits: [{ old: '고칠 낱말', new: n }], outFile: out });
+      const rs = await Promise.all(['고친 가', '고친 나'].map((n) => callEdit(args(n))));
+      const won = rs.filter((r) => r.ok);
+      expect(won).toHaveLength(1);
+      const lost = rs.find((r) => !r.ok);
+      const pre = await callEdit(args('고친 다'));
+      expect(lost).toEqual(pre);
+      expect(lost.exists).toBe(out);
+      const mine = won[0].edits[0].new;
+      const sec = await sectionOf(out);
+      expect(sec).toContain(mine);
+      expect(sec).not.toContain(mine === '고친 가' ? '고친 나' : '고친 가');
+      expect(fs.statSync(out).size).toBe(won[0].file.bytes);
     } finally {
       fs.rmSync(dir, { recursive: true, force: true });
     }

@@ -1,7 +1,7 @@
 // md → 한글(hwpx) 변환 — 로컬 스킬 generate_hwpx.py 와 같은 규칙인지 본다(견본은 모두 합성).
 import { describe, expect, it } from 'vitest';
 import JSZip from 'jszip';
-import { mdSectionXml, mdToHwpx, parseMarkdown, presetHeader } from '@/lib/md-hwpx';
+import { mdHwpxSummary, mdSectionXml, mdToHwpx, parseMarkdown, presetHeader, type MdFeatures } from '@/lib/md-hwpx';
 import { HEADER_XML } from '@/lib/contract-write/hwpx-header';
 
 const paras = (xml: string) => [...xml.matchAll(/<hp:p [^>]*paraPrIDRef="(\d+)"[^>]*pageBreak="(\d)"[^>]*>([\s\S]*?)<\/hp:p>/g)];
@@ -163,5 +163,55 @@ describe('실제 원고 루브릭에서 찾은 것(261119)', () => {
   it('짝이 없는 ** 는 건드리지 않는다(다음 줄에 닫는 짝이 없거나 코드 안)', () => {
     expect(parseMarkdown('제외 목록에 `**` 를 더했다\n다음 줄')[0]).toEqual({ kind: 'body', text: '  제외 목록에 `**` 를 더했다' });
     expect(parseMarkdown('별표 ** 하나\n\n다른 문단 ** 하나').map((x) => ('text' in x ? x.text : ''))).toEqual(['  별표 ** 하나', '  다른 문단 ** 하나']);
+  });
+});
+
+// 261120 적대 검토 — 닫히지 않은 ** 가 section0.xml 에 글자로 남는데 leftovers 는 [] 였다.
+// leftovers 는 렌더된 글자(<hp:t>)에 남는 기호를 알려야 한다. 출력 바이트는 그대로다(골든 시험이 지킨다).
+describe('leftovers — 렌더된 글자에 남는 강조·코드 기호', () => {
+  const shown = (md: string, features: MdFeatures = {}) =>
+    [...mdSectionXml(parseMarkdown(md, { features }), { features }).matchAll(/<hp:t>([^<]*)<\/hp:t>/g)].map((m) => m[1]).join('\n');
+  const left = (md: string, features: MdFeatures = {}) => mdHwpxSummary(parseMarkdown(md, { features }), features).leftovers;
+  const US_EMPH = /(?<!_)__(?=[^_\s])(?:(?!__).)*?[^_\s]__(?!_)/;
+
+  it('닫히지 않은 ** 한 줄 — 파일에 글자로 남고 leftovers 에 「**」 가 있다', async () => {
+    const md = '본문에 **닫히지 않은 강조가 있다.';
+    const sec = await (await JSZip.loadAsync(await mdToHwpx(md))).file('Contents/section0.xml')!.async('string');
+    expect(sec).toContain('**닫히지 않은 강조');
+    expect(left(md)).toContain('**');
+  });
+
+  it('짝 맞은 ** 는 굵게로 옮겨져 보고하지 않는다', () => {
+    expect(left('본문 **굵게** 끝.')).not.toContain('**');
+  });
+
+  it('제목·표 칸의 닫히지 않은 ** 도 보고한다(제목은 글자 그대로 싣는다)', () => {
+    expect(left('## 둘째 **열린 제목')).toContain('**');
+    expect(left('| 가 | 나 |\n|---|---|\n| **열림 | 끝 |')).toContain('**');
+  });
+
+  it('`코드` 백틱과 __강조__ 는 글자로 남아 보고한다 · 서명 빈칸 ______ 는 보고하지 않는다', () => {
+    expect(left('변수 `name` 을 쓴다.')).toContain('`');
+    expect(left('밑줄 __강조__ 표시.')).toContain('__');
+    expect(left('성명: ______ (인)')).toEqual([]);
+    expect(left('밑줄 ___ 세 개와 __ 하나')).toEqual([]);
+  });
+
+  it.each([
+    ['닫히지 않은 본문', '본문에 **닫히지 않은 강조가 있다.', {}],
+    ['짝 맞은 본문', '본문 **굵게** 와 대법원 2017. 12. 22. 선고 2016다202947 판결.', {}],
+    ['제목', '# 합성\n\n## 둘째 **열린 제목\n\n본문.', {}],
+    ['표 칸', '| 가 | 나 |\n|---|---|\n| **열림 | `x` |', {}],
+    ['서명 빈칸', '성명: ______ (인)', {}],
+    ['밑줄 강조', '밑줄 __강조__ 표시.', {}],
+    ['S3 밑줄 경계를 넘는 **', '문장 **앞 <u>밑줄</u> 뒤** 끝.', { underline: true }],
+    ['S3 줄 전체 **', '- **줄 전체 강조**', { underline: true }],
+    ['S4 인용', '> [관련 판결] **열린 인용 제목\n> 인용 **굵게** 문장', { quote: true }],
+  ] as [string, string, MdFeatures][])('기호가 leftovers 에 있다 ⇔ section0 글자에 남아 있다: %s', (_, md, features) => {
+    const t = shown(md, features);
+    const l = left(md, features);
+    expect(l.includes('**')).toBe(t.includes('**'));
+    expect(l.includes('`')).toBe(t.replace(/```/g, '').includes('`'));
+    expect(l.includes('__')).toBe(US_EMPH.test(t));
   });
 });

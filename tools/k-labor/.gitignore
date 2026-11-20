@@ -1,2 +1,5 @@
 node_modules/
 dist/
+# build.mjs 가 빌드 중에 잠깐 만드는 임시·옛 폴더(끝나면 지운다)
+dist.tmp-*/
+dist.old-*/
