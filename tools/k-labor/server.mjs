@@ -3,6 +3,9 @@
 //   npx -y k-labor mcp --groups nhis      → 일부 묶음만 (환경변수 LLG_MCP_GROUPS=nhis,popbill 도 같다)
 // 인자가 없으면 mcp 로 본다(node dist/server.mjs 로 등록한 경우).
 // ★ 주민번호는 이 PC 안에서만 PDF 로 만들어진다. 도구 응답에는 싣지 않는다(lib/common.mjs 의 text 가 가린다).
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { registerNhis, nhisTools } from './groups/nhis.mjs';
@@ -15,6 +18,7 @@ import { registerTax, taxTools } from './groups/tax.mjs';
 import { registerDuties, dutiesTools } from './groups/duties.mjs';
 import { registerNosa, nosaTools } from './groups/nosa.mjs';
 import { registerNosaRecords, nosaRecordsTools } from './groups/nosa-records.mjs';
+import { registerDocs, docsTools } from './groups/docs.mjs';
 
 const VERSION = '0.2.0';
 
@@ -30,6 +34,8 @@ const GROUPS = {
   'work-rules': { register: registerWorkRules, tools: workRulesTools, about: '노동법 개정 목록 · 법령 조문 원문·두 시점 비교(법제처 Open API, LAW_OC) · 취업규칙 개정 반영 점검(글자·파일) · 신고·변경신고 서류(파일은 로컬 전용)' },
   // 기록 묶음(nosa-records)은 원격판에 싣지 않는다 — stdio 판의 nosa 묶음으로만 켠다
   nosa: { register: (s) => { registerNosa(s); registerNosaRecords(s); }, tools: [...nosaTools, ...nosaRecordsTools], about: '노사협의회 설치의무 · 근로자위원 선출방식 · 선출·회의 정족수 · 소집·신고·고충 기한 · 일정 역산 · 회의 확인(통보 기한·정기회의 3개월·안건별 의결·보고사항·공지 기한) · 협의회규정 견본과 설치·신고 서류 · 회의 서류(소집 통보서·회의자료·회의록·의결사항 공지) · 근로자위원 선거 서류 · 회의록 보관함(이행·회의록 이력, 옵시디언 보관함·회의록 대장, 옛 회의록 가져오기) · 협의회규정 신·구조문대비표' },
+  // 문서 묶음(docs)도 파일을 쓰므로 원격판에 싣지 않는다
+  docs: { register: registerDocs, tools: docsTools, about: '마크다운 원고 → 한글(hwpx) 파일(프리셋 internal·tribunal, 파일은 로컬 전용)' },
 };
 const ALIAS = { fax: 'popbill', sms: 'popbill', rules: 'work-rules', 'work_rules': 'work-rules', council: 'nosa' };
 
@@ -63,7 +69,16 @@ for (let i = 0; i < argv.length; i++) {
   else { console.error(`알 수 없는 인자: ${a}\n\n${usage()}`); process.exit(2); }
 }
 if (cmd === 'help') { console.log(usage()); process.exit(0); }
-if (cmd === 'version') { console.log(VERSION); process.exit(0); }
+// 첫 줄은 맨 버전 그대로(이 줄을 읽는 쪽이 있다). 묶은 판이면 옆의 build-info.json(build.mjs 가 쓴다)으로 어느 커밋·어느 파일인지 한 줄 더
+if (cmd === 'version') {
+  console.log(VERSION);
+  try {
+    const b = JSON.parse(fs.readFileSync(path.join(path.dirname(fileURLToPath(import.meta.url)), 'build-info.json'), 'utf8'));
+    const commit = b.commit ? `${b.commit.slice(0, 12)}${b.dirty ? '+dirty' : ''}` : 'unknown';
+    console.log(`commit ${commit} · server ${String(b.serverSha256 ?? '').slice(0, 12)} · built ${b.builtAt}`);
+  } catch { /* 저장소에서 바로 돌리면 build-info 가 없다 */ }
+  process.exit(0);
+}
 
 const wanted = groupsArg.trim()
   ? [...new Set(groupsArg.split(',').map((s) => s.trim().toLowerCase()).filter(Boolean).map((s) => ALIAS[s] || s))]
@@ -82,12 +97,24 @@ for (const g of wanted) GROUPS[g].register(server);
 // 결과 = 도구 응답 글자를 그대로 stdout 에, 도구가 실패(isError)면 종료 코드 1.
 if (cmd === 'call') {
   if (!callTool || !callArgsFile) { console.error(`사용: k-labor call <도구이름> <인자.json>\n\n${usage()}`); process.exit(2); }
-  const fsm = await import('node:fs');
+  // 인자 파일에는 고객 자료가 들어 있을 수 있다. JSON 파서 오류문은 파일 내용 조각을 싣는다(「Unexpected token 'x', "…" is not valid JSON」)
+  // → 오류문은 내보내지 않고 경로·종류·위치(숫자)만 알린다(261120 적대 검토)
+  let raw;
+  try {
+    raw = fs.readFileSync(callArgsFile, 'utf8');
+  } catch (e) {
+    console.error(`인자 파일을 읽지 못했습니다: ${callArgsFile} (${e?.code || 'read error'})`);
+    process.exit(2);
+  }
   let args;
   try {
-    args = JSON.parse(fsm.readFileSync(callArgsFile, 'utf8').replace(/^﻿/, ''));
+    args = JSON.parse(raw.charCodeAt(0) === 0xfeff ? raw.slice(1) : raw); // 앞의 BOM 은 뗀다
   } catch (e) {
-    console.error(`인자 파일을 읽지 못했습니다: ${callArgsFile} — ${e instanceof Error ? e.message : e}`);
+    const msg = e instanceof Error ? e.message : '';
+    const pos = /\bposition (\d+)/.exec(msg)?.[1];
+    const lc = /\bline (\d+) column (\d+)/.exec(msg);
+    const where = pos ? ` 위치 ${pos}${lc ? `(${lc[1]}줄 ${lc[2]}칸)` : ''}` : '';
+    console.error(`인자 파일이 JSON 형식이 아닙니다: ${callArgsFile} (${e?.name || 'SyntaxError'}${where})`);
     process.exit(2);
   }
   const { Client } = await import('@modelcontextprotocol/sdk/client/index.js');

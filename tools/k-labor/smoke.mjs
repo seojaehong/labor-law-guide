@@ -157,6 +157,10 @@ const ANN = {
   export_council_vault: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
   import_council_minutes: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
   make_council_rules_comparison: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
+  // md → hwpx 파일 쓰기(덮어쓰지 않으므로 다시 불러도 결과가 같지 않다)
+  make_hwpx_from_markdown: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
+  // 새 파일로 쓰고 원본·있는 파일은 건드리지 않는다
+  edit_hwpx_text: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
 };
 // 커넥터 디렉터리 심사 — 빠진 도구 없이 전부 title 과 네 칸이 있다
 {
@@ -166,7 +170,7 @@ const ANN = {
 }
 // 이 판에서 더한 도구 8개 + 사이트 도구 7개(groups/more) — 「대신·대행·대리」도 함께 막는다
 const NOSA_TOOLS = ['assess_labor_council', 'check_council_meeting', 'make_labor_council_forms', 'make_council_meeting_docs', 'make_council_election_docs', 'check_council_rules', 'record_council_history', 'export_council_vault', 'import_council_minutes', 'make_council_rules_comparison'];
-const NEW_TOOLS = ['calc_severance', 'calc_holiday_pay', 'calc_pay_proration', 'calc_shutdown_allowance', 'calc_annual_leave', 'settle_leave_on_exit', 'calc_retirement_tax', 'list_employer_duties', ...MORE_TOOLS, ...NOSA_TOOLS];
+const NEW_TOOLS = ['calc_severance', 'calc_holiday_pay', 'calc_pay_proration', 'calc_shutdown_allowance', 'calc_annual_leave', 'settle_leave_on_exit', 'calc_retirement_tax', 'list_employer_duties', ...MORE_TOOLS, ...NOSA_TOOLS, 'make_hwpx_from_markdown', 'edit_hwpx_text'];
 const NEW_WORDS = [...WORDS, '대신', '대행', '대리'];
 const bannedNew = (s) => (banned ? banned.bannedHits(s, NEW_WORDS) : []);
 for (const n of NEW_TOOLS) check(`${n}: 도구 목록에 있음`, tools.includes(n));
@@ -515,6 +519,30 @@ if (tools.includes('check_council_rules')) {
   }
 }
 
+// ── docs 묶음 ── 합성 원고 → hwpx(파일 쓰기 · 같은 이름은 거절)
+if (tools.includes('make_hwpx_from_markdown')) {
+  const MDX = '# 가상 검토 메모\n\n## Ⅰ. 개요\n\n본문 **굵게** 대법원 2017. 12. 22. 선고 2016다202947 판결.\n\n| 구분 | 금액 |\n|:---:|---:|\n| 기본급 | 2,000,000 |\n\n2026. 11. 19.\n\n가상상사\n';
+  const dir = path.join(tmp, 'docs-md');
+  const mh = await callNew('make_hwpx_from_markdown', { markdown: MDX, preset: 'tribunal', outDir: dir });
+  check(`docs md→hwpx ${mh.file?.bytes}B (제목 ${mh.headings}·표 ${mh.tables}·굵게 ${mh.boldRuns}·서명부 ${mh.signatureLines})`, mh.ok && fs.existsSync(mh.file.path)
+    && mh.headings === 2 && mh.tables === 1 && mh.boldRuns === 2 && mh.signatureLines === 2 && mh.leftovers?.length === 0);
+  const again = await callNew('make_hwpx_from_markdown', { markdown: MDX, preset: 'tribunal', outDir: dir });
+  check('docs 같은 이름은 덮어쓰지 않음', again.ok === false && again.exists === mh.file.path);
+  // 편집 기술 선택값을 모두 켠 판(합성 원고) — 남은 기호 없음
+  const MDF = '# 가상 선택값 문서\n\n○ 기호 문단에 **문장 안 강조**가 있다.\n\n> [관련 판결] 대법원 2020. 1. 1. 선고 2019다1 판결\n> 인용 문장\n\n| 구분 | 1분기 | 2분기 |\n|--|----|----|\n| 합계 | 300 | < |\n';
+  const mf = await callNew('make_hwpx_from_markdown', { markdown: MDF, preset: 'internal', outDir: dir, features: { indent: true, underline: true, quote: true, table: { width: 'fit', style: 'threeLine', merge: true, float: true } } });
+  check(`docs 선택값 전부 켬 ${mf.file?.bytes}B (남은 기호 ${mf.leftovers?.length})`, mf.ok && fs.existsSync(mf.file.path) && mf.leftovers?.length === 0);
+  // 글자만 고치기 — 새 파일, 원본 그대로, 0번이면 멈춤
+  const before = fs.readFileSync(mh.file.path);
+  const ed = await callNew('edit_hwpx_text', { file: mh.file.path, edits: [{ old: '가상상사', new: '가상상회' }], fills: [{ table: 0, row: 1, col: 1, text: '2,100,000' }] });
+  check(`docs 글자만 고치기 ${ed.file?.bytes}B`, ed.ok && fs.existsSync(ed.file.path) && fs.readFileSync(mh.file.path).equals(before));
+  const none = await callNew('edit_hwpx_text', { file: mh.file.path, edits: [{ old: '없는 글자', new: 'x' }], outFile: path.join(dir, 'none.hwpx') });
+  check('docs 글자 고치기 0번이면 멈춤', none.ok === false && !fs.existsSync(path.join(dir, 'none.hwpx')));
+  // 양식 모드 — 앞서 만든 파일을 양식으로 다시 쓴다
+  const tm = await callNew('make_hwpx_from_markdown', { markdown: '# 가상 양식본\n\n양식 모양으로 채운 본문.', preset: 'internal', outDir: dir, templateFile: mh.file.path });
+  check(`docs 양식 모드 ${tm.file?.bytes}B`, tm.ok && fs.existsSync(tm.file.path));
+}
+
 // ── work-rules 묶음 ──
 // 금지어: 이 묶음이 쓰는 글은 전부 보고, 법령·개정 자료에서 그대로 옮긴 칸(LAW_TEXT_FIELDS)만 뺀다(법령 원문 변조 금지).
 // groups/work-rules.mjs 의 LAW_TEXT_FIELDS 와 같아야 한다
@@ -841,6 +869,41 @@ if (!/\.cmd$/i.test(target)) {
   check('call — 입력 검사 실패도 종료 코드 1', run().status === 1);
   check('call — 없는 도구는 종료 코드 1', run('no_such_tool').status === 1);
   check('call — 인자 파일이 없으면 종료 코드 2', spawnSync(process.execPath, [target, 'call', 'check_min_wage', path.join(dir, '없음.json')], { encoding: 'utf8' }).status === 2);
+  // JSON 이 아닌 인자 파일 — 파서 오류문은 파일 내용 조각을 싣는다(261120 적대 검토). 경로·위치·종류만 알리고 내용은 내보내지 않는다
+  const MARK = 'SYNTHMARK7Q';
+  fs.writeFileSync(argf, `${MARK} {`);
+  const bad = run();
+  check('call — JSON 이 아닌 인자 파일: 종료 코드 2 · 경로는 알리고 내용 조각은 싣지 않음', bad.status === 2 && bad.stderr.includes(argf) && !bad.stderr.includes(MARK) && !bad.stdout.includes(MARK));
+  fs.writeFileSync(argf, `{"note": "${MARK}" oops}`);
+  const bad2 = run();
+  check('call — JSON 중간 오류: 위치만 알리고 내용 조각은 싣지 않음', bad2.status === 2 && /위치 \d+/.test(bad2.stderr) && !bad2.stderr.includes(MARK) && !bad2.stdout.includes(MARK));
+  fs.writeFileSync(argf, String.fromCharCode(0xfeff) + JSON.stringify({ unit: 'hour', amount: 20000, year: 2026 }));
+  check('call — BOM 이 붙은 인자 파일도 읽는다', run().status === 0);
+}
+
+// 빌드 출처 — server.mjs 옆 build-info.json(빌드 커밋·잠금파일·server.mjs 해시)과 --version 둘째 줄. .cmd 설치본 시험에서는 건너뛴다
+if (!/\.cmd$/i.test(target)) {
+  const { spawnSync } = await import('node:child_process');
+  const { createHash } = await import('node:crypto');
+  const sha = (b) => createHash('sha256').update(b).digest('hex');
+  let info = null;
+  try {
+    info = JSON.parse(fs.readFileSync(path.join(path.dirname(target), 'build-info.json'), 'utf8'));
+  } catch { /* 없음 */ }
+  const v = spawnSync(process.execPath, [target, '--version'], { encoding: 'utf8' });
+  const [v1 = '', v2 = ''] = v.stdout.trim().split(/\r?\n/);
+  const KEYS = ['builtAt', 'commit', 'dirty', 'lockfileSha256', 'node', 'serverSha256', 'version'];
+  check('build-info.json 이 server.mjs 옆에 있고 칸이 7개', !!info && JSON.stringify(Object.keys(info).sort()) === JSON.stringify(KEYS));
+  check(`build-info version(${info?.version}) = --version 첫 줄(${v1}) · node(${info?.node}) · builtAt(${info?.builtAt})`,
+    info?.version === v1 && /^\d+\.\d+\.\d+$/.test(v1) && /^v\d+\./.test(info?.node ?? '') && !Number.isNaN(Date.parse(info?.builtAt ?? '')));
+  check('build-info serverSha256 = 지금 server.mjs 의 sha256', info?.serverSha256 === sha(fs.readFileSync(target)));
+  check(`build-info 모양 — lockfileSha256(${String(info?.lockfileSha256).slice(0, 12)}) · commit(${String(info?.commit).slice(0, 12)}) · dirty(${info?.dirty})`,
+    /^[0-9a-f]{64}$/.test(info?.lockfileSha256 ?? '') && (info?.commit === null || /^[0-9a-f]{40}$/.test(info?.commit ?? '')) && (info?.dirty === null || typeof info?.dirty === 'boolean'));
+  check('--version 첫 줄 = 맨 버전, 둘째 줄 = 커밋·server 해시 앞 12자·빌드 시각', v.status === 0 && !!info && v2.includes(info.serverSha256.slice(0, 12)) && v2.includes(info.builtAt)
+    && (info.commit === null || v2.includes(info.commit.slice(0, 12))));
+  const pkgDir = path.dirname(path.dirname(target));
+  const strays = fs.readdirSync(pkgDir).filter((n) => /^\.?dist[.-](tmp|old)/.test(n));
+  check(`빌드 임시·이전 폴더가 남지 않음${strays.length ? ` (${strays.join(', ')})` : ''}`, strays.length === 0);
 }
 
 await c.close();
