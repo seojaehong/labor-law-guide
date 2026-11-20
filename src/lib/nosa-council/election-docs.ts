@@ -7,7 +7,7 @@
 import type { FormBlock, FormCell, FormDoc } from '@/lib/work-rules-report/render';
 import { dateKo } from '@/lib/work-rules-report/forms';
 import {
-  ballot as ballotOf, electionCheck, electionErrors, ELECTOR_SCOPE, isoDate, MEMBERS_MAX, MEMBERS_MIN, schedule, daysBetween,
+  ballot as ballotOf, BOUNDARY_NOTICE, electionCheck, electionErrors, ELECTOR_SCOPE, isoDate, MEMBERS_MAX, MEMBERS_MIN, schedule, daysBetween,
   type Ballot, type ElectionCheck, type ElectionInput, type QuorumStage,
 } from './assess';
 import { directParticipation, winnerNoticeDoc } from './forms';
@@ -164,6 +164,8 @@ const RIGHT = (text: string): FormBlock => ({ kind: 'text', text, align: 'right'
 const NOTE = (text: string): FormBlock => ({ kind: 'text', text: `※ ${text}`, size: 'small', gapAfter: 6 });
 const LIST = (items: readonly string[]): FormBlock => ({ kind: 'text', text: items.map((x) => `- ${x}`).join('\n'), gapAfter: 6 });
 const SPACE = (pt = 6): FormBlock => ({ kind: 'space', pt });
+/** 갈음 금지 경계 문구 — 선거공고문·입후보 신청서에도 붙인다(설치 서류·당선 공고와 같은 문구, 261120) */
+const BANNER: FormBlock[] = [SPACE(10), { kind: 'text', text: BOUNDARY_NOTICE.join('\n'), size: 'small' }];
 const GRID = (head: string[], rows: string[][], widths: number[], minRowHeight = 20): FormBlock => ({
   kind: 'table', widths, headerRows: 1, size: 'small', minRowHeight, rows: [head.map((x) => h(x)), ...rows.map((r) => r.map((x) => v(x)))],
 });
@@ -336,6 +338,7 @@ function announceDoc(x: Ctx): FormDoc {
       SPACE(8),
       RIGHT(ko(x.d.announce, dateKo(x.i.writtenDate))),
       RIGHT(COMMITTEE),
+      ...BANNER,
     ],
   };
 }
@@ -357,6 +360,8 @@ function candidacyDoc(x: Ctx): FormDoc {
       SPACE(12),
       P(`${COMMITTEE} 귀중`),
       NOTE(`입후보 기간: ${ko(x.d.candidacyStart)}부터 ${ko(x.d.candidacyEnd)}까지`),
+      ...(x.i.concurrentRep ? [NOTE('이 선거는 근로기준법상 근로자대표를 겸하여 선출하는 선거입니다.')] : []),
+      ...BANNER,
     ],
   };
 }
