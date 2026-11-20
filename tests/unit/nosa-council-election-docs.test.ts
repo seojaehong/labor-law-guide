@@ -65,6 +65,15 @@ describe('선거공고문·선관위 공고·입후보 신청서', () => {
     expect(t).not.toContain('추천');
     for (const x of ['성명', '소속', '직책', '연락처', '서명']) expect(t).toContain(x);
   });
+  it('선거공고문·입후보 신청서 끝에 갈음 금지 문구가 붙는다 · 겸임이면 입후보 신청서에 겸임 선거임을 적는다', () => {
+    for (const id of ['02_선거공고문', '03_입후보신청서']) {
+      const t = all(doc(electionDocs(BASE), id));
+      expect(t, id).toContain('취업규칙 불이익변경 동의를 갈음하지 않는다');
+      expect(t, id).toContain('근로기준법상 근로자대표의 지위와 별개다');
+    }
+    expect(all(doc(electionDocs(BASE), '03_입후보신청서'))).toContain('근로자대표를 겸하여 선출하는 선거');
+    expect(all(doc(electionDocs({ ...BASE, concurrentRep: false }), '03_입후보신청서'))).not.toContain('겸하여 선출하는 선거');
+  });
 });
 
 describe('투표용지 — 후보 수와 정원으로 형식을 고른다', () => {

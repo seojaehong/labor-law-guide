@@ -238,6 +238,7 @@ if (tools.includes('check_contract')) {
   console.log(`  check_contract 집계: ${JSON.stringify(ck.results?.[0]?.counts)}`);
   check(`check_contract 최저임금 위반 1건 이상(${mw?.rule}: ${mw?.detail?.slice(0, 40)}…)`, ck.ok && !!mw);
   check('check_contract 상태는 화면 문구(위반·리스크·적정·자료 필요)', f.every((x) => ['위반', '리스크', '적정', '자료 필요'].includes(x.status)));
+  check(`check_contract 규칙 코드·심각도(${mw?.code}·${mw?.severity})`, mw?.code === 'MINWAGE' && f.every((x) => /^[A-Z0-9]+(-[A-Z0-9]+)*$/.test(x.code) && ['critical', 'major', 'minor', 'info'].includes(x.severity)));
   const tpl = await callTool('check_contract', {});
   check('check_contract 빈 양식', tpl.ok && !!tpl.template?.wage);
   const rrn = await callTool('check_contract', { contract: { ...contract, employee: { ...contract.employee, rrn_masked: '900101-1234568' } } });
