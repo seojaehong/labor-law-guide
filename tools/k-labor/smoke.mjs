@@ -119,7 +119,8 @@ const bannedIn = (s) => (banned ? banned.bannedHits(s, WORDS) : []);
 if (!banned) console.log('  (저장소 밖 — 금지어 시험 건너뜀)');
 const callTool = async (name, args) => {
   const t = await callJson(name, args).then((j) => JSON.stringify(j));
-  const h = bannedIn(t);
+  // terms:'legal'(check_contract)은 법률 용어 「포괄임금」을 그대로 내는 것이 목적 — 「포괄」만 빼고 나머지 금지어는 그대로 본다
+  const h = args?.terms === 'legal' ? (banned ? banned.bannedHits(t, WORDS.filter((w) => w !== '포괄')) : []) : bannedIn(t);
   check(`${name}: 응답 금지어 없음${h.length ? ` (${h.join(',')})` : ''}`, h.length === 0);
   return JSON.parse(t);
 };
@@ -239,6 +240,13 @@ if (tools.includes('check_contract')) {
   check(`check_contract 최저임금 위반 1건 이상(${mw?.rule}: ${mw?.detail?.slice(0, 40)}…)`, ck.ok && !!mw);
   check('check_contract 상태는 화면 문구(위반·리스크·적정·자료 필요)', f.every((x) => ['위반', '리스크', '적정', '자료 필요'].includes(x.status)));
   check(`check_contract 규칙 코드·심각도(${mw?.code}·${mw?.severity})`, mw?.code === 'MINWAGE' && f.every((x) => /^[A-Z0-9]+(-[A-Z0-9]+)*$/.test(x.code) && ['critical', 'major', 'minor', 'info'].includes(x.severity)));
+  // 용어 — 기본은 사이트 화면과 같이 「포괄」을 「임금 구성」으로, terms:'legal' 이면 법률 용어 그대로(노무사 검토 보고서용, 261121)
+  const incPub = f.find((x) => x.code === 'INCLUSIVE-WAGE');
+  check(`check_contract 기본 용어 — 「포괄」 없음(${incPub?.rule}: ${incPub?.detail})`, !!incPub && !JSON.stringify(ck.results).includes('포괄'));
+  const ckLegal = await callTool('check_contract', { contract, terms: 'legal' });
+  const incLegal = (ckLegal.results?.[0]?.findings || []).find((x) => x.code === 'INCLUSIVE-WAGE');
+  check(`check_contract terms:'legal' — 「포괄」 그대로(${incLegal?.rule}: ${incLegal?.detail})`, ckLegal.ok && /포괄/.test(`${incLegal?.rule} ${incLegal?.detail}`) && !JSON.stringify(ckLegal.results).includes('임금 구성'));
+  check('check_contract terms:legal 이 판정·코드는 바꾸지 않음', JSON.stringify(ckLegal.results?.[0]?.counts) === JSON.stringify(ck.results?.[0]?.counts) && (ckLegal.results?.[0]?.findings || []).map((x) => x.code).join() === f.map((x) => x.code).join());
   // 엔진이 읽은 통상시급·고용형태를 같이 낸다 — 재작성 계약서가 파이썬 「기본급÷209」로 다시 셈하지 않게(261120 시급 10,320 → 4,296)
   const samples = JSON.parse(fs.readFileSync(fileURLToPath(new URL('../../src/lib/contract-check/data/synthetic_edge_cases.json', import.meta.url)), 'utf8'));
   const part = await callTool('check_contract', { contract: samples.find((s) => s.contract_id === 'syn-part-nosched-0002') });
