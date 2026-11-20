@@ -22,7 +22,7 @@ vi.mock('@/lib/topic-picks', () => ({ getCurrentTopicPicks: async () => [] }));
 vi.mock('@/components/SubscribeForm', () => ({ default: () => null }));
 
 import BlogArticlePage from '@/app/blog/[slug]/page';
-import MarkdownSnippet from '@/app/database/_components/MarkdownSnippet';
+import MarkdownSnippet from '@/components/decision-detail/MarkdownSnippet';
 
 function checkActualHtml(html: string, sourcePolicy=false) {
   const ids = new Set([...html.matchAll(/\bid="([^"]+)"/g)].map(match => match[1]));

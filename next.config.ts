@@ -5,7 +5,8 @@ const nextConfig: NextConfig = {
     formats: ['image/avif', 'image/webp'],
   },
   compiler: {
-    removeConsole: process.env.NODE_ENV === 'production',
+    // 운영 빌드에서도 오류·경고는 남긴다 — 다 지우면 서버 오류가 Vercel 로그에 안 남는다(261119)
+    removeConsole: process.env.NODE_ENV === 'production' ? { exclude: ['error', 'warn'] } : false,
   },
   experimental: {
     optimizePackageImports: ['lucide-react', 'date-fns', 'react-markdown', 'remark-gfm'],
@@ -26,10 +27,14 @@ const nextConfig: NextConfig = {
       { source: '/tools/workplace', destination: '/duties', permanent: true },
       // 강의 페이지(/lecture/ai-isan-2026·교재)를 내렸다(261105). 옛 주소는 홈으로 임시 이동.
       { source: '/lecture/:path*', destination: '/', permanent: false },
+      // 도구 안내(/howto/*)는 정적 페이지 묶음이라 목록 페이지가 없다 — 도구 모음으로 보낸다(261119)
+      { source: '/howto', destination: '/gov-tools', permanent: false },
     ];
   },
   async rewrites() {
     return [
+      // 도구 안내 — public/howto/<도구>/index.html 을 /howto/<도구> 로 연다(261119). 디자인은 public/howto/howto.css 하나를 함께 쓴다
+      { source: '/howto/:slug', destination: '/howto/:slug/index.html' },
       { source: '/sitemap_index.xml', destination: '/sitemap.xml' },
       { source: '/wp-sitemap.xml', destination: '/sitemap.xml' },
       { source: '/mcp/server-card.json', destination: '/.well-known/mcp/server-card.json' },

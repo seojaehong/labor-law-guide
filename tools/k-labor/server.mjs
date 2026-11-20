@@ -41,6 +41,7 @@ function usage() {
     `k-labor ${VERSION} — 노동 업무 도구 MCP — 일의 무늬 (stdio)`,
     '',
     '사용: k-labor mcp [--groups 묶음,묶음]',
+    '      k-labor call <도구이름> <인자.json> [--groups 묶음]   (도구 하나를 셸에서 부른다, 결과 = stdout)',
     '      환경변수 LLG_MCP_GROUPS=묶음,묶음 도 됩니다(--groups 가 우선).',
     '',
     '묶음:',
@@ -52,9 +53,12 @@ function usage() {
 const argv = process.argv.slice(2);
 let cmd = 'mcp';
 let groupsArg = process.env.LLG_MCP_GROUPS || '';
+let callTool = '';
+let callArgsFile = '';
 for (let i = 0; i < argv.length; i++) {
   const a = argv[i];
-  if (a === '--groups') groupsArg = argv[++i] || '';
+  if (a === 'call') { cmd = 'call'; callTool = argv[++i] || ''; callArgsFile = argv[++i] || ''; }
+  else if (a === '--groups') groupsArg = argv[++i] || '';
   else if (a.startsWith('--groups=')) groupsArg = a.slice('--groups='.length);
   else if (a === '-h' || a === '--help' || a === 'help') cmd = 'help';
   else if (a === '-v' || a === '--version') cmd = 'version';
@@ -75,5 +79,35 @@ if (unknown.length) {
 
 const server = new McpServer({ name: 'k-labor', version: VERSION });
 for (const g of wanted) GROUPS[g].register(server);
+
+// call 모드 — 셸·스크립트에서 도구 하나를 부른다. MCP 와 같은 등록·입력 검사를 거치도록
+// 메모리 안 통로로 서버에 붙어 tools/call 을 보낸다. 인자는 JSON 파일(한글 경로·역슬래시가 셸 따옴표에 깨지지 않게).
+// 결과 = 도구 응답 글자를 그대로 stdout 에, 도구가 실패(isError)면 종료 코드 1.
+if (cmd === 'call') {
+  if (!callTool || !callArgsFile) { console.error(`사용: k-labor call <도구이름> <인자.json>\n\n${usage()}`); process.exit(2); }
+  const fsm = await import('node:fs');
+  let args;
+  try {
+    args = JSON.parse(fsm.readFileSync(callArgsFile, 'utf8').replace(/^﻿/, ''));
+  } catch (e) {
+    console.error(`인자 파일을 읽지 못했습니다: ${callArgsFile} — ${e instanceof Error ? e.message : e}`);
+    process.exit(2);
+  }
+  const { Client } = await import('@modelcontextprotocol/sdk/client/index.js');
+  const { InMemoryTransport } = await import('@modelcontextprotocol/sdk/inMemory.js');
+  const [ct, st] = InMemoryTransport.createLinkedPair();
+  await server.connect(st);
+  const client = new Client({ name: 'k-labor-call', version: VERSION });
+  await client.connect(ct);
+  const r = await client.callTool({ name: callTool, arguments: args });
+  const out = (r.content || []).filter((c) => c.type === 'text').map((c) => c.text).join('\n');
+  process.stdout.write(out + '\n');
+  await client.close();
+  // 도구가 { ok: false } 로 멈춘 것(덮어쓰기 거부·주민번호 멈춤 등)도 실패로 돌려준다
+  let refused = false;
+  try { refused = JSON.parse(out)?.ok === false; } catch { /* 글자 응답 */ }
+  process.exit(r.isError || refused ? 1 : 0);
+}
+
 await server.connect(new StdioServerTransport());
 console.error(`k-labor ready — 묶음: ${wanted.join(', ')}`);

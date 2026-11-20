@@ -852,6 +852,25 @@ if (tools.includes('get_law_article')) {
   }
 }
 
+// call 모드 — 셸에서 도구 하나를 부른다(로컬 스킬이 엔진을 부르는 통로). .cmd 설치본 시험에서는 건너뛴다
+if (!/\.cmd$/i.test(target)) {
+  const { spawnSync } = await import('node:child_process');
+  const dir = path.join(tmp, '한글 호출');
+  fs.mkdirSync(dir, { recursive: true });
+  const argf = path.join(dir, '인자.json');
+  const run = (tool = 'check_min_wage') => spawnSync(process.execPath, [target, 'call', tool, argf, '--groups', 'calc'], { encoding: 'utf8' });
+  fs.writeFileSync(argf, JSON.stringify({ unit: 'hour', amount: 20000, year: 2026 }));
+  const r1 = run();
+  check('call — 한글 경로 인자 파일로 도구를 부르고 종료 코드 0', r1.status === 0 && JSON.parse(r1.stdout).ok === true);
+  fs.writeFileSync(argf, JSON.stringify({ unit: 'hour', amount: 20000, year: 1990 }));
+  const r2 = run();
+  check('call — 도구가 ok:false 로 멈추면 종료 코드 1', r2.status === 1 && JSON.parse(r2.stdout).ok === false);
+  fs.writeFileSync(argf, JSON.stringify({ amount: 'x' }));
+  check('call — 입력 검사 실패도 종료 코드 1', run().status === 1);
+  check('call — 없는 도구는 종료 코드 1', run('no_such_tool').status === 1);
+  check('call — 인자 파일이 없으면 종료 코드 2', spawnSync(process.execPath, [target, 'call', 'check_min_wage', path.join(dir, '없음.json')], { encoding: 'utf8' }).status === 2);
+}
+
 await c.close();
 mockDrf.close();
 console.log(`tmp ${tmp}`);

@@ -44,12 +44,11 @@ describe('사이트 정체성 — 노란봉투법·AI 질의응답 틀 걷어내
     expect(intro.indexOf('도구')).toBeLessThan(intro.indexOf('노란봉투법'));
   });
 
-  it('/ai 와 /database 메타데이터는 노란봉투법·AI 질의응답 이름을 쓰지 않는다', () => {
+  it('/ai 메타데이터는 노란봉투법·AI 질의응답 이름을 쓰지 않는다(/database 는 /decisions 로 영구 이동)', () => {
     const ai = read('src/app/ai/layout.tsx');
     expect(ai).toContain('근거 자료 찾기');
     expect(ai).toContain('index: false');
     expect(ai).not.toMatch(/title:.*(노란봉투|질의응답)/);
-    expect(read('src/app/database/layout.tsx')).not.toMatch(/노란봉투/);
   });
 
   it('src/app 에 「노란봉투법 가이드」 브랜드가 코드 값으로 남지 않는다(주석만 허용)', () => {

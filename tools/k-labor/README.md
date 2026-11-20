@@ -23,6 +23,15 @@ claude mcp add --scope user k-labor -- npx -y k-labor mcp
 claude mcp add --scope user k-labor -- npx -y k-labor mcp --groups nhis
 ```
 
+### 셸·스크립트에서 도구 하나 부르기 (`call`)
+
+MCP 연결 없이 도구 하나를 바로 부릅니다. 인자는 JSON 파일로 넘기고(한글 경로·역슬래시가 셸 따옴표에 깨지지 않게), 결과는 표준출력에 나옵니다. 도구가 멈추면(`ok: false`·입력 오류·없는 도구) 종료 코드 1, 인자 파일을 못 읽으면 2입니다. MCP 와 같은 도구 등록·입력 검사를 거칩니다.
+
+```bash
+echo '{"unit":"hour","amount":10500}' > args.json
+npx -y k-labor call check_min_wage args.json --groups calc
+```
+
 ### Claude Desktop
 
 `claude_desktop_config.json` 에 추가합니다.

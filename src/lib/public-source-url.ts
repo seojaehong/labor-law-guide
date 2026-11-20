@@ -24,6 +24,9 @@ export function officialSource(value: unknown): OfficialSource | null {
       if(id)return {url:u.href,agency:'법제처'};
       const lawId=['/LSW/lsInfoP.do','/lsInfoP.do'].includes(u.pathname)?digits('lsiSeq'):null;
       if(lawId)return {url:u.href,agency:'법제처'};
+      // 중앙부처 1차 해석(고용노동부 행정해석) — 2026-11 개편 후 상세 주소
+      const cgmId=u.pathname==='/LSW/cgmExpcInfoP.do'&&digits('ofiClsCd')?digits('cgmExpcDatSeq'):null;
+      if(cgmId)return {url:u.href,agency:'법제처'};
     }
     if (u.hostname==='labor.moel.go.kr'&&u.pathname==='/cmmt/iqrs_detail.do') {
       const id=digits('id');if(id)return {url:u.href,agency:'고용노동부'};

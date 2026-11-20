@@ -2,7 +2,7 @@ import {expect,it} from 'vitest';
 import {createElement} from 'react';
 import {renderToStaticMarkup} from 'react-dom/server';
 import {officialSource} from '@/lib/public-source-url';
-import MarkdownSnippet from '@/app/database/_components/MarkdownSnippet';
+import MarkdownSnippet from '@/components/decision-detail/MarkdownSnippet';
 import Body from '@/components/CollectedSourceBody';
 it('canonicalizes legacy official API URLs without guessing an ID or retaining account parameters',()=>{
  const stored='http://www.law.go.kr/DRF/lawService.do?OC=synthetic-account&target=prec&ID=372172&type=HTML';

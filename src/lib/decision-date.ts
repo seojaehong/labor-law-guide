@@ -7,6 +7,8 @@ export function decisionDate(value:unknown):string|null{
   if(!match)return null;
   if(canonical.includes('T')&&!Number.isFinite(Date.parse(canonical)))return null;
   const [,year,month,day]=match;const y=Number(year),m=Number(month),d=Number(day);
+  // 이전 import 가 날짜를 모를 때 넣은 자리값. 1월 1일은 공휴일이라 회신·선고가 나지 않는다(#218).
+  if((y===2000||y===1970)&&m===1&&d===1)return null;
   if(y<2||m<1||m>12||d<1)return null;
   const days=[31,y%4===0&&(y%100!==0||y%400===0)?29:28,31,30,31,30,31,31,30,31,30,31];
   return d<=days[m-1]?`${year}-${month}-${day}`:null;

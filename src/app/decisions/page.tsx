@@ -4,7 +4,7 @@ import DecisionCategoryNavigation from "@/components/DecisionCategoryNavigation"
 import type { Metadata } from "next";
 import { unstable_cache } from "next/cache";
 import { countByReason, countBySource, getRecent, runSearch, getCategory, decisionRow } from "@/lib/decisions-data";
-import { parse, tabHref, pageHref, categoryHref, type Search } from "@/lib/decisions-query";
+import { parse, tabHref, pageHref, categoryHref, type Search, type Sort } from "@/lib/decisions-query";
 import { REASON_LABELS, type ReasonCategory } from "@/lib/types";
 import { SITE_URL, BRAND_NAME } from "@/lib/constants";
 import { ResultRow, type Kind } from "./SearchResults";
@@ -56,7 +56,7 @@ export async function generateMetadata(
 export default async function DecisionsIndexPage(
   { searchParams }: { searchParams: Promise<Search> }
 ) {
-  const { q, type, page, reason, reasonProvided, invalidCombination } = parse(await searchParams);
+  const { q, type, page, reason, reasonProvided, sort, invalidCombination } = parse(await searchParams);
 
   const jsonLd = {
     "@context": "https://schema.org",
@@ -114,18 +114,18 @@ export default async function DecisionsIndexPage(
           <Link href={tabHref(q, type)}>노동위·법원 통합 자료 검색</Link>
         </div>
       ) : reason ? <CategoryView reason={reason} page={page} />
-        : q ? <SearchView q={q} type={type} page={page} /> : type!=="nlrc" ? <><SearchTabs q="" type={type} /><p className="py-10 text-sm">선택한 자료에서 찾을 검색어를 입력하세요.</p></> : <HubView page={page} />}
+        : q ? <SearchView q={q} type={type} page={page} sort={sort} /> : type!=="nlrc" ? <><SearchTabs q="" type={type} /><p className="py-10 text-sm">선택한 자료에서 찾을 검색어를 입력하세요.</p></> : <HubView page={page} />}
     </main>
   );
 }
 
-function SearchTabs({q,type}:{q:string;type:Kind}) {
+function SearchTabs({q,type,sort="relevance"}:{q:string;type:Kind;sort?:Sort}) {
   return (
       <nav aria-label="검색 자료 종류" className="mb-5 flex flex-wrap gap-2">
         {TABS.map((t) => (
           <Link
             key={t.key}
-            href={tabHref(q, t.key)}
+            href={tabHref(q, t.key, sort)}
             aria-current={t.key===type ? "page" : undefined}
             className="rounded-full border px-4 py-1.5 text-[13px] font-medium"
             style={
@@ -141,20 +141,34 @@ function SearchTabs({q,type}:{q:string;type:Kind}) {
   );
 }
 
-async function SearchView({ q, type, page }: { q: string; type: Kind; page: number }) {
+/** 정렬 바꾸기 — 최신순은 관련 상위 100건 안에서만 날짜로 다시 세운다(그 밖 결과는 관련도순에서 본다) */
+function SortSwitch({ q, type, sort }: { q: string; type: Kind; sort: Sort }) {
+  const items: { key: Sort; label: string }[] = [{ key: "relevance", label: "관련도순" }, { key: "date", label: "최신순" }];
+  return (
+    <div className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px]" aria-label="정렬">
+      {items.map((s) => s.key === sort
+        ? <span key={s.key} aria-current="true" className="font-semibold" style={{ color: "var(--color-text-primary)" }}>{s.label}</span>
+        : <Link key={s.key} href={pageHref(q, type, 1, s.key)} style={{ color: "var(--color-accent-ink)" }}>{s.label}</Link>)}
+      {sort === "date" ? <span style={{ color: "var(--color-text-tertiary)" }}>관련 결과 상위 100건 안에서</span> : null}
+    </div>
+  );
+}
+
+async function SearchView({ q, type, page, sort = "relevance" }: { q: string; type: Kind; page: number; sort?: Sort }) {
   if (q.replace(/[%_\\'"();]/g, " ").trim().length < 2) return <><SearchTabs q={q} type={type} /><p className="py-10 text-sm">검색 가능한 글자를 두 글자 이상 입력하세요. 검색어는 최대 60자입니다.</p></>;
-  const result = await runSearch(q, type, page);
-  if (!result.ok) return <><SearchTabs q={q} type={type} /><LoadError href={pageHref(q, type, page)} /></>;
+  const result = await runSearch(q, type, page, sort);
+  if (!result.ok) return <><SearchTabs q={q} type={type} /><LoadError href={pageHref(q, type, page, sort)} /></>;
   const { rows, hasMore } = result;
 
   return (
     <>
-      <SearchTabs q={q} type={type} />
+      <SearchTabs q={q} type={type} sort={sort} />
+      {rows.length > 0 || page > 1 ? <SortSwitch q={q} type={type} sort={sort} /> : null}
 
       {rows.length === 0 ? (
         <div className="py-16 text-center text-sm" style={{ color: "var(--color-text-tertiary)" }}>
           <p className="mb-1">{page > 1 ? "이 페이지에 결과가 없습니다." : `「${q}」에 해당하는 결과가 없습니다.`}</p>
-          {page > 1 ? <Link href={pageHref(q, type)}>첫 페이지로 돌아가기</Link> : null}
+          {page > 1 ? <Link href={pageHref(q, type, 1, sort)}>첫 페이지로 돌아가기</Link> : null}
           <p>다른 낱말로 찾거나 위 탭에서 다른 자료를 보세요.</p>
         </div>
       ) : (
@@ -166,11 +180,11 @@ async function SearchView({ q, type, page }: { q: string; type: Kind; page: numb
       {(page > 1 || hasMore) && (
         <div className="mt-8 flex items-center justify-center gap-4 text-sm">
           {page > 1 ? (
-            <Link href={pageHref(q, type, page - 1)} style={{ color: "var(--color-accent-ink)" }}>← 이전</Link>
+            <Link href={pageHref(q, type, page - 1, sort)} style={{ color: "var(--color-accent-ink)" }}>← 이전</Link>
           ) : <span style={{ color: "var(--color-text-tertiary)" }}>← 이전</span>}
           <span style={{ color: "var(--color-text-tertiary)" }}>{page} 페이지</span>
           {hasMore ? (
-            <Link href={pageHref(q, type, page + 1)} style={{ color: "var(--color-accent-ink)" }}>다음 →</Link>
+            <Link href={pageHref(q, type, page + 1, sort)} style={{ color: "var(--color-accent-ink)" }}>다음 →</Link>
           ) : <span style={{ color: "var(--color-text-tertiary)" }}>다음 →</span>}
         </div>
       )}

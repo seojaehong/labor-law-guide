@@ -12,7 +12,6 @@ const APP = 'src/app';
 
 /** 사이트맵에 일부러 넣지 않는 것 — 이유를 반드시 적는다 */
 const EXCLUDED: Record<string, string> = {
-  '/database': '301 로 /decisions 에 보낸다. 리다이렉트를 사이트맵에 실으면 크롤 예산 낭비',
   '/search': '301 로 /decisions 에 보낸다',
   '/og': '이미지 생성 라우트',
 };
