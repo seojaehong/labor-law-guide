@@ -16,7 +16,7 @@ import { buildContractDocument } from '@/lib/contract-write/document';
 import { buildContractHwpx, buildContractPdf, buildContractXlsx } from '@/lib/contract-write/export';
 import { countByStatus, RESULT_DISCLAIMER, ruleName, sortFindings, STATUS_CHIP_ORDER, STATUS_LABEL } from '@/lib/contract-check/present';
 import { blankTemplate, check, detailFor, validateInput } from '@/offline/contract-check/entry';
-import { looksLikeRrn, text } from '../lib/common.mjs';
+import { looksLikeRrn, text, writeNew } from '../lib/common.mjs';
 
 export const contractTools = ['design_contract_wage', 'check_contract', 'make_contract_files'];
 /** 원격(HTTP)판에 실어도 되는 도구 — 읽기 전용, 파일·네트워크를 건드리지 않는다 */
@@ -324,7 +324,7 @@ export function registerContract(server) {
           if (ext === 'xlsx') bytes = await buildContractXlsx(r.doc);
           else if (ext === 'hwpx') bytes = await buildContractHwpx(r.doc);
           else bytes = await buildContractPdf(r.doc, new Uint8Array(fs.readFileSync(fontPath())));
-          fs.writeFileSync(target(ext), bytes);
+          if (!writeNew(target(ext), bytes)) return text({ ok: false, error: '이미 있는 파일은 덮어쓰지 않습니다. fileBase 나 outDir 를 바꿔 주세요.', exists: [target(ext)], ...(files.length ? { written: files.map((x) => x.path) } : {}) });
           files.push({ format: ext, path: target(ext), bytes: bytes.length });
         } catch (e) {
           skipped.push({ format: ext, error: e instanceof Error ? e.message : String(e) });

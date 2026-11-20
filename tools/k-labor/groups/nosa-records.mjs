@@ -17,7 +17,7 @@ import {
   importTextWarnings, IMPORTED, RESULT_NODES, wikilinks,
 } from '@/lib/nosa-council/records';
 import { GRIEVANCE_CATEGORIES, GRIEVANCE_KEEP_NOTE, GRIEVANCE_LOG, GRIEVANCE_STAGES, grievanceCases, grievanceRecordErrors } from '@/lib/nosa-council/grievance';
-import { argsLookLikeRrn, looksLikeRrn, text } from '../lib/common.mjs';
+import { argsLookLikeRrn, looksLikeRrn, text, writeNew } from '../lib/common.mjs';
 import { appendJsonl, loadCouncilDir, sha256File } from '../lib/council-dir.mjs';
 import { readRulesFile, RULES_FILE_KINDS } from '../lib/rules-file.mjs';
 import { OCR_IMAGE_KINDS, ocrAvailable, ocrImage, readPdfWithOcr } from '../lib/ocr-source.mjs';
@@ -193,12 +193,17 @@ export function registerNosaRecords(server) {
       const targets = [...v.files.map((f) => f.path), '_회의록대장.xlsx'].map((p) => path.join(a.outDir, p));
       const exists = targets.filter((p) => fs.existsSync(p));
       if (exists.length) return fail('이미 있는 파일은 덮어쓰지 않습니다. outDir 를 바꿔 주세요.', { exists: exists.slice(0, 20) });
+      // 같은 outDir 로 동시에 부르면 늦은 쪽은 첫 파일에서 멈춘다(아무것도 쓰지 않음) — 보관함이 두 판으로 섞이지 않는다
+      const written = [];
+      const ledgerFile = path.join(a.outDir, '_회의록대장.xlsx');
+      const clash = (p) => fail('이미 있는 파일은 덮어쓰지 않습니다. outDir 를 바꿔 주세요.', { exists: [p], ...(written.length ? { written: written.slice(0, 20) } : {}) });
       for (const f of v.files) {
         const p = path.join(a.outDir, f.path);
         fs.mkdirSync(path.dirname(p), { recursive: true });
-        fs.writeFileSync(p, f.text);
+        if (!writeNew(p, f.text)) return clash(p);
+        written.push(p);
       }
-      fs.writeFileSync(path.join(a.outDir, '_회의록대장.xlsx'), await ledgerXlsx(v.ledgerHead, v.ledger.rows.map((r, k) => [r.key, ...v.ledgerCells[k]]), v.ledger.warnings, today));
+      if (!writeNew(ledgerFile, await ledgerXlsx(v.ledgerHead, v.ledger.rows.map((r, k) => [r.key, ...v.ledgerCells[k]]), v.ledger.warnings, today))) return clash(ledgerFile);
       const names = new Set(v.files.map((f) => path.basename(f.path, '.md')));
       const brokenLinks = v.files.flatMap((f) => wikilinks(f.text).filter((l) => !names.has(l)).map((l) => `${f.path} → ${l}`));
       const d = v.dashboard;
@@ -336,7 +341,7 @@ export function registerNosaRecords(server) {
       const base = safeName((a.fileBase ?? '').trim() || `노사협의회_${m.date.replace(/-/g, '')}_${m.kind}${m.number}차`);
       const file = path.resolve(a.dir, `${base}_회의록_가져옴.json`);
       if (fs.existsSync(file)) return fail('이미 있는 파일은 덮어쓰지 않습니다. fileBase 를 바꿔 주세요.', { exists: [file] });
-      fs.writeFileSync(file, `${JSON.stringify(record, null, 2)}\n`);
+      if (!writeNew(file, `${JSON.stringify(record, null, 2)}\n`)) return fail('이미 있는 파일은 덮어쓰지 않습니다. fileBase 를 바꿔 주세요.', { exists: [file] });
       const textWarnings = importTextWarnings(record, read.text);
       const { sameId, candidates } = importMatches(record, data.minutes, data.events);
       return text({
@@ -416,7 +421,7 @@ export function registerNosaRecords(server) {
           if (t.f === 'hwpx') bytes = await formHwpx([comparisonFormDoc(r.rows, meta)], { landscape: true });
           else if (t.f === 'docx') bytes = new Uint8Array(await (await compareDocx({ ...comparisonSheet(r.rows, meta), widths: [7519, 7519], labelColumn: false })).arrayBuffer());
           else bytes = new Uint8Array(await (await comparisonXlsx({ ...comparisonSheet(r.rows, meta, { plain: true }), widths: [60, 60] })).arrayBuffer());
-          fs.writeFileSync(t.path, bytes);
+          if (!writeNew(t.path, bytes)) return fail('이미 있는 파일은 덮어쓰지 않습니다. fileBase 나 outDir 를 바꿔 주세요.', { exists: [t.path], ...(files.length ? { written: files.map((x) => x.path) } : {}) });
           files.push({ format: t.f, path: t.path, bytes: bytes.length });
         } catch (e) {
           skipped.push({ format: t.f, error: e instanceof Error ? e.message : String(e) });
