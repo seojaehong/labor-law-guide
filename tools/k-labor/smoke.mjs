@@ -239,6 +239,14 @@ if (tools.includes('check_contract')) {
   check(`check_contract 최저임금 위반 1건 이상(${mw?.rule}: ${mw?.detail?.slice(0, 40)}…)`, ck.ok && !!mw);
   check('check_contract 상태는 화면 문구(위반·리스크·적정·자료 필요)', f.every((x) => ['위반', '리스크', '적정', '자료 필요'].includes(x.status)));
   check(`check_contract 규칙 코드·심각도(${mw?.code}·${mw?.severity})`, mw?.code === 'MINWAGE' && f.every((x) => /^[A-Z0-9]+(-[A-Z0-9]+)*$/.test(x.code) && ['critical', 'major', 'minor', 'info'].includes(x.severity)));
+  // 엔진이 읽은 통상시급·고용형태를 같이 낸다 — 재작성 계약서가 파이썬 「기본급÷209」로 다시 셈하지 않게(261120 시급 10,320 → 4,296)
+  const samples = JSON.parse(fs.readFileSync(fileURLToPath(new URL('../../src/lib/contract-check/data/synthetic_edge_cases.json', import.meta.url)), 'utf8'));
+  const part = await callTool('check_contract', { contract: samples.find((s) => s.contract_id === 'syn-part-nosched-0002') });
+  const pd = part.results?.[0]?.derived;
+  console.log(`  check_contract 파생값(시급제 파트): ${JSON.stringify(pd)}`);
+  check('check_contract 파생값 — 시급제 파트 통상시급 10,320·시급제·단시간', pd?.ordinary_hourly_rate === 10_320 && pd?.wage_form === 'hourly' && pd?.employment_type === 'part_time');
+  const fd = ck.results?.[0]?.derived;
+  check(`check_contract 파생값 — 월급제 통상시급(${fd?.ordinary_hourly_rate}·${fd?.wage_form})`, typeof fd?.ordinary_hourly_rate === 'number' && fd?.wage_form === 'monthly');
   const tpl = await callTool('check_contract', {});
   check('check_contract 빈 양식', tpl.ok && !!tpl.template?.wage);
   const rrn = await callTool('check_contract', { contract: { ...contract, employee: { ...contract.employee, rrn_masked: '900101-1234568' } } });

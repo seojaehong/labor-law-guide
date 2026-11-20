@@ -9,7 +9,7 @@
 
 import samples from '@/lib/contract-check/data/synthetic_edge_cases.json';
 import { checkContract } from '@/lib/contract-check/engine';
-import { MINWAGE_TABLE, normalize } from '@/lib/contract-check/normalize';
+import { MINWAGE_TABLE, normalize, wageBasis } from '@/lib/contract-check/normalize';
 import {
   RESULT_DISCLAIMER,
   STATUS_CHIP_ORDER,
@@ -37,6 +37,30 @@ export interface OfflineResult {
   amendments: Record<string, string>;
   /** 계약 시작 연도가 이 파일의 최저시급 표에 없으면 그 연도, 아니면 null */
   minwage_year_missing: string | null;
+  /** 정규화가 읽은 값 — 계약서를 다시 쓰는 쪽이 같은 값을 쓰게 한다(통상시급을 기본급÷209 로 다시 셈하지 않게) */
+  derived: ContractDerived;
+}
+
+export interface ContractDerived {
+  ordinary_hourly_rate: number | null;
+  /** 임금 형태 — 시급제·월급제·갈리지 않음. 기본급이 없으면 null */
+  wage_form: 'hourly' | 'monthly' | 'unknown' | null;
+  weekly_scheduled_hours: number | null;
+  weekly_actual_hours: number | null;
+  weekly_overtime_hours: number | null;
+  employment_type: string | null;
+}
+
+function derivedOf(contract: Contract): ContractDerived {
+  const wt = contract.work_time ?? {};
+  return {
+    ordinary_hourly_rate: contract.wage?.ordinary_hourly_rate ?? null,
+    wage_form: wageBasis(contract)?.form ?? null,
+    weekly_scheduled_hours: wt.weekly_scheduled_hours ?? null,
+    weekly_actual_hours: wt.weekly_actual_hours ?? null,
+    weekly_overtime_hours: wt.weekly_overtime_hours ?? null,
+    employment_type: contract.employee?.employment_type ?? null,
+  };
 }
 
 const MINWAGE_YEARS = Object.keys(MINWAGE_TABLE).sort();
@@ -57,6 +81,7 @@ export function check(input: unknown): OfflineResult[] {
       findings,
       amendments: amendmentMap(contract, findings),
       minwage_year_missing: missingMinwageYear(contract),
+      derived: derivedOf(contract),
     };
   });
 }
