@@ -239,7 +239,7 @@ export function registerContract(server) {
         'contract 에 계약 객체 1건이나 그 목록을 넣는다. 주요 칸: workplace{name,employee_count_5plus} · employee{name,hire_date,is_minor,employment_type} · period{start_date,end_date,indefinite,probation{applied,months,wage_rate_pct,simple_labor_job}} · job{location,duty} · ' +
         'work_time{days_per_week,start,end,breaks[{minutes}],daily_schedules[{day,start,end}],night_work} · wage{monthly_total,pay_type(hourly|monthly),items[{code,label,amount,basis_hours,rate_multiplier,basis_text,includes_weekly_holiday}],payday,payment_method} · ' +
         'holidays_leave{weekly_rest,weekly_rest_day_specified,annual_leave_clause} · signatures{written_date,employer_signed,employee_signed,copy_delivered_confirmed}. 모르는 값은 null. ' +
-        '항목 code: BASE·WEEKLY_HOLIDAY·OT_WEEKDAY·OT_WEEKEND·ANNUAL_LEAVE·HOLIDAY_EXTRA·NIGHT·MEAL·BONUS·OTHER. contract 를 비우면 빈 양식을 돌려준다. 주민등록번호는 받지 않는다.',
+        '항목 code: BASE·WEEKLY_HOLIDAY·OT_WEEKDAY·OT_WEEKEND·ANNUAL_LEAVE·HOLIDAY_EXTRA·NIGHT·MEAL·BONUS·OTHER. 결과 findings[] 마다 code(규칙 코드, 예: MINWAGE·WH-52CAP)·severity(critical·major·minor·info)를 함께 준다 — 받는 쪽이 이름 대신 코드로 묶는다. contract 를 비우면 빈 양식을 돌려준다. 주민등록번호는 받지 않는다.',
       inputSchema: {
         contract: z.union([z.record(z.string(), z.unknown()), z.array(z.record(z.string(), z.unknown()))]).optional().describe('계약 객체 1건 또는 목록(비우면 빈 양식을 돌려준다)'),
       },
@@ -273,6 +273,8 @@ export function registerContract(server) {
               const detail = detailFor(r, f);
               const amend = r.amendments[f.rule_code];
               return {
+                code: f.rule_code,
+                severity: f.severity,
                 status: STATUS_LABEL[f.status],
                 rule: publicText(ruleName(f.rule_code)),
                 statute: f.statute == null ? null : publicText(f.statute),
