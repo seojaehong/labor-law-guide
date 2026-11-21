@@ -26,3 +26,15 @@ it.each([null,[],[null],[{title:'invalid'}],[{text:42}],[{content:'unsupported'}
  mock.from.mockImplementation((table:string)=>query(table==='nlrc_decisions'?stored:table==='decision_source_documents'?[{full_text_clean:'검증된 수집 텍스트 '.repeat(150),body_sections:sections}]:null));
  const html=renderToStaticMarkup(await DecisionPage({params:Promise.resolve({id:stored.id})}));expect(html).toContain('검증된 수집 텍스트');
 });
+it('keeps the AI summary out of court-case meta description (요지는 원문만)',async()=>{
+ const meta=await generateMetadata({params:Promise.resolve({id:stored.id})});
+ expect(String(meta.description)).not.toContain('합성 요약');
+ expect(String(meta.openGraph?.description)).not.toContain('합성 요약');
+ expect(String(meta.description)).toContain('2026가합1');
+});
+it('still uses the stored summary for NLRC decisions',async()=>{
+ const nlrc={...stored,id:'id_fixture'};
+ mock.from.mockImplementation((table:string)=>query(table==='nlrc_decisions'?nlrc:table==='decision_source_documents'?[]:null));
+ const meta=await generateMetadata({params:Promise.resolve({id:nlrc.id})});
+ expect(String(meta.description)).toContain('합성 요약');
+});
