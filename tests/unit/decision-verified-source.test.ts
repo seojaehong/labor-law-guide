@@ -124,23 +124,100 @@ it('the stored text of an ordinary collected row stays quotable without being ex
 it('the duplicate summary in the fallback card is quotable and marked AI', async () => {
   db.decision = { ...baseDecision, holding_points: '짧은 정리' };
   const html = await render();
-  expect(html).toContain('data-export="quote" data-export-title="판결요지 정리" data-export-ai="true"');
+  expect(html).toContain('data-export="quote" data-export-title="AI 정리" data-export-ai="true"');
+  expect(html).not.toContain('판결요지');
 });
 
-it('with only AI holding points and no stored summary, the points serve 요지 복사', async () => {
+/** 요지 상자(data-export="summary")의 글자 */
+const summaryBlock = (html: string) => html.match(/<p[^>]*data-export="summary"[^>]*>([\s\S]*?)<\/p>/)?.[1] ?? null;
+/** 검증 전문 이유 절의 글자 */
+const reasonBlock = (html: string) => html.match(/<p data-export="section" data-export-title="이유"[^>]*>([\s\S]*?)<\/p>/)?.[1] ?? null;
+/** 요지 복사를 쓸 수 없다는 까닭이 단추에 붙었는가 */
+const expectSummaryUnavailable = (html: string) => {
+  const tag = buttonTag(html, '요지 복사');
+  expect(tag).toMatch(/\sdisabled=""/);
+  expect(tag).toContain('title="원문 요지가 없습니다"');
+  const describedBy = tag.match(/aria-describedby="([^"]+)"/)?.[1];
+  expect(describedBy).toBeTruthy();
+  expect(html).toContain(`id="${describedBy}" class="mt-0.5 text-xs text-muted-foreground">요지 복사: 원문 요지가 없습니다</p>`);
+};
+
+it('AI holding points without an original stay an AI section and never become the 요지', async () => {
   db.decision = { ...baseDecision, holding_summary: null };
   const html = await render();
-  expect(html).toContain('data-export="section summary" data-export-title="서비스 내 정리본" data-export-ai="true"');
-  expect(buttonTag(html, '요지 복사')).toMatch(/^ type="button"/);
-  expect(buttonTag(html, '요지 복사')).not.toMatch(/\sdisabled=""/);
+  expect(html).toContain('data-export="section" data-export-title="서비스 내 정리본" data-export-ai="true"');
+  expect(html).not.toContain('data-export="section summary"');
+  expect(summaryBlock(html)).toBeNull();
+  expectSummaryUnavailable(html);
 });
 
-it('marks the stored summary as AI and offers the export bar', async () => {
+it('with a verified judgment the 요지 is the 이유 text verbatim and the stored AI summary moves into a closed details', async () => {
   db.verified = [verifiedRow];
   const html = await render();
-  expect(html).toContain('data-export="summary" data-export-title="판결요지 정리" data-export-ai="true"');
+  expect(html).toContain('<h3 class="font-semibold text-sm">요지 · 판결문 원문(이유 중 판단 부분)</h3>');
+  expect(html).toContain('data-export="summary" data-export-title="요지(판결문 원문 · 이유 중 판단 부분)" data-export-ai="false"');
+  // 번호 표제가 없는 이유는 전체가 판단 부분이다 — 이유 절 글자와 똑같다.
+  expect(summaryBlock(html)).toBe('상고이유를 판단한다.\n\n대법관 합성');
+  expect(summaryBlock(html)).toBe(reasonBlock(html));
+  // 요지 복사는 이 상자 글자를 공용 정리 없이 그대로 모은다.
+  expect(html).toMatch(/<p[^>]*data-export="summary"[^>]*data-export-verbatim=""/);
+  // 판단 부분을 가려내지 못해 이유 전체를 옮긴 때는 안내문이 그렇다고 말한다(사실관계가 들어 있을 수 있다).
+  expect(html).toContain('판단 부분을 따로 가려낼 수 없어 판결문 이유 전체를 고치지 않고 그대로 옮겼습니다.');
+  expect(html).not.toContain('사실관계·주장은 아래 전문에서 확인하세요');
+  expect(html).toMatch(/<details[^>]*><summary[^>]*>AI 정리 보기 · 원문 아님<\/summary>/);
+  expect(html).not.toMatch(/<details[^>]*\sopen/);
+  expect(html).toContain('data-export="quote" data-export-title="AI 정리" data-export-ai="true"');
+  expect(html).toContain('합성 저장 요약');
+  expect(html).not.toContain('판결요지');
+  expect(html).not.toContain('저장된 요약');
   for (const label of ['전문 복사', '요지 복사', '인용 형식 복사', '선택 복사', '.md 내려받기', '.jsonl 내려받기']) expect(html).toContain(label);
+  expect(buttonTag(html, '요지 복사')).not.toMatch(/\sdisabled=""/);
+  expect(buttonTag(html, '요지 복사')).not.toContain('title=');
   expect(html).not.toContain('granted');
+});
+
+it('the 요지 skips the fact and claim headings of a numbered 이유 and keeps the original spacing', async () => {
+  const reason = '1. 기초사실\n원고는 합성 공사에 입사하였다.\n\n2. 당사자의 주장\n원고는 해고가 무효라고 주장한다.\n\n3. 판단\n가. 해고 사유\n  원고에게 해고 사유가   있다고 보기 어렵다.\n\n4. 결론\n원심의 판단에 잘못이 없다.\n\n대법관 합성';
+  db.verified = [{ ...verifiedRow, body_sections: [...verifiedRow.body_sections.slice(0, 3), { title: '이유', text: reason, type: 'section', index: 3 }] }];
+  const html = await render();
+  const summary = summaryBlock(html);
+  expect(summary).toBe(reason.slice(reason.indexOf('3. 판단')));
+  expect(reasonBlock(html)).toBe(reason);
+  expect(reasonBlock(html)!.includes(summary!)).toBe(true);
+  expect(html).toContain('판결문 이유 가운데 판단 부분을 고치지 않고 그대로 옮겼습니다. 사실관계·주장은 아래 전문에서 확인하세요.');
+  expect(html).not.toContain('이유 전체를 고치지 않고');
+  // 짧은 요지는 접지 않는다.
+  expect(html).not.toContain('전부 보기');
+});
+
+it('a long 요지 is clamped by height only, with the whole text still in the page', async () => {
+  const judged = `3. 판단\n${'원고에게 해고 사유가 있다고 보기 어렵다.\n'.repeat(40)}4. 결론\n원심의 판단에 잘못이 없다.`;
+  const reason = `1. 기초사실\n사실.\n2. 원고의 주장\n주장.\n${judged}`;
+  db.verified = [{ ...verifiedRow, body_sections: [...verifiedRow.body_sections.slice(0, 3), { title: '이유', text: reason, type: 'section', index: 3 }] }];
+  const html = await render();
+  expect(summaryBlock(html)).toBe(judged);
+  expect(html).toMatch(/class="relative max-h-80 overflow-hidden"><p id="[^"]+" data-export="summary"/);
+  expect(html).toMatch(/<button type="button" aria-expanded="false" aria-controls="[^"]+"[^>]*>전부 보기<\/button>/);
+});
+
+it('a collected row without sections gives the text after its 이 유 line as the 요지', async () => {
+  const judged = `1. 처분의 경위\n경위.\n2. 원고의 주장\n주장.\n3. 처분의 적법 여부\n${'징계사유가 인정된다. '.repeat(80)}\n4. 결론\n원고의 청구를 기각한다.`;
+  const full = `서울행정법원\n판결\n주 문\n원고의 청구를 기각한다.\n이    유\n${judged}`;
+  db.bigcase = [{ full_text_clean: full, full_text_raw: null, body_sections: [], completeness_flag: 'partial', coverage_ratio: 1, parse_version: 'bigcase-v2' }];
+  const html = await render();
+  expect(html).toContain('수집 본문 · 완전성 미확인');
+  expect(summaryBlock(html)).toBe(judged.slice(judged.indexOf('3. 처분의 적법 여부')).trimEnd());
+  expect(full.includes(summaryBlock(html)!)).toBe(true);
+});
+
+it('an original without a findable 이유 has no 요지 and keeps the AI summary closed', async () => {
+  db.bigcase = [longCollected('빅케이스 수집 본문')];
+  const html = await render();
+  expect(summaryBlock(html)).toBeNull();
+  expect(html).not.toContain('요지 · 판결문 원문');
+  expect(html).toMatch(/<summary[^>]*>AI 정리 보기 · 원문 아님<\/summary>/);
+  expect(html).not.toContain('AI 정리 · 판결문 원문 아님');
+  expectSummaryUnavailable(html);
 });
 
 it('a verified-version row that is not marked full stays an ordinary collected row', async () => {
@@ -175,4 +252,11 @@ it('without any source document keeps the AI summary fallback and its markers', 
   const html = await render();
   expect(html).toContain('정리본 · 원문 미확보');
   expect(html).toContain('data-export="section" data-export-title="서비스 내 정리본" data-export-ai="true"');
+  // AI 정리 카드는 요지가 아니다 — 「판결요지」라 부르지 않고, 요지로 내보내지 않는다(드래그 인용만).
+  expect(html).toContain('<h3 class="font-semibold text-sm mb-2">AI 정리 · 판결문 원문 아님</h3>');
+  expect(html).toContain('data-export="quote" data-export-title="AI 정리" data-export-ai="true"');
+  expect(html).not.toContain('판결요지');
+  expect(html).not.toContain('AI 정리 보기 · 원문 아님');
+  expect(summaryBlock(html)).toBeNull();
+  expectSummaryUnavailable(html);
 });
