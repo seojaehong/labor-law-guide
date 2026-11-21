@@ -200,6 +200,24 @@ describe('extractJudgmentPart', () => {
     expect(judged(lawful)).toContain('2. 이 사건 처분이 적법한지에 관하여 본다\n가. 징계사유는 인정된다.');
   });
 
+  // 인용 목록 번호와 다음 표제 번호가 겹칠 때, 판단·결론·건너뛸 표제 글자면 목록 항목이 아니라 표제로 본다.
+  it('a heading whose number continues a quoted list is still a heading when it reads 판단, 결론 or a skipped title', () => {
+    const reason = '1. 기초사실\n사실.\n2. 원고의 주장\n원고는 다음 사유를 다툰다.\n1. 사유 하나\n2. 사유 둘\n3. 판단\n해고 사유가 인정되지 않는다.\n4. 결론\n인용한다.';
+    expect(judged(reason)).toBe(reason.slice(reason.indexOf('3. 판단')));
+    const single = '1. 기초사실\n가. 징계사유는 다음과 같다.\n1. 무단결근\n2. 원고의 주장\n주장.\n3. 판단\n판단문.\n4. 결론\n인용한다.';
+    expect(judged(single)).toBe(single.slice(single.indexOf('3. 판단')));
+  });
+
+  // 목록 밖에서 이미 지난 표제 번호가 다시 나오면 번호 구조를 믿을 수 없다 — 뒤쪽에서 자르면 판단이 빠질 수 있어 이유 전체로 물러난다.
+  it('falls back to the whole 이유 when a number already used by a heading appears again outside a list', () => {
+    const stray = '1. 기초사실\n사실.\n2. 원고의 주장\n주장.\n1. 사유 하나\n2. 사유 둘\n3. 판단\n해고 사유가 인정되지 않는다.\n2. 무단결근\n3. 업무상 횡령\n4. 결론\n인용한다.';
+    const part = judged(stray);
+    expect(part).toContain('3. 판단\n해고 사유가 인정되지 않는다.');
+    expect(part).toBe(stray);
+    const same = '1. 기초사실\n사실.\n2. 원고의 주장\n주장.\n1. 사유 하나\n2. 사유 둘\n3. 판단\n해고 사유가 인정되지 않는다.\n3. 업무상 횡령\n4. 결론\n인용한다.';
+    expect(judged(same)).toContain('3. 판단\n해고 사유가 인정되지 않는다.');
+  });
+
   it('a date wrapped onto the start of a line (「2. 15. …」) is not a heading', () => {
     const reason = [
       '1. 기초사실',
@@ -242,7 +260,12 @@ describe('extractJudgmentPart', () => {
   it('trims only leading and trailing blank lines and keeps inner spacing verbatim', () => {
     const reason = '\n\n1. 기초사실\n사실.\n\n\n3. 아님\n2. 판단   \n가.  띄어 쓴   글자\n\n\n\n끝.  \n\n';
     const part = judged(reason);
-    expect(part).toBe('2. 판단   \n가.  띄어 쓴   글자\n\n\n\n끝.');
+    // 마지막 글자 줄의 줄 끝 공백도 원문 그대로 둔다 — 떼는 것은 빈 줄뿐이다.
+    expect(part).toBe('2. 판단   \n가.  띄어 쓴   글자\n\n\n\n끝.  ');
+  });
+
+  it('keeps the leading spaces of the first line and the trailing spaces of the last line', () => {
+    expect(judged('\n   \n  1. 판단 없이 시작\n끝.  \r\n \r\n')).toBe('  1. 판단 없이 시작\n끝.  ');
   });
 
   it('works on CRLF text without changing the line endings', () => {

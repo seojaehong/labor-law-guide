@@ -69,12 +69,20 @@ function isHeadingTitle(title: string): boolean {
   return title.length <= MAX_HEADING_LENGTH && !isSentence(title);
 }
 
+/** 판단·결론·건너뛸 표제 글자 — 인용 목록 번호와 겹쳐도 표제로 본다 */
+function readsAsTopHeading(title: string): boolean {
+  const text = compact(title);
+  return isHeadingTitle(title) && (text.includes('판단') || CONCLUSION_HEADINGS.has(text) || isSkippedHeading(title));
+}
+
 type Heading = { start: number; title: string };
 
 /**
  * 최상위 번호 표제(1. 2. 3. … 차례대로). 어느 줄이 표제인지 가릴 수 없으면 null.
  * - 표제 뒤에서 「1.」로 다시 시작한 번호 줄은 본문에 인용한 목록(취업규칙·법령의 호)이다. 번호가 이어지는 동안 목록으로 본다
- *   — 목록 번호와 다음 표제 번호가 겹치면 목록으로 본다(뒤 표제를 놓치면 더 앞에서 시작하거나 이유 전체가 될 뿐 판단이 빠지지 않는다).
+ *   — 목록 번호와 다음 표제 번호가 겹치면 판단·결론·건너뛸 표제 글자일 때만 표제로, 그 밖에는 목록으로 본다
+ *     (뒤 표제를 놓치면 더 앞에서 시작하거나 이유 전체가 될 뿐 판단이 빠지지 않는다).
+ * - 목록 밖에서 이미 지난 표제 번호(2 이상)가 다시 나오면 번호 구조를 믿을 수 없다 → null.
  * - 다음 표제 번호 자리에 문장·긴 줄이 오면 표제가 아니지만, 그 뒤에 같은 번호 표제가 또 나오면 어느 쪽이 진짜인지 모른다 → null.
  */
 function topHeadings(reason: string): Heading[] | null {
@@ -86,7 +94,7 @@ function topHeadings(reason: string): Heading[] | null {
     const number = Number(match[1]);
     const title = match[2];
     if (DATE_FRAGMENT.test(title)) continue;
-    if (list && number === list) {
+    if (list && number === list && !(number === expected && readsAsTopHeading(title))) {
       list++;
       continue;
     }
@@ -95,6 +103,7 @@ function topHeadings(reason: string): Heading[] | null {
       continue;
     }
     list = 0;
+    if (number > 1 && number < expected) return null;
     if (number !== expected) continue;
     if (!isHeadingTitle(title)) {
       sentenceAt = number;
@@ -115,9 +124,13 @@ function hasJudgmentSubHeading(text: string): boolean {
   return false;
 }
 
-/** 앞뒤 빈 줄과 끝 공백만 뗀다 — 결과는 입력의 부분 문자열. 원문 요지 표지를 내보낼 때도 이것만 쓴다 */
+/**
+ * 앞뒤 빈 줄만 뗀다(첫 글자 줄 앞 공백·마지막 글자 줄 끝 공백은 둔다) — 결과는 입력의 부분 문자열.
+ * 원문 요지 표지를 내보낼 때도 이것만 쓴다. 글자가 없으면 빈 문자열.
+ */
 export function trimBlankLines(text: string): string {
-  return text.replace(/^(?:[ \t　]*(?:\r\n|\n|\r))+/, '').replace(/\s+$/, '');
+  if (!text.trim()) return '';
+  return text.replace(/^(?:[ \t　]*(?:\r\n|\n|\r))+/, '').replace(/(?:(?:\r\n|\n|\r)[ \t　]*)+$/, '');
 }
 
 /**
