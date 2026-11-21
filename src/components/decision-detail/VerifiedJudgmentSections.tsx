@@ -5,8 +5,8 @@ import { exportAttrs, splitHeadLine } from "@/lib/decision-export";
 //   머리(type head, 제목 없음) — 작은 회색 글씨의 표제·값 표
 //   주문 — 강조 상자
 //   그 밖의 절 — 제목이 있는 문단
-// 화면 글자를 모으면 원문 줄이 그대로 나오도록 표제와 값 사이 원래 공백을 글자로 남긴다
-// (격자 안의 공백뿐인 글자는 그려지지 않는다).
+// 화면 글자를 모으면 원문 줄이 그대로 나오도록 표제와 값 사이 원래 공백을 숨긴 글자로 남기고
+// 빈 줄은 "\n" 글자로 둔다. 간격을 맨 글자로 두면 전각 공백(U+3000)이 격자 칸이 되어 표가 한 칸씩 밀린다.
 
 export type JudgmentSection = { title?: string; text?: string; type?: string; index?: number };
 
@@ -25,13 +25,13 @@ function HeadBlock({ text, id }: { text: string; id: string }) {
           return line.trim() ? (
             <div key={index} className="col-span-2 break-words">{line}</div>
           ) : (
-            <div key={index} className="col-span-2 h-1" />
+            <div key={index} className="col-span-2 h-1">{"\n"}</div>
           );
         }
         return (
           <div key={index} className="contents">
             <span className="break-words font-medium text-foreground/80">{parts.label}</span>
-            {parts.gap}
+            <span className="hidden">{parts.gap}</span>
             <span className="min-w-0 break-words">{parts.value}</span>
           </div>
         );

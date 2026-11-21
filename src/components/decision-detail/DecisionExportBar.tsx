@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState, type MouseEvent } from "react";
 import { Copy, Download, FileText, ListChecks, Quote } from "lucide-react";
 import { Button } from "@/components/decisions-ui/button";
 import { Checkbox } from "@/components/decisions-ui/checkbox";
@@ -18,6 +18,7 @@ import {
   toJsonl,
   toMarkdown,
   type ExportBlock,
+  type ExportClip,
   type ExportMeta,
   type RoledExportBlock,
 } from "@/lib/decision-export";
@@ -52,21 +53,55 @@ function readBlocks(): RoledExportBlock[] {
   return blocks;
 }
 
-/** 드래그한 글자 — 본문 표지 안에 걸친 선택만 받는다 */
+function rangeClip(range: Range): ExportClip {
+  return {
+    intersects: (node) => range.intersectsNode(node as Node),
+    textRange: (node) => [
+      node === range.startContainer ? range.startOffset : 0,
+      node === range.endContainer ? range.endOffset : (node.nodeValue ?? "").length,
+    ],
+    coversStart: (node) => {
+      const position = range.comparePoint(node as Node, 0);
+      if (position !== -1) return position === 0;
+      // 선택이 항목 안에서 시작했어도 그 앞에 글자가 없으면 항목 첫머리부터 고른 것이다.
+      const before = document.createRange();
+      before.setStart(node as Node, 0);
+      before.setEnd(range.startContainer, range.startOffset);
+      return before.toString().trim() === "";
+    },
+  };
+}
+
+/**
+ * 드래그한 글자 — 본문 표지(data-export) 안쪽 글자만 모은다. 표지 사이의 제목·배지·바로가기·안내 글자는 버린다.
+ * 화면에 그려지지 않은 표지(닫힌 펼침 안 등)와 다른 표지 안에 든 표지는 건너뛴다.
+ */
 function readSelection(): { text: string; containsAi: boolean } | null {
   const selection = window.getSelection();
   if (!selection || selection.rangeCount === 0 || selection.isCollapsed) return null;
-  const range = selection.getRangeAt(0);
-  const regions = Array.from(document.querySelectorAll<HTMLElement>("[data-export]")).filter((el) => range.intersectsNode(el));
-  const text = selection.toString();
-  if (regions.length === 0 || !text.trim()) return null;
-  return { text, containsAi: regions.some((el) => el.dataset.exportAi === "true") };
+  const regions = Array.from(document.querySelectorAll<HTMLElement>("[data-export]")).filter(
+    (el) => !el.parentElement?.closest("[data-export]") && el.getClientRects().length > 0,
+  );
+  const parts: string[] = [];
+  let containsAi = false;
+  for (let index = 0; index < selection.rangeCount; index++) {
+    const range = selection.getRangeAt(index);
+    const clip = rangeClip(range);
+    for (const el of regions) {
+      if (!range.intersectsNode(el)) continue;
+      const text = collectNodeText(el, clip);
+      if (!text) continue;
+      parts.push(text);
+      if (el.dataset.exportAi === "true") containsAi = true;
+    }
+  }
+  return parts.length > 0 ? { text: parts.join("\n\n"), containsAi } : null;
 }
 
 async function writeClipboard(text: string): Promise<boolean> {
   if (await copyRich(text)) return true;
+  const area = document.createElement("textarea");
   try {
-    const area = document.createElement("textarea");
     area.value = text;
     area.setAttribute("readonly", "");
     area.style.position = "fixed";
@@ -74,11 +109,11 @@ async function writeClipboard(text: string): Promise<boolean> {
     area.style.opacity = "0";
     document.body.appendChild(area);
     area.select();
-    const ok = document.execCommand("copy");
-    area.remove();
-    return ok;
+    return document.execCommand("copy");
   } catch {
     return false;
+  } finally {
+    area.remove();
   }
 }
 
@@ -125,8 +160,10 @@ export default function DecisionExportBar({
     void copy(buildSummaryText(meta, summary), summary.isAi ? "요지를 복사했습니다. AI 정리 표시가 붙어 있습니다." : "요지를 복사했습니다.");
   };
 
-  const copyCitation = () => {
-    const picked = pendingSelection.current ?? readSelection();
+  // 지금 선택을 먼저 본다. 누르는 순간 선택이 풀리는 브라우저를 위해 pointerdown 때 잡아 둔 선택은
+  // 포인터로 누른 클릭(detail > 0)에서만 대신 쓴다 — 키보드로 누를 때 옛 선택이 나가지 않게.
+  const copyCitation = (event: MouseEvent<HTMLButtonElement>) => {
+    const picked = readSelection() ?? (event.detail > 0 ? pendingSelection.current : null);
     pendingSelection.current = null;
     const text = picked ? buildCitationText(meta, picked.text, picked.containsAi) : null;
     if (!picked || !text) return notify("본문에서 인용할 부분을 먼저 드래그하세요.", false);
@@ -188,6 +225,13 @@ export default function DecisionExportBar({
           size="sm"
           onPointerDown={() => {
             pendingSelection.current = readSelection();
+          }}
+          onPointerCancel={() => {
+            pendingSelection.current = null;
+          }}
+          onPointerLeave={(event) => {
+            // 누른 채 버튼 밖으로 끌고 나간 때만 버린다 — 터치는 손을 뗀 뒤(click 앞)에도 pointerleave 가 온다.
+            if (event.buttons > 0) pendingSelection.current = null;
           }}
           onClick={copyCitation}
         >

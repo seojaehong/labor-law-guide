@@ -44,7 +44,7 @@ http.createServer(async (req,res)=>{
   if(url.pathname==='/rest/v1/decision_source_documents') {
     if(url.searchParams.get('internal_decision_id')!=='eq.bc_export_fixture'||url.searchParams.get('parse_version')!=='eq.local-verified-v1') return res.end('[]');
     return res.end(JSON.stringify([{parse_version:'local-verified-v1',completeness_flag:'full',coverage_ratio:1,full_text_raw:null,full_text_clean:'합성 판결 전문',body_sections:[
-      {title:'',text:'사       건    2019두12345 해고무효확인\n원고, 상고인    합성 주식회사\n    소송대리인 변호사 합성',type:'head',index:0},
+      {title:'',text:'대    법    원\n\n사       건    2019두12345 해고무효확인\n원고, 상고인    합성 주식회사\n    소송대리인 변호사 합성\n피　　고　　합성 공사',type:'head',index:0},
       {title:'주문',text:'상고를 기각한다.\n상고비용은 원고가 부담한다.',type:'section',index:1},
       {title:'청구취지',text:'피고의 해고는 무효임을 확인한다.',type:'section',index:2},
       {title:'이유',text:'상고이유를 판단한다.\n원심의 판단에 잘못이 없다.\n\n대법관 합성',type:'section',index:3},

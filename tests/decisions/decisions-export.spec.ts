@@ -24,7 +24,8 @@ test('verified judgment: copy full, summary, citation, picked parts and download
   await expect(page.getByRole('status')).toContainText('전문을 복사했습니다');
   const full = await clipboard(page);
   expect(full.split('\n').slice(0, 2)).toEqual(['합성 해고무효확인', '대법원 · 2020. 1. 5. 선고 · 2019두12345']);
-  expect(full).toContain('사       건    2019두12345 해고무효확인\n원고, 상고인    합성 주식회사\n    소송대리인 변호사 합성\n\n[주문]\n상고를 기각한다.\n상고비용은 원고가 부담한다.');
+  // 머리 절은 빈 줄·간격(전각 공백 포함)까지 저장 글자 그대로 나온다.
+  expect(full).toContain('대    법    원\n\n사       건    2019두12345 해고무효확인\n원고, 상고인    합성 주식회사\n    소송대리인 변호사 합성\n피　　고　　합성 공사\n\n[주문]\n상고를 기각한다.\n상고비용은 원고가 부담한다.');
   expect(full).toContain('[이유]\n상고이유를 판단한다.\n원심의 판단에 잘못이 없다.\n\n대법관 합성');
   for (const label of ['전문 복사', '요지 복사', '판결 전문 · 주문', '내려받기']) expect(full).not.toContain(label);
 
@@ -46,6 +47,49 @@ test('verified judgment: copy full, summary, citation, picked parts and download
   await page.getByRole('button', { name: '인용 형식 복사' }).click();
   expect(await clipboard(page)).toBe('[관련 판결] 대법원 2020. 1. 5. 선고 2019두12345 판결\n상고이유를 판단한다.\n원심의 판단에 잘못이 없다.');
 
+  // 요약 카드부터 주문 끝까지 드래그 — 사이의 제목·배지·안내·바로가기 글자는 빠지고 표지 안 글자만 남는다.
+  await page.evaluate(() => {
+    const textNodes = (selector: string) => {
+      const walker = document.createTreeWalker(document.querySelector(selector)!, NodeFilter.SHOW_TEXT);
+      const nodes: Text[] = [];
+      while (walker.nextNode()) if ((walker.currentNode as Text).data.trim()) nodes.push(walker.currentNode as Text);
+      return nodes;
+    };
+    const start = textNodes('[data-export-title="판결요지 정리"]')[0];
+    const ends = textNodes('[data-export-title="주문"]');
+    const end = ends[ends.length - 1];
+    const range = document.createRange();
+    range.setStart(start, 0);
+    range.setEnd(end, end.data.length);
+    window.getSelection()!.removeAllRanges();
+    window.getSelection()!.addRange(range);
+  });
+  await page.getByRole('button', { name: '인용 형식 복사' }).click();
+  await expect(page.getByRole('status')).toContainText('AI 정리 부분이 섞여');
+  const spanning = await clipboard(page);
+  expect(spanning).toBe([
+    '[관련 판결] 대법원 2020. 1. 5. 선고 2019두12345 판결',
+    '(AI 정리 · 판결문 원문 아님)',
+    '합성 저장 요약 첫 줄\n합성 저장 요약 둘째 줄',
+    '',
+    '대    법    원\n\n사       건    2019두12345 해고무효확인\n원고, 상고인    합성 주식회사\n    소송대리인 변호사 합성\n피　　고　　합성 공사',
+    '',
+    '상고를 기각한다.\n상고비용은 원고가 부담한다.',
+  ].join('\n'));
+  for (const label of ['판결 전문', '주문청구취지', '공식 원문', '확인한 판결', '저장된 요약']) expect(spanning).not.toContain(label);
+
+  // 머리 표 — 표제와 값이 같은 행에 놓인다(전각 공백 간격이 격자 칸을 차지하면 한 칸씩 밀린다).
+  const headRows = await page.evaluate(() =>
+    Array.from(document.querySelectorAll('[data-export-kind="head"] > .contents')).map((row) => {
+      const cells = Array.from(row.children) as HTMLElement[];
+      const label = cells[0].getBoundingClientRect();
+      const value = cells[cells.length - 1].getBoundingClientRect();
+      return { value: cells[cells.length - 1].textContent, sameRow: Math.abs(label.top - value.top) < 2, rightOfLabel: value.left > label.left };
+    }),
+  );
+  expect(headRows.map((row) => row.value)).toEqual(['2019두12345 해고무효확인', '합성 주식회사', '소송대리인 변호사 합성', '합성 공사']);
+  for (const row of headRows) expect(row, row.value ?? '').toMatchObject({ sameRow: true, rightOfLabel: true });
+
   await page.getByRole('button', { name: '선택 복사' }).click();
   const panel = page.getByRole('group', { name: '복사할 부분 고르기' });
   await panel.getByText('사건 정보').click();
@@ -53,7 +97,7 @@ test('verified judgment: copy full, summary, citation, picked parts and download
   await panel.getByText('판결요지 정리').click();
   await panel.getByRole('button', { name: '고른 부분 복사' }).click();
   const picked = await clipboard(page);
-  expect(picked.startsWith('사       건')).toBe(true);
+  expect(picked.startsWith('대    법    원\n\n사       건')).toBe(true);
   expect(picked).toContain('[주문]\n상고를 기각한다.');
   expect(picked).toContain('[청구취지]\n피고의 해고는 무효임을 확인한다.');
   expect(picked).not.toContain('[이유]');
@@ -74,8 +118,9 @@ test('verified judgment: copy full, summary, citation, picked parts and download
   expect(record.summary).toEqual({ label: '판결요지 정리', text: '합성 저장 요약 첫 줄\n합성 저장 요약 둘째 줄', is_ai: true });
   expect(record.text_kind).toBe('원문');
 
+  // 고르기 패널은 위에서 연 채 그대로다 — 다시 누르면 닫히므로 열린 상태를 확인하고 잰다.
   await page.setViewportSize({ width: 375, height: 812 });
-  await page.getByRole('button', { name: '선택 복사' }).click();
+  await expect(panel).toBeVisible();
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
   console.log(`export-bar mobile overflow px=${overflow}`);
   expect(overflow).toBeLessThanOrEqual(0);

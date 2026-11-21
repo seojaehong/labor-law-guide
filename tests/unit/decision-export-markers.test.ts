@@ -80,3 +80,34 @@ it('interpretation detail exposes inquiry, answer and collected body sections', 
   expect(html).toContain('data-export="section" data-export-title="본문" data-export-ai="false"');
   expect(html).toContain('id="collected-source-body">');
 });
+
+it('interpretation bodies drop law_cite annotations before they reach the screen and the export', async () => {
+  const before = { ...rows.interp };
+  const cite = (text: string) => `<law_cite ref="javascript:alert(1)">${text}</law_cite>`;
+  Object.assign(rows.interp, {
+    inquiry_summary: `질의 ${cite('근로기준법 제23조')}`,
+    answer_summary: `회시 ${cite('근로기준법 제56조')}`,
+    full_text: `<p>본문 ${cite('근로기준법 제60조')}</p>`,
+  });
+  try {
+    // 머리의 JSON-LD 설명문은 복사·내려받기 대상이 아니다 — 화면 본문만 본다.
+    const html = renderToStaticMarkup(await InterpretationPage({ params: Promise.resolve({ id: 'ml_marker' }) }))
+      .replace(/<script type="application\/ld\+json">[\s\S]*?<\/script>/g, '');
+    expect(html).not.toContain('law_cite');
+    expect(html).not.toContain('javascript:');
+    for (const text of ['질의 근로기준법 제23조', '회시 근로기준법 제56조', '본문 근로기준법 제60조']) expect(html).toContain(text);
+  } finally {
+    Object.assign(rows.interp, before);
+  }
+});
+
+it('the 「공식 원문 미확인」 note after a private source link is screen-only, not export text', async () => {
+  const before = rows.case.summary;
+  rows.case.summary = '합성 요약 [원문 보기](https://bigcase.ai/cases/1) 끝';
+  try {
+    const html = renderToStaticMarkup(await CasePage({ params: Promise.resolve({ id: 'case_marker' }) }));
+    expect(html).toContain('원문 보기<span data-export-skip=""> (공식 원문 미확인)</span>');
+  } finally {
+    rows.case.summary = before;
+  }
+});

@@ -13,6 +13,7 @@ import TagRow from '@/components/decision-detail/TagRow';
 import DecisionExportBar from '@/components/decision-detail/DecisionExportBar';
 import { exportAttrs, type ExportMeta } from '@/lib/decision-export';
 import { publicSourceUrl } from '@/lib/public-source-url';
+import { unwrapSourceAnnotations } from '@/lib/legal-display-text';
 import {
   ArrowLeft,
   Calendar,
@@ -154,8 +155,10 @@ export default async function InterpretationDetailPage({
   }
 
   const related = await getRelatedInterpretations(item.id, item.keywords_matched);
-  const summary = getPreferredSummary(item);
-  const detail = getPreferredDetail(item);
+  // 수집 글자에 남은 law_cite 주석을 걷어 낸 글자를 화면과 복사·내려받기에 함께 쓴다.
+  const summary = unwrapSourceAnnotations(getPreferredSummary(item));
+  const detail = unwrapSourceAnnotations(getPreferredDetail(item));
+  const collectedBody = item.collected_body ? unwrapSourceAnnotations(item.collected_body) : '';
   const dateStr = formatDecisionDate(item.decision_date);
   const pageUrl = `${SITE_URL}/interpretations/${encodeURIComponent(item.id)}`;
   const showDetail = Boolean(detail && detail !== summary);
@@ -303,7 +306,7 @@ export default async function InterpretationDetailPage({
               <h2 className="text-[15px] font-bold mb-3">별도로 확보한 수집 본문</h2>
               <p className="mb-3 text-sm">위 요약과 별도로 저장된 본문입니다. 원본 완전성·구획 보존은 미확인입니다. HTML의 실행 요소는 표시하지 않습니다.</p>
               <div {...exportAttrs('section', '본문', false)}>
-                <CollectedSourceBody text={item.collected_body} anchorScope="interpretation-body"/>
+                <CollectedSourceBody text={collectedBody} anchorScope="interpretation-body"/>
               </div>
             </section> : null}
 

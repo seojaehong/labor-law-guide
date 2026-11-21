@@ -30,7 +30,7 @@ import SubscribeForm from "@/components/SubscribeForm";
 import { SITE_URL, BRAND_NAME } from "@/lib/constants";
 import DecisionExportBar from "@/components/decision-detail/DecisionExportBar";
 import VerifiedJudgmentSections from "@/components/decision-detail/VerifiedJudgmentSections";
-import { exportAttrs, type ExportMeta } from "@/lib/decision-export";
+import { decisionExportPageUrl, exportAttrs, type ExportMeta } from "@/lib/decision-export";
 import { publicSourceUrl } from "@/lib/public-source-url";
 
 // 검증 전문 — 주문·이유·서명까지 들어 있는지 대조해 적재한 행(제공처 bigcase·local·ilabor).
@@ -47,10 +47,6 @@ function firstPublicSource(urls: unknown[]): string | null {
     if (source) return source;
   }
   return null;
-}
-
-function decisionPageUrl(id: string): string {
-  return `${SITE_URL}/decisions/${encodeURIComponent(id)}`;
 }
 
 // AI 분류 라벨 fallback: 미매핑 영문은 underscore→space로 보정
@@ -335,7 +331,7 @@ export default async function DecisionPage({
       date: decisionDate(precedent.decision_date),
       caseNumber: precedent.reference_number || null,
       sourceUrl: firstPublicSource([precedent.original_url, precedent.url]),
-      pageUrl: decisionPageUrl(id),
+      pageUrl: decisionExportPageUrl(SITE_URL, id, decisionSource),
       textKind: "원문",
     };
     const lawgoHasSections = Boolean(precedent.issue_text || precedent.summary_text || precedent.reference_statutes || precedent.reference_cases || sections.length > 0 || document?.body_text);
@@ -524,12 +520,16 @@ export default async function DecisionPage({
         .order("coverage_ratio", { ascending: false })
         .limit(5),
       // 검증 전문은 bigcase 밖(local·ilabor)에도 있고 coverage 1.0 동률이 많다 — limit 5 경쟁에서 밀리지 않게 따로 가져온다.
+      // full 조건은 limit 앞에서 건다(뒤에서 거르면 partial 행이 limit 을 채워 full 행이 밀린다).
+      // 제공처가 여럿이면 coverage 가 모두 1.0 이라 순서가 정해지지 않는다 — 제공처 이름으로 고정한다.
       supabase
         .from("decision_source_documents")
         .select(sourceColumns)
         .eq("internal_decision_id", id)
         .eq("parse_version", VERIFIED_PARSE_VERSION)
+        .eq("completeness_flag", "full")
         .order("coverage_ratio", { ascending: false })
+        .order("source_provider", { ascending: true })
         .limit(3),
     ]);
 
@@ -586,6 +586,9 @@ export default async function DecisionPage({
     const hasHoldingPoints = holdingPointsText.length > 0;
     const hasSummary = summaryText.length > 0;
     const hasSourceSection = hasRealFulltext || hasHoldingPoints;
+    // 따로 저장된 요약이 없고 원문 대신 정리본(holding_points)이 보일 때는 그 정리본이 요지 복사 대상이다.
+    const holdingAsSummary = !hasSummary && !hasRealFulltext && hasHoldingPoints;
+    const holdingRole = holdingAsSummary ? "section summary" : "section";
     // 요약(holding_summary·summary)은 화면이 「원문이 아닌 정리본」, holding_points 는 「AI가 정리한 요약본」이라 밝힌 글자다.
     const caseMeta: ExportMeta = {
       id,
@@ -595,7 +598,7 @@ export default async function DecisionPage({
       date: decisionDate(c.decision_date),
       caseNumber: c.case_number || null,
       sourceUrl: firstPublicSource([c.original_url, c.url]),
-      pageUrl: decisionPageUrl(id),
+      pageUrl: decisionExportPageUrl(SITE_URL, id, decisionSource),
       textKind: hasRealFulltext ? "원문" : "정리본",
     };
 
@@ -654,7 +657,7 @@ export default async function DecisionPage({
             </div>
           </Card>
 
-          <DecisionExportBar meta={caseMeta} hasSections={hasSourceSection} hasSummary={hasSummary} />
+          <DecisionExportBar meta={caseMeta} hasSections={hasSourceSection} hasSummary={hasSummary || holdingAsSummary} />
 
           <section id="decision-summary" className="scroll-mt-24 space-y-4">
             {summaryText ? (
@@ -696,7 +699,8 @@ export default async function DecisionPage({
               <Card className="p-4 mb-4">
                 <h3 className="font-semibold text-sm mb-3">확보한 수집 본문</h3>
                 <div>{renderLawgoSections(bodySections)}</div>
-                {realFulltext ? <details className="mt-4"><summary>같은 수집본의 저장 텍스트 보기 · 완전성 미확인</summary><p className="reading-prose whitespace-pre-wrap break-words">{unwrapSourceAnnotations(realFulltext)}</p></details> : null}
+                {/* 위 구획과 같은 수집본이라 전문·내려받기에는 다시 싣지 않고 드래그 인용만 받는다(quote). */}
+                {realFulltext ? <details className="mt-4"><summary>같은 수집본의 저장 텍스트 보기 · 완전성 미확인</summary><p {...exportAttrs("quote", "", false)} className="reading-prose whitespace-pre-wrap break-words">{unwrapSourceAnnotations(realFulltext)}</p></details> : null}
               </Card>
             ) : realFulltext ? (
               <Card className="p-4 mb-4">
@@ -709,7 +713,7 @@ export default async function DecisionPage({
                 <p className="text-xs text-muted-foreground mb-3">
                   법원 원문을 확보하지 못해 AI가 정리한 요약본으로 표시합니다.
                 </p>
-                <div {...exportAttrs("section", "서비스 내 정리본", true)}>{renderHoldingBlocks(holdingPointsText)}</div>
+                <div {...exportAttrs(holdingRole, "서비스 내 정리본", true)}>{renderHoldingBlocks(holdingPointsText)}</div>
               </Card>
             ) : (
               <Card className="p-4 mb-4 bg-muted/40">
@@ -721,13 +725,14 @@ export default async function DecisionPage({
                   {hasHoldingPoints ? (
                     <div>
                       <p className="text-xs font-medium text-muted-foreground mb-1">판결요지 정리 · 원문 아님</p>
-                      <div {...exportAttrs("section", "서비스 내 정리본", true)}>{renderHoldingBlocks(holdingPointsText)}</div>
+                      <div {...exportAttrs(holdingRole, "서비스 내 정리본", true)}>{renderHoldingBlocks(holdingPointsText)}</div>
                     </div>
                   ) : null}
                   {hasSummary ? (
                     <div>
                       <p className="text-xs font-medium text-muted-foreground mb-1">판결요지 정리</p>
-                      <div>{renderHoldingBlocks(summaryText)}</div>
+                      {/* 위 「저장된 요약」 카드와 같은 글자 — 요지로 두 번 싣지 않고 드래그 인용만 받는다. */}
+                      <div {...exportAttrs("quote", "판결요지 정리", true)}>{renderHoldingBlocks(summaryText)}</div>
                     </div>
                   ) : null}
                 </div>
@@ -776,7 +781,7 @@ export default async function DecisionPage({
     date: decisionDate(d.decision_date),
     caseNumber: displayCaseNumber || null,
     sourceUrl: firstPublicSource([d.original_url, d.url]),
-    pageUrl: decisionPageUrl(id),
+    pageUrl: decisionExportPageUrl(SITE_URL, id, decisionSource),
     textKind: "정리본",
   };
 

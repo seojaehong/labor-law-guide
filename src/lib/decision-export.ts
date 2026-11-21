@@ -2,6 +2,13 @@
 // 본문은 서버가 그린 화면(data-export 표지)에서 클릭 시점에 모은다 — 여기 함수는 DOM 을 직접 만지지 않는다.
 // AI 정리는 어떤 형식으로 나가든 「AI 정리 · 원문 아님」 표시를 달고, 인용부호로 원문처럼 싸지 않는다.
 
+import {
+  detectDecisionSourceProvider,
+  getDecisionDetailHref,
+  getDecisionDetailRoutePath,
+  type DecisionSourceProvider,
+} from '@/lib/search/source-contracts';
+
 export type ExportKind = 'court' | 'nlrc' | 'interpretation';
 export type TextKind = '원문' | '정리본';
 
@@ -36,7 +43,8 @@ export interface ExportSummary {
 
 export type RoledExportBlock = ExportBlock & { roles: readonly string[] };
 
-export type ExportRole = 'section' | 'summary' | 'section summary';
+/** quote — 드래그 인용만 받는 자리(전문·내려받기에 다시 싣지 않는 같은 글자의 다른 표시) */
+export type ExportRole = 'section' | 'summary' | 'section summary' | 'quote';
 
 /** 서버 화면에 다는 복사·내려받기 표지. 본문 글자를 담는 가장 안쪽 상자에 단다(제목·안내 문구는 밖에 둔다). */
 export function exportAttrs(role: ExportRole, title: string, isAi: boolean, head = false): {
@@ -168,7 +176,13 @@ export function kstIsoString(now: Date): string {
   return `${new Date(now.getTime() + 9 * 3600 * 1000).toISOString().slice(0, 19)}+09:00`;
 }
 
-const yaml = (value: string | null) => (value === null ? 'null' : JSON.stringify(value));
+/** JSON.stringify 는 U+2028·U+2029·U+0085 를 그대로 둔다 — 이 글자를 줄 경계로 보는 독자(파이썬 splitlines, YAML 1.1)를 위해 이스케이프한다 */
+const UNICODE_LINE_BREAKS = new RegExp(`[${String.fromCharCode(0x2028, 0x2029, 0x85)}]`, 'g');
+function stringifyOneLine(value: unknown): string {
+  return JSON.stringify(value).replace(UNICODE_LINE_BREAKS, (c) => `\\u${c.charCodeAt(0).toString(16).padStart(4, '0')}`);
+}
+
+const yaml = (value: string | null) => (value === null ? 'null' : stringifyOneLine(value));
 
 export function toMarkdown(meta: ExportMeta, blocks: ExportBlock[], summary: ExportSummary | null, now: Date): string {
   const front = [
@@ -202,7 +216,7 @@ export function toMarkdown(meta: ExportMeta, blocks: ExportBlock[], summary: Exp
 }
 
 export function toJsonl(meta: ExportMeta, blocks: ExportBlock[], summary: ExportSummary | null): string {
-  return `${JSON.stringify({
+  return `${stringifyOneLine({
     id: meta.id,
     title: meta.title,
     court: meta.court,
@@ -223,6 +237,12 @@ function fileNamePart(value: string | null | undefined): string {
     .replace(/_+/g, '_')
     .replace(/^[._\s]+|[._\s]+$/g, '')
     .slice(0, 80);
+}
+
+/** 페이지 주소 — 접두사로 제공처를 알 수 없는 옛 id 는 사이트 링크 규칙대로 ?source 를 붙여야 같은 자료로 돌아온다 */
+export function decisionExportPageUrl(siteUrl: string, id: string, provider: DecisionSourceProvider): string {
+  const path = detectDecisionSourceProvider(id) === provider ? getDecisionDetailRoutePath(id) : getDecisionDetailHref({ id, sourceProvider: provider });
+  return `${siteUrl}${path}`;
 }
 
 /** 법원_사건번호.md — 둘 중 없는 것은 문서 id 로 채운다 */
@@ -255,6 +275,43 @@ const BLOCK_TAGS = new Set([
   'TABLE', 'TBODY', 'TFOOT', 'THEAD', 'TR', 'UL',
 ]);
 const SKIP_TAGS = new Set(['BUTTON', 'INPUT', 'NOSCRIPT', 'SCRIPT', 'STYLE', 'SUMMARY', 'SVG', 'TEMPLATE']);
+/** 이 상자 바로 안의 공백뿐인 글자는 화면에 그려지지 않는다(ReactMarkdown 이 항목·행 사이에 두는 "\n") */
+const STRUCTURE_TAGS = new Set(['OL', 'UL', 'TABLE', 'THEAD', 'TBODY', 'TFOOT', 'TR']);
+
+/** 드래그 선택(Range)으로 좁혀 모을 때 쓴다 — 시험에서는 평범한 함수로 흉내 낸다 */
+export interface ExportClip {
+  /** 노드가 선택과 겹치는가 */
+  intersects(node: ExportNode): boolean;
+  /** 글자 노드에서 선택된 부분 [시작, 끝) */
+  textRange(node: ExportNode): [number, number];
+  /** 노드의 첫머리가 선택 안에 드는가 — 목록 번호는 항목 첫머리부터 고른 때만 붙인다 */
+  coversStart(node: ExportNode): boolean;
+}
+
+const isElement = (node: ExportNode, name: string) => node.nodeType === 1 && node.nodeName.toUpperCase() === name;
+const isBlankText = (node: ExportNode | undefined) => Boolean(node) && node!.nodeType === 3 && !(node!.nodeValue ?? '').trim();
+const isList = (node: ExportNode | undefined) => Boolean(node) && (isElement(node!, 'OL') || isElement(node!, 'UL'));
+
+function alphaNumber(n: number): string {
+  let out = '';
+  for (let rest = n; rest > 0; rest = Math.floor((rest - 1) / 26)) out = String.fromCharCode(97 + ((rest - 1) % 26)) + out;
+  return out;
+}
+
+const ROMAN: Array<[number, string]> = [[1000, 'm'], [900, 'cm'], [500, 'd'], [400, 'cd'], [100, 'c'], [90, 'xc'], [50, 'l'], [40, 'xl'], [10, 'x'], [9, 'ix'], [5, 'v'], [4, 'iv'], [1, 'i']];
+function romanNumber(n: number): string {
+  let out = '';
+  let rest = n;
+  for (const [value, glyph] of ROMAN) for (; rest >= value; rest -= value) out += glyph;
+  return out;
+}
+
+/** <ol type> 에 맞춘 항목 번호 (1 · a · A · i · I). 글자 번호로 쓸 수 없는 값은 숫자로 쓴다 */
+function listNumber(n: number, type: string | null): string {
+  if ((type === 'a' || type === 'A') && n > 0) return type === 'A' ? alphaNumber(n).toUpperCase() : alphaNumber(n);
+  if ((type === 'i' || type === 'I') && n > 0 && n < 4000) return type === 'I' ? romanNumber(n).toUpperCase() : romanNumber(n);
+  return String(n);
+}
 
 function skipped(node: ExportNode): boolean {
   const attr = (name: string) => node.getAttribute?.(name) ?? null;
@@ -266,34 +323,85 @@ function skipped(node: ExportNode): boolean {
   );
 }
 
-/** 화면 글자를 블록 경계(문단·목록·표 행)에서 줄을 바꿔 모은다. textContent 는 형제 문단을 붙여 버린다. */
-export function collectNodeText(root: ExportNode): string {
+/**
+ * 화면 글자를 블록 경계(문단·목록·표 행)에서 줄을 바꿔 모은다. textContent 는 형제 문단을 붙여 버린다.
+ * 목록 번호·글머리는 CSS 가 그려 DOM 글자에 없으므로 「1. 」「- 」로 적는다.
+ * clip 을 주면 드래그 선택과 겹치는 글자만 모은다(목록 번호는 원래 목록에서 센다).
+ */
+export function collectNodeText(root: ExportNode, clip?: ExportClip): string {
   let out = '';
+  // 목록 항목 표시 — 항목의 첫 글자를 쓸 때 그 앞에 붙인다
+  let marker = '';
+  let depth = 0;
+  const attr = (node: ExportNode, name: string) => node.getAttribute?.(name) ?? null;
   const breakLine = () => {
+    if (marker) return;
     if (out && !out.endsWith('\n')) out += '\n';
   };
-  const walk = (node: ExportNode) => {
-    if (node.nodeType === 3) {
-      out += node.nodeValue ?? '';
-      return;
+  const write = (text: string) => {
+    if (marker) {
+      if (!text.trim()) return;
+      out += marker;
+      marker = '';
+      text = text.replace(/^\s+/, '');
     }
-    if (node.nodeType !== 1) return;
-    const name = node.nodeName.toUpperCase();
-    if (SKIP_TAGS.has(name) || skipped(node)) return;
-    if (name === 'BR') {
-      out += '\n';
-      return;
-    }
-    const block = BLOCK_TAGS.has(name);
-    if (block) breakLine();
+    out += text;
+  };
+  const walkChildren = (node: ExportNode, name: string) => {
     let cell = 0;
     for (let i = 0; i < node.childNodes.length; i++) {
       const child = node.childNodes[i];
-      if (name === 'TR' && child.nodeType === 1 && /^T[DH]$/i.test(child.nodeName)) {
+      if (isBlankText(child) && (STRUCTURE_TAGS.has(name) || (name === 'LI' && (isList(node.childNodes[i - 1]) || isList(node.childNodes[i + 1]))))) continue;
+      if (name === 'TR' && child.nodeType === 1 && /^T[DH]$/i.test(child.nodeName) && (!clip || clip.intersects(child))) {
         if (cell++ > 0) out += '\t';
       }
       walk(child);
     }
+  };
+  const walkList = (list: ExportNode, name: string) => {
+    const children = Array.from(list.childNodes);
+    const items = children.filter((child) => isElement(child, 'LI'));
+    const reversed = name === 'OL' && attr(list, 'reversed') !== null;
+    const start = Number.parseInt(attr(list, 'start') ?? '', 10);
+    const type = attr(list, 'type');
+    let n = Number.isFinite(start) ? start : reversed ? items.length : 1;
+    const indent = '  '.repeat(depth);
+    depth++;
+    for (const child of children) {
+      if (isBlankText(child)) continue;
+      if (!isElement(child, 'LI')) {
+        walk(child);
+        continue;
+      }
+      const value = Number.parseInt(attr(child, 'value') ?? '', 10);
+      if (Number.isFinite(value)) n = value;
+      const label = name === 'UL' ? '-' : `${listNumber(n, type)}.`;
+      n += reversed ? -1 : 1;
+      if ((clip && !clip.intersects(child)) || skipped(child)) continue;
+      breakLine();
+      marker = !clip || clip.coversStart(child) ? `${indent}${label} ` : '';
+      walkChildren(child, 'LI');
+      marker = '';
+      breakLine();
+    }
+    depth--;
+  };
+  const walk = (node: ExportNode) => {
+    if (clip && !clip.intersects(node)) return;
+    if (node.nodeType === 3) {
+      const value = node.nodeValue ?? '';
+      if (!clip) return write(value);
+      const [start, end] = clip.textRange(node);
+      return write(value.slice(start, end));
+    }
+    if (node.nodeType !== 1) return;
+    const name = node.nodeName.toUpperCase();
+    if (SKIP_TAGS.has(name) || skipped(node)) return;
+    if (name === 'BR') return write('\n');
+    const block = BLOCK_TAGS.has(name);
+    if (block) breakLine();
+    if (name === 'OL' || name === 'UL') walkList(node, name);
+    else walkChildren(node, name);
     if (block) breakLine();
   };
   walk(root);
@@ -311,6 +419,8 @@ export function splitHeadLine(line: string): HeadLineParts | null {
   if (!line.trim()) return null;
   const indented = line.match(/^([ \t　]+)(\S.*)$/);
   if (indented) return { label: '', gap: indented[1], value: indented[2] };
+  // 「대 법 원」「판    결」「원 고 김 갑 동」처럼 낱글자만 띄워 쓴 줄은 표제·값이 아니라 한 낱말이다.
+  if (line.trim().split(/\s+/).every((token) => token.length === 1)) return null;
   // 「사       건」「원 고」처럼 한 글자씩 띄운 표제
   const spaced = line.match(/^((?:[가-힣][ 　]+)+[가-힣])([ \t　]+)(\S.*)$/);
   if (spaced) return { label: spaced[1], gap: spaced[2], value: spaced[3] };
