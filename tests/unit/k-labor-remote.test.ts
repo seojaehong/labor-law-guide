@@ -30,12 +30,12 @@ describe('k-labor 원격판 도구 목록', () => {
   it('원격 가능 배열의 합과 정확히 같다(work-rules 는 법제처 icn1 실측 전까지 뺀다)', () => {
     const expected = [...contractRemoteSafe, ...calcRemoteSafe, ...leaveRemoteSafe, ...taxRemoteSafe, ...dutiesRemoteSafe, ...nosaRemoteSafe, ...formsRemoteSafe].sort();
     expect(names).toEqual(expected);
-    expect(names).toHaveLength(27);
+    expect(names).toHaveLength(26);
     expect([...REMOTE_TOOLS].sort()).toEqual(expected);
   });
 
   it('명단·발송·파일 도구가 없다', () => {
-    for (const n of ['find_branch', 'make_form', 'popbill_status', 'send_fax', 'fax_result', 'send_sms', 'sms_result', ...contractLocalOnly, ...workRulesLocalOnly, ...nosaLocalOnly, 'make_labor_council_forms', 'make_hr_form'])
+    for (const n of ['find_branch', 'make_form', 'popbill_status', 'send_fax', 'fax_result', 'send_sms', 'sms_result', ...contractLocalOnly, ...workRulesLocalOnly, ...nosaLocalOnly, 'make_labor_council_forms', 'make_hr_form', 'check_hr_form'])
       expect(names, n).not.toContain(n);
   });
 

@@ -1,6 +1,7 @@
 // 서식 묶음 — 모성보호·일가정 양립 서식(육아휴직·단기 육아휴직·배우자 출산전후휴가·난임치료휴가 신청서, 육아휴직 허용·단기 육아휴직 시기변경 통지서).
 // 사이트 /tools/hr-forms 와 같은 엔진(src/lib/hr-forms)을 그대로 불러온다 — 칸·검사·원고가 한 벌이다.
-//   list_hr_forms · check_hr_form 은 읽기 전용이라 원격판에도 싣는다(formsRemoteSafe).
+//   list_hr_forms 만 원격판에 싣는다(formsRemoteSafe). check_hr_form 은 읽기 전용이지만 이름·생년월일·난임치료 예정일이
+//   서버로 가므로 로컬 전용이다(check_council_rules 와 같은 기준).
 //   make_hr_form 은 이 PC 에 파일을 쓰므로 로컬 전용이다.
 // ★ 주민등록번호를 받지 않는다(생년월일만). 도구 호출은 서로 상태를 나누지 않아 여러 건을 동시에 불러도 된다.
 import { z } from 'zod';
@@ -10,7 +11,7 @@ import { buildForm, catalog, findForm, FormError, review } from '@/lib/hr-forms'
 import { text, writeNew } from '../lib/common.mjs';
 
 export const formsTools = ['list_hr_forms', 'check_hr_form', 'make_hr_form'];
-export const formsRemoteSafe = ['list_hr_forms', 'check_hr_form'];
+export const formsRemoteSafe = ['list_hr_forms'];
 
 const READ_ONLY = { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false };
 const WRITES = { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false };

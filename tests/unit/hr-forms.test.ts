@@ -73,6 +73,8 @@ describe('조문 안내 — 경계 양쪽', () => {
   it('배우자 출산전후휴가 — 출산예정일 50일 전', () => {
     expect(has(notes('spouse-maternity-leave', spouse({ p1Start: '2027-01-10' })), /50일 전보다/)).toBe(false); // 50일 전
     expect(has(notes('spouse-maternity-leave', spouse({ p1Start: '2027-01-09' })), /50일 전보다/)).toBe(true);
+    // 이미 출산했으면 예정일이 없으므로 출산일과 견주지 않는다
+    expect(has(notes('spouse-maternity-leave', spouse({ birthState: 'born', p1Start: '2027-01-09' })), /50일 전보다/)).toBe(false);
   });
   it('배우자 출산전후휴가 — 출산일부터 120일, 3회차까지', () => {
     const born = spouse({ birthState: 'born', p1Start: '2027-03-01', p1End: '2027-03-10', p2Start: '2027-06-20', p2End: '2027-06-29' });

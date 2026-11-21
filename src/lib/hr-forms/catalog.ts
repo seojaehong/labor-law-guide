@@ -227,8 +227,10 @@ const spouseLeave: HrForm = {
       if (!get(v, `p${i}Start`) && !get(v, `p${i}End`)) continue;
       const p = period(v, `p${i}Start`, `p${i}End`, problems, `${i}회차`);
       if (!p) continue;
-      rows.push([`${i}회차`, `${fmtDate(p[0])} ~ ${fmtDate(p[1])} (${spanDays(p[0], p[1])}일)`]);
-      if (bd && p[0] < addDays(bd, -50)) notes.push(`${i}회차 시작일이 출산${born ? '일' : ' 예정일'} 50일 전보다 앞섭니다. 법 제18조의2제3항은 배우자 출산예정일 50일 전부터 사용할 수 있게 정합니다.`);
+      // 휴가 일수(20일)를 세는 단위는 이 서식에서 정하지 않는다 — 기간만 적는다
+      rows.push([`${i}회차`, `${fmtDate(p[0])} ~ ${fmtDate(p[1])}`]);
+      // 「출산예정일 50일 전」 — 이미 출산했으면 예정일을 받지 않으므로 견주지 않는다
+      if (bd && !born && p[0] < addDays(bd, -50)) notes.push(`${i}회차 시작일이 출산 예정일 50일 전보다 앞섭니다. 법 제18조의2제3항은 배우자 출산예정일 50일 전부터 사용할 수 있게 정합니다.`);
       if (bd && born && p[1] > addDays(bd, 120)) notes.push(`${i}회차 종료일이 출산일부터 120일을 넘습니다. 법 제18조의2제3항은 배우자가 출산한 날부터 120일이 지나면 사용할 수 없게 정합니다.`);
     }
     notes.push('휴가는 20일이고 사용한 기간은 유급입니다. 3회에 한정해 나누어 사용할 수 있습니다(법 제18조의2제1항·제4항).');
