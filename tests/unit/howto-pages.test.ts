@@ -14,6 +14,7 @@ import { dutiesTools } from '../../tools/k-labor/groups/duties.mjs';
 import { workRulesTools } from '../../tools/k-labor/groups/work-rules.mjs';
 import { nosaTools } from '../../tools/k-labor/groups/nosa.mjs';
 import { nosaRecordsTools } from '../../tools/k-labor/groups/nosa-records.mjs';
+import { formsTools } from '../../tools/k-labor/groups/forms.mjs';
 
 // /howto/* — 도구 안내 정적 페이지(261119). 두 페이지가 공통 디자인(howto.css·howto.js)을 함께 쓴다.
 const PAGES = ['gov-login', 'k-labor'];
@@ -66,6 +67,7 @@ describe('도구 안내 페이지', () => {
     duties: dutiesTools,
     'work-rules': workRulesTools,
     nosa: [...nosaTools, ...nosaRecordsTools],
+    forms: formsTools,
   };
   const keys = () =>
     [...read('k-labor').matchAll(/data-g="([\w-]+)" data-n="(\d+)" data-r="(\d+)"/g)].map(([, g, n, r]) => ({ g, n: Number(n), r: Number(r) }));
