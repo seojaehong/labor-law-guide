@@ -253,6 +253,11 @@ if (tools.includes('check_contract')) {
   const pd = part.results?.[0]?.derived;
   console.log(`  check_contract 파생값(시급제 파트): ${JSON.stringify(pd)}`);
   check('check_contract 파생값 — 시급제 파트 통상시급 10,320·시급제·단시간', pd?.ordinary_hourly_rate === 10_320 && pd?.wage_form === 'hourly' && pd?.employment_type === 'part_time');
+  // 기본급 항목이 없고 입력에 옛 통상시급(4,296)만 남은 계약 — 엔진이 읽지 않은 값을 파생값으로 내지 않는다(261121)
+  const p0 = samples.find((s) => s.contract_id === 'syn-part-nosched-0002');
+  const stale = { ...p0, wage: { ...p0.wage, ordinary_hourly_rate: 4296, items: (p0.wage?.items || []).map((i) => (i.code === 'BASE' ? { ...i, code: 'OTHER' } : i)) } };
+  const sd = (await callTool('check_contract', { contract: stale })).results?.[0]?.derived;
+  check(`check_contract 파생값 — 기본급 없으면 옛 통상시급 남기지 않음(${sd?.ordinary_hourly_rate}·${sd?.wage_form})`, sd?.ordinary_hourly_rate === null && sd?.wage_form === null);
   const fd = ck.results?.[0]?.derived;
   check(`check_contract 파생값 — 월급제 통상시급(${fd?.ordinary_hourly_rate}·${fd?.wage_form})`, typeof fd?.ordinary_hourly_rate === 'number' && fd?.wage_form === 'monthly');
   const tpl = await callTool('check_contract', {});

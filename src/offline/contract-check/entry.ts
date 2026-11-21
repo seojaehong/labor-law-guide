@@ -53,9 +53,12 @@ export interface ContractDerived {
 
 function derivedOf(contract: Contract): ContractDerived {
   const wt = contract.work_time ?? {};
+  const wb = wageBasis(contract);
   return {
-    ordinary_hourly_rate: contract.wage?.ordinary_hourly_rate ?? null,
-    wage_form: wageBasis(contract)?.form ?? null,
+    // 기본급이 없으면 정규화가 통상시급을 다시 셈하지 않아 입력에 남은 값(옛 파이썬 「기본급÷209」 4,296 등)이 그대로
+    // 남는다 — 엔진이 읽지 않은 값을 파생값으로 내지 않는다(261121 또치 B2)
+    ordinary_hourly_rate: wb ? (contract.wage?.ordinary_hourly_rate ?? null) : null,
+    wage_form: wb?.form ?? null,
     weekly_scheduled_hours: wt.weekly_scheduled_hours ?? null,
     weekly_actual_hours: wt.weekly_actual_hours ?? null,
     weekly_overtime_hours: wt.weekly_overtime_hours ?? null,
