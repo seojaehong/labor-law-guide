@@ -11,6 +11,9 @@ import { formatDecisionDate, getPreferredSummary, getPreferredDetail } from '@/c
 import { decisionDate } from '@/lib/decision-date';
 import TagRow from '@/components/decision-detail/TagRow';
 import MarkdownSnippet from '@/components/decision-detail/MarkdownSnippet';
+import DecisionExportBar from '@/components/decision-detail/DecisionExportBar';
+import { exportAttrs, type ExportMeta } from '@/lib/decision-export';
+import { publicSourceUrl } from '@/lib/public-source-url';
 import {
   ArrowLeft,
   Calendar,
@@ -151,6 +154,20 @@ export default async function CaseDetailPage({
   const detail = unwrapSourceAnnotations(getPreferredDetail(item), { markTruncatedReference: true });
   const dateStr = formatDecisionDate(item.decision_date);
   const pageUrl = `${SITE_URL}/cases/${encodeURIComponent(item.id)}`;
+  const showDetail = Boolean(detail && detail !== summary);
+  // cases 의 summary·holding_points 는 판례 상세(/decisions bc 갈래)가 「원문이 아닌 정리본」「AI가 정리한 요약본」으로
+  // 밝히는 같은 열이다. 원문으로 내보내지 않도록 AI 정리 표시를 단다.
+  const exportMeta: ExportMeta = {
+    id: item.id,
+    kind: 'court',
+    title: item.title || '',
+    court: item.court || null,
+    date: item.decision_date,
+    caseNumber: item.case_number || null,
+    sourceUrl: publicSourceUrl(item.original_url) ?? publicSourceUrl(item.url),
+    pageUrl,
+    textKind: '정리본',
+  };
 
   const jsonLd = {
     '@context': 'https://schema.org',
@@ -246,6 +263,12 @@ export default async function CaseDetailPage({
             {/* Summary */}
             <p className="mb-4 text-sm" style={{ color: 'var(--grey-700)' }}>수집 내용입니다. 전문 여부와 구획·문단·표의 원형 보존은 확인되지 않았으며, 앞뒤 누락이나 단어 공백 손상이 있을 수 있습니다. 원문 출처와 대조하세요.</p>
 
+            <DecisionExportBar
+              meta={exportMeta}
+              hasSections={Boolean(summary || showDetail || item.law_references)}
+              hasSummary={Boolean(summary)}
+            />
+
             {summary && (
               <section className="editorial-evidence">
                 <h2 className="text-[15px] font-bold mb-3" style={{ color: 'var(--color-text-primary)' }}>
@@ -253,6 +276,7 @@ export default async function CaseDetailPage({
                 </h2>
                 <div
                   className="editorial-evidence-body"
+                  {...exportAttrs('section summary', '요약', true)}
                 >
                   <MarkdownSnippet variant="reading" value={summary} />
                 </div>
@@ -260,13 +284,14 @@ export default async function CaseDetailPage({
             )}
 
             {/* Holding Points / Detail */}
-            {detail && detail !== summary && (
+            {showDetail && (
               <section className="editorial-evidence">
                 <h2 className="text-[15px] font-bold mb-3" style={{ color: 'var(--color-text-primary)' }}>
                   수집 상세 · 구획 미확인
                 </h2>
                 <div
                   className="editorial-evidence-body"
+                  {...exportAttrs('section', '상세', true)}
                 >
                   <MarkdownSnippet variant="reading" value={detail} />
                 </div>
@@ -282,6 +307,7 @@ export default async function CaseDetailPage({
                 <div
                   className="rounded-xl border p-4 text-[13px] leading-6"
                   style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-secondary)' }}
+                  {...exportAttrs('section', '참조 법령', false)}
                 >
                   {unwrapSourceAnnotations(item.law_references, { markTruncatedReference: true })}
                 </div>

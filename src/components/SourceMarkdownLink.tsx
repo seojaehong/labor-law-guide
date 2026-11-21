@@ -13,7 +13,8 @@ export default function SourceMarkdownLink(props: ComponentProps<typeof ReadingM
   if(malformedExternal)return <span>{props.children}</span>;
   if(privateHost||/원문|전문\s*(?:보기|확인|출처)|출처|참고/.test(label)) {
     const source=officialSource(props.href);
-    return source?<ReadingMarkdownLink {...props} href={source.url}/>:<span>{props.children} (공식 원문 미확인)</span>;
+    // 덧말은 화면 안내다 — 복사·내려받기 글자에 싣지 않는다(data-export-skip).
+    return source?<ReadingMarkdownLink {...props} href={source.url}/>:<span>{props.children}<span data-export-skip=""> (공식 원문 미확인)</span></span>;
   }
   return <ReadingMarkdownLink {...props}/>;
 }
