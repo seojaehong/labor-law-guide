@@ -28,6 +28,30 @@ import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import SubscribeForm from "@/components/SubscribeForm";
 import { SITE_URL, BRAND_NAME } from "@/lib/constants";
+import DecisionExportBar from "@/components/decision-detail/DecisionExportBar";
+import VerifiedJudgmentSections from "@/components/decision-detail/VerifiedJudgmentSections";
+import { exportAttrs, type ExportMeta } from "@/lib/decision-export";
+import { publicSourceUrl } from "@/lib/public-source-url";
+
+// 검증 전문 — 주문·이유·서명까지 들어 있는지 대조해 적재한 행(제공처 bigcase·local·ilabor).
+const VERIFIED_PARSE_VERSION = "local-verified-v1";
+
+function isVerifiedSourceRow(row: { parse_version?: unknown; completeness_flag?: unknown } | null | undefined): boolean {
+  return Boolean(row) && row?.parse_version === VERIFIED_PARSE_VERSION && row?.completeness_flag === "full";
+}
+
+/** OfficialSourceLink 와 같은 규칙 — 검증된 공식 문서 주소만 내보낸다 */
+function firstPublicSource(urls: unknown[]): string | null {
+  for (const url of urls) {
+    const source = publicSourceUrl(url);
+    if (source) return source;
+  }
+  return null;
+}
+
+function decisionPageUrl(id: string): string {
+  return `${SITE_URL}/decisions/${encodeURIComponent(id)}`;
+}
 
 // AI 분류 라벨 fallback: 미매핑 영문은 underscore→space로 보정
 function getAiLabel(key: string, map: Record<string, string>): string {
@@ -229,12 +253,15 @@ function validSourceSections(value: unknown): LawgoSection[] {
 }
 
 function renderLawgoSections(sections: LawgoSection[]) {
-  return sections.filter((section) => section && typeof section.text === "string" && (!section.title || typeof section.title === "string")).map((section, index) => (
-    <div key={`${section.type || "body"}-${section.index ?? index}`} className="mb-5 last:mb-0">
-      {section.title ? <h3 className="font-semibold text-sm mb-2">{unwrapSourceAnnotations(section.title)}</h3> : null}
-      <p className="reading-prose whitespace-pre-wrap break-words overflow-x-auto">{unwrapSourceAnnotations(section.text || "")}</p>
-    </div>
-  ));
+  return sections.filter((section) => section && typeof section.text === "string" && (!section.title || typeof section.title === "string")).map((section, index) => {
+    const title = section.title ? unwrapSourceAnnotations(section.title) : "";
+    return (
+      <div key={`${section.type || "body"}-${section.index ?? index}`} className="mb-5 last:mb-0">
+        {section.title ? <h3 className="font-semibold text-sm mb-2">{title}</h3> : null}
+        <p {...exportAttrs("section", title, false, section.type === "head")} className="reading-prose whitespace-pre-wrap break-words overflow-x-auto">{unwrapSourceAnnotations(section.text || "")}</p>
+      </div>
+    );
+  });
 }
 
 export default async function DecisionPage({
@@ -299,6 +326,19 @@ export default async function DecisionPage({
     }
 
     const sections = validSourceSections(document?.body_sections);
+    // 법제처 판시사항·판결요지는 공식 API 글자다(AI 정리 아님).
+    const lawgoMeta: ExportMeta = {
+      id,
+      kind: "court",
+      title: precedent.title || `법제처 판례 ${apiId}`,
+      court: precedent.court || null,
+      date: decisionDate(precedent.decision_date),
+      caseNumber: precedent.reference_number || null,
+      sourceUrl: firstPublicSource([precedent.original_url, precedent.url]),
+      pageUrl: decisionPageUrl(id),
+      textKind: "원문",
+    };
+    const lawgoHasSections = Boolean(precedent.issue_text || precedent.summary_text || precedent.reference_statutes || precedent.reference_cases || sections.length > 0 || document?.body_text);
 
     return (
       <main className="min-h-screen bg-background">
@@ -347,32 +387,34 @@ export default async function DecisionPage({
             </div>
           </Card>
 
+          <DecisionExportBar meta={lawgoMeta} hasSections={lawgoHasSections} hasSummary={Boolean(precedent.summary_text)} />
+
           <section id="decision-summary" className="scroll-mt-24 space-y-4">
             {precedent.issue_text ? (
               <Card className="p-4 bg-muted/50">
                 <h3 className="font-semibold text-sm mb-2">판시사항</h3>
-                <p className="reading-prose whitespace-pre-wrap">{unwrapSourceAnnotations(precedent.issue_text)}</p>
+                <p {...exportAttrs("section", "판시사항", false)} className="reading-prose whitespace-pre-wrap">{unwrapSourceAnnotations(precedent.issue_text)}</p>
               </Card>
             ) : null}
 
             {precedent.summary_text ? (
               <Card className="p-4">
                 <h3 className="font-semibold text-sm mb-2">판결요지</h3>
-                <p className="reading-prose whitespace-pre-wrap">{unwrapSourceAnnotations(precedent.summary_text)}</p>
+                <p {...exportAttrs("section summary", "판결요지", false)} className="reading-prose whitespace-pre-wrap">{unwrapSourceAnnotations(precedent.summary_text)}</p>
               </Card>
             ) : null}
 
             {precedent.reference_statutes ? (
               <Card className="p-4">
                 <h3 className="font-semibold text-sm mb-2">참조조문</h3>
-                <p className="reading-prose whitespace-pre-wrap">{unwrapSourceAnnotations(precedent.reference_statutes)}</p>
+                <p {...exportAttrs("section", "참조조문", false)} className="reading-prose whitespace-pre-wrap">{unwrapSourceAnnotations(precedent.reference_statutes)}</p>
               </Card>
             ) : null}
 
             {precedent.reference_cases ? (
               <Card className="p-4">
                 <h3 className="font-semibold text-sm mb-2">참조판례</h3>
-                <p className="reading-prose whitespace-pre-wrap">{unwrapSourceAnnotations(precedent.reference_cases)}</p>
+                <p {...exportAttrs("section", "참조판례", false)} className="reading-prose whitespace-pre-wrap">{unwrapSourceAnnotations(precedent.reference_cases)}</p>
               </Card>
             ) : null}
           </section>
@@ -395,8 +437,10 @@ export default async function DecisionPage({
               <h3 className="font-semibold text-sm mb-3">서비스 내 수집 본문</h3>
               {sections.length > 0 ? (
                 <div>{renderLawgoSections(sections)}</div>
+              ) : document?.body_text ? (
+                <p {...exportAttrs("section", "판례내용", false)} className="reading-prose whitespace-pre-wrap">{unwrapSourceAnnotations(document.body_text)}</p>
               ) : (
-                <p className="reading-prose whitespace-pre-wrap">{unwrapSourceAnnotations(document?.body_text || "본문이 없습니다.")}</p>
+                <p className="reading-prose whitespace-pre-wrap">본문이 없습니다.</p>
               )}
             </Card>
 
@@ -470,23 +514,39 @@ export default async function DecisionPage({
 
     // 진짜 원본 본문 — decision_source_documents에 BigCase 26,498건이 raw 1,000자+ 보유.
     // nlrc_decisions의 holding_points는 AI 요약본이라 원본 노출 시 이걸 우선 사용.
-    const { data: sourceDocs } = await supabase
-      .from("decision_source_documents")
-      .select("full_text_raw, full_text_clean, body_sections, completeness_flag, coverage_ratio")
-      .eq("internal_decision_id", id)
-      .eq("source_provider", "bigcase")
-      .order("coverage_ratio", { ascending: false })
-      .limit(5);
+    const sourceColumns = "full_text_raw, full_text_clean, body_sections, completeness_flag, coverage_ratio, parse_version";
+    const [{ data: sourceDocs }, { data: verifiedDocs }] = await Promise.all([
+      supabase
+        .from("decision_source_documents")
+        .select(sourceColumns)
+        .eq("internal_decision_id", id)
+        .eq("source_provider", "bigcase")
+        .order("coverage_ratio", { ascending: false })
+        .limit(5),
+      // 검증 전문은 bigcase 밖(local·ilabor)에도 있고 coverage 1.0 동률이 많다 — limit 5 경쟁에서 밀리지 않게 따로 가져온다.
+      supabase
+        .from("decision_source_documents")
+        .select(sourceColumns)
+        .eq("internal_decision_id", id)
+        .eq("parse_version", VERIFIED_PARSE_VERSION)
+        .order("coverage_ratio", { ascending: false })
+        .limit(3),
+    ]);
 
-    const docs = sourceDocs ?? [];
+    // 검증 조회로 온 행 중 검증 조건을 다 갖춘 것만 쓴다 — 그 밖의 행은 종전 선택 규칙을 그대로 탄다.
+    const docs = [...(verifiedDocs ?? []).filter(isVerifiedSourceRow), ...(sourceDocs ?? [])];
     // 진짜 판결문 선택 — clean 1000자+ 또는 raw 1000자+ 중 페이월/PyRepr 거부.
     // 우선순위: (1) Array.isArray(body_sections)인 row가 가장 깨끗 (dict는 ingestion 오류 흔적, 2,453건).
     // (2) clean이 PyRepr 형식인 row(2,774건)는 다음 row로 폴백 — coverage_ratio 무시.
     // (3) full_text_raw는 페이월/네비게이션 HTML 통째 저장 케이스가 많아 후순위.
     let realFulltext = "";
     let bodySections: LawgoSection[] = [];
+    let selectedVerified = false;
 
     const listRowFirst = [...docs].sort((a, b) => {
+      const aVerified = isVerifiedSourceRow(a) ? 1 : 0;
+      const bVerified = isVerifiedSourceRow(b) ? 1 : 0;
+      if (aVerified !== bVerified) return bVerified - aVerified;
       const aIsList = validSourceSections(a.body_sections).length > 0 ? 1 : 0;
       const bIsList = validSourceSections(b.body_sections).length > 0 ? 1 : 0;
       if (aIsList !== bIsList) return bIsList - aIsList;
@@ -497,10 +557,13 @@ export default async function DecisionPage({
 
     for (const d of listRowFirst) {
       const clean = typeof d.full_text_clean === "string" ? d.full_text_clean.trim() : "";
-      if (clean.length >= 1000 && !isPaywallText(clean) && !isPyReprText(clean)) {
+      const verified = isVerifiedSourceRow(d);
+      // 검증 전문은 짧은 판결(심리불속행 기각 등)도 전문이다 — 1,000자 하한을 두지 않는다.
+      if (clean.length >= (verified ? 1 : 1000) && !isPaywallText(clean) && !isPyReprText(clean)) {
         realFulltext = clean;
         const sections = validSourceSections(d.body_sections);
         if (sections.length > 0) bodySections = sections;
+        selectedVerified = verified;
         break;
       }
     }
@@ -523,6 +586,18 @@ export default async function DecisionPage({
     const hasHoldingPoints = holdingPointsText.length > 0;
     const hasSummary = summaryText.length > 0;
     const hasSourceSection = hasRealFulltext || hasHoldingPoints;
+    // 요약(holding_summary·summary)은 화면이 「원문이 아닌 정리본」, holding_points 는 「AI가 정리한 요약본」이라 밝힌 글자다.
+    const caseMeta: ExportMeta = {
+      id,
+      kind: "court",
+      title: c.title || "",
+      court: c.court || null,
+      date: decisionDate(c.decision_date),
+      caseNumber: c.case_number || null,
+      sourceUrl: firstPublicSource([c.original_url, c.url]),
+      pageUrl: decisionPageUrl(id),
+      textKind: hasRealFulltext ? "원문" : "정리본",
+    };
 
     return (
       <main className="min-h-screen bg-background">
@@ -572,19 +647,21 @@ export default async function DecisionPage({
                     href="#source-text"
                     className="inline-flex items-center rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground"
                   >
-                    수집 본문·출처 보기
+                    {selectedVerified ? "판결 전문·출처 보기" : "수집 본문·출처 보기"}
                   </a>
                 ) : null}
               </div>
             </div>
           </Card>
 
+          <DecisionExportBar meta={caseMeta} hasSections={hasSourceSection} hasSummary={hasSummary} />
+
           <section id="decision-summary" className="scroll-mt-24 space-y-4">
             {summaryText ? (
               <Card className="p-4 bg-muted/50">
                 <h3 className="font-semibold text-sm mb-2">{getSummaryLabel(decisionSource)} · 저장된 요약</h3>
                 <p className="text-sm mb-3">원문이 아닌 정리본이며, 저장된 요약의 끝부분이 잘려 있을 수 있습니다.</p>
-                <div>{renderHoldingBlocks(summaryText)}</div>
+                <div {...exportAttrs("summary", `${getSummaryLabel(decisionSource)} 정리`, true)}>{renderHoldingBlocks(summaryText)}</div>
               </Card>
             ) : null}
           </section>
@@ -592,15 +669,17 @@ export default async function DecisionPage({
           <Separator className="my-6" />
 
           <section id="source-text" className="scroll-mt-24">
-            <div className="flex items-start justify-between gap-4 mb-3">
+            <div className={cn("flex items-start justify-between gap-4 mb-3", selectedVerified && "flex-col gap-2 sm:flex-row sm:gap-4")}>
               <div>
-                <h2 className="font-semibold">수집 본문·요약 및 출처</h2>
+                <h2 className="font-semibold">{selectedVerified ? "판결 전문 및 출처" : "수집 본문·요약 및 출처"}</h2>
                 <p className="text-sm text-muted-foreground mt-1">
-                  확보한 수집 내용입니다. 전문 여부와 앞뒤 누락, 문단·표·공백의 원형 보존은 확인되지 않았습니다.
+                  {selectedVerified
+                    ? "주문·이유·서명까지 들어 있는지 대조해 확인한 판결 전문입니다. 인용할 때는 공식 원문과도 대조하세요."
+                    : "확보한 수집 내용입니다. 전문 여부와 앞뒤 누락, 문단·표·공백의 원형 보존은 확인되지 않았습니다."}
                 </p>
               </div>
               <Badge variant="outline">
-                {hasRealFulltext ? "수집 본문 · 완전성 미확인" : "정리본 · 원문 미확보"}
+                {selectedVerified ? "판결 전문 · 주문·이유·서명 확인" : hasRealFulltext ? "수집 본문 · 완전성 미확인" : "정리본 · 원문 미확보"}
               </Badge>
             </div>
 
@@ -608,7 +687,12 @@ export default async function DecisionPage({
               <OfficialSourceLink urls={[c.original_url, c.url]} />
             </p>
 
-            {bodySections.length > 0 ? (
+            {selectedVerified ? (
+              <Card className="p-4 sm:p-6 mb-4">
+                <h3 className="font-semibold text-sm">판결 전문</h3>
+                <VerifiedJudgmentSections sections={bodySections} fullText={unwrapSourceAnnotations(realFulltext)} />
+              </Card>
+            ) : bodySections.length > 0 ? (
               <Card className="p-4 mb-4">
                 <h3 className="font-semibold text-sm mb-3">확보한 수집 본문</h3>
                 <div>{renderLawgoSections(bodySections)}</div>
@@ -617,7 +701,7 @@ export default async function DecisionPage({
             ) : realFulltext ? (
               <Card className="p-4 mb-4">
                 <h3 className="font-semibold text-sm mb-3">확보한 수집 본문</h3>
-                <p className="reading-prose whitespace-pre-wrap">{unwrapSourceAnnotations(realFulltext)}</p>
+                <p {...exportAttrs("section", "", false)} className="reading-prose whitespace-pre-wrap">{unwrapSourceAnnotations(realFulltext)}</p>
               </Card>
             ) : hasDetailedHoldingPoints ? (
               <Card className="p-4 mb-4 bg-muted/40">
@@ -625,7 +709,7 @@ export default async function DecisionPage({
                 <p className="text-xs text-muted-foreground mb-3">
                   법원 원문을 확보하지 못해 AI가 정리한 요약본으로 표시합니다.
                 </p>
-                <div>{renderHoldingBlocks(holdingPointsText)}</div>
+                <div {...exportAttrs("section", "서비스 내 정리본", true)}>{renderHoldingBlocks(holdingPointsText)}</div>
               </Card>
             ) : (
               <Card className="p-4 mb-4 bg-muted/40">
@@ -637,7 +721,7 @@ export default async function DecisionPage({
                   {hasHoldingPoints ? (
                     <div>
                       <p className="text-xs font-medium text-muted-foreground mb-1">판결요지 정리 · 원문 아님</p>
-                      <div>{renderHoldingBlocks(holdingPointsText)}</div>
+                      <div {...exportAttrs("section", "서비스 내 정리본", true)}>{renderHoldingBlocks(holdingPointsText)}</div>
                     </div>
                   ) : null}
                   {hasSummary ? (
@@ -681,6 +765,20 @@ export default async function DecisionPage({
   const hasSummary = holdingSummaryText.length > 0;
   const summaryDifferentFromKeyIssue = hasSummary && !isFullyCovered(holdingSummaryText, bestKeyIssueText);
   const hasSourceSection = hasHoldingPoints || Boolean(d.url);
+  const showSummaryCard = hasSummary && summaryDifferentFromKeyIssue;
+  // 노동위 판정례 화면은 판정문 원문이 아니라 저장된 요약·쟁점·사유 글자만 보인다. 이 글자들이 AI 정리인지
+  // 원천(판정요지) 그대로인지 데이터로 확인되지 않아, 원문으로 내보내지 않도록 AI 정리 표시를 단다.
+  const nlrcMeta: ExportMeta = {
+    id,
+    kind: "nlrc",
+    title: d.title || "",
+    court: d.department || null,
+    date: decisionDate(d.decision_date),
+    caseNumber: displayCaseNumber || null,
+    sourceUrl: firstPublicSource([d.original_url, d.url]),
+    pageUrl: decisionPageUrl(id),
+    textKind: "정리본",
+  };
 
   return (
     <main className="min-h-screen bg-background">
@@ -712,6 +810,12 @@ export default async function DecisionPage({
           )}
         </div>
 
+        <DecisionExportBar
+          meta={nlrcMeta}
+          hasSections={Boolean(bestKeyIssueText || d.reason_detail || showSummaryCard)}
+          hasSummary={Boolean(showSummaryCard || bestKeyIssueText)}
+        />
+
         {/* AI 분류 태깅 정보 */}
         {(d.legal_focus?.filter((f: string) => f !== '불명').length > 0 ||
           d.disposition_type?.filter((t: string) => t !== '불명').length > 0) && (
@@ -731,7 +835,7 @@ export default async function DecisionPage({
         {bestKeyIssueText && (
           <Card id="decision-summary" className="p-4 mb-6 bg-muted/50 scroll-mt-24">
             <h3 className="font-semibold text-sm mb-1">핵심쟁점</h3>
-            <div className="text-sm">{renderHoldingBlocks(bestKeyIssueText)}</div>
+            <div {...exportAttrs(showSummaryCard ? "section" : "section summary", "핵심쟁점", true)} className="text-sm">{renderHoldingBlocks(bestKeyIssueText)}</div>
           </Card>
         )}
 
@@ -739,7 +843,7 @@ export default async function DecisionPage({
           {d.reason_detail && (
             <Card className="p-4 mb-4">
               <h3 className="font-semibold text-sm mb-1">해고 사유</h3>
-              <p className="reading-prose">{stripMarkdownFormatting(d.reason_detail)}</p>
+              <p {...exportAttrs("section", "해고 사유", true)} className="reading-prose">{stripMarkdownFormatting(d.reason_detail)}</p>
             </Card>
           )}
 
@@ -759,10 +863,10 @@ export default async function DecisionPage({
             빈 값을 ❌(=없었다)로 렌더링하면 안 된다. 「모름」과 「없었음」은 다르다.
           */}
 
-          {hasSummary && summaryDifferentFromKeyIssue && (
+          {showSummaryCard && (
             <Card id="decision-summary" className="p-5 mb-4 border-primary/30 bg-primary/5 scroll-mt-24">
               <h3 className="font-bold text-base mb-3">판정 요지</h3>
-              <div>{renderHoldingBlocks(holdingSummaryText)}</div>
+              <div {...exportAttrs("section summary", "판정 요지", true)}>{renderHoldingBlocks(holdingSummaryText)}</div>
             </Card>
           )}
         </section>

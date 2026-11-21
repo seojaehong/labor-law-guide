@@ -10,6 +10,9 @@ import { SITE_URL } from '@/lib/constants';
 import { formatDecisionDate, getPreferredSummary, getPreferredDetail } from '@/components/decision-detail/utils';
 import { decisionDate } from '@/lib/decision-date';
 import TagRow from '@/components/decision-detail/TagRow';
+import DecisionExportBar from '@/components/decision-detail/DecisionExportBar';
+import { exportAttrs, type ExportMeta } from '@/lib/decision-export';
+import { publicSourceUrl } from '@/lib/public-source-url';
 import {
   ArrowLeft,
   Calendar,
@@ -155,6 +158,20 @@ export default async function InterpretationDetailPage({
   const detail = getPreferredDetail(item);
   const dateStr = formatDecisionDate(item.decision_date);
   const pageUrl = `${SITE_URL}/interpretations/${encodeURIComponent(item.id)}`;
+  const showDetail = Boolean(detail && detail !== summary);
+  // 질의·회시 요약은 화면이 「수집 내용」「저장된 요약」으로 밝힌 글자다(AI 정리라는 표시가 없다).
+  // 요약이라 원문으로는 내보내지 않고, 별도 수집 본문이 있을 때만 text_kind 를 원문으로 둔다.
+  const exportMeta: ExportMeta = {
+    id: item.id,
+    kind: 'interpretation',
+    title: item.title || '',
+    court: '고용노동부',
+    date: item.decision_date,
+    caseNumber: item.doc_number || null,
+    sourceUrl: publicSourceUrl(item.original_url) ?? publicSourceUrl(item.url),
+    pageUrl,
+    textKind: item.collected_body ? '원문' : '정리본',
+  };
 
   const jsonLd = {
     '@context': 'https://schema.org',
@@ -244,6 +261,12 @@ export default async function InterpretationDetailPage({
 
             <p className="mb-4 text-sm" style={{ color: 'var(--grey-700)' }}>수집 내용입니다. 전문 여부와 구획·문단·표의 원형 보존은 확인되지 않았으며, 앞뒤 누락이나 단어 공백 손상이 있을 수 있습니다. 원문 출처와 대조하세요.</p>
 
+            <DecisionExportBar
+              meta={exportMeta}
+              hasSections={Boolean(summary || showDetail || item.collected_body)}
+              hasSummary={Boolean(summary || showDetail)}
+            />
+
             {summary && (
               <section className="editorial-evidence">
                 <h2 className="text-[15px] font-bold mb-3" style={{ color: 'var(--color-text-primary)' }}>
@@ -251,13 +274,14 @@ export default async function InterpretationDetailPage({
                 </h2>
                 <div
                   className="editorial-evidence-body"
+                  {...exportAttrs('section summary', '질의 요지', false)}
                 >
                   <CollectedSourceBody text={summary} anchorScope="interpretation-inquiry" />
                 </div>
               </section>
             )}
 
-            {detail && detail !== summary && (
+            {showDetail && (
               <section className="editorial-evidence">
                 <h2 className="text-[15px] font-bold mb-3" style={{ color: 'var(--color-text-primary)' }}>
                   회시·판단 요약 (수집 내용)
@@ -266,7 +290,9 @@ export default async function InterpretationDetailPage({
                   className="editorial-evidence-body"
                 >
                   <p className="mb-3 text-sm">저장된 요약입니다. HTML 형식은 안전하게 표시하지만 잘린 내용을 복구하거나 전문임을 보증하지 않습니다. 별도 수집 본문이 있으면 아래에서 확인하세요.</p>
-                  <CollectedSourceBody text={detail} anchorScope="interpretation-answer" />
+                  <div {...exportAttrs('section summary', '회시 요지', false)}>
+                    <CollectedSourceBody text={detail} anchorScope="interpretation-answer" />
+                  </div>
                 </div>
               </section>
             )}
@@ -276,7 +302,9 @@ export default async function InterpretationDetailPage({
             {item.collected_body ? <section className="editorial-evidence" id="collected-source-body">
               <h2 className="text-[15px] font-bold mb-3">별도로 확보한 수집 본문</h2>
               <p className="mb-3 text-sm">위 요약과 별도로 저장된 본문입니다. 원본 완전성·구획 보존은 미확인입니다. HTML의 실행 요소는 표시하지 않습니다.</p>
-              <CollectedSourceBody text={item.collected_body} anchorScope="interpretation-body"/>
+              <div {...exportAttrs('section', '본문', false)}>
+                <CollectedSourceBody text={item.collected_body} anchorScope="interpretation-body"/>
+              </div>
             </section> : null}
 
             {related.length > 0 && (

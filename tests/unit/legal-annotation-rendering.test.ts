@@ -142,9 +142,11 @@ describe('DecisionPage removes source annotations at every actual body renderer'
     absent.forEach(text => expect(html).not.toContain(text));
     expect(html).toContain('판결요지의 법문도 보존한다.');
     expectNoAnnotations(html);
-    expect(database.tables).toEqual(['cases', 'nlrc_decisions', 'decision_source_documents']);
+    // 수집본 조회 + 검증 전문(local-verified-v1) 조회 — 두 번째 조회가 돌려준 행은 검증 조건을 갖춘 것만 쓴다.
+    expect(database.tables).toEqual(['cases', 'nlrc_decisions', 'decision_source_documents', 'decision_source_documents']);
     expect(database.filters).toContainEqual(['decision_source_documents', 'internal_decision_id', 'bc_annotation_fixture']);
     expect(database.filters).toContainEqual(['decision_source_documents', 'source_provider', 'bigcase']);
+    expect(database.filters).toContainEqual(['decision_source_documents', 'parse_version', 'local-verified-v1']);
     expect({ decision: database.decision, documents: database.documents }).toEqual(storedBefore);
     expect(database.decision?.url).toBe(sourceUrl);
   });
