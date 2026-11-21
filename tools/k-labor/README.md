@@ -132,6 +132,11 @@ npx -y k-labor call check_min_wage args.json --groups calc
 | `forms` | `check_hr_form` | 파일을 만들지 않고 칸 검사 — problems(빈 필수 칸·날짜 형식·주민등록번호 모양) / notes(신청 기한 30일·7일 전, 기간 1년·추가 6개월, 출산예정일 50일 전·출산일부터 120일, 연 6일, 허용 통지 14일 같은 조문 대조 안내) / 원고. 이름이 실리므로 로컬 전용 |
 | `forms` | `make_hr_form` | **로컬 전용(파일 쓰기).** 칸 검사 뒤 서식을 한글(hwpx)로. 주민등록번호 칸 없음(생년월일만). 덮어쓰지 않고, 호출끼리 상태가 없어 여러 건을 동시에 불러도 된다. 웹판 https://yellowenvelope.kr/tools/hr-forms |
 | `docs` | `make_hwpx_from_markdown` | **로컬 전용(파일 쓰기).** 마크다운 원고 → 한글(hwpx). 제목 4단계(## 앞 □, Ⅰ~Ⅹ 장 앞 쪽나눔) · 본문 굵게 · 판례 번호 자동 굵게 · 목록 · 표(머리행 음영·반복, 열 폭 자동, 정렬, 칸 안 줄바꿈, 7열 이상 작은 글자, 긴 표는 쪽을 넘김) · 끝 15줄 안 날짜 줄부터 서명부 · 쪽번호. 프리셋 internal(행간 160%·여백 20mm)·tribunal(행간 200%·위 45·아래 30mm). 병합 칸·밑줄·인용 블록·링크는 못 만들고 `leftovers` 로 알림. 덮어쓰지 않음 |
+| `law` | `search_laws` | 법령 이름(또는 본문 낱말)으로 현행 법령 찾기 — 법령ID·판 번호·공포일·시행일·법제처 화면 주소(법제처 Open API) |
+| `law` | `list_law_forms` | 법령 하나의 별표·별지 서식 목록 — 「별지 제8호서식」 표기·제목·공포일과 내려받을 파일 주소(한글·PDF) |
+| `law` | `get_article_history` | 조문 하나가 바뀐 판들(제정·조문변경, 공포일·시행일·판 번호, 시행 예정 판 포함) |
+| `law` | `search_precedents` / `get_precedent` | 판례 검색(낱말·사건번호·법원) · 판시사항·판결요지·참조조문·참조판례·전문 |
+| `law` | `search_interpretations` / `get_interpretation` | 법령해석 검색·본문 — `source: moel` 고용노동부 법령해석(기본) · `moleg` 법제처 법령해석례 |
 | `nosa` | `make_council_meeting_docs` | **로컬 전용(파일 쓰기).** 회의 하나의 서류를 `kind` 로 골라 PDF·hwpx 로 — notice(소집 통보서·공고, 통보가 개최일 − 8일보다 늦으면 만들지 않음) · materials(회의자료: 안건 목록·보고사항 4칸·안건별 배경·현황·노사 제안·쟁점·요청 결정·전분기 이행 점검표) · minutes(별지 제3호서식 칸 7개 그대로 + 참석위원 서명 칸, 상세 회의록, 같은 이름의 `.json` 구조화 원본 — 안건 ID·구분·법조문 분류·제안 측·결과·이월) · resolution(의결사항 공지). 정족수·의결 문장은 `check_council_meeting` 과 같은 계산으로 넣고, 안건 설명·발언 요지는 입력만 싣습니다. 서명 칸은 비워 둡니다. 덮어쓰지 않습니다 |
 
 ### 묶음 고르기
@@ -201,6 +206,23 @@ claude mcp add --scope user k-labor -e LAW_OC=내OC -- npx -y k-labor mcp --grou
 > 「우리 취업규칙(C:/규정/취업규칙.hwpx) 2024-03-01 개정본인데, 그 뒤 시행된 노동법 개정 반영됐는지 봐 줘. 법제처 최신 공포분도 같이.」
 > 「근로기준법 2026. 12. 8. 판과 2027. 1. 1. 판 뭐가 바뀌었는지 조문별로 보여 줘.」
 
+### law 묶음 (법령·판례 조회)
+
+법제처 국가법령정보 Open API(DRF)에서 법령 검색·별표서식·조문 연혁·판례·법령해석을 그때그때 받습니다. 도구 구성과 요청 대상은 [korean-law-mcp](https://github.com/chrisryugj/korean-law-mcp)(MIT) v2.1.6 을 참고해 노무 실무에 쓰는 7개만 골랐습니다 — 고지는 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+
+- **OC 는 `LAW_OC` 로만** 받습니다(도구 인자로 받지 않음). 없으면 도구가 부르지 않고 `LAW_OC` 를 넣으라고 알립니다.
+- 조문 원문과 두 시점 비교는 `work-rules` 묶음의 `get_law_article`·`compare_law_versions` 가 맡습니다(이 묶음은 다시 만들지 않음 — 법제처 신구조문대비도 넣지 않음). `law` 만 켜면 조문 원문을 볼 수 없습니다. 함께 쓰려면 `--groups work-rules,law`.
+- 법제처 응답의 상세 주소에는 OC 가 들어 있어 옮기지 않습니다. 돌려주는 주소는 OC 가 없는 법제처 화면(`lsInfoP.do`·`precInfoP.do`)과 별표·서식 파일(`flDownload.do`)뿐입니다.
+- 판례·해석·조문 글자는 법제처 응답 그대로이고 `<br/>` 줄바꿈과 영문 태그만 정리합니다. 판례 전문은 기본 3만 자에서 자르고 `truncated` 로 알립니다.
+- **원격(HTTP)판에 싣지 않습니다.** 법제처가 등록 IP 와 이용자별 OC 로만 받아, 서버 쪽 OC 를 어떻게 둘지 정하기 전까지 로컬 전용입니다.
+
+```bash
+claude mcp add --scope user k-labor -e LAW_OC=내OC -- npx -y k-labor mcp --groups "work-rules,law"
+```
+
+> 「연차 사용촉진에 관한 고용노동부 행정해석 찾아서 회답 원문 보여 줘.」
+> 「근로기준법 시행규칙 서식 중 연장근로 인가 관련 서식 파일 주소 줘.」
+
 ---
 
 ## ⚙️ 환경변수
@@ -218,7 +240,7 @@ claude mcp add --scope user k-labor -e LAW_OC=내OC -- npx -y k-labor mcp --grou
 | `POPBILL_IS_TEST` | 선택 | 기본 `true`(팝빌 테스트환경). 운영환경으로 보내려면 `false` |
 | `LLG_MCP_GROUPS` | 선택 | 켤 묶음(쉼표로 구분) |
 | `LLG_SITE` | 선택 | 사업자번호 조회에 쓰는 사이트 주소(기본 `https://yellowenvelope.kr`) |
-| `LAW_OC` | 법제처 실시간 | 법제처 국가법령정보 Open API 이용자 ID(OC). 기본값 없음. 없으면 `work-rules` 는 묶은 자료로만 답합니다 |
+| `LAW_OC` | 법제처 실시간 | 법제처 국가법령정보 Open API 이용자 ID(OC). 기본값 없음. 없으면 `work-rules` 는 묶은 자료로만 답하고, `law` 는 부르지 않고 알립니다 |
 | `LLG_ROOT` | 선택 | 개발용. 저장소 경로를 주면 서식·글꼴을 패키지 안이 아니라 저장소 `public/` 에서 읽습니다 |
 | `LLG_TODAY` | 시험용 | 「오늘」을 그 날(YYYY-MM-DD)로 고정합니다(smoke 가 씁니다) |
 | `LLG_DRF_BASE` | 시험용 | 법제처 Open API 주소를 바꿉니다(smoke 의 가짜 법제처) |
@@ -235,7 +257,7 @@ claude mcp add --scope user k-labor -e LAW_OC=내OC -- npx -y k-labor mcp --grou
 - 주민등록번호는 이 PC 안에서 PDF 로만 만들어집니다. 도구 응답에는 싣지 않고, 응답에 주민등록번호 모양이 섞이면 나가기 전에 가립니다.
 - 문자 본문에 주민등록번호 모양이 있으면 `send_sms` 가 보내지 않습니다.
 - 팩스·문자는 `confirm:true` 를 준 호출에서만 실제로 나갑니다. 그 전에는 미리보기만 돌려줍니다.
-- 밖으로 나가는 것은 세 가지뿐입니다. ① `find_branch` 에 사업자등록번호를 주면 그 번호만 일의 무늬 사이트로 보내 주소를 받아 옵니다(주소를 주면 아무것도 나가지 않습니다). ② `send_fax`·`send_sms` 는 본인 팝빌 계정으로 PDF·문자를 보냅니다. ③ `work-rules` 묶음은 법제처 Open API 에 법령명·날짜·판 번호만 묻습니다. 취업규칙 본문과 사업장 정보는 보내지 않습니다.
+- 밖으로 나가는 것은 네 가지뿐입니다. ① `find_branch` 에 사업자등록번호를 주면 그 번호만 일의 무늬 사이트로 보내 주소를 받아 옵니다(주소를 주면 아무것도 나가지 않습니다). ② `send_fax`·`send_sms` 는 본인 팝빌 계정으로 PDF·문자를 보냅니다. ③ `work-rules` 묶음은 법제처 Open API 에 법령명·날짜·판 번호만 묻습니다. 취업규칙 본문과 사업장 정보는 보내지 않습니다. ④ `law` 묶음은 법제처 Open API 에 사용자가 넣은 검색 낱말·법령명·번호를 보냅니다. 입력에 주민등록번호 모양이 있으면 보내지 않고 멈춥니다.
 - 취업규칙 본문·파일은 이 PC 안에서만 대조합니다. 본문에 주민등록번호 모양이 있으면 점검하지 않고, 신고 서류 도구는 주민등록번호를 받지 않습니다.
 
 ## 🙅 하지 않는 일
@@ -260,7 +282,7 @@ node smoke.mjs           # 합성 값 시험, 전송 안 함. 법제처는 가�
 npm.cmd pack --dry-run   # 올라갈 파일 확인
 ```
 
-- 셸에 `LAW_OC` 가 있으면 smoke 가 끝에서 실제 법제처를 도구 두 번(조문 원문·판 비교)만 부르고, 없으면 `SKIP` 을 찍습니다.
+- 셸에 `LAW_OC` 가 있으면 smoke 가 끝에서 실제 법제처를 work-rules 도구 두 번(조문 원문·판 비교)과 law 도구 네 번(판례 두 번·서식·고용노동부 해석)만 부르고, 없으면 `SKIP` 을 찍습니다.
 - `work-rules` 묶음은 사이트 자료(`public/data/laws`)와 pdf.js 를 묶어 `dist/server.mjs` 가 약 17MB 이고, hwp 읽기 부품 `dist/assets/rhwp_bg.wasm`(약 12MB, 저장소 루트 `node_modules/@rhwp/core` 에서 복사)이 따로 붙습니다. wasm 이 없으면 hwp 파일만 「hwpx 로 저장해 다시」로 안내합니다.
 
 - 새 묶음 = `groups/<이름>.mjs` 에 `register…(server)` 를 만들고 `server.mjs` 의 `GROUPS` 에 한 줄 더합니다.

@@ -42,8 +42,9 @@ export const normName = (s) => String(s ?? '').replace(/[·ㆍ・\s]/g, '');
 
 export const asList = (v) => (v == null ? [] : Array.isArray(v) ? v : [v]);
 
-/** GET → JSON. 응답 바이트를 utf-8 로 직접 푼다(셸 파이프를 거치지 않는다). 빈 응답·연결 오류는 다시 시도한다 */
-async function getJson(endpoint, params, { oc, tries = 3, timeoutMs = 20_000 } = {}) {
+/** GET → JSON. 응답 바이트를 utf-8 로 직접 푼다(셸 파이프를 거치지 않는다). 빈 응답·연결 오류는 다시 시도한다.
+ * law 묶음(lib/law-open.mjs)도 이것으로 부른다 */
+export async function getJson(endpoint, params, { oc, tries = 3, timeoutMs = 20_000 } = {}) {
   const key = oc ?? lawOc();
   if (!key) throw new DrfError('no-oc', NO_OC_MESSAGE);
   const u = new URL(`${base()}/${endpoint}`);
