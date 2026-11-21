@@ -14,6 +14,7 @@ import { dutiesTools } from '../../tools/k-labor/groups/duties.mjs';
 import { workRulesTools } from '../../tools/k-labor/groups/work-rules.mjs';
 import { nosaTools } from '../../tools/k-labor/groups/nosa.mjs';
 import { nosaRecordsTools } from '../../tools/k-labor/groups/nosa-records.mjs';
+import { formsTools } from '../../tools/k-labor/groups/forms.mjs';
 
 // /howto/* — 도구 안내 정적 페이지(261119). 두 페이지가 공통 디자인(howto.css·howto.js)을 함께 쓴다.
 const PAGES = ['gov-login', 'k-labor'];
@@ -53,9 +54,8 @@ describe('도구 안내 페이지', () => {
   });
 
   // 묶음별 도구 수는 숫자로 박지 않고 패키지 소스(tools/k-labor)에서 끌어온다.
-  // 페이지는 npm 게시판 0.2.0 기준이다 — nosa 는 저장소 HEAD 10개 중 아직 게시하지 않은
-  // check_council_rules·make_council_rules_comparison 2개를 뺀다. 0.2.1 을 게시하면 UNPUBLISHED 를 비우고 페이지를 함께 올린다.
-  const UNPUBLISHED: Record<string, string[]> = { nosa: ['check_council_rules', 'make_council_rules_comparison'] };
+  // 페이지는 npm 게시판 0.2.1 기준이다(저장소 HEAD 와 같다). 저장소에만 있고 아직 게시하지 않은 도구가 생기면 여기에 적는다.
+  const UNPUBLISHED: Record<string, string[]> = {};
   const SOURCE: Record<string, string[]> = {
     nhis: nhisTools,
     popbill: popbillTools,
@@ -66,6 +66,7 @@ describe('도구 안내 페이지', () => {
     duties: dutiesTools,
     'work-rules': workRulesTools,
     nosa: [...nosaTools, ...nosaRecordsTools],
+    forms: formsTools,
   };
   const keys = () =>
     [...read('k-labor').matchAll(/data-g="([\w-]+)" data-n="(\d+)" data-r="(\d+)"/g)].map(([, g, n, r]) => ({ g, n: Number(n), r: Number(r) }));
