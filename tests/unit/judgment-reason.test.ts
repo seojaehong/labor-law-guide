@@ -257,6 +257,17 @@ describe('extractJudgmentPart', () => {
     }
   });
 
+  it('skips claim headings written without 의 and 「관계 법령 및 규정」 (real-corpus forms)', () => {
+    const party = ['1. 기초사실', '원고는 피고에 입사하였다.', '2. 당사자 주장의 요지', '가. 원고', '해고는 무효이다.', '3. 판단', '해고 사유가 없다.'].join('\n');
+    expect(judged(party)).toBe(party.slice(party.indexOf('3. 판단')));
+    const both = ['1. 처분의 경위', '피고는 처분을 하였다.', '2. 쌍방 주장의 요지', '원고는 다툰다.', '3. 이 사건 처분의 적법 여부', '처분은 위법하다.'].join('\n');
+    expect(judged(both)).toBe(both.slice(both.indexOf('3. 이 사건 처분의')));
+    const rules = ['1. 재심판정의 경위', '중앙노동위원회는 신청을 기각하였다.', '2. 관계 법령 및 참가인 규정', '별지 기재와 같다.', '3. 이 사건 재심판정의 적법 여부', '징계는 정당하다.'].join('\n');
+    expect(judged(rules)).toBe(rules.slice(rules.indexOf('3. 이 사건 재심판정의')));
+    const inner = ['1. 재심판정의 경위', '기각하였다.', '2. 관계 법령 및 참가인의 내부 규정 등', '별지 기재와 같다.', '3. 이 사건 재심판정의 위법 여부', '위법하다.'].join('\n');
+    expect(judged(inner)).toBe(inner.slice(inner.indexOf('3. 이 사건 재심판정의')));
+  });
+
   it('trims only leading and trailing blank lines and keeps inner spacing verbatim', () => {
     const reason = '\n\n1. 기초사실\n사실.\n\n\n3. 아님\n2. 판단   \n가.  띄어 쓴   글자\n\n\n\n끝.  \n\n';
     const part = judged(reason);

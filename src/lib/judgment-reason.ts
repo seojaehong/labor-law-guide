@@ -36,6 +36,8 @@ const SKIP_HEADINGS = new Set([
   '경위', '처분의경위', '처분경위', '재심판정의경위', '사건의경위', '사건경위', '사건의개요', '재심판정의내용', '다툼없는사실',
   '당사자의주장', '당사자들의주장', '원고의주장', '원고들의주장', '원고주장', '피고의주장', '피고들의주장', '피고주장',
   '참가인의주장', '피고보조참가인의주장', '주장', '주장의요지',
+  // 「의」 없이 쓴 표기 — 「2. 당사자 주장의 요지」「2. 쌍방 주장의 요지」「2. 청구원인 주장의 요지」
+  '당사자주장', '당사자들주장', '쌍방주장', '쌍방의주장', '원고들주장', '피고들주장', '참가인주장', '청구원인주장',
   '관계법령', '관련법령', '관계규정', '관련규정', '관계법규', '관련법규',
   '쟁점', '주요쟁점',
 ]);
@@ -45,6 +47,8 @@ const compact = (value: string) => value.replace(/\s+/g, '');
 function isSkipPart(part: string): boolean {
   const bare = part.replace(/등$/, '');
   const candidates = [bare, bare.replace(/의?요지$/, '')];
+  // 「관계 법령 및 참가인의 (내부) 규정」「… 원고 등의 규정」 — 별지로 돌리는 규정 마디
+  if (bare.length <= 12 && /규정$/.test(bare) && !bare.includes('위반')) return true;
   return candidates.some((c) => c && (SKIP_HEADINGS.has(c) || SKIP_HEADINGS.has(c.replace(/^이사건(?:의)?/, ''))));
 }
 
