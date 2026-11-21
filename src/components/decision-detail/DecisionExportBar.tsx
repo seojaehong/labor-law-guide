@@ -75,12 +75,13 @@ function rangeClip(range: Range): ExportClip {
 /**
  * 드래그한 글자 — 본문 표지(data-export) 안쪽 글자만 모은다. 표지 사이의 제목·배지·바로가기·안내 글자는 버린다.
  * 화면에 그려지지 않은 표지(닫힌 펼침 안 등)와 다른 표지 안에 든 표지는 건너뛴다.
+ * 크로미엄은 닫힌 <details> 안 상자에도 getClientRects 를 돌려주므로 닫힌 펼침은 따로 거른다.
  */
 function readSelection(): { text: string; containsAi: boolean } | null {
   const selection = window.getSelection();
   if (!selection || selection.rangeCount === 0 || selection.isCollapsed) return null;
   const regions = Array.from(document.querySelectorAll<HTMLElement>("[data-export]")).filter(
-    (el) => !el.parentElement?.closest("[data-export]") && el.getClientRects().length > 0,
+    (el) => !el.parentElement?.closest("[data-export]") && !el.closest("details:not([open])") && el.getClientRects().length > 0,
   );
   const parts: string[] = [];
   let containsAi = false;
@@ -121,12 +122,17 @@ export default function DecisionExportBar({
   meta,
   hasSections,
   hasSummary,
+  summaryUnavailableReason,
 }: {
   meta: ExportMeta;
   hasSections: boolean;
   hasSummary: boolean;
+  /** 요지 복사를 쓸 수 없을 때 그 까닭(단추의 title·설명으로 붙인다) */
+  summaryUnavailableReason?: string;
 }) {
   const panelId = useId();
+  const summaryReasonId = useId();
+  const summaryReason = !hasSummary && summaryUnavailableReason ? summaryUnavailableReason : null;
   const [toast, setToast] = useState<{ text: string; ok: boolean } | null>(null);
   const [picker, setPicker] = useState<PickItem[] | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -215,7 +221,15 @@ export default function DecisionExportBar({
           <Copy aria-hidden="true" />
           전문 복사
         </Button>
-        <Button type="button" variant="outline" size="sm" onClick={copySummary} disabled={!hasSummary}>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={copySummary}
+          disabled={!hasSummary}
+          title={summaryReason ?? undefined}
+          aria-describedby={summaryReason ? summaryReasonId : undefined}
+        >
           <FileText aria-hidden="true" />
           요지 복사
         </Button>
@@ -262,6 +276,11 @@ export default function DecisionExportBar({
       <p className="mt-1.5 text-xs text-muted-foreground">
         인용 형식 복사는 본문에서 드래그한 글자 앞에 「{CITATION_PREFIX[meta.kind]} …」 머리줄을 붙입니다.
       </p>
+      {summaryReason ? (
+        <p id={summaryReasonId} className="mt-0.5 text-xs text-muted-foreground">
+          요지 복사: {summaryReason}
+        </p>
+      ) : null}
 
       {picker ? (
         <div

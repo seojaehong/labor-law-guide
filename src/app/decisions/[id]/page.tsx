@@ -30,7 +30,9 @@ import SubscribeForm from "@/components/SubscribeForm";
 import { SITE_URL, BRAND_NAME } from "@/lib/constants";
 import DecisionExportBar from "@/components/decision-detail/DecisionExportBar";
 import VerifiedJudgmentSections from "@/components/decision-detail/VerifiedJudgmentSections";
+import VerbatimHolding from "@/components/decision-detail/VerbatimHolding";
 import { decisionExportPageUrl, exportAttrs, type ExportMeta } from "@/lib/decision-export";
+import { extractJudgmentPart, findReasonText, isLongHolding } from "@/lib/judgment-reason";
 import { publicSourceUrl } from "@/lib/public-source-url";
 
 // 검증 전문 — 주문·이유·서명까지 들어 있는지 대조해 적재한 행(제공처 bigcase·local·ilabor).
@@ -200,17 +202,14 @@ function isPyReprText(text: string): boolean {
   return text.includes("'item':") && text.includes("'content':");
 }
 
-function getSummaryLabel(source: DecisionSourceProvider) {
-  return source === "bigcase" || source === "lawgo" ? "판결요지" : "판정요지";
-}
-
 function getLeadCopy(source: DecisionSourceProvider) {
   if (source === "lawgo") {
     return "법제처 공식 API 기준으로 판시사항, 판결요지, 참조법령, 판례내용을 내부에서 확인할 수 있습니다.";
   }
 
   if (source === "bigcase") {
-    return "법원 판례 기준으로 판결요지와 원문 출처를 내부에서 확인하세요.";
+    // 법원 판례(bc_)에는 공식 판결요지가 없다 — 요지는 판결문 원문에서 옮기고, 원문이 없으면 AI 정리만 보인다.
+    return "법원 판례 기준으로 판결문 원문과 출처를 내부에서 확인하세요. 원문이 없는 판례는 AI 정리만 보입니다.";
   }
 
   return "노동위 판정례 기준으로 판정요지와 절차 정보를 확인할 수 있습니다.";
@@ -586,10 +585,17 @@ export default async function DecisionPage({
     const hasHoldingPoints = holdingPointsText.length > 0;
     const hasSummary = summaryText.length > 0;
     const hasSourceSection = hasRealFulltext || hasHoldingPoints;
-    // 따로 저장된 요약이 없고 원문 대신 정리본(holding_points)이 보일 때는 그 정리본이 요지 복사 대상이다.
-    const holdingAsSummary = !hasSummary && !hasRealFulltext && hasHoldingPoints;
-    const holdingRole = holdingAsSummary ? "section summary" : "section";
-    // 요약(holding_summary·summary)은 화면이 「원문이 아닌 정리본」, holding_points 는 「AI가 정리한 요약본」이라 밝힌 글자다.
+    // 요지는 판결문 이유 가운데 판단 부분을 원문 글자 그대로 옮긴 것이다(낱말 거름·치환 없음). 화면의 이유 절·수집 본문과
+    // 같은 글자(주석 표지만 걷은 것)에서 잘라 내므로 전문의 부분 문자열이다. 원문에서 이유를 찾지 못하면 요지가 없다.
+    const reasonText = hasRealFulltext
+      ? findReasonText(
+          bodySections.map((section) => ({ title: unwrapSourceAnnotations(section.title || ""), text: unwrapSourceAnnotations(section.text || "") })),
+          unwrapSourceAnnotations(realFulltext),
+        )
+      : null;
+    const verbatimHolding = reasonText ? extractJudgmentPart(reasonText) : "";
+    // 저장된 요약(holding_summary·summary)과 holding_points 는 AI 정리다 — 요지로 내보내지 않는다.
+    // 원문이 있으면 접힌 「AI 정리 보기」에서 드래그 인용만 받고, 원문이 없으면 holding_points 만 AI 표시를 단 절로 내보낸다.
     const caseMeta: ExportMeta = {
       id,
       kind: "court",
@@ -657,14 +663,37 @@ export default async function DecisionPage({
             </div>
           </Card>
 
-          <DecisionExportBar meta={caseMeta} hasSections={hasSourceSection} hasSummary={hasSummary || holdingAsSummary} />
+          <DecisionExportBar
+            meta={caseMeta}
+            hasSections={hasSourceSection}
+            hasSummary={verbatimHolding.length > 0}
+            summaryUnavailableReason="원문 요지가 없습니다"
+          />
 
           <section id="decision-summary" className="scroll-mt-24 space-y-4">
-            {summaryText ? (
+            {verbatimHolding ? (
+              <Card className="p-4">
+                <h3 className="font-semibold text-sm">요지 · 판결문 원문(이유 중 판단 부분)</h3>
+                <p className="text-xs text-muted-foreground">
+                  판결문 이유 가운데 판단 부분을 고치지 않고 그대로 옮겼습니다. 사실관계·주장은 아래 전문에서 확인하세요.
+                </p>
+                <VerbatimHolding text={verbatimHolding} collapsible={isLongHolding(verbatimHolding)} />
+              </Card>
+            ) : null}
+            {summaryText && hasRealFulltext ? (
+              <details className="rounded-xl border bg-muted/30 px-4 py-3">
+                <summary className="cursor-pointer text-sm font-medium">AI 정리 보기 · 원문 아님</summary>
+                <p className="mt-2 text-xs text-muted-foreground">
+                  AI가 정리한 글이라 판결문 원문이 아니며, 끝부분이 잘려 있을 수 있습니다. 인용할 때는 판결문 원문을 쓰세요.
+                </p>
+                <div {...exportAttrs("quote", "AI 정리", true)} className="mt-2">{renderHoldingBlocks(summaryText)}</div>
+              </details>
+            ) : null}
+            {summaryText && !hasRealFulltext ? (
               <Card className="p-4 bg-muted/50">
-                <h3 className="font-semibold text-sm mb-2">{getSummaryLabel(decisionSource)} · 저장된 요약</h3>
-                <p className="text-sm mb-3">원문이 아닌 정리본이며, 저장된 요약의 끝부분이 잘려 있을 수 있습니다.</p>
-                <div {...exportAttrs("summary", `${getSummaryLabel(decisionSource)} 정리`, true)}>{renderHoldingBlocks(summaryText)}</div>
+                <h3 className="font-semibold text-sm mb-2">AI 정리 · 판결문 원문 아님</h3>
+                <p className="text-sm mb-3">판결문 원문을 확보하지 못해 AI가 정리한 글을 보입니다. 끝부분이 잘려 있을 수 있습니다.</p>
+                <div {...exportAttrs("quote", "AI 정리", true)}>{renderHoldingBlocks(summaryText)}</div>
               </Card>
             ) : null}
           </section>
@@ -713,7 +742,7 @@ export default async function DecisionPage({
                 <p className="text-xs text-muted-foreground mb-3">
                   법원 원문을 확보하지 못해 AI가 정리한 요약본으로 표시합니다.
                 </p>
-                <div {...exportAttrs(holdingRole, "서비스 내 정리본", true)}>{renderHoldingBlocks(holdingPointsText)}</div>
+                <div {...exportAttrs("section", "서비스 내 정리본", true)}>{renderHoldingBlocks(holdingPointsText)}</div>
               </Card>
             ) : (
               <Card className="p-4 mb-4 bg-muted/40">
@@ -724,15 +753,15 @@ export default async function DecisionPage({
                 <div className="space-y-3">
                   {hasHoldingPoints ? (
                     <div>
-                      <p className="text-xs font-medium text-muted-foreground mb-1">판결요지 정리 · 원문 아님</p>
-                      <div {...exportAttrs(holdingRole, "서비스 내 정리본", true)}>{renderHoldingBlocks(holdingPointsText)}</div>
+                      <p className="text-xs font-medium text-muted-foreground mb-1">AI 정리 · 원문 아님</p>
+                      <div {...exportAttrs("section", "서비스 내 정리본", true)}>{renderHoldingBlocks(holdingPointsText)}</div>
                     </div>
                   ) : null}
                   {hasSummary ? (
                     <div>
-                      <p className="text-xs font-medium text-muted-foreground mb-1">판결요지 정리</p>
-                      {/* 위 「저장된 요약」 카드와 같은 글자 — 요지로 두 번 싣지 않고 드래그 인용만 받는다. */}
-                      <div {...exportAttrs("quote", "판결요지 정리", true)}>{renderHoldingBlocks(summaryText)}</div>
+                      <p className="text-xs font-medium text-muted-foreground mb-1">저장된 AI 정리 · 원문 아님</p>
+                      {/* 위 「AI 정리」 카드와 같은 글자 — 다시 싣지 않고 드래그 인용만 받는다. */}
+                      <div {...exportAttrs("quote", "AI 정리", true)}>{renderHoldingBlocks(summaryText)}</div>
                     </div>
                   ) : null}
                 </div>
