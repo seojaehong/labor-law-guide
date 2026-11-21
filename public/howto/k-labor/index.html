@@ -80,8 +80,8 @@
         <button type="button" class="key" data-g="tax" data-n="3" data-r="3" aria-pressed="false"><span class="led"></span>세금<small>퇴직·일용·중도퇴사</small></button>
         <button type="button" class="key" data-g="duties" data-n="1" data-r="1" aria-pressed="false"><span class="led"></span>사업주 의무<small>규모별 목록</small></button>
         <button type="button" class="key" data-g="work-rules" data-n="6" data-r="0" aria-pressed="false"><span class="led"></span>취업규칙·법령<small>법제처 실시간</small></button>
-        <button type="button" class="key" data-g="nosa" data-n="8" data-r="2" aria-pressed="false"><span class="led"></span>노사협의회<small>설치·회의·서류</small></button>
-        <button type="button" class="key" data-g="forms" data-n="1" data-r="1" aria-pressed="false"><span class="led"></span>모성보호 서식<small>육아휴직·배우자 휴가</small></button>
+        <button type="button" class="key" data-g="nosa" data-n="10" data-r="2" aria-pressed="false"><span class="led"></span>노사협의회<small>설치·회의·서류</small></button>
+        <button type="button" class="key" data-g="forms" data-n="3" data-r="1" aria-pressed="false"><span class="led"></span>모성보호 서식<small>육아휴직·배우자 휴가</small></button>
         <button type="button" class="key mod all" data-all aria-pressed="false">전체 켜기</button>
       </div>
       <div class="cmd"><pre><code id="pick-cmd">claude mcp add --scope user k-labor "--" npx -y k-labor mcp --groups "contract,calc"</code></pre><button type="button" class="copy">복사</button></div>
@@ -94,7 +94,7 @@
 
 <div class="facts">
   <div class="wrap">
-    <div><b>46개</b><span>10개 묶음, 필요한 것만 켭니다</span></div>
+    <div><b>50개</b><span>10개 묶음, 필요한 것만 켭니다</span></div>
     <div><b>26개</b><span>설치 없이 원격 주소로</span></div>
     <div><b>같은 값</b><span>사이트 계산기와 같은 엔진</span></div>
     <div><b>대화에 싣지 않음</b><span>주민등록번호는 PC 안에서만</span></div>
@@ -107,7 +107,7 @@
     <div class="sites ways">
       <article class="site">
         <header><span class="badge t-mod">PC</span><div><h3>내 PC에 설치</h3><span class="host">npx -y k-labor mcp</span></div></header>
-        <dl><dt>쓰는 곳</dt><dd>Claude Code · Claude Desktop · Cursor · Windsurf</dd><dt>도구</dt><dd>10개 묶음 46개 전부</dd><dt>필요한 것</dt><dd>Node.js 20 이상</dd><dt>여기서만</dt><dd>계약서·신고서 파일 만들기, 팩스·문자, 취업규칙 파일 읽기, 법제처 실시간 조회</dd></dl>
+        <dl><dt>쓰는 곳</dt><dd>Claude Code · Claude Desktop · Cursor · Windsurf</dd><dt>도구</dt><dd>10개 묶음 50개 전부</dd><dt>필요한 것</dt><dd>Node.js 20 이상</dd><dt>여기서만</dt><dd>계약서·신고서 파일 만들기, 팩스·문자, 취업규칙 파일 읽기, 법제처 실시간 조회</dd></dl>
       </article>
       <article class="site">
         <header><span class="badge t-ink">URL</span><div><h3>원격 주소로 연결</h3><span class="host">https://yellowenvelope.kr/api/mcp/mcp</span></div></header>
@@ -162,14 +162,14 @@
         <div><span class="tag amber">내 PC에서만</span> <span class="tag grey">법제처 OC 필요</span></div>
       </article>
       <article class="site">
-        <header><span class="badge t-mod">노사</span><div><h3>노사협의회</h3><span class="host">--groups nosa · 도구 8개</span></div></header>
-        <p>설치의무와 근로자위원 선출방식·정족수·기한을 계산하고, 회의 하나의 통보 기한·의결을 확인합니다. 선거·회의 서류와 회의록 기록은 내 PC에서 파일로 만듭니다. 협의회규정 점검(읽기만 하고 파일은 만들지 않음)과 신·구조문대비표는 다음 판(0.2.1)에 들어갑니다.</p>
+        <header><span class="badge t-mod">노사</span><div><h3>노사협의회</h3><span class="host">--groups nosa · 도구 10개</span></div></header>
+        <p>설치의무와 근로자위원 선출방식·정족수·기한을 계산하고, 회의 하나의 통보 기한·의결을 확인합니다. 선거·회의 서류와 회의록 기록은 내 PC에서 파일로 만듭니다. 협의회규정 점검(읽기만 하고 파일은 만들지 않음)과 신·구조문대비표도 내 PC에서 합니다.</p>
         <div><span class="tag">원격 2개</span> <span class="tag amber">서류·기록은 내 PC</span></div>
       </article>
       <article class="site">
-        <header><span class="badge t-mod">서식</span><div><h3>모성보호 서식</h3><span class="host">--groups forms · 도구 1개</span></div></header>
-        <p>육아휴직·단기 육아휴직·배우자 출산전후휴가·난임치료휴가 신청서와 육아휴직 허용·단기 육아휴직 시기변경 통지서의 칸을 검사하고, 입력한 날짜를 조문의 신청 기한·기간과 견주어 알려 줍니다. 주민등록번호는 받지 않습니다. 지금은 원격 주소에서 서식 목록(칸·근거 조문)을 보고, 칸 검사와 한글(hwpx) 파일 만들기는 다음 판에 내 PC 도구로 들어갑니다. 그 전에는 <a href="/tools/hr-forms">웹 화면</a>에서 파일을 만듭니다.</p>
-        <div><span class="tag">원격 1개</span> <span class="tag amber">검사·파일은 내 PC(다음 판)</span></div>
+        <header><span class="badge t-mod">서식</span><div><h3>모성보호 서식</h3><span class="host">--groups forms · 도구 3개</span></div></header>
+        <p>법정 서식인 출산전후휴가(배우자 출산전후휴가)·육아휴직 통합 신청서(시행규칙 별지 제7호의2)는 원본 칸에 그대로 채우고, 육아휴직·단기 육아휴직·배우자 출산전후휴가·난임치료휴가 신청서와 육아휴직 허용·단기 육아휴직 시기변경 통지서도 만듭니다. 입력한 날짜를 조문의 신청 기한·기간과 견주어 알려 줍니다. 주민등록번호는 받지 않습니다. 원격 주소에서는 서식 목록(칸·근거 조문)만 보고, 칸 검사와 한글(hwpx) 파일은 내 PC에서 만듭니다. <a href="/tools/hr-forms">웹 화면</a>에서도 만들 수 있습니다.</p>
+        <div><span class="tag">원격 1개</span> <span class="tag amber">검사·파일은 내 PC</span></div>
       </article>
     </div>
   </div>

@@ -54,10 +54,8 @@ describe('도구 안내 페이지', () => {
   });
 
   // 묶음별 도구 수는 숫자로 박지 않고 패키지 소스(tools/k-labor)에서 끌어온다.
-  // 페이지는 npm 게시판 0.2.0 기준이다 — nosa 는 저장소 HEAD 10개 중 아직 게시하지 않은
-  // check_council_rules·make_council_rules_comparison 2개를 뺀다. 0.2.1 을 게시하면 UNPUBLISHED 를 비우고 페이지를 함께 올린다.
-  // forms 묶음은 원격판 list_hr_forms 만 지금 쓰인다. check_hr_form·make_hr_form 은 다음 판 게시 때 UNPUBLISHED 에서 뺀다.
-  const UNPUBLISHED: Record<string, string[]> = { nosa: ['check_council_rules', 'make_council_rules_comparison'], forms: ['check_hr_form', 'make_hr_form'] };
+  // 페이지는 npm 게시판 0.2.1 기준이다(저장소 HEAD 와 같다). 저장소에만 있고 아직 게시하지 않은 도구가 생기면 여기에 적는다.
+  const UNPUBLISHED: Record<string, string[]> = {};
   const SOURCE: Record<string, string[]> = {
     nhis: nhisTools,
     popbill: popbillTools,

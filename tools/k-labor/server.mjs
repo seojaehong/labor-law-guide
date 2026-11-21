@@ -21,7 +21,7 @@ import { registerNosaRecords, nosaRecordsTools } from './groups/nosa-records.mjs
 import { registerDocs, docsTools } from './groups/docs.mjs';
 import { registerForms, formsTools } from './groups/forms.mjs';
 
-const VERSION = '0.2.0';
+const VERSION = '0.2.1';
 
 // 새 도구 묶음은 여기에 한 줄 더한다.
 const GROUPS = {

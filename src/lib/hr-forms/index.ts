@@ -78,6 +78,17 @@ export async function buildForm(id: string, values: Values): Promise<BuiltForm> 
   const r = review(form, values);
   if (r.problems.length) throw new FormError(r.problems);
   // 한글 엔진은 파일을 만들 때만 불러온다 — 화면의 칸 검사는 가볍게 돈다
+  if (form.statutory) {
+    // 법정 서식: 원본 hwpx 칸에 그대로 채운다(글자 모양·칸·쪽 원본 유지)
+    const [{ fillCells, replaceText }, { F7_2_HWPX_BASE64 }] = await Promise.all([import('@/lib/md-hwpx/postedit'), import('./templates/f7-2')]);
+    const bin = atob(F7_2_HWPX_BASE64);
+    const src = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) src[i] = bin.charCodeAt(i);
+    const { cells, edits } = form.statutory.fill(values);
+    const filled = await fillCells(src, cells);
+    const hwpx = edits.length ? (await replaceText(filled, edits)).bytes : filled;
+    return { id: form.id, title: form.title, md: r.md, hwpx, notes: r.notes, unknown: r.unknown };
+  }
   const { mdToHwpx } = await import('@/lib/md-hwpx');
   const hwpx = await mdToHwpx(r.md, { preset: 'internal' });
   return { id: form.id, title: form.title, md: r.md, hwpx, notes: r.notes, unknown: r.unknown };

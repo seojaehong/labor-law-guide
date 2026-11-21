@@ -14,7 +14,8 @@ import { stripControl } from '@/lib/contract-write/text';
 
 export type TextEdit = { old: string; new: string };
 export type EditPreview = { old: string; new: string; before: string; after: string; section: string };
-export type CellFill = { table: number; row: number; col: number; text: string };
+/** keepChar = 칸의 글자 모양을 그대로 쓴다(법정 서식 원본처럼 예시 색·기울임이 없는 바탕일 때). 기본은 꾸밈 없는 검정으로 바꾼다 */
+export type CellFill = { table: number; row: number; col: number; text: string; keepChar?: boolean };
 
 const escText = (s: string) => stripControl(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 const unesc = (s: string) => s.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&amp;/g, '&');
@@ -231,7 +232,7 @@ export async function fillCells(bytes: Uint8Array, fills: CellFill[]): Promise<U
     const inner = s.slice(pStart + open.length, pEnd - '</hp:p>'.length);
     if (inner.replace(PLAIN_RUN, '').replace(LINESEG, '').trim()) throw new Error(`표 ${f.table} ${f.row}행 ${f.col}열 첫 문단에 글자 밖 내용(누름틀·그림·탭 등)이 있어 채우지 않습니다 — 한글에서 넣어 주세요`);
     const cur = Number(/charPrIDRef="(\d+)"/.exec(inner)?.[1] ?? 0);
-    const cp = plainFor(chars, cur);
+    const cp = f.keepChar ? cur : plainFor(chars, cur);
     const lines = f.text.split(/\r?\n/).map(escText).join('<hp:lineBreak/>');
     const newP = `${open}<hp:run charPrIDRef="${cp}"><hp:t>${lines}</hp:t></hp:run></hp:p>`;
     const next = s.slice(0, pStart) + newP + s.slice(pEnd);

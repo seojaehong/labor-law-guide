@@ -6,6 +6,7 @@
  * ★ 주민등록번호 칸은 두지 않는다(생년월일만). ★ 안내 문구는 조문을 옮겨 적을 뿐 결론을 내리지 않는다.
  */
 import { addDays, addMonths, diffDays, fmtDate, parseYmd, spanDays } from './dates';
+import type { CellFill, TextEdit } from '@/lib/md-hwpx/postedit';
 
 export type FieldType = 'text' | 'date' | 'choice' | 'multiline';
 export interface Choice { value: string; label: string }
@@ -30,6 +31,8 @@ export interface HrForm {
   basis: string[];
   fields: FormField[];
   compose(v: Values): Composed;
+  /** 법정 서식이 있으면 원본 hwpx 칸에 그대로 채운다(원고 md 는 미리보기·검사용) */
+  statutory?: { source: string; fill(v: Values): { cells: CellFill[]; edits: TextEdit[] } };
 }
 
 const LAW = '「남녀고용평등과 일ㆍ가정 양립 지원에 관한 법률」';
@@ -366,4 +369,111 @@ const reschedule: HrForm = {
   },
 };
 
-export const HR_FORMS: HrForm[] = [childcare, shortChildcare, spouseLeave, infertility, approval, reschedule];
+// ── 7. 출산전후휴가(배우자 출산전후휴가)ㆍ육아휴직 통합 신청서 — 법정 서식(시행규칙 별지 제7호의2) ──
+// 칸 주소 = 원본 hwpx 표 0 의 (행, 열). 사업주 확인란은 신청인이 적지 않는다(서식 안내문).
+const KIND: Choice[] = [
+  { value: 'maternity', label: '출산전후휴가 청구(본인 출산)' },
+  { value: 'spouse', label: '배우자 출산전후휴가 고지' },
+];
+const ymdKo = (d: Date | null) => (d ? `${d.getFullYear()}년 ${d.getMonth() + 1}월 ${d.getDate()}일` : '년     월     일');
+const integrated: HrForm = {
+  id: 'integrated-leave-application',
+  title: '출산전후휴가(배우자 출산전후휴가)ㆍ육아휴직 통합 신청서',
+  writer: 'employee',
+  summary: '출산전후휴가를 청구하거나 배우자 출산전후휴가를 고지하면서 육아휴직을 함께 신청하는 법정 서식(시행규칙 별지 제7호의2, 2026. 8. 19. 개정)을 원본 그대로 채웁니다.',
+  basis: [`${LAW} 제19조`, '같은 법 시행령 제11조제2항', '같은 법 시행규칙 제14조의3·별지 제7호의2서식'],
+  fields: [
+    { key: 'name', label: '성명', type: 'text', required: true, max: 40 },
+    { key: 'birth', label: '생년월일', type: 'date', required: true, help: '주민등록번호는 적지 않습니다' },
+    { key: 'address', label: '주소', type: 'text', max: 80 },
+    { key: 'phone', label: '연락처', type: 'text', max: 30 },
+    { key: 'dept', label: '소속부서', type: 'text', max: 60 },
+    { key: 'position', label: '직위(직급)', type: 'text', max: 40 },
+    { key: 'childName', label: '대상 자녀(영유아) 성명', type: 'text', help: '신청일 현재 임신 중이면 적지 않습니다', max: 40 },
+    { key: 'childBirth', label: '대상 자녀 생년월일(임신 중이면 출산예정일)', type: 'date', required: true },
+    { key: 'kind', label: '함께 내는 휴가', type: 'choice', required: true, options: KIND },
+    { key: 'leaveStart', label: '휴가 개시 예정일', type: 'date', required: true },
+    { key: 'leaveEnd', label: '휴가 종료 예정일', type: 'date', required: true },
+    { key: 'leaveDays', label: '휴가 일수(배우자 출산전후휴가)', type: 'text', help: '배우자 출산전후휴가는 고지하는 일수를 숫자로 적습니다. 비우면 빈칸으로 둡니다', max: 3 },
+    { key: 'ccStart', label: '육아휴직 개시 예정일', type: 'date', required: true },
+    { key: 'ccEnd', label: '육아휴직 종료 예정일', type: 'date', required: true },
+    { key: 'appliedOn', label: '신청일', type: 'date', required: true },
+  ],
+  compose(v) {
+    const problems: string[] = [];
+    const notes: string[] = [];
+    const spouse = get(v, 'kind') === 'spouse';
+    const lv = period(v, 'leaveStart', 'leaveEnd', problems, '휴가 기간');
+    const cc = period(v, 'ccStart', 'ccEnd', problems, '육아휴직 기간');
+    const days = get(v, 'leaveDays');
+    if (days && !/^\d{1,3}$/.test(days)) problems.push('「휴가 일수」는 숫자로만 적어 주세요.');
+    const applied = date(v, 'appliedOn');
+    const child = date(v, 'childBirth');
+    if (cc && applied && diffDays(applied, cc[0]) < 30)
+      notes.push(`신청일이 육아휴직 시작 ${diffDays(applied, cc[0])}일 전입니다. 시행령 제11조제2항 후단은 육아휴직의 신청을 육아휴직개시예정일 30일 전까지 하도록 정합니다(같은 조 제3항 사유는 7일 전까지).`);
+    if (cc && child && get(v, 'childName') && cc[0] > addMonths(child, 18))
+      notes.push('시행령 제11조제2항의 함께 신청은 자녀 출생 후 18개월 이내에 육아휴직을 시작하려는 경우입니다. 육아휴직 시작일을 확인하세요.');
+    if (lv && cc && cc[0] <= lv[1]) notes.push('육아휴직 개시 예정일이 휴가 종료 예정일보다 앞서거나 같습니다. 두 기간을 확인하세요.');
+    if (spouse) notes.push('배우자 출산전후휴가는 20일이고 3회에 한정해 나누어 사용할 수 있습니다(법 제18조의2). 나누어 쓰면 각 개시ㆍ종료일을 구분해 적습니다(서식 작성방법 4).');
+    notes.push('사업주는 육아휴직을 허용하고, 시행령 제11조제5항의 기간 안에 허용 사실을 서면 또는 문자메시지 등 전자적 방식으로 알려야 합니다(서식 작성방법 5).');
+    const md = doc(
+      '출산전후휴가(배우자 출산전후휴가)ㆍ육아휴직 통합 신청서',
+      table([
+        ['성명', get(v, 'name')],
+        ['생년월일', D(v, 'birth')],
+        ['주소(연락처)', [get(v, 'address'), get(v, 'phone')].filter(Boolean).join(' / ')],
+        ['소속부서', get(v, 'dept')],
+        ['직위(직급)', get(v, 'position')],
+        ['대상 자녀(영유아) 성명', get(v, 'childName')],
+        ['대상 자녀 생년월일(출산예정일)', D(v, 'childBirth')],
+        [spouse ? '배우자 출산전후휴가 고지 기간' : '출산전후휴가 청구 기간', lv ? `${fmtDate(lv[0])} ~ ${fmtDate(lv[1])}` : ''],
+        ['육아휴직 기간', cc ? `${fmtDate(cc[0])} ~ ${fmtDate(cc[1])}` : ''],
+      ]),
+      '(한글 파일은 법정 서식 별지 제7호의2 원본에 채웁니다.)',
+    );
+    return { md, problems, notes };
+  },
+  statutory: {
+    source: '남녀고용평등과 일ㆍ가정 양립 지원에 관한 법률 시행규칙 [별지 제7호의2서식] <개정 2026. 8. 19.>',
+    fill(v) {
+      const spouse = get(v, 'kind') === 'spouse';
+      const lv: [Date | null, Date | null] = [date(v, 'leaveStart'), date(v, 'leaveEnd')];
+      const cc: [Date | null, Date | null] = [date(v, 'ccStart'), date(v, 'ccEnd')];
+      // 원본 칸 글자 모양 그대로(이 서식의 header 는 strikeout shape="3D" 로 저장돼 「꾸밈 없음」 판정에 안 걸린다 — 쪽 그림으로 취소선 없음 확인)
+      const at = (row: number, col: number, text: string): CellFill => ({ table: 0, row, col, text, keepChar: true });
+      const labeled = (lab: string, val: string) => (val ? `${lab}\n${val}` : lab);
+      const mDays = !spouse && lv[0] && lv[1] ? String(spanDays(lv[0], lv[1])) : '';
+      const sDays = spouse ? get(v, 'leaveDays') : '';
+      const ccDays = cc[0] && cc[1] ? String(spanDays(cc[0], cc[1])) : '';
+      const dd = (n: string) => (n ? `( ${n}일)` : '(     일)');
+      const cells: CellFill[] = [
+        at(3, 1, labeled('성명', get(v, 'name'))),
+        at(3, 6, labeled('생년월일', D(v, 'birth'))),
+        at(4, 1, get(v, 'address') ? `주소  ${get(v, 'address')}` : '주소'),
+        at(5, 1, labeled('소속부서', get(v, 'dept'))),
+        at(5, 4, labeled('직위(직급)', get(v, 'position'))),
+        at(6, 1, labeled('대상 자녀(영유아) 성명', get(v, 'childName'))),
+        at(6, 4, labeled('대상 자녀 생년월일(출산예정일)', D(v, 'childBirth'))),
+        at(7, 1, `출산전후휴가 청구 기간 ${dd(mDays)}`),
+        at(9, 1, `배우자 출산전후휴가 고지 기간 ${dd(sDays)}`),
+        at(11, 1, `육아휴직 기간 ${dd(ccDays)}`),
+        // 쓰지 않는 휴가 줄은 원본 그대로(빈 날짜)
+        at(8, 2, ymdKo(spouse ? null : lv[0])),
+        at(8, 7, ymdKo(spouse ? null : lv[1])),
+        at(10, 2, ymdKo(spouse ? lv[0] : null)),
+        at(10, 7, ymdKo(spouse ? lv[1] : null)),
+        at(12, 2, ymdKo(cc[0])),
+        at(12, 7, ymdKo(cc[1])),
+      ];
+      const ap = date(v, 'appliedOn');
+      const edits: TextEdit[] = [
+        { old: '      년     월     일', new: `      ${ymdKo(ap)}` },
+        { old: '신청인                   (인)', new: `신청인        ${get(v, 'name')}        (인)` },
+      ];
+      if (get(v, 'phone')) edits.push({ old: '(연락처:                                          )', new: `(연락처: ${get(v, 'phone')})` });
+      return { cells, edits };
+    },
+  },
+};
+
+export const HR_FORMS: HrForm[] = [childcare, shortChildcare, spouseLeave, infertility, approval, reschedule, integrated];

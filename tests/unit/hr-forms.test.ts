@@ -21,9 +21,9 @@ describe('날짜 도우미', () => {
 });
 
 describe('서식 목록', () => {
-  it('6종, id 가 겹치지 않는다', () => {
+  it('7종, id 가 겹치지 않는다', () => {
     const ids = catalog().map((f) => f.id);
-    expect(ids).toEqual(['childcare-leave', 'short-childcare-leave', 'spouse-maternity-leave', 'infertility-leave', 'childcare-leave-approval', 'short-leave-reschedule']);
+    expect(ids).toEqual(['childcare-leave', 'short-childcare-leave', 'spouse-maternity-leave', 'infertility-leave', 'childcare-leave-approval', 'short-leave-reschedule', 'integrated-leave-application']);
     expect(new Set(ids).size).toBe(ids.length);
   });
   it('주민등록번호 칸이 없다', () => {
@@ -111,7 +111,7 @@ describe('공개 문구 금지어', () => {
 });
 
 describe('한글(hwpx) 만들기', () => {
-  it('여섯 서식이 모두 파일이 되고 값이 본문에 들어간다', async () => {
+  it('일곱 서식이 모두 파일이 되고 값이 본문에 들어간다', async () => {
     const vals: Record<string, Record<string, string>> = {
       'childcare-leave': leave(),
       'short-childcare-leave': { ...P, childName: '김다라', childBirth: '2020-05-01', reason: 'vacation', reasonDetail: '겨울방학', start: '2027-01-04', weeks: '2', appliedOn: '2026-12-01' },
@@ -119,6 +119,7 @@ describe('한글(hwpx) 만들기', () => {
       'infertility-leave': { ...P, days: '2027-01-04,2027-01-05', appliedOn: '2026-12-20' },
       'childcare-leave-approval': { company: '가나다상사', ceo: '박대표', employee: '김가나', appliedOn: '2026-12-01', kind: 'asis', start: '2027-01-04', end: '2027-07-03', notifiedOn: '2026-12-10' },
       'short-leave-reschedule': { company: '가나다상사', ceo: '박대표', employee: '김가나', fromStart: '2027-01-04', fromEnd: '2027-01-17', toStart: '2027-02-01', toEnd: '2027-02-14', reason: '방학 중 신청 집중', notifiedOn: '2026-12-10' },
+      'integrated-leave-application': { name: '김가나', birth: '1990-03-04', childBirth: '2027-03-01', kind: 'maternity', leaveStart: '2027-01-20', leaveEnd: '2027-04-19', ccStart: '2027-04-20', ccEnd: '2028-04-19', appliedOn: '2026-12-10' },
     };
     for (const f of HR_FORMS) {
       const b = await buildForm(f.id, vals[f.id]);
@@ -137,5 +138,34 @@ describe('한글(hwpx) 만들기', () => {
   it('검사에 걸리면 FormError, 없는 서식도 FormError', async () => {
     await expect(buildForm('childcare-leave', leave({ name: '' }))).rejects.toBeInstanceOf(FormError);
     await expect(buildForm('nope', {})).rejects.toBeInstanceOf(FormError);
+  });
+});
+
+describe('법정 서식 — 별지 제7호의2 통합 신청서(원본 칸에 채움)', () => {
+  const IV = { name: '김가나', birth: '1990-03-04', phone: '010-0000-0000', dept: '총무팀', position: '주임', childBirth: '2027-03-01', kind: 'maternity', leaveStart: '2027-01-20', leaveEnd: '2027-04-19', ccStart: '2027-04-20', ccEnd: '2028-04-19', appliedOn: '2026-12-10' };
+  const sec = async (v: Record<string, string>) => {
+    const b = await buildForm('integrated-leave-application', v);
+    return (await JSZip.loadAsync(b.hwpx)).file('Contents/section0.xml')!.async('string');
+  };
+  it('원본 서식 글자(머리·제목·작성방법·사업주 확인란)가 그대로 남고 칸이 채워진다', async () => {
+    const x = await sec(IV);
+    for (const s of ['[별지 제7호의2서식]', '출산전후휴가(배우자 출산전후휴가)ㆍ육아휴직 통합 신청서', '작성방법', '사업주 확인', '사업장명'])
+      expect(x).toContain(s);
+    for (const s of ['김가나', '1990. 3. 4.', '(연락처: 010-0000-0000)', '출산전후휴가 청구 기간 ( 90일)', '육아휴직 기간 ( 366일)', '2027년 1월 20일', '2028년 4월 19일', '2026년 12월 10일', '신청인        김가나        (인)'])
+      expect(x).toContain(s);
+  });
+  it('배우자 출산전후휴가면 그 줄에 적고 출산전후휴가 줄은 비운다 — 일수는 적은 값만', async () => {
+    const x = await sec({ ...IV, kind: 'spouse', leaveStart: '2027-02-20', leaveEnd: '2027-03-11', leaveDays: '20' });
+    expect(x).toContain('배우자 출산전후휴가 고지 기간 ( 20일)');
+    expect(x).toContain('출산전후휴가 청구 기간 (     일)');
+    const y = await sec({ ...IV, kind: 'spouse', leaveStart: '2027-02-20', leaveEnd: '2027-03-11' });
+    expect(y).toContain('배우자 출산전후휴가 고지 기간 (     일)');
+  });
+  it('조문 대조 — 육아휴직 30일 전 신청(시행령 제11조제2항)', () => {
+    expect(notes('integrated-leave-application', { ...IV, appliedOn: '2027-04-01' }).notes.some((n) => /30일 전까지/.test(n))).toBe(true);
+    expect(notes('integrated-leave-application', IV).notes.some((n) => /30일 전까지/.test(n))).toBe(false);
+  });
+  it('휴가 일수는 숫자만', () => {
+    expect(notes('integrated-leave-application', { ...IV, kind: 'spouse', leaveDays: '이십' }).problems).toContain('「휴가 일수」는 숫자로만 적어 주세요.');
   });
 });

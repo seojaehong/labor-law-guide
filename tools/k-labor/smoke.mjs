@@ -572,7 +572,7 @@ if (tools.includes('make_hwpx_from_markdown')) {
 // ── forms 묶음 ── 합성 값 → 서식 hwpx(동시 호출 · 같은 이름 거절 · 주민번호 모양 거절)
 if (tools.includes('make_hr_form')) {
   const lf = await callNew('list_hr_forms', {});
-  check(`forms 목록 ${lf.forms?.length}종`, lf.ok && lf.forms?.length === 6 && lf.forms.every((f) => f.fields.length > 0));
+  check(`forms 목록 ${lf.forms?.length}종`, lf.ok && lf.forms?.length === 7 && lf.forms.every((f) => f.fields.length > 0));
   const V = { name: '김가상', birth: '1990-03-04', reason: 'child', childName: '김가가', childBirth: '2022-05-01', start: '2027-01-04', end: '2027-07-03', appliedOn: '2026-12-10', company: '가상상사' };
   const ck = await callNew('check_hr_form', { formId: 'childcare-leave', values: V });
   check(`forms 검사 — 30일 전 신청 안내(${ck.notes?.length})`, ck.ok && ck.notes.some((n) => n.includes('30일 전까지')));
