@@ -93,7 +93,8 @@ export async function generateMetadata({
   // 마크다운 잔존 제거 — key_issue/holding_summary에 #, **, - 가 들어있어 SEO title이 깨짐
   const stripMd = (s: string) => stripMarkdownFormatting(s).replace(/\s+/g, " ").trim();
   const keyIssue = typeof d.key_issue === "string" ? stripMd(d.key_issue).slice(0, 60) : "";
-  const holding = typeof d.holding_summary === "string" ? stripMd(d.holding_summary).slice(0, 120) : "";
+  // 법원 판례의 holding_summary 는 AI 정리다 — 검색 결과에 요지처럼 보이지 않게 설명문에 쓰지 않는다(요지는 원문만).
+  const holding = !isCourtCase && typeof d.holding_summary === "string" ? stripMd(d.holding_summary).slice(0, 120) : "";
 
   // 본문이 비었거나 페이월/파싱실패 텍스트인 행은 색인시키지 않는다.
   // 이런 페이지가 대량으로 색인되면 사이트 전체 평가가 깎인다.
@@ -153,6 +154,7 @@ export async function generateMetadata({
     reasonLabel ? `유형 ${reasonLabel}` : "",
     result ? `판정 ${result}` : "",
     holding,
+    isCourtCase ? "판결문 원문 수록" : "",
   ].filter(Boolean);
   const description = (descParts.join(" · ") || "노동위원회 판정례 상세 정보 — 핵심쟁점·절차·판정결과 정리.").slice(0, 155);
 
