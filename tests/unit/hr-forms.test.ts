@@ -3,6 +3,8 @@ import { describe, expect, it } from 'vitest';
 import JSZip from 'jszip';
 import { buildForm, catalog, findForm, FormError, HR_FORMS, review } from '@/lib/hr-forms';
 import { addMonths, parseYmd, toYmd } from '@/lib/hr-forms/dates';
+import { hasRrnValue as formsRrn } from '@/lib/hr-forms/rrn';
+import { hasRrnValue as sharedRrn } from '@/lib/exit-check/core/rrn';
 
 const P = { name: '김가나', birth: '1990-03-04', dept: '총무팀', position: '주임', company: '가나다상사' };
 const leave = (o: Record<string, string> = {}) => ({ ...P, reason: 'child', childName: '김다라', childBirth: '2022-05-01', start: '2027-01-04', end: '2027-07-03', appliedOn: '2026-12-01', ...o });
@@ -167,5 +169,111 @@ describe('법정 서식 — 별지 제7호의2 통합 신청서(원본 칸에 �
   });
   it('휴가 일수는 숫자만', () => {
     expect(notes('integrated-leave-application', { ...IV, kind: 'spouse', leaveDays: '이십' }).problems).toContain('「휴가 일수」는 숫자로만 적어 주세요.');
+  });
+});
+
+// ── interrogate(261122) 반영 — 조용히 틀리거나 빠지는 값 ──────────────────────
+const APPROVAL = { company: '가나다상사', ceo: '박마바', employee: '김가나', appliedOn: '2026-12-01', kind: 'asis', start: '2027-01-04', end: '2027-07-03', notifiedOn: '2026-12-05' };
+const IV2 = { name: '김가나', birth: '1990-03-04', phone: '010-0000-0000', dept: '총무팀', position: '주임', childBirth: '2027-03-01', kind: 'maternity', leaveStart: '2027-01-20', leaveEnd: '2027-04-19', ccStart: '2027-04-20', ccEnd: '2028-04-19', appliedOn: '2026-12-10' };
+
+describe('주민등록번호 — 공용 판정·서식에 없는 칸·날짜 여러 개', () => {
+  it('구분자를 바꾼 주민번호 모양도 막는다', () => {
+    for (const s of ['900304.1234567', '900304—1234567', '９００３０４-１２３４５６７', '900304 - 1234567'])
+      expect(notes('childcare-leave', leave({ dept: s })).problems.some((p) => /주민등록번호/.test(p)), s).toBe(true);
+  });
+  it('16자리 접수번호는 주민번호로 보지 않는다', () => {
+    expect(notes('childcare-leave', leave({ dept: '1234567890123456' })).problems).toEqual([]);
+  });
+  it('서식에 없는 칸에 있어도 막는다', () => {
+    expect(notes('childcare-leave-approval', { ...APPROVAL, name: '900304-1234567' }).problems.some((p) => /서식에 없는 칸/.test(p))).toBe(true);
+  });
+  it('날짜 여러 개를 띄어 적어도 주민번호로 보지 않는다', () => {
+    expect(notes('infertility-leave', { ...P, days: '2027-01-20 2027-01-21', appliedOn: '2027-01-10' }).problems).toEqual([]);
+  });
+});
+
+describe('한 줄 칸의 줄바꿈', () => {
+  it('사내 서식 서명줄이 갈라지지 않는다', async () => {
+    const b = await buildForm('childcare-leave', leave({ name: '김\n가나' }));
+    expect(b.md).toContain('신청인  김 가나  (서명 또는 인)');
+  });
+  it('법정 서식도 오류 없이 만든다', async () => {
+    const b = await buildForm('integrated-leave-application', { ...IV2, name: '김\n가나', dept: '총무\r\n팀' });
+    const x = await (await JSZip.loadAsync(b.hwpx)).file('Contents/section0.xml')!.async('string');
+    expect(x).toContain('신청인        김 가나        (인)');
+  });
+});
+
+describe('배우자 출산전후휴가 — 회차 반쪽', () => {
+  it('2회차 종료일만 적으면 시작일을 요구한다', () => {
+    const v = { ...P, birthState: 'due', birthDate: '2027-03-01', p1Start: '2027-02-01', p1End: '2027-02-10', p2End: '2027-03-05', appliedOn: '2027-01-20' };
+    expect(notes('spouse-maternity-leave', v).problems).toContain('「2회차 시작일」을(를) 적어 주세요.');
+  });
+});
+
+describe('난임치료휴가 — 비정상 날짜 목록', () => {
+  const I = (days: string) => notes('infertility-leave', { ...P, days, appliedOn: '2027-01-10' });
+  it('날짜가 하나도 없으면 막는다', () => {
+    expect(I(' , ,').problems).toContain('「휴가 사용 예정일」에 날짜를 하나 이상 적어 주세요.');
+  });
+  it('같은 날짜를 두 번 적으면 막는다', () => {
+    expect(I('2027-01-20, 2027-01-20').problems.some((p) => /두 번/.test(p))).toBe(true);
+  });
+  it('연간 6일은 해마다 센다 — 두 해에 걸친 7일은 안내하지 않는다', () => {
+    const two = '2027-12-27, 2027-12-28, 2027-12-29, 2027-12-30, 2028-01-03, 2028-01-04, 2028-01-05';
+    expect(I(two).notes.some((n) => /연간 6일/.test(n))).toBe(false);
+    const one = '2027-03-01, 2027-03-02, 2027-03-03, 2027-03-04, 2027-03-05, 2027-03-08, 2027-03-09';
+    expect(I(one).notes.some((n) => /2027년 사용 예정일이 7일/.test(n))).toBe(true);
+  });
+});
+
+describe('기한·기간 문장의 경계', () => {
+  it('신청일이 시작일보다 뒤면 음수 대신 「N일 뒤」', () => {
+    const r = notes('childcare-leave', leave({ appliedOn: '2027-01-10' }));
+    expect(r.notes.join(' ')).toContain('신청일이 휴직 시작보다 6일 뒤입니다.');
+    expect(r.notes.join(' ')).not.toMatch(/-\d+일 전/);
+  });
+  it('2월 29일 시작의 정확한 1년(2029-02-28 까지)은 안내하지 않고, 하루 넘으면 안내한다', () => {
+    const y = (end: string) => notes('childcare-leave', leave({ start: '2028-02-29', end, appliedOn: '2028-01-01' })).notes.some((n) => /1년 이내/.test(n));
+    expect(y('2029-02-28')).toBe(false);
+    expect(y('2029-03-01')).toBe(true);
+  });
+  it('보통 날짜의 1년 경계(2027-01-04 시작 → 2028-01-03 까지)', () => {
+    const y = (end: string) => notes('childcare-leave', leave({ end })).notes.some((n) => /1년 이내/.test(n));
+    expect(y('2028-01-03')).toBe(false);
+    expect(y('2028-01-04')).toBe(true);
+  });
+});
+
+describe('법정 서식 — 시간대·메타데이터', () => {
+  it('UTC 서쪽 PC 에서도 날짜가 당겨지지 않는다', async () => {
+    const tz = process.env.TZ;
+    process.env.TZ = 'America/Los_Angeles';
+    try {
+      expect(new Date(Date.UTC(2027, 0, 20)).getDate()).toBe(19); // 이 시험이 실제로 서쪽 시간대에서 돈다는 확인
+      const b = await buildForm('integrated-leave-application', IV2);
+      const x = await (await JSZip.loadAsync(b.hwpx)).file('Contents/section0.xml')!.async('string');
+      expect(x).toContain('2027년 1월 20일');
+      expect(x).toContain('2026년 12월 10일');
+    } finally {
+      if (tz === undefined) delete process.env.TZ;
+      else process.env.TZ = tz;
+    }
+  });
+  it('만든 파일에 변환한 PC 의 저장자·미리보기가 없다', async () => {
+    const z = await JSZip.loadAsync((await buildForm('integrated-leave-application', IV2)).hwpx);
+    const hpf = await z.file('Contents/content.hpf')!.async('string');
+    expect(hpf).toMatch(/<opf:meta name="lastsaveby" content="text"><\/opf:meta>/);
+    expect(hpf).not.toMatch(/노무사|ModifiedDate" content="text">2026/);
+    expect(Object.keys(z.files).filter((n) => n.startsWith('Preview/'))).toEqual([]);
+    expect(await z.file('META-INF/container.xml')!.async('string')).not.toContain('Preview/');
+  });
+});
+
+describe('주민번호 판정 사본 — 공용 판정과 같은 결과', () => {
+  it('같은 표본에 같은 답을 낸다', () => {
+    const samples = ['900304-1234567', '900304.1234567', '900304—1234567', '９００３０４-１２３４５６７', '9003​04-1234567', '900304-1******', '1234567890123456', '2027-01-20 2027-01-21', '010-0000-0000', '900304-9234567', '', '접수 20102026307745'];
+    for (const x of samples) expect(formsRrn(x), x).toBe(sharedRrn(x));
+    expect(samples.filter(formsRrn).length).toBeGreaterThanOrEqual(5);
   });
 });

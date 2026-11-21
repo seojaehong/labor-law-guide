@@ -5,7 +5,7 @@
  *   같은 법 시행령 제9조의2·제9조의3·제10조·제11조
  * ★ 주민등록번호 칸은 두지 않는다(생년월일만). ★ 안내 문구는 조문을 옮겨 적을 뿐 결론을 내리지 않는다.
  */
-import { addDays, addMonths, diffDays, fmtDate, parseYmd, spanDays } from './dates';
+import { addDays, addMonths, diffDays, fmtDate, leadPhrase, parseYmd, periodLastDay, spanDays } from './dates';
 import type { CellFill, TextEdit } from '@/lib/md-hwpx/postedit';
 
 export type FieldType = 'text' | 'date' | 'choice' | 'multiline';
@@ -114,8 +114,8 @@ const childcare: HrForm = {
     const p = period(v, 'start', 'end', problems, '휴직 기간');
     const applied = date(v, 'appliedOn');
     if (p) {
-      // 1년 이내 = 시작일의 1년 뒤 전날까지, 추가 사유가 있으면 1년 6개월
-      if (p[1] >= addMonths(p[0], extra === 'none' ? 12 : 18))
+      // 1년 이내 = 시작일의 1년 뒤 전날까지(그 날이 없으면 그 달 말일), 추가 사유가 있으면 1년 6개월
+      if (p[1] > periodLastDay(p[0], extra === 'none' ? 12 : 18))
         notes.push(`휴직 기간이 ${spanDays(p[0], p[1])}일입니다. 법 제19조제2항은 육아휴직 기간을 1년 이내로 하고, 같은 항 각 호에 해당하면 6개월 이내에서 추가로 쓸 수 있게 정합니다. 이미 쓴 기간을 포함해 확인하세요.`);
       if (applied) {
         const lead = diffDays(applied, p[0]);
@@ -123,8 +123,8 @@ const childcare: HrForm = {
         if (lead < short)
           notes.push(
             reason === 'spouse'
-              ? `신청일이 휴직 시작 ${lead}일 전입니다. 시행령 제11조제3항제1호의2는 위험 임신 배우자 돌봄의 경우 휴직개시예정일 7일 전까지 신청하도록 정합니다.`
-              : `신청일이 휴직 시작 ${lead}일 전입니다. 시행령 제11조제1항은 휴직개시예정일 30일 전까지 신청하도록 정합니다(같은 조 제3항 사유는 7일 전까지). 기한이 지나 신청하면 사업주가 신청일부터 30일 이내에 개시일을 지정해 허용합니다(같은 조 제7항).`,
+              ? `${leadPhrase(lead, '휴직 시작')} 시행령 제11조제3항제1호의2는 위험 임신 배우자 돌봄의 경우 휴직개시예정일 7일 전까지 신청하도록 정합니다.`
+              : `${leadPhrase(lead, '휴직 시작')} 시행령 제11조제1항은 휴직개시예정일 30일 전까지 신청하도록 정합니다(같은 조 제3항 사유는 7일 전까지). 기한이 지나 신청하면 사업주가 신청일부터 30일 이내에 개시일을 지정해 허용합니다(같은 조 제7항).`,
           );
       }
     }
@@ -181,7 +181,7 @@ const shortChildcare: HrForm = {
     const applied = date(v, 'appliedOn');
     if (s && applied) {
       const lead = diffDays(applied, s);
-      if (lead < 30) notes.push(`신청일이 휴직 시작 ${lead}일 전입니다. 시행령 제11조제1항은 휴직개시예정일 30일 전까지 신청하도록 정하고, 고용노동부령으로 정하는 긴급한 사유가 있으면 휴직개시예정일까지 신청할 수 있습니다(같은 조 제4항).`);
+      if (lead < 30) notes.push(`${leadPhrase(lead, '휴직 시작')} 시행령 제11조제1항은 휴직개시예정일 30일 전까지 신청하도록 정하고, 고용노동부령으로 정하는 긴급한 사유가 있으면 휴직개시예정일까지 신청할 수 있습니다(같은 조 제4항).`);
     }
     notes.push('단기 육아휴직은 1년에 1회, 주 단위로 1주 또는 2주 쓸 수 있고 그 기간은 육아휴직 기간에 포함됩니다(법 제19조제7항).');
     notes.push('방학 기간에 신청이 몰려 사업 운영에 막대한 지장이 있으면 사업주가 근로자와 협의해 시기를 바꿀 수 있고, 이때 사유와 바뀐 기간을 서면으로 알려야 합니다(법 제19조제6항 단서·제8항).');
@@ -214,7 +214,7 @@ const spouseLeave: HrForm = {
     { key: 'birthState', label: '출산 여부', type: 'choice', required: true, options: [{ value: 'due', label: '출산 예정' }, { value: 'born', label: '출산함' }] },
     { key: 'birthDate', label: '배우자 출산일(또는 출산 예정일)', type: 'date', required: true },
     ...PARTS.flatMap((i): FormField[] => [
-      { key: `p${i}Start`, label: `${i}회차 시작일`, type: 'date', required: i === 1 },
+      { key: `p${i}Start`, label: `${i}회차 시작일`, type: 'date', required: (v) => i === 1 || !!get(v, `p${i}End`) },
       { key: `p${i}End`, label: `${i}회차 종료일`, type: 'date', required: (v) => i === 1 || !!get(v, `p${i}Start`) },
     ]),
     { key: 'appliedOn', label: '고지일', type: 'date', required: true },
@@ -269,7 +269,13 @@ const infertility: HrForm = {
     const bad = raw.filter((_, i) => !ds[i]);
     if (bad.length) problems.push(`날짜로 읽지 못한 값이 있습니다: ${bad.join(', ')} (YYYY-MM-DD 로 적어 주세요)`);
     const ok = ds.filter((d): d is Date => !!d).sort((a, b) => a.getTime() - b.getTime());
-    if (ok.length > 6) notes.push(`사용 예정일이 ${ok.length}일입니다. 법 제18조의3제1항은 연간 6일 이내로 정합니다.`);
+    if (!bad.length && !ok.length) problems.push('「휴가 사용 예정일」에 날짜를 하나 이상 적어 주세요.');
+    const dup = [...new Set(ok.filter((d, i) => i > 0 && d.getTime() === ok[i - 1].getTime()).map(fmtDate))];
+    if (dup.length) problems.push(`같은 날짜를 두 번 적었습니다: ${dup.join(', ')}`);
+    // 「연간 6일」은 해마다 센다 — 두 해에 걸친 신청을 합쳐 세지 않는다
+    const perYear = new Map<number, number>();
+    for (const d of ok) perYear.set(d.getUTCFullYear(), (perYear.get(d.getUTCFullYear()) ?? 0) + 1);
+    for (const [y, n] of perYear) if (n > 6) notes.push(`${y}년 사용 예정일이 ${n}일입니다. 법 제18조의3제1항은 연간 6일 이내로 정합니다.`);
     notes.push('최초 2일은 유급입니다(법 제18조의3제1항, 2026.11.21. 현행 원문 기준).');
     notes.push('사업주는 난임치료를 받을 사실을 증명하는 서류를 요구할 수 있습니다(시행령 제9조의3제2항).');
     const md = doc(
@@ -375,7 +381,8 @@ const KIND: Choice[] = [
   { value: 'maternity', label: '출산전후휴가 청구(본인 출산)' },
   { value: 'spouse', label: '배우자 출산전후휴가 고지' },
 ];
-const ymdKo = (d: Date | null) => (d ? `${d.getFullYear()}년 ${d.getMonth() + 1}월 ${d.getDate()}일` : '년     월     일');
+// parseYmd 는 UTC 자정이다 — 현지 시각(getDate)으로 읽으면 UTC 서쪽 PC 에서 하루 당겨진다
+const ymdKo = (d: Date | null) => (d ? `${d.getUTCFullYear()}년 ${d.getUTCMonth() + 1}월 ${d.getUTCDate()}일` : '년     월     일');
 const integrated: HrForm = {
   id: 'integrated-leave-application',
   title: '출산전후휴가(배우자 출산전후휴가)ㆍ육아휴직 통합 신청서',
@@ -410,7 +417,7 @@ const integrated: HrForm = {
     const applied = date(v, 'appliedOn');
     const child = date(v, 'childBirth');
     if (cc && applied && diffDays(applied, cc[0]) < 30)
-      notes.push(`신청일이 육아휴직 시작 ${diffDays(applied, cc[0])}일 전입니다. 시행령 제11조제2항 후단은 육아휴직의 신청을 육아휴직개시예정일 30일 전까지 하도록 정합니다(같은 조 제3항 사유는 7일 전까지).`);
+      notes.push(`${leadPhrase(diffDays(applied, cc[0]), '육아휴직 시작')} 시행령 제11조제2항 후단은 육아휴직의 신청을 육아휴직개시예정일 30일 전까지 하도록 정합니다(같은 조 제3항 사유는 7일 전까지).`);
     if (cc && child && get(v, 'childName') && cc[0] > addMonths(child, 18))
       notes.push('시행령 제11조제2항의 함께 신청은 자녀 출생 후 18개월 이내에 육아휴직을 시작하려는 경우입니다. 육아휴직 시작일을 확인하세요.');
     if (lv && cc && cc[0] <= lv[1]) notes.push('육아휴직 개시 예정일이 휴가 종료 예정일보다 앞서거나 같습니다. 두 기간을 확인하세요.');

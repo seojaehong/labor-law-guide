@@ -1,4 +1,4 @@
-// 서식 묶음 — 모성보호·일가정 양립 서식(육아휴직·단기 육아휴직·배우자 출산전후휴가·난임치료휴가 신청서, 육아휴직 허용·단기 육아휴직 시기변경 통지서).
+// 서식 묶음 — 모성보호·일가정 양립 서식 7종(법정 서식 출산전후휴가(배우자 출산전후휴가)ㆍ육아휴직 통합 신청서 + 육아휴직·단기 육아휴직·배우자 출산전후휴가·난임치료휴가 신청서, 육아휴직 허용·단기 육아휴직 시기변경 통지서).
 // 사이트 /tools/hr-forms 와 같은 엔진(src/lib/hr-forms)을 그대로 불러온다 — 칸·검사·원고가 한 벌이다.
 //   list_hr_forms 만 원격판에 싣는다(formsRemoteSafe). check_hr_form 은 읽기 전용이지만 이름·생년월일·난임치료 예정일이
 //   서버로 가므로 로컬 전용이다(check_council_rules 와 같은 기준).
@@ -7,7 +7,7 @@
 import { z } from 'zod';
 import fs from 'node:fs';
 import path from 'node:path';
-import { buildForm, catalog, findForm, FormError, review } from '@/lib/hr-forms';
+import { buildForm, catalog, findForm, FormError, review, RRN_REFUSED, valuesHaveRrn } from '@/lib/hr-forms';
 import { text, writeNew } from '../lib/common.mjs';
 
 export const formsTools = ['list_hr_forms', 'check_hr_form', 'make_hr_form'];
@@ -26,7 +26,7 @@ export function registerForms(server) {
     'list_hr_forms',
     {
       title: '모성보호·일가정 양립 서식 목록',
-      description: '육아휴직·단기 육아휴직·배우자 출산전후휴가·난임치료휴가 신청서와 육아휴직 허용·단기 육아휴직 시기변경 통지서의 칸(이름·종류·필수 여부·선택지)과 근거 조문을 돌려준다. 칸을 채우기 전에 먼저 부른다.',
+      description: '법정 서식 출산전후휴가(배우자 출산전후휴가)ㆍ육아휴직 통합 신청서(시행규칙 별지 제7호의2, 원본 칸에 채움)와 육아휴직·단기 육아휴직·배우자 출산전후휴가·난임치료휴가 신청서, 육아휴직 허용·단기 육아휴직 시기변경 통지서의 칸(이름·종류·필수 여부·선택지)과 근거 조문을 돌려준다. 칸을 채우기 전에 먼저 부른다.',
       inputSchema: { formId: formIdSchema.optional().describe('하나만 볼 때') },
       annotations: READ_ONLY,
     },
@@ -45,6 +45,8 @@ export function registerForms(server) {
       annotations: READ_ONLY,
     },
     async ({ formId, values }) => {
+      // 서식에 없는 칸까지 값 전체를 먼저 본다 — 걸리면 아무 값도 응답에 싣지 않는다
+      if (valuesHaveRrn(values)) return text({ ok: false, problems: [RRN_REFUSED] });
       const r = review(findForm(formId), values);
       return text({ ok: r.problems.length === 0, problems: r.problems, notes: r.notes, unknownKeys: r.unknown, markdown: r.md || undefined });
     },
@@ -64,6 +66,8 @@ export function registerForms(server) {
       annotations: WRITES,
     },
     async ({ formId, values, outDir, fileBase }) => {
+      // 파일 이름(fileBase)·서식에 없는 칸까지 — 디스크에 쓰기 전에 막는다
+      if (valuesHaveRrn({ ...values, fileBase: fileBase ?? '' })) return text({ ok: false, problems: [RRN_REFUSED] });
       let b;
       try {
         b = await buildForm(formId, values);
@@ -71,7 +75,8 @@ export function registerForms(server) {
         if (e instanceof FormError) return text({ ok: false, problems: e.problems });
         return text({ ok: false, error: String(e?.message || e) });
       }
-      const who = (values.name || values.employee || '').trim();
+      // 이름은 검사를 거친 칸(name·employee)에서만 가져온다
+      const who = b.values.name || b.values.employee || '';
       const base = safeName((fileBase ?? '').trim() || `${b.title}${who ? `_${who}` : ''}`);
       const out = path.join(outDir, `${base}.hwpx`);
       fs.mkdirSync(outDir, { recursive: true });
