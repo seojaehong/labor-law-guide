@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 // 판결문 원문에서 잘라 낸 요지(이유 중 판단 부분)를 줄바꿈 그대로 보인다.
 // 길면 높이만 CSS 로 줄인다 — 접힌 때에도 글자 전체가 DOM 에 있어 요지 복사가 온전하다.
 // 펼치기 단추와 흐림 막은 표지(data-export) 밖에 두어 복사 글자에 섞이지 않게 한다.
+// data-export-verbatim — 요지 복사·내려받기가 이 글자를 공용 정리(줄 끝 공백·빈 줄 줄이기) 없이 그대로 모은다.
 
 /** 접힌 높이(max-h-80 = 20rem) */
 const CLAMP_REM = 20;
@@ -35,7 +36,7 @@ export default function VerbatimHolding({ text, collapsible }: { text: string; c
   return (
     <div className="min-w-0">
       <div className={cn("relative", clamped && "max-h-80 overflow-hidden")}>
-        <p ref={body} id={id} {...exportAttrs("summary", VERBATIM_HOLDING_LABEL, false)} className="reading-prose whitespace-pre-wrap break-words">
+        <p ref={body} id={id} {...exportAttrs("summary", VERBATIM_HOLDING_LABEL, false)} data-export-verbatim="" className="reading-prose whitespace-pre-wrap break-words">
           {text}
         </p>
         {clamped ? (

@@ -594,6 +594,8 @@ export default async function DecisionPage({
         )
       : null;
     const verbatimHolding = reasonText ? extractJudgmentPart(reasonText) : "";
+    // 판단 부분을 가려내지 못하면 이유 전체가 요지다 — 사실관계·주장이 들어 있을 수 있어 안내문을 달리한다.
+    const holdingIsWholeReason = Boolean(reasonText) && verbatimHolding.trim() === reasonText!.trim();
     // 저장된 요약(holding_summary·summary)과 holding_points 는 AI 정리다 — 요지로 내보내지 않는다.
     // 원문이 있으면 접힌 「AI 정리 보기」에서 드래그 인용만 받고, 원문이 없으면 holding_points 만 AI 표시를 단 절로 내보낸다.
     const caseMeta: ExportMeta = {
@@ -675,7 +677,9 @@ export default async function DecisionPage({
               <Card className="p-4">
                 <h3 className="font-semibold text-sm">요지 · 판결문 원문(이유 중 판단 부분)</h3>
                 <p className="text-xs text-muted-foreground">
-                  판결문 이유 가운데 판단 부분을 고치지 않고 그대로 옮겼습니다. 사실관계·주장은 아래 전문에서 확인하세요.
+                  {holdingIsWholeReason
+                    ? "판단 부분을 따로 가려낼 수 없어 판결문 이유 전체를 고치지 않고 그대로 옮겼습니다."
+                    : "판결문 이유 가운데 판단 부분을 고치지 않고 그대로 옮겼습니다. 사실관계·주장은 아래 전문에서 확인하세요."}
                 </p>
                 <VerbatimHolding text={verbatimHolding} collapsible={isLongHolding(verbatimHolding)} />
               </Card>

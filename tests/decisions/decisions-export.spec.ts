@@ -214,6 +214,27 @@ test('a long 요지 is folded by height only — 요지 복사 still copies all 
   expect(errors).toEqual([]);
 });
 
+test('the 요지 keeps line-end spaces and runs of blank lines exactly as in the original', async ({ page }) => {
+  await page.request.get('http://127.0.0.1:4319/control?fail=0');
+  const errors = consoleErrors(page);
+  await page.goto('/decisions/bc_export_spacing');
+  // 이유 원문(tests/fixtures/decisions-db.mjs)의 「2. 판단」부터 끝까지 — 줄 끝 공백과 빈 줄 셋을 고치지 않는다.
+  const judged = '2. 판단   \n가.  원고에게 해고 사유가   있다고 보기 어렵다.  \n\n\n\n나. 그러므로 해고는 무효이다.\n3. 결론\n상고를 기각한다.';
+  expect(await page.locator('[data-export="summary"]').evaluate((el) => el.textContent)).toBe(judged);
+
+  await page.getByRole('button', { name: '요지 복사' }).click();
+  await expect(page.getByRole('status')).toHaveText('요지를 복사했습니다.');
+  expect(await clipboard(page)).toBe(`${SUMMARY_LABEL}\n${judged}`);
+
+  const [jsonl] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: '.jsonl 내려받기' }).click()]);
+  const record = JSON.parse((await readFile(await jsonl.path(), 'utf8')).trim());
+  expect(record.summary).toEqual({ label: SUMMARY_LABEL, text: judged, is_ai: false });
+
+  const [md] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: '.md 내려받기' }).click()]);
+  expect((await readFile(await md.path(), 'utf8')).endsWith(`## ${SUMMARY_LABEL}\n\n${judged}\n`)).toBe(true);
+  expect(errors).toEqual([]);
+});
+
 test('falls back to a hidden textarea when the clipboard API refuses to write', async ({ page }) => {
   await page.request.get('http://127.0.0.1:4319/control?fail=0');
   await page.addInitScript(() => {

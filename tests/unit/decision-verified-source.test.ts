@@ -159,6 +159,11 @@ it('with a verified judgment the 요지 is the 이유 text verbatim and the stor
   // 번호 표제가 없는 이유는 전체가 판단 부분이다 — 이유 절 글자와 똑같다.
   expect(summaryBlock(html)).toBe('상고이유를 판단한다.\n\n대법관 합성');
   expect(summaryBlock(html)).toBe(reasonBlock(html));
+  // 요지 복사는 이 상자 글자를 공용 정리 없이 그대로 모은다.
+  expect(html).toMatch(/<p[^>]*data-export="summary"[^>]*data-export-verbatim=""/);
+  // 판단 부분을 가려내지 못해 이유 전체를 옮긴 때는 안내문이 그렇다고 말한다(사실관계가 들어 있을 수 있다).
+  expect(html).toContain('판단 부분을 따로 가려낼 수 없어 판결문 이유 전체를 고치지 않고 그대로 옮겼습니다.');
+  expect(html).not.toContain('사실관계·주장은 아래 전문에서 확인하세요');
   expect(html).toMatch(/<details[^>]*><summary[^>]*>AI 정리 보기 · 원문 아님<\/summary>/);
   expect(html).not.toMatch(/<details[^>]*\sopen/);
   expect(html).toContain('data-export="quote" data-export-title="AI 정리" data-export-ai="true"');
@@ -179,6 +184,8 @@ it('the 요지 skips the fact and claim headings of a numbered 이유 and keeps 
   expect(summary).toBe(reason.slice(reason.indexOf('3. 판단')));
   expect(reasonBlock(html)).toBe(reason);
   expect(reasonBlock(html)!.includes(summary!)).toBe(true);
+  expect(html).toContain('판결문 이유 가운데 판단 부분을 고치지 않고 그대로 옮겼습니다. 사실관계·주장은 아래 전문에서 확인하세요.');
+  expect(html).not.toContain('이유 전체를 고치지 않고');
   // 짧은 요지는 접지 않는다.
   expect(html).not.toContain('전부 보기');
 });

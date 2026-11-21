@@ -22,10 +22,12 @@ import {
   type ExportMeta,
   type RoledExportBlock,
 } from "@/lib/decision-export";
+import { trimBlankLines } from "@/lib/judgment-reason";
 
 // 본문을 prop 으로 다시 싣지 않는다(페이지 크기 2배). 서버가 그린 화면의 data-export 표지에서 클릭 시점에 모은다.
 //   data-export="section" | "summary" | "section summary"
 //   data-export-title="주문" · data-export-ai="true|false" · data-export-kind="head"
+//   data-export-verbatim — 글자 하나만 든 원문 상자. 공용 정리 없이 앞뒤 빈 줄만 떼고 그대로 모은다(판결문 원문 요지)
 
 type PickItem = { key: string; label: string; isAi: boolean; checked: boolean; role: "meta" | "section" | "summary"; block?: ExportBlock };
 
@@ -40,7 +42,7 @@ function readBlocks(): RoledExportBlock[] {
   document.querySelectorAll<HTMLElement>("[data-export]").forEach((el) => {
     const roles = (el.dataset.export ?? "").split(/\s+/).filter((role) => role === "section" || role === "summary");
     if (roles.length === 0) return;
-    const text = collectNodeText(el);
+    const text = el.dataset.exportVerbatim !== undefined ? trimBlankLines(el.textContent ?? "") : collectNodeText(el);
     if (!text) return;
     blocks.push({
       title: el.dataset.exportTitle ?? "",
