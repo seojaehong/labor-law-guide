@@ -12,7 +12,9 @@
 //     남으면 risk minor), 갈리면 두 값을 적고 needs_data. 새 임계값은 없다.
 //   근로일별 행 합이 출근·퇴근 칸 합보다 길면(normalize.dailyHoursConflict, K3) 두 시간을 적고 needs_data — 계약 시급이
 //     최저시급 아래인 시급제만 시간과 관계없이 미달이라 그대로 본다.
-//   A 시급제 — 계약 시급(원 단위 반올림)만 최저시급과 비교. 포괄이어도 같다(연장 충분성은 OT-COVER). 주휴수당은
+//   판정 단위(261122) — 시간급을 반올림하지 않고 금액 쪽(산입 임금 ≥ 최저시급 × 시간)으로 본다. 금액이 원 단위라 생기는
+//     1원 미만 끝수만 허용(meetsAmount·meetsRate). 문장의 시간당 금액은 표시용(rateShown)이라 판정과 어긋나지 않게만 적는다.
+//   A 시급제 — 계약 시급만 최저시급과 비교. 포괄이어도 같다(연장 충분성은 OT-COVER). 주휴수당은
 //     근기법 §55① 법정 발생이라 항목이 없어도 위반이 아니다. 1주 소정 15H 이상인데 주휴 산정·지급 방법(WEEKLY_HOLIDAY
 //     항목)이 없으면 근기법 §17② 서면 명시 확인 필요 → risk(minor). 1주 소정 미상이면 그 확인은 내지 않는다.
 //     pay_type hourly 인데 basis_hours 가 없으면 기본급이 띠 아래여도 시급(미달 위반), 5배를 넘으면 needs_data.
@@ -204,14 +206,40 @@ export interface MinwageAssessment {
 
 const won = (n: number) => `${fmt(Math.ceil(n))}원`;
 
+/** 최저임금 충족 판정(261122 — 원격 MCP 전수 점검 P1). 시간급을 원 단위로 반올림한 뒤 비교하지 않는다(최저임금법 §6,
+ * 시행령 §5① — 「임금 ÷ 시간」을 그대로 비교하고 끝수 처리 규정이 없다). 금액 쪽으로 「시급 × 시간 ≥ 최저시급 × 시간」을
+ * 보되, 금액이 원 단위라 생기는 1원 미만 끝수만 허용한다(기준액의 원 미만 버림 — 10,320 × 17.38H = 179,361.6 → 179,361).
+ * hours 가 없으면(시급 그대로 적힌 계약) 시급을 그대로 비교한다. */
+function meetsAmount(amount: number, minimum: number, hours: number): boolean {
+  return amount >= Math.floor(minimum * hours + 1e-6) - 1e-6;
+}
+function meetsRate(rate: number, minimum: number, hours?: number | null): boolean {
+  if (hours != null && hours > 0) return meetsAmount(rate * hours, minimum, hours);
+  return rate >= minimum - 1e-9;
+}
+/** 판정과 어긋나지 않는 시급 표시 — 원 단위 반올림이 기본이고, 미달인데 반올림하면 기준 이상으로 보일 때만 소수 둘째 자리에서
+ * 버린다(2,156,879 ÷ 209H = 10,319.99). 표시용일 뿐 판정에는 쓰지 않는다 */
+function rateShown(rate: number, minimum: number, ok: boolean): string {
+  const r = Math.round(rate);
+  if (ok || r < minimum) return fmt(r);
+  return (Math.floor(rate * 100) / 100).toLocaleString('ko-KR', { maximumFractionDigits: 2 });
+}
+/** 미달 시간당 금액 표시 — rateShown 과 같은 값에서 뺀다(「0원 미달」을 내지 않는다) */
+function shortShown(rate: number, minimum: number): string {
+  const r = Math.round(rate);
+  if (r < minimum) return fmt(minimum - r);
+  return (Math.round((minimum - Math.floor(rate * 100) / 100) * 100) / 100).toLocaleString('ko-KR', { maximumFractionDigits: 2 });
+}
+
 /** 주휴 포함 시급 기준액 = 최저시급 × (1주 소정 + 주휴)/1주 소정 — 반올림하지 않은 주휴시간으로 계산하고(40÷6 = 6.666…H),
  * 비교·표시만 소수 둘째 자리로 맞춘다 */
 function includedRequired(minimum: number, wh: { weekly: number; holiday: number }): number {
   return Math.round(((minimum * (wh.weekly + wh.holiday)) / wh.weekly) * 100) / 100;
 }
 
-/** 시급제(A·B). hourlyRaw = normalize.wageBasis 의 계약 시급. 비교는 원 단위로 반올림한 시급으로 한다(월급제 경로와
- * 같게 — 179,361÷17.38H = 10,319.96 은 10,320). note 는 판독 근거 한 구절.
+/** 시급제(A·B). hourlyRaw = normalize.wageBasis 의 계약 시급. 비교는 반올림하지 않은 시급으로 meetsRate 가 한다 —
+ * hours(산출근거 시간, 기본급 ÷ 시간으로 시급을 읽었을 때)가 있으면 금액의 1원 미만 끝수만 허용(179,361÷17.38H = 10,319.96 은
+ * 충족, 261122 전까지는 시급 원 단위 반올림이라 월 209H 에서 104원까지 미달을 놓쳤다). note 는 판독 근거 한 구절.
  * B 는 구조화 칸 includes_weekly_holiday 가 true 일 때만(261102 C1). monthlyHours(산출시간이 주휴 포함 월 시간, C3)면
  * 주휴가 이미 들어 있어 포함 표시를 보지 않고 A 만. 칸이 비었는데 문구에 주휴가 보이면 「주휴수당 포함 여부 확인 필요」.
  * 식대·상여가 있으면 hourlyWithPending(F7)으로 넣어서 본다. */
@@ -222,11 +250,13 @@ function assessHourly(
   year: string,
   note = '',
   monthlyHours = false,
+  hours: number | null = null,
 ): MinwageAssessment {
   const items = contract.wage?.items ?? [];
   const base = items.find((i) => i.code === 'BASE')!;
-  const hourly = Math.round(hourlyRaw);
-  const hourlyText = `${fmt(hourly)}${note}`;
+  const hourlyText = `${fmt(Math.round(hourlyRaw))}${note}`;
+  // 판정과 같은 값으로 적는 시급(미달인데 반올림하면 기준 이상으로 보이면 소수 둘째 자리까지)
+  const shown = (required: number) => `${rateShown(hourlyRaw, required, meetsRate(hourlyRaw, required, hours))}${note}`;
   const wh = weeklyHoliday(contract);
   const isB = !monthlyHours && base.includes_weekly_holiday === true;
   if (isB && !wh) {
@@ -240,7 +270,7 @@ function assessHourly(
   let included: string | null = null;
   const pending = items.filter((i) => RATIO_UNCONFIRMED.has(i.code));
   if (pending.length > 0) {
-    const r = hourlyWithPending(contract, hourlyRaw, minimum, year, note, isB ? wh : null, pending, monthlyHours);
+    const r = hourlyWithPending(contract, hourlyRaw, minimum, year, note, isB ? wh : null, pending, monthlyHours, hours);
     if ('status' in r) return r;
     included = r.okText;
   }
@@ -253,19 +283,19 @@ function assessHourly(
         : `기준액 = 최저시급 ${fmt(minimum)} × (소정 ${fmtH(wh.weekly)}H+주휴 ${fmtH(wh.holiday)}H)/${fmtH(wh.weekly)}H` +
           ` = ${fmt(required)}` +
           (wh.assumedFiveDays ? ' (주휴 = 1주 소정 ÷ 5 — 통상 근로자 주 5일 가정, 근로기준법 시행령 별표2 2.나)' : '');
-    if (hourly >= required) {
+    if (meetsRate(hourlyRaw, required, hours)) {
       return { status: 'ok', detail: `주휴 포함 시급 ${hourlyText} ≥ ${basisText}`, amendment: '' };
     }
     return {
       status: 'violation',
-      detail: `주휴 포함 시급 ${hourlyText} < ${basisText} (최저임금법 시행령 §5①2호)`,
+      detail: `주휴 포함 시급 ${shown(required)} < ${basisText} (최저임금법 시행령 §5①2호)`,
       amendment: `주휴 포함 시급을 ${year}년 최저시급 × (소정+주휴)/소정 = ${won(required)} 이상으로 인상하거나, 주휴수당을 시급과 따로 산정해 명시`,
     };
   }
-  if (!included && hourly < minimum) {
+  if (!included && !meetsRate(hourlyRaw, minimum, hours)) {
     return {
       status: 'violation',
-      detail: `계약 시급 ${hourlyText} < ${year}년 최저시급 ${fmt(minimum)} (시간당 ${fmt(minimum - hourly)}원 미달)`,
+      detail: `계약 시급 ${shown(minimum)} < ${year}년 최저시급 ${fmt(minimum)} (시간당 ${shortShown(hourlyRaw, minimum)}원 미달)`,
       amendment: `시급을 ${year}년 최저시급 ${fmt(minimum)}원 이상으로 인상`,
     };
   }
@@ -339,13 +369,15 @@ function hourlyWithPending(
   holiday: WeeklyHoliday | null,
   pending: WageItem[],
   monthlyHours: boolean,
+  basisHours: number | null = null,
 ): MinwageAssessment | { okText: string | null } {
   const base = (contract.wage?.items ?? []).find((i) => i.code === 'BASE');
   const own = holiday ? (hourlyRaw * holiday.weekly) / (holiday.weekly + holiday.holiday) : hourlyRaw;
+  const ownShown = rateShown(own, minimum, meetsRate(own, minimum, basisHours));
   const ownText = holiday
-    ? `계약 시급 ${fmt(Math.round(own))}(주휴 포함 시급 ${fmt(Math.round(hourlyRaw))} × 소정 ${fmtH(holiday.weekly)}H` +
+    ? `계약 시급 ${ownShown}(주휴 포함 시급 ${fmt(Math.round(hourlyRaw))} × 소정 ${fmtH(holiday.weekly)}H` +
       `/(소정+주휴) ${fmtH(holiday.weekly + holiday.holiday)}H — 주휴 제외 환산)`
-    : `계약 시급 ${fmt(Math.round(own))}`;
+    : `계약 시급 ${ownShown}`;
   const meal = sumAmount(pending.filter((i) => i.code === 'MEAL'));
   const bonus = sumAmount(pending.filter((i) => i.code === 'BONUS'));
   const names = (codes: string[]) =>
@@ -359,7 +391,7 @@ function hourlyWithPending(
   // 구할 수 없을 때만 주휴 포함 월 시간(209±1H)인 산출시간을 쓴다
   const hours = monthlyStandardHours(contract) ?? (monthlyHours && basis != null ? basis : null);
   if (hours == null) {
-    if (Math.round(own) >= minimum) return { okText: null };
+    if (meetsRate(own, minimum, basisHours)) return { okText: null };
     return {
       status: 'needs_data',
       detail:
@@ -368,13 +400,15 @@ function hourlyWithPending(
       amendment: '',
     };
   }
+  // 판정은 반올림하지 않은 「계약 시급 + 산입액 ÷ 월 소정」으로(meetsRate), 문장의 시간당 금액은 그 판정과 맞게(rateShown)
+  const met = (amount: number) => meetsRate(own + amount / hours, minimum, hours);
   const calc = (amount: number, codes: string[]) =>
-    `${ownText} + ${names(codes)} ${fmt(amount)} ÷ ${fmtH(hours)}H = 시간당 ${fmt(Math.round(own + amount / hours))}${note}`;
-  if (Math.round(own + meal / hours) >= minimum) {
+    `${ownText} + ${names(codes)} ${fmt(amount)} ÷ ${fmtH(hours)}H = 시간당 ${rateShown(own + amount / hours, minimum, met(amount))}${note}`;
+  if (met(meal)) {
     return { okText: meal > 0 ? `${calc(meal, ['MEAL'])} ≥ ${minText}` : null };
   }
   const all = meal + bonus;
-  if (bonus > 0 && Math.round(own + all / hours) >= minimum) {
+  if (bonus > 0 && met(all)) {
     return {
       status: 'risk',
       detail:
@@ -440,13 +474,14 @@ function assessMonthly(contract: Contract, minimum: number, year: string): Minwa
     const core = Math.max(0, total - excludedSum - pendingSum);
     const otHours = round1(otWeekly * WEEKS_PER_MONTH * OT_PREMIUM_RATE);
     const denom = round1(hours + otHours);
-    const rate = Math.round(core / denom);
+    // 판정은 금액 쪽(산입 임금 ≥ 최저시급 × 분모시간, meetsAmount), 시간당 금액은 표시만(rateShown)
+    const ok = meetsAmount(core, minimum, denom);
     const minus = [...excluded, ...pending].map((i) => `${i.label ?? i.code} ${fmt(i.amount ?? 0)}`).join(' − ');
     const coreText = minus ? `포괄 총액 ${fmt(total)} − ${minus} = ${fmt(core)}` : `포괄 총액 ${fmt(total)}`;
     const otText = partExcess != null ? `소정 초과 주 ${fmtH(partExcess)}H` : `연장 주 ${fmtH(otWeekly)}H`;
-    const calc = `${coreText} ÷ ${denom}H(월 ${hours}H + ${otText}×4.345×1.5) = 시간당 ${fmt(rate)}`;
-    if (rate >= minimum) return { status: 'ok', detail: `${calc} ≥ ${year}년 최저시급 ${fmt(minimum)}`, amendment: '' };
-    if (pendingSum > 0 && Math.round((core + pendingSum) / denom) >= minimum) {
+    const calc = `${coreText} ÷ ${denom}H(월 ${hours}H + ${otText}×4.345×1.5) = 시간당 ${rateShown(core / denom, minimum, ok)}`;
+    if (ok) return { status: 'ok', detail: `${calc} ≥ ${year}년 최저시급 ${fmt(minimum)}`, amendment: '' };
+    if (pendingSum > 0 && meetsAmount(core + pendingSum, minimum, denom)) {
       return {
         status: 'risk',
         detail:
@@ -468,10 +503,12 @@ function assessMonthly(contract: Contract, minimum: number, year: string): Minwa
   if (!coreSum) return { status: 'needs_data', detail: '기본급 등 최저임금 산입 임금 미기재', amendment: '' };
   const lead = inclusive ? '포괄(구성항목 구분) — ' : '';
   const names = core.map((i) => i.label ?? i.code).join('+');
-  const rate = Math.round(coreSum / hours);
-  const calc = `${lead}월 산입 임금 ${fmt(coreSum)}(${names}) ÷ 최저임금 적용기준 월 ${hours}H = 시간당 ${fmt(rate)}${hoursNote}`;
+  // 판정은 금액 쪽(산입 임금 ≥ 최저시급 × 월 시간 — 2026 주 40H 는 2,156,880), 시간당 금액은 표시만(rateShown)
+  const ok = meetsAmount(coreSum, minimum, hours);
+  const rate = coreSum / hours;
+  const calc = `${lead}월 산입 임금 ${fmt(coreSum)}(${names}) ÷ 최저임금 적용기준 월 ${hours}H = 시간당 ${rateShown(rate, minimum, ok)}${hoursNote}`;
   const otNote = inclusive ? ' — 고정 연장·야간·휴일수당의 충분성은 OT-COVER·WAGE-MATH 에서 봄' : '';
-  if (rate >= minimum) {
+  if (ok) {
     return { status: 'ok', detail: `${calc} ≥ ${year}년 최저시급 ${fmt(minimum)}${otNote}`, amendment: '' };
   }
   const scheduled = contract.work_time?.weekly_scheduled_hours;
@@ -491,7 +528,7 @@ function assessMonthly(contract: Contract, minimum: number, year: string): Minwa
   }
   const need = won(minimum * hours);
   const pendingSum = sumAmount(pending);
-  if (pendingSum > 0 && Math.round((coreSum + pendingSum) / hours) >= minimum) {
+  if (pendingSum > 0 && meetsAmount(coreSum + pendingSum, minimum, hours)) {
     return {
       status: 'risk',
       detail:
@@ -502,7 +539,7 @@ function assessMonthly(contract: Contract, minimum: number, year: string): Minwa
   }
   return {
     status: 'violation',
-    detail: `${calc} < ${year}년 최저시급 ${fmt(minimum)} (시간당 ${fmt(minimum - rate)}원 미달, 최저임금법 시행령 §5①3호)`,
+    detail: `${calc} < ${year}년 최저시급 ${fmt(minimum)} (시간당 ${shortShown(rate, minimum)}원 미달, 최저임금법 시행령 §5①3호)`,
     amendment: `기본급 등 산입 임금을 ${year}년 최저시급 × 월 ${hours}H = ${need} 이상으로 인상`,
   };
 }
@@ -542,7 +579,7 @@ function bothReadings(
   why: string,
 ): MinwageAssessment | null {
   const basisHours = wb.basisHours as number;
-  const h = assessHourly(contract, amount / basisHours, minimum, year, hourlyNote(contract, { ...wb, from: 'basis' }), wb.monthlyHours);
+  const h = assessHourly(contract, amount / basisHours, minimum, year, hourlyNote(contract, { ...wb, from: 'basis' }), wb.monthlyHours, basisHours);
   const m = assessMonthly(contract, minimum, year);
   const met = meets(h);
   if (met == null || met !== meets(m)) return null;
@@ -552,6 +589,11 @@ function bothReadings(
   if (!met) return { status: 'violation', detail, amendment: `시급제라면 ${h.amendment}. 월급제라면 ${m.amendment}` };
   if (h.status === 'risk') return { status: 'risk', severity: 'minor', detail, amendment: `시급제라면 ${h.amendment}` };
   return { status: 'ok', detail, amendment: '' };
+}
+
+/** 계약 시급을 「기본급 ÷ 산출근거 시간」으로 읽었으면 그 시간 — meetsRate 가 금액의 원 미만 끝수만 허용하는 데 쓴다 */
+function rateHours(wb: WageBasis): number | null {
+  return wb.from === 'basis' ? wb.basisHours : null;
 }
 
 /** MINWAGE 판정과 수정 방향 — 규칙과 수정안(amendments.ts)이 같은 계산을 쓴다. */
@@ -577,8 +619,8 @@ export function minwageAssessment(contract: Contract): MinwageAssessment {
     // 시간과 관계없이 미달이라 그대로 본다
     // (식대·상여가 있으면 시간당 산입액이 시간에 걸려 있어 이 예외도 쓰지 않는다)
     const pendingItems = items.some((i) => RATIO_UNCONFIRMED.has(i.code));
-    if (wb && wb.form === 'hourly' && wb.rate != null && base?.amount && !pendingItems && Math.round(wb.rate) < minimum) {
-      const a = assessHourly(contract, wb.rate, minimum, year, hourlyNote(contract, wb), wb.monthlyHours);
+    if (wb && wb.form === 'hourly' && wb.rate != null && base?.amount && !pendingItems && !meetsRate(wb.rate, minimum, rateHours(wb))) {
+      const a = assessHourly(contract, wb.rate, minimum, year, hourlyNote(contract, wb), wb.monthlyHours, rateHours(wb));
       return { ...a, detail: `${a.detail} (${conflict})` };
     }
     return {
@@ -611,7 +653,7 @@ export function minwageAssessment(contract: Contract): MinwageAssessment {
   }
   if (wb?.form === 'hourly' && base?.amount) {
     if (wb.rate != null) {
-      return assessHourly(contract, wb.rate, minimum, year, hourlyNote(contract, wb), wb.monthlyHours);
+      return assessHourly(contract, wb.rate, minimum, year, hourlyNote(contract, wb), wb.monthlyHours, rateHours(wb));
     }
     if (wb.basisHours != null) {
       // K1 — 월 규모 산출시간인데 몫도 기본급도 시급 띠 밖. 시급제(몫)·월급제(기본급 ÷ 월 시간) 두 해석이 같은 결론이면

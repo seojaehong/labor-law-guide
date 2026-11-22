@@ -7,6 +7,7 @@
 
 import { checkContract } from './engine';
 import { WAGE_MATH_TOLERANCE } from './normalize';
+import { probationTermUnderOneYear } from './rules/misc';
 import { fixedTermsMissing, requiredTermsMissing } from './rules/required_terms';
 import { minwageAssessment } from './rules/wage';
 import type { Contract, Finding, FindingSeverity, FindingStatus } from './types';
@@ -217,7 +218,10 @@ export function buildRow(contract: Contract, finding: Finding): AmendmentRow {
   } else {
     clause = code === 'OT-RATE' ? '임금 구성항목표' : '—';
     current = currentText(contract, code);
-    amendment = AMEND_LIBRARY[code] ?? '관련 규정 정비 검토';
+    amendment =
+      code === 'MINWAGE-PROBATION' && finding.status === 'violation' && probationTermUnderOneYear(contract)
+        ? '계약기간이 1년 미만이라 수습 감액을 쓸 수 없음 — 감액 문구를 삭제하고 수습 중에도 최저임금 이상 전액 지급, 또는 계약기간을 1년 이상으로 정함(최저임금법 §5②)'
+        : (AMEND_LIBRARY[code] ?? '관련 규정 정비 검토');
   }
   return {
     rule_code: code,
