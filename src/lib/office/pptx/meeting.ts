@@ -313,8 +313,8 @@ export async function makeMeetingPptx(
     const slide = pptx.addSlide();
     const no = slides.length + 1;
     slides.push({ no, code, title, anchors });
-    slide.addText(`${code}  ${title.replace(/^[PF]\d+\s*/, '')}`, { x: 0.3, y: 0.2, w: W - 2.2, h: 0.5, fontFace, fontSize: 18, bold: true, color: '1F2A44' });
-    slide.addText(badge, { x: W - 1.7, y: 0.22, w: 1.4, h: 0.4, fontFace, fontSize: 12, bold: true, align: 'center', color: 'FFFFFF', fill: { color: 'C0504D' } });
+    slide.addText(`${code}  ${title.replace(/^[PF]\d+\s*/, '')}`, { objectName: 'title', x: 0.3, y: 0.2, w: W - 2.2, h: 0.5, fontFace, fontSize: 18, bold: true, color: '1F2A44' });
+    slide.addText(badge, { objectName: 'badge', x: W - 1.7, y: 0.22, w: 1.4, h: 0.4, fontFace, fontSize: 12, bold: true, align: 'center', color: 'FFFFFF', fill: { color: 'C0504D' } });
     slide.addText(`${snapshot.site} · ${snapshot.cycle}`, { x: 0.3, y: 0.7, w: W - 0.6, h: 0.3, fontFace, fontSize: 10, color: '555555' });
     slide.addText(
       `데이터 기준 ${snapshot.basisDate} · revision ${snapshot.revision ?? '-'} · template ${MEETING_TEMPLATE_VERSION} · ${no}쪽`,

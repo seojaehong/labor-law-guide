@@ -46,7 +46,7 @@ const withDir = async (fn: (dir: string) => Promise<void>) => {
 };
 
 describe('office 묶음 — 등록', () => {
-  it('XLSX 도구 4개가 officeTools 와 같고 title·annotations 를 단다', () => {
+  it('도구 전부가 officeTools 와 같고 title·annotations 를 단다', () => {
     expect([...tools.keys()].sort()).toEqual([...officeTools].sort());
     expect(officeTools).toEqual(expect.arrayContaining(['inspect_xlsx', 'extract_xlsx_rows', 'fill_xlsx_template', 'make_xlsx_from_spec']));
     for (const n of officeTools) {
@@ -161,8 +161,8 @@ describe('office 묶음 — 입력 오류', () => {
 describe('office 원격판 — base64 입출력', () => {
   const b64 = (u: Uint8Array) => Buffer.from(u).toString('base64');
 
-  it('officeRemoteSafe 4개가 등록되고 title·readOnlyHint true', () => {
-    expect([...officeRemoteSafe].sort()).toEqual(['extract_xlsx_rows_bytes', 'fill_xlsx_template_bytes', 'inspect_xlsx_bytes', 'make_xlsx_from_spec_bytes']);
+  it('officeRemoteSafe 6개가 등록되고 title·readOnlyHint true', () => {
+    expect([...officeRemoteSafe].sort()).toEqual(['extract_pptx_bytes', 'extract_xlsx_rows_bytes', 'fill_xlsx_template_bytes', 'inspect_xlsx_bytes', 'make_meeting_pptx_bytes', 'make_xlsx_from_spec_bytes']);
     for (const n of officeRemoteSafe) {
       expect(tools.has(n), n).toBe(true);
       expect(cfgs.get(n)!.title, n).toBeTruthy();
@@ -236,4 +236,95 @@ describe('office 원격판 — base64 입출력', () => {
     const body = src.slice(start);
     expect(body).not.toMatch(/\bfs\.|readInput|checkOut|save\(|writeNew/);
   });
+});
+
+// ── 회의 PPTX — stdio(경로)·원격(base64) ──
+const MEETING = {
+  kind: 'pre',
+  site: '합성 사업장',
+  cycle: '2026년 1회차',
+  basisDate: '2026-11-20',
+  status: { label: '초안' },
+  scaleId: 'scale-v1',
+  scaleName: '빈도×강도 3×3',
+  prior: [{ id: 'R-01', hazard: '합성 위험요인', status: '완료', scaleId: 'scale-v1', frequency: 1, severity: 2, anchors: ['A-1'] }],
+  hazards: [{ id: 'R-01', situation: '상황', cause: '원인', consequence: '결과', frequency: 1, severity: 1, anchors: ['A-1'] }],
+  photos: [],
+  opinions: [],
+  questions: [],
+  anchors: [{ id: 'A-1', source: '합성 평가표', location: '시트1!B5' }],
+};
+
+describe('office 묶음 — 회의 PPTX', () => {
+  it('PPTX 도구 4개가 등록되고 원격판 둘은 readOnlyHint true', () => {
+    for (const n of ['make_meeting_pptx', 'extract_pptx']) {
+      expect(officeLocalOnly, n).toContain(n);
+      expect(tools.has(n), n).toBe(true);
+    }
+    for (const n of ['make_meeting_pptx_bytes', 'extract_pptx_bytes']) {
+      expect(officeRemoteSafe, n).toContain(n);
+      expect(cfgs.get(n)!.title, n).toBeTruthy();
+      expect(cfgs.get(n)!.annotations!.readOnlyHint, n).toBe(true);
+    }
+    expect(cfgs.get('extract_pptx')!.annotations!.readOnlyHint).toBe(true);
+    expect(cfgs.get('make_meeting_pptx')!.annotations!.readOnlyHint).toBe(false);
+  });
+
+  it('stdio make_meeting_pptx → extract_pptx, 같은 이름은 덮어쓰지 않는다', () =>
+    withDir(async (dir) => {
+      const out = path.join(dir, '회의.pptx');
+      const mk = await call('make_meeting_pptx', { snapshot: MEETING, outFile: out });
+      expect(mk.ok).toBe(true);
+      expect(mk.bytes).toBeUndefined();
+      expect(mk.file.path).toBe(out);
+      expect(mk.slides[0].code).toBe('P1');
+      expect(fs.readFileSync(out).subarray(0, 2).toString('latin1')).toBe('PK');
+      const ex = await call('extract_pptx', { file: out });
+      expect(ex.ok).toBe(true);
+      expect(ex.slides[0].shapes.find((s: { name: string }) => s.name === 'badge').text).toBe('초안');
+      const again = await call('make_meeting_pptx', { snapshot: MEETING, outFile: out });
+      expect(again.ok).toBe(false);
+      const xlsx = await call('make_meeting_pptx', { snapshot: MEETING, outFile: path.join(dir, 'x.xlsx') });
+      expect(xlsx.ok).toBe(false);
+    }));
+
+  it('주민번호 모양이 있으면 덱을 만들지 않는다', () =>
+    withDir(async (dir) => {
+      const out = path.join(dir, 'rrn.pptx');
+      const r = await call('make_meeting_pptx', { snapshot: { ...MEETING, site: '900304-1234567' }, outFile: out });
+      expect(r.ok).toBe(false);
+      expect(fs.existsSync(out)).toBe(false);
+      const rb = await call('make_meeting_pptx_bytes', { snapshot: { ...MEETING, site: '900304-1234567' } });
+      expect(rb.ok).toBe(false);
+      expect(rb.base64).toBeUndefined();
+    }));
+
+  it('원격 make_meeting_pptx_bytes → extract_pptx_bytes', async () => {
+    const mk = await call('make_meeting_pptx_bytes', { snapshot: MEETING });
+    expect(mk.ok).toBe(true);
+    expect(mk.bytes).toBeUndefined();
+    expect(Buffer.from(mk.base64, 'base64').subarray(0, 2).toString('latin1')).toBe('PK');
+    const ex = await call('extract_pptx_bytes', { base64: mk.base64 });
+    expect(ex.ok).toBe(true);
+    expect(ex.slides.length).toBe(mk.slides.length);
+  });
+
+  it('원격 extract_pptx_bytes 는 5MB 초과·zip 폭탄을 구조화 오류로', async () => {
+    const big = await call('extract_pptx_bytes', { base64: Buffer.from(new Uint8Array(MAX_REMOTE_INPUT_BYTES + 1)).toString('base64') });
+    expect(big.code).toBe('INPUT_TOO_LARGE');
+    const zip = new JSZip();
+    zip.file('ppt/bomb.bin', new Uint8Array(MAX_REMOTE_UNZIPPED_BYTES + 1024));
+    const bomb = await zip.generateAsync({ type: 'uint8array', compression: 'DEFLATE', compressionOptions: { level: 9 } });
+    const r = await call('extract_pptx_bytes', { base64: Buffer.from(bomb).toString('base64') });
+    expect(r.ok).toBe(false);
+    expect(r.code).toBe('ZIP_TOO_LARGE');
+  }, 60_000);
+
+  it('잘못된 스냅숏은 errors 를 돌리고 파일을 만들지 않는다', () =>
+    withDir(async (dir) => {
+      const out = path.join(dir, 'bad.pptx');
+      const r = await call('make_meeting_pptx', { snapshot: { ...MEETING, site: '' }, outFile: out });
+      expect(r.ok).toBe(false);
+      expect(fs.existsSync(out)).toBe(false);
+    }));
 });

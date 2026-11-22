@@ -2,6 +2,7 @@
 import { describe, expect, it } from 'vitest';
 import JSZip from 'jszip';
 import { makeMeetingPptx, type MeetingSnapshot } from '../../src/lib/office/pptx/meeting';
+import { extractPptx } from '../../src/lib/office/pptx/extract';
 
 // 1×1 투명 PNG
 const PNG_1PX =
@@ -281,5 +282,50 @@ describe('makeMeetingPptx — 회의 후 확정본', () => {
     const z2 = await zipOf(r2.bytes!);
     const p4 = await slideXml(z2, r2.slides.find((s) => s.code === 'P4')!.no);
     for (const p of carry) expect(p4).toContain(p.id);
+  });
+});
+
+describe('extractPptx — 장별 글자·표·notes', () => {
+  it('검토안 덱을 읽으면 P1 제목·배지·anchor 가 나온다', async () => {
+    const r = await makeMeetingPptx(snapshot(), { kind: 'pre' });
+    const x = await extractPptx(r.bytes!);
+    expect(x.ok).toBe(true);
+    expect(x.slides.map((s) => s.no)).toEqual(r.slides.map((s) => s.no));
+    const p1 = x.slides[0];
+    const texts = p1.shapes.map((s) => s.text ?? '');
+    expect(texts.some((t) => t.includes('P1') && t.includes('표지'))).toBe(true);
+    expect(p1.shapes.find((s) => s.name === 'title')?.text).toContain('표지');
+    expect(p1.shapes.find((s) => s.name === 'badge')?.text).toBe('초안');
+    expect(p1.notes).toContain('근거 anchor');
+    // 장마다 notes 에 그 장 anchors
+    for (const info of r.slides) {
+      const s = x.slides[info.no - 1];
+      for (const a of info.anchors) expect(s.notes, `${info.code} ${a}`).toContain(a);
+    }
+  });
+
+  it('표는 행·칸 글자로 나온다(P4 전회 이행 현황)', async () => {
+    const r = await makeMeetingPptx(snapshot(), { kind: 'pre' });
+    const x = await extractPptx(r.bytes!);
+    const no = r.slides.find((s) => s.code === 'P4')!.no;
+    const tbl = x.slides[no - 1].shapes.find((s) => s.table)?.table;
+    expect(tbl).toBeDefined();
+    expect(tbl![0]).toContain('ID');
+    expect(tbl!.map((row) => row[0])).toContain('R-01');
+  });
+
+  it('확정본 배지 「확정 v2」 를 읽는다', async () => {
+    const r = await makeMeetingPptx(finalSnapshot(), { kind: 'final' });
+    const x = await extractPptx(r.bytes!);
+    for (const s of x.slides) expect(s.shapes.find((sh) => sh.name === 'badge')?.text).toBe('확정 v2');
+  });
+
+  it('zip 이 아닌 바이트·빈 바이트는 예외 없이 needsReview', async () => {
+    for (const b of [new Uint8Array(0), new Uint8Array([1, 2, 3, 4]), new Uint8Array([0x50, 0x4b, 3, 4, 0, 0])]) {
+      const x = await extractPptx(b);
+      expect(x.ok).toBe(false);
+      expect(x.needsReview).toBe(true);
+      expect(x.reason).toBeTruthy();
+    }
   });
 });

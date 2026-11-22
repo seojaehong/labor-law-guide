@@ -1,5 +1,5 @@
-// 오피스 묶음 — xlsx 서식 검사·행 추출·원본 서식 그대로 채우기·사양(JSON)으로 만들기.
-//   inspect_xlsx · extract_xlsx_rows · fill_xlsx_template · make_xlsx_from_spec
+// 오피스 묶음 — xlsx 서식 검사·행 추출·원본 서식 그대로 채우기·사양(JSON)으로 만들기 + 회의 pptx 만들기·읽기.
+//   inspect_xlsx · extract_xlsx_rows · fill_xlsx_template · make_xlsx_from_spec · make_meeting_pptx · extract_pptx (+ 원격 …_bytes)
 // 엔진 = src/lib/office(바이트 입출력 순수 함수). 이 파일만 경로를 읽고 쓴다.
 // ★ stdio 판(server.mjs)은 파일 경로로 받는다. 결과 파일은 writeNew(덮어쓰지 않음).
 // ★ 공개 문구 금지어 + 포괄·대신·대행·대리·지도를 이 묶음의 글(설명·결과)에 쓰지 않는다.
@@ -10,13 +10,15 @@ import { inspectXlsx } from '@/lib/office/xlsx/inspect';
 import { extractXlsxRows } from '@/lib/office/xlsx/extract';
 import { fillXlsxTemplate } from '@/lib/office/xlsx/fill';
 import { makeXlsxFromSpec } from '@/lib/office/xlsx/make';
+import { makeMeetingPptx } from '@/lib/office/pptx/meeting';
+import { extractPptx } from '@/lib/office/pptx/extract';
 import { checkZipUncompressedSize, MAX_REMOTE_INPUT_BYTES, MAX_REMOTE_OUTPUT_BYTES, MAX_REMOTE_UNZIPPED_BYTES } from '@/lib/office/limits';
 import { argsLookLikeRrn, text, writeNew } from '../lib/common.mjs';
 
 /** 파일 경로 입출력 — 이 PC 에서만 */
-export const officeLocalOnly = ['inspect_xlsx', 'extract_xlsx_rows', 'fill_xlsx_template', 'make_xlsx_from_spec'];
+export const officeLocalOnly = ['inspect_xlsx', 'extract_xlsx_rows', 'fill_xlsx_template', 'make_xlsx_from_spec', 'make_meeting_pptx', 'extract_pptx'];
 /** base64 입출력 — fs 없음, 원격판(remote.mjs)에 싣는다 */
-export const officeRemoteSafe = ['inspect_xlsx_bytes', 'extract_xlsx_rows_bytes', 'fill_xlsx_template_bytes', 'make_xlsx_from_spec_bytes'];
+export const officeRemoteSafe = ['inspect_xlsx_bytes', 'extract_xlsx_rows_bytes', 'fill_xlsx_template_bytes', 'make_xlsx_from_spec_bytes', 'make_meeting_pptx_bytes', 'extract_pptx_bytes'];
 export const officeTools = [...officeLocalOnly, ...officeRemoteSafe];
 
 const READS = { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false };
@@ -61,6 +63,57 @@ const specSchema = z
   })
   .describe('서식 사양');
 
+// 회의 PPTX 스냅숏 — 엔진(makeMeetingPptx)이 내용을 검사하므로 여기서는 모양과 크기만 본다
+const item = z.record(z.string().max(100), z.any());
+const items = (n) => z.array(item).max(n).optional();
+const photoSchema = z.object({
+  itemId: z.string().max(100),
+  side: z.enum(['before', 'after']),
+  data: z.string().max(8_000_000).optional().describe('사진 바이트(base64, 데이터 URL 머리 없이)'),
+  file: z.string().max(400).optional().describe('사진 파일 경로(로컬 판만, png·jpg)'),
+  mime: z.string().max(40).optional(),
+});
+const snapshotSchema = z
+  .object({
+    kind: z.enum(['pre', 'final']).optional(),
+    site: z.string().max(200),
+    cycle: z.string().max(200),
+    basisDate: z.string().max(40),
+    status: z.object({ label: z.enum(['초안', '확정']), version: z.number().int().min(1).optional() }),
+    scaleId: z.string().max(100),
+    scaleName: z.string().max(200),
+    prior: items(1000),
+    hazards: items(1000),
+    photos: z.array(photoSchema).max(200).optional(),
+    opinions: items(1000),
+    questions: items(500),
+    decisions: items(500),
+    actions: items(1000),
+    deferred: items(1000),
+    bestPractices: items(100),
+    attendees: z.object({ planned: items(200), actual: items(200) }).optional(),
+    anchors: items(5000),
+  })
+  .passthrough()
+  .describe('회의 스냅숏(사업장·회차·기준일·상태·척도·전회 항목·위험요인·사진·의견·결정 질문·근거 anchor 등)');
+const meetingOpts = {
+  kind: z.enum(['pre', 'final']).optional().describe("pre = 회의 전 검토안(P1~P10), final = 회의 후 확정본(F1~F8). 비우면 snapshot.kind, 없으면 pre"),
+  fontFace: z.string().max(60).optional().describe('글꼴(기본 맑은 고딕)'),
+  layout: z.enum(['A4', '16:9']).optional().describe('판형(기본 A4 가로)'),
+};
+const ARRAYS = ['prior', 'hazards', 'photos', 'opinions', 'questions', 'anchors'];
+
+/** 빈 배열 채우기 + 덱 만들기. 결과에서 bytes 는 따로 */
+async function runMeeting(snapshot, a) {
+  const s = { ...snapshot };
+  for (const k of ARRAYS) if (!Array.isArray(s[k])) s[k] = [];
+  return makeMeetingPptx(s, { kind: a.kind, fontFace: a.fontFace, layout: a.layout });
+}
+const MEETING_DESC =
+  '회의 스냅숏(JSON)으로 위험성평가 회의 덱(pptx, 기본 A4 가로)을 만든다. kind pre = 회의 전 검토안(표지·개요·한눈 요약·전회 이행 현황·조치 전후·신규 후보·근로자 의견·회차 대비 변화·결정 필요 사항·근거), ' +
+  'final = 회의 후 확정본(표지·참석·확정 결정·조치 계획·보류·우수 사례·다음 회차 이월·근거). 장마다 상태 배지(초안/확정 vN)와 notes 의 근거 anchor 목록을 넣는다. ' +
+  '결과에 장 목록(slides)·글자 수로 추정한 넘침 후보(overflowEstimates)·확정본 이월 목록(carryOver, 다음 회차 prior 로 그대로 쓰는 모양)을 돌려준다. 넘침 정밀 확인은 PowerPoint 에서 한다.';
+
 /** 입력 파일을 읽는다. 오류면 문자열 */
 function readInput(file) {
   const p = String(file ?? '').trim();
@@ -71,9 +124,9 @@ function readInput(file) {
 }
 
 /** 결과 파일 경로 검사. 오류면 문자열 */
-function checkOut(outFile, src) {
+function checkOut(outFile, src, ext = '.xlsx') {
   const out = String(outFile ?? '').trim();
-  if (!/\.xlsx$/i.test(out)) return 'outFile 은 .xlsx 로 끝나야 합니다.';
+  if (!out.toLowerCase().endsWith(ext)) return `outFile 은 ${ext} 로 끝나야 합니다.`;
   if (src && path.resolve(out) === path.resolve(src)) return '원본 파일에는 쓰지 않습니다. outFile 을 바꿔 주세요.';
   if (fs.existsSync(out)) return EXISTS;
   return { out };
@@ -177,6 +230,57 @@ export function registerOffice(server) {
       if (!r.ok) return text(r);
       if (!save(o.out, r.bytes)) return fail(EXISTS, { exists: o.out });
       return text({ ok: true, file: { path: o.out, bytes: r.bytes.length }, sheets: a.spec.sheets.map((s) => s.name) });
+    },
+  );
+
+  server.registerTool(
+    'make_meeting_pptx',
+    {
+      title: '회의 덱(pptx) 만들기(로컬 전용)',
+      description: `${MEETING_DESC} 사진은 data(base64) 또는 file(경로)로 준다. 이미 있는 파일은 덮어쓰지 않는다.`,
+      inputSchema: {
+        snapshot: snapshotSchema,
+        ...meetingOpts,
+        outFile: z.string().max(400).describe('저장할 새 pptx 파일 경로'),
+      },
+      annotations: WRITES,
+    },
+    async (a) => {
+      if (argsLookLikeRrn({ snapshot: a.snapshot })) return fail(RRN_STOP);
+      const o = checkOut(a.outFile, undefined, '.pptx');
+      if (typeof o === 'string') return fail(o, o === EXISTS ? { exists: String(a.outFile).trim() } : {});
+      const photos = [];
+      for (const p of a.snapshot?.photos ?? []) {
+        if (p.data || !p.file) {
+          photos.push(p);
+          continue;
+        }
+        const f = readInput(p.file);
+        if (typeof f === 'string') return fail(`사진 ${p.itemId}: ${f}`);
+        const mime = p.mime ?? (/\.jpe?g$/i.test(f.path) ? 'image/jpeg' : 'image/png');
+        photos.push({ itemId: p.itemId, side: p.side, mime, data: Buffer.from(f.bytes).toString('base64') });
+      }
+      const r = await runMeeting({ ...a.snapshot, photos }, a);
+      const { bytes, ...rest } = r;
+      if (!r.ok || !bytes) return text(rest);
+      if (!save(o.out, bytes)) return fail(EXISTS, { exists: o.out });
+      return text({ ...rest, file: { path: o.out, bytes: bytes.length } });
+    },
+  );
+
+  server.registerTool(
+    'extract_pptx',
+    {
+      title: '파워포인트(pptx) 장별 글자·표·notes 읽기(로컬 전용)',
+      description:
+        'pptx 의 장마다 도형(id·이름·글자)·표(행×칸 글자)·notes(발표자 메모)를 장 순서대로 읽는다. 파일은 고치지 않는다. zip(pptx)이 아니거나 열지 못하면 needsReview:true 와 이유를 돌려준다.',
+      inputSchema: { file: z.string().max(400).describe('pptx 파일 경로(20MB 이하)') },
+      annotations: READS,
+    },
+    async (a) => {
+      const f = readInput(a.file);
+      if (typeof f === 'string') return fail(f);
+      return text({ file: f.path, ...(await extractPptx(f.bytes)) });
     },
   );
 
@@ -295,6 +399,43 @@ function registerOfficeRemote(server) {
       const o = encodeRemoteOutput(r.bytes);
       if (!o.ok) return text(o);
       return text({ ok: true, base64: o.base64, outputBytes: r.bytes.length, sheets: a.spec.sheets.map((s) => s.name) });
+    },
+  );
+
+  server.registerTool(
+    'make_meeting_pptx_bytes',
+    {
+      title: '회의 덱(pptx) 만들기(base64)',
+      description: `${MEETING_DESC} 사진은 data(base64)로만 받는다. 결과 pptx 를 base64 로 돌려주고 서버에 파일을 남기지 않는다. 결과는 5MB 까지.`,
+      inputSchema: { snapshot: snapshotSchema, ...meetingOpts },
+      annotations: REMOTE_MAKE,
+    },
+    async (a) => {
+      if (argsLookLikeRrn({ snapshot: a.snapshot })) return fail(RRN_STOP);
+      if ((a.snapshot?.photos ?? []).some((p) => p.file && !p.data)) return fail('원격판은 사진 경로(file)를 받지 않습니다. data(base64)로 주세요.');
+      const r = await runMeeting(a.snapshot, a);
+      const { bytes, ...rest } = r;
+      if (!r.ok || !bytes) return text(rest);
+      const o = encodeRemoteOutput(bytes);
+      if (!o.ok) return text(o);
+      return text({ ...rest, base64: o.base64, outputBytes: bytes.length });
+    },
+  );
+
+  server.registerTool(
+    'extract_pptx_bytes',
+    {
+      title: '파워포인트(pptx) 장별 글자·표·notes 읽기(base64)',
+      description:
+        'base64 로 받은 pptx 의 장마다 도형(id·이름·글자)·표(행×칸 글자)·notes(발표자 메모)를 장 순서대로 읽는다. 서버에 파일을 남기지 않는다. ' +
+        '입력은 디코드 후 5MB, 압축을 푼 합계 50MB 까지. zip(pptx)이 아니거나 열지 못하면 needsReview:true 와 이유를 돌려준다.',
+      inputSchema: { base64: z.string().max(8_000_000).describe('pptx 파일 바이트(base64, 디코드 후 5MB 이하)') },
+      annotations: REMOTE_READ,
+    },
+    async (a) => {
+      const d = decodeRemoteInput(a.base64);
+      if (!d.ok) return text(d);
+      return text(await extractPptx(d.bytes));
     },
   );
 }
