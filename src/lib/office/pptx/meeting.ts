@@ -76,6 +76,44 @@ export interface MeetingQuestion {
 export interface MeetingAttendee {
   role: string;
   name?: string;
+  /** 근로자대표 여부. 없으면 role 에 「근로자대표」 가 있는지로 본다 */
+  workerRepresentative?: boolean;
+}
+
+export interface MeetingDecision {
+  id: string;
+  questionId?: string;
+  targetIds?: string[];
+  decision: string;
+  reason?: string;
+  anchors?: string[];
+}
+
+export interface MeetingAction {
+  id: string;
+  /** 대상 위험요인 ID(다음 회차 이월 ID). 없으면 id */
+  targetId?: string;
+  hazard?: string;
+  measure: string;
+  owner?: string;
+  due?: string;
+  verifier?: string;
+  anchors?: string[];
+}
+
+export interface MeetingDeferred {
+  id: string;
+  hazard?: string;
+  reason: string;
+  reevaluateBy?: string;
+  anchors?: string[];
+}
+
+export interface MeetingBestPractice {
+  id: string;
+  title: string;
+  text: string;
+  anchors?: string[];
 }
 
 export interface MeetingSnapshot {
@@ -99,6 +137,13 @@ export interface MeetingSnapshot {
   questions: MeetingQuestion[];
   attendees?: { planned?: MeetingAttendee[]; actual?: MeetingAttendee[] };
   anchors: MeetingAnchor[];
+  /** 확정본: 실제 회의일 · 다음 적용기간 */
+  actualMeetingDate?: string;
+  nextPeriod?: string;
+  decisions?: MeetingDecision[];
+  actions?: MeetingAction[];
+  deferred?: MeetingDeferred[];
+  bestPractices?: MeetingBestPractice[];
 }
 
 export interface MeetingOptions {
@@ -138,6 +183,8 @@ export interface MeetingPptxResult {
   slides: MeetingSlideInfo[];
   overflowEstimates: OverflowEstimate[];
   changes?: MeetingChange[];
+  /** 확정본 F7 — 다음 회차 prior[] 로 그대로 넣을 수 있는 이월 목록 */
+  carryOver?: PriorItem[];
   warnings: string[];
   errors?: string[];
 }
@@ -169,7 +216,12 @@ function badgeText(status: MeetingStatus): string {
 
 function validate(s: MeetingSnapshot, kind: string): string[] {
   const errors: string[] = [];
-  if (kind !== 'pre') errors.push(`kind ${kind} 은 아직 지원하지 않는다(pre 만)`);
+  if (kind !== 'pre' && kind !== 'final') errors.push(`kind ${kind} 은 pre·final 중 하나`);
+  if (kind === 'final') {
+    if (s.status?.label !== '확정' || typeof s.status.version !== 'number') errors.push('확정본은 status {label:확정, version} 이어야 한다');
+    for (const a of s.actions ?? []) if (!a.measure?.trim()) errors.push(`actions ${a.id}: measure 가 비었다`);
+    for (const d of s.deferred ?? []) if (!d.reason?.trim()) errors.push(`deferred ${d.id}: reason 이 비었다`);
+  }
   if (!s.site?.trim()) errors.push('site 가 비었다');
   if (!s.cycle?.trim()) errors.push('cycle 이 비었다');
   if (!s.basisDate?.trim()) errors.push('basisDate 가 비었다');
@@ -186,6 +238,9 @@ function validate(s: MeetingSnapshot, kind: string): string[] {
   dup('prior', (s.prior ?? []).map((p) => p.id));
   dup('hazards', (s.hazards ?? []).map((h) => h.id));
   dup('anchors', (s.anchors ?? []).map((a) => a.id));
+  dup('decisions', (s.decisions ?? []).map((d) => d.id));
+  dup('actions', (s.actions ?? []).map((a) => a.id));
+  dup('deferred', (s.deferred ?? []).map((d) => d.id));
   for (const p of s.photos ?? []) {
     if (p.side !== 'before' && p.side !== 'after') errors.push(`photos ${p.itemId}: side 는 before·after`);
     if (!p.data) errors.push(`photos ${p.itemId}: data 가 비었다`);
@@ -212,6 +267,7 @@ export async function makeMeetingPptx(
   if (errors.length) return { ok: false, slides: [], overflowEstimates: [], warnings: [], errors };
 
   const fontFace = opts.fontFace ?? '맑은 고딕';
+  const pre = kind === 'pre';
   const warnings: string[] = [];
   const anchorMap = new Map(snapshot.anchors.map((a) => [a.id, a]));
   const allRefs = uniq([
@@ -219,6 +275,14 @@ export async function makeMeetingPptx(
     ...snapshot.hazards.map((h) => h.anchors),
     ...snapshot.opinions.map((o) => o.anchors),
     ...snapshot.questions.map((q) => q.anchors),
+    ...(kind === 'final'
+      ? [
+          ...(snapshot.decisions ?? []).map((d) => d.anchors),
+          ...(snapshot.actions ?? []).map((a) => a.anchors),
+          ...(snapshot.deferred ?? []).map((d) => d.anchors),
+          ...(snapshot.bestPractices ?? []).map((b) => b.anchors),
+        ]
+      : []),
   ]);
   for (const a of allRefs) if (!anchorMap.has(a)) warnings.push(`anchors 에 없는 근거 id: ${a}`);
 
@@ -249,7 +313,7 @@ export async function makeMeetingPptx(
     const slide = pptx.addSlide();
     const no = slides.length + 1;
     slides.push({ no, code, title, anchors });
-    slide.addText(`${code}  ${title.replace(/^P\d+\s*/, '')}`, { x: 0.3, y: 0.2, w: W - 2.2, h: 0.5, fontFace, fontSize: 18, bold: true, color: '1F2A44' });
+    slide.addText(`${code}  ${title.replace(/^[PF]\d+\s*/, '')}`, { x: 0.3, y: 0.2, w: W - 2.2, h: 0.5, fontFace, fontSize: 18, bold: true, color: '1F2A44' });
     slide.addText(badge, { x: W - 1.7, y: 0.22, w: 1.4, h: 0.4, fontFace, fontSize: 12, bold: true, align: 'center', color: 'FFFFFF', fill: { color: 'C0504D' } });
     slide.addText(`${snapshot.site} · ${snapshot.cycle}`, { x: 0.3, y: 0.7, w: W - 0.6, h: 0.3, fontFace, fontSize: 10, color: '555555' });
     slide.addText(
@@ -273,7 +337,7 @@ export async function makeMeetingPptx(
   const c = (t: string | number | undefined | null): Cell => ({ text: t === undefined || t === null || t === '' ? '-' : String(t) });
 
   // P1 표지
-  {
+  if (pre) {
     const { slide } = newSlide('P1', 'P1 표지', []);
     slide.addText('위험성평가 회의 전 검토안', { x: 0.6, y: 1.6, w: W - 1.2, h: 0.8, fontFace, fontSize: 28, bold: true, color: '1F2A44' });
     const lines = [
@@ -289,7 +353,7 @@ export async function makeMeetingPptx(
   }
 
   // P2 회의 개요
-  {
+  if (pre) {
     const { slide } = newSlide('P2', 'P2 회의 개요', []);
     const agenda = snapshot.agenda?.length
       ? snapshot.agenda
@@ -304,7 +368,7 @@ export async function makeMeetingPptx(
   }
 
   // P3 한눈 요약
-  {
+  if (pre) {
     const count = (st: string) => snapshot.prior.filter((p) => p.status === st).length;
     const candidates = snapshot.hazards.filter((h) => h.kind === 'new' || h.kind === 'changed').length;
     const unchanged = snapshot.hazards.filter((h) => h.kind === 'unchanged').length;
@@ -324,7 +388,7 @@ export async function makeMeetingPptx(
   }
 
   // P4 전회 이행 현황(6행씩)
-  {
+  if (pre) {
     const colW = [0.6, 2.0, 0.45, 0.45, 0.8, 1.6, 1.0, 0.95, 0.7, 1.5, 1.0];
     const pages: PriorItem[][] = [];
     for (let i = 0; i < snapshot.prior.length; i += P4_ROWS_PER_SLIDE) pages.push(snapshot.prior.slice(i, i + P4_ROWS_PER_SLIDE));
@@ -345,7 +409,7 @@ export async function makeMeetingPptx(
   }
 
   // P5 조치 전·후(완료 항목당 1장)
-  {
+  if (pre) {
     const done = snapshot.prior.filter((p) => p.status === '완료');
     if (!done.length) newSlide('P5', 'P5 조치 전·후 — 해당 항목 없음', []);
     for (const p of done) {
@@ -375,7 +439,7 @@ export async function makeMeetingPptx(
   }
 
   // P6 신규·변경 후보(카드 2×2)
-  {
+  if (pre) {
     const cands = snapshot.hazards.filter((h) => h.kind === 'new' || h.kind === 'changed');
     const pages: HazardItem[][] = [];
     for (let i = 0; i < cands.length; i += P6_CARDS_PER_SLIDE) pages.push(cands.slice(i, i + P6_CARDS_PER_SLIDE));
@@ -406,7 +470,7 @@ export async function makeMeetingPptx(
   }
 
   // P7 근로자 의견
-  {
+  if (pre) {
     const { slide, no } = newSlide('P7', 'P7 근로자 의견', uniq(snapshot.opinions.map((o) => o.anchors)));
     const colW = [0.8, 2.0, contentW - 4.6, 1.8];
     const rows: Cell[][] = [head(['ID', '의견자', '의견', '관련 ID'])];
@@ -420,7 +484,7 @@ export async function makeMeetingPptx(
 
   // P8 회차 대비 변화 — 같은 척도 ID 일 때만 증감
   const changes: MeetingChange[] = [];
-  {
+  if (pre) {
     const hz = new Map(snapshot.hazards.map((h) => [h.id, h]));
     const colW = [0.8, 3.6, 1.6, 1.6, 1.6, contentW - 9.2];
     const rows: Cell[][] = [head(['ID', '위험요인', '전회 위험도', '현재 위험도', '증감', '척도'])];
@@ -450,7 +514,7 @@ export async function makeMeetingPptx(
   }
 
   // P9 결정 필요 사항
-  {
+  if (pre) {
     const prMap = new Map<string, string[] | undefined>([
       ...snapshot.prior.map((p) => [p.id, p.anchors] as [string, string[] | undefined]),
       ...snapshot.hazards.map((h) => [h.id, h.anchors] as [string, string[] | undefined]),
@@ -468,7 +532,7 @@ export async function makeMeetingPptx(
   }
 
   // P10 근거 목록
-  {
+  if (pre) {
     const { slide } = newSlide('P10', 'P10 근거 목록', snapshot.anchors.map((a) => a.id));
     const rows: Cell[][] = [head(['근거 ID', '출처', '위치'])];
     for (const a of snapshot.anchors) rows.push([c(a.id), c(a.source), c(a.location)]);
@@ -476,6 +540,211 @@ export async function makeMeetingPptx(
     table(slide, rows, [2.0, 5.0, contentW - 7.0], 1.15);
   }
 
+  const carryOver = pre ? undefined : buildFinal();
+
   const out = await pptx.write({ outputType: 'arraybuffer' });
-  return { ok: true, bytes: new Uint8Array(out as ArrayBuffer), slides, overflowEstimates: overflow, changes, warnings };
+  return {
+    ok: true,
+    bytes: new Uint8Array(out as ArrayBuffer),
+    slides,
+    overflowEstimates: overflow,
+    ...(pre ? { changes } : { carryOver }),
+    warnings,
+  };
+
+  // ───── 회의 후 확정본 F1~F8 ─────
+  function buildFinal(): PriorItem[] {
+    const hzMap = new Map(snapshot.hazards.map((h) => [h.id, h]));
+    const prMap = new Map(snapshot.prior.map((p) => [p.id, p]));
+    const refAnchors = (id: string) => uniq([prMap.get(id)?.anchors, hzMap.get(id)?.anchors]);
+    const hazardOf = (id: string, given?: string) => given ?? hzMap.get(id)?.situation ?? prMap.get(id)?.hazard;
+    const decisions = snapshot.decisions ?? [];
+    const deferred = snapshot.deferred ?? [];
+    const best = snapshot.bestPractices ?? [];
+    // 기한 오름차순(기한 없는 행은 끝, 같은 기한은 입력 순서)
+    const actions = (snapshot.actions ?? [])
+      .map((a, i) => ({ a, i }))
+      .sort((x, y) => {
+        if (!x.a.due && !y.a.due) return x.i - y.i;
+        if (!x.a.due) return 1;
+        if (!y.a.due) return -1;
+        return x.a.due < y.a.due ? -1 : x.a.due > y.a.due ? 1 : x.i - y.i;
+      })
+      .map((x) => x.a);
+
+    // F1 표지
+    {
+      const { slide } = newSlide('F1', 'F1 표지', []);
+      slide.addText('위험성평가 회의 후 확정본', { x: 0.6, y: 1.6, w: W - 1.2, h: 0.8, fontFace, fontSize: 28, bold: true, color: '1F2A44' });
+      const lines = [
+        `사업장: ${snapshot.site}`,
+        `회차: ${snapshot.cycle}`,
+        `실제 회의일: ${snapshot.actualMeetingDate ?? '-'}`,
+        `데이터 기준일: ${snapshot.basisDate}`,
+        `확정 버전: ${badge}`,
+        `다음 적용기간: ${snapshot.nextPeriod ?? '-'}`,
+        `작성자: ${snapshot.author ?? '-'}`,
+      ];
+      slide.addText(lines.join('\n'), { x: 0.6, y: 2.7, w: W - 1.2, h: 3.6, fontFace, fontSize: 14, valign: 'top' });
+    }
+
+    // F2 참석(예정 vs 실제)
+    {
+      const { slide } = newSlide('F2', 'F2 참석', []);
+      const isRep = (a: MeetingAttendee) => a.workerRepresentative ?? a.role.includes('근로자대표');
+      const half = (contentW - 0.3) / 2;
+      (['planned', 'actual'] as const).forEach((k, i) => {
+        const list = snapshot.attendees?.[k] ?? [];
+        const label = k === 'planned' ? '참석 예정' : '실제 참석';
+        const rows: Cell[][] = [head(['역할', label])];
+        for (const a of list) rows.push([c(a.role), c(a.name)]);
+        if (!list.length) rows.push([c(`${label} 미입력`), c('')]);
+        slide.addTable(rows as never, { x: 0.3 + i * (half + 0.3), y: 1.2, w: half, colW: [half * 0.5, half * 0.5], fontFace, fontSize: FONT_PT, border: BORDER });
+      });
+      const repActual = (snapshot.attendees?.actual ?? []).some(isRep);
+      slide.addText(`근로자대표 참여: ${repActual ? '예' : '아니오'}`, { x: 0.3, y: H - 1.2, w: contentW, h: 0.4, fontFace, fontSize: 12, bold: true, fill: { color: repActual ? 'E2F0D9' : 'FBE5D6' } });
+    }
+
+    // F3 확정 결정
+    {
+      const anchors = uniq(decisions.flatMap((d) => [d.anchors, ...(d.targetIds ?? []).map(refAnchors)]));
+      const { slide, no } = newSlide('F3', 'F3 확정 결정', anchors);
+      const colW = [0.8, 1.0, 1.6, contentW - 7.4, 4.0];
+      const rows: Cell[][] = [head(['ID', '질문 ID', '대상 ID', '결정', '사유'])];
+      for (const d of decisions) {
+        rows.push([c(d.id), c(d.questionId), c((d.targetIds ?? []).join(', ')), c(d.decision), c(d.reason)]);
+        check(no, 'F3', d.id, 'decision', d.decision, colW[3], 3);
+        check(no, 'F3', d.id, 'reason', d.reason, colW[4], 3);
+      }
+      if (!decisions.length) rows.push([c('확정 결정 없음'), c(''), c(''), c(''), c('')]);
+      table(slide, rows, colW, 1.15);
+    }
+
+    // F4 조치 계획(기한순, 6행씩)
+    {
+      const colW = [0.8, 0.9, 2.4, contentW - 8.5, 1.6, 1.0, 1.8];
+      const pages: MeetingAction[][] = [];
+      for (let i = 0; i < actions.length; i += P4_ROWS_PER_SLIDE) pages.push(actions.slice(i, i + P4_ROWS_PER_SLIDE));
+      if (!pages.length) pages.push([]);
+      pages.forEach((items, pi) => {
+        const anchors = uniq(items.flatMap((a) => [a.anchors, refAnchors(a.targetId ?? a.id)]));
+        const { slide, no } = newSlide('F4', pi === 0 ? 'F4 조치 계획' : 'F4 조치 계획 (계속)', anchors);
+        const rows: Cell[][] = [head(['ID', '대상 ID', '위험요인', '대책', '1차 조치자', '기한', '2차 확인자'])];
+        for (const a of items) {
+          const tid = a.targetId ?? a.id;
+          const hz = hazardOf(tid, a.hazard);
+          rows.push([c(a.id), c(tid), c(hz), c(a.measure), c(a.owner), c(a.due), c(a.verifier)]);
+          check(no, 'F4', a.id, 'hazard', hz, colW[2], 4);
+          check(no, 'F4', a.id, 'measure', a.measure, colW[3], 4);
+        }
+        if (!items.length) rows.push([c('조치 계획 없음'), ...Array.from({ length: 6 }, () => c(''))]);
+        table(slide, rows, colW, 1.15);
+      });
+    }
+
+    // F5 보류·재평가
+    {
+      const anchors = uniq(deferred.flatMap((d) => [d.anchors, refAnchors(d.id)]));
+      const { slide, no } = newSlide('F5', 'F5 보류·재평가', anchors);
+      const colW = [0.8, 3.6, contentW - 6.2, 1.8];
+      const rows: Cell[][] = [head(['ID', '위험요인', '보류 사유', '재평가 기한'])];
+      for (const d of deferred) {
+        rows.push([c(d.id), c(hazardOf(d.id, d.hazard)), c(d.reason), c(d.reevaluateBy)]);
+        check(no, 'F5', d.id, 'reason', d.reason, colW[2], 3);
+      }
+      if (!deferred.length) rows.push([c('보류 항목 없음'), c(''), c(''), c('')]);
+      table(slide, rows, colW, 1.15);
+    }
+
+    // F6 우수 사례(선택 — 없으면 장을 만들지 않는다)
+    if (best.length) {
+      const { slide, no } = newSlide('F6', 'F6 우수 사례', uniq(best.map((b) => b.anchors)));
+      const colW = [0.8, 2.8, contentW - 3.6];
+      const rows: Cell[][] = [head(['ID', '사례', '내용'])];
+      for (const b of best) {
+        rows.push([c(b.id), c(b.title), c(b.text)]);
+        check(no, 'F6', b.id, 'text', b.text, colW[2], 4);
+      }
+      table(slide, rows, colW, 1.15);
+    }
+
+    // F7 다음 회차로 넘길 목록 — prior[] 와 같은 키
+    const carry: PriorItem[] = [];
+    {
+      const scoreOf = (id: string) => {
+        const h = hzMap.get(id);
+        if (h) return { frequency: h.frequency, severity: h.severity, grade: h.grade, scaleId: snapshot.scaleId };
+        const p = prMap.get(id);
+        if (p) return { frequency: p.frequency, severity: p.severity, grade: p.grade, scaleId: p.scaleId ?? snapshot.scaleId };
+        return { scaleId: snapshot.scaleId };
+      };
+      const push = (item: PriorItem) => {
+        if (carry.some((x) => x.id === item.id)) {
+          warnings.push(`F7 이월 ID 중복(앞 항목 유지): ${item.id}`);
+          return;
+        }
+        if (!item.hazard) {
+          warnings.push(`F7 이월 ${item.id}: 위험요인 글이 없다`);
+          item.hazard = '(위험요인 미기재)';
+        }
+        carry.push(compact(item));
+      };
+      for (const a of actions) {
+        const tid = a.targetId ?? a.id;
+        push({
+          id: tid,
+          hazard: hazardOf(tid, a.hazard) ?? '',
+          ...scoreOf(tid),
+          measure: a.measure,
+          owner: a.owner,
+          due: a.due,
+          status: '미완료',
+          verifier: a.verifier,
+          anchors: uniq([a.anchors, refAnchors(tid)]),
+        });
+      }
+      for (const d of deferred) {
+        push({
+          id: d.id,
+          hazard: hazardOf(d.id, d.hazard) ?? '',
+          ...scoreOf(d.id),
+          due: d.reevaluateBy,
+          status: '미완료',
+          result: `보류 — ${d.reason}`,
+          anchors: uniq([d.anchors, refAnchors(d.id)]),
+        });
+      }
+      const { slide, no } = newSlide('F7', 'F7 다음 회차로 넘길 목록', uniq(carry.map((p) => p.anchors)));
+      const colW = [0.8, 3.2, contentW - 7.2, 1.0, 1.0, 1.2];
+      const rows: Cell[][] = [head(['ID', '위험요인', '대책·비고', '기한', '상태', '척도'])];
+      for (const p of carry) {
+        rows.push([c(p.id), c(p.hazard), c(p.measure ?? p.result), c(p.due), c(p.status), c(p.scaleId)]);
+        check(no, 'F7', p.id, 'hazard', p.hazard, colW[1], 3);
+      }
+      if (!carry.length) rows.push([c('이월 항목 없음'), c(''), c(''), c(''), c(''), c('')]);
+      table(slide, rows, colW, 1.15);
+    }
+
+    // F8 근거·버전
+    {
+      const { slide } = newSlide('F8', 'F8 근거·버전', snapshot.anchors.map((a) => a.id));
+      slide.addText(
+        `확정 버전 ${badge} · revision ${snapshot.revision ?? '-'} · template ${MEETING_TEMPLATE_VERSION} · 척도 ${snapshot.scaleName}(${snapshot.scaleId})`,
+        { x: 0.3, y: 1.1, w: contentW, h: 0.35, fontFace, fontSize: 10 },
+      );
+      const rows: Cell[][] = [head(['근거 ID', '출처', '위치'])];
+      for (const a of snapshot.anchors) rows.push([c(a.id), c(a.source), c(a.location)]);
+      if (!snapshot.anchors.length) rows.push([c('근거 없음'), c(''), c('')]);
+      table(slide, rows, [2.0, 5.0, contentW - 7.0], 1.55);
+    }
+
+    return carry;
+  }
+}
+
+/** 값이 undefined 인 키를 뺀다(이월 목록을 prior[] 입력으로 깔끔하게) */
+function compact<T extends object>(o: T): T {
+  const out = {} as T;
+  for (const [k, v] of Object.entries(o)) if (v !== undefined) (out as Record<string, unknown>)[k] = v;
+  return out;
 }

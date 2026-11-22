@@ -147,6 +147,11 @@ describe('makeMeetingPptx — 회의 전 검토안', () => {
     expect(r.overflowEstimates.every((e) => e.ref === 'R-03')).toBe(true);
   });
 
+  it('kind 가 pre·final 이 아니면 오류', async () => {
+    const r = await makeMeetingPptx(snapshot(), { kind: 'x' as never });
+    expect(r.ok).toBe(false);
+  });
+
   it('잘못된 스냅숏은 {ok:false, errors}', async () => {
     const s = snapshot();
     s.site = '';
@@ -155,5 +160,126 @@ describe('makeMeetingPptx — 회의 전 검토안', () => {
     expect(r.ok).toBe(false);
     expect(r.errors!.length).toBeGreaterThanOrEqual(2);
     expect(r.bytes).toBeUndefined();
+  });
+});
+
+function finalSnapshot(): MeetingSnapshot {
+  const s = snapshot();
+  return {
+    ...s,
+    kind: 'final',
+    status: { label: '확정', version: 2 },
+    actualMeetingDate: '2026-12-01',
+    nextPeriod: '2027-06-01 ~ 2027-11-30',
+    attendees: {
+      planned: [
+        { role: '사업주(역할)' },
+        { role: '근로자대표', name: '대표(역할)' },
+        { role: '안전 담당(역할)' },
+      ],
+      actual: [
+        { role: '사업주(역할)' },
+        { role: '근로자대표', name: '대표(역할)' },
+      ],
+    },
+    decisions: [
+      { id: 'D-1', questionId: 'Q-1', targetIds: ['N-01'], decision: '반영', reason: '근로자 의견 다수', anchors: ['A-N-01'] },
+    ],
+    actions: [
+      { id: 'AC-1', targetId: 'N-01', measure: '통로 조명 교체', owner: '시설 담당(역할)', due: '2027-01-20', verifier: '확인자(역할)', anchors: ['A-N-01'] },
+      { id: 'AC-2', targetId: 'R-04', measure: '안전난간 재설치', owner: '시설 담당(역할)', due: '2026-12-15', verifier: '확인자(역할)', anchors: ['A-R-04'] },
+      { id: 'AC-3', targetId: 'R-05', measure: '교육 재실시', owner: '교육 담당(역할)', due: '2027-01-05', verifier: '확인자(역할)' },
+    ],
+    deferred: [
+      { id: 'R-06', hazard: '합성 위험요인 6', reason: '설비 교체 예정', reevaluateBy: '2027-03-31', anchors: ['A-R-06'] },
+    ],
+  };
+}
+
+describe('makeMeetingPptx — 회의 후 확정본', () => {
+  it('F1~F8 순서, 우수 사례가 없으면 F6 을 만들지 않는다', async () => {
+    const r = await makeMeetingPptx(finalSnapshot(), { kind: 'final' });
+    expect(r.ok).toBe(true);
+    expect(r.slides.map((s) => s.code)).toEqual(['F1', 'F2', 'F3', 'F4', 'F5', 'F7', 'F8']);
+    const s = finalSnapshot();
+    s.bestPractices = [{ id: 'B-1', title: '합성 우수 사례', text: '정리정돈 우수', anchors: ['A-R-01'] }];
+    const r2 = await makeMeetingPptx(s, { kind: 'final' });
+    expect(r2.slides.map((x) => x.code)).toEqual(['F1', 'F2', 'F3', 'F4', 'F5', 'F6', 'F7', 'F8']);
+    const zip = await zipOf(r2.bytes!);
+    expect(await slideXml(zip, 6)).toContain('정리정돈 우수');
+  });
+
+  it('배지 「확정 v2」 가 모든 장에 있고, 모든 장 notes 에 anchors 가 있다', async () => {
+    const r = await makeMeetingPptx(finalSnapshot(), { kind: 'final' });
+    const zip = await zipOf(r.bytes!);
+    for (const s of r.slides) {
+      const xml = await slideXml(zip, s.no);
+      expect(xml).toContain('확정 v2');
+      expect(xml).not.toContain('초안');
+      const notes = await zip.file(`ppt/notesSlides/notesSlide${s.no}.xml`)!.async('string');
+      expect(notes).toContain('근거');
+      for (const a of s.anchors) expect(notes).toContain(a);
+    }
+    const f1 = await slideXml(zip, 1);
+    expect(f1).toContain('2026-12-01');
+    expect(f1).toContain('2027-06-01 ~ 2027-11-30');
+  });
+
+  it('확정본은 status 가 확정이어야 한다', async () => {
+    const s = finalSnapshot();
+    s.status = { label: '초안' };
+    const r = await makeMeetingPptx(s, { kind: 'final' });
+    expect(r.ok).toBe(false);
+  });
+
+  it('F2 는 예정·실제 참석 표 둘과 근로자대표 참여 여부를 쓴다', async () => {
+    const r = await makeMeetingPptx(finalSnapshot(), { kind: 'final' });
+    const zip = await zipOf(r.bytes!);
+    const xml = await slideXml(zip, r.slides.find((s) => s.code === 'F2')!.no);
+    expect((xml.match(/<a:tbl>/g) ?? []).length).toBe(2);
+    expect(xml).toContain('참석 예정');
+    expect(xml).toContain('실제 참석');
+    expect(xml).toContain('근로자대표 참여: 예');
+    const s = finalSnapshot();
+    s.attendees!.actual = [{ role: '사업주(역할)' }];
+    const r2 = await makeMeetingPptx(s, { kind: 'final' });
+    const z2 = await zipOf(r2.bytes!);
+    expect(await slideXml(z2, r2.slides.find((x) => x.code === 'F2')!.no)).toContain('근로자대표 참여: 아니오');
+  });
+
+  it('F4 조치 계획 행이 기한 오름차순', async () => {
+    const r = await makeMeetingPptx(finalSnapshot(), { kind: 'final' });
+    const zip = await zipOf(r.bytes!);
+    const xml = await slideXml(zip, r.slides.find((s) => s.code === 'F4')!.no);
+    const pos = ['AC-2', 'AC-3', 'AC-1'].map((id) => xml.indexOf(id));
+    expect(pos.every((p) => p > 0)).toBe(true);
+    expect(pos).toEqual([...pos].sort((a, b) => a - b));
+  });
+
+  it('F7 이월 목록은 prior[] 모양이라 다음 회차 P4 입력으로 그대로 쓰인다', async () => {
+    const r = await makeMeetingPptx(finalSnapshot(), { kind: 'final' });
+    const carry = r.carryOver!;
+    expect(carry.map((p) => p.id)).toEqual(['R-04', 'R-05', 'N-01', 'R-06']);
+    const allowed = ['id', 'hazard', 'frequency', 'severity', 'grade', 'measure', 'owner', 'due', 'status', 'result', 'verifier', 'scaleId', 'legal', 'effect', 'residual', 'anchors'];
+    for (const p of carry) {
+      for (const k of Object.keys(p)) expect(allowed).toContain(k);
+      expect(p.status).toBe('미완료');
+      expect(p.scaleId).toBe('scale-v1');
+      expect(p.hazard).toBeTruthy();
+    }
+    expect(carry.find((p) => p.id === 'N-01')!.hazard).toBe('새 상황');
+    const zip = await zipOf(r.bytes!);
+    const f7 = await slideXml(zip, r.slides.find((s) => s.code === 'F7')!.no);
+    for (const p of carry) expect(f7).toContain(p.id);
+
+    // 다음 회차 회의 전 검토안 P4 입력
+    const next = snapshot();
+    next.prior = carry;
+    next.anchors = finalSnapshot().anchors;
+    const r2 = await makeMeetingPptx(next, { kind: 'pre' });
+    expect(r2.ok).toBe(true);
+    const z2 = await zipOf(r2.bytes!);
+    const p4 = await slideXml(z2, r2.slides.find((s) => s.code === 'P4')!.no);
+    for (const p of carry) expect(p4).toContain(p.id);
   });
 });
