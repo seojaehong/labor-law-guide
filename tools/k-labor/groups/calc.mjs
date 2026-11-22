@@ -382,13 +382,14 @@ export function registerCalc(server) {
       title: '공휴일 근로 수당 계산',
       description:
         '노동절(5월 1일)·관공서 공휴일에 일했을 때 더 주는 임금을 계산한다(사이트 /tools/holiday-pay 와 같은 엔진). 상시 5명 이상이면 휴일근로 8시간까지 1.5배·8시간 넘는 부분 2배, 야간(22시~6시) 0.5배 가산. ' +
-        '월급제는 1.0배분이 월급에 들어 있어 가산분만, 일용·시급제는 1.0배분과 가산분을 함께 낸다. 4명 이하 사업장은 가산하지 않고, 관공서 공휴일은 유급휴일 의무도 없다(노동절은 규모와 상관없이 유급휴일).',
+        'total 은 그날 일한 대가(휴일근로 임금 1.0배 + 가산)로 월급·일용·시급제가 같다 — 월급제는 월급 외에 더 줄 금액이다(월급에 들어 있는 것은 쉬어도 받는 유급휴일 1일분). ' +
+        '일용·시급제의 유급휴일 1일분은 total 과 따로 result.paid_holiday_day 에 받는 조건과 함께 낸다. 4명 이하 사업장은 가산하지 않고, 관공서 공휴일은 유급휴일 의무도 없다(노동절은 규모와 상관없이 유급휴일). 야간 시간은 일한 시간을 넘을 수 없다.',
       inputSchema: {
         workerType: z.enum(['monthly', 'daily', 'hourly']).describe('monthly = 월급제 · daily = 일용직(일급) · hourly = 시급제'),
         fivePlus: z.boolean().describe('상시 근로자 5명 이상'),
         holidayKind: z.enum(['labor_day', 'public_holiday']).describe('labor_day = 노동절(5월 1일) · public_holiday = 관공서 공휴일'),
         workedHours: z.number().min(0).describe('그 공휴일에 실제로 일한 시간'),
-        nightHours: z.number().min(0).optional().describe('그중 22시~6시 야간근로 시간'),
+        nightHours: z.number().min(0).optional().describe('그중 22시~6시 야간근로 시간(workedHours 이하)'),
         monthlyPay: z.number().optional().describe('월급제: 월 통상임금 항목 합계(기본급 + 고정수당, 원)'),
         monthlyHours: z.number().optional().describe('월급제: 월 소정근로시간(기본 209)'),
         dailyWage: z.number().optional().describe('일용직: 일급(원)'),
@@ -416,12 +417,13 @@ export function registerCalc(server) {
         }
         const r = calcHolidayPay(input);
         const day = HOLIDAY_KIND[a.holidayKind];
-        const premium = r.already_in_monthly_pay ? r.total : r.total - r.regular_pay_equivalent;
+        const premium = r.total - r.regular_pay_equivalent;
         // 통상시급은 끝수 그대로 온다 — 소수 둘째 자리까지 보인다(사이트와 같은 표시)
         const hourly = `${(Math.round(r.base_hourly * 100) / 100).toLocaleString('ko-KR')}원`;
+        const parts = `통상시급 ${hourly} 기준 휴일근로 임금(1.0배) ${won(r.regular_pay_equivalent)}${premium > 0 ? ` + 가산분 ${won(premium)}` : '(가산 없음)'}`;
         const headline = r.already_in_monthly_pay
-          ? [`${day}에 ${hoursText(common.worked_hours)} 일했을 때 월급 외에 더 줄 금액은 ${won(r.total)}입니다.`, `통상시급 ${hourly} 기준 가산분이고, 1.0배분은 월급에 들어 있습니다.`]
-          : [`${day}에 ${hoursText(common.worked_hours)} 일했을 때 줄 임금은 ${won(r.total)}입니다.`, `통상시급 ${hourly} 기준 1.0배분 ${won(r.regular_pay_equivalent)}${premium > 0 ? ` + 가산분 ${won(premium)}` : '(가산 없음)'}`];
+          ? [`${day}에 ${hoursText(common.worked_hours)} 일했을 때 월급 외에 더 줄 금액은 ${won(r.total)}입니다.`, r.paid_holiday_day.status === 'in_monthly_pay' ? `${parts}. 쉬어도 받는 유급휴일 1일분은 월급에 들어 있습니다.` : r.paid_holiday_day.note]
+          : [`${day}에 ${hoursText(common.worked_hours)} 일한 대가는 ${won(r.total)}입니다.`, `${parts}.`, r.paid_holiday_day.note];
         return text({
           ok: true, headline, result: { ...r, base_hourly: Math.round(r.base_hourly * 100) / 100 },
           basis: r.legal_basis,

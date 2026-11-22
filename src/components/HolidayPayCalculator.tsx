@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useEffect } from 'react';
 import { Calculator, ChevronRight, Share2, Download, Copy, Check, AlertTriangle, Info, MessageCircle } from 'lucide-react';
-import { calcHolidayPay, type Result, type SiteSize, type WorkerType, type HolidayKind } from '@/lib/holiday-pay';
+import { calcHolidayPay, validateHolidayHours, type Result, type SiteSize, type WorkerType, type HolidayKind } from '@/lib/holiday-pay';
 import BizNoLookup from './BizNoLookup';
 
 type Step = 'site' | 'holiday' | 'worker' | 'input' | 'result';
@@ -20,6 +20,18 @@ declare global {
       };
     };
   }
+}
+
+// total = 그날 일한 대가(휴일근로 1.0배 + 가산). 월급제는 월급 외에 더 줄 금액, 시급·일용제의 유급휴일 1일분은 따로(paid_holiday_day)
+function totalLabelOf(workerType: WorkerType): string {
+  return workerType === 'monthly' ? '월급 외에 더 줄 금액' : '그날 일한 대가';
+}
+
+function paidDayShortOf(r: Result, holidayKind: HolidayKind): string | null {
+  const p = r.paid_holiday_day;
+  if (p.status !== 'separate') return null;
+  const amt = p.amount != null ? ` ${p.amount.toLocaleString('ko-KR')}원` : '';
+  return `유급휴일 1일분${amt}은 별도${holidayKind === 'public_holiday' ? '(그날이 소정근로일이면)' : ''}`;
 }
 
 function StepHeader({ current }: { current: number }) {
@@ -145,6 +157,11 @@ export default function HolidayPayCalculator() {
   const calculate = () => {
     const wh = Math.max(parseFloat(workedHours) || 0, 0);
     const nh = Math.max(parseFloat(nightHours) || 0, 0);
+    const invalid = validateHolidayHours(wh, nh);
+    if (invalid) {
+      alert(invalid);
+      return;
+    }
     let r: Result | null = null;
 
     if (workerType === 'monthly') {
@@ -206,6 +223,8 @@ export default function HolidayPayCalculator() {
 
   // 통상시급은 끝수 그대로 오므로 소수 둘째 자리까지 보인다(src/lib/calc/wage-rounding.ts). 금액은 원 단위 정수다
   const formatNumber = (n: number) => n.toLocaleString('ko-KR', { maximumFractionDigits: 2 });
+  const totalLabel = totalLabelOf(workerType);
+  const paidDayShort = (r: Result) => paidDayShortOf(r, holidayKind);
 
   const buildShareText = useCallback(() => {
     if (!result) return '';
@@ -218,9 +237,10 @@ export default function HolidayPayCalculator() {
       `• 휴일 근로: ${workedHours}시간` + (parseFloat(nightHours) > 0 ? ` (야간 ${nightHours}시간 포함)` : ''),
       `• 통상시급: ${formatNumber(result.base_hourly)}원`,
       ``,
-      `💰 추가 지급액: ${formatNumber(result.total)}원`,
+      `💰 ${totalLabelOf(workerType)}: ${formatNumber(result.total)}원`,
       ``,
       ...result.breakdown.map((b) => `  - ${b.label}: ${formatNumber(b.amount)}원`),
+      ...(paidDayShortOf(result, holidayKind) ? [`  + ${paidDayShortOf(result, holidayKind)}`] : []),
       ``,
       `🔍 자세한 계산: yellowenvelope.kr/tools/holiday-pay`,
     ];
@@ -267,7 +287,8 @@ export default function HolidayPayCalculator() {
     const desc =
       `[${sizeLabel} | ${holidayLabel} | ${typeLabel}]\n` +
       `통상시급 ${formatNumber(result.base_hourly)}원 × ${workedHours}시간\n` +
-      `→ 추가 지급액 ${formatNumber(result.total)}원`;
+      `→ ${totalLabel} ${formatNumber(result.total)}원` +
+      (paidDayShort(result) ? `\n+ ${paidDayShort(result)}` : '');
     if (window.Kakao && window.Kakao.Share && window.Kakao.isInitialized()) {
       try {
         window.Kakao.Share.sendDefault({
@@ -322,13 +343,15 @@ export default function HolidayPayCalculator() {
       lines.push({ text: `통상시급  ${formatNumber(result.base_hourly)}원`, size: 18, bold: true, color: '#1e293b' });
       lines.push({ text: `휴일 근로  ${workedHours}시간` + (parseFloat(nightHours) > 0 ? `  (야간 ${nightHours}h 포함)` : ''), size: 18, color: '#334155' });
       lines.push({ text: '', size: 18 });
-      lines.push({ text: '추가 지급액', size: 18, bold: true, color: '#1e293b' });
+      lines.push({ text: totalLabel, size: 18, bold: true, color: '#1e293b' });
       lines.push({ text: `${formatNumber(result.total)}원`, size: 44, bold: true, color: '#0f172a' });
       lines.push({ text: '', size: 18 });
       for (const b of result.breakdown) {
         lines.push({ text: `· ${b.label}`, size: 14, color: '#475569' });
         lines.push({ text: `   ${formatNumber(b.amount)}원`, size: 18, bold: true, color: '#0f172a' });
       }
+      const paidDay = paidDayShort(result);
+      if (paidDay) lines.push({ text: `+ ${paidDay}`, size: 14, bold: true, color: '#334155' });
       lines.push({ text: '', size: 18 });
       lines.push({ text: 'yellowenvelope.kr/tools/holiday-pay', size: 14, bold: true, color: '#1957c2' });
 
@@ -682,7 +705,7 @@ export default function HolidayPayCalculator() {
             계산 결과
           </div>
           <div className="mb-2 text-sm" style={{ color: 'var(--grey-700)' }}>
-            추가 지급액 {result.already_in_monthly_pay && <span className="text-xs">(가산수당만 — 월급 외)</span>}
+            {totalLabel} <span className="text-xs">(휴일근로 임금 1.0배 + 가산)</span>
           </div>
           <div className="mb-2 text-4xl font-bold" style={{ color: 'var(--color-text-primary)' }}>
             {formatNumber(result.total)}
@@ -691,13 +714,12 @@ export default function HolidayPayCalculator() {
 
           {/* 환산 총액 안내 */}
           <div className="mb-6 rounded-lg p-3 text-xs" style={{ color: 'var(--grey-700)', backgroundColor: 'color-mix(in srgb, var(--color-bg-surface) 60%, transparent)' }}>
-            <div className="mb-1 font-semibold text-[var(--color-text-primary)]">노동절 8시간 임금 환산 (참고)</div>
+            <div className="mb-1 font-semibold text-[var(--color-text-primary)]">그날 일한 대가의 구성</div>
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
               <span>
                 휴일근로 임금(1.0배):{' '}
                 <strong style={{ color: 'var(--color-text-primary)' }}>{formatNumber(result.regular_pay_equivalent)}원</strong>
-                {result.already_in_monthly_pay && <span className="text-[var(--grey-700)]"> (월급에 포함)</span>}
-                {!result.already_in_monthly_pay && workerType === 'hourly' && hourlyIncludesWeekly && (
+                {workerType === 'hourly' && hourlyIncludesWeekly && (
                   <span className="text-[var(--grey-700)]"> (통상시급 기준 — 주휴분 별도)</span>
                 )}
               </span>
@@ -710,10 +732,21 @@ export default function HolidayPayCalculator() {
               </span>
               <span>=</span>
               <span>
-                환산 총액:{' '}
+                합계:{' '}
                 <strong style={{ color: 'var(--color-text-primary)' }}>{formatNumber(result.gross_holiday_pay)}원</strong>
               </span>
             </div>
+          </div>
+
+          {/* 유급휴일 1일분 — 일한 대가와 별개(월급제는 월급에 들어 있음) */}
+          <div className="mb-6 rounded-lg p-3 text-sm" style={{ color: 'var(--color-text-primary)', backgroundColor: 'color-mix(in srgb, var(--color-bg-surface) 70%, transparent)' }}>
+            <div className="mb-1 font-semibold">
+              유급휴일 1일분
+              {result.paid_holiday_day.status === 'separate' && result.paid_holiday_day.amount != null && (
+                <span> {formatNumber(result.paid_holiday_day.amount)}원 (별도)</span>
+              )}
+            </div>
+            <div className="text-xs" style={{ color: 'var(--grey-700)' }}>{result.paid_holiday_day.note}</div>
           </div>
 
           <div className="mb-4 rounded-lg p-4 text-sm" style={{ backgroundColor: 'color-mix(in srgb, var(--color-bg-surface) 70%, transparent)' }}>
@@ -753,7 +786,7 @@ export default function HolidayPayCalculator() {
                 설명
               </div>
               <ul className="space-y-1">
-                {result.notes.map((n, i) => (
+                {result.notes.filter((n) => n !== result.paid_holiday_day.note).map((n, i) => (
                   <li key={i}>• {n}</li>
                 ))}
               </ul>

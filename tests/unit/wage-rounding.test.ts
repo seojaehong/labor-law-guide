@@ -96,7 +96,9 @@ describe('네 계산기가 같은 1일 통상임금을 쓴다 — 월 3,000,000�
   });
 
   it('공휴일 가산(월급제 8시간 × 0.5) = 3,000,000 × 4 ÷ 209 = 57,416.27 → 57,417 (전에는 통상시급 14,354 로 버려 57,416)', () => {
-    expect(holiday.total).toBe(57_417);
+    // 월급 외에 휴일근로 임금 1.0배(3,000,000 × 8 ÷ 209 = 114,832.54 → 114,833)도 더한다(2026-11-22 P0)
+    expect(holiday.breakdown.map((b) => b.amount)).toEqual([114_833, 57_417]);
+    expect(holiday.total).toBe(172_250);
     expect(holiday.notes.join(' ')).toContain('14,354.07원');
   });
 });
@@ -107,7 +109,7 @@ describe('정수로 떨어지는 경우는 바뀌지 않는다 — 월 2,090,000
     expect(estimateLeavePay(2_090_000, 40, 5).amount).toBe(400_000);
     const s = calcShutdownAllowance({ fivePlus: true, cause: 'employer', average: { source: 'direct', daily: 200_000 }, ordinary: { unit: 'month', amount: 2_090_000, weeklyHours: 40, dailyHours: 8 }, days: 10 });
     expect([s.dailyOrdinary, s.proviso]).toEqual([80_000, 800_000]);
-    expect(calcHolidayPay({ worker_type: 'monthly', site_size: 'large', holiday_kind: 'public_holiday', monthly_pay: 2_090_000, worked_hours: 8 }).total).toBe(40_000);
+    expect(calcHolidayPay({ worker_type: 'monthly', site_size: 'large', holiday_kind: 'public_holiday', monthly_pay: 2_090_000, worked_hours: 8 }).total).toBe(120_000); // 10,000 × 1.5 × 8 — 월급 외 휴일근로 1.0배 + 가산 0.5배
   });
 });
 
@@ -130,9 +132,9 @@ describe('공휴일 수당 — 일용·시급(주휴 포함) 경로', () => {
 
   it('월 3,000,000원 · 10시간 · 야간 2시간 — 줄마다 올리므로 합계가 정확한 합의 올림보다 1~2원 많을 수 있다', () => {
     const r = calcHolidayPay({ worker_type: 'monthly', site_size: 'large', holiday_kind: 'public_holiday', monthly_pay: 3_000_000, worked_hours: 10, night_hours: 2 });
-    const exact = (3_000_000 * (0.5 * 8 + 1 * 2 + 0.5 * 2)) / 209; // 100,478.47
-    expect(r.breakdown.map((b) => b.amount)).toEqual([0, 57_417, 28_709, 14_355]);
-    expect(r.total).toBe(100_481);
+    const exact = (3_000_000 * (1 * 10 + 0.5 * 8 + 1 * 2 + 0.5 * 2)) / 209; // 244,019.14 — 휴일근로 1.0배 10시간도 월급 외(2026-11-22 P0)
+    expect(r.breakdown.map((b) => b.amount)).toEqual([143_541, 57_417, 28_709, 14_355]);
+    expect(r.total).toBe(244_022);
     expect(r.total - Math.ceil(exact)).toBe(2);
   });
 });
