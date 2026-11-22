@@ -105,14 +105,14 @@ describe('K1 산출시간이 있으면 몫이 시급 — 금액 예외는 월 �
     expect(f.detail).toContain('100,000');
     expect(f.detail).toContain('87H');
     expect(f.detail).toContain('계약 시급 1,149');
-    expect(f.detail).toContain('시간당 959'); // 261122 PR #250 검토 — 100,000 ÷ 104.29H(이전 104H = 962)
+    expect(f.detail).toContain('시간당 959'); // 261122 PR #250 검토 — 100,000 ÷ 104.2857H(이전 104H = 962)
   });
   it('P2 갈림 — 1,100,000 ÷ 220H(주 20H): 몫 5,000 미달·월급 1,100,000 ÷ 104H = 10,577 충족 → 자료 필요', () => {
     const f = run(contract(5, '09:00', '13:00', [base(1100000, 220)])).get('MINWAGE');
     expect(f.status).toBe('needs_data');
     expect(f.detail).toContain('금액과 산출시간이 맞지 않음');
     expect(f.detail).toContain('시간당 5,000');
-    expect(f.detail).toContain('월 104.29H = 시간당 10,548'); // 261122 PR #250 검토 — 이전 104H = 10,577
+    expect(f.detail).toContain('월 104.2857H = 시간당 10,548'); // 261122 PR #250 검토 — 이전 104H = 10,577
   });
   it('P2 둘 다 충족 — 시급제 20,000,000 ÷ 87H(주 20H)는 몫·금액 모두 띠 위지만 어느 쪽으로 보아도 충족', () => {
     const f = run(contract(5, '09:00', '13:00', [base(20000000, 87)], { pay_type: 'hourly' })).get('MINWAGE');
@@ -252,13 +252,13 @@ describe('F7 시급제도 매월 식대(산입범위)를 넣는다 — 계약 �
   it('시급 9,000 × 87H(주 20H) + 식대 50,000 → 9,000 + 50,000 ÷ 104H = 9,481 위반', () => {
     const f = hourly(5, '09:00', '13:00', [base(9000 * 87, 87), meal(50000)]);
     expect(f.status).toBe('violation');
-    // 261122 PR #250 검토로 분모 104H → 104.29H(시행령 식 값을 반올림으로 줄이지 않음)
-    expect(f.detail).toContain('계약 시급 9,000 + 식대 50,000 ÷ 104.29H = 시간당 9,479');
+    // 261122 PR #250 검토로 분모 104H → 104.2857H(시행령 식 값을 반올림으로 줄이지 않음)
+    expect(f.detail).toContain('계약 시급 9,000 + 식대 50,000 ÷ 104.2857H = 시간당 9,479');
   });
   it('같은 조건에 식대 200,000 → 시간당 10,923 — 최저임금은 충족, 주휴 항목이 없어 §17② 확인 risk(minor)', () => {
     const f = hourly(5, '09:00', '13:00', [base(9000 * 87, 87), meal(200000)]);
     expect([f.status, f.severity]).toEqual(['risk', 'minor']);
-    expect(f.detail).toContain('계약 시급 9,000 + 식대 200,000 ÷ 104.29H = 시간당 10,918 ≥');
+    expect(f.detail).toContain('계약 시급 9,000 + 식대 200,000 ÷ 104.2857H = 시간당 10,918 ≥');
   });
   // P1 — 분모는 산출시간이 주휴 포함 월 시간(209±1 등)일 때만 그 값, 그 밖에는 월 소정근로시간(주휴 포함)
   it('P1 주 40H 시급 1,740,000 ÷ 174H + 식대 60,000 → 10,000 + 60,000 ÷ 209H = 10,287 위반', () => {
@@ -269,12 +269,12 @@ describe('F7 시급제도 매월 식대(산입범위)를 넣는다 — 계약 �
   it('P1 주 20H 시급 9,000 × 87H + 식대 120,000 → 9,000 + 120,000 ÷ 104H = 10,154 위반', () => {
     const f = hourly(5, '09:00', '13:00', [base(9000 * 87, 87), meal(120000)]);
     expect(f.status).toBe('violation');
-    expect(f.detail).toContain('식대 120,000 ÷ 104.29H = 시간당 10,151');
+    expect(f.detail).toContain('식대 120,000 ÷ 104.2857H = 시간당 10,151');
   });
   it('P1 주휴 포함 시급 12,000 × 87H(주 20H) + 식대 30,000 → 10,000 + 30,000 ÷ 104H = 10,288 위반', () => {
     const f = hourly(5, '09:00', '13:00', [base(12000 * 87, 87, { includes_weekly_holiday: true }), meal(30000)]);
     expect(f.status).toBe('violation');
-    expect(f.detail).toContain('식대 30,000 ÷ 104.29H = 시간당 10,288');
+    expect(f.detail).toContain('식대 30,000 ÷ 104.2857H = 시간당 10,288');
   });
   it('P1 산출시간 87H 인데 1주 소정을 모르면 분모가 없다 — 9,000 + 식대 200,000 → 자료 필요(87H 로 나누지 않는다)', () => {
     const c = contract(5, '09:00', '13:00', [base(9000 * 87, 87), meal(200000)], { pay_type: 'hourly' });
@@ -299,7 +299,7 @@ describe('F7 시급제도 매월 식대(산입범위)를 넣는다 — 계약 �
   it('B — 주휴 포함 시급 12,000 × 87H(주 20H)는 미달이지만 식대 100,000 을 넣으면 12,000×20/24 + 100,000 ÷ 104H = 10,962 충족', () => {
     const f = hourly(5, '09:00', '13:00', [base(12000 * 87, 87, { includes_weekly_holiday: true }), meal(100000)]);
     expect(f.status).toBe('ok');
-    expect(f.detail).toContain('100,000 ÷ 104.29H = 시간당 10,959');
+    expect(f.detail).toContain('100,000 ÷ 104.2857H = 시간당 10,959');
     expect(hourly(5, '09:00', '13:00', [base(12000 * 87, 87, { includes_weekly_holiday: true })]).status).toBe('violation');
   });
   // Q2 — 연장은 소정근로시간이 아니다. 포괄의 「월 시간 + 연장 환산」 산출시간(241.6H)도 분모로 쓰지 않는다

@@ -11,6 +11,7 @@ import minwageJson from '@/lib/contract-check/data/minwage_table.json';
 import { checkContract } from '@/lib/contract-check/engine';
 import { normalize } from '@/lib/contract-check/normalize';
 import type { Contract, Finding, WageItem } from '@/lib/contract-check/types';
+import { INITIAL, toWriteForm } from '@/app/tools/contract-write/formState';
 import { checkWritten, designFromForm, reviewWritten, toContract, type WriteForm } from '@/lib/contract-write/contract';
 
 const MIN_2026 = (minwageJson as Record<string, number>)['2026'];
@@ -235,24 +236,40 @@ describe('② 수습 감액 — 1년 이상 기간을 정한 계약에만(최저
   });
 });
 
-// 261122 PR #250 검토 — 단시간·짧은 주의 월 시간. MINWAGE 가 월 시간을 정수로 반올림한 뒤 비교해(주 20H → 104.29H 를 104H)
-// 월 약 2,900원 미달을 적정으로 보고, 작성 화면은 다른 분모(×4.345 반올림 없음)로 낸 통상시급을 그 판정 옆에 적어 모순됐다.
-// 시행령 제5조제1항제3호는 「1주 시간 × 1년 평균 주 수 ÷ 12」에 끝수 처리를 두지 않는다. 반올림이 그 값보다 작게 만들면 쓰지 않는다.
-describe('① 단시간 월 시간 — 반올림으로 분모를 줄이지 않는다(주 20H = 104.29H)', () => {
+// 261122 PR #250 검토 — 단시간·짧은 주의 월 시간. MINWAGE 가 월 시간을 정수로 반올림한 뒤 비교해(주 20H 104.2857H → 104H)
+// 월 약 2,900원 미달을 적정으로 보고(반대로 주 21H 109.5H → 110H 는 충족을 위반으로 보고), 작성 화면은 다른 분모(×4.345)로 낸
+// 통상시급을 그 판정 옆에 적어 모순됐다. 시행령 제5조제1항제3호는 「1주 시간 × 1년 평균 주 수 ÷ 12」에 끝수 처리를 두지 않는다.
+// 예외는 최저임금 고시가 밝힌 주 40H + 주휴 8H 의 209시간 하나.
+describe('① 단시간 월 시간 — 반올림하지 않는다(주 20H = 104.2857H, 주 21H = 109.5H)', () => {
   const H20 = (24 * 365) / 7 / 12; // (20 + 주휴 4) × 365/7/12 = 104.2857…
-  const part = (amount: number) =>
-    get(contract({ work_end: '14:00', items: [monthlyBase(amount)].map((i) => ({ ...i, basis_hours: null, basis_text: null })) as WageItem[], wage: { monthly_total: amount } }), 'MINWAGE');
+  const noBasis = (amount: number) => [monthlyBase(amount)].map((i) => ({ ...i, basis_hours: null, basis_text: null })) as WageItem[];
+  const part = (amount: number) => get(contract({ work_end: '14:00', items: noBasis(amount), wage: { monthly_total: amount } }), 'MINWAGE');
 
-  it('주 20H 월 1,073,282원(÷ 104.29H = 10,291.7)은 위반', () => {
+  it('주 20H 월 1,073,282원(÷ 104.2857H = 10,291.9)은 위반, 수정 방향도 식 값으로', () => {
     const f = part(1_073_282);
     expect(f.status).toBe('violation');
-    expect(f.detail).toContain('월 104.29H = 시간당 10,292 < 2026년 최저시급 10,320 (시간당 28원 미달, 최저임금법 시행령 §5①3호)');
+    expect(f.detail).toBe(
+      '월 산입 임금 1,073,282(기본급) ÷ 최저임금 적용기준 월 104.2857H = 시간당 10,292 < 2026년 최저시급 10,320 (시간당 28원 미달, 최저임금법 시행령 §5①3호)',
+    );
+    const [n] = normalize([contract({ work_end: '14:00', items: noBasis(1_073_282), wage: { monthly_total: 1_073_282 } })]);
+    expect(amendContract(n).rows.find((r) => r.rule_code === 'MINWAGE')!.amendment).toContain('월 104.2857H = 1,076,229원');
   });
 
   it('경계 — 10,320 × 104.2857H = 1,076,228.57 → 1,076,228 은 적정, 1,076,227 은 위반', () => {
     expect(Math.floor(MIN_2026 * H20)).toBe(1_076_228);
     expect(part(1_076_228).status).toBe('ok');
     expect(part(1_076_227).status).toBe('violation');
+  });
+
+  it('주 21H(월·화·수 09:00~17:00 휴게 60분) — 10,320 × 109.5H = 1,130,040 은 적정(110H 로 올려 위반으로 보지 않는다)', () => {
+    const three = (amount: number) =>
+      get(
+        { ...contract({ work_end: '17:00', items: noBasis(amount), wage: { monthly_total: amount } }), work_time: { days_per_week: 3, start: '09:00', end: '17:00', breaks: [{ minutes: 60 }], daily_schedules: [], night_work: false } } as unknown as Contract,
+        'MINWAGE',
+      );
+    expect(three(1_130_040).status).toBe('ok');
+    expect(three(1_130_039).status).toBe('violation');
+    expect(three(1_130_040).detail).toContain('월 109.5H');
   });
 
   it('주 40H 5일은 고시 월 환산 209H 그대로', () => {
@@ -291,37 +308,56 @@ describe('① 작성 화면 최저임금 한 줄 — 보이는 시급과 판정�
     if (up) return num(up[1]) >= MIN_2026 && !l.warn ? null : `이상인데 ${up[1]}`;
     const down = l.text.match(/^통상시급 ([\d,.]+)원 — \d{4}년 최저시급 [\d,]+원보다 낮습니다$/);
     if (down) return num(down[1]) < MIN_2026 && l.warn ? null : `낮다는데 ${down[1]}`;
-    const calc = l.text.match(/시간당 ([\d,.]+)(?:[^≥<]*)?\s*(≥|<) \d{4}년 최저시급/);
+    // 통상시급이 판정과 어긋나 MINWAGE 계산 문장이 앞에 오는 줄 — 첫 비교 부호 바로 앞의 시급(비교 시급)을 본다
+    const calc = l.text.match(/^최저임금 비교: [^≥<]*?([\d,.]+)[^\d≥<]*(≥|<) \d{4}년 최저시급/);
     if (calc) return (calc[2] === '≥' ? num(calc[1]) >= MIN_2026 && !l.warn : num(calc[1]) < MIN_2026 && l.warn) ? null : `계산 ${calc[1]} ${calc[2]}`;
     return `모르는 문장: ${l.text}`;
   }
 
+  const SIX_DAYS: Partial<WriteForm> = { workDays: ['월', '화', '수', '목', '금', '토'], end: '15:40', weeklyRestDay: '일' };
+  const THREE_DAYS: Partial<WriteForm> = { workDays: ['월', '화', '수'], end: '17:00', breakMinutes: 60 };
+
   it('주 20H 1,073,282원 — 「10,292.31원 (… 이상)」 이 아니라 경고', () => {
     const l = review({ monthlyTotal: 1_073_282 });
-    expect(l.warn).toBe(true);
-    expect(l.text).not.toContain('이상)');
-    expect(coherent(l)).toBeNull();
+    expect(l).toEqual({ text: '통상시급 10,292.30원 — 2026년 최저시급 10,320원보다 낮습니다', warn: true });
   });
 
   it('주 22.5H(09:00~14:00 휴게 30분) 1,210,687원 — 「10,319.97원 (… 이상)」 이 아니다', () => {
     const l = review({ end: '14:00', breakMinutes: 30, monthlyTotal: 1_210_687 });
-    expect(l.text).not.toContain('10,319.97원 (');
-    expect(coherent(l)).toBeNull();
+    expect(l).toEqual({ text: '통상시급 10,319.96원 — 2026년 최저시급 10,320원보다 낮습니다', warn: true });
   });
 
   it('월·화·수 09:00~17:00(주 21H) 1,129,981원 — 「10,320.02원 — … 낮습니다」 가 아니다', () => {
-    const l = review({ workDays: ['월', '화', '수'], end: '17:00', breakMinutes: 60, monthlyTotal: 1_129_981 });
-    expect(l.text).not.toMatch(/10,320\.02원 — .*낮습니다/);
-    expect(coherent(l)).toBeNull();
+    const l = review({ ...THREE_DAYS, monthlyTotal: 1_129_981 });
+    expect(l).toEqual({
+      text:
+        '최저임금 비교: 월 산입 임금 1,129,981(기본급(주휴 포함)) ÷ 최저임금 적용기준 월 109.5H = 시간당 10,319 < 2026년 최저시급 10,320' +
+        ' (시간당 1원 미달, 최저임금법 시행령 §5①3호) — 통상시급 10,320.03원은 월 총액을 표의 시간(109.49시간)으로 나눈 값이라 비교 시급과 다릅니다',
+      warn: true,
+    });
+    // 10,320 × 109.5H = 1,130,040 부터는 적정 — 110H 로 올려 1,135,200 까지 위반으로 보던 구간이 없다
+    expect(review({ ...THREE_DAYS, monthlyTotal: 1_130_040 }).warn).toBe(false);
   });
 
+  it('주 6일 40H(09:00~15:40) 2,100,000원 — 통상시급(÷ 209시간) 10,047.85원 옆에 「이상」 을 붙이지 않는다', () => {
+    const l = review({ ...SIX_DAYS, monthlyTotal: 2_100_000 });
+    expect(l).toEqual({
+      text:
+        '최저임금 비교: 월 산입 임금 2,100,000(기본급(주휴 포함)) ÷ 최저임금 적용기준 월 202.7778H = 시간당 10,356 ≥ 2026년 최저시급 10,320' +
+        ' — 통상시급 10,047.85원은 월 총액을 표의 시간(209.00시간)으로 나눈 값이라 비교 시급과 다릅니다',
+      warn: false,
+    });
+  });
+
+  // 가운데 = MINWAGE 경계(10,320 × 식 시간) — 작성 쪽 경계(10,320 × 4.345 시간)도 ±3,000원 안에 든다. 주 6일은 두 경계가 멀어 따로 훑는다
   const SCHEDULES: Array<[string, Partial<WriteForm>, number]> = [
-    ['주 20H', {}, 1_076_000],
-    ['주 22.5H', { end: '14:00', breakMinutes: 30 }, 1_211_000],
-    ['주 21H 3일', { workDays: ['월', '화', '수'], end: '17:00', breakMinutes: 60 }, 1_130_000],
-    ['주 40H 6일', { workDays: ['월', '화', '수', '목', '금', '토'], end: '15:40', weeklyRestDay: '일' }, 2_100_000],
-    ['주 40H 5일', { end: '18:00', breakMinutes: 60 }, 2_157_000],
-    ['주 20H 100원 올림', { rounding: 'ceil100' }, 1_076_000],
+    ['주 20H', {}, 1_076_228],
+    ['주 22.5H', { end: '14:00', breakMinutes: 30 }, 1_210_782],
+    ['주 21H 3일', THREE_DAYS, 1_130_040],
+    ['주 40H 6일(점검 경계 202.78H)', SIX_DAYS, 2_092_667],
+    ['주 40H 6일(작성 경계 209H)', SIX_DAYS, 2_156_880],
+    ['주 40H 5일', { end: '18:00', breakMinutes: 60 }, 2_156_880],
+    ['주 20H 100원 올림', { rounding: 'ceil100' }, 1_076_228],
   ];
   it.each(SCHEDULES)('%s — 경계 ±3,000원을 7원 간격으로 훑어도 모순 0건', (_name, over, center) => {
     const bad: string[] = [];
@@ -330,6 +366,22 @@ describe('① 작성 화면 최저임금 한 줄 — 보이는 시급과 판정�
       if (r) bad.push(`${t}: ${r}`);
     }
     expect(bad.slice(0, 5)).toEqual([]);
+  });
+
+  // verify-llg contract-write 「주 20H 경계」 단계의 기대값 — 사이트 폼 기본값(연차 시간 기본 = 주 20H 면 4시간) 그대로
+  it('사이트 폼 기본값 · 월~금 09:00~13:00 휴게 0 · 1,117,504원 — 통상시급 10,320.5 이지만 최저임금 비교 시급은 미달', () => {
+    const parsed = toWriteForm(
+      { ...INITIAL, workplaceName: '합성', employeeName: '합성', startDate: '2026-03-01', writtenDate: '2026-02-26', location: '합성', duty: '합성', start: '09:00', end: '13:00', breakMinutes: '0', monthlyTotal: '1117504' },
+      '2026-02-26',
+    );
+    const form = parsed.form!;
+    // 기본급 = 10,320.5 × 104.28H(4.345주) = 1,076,222 — 시행령 식 104.2857H 의 1,076,228 에 6원 모자란다
+    expect(reviewWritten(form, designFromForm(form)).minimumWage).toEqual({
+      text:
+        '최저임금 비교: 월 산입 임금 1,076,222(기본급(주휴 포함)) ÷ 최저임금 적용기준 월 104.2857H = 시간당 10,319.93 < 2026년 최저시급 10,320' +
+        ' (시간당 0.07원 미달, 최저임금법 시행령 §5①3호) — 통상시급 10,320.50원은 월 총액을 표의 시간(108.28시간)으로 나눈 값이라 비교 시급과 다릅니다',
+      warn: true,
+    });
   });
 
   it('시급제 주 20H — 시급을 훑어도 모순 0건', () => {

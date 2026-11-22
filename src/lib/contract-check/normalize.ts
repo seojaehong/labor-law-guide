@@ -187,15 +187,15 @@ export function monthlyStandardHours(contract: Contract): number | null {
   return Math.round((wh.weekly + wh.holiday) * WEEKS_PER_MONTH_EXACT);
 }
 
-/** 최저임금 판정(MINWAGE)의 월 시간 — 시행령 제5조제1항제3호 식 (1주 소정 + 주휴) × 365/7/12 에는 끝수 처리가 없다.
- * 정수 반올림(monthlyStandardHours)이 그 값보다 작게 만들면(주 20H 104.29H → 104H) 분모가 줄어 미달을 놓치므로 식 값을 쓰고,
- * 크게 만들면(주 40H 208.57H → 고시 월 환산 기준 209H) 종전대로 반올림 값을 쓴다(261122 PR #250 검토). 1주 소정을 모르면 null.
- * monthlyStandardHours 는 산출시간 판별(±1H)에 그대로 둔다. */
+/** 최저임금 판정(MINWAGE)의 월 시간 — 시행령 제5조제1항제3호 식 (1주 소정 + 주휴) × 365/7/12 그대로(끝수 처리 규정이 없다).
+ * 정수 반올림(monthlyStandardHours)은 분모를 줄이면(주 20H 104.2857H → 104H) 미달을 놓치고, 늘리면(주 21H 109.5H → 110H,
+ * 주 6일 40H 202.78H → 203H) 충족을 위반으로 본다(261122 PR #250 검토). 예외는 주 40H + 주휴 8H 하나 — 최저임금 고시가 월 환산
+ * 기준시간을 209시간으로 밝힌다(208.57H). 1주 소정을 모르면 null. monthlyStandardHours 는 산출시간 판별(±1H)에 그대로 둔다. */
 export function minwageMonthHours(contract: Contract): number | null {
   const wh = weeklyHoliday(contract);
   if (!wh) return null;
-  const exact = (wh.weekly + wh.holiday) * WEEKS_PER_MONTH_EXACT;
-  return Math.max(Math.round(exact), exact);
+  if (wh.weekly === WEEKLY_STANDARD_HOURS && wh.holiday === WEEKLY_HOLIDAY_MAX_HOURS) return MONTHLY_BASE_HOURS;
+  return (wh.weekly + wh.holiday) * WEEKS_PER_MONTH_EXACT;
 }
 
 
