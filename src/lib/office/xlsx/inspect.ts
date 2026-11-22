@@ -24,6 +24,8 @@ export interface XlsxSheetInfo {
   orientation?: 'landscape' | 'portrait';
   paper?: string;
   fitToWidth?: number;
+  /** 틀고정: 고정되지 않은 첫 칸 주소(예 'B3') */
+  freeze?: string;
 }
 
 export interface XlsxInputCandidate {
@@ -47,6 +49,13 @@ const PAPER_NAMES: Record<number, string> = { 1: 'Letter', 8: 'A3', 9: 'A4', 11:
 
 function review(reason: string): InspectXlsxResult {
   return { ok: false, needsReview: true, reason, sheets: [], definedNames: [], inputCandidates: [] };
+}
+
+/** 1 → 'A', 27 → 'AA' */
+export function colLetter(n: number): string {
+  let s = '';
+  for (let x = n; x > 0; x = Math.floor((x - 1) / 26)) s = String.fromCharCode(65 + ((x - 1) % 26)) + s;
+  return s;
 }
 
 function decodeXml(s: string): string {
@@ -173,6 +182,10 @@ export async function inspectXlsx(bytes: Uint8Array): Promise<InspectXlsxResult>
     if (ps.orientation) info.orientation = ps.orientation;
     if (ps.paperSize !== undefined) info.paper = PAPER_NAMES[ps.paperSize] ?? String(ps.paperSize);
     if (ps.fitToPage && ps.fitToWidth !== undefined) info.fitToWidth = ps.fitToWidth;
+    const frozen = (ws.views ?? []).find((v) => v.state === 'frozen') as { xSplit?: number; ySplit?: number } | undefined;
+    if (frozen && ((frozen.xSplit ?? 0) > 0 || (frozen.ySplit ?? 0) > 0)) {
+      info.freeze = `${colLetter((frozen.xSplit ?? 0) + 1)}${(frozen.ySplit ?? 0) + 1}`;
+    }
     sheets.push(info);
     for (const v of validations) inputCandidates.push({ sheet: ws.name, range: v.range, reason: 'validation' });
   }

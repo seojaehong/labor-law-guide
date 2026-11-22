@@ -2,7 +2,7 @@
 // 고객 원본에 지정 셀·행만 채우고 나머지 서식은 그대로 둔다.
 // ExcelJS 는 저장할 때 옛 수식 캐시(<v>)를 남기므로, 수식 셀 캐시를 지우고 fullCalcOnLoad 를 켠다.
 import ExcelJS from 'exceljs';
-import { inspectXlsx, openXlsx, type InspectXlsxResult } from './inspect';
+import { colLetter, inspectXlsx, openXlsx, type InspectXlsxResult } from './inspect';
 
 export type FillValue = string | number | boolean | null;
 
@@ -126,6 +126,36 @@ function clearFormulaCaches(wb: ExcelJS.Workbook): void {
   }
 }
 
+/**
+ * ExcelJS 4.4 는 불러올 때 유효성 범위를 칸 단위로 풀고, 저장할 때 주소를 문자열 순으로 정렬해 다시 묶는다.
+ * 그래서 C3:C20 이 「C10:C20」+「C3:C20」 두 개로 겹쳐 써진다(행 번호 자릿수가 바뀌는 범위).
+ * 원래 범위의 칸이 모두 같은 유효성으로 남아 있으면 그 칸들을 원래 범위 키 하나로 되돌린다.
+ */
+function restoreValidationRanges(wb: ExcelJS.Workbook, before: InspectXlsxResult): void {
+  for (const ws of wb.worksheets) {
+    const info = before.sheets.find((s) => s.name === ws.name);
+    const dv = (ws as unknown as { dataValidations?: { model: Record<string, unknown> } }).dataValidations;
+    if (!info || !dv) continue;
+    const model = dv.model;
+    for (const v of info.validations) {
+      for (const part of v.range.split(/\s+/)) {
+        const m = part.match(/^([A-Z]{1,3})(\d+)(?::([A-Z]{1,3})(\d+))?$/);
+        if (!m || !m[3]) continue;
+        const c1 = ws.getColumn(m[1]).number;
+        const c2 = ws.getColumn(m[3]).number;
+        const r1 = Number(m[2]);
+        const r2 = Number(m[4]);
+        const keys: string[] = [];
+        for (let r = r1; r <= r2; r++) for (let c = c1; c <= c2; c++) keys.push(`${colLetter(c)}${r}`);
+        const first = model[keys[0]];
+        if (!first || !keys.every((k) => JSON.stringify(model[k]) === JSON.stringify(first))) continue;
+        for (const k of keys) delete model[k];
+        model[part] = first;
+      }
+    }
+  }
+}
+
 /** startRow 부터 지정 열이 모두 빈 행이 몇 줄 이어지는가(인쇄영역 끝 또는 시트 끝까지). */
 function templateCapacity(ws: ExcelJS.Worksheet, startRow: number, cols: string[]): number {
   let bound = ws.rowCount;
@@ -211,6 +241,7 @@ export async function fillXlsxTemplate(bytes: Uint8Array, opts: FillXlsxOptions 
   }
 
   clearFormulaCaches(wb);
+  restoreValidationRanges(wb, before);
   wb.calcProperties.fullCalcOnLoad = true;
   const out = new Uint8Array((await wb.xlsx.writeBuffer()) as ArrayBuffer);
 
