@@ -368,12 +368,15 @@ if (tools.includes('calc_severance')) {
   check(`severance 날짜 거꾸로면 오류(${bad.error})`, bad.ok === false && !!bad.error);
 }
 if (tools.includes('calc_holiday_pay')) {
-  // 엔진 식 — 월급 2,090,000 ÷ 209 = 통상시급 10,000. 월급제는 가산분만: 10,000 × 0.5 × 8 = 40,000
+  // 엔진 식 — 월급 2,090,000 ÷ 209 = 통상시급 10,000. 월급 외에 휴일근로 1.0배 + 가산 0.5배: 10,000 × 1.5 × 8 = 120,000
+  // (월급에 들어 있는 것은 쉬어도 받는 유급휴일 1일분 — 2026-11-22 P0)
   const m = await callNew('calc_holiday_pay', { workerType: 'monthly', fivePlus: true, holidayKind: 'public_holiday', monthlyPay: 2_090_000, workedHours: 8 });
-  check(`holiday_pay 월급제 5인 이상 8시간 → 가산 40,000(${m.headline?.[0]})`, m.ok && m.result?.total === 40_000 && m.result.base_hourly === 10_000 && m.result.already_in_monthly_pay === true);
-  // 시급 10,320 × 8 = 82,560 + 가산 41,280 = 123,840
+  check(`holiday_pay 월급제 5인 이상 8시간 → 월급 외 120,000(${m.headline?.[0]})`, m.ok && m.result?.total === 120_000 && m.result.base_hourly === 10_000 && m.result.already_in_monthly_pay === true && m.result.paid_holiday_day?.status === 'in_monthly_pay');
+  // 시급 10,320 × 8 = 82,560 + 가산 41,280 = 123,840 (일한 대가). 유급휴일 1일분 82,560 은 따로(headline 에 밝힌다)
   const h = await callNew('calc_holiday_pay', { workerType: 'hourly', fivePlus: true, holidayKind: 'labor_day', hourlyWage: 10_320, workedHours: 8, weeklyHours: 40 });
-  check(`holiday_pay 시급 10,320 노동절 8시간 → 123,840(${h.headline?.[0]})`, h.ok && h.result?.total === 123_840);
+  check(`holiday_pay 시급 10,320 노동절 8시간 → 123,840 + 유급휴일 1일분 82,560 따로(${h.headline?.join(' ')})`, h.ok && h.result?.total === 123_840 && h.result.paid_holiday_day?.amount === 82_560 && h.headline?.some((l) => /유급휴일 1일분 82,560원/.test(l)));
+  const night = await callNew('calc_holiday_pay', { workerType: 'hourly', fivePlus: true, holidayKind: 'public_holiday', hourlyWage: 12_000, workedHours: 4, nightHours: 6, weeklyHours: 40 });
+  check(`holiday_pay 야간 시간 > 일한 시간이면 오류(${night.error})`, night.ok === false && /야간/.test(night.error ?? ''));
   const small = await callNew('calc_holiday_pay', { workerType: 'monthly', fivePlus: false, holidayKind: 'public_holiday', monthlyPay: 2_090_000, workedHours: 8 });
   check('holiday_pay 4명 이하 관공서 공휴일은 가산 없음·안내', small.ok && small.result?.total === 0 && !!small.result.warning);
   const zero = await callNew('calc_holiday_pay', { workerType: 'daily', fivePlus: true, holidayKind: 'public_holiday', dailyWage: 0, workedHours: 8 });
