@@ -47,6 +47,19 @@ describe('sanction-format', () => {
     expect(r.overLength).toEqual(['서울행정법원 2099구합1']);
   });
 
+  it('md·jsonl·AI 붙여넣기도 검수 블록을 원문 칸으로 쓰고, 긴 판단은 원문 전체를 md 에 띄운다', () => {
+    const vetted = { ...short, block_status: 'pass', block_body: '❶ 합성 사실 문장이다.\n❷ 합성 양정 문장이다.', long_text: null };
+    const longj = { ...short, id: 'x', case_number: '2099구합9', block_status: 'long_judgment', block_body: null, long_text: '합성 긴 판단 문장이다.' };
+    const md = toMarkdown([vetted, longj]);
+    expect(md).toContain(`${blockHeader(vetted)}\n${vetted.block_body}`);
+    expect(md).toContain('합성 긴 판단 문장이다.');
+    expect(md).toMatch(/양정 판단이 한 문장으로 길어/);
+    const o = JSON.parse(toJsonl([vetted]).trim());
+    expect(o.block_body).toBe(vetted.block_body);
+    expect(o.block_status).toBe('pass');
+    expect(toAiPaste([vetted])).toContain(`<발췌>${vetted.block_body}</발췌>`);
+  });
+
   it('10줄을 넘는 발췌는 자르지 않고 블록에서 뺀 뒤 목록으로 알린다', () => {
     const { text, overLength } = toBlocks([short, long]);
     expect(text).not.toContain('2099누2');

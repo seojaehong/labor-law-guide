@@ -57,13 +57,22 @@ function facts(r) {
   ].filter(Boolean).join(' · ');
 }
 
+const vetted = (r) => r.block_status === 'pass' && r.block_body;
+/** 원문 칸 — 검수 블록이 있으면 그것, 없으면 발췌 */
+const excerpt = (r) => (vetted(r) ? r.block_body : r.quote);
+
 export function toMarkdown(rows) {
   const out = [];
   for (const r of rows) {
-    out.push(`### ${r.court} ${r.case_number}`, '', facts(r), '', blockHeader(r), r.quote, '');
-    if (r.evidence) out.push('사유 근거(원문)', r.evidence, '');
+    out.push(`### ${r.court} ${r.case_number}`, '', facts(r), '');
+    if (vetted(r)) out.push(blockHeader(r), r.block_body, '');
+    else if (r.long_text) out.push('※ 양정 판단이 한 문장으로 길어 10줄 블록에 싣지 않았습니다. 판단 원문 전체:', '', blockHeader(r), r.long_text, '');
+    else {
+      out.push(blockHeader(r), r.quote, '');
+      if (!fits(r)) out.push('※ 발췌가 10줄을 넘습니다. 문장 통째라 자르지 않았습니다.', '');
+    }
+    if (r.evidence && !vetted(r)) out.push('사유 근거(원문)', r.evidence, '');
     if (r.generated_note) out.push(`AI 정리 · 원문 아님: ${r.generated_note}`, '');
-    if (!fits(r)) out.push('※ 발췌가 10줄을 넘습니다. 문장 통째라 자르지 않았습니다.', '');
   }
   return out.join('\n').trimEnd() + '\n';
 }
@@ -72,6 +81,7 @@ export function toJsonl(rows) {
   return rows.map((r) => JSON.stringify({
     court: r.court, case_number: r.case_number, decided_on: r.decided_on ?? null, type: r.type, kind: r.kind ?? null,
     disposition: r.disposition ?? null, reason: r.reason ?? null, sanction: r.sanction ?? null,
+    block_status: r.block_status ?? null, block_body: vetted(r) ? r.block_body : null, long_text: r.long_text ?? null,
     quote: r.quote, quote_fits: fits(r), evidence: r.evidence ?? null, ai_note: r.generated_note ?? null,
   })).join('\n') + '\n';
 }
@@ -88,8 +98,8 @@ export function toAiPaste(rows, { purpose = '' } = {}) {
   const body = rows.map((r) => [
     `<판결 법원="${r.court}" 사건번호="${r.case_number}" 선고일="${fmtDate(r.decided_on)}">`,
     facts(r),
-    `<발췌>${r.quote}</발췌>`,
-    r.evidence ? `<사유근거>${r.evidence}</사유근거>` : null,
+    `<발췌>${excerpt(r)}</발췌>`,
+    r.evidence && !vetted(r) ? `<사유근거>${r.evidence}</사유근거>` : null,
     r.generated_note ? `<AI정리>${r.generated_note}</AI정리>` : null,
     '</판결>',
   ].filter(Boolean).join('\n'));
