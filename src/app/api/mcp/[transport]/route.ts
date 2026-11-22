@@ -3,6 +3,9 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { WebStandardStreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js';
 import { registerRemote } from '../../../../../tools/k-labor/remote.mjs';
+import { registerSanction } from '../../../../../tools/k-labor/groups/sanction.mjs';
+import { fetchSanctionCases } from '@/lib/sanction-cases';
+import { sanctionAuthorized } from '@/lib/sanction-token';
 import pkg from '../../../../../tools/k-labor/package.json';
 import { extractIp } from '@/lib/client-ip';
 import { MAX_MCP_BODY_BYTES, MAX_MCP_TOOL_ELEMENTS, createMcpIpLimiter, mcpError, readMcpJson } from '@/lib/mcp/request-boundary';
@@ -48,6 +51,8 @@ export async function POST(request: Request) {
   });
   try {
     registerRemote(server);
+    // 양정 사례는 1차에 우리만 — 토큰이 맞을 때만 등록한다(REMOTE_TOOLS 밖).
+    if (sanctionAuthorized(request)) registerSanction(server, { fetchCases: fetchSanctionCases });
     await server.connect(transport);
     const response = await transport.handleRequest(request, { parsedBody: parsed.data });
     response.headers.set('cache-control', 'no-store');
