@@ -19,18 +19,28 @@ export function fmtDate(s) {
   return m ? `${m[1]}. ${Number(m[2])}. ${Number(m[3])}.` : '';
 }
 
+/** 머리줄 — 처분명은 괄호로 붙인다(261122 결정: 블록 본문에 처분명이 없는 판결이 많다. 정본이 심급을 머리줄 괄호로 다는 자리와 같다) */
 export function blockHeader(r) {
   const d = fmtDate(r.decided_on);
-  return `[관련 판결] ${r.court} ${d ? `${d} 선고 ` : ''}${r.case_number} 판결`;
+  return `[관련 판결] ${r.court} ${d ? `${d} 선고 ` : ''}${r.case_number} 판결${r.disposition ? `(${r.disposition})` : ''}`;
 }
 
 const fits = (r) => r.quote_fits !== false && (r.quote?.length ?? 0) <= FIT;
 
-/** 의견서 블록. withEvidence 면 ❶ 사유 근거 ❷ 양정 발췌(근거도 10줄 안일 때만). */
+/**
+ * 의견서 블록.
+ * - 검수 블록(block_status 칸이 있는 행): 통과(pass)면 block_body 를 그대로 싣고, 아니면 빼서 목록으로 알린다.
+ * - 검수 전 행: 발췌(quote)가 10줄 안이면 싣는다. withEvidence 면 ❶ 사유 근거 ❷ 양정 발췌.
+ */
 export function toBlocks(rows, { withEvidence = false } = {}) {
   const blocks = [];
   const overLength = [];
   for (const r of rows) {
+    if ('block_status' in r) {
+      if (r.block_status === 'pass' && r.block_body) blocks.push(`${blockHeader(r)}\n${r.block_body}`);
+      else overLength.push(`${r.court} ${r.case_number}`);
+      continue;
+    }
     if (!fits(r)) { overLength.push(`${r.court} ${r.case_number}`); continue; }
     const ev = withEvidence && r.evidence && r.evidence.length <= FIT ? r.evidence : null;
     blocks.push(ev ? `${blockHeader(r)}\n❶ ${ev}\n❷ ${r.quote}` : `${blockHeader(r)}\n${r.quote}`);

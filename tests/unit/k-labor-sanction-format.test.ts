@@ -23,18 +23,28 @@ describe('sanction-format', () => {
     expect(fmtDate(null)).toBe('');
   });
 
-  it('머리줄은 정본 [관련 판결] 꼴', () => {
-    expect(blockHeader(short)).toBe('[관련 판결] 서울행정법원 2099. 1. 9. 선고 2099구합1 판결');
+  it('머리줄은 정본 [관련 판결] 꼴 + 처분명 괄호(261122 결정)', () => {
+    expect(blockHeader(short)).toBe('[관련 판결] 서울행정법원 2099. 1. 9. 선고 2099구합1 판결(정직 3월)');
+    expect(blockHeader({ ...short, disposition: null })).toBe('[관련 판결] 서울행정법원 2099. 1. 9. 선고 2099구합1 판결');
   });
 
   it('블록 = 머리줄 + 발췌 원문 그대로(인용부호·칸 이름 없음)', () => {
     const { text } = toBlocks([short]);
-    expect(text).toBe(`[관련 판결] 서울행정법원 2099. 1. 9. 선고 2099구합1 판결\n${short.quote}`);
+    expect(text).toBe(`[관련 판결] 서울행정법원 2099. 1. 9. 선고 2099구합1 판결(정직 3월)\n${short.quote}`);
   });
 
   it('근거를 함께 달면 ❶ 사유 근거 ❷ 양정 발췌 — 둘 다 원문 그대로', () => {
     const { text } = toBlocks([short], { withEvidence: true });
-    expect(text).toBe(`[관련 판결] 서울행정법원 2099. 1. 9. 선고 2099구합1 판결\n❶ ${short.evidence}\n❷ ${short.quote}`);
+    expect(text).toBe(`[관련 판결] 서울행정법원 2099. 1. 9. 선고 2099구합1 판결(정직 3월)\n❶ ${short.evidence}\n❷ ${short.quote}`);
+  });
+
+  it('검수 블록(block_body)이 있으면 그것을 싣고, 검수 통과가 아니면 블록에서 뺀다', () => {
+    const vetted = { ...short, block_body: '❶ 합성 사실 문장이다.\n❷ 합성 양정 문장이다.', block_status: 'pass' };
+    expect(toBlocks([vetted]).text).toBe(`${blockHeader(short)}\n${vetted.block_body}`);
+    const rejected = { ...short, block_body: null, block_status: 'no_fit' };
+    const r = toBlocks([rejected]);
+    expect(r.text).toBe('');
+    expect(r.overLength).toEqual(['서울행정법원 2099구합1']);
   });
 
   it('10줄을 넘는 발췌는 자르지 않고 블록에서 뺀 뒤 목록으로 알린다', () => {

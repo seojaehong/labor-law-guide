@@ -6,7 +6,7 @@ const rows = [{
   disposition: '정직 3월', reason: '일부 인정', sanction: '적정', kind: '폭언·폭행', quote: '합성 발췌 문장이다.', quote_fits: true,
   evidence: '합성 근거 문장이다.', generated_note: '합성 메모',
 }];
-const fetchSanctionCases = vi.fn(async (_q: unknown) => rows);
+const fetchSanctionCases = vi.fn(async (q: unknown) => (q ? rows : []));
 vi.mock('@/lib/sanction-cases', () => ({ fetchSanctionCases }));
 
 const route = await import('@/app/api/mcp/[transport]/route');
@@ -50,7 +50,7 @@ describe('양정 사례 도구 — 우리만(토큰)', () => {
     expect(names(json)).toContain('search_sanction_cases');
     const call = await rpc({ jsonrpc: '2.0', id: 2, method: 'tools/call', params: { name: 'search_sanction_cases', arguments: { type: 'harass', format: 'block' } } }, auth, '198.51.100.4');
     const text = call.json.result.content[0].text as string;
-    expect(text).toContain('[관련 판결] 서울행정법원 2099. 1. 9. 선고 2099구합1 판결\n합성 발췌 문장이다.');
+    expect(text).toContain('[관련 판결] 서울행정법원 2099. 1. 9. 선고 2099구합1 판결(정직 3월)\n합성 발췌 문장이다.');
     expect(fetchSanctionCases).toHaveBeenCalledWith(expect.objectContaining({ type: 'harass' }));
   });
 });
