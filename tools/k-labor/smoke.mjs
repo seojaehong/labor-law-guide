@@ -20,6 +20,7 @@ const drfFix = fileURLToPath(new URL('../../tests/fixtures/laws/drf/', import.me
 const hasDrfFix = fs.existsSync(drfFix);
 const DRF_LAW_FILES = { '285279-20261208': 'law-285279-20261208.json', '285279-20270101': 'law-285279-20270101.json', '900001-20270101': 'law-285279-20270101.json' };
 const drfCalls = [];
+const LAW_TARGETS = new Set(['law', 'licbyl', 'lsJoHstInf', 'prec', 'moelCgmExpc', 'expc']);
 const mockDrf = http.createServer((req, res) => {
   const u = new URL(req.url, 'http://mock');
   const p = Object.fromEntries(u.searchParams);
@@ -34,6 +35,14 @@ const mockDrf = http.createServer((req, res) => {
     }
   };
   if (p.OC !== MOCK_OC) return file('auth-fail.json');
+  // law 묶음 — 대상(target)별 고정 응답(tests/fixtures/laws/drf-open)
+  const svc = u.pathname === '/DRF/lawService.do';
+  const OPEN = {
+    law: 'law-search.json', licbyl: 'licbyl-search.json', lsJoHstInf: 'johst-001872-006000.json',
+    prec: svc ? (p.ID === '608505' ? 'prec-608505.json' : 'not-found.json') : 'prec-search.json',
+    moelCgmExpc: svc ? 'moel-15234.json' : 'moel-search.json', expc: svc ? 'expc-325381.json' : 'expc-search.json',
+  };
+  if (OPEN[p.target]) return file(`../drf-open/${OPEN[p.target]}`);
   if (u.pathname === '/DRF/lawSearch.do') {
     if (p.ancYd) return file('search-recent.json');
     if ((p.query ?? '').includes('근로기준법')) return file('search-lsa.json');
@@ -166,6 +175,9 @@ const ANN = {
   list_hr_forms: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
   check_hr_form: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
   make_hr_form: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
+  // law 묶음 — 읽기 전용, 법제처(외부)를 부른다
+  ...Object.fromEntries(['search_laws', 'list_law_forms', 'get_article_history', 'search_precedents', 'get_precedent', 'search_interpretations', 'get_interpretation']
+    .map((n) => [n, { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true }])),
 };
 // 커넥터 디렉터리 심사 — 빠진 도구 없이 전부 title 과 네 칸이 있다
 {
@@ -710,7 +722,8 @@ if (tools.includes('list_law_revisions')) {
     check(`list_law_revisions 최근 공포분 — 새 개정 1건 더함(${lrec.count} = 묶은 자료 ${stat.count} + 1: ${nev?.law})`,
       lrec.live?.ok && lrec.count === stat.count + 1 && !!nev?.source && nev.link.startsWith('https://www.law.go.kr/lsInfoP.do') && !lrec.events.some((e) => /항만법/.test(e.law)));
     check('list_law_revisions live:false 는 묶은 자료만', stat.source === '묶은 자료' && stat.live?.ok === false);
-    check(`가짜 법제처 요청 ${drfCalls.length}건 전부 OC·JSON·eflaw`, drfCalls.length > 0 && drfCalls.every((x) => x.oc && x.type === 'JSON' && x.target === 'eflaw'));
+    const wr = drfCalls.filter((x) => x.target === 'eflaw' || !LAW_TARGETS.has(x.target));
+    check(`가짜 법제처 요청(work-rules) ${wr.length}건 전부 OC·JSON·eflaw`, wr.length > 0 && wr.every((x) => x.oc && x.type === 'JSON' && x.target === 'eflaw'));
   }
   check('list_law_revisions 오늘(2026-10-21) 뒤는 시행 예정', lr.events.every((e) => (e.date > '2026-10-21') === e.when.startsWith('시행 예정')));
   if (inRepo) {
@@ -894,6 +907,74 @@ if (tools.includes('get_law_article')) {
     const v3 = await callRules('compare_law_versions', { law: '근로기준법', dateA: '2026-12-08', dateB: '2027-01-01' }, c3);
     check(`실제 법제처 — 2026. 12. 8. → 2027. 1. 1. 판 비교(${v3.changes?.map((x) => x.article + x.kind[0]).join(', ') ?? v3.error})`, v3.ok && v3.changes?.some((x) => x.article === '제44조의4' && x.kind === '신설'));
     await c3.close();
+  }
+}
+
+// ── law 묶음(법제처 조회) — 가짜 법제처 고정 응답으로. 원문 칸(LAW_OPEN_TEXT_FIELDS)은 빼고 이 묶음이 쓴 글의 금지어를 본다 ──
+if (tools.includes('search_laws') && hasDrfFix) {
+  const { LAW_OPEN_TEXT_FIELDS } = await import('./lib/law-open.mjs');
+  const OPEN_SKIP = new Set(LAW_OPEN_TEXT_FIELDS);
+  const own = (v, key = '') => {
+    if (OPEN_SKIP.has(key)) return [];
+    if (typeof v === 'string') return [v];
+    if (Array.isArray(v)) return v.flatMap((x) => own(x));
+    if (v && typeof v === 'object') return Object.entries(v).flatMap(([k, x]) => own(x, k));
+    return [];
+  };
+  const callLaw = async (name, args, client = c) => {
+    const j = await callJson(name, args, client);
+    const h = bannedIn(own(j).join('\n'));
+    check(`${name}: 이 묶음이 쓴 글 금지어 없음${h.length ? ` (${h.join(',')})` : ''}`, h.length === 0);
+    return j;
+  };
+  const before = drfCalls.length;
+  const sl = await callLaw('search_laws', { query: '근로기준법' });
+  check(`search_laws(${sl.laws?.[0]?.law} ${sl.laws?.[0]?.lawId}, 판 화면 주소)`, sl.ok && sl.laws?.[0]?.lawId === '001872' && sl.laws[0].link?.startsWith('https://www.law.go.kr/lsInfoP.do'));
+  const lf = await callLaw('list_law_forms', { law: '근로기준법 시행규칙', kind: '서식' });
+  check(`list_law_forms(${lf.forms?.length}건, ${lf.forms?.[0]?.label} · 파일 주소)`, lf.ok && lf.forms?.[0]?.label === '별지 제8호서식' && lf.forms.every((x) => /^https:\/\/www\.law\.go\.kr\/LSW\/flDownload\.do\?flSeq=\d+$/.test(x.file)));
+  const ah = await callLaw('get_article_history', { law: '근로기준법', article: '제60조' });
+  check(`get_article_history(${ah.history?.length}판, 첫 판 ${ah.history?.[0]?.effective} ${ah.history?.[0]?.changeReason})`, ah.ok && ah.history?.[0]?.changeReason === '제정');
+  const sp = await callLaw('search_precedents', { query: '통상임금' });
+  check(`search_precedents(${sp.precedents?.[0]?.caseNo})`, sp.ok && sp.precedents?.[0]?.caseNo === '2023다216777' && sp.precedents[0].link?.includes('precSeq=608505'));
+  const gp = await callLaw('get_precedent', { id: '608505' });
+  check(`get_precedent(${gp.caseNo}, 판시사항 ${gp.holdings?.length}자, 전문 ${gp.fullText?.length}자)`, gp.ok && gp.holdings?.startsWith('[1] 통상임금') && gp.fullText?.length > 0);
+  const gpNo = await callLaw('get_precedent', { id: '1' });
+  check(`get_precedent 없는 번호(${gpNo.error})`, gpNo.ok === false);
+  const si = await callLaw('search_interpretations', { query: '연차' });
+  check(`search_interpretations 기본 고용노동부(${si.interpretations?.[0]?.caseNo})`, si.ok && si.source === 'moel' && si.interpretations?.[0]?.id === '15234');
+  const gi = await callLaw('get_interpretation', { id: '325381', source: 'moleg' });
+  check(`get_interpretation 법제처(${gi.caseNo})`, gi.ok && gi.caseNo === '07-0039' && gi.reason?.length > 0);
+  const rrn = await callLaw('search_precedents', { query: '900101-1234568' });
+  const sent = drfCalls.slice(before);
+  check('law 주민번호 모양 입력은 멈춤', rrn.ok === false && !sent.some((x) => (x.query ?? '').includes('900101')));
+  check(`가짜 법제처 요청(law) ${sent.length}건 전부 OC·JSON`, sent.length > 0 && sent.every((x) => x.oc && x.type === 'JSON' && LAW_TARGETS.has(x.target)));
+
+  // OC 없음 — 부르지 않고 LAW_OC 를 알린다
+  const noOcEnv = { ...process.env, HOME: tmp, USERPROFILE: tmp };
+  delete noOcEnv.LAW_OC;
+  delete noOcEnv.LLG_DRF_BASE;
+  const c4 = new Client({ name: 'smoke-law-no-oc', version: '0' });
+  await c4.connect(spawn(noOcEnv, ['--groups', 'law']));
+  const n4 = await callLaw('search_precedents', { query: '통상임금' }, c4);
+  check('OC 없음 — law 묶음은 LAW_OC 를 알림', n4.ok === false && /LAW_OC/.test(n4.error));
+  await c4.close();
+
+  // 실제 법제처 — LAW_OC 가 있을 때만(목록 1번 + 본문 1번 + 해석 1번)
+  if (!REAL_OC) console.log('SKIP 실제 법제처 호출(law) — 이 셸에 LAW_OC 가 없습니다');
+  else {
+    const liveEnv = { ...process.env };
+    delete liveEnv.LLG_DRF_BASE;
+    const c5 = new Client({ name: 'smoke-law-live', version: '0' });
+    await c5.connect(spawn(liveEnv, ['--groups', 'law']));
+    const p5 = await callLaw('search_precedents', { caseNo: '2023다216777' }, c5);
+    check(`실제 법제처 — 판례 2023다216777 검색(${p5.precedents?.[0]?.id ?? p5.error})`, p5.ok && p5.precedents?.some((x) => x.caseNo === '2023다216777'));
+    const q5 = await callLaw('search_precedents', { query: '통상임금 재직조건', display: 3 }, c5);
+    check(`실제 법제처 — 판례 본문 검색 「통상임금 재직조건」 ${q5.total ?? q5.error}건`, q5.ok && q5.total > 0);
+    const f5 = await callLaw('list_law_forms', { law: '고용보험법 시행규칙', limit: 3 }, c5);
+    check(`실제 법제처 — 고용보험법 시행규칙 별표·서식 ${f5.total ?? f5.error}건(100개 넘는 목록을 쪽 넘겨 모음)`, f5.ok && f5.total > 100 && !f5.incomplete && f5.forms.every((x) => x.file?.includes('flDownload.do')));
+    const i5 = await callLaw('search_interpretations', { query: '연차 사용촉진', display: 3 }, c5);
+    check(`실제 법제처 — 고용노동부 해석 ${i5.total ?? i5.error}건`, i5.ok && i5.total > 0);
+    await c5.close();
   }
 }
 
