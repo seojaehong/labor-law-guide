@@ -180,6 +180,11 @@ const ANN = {
   extract_xlsx_rows: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
   fill_xlsx_template: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
   make_xlsx_from_spec: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
+  // office 원격판(base64) — 파일을 남기지 않으므로 전부 읽기 전용
+  inspect_xlsx_bytes: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+  extract_xlsx_rows_bytes: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+  fill_xlsx_template_bytes: { readOnlyHint: true, destructiveHint: false, idempotentHint: false, openWorldHint: false },
+  make_xlsx_from_spec_bytes: { readOnlyHint: true, destructiveHint: false, idempotentHint: false, openWorldHint: false },
   // law 묶음 — 읽기 전용, 법제처(외부)를 부른다
   ...Object.fromEntries(['search_laws', 'list_law_forms', 'get_article_history', 'search_precedents', 'get_precedent', 'search_interpretations', 'get_interpretation']
     .map((n) => [n, { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true }])),
@@ -192,7 +197,7 @@ const ANN = {
 }
 // 이 판에서 더한 도구 8개 + 사이트 도구 7개(groups/more) — 「대신·대행·대리」도 함께 막는다
 const NOSA_TOOLS = ['assess_labor_council', 'check_council_meeting', 'make_labor_council_forms', 'make_council_meeting_docs', 'make_council_election_docs', 'check_council_rules', 'record_council_history', 'export_council_vault', 'import_council_minutes', 'make_council_rules_comparison'];
-const NEW_TOOLS = ['calc_severance', 'calc_holiday_pay', 'calc_pay_proration', 'calc_shutdown_allowance', 'calc_annual_leave', 'settle_leave_on_exit', 'calc_retirement_tax', 'list_employer_duties', ...MORE_TOOLS, ...NOSA_TOOLS, 'make_hwpx_from_markdown', 'edit_hwpx_text', 'list_hr_forms', 'check_hr_form', 'make_hr_form', 'inspect_xlsx', 'extract_xlsx_rows', 'fill_xlsx_template', 'make_xlsx_from_spec'];
+const NEW_TOOLS = ['calc_severance', 'calc_holiday_pay', 'calc_pay_proration', 'calc_shutdown_allowance', 'calc_annual_leave', 'settle_leave_on_exit', 'calc_retirement_tax', 'list_employer_duties', ...MORE_TOOLS, ...NOSA_TOOLS, 'make_hwpx_from_markdown', 'edit_hwpx_text', 'list_hr_forms', 'check_hr_form', 'make_hr_form', 'inspect_xlsx', 'extract_xlsx_rows', 'fill_xlsx_template', 'make_xlsx_from_spec', 'inspect_xlsx_bytes', 'extract_xlsx_rows_bytes', 'fill_xlsx_template_bytes', 'make_xlsx_from_spec_bytes'];
 const NEW_WORDS = [...WORDS, '대신', '대행', '대리'];
 const bannedNew = (s) => (banned ? banned.bannedHits(s, NEW_WORDS) : []);
 for (const n of NEW_TOOLS) check(`${n}: 도구 목록에 있음`, tools.includes(n));
@@ -600,6 +605,10 @@ if (tools.includes('make_xlsx_from_spec')) {
   check(`office 구조 보기 — ${sh?.name} · ${sh?.orientation} · 유효성 ${sh?.validations?.length}`, ins.ok && sh?.name === '가상표' && sh.orientation === 'landscape' && sh.validations?.length === 1);
   const again = await callNew('make_xlsx_from_spec', { spec: SPEC, outFile: out });
   check('office 같은 이름은 덮어쓰지 않음', again.ok === false);
+  // 원격판(base64) — 같은 사양을 바이트로 만들고 바이트로 검사
+  const mb = await callNew('make_xlsx_from_spec_bytes', { spec: SPEC });
+  const ib = mb.ok ? await callNew('inspect_xlsx_bytes', { base64: mb.base64 }) : {};
+  check(`office base64 만들기 → 구조 보기 ${mb.outputBytes}B`, mb.ok && ib.ok && ib.sheets?.[0]?.name === '가상표');
 }
 
 // ── forms 묶음 ── 합성 값 → 서식 hwpx(동시 호출 · 같은 이름 거절 · 주민번호 모양 거절)
