@@ -137,15 +137,8 @@ function ToolCard({ t }: { t: AiTool }) {
         )}
         {t.install ? (
           <>
-            <p className="font-semibold" style={ink}>{t.install.authenticatedClaudeCode ? '공개 도구: 토큰 없이 Claude Code에 연결' : 'Claude Code 에서 한 줄로 연결'}</p>
+            <p className="font-semibold" style={ink}>Claude Code 에서 한 줄로 연결</p>
             <Code>{t.install.claudeCode}</Code>
-            {t.install.authenticatedClaudeCode && (
-              <>
-                <p className="font-semibold" style={ink}>현장 작업: 발급한 토큰으로 별도 연결 설정</p>
-                <p className="leading-6" style={sub}>기존 공개 연결이 있다면 AI 앱의 연결 설정에서 인증 정보를 바꾸세요. 토큰은 대화창에 붙이지 마세요.</p>
-                <Code>{t.install.authenticatedClaudeCode}</Code>
-              </>
-            )}
             {t.install.remote && (
               <>
                 <p className="font-semibold" style={ink}>설치 없이 원격 주소로 연결</p>
@@ -280,7 +273,7 @@ export default function AiToolsPage() {
           <ul className="mt-3 space-y-2 text-sm leading-6" style={sub}>
             <li className="flex gap-2"><span aria-hidden style={{ color: 'var(--color-accent)' }}>✓</span>로컬 4대보험 서식 도구의 명단은 PC 안의 파일로 전달합니다. 파일을 AI 대화에 첨부하는 방식과는 다릅니다.</li>
             <li className="flex gap-2"><span aria-hidden style={{ color: 'var(--color-accent)' }}>✓</span>원격 MCP는 호출 입력을 해당 도구 서버로 전송합니다. 로컬 설치 방식과 전송 범위가 다릅니다.</li>
-            <li className="flex gap-2"><span aria-hidden style={{ color: 'var(--color-accent)' }}>✓</span>SafeClaw의 인증된 문서 묶음 작업은 결과를 현장에 저장합니다. 공단 로그인 프로그램은 인증 정보를 해당 PC의 보안 저장소에 보관합니다.</li>
+            <li className="flex gap-2"><span aria-hidden style={{ color: 'var(--color-accent)' }}>✓</span>공단 로그인 프로그램은 인증 정보를 해당 PC의 보안 저장소에 보관합니다.</li>
           </ul>
         </div>
         <div aria-labelledby="not">

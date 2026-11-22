@@ -67,12 +67,13 @@ export interface AiTool {
   name: string;
   status: 'public' | 'preparing';
   package?: AiPackage['id']; // MCP 카드만. 설치형 프로그램은 없음
-  // 우리 패키지가 아닌 남의 MCP 서버(토큰 필요). package 를 두지 않고 원격 주소로만 설치한다(261113 — safeclaw)
+  // 우리 패키지가 아닌 남의 MCP 서버. package 를 두지 않고 원격 주소로만 설치한다(261113 — safeclaw)
+  // 토큰 발급·로그인은 그 서버의 사이트가 안내한다(261122 — 일의 무늬는 설치·연결만)
   external?: true;
   summary: string;
   does: string[];
   privacy: string;
-  install?: { claudeCode: string; remote?: string; authenticatedClaudeCode?: string };
+  install?: { claudeCode: string; remote?: string };
   // MCP 가 아닌 설치형 프로그램. 공개 카드는 install 또는 download 중 하나가 있어야 한다.
   download?: { href: string; label: string; requires: string; note?: string };
   links: { label: string; href: string }[];
@@ -87,24 +88,20 @@ export const AI_TOOLS: AiTool[] = [
     external: true,
     status: 'public',
     summary:
-      'SafeClaw(safeclaw.kr)의 산업안전 MCP 서버입니다. 공개 안전 지식·근거 조회와 위험성평가표 기본 초안은 토큰 없이 연결합니다. 현장 자료와 문서 묶음을 다루는 작업은 SafeClaw 로그인 후 발급한 토큰이 필요합니다.',
+      'SafeClaw(safeclaw.kr)의 산업안전 MCP 서버입니다. 다른 도구처럼 한 줄로 설치해 연결하면 안전 지식·근거 조회와 위험성평가표 기본 초안을 AI 대화에서 바로 씁니다.',
     does: [
-      '토큰 없이 — 등록된 안전 지식·근거 조회, 인용 검증, 비상연락처 정리',
-      '토큰 없이 — 위험성평가표는 외부 AI 호출 없는 기본 서식(template) 모드로만 제공합니다',
-      '토큰 필요 — 현장 문서 묶음 생성·검수와 인증 범위의 도구. 생성한 문서 묶음은 해당 현장에 귀속해 저장합니다',
-      '공개 연결만으로 현장·조직 자료를 읽거나 문서 묶음을 저장할 수는 없습니다',
+      '등록된 안전 지식·근거 조회, 인용 검증, 비상연락처 정리',
+      '위험성평가표는 외부 AI 호출 없는 기본 서식(template) 모드로만 제공합니다',
+      '현장·조직 자료를 읽거나 문서 묶음을 저장하지 않습니다',
     ],
     privacy:
-      '원격 호출의 입력은 SafeClaw 서버로 전송됩니다. 공개 범위는 현장·조직 데이터에 접근하지 않으며, 인증한 문서 묶음 작업의 결과는 해당 현장에 저장됩니다. AI 대화에 적은 내용은 사용 중인 AI 서비스에도 남을 수 있습니다. 발급 토큰은 대화창에 적지 말고 연결 설정에만 넣으세요. 일의 무늬는 이 토큰을 받거나 보관하지 않습니다.',
+      '원격 호출의 입력은 SafeClaw 서버로 전송됩니다. 현장·조직 데이터에는 접근하지 않습니다. AI 대화에 적은 내용은 사용 중인 AI 서비스에도 남을 수 있습니다.',
     install: {
       claudeCode:
         'claude mcp add --transport http safeclaw https://www.safeclaw.kr/api/mcp/mcp',
-      authenticatedClaudeCode:
-        'claude mcp add --transport http safeclaw https://www.safeclaw.kr/api/mcp/mcp -H "Authorization: Bearer <발급받은_토큰>"',
       remote: 'https://www.safeclaw.kr/api/mcp/mcp',
     },
     links: [
-      { label: '현장 작업용 토큰 발급 (SafeClaw 로그인 → 설정 → 내 AI 연결)', href: 'https://www.safeclaw.kr/settings/ai-connect' },
       { label: 'SafeClaw 사이트', href: 'https://www.safeclaw.kr' },
     ],
   },

@@ -56,14 +56,11 @@ describe('AI 연결 도구 목록', () => {
     for (const t of AI_TOOLS) {
       if (!t.install) continue;
       if (t.external) {
-        // 남의 서버(safeclaw) — 우리 패키지에 매달지 않는다. 원격 주소로 연결하며 공개 연결과 인증 연결은 구분한다
+        // 남의 서버(safeclaw) — 우리 패키지에 매달지 않는다. 원격 주소로 연결하고 인증 정보는 싣지 않는다
         expect(t.package, t.id).toBeUndefined();
         expect(t.install.remote, t.id).toMatch(/^https:\/\//);
         expect(t.install.claudeCode, t.id).toContain(`--transport http ${t.id} ${t.install.remote}`);
-        if (t.install.authenticatedClaudeCode) {
-          expect(t.install.authenticatedClaudeCode, t.id).toContain('Bearer <');
-          expect(t.install.claudeCode, t.id).not.toContain('Bearer');
-        }
+        expect(t.install.claudeCode, t.id).not.toContain('Bearer');
         continue;
       }
       const p = AI_PACKAGES.find((x) => x.id === t.package);
