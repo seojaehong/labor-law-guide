@@ -42,6 +42,7 @@
     "next": "16.1.6",
     "pdf-lib": "^1.17.1",
     "pdfjs-dist": "6.3.289",
+    "pptxgenjs": "4.0.1",
     "pretendard": "^1.3.9",
     "radix-ui": "^1.4.3",
     "react": "19.2.3",
