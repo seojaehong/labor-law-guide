@@ -26,9 +26,10 @@ function renderHome(latestBlogArticles = articles) {
   }));
 }
 
-// #190(261112) — 「AI에 연결해서 쓰기」 지면이 홈 전면에 올라왔다. 링크는 /ai-tools 의 절과 SafeClaw 연결 화면뿐이다.
+// #190(261112) — 「AI에 연결해서 쓰기」 지면이 홈 전면에 올라왔다. 링크는 /ai-tools 의 절뿐이다.
+// 261122 — SafeClaw 토큰 발급 화면(관리자 로그인) 직링크를 뺐다. 연결 안내는 /ai-tools#safeclaw 가 맡는다.
 const AI_LINKS = ['/ai-tools', '/ai-tools#list', '/ai-tools#calc', '/ai-tools#checks', '/ai-tools#work-rules',
-  '/ai-tools#sanjae-apply', '/ai-tools#safeclaw', 'https://www.safeclaw.kr/settings/ai-connect'];
+  '/ai-tools#sanjae-apply', '/ai-tools#safeclaw'];
 
 describe('Home launch scope', () => {
   it('promotes the approved four sections with an explicit law review status', () => {
