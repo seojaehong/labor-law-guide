@@ -19,7 +19,9 @@ test.beforeEach(async ({ page }) => {
 
 test('기억하기 삭제 실패를 알리고 반복 실패 후에도 같은 변경을 재시도할 수 있다', async ({ page }) => {
   const checkbox = page.getByLabel('이 브라우저에 최근 입력 기억하기', { exact: true });
-  await checkbox.uncheck();
+  // 🔴 uncheck() 는 상태가 안 바뀌면 그 자리에서 던진다. 이 시험은 삭제 실패를 주입해
+  //    체크가 되돌아오기를 기대하므로(제품 동작이 맞다) click() 으로 누르고 결과를 본다.
+  await checkbox.click();
   await expect(checkbox).toBeChecked();
   await expect(page.getByText(/기억하기 변경을 완료하지 못했습니다/)).toBeVisible();
   await expect(page.getByText('이 탭을 닫으면 최근 입력이 사라집니다.', { exact: true })).toHaveCount(0);

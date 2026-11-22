@@ -3,7 +3,9 @@ const sse = (events: unknown[]) => events.map(event => `data: ${typeof event ===
 async function isolate(page: Page) {
   await page.route('**/*', route => {
     const url = new URL(route.request().url());
-    if (url.hostname !== '127.0.0.1') return route.abort();
+    // 🔴 baseURL 이 http://localhost:3123 이라 '127.0.0.1' 만 받으면 자기 페이지 탐색까지 막혀
+    //    page.goto 가 net::ERR_FAILED 로 떨어진다. 둘 다 받는다 — contract-write-card-selection.spec.ts 와 같은 형태.
+    if (!['127.0.0.1', 'localhost'].includes(url.hostname)) return route.abort();
     if (url.pathname.startsWith('/api/')) {
       if (url.pathname === '/api/faq') return route.fulfill({json:{faqs:[],total:0}});
       if (url.pathname === '/api/chat/situation') return route.fulfill({json:{profile:{}}});
