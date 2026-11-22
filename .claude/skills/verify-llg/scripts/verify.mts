@@ -215,6 +215,7 @@ const FEATURES: Record<string, { path: string; journey: Journey; waitUntil?: 'lo
       await amt.fill('2156879');
       step('1원 모자람', '한 달 1원 적습니다', await answer(p));
       await p.getByLabel('시급', { exact: true }).check();
+      step('시급으로 바꾸면 월급 숫자를 가져오지 않는다(L-07)', '시급 금액을 넣어 주세요', await answer(p));
       await p.locator('input[inputmode=numeric]').first().fill('9288');
       await p.locator('summary', { hasText: '수습' }).click();
       await p.getByLabel('수습 기간이다').check();

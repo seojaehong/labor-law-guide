@@ -35,7 +35,9 @@ export default function MinWageClient() {
   const today = todayKst();
   const ys = useMemo(() => years(today), [today]);
   const [unit, setUnit] = useState<Unit>('month');
-  const [amount, setAmount] = useState('2156880');
+  // 단위마다 금액을 따로 둔다 — 월급 숫자가 시급 칸에 그대로 남아 「충족」으로 보이던 결함(L-07, 261122)
+  const [amounts, setAmounts] = useState<Record<Unit, string>>({ month: '2156880', week: '', day: '', hour: '' });
+  const amount = amounts[unit];
   const [bonus, setBonus] = useState('');
   const [welfare, setWelfare] = useState('');
   const [weekly, setWeekly] = useState('40');
@@ -81,7 +83,7 @@ export default function MinWageClient() {
         </fieldset>
         <label className={small} style={muted}>
           {UNIT_LABEL[unit]}(기본급 등, 연장·야간·휴일 수당은 빼고)
-          <input inputMode="numeric" className={inputCls} value={amount} onChange={(e) => setAmount(e.target.value)} />
+          <input inputMode="numeric" className={inputCls} value={amount} onChange={(e) => setAmounts((a) => ({ ...a, [unit]: e.target.value }))} />
         </label>
         {unit === 'day' ? (
           <label className={small} style={muted}>
