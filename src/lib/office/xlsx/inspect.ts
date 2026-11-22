@@ -104,28 +104,41 @@ function readValidations(sheetXml: string): XlsxValidation[] {
   return out;
 }
 
-export async function inspectXlsx(bytes: Uint8Array): Promise<InspectXlsxResult> {
-  if (!bytes || bytes.length === 0) return review('입력이 비어 있습니다.');
+/**
+ * 지원 형식 확인 후 xlsx 를 연다. 지원하지 않거나 열 수 없으면 { reason } 만 돌린다(예외 없음).
+ * inspect·extract·fill 이 같은 판정을 쓰도록 한곳에 둔다.
+ */
+export async function openXlsx(
+  bytes: Uint8Array,
+): Promise<{ wb: ExcelJS.Workbook; zip: JSZip } | { reason: string }> {
+  if (!bytes || bytes.length === 0) return { reason: '입력이 비어 있습니다.' };
   if (bytes.length >= 8 && OLE_SIGNATURE.every((b, i) => bytes[i] === b)) {
-    return review('.xls(BIFF)·암호화 문서(OLE 컨테이너)는 지원하지 않습니다. xlsx 로 저장해 주세요.');
+    return { reason: '.xls(BIFF)·암호화 문서(OLE 컨테이너)는 지원하지 않습니다. xlsx 로 저장해 주세요.' };
   }
-  if (bytes[0] !== 0x50 || bytes[1] !== 0x4b) return review('xlsx(zip) 형식이 아닙니다.');
+  if (bytes[0] !== 0x50 || bytes[1] !== 0x4b) return { reason: 'xlsx(zip) 형식이 아닙니다.' };
 
   let zip: JSZip;
   try {
     zip = await JSZip.loadAsync(bytes);
   } catch (e) {
-    return review(`zip 을 열 수 없습니다: ${(e as Error).message}`);
+    return { reason: `zip 을 열 수 없습니다: ${(e as Error).message}` };
   }
-  if (!zip.file('xl/workbook.xml')) return review('xl/workbook.xml 이 없습니다(xlsx 가 아님).');
-  if (zip.file('xl/vbaProject.bin')) return review('매크로(xlsm)가 든 문서는 지원하지 않습니다.');
+  if (!zip.file('xl/workbook.xml')) return { reason: 'xl/workbook.xml 이 없습니다(xlsx 가 아님).' };
+  if (zip.file('xl/vbaProject.bin')) return { reason: '매크로(xlsm)가 든 문서는 지원하지 않습니다.' };
 
   const wb = new ExcelJS.Workbook();
   try {
     await wb.xlsx.load(bytes as unknown as ExcelJS.Buffer);
   } catch (e) {
-    return review(`ExcelJS 가 문서를 열지 못했습니다: ${(e as Error).message}`);
+    return { reason: `ExcelJS 가 문서를 열지 못했습니다: ${(e as Error).message}` };
   }
+  return { wb, zip };
+}
+
+export async function inspectXlsx(bytes: Uint8Array): Promise<InspectXlsxResult> {
+  const opened = await openXlsx(bytes);
+  if ('reason' in opened) return review(opened.reason);
+  const { wb, zip } = opened;
 
   const paths = await sheetPaths(zip);
   const sheets: XlsxSheetInfo[] = [];
