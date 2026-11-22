@@ -193,6 +193,15 @@ describe('② 수습 감액 — 1년 이상 기간을 정한 계약에만(최저
     expect(prob('2027-11-30').status).toBe('ok');
   });
 
+  it('날짜가 YYYY-MM-DD 가 아니면 던지지 않고 기간을 보지 않는다', () => {
+    const c = contract({
+      employment_type: 'fixed_term',
+      items: [monthlyBase(Math.ceil(MONTHLY_2026 * 0.9))],
+      period: { end_date: '2027-05', indefinite: false, probation: { applied: true, months: 3, wage_rate_pct: 90, simple_labor_job: false } },
+    });
+    expect(() => get(c, 'MINWAGE-PROBATION')).not.toThrow();
+  });
+
   it('기간의 정함이 없으면 적정', () => {
     expect(prob(null).status).toBe('ok');
   });

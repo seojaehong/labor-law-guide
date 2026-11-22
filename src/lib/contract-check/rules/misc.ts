@@ -65,7 +65,10 @@ export function atLeastOneYear(start: string, end: string): boolean {
 export function probationTermUnderOneYear(contract: Contract): boolean {
   const start = contract.period?.start_date;
   const end = contract.period?.end_date;
-  return !!start && !!end && contract.period?.indefinite !== true && !atLeastOneYear(start, end);
+  // 날짜가 YYYY-MM-DD 가 아니면(검사를 거치지 않은 입력) 기간을 셀 수 없다 — 던지지 않고 보지 않는다
+  const iso = /^\d{4}-\d{2}-\d{2}$/;
+  if (!start || !end || !iso.test(start) || !iso.test(end)) return false;
+  return contract.period?.indefinite !== true && !atLeastOneYear(start, end);
 }
 
 export const ruleMinwageProbation: RuleFn = (contract) => {
