@@ -187,6 +187,17 @@ export function monthlyStandardHours(contract: Contract): number | null {
   return Math.round((wh.weekly + wh.holiday) * WEEKS_PER_MONTH_EXACT);
 }
 
+/** 최저임금 판정(MINWAGE)의 월 시간 — 시행령 제5조제1항제3호 식 (1주 소정 + 주휴) × 365/7/12 그대로(끝수 처리 규정이 없다).
+ * 정수 반올림(monthlyStandardHours)은 분모를 줄이면(주 20H 104.2857H → 104H) 미달을 놓치고, 늘리면(주 21H 109.5H → 110H,
+ * 주 6일 40H 202.78H → 203H) 충족을 위반으로 본다(261122 PR #250 검토). 예외는 주 40H + 주휴 8H 하나 — 최저임금 고시가 월 환산
+ * 기준시간을 209시간으로 밝힌다(208.57H). 1주 소정을 모르면 null. monthlyStandardHours 는 산출시간 판별(±1H)에 그대로 둔다. */
+export function minwageMonthHours(contract: Contract): number | null {
+  const wh = weeklyHoliday(contract);
+  if (!wh) return null;
+  if (wh.weekly === WEEKLY_STANDARD_HOURS && wh.holiday === WEEKLY_HOLIDAY_MAX_HOURS) return MONTHLY_BASE_HOURS;
+  return (wh.weekly + wh.holiday) * WEEKS_PER_MONTH_EXACT;
+}
+
 
 /** 단시간 1주 소정 초과시간 = max(0, 실근로 − 소정). 소정은 믿을 수 있는 근로일별 시간(출처 daily)일 때만 쓰고,
  * 아니면 소정 = 실근로로 보아 0. 실근로 미상 null. PART-TIME-OT(법리 E)와 포괄 총액 역산(D)이 같이 쓴다 —

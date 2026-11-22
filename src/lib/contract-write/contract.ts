@@ -3,6 +3,7 @@
 
 import { checkContract } from '@/lib/contract-check/engine';
 import { dayWorkMinutes, MINWAGE_TABLE, normalize } from '@/lib/contract-check/normalize';
+import { atLeastOneYear } from '@/lib/contract-check/rules/misc';
 import { minwageAssessment } from '@/lib/contract-check/rules/wage';
 import type { Contract, Finding, WageItem, WageItemCode } from '@/lib/contract-check/types';
 
@@ -120,14 +121,7 @@ function holidayNote(form: WriteForm): string {
   return `${note}${over8}${dropped > 0 ? `(공휴일 주에 빠지는 1주 연장 ${dropped}H)` : ''}`;
 }
 
-/** 시작일부터 종료일까지가 1년 이상인지(종료일 = 시작일 + 1년 − 1일이면 1년) */
-function atLeastOneYear(start: string, end: string): boolean {
-  const [y, m, d] = start.split('-').map(Number);
-  const oneYearLast = new Date(Date.UTC(y + 1, m - 1, d - 1)).toISOString().slice(0, 10);
-  return end >= oneYearLast;
-}
-
-/** 수습 감액을 쓸 수 없는 사유. 없으면 null */
+/** 수습 감액을 쓸 수 없는 사유. 없으면 null. 1년 경계는 점검 규칙 MINWAGE-PROBATION 과 같은 atLeastOneYear 를 쓴다 */
 export function probationIssue(form: WriteForm): string | null {
   const p = form.probation;
   if (!p?.reduced) return null;
@@ -317,10 +311,22 @@ export function reviewWritten(form: WriteForm, design: DesignResult): WrittenRev
   const rate = `통상시급 ${rateText(design.rate)}원`;
   const minwage = findings.find((f) => f.rule_code === 'MINWAGE');
   let line: WrittenReview['minimumWage'];
+  // 미달이면 시급을 소수 둘째 자리에서 버려 적는다 — 반올림하면 2,156,879 ÷ 209H 가 「10,320.00원 — 10,320원보다 낮습니다」가 된다(261122)
+  const floored = Math.floor(design.rate * 100) / 100;
+  // 통상시급(설계: 총액 ÷ ×4.345 시간)과 MINWAGE 의 비교 시급(산입 임금 ÷ 최저임금 적용기준 월 시간)은 분모·금액이 다를 수 있다
+  // (단시간 104.28H↔104.2857H, 주 6일 40H 209H↔202.78H, 단위 올림·잔액 항목). 통상시급이 판정과 어긋나면 MINWAGE 계산 문장을 앞에 적고
+  // 통상시급은 그 뒤에 무엇으로 나눈 값인지 밝혀 적는다 — 판정 옆 첫 시급이 판정과 맞게(261122 PR #250 검토)
+  const agrees =
+    minimum !== undefined &&
+    (minwage?.status === 'ok' ? rate2(design.rate) >= minimum : minwage?.status === 'violation' ? floored < minimum : true);
+  const apart = () =>
+    `최저임금 비교: ${minwage?.detail} — 통상시급 ${rateText(design.rate)}원은 ${design.period === 'day' ? '하루 지급액' : '월 총액'}을 표의 시간(${design.totalHours.toFixed(2)}시간)으로 나눈 값이라 비교 시급과 다릅니다`;
   // 표에 없는 해는 마지막 해 값으로 대신하지 않는다 — 비교하지 않았다고 말한다
   if (minimum === undefined) line = { text: `${rate} — ${year}년 최저시급 미등록(비교하지 않았습니다)`, warn: true };
-  else if (minwage?.status === 'ok') line = { text: `${rate} (${year}년 최저시급 ${minimum.toLocaleString('ko-KR')}원 이상)`, warn: false };
-  else if (minwage?.status === 'violation') line = { text: `${rate} — ${year}년 최저시급 ${minimum.toLocaleString('ko-KR')}원보다 낮습니다`, warn: true };
+  else if (minwage?.status === 'ok' && agrees) line = { text: `${rate} (${year}년 최저시급 ${minimum.toLocaleString('ko-KR')}원 이상)`, warn: false };
+  else if (minwage?.status === 'ok') line = { text: apart(), warn: false };
+  else if (minwage?.status === 'violation' && agrees) line = { text: `통상시급 ${rateText(floored)}원 — ${year}년 최저시급 ${minimum.toLocaleString('ko-KR')}원보다 낮습니다`, warn: true };
+  else if (minwage?.status === 'violation') line = { text: apart(), warn: true };
   else line = { text: `${rate} — 최저임금: ${minwage?.detail ?? '판단하지 못했습니다'}`, warn: true };
   // 시작 연도부터 낮으면 다음 해도 낮다 — 같은 말을 되풀이하지 않는다
   const later = minwage?.status === 'violation' ? [] : laterMinimumWage(form, raw);

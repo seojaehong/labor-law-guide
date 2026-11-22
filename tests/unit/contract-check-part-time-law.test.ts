@@ -149,18 +149,20 @@ describe('C 월급제 — 산입 임금 합계 ÷ 법정 월 환산시간', () =
     const f = run(full([base(2100000), { code: 'MEAL', label: '식대', amount: 100000 }])).get('MINWAGE');
     expect(f.status).toBe('risk');
   });
-  it('단시간 주 20H 월급 → 104H 로 나눈다, 수정 방향도 209H 가 아니다', () => {
+  // 261122 PR #250 검토로 기대값을 바꿈: 104H(정수 반올림) → 104.2857H — 반올림이 시행령 식 값보다 분모를 줄이면 쓰지 않는다
+  it('단시간 주 20H 월급 → 104.2857H 로 나눈다, 수정 방향도 209H 가 아니다', () => {
     // 월급제라고 밝힌다 — 형태 미상(산출시간·pay_type 없음) 단시간은 위반 대신 「시급제·월급제 확인 필요」(review3 #2)
     const { n, findings } = run(contract(5, '09:00', '13:00', [base(897840)], { pay_type: 'monthly' }));
     const f = findings.find((x) => x.rule_code === 'MINWAGE')!;
     expect(f.status).toBe('violation');
-    expect(f.detail).toContain('104H');
+    expect(f.detail).toContain('104.2857H');
     const a = amendmentMap(n, findings)['MINWAGE'];
-    expect(a).toContain('104H');
+    expect(a).toContain('104.2857H');
     expect(a).not.toContain('209H');
   });
-  it('주 6일 40H 월급 → (40 + 6.67) × 365/7/12 ≒ 203H', () => {
-    expect(run(contract(6, '09:00', '15:40', [base(2100000)])).get('MINWAGE').detail).toContain('203H');
+  // 261122 PR #250 검토로 기대값을 바꿈: 203H(정수 반올림) → 202.7778H — 시행령 식에 끝수 처리가 없고, 209H 는 주 40H + 주휴 8H 고시값뿐
+  it('주 6일 40H 월급 → (40 + 6.67) × 365/7/12 = 202.7778H', () => {
+    expect(run(contract(6, '09:00', '15:40', [base(2100000)])).get('MINWAGE').detail).toContain('월 202.7778H');
   });
   it('산출근거가 주휴 포함 월 시간(209H)이면 월급제로 본다', () => {
     const f = run(raw('syn-fixed-1y-0001')).get('MINWAGE');

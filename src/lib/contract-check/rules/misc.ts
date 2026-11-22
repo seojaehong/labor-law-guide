@@ -5,7 +5,7 @@
 // ANNUAL-LEAVE: 연차수당 선지급 시간 > 0 → risk (사용권 보장·미사용 정산 별도)
 // INCLUSIVE-WAGE: inclusive_wage=true → risk (고정 스케줄이면 산정 가능)
 // MINWAGE-PROBATION: 감액 문구 있으나 applied=false/null → minor risk (문구 정리 권고). 감액 기간 = reduced_months(있으면) 또는
-//   months — 3개월 넘으면 violation. 근로계약서 작성은 수습 6개월 중 처음 3개월만 감액하므로 reduced_months 를 따로 넘긴다(PR #140 검토 5)
+//   months — 3개월 넘으면 violation. 시작·종료일로 1년 미만 기간을 정한 계약이면 violation(최저임금법 §5②, 261122). 근로계약서 작성은 수습 6개월 중 처음 3개월만 감액하므로 reduced_months 를 따로 넘긴다(PR #140 검토 5)
 // MINOR-WORKER: is_minor=true → risk, 아니면 ok
 
 import type { Contract, Finding } from '../types';
@@ -52,6 +52,25 @@ export const ruleInclusiveWage: RuleFn = (contract) => {
   );
 };
 
+/** 시작일부터 종료일까지가 1년 이상인지(종료일 = 시작일 + 1년 − 1일이면 1년). 수습 감액 요건(최저임금법 §5② 「1년 이상의
+ * 기간을 정하여 근로계약을 체결」)을 점검 규칙(MINWAGE-PROBATION)과 근로계약서 작성(contract-write probationIssue)이 같이 쓴다 */
+export function atLeastOneYear(start: string, end: string): boolean {
+  const [y, m, d] = start.split('-').map(Number);
+  const oneYearLast = new Date(Date.UTC(y + 1, m - 1, d - 1)).toISOString().slice(0, 10);
+  return end >= oneYearLast;
+}
+
+/** 1년 미만 기간을 정한 계약인가 — 수습 감액 대상이 아니다(최저임금법 §5②, 261122 원격 점검 P1). 시작·종료일이 다 있고
+ * 기간의 정함이 없다고 표시되지 않았을 때만 true. 종료일이 없는 기간제는 기간을 알 수 없어 false(종전대로) */
+export function probationTermUnderOneYear(contract: Contract): boolean {
+  const start = contract.period?.start_date;
+  const end = contract.period?.end_date;
+  // 날짜가 YYYY-MM-DD 가 아니면(검사를 거치지 않은 입력) 기간을 셀 수 없다 — 던지지 않고 보지 않는다
+  const iso = /^\d{4}-\d{2}-\d{2}$/;
+  if (!start || !end || !iso.test(start) || !iso.test(end)) return false;
+  return contract.period?.indefinite !== true && !atLeastOneYear(start, end);
+}
+
 export const ruleMinwageProbation: RuleFn = (contract) => {
   const prob = contract.period?.probation ?? {};
   const pct = prob.wage_rate_pct;
@@ -72,6 +91,14 @@ export const ruleMinwageProbation: RuleFn = (contract) => {
       'MINWAGE-PROBATION',
       'violation',
       `단순노무직 수습 감액 ${pct}% — 최저임금법 시행령 §3 감액 불가`,
+    );
+  }
+  if (probationTermUnderOneYear(contract)) {
+    return makeFinding(
+      'MINWAGE-PROBATION',
+      'violation',
+      `계약기간 ${contract.period?.start_date}~${contract.period?.end_date} 은 1년 미만 — ` +
+        `수습 ${pct}% 감액은 1년 이상의 기간을 정한 계약에만 가능(최저임금법 §5②)`,
     );
   }
   // 감액 기간을 따로 적었으면(근로계약서 작성 — 수습 6개월 중 처음 3개월) 그 기간으로 본다. 없으면 수습 기간 전체
