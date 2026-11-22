@@ -234,3 +234,110 @@ describe('② 수습 감액 — 1년 이상 기간을 정한 계약에만(최저
     expect(() => designFromForm({ ...form, endDate: '2027-11-29' })).toThrow(/1년/);
   });
 });
+
+// 261122 PR #250 검토 — 단시간·짧은 주의 월 시간. MINWAGE 가 월 시간을 정수로 반올림한 뒤 비교해(주 20H → 104.29H 를 104H)
+// 월 약 2,900원 미달을 적정으로 보고, 작성 화면은 다른 분모(×4.345 반올림 없음)로 낸 통상시급을 그 판정 옆에 적어 모순됐다.
+// 시행령 제5조제1항제3호는 「1주 시간 × 1년 평균 주 수 ÷ 12」에 끝수 처리를 두지 않는다. 반올림이 그 값보다 작게 만들면 쓰지 않는다.
+describe('① 단시간 월 시간 — 반올림으로 분모를 줄이지 않는다(주 20H = 104.29H)', () => {
+  const H20 = (24 * 365) / 7 / 12; // (20 + 주휴 4) × 365/7/12 = 104.2857…
+  const part = (amount: number) =>
+    get(contract({ work_end: '14:00', items: [monthlyBase(amount)].map((i) => ({ ...i, basis_hours: null, basis_text: null })) as WageItem[], wage: { monthly_total: amount } }), 'MINWAGE');
+
+  it('주 20H 월 1,073,282원(÷ 104.29H = 10,291.7)은 위반', () => {
+    const f = part(1_073_282);
+    expect(f.status).toBe('violation');
+    expect(f.detail).toContain('월 104.29H = 시간당 10,292 < 2026년 최저시급 10,320 (시간당 28원 미달, 최저임금법 시행령 §5①3호)');
+  });
+
+  it('경계 — 10,320 × 104.2857H = 1,076,228.57 → 1,076,228 은 적정, 1,076,227 은 위반', () => {
+    expect(Math.floor(MIN_2026 * H20)).toBe(1_076_228);
+    expect(part(1_076_228).status).toBe('ok');
+    expect(part(1_076_227).status).toBe('violation');
+  });
+
+  it('주 40H 5일은 고시 월 환산 209H 그대로', () => {
+    expect(get(contract({ items: [monthlyBase(MONTHLY_2026)], wage: { monthly_total: MONTHLY_2026 } }), 'MINWAGE').detail).toContain('209H');
+  });
+});
+
+describe('① 작성 화면 최저임금 한 줄 — 보이는 시급과 판정이 어긋나지 않는다(단시간·짧은 주·6일·단위 올림)', () => {
+  const BASE_FORM: WriteForm = {
+    workplaceName: '합성테스트 사업장',
+    employeeCount5plus: true,
+    employeeName: '합성01',
+    startDate: '2026-12-01',
+    endDate: null,
+    location: '합성테스트 본점',
+    duty: '사무 보조',
+    workDays: ['월', '화', '수', '목', '금'],
+    start: '09:00',
+    end: '13:00',
+    breakMinutes: 0,
+    weeklyRestDay: '일',
+    writtenDate: '2026-11-25',
+    holidayDaysPerYear: 0,
+    overrides: { leaveHours: 0 },
+    payday: '매월 10일',
+    paymentMethod: '근로자 명의 계좌이체',
+  };
+  const review = (over: Partial<WriteForm>) => {
+    const form = { ...BASE_FORM, ...over };
+    return reviewWritten(form, designFromForm(form)).minimumWage;
+  };
+  const num = (s: string) => Number(s.replace(/,/g, ''));
+  /** 줄이 스스로 모순되지 않는가 — 「이상」이면 적힌 시급 ≥ 최저시급, 「낮습니다」면 적힌 시급 < 최저시급 */
+  function coherent(l: { text: string; warn: boolean }): string | null {
+    const up = l.text.match(/^통상시급 ([\d,.]+)원 \(\d{4}년 최저시급 [\d,]+원 이상\)$/);
+    if (up) return num(up[1]) >= MIN_2026 && !l.warn ? null : `이상인데 ${up[1]}`;
+    const down = l.text.match(/^통상시급 ([\d,.]+)원 — \d{4}년 최저시급 [\d,]+원보다 낮습니다$/);
+    if (down) return num(down[1]) < MIN_2026 && l.warn ? null : `낮다는데 ${down[1]}`;
+    const calc = l.text.match(/시간당 ([\d,.]+)(?:[^≥<]*)?\s*(≥|<) \d{4}년 최저시급/);
+    if (calc) return (calc[2] === '≥' ? num(calc[1]) >= MIN_2026 && !l.warn : num(calc[1]) < MIN_2026 && l.warn) ? null : `계산 ${calc[1]} ${calc[2]}`;
+    return `모르는 문장: ${l.text}`;
+  }
+
+  it('주 20H 1,073,282원 — 「10,292.31원 (… 이상)」 이 아니라 경고', () => {
+    const l = review({ monthlyTotal: 1_073_282 });
+    expect(l.warn).toBe(true);
+    expect(l.text).not.toContain('이상)');
+    expect(coherent(l)).toBeNull();
+  });
+
+  it('주 22.5H(09:00~14:00 휴게 30분) 1,210,687원 — 「10,319.97원 (… 이상)」 이 아니다', () => {
+    const l = review({ end: '14:00', breakMinutes: 30, monthlyTotal: 1_210_687 });
+    expect(l.text).not.toContain('10,319.97원 (');
+    expect(coherent(l)).toBeNull();
+  });
+
+  it('월·화·수 09:00~17:00(주 21H) 1,129,981원 — 「10,320.02원 — … 낮습니다」 가 아니다', () => {
+    const l = review({ workDays: ['월', '화', '수'], end: '17:00', breakMinutes: 60, monthlyTotal: 1_129_981 });
+    expect(l.text).not.toMatch(/10,320\.02원 — .*낮습니다/);
+    expect(coherent(l)).toBeNull();
+  });
+
+  const SCHEDULES: Array<[string, Partial<WriteForm>, number]> = [
+    ['주 20H', {}, 1_076_000],
+    ['주 22.5H', { end: '14:00', breakMinutes: 30 }, 1_211_000],
+    ['주 21H 3일', { workDays: ['월', '화', '수'], end: '17:00', breakMinutes: 60 }, 1_130_000],
+    ['주 40H 6일', { workDays: ['월', '화', '수', '목', '금', '토'], end: '15:40', weeklyRestDay: '일' }, 2_100_000],
+    ['주 40H 5일', { end: '18:00', breakMinutes: 60 }, 2_157_000],
+    ['주 20H 100원 올림', { rounding: 'ceil100' }, 1_076_000],
+  ];
+  it.each(SCHEDULES)('%s — 경계 ±3,000원을 7원 간격으로 훑어도 모순 0건', (_name, over, center) => {
+    const bad: string[] = [];
+    for (let t = center - 3_000; t <= center + 3_000; t += 7) {
+      const r = coherent(review({ ...over, monthlyTotal: t }));
+      if (r) bad.push(`${t}: ${r}`);
+    }
+    expect(bad.slice(0, 5)).toEqual([]);
+  });
+
+  it('시급제 주 20H — 시급을 훑어도 모순 0건', () => {
+    const bad: string[] = [];
+    for (let w = 10_250; w <= 10_400; w += 1) {
+      const r = coherent(review({ payType: 'hourly', hourlyWage: w }));
+      if (r) bad.push(`${w}: ${r}`);
+    }
+    expect(bad.slice(0, 5)).toEqual([]);
+  });
+});

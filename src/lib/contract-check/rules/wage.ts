@@ -23,13 +23,14 @@
 //     미포함으로 읽은 것은 빼고) risk(minor)「주휴수당 포함 여부 확인 필요」 — 문구 읽기(includesWeeklyHoliday)는 그 분기를
 //     건너뛸지와 문장에만 쓰고 위반·적정을 바꾸지 않는다(C1·K6·F3).
 //   A·B 식대·상여(F7, 261102 재홍님 확정 — 산입한다): 판정 시급 = 계약 시급(B 는 주휴 제외 환산) + 식대 ÷ 월 소정근로시간
-//     (주휴 포함, monthlyStandardHours — 174H·87H 처럼 주휴를 뺀 산출시간도, 포괄의 「월 시간 + 연장 환산」 산출시간도
+//     (주휴 포함, minwageMonthHours — 174H·87H 처럼 주휴를 뺀 산출시간도, 포괄의 「월 시간 + 연장 환산」 산출시간도
 //     쓰지 않는다. 1주 소정 미상이면 209±1H 산출시간만, P1·Q2) → 「계약 시급 x + 식대 y ÷ zH = 시간당 w」. 월 소정을 모르면 계약 시급만으로
 //     미달일 때 needs_data(넣으면·빼면). 상여는 매월 지급인지 알 수 없어 3단계(넣어야만 충족 risk).
 //   B 시급에 주휴 포함 표시(구조화 칸 BASE.includes_weekly_holiday === true 일 때만 — 폼 선택·사진 추출이 채운다) — 시급 ≥ 최저시급 ×
 //     (1주 소정 + 주휴)/1주 소정(반올림 전 주휴시간으로 계산). 주휴 = 1일 소정(40H 로 자르기 전 1주 소정 ÷ 소정근로일,
 //     8H 상한), 단시간은 ÷5(시행령 별표2 2.나, 통상 근로자 주 5일 가정), 15H 미만은 0.
-//   C 월급제 — 산입 임금 합계 ÷ 최저임금 적용기준 월 시간(시행령 §5①3호, normalize.monthlyStandardHours).
+//   C 월급제 — 산입 임금 합계 ÷ 최저임금 적용기준 월 시간(시행령 §5①3호, normalize.minwageMonthHours —
+//     식 값을 반올림으로 줄이지 않는다. 주 20H 는 104H 가 아니라 104.29H, 주 40H 는 고시 209H, 261122).
 //     산입 제외 = OT_*·NIGHT·HOLIDAY_EXTRA·ANNUAL_LEAVE(최저임금법 §6④1호, 시행규칙 §2①). BONUS·MEAL 은 연도별 산입
 //     비율(법 부칙)을 원문으로 확인하지 못해 보수적으로 — 빼고 충족 ok, 넣어야만 충족 risk, 넣어도 미달 violation.
 //     pay_type·basis_hours 가 모두 없어 형태를 알 수 없는 단시간(1주 소정 < 40H)은 미달이면(식대·상여를 넣어야 충족이어도)
@@ -55,7 +56,7 @@ import {
   WEEKLY_STANDARD_HOURS,
   WEEKS_PER_MONTH,
   dailyHoursConflict,
-  monthlyStandardHours,
+  minwageMonthHours,
   partTimeExcessHours,
   wageBasis,
   weeklyHoliday,
@@ -354,7 +355,7 @@ function sumAmount(items: WageItem[]): number {
 
 /** F7(261102 재홍님 확정) — 시급제(A·B)의 식대·상여(산입범위, 최저임금법 §6④·시행령 §5①).
  * 판정 시급 = 계약 시급(B 는 × 소정/(소정+주휴) 로 주휴 제외 환산) + 식대 ÷ 월 소정근로시간(주휴 포함). 분모는
- * normalize.monthlyStandardHours — (1주 소정 + 주휴) × 4.345, 15H 미만은 주휴 0(P1). 174H·87H 처럼 주휴를 뺀 산출시간도,
+ * normalize.minwageMonthHours — (1주 소정 + 주휴) × 365/7/12(반올림으로 줄이지 않음), 15H 미만은 주휴 0(P1). 174H·87H 처럼 주휴를 뺀 산출시간도,
  * 포괄의 「월 시간 + 연장 환산」 산출시간도 쓰지 않는다 — 연장은 소정이 아니다(Q2). 1주 소정을 몰라 그 값이 없을 때만
  * 주휴 포함 월 시간(209±1H, monthlyHours)인 산출시간을 쓴다. 식대는 매월 지급으로
  * 넣고, 상여는 매월 지급인지 알 수 없어 3단계(빼고 충족·넣어야만 충족 risk·넣어도 미달 violation). 결론이 나면
@@ -389,7 +390,7 @@ function hourlyWithPending(
   const basis = base?.basis_hours;
   // 연장은 소정근로시간이 아니라 포괄의 「월 시간 + 연장 환산」 산출시간도 분모가 아니다(Q2). 1주 소정을 몰라 월 소정을
   // 구할 수 없을 때만 주휴 포함 월 시간(209±1H)인 산출시간을 쓴다
-  const hours = monthlyStandardHours(contract) ?? (monthlyHours && basis != null ? basis : null);
+  const hours = minwageMonthHours(contract) ?? (monthlyHours && basis != null ? basis : null);
   if (hours == null) {
     if (meetsRate(own, minimum, basisHours)) return { okText: null };
     return {
@@ -427,7 +428,7 @@ function hourlyWithPending(
 function assessMonthly(contract: Contract, minimum: number, year: string): MinwageAssessment {
   const wage = contract.wage ?? {};
   const items = wage.items ?? [];
-  const standard = monthlyStandardHours(contract);
+  const standard = minwageMonthHours(contract);
   const hours = standard ?? MONTHLY_BASE_HOURS;
   const hoursNote = standard == null ? ' (1주 소정근로시간 미상 — 주 40H 기준 209H 가정)' : '';
   const inclusive = wage.inclusive_wage === true;
@@ -473,13 +474,14 @@ function assessMonthly(contract: Contract, minimum: number, year: string): Minwa
     }
     const core = Math.max(0, total - excludedSum - pendingSum);
     const otHours = round1(otWeekly * WEEKS_PER_MONTH * OT_PREMIUM_RATE);
-    const denom = round1(hours + otHours);
+    // 합은 반올림하지 않는다 — 월 시간이 소수(주 20H 104.29H)면 한 자리 반올림이 분모를 줄일 수 있다(261122)
+    const denom = hours + otHours;
     // 판정은 금액 쪽(산입 임금 ≥ 최저시급 × 분모시간, meetsAmount), 시간당 금액은 표시만(rateShown)
     const ok = meetsAmount(core, minimum, denom);
     const minus = [...excluded, ...pending].map((i) => `${i.label ?? i.code} ${fmt(i.amount ?? 0)}`).join(' − ');
     const coreText = minus ? `포괄 총액 ${fmt(total)} − ${minus} = ${fmt(core)}` : `포괄 총액 ${fmt(total)}`;
     const otText = partExcess != null ? `소정 초과 주 ${fmtH(partExcess)}H` : `연장 주 ${fmtH(otWeekly)}H`;
-    const calc = `${coreText} ÷ ${denom}H(월 ${hours}H + ${otText}×4.345×1.5) = 시간당 ${rateShown(core / denom, minimum, ok)}`;
+    const calc = `${coreText} ÷ ${fmtH(denom)}H(월 ${fmtH(hours)}H + ${otText}×4.345×1.5) = 시간당 ${rateShown(core / denom, minimum, ok)}`;
     if (ok) return { status: 'ok', detail: `${calc} ≥ ${year}년 최저시급 ${fmt(minimum)}`, amendment: '' };
     if (pendingSum > 0 && meetsAmount(core + pendingSum, minimum, denom)) {
       return {
@@ -487,13 +489,13 @@ function assessMonthly(contract: Contract, minimum: number, year: string): Minwa
         detail:
           `${calc} < ${year}년 최저시급 ${fmt(minimum)}. ${pending.map((i) => i.label ?? i.code).join('·')}` +
           ` ${fmt(pendingSum)}을 넣으면 충족 — 상여금·복리후생비 최저임금 산입 비율 확인 필요(최저임금법 §6④2·3호)`,
-        amendment: `상여금·복리후생비 산입 비율을 확인하고, 미달이면 포괄 총액 중 산입 임금을 ${year}년 최저시급 × ${denom}H = ${won(minimum * denom)} 이상으로 인상`,
+        amendment: `상여금·복리후생비 산입 비율을 확인하고, 미달이면 포괄 총액 중 산입 임금을 ${year}년 최저시급 × ${fmtH(denom)}H = ${won(minimum * denom)} 이상으로 인상`,
       };
     }
     return {
       status: 'violation',
       detail: `${calc} < ${year}년 최저시급 ${fmt(minimum)} (최저임금법 시행령 §5①3호)`,
-      amendment: `${minus ? '포괄 총액 중 산입 임금을' : '포괄 총액을'} ${year}년 최저시급 × ${denom}H = ${won(minimum * denom)} 이상으로 인상하고, 기본급과 고정 연장수당을 나눠 명시`,
+      amendment: `${minus ? '포괄 총액 중 산입 임금을' : '포괄 총액을'} ${year}년 최저시급 × ${fmtH(denom)}H = ${won(minimum * denom)} 이상으로 인상하고, 기본급과 고정 연장수당을 나눠 명시`,
     };
   }
 
@@ -506,7 +508,7 @@ function assessMonthly(contract: Contract, minimum: number, year: string): Minwa
   // 판정은 금액 쪽(산입 임금 ≥ 최저시급 × 월 시간 — 2026 주 40H 는 2,156,880), 시간당 금액은 표시만(rateShown)
   const ok = meetsAmount(coreSum, minimum, hours);
   const rate = coreSum / hours;
-  const calc = `${lead}월 산입 임금 ${fmt(coreSum)}(${names}) ÷ 최저임금 적용기준 월 ${hours}H = 시간당 ${rateShown(rate, minimum, ok)}${hoursNote}`;
+  const calc = `${lead}월 산입 임금 ${fmt(coreSum)}(${names}) ÷ 최저임금 적용기준 월 ${fmtH(hours)}H = 시간당 ${rateShown(rate, minimum, ok)}${hoursNote}`;
   const otNote = inclusive ? ' — 고정 연장·야간·휴일수당의 충분성은 OT-COVER·WAGE-MATH 에서 봄' : '';
   if (ok) {
     return { status: 'ok', detail: `${calc} ≥ ${year}년 최저시급 ${fmt(minimum)}${otNote}`, amendment: '' };
@@ -534,13 +536,13 @@ function assessMonthly(contract: Contract, minimum: number, year: string): Minwa
       detail:
         `${calc} < ${year}년 최저시급 ${fmt(minimum)}. ${pending.map((i) => i.label ?? i.code).join('·')}` +
         ` ${fmt(pendingSum)}을 넣으면 충족 — 상여금·복리후생비 최저임금 산입 비율 확인 필요(최저임금법 §6④2·3호)`,
-      amendment: `상여금·복리후생비 산입 비율을 확인하고, 미달이면 기본급 등 산입 임금을 ${year}년 최저시급 × 월 ${hours}H = ${need} 이상으로 인상`,
+      amendment: `상여금·복리후생비 산입 비율을 확인하고, 미달이면 기본급 등 산입 임금을 ${year}년 최저시급 × 월 ${fmtH(hours)}H = ${need} 이상으로 인상`,
     };
   }
   return {
     status: 'violation',
     detail: `${calc} < ${year}년 최저시급 ${fmt(minimum)} (시간당 ${shortShown(rate, minimum)}원 미달, 최저임금법 시행령 §5①3호)`,
-    amendment: `기본급 등 산입 임금을 ${year}년 최저시급 × 월 ${hours}H = ${need} 이상으로 인상`,
+    amendment: `기본급 등 산입 임금을 ${year}년 최저시급 × 월 ${fmtH(hours)}H = ${need} 이상으로 인상`,
   };
 }
 
@@ -641,13 +643,13 @@ export function minwageAssessment(contract: Contract): MinwageAssessment {
       `산출근거 ${fmtH(wb.basisHours)}H 는 주휴를 뺀 월 소정근로시간이라 시급제·월급제가 갈리지 않음`,
     );
     if (same) return same;
-    const hours = monthlyStandardHours(contract) ?? MONTHLY_BASE_HOURS;
+    const hours = minwageMonthHours(contract) ?? MONTHLY_BASE_HOURS;
     return {
       status: 'needs_data',
       detail:
         `시급제·월급제 확인 필요 — 산출근거 ${fmtH(wb.basisHours)}H 는 주휴를 뺀 월 소정근로시간이라 형태가 갈리지 않음.` +
         ` 시급제라면 계약 시급 ${fmt(Math.round(base.amount / wb.basisHours))},` +
-        ` 월급제라면 기본급 ${fmt(base.amount)} ÷ 최저임금 적용기준 월 ${hours}H = 시간당 ${fmt(Math.round(base.amount / hours))}`,
+        ` 월급제라면 기본급 ${fmt(base.amount)} ÷ 최저임금 적용기준 월 ${fmtH(hours)}H = 시간당 ${fmt(Math.round(base.amount / hours))}`,
       amendment: '',
     };
   }
@@ -663,11 +665,11 @@ export function minwageAssessment(contract: Contract): MinwageAssessment {
         ` ${fmt(Math.round(base.amount / wb.basisHours))}원, 기본급 ${fmt(base.amount)}원도 시급으로 보기 어려운 금액(최저시급의 0.5~5배 밖)`;
       const same = bothReadings(contract, wb, base.amount, minimum, year, why);
       if (same) return same;
-      const hours = monthlyStandardHours(contract) ?? MONTHLY_BASE_HOURS;
+      const hours = minwageMonthHours(contract) ?? MONTHLY_BASE_HOURS;
       return {
         status: 'needs_data',
         detail:
-          `${why}. 월급제라면 기본급 ${fmt(base.amount)} ÷ 최저임금 적용기준 월 ${hours}H =` +
+          `${why}. 월급제라면 기본급 ${fmt(base.amount)} ÷ 최저임금 적용기준 월 ${fmtH(hours)}H =` +
           ` 시간당 ${fmt(Math.round(base.amount / hours))}`,
         amendment: '',
       };

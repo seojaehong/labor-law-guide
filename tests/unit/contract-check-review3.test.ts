@@ -119,7 +119,7 @@ describe('2 폼·사진 경로가 A·B 에 닿는다(승인안)', () => {
   it('월급제를 고르면 월급제(C)로 위반', () => {
     const f = site({ payType: 'monthly', baseWage: '897840', monthlyTotal: '897840' }).get('MINWAGE');
     expect(f.status).toBe('violation');
-    expect(f.detail).toContain('104H');
+    expect(f.detail).toContain('104.29H'); // 261122 PR #250 검토 — 104H(반올림) → 104.29H
   });
   it('형태 미상이어도 주 40H 이면 월급제(209H)로 위반', () => {
     const f = run(contract(5, '09:00', '17:00', [base(2000000)])).get('MINWAGE');
