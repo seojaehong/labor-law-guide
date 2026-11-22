@@ -14,6 +14,8 @@ import { dutiesTools } from '../../tools/k-labor/groups/duties.mjs';
 import { workRulesTools } from '../../tools/k-labor/groups/work-rules.mjs';
 import { nosaTools } from '../../tools/k-labor/groups/nosa.mjs';
 import { nosaRecordsTools } from '../../tools/k-labor/groups/nosa-records.mjs';
+import { formsTools } from '../../tools/k-labor/groups/forms.mjs';
+import { docsTools } from '../../tools/k-labor/groups/docs.mjs';
 
 // /howto/* — 도구 안내 정적 페이지(261119). 두 페이지가 공통 디자인(howto.css·howto.js)을 함께 쓴다.
 const PAGES = ['gov-login', 'k-labor'];
@@ -53,9 +55,8 @@ describe('도구 안내 페이지', () => {
   });
 
   // 묶음별 도구 수는 숫자로 박지 않고 패키지 소스(tools/k-labor)에서 끌어온다.
-  // 페이지는 npm 게시판 0.2.0 기준이다 — nosa 는 저장소 HEAD 10개 중 아직 게시하지 않은
-  // check_council_rules·make_council_rules_comparison 2개를 뺀다. 0.2.1 을 게시하면 UNPUBLISHED 를 비우고 페이지를 함께 올린다.
-  const UNPUBLISHED: Record<string, string[]> = { nosa: ['check_council_rules', 'make_council_rules_comparison'] };
+  // 페이지는 npm 게시판 0.2.1 기준이다(저장소 HEAD 와 같다). 저장소에만 있고 아직 게시하지 않은 도구가 생기면 여기에 적는다.
+  const UNPUBLISHED: Record<string, string[]> = {};
   const SOURCE: Record<string, string[]> = {
     nhis: nhisTools,
     popbill: popbillTools,
@@ -66,14 +67,23 @@ describe('도구 안내 페이지', () => {
     duties: dutiesTools,
     'work-rules': workRulesTools,
     nosa: [...nosaTools, ...nosaRecordsTools],
+    forms: formsTools,
+    docs: docsTools,
   };
   const keys = () =>
     [...read('k-labor').matchAll(/data-g="([\w-]+)" data-n="(\d+)" data-r="(\d+)"/g)].map(([, g, n, r]) => ({ g, n: Number(n), r: Number(r) }));
 
-  it('k-labor 묶음 키는 패키지의 묶음 9개와 같은 순서·이름이다', () => {
-    expect(keys().map((k) => k.g)).toEqual(Object.keys(SOURCE));
+  // 묶음 목록은 손으로 적지 않고 server.mjs 의 GROUPS 에서 읽는다 — 패키지에 묶음이 늘면 페이지·SOURCE 가 따라오지 않은 것을 잡는다
+  const serverGroups = () => {
     const server = readFileSync(join(process.cwd(), 'tools/k-labor/server.mjs'), 'utf8');
-    for (const g of Object.keys(SOURCE)) expect(server, g).toMatch(new RegExp(`\\n\\s+'?${g}'?: \\{ register`));
+    const body = server.slice(server.indexOf('const GROUPS = {'), server.indexOf('\n};', server.indexOf('const GROUPS = {')));
+    return [...body.matchAll(/\n\s+'?([\w-]+)'?: \{ register/g)].map((m) => m[1]);
+  };
+
+  it('k-labor 묶음 키는 패키지 GROUPS 와 같은 순서·이름이다', () => {
+    expect(serverGroups().length).toBeGreaterThan(0);
+    expect(keys().map((k) => k.g)).toEqual(serverGroups());
+    expect(Object.keys(SOURCE)).toEqual(serverGroups());
   });
 
   it('미게시 도구는 실제로 저장소 소스에 있는 이름이다', () => {
@@ -98,6 +108,20 @@ describe('도구 안내 페이지', () => {
     expect(html).toContain(`<b>${r}개</b>`);
     expect(r).toBe(REMOTE_TOOLS.length);
     expect(r).toBe(AI_PACKAGES.find((p) => p.id === 'k-labor')!.remoteTools);
+  });
+
+  it('k-labor 원격 도구 수는 본문 어디서나 같다', () => {
+    const t = text(read('k-labor'));
+    const said = [...t.matchAll(/(?:<dd>|도구 |계산·점검 도구 )(\d+)개(?: —|가 붙|만)/g)].map((m) => Number(m[1]));
+    const dd = [...read('k-labor').matchAll(/<dd>(\d+)개 —/g)].map((m) => Number(m[1]));
+    expect([...said, ...dd].length).toBeGreaterThanOrEqual(3);
+    for (const n of [...said, ...dd]) expect(n).toBe(REMOTE_TOOLS.length);
+  });
+
+  it('k-labor 「묶음 이름」 안내에 모든 묶음이 있다', () => {
+    const html = read('k-labor');
+    const qa = /묶음 이름은 ([\s\S]*?)입니다\./.exec(html)![1];
+    for (const g of serverGroups()) expect(qa, g).toContain(`<code>${g}</code>`);
   });
 
   it('next.config 가 /howto/:slug 를 정적 index.html 로 열고 /howto 는 도구 모음으로 보낸다', () => {

@@ -80,7 +80,9 @@
         <button type="button" class="key" data-g="tax" data-n="3" data-r="3" aria-pressed="false"><span class="led"></span>세금<small>퇴직·일용·중도퇴사</small></button>
         <button type="button" class="key" data-g="duties" data-n="1" data-r="1" aria-pressed="false"><span class="led"></span>사업주 의무<small>규모별 목록</small></button>
         <button type="button" class="key" data-g="work-rules" data-n="6" data-r="0" aria-pressed="false"><span class="led"></span>취업규칙·법령<small>법제처 실시간</small></button>
-        <button type="button" class="key" data-g="nosa" data-n="8" data-r="2" aria-pressed="false"><span class="led"></span>노사협의회<small>설치·회의·서류</small></button>
+        <button type="button" class="key" data-g="nosa" data-n="10" data-r="2" aria-pressed="false"><span class="led"></span>노사협의회<small>설치·회의·서류</small></button>
+        <button type="button" class="key" data-g="forms" data-n="3" data-r="1" aria-pressed="false"><span class="led"></span>모성보호 서식<small>육아휴직·배우자 휴가</small></button>
+        <button type="button" class="key" data-g="docs" data-n="2" data-r="0" aria-pressed="false"><span class="led"></span>한글 문서<small>마크다운 → hwpx</small></button>
         <button type="button" class="key mod all" data-all aria-pressed="false">전체 켜기</button>
       </div>
       <div class="cmd"><pre><code id="pick-cmd">claude mcp add --scope user k-labor "--" npx -y k-labor mcp --groups "contract,calc"</code></pre><button type="button" class="copy">복사</button></div>
@@ -93,8 +95,8 @@
 
 <div class="facts">
   <div class="wrap">
-    <div><b>45개</b><span>9개 묶음, 필요한 것만 켭니다</span></div>
-    <div><b>25개</b><span>설치 없이 원격 주소로</span></div>
+    <div><b>52개</b><span>11개 묶음, 필요한 것만 켭니다</span></div>
+    <div><b>26개</b><span>설치 없이 원격 주소로</span></div>
     <div><b>같은 값</b><span>사이트 계산기와 같은 엔진</span></div>
     <div><b>대화에 싣지 않음</b><span>주민등록번호는 PC 안에서만</span></div>
   </div>
@@ -106,11 +108,11 @@
     <div class="sites ways">
       <article class="site">
         <header><span class="badge t-mod">PC</span><div><h3>내 PC에 설치</h3><span class="host">npx -y k-labor mcp</span></div></header>
-        <dl><dt>쓰는 곳</dt><dd>Claude Code · Claude Desktop · Cursor · Windsurf</dd><dt>도구</dt><dd>9개 묶음 45개 전부</dd><dt>필요한 것</dt><dd>Node.js 20 이상</dd><dt>여기서만</dt><dd>계약서·신고서 파일 만들기, 팩스·문자, 취업규칙 파일 읽기, 법제처 실시간 조회</dd></dl>
+        <dl><dt>쓰는 곳</dt><dd>Claude Code · Claude Desktop · Cursor · Windsurf</dd><dt>도구</dt><dd>11개 묶음 52개 전부</dd><dt>필요한 것</dt><dd>Node.js 20 이상</dd><dt>여기서만</dt><dd>계약서·신고서 파일 만들기, 팩스·문자, 취업규칙 파일 읽기, 법제처 실시간 조회</dd></dl>
       </article>
       <article class="site">
         <header><span class="badge t-ink">URL</span><div><h3>원격 주소로 연결</h3><span class="host">https://yellowenvelope.kr/api/mcp/mcp</span></div></header>
-        <dl><dt>쓰는 곳</dt><dd>claude.ai · Claude 앱의 커스텀 커넥터</dd><dt>도구</dt><dd>25개 — 근로계약서 설계·점검, 임금·수당, 연차, 세금, 사업주 의무, 노사협의회 계산</dd><dt>필요한 것</dt><dd>없음. 주소만 넣습니다</dd><dt>빠지는 것</dt><dd>건강보험 신고·팩스·문자·취업규칙·법령 묶음 전체, 근로계약서 파일 저장, 노사협의회 서류·기록</dd><dt>입력값</dt><dd>도구에 넣은 값이 일의 무늬 서버로 전송됩니다. 저장하지 않습니다</dd></dl>
+        <dl><dt>쓰는 곳</dt><dd>claude.ai · Claude 앱의 커스텀 커넥터</dd><dt>도구</dt><dd>26개 — 근로계약서 설계·점검, 임금·수당, 연차, 세금, 사업주 의무, 노사협의회 계산, 모성보호 서식 목록</dd><dt>필요한 것</dt><dd>없음. 주소만 넣습니다</dd><dt>빠지는 것</dt><dd>건강보험 신고·팩스·문자·취업규칙·법령·한글 문서 묶음 전체, 근로계약서 파일 저장, 노사협의회 서류·기록, 모성보호 서식 칸 검사·파일</dd><dt>입력값</dt><dd>도구에 넣은 값이 일의 무늬 서버로 전송됩니다. 저장하지 않습니다</dd></dl>
       </article>
     </div>
   </div>
@@ -118,7 +120,7 @@
 
 <section id="groups" class="sec alt" aria-labelledby="groups-h">
   <div class="wrap">
-    <div class="sec-head"><span class="no">02 · 묶음</span><h2 id="groups-h">아홉 개 묶음 가운데 필요한 것만 켭니다</h2><p>아무것도 고르지 않으면 전 묶음이 켜집니다. 켠 도구가 많을수록 AI가 고를 것이 많아지니, 자주 쓰는 묶음만 켜는 편이 낫습니다.</p></div>
+    <div class="sec-head"><span class="no">02 · 묶음</span><h2 id="groups-h">열한 개 묶음 가운데 필요한 것만 켭니다</h2><p>아무것도 고르지 않으면 전 묶음이 켜집니다. 켠 도구가 많을수록 AI가 고를 것이 많아지니, 자주 쓰는 묶음만 켜는 편이 낫습니다.</p></div>
     <div class="sites g3">
       <article class="site">
         <header><span class="badge t-mod">건보</span><div><h3>건강보험 신고</h3><span class="host">--groups nhis · 도구 2개</span></div></header>
@@ -161,9 +163,19 @@
         <div><span class="tag amber">내 PC에서만</span> <span class="tag grey">법제처 OC 필요</span></div>
       </article>
       <article class="site">
-        <header><span class="badge t-mod">노사</span><div><h3>노사협의회</h3><span class="host">--groups nosa · 도구 8개</span></div></header>
-        <p>설치의무와 근로자위원 선출방식·정족수·기한을 계산하고, 회의 하나의 통보 기한·의결을 확인합니다. 선거·회의 서류와 회의록 기록은 내 PC에서 파일로 만듭니다. 협의회규정 점검(읽기만 하고 파일은 만들지 않음)과 신·구조문대비표는 다음 판(0.2.1)에 들어갑니다.</p>
+        <header><span class="badge t-mod">노사</span><div><h3>노사협의회</h3><span class="host">--groups nosa · 도구 10개</span></div></header>
+        <p>설치의무와 근로자위원 선출방식·정족수·기한을 계산하고, 회의 하나의 통보 기한·의결을 확인합니다. 선거·회의 서류와 회의록 기록은 내 PC에서 파일로 만듭니다. 협의회규정 점검(읽기만 하고 파일은 만들지 않음)과 신·구조문대비표도 내 PC에서 합니다.</p>
         <div><span class="tag">원격 2개</span> <span class="tag amber">서류·기록은 내 PC</span></div>
+      </article>
+      <article class="site">
+        <header><span class="badge t-mod">서식</span><div><h3>모성보호 서식</h3><span class="host">--groups forms · 도구 3개</span></div></header>
+        <p>법정 서식인 출산전후휴가(배우자 출산전후휴가)·육아휴직 통합 신청서(시행규칙 별지 제7호의2)는 원본 칸에 그대로 채우고, 육아휴직·단기 육아휴직·배우자 출산전후휴가·난임치료휴가 신청서와 육아휴직 허용·단기 육아휴직 시기변경 통지서도 만듭니다. 입력한 날짜를 조문의 신청 기한·기간과 견주어 알려 줍니다. 주민등록번호는 받지 않습니다. 원격 주소에서는 서식 목록(칸·근거 조문)만 보고, 칸 검사와 한글(hwpx) 파일은 내 PC에서 만듭니다. <a href="/tools/hr-forms">웹 화면</a>에서도 만들 수 있습니다.</p>
+        <div><span class="tag">원격 1개</span> <span class="tag amber">검사·파일은 내 PC</span></div>
+      </article>
+      <article class="site">
+        <header><span class="badge t-mod">문서</span><div><h3>한글 문서</h3><span class="host">--groups docs · 도구 2개</span></div></header>
+        <p>마크다운 원고를 한글(hwpx) 파일로 만들고(사내 문서·노동위원회 제출 양식 두 가지), 이미 있는 한글 파일의 글자를 바꾸거나 표 칸을 채웁니다. 주민등록번호 모양의 숫자가 있으면 멈춥니다. 파일을 쓰므로 내 PC에서만 씁니다.</p>
+        <div><span class="tag amber">내 PC 전용</span></div>
       </article>
     </div>
   </div>
@@ -185,7 +197,7 @@
         <li><div><h3>다시 열고 말 걸기</h3><p>Claude Desktop은 껐다 켜고, Claude Code는 새 대화를 엽니다. 「k-labor 도구 목록 보여 줘」라고 하면 켜진 도구가 나옵니다.</p></div></li>
       </ol>
       <div>
-        <div class="note tip"><h4>설치 없이 — 원격 주소</h4><p>claude.ai에서 <b>설정 → 커넥터 → 커스텀 커넥터 추가</b>를 누르고 아래 주소를 넣습니다. 도구 25개가 붙습니다.</p><div class="cmd"><pre><code>https://yellowenvelope.kr/api/mcp/mcp</code></pre><button type="button" class="copy">복사</button></div></div>
+        <div class="note tip"><h4>설치 없이 — 원격 주소</h4><p>claude.ai에서 <b>설정 → 커넥터 → 커스텀 커넥터 추가</b>를 누르고 아래 주소를 넣습니다. 도구 26개가 붙습니다.</p><div class="cmd"><pre><code>https://yellowenvelope.kr/api/mcp/mcp</code></pre><button type="button" class="copy">복사</button></div></div>
         <div class="note amber" style="margin-top:14px"><h4>Windows에서 Claude Desktop이 npx를 못 찾으면</h4><p><code>cmd /c</code>로 감쌉니다.</p><div class="cmd"><pre><code>{
   "mcpServers": {
     "k-labor": { "command": "cmd", "args": ["/c", "npx", "-y", "k-labor", "mcp"] }
@@ -259,9 +271,9 @@
   <div class="wrap">
     <div class="sec-head"><span class="no">07 · 문제 해결</span><h2 id="trouble-h">안 될 때 먼저 볼 것</h2></div>
     <details class="qa"><summary>Claude Desktop에 도구가 안 보여요</summary><div class="a"><p>설정 파일을 고친 뒤 Claude Desktop을 완전히 껐다 켜야 합니다. Windows에서 npx를 못 찾는 경우가 많으니 위의 <code>cmd /c</code> 설정으로 바꿔 보세요.</p></div></details>
-    <details class="qa"><summary>서버가 뜨지 않고 묶음 목록만 나와요</summary><div class="a"><p>없는 묶음 이름을 넣은 경우입니다. 묶음 이름은 <code>nhis</code>·<code>popbill</code>·<code>contract</code>·<code>calc</code>·<code>leave</code>·<code>tax</code>·<code>duties</code>·<code>work-rules</code>·<code>nosa</code>입니다. <code>fax</code>·<code>sms</code>는 <code>popbill</code>로 받습니다.</p><div class="cmd"><pre><code>npx -y k-labor --help</code></pre><button type="button" class="copy">복사</button></div></div></details>
+    <details class="qa"><summary>서버가 뜨지 않고 묶음 목록만 나와요</summary><div class="a"><p>없는 묶음 이름을 넣은 경우입니다. 묶음 이름은 <code>nhis</code>·<code>popbill</code>·<code>contract</code>·<code>calc</code>·<code>leave</code>·<code>tax</code>·<code>duties</code>·<code>work-rules</code>·<code>nosa</code>·<code>forms</code>·<code>docs</code>입니다. <code>fax</code>·<code>sms</code>는 <code>popbill</code>로 받습니다.</p><div class="cmd"><pre><code>npx -y k-labor --help</code></pre><button type="button" class="copy">복사</button></div></div></details>
     <details class="qa"><summary>Node 버전 오류가 나요</summary><div class="a"><p><code>node -v</code>가 <code>v20</code>보다 낮으면 nodejs.org에서 LTS 판으로 올립니다.</p></div></details>
-    <details class="qa"><summary>원격 주소에 없는 도구가 있어요</summary><div class="a"><p>정상입니다. 원격 주소에는 계산·점검 도구 25개만 있습니다. 건강보험 신고(관할 지사 찾기 포함)·팩스·문자·취업규칙·법령 묶음 전체, 근로계약서 파일 저장, 노사협의회 서류·기록은 내 PC 설치판에만 있습니다. 이것들이 필요하면 내 PC에 설치하세요.</p></div></details>
+    <details class="qa"><summary>원격 주소에 없는 도구가 있어요</summary><div class="a"><p>정상입니다. 원격 주소에는 계산·점검 도구 26개만 있습니다. 건강보험 신고(관할 지사 찾기 포함)·팩스·문자·취업규칙·법령·한글 문서 묶음 전체, 근로계약서 파일 저장, 노사협의회 서류·기록, 모성보호 서식 칸 검사·파일은 내 PC 설치판에만 있습니다. 이것들이 필요하면 내 PC에 설치하세요.</p></div></details>
     <details class="qa"><summary>팩스가 안 나가요</summary><div class="a"><p>응답에 빠진 값이 적혀 있습니다. 발신번호가 팝빌에 등록돼 있는지, <code>POPBILL_IS_TEST</code>가 기본값(테스트환경)으로 남아 있지 않은지 확인하세요.</p></div></details>
   </div>
 </section>

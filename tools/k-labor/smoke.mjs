@@ -162,6 +162,10 @@ const ANN = {
   make_hwpx_from_markdown: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
   // 새 파일로 쓰고 원본·있는 파일은 건드리지 않는다
   edit_hwpx_text: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
+  // 서식 — 목록·검사는 읽기 전용(원격판에도), 파일 만들기는 로컬 전용
+  list_hr_forms: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+  check_hr_form: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+  make_hr_form: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
 };
 // 커넥터 디렉터리 심사 — 빠진 도구 없이 전부 title 과 네 칸이 있다
 {
@@ -171,7 +175,7 @@ const ANN = {
 }
 // 이 판에서 더한 도구 8개 + 사이트 도구 7개(groups/more) — 「대신·대행·대리」도 함께 막는다
 const NOSA_TOOLS = ['assess_labor_council', 'check_council_meeting', 'make_labor_council_forms', 'make_council_meeting_docs', 'make_council_election_docs', 'check_council_rules', 'record_council_history', 'export_council_vault', 'import_council_minutes', 'make_council_rules_comparison'];
-const NEW_TOOLS = ['calc_severance', 'calc_holiday_pay', 'calc_pay_proration', 'calc_shutdown_allowance', 'calc_annual_leave', 'settle_leave_on_exit', 'calc_retirement_tax', 'list_employer_duties', ...MORE_TOOLS, ...NOSA_TOOLS, 'make_hwpx_from_markdown', 'edit_hwpx_text'];
+const NEW_TOOLS = ['calc_severance', 'calc_holiday_pay', 'calc_pay_proration', 'calc_shutdown_allowance', 'calc_annual_leave', 'settle_leave_on_exit', 'calc_retirement_tax', 'list_employer_duties', ...MORE_TOOLS, ...NOSA_TOOLS, 'make_hwpx_from_markdown', 'edit_hwpx_text', 'list_hr_forms', 'check_hr_form', 'make_hr_form'];
 const NEW_WORDS = [...WORDS, '대신', '대행', '대리'];
 const bannedNew = (s) => (banned ? banned.bannedHits(s, NEW_WORDS) : []);
 for (const n of NEW_TOOLS) check(`${n}: 도구 목록에 있음`, tools.includes(n));
@@ -563,6 +567,25 @@ if (tools.includes('make_hwpx_from_markdown')) {
   // 양식 모드 — 앞서 만든 파일을 양식으로 다시 쓴다
   const tm = await callNew('make_hwpx_from_markdown', { markdown: '# 가상 양식본\n\n양식 모양으로 채운 본문.', preset: 'internal', outDir: dir, templateFile: mh.file.path });
   check(`docs 양식 모드 ${tm.file?.bytes}B`, tm.ok && fs.existsSync(tm.file.path));
+}
+
+// ── forms 묶음 ── 합성 값 → 서식 hwpx(동시 호출 · 같은 이름 거절 · 주민번호 모양 거절)
+if (tools.includes('make_hr_form')) {
+  const lf = await callNew('list_hr_forms', {});
+  check(`forms 목록 ${lf.forms?.length}종`, lf.ok && lf.forms?.length === 7 && lf.forms.every((f) => f.fields.length > 0));
+  const V = { name: '김가상', birth: '1990-03-04', reason: 'child', childName: '김가가', childBirth: '2022-05-01', start: '2027-01-04', end: '2027-07-03', appliedOn: '2026-12-10', company: '가상상사' };
+  const ck = await callNew('check_hr_form', { formId: 'childcare-leave', values: V });
+  check(`forms 검사 — 30일 전 신청 안내(${ck.notes?.length})`, ck.ok && ck.notes.some((n) => n.includes('30일 전까지')));
+  const dir = path.join(tmp, 'forms');
+  const [a, b] = await Promise.all([
+    callNew('make_hr_form', { formId: 'childcare-leave', values: V, outDir: dir }),
+    callNew('make_hr_form', { formId: 'infertility-leave', values: { name: '이가상', birth: '1988-01-02', days: '2027-01-04,2027-01-05', appliedOn: '2026-12-20', company: '가상상사' }, outDir: dir }),
+  ]);
+  check(`forms 동시 두 건 ${a.file?.bytes}B·${b.file?.bytes}B`, a.ok && b.ok && fs.existsSync(a.file.path) && fs.existsSync(b.file.path));
+  const again = await callNew('make_hr_form', { formId: 'childcare-leave', values: V, outDir: dir });
+  check('forms 같은 이름은 덮어쓰지 않음', again.ok === false && again.exists === a.file.path);
+  const rrn = await callNew('make_hr_form', { formId: 'childcare-leave', values: { ...V, dept: '900304-1234567' }, outDir: path.join(dir, 'rrn') });
+  check('forms 주민번호 모양은 거절', rrn.ok === false && !fs.existsSync(path.join(dir, 'rrn')));
 }
 
 // ── work-rules 묶음 ──
