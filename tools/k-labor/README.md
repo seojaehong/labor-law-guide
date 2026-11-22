@@ -132,6 +132,12 @@ npx -y k-labor call check_min_wage args.json --groups calc
 | `forms` | `check_hr_form` | 파일을 만들지 않고 칸 검사 — problems(빈 필수 칸·날짜 형식·주민등록번호 모양) / notes(신청 기한 30일·7일 전, 기간 1년·추가 6개월, 출산예정일 50일 전·출산일부터 120일, 연 6일, 허용 통지 14일 같은 조문 대조 안내) / 원고. 이름이 실리므로 로컬 전용 |
 | `forms` | `make_hr_form` | **로컬 전용(파일 쓰기).** 칸 검사 뒤 서식을 한글(hwpx)로. 주민등록번호 칸 없음(생년월일만). 덮어쓰지 않고, 호출끼리 상태가 없어 여러 건을 동시에 불러도 된다. 웹판 https://yellowenvelope.kr/tools/hr-forms |
 | `docs` | `make_hwpx_from_markdown` | **로컬 전용(파일 쓰기).** 마크다운 원고 → 한글(hwpx). 제목 4단계(## 앞 □, Ⅰ~Ⅹ 장 앞 쪽나눔) · 본문 굵게 · 판례 번호 자동 굵게 · 목록 · 표(머리행 음영·반복, 열 폭 자동, 정렬, 칸 안 줄바꿈, 7열 이상 작은 글자, 긴 표는 쪽을 넘김) · 끝 15줄 안 날짜 줄부터 서명부 · 쪽번호. 프리셋 internal(행간 160%·여백 20mm)·tribunal(행간 200%·위 45·아래 30mm). 병합 칸·밑줄·인용 블록·링크는 못 만들고 `leftovers` 로 알림. 덮어쓰지 않음 |
+| `office` | `inspect_xlsx` / `inspect_xlsx_bytes` | 엑셀(xlsx) 서식 구조 보기 — 시트별 병합·수식 칸 수·조건부서식·데이터 유효성·인쇄영역·인쇄제목·방향·용지·그림 수·틀고정, 이름정의, 입력 후보 칸 |
+| `office` | `extract_xlsx_rows` / `extract_xlsx_rows_bytes` | 머리행 아래 행을 칸 주소·원문값·수식·캐시값·병합 출처와 함께 읽기(「높음 (6)」 같은 문자는 그대로) |
+| `office` | `fill_xlsx_template` / `fill_xlsx_template_bytes` | 원본 서식 그대로 지정 칸·행만 채우기 — 수식 캐시를 지우고 열 때 다시 계산하게 함, 채우기 전후 보존 비교(`preserved`) |
+| `office` | `make_xlsx_from_spec` / `make_xlsx_from_spec_bytes` | 사양(JSON)으로 서식 만들기 — 시트·열·머리행·병합·유효성 목록·틀고정·A4 가로 인쇄 |
+| `office` | `make_meeting_pptx` / `make_meeting_pptx_bytes` | 회의 스냅숏(JSON) → 위험성평가 회의 덱(pptx, A4 가로) — 회의 전 검토안 / 회의 후 확정본, 장마다 상태 배지·notes 근거 목록 |
+| `office` | `extract_pptx` / `extract_pptx_bytes` | pptx 의 장별 도형 글자·표·notes 읽기 |
 | `law` | `search_laws` | 법령 이름(또는 본문 낱말)으로 현행 법령 찾기 — 법령ID·판 번호·공포일·시행일·법제처 화면 주소(법제처 Open API) |
 | `law` | `list_law_forms` | 법령 하나의 별표·별지 서식 목록 — 「별지 제8호서식」 표기·제목·공포일과 내려받을 파일 주소(한글·PDF) |
 | `law` | `get_article_history` | 조문 하나가 바뀐 판들(제정·조문변경, 공포일·시행일·판 번호, 시행 예정 판 포함) |
@@ -222,6 +228,22 @@ claude mcp add --scope user k-labor -e LAW_OC=내OC -- npx -y k-labor mcp --grou
 
 > 「연차 사용촉진에 관한 고용노동부 행정해석 찾아서 회답 원문 보여 줘.」
 > 「근로기준법 시행규칙 서식 중 연장근로 인가 관련 서식 파일 주소 줘.」
+
+### office 묶음 (엑셀·회의 PPT)
+
+엑셀(xlsx) 서식을 검사·읽기·채우기·만들기 하고, 회의 스냅숏(JSON)으로 회의 덱(pptx)을 만들고 읽습니다. 엔진은 바이트를 받아 바이트를 돌려주는 함수이고, 도구는 두 판으로 나뉩니다.
+
+| 판 | 도구 | 입출력 |
+|---|---|---|
+| 로컬 전용(stdio) | `inspect_xlsx` · `extract_xlsx_rows` · `fill_xlsx_template` · `make_xlsx_from_spec` · `make_meeting_pptx` · `extract_pptx` | 파일 경로. 입력 파일 20MB 까지. 결과 파일은 **이미 있으면 쓰지 않습니다**(덮어쓰기 금지, 원본 경로에도 쓰지 않음) |
+| 원격(HTTP)판에도 실림 | `inspect_xlsx_bytes` · `extract_xlsx_rows_bytes` · `fill_xlsx_template_bytes` · `make_xlsx_from_spec_bytes` · `make_meeting_pptx_bytes` · `extract_pptx_bytes` | base64. 서버에 파일을 남기지 않습니다 |
+
+- **크기 상한(base64 판)** — 입력은 디코드한 뒤 5MB, zip 을 푼 합계 50MB(zip 폭탄 방어), 결과도 5MB. 넘으면 `INPUT_TOO_LARGE`·`ZIP_TOO_LARGE`·`OUTPUT_TOO_LARGE` 코드로 돌려줍니다. 공개 원격 주소는 요청 본문 자체가 이보다 작게 막혀 있습니다.
+- **`needsReview: true`** — 이 엔진이 열지 않은 파일이라는 뜻입니다. 예외로 끝내지 않고 `reason` 을 붙여 돌려주며, 채우기 도구는 이런 입력이면 아무것도 쓰지 않습니다. 사람이 엑셀에서 열어 보고 `.xlsx` 로 다시 저장해 넣어 주세요.
+- **지원하지 않는 형식** — `.xls`(옛 형식, 첫 8바이트 `D0 CF 11 E0 A1 B1 1A E1`) · 암호 걸린 파일 · 매크로 파일(`.xlsm`) · 엑셀 라이브러리(ExcelJS)가 열다 실패하는 파일(예: 그림이 든 openpyxl 생성 파일). 전부 `needsReview` 로 돌아옵니다.
+- **수식 값** — 채운 파일은 수식 칸의 옛 계산값을 지우고 `fullCalcOnLoad` 를 켭니다. 엑셀은 열 때 다시 계산하지만, 캐시를 읽는 프로그램(pandas·openpyxl `data_only`)은 엑셀에서 한 번 열어 저장하기 전까지 값을 못 봅니다.
+- 회의 덱의 넘침은 글자 수로 추정한 후보(`overflowEstimates`)만 돌려줍니다. 정밀 확인은 PowerPoint 에서 합니다.
+- 주민등록번호 모양이 든 인자는 받지 않습니다.
 
 ---
 
