@@ -73,7 +73,7 @@ export default function SanctionClient() {
       const q = new URLSearchParams({ type, limit: String(PAGE), offset: String(offset) });
       if (sanction) q.set('sanction', sanction);
       if (keyword.trim()) q.set('keyword', keyword.trim());
-      if (withLong) q.set('fits_only', 'false');
+      if (withLong) q.set('with_long', 'true');
       const res = await fetch(`/api/sanction-cases?${q}`, { headers: { authorization: `Bearer ${k}` }, cache: 'no-store' });
       if (res.status === 401) {
         writeKey('');
