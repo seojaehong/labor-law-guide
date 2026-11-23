@@ -171,9 +171,11 @@ describe('실제 변환 (LibreOffice)', { skip: noSamples, timeout: 600_000 }, (
     srv = await startServer({ ...baseConfig, maxQueue: 0 });
   });
   after(() => srv.server.close());
+  // 실변환 1건이 이 PC 에서 15~48초다(요청마다 새 프로필). `--test-timeout=30000` 아래에서도 돌도록 시험마다 상한을 따로 준다
+  const REAL = { timeout: 180_000 };
 
   for (const [i, file] of samples.entries()) {
-    test(`KOSHA 표본 #${i + 1} .xls → xlsx: 시트 수·병합 수 유지, 다시 xls 로 왕복`, async () => {
+    test(`KOSHA 표본 #${i + 1} .xls → xlsx: 시트 수·병합 수 유지, 다시 xls 로 왕복`, REAL, async () => {
       const src = readFileSync(file);
       const orig = sheetjsStats(src);
 
@@ -195,13 +197,13 @@ describe('실제 변환 (LibreOffice)', { skip: noSamples, timeout: 600_000 }, (
     });
   }
 
-  test('.xls → pdf', async () => {
+  test('.xls → pdf', REAL, async () => {
     const r = await post(srv.url, { name: 'sample.xls', to: 'pdf', body: readFileSync(samples[0]) });
     assert.equal(r.status, 200, r.json ? JSON.stringify(r.json) : '');
     assert.equal(r.buf.subarray(0, 5).toString(), '%PDF-');
   });
 
-  test('반쪽 난 xlsx → 422 CONVERT_FAILED (종료코드 0 이어도 산출물이 없으면 실패)', async () => {
+  test('반쪽 난 xlsx → 422 CONVERT_FAILED (종료코드 0 이어도 산출물이 없으면 실패)', REAL, async () => {
     const ok = await post(srv.url, { name: 'sample.xls', to: 'xlsx', body: readFileSync(samples[0]) });
     assert.equal(ok.status, 200);
     const half = ok.buf.subarray(0, ok.buf.length >> 1);
@@ -210,7 +212,7 @@ describe('실제 변환 (LibreOffice)', { skip: noSamples, timeout: 600_000 }, (
     assert.equal(r.json.code, 'CONVERT_FAILED');
   });
 
-  test('동시에 두 건, 대기열 0 → 하나는 429 BUSY', async () => {
+  test('동시에 두 건, 대기열 0 → 하나는 429 BUSY', REAL, async () => {
     const src = readFileSync(samples[0]);
     const [a, b] = await Promise.all([
       post(srv.url, { name: 's.xls', to: 'xlsx', body: src }),
@@ -221,7 +223,7 @@ describe('실제 변환 (LibreOffice)', { skip: noSamples, timeout: 600_000 }, (
     assert.equal((a.status === 429 ? a : b).json.code, 'BUSY');
   });
 
-  test('시간 초과 → 504 TIMEOUT, soffice 종료·임시 폴더 삭제', async () => {
+  test('시간 초과 → 504 TIMEOUT, soffice 종료·임시 폴더 삭제', REAL, async () => {
     const work = mkdtempSync(join(tmpdir(), 'cvw-test-'));
     const s = await startServer({ ...baseConfig, timeoutMs: 300, workDir: work });
     try {
@@ -235,7 +237,7 @@ describe('실제 변환 (LibreOffice)', { skip: noSamples, timeout: 600_000 }, (
     }
   });
 
-  test('Lambda 어댑터로 실제 변환', async () => {
+  test('Lambda 어댑터로 실제 변환', REAL, async () => {
     process.env.CONVERT_TOKEN = TOKEN;
     if (process.env.SOFFICE_PATH === undefined) process.env.SOFFICE_PATH = baseConfig.sofficePath;
     const src = readFileSync(samples[0]);

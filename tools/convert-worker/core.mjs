@@ -5,8 +5,9 @@ import { createHash, timingSafeEqual } from 'node:crypto';
 import { existsSync } from 'node:fs';
 import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-import { pathToFileURL } from 'node:url';
+import { dirname, join } from 'node:path';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+import { runJob } from './jobs.mjs';
 
 // 입력 확장자 → 허용 출력. hwpx 는 LibreOffice 가 읽지 못해 받지 않는다.
 // hwp 는 LibreOffice 의 옛 HWP 필터(HWP 97 이전 형식)만 읽는다 — 요즘 HWP 5.x 는 CONVERT_FAILED 로 끝난다.
@@ -41,6 +42,10 @@ const STATUS = {
   NOT_FOUND: 404,
   METHOD_NOT_ALLOWED: 405,
   EMPTY_INPUT: 400,
+  BAD_REQUEST: 400,
+  HOST_NOT_ALLOWED: 403,
+  FETCH_FAILED: 502,
+  UPLOAD_FAILED: 502,
   UNSUPPORTED_FORMAT: 415,
   INPUT_TOO_LARGE: 413,
   BUSY: 429,
@@ -75,7 +80,33 @@ export function loadConfig(env = process.env) {
     timeoutMs: intEnv(env, 'CONVERT_TIMEOUT_MS', 60_000),
     maxQueue: intEnv(env, 'CONVERT_MAX_QUEUE', 4), // 진행 중 1건 + 대기 N건. 넘으면 429
     workDir: env.CONVERT_WORK_DIR || tmpdir(),
+    // ── POST /jobs(서명 URL 방식) ──
+    allowedHosts: String(env.ALLOWED_STORAGE_HOSTS || '')
+      .split(',')
+      .map((h) => h.trim().toLowerCase())
+      .filter(Boolean),
+    allowHttp: env.STORAGE_ALLOW_HTTP === '1', // 시험용 — loopback 호스트에만 http 를 연다
+    jobMaxRequestBytes: intEnv(env, 'JOB_MAX_REQUEST_BYTES', 2 * MB), // 요청 JSON(args 포함)
+    jobMaxInputBytes: intEnv(env, 'JOB_MAX_INPUT_BYTES', 50 * MB),
+    jobMaxOutputBytes: intEnv(env, 'JOB_MAX_OUTPUT_BYTES', 50 * MB),
+    jobMaxUnzippedBytes: intEnv(env, 'JOB_MAX_UNZIPPED_BYTES', 200 * MB),
+    jobMaxZipEntries: intEnv(env, 'JOB_MAX_ZIP_ENTRIES', 10_000),
+    jobMaxCells: intEnv(env, 'JOB_MAX_CELLS', 2_000_000),
+    jobMaxResultBytes: intEnv(env, 'JOB_MAX_RESULT_BYTES', 4 * MB), // 응답 JSON
+    jobTimeoutMs: intEnv(env, 'JOB_TIMEOUT_MS', 120_000), // 작업 1건 전체(내려받기·처리·올리기)
+    jobFetchTimeoutMs: intEnv(env, 'JOB_FETCH_TIMEOUT_MS', 30_000), // GET·PUT 한 번
+    jobMaxOldGenMb: intEnv(env, 'JOB_MAX_OLD_GEN_MB', 1024), // office 작업 스레드 힙. 0 = 제한 없음
   };
+}
+
+const here = dirname(fileURLToPath(import.meta.url));
+
+/** k-labor/office 묶음 경로 — K_LABOR_OFFICE_MODULE, 없으면 같은 폴더 office/index.mjs(이미지용), 없으면 저장소의 tools/k-labor/dist */
+export function officeModulePath(env = process.env) {
+  if (env.K_LABOR_OFFICE_MODULE) return env.K_LABOR_OFFICE_MODULE;
+  const local = join(here, 'office', 'index.mjs');
+  if (existsSync(local)) return local;
+  return join(here, '..', 'k-labor', 'dist', 'office', 'index.mjs');
 }
 
 export function errorResponse(code, message) {
@@ -266,6 +297,15 @@ export async function handle(config, req) {
       req.method === 'GET'
         ? { status: 200, headers: { 'content-type': 'application/json' }, body: Buffer.from('{"ok":true}') }
         : errorResponse('METHOD_NOT_ALLOWED', 'use GET');
+    return res;
+  }
+  if (req.path === '/jobs') {
+    if (req.method !== 'POST') return errorResponse('METHOD_NOT_ALLOWED', 'use POST');
+    res = checkAuth(config, req.headers.authorization);
+    let stats = { op: '', inBytes: 0, outBytes: 0 };
+    if (!res) ({ stats, ...res } = await runJob(config, req.body));
+    // op·크기·결과만. URL(서명 토큰)·파일명·내용은 남기지 않는다
+    log({ path: '/jobs', ...stats, status: res.status, code: res.code, ms: Date.now() - started });
     return res;
   }
   if (req.path !== '/convert') return errorResponse('NOT_FOUND', 'unknown path');

@@ -10,6 +10,8 @@ function lambdaConfig(env = process.env) {
   const cap = Number.parseInt(env.LAMBDA_MAX_PAYLOAD_BYTES || '', 10) || LAMBDA_PAYLOAD_RAW_MAX;
   c.maxInputBytes = Math.min(c.maxInputBytes, cap);
   c.maxOutputBytes = c.maxOutputBytes ? Math.min(c.maxOutputBytes, cap) : cap;
+  // /jobs 는 파일을 서명 URL 로 주고받으므로 입출력 상한은 누르지 않는다. 응답 JSON 만 페이로드 상한 안으로
+  c.jobMaxResultBytes = Math.min(c.jobMaxResultBytes, cap);
   c.maxQueue = 0; // Lambda 는 인스턴스 1개 = 요청 1건. 동시성은 Lambda 가 인스턴스로 푼다
   return c;
 }

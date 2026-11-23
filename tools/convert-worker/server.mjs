@@ -1,5 +1,6 @@
 // HTTP 모드 — Lightsail·아무 Docker 호스트·로컬 PC. 의존성 없음(Node 22+).
 //   POST /convert?to=xlsx|xls|pdf   본문 = 파일 바이트, 헤더 x-filename, Authorization: Bearer <CONVERT_TOKEN>
+//   POST /jobs                      본문 = JSON {op, inputUrl, outputUrl, args} — 서명 URL 방식(jobs.mjs)
 //   GET  /health
 import { createServer } from 'node:http';
 import { pathToFileURL } from 'node:url';
@@ -60,6 +61,20 @@ export function createApp(config = loadConfig()) {
         }
         return send(res, await handle(config, { ...base, body }));
       }
+      if (url.pathname === '/jobs' && req.method === 'POST') {
+        // 본문은 작은 JSON 뿐이다(파일 바이트는 서명 URL 로 주고받는다). 인증 먼저, 상한 넘으면 읽다가 멈춘다.
+        const authErr = checkAuth(config, req.headers.authorization);
+        if (authErr) {
+          req.resume();
+          return send(res, authErr);
+        }
+        const body = await readBody(req, config.jobMaxRequestBytes);
+        if (body === null) {
+          res.setHeader('connection', 'close');
+          return send(res, errorResponse('INPUT_TOO_LARGE', `request exceeds ${config.jobMaxRequestBytes} bytes`));
+        }
+        return send(res, await handle(config, { ...base, body }));
+      }
       req.resume();
       return send(res, await handle(config, { ...base, body: null }));
     } catch {
@@ -77,7 +92,7 @@ if (isMain) {
   }
   const port = Number(process.env.PORT || 8080);
   const server = createApp(config);
-  server.requestTimeout = config.timeoutMs + 60_000;
+  server.requestTimeout = Math.max(config.timeoutMs, config.jobTimeoutMs) + 60_000;
   server.listen(port, () => console.log(JSON.stringify({ t: new Date().toISOString(), msg: 'listening', port })));
   const stop = () => server.close(() => process.exit(0));
   process.on('SIGTERM', stop);
