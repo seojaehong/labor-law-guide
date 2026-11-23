@@ -5,7 +5,7 @@ import { SANCTION_FONTS, exportSelection, selectable, selectionHwpxMd } from '@/
 // 합성 값 — 실제 사건이 아니다
 const pass = {
   id: 'harass:가|1', court: '서울행정법원', case_number: '2099구합1', decided_on: '2099-01-09', type: 'harass', disposition: '정직 3월',
-  sanction: '적정', block_status: 'pass', block_body: '원고는 팀장으로서 부하 직원 <A>에게 폭언 & 욕설을 반복하였다.\n(중략)\n이 사건 정직 처분이 과중하다고 볼 수 없다.', long_text: null, quote: 'x',
+  sanction: '적정', sanction_level: '중징계', block_status: 'pass', block_body: '원고는 팀장으로서 부하 직원 <A>에게 폭언 & 욕설을 반복하였다.\n(중략)\n이 사건 정직 처분이 과중하다고 볼 수 없다.', long_text: null, quote: 'x',
 };
 const long = {
   id: 'attend:가|2', court: '대전지방법원', case_number: '2099구합2', decided_on: '2099-02-01', type: 'attend', disposition: '해고',
@@ -69,6 +69,7 @@ describe('양정 블록 골라 내려받기', () => {
     expect(md).not.toContain('2099구합3');
     const jl = (await exportSelection([long, pass], 'jsonl')).text!.trim().split('\n').map((l) => JSON.parse(l));
     expect(jl.map((r) => r.case_number)).toEqual(['2099구합2', '2099구합1']);
+    expect(jl[1].sanction_level).toBe('중징계');
     const ai = (await exportSelection([pass], 'ai')).text!;
     expect(ai).toContain(pass.block_body!.split('\n')[0]);
     // 긴 판단은 검수 전 발췌(quote)가 아니라 판단 원문 전체(long_text)를 싣는다

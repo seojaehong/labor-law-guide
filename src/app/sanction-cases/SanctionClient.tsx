@@ -50,6 +50,7 @@ export default function SanctionClient() {
   const [keyBad, setKeyBad] = useState(false);
   const [type, setType] = useState<SanctionType>('harass');
   const [sanction, setSanction] = useState<'' | '적정' | '과중'>('');
+  const [level, setLevel] = useState<'' | '중징계' | '경징계'>('');
   const [keyword, setKeyword] = useState('');
   const [withLong, setWithLong] = useState(false);
   const [rows, setRows] = useState<SanctionRow[]>([]);
@@ -72,6 +73,7 @@ export default function SanctionClient() {
     try {
       const q = new URLSearchParams({ type, limit: String(PAGE), offset: String(offset) });
       if (sanction) q.set('sanction', sanction);
+      if (level) q.set('level', level);
       if (keyword.trim()) q.set('keyword', keyword.trim());
       if (withLong) q.set('with_long', 'true');
       const res = await fetch(`/api/sanction-cases?${q}`, { headers: { authorization: `Bearer ${k}` }, cache: 'no-store' });
@@ -97,7 +99,7 @@ export default function SanctionClient() {
   }
 
   // 유형·양정·긴 판단을 바꾸면 처음부터 다시 불러온다(낱말은 「찾기」를 눌러야)
-  useEffect(() => { if (key) void load(0); }, [key, type, sanction, withLong]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (key) void load(0); }, [key, type, sanction, level, withLong]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const isPicked = (r: SanctionRow) => picked.some((p) => p.id === r.id);
   const toggle = (r: SanctionRow) => { setPicked((p) => (p.some((x) => x.id === r.id) ? p.filter((x) => x.id !== r.id) : [...p, r])); setMsg(''); };
@@ -150,6 +152,12 @@ export default function SanctionClient() {
             <button key={t} type="button" style={t === type ? on : btn} aria-pressed={t === type} onClick={() => setType(t)}>{label(t)}</button>
           ))}
         </div>
+        <div style={{ ...row, marginTop: 8 }} role="group" aria-label="처분 수준">
+          {([['', C.LEVEL_LABEL.all], ['중징계', C.LEVEL_LABEL.heavy], ['경징계', C.LEVEL_LABEL.light]] as const).map(([v, l]) => (
+            <button key={l} type="button" style={v === level ? on : btn} aria-pressed={v === level} onClick={() => setLevel(v)}>{l}</button>
+          ))}
+        </div>
+        <p style={{ ...small, margin: '4px 0 0' }}>{C.LEVEL_NOTE}</p>
         <div style={{ ...row, marginTop: 8 }} role="group" aria-label="양정 판단">
           {([['', C.SANCTION_LABEL.all], ['적정', C.SANCTION_LABEL.ok], ['과중', C.SANCTION_LABEL.heavy]] as const).map(([v, l]) => (
             <button key={l} type="button" style={v === sanction ? on : btn} aria-pressed={v === sanction} onClick={() => setSanction(v)}>{l}</button>
@@ -172,7 +180,7 @@ export default function SanctionClient() {
                 <input type="checkbox" checked={sel} onChange={() => toggle(r)} style={{ marginTop: 4 }} aria-label={`${r.case_number} 고르기`} />
                 <span style={{ minWidth: 0, flex: 1 }}>
                   <span style={{ ...small, display: 'block' }}>
-                    {label(r.type)}{r.sanction ? ` · ${r.sanction}` : ''}{r.block_status === 'long_judgment' ? ` · ${C.LONG_BADGE}` : ''}
+                    {label(r.type)}{r.sanction_level ? ` · ${r.sanction_level}` : ''}{r.sanction ? ` · ${r.sanction}` : ''}{r.block_status === 'long_judgment' ? ` · ${C.LONG_BADGE}` : ''}
                   </span>
                   <span style={{ ...ink, fontSize: 14, fontWeight: 700, display: 'block', marginTop: 2 }}>{blockHeader(r)}</span>
                   <Body r={r} />

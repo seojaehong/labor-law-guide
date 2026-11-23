@@ -80,7 +80,7 @@ export function toMarkdown(rows) {
 export function toJsonl(rows) {
   return rows.map((r) => JSON.stringify({
     court: r.court, case_number: r.case_number, decided_on: r.decided_on ?? null, type: r.type, kind: r.kind ?? null,
-    disposition: r.disposition ?? null, reason: r.reason ?? null, sanction: r.sanction ?? null,
+    disposition: r.disposition ?? null, sanction_level: r.sanction_level ?? null, reason: r.reason ?? null, sanction: r.sanction ?? null,
     block_status: r.block_status ?? null, block_body: vetted(r) ? r.block_body : null, long_text: r.long_text ?? null,
     quote: r.quote, quote_fits: fits(r), evidence: r.evidence ?? null, ai_note: r.generated_note ?? null,
   })).join('\n') + '\n';

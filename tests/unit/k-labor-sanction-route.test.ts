@@ -88,6 +88,15 @@ describe('/api/sanction-cases', () => {
     expect(fetchSanctionCases).toHaveBeenLastCalledWith(expect.objectContaining({ withLong: false }));
   });
 
+  it('level = 중징계·경징계로 거른다(261123), 그 밖의 값은 무시', async () => {
+    await get(`type=harass&level=${encodeURIComponent('중징계')}`, `Bearer ${TOKEN}`);
+    expect(fetchSanctionCases).toHaveBeenLastCalledWith(expect.objectContaining({ level: '중징계' }));
+    await get(`type=harass&level=${encodeURIComponent('경징계')}`, `Bearer ${TOKEN}`);
+    expect(fetchSanctionCases).toHaveBeenLastCalledWith(expect.objectContaining({ level: '경징계' }));
+    await get('type=harass&level=x', `Bearer ${TOKEN}`);
+    expect(fetchSanctionCases).toHaveBeenLastCalledWith(expect.objectContaining({ level: undefined }));
+  });
+
   it('모르는 유형은 400', async () => {
     expect((await get('type=nope', `Bearer ${TOKEN}`)).status).toBe(400);
   });
