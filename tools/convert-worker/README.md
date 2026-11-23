@@ -50,6 +50,61 @@ GET {OFFICE_CONVERT_URL}/health  → {"ok":true}  (인증 없음)
 - **hwpx 는 받지 않는다.** LibreOffice 에 hwpx 가져오기 필터가 없다.
 - **hwp 는 사실상 안 된다고 보고 쓴다.** LibreOffice 의 HWP 필터는 옛 판 형식만 읽는다. 261123 실측 — 저장소 픽스처 `tests/fixtures/laws/sample-rules.hwp`·`table-rules.hwp`(요즘 한글 파일)를 컨테이너에 넣으면 둘 다 CONVERT_FAILED 였다. 한글 미리보기는 별도 경로(rhwp 등)가 필요하다. 행렬에는 남겨 두었다(옛 파일이 오면 열리고, 아니면 422 로 깔끔히 끝난다).
 
+## POST /jobs — 서명 URL 방식
+
+파일 바이트를 요청·응답 본문에 싣지 않는다. 호출하는 쪽(SafeClaw)이 저장소(S3·Supabase Storage 등)에 서명 URL 을 만들어 넘기면, 워커가 입력을 직접 내려받고 결과를 직접 올린다. Vercel 4.5MB·Lambda 6MB 본문 한도를 피하려는 경로다. 기존 `/convert` 는 그대로 둔다.
+
+```
+POST {OFFICE_CONVERT_URL}/jobs
+Authorization: Bearer {OFFICE_CONVERT_TOKEN}     ← /convert 와 같은 토큰
+content-type: application/json
+{"op": "xlsx.fill", "inputUrl": "https://…서명 GET URL", "outputUrl": "https://…서명 PUT URL", "args": {…}}
+```
+
+1. 두 URL 을 먼저 검사한다(네트워크에 닿기 전). 2. `inputUrl` 을 GET 한다. 3. op 를 실행한다. 4. 결과 파일을 `outputUrl` 로 PUT 한다. 5. JSON 을 돌려준다.
+
+| op | inputUrl | outputUrl | args | 처리 |
+|---|---|---|---|---|
+| `convert` | 필요 | 필요 | `{from, to}` — from = 입력 확장자, to = xlsx·xls·pdf (위 허용 형식 표) | LibreOffice |
+| `xlsx.inspect` | 필요 | — | — | k-labor/office |
+| `xlsx.extract` | 필요 | — | `{sheet?, headerRow?, maxRows?}` | k-labor/office |
+| `xlsx.fill` | 필요 | 필요 | `{cells?, rows?, strict?}` | k-labor/office |
+| `xlsx.make` | — | 필요 | `{spec}` | k-labor/office |
+| `pptx.meeting` | — | 필요 | `{snapshot, kind?, fontFace?, layout?}` — 위험성평가 회의 덱 | k-labor/office |
+| `pptx.extract` | 필요 | — | — | k-labor/office |
+
+성공 응답(200):
+
+```json
+{"ok": true, "op": "xlsx.fill", "data": {…}, "warnings": [{"code": "…", "message": "…"}],
+ "input":  {"sha256": "…", "bytes": 12345},
+ "output": {"sha256": "…", "bytes": 23456, "contentType": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"},
+ "meta":   {"op": "xlsx.fill", "engine": {"name": "k-labor/office", "version": "…", "commit": "…", "dirty": false}}}
+```
+
+`input` 은 입력을 받은 op 에만, `output` 은 파일을 올린 op 에만 있다. 받는 쪽은 `output.sha256` 으로 저장소에 올라간 파일을 대조한다.
+
+실패 응답은 `{ok:false, code, message, details?, warnings?}` 이다. office op 의 실패 코드(INVALID_ARGS·UNSUPPORTED_INPUT·OVERFLOW·PRESERVATION_LOSS·WORKLOAD_TOO_LARGE·ZIP_TOO_LARGE·WRITE_FAILED·OUTPUT_TOO_LARGE)는 라이브러리 Result 그대로 422 로 낸다. **실패하면 PUT 하지 않는다.** `/convert` 표의 코드에 다음이 더해진다.
+
+| code | HTTP | 뜻 |
+|---|---|---|
+| BAD_REQUEST | 400 | JSON 아님·모르는 op·args 가 객체 아님·필요한 URL 없음 |
+| HOST_NOT_ALLOWED | 403 | URL 호스트가 `ALLOWED_STORAGE_HOSTS` 밖, https 아님, URL 에 사용자·비밀번호 |
+| FETCH_FAILED | 502 | 입력 GET 이 200 이 아님(404·리다이렉트 포함) 또는 연결 실패 |
+| UPLOAD_FAILED | 502 | 결과 PUT 이 2xx 가 아님 또는 연결 실패 |
+| INPUT_TOO_LARGE | 413 | 입력 파일이 `JOB_MAX_INPUT_BYTES` 초과(선언 크기·실제로 읽은 크기 둘 다 본다) 또는 요청 JSON 이 `JOB_MAX_REQUEST_BYTES` 초과 |
+| RESULT_TOO_LARGE | 422 | 응답 JSON 이 `JOB_MAX_RESULT_BYTES` 초과(이때도 PUT 하지 않는다) |
+| TIMEOUT | 504 | 내려받기·처리·올리기 중 시간 초과. office op 는 작업 스레드를 끝낸다 |
+| MISCONFIGURED | 503 | `ALLOWED_STORAGE_HOSTS` 가 비었음(모든 작업 거절) 또는 k-labor/office 묶음이 없음 |
+
+### /jobs 가 지키는 것
+
+- **SSRF 차단** — `ALLOWED_STORAGE_HOSTS`(쉼표 구분, `호스트[:포트]`)에 있는 호스트만 접근한다. https 만 쓴다. 리다이렉트는 따라가지 않는다(302 → FETCH_FAILED). DB 키·저장소 키는 워커에 없다 — 서명 URL 이 권한의 전부다.
+- http 는 시험용이다. `STORAGE_ALLOW_HTTP=1` 이고 호스트가 loopback(localhost·127.0.0.1·[::1])일 때만 연다.
+- office op 는 `worker_threads` 작업 스레드(`office-thread.mjs`)에서 돈다. 시간이 넘으면 스레드를 끝내고, 힙은 `JOB_MAX_OLD_GEN_MB` 로 묶는다. 라이브러리 한도(zip 풀린 크기·항목 수·칸 수·결과 크기)는 환경변수에서 주입한다.
+- 로그에는 op·입출력 바이트·상태·코드·시간만 남긴다. URL(서명 토큰)·파일명·내용은 남기지 않는다.
+- k-labor/office 묶음 위치 = `K_LABOR_OFFICE_MODULE` → 워커 폴더의 `office/index.mjs` → 저장소의 `tools/k-labor/dist/office/index.mjs`(먼저 `node tools/k-labor/build.mjs`). Docker 이미지에 넣으려면 빌드 전에 묶음을 `tools/convert-worker/office/` 로 복사한다(빌드 컨텍스트 밖이라 Dockerfile 이 직접 가져오지 못한다).
+
 ## 환경변수
 
 | 이름 | 기본값 | 뜻 |
@@ -65,6 +120,17 @@ GET {OFFICE_CONVERT_URL}/health  → {"ok":true}  (인증 없음)
 | `CONVERT_MAX_QUEUE` | 4 | 진행 중 1건 외에 기다릴 수 있는 요청 수. 넘으면 429. Lambda 에서는 0 |
 | `CONVERT_WORK_DIR` | OS 임시 폴더(`/tmp`) | 요청별 임시 폴더를 만들 곳 |
 | `CONVERT_QUIET` | (없음) | `1` 이면 요청 로그를 끈다 |
+| `ALLOWED_STORAGE_HOSTS` | (없음) | /jobs 가 접근할 저장소 호스트(쉼표 구분, `호스트[:포트]`). **비면 /jobs 는 전부 503** |
+| `STORAGE_ALLOW_HTTP` | (없음) | `1` 이면 loopback 호스트에 한해 http 허용(시험용) |
+| `JOB_MAX_REQUEST_BYTES` | 2097152 (2MB) | /jobs 요청 JSON 상한 |
+| `JOB_MAX_INPUT_BYTES` | 52428800 (50MB) | 내려받을 입력 파일 상한 |
+| `JOB_MAX_OUTPUT_BYTES` | 52428800 (50MB) | 올릴 결과 파일 상한 |
+| `JOB_MAX_UNZIPPED_BYTES` · `JOB_MAX_ZIP_ENTRIES` · `JOB_MAX_CELLS` | 200MB · 10000 · 2000000 | office op 한도(라이브러리 Limits) |
+| `JOB_MAX_RESULT_BYTES` | 4194304 (4MB) | 응답 JSON 상한. Lambda 에서는 `LAMBDA_MAX_PAYLOAD_BYTES` 이하로 줄어든다 |
+| `JOB_TIMEOUT_MS` | 120000 | 작업 1건 전체(내려받기·처리·올리기) 시간 상한 |
+| `JOB_FETCH_TIMEOUT_MS` | 30000 | GET·PUT 한 번의 시간 상한 |
+| `JOB_MAX_OLD_GEN_MB` | 1024 | office 작업 스레드 힙 상한. 0 = 제한 없음 |
+| `K_LABOR_OFFICE_MODULE` | (없음) | k-labor/office 묶음(index.mjs) 경로 |
 
 ### 지키는 것
 
