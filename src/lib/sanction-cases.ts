@@ -9,6 +9,8 @@ export type SanctionQuery = {
   keyword?: string;
   fitsOnly?: boolean;
   limit?: number;
+  /** 앞에서 건너뛸 행 수(골라 내려받기 화면 「더 불러오기」) */
+  offset?: number;
 };
 
 const COLS = 'id,court,case_number,decided_on,type,kind,disposition,reason,sanction,procedure,quote,quote_fits,evidence,generated_note,also_types,related,reversed_by,block_status,block_body,long_text';
@@ -27,7 +29,10 @@ export async function fetchSanctionCases(q: SanctionQuery) {
   }
   // 기본 = 검수 블록이 있는 판결만(P5). fitsOnly=false 면 긴 판단·블록 없음까지 전부
   if (q.fitsOnly !== false) r = r.eq('block_status', 'pass');
-  const { data, error } = await r.order('decided_on', { ascending: false, nullsFirst: false }).limit(Math.min(Math.max(q.limit ?? 8, 1), 30));
+  const n = Math.min(Math.max(q.limit ?? 8, 1), 30);
+  const from = Math.max(q.offset ?? 0, 0);
+  // 같은 선고일 안에서도 순서가 고정돼야 묶음 사이에 빠지거나 겹치는 행이 없다 → id 를 둘째 기준으로
+  const { data, error } = await r.order('decided_on', { ascending: false, nullsFirst: false }).order('id').range(from, from + n - 1);
   if (error) throw new Error(`양정 사례 조회 오류: ${error.code ?? ''}`);
   return data ?? [];
 }
