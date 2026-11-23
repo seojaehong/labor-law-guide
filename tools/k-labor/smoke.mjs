@@ -171,6 +171,8 @@ const ANN = {
   make_hwpx_from_markdown: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
   // 새 파일로 쓰고 원본·있는 파일은 건드리지 않는다
   edit_hwpx_text: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
+  // 퇴고 문체 점검 — 읽기 전용, 문서 글을 밖으로 보내지 않는다
+  check_prose: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
   // 서식 — 목록·검사는 읽기 전용(원격판에도), 파일 만들기는 로컬 전용
   list_hr_forms: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
   check_hr_form: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
@@ -187,7 +189,7 @@ const ANN = {
 }
 // 이 판에서 더한 도구 8개 + 사이트 도구 7개(groups/more) — 「대신·대행·대리」도 함께 막는다
 const NOSA_TOOLS = ['assess_labor_council', 'check_council_meeting', 'make_labor_council_forms', 'make_council_meeting_docs', 'make_council_election_docs', 'check_council_rules', 'record_council_history', 'export_council_vault', 'import_council_minutes', 'make_council_rules_comparison'];
-const NEW_TOOLS = ['calc_severance', 'calc_holiday_pay', 'calc_pay_proration', 'calc_shutdown_allowance', 'calc_annual_leave', 'settle_leave_on_exit', 'calc_retirement_tax', 'list_employer_duties', ...MORE_TOOLS, ...NOSA_TOOLS, 'make_hwpx_from_markdown', 'edit_hwpx_text', 'list_hr_forms', 'check_hr_form', 'make_hr_form'];
+const NEW_TOOLS = ['calc_severance', 'calc_holiday_pay', 'calc_pay_proration', 'calc_shutdown_allowance', 'calc_annual_leave', 'settle_leave_on_exit', 'calc_retirement_tax', 'list_employer_duties', ...MORE_TOOLS, ...NOSA_TOOLS, 'make_hwpx_from_markdown', 'edit_hwpx_text', 'check_prose', 'list_hr_forms', 'check_hr_form', 'make_hr_form'];
 const NEW_WORDS = [...WORDS, '대신', '대행', '대리'];
 const bannedNew = (s) => (banned ? banned.bannedHits(s, NEW_WORDS) : []);
 for (const n of NEW_TOOLS) check(`${n}: 도구 목록에 있음`, tools.includes(n));
@@ -582,6 +584,9 @@ if (tools.includes('make_hwpx_from_markdown')) {
   // 양식 모드 — 앞서 만든 파일을 양식으로 다시 쓴다
   const tm = await callNew('make_hwpx_from_markdown', { markdown: '# 가상 양식본\n\n양식 모양으로 채운 본문.', preset: 'internal', outDir: dir, templateFile: mh.file.path });
   check(`docs 양식 모드 ${tm.file?.bytes}B`, tm.ok && fs.existsSync(tm.file.path));
+  // 퇴고 — 범용 팩만으로도 돈다. brief 응답에는 규칙 원문·고칠 말이 없다
+  const pr = await callNew('check_prose', { text: '가상 보고서입니다. 결과를 가르는 것은 시간입니다.', genre: 'general' });
+  check(`check_prose 범용 팩 B ${pr.counts?.B}`, pr.ok && pr.counts?.B === 1 && !('fix' in (pr.hits?.[0] ?? {})) && !('word' in (pr.hits?.[0] ?? {})));
 }
 
 // ── forms 묶음 ── 합성 값 → 서식 hwpx(동시 호출 · 같은 이름 거절 · 주민번호 모양 거절)

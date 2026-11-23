@@ -19,7 +19,7 @@ const call = async (a: object) => JSON.parse((await tool.handler(a)).content[0].
 
 describe('docs 묶음', () => {
   it('도구 이름·설명·입력 설명에 금지어와 em dash 가 없다', () => {
-    expect(tools.map((t) => t.name)).toEqual(['make_hwpx_from_markdown', 'edit_hwpx_text']);
+    expect(tools.map((t) => t.name)).toEqual(['make_hwpx_from_markdown', 'edit_hwpx_text', 'check_prose']);
     for (const t of tools) {
       const schema = Object.values(t.cfg.inputSchema ?? {}).map((v) => v.description ?? '').join('\n');
       const all = `${t.cfg.title}\n${t.cfg.description}\n${schema}`;
@@ -144,6 +144,27 @@ describe('docs 묶음 — 같은 파일에 동시에 쓰기', () => {
       expect(fs.statSync(out).size).toBe(won[0].file.bytes);
     } finally {
       fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('check_prose: 범용 팩으로 점검하고, brief 응답에 규칙 원문·고칠 말을 싣지 않으며, 주민번호 모양이면 멈춘다', async () => {
+    const prose = tools[2];
+    const callProse = async (a: object) => JSON.parse((await prose.handler(a)).content[0].text);
+    const old = process.env.PROSE_PACK_DIR;
+    process.env.PROSE_PACK_DIR = path.join(os.tmpdir(), 'no-such-prose-pack');
+    try {
+      const r = await callProse({ text: '합성 문장입니다. 결과를 가르는 것은 시간입니다.', genre: 'general' });
+      expect(r).toMatchObject({ ok: true, genre: 'general', counts: { A: 0, B: 1 } });
+      expect(Object.keys(r.hits[0]).sort()).toEqual(['col', 'grade', 'len', 'line', 'reason', 'ref']);
+      expect(JSON.stringify(r)).not.toMatch(/가르는|im-not-ai|gen-L-12/);
+      const f = await callProse({ text: '결과를 가르는 것은 시간입니다.', detail: 'full' });
+      expect(f.hits[0]).toMatchObject({ word: '를 가르는 것은', rule: 'gen-L-12', pack: 'generic' });
+      const stop = await callProse({ text: '주민번호 900101-1234567 이 있는 글' });
+      expect(stop.ok).toBe(false);
+      expect(stop.error).toContain('주민등록번호');
+    } finally {
+      if (old === undefined) delete process.env.PROSE_PACK_DIR;
+      else process.env.PROSE_PACK_DIR = old;
     }
   });
 });

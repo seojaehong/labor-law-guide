@@ -1,0 +1,11 @@
+im-not-ai (humanize-korean)
+Copyright (c) 2026 epoko77-ai
+MIT License — see LICENSE in this folder.
+Source: https://github.com/epoko77-ai/im-not-ai at commit c07df14
+
+Used in: tools/k-labor/lib/prose/generic-pack.json
+  15 entries of skills/humanize-korean/references/lexicon.json (v1.3, tier "change"):
+  AST-38, AST-39, AST-42, AST-48, AST-56, AST-57, AST-61, L-12, L-13, L-17,
+  L-23, L-25, L-26, L-27, X-04. The narrow "regex" and "regex_exclude" fields are
+  copied; headwords appear in the "fix" text. Grades, reasons and output policy are ours.
+No code from im-not-ai is copied; the rule runner (tools/k-labor/lib/prose/check.mjs) is new.

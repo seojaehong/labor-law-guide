@@ -1,5 +1,6 @@
 // 문서 묶음 — 마크다운 원고를 한글(hwpx) 파일로 만든다.
 //   make_hwpx_from_markdown  md → hwpx(프리셋 internal·tribunal). 변환 규칙은 src/lib/md-hwpx
+//   check_prose              퇴고 문체 점검 — 규칙은 팩(JSON): lib/prose/generic-pack.json + env PROSE_PACK_DIR(261123)
 // ★ 파일을 읽고 쓰므로 원격판(remote.mjs)에서 불러오지 않는다. stdio 판(server.mjs)으로만 켠다.
 // ★ 공개 문구 금지어 + 포괄·대신·대행·대리·지도를 이 묶음의 글(설명·결과)에 쓰지 않는다.
 import { z } from 'zod';
@@ -9,8 +10,10 @@ import { mdHwpxSummary, mdToHwpx, parseMarkdown } from '@/lib/md-hwpx';
 import { fillCells, replaceText } from '@/lib/md-hwpx/postedit';
 import { mdToHwpxWithTemplate } from '@/lib/md-hwpx/template';
 import { argsLookLikeRrn, looksLikeRrn, text, writeNew } from '../lib/common.mjs';
+import { checkProse, loadPacks } from '../lib/prose/check.mjs';
 
-export const docsTools = ['make_hwpx_from_markdown', 'edit_hwpx_text'];
+export const docsTools = ['make_hwpx_from_markdown', 'edit_hwpx_text', 'check_prose'];
+const PROSE_RRN_STOP = '입력에 주민등록번호 모양의 숫자가 있어 멈췄습니다. 가린 뒤 다시 점검해 주세요.';
 
 const WRITES = { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false };
 const fail = (error, extra = {}) => text({ ok: false, error, ...extra });
@@ -149,6 +152,33 @@ export function registerDocs(server) {
         fs.mkdirSync(path.dirname(out), { recursive: true });
         if (!writeNew(out, bytes)) return fail(EXISTS_EDIT, { exists: out });
         return text({ ok: true, file: { path: out, bytes: bytes.length }, edits: preview, fills: a.fills?.length ?? 0, notice: '서식(header)은 그대로입니다. 한글에서 열어 고치기 전후 쪽마다 첫 줄과 끝 줄을 대조해 주세요.' });
+      } catch (e) {
+        return fail(e instanceof Error ? e.message : String(e));
+      }
+    },
+  );
+
+  // ── 퇴고 — 문서 문체 점검(결정론). 규칙은 팩(JSON)에 있다: 범용 팩 + env PROSE_PACK_DIR 의 팩
+  server.registerTool(
+    'check_prose',
+    {
+      title: '퇴고: 문서 문체 점검(규칙 팩)',
+      description:
+        '의견서·보고서·강의안 같은 업무 문서에서 비유·구어 표현, 번역투, AI 문체 상투어, 서식 위반을 줄·칸 단위로 찾는다. > 인용 줄과 [관련 판결] 줄은 원문이라 본문 규칙을 보지 않는다. 표 칸의 「」·“ ” 안은 원문으로 보고 가린다. ' +
+        'A = 고칠 표현, B = 문맥을 보고 판단할 표현. 빈도·문장 길이·종결어미 반복 같은 알림은 notes 에 따로 준다. 규칙은 범용 팩(im-not-ai 유래)과 이 PC 의 PROSE_PACK_DIR 팩에서 읽는다. ' +
+        'detail = brief(기본: 위치·등급·짧은 사유만) / full(이 PC 확인용: 걸린 글자·고칠 말까지). 모델을 부르지 않고, 문서 글을 밖으로 보내지 않는다.',
+      inputSchema: {
+        text: z.string().min(1).max(400_000).describe('점검할 문서 글(md 또는 평문)'),
+        genre: z.enum(['legal', 'consulting', 'lecture', 'general']).optional().describe('legal(기본: 의견서·조사보고서, 서술 표준·밀도·제목·문장 검사까지) / consulting / lecture / general'),
+        detail: z.enum(['brief', 'full']).optional().describe('brief(기본) 위치·등급·짧은 사유 / full 걸린 글자·고칠 말·규칙 이름까지'),
+      },
+      annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+    },
+    async (a) => {
+      if (argsLookLikeRrn({ text: a.text })) return fail(PROSE_RRN_STOP);
+      try {
+        const r = checkProse(a.text, { packs: loadPacks(), genre: a.genre ?? 'legal', detail: a.detail ?? 'brief' });
+        return text({ ok: true, genre: a.genre ?? 'legal', ...r });
       } catch (e) {
         return fail(e instanceof Error ? e.message : String(e));
       }
