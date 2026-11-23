@@ -3,7 +3,7 @@
 import { spawn } from 'node:child_process';
 import { createHash, timingSafeEqual } from 'node:crypto';
 import { existsSync } from 'node:fs';
-import { mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -160,13 +160,14 @@ function killTree(child) {
   }
 }
 
-function runSoffice(config, args, timeoutMs) {
+function runSoffice(config, args, timeoutMs, tmp) {
   return new Promise((resolve) => {
     const child = spawn(config.sofficePath, args, {
       stdio: ['ignore', 'ignore', 'pipe'],
       detached: process.platform !== 'win32',
       windowsHide: true,
-      env: { ...process.env },
+      // soffice 의 IPC 파이프·임시 파일(OSL_PIPE_*, lu*.tmp)도 요청 폴더 안에 두어 같이 지워지게 한다.
+      env: { ...process.env, TMPDIR: tmp, TMP: tmp, TEMP: tmp },
     });
     let stderr = '';
     let timedOut = false;
@@ -210,6 +211,8 @@ export async function convert(config, { bytes, ext, to }) {
     const inPath = join(dir, `input.${ext}`);
     const outDir = join(dir, 'out');
     const profile = join(dir, 'profile');
+    const tmp = join(dir, 'tmp');
+    await mkdir(tmp);
     await writeFile(inPath, bytes);
     const args = [
       `-env:UserInstallation=${pathToFileURL(profile).href}`,
@@ -226,7 +229,7 @@ export async function convert(config, { bytes, ext, to }) {
       outDir,
       inPath,
     ];
-    const r = await runSoffice(config, args, config.timeoutMs);
+    const r = await runSoffice(config, args, config.timeoutMs, tmp);
     if (r.timedOut) return errorResponse('TIMEOUT', `conversion exceeded ${config.timeoutMs} ms`);
     if (r.spawnError) return errorResponse('MISCONFIGURED', `cannot start soffice: ${r.spawnError.code || 'error'}`);
 

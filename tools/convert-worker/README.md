@@ -48,7 +48,7 @@ GET {OFFICE_CONVERT_URL}/health  → {"ok":true}  (인증 없음)
 | hwp | pdf (아래 주의) |
 
 - **hwpx 는 받지 않는다.** LibreOffice 에 hwpx 가져오기 필터가 없다.
-- **hwp 는 옛 판(HWP 97 이전 형식)만 열린다.** 요즘 한글(HWP 5.x, 2002~) 파일은 CONVERT_FAILED 로 끝난다. 한글 미리보기는 별도 경로(rhwp 등)가 필요하다. 이번 작업에서 실제 hwp 표본으로는 시험하지 않았다.
+- **hwp 는 사실상 안 된다고 보고 쓴다.** LibreOffice 의 HWP 필터는 옛 판 형식만 읽는다. 261123 실측 — 저장소 픽스처 `tests/fixtures/laws/sample-rules.hwp`·`table-rules.hwp`(요즘 한글 파일)를 컨테이너에 넣으면 둘 다 CONVERT_FAILED 였다. 한글 미리보기는 별도 경로(rhwp 등)가 필요하다. 행렬에는 남겨 두었다(옛 파일이 오면 열리고, 아니면 422 로 깔끔히 끝난다).
 
 ## 환경변수
 
@@ -115,7 +115,18 @@ docker run --rm -p 8080:8080 -e MODE=http -e CONVERT_TOKEN=x \
 
 (윈도우 Git Bash 에서는 `/tmp` 가 윈도우 경로로 바뀌어 실패한다 — 앞에 `MSYS_NO_PATHCONV=1` 을 붙인다.)
 
-261123 실측(Docker Desktop, 이 PC): 이미지 1.03GB(LibreOffice 25.2.3, 나눔 글꼴). 기본 모드는 Lambda 밖에서 안내를 찍고 코드 64 로 끝난다. `MODE=http` 와 `--read-only --tmpfs /tmp --user 1000` 둘 다 KOSHA .xls → xlsx(4~9초) → xls(5~10초), .xls → pdf(4~6초) 성공, 시트 11개·시트별 병합 수가 원본과 같았다.
+### 261123 실측 (Docker Desktop, 이 PC — 배포는 하지 않았다)
+
+- 이미지 약 1.03GB(Debian trixie, LibreOffice 25.2.3, 나눔 글꼴, tini).
+- 기본 모드를 Lambda 밖에서 띄우면 안내를 찍고 코드 64 로 끝난다.
+- `MODE=http --read-only --tmpfs /tmp --user 12345:12345`(Lambda 흉내 — 읽기 전용, 이미지에 없는 uid)로 KOSHA 표본 **12건 전부** .xls → xlsx → xls 왕복과 .xls → pdf 가 성공했다. 시트 수, 시트별 병합(고유 범위) 수가 원본과 같았고 그림(xl/media)·인쇄 영역·가로 방향이 살아 있었다. PDF 에는 NanumGothic 이 임베드됐다. 건당 4~28초(파일 0.5~4MB).
+- **Lambda 모드도 컨테이너 안에서 돌려 봤다.** 가짜 Runtime API(로컬 Node)를 `AWS_LAMBDA_RUNTIME_API` 로 물려 `aws-lambda-ric` 4.0.2 가 이벤트 3건(/health 200, .xls → xlsx 200·base64, 틀린 토큰 401)을 처리했다. 실제 AWS 위에서는 아직 돌려 보지 않았다.
+- `CONVERT_TIMEOUT_MS=300` → 504 TIMEOUT. tini 를 넣기 전에는 죽인 `soffice.bin` 이 node(PID 1) 밑에서 좀비로 남았다 — 그래서 ENTRYPOINT 가 tini 다.
+
+### 알려진 충실도 차이
+
+- KOSHA 90703 의 한 시트는 원본에 **같은 병합 범위가 두 번** 적혀 있다(17개, 고유 16개). LibreOffice 는 하나로 합쳐 16개로 낸다. 잃은 병합은 없다.
+- 왕복 xls 크기가 원본과 다르다(예: 526KB → 304KB, 1.4MB → 2.1MB). 시트·병합·그림 수는 같았지만 셀 서식 하나하나를 대조하지는 않았다.
 
 ## Lambda 컨테이너로 배포 (ap-northeast-2) — 절차만
 
@@ -139,6 +150,7 @@ docker run --rm -p 8080:8080 -e MODE=http -e CONVERT_TOKEN=x \
 
 ### Lambda 에서만 걸리는 한도
 
+- ★ **HTTP 모드 입력 상한은 20MB 지만 Lambda 에서는 입력·출력 각각 약 4.4MB 다.** KOSHA 표본 중 가장 큰 것이 약 4.1MB 라 한도 바로 아래다.
 - **요청·응답이 각각 6MB 다.** 바이너리는 base64(4/3 배)로 실리므로 **원본 기준 약 4.4MB** 가 실제 상한이다. 입력이 넘으면 INPUT_TOO_LARGE(또는 AWS 가 먼저 413), 출력이 넘으면 OUTPUT_TOO_LARGE 다. 그보다 큰 파일이 필요하면 HTTP 모드 호스트로 옮기거나, S3 사전 서명 URL 로 주고받도록 바꾼다(지금은 하지 않았다).
 - 인스턴스 하나가 한 번에 한 요청만 받으므로 워커 안 대기열은 0 이다. 동시 요청은 Lambda 가 인스턴스를 늘려 처리한다.
 

@@ -17,7 +17,7 @@ FROM node:22-trixie-slim
 RUN apt-get update \
  && apt-get install -y --no-install-recommends \
       libreoffice-calc-nogui libreoffice-writer-nogui libreoffice-impress-nogui \
-      fonts-nanum fontconfig libcurl4t64 \
+      fonts-nanum fontconfig libcurl4t64 tini \
  && fc-cache -f \
  && rm -rf /var/lib/apt/lists/* /usr/share/doc/* /usr/share/man/*
 
@@ -37,4 +37,6 @@ RUN chmod 0755 /app/docker-entrypoint.sh && chmod -R a+rX /app
 # HTTP 모드에서는 root 로 돌 이유가 없다(Lambda 는 자체 사용자로 실행).
 USER node
 EXPOSE 8080
-ENTRYPOINT ["/app/docker-entrypoint.sh"]
+# tini = PID 1. 시간 초과로 죽인 soffice.bin 이 node(PID 1) 밑에서 좀비로 남지 않게 거둔다(261123 실측).
+ENTRYPOINT ["/usr/bin/tini", "--", "/app/docker-entrypoint.sh"]
+CMD ["lambda.handler"]

@@ -57,11 +57,15 @@ async function post(url, { to = 'xlsx', name = 'a.xls', token = TOKEN, body = Bu
   return { status: r.status, type: r.headers.get('content-type'), buf, json };
 }
 
+// 병합은 「서로 다른 범위의 수」로 센다. KOSHA 90703 의 한 시트는 원본에 같은 병합 범위가
+// 두 번 적혀 있어(17개 중 고유 16개) LibreOffice 가 하나로 합친다 — 잃은 병합은 없다(261123 실측).
+const uniq = (ranges) => new Set(ranges).size;
+
 function sheetjsStats(buf) {
   const wb = XLSX.read(buf, { type: 'buffer' });
   return {
     names: wb.SheetNames,
-    merges: wb.SheetNames.map((n) => (wb.Sheets[n]['!merges'] || []).length),
+    merges: wb.SheetNames.map((n) => uniq((wb.Sheets[n]['!merges'] || []).map((m) => XLSX.utils.encode_range(m)))),
   };
 }
 
@@ -70,7 +74,7 @@ async function exceljsStats(buf) {
   await wb.xlsx.load(buf);
   return {
     names: wb.worksheets.map((w) => w.name),
-    merges: wb.worksheets.map((w) => (w.model.merges || []).length),
+    merges: wb.worksheets.map((w) => uniq(w.model.merges || [])),
   };
 }
 
@@ -197,11 +201,13 @@ describe('실제 변환 (LibreOffice)', { skip: noSamples, timeout: 600_000 }, (
     assert.equal(r.buf.subarray(0, 5).toString(), '%PDF-');
   });
 
-  test('엑셀이 아닌 바이트 → 422 CONVERT_FAILED (종료코드 대신 산출물로 판정)', async () => {
-    const r = await post(srv.url, { name: 'broken.xls', to: 'xlsx', body: Buffer.from('this is not a spreadsheet\u0000\u0001'.repeat(50)) });
-    // LibreOffice 는 깨진 입력을 글자 파일로 열어 무언가를 내기도 한다 — 그 경우 200 이어도 된다.
-    assert.ok([200, 422].includes(r.status), `status ${r.status}`);
-    if (r.status === 422) assert.equal(r.json.code, 'CONVERT_FAILED');
+  test('반쪽 난 xlsx → 422 CONVERT_FAILED (종료코드 0 이어도 산출물이 없으면 실패)', async () => {
+    const ok = await post(srv.url, { name: 'sample.xls', to: 'xlsx', body: readFileSync(samples[0]) });
+    assert.equal(ok.status, 200);
+    const half = ok.buf.subarray(0, ok.buf.length >> 1);
+    const r = await post(srv.url, { name: 'broken.xlsx', to: 'xls', body: half });
+    assert.equal(r.status, 422);
+    assert.equal(r.json.code, 'CONVERT_FAILED');
   });
 
   test('동시에 두 건, 대기열 0 → 하나는 429 BUSY', async () => {

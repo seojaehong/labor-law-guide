@@ -11,4 +11,6 @@ if [ -z "$AWS_LAMBDA_RUNTIME_API" ]; then
   echo "Lambda 모드인데 AWS_LAMBDA_RUNTIME_API 가 없습니다. 일반 서버로 쓰려면 MODE=http 를 주세요." >&2
   exit 64
 fi
-exec /app/node_modules/.bin/aws-lambda-ric lambda.handler
+# RIC 4.x 는 인자가 아니라 _HANDLER 로 핸들러를 찾는다(Lambda 는 CMD 첫 값을 넣어 준다).
+export _HANDLER="${_HANDLER:-${1:-lambda.handler}}"
+exec /app/node_modules/.bin/aws-lambda-ric "$_HANDLER"
