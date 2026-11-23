@@ -46,6 +46,8 @@ describe('md-hwpx 기본 출력 고정', () => {
 });
 
 const EXPECT: Record<string, Record<string, string>> = {
-  internal: { HDR_INTERNAL: '1749e0d22a548f39', SEC_INTERNAL: '6846e63d29696023' },
-  tribunal: { HDR_TRIBUNAL: 'acb2894f61fe0334', SEC_TRIBUNAL: 'f4d85ad1937fae3c' },
+  // 261123 SEC 갱신 — 쪽번호 꼬리말을 secPr subList 에서 첫 문단 <hp:ctrl><hp:footer> 로 옮겼다(한글이 종전 자리를 읽지 않음).
+  // header 는 그대로. 파이썬 쌍둥이(generate_hwpx.py)는 261120 동결이라 따라 고치지 않는다(/한글변환 §2-0)
+  internal: { HDR_INTERNAL: '1749e0d22a548f39', SEC_INTERNAL: '02e552e301c5115f' },
+  tribunal: { HDR_TRIBUNAL: 'acb2894f61fe0334', SEC_TRIBUNAL: '2c02e1ef1b245723' },
 };

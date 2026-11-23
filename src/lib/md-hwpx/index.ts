@@ -16,7 +16,7 @@ export type CellAlign = 'LEFT' | 'CENTER' | 'RIGHT';
 export type MdItem =
   | { kind: 'h1' | 'h2' | 'h3' | 'h4'; text: string; pageBreak: boolean }
   | { kind: 'body' | 'list' | 'sig' | 'empty'; text: string }
-  | { kind: 'table'; rows: string[][]; aligns: CellAlign[]; dashes?: number[] }
+  | { kind: 'table'; rows: string[][]; aligns: CellAlign[]; dashes?: number[]; html?: boolean; headRows?: number }
   | { kind: 'quote'; text: string }
   | { kind: 'image'; text: string; src: string };
 
@@ -49,6 +49,10 @@ export interface TableFeatures {
   merge?: boolean;
   /** S9 — 세로 병합: 칸 내용이 「^」 하나면 위 칸과 합친다(머리행과는 합치지 않는다, 가로 병합 칸은 대상 아님). 한글 열림 실측 전 보류(C2) */
   vmerge?: boolean;
+  /** HTML 표 전용(내부) — 원고가 rowspan 으로 머리행 병합을 명시했으면 머리행도 아래로 합친다 */
+  vmergeHead?: boolean;
+  /** 머리행 수(HTML 표의 <thead>·<th> 줄). 없으면 1. HTML 표는 0 일 수 있다(머리행 없는 표) */
+  headRows?: number;
 }
 
 export interface MdHwpxOptions {
@@ -120,14 +124,103 @@ function fixQuotes(s: string): string {
   return s.replace(/"/g, () => ((open = !open) ? '“' : '”'));
 }
 
+const HTML_ENT: Record<string, string> = { amp: '&', lt: '<', gt: '>', quot: '"', nbsp: ' ', '#39': "'", middot: '·', ndash: '–', mdash: '—', hellip: '…', apos: "'", rarr: '→', larr: '←', times: '×', lsquo: '‘', rsquo: '’', ldquo: '“', rdquo: '”' };
+/** HTML <table> → 칸 격자. rowspan·colspan 은 우리 병합 표시(「^」 위와 합침, 「<」 왼쪽과 합침)로 바꾼다.
+ *  칸 안 <strong>/<b> → **굵게**, <br> → <br>(칸 줄바꿈), 그 밖의 태그는 벗긴다. 격자가 맞지 않으면 null */
+export function htmlTableRows(html: string): string[][] | null {
+  return htmlTable(html)?.rows ?? null;
+}
+
+/** 원고 값이 병합 표시 글자(「<」「^」)와 같으면 앞에 단어 잇기(U+2060, 보이지 않음)를 붙여 병합으로 오인하지 않게 한다 */
+const LITERAL_MARK = '⁠';
+
+/** htmlTableRows + 머리행 수(<thead> 안 또는 <th> 만 있는 앞쪽 행) + <caption> 글자 */
+export function htmlTable(html: string): { rows: string[][]; headRows: number; caption: string } | null {
+  html = html.replace(/<!--[\s\S]*?-->/g, ''); // 주석으로 지운 행·칸은 인쇄하지 않는다
+  if (/<table\b[\s\S]*<table\b/i.test(html)) return null; // 중첩 표는 격자로 못 옮긴다 — 글자로 두고 leftovers 가 알린다
+  const trs = html.match(/<tr\b[\s\S]*?<\/tr>/gi);
+  if (!trs?.length) return null;
+  const theadEnd = (() => {
+    const m = /<\/thead>/i.exec(html);
+    return m ? (html.slice(0, m.index).match(/<tr\b/gi)?.length ?? 0) : 0;
+  })();
+  let headRows = theadEnd;
+  if (!headRows) while (headRows < trs.length && /<th\b/i.test(trs[headRows]) && !/<td\b/i.test(trs[headRows])) headRows++;
+  if (headRows >= trs.length) headRows = 1;
+  const cellText = (s: string) => {
+    const t = s
+      .replace(/<br\s*\/?>/gi, '<br>')
+      .replace(/<\/(p|li|div|h[1-6])>/gi, '\u0001') // 칸 안 여러 문단·목록·제목 → 칸 줄바꿈 자리표(아래에서 하나의 <br> 로)
+      .replace(/<\/?(strong|b)(?=[\s>/])[^>]*>/gi, '**')
+      // 아는 태그 이름만 벗긴다 — 「x<y 그리고 y>z」 같은 글자는 둔다
+      .replace(/<\/?(?:p|div|span|ul|ol|li|h[1-6]|em|i|u|s|small|sup|sub|font|a|code|mark|del|ins|img|hr|colgroup|col|thead|tbody|tfoot)(?=[\s>/])[^>]*>/gi, '')
+      .replace(/&#(\d+);|&#x([0-9a-f]+);/gi, (m, d, h) => {
+        const n = d ? Number(d) : parseInt(h, 16);
+        return n > 0 && n <= 0x10ffff ? String.fromCodePoint(n) : m; // 범위 밖 번호는 글자 그대로(RangeError 로 변환이 죽지 않게)
+      })
+      .replace(/&([a-z]+|#39);/gi, (m, e) => HTML_ENT[e] ?? m)
+      .replace(/\s*\n\s*/g, ' ')
+      // 블록 끝 자리표가 낀 줄바꿈 묶음만 하나로 — 원고가 쓴 <br><br> 은 그대로 둔다
+      .replace(/(?:\s*(?:\u0001|<br>)\s*)*\u0001(?:\s*(?:\u0001|<br>)\s*)*/g, '<br>')
+      .replace(/^(?:\s*<br>)+|(?:<br>\s*)+$/g, '')
+      .trim();
+    return t === '<' || t === '^' ? LITERAL_MARK + t : t;
+  };
+  const grid: string[][] = [];
+  let bad = false;
+  let headReach = 0; // 머리 칸 rowspan 이 내려가는 끝 — 머리행 범위를 거기까지 넓혀 머리·본문이 한 칸에 섞이지 않게
+  trs.forEach((tr, r) => {
+    grid[r] ??= [];
+    let c = 0;
+    // 속성 값 안의 「>」에서 태그가 끝나지 않게 따옴표 값을 통째로 건너뛴다(fixQuotes 가 " 를 “ ” 로 바꿔 둔다)
+    for (const m of tr.matchAll(/<(td|th)\b((?:["“”][^"“”]*["“”]|'[^']*'|[^>"'“”])*)>([\s\S]*?)<\/\1>/gi)) {
+      while (grid[r][c] !== undefined) c++;
+      const attrs: Record<string, string> = {};
+      for (const a of m[2].matchAll(/([\w-]+)\s*=\s*(?:["“”]([^"“”]*)["“”]|'([^']*)'|([^\s>]+))/g)) attrs[a[1].toLowerCase()] = a[2] ?? a[3] ?? a[4] ?? '';
+      const attr = (k: string) => Math.max(1, Number(/^\s*(\d+)/.exec(attrs[k] ?? '')?.[1] ?? 1));
+      const cs = attr('colspan');
+      const rs = attr('rowspan');
+      if (cs > 64 || r + rs > trs.length) {
+        bad = true; // 표 끝을 넘는 병합·비현실적 폭 — 격자를 만들지 않는다(거대한 값으로 스택이 넘치지 않게)
+        return;
+      }
+      const text = cellText(m[3]);
+      if (r < headRows) headReach = Math.max(headReach, r + rs);
+      for (let a = 0; a < rs; a++) {
+        grid[r + a] ??= [];
+        // 덮인 칸: 첫 줄은 「<」, 아래 줄은 폭 전체 「^」 — tableXml 은 위 칸 폭 전체가 「^」 일 때만 아래로 늘린다
+        for (let b = 0; b < cs; b++) {
+          if (grid[r + a][c + b] !== undefined) bad = true; // 위 칸 rowspan 이 예약한 자리를 덮는다 — 격자 충돌
+          grid[r + a][c + b] = a > 0 ? '^' : b > 0 ? '<' : text;
+        }
+      }
+      c += cs;
+    }
+  });
+  if (bad) return null;
+  if (headRows > 0) headRows = Math.min(trs.length, Math.max(headRows, headReach));
+  const ncol = grid.reduce((n, row) => Math.max(n, row.length), 0);
+  if (!ncol || grid.length !== trs.length || grid.some((row) => row.length !== ncol || Array.from(row).some((x) => x === undefined))) return null; // Array.from — 빈 자리(희소 배열)도 undefined 로 센다
+  const cap = /<caption\b[^>]*>([\s\S]*?)<\/caption>/i.exec(html);
+  return { rows: grid, headRows, caption: cap ? cellText(cap[1]).replace(/<br>/g, ' ') : '' };
+}
+
 /** md 를 줄 단위 항목으로 나눈다. 빈 줄은 서명부 바로 앞 것만 남는다(간격은 문단 모양이 맡는다) */
 export function parseMarkdown(md: string, opts: Pick<MdHwpxOptions, 'pageBreak' | 'features'> = {}): MdItem[] {
   const raw = bridgeBold(fixQuotes(md).split(/\r?\n/));
   if (raw.length && raw[raw.length - 1] === '') raw.pop();
   // 서명부 = 끝 15줄 안의 「날짜만 있는 줄」부터. 본문의 날짜 문장은 서명부가 아니다
   let sig = -1;
+  // HTML 표 안의 줄(칸에 날짜만 있는 줄)은 서명부 날짜가 아니다
+  const inTbl: boolean[] = [];
+  let depth = 0;
+  raw.forEach((l, k) => {
+    if (/<table\b/i.test(l)) depth++;
+    inTbl[k] = depth > 0;
+    if (/<\/table>/i.test(l)) depth = Math.max(0, depth - 1);
+  });
   for (let i = raw.length - 1; i > Math.max(-1, raw.length - 16); i--) {
-    if (SIG_DATE.test(raw[i].trim())) {
+    if (!inTbl[i] && SIG_DATE.test(raw[i].trim())) {
       sig = i;
       break;
     }
@@ -170,6 +263,30 @@ export function parseMarkdown(md: string, opts: Pick<MdHwpxOptions, 'pageBreak' 
       } else out.push({ kind: `h${level}` as 'h1' | 'h3' | 'h4', text, pageBreak: false });
       i++;
       continue;
+    }
+    if (/^<table\b/i.test(t)) {
+      // pandoc 이 병합 칸이 있는 표를 내는 모양. </table> 까지 모아 한글 표로 — 못 읽으면 글자로 두고 leftovers 가 알린다
+      let j = i;
+      const buf: string[] = [];
+      while (j < raw.length) {
+        buf.push(raw[j]);
+        if (/<\/table>/i.test(raw[j])) break;
+        j++;
+      }
+      // </table> 뒤 같은 줄 글자는 다음 줄로 돌려 놓는다(버리지 않는다)
+      const end = j < raw.length ? raw[j].search(/<\/table>/i) + '</table>'.length : -1;
+      const tail = end > 0 ? raw[j].slice(end) : '';
+      if (end > 0) buf[buf.length - 1] = raw[j].slice(0, end);
+      const tb = j < raw.length ? htmlTable(buf.join('\n')) : null;
+      if (tb) {
+        if (tb.caption) out.push({ kind: 'body', text: `  ${tb.caption}` });
+        out.push({ kind: 'table', rows: tb.rows, aligns: tb.rows[0].map(() => 'LEFT' as CellAlign), html: true, headRows: tb.headRows });
+        if (tail.trim()) {
+          raw[j] = tail.trim();
+          i = j;
+        } else i = j + 1;
+        continue;
+      }
     }
     if (t.startsWith('|')) {
       const rows: string[][] = [];
@@ -266,7 +383,7 @@ function tableXml(rows0: string[][], aligns: CellAlign[], usable: number, bodyH:
       let cs = 1;
       while (tf.merge && ci + cs < ncol && is(ri, ci + cs, '<')) cs++;
       let rs = 1;
-      while (tf.vmerge && ri > 0 && ri + rs < rows.length && Array.from({ length: cs }, (_, k) => is(ri + rs, ci + k, '^')).every(Boolean)) rs++;
+      while (tf.vmerge && (ri > 0 || tf.vmergeHead) && ri + rs < rows.length && Array.from({ length: cs }, (_, k) => is(ri + rs, ci + k, '^')).every(Boolean)) rs++;
       grid[ri][ci] = { cs, rs };
       for (let a = 0; a < rs; a++) for (let b = 0; b < cs; b++) if (a || b) grid[ri + a][ci + b] = null;
     }
@@ -279,7 +396,7 @@ function tableXml(rows0: string[][], aligns: CellAlign[], usable: number, bodyH:
   const asChar = rowHs.reduce((s, x) => s + x, 0) < Math.floor((bodyH * 55) / 100);
   const ROW_H = 1400;
   const trs = rows.map((r, ri) => {
-    const head = ri === 0;
+    const head = ri < (tf.headRows ?? 1);
     const tcs = r.map((cell, ci) => {
       const g = grid[ri][ci];
       if (!g) return '';
@@ -378,11 +495,14 @@ function threeLineBF(st: Styles, ri: number, nRows: number, ci: number, nCols: n
   });
 }
 
-const FOOTER =
-  '<hp:subList id="0" subListType="FOOTER" textDirection="HORIZONTAL" lineWrap="BREAK" vertAlign="BASELINE" linkListIDRef="0" linkListCount="0">' +
+// 쪽번호 꼬리말 — 첫 문단 run 안 <hp:ctrl><hp:footer>. 한글은 secPr 안 subList(FOOTER) 를 읽지 않는다
+// (261123 한글 2024 COM 실측: 꼬리말 컨트롤 0, 다시 저장하면 autoNum 0 → 쪽번호가 안 보였다). 한글이 그린 rhwp 출력과 같은 모양
+export const FOOTER =
+  '<hp:ctrl><hp:footer id="1" applyPageType="BOTH">' +
+  '<hp:subList id="" textDirection="HORIZONTAL" lineWrap="BREAK" vertAlign="BOTTOM" linkListIDRef="0" linkListNextIDRef="0" textWidth="0" textHeight="0" hasTextRef="0" hasNumRef="0">' +
   '<hp:p id="2147483648" paraPrIDRef="21" styleIDRef="0" pageBreak="0" columnBreak="0" merged="0">' +
-  '<hp:run charPrIDRef="7"><hp:t>- </hp:t></hp:run><hp:run charPrIDRef="7"><hp:ctrl><hp:autoNum numType="PAGE" suffixChar="NONE"/></hp:ctrl></hp:run><hp:run charPrIDRef="7"><hp:t> -</hp:t></hp:run>' +
-  '</hp:p></hp:subList>';
+  '<hp:run charPrIDRef="7"><hp:t>- </hp:t><hp:ctrl><hp:autoNum num="1" numType="PAGE"><hp:autoNumFormat type="DIGIT" userChar="" prefixChar="" suffixChar="" supscript="0"/></hp:autoNum></hp:ctrl><hp:t> -</hp:t></hp:run>' +
+  '</hp:p></hp:subList></hp:footer></hp:ctrl>';
 
 /** header 를 들고 다니며 필요한 모양을 끝에 붙인다(U3·U4). 같은 모양은 한 번만 붙는다 */
 /** 복제 출처 — S13 양식 모드가 「무엇을 어떻게 바꾼 복제인가」를 양식 header 위에서 다시 만들 때 쓴다 */
@@ -443,7 +563,6 @@ export function mdDocXml(items: MdItem[], opts: MdHwpxOptions = {}): { header: s
     `$1left="${p.left}" right="${p.right}" top="${p.top}" bottom="${p.bottom}"`,
   );
   if (opts.pagePr) secPr = secPr.replace(/<hp:pagePr\b[\s\S]*?<\/hp:pagePr>/, opts.pagePr);
-  if (opts.footer !== false) secPr = secPr.replace('</hp:secPr>', `${FOOTER}</hp:secPr>`);
   const pageW = Number(/<hp:pagePr[^>]*\bwidth="(\d+)"/.exec(secPr)?.[1] ?? 59528);
   const pageH = Number(/<hp:pagePr[^>]*\bheight="(\d+)"/.exec(secPr)?.[1] ?? 84186);
   const mg = (k: string, d: number) => Number(new RegExp(`<hp:margin\\b[^>]*\\b${k}="(\\d+)"`).exec(secPr)?.[1] ?? d);
@@ -451,11 +570,15 @@ export function mdDocXml(items: MdItem[], opts: MdHwpxOptions = {}): { header: s
   const bodyH = pageH - mg('top', p.top) - mg('bottom', p.bottom);
   let tableId = 1000;
   const bins: BinItem[] = [];
-  const body = [para(`<hp:run charPrIDRef="7">${secPr}</hp:run>`, 20)];
+  const body = [para(`<hp:run charPrIDRef="7">${secPr}${opts.footer !== false ? FOOTER : ''}</hp:run>`, 20)];
   items.forEach((x, k) => {
     // S5 — 떠 있는 표 바로 뒤 제목은 앞 여백(prev)이 먹지 않아 표에 붙는다 → 빈 문단을 하나 둔다(A14)
     if (f.table?.float && items[k - 1]?.kind === 'table' && /^h[1-4]$/.test(x.kind)) body.push(para('<hp:run charPrIDRef="7"/>', 20));
-    if (x.kind === 'table') body.push(tableXml(x.rows, x.aligns, usable, bodyH, ++tableId, f.table, st, x.dashes));
+    if (x.kind === 'table') {
+      // HTML 표는 원고가 병합을 명시했다 — 기능 플래그와 무관하게 합친다
+      const tf = x.html ? { ...f.table, merge: true, vmerge: true, vmergeHead: true, headRows: x.headRows } : f.table;
+      body.push(tableXml(x.rows, x.aligns, usable, bodyH, ++tableId, tf, st, x.dashes));
+    }
     else if (x.kind === 'empty' || (!x.text && x.kind !== 'quote' && x.kind !== 'image')) body.push(para('<hp:run charPrIDRef="7"/>', 20));
     else if (x.kind === 'h1' || x.kind === 'h2' || x.kind === 'h3' || x.kind === 'h4') {
       const [c, pp] = HEAD[x.kind];
@@ -556,6 +679,8 @@ export function mdHwpxSummary(items: MdItem[], features: MdFeatures = {}) {
   const uTexts = features.underline ? items.flatMap((x) => (x.kind === 'body' || x.kind === 'list' ? [] : x.kind === 'table' ? x.rows.flat() : [x.text])) : texts;
   const shown = renderedTexts(items, features);
   const leftovers = [
+    // HTML 표 태그 — <table> 블록은 표로 옮기므로, 남아 있으면 읽지 못한 표다(261123 — 태그가 글자로 찍히고 검사기는 통과했다)
+    ...['<table', '<tr', '<td', '<th'].filter((k) => texts.some((t) => new RegExp(`${k}\\b`, 'i').test(t))),
     ...['](', '<u>', '~~', '```', '> '].filter((k) => (k === '<u>' ? uTexts : texts).some((t) => stripBold(t).includes(k))),
     ...INLINE_MARKS.filter(([, hit]) => shown.some(hit)).map(([k]) => k),
   ];
