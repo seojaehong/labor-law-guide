@@ -13,8 +13,9 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const repo = path.resolve(here, '../..');
 const work = fs.mkdtempSync(path.join(os.tmpdir(), 'k-labor-office-pack-'));
 const npm = process.platform === 'win32' ? 'npm.cmd' : 'npm';
+// 윈도의 npm.cmd 만 셸로 띄운다(Node 는 .cmd 를 셸 없이 못 띄운다). node 는 셸 없이 — 경로의 빈칸이 깨지지 않게
 const sh = (cmd, args, cwd) =>
-  execFileSync(cmd, args, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], shell: process.platform === 'win32' });
+  execFileSync(cmd, args, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], shell: cmd === npm && process.platform === 'win32' });
 
 let ok = false;
 try {
