@@ -155,7 +155,8 @@ export async function generateMetadata({
     reasonLabel ? `유형 ${reasonLabel}` : "",
     result ? `판정 ${result}` : "",
     holding,
-    isCourtCase ? "판결문 원문 수록" : "",
+    // 원문 확보 여부를 메타 단계에서 알 수 없다(261123 자기 사이트 수집 오염 10,307행) — 원문 수록을 표방하지 않는다.
+    isCourtCase ? "법원 판결 · 출처 확인" : "",
   ].filter(Boolean);
   const description = (descParts.join(" · ") || "노동위원회 판정례 상세 정보 — 핵심쟁점·절차·판정결과 정리.").slice(0, 155);
 
