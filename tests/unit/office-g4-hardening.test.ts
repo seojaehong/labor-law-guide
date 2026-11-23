@@ -64,7 +64,7 @@ describe('G4-2 보존 비교 — ExcelJS 밖 부품', () => {
 
   it('잃은 것이 없으면 package.same:true', async () => {
     const r = await fillXlsxTemplate(await simpleBook(), { cells: [{ sheet: '평가표', cell: 'B2', value: '합성' }] });
-    expect(r.preserved!.package).toEqual({ lost: [], same: true });
+    expect(r.preserved!.package).toEqual({ lost: [], restored: [], same: true });
     expect(r.preserved!.allSame).toBe(true);
   });
 });

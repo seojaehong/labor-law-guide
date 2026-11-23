@@ -4,7 +4,7 @@
 // 보존 비교는 두 겹이다 — ①ExcelJS 모델(병합·수식·유효성·인쇄…) ②ExcelJS 밖 zip 부품·rels·extLst·x14 원문(package.ts).
 import ExcelJS from 'exceljs';
 import { colLetter, inspectOpened, openXlsx, type InspectXlsxResult, type OpenFailCode } from './inspect';
-import { comparePackage, packageFingerprint, type PackageComparison } from './package';
+import { comparePackage, expectedPrintNames, growRange, packageFingerprint, restorePackage, type PackageComparison } from './package';
 import { EXCEL_MAX_ROWS, colNumber, parseCellAddress, EXCEL_MAX_COLS } from './workload';
 import { DEFAULT_LIMITS, readZipGuarded, type Limits } from '../limits';
 import type { Warning } from '../types';
@@ -28,9 +28,17 @@ export interface FillRows {
   overflow?: 'error' | 'insertRows';
 }
 
+/** 숨길 열 — 화면에 보이면 안 되는 관리용 열(위험요인 ID 등). 보존 비교에서 「의도한 변경」 */
+export interface FillHiddenColumns {
+  sheet: string;
+  /** 열 문자(예 'S') */
+  columns: string[];
+}
+
 export interface FillXlsxOptions {
   cells?: FillCell[];
   rows?: FillRows;
+  hiddenColumns?: FillHiddenColumns[];
 }
 
 export interface PreservedItem<T> {
@@ -50,10 +58,12 @@ export interface PreservedReport {
   fitToWidth: PreservedItem<number | null>;
   images: PreservedItem<number>;
   definedNames: PreservedItem<string[]>;
-  /** ExcelJS 밖 — zip 부품·rels·extLst·x14 원문. lost 에 잃은 것 */
-  package: { lost: string[]; same: boolean };
+  /** ExcelJS 밖 — zip 부품·rels·extLst·x14·인쇄 이름 원문. lost 에 잃은 것, restored 에 원본에서 되살린 것 */
+  package: { lost: string[]; restored: string[]; same: boolean };
   /** insertRows 로 넣은 행(없으면 0). 넣었으면 same:false */
   insertedRows: { count: number; at: number | null; same: boolean };
+  /** hiddenColumns 로 숨긴 열 — 의도한 변경이라 늘 same:true */
+  hiddenColumns: { applied: FillHiddenColumns[]; same: true };
   allSame: boolean;
 }
 
@@ -100,11 +110,15 @@ function item<T>(
   return { before: b, after: a, same: JSON.stringify(b) === JSON.stringify(a) };
 }
 
+/**
+ * expected.printArea: 시트별 기대 인쇄영역(행을 넣어 끝 행이 는 것). 주면 after 를 이것과 견준다.
+ */
 export function comparePreserved(
   before: InspectXlsxResult,
   after: InspectXlsxResult,
-  pkg: Pick<PackageComparison, 'lost' | 'same'> = { lost: [], same: true },
+  pkg: Pick<PackageComparison, 'lost' | 'same'> & { restored?: string[] } = { lost: [], same: true },
   inserted: { count: number; at: number | null } = { count: 0, at: null },
+  expected: { printArea?: Record<string, string | null>; hiddenColumns?: FillHiddenColumns[] } = {},
 ): PreservedReport {
   const names = (r: InspectXlsxResult) => r.definedNames.map((d) => `${d.name}=${d.ranges.join(',')}`).sort();
   const dnBefore = { '': names(before) };
@@ -114,14 +128,18 @@ export function comparePreserved(
     formulaCells: item(before, after, (s) => s.formulaCells),
     conditionalRules: item(before, after, (s) => s.conditionalRules),
     validations: item(before, after, (s) => s.validations.map((v) => v.range).sort()),
-    printArea: item(before, after, (s) => s.printArea ?? null),
+    printArea: (() => {
+      const it = item(before, after, (s) => s.printArea ?? null);
+      return expected.printArea ? { ...it, same: JSON.stringify(it.after) === JSON.stringify(expected.printArea) } : it;
+    })(),
     printTitles: item(before, after, (s) => s.printTitles ?? null),
     orientation: item(before, after, (s) => s.orientation ?? null),
     fitToWidth: item(before, after, (s) => s.fitToWidth ?? null),
     images: item(before, after, (s) => s.images),
     definedNames: { before: dnBefore, after: dnAfter, same: JSON.stringify(dnBefore) === JSON.stringify(dnAfter) },
-    package: { lost: pkg.lost, same: pkg.same },
+    package: { lost: pkg.lost, restored: pkg.restored ?? [], same: pkg.same },
     insertedRows: { ...inserted, same: inserted.count === 0 },
+    hiddenColumns: { applied: expected.hiddenColumns ?? [], same: true },
   };
   const allSame = Object.values(report).every((x) => x.same);
   return { ...report, allSame };
@@ -197,16 +215,6 @@ function templateCapacity(ws: ExcelJS.Worksheet, startRow: number, cols: string[
   return printEnd === null ? Infinity : n;
 }
 
-/** 'A1:F8' → 행 끝을 늘린다. 한 범위가 아니면 null */
-function growPrintArea(pa: string, at: number, extra: number): string | null {
-  const m = /^(\$?[A-Z]+\$?)(\d+):(\$?[A-Z]+\$?)(\d+)$/.exec(pa);
-  if (!m) return null;
-  const r1 = Number(m[2]);
-  const r2 = Number(m[4]);
-  if (at < r1 || at > r2 + 1) return pa;
-  return `${m[1]}${r1}:${m[3]}${r2 + extra}`;
-}
-
 /** at 행 앞에 extra 행을 넣는다. 병합은 함께 내리고, 인쇄영역(한 범위)은 늘린다. 수식 참조·이름정의·유효성·조건부서식 범위는 손대지 않는다 */
 function insertRowsKeepingMerges(ws: ExcelJS.Worksheet, at: number, extra: number): { printArea: 'grown' | 'unchanged' | 'not-simple' } {
   const merges = [...((ws.model as unknown as { merges?: string[] }).merges ?? [])];
@@ -226,7 +234,8 @@ function insertRowsKeepingMerges(ws: ExcelJS.Worksheet, at: number, extra: numbe
   for (const [, next] of moved) ws.mergeCells(next);
   const pa = ws.pageSetup?.printArea;
   if (!pa) return { printArea: 'unchanged' };
-  const grown = growPrintArea(pa, at, extra);
+  // ExcelJS 모델 값('A1:F8', $ 없음)을 늘린다. 원문 $ 표기는 저장 뒤 restorePackage 가 되쓴다
+  const grown = growRange(pa, at, extra);
   if (grown === null) return { printArea: 'not-simple' };
   if (grown === pa) return { printArea: 'unchanged' };
   ws.pageSetup.printArea = grown;
@@ -257,6 +266,14 @@ export async function fillXlsxTemplate(bytes: Uint8Array, opts: FillXlsxOptions 
     if (bad.length) return fail(`열 문자가 올바르지 않습니다(XFD 까지): ${bad.join(', ')}`);
     if (!Array.isArray(rows.data)) return fail('rows.data 가 배열이 아닙니다.');
     if (rows.startRow + rows.data.length - 1 > EXCEL_MAX_ROWS) return fail(`자료가 엑셀 마지막 행(${EXCEL_MAX_ROWS})을 넘습니다.`);
+  }
+  const hidden = opts.hiddenColumns ?? [];
+  if (!Array.isArray(hidden)) return fail('hiddenColumns 가 배열이 아닙니다.');
+  for (const h of hidden) {
+    if (!h || !wb.getWorksheet(h.sheet)) return fail(`시트를 찾을 수 없습니다: ${h?.sheet}`);
+    if (!Array.isArray(h.columns)) return fail('hiddenColumns[].columns 가 배열이 아닙니다.');
+    const bad = h.columns.filter((c) => typeof c !== 'string' || !COL_RE.test(c) || !(colNumber(c) <= EXCEL_MAX_COLS));
+    if (bad.length) return fail(`숨길 열 문자가 올바르지 않습니다(XFD 까지): ${bad.join(', ')}`);
   }
 
   let inserted = { count: 0, at: null as number | null };
@@ -312,9 +329,19 @@ export async function fillXlsxTemplate(bytes: Uint8Array, opts: FillXlsxOptions 
       });
     }
 
+    for (const h of hidden) {
+      const ws = wb.getWorksheet(h.sheet)!;
+      for (const c of h.columns) ws.getColumn(c).hidden = true;
+    }
+
     restoreValidationRanges(wb, before);
     wb.calcProperties.fullCalcOnLoad = true;
-    const out = new Uint8Array((await wb.xlsx.writeBuffer()) as ArrayBuffer);
+    const written = new Uint8Array((await wb.xlsx.writeBuffer()) as ArrayBuffer);
+    // ExcelJS 가 버린 부품·바꾼 인쇄 이름 표기를 원본에서 되돌린다
+    const insertedAt = rows && inserted.count > 0 && inserted.at !== null ? { sheet: rows.sheet, at: inserted.at, count: inserted.count } : null;
+    const expectedPrint = expectedPrintNames(pkgBefore, insertedAt);
+    const fixed = await restorePackage(opened.parts, written, { expectedPrint, inserted: insertedAt });
+    const out = fixed.bytes;
     if (out.length > limits.maxOutputBytes) return fail(`결과가 ${limits.maxOutputBytes} 바이트를 넘습니다.`, { code: 'WRITE_FAILED' });
 
     // 다시 열어 비교 — 결과는 우리가 만든 것이라 입력 상한 대신 넉넉한 상한으로 연다
@@ -323,8 +350,16 @@ export async function fillXlsxTemplate(bytes: Uint8Array, opts: FillXlsxOptions 
     if ('reason' in reopened) return fail(`채운 파일을 다시 검사하지 못했습니다: ${reopened.reason}`, { code: 'WRITE_FAILED', needsReview: true });
     const after = inspectOpened(reopened);
     const zAfter = readZipGuarded(out, reopenLimits);
-    const pkg = zAfter.ok ? comparePackage(pkgBefore, packageFingerprint(zAfter.parts)) : { lost: ['결과 zip 을 다시 풀지 못함'], same: false };
-    const preserved = comparePreserved(before, after, pkg, inserted);
+    const cmp = zAfter.ok ? comparePackage(pkgBefore, packageFingerprint(zAfter.parts), expectedPrint) : { lost: ['결과 zip 을 다시 풀지 못함'], same: false };
+    const lostAll = [...cmp.lost, ...fixed.unrecoverable];
+    const pkg = { lost: lostAll, restored: fixed.restored, same: lostAll.length === 0 };
+    // 인쇄영역(ExcelJS 모델 값) 기대값 — 행을 넣은 시트만 끝 행이 는다
+    const printAreaExpected: Record<string, string | null> = {};
+    for (const s of before.sheets) {
+      const pa = s.printArea ?? null;
+      printAreaExpected[s.name] = pa && insertedAt && insertedAt.sheet === s.name ? (growRange(pa, insertedAt.at, insertedAt.count) ?? pa) : pa;
+    }
+    const preserved = comparePreserved(before, after, pkg, inserted, { printArea: printAreaExpected, hiddenColumns: hidden });
     if (!preserved.allSame) {
       const diff = Object.entries(preserved)
         .filter(([k, v]) => k !== 'allSame' && typeof v === 'object' && !v.same)

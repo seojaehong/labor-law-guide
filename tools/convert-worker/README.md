@@ -68,7 +68,7 @@ content-type: application/json
 | `convert` | 필요 | 필요 | `{from, to}` — from = 입력 확장자, to = xlsx·xls·pdf (위 허용 형식 표) | LibreOffice |
 | `xlsx.inspect` | 필요 | — | — | k-labor/office |
 | `xlsx.extract` | 필요 | — | `{sheet?, headerRow?, maxRows?}` | k-labor/office |
-| `xlsx.fill` | 필요 | 필요 | `{cells?, rows?, strict?}` | k-labor/office |
+| `xlsx.fill` | 필요 | 필요 | `{cells?, rows?, hiddenColumns?, strict?}` — hiddenColumns = `[{sheet, columns: ["S"]}]` 숨길 열 | k-labor/office |
 | `xlsx.make` | — | 필요 | `{spec}` | k-labor/office |
 | `pptx.meeting` | — | 필요 | `{snapshot, kind?, fontFace?, layout?}` — 위험성평가 회의 덱 | k-labor/office |
 | `pptx.extract` | 필요 | — | — | k-labor/office |

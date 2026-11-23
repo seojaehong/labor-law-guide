@@ -8,7 +8,7 @@ import { checkLimits, DEFAULT_LIMITS, type Limits } from './limits';
 import type { Warning } from './types';
 import { inspectXlsx as engineInspect, type InspectXlsxResult } from './xlsx/inspect';
 import { extractXlsxRows as engineExtract, type ExtractXlsxResult } from './xlsx/extract';
-import { fillXlsxTemplate as engineFill, type FillCell, type FillRows, type PreservedReport } from './xlsx/fill';
+import { fillXlsxTemplate as engineFill, type FillCell, type FillHiddenColumns, type FillRows, type PreservedReport } from './xlsx/fill';
 import { makeXlsxFromSpec as engineMake, type XlsxSpec } from './xlsx/make';
 import { makeMeetingPptx as engineMeeting, type MeetingChange, type MeetingOptions, type MeetingSlideInfo, type MeetingSnapshot, type OverflowEstimate, type PriorItem } from './pptx/meeting';
 import { extractPptx as engineExtractPptx, type PptxSlide } from './pptx/extract';
@@ -17,7 +17,7 @@ export { DEFAULT_LIMITS };
 export type { Limits, Warning };
 export type { XlsxSheetInfo, XlsxValidation, XlsxInputCandidate } from './xlsx/inspect';
 export type { ExtractedCell, ExtractedRow, XlsxRaw } from './xlsx/extract';
-export type { FillCell, FillRows, FillValue, PreservedItem, PreservedReport } from './xlsx/fill';
+export type { FillCell, FillHiddenColumns, FillRows, FillValue, PreservedItem, PreservedReport } from './xlsx/fill';
 export type { XlsxSpec, XlsxSpecSheet, XlsxSpecColumn } from './xlsx/make';
 export type {
   MeetingSnapshot,
@@ -164,6 +164,8 @@ export function extractXlsxRows(bytes: Uint8Array, opts: ExtractXlsxOptions): Pr
 export interface FillXlsxOptions extends OfficeContext {
   cells?: FillCell[];
   rows?: FillRows;
+  /** 숨길 열(시트별 열 문자) — 보존 비교에서 의도한 변경 */
+  hiddenColumns?: FillHiddenColumns[];
   /** true 면 보존 손실(PRESERVATION_LOSS) 시 바이트 없이 실패. 기본 false = 경고 + 바이트 */
   strict?: boolean;
   /** 결과 파일 이름(기본 filled.xlsx) */
@@ -178,8 +180,8 @@ export interface FillXlsxData {
 /** 원본 서식 그대로 지정 칸·표 행만 채운다. 결과 파일은 files[0] */
 export function fillXlsxTemplate(bytes: Uint8Array, opts: FillXlsxOptions): Promise<Result<FillXlsxData>> {
   return run('xlsx.fill', opts, bytes, async (limits) => {
-    if (!opts.cells?.length && !opts.rows) return failure('xlsx.fill', 'INVALID_ARGS', 'cells 나 rows 중 하나를 주세요.');
-    const r = await engineFill(bytes, { cells: opts.cells, rows: opts.rows }, limits, opts.strict === true);
+    if (!opts.cells?.length && !opts.rows && !opts.hiddenColumns?.length) return failure('xlsx.fill', 'INVALID_ARGS', 'cells·rows·hiddenColumns 중 하나를 주세요.');
+    const r = await engineFill(bytes, { cells: opts.cells, rows: opts.rows, hiddenColumns: opts.hiddenColumns }, limits, opts.strict === true);
     if (!r.ok || !r.bytes) {
       const details: Record<string, unknown> = {};
       if (r.needsReview) details.needsReview = true;

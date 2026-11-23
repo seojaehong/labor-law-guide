@@ -14,7 +14,7 @@ async function run() {
     case 'xlsx.extract':
       return office.extractXlsxRows(input, { ...ctx, sheet: args.sheet, headerRow: args.headerRow, maxRows: args.maxRows });
     case 'xlsx.fill':
-      return office.fillXlsxTemplate(input, { ...ctx, cells: args.cells, rows: args.rows, strict: args.strict === true });
+      return office.fillXlsxTemplate(input, { ...ctx, cells: args.cells, rows: args.rows, hiddenColumns: args.hiddenColumns, strict: args.strict === true });
     case 'xlsx.make':
       return office.makeXlsxFromSpec(args.spec, ctx);
     case 'pptx.meeting':
