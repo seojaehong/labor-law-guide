@@ -156,10 +156,38 @@ describe('law 도구', () => {
     return JSON.parse(out);
   };
 
-  it('등록 이름 = lawTools 7개, 전부 읽기 전용·외부 조회 표시, 원격판에 없음', () => {
+  it('check_citations — 대법원은 법제처 전문으로 대조, 하급심은 「전문 못 찾음」+안내, 붙여 넣은 전문 우선, 법제처에는 사건번호만 보낸다', async () => {
+    const quote = '근로기준법 시행령 제6조 제1항은 통상임금을 "근로자에게 정기적이고 일률적으로 소정근로 또는 총근로';
+    const doc = [
+      '> [관련 판결] 대법원 2024. 12. 19. 선고 2023다216777 판결',
+      `> ${quote}`,
+      '',
+      '> [관련 판결] 서울행정법원 2099. 2. 1. 선고 2099구합2 판결',
+      '> 원고의 행위는 회사의 질서를 크게 어지럽힌 것으로서 그 비위 정도가 가볍지 않다.',
+      '',
+      '> [관련 판결] 대법원 2024. 12. 19. 선고 2023다216777 판결',
+      '> 사용자는 근로자에게 매월 정해진 날짜에 상여금을 지급하여야 하고 이를 어기면 책임을 진다.',
+    ].join('\n');
+    const r = await run('check_citations', { text: doc });
+    expect(r.ok).toBe(true);
+    expect(r.rows.map((x: { verdict: string }) => x.verdict)).toEqual(['일치', '전문 못 찾음', '불일치']);
+    expect(r.notice).toMatch(/판결이 없다는 뜻이 아닙니다/);
+    expect(JSON.stringify(calls)).not.toMatch(/근로자에게|원고의 행위/);
+    expect(calls.filter((c) => c.nb).map((c) => c.nb)).toEqual(['2023다216777', '2099구합2']);
+    calls.length = 0;
+    const p = await run('check_citations', { text: doc, bodies: { '2099구합2': '… 원고의 행위는 회사의 질서를 크게 어지럽힌 것으로서 그 비위 정도가 가볍지 않다. …' } });
+    expect(p.rows[1]).toMatchObject({ caseNo: '2099구합2', verdict: '일치', source: '붙여 넣은 전문' });
+    expect(calls.some((c) => c.nb === '2099구합2')).toBe(false);
+    const stop = await run('check_citations', { text: `${doc}\n900101-1234567` });
+    expect(stop.ok).toBe(false);
+    const none = await run('check_citations', { text: '판례 블록이 없는 글' });
+    expect(none.ok).toBe(false);
+  });
+
+  it('등록 이름 = lawTools 8개, 전부 읽기 전용·외부 조회 표시, 원격판에 없음', () => {
     const t = reg();
     expect(t.map((x) => x.name)).toEqual(lawTools);
-    expect(lawTools.length).toBe(7);
+    expect(lawTools.length).toBe(8);
     for (const x of t) expect(x.cfg.annotations).toMatchObject({ readOnlyHint: true, openWorldHint: true });
     for (const n of lawTools) expect(REMOTE_TOOLS).not.toContain(n);
   });

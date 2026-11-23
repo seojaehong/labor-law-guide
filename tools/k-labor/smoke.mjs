@@ -176,7 +176,7 @@ const ANN = {
   check_hr_form: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
   make_hr_form: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
   // law 묶음 — 읽기 전용, 법제처(외부)를 부른다
-  ...Object.fromEntries(['search_laws', 'list_law_forms', 'get_article_history', 'search_precedents', 'get_precedent', 'search_interpretations', 'get_interpretation']
+  ...Object.fromEntries(['search_laws', 'list_law_forms', 'get_article_history', 'search_precedents', 'get_precedent', 'search_interpretations', 'get_interpretation', 'check_citations']
     .map((n) => [n, { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true }])),
 };
 // 커넥터 디렉터리 심사 — 빠진 도구 없이 전부 title 과 네 칸이 있다
@@ -947,6 +947,8 @@ if (tools.includes('search_laws') && hasDrfFix) {
   check(`search_interpretations 기본 고용노동부(${si.interpretations?.[0]?.caseNo})`, si.ok && si.source === 'moel' && si.interpretations?.[0]?.id === '15234');
   const gi = await callLaw('get_interpretation', { id: '325381', source: 'moleg' });
   check(`get_interpretation 법제처(${gi.caseNo})`, gi.ok && gi.caseNo === '07-0039' && gi.reason?.length > 0);
+  const cc = await callLaw('check_citations', { text: '> [관련 판결] 대법원 2024. 12. 19. 선고 2023다216777 판결\n> 근로기준법 시행령 제6조 제1항은 통상임금을 "근로자에게 정기적이고 일률적으로 소정근로 또는 총근로' });
+  check(`check_citations 법제처 전문 대조(${cc.rows?.[0]?.verdict})`, cc.ok && cc.rows?.[0]?.verdict === '일치' && cc.rows[0].source === '법제처');
   const rrn = await callLaw('search_precedents', { query: '900101-1234568' });
   const sent = drfCalls.slice(before);
   check('law 주민번호 모양 입력은 멈춤', rrn.ok === false && !sent.some((x) => (x.query ?? '').includes('900101')));
