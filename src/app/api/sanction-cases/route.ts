@@ -24,6 +24,7 @@ export async function GET(request: Request) {
       disposition: p.get('disposition')?.slice(0, 30) || undefined,
       keyword: p.get('keyword')?.slice(0, 40) || undefined,
       fitsOnly: p.get('fits_only') !== 'false',
+      withLong: p.get('with_long') === 'true',
       limit: Number(p.get('limit')) || undefined,
       offset: Math.max(Math.floor(Number(p.get('offset')) || 0), 0),
     });

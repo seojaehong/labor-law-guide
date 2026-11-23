@@ -81,6 +81,13 @@ describe('/api/sanction-cases', () => {
     expect(fetchSanctionCases).toHaveBeenLastCalledWith(expect.objectContaining({ offset: 0 }));
   });
 
+  it('with_long=true 면 통과 블록 + 긴 판단만(골라 내려받기 화면 「긴 판단도 보기」, 261123)', async () => {
+    await get('type=attend&with_long=true', `Bearer ${TOKEN}`);
+    expect(fetchSanctionCases).toHaveBeenLastCalledWith(expect.objectContaining({ withLong: true }));
+    await get('type=attend', `Bearer ${TOKEN}`);
+    expect(fetchSanctionCases).toHaveBeenLastCalledWith(expect.objectContaining({ withLong: false }));
+  });
+
   it('모르는 유형은 400', async () => {
     expect((await get('type=nope', `Bearer ${TOKEN}`)).status).toBe(400);
   });

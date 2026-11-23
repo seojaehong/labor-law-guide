@@ -8,6 +8,8 @@ export type SanctionQuery = {
   disposition?: string;
   keyword?: string;
   fitsOnly?: boolean;
+  /** 통과 블록 + 긴 판단(원문 전체)만 — 골라 내려받기 화면. fitsOnly 보다 앞선다 */
+  withLong?: boolean;
   limit?: number;
   /** 앞에서 건너뛸 행 수(골라 내려받기 화면 「더 불러오기」) */
   offset?: number;
@@ -28,7 +30,8 @@ export async function fetchSanctionCases(q: SanctionQuery) {
     r = r.or(`block_body.ilike.${p},long_text.ilike.${p},quote.ilike.${p}`);
   }
   // 기본 = 검수 블록이 있는 판결만(P5). fitsOnly=false 면 긴 판단·블록 없음까지 전부
-  if (q.fitsOnly !== false) r = r.eq('block_status', 'pass');
+  if (q.withLong) r = r.in('block_status', ['pass', 'long_judgment']);
+  else if (q.fitsOnly !== false) r = r.eq('block_status', 'pass');
   const n = Math.min(Math.max(q.limit ?? 8, 1), 30);
   const from = Math.max(q.offset ?? 0, 0);
   // 같은 선고일 안에서도 순서가 고정돼야 묶음 사이에 빠지거나 겹치는 행이 없다 → id 를 둘째 기준으로
