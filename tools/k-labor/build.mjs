@@ -37,6 +37,8 @@ const info = {
   commit,
   dirty: status === null ? null : status.length > 0, // tools/k-labor·src 아래 커밋 안 된 변경(추적 안 된 파일 포함)
   lockfileSha256: fs.existsSync(lockPath) ? sha256(fs.readFileSync(lockPath)) : null,
+  // 설치본 의존성(kordoc·@rhwp/core 등 external)은 이 잠금파일로 풀린다 — 루트 잠금만으로는 판이 바뀐 것을 못 본다
+  kLaborLockfileSha256: fs.existsSync(path.join(here, 'package-lock.json')) ? sha256(fs.readFileSync(path.join(here, 'package-lock.json'))) : null,
   node: process.version,
   serverSha256: null,
   builtAt: null,

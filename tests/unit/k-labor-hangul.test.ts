@@ -47,11 +47,21 @@ async function paraText(hwpx: Uint8Array, needle: string) {
 /** 괄호 칸마다 안의 공백 수 — 「성명(…)」 「연락처(…)」 「관계(…)」 */
 const blanks = (t: string) => Object.fromEntries([...t.matchAll(/(성명|연락처|관계)\(([^)]*)\)/g)].map((m) => [m[1], m[2]]));
 
+// kordoc 은 tools/k-labor 의존성이다(루트 설치에는 없다). 없으면 이유를 남기고 파일 시험을 건너뛴다 — `cd tools/k-labor && npm.cmd ci`
+let HAS = true;
+try {
+  await loadKordoc();
+} catch {
+  HAS = false;
+  console.warn('[k-labor-hangul] kordoc 이 설치돼 있지 않아 파일 시험을 건너뜁니다 — tools/k-labor 에서 npm.cmd ci');
+}
+
 let dir = '';
 let hwpx = '';
 let hwp = '';
 beforeAll(async () => {
-  dir = fs.mkdtempSync(path.join(os.tmpdir(), 'k-labor-hangul-'));
+  if (!HAS) return;
+  dir =fs.mkdtempSync(path.join(os.tmpdir(), 'k-labor-hangul-'));
   const x = await mdToHwpx(MD, { features: { table: { merge: true, vmerge: true } } });
   hwpx = path.join(dir, '견본.hwpx');
   fs.writeFileSync(hwpx, x);
@@ -59,7 +69,7 @@ beforeAll(async () => {
   hwp = path.join(dir, '견본.hwp');
   fs.writeFileSync(hwp, await k.hwpxToHwp(x, { warnings: [] }));
 }, 60_000);
-afterAll(() => fs.rmSync(dir, { recursive: true, force: true }));
+afterAll(() => { if (dir) fs.rmSync(dir, { recursive: true, force: true }); });
 
 describe('docs 묶음 — kordoc 도구 등록', () => {
   it('세 도구가 docs 묶음에 있고 원격판에는 없다', () => {
@@ -74,7 +84,7 @@ describe('docs 묶음 — kordoc 도구 등록', () => {
   });
 });
 
-describe('read_hwp_as_markdown', () => {
+describe.skipIf(!HAS)('read_hwp_as_markdown', () => {
   it('hwp·hwpx → md 파일, 가로·세로 병합(colspan·rowspan)이 남는다', async () => {
     for (const [src, kind] of [[hwpx, 'hwpx'], [hwp, 'hwp']] as const) {
       const out = path.join(dir, `읽기-${kind}.md`);
@@ -102,13 +112,13 @@ describe('read_hwp_as_markdown', () => {
   });
 });
 
-describe('fill_hwp_form', () => {
+describe.skipIf(!HAS)('fill_hwp_form', () => {
   it('hwp 서식 → .hwp 출력은 CFB 이고 다시 읽으면 값이 있다 / .hwpx 출력은 zip', async () => {
     const values = { 성명: '가상인', 주소: '가상시 견본로 1' };
     const oh = path.join(dir, '채움.hwp');
     const r = await call('fill_hwp_form', { file: hwp, values, outFile: oh });
     expect(r.ok, JSON.stringify(r)).toBe(true);
-    expect(r.filled).toEqual(expect.arrayContaining(['성명', '주소']));
+    expect(r.filled.map((f: { label: string }) => f.label)).toEqual(expect.arrayContaining(['성명', '주소']));
     expect(r.unmatched).toEqual([]);
     const b = new Uint8Array(fs.readFileSync(oh));
     expect(isCfb(b)).toBe(true);
@@ -128,7 +138,7 @@ describe('fill_hwp_form', () => {
     expect(r.ok).toBe(false);
     expect(r.incomplete).toBe(true);
     expect(r.unmatched).toEqual(['없는칸']);
-    expect(r.filled).toContain('성명');
+    expect(r.filled.map((f: { label: string }) => f.label)).toContain('성명');
     expect(fs.existsSync(out)).toBe(true);
   });
 
@@ -140,7 +150,7 @@ describe('fill_hwp_form', () => {
   });
 });
 
-describe('patch_hwp_from_markdown', () => {
+describe.skipIf(!HAS)('patch_hwp_from_markdown', () => {
   const keepMd = async (src: string, name: string) => {
     const out = path.join(dir, name);
     const r = await call('read_hwp_as_markdown', { file: src, outFile: out, layout: 'keep' });
@@ -153,7 +163,7 @@ describe('patch_hwp_from_markdown', () => {
       const md = await keepMd(src, `그대로-${ext}.md`);
       const out = path.join(dir, `그대로.${ext}`);
       const r = await call('patch_hwp_from_markdown', { file: src, markdownFile: md, outFile: out });
-      expect(r.ok, JSON.stringify(r)).toBe(true);
+      expect(r).toMatchObject({ applied: 0, skipped: [], changes: { removedLines: 0, addedLines: 0 } });
       expect(r).toMatchObject({ applied: 0, skipped: [] });
       const b = new Uint8Array(fs.readFileSync(out));
       expect(ext === 'hwp' ? isCfb(b) : isZip(b)).toBe(true);
@@ -174,6 +184,7 @@ describe('patch_hwp_from_markdown', () => {
       const r = await call('patch_hwp_from_markdown', { file: src, markdownFile: md, outFile: out });
       expect(r.ok, JSON.stringify(r)).toBe(true);
       expect(r.applied).toBe(1);
+      expect(r.changes).toEqual({ removedLines: 1, addedLines: 1 });
       const ob = new Uint8Array(fs.readFileSync(out));
       const after = blanks((await paraText(ext === 'hwp' ? await k.hwpToHwpx(ob) : ob, '목격자'))!);
       expect(after).toEqual({ 성명: '가상인', 연락처: BLANK, 관계: BLANK });
