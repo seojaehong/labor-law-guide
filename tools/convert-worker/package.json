@@ -1,0 +1,15 @@
+{
+  "name": "k-labor-convert-worker",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "LibreOffice 변환 워커 — 같은 이미지를 Lambda 와 일반 HTTP 서버로 돌린다",
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "start": "node server.mjs",
+    "test": "node --test \"test/*.test.mjs\""
+  },
+  "dependencies": {
+    "aws-lambda-ric": "4.0.2"
+  }
+}
