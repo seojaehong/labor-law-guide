@@ -79,8 +79,8 @@ describe('mdSectionXml — 문단·글자 모양', () => {
   });
 
   it('쪽번호 꼬리말이 기본으로 들어가고 끌 수 있다', () => {
-    expect(mdSectionXml(parseMarkdown('본문'))).toContain('<hp:autoNum numType="PAGE"');
-    expect(mdSectionXml(parseMarkdown('본문'), { footer: false })).not.toContain('subListType="FOOTER"');
+    expect(mdSectionXml(parseMarkdown('본문'))).toContain('<hp:autoNum num="1" numType="PAGE"');
+    expect(mdSectionXml(parseMarkdown('본문'), { footer: false })).not.toContain('<hp:footer');
   });
 });
 

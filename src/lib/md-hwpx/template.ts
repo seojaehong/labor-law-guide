@@ -185,7 +185,7 @@ export function transplant(ours: { header: string; section: string; clones?: Clo
       .replace(/\bborderFillIDRef="(\d+)"/g, (_, v) => `borderFillIDRef="${bf(Number(v))}"`)
       .replace(/\bstyleIDRef="\d+"/g, 'styleIDRef="0"');
   // 꼬리말(쪽번호)은 역할을 쓰지 않는다 — 제목 문단 모양을 빌려 쓰고 있어서 양식 제목 모양이 되면 안 된다
-  const FOOT = /<hp:subList id="0" subListType="FOOTER"[\s\S]*?<\/hp:subList>/g;
+  const FOOT = /<hp:footer\b[\s\S]*?<\/hp:footer>/g;
   const parts = ours.section.split(FOOT);
   const feet = ours.section.match(FOOT) ?? [];
   const section = parts.map((p, i) => remap(p, true) + (feet[i] !== undefined ? remap(feet[i], false) : '')).join('');

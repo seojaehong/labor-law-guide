@@ -94,7 +94,7 @@ describe('S7 — 삼선표', () => {
     expect(bf(2, 2)).toContain('<hh:rightBorder type="NONE"');
     expect(new Set(cells.map((c) => c.bf)).size).toBe(9);
     for (const c of cells) expect([c.mLR, c.mTB]).toEqual([283, 113]);
-    const pp = Number(/<hp:subList id="" [^>]*><hp:p [^>]*paraPrIDRef="(\d+)"/.exec(section)![1]); // 바닥글 subList(id="0") 제외
+    const pp = Number(/<hp:tc [\s\S]*?<hp:subList id="" [^>]*><hp:p [^>]*paraPrIDRef="(\d+)"/.exec(section)![1]); // 표 칸 subList — 꼬리말(hp:footer 안) 제외
     expect(new RegExp(`<hh:paraPr id="${pp}"[\\s\\S]*?</hh:paraPr>`).exec(header)![0].match(/value="110"/g)).toHaveLength(2);
     expect(checkHeader(header, section)).toEqual([]);
   });
