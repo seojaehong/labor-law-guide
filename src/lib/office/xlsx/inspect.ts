@@ -2,7 +2,11 @@
 // 채우기 전후 보존 비교의 기준이 된다(병합·수식·조건부서식·유효성·인쇄설정·그림·이름정의).
 // 지원하지 않는 입력(.xls·깨진 zip·ExcelJS 가 못 여는 파일)은 예외 대신 needsReview 로 돌린다.
 import ExcelJS from 'exceljs';
-import JSZip from 'jszip';
+import { DEFAULT_LIMITS, readZipGuarded, type Limits } from '../limits';
+import { scanXlsxWorkload, type Workload } from './workload';
+
+/** 엔진 실패 코드(라이브러리 입구 ErrorCode 의 일부) */
+export type OpenFailCode = 'UNSUPPORTED_INPUT' | 'INPUT_TOO_LARGE' | 'ZIP_TOO_LARGE' | 'WORKLOAD_TOO_LARGE';
 
 export interface XlsxValidation {
   range: string;
@@ -38,6 +42,7 @@ export interface InspectXlsxResult {
   ok: boolean;
   needsReview?: boolean;
   reason?: string;
+  code?: OpenFailCode;
   sheets: XlsxSheetInfo[];
   definedNames: { name: string; ranges: string[] }[];
   inputCandidates: XlsxInputCandidate[];
@@ -47,8 +52,8 @@ const OLE_SIGNATURE = [0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1];
 
 const PAPER_NAMES: Record<number, string> = { 1: 'Letter', 8: 'A3', 9: 'A4', 11: 'A5' };
 
-function review(reason: string): InspectXlsxResult {
-  return { ok: false, needsReview: true, reason, sheets: [], definedNames: [], inputCandidates: [] };
+function review(reason: string, code: OpenFailCode = 'UNSUPPORTED_INPUT'): InspectXlsxResult {
+  return { ok: false, ...(code === 'UNSUPPORTED_INPUT' ? { needsReview: true } : {}), code, reason, sheets: [], definedNames: [], inputCandidates: [] };
 }
 
 /** 1 → 'A', 27 → 'AA' */
@@ -73,11 +78,17 @@ function attrs(tag: string): Record<string, string> {
   return out;
 }
 
+const utf8 = new TextDecoder('utf-8');
+const partText = (parts: Map<string, Uint8Array>, name: string): string | undefined => {
+  const b = parts.get(name);
+  return b ? utf8.decode(b) : undefined;
+};
+
 /** 시트 이름 → zip 안의 시트 XML 경로 */
-async function sheetPaths(zip: JSZip): Promise<Map<string, string>> {
+function sheetPaths(parts: Map<string, Uint8Array>): Map<string, string> {
   const map = new Map<string, string>();
-  const wbXml = await zip.file('xl/workbook.xml')?.async('string');
-  const relXml = await zip.file('xl/_rels/workbook.xml.rels')?.async('string');
+  const wbXml = partText(parts, 'xl/workbook.xml');
+  const relXml = partText(parts, 'xl/_rels/workbook.xml.rels');
   if (!wbXml || !relXml) return map;
   const targets = new Map<string, string>();
   for (const m of relXml.matchAll(/<Relationship\b[^>]*>/g)) {
@@ -113,43 +124,50 @@ function readValidations(sheetXml: string): XlsxValidation[] {
   return out;
 }
 
-/**
- * 지원 형식 확인 후 xlsx 를 연다. 지원하지 않거나 열 수 없으면 { reason } 만 돌린다(예외 없음).
- * inspect·extract·fill 이 같은 판정을 쓰도록 한곳에 둔다.
- */
-export async function openXlsx(
-  bytes: Uint8Array,
-): Promise<{ wb: ExcelJS.Workbook; zip: JSZip } | { reason: string }> {
-  if (!bytes || bytes.length === 0) return { reason: '입력이 비어 있습니다.' };
-  if (bytes.length >= 8 && OLE_SIGNATURE.every((b, i) => bytes[i] === b)) {
-    return { reason: '.xls(BIFF)·암호화 문서(OLE 컨테이너)는 지원하지 않습니다. xlsx 로 저장해 주세요.' };
-  }
-  if (bytes[0] !== 0x50 || bytes[1] !== 0x4b) return { reason: 'xlsx(zip) 형식이 아닙니다.' };
+export type OpenedXlsx = { wb: ExcelJS.Workbook; parts: Map<string, Uint8Array>; workload: Workload };
 
-  let zip: JSZip;
-  try {
-    zip = await JSZip.loadAsync(bytes);
-  } catch (e) {
-    return { reason: `zip 을 열 수 없습니다: ${(e as Error).message}` };
+/**
+ * 지원 형식 확인 후 xlsx 를 연다. 지원하지 않거나 열 수 없으면 { reason, code } 만 돌린다(예외 없음).
+ * ExcelJS 에 넘기기 전에 ①입력 크기 ②zip 실제 해제 누적 상한 ③시트 XML 작업량 사전 스캔을 거친다.
+ * inspect·extract·fill 이 같은 판정을 쓰도록 한곳에 둔다.
+ * @internal
+ */
+export async function openXlsx(bytes: Uint8Array, limits: Limits = DEFAULT_LIMITS): Promise<OpenedXlsx | { reason: string; code: OpenFailCode }> {
+  const unsupported = (reason: string) => ({ reason, code: 'UNSUPPORTED_INPUT' as const });
+  if (!bytes || bytes.length === 0) return unsupported('입력이 비어 있습니다.');
+  if (bytes.length > limits.maxInputBytes) return { reason: `입력이 ${limits.maxInputBytes} 바이트를 넘습니다.`, code: 'INPUT_TOO_LARGE' };
+  if (bytes.length >= 8 && OLE_SIGNATURE.every((b, i) => bytes[i] === b)) {
+    return unsupported('.xls(BIFF)·암호화 문서(OLE 컨테이너)는 지원하지 않습니다. xlsx 로 저장해 주세요.');
   }
-  if (!zip.file('xl/workbook.xml')) return { reason: 'xl/workbook.xml 이 없습니다(xlsx 가 아님).' };
-  if (zip.file('xl/vbaProject.bin')) return { reason: '매크로(xlsm)가 든 문서는 지원하지 않습니다.' };
+  if (bytes[0] !== 0x50 || bytes[1] !== 0x4b) return unsupported('xlsx(zip) 형식이 아닙니다.');
+
+  const z = readZipGuarded(bytes, limits);
+  if (!z.ok) return z.code === 'ZIP_TOO_LARGE' ? { reason: z.message, code: 'ZIP_TOO_LARGE' } : unsupported(`zip 을 열 수 없습니다: ${z.message}`);
+  const parts = z.parts;
+  if (!parts.has('xl/workbook.xml')) return unsupported('xl/workbook.xml 이 없습니다(xlsx 가 아님).');
+  if (parts.has('xl/vbaProject.bin')) return unsupported('매크로(xlsm)가 든 문서는 지원하지 않습니다.');
+  const scan = scanXlsxWorkload(parts, limits.maxCells);
+  if (!scan.ok) return scan.code === 'WORKLOAD_TOO_LARGE' ? { reason: scan.message, code: 'WORKLOAD_TOO_LARGE' } : unsupported(scan.message);
 
   const wb = new ExcelJS.Workbook();
   try {
     await wb.xlsx.load(bytes as unknown as ExcelJS.Buffer);
   } catch (e) {
-    return { reason: `ExcelJS 가 문서를 열지 못했습니다: ${(e as Error).message}` };
+    return unsupported(`ExcelJS 가 문서를 열지 못했습니다: ${(e as Error).message}`);
   }
-  return { wb, zip };
+  return { wb, parts, workload: scan.workload };
 }
 
-export async function inspectXlsx(bytes: Uint8Array): Promise<InspectXlsxResult> {
-  const opened = await openXlsx(bytes);
-  if ('reason' in opened) return review(opened.reason);
-  const { wb, zip } = opened;
+export async function inspectXlsx(bytes: Uint8Array, limits: Limits = DEFAULT_LIMITS): Promise<InspectXlsxResult> {
+  const opened = await openXlsx(bytes, limits);
+  if ('reason' in opened) return review(opened.reason, opened.code);
+  return inspectOpened(opened);
+}
 
-  const paths = await sheetPaths(zip);
+/** @internal 이미 연 문서를 검사한다(fill 이 같은 바이트를 두 번 열지 않게) */
+export function inspectOpened(opened: OpenedXlsx): InspectXlsxResult {
+  const { wb, parts } = opened;
+  const paths = sheetPaths(parts);
   const sheets: XlsxSheetInfo[] = [];
   const inputCandidates: XlsxInputCandidate[] = [];
 
@@ -163,7 +181,7 @@ export async function inspectXlsx(bytes: Uint8Array): Promise<InspectXlsxResult>
     const model = ws.model as unknown as { merges?: string[] };
     const cfs = (ws as unknown as { conditionalFormattings?: { rules?: unknown[] }[] }).conditionalFormattings ?? [];
     const path = paths.get(ws.name);
-    const sheetXml = path ? await zip.file(path)?.async('string') : undefined;
+    const sheetXml = path ? partText(parts, path) : undefined;
     const validations = sheetXml ? readValidations(sheetXml) : [];
     const ps = ws.pageSetup ?? {};
     const dims = ws.actualRowCount > 0 ? ws.dimensions.range : '';

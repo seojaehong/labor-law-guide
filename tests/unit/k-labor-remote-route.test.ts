@@ -2,7 +2,15 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import * as route from '@/app/api/mcp/[transport]/route';
-import { MAX_MCP_BODY_BYTES, MAX_MCP_JSON_ELEMENTS, MAX_MCP_TOOL_ELEMENTS, MCP_RATE_LIMIT_PER_MINUTE } from '@/lib/mcp/request-boundary';
+import {
+  MAX_MCP_BODY_BYTES,
+  MAX_MCP_JSON_ELEMENTS,
+  MAX_MCP_TOOL_ELEMENTS,
+  MCP_RATE_LIMIT_PER_MINUTE,
+  REMOTE_OFFICE_ENVELOPE_BYTES,
+  REMOTE_OFFICE_MAX_BASE64_CHARS,
+  REMOTE_OFFICE_MAX_INPUT_BYTES,
+} from '@/lib/mcp/request-boundary';
 import { REMOTE_TOOLS } from '../../tools/k-labor/remote.mjs';
 
 // 서버/SDK까지 로컬 메모리에서 실행한다. 네트워크·개인정보·실제 호스트 설정은 쓰지 않는다.
@@ -99,6 +107,49 @@ describe('원격 k-labor 라우트', () => {
     expect(r.quorum.held).toBe(true);
     expect(r.agenda[0].result).toBe('의결');
     expect(r.resolutionNotice.due).toBe('2026-12-13');
+  });
+
+  // G4 Act on 1 — 원격 오피스 한도는 본문 상한(request-boundary)에서 계산한다. 라우트를 실제로 지나 확인한다
+  describe('원격 오피스 도구 — 라우트를 지나는 한도', () => {
+    const smallXlsx = async () => {
+      const { makeXlsxFromSpec } = await import('@/lib/office/xlsx/make');
+      const r = await makeXlsxFromSpec({ sheets: [{ name: '평가표', columns: [{ key: 'id', header: 'ID' }, { key: 'h', header: '위험요인' }], rows: [{ id: 'H1', h: '합성' }] }] });
+      if (!r.ok) throw new Error('make 실패');
+      return Buffer.from(r.bytes).toString('base64');
+    };
+
+    it('정책 상한은 본문 상한 안에 들어간다', () => {
+      expect(REMOTE_OFFICE_MAX_BASE64_CHARS + REMOTE_OFFICE_ENVELOPE_BYTES).toBe(MAX_MCP_BODY_BYTES);
+      expect(Math.ceil(REMOTE_OFFICE_MAX_INPUT_BYTES / 3) * 4).toBeLessThanOrEqual(REMOTE_OFFICE_MAX_BASE64_CHARS);
+    });
+
+    it('작은 합성 xlsx 는 라우트를 지나 inspect·extract 된다', async () => {
+      const b64 = await smallXlsx();
+      const a = await call('inspect_xlsx_bytes', { base64: b64 });
+      expect(a.status).toBe(200);
+      expect(JSON.parse(a.json.result.content[0].text).ok).toBe(true);
+      const b = await call('extract_xlsx_rows_bytes', { base64: b64 });
+      expect(JSON.parse(b.json.result.content[0].text).rows[0].cells['위험요인'].raw).toBe('합성');
+    });
+
+    it('정책 상한을 1바이트 넘는 입력은 본문 상한 안이어도 INPUT_TOO_LARGE', async () => {
+      const b64 = Buffer.from(new Uint8Array(REMOTE_OFFICE_MAX_INPUT_BYTES + 1)).toString('base64');
+      const body = JSON.stringify({ jsonrpc: '2.0', id: 2, method: 'tools/call', params: { name: 'inspect_xlsx_bytes', arguments: { base64: b64 } } });
+      if (body.length > MAX_MCP_BODY_BYTES) {
+        // 스키마 max(REMOTE_OFFICE_MAX_BASE64_CHARS) 바로 위라 본문이 넘으면 413 — 어느 쪽이든 도구는 돌지 않는다
+        expect((await route.POST(req(body))).status).toBe(413);
+        return;
+      }
+      const res = await route.POST(req(body));
+      const json = await res.json();
+      expect(json.result.isError === true || JSON.parse(json.result.content[0].text).code === 'INPUT_TOO_LARGE').toBe(true);
+    });
+
+    it('본문 상한(64KB)을 넘는 base64 는 라우트가 413 으로 막는다', async () => {
+      const b64 = Buffer.from(new Uint8Array(MAX_MCP_BODY_BYTES)).toString('base64');
+      const res = await route.POST(req(JSON.stringify({ jsonrpc: '2.0', id: 2, method: 'tools/call', params: { name: 'extract_pptx_bytes', arguments: { base64: b64 } } })));
+      expect(res.status).toBe(413);
+    });
   });
 
   it('잘못된 도구 입력은 구조화된 오류를 낸다', async () => {

@@ -5,7 +5,8 @@ import os from 'node:os';
 import path from 'node:path';
 import JSZip from 'jszip';
 import { encodeRemoteOutput, officeLocalOnly, officeRemoteSafe, officeTools, registerOffice } from '../../tools/k-labor/groups/office.mjs';
-import { MAX_REMOTE_INPUT_BYTES, MAX_REMOTE_OUTPUT_BYTES, MAX_REMOTE_UNZIPPED_BYTES } from '@/lib/office/limits';
+import { REMOTE_OFFICE_LIMITS, REMOTE_OFFICE_MAX_INPUT_BYTES as MAX_REMOTE_INPUT_BYTES, REMOTE_OFFICE_MAX_OUTPUT_BYTES as MAX_REMOTE_OUTPUT_BYTES } from '@/lib/mcp/request-boundary';
+const MAX_REMOTE_UNZIPPED_BYTES = REMOTE_OFFICE_LIMITS.maxUnzippedBytes;
 
 type Handler = (a: Record<string, unknown>) => Promise<{ content: { text: string }[] }>;
 type Cfg = { title?: string; annotations?: Record<string, boolean> };
@@ -304,9 +305,21 @@ describe('office 묶음 — 회의 PPTX', () => {
     expect(mk.ok).toBe(true);
     expect(mk.bytes).toBeUndefined();
     expect(Buffer.from(mk.base64, 'base64').subarray(0, 2).toString('latin1')).toBe('PK');
+    // 원격 공개 입구는 고객 파일 처리 대상이 아니다 — 만든 덱(수십 KB 이상)은 원격 입력 상한을 넘어 정직하게 거절된다(G4 Act on 1)
+    expect(mk.outputBytes).toBeGreaterThan(MAX_REMOTE_INPUT_BYTES);
     const ex = await call('extract_pptx_bytes', { base64: mk.base64 });
-    expect(ex.ok).toBe(true);
-    expect(ex.slides.length).toBe(mk.slides.length);
+    expect(ex.ok).toBe(false);
+    expect(ex.code).toBe('INPUT_TOO_LARGE');
+    expect(ex.error).toContain('고객 파일 처리용이 아니다');
+  });
+
+  it('원격 도구 설명은 정책 상수(request-boundary)에서 계산한 상한과 「고객 파일 처리용 아님」 을 말한다', () => {
+    for (const n of ['inspect_xlsx_bytes', 'extract_xlsx_rows_bytes', 'fill_xlsx_template_bytes', 'extract_pptx_bytes']) {
+      const d = (cfgs.get(n) as { description: string }).description;
+      expect(d, n).toContain('고객 파일 처리용이 아니다');
+      expect(d, n).toContain(String(MAX_REMOTE_INPUT_BYTES));
+      expect(d, n).not.toMatch(/5MB, 압축을 푼 합계 50MB/);
+    }
   });
 
   it('원격 extract_pptx_bytes 는 5MB 초과·zip 폭탄을 구조화 오류로', async () => {

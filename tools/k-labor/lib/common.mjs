@@ -53,10 +53,14 @@ export const looksLikeRrn = (s) => RRN_LIKE.test(s);
 /** MCP 텍스트 응답. 나가기 전에 주민번호 모양을 가린다.
  * 객체는 글자 값만 가린다 — 직렬화한 JSON 전체에 정규식을 걸면 13자리 금액(숫자)이 「******-*******」로 바뀌어 JSON 이 깨진다
  * (적대 검토 261104 — 일용근로 원천세 milli·지연이자 금액). 주민번호는 모든 도구가 글자로만 받는다. */
+// 파일 바이트 칸(키 이름 base64, 값이 base64 문자열)은 가리지 않는다 — 가리면 결과 파일이 조용히 깨진다(G4 Act on 9).
+// 한글 무압축 바이트의 base64 에 숫자 13자리가 우연히 이어질 수 있다. 바이트 안의 글자는 도구가 입력 단계에서 주민번호를 거부한다.
+const B64_VALUE = /^[A-Za-z0-9+/]*={0,2}$/;
+export const isBytesField = (k, v) => k === 'base64' && typeof v === 'string' && v.length % 4 === 0 && B64_VALUE.test(v);
 export const text = (obj) => ({
   content: [{
     type: 'text',
-    text: typeof obj === 'string' ? mask(obj) : JSON.stringify(obj, (_k, v) => (typeof v === 'string' ? mask(v) : v), 2),
+    text: typeof obj === 'string' ? mask(obj) : JSON.stringify(obj, (k, v) => (typeof v === 'string' && !isBytesField(k, v) ? mask(v) : v), 2),
   }],
 });
 export const digits = (s) => String(s ?? '').replace(/\D/g, '');

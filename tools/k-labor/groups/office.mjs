@@ -12,7 +12,13 @@ import { fillXlsxTemplate } from '@/lib/office/xlsx/fill';
 import { makeXlsxFromSpec } from '@/lib/office/xlsx/make';
 import { makeMeetingPptx } from '@/lib/office/pptx/meeting';
 import { extractPptx } from '@/lib/office/pptx/extract';
-import { checkZipUncompressedSize, MAX_REMOTE_INPUT_BYTES, MAX_REMOTE_OUTPUT_BYTES, MAX_REMOTE_UNZIPPED_BYTES } from '@/lib/office/limits';
+import {
+  MAX_MCP_BODY_BYTES,
+  REMOTE_OFFICE_LIMITS,
+  REMOTE_OFFICE_MAX_BASE64_CHARS,
+  REMOTE_OFFICE_MAX_INPUT_BYTES,
+  REMOTE_OFFICE_MAX_OUTPUT_BYTES,
+} from '@/lib/mcp/request-boundary';
 import { argsLookLikeRrn, text, writeNew } from '../lib/common.mjs';
 
 /** 파일 경로 입출력 — 이 PC 에서만 */
@@ -288,28 +294,33 @@ export function registerOffice(server) {
 }
 
 // ── 원격(HTTP)판 — base64 입출력. 아래 함수들은 fs·네트워크를 쓰지 않는다(remote.mjs 가 officeRemoteSafe 이름만 통과시킨다).
+// ★ 원격 공개 입구(무인증)는 고객 파일 처리 대상이 아니다 — 합성 표본·작은 서식 맛보기용. 한도는 request-boundary.ts 가 단일 출처다(G4 Act on 1).
 const REMOTE_READ = { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false };
 // 채우기·만들기도 원격판에서는 서버에 아무것도 남기지 않고 바이트만 돌려준다
 const REMOTE_MAKE = { readOnlyHint: true, destructiveHint: false, idempotentHint: false, openWorldHint: false };
 const B64_RE = /^[A-Za-z0-9+/]*={0,2}$/;
-const b64In = z.string().max(8_000_000).describe('xlsx 파일 바이트(base64, 디코드 후 5MB 이하)');
+const KB = (n) => `${Math.floor(n / 1024)}KB`;
+const REMOTE_IN = KB(REMOTE_OFFICE_MAX_INPUT_BYTES);
+const REMOTE_OUT = `${REMOTE_OFFICE_MAX_OUTPUT_BYTES / 1024 / 1024}MB`;
+/** 원격 도구 설명에 붙는 정책 문구 — 숫자는 request-boundary 상수에서 계산 */
+export const REMOTE_POLICY =
+  `원격 공개 도구는 고객 파일 처리용이 아니다(합성 표본·작은 서식 맛보기용). 입력 파일은 디코드 후 ${REMOTE_IN}(${REMOTE_OFFICE_MAX_INPUT_BYTES} 바이트)까지로, 요청 본문 상한 ${KB(MAX_MCP_BODY_BYTES)} 에서 계산한 값이다. ` +
+  '고객 파일은 로컬 판(stdio) 또는 SafeClaw 작업자 경로로 처리한다.';
+const b64In = (what) => z.string().max(REMOTE_OFFICE_MAX_BASE64_CHARS).describe(`${what} 파일 바이트(base64, 디코드 후 ${REMOTE_IN} 이하)`);
 
-/** base64 → 바이트. 크기(5MB)·zip 해제 합계(50MB) 검사. 오류면 {ok:false, code, error} */
+/** base64 → 바이트. 크기 검사(원격 정책). zip 실제 해제 상한·작업량은 엔진이 REMOTE_OFFICE_LIMITS 로 본다. 오류면 {ok:false, code, error} */
 function decodeRemoteInput(b64) {
   const s = String(b64 ?? '').replace(/\s+/g, '');
   if (!s) return { ok: false, code: 'BAD_BASE64', error: 'base64 를 주세요.' };
   if (s.length % 4 !== 0 || !B64_RE.test(s)) return { ok: false, code: 'BAD_BASE64', error: 'base64 형식이 아닙니다.' };
-  if (Math.floor((s.length * 3) / 4) - (s.endsWith('==') ? 2 : s.endsWith('=') ? 1 : 0) > MAX_REMOTE_INPUT_BYTES)
-    return { ok: false, code: 'INPUT_TOO_LARGE', error: `디코드한 입력이 ${MAX_REMOTE_INPUT_BYTES} 바이트(5MB)를 넘습니다.` };
-  const bytes = new Uint8Array(Buffer.from(s, 'base64'));
-  const z64 = checkZipUncompressedSize(bytes, MAX_REMOTE_UNZIPPED_BYTES);
-  if (!z64.ok) return { ok: false, code: 'ZIP_TOO_LARGE', error: `zip 을 열지 않았습니다: ${z64.reason}` };
-  return { ok: true, bytes };
+  if (Math.floor((s.length * 3) / 4) - (s.endsWith('==') ? 2 : s.endsWith('=') ? 1 : 0) > REMOTE_OFFICE_MAX_INPUT_BYTES)
+    return { ok: false, code: 'INPUT_TOO_LARGE', error: `디코드한 입력이 ${REMOTE_OFFICE_MAX_INPUT_BYTES} 바이트(${REMOTE_IN})를 넘습니다. ${REMOTE_POLICY}` };
+  return { ok: true, bytes: new Uint8Array(Buffer.from(s, 'base64')) };
 }
 
-/** 결과 바이트 → base64. 5MB 를 넘으면 {ok:false, code:'OUTPUT_TOO_LARGE'} */
+/** 결과 바이트 → base64. 원격 출력 상한을 넘으면 {ok:false, code:'OUTPUT_TOO_LARGE'} */
 export function encodeRemoteOutput(bytes) {
-  if (bytes.length > MAX_REMOTE_OUTPUT_BYTES) return { ok: false, code: 'OUTPUT_TOO_LARGE', error: `결과가 ${MAX_REMOTE_OUTPUT_BYTES} 바이트(5MB)를 넘어 돌려주지 않습니다.`, bytes: bytes.length };
+  if (bytes.length > REMOTE_OFFICE_MAX_OUTPUT_BYTES) return { ok: false, code: 'OUTPUT_TOO_LARGE', error: `결과가 ${REMOTE_OFFICE_MAX_OUTPUT_BYTES} 바이트(${REMOTE_OUT})를 넘어 돌려주지 않습니다.`, bytes: bytes.length };
   return { ok: true, base64: Buffer.from(bytes).toString('base64') };
 }
 
@@ -320,14 +331,14 @@ function registerOfficeRemote(server) {
       title: '엑셀(xlsx) 서식 구조 보기(base64)',
       description:
         'base64 로 받은 xlsx 의 시트별 크기·병합 범위·수식 칸 수·조건부서식 규칙 수·데이터 유효성 범위·그림 수·인쇄영역·인쇄제목·용지 방향·맞춤과 이름정의를 돌려준다. 서버에 파일을 남기지 않는다. ' +
-        `입력은 디코드 후 5MB, 압축을 푼 합계 50MB 까지. needsReview:true 는 이 엔진이 열지 않은 파일이라는 뜻이다(${NOT_SUPPORTED})`,
-      inputSchema: { base64: b64In },
+        `needsReview:true 는 이 엔진이 열지 않은 파일이라는 뜻이다(${NOT_SUPPORTED}) ${REMOTE_POLICY}`,
+      inputSchema: { base64: b64In('xlsx') },
       annotations: REMOTE_READ,
     },
     async (a) => {
       const d = decodeRemoteInput(a.base64);
       if (!d.ok) return text(d);
-      return text(await inspectXlsx(d.bytes));
+      return text(await inspectXlsx(d.bytes, REMOTE_OFFICE_LIMITS));
     },
   );
 
@@ -337,9 +348,9 @@ function registerOfficeRemote(server) {
       title: '엑셀(xlsx) 표 행을 칸 주소와 함께 읽기(base64)',
       description:
         'base64 로 받은 xlsx 의 머리행 아래 행을 머리 이름별로 읽는다. 칸마다 칸 주소(cell)·원문 값(raw, 글자는 숫자로 바꾸지 않음)·수식·저장된 계산값·병합 출처를 붙인다. ' +
-        '계산값이 저장되지 않은 수식 칸과 잘린 행은 warnings 에 적는다. 입력은 디코드 후 5MB, 압축을 푼 합계 50MB 까지.',
+        `계산값이 저장되지 않은 수식 칸과 잘린 행은 warnings 에 적는다. ${REMOTE_POLICY}`,
       inputSchema: {
-        base64: b64In,
+        base64: b64In('xlsx'),
         sheet: z.string().max(100).optional().describe('시트 이름(비우면 첫 시트)'),
         headerRow: z.number().int().min(1).max(1_000_000).optional().describe('머리행 번호(1부터, 기본 1)'),
         maxRows: z.number().int().min(1).max(100_000).optional().describe('읽을 최대 행 수(기본 10000)'),
@@ -349,7 +360,7 @@ function registerOfficeRemote(server) {
     async (a) => {
       const d = decodeRemoteInput(a.base64);
       if (!d.ok) return text(d);
-      return text(await extractXlsxRows(d.bytes, { sheet: a.sheet, headerRow: a.headerRow, maxRows: a.maxRows }));
+      return text(await extractXlsxRows(d.bytes, { sheet: a.sheet, headerRow: a.headerRow, maxRows: a.maxRows }, REMOTE_OFFICE_LIMITS));
     },
   );
 
@@ -360,9 +371,9 @@ function registerOfficeRemote(server) {
       description:
         'base64 로 받은 원본 xlsx 의 지정 칸(cells)과 표 행(rows)만 채워 새 xlsx 를 base64 로 돌려준다. 서버에 파일을 남기지 않는다. ' +
         '수식 칸의 저장된 계산값은 지우고 열 때 다시 계산하게 표시한다(fullCalcOnLoad). preserved 에 서식 항목을 채우기 전후로 비교해 돌려준다. ' +
-        "rows 가 템플릿 빈 행보다 많으면 overflow='error'(기본) 는 채우지 않고, 'insertRows' 는 행을 넣고 warnings 를 낸다. 입력·결과는 각각 5MB 까지.",
+        `rows 가 템플릿 빈 행보다 많으면 overflow='error'(기본) 는 채우지 않고, 'insertRows' 는 행을 넣고 warnings 를 낸다. 결과는 ${REMOTE_OUT} 까지. ${REMOTE_POLICY}`,
       inputSchema: {
-        base64: b64In,
+        base64: b64In('xlsx'),
         cells: cellsSchema,
         rows: rowsSchema,
       },
@@ -373,7 +384,7 @@ function registerOfficeRemote(server) {
       if (!a.cells?.length && !a.rows) return fail('cells 나 rows 중 하나를 주세요.');
       const d = decodeRemoteInput(a.base64);
       if (!d.ok) return text(d);
-      const r = await fillXlsxTemplate(d.bytes, { cells: a.cells, rows: a.rows });
+      const r = await fillXlsxTemplate(d.bytes, { cells: a.cells, rows: a.rows }, REMOTE_OFFICE_LIMITS);
       const { bytes, ...rest } = r;
       if (!r.ok || !bytes) return text({ ...rest, ...(r.needsReview ? { notice: NOT_SUPPORTED } : {}) });
       const o = encodeRemoteOutput(bytes);
@@ -388,7 +399,7 @@ function registerOfficeRemote(server) {
       title: '사양(JSON)으로 엑셀(xlsx) 서식 만들기(base64)',
       description:
         '시트마다 이름·제목(1행 병합)·열·추가 머리행·병합·유효성 목록(드롭다운)·틀고정·인쇄(가로/세로·A4·폭 맞춤·인쇄제목 행)·자료 행을 받아 xlsx 를 만들어 base64 로 돌려준다. 서버에 파일을 남기지 않는다. ' +
-        '사양이 잘못되면 만들지 않고 errors 를 돌려준다. 결과는 5MB 까지.',
+        `사양이 잘못되면 만들지 않고 errors 를 돌려준다. 결과는 ${REMOTE_OUT} 까지.`,
       inputSchema: { spec: specSchema },
       annotations: REMOTE_MAKE,
     },
@@ -406,7 +417,7 @@ function registerOfficeRemote(server) {
     'make_meeting_pptx_bytes',
     {
       title: '회의 덱(pptx) 만들기(base64)',
-      description: `${MEETING_DESC} 사진은 data(base64)로만 받는다. 결과 pptx 를 base64 로 돌려주고 서버에 파일을 남기지 않는다. 결과는 5MB 까지.`,
+      description: `${MEETING_DESC} 사진은 data(base64)로만 받는다. 결과 pptx 를 base64 로 돌려주고 서버에 파일을 남기지 않는다. 결과는 ${REMOTE_OUT} 까지. 요청 본문은 ${KB(MAX_MCP_BODY_BYTES)} 까지라 사진은 작게 준다.`,
       inputSchema: { snapshot: snapshotSchema, ...meetingOpts },
       annotations: REMOTE_MAKE,
     },
@@ -428,14 +439,14 @@ function registerOfficeRemote(server) {
       title: '파워포인트(pptx) 장별 글자·표·notes 읽기(base64)',
       description:
         'base64 로 받은 pptx 의 장마다 도형(id·이름·글자)·표(행×칸 글자)·notes(발표자 메모)를 장 순서대로 읽는다. 서버에 파일을 남기지 않는다. ' +
-        '입력은 디코드 후 5MB, 압축을 푼 합계 50MB 까지. zip(pptx)이 아니거나 열지 못하면 needsReview:true 와 이유를 돌려준다.',
-      inputSchema: { base64: z.string().max(8_000_000).describe('pptx 파일 바이트(base64, 디코드 후 5MB 이하)') },
+        `zip(pptx)이 아니거나 열지 못하면 needsReview:true 와 이유를 돌려준다. ${REMOTE_POLICY}`,
+      inputSchema: { base64: b64In('pptx') },
       annotations: REMOTE_READ,
     },
     async (a) => {
       const d = decodeRemoteInput(a.base64);
       if (!d.ok) return text(d);
-      return text(await extractPptx(d.bytes));
+      return text(await extractPptx(d.bytes, REMOTE_OFFICE_LIMITS));
     },
   );
 }

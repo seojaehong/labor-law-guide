@@ -2,7 +2,8 @@
 // 머리행 아래 행을 셀 주소·원문값·수식·캐시값·병합 출처와 함께 돌린다.
 // 문자 값은 그대로 둔다(「높음 (6)」 을 숫자로 바꾸지 않는다 — 척도 보존).
 import ExcelJS from 'exceljs';
-import { openXlsx } from './inspect';
+import { openXlsx, type OpenFailCode } from './inspect';
+import { DEFAULT_LIMITS, type Limits } from '../limits';
 
 export type XlsxRaw = string | number | boolean | null;
 
@@ -32,6 +33,7 @@ export interface ExtractXlsxResult {
   ok: boolean;
   needsReview?: boolean;
   reason?: string;
+  code?: OpenFailCode | 'INVALID_ARGS';
   sheet?: string;
   headers: string[];
   rows: ExtractedRow[];
@@ -40,8 +42,8 @@ export interface ExtractXlsxResult {
 
 const DEFAULT_MAX_ROWS = 10000;
 
-function fail(reason: string, needsReview = false): ExtractXlsxResult {
-  return { ok: false, ...(needsReview ? { needsReview: true } : {}), reason, headers: [], rows: [], warnings: [] };
+function fail(reason: string, code: ExtractXlsxResult['code'] = 'INVALID_ARGS'): ExtractXlsxResult {
+  return { ok: false, ...(code === 'UNSUPPORTED_INPUT' ? { needsReview: true } : {}), code, reason, headers: [], rows: [], warnings: [] };
 }
 
 /** ExcelJS 셀 값 → 원문 값. 문자는 그대로, 날짜는 ISO 문자열, 서식 글자는 이어 붙인 글자. */
@@ -62,9 +64,9 @@ function headerText(cell: ExcelJS.Cell): string {
   return toRaw(cell.value) === null ? '' : String(toRaw(cell.value)).trim();
 }
 
-export async function extractXlsxRows(bytes: Uint8Array, opts: ExtractXlsxOptions = {}): Promise<ExtractXlsxResult> {
-  const opened = await openXlsx(bytes);
-  if ('reason' in opened) return fail(opened.reason, true);
+export async function extractXlsxRows(bytes: Uint8Array, opts: ExtractXlsxOptions = {}, limits: Limits = DEFAULT_LIMITS): Promise<ExtractXlsxResult> {
+  const opened = await openXlsx(bytes, limits);
+  if ('reason' in opened) return fail(opened.reason, opened.code);
   const { wb } = opened;
 
   const ws = opts.sheet === undefined ? wb.worksheets[0] : wb.getWorksheet(opts.sheet);
@@ -76,6 +78,11 @@ export async function extractXlsxRows(bytes: Uint8Array, opts: ExtractXlsxOption
 
   const warnings: string[] = [];
   const colCount = ws.columnCount;
+  // 읽는 고리는 (마지막 행 - 머리행) × 열 수 만큼 돈다 — 먼 칸 하나로 수십억 번 돌지 않게 작업량 상한에 건다(G4 Act on 3)
+  const loop = Math.max(0, ws.rowCount - headerRow) * colCount;
+  if (loop > limits.maxCells) {
+    return fail(`읽을 범위(${ws.rowCount - headerRow}행 × ${colCount}열)가 작업량 상한 ${limits.maxCells}칸을 넘습니다.`, 'WORKLOAD_TOO_LARGE');
+  }
 
   // 머리: 빈 머리 칸은 열 문자, 같은 이름이 겹치면 「이름#열문자」 로 구분하고 경고
   const headers: string[] = [];

@@ -1,6 +1,6 @@
 // PPTX 읽기 — 장별 도형 글자·표·notes. fs·네트워크 없음(바이트 입력).
 // 사양 = .ralph/spec-office-v0.md §4. 장 순서는 presentation.xml 의 sldIdLst 를 따른다.
-import JSZip from 'jszip';
+import { DEFAULT_LIMITS, readZipGuarded, type Limits } from '../limits';
 
 export interface PptxShape {
   id: string;
@@ -19,11 +19,12 @@ export interface PptxSlide {
 export interface PptxExtractResult {
   ok: boolean;
   needsReview?: boolean;
+  code?: 'UNSUPPORTED_INPUT' | 'INPUT_TOO_LARGE' | 'ZIP_TOO_LARGE';
   reason?: string;
   slides: PptxSlide[];
 }
 
-const review = (reason: string): PptxExtractResult => ({ ok: false, needsReview: true, reason, slides: [] });
+const review = (reason: string): PptxExtractResult => ({ ok: false, needsReview: true, code: 'UNSUPPORTED_INPUT', reason, slides: [] });
 
 function decodeXml(s: string): string {
   return s
@@ -92,20 +93,20 @@ function resolvePath(baseDir: string, target: string): string {
   return parts.join('/');
 }
 
-async function readText(zip: JSZip, p: string): Promise<string | null> {
-  const f = zip.file(p);
-  return f ? f.async('string') : null;
+const utf8 = new TextDecoder('utf-8');
+async function readText(zip: Map<string, Uint8Array>, p: string): Promise<string | null> {
+  const f = zip.get(p);
+  return f ? utf8.decode(f) : null;
 }
 
-export async function extractPptx(bytes: Uint8Array): Promise<PptxExtractResult> {
+export async function extractPptx(bytes: Uint8Array, limits: Limits = DEFAULT_LIMITS): Promise<PptxExtractResult> {
   if (!bytes || bytes.length === 0) return review('빈 바이트');
+  if (bytes.length > limits.maxInputBytes) return { ok: false, code: 'INPUT_TOO_LARGE', reason: `입력이 ${limits.maxInputBytes} 바이트를 넘습니다.`, slides: [] };
   if (bytes.length < 4 || bytes[0] !== 0x50 || bytes[1] !== 0x4b) return review('zip(pptx) 형식이 아님');
-  let zip: JSZip;
-  try {
-    zip = await JSZip.loadAsync(bytes);
-  } catch (e) {
-    return review(`zip 을 열지 못함: ${(e as Error).message}`);
-  }
+  // 선언 크기를 믿지 않고 실제로 풀며 누적 상한을 건다(G4 Act on 4)
+  const z = readZipGuarded(bytes, limits);
+  if (!z.ok) return z.code === 'ZIP_TOO_LARGE' ? { ok: false, code: 'ZIP_TOO_LARGE', reason: z.message, slides: [] } : review(`zip 을 열지 못함: ${z.message}`);
+  const zip = z.parts;
   try {
     const pres = await readText(zip, 'ppt/presentation.xml');
     if (!pres) return review('ppt/presentation.xml 이 없음(pptx 가 아님)');
@@ -115,7 +116,7 @@ export async function extractPptx(bytes: Uint8Array): Promise<PptxExtractResult>
       .filter((t): t is string => !!t)
       .map((t) => resolvePath('ppt', t));
     if (!slidePaths.length) {
-      slidePaths = Object.keys(zip.files)
+      slidePaths = [...zip.keys()]
         .filter((p) => /^ppt\/slides\/slide\d+\.xml$/.test(p))
         .sort((a, b) => Number(a.match(/(\d+)\.xml$/)![1]) - Number(b.match(/(\d+)\.xml$/)![1]));
     }

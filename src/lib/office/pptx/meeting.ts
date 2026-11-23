@@ -31,6 +31,8 @@ export interface PriorItem {
   effect?: string;
   residual?: string;
   anchors?: string[];
+  /** 같은 위험요인에 조치가 여러 건이라 id 에 「#n」 을 붙였을 때 원래 위험요인 ID(회차 대비 변화는 이것으로 맞춘다) */
+  hazardId?: string;
 }
 
 export interface HazardItem {
@@ -191,6 +193,101 @@ export interface MeetingPptxResult {
 
 const P4_ROWS_PER_SLIDE = 6;
 const P6_CARDS_PER_SLIDE = 4;
+// 표 장 쪽 나눔(G4 Act on 10) — 한 장에 넣는 행 수. 긴 글 칸이 있는 표는 적게, 짧은 칸뿐인 표는 많이
+const ROWS_PER_SLIDE = { P7: 8, P8: 10, P9: 8, P10: 14, F3: 8, F5: 8, F6: 6, F7: 10, F8: 12 } as const;
+
+/** n 개씩 나눈다. 비면 빈 쪽 하나 */
+function paginate<T>(list: T[], n: number): T[][] {
+  const out: T[][] = [];
+  for (let i = 0; i < list.length; i += n) out.push(list.slice(i, i + n));
+  if (!out.length) out.push([]);
+  return out;
+}
+
+// ── 입력 모양 검사(G4 Act on 8) — 원격 스키마가 느슨해도 엔진이 던지지 않고 errors 로 돌린다
+type Kind = 'string' | 'string?' | 'number?' | 'boolean?' | 'strings?' | 'object?';
+const S = 'string' as const;
+const SO = 'string?' as const;
+const NO = 'number?' as const;
+const AO = 'strings?' as const;
+const ITEM_SHAPES: Record<string, Record<string, Kind>> = {
+  prior: { id: S, hazard: S, status: S, frequency: NO, severity: NO, grade: SO, measure: SO, owner: SO, due: SO, result: SO, verifier: SO, scaleId: SO, legal: SO, effect: SO, residual: SO, anchors: AO, hazardId: SO },
+  hazards: { id: S, situation: S, cause: SO, consequence: SO, tags: AO, measures: 'object?', frequency: NO, severity: NO, grade: SO, kind: SO, sourceType: SO, anchors: AO },
+  photos: { itemId: S, side: S, data: SO, mime: SO },
+  opinions: { id: S, from: SO, text: S, relatedIds: AO, anchors: AO },
+  questions: { id: S, question: S, targetIds: AO, options: AO, anchors: AO },
+  anchors: { id: S, source: SO, location: SO },
+  decisions: { id: S, questionId: SO, targetIds: AO, decision: S, reason: SO, anchors: AO },
+  actions: { id: S, targetId: SO, hazard: SO, measure: SO, owner: SO, due: SO, verifier: SO, anchors: AO },
+  deferred: { id: S, hazard: SO, reason: SO, reevaluateBy: SO, anchors: AO },
+  bestPractices: { id: S, title: S, text: S, anchors: AO },
+};
+const ATTENDEE_SHAPE: Record<string, Kind> = { role: S, name: SO, workerRepresentative: 'boolean?' };
+const TOP_SHAPE: Record<string, Kind> = {
+  site: S, cycle: S, basisDate: S, scaleId: S, scaleName: S, meetingDate: SO, period: SO, author: SO, revision: SO, agenda: AO, safetyCase: SO, actualMeetingDate: SO, nextPeriod: SO,
+};
+
+function kindOk(v: unknown, k: Kind): boolean {
+  if (k.endsWith('?') && (v === undefined || v === null)) return true;
+  switch (k) {
+    case 'string':
+    case 'string?':
+      return typeof v === 'string';
+    case 'number?':
+      return typeof v === 'number' && Number.isFinite(v);
+    case 'boolean?':
+      return typeof v === 'boolean';
+    case 'strings?':
+      return Array.isArray(v) && v.every((x) => typeof x === 'string');
+    case 'object?':
+      return typeof v === 'object' && v !== null && !Array.isArray(v);
+  }
+}
+
+function checkShape(o: unknown, shape: Record<string, Kind>, at: string, errors: string[]): void {
+  if (typeof o !== 'object' || o === null || Array.isArray(o)) {
+    errors.push(`${at}: 객체여야 한다`);
+    return;
+  }
+  for (const [key, k] of Object.entries(shape)) {
+    const v = (o as Record<string, unknown>)[key];
+    if (!kindOk(v, k)) errors.push(`${at}.${key}: ${k.replace('?', '')}${k === 'strings?' ? '(글자 배열)' : ''} 이어야 한다`);
+  }
+}
+
+function checkTypes(s: unknown): string[] {
+  const errors: string[] = [];
+  if (typeof s !== 'object' || s === null || Array.isArray(s)) return ['snapshot 은 객체여야 한다'];
+  const snap = s as Record<string, unknown>;
+  checkShape(snap, TOP_SHAPE, 'snapshot', errors);
+  const st = snap.status as Record<string, unknown> | undefined;
+  if (typeof st !== 'object' || st === null) errors.push('status 는 {label} 객체여야 한다');
+  else if (st.label === '확정' && !(typeof st.version === 'number' && Number.isInteger(st.version) && st.version >= 1)) {
+    // 검토안이든 확정본이든 「확정」 배지에는 판 번호가 있어야 한다(「확정 vundefined」 방지)
+    errors.push('status 가 확정이면 version(1 이상 정수)이 있어야 한다');
+  }
+  for (const [key, shape] of Object.entries(ITEM_SHAPES)) {
+    const list = snap[key];
+    if (list === undefined || list === null) continue;
+    if (!Array.isArray(list)) {
+      errors.push(`${key} 는 배열이어야 한다`);
+      continue;
+    }
+    list.forEach((o, i) => checkShape(o, shape, `${key}[${i}]`, errors));
+  }
+  const att = snap.attendees as Record<string, unknown> | undefined | null;
+  if (att !== undefined && att !== null) {
+    if (typeof att !== 'object' || Array.isArray(att)) errors.push('attendees 는 객체여야 한다');
+    else
+      for (const k of ['planned', 'actual']) {
+        const list = att[k];
+        if (list === undefined || list === null) continue;
+        if (!Array.isArray(list)) errors.push(`attendees.${k} 는 배열이어야 한다`);
+        else list.forEach((o, i) => checkShape(o, ATTENDEE_SHAPE, `attendees.${k}[${i}]`, errors));
+      }
+  }
+  return errors.slice(0, 50);
+}
 const FONT_PT = 9;
 const BORDER = { type: 'solid' as const, pt: 0.5, color: '999999' };
 const HEAD_FILL = { color: 'E7ECF3' };
@@ -262,7 +359,11 @@ export async function makeMeetingPptx(
   snapshot: MeetingSnapshot,
   opts: MeetingOptions = {},
 ): Promise<MeetingPptxResult> {
-  const kind = opts.kind ?? snapshot.kind ?? 'pre';
+  const kind = opts.kind ?? snapshot?.kind ?? 'pre';
+  const typeErrors = checkTypes(snapshot);
+  if (typeErrors.length) return { ok: false, slides: [], overflowEstimates: [], warnings: [], errors: typeErrors };
+  snapshot = { ...snapshot };
+  for (const k of ['prior', 'hazards', 'photos', 'opinions', 'questions', 'anchors'] as const) if (!Array.isArray(snapshot[k])) (snapshot as unknown as Record<string, unknown[]>)[k] = [];
   const errors = validate(snapshot, kind);
   if (errors.length) return { ok: false, slides: [], overflowEstimates: [], warnings: [], errors };
 
@@ -456,8 +557,8 @@ export async function makeMeetingPptx(
         const body = [
           `${h.id} [${h.kind === 'new' ? '신규' : '변경'}] 출처: ${h.sourceType ?? '-'}${h.tags?.length ? ` · ${h.tags.join('·')}` : ''}`,
           `상황: ${h.situation}`,
-          `원인: ${h.cause}`,
-          `결과: ${h.consequence}`,
+          `원인: ${h.cause ?? '-'}`,
+          `결과: ${h.consequence ?? '-'}`,
           `빈도 ${h.frequency ?? '-'} · 강도 ${h.severity ?? '-'} · 등급 ${h.grade ?? '-'}`,
           `대책(기술): ${m.technical ?? '-'}`,
           `대책(교육): ${m.education ?? '-'}`,
@@ -471,15 +572,17 @@ export async function makeMeetingPptx(
 
   // P7 근로자 의견
   if (pre) {
-    const { slide, no } = newSlide('P7', 'P7 근로자 의견', uniq(snapshot.opinions.map((o) => o.anchors)));
-    const colW = [0.8, 2.0, contentW - 4.6, 1.8];
-    const rows: Cell[][] = [head(['ID', '의견자', '의견', '관련 ID'])];
-    for (const o of snapshot.opinions) {
-      rows.push([c(o.id), c(o.from), c(o.text), c((o.relatedIds ?? []).join(', '))]);
-      check(no, 'P7', o.id, 'text', o.text, colW[2], 3);
-    }
-    if (!snapshot.opinions.length) rows.push([c('의견 없음'), c(''), c(''), c('')]);
-    table(slide, rows, colW, 1.15);
+    paginate(snapshot.opinions, ROWS_PER_SLIDE.P7).forEach((items, pi) => {
+      const { slide, no } = newSlide('P7', pi === 0 ? 'P7 근로자 의견' : 'P7 근로자 의견 (계속)', uniq(items.map((o) => o.anchors)));
+      const colW = [0.8, 2.0, contentW - 4.6, 1.8];
+      const rows: Cell[][] = [head(['ID', '의견자', '의견', '관련 ID'])];
+      for (const o of items) {
+        rows.push([c(o.id), c(o.from), c(o.text), c((o.relatedIds ?? []).join(', '))]);
+        check(no, 'P7', o.id, 'text', o.text, colW[2], 3);
+      }
+      if (!items.length) rows.push([c('의견 없음'), c(''), c(''), c('')]);
+      table(slide, rows, colW, 1.15);
+    });
   }
 
   // P8 회차 대비 변화 — 같은 척도 ID 일 때만 증감
@@ -487,11 +590,10 @@ export async function makeMeetingPptx(
   if (pre) {
     const hz = new Map(snapshot.hazards.map((h) => [h.id, h]));
     const colW = [0.8, 3.6, 1.6, 1.6, 1.6, contentW - 9.2];
-    const rows: Cell[][] = [head(['ID', '위험요인', '전회 위험도', '현재 위험도', '증감', '척도'])];
-    const anchors: (string[] | undefined)[] = [];
+    const rowsAll: { cells: Cell[]; anchors: (string[] | undefined)[]; p: PriorItem }[] = [];
     const items = snapshot.prior;
     for (const p of items) {
-      const cur = hz.get(p.id);
+      const cur = hz.get(p.hazardId ?? p.id);
       const pr = risk(p.frequency, p.severity);
       const cr = cur ? risk(cur.frequency, cur.severity) : null;
       let delta: MeetingChange['delta'];
@@ -500,17 +602,23 @@ export async function makeMeetingPptx(
       else if (pr === null || cr === null) delta = '산정 불가';
       else delta = cr - pr;
       changes.push({ id: p.id, priorRisk: pr, currentRisk: cr, delta });
-      anchors.push(p.anchors, cur?.anchors);
-      rows.push([
-        c(p.id), c(p.hazard), c(pr !== null ? `${pr} (${p.grade ?? '-'})` : p.grade), c(cr !== null ? `${cr} (${cur?.grade ?? '-'})` : cur?.grade),
-        c(typeof delta === 'number' ? (delta > 0 ? `+${delta}` : String(delta)) : delta),
-        c(p.scaleId === snapshot.scaleId ? snapshot.scaleName : `전회 ${p.scaleId ?? '미상'}`),
-      ]);
+      rowsAll.push({
+        p,
+        anchors: [p.anchors, cur?.anchors],
+        cells: [
+          c(p.id), c(p.hazard), c(pr !== null ? `${pr} (${p.grade ?? '-'})` : p.grade), c(cr !== null ? `${cr} (${cur?.grade ?? '-'})` : cur?.grade),
+          c(typeof delta === 'number' ? (delta > 0 ? `+${delta}` : String(delta)) : delta),
+          c(p.scaleId === snapshot.scaleId ? snapshot.scaleName : `전회 ${p.scaleId ?? '미상'}`),
+        ],
+      });
     }
-    if (!items.length) rows.push([c('비교 항목 없음'), c(''), c(''), c(''), c(''), c('')]);
-    const { slide, no } = newSlide('P8', 'P8 회차 대비 변화', uniq(anchors));
-    for (const p of items) check(no, 'P8', p.id, 'hazard', p.hazard, colW[1], 2);
-    table(slide, rows, colW, 1.15);
+    paginate(rowsAll, ROWS_PER_SLIDE.P8).forEach((page, pi) => {
+      const rows: Cell[][] = [head(['ID', '위험요인', '전회 위험도', '현재 위험도', '증감', '척도']), ...page.map((x) => x.cells)];
+      if (!page.length) rows.push([c('비교 항목 없음'), c(''), c(''), c(''), c(''), c('')]);
+      const { slide, no } = newSlide('P8', pi === 0 ? 'P8 회차 대비 변화' : 'P8 회차 대비 변화 (계속)', uniq(page.flatMap((x) => x.anchors)));
+      for (const { p } of page) check(no, 'P8', p.id, 'hazard', p.hazard, colW[1], 2);
+      table(slide, rows, colW, 1.15);
+    });
   }
 
   // P9 결정 필요 사항
@@ -519,25 +627,29 @@ export async function makeMeetingPptx(
       ...snapshot.prior.map((p) => [p.id, p.anchors] as [string, string[] | undefined]),
       ...snapshot.hazards.map((h) => [h.id, h.anchors] as [string, string[] | undefined]),
     ]);
-    const anchors = uniq(snapshot.questions.flatMap((q) => [q.anchors, ...(q.targetIds ?? []).map((t) => prMap.get(t))]));
-    const { slide, no } = newSlide('P9', 'P9 결정 필요 사항', anchors);
     const colW = [0.8, contentW - 7.3, 1.6, 2.4, 2.5];
-    const rows: Cell[][] = [head(['ID', '질문', '대상 ID', '선택지', '결정'])];
-    for (const q of snapshot.questions) {
-      rows.push([c(q.id), c(q.question), c((q.targetIds ?? []).join(', ')), c((q.options ?? []).join(' / ')), { text: '' }]);
-      check(no, 'P9', q.id, 'question', q.question, colW[1], 3);
-    }
-    if (!snapshot.questions.length) rows.push([c('결정 필요 사항 없음'), c(''), c(''), c(''), { text: '' }]);
-    table(slide, rows, colW, 1.15);
+    paginate(snapshot.questions, ROWS_PER_SLIDE.P9).forEach((items, pi) => {
+      const anchors = uniq(items.flatMap((q) => [q.anchors, ...(q.targetIds ?? []).map((t) => prMap.get(t))]));
+      const { slide, no } = newSlide('P9', pi === 0 ? 'P9 결정 필요 사항' : 'P9 결정 필요 사항 (계속)', anchors);
+      const rows: Cell[][] = [head(['ID', '질문', '대상 ID', '선택지', '결정'])];
+      for (const q of items) {
+        rows.push([c(q.id), c(q.question), c((q.targetIds ?? []).join(', ')), c((q.options ?? []).join(' / ')), { text: '' }]);
+        check(no, 'P9', q.id, 'question', q.question, colW[1], 3);
+      }
+      if (!items.length) rows.push([c('결정 필요 사항 없음'), c(''), c(''), c(''), { text: '' }]);
+      table(slide, rows, colW, 1.15);
+    });
   }
 
   // P10 근거 목록
   if (pre) {
-    const { slide } = newSlide('P10', 'P10 근거 목록', snapshot.anchors.map((a) => a.id));
-    const rows: Cell[][] = [head(['근거 ID', '출처', '위치'])];
-    for (const a of snapshot.anchors) rows.push([c(a.id), c(a.source), c(a.location)]);
-    if (!snapshot.anchors.length) rows.push([c('근거 없음'), c(''), c('')]);
-    table(slide, rows, [2.0, 5.0, contentW - 7.0], 1.15);
+    paginate(snapshot.anchors, ROWS_PER_SLIDE.P10).forEach((items, pi) => {
+      const { slide } = newSlide('P10', pi === 0 ? 'P10 근거 목록' : 'P10 근거 목록 (계속)', items.map((a) => a.id));
+      const rows: Cell[][] = [head(['근거 ID', '출처', '위치'])];
+      for (const a of items) rows.push([c(a.id), c(a.source), c(a.location)]);
+      if (!items.length) rows.push([c('근거 없음'), c(''), c('')]);
+      table(slide, rows, [2.0, 5.0, contentW - 7.0], 1.15);
+    });
   }
 
   const carryOver = pre ? undefined : buildFinal();
@@ -606,19 +718,19 @@ export async function makeMeetingPptx(
     }
 
     // F3 확정 결정
-    {
-      const anchors = uniq(decisions.flatMap((d) => [d.anchors, ...(d.targetIds ?? []).map(refAnchors)]));
-      const { slide, no } = newSlide('F3', 'F3 확정 결정', anchors);
+    paginate(decisions, ROWS_PER_SLIDE.F3).forEach((items, pi) => {
+      const anchors = uniq(items.flatMap((d) => [d.anchors, ...(d.targetIds ?? []).map(refAnchors)]));
+      const { slide, no } = newSlide('F3', pi === 0 ? 'F3 확정 결정' : 'F3 확정 결정 (계속)', anchors);
       const colW = [0.8, 1.0, 1.6, contentW - 7.4, 4.0];
       const rows: Cell[][] = [head(['ID', '질문 ID', '대상 ID', '결정', '사유'])];
-      for (const d of decisions) {
+      for (const d of items) {
         rows.push([c(d.id), c(d.questionId), c((d.targetIds ?? []).join(', ')), c(d.decision), c(d.reason)]);
         check(no, 'F3', d.id, 'decision', d.decision, colW[3], 3);
         check(no, 'F3', d.id, 'reason', d.reason, colW[4], 3);
       }
-      if (!decisions.length) rows.push([c('확정 결정 없음'), c(''), c(''), c(''), c('')]);
+      if (!items.length) rows.push([c('확정 결정 없음'), c(''), c(''), c(''), c('')]);
       table(slide, rows, colW, 1.15);
-    }
+    });
 
     // F4 조치 계획(기한순, 6행씩)
     {
@@ -643,45 +755,61 @@ export async function makeMeetingPptx(
     }
 
     // F5 보류·재평가
-    {
-      const anchors = uniq(deferred.flatMap((d) => [d.anchors, refAnchors(d.id)]));
-      const { slide, no } = newSlide('F5', 'F5 보류·재평가', anchors);
+    paginate(deferred, ROWS_PER_SLIDE.F5).forEach((items, pi) => {
+      const anchors = uniq(items.flatMap((d) => [d.anchors, refAnchors(d.id)]));
+      const { slide, no } = newSlide('F5', pi === 0 ? 'F5 보류·재평가' : 'F5 보류·재평가 (계속)', anchors);
       const colW = [0.8, 3.6, contentW - 6.2, 1.8];
       const rows: Cell[][] = [head(['ID', '위험요인', '보류 사유', '재평가 기한'])];
-      for (const d of deferred) {
+      for (const d of items) {
         rows.push([c(d.id), c(hazardOf(d.id, d.hazard)), c(d.reason), c(d.reevaluateBy)]);
         check(no, 'F5', d.id, 'reason', d.reason, colW[2], 3);
       }
-      if (!deferred.length) rows.push([c('보류 항목 없음'), c(''), c(''), c('')]);
+      if (!items.length) rows.push([c('보류 항목 없음'), c(''), c(''), c('')]);
       table(slide, rows, colW, 1.15);
-    }
+    });
 
     // F6 우수 사례(선택 — 없으면 장을 만들지 않는다)
     if (best.length) {
-      const { slide, no } = newSlide('F6', 'F6 우수 사례', uniq(best.map((b) => b.anchors)));
-      const colW = [0.8, 2.8, contentW - 3.6];
-      const rows: Cell[][] = [head(['ID', '사례', '내용'])];
-      for (const b of best) {
-        rows.push([c(b.id), c(b.title), c(b.text)]);
-        check(no, 'F6', b.id, 'text', b.text, colW[2], 4);
-      }
-      table(slide, rows, colW, 1.15);
+      paginate(best, ROWS_PER_SLIDE.F6).forEach((items, pi) => {
+        const { slide, no } = newSlide('F6', pi === 0 ? 'F6 우수 사례' : 'F6 우수 사례 (계속)', uniq(items.map((b) => b.anchors)));
+        const colW = [0.8, 2.8, contentW - 3.6];
+        const rows: Cell[][] = [head(['ID', '사례', '내용'])];
+        for (const b of items) {
+          rows.push([c(b.id), c(b.title), c(b.text)]);
+          check(no, 'F6', b.id, 'text', b.text, colW[2], 4);
+        }
+        table(slide, rows, colW, 1.15);
+      });
     }
 
     // F7 다음 회차로 넘길 목록 — prior[] 와 같은 키
     const carry: PriorItem[] = [];
     {
+      // 척도는 지어내지 않는다(G4 Act on 5) — 이번 회차에 평가한 위험요인이면 이번 척도, 전회 항목이면 전회에 적힌 척도,
+      // 그 밖(척도 미상)이면 scaleId 를 비워 두어 다음 회차 P8 이 「비교 안 함」 으로 처리하게 한다
       const scoreOf = (id: string) => {
         const h = hzMap.get(id);
         if (h) return { frequency: h.frequency, severity: h.severity, grade: h.grade, scaleId: snapshot.scaleId };
         const p = prMap.get(id);
-        if (p) return { frequency: p.frequency, severity: p.severity, grade: p.grade, scaleId: p.scaleId ?? snapshot.scaleId };
-        return { scaleId: snapshot.scaleId };
+        if (p) {
+          if (!p.scaleId && (p.frequency !== undefined || p.severity !== undefined || p.grade !== undefined)) {
+            warnings.push(`F7 이월 ${id}: 전회 척도가 적혀 있지 않아 척도를 비워 둡니다(다음 회차 증감 비교 안 함).`);
+          }
+          return { frequency: p.frequency, severity: p.severity, grade: p.grade, scaleId: p.scaleId };
+        }
+        return {};
       };
+      // 같은 위험요인에 조치가 여러 건이면 모두 넘긴다(G4 Act on 13) — 둘째부터 id 에 「#n」 을 붙이고 hazardId 에 원래 ID 를 둔다
+      const seen = new Map<string, number>();
       const push = (item: PriorItem) => {
-        if (carry.some((x) => x.id === item.id)) {
-          warnings.push(`F7 이월 ID 중복(앞 항목 유지): ${item.id}`);
-          return;
+        const base = item.id;
+        const n = (seen.get(base) ?? 0) + 1;
+        seen.set(base, n);
+        if (n > 1) {
+          let id = `${base}#${n}`;
+          for (let k = n; carry.some((x) => x.id === id); k++) id = `${base}#${k + 1}`;
+          item = { ...item, id, hazardId: base };
+          warnings.push(`F7 이월 ${base}: 같은 위험요인의 이월이 여러 건이라 ${id} 로 넘깁니다.`);
         }
         if (!item.hazard) {
           warnings.push(`F7 이월 ${item.id}: 위험요인 글이 없다`);
@@ -714,29 +842,31 @@ export async function makeMeetingPptx(
           anchors: uniq([d.anchors, refAnchors(d.id)]),
         });
       }
-      const { slide, no } = newSlide('F7', 'F7 다음 회차로 넘길 목록', uniq(carry.map((p) => p.anchors)));
       const colW = [0.8, 3.2, contentW - 7.2, 1.0, 1.0, 1.2];
-      const rows: Cell[][] = [head(['ID', '위험요인', '대책·비고', '기한', '상태', '척도'])];
-      for (const p of carry) {
-        rows.push([c(p.id), c(p.hazard), c(p.measure ?? p.result), c(p.due), c(p.status), c(p.scaleId)]);
-        check(no, 'F7', p.id, 'hazard', p.hazard, colW[1], 3);
-      }
-      if (!carry.length) rows.push([c('이월 항목 없음'), c(''), c(''), c(''), c(''), c('')]);
-      table(slide, rows, colW, 1.15);
+      paginate(carry, ROWS_PER_SLIDE.F7).forEach((items, pi) => {
+        const { slide, no } = newSlide('F7', pi === 0 ? 'F7 다음 회차로 넘길 목록' : 'F7 다음 회차로 넘길 목록 (계속)', uniq(items.map((p) => p.anchors)));
+        const rows: Cell[][] = [head(['ID', '위험요인', '대책·비고', '기한', '상태', '척도'])];
+        for (const p of items) {
+          rows.push([c(p.id), c(p.hazard), c(p.measure ?? p.result), c(p.due), c(p.status), c(p.scaleId ?? '미상')]);
+          check(no, 'F7', p.id, 'hazard', p.hazard, colW[1], 3);
+        }
+        if (!items.length) rows.push([c('이월 항목 없음'), c(''), c(''), c(''), c(''), c('')]);
+        table(slide, rows, colW, 1.15);
+      });
     }
 
     // F8 근거·버전
-    {
-      const { slide } = newSlide('F8', 'F8 근거·버전', snapshot.anchors.map((a) => a.id));
+    paginate(snapshot.anchors, ROWS_PER_SLIDE.F8).forEach((items, pi) => {
+      const { slide } = newSlide('F8', pi === 0 ? 'F8 근거·버전' : 'F8 근거·버전 (계속)', items.map((a) => a.id));
       slide.addText(
         `확정 버전 ${badge} · revision ${snapshot.revision ?? '-'} · template ${MEETING_TEMPLATE_VERSION} · 척도 ${snapshot.scaleName}(${snapshot.scaleId})`,
         { x: 0.3, y: 1.1, w: contentW, h: 0.35, fontFace, fontSize: 10 },
       );
       const rows: Cell[][] = [head(['근거 ID', '출처', '위치'])];
-      for (const a of snapshot.anchors) rows.push([c(a.id), c(a.source), c(a.location)]);
-      if (!snapshot.anchors.length) rows.push([c('근거 없음'), c(''), c('')]);
+      for (const a of items) rows.push([c(a.id), c(a.source), c(a.location)]);
+      if (!items.length) rows.push([c('근거 없음'), c(''), c('')]);
       table(slide, rows, [2.0, 5.0, contentW - 7.0], 1.55);
-    }
+    });
 
     return carry;
   }
