@@ -11,6 +11,8 @@ export const KEY = {
 };
 export const STEP = { find: '1. 판결 찾기', pick: '2. 고른 판결', out: '3. 내려받기' };
 export const SANCTION_LABEL = { all: '전부', ok: '적정', heavy: '과중' } as const;
+export const LEVEL_LABEL = { all: '처분 수준 전부', heavy: '중징계', light: '경징계' } as const;
+export const LEVEL_NOTE = '중징계 = 해고·강등·정직(출근정지 등 포함), 경징계 = 감봉·견책(경고 포함). 공무원 징계령 기준이며 사규에 따라 다를 수 있습니다.';
 export const LONG_TOGGLE = '긴 판단(원문 전체)도 보기';
 export const LONG_BADGE = '긴 판단 · 원문 전체';
 export const KEYWORD = '낱말(예: 팀장, 폭언, 해고)';

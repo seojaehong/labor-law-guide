@@ -17,10 +17,12 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'type', allowed: SANCTION_TYPES }, { status: 400, headers: noStore });
   }
   const sanction = p.get('sanction');
+  const level = p.get('level');
   try {
     const rows = await fetchSanctionCases({
       type: type as SanctionType,
       sanction: sanction === '적정' || sanction === '과중' ? sanction : undefined,
+      level: level === '중징계' || level === '경징계' ? level : undefined,
       disposition: p.get('disposition')?.slice(0, 30) || undefined,
       keyword: p.get('keyword')?.slice(0, 40) || undefined,
       fitsOnly: p.get('fits_only') !== 'false',

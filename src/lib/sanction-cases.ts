@@ -5,6 +5,8 @@ import type { SanctionType } from '@/lib/sanction-types';
 export type SanctionQuery = {
   type: SanctionType;
   sanction?: '적정' | '과중';
+  /** 처분 수준 — 적재 때 처분명에서 분류(공무원 징계령 기준) */
+  level?: '중징계' | '경징계';
   disposition?: string;
   keyword?: string;
   fitsOnly?: boolean;
@@ -15,7 +17,7 @@ export type SanctionQuery = {
   offset?: number;
 };
 
-const COLS = 'id,court,case_number,decided_on,type,kind,disposition,reason,sanction,procedure,quote,quote_fits,evidence,generated_note,also_types,related,reversed_by,block_status,block_body,long_text';
+const COLS = 'id,court,case_number,decided_on,type,kind,disposition,reason,sanction,procedure,quote,quote_fits,evidence,generated_note,also_types,related,reversed_by,block_status,block_body,long_text,sanction_level';
 
 const like = (s: string) => `%${s.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
 
@@ -24,6 +26,7 @@ export async function fetchSanctionCases(q: SanctionQuery) {
   if (!supabaseAdmin) throw new Error('서버 역할 키가 없어 양정 사례를 읽지 못했습니다');
   let r = supabaseAdmin.from('sanction_cases').select(COLS).eq('type', q.type);
   if (q.sanction) r = r.eq('sanction', q.sanction);
+  if (q.level) r = r.eq('sanction_level', q.level);
   if (q.disposition) r = r.ilike('disposition', like(q.disposition));
   if (q.keyword) {
     const p = like(q.keyword.replace(/[,()]/g, ' '));
