@@ -72,3 +72,47 @@ describe('옮기지 못한 HTML 표 태그는 leftovers 로 알린다', () => {
     expect(mdHwpxSummary(parseMarkdown('앞 <td>칸</td> 뒤')).leftovers).toContain('<td');
   });
 });
+
+// 261123 리뷰(오푸스) 재현 입력 — 글자가 경고 없이 사라지던 것
+describe('HTML 표 — 글자 손실 없음', () => {
+  const tbl = (html: string) => parseMarkdown(html).find((x) => x.kind === 'table') as { rows: string[][]; headRows?: number } | undefined;
+  it('칸 안 여러 문단·목록은 칸 줄바꿈으로 이어진다', () => {
+    const t = tbl('<table><tr><td><p>첫 문단</p><p>둘째 문단</p></td><td><ul><li>가</li><li>나</li></ul></td></tr></table>');
+    expect(t?.rows[0]).toEqual(['첫 문단<br>둘째 문단', '가<br>나']);
+  });
+  it('<caption> 은 표 앞 문단으로 남는다', () => {
+    const items = parseMarkdown('<table>\n<caption>표 1. 중요한 캡션</caption>\n<tr><td>a</td></tr>\n</table>');
+    expect(items.map((x) => x.kind)).toEqual(['body', 'table']);
+    expect((items[0] as { text: string }).text).toContain('표 1. 중요한 캡션');
+  });
+  it('</table> 뒤 같은 줄 글자는 다음 문단이 된다', () => {
+    const items = parseMarkdown('<table><tr><td>a</td></tr></table> 뒤 글자 살아야 함\n다음 줄');
+    const texts = items.filter((x) => x.kind === 'body').map((x) => (x as { text: string }).text.trim());
+    expect(texts).toEqual(['뒤 글자 살아야 함', '다음 줄']);
+  });
+  it('엔티티로 쓴 「<」 한 글자 칸은 병합 표시가 아니다', () => {
+    const t = tbl('<table><tr><td>x</td><td>&lt;</td></tr></table>');
+    expect(t?.rows[0][1]).not.toBe('<');
+    expect(t?.rows[0][1].endsWith('<')).toBe(true);
+    const sec = mdSectionXml(parseMarkdown('<table><tr><td>x</td><td>&lt;</td></tr></table>'));
+    expect(sec).not.toMatch(/colSpan="2"/);
+  });
+  it('태그가 아닌 「<」「>」 글자는 남는다', () => {
+    expect(tbl('<table><tr><td>3 &lt; 5</td><td>3 < 5 및 7 > 2</td></tr></table>')?.rows[0]).toEqual(['3 < 5', '3 < 5 및 7 > 2']);
+  });
+  it('둘째 머리행도 머리행이다(<thead>)', () => {
+    const md = '<table><thead><tr><th rowspan="2">구분</th><th colspan="2">금액</th></tr><tr><th>가</th><th>나</th></tr></thead><tbody><tr><td>x</td><td>1</td><td>2</td></tr></tbody></table>';
+    expect(tbl(md)?.headRows).toBe(2);
+    const sec = mdSectionXml(parseMarkdown(md));
+    expect(sec.match(/<hp:tc name="" header="1"/g)?.length).toBe(4); // 구분·금액·가·나
+  });
+  it('data-colspan 은 colspan 이 아니다 · 거대한 rowspan 은 문서를 죽이지 않는다', () => {
+    expect(tbl('<table><tr><td data-colspan="2">a</td><td>b</td></tr></table>')?.rows[0]).toEqual(['a', 'b']);
+    expect(() => parseMarkdown('<table><tr><td rowspan="3000000">a</td></tr></table>')).not.toThrow();
+  });
+  it('중첩 표는 표로 옮기지 않고 leftovers 로 알린다', () => {
+    const items = parseMarkdown('<table><tr><td>바깥<table><tr><td>안</td></tr></table></td><td>B</td></tr></table>');
+    expect(items.some((x) => x.kind === 'table')).toBe(false);
+    expect(mdHwpxSummary(items).leftovers.length).toBeGreaterThan(0);
+  });
+});
