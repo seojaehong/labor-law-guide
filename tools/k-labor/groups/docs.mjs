@@ -2,6 +2,7 @@
 //   make_hwpx_from_markdown  md → hwpx(프리셋 internal·tribunal). 변환 규칙은 src/lib/md-hwpx
 //   read_hwp_as_markdown · fill_hwp_form · patch_hwp_from_markdown  한글 읽기·서식 채우기·되쓰기(lib/hangul-kordoc.mjs, kordoc)
 //   check_prose  퇴고 문체 점검 — 규칙·검출식은 팩(JSON): lib/prose/generic-pack.json + env PROSE_PACK_DIR(261123)
+//   check_norms  퇴고 공개 규범 점검 — 한글 맞춤법 제5장 띄어쓰기·부록 문장 부호·연결어미 뒤 쉼표(lib/prose/norms.mjs, 261124)
 // ★ 파일을 읽고 쓰므로 원격판(remote.mjs)에서 불러오지 않는다. stdio 판(server.mjs)으로만 켠다.
 // ★ 공개 문구 금지어 + 포괄·대신·대행·대리·지도를 이 묶음의 글(설명·결과)에 쓰지 않는다.
 import { z } from 'zod';
@@ -12,9 +13,10 @@ import { fillCells, replaceText } from '@/lib/md-hwpx/postedit';
 import { mdToHwpxWithTemplate } from '@/lib/md-hwpx/template';
 import { argsLookLikeRrn, looksLikeRrn, text, writeNew } from '../lib/common.mjs';
 import { checkProse, loadPackSet } from '../lib/prose/check.mjs';
+import { checkNorms, NORM_CHECKS } from '../lib/prose/norms.mjs';
 import { capSkipped, decodeMarkdown, fillHangul, hangulKind, maskExcerpt, MAX_MARKDOWN_BYTES, patchHangul, patchVerdict, readHangul, sanitizeReason } from '../lib/hangul-kordoc.mjs';
 
-export const docsTools = ['make_hwpx_from_markdown', 'edit_hwpx_text', 'read_hwp_as_markdown', 'fill_hwp_form', 'patch_hwp_from_markdown', 'check_prose'];
+export const docsTools = ['make_hwpx_from_markdown', 'edit_hwpx_text', 'read_hwp_as_markdown', 'fill_hwp_form', 'patch_hwp_from_markdown', 'check_prose', 'check_norms'];
 const PROSE_RRN_STOP = '입력에 주민등록번호 모양의 숫자가 있어 멈췄습니다. 가린 뒤 다시 점검해 주세요.';
 
 const WRITES = { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false };
@@ -378,6 +380,35 @@ export function registerDocs(server) {
         // 오류 글이 여러 줄이면 스택 첫 줄만 떼어서는 글이 남으므로 「at」 줄만 고른다
         console.error('[check_prose]', e instanceof Error ? `${e.name}\n${String(e.stack ?? '').split('\n').filter((l) => /^\s+at /.test(l)).join('\n')}` : 'unknown');
         return fail('PROSE_CHECK_FAILED');
+      }
+    },
+  );
+
+  // ── 퇴고 — 공개 규범 점검(결정론). 규칙은 공개 규범이라 코드(lib/prose/norms.mjs)에 있다
+  server.registerTool(
+    'check_norms',
+    {
+      title: '퇴고: 띄어쓰기·문장 부호·쉼표 점검(한글 맞춤법)',
+      description:
+        '한글 맞춤법(문화체육관광부 고시 제2017-12호)의 제5장 띄어쓰기와 부록 「문장 부호」, 그리고 연결어미 뒤 쉼표(~하였고, ~경우,)를 줄 단위로 찾는다. ' +
+        'A = 규정이 명시한 것을 어긴 곳, B = 규정이 권하는 쪽과 다르거나 문맥을 봐야 하는 곳. 규정이 둘 다 허용하는 것(단위 명사·보조 용언 붙여 쓰기 등)은 보지 않는다. ' +
+        '# 제목·| 표·[관련 …] 줄과 > 인용 줄, 문장 안 “ ” 원문 인용은 보지 않는다(quote 를 켜면 인용도 본다). warnOnly 를 켜면 쉼표 걸림을 B 로 낸다(PDF 에서 뽑은 글처럼 인용 표시가 사라진 글). ' +
+        '검사마다 counts(전부 센 수)와 hits(500건까지, A 먼저, 넘으면 truncated)를 준다. 모델을 부르지 않고, 문서 글을 밖으로 보내지 않는다.',
+      inputSchema: {
+        text: z.string().min(1).refine((s) => s.length <= 400_000 || (s.length <= 800_000 && [...s].length <= 400_000), '40만 자까지 점검합니다').describe('점검할 문서 글(md 또는 평문, 40만 자까지)'),
+        checks: z.array(z.enum(NORM_CHECKS)).optional().describe('spacing(띄어쓰기) / punct(문장 부호) / comma(연결어미 뒤 쉼표). 비우면 셋 다'),
+        quote: z.boolean().optional().describe('켜면 > 인용 줄과 “ ” 원문 인용도 본다(띄어쓰기·문장 부호). 기본 끔'),
+        warnOnly: z.boolean().optional().describe('켜면 쉼표 걸림을 B(경고)로 낸다. 기본 끔'),
+      },
+      annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+    },
+    async (a) => {
+      if (argsLookLikeRrn({ text: a.text })) return fail(PROSE_RRN_STOP);
+      try {
+        return text({ ok: true, ...checkNorms(a.text, { checks: a.checks, quote: a.quote, warnOnly: a.warnOnly }) });
+      } catch (e) {
+        console.error('[check_norms]', e instanceof Error ? `${e.name}\n${String(e.stack ?? '').split('\n').filter((l) => /^\s+at /.test(l)).join('\n')}` : 'unknown');
+        return fail('NORMS_CHECK_FAILED');
       }
     },
   );
