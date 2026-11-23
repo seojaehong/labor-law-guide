@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest';
 import ExcelJS from 'exceljs';
 import JSZip from 'jszip';
 import { fillXlsxTemplate } from '@/lib/office/xlsx/fill';
+import { fillXlsxTemplate as libFill } from '@/lib/office';
 import { comparePackage, packageFingerprint } from '@/lib/office/xlsx/package';
 import { DEFAULT_LIMITS, readZipGuarded } from '@/lib/office/limits';
 
@@ -186,6 +187,15 @@ describe('fill — 숨김 열(hiddenColumns)', () => {
     expect(colFor(20)).toMatch(/width="13"/);
     expect(r.preserved!.hiddenColumns).toEqual({ applied: [{ sheet: '평가표', columns: ['S'] }], same: true });
     expect(r.preserved!.allSame).toBe(true);
+  });
+
+  it('라이브러리 입구(@/lib/office)로 hiddenColumns 만 줘도 숨긴다', async () => {
+    const r = await libFill(await gasLike(), { limits: DEFAULT_LIMITS, hiddenColumns: [{ sheet: '평가표', columns: ['S'] }] });
+    expect(r.ok).toBe(true);
+    if (!r.ok) throw new Error(r.message);
+    expect(txt(parts(r.files![0].bytes), 'xl/worksheets/sheet1.xml')).toMatch(/<col\b[^>]*min="19"[^>]*max="19"[^>]*hidden="1"/);
+    expect(r.data.preserved.hiddenColumns.applied).toEqual([{ sheet: '평가표', columns: ['S'] }]);
+    expect(r.data.preserved.allSame).toBe(true);
   });
 
   it('없는 시트·잘못된 열 문자는 INVALID_ARGS', async () => {
