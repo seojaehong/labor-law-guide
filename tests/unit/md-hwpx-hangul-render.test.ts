@@ -155,3 +155,23 @@ describe('HTML 표 — 페이블 리뷰', () => {
     expect(tbl('<table><tr><td>x</td><td>&lt;</td></tr></table>')?.rows[0][1]).toBe('⁠<');
   });
 });
+
+// 261123 리뷰(아스트라 2차, HEAD 810e1ab) 재현 입력
+describe('HTML 표 — 아스트라 2차', () => {
+  const tbl = (html: string) => parseMarkdown(html).find((x) => x.kind === 'table') as { rows: string[][] } | undefined;
+  it('주석으로 지운 행은 인쇄하지 않는다', () => {
+    expect(tbl('<table><!-- <tr><td>삭제본</td></tr> --><tr><td>최종본</td></tr></table>')?.rows).toEqual([['최종본']]);
+  });
+  it('속성 값 안의 > 와 colspan 글자는 속성으로 읽지 않는다', () => {
+    expect(tbl('<table><tr><td title="1 > 0">YES</td></tr></table>')?.rows).toEqual([['YES']]);
+    expect(tbl('<table><tr><td title="x colspan=2">A</td><td>B</td></tr></table>')?.rows).toEqual([['A', 'B']]);
+    expect(tbl('<table><tr><td colspan="2">A</td></tr><tr><td>b</td><td>c</td></tr></table>')?.rows[0]).toEqual(['A', '<']);
+  });
+  it('칸 안 날짜 줄 때문에 뒤 제목이 서명부가 되지 않는다', () => {
+    const kinds = parseMarkdown('<table>\n<tr><td>\n2026. 11. 23.\n</td></tr>\n</table>\n## 다음 제목').map((x) => x.kind);
+    expect(kinds).not.toContain('sig');
+  });
+  it('원고가 쓴 <br><br> 은 둘 다 남는다', () => {
+    expect(tbl('<table><tr><td>A<br><br>B</td><td><p>a</p><p>b</p></td></tr></table>')?.rows[0]).toEqual(['A<br><br>B', 'a<br>b']);
+  });
+});

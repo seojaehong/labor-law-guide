@@ -134,6 +134,7 @@ const LITERAL_MARK = '⁠';
 
 /** htmlTableRows + 머리행 수(<thead> 안 또는 <th> 만 있는 앞쪽 행) + <caption> 글자 */
 export function htmlTable(html: string): { rows: string[][]; headRows: number; caption: string } | null {
+  html = html.replace(/<!--[\s\S]*?-->/g, ''); // 주석으로 지운 행·칸은 인쇄하지 않는다
   if (/<table\b[\s\S]*<table\b/i.test(html)) return null; // 중첩 표는 격자로 못 옮긴다 — 글자로 두고 leftovers 가 알린다
   const trs = html.match(/<tr\b[\s\S]*?<\/tr>/gi);
   if (!trs?.length) return null;
@@ -147,7 +148,7 @@ export function htmlTable(html: string): { rows: string[][]; headRows: number; c
   const cellText = (s: string) => {
     const t = s
       .replace(/<br\s*\/?>/gi, '<br>')
-      .replace(/<\/(p|li|div|h[1-6])>/gi, '<br>') // 칸 안 여러 문단·목록·제목 → 칸 줄바꿈(겹친 줄바꿈은 아래에서 하나로)
+      .replace(/<\/(p|li|div|h[1-6])>/gi, '\u0001') // 칸 안 여러 문단·목록·제목 → 칸 줄바꿈 자리표(아래에서 하나의 <br> 로)
       .replace(/<\/?(strong|b)(?=[\s>/])[^>]*>/gi, '**')
       // 아는 태그 이름만 벗긴다 — 「x<y 그리고 y>z」 같은 글자는 둔다
       .replace(/<\/?(?:p|div|span|ul|ol|li|h[1-6]|em|i|u|s|small|sup|sub|font|a|code|mark|del|ins|img|hr|colgroup|col|thead|tbody|tfoot)(?=[\s>/])[^>]*>/gi, '')
@@ -157,7 +158,8 @@ export function htmlTable(html: string): { rows: string[][]; headRows: number; c
       })
       .replace(/&([a-z]+|#39);/gi, (m, e) => HTML_ENT[e] ?? m)
       .replace(/\s*\n\s*/g, ' ')
-      .replace(/(?:\s*<br>\s*){2,}/g, '<br>')
+      // 블록 끝 자리표가 낀 줄바꿈 묶음만 하나로 — 원고가 쓴 <br><br> 은 그대로 둔다
+      .replace(/(?:\s*(?:\u0001|<br>)\s*)*\u0001(?:\s*(?:\u0001|<br>)\s*)*/g, '<br>')
       .replace(/^(?:\s*<br>)+|(?:<br>\s*)+$/g, '')
       .trim();
     return t === '<' || t === '^' ? LITERAL_MARK + t : t;
@@ -168,9 +170,12 @@ export function htmlTable(html: string): { rows: string[][]; headRows: number; c
   trs.forEach((tr, r) => {
     grid[r] ??= [];
     let c = 0;
-    for (const m of tr.matchAll(/<(td|th)\b([^>]*)>([\s\S]*?)<\/\1>/gi)) {
+    // 속성 값 안의 「>」에서 태그가 끝나지 않게 따옴표 값을 통째로 건너뛴다(fixQuotes 가 " 를 “ ” 로 바꿔 둔다)
+    for (const m of tr.matchAll(/<(td|th)\b((?:["“”][^"“”]*["“”]|'[^']*'|[^>"'“”])*)>([\s\S]*?)<\/\1>/gi)) {
       while (grid[r][c] !== undefined) c++;
-      const attr = (k: string) => Math.max(1, Number(new RegExp(`(?:^|\\s)${k}\\s*=\\s*["'“”]?(\\d+)`, 'i') /* fixQuotes 가 속성 따옴표도 “ ” 로 바꾼다 */.exec(m[2])?.[1] ?? 1));
+      const attrs: Record<string, string> = {};
+      for (const a of m[2].matchAll(/([\w-]+)\s*=\s*(?:["“”]([^"“”]*)["“”]|'([^']*)'|([^\s>]+))/g)) attrs[a[1].toLowerCase()] = a[2] ?? a[3] ?? a[4] ?? '';
+      const attr = (k: string) => Math.max(1, Number(/^\s*(\d+)/.exec(attrs[k] ?? '')?.[1] ?? 1));
       const cs = attr('colspan');
       const rs = attr('rowspan');
       if (cs > 64 || r + rs > trs.length) {
@@ -204,8 +209,16 @@ export function parseMarkdown(md: string, opts: Pick<MdHwpxOptions, 'pageBreak' 
   if (raw.length && raw[raw.length - 1] === '') raw.pop();
   // 서명부 = 끝 15줄 안의 「날짜만 있는 줄」부터. 본문의 날짜 문장은 서명부가 아니다
   let sig = -1;
+  // HTML 표 안의 줄(칸에 날짜만 있는 줄)은 서명부 날짜가 아니다
+  const inTbl: boolean[] = [];
+  let depth = 0;
+  raw.forEach((l, k) => {
+    if (/<table\b/i.test(l)) depth++;
+    inTbl[k] = depth > 0;
+    if (/<\/table>/i.test(l)) depth = Math.max(0, depth - 1);
+  });
   for (let i = raw.length - 1; i > Math.max(-1, raw.length - 16); i--) {
-    if (SIG_DATE.test(raw[i].trim())) {
+    if (!inTbl[i] && SIG_DATE.test(raw[i].trim())) {
       sig = i;
       break;
     }
