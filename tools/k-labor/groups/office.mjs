@@ -6,12 +6,8 @@
 import { z } from 'zod';
 import fs from 'node:fs';
 import path from 'node:path';
-import { inspectXlsx } from '@/lib/office/xlsx/inspect';
-import { extractXlsxRows } from '@/lib/office/xlsx/extract';
-import { fillXlsxTemplate } from '@/lib/office/xlsx/fill';
-import { makeXlsxFromSpec } from '@/lib/office/xlsx/make';
-import { makeMeetingPptx } from '@/lib/office/pptx/meeting';
-import { extractPptx } from '@/lib/office/pptx/extract';
+// 엔진은 라이브러리 입구(k-labor/office) 하나로만 부른다 — SafeClaw·작업자와 같은 함수·같은 Result
+import { DEFAULT_LIMITS, extractPptx, extractXlsxRows, fillXlsxTemplate, inspectXlsx, makeMeetingPptx, makeXlsxFromSpec } from '@/lib/office';
 import {
   MAX_MCP_BODY_BYTES,
   REMOTE_OFFICE_LIMITS,
@@ -107,14 +103,18 @@ const meetingOpts = {
   fontFace: z.string().max(60).optional().describe('글꼴(기본 맑은 고딕)'),
   layout: z.enum(['A4', '16:9']).optional().describe('판형(기본 A4 가로)'),
 };
-const ARRAYS = ['prior', 'hazards', 'photos', 'opinions', 'questions', 'anchors'];
+/** 로컬(stdio) 판 한도 — 라이브러리 기본값 */
+const LOCAL = { limits: DEFAULT_LIMITS };
 
-/** 빈 배열 채우기 + 덱 만들기. 결과에서 bytes 는 따로 */
-async function runMeeting(snapshot, a) {
-  const s = { ...snapshot };
-  for (const k of ARRAYS) if (!Array.isArray(s[k])) s[k] = [];
-  return makeMeetingPptx(s, { kind: a.kind, fontFace: a.fontFace, layout: a.layout });
+/** 라이브러리 Result → 도구 JSON. 성공은 data 를 펼치고(파일 바이트는 빼고), 실패는 code·error·details 를 펼친다 */
+export function toTool(r) {
+  if (r.ok) return { ok: true, ...r.data, warnings: r.warnings, engine: r.meta.engine };
+  const d = r.details && typeof r.details === 'object' && !Array.isArray(r.details) ? r.details : {};
+  return { ok: false, code: r.code, error: r.message, ...d, ...(d.needsReview ? { reason: r.message, notice: NOT_SUPPORTED } : {}), warnings: r.warnings };
 }
+
+/** 덱 만들기(라이브러리). 빈 배열 채우기는 엔진이 한다 */
+const runMeeting = (snapshot, a, ctx) => makeMeetingPptx(snapshot, { ...ctx, kind: a.kind, fontFace: a.fontFace, layout: a.layout });
 const MEETING_DESC =
   '회의 스냅숏(JSON)으로 위험성평가 회의 덱(pptx, 기본 A4 가로)을 만든다. kind pre = 회의 전 검토안(표지·개요·한눈 요약·전회 이행 현황·조치 전후·신규 후보·근로자 의견·회차 대비 변화·결정 필요 사항·근거), ' +
   'final = 회의 후 확정본(표지·참석·확정 결정·조치 계획·보류·우수 사례·다음 회차 이월·근거). 장마다 상태 배지(초안/확정 vN)와 notes 의 근거 anchor 목록을 넣는다. ' +
@@ -157,7 +157,7 @@ export function registerOffice(server) {
     async (a) => {
       const f = readInput(a.file);
       if (typeof f === 'string') return fail(f);
-      return text({ file: f.path, ...(await inspectXlsx(f.bytes)) });
+      return text({ file: f.path, ...toTool(await inspectXlsx(f.bytes, LOCAL)) });
     },
   );
 
@@ -179,8 +179,8 @@ export function registerOffice(server) {
     async (a) => {
       const f = readInput(a.file);
       if (typeof f === 'string') return fail(f);
-      const r = await extractXlsxRows(f.bytes, { sheet: a.sheet, headerRow: a.headerRow, maxRows: a.maxRows });
-      return text({ file: f.path, ...r });
+      const r = await extractXlsxRows(f.bytes, { ...LOCAL, sheet: a.sheet, headerRow: a.headerRow, maxRows: a.maxRows });
+      return text({ file: f.path, ...toTool(r) });
     },
   );
 
@@ -207,11 +207,11 @@ export function registerOffice(server) {
       if (typeof f === 'string') return fail(f);
       const o = checkOut(a.outFile, f.path);
       if (typeof o === 'string') return fail(o, o === EXISTS ? { exists: String(a.outFile).trim() } : {});
-      const r = await fillXlsxTemplate(f.bytes, { cells: a.cells, rows: a.rows });
-      const { bytes, ...rest } = r;
-      if (!r.ok || !bytes) return text({ ...rest, ...(r.needsReview ? { notice: NOT_SUPPORTED } : {}) });
-      if (!save(o.out, bytes)) return fail(EXISTS, { exists: o.out });
-      return text({ ...rest, file: { path: o.out, bytes: bytes.length } });
+      const r = await fillXlsxTemplate(f.bytes, { ...LOCAL, cells: a.cells, rows: a.rows });
+      if (!r.ok) return text(toTool(r));
+      const out = r.files[0];
+      if (!save(o.out, out.bytes)) return fail(EXISTS, { exists: o.out });
+      return text({ ...toTool(r), file: { path: o.out, bytes: out.size, sha256: out.sha256 } });
     },
   );
 
@@ -232,10 +232,11 @@ export function registerOffice(server) {
       if (argsLookLikeRrn({ spec: a.spec })) return fail(RRN_STOP);
       const o = checkOut(a.outFile);
       if (typeof o === 'string') return fail(o, o === EXISTS ? { exists: String(a.outFile).trim() } : {});
-      const r = await makeXlsxFromSpec(a.spec);
-      if (!r.ok) return text(r);
-      if (!save(o.out, r.bytes)) return fail(EXISTS, { exists: o.out });
-      return text({ ok: true, file: { path: o.out, bytes: r.bytes.length }, sheets: a.spec.sheets.map((s) => s.name) });
+      const r = await makeXlsxFromSpec(a.spec, LOCAL);
+      if (!r.ok) return text(toTool(r));
+      const out = r.files[0];
+      if (!save(o.out, out.bytes)) return fail(EXISTS, { exists: o.out });
+      return text({ ...toTool(r), file: { path: o.out, bytes: out.size, sha256: out.sha256 } });
     },
   );
 
@@ -266,11 +267,11 @@ export function registerOffice(server) {
         const mime = p.mime ?? (/\.jpe?g$/i.test(f.path) ? 'image/jpeg' : 'image/png');
         photos.push({ itemId: p.itemId, side: p.side, mime, data: Buffer.from(f.bytes).toString('base64') });
       }
-      const r = await runMeeting({ ...a.snapshot, photos }, a);
-      const { bytes, ...rest } = r;
-      if (!r.ok || !bytes) return text(rest);
-      if (!save(o.out, bytes)) return fail(EXISTS, { exists: o.out });
-      return text({ ...rest, file: { path: o.out, bytes: bytes.length } });
+      const r = await runMeeting({ ...a.snapshot, photos }, a, LOCAL);
+      if (!r.ok) return text(toTool(r));
+      const out = r.files[0];
+      if (!save(o.out, out.bytes)) return fail(EXISTS, { exists: o.out });
+      return text({ ...toTool(r), file: { path: o.out, bytes: out.size, sha256: out.sha256 } });
     },
   );
 
@@ -286,7 +287,7 @@ export function registerOffice(server) {
     async (a) => {
       const f = readInput(a.file);
       if (typeof f === 'string') return fail(f);
-      return text({ file: f.path, ...(await extractPptx(f.bytes)) });
+      return text({ file: f.path, ...toTool(await extractPptx(f.bytes, LOCAL)) });
     },
   );
 
@@ -324,6 +325,18 @@ export function encodeRemoteOutput(bytes) {
   return { ok: true, base64: Buffer.from(bytes).toString('base64') };
 }
 
+/** 원격 한도(request-boundary 단일 출처) */
+const REMOTE = { limits: REMOTE_OFFICE_LIMITS };
+
+/** 파일을 내는 원격 도구 — Result → 도구 JSON + base64 */
+function remoteOut(r) {
+  if (!r.ok) return toTool(r);
+  const out = r.files[0];
+  const o = encodeRemoteOutput(out.bytes);
+  if (!o.ok) return o;
+  return { ...toTool(r), base64: o.base64, outputBytes: out.size, sha256: out.sha256 };
+}
+
 function registerOfficeRemote(server) {
   server.registerTool(
     'inspect_xlsx_bytes',
@@ -338,7 +351,7 @@ function registerOfficeRemote(server) {
     async (a) => {
       const d = decodeRemoteInput(a.base64);
       if (!d.ok) return text(d);
-      return text(await inspectXlsx(d.bytes, REMOTE_OFFICE_LIMITS));
+      return text(toTool(await inspectXlsx(d.bytes, REMOTE)));
     },
   );
 
@@ -360,7 +373,7 @@ function registerOfficeRemote(server) {
     async (a) => {
       const d = decodeRemoteInput(a.base64);
       if (!d.ok) return text(d);
-      return text(await extractXlsxRows(d.bytes, { sheet: a.sheet, headerRow: a.headerRow, maxRows: a.maxRows }, REMOTE_OFFICE_LIMITS));
+      return text(toTool(await extractXlsxRows(d.bytes, { ...REMOTE, sheet: a.sheet, headerRow: a.headerRow, maxRows: a.maxRows })));
     },
   );
 
@@ -384,12 +397,8 @@ function registerOfficeRemote(server) {
       if (!a.cells?.length && !a.rows) return fail('cells 나 rows 중 하나를 주세요.');
       const d = decodeRemoteInput(a.base64);
       if (!d.ok) return text(d);
-      const r = await fillXlsxTemplate(d.bytes, { cells: a.cells, rows: a.rows }, REMOTE_OFFICE_LIMITS);
-      const { bytes, ...rest } = r;
-      if (!r.ok || !bytes) return text({ ...rest, ...(r.needsReview ? { notice: NOT_SUPPORTED } : {}) });
-      const o = encodeRemoteOutput(bytes);
-      if (!o.ok) return text(o);
-      return text({ ...rest, base64: o.base64, outputBytes: bytes.length });
+      const r = await fillXlsxTemplate(d.bytes, { ...REMOTE, cells: a.cells, rows: a.rows });
+      return text(remoteOut(r));
     },
   );
 
@@ -405,11 +414,7 @@ function registerOfficeRemote(server) {
     },
     async (a) => {
       if (argsLookLikeRrn({ spec: a.spec })) return fail(RRN_STOP);
-      const r = await makeXlsxFromSpec(a.spec);
-      if (!r.ok) return text(r);
-      const o = encodeRemoteOutput(r.bytes);
-      if (!o.ok) return text(o);
-      return text({ ok: true, base64: o.base64, outputBytes: r.bytes.length, sheets: a.spec.sheets.map((s) => s.name) });
+      return text(remoteOut(await makeXlsxFromSpec(a.spec, REMOTE)));
     },
   );
 
@@ -424,12 +429,7 @@ function registerOfficeRemote(server) {
     async (a) => {
       if (argsLookLikeRrn({ snapshot: a.snapshot })) return fail(RRN_STOP);
       if ((a.snapshot?.photos ?? []).some((p) => p.file && !p.data)) return fail('원격판은 사진 경로(file)를 받지 않습니다. data(base64)로 주세요.');
-      const r = await runMeeting(a.snapshot, a);
-      const { bytes, ...rest } = r;
-      if (!r.ok || !bytes) return text(rest);
-      const o = encodeRemoteOutput(bytes);
-      if (!o.ok) return text(o);
-      return text({ ...rest, base64: o.base64, outputBytes: bytes.length });
+      return text(remoteOut(await runMeeting(a.snapshot, a, REMOTE)));
     },
   );
 
@@ -446,7 +446,7 @@ function registerOfficeRemote(server) {
     async (a) => {
       const d = decodeRemoteInput(a.base64);
       if (!d.ok) return text(d);
-      return text(await extractPptx(d.bytes, REMOTE_OFFICE_LIMITS));
+      return text(toTool(await extractPptx(d.bytes, REMOTE)));
     },
   );
 }

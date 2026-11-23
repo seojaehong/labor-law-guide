@@ -1068,11 +1068,12 @@ if (!/\.cmd$/i.test(target)) {
   } catch { /* 없음 */ }
   const v = spawnSync(process.execPath, [target, '--version'], { encoding: 'utf8' });
   const [v1 = '', v2 = ''] = v.stdout.trim().split(/\r?\n/);
-  const KEYS = ['builtAt', 'commit', 'dirty', 'lockfileSha256', 'node', 'serverSha256', 'version'];
-  check('build-info.json 이 server.mjs 옆에 있고 칸이 7개', !!info && JSON.stringify(Object.keys(info).sort()) === JSON.stringify(KEYS));
+  const KEYS = ['builtAt', 'commit', 'dirty', 'lockfileSha256', 'node', 'officeSha256', 'serverSha256', 'version'];
+  check('build-info.json 이 server.mjs 옆에 있고 칸이 8개(officeSha256 포함)', !!info && JSON.stringify(Object.keys(info).sort()) === JSON.stringify(KEYS));
   check(`build-info version(${info?.version}) = --version 첫 줄(${v1}) · node(${info?.node}) · builtAt(${info?.builtAt})`,
     info?.version === v1 && /^\d+\.\d+\.\d+$/.test(v1) && /^v\d+\./.test(info?.node ?? '') && !Number.isNaN(Date.parse(info?.builtAt ?? '')));
   check('build-info serverSha256 = 지금 server.mjs 의 sha256', info?.serverSha256 === sha(fs.readFileSync(target)));
+  check('build-info officeSha256 = 지금 dist/office/index.mjs 의 sha256', info?.officeSha256 === sha(fs.readFileSync(path.join(path.dirname(target), 'office', 'index.mjs'))));
   check(`build-info 모양 — lockfileSha256(${String(info?.lockfileSha256).slice(0, 12)}) · commit(${String(info?.commit).slice(0, 12)}) · dirty(${info?.dirty})`,
     /^[0-9a-f]{64}$/.test(info?.lockfileSha256 ?? '') && (info?.commit === null || /^[0-9a-f]{40}$/.test(info?.commit ?? '')) && (info?.dirty === null || typeof info?.dirty === 'boolean'));
   check('--version 첫 줄 = 맨 버전, 둘째 줄 = 커밋·server 해시 앞 12자·빌드 시각', v.status === 0 && !!info && v2.includes(info.serverSha256.slice(0, 12)) && v2.includes(info.builtAt)

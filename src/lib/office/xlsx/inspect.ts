@@ -124,6 +124,7 @@ function readValidations(sheetXml: string): XlsxValidation[] {
   return out;
 }
 
+/** @internal */
 export type OpenedXlsx = { wb: ExcelJS.Workbook; parts: Map<string, Uint8Array>; workload: Workload };
 
 /**
