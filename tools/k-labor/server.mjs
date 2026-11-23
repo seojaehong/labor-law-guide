@@ -38,7 +38,7 @@ const GROUPS = {
   nosa: { register: (s) => { registerNosa(s); registerNosaRecords(s); }, tools: [...nosaTools, ...nosaRecordsTools], about: '노사협의회 설치의무 · 근로자위원 선출방식 · 선출·회의 정족수 · 소집·신고·고충 기한 · 일정 역산 · 회의 확인(통보 기한·정기회의 3개월·안건별 의결·보고사항·공지 기한) · 협의회규정 견본과 설치·신고 서류 · 회의 서류(소집 통보서·회의자료·회의록·의결사항 공지) · 근로자위원 선거 서류 · 회의록 보관함(이행·회의록 이력, 옵시디언 보관함·회의록 대장, 옛 회의록 가져오기) · 협의회규정 신·구조문대비표' },
   // 문서 묶음(docs)도 파일을 쓰므로 원격판에 싣지 않는다
   forms: { register: registerForms, tools: formsTools, about: '모성보호·일가정 양립 서식 7종(법정 서식 출산전후휴가ㆍ육아휴직 통합 신청서, 육아휴직·단기 육아휴직·배우자 출산전후휴가·난임치료휴가 신청서, 육아휴직 허용·단기 육아휴직 시기변경 통지서) 칸 검사·한글(hwpx) 파일(파일은 로컬 전용)' },
-  docs: { register: registerDocs, tools: docsTools, about: '마크다운 원고 → 한글(hwpx) 파일(프리셋 internal·tribunal, 파일은 로컬 전용)' },
+  docs: { register: registerDocs, tools: docsTools, about: '마크다운 원고 → 한글(hwpx) 파일(프리셋 internal·tribunal) · hwpx 글자만 고치기 · 한글(hwp·hwpx) 읽기·서식 채우기·고친 마크다운 되쓰기(kordoc, 파일은 로컬 전용)' },
   // 법령 조회 묶음(law)은 원격판에 싣지 않는다 — 법제처가 등록 IP·이용자별 OC 로만 받아, 서버 OC 관리 방식을 정하기 전까지 로컬 전용
   law: { register: registerLaw, tools: lawTools, about: '법제처 실시간(LAW_OC) — 법령 검색 · 별표·서식 목록과 파일 주소 · 조문 개정 연혁 · 판례 검색·본문 · 법령해석(고용노동부·법제처) 검색·본문' },
 };

@@ -36,6 +36,8 @@
     "popbill"
   ],
   "dependencies": {
+    "@rhwp/core": "0.9.0",
+    "kordoc": "4.25.3",
     "popbill": "1.64.2"
   },
   "optionalDependencies": {

@@ -37,6 +37,8 @@ const info = {
   commit,
   dirty: status === null ? null : status.length > 0, // tools/k-labor·src 아래 커밋 안 된 변경(추적 안 된 파일 포함)
   lockfileSha256: fs.existsSync(lockPath) ? sha256(fs.readFileSync(lockPath)) : null,
+  // 설치본 의존성(kordoc·@rhwp/core 등 external)은 이 잠금파일로 풀린다 — 루트 잠금만으로는 판이 바뀐 것을 못 본다
+  kLaborLockfileSha256: fs.existsSync(path.join(here, 'package-lock.json')) ? sha256(fs.readFileSync(path.join(here, 'package-lock.json'))) : null,
   node: process.version,
   serverSha256: null,
   builtAt: null,
@@ -103,7 +105,10 @@ try {
     alias: { '@': path.join(repo, 'src') },
     // popbill 은 CJS 이고 내부에서 require 를 쓴다 — 묶지 않고 node_modules 에서 읽는다
     // 문자 인식(스캔 회의록) — 네이티브(@napi-rs/canvas)·워커 스크립트·언어 자료가 있어 묶지 않고 설치본 node_modules 에서 읽는다(optionalDependencies)
-    external: ['popbill', '@napi-rs/canvas', 'tesseract.js', '@tesseract.js-data/kor'],
+    // 한글 읽기·채우기·되쓰기(kordoc) — 안에서 cfb 를 createRequire 로, HWP 저장(@rhwp/core 0.9)·OCR 부품을 동적 import 로 읽어
+    // 묶으면 깨진다. 설치본 node_modules 에서 읽는다(dependencies). @rhwp/core 는 외부로 빼지 않는다 — work-rules 의 hwp 읽기가
+    // 저장소 0.8.7 을 묶고 같은 판 wasm(dist/assets)을 쓴다. kordoc 의 @rhwp/core(0.9.0)는 kordoc 자리에서 따로 풀린다
+    external: ['popbill', '@napi-rs/canvas', 'tesseract.js', '@tesseract.js-data/kor', 'kordoc'],
     banner: { js: "#!/usr/bin/env node\nimport { createRequire as __llgCreateRequire } from 'node:module'; const require = __llgCreateRequire(import.meta.url);" },
     logLevel: 'warning',
   });

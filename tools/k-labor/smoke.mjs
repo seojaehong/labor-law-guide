@@ -171,6 +171,9 @@ const ANN = {
   make_hwpx_from_markdown: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
   // 새 파일로 쓰고 원본·있는 파일은 건드리지 않는다
   edit_hwpx_text: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
+  // kordoc 한글 읽기·채우기·되쓰기 — 결과를 새 파일로 쓴다(덮어쓰지 않음)
+  ...Object.fromEntries(['read_hwp_as_markdown', 'fill_hwp_form', 'patch_hwp_from_markdown']
+    .map((n) => [n, { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false }])),
   // 서식 — 목록·검사는 읽기 전용(원격판에도), 파일 만들기는 로컬 전용
   list_hr_forms: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
   check_hr_form: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
@@ -187,7 +190,7 @@ const ANN = {
 }
 // 이 판에서 더한 도구 8개 + 사이트 도구 7개(groups/more) — 「대신·대행·대리」도 함께 막는다
 const NOSA_TOOLS = ['assess_labor_council', 'check_council_meeting', 'make_labor_council_forms', 'make_council_meeting_docs', 'make_council_election_docs', 'check_council_rules', 'record_council_history', 'export_council_vault', 'import_council_minutes', 'make_council_rules_comparison'];
-const NEW_TOOLS = ['calc_severance', 'calc_holiday_pay', 'calc_pay_proration', 'calc_shutdown_allowance', 'calc_annual_leave', 'settle_leave_on_exit', 'calc_retirement_tax', 'list_employer_duties', ...MORE_TOOLS, ...NOSA_TOOLS, 'make_hwpx_from_markdown', 'edit_hwpx_text', 'list_hr_forms', 'check_hr_form', 'make_hr_form'];
+const NEW_TOOLS = ['calc_severance', 'calc_holiday_pay', 'calc_pay_proration', 'calc_shutdown_allowance', 'calc_annual_leave', 'settle_leave_on_exit', 'calc_retirement_tax', 'list_employer_duties', ...MORE_TOOLS, ...NOSA_TOOLS, 'make_hwpx_from_markdown', 'edit_hwpx_text', 'read_hwp_as_markdown', 'fill_hwp_form', 'patch_hwp_from_markdown', 'list_hr_forms', 'check_hr_form', 'make_hr_form'];
 const NEW_WORDS = [...WORDS, '대신', '대행', '대리'];
 const bannedNew = (s) => (banned ? banned.bannedHits(s, NEW_WORDS) : []);
 for (const n of NEW_TOOLS) check(`${n}: 도구 목록에 있음`, tools.includes(n));
@@ -582,6 +585,17 @@ if (tools.includes('make_hwpx_from_markdown')) {
   // 양식 모드 — 앞서 만든 파일을 양식으로 다시 쓴다
   const tm = await callNew('make_hwpx_from_markdown', { markdown: '# 가상 양식본\n\n양식 모양으로 채운 본문.', preset: 'internal', outDir: dir, templateFile: mh.file.path });
   check(`docs 양식 모드 ${tm.file?.bytes}B`, tm.ok && fs.existsSync(tm.file.path));
+  // kordoc — 앞서 만든 hwpx 를 읽고(md), 표 칸을 채워 .hwp(CFB)로, keep 원고 한 낱말을 고쳐 되쓴다(설치본에서 kordoc·@rhwp/core 가 풀리는지)
+  if (tools.includes('read_hwp_as_markdown')) {
+    const rd = await callNew('read_hwp_as_markdown', { file: mh.file.path, outFile: path.join(dir, 'read.md'), layout: 'keep' });
+    check(`docs 한글 읽기 ${rd.file?.bytes}B (표 ${rd.tables})`, rd.ok && rd.kind === 'hwpx' && fs.readFileSync(path.join(dir, 'read.md'), 'utf8').includes('기본급'));
+    const fl = await callNew('fill_hwp_form', { file: mh.file.path, values: { 기본급: '2,100,000' }, outFile: path.join(dir, 'fill.hwp') });
+    const head = fs.existsSync(path.join(dir, 'fill.hwp')) ? fs.readFileSync(path.join(dir, 'fill.hwp')).subarray(0, 4).toString('hex') : '';
+    check(`docs 서식 채우기 → hwp(${head}) filled ${fl.filled?.length}`, fl.ok && head === 'd0cf11e0');
+    fs.writeFileSync(path.join(dir, 'edit.md'), fs.readFileSync(path.join(dir, 'read.md'), 'utf8').replace('가상상사', '가상상회'));
+    const pt = await callNew('patch_hwp_from_markdown', { file: mh.file.path, markdownFile: path.join(dir, 'edit.md'), outFile: path.join(dir, 'patch.hwpx') });
+    check(`docs 되쓰기 applied ${pt.applied} skipped ${pt.skipped?.length}`, pt.ok && pt.applied === 1 && pt.skipped.length === 0 && pt.changes?.addedLines === 1);
+  }
 }
 
 // ── forms 묶음 ── 합성 값 → 서식 hwpx(동시 호출 · 같은 이름 거절 · 주민번호 모양 거절)
@@ -1023,13 +1037,13 @@ if (!/\.cmd$/i.test(target)) {
   } catch { /* 없음 */ }
   const v = spawnSync(process.execPath, [target, '--version'], { encoding: 'utf8' });
   const [v1 = '', v2 = ''] = v.stdout.trim().split(/\r?\n/);
-  const KEYS = ['builtAt', 'commit', 'dirty', 'lockfileSha256', 'node', 'serverSha256', 'version'];
-  check('build-info.json 이 server.mjs 옆에 있고 칸이 7개', !!info && JSON.stringify(Object.keys(info).sort()) === JSON.stringify(KEYS));
+  const KEYS = ['builtAt', 'commit', 'dirty', 'kLaborLockfileSha256', 'lockfileSha256', 'node', 'serverSha256', 'version'];
+  check('build-info.json 이 server.mjs 옆에 있고 칸이 8개', !!info && JSON.stringify(Object.keys(info).sort()) === JSON.stringify(KEYS));
   check(`build-info version(${info?.version}) = --version 첫 줄(${v1}) · node(${info?.node}) · builtAt(${info?.builtAt})`,
     info?.version === v1 && /^\d+\.\d+\.\d+$/.test(v1) && /^v\d+\./.test(info?.node ?? '') && !Number.isNaN(Date.parse(info?.builtAt ?? '')));
   check('build-info serverSha256 = 지금 server.mjs 의 sha256', info?.serverSha256 === sha(fs.readFileSync(target)));
   check(`build-info 모양 — lockfileSha256(${String(info?.lockfileSha256).slice(0, 12)}) · commit(${String(info?.commit).slice(0, 12)}) · dirty(${info?.dirty})`,
-    /^[0-9a-f]{64}$/.test(info?.lockfileSha256 ?? '') && (info?.commit === null || /^[0-9a-f]{40}$/.test(info?.commit ?? '')) && (info?.dirty === null || typeof info?.dirty === 'boolean'));
+    /^[0-9a-f]{64}$/.test(info?.lockfileSha256 ?? '') && (info?.commit === null || /^[0-9a-f]{40}$/.test(info?.commit ?? '')) && (info?.dirty === null || typeof info?.dirty === 'boolean') && /^[0-9a-f]{64}$/.test(info?.kLaborLockfileSha256 ?? ''));
   check('--version 첫 줄 = 맨 버전, 둘째 줄 = 커밋·server 해시 앞 12자·빌드 시각', v.status === 0 && !!info && v2.includes(info.serverSha256.slice(0, 12)) && v2.includes(info.builtAt)
     && (info.commit === null || v2.includes(info.commit.slice(0, 12))));
   const pkgDir = path.dirname(path.dirname(target));

@@ -1,5 +1,6 @@
 // 문서 묶음 — 마크다운 원고를 한글(hwpx) 파일로 만든다.
 //   make_hwpx_from_markdown  md → hwpx(프리셋 internal·tribunal). 변환 규칙은 src/lib/md-hwpx
+//   read_hwp_as_markdown · fill_hwp_form · patch_hwp_from_markdown  한글 읽기·서식 채우기·되쓰기(lib/hangul-kordoc.mjs, kordoc)
 // ★ 파일을 읽고 쓰므로 원격판(remote.mjs)에서 불러오지 않는다. stdio 판(server.mjs)으로만 켠다.
 // ★ 공개 문구 금지어 + 포괄·대신·대행·대리·지도를 이 묶음의 글(설명·결과)에 쓰지 않는다.
 import { z } from 'zod';
@@ -9,8 +10,9 @@ import { mdHwpxSummary, mdToHwpx, parseMarkdown } from '@/lib/md-hwpx';
 import { fillCells, replaceText } from '@/lib/md-hwpx/postedit';
 import { mdToHwpxWithTemplate } from '@/lib/md-hwpx/template';
 import { argsLookLikeRrn, looksLikeRrn, text, writeNew } from '../lib/common.mjs';
+import { capSkipped, decodeMarkdown, fillHangul, hangulKind, maskExcerpt, MAX_MARKDOWN_BYTES, patchHangul, patchVerdict, readHangul, sanitizeReason } from '../lib/hangul-kordoc.mjs';
 
-export const docsTools = ['make_hwpx_from_markdown', 'edit_hwpx_text'];
+export const docsTools = ['make_hwpx_from_markdown', 'edit_hwpx_text', 'read_hwp_as_markdown', 'fill_hwp_form', 'patch_hwp_from_markdown'];
 
 const WRITES = { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false };
 const fail = (error, extra = {}) => text({ ok: false, error, ...extra });
@@ -20,6 +22,7 @@ const EXISTS_EDIT = '이미 있는 파일은 덮어쓰지 않습니다. outFile 
 const RRN_STOP = '입력에 주민등록번호 모양의 숫자가 있어 멈췄습니다. 이 도구는 주민등록번호를 받지 않습니다.';
 const safeName = (s) => s.replace(/[\\/:*?"<>|\u0000-\u001f]/g, '_');
 const MAX_FILE = 2 * 1024 * 1024;
+const MAX_HANGUL = 30 * 1024 * 1024;
 // 원고 안의 16진 해시 조각(a-f 글자가 섞인 12자 이상)은 숫자 13자리가 이어져도 주민번호가 아니다 — 검사에서 뺀다(261119)
 const HEX_TOKEN = /\b(?=[0-9a-f]*[a-f])[0-9a-f]{12,}\b/gi;
 
@@ -153,5 +156,194 @@ export function registerDocs(server) {
         return fail(e instanceof Error ? e.message : String(e));
       }
     },
+  );
+
+  // ── kordoc 3도구 — 한글 읽기·서식 채우기·마크다운 되쓰기(lib/hangul-kordoc.mjs). 파일 경로를 받고 결과 파일을 새로 쓴다.
+  // 결과 글은 주민번호 모양을 가리므로(common.text) 마크다운 본문은 응답에 싣지 않고 파일로만 낸다 — 가린 글로 되쓰면 원본이 망가진다.
+  // 원칙(G4 261123): 덜 된 것을 ok 로 내지 않는다. 파일은 쓰되 ok:false·incomplete:true 로 알린다.
+  // 모든 파일 입출력은 핸들러 안 try 경계 안에서 한다 — 예외 글(경로 원문)이 응답에 실리지 않게(A10)
+  const readHangulFile = (p) => {
+    const src = String(p ?? '').trim();
+    if (!/\.hwpx?$/i.test(src)) return { error: 'hwp·hwpx 파일만 받습니다.' };
+    if (!fs.existsSync(src) || !fs.statSync(src).isFile()) return { error: `파일이 없습니다: ${src}` };
+    if (fs.statSync(src).size > MAX_HANGUL) return { error: '30MB 를 넘는 파일은 받지 않습니다.' };
+    return { src, bytes: new Uint8Array(fs.readFileSync(src)) };
+  };
+  const checkOut = (src, out, exts) => {
+    if (!out) return 'outFile 을 주세요.';
+    if (!exts.some((e) => out.toLowerCase().endsWith(e))) return `outFile 은 ${exts.join('·')} 로 끝나야 합니다.`;
+    if (path.resolve(out) === path.resolve(src)) return '원본 파일에는 쓰지 않습니다. outFile 을 바꿔 주세요.';
+    if (fs.existsSync(out)) return EXISTS_EDIT;
+    return null;
+  };
+  /** 새 파일로 쓴다. 이미 있으면 'exists'. 이번 호출이 만든 파일은 쓰기 실패 시 지운다(wx 라 남의 파일은 아니다, A10) */
+  const writeOut = (out, bytes) => {
+    try {
+      fs.mkdirSync(path.dirname(path.resolve(out)), { recursive: true });
+    } catch (e) {
+      return { error: `저장할 폴더를 만들지 못했습니다(${e?.code || 'error'}).` };
+    }
+    try {
+      return writeNew(out, bytes) ? { ok: true } : { exists: true };
+    } catch (e) {
+      try { fs.rmSync(out, { force: true }); } catch { /* 지우지 못해도 아래 오류로 알린다 */ }
+      return { error: `파일을 쓰지 못했습니다(${e?.code || 'error'}).` };
+    }
+  };
+  // 파일 시스템 오류(e.code 가 있는 것)는 글에 경로가 섞인다 — 코드만 남긴다. lib 는 바이트만 받으므로 그 오류 글에는 경로가 없다
+  const errText = (e) => (e?.code ? `처리하지 못했습니다(${e.code}).` : sanitizeReason(e instanceof Error ? e.message : String(e)));
+  const guard = (fn) => async (a) => {
+    try {
+      return await fn(a);
+    } catch (e) {
+      return fail(errText(e));
+    }
+  };
+  const written = (w, out) => (w.exists ? fail(EXISTS_EDIT, { exists: out }) : fail(w.error));
+
+  server.registerTool(
+    'read_hwp_as_markdown',
+    {
+      title: '한글(hwp·hwpx) 파일을 마크다운으로 읽기(로컬 전용)',
+      description:
+        '한글 파일(HWP 5.x·hwpx)을 마크다운 파일로 저장한다. 표는 마크다운 표로, 병합 칸이 있는 표는 colspan·rowspan 을 가진 HTML 표로 남는다. 그림 추출과 그림 속 글자 인식(OCR)은 하지 않는다. ' +
+        "layout = visual(기본, 보이는 대로: 테두리 없는 틀 표는 글로 푼다, 읽기용) / keep(원본 표 구조 그대로). patch_hwp_from_markdown 으로 원본에 되쓸 원고는 layout 'keep' 으로 뽑는다. " +
+        '일부만 읽었거나 손상을 복구하며 읽었을 때, 본문이 비었거나 배포용 안내문뿐일 때는 파일은 쓰되 ok:false·incomplete:true 와 problems 로 알린다. ' +
+        '본문은 응답에 싣지 않고 outFile 에만 쓴다(응답 글은 주민등록번호 모양을 가리므로). 이미 있는 파일은 덮어쓰지 않는다. kordoc(MIT) 으로 읽는다.',
+      inputSchema: {
+        file: z.string().max(400).describe('읽을 hwp·hwpx 파일 경로'),
+        outFile: z.string().max(400).describe('저장할 마크다운 파일 경로(.md)'),
+        layout: z.enum(['visual', 'keep']).optional().describe('visual(기본) 읽기용 / keep 되쓰기(patch)용 원고'),
+      },
+      annotations: WRITES,
+    },
+    guard(async (a) => {
+      const f = readHangulFile(a.file);
+      if (f.error) return fail(f.error);
+      const out = String(a.outFile ?? '').trim();
+      const bad = checkOut(f.src, out, ['.md']);
+      if (bad) return fail(bad, bad === EXISTS_EDIT ? { exists: out } : {});
+      const r = await readHangul(f.bytes, { layout: a.layout ?? 'visual' });
+      const body = Buffer.from(r.markdown, 'utf8');
+      if (body.length > MAX_MARKDOWN_BYTES) return fail('읽은 마크다운이 30MB 를 넘어 쓰지 않았습니다.');
+      const w = writeOut(out, body);
+      if (!w.ok) return written(w, out);
+      const incomplete = r.problems.length > 0;
+      return text({
+        ok: !incomplete,
+        ...(incomplete ? { incomplete: true, error: '읽은 결과가 온전하지 않습니다(problems). 파일은 저장했습니다.', problems: r.problems } : {}),
+        kind: r.kind,
+        layout: r.layout,
+        file: { path: out, bytes: body.length },
+        chars: r.markdown.length,
+        tables: (r.markdown.match(/<table>/g) ?? []).length + (r.markdown.match(/^\|\s*-{3}/gm) ?? []).length,
+        warnings: r.warnings,
+      });
+    }),
+  );
+
+  server.registerTool(
+    'fill_hwp_form',
+    {
+      title: '한글(hwp·hwpx) 서식 빈칸 채우기(로컬 전용)',
+      description:
+        '한글 서식의 라벨(예: 성명·주소) 옆 칸과 괄호 빈칸을 values 로 채워 새 파일로 저장한다. 원본 서식(테두리·글꼴·병합)은 그대로 두고 글자만 넣는다. hwp 서식은 서식 그대로 hwpx 로 바꿔 채우고, outFile 이 .hwp 면 HWP 5.x 로(되읽어 채운 값이 남았는지 대조), .hwpx 면 hwpx 로 저장한다. ' +
+        '서식을 서식 그대로 바꾸지 못하거나 일부만 읽었으면 멈춘다. 띄어쓰기·괄호를 빼면 같아지는 라벨 둘은 채우지 않고 멈춘다(collisions). requireUnique(기본 true)면 두 곳 이상에 맞는 라벨(누름틀 포함)은 채우지 않는다. ' +
+        '찾지 못한 라벨(unmatched)·두 곳 이상이라 채우지 않은 라벨(rejected)·칸보다 많아 남은 배열 값(leftover)·HWP 저장 때 빠진 내용(losses)·되읽어 없는 값이 있으면 파일은 저장하되 ok:false·incomplete:true 로 알린다. ' +
+        'filled 에 값을 쓴 자리(표 번호·행·열 또는 누름틀 이름)를 싣는다. 주민등록번호 모양 값은 받지 않는다. 이미 있는 파일은 덮어쓰지 않는다. kordoc(MIT) 으로 채운다.',
+      inputSchema: {
+        file: z.string().max(400).describe('서식 hwp·hwpx 파일 경로'),
+        values: z
+          .record(z.string().max(200), z.union([z.string().max(4000), z.array(z.string().max(4000)).max(200)]))
+          .describe('라벨 → 값. 배열이면 같은 라벨이 나오는 순서대로 하나씩(명부형 표)'),
+        outFile: z.string().max(400).describe('저장할 파일 경로(.hwp 또는 .hwpx)'),
+        requireUnique: z.boolean().optional().describe('라벨이 두 곳 이상에 맞으면 채우지 않고 rejected 로 알린다(기본 true, false 면 맞는 곳 전부 채움)'),
+      },
+      annotations: WRITES,
+    },
+    guard(async (a) => {
+      if (argsLookLikeRrn({ values: a.values })) return fail(RRN_STOP);
+      const f = readHangulFile(a.file);
+      if (f.error) return fail(f.error);
+      const out = String(a.outFile ?? '').trim();
+      const bad = checkOut(f.src, out, ['.hwp', '.hwpx']);
+      if (bad) return fail(bad, bad === EXISTS_EDIT ? { exists: out } : {});
+      if (!a.values || !Object.keys(a.values).length) return fail('values 를 주세요.');
+      const r = await fillHangul(f.bytes, a.values, { out: out.toLowerCase().endsWith('.hwpx') ? 'hwpx' : 'hwp', requireUnique: a.requireUnique !== false });
+      if (r.refused) return fail(r.refused, { collisions: r.collisions });
+      const w = writeOut(out, r.bytes);
+      if (!w.ok) return written(w, out);
+      const missing = r.verified?.missing ?? [];
+      const n = { unmatched: r.unmatched.length, rejected: r.rejected.length, leftover: r.leftover.length, losses: r.losses.length, missing: missing.length };
+      const incomplete = Object.values(n).some((x) => x > 0);
+      return text({
+        ok: !incomplete,
+        ...(incomplete ? { incomplete: true, error: `다 채우지 못했습니다(못 찾음 ${n.unmatched} · 두 곳 이상 ${n.rejected} · 남은 값 ${n.leftover} · 저장 손실 ${n.losses} · 되읽어 없음 ${n.missing}). 파일은 저장했습니다.` } : {}),
+        kind: r.kind,
+        file: { path: out, bytes: r.bytes.length, format: r.out },
+        filled: r.filled,
+        unmatched: r.unmatched,
+        rejected: r.rejected,
+        leftover: r.leftover,
+        losses: r.losses,
+        ...(r.verified ? { verified: { checked: r.verified.checked, missing: missing.map(maskExcerpt) } } : {}),
+        warnings: r.warnings,
+        notice: '한글에서 열어 채운 칸과 쪽 나눔을 확인한 뒤 냅니다.',
+      });
+    }),
+  );
+
+  server.registerTool(
+    'patch_hwp_from_markdown',
+    {
+      title: '고친 마크다운을 원본 한글 파일에 되쓰기(로컬 전용)',
+      description:
+        "read_hwp_as_markdown 을 layout 'keep' 으로 뽑은 마크다운을 고친 뒤, 바뀐 글자만 원본 hwp·hwpx 에 서식 그대로 되써 새 파일로 저장한다(원본이 hwp 면 .hwp, hwpx 면 .hwpx). " +
+        "기본(visual) 원고로는 틀 표가 있는 문서의 원본 위치를 찾지 못해 멈춘다(layout 'keep' 으로 다시 뽑는다). " +
+        '되쓰지 못한 편집(문단 추가·삭제, 표 구조 변경, 행 끝 공백 두 칸 줄바꿈 등)과 일부만 반영된 편집(partial)은 skipped(이유·전후 글자, 앞 20건과 skippedTotal)로, 되읽어 대조한 잔차는 verification 으로 돌려주고 ok:false·incomplete:true 로 알린다(되쓴 파일은 저장한다). changes 는 원본과 결과를 다시 읽어 센 줄 차이(removedLines 원본에서 빠진 줄·addedLines 결과에 생긴 줄)다. ' +
+        'structure(hwpx 만) = 문단 추가·삭제 반영(기본 false: 원고에 없는 문단을 지우지 않는다). 원본에 없던 주민등록번호 모양이나 가림 표시가 원고에 있으면 멈춘다. 빈 원고는 받지 않는다. 이미 있는 파일은 덮어쓰지 않는다. kordoc(MIT) 으로 되쓴다.',
+      inputSchema: {
+        file: z.string().max(400).describe('원본 hwp·hwpx 파일 경로'),
+        markdownFile: z.string().max(400).describe("고친 마크다운 파일 경로(.md, layout 'keep' 으로 뽑은 것. UTF-8 또는 EUC-KR)"),
+        outFile: z.string().max(400).describe('저장할 파일 경로(원본과 같은 형식: .hwp 또는 .hwpx)'),
+        structure: z.boolean().optional().describe('hwpx: 문단 추가·삭제 반영(기본 false)'),
+      },
+      annotations: WRITES,
+    },
+    guard(async (a) => {
+      const f = readHangulFile(a.file);
+      if (f.error) return fail(f.error);
+      const mdPath = String(a.markdownFile ?? '').trim();
+      if (!/\.md$/i.test(mdPath)) return fail('markdownFile 은 .md 파일이어야 합니다.');
+      if (!fs.existsSync(mdPath) || !fs.statSync(mdPath).isFile()) return fail(`파일이 없습니다: ${mdPath}`);
+      if (fs.statSync(mdPath).size > MAX_MARKDOWN_BYTES) return fail('30MB 를 넘는 마크다운은 받지 않습니다.');
+      const out = String(a.outFile ?? '').trim();
+      const bad = checkOut(f.src, out, ['.hwp', '.hwpx']);
+      if (bad) return fail(bad, bad === EXISTS_EDIT ? { exists: out } : {});
+      const md = decodeMarkdown(new Uint8Array(fs.readFileSync(mdPath)));
+      if (md === null) return fail('마크다운에 깨진 글자가 있습니다. UTF-8(또는 EUC-KR)로 저장해 주세요.');
+      const kind = await hangulKind(f.bytes);
+      if (!kind) return fail('한글 문서(HWP 5.x 또는 hwpx)가 아닙니다.');
+      const want = out.toLowerCase().endsWith('.hwpx') ? 'hwpx' : 'hwp';
+      if (want !== kind) return fail(`원본이 ${kind} 이므로 outFile 도 .${kind} 로 주세요(되쓰기는 형식을 바꾸지 않습니다).`);
+      const r = await patchHangul(f.bytes, md, { structure: a.structure === true });
+      if (r.refused) return fail(r.refused);
+      const v = patchVerdict(r);
+      const capped = capSkipped(r.skipped);
+      const report = { applied: r.applied, ...capped, partialCount: v.partialCount, warnings: r.warnings, verification: r.verification, changes: r.changes };
+      if (!r.success) return fail(`되쓰지 못했습니다: ${r.error}`, report);
+      const w = writeOut(out, r.bytes);
+      if (!w.ok) return written(w, out);
+      return text({
+        ok: !v.incomplete,
+        ...(v.incomplete
+          ? { incomplete: true, error: `다 되쓰지 못했습니다(건너뜀 ${v.missedCount} · 일부만 반영 ${v.partialCount} · 대조 잔차 ${v.residual ?? '대조 못 함'}). 되쓴 파일은 저장했습니다.` }
+          : {}),
+        kind: r.kind,
+        file: { path: out, bytes: r.bytes.length },
+        ...report,
+        notice: '한글에서 열어 고친 곳과 쪽 나눔을 확인한 뒤 냅니다.',
+      });
+    }),
   );
 }

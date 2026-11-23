@@ -32,3 +32,10 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
+
+## kordoc
+
+- 저장소: https://github.com/chrisryugj/kordoc (MIT, Copyright (c) 2026 chrisryugj)
+- 쓰는 판: 4.25.3 (npm `kordoc`, 정확한 판 고정) · HWP 저장에 `@rhwp/core` 0.9.0 (MIT)
+- 쓰는 곳: `lib/hangul-kordoc.mjs` → `docs` 묶음 `read_hwp_as_markdown`·`fill_hwp_form`·`patch_hwp_from_markdown`
+- 코드를 옮기지 않고 의존성으로 설치해 라이브러리 API(`parse`·`fillHwpx`·`hwpToHwpx`·`hwpxToHwp`·`patchHwp`·`patchHwpx`)를 부른다. 묶은 판(`dist/server.mjs`)에도 들어가지 않는다(외부 모듈). kordoc 과 그 의존성의 고지는 설치된 `node_modules/kordoc`(LICENSE·NOTICE·THIRD_PARTY/)에 있다.

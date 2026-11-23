@@ -132,6 +132,9 @@ npx -y k-labor call check_min_wage args.json --groups calc
 | `forms` | `check_hr_form` | 파일을 만들지 않고 칸 검사 — problems(빈 필수 칸·날짜 형식·주민등록번호 모양) / notes(신청 기한 30일·7일 전, 기간 1년·추가 6개월, 출산예정일 50일 전·출산일부터 120일, 연 6일, 허용 통지 14일 같은 조문 대조 안내) / 원고. 이름이 실리므로 로컬 전용 |
 | `forms` | `make_hr_form` | **로컬 전용(파일 쓰기).** 칸 검사 뒤 서식을 한글(hwpx)로. 주민등록번호 칸 없음(생년월일만). 덮어쓰지 않고, 호출끼리 상태가 없어 여러 건을 동시에 불러도 된다. 웹판 https://yellowenvelope.kr/tools/hr-forms |
 | `docs` | `make_hwpx_from_markdown` | **로컬 전용(파일 쓰기).** 마크다운 원고 → 한글(hwpx). 제목 4단계(## 앞 □, Ⅰ~Ⅹ 장 앞 쪽나눔) · 본문 굵게 · 판례 번호 자동 굵게 · 목록 · 표(머리행 음영·반복, 열 폭 자동, 정렬, 칸 안 줄바꿈, 7열 이상 작은 글자, 긴 표는 쪽을 넘김) · 끝 15줄 안 날짜 줄부터 서명부 · 쪽번호. 프리셋 internal(행간 160%·여백 20mm)·tribunal(행간 200%·위 45·아래 30mm). 병합 칸·밑줄·인용 블록·링크는 못 만들고 `leftovers` 로 알림. 덮어쓰지 않음 |
+| `docs` | `read_hwp_as_markdown` | **로컬 전용(파일 쓰기).** 한글(HWP 5.x·hwpx) → 마크다운 파일. 병합 표는 colspan·rowspan HTML 표로 남김. `layout`: `visual`(기본, 읽기용) · `keep`(원본 표 구조 그대로 — `patch_hwp_from_markdown` 으로 되쓸 원고). 그림 추출·OCR 안 함. 일부만 읽음·손상 복구·빈 본문·배포용 안내문뿐이면 파일은 쓰고 `ok:false`·`incomplete:true`·`problems`. 본문은 응답에 싣지 않고 파일로만(응답은 주민번호 모양을 가림) |
+| `docs` | `fill_hwp_form` | **로컬 전용(파일 쓰기).** 서식 라벨 옆 칸·괄호 빈칸을 `values`(라벨 → 값, 배열이면 등장 순서대로)로 채워 `.hwp`(HWP 5.x 저장 후 되읽어 값 대조) 또는 `.hwpx` 로. hwp 서식은 서식 그대로 hwpx 로 바꿔 채우고, 못 바꾸거나 일부만 읽었으면 멈춤. 띄어쓰기·괄호를 빼면 같아지는 라벨 둘은 멈춤(`collisions`). `requireUnique` 기본 **true**(두 곳 이상에 맞는 라벨은 누름틀 포함 채우지 않음). `unmatched`·`rejected`·`leftover`(칸보다 많은 배열 값)·`losses`(HWP 저장 손실)·되읽어 없는 값이 있으면 파일은 쓰고 `ok:false`·`incomplete:true`. `filled` 에 값을 쓴 자리(표·행·열 또는 누름틀 이름). 주민번호 모양 값은 받지 않음 |
+| `docs` | `patch_hwp_from_markdown` | **로컬 전용(파일 쓰기).** `layout: keep` 으로 뽑은 md 를 고친 것을 원본에 되쓰기 — 바뀐 글자만, 서식 그대로, 원본과 같은 형식(hwp→.hwp, hwpx→.hwpx). `structure` 기본 **false**(원고에 없는 문단을 지우지 않음). 되쓰지 못한 편집·일부만 반영된 편집(`partial`)·행 끝 공백 두 칸 줄바꿈은 `skipped`(이유·가린 발췌, 앞 20건 + `skippedTotal`), 대조 잔차는 `verification` — 하나라도 있거나 대조를 못 했으면 파일은 쓰고 `ok:false`·`incomplete:true`. `changes` = 원본·결과를 다시 읽어 센 줄 차이(`removedLines`·`addedLines`, 틀 표 칸 안 변경도 셈). 원본에 없던 주민번호 모양·가림 표시가 원고에 생기면 멈춤. CRLF 원고 받음, UTF-8 또는 EUC-KR |
 | `law` | `search_laws` | 법령 이름(또는 본문 낱말)으로 현행 법령 찾기 — 법령ID·판 번호·공포일·시행일·법제처 화면 주소(법제처 Open API) |
 | `law` | `list_law_forms` | 법령 하나의 별표·별지 서식 목록 — 「별지 제8호서식」 표기·제목·공포일과 내려받을 파일 주소(한글·PDF) |
 | `law` | `get_article_history` | 조문 하나가 바뀐 판들(제정·조문변경, 공포일·시행일·판 번호, 시행 예정 판 포함) |
@@ -151,6 +154,24 @@ npx -y k-labor call check_min_wage args.json --groups calc
 npx -y k-labor --help
 ```
 
+### docs 묶음 — 한글 읽기·채우기·되쓰기 (kordoc)
+
+`read_hwp_as_markdown`·`fill_hwp_form`·`patch_hwp_from_markdown` 은 [kordoc](https://github.com/chrisryugj/kordoc)(MIT) 4.25.3 과 `@rhwp/core` 0.9.0(HWP 저장)을 의존성으로 설치해 부릅니다.
+
+- **배포 단위 = 설치된 패키지.** kordoc 은 `dist/server.mjs` 에 묶지 않습니다(external). `dist` 만 따로 옮기면 서버는 뜨지만 세 도구는 첫 호출에서 「한글 문서 부품(kordoc)을 불러오지 못했습니다」로 멈춥니다. `npx -y k-labor` 또는 패키지 폴더에서 `npm ci` 한 설치본으로 씁니다.
+- **설치 용량.** kordoc 은 선택 의존성(OCR·그림 처리)을 함께 받습니다 — `onnxruntime-node` 약 300MB, `@hyzyla/pdfium` 14MB, `zxing-wasm` 4MB, `sharp`. 세 도구는 OCR·그림 추출을 끄고 부르므로 이것들을 쓰지 않습니다. 용량을 줄이려면 선택 의존성을 빼고 설치합니다:
+
+  ```bash
+  npm.cmd ci --omit=optional      # 윈도 · 패키지 폴더(tools/k-labor)에서
+  npm ci --omit=optional          # macOS·리눅스
+  ```
+
+  단, `--omit=optional` 은 contract 묶음의 스캔 회의록 문자 인식(`tesseract.js`·`@napi-rs/canvas`)도 함께 뺍니다.
+- **한계.**
+  - 되쓰기는 바뀐 글자만 고칩니다. 문단 추가·삭제(HWP 5.x 는 늘, hwpx 는 `structure:false` 기본), 표 구조 변경, 행 끝 공백 두 칸으로 낸 강제 줄바꿈은 되쓰지 않고 `skipped` 로 알립니다 — 한글에서 고칩니다.
+  - kordoc CLI `patch` 의 대체본(`.rewrite.hwpx`)은 만들지 않습니다.
+  - 라벨 일치는 접두 일치라 서식에 따라 엉뚱한 칸에 맞을 수 있습니다. `filled[].target` 과 한글 화면으로 확인합니다.
+  - 주민등록번호 모양 값은 채우지 않습니다(주민번호 칸은 한글에서 직접).
 ### contract · calc 묶음
 
 사이트 근로계약서 작성(/tools/contract-write)·점검(/tools/contract-check)과 계산기(/tools/min-wage·weekly-holiday-pay·headcount·take-home-pay·notice-pay·leave-pay·severance.html·holiday-pay·pay-proration·shutdown-allowance)의 엔진을 그대로 묶었습니다. 같은 입력이면 사이트와 같은 값이 나옵니다.
