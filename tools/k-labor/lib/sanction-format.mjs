@@ -58,8 +58,8 @@ function facts(r) {
 }
 
 const vetted = (r) => r.block_status === 'pass' && r.block_body;
-/** 원문 칸 — 검수 블록이 있으면 그것, 없으면 발췌 */
-const excerpt = (r) => (vetted(r) ? r.block_body : r.quote);
+/** 원문 칸 — 검수 블록이 있으면 그것, 긴 판단이면 판단 원문 전체(261123), 없으면 발췌 */
+const excerpt = (r) => (vetted(r) ? r.block_body : r.block_status === 'long_judgment' && r.long_text ? r.long_text : r.quote);
 
 export function toMarkdown(rows) {
   const out = [];

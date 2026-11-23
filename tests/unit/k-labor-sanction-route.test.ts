@@ -72,6 +72,15 @@ describe('/api/sanction-cases', () => {
     expect(fetchSanctionCases).toHaveBeenCalledWith(expect.objectContaining({ type: 'harass', sanction: '적정' }));
   });
 
+  it('offset 으로 다음 묶음을 받는다(골라 내려받기 화면 「더 불러오기」, 261123) — 음수·글자는 0', async () => {
+    await get('type=harass&offset=30&limit=30', `Bearer ${TOKEN}`);
+    expect(fetchSanctionCases).toHaveBeenLastCalledWith(expect.objectContaining({ offset: 30, limit: 30 }));
+    await get('type=harass&offset=-5', `Bearer ${TOKEN}`);
+    expect(fetchSanctionCases).toHaveBeenLastCalledWith(expect.objectContaining({ offset: 0 }));
+    await get('type=harass&offset=abc', `Bearer ${TOKEN}`);
+    expect(fetchSanctionCases).toHaveBeenLastCalledWith(expect.objectContaining({ offset: 0 }));
+  });
+
   it('모르는 유형은 400', async () => {
     expect((await get('type=nope', `Bearer ${TOKEN}`)).status).toBe(400);
   });

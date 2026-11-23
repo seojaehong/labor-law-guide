@@ -25,6 +25,7 @@ export async function GET(request: Request) {
       keyword: p.get('keyword')?.slice(0, 40) || undefined,
       fitsOnly: p.get('fits_only') !== 'false',
       limit: Number(p.get('limit')) || undefined,
+      offset: Math.max(Math.floor(Number(p.get('offset')) || 0), 0),
     });
     return NextResponse.json({ rows }, { headers: noStore });
   } catch {

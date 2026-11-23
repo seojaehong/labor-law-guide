@@ -90,6 +90,23 @@ describe('S4 — 인용 블록', () => {
     expect(mdHwpxSummary(items, { quote: true }).leftovers).not.toContain('> ');
     expect(checkHeader(header, section)).toEqual([]);
   });
+  it('quoteFont 를 주면 인용 글자(제목줄 포함)만 그 글꼴, 크기·줄간격은 정본 그대로(261123)', () => {
+    const { header, section } = doc(md, { quote: true, quoteFont: '휴먼명조' });
+    const face = (id: number) => {
+      const c = getItem(header, CHAR, id);
+      const ref = Number(/<hh:fontRef hangul="(\d+)"/.exec(c)![1]);
+      return /<hh:fontface lang="HANGUL"[\s\S]*?<\/hh:fontface>/.exec(header)![0].match(new RegExp(`<hh:font id="${ref}" face="([^"]+)"`))![1];
+    };
+    expect(face(runOf(section, '인용 첫 문장이다.'))).toBe('휴먼명조');
+    expect(face(runOf(section, '\\[관련 판결\\] 대법원 2020. 1. 1. 선고 2019다1 판결'))).toBe('휴먼명조');
+    expect(getItem(header, CHAR, runOf(section, '인용 첫 문장이다.'))).toMatch(/height="1100"/);
+    expect(header).not.toContain('face="휴먼고딕"');
+    expect(checkHeader(header, section)).toEqual([]);
+  });
+  it('quoteFont 없으면 휴먼고딕(기존 정본)', () => {
+    const { header } = doc(md, { quote: true });
+    expect(header).toContain('face="휴먼고딕"');
+  });
   it('끄면 > 는 leftovers 로 보고된다(기존 동작)', () => {
     expect(mdHwpxSummary(parseMarkdown(md)).leftovers).toContain('> ');
   });

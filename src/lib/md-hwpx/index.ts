@@ -28,6 +28,8 @@ export interface MdFeatures {
   underline?: boolean;
   /** S4 — > 인용 블록: 휴먼고딕 11pt·줄간격 180%·모든 줄 같은 x, 「[관련 판결] …」 제목줄만 굵게 */
   quote?: boolean;
+  /** S4 인용 글꼴 — 기본 휴먼고딕(태광 정본). 크기 11pt·줄간격 180%·제목줄 굵게는 그대로 두고 글꼴만 바꾼다(261123 양정 블록 내려받기) */
+  quoteFont?: string;
   /** S10 — `![캡션](경로)` 한 줄을 그림으로. 그림 바이트는 MdHwpxOptions.images 로 받는다 */
   image?: boolean;
   /** S5·S6·S7 — 표 */
@@ -472,7 +474,7 @@ export function mdDocXml(items: MdItem[], opts: MdHwpxOptions = {}): { header: s
       if (x.text) body.push(para(run(x.text, 7), center));
     } else if (x.kind === 'quote') {
       // S4 인용 — 휴먼고딕 11pt, 줄간격 180%, left = 본문 + 16.5pt, intent 0. 인용 안 빈 줄도 인용 서식
-      const font = st.font('휴먼고딕');
+      const font = st.font(f.quoteFont?.trim() || '휴먼고딕');
       const qc = st.char(7, { height: 1100, font });
       const qb = st.char(7, { height: 1100, font, bold: true });
       const qp = st.para(20, { pt: true, left: QUOTE_LEFT_PT, intent: 0, lineSpacing: 180 });
