@@ -6,7 +6,7 @@
 // 1) supabase/cleanup/20261123_bc_self_scrape.sql 의 술어로 지울 행 수
 // 2) 그 행 전부가 화면 거름(isOwnSiteUrl)에도 걸리는지 — SQL 술어와 TS 규칙이 같은지
 // 3) 음성 표본: local-verified-v1 전부 + recollect-v1 앞 N행에 screenSourceRow 를 돌려 바뀐 행이 0 인지
-// 4) 표본 3건의 화면 선택 전/후(상세 페이지와 같은 선택 규칙)
+// 4) 표본 4건(보고 3건 + 바깥 원문으로 내려가는 1건)의 화면 선택 전/후(상세 페이지와 같은 선택 규칙)
 import { isOwnSiteUrl, screenSourceRow } from '../src/lib/source-self-scrape.ts';
 
 const REF = process.argv[2] || 'mewqgevgdgghhatqtuos';
@@ -94,8 +94,8 @@ async function main() {
     console.log(`3) 음성 표본 ${label} ${n}행 — 버림 ${dropped} · 글자 바뀜 ${changed}`);
   }
 
-  // 4) 표본 3건 화면 선택 전/후
-  for (const id of ['bc_da125932', 'bc_dad2572b', 'bc_2e6419d5']) {
+  // 4) 표본 화면 선택 전/후
+  for (const id of ['bc_da125932', 'bc_dad2572b', 'bc_2e6419d5', 'bc_c1caaf6f']) {
     const rows = await select(`select ${COLS} from decision_source_documents where internal_decision_id = '${id}' and (source_provider = 'bigcase' or (parse_version = 'local-verified-v1' and completeness_flag = 'full'))`);
     const before = pick(rows);
     const afterPick = pick(rows.map(screenSourceRow).filter((r) => r !== null));
