@@ -33,7 +33,8 @@ WORKDIR /app
 COPY --from=ric /app/node_modules ./node_modules
 COPY package.json core.mjs jobs.mjs office-thread.mjs server.mjs lambda.mjs docker-entrypoint.sh ./
 # /jobs 의 office op 는 k-labor/office 묶음(/app/office/index.mjs 또는 K_LABOR_OFFICE_MODULE)이 있어야 돈다.
-# 묶음은 이 빌드 컨텍스트 밖(tools/k-labor/dist/office)이라 이미지에 넣으려면 빌드 전에 office/ 로 복사한다. 없으면 office op 는 503 MISCONFIGURED.
+# 묶음은 이 빌드 컨텍스트 밖(tools/k-labor/dist/office)이라 지금은 이미지에 없다 → office op 는 503 MISCONFIGURED.
+# 넣으려면 빌드 전에 office/ 로 복사하고 아래에 `COPY office ./office` 를 더하거나, 마운트 + K_LABOR_OFFICE_MODULE(미실측).
 RUN chmod 0755 /app/docker-entrypoint.sh && chmod -R a+rX /app
 
 # HTTP 모드에서는 root 로 돌 이유가 없다(Lambda 는 자체 사용자로 실행).

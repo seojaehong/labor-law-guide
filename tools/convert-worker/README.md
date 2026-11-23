@@ -103,7 +103,7 @@ content-type: application/json
 - http 는 시험용이다. `STORAGE_ALLOW_HTTP=1` 이고 호스트가 loopback(localhost·127.0.0.1·[::1])일 때만 연다.
 - office op 는 `worker_threads` 작업 스레드(`office-thread.mjs`)에서 돈다. 시간이 넘으면 스레드를 끝내고, 힙은 `JOB_MAX_OLD_GEN_MB` 로 묶는다. 라이브러리 한도(zip 풀린 크기·항목 수·칸 수·결과 크기)는 환경변수에서 주입한다.
 - 로그에는 op·입출력 바이트·상태·코드·시간만 남긴다. URL(서명 토큰)·파일명·내용은 남기지 않는다.
-- k-labor/office 묶음 위치 = `K_LABOR_OFFICE_MODULE` → 워커 폴더의 `office/index.mjs` → 저장소의 `tools/k-labor/dist/office/index.mjs`(먼저 `node tools/k-labor/build.mjs`). Docker 이미지에 넣으려면 빌드 전에 묶음을 `tools/convert-worker/office/` 로 복사한다(빌드 컨텍스트 밖이라 Dockerfile 이 직접 가져오지 못한다).
+- k-labor/office 묶음 위치 = `K_LABOR_OFFICE_MODULE` → 워커 폴더의 `office/index.mjs` → 저장소의 `tools/k-labor/dist/office/index.mjs`(먼저 `node tools/k-labor/build.mjs`). Docker 이미지에는 지금 들어가지 않는다(빌드 컨텍스트 밖이라 Dockerfile 이 직접 가져오지 못한다) — 없으면 office op 는 503 MISCONFIGURED, `convert` op 는 그대로 돈다. 넣으려면 빌드 전에 묶음을 `tools/convert-worker/office/` 로 복사하고 Dockerfile 에 `COPY office ./office` 줄을 더하거나, 묶음을 마운트하고 `K_LABOR_OFFICE_MODULE` 을 준다(둘 다 미실측).
 
 ## 환경변수
 
