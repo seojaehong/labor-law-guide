@@ -116,3 +116,42 @@ describe('HTML 표 — 글자 손실 없음', () => {
     expect(mdHwpxSummary(items).leftovers.length).toBeGreaterThan(0);
   });
 });
+
+// 261123 리뷰(아스트라) 재현 입력
+describe('HTML 표 — 격자 이상은 변환을 죽이지 않고 글자로 둔다', () => {
+  it('빈 <tr> 로 생긴 빈 자리', () => {
+    const md = '<table>\n<tr><td>A</td><td rowspan=2>B</td></tr>\n<tr></tr>\n</table>';
+    expect(parseMarkdown(md).some((x) => x.kind === 'table')).toBe(false);
+    expect(() => mdSectionXml(parseMarkdown(md))).not.toThrow();
+  });
+  it('rowspan 예약 칸을 colspan 이 덮으면 충돌로 본다', () => {
+    const md = '<table><tr><td>A</td><td rowspan="2">B</td><td>C</td></tr><tr><td colspan="2">D</td><td>E</td></tr></table>';
+    expect(parseMarkdown(md).some((x) => x.kind === 'table')).toBe(false);
+  });
+  it('thead·th 없는 표는 머리행이 없다', () => {
+    const t = parseMarkdown('<table><tbody><tr><td>WAGE001</td></tr><tr><td>2</td></tr></tbody></table>').find((x) => x.kind === 'table') as { headRows?: number };
+    expect(t.headRows).toBe(0);
+  });
+});
+
+// 261123 리뷰(페이블) 재현 입력
+describe('HTML 표 — 페이블 리뷰', () => {
+  const tbl = (html: string) => parseMarkdown(html).find((x) => x.kind === 'table') as { rows: string[][]; headRows?: number } | undefined;
+  it('범위 밖 숫자 엔티티는 변환을 죽이지 않는다', () => {
+    expect(() => mdSectionXml(parseMarkdown('<table><tr><td>&#1114112;</td><td>&#x110000;</td><td>&#xAC00;&#65;</td></tr></table>'))).not.toThrow();
+    expect(tbl('<table><tr><td>&#xAC00;&#65; &ndash; &hellip;</td></tr></table>')?.rows[0][0]).toBe('가A – …');
+  });
+  it('태그 모양 글자는 지우지 않는다', () => {
+    expect(tbl('<table><tr><td>x<y 그리고 y>z</td><td>A<B이고 C>D</td></tr></table>')?.rows[0]).toEqual(['x<y 그리고 y>z', 'A<B이고 C>D']);
+  });
+  it('칸 안 블록은 줄바꿈 하나로 나뉜다', () => {
+    expect(tbl('<table><tr><td><p>a</p><ul><li>b</li></ul><p>c</p></td><td><h3>제목</h3><p>본문</p></td></tr></table>')?.rows[0]).toEqual(['a<br>b<br>c', '제목<br>본문']);
+  });
+  it('머리 칸 rowspan 이 내려가는 행까지 머리행이다', () => {
+    const md = '<table><thead><tr><th rowspan="2">구분</th><th>내용</th></tr></thead><tbody><tr><td>x</td></tr><tr><td>p</td><td>q</td></tr></tbody></table>';
+    expect(tbl(md)?.headRows).toBe(2);
+  });
+  it('병합 표시 방어 글자는 소스에 이스케이프로 있다', () => {
+    expect(tbl('<table><tr><td>x</td><td>&lt;</td></tr></table>')?.rows[0][1]).toBe('⁠<');
+  });
+});

@@ -49,7 +49,7 @@ export interface TableFeatures {
   vmerge?: boolean;
   /** HTML 표 전용(내부) — 원고가 rowspan 으로 머리행 병합을 명시했으면 머리행도 아래로 합친다 */
   vmergeHead?: boolean;
-  /** 머리행 수(HTML 표의 <thead>·<th> 줄). 없으면 1 */
+  /** 머리행 수(HTML 표의 <thead>·<th> 줄). 없으면 1. HTML 표는 0 일 수 있다(머리행 없는 표) */
   headRows?: number;
 }
 
@@ -122,7 +122,7 @@ function fixQuotes(s: string): string {
   return s.replace(/"/g, () => ((open = !open) ? '“' : '”'));
 }
 
-const HTML_ENT: Record<string, string> = { amp: '&', lt: '<', gt: '>', quot: '"', nbsp: ' ', '#39': "'", middot: '·' };
+const HTML_ENT: Record<string, string> = { amp: '&', lt: '<', gt: '>', quot: '"', nbsp: ' ', '#39': "'", middot: '·', ndash: '–', mdash: '—', hellip: '…', apos: "'", rarr: '→', larr: '←', times: '×', lsquo: '‘', rsquo: '’', ldquo: '“', rdquo: '”' };
 /** HTML <table> → 칸 격자. rowspan·colspan 은 우리 병합 표시(「^」 위와 합침, 「<」 왼쪽과 합침)로 바꾼다.
  *  칸 안 <strong>/<b> → **굵게**, <br> → <br>(칸 줄바꿈), 그 밖의 태그는 벗긴다. 격자가 맞지 않으면 null */
 export function htmlTableRows(html: string): string[][] | null {
@@ -147,19 +147,24 @@ export function htmlTable(html: string): { rows: string[][]; headRows: number; c
   const cellText = (s: string) => {
     const t = s
       .replace(/<br\s*\/?>/gi, '<br>')
-      .replace(/<\/(p|li|div)>\s*(?=<(p|li|div|ul|ol)\b)/gi, '<br>') // 칸 안 여러 문단·목록 → 칸 줄바꿈
-      .replace(/<\/?(strong|b)\b[^>]*>/gi, '**')
-      .replace(/<\/?[a-z][a-z0-9]*\b[^>]*>/gi, (m) => (/^<br>$/i.test(m) ? m : '')) // 태그만 벗긴다 — 「3 < 5」 같은 글자는 둔다
-      .replace(/&#(\d+);/g, (_, n) => String.fromCodePoint(Number(n)))
-      .replace(/&#x([0-9a-f]+);/gi, (_, n) => String.fromCodePoint(parseInt(n, 16)))
-      .replace(/&(amp|lt|gt|quot|nbsp|#39|middot);/g, (_, e) => HTML_ENT[e])
+      .replace(/<\/(p|li|div|h[1-6])>/gi, '<br>') // 칸 안 여러 문단·목록·제목 → 칸 줄바꿈(겹친 줄바꿈은 아래에서 하나로)
+      .replace(/<\/?(strong|b)(?=[\s>/])[^>]*>/gi, '**')
+      // 아는 태그 이름만 벗긴다 — 「x<y 그리고 y>z」 같은 글자는 둔다
+      .replace(/<\/?(?:p|div|span|ul|ol|li|h[1-6]|em|i|u|s|small|sup|sub|font|a|code|mark|del|ins|img|hr|colgroup|col|thead|tbody|tfoot)(?=[\s>/])[^>]*>/gi, '')
+      .replace(/&#(\d+);|&#x([0-9a-f]+);/gi, (m, d, h) => {
+        const n = d ? Number(d) : parseInt(h, 16);
+        return n > 0 && n <= 0x10ffff ? String.fromCodePoint(n) : m; // 범위 밖 번호는 글자 그대로(RangeError 로 변환이 죽지 않게)
+      })
+      .replace(/&([a-z]+|#39);/gi, (m, e) => HTML_ENT[e] ?? m)
       .replace(/\s*\n\s*/g, ' ')
-      .replace(/^(?:<br>)+|(?:<br>)+$/g, '')
+      .replace(/(?:\s*<br>\s*){2,}/g, '<br>')
+      .replace(/^(?:\s*<br>)+|(?:<br>\s*)+$/g, '')
       .trim();
     return t === '<' || t === '^' ? LITERAL_MARK + t : t;
   };
   const grid: string[][] = [];
   let bad = false;
+  let headReach = 0; // 머리 칸 rowspan 이 내려가는 끝 — 머리행 범위를 거기까지 넓혀 머리·본문이 한 칸에 섞이지 않게
   trs.forEach((tr, r) => {
     grid[r] ??= [];
     let c = 0;
@@ -173,17 +178,22 @@ export function htmlTable(html: string): { rows: string[][]; headRows: number; c
         return;
       }
       const text = cellText(m[3]);
+      if (r < headRows) headReach = Math.max(headReach, r + rs);
       for (let a = 0; a < rs; a++) {
         grid[r + a] ??= [];
         // 덮인 칸: 첫 줄은 「<」, 아래 줄은 폭 전체 「^」 — tableXml 은 위 칸 폭 전체가 「^」 일 때만 아래로 늘린다
-        for (let b = 0; b < cs; b++) grid[r + a][c + b] = a > 0 ? '^' : b > 0 ? '<' : text;
+        for (let b = 0; b < cs; b++) {
+          if (grid[r + a][c + b] !== undefined) bad = true; // 위 칸 rowspan 이 예약한 자리를 덮는다 — 격자 충돌
+          grid[r + a][c + b] = a > 0 ? '^' : b > 0 ? '<' : text;
+        }
       }
       c += cs;
     }
   });
   if (bad) return null;
+  if (headRows > 0) headRows = Math.min(trs.length, Math.max(headRows, headReach));
   const ncol = grid.reduce((n, row) => Math.max(n, row.length), 0);
-  if (!ncol || grid.length !== trs.length || grid.some((row) => row.length !== ncol || row.some((x) => x === undefined))) return null;
+  if (!ncol || grid.length !== trs.length || grid.some((row) => row.length !== ncol || Array.from(row).some((x) => x === undefined))) return null; // Array.from — 빈 자리(희소 배열)도 undefined 로 센다
   const cap = /<caption\b[^>]*>([\s\S]*?)<\/caption>/i.exec(html);
   return { rows: grid, headRows, caption: cap ? cellText(cap[1]).replace(/<br>/g, ' ') : '' };
 }
