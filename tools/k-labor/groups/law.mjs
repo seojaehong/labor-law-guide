@@ -1,4 +1,4 @@
-/*! law 묶음 — 법제처 국가법령정보 Open API(DRF) 조회 도구 7개.
+/*! law 묶음 — 법제처 국가법령정보 Open API(DRF) 조회 도구 7개 + 판례 인용 대조 1개.
  * 도구 구성(법령 검색·별표서식·조문 연혁·판례·법령해석례)은 korean-law-mcp v2.1.6 을 참고해 노무 실무에 쓰는 것만 골랐다.
  *   korean-law-mcp — MIT License, Copyright (c) 2025 Chris — https://github.com/chrisryugj/korean-law-mcp
  *   (전문은 tools/k-labor/THIRD_PARTY_NOTICES.md)
@@ -10,6 +10,7 @@
 //   get_precedent          판례 본문                      lawService.do target=prec
 //   search_interpretations 법령해석 검색(고용노동부·법제처) lawSearch.do  target=moelCgmExpc · expc
 //   get_interpretation     법령해석 본문                   lawService.do target=moelCgmExpc · expc
+//   check_citations        판례 인용 대조(글자 대조)       lib/cite-check.mjs — 법제처에는 사건번호만 보낸다(261123)
 // 조문 원문·두 시점 비교는 work-rules 묶음의 get_law_article·compare_law_versions 가 맡는다(여기서 다시 만들지 않는다 — 법제처 신구조문대비 oldAndNew 도 그래서 뺐다).
 // ★ OC 는 env LAW_OC 로만 받는다(lib/law-drf.mjs lawOc). 도구 인자로 받지 않는다.
 // ★ 원격판(remote.mjs)에 싣지 않는다 — 법제처는 등록한 IP 만 받고 OC 가 이용자마다 달라, 원격판은 서버 OC 관리 방식을 정한 뒤에 연다.
@@ -22,10 +23,12 @@ import {
   OPEN_SOURCE, INTERP, joCode, precLink,
   searchLaws, searchPrecedents, fetchPrecedent, searchInterps, fetchInterp, searchAnnexes, fetchArticleHistory,
 } from '../lib/law-open.mjs';
+import { checkCitations, drfFetchBody, NOT_FOUND_NOTE, parseCitationBlocks, VERDICT } from '../lib/cite-check.mjs';
 
 export const lawTools = [
   'search_laws', 'list_law_forms', 'get_article_history',
   'search_precedents', 'get_precedent', 'search_interpretations', 'get_interpretation',
+  'check_citations',
 ];
 
 const READ_ONLY_LIVE = { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true };
@@ -296,6 +299,39 @@ export function registerLaw(server) {
         const e = await fetchInterp(source, a.id);
         if (!e) return fail('법제처가 이 번호의 해석 본문을 주지 않았습니다. id 와 source 를 확인해 주세요.');
         return text({ ok: true, source, sourceName: INTERP[source].label, ...e, id: e.id ?? a.id, from: src() });
+      } catch (err) {
+        return fail(errMsg(err));
+      }
+    },
+  );
+
+  // ── 8. 판례 인용 대조 ──
+  server.registerTool(
+    'check_citations',
+    {
+      title: '판례 인용 대조(법제처 전문·붙여 넣은 전문)',
+      description:
+        '문서의 「[관련 판결] 법원 선고일 사건번호 판결」 블록마다 인용 조각이 그 판결 전문에 글자 그대로 있는지 대조한다. 공백·따옴표·문장부호 차이는 무시하고, 「(중략)」·「…」로 끊긴 조각은 따로 본다. ' +
+        '전문은 bodies(사건번호 → 붙여 넣은 전문)를 먼저 쓰고, 없으면 법제처 Open API 에서 받는다(env LAW_OC 필요, 대법원 판결은 대부분 있고 하급심은 대부분 없다). 법제처에는 사건번호만 보낸다. ' +
+        '결과 = 일치 · 근사(유사도 0.85 이상) · 불일치 · 전문 못 찾음 · 같은 사건번호의 다른 법원 판결만 있음 · 요약(대조 제외). 모델을 부르지 않는 글자 대조다.',
+      inputSchema: {
+        text: z.string().min(1).max(400_000).describe('대조할 문서 글(md 또는 평문). [관련 판결] 머리줄과 그 아래 인용 줄이 있어야 한다'),
+        bodies: z.record(z.string().max(40), z.string().max(400_000)).optional().describe('붙여 넣은 판결 전문 — 사건번호(예: 2023구합12345) → 전문'),
+      },
+      annotations: READ_ONLY_LIVE,
+    },
+    async (a) => {
+      if (argsLookLikeRrn(a)) return fail(RRN_STOP);
+      try {
+        if (!parseCitationBlocks(a.text).length) return fail('「[관련 판결] 법원 선고일 사건번호 판결」 머리줄을 찾지 못했습니다. 머리줄 아래에 인용 줄을 두어 주세요.');
+        const r = await checkCitations(a.text, { bodies: a.bodies ?? {}, fetchBody: drfFetchBody });
+        return text({
+          ok: true,
+          counts: r.counts,
+          rows: r.rows,
+          ...(r.counts[VERDICT.NOT_FOUND] ? { notice: NOT_FOUND_NOTE } : {}),
+          source: src(),
+        });
       } catch (err) {
         return fail(errMsg(err));
       }

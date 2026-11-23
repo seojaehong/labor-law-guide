@@ -83,7 +83,7 @@
         <button type="button" class="key" data-g="nosa" data-n="10" data-r="2" aria-pressed="false"><span class="led"></span>노사협의회<small>설치·회의·서류</small></button>
         <button type="button" class="key" data-g="forms" data-n="3" data-r="1" aria-pressed="false"><span class="led"></span>모성보호 서식<small>육아휴직·배우자 휴가</small></button>
         <button type="button" class="key" data-g="docs" data-n="2" data-r="0" aria-pressed="false"><span class="led"></span>한글 문서<small>마크다운 → hwpx</small></button>
-        <button type="button" class="key" data-g="law" data-n="7" data-r="0" aria-pressed="false"><span class="led"></span>법령·판례 조회<small>법제처 실시간</small></button>
+        <button type="button" class="key" data-g="law" data-n="8" data-r="0" aria-pressed="false"><span class="led"></span>법령·판례 조회<small>법제처 실시간</small></button>
         <button type="button" class="key mod all" data-all aria-pressed="false">전체 켜기</button>
       </div>
       <div class="cmd"><pre><code id="pick-cmd">claude mcp add --scope user k-labor "--" npx -y k-labor mcp --groups "contract,calc"</code></pre><button type="button" class="copy">복사</button></div>
@@ -96,7 +96,7 @@
 
 <div class="facts">
   <div class="wrap">
-    <div><b>59개</b><span>12개 묶음, 필요한 것만 켭니다</span></div>
+    <div><b>60개</b><span>12개 묶음, 필요한 것만 켭니다</span></div>
     <div><b>26개</b><span>설치 없이 원격 주소로</span></div>
     <div><b>같은 값</b><span>사이트 계산기와 같은 엔진</span></div>
     <div><b>대화에 싣지 않음</b><span>주민등록번호는 PC 안에서만</span></div>
@@ -109,7 +109,7 @@
     <div class="sites ways">
       <article class="site">
         <header><span class="badge t-mod">PC</span><div><h3>내 PC에 설치</h3><span class="host">npx -y k-labor mcp</span></div></header>
-        <dl><dt>쓰는 곳</dt><dd>Claude Code · Claude Desktop · Cursor · Windsurf</dd><dt>도구</dt><dd>12개 묶음 59개 전부</dd><dt>필요한 것</dt><dd>Node.js 20 이상</dd><dt>여기서만</dt><dd>계약서·신고서 파일 만들기, 팩스·문자, 취업규칙 파일 읽기, 법제처 실시간 조회(법령·판례·법령해석)</dd></dl>
+        <dl><dt>쓰는 곳</dt><dd>Claude Code · Claude Desktop · Cursor · Windsurf</dd><dt>도구</dt><dd>12개 묶음 60개 전부</dd><dt>필요한 것</dt><dd>Node.js 20 이상</dd><dt>여기서만</dt><dd>계약서·신고서 파일 만들기, 팩스·문자, 취업규칙 파일 읽기, 법제처 실시간 조회(법령·판례·법령해석)</dd></dl>
       </article>
       <article class="site">
         <header><span class="badge t-ink">URL</span><div><h3>원격 주소로 연결</h3><span class="host">https://yellowenvelope.kr/api/mcp/mcp</span></div></header>
@@ -179,8 +179,8 @@
         <div><span class="tag amber">내 PC 전용</span></div>
       </article>
       <article class="site">
-        <header><span class="badge t-mod">판례</span><div><h3>법령·판례 조회</h3><span class="host">--groups law · 도구 7개</span></div></header>
-        <p>법령 이름 검색, 별표·별지 서식 목록과 내려받을 파일 주소, 조문 하나의 개정 연혁, 판례 검색·본문, 고용노동부 법령해석과 법제처 법령해석례 검색·본문을 법제처에서 가져옵니다. 글자는 법제처 응답 그대로입니다.</p>
+        <header><span class="badge t-mod">판례</span><div><h3>법령·판례 조회</h3><span class="host">--groups law · 도구 8개</span></div></header>
+        <p>법령 이름 검색, 별표·별지 서식 목록과 내려받을 파일 주소, 조문 하나의 개정 연혁, 판례 검색·본문, 고용노동부 법령해석과 법제처 법령해석례 검색·본문을 법제처에서 가져옵니다. 글자는 법제처 응답 그대로입니다. 문서의 [관련 판결] 인용이 판결 전문에 글자 그대로 있는지도 대조합니다(법제처에는 사건번호만 보냅니다).</p>
         <div><span class="tag amber">내 PC에서만</span> <span class="tag grey">법제처 OC 필요</span></div>
       </article>
     </div>
