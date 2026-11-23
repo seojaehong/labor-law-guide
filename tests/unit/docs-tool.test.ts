@@ -19,7 +19,7 @@ const call = async (a: object) => JSON.parse((await tool.handler(a)).content[0].
 
 describe('docs 묶음', () => {
   it('도구 이름·설명·입력 설명에 금지어와 em dash 가 없다', () => {
-    expect(tools.map((t) => t.name)).toEqual(['make_hwpx_from_markdown', 'edit_hwpx_text']);
+    expect(tools.map((t) => t.name)).toEqual(['make_hwpx_from_markdown', 'edit_hwpx_text', 'read_hwp_as_markdown', 'fill_hwp_form', 'patch_hwp_from_markdown']);
     for (const t of tools) {
       const schema = Object.values(t.cfg.inputSchema ?? {}).map((v) => v.description ?? '').join('\n');
       const all = `${t.cfg.title}\n${t.cfg.description}\n${schema}`;

@@ -132,6 +132,9 @@ npx -y k-labor call check_min_wage args.json --groups calc
 | `forms` | `check_hr_form` | 파일을 만들지 않고 칸 검사 — problems(빈 필수 칸·날짜 형식·주민등록번호 모양) / notes(신청 기한 30일·7일 전, 기간 1년·추가 6개월, 출산예정일 50일 전·출산일부터 120일, 연 6일, 허용 통지 14일 같은 조문 대조 안내) / 원고. 이름이 실리므로 로컬 전용 |
 | `forms` | `make_hr_form` | **로컬 전용(파일 쓰기).** 칸 검사 뒤 서식을 한글(hwpx)로. 주민등록번호 칸 없음(생년월일만). 덮어쓰지 않고, 호출끼리 상태가 없어 여러 건을 동시에 불러도 된다. 웹판 https://yellowenvelope.kr/tools/hr-forms |
 | `docs` | `make_hwpx_from_markdown` | **로컬 전용(파일 쓰기).** 마크다운 원고 → 한글(hwpx). 제목 4단계(## 앞 □, Ⅰ~Ⅹ 장 앞 쪽나눔) · 본문 굵게 · 판례 번호 자동 굵게 · 목록 · 표(머리행 음영·반복, 열 폭 자동, 정렬, 칸 안 줄바꿈, 7열 이상 작은 글자, 긴 표는 쪽을 넘김) · 끝 15줄 안 날짜 줄부터 서명부 · 쪽번호. 프리셋 internal(행간 160%·여백 20mm)·tribunal(행간 200%·위 45·아래 30mm). 병합 칸·밑줄·인용 블록·링크는 못 만들고 `leftovers` 로 알림. 덮어쓰지 않음 |
+| `docs` | `read_hwp_as_markdown` | **로컬 전용(파일 쓰기).** 한글(HWP 5.x·hwpx) → 마크다운 파일. 병합 표는 colspan·rowspan HTML 표로 남김. `layout`: `visual`(기본, 읽기용) · `keep`(원본 표 구조 그대로 — `patch_hwp_from_markdown` 으로 되쓸 원고). OCR 안 함. 본문은 응답에 싣지 않고 파일로만(응답은 주민번호 모양을 가림). kordoc 4.25.3(MIT) |
+| `docs` | `fill_hwp_form` | **로컬 전용(파일 쓰기).** 서식 라벨 옆 칸·괄호 빈칸을 `values`(라벨 → 값, 배열이면 등장 순서대로)로 채워 `.hwp`(HWP 5.x 저장) 또는 `.hwpx` 로. hwp 서식은 서식 그대로 hwpx 로 바꿔 채우고, 못 바꾸면 멈춤(서식을 버리는 새로 짓기로 내려가지 않음). 못 찾은 라벨(`unmatched`)·모호 라벨(`rejected`, `requireUnique`)이 있으면 파일은 쓰고 `ok:false`·`incomplete:true`. 주민번호 모양 값은 받지 않음 |
+| `docs` | `patch_hwp_from_markdown` | **로컬 전용(파일 쓰기).** `layout: keep` 으로 뽑은 md 를 고친 것을 원본에 되쓰기 — 바뀐 글자만, 서식 그대로, 원본과 같은 형식(hwp→.hwp, hwpx→.hwpx). 되쓰지 못한 편집은 `skipped`(이유·전후 80자), 되읽어 대조한 잔차는 `verification` 으로 그대로 — 하나라도 있으면 파일은 쓰고 `ok:false`·`incomplete:true`. kordoc CLI 의 대체본(`.rewrite.hwpx`)은 만들지 않음 |
 | `law` | `search_laws` | 법령 이름(또는 본문 낱말)으로 현행 법령 찾기 — 법령ID·판 번호·공포일·시행일·법제처 화면 주소(법제처 Open API) |
 | `law` | `list_law_forms` | 법령 하나의 별표·별지 서식 목록 — 「별지 제8호서식」 표기·제목·공포일과 내려받을 파일 주소(한글·PDF) |
 | `law` | `get_article_history` | 조문 하나가 바뀐 판들(제정·조문변경, 공포일·시행일·판 번호, 시행 예정 판 포함) |
