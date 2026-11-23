@@ -14,6 +14,9 @@ import { fileURLToPath } from 'node:url';
 // 가짜 법제처는 tests/fixtures/laws/drf 의 고정 응답(실응답을 줄인 것 + 합성 줄)을 준다. OC 가 다르면 법제처처럼 「사용자 정보 검증」 실패를 준다.
 // 실제 법제처는 이 셸에 LAW_OC 가 있을 때만 끝에서 두 번 부른다(없으면 SKIP).
 process.env.LLG_TODAY = '2026-10-21';
+// 퇴고 — 이 PC 의 비공개 팩을 시험에 섞지 않는다(범용 팩만으로 돈다)
+delete process.env.PROSE_PACK_DIR;
+delete process.env.PROSE_ALLOW_FULL;
 const REAL_OC = process.env.LAW_OC || null;
 const MOCK_OC = 'synthetic-smoke-oc';
 const drfFix = fileURLToPath(new URL('../../tests/fixtures/laws/drf/', import.meta.url));
@@ -171,6 +174,8 @@ const ANN = {
   make_hwpx_from_markdown: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
   // 새 파일로 쓰고 원본·있는 파일은 건드리지 않는다
   edit_hwpx_text: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
+  // 퇴고 문체 점검 — 읽기 전용, 문서 글을 밖으로 보내지 않는다
+  check_prose: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
   // kordoc 한글 읽기·채우기·되쓰기 — 결과를 새 파일로 쓴다(덮어쓰지 않음)
   ...Object.fromEntries(['read_hwp_as_markdown', 'fill_hwp_form', 'patch_hwp_from_markdown']
     .map((n) => [n, { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false }])),
@@ -190,7 +195,7 @@ const ANN = {
 }
 // 이 판에서 더한 도구 8개 + 사이트 도구 7개(groups/more) — 「대신·대행·대리」도 함께 막는다
 const NOSA_TOOLS = ['assess_labor_council', 'check_council_meeting', 'make_labor_council_forms', 'make_council_meeting_docs', 'make_council_election_docs', 'check_council_rules', 'record_council_history', 'export_council_vault', 'import_council_minutes', 'make_council_rules_comparison'];
-const NEW_TOOLS = ['calc_severance', 'calc_holiday_pay', 'calc_pay_proration', 'calc_shutdown_allowance', 'calc_annual_leave', 'settle_leave_on_exit', 'calc_retirement_tax', 'list_employer_duties', ...MORE_TOOLS, ...NOSA_TOOLS, 'make_hwpx_from_markdown', 'edit_hwpx_text', 'read_hwp_as_markdown', 'fill_hwp_form', 'patch_hwp_from_markdown', 'list_hr_forms', 'check_hr_form', 'make_hr_form'];
+const NEW_TOOLS = ['calc_severance', 'calc_holiday_pay', 'calc_pay_proration', 'calc_shutdown_allowance', 'calc_annual_leave', 'settle_leave_on_exit', 'calc_retirement_tax', 'list_employer_duties', ...MORE_TOOLS, ...NOSA_TOOLS, 'make_hwpx_from_markdown', 'edit_hwpx_text', 'read_hwp_as_markdown', 'fill_hwp_form', 'patch_hwp_from_markdown', 'check_prose', 'list_hr_forms', 'check_hr_form', 'make_hr_form'];
 const NEW_WORDS = [...WORDS, '대신', '대행', '대리'];
 const bannedNew = (s) => (banned ? banned.bannedHits(s, NEW_WORDS) : []);
 for (const n of NEW_TOOLS) check(`${n}: 도구 목록에 있음`, tools.includes(n));
@@ -585,6 +590,11 @@ if (tools.includes('make_hwpx_from_markdown')) {
   // 양식 모드 — 앞서 만든 파일을 양식으로 다시 쓴다
   const tm = await callNew('make_hwpx_from_markdown', { markdown: '# 가상 양식본\n\n양식 모양으로 채운 본문.', preset: 'internal', outDir: dir, templateFile: mh.file.path });
   check(`docs 양식 모드 ${tm.file?.bytes}B`, tm.ok && fs.existsSync(tm.file.path));
+  // 퇴고 — 범용 팩만으로도 돈다. 공개 팩은 기본으로 걸린 글자까지, brief 응답에는 걸린 글자·고칠 말이 없다
+  const pr = await callNew('check_prose', { text: '가상 보고서입니다. 결과를 가르는 것은 시간입니다.', genre: 'general' });
+  check(`check_prose 범용 팩 B ${pr.counts?.B}`, pr.ok && pr.counts?.B === 1 && 'word' in (pr.hits?.[0] ?? {}) && !pr.skipped && !pr.incomplete);
+  const pb = await callNew('check_prose', { text: '가상 보고서입니다. 결과를 가르는 것은 시간입니다.', genre: 'general', detail: 'brief' });
+  check('check_prose brief 는 위치만', pb.ok && pb.counts?.B === 1 && !('fix' in (pb.hits?.[0] ?? {})) && !('word' in (pb.hits?.[0] ?? {})));
   // kordoc — 앞서 만든 hwpx 를 읽고(md), 표 칸을 채워 .hwp(CFB)로, keep 원고 한 낱말을 고쳐 되쓴다(설치본에서 kordoc·@rhwp/core 가 풀리는지)
   if (tools.includes('read_hwp_as_markdown')) {
     const rd = await callNew('read_hwp_as_markdown', { file: mh.file.path, outFile: path.join(dir, 'read.md'), layout: 'keep' });

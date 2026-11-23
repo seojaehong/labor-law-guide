@@ -1,6 +1,7 @@
 // 문서 묶음 — 마크다운 원고를 한글(hwpx) 파일로 만든다.
 //   make_hwpx_from_markdown  md → hwpx(프리셋 internal·tribunal). 변환 규칙은 src/lib/md-hwpx
 //   read_hwp_as_markdown · fill_hwp_form · patch_hwp_from_markdown  한글 읽기·서식 채우기·되쓰기(lib/hangul-kordoc.mjs, kordoc)
+//   check_prose  퇴고 문체 점검 — 규칙·검출식은 팩(JSON): lib/prose/generic-pack.json + env PROSE_PACK_DIR(261123)
 // ★ 파일을 읽고 쓰므로 원격판(remote.mjs)에서 불러오지 않는다. stdio 판(server.mjs)으로만 켠다.
 // ★ 공개 문구 금지어 + 포괄·대신·대행·대리·지도를 이 묶음의 글(설명·결과)에 쓰지 않는다.
 import { z } from 'zod';
@@ -10,9 +11,11 @@ import { mdHwpxSummary, mdToHwpx, parseMarkdown } from '@/lib/md-hwpx';
 import { fillCells, replaceText } from '@/lib/md-hwpx/postedit';
 import { mdToHwpxWithTemplate } from '@/lib/md-hwpx/template';
 import { argsLookLikeRrn, looksLikeRrn, text, writeNew } from '../lib/common.mjs';
+import { checkProse, loadPackSet } from '../lib/prose/check.mjs';
 import { capSkipped, decodeMarkdown, fillHangul, hangulKind, maskExcerpt, MAX_MARKDOWN_BYTES, patchHangul, patchVerdict, readHangul, sanitizeReason } from '../lib/hangul-kordoc.mjs';
 
-export const docsTools = ['make_hwpx_from_markdown', 'edit_hwpx_text', 'read_hwp_as_markdown', 'fill_hwp_form', 'patch_hwp_from_markdown'];
+export const docsTools = ['make_hwpx_from_markdown', 'edit_hwpx_text', 'read_hwp_as_markdown', 'fill_hwp_form', 'patch_hwp_from_markdown', 'check_prose'];
+const PROSE_RRN_STOP = '입력에 주민등록번호 모양의 숫자가 있어 멈췄습니다. 가린 뒤 다시 점검해 주세요.';
 
 const WRITES = { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false };
 const fail = (error, extra = {}) => text({ ok: false, error, ...extra });
@@ -345,5 +348,37 @@ export function registerDocs(server) {
         notice: '한글에서 열어 고친 곳과 쪽 나눔을 확인한 뒤 냅니다.',
       });
     }),
+  );
+
+  // ── 퇴고 — 문서 문체 점검(결정론). 규칙은 팩(JSON): 범용 팩 + env PROSE_PACK_DIR 의 팩
+  server.registerTool(
+    'check_prose',
+    {
+      title: '퇴고: 문서 문체 점검(규칙 팩)',
+      description:
+        '의견서·보고서·강의안 같은 업무 문서에서 비유·구어 표현, 번역투, AI 문체 상투어, 서식 위반을 줄·칸 단위로 찾는다. > 인용 줄과 [관련 판결] 줄은 원문이라 본문 규칙을 보지 않는다. 표 칸의 「」·“ ” 안은 원문으로 보고 가린다. ' +
+        'A = 고칠 표현, B = 문맥을 보고 판단할 표현. 빈도·문장 길이·종결어미 반복 같은 알림은 notes 에 따로 준다. 걸린 곳이 많으면 hits 는 500건까지(A 먼저, 같은 등급은 앞의 것부터) 싣고 truncated 로 알린다(counts 는 전부 센 수). 규칙은 범용 팩(im-not-ai 유래)과 이 PC 의 PROSE_PACK_DIR 팩에서 읽는다. 읽지 못하거나 점검 중 멈춘 팩이 있으면 그 팩을 빼고 ok:false·incomplete:true 와 skipped(고정 코드)로 알린다. ' +
+        '공개 팩의 걸림에는 걸린 글자·고칠 말·규칙 이름이 붙는다. 비공개 팩은 위치·등급·짧은 사유만 주고(PROSE_ALLOW_FULL=1 인 PC 에서는 전부), full 을 달라고 했는데 줄였으면 withheld 로 알린다. 모델을 부르지 않고, 문서 글을 밖으로 보내지 않는다.',
+      inputSchema: {
+        text: z.string().min(1).refine((s) => s.length <= 400_000 || (s.length <= 800_000 && [...s].length <= 400_000), '40만 자까지 점검합니다').describe('점검할 문서 글(md 또는 평문, 40만 자까지)'),
+        genre: z.enum(['legal', 'consulting', 'lecture', 'general', 'official']).optional().describe('legal(기본: 의견서·조사보고서) / consulting / lecture / general(official 은 general 과 같다). 장르별 검사는 팩에 달려 있다'),
+        detail: z.enum(['brief', 'full']).optional().describe('비우면 공개 팩은 전부·비공개 팩은 위치만 / brief 모든 팩을 위치·등급·짧은 사유만 / full 비공개 팩도 전부(이 PC 가 허용할 때만)'),
+      },
+      annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+    },
+    async (a) => {
+      if (argsLookLikeRrn({ text: a.text })) return fail(PROSE_RRN_STOP);
+      try {
+        const set = loadPackSet();
+        const genre = a.genre === 'official' ? 'general' : (a.genre ?? 'legal');
+        const r = checkProse(a.text, { packs: set.packs, skipped: set.skipped, genre, detail: a.detail });
+        return text({ ok: !r.incomplete, genre, ...r });
+      } catch (e) {
+        // 오류 글에 팩 내용이 실리지 않게 — 응답은 고정 코드, stderr 에는 오류 종류와 호출 자리(「at …」 줄)만.
+        // 오류 글이 여러 줄이면 스택 첫 줄만 떼어서는 글이 남으므로 「at」 줄만 고른다
+        console.error('[check_prose]', e instanceof Error ? `${e.name}\n${String(e.stack ?? '').split('\n').filter((l) => /^\s+at /.test(l)).join('\n')}` : 'unknown');
+        return fail('PROSE_CHECK_FAILED');
+      }
+    },
   );
 }
