@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import JSZip from 'jszip';
+import { z } from 'zod';
 import { zodToJsonSchema } from 'zod-to-json-schema';
 import { bannedHits } from '@/lib/tool-kit/banned';
 import { registerDocs } from '../../tools/k-labor/groups/docs.mjs';
@@ -52,6 +53,29 @@ describe('docs 묶음', () => {
       expect(t.ok).toBe(true);
       expect((await call({ markdown: '# x', preset: 'internal', outDir: dir, templateFile: path.join(dir, '없음.hwpx') })).error).toContain('양식');
       expect((await call({ markdown: '# y', preset: 'internal', outDir: dir, templateFile: r.file.path, templateSamples: { body: '없는샘플' } })).error).toContain('샘플');
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('orientation·tableLineSpacing — 입력 스키마에 있고, 가로 파일을 쓰며, 범위 밖 줄간격은 멈춘다(261124)', async () => {
+    const schema = z.object(tool.cfg.inputSchema as z.ZodRawShape);
+    const base = { markdown: '# x', preset: 'internal', outDir: '.' };
+    expect(schema.safeParse({ ...base, orientation: 'landscape', tableLineSpacing: 180 }).success).toBe(true);
+    expect(schema.safeParse({ ...base, orientation: 'sideways' }).success).toBe(false);
+    for (const v of [99, 251, 150.5]) expect(schema.safeParse({ ...base, tableLineSpacing: v }).success).toBe(false);
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'md-hwpx-'));
+    try {
+      const md = '# 가상 가로 문서\n\n| 쟁점 | 주장 | 반론 | 검토 |\n|---|---|---|---|\n| 가 | 나 | 다 | 라 |\n';
+      const r = await call({ markdown: md, preset: 'internal', outDir: dir, orientation: 'landscape', tableLineSpacing: 180 });
+      expect(r.ok).toBe(true);
+      const z2 = await JSZip.loadAsync(fs.readFileSync(r.file.path));
+      expect(await z2.file('Contents/section0.xml')!.async('string')).toContain('landscape="NARROWLY" width="59528" height="84186"');
+      expect(await z2.file('Contents/header.xml')!.async('string')).toMatch(/<hh:paraPr id="27"[^>]*>[\s\S]*?value="180"/);
+      const bad = await call({ markdown: md, preset: 'internal', outDir: dir, fileBase: 'bad', tableLineSpacing: 300 });
+      expect(bad.ok).toBe(false);
+      expect(bad.error).toContain('tableLineSpacing');
+      expect(fs.existsSync(path.join(dir, 'bad.hwpx'))).toBe(false);
     } finally {
       fs.rmSync(dir, { recursive: true, force: true });
     }

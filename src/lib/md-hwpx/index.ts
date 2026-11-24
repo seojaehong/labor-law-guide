@@ -66,8 +66,12 @@ export interface MdHwpxOptions {
   features?: MdFeatures;
   /** S10 그림 바이트 — md 의 경로 글자 그대로를 열쇠로 */
   images?: Record<string, Uint8Array>;
-  /** S13 템플릿 모드 — 양식의 쪽 설정(hp:pagePr 통째). 주면 프리셋 여백 대신 이것을 쓴다 */
+  /** S13 템플릿 모드 — 양식의 쪽 설정(hp:pagePr 통째). 주면 프리셋 여백 대신 이것을 쓴다(orientation 보다 우선) */
   pagePr?: string;
+  /** 용지 방향. 기본 portrait(A4 세로, 지금과 같은 출력). landscape = A4 가로 — pagePr landscape="NARROWLY", 치수는 그대로(근거는 시험 md-hwpx-landscape) */
+  orientation?: 'portrait' | 'landscape';
+  /** 표 칸 줄간격(%), 100~250 정수. 기본 150. 삼선표(style threeLine)는 제 줄간격 110% 를 쓴다 */
+  tableLineSpacing?: number;
 }
 
 const PRESETS: Record<MdPreset, { lineSpacing: number; top: number; bottom: number; left: number; right: number }> = {
@@ -341,7 +345,7 @@ const para = (inner: string, paraPr: number, pageBreak = false) =>
 /** 표시 폭 근사 — 한글·전각 2, 그 밖 1. 칸 안 <br> 이 있으면 가장 긴 줄 */
 const dispLen = (s: string) => Math.max(...s.split(/<br\s*\/?>/i).map((seg) => [...stripBold(seg)].reduce((n, ch) => n + (ch.codePointAt(0)! > 0x2e7f ? 2 : 1), 0)));
 
-function tableXml(rows0: string[][], aligns: CellAlign[], usable: number, bodyH: number, id: number, tf: TableFeatures = {}, st?: Styles, dashes?: number[]): string {
+function tableXml(rows0: string[][], aligns: CellAlign[], usable: number, bodyH: number, id: number, tf: TableFeatures = {}, st?: Styles, dashes?: number[], lineSpacing = TABLE_LINE_SPACING): string {
   const three = tf.style === 'threeLine' && !!st;
   const [mLR, mTB] = three ? [283, 113] : [510, 141];
   const ncol = Math.max(...rows0.map((r) => r.length));
@@ -391,7 +395,7 @@ function tableXml(rows0: string[][], aligns: CellAlign[], usable: number, bodyH:
   const area = grid.flat().reduce((s, g) => s + (g ? g.cs * g.rs : 0), 0);
   if (area !== rows.length * ncol) throw new Error(`표 칸 격자가 맞지 않습니다(${area}/${rows.length * ncol})`);
   const spanW = (ri: number, ci: number) => widths.slice(ci, ci + (grid[ri][ci]?.cs ?? 1)).reduce((s, x) => s + x, 0);
-  const lineH = Math.floor((fh * 130) / 100);
+  const lineH = Math.floor((fh * lineSpacing) / 100); // 행 높이 추정(55% 배치 판단)도 표 칸 줄간격을 따른다
   const rowHs = rows.map((r, ri) => Math.max(...r.map((c, j) => (grid[ri][j] === null ? 1 : Math.max(1, Math.ceil((dispLen(c) * half) / Math.max(1, spanW(ri, j) - pad)))))) * lineH + 282);
   const asChar = rowHs.reduce((s, x) => s + x, 0) < Math.floor((bodyH * 55) / 100);
   const ROW_H = 1400;
@@ -556,15 +560,23 @@ export function mdSectionXml(items: MdItem[], opts: MdHwpxOptions = {}): string 
 /** header 와 section 을 함께 만든다 — 선택값이 모양을 더하면 header 가 바뀐다. 기본(끔)이면 header = presetHeader */
 export function mdDocXml(items: MdItem[], opts: MdHwpxOptions = {}): { header: string; section: string; bins: BinItem[]; clones: CloneLog } {
   const f = opts.features ?? {};
-  const st = new Styles(presetHeader(opts.preset));
+  const tls = checkTableLineSpacing(opts.tableLineSpacing ?? TABLE_LINE_SPACING);
+  const st = new Styles(presetHeader(opts.preset, tls));
   const p = PRESETS[opts.preset ?? 'internal'];
   let secPr = SEC_PR.replace(
     /(<hp:margin\s+header="[^"]*"\s+footer="[^"]*"\s+gutter="[^"]*"\s+)left="[^"]*"\s+right="[^"]*"\s+top="[^"]*"\s+bottom="[^"]*"/,
     `$1left="${p.left}" right="${p.right}" top="${p.top}" bottom="${p.bottom}"`,
   );
+  const orient = opts.orientation ?? 'portrait';
+  if (orient !== 'portrait' && orient !== 'landscape') throw new Error(`orientation 은 portrait·landscape 중 하나입니다: ${String(orient)}`);
+  // 가로 = landscape="NARROWLY" 만 바꾸고 width/height 는 세로 치수 그대로(work-rules-report/render.ts:311 과 같음, rhwp 실측).
+  // 여백은 돌지 않는다 — 본문 폭은 용지 높이에서, 본문 높이는 용지 너비에서 뺀다. 양식(pagePr)을 주면 양식 쪽 설정이 우선
+  const wide = orient === 'landscape' && !opts.pagePr;
+  if (wide) secPr = secPr.replace('<hp:pagePr landscape="WIDELY"', '<hp:pagePr landscape="NARROWLY"');
   if (opts.pagePr) secPr = secPr.replace(/<hp:pagePr\b[\s\S]*?<\/hp:pagePr>/, opts.pagePr);
-  const pageW = Number(/<hp:pagePr[^>]*\bwidth="(\d+)"/.exec(secPr)?.[1] ?? 59528);
-  const pageH = Number(/<hp:pagePr[^>]*\bheight="(\d+)"/.exec(secPr)?.[1] ?? 84186);
+  const sheetW = Number(/<hp:pagePr[^>]*\bwidth="(\d+)"/.exec(secPr)?.[1] ?? 59528);
+  const sheetH = Number(/<hp:pagePr[^>]*\bheight="(\d+)"/.exec(secPr)?.[1] ?? 84186);
+  const [pageW, pageH] = wide ? [sheetH, sheetW] : [sheetW, sheetH];
   const mg = (k: string, d: number) => Number(new RegExp(`<hp:margin\\b[^>]*\\b${k}="(\\d+)"`).exec(secPr)?.[1] ?? d);
   const usable = pageW - mg('left', p.left) - mg('right', p.right);
   const bodyH = pageH - mg('top', p.top) - mg('bottom', p.bottom);
@@ -577,7 +589,7 @@ export function mdDocXml(items: MdItem[], opts: MdHwpxOptions = {}): { header: s
     if (x.kind === 'table') {
       // HTML 표는 원고가 병합을 명시했다 — 기능 플래그와 무관하게 합친다
       const tf = x.html ? { ...f.table, merge: true, vmerge: true, vmergeHead: true, headRows: x.headRows } : f.table;
-      body.push(tableXml(x.rows, x.aligns, usable, bodyH, ++tableId, tf, st, x.dashes));
+      body.push(tableXml(x.rows, x.aligns, usable, bodyH, ++tableId, tf, st, x.dashes, tls));
     }
     else if (x.kind === 'empty' || (!x.text && x.kind !== 'quote' && x.kind !== 'image')) body.push(para('<hp:run charPrIDRef="7"/>', 20));
     else if (x.kind === 'h1' || x.kind === 'h2' || x.kind === 'h3' || x.kind === 'h4') {
@@ -639,12 +651,23 @@ function emphasis(text: string, st: Styles, f: MdFeatures): [string, number][] {
   return out;
 }
 
-/** 프리셋 header.xml — 바탕의 행간을 프리셋 값으로(표 칸 27~29 는 130%) */
-export function presetHeader(preset: MdPreset = 'internal'): string {
+/** 표 칸 줄간격 기본값(%) — 261124 130 → 150(130 은 칸이 좁아 보였다) */
+export const TABLE_LINE_SPACING = 150;
+/** tableLineSpacing 입력 검사 — 100~250 정수 */
+export function checkTableLineSpacing(v: number): number {
+  if (!Number.isInteger(v) || v < 100 || v > 250) throw new Error(`tableLineSpacing 은 100~250 사이 정수(%)입니다: ${String(v)}`);
+  return v;
+}
+
+/** 프리셋 header.xml — 바탕의 행간을 프리셋 값으로. 표 칸 27~29 는 tableLineSpacing(기본 150%)·어절 단위 줄 나눔.
+ *  breakNonLatinWord: 바탕의 KEEP_WORD 가 한글에서 글자 단위로 끊겨 낱말이 잘렸다(「조/합원」, 261124 실렌더) → 표 칸만 BREAK_WORD.
+ *  바탕(HEADER_XML)은 근로계약서·서식 작성기와 함께 쓰므로 고치지 않고 여기서만 바꾼다 */
+export function presetHeader(preset: MdPreset = 'internal', tableLineSpacing = TABLE_LINE_SPACING): string {
   const ls = PRESETS[preset].lineSpacing;
+  const tls = checkTableLineSpacing(tableLineSpacing);
   return HEADER_XML.replace(/(<hh:lineSpacing type="PERCENT" value=")\d+(" unit="HWPUNIT"\/>)/g, `$1${ls}$2`).replace(
     /<hh:paraPr id="(27|28|29)"[\s\S]*?<\/hh:paraPr>/g,
-    (m) => m.replace(/(<hh:lineSpacing type="PERCENT" value=")\d+/g, '$1130'),
+    (m) => m.replace(/(<hh:lineSpacing type="PERCENT" value=")\d+/g, `$1${tls}`).replace(/(breakNonLatinWord=")[A-Z_]+"/, '$1BREAK_WORD"'),
   );
 }
 

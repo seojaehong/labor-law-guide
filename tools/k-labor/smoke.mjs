@@ -583,6 +583,11 @@ if (tools.includes('make_hwpx_from_markdown')) {
   const MDF = '# 가상 선택값 문서\n\n○ 기호 문단에 **문장 안 강조**가 있다.\n\n> [관련 판결] 대법원 2020. 1. 1. 선고 2019다1 판결\n> 인용 문장\n\n| 구분 | 1분기 | 2분기 |\n|--|----|----|\n| 합계 | 300 | < |\n';
   const mf = await callNew('make_hwpx_from_markdown', { markdown: MDF, preset: 'internal', outDir: dir, features: { indent: true, underline: true, quote: true, table: { width: 'fit', style: 'threeLine', merge: true, float: true } } });
   check(`docs 선택값 전부 켬 ${mf.file?.bytes}B (남은 기호 ${mf.leftovers?.length})`, mf.ok && fs.existsSync(mf.file.path) && mf.leftovers?.length === 0);
+  // 가로 용지·표 칸 줄간격(261124) — 가로 파일을 쓰고, 범위 밖 줄간격은 스키마에서 멈춘다
+  const ml = await callNew('make_hwpx_from_markdown', { markdown: '# 가상 가로 문서\n\n| 쟁점 | 주장 | 반론 | 검토 |\n|---|---|---|---|\n| 가 | 나 | 다 | 라 |\n', preset: 'internal', outDir: dir, orientation: 'landscape', tableLineSpacing: 180 });
+  check(`docs 가로 용지 ${ml.file?.bytes}B`, ml.ok && fs.existsSync(ml.file.path));
+  const mlBad = await c.callTool({ name: 'make_hwpx_from_markdown', arguments: { markdown: '# 가상 줄간격', preset: 'internal', outDir: dir, tableLineSpacing: 300 } }).catch((e) => ({ isError: true, e }));
+  check('docs 표 칸 줄간격 범위 밖은 거절', mlBad.isError === true && !fs.existsSync(path.join(dir, '가상 줄간격.hwpx')));
   // 글자만 고치기 — 새 파일, 원본 그대로, 0번이면 멈춤
   const before = fs.readFileSync(mh.file.path);
   const ed = await callNew('edit_hwpx_text', { file: mh.file.path, edits: [{ old: '가상상사', new: '가상상회' }], fills: [{ table: 0, row: 1, col: 1, text: '2,100,000' }] });

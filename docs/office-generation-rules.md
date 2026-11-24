@@ -78,7 +78,7 @@ pptx writer 가 없다. 검사 경로(`validate.py` 의 PPTX 검증기)는 pytho
 | H10 | XML 을 직접 고친 hwpx 는 `linesegarray` 를 지운다(낡은 줄 배치 캐시 → 「손상」 경고) | 준수 (생성기는 넣지 않음, rhwp 는 새로 계산해 넣음) |
 | H11 | em dash(—) 를 쓰지 않는다 · 쌍점 앞 띄어쓰기 금지 | 준수 — 서식·회의록·선거 서류 본문의 em dash 를 모두 걷어냄(`forms.ts`·`meeting.ts`·`election-docs.ts`). 도구 경고문·주석에는 남아 있으나 문서에 실리지 않는다 |
 | H12 | 제목 문단은 `keepWithNext="1"` — 다만 **다음이 표면 이어지지 않는다**(장 제목을 쪽 나눔으로 시작) | 부분 준수 — `contract-write/hwpx-header.ts` 문단 모양 30개 중 4개가 keepWithNext=1. `work-rules-report/render.ts` 는 같은 header 를 쓴다 |
-| H13 | 어절 단위 줄나눔(`breakNonLatinWord`): `KEEP_WORD` 가 실제로는 글자 단위로 끊긴 사례와, `BREAK_WORD` 로 바꾸자 양쪽 정렬 줄이 크게 벌어진 사례가 둘 다 있다 | **확인 필요** — `contract-write/hwpx-header.ts` 는 KEEP_WORD 24·BREAK_WORD 6. 검사기에는 넣지 않았다. 렌더해서 눈으로 판정 |
+| H13 | 어절 단위 줄나눔(`breakNonLatinWord`): `KEEP_WORD` 가 실제로는 글자 단위로 끊긴 사례와, `BREAK_WORD` 로 바꾸자 양쪽 정렬 줄이 크게 벌어진 사례가 둘 다 있다 | **확인 필요** — `contract-write/hwpx-header.ts` 는 KEEP_WORD 24·BREAK_WORD 6. 검사기에는 넣지 않았다. 렌더해서 눈으로 판정. 261124 md→hwpx 표 칸(문단 27~29)은 KEEP_WORD 로 「조/합원」처럼 낱말이 잘린 실렌더가 있어 `presetHeader` 에서 BREAK_WORD 로 바꿨다(바탕 header 는 그대로) |
 | H14 | 쪽 배치(제목·서명부가 쪽 끝에 홀로, 빈 쪽)는 XML 로 판정할 수 없다 — 렌더 PDF 를 만들어 본다 | 검사기는 옆에 같은 이름 PDF 가 있을 때만 쪽수·빈 쪽·마지막 쪽을 본다. 엔진에 hwpx→pdf 렌더 경로가 없어 이번 견본에서는 건너뜀 |
 
 ### 마크다운→hwpx — `src/lib/md-hwpx` 로 옮김(make_hwpx_from_markdown)
@@ -89,6 +89,7 @@ pptx writer 가 없다. 검사 경로(`validate.py` 의 PPTX 검증기)는 pytho
 - **열 폭 자동 배분** — 열별 최장 표시 폭(한글 2·반각 1) 비례, 머리행 글자가 한 줄에 들어가는 하한(「담당부 서」처럼 끊기지 않게), 7열 이상이면 작은 글자
 - **md 정렬 구문**(`:---:`·`---:`) → 셀 가운데·오른쪽 정렬, 셀 안 `<br>` → 줄바꿈
 - **서식 프리셋** — 내부용·제출용(위원회·법원) 두 벌: 글꼴·본문/제목 크기·행간(160%/200%)·여백(제출용 위 45mm)
+- **용지 방향·표 칸 줄간격(261124, 파이썬 판에 없음)** — `orientation: 'landscape'` 는 A4 가로: `pagePr landscape="NARROWLY"`, width/height 는 세로 치수 그대로, 여백은 돌지 않는다(근거 `work-rules-report/render.ts:311`·rhwp 실측, 시험 `tests/unit/md-hwpx-landscape.test.ts`). 본문 폭·높이·표 배치·열 폭이 가로를 따른다. 양식 모드는 양식 pagePr 우선. `tableLineSpacing`(100~250, 기본 150)은 표 칸 줄간격과 행 높이 추정에 함께 쓴다
 - **인라인 굵게**(`**…**`)와 판례 인용(「대법원 … 선고 … 판결」) 자동 굵게
 - **장 앞 쪽 나눔**(로마 숫자 장 제목) · 제목 문단 keepWithNext · 하단 가운데 쪽 번호 「- N -」
 - **서명부 인식** — 문서 끝 날짜 줄 이후를 오른쪽 정렬

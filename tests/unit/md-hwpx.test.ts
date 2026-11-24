@@ -119,13 +119,14 @@ describe('표', () => {
 describe('프리셋', () => {
   const ls = (h: string, id: number) => /lineSpacing type="PERCENT" value="(\d+)"/.exec(new RegExp(`<hh:paraPr id="${id}"[\\s\\S]*?</hh:paraPr>`).exec(h)![0])![1];
 
-  it('internal 은 바탕 그대로(행간 160), tribunal 은 행간 200·표 칸만 130', () => {
+  // 261124 표 칸 기본 130 → 150(md-hwpx-landscape 시험)
+  it('internal 은 바탕 그대로(행간 160), tribunal 은 행간 200·표 칸만 150', () => {
     expect(ls(presetHeader('internal'), 20)).toBe('160');
     const t = presetHeader('tribunal');
     expect(ls(t, 20)).toBe('200');
     expect(ls(t, 22)).toBe('200');
-    expect(ls(t, 27)).toBe('130');
-    expect(ls(t, 29)).toBe('130');
+    expect(ls(t, 27)).toBe('150');
+    expect(ls(t, 29)).toBe('150');
     expect(HEADER_XML).toContain('lineSpacing type="PERCENT" value="160"');
   });
 

@@ -36,7 +36,7 @@ export function registerDocs(server) {
       title: '마크다운을 한글(hwpx) 파일로 만들기(로컬 전용)',
       description:
         '마크다운 원고(의견서·답변서·검토 메모·양식집·보고서)를 한글 파일로 만든다. # ~ #### 제목(## 은 앞에 □, Ⅰ~Ⅹ 로 시작하면 쪽을 나눔), 본문 **굵게**, 판례 번호(「대법원 … 선고 … 판결」) 자동 굵게, 목록, 표(첫 행 = 머리행 음영·반복, 열 폭 자동, :---: 가운데·---: 오른쪽, 칸 안 <br> 줄바꿈, 7열 이상은 작은 글자, 긴 표는 쪽을 넘긴다), ' +
-        '끝 15줄 안의 날짜만 있는 줄부터 서명부(오른쪽 정렬), 아래 가운데 쪽번호를 넣는다. 기본으로는 병합 칸·밑줄·인용 블록·그림·링크를 만들지 않는다(결과 leftovers 에 남은 기호로 알린다). features 를 켜면 기호 내어쓰기·강조 밑줄·인용 블록·그림·표 선택값(떠 있는 표·열 폭·삼선표·가로·세로 병합)을 쓴다. ' +
+        '끝 15줄 안의 날짜만 있는 줄부터 서명부(오른쪽 정렬), 아래 가운데 쪽번호를 넣는다. 표 칸은 어절 단위로 줄을 나누고 줄간격 150%(tableLineSpacing 으로 조정), orientation landscape 면 A4 가로.기본으로는 병합 칸·밑줄·인용 블록·그림·링크를 만들지 않는다(결과 leftovers 에 남은 기호로 알린다). features 를 켜면 기호 내어쓰기·강조 밑줄·인용 블록·그림·표 선택값(떠 있는 표·열 폭·삼선표·가로·세로 병합)을 쓴다. ' +
         'preset = internal(내부 문서: 행간 160%·여백 20mm) / tribunal(법원·위원회 제출: 행간 200%·위 45·아래 30·좌우 20mm). 기관 서식이 따로 있으면 그 서식을 따른다. 이미 있는 파일은 덮어쓰지 않는다.',
       inputSchema: {
         markdown: z.string().max(1_000_000).optional().describe('마크다운 원고(글). markdownFile 과 둘 중 하나'),
@@ -46,6 +46,8 @@ export function registerDocs(server) {
         fileBase: z.string().max(120).optional().describe('파일 이름(확장자 빼고). 비우면 첫 # 제목, 그것도 없으면 md 파일 이름'),
         pageBreak: z.boolean().optional().describe('Ⅰ~Ⅹ 로 시작하는 ## 앞에서 쪽을 나눈다(기본 true)'),
         footer: z.boolean().optional().describe('아래 가운데 「- N -」 쪽번호(기본 true)'),
+        orientation: z.enum(['portrait', 'landscape']).optional().describe('용지 방향: portrait A4 세로(기본) / landscape A4 가로(열이 많은 표). 표 폭·배치도 가로 본문 폭을 따른다. templateFile 을 주면 양식의 쪽 설정이 우선'),
+        tableLineSpacing: z.number().int().min(100).max(250).optional().describe('표 칸 줄간격(%), 100~250. 기본 150. 삼선표는 110% 그대로'),
         templateFile: z.string().max(400).optional().describe('기관·고객 양식 hwpx 경로. 주면 양식의 글자·문단 모양과 쪽 설정을 그대로 쓰고 본문만 새로 채운다(양식 미리보기 그림은 옮기지 않음)'),
         templateSamples: z
           .object({ body: z.string().max(200).optional(), h1: z.string().max(200).optional(), h2: z.string().max(200).optional(), h3: z.string().max(200).optional(), h4: z.string().max(200).optional() })
@@ -99,7 +101,7 @@ export function registerDocs(server) {
       }
       let bytes;
       try {
-        const o = { preset: a.preset, pageBreak: a.pageBreak, footer: a.footer, features: a.features, images };
+        const o = { preset: a.preset, pageBreak: a.pageBreak, footer: a.footer, features: a.features, images, orientation: a.orientation, tableLineSpacing: a.tableLineSpacing };
         if (a.templateFile) {
           const tp = String(a.templateFile).trim();
           if (!/\.hwpx$/i.test(tp) || !fs.existsSync(tp) || !fs.statSync(tp).isFile()) return fail(`양식 hwpx 파일이 없습니다: ${tp}`);

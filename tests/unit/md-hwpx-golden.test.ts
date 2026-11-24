@@ -43,11 +43,21 @@ describe('md-hwpx 기본 출력 고정', () => {
     const items = parseMarkdown(GOLDEN_MD);
     expect({ [h]: sha(presetHeader(preset)), [s]: sha(mdSectionXml(items, { preset })) }).toEqual(EXPECT[preset]);
   });
+  // 261124 — 구역이 바뀐 까닭은 표 행 높이 추정(줄간격 130 → 150)뿐이다: 130 을 주면 종전 구역과 같다. 세로(portrait) 지정도 기본과 같다
+  it.each([
+    ['internal', '02e552e301c5115f'],
+    ['tribunal', '2c02e1ef1b245723'],
+  ] as const)('%s — tableLineSpacing 130 이면 261123 구역 그대로', (preset, before) => {
+    const items = parseMarkdown(GOLDEN_MD);
+    expect(sha(mdSectionXml(items, { preset, tableLineSpacing: 130, orientation: 'portrait' }))).toBe(before);
+  });
 });
 
 const EXPECT: Record<string, Record<string, string>> = {
   // 261123 SEC 갱신 — 쪽번호 꼬리말을 secPr subList 에서 첫 문단 <hp:ctrl><hp:footer> 로 옮겼다(한글이 종전 자리를 읽지 않음).
   // header 는 그대로. 파이썬 쌍둥이(generate_hwpx.py)는 261120 동결이라 따라 고치지 않는다(/한글변환 §2-0)
-  internal: { HDR_INTERNAL: '1749e0d22a548f39', SEC_INTERNAL: '02e552e301c5115f' },
-  tribunal: { HDR_TRIBUNAL: 'acb2894f61fe0334', SEC_TRIBUNAL: '2c02e1ef1b245723' },
+  // 261124 HDR·SEC 갱신 — 표 칸 문단 27~29 를 BREAK_WORD(어절 단위)·줄간격 150 으로(종전 KEEP_WORD·130). SEC 는 표 행 높이 추정만 바뀐다.
+  // 용지 방향(orientation) 추가는 기본 출력을 바꾸지 않았다(방향만 넣은 단계에서 종전 해시 그대로 통과).
+  internal: { HDR_INTERNAL: 'a1e151077f5bdda8', SEC_INTERNAL: 'c50e9d5ec6f5d242' },
+  tribunal: { HDR_TRIBUNAL: 'de4a78aac688c8c4', SEC_TRIBUNAL: '2c7329b115e6aa5d' },
 };
