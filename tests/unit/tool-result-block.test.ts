@@ -196,7 +196,7 @@ describe('공통 — 링크·금지어', () => {
     }
   });
   it('근거 조문은 법제처 주소다', () => {
-    for (const v of views) for (const b of v.basis) expect(b.href).toMatch(/^https:\/\/www\.law\.go\.kr\/법령\/[^/]+\/제\d+조$/);
+    for (const v of views) for (const b of v.basis) expect(b.href).toMatch(/^https:\/\/www\.law\.go\.kr\/법령\/[^/]+\/제\d+조(의\d+)?$/);
   });
   it('결과 문장에 금지어·느낌표가 없다', () => {
     for (const v of views) {

@@ -58,7 +58,7 @@ export function midyearView(o: MidyearOutcome): ResultView {
     warnings: effectLines(d),
     basis: BASIS,
     asOf: [`${r.year}년 귀속 · ${r.basis} 기준 · 조문 확인 ${dotDate(r.checked)}`],
-    ...(nothing && { nextNote: '예상 결정세액과 이미 낸 세금의 차이가 10원 미만이라 정산액이 0원입니다.' }),
+    ...(nothing && { nextNote: '예상 결정세액과 이미 낸 세금의 차이가 10원 미만이라 예상 정산액이 0원입니다.' }),
     next: NEXT,
   };
 }

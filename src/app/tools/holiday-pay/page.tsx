@@ -7,7 +7,7 @@ export default function HolidayPayPage() {
       <div className="mb-6">
         <Link
           href="/blog"
-          className="text-sm text-[var(--grey-700)] hover:text-[var(--color-text-primary)]"
+          className="-my-[11px] inline-flex min-h-[44px] items-center text-sm text-[var(--grey-700)] hover:text-[var(--color-text-primary)]"
         >
           ← 블로그
         </Link>

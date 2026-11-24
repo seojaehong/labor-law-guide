@@ -184,7 +184,7 @@ export default function SourceFinder() {
             type="button"
             disabled={loading}
             onClick={() => { setInput(ex); void run(ex); }}
-            className="min-h-[36px] rounded-full px-3 py-1.5 text-left text-sm transition-colors disabled:opacity-50"
+            className="min-h-[44px] rounded-full px-3 py-1.5 text-left text-sm transition-colors disabled:opacity-50"
             style={{ backgroundColor: 'var(--grey-100)', color: 'var(--grey-700)' }}
           >
             {ex}

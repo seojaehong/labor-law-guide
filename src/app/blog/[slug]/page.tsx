@@ -234,7 +234,7 @@ export default async function BlogArticlePage({
             {/* Back link */}
             <Link
               href="/blog"
-              className="mb-6 inline-flex items-center gap-1.5 text-[13px] transition-colors hover:opacity-70"
+              className="-mt-[11px] mb-[13px] inline-flex min-h-[44px] items-center gap-1.5 text-[13px] transition-colors hover:opacity-70"
               style={{ color: 'var(--color-text-secondary)' }}
             >
               <ArrowLeft size={14} />

@@ -170,7 +170,18 @@
             display: inline-block;
             vertical-align: middle;
         }
-        .tab-btn .tab-remove { margin-left: 6px; font-size: 14px; vertical-align: middle; }
+        /* 삭제 [×] — 탭 버튼 옆 별도 버튼을 탭 오른쪽 안쪽에 겹쳐 둔다. 히트 영역 44×44 */
+        .tab-item { position: relative; display: inline-flex; }
+        .tab-btn.has-remove { padding-right: 40px; }
+        .tab-remove {
+            position: absolute; top: 0; right: 0; width: 44px; min-height: 44px; height: 100%;
+            display: inline-flex; align-items: center; justify-content: center;
+            border: 0; background: transparent; color: var(--text); border-radius: var(--radius);
+            font-size: 14px; font-family: inherit; cursor: pointer;
+        }
+        .tab-item.active .tab-remove { color: var(--on-primary); }
+        .tab-remove:hover { color: var(--primary); }
+        .tab-item.active .tab-remove:hover { color: var(--on-primary); text-decoration: underline; }
         .tab-add {
             min-width: 44px;
             min-height: 44px;
@@ -1432,21 +1443,30 @@ function calcRetirementTax(severancePay, startStr, lastWorkDate) {
 
 function renderTabs() {
     const container = document.getElementById('tabsContainer');
+    /* 탭 안에 있던 포커스는 다시 그린 뒤 현재 탭으로 돌려준다(키보드로 삭제·전환할 때 포커스를 잃지 않게) */
+    const hadFocus = !!(document.activeElement && container.contains(document.activeElement));
+    const removable = state.workers.length > 1;
     let html = '';
     state.workers.forEach((w, i) => {
         const name = w.workerName || `근로자 ${i + 1}`;
         const active = i === state.currentIndex ? ' active' : '';
-        html += `<button class="tab-btn${active}" onclick="switchWorker(${i})">`;
-        html += `<span class="tab-name">${esc(name)}</span>`;
-        if (state.workers.length > 1) {
-            html += `<span class="tab-remove" onclick="event.stopPropagation();removeWorker(${i})">×</span>`;
+        /* 삭제는 탭 버튼 안의 span 이 아니라 옆의 별도 버튼 — 버튼 안에 버튼을 둘 수 없고, span 은 키보드로 닿지 않는다 */
+        html += `<span class="tab-item${active}">`;
+        html += `<button type="button" class="tab-btn${active}${removable ? ' has-remove' : ''}" onclick="switchWorker(${i})"${active ? ' aria-current="true"' : ''}>`;
+        html += `<span class="tab-name">${esc(name)}</span></button>`;
+        if (removable) {
+            html += `<button type="button" class="tab-remove" onclick="removeWorker(${i})" aria-label="${esc(name)} 삭제">×</button>`;
         }
-        html += `</button>`;
+        html += `</span>`;
     });
     if (state.workers.length < MAX_WORKERS) {
         html += `<button class="tab-add" onclick="addWorker()" title="근로자 추가 (최대 ${MAX_WORKERS}명)">+</button>`;
     }
     container.innerHTML = html;
+    if (hadFocus) {
+        const current = container.querySelector('.tab-btn.active');
+        if (current) current.focus();
+    }
 }
 
 function switchWorker(index) {

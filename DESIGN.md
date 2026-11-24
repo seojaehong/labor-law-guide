@@ -391,7 +391,8 @@ Roboto, "Helvetica Neue", "Segoe UI", "Apple SD Gothic Neo", "Noto Sans KR",
 
 - **범위 없는 Pretendard 면을 두지 않는다 (261124 실측 근거).** `site-refactor.css` 에 있던 범위 없는 원본 `@font-face` 를 남긴 채 조각을 더했더니 Chromium 은 원본을 받지 않았지만 **Firefox 는 모든 화면에서, WebKit 은 이모지가 든 글에서 원본 2,009KB 를 조각과 함께 받았다**(2,342~2,391KB — 종전보다 많음). 그래서 그 줄을 지웠고, 지운 뒤 세 엔진 모두 원본 요청 0건이다. 시험 = `tests/unit/global-theme-tokens.test.ts`.
 - **조각 밖 글자.** 공식 조각이 다루지 않는 글자(이모지·일부 한자·기호 ✓✕)는 시스템 글꼴로 떨어진다.
-- **원본 파일은 지우지 않는다.** `public/fonts/PretendardVariable.woff2` 는 `public/tools/severance-brand.css`(퇴직금 계산기 정적 페이지)가, `Pretendard-Regular.woff`·`Pretendard-Bold.woff` 는 `src/lib/share-card.tsx`(공유 카드 이미지)가 경로로 읽는다. 퇴직금 정적 페이지는 아직 원본 2,010KB 를 받는다.
+- **원본 파일은 지우지 않는다.** `Pretendard-Regular.woff`·`Pretendard-Bold.woff` 는 `src/lib/share-card.tsx`(공유 카드 이미지)가 경로로 읽는다. `public/fonts/PretendardVariable.woff2` 는 지금 읽는 화면이 없으나 외부 링크·캐시를 위해 남긴다.
+- **퇴직금 정적 페이지(`public/tools/severance.html`) (261124 정리).** 정적 html 은 `layout.tsx` 의 import 를 쓸 수 없어서, `scripts/copy-pretendard-subset.mjs` 가 predev·prebuild 때 npm `pretendard` 의 같은 조각 CSS·woff2 92개를 `public/fonts/pretendard-subset/`(저장소 제외, `.gitignore`)로 복사하고 `severance-brand.css` 첫 줄이 `@import` 한다. 외부 CDN 없음, 범위 없는 면 없음(종전 원본 2,010KB `@font-face` 삭제). 시험 = `tests/unit/design-final-cleanup-261124.test.ts`.
 - 새 화면에서 Pretendard 를 또 `@font-face` 로 선언하지 않는다. 범위 없는 면 하나가 조각 92개를 무력화할 수 있다.
 
 <details><summary>대체됨(261124) — 2026-08-01 기록</summary>
@@ -437,7 +438,7 @@ Pretendard Variable v1.3.9를 jsDelivr에서 preconnect(`layout.tsx:67`) + prelo
 | 규칙 | 내용 |
 |---|---|
 | 웨이트 래더 | **400 / 500 / 600 / 700만.** 사이값 금지, 300 이하 전면 금지(한글 자형 붕괴), 800 이상 금지. **제목은 700 이 상한이다 — 750 같은 가변 사이값도 금지(261124 재확인).** 가변 글꼴이라 750 이 렌더되지만 래더 밖이다 |
-| 제목 자간 (261124) | 제목·워드마크 포함 **-0.02em 이 상한**(아래 트래킹 상한의 제목 적용). `.editorial-reading-header h1` 의 `-.035em` 은 261124 에 `-.02em` 으로 고쳤다. 남은 위반(다른 파일, 각 화면 PR 에서 처리): `src/components/editorial-home.css` 8행(홈 h1 750·-.03em)·21행(750)·46행(홈 h2 750·-.04em)·69행(-.03em)·93·100행(750), `src/app/tools/tools-directory.css` 23행(750), `src/components/editorial-navigation.css` 10행(워드마크 -.04em). 시험 = `tests/unit/global-theme-tokens.test.ts`(globals.css 기준) |
+| 제목 자간 (261124) | 제목·워드마크 포함 **-0.02em 이 상한**(아래 트래킹 상한의 제목 적용). `.editorial-reading-header h1` 의 `-.035em` 은 261124 에 `-.02em` 으로 고쳤다. 남은 위반(다른 파일, 각 화면 PR 에서 처리): `src/components/editorial-home.css` 8행(홈 h1 -.03em)·46행(홈 h2 -.04em)·69행(-.03em), `src/components/editorial-navigation.css` 10행(워드마크 -.04em). 웨이트 750(editorial-home 8·21·46·93·100행, tools-directory 23행)은 261124 마지막 정리에서 700 으로 고쳤다(시험 `tests/unit/design-final-cleanup-261124.test.ts`). 시험 = `tests/unit/global-theme-tokens.test.ts`(globals.css 기준) |
 | 강조 | 굵게보다 **크게**. 위계가 모자라면 weight를 올리지 말고 스케일을 한 단계 올린다 |
 | 트래킹 상한 | 음수 트래킹은 **-0.02em까지**. 그 이상 조이면 한글 자소가 붙는다. 양수 트래킹은 라틴 대문자 라벨(`tracking-wide`)에만 |
 | 행간 하한 | 본문은 **1.6 미만 금지**. 밀집 표만 1.5까지 허용. **현재 이를 강제하는 전역 기전이 없다** — `body`에 `line-height` 선언이 없어 브라우저 기본값(≈1.2)이 적용되는 화면이 남는다 |
@@ -925,10 +926,10 @@ Pretendard Variable v1.3.9를 jsDelivr에서 preconnect(`layout.tsx:67`) + prelo
 | 10-6 | **범주형 차트 팔레트** | §3.5·P6-2 — `--chart-1~5`가 단색 블루 5단계라 인접 계열이 구분되지 않는다. `/stats`가 recharts 기본색을 쓰는 것이 증거 |
 | 10-7 | **노랑을 브랜드 정체성으로 확정하는 것의 포지셔닝 판단** | §3.4는 "제거할 수 없다"(사이트명·구현 현황)는 **매몰비용 근거만** 제시했다. 노란봉투법이 진행 중인 쟁점 사안이라는 점이 중립적 정보 제공자 지위에 주는 신호는 별도 판단이 필요하다. 같은 논법이 §2.2의 쿨 그레이 존치에도 쓰였다 — 그쪽은 색 온도라 정치적 함의가 없어 무해하다 |
 | 10-8 | ~~**다크 `body` 오로라 그라디언트 존치 여부**~~ **해소(261124)** — 운영에 오로라 선언이 없다(§1 정정) | P4-4가 라이트만 처리한다. 다크는 알파 0.08 이하라 눈에 띄지 않으나 `background-attachment: fixed` 비용은 동일하다 |
-| 10-9 | **퇴직금 정적 페이지 폰트 (261124)** | `public/tools/severance-brand.css:1` 이 원본 `PretendardVariable.woff2`(2,009KB)를 직접 불러온다. 조각 CSS 로 전환할 것(퇴직금 PR 범위). 원본 파일 자체는 `share-card.tsx`·정적 페이지 경로 때문에 남긴다 |
+| 10-9 | ~~**퇴직금 정적 페이지 폰트 (261124)**~~ **해소(261124 마지막 정리)** — 조각 CSS 복사본을 `@import` 한다(§4.1) | `public/tools/severance-brand.css:1` 이 원본 `PretendardVariable.woff2`(2,009KB)를 직접 불러왔다 |
 | 10-12 | **글 화면 폰트 400KB 초과 (261124)** | 조각 방식으로 글 절반이 400KB 를 넘는다(§4.1). 본문 전용 정적 서브셋·굵기 축소 등은 서체 결정이라 별도 판단 |
-| 10-10 | **라이트 회색 램프 잔여 쿨그레이 (261124)** | 라이트 `--grey-300/400/500`(`#d1d6db #b0b8c1 #8b95a1`)과 전역 `--color-text-tertiary` 가 쿨그레이로 남았다. 공개 화면은 site-refactor 가 덮어써 드러나지 않으나 관리 화면 등은 쓴다 |
-| 10-11 | **제목 750·-0.03~-0.04em 잔여 (261124)** | §4.3 「제목 자간」 행의 파일·행 목록. 홈·도구 목록·내비 담당 PR 에서 700·-0.02em 으로 |
+| 10-10 | **라이트 회색 램프 잔여 쿨그레이 (261124)** | 라이트 `--grey-300/400/500`(`#d1d6db #b0b8c1 #8b95a1`)과 전역 `--color-text-tertiary` 가 쿨그레이로 남았다. 공개 화면은 site-refactor 가 덮어써 드러나지 않으나 관리 화면 등은 쓴다. **결정(261124): 목록 배경의 옅은 쿨그레이는 현행 유지.** 실측(라이트 1440, `next start`): 공개 목록 화면 바탕은 `#faf8f2`(웜)이고, 옅은 쿨 톤으로 보이는 면은 `#e8f0ef` = `--color-accent-light`·`--color-info-bg`(청록 틴트, §3.0 액센트 틴트 행) — `/cases` 배지 12개, `/laws` 검수 안내, `/guide` 안내 상자. 이유: ① 이 면은 잔여 램프가 아니라 §3.0 팔레트의 청록 틴트라 바탕 웜톤과 구분되는 정보 표면 역할을 한다 ② 위 잔여 쿨그레이 램프(`#d1d6db` 등)는 공개 화면에 드러나지 않는다 ③ 램프 자체를 바꾸면 `--grey-*` 직접 참조와 파생 역할 토큰 약 1,100곳(§2.2)을 다시 봐야 해 얻는 것보다 비용이 크다. 관리 화면을 손볼 때 함께 정리한다. 요청자가 가리킨 면이 이 `#e8f0ef` 인지는 확인이 필요하다 |
+| 10-11 | **제목 750·-0.03~-0.04em 잔여 (261124)** | §4.3 「제목 자간」 행의 파일·행 목록. 홈·도구 목록·내비 담당 PR 에서 700·-0.02em 으로. **웨이트는 261124 마지막 정리에서 750 → 700 완료**(시험 `design-final-cleanup-261124.test.ts`), 자간은 남음 |
 
 ---
 
