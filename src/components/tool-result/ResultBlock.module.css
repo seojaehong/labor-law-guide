@@ -1,0 +1,76 @@
+/* 계산기 공용 결과 블록 — /exit 「확인용 추정」 띠(잉크 반전)를 공용 토큰으로 옮겼다.
+   라이트: 먹 바탕 + 흰 글자 / 다크: 밝은 바탕 + 어두운 글자(토큰이 뒤집혀 자동으로 따라간다). */
+
+.block {
+  --rb-bg: var(--color-text-primary);
+  --rb-fg: var(--color-bg-surface);
+  --rb-sub: color-mix(in srgb, var(--rb-fg) 80%, var(--rb-bg));
+  --rb-hair: color-mix(in srgb, var(--rb-fg) 22%, var(--rb-bg));
+  background: var(--rb-bg);
+  color: var(--rb-fg);
+  border-radius: 12px;
+  padding: 24px;
+  box-shadow: 0 12px 32px rgb(0 0 0 / 0.14);
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+  container-type: inline-size;
+}
+.block ::selection { background: var(--rb-fg); color: var(--rb-bg); }
+
+.status { font-size: 13px; line-height: 1.5; color: var(--rb-sub); }
+.verdict { margin-top: 6px; font-size: 18px; line-height: 1.45; font-weight: 600; letter-spacing: -0.01em; }
+.verdictMore { margin-top: 2px; font-size: 16px; line-height: 1.55; font-weight: 600; }
+.meta { margin-top: 6px; font-size: 14px; line-height: 1.6; color: var(--rb-sub); font-variant-numeric: tabular-nums; }
+
+.amounts { display: grid; gap: 16px; margin: 18px 0 0; padding-top: 18px; border-top: 1px solid var(--rb-hair); }
+/* 금액 둘은 블록 폭이 넉넉할 때만 나란히 — 계산기 오른쪽 칸(약 380px)에서는 위아래로 둔다 */
+@container (min-width: 560px) {
+  .amountsTwo { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
+}
+.amount { min-width: 0; }
+.amountLabel { font-size: 13px; line-height: 1.5; color: var(--rb-sub); }
+.amountValue {
+  margin: 2px 0 0; font-size: 30px; line-height: 1.2; font-weight: 600; letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+.amountNote { margin: 6px 0 0; font-size: 14px; line-height: 1.6; color: var(--rb-sub); font-variant-numeric: tabular-nums; }
+
+.formula { margin-top: 14px; font-size: 14px; line-height: 1.65; color: var(--rb-sub); font-variant-numeric: tabular-nums; }
+
+.warning, .nextNote {
+  margin-top: 14px; padding: 10px 12px; border-radius: 8px;
+  border: 1px solid var(--rb-hair);
+  background: color-mix(in srgb, var(--rb-fg) 8%, var(--rb-bg));
+  font-size: 14px; line-height: 1.65;
+}
+.warning { font-weight: 600; }
+
+.sources {
+  margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--rb-hair);
+  display: grid; gap: 4px; font-size: 13px; line-height: 1.65; color: var(--rb-sub);
+}
+.sourceKey { font-weight: 600; color: var(--rb-fg); }
+.sources a { color: var(--rb-fg); text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--rb-hair); }
+.sources a:hover { text-decoration-color: currentColor; }
+
+.next { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 18px; }
+.nextPrimary, .nextGhost {
+  display: inline-flex; align-items: center; min-height: 44px; padding: 0 14px; border-radius: 6px;
+  font-size: 14px; font-weight: 500; text-decoration: none;
+  transition: background-color 160ms ease-out, box-shadow 160ms ease-out;
+}
+.nextPrimary { background: var(--rb-fg); color: var(--rb-bg); }
+.nextPrimary:hover { background: color-mix(in srgb, var(--rb-fg) 88%, var(--rb-bg)); }
+.nextGhost { color: var(--rb-fg); box-shadow: inset 0 0 0 1px var(--rb-hair); }
+.nextGhost:hover { box-shadow: inset 0 0 0 1px currentColor; }
+.block a:focus-visible { outline: 2px solid var(--rb-fg); outline-offset: 2px; }
+
+@media (max-width: 700px) {
+  .block { padding: 20px; }
+  .amountValue { font-size: 28px; }
+  .verdict { font-size: 17px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nextPrimary, .nextGhost { transition: none; }
+}
