@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react';
 import { calcNoticePay, type NoticePayInput } from '@/lib/calc/notice-pay';
 import FoldedDetail from '@/components/tool/FoldedDetail';
 import ResultBlock from '@/components/tool-result/ResultBlock';
-import { card, inputCls, ink, muted, small, todayKst } from '@/lib/tool-kit';
+import { card, choiceLabel, inputCls, ink, monthlyMinWage, muted, small, todayKst } from '@/lib/tool-kit';
 import { noticePayView } from './result';
 
 type Unit = NoticePayInput['unit'];
@@ -15,7 +15,7 @@ const num = (s: string) => Number(s.replace(/,/g, '').trim() || '0');
 export default function NoticePayClient() {
   const today = todayKst();
   const [unit, setUnit] = useState<Unit>('month');
-  const [amount, setAmount] = useState('2156880');
+  const [amount, setAmount] = useState(String(monthlyMinWage(today) ?? ''));
   const [weekly, setWeekly] = useState('40');
   const [daily, setDaily] = useState('8');
   const [hire, setHire] = useState('');
@@ -49,10 +49,10 @@ export default function NoticePayClient() {
           <input type="date" className={inputCls} value={dismissal} onChange={(e) => setDismissal(e.target.value)} />
         </label>
         <fieldset className={`${small} sm:col-span-2`} style={muted}>
-          <legend className="mb-1">해고를 미리 알렸나요</legend>
+          <legend className="mb-1">해고를 미리 알렸습니까</legend>
           <div className="flex flex-wrap gap-4">
-            <label className="flex items-center gap-2"><input type="radio" name="notice" checked={!noticed} onChange={() => setNoticed(false)} /> 알리지 않았다</label>
-            <label className="flex items-center gap-2"><input type="radio" name="notice" checked={noticed} onChange={() => setNoticed(true)} /> 알렸다</label>
+            <label className={choiceLabel}><input type="radio" name="notice" checked={!noticed} onChange={() => setNoticed(false)} /> 알리지 않았다</label>
+            <label className={choiceLabel}><input type="radio" name="notice" checked={noticed} onChange={() => setNoticed(true)} /> 알렸다</label>
           </div>
         </fieldset>
         {noticed && (
@@ -62,10 +62,10 @@ export default function NoticePayClient() {
           </label>
         )}
         <fieldset className={`${small} sm:col-span-2`} style={muted}>
-          <legend className="mb-1">임금을 어떤 단위로 정했나요</legend>
+          <legend className="mb-1">임금을 어떤 단위로 정했습니까</legend>
           <div className="flex flex-wrap gap-4">
             {(Object.keys(UNIT_LABEL) as Unit[]).map((u) => (
-              <label key={u} className="flex items-center gap-2">
+              <label key={u} className={choiceLabel}>
                 <input type="radio" name="unit" checked={unit === u} onChange={() => setUnit(u)} /> {UNIT_LABEL[u]}
               </label>
             ))}

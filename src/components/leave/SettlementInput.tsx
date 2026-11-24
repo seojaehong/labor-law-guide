@@ -81,7 +81,7 @@ export function SettlementInput() {
   return (
     <section className="lv-input">
       <div className="lv-input__privacy">
-        🔒 입력한 내용은 <strong>브라우저 안에서만</strong> 계산됩니다 — 서버로 올라가지 않습니다. 
+        입력한 내용은 <strong>브라우저 안에서만</strong> 계산됩니다 — 서버로 올라가지 않습니다. 
       </div>
 
       {roster.length === 0 && (
@@ -162,7 +162,7 @@ export function SettlementInput() {
       <fieldset className="lv-clause">
         <legend>
           입사 후 1년 미만 기간에 월 단위로 발생한 연차(최대 11일)를 입사일 기준 누계에
-          포함할까요?
+          포함합니까?
         </legend>
         <div className="lv-clause__opts">
           {(

@@ -1,15 +1,14 @@
 'use client';
 
-import Link from 'next/link';
 import { useMemo, useState } from 'react';
 import { calcDailyWorkerTax, expandLines, type DailyWorkerTaxResult } from '@/lib/calc/daily-worker-tax';
-import AnswerCard from '@/components/tool/AnswerCard';
 import FoldedDetail from '@/components/tool/FoldedDetail';
-import { card, inputCls, ink, muted, small } from '@/lib/tool-kit';
+import ResultBlock from '@/components/tool-result/ResultBlock';
+import { card, choiceLabel, inputCls, ink, muted, small } from '@/lib/tool-kit';
 import {
-  CONSEQUENCES, ELIGIBILITY_KINDS, ELIGIBILITY_NO, ELIGIBILITY_NOTE, ELIGIBILITY_STOP, ELIGIBILITY_YES, formulaLines, headline, HOMETAX, INPUT_GUIDE, NOT_COVERED, NOTICE, NTS,
-  paymentLine, won,
+  CONSEQUENCES, ELIGIBILITY_KINDS, ELIGIBILITY_NO, ELIGIBILITY_NOTE, ELIGIBILITY_YES, formulaLines, HOMETAX, INPUT_GUIDE, NOT_COVERED, NOTICE, NTS,
 } from './copy';
+import { dailyWorkerStopView, dailyWorkerTaxView } from './result';
 
 // 입력값은 이 화면 안에서만 계산한다 — 보내거나 저장하지 않는다.
 
@@ -28,9 +27,10 @@ function firstBlank(pays: Pay[]): string | null {
   return null;
 }
 
+// 결과 블록(먹 반전) 안에 싣는 고지 — 글자색은 블록에서 물려받는다(회색으로 덮으면 안 보인다). 글자는 copy.ts 그대로.
 function Notice() {
   return (
-    <ul className={`${small} mt-3 list-disc space-y-1 pl-5`} style={muted}>
+    <ul className={`${small} mt-3 list-disc space-y-1 pl-5`}>
       {NOTICE.map((l) => <li key={l}>{l}</li>)}
       <li>
         <a href={NTS.href} target="_blank" rel="noopener noreferrer" className="underline underline-offset-2">{NTS.text}</a>{NTS.after}{' '}
@@ -67,14 +67,14 @@ export default function DailyWorkerTaxClient() {
     <div className="space-y-4">
       <section className={card}>
         <fieldset className={small} style={muted}>
-          <legend className="mb-2 font-semibold" style={ink}>먼저 확인 — 일용근로자인가요</legend>
+          <legend className="mb-2 font-semibold" style={ink}>먼저 확인 — 일용근로자입니까</legend>
           <p className="mb-2">{ELIGIBILITY_NOTE}</p>
           <ol className="mb-3 list-decimal space-y-1 pl-5">
             {ELIGIBILITY_KINDS.map((l) => <li key={l}>{l}</li>)}
           </ol>
           <div className="flex flex-wrap gap-4">
-            <label className="flex items-center gap-2"><input type="radio" name="eligible" checked={eligible === 'yes'} onChange={() => setEligible('yes')} /> {ELIGIBILITY_YES}</label>
-            <label className="flex items-center gap-2"><input type="radio" name="eligible" checked={eligible === 'no'} onChange={() => setEligible('no')} /> {ELIGIBILITY_NO}</label>
+            <label className={choiceLabel}><input type="radio" name="eligible" checked={eligible === 'yes'} onChange={() => setEligible('yes')} /> {ELIGIBILITY_YES}</label>
+            <label className={choiceLabel}><input type="radio" name="eligible" checked={eligible === 'no'} onChange={() => setEligible('no')} /> {ELIGIBILITY_NO}</label>
           </div>
           {/* 결과 자리(입력칸 아래)의 「먼저 … 골라 주세요」는 화면 밖이라 못 본다 — 질문 바로 아래에도 알린다(261112) */}
           {!eligible && <p role="status" className="mt-3 font-semibold" style={{ color: 'var(--color-warn-ink)' }}>이 질문에 먼저 답해야 계산 결과가 나옵니다.</p>}
@@ -138,24 +138,11 @@ export default function DailyWorkerTaxClient() {
       {'error' in out ? (
         <section className={card} aria-live="polite"><p className={small} style={ink}>{out.error}</p></section>
       ) : 'stop' in out ? (
-        <AnswerCard lines={ELIGIBILITY_STOP}>
-          <p className={`${small} mt-3`} style={muted}>
-            <Link href="/tools/take-home-pay" className="underline underline-offset-2">실수령액 계산기</Link>
-          </p>
-        </AnswerCard>
+        <ResultBlock view={dailyWorkerStopView()} />
       ) : (
-        <AnswerCard lines={headline(out.r)}>
-          {out.r.payments.length > 1 ? (
-            <ul className={`${small} mt-3 space-y-1`} style={muted}>
-              {out.r.payments.map((p, i) => <li key={i}>{paymentLine(p, i)}</li>)}
-            </ul>
-          ) : (
-            <p className={`${small} mt-3`} style={muted}>
-              {out.r.payments[0].days.length}일분 과세 일급 합계 {won(out.r.gross)} · 떼는 세금 합계 {won(out.r.total)}
-            </p>
-          )}
+        <ResultBlock view={dailyWorkerTaxView(out.r)}>
           <Notice />
-        </AnswerCard>
+        </ResultBlock>
       )}
 
       {'r' in out && (

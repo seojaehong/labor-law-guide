@@ -379,7 +379,7 @@ export default function ContractCheckClient() {
             />
           </Field>
           <Field
-            label="상시 근로자가 5명 이상인 사업장인가요?"
+            label="상시 근로자가 5명 이상인 사업장입니까?"
             hint="단시간 근로자의 초과근로 한도·가산 규정은 5명 이상 사업장에만 적용됩니다."
           >
             <Choice
@@ -516,7 +516,7 @@ export default function ContractCheckClient() {
             </Field>
           </div>
           {form.payType === 'hourly' && (
-            <Field missing={miss('weeklyHolidayIncluded')} label="시급에 주휴수당이 포함돼 있다고 적혀 있나요?">
+            <Field missing={miss('weeklyHolidayIncluded')} label="시급에 주휴수당이 포함돼 있다고 적혀 있습니까?">
               <Choice
                 options={[
                   { value: 'yes', label: '포함' },
@@ -565,7 +565,7 @@ export default function ContractCheckClient() {
           <CheckRow
             checked={form.hasVariants}
             onChange={(v) => patch({ hasVariants: v })}
-            label="요일에 따라 근무시간이 다른 날이 있어요"
+            label="요일에 따라 근무시간이 다른 날이 있습니다"
             hint="예: 금요일만 단축 근무"
           />
           {form.hasVariants && (
@@ -619,7 +619,7 @@ export default function ContractCheckClient() {
               onChange={(v) => patch({ breakMinutes: v })}
             />
           </Field>
-          <Field missing={miss('nightWork')} label="야간근무(22시~06시)가 있나요?">
+          <Field missing={miss('nightWork')} label="야간근무(22시~06시)가 있습니까?">
             <Choice
               options={[
                 { value: 'yes', label: '있음' },
@@ -633,7 +633,7 @@ export default function ContractCheckClient() {
           <CheckRow
             checked={form.hasDaily}
             onChange={(v) => patch({ hasDaily: v })}
-            label="주 40시간 미만 단시간 근로이고, 계약서에 요일별 근무시간이 따로 적혀 있어요"
+            label="주 40시간 미만 단시간 근로이고, 계약서에 요일별 근무시간이 따로 적혀 있습니다"
             hint="적혀 있는 요일별 시간을 그대로 입력하면 초과근로 확인에 씁니다."
           />
           {form.hasDaily && (
@@ -728,7 +728,7 @@ export default function ContractCheckClient() {
           <CheckRow
             checked={form.basisWritten}
             onChange={(v) => patch({ basisWritten: v })}
-            label="각 임금 항목의 계산방법(산출근거)이 계약서에 적혀 있어요"
+            label="각 임금 항목의 계산방법(산출근거)이 계약서에 적혀 있습니다"
             hint='예: "기본급 = 시급 × 209시간" 같은 산식이 있는 경우'
           />
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -752,7 +752,7 @@ export default function ContractCheckClient() {
               />
             </Field>
           </div>
-          <Field missing={miss('weeklyRest')} label="주휴일(유급 휴일)이 계약서에 어떻게 적혀 있나요?">
+          <Field missing={miss('weeklyRest')} label="주휴일(유급 휴일)이 계약서에 어떻게 적혀 있습니까?">
             <Choice
               options={[
                 { value: 'specified', label: '요일까지 특정됨 (예: 일요일)' },
@@ -767,12 +767,12 @@ export default function ContractCheckClient() {
             <CheckRow
               checked={form.annualLeaveClause}
               onChange={(v) => patch({ annualLeaveClause: v })}
-              label="연차유급휴가 조항이 계약서에 있어요"
+              label="연차유급휴가 조항이 계약서에 있습니다"
             />
             <CheckRow
               checked={form.jobWritten}
               onChange={(v) => patch({ jobWritten: v })}
-              label="일하는 장소와 담당 업무가 계약서에 적혀 있어요"
+              label="일하는 장소와 담당 업무가 계약서에 적혀 있습니다"
             />
           </div>
         </div>

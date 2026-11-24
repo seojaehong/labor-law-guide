@@ -20,23 +20,23 @@ export default function ResultBlock({ view, label = '계산 결과', children }:
     <section className={s.block} aria-live="polite" aria-label={label}>
       <p className={s.status}>{status}</p>
       <p className={s.verdict}>{lead}</p>
-      {rest.map((l) => <p key={l} className={s.verdictMore}>{l}</p>)}
-      {meta?.map((l) => <p key={l} className={s.meta}>{l}</p>)}
+      {rest.map((l, i) => <p key={`${i}-${l}`} className={s.verdictMore}>{l}</p>)}
+      {meta?.map((l, i) => <p key={`${i}-${l}`} className={s.meta}>{l}</p>)}
 
       {amounts.length > 0 && (
         <dl className={amounts.length > 1 ? `${s.amounts} ${s.amountsTwo}` : s.amounts}>
-          {amounts.map((a) => (
-            <div key={a.label} className={s.amount}>
+          {amounts.map((a, i) => (
+            <div key={`${i}-${a.label}`} className={s.amount}>
               <dt className={s.amountLabel}>{a.label}</dt>
               <dd className={s.amountValue}>{a.value}</dd>
-              {a.note?.map((n) => <dd key={n} className={s.amountNote}>{n}</dd>)}
+              {a.note?.map((n, j) => <dd key={`${j}-${n}`} className={s.amountNote}>{n}</dd>)}
             </div>
           ))}
         </dl>
       )}
 
       {formula && <p className={s.formula}>{formula}</p>}
-      {warnings?.map((w) => <p key={w} className={s.warning}>{w}</p>)}
+      {warnings?.map((w, i) => <p key={`${i}-${w}`} className={s.warning}>{w}</p>)}
       {nextNote && <p className={s.nextNote}>{nextNote}</p>}
       {children}
 
@@ -46,14 +46,14 @@ export default function ResultBlock({ view, label = '계산 결과', children }:
             <p>
               <span className={s.sourceKey}>근거</span>{' '}
               {basis.map((b, i) => (
-                <span key={b.href}>
+                <span key={`${i}-${b.href}`}>
                   {i > 0 && ' · '}
                   <a href={b.href} target="_blank" rel="noopener noreferrer">{b.label}</a>
                 </span>
               ))}
             </p>
           )}
-          {asOf.map((l) => <p key={l}>{l}</p>)}
+          {asOf.map((l, i) => <p key={`${i}-${l}`}>{l}</p>)}
           {caveat && <p>{caveat}</p>}
         </div>
       )}
@@ -62,8 +62,8 @@ export default function ResultBlock({ view, label = '계산 결과', children }:
         <nav className={s.next} aria-label="다음 할 일">
           {next.map((n, i) => (
             n.href.startsWith('/') && !n.href.endsWith('.html')
-              ? <Link key={n.href} href={n.href} className={i === 0 ? s.nextPrimary : s.nextGhost}>{n.label}</Link>
-              : <a key={n.href} href={n.href} className={i === 0 ? s.nextPrimary : s.nextGhost}>{n.label}</a>
+              ? <Link key={`${i}-${n.href}`} href={n.href} className={i === 0 ? s.nextPrimary : s.nextGhost}>{n.label}</Link>
+              : <a key={`${i}-${n.href}`} href={n.href} className={i === 0 ? s.nextPrimary : s.nextGhost}>{n.label}</a>
           ))}
         </nav>
       )}

@@ -12,7 +12,7 @@
 
 .tools-dir__jump { display: flex; flex-wrap: wrap; gap: 4px 20px; margin-top: 16px; }
 .tools-dir__jump a {
-  display: inline-flex; align-items: baseline; gap: 6px; min-height: 36px; padding-block: 6px;
+  display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding-block: 6px;
   font-size: 15px; font-weight: 600; color: var(--color-text-primary); text-decoration: underline;
   text-decoration-color: var(--color-brand-solid); text-decoration-thickness: 2px; text-underline-offset: 6px;
 }

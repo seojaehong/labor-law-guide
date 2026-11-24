@@ -6,7 +6,7 @@ import { rateOn } from '@/content/rates';
 import FoldedDetail from '@/components/tool/FoldedDetail';
 import ToolSplit from '@/components/tool/ToolSplit';
 import ResultBlock from '@/components/tool-result/ResultBlock';
-import { card, inputCls, ink, muted, small, todayKst, wonInputError } from '@/lib/tool-kit';
+import { card, choiceLabel, inputCls, ink, monthlyMinWage, muted, small, todayKst, wonInputError } from '@/lib/tool-kit';
 import { minWageView } from './result';
 
 type Unit = MinWageInput['unit'];
@@ -28,7 +28,7 @@ export default function MinWageClient() {
   const ys = useMemo(() => years(today), [today]);
   const [unit, setUnit] = useState<Unit>('month');
   // 단위마다 금액을 따로 둔다 — 월급 숫자가 시급 칸에 그대로 남아 「충족」으로 보이던 결함(L-07, 261122)
-  const [amounts, setAmounts] = useState<Record<Unit, string>>({ month: '2156880', week: '', day: '', hour: '' });
+  const [amounts, setAmounts] = useState<Record<Unit, string>>({ month: String(monthlyMinWage(today) ?? ''), week: '', day: '', hour: '' });
   const amount = amounts[unit];
   const [bonus, setBonus] = useState('');
   const [welfare, setWelfare] = useState('');
@@ -64,10 +64,10 @@ export default function MinWageClient() {
       inputs={
       <section className={`${card} grid gap-4 sm:grid-cols-2`}>
         <fieldset className={`${small} sm:col-span-2`} style={muted}>
-          <legend className="mb-1">임금을 어떤 단위로 정했나요</legend>
+          <legend className="mb-1">임금을 어떤 단위로 정했습니까</legend>
           <div className="flex flex-wrap gap-4">
             {(Object.keys(UNIT_LABEL) as Unit[]).map((u) => (
-              <label key={u} className="flex items-center gap-2">
+              <label key={u} className={choiceLabel}>
                 <input type="radio" name="unit" checked={unit === u} onChange={() => setUnit(u)} /> {UNIT_LABEL[u]}
               </label>
             ))}
@@ -113,7 +113,7 @@ export default function MinWageClient() {
       }
     >
       <FoldedDetail summary="수습 중이라면">
-        <label className={`${small} flex items-center gap-2`} style={muted}>
+        <label className={`${small} ${choiceLabel}`} style={muted}>
           <input type="checkbox" checked={prob.on} onChange={(e) => setProb({ ...prob, on: e.target.checked })} /> 수습 기간이다
         </label>
         {prob.on && (
@@ -123,7 +123,7 @@ export default function MinWageClient() {
               ['withinThreeMonths', '수습을 시작한 날부터 3개월이 지나지 않았다'],
               ['simpleLabor', '한국표준직업분류의 단순노무 종사자다(청소·경비·배달·단순 포장 등)'],
             ] as const).map(([k, label]) => (
-              <label key={k} className={`${small} flex items-center gap-2`} style={muted}>
+              <label key={k} className={`${small} ${choiceLabel}`} style={muted}>
                 <input type="checkbox" checked={prob[k]} onChange={(e) => setProb({ ...prob, [k]: e.target.checked })} /> {label}
               </label>
             ))}

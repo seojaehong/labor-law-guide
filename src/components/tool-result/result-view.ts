@@ -43,6 +43,8 @@ export interface ResultView {
 
 export const STATUS_ESTIMATE = '확인용 추정 · 확정 금액이 아닙니다';
 export const STATUS_COMPARE = '확인용 비교 · 확정 판단이 아닙니다';
+/** 계산하지 않는 상태(적용 대상 밖·범위 밖·멈춤) — 추정값처럼 보이지 않게 한 문구로 쓴다(261124) */
+export const STATUS_STOP = '계산하지 않음 · 이 계산기가 다루는 범위 밖입니다';
 
 export const won = (n: number) => `${n.toLocaleString('ko-KR')}원`;
 

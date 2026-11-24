@@ -50,7 +50,7 @@ export default function WeeklyHolidayClient() {
           <input inputMode="decimal" className={inputCls} value={weekly} onChange={(e) => setWeekly(e.target.value)} />
         </label>
         <fieldset className={`${small} sm:col-span-2`} style={muted}>
-          <legend className="mb-1">그 주 정해진 근무일을 모두 나왔나요</legend>
+          <legend className="mb-1">그 주 정해진 근무일을 모두 나왔습니까</legend>
           <div className="flex flex-wrap gap-x-6">
             <label className={radioLabel}><input type="radio" checked={attended} onChange={() => setAttended(true)} /> 모두 나왔다</label>
             <label className={radioLabel}><input type="radio" checked={!attended} onChange={() => setAttended(false)} /> 빠진 날이 있다</label>

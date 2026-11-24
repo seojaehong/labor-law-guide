@@ -55,7 +55,7 @@ export const GOV_TOOLS: GovTool[] = [
     ],
     actions: [
       { label: '서식 작성 화면 열기', href: 'https://sanjae-apply.vercel.app' },
-      { label: 'AI 에 연결해 쓰기(MCP)', href: '/ai-tools' },
+      { label: 'AI 연결(MCP)', href: '/ai-tools' },
     ],
   },
   {

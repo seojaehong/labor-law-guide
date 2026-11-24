@@ -2,10 +2,11 @@
 
 import { useMemo, useState } from 'react';
 import { calcTakeHomePay, takeHomeRatesOn, type TakeHomeInput } from '@/lib/calc/take-home-pay';
-import AnswerCard from '@/components/tool/AnswerCard';
 import FoldedDetail from '@/components/tool/FoldedDetail';
-import { card, inputCls, ink, muted, small, todayKst } from '@/lib/tool-kit';
-import { CONSEQUENCES, HOMETAX_LINE, HOMETAX_URL, NOTICE, OUT_OF_SCOPE, formulaLines, headline, items, won } from './copy';
+import ResultBlock from '@/components/tool-result/ResultBlock';
+import { card, choiceLabel, inputCls, ink, muted, small, todayKst } from '@/lib/tool-kit';
+import { HOMETAX_LINE, HOMETAX_URL, NOTICE, OUT_OF_SCOPE, formulaLines } from './copy';
+import { takeHomeView } from './result';
 
 type Ratio = NonNullable<TakeHomeInput['ratio']>;
 const RATIOS: Ratio[] = [80, 100, 120];
@@ -13,7 +14,8 @@ const RATIOS: Ratio[] = [80, 100, 120];
 const num = (s: string) => Number(s.replace(/,/g, '').trim() || '0');
 
 export default function TakeHomePayClient() {
-  const rates = useMemo(() => takeHomeRatesOn(todayKst()), []);
+  const today = useMemo(() => todayKst(), []);
+  const rates = useMemo(() => takeHomeRatesOn(today), [today]);
   const [pay, setPay] = useState('3000000');
   const [meal, setMeal] = useState('200000');
   const [other, setOther] = useState('');
@@ -64,18 +66,18 @@ export default function TakeHomePayClient() {
           <legend className="mb-1">소득세 원천징수 비율(회사에 신청한 경우만 80% 또는 120%)</legend>
           <div className="flex flex-wrap gap-4">
             {RATIOS.map((v) => (
-              <label key={v} className="flex items-center gap-2">
+              <label key={v} className={choiceLabel}>
                 <input type="radio" name="ratio" checked={ratio === v} onChange={() => setRatio(v)} /> {v}%
               </label>
             ))}
           </div>
         </fieldset>
-        <fieldset className={`${small} space-y-2 sm:col-span-2`} style={muted}>
+        <fieldset className={`${small} sm:col-span-2`} style={muted}>
           <legend className="mb-1">해당하면 고릅니다</legend>
-          <label className="flex items-center gap-2">
+          <label className={choiceLabel}>
             <input type="checkbox" checked={npsExempt} onChange={(e) => setNpsExempt(e.target.checked)} /> 국민연금 공제 대상이 아님(만 60세 이상 등)
           </label>
-          <label className="flex items-center gap-2">
+          <label className={choiceLabel}>
             <input type="checkbox" checked={employmentExempt} onChange={(e) => setEmploymentExempt(e.target.checked)} /> 만 65세 이후 새로 고용됨
           </label>
         </fieldset>
@@ -85,32 +87,13 @@ export default function TakeHomePayClient() {
         <section className={card} aria-live="polite"><p className={small} style={ink}>{out.error}</p></section>
       ) : (
         <>
-          <AnswerCard lines={headline(out.r!)}>
-            <dl className={`${small} mt-4 grid grid-cols-[1fr_auto] gap-x-4 gap-y-2`} style={muted}>
-              {items(out.r!).map((i) => (
-                <div key={i.label} className="contents">
-                  <dt>
-                    <span style={ink}>{i.label}</span>
-                    <span className="block text-xs">{i.basis}</span>
-                  </dt>
-                  <dd className="text-right tabular-nums" style={ink}>{i.amount}</dd>
-                </div>
-              ))}
-              <div className="contents">
-                <dt className="border-t border-[var(--color-border)] pt-2 font-semibold" style={ink}>
-                  {out.r!.status === 'ok' ? '공제 합계' : '4대보험 합계'}
-                </dt>
-                <dd className="border-t border-[var(--color-border)] pt-2 text-right font-semibold tabular-nums" style={ink}>
-                  {won(out.r!.status === 'ok' ? out.r!.deduction : out.r!.insurance)}
-                </dd>
-              </div>
-            </dl>
-            {CONSEQUENCES.map((c) => <p key={c} className={`${small} mt-3`} style={muted}>{c}</p>)}
-          </AnswerCard>
-          <p className={small} style={muted}>
-            {NOTICE}{' '}
-            <a href={HOMETAX_URL} target="_blank" rel="noopener noreferrer" className="underline underline-offset-2">{HOMETAX_LINE}</a>
-          </p>
+          {/* 고지는 결과 블록(먹 반전) 안에 — 글자색은 블록에서 물려받는다(회색으로 덮으면 안 보인다). 글자는 copy.ts 그대로 */}
+          <ResultBlock view={takeHomeView({ r: out.r!, date: today })}>
+            <p className={`${small} mt-3`}>
+              {NOTICE}{' '}
+              <a href={HOMETAX_URL} target="_blank" rel="noopener noreferrer" className="underline underline-offset-2">{HOMETAX_LINE}</a>
+            </p>
+          </ResultBlock>
           <FoldedDetail summary="산식">
             <ul className={`${small} list-disc space-y-1 pl-5`} style={muted}>
               {formulaLines(out.r!, rates!).map((l) => <li key={l}>{l}</li>)}

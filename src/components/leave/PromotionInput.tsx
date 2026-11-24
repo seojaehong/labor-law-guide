@@ -34,7 +34,7 @@ export function PromotionInput() {
   return (
     <section className="lv-input">
       <div className="lv-input__privacy">
-        🔒 입력한 내용은 <strong>브라우저 안에서만</strong> 계산됩니다 — 서버로 올라가지 않습니다. 
+        입력한 내용은 <strong>브라우저 안에서만</strong> 계산됩니다 — 서버로 올라가지 않습니다. 
       </div>
 
       <div className="lv-form">

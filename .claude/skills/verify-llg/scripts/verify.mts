@@ -347,12 +347,15 @@ const FEATURES: Record<string, { path: string; journey: Journey; waitUntil?: 'lo
       await hire.fill('2021-08-01');
       await last.fill('2026-07-31');
       step('정확히 5년(기념일 전날 퇴사)', /280,000원.*28,000원.*5년\(60개월\)/, await answer(p));
+      step('기준일 = 세율표 확인일(BASIC_TAX_RATES)', '소득세법 제55조 기본세율(2023년 이후 과세기간) 기준 · 확인 2026.10.29.', await answer(p));
+      step('세무사법 고지 유지', /예상 금액입니다\. 세무대리·신고서 작성 대행이 아닙니다\..*모의계산/, await answer(p));
       await last.fill('2026-08-01');
       step('기념일 퇴사 = 6년', /216,000원.*21,600원.*6년\(61개월\)/, await answer(p));
       await pay.fill('2500000');
       await hire.fill('2023-07-03');
       await last.fill('2026-07-02');
       step('퇴직급여 < 근속연수공제 = 0원', /0원입니다.*근속연수공제/, await answer(p));
+      step('0원에도 다음 할 일', /퇴직금 계산기로 금액을 다시 확인.*퇴직금 계산기.*퇴사 점검표/, await answer(p));
       await pay.fill('20000000');
       await hire.fill('2018-01-02');
       await last.fill('2022-12-31');
@@ -485,6 +488,7 @@ const FEATURES: Record<string, { path: string; journey: Journey; waitUntil?: 'lo
       await paid.fill('');
       await p.getByLabel('4명 이하', { exact: true }).check();
       step('상시 4명 이하 = 계산하지 않음(별표1)', /법정 연차수당을 계산하지 않습니다.*4명 이하/, await answer(p));
+      step('4명 이하 — 다음 할 일', '상시 근로자 수 계산기', await answer(p));
       await p.getByLabel('5명 이상', { exact: true }).check();
       await weekly.fill('14');
       step('주 14시간 = 계산하지 않음(§18③)', '15시간 미만', await answer(p));
@@ -610,6 +614,7 @@ const FEATURES: Record<string, { path: string; journey: Journey; waitUntil?: 'lo
       step('C13 불가항력 = 귀책사유 아님', /계산하지 않습니다.*귀책사유가 아니/, await answer(p));
       await p.getByLabel('노동위원회 승인을 받았다(부득이한 사유)', { exact: true }).check();
       step('C13 노동위 승인 = 승인 지급률, 별지 제4호서식', /승인된 지급률.*별지 제4호서식/, await answer(p));
+      step('멈춤 상태 줄', '계산하지 않음 · 이 계산기가 다루는 범위 밖입니다', await answer(p));
     },
   },
   'attendance-rate': {
@@ -653,6 +658,7 @@ const FEATURES: Record<string, { path: string; journey: Journey; waitUntil?: 'lo
       await union.fill('250');
       await absent.fill('');
       step('C11 노조 전임 1년 전부 → 생기지 않음', /생기지 않습니다/, await answer(p));
+      step('생기지 않음 — 다음 할 일', '연차휴가 계산기', await answer(p));
       await field('입사일').fill('2024-03-04');
       await union.fill('');
       await field('부당하다고 확정된 정직 등 징계 기간').fill('20');
