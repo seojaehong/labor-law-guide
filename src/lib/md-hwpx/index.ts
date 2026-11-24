@@ -430,7 +430,7 @@ function tableXml(rows0: string[][], aligns: CellAlign[], usable: number, bodyH:
     `<hp:tbl id="${id}" zOrder="0" numberingType="TABLE" textWrap="TOP_AND_BOTTOM" textFlow="BOTH_SIDES" lock="0" dropcapstyle="None" pageBreak="${tf.pageBreak ?? 'CELL'}" repeatHeader="1" rowCnt="${rows.length}" colCnt="${ncol}" cellSpacing="0" borderFillIDRef="${three ? lineBF(st!, {}) : 3}" noAdjust="0">` +
     `<hp:sz width="${usable}" widthRelTo="ABSOLUTE" height="${totalH}" heightRelTo="ABSOLUTE" protect="0"/>` +
     `<hp:pos treatAsChar="${asChar && !tf.float ? 1 : 0}" affectLSpacing="0" flowWithText="1" allowOverlap="0" holdAnchorAndSO="0" vertRelTo="PARA" horzRelTo="COLUMN" vertAlign="TOP" horzAlign="LEFT" vertOffset="0" horzOffset="0"/>` +
-    `<hp:outMargin left="0" right="0" top="0" bottom="${tf.float ? 850 : 0}"/><hp:inMargin left="${mLR}" right="${mLR}" top="${mTB}" bottom="${mTB}"/>` +
+    `<hp:outMargin left="0" right="0" top="0" bottom="850"/><hp:inMargin left="${mLR}" right="${mLR}" top="${mTB}" bottom="${mTB}"/>` +
     `${trs.join('')}</hp:tbl>`;
   return para(`<hp:run charPrIDRef="${bodyC}">${tbl}<hp:t/></hp:run>`, TABLE_PARA[0]);
 }

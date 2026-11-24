@@ -58,6 +58,7 @@ const EXPECT: Record<string, Record<string, string>> = {
   // 커밋 d621904 에서는 tableLineSpacing 130 을 주면 261123 구역 해시 그대로였다(구역 차이 = 표 행 높이 추정뿐).
   // 261124 2차 HDR·SEC 갱신 — 본문·제목 문단 20~26 도 BREAK_WORD, 제목 21~24 앞·뒤 간격(16/6·12/3·8/0·6/0pt),
   // 꼬리말 전용 문단 30(종전 21 복제), 문서 첫 제목·쪽 나눔 제목은 앞 간격 0 복제(md-hwpx-heading-space)
-  internal: { HDR_INTERNAL: '3e410b6f267b5f35', SEC_INTERNAL: '644d9385bfb90eef' },
-  tribunal: { HDR_TRIBUNAL: '0c55d9f41f743bde', SEC_TRIBUNAL: 'c6e377690c07ac3d' },
+  // 261124 3차 SEC 갱신 — 표 아래 바깥 여백(outMargin bottom) 기본 0 → 850(표 바로 뒤 제목이 테두리에 붙던 실렌더)
+  internal: { HDR_INTERNAL: '3e410b6f267b5f35', SEC_INTERNAL: '260b64b48af85baf' },
+  tribunal: { HDR_TRIBUNAL: '0c55d9f41f743bde', SEC_TRIBUNAL: 'e5a54db53e41321f' },
 };

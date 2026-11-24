@@ -66,8 +66,8 @@ describe('양식 모드 표 역할(cell·cellHead)', () => {
   it('표 역할을 안 주면 종전과 바이트 동일', async () => {
     const t = await makeTemplate();
     const r = await render(t.bytes, { samples: { body: SAMPLES.body } });
-    // b976181(표 역할 추가 직전)에서 잰 값
-    expect(sha(r.header + r.section)).toBe('d0e7d7aee9355302');
+    // b976181(표 역할 추가 직전)에서 잰 값. 261124 표 아래 바깥 여백 850 으로 다시 잼(표 역할과 무관한 변경)
+    expect(sha(r.header + r.section)).toBe('64470eddaf09270f');
   });
 
   it('cell·cellHead 를 주면 칸 문단·글자가 양식 모양, 정렬 변형은 복제에 정렬만, BREAK_WORD·양식 줄간격', async () => {

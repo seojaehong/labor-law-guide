@@ -150,3 +150,21 @@ describe('표 칸 문단(27~29) — 어절 단위 줄 나눔·줄간격', () => 
     expect(ls(h, cellPara)).toEqual([180, 180]);
   });
 });
+
+describe('표 아래 바깥 여백(261124)', () => {
+  // 실양식 한글 PDF: treatAsChar=0·TOP_AND_BOTTOM 표 바로 뒤 문단의 앞 간격(h2 12pt)을 한글이 사실상 무시해 제목이 표 아래 테두리에 붙었다.
+  // outMargin bottom 850(약 3mm)만 바꾸자 떨어졌다 → 표마다 기본 850. 칸 여백(inMargin·cellMargin)·머리행은 그대로
+  const md = '# 제목\n\n| 가 | 나 |\n|---|---|\n| 1 | 2 |\n\n## 4. 다음';
+  const bottoms = (sec: string) => [...sec.matchAll(/<hp:outMargin left="0" right="0" top="0" bottom="(\d+)"\/><hp:inMargin left="(\d+)" right="\d+" top="(\d+)"/g)].map((m) => m.slice(1).map(Number));
+  it('프리셋 모드 — 짧은 표(글자처럼)·긴 표·가로 모두 bottom 850, 칸 여백 그대로', () => {
+    const long = ['| 가 | 나 |', '|---|---|', ...Array.from({ length: 40 }, (_, i) => `| ${i} | 값 |`)].join('\n');
+    for (const [m, o] of [[md, {}], [long, {}], [md, { orientation: 'landscape' as const }], [md, { preset: 'tribunal' as const }]] as const) {
+      expect(bottoms(mdSectionXml(parseMarkdown(m), o))).toEqual([[850, 510, 141]]);
+    }
+  });
+  it('양식 모드도 bottom 850', async () => {
+    const tpl = await mdToHwpx('# 양식\n\n양식 본문 예시.');
+    const z = await JSZip.loadAsync(await mdToHwpxWithTemplate(md, tpl, {}));
+    expect(bottoms(await z.file('Contents/section0.xml')!.async('string'))).toEqual([[850, 510, 141]]);
+  });
+});
