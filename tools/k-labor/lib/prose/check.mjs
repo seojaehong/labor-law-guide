@@ -28,6 +28,9 @@ const FROM_DIR = new WeakSet();
 
 // 파이썬 str.isspace 와 같은 공백(JS \s 와 달리 BOM 을 넣지 않고 U+0085·U+001C~1F 를 넣는다). 모두 BMP 글자다
 const WS_CLASS = '\\t\\n\\v\\f\\r \\x1c-\\x1f\\x85\\xa0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000';
+// 파이썬 re 의 \d(str 패턴) = 유니코드 Nd. JS 의 \p{Nd} 는 Node 판마다 Unicode 판이 달라(Node 24 = 17.0) 판정이 갈린다 —
+// 파이썬 3.13(Unicode 15.1) 범위로 고정한다(261124). 다시 만들 때는 파이썬에서 re.fullmatch(r"\d", chr(c)) 인 코드포인트를 묶는다. 64개 범위·680자
+const ND = '\\u{30}-\\u{39}\\u{660}-\\u{669}\\u{6F0}-\\u{6F9}\\u{7C0}-\\u{7C9}\\u{966}-\\u{96F}\\u{9E6}-\\u{9EF}\\u{A66}-\\u{A6F}\\u{AE6}-\\u{AEF}\\u{B66}-\\u{B6F}\\u{BE6}-\\u{BEF}\\u{C66}-\\u{C6F}\\u{CE6}-\\u{CEF}\\u{D66}-\\u{D6F}\\u{DE6}-\\u{DEF}\\u{E50}-\\u{E59}\\u{ED0}-\\u{ED9}\\u{F20}-\\u{F29}\\u{1040}-\\u{1049}\\u{1090}-\\u{1099}\\u{17E0}-\\u{17E9}\\u{1810}-\\u{1819}\\u{1946}-\\u{194F}\\u{19D0}-\\u{19D9}\\u{1A80}-\\u{1A89}\\u{1A90}-\\u{1A99}\\u{1B50}-\\u{1B59}\\u{1BB0}-\\u{1BB9}\\u{1C40}-\\u{1C49}\\u{1C50}-\\u{1C59}\\u{A620}-\\u{A629}\\u{A8D0}-\\u{A8D9}\\u{A900}-\\u{A909}\\u{A9D0}-\\u{A9D9}\\u{A9F0}-\\u{A9F9}\\u{AA50}-\\u{AA59}\\u{ABF0}-\\u{ABF9}\\u{FF10}-\\u{FF19}\\u{104A0}-\\u{104A9}\\u{10D30}-\\u{10D39}\\u{11066}-\\u{1106F}\\u{110F0}-\\u{110F9}\\u{11136}-\\u{1113F}\\u{111D0}-\\u{111D9}\\u{112F0}-\\u{112F9}\\u{11450}-\\u{11459}\\u{114D0}-\\u{114D9}\\u{11650}-\\u{11659}\\u{116C0}-\\u{116C9}\\u{11730}-\\u{11739}\\u{118E0}-\\u{118E9}\\u{11950}-\\u{11959}\\u{11C50}-\\u{11C59}\\u{11D50}-\\u{11D59}\\u{11DA0}-\\u{11DA9}\\u{11F50}-\\u{11F59}\\u{16A60}-\\u{16A69}\\u{16AC0}-\\u{16AC9}\\u{16B50}-\\u{16B59}\\u{1D7CE}-\\u{1D7FF}\\u{1E140}-\\u{1E149}\\u{1E2F0}-\\u{1E2F9}\\u{1E4F0}-\\u{1E4F9}\\u{1E950}-\\u{1E959}\\u{1FBF0}-\\u{1FBF9}';
 const WS_SET = new Set([0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x20, 0x1c, 0x1d, 0x1e, 0x1f, 0x85, 0xa0, 0x1680, 0x2028, 0x2029, 0x202f, 0x205f, 0x3000].map((c) => String.fromCharCode(c)));
 for (let c = 0x2000; c <= 0x200a; c++) WS_SET.add(String.fromCharCode(c));
 const isWs = (ch) => WS_SET.has(ch);
@@ -132,6 +135,26 @@ function colMapper(s) {
   return (i) => map[i] + 1;
 }
 
+/**
+ * s.matchAll(rx) 와 같은 일치 목록(g 식만 · 빈 일치 뒤는 u 이면 코드포인트 하나만큼 건너뛴다).
+ * matchAll 은 부를 때마다 식을 복제한다 — 원문이 긴 식(\d 를 옮긴 숫자 범위)을 줄마다 부르면 그 값이 검사 시간을 차지한다
+ */
+export function execAll(rx, s) {
+  if (!rx.global) throw new TypeError('execAll: g 식만');
+  const out = [];
+  rx.lastIndex = 0;
+  for (let m; (m = rx.exec(s)) !== null; ) {
+    out.push(m);
+    if (m[0] === '') {
+      const i = rx.lastIndex;
+      const pair = (rx.unicode || rx.unicodeSets) && i + 1 < s.length && /[\ud800-\udbff]/.test(s[i]) && /[\udc00-\udfff]/.test(s[i + 1]);
+      rx.lastIndex = i + (pair ? 2 : 1);
+    }
+  }
+  rx.lastIndex = 0;
+  return out;
+}
+
 /** 파이썬 '%.Nf' — 정확히 반인 값은 짝수 쪽으로(파이썬은 이진값 그대로 반올림, JS toFixed 는 반이면 큰 쪽) */
 export function fmtFixed(x, p) {
   const v = Number(x);
@@ -164,17 +187,20 @@ const unsupported = () => { throw new Error('unsupported'); };
 
 /**
  * 파이썬 re 문법 → JS(u 플래그) 소스. 같은 뜻으로 옮길 수 없는 것은 던진다(팩 검증에서 RE_COMPILE).
- *   옮기는 것: \s \S \d \D(유니코드 숫자) · 밖의 . (줄바꿈만 빼고) · ^ $(m 이면 \n 앞뒤만, 아니면 글 처음·끝 — $ 는 끝 줄바꿈 앞도)
+ *   옮기는 것: \s \S \d \D(파이썬 3.13 의 유니코드 숫자 범위 ND) · 밖의 . (줄바꿈만 빼고) · ^ $(m 이면 \n 앞뒤만, 아니면 글 처음·끝 — $ 는 끝 줄바꿈 앞도)
  *   · \A \Z · \a \UXXXXXXXX · 글자 묶음 밖 홀로 선 { } ] · {,n} · (?P<이름> · 문장부호 이스케이프(\  \- \# …)
  *   · (?P=이름) — 늘 지나가는 이름 묶음(맨 바깥·둘러보기 밖·0번 반복 없음, 맨 바깥에 | 없음, 되참조보다 앞에서 닫힘)일 때만 \k<이름>
  *   받지 않는 것: \w \W \b \B(유니코드 뜻이 다르다) · 숫자 되참조(\1)·\k · 그 밖의 (?P=) · \N{} · 인라인 플래그 (?i) (?s:) · (?#) ·
- *   글자 묶음 안의 \S 와 \s 를 끝으로 하는 범위 · 알 수 없는 영문자 이스케이프
+ *   글자 묶음 안의 \S 와 \s·\d·\D 를 끝으로 하는 범위 · 알 수 없는 영문자 이스케이프
  */
 export function toJsSource(src, { multiline = false } = {}) {
   let out = '';
   let cls = false;
   let clsFirst = -1; // 글자 묶음 첫 원소의 src 위치
   let clsDash = -1; // 글자 묶음 안에서 이스케이프하지 않은 - 의 마지막 src 위치
+  let clsOut = -1; // 글자 묶음 [ 의 out 위치
+  let clsNeg = false; // [^ 인가
+  let clsNotDigit = false; // 묶음 안에 \D 가 있었나
   // 묶음(괄호) — (?P=이름) 되참조는 「반드시 지나간」 이름 묶음일 때만 옮긴다(파이썬은 지나지 않은 묶음의 되참조가 실패하고 JS 는 빈 글자로 맞는다)
   const stack = [];
   const named = new Map(); // 이름 → { sure: 늘 지나가는가, closed: 닫혔는가 }
@@ -199,9 +225,21 @@ export function toJsSource(src, { multiline = false } = {}) {
       } else if (n === 'S') {
         if (cls) unsupported();
         out += `[^${WS_CLASS}]`;
-      } else if (n === 'd') out += '\\p{Nd}';
-      else if (n === 'D') out += '\\P{Nd}';
-      else if (n === 'A' || n === 'Z') {
+      } else if (n === 'd') {
+        if (cls) {
+          // \s 와 같이 범위 끝·시작이면 파이썬이 받지 않는다
+          if (clsDash === b - 1 && b - 1 > clsFirst) unsupported();
+          if (src[i + 1] === '-' && src[i + 2] !== undefined && src[i + 2] !== ']') unsupported();
+          out += ND;
+        } else out += `[${ND}]`;
+      } else if (n === 'D') {
+        if (cls) {
+          // 묶음 안에 부정 범위를 둘 수 없다 — 표시만 하고 묶음을 닫을 때 (?:[^ND]|[나머지]) 로 바꾼다
+          if (clsDash === b - 1 && b - 1 > clsFirst) unsupported();
+          if (src[i + 1] === '-' && src[i + 2] !== undefined && src[i + 2] !== ']') unsupported();
+          clsNotDigit = true;
+        } else out += `[^${ND}]`;
+      } else if (n === 'A' || n === 'Z') {
         if (cls) unsupported();
         out += n === 'A' ? '(?<![\\s\\S])' : '(?![\\s\\S])';
       } else if (n === 'a') out += '\\x07';
@@ -217,14 +255,26 @@ export function toJsSource(src, { multiline = false } = {}) {
       continue;
     }
     if (cls) {
-      if (c === ']') cls = false;
-      else if (c === '-') clsDash = i;
+      if (c === ']') {
+        cls = false;
+        if (clsNotDigit) {
+          // [가\D] = 숫자가 아니거나 가 · [^가\D] = 숫자이면서 가가 아님
+          const inner = out.slice(clsOut + (clsNeg ? 2 : 1));
+          out = out.slice(0, clsOut);
+          if (clsNeg) out += inner ? `(?:(?![${inner}])[${ND}])` : `[${ND}]`;
+          else out += inner ? `(?:[^${ND}]|[${inner}])` : `[^${ND}]`;
+          continue;
+        }
+      } else if (c === '-') clsDash = i;
       out += c;
       continue;
     }
     if (c === '[') {
       cls = true;
       clsDash = -1;
+      clsOut = out.length;
+      clsNeg = src[i + 1] === '^';
+      clsNotDigit = false;
       out += c;
       if (src[i + 1] === '^') { out += '^'; i++; }
       clsFirst = i + 1;
@@ -618,7 +668,7 @@ function sentencesOf(flat, end) {
 /** 규칙 하나를 줄 하나에 — resumeRx 가 있으면 앞 일치가 끝난 자리에서 원래 식을 한 번 더 본다 */
 function scan(probe, r, onMatch) {
   if (!r.resumeRx) {
-    for (const m of probe.matchAll(r.rx)) onMatch(m);
+    for (const m of execAll(r.rx, probe)) onMatch(m);
     return;
   }
   const rx = r.rx;
@@ -740,7 +790,7 @@ export function checkProse(text, o = {}) {
             if (r.once) {
               const m = r.rx.exec(s);
               if (m) hit(m);
-            } else for (const m of s.matchAll(r.rx)) hit(m);
+            } else for (const m of execAll(r.rx, s)) hit(m);
           }
         } catch {
           kill(p);

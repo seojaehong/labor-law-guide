@@ -2,6 +2,7 @@
 // 합성 문장만 쓴다. 기대값은 옮기기 전 파이썬 검사기(spacing_check·punct_check·comma_check)가 같은 글에 낸 값이다.
 import { describe, expect, it } from 'vitest';
 import { checkNorms } from '../../tools/k-labor/lib/prose/norms.mjs';
+import { toJsSource } from '../../tools/k-labor/lib/prose/check.mjs';
 import { registerDocs } from '../../tools/k-labor/groups/docs.mjs';
 
 const SPACING = [
@@ -90,7 +91,7 @@ describe('check_norms — 띄어쓰기(제5장)', () => {
   });
 
   it('줄 나눔은 파이썬 splitlines 와 같다(CRLF·U+2028 도 줄을 나눈다)', () => {
-    const r = checkNorms('첫 줄\r\n이사장및 이사 할수 있다', { checks: ['spacing'] }).spacing;
+    const r = checkNorms('첫 줄\r\n이사장및 이사\u2028할수 있다', { checks: ['spacing'] }).spacing;
     expect(r.hits.map((h: { line: number }) => h.line)).toEqual([2, 3]);
   });
 });
@@ -134,7 +135,7 @@ describe('check_norms — 연결어미 뒤 쉼표', () => {
   });
 
   it('줄은 \\n 으로만 나눈다(파이썬 split("\\n"))', () => {
-    const r = checkNorms('검토하였고, 그 결과를 알렸음', { checks: ['comma'] }).comma;
+    const r = checkNorms('검토하였고,\u2028그 결과를 알렸음', { checks: ['comma'] }).comma;
     expect(r.counts.A).toBe(0);
   });
 });
@@ -161,6 +162,50 @@ describe('check_norms — 공통', () => {
     const t = performance.now();
     checkNorms(text, { cap: 500 });
     expect(performance.now() - t).toBeLessThan(3000);
+  });
+});
+
+describe('check_norms — 유니코드·긴 줄(261124 보정)', () => {
+  it('숫자는 파이썬 3.13(Unicode 15.1) 의 \\d 범위로 본다 — Node 판이 새로 넣은 숫자는 숫자가 아니다', () => {
+    for (const ch of ['\u{11BF0}', '\u{10D40}', '\u{116D0}']) {
+      expect(checkNorms(`제 ${ch}조`, { checks: ['spacing'] }).spacing.counts.A).toBe(0);
+    }
+    expect(checkNorms('제 ١조', { checks: ['spacing'] }).spacing.counts.A).toBe(1);
+    expect(new RegExp(toJsSource('\\d'), 'u').test('\u{11BF0}')).toBe(false);
+    expect(new RegExp(toJsSource('[\\d)]'), 'u').test('\u{1D7CE}')).toBe(true);
+    const notDigit = new RegExp(`^${toJsSource('[\\D가]')}$`, 'u');
+    expect([notDigit.test('5'), notDigit.test('\u{11BF0}'), notDigit.test('가')]).toEqual([false, true, true]);
+    const digitNot1 = new RegExp(`^${toJsSource('[^\\D1]')}$`, 'u');
+    expect([digitNot1.test('1'), digitNot1.test('2'), digitNot1.test('X')]).toEqual([false, true, false]);
+    expect(() => toJsSource('[가-\\d]')).toThrow();
+  });
+
+  it('칸은 코드포인트로 센다(서로게이트 쌍 = 1칸, 앞 공백 포함)', () => {
+    expect(checkNorms('\u{1F600}가 할수 있다', { checks: ['spacing'] }).spacing.hits[0]).toMatchObject({ col: 4, len: 2 });
+    expect(checkNorms('  \u{20BB7}음 .', { checks: ['punct'] }).punct.hits[0]).toMatchObject({ col: 4, len: 3 });
+    expect(checkNorms('\u{1F600}검토하였고, 끝', { checks: ['comma'] }).comma.hits[0]).toMatchObject({ col: 1, len: 7 });
+  });
+
+  it('상한 밖 걸림은 세기만 한다 — 고른 건의 칸·문맥은 상한 없이 낸 것과 같다', () => {
+    const text = Array.from({ length: 40 }, (_, i) => (i % 3 ? '도급인이 할수 있는 조치임' : '이사장및 이사, 책상·걸상등이 있음')).join('\n');
+    const all = checkNorms(text, { cap: 1e9 });
+    const few = checkNorms(text, { cap: 7 });
+    for (const k of ['spacing', 'punct', 'comma'] as const) {
+      expect(few[k].counts).toEqual(all[k].counts);
+      expect(few[k].hits).toEqual(all[k].hits.slice(0, 7));
+    }
+  });
+
+  it('긴 한 줄·병적 입력도 줄 길이에 비례해 끝나고 판정은 그대로다', { timeout: 20_000 }, () => {
+    const long = '할수 있다. '.repeat(20_000);
+    expect(checkNorms(long, { checks: ['spacing'] }).spacing.counts.A).toBe(20_000);
+    expect(checkNorms(`가${' '.repeat(99_998)}나`).punct.counts).toEqual({ A: 0, B: 0 });
+    expect(checkNorms('“가'.repeat(50_000)).spacing.counts).toEqual({ A: 0, B: 0 });
+    expect(checkNorms('가,'.repeat(50_000)).comma.counts).toEqual({ A: 0, B: 0 });
+    // 같은 모양이 끝에서 맞으면 잡는다
+    expect(checkNorms(`사과${' '.repeat(50)}, 배`, { checks: ['punct'] }).punct.hits[0]).toMatchObject({ col: 3, len: 51 });
+    expect(checkNorms('“할수 있다” 할수 있다 “그리고 할수', { checks: ['spacing'] }).spacing.counts.A).toBe(1);
+    expect(checkNorms('가,나,검토하였고, 끝', { checks: ['comma'] }).comma.hits[0]).toMatchObject({ word: '가,나,검토하였고,' });
   });
 });
 
