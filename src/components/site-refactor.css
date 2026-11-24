@@ -10,8 +10,6 @@ body { font-size:16px; line-height:1.7; }
    첫 페인트 때 main 이 비어 푸터가 화면 위쪽(y≈109)에 그려졌다가 본문이 들어오면 아래로 밀려 데스크톱 CLS 0.72 가 났다.
    main 이 첫 화면을 채우게 해 푸터를 접힌 선 아래에서 시작시킨다. 화면 밖 요소의 이동은 CLS 에 들지 않는다. */
 #site-main { min-height:calc(100vh - var(--site-nav-height)); }
-/* 안내 띠를 닫은 사람 — layout.tsx 선반영 스크립트가 붙이는 클래스. src/lib/connector-banner.ts DISMISSED_CLASS 와 같은 이름 */
-.connector-banner-dismissed .connector-banner { display:none; }
 .editorial-nav-inner { gap:12px; }
 .editorial-desktop-links { display:flex; align-items:center; gap:6px; }
 .editorial-nav-controls { display:flex; gap:4px; align-items:center; }

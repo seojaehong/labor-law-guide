@@ -26,7 +26,7 @@ export default function AuthorFooter() {
           className="text-[length:var(--text-xs)] font-bold tracking-wide"
           style={{ color: 'var(--color-accent)' }}
         >
-          ✍️ 이 글을 쓰고 확인한 사람
+          이 글을 쓰고 확인한 사람
         </p>
         <p
           className="mt-2 text-[16px] font-bold"

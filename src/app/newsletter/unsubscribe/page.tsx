@@ -31,7 +31,7 @@ export default async function UnsubscribeConfirmPage({
       <main className="mx-auto flex max-w-[var(--layout-compact-max)] flex-col items-center px-6 py-20 text-center">
         <AlertCircle size={56} style={{ color: 'var(--color-danger)' }} />
         <h1 className="t-h2 mt-6" style={{ color: 'var(--color-text-primary)' }}>
-          해지할 수 없어요
+          해지할 수 없습니다
         </h1>
         <p className="mt-3 text-[15px]" style={{ color: 'var(--color-text-secondary)' }}>
           링크가 만료됐거나 잘못된 주소입니다. 받으신 메일의 링크를 다시 눌러 주세요.
@@ -52,7 +52,7 @@ export default async function UnsubscribeConfirmPage({
     <main className="mx-auto flex max-w-[var(--layout-compact-max)] flex-col items-center px-6 py-20 text-center">
       <MailX size={56} style={{ color: 'var(--color-text-tertiary)' }} />
       <h1 className="t-h2 mt-6" style={{ color: 'var(--color-text-primary)' }}>
-        구독을 해지할까요?
+        구독을 해지하시겠습니까?
       </h1>
       <p className="mt-3 text-[15px]" style={{ color: 'var(--color-text-secondary)' }}>
         아래 버튼을 누르면 바로 해지되고, 더 이상 메일을 보내지 않습니다.
@@ -72,7 +72,7 @@ export default async function UnsubscribeConfirmPage({
           className="text-[14px] underline underline-offset-2"
           style={{ color: 'var(--color-accent-ink)' }}
         >
-          그냥 계속 받을게요
+          계속 받기
         </Link>
       </form>
     </main>

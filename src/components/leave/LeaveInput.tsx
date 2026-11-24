@@ -25,7 +25,7 @@ import { CONTACT_EMAIL } from '@/lib/site-contact';
 /**
  * 연차 대장 직접 입력 — **브라우저에서만 계산한다.**
  *
- * 🔒 서버로 아무것도 보내지 않는다.
+ * 서버로 아무것도 보내지 않는다.
  *    엑셀·이미지·PDF 를 서버에 올리면 고객사 직원정보가 외부로 나간다.
  *    붙여넣은 글자는 이 페이지를 벗어나지 않으며, 새로고침하면 사라진다.
  *
@@ -226,7 +226,7 @@ export function LeaveInput() {
   return (
     <section className="lv-input">
       <div className="lv-input__privacy">
-        🔒 붙여넣은 내용과 엑셀 파일은 <strong>브라우저 안에서만</strong> 처리됩니다 — 서버로 올라가지 않습니다. 
+        붙여넣은 내용과 엑셀 파일은 <strong>브라우저 안에서만</strong> 처리됩니다 — 서버로 올라가지 않습니다. 
       </div>
 
       <div className="lv-input__controls">
@@ -532,7 +532,7 @@ export function LeaveInput() {
             type="button"
             className="lv-linklike"
             onClick={() => {
-              if (confirm("계약 조건까지 지웁니다. 계속할까요?")) {
+              if (confirm("계약 조건까지 지웁니다. 계속하시겠습니까?")) {
                 const removed = removeMembers(ws, keptOutside.map(memberKey));
                 setRemoveFailed(!removed);
                 if (removed) setKeptOutside([]);

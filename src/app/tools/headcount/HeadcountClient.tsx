@@ -1,6 +1,5 @@
 'use client';
 
-import Link from 'next/link';
 import { useMemo, useReducer, useState } from 'react';
 import {
   answerPlan,
@@ -13,11 +12,14 @@ import {
   type WorkerKind,
 } from '@/lib/headcount-plan';
 import BizNoLookup from '@/components/BizNoLookup';
-import AnswerCard from '@/components/tool/AnswerCard';
 import FoldedDetail from '@/components/tool/FoldedDetail';
-import { card, fmtDate, inputCls, ink, muted, small, todayKst } from '@/lib/tool-kit';
-import { CHANGES, basisLine, countInputError, crewLabel, headline, leaveLines, noteLine, tenLine, whyLines } from './copy';
+import ResultBlock from '@/components/tool-result/ResultBlock';
+import { card, choiceLabel, fmtDate, inputCls, ink, muted, small, todayKst } from '@/lib/tool-kit';
+import { CHANGES, basisLine, countInputError, crewLabel, leaveLines, noteLine, tenLine } from './copy';
+import { headcountView } from './result';
 
+/** 결과 블록(잉크 반전 바탕) 안 보조 글자 — muted 는 바탕과 겹친다 */
+const rbSub = { color: 'var(--rb-sub)' };
 const WEEK = ['일', '월', '화', '수', '목', '금', '토'];
 const PRESETS: { label: string; days: number[] }[] = [
   { label: '월~금', days: [1, 2, 3, 4, 5] },
@@ -114,7 +116,7 @@ function CrewCard({ crew, openDays, canRemove, edit }: { crew: Crew; openDays: n
             </select>
           </label>
           <div className="space-y-2">
-            <label className={`${small} flex items-center gap-2`} style={muted}>
+            <label className={`${small} ${choiceLabel}`} style={muted}>
               <input type="checkbox" checked={crew.days === 'site'}
                 onChange={(e) => edit({ type: 'crew', id: crew.id, patch: { days: e.target.checked ? 'site' : openDays } })} />
               문 여는 날 모두 일함
@@ -185,31 +187,26 @@ export default function HeadcountClient() {
         </details>
       </section>
 
-      <AnswerCard lines={headline(answer, today)}>
-        <ul className="mt-3 space-y-1.5">
-          {whyLines(answer, today).map((l) => <li key={l} className={small} style={muted}>{l}</li>)}
-        </ul>
-
-        <h3 className="mt-5 mb-1.5 text-base font-semibold" style={ink}>연차휴가</h3>
+      <ResultBlock view={headcountView({ answer, today })}>
+        <h3 className="mt-5 mb-1.5 text-base font-semibold">연차휴가</h3>
         <ul className="space-y-1.5">
-          {leaveLines(answer, today).map((l) => <li key={l} className={small} style={ink}>{l}</li>)}
+          {leaveLines(answer, today).map((l) => <li key={l} className={small}>{l}</li>)}
         </ul>
-        {ten && <p className={`${small} mt-3`} style={ink}>{ten}</p>}
+        {ten && <p className={`${small} mt-3`}>{ten}</p>}
 
         {answer.five.kind !== 'none' && (
           <>
-            <h3 className="mt-5 mb-1.5 text-base font-semibold" style={ink}>5인 이상으로 보는 기간에 생긴 일에는 다음이 적용됩니다</h3>
+            <h3 className="mt-5 mb-1.5 text-base font-semibold">5인 이상으로 보는 기간에 생긴 일에는 다음이 적용됩니다</h3>
             <ul className="list-disc space-y-1 pl-5">
-              {CHANGES.map((c) => <li key={c.id} className={small} style={ink}>{c.title} <span style={muted}>({c.basis})</span></li>)}
+              {CHANGES.map((c) => <li key={c.id} className={small}>{c.title} <span style={rbSub}>({c.basis})</span></li>)}
             </ul>
-            <p className={`${small} mt-2`}><Link href="/duties" className="underline underline-offset-2">규모별 의무 전체 보기</Link></p>
           </>
         )}
 
-        <ul className="mt-5 space-y-1 border-t border-[var(--color-border)] pt-3">
-          {answer.notes.map((n) => <li key={n.kind + ('crewId' in n ? n.crewId : '')} className="text-xs leading-relaxed" style={muted}>{noteLine(n, plan, today)}</li>)}
+        <ul className="mt-5 space-y-1 border-t border-[var(--rb-hair)] pt-3">
+          {answer.notes.map((n) => <li key={n.kind + ('crewId' in n ? n.crewId : '')} className="text-xs leading-relaxed" style={rbSub}>{noteLine(n, plan, today)}</li>)}
         </ul>
-      </AnswerCard>
+      </ResultBlock>
 
       <FoldedDetail summary="날짜별 계산 보기">
           <label className={`${small} block`} style={muted}>

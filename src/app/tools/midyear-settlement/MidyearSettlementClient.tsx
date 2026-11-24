@@ -2,21 +2,23 @@
 
 import { useMemo, useState } from 'react';
 import { calcMidyear, defaultYear, type MidyearOutcome } from '@/lib/calc/midyear-settlement';
-import AnswerCard from '@/components/tool/AnswerCard';
 import FoldedDetail from '@/components/tool/FoldedDetail';
-import { card, inputCls, ink, muted, small, todayKst } from '@/lib/tool-kit';
+import ResultBlock from '@/components/tool-result/ResultBlock';
+import { card, choiceLabel, inputCls, ink, muted, small, todayKst } from '@/lib/tool-kit';
 import {
-  effectLines, firstMissing, formulaLines, headline, HOMETAX_LINK, HOMETAX_URL, INPUT_FIELDS, INPUT_GUIDE, LIMITS, NOTICE, SCOPE_ITEMS, SCOPE_STOP, whyLines,
+  firstMissing, formulaLines, HOMETAX_LINK, HOMETAX_URL, INPUT_FIELDS, INPUT_GUIDE, LIMITS, NOTICE, SCOPE_ITEMS,
   type MoneyField,
 } from './copy';
+import { midyearScopeStopView, midyearView } from './result';
 
 // 입력값은 이 화면 안에서만 계산한다 — 보내거나 저장하지 않는다.
 
 const num = (s: string) => Number(s.replace(/,/g, '').trim() || '0');
 
+// 결과 블록(먹 반전) 안에 싣는 고지 — 글자색은 블록에서 물려받는다(회색으로 덮으면 안 보인다). 글자는 copy.ts 그대로.
 function Notice() {
   return (
-    <ul className={`${small} mt-3 list-disc space-y-1 pl-5`} style={muted}>
+    <ul className={`${small} mt-3 list-disc space-y-1 pl-5`}>
       {NOTICE.map((l) => <li key={l}>{l}</li>)}
       <li>
         <a href={HOMETAX_URL} target="_blank" rel="noopener noreferrer" className="underline underline-offset-2">{HOMETAX_LINK.text}</a>{HOMETAX_LINK.after}
@@ -52,13 +54,13 @@ export default function MidyearSettlementClient() {
     <div className="space-y-4">
       <section className={card}>
         <fieldset className={small} style={muted}>
-          <legend className="mb-2 font-semibold" style={ink}>먼저 확인 — 올해 아래에 해당하는 것이 있나요</legend>
+          <legend className="mb-2 font-semibold" style={ink}>먼저 확인 — 올해 아래에 해당하는 것이 있습니까</legend>
           <ul className="mb-3 list-disc space-y-1 pl-5">
             {SCOPE_ITEMS.map((s) => <li key={s}>{s}</li>)}
           </ul>
           <div className="flex flex-wrap gap-4">
-            <label className="flex items-center gap-2"><input type="radio" name="scope" checked={scope === 'none'} onChange={() => setScope('none')} /> 하나도 없다</label>
-            <label className="flex items-center gap-2"><input type="radio" name="scope" checked={scope === 'some'} onChange={() => setScope('some')} /> 하나라도 있다</label>
+            <label className={choiceLabel}><input type="radio" name="scope" checked={scope === 'none'} onChange={() => setScope('none')} /> 하나도 없다</label>
+            <label className={choiceLabel}><input type="radio" name="scope" checked={scope === 'some'} onChange={() => setScope('some')} /> 하나라도 있다</label>
           </div>
           {/* 결과 자리(입력칸 아래)의 「먼저 … 골라 주세요」는 화면 밖이라 못 본다 — 질문 바로 아래에도 알린다(261112) */}
           {!scope && <p role="status" className="mt-3 font-semibold" style={{ color: 'var(--color-warn-ink)' }}>이 질문에 먼저 답해야 계산 결과가 나옵니다.</p>}
@@ -92,21 +94,13 @@ export default function MidyearSettlementClient() {
       {'error' in out ? (
         <section className={card} aria-live="polite"><p className={small} style={ink}>{out.error}</p></section>
       ) : 'stop' in out ? (
-        <AnswerCard lines={SCOPE_STOP}><Notice /></AnswerCard>
-      ) : (
-        <AnswerCard lines={headline(out.o)}>
-          {out.o.kind === 'ok' && (
-            <>
-              <ul className={`${small} mt-3 list-disc space-y-1 pl-5`} style={muted}>
-                {whyLines(out.o.detail).map((l) => <li key={l}>{l}</li>)}
-              </ul>
-              <ul className={`${small} mt-3 list-disc space-y-1 pl-5`} style={ink}>
-                {effectLines(out.o.detail).map((l) => <li key={l}>{l}</li>)}
-              </ul>
-            </>
-          )}
+        <ResultBlock view={midyearScopeStopView()}>
           <Notice />
-        </AnswerCard>
+        </ResultBlock>
+      ) : (
+        <ResultBlock view={midyearView(out.o)}>
+          <Notice />
+        </ResultBlock>
       )}
 
       {'o' in out && out.o.kind === 'ok' && (

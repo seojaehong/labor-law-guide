@@ -21,11 +21,12 @@ const sub = { color: 'var(--color-text-secondary)' } as const;
 const link = { color: 'var(--color-accent-ink, var(--color-accent))' } as const;
 
 function Action({ a, primary }: { a: GovToolAction; primary: boolean }) {
-  const cls = 'inline-flex items-center rounded-lg px-4 py-2 text-sm font-medium';
+  const cls = 'inline-flex min-h-[44px] items-center rounded-lg px-4 py-2 text-sm font-medium';
   const style = primary
     ? { background: 'var(--color-accent)', color: 'var(--color-on-accent-ink, #fff)' }
     : { border: '1px solid var(--color-border)', ...link };
-  if (a.href.startsWith('/')) {
+  // /howto/* 는 public 정적 사용설명서라 Next Link 프리페치가 404 를 낸다(261124) — 일반 a 로 보낸다
+  if (a.href.startsWith('/') && !a.href.startsWith('/howto/')) {
     return (
       <Link href={a.href} className={cls} style={style}>
         {a.label}
@@ -94,7 +95,7 @@ export default function GovToolsPage() {
         근로복지공단·국민연금·건강보험에 들어가고, 낼 서류를 채우고, 관할 지사를 찾는 도구를 모았습니다. AI 에 연결해 쓰는
         도구는{' '}
         <Link href="/ai-tools" style={link}>
-          AI 연결 도구
+          AI 연결
         </Link>
         에 있습니다.
       </p>

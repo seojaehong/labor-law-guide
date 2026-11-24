@@ -705,7 +705,7 @@ export function importCards(json: unknown, { remember }: { remember: boolean }):
   return result;
 }
 
-export const FORGET_ALL_CONFIRM = "이 브라우저에 저장된 사업장·명부와 최근 입력을 전부 지웁니다. 계속할까요?";
+export const FORGET_ALL_CONFIRM = "이 브라우저에 저장된 사업장·명부와 최근 입력을 전부 지웁니다. 계속하시겠습니까?";
 
 /**
  * 이 브라우저에 남아 있는 것을 전부 지운다 — 공용 PC 에서 쓰는 비상 버튼.

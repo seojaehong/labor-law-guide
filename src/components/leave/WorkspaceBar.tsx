@@ -62,7 +62,7 @@ export function WorkspaceBar() {
   if (!audience) {
     return (
       <section className="lv-ws lv-ws--ask">
-        <p className="lv-ws__ask">어떤 쪽으로 쓰시나요?</p>
+        <p className="lv-ws__ask">어느 쪽으로 씁니까?</p>
         <div className="lv-ws__choices">
           <button type="button" onClick={() => setAudience("advisor")}>
             <strong>여러 사업장 관리</strong>
@@ -203,7 +203,7 @@ export function WorkspaceBar() {
             type="button"
             className="lv-linklike"
             onClick={() => {
-              if (confirm(`「${active.name}」과 그 명부를 지웁니다. 계속할까요?`)) {
+              if (confirm(`「${active.name}」과 그 명부를 지웁니다. 계속하시겠습니까?`)) {
                 setStoreNote(deleteWorkspace(active.id) ? null : REMOVE_FAILED);
               }
             }}

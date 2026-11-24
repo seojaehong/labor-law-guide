@@ -6,6 +6,7 @@
 
 import { useEffect, useState } from 'react';
 
+import { choiceLabel } from '@/lib/tool-kit';
 import { clearHistory, HISTORY_CHANGED, isHistoryRemembered, listHistory, setHistoryRemember, type HistoryEntry } from '@/lib/tool-history';
 
 import type { WriteState } from './formState';
@@ -73,7 +74,7 @@ export function RecentInputs({ onLoad }: { onLoad: (s: WriteState) => void }) {
         {rememberRetry !== null && <p role="status">{HISTORY_COPY.rememberFailed}</p>}
         {clearFailed && <p role="status">{HISTORY_COPY.clearFailed}</p>}
         <div className="space-y-1">
-          <label className="flex items-center gap-2">
+          <label className={choiceLabel}>
             <input type="checkbox" checked={remember} onChange={(e) => changeRemember(e.target.checked)} />
             {HISTORY_COPY.remember}
           </label>

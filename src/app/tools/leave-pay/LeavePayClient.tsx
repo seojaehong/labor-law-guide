@@ -2,17 +2,18 @@
 
 import { useMemo, useState } from 'react';
 import { calcLeavePay, type LeavePayInput, type WageUnit } from '@/lib/calc/leave-pay';
-import AnswerCard from '@/components/tool/AnswerCard';
+import ResultBlock from '@/components/tool-result/ResultBlock';
 import FoldedDetail from '@/components/tool/FoldedDetail';
-import { card, inputCls, ink, muted, small, todayKst } from '@/lib/tool-kit';
-import { effectLines, formulaLines, headline, LEDGER_HINT, partTimeUseHint, promotionLines, PROMOTION_REMAINS, SCOPE_ITEMS } from './copy';
+import { card, choiceLabel, inputCls, ink, muted, small, todayKst } from '@/lib/tool-kit';
+import { formulaLines, LEDGER_HINT, partTimeUseHint, PROMOTION_REMAINS, SCOPE_ITEMS } from './copy';
+import { leavePayNotes, leavePayView } from './result';
 
 const UNIT_LABEL: Record<WageUnit, string> = { month: '월급', week: '주급', day: '일급', hour: '시급' };
 const num = (s: string) => Number(s.replace(/,/g, '').trim() || '0');
 
 function Radio({ name, checked, onChange, children }: { name: string; checked: boolean; onChange: () => void; children: string }) {
   return (
-    <label className="flex items-center gap-2">
+    <label className={choiceLabel}>
       <input type="radio" name={name} checked={checked} onChange={onChange} /> {children}
     </label>
   );
@@ -81,7 +82,7 @@ export default function LeavePayClient() {
           </div>
         </fieldset>
         <fieldset className={`${small} sm:col-span-2`} style={muted}>
-          <legend className="mb-1">언제 받는 수당인가요</legend>
+          <legend className="mb-1">언제 받는 수당입니까</legend>
           <div className="flex flex-wrap gap-4">
             <Radio name="timing" checked={timing === 'employed'} onChange={() => setTiming('employed')}>재직 중(연차를 쓸 수 있는 1년이 끝남)</Radio>
             <Radio name="timing" checked={timing === 'termination'} onChange={() => setTiming('termination')}>퇴직하면서</Radio>
@@ -113,7 +114,7 @@ export default function LeavePayClient() {
       <section className={`${card} grid gap-4 sm:grid-cols-2`} aria-label="임금">
         {!partTime && (
           <fieldset className={`${small} sm:col-span-2`} style={muted}>
-            <legend className="mb-1">수당을 무엇으로 계산하나요</legend>
+            <legend className="mb-1">수당을 무엇으로 계산합니까</legend>
             <div className="flex flex-wrap gap-4">
               <Radio name="basis" checked={!average} onChange={() => setAverage(false)}>통상임금(정함이 없으면 이것)</Radio>
               <Radio name="basis" checked={average} onChange={() => setAverage(true)}>취업규칙 등이 평균임금으로 정함</Radio>
@@ -128,7 +129,7 @@ export default function LeavePayClient() {
         ) : (
           <>
             <fieldset className={`${small} sm:col-span-2`} style={muted}>
-              <legend className="mb-1">임금을 어떤 단위로 정했나요</legend>
+              <legend className="mb-1">임금을 어떤 단위로 정했습니까</legend>
               <div className="flex flex-wrap gap-4">
                 {(Object.keys(UNIT_LABEL) as WageUnit[]).map((u) => (
                   <Radio key={u} name="unit" checked={unit === u} onChange={() => setUnit(u)}>{UNIT_LABEL[u]}</Radio>
@@ -140,8 +141,8 @@ export default function LeavePayClient() {
               <input inputMode="numeric" className={inputCls} value={amount} onChange={(e) => setAmount(e.target.value)} />
             </label>
             {(unit === 'month' || unit === 'week') && (
-              <label className={`${small} flex items-start gap-2 sm:col-span-2`} style={muted}>
-                <input type="checkbox" className="mt-1" checked={otherPaid} onChange={(e) => setOtherPaid(e.target.checked)} />
+              <label className={`${choiceLabel} ${small} sm:col-span-2`} style={muted}>
+                <input type="checkbox" checked={otherPaid} onChange={(e) => setOtherPaid(e.target.checked)} />
                 주휴 말고도 유급으로 정한 시간이 있다(토요일 유급 등)
               </label>
             )}
@@ -199,7 +200,7 @@ export default function LeavePayClient() {
         )}
         {timing === 'termination' && (
           <fieldset className={`${small} sm:col-span-2`} style={muted}>
-            <legend className="mb-1">이 수당은 언제 생겼나요</legend>
+            <legend className="mb-1">이 수당은 언제 생겼습니까</legend>
             <div className="flex flex-wrap gap-4">
               <Radio name="origin" checked={before === 'no'} onChange={() => setBefore('no')}>퇴직하면서 처음 생김(마지막 해에 남은 연차)</Radio>
               <Radio name="origin" checked={before === 'yes'} onChange={() => setBefore('yes')}>퇴직 전에 이미 생겨 있었음</Radio>
@@ -208,7 +209,7 @@ export default function LeavePayClient() {
           </fieldset>
         )}
         <fieldset className={`${small} sm:col-span-2`} style={muted}>
-          <legend className="mb-1">회사가 연차 사용 촉진(서면 촉구·시기 지정)을 했나요</legend>
+          <legend className="mb-1">회사가 연차 사용 촉진(서면 촉구·시기 지정)을 했습니까</legend>
           <div className="flex flex-wrap gap-4">
             <Radio name="promotion" checked={promotion === 'none'} onChange={() => setPromotion('none')}>하지 않았다</Radio>
             <Radio name="promotion" checked={promotion === 'claimed'} onChange={() => setPromotion('claimed')}>했다</Radio>
@@ -224,11 +225,11 @@ export default function LeavePayClient() {
       {!r ? (
         <section className={card} aria-live="polite"><p className={small} style={ink}>{'error' in out ? out.error : ''}</p></section>
       ) : (
-        <AnswerCard lines={headline(r)}>
-          {[...effectLines(r), ...(r.status === 'calculated' ? promotionLines(r) : formulaLines(r))].map((l) => (
-            <p key={l} className={`${small} mt-3`} style={muted}>{l}</p>
+        <ResultBlock view={leavePayView(r)}>
+          {leavePayNotes(r).map((l) => (
+            <p key={l} className={`${small} mt-3`}>{l}</p>
           ))}
-        </AnswerCard>
+        </ResultBlock>
       )}
 
       {r && r.status === 'calculated' && (

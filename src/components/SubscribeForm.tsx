@@ -33,7 +33,7 @@ export default function SubscribeForm({ source, sourceSlug, variant = 'full' }: 
     setError('');
 
     if (!consent) {
-      setError('수신 동의에 체크해주셔야 신청할 수 있어요.');
+      setError('수신 동의에 체크해야 신청할 수 있습니다.');
       return;
     }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
@@ -78,10 +78,10 @@ export default function SubscribeForm({ source, sourceSlug, variant = 'full' }: 
         <Check size={20} style={{ color: '#16a34a', marginTop: 2 }} />
         <div>
           <p className="text-[14px] font-semibold" style={{ color: 'var(--color-text-primary)' }}>
-            구독 신청 완료, 감사합니다 🙏
+            구독 신청이 완료됐습니다.
           </p>
           <p className="mt-1 text-[12px]" style={{ color: 'var(--color-text-secondary)' }}>
-            첫 메일은 5월 둘째 주부터 보내드릴 예정이에요. 받은편지함이나 스팸함에서 확인해주세요.
+            받은편지함이나 스팸함에서 확인해 주세요.
           </p>
         </div>
       </div>
@@ -139,7 +139,7 @@ export default function SubscribeForm({ source, sourceSlug, variant = 'full' }: 
         </button>
       </div>
 
-      <label className="mt-3 flex items-start gap-2 text-[11px] cursor-pointer" style={{ color: 'var(--color-text-secondary)' }}>
+      <label className="mt-3 flex min-h-[44px] items-center gap-2 text-[11px] cursor-pointer" style={{ color: 'var(--color-text-secondary)' }}>
         <input
           type="checkbox"
           checked={consent}

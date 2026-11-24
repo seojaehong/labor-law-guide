@@ -2,15 +2,19 @@
 
 import { useMemo, useState } from 'react';
 import { checkItems, compareTakeHome, QUESTIONS, SOURCES, type Answer, type Answers } from '@/lib/calc/contractor-check';
-import AnswerCard from '@/components/tool/AnswerCard';
 import FoldedDetail from '@/components/tool/FoldedDetail';
-import { card, inputCls, ink, muted, small, todayKst } from '@/lib/tool-kit';
+import ResultBlock from '@/components/tool-result/ResultBlock';
+import { card, choiceLabel, inputCls, ink, muted, small, todayKst } from '@/lib/tool-kit';
 import {
-  AFTER_LEAD, AFTER_RECOGNITION, CHECK_HEADLINE, CHECK_NOTES, HOMETAX_LINK, HOMETAX_URL, INPUT_GUIDE, MONEY_NOTES, NOTICE,
-  OUT_OF_SCOPE, SOURCE_TITLE, answerLabel, formulaLines, itemSentence, itemTag, moneyHeadline, moneyRows,
+  AFTER_LEAD, AFTER_RECOGNITION, CHECK_NOTES, HOMETAX_LINK, HOMETAX_URL, INPUT_GUIDE, MONEY_NOTES, NOTICE,
+  OUT_OF_SCOPE, SOURCE_TITLE, answerLabel, formulaLines, itemSentence, itemTag, moneyRows,
 } from './copy';
+import { CHECK_LABEL, MONEY_LABEL, contractorCheckView, contractorMoneyView } from './result';
 
 const num = (s: string) => Number(s.replace(/,/g, '').trim() || '0');
+/** 결과 블록(잉크 반전 바탕) 안 글자색 — muted·ink 는 바탕과 겹친다 */
+const rbSub = { color: 'var(--rb-sub)' };
+const rbFg = { color: 'var(--rb-fg)' };
 const heading = 'mb-3 text-base font-semibold';
 
 export default function ContractorCheckClient() {
@@ -41,7 +45,7 @@ export default function ContractorCheckClient() {
               <legend className="mb-1" style={ink}>{q.text}</legend>
               <div className="flex flex-wrap gap-x-4 gap-y-1">
                 {options.map(([a, label]) => (
-                  <label key={a} className="flex items-center gap-2">
+                  <label key={a} className={choiceLabel}>
                     <input type="radio" name={q.id} checked={value === a} onChange={() => setAnswers((s) => ({ ...s, [q.id]: a }))} /> {label}
                   </label>
                 ))}
@@ -52,16 +56,16 @@ export default function ContractorCheckClient() {
       </section>
 
       <div data-part="check">
-        <AnswerCard lines={CHECK_HEADLINE}>
-          <ul className={`${small} mt-4 space-y-3`} style={muted}>
+        <ResultBlock view={contractorCheckView(items)} label={CHECK_LABEL}>
+          <ul className={`${small} mt-4 space-y-3`} style={rbSub}>
             {items.map((i) => (
               <li key={i.id}>
-                <div style={ink}>{i.question.element} — <span className="font-semibold">{itemSentence(i)}</span></div>
+                <div style={rbFg}>{i.question.element} — <span className="font-semibold">{itemSentence(i)}</span></div>
                 <div className="text-xs">답: {answerLabel(i)}{itemTag(i) ? ` · ${itemTag(i)}` : ''}</div>
               </li>
             ))}
           </ul>
-        </AnswerCard>
+        </ResultBlock>
       </div>
       {CHECK_NOTES.map((n) => <p key={n} className={small} style={muted}>{n}</p>)}
 
@@ -97,24 +101,24 @@ export default function ContractorCheckClient() {
         {'error' in out ? (
           <section className={card} aria-live="polite"><p className={small} style={ink}>{out.error}</p></section>
         ) : (
-          <AnswerCard lines={moneyHeadline(out.r!)}>
-            <dl className={`${small} mt-4 grid grid-cols-[1fr_auto_auto] gap-x-4 gap-y-2`} style={muted}>
+          <ResultBlock view={contractorMoneyView(out.r!, today)} label={MONEY_LABEL}>
+            <dl className={`${small} mt-4 grid grid-cols-[1fr_auto_auto] gap-x-4 gap-y-2`} style={rbSub}>
               <dt className="text-xs">항목</dt>
               <dd className="text-right text-xs">3.3%</dd>
               <dd className="text-right text-xs">근로소득</dd>
               {moneyRows(out.r!).map((x) => (
                 <div key={x.label} className="contents">
                   <dt>
-                    <span style={ink}>{x.label}</span>
+                    <span style={rbFg}>{x.label}</span>
                     <span className="block text-xs">{x.basis}</span>
                   </dt>
-                  <dd className="text-right tabular-nums" style={ink}>{x.business}</dd>
-                  <dd className="text-right tabular-nums" style={ink}>{x.wage}</dd>
+                  <dd className="text-right tabular-nums" style={rbFg}>{x.business}</dd>
+                  <dd className="text-right tabular-nums" style={rbFg}>{x.wage}</dd>
                 </div>
               ))}
             </dl>
-            {MONEY_NOTES.map((n) => <p key={n} className={`${small} mt-3`} style={muted}>{n}</p>)}
-          </AnswerCard>
+            {MONEY_NOTES.map((n) => <p key={n} className={`${small} mt-3`} style={rbSub}>{n}</p>)}
+          </ResultBlock>
         )}
       </div>
       <p className={small} style={muted}>

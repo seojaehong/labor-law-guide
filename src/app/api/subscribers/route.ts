@@ -112,7 +112,7 @@ export async function POST(req: Request) {
     }
     return NextResponse.json({
       success: true,
-      message: '구독이 시작됐어요. 내일 아침부터 보내드려요.',
+      message: '구독이 시작됐습니다. 내일 아침부터 보내 드립니다.',
     });
   }
 
@@ -150,6 +150,6 @@ export async function POST(req: Request) {
 
   return NextResponse.json({
     success: true,
-    message: '구독이 시작됐어요. 내일 아침부터 보내드려요.',
+    message: '구독이 시작됐습니다. 내일 아침부터 보내 드립니다.',
   });
 }
