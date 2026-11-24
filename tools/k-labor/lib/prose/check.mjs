@@ -135,6 +135,26 @@ function colMapper(s) {
   return (i) => map[i] + 1;
 }
 
+/**
+ * s.matchAll(rx) 와 같은 일치 목록(g 식만 · 빈 일치 뒤는 u 이면 코드포인트 하나만큼 건너뛴다).
+ * matchAll 은 부를 때마다 식을 복제한다 — 원문이 긴 식(\d 를 옮긴 숫자 범위)을 줄마다 부르면 그 값이 검사 시간을 차지한다
+ */
+export function execAll(rx, s) {
+  if (!rx.global) throw new TypeError('execAll: g 식만');
+  const out = [];
+  rx.lastIndex = 0;
+  for (let m; (m = rx.exec(s)) !== null; ) {
+    out.push(m);
+    if (m[0] === '') {
+      const i = rx.lastIndex;
+      const pair = (rx.unicode || rx.unicodeSets) && i + 1 < s.length && /[\ud800-\udbff]/.test(s[i]) && /[\udc00-\udfff]/.test(s[i + 1]);
+      rx.lastIndex = i + (pair ? 2 : 1);
+    }
+  }
+  rx.lastIndex = 0;
+  return out;
+}
+
 /** 파이썬 '%.Nf' — 정확히 반인 값은 짝수 쪽으로(파이썬은 이진값 그대로 반올림, JS toFixed 는 반이면 큰 쪽) */
 export function fmtFixed(x, p) {
   const v = Number(x);
@@ -648,7 +668,7 @@ function sentencesOf(flat, end) {
 /** 규칙 하나를 줄 하나에 — resumeRx 가 있으면 앞 일치가 끝난 자리에서 원래 식을 한 번 더 본다 */
 function scan(probe, r, onMatch) {
   if (!r.resumeRx) {
-    for (const m of probe.matchAll(r.rx)) onMatch(m);
+    for (const m of execAll(r.rx, probe)) onMatch(m);
     return;
   }
   const rx = r.rx;
@@ -770,7 +790,7 @@ export function checkProse(text, o = {}) {
             if (r.once) {
               const m = r.rx.exec(s);
               if (m) hit(m);
-            } else for (const m of s.matchAll(r.rx)) hit(m);
+            } else for (const m of execAll(r.rx, s)) hit(m);
           }
         } catch {
           kill(p);

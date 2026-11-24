@@ -5,7 +5,7 @@
 // ★ 모델을 부르지 않는다. 문서 글은 이 함수 밖으로 나가지 않는다.
 // ★ 시간은 글 길이에 비례해야 한다(261124 G4) — 긴 한 줄·긴 공백 덩어리·닫히지 않는 따옴표·쉼표가 촘촘한 긴 낱말에서
 //   되짚기가 제곱으로 늘지 않게, 파이썬 원본과 같은 판정을 내는 선형 식으로 쓴다(퍼즈로 파이썬 원본과 대조).
-import { toJsSource } from './check.mjs';
+import { execAll, toJsSource } from './check.mjs';
 
 // 파이썬 str.isspace 와 같은 공백(모두 BMP)
 const WS = new Set([0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x20, 0x1c, 0x1d, 0x1e, 0x1f, 0x85, 0xa0, 0x1680, 0x2028, 0x2029, 0x202f, 0x205f, 0x3000].map((c) => String.fromCharCode(c)));
@@ -199,7 +199,7 @@ function spacing(lines, quote) {
     if (!s || SPACING_SKIP.some((p) => s.startsWith(p))) return;
     if (s.startsWith('>') && !quote) return;
     const line = quote ? ln : blankQuotes(ln, SPACING_QUOTES);
-    for (const r of compiled.spacing) for (const m of line.matchAll(r.rx)) out.push(raw(i + 1, line, m, r, 8, 8));
+    for (const r of compiled.spacing) for (const m of execAll(r.rx, line)) out.push(raw(i + 1, line, m, r, 8, 8));
   });
   return out;
 }
@@ -213,8 +213,8 @@ function punct(lines, quote) {
     const lw = leadWs(ln);
     const lead = lw ? cpLen(ln.slice(0, lw)) : 0;
     const line = quote ? s : fillQuoted(s);
-    for (const r of compiled.punct) for (const m of line.matchAll(r.rx)) out.push(raw(i + 1, line, m, r, 12, 12, lead));
-    for (const r of compiled.punctRaw) for (const m of s.matchAll(r.rx)) out.push(raw(i + 1, s, m, r, 12, 12, lead));
+    for (const r of compiled.punct) for (const m of execAll(r.rx, line)) out.push(raw(i + 1, line, m, r, 12, 12, lead));
+    for (const r of compiled.punctRaw) for (const m of execAll(r.rx, s)) out.push(raw(i + 1, s, m, r, 12, 12, lead));
   });
   return out;
 }
@@ -226,7 +226,7 @@ function comma(lines, warnOnly) {
     const s = strip(ln);
     if (!s || COMMA_SKIP.some((p) => s.startsWith(p)) || s.includes('이상과 같이,')) return;
     const h = blankQuotes(ln, COMMA_QUOTES);
-    for (const m of h.matchAll(compiled.commaCand)) {
+    for (const m of execAll(compiled.commaCand, h)) {
       const w = m[1];
       const end = lastCp(w);
       if (!COMMA_ENDS.some((x) => w.endsWith(x)) || !compiled.hangulEnd.test(end)) continue;

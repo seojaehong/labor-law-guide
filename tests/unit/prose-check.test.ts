@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
-import { checkProse, compilePack, fmtFixed, GENERIC_PACK, loadPackSet, toJsSource, validatePack } from '../../tools/k-labor/lib/prose/check.mjs';
+import { checkProse, compilePack, execAll, fmtFixed, GENERIC_PACK, loadPackSet, toJsSource, validatePack } from '../../tools/k-labor/lib/prose/check.mjs';
 import { looksLikeRrn, mask } from '../../tools/k-labor/lib/common.mjs';
 
 const PACK = {
@@ -587,5 +587,24 @@ describe('3차 보정 — 캐시·상한·빈 일치·방언·진단 표시', ()
   it('제목 검사는 원본 검사기처럼 줄 앞뒤 공백을 벗긴 뒤 줄 첫머리에서 맞춘다(prose_check.py: re.match(HEAD_LINE_RE, l.strip()))', () => {
     const p = { pack: 'h', rules: [], checks: { heads: { line: '^##\\s+(.+)$', re: '없음$', maxWords: 3, brief: '제목' } } };
     expect(checkProse('   ## 하나 둘 셋 넷   ', { packs: [p] }).notes).toHaveLength(1);
+  });
+});
+
+describe('execAll — matchAll 과 같은 일치(식 복제 없이)', () => {
+  const pick = (ms: RegExpMatchArray[]) => ms.map((m) => [m.index, ...m]);
+  const SMILE = String.fromCodePoint(0x1f600);
+  it.each([
+    ['a|', 'gu', `xa${SMILE}a`],
+    ['(?:)', 'gu', `가${SMILE}나`],
+    ['(?:)', 'g', SMILE],
+    ['(\\d)?', 'gu', '1a2'],
+    ['(?<=a)', 'gu', 'aaa'],
+  ])('%s /%s', (src, flags, text) => {
+    const rx = new RegExp(src, flags);
+    expect(pick(execAll(rx, text))).toEqual(pick([...text.matchAll(rx)]));
+    expect(rx.lastIndex).toBe(0);
+  });
+  it('g 없는 식은 거절한다', () => {
+    expect(() => execAll(/a/u, 'a')).toThrow(TypeError);
   });
 });
