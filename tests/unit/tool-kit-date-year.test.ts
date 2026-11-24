@@ -13,7 +13,8 @@ describe('fmtDateWithYear', () => {
     expect(fmtDate('2023-03-01', '2026-11-12')).toBe('2023년 3월 1일(수)');
   });
   it('is used for the notice-pay 입사 · 해고 line', () => {
-    const src = readFileSync('src/app/tools/notice-pay/NoticePayClient.tsx', 'utf8');
-    expect(src).toContain('입사 {fmtDateWithYear(hire)} · 해고 {fmtDateWithYear(dismissal)}');
+    // 261124 — 결과 문장은 공용 결과 블록의 글자 모델(notice-pay/result.ts)로 옮겼다
+    const src = readFileSync('src/app/tools/notice-pay/result.ts', 'utf8');
+    expect(src).toContain('입사 ${fmtDateWithYear(hire)} · 해고 ${fmtDateWithYear(dismissal)}');
   });
 });

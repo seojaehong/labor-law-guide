@@ -197,11 +197,15 @@ const FEATURES: Record<string, { path: string; journey: Journey; waitUntil?: 'lo
     journey: async (p, step) => {
       const inputs = p.locator('input[inputmode]');
       step('기본 주 40시간', '82,560원', await answer(p));
+      step('기준일 = 최저임금 고시 확인일(rates.ts)', '2026년 최저임금(시간당 10,320원) 기준 · 확인 2026.10.28.', await answer(p));
       await inputs.nth(0).fill('10320');
       await inputs.nth(1).fill('22.5');
       step('주 22.5시간', '46,440원', await answer(p));
       await inputs.nth(1).fill('14');
       step('주 14시간(15시간 미만)', '주휴수당이 없습니다', await answer(p));
+      step('15시간 미만에도 다음 할 일', /계약서에 적힌 시간과 실제로 일하는 시간.*근로계약서 점검/, await answer(p));
+      await inputs.nth(1).fill('100');
+      step('주 100시간 — 경고, 계산은 그대로', /82,560원.*소정근로시간 한도 주 40시간/, await answer(p));
       await inputs.nth(1).fill('40');
       await p.getByLabel('빠진 날이 있다').check();
       step('결근한 주', '이번 주는 주휴수당이 없습니다', await answer(p));
@@ -212,6 +216,8 @@ const FEATURES: Record<string, { path: string; journey: Journey; waitUntil?: 'lo
     journey: async (p, step) => {
       const amt = p.locator('input[inputmode=numeric]').first();
       step('월 2,156,880 / 2026 이상 · 2027 부족', /2026년 최저임금\(시간당 10,320원\) 이상.*79,420원 적습니다/, await answer(p));
+      step('기준일 — 2026 고시', '2026년 최저임금(시간당 10,320원) 기준 · 확인 2026.10.28.', await answer(p));
+      step('기준일 — 2027 고시', '2027년 최저임금(시간당 10,700원) 기준 · 확인 2026.10.28.', await answer(p));
       await amt.fill('2156879');
       step('1원 모자람', '한 달 1원 적습니다', await answer(p));
       await p.getByLabel('시급', { exact: true }).check();
@@ -242,6 +248,7 @@ const FEATURES: Record<string, { path: string; journey: Journey; waitUntil?: 'lo
       await p.getByLabel('알리지 않았다').check();
       await d.nth(0).fill('2026-09-02');
       step('3개월 미만', '3개월이 되지 않았습니다', await answer(p));
+      step('3개월 미만에도 다음 할 일', /제27조.*퇴사 점검표/, await answer(p));
       await d.nth(0).fill('2025-11-30');
       await d.nth(1).fill('2026-02-28');
       step('11.30 입사 → 2.28 해고(그 달 말일에 3개월)', '2,476,800원', await answer(p));
@@ -286,6 +293,7 @@ const FEATURES: Record<string, { path: string; journey: Journey; waitUntil?: 'lo
       await form.locator('input[inputmode=numeric]').fill('3000000');
       await form.locator('input[inputmode=decimal]').first().fill('40');
       step('퇴직금 추정(정본 엔진)', '8,812,389원', await answer(p, 'section[aria-label="확인용 추정"]'));
+      step('기준일 = 법령 원문 확인일(CHECKED)', '법제처 현행 법령 원문 기준 · 확인 2026.10.21.', await answer(p, 'section[aria-label="확인용 추정"]'));
     },
   },
   'take-home-pay': {

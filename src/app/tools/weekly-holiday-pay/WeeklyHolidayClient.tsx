@@ -1,25 +1,22 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { calcWeeklyHoliday, type WeeklyHolidayResult } from '@/lib/calc/weekly-holiday';
+import { calcWeeklyHoliday } from '@/lib/calc/weekly-holiday';
 import { rateOn } from '@/content/rates';
-import AnswerCard from '@/components/tool/AnswerCard';
 import FoldedDetail from '@/components/tool/FoldedDetail';
 import ToolSplit from '@/components/tool/ToolSplit';
+import ResultBlock from '@/components/tool-result/ResultBlock';
 import { card, inputCls, ink, muted, small, todayKst, wonInputError } from '@/lib/tool-kit';
+import { defaultWageNote, weeklyHolidayView } from './result';
 
-const won = (n: number) => `${n.toLocaleString('ko-KR')}원`;
 const num = (s: string) => Number(s.replace(/,/g, '').trim());
-const hours = (n: number) => `${n.toLocaleString('ko-KR', { maximumFractionDigits: 2 })}시간`;
 
-function headline(r: WeeklyHolidayResult, weeklyHours: number): string[] {
-  if (r.status === 'under15') return [`1주 ${hours(weeklyHours)}이면 주휴수당이 없습니다.`, '4주를 평균한 1주 소정근로시간이 15시간 미만입니다.'];
-  if (r.status === 'absent') return ['이번 주는 주휴수당이 없습니다.', '그 주 소정근로일을 모두 나와야 생깁니다.'];
-  return [`1주 주휴수당은 ${won(r.amount)}입니다.`, `한 달 평균 약 ${won(r.monthly)}`];
-}
+// 라디오 — 글자 줄(약 21px)만 눌리던 것을 44px 로 키운다(261124)
+const radioLabel = 'flex min-h-[44px] cursor-pointer items-center gap-2';
 
 export default function WeeklyHolidayClient() {
-  const minWage = rateOn('minWageHourly', todayKst())?.value;
+  const minRate = rateOn('minWageHourly', todayKst());
+  const minWage = minRate?.value;
   const [wage, setWage] = useState(minWage ? String(minWage) : '');
   const [weekly, setWeekly] = useState('40');
   const [attended, setAttended] = useState(true);
@@ -36,24 +33,27 @@ export default function WeeklyHolidayClient() {
     }
   }, [wage, weekly, attended, days]);
 
-  const w = num(weekly);
+  const wageNote = defaultWageNote(minRate);
   return (
     <ToolSplit
       inputs={
       <section className={`${card} grid gap-4 sm:grid-cols-2`}>
-        <label className={small} style={muted}>
-          시급(원)
-          <input inputMode="numeric" className={inputCls} value={wage} onChange={(e) => setWage(e.target.value)} />
-        </label>
+        <div>
+          <label className={`${small} block`} style={muted}>
+            시급(원)
+            <input inputMode="numeric" className={inputCls} value={wage} onChange={(e) => setWage(e.target.value)} aria-describedby={wageNote ? 'whp-wage-note' : undefined} />
+          </label>
+          {wageNote && <p id="whp-wage-note" className="mt-1 text-xs leading-relaxed" style={muted}>{wageNote}</p>}
+        </div>
         <label className={small} style={muted}>
           1주 소정근로시간(연장근로 빼고)
           <input inputMode="decimal" className={inputCls} value={weekly} onChange={(e) => setWeekly(e.target.value)} />
         </label>
         <fieldset className={`${small} sm:col-span-2`} style={muted}>
           <legend className="mb-1">그 주 정해진 근무일을 모두 나왔나요</legend>
-          <div className="flex gap-4">
-            <label className="flex items-center gap-2"><input type="radio" checked={attended} onChange={() => setAttended(true)} /> 모두 나왔다</label>
-            <label className="flex items-center gap-2"><input type="radio" checked={!attended} onChange={() => setAttended(false)} /> 빠진 날이 있다</label>
+          <div className="flex flex-wrap gap-x-6">
+            <label className={radioLabel}><input type="radio" checked={attended} onChange={() => setAttended(true)} /> 모두 나왔다</label>
+            <label className={radioLabel}><input type="radio" checked={!attended} onChange={() => setAttended(false)} /> 빠진 날이 있다</label>
           </div>
         </fieldset>
       </section>
@@ -62,18 +62,7 @@ export default function WeeklyHolidayClient() {
       'error' in out ? (
         <section className={card} aria-live="polite"><p className={small} style={ink}>{out.error}</p></section>
       ) : (
-        <AnswerCard lines={headline(out.r!, w)}>
-          {out.r!.status === 'paid' && (
-            <p className={`${small} mt-3`} style={muted}>
-              시급 {won(num(wage))} × 하루 {hours(out.r!.dailyHours)}. 하루 시간은 1주 {hours(w)}을 통상근로자 1주 근무일 {num(days)}일로 나눈 값입니다(하루 8시간까지).
-            </p>
-          )}
-          {minWage && num(wage) > 0 && num(wage) < minWage && (
-            <p className={`${small} mt-3 font-semibold`} style={ink}>
-              입력한 시급이 올해 최저임금 {won(minWage)}보다 낮습니다.
-            </p>
-          )}
-        </AnswerCard>
+        <ResultBlock view={weeklyHolidayView({ r: out.r!, hourlyWage: num(wage), weeklyHours: num(weekly), fullTimeDays: num(days), minWage: minRate })} />
       )
       }
     >
