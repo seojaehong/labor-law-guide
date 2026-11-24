@@ -86,3 +86,6 @@ artifacts/
 
 # 근로계약서 점검 오프라인판 산출물(scripts/build-contract-check-offline.mjs) — 공개 여부 결정 전까지 올리지 않는다
 /dist-offline/
+
+# 퇴고 체험 브라우저 묶음(scripts/build-toego-browser.mjs 가 predev·prebuild 때 엔진에서 만든다)
+/src/lib/toego/engine.bundle.mjs
