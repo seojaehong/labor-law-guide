@@ -76,7 +76,9 @@
   flex: 1 1 260px; min-height: 48px; border-radius: 6px; background: var(--lr-canvas); box-shadow: var(--lr-shadow-1);
   display: flex; align-items: center; gap: 8px; padding: 0 12px;
 }
-.lr-search input { flex: 1; border: 0; outline: none; background: transparent; color: var(--lr-ink); font-size: 14px; min-width: 0; }
+.lr-search input { flex: 1; border: 0; outline: none; background: transparent; color: var(--lr-ink); font-size: 14px; min-width: 0; min-height: 44px; }
+/* 검색어 지우기 — 아이콘 16px 에 손가락 히트 44px (§5.1 아이콘 전용 버튼) */
+.lr-search button { min-width: 44px; min-height: 44px; margin-right: -12px; display: inline-flex; align-items: center; justify-content: center; }
 .lr-search:focus-within { box-shadow: 0 0 0 1px var(--lr-ink), 0 0 0 4px var(--lr-link-soft); }
 .lr-kbd { font-family: inherit; font-size: 11px; color: var(--lr-mute); border: 1px solid var(--lr-hair); border-radius: 4px; padding: 0 5px; line-height: 18px; }
 

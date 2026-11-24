@@ -1,4 +1,6 @@
-@font-face { font-family:"Pretendard Variable"; src:url("/fonts/PretendardVariable.woff2") format("woff2"); font-weight:100 900; font-display:swap; }
+@import url("/fonts/pretendard-subset/pretendardvariable-dynamic-subset.css");
+/* 글꼴 — Pretendard 공식 dynamic-subset(unicode-range 92조각). 화면에 쓰인 글자의 조각만 받는다(종전 원본 2,010KB 단일 면).
+   조각은 scripts/copy-pretendard-subset.mjs 가 predev·prebuild 때 node_modules 에서 복사한다(DESIGN.md §4.1). 범위 없는 면을 여기 다시 두지 않는다. */
 /* 색 — 운영 globals.css·site-refactor.css 의 현행 팔레트. 261124 에 칸 테두리·포커스 링·주 버튼 글자 색을 따로 둔다.
    --field-border: 입력칸 테두리 — 카드(#fff)·바탕(#faf8f2) 위 3.53·3.32:1 / 다크 카드(#202620)·바탕(#191d19) 위 4.20·4.63:1
    --focus: 포커스 링 — 바탕 위 6.69:1 / 다크 10.0:1 (종전 다크 1.12:1 — 링 색이 바탕과 거의 같았다) */

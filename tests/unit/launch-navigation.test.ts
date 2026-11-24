@@ -56,7 +56,8 @@ describe('selected launch navigation', () => {
   });
   // 261124 — /tools 의 <title> 「노무 계산기 모음」이 화면 h1 「계산·점검 도구」와 달랐다.
   it('names /tools the same in <title> and h1', () => {
-    const tools = readFileSync('src/app/tools/page.tsx', 'utf8');
+    // 윈도우 autocrlf 체크아웃은 \r\n 이다 — 줄바꿈을 정규화한 뒤 비교한다
+    const tools = readFileSync('src/app/tools/page.tsx', 'utf8').replace(/\r\n/g, '\n');
     expect(tools).toContain('계산·점검 도구\n      </h1>');
     for (const m of tools.matchAll(/title: '([^']+)'/g)) expect(m[1]).toMatch(/^계산·점검 도구 /);
   });
