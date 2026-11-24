@@ -194,6 +194,12 @@ describe('check_rewrite — 자기시험: 일부러 망친 윤문은 그 항목�
     expect(r.items.modality.changes[0]).toMatchObject({ kind: 'lost', modality: '추측', line: { before: 6, after: 6 } });
   });
 
+  it('추측 「듯하」는 활용형(듯합니다·듯한)도 본다', () => {
+    const r = run('가상 회사는 이를 알았던 듯합니다. 끝이다.', '가상 회사는 이를 알았습니다. 끝이다.', 'general');
+    expect(r.items.modality).toMatchObject({ status: '훼손', changes: [expect.objectContaining({ modality: '추측' })] });
+    expect(run('알았던 듯한 모습이다. 끝이다.', '알았던 모습이다. 끝이다.', 'general').items.modality.status).toBe('훼손');
+  });
+
   it('금지(넘지 못한다 → 넘지 않는다)도 당위로 본다', () => {
     const r = run(BEFORE, broken('넘지 못한다.', '넘지 않는다.'));
     onlyDamaged(r, 'modality');
@@ -223,6 +229,19 @@ describe('check_rewrite — 자기시험: 일부러 망친 윤문은 그 항목�
     onlyDamaged(r, 'terms');
     expect(r.items.terms.changes).toEqual([expect.objectContaining({ kind: 'removed', term: '근로자', line: { before: 3, after: null } })]);
     expect(r.items.terms.count).toMatchObject({ 근로자: { before: 1, after: 0 } });
+  });
+
+  it('「아니하」는 활용형(아니한다·아니할·아니함·아니합니다)까지 센다 — 「아니한다 → 않는다」는 용어 훼손(legal)', () => {
+    for (const form of ['아니한다', '아니할 수 없다', '아니함', '아니합니다', '아니하였다']) {
+      const r = run(`사용자는 이를 지급하지 ${form}.`, '사용자는 이를 지급하지 않는다.');
+      expect(r.items.terms.changes, form).toEqual([expect.objectContaining({ kind: 'removed', term: '아니하' })]);
+    }
+  });
+
+  it('징계 「정직」은 형용사 정직하다의 활용형(정직한·정직할·정직함)을 세지 않는다', () => {
+    const r = run('가상 직원은 정직한 태도로 일했다. 정직할 것이다. 정직함이 있다.', '가상 직원은 성실한 태도로 일했다. 성실할 것이다. 성실함이 있다.', 'general');
+    expect(r.items.terms).toMatchObject({ status: '보존됨', count: {} });
+    expect(run('가상 직원에게 정직 1월을 정했다.', '가상 직원에게 감봉 1월을 정했다.', 'general').items.terms.status).toBe('훼손');
   });
 
   it('용어는 어간으로 센다 — 「하여야 한다 → 하여야 하며」는 보존됨', () => {
@@ -326,6 +345,10 @@ describe('check_rewrite — 주민번호·오류·속도', () => {
       [PLAIN.join(' ').repeat(Math.floor(400_000 / PLAIN.join(' ').length)), OTHER.join(' ').repeat(Math.floor(400_000 / OTHER.join(' ').length))],
       ['가나다라마바사'.repeat(57_000), `${'가나다라마바사'.repeat(28_000)}아${'가나다라마바사'.repeat(29_000)}`],
       ['“가'.repeat(150_000), '“나'.repeat(150_000)],
+      // 바뀐 곳이 아주 많을 때 — 닫힌 인용 10만 줄 · 한 줄에 인용 문장 5.7만 · 판례 블록 3만 개가 전부 바뀜
+      ['“가”\n'.repeat(100_000), '“나”\n'.repeat(100_000)],
+      ['“가” 다. '.repeat(57_000), '“나” 다. '.repeat(57_000)],
+      ['[관련 판결] 가\n\n'.repeat(30_000), '[관련 판결] 나\n\n'.repeat(30_000)],
     ];
     for (const [b, a] of cases) {
       const t = performance.now();

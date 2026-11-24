@@ -482,13 +482,15 @@ function quotesOf(P) {
     const straight = [];
     for (let k = ln.indexOf('"'); k >= 0; k = ln.indexOf('"', k + 1)) straight.push(k);
     if (straight.length >= 2 && straight.length % 2 === 0) for (let k = 0; k < straight.length; k += 2) found.push([straight[k], straight[k + 1] + 1]);
+    // 인용이 시작하는 단위(문장) — 시작 자리 순으로 놓고 단위 포인터를 앞으로만 옮긴다(한 줄에 문장·인용이 많아도 선형)
+    found.sort((x, y) => x[0] - y[0]);
+    const us = P.lineUnits[i];
+    let p = 0;
     for (const [s, e] of found) {
       const key = norm(ln.slice(s + 1, e - 1));
       if (!key) continue;
-      const us = P.lineUnits[i];
-      let u = us[0];
-      for (const x of us) if (P.units[x].start <= s) u = x;
-      out.push({ key, u, raw: ln, start: s, len: e - s, quote: true });
+      while (p + 1 < us.length && P.units[us[p + 1]].start <= s) p++;
+      out.push({ key, u: us[p], raw: ln, start: s, len: e - s, quote: true });
     }
   });
   return out;
@@ -496,11 +498,12 @@ function quotesOf(P) {
 
 // ── 법령 용어 — 작은 공개 목록(일반 법령·노동법 용어). 법령 문장 꼴(하여야·할 수 있·아니하)은 legal 장르에서만 본다
 // 어간으로 센다 — 「하여야 한다 → 하여야 하며」처럼 끝만 바뀐 것은 같다
-const LAW_FORM_TERMS = [['하여야', /하여야/g], ['할 수 있', /할\s*수\s*있/g], ['아니하', /아니\s*하/g]];
+// 한글은 완성형이라 「하」 뒤 받침이 붙은 한·할·함·합·했 은 다른 글자다 — 하·해 줄 음절 전체([하-햏])로 받는다
+const LAW_FORM_TERMS = [['하여야', /하여야/g], ['할 수 있', /할\s*수\s*있/g], ['아니하', /아니\s*[하-햏]/g]];
 const LABOR_TERMS = [
   ['근로자', /근로자/g], ['사용자', /사용자/g], ['근로계약', /근로\s*계약/g], ['취업규칙', /취업\s*규칙/g],
   ['임금', /임금/g], ['통상임금', /통상\s*임금/g], ['평균임금', /평균\s*임금/g], ['퇴직금', /퇴직금/g],
-  ['해고', /해고/g], ['징계', /징계/g], ['견책', /견책/g], ['감봉', /감봉/g], ['정직', /정직(?!하)/g], ['해임', /해임/g],
+  ['해고', /해고/g], ['징계', /징계/g], ['견책', /견책/g], ['감봉', /감봉/g], ['정직', /정직(?![하-햏])/g], ['해임', /해임/g],
   ['정당한 이유', /정당한\s*이유/g], ['직장 내 괴롭힘', /직장\s*내\s*괴롭힘/g], ['성희롱', /성희롱/g],
 ];
 const LAW_FORM_GENRES = new Set(['legal']);
@@ -529,7 +532,8 @@ const DEONTIC = new RegExp(
 const HEDGE = new RegExp(
   '수\\s*있|수도\\s*있|것으로\\s*(?:보인다|보입니다|보임|전망|판단|추정|알려)|가능성[이도은을에]' +
     '|[로으]\\s*보인다|[로으]\\s*보입니다|[로으]\\s*보임|판단된다|판단됩니다|판단됨|여겨진다|여겨집니다' +
-    '|해석된다|추정된다|기대된다|우려된다|듯하|듯\\s*싶|것\\s*같다' +
+    // 「듯하」는 활용형(듯한·듯합니다·듯했다)까지 — 완성형이라 하·해 줄 음절 전체로 받는다
+    '|해석된다|추정된다|기대된다|우려된다|듯[하-햏]|듯\\s*싶|것\\s*같다' +
     '|전망(?:이다|된다|한다|했다|입니다|이며|하고)|예상(?:된다|이다|한다|했다|됩니다)|단정하기|여지(?:도|가)?\\s*있|배제할\\s*수\\s*없' +
     // 법령 글의 유보 — 「사료된다」「볼 여지」「보기 어렵다」
     '|사료된다|사료됩니다|볼\\s*여지|기\\s*어렵',
@@ -613,28 +617,41 @@ function antithesisItem(B, A) {
 
 // ── [관련 …] 블록 — 글자 그대로(줄머리 > · ** · 공백 폭은 보지 않는다). 같은 글끼리 먼저 맞추고, 남은 것은 머리줄이 같은 것 → 차례로 짝
 function blocksItem(B, A) {
-  const left = new Map();
-  for (const b of A.blocks) {
-    if (!left.has(b.key)) left.set(b.key, []);
-    left.get(b.key).push(b);
-  }
+  // 줄 세우기 — 값마다 차례 목록과 다음 자리(at). 쓴 것은 taken 에 넣고 건너뛴다(블록이 많아도 선형)
+  const queues = (list, keyOf) => {
+    const m = new Map();
+    for (const x of list) {
+      const q = m.get(keyOf(x));
+      if (q) q.list.push(x);
+      else m.set(keyOf(x), { list: [x], at: 0 });
+    }
+    return m;
+  };
+  const taken = new Set();
+  const nextOf = (q) => {
+    if (!q) return null;
+    while (q.at < q.list.length && taken.has(q.list[q.at])) q.at++;
+    return q.at < q.list.length ? q.list[q.at] : null;
+  };
+  const byKey = queues(A.blocks, (b) => b.key);
   const ub = [];
   for (const b of B.blocks) {
-    const l = left.get(b.key);
-    if (l?.length) l.shift();
+    const a = nextOf(byKey.get(b.key));
+    if (a) taken.add(a);
     else ub.push(b);
   }
-  const ua = A.blocks.filter((b) => left.get(b.key)?.includes(b));
+  const ua = A.blocks.filter((b) => !taken.has(b));
+  const byHead = queues(ua, (b) => b.head);
+  const all = { list: ua, at: 0 };
   const changes = [];
-  const free = new Set(ua);
   for (const b of ub) {
-    const a = [...free].find((x) => x.head === b.head) ?? [...free][0];
+    const a = nextOf(byHead.get(b.head)) ?? nextOf(all);
     if (a) {
-      free.delete(a);
+      taken.add(a);
       changes.push({ kind: 'changed', b, a });
     } else changes.push({ kind: 'removed', b });
   }
-  for (const a of free) changes.push({ kind: 'added', a });
+  for (const a of ua) if (!taken.has(a)) changes.push({ kind: 'added', a });
   const firstDiff = (x, y) => {
     let p = 0;
     while (p < x.length && p < y.length && x[p] === y[p]) p++;
@@ -677,12 +694,19 @@ export function checkRewrite(before, after, o = {}) {
   const qB = quotesOf(B);
   const qA = quotesOf(A);
   const flatAfter = norm(A.lines.join('\n'));
-  // 인용 글이 부호 없이 남았으면 「부호 빠짐」 — 짝짓기 전에 가른다
-  const qChanges = diffTokens(qB, qA, hb, ha).flatMap((c) => {
-    if (c.kind !== 'removed' && !(c.kind === 'changed' && flatAfter.includes(c.b.key))) return [c];
-    if (!flatAfter.includes(c.b.key)) return [c];
-    return c.kind === 'changed' ? [{ kind: 'unquoted', b: c.b }, { kind: 'added', a: c.a }] : [{ kind: 'unquoted', b: c.b }];
-  });
+  // 인용 글이 부호 없이 남았으면 「부호 빠짐」. 글 전체에서 찾는 일은 같은 글마다 한 번, 실을 건수(CHANGE_CAP)를 채울 때까지만 한다
+  // (그 뒤 것은 total 에만 들어가므로 바뀜·빠짐 그대로 센다)
+  const inAfter = new Map();
+  const remains = (k) => {
+    if (!inAfter.has(k)) inAfter.set(k, flatAfter.includes(k));
+    return inAfter.get(k);
+  };
+  const qChanges = [];
+  for (const c of diffTokens(qB, qA, hb, ha)) {
+    if (qChanges.length > CHANGE_CAP || c.kind === 'added' || !remains(c.b.key)) qChanges.push(c);
+    else if (c.kind === 'changed') qChanges.push({ kind: 'unquoted', b: c.b }, { kind: 'added', a: c.a });
+    else qChanges.push({ kind: 'unquoted', b: c.b });
+  }
   const quotes = itemOf('quotes', qChanges, { before: qB.length, after: qA.length }, tokenShow(B, A, () => ({})));
 
   const termList = LAW_FORM_GENRES.has(genre) ? [...LAW_FORM_TERMS, ...LABOR_TERMS] : LABOR_TERMS;
