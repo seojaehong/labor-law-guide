@@ -195,7 +195,7 @@ claude mcp add --scope user k-labor -- npx -y k-labor mcp --groups contract,calc
 
 ### leave · tax · duties 묶음
 
-- `leave` — 사이트 연차 계산기(/tools/leave)와 퇴직 정산(/tools/leave/settlement) 엔진. 날짜·일수만 받습니다. `settle_leave_on_exit` 는 빈 칸을 0 으로 보지 않고, 회계연도 쪽이 많을 때 취업규칙 재산정 규정 유무를 모르면 확정하지 않습니다(`verdict: insufficient-input`). 일수만 세고 금액은 `calc_leave_pay` 로 냅니다.
+- `leave` — 사이트 연차 계산기(/tools/leave)와 퇴직 정산(/tools/leave/settlement) 엔진. 날짜·일수만 받습니다. `settle_leave_on_exit` 는 빈 칸을 0 으로 보지 않고, 회계연도 쪽이 많을 때 취업규칙 재산정 규정 유무를 모르면 확정하지 않습니다(`verdict: insufficient-input`). `endDate` 는 마지막 재직일입니다(상실일 아님). 입사 첫해 월 단위 연차는 날짜로 정하고(1년차 발생 2018-05-29 이전 = 15일에 포함, 그 뒤 = 따로), `includeFirstYearMonthly` 는 호환용으로 받기만 합니다. 일수만 세고 금액은 `calc_leave_pay` 로 냅니다.
 - `tax` — 퇴직소득세 계산기(/tools/retirement-tax) 엔진과 화면 문장(연금계좌로 받는 경우·원천징수영수증·홈택스 모의계산 안내)을 그대로 싣습니다.
 - `duties` — 사이트 /duties 의 묶은 자료(법제처 현행 법령 원문 확인일 포함)와 같은 고르기 규칙(`src/lib/duties.ts`, 화면과 같은 함수)으로 답합니다. 네트워크를 쓰지 않습니다.
 - 원격(HTTP)판에 실어도 되는 도구 = `leaveRemoteSafe`·`taxRemoteSafe`·`dutiesRemoteSafe`(전부).

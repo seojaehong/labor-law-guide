@@ -4,7 +4,7 @@ import fs from 'node:fs';import assert from 'node:assert/strict';import {chromiu
 const base=process.env.VISUAL_BASE_URL || 'http://127.0.0.1:3126',out='docs/design-visuals/pay-check-basis';fs.mkdirSync(out,{recursive:true});
 const browser=await chromium.launch({headless:true,executablePath:process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE});const checks=[];
 const FORBIDDEN=['확률','적중률','노무사','적법','BASIS_NOT_DOCUMENTED','WEEKLY_HOLIDAY_NOT_DESIGNATED','FACT_MISSING','NEEDS_CONFIRMATION'];
-const VALUES={'평균 기간의 약정 소정근로시간 합계':'60','평균을 낸 주수':'4','명세서 주휴 금액':'30000','확정 시급':'10000','같은 기간 통상 근로자의 소정근로일수':'20','명세서 주휴 항목이 몇 주분인지':'1'};
+const VALUES={'평균 기간의 약정 소정근로시간 합계':'60','평균을 낸 주수':'4','급여기간 첫날':'2026-04-01','급여기간 마지막 날':'2026-04-30','명세서 주휴 금액':'33000','확정 시급':'11000','같은 기간 통상 근로자의 소정근로일수':'20','명세서 주휴 항목이 몇 주분인지':'1'};
 async function run(width,{designated,documented}){
   const ctx=await browser.newContext({viewport:{width,height:844}});const page=await ctx.newPage();const errors=[];
   page.on('console',m=>{if(m.type()==='error')errors.push(m.text());});page.on('pageerror',e=>errors.push(String(e)));
@@ -26,15 +26,15 @@ async function run(width,{designated,documented}){
 }
 // 1) 기준을 문서에서 확인 · 주휴일 지정 → 대조 일치, 남은 확인 없음
 let r=await run(390,{designated:true,documented:true});
-assert(r.text.includes('대조 일치'),r.text);assert(r.text.includes('확인한 기준으로 계산'));assert(r.text.includes('30,000원'));
-assert(!r.text.includes('확인되지 않은 채 남은 것'),'문서 확인 분기에 남은 확인 상자가 보임');checks.push('기준 문서 확인함 → 대조 일치 30,000원, 남은 확인 없음');
+assert(r.text.includes('대조 일치'),r.text);assert(r.text.includes('확인한 기준으로 계산'));assert(r.text.includes('33,000원'));
+assert(!r.text.includes('확인되지 않은 채 남은 것'),'문서 확인 분기에 남은 확인 상자가 보임');checks.push('기준 문서 확인함 → 대조 일치 33,000원, 남은 확인 없음');
 // 2) 기준을 문서에서 확인하지 못함 → 참고 계산 + 「계산 기준 문서 미확인」
 r=await run(390,{designated:true,documented:false});
 assert(r.text.includes('고른 기준으로 참고 계산'),r.text);assert(r.text.includes('확인되지 않은 채 남은 것'));assert(r.text.includes('계산 기준 문서 미확인'));
 assert(!r.text.includes('확인한 기준으로 계산'));checks.push('기준 문서 미확인 → 참고 계산 표시와 「계산 기준 문서 미확인」');
 // 3) 주휴일 지정되지 않음을 확인 → 금액은 대조하되 「주휴일 확인 필요」 (360px 모바일)
 r=await run(360,{designated:false,documented:true});
-assert(r.text.includes('30,000원'),r.text);assert(r.text.includes('주휴일 확인 필요'));checks.push('주휴일 미지정 → 금액 대조 유지 + 「주휴일 확인 필요」');
+assert(r.text.includes('33,000원'),r.text);assert(r.text.includes('주휴일 확인 필요'));checks.push('주휴일 미지정 → 금액 대조 유지 + 「주휴일 확인 필요」');
 assert.equal(r.overflow,0,'360px 가로 넘침 '+r.overflow+'px');checks.push('360px 가로 넘침 0');
 for(const w of FORBIDDEN)assert(!r.all.includes(w),'금지어·내부 코드 노출: '+w);checks.push('금지어·내부 코드 0');
 assert.deepEqual(r.errors,[]);checks.push('콘솔 오류 0');

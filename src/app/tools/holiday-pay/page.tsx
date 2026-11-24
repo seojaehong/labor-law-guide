@@ -6,10 +6,10 @@ export default function HolidayPayPage() {
     <div className="layout-tool layout-tool--compact">
       <div className="mb-6">
         <Link
-          href="/blog"
+          href="/tools"
           className="-my-[11px] inline-flex min-h-[44px] items-center text-sm text-[var(--grey-700)] hover:text-[var(--color-text-primary)]"
         >
-          ← 블로그
+          ← 도구
         </Link>
       </div>
       <h1 className="t-h2 mb-2" style={{ color: 'var(--color-text-primary)' }}>
@@ -17,11 +17,10 @@ export default function HolidayPayPage() {
       </h1>
       <p className="mb-6 text-sm leading-relaxed" style={{ color: 'var(--grey-500)' }}>
         노동절(5/1)·관공서 공휴일에 일하면 얼마를 더 받을 수 있는지 계산합니다.
-        사업장 규모(5인 이상/미만), 근로 유형(월급제·일용직·시급제)에 따라 정확하게 산정합니다.
+        사업장 규모(5인 이상/미만), 근로 유형(월급제·일용직·시급제)에 따라 나눠 계산합니다.
         <br />
         <span className="text-xs">
-          ※ 산식 정확성: 근로기준법 제56조, 시행령 제30조, 행정해석 임금근로시간과-956(2026.4.) 등 반영
-        </span>
+          ※ 계산 근거: 근로기준법 제56조, 시행령 제30조, 행정해석 임금근로시간과-956(2026.4.) 등</span>
       </p>
 
       <HolidayPayCalculator />

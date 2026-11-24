@@ -10,7 +10,7 @@ vi.mock('@/lib/contract-check/extract-output',()=>({extractJsonPayload:(s:string
 import {GET} from '@/app/api/search/route';
 import {POST} from '@/app/api/tools/contract-check/extract/route';
 import {startServiceObservation} from '@/lib/observations/service-completion';
-beforeEach(()=>{jobs.length=0;insert.mockReset();search.mockReset();provider.mockReset();insert.mockResolvedValue({error:null});vi.stubEnv('SERVICE_OBSERVATIONS_ENABLED','1');vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL','https://mewqgevgdgghhatqtuos.supabase.co');vi.stubEnv('SUPABASE_SERVICE_ROLE_KEY','synthetic-key');vi.stubEnv('ANTHROPIC_API_KEY','synthetic-key');vi.stubGlobal('fetch',provider);vi.spyOn(console,'log').mockImplementation(()=>{});});
+beforeEach(()=>{jobs.length=0;insert.mockReset();search.mockReset();provider.mockReset();insert.mockResolvedValue({error:null});vi.stubEnv('SERVICE_OBSERVATIONS_ENABLED','1');vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL','https://mewqgevgdgghhatqtuos.supabase.co');vi.stubEnv('SUPABASE_SERVICE_ROLE_KEY','synthetic-key');vi.stubEnv('ANTHROPIC_API_KEY','synthetic-key');vi.stubEnv('NEXT_PUBLIC_REAL_FILE_INPUT','1');vi.stubGlobal('fetch',provider);vi.spyOn(console,'log').mockImplementation(()=>{});});
 afterEach(()=>{vi.unstubAllEnvs();vi.unstubAllGlobals();vi.restoreAllMocks();});
 it('search request abort is persisted once even when search later succeeds',async()=>{
  const abort=new AbortController();let resolve!:(value:unknown)=>void;

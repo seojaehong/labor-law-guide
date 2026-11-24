@@ -575,7 +575,7 @@ export default function HolidayPayCalculator() {
         <StepHeader current={4} />
         <h2 className="t-h3 mb-1" style={{ color: "var(--color-text-primary)" }}>4단계 — 근로 정보를 입력하세요</h2>
         <p className="mb-6 text-sm" style={{ color: 'var(--color-text-secondary)' }}>
-          정확한 통상시급 산정을 위해 모든 항목을 입력해주세요.
+          통상시급을 계산하려면 모든 항목을 입력해주세요.
         </p>
 
         <div
@@ -690,6 +690,8 @@ export default function HolidayPayCalculator() {
 
   // ── Step 5: 결과
   if (step === 'result' && result) {
+    // 휴일근로로 보지 않는 경우(하루만 일한 일용직·주 15시간 미만의 관공서 공휴일) 엔진 첫 줄이 「근로 임금」이다
+    const baseLabel = result.breakdown[0]?.label.startsWith('근로 임금') ? '근로 임금' : '휴일근로 임금';
     return (
       <div>
         <StepHeader current={5} />
@@ -705,7 +707,7 @@ export default function HolidayPayCalculator() {
             계산 결과
           </div>
           <div className="mb-2 text-sm" style={{ color: 'var(--grey-700)' }}>
-            {totalLabel} <span className="text-xs">(휴일근로 임금 1.0배 + 가산)</span>
+            {totalLabel} <span className="text-xs">({baseLabel} 1.0배 + 가산)</span>
           </div>
           <div className="mb-2 text-4xl font-bold" style={{ color: 'var(--color-text-primary)' }}>
             {formatNumber(result.total)}
@@ -717,7 +719,7 @@ export default function HolidayPayCalculator() {
             <div className="mb-1 font-semibold text-[var(--color-text-primary)]">그날 일한 대가의 구성</div>
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
               <span>
-                휴일근로 임금(1.0배):{' '}
+                {baseLabel}(1.0배):{' '}
                 <strong style={{ color: 'var(--color-text-primary)' }}>{formatNumber(result.regular_pay_equivalent)}원</strong>
                 {workerType === 'hourly' && hourlyIncludesWeekly && (
                   <span className="text-[var(--grey-700)]"> (통상시급 기준 — 주휴분 별도)</span>

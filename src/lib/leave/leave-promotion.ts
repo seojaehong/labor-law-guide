@@ -92,6 +92,24 @@ function addMonths(d: Date, n: number): Date {
 }
 
 /**
+ * 「기간이 끝나기 N개월 전」의 첫날 — 권리가 소멸하는 날(종료일 다음 날)에서 N개월을 거슬러 센다.
+ *
+ * ★ 2026-11-24 — 종전에는 `addMonths(종료일, -N) + 1일` 로 셌다. 종료일이 말일이면 대상월 말일로
+ *   잘린 뒤 하루를 더해 1~3일 늦거나 이르게 나왔다(종료 2027-02-28 → 1차 08-29, 바르게는 09-01.
+ *   종료 2026-06-30 → 1차 2025-12-31, 바르게는 2026-01-01 — 하루 이른 촉구가 「일치」로 떴다).
+ *   12-31 종료 기준 사례(7-01 시작, 10-31 기한)와 같은 원리를 모든 달에 적용한다.
+ *   기한(「N개월 전까지」)은 이 날의 전날이다.
+ *   소멸일이 29~31일인데 대상 월에 그날이 없으면(예: 08-31 → 6개월 전 「02-31」) 말일로 줄이지 않고
+ *   다음 달 1일로 둔다 — 줄이면 시작이 앞당겨져 이른 촉구가 「일치」가 된다. 이렇게 하면 말일이 아닌
+ *   종료일은 종전 값과 같다(2027~2028 전 종료일 전수 대조). 이 역산 방식은 조문만으로 정해지지 않아 확인 필요로 둔다.
+ */
+function monthsBeforeExpiry(end: Date, n: number): Date {
+  const expiry = addDays(end, 1);
+  const shifted = addMonths(expiry, -n);
+  return shifted.getUTCDate() < expiry.getUTCDate() ? addDays(shifted, 1) : shifted;
+}
+
+/**
  * 촉진 일정 계산.
  *
  * 두 절차를 각각 구현한다 — §61①(1년 이상)과 §61②(1년 미만)는 기간이 다르다.
@@ -124,10 +142,10 @@ export function buildPromotionSchedule(
   const end = parse(usagePeriodEnd);
 
   if (kind === "monthly-under-1year") {
-    const firstBatchFrom = addDays(addMonths(end, -3), 1); // 10.1
+    const firstBatchFrom = monthsBeforeExpiry(end, 3); // 10.1
     const firstBatchTo = addDays(firstBatchFrom, 9); // 10.10
-    const firstBatchSecondNotice = addMonths(end, -1); // 11.30
-    const lateBatchFrom = addDays(addMonths(end, -1), 1); // 12.1
+    const lateBatchFrom = monthsBeforeExpiry(end, 1); // 12.1
+    const firstBatchSecondNotice = addDays(lateBatchFrom, -1); // 11.30 (1개월 전까지)
     const lateBatchTo = addDays(lateBatchFrom, 4); // 12.5 (5일간)
     const lateBatchSecondNotice = addDays(end, -10); // 12.21
 
@@ -201,7 +219,7 @@ export function buildPromotionSchedule(
   //   12-31 에서 6개월을 그냥 빼면 6-30 이 나오는데, 실무 기준은 7-01 이다.
   //   남은 기간이 정확히 6개월이 되는 첫날이라는 뜻이다.
   //   (처음에 6-30 으로 구현했다가 교재 표와 대조해 고쳤다)
-  const firstFrom = addDays(addMonths(end, -6), 1);
+  const firstFrom = monthsBeforeExpiry(end, 6);
   const firstTo = addDays(firstFrom, 9); // 7.1 부터 10일간 = 7.10
   const sent = input.firstNoticeSentOn;
   windows.push({
@@ -247,7 +265,7 @@ export function buildPromotionSchedule(
   }
 
   // ③ 2차 통보 — 사용기간 끝 2개월 전까지
-  const secondTo = addMonths(end, -2);
+  const secondTo = addDays(monthsBeforeExpiry(end, 2), -1); // 12-31 종료 → 10-31
   const second = input.secondNoticeSentOn;
   const workerReplied = Boolean(input.workerRepliedOn);
   windows.push({
