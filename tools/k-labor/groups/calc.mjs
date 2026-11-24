@@ -346,13 +346,12 @@ export function registerCalc(server) {
         '퇴직금 = 1일 평균임금 × 30 × 재직일수 ÷ 365 를 계산한다(사이트 /tools/severance.html 과 같은 엔진). 평균임금 = 퇴직일(마지막 근무일 다음 날) 전 3개월 임금총액 + 1년 상여금·연차수당의 3/12, 그 기간 총일수로 나눈다. ' +
         '1일 평균임금은 소수 둘째 자리 올림, 퇴직금은 원 단위 반올림(고용노동부 퇴직금 계산기와 같은 끝수). 1일 통상임금을 넣으면 평균임금보다 높을 때 통상임금으로 계산한다. 계속근로 1년 요건만 보고, 1주 15시간 요건은 보지 않는다.',
       inputSchema: {
-        hireDate: z.string().describe('입사일 YYYY-MM-DD'),
+        hireDate: z.string().describe('입사일 YYYY-MM-DD. 퇴직금 중간정산을 받았으면 정산 기준일의 다음 날(근로자퇴직급여 보장법 제8조제2항 — 그때부터 새로 센다)'),
         lastWorkDate: z.string().describe('마지막 근무일 YYYY-MM-DD(퇴직일은 그 다음 날)'),
         wageTotal: z.number().min(0).describe('퇴직일 전 3개월 동안 받은 임금 총액(상여금·연차수당은 빼고, 원)'),
         annualBonus: z.number().min(0).optional().describe('퇴직 전 1년 동안 받은 상여금 총액(원) — 3/12을 더한다'),
         annualLeavePay: z.number().min(0).optional().describe('퇴직 전 1년 연차수당 중 평균임금에 넣는 금액(원) — 3/12을 더한다'),
-        dailyOrdinaryWage: z.number().min(0).optional().describe('1일 통상임금(원, 알면)'),
-        wageType: z.enum(['auto', 'average', 'ordinary']).optional().describe('auto = 평균임금과 통상임금 중 높은 쪽(기본) · average · ordinary'),
+        dailyOrdinaryWage: z.number().min(0).optional().describe('1일 통상임금(원, 알면) — 평균임금보다 높으면 이 값으로 계산한다(근로기준법 제2조제2항)'),
       },
       annotations: READ_ONLY,
     },
@@ -364,7 +363,7 @@ export function registerCalc(server) {
         const headline = r.eligible
           ? [`퇴직금은 ${won(r.amount)}입니다.`, formula]
           : ['계속근로 기간이 1년이 되지 않아 퇴직금 지급 대상이 아닙니다.', `퇴직일 ${r.retirementDate}까지 재직 ${r.serviceDays}일입니다(근로자퇴직급여 보장법 제4조제1항). 같은 식으로 세면 ${won(r.amount)}입니다.`];
-        if (r.eligible && r.applied === 'ordinary' && (a.wageType ?? 'auto') === 'auto') headline.push(`1일 평균임금 ${dec2(r.dailyAverage)}원이 1일 통상임금보다 낮아 통상임금으로 계산했습니다(근로기준법 제2조제2항).`);
+        if (r.eligible && r.applied === 'ordinary') headline.push(`1일 평균임금 ${dec2(r.dailyAverage)}원이 1일 통상임금보다 낮아 통상임금으로 계산했습니다(근로기준법 제2조제2항).`);
         return text({
           ok: true, headline, result: r,
           notice: '1주 소정근로시간이 15시간 미만이면 퇴직금 지급 대상이 아닙니다(근로자퇴직급여 보장법 제4조제1항 단서). 이 계산은 그 요건을 따로 보지 않습니다. 퇴직소득세는 calc_retirement_tax 로 계산합니다.',

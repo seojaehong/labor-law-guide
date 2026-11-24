@@ -609,9 +609,10 @@
 
         <h3>2. 해당할 때만 입력</h3>
         <ol>
-            <li><b>1년분 상여금 총액</b>, <b>연월차수당</b>, 이미 받은 <b>퇴직금 중간정산</b>이 있으면 입력합니다.</li>
+            <li><b>1년분 상여금 총액</b>, <b>연월차수당</b>이 있으면 입력합니다.</li>
+            <li><b>퇴직금 중간정산</b>을 받았으면 입사일 칸에 <b>중간정산 기준일의 다음 날</b>을 넣습니다. 퇴직금은 그날부터 새로 셉니다(근로자퇴직급여 보장법 제8조 제2항).</li>
             <li><b>퇴직소득세</b>는 자동 계산합니다. 직접 입력하려면 「자동」 체크를 해제합니다.</li>
-            <li><b>1일 통상임금</b>을 알면 입력합니다. 「자동」이면 근로기준법 제2조 제2항에 따라 평균임금이 통상임금보다 적을 때 통상임금을 적용합니다.</li>
+            <li><b>1일 통상임금</b>을 알면 입력합니다. 근로기준법 제2조 제2항에 따라 평균임금이 통상임금보다 적을 때 통상임금을 적용합니다.</li>
         </ol>
 
         <h3>3. 산정서로 인쇄할 때 입력</h3>
@@ -723,16 +724,8 @@
                     <label for="dailyOrdinaryWage">1일 통상임금</label>
                     <input type="text" id="dailyOrdinaryWage" class="money-input" inputmode="decimal" autocomplete="off" placeholder="미입력 시 평균임금만 적용">
                 </div>
-                <div class="field">
-                    <label for="wageType">적용임금 선택</label>
-                    <select id="wageType" aria-describedby="wageTypeHint">
-                        <option value="auto">자동 (근로기준법 제2조 제2항)</option>
-                        <option value="average">평균임금으로 계산</option>
-                        <option value="ordinary">통상임금으로 계산</option>
-                    </select>
-                </div>
             </div>
-            <p id="wageTypeHint" class="field-hint">근로기준법 제2조 제2항: 평균임금이 그 근로자의 통상임금보다 적으면 그 통상임금액을 평균임금으로 합니다. 「자동」이면 평균임금 &lt; 통상임금일 때 통상임금을 적용합니다.</p>
+            <p id="wageTypeHint" class="field-hint">근로기준법 제2조 제2항: 평균임금이 그 근로자의 통상임금보다 적으면 그 통상임금액을 평균임금으로 합니다. 1일 통상임금을 넣으면 둘 중 높은 쪽으로 계산합니다. 중간정산을 받았으면 이 칸 대신 입사일 칸에 정산 기준일의 다음 날을 넣습니다.</p>
         </details>
 
         <details class="card optional-box" id="personalInfo">
@@ -844,7 +837,7 @@ const SeveranceEngine = (() => {
         return ymd(Date.UTC(d.getUTCFullYear() + 1, d.getUTCMonth(), d.getUTCDate()));
     }
     function calcSeverance(input) {
-        var _a, _b, _c, _d;
+        var _a, _b, _c;
         parse(input.hireDate, '입사일');
         const retirementDate = addDays(input.lastWorkDate, 1);
         const serviceDays = diffDays(retirementDate, input.hireDate);
@@ -860,8 +853,7 @@ const SeveranceEngine = (() => {
         const den = BigInt(12) * BigInt(periodDays);
         const avgCents = (base12 * BigInt(100) + den - BigInt(1)) / den;
         const ordCents = BigInt(Math.round(((_c = input.dailyOrdinaryWage) !== null && _c !== void 0 ? _c : 0) * 100));
-        const wageType = (_d = input.wageType) !== null && _d !== void 0 ? _d : 'auto';
-        const applied = ordCents > BigInt(0) && (wageType === 'ordinary' || (wageType === 'auto' && ordCents > avgCents)) ? 'ordinary' : 'average';
+        const applied = ordCents > avgCents ? 'ordinary' : 'average';
         const cents = applied === 'ordinary' ? ordCents : avgCents;
         // 퇴직금 = 반올림(1일 임금 × 30 × 재직일수 ÷ 365)
         const num = cents * BigInt(30) * BigInt(serviceDays);
@@ -1103,7 +1095,6 @@ function createDefaultWorker() {
         autoCalcTax: true,
         retirementTax: '0',
         dailyOrdinaryWage: '',
-        wageType: 'auto',
         result: null
     };
 }
@@ -1234,8 +1225,9 @@ function validateWorkerInput(w) {
     let wageSum = 0;
     for (let i = 1; i <= periodCount; i++) wageSum += parseMoney(w[`wage${i}`]);
     if (wageSum <= 0) return { field: 'wage1', message: '월급여를 1개 구간 이상 입력해 주세요.' };
-    if (w.wageType === 'ordinary' && parseMoney(w.dailyOrdinaryWage) <= 0) {
-        return { field: 'dailyOrdinaryWage', message: '통상임금으로 계산하려면 1일 통상임금을 입력해 주세요.' };
+    /* 261124 — 중간정산 금액만 빼면 전 근속을 마지막 임금으로 다시 세어 많게 나온다. 정산 다음 날부터 새로 센다 */
+    if (parseMoney(w.priorSeverance) > 0) {
+        return { field: 'priorSeverance', message: '중간정산을 받았으면 퇴직금은 정산 기준일의 다음 날부터 새로 셉니다(근로자퇴직급여 보장법 제8조 제2항). 입사일 칸에 그 다음 날을 넣고 이 칸은 0으로 두세요.' };
     }
     return null;
 }
@@ -1328,8 +1320,7 @@ function calculateSeverance(data) {
         wageTotal: wageSum,
         annualBonus: bonus,
         annualLeavePay: annual,
-        dailyOrdinaryWage,
-        wageType: data.wageType || 'auto'
+        dailyOrdinaryWage
     });
     const total3Month = engine.baseTotal;
     const avgWage = engine.dailyAverage;
@@ -1534,7 +1525,7 @@ function workerInputSignature(w) {
     const moneyFields = new Set(['wage1', 'wage2', 'wage3', 'wage4', 'bonusTotal', 'annualLeave', 'priorSeverance', 'retirementTax', 'dailyOrdinaryWage']);
     return JSON.stringify(['startDate', 'endDate',
         'wage1', 'wage2', 'wage3', 'wage4', 'bonusTotal', 'annualLeave', 'priorSeverance',
-        'autoCalcTax', 'retirementTax', 'dailyOrdinaryWage', 'wageType'].map(key => key === 'retirementTax' && w.autoCalcTax ? 0 : moneyFields.has(key) ? parseMoney(w[key]) : w[key]));
+        'autoCalcTax', 'retirementTax', 'dailyOrdinaryWage'].map(key => key === 'retirementTax' && w.autoCalcTax ? 0 : moneyFields.has(key) ? parseMoney(w[key]) : w[key]));
 }
 function invalidateResult(w) {
     const hadResult = !!w.result;
@@ -1571,7 +1562,6 @@ function saveFormToState() {
     w.autoCalcTax = document.getElementById('autoCalcTax').checked;
     w.retirementTax = document.getElementById('retirementTax').value;
     w.dailyOrdinaryWage = document.getElementById('dailyOrdinaryWage').value;
-    w.wageType = document.getElementById('wageType').value;
     if (previous !== workerInputSignature(w)) invalidateResult(w);
 }
 
@@ -1594,7 +1584,6 @@ function loadFormFromState() {
     document.getElementById('retirementTax').value = w.retirementTax;
     document.getElementById('retirementTax').readOnly = w.autoCalcTax;
     document.getElementById('dailyOrdinaryWage').value = w.dailyOrdinaryWage || '';
-    document.getElementById('wageType').value = w.wageType || 'auto';
     updateWageTotal();
 }
 
@@ -2067,7 +2056,7 @@ function openStatement() {
 function openFoldsWithValues() {
     const w = state.workers[state.currentIndex];
     const extra = ['bonusTotal', 'annualLeave', 'priorSeverance', 'dailyOrdinaryWage'].some(k => parseMoney(document.getElementById(k).value) > 0)
-        || !document.getElementById('autoCalcTax').checked || document.getElementById('wageType').value !== 'auto';
+        || !document.getElementById('autoCalcTax').checked;
     if (extra) document.getElementById('extraWages').open = true;
     if (['businessName', 'ownerName', 'workerName', 'birthDate'].some(id => document.getElementById(id).value)) document.getElementById('personalInfo').open = true;
 }
@@ -2467,11 +2456,6 @@ function init() {
         for (const k of ['bonusTotal', 'annualLeave', 'priorSeverance', 'dailyOrdinaryWage']) {
             const v = params.get(k);
             if (v != null) { setMoney(k, v); any = true; }
-        }
-        const wageType = params.get('wageType');
-        if (wageType) {
-            const sel = document.getElementById('wageType');
-            if (sel) sel.value = wageType;
         }
         // autocalc=1 또는 ?run=1 — 입력 후 자동 계산
         if (any) openFoldsWithValues();
