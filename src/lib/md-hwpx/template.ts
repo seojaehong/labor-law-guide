@@ -95,7 +95,7 @@ export function transplant(
   ours: { header: string; section: string; clones?: CloneLog },
   tplHeader: string,
   roles: Partial<Record<keyof TemplateSamples, RolePair>>,
-  opt: { tableLineSpacing?: number } = {},
+  opt: { tableLineSpacing?: number; tableAlign?: 'left' | 'justify' } = {},
 ): { header: string; section: string } {
   let h = cleanFillBrush(tplHeader);
   const fontMap = new Map<string, number>();
@@ -199,7 +199,7 @@ export function transplant(
     }
   }
   // 표 역할(261124) — 이식한 칸 문단은 어절 단위(BREAK_WORD), 줄간격은 tableLineSpacing 을 명시했을 때만 그 값(아니면 양식 값)
-  const cellPara = (src: number, align?: 'CENTER' | 'RIGHT') => {
+  const cellPara = (src: number, align?: 'LEFT' | 'CENTER' | 'RIGHT') => {
     const r = appendItem(
       h,
       PARA,
@@ -210,8 +210,9 @@ export function transplant(
   };
   if (roles.cell) {
     const cell = roles.cell;
-    // 27 = 양식 칸 문단(양식 정렬 그대로), 28·29 = 복제에 정렬만 가운데·오른쪽
-    OUR_CELL_PARA.forEach((p, i) => rolePara.set(p, cellPara(cell.para, OUR_CELL_ALIGN[i] || undefined)));
+    // 27 = 양식 칸 문단(양식 정렬 그대로, features.table.align='left' 면 정렬만 LEFT), 28·29 = 복제에 정렬만 가운데·오른쪽
+    const leftAlign = opt.tableAlign === 'left' ? 'LEFT' : undefined;
+    OUR_CELL_PARA.forEach((p, i) => rolePara.set(p, cellPara(cell.para, OUR_CELL_ALIGN[i] || leftAlign)));
     for (const c of OUR_CELL_CHAR) roleChar.set(c, cell.char);
     const b = cloneChar(h, cell.char, { bold: true });
     h = b.header;
@@ -251,7 +252,7 @@ export async function mdToHwpxWithTemplate(md: string, template: Uint8Array, opt
   const pagePr = /<hp:pagePr\b[\s\S]*?<\/hp:pagePr>/.exec(tplSection)?.[0];
   const items = parseMarkdown(md, opts);
   const ours = mdDocXml(items, { ...opts, pagePr });
-  const { header, section } = transplant(ours, tplHeader, templateRoles(tplSection, opts.samples), { tableLineSpacing: opts.tableLineSpacing });
+  const { header, section } = transplant(ours, tplHeader, templateRoles(tplSection, opts.samples), { tableLineSpacing: opts.tableLineSpacing, tableAlign: opts.features?.table?.align });
   const issues = checkHeader(header, section);
   if (issues.length) throw new Error(`hwpx header 불변식 위반: ${issues.map((x) => x.message).join(' / ')}`);
   const title = items.find((x) => x.kind === 'h1');

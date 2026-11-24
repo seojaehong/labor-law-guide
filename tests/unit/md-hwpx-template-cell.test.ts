@@ -135,3 +135,31 @@ describe('양식 모드 표 역할(cell·cellHead)', () => {
     await expect(mdToHwpxWithTemplate(MD, t.bytes, { samples: { cell: '없는 칸 글자' } })).rejects.toThrow('cell');
   });
 });
+
+describe('features.table.align(261124)', () => {
+  // 양쪽 정렬 칸은 좁은 칸에서 글자 사이가 벌어진다. 실기관 양식에 LEFT 문단 견본이 없어 옵션으로 둔다.
+  // 'left' = 표 본문 칸(27 계열, 양식 cell 이식 문단 포함)만 LEFT. 가운데·오른쪽 칸(28·29)과 머리행은 그대로. 기본 = 종전과 바이트 동일
+  it('양식 모드 — 칸 문단을 복제해 정렬만 LEFT, 가운데·오른쪽·머리행 그대로', async () => {
+    const t = await makeTemplate();
+    const { header: h, section, tcs } = await render(t.bytes, { samples: SAMPLES, features: { table: { align: 'left' } } });
+    expect(checkHeader(h, section)).toEqual([]);
+    const [left, mid, right] = tcs.filter((x) => !x.head);
+    expect(align(paraXml(h, left.para))).toBe('LEFT');
+    const norm = (x: string) => noId(x).replace(/horizontal="\w+"/, '').replace(/breakNonLatinWord="\w+"/, '');
+    expect(norm(paraXml(h, left.para))).toBe(norm(paraXml(h, t.ids.cellPara)));
+    expect(align(paraXml(h, mid.para))).toBe('CENTER');
+    expect(align(paraXml(h, right.para))).toBe('RIGHT');
+    for (const c of tcs.filter((x) => x.head)) expect(align(paraXml(h, c.para))).toBe('CENTER');
+  });
+  it('기본·justify 는 종전과 바이트 동일, 프리셋 모드 left 는 27 이 LEFT', async () => {
+    const t = await makeTemplate();
+    const a = await render(t.bytes, { samples: SAMPLES });
+    const b = await render(t.bytes, { samples: SAMPLES, features: { table: { align: 'justify' } } });
+    expect(b.header + b.section).toBe(a.header + a.section);
+    const z = await JSZip.loadAsync(await mdToHwpx(MD, { features: { table: { align: 'left' } } }));
+    const h = await z.file('Contents/header.xml')!.async('string');
+    const s = await z.file('Contents/section0.xml')!.async('string');
+    const firstBody = Number(/<hp:tc\b[^>]*header="0"[\s\S]*?paraPrIDRef="(\d+)"/.exec(s)![1]);
+    expect(align(paraXml(h, firstBody))).toBe('LEFT');
+  });
+});

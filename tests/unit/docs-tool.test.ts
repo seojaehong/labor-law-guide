@@ -63,6 +63,8 @@ describe('docs 묶음', () => {
     const field = (k: string) => (tool.cfg.inputSchema as unknown as Record<string, F>)[k];
     expect(field('orientation').safeParse('landscape').success).toBe(true);
     expect(field('orientation').safeParse('sideways').success).toBe(false);
+    expect(field('features').safeParse({ table: { align: 'left' } }).success).toBe(true);
+    expect(field('features').safeParse({ table: { align: 'center' } }).success).toBe(false);
     expect(field('tableLineSpacing').safeParse(180).success).toBe(true);
     for (const v of [99, 251, 150.5]) expect(field('tableLineSpacing').safeParse(v).success).toBe(false);
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'md-hwpx-'));
