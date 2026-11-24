@@ -75,7 +75,7 @@
   --grey-900: #20231f;
 
   /* Brand Blue (Toss) */
-  --blue-50: #e8f3ff;
+  --blue-50: #e8f0ef; /* 액센트 틴트 — 청록(261124). 종전 #e8f3ff 파랑. 램프 이름만 blue 로 남았다 */
   --blue-100: #c9e2ff;
   --blue-200: #90c2ff;
   --blue-300: #64a8ff;
@@ -156,6 +156,10 @@
   --color-border: var(--grey-200);
   --color-border-subtle: rgba(0, 0, 0, 0.06);
 
+  /* 입력칸 테두리 — 비텍스트 대비 3:1(WCAG 1.4.11). --color-border(구분선·카드용, 1.4:1)와 따로 둔다.
+     바탕 #faf8f2 3.33:1 / 표면 #ffffff 3.53:1 (261124 실측, tests/unit/global-theme-tokens.test.ts) */
+  --color-control-border: #858a80;
+
   /* 홈 하단 CTA 밴드 잉크 — 밴드 배경은 var(--grey-900)이라 테마에 따라 반전된다(§7.2-7).
      비율은 종전 rgba(242,244,246,0.7 / 0.55)를 그대로 옮긴 값이고, 라이트 렌더값은 동일하다. */
   --band-ink-muted: color-mix(in srgb, var(--grey-100) 70%, var(--grey-900));
@@ -207,18 +211,22 @@
 }
 
 .dark {
-  --grey-50: #191f28;
-  --grey-100: #1e2530;
-  --grey-200: #2a3140;
-  --grey-300: #3a4250;
-  --grey-400: #6b7684;
-  --grey-500: #8b95a1;
-  --grey-600: #b0b8c1;
-  --grey-700: #d1d6db;
-  --grey-800: #e5e8eb;
-  --grey-900: #f2f4f6;
+  /* 다크 회색 램프 — 261124 올리브로 다시 칠했다. 종전 값(#191f28·#1e2530·#2a3140…)은 Toss 남색이라
+     var(--grey-100)을 쓰는 상자(도구 「계산 기준」, /ai 예시 칩, 태그)가 올리브 바탕 위에 남색으로 떠 있었다.
+     밝기 단계는 그대로 두고 색조만 바탕(#191d19)·표면(#202620)·잉크(#f0f0e7)에 맞췄다. */
+  --grey-50: #191d19;
+  --grey-100: #262c25;
+  --grey-200: #343b32;
+  --grey-300: #414a3d;
+  --grey-400: #6f786a;
+  --grey-500: #8f978a;
+  --grey-600: #b9c0b4;
+  --grey-700: #d3d8cc;
+  --grey-800: #e4e7dc;
+  --grey-900: #f0f0e7;
 
-  --blue-50: rgba(49, 130, 246, 0.12);
+  /* 액센트 틴트 — 청록(site-refactor.css .dark --color-accent-light 와 같은 값). 종전 파랑 rgba(49,130,246,.12) */
+  --blue-50: rgba(80, 140, 130, 0.17);
 
   --color-bg-primary: #191d19;
   --color-bg-surface: #202620;
@@ -226,10 +234,12 @@
 
   --color-text-primary: #f0f0e7;
   --color-text-secondary: #b9c0b4;
-  --color-text-tertiary: #6b7684;
+  --color-text-tertiary: #8f978a;
 
   --color-border: #414a3d;
   --color-border-subtle: rgba(255, 255, 255, 0.06);
+  /* 입력칸 테두리 다크 — 바탕 4.33 / 표면 3.92 / 띄운 표면 3.34:1 */
+  --color-control-border: #7a8374;
 
   /* 홈 CTA 밴드 잉크 다크 — 밴드가 밝은 표면으로 반전되므로 같은 비율이면 잉크가 중간 회색이 된다.
      -muted(70%)는 5.48:1로 통과하지만 -fine(55%)은 3.51:1로 AA 미달이라 다크에서만 잉크 쪽으로 당긴다.
@@ -342,6 +352,15 @@
     clip: rect(0, 0, 0, 0);
     white-space: nowrap;
     border-width: 0;
+  }
+
+  /* 입력칸 테두리 3:1 — 컴포넌트 27곳이 inline `borderColor: var(--color-border)`를 쓴다.
+     요소 자신의 --color-border·--border 를 입력 테두리 토큰으로 바꿔 끼우면 inline 값도 이것으로 풀린다.
+     focus·오류 상태가 border-color 를 직접 주는 유틸은 그대로 이긴다(변수만 바꾸므로 !important 가 없다). */
+  :where(input:not([type="checkbox"], [type="radio"], [type="range"], [type="hidden"], [type="submit"], [type="button"]), select, textarea) {
+    --color-border: var(--color-control-border);
+    --border: var(--color-control-border);
+    --input: var(--color-control-border);
   }
 
   body {
@@ -940,12 +959,30 @@
     color: var(--grey-900);
   }
 
-  /* 다크모드 가시성 fix — blog-case 등의 표가 본문에 inline `background:#fff` 또는 `#f9f9f9`
-     로 흰 배경을 강제하는데, td color는 다크모드 글로벌(흰색)을 상속받아 안 보임.
-     tbody td는 강제로 어두운 텍스트로 — 표 배경이 흰색이므로 가독성 OK. */
+  /* 본문 칸 글자는 본문 잉크. 종전 `--grey-900` 고정은 inline 흰 행 배경을 전제했는데 다크에서 --grey-900 이
+     밝은 잉크로 뒤집혀 흰 행 위 밝은 글자가 됐다. 261124부터 행 배경은 blog-authored-style.ts 가 토큰으로 바꾼다. */
   .blog-content tbody td {
-    color: var(--grey-900);
+    color: var(--color-text-primary);
   }
+
+  /* 글 본문에 필자가 박아 둔 색을 옮겨 받는 자리 — src/lib/blog-authored-style.ts (261124).
+     강조 상자: 라이트 #f5f2ea 고정 배경 위 다크 밝은 잉크 1.01:1 이 나던 것. 한쪽 막대 대신 전체 테두리. */
+  .blog-content .blog-callout {
+    margin: 1.5em 0;
+    padding: 18px 22px;
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    background: var(--grey-100);
+    color: var(--color-text-primary);
+  }
+
+  .blog-content .blog-callout > :last-child { margin-bottom: 0; }
+
+  .blog-content tr.blog-row-muted { background: var(--color-bg-surface); }
+  .blog-content tr.blog-row-danger { background: var(--color-danger-bg); }
+  .blog-content tr.blog-row-warn { background: var(--color-warn-bg); }
+  /* 진한 머리 행(흰 글자) — 칸 글자가 행 색을 따른다 */
+  .blog-content tr.blog-row-inverse > :is(td, th) { color: inherit; }
 
   .blog-content input[type="checkbox"] {
     margin-right: 8px;
@@ -1047,7 +1084,7 @@ p.reading-prose { margin-block-end: var(--reading-paragraph-space); }
   padding-block: 1.5rem;
   margin-block-end: 2rem;
 }
-.editorial-reading-header h1 { font-family: var(--font-editorial); font-size: clamp(1.875rem, 2.8vw, 2.6875rem); line-height: 1.35; letter-spacing: -.035em; }
+.editorial-reading-header h1 { font-family: var(--font-editorial); font-size: clamp(1.875rem, 2.8vw, 2.6875rem); line-height: 1.35; letter-spacing: -.02em; }
 .editorial-reading-header .editorial-deck { font-size: 1.125rem; line-height: 1.7; color: var(--grey-700); }
 .editorial-reading-header .editorial-summary { padding: 1.25rem 0 0; margin-top: 1.25rem; border-top: 1px solid var(--color-border); color: var(--grey-700); font-size: 1rem; line-height: 1.8; }
 .editorial-document .editorial-evidence { border-block-start: 1px solid var(--color-border); padding-block-start: 1.25rem; margin-block-end: 2rem; }
