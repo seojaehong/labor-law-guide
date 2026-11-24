@@ -361,7 +361,7 @@ export function registerDocs(server) {
         '공개 팩의 걸림에는 걸린 글자·고칠 말·규칙 이름이 붙는다. 비공개 팩은 위치·등급·짧은 사유만 주고(PROSE_ALLOW_FULL=1 인 PC 에서는 전부), full 을 달라고 했는데 줄였으면 withheld 로 알린다. 주민등록번호 모양이 있으면 점검하지 않고 rrnLines(줄 번호만)로 알린다. 모델을 부르지 않고, 문서 글을 밖으로 보내지 않는다.',
       inputSchema: {
         text: TEXT_SCHEMA.describe('점검할 문서 글(md 또는 평문, 40만 자까지)'),
-        genre: GENRE_SCHEMA.optional().describe('legal(기본: 의견서·조사보고서) / consulting / lecture / general(official 은 general 과 같다). 장르별 검사는 팩에 달려 있다'),
+        genre: GENRE_SCHEMA.optional().describe('legal(기본: 의견서·조사보고서) / consulting / lecture / general / official(general 규칙으로 돌되 범용 팩의 법률 트랙 keep 5항목은 legal 처럼 꺼진다. 응답 genre 는 general, requestedGenre 는 official). 장르별 검사는 팩에 달려 있다'),
         detail: DETAIL_SCHEMA.optional().describe('비우면 공개 팩은 전부·비공개 팩은 위치만 / brief 모든 팩을 위치·등급·짧은 사유만 / full 비공개 팩도 전부(이 PC 가 허용할 때만)'),
       },
       annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },

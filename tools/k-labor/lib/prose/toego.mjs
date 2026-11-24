@@ -4,7 +4,7 @@
 // 이 파일과 check·norms·common 만 묶은 dist/toego.mjs 가 같은 판정을 0.3초 안팎에 낸다.
 import { z } from 'zod';
 import { rrnLines } from '../common.mjs';
-import { checkProse, loadPackSet } from './check.mjs';
+import { checkProse, foldGenre, loadPackSet } from './check.mjs';
 import { checkNorms, NORM_CHECKS } from './norms.mjs';
 
 export const PROSE_RRN_STOP = '입력에 주민등록번호 모양의 숫자가 있어 멈췄습니다. 가린 뒤 다시 점검해 주세요.';
@@ -31,9 +31,11 @@ const stackOnly = (e) => (e instanceof Error ? `${e.name}\n${String(e.stack ?? '
 export function proseResult(a) {
   try {
     const set = loadPackSet();
-    const genre = a.genre === 'official' ? 'general' : (a.genre ?? 'legal');
-    const r = checkProse(a.text, { packs: set.packs, skipped: set.skipped, genre, detail: a.detail });
-    return { ok: !r.incomplete, genre, ...r };
+    // 부른 장르 이름 그대로 넘긴다 — check 가 official 을 general 로 접되, 규칙의 skipGenres 는 official 을 따로 본다.
+    // 응답 genre 는 접은 장르(종전 그대로), requestedGenre 는 부른 이름 — 다시 부를 때는 requestedGenre 를 쓴다
+    const requestedGenre = a.genre ?? 'legal';
+    const r = checkProse(a.text, { packs: set.packs, skipped: set.skipped, genre: requestedGenre, detail: a.detail });
+    return { ok: !r.incomplete, genre: foldGenre(requestedGenre), requestedGenre, ...r };
   } catch (e) {
     console.error('[check_prose]', stackOnly(e));
     return { ok: false, error: 'PROSE_CHECK_FAILED' };
