@@ -89,6 +89,60 @@ test('결과 블록 — 금액 → 산식 → 근거 → 기준 → 면책 → �
   await expect(sheet).toContainText('가상근로자');
 });
 
+async function calc(page: Page, start: string, last: string) {
+  await page.goto(PATH);
+  page.on('dialog', (d) => d.accept());
+  await page.locator('#startDate').fill(start);
+  await page.locator('#endDate').fill(last);
+  for (const i of [1, 2, 3]) await page.locator(`#wage${i}`).fill('3000000');
+  await page.getByRole('button', { name: '계산하기' }).click();
+  await expect(page.locator('#resultStatus')).toContainText('계산했습니다');
+}
+
+test('계산 뒤 입력을 두 글자 고쳐도 「결과를 지웠습니다」 안내가 남는다', async ({ page }) => {
+  await calc(page, '2021-01-04', '2025-12-31');
+  await page.locator('#wage1').fill('30000001');
+  await page.locator('#wage1').press('Backspace');
+  await page.locator('#wage1').press('Backspace');
+  await expect(page.locator('#resultStatus')).toContainText('앞의 계산 결과를 지웠습니다');
+  await expect(page.locator('#resultArea')).toBeHidden();
+});
+
+test('1년 미만이면 지급 기한을 단정하지 않고 대상이 아닐 수 있다고 적는다', async ({ page }) => {
+  await calc(page, '2025-06-01', '2025-12-31');
+  const next = page.locator('.result-next');
+  await expect(next).toContainText('1년 미만이면 퇴직금 지급 대상이 아닐 수 있습니다');
+  await expect(next).not.toContainText('14일째');
+});
+
+test('1년 이상이면 마지막 근무일에서 14일째 되는 날을 적는다', async ({ page }) => {
+  await calc(page, '2021-01-04', '2025-12-31');
+  await expect(page.locator('.result-next')).toContainText('마지막 근무일에서 14일째 되는 날까지 지급합니다');
+  await expect(page.locator('.result-next')).toContainText('2026. 01. 14.');
+});
+
+test('2022. 12. 31. 이전 퇴사는 퇴직소득세를 계산하지 않았다고 적고 세율표 확인일을 쓰지 않는다', async ({ page }) => {
+  await calc(page, '2019-01-02', '2022-12-31');
+  const block = page.locator('.result-block');
+  await expect(block.locator('.result-label')).toHaveText('퇴직금(세전)');
+  await expect(block).toContainText('퇴직소득세 반영 전 금액');
+  await expect(block.locator('.result-asof')).toContainText('퇴직소득세는 계산하지 않았습니다');
+  await expect(block.locator('.result-asof')).not.toContainText('확인일');
+});
+
+test('「자동」을 끄고 세액을 직접 넣으면 세율표 확인일을 쓰지 않는다', async ({ page }) => {
+  await page.goto(PATH);
+  await page.locator('#extraWages summary').click();
+  await page.locator('#autoCalcTax').uncheck();
+  await page.locator('#retirementTax').fill('100000');
+  await page.locator('#startDate').fill('2021-01-04');
+  await page.locator('#endDate').fill('2025-12-31');
+  for (const i of [1, 2, 3]) await page.locator(`#wage${i}`).fill('3000000');
+  await page.getByRole('button', { name: '계산하기' }).click();
+  await expect(page.locator('.result-asof')).toContainText('직접 입력한 값');
+  await expect(page.locator('.result-asof')).not.toContainText('확인일');
+});
+
 test('빈 칸으로 계산하면 칸 옆에 오류 문장을 두고 aria-describedby 로 잇는다', async ({ page }) => {
   await page.goto(PATH);
   await page.getByRole('button', { name: '계산하기' }).click();

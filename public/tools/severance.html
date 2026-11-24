@@ -613,7 +613,7 @@
             <li><b>[계산하기]</b>를 누르면 퇴직금, 산식, 근거 조문이 나옵니다.</li>
             <li>결과 아래 <b>산정서 보기·인쇄</b>를 펴면 서명란이 있는 산정서가 있습니다. <b>[인쇄하기]</b>로 A4 한 장에 인쇄하거나 PDF로 저장합니다.</li>
             <li><b>[저장]을 누를 때만 이 브라우저에 저장합니다.</b> 누르지 않으면 새로고침하거나 창을 닫을 때 입력이 사라집니다. 저장한 뒤 고친 내용은 [저장]을 다시 눌러야 남습니다.</li>
-            <li>저장한 값은 입력 칸 위 「지우기」로 지웁니다. 서버로는 보내지 않습니다.</li>
+            <li>저장한 값은 이 브라우저에만 남고 서버로 보내지 않습니다. 입력 칸 위 「지우기」로 지웁니다.</li>
         </ol>
 
         <h3>5. 근로자 여러 명</h3>
@@ -1520,8 +1520,10 @@ function invalidateResult(w) {
     const hadResult = !!w.result;
     w.result = null;
     hideContext();
+    /* 결과가 있을 때만 지우고 알린다 — 다음 글자를 칠 때 안내 문장까지 지우지 않게 한다 */
+    if (!hadResult) return;
     hideResult();
-    if (hadResult) setResultStatus('입력이 바뀌어 앞의 계산 결과를 지웠습니다. 다시 계산해 주세요.');
+    setResultStatus('입력이 바뀌어 앞의 계산 결과를 지웠습니다. 다시 계산해 주세요.');
 }
 /** 결과 영역을 비우고 숨긴다(첫 줄 안내도 비운다) */
 function hideResult() {
@@ -1955,7 +1957,9 @@ function resultBlockHtml(result, w) {
     const ordinary = result.wageTypeApplied === 'ordinary';
     const applied = formatMoney(Math.round(result.appliedWage * 100) / 100);
     const year = w.endDate.slice(0, 4);
-    const checked = noTax ? '' : taxTableCheckedDate(w.endDate);
+    const manualTax = !result.autoCalcTax;
+    const underOneYear = isUnderOneYear(w.startDate, w.endDate);
+    const checked = noTax || manualTax ? '' : taxTableCheckedDate(w.endDate);
     const sub = [];
     if (noTax) {
         sub.push(['퇴직소득세', '계산하지 않음']);
@@ -1967,6 +1971,8 @@ function resultBlockHtml(result, w) {
     sub.push([noTax ? '퇴직소득세 반영 전 금액' : '세금을 뺀 실수령 추정', `${formatMoney(result.netSeverance)}원`]);
     const asof = noTax
         ? `${year}년 퇴사 기준 · 퇴직소득세는 계산하지 않았습니다`
+        : manualTax
+        ? `${year}년 퇴사 기준 · 퇴직소득세는 직접 입력한 값입니다`
         : `${year}년 퇴사 기준 · 퇴직소득세 세율표 확인일 ${checked ? dotDate(checked) : '미표시'}`;
     return `
         <h2 class="result-label">퇴직금(세전)</h2>
@@ -1979,7 +1985,9 @@ function resultBlockHtml(result, w) {
         <p class="result-caption">입력한 값으로 계산한 확인용 추정입니다. 실제 지급액은 회사의 임금 자료와 퇴직급여 제도(퇴직연금 등)에 따라 달라질 수 있어 산정 자료와 함께 확인합니다.${noTax ? ' ' + esc(result.taxNotice) : ''}</p>
         <section class="result-next" aria-labelledby="resultNextTitle">
             <h3 id="resultNextTitle">다음 할 일</h3>
-            <p>퇴직금은 퇴직일부터 14일 안에 지급합니다(근로자퇴직급여 보장법 제9조제1항). 이 입력이면 ${dotDate(addDaysUTC(w.endDate, 14))}까지입니다. 당사자가 합의하면 지급 기일을 연장할 수 있습니다.</p>
+            ${underOneYear
+                ? `<p>계속근로기간이 1년 미만이면 퇴직금 지급 대상이 아닐 수 있습니다(근로자퇴직급여 보장법 제4조제1항). 위 금액은 입력값으로 계산만 한 것입니다.</p>`
+                : `<p>퇴직금은 마지막 근무일에서 14일째 되는 날까지 지급합니다(근로자퇴직급여 보장법 제9조제1항). 이 입력이면 ${dotDate(addDaysUTC(w.endDate, 14))}까지입니다. 당사자가 합의하면 지급 기일을 연장할 수 있습니다.</p>`}
             <ul>
                 <li><a href="/tools/wage-delay-interest">기한 안에 받지 못했을 때 — 지연이자(연 20%) 계산</a></li>
                 <li><a href="/exit">받지 못했을 때 진정 절차와 퇴사 뒤 할 일 — 퇴사 한 번에</a></li>
