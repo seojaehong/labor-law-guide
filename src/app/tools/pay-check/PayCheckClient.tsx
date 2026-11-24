@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
 import { renderCard, STATUS_TEXT } from '@/lib/pay-check/card';
-import { check } from '@/lib/pay-check/check';
+import { checkGuarded } from './guarded-check';
 import type { CheckResult, PolicyId, Scenario, Status } from '@/lib/pay-check/types';
 import {
   BASES, buildInput, fieldsFor, OUTSIDE_NOTE, PICKS, ROUNDING_UNIT_OPTIONS, ROUNDINGS, UNKNOWN_DATE,
@@ -157,7 +157,7 @@ export default function PayCheckClient() {
 
   const fields = scenario ? fieldsFor(scenario, policy) : null;
   const result = useMemo(
-    () => (scenario ? check(buildInput({ scenario, values, policy, rounding, roundingUnit, basisDocumented })) : null),
+    () => (scenario ? checkGuarded(buildInput({ scenario, values, policy, rounding, roundingUnit, basisDocumented })) : null),
     [scenario, values, policy, rounding, roundingUnit, basisDocumented],
   );
 

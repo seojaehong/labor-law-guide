@@ -1,7 +1,7 @@
 // 월급 대조 — 사이트 /tools/pay-check 와 같은 엔진(src/lib/pay-check)과 화면 입력 규칙(src/app/tools/pay-check/build-input)을 그대로 불러 쓴다.
 // 확인한 값만 받는다. 파일·네트워크·주민등록번호를 건드리지 않는다 — 원격판에 그대로 실을 수 있다.
 import { z } from 'zod';
-import { check } from '@/lib/pay-check/check';
+import { checkGuarded, unconfirmedPremises } from '@/app/tools/pay-check/guarded-check';
 import { renderCard, STATUS_TEXT } from '@/lib/pay-check/card';
 import { POLICY_NAME } from '@/lib/pay-check/policies';
 import { fieldsFor, OUTSIDE_NOTE, PICKS } from '@/app/tools/pay-check/build-input';
@@ -38,8 +38,8 @@ const FACT_SCHEMA = {
   // 날짜
   employment_start: dateStr('입사일(중도입사)'),
   employment_end: dateStr('퇴사일(중도퇴사)'),
-  pay_period_start: dateStr('급여기간 첫날(명세서에 적힌 기간, 중도입사·중도퇴사)'),
-  pay_period_end: dateStr('급여기간 마지막 날(명세서에 적힌 기간, 중도입사·중도퇴사)'),
+  pay_period_start: dateStr('급여기간 첫날(명세서에 적힌 기간, 중도입사·중도퇴사 필수 · 결근 공제·주휴는 최저임금 시간급 비교에만 씀)'),
+  pay_period_end: dateStr('급여기간 마지막 날(명세서에 적힌 기간, 중도입사·중도퇴사 필수 · 결근 공제·주휴는 최저임금 시간급 비교에만 씀)'),
   last_scheduled_workday: z.string().nullable().optional().describe('마지막 소정근로일 YYYY-MM-DD(중도퇴사). null = 모름'),
   paid_holiday_treatment: z.enum(['paid', 'unpaid']).nullable().optional().describe('퇴사월 유급휴일 처리(중도퇴사) — paid = 유급으로 처리됨 · unpaid = 무급으로 처리됨 · null = 모름'),
   // 명세서 금액
@@ -73,7 +73,9 @@ const DESCRIPTION =
   '주휴 고정 스케줄 = 시급 × (평균 기간 약정 소정근로시간 ÷ 같은 기간 통상 근로자 소정근로일수) × 주수(시행령 [별표 2] 제2호나목). 4주(4주 미만 근로면 그 기간) 평균 1주 15시간 미만은 주휴 대조 밖(근로기준법 제18조제3항). ' +
   '차이 = 계산값 − 명세서(결근 공제는 명세서 − 계산값), 양수면 근로자가 덜 받는 쪽. 결과는 대조 일치·어긋남 가능성·계산 기준 확인 필요·범위 밖 넷 중 하나다. ' +
   '회사 기준을 모르면(policy 없음) 금액을 만들지 않고 회사에 물어볼 문장을 낸다. 기준은 골랐지만 문서에서 확인하지 못했으면 참고 계산으로 내고 「계산 기준 문서 미확인」을 남긴다. 끝수가 생겼는데 처리 방법·단위 중 하나라도 모르면 금액을 만들지 않는다. ' +
-  '빈 칸은 모름이며 대조를 멈춘다. 날짜를 고치거나 기준을 짐작하지 않는다. 정상 근무월, 두 가지 이상 겹친 예외, 연장·야간·휴일수당을 미리 정해 월급에 넣은 정액 약정(고정OT), 교대제·가산수당·연차·퇴직금·보험·세액은 다루지 않는다. 결과는 법률 판단이 아니다.';
+  '결과의 confirmed 가 false 면 status 가 MATCH 여도 확인된 일치가 아니다 — warnings 에 확인되지 않은 전제(BASIS_NOT_DOCUMENTED 계산 기준 문서 미확인 · WEEKLY_HOLIDAY_NOT_DESIGNATED 주휴일 미지정 · MIN_WAGE_NOT_COMPARED 급여기간이 없어 최저임금 비교 안 함)가 있다. ' +
+  '시급이 급여기간 최저임금 시간급보다 낮거나(MIN_WAGE_BELOW), 인정일수가 재직 달력일수보다 많거나, 주휴 약정시간이 1주 40시간·1일 8시간을 넘으면(근로기준법 제2조제1항제8호·제50조) 금액 없이 확인 필요로 멈춘다. 시급을 쓰는 기준은 pay_period_start·pay_period_end 를 주면 최저임금 시간급과 비교한다. ' +
+  '빈 칸은 모름이며 대조를 멈춘다.날짜를 고치거나 기준을 짐작하지 않는다. 정상 근무월, 두 가지 이상 겹친 예외, 연장·야간·휴일수당을 미리 정해 월급에 넣은 정액 약정(고정OT), 교대제·가산수당·연차·퇴직금·보험·세액은 다루지 않는다. 결과는 법률 판단이 아니다.';
 
 /** 화면 buildInput 과 같은 규칙: 그 예외·기준의 칸만 넣고, 빈 칸(undefined)은 키를 뺀다. null 은 「모름」으로 그대로 넣는다. */
 function toInput(a) {
@@ -134,7 +136,8 @@ export function register(server) {
           });
         }
         const { input, ignored } = toInput(a);
-        const r = check(input);
+        const r = checkGuarded(input);
+        const premises = unconfirmedPremises(r);
         const amounts = r.expected_amount !== null && r.payslip_amount !== null && r.difference !== null
           ? {
               payslip: won(r.payslip_amount),
@@ -148,6 +151,9 @@ export function register(server) {
           headline: [`[${STATUS_TEXT[r.status]}] ${r.observation}`],
           result: r,
           statusText: STATUS_TEXT[r.status],
+          // 대조 일치·어긋남이어도 confirmed 가 false 면 확인된 결과가 아니다(계산 기준 문서 미확인·최저임금 비교 안 함 등). warnings = 그 전제.
+          confirmed: premises.confirmed,
+          warnings: premises.warnings,
           amounts,
           openConfirmations: r.open_confirmations,
           grounds: r.grounds,
