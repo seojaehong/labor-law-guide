@@ -178,6 +178,9 @@ const ANN = {
   check_prose: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
   // 퇴고 공개 규범 점검(띄어쓰기·문장 부호·쉼표) — 읽기 전용
   check_norms: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+  // 퇴고 의미범주·AI 수사 점검(비공개 팩) — 읽기 전용
+  check_semantic: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+  check_rhetoric: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
   // kordoc 한글 읽기·채우기·되쓰기 — 결과를 새 파일로 쓴다(덮어쓰지 않음)
   ...Object.fromEntries(['read_hwp_as_markdown', 'fill_hwp_form', 'patch_hwp_from_markdown']
     .map((n) => [n, { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false }])),
@@ -197,7 +200,7 @@ const ANN = {
 }
 // 이 판에서 더한 도구 8개 + 사이트 도구 7개(groups/more) — 「대신·대행·대리」도 함께 막는다
 const NOSA_TOOLS = ['assess_labor_council', 'check_council_meeting', 'make_labor_council_forms', 'make_council_meeting_docs', 'make_council_election_docs', 'check_council_rules', 'record_council_history', 'export_council_vault', 'import_council_minutes', 'make_council_rules_comparison'];
-const NEW_TOOLS = ['calc_severance', 'calc_holiday_pay', 'calc_pay_proration', 'calc_shutdown_allowance', 'calc_annual_leave', 'settle_leave_on_exit', 'calc_retirement_tax', 'list_employer_duties', ...MORE_TOOLS, ...NOSA_TOOLS, 'make_hwpx_from_markdown', 'edit_hwpx_text', 'read_hwp_as_markdown', 'fill_hwp_form', 'patch_hwp_from_markdown', 'check_prose', 'check_norms', 'list_hr_forms', 'check_hr_form', 'make_hr_form'];
+const NEW_TOOLS = ['calc_severance', 'calc_holiday_pay', 'calc_pay_proration', 'calc_shutdown_allowance', 'calc_annual_leave', 'settle_leave_on_exit', 'calc_retirement_tax', 'list_employer_duties', ...MORE_TOOLS, ...NOSA_TOOLS, 'make_hwpx_from_markdown', 'edit_hwpx_text', 'read_hwp_as_markdown', 'fill_hwp_form', 'patch_hwp_from_markdown', 'check_prose', 'check_norms', 'check_semantic', 'check_rhetoric', 'list_hr_forms', 'check_hr_form', 'make_hr_form'];
 const NEW_WORDS = [...WORDS, '대신', '대행', '대리'];
 const bannedNew = (s) => (banned ? banned.bannedHits(s, NEW_WORDS) : []);
 for (const n of NEW_TOOLS) check(`${n}: 도구 목록에 있음`, tools.includes(n));
@@ -608,6 +611,11 @@ if (tools.includes('make_hwpx_from_markdown')) {
   check('check_prose brief 는 위치만', pb.ok && pb.counts?.B === 1 && !('fix' in (pb.hits?.[0] ?? {})) && !('word' in (pb.hits?.[0] ?? {})));
   const nm = await callNew('check_norms', { text: '가상 회사는 이를 검토하였고, 도급인이 할수 있는 조치임 .' });
   check(`check_norms 띄어쓰기 A ${nm.spacing?.counts?.A} · 문장 부호 A ${nm.punct?.counts?.A} · 쉼표 A ${nm.comma?.counts?.A}`, nm.ok && nm.spacing?.counts?.A === 1 && nm.punct?.counts?.A === 1 && nm.comma?.counts?.A === 1);
+  // 의미범주·AI 수사는 비공개 팩에만 규칙이 있다 — 이 시험은 PROSE_PACK_DIR 을 지우고 돌므로 둘 다 「불완전」이어야 한다(조용히 통과 금지)
+  for (const [name, extra] of [['check_semantic', {}], ['check_rhetoric', { track: 'blog' }]]) {
+    const r = await callNew(name, { text: '가상 보고서입니다.', ...extra });
+    check(`${name} 비공개 팩 없음 → 불완전(${r.code})`, r.ok === false && r.incomplete === true && r.code === 'NO_PRIVATE_PACK' && !('hits' in r));
+  }
   // kordoc — 앞서 만든 hwpx 를 읽고(md), 표 칸을 채워 .hwp(CFB)로, keep 원고 한 낱말을 고쳐 되쓴다(설치본에서 kordoc·@rhwp/core 가 풀리는지)
   if (tools.includes('read_hwp_as_markdown')) {
     const rd = await callNew('read_hwp_as_markdown', { file: mh.file.path, outFile: path.join(dir, 'read.md'), layout: 'keep' });
@@ -1062,7 +1070,9 @@ if (!/\.cmd$/i.test(target)) {
   const [v1 = '', v2 = ''] = v.stdout.trim().split(/\r?\n/);
   const KEYS = ['builtAt', 'commit', 'dirty', 'kLaborLockfileSha256', 'lockfileSha256', 'node', 'serverSha256', 'toegoSha256', 'version'];
   check('build-info.json 이 server.mjs 옆에 있고 칸이 9개', !!info && JSON.stringify(Object.keys(info).sort()) === JSON.stringify(KEYS));
-  // 퇴고 가벼운 실행 파일 — 해시가 build-info 와 같고, MCP check_prose·check_norms 와 같은 판정을 낸다
+  // 퇴고 가벼운 실행 파일 — 해시가 build-info 와 같고, MCP check_prose·check_norms·check_semantic·check_rhetoric 와 같은 판정을 낸다.
+  // 의미범주·AI 수사는 키를 줄 때만 돈다. 이 시험에는 비공개 팩이 없으므로 키를 주면 불완전 → ok:false → 종료 코드 1,
+  // 키를 주지 않으면 문체·공개 규범만 보고 종료 코드 0 이 맞다
   const toego = path.join(path.dirname(target), 'toego.mjs');
   check('build-info toegoSha256 = 지금 toego.mjs 의 sha256', fs.existsSync(toego) && info?.toegoSha256 === sha(fs.readFileSync(toego)));
   {
@@ -1070,13 +1080,24 @@ if (!/\.cmd$/i.test(target)) {
     const doc = '가상 회사는 이를 검토하였고, 도급인이 할수 있는 조치임 .\n결과를 가르는 것은 시간입니다.';
     const f = path.join(dir, 'a.json');
     fs.writeFileSync(f, JSON.stringify({ text: doc, genre: 'general' }));
+    const t0 = spawnSync(process.execPath, [toego, f], { encoding: 'utf8' });
+    let t0r = null;
+    try { t0r = JSON.parse(t0.stdout); } catch { /* 아래 FAIL */ }
+    check(`toego.mjs — 의미범주·AI 수사 키가 없으면 문체·공개 규범만(rc ${t0.status})`, t0.status === 0 && !!t0r && t0r.ok === true
+      && !('semantic' in t0r) && !('rhetoric' in t0r));
+    fs.writeFileSync(f, JSON.stringify({ text: doc, genre: 'general', semantic: { genre: 'general' }, rhetoric: {} }));
     const t = spawnSync(process.execPath, [toego, f], { encoding: 'utf8' });
     let tr = null;
     try { tr = JSON.parse(t.stdout); } catch { /* 아래 FAIL */ }
     const viaProse = await callNew('check_prose', { text: doc, genre: 'general' });
     const viaNorms = await callNew('check_norms', { text: doc });
+    const viaSem = await callNew('check_semantic', { text: doc, genre: 'general' });
+    const viaRh = await callNew('check_rhetoric', { text: doc });
     const noRef = (o) => JSON.stringify(o, (k, val) => (k === 'ref' ? undefined : val));
-    check(`toego.mjs = MCP check_prose·check_norms (rc ${t.status})`, t.status === 0 && !!tr && noRef(tr.prose) === noRef(viaProse) && JSON.stringify(tr.norms) === JSON.stringify(viaNorms));
+    check(`toego.mjs = MCP check_prose·check_norms·check_semantic·check_rhetoric (rc ${t.status})`, t.status === 1 && !!tr && tr.ok === false
+      && noRef(tr.prose) === noRef(viaProse) && JSON.stringify(tr.norms) === JSON.stringify(viaNorms)
+      && JSON.stringify(tr.semantic) === JSON.stringify(viaSem) && JSON.stringify(tr.rhetoric) === JSON.stringify(viaRh)
+      && tr.semantic?.code === 'NO_PRIVATE_PACK' && tr.rhetoric?.code === 'NO_PRIVATE_PACK');
     fs.writeFileSync(f, JSON.stringify({ text: '가상 900101-1234567' }));
     const s = spawnSync(process.execPath, [toego, f], { encoding: 'utf8' });
     check('toego.mjs — 주민번호 모양이면 멈추고 종료 코드 1, 숫자를 되풀이하지 않음', s.status === 1 && /주민등록번호/.test(s.stdout) && !s.stdout.includes('1234567'));

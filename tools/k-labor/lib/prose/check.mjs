@@ -194,9 +194,17 @@ const unsupported = () => { throw new Error('unsupported'); };
  *   · \A \Z · \a \UXXXXXXXX · 글자 묶음 밖 홀로 선 { } ] · {,n} · (?P<이름> · 문장부호 이스케이프(\  \- \# …)
  *   · (?P=이름) — 늘 지나가는 이름 묶음(맨 바깥·둘러보기 밖·0번 반복 없음, 맨 바깥에 | 없음, 되참조보다 앞에서 닫힘)일 때만 \k<이름>
  *   받지 않는 것: \w \W \b \B(유니코드 뜻이 다르다) · 숫자 되참조(\1)·\k · 그 밖의 (?P=) · \N{} · 인라인 플래그 (?i) (?s:) · (?#) ·
- *   글자 묶음 안의 \S 와 \s·\d·\D 를 끝으로 하는 범위 · 알 수 없는 영문자 이스케이프
+ *   글자 묶음 안의 \S 와 \s·\d·\D 를 끝으로 하는 범위 · 알 수 없는 영문자 이스케이프 ·
+ *   뒤돌아보기 안에서 되풀이되는 잡는 묶음(파이썬은 앞에서부터, JS 는 뒤에서부터 잡아 남는 값이 다르다)
+ *   word: true 이면 묶음 밖 \b \B 를 받는다 — 낱말 글자는 PY_WORD(파이썬 3.13 의 \w). \B 는 빈 글에서 맞지 않는다(3.13)
+ *   ^ $ \A \Z 는 JS 의 ^ $(m 플래그 없이)로 옮긴다 — 뒤돌아보기 꼴은 서로게이트 쌍 가운데서도 맞아 파이썬에 없는 자리가 생긴다
  */
-export function toJsSource(src, { multiline = false } = {}) {
+// 파이썬 3.13(유니코드 15.1) str 패턴의 \w = str.isalnum() 또는 _. Node 의 \p{L}\p{N} 에서 유니코드 16·17 에 새로 배정된 글자를 뺀다
+// (261124 실측 — 뺀 뒤 글자 수 138,558 이 파이썬과 같다. Node 유니코드 판이 오르면 pyre 시험이 알린다)
+const WORD_NEW = '\\u{88F}\\u{C5C}\\u{CDC}\\u{1C89}-\\u{1C8A}\\u{A7CB}-\\u{A7CF}\\u{A7D2}\\u{A7D4}\\u{A7DA}-\\u{A7DC}\\u{A7F1}\\u{105C0}-\\u{105F3}\\u{10940}-\\u{10959}\\u{10D40}-\\u{10D65}\\u{10D6F}-\\u{10D85}\\u{10EC2}-\\u{10EC7}\\u{11380}-\\u{11389}\\u{1138B}\\u{1138E}\\u{11390}-\\u{113B5}\\u{113B7}\\u{113D1}\\u{113D3}\\u{116D0}-\\u{116E3}\\u{11BC0}-\\u{11BE0}\\u{11BF0}-\\u{11BF9}\\u{11DB0}-\\u{11DDB}\\u{11DE0}-\\u{11DE9}\\u{13460}-\\u{143FA}\\u{16100}-\\u{1611D}\\u{16130}-\\u{16139}\\u{16D40}-\\u{16D6C}\\u{16D70}-\\u{16D79}\\u{16EA0}-\\u{16EB8}\\u{16EBB}-\\u{16ED3}\\u{16FF2}-\\u{16FF6}\\u{187F8}-\\u{187FF}\\u{18CFF}\\u{18D09}-\\u{18D1E}\\u{18D80}-\\u{18DF2}\\u{1CCF0}-\\u{1CCF9}\\u{1E5D0}-\\u{1E5ED}\\u{1E5F0}-\\u{1E5FA}\\u{1E6C0}-\\u{1E6DE}\\u{1E6E0}-\\u{1E6E2}\\u{1E6E4}-\\u{1E6E5}\\u{1E6E7}-\\u{1E6ED}\\u{1E6F0}-\\u{1E6F4}\\u{1E6FE}-\\u{1E6FF}\\u{2B73A}-\\u{2B73F}\\u{2CEA2}-\\u{2CEAD}\\u{323B0}-\\u{33479}';
+export const PY_WORD = `(?:(?![${WORD_NEW}])[\\p{L}\\p{N}_])`;
+const WORD = PY_WORD;
+export function toJsSource(src, { multiline = false, word = false } = {}) {
   let out = '';
   let cls = false;
   let clsFirst = -1; // 글자 묶음 첫 원소의 src 위치
@@ -216,6 +224,12 @@ export function toJsSource(src, { multiline = false } = {}) {
       const n = src[i + 1];
       i++;
       if (n === undefined) unsupported();
+      if (word && !cls && (n === 'b' || n === 'B')) {
+        out += n === 'b'
+          ? `(?:(?<=${WORD})(?!${WORD})|(?<!${WORD})(?=${WORD}))`
+          : `(?:(?<=${WORD})(?=${WORD})|(?<!${WORD})(?!${WORD})(?:(?<=[\\s\\S])|(?=[\\s\\S])))`;
+        continue;
+      }
       if ('wWbBkN'.includes(n) || /[1-9]/.test(n)) unsupported();
       if (n === '0' && /[0-7]/.test(src[i + 1] ?? '')) unsupported();
       if (n === 's') {
@@ -244,7 +258,7 @@ export function toJsSource(src, { multiline = false } = {}) {
         } else out += `[^${ND}]`;
       } else if (n === 'A' || n === 'Z') {
         if (cls) unsupported();
-        out += n === 'A' ? '(?<![\\s\\S])' : '(?![\\s\\S])';
+        out += n === 'A' ? '^' : '$';
       } else if (n === 'a') out += '\\x07';
       else if (n === 'U') {
         const h = src.slice(i + 1, i + 9);
@@ -299,7 +313,11 @@ export function toJsSource(src, { multiline = false } = {}) {
       const look = /^(?:=|!|<=|<!)/.test(rest);
       const inLook = look || stack.some((x) => x.look);
       const nm = /^P<([A-Za-z_][A-Za-z0-9_]*)>/.exec(rest);
-      stack.push({ name: nm?.[1], look: inLook, depth: stack.length });
+      // 잡는 묶음이면 둘레 묶음 모두 「안에 잡는 묶음이 있다」(뒤돌아보기 안의 되풀이 검사용)
+      const cap = src[i + 1] !== '?' || !!nm;
+      if (cap) for (const x of stack) x.cap = true;
+      const lb = /^(?:<=|<!)/.test(rest);
+      stack.push({ name: nm?.[1], look: inLook, depth: stack.length, lb, inLb: stack.some((x) => x.lb || x.inLb), cap });
       if (nm) {
         named.set(nm[1], { sure: false, closed: false });
         out += `(?<${nm[1]}>`;
@@ -311,6 +329,7 @@ export function toJsSource(src, { multiline = false } = {}) {
     }
     if (c === ')') {
       const g = stack.pop();
+      if (g?.inLb && g.cap && /^[?*+{]/.test(src.slice(i + 1))) unsupported();
       if (g?.name) {
         // 늘 지나가는 묶음 = 맨 바깥(다른 묶음 안이 아님)·둘러보기 밖·0번 반복을 허락하는 수량자가 뒤에 없음
         const optional = /^(?:[?*]|\{0*(?:,\d*)?\}|\{,\d*\})/.test(src.slice(i + 1));
@@ -328,8 +347,8 @@ export function toJsSource(src, { multiline = false } = {}) {
     }
     if (c === '}' || c === ']') out += `\\${c}`;
     else if (c === '.') out += '[^\\n]';
-    else if (c === '^') out += multiline ? '(?<![^\\n])' : '(?<![\\s\\S])';
-    else if (c === '$') out += multiline ? '(?![^\\n])' : '(?=\\n?(?![\\s\\S]))';
+    else if (c === '^') out += multiline ? '(?<=^|\\n)' : '^';
+    else if (c === '$') out += multiline ? '(?=\\n|$)' : '(?=\\n?$)';
     else out += c;
   }
   // 되참조는 앞에서 이미 닫힌, 늘 지나가는 이름 묶음만(맨 바깥에 | 가 있으면 어느 묶음도 늘 지나가지 않는다)
@@ -980,3 +999,6 @@ export function checkProse(text, o = {}) {
   if (shown.length) out.packs = shown.map((p) => `${p.pack}@${p.version ?? ''}`);
   return out;
 }
+
+// 의미범주·AI 수사(pyre.mjs)가 같은 파이썬 공백·코드포인트 도움 함수를 쓴다
+export { WS_CLASS, isWs, strip, lstrip, cpLen, cpHead, cpBack, cpFwd };

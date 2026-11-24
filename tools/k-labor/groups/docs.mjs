@@ -3,6 +3,7 @@
 //   read_hwp_as_markdown · fill_hwp_form · patch_hwp_from_markdown  한글 읽기·서식 채우기·되쓰기(lib/hangul-kordoc.mjs, kordoc)
 //   check_prose  퇴고 문체 점검 — 규칙·검출식은 팩(JSON): lib/prose/generic-pack.json + env PROSE_PACK_DIR(261123)
 //   check_norms  퇴고 공개 규범 점검 — 한글 맞춤법 제5장 띄어쓰기·부록 문장 부호·연결어미 뒤 쉼표(lib/prose/norms.mjs, 261124)
+//   check_semantic · check_rhetoric  퇴고 의미범주·AI 수사 점검 — 식·낱말·규칙은 비공개 팩의 semantic·rhetoric 절에만 있다(261124)
 // ★ 파일을 읽고 쓰므로 원격판(remote.mjs)에서 불러오지 않는다. stdio 판(server.mjs)으로만 켠다.
 // ★ 공개 문구 금지어 + 포괄·대신·대행·대리·지도를 이 묶음의 글(설명·결과)에 쓰지 않는다.
 import { z } from 'zod';
@@ -12,10 +13,10 @@ import { mdHwpxSummary, mdToHwpx, parseMarkdown } from '@/lib/md-hwpx';
 import { fillCells, replaceText } from '@/lib/md-hwpx/postedit';
 import { mdToHwpxWithTemplate } from '@/lib/md-hwpx/template';
 import { argsLookLikeRrn, looksLikeRrn, text, writeNew } from '../lib/common.mjs';
-import { DETAIL_SCHEMA, GENRE_SCHEMA, NORM_CHECKS_SCHEMA, normsResult, proseResult, rrnStop, TEXT_SCHEMA } from '../lib/prose/toego.mjs';
+import { DETAIL_SCHEMA, GENRE_SCHEMA, LABEL_SCHEMA, NORM_CHECKS_SCHEMA, normsResult, proseResult, rhetoricResult, rrnStop, semanticResult, TEXT_SCHEMA } from '../lib/prose/toego.mjs';
 import { capSkipped, decodeMarkdown, fillHangul, hangulKind, maskExcerpt, MAX_MARKDOWN_BYTES, patchHangul, patchVerdict, readHangul, sanitizeReason } from '../lib/hangul-kordoc.mjs';
 
-export const docsTools = ['make_hwpx_from_markdown', 'edit_hwpx_text', 'read_hwp_as_markdown', 'fill_hwp_form', 'patch_hwp_from_markdown', 'check_prose', 'check_norms'];
+export const docsTools = ['make_hwpx_from_markdown', 'edit_hwpx_text', 'read_hwp_as_markdown', 'fill_hwp_form', 'patch_hwp_from_markdown', 'check_prose', 'check_norms', 'check_semantic', 'check_rhetoric'];
 
 const WRITES = { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false };
 const fail = (error, extra = {}) => text({ ok: false, error, ...extra });
@@ -410,6 +411,53 @@ export function registerDocs(server) {
       const stop = rrnStop(a.text);
       if (stop) return text(stop);
       return text(normsResult(a));
+    },
+  );
+
+  // ── 퇴고 — 의미범주·AI 수사 점검(결정론). 식·낱말·규칙은 비공개 팩(PROSE_PACK_DIR)의 semantic·rhetoric 절에만 있다
+  const PRIVATE_ONLY =
+    '규칙은 이 PC 의 PROSE_PACK_DIR 비공개 팩에서만 읽는다. 그 팩이 없거나 읽지 못하면 점검하지 않고 ok:false·incomplete:true 와 code(고정 코드)로 알린다. ' +
+    '걸림은 위치·참조값만 주고(PROSE_ALLOW_FULL=1 인 PC 에서는 걸린 조각까지), full 을 달라고 했는데 줄였으면 withheld 로 알린다. hits 는 500건까지 싣고 넘으면 truncated. ' +
+    '주민등록번호 모양이 있으면 점검하지 않고 rrnLines(줄 번호만)로 알린다. 모델을 부르지 않고, 문서 글을 밖으로 보내지 않는다.';
+  server.registerTool(
+    'check_semantic',
+    {
+      title: '퇴고: 의미범주 점검',
+      description:
+        '추상 개념을 사물·몸짓처럼 쓰는 비유 표현을 줄 단위로 찾는다. 팩이 정한 건너뛸 줄과 가릴 구간 안은 보지 않는다. ' +
+        PRIVATE_ONLY,
+      inputSchema: {
+        text: TEXT_SCHEMA.describe('점검할 문서 글(md 또는 평문, 40만 자까지)'),
+        genre: LABEL_SCHEMA.optional().describe('장르 이름(기본 legal). 팩에 그 장르의 허용 낱말이 있으면 그 낱말은 걸지 않는다'),
+        detail: DETAIL_SCHEMA.optional().describe('brief 위치·참조값만 / full 걸린 조각까지(이 PC 가 허용할 때만)'),
+      },
+      annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+    },
+    async (a) => {
+      const stop = rrnStop(a.text);
+      if (stop) return text(stop);
+      return text(semanticResult(a));
+    },
+  );
+  server.registerTool(
+    'check_rhetoric',
+    {
+      title: '퇴고: AI 수사 점검',
+      description:
+        '생성형 모델 글에 잦은 수사 틀을 문장 단위로 찾는다. 줄로 갈린 문장은 이어 보고, 인용부호 안은 가린다. ' +
+        'A = 고칠 수사, B = 문맥을 보고 판단할 수사. 등급은 트랙(legal·blog·consult·lecture)마다 다르다. counts 는 전부 센 수다. ' +
+        PRIVATE_ONLY,
+      inputSchema: {
+        text: TEXT_SCHEMA.describe('점검할 문서 글(md 또는 평문, 40만 자까지)'),
+        track: LABEL_SCHEMA.optional().describe('legal(기본) / blog / consult / lecture. 그 밖의 이름은 legal 로 보고 부른 이름을 requestedTrack 에 남긴다'),
+        detail: DETAIL_SCHEMA.optional().describe('brief 위치·등급·참조값만 / full 걸린 조각·고칠 방향까지(이 PC 가 허용할 때만)'),
+      },
+      annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+    },
+    async (a) => {
+      const stop = rrnStop(a.text);
+      if (stop) return text(stop);
+      return text(rhetoricResult({ text: a.text, track: a.track, detail: a.detail })); // 화면은 500건 상한(게이트만 allA)
     },
   );
 }
