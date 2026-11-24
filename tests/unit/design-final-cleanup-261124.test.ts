@@ -52,6 +52,24 @@ describe('터치 대상 44px (DESIGN.md §5.1)', () => {
     expect(css).toMatch(/\.lr-search input \{[^}]*min-height: ?44px/);
     expect(css).toMatch(/\.lr-search button \{[^}]*min-width: ?44px[^}]*min-height: ?44px/);
   });
+  it('/laws 펼침 뒤에 나오는 「전체 보기」·「부칙」·「공포일도 넣기」·아이콘 버튼도 44px (390·1440 실측 22~34px)', () => {
+    const css = read('src/app/laws/laws.css');
+    for (const sel of ['.lr-more', '.lr-addenda summary', '.lr-sub-pop label']) {
+      const rule = css.match(new RegExp(`^${sel.replace(/[.]/g, '\\.')} \\{([^}]*)\\}`, 'm'));
+      expect(rule?.[1], sel).toMatch(/min-height: 44px/);
+    }
+    expect(css).toMatch(/^\.lr-btn-sm \{[^}]*min-width: 44px/m);
+  });
+  it('laws.css·exit.css 의 버튼·입력·선택·펼침 규칙에 44px 미만 높이가 없다', () => {
+    for (const f of ['src/app/laws/laws.css', 'src/app/exit/exit.css']) {
+      for (const m of read(f).matchAll(/([^{}]+)\{([^}]*)\}/g)) {
+        if (!/button|input|select|summary|icon-btn/.test(m[1])) continue;
+        for (const h of m[2].matchAll(/(?:^|[;\s])(?:min-)?height:\s*(\d+)px/g)) {
+          expect(Number(h[1]), `${f} ${m[1].trim()}`).toBeGreaterThanOrEqual(44);
+        }
+      }
+    }
+  });
 });
 
 describe('퇴직금 정적 페이지 글꼴 — 조각 CSS (DESIGN.md §4.1·§10-9)', () => {
