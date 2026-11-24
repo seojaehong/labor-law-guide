@@ -303,6 +303,7 @@ claude mcp add --scope user k-labor -e LAW_OC=내OC -- npx -y k-labor mcp --grou
 cd tools/k-labor
 npm.cmd install
 npm.cmd run build        # dist/server.mjs + dist/assets/(서식 PDF 2종·글꼴·OFL.txt, 계약서 PDF 용 나눔고딕·라이선스, hwp 읽기 rhwp WASM)
+node dist/toego.mjs a.json  # 퇴고 가벼운 실행 파일 — a.json = {text, genre?, detail?, norms?:{checks?,quote?,warnOnly?}} → {ok, prose(check_prose 응답), norms(check_norms 응답)}. 서버를 띄우지 않아 약 0.2초
 node smoke.mjs           # 합성 값 시험, 전송 안 함. 법제처는 가짜 법제처(tests/fixtures/laws/drf 고정 응답)로
 npm.cmd pack --dry-run   # 올라갈 파일 확인
 ```

@@ -1051,8 +1051,29 @@ if (!/\.cmd$/i.test(target)) {
   } catch { /* 없음 */ }
   const v = spawnSync(process.execPath, [target, '--version'], { encoding: 'utf8' });
   const [v1 = '', v2 = ''] = v.stdout.trim().split(/\r?\n/);
-  const KEYS = ['builtAt', 'commit', 'dirty', 'kLaborLockfileSha256', 'lockfileSha256', 'node', 'serverSha256', 'version'];
-  check('build-info.json 이 server.mjs 옆에 있고 칸이 8개', !!info && JSON.stringify(Object.keys(info).sort()) === JSON.stringify(KEYS));
+  const KEYS = ['builtAt', 'commit', 'dirty', 'kLaborLockfileSha256', 'lockfileSha256', 'node', 'serverSha256', 'toegoSha256', 'version'];
+  check('build-info.json 이 server.mjs 옆에 있고 칸이 9개', !!info && JSON.stringify(Object.keys(info).sort()) === JSON.stringify(KEYS));
+  // 퇴고 가벼운 실행 파일 — 해시가 build-info 와 같고, MCP check_prose·check_norms 와 같은 판정을 낸다
+  const toego = path.join(path.dirname(target), 'toego.mjs');
+  check('build-info toegoSha256 = 지금 toego.mjs 의 sha256', fs.existsSync(toego) && info?.toegoSha256 === sha(fs.readFileSync(toego)));
+  {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'k-labor-toego-'));
+    const doc = '가상 회사는 이를 검토하였고, 도급인이 할수 있는 조치임 .\n결과를 가르는 것은 시간입니다.';
+    const f = path.join(dir, 'a.json');
+    fs.writeFileSync(f, JSON.stringify({ text: doc, genre: 'general' }));
+    const t = spawnSync(process.execPath, [toego, f], { encoding: 'utf8' });
+    let tr = null;
+    try { tr = JSON.parse(t.stdout); } catch { /* 아래 FAIL */ }
+    const viaProse = await callNew('check_prose', { text: doc, genre: 'general' });
+    const viaNorms = await callNew('check_norms', { text: doc });
+    const noRef = (o) => JSON.stringify(o, (k, val) => (k === 'ref' ? undefined : val));
+    check(`toego.mjs = MCP check_prose·check_norms (rc ${t.status})`, t.status === 0 && !!tr && noRef(tr.prose) === noRef(viaProse) && JSON.stringify(tr.norms) === JSON.stringify(viaNorms));
+    fs.writeFileSync(f, JSON.stringify({ text: '가상 900101-1234567' }));
+    const s = spawnSync(process.execPath, [toego, f], { encoding: 'utf8' });
+    check('toego.mjs — 주민번호 모양이면 멈추고 종료 코드 1, 숫자를 되풀이하지 않음', s.status === 1 && /주민등록번호/.test(s.stdout) && !s.stdout.includes('1234567'));
+    check('toego.mjs — 인자 파일이 없으면 종료 코드 2', spawnSync(process.execPath, [toego, path.join(dir, '없음.json')], { encoding: 'utf8' }).status === 2);
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
   check(`build-info version(${info?.version}) = --version 첫 줄(${v1}) · node(${info?.node}) · builtAt(${info?.builtAt})`,
     info?.version === v1 && /^\d+\.\d+\.\d+$/.test(v1) && /^v\d+\./.test(info?.node ?? '') && !Number.isNaN(Date.parse(info?.builtAt ?? '')));
   check('build-info serverSha256 = 지금 server.mjs 의 sha256', info?.serverSha256 === sha(fs.readFileSync(target)));

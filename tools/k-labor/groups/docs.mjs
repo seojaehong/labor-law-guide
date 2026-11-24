@@ -12,12 +12,10 @@ import { mdHwpxSummary, mdToHwpx, parseMarkdown } from '@/lib/md-hwpx';
 import { fillCells, replaceText } from '@/lib/md-hwpx/postedit';
 import { mdToHwpxWithTemplate } from '@/lib/md-hwpx/template';
 import { argsLookLikeRrn, looksLikeRrn, text, writeNew } from '../lib/common.mjs';
-import { checkProse, loadPackSet } from '../lib/prose/check.mjs';
-import { checkNorms, NORM_CHECKS } from '../lib/prose/norms.mjs';
+import { DETAIL_SCHEMA, GENRE_SCHEMA, NORM_CHECKS_SCHEMA, normsResult, PROSE_RRN_STOP, proseResult, TEXT_SCHEMA } from '../lib/prose/toego.mjs';
 import { capSkipped, decodeMarkdown, fillHangul, hangulKind, maskExcerpt, MAX_MARKDOWN_BYTES, patchHangul, patchVerdict, readHangul, sanitizeReason } from '../lib/hangul-kordoc.mjs';
 
 export const docsTools = ['make_hwpx_from_markdown', 'edit_hwpx_text', 'read_hwp_as_markdown', 'fill_hwp_form', 'patch_hwp_from_markdown', 'check_prose', 'check_norms'];
-const PROSE_RRN_STOP = '입력에 주민등록번호 모양의 숫자가 있어 멈췄습니다. 가린 뒤 다시 점검해 주세요.';
 
 const WRITES = { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false };
 const fail = (error, extra = {}) => text({ ok: false, error, ...extra });
@@ -362,25 +360,16 @@ export function registerDocs(server) {
         'A = 고칠 표현, B = 문맥을 보고 판단할 표현. 빈도·문장 길이·종결어미 반복 같은 알림은 notes 에 따로 준다. 걸린 곳이 많으면 hits 는 500건까지(A 먼저, 같은 등급은 앞의 것부터) 싣고 truncated 로 알린다(counts 는 전부 센 수). 규칙은 범용 팩(im-not-ai 유래)과 이 PC 의 PROSE_PACK_DIR 팩에서 읽는다. 읽지 못하거나 점검 중 멈춘 팩이 있으면 그 팩을 빼고 ok:false·incomplete:true 와 skipped(고정 코드)로 알린다. ' +
         '공개 팩의 걸림에는 걸린 글자·고칠 말·규칙 이름이 붙는다. 비공개 팩은 위치·등급·짧은 사유만 주고(PROSE_ALLOW_FULL=1 인 PC 에서는 전부), full 을 달라고 했는데 줄였으면 withheld 로 알린다. 모델을 부르지 않고, 문서 글을 밖으로 보내지 않는다.',
       inputSchema: {
-        text: z.string().min(1).refine((s) => s.length <= 400_000 || (s.length <= 800_000 && [...s].length <= 400_000), '40만 자까지 점검합니다').describe('점검할 문서 글(md 또는 평문, 40만 자까지)'),
-        genre: z.enum(['legal', 'consulting', 'lecture', 'general', 'official']).optional().describe('legal(기본: 의견서·조사보고서) / consulting / lecture / general(official 은 general 과 같다). 장르별 검사는 팩에 달려 있다'),
-        detail: z.enum(['brief', 'full']).optional().describe('비우면 공개 팩은 전부·비공개 팩은 위치만 / brief 모든 팩을 위치·등급·짧은 사유만 / full 비공개 팩도 전부(이 PC 가 허용할 때만)'),
+        text: TEXT_SCHEMA.describe('점검할 문서 글(md 또는 평문, 40만 자까지)'),
+        genre: GENRE_SCHEMA.optional().describe('legal(기본: 의견서·조사보고서) / consulting / lecture / general(official 은 general 과 같다). 장르별 검사는 팩에 달려 있다'),
+        detail: DETAIL_SCHEMA.optional().describe('비우면 공개 팩은 전부·비공개 팩은 위치만 / brief 모든 팩을 위치·등급·짧은 사유만 / full 비공개 팩도 전부(이 PC 가 허용할 때만)'),
       },
       annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
     },
     async (a) => {
       if (argsLookLikeRrn({ text: a.text })) return fail(PROSE_RRN_STOP);
-      try {
-        const set = loadPackSet();
-        const genre = a.genre === 'official' ? 'general' : (a.genre ?? 'legal');
-        const r = checkProse(a.text, { packs: set.packs, skipped: set.skipped, genre, detail: a.detail });
-        return text({ ok: !r.incomplete, genre, ...r });
-      } catch (e) {
-        // 오류 글에 팩 내용이 실리지 않게 — 응답은 고정 코드, stderr 에는 오류 종류와 호출 자리(「at …」 줄)만.
-        // 오류 글이 여러 줄이면 스택 첫 줄만 떼어서는 글이 남으므로 「at」 줄만 고른다
-        console.error('[check_prose]', e instanceof Error ? `${e.name}\n${String(e.stack ?? '').split('\n').filter((l) => /^\s+at /.test(l)).join('\n')}` : 'unknown');
-        return fail('PROSE_CHECK_FAILED');
-      }
+      // 점검·오류 처리는 lib/prose/toego.mjs 한 곳(가벼운 실행 파일 dist/toego.mjs 와 같은 함수)
+      return text(proseResult(a));
     },
   );
 
@@ -395,8 +384,8 @@ export function registerDocs(server) {
         '# 제목·| 표·[관련 …] 줄과 > 인용 줄, 문장 안 “ ” 원문 인용은 보지 않는다(quote 를 켜면 인용도 본다). warnOnly 를 켜면 쉼표 걸림을 B 로 낸다(PDF 에서 뽑은 글처럼 인용 표시가 사라진 글). ' +
         '검사마다 counts(전부 센 수)와 hits(500건까지, A 먼저, 넘으면 truncated)를 준다. 모델을 부르지 않고, 문서 글을 밖으로 보내지 않는다.',
       inputSchema: {
-        text: z.string().min(1).refine((s) => s.length <= 400_000 || (s.length <= 800_000 && [...s].length <= 400_000), '40만 자까지 점검합니다').describe('점검할 문서 글(md 또는 평문, 40만 자까지)'),
-        checks: z.array(z.enum(NORM_CHECKS)).optional().describe('spacing(띄어쓰기) / punct(문장 부호) / comma(연결어미 뒤 쉼표). 비우면 셋 다'),
+        text: TEXT_SCHEMA.describe('점검할 문서 글(md 또는 평문, 40만 자까지)'),
+        checks: NORM_CHECKS_SCHEMA.optional().describe('spacing(띄어쓰기) / punct(문장 부호) / comma(연결어미 뒤 쉼표). 비우면 셋 다'),
         quote: z.boolean().optional().describe('켜면 > 인용 줄과 “ ” 원문 인용도 본다(띄어쓰기·문장 부호). 기본 끔'),
         warnOnly: z.boolean().optional().describe('켜면 쉼표 걸림을 B(경고)로 낸다. 기본 끔'),
       },
@@ -404,12 +393,7 @@ export function registerDocs(server) {
     },
     async (a) => {
       if (argsLookLikeRrn({ text: a.text })) return fail(PROSE_RRN_STOP);
-      try {
-        return text({ ok: true, ...checkNorms(a.text, { checks: a.checks, quote: a.quote, warnOnly: a.warnOnly }) });
-      } catch (e) {
-        console.error('[check_norms]', e instanceof Error ? `${e.name}\n${String(e.stack ?? '').split('\n').filter((l) => /^\s+at /.test(l)).join('\n')}` : 'unknown');
-        return fail('NORMS_CHECK_FAILED');
-      }
+      return text(normsResult(a));
     },
   );
 }
