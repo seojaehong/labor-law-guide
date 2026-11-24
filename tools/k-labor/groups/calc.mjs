@@ -393,7 +393,7 @@ export function registerCalc(server) {
         monthlyHours: z.number().optional().describe('월급제: 월 소정근로시간(기본 209)'),
         dailyWage: z.number().optional().describe('일용직: 일급(원)'),
         dailyHours: z.number().optional().describe('일용직: 1일 근로시간(기본 8)'),
-        paidContinuously: z.boolean().optional().describe('일용직: 같은 사업장에서 계속 일해 왔다(기본 true). false = 하루만 일하고 끝난 경우라 가산하지 않는다'),
+        paidContinuously: z.boolean().optional().describe('일용직: 같은 사업장에서 계속 일해 왔다(기본 true). false = 하루만 일하고 끝난 경우라 휴일 가산은 보지 않고, 5명 이상이면 연장(1일 8시간 초과)·야간 가산만 계산한다'),
         hourlyWage: z.number().optional().describe('시급제: 시급(원)'),
         hourlyIncludesWeekly: z.boolean().optional().describe('시급제: 시급에 주휴수당이 들어 있다'),
         weeklyHours: z.number().optional().describe('시급제: 1주 소정근로시간'),
@@ -419,7 +419,9 @@ export function registerCalc(server) {
         const premium = r.total - r.regular_pay_equivalent;
         // 통상시급은 끝수 그대로 온다 — 소수 둘째 자리까지 보인다(사이트와 같은 표시)
         const hourly = `${(Math.round(r.base_hourly * 100) / 100).toLocaleString('ko-KR')}원`;
-        const parts = `통상시급 ${hourly} 기준 휴일근로 임금(1.0배) ${won(r.regular_pay_equivalent)}${premium > 0 ? ` + 가산분 ${won(premium)}` : '(가산 없음)'}`;
+        // 휴일근로로 보지 않는 경우(하루만 일한 일용직·주 15시간 미만의 관공서 공휴일) 엔진 첫 줄이 「근로 임금」이다
+        const baseLabel = r.breakdown[0]?.label.startsWith('근로 임금') ? '근로 임금' : '휴일근로 임금';
+        const parts = `통상시급 ${hourly} 기준 ${baseLabel}(1.0배) ${won(r.regular_pay_equivalent)}${premium > 0 ? ` + 가산분 ${won(premium)}` : '(가산 없음)'}`;
         const headline = r.already_in_monthly_pay
           ? [`${day}에 ${hoursText(common.worked_hours)} 일했을 때 월급 외에 더 줄 금액은 ${won(r.total)}입니다.`, r.paid_holiday_day.status === 'in_monthly_pay' ? `${parts}. 쉬어도 받는 유급휴일 1일분은 월급에 들어 있습니다.` : r.paid_holiday_day.note]
           : [`${day}에 ${hoursText(common.worked_hours)} 일한 대가는 ${won(r.total)}입니다.`, `${parts}.`, r.paid_holiday_day.note];
