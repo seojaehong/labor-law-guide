@@ -220,6 +220,21 @@ const FEATURES: Record<string, { path: string; journey: Journey; waitUntil?: 'lo
       step('기준일 — 2027 고시', '2027년 최저임금(시간당 10,700원) 기준 · 확인 2026.10.28.', await answer(p));
       await amt.fill('2156879');
       step('1원 모자람', '한 달 1원 적습니다', await answer(p));
+      // 261124 — 단시간 월 환산을 104로 내리지 않는다 · 주휴 분모 = 통상근로자 근무일 수 · 40시간 초과 경고
+      const weekly = p.getByLabel(/1주 소정근로시간/);
+      await amt.fill('1075000');
+      await weekly.fill('20');
+      step('주 20시간 월 1,075,000 — 104.29시간', '한 달 1,229원 적습니다', await answer(p));
+      await amt.fill('2600000');
+      await weekly.fill('52');
+      step('주 52시간 — 40시간 초과 경고', '소정근로시간이 될 수 없습니다', await answer(p));
+      await p.getByLabel('주급', { exact: true }).check();
+      await p.locator('input[inputmode=numeric]').first().fill('300000');
+      await weekly.fill('24');
+      await p.getByLabel(/통상근로자의 1주 근무일 수/).fill('4');
+      step('통상근로자 주 4일 — 주휴 6시간', '1주 9,600원 적습니다', await answer(p));
+      await p.getByLabel(/통상근로자의 1주 근무일 수/).fill('5');
+      step('통상근로자 주 5일 — 주휴 4.8시간', '2026년 최저임금(시간당 10,320원) 이상', await answer(p));
       await p.getByLabel('시급', { exact: true }).check();
       step('시급으로 바꾸면 월급 숫자를 가져오지 않는다(L-07)', '시급 금액을 넣어 주세요', await answer(p));
       await p.locator('input[inputmode=numeric]').first().fill('9288');

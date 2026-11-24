@@ -2,7 +2,7 @@
 // 환산(최저임금법 시행령 §5①): 일급 ÷ 1일 소정근로시간 · 주급 ÷ (1주 소정근로시간 + 주휴 시간)
 //   · 월급 ÷ (1주 소정근로시간 + 주휴 시간) × 365 ÷ 7 ÷ 12. 시행령에는 반올림이 없다.
 //   판정(checkMinWage)은 반올림이 시간을 줄일 때(주 20시간 104.29 → 104) 반올림하지 않은 시간으로 하고,
-//   늘릴 때(주 40시간 208.57 → 고시의 209)만 반올림한 시간을 쓴다 — 반올림 때문에 미달이 충족으로 바뀌지 않게(261124).
+//   늘릴 때(주 40시간 208.57 → 209, 고시 월 환산액 2,156,880원과 같은 값)만 반올림한 시간을 쓴다 — 반올림 때문에 미달이 충족으로 바뀌지 않게(261124).
 // 주휴 시간(근로기준법 §55①, 시행령 별표2 제2호나목) = 1주 소정근로시간 ÷ 같은 일 통상근로자의 1주 소정근로일 수(기본 5), 8시간까지.
 // 산입(최저임금법 §6④): 매월 1회 이상 정기 지급하는 임금. 정기상여금·현금 복리후생비의 공제 비율은
 //   부칙 <법률 제15666호, 2018. 6. 12.> 제2조로 2024년부터 100분의 0 — 전액 산입. 현물은 빼고(§6④3가),
@@ -88,9 +88,10 @@ export function checkMinWage(input: MinWageInput): MinWageResult {
   if (!(input.amount >= 0) || !Number.isFinite(input.amount)) throw new Error('금액을 확인해 주세요');
   if (bad(minHourly)) throw new Error('최저임금 기준이 없습니다');
 
-  const days = input.fullTimeDays ?? 5;
-  if (!Number.isInteger(days) || days < 1 || days > 7) throw new Error('통상근로자 소정근로일 수를 확인해 주세요');
   const weekly = unit === 'week' || unit === 'month' ? input.weeklyHours : undefined;
+  // 근무일 수는 주급·월급에서만 쓴다 — 시급·일급이면 보지 않는다(화면에 칸이 없다)
+  const days = weekly !== undefined ? input.fullTimeDays ?? 5 : 5;
+  if (!Number.isInteger(days) || days < 1 || days > 7) throw new Error('통상근로자 소정근로일 수를 확인해 주세요');
   // 주휴 시간 = 1주 소정 ÷ 통상근로자 1주 소정근로일 수, 8시간까지(별표2 제2호나목) — 반올림하지 않은 값
   const holidayHours = weekly !== undefined && !bad(weekly) ? Math.min(weekly / days, 8) : undefined;
   const rounded = unitHours(unit, input.weeklyHours, input.dailyHours, holidayHours);

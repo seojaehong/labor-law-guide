@@ -72,6 +72,11 @@ describe('② 주휴 시간은 통상근로자 1주 소정근로일 수로 나�
     expect(() => checkMinWage({ unit: 'week', amount: 300_000, weeklyHours: 24, fullTimeDays: 0, minHourly: MIN26 })).toThrow();
     expect(() => checkMinWage({ unit: 'week', amount: 300_000, weeklyHours: 24, fullTimeDays: 4.5, minHourly: MIN26 })).toThrow();
   });
+
+  it('시급·일급은 근무일 수를 보지 않는다(화면에 칸이 없다)', () => {
+    expect(checkMinWage({ unit: 'hour', amount: 10_320, fullTimeDays: 0, minHourly: MIN26 }).meets).toBe(true);
+    expect(checkMinWage({ unit: 'day', amount: 82_560, dailyHours: 8, fullTimeDays: 0, minHourly: MIN26 }).meets).toBe(true);
+  });
 });
 
 describe('③ 1주 소정근로시간 40시간 초과 경고(웹·MCP 공통 warnings)', () => {
@@ -100,7 +105,9 @@ describe('③ 1주 소정근로시간 40시간 초과 경고(웹·MCP 공통 war
     const from = calc.indexOf("    'check_min_wage',");
     const mw = calc.slice(from, calc.indexOf("    'calc_weekly_holiday_pay',", from));
     expect(mw).toMatch(/fullTimeDays: z\.number\(\)\.int\(\)/);
-    expect(mw).toMatch(/warnings/);
+    // 응답 최상위에 엔진 경고를 한 번 싣고, 해마다의 줄에서는 뺀다
+    expect(mw).toMatch(/\n\s+warnings: checkMinWage\(\{ \.\.\.a, minHourly: rows\[0\]\.minHourly \}\)\.warnings,/);
+    expect(mw).toMatch(/\n\s+warnings: undefined,/);
     expect(mw).not.toMatch(/반올림\(주 40시간이면 209시간\)/);
   });
 });
