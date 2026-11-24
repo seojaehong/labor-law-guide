@@ -71,6 +71,8 @@ beforeEach(() => {
   finishObservation.mockReset();
   rpcMock.mockResolvedValue({ data: { allowed: true, count: 1 }, error: null });
   vi.stubEnv('ANTHROPIC_API_KEY', 'test-key');
+  // 261124 실제 파일 게이트 — 이 묶음은 게이트를 연 상태의 동작을 본다(닫힌 상태는 real-file-close-261124.test.ts)
+  vi.stubEnv('NEXT_PUBLIC_REAL_FILE_INPUT', '1');
   // 기본은 Supabase env 없음 = 레이트리밋 생략(로컬 동작)
   vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', '');
   vi.stubEnv('SUPABASE_SERVICE_ROLE_KEY', '');

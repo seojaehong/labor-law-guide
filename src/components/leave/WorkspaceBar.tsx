@@ -17,6 +17,7 @@ import {
 } from "@/lib/leave/leave-workspaces";
 import type { Audience, Workspace } from "@/lib/leave/leave-workspaces";
 import { hasAnyHistory } from "@/lib/tool-history";
+import { REAL_FILE_INPUT } from "@/lib/real-file-gate";
 
 /**
  * 사업장 막대 — 여러 사업장을 관리하는 쪽은 사업장을 여러 개, 회사 담당자는 우리 회사 하나.
@@ -184,6 +185,8 @@ export function WorkspaceBar() {
 
       {active && (
         <div className="lv-ws__foot">
+          {/* 명부를 브라우저에 남기는 칸은 검토 전까지 닫는다. 이미 켜 둔 사람은 끌 수 있게 그때만 보인다 — @/lib/real-file-gate */}
+          {(REAL_FILE_INPUT || active.remember) && (
           <label className="lv-ws__remember">
             <input
               type="checkbox"
@@ -194,6 +197,7 @@ export function WorkspaceBar() {
             />
             이 브라우저에 「{active.name}」 명부를 기억하기
           </label>
+          )}
           <span className="lv-ws__state">
             {active.remember
               ? "탭을 닫아도 이 브라우저에 남습니다 — 공용 PC 라면 끄시거나 다 쓰신 뒤 지워 주세요."

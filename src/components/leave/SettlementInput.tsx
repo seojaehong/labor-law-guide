@@ -86,8 +86,8 @@ export function SettlementInput() {
 
       {roster.length === 0 && (
         <p className="lv-roster__empty">
-          여러 명을 정산하신다면 <a href="/tools/leave">연차 일수 계산</a> 화면에서 엑셀을 한 번
-          올려두세요. 그러면 여기서 직원을 골라 입사일을 자동으로 채울 수 있습니다.
+          여러 명을 정산하신다면 <a href="/tools/leave">연차 일수 계산</a> 화면에 명단을 한 번
+          넣어 두세요. 그러면 같은 탭에서 직원을 골라 입사일을 자동으로 채울 수 있습니다.
         </p>
       )}
 
