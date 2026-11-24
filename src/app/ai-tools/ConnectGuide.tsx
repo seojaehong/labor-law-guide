@@ -7,6 +7,9 @@ const MONO = 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace';
 const ink = { color: 'var(--color-text-primary)' } as const;
 const sub = { color: 'var(--color-text-secondary)' } as const;
 
+// 「노동 업무 도구 (k-labor)」처럼 괄호에 든 패키지 이름은 펼친 화면에 싣지 않는다(261124 — 패키지 이름은 개발자용에).
+const plainName = (title: string) => title.replace(/\s*\([^)]*\)\s*$/, '');
+
 const STEPS = [
   'Claude 앱에서 설정 → 커넥터를 엽니다.',
   '커스텀 커넥터 추가를 누르고 위 주소를 붙여 넣습니다.',
@@ -51,7 +54,7 @@ export default function ConnectGuide() {
             style={{ borderColor: 'var(--color-border)', background: 'var(--color-bg-surface)' }}
           >
             <p className="text-[15px] font-semibold" style={ink}>
-              {c.title} <span className="text-sm font-normal" style={sub}>도구 {c.remoteTools}개</span>
+              {plainName(c.title)} <span className="text-sm font-normal" style={sub}>도구 {c.remoteTools}개</span>
             </p>
             <div className="mt-3 flex items-center gap-2">
               <code
@@ -60,7 +63,7 @@ export default function ConnectGuide() {
               >
                 {c.remote}
               </code>
-              <CopyButton value={c.remote!} label={c.title} />
+              <CopyButton value={c.remote!} label={plainName(c.title)} />
             </div>
           </div>
         ))}
@@ -69,7 +72,7 @@ export default function ConnectGuide() {
         {STEPS.map((s) => <li key={s}>{s}</li>)}
       </ol>
       <p className="mt-3 text-sm leading-7" style={sub}>
-        입력은 서버로 전송되지만 저장하지 않습니다. 4대보험 신고서와 취업규칙 묶음은 원격 주소에 없어 아래 명령으로 PC에 연결합니다.
+        입력은 서버로 전송되지만 저장하지 않습니다. 4대보험 신고서와 취업규칙 묶음은 PC 설치판으로 씁니다(아래 「개발자용」).
       </p>
     </section>
   );

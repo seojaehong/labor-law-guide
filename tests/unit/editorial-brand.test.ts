@@ -8,8 +8,9 @@ describe('editorial identity and reading safeguards', () => {
     expect(SITE_URL).toBe('https://yellowenvelope.kr');
     expect(read('src/components/GlassNav.tsx')).toContain('alt={BRAND_NAME}');
   });
-  it('fetches four genuine articles for the lead and three supporting stories', () => {
-    expect(read('src/app/page.tsx')).toContain('.limit(4)');
+  // 261124 — 홈은 도구가 먼저이고 정보는 맨 아래 3건(대표 1 + 보조 2)이다.
+  it('fetches three genuine articles for the lead and two supporting stories', () => {
+    expect(read('src/app/page.tsx')).toContain('.limit(3)');
     expect(read('src/app/HomeClient.tsx')).toContain('latestBlogArticles');
   });
   it('keeps source links next to legal document titles and preserves canonical URLs', () => {

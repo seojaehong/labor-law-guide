@@ -22,7 +22,10 @@ interface LatestBlogArticle {
 
 // 홈 canonical 은 여기서 적는다. 루트 layout 에 두면 alternates 를 안 적은 페이지가 홈을 물려받는다.
 // alternates 는 통째로 바뀌므로 RSS 자동 발견 링크도 같이 적는다.
+// 261124 — 홈 제목·설명은 도구 중심으로(재홍님 결정 「도구 먼저」). 종전에는 레이아웃 기본값 「노동법·판례·실무 가이드」를 물려받았다.
 export const metadata: Metadata = {
+  title: { absolute: '노무 계산·점검 도구 | 퇴직금·주휴수당·퇴사 점검 | 일의 무늬' },
+  description: '퇴직금·주휴수당·해고예고수당·연차를 계산하고 퇴사 기한을 점검합니다. 결과에는 근거 조문을 함께 적고, 쓰시는 Claude 에 연결해 대화로도 씁니다.',
   alternates: {
     canonical: SITE_URL,
     types: { 'application/rss+xml': `${SITE_URL}/rss.xml` },
@@ -38,7 +41,7 @@ async function getHomeStats() {
       .from('blog_articles')
       .select('slug, title, subtitle, summary, category, published_at')
       .order('published_at', { ascending: false })
-      .limit(4),
+      .limit(3),
   ]);
 
   return {
