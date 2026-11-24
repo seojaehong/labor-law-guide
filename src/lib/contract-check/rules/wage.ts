@@ -648,6 +648,11 @@ export function minwageAssessment(contract: Contract, today: string = todayKst()
     return withYears(fromStart ? failed[0].a : top.a, failed, fromStart, top.a.amendment);
   }
   const startResult = results.find((r) => r.year === String(first))?.a;
+  // 시작 연도는 충족인데 이어지는 해가 확인 필요·리스크(식대·상여를 넣어야만 충족 등)면 그 해 판정을 낸다 — 「모두 충족」이라 하지 않는다
+  const laterOpen = results.find((r) => r.year !== String(first) && meets(r.a) !== true);
+  if (startResult && meets(startResult) === true && laterOpen) {
+    return { ...laterOpen.a, detail: `계약이 ${laterOpen.year}년까지 이어짐 — ${laterOpen.a.detail}` };
+  }
   if (unregistered.length > 0) {
     const note = unregisteredText(unregistered);
     if (startResult && startResult.status !== 'ok') return { ...startResult, detail: `${startResult.detail} / ${note}` };
@@ -945,6 +950,17 @@ export const ruleMinwageProbation: RuleFn = (contract) => {
       `${period} — 감액 후 임금을 최저임금과 비교하지 못함(${a.detail}). ${floor.reason}`,
     );
   }
+  // 수습(감액) 기간을 적지 않았으면 3개월 이내인지 모른다 — 90% 로는 충족, 100% 로는 미달이면 기간을 물어야 한다
+  if (floor.pct === 90 && prob.reduced_months == null && prob.months == null) {
+    const full = reducedWageAssessment(contract, pct, 3, 100);
+    if (full.status === 'violation') {
+      return makeFinding(
+        'MINWAGE-PROBATION',
+        'needs_data',
+        `${period} — 수습 기간 미기재. 3개월 이내면 최저시급의 90% 이상이라 충족, 3개월을 넘으면 최저시급 100% 미달(최저임금법 §5②). ${full.detail}`,
+      );
+    }
+  }
   return makeFinding('MINWAGE-PROBATION', 'ok', `${period} 후에도 기준 이상 — ${floor.reason}. ${a.detail}`);
 };
 
@@ -1010,7 +1026,15 @@ function reducedWageAssessment(contract: Contract, pct: number, reducedMonths: n
       continue;
     }
     const a = minwageAssessmentForYear(scaled, year, floor === 100 ? minimum : (minimum * floor) / 100);
-    const label = floor === 100 ? a.detail : a.detail.replaceAll(`${year}년 최저시급`, `${year}년 수습 최저시급(${fmtWon(minimum)}의 90%)`);
+    // 90% 기준이면 문장의 「(YYYY년 )최저시급 9,288」을 수습 기준으로 바꿔 적는다 — 주휴 포함 시급 문장은 연도 없이 「기준액 = 최저시급 …」이다
+    const reducedText = fmtWon((minimum * floor) / 100).slice(0, -1);
+    const label =
+      floor === 100
+        ? a.detail
+        : a.detail.replace(
+            new RegExp(`(?:${year}년 )?최저시급 ${reducedText}`, 'g'),
+            `${year}년 수습 최저시급(${fmtWon(minimum)}의 90%) ${reducedText}`,
+          );
     if (a.status === 'violation') return { ...a, detail: label };
     if (a.status === 'ok' || (a.status === 'risk' && a.severity === 'minor')) ok.push(label);
     else pending ??= { ...a, detail: label };

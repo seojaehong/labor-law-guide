@@ -88,6 +88,35 @@ describe('① 수습 감액 — 1년 이상 계약은 최저시급의 90% 와 �
     expect(find(contract({ amount: 2_236_300, start: '2026-12-01', probation: prob(90) }), 'MINWAGE-PROBATION').status).toBe('ok');
   });
 
+  it('시급제·주휴 포함 시급도 90% 기준 문장을 「수습 최저시급」으로 적는다', () => {
+    const hourly = (amount: number, includes: boolean) => {
+      const c = contract({
+        start: '2026-03-02',
+        items: [{ code: 'BASE', label: '시급', amount, basis_text: '시급', includes_weekly_holiday: includes } as WageItem],
+        probation: prob(90),
+      });
+      (c.wage as { pay_type: string }).pay_type = 'hourly';
+      return find(c, 'MINWAGE-PROBATION');
+    };
+    // 시급 10,320 × 90% = 9,288 = 기준(적정), 10,319 × 90% 는 미달
+    const a = hourly(10_320, false);
+    expect(a.status).toBe('ok');
+    expect(a.detail).toContain('2026년 수습 최저시급(10,320원의 90%) 9,288');
+    expect(hourly(10_319, false).status).toBe('violation');
+    // 주휴 포함 시급 12,384(= 10,320 × 48/40) × 90% = 11,145.6 = 9,288 × 1.2 — 기준 딱 맞음, 12,383 은 미달
+    const b = hourly(12_384, true);
+    expect(b.status).toBe('ok');
+    expect(b.detail).toContain('수습 최저시급');
+    expect(b.detail).not.toContain('기준액 = 최저시급 9,288');
+    expect(hourly(12_383, true).status).toBe('violation');
+  });
+
+  it('수습 기간을 적지 않았고 90%·100% 기준에서 결론이 갈리면 확인 필요, 100% 도 넘으면 적정', () => {
+    const noMonths = { months: null };
+    expect(find(contract({ amount: 2_156_880, start: '2026-03-02', probation: prob(90, noMonths) }), 'MINWAGE-PROBATION').status).toBe('needs_data');
+    expect(find(contract({ amount: 3_000_000, start: '2026-03-02', probation: prob(90, noMonths) }), 'MINWAGE-PROBATION').status).toBe('ok');
+  });
+
   it('임금이 없으면 감액 후 임금을 비교하지 못해 확인 필요', () => {
     const f = find(contract({ items: [], probation: prob(90) }), 'MINWAGE-PROBATION');
     expect(f.status).toBe('needs_data');
@@ -160,6 +189,11 @@ describe('② 근로계약서 작성 — 감액 후 최저시급 미만일 때�
     expect(() => designFromForm({ ...FORM, monthlyTotal: 2_200_000 })).toThrow(/최저시급보다 낮아집니다/);
   });
 
+  it('감액 기간이 다음 해로 넘어가 그 해 기준에서만 걸리면 그 해를 밝힌다(2026-12 시작 364일 계약, 245만 원 × 90% = 220.5만 원 — 2026 월 최저 이상·2027 미만)', () => {
+    const span = { ...FORM, startDate: '2026-12-01', endDate: '2027-11-29', writtenDate: '2026-11-24', monthlyTotal: 2_450_000 };
+    expect(() => designFromForm(span)).toThrow(/2027년/);
+  });
+
   it('단순노무 300만 원 90% 는 막지 않고, 220만 원은 막는다', () => {
     const simple = { ...FORM, endDate: null, probation: { months: 3, reduced: true, simpleLabor: true } };
     expect(() => designFromForm(simple)).not.toThrow();
@@ -206,6 +240,14 @@ describe('③ 최저임금 — 시작 연도부터 오늘(또는 종료일)까�
     expect(f.status).toBe('needs_data');
     expect(f.detail).toContain('2023년');
     expect(f.detail).not.toContain('minwage_table');
+  });
+
+  it('시작 연도는 충족이고 이어진 해는 식대를 넣어야만 충족이면 「모두 충족」이 아니다', () => {
+    const items = [base(m2025), { code: 'MEAL', label: '식대', amount: 100_000, basis_text: '매월 정액' } as WageItem];
+    const f = find(contract({ start: '2025-01-02', items }), 'MINWAGE');
+    expect(f.status).not.toBe('ok');
+    expect(f.detail).toContain('2026년');
+    expect(f.detail).not.toContain('모두 충족');
   });
 
   it('표에 없는 해가 있어도 미달인 해가 있으면 위반', () => {
@@ -262,11 +304,19 @@ describe('④ 필수 명시사항 — 적용되지 않는 연차·주휴는 누�
     });
   };
 
-  it('주 9시간(15시간 미만) 단시간 — 주휴·연차 없어도 REQUIRED-TERMS·REQUIRED-TERMS-FIXED 적정', () => {
+  it('주 9시간(15시간 미만) 단시간 — 주휴·연차 없어도 REQUIRED-TERMS 적정', () => {
     const c = part(3);
     expect(find(c, 'REQUIRED-TERMS').status).toBe('ok');
     expect(find(c, 'REQUIRED-TERMS').detail).toContain('15시간 미만');
-    expect(find(c, 'REQUIRED-TERMS-FIXED').status).toBe('ok');
+    // 기간제법 §17 제4호(휴일·휴가에 관한 사항)는 주 15시간 미만 예외를 확인하지 못해 종전대로 본다
+    expect(find(c, 'REQUIRED-TERMS-FIXED').detail).toContain('휴일·휴가');
+  });
+
+  it('기간제법 §17 — 상시 4명 이하는 휴일만(시행령 별표1), 연차 문구가 없어도 휴일·휴가 누락이 아니다', () => {
+    const fixed = (fivePlus: boolean) =>
+      find(contract({ employment_type: 'fixed_term', end: '2027-11-30', ...noLeave, workplace: { employee_count_5plus: fivePlus } }), 'REQUIRED-TERMS-FIXED');
+    expect(fixed(false).detail ?? '').not.toContain('휴일·휴가');
+    expect(fixed(true).detail).toContain('휴일·휴가');
   });
 
   it('주 15시간 단시간 — 주휴·연차 없으면 누락 위반', () => {

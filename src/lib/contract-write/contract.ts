@@ -140,8 +140,11 @@ function probationBelowFloor(form: WriteForm, design: DesignResult): string | nu
   const special = probationIssue(form);
   if (!special) return null;
   const [contract] = normalize([toContract(form, design)]);
-  if (ruleMinwageProbation(contract).status !== 'violation') return null;
-  return `${special} 100분의 ${PROBATION_PCT}로 감액하면 임금이 최저시급보다 낮아집니다. 임금을 올리거나 감액을 끄세요.`;
+  const f = ruleMinwageProbation(contract);
+  if (f.status !== 'violation') return null;
+  // 어느 해 최저시급에 못 미치는지 점검 문장을 붙인다 — 감액 기간이 다음 해로 넘어가면 그 해 기준에서만 걸릴 수 있다
+  const why = f.detail?.split(' — ').slice(1).join(' — ') ?? '';
+  return `${special} 100분의 ${PROBATION_PCT}로 감액하면 임금이 최저시급보다 낮아집니다. 임금을 올리거나 감액을 끄세요.${why ? ` (${publicText(why)})` : ''}`;
 }
 
 export const PROBATION_PCT = 90;

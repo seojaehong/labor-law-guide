@@ -6,7 +6,8 @@
 //   연차(annual_leave_clause), 취업장소·업무(job.location/duty).
 //   1개라도 누락 → violation (detail에 누락 항목 나열).
 //   261124 P1 — 1주 소정 15시간 미만이면 주휴일·연차, 상시 4명 이하(employee_count_5plus=false)면 연차는 해당 없음
-//   (근기법 §18③, 시행령 §7 별표1). 인원·소정시간 미상은 종전대로 본다. REQUIRED-TERMS-FIXED ④휴일·휴가도 같다.
+//   (근기법 §18③, 시행령 §7 별표1). 인원·소정시간 미상은 종전대로 본다. REQUIRED-TERMS-FIXED ④휴일·휴가는 상시 4명 이하만
+//   「휴일」로 한정(기간제법 시행령 §2 별표1) — 주 15시간 미만 예외는 기간제법 §17 에 두지 않았다(확인 못 함).
 //
 // REQUIRED-TERMS-FIXED: employment_type이 fixed_term/part_time 계열일 때만.
 //   ①근로계약기간 ②근로시간·휴게 ③임금 구성·계산·지불 ④휴일·휴가
@@ -116,11 +117,11 @@ export function fixedTermsMissing(contract: Contract): string[] {
   if (wageMissing(contract.wage ?? {}).length > 0) {
     missing.push('임금의 구성항목·계산방법·지불방법');
   }
-  // 적용되지 않는 휴일·휴가(주 15시간 미만의 주휴·연차, 상시 4명 이하의 연차)는 적을 대상이 없다 — REQUIRED-TERMS 와 같은 판단
-  const applies = holidayLeaveApplies(contract);
-  if ((applies.weeklyRest && !holidays.weekly_rest) || (applies.annualLeave && !holidays.annual_leave_clause)) {
-    missing.push('휴일·휴가');
-  }
+  // 상시 4명 이하는 제4호가 「휴일에 관한 사항」으로 한정된다(기간제법 시행령 §2 별표1) — 연차 문구가 없어도 누락이 아니다.
+  // 주 15시간 미만은 근기법 §18③ 으로 주휴·연차가 없지만 기간제법 §17 제4호 「휴일·휴가에 관한 사항」을 적지 않아도 되는지는
+  // 확인하지 못해 종전대로 본다(261124 P1)
+  const leaveRequired = contract.workplace?.employee_count_5plus !== false;
+  if (!holidays.weekly_rest || (leaveRequired && !holidays.annual_leave_clause)) missing.push('휴일·휴가');
   if (!(job.location && job.duty)) missing.push('취업장소·종사업무');
   if (PART_TIME_TYPES.has(empType) && dailyScheduleState(workTime) !== 'ok' && !formDroppedRows(workTime)) {
     missing.push(DAILY_TERMS);
