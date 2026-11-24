@@ -14,7 +14,8 @@ import { checkHeader } from './header-check';
 import { appendItem, BORDER, CHAR, cloneChar, getItem, PARA, patchChar, patchPara } from './header-edit';
 import { mdDocXml, parseMarkdown, type CloneLog, type MdHwpxOptions } from './index';
 
-export type TemplateSamples = { body?: string; h1?: string; h2?: string; h3?: string; h4?: string };
+/** cell = 표 본문 칸, cellHead = 머리행 칸(261124). 그 글자가 든 문단·글자 모양을 표 칸에 이식한다 */
+export type TemplateSamples = { body?: string; h1?: string; h2?: string; h3?: string; h4?: string; cell?: string; cellHead?: string };
 export type RolePair = { para: number; char: number };
 
 const LANGS = [
@@ -31,6 +32,11 @@ const LANGS = [
 const OUR_BODY: RolePair = { para: 20, char: 7 };
 const OUR_BOLD = 12;
 const OUR_HEAD: Record<'h1' | 'h2' | 'h3' | 'h4', RolePair> = { h1: { char: 8, para: 21 }, h2: { char: 9, para: 22 }, h3: { char: 10, para: 23 }, h4: { char: 11, para: 24 } };
+// 표 칸(index.ts 와 같다): 문단 27/28/29 왼쪽·가운데·오른쪽, 글자 13/14 칸·굵은 칸, 15/16 7열 이상
+const OUR_CELL_PARA = [27, 28, 29] as const;
+const OUR_CELL_ALIGN = ['', 'CENTER', 'RIGHT'] as const;
+const OUR_CELL_CHAR = [13, 15];
+const OUR_CELL_BOLD = [14, 16];
 
 /** T5 — 빈 채우기 제거: fillBrush 안이 faceColor="none" 인 winBrush 하나뿐이면 fillBrush 를 통째로 지운다 */
 export function cleanFillBrush(header: string): string {
@@ -85,7 +91,12 @@ function fontIn(header: string, lang: string, src: FontRow): { header: string; i
 }
 
 /** 우리 header·section 을 양식 header 로 옮긴다. roles 에 든 우리 번호는 양식 번호로 바로 바꾼다 */
-export function transplant(ours: { header: string; section: string; clones?: CloneLog }, tplHeader: string, roles: Partial<Record<keyof TemplateSamples, RolePair>>): { header: string; section: string } {
+export function transplant(
+  ours: { header: string; section: string; clones?: CloneLog },
+  tplHeader: string,
+  roles: Partial<Record<keyof TemplateSamples, RolePair>>,
+  opt: { tableLineSpacing?: number } = {},
+): { header: string; section: string } {
   let h = cleanFillBrush(tplHeader);
   const fontMap = new Map<string, number>();
   const bfMap = new Map<number, number>();
@@ -177,6 +188,26 @@ export function transplant(ours: { header: string; section: string; clones?: Clo
     roleChar.set(OUR_HEAD[k].char, r.char);
     rolePara.set(OUR_HEAD[k].para, r.para);
   }
+  // 표 역할(261124) — 이식한 칸 문단은 어절 단위(BREAK_WORD), 줄간격은 tableLineSpacing 을 명시했을 때만 그 값(아니면 양식 값)
+  const cellPara = (src: number, align?: 'CENTER' | 'RIGHT') => {
+    const r = appendItem(
+      h,
+      PARA,
+      patchPara(getItem(h, PARA, src), { breakNonLatinWord: 'BREAK_WORD', ...(opt.tableLineSpacing !== undefined ? { lineSpacing: opt.tableLineSpacing } : {}), ...(align ? { align } : {}) }),
+    );
+    h = r.header;
+    return r.id;
+  };
+  if (roles.cell) {
+    const cell = roles.cell;
+    // 27 = 양식 칸 문단(양식 정렬 그대로), 28·29 = 복제에 정렬만 가운데·오른쪽
+    OUR_CELL_PARA.forEach((p, i) => rolePara.set(p, cellPara(cell.para, OUR_CELL_ALIGN[i] || undefined)));
+    for (const c of OUR_CELL_CHAR) roleChar.set(c, cell.char);
+    const b = cloneChar(h, cell.char, { bold: true });
+    h = b.header;
+    for (const c of OUR_CELL_BOLD) roleChar.set(c, b.id);
+  }
+  const head = roles.cellHead ? { para: cellPara(roles.cellHead.para), char: roles.cellHead.char } : undefined;
 
   const remap = (xml: string, useRoles: boolean) =>
     xml
@@ -188,7 +219,12 @@ export function transplant(ours: { header: string; section: string; clones?: Clo
   const FOOT = /<hp:footer\b[\s\S]*?<\/hp:footer>/g;
   const parts = ours.section.split(FOOT);
   const feet = ours.section.match(FOOT) ?? [];
-  const section = parts.map((p, i) => remap(p, true) + (feet[i] !== undefined ? remap(feet[i], false) : '')).join('');
+  let section = parts.map((p, i) => remap(p, true) + (feet[i] !== undefined ? remap(feet[i], false) : '')).join('');
+  // 머리행 칸(tc header="1")은 문단·글자를 양식 머리 칸 모양으로. 칸 테두리·음영(borderFill)은 우리 것 그대로
+  if (head)
+    section = section.replace(/<hp:tc\b[^>]*\bheader="1"[\s\S]*?<\/hp:tc>/g, (tc) =>
+      tc.replace(/\bcharPrIDRef="\d+"/g, `charPrIDRef="${head.char}"`).replace(/\bparaPrIDRef="\d+"/g, `paraPrIDRef="${head.para}"`),
+    );
   return { header: h, section };
 }
 
@@ -205,7 +241,7 @@ export async function mdToHwpxWithTemplate(md: string, template: Uint8Array, opt
   const pagePr = /<hp:pagePr\b[\s\S]*?<\/hp:pagePr>/.exec(tplSection)?.[0];
   const items = parseMarkdown(md, opts);
   const ours = mdDocXml(items, { ...opts, pagePr });
-  const { header, section } = transplant(ours, tplHeader, templateRoles(tplSection, opts.samples));
+  const { header, section } = transplant(ours, tplHeader, templateRoles(tplSection, opts.samples), { tableLineSpacing: opts.tableLineSpacing });
   const issues = checkHeader(header, section);
   if (issues.length) throw new Error(`hwpx header 불변식 위반: ${issues.map((x) => x.message).join(' / ')}`);
   const title = items.find((x) => x.kind === 'h1');

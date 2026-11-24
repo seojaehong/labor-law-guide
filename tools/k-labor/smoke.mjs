@@ -597,6 +597,9 @@ if (tools.includes('make_hwpx_from_markdown')) {
   // 양식 모드 — 앞서 만든 파일을 양식으로 다시 쓴다
   const tm = await callNew('make_hwpx_from_markdown', { markdown: '# 가상 양식본\n\n양식 모양으로 채운 본문.', preset: 'internal', outDir: dir, templateFile: mh.file.path });
   check(`docs 양식 모드 ${tm.file?.bytes}B`, tm.ok && fs.existsSync(tm.file.path));
+  // 양식 모드 표 역할(261124) — 앞서 만든 파일의 표 칸 글자를 샘플로
+  const tc = await callNew('make_hwpx_from_markdown', { markdown: '# 가상 표 양식본\n\n| 가 | 나 |\n|---|---|\n| 1 | 2 |', preset: 'internal', outDir: dir, templateFile: mh.file.path, templateSamples: { cell: '2,000,000', cellHead: '구분' } });
+  check(`docs 양식 모드 표 역할 ${tc.file?.bytes}B`, tc.ok && fs.existsSync(tc.file.path));
   // 퇴고 — 범용 팩만으로도 돈다. 공개 팩은 기본으로 걸린 글자까지, brief 응답에는 걸린 글자·고칠 말이 없다
   const pr = await callNew('check_prose', { text: '가상 보고서입니다. 결과를 가르는 것은 시간입니다.', genre: 'general' });
   check(`check_prose 범용 팩 B ${pr.counts?.B}`, pr.ok && pr.counts?.B === 1 && 'word' in (pr.hits?.[0] ?? {}) && !pr.skipped && !pr.incomplete);

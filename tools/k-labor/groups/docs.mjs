@@ -50,9 +50,17 @@ export function registerDocs(server) {
         tableLineSpacing: z.number().int().min(100).max(250).optional().describe('표 칸 줄간격(%), 100~250. 기본 150. 삼선표는 110% 그대로'),
         templateFile: z.string().max(400).optional().describe('기관·고객 양식 hwpx 경로. 주면 양식의 글자·문단 모양과 쪽 설정을 그대로 쓰고 본문만 새로 채운다(양식 미리보기 그림은 옮기지 않음)'),
         templateSamples: z
-          .object({ body: z.string().max(200).optional(), h1: z.string().max(200).optional(), h2: z.string().max(200).optional(), h3: z.string().max(200).optional(), h4: z.string().max(200).optional() })
+          .object({
+            body: z.string().max(200).optional(),
+            h1: z.string().max(200).optional(),
+            h2: z.string().max(200).optional(),
+            h3: z.string().max(200).optional(),
+            h4: z.string().max(200).optional(),
+            cell: z.string().max(200).optional().describe('표 본문 칸 글자. 주면 표 칸 문단·글자를 그 모양으로(가운데·오른쪽 정렬 칸은 정렬만 바꾼 복제, 칸 안 굵게는 굵게만 더한 복제)'),
+            cellHead: z.string().max(200).optional().describe('표 머리행 칸 글자. 주면 머리행 칸 문단·글자를 그 모양으로(안 주면 cell 의 가운데·굵게 복제)'),
+          })
           .optional()
-          .describe('양식 안에서 역할별 모양을 찾을 글자(그 글자가 든 문단의 모양을 쓴다). body 를 비우면 양식에서 가장 많이 쓴 본문 모양'),
+          .describe('양식 안에서 역할별 모양을 찾을 글자(그 글자가 든 문단의 모양을 쓴다). body 를 비우면 양식에서 가장 많이 쓴 본문 모양. 표 칸 줄간격은 tableLineSpacing 을 주면 그 값, 아니면 양식 값이고 칸은 어절 단위로 줄을 나눈다. 칸 테두리·머리행 음영은 엔진 것 그대로'),
         features: z
           .object({
             indent: z.boolean().optional().describe('기호 문단 내어쓰기·공백 들여쓰기 없앰'),
