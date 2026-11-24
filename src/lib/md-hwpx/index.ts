@@ -88,7 +88,7 @@ const TABLE_PARA = [27, 28, 29] as const;
 // 꼬리말 전용 문단 = 종전 21 복제. 바탕 문단 모양이 0~29(30개)라 presetHeader 가 끝에 붙이면 30 이다
 const FOOTER_PARA = 30;
 // 제목 앞·뒤 간격(pt) — 261124. h2 12/3 은 바탕 문단 12 와 같은 값(시험 md-hwpx-heading-space 주석)
-const HEAD_SPACE: Record<number, [number, number]> = { 21: [16, 6], 22: [12, 3], 23: [8, 0], 24: [6, 0] };
+export const HEAD_SPACE: Record<number, [number, number]> = { 21: [16, 6], 22: [12, 3], 23: [8, 0], 24: [6, 0] };
 
 // 판례 번호 자동 굵게 — 「대법원 2017. 12. 22. 선고 2016다202947 판결」·「중앙노동위원회 2024차별34」
 const CASE_CITE =

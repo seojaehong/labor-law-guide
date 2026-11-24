@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { HEADER_XML } from '@/lib/contract-write/hwpx-header';
-import { mdDocXml, parseMarkdown, presetHeader } from '@/lib/md-hwpx';
+import JSZip from 'jszip';
+import { mdDocXml, mdToHwpx, parseMarkdown, presetHeader } from '@/lib/md-hwpx';
+import { clonePara } from '@/lib/md-hwpx/header-edit';
+import { mdToHwpxWithTemplate } from '@/lib/md-hwpx/template';
 
 // 261124 — 제목 앞뒤 간격·본문 어절 단위 줄 나눔(가상 원고)
 //
@@ -72,5 +75,47 @@ describe('본문 문단 어절 단위 줄 나눔', () => {
       for (let id = 20; id <= 29; id++) expect(/breakNonLatinWord="(\w+)"/.exec(para(h, id))![1], `${id}`).toBe('BREAK_WORD');
     }
     for (const id of [20, 21, 25, 26]) expect(para(HEADER_XML, id)).toContain('breakNonLatinWord="KEEP_WORD"');
+  });
+});
+
+describe('양식 모드 제목 간격(261124)', () => {
+  // 양식 h1~h4 문단 앞 간격이 0 이면 그 문단을 복제해 앞·뒤 간격만 프리셋 값으로(정렬·글자는 양식 그대로).
+  // 양식 문단에 앞 간격이 이미 있으면(>0) 양식 값을 그대로 쓴다. 문서 첫 제목·쪽 나눔 제목은 앞 0.
+  // 실사고: 가로 기관 양식에서 표 바로 뒤 「4. …」 h2 가 표 아래 테두리에 붙었다(양식 h2 문단 앞 간격 0)
+  async function makeTpl() {
+    const z = await JSZip.loadAsync(await mdToHwpx('# 양식 제목\n\n양식 본문 예시.\n\n둘째 제목 예시\n\n셋째 제목 예시'));
+    let h = await z.file('Contents/header.xml')!.async('string');
+    const h1p = clonePara(h, 20, { pt: true, prev: 0, next: 0, align: 'CENTER' });
+    h = h1p.header;
+    const h2p = clonePara(h, 20, { pt: true, prev: 0, next: 0, align: 'LEFT' });
+    h = h2p.header;
+    const h3p = clonePara(h, 20, { pt: true, prev: 5, next: 1, align: 'LEFT' });
+    h = h3p.header;
+    let s = await z.file('Contents/section0.xml')!.async('string');
+    s = s.replace(/paraPrIDRef="\d+"([^>]*>)<hp:run charPrIDRef="\d+"><hp:t>양식 제목/, `paraPrIDRef="${h1p.id}"$1<hp:run charPrIDRef="8"><hp:t>양식 제목`);
+    s = s.replace(/paraPrIDRef="\d+"([^>]*>)(<hp:run charPrIDRef="\d+"><hp:t>\s*)둘째 제목 예시/, `paraPrIDRef="${h2p.id}"$1$2둘째 제목 예시`);
+    s = s.replace(/paraPrIDRef="\d+"([^>]*>)(<hp:run charPrIDRef="\d+"><hp:t>\s*)셋째 제목 예시/, `paraPrIDRef="${h3p.id}"$1$2셋째 제목 예시`);
+    z.file('Contents/header.xml', h);
+    z.file('Contents/section0.xml', s);
+    return { bytes: await z.generateAsync({ type: 'uint8array' }), h2: h2p.id, h3: h3p.id };
+  }
+  it('앞 0 인 양식 제목은 프리셋 간격 복제, 앞 간격 있는 양식 제목은 그대로, 첫 제목·쪽 나눔은 앞 0', async () => {
+    const t = await makeTpl();
+    const md = '# 새 제목\n\n본문.\n\n| 가 | 나 |\n|---|---|\n| 1 | 2 |\n\n## 4. 다음 장\n\n### 가. 세부\n\n## Ⅱ. 새 장\n\n본문.';
+    const out = await JSZip.loadAsync(await mdToHwpxWithTemplate(md, t.bytes, { samples: { body: '양식 본문 예시', h1: '양식 제목', h2: '둘째 제목 예시', h3: '셋째 제목 예시' } }));
+    const header = await out.file('Contents/header.xml')!.async('string');
+    const section = await out.file('Contents/section0.xml')!.async('string');
+    const ids = paraIds(section);
+    const of = (x: string) => ids.find(([, s]) => s === x)![0] as number;
+    const tplH2 = para(header, t.h2);
+    const h2 = para(header, of('4. 다음 장'));
+    expect(sp(h2, 'prev')).toEqual([1200, 2400]);
+    expect(sp(h2, 'next')).toEqual([300, 600]);
+    const norm = (x: string) => x.replace(/\bid="\d+"/, '').replace(/<hc:(prev|next) value="-?\d+"/g, '');
+    expect(norm(h2)).toBe(norm(tplH2)); // 정렬 등 나머지는 양식 그대로
+    expect(of('가. 세부')).toBe(t.h3); // 앞 간격 있는 양식 제목은 양식 문단 그대로
+    expect(sp(para(header, of('새 제목')), 'prev')).toEqual([0, 0]);
+    expect(sp(para(header, of('Ⅱ. 새 장')), 'prev')).toEqual([0, 0]);
+    expect(para(header, of('Ⅱ. 새 장'))).toContain('horizontal="LEFT"');
   });
 });

@@ -12,7 +12,7 @@ import JSZip from 'jszip';
 import { packHwpx } from '@/lib/work-rules-report/render';
 import { checkHeader } from './header-check';
 import { appendItem, BORDER, CHAR, cloneChar, getItem, PARA, patchChar, patchPara } from './header-edit';
-import { mdDocXml, parseMarkdown, type CloneLog, type MdHwpxOptions } from './index';
+import { HEAD_SPACE, mdDocXml, parseMarkdown, type CloneLog, type MdHwpxOptions } from './index';
 
 /** cell = 표 본문 칸, cellHead = 머리행 칸(261124). 그 글자가 든 문단·글자 모양을 표 칸에 이식한다 */
 export type TemplateSamples = { body?: string; h1?: string; h2?: string; h3?: string; h4?: string; cell?: string; cellHead?: string };
@@ -186,7 +186,17 @@ export function transplant(
     const r = roles[k];
     if (!r) continue;
     roleChar.set(OUR_HEAD[k].char, r.char);
-    rolePara.set(OUR_HEAD[k].para, r.para);
+    // 261124 — 양식 제목 문단의 앞 간격이 0 이면 복제해 앞·뒤 간격만 프리셋 값으로(표 바로 뒤 제목이 테두리에 붙던 사고).
+    // 앞 간격이 이미 있으면 양식 값을 그대로. 뒤 간격은 양식이 0 일 때만 채운다. 첫 제목·쪽 나눔 제목의 앞 0 복제는 이 문단 위에서 다시 만든다
+    const src = getItem(h, PARA, r.para);
+    const val = (k2: 'prev' | 'next') => Number(new RegExp(`<hc:${k2} value="(-?\\d+)"`).exec(src)?.[1] ?? 0);
+    const [prev, next] = HEAD_SPACE[OUR_HEAD[k].para];
+    if (val('prev') > 0) rolePara.set(OUR_HEAD[k].para, r.para);
+    else {
+      const add = appendItem(h, PARA, patchPara(src, { pt: true, prev, ...(val('next') > 0 ? {} : { next }) }));
+      h = add.header;
+      rolePara.set(OUR_HEAD[k].para, add.id);
+    }
   }
   // 표 역할(261124) — 이식한 칸 문단은 어절 단위(BREAK_WORD), 줄간격은 tableLineSpacing 을 명시했을 때만 그 값(아니면 양식 값)
   const cellPara = (src: number, align?: 'CENTER' | 'RIGHT') => {
