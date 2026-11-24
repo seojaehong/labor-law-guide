@@ -3,6 +3,7 @@
 //   read_hwp_as_markdown · fill_hwp_form · patch_hwp_from_markdown  한글 읽기·서식 채우기·되쓰기(lib/hangul-kordoc.mjs, kordoc)
 //   check_prose  퇴고 문체 점검 — 규칙·검출식은 팩(JSON): lib/prose/generic-pack.json + env PROSE_PACK_DIR(261123)
 //   check_norms  퇴고 공개 규범 점검 — 한글 맞춤법 제5장 띄어쓰기·부록 문장 부호·연결어미 뒤 쉼표(lib/prose/norms.mjs, 261124)
+//   stamp_exhibit_pdf  제출 서증 PDF 첫 장 상단에 호증 표시(세로형 10×50mm) 날인(lib/exhibit-stamp.mjs, 261124)
 // ★ 파일을 읽고 쓰므로 원격판(remote.mjs)에서 불러오지 않는다. stdio 판(server.mjs)으로만 켠다.
 // ★ 공개 문구 금지어 + 포괄·대신·대행·대리·지도를 이 묶음의 글(설명·결과)에 쓰지 않는다.
 import { z } from 'zod';
@@ -14,8 +15,16 @@ import { mdToHwpxWithTemplate } from '@/lib/md-hwpx/template';
 import { argsLookLikeRrn, looksLikeRrn, text, writeNew } from '../lib/common.mjs';
 import { DETAIL_SCHEMA, GENRE_SCHEMA, NORM_CHECKS_SCHEMA, normsResult, proseResult, rrnStop, TEXT_SCHEMA } from '../lib/prose/toego.mjs';
 import { capSkipped, decodeMarkdown, fillHangul, hangulKind, maskExcerpt, MAX_MARKDOWN_BYTES, patchHangul, patchVerdict, readHangul, sanitizeReason } from '../lib/hangul-kordoc.mjs';
+import { stampExhibitPdf } from '../lib/exhibit-stamp.mjs';
+import { fileURLToPath } from 'node:url';
 
-export const docsTools = ['make_hwpx_from_markdown', 'edit_hwpx_text', 'read_hwp_as_markdown', 'fill_hwp_form', 'patch_hwp_from_markdown', 'check_prose', 'check_norms'];
+export const docsTools = ['make_hwpx_from_markdown', 'edit_hwpx_text', 'read_hwp_as_markdown', 'fill_hwp_form', 'patch_hwp_from_markdown', 'check_prose', 'check_norms', 'stamp_exhibit_pdf'];
+
+// 호증 도장 글자 윤곽 — 사이트·contract 묶음과 같은 나눔고딕(OFL). 글꼴은 PDF 에 넣지 않고 윤곽선만 그린다
+const here = path.dirname(fileURLToPath(import.meta.url));
+const STAMP_FONT = 'NanumGothic-Regular.ttf';
+const stampFontPath = () => (process.env.LLG_ROOT ? path.join(process.env.LLG_ROOT, 'public/fonts', STAMP_FONT) : path.join(here, 'assets', STAMP_FONT));
+const MAX_PDF = 100 * 1024 * 1024;
 
 const WRITES = { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false };
 const fail = (error, extra = {}) => text({ ok: false, error, ...extra });
@@ -399,6 +408,64 @@ export function registerDocs(server) {
       const stop = rrnStop(a.text);
       if (stop) return text(stop);
       return text(normsResult(a));
+    },
+  );
+
+  server.registerTool(
+    'stamp_exhibit_pdf',
+    {
+      title: '서증 PDF 첫 장에 호증 표시 날인(로컬 전용)',
+      description:
+        '노동청·노동위원회·법원에 내는 서증 PDF 의 첫 장 상단 여백에 세로형 호증 표시(10×50mm 고무인 모양, 「사 제19호증」)를 그려 새 PDF 로 저장한다. 첫 장에만 찍고 나머지 쪽은 건드리지 않는다. ' +
+        '위치는 대법원 전자민원센터 안내(첫 페이지 왼쪽 또는 오른쪽의 중간 상단부분)를 따라 기본 우측 상단(오른쪽 12mm·위 8mm), side 로 왼쪽. 쪽이 작아 도장이 쪽 높이의 25% 를 넘으면 줄인다. ' +
+        'pad=always 면 첫 장을 지정한 쪽으로 34mm 넓혀 그 여백에 찍는다(PPT·캡처처럼 상단까지 내용이 찬 서증). 접두어는 제출처와 우리 쪽 지위에 맞게 고른다(법원 갑·을·병, 노동위원회 근·사, 가처분 소갑·소을). ' +
+        '글자는 글꼴을 넣지 않고 윤곽선으로 그려 파일이 거의 커지지 않는다. 본문과 겹치는지는 보지 않으므로(overlapChecked:false) 결과 첫 장 상단을 눈으로 확인한다. 첫 장이 돌아가 있거나 암호가 걸린 PDF 는 멈춘다. 이미 있는 파일은 덮어쓰지 않는다.',
+      inputSchema: {
+        file: z.string().max(400).describe('서증 PDF 경로'),
+        outFile: z.string().max(400).describe('저장할 PDF 경로(.pdf, 없는 파일, 입력과 다른 경로)'),
+        prefix: z.string().min(1).max(3).optional().describe('접두어(기본 사). 예: 갑·을·병·증·근·노·사·소갑·소을'),
+        number: z.number().int().min(1).max(9999).optional().describe('호증 번호. 비우면 번호칸이 빈 도장(손으로 적는다)'),
+        sub: z.number().int().min(1).max(99).optional().describe('가지번호(사 제9호증의 1 이면 1). number 가 있어야 한다'),
+        side: z.enum(['right', 'left']).optional().describe('상단 여백의 오른쪽(기본)·왼쪽'),
+        pad: z.enum(['never', 'always']).optional().describe('always = 첫 장을 34mm 넓혀 그 여백에 찍는다. 기본 never'),
+        color: z.enum(['red', 'purple', 'black']).optional().describe('잉크 색(기본 red)'),
+      },
+      annotations: WRITES,
+    },
+    async (a) => {
+      if (argsLookLikeRrn(a)) return fail(RRN_STOP);
+      if (a.sub != null && a.number == null) return fail('가지번호(sub)는 호증 번호(number)와 함께 주세요.');
+      const src = path.resolve(String(a.file).trim());
+      const out = path.resolve(String(a.outFile).trim());
+      if (!/\.pdf$/i.test(out)) return fail('outFile 은 .pdf 로 끝나야 합니다.');
+      if (src.toLowerCase() === out.toLowerCase()) return fail('입력과 같은 경로에는 저장하지 않습니다. outFile 을 바꿔 주세요.');
+      if (!fs.existsSync(src) || !fs.statSync(src).isFile()) return fail(`파일이 없습니다: ${src}`);
+      if (fs.statSync(src).size > MAX_PDF) return fail('100MB 를 넘는 PDF 는 받지 않습니다.');
+      if (fs.existsSync(out)) return fail(EXISTS_EDIT, { exists: out });
+      const input = new Uint8Array(fs.readFileSync(src));
+      if (String.fromCharCode(...input.slice(0, 5)) !== '%PDF-') return fail('PDF 파일이 아닙니다.');
+      let r;
+      try {
+        r = await stampExhibitPdf(input, new Uint8Array(fs.readFileSync(stampFontPath())), {
+          prefix: a.prefix ?? '사', number: a.number, sub: a.sub, side: a.side ?? 'right', pad: a.pad ?? 'never', color: a.color ?? 'red',
+        });
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        return fail(/encrypt/i.test(msg) ? '암호가 걸린 PDF 입니다. 암호를 푼 PDF 로 다시 주세요.' : msg);
+      }
+      fs.mkdirSync(path.dirname(out), { recursive: true });
+      if (!writeNew(out, r.bytes)) return fail(EXISTS_EDIT, { exists: out });
+      return text({
+        ok: true,
+        file: { path: out, bytes: r.bytes.length },
+        label: r.label,
+        side: r.side,
+        padded: r.padded,
+        pages: r.pages,
+        firstPageMm: { width: Math.round(r.pageMm.w * 10) / 10, height: Math.round(r.pageMm.h * 10) / 10 },
+        overlapChecked: false,
+        notice: '본문과 겹치는지는 보지 않았습니다. 결과 첫 장 상단을 눈으로 확인하고, 내용 위에 찍혔으면 side 를 바꾸거나 pad=always 로 다시 만들어 주세요. 증거 목록의 번호와 찍힌 번호도 맞춰 보세요.',
+      });
     },
   );
 }
