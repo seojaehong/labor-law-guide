@@ -13,6 +13,10 @@ import TurnstileWidget from '@/components/TurnstileWidget';
 import { citationLinkComponents, linkifyFaqCitations, type EvidenceId } from '@/lib/chat/citations';
 import { toLexQuery } from '@/lib/chat/context/lex-query';
 import type { SourceItem, SourceType } from '@/lib/chat/sources';
+import { RETENTION } from '@/lib/privacy-retention';
+
+/** 처리방침 보유기간과 같은 값 — 261124 검수: 저장 사실을 입력 전에 알리지 않았다 */
+const chatLogRetention = RETENTION.find((r) => r.table === 'chat_logs')?.period ?? '';
 
 const EXAMPLES = ['연차휴가는 언제 생기나요?', '퇴직금 계산 기간은 어떻게 정하나요?', '해고예고는 며칠 전에 해야 하나요?'];
 
@@ -176,6 +180,10 @@ export default function SourceFinder() {
           자료 찾기
         </button>
       </form>
+      <p className="mt-2 text-xs leading-relaxed" style={{ color: 'var(--grey-700)' }}>
+        질문 앞부분 500자와 세션 ID·IP 해시를 답변 품질 확인용으로 {chatLogRetention} 보관합니다. 이름·주민등록번호·회사명 같은 정보는
+        적지 마세요. 자세한 내용은 <Link href="/privacy" className="underline">개인정보 처리방침</Link>에 있습니다.
+      </p>
 
       <div className="mt-3 flex flex-wrap gap-2" aria-label="예시 질문">
         {EXAMPLES.map((ex) => (

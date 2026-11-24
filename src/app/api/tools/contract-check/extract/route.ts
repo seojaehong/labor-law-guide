@@ -178,8 +178,9 @@ export async function POST(req: Request): Promise<Response> {
   };
   try {
   // env 게이트 — 키가 없으면 기능 전체가 닫힌다(폼 수동 입력으로 폴백).
+  // 261124 — 실제 계약서 파일은 법률·개인정보 검토 전까지 받지 않는다(화면 게이트 @/lib/real-file-gate 와 같은 값, 요청 때 읽는다)
   const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) {
+  if (!apiKey || process.env.NEXT_PUBLIC_REAL_FILE_INPUT !== '1') {
     return respond(501, {
       error: 'not_configured',
       message: '사진 자동 인식을 준비 중입니다. 아래 폼에 직접 입력해 주세요.',
