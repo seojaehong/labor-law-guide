@@ -1,5 +1,6 @@
 // 퇴고 — 문서 문체 점검(결정론). 규칙·검출식·기준값은 코드가 아니라 「팩」(JSON)에 있다.
-//   · 범용 팩 = 이 폴더 generic-pack.json(im-not-ai lexicon 유래, MIT — THIRD_PARTY_NOTICES.md)
+//   · 범용 팩 = 이 폴더 generic-pack.json(im-not-ai lexicon 유래, MIT — THIRD_PARTY_NOTICES.md). yield: true —
+//     같은 줄에서 다른 팩의 걸림과 글자가 겹치면 범용 팩 걸림은 싣지도 세지도 않는다
 //   · 그 밖의 팩 = env PROSE_PACK_DIR(절대 경로)의 *.json. 저장소에 두지 않는 팩은 이 길로만 읽는다.
 // ★ 출력 정책 — 공개 팩은 걸린 글자·고칠 말·규칙 id 까지(full) 낸다. 비공개 팩(private: true, 그리고 PROSE_PACK_DIR 에서 읽은
 //   팩 중 private: false 라고 적지 않은 것)은 줄·칸·길이·등급·짧은 사유·응답별 참조값만(brief) 내고,
@@ -414,6 +415,7 @@ export function validatePack(pack) {
   if (!pack || typeof pack !== 'object' || Array.isArray(pack)) return [{ code: 'PACK_NOT_OBJECT' }];
   if (!isStr(pack.pack)) bad('PACK_NAME');
   if (pack.private !== undefined && typeof pack.private !== 'boolean') bad('PACK_PRIVATE');
+  if (pack.yield !== undefined && typeof pack.yield !== 'boolean') bad('PACK_YIELD');
   if (!(pack.version === undefined || typeof pack.version === 'string' || isNum(pack.version))) bad('PACK_VERSION');
   if (pack.rules !== undefined && !Array.isArray(pack.rules)) bad('RULES_NOT_ARRAY');
   // 규칙 id 는 rules·density 를 통틀어 하나뿐이어야 한다(brief 참조값이 겹치지 않게)
@@ -498,6 +500,7 @@ export function compilePack(pack) {
     pack: pack.pack,
     version: pack.version,
     private: pack.private,
+    yield: pack.yield,
     table: pack.table,
     freq: pack.freq,
     checks: ck,
@@ -762,12 +765,47 @@ export function checkProse(text, o = {}) {
     if (arr.length >= 2 * cap) { arr.sort(byPos); arr.length = cap; }
   };
 
+  // 물러서는 팩(yield: true — 범용 팩) — 같은 줄에서 다른 팩의 걸림과 글자가 겹치는 걸림은 싣지도 세지도 않는다.
+  // 같은 자리를 두 팩이 잡으면 한 번만 보이게 하려는 것이다(어느 규칙과 겹치는지는 팩 밖에 적지 않는다)
+  const yieldOn = P.some((p) => p.yield) && P.some((p) => !p.yield);
+
   lines.forEach((line, i) => {
     if (!line) return;
     const n = i + 1;
     const t = strip(line);
     let ctx;
     const ctxOf = () => (ctx ??= cpHead(t, 58));
+    const held = [];
+    const taken = [];
+    const emit = (p, r, word, col) => {
+      if (!yieldOn) return push(p, r, n, word, col, ctxOf);
+      if (p.yield) return held.push([p, r, word, col]);
+      taken.push([col, col + cpLen(word)]);
+      return push(p, r, n, word, col, ctxOf);
+    };
+    const flush = () => {
+      if (!held.length) return;
+      // 다른 팩 걸림을 시작 칸 순으로 합쳐 겹치지 않는 구간 목록으로 — 걸림마다 이분 탐색
+      taken.sort((a, b) => a[0] - b[0]);
+      const span = [];
+      for (const [a, b] of taken) {
+        const last = span[span.length - 1];
+        if (last && a <= last[1]) last[1] = Math.max(last[1], b);
+        else span.push([a, b]);
+      }
+      for (const [p, r, word, col] of held) {
+        if (p.dead) continue;
+        const end = col + cpLen(word);
+        let lo = 0;
+        let hi = span.length;
+        while (lo < hi) {
+          const mid = (lo + hi) >> 1;
+          if (span[mid][0] < end) lo = mid + 1;
+          else hi = mid;
+        }
+        if (!(lo > 0 && span[lo - 1][1] > col)) push(p, r, n, word, col, ctxOf);
+      }
+    };
     if (startsWithAny(t, QUOTE_PREFIXES)) {
       const lead = leadWs(line);
       const lineCol = colMapper(line);
@@ -785,7 +823,7 @@ export function checkProse(text, o = {}) {
                 const w = s.slice(cpBack(s, m.index, EXCLUDE_WINDOW), cpFwd(s, m.index + m[0].length, EXCLUDE_WINDOW));
                 if (r.ex.test(w)) return;
               }
-              push(p, r, n, m[0], col(m.index), ctxOf);
+              emit(p, r, m[0], col(m.index));
             };
             if (r.once) {
               const m = r.rx.exec(s);
@@ -796,6 +834,7 @@ export function checkProse(text, o = {}) {
           kill(p);
         }
       }
+      flush();
       return;
     }
     const inTable = t.startsWith('|');
@@ -816,13 +855,14 @@ export function checkProse(text, o = {}) {
               if (r.ex.test(w)) return;
             }
             col ??= colMapper(probe);
-            push(p, r, n, m[0], col(m.index), ctxOf);
+            emit(p, r, m[0], col(m.index));
           });
         }
       } catch {
         kill(p);
       }
     }
+    flush();
   });
 
   // ── 알림(빈도·밀도·발언 인용·제목·문장) — 검출식·기준값은 팩에서 읽는다
