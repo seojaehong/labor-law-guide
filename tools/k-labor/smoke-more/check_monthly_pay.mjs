@@ -28,13 +28,13 @@ export default async function (callNew, check) {
   });
   check(`check_monthly_pay 주휴 30,000 일치(${hw.headline?.[0]})`, hw.ok && hw.result?.status === 'MATCH' && hw.result.expected_amount === 30_000);
 
-  // pay-check-form.test.ts:186 — 기준은 골랐지만 문서 미확인 → 800,000 참고 계산 + 확인 상태 1건
+  // pay-check-form.test.ts:186 — 기준은 골랐지만 문서 미확인 → 880,000 참고 계산 + 확인 상태 1건(시급은 2026 최저시급 이상 — 감싸개가 멈추지 않게)
   const ref = await callNew('check_monthly_pay', {
     scenario: 'MID_JOIN', policy: 'HOUR_ACTUAL', basisDocumented: false,
-    ...PERIOD, employment_start: '2026-04-16', hourly_rate: 10_000, paid_hours: 80, payslip_amount: 800_000,
+    ...PERIOD, employment_start: '2026-04-16', hourly_rate: 11_000, paid_hours: 80, payslip_amount: 880_000,
   });
-  check(`check_monthly_pay 문서 미확인은 참고 계산 800,000(${ref.headline?.[0]})`,
-    ref.ok && ref.result?.status === 'MATCH' && ref.result.expected_amount === 800_000
+  check(`check_monthly_pay 문서 미확인은 참고 계산 880,000(${ref.headline?.[0]})`,
+    ref.ok && ref.result?.status === 'MATCH' && ref.result.expected_amount === 880_000 && ref.confirmed === false
     && JSON.stringify(ref.result.reasons) === '["COMPARED_EQUAL","BASIS_NOT_DOCUMENTED"]' && ref.openConfirmations?.length === 1);
 
   // pay-check-edge.test.ts:277 — 입력 오류: 입사일 2026.04.16 은 날짜가 아니다 → 확인 필요 · 금액 없음
