@@ -14,8 +14,8 @@ import {
   validate,
   type Input,
 } from './exit-calc';
-
-const won = (n: number) => `${Math.round(n).toLocaleString('ko-KR')}원`;
+import ResultBlock from '@/components/tool-result/ResultBlock';
+import { exitResultView } from './result';
 
 function dateLabel(s: string) {
   const d = parseYmd(s);
@@ -144,50 +144,12 @@ export default function ExitClient() {
         </section>
 
         {ready && check && (
-          <section className="ex-sum" aria-live="polite" aria-label="확인용 추정">
-            <div className="ex-sum-head">
-              <div className="ex-sum-k">확인용 추정 · 확정 금액이 아닙니다</div>
-              <div className="ex-sum-title">
-                {check.eligible
-                  ? '퇴직금 요건(계속근로 1년 이상, 주 15시간 이상)에 해당하는 입력입니다'
-                  : '입력 기준으로는 퇴직금 요건에 해당하지 않습니다'}
-              </div>
-              <div className="ex-sum-meta">
-                재직 {check.serviceDays.toLocaleString('ko-KR')}일 · 계속근로 1년 {check.oneYear ? '이상' : '미만'} · 4주 평균 주 15시간 {check.hours15 ? '이상' : '미만'}
-                {!check.oneYear && <><br />입사일 1년 뒤 같은 날 이후에 퇴직일(마지막 근무일 다음 날)이 와야 1년 이상입니다.</>}
-              </div>
-            </div>
-            <div className="ex-sum-grid">
-              <div>
-                <div className="ex-sum-k">퇴직금 추정</div>
-                <div className="ex-sum-big">{sev ? won(sev.amount) : '해당 없음'}</div>
-                {sev && (
-                  <div className="ex-sum-meta">
-                    1일 평균임금 {won(sev.dailyAverage)} = {won(sev.wageTotal)} ÷ {sev.periodDays}일<br />
-                    × 30일 × {check.serviceDays}일 ÷ 365
-                  </div>
-                )}
-              </div>
-              <div>
-                <div className="ex-sum-k">미사용 연차수당 추정</div>
-                <div className="ex-sum-big">
-                  {lv ? (lv.applicable ? won(lv.amount) : '적용 제외') : '일수 입력 시'}
-                </div>
-                <div className="ex-sum-meta">
-                  {lv && lv.applicable && <>1일 통상임금 {lv.daily.toLocaleString('ko-KR', { maximumFractionDigits: 2 })}원 × {input.unusedLeaveDays}일(원 미만은 마지막에 올림)<br /></>}
-                  {lv && !lv.applicable && <>주 15시간 미만은 연차휴가 규정이 적용되지 않습니다(근로기준법 §18③)<br /></>}
-                  {ent && check.hours15 && <>참고 · 마지막 근무일 기준 법정 연차 발생 {ent.days}일({ent.basisLabel})</>}
-                </div>
-              </div>
-            </div>
-            <div className="ex-sum-actions">
-              <a className="ex-btn" href="/tools/severance.html">퇴직금 계산기로 자세히 계산</a>
-              <a className="ex-btn ex-btn-ghost" href="#limits">추정치의 한계</a>
-            </div>
-          </section>
+          <div className="ex-result">
+            <ResultBlock label="확인용 추정" view={exitResultView({ check, sev, lv, ent, unusedLeaveDays: input.unusedLeaveDays })} />
+          </div>
         )}
 
-        <section aria-label="날짜순 점검표">
+        <section aria-label="날짜순 점검표" id="checklist" style={{ scrollMarginTop: 'var(--reading-anchor-offset)' }}>
           <div className="ex-group">
             <h2>날짜순 점검표</h2>
             <button className="ex-btn ex-btn-ghost ex-copy" onClick={copyList}>점검표 복사하기</button>
