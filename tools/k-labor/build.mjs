@@ -41,6 +41,7 @@ const info = {
   kLaborLockfileSha256: fs.existsSync(path.join(here, 'package-lock.json')) ? sha256(fs.readFileSync(path.join(here, 'package-lock.json'))) : null,
   node: process.version,
   serverSha256: null,
+  toegoSha256: null, // dist/toego.mjs(퇴고 가벼운 실행 파일)
   builtAt: null,
 };
 
@@ -113,6 +114,19 @@ try {
     logLevel: 'warning',
   });
 
+  // 퇴고 가벼운 실행 파일 — 발송 게이트가 문서마다 부른다. server.mjs 는 모든 묶음의 의존성을 읽어 뜨는 데 2초가 넘어,
+  // 퇴고 점검(lib/prose·common)만 묶어 따로 낸다. 판정 함수는 MCP 도구 check_prose·check_norms 와 같다(lib/prose/toego.mjs)
+  await build({
+    entryPoints: [path.join(here, 'toego-cli.mjs')],
+    outfile: path.join(tmp, 'toego.mjs'),
+    bundle: true,
+    platform: 'node',
+    format: 'esm',
+    target: 'node20',
+    banner: { js: '#!/usr/bin/env node' },
+    logLevel: 'warning',
+  });
+
   fs.mkdirSync(path.join(tmp, 'assets'), { recursive: true });
   for (const rel of assets) {
     const src = path.join(repo, rel);
@@ -128,6 +142,7 @@ try {
   }
 
   info.serverSha256 = sha256(fs.readFileSync(path.join(tmp, 'server.mjs')));
+  info.toegoSha256 = sha256(fs.readFileSync(path.join(tmp, 'toego.mjs')));
   info.builtAt = new Date().toISOString();
   fs.writeFileSync(path.join(tmp, 'build-info.json'), `${JSON.stringify(info, null, 2)}\n`);
   swapIn();
