@@ -237,12 +237,12 @@ export default function HolidayPayCalculator() {
       `• 휴일 근로: ${workedHours}시간` + (parseFloat(nightHours) > 0 ? ` (야간 ${nightHours}시간 포함)` : ''),
       `• 통상시급: ${formatNumber(result.base_hourly)}원`,
       ``,
-      `💰 ${totalLabelOf(workerType)}: ${formatNumber(result.total)}원`,
+      `${totalLabelOf(workerType)}: ${formatNumber(result.total)}원`,
       ``,
       ...result.breakdown.map((b) => `  - ${b.label}: ${formatNumber(b.amount)}원`),
       ...(paidDayShortOf(result, holidayKind) ? [`  + ${paidDayShortOf(result, holidayKind)}`] : []),
       ``,
-      `🔍 자세한 계산: yellowenvelope.kr/tools/holiday-pay`,
+      `자세한 계산: yellowenvelope.kr/tools/holiday-pay`,
     ];
     return lines.join('\n');
   }, [result, siteSize, holidayKind, workerType, workedHours, nightHours]);
@@ -492,7 +492,7 @@ export default function HolidayPayCalculator() {
     return (
       <div>
         <StepHeader current={2} />
-        <h2 className="t-h3 mb-1" style={{ color: "var(--color-text-primary)" }}>2단계 — 어떤 휴일인가요?</h2>
+        <h2 className="t-h3 mb-1" style={{ color: "var(--color-text-primary)" }}>2단계 — 어떤 휴일입니까?</h2>
         <p className="mb-6 text-sm" style={{ color: 'var(--color-text-secondary)' }}>
           노동절은 모든 사업장에 적용되고, 관공서 공휴일(빨간날)은 5인 이상 사업장만 유급휴일로 적용됩니다.
         </p>

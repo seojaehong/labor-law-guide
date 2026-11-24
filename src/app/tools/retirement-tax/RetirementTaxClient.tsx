@@ -2,10 +2,11 @@
 
 import { useMemo, useState } from 'react';
 import { calcRetirementTax } from '@/lib/calc/retirement-tax';
-import AnswerCard from '@/components/tool/AnswerCard';
 import FoldedDetail from '@/components/tool/FoldedDetail';
-import { card, fmtDate, inputCls, ink, muted, small, todayKst } from '@/lib/tool-kit';
-import { CONSEQUENCES, HIRE_LABEL, HIRE_NOTE, HOMETAX, NOT_COVERED, headline } from './copy';
+import ResultBlock from '@/components/tool-result/ResultBlock';
+import { card, inputCls, ink, muted, small, todayKst } from '@/lib/tool-kit';
+import { CONSEQUENCES, HIRE_LABEL, HIRE_NOTE, HOMETAX, NOT_COVERED } from './copy';
+import { retirementTaxView } from './result';
 
 const won = (n: number) => `${n.toLocaleString('ko-KR')}원`;
 const num = (s: string) => Number(s.replace(/,/g, '').trim() || '0');
@@ -62,21 +63,15 @@ export default function RetirementTaxClient() {
       {!r ? (
         <section className={card} aria-live="polite"><p className={small} style={ink}>{'error' in out ? out.error : ''}</p></section>
       ) : (
-        <AnswerCard lines={headline(r)}>
-          <p className={`${small} mt-3`} style={muted}>
-            근속연수 {r.years}년({r.months}개월) · 과세표준 {won(r.taxBase)}
-            {r.taxBase > 0 ? ` · 세율 ${r.brackets.rate[1]}% 구간(소득세법 제55조)` : ''} · 합계 {won(r.total)}
-          </p>
-          <p className={`${small} mt-2`} style={muted}>
-            입사 {fmtDate(hire, today)} · 퇴사 {fmtDate(last, today)}
-          </p>
-          <p className={`${small} mt-3`} style={muted}>
+        <ResultBlock view={retirementTaxView({ r, hire, last, today })}>
+          {/* 세무사법 고지 — 링크가 있어 글자 그대로 둔다(reference_tax_calculator_semusa_law) */}
+          <p className={`${small} mt-3`} style={{ color: 'var(--rb-sub)' }}>
             예상 금액입니다. 세무대리·신고서 작성 대행이 아닙니다.{' '}
             홈택스{' '}
             <a href={HOMETAX.href} target="_blank" rel="noopener noreferrer" className="underline underline-offset-2">{HOMETAX.name}</a>
             {HOMETAX.note}
           </p>
-        </AnswerCard>
+        </ResultBlock>
       )}
 
       {r && (

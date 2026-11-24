@@ -262,7 +262,7 @@ export default function SourceFinder() {
                   {sources === null ? '자료를 찾은 뒤 요약합니다…' : '찾은 자료를 정리하는 중…'}
                 </span>
               ) : null}
-              {error && <p role="alert" className="mt-3 text-sm" style={{ color: 'var(--color-text-primary)' }}>⚠️ {error}</p>}
+              {error && <p role="alert" className="mt-3 text-sm" style={{ color: 'var(--color-text-primary)' }}>{error}</p>}
             </div>
           </section>
         </>

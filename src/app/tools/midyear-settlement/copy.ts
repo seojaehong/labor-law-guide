@@ -3,7 +3,7 @@
 import type { MidyearDetail, MidyearInput, MidyearOutcome, MidyearPath } from '@/lib/calc/midyear-settlement';
 
 const won = (n: number) => `${n.toLocaleString('ko-KR')}원`;
-const signed = (n: number) => (n > 0 ? `+${won(n)}` : n < 0 ? `−${won(-n)}` : '0원');
+export const signed = (n: number) => (n > 0 ? `+${won(n)}` : n < 0 ? `−${won(-n)}` : '0원');
 
 export type MoneyField = Exclude<keyof MidyearInput, 'year'>;
 
@@ -72,7 +72,7 @@ export const HOMETAX_URL = 'https://www.hometax.go.kr';
 export const HOMETAX_LINK = { text: '홈택스(첫 화면)', after: '에서 연말정산 모의계산 메뉴를 찾아 한 번 더 확인할 수 있습니다.' };
 
 /** 1천원 미만 추징 — 소득세법 §86 1호로 징수하지 않는다 */
-const small = (n: number) => n > 0 && n < 1_000;
+export const small = (n: number) => n > 0 && n < 1_000;
 
 /** 소득세 정산액. 1천원 미만 추징이면 징수하지 않는다고 붙인다(PR #112 사후 검토 12) */
 const incomeSigned = (n: number) => (small(n) ? `${signed(n)}(1천원 미만이라 징수하지 않음, 소득세법 제86조 제1호)` : signed(n));
@@ -95,7 +95,7 @@ function localLine(s: number): string {
 }
 
 /** 결정세액이 같으면 한 경로만, 다르면 A·B 둘 다 — 이름표(A·B)를 붙인 [이름표, 경로] 목록 */
-function paths(d: MidyearDetail): [string, MidyearPath][] {
+export function paths(d: MidyearDetail): [string, MidyearPath][] {
   return d.same ? [['', d.a]] : [['A', d.a], ['B', d.b]];
 }
 

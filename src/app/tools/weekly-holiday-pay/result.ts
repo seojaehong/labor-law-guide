@@ -22,7 +22,7 @@ export function defaultWageNote(rate: Rate | null): string | null {
 const BASIS = [
   lawLink('근로기준법 제55조(휴일)', '근로기준법', '제55조'),
   lawLink('근로기준법 시행령 제30조(휴일)', '근로기준법 시행령', '제30조'),
-  lawLink('근로기준법 제18조(단시간근로자)', '근로기준법', '제18조'),
+  lawLink('근로기준법 제18조(단시간근로자의 근로조건)', '근로기준법', '제18조'),
 ];
 
 export function weeklyHolidayView(a: {

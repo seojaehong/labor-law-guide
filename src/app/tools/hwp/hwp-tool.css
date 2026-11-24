@@ -47,7 +47,7 @@
 .hw-h2 { font-size: 15px; font-weight: 600; margin: 4px 0 0; }
 .hw-field { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--hw-body); }
 .hw-field input { min-height: 40px; padding: 0 10px; border-radius: 6px; border: 1px solid var(--hw-hair); background: var(--hw-soft); color: var(--hw-ink); font-size: 15px; }
-.hw-check { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--hw-body); }
+.hw-check { display: flex; align-items: center; gap: 6px; min-height: 44px; cursor: pointer; font-size: 13px; color: var(--hw-body); }
 .hw-steps { margin: 0; padding-left: 20px; font-size: 13px; line-height: 1.7; color: var(--hw-body); }
 .hw-steps b { color: var(--hw-ink); font-weight: 600; }
 .hw-steps span { color: var(--hw-body); margin-left: 4px; font-size: 12px; }

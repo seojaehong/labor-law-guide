@@ -73,7 +73,7 @@
 .pc-num { display: flex; align-items: center; gap: 8px; }
 .pc-num span { font-size: 14px; color: var(--pc-body); flex: none; }
 .pc-field .pc-opts { margin-top: 0; }
-.pc-unknown { display: inline-flex; align-items: center; gap: 8px; min-height: 32px; font-size: 14px; cursor: pointer; }
+.pc-unknown { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; font-size: 14px; cursor: pointer; }
 .pc-unknown input { width: 18px; height: 18px; accent-color: var(--pc-link); }
 @media (max-width: 600px) { .pc-fields { grid-template-columns: 1fr; } }
 

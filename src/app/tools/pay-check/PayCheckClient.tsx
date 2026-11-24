@@ -187,7 +187,7 @@ export default function PayCheckClient() {
         </header>
 
         <section className="pc-step" aria-label="예외 고르기">
-          <h2><span>1</span>어떤 예외가 있는 달인가요</h2>
+          <h2><span>1</span>어떤 예외가 있는 달입니까</h2>
           <div className="pc-picks" role="group" aria-label="예외">
             {PICKS.map((p) => (
               <button key={p.id} type="button" aria-pressed={pick === p.id} onClick={() => choose(p.id)}>
@@ -233,7 +233,7 @@ export default function PayCheckClient() {
               </div>
               {policy !== null && (
                 <div className="pc-field pc-basis-doc">
-                  <p className="pc-q">그 기준을 회사 문서에서 확인했나요?</p>
+                  <p className="pc-q">그 기준을 회사 문서에서 확인했습니까?</p>
                   <div className="pc-opts" role="group" aria-label="계산 기준 문서 확인">
                     <button type="button" aria-pressed={basisDocumented === true} onClick={() => setBasisDocumented(true)}>문서에서 확인함</button>
                     <button type="button" aria-pressed={basisDocumented === false} onClick={() => setBasisDocumented(false)}>문서는 확인하지 못함</button>

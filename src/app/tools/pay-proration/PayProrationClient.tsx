@@ -4,13 +4,16 @@ import { useMemo, useState } from 'react';
 import BizNoLookup from '@/components/BizNoLookup';
 import { calcAbsence, calcProration, METHOD_ORDER, type AbsenceResult, type MethodId, type ProrationResult, type RoundingRule } from '@/lib/calc/pay-proration';
 import type { Rounding, RoundingUnit } from '@/lib/pay-check/policies';
-import AnswerCard from '@/components/tool/AnswerCard';
+import ResultBlock from '@/components/tool-result/ResultBlock';
 import FoldedDetail from '@/components/tool/FoldedDetail';
-import { card, inputCls, ink, muted, small, todayKst } from '@/lib/tool-kit';
+import { card, choiceLabel, inputCls, ink, muted, small, todayKst } from '@/lib/tool-kit';
 import {
-  absenceEffectLines, absenceHeadline, absenceRowLines, effectLines, formulaLines, headline,
+  absenceRowLines, formulaLines,
   METHOD_HINT, METHOD_NAME, methodLines, NOT_COVERED, referenceLines, type Basis,
 } from './copy';
+import {
+  ABSENCE_LABEL, PICK_METHOD_HINT, PRORATION_LABEL, absenceNotes, absenceView, payProrationNotes, payProrationView,
+} from './result';
 
 type Mode = 'prorate' | 'absence';
 const num = (s: string) => Number(s.replace(/,/g, '').trim() || '0');
@@ -28,7 +31,7 @@ function dayList(text: string, month: string, what: string): string[] {
 
 function Radio({ name, checked, onChange, children }: { name: string; checked: boolean; onChange: () => void; children: string }) {
   return (
-    <label className="flex items-center gap-2">
+    <label className={choiceLabel}>
       <input type="radio" name={name} checked={checked} onChange={onChange} /> {children}
     </label>
   );
@@ -111,7 +114,7 @@ export default function PayProrationClient() {
     <div className="space-y-4">
       <section className={`${card} grid gap-4 sm:grid-cols-2`} aria-label="입력">
         <fieldset className={`${small} sm:col-span-2`} style={muted}>
-          <legend className="mb-1">무엇을 계산하나요</legend>
+          <legend className="mb-1">무엇을 계산합니까</legend>
           <div className="flex flex-wrap gap-4">
             <Radio name="mode" checked={mode === 'prorate'} onChange={() => setMode('prorate')}>입사·퇴사한 달 일할</Radio>
             <Radio name="mode" checked={mode === 'absence'} onChange={() => setMode('absence')}>결근·지각 공제(그달 내내 재직)</Radio>
@@ -167,7 +170,7 @@ export default function PayProrationClient() {
       {mode === 'prorate' ? (
         <section className={`${card} grid gap-4 sm:grid-cols-2`} aria-label="회사 기준">
           <fieldset className={`${small} sm:col-span-2`} style={muted}>
-            <legend className="mb-1">취업규칙·근로계약서·임금명세서에 그달 일할 계산방법이 적혀 있나요</legend>
+            <legend className="mb-1">취업규칙·근로계약서·임금명세서에 그달 일할 계산방법이 적혀 있습니까</legend>
             <div className="flex flex-wrap gap-4">
               <Radio name="known" checked={!known} onChange={() => setKnown(false)}>적혀 있지 않거나 모른다</Radio>
               <Radio name="known" checked={known} onChange={() => setKnown(true)}>적혀 있다</Radio>
@@ -209,12 +212,12 @@ export default function PayProrationClient() {
 
       {'p' in out && (
         <>
-          <AnswerCard lines={headline(out.p, basis)}>
-            {known && !method && <p className={`${small} mt-3`} style={ink}>적힌 계산방법을 고르면 그 방식의 값을 맨 위에 보여 줍니다.</p>}
-            {effectLines(out.p, basis).map((l) => (
-              <p key={l} className={`${small} mt-3`} style={muted}>{l}</p>
+          <ResultBlock label={PRORATION_LABEL} view={payProrationView(out.p, basis)}>
+            {known && !method && <p className={`${small} mt-3 font-semibold`}>{PICK_METHOD_HINT}</p>}
+            {payProrationNotes(out.p, basis).map((l) => (
+              <p key={l} className={`${small} mt-3`}>{l}</p>
             ))}
-          </AnswerCard>
+          </ResultBlock>
           {out.p.status === 'calculated' && (
             <section className={card} aria-label="방식별 값">
               <h2 className="text-base font-semibold" style={ink}>방식별 값{basis === 'unknown' ? '(참고)' : ''}</h2>
@@ -248,11 +251,11 @@ export default function PayProrationClient() {
 
       {'a' in out && (
         <>
-          <AnswerCard lines={absenceHeadline(out.a)}>
-            {absenceEffectLines(out.a).map((l) => (
-              <p key={l} className={`${small} mt-3`} style={muted}>{l}</p>
+          <ResultBlock label={ABSENCE_LABEL} view={absenceView(out.a)}>
+            {absenceNotes(out.a).map((l) => (
+              <p key={l} className={`${small} mt-3`}>{l}</p>
             ))}
-          </AnswerCard>
+          </ResultBlock>
           {absenceRowLines(out.a).length > 0 && (
             <section className={card} aria-label="1일 단가별 값">
               <h2 className="text-base font-semibold" style={ink}>1일 단가별 값</h2>

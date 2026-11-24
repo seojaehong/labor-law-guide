@@ -28,7 +28,7 @@ export default function HolidayPayPage() {
 
       <div className="mt-10 rounded-xl bg-[var(--grey-100)] p-5 text-sm leading-relaxed">
         <div className="mb-2 font-semibold text-[var(--color-text-primary)]">
-          📚 더 자세히 알아보기
+          더 자세히 알아보기
         </div>
         <ul className="space-y-1.5 text-[var(--grey-700)]">
           <li>

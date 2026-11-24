@@ -2,14 +2,15 @@
 
 import { useMemo, useState } from 'react';
 import {
-  AGREED_WAGE_NOTICE, KIND_LABEL, OLD_ERA_NOTICE, PERF_YEAR_HINT, PERF_YEAR_LABEL, RIGHT_TO_PAY_NOTICE, ROUNDING_NOTE, TIMES, UNIT_HOURS_NOTE,
-  baseHours, checkItem, directionSentence, eraLabel, eraOn, hourlyText, itemNotes, splitOvertime, sumIncluded, summaryLines,
+  KIND_LABEL, PERF_YEAR_HINT, PERF_YEAR_LABEL, ROUNDING_NOTE, TIMES, UNIT_HOURS_NOTE,
+  baseHours, checkItem, directionSentence, eraOn, hourlyText, itemNotes, splitOvertime, sumIncluded,
   type Answer, type Era, type ItemCheck, type ItemKind, type TimesPerYear, type WageItem,
 } from '@/lib/calc/ordinary-wage-check';
 import { SOURCES, type SourceId } from '@/lib/calc/ordinary-wage-sources';
-import AnswerCard from '@/components/tool/AnswerCard';
 import FoldedDetail from '@/components/tool/FoldedDetail';
-import { card, inputCls, ink, muted, small, todayKst } from '@/lib/tool-kit';
+import ResultBlock from '@/components/tool-result/ResultBlock';
+import { card, choiceLabel, inputCls, ink, muted, small, todayKst } from '@/lib/tool-kit';
+import { ordinaryWageView } from './result';
 
 const TIMES_LABEL: Record<TimesPerYear, string> = {
   12: '매달(연 12번)', 6: '격월(연 6번)', 4: '분기(연 4번)', 3: '연 3번(설·추석·하계 등)', 2: '반기·명절(연 2번)', 1: '연 1번',
@@ -95,7 +96,7 @@ function Ask({ name, legend, hint, value, onChange }: { name: string; legend: st
       {hint && <p className="mb-1">{hint}</p>}
       <div className="flex flex-wrap gap-4">
         {ANSWERS.map(([a, label]) => (
-          <label key={a} className="flex items-center gap-2">
+          <label key={a} className={choiceLabel}>
             <input type="radio" name={name} checked={value === a} onChange={() => onChange(a)} /> {label}
           </label>
         ))}
@@ -249,7 +250,7 @@ export default function OrdinaryWageClient() {
                       <p className="mb-1">{PERF_YEAR_HINT}</p>
                       <div className="flex flex-wrap gap-4">
                         {(Object.keys(PERF_YEAR_LABEL) as (keyof typeof PERF_YEAR_LABEL)[]).map((v) => (
-                          <label key={v} className="flex items-center gap-2">
+                          <label key={v} className={choiceLabel}>
                             <input type="radio" name={q('perfYear')} checked={r.perfYear === v} onChange={() => set(r.id, { perfYear: v })} /> {PERF_YEAR_LABEL[v]}
                           </label>
                         ))}
@@ -272,14 +273,14 @@ export default function OrdinaryWageClient() {
 
                 <fieldset className={`${small} space-y-2`} style={muted}>
                   <legend className="mb-1" style={ink}>붙어 있는 조건</legend>
-                  <label className="flex items-start gap-2">
-                    <input type="checkbox" className="mt-1" checked={r.payday} onChange={(e) => set(r.id, { payday: e.target.checked })} />
+                  <label className={choiceLabel}>
+                    <input type="checkbox" checked={r.payday} onChange={(e) => set(r.id, { payday: e.target.checked })} />
                     지급일에 재직 중이어야 받는다
                   </label>
                   <div className="flex flex-wrap gap-4">
-                    <span>일정 근무일수(또는 출근율)를 채워야 받나요</span>
+                    <span>일정 근무일수(또는 출근율)를 채워야 받습니까?</span>
                     {([['none', '조건 없음'], ['days', '일수로 정함'], ['rate', '출근율로 정함']] as const).map(([v, label]) => (
-                      <label key={v} className="flex items-center gap-2">
+                      <label key={v} className={choiceLabel}>
                         <input type="radio" name={q('dayMode')} checked={r.dayMode === v} onChange={() => set(r.id, { dayMode: v })} /> {label}
                       </label>
                     ))}
@@ -304,19 +305,19 @@ export default function OrdinaryWageClient() {
                     </label>
                   )}
                   {r.payday && (
-                    <label className="flex items-start gap-2">
-                      <input type="checkbox" className="mt-1" checked={r.proRataLeave} onChange={(e) => set(r.id, { proRataLeave: e.target.checked })} />
+                    <label className={choiceLabel}>
+                      <input type="checkbox" checked={r.proRataLeave} onChange={(e) => set(r.id, { proRataLeave: e.target.checked })} />
                       지급일 전에 퇴직해도 그때까지 근무일수에 비례해 지급한다(2024. 12. 18.까지 제공분에만 영향)
                     </label>
                   )}
                   {r.dayMode !== 'none' && (
-                    <label className="flex items-start gap-2">
-                      <input type="checkbox" className="mt-1" checked={r.proRataDays} onChange={(e) => set(r.id, { proRataDays: e.target.checked })} />
+                    <label className={choiceLabel}>
+                      <input type="checkbox" checked={r.proRataDays} onChange={(e) => set(r.id, { proRataDays: e.target.checked })} />
                       정한 일수(출근율)를 못 채워도 일한 날만큼 일할해 지급한다(2024. 12. 18.까지 제공분에만 영향)
                     </label>
                   )}
-                  <label className="flex items-start gap-2">
-                    <input type="checkbox" className="mt-1" checked={r.restrict} onChange={(e) => set(r.id, { restrict: e.target.checked })} />
+                  <label className={choiceLabel}>
+                    <input type="checkbox" checked={r.restrict} onChange={(e) => set(r.id, { restrict: e.target.checked })} />
                     휴직자·복직자·징계 대상자에게는 주지 않는다는 규정이 있다
                   </label>
                 </fieldset>
@@ -370,14 +371,7 @@ export default function OrdinaryWageClient() {
       {'error' in summary ? (
         <section className={card} aria-live="polite"><p className={small} style={ink}>{summary.error}</p></section>
       ) : (
-        <AnswerCard lines={summaryLines(summary.era, summary.checks, summary.cur.hourly, summary.invalid)}>
-          <p className={`${small} mt-3`} style={muted}>
-            {eraLabel('new')} {hourlyText(summary.neu)} · {eraLabel('old')} {hourlyText(summary.old)}
-          </p>
-          {summary.era === 'old' && <p className={`${small} mt-2`} style={ink}>{OLD_ERA_NOTICE}</p>}
-          {summary.payday && <p className={`${small} mt-2`} style={muted}>{RIGHT_TO_PAY_NOTICE}</p>}
-          <p className={`${small} mt-2`} style={muted}>{AGREED_WAGE_NOTICE}</p>
-        </AnswerCard>
+        <ResultBlock view={ordinaryWageView({ ...summary, hours: summary.h })} />
       )}
 
       <FoldedDetail summary="시간급은 어떻게 냈나">
