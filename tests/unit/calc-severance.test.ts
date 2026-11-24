@@ -69,6 +69,16 @@ describe('퇴직금', () => {
     expect(high.applied).toBe('average');
   });
 
+  // 261124 도구 전수 검수(3모델 합의) — 「통상임금으로 계산」 강제 선택이 낮은 쪽을 적용했다. 법정 금액은 늘 높은 쪽이다(근로기준법 §2②)
+  it('예전 강제 선택 값(wageType)이 와도 높은 쪽만 쓴다 — 양쪽', () => {
+    const forcedLow = calcSeverance({ hireDate: '2021-01-01', lastWorkDate: '2025-12-31', wageTotal: 9_000_000, dailyOrdinaryWage: 80_000, wageType: 'ordinary' } as never);
+    expect(forcedLow.applied).toBe('average');
+    expect(forcedLow.amount).toBe(14_681_954);
+    const forcedAvg = calcSeverance({ hireDate: '2021-01-01', lastWorkDate: '2025-12-31', wageTotal: 9_000_000, dailyOrdinaryWage: 120_000, wageType: 'average' } as never);
+    expect(forcedAvg.applied).toBe('ordinary');
+    expect(forcedAvg.amount).toBe(moel(12_000_000, 1826));
+  });
+
   it('1년 경계 — 꼭 1년이면 대상, 하루 모자라면 아님', () => {
     expect(calcSeverance({ ...base, hireDate: '2025-03-01', lastWorkDate: '2026-02-28' }).eligible).toBe(true);
     expect(calcSeverance({ ...base, hireDate: '2025-03-01', lastWorkDate: '2026-02-27' }).eligible).toBe(false);

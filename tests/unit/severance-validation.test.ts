@@ -51,15 +51,37 @@ describe('severance.html input validation', () => {
     expect(check({ autoCalcTax: false, retirementTax: '-1' }).field).toBe('retirementTax');
   });
 
-  it('keeps the ordinary-wage requirement', () => {
-    expect(check({ wageType: 'ordinary', dailyOrdinaryWage: '' }).field).toBe('dailyOrdinaryWage');
+  // 261124 도구 전수 검수(3모델 합의) — 강제 선택은 낮은 쪽을 적용했다. 칸을 없애고 늘 높은 쪽(근로기준법 §2②)
+  it('has no forced average/ordinary choice', () => {
+    expect(html).not.toContain('id="wageType"');
+    expect(script).not.toContain("getElementById('wageType')");
+    expect(check({ wageType: 'ordinary', dailyOrdinaryWage: '' })).toBeNull();
+  });
+
+  it('the MCP twin has no forced choice either and asks for the day after 중간정산 as hireDate', () => {
+    const calc = readFileSync(resolve('tools/k-labor/groups/calc.mjs'), 'utf8');
+    const from = calc.indexOf("    'calc_severance',");
+    const sev = calc.slice(from, calc.indexOf("    'calc_holiday_pay',", from));
+    expect(sev).toContain('inputSchema');
+    expect(sev).not.toContain('wageType');
+    expect(sev).toMatch(/hireDate: z\.string\(\)\.describe\('[^']*중간정산[^']*다음 날/);
+  });
+
+  // 261124 — 중간정산 금액만 빼면 전 근속을 최종 임금으로 다시 세어 과다(퇴직급여법 §8②: 정산 시점부터 새로 계산)
+  it('stops when a 중간정산 amount is entered and points to the day after settlement as the start date', () => {
+    const problem = check({ priorSeverance: '10,000,000' });
+    expect(problem.field).toBe('priorSeverance');
+    expect(problem.message).toMatch(/다음 날/);
+    expect(problem.message).toMatch(/입사일/);
+    expect(problem.message).toMatch(/제8조/);
+    expect(check({ priorSeverance: '0' })).toBeNull();
   });
 
   it('shows the message inline in a polite live region next to the 계산하기 button', () => {
     const area = html.match(/<p id="calcStatus"[^>]*>/)?.[0] ?? '';
     expect(area).toContain('aria-live="polite"');
     expect(html.indexOf('id="calcStatus"')).toBeLessThan(html.indexOf('onclick="onCalculate()"'));
-    expect(html.indexOf('id="calcStatus"')).toBeGreaterThan(html.indexOf('id="wageType"'));
+    expect(html.indexOf('id="calcStatus"')).toBeGreaterThan(html.indexOf('id="dailyOrdinaryWage"'));
     // onCalculate 는 검증을 거치고, 검증 실패를 토스트로만 알리지 않는다
     const body = script.slice(script.indexOf('function onCalculate()'), script.indexOf('function onCalculate()') + 1500);
     expect(body).toContain('validateWorkerInput(w)');
