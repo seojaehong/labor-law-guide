@@ -1,0 +1,49 @@
+# 변환 작업자 이미지 → ECR → Lambda 코드 교체. 장기 키 없이 OIDC 역할로만 배포한다.
+# 수동 실행(workflow_dispatch)만 — 푸시로 자동 배포되지 않는다.
+# 준비(한 번, 콘솔): tools/convert-worker/deploy/README.md
+name: convert-worker-deploy
+
+on:
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+concurrency:
+  group: convert-worker-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: convert-worker-prod
+    env:
+      AWS_REGION: ap-northeast-2
+      ECR_REPO: k-labor-convert-worker
+      FUNCTION: k-labor-convert-worker
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::752308549009:role/convert-worker-deploy
+          aws-region: ap-northeast-2
+
+      - id: ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and push (provenance off — Lambda rejects attestation manifests)
+        env:
+          REGISTRY: ${{ steps.ecr.outputs.registry }}
+        run: |
+          IMAGE="$REGISTRY/$ECR_REPO:${GITHUB_SHA::12}"
+          docker build --platform linux/amd64 --provenance=false -t "$IMAGE" tools/convert-worker
+          docker push "$IMAGE"
+          echo "IMAGE=$IMAGE" >> "$GITHUB_ENV"
+
+      - name: Update Lambda code
+        run: |
+          aws lambda update-function-code --function-name "$FUNCTION" --image-uri "$IMAGE" --publish > /dev/null
+          aws lambda wait function-updated-v2 --function-name "$FUNCTION"
+          aws lambda get-function-configuration --function-name "$FUNCTION" --query '{state:State,update:LastUpdateStatus,image:CodeSha256}'
