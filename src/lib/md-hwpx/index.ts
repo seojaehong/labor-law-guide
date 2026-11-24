@@ -576,10 +576,11 @@ export function mdDocXml(items: MdItem[], opts: MdHwpxOptions = {}): { header: s
   const orient = opts.orientation ?? 'portrait';
   if (orient !== 'portrait' && orient !== 'landscape') throw new Error(`orientation 은 portrait·landscape 중 하나입니다: ${String(orient)}`);
   // 가로 = landscape="NARROWLY" 만 바꾸고 width/height 는 세로 치수 그대로(work-rules-report/render.ts:311 과 같음, rhwp 실측).
-  // 여백은 돌지 않는다 — 본문 폭은 용지 높이에서, 본문 높이는 용지 너비에서 뺀다. 양식(pagePr)을 주면 양식 쪽 설정이 우선
-  const wide = orient === 'landscape' && !opts.pagePr;
-  if (wide) secPr = secPr.replace('<hp:pagePr landscape="WIDELY"', '<hp:pagePr landscape="NARROWLY"');
+  // 여백은 돌지 않는다 — 본문 폭은 용지 높이에서, 본문 높이는 용지 너비에서 뺀다. 양식(pagePr)을 주면 양식 쪽 설정이 우선이고,
+  // 폭 계산은 실제로 쓰는 pagePr 의 방향을 따른다(261124 가로 양식에서 표가 세로 폭으로 잡힌 결함)
+  if (orient === 'landscape' && !opts.pagePr) secPr = secPr.replace('<hp:pagePr landscape="WIDELY"', '<hp:pagePr landscape="NARROWLY"');
   if (opts.pagePr) secPr = secPr.replace(/<hp:pagePr\b[\s\S]*?<\/hp:pagePr>/, opts.pagePr);
+  const wide = /<hp:pagePr\b[^>]*\blandscape="NARROWLY"/.test(secPr);
   const sheetW = Number(/<hp:pagePr[^>]*\bwidth="(\d+)"/.exec(secPr)?.[1] ?? 59528);
   const sheetH = Number(/<hp:pagePr[^>]*\bheight="(\d+)"/.exec(secPr)?.[1] ?? 84186);
   const [pageW, pageH] = wide ? [sheetH, sheetW] : [sheetW, sheetH];

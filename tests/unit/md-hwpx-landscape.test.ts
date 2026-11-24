@@ -83,6 +83,22 @@ describe('용지 방향(orientation)', () => {
     expect(l.width).toBeGreaterThan(l.height);
     expect(l.columns[0].width).toBeCloseTo((84186 - 5670 * 2) / 75, 0);
   });
+  it('가로 양식(NARROWLY)이면 표 폭 = 용지 높이 − 양식 좌우 여백(orientation 을 portrait 로 줘도 양식이 이긴다, fit 포함)', async () => {
+    // 261124 실기관 가로 양식 렌더에서 표가 세로 본문 폭(약 170mm)으로 잡혀 가로 쪽의 2/3 만 썼다
+    const z = await JSZip.loadAsync(await mdToHwpx('# 양식\n\n양식 본문 예시.', { orientation: 'landscape' }));
+    const s0 = await z.file('Contents/section0.xml')!.async('string');
+    z.file('Contents/section0.xml', s0.replace(/(<hp:margin\b[^>]*?)left="\d+" right="\d+"/, '$1left="5000" right="5000"'));
+    const tpl = await z.generateAsync({ type: 'uint8array' });
+    for (const o of [{}, { orientation: 'portrait' as const }, { features: { table: { width: 'fit' as const } } }]) {
+      const out = await JSZip.loadAsync(await mdToHwpxWithTemplate(MD, tpl, o));
+      const sec = await out.file('Contents/section0.xml')!.async('string');
+      expect(pagePr(sec)).toContain('landscape="NARROWLY" width="59528" height="84186"');
+      expect(tblW(sec)).toEqual([84186 - 10000]);
+      const cells = [.../<hp:tr>[\s\S]*?<\/hp:tr>/.exec(sec)![0].matchAll(/<hp:cellSz width="(\d+)"/g)].map((m) => Number(m[1]));
+      expect(cells.reduce((a, x) => a + x, 0)).toBe(84186 - 10000);
+    }
+  });
+
   it('양식(--template)의 쪽 설정이 우선 — orientation 을 줘도 양식 pagePr 그대로', async () => {
     const tpl = await mdToHwpx('# 양식\n\n양식 본문 예시.');
     const out = await JSZip.loadAsync(await mdToHwpxWithTemplate(MD, tpl, { orientation: 'landscape' }));
