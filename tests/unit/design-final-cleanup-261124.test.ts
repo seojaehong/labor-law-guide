@@ -35,8 +35,8 @@ describe('터치 대상 44px (DESIGN.md §5.1)', () => {
   it('글 상세 「글 목록」 링크', () => {
     expect(read('src/app/blog/[slug]/page.tsx')).toMatch(/href="\/blog"\s*\n\s*className="[^"]*min-h-\[44px\][^"]*"/);
   });
-  it('공휴일 수당 「← 블로그」 링크', () => {
-    expect(read('src/app/tools/holiday-pay/page.tsx')).toMatch(/className="[^"]*min-h-\[44px\][^"]*"\s*\n\s*>\s*\n\s*← 블로그/);
+  it('공휴일 수당 「← 도구」 링크(261124 뒤로가기를 /tools 로)', () => {
+    expect(read('src/app/tools/holiday-pay/page.tsx')).toMatch(/className="[^"]*min-h-\[44px\][^"]*"\s*\n\s*>\s*\n\s*← 도구/);
   });
   it('판례 펼침 버튼(CaseCard — /guide·/sanction)', () => {
     expect(read('src/components/CaseCard.tsx')).toMatch(/<button onClick=\{[^}]*\} className="[^"]*min-h-\[44px\]/);
