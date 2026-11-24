@@ -9,6 +9,13 @@ import { hasRrnValue as sharedRrn } from '@/lib/exit-check/core/rrn';
 const P = { name: '김가나', birth: '1990-03-04', dept: '총무팀', position: '주임', company: '가나다상사' };
 const leave = (o: Record<string, string> = {}) => ({ ...P, reason: 'child', childName: '김다라', childBirth: '2022-05-01', start: '2027-01-04', end: '2027-07-03', appliedOn: '2026-12-01', ...o });
 const notes = (id: string, v: Record<string, string>) => review(findForm(id)!, v);
+type O = Record<string, string>;
+// 2차 서식 기본값 — 각 조문 경계에 딱 걸치는 값(안내 없음)
+const MAT = (o: O = {}) => ({ ...P, multiple: 'single', premature: 'no', birthState: 'due', birthDate: '2027-03-01', start: '2027-01-15', end: '2027-04-14', appliedOn: '2026-12-20', ...o }); // 90일
+const PREG = (o: O = {}) => ({ ...P, dueDate: '2027-08-01', pregWeeks: '10', risk: 'none', start: '2027-01-11', end: '2027-01-29', workStart: '10:00', workEnd: '16:00', again: 'first', appliedOn: '2027-01-08', ...o }); // 3일 전
+const CHR = (o: O = {}) => ({ ...P, childName: '김다라', childBirth: '2020-05-01', start: '2027-02-01', end: '2027-07-31', weeklyBefore: '40', weeklyAfter: '30', workStart: '10:00', workEnd: '17:00', appliedOn: '2027-01-02', ...o }); // 30일 전
+const FCL = (o: O = {}) => ({ ...P, familyName: '김부모', familyBirth: '1955-06-01', relation: 'parent', cause: 'illness', causeDetail: '수술 뒤 회복 간병', start: '2027-03-02', end: '2027-03-31', appliedOn: '2027-01-31', ...o }); // 30일 전·30일
+const FCV = (o: O = {}) => ({ ...P, familyName: '김다라', familyBirth: '2020-05-01', relation: 'child', cause: 'childcare', days: '2027-03-02,2027-03-03', appliedOn: '2027-03-01', ...o });
 
 describe('날짜 도우미', () => {
   it('없는 날짜는 거른다', () => {
@@ -23,9 +30,12 @@ describe('날짜 도우미', () => {
 });
 
 describe('서식 목록', () => {
-  it('7종, id 가 겹치지 않는다', () => {
+  it('12종, id 가 겹치지 않는다', () => {
     const ids = catalog().map((f) => f.id);
-    expect(ids).toEqual(['childcare-leave', 'short-childcare-leave', 'spouse-maternity-leave', 'infertility-leave', 'childcare-leave-approval', 'short-leave-reschedule', 'integrated-leave-application']);
+    expect(ids).toEqual([
+      'childcare-leave', 'short-childcare-leave', 'spouse-maternity-leave', 'infertility-leave', 'childcare-leave-approval', 'short-leave-reschedule', 'integrated-leave-application',
+      'maternity-leave', 'pregnancy-hours-reduction', 'childcare-hours-reduction', 'family-care-leave', 'family-care-vacation',
+    ]);
     expect(new Set(ids).size).toBe(ids.length);
   });
   it('주민등록번호 칸이 없다', () => {
@@ -118,13 +128,21 @@ describe('공개 문구 금지어', () => {
     const texts = [...allCopy(), JSON.stringify(catalog()), ...['childcare-leave', 'spouse-maternity-leave', 'childcare-leave-approval'].flatMap((id) => {
       const r = notes(id, id === 'spouse-maternity-leave' ? { ...P, birthState: 'born', birthDate: '2027-03-01', p1Start: '2026-12-01', p1End: '2027-08-01', appliedOn: '2026-11-01' } : id === 'childcare-leave' ? leave({ appliedOn: '2026-12-30', end: '2028-12-31', extra: 'both' }) : { company: '가', ceo: '나', employee: '다', appliedOn: '2026-12-01', kind: 'asis', start: '2027-01-04', end: '2027-07-03', notifiedOn: '2027-01-01' });
       return [...r.notes, r.md];
-    })];
+    }),
+    // 2차 서식 — 안내가 가장 많이 나오는 값으로
+    ...[
+      notes('maternity-leave', MAT({ multiple: 'multiple', premature: 'yes', split: 'age40', splitDetail: '2027-01-04 ~ 2027-01-15', end: '2027-06-30' })),
+      notes('pregnancy-hours-reduction', PREG({ pregWeeks: '20', appliedOn: '2027-01-11' })),
+      notes('childcare-hours-reduction', CHR({ weeklyAfter: '10', end: '2028-12-31', appliedOn: '2027-01-30' })),
+      notes('family-care-leave', FCL({ relation: 'grandparent', start: '2027-02-01', end: '2027-06-30', appliedOn: '2027-01-31' })),
+      notes('family-care-vacation', FCV({ relation: 'grandchild', days: Array.from({ length: 11 }, (_, i) => `2027-03-${String(i + 2).padStart(2, '0')}`).join(',') })),
+    ].flatMap((r) => [...r.notes, r.md])];
     expect(bannedHits(texts.join(' '), words)).toEqual([]);
   });
 });
 
 describe('한글(hwpx) 만들기', () => {
-  it('일곱 서식이 모두 파일이 되고 값이 본문에 들어간다', async () => {
+  it('모든 서식이 파일이 되고 값이 본문에 들어간다', async () => {
     const vals: Record<string, Record<string, string>> = {
       'childcare-leave': leave(),
       'short-childcare-leave': { ...P, childName: '김다라', childBirth: '2020-05-01', reason: 'vacation', reasonDetail: '겨울방학', start: '2027-01-04', weeks: '2', appliedOn: '2026-12-01' },
@@ -133,7 +151,13 @@ describe('한글(hwpx) 만들기', () => {
       'childcare-leave-approval': { company: '가나다상사', ceo: '박대표', employee: '김가나', appliedOn: '2026-12-01', kind: 'asis', start: '2027-01-04', end: '2027-07-03', notifiedOn: '2026-12-10' },
       'short-leave-reschedule': { company: '가나다상사', ceo: '박대표', employee: '김가나', fromStart: '2027-01-04', fromEnd: '2027-01-17', toStart: '2027-02-01', toEnd: '2027-02-14', reason: '방학 중 신청 집중', notifiedOn: '2026-12-10' },
       'integrated-leave-application': { name: '김가나', birth: '1990-03-04', childBirth: '2027-03-01', kind: 'maternity', leaveStart: '2027-01-20', leaveEnd: '2027-04-19', ccStart: '2027-04-20', ccEnd: '2028-04-19', appliedOn: '2026-12-10' },
+      'maternity-leave': MAT(),
+      'pregnancy-hours-reduction': PREG(),
+      'childcare-hours-reduction': CHR(),
+      'family-care-leave': FCL(),
+      'family-care-vacation': FCV(),
     };
+    expect(Object.keys(vals).sort()).toEqual(HR_FORMS.map((f) => f.id).sort());
     for (const f of HR_FORMS) {
       const b = await buildForm(f.id, vals[f.id]);
       const z = await JSZip.loadAsync(b.hwpx);
@@ -286,5 +310,121 @@ describe('주민번호 판정 사본 — 공용 판정과 같은 결과', () => 
     const samples = ['900304-1234567', '900304.1234567', '900304—1234567', '９００３０４-１２３４５６７', '9003​04-1234567', '900304-1******', '1234567890123456', '2027-01-20 2027-01-21', '010-0000-0000', '900304-9234567', '', '접수 20102026307745'];
     for (const x of samples) expect(formsRrn(x), x).toBe(sharedRrn(x));
     expect(samples.filter(formsRrn).length).toBeGreaterThanOrEqual(5);
+  });
+});
+
+// ── 2차 서식(261124) — 출산전후휴가·임신기/육아기 근로시간 단축·가족돌봄휴직/휴가. 조문 경계 양쪽 ──
+const hasNote = (r: { notes: string[] }, re: RegExp) => r.notes.some((n) => re.test(n));
+
+describe('출산전후휴가 신청서 — 근로기준법 제74조', () => {
+  it('기간 90일(한 명)', () => {
+    expect(notes('maternity-leave', MAT()).problems).toEqual([]);
+    expect(hasNote(notes('maternity-leave', MAT()), /휴가 기간이 \d+일입니다/)).toBe(false);
+    expect(hasNote(notes('maternity-leave', MAT({ end: '2027-04-15' })), /휴가 기간이 91일입니다.*90일/)).toBe(true);
+    expect(hasNote(notes('maternity-leave', MAT({ end: '2027-04-13' })), /휴가 기간이 89일입니다/)).toBe(true);
+  });
+  it('둘 이상 임신 120일, 미숙아 100일', () => {
+    expect(hasNote(notes('maternity-leave', MAT({ multiple: 'multiple', end: '2027-05-14' })), /휴가 기간이/)).toBe(false);
+    expect(hasNote(notes('maternity-leave', MAT({ multiple: 'multiple', end: '2027-05-15' })), /휴가 기간이 121일입니다.*120일/)).toBe(true);
+    expect(hasNote(notes('maternity-leave', MAT({ premature: 'yes', end: '2027-04-24' })), /휴가 기간이/)).toBe(false);
+    expect(hasNote(notes('maternity-leave', MAT({ premature: 'yes', end: '2027-04-25' })), /휴가 기간이 101일입니다.*100일/)).toBe(true);
+  });
+  it('미숙아면 7일 전 서류 안내, 분할 사용 사유면 시행령 제43조 안내', () => {
+    expect(hasNote(notes('maternity-leave', MAT({ premature: 'yes', end: '2027-04-24' })), /시행규칙 제12조의2/)).toBe(true);
+    expect(hasNote(notes('maternity-leave', MAT()), /시행규칙 제12조의2/)).toBe(false);
+    expect(notes('maternity-leave', MAT({ split: 'history' })).problems).toContain('「나누어 사용하는 기간」을(를) 적어 주세요.');
+    expect(hasNote(notes('maternity-leave', MAT({ split: 'history', splitDetail: '2027-01-04 ~ 2027-01-15' })), /시행령 제43조제1항/)).toBe(true);
+    expect(hasNote(notes('maternity-leave', MAT()), /시행령 제43조제1항/)).toBe(false);
+  });
+  it('끝나는 날이 앞서면 막는다', () => {
+    expect(notes('maternity-leave', MAT({ end: '2027-01-14' })).problems.join()).toMatch(/앞섭니다/);
+  });
+});
+
+describe('임신기 근로시간 단축 신청서 — 근로기준법 제74조제7항', () => {
+  it('3일 전 신청(시행령 제43조의2)', () => {
+    expect(hasNote(notes('pregnancy-hours-reduction', PREG()), /3일 전까지/)).toBe(false);
+    expect(hasNote(notes('pregnancy-hours-reduction', PREG({ appliedOn: '2027-01-09' })), /단축 시작 2일 전입니다.*3일 전까지/)).toBe(true);
+  });
+  it('임신 12주 이내·32주 이후 — 적은 주수로만 견주고, 위험 질환이면 견주지 않는다', () => {
+    const w = (pregWeeks: string, risk = 'none') => hasNote(notes('pregnancy-hours-reduction', PREG({ pregWeeks, risk })), /12주 이내 또는 32주 이후/);
+    expect(w('12')).toBe(false);
+    expect(w('13')).toBe(true);
+    expect(w('31')).toBe(true);
+    expect(w('32')).toBe(false);
+    expect(w('20', 'risk')).toBe(false);
+  });
+  it('주수·시각 형식, 끝 시각이 앞서면 막는다', () => {
+    expect(notes('pregnancy-hours-reduction', PREG({ pregWeeks: '열' })).problems.join()).toMatch(/임신 주수/);
+    expect(notes('pregnancy-hours-reduction', PREG({ workStart: '25:00' })).problems.join()).toMatch(/근무 시작 시각/);
+    expect(notes('pregnancy-hours-reduction', PREG({ workEnd: '09:00' })).problems.join()).toMatch(/근무 종료 시각이 근무 시작 시각보다/);
+  });
+  it('처음 신청이면 진단서 첨부 안내, 다시 신청이면 없음', () => {
+    expect(hasNote(notes('pregnancy-hours-reduction', PREG()), /진단서를 첨부/)).toBe(true);
+    expect(hasNote(notes('pregnancy-hours-reduction', PREG({ again: 'again' })), /진단서를 첨부/)).toBe(false);
+  });
+});
+
+describe('육아기 근로시간 단축 신청서 — 남녀고용평등법 제19조의2', () => {
+  it('30일 전 신청(시행령 제15조)', () => {
+    expect(hasNote(notes('childcare-hours-reduction', CHR()), /30일 전까지/)).toBe(false);
+    expect(hasNote(notes('childcare-hours-reduction', CHR({ appliedOn: '2027-01-03' })), /단축 시작 29일 전입니다.*30일 전까지/)).toBe(true);
+  });
+  it('단축 후 주 15시간 이상 35시간 이하(제19조의2제3항)', () => {
+    const h = (weeklyAfter: string) => hasNote(notes('childcare-hours-reduction', CHR({ weeklyAfter })), /주당 15시간 이상/);
+    expect(h('15')).toBe(false);
+    expect(h('14.5')).toBe(true);
+    expect(h('35')).toBe(false);
+    expect(h('35.5')).toBe(true);
+  });
+  it('기간 1년(제19조의2제4항) — 민법 기간 계산', () => {
+    expect(hasNote(notes('childcare-hours-reduction', CHR({ end: '2028-01-31' })), /1년 이내/)).toBe(false);
+    expect(hasNote(notes('childcare-hours-reduction', CHR({ end: '2028-02-01' })), /1년 이내.*두 배/)).toBe(true);
+  });
+  it('나누어 쓰는 1회는 1개월 이상(제19조의4제2항)', () => {
+    expect(hasNote(notes('childcare-hours-reduction', CHR({ end: '2027-02-28' })), /1개월 이상/)).toBe(false);
+    expect(hasNote(notes('childcare-hours-reduction', CHR({ end: '2027-02-27' })), /1개월 이상/)).toBe(true);
+  });
+  it('시간 숫자·근무 시각 형식은 막는다', () => {
+    expect(notes('childcare-hours-reduction', CHR({ weeklyAfter: '서른' })).problems.join()).toMatch(/단축 후/);
+    expect(notes('childcare-hours-reduction', CHR({ workStart: '9시' })).problems.join()).toMatch(/근무 시작 시각/);
+  });
+});
+
+describe('가족돌봄휴직 신청서 — 남녀고용평등법 제22조의2제1항', () => {
+  it('30일 전 신청(시행령 제16조의2)', () => {
+    expect(hasNote(notes('family-care-leave', FCL()), /30일 전까지/)).toBe(false);
+    expect(hasNote(notes('family-care-leave', FCL({ appliedOn: '2027-02-01' })), /휴직 시작 29일 전입니다.*30일 전까지/)).toBe(true);
+  });
+  it('1회 30일 이상, 연간 최장 90일(제22조의2제4항제1호)', () => {
+    expect(hasNote(notes('family-care-leave', FCL()), /30일 이상/)).toBe(false);
+    expect(hasNote(notes('family-care-leave', FCL({ end: '2027-03-30' })), /29일입니다.*30일 이상/)).toBe(true);
+    expect(hasNote(notes('family-care-leave', FCL({ end: '2027-05-30' })), /최장 90일/)).toBe(false);
+    expect(hasNote(notes('family-care-leave', FCL({ end: '2027-05-31' })), /91일입니다.*최장 90일/)).toBe(true);
+  });
+  it('자녀 양육은 휴직 사유가 아니다(선택지에 없음), 조부모·손자녀면 시행령 제16조의3 안내', () => {
+    expect(notes('family-care-leave', FCL({ cause: 'childcare' })).problems.length).toBe(1);
+    expect(hasNote(notes('family-care-leave', FCL({ relation: 'grandparent' })), /제16조의3제1항제3호/)).toBe(true);
+    expect(hasNote(notes('family-care-leave', FCL()), /제16조의3제1항제3호/)).toBe(false);
+  });
+  it('돌봄이 필요한 사유는 필수', () => {
+    expect(notes('family-care-leave', FCL({ causeDetail: '' })).problems).toContain('「돌봄이 필요한 사유」을(를) 적어 주세요.');
+  });
+});
+
+describe('가족돌봄휴가 신청서 — 남녀고용평등법 제22조의2제2항', () => {
+  const days = (n: number) => Array.from({ length: n }, (_, i) => `2027-03-${String(i + 2).padStart(2, '0')}`).join(', ');
+  it('연간 최장 10일(제22조의2제4항제2호) — 해마다 센다', () => {
+    expect(hasNote(notes('family-care-vacation', FCV({ days: days(10) })), /최장 10일/)).toBe(false);
+    expect(hasNote(notes('family-care-vacation', FCV({ days: days(11) })), /2027년 사용 예정일이 11일.*최장 10일/)).toBe(true);
+  });
+  it('날짜가 아닌 값·중복은 막는다', () => {
+    expect(notes('family-care-vacation', FCV({ days: '3월 2일' })).problems.join()).toMatch(/읽지 못한/);
+    expect(notes('family-care-vacation', FCV({ days: '2027-03-02, 2027-03-02' })).problems.join()).toMatch(/두 번/);
+  });
+  it('조부모·손자녀면 시행령 제16조의3제2항 안내, 휴가는 휴직 기간에 포함', () => {
+    expect(hasNote(notes('family-care-vacation', FCV({ relation: 'grandchild' })), /제16조의3제2항/)).toBe(true);
+    expect(hasNote(notes('family-care-vacation', FCV()), /제16조의3제2항/)).toBe(false);
+    expect(hasNote(notes('family-care-vacation', FCV()), /가족돌봄휴직 기간에 포함/)).toBe(true);
   });
 });
