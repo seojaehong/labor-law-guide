@@ -8,7 +8,7 @@ import { stripControl } from '@/lib/contract-write/text';
 import { packHwpx } from '@/lib/work-rules-report/render';
 import { checkHeader } from './header-check';
 import { binItem, imageName, imageSize, picXml, type BinItem } from './image';
-import { addFont, appendItem, BORDER, cloneChar, clonePara, type CharPatch, type ParaPatch } from './header-edit';
+import { addFont, appendItem, BORDER, cloneChar, clonePara, getItem, PARA, patchPara, type CharPatch, type ParaPatch } from './header-edit';
 
 export type MdPreset = 'internal' | 'tribunal';
 export type CellAlign = 'LEFT' | 'CENTER' | 'RIGHT';
@@ -85,6 +85,10 @@ const BODY_PT = 1200;
 const HEAD: Record<'h1' | 'h2' | 'h3' | 'h4', [number, number]> = { h1: [8, 21], h2: [9, 22], h3: [10, 23], h4: [11, 24] };
 const BOLD = 12;
 const TABLE_PARA = [27, 28, 29] as const;
+// 꼬리말 전용 문단 = 종전 21 복제. 바탕 문단 모양이 0~29(30개)라 presetHeader 가 끝에 붙이면 30 이다
+const FOOTER_PARA = 30;
+// 제목 앞·뒤 간격(pt) — 261124. h2 12/3 은 바탕 문단 12 와 같은 값(시험 md-hwpx-heading-space 주석)
+const HEAD_SPACE: Record<number, [number, number]> = { 21: [16, 6], 22: [12, 3], 23: [8, 0], 24: [6, 0] };
 
 // 판례 번호 자동 굵게 — 「대법원 2017. 12. 22. 선고 2016다202947 판결」·「중앙노동위원회 2024차별34」
 const CASE_CITE =
@@ -500,12 +504,14 @@ function threeLineBF(st: Styles, ri: number, nRows: number, ci: number, nCols: n
 }
 
 // 쪽번호 꼬리말 — 첫 문단 run 안 <hp:ctrl><hp:footer>. 한글은 secPr 안 subList(FOOTER) 를 읽지 않는다
-// (261123 한글 2024 COM 실측: 꼬리말 컨트롤 0, 다시 저장하면 autoNum 0 → 쪽번호가 안 보였다). 한글이 그린 rhwp 출력과 같은 모양
+// (261123 한글 2024 COM 실측: 꼬리말 컨트롤 0, 다시 저장하면 autoNum 0 → 쪽번호가 안 보였다). 한글이 그린 rhwp 출력과 같은 모양.
+// 문단 모양은 종전 제목 1(21) 을 복제한 꼬리말 전용 문단(FOOTER_PARA) — 261124 제목 간격을 21 에 주면서 꼬리말이 따라 움직이지 않게
 export const FOOTER =
   '<hp:ctrl><hp:footer id="1" applyPageType="BOTH">' +
   '<hp:subList id="" textDirection="HORIZONTAL" lineWrap="BREAK" vertAlign="BOTTOM" linkListIDRef="0" linkListNextIDRef="0" textWidth="0" textHeight="0" hasTextRef="0" hasNumRef="0">' +
-  '<hp:p id="2147483648" paraPrIDRef="21" styleIDRef="0" pageBreak="0" columnBreak="0" merged="0">' +
+  `<hp:p id="2147483648" paraPrIDRef="${FOOTER_PARA}" styleIDRef="0" pageBreak="0" columnBreak="0" merged="0">` +
   '<hp:run charPrIDRef="7"><hp:t>- </hp:t><hp:ctrl><hp:autoNum num="1" numType="PAGE"><hp:autoNumFormat type="DIGIT" userChar="" prefixChar="" suffixChar="" supscript="0"/></hp:autoNum></hp:ctrl><hp:t> -</hp:t></hp:run>' +
+
   '</hp:p></hp:subList></hp:footer></hp:ctrl>';
 
 /** header 를 들고 다니며 필요한 모양을 끝에 붙인다(U3·U4). 같은 모양은 한 번만 붙는다 */
@@ -594,7 +600,9 @@ export function mdDocXml(items: MdItem[], opts: MdHwpxOptions = {}): { header: s
     else if (x.kind === 'empty' || (!x.text && x.kind !== 'quote' && x.kind !== 'image')) body.push(para('<hp:run charPrIDRef="7"/>', 20));
     else if (x.kind === 'h1' || x.kind === 'h2' || x.kind === 'h3' || x.kind === 'h4') {
       const [c, pp] = HEAD[x.kind];
-      body.push(para(run(x.text, c), pp, x.pageBreak));
+      // 쪽 맨 위(문서 첫 줄·쪽 나눔 제목)에서는 한글이 앞 간격을 그대로 두므로 앞 간격 0 복제를 쓴다
+      const top = k === 0 || x.pageBreak;
+      body.push(para(run(x.text, c), top ? st.para(pp, { pt: true, prev: 0 }) : pp, x.pageBreak));
     } else if (x.kind === 'sig') body.push(para(run(x.text, 7), 26));
     else if (x.kind === 'image') {
       // S10 그림 — 가운데 문단에 글자처럼 취급(treatAsChar 1), 캡션은 그 아래 가운데
@@ -659,16 +667,25 @@ export function checkTableLineSpacing(v: number): number {
   return v;
 }
 
-/** 프리셋 header.xml — 바탕의 행간을 프리셋 값으로. 표 칸 27~29 는 tableLineSpacing(기본 150%)·어절 단위 줄 나눔.
- *  breakNonLatinWord: 바탕의 KEEP_WORD 가 한글에서 글자 단위로 끊겨 낱말이 잘렸다(「조/합원」, 261124 실렌더) → 표 칸만 BREAK_WORD.
+/** 프리셋 header.xml — 바탕의 행간을 프리셋 값으로. 표 칸 27~29 는 tableLineSpacing(기본 150%).
+ *  breakNonLatinWord: 바탕의 KEEP_WORD 가 한글에서 글자 단위로 끊겨 낱말이 잘렸다(「조/합원」, 261124 실렌더) → 20~29 를 BREAK_WORD.
+ *  제목 21~24 는 앞·뒤 간격(HEAD_SPACE, case pt×100·default pt×200). 꼬리말은 종전 21 복제(FOOTER_PARA)로 옮긴다.
  *  바탕(HEADER_XML)은 근로계약서·서식 작성기와 함께 쓰므로 고치지 않고 여기서만 바꾼다 */
 export function presetHeader(preset: MdPreset = 'internal', tableLineSpacing = TABLE_LINE_SPACING): string {
   const ls = PRESETS[preset].lineSpacing;
   const tls = checkTableLineSpacing(tableLineSpacing);
-  return HEADER_XML.replace(/(<hh:lineSpacing type="PERCENT" value=")\d+(" unit="HWPUNIT"\/>)/g, `$1${ls}$2`).replace(
-    /<hh:paraPr id="(27|28|29)"[\s\S]*?<\/hh:paraPr>/g,
-    (m) => m.replace(/(<hh:lineSpacing type="PERCENT" value=")\d+/g, `$1${tls}`).replace(/(breakNonLatinWord=")[A-Z_]+"/, '$1BREAK_WORD"'),
-  );
+  const base = HEADER_XML.replace(/(<hh:lineSpacing type="PERCENT" value=")\d+(" unit="HWPUNIT"\/>)/g, `$1${ls}$2`);
+  const h = base.replace(/<hh:paraPr id="(2\d)"[\s\S]*?<\/hh:paraPr>/g, (m, id) => {
+    let x = m.replace(/(breakNonLatinWord=")[A-Z_]+"/, '$1BREAK_WORD"');
+    const n = Number(id);
+    if (n >= 27) x = x.replace(/(<hh:lineSpacing type="PERCENT" value=")\d+/g, `$1${tls}`);
+    if (HEAD_SPACE[n]) x = patchPara(x, { pt: true, prev: HEAD_SPACE[n][0], next: HEAD_SPACE[n][1] });
+    return x;
+  });
+  // 꼬리말 전용 = 고치기 전 21(간격·줄 나눔 그대로). 고친 21 과 글자가 달라 끝에 새로 붙는다
+  const foot = appendItem(h, PARA, getItem(base, PARA, 21));
+  if (foot.id !== FOOTER_PARA) throw new Error(`꼬리말 문단 번호가 ${FOOTER_PARA} 이 아닙니다(${foot.id})`);
+  return foot.header;
 }
 
 // 렌더러가 옮기지 않는 강조·코드 기호 — 렌더된 글자에 남으면 leftovers 로 알린다(261120 적대 검토).

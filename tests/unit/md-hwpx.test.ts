@@ -61,7 +61,8 @@ describe('mdSectionXml — 문단·글자 모양', () => {
   it('제목은 단계별 글자·문단 모양, 본문 굵게와 판례 번호는 굵은 글자(12)', () => {
     const xml = mdSectionXml(parseMarkdown('# 의견서\n\n## 개요\n\n본문 **강조** 그리고 대법원 2017. 12. 22. 선고 2016다202947 판결 참조.'));
     const h1 = findPara(xml, '의견서')!;
-    expect(h1[1]).toBe('21');
+    // 261124 — 문서 첫 제목은 21 을 앞 간격 0 으로 복제한 문단(바탕 30 + 꼬리말 전용 1 다음 = 31, md-hwpx-heading-space)
+    expect(h1[1]).toBe('31');
     expect(h1[3]).toContain('charPrIDRef="8"');
     expect(findPara(xml, '□ 개요')![1]).toBe('22');
     const body = paras(xml).find((m) => runText(m[3]).includes('강조'))!;

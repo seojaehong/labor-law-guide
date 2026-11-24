@@ -93,11 +93,10 @@ describe('용지 방향(orientation)', () => {
 });
 
 describe('표 칸 문단(27~29) — 어절 단위 줄 나눔·줄간격', () => {
-  it('표 칸은 BREAK_WORD, 본문(20)과 공용 바탕(HEADER_XML)은 그대로', () => {
+  it('표 칸은 BREAK_WORD, 공용 바탕(HEADER_XML)은 그대로', () => {
     for (const preset of ['internal', 'tribunal'] as const) {
       const h = presetHeader(preset);
       for (const id of [27, 28, 29]) expect(brk(h, id)).toBe('BREAK_WORD');
-      expect(brk(h, 20)).toBe(brk(HEADER_XML, 20));
     }
     expect(brk(HEADER_XML, 27)).toBe('KEEP_WORD'); // 근로계약서·서식 작성기가 같은 바탕을 쓴다 — 바탕은 고치지 않는다
   });

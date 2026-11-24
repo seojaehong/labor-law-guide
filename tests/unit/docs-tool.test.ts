@@ -4,7 +4,6 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import JSZip from 'jszip';
-import { z } from 'zod';
 import { zodToJsonSchema } from 'zod-to-json-schema';
 import { bannedHits } from '@/lib/tool-kit/banned';
 import { registerDocs } from '../../tools/k-labor/groups/docs.mjs';
@@ -59,11 +58,13 @@ describe('docs 묶음', () => {
   });
 
   it('orientation·tableLineSpacing — 입력 스키마에 있고, 가로 파일을 쓰며, 범위 밖 줄간격은 멈춘다(261124)', async () => {
-    const schema = z.object(tool.cfg.inputSchema as z.ZodRawShape);
-    const base = { markdown: '# x', preset: 'internal', outDir: '.' };
-    expect(schema.safeParse({ ...base, orientation: 'landscape', tableLineSpacing: 180 }).success).toBe(true);
-    expect(schema.safeParse({ ...base, orientation: 'sideways' }).success).toBe(false);
-    for (const v of [99, 251, 150.5]) expect(schema.safeParse({ ...base, tableLineSpacing: v }).success).toBe(false);
+    // 필드 스키마를 그대로 쓴다(시험 쪽 zod 와 도구 쪽 zod 가 다른 사본일 수 있다)
+    type F = { safeParse: (v: unknown) => { success: boolean } };
+    const field = (k: string) => (tool.cfg.inputSchema as unknown as Record<string, F>)[k];
+    expect(field('orientation').safeParse('landscape').success).toBe(true);
+    expect(field('orientation').safeParse('sideways').success).toBe(false);
+    expect(field('tableLineSpacing').safeParse(180).success).toBe(true);
+    for (const v of [99, 251, 150.5]) expect(field('tableLineSpacing').safeParse(v).success).toBe(false);
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'md-hwpx-'));
     try {
       const md = '# 가상 가로 문서\n\n| 쟁점 | 주장 | 반론 | 검토 |\n|---|---|---|---|\n| 가 | 나 | 다 | 라 |\n';
