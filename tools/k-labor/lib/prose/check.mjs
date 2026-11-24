@@ -100,7 +100,7 @@ function collapseWs(s, withMap = false) {
 }
 const HAS_SURROGATE = /[\uD800-\uDFFF]/;
 const LONG_WS_RUN = new RegExp(`[${WS_CLASS}]{64}`, 'u');
-export const cpLen = (s) => (HAS_SURROGATE.test(s) ? [...s].length : s.length);
+const cpLen = (s) => (HAS_SURROGATE.test(s) ? [...s].length : s.length);
 const isHi = (c) => c >= 0xd800 && c <= 0xdbff;
 const isLo = (c) => c >= 0xdc00 && c <= 0xdfff;
 /** UTF-16 위치 i 의 글자가 짝 맞는 서로게이트면 2 */
