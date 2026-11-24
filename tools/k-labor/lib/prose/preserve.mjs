@@ -90,6 +90,8 @@ const countRx = (rx, s) => {
 // 블록 범위는 lib/cite-check.mjs citationBlockRanges 와 한 벌이다. 머리줄은 붙여 쓴 [관련판결] 도 받는다
 const BLOCK_HEAD = /[[【]\s*관련\s*(?:판결|판례|판정|결정)\s*[\]】]\s*([^\n]*)/;
 const BLOCK_CAND = /[[【]\s*관련/;
+const CAND_PREC = /[[【]\s*관련\s*(?:판결|판례|판정|결정)/;
+const CAND_LINES = 30;
 /** 블록 글 — 줄머리 > · # 와 굵게 표시(**)는 글자가 아니다 */
 const blockText = (s) => s.replace(/^\s*(?:>\s*)+/, '').replace(/^\s*#+\s+/, '').replace(/\*\*/g, '');
 // 문장 끝 — 마침표·물음표·느낌표 뒤 공백. 앞 글자가 숫자면 날짜·번호(2026. 3. 2. · 1. 사실관계)라 자르지 않는다
@@ -118,6 +120,20 @@ function parse(text) {
   // 블록으로 못 읽은 [관련 … 줄 — 응답에 줄 번호를 알린다
   const cand = [];
   for (let i = 0; i < lines.length && cand.length < CAND_MAX; i++) if (!inBlock[i] && BLOCK_CAND.test(lines[i])) cand.push(i + 1);
+  // 그 가운데 판례 이름이 붙은 줄([관련 판결: …]·닫는 괄호 없음)은 빈 줄 앞까지를 블록처럼 글자 그대로 견준다(보수적으로)
+  const candBlocks = [];
+  for (const ln of cand) {
+    if (!CAND_PREC.test(lines[ln - 1])) continue;
+    const parts = [];
+    let at = 0;
+    for (let j = ln - 1; j < lines.length && j < ln - 1 + CAND_LINES; j++) {
+      if (j > ln - 1 && (!lines[j].trim() || inBlock[j] || BLOCK_CAND.test(lines[j]))) break;
+      const t = norm(blockText(lines[j]));
+      parts.push({ line: j + 1, at, t });
+      at += t.length + 1;
+    }
+    candBlocks.push({ line: ln, head: parts[0].t, key: parts.map((p) => p.t).join(' '), parts, cand: true });
+  }
   const units = [];
   const lineUnits = lines.map(() => []);
   const add = (i, raw, start, block) => {
@@ -148,7 +164,7 @@ function parse(text) {
     const u = units[us[us.length - 1]];
     if (!/[.!?。]["'”’」』)\]]*\s*$/.test(u.raw)) u.tail = ` ${lines[i + 1].trimStart().slice(0, 24)}`;
   }
-  return { lines, inBlock, blocks, cand, units, lineUnits };
+  return { lines, inBlock, blocks, cand, candBlocks, units, lineUnits };
 }
 const safeOf = (u) => (u.safe ??= hide(u.raw));
 
@@ -616,13 +632,16 @@ function numKey(g) {
   const cmp = g.cmp ? g.cmp.trim() : '';
   return `${sign}${val}${(g.mag ?? '').trim()}${toAscii((g.unit ?? '').trim())}${CMP_CANON[cmp] ?? cmp}`;
 }
+// 문장 머리의 번호(1. · 1) · (1) · ① · Ⅱ.)는 목록 꼴이라 수치로 세지 않는다 — 번호 안에 다 들어가는 덩이만 뺀다(「3. 2. 면담」 날짜는 남는다)
+const ENUM_HEAD = /^[\s>#*-]*(?:\(?\d{1,2}[.)]|[①-⑳Ⅰ-ⅿ]\.?)\s/;
 function numbersOf(units) {
   return units.map((u) => {
     if (u.block) return null;
     const out = [];
+    const head = ENUM_HEAD.exec(u.raw)?.[0].length ?? 0;
     for (const m of u.raw.matchAll(NUM_RX)) {
       const len = m[0].trimEnd().length;
-      if (len) out.push({ key: numKey(m.groups), u: -1, start: m.index, len });
+      if (len && m.index + len > head) out.push({ key: numKey(m.groups), u: -1, start: m.index, len });
     }
     return out;
   });
@@ -755,7 +774,9 @@ const LAW_FORM_GENRES = new Set(['legal']);
 // 당사자 용어는 바로 뒤 조사로 자리(주어·목적어·여격 등)를 적어 둔다 — 「근로자가 사용자에게 → 사용자가 근로자에게」처럼
 // 용어 개수는 같은데 자리가 맞바뀐 것을 잡으려고. 조사가 함께 옮겨 간 어순 바꿈(사용자는 근로자에게 → 근로자에게 사용자는)은 같다
 // 징계 수위(견책·감봉·정직·해임·해고)도 누구에게 붙었는지가 뜻이라 같은 방식으로 본다
-const PARTY = new Set(['근로자', '사용자', '근로자대표', '신청인', '피신청인', '견책', '감봉', '정직', '해임', '해고']);
+// 사람 쪽과 징계 수위 쪽은 따로 본다 — 「정직 3개월」처럼 조사 없이 쓴 수위가 사람 쪽 맞바꿈 검사를 끄지 않게
+const PARTY_CLASSES = [new Set(['근로자', '사용자', '근로자대표', '신청인', '피신청인']), new Set(['견책', '감봉', '정직', '해임', '해고'])];
+const PARTY = new Set(PARTY_CLASSES.flatMap((c) => [...c]));
 const ROLE = { 이: 'S', 가: 'S', 은: 'S', 는: 'S', 께서: 'S', 을: 'O', 를: 'O', 에게: 'D', 에게서: 'D', 한테: 'D', 께: 'D' };
 const LIST_ROLE = new Set(['', '와', '과', '나', '이나', '및', '랑', '이랑', '도']);
 function termsOf(units, list) {
@@ -779,14 +800,16 @@ function termsOf(units, list) {
 function partySwaps(groups, tB, tA) {
   const out = [];
   for (const g of groups) {
-    const pb = g.b.flatMap((i) => (tB[i] ?? []).filter((t) => t.role !== undefined));
-    const pa = g.a.flatMap((j) => (tA[j] ?? []).filter((t) => t.role !== undefined));
-    if (pb.length < 2 || pb.length !== pa.length || pb.length > 50) continue;
-    if ([...pb, ...pa].some((t) => LIST_ROLE.has(t.role))) continue;
-    const kb = pb.map((t) => t.key);
-    const ka = pa.map((t) => t.key);
-    if (kb.join('|') === ka.join('|') || [...kb].sort().join('|') !== [...ka].sort().join('|')) continue;
-    if (pb.map((t) => t.role).join('|') === pa.map((t) => t.role).join('|')) out.push({ kind: 'reordered', g, sb: pb, sa: pa });
+    for (const cls of PARTY_CLASSES) {
+      const pb = g.b.flatMap((i) => (tB[i] ?? []).filter((t) => t.role !== undefined && cls.has(t.key)));
+      const pa = g.a.flatMap((j) => (tA[j] ?? []).filter((t) => t.role !== undefined && cls.has(t.key)));
+      if (pb.length < 2 || pb.length !== pa.length || pb.length > 50) continue;
+      if ([...pb, ...pa].some((t) => LIST_ROLE.has(t.role))) continue;
+      const kb = pb.map((t) => t.key);
+      const ka = pa.map((t) => t.key);
+      if (kb.join('|') === ka.join('|') || [...kb].sort().join('|') !== [...ka].sort().join('|')) continue;
+      if (pb.map((t) => t.role).join('|') === pa.map((t) => t.role).join('|')) out.push({ kind: 'reordered', g, sb: pb, sa: pa });
+    }
   }
   return out;
 }
@@ -1006,6 +1029,17 @@ function blocksItem(B, A) {
   }
   for (const a of ua) if (!taken.has(a)) changes.push({ kind: 'added', a });
   if (swapped) changes.push({ kind: 'reordered', b: swapped[0], a: swapped[1] });
+  // 못 읽은 판례 머리줄 아래 — 같은 글끼리 맞추고, 남은 것은 차례대로 바뀜·빠짐·더해짐
+  const cq = queues(A.candBlocks, (b) => b.key);
+  const cb = B.candBlocks.filter((b) => {
+    const a = nextOf(cq.get(b.key));
+    if (a) taken.add(a);
+    return !a;
+  });
+  const ca = A.candBlocks.filter((a) => !taken.has(a));
+  for (let k = 0; k < Math.max(cb.length, ca.length); k++) {
+    changes.push({ kind: cb[k] && ca[k] ? 'changed' : cb[k] ? 'removed' : 'added', b: cb[k], a: ca[k] });
+  }
   const firstDiff = (x, y) => {
     let p = 0;
     while (p < x.length && p < y.length && x[p] === y[p]) p++;
@@ -1017,6 +1051,7 @@ function blocksItem(B, A) {
   return itemOf('blocks', changes, { before: B.blocks.length, after: A.blocks.length }, (c) => {
     const p = c.kind === 'changed' ? firstDiff(c.b.key, c.a.key) : 0;
     const e = { kind: c.kind, line: { before: c.b ? lineAt(c.b, p) : null, after: c.a ? lineAt(c.a, p) : null } };
+    if ((c.b ?? c.a).cand) e.unrecognized = true;
     const s = Math.max(0, p - SNIP);
     if (c.b) e.before = (s ? '…' : '') + clip(hide(c.b.key.slice(s)), SNIP * 3);
     if (c.a) e.after = (s ? '…' : '') + clip(hide(c.a.key.slice(s)), SNIP * 3);
