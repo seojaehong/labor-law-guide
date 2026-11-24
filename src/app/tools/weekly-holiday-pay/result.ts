@@ -1,7 +1,7 @@
 // 주휴수당 결과 블록의 글자 — 계산(calcWeeklyHoliday)은 건드리지 않고 받은 결과를 화면 문장으로만 바꾼다.
 import type { Rate } from '@/content/rates';
 import type { WeeklyHolidayResult } from '@/lib/calc/weekly-holiday';
-import { STATUS_ESTIMATE, lawLink, minWageAsOf, won, type ResultView } from '@/components/tool-result/result-view';
+import { STATUS_ESTIMATE, dotDate, lawLink, minWageAsOf, won, type ResultView } from '@/components/tool-result/result-view';
 
 const hours = (n: number) => `${n.toLocaleString('ko-KR', { maximumFractionDigits: 2 })}시간`;
 
@@ -16,7 +16,7 @@ export function weeklyHoursWarning(weeklyHours: number): string | null {
 /** 시급 칸 아래 한 줄 — 기본값이 어디서 왔는지 */
 export function defaultWageNote(rate: Rate | null): string | null {
   if (!rate) return null;
-  return `기본값 ${won(rate.value)}은 ${rate.from.slice(0, 4)}년 최저임금입니다(${rate.basis}, 확인 ${rate.checked.replace(/-/g, '.')}.).`;
+  return `기본값 ${won(rate.value)}은 ${rate.from.slice(0, 4)}년 최저임금입니다. 근거 ${rate.basis} · 확인 ${dotDate(rate.checked)}`;
 }
 
 const BASIS = [
