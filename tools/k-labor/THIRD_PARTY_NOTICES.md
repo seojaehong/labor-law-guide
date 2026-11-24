@@ -50,7 +50,7 @@ SOFTWARE.
   - L-08·L-54·INJ-03·INJ-09·INJ-29·INJ-30 — 제외어를 `regex_exclude` 와 `regex_detect_exclude` 의 합으로(상류 음성 예문 `test_detect_neg` 가 좁은 식에 걸렸다).
   - L-04·L-17·L-24·L-51 — 띄어쓰기 없는 긴 한글(L-24 는 한글·영문) 줄에서 느려지지 않게, 끝없는 글자 묶음으로 시작하는 갈래 앞에 경계 `(?<![가-힣])`(L-24 `(?<![가-힣A-Za-z])`)를 붙였다. 이 앞 경계만으로는 앞 일치가 그 덩어리 가운데에서 끝난 바로 그 자리에서 시작하는 일치를 놓치므로, 원래 식을 `resume` 으로 함께 싣고 실행기가 그 자리에서만 원래 식을 다시 본다 — 합친 결과는 원래 식과 같다.
   - 표제어는 고칠 말 글에 실었다. `skip_genres` 는 우리 장르로 옮겼다(일반 → general, 보고서 → consulting, 논문은 대응 장르가 없어 쓰지 않음). 제외어를 후보 앞뒤 12글자 안에서 찾는 방식은 `scripts/lexical_layer.py` 를 따랐다(단 창은 줄 안에서만 본다 — 상류는 글 전체).
-  - 등급(전부 B)·법률 장르 keep/change 판정·사유·출력 방식과 규칙 실행기(`lib/prose/check.mjs`)는 k-labor 가 새로 썼다.
+  - 등급(전부 B)·법률 트랙 keep/change 판정(keep 5항목은 `skipGenres: [legal, official]`)·사유·출력 방식과 규칙 실행기(`lib/prose/check.mjs`)는 k-labor 가 새로 썼다.
 - 시험 픽스처: 같은 115항목의 합성 예문(`test_positive`·`test_negative`·`test_detect_neg`)을 그대로 `tests/fixtures/prose/imnotai-lexicon-examples.json` 에 옮겼다(저장소 시험용 — npm 판에는 들어가지 않는다).
 
 ```

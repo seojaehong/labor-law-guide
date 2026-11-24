@@ -32,7 +32,8 @@ export function proseResult(a) {
   try {
     const set = loadPackSet();
     const genre = a.genre === 'official' ? 'general' : (a.genre ?? 'legal');
-    const r = checkProse(a.text, { packs: set.packs, skipped: set.skipped, genre, detail: a.detail });
+    // 부른 장르 이름 그대로 넘긴다 — check 가 official 을 general 로 접되, 규칙의 skipGenres 는 official 을 따로 본다
+    const r = checkProse(a.text, { packs: set.packs, skipped: set.skipped, genre: a.genre ?? 'legal', detail: a.detail });
     return { ok: !r.incomplete, genre, ...r };
   } catch (e) {
     console.error('[check_prose]', stackOnly(e));

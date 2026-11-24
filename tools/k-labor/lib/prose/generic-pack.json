@@ -1,7 +1,7 @@
 {
  "pack": "generic",
  "version": "g1-imnotai-lexicon-1.3-115",
- "license": "MIT — im-not-ai (Copyright (c) 2026 epoko77-ai), lexicon.json v1.3 전 115항목(change 61·conditional 54). 탐지식은 regex(좁은 식)를 쓴다 — regex_detect 는 재현율용이라 다른 낱말 속 글자에 걸린다(L-23 「직조」 등). 좁은 식을 고친 항목(L-05·L-54)·제외어를 넓힌 항목·앞 경계를 붙인 항목은 THIRD_PARTY_NOTICES.md. 등급은 전부 B, 장르(genres)·사유·고칠 말은 k-labor 가 정했다",
+ "license": "MIT — im-not-ai (Copyright (c) 2026 epoko77-ai), lexicon.json v1.3 전 115항목(change 61·conditional 54). 탐지식은 regex(좁은 식)를 쓴다 — regex_detect 는 재현율용이라 다른 낱말 속 글자에 걸린다(L-23 「직조」 등). 좁은 식을 고친 항목(L-05·L-54)·제외어를 넓힌 항목·앞 경계를 붙인 항목은 THIRD_PARTY_NOTICES.md. 등급은 전부 B, 장르(genres·skipGenres)·사유·고칠 말은 k-labor 가 정했다",
  "yield": true,
  "table": {
   "open": "「“",
@@ -592,10 +592,9 @@
    "reason": "AI 문체 상투어",
    "fix": "im-not-ai L-34 「층위」 — 문맥을 보고 평이한 말로",
    "exclude": "지층|건물|아파트|층간|계층|성층|오존|빌딩",
-   "genres": [
-    "consulting",
-    "lecture",
-    "general"
+   "skipGenres": [
+    "legal",
+    "official"
    ]
   },
   {
@@ -887,7 +886,12 @@
    "fix": "im-not-ai X-01 「지형(~의 지형을 바꾸다)」 — 문맥을 보고 필요할 때만 평이한 말로",
    "exclude": "산악|해저|지질|등고|지형지물|측량|험준",
    "genres": [
+    "legal",
     "lecture"
+   ],
+   "skipGenres": [
+    "legal",
+    "official"
    ]
   },
   {
@@ -972,8 +976,13 @@
    "reason": "AI 문체 상투어 후보(문맥 판단)",
    "fix": "im-not-ai INJ-07 「되풀이」 — 문맥을 보고 필요할 때만 평이한 말로",
    "genres": [
+    "legal",
     "consulting",
     "lecture"
+   ],
+   "skipGenres": [
+    "legal",
+    "official"
    ]
   },
   {
@@ -1185,10 +1194,9 @@
    "grade": "B",
    "reason": "AI 문체 상투어 후보(문맥 판단)",
    "fix": "im-not-ai X-12 「본질적으로」 — 문맥을 보고 필요할 때만 평이한 말로",
-   "genres": [
-    "consulting",
-    "lecture",
-    "general"
+   "skipGenres": [
+    "legal",
+    "official"
    ]
   },
   {
@@ -1220,10 +1228,9 @@
    "reason": "AI 문체 상투어 후보(문맥 판단)",
    "fix": "im-not-ai X-16 「~하는 편이 좋다·낫다(권고 말투)」 — 문맥을 보고 필요할 때만 평이한 말로",
    "exclude": "(?:우리|상대|내|네|남의|반대|저쪽|그쪽)\\s?편|보다\\s",
-   "genres": [
-    "consulting",
-    "lecture",
-    "general"
+   "skipGenres": [
+    "legal",
+    "official"
    ]
   }
  ]

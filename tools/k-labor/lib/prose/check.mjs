@@ -438,6 +438,8 @@ export function validatePack(pack) {
     if (r.exclude !== undefined && !isStr(r.exclude)) bad('RULE_EXCLUDE', id);
     if (r.resume !== undefined && !(isStr(r.resume) && r.scope === undefined)) bad('RULE_RESUME', id);
     if (!isGenres(r.genres)) bad('RULE_GENRES', id);
+    // 끌 장르 — 장르 이름과 다른 이름(official)을 받는다
+    if (r.skipGenres !== undefined && !(Array.isArray(r.skipGenres) && r.skipGenres.every((x) => GENRES.includes(x) || Object.keys(GENRE_ALIAS).includes(x)))) bad('RULE_SKIP_GENRES', id);
   }
   if (pack.freq !== undefined) {
     const f = pack.freq;
@@ -514,6 +516,7 @@ export function compilePack(pack) {
       target: r.target,
       once: r.once,
       genres: r.genres,
+      skipGenres: r.skipGenres,
       rx: re(r.re, r.id, { multiline: (r.flags ?? '').includes('m'), global: !r.once, nonEmpty: true }),
       ex: r.exclude ? re(r.exclude, r.id) : null,
       // 앞 경계를 붙여 빠르게 만든 식이 「바로 앞 일치가 끝난 자리」에서 놓치는 일치를 원래 식으로 그 자리에서만 다시 본다
@@ -702,7 +705,10 @@ const byPos = (a, b) => a.n - b.n || a.col - b.col || a.ord - b.ord;
 export function checkProse(text, o = {}) {
   const set = o.packs ? { packs: o.packs, skipped: [] } : loadPackSet();
   const skipped = [...(o.skipped ?? []), ...set.skipped];
-  const genre = GENRE_ALIAS[o.genre] ?? o.genre ?? 'legal';
+  const raw = o.genre ?? 'legal';
+  const genre = GENRE_ALIAS[raw] ?? raw;
+  // 규칙의 skipGenres 는 부른 이름(official 등)과 접은 장르 둘 다로 본다 — official 을 따로 끌 수 있게
+  const runs = (r) => inGenre(r, genre) && !(r.skipGenres && (r.skipGenres.includes(raw) || r.skipGenres.includes(genre)));
   const allowFull = o.allowFull ?? process.env.PROSE_ALLOW_FULL === '1';
   const cap = o.cap ?? HIT_CAP;
   const P = [];
@@ -813,7 +819,7 @@ export function checkProse(text, o = {}) {
         if (p.dead) continue;
         try {
           for (const r of p.rules) {
-            if (r.scope !== 'quote' || !inGenre(r, genre)) continue;
+            if (r.scope !== 'quote' || !runs(r)) continue;
             const trim = r.target === 'trim';
             const s = trim ? t : line;
             const col = (idx) => (trim ? lineCol(idx + lead) : lineCol(idx));
@@ -847,7 +853,7 @@ export function checkProse(text, o = {}) {
         const none = p.anyRx && probe.length <= MERGE_MAX_LINE ? !p.anyRx.test(probe) : false;
         let col;
         for (const r of none ? p.loneRules : p.bodyRules) {
-          if (!inGenre(r, genre) || skip.includes(r.grade)) continue;
+          if (!runs(r) || skip.includes(r.grade)) continue;
           scan(probe, r, (m) => {
             if (!m[0]) { flag(p, 'RULE_EMPTY_MATCH'); return; }
             if (r.ex) {

@@ -2,15 +2,16 @@
 // 예문은 상류가 만든 합성 문장만 쓴다(tests/fixtures/prose/imnotai-lexicon-examples.json, MIT). 실제 사건 글·비공개 팩 규칙 없음.
 import { describe, expect, it } from 'vitest';
 import { checkProse, compilePack, GENERIC_PACK, GENRES, validatePack } from '../../tools/k-labor/lib/prose/check.mjs';
+import { proseResult } from '../../tools/k-labor/lib/prose/toego.mjs';
 import EX from '../fixtures/prose/imnotai-lexicon-examples.json';
 
-type Rule = { id: string; src: string; re: string; resume?: string; exclude?: string; grade: string; reason: string; fix: string; genres?: string[] };
+type Rule = { id: string; src: string; re: string; resume?: string; exclude?: string; grade: string; reason: string; fix: string; genres?: string[]; skipGenres?: string[] };
 const RULES = GENERIC_PACK.rules as Rule[];
 const ENTRIES = EX.entries as Record<string, { tier: string; skip: string[]; pos: string[]; neg: string[] }>;
-// 법률 장르에서 둔다(legal 에서 돌지 않는다) — 판정표 toego_lexicon_keep_change_261124
+// 법률 트랙(legal·official)에서 둔다 — 판정표 toego_lexicon_keep_change_261124
 const LEGAL_KEEP = ['L-34', 'INJ-07', 'X-01', 'X-12', 'X-16'];
 const one = (r: Rule) => ({ ...GENERIC_PACK, rules: [r] });
-const runsIn = (r: Rule) => (r.genres ?? GENRES).find((g) => g !== 'legal') ?? (r.genres ?? GENRES)[0];
+const runsIn = (r: Rule) => (r.genres ?? GENRES).find((g) => !(r.skipGenres ?? []).includes(g))!;
 const B = (s: string, r: Rule, genre: string) => checkProse(s, { packs: [one(r)], genre }).counts.B;
 
 describe('범용 팩 모양', () => {
@@ -27,11 +28,12 @@ describe('범용 팩 모양', () => {
     expect(GENERIC_PACK.yield).toBe(true);
   });
 
-  it('장르 — legal 은 판정표의 keep 만 빼고, 상류가 「일반」을 건너뛰면 general, 「보고서」를 건너뛰면 consulting 을 뺀다', () => {
+  it('장르 — 상류가 「일반」을 건너뛰면 general, 「보고서」를 건너뛰면 consulting 을 빼고, 판정표 keep 은 legal·official 을 끈다', () => {
     for (const r of RULES) {
       const skip = ENTRIES[r.src].skip;
-      const want = GENRES.filter((g) => !(g === 'legal' && LEGAL_KEEP.includes(r.src)) && !(g === 'general' && skip.includes('일반')) && !(g === 'consulting' && skip.includes('보고서')));
+      const want = GENRES.filter((g) => !(g === 'general' && skip.includes('일반')) && !(g === 'consulting' && skip.includes('보고서')));
       expect(r.genres ?? GENRES, r.src).toEqual(want);
+      expect(r.skipGenres, r.src).toEqual(LEGAL_KEEP.includes(r.src) ? ['legal', 'official'] : undefined);
     }
   });
 
@@ -47,11 +49,51 @@ describe('상류 예문 — 양성은 걸리고 음성은 안 걸린다', () => 
     for (const s of ENTRIES[r.src].neg) expect(B(s, r, g), s).toBe(0);
   });
 
-  it('legal keep 항목은 legal 에서 양성 예문도 걸리지 않는다', () => {
+  it('keep 항목은 legal·official 에서 양성 예문도 걸리지 않고, general 이 켜진 항목은 general 에서는 걸린다', () => {
     for (const id of LEGAL_KEEP) {
       const r = RULES.find((x) => x.src === id)!;
-      for (const s of ENTRIES[id].pos) expect(B(s, r, 'legal'), id).toBe(0);
+      for (const s of ENTRIES[id].pos) {
+        expect(B(s, r, 'legal'), id).toBe(0);
+        expect(B(s, r, 'official'), id).toBe(0);
+        if ((r.genres ?? GENRES).includes('general')) expect(B(s, r, 'general'), id).toBeGreaterThan(0);
+      }
     }
+  });
+
+  it('keep 이 아닌 항목은 official 판정이 general 과 같다(양성·음성 예문 전부)', () => {
+    for (const r of RULES.filter((x) => !LEGAL_KEEP.includes(x.src))) {
+      for (const s of [...ENTRIES[r.src].pos, ...ENTRIES[r.src].neg]) expect(B(s, r, 'official'), `${r.src} ${s}`).toBe(B(s, r, 'general'));
+    }
+  });
+});
+
+describe('skipGenres — 부른 장르 이름(official)과 접은 장르 둘 다로 끈다', () => {
+  const p = (skipGenres?: string[], genres?: string[]) => ({ pack: 's', rules: [{ id: 's-1', re: '모래성', grade: 'A', reason: 'x', skipGenres, genres }] });
+  const A = (pack: object, genre: string) => checkProse('모래성', { packs: [pack], genre }).counts.A;
+
+  it('official 만 끄면 general 은 돈다 · general 을 끄면 official 도 꺼진다 · 없으면 official = general(기존)', () => {
+    expect([A(p(['official']), 'official'), A(p(['official']), 'general'), A(p(['official']), 'legal')]).toEqual([0, 1, 1]);
+    expect([A(p(['general']), 'official'), A(p(['general']), 'general')]).toEqual([0, 0]);
+    expect([A(p(), 'official'), A(p(undefined, ['general']), 'official'), A(p(undefined, ['legal']), 'official')]).toEqual([1, 1, 0]);
+  });
+
+  it('도구 경로(proseResult)도 official 을 그대로 넘긴다 — 응답 장르는 종전처럼 general', () => {
+    const keep = process.env.PROSE_PACK_DIR;
+    delete process.env.PROSE_PACK_DIR;
+    try {
+      const s = ENTRIES['L-34'].pos[0];
+      expect(proseResult({ text: s, genre: 'official' })).toMatchObject({ ok: true, genre: 'general', counts: { B: 0 } });
+      const g = proseResult({ text: s, genre: 'general' });
+      expect('counts' in g && g.counts.B).toBeGreaterThan(0);
+    } finally {
+      if (keep !== undefined) process.env.PROSE_PACK_DIR = keep;
+    }
+  });
+
+  it('장르 이름·다른 이름만 받는다', () => {
+    expect(validatePack(p(['official', 'legal']))).toEqual([]);
+    expect(validatePack(p(['blog']))).toEqual([{ id: 's-1', code: 'RULE_SKIP_GENRES' }]);
+    expect(validatePack(p('official' as never))).toEqual([{ id: 's-1', code: 'RULE_SKIP_GENRES' }]);
   });
 });
 
