@@ -53,6 +53,10 @@ SOFTWARE.
   - 표제어는 고칠 말 글에 실었다. `skip_genres` 는 우리 장르로 옮겼다(일반 → general, 보고서 → consulting, 논문은 대응 장르가 없어 쓰지 않음). 제외어를 후보 앞뒤 12글자 안에서 찾는 방식은 `scripts/lexical_layer.py` 를 따랐다(단 창은 줄 안에서만 본다 — 상류는 글 전체).
   - 등급(전부 B)·법률 트랙 keep/change 판정(keep 5항목은 `skipGenres: [legal, official]`)·사유·출력 방식과 규칙 실행기(`lib/prose/check.mjs`)는 k-labor 가 새로 썼다.
 - 시험 픽스처: 같은 115항목의 합성 예문(`test_positive`·`test_negative`·`test_detect_neg`)을 그대로 `tests/fixtures/prose/imnotai-lexicon-examples.json` 에 옮겼다(저장소 시험용 — npm 판에는 들어가지 않는다).
+- 윤문 뒤 보존 대조(`lib/prose/preserve.mjs`, `docs` 묶음 `check_rewrite`) — 같은 판(c07df14)의 `scripts/checks.py`·`scripts/verify_gates.py`·`scripts/restore_modality.py`·`skills/humanize-korean/references/metrics_v2.py` 를 보고 새로 썼다.
+  - 옮긴 것: 당위·추측 표지 사전(`verify_gates.py` 의 `DEONTIC_RE`·`HEDGE_RE` 갈래 — 「-아/어/여야」 앞 음절을 받침 없는 열린 음절로 좁히는 조건 포함)과 대구 표층형 식(`metrics_v2.py` `_ANTITHESIS_RE`). 표지 사전에는 법령 글 꼴(아니 된다·서는 안 된다·지 못한다 / 사료된다·볼 여지·기 어렵)을 더했고, 「듯하」는 활용형(듯한·듯합니다)까지 받게 넓혔다.
+  - 가져온 발상: 수치·인용 보존(`checks.py` — 단 k-labor 는 수치를 주입만이 아니라 추가·삭제·변경 모두 개수까지 세고, 인용은 길이·발화 동사와 상관없이 전부 본다), 글자 변경률 30% 경고·50% 중단과 대구 전멸(원문 5개 이상 → 0개) 문턱(`verify_gates.py`·`metrics_v2.py`), 당위·추측을 총수가 아니라 짝 문장으로 보는 방식과 문자 바이그램 Dice 유사도·Needleman-Wunsch 문장 정렬(간격 −0.4)·짝 유사도 하한 0.35(`restore_modality.py`).
+  - k-labor 가 새로 쓴 것: 같은 문장을 닻으로 먼저 맞추고 바뀐 덩어리 안에서만 글자 대조(Myers)·문장 정렬을 하는 실행기, `[관련 …]` 블록 불변, 노동 법령 용어 목록, 상태어·출력 방식.
 
 ```
 MIT License

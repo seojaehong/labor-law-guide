@@ -73,26 +73,41 @@ export function matchPiece(piece, body) {
   return { verdict: r >= NEAR_MIN ? VERDICT.NEAR : VERDICT.DIFF, ratio: Math.round(r * 1000) / 1000, near: win };
 }
 
+/**
+ * [관련 …] 블록이 차지하는 줄(0부터) — check_citations 와 check_rewrite 가 같은 범위를 쓴다.
+ * 머리줄(줄 어디에 있어도) + 이어지는 > 줄(빈 줄은 건너뜀). > 줄이 없으면 풍산식 — 빈 줄을 건너뛴 다음 원문 줄(빈 줄·○·#·[관련·|·- 앞까지).
+ * @param {string[]} lines
+ * @param {RegExp} [headRe] g 플래그 없는 머리줄 식(첫 묶음 = 머리줄 나머지)
+ * @returns {{ line: number, m: RegExpExecArray, body: number[], quoted: boolean }[]}
+ */
+export function citationBlockRanges(lines, headRe = HEAD_RE) {
+  const out = [];
+  for (let i = 0; i < lines.length; i++) {
+    const m = headRe.exec(lines[i]);
+    if (!m) continue;
+    const body = [];
+    let j = i + 1;
+    while (j < lines.length && (!lines[j].trim() || lines[j].trimStart().startsWith('>'))) {
+      if (headRe.test(lines[j])) break;
+      if (lines[j].trimStart().startsWith('>')) body.push(j);
+      j++;
+    }
+    const quoted = body.length > 0;
+    // 풍산식 — 머리줄 다음 줄부터 인용부호 없이 원문
+    if (!quoted) while (j < lines.length && lines[j].trim() && !/^\s*(○|#|\[관련|\||-\s)/.test(lines[j])) body.push(j++);
+    out.push({ line: i, m, body, quoted });
+  }
+  return out;
+}
+
 /** 문서의 [관련 판결] 블록 → [{ line, head, court, caseNo, caseNos, pieces, summary }] */
 export function parseCitationBlocks(text) {
   const lines = String(text ?? '').split(/\r?\n/);
   const out = [];
-  for (let i = 0; i < lines.length; i++) {
-    const m = HEAD_RE.exec(lines[i]);
-    if (!m) continue;
+  for (const { line: i, m, body: idx, quoted } of citationBlockRanges(lines)) {
     const caseNos = m[1].match(NUM_RE) ?? [];
     if (!caseNos.length) continue;
-    const body = [];
-    let j = i + 1;
-    while (j < lines.length && (!lines[j].trim() || lines[j].trimStart().startsWith('>'))) {
-      if (HEAD_RE.test(lines[j])) break;
-      if (lines[j].trimStart().startsWith('>')) body.push(lines[j].trimStart().slice(1).trim());
-      j++;
-    }
-    if (!body.length) {
-      // 풍산식 — 머리줄 다음 줄부터 인용부호 없이 원문
-      while (j < lines.length && lines[j].trim() && !/^\s*(○|#|\[관련|\||-\s)/.test(lines[j])) body.push(lines[j++].trim());
-    }
+    const body = idx.map((j) => (quoted ? lines[j].trimStart().slice(1).trim() : lines[j].trim()));
     const block = body.join('\n').replace(/\((사실관계|법리|적용|쟁점|판결 이유 발췌)\)/g, '…');
     const summary = block.includes('(사안 및 판단 요지)') || block.includes('(판시 취지)');
     const pieces = summary

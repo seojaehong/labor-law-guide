@@ -82,3 +82,8 @@ export const text = (obj) => ({
   }],
 });
 export const digits = (s) => String(s ?? '').replace(/\D/g, '');
+
+// 퇴고 도구(check_prose·check_norms·check_rewrite) 공용 — 주민번호 멈춤 글·줄 번호 상한, 오류 글에 문서·팩 내용이 실리지 않게 stderr 에는 오류 종류와 「at」 줄만
+export const PROSE_RRN_STOP = '입력에 주민등록번호 모양의 숫자가 있어 멈췄습니다. 가린 뒤 다시 점검해 주세요.';
+export const RRN_LINES_MAX = 50;
+export const stackOnly = (e) => (e instanceof Error ? `${e.name}\n${String(e.stack ?? '').split('\n').filter((l) => /^\s+at /.test(l)).join('\n')}` : 'unknown');

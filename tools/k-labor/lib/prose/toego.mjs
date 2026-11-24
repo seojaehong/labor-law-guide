@@ -4,14 +4,13 @@
 // 이 파일과 check·norms·semantic·rhetoric·common 만 묶은 dist/toego.mjs 가 같은 판정을 짧게 낸다.
 import crypto from 'node:crypto';
 import { z } from 'zod';
-import { rrnLines } from '../common.mjs';
+import { PROSE_RRN_STOP, RRN_LINES_MAX, rrnLines, stackOnly } from '../common.mjs';
 import { checkProse, foldGenre, HIT_CAP, loadPackSet } from './check.mjs';
 import { checkNorms, NORM_CHECKS } from './norms.mjs';
 import { checkRhetoric, compileRhetoricPack, RHETORIC_TRACKS } from './rhetoric.mjs';
 import { checkSemantic, compileSemanticPack } from './semantic.mjs';
 
-export const PROSE_RRN_STOP = '입력에 주민등록번호 모양의 숫자가 있어 멈췄습니다. 가린 뒤 다시 점검해 주세요.';
-const RRN_LINES_MAX = 50;
+export { PROSE_RRN_STOP };
 
 /** 글에 주민번호 모양이 있으면 멈춤 응답(줄 번호만, 50줄까지), 없으면 null. 띄어쓰기 등 공개 규범도 함께 멈춘다 — 글을 받지 않는다 */
 export function rrnStop(text) {
@@ -29,8 +28,6 @@ export const DETAIL_SCHEMA = z.enum(['brief', 'full']);
 export const NORM_CHECKS_SCHEMA = z.array(z.enum(NORM_CHECKS));
 // 의미범주 장르·AI 수사 트랙은 원 검사기처럼 아무 이름이나 받는다(의미범주는 팩에 허용 낱말이 없는 장르면 허용 없이, AI 수사는 모르는 트랙이면 legal)
 export const LABEL_SCHEMA = z.string().min(1).max(32);
-
-const stackOnly = (e) => (e instanceof Error ? `${e.name}\n${String(e.stack ?? '').split('\n').filter((l) => /^\s+at /.test(l)).join('\n')}` : 'unknown');
 
 /** check_prose 응답 객체(주민번호 검사 뒤). 오류 글에 팩 내용이 실리지 않게 — 응답은 고정 코드, stderr 에는 오류 종류와 「at」 줄만 */
 export function proseResult(a, set = undefined) {

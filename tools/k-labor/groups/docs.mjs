@@ -4,6 +4,7 @@
 //   check_prose  퇴고 문체 점검 — 규칙·검출식은 팩(JSON): lib/prose/generic-pack.json + env PROSE_PACK_DIR(261123)
 //   check_norms  퇴고 공개 규범 점검 — 한글 맞춤법 제5장 띄어쓰기·부록 문장 부호·연결어미 뒤 쉼표(lib/prose/norms.mjs, 261124)
 //   check_semantic · check_rhetoric  퇴고 의미범주·AI 수사 점검 — 식·낱말·규칙은 비공개 팩의 semantic·rhetoric 절에만 있다(261124)
+//   check_rewrite  퇴고 윤문 전후 보존 대조 — 수치·인용·[관련 …] 블록·법령 용어·당위/추측·대구 + 글자 변경률(lib/prose/preserve.mjs, 261124)
 // ★ 파일을 읽고 쓰므로 원격판(remote.mjs)에서 불러오지 않는다. stdio 판(server.mjs)으로만 켠다.
 // ★ 공개 문구 금지어 + 포괄·대신·대행·대리·지도를 이 묶음의 글(설명·결과)에 쓰지 않는다.
 import { z } from 'zod';
@@ -15,8 +16,9 @@ import { mdToHwpxWithTemplate } from '@/lib/md-hwpx/template';
 import { argsLookLikeRrn, looksLikeRrn, text, writeNew } from '../lib/common.mjs';
 import { DETAIL_SCHEMA, GENRE_SCHEMA, LABEL_SCHEMA, NORM_CHECKS_SCHEMA, normsResult, proseResult, rhetoricResult, rrnStop, semanticResult, TEXT_SCHEMA } from '../lib/prose/toego.mjs';
 import { capSkipped, decodeMarkdown, fillHangul, hangulKind, maskExcerpt, MAX_MARKDOWN_BYTES, patchHangul, patchVerdict, readHangul, sanitizeReason } from '../lib/hangul-kordoc.mjs';
+import { rewriteResult, rewriteRrnStop } from '../lib/prose/preserve.mjs';
 
-export const docsTools = ['make_hwpx_from_markdown', 'edit_hwpx_text', 'read_hwp_as_markdown', 'fill_hwp_form', 'patch_hwp_from_markdown', 'check_prose', 'check_norms', 'check_semantic', 'check_rhetoric'];
+export const docsTools = ['make_hwpx_from_markdown', 'edit_hwpx_text', 'read_hwp_as_markdown', 'fill_hwp_form', 'patch_hwp_from_markdown', 'check_prose', 'check_norms', 'check_semantic', 'check_rhetoric', 'check_rewrite'];
 
 const WRITES = { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false };
 const fail = (error, extra = {}) => text({ ok: false, error, ...extra });
@@ -458,6 +460,38 @@ export function registerDocs(server) {
       const stop = rrnStop(a.text);
       if (stop) return text(stop);
       return text(rhetoricResult({ text: a.text, track: a.track, detail: a.detail })); // 화면은 500건 상한(게이트만 allA)
+    },
+  );
+  // ── 퇴고 — 윤문 뒤 보존 대조(결정론). 대조 규칙은 공개(lib/prose/preserve.mjs, im-not-ai 발상 + [관련 …] 블록·법령 용어)
+  server.registerTool(
+    'check_rewrite',
+    {
+      title: '퇴고: 윤문 전후 보존 대조',
+      description:
+        '윤문 전 글(before)과 윤문한 글(after)을 견주어, 윤문이 바꾸면 안 되는 것이 바뀌었는지 줄 단위로 찾는다. 항목은 일곱이다. ' +
+        '같은 문장은 통째로 맞추고, 바뀐 곳은 문장끼리 짝을 지어 짝 문장 안에서 견준다(글 전체 개수로 상쇄하지 않는다). ' +
+        '수치(부호·값·만억·단위·이상이하 같은 비교어를 한 덩이로, 날짜와 조·항·호는 한 덩이로 센다. 짝 문장 안 차례가 바뀌어도 훼손. 전각 숫자·천 단위 쉼표·날짜 표기는 같은 값, 만·억 환산은 하지 않는다. 문장 머리 번호 1) · ① 같은 목록 꼴은 세지 않는다) · ' +
+        '인용(“ ” 「 」 『 』 ‘ ’ 〈 〉 《 》, 짝이 맞는 곧은 따옴표, 머리줄 없는 > 줄 전체 안 글자. 부호만 걷어내도 훼손) · 판례 블록([관련 판결]·[관련 판례] 같은 [관련 …] 머리줄과 이어지는 > 줄, > 줄이 없으면 빈 줄 건너 원문 줄. check_citations 와 같은 범위이고 글자 그대로, 블록끼리 자리를 바꿔도 훼손. 블록으로 못 읽은 [관련 … 줄은 unrecognized 로 알리고, [관련 판결: … 처럼 판례 종류 이름이 붙은 줄은 빈 줄 앞까지 글자 그대로 견준다) · ' +
+        '법령 용어(근로자·사용자·해고·징계·정당한 이유 같은 작은 공개 목록, legal 이면 하여야·할 수 있·아니하 도. 어간으로 센다. 당사자·징계 수위의 자리 맞바꿈도 훼손) · ' +
+        '당위·추측 표현(~하여야 한다·~아니 된다 / ~로 보인다·~보기 어렵다 / ~바람직하다 같은 표현이 짝 문장에서 사라졌거나 생겼는지, 다른 절로 옮겨 붙었는지) · ' +
+        '부정 표현(않·못·아니·없·부당·무효 같은 부정이 짝 문장에서 생겼거나 사라졌는지. 아니한다와 않는다는 같다) · ' +
+        '대구(~가 아니라 같은 꼴이 5개 이상에서 0개가 되었거나 두 항이 맞바뀌었는지). 판례 블록 안 글은 블록 항목만 본다. ' +
+        '항목마다 status(보존됨 또는 훼손)·count 와 changes(무엇이 어떻게: kind·줄·전후 짧은 글, 100건까지, 넘으면 truncated)를 준다. ' +
+        '글자 변경률(같은 문장은 통째로 맞추고 바뀐 문단 안은 글자 최장 공통 부분으로 셈, 공백 덩어리는 한 칸)이 30% 이상이면 경고, 50% 이상이면 중단으로 changeRate.level 에 싣는다. 계산 예산을 넘은 문단은 짝 문장끼리 센 일치로 실제보다 높게(보수적으로) 셈하고 approximate 로 알린다. ' +
+        '맨 위 status 는 하나다: 변경률 50% 이상이면 변경률 초과, 아니면 훼손 항목이 있으면 훼손, 아니면 30% 이상이면 변경률 초과, 아니면 보존됨. ' +
+        '보존됨은 코드가 본 항목이 같다는 표시일 뿐 글 뜻 전체가 같다는 뜻이 아니다. 주민등록번호 모양이 있으면 대조하지 않고 rrnLines(before·after 줄 번호만)로 알린다. 모델을 부르지 않고, 문서 글을 밖으로 보내지 않는다.',
+      inputSchema: {
+        before: TEXT_SCHEMA.describe('윤문 전 글(md 또는 평문, 40만 자까지)'),
+        after: TEXT_SCHEMA.describe('윤문한 글(md 또는 평문, 40만 자까지)'),
+        genre: GENRE_SCHEMA.optional().describe('legal(기본: 의견서·조사보고서, 법령 문장 꼴 하여야·할 수 있·아니하 도 용어로 본다) / consulting / lecture / general / official'),
+      },
+      annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+    },
+    async (a) => {
+      // 원문에서 찾는다(JSON 으로 감싸면 탭·줄바꿈 구분을 놓친다) — 멈추면 숫자 없이 줄 번호만
+      const stop = rewriteRrnStop(a.before, a.after);
+      if (stop) return text(stop);
+      return text(rewriteResult(a));
     },
   );
 }
