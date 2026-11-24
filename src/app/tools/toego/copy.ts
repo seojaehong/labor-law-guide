@@ -100,7 +100,7 @@ export const TRIAL = {
   originalHeading: '원문에 표시',
   listHeading: '걸린 곳',
   truncated: '걸린 곳이 많아 검사마다 500곳까지만 보여 줍니다(반드시 교정 먼저).',
-  gradeNote: '반드시 교정은 규정이 한쪽만 허용하는 표기입니다. 문맥 확인은 문맥에 따라 그대로 둘 수도 있는 표현입니다.',
+  gradeNote: '반드시 교정은 고쳐 쓰라는 표시입니다. 띄어쓰기·문장 부호는 맞춤법 규정이, 쉼표는 업무 문서 관행이 근거입니다. 문맥 확인은 문맥에 따라 그대로 둘 수도 있는 표현입니다.',
   fixLabel: '고칠 방향',
   basisLabel: '근거',
   caption: '점검 결과는 규칙에 걸린 곳만 보여 줍니다. 글의 내용이 맞는지는 보지 않습니다.',
@@ -112,7 +112,7 @@ export const WHAT_WE_CATCH: { key: keyof typeof CHECK_LABELS; title: string; bod
     key: 'prose',
     title: '문체 상투어',
     body: '「정보에 입각한 판단」「단단한 토대」처럼 번역투와 비유가 섞인 상투어를 공개 사전에서 찾습니다. 문맥에 따라 그대로 둘 수도 있어 모두 「문맥 확인」으로 표시하고 고칠 방향을 함께 적습니다.',
-    source: 'im-not-ai 사전 v1.3 전 115항목(MIT 라이선스). 문서 종류마다 켜고 끄는 항목이 다릅니다.',
+    source: 'im-not-ai 사전 v1.3 전 115항목(MIT 라이선스). 일부 항목은 법률·컨설팅·강의안에서만 봅니다.',
   },
   {
     key: 'spacing',

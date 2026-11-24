@@ -57,6 +57,12 @@ describe('퇴고 화면 글', () => {
       expect(prose.body).toContain(w);
       expect(hitsOf(`회사는 ${w}을 바란다.`, 'prose').length, w).toBeGreaterThan(0);
     }
+    // 「일부 항목은 법률·컨설팅·강의안에서만」 — 같은 글이 일반·공문에서는 덜 걸린다
+    expect(prose.source).toContain('법률·컨설팅·강의안에서만');
+    const scene = '일터의 풍경을 천천히 들여다본다.';
+    const words = (g: string) => hitsOf(scene, 'prose', g).map((h) => h.word).sort();
+    for (const g of ['legal', 'consulting', 'lecture']) expect(words(g).length, g).toBeGreaterThan(words('general').length);
+    expect(words('official')).toEqual(words('general'));
     // 띄어쓰기 — 및·수밖에·제-·수·것·등·만 단위, 근거는 제41~45항
     expect(spacing.source).toContain('제41~45항');
     const sp: [string, string][] = [
@@ -75,6 +81,9 @@ describe('퇴고 화면 글', () => {
     expect(hitsOf('징계는 경고, 견책, 감봉으로 나뉜다.', 'comma')).toEqual([]);
     expect(hitsOf('검토하였고, 결론', 'comma')[0].basis).toBe('연결어미 뒤 쉼표');
     expect(punct.source).toContain('문장 부호');
+    // 등급 안내 — 반드시 교정의 근거를 검사마다 맞게 적는다(쉼표 A 는 규정이 아니라 관행)
+    expect(hitsOf('검토하였고, 결론', 'comma')[0].grade).toBe('A');
+    expect(COPY.TRIAL.gradeNote).toContain('쉼표는 업무 문서 관행');
   });
 
   it('화면 문장은 공개 규범 A 걸림이 없다(예시 글은 빼고)', () => {

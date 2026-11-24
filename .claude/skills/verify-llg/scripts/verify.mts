@@ -89,6 +89,11 @@ const FEATURES: Record<string, { path: string; journey: Journey; waitUntil?: 'lo
       const stop = p.locator('[data-toego-stop]');
       await stop.waitFor();
       step('주민등록번호 모양 멈춤', /주민등록번호 모양의 숫자가 있어 멈췄습니다[\s\S]*해당 줄: 2줄/, await stop.innerText());
+      // 40만 자 초과 — 엔진 사유 그대로 멈춘다
+      await p.getByLabel('점검할 글', { exact: true }).fill('가'.repeat(400_001));
+      await p.getByRole('button', { name: '점검하기', exact: true }).click();
+      await stop.filter({ hasText: '40만 자 초과' }).waitFor();
+      step('40만 자 초과 멈춤', '40만 자 초과 — 글을 나눠서 다시 점검해 주세요.', await stop.innerText());
       step('글이 실린 요청 수', /^0$/, String(sent.filter((s) => s.includes(MARK) || s.includes(encodeURIComponent(MARK))).length));
     },
   },
