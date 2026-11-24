@@ -37,9 +37,6 @@ const NOT_COVERED = [
   '회계연도 기준으로 운영한 회사가 퇴직자와 정산할 때는 settle_leave_on_exit 로 입사일 기준 누계와 맞대어 봅니다.',
 ];
 
-const MONTHLY_NOTE =
-  '근속 1년 이상이면 입사 후 1년 미만 기간에 월 단위로 생긴 연차(최대 11일)를 입사일 기준 누계에 넣을지 includeFirstYearMonthly 로 알려 주세요. 회계연도로 부여한 누계에 그 일수가 들어 있다면 넣어야 같은 기준으로 비교됩니다(최영우 『실무노동법』 산정 예 — 입사일 기준 11일 / 6일). 사용 촉진으로 이미 소멸한 일수는 넣지 않습니다.';
-
 export function registerLeave(server) {
   for (const m of MORE) m.register(server);
   // ── 연차 발생일수 ──
@@ -83,27 +80,25 @@ export function registerLeave(server) {
         '수당 금액은 계산하지 않는다(calc_leave_pay). 빈 칸은 0으로 보지 않고, 회계연도 쪽이 많을 때 취업규칙의 「퇴직 시 입사일 기준 재산정」 규정 유무를 모르면 확정하지 않는다.',
       inputSchema: {
         hireDate: z.string().describe('입사일 YYYY-MM-DD'),
-        endDate: z.string().describe('퇴사일 YYYY-MM-DD'),
+        endDate: z.string().describe('마지막 재직일 YYYY-MM-DD(상실일이 아니다 — 상실일은 그다음 날). 예: 2025-01-01 입사, 마지막 재직일 2025-12-31 → 발생 11일, 2026-01-01 → 11 + 15 = 26일. 상실일을 넣으면 하루 늦어져 15일이 더 붙을 수 있다'),
         fiscalGrantedTotal: z.number().optional().describe('회사가 회계연도 기준으로 실제 부여한 일수 합계(모르면 비운다 — 0과 다르다)'),
         usedOrPaidTotal: z.number().optional().describe('이미 쓰거나 수당으로 받은 일수 합계(모르면 비운다 — 0과 다르다)'),
         hasRecalcClause: z.boolean().optional().describe('취업규칙에 「퇴직 시 입사일 기준으로 재산정한다」는 규정이 있다(모르면 비운다)'),
-        includeFirstYearMonthly: z.boolean().optional().describe('근속 1년 이상일 때 입사 첫해 월 단위 연차(최대 11일)를 입사일 기준 누계에 넣는다(모르면 비운다)'),
+        includeFirstYearMonthly: z.boolean().optional().describe('계산에 쓰지 않는다(호환용). 입사 첫해 월 단위 연차(최대 11일)는 날짜로 정한다 — 1년차 15일 발생일이 2018-05-29 이전이면 그 15일에 포함(구 제60조제3항), 그 뒤면 따로 센다'),
       },
       annotations: READ_ONLY,
     },
     async (a) =>
       run(() => {
         checkDate(a.hireDate, '입사일');
-        checkDate(a.endDate, '퇴사일');
+        checkDate(a.endDate, '마지막 재직일');
         const r = settleOnTermination(a);
         const missing = [a.fiscalGrantedTotal === undefined ? '회계연도로 부여한 누계' : null, a.usedOrPaidTotal === undefined ? '사용·수당 지급한 누계' : null].filter(Boolean);
-        // 엔진의 「월차 포함 여부」 근거 문장은 공개 문구 금지어를 품어 이 파일의 문장으로 바꾼다(같은 뜻)
-        const monthlyAsked = r.verdict === 'insufficient-input' && !missing.length && r.favourable === 'equal';
-        const groundNote = monthlyAsked ? MONTHLY_NOTE : r.groundNote;
+        const groundNote = r.groundNote;
         const headline = r.verdict === 'shortfall'
           ? [`정산 대상 ${r.shortfallDays}일`, `보장선 ${r.guaranteedTotal}일 − 이미 쓰거나 수당으로 받은 ${r.usedOrPaidTotal}일`]
           : r.verdict === 'insufficient-input'
-            ? [missing.length ? `${missing.join('·')}가 필요합니다` : monthlyAsked ? '입사 첫해 월 단위 연차를 넣을지 확인이 필요합니다' : '취업규칙 확인이 필요합니다', groundNote]
+            ? [missing.length ? `${missing.join('·')}가 필요합니다` : '취업규칙 확인이 필요합니다', groundNote]
             : ['정산 대상이 없습니다', groundNote];
         return text({
           ok: true, headline,

@@ -87,13 +87,16 @@ ck("0 을 직접 넣은 것은 미입력과 다르게 계산한다", () => {
   assert.equal(r.hireDateTotal, 8, "9개월 근무 → 개월당 1일 = 8일");
 });
 
-ck("1년 이상 근속이면 11일 포함 여부를 묻는다 (구법 차감규정 경계를 추측하지 않는다)", () => {
+// ★ 261124 — 종전에는 「포함 여부를 묻는다」였다. 구법 경계(2018-05-29, 법제처 18-0067)가 확인돼
+//   입사일 기준 누계는 날짜로만 정한다(선택이 법정 발생분을 늘리거나 없애지 못하게). 2025-05-01 발생 = 신법 → 11 + 15.
+ck("1년 이상 근속 · 신법 시기 → 첫해 11일을 날짜로 포함한다(묻지 않는다)", () => {
   const r = settleOnTermination({
     hireDate: "2024-05-01", endDate: "2026-04-30",
     fiscalGrantedTotal: 26, usedOrPaidTotal: 0,
   });
-  assert.equal(r.verdict, "insufficient-input");
-  assert.ok(r.groundNote.includes("11일"), "무엇을 물어보는지 문구에 있어야 한다");
+  assert.equal(r.hireDateTotal, 26);
+  assert.equal(r.verdict, "shortfall");
+  assert.ok(r.groundNote.includes("11일"), "첫해 월 단위 연차를 어떻게 셌는지 문구에 있어야 한다");
 });
 
 ck("1년 미만 근속은 묻지 않고 항상 월차를 포함한다", () => {

@@ -3,7 +3,7 @@
 //   시간급: ./min-wage unitHours(시행령 §6② — 월급은 (1주 소정 + 주휴) × 365 ÷ 7 ÷ 12 반올림)
 //     주휴: 통상 근로자 = 1일 소정근로시간분(8시간까지, 근로기준법 §55①·시행령 §30①의 1일 유급휴일),
 //           단시간 근로자 = 4주 소정 ÷ 통상 근로자의 4주 소정근로일 20일(시행령 별표2 제2호나목, 제4호가목·라목)
-//   퇴직 누계: src/lib/leave/leave-ledger.ts buildHireDateLedger(1년 미만 월 연차 — 첫 1년이 2018. 5. 29. 전에 끝났으면 1년차 15일에 포함)
+//   퇴직 누계: src/lib/leave/leave-ledger.ts buildStatutoryHireDateLedger(퇴직 연차 정산과 같은 함수, 1년 미만 월 연차 — 첫 1년이 2018. 5. 29. 전에 끝났으면 1년차 15일에 포함)
 // 청구권: 법조문에 「미사용수당」 명문은 없고 판례로 선다 — 대법원 2005.5.27. 2003다48549(근로관계가 끝나도 수당 청구권은 남는다),
 //   2019.10.18. 2018다239110(취업규칙 등에 정함이 없으면 통상임금으로 산정).
 // 1일 통상임금 = 시간급 × 1일 소정근로시간(근로기준법 시행령 §6③).
@@ -13,7 +13,7 @@
 import { unitHours, type MinWageInput } from './min-wage';
 import { calculateAllowance } from '../leave/leave-allowance';
 import { dailyOrdinaryWage, payableWon, snapWon as snap } from './wage-rounding';
-import { buildHireDateLedger, type LedgerEntry } from '../leave/leave-ledger';
+import { buildStatutoryHireDateLedger, OLD_60_3_LAST_ACCRUAL, type LedgerEntry } from '../leave/leave-ledger';
 
 export type WageUnit = MinWageInput['unit'];
 
@@ -25,18 +25,9 @@ export function payArticle(date: string): string {
   return date >= ARTICLE_SHIFT ? '제60조제6항' : '제60조제5항';
 }
 
-/**
- * 1년차 연차(15일)가 이 날 이전에 생겼으면 구 근로기준법 제60조제3항이 적용된다 —
- * 최초 1년의 근로에 대한 휴가는 1년 미만 월 연차를 포함해 15일이고, 이미 쓴 월 연차는 15일에서 뺀다.
- *   법률 제15108호(공포 2017. 11. 28., 시행 2018. 5. 29.)가 제3항을 지웠고 적용례·경과조치는 두지 않았다.
- *   법제처 18-0067(2018. 4. 24.): 2018. 5. 29.을 기준으로 근로한 기간이 1년 이상인 근로자에게는 구법 제3항이 적용된다
- *     (1년이 되는 날 법률관계가 이미 확정됐으므로).
- *   법제처 18-0404(2018. 8. 6.): 2018. 5. 30. 이후 근로기간이 1년이 되는 근로자는 1년차 11일·2년차 15일을 각각 받는다.
- * 1년차 발생일 = 입사 1년이 끝난 다음 날(buildHireDateLedger 의 기념일, 대법원 2022다245419).
- *   2017-05-29 입사 → 2018-05-29 발생: 그날을 기준으로 근로한 기간이 이미 1년(2017-05-29~2018-05-28)이라 구법.
- *   2017-05-30 입사 → 2018-05-30 발생: 신법.
- */
-export const OLD_60_3_LAST_ACCRUAL = '2018-05-29';
+// 구 제60조제3항 경계일 — 정의와 근거는 ../leave/leave-ledger.ts(퇴직 정산과 같은 규칙을 쓰려고 그쪽으로 옮겼다, 261124).
+// 기존 import 경로(attendance-rate 등)를 지키려고 여기서 다시 내보낸다.
+export { OLD_60_3_LAST_ACCRUAL };
 
 export type LeavePayRate =
   /** 통상임금(기본) — 단위 기간 금액을 시간급으로 바꾼다 */
@@ -216,12 +207,10 @@ export function calcLeavePay(input: LeavePayInput): LeavePayResult {
     // 1년 미만 월 연차 — 1년 근로 후 바로 끝나면 11일, 그다음 날까지 재직하면 11 + 15 = 26일(대법원 2021다227100, 2022다245419).
     // 단, 1년차 15일이 2018. 5. 29. 이전에 생겼으면 구 §60③으로 월 연차가 그 15일에 포함된다(OLD_60_3_LAST_ACCRUAL).
     // 1년을 채우기 전에 끝나면 15일이 아직 없으므로 구법 시기라도 월 연차만 센다.
-    const annual = buildHireDateLedger(hire, last);
-    const firstAccrual = annual.entries[0]?.accruedOn;
-    const includedIn15 = firstAccrual !== undefined && firstAccrual <= OLD_60_3_LAST_ACCRUAL;
-    const l = includedIn15 ? annual : buildHireDateLedger(hire, last, { includeFirstYearMonthly: true });
+    // 퇴직 연차 정산(settleOnTermination)과 같은 함수로 센다 — 두 도구의 법정 발생 누계가 갈리지 않게.
+    const l = buildStatutoryHireDateLedger(hire, last);
     if (days.usedDays > l.total) throw new Error('이미 쓰거나 수당으로 받은 일수가 발생 누계보다 많습니다');
-    ledger = { entries: l.entries, total: l.total, used: days.usedDays, firstYearMonthly: includedIn15 ? 'included-in-15' : 'separate' };
+    ledger = { entries: l.entries, total: l.total, used: days.usedDays, firstYearMonthly: l.firstYearMonthly };
     unusedDays = l.total - days.usedDays;
   } else {
     if (!nonNeg(days.unusedDays)) throw new Error('남은 연차 일수를 확인해 주세요');

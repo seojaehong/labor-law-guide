@@ -439,7 +439,8 @@ if (tools.includes('settle_leave_on_exit')) {
   const miss = await callNew('settle_leave_on_exit', { hireDate: '2004-08-01', endDate: '2009-09-30' });
   check('settle 빈 칸은 0으로 보지 않음', miss.ok && miss.result?.verdict === 'insufficient-input');
   const monthly = await callNew('settle_leave_on_exit', { hireDate: '2004-08-01', endDate: '2009-09-30', fiscalGrantedTotal: 69, usedOrPaidTotal: 53 });
-  check('settle 1년 이상이면 월차 포함 여부를 묻는다', monthly.ok && monthly.result?.verdict === 'insufficient-input' && /월/.test(monthly.result.groundNote ?? ''));
+  // 261124 — 첫해 월 단위 연차는 묻지 않고 날짜로 정한다(2005-08-01 발생 = 구 제60조제3항 → 15일에 포함, 79 그대로)
+  check('settle 첫해 월 연차는 날짜로 정한다(구법 79 − 53 = 26일)', monthly.ok && monthly.result?.hireDateTotal === 79 && monthly.result.shortfallDays === 26 && /제60조제3항/.test(monthly.result.groundNote ?? ''));
   const badDate = await callNew('settle_leave_on_exit', { hireDate: '2004-8-1', endDate: '2009-09-30', fiscalGrantedTotal: 69, usedOrPaidTotal: 53 });
   check(`settle 날짜 형식 오류(${badDate.error})`, badDate.ok === false);
 }
