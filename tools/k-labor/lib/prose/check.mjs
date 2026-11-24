@@ -1,6 +1,6 @@
 // 퇴고 — 문서 문체 점검(결정론). 규칙·검출식·기준값은 코드가 아니라 「팩」(JSON)에 있다.
 //   · 범용 팩 = 이 폴더 generic-pack.json(im-not-ai lexicon 유래, MIT — THIRD_PARTY_NOTICES.md). yield: true —
-//     같은 줄에서 다른 팩의 걸림과 글자가 겹치면 범용 팩 걸림은 싣지도 세지도 않는다
+//     같은 줄에서 다른 팩의 걸림 하나가 범용 걸림을 감싸거나 같은 칸에서 시작하면 범용 걸림은 싣지도 세지도 않는다
 //   · 그 밖의 팩 = env PROSE_PACK_DIR(절대 경로)의 *.json. 저장소에 두지 않는 팩은 이 길로만 읽는다.
 // ★ 출력 정책 — 공개 팩은 걸린 글자·고칠 말·규칙 id 까지(full) 낸다. 비공개 팩(private: true, 그리고 PROSE_PACK_DIR 에서 읽은
 //   팩 중 private: false 라고 적지 않은 것)은 줄·칸·길이·등급·짧은 사유·응답별 참조값만(brief) 내고,
@@ -19,6 +19,8 @@ export const GENERIC_PACK = GENERIC;
 export const GENRES = ['legal', 'consulting', 'lecture', 'general'];
 // 다른 이름으로 부르는 장르(공문 = general)
 export const GENRE_ALIAS = { official: 'general' };
+/** 부른 장르 이름 → 검사 장르(다른 이름을 접는다). 응답 genre 도 이것 하나로 계산한다 */
+export const foldGenre = (g) => GENRE_ALIAS[g] ?? g;
 export const HIT_CAP = 500;
 // 후보 앞뒤 몇 글자(코드포인트) 안에서 제외어를 찾는가 — im-not-ai lexical_layer.py EXCLUDE_WINDOW 와 같다(단 줄 안에서만)
 export const EXCLUDE_WINDOW = 12;
@@ -706,7 +708,7 @@ export function checkProse(text, o = {}) {
   const set = o.packs ? { packs: o.packs, skipped: [] } : loadPackSet();
   const skipped = [...(o.skipped ?? []), ...set.skipped];
   const raw = o.genre ?? 'legal';
-  const genre = GENRE_ALIAS[raw] ?? raw;
+  const genre = foldGenre(raw);
   // 규칙의 skipGenres 는 부른 이름(official 등)과 접은 장르 둘 다로 본다 — official 을 따로 끌 수 있게
   const runs = (r) => inGenre(r, genre) && !(r.skipGenres && (r.skipGenres.includes(raw) || r.skipGenres.includes(genre)));
   const allowFull = o.allowFull ?? process.env.PROSE_ALLOW_FULL === '1';
@@ -771,7 +773,8 @@ export function checkProse(text, o = {}) {
     if (arr.length >= 2 * cap) { arr.sort(byPos); arr.length = cap; }
   };
 
-  // 물러서는 팩(yield: true — 범용 팩) — 같은 줄에서 다른 팩의 걸림과 글자가 겹치는 걸림은 싣지도 세지도 않는다.
+  // 물러서는 팩(yield: true — 범용 팩) — 같은 줄에서 다른 팩의 걸림 하나가 그 걸림을 감싸거나 같은 칸에서 시작하면
+  // 싣지도 세지도 않는다. 일부만 겹치거나(경계 공백 한 칸 등) 다른 팩 걸림이 그 안에 들어 있으면 둘 다 남긴다.
   // 같은 자리를 두 팩이 잡으면 한 번만 보이게 하려는 것이다(어느 규칙과 겹치는지는 팩 밖에 적지 않는다)
   const yieldOn = P.some((p) => p.yield) && P.some((p) => !p.yield);
 
@@ -791,25 +794,26 @@ export function checkProse(text, o = {}) {
     };
     const flush = () => {
       if (!held.length) return;
-      // 다른 팩 걸림을 시작 칸 순으로 합쳐 겹치지 않는 구간 목록으로 — 걸림마다 이분 탐색
+      // 다른 팩 걸림을 시작 칸 순으로 — 앞에서부터 끝 칸 최댓값을 쌓아 두고 걸림마다 이분 탐색.
+      // 걸림 하나가 감싸야 한다(이어 붙은 둘이 함께 덮는 것은 감쌈이 아니다)
       taken.sort((a, b) => a[0] - b[0]);
-      const span = [];
-      for (const [a, b] of taken) {
-        const last = span[span.length - 1];
-        if (last && a <= last[1]) last[1] = Math.max(last[1], b);
-        else span.push([a, b]);
-      }
+      const reach = [];
+      for (const [, b] of taken) reach.push(Math.max(b, reach.length ? reach[reach.length - 1] : 0));
       for (const [p, r, word, col] of held) {
         if (p.dead) continue;
         const end = col + cpLen(word);
+        // 시작 칸이 col 이하인 마지막 다른 팩 걸림
         let lo = 0;
-        let hi = span.length;
+        let hi = taken.length;
         while (lo < hi) {
           const mid = (lo + hi) >> 1;
-          if (span[mid][0] < end) lo = mid + 1;
+          if (taken[mid][0] <= col) lo = mid + 1;
           else hi = mid;
         }
-        if (!(lo > 0 && span[lo - 1][1] > col)) push(p, r, n, word, col, ctxOf);
+        const k = lo - 1;
+        const same = k >= 0 && taken[k][0] === col;
+        const inside = k >= 0 && reach[k] >= end;
+        if (!same && !inside) push(p, r, n, word, col, ctxOf);
       }
     };
     if (startsWithAny(t, QUOTE_PREFIXES)) {

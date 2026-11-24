@@ -77,12 +77,18 @@ describe('skipGenres — 부른 장르 이름(official)과 접은 장르 둘 다
     expect([A(p(), 'official'), A(p(undefined, ['general']), 'official'), A(p(undefined, ['legal']), 'official')]).toEqual([1, 1, 0]);
   });
 
-  it('도구 경로(proseResult)도 official 을 그대로 넘긴다 — 응답 장르는 종전처럼 general', () => {
+  it('도구 경로(proseResult)도 official 을 그대로 넘긴다 — 응답 genre 는 종전처럼 general, requestedGenre 는 부른 이름', () => {
     const keep = process.env.PROSE_PACK_DIR;
     delete process.env.PROSE_PACK_DIR;
     try {
       const s = ENTRIES['L-34'].pos[0];
-      expect(proseResult({ text: s, genre: 'official' })).toMatchObject({ ok: true, genre: 'general', counts: { B: 0 } });
+      expect(proseResult({ text: s, genre: 'official' })).toMatchObject({ ok: true, genre: 'general', requestedGenre: 'official', counts: { B: 0 } });
+      expect(proseResult({ text: s })).toMatchObject({ genre: 'legal', requestedGenre: 'legal' });
+      expect(proseResult({ text: s, genre: 'lecture' })).toMatchObject({ genre: 'lecture', requestedGenre: 'lecture' });
+      // 응답의 requestedGenre 로 다시 부르면 같은 결과
+      const o = proseResult({ text: s, genre: 'official' });
+      const again = proseResult({ text: s, genre: (o as { requestedGenre: 'official' }).requestedGenre });
+      expect('counts' in again && again.counts).toEqual('counts' in o && o.counts);
       const g = proseResult({ text: s, genre: 'general' });
       expect('counts' in g && g.counts.B).toBeGreaterThan(0);
     } finally {
@@ -108,7 +114,7 @@ describe('고친 식 — 상류 좁은 식에서 바꾼 곳', () => {
   it('앞에 경계를 붙인 식(L-04·L-17·L-24·L-51)은 상류 식과 같은 자리를 잡는다', () => {
     const toks = ['가', '나', ' ', '하는', ' 자리다', '그 자리에서 ', '갈린다', '렌즈로 ', '보면', '새로운', 'AI', '와 ', '과 ', '법의 ', '교차점에서', 'AI와 ', '법의 교차점에서','사례는 ', '이는 ', '필요성을 ', '강조한다', '.', 'ab'];
     let seed = 7;
-    const rnd = () => ((seed = (seed * 1103515245 + 12345) & 0x7fffffff) % toks.length);
+    const rnd = () => ((seed = (Math.imul(seed, 1103515245) + 12345) & 0x7fffffff) % toks.length);
     for (const id of ['L-04', 'L-17', 'L-24', 'L-51']) {
       const r = rule(id);
       expect(r.resume, id).toBeTruthy();
@@ -126,6 +132,27 @@ describe('고친 식 — 상류 좁은 식에서 바꾼 곳', () => {
     }
   });
 
+  it('뒤 경계를 앞보기로 바꾼 식(AST-44·L-32·L-78·L-79·L-87·INJ-08)은 경계를 먹던 상류 식과 같은 칸에서 걸린다', () => {
+    const TAIL = /\(\?=(\\s|\[,\\s\])\)$/;
+    let seed = 11;
+    for (const id of ['AST-44', 'L-32', 'L-78', 'L-79', 'L-87', 'INJ-08']) {
+      const r = rule(id);
+      expect(r.re, id).toMatch(TAIL);
+      const eat = { ...r, re: r.re.replace(TAIL, '$1') };
+      const toks = [...new Set(ENTRIES[id].pos.join(' ').split(/\s+/)), ...ENTRIES[id].pos, ' ', ' ', ',', '. ', '는', '도', '가', '\t'];
+      const rnd = () => ((seed = (Math.imul(seed, 1103515245) + 12345) & 0x7fffffff) % toks.length);
+      let seen = 0;
+      for (let k = 0; k < 1500; k++) {
+        const s = Array.from({ length: 4 + (k % 12) }, () => toks[rnd()]).join(k % 3 ? ' ' : '');
+        const cols = (x: Rule) => checkProse(s, { packs: [one(x)], genre: 'lecture', detail: 'full' }).hits.map((h) => h.col);
+        const want = cols(eat);
+        expect(cols(r), `${id} ${s}`).toEqual(want);
+        seen += want.length;
+      }
+      expect(seen, id).toBeGreaterThan(5);
+    }
+  });
+
   it('긴 한 줄(띄어쓰기 없는 한글·한글 영문 섞임)에서 선형', () => {
     const N = 400_000;
     for (const s of ['가나다라마바사아자차'.repeat(N / 10), 'abcde가나다라마'.repeat(N / 10)]) {
@@ -137,8 +164,43 @@ describe('고친 식 — 상류 좁은 식에서 바꾼 곳', () => {
 });
 
 describe('물러서기(yield) — 같은 자리를 다른 팩이 잡으면 범용 팩 걸림은 싣지도 세지도 않는다', () => {
-  const OTHER = { pack: 'other', rules: [{ id: 'o-1', re: '가르는', grade: 'A', reason: 'x', fix: 'y' }] };
+  // 다른 팩 걸림 하나가 범용 걸림을 감싸거나(시작 칸 포함) 같은 칸에서 시작할 때만 물러선다
+  const OTHER = { pack: 'other', rules: [{ id: 'o-1', re: '결과를 가르는 것은', grade: 'A', reason: 'x', fix: 'y' }] };
   const text = '결과를 가르는 것은 시간이다.\n결과를 가르는 것은 시간이다.\n이 대목은 길다.';
+  const other = (re: string, grade = 'B') => ({ pack: 'other', rules: [{ id: 'o-1', re, grade, reason: 'x' }] });
+  const run = (s: string, ...packs: object[]) => checkProse(s, { packs: [GENERIC_PACK, ...packs], genre: 'lecture', detail: 'full' }).hits.map((h) => h.rule);
+
+  it('겹침 모양 — 감쌈·같은 시작이면 빼고, 일부만 겹치거나 다른 팩이 범용 걸림 안에 있으면 둘 다 남긴다', () => {
+    const s = '결과를 가르는 것은 시간이다.';
+    // 범용 L-12 = 「를 가르는 것은」
+    expect(run(s)).toEqual(['gen-L-12']);
+    expect(run(s, other('를 가르는'))).toEqual(['o-1']); // 같은 시작
+    expect(run(s, other('과를 가르는 것은 시'))).toEqual(['o-1']); // 감쌈
+    expect(run(s, other('가르는')).sort()).toEqual(['gen-L-12', 'o-1']); // 범용 걸림 안
+    expect(run(s, other('것은 시간')).sort()).toEqual(['gen-L-12', 'o-1']); // 일부만(실제 글자)
+    // 다른 팩 걸림 둘이 이어서 덮어도 하나가 감싸지 않으면 남긴다
+    expect(run(s, { pack: 'other', rules: [{ id: 'o-1', re: '과를 가르', grade: 'B', reason: 'x' }, { id: 'o-2', re: '르는 것은 시', grade: 'B', reason: 'x' }] }).sort()).toEqual(['gen-L-12', 'o-1', 'o-2']);
+  });
+
+  it('긴 다른 팩 걸림 하나가 범용 걸림 둘을 감싸면 둘 다 뺀다(감쌈 규칙 그대로 — 알려 둔 동작)', () => {
+    const s = '이 대목은 결과를 가르는 것은 시간이다.';
+    expect(run(s).sort()).toEqual(['gen-INJ-02', 'gen-L-12']);
+    expect(run(s, other('대목은 결과를 가르는 것은'))).toEqual(['o-1']);
+  });
+
+  it('경계 글자(공백·쉼표)를 걸림에 넣지 않는다 — 상류 양성 예문에서 범용 걸림의 앞뒤 글자', () => {
+    for (const r of RULES) {
+      for (const s of ENTRIES[r.src].pos) {
+        for (const h of checkProse(s, { packs: [one(r)], genre: runsIn(r), detail: 'full' }).hits) expect(h.word, `${r.src} ${s}`).not.toMatch(/^[\s,]|[\s,]$/);
+      }
+    }
+  });
+
+  it('경계 공백 한 칸만 겹치면 둘 다 남긴다(L-78 뒤 공백을 다른 팩이 잡음)', () => {
+    const s = '궁극적으로 Z는 남는다.';
+    expect(run(s)).toEqual(['gen-L-78']);
+    expect(run(s, other('\\sZ')).sort()).toEqual(['gen-L-78', 'o-1']);
+  });
 
   it('겹치면 범용 걸림을 빼고, 겹치지 않는 범용 걸림은 남긴다(다른 팩 걸림은 그대로)', () => {
     const r = checkProse(text, { packs: [GENERIC_PACK, OTHER], detail: 'full' });

@@ -18,6 +18,9 @@ Used in: tools/k-labor/lib/prose/generic-pack.json
     match that starts right where the previous match ended inside such a run, so the
     entry also carries the unchanged upstream regex as "resume", and the runner
     retries it at exactly that position. The combined result equals the upstream regex.
+  - AST-44, L-32, L-78, L-79, L-87, INJ-08: the trailing boundary ("\s" or "[,\s]")
+    that the regex consumed is a lookahead instead. Matches start at the same positions
+    as the upstream regex; only the boundary character is left out of the match.
   Headwords appear in the "fix" text. "skip_genres" is mapped to k-labor genres
   (일반 → general, 보고서 → consulting; 논문 has no counterpart). The exclude window
   (12 code points around each candidate) follows scripts/lexical_layer.py, but within
