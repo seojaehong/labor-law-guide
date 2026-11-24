@@ -34,6 +34,7 @@ export default function MinWageClient() {
   const [welfare, setWelfare] = useState('');
   const [weekly, setWeekly] = useState('40');
   const [daily, setDaily] = useState('8');
+  const [days, setDays] = useState('5');
   const [prob, setProb] = useState({ on: false, oneYearContract: false, withinThreeMonths: false, simpleLabor: false });
 
   const out = useMemo(() => {
@@ -48,7 +49,7 @@ export default function MinWageClient() {
           rate,
           r: checkMinWage({
             unit, amount: num(amount), monthlyBonus: num(bonus), monthlyWelfareCash: num(welfare),
-            weeklyHours: num(weekly), dailyHours: num(daily), minHourly: min,
+            weeklyHours: num(weekly), dailyHours: num(daily), fullTimeDays: days.trim() ? num(days) : undefined, minHourly: min,
             probation: prob.on ? prob : undefined,
           }),
         })),
@@ -56,7 +57,7 @@ export default function MinWageClient() {
     } catch (e) {
       return { error: (e as Error).message };
     }
-  }, [ys, unit, amount, bonus, welfare, weekly, daily, prob]);
+  }, [ys, unit, amount, bonus, welfare, weekly, daily, days, prob]);
 
   const first = 'rows' in out ? out.rows![0]?.r : undefined;
   return (
@@ -83,10 +84,16 @@ export default function MinWageClient() {
             <input inputMode="decimal" className={inputCls} value={daily} onChange={(e) => setDaily(e.target.value)} />
           </label>
         ) : unit !== 'hour' ? (
-          <label className={small} style={muted}>
-            1주 소정근로시간(연장근로 빼고)
-            <input inputMode="decimal" className={inputCls} value={weekly} onChange={(e) => setWeekly(e.target.value)} />
-          </label>
+          <>
+            <label className={small} style={muted}>
+              1주 소정근로시간(연장근로 빼고)
+              <input inputMode="decimal" className={inputCls} value={weekly} onChange={(e) => setWeekly(e.target.value)} />
+            </label>
+            <label className={small} style={muted}>
+              같은 일을 하는 통상근로자의 1주 근무일 수(보통 5일)
+              <input inputMode="numeric" className={inputCls} value={days} onChange={(e) => setDays(e.target.value)} />
+            </label>
+          </>
         ) : null}
         {unit === 'month' && (
           <>
@@ -136,7 +143,9 @@ export default function MinWageClient() {
         <ul className={`${small} list-disc space-y-1 pl-5`} style={muted}>
           <li>넣는 것: 기본급, 직무·직책수당처럼 매달 정해서 주는 수당, 매달 주는 정기상여금, 매달 현금으로 주는 식비·교통비·숙박비</li>
           <li>빼는 것: 연장·야간·휴일근로 수당, 연차 미사용 수당, 두 달 이상에 한 번 주는 상여금, 현물로 주는 식사·숙소</li>
-          <li>월급은 (1주 소정근로시간 + 주휴 시간) × 365 ÷ 7 ÷ 12 시간으로 나눕니다. 주 40시간이면 209시간입니다.</li>
+          <li>월급은 (1주 소정근로시간 + 주휴 시간) × 365 ÷ 7 ÷ 12 시간으로 나눕니다. 주 40시간이면 208.57시간을 반올림한 209시간입니다.</li>
+          <li>반올림하면 시간이 줄어드는 경우에는 반올림하지 않고 나눕니다. 주 20시간이면 104시간이 아니라 104.29시간입니다.</li>
+          <li>주휴 시간은 1주 소정근로시간 ÷ 같은 일을 하는 통상근로자의 1주 근무일 수입니다(8시간까지).</li>
           <li>주 15시간 미만이면 주휴 시간 없이 셉니다.</li>
         </ul>
       </FoldedDetail>

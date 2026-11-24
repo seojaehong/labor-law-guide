@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { checkMinWage } from '@/lib/calc/min-wage';
 
 // 최저임금 확인 — 받는 임금을 시간급으로 바꿔(시행령 §5①) 그해 최저임금과 비교한다.
-// 월급 환산 시간 = (1주 소정근로시간 + 주휴 시간) × 365 ÷ 7 ÷ 12, 고시의 209시간처럼 반올림.
+// 월급 환산 시간 = (1주 소정근로시간 + 주휴 시간) × 365 ÷ 7 ÷ 12. 반올림이 시간을 늘릴 때만(고시의 209시간) 반올림한다.
 // 기대값은 손으로 센 것이다.
 
 const MIN26 = 10_320;
@@ -29,8 +29,9 @@ describe('최저임금 확인 — 단위 환산', () => {
     expect(r.shortfall).toBe(79_420);
   });
 
-  it('주 20시간 월급은 (20 + 4) × 365 ÷ 84 = 104.29 → 104시간', () => {
-    expect(checkMinWage({ unit: 'month', amount: 1_073_280, weeklyHours: 20, minHourly: MIN26 }).hours).toBe(104);
+  // 261124: 104로 내려 세면 미달이 충족으로 바뀌어(1,075,000원) 판정은 반올림하지 않은 시간으로 한다
+  it('주 20시간 월급은 (20 + 4) × 365 ÷ 84 = 104.2857…시간(내려 반올림하지 않는다)', () => {
+    expect(checkMinWage({ unit: 'month', amount: 1_073_280, weeklyHours: 20, minHourly: MIN26 }).hours).toBeCloseTo(104.2857, 3);
   });
 
   it('주 15시간 미만이면 주휴 시간 없이 센다 — 14 × 365 ÷ 84 = 60.83 → 61시간', () => {

@@ -65,7 +65,7 @@ export function registerCalc(server) {
     {
       title: '최저임금 비교',
       description:
-        '받는 임금을 시간급으로 바꿔 그해 시간급 최저임금과 비교한다(사이트 /tools/min-wage 와 같은 엔진). 월급 환산 시간 = (1주 소정근로시간 + 주휴 시간) × 365 ÷ 7 ÷ 12 반올림(주 40시간이면 209시간). ' +
+        '받는 임금을 시간급으로 바꿔 그해 시간급 최저임금과 비교한다(사이트 /tools/min-wage 와 같은 엔진). 월급 환산 시간 = (1주 소정근로시간 + 주휴 시간) × 365 ÷ 7 ÷ 12(반올림하면 시간이 늘어나는 경우만 반올림 — 주 40시간이면 208.57 → 209시간, 주 20시간이면 104.29시간 그대로). 주휴 시간 = 1주 소정근로시간 ÷ 같은 일 통상근로자의 1주 소정근로일 수(fullTimeDays, 기본 5), 8시간까지. 1주 40시간을 넘게 넣으면 warnings 로 알린다.' +
         'year 를 비우면 올해와 (고시가 있으면) 내년을 함께 본다. 정기상여금·현금 복리후생비(월급일 때)는 넣은 만큼 산입한다. 수습 90% 는 1년 이상 계약·수습 3개월 이내·단순노무 직종 아님을 모두 갖췄을 때만 쓴다.',
       inputSchema: {
         unit: UNIT.describe(UNIT_DESC),
@@ -74,6 +74,7 @@ export function registerCalc(server) {
         monthlyWelfareCash: z.number().optional().describe('월급일 때 현금으로 매월 주는 식비·교통비 등(원)'),
         weeklyHours: z.number().optional().describe('1주 소정근로시간(주급·월급일 때 필요)'),
         dailyHours: z.number().optional().describe('1일 소정근로시간(일급일 때 필요)'),
+        fullTimeDays: z.number().int().optional().describe('같은 일을 하는 통상근로자의 1주 소정근로일 수(주급·월급의 주휴 시간 분모, 기본 5)'),
         year: z.number().int().optional().describe('비교할 해(예: 2026). 비우면 올해와 내년'),
         probation: z.object({ oneYearContract: z.boolean(), withinThreeMonths: z.boolean(), simpleLabor: z.boolean() }).optional().describe('수습 감액 요건'),
       },
@@ -95,12 +96,14 @@ export function registerCalc(server) {
             year, minHourly: rate.value, notice: rate.basis,
             line: r.meets ? `${base} 이상입니다.` : `${base}보다 ${PER[a.unit]} ${won(r.shortfall)} 적습니다.`,
             ...r,
+            warnings: undefined, // 해마다 같은 입력 경고 — 아래 한 번만 낸다
           }];
         });
         if (!rows.length) return text({ ok: false, error: `${years.join('·')}년 최저임금 고시가 이 도구에 없습니다.` });
         return text({
           ok: true,
           rows,
+          warnings: checkMinWage({ ...a, minHourly: rows[0].minHourly }).warnings,
           fields: 'counted = 비교에 넣은 금액 · hours = 나눈 시간 수 · hourly = 시간급 환산 · applied = 적용한 시간급 최저임금 · required = 단위 기간 최저임금 · shortfall = 모자란 금액',
           basis: ['최저임금법 시행령 제5조제1항(시간급 환산)', '최저임금법 제6조제4항(산입 범위)', '최저임금법 제5조제2항·시행령 제3조(수습 90%)'],
           site: `${SITE}/tools/min-wage`,
