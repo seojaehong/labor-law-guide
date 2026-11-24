@@ -12,10 +12,10 @@ type Result = {
   genre: string;
   changeRate: { rate: number; percent: number; level?: string; approximate?: boolean };
   damaged: string[];
-  items: Record<'numbers' | 'quotes' | 'blocks' | 'terms' | 'modality' | 'antithesis', Item>;
+  items: Record<'numbers' | 'quotes' | 'blocks' | 'terms' | 'modality' | 'polarity' | 'antithesis', Item>;
 };
 const run = (b: string, a: string, genre?: string) => checkRewrite(b, a, genre ? { genre } : {}) as unknown as Result;
-const ITEMS = ['numbers', 'quotes', 'blocks', 'terms', 'modality', 'antithesis'] as const;
+const ITEMS = ['numbers', 'quotes', 'blocks', 'terms', 'modality', 'polarity', 'antithesis'] as const;
 /** 그 항목만 훼손이고 나머지는 보존됨인지 */
 const onlyDamaged = (r: Result, ...keys: string[]) => {
   for (const k of ITEMS) expect(r.items[k].status, k).toBe(keys.includes(k) ? '훼손' : '보존됨');
@@ -88,7 +88,7 @@ describe('check_rewrite — 자기시험: 일부러 망친 윤문은 그 항목�
     expect(r.status).toBe('훼손');
     onlyDamaged(r, 'numbers');
     expect(r.items.numbers.changes).toEqual([
-      expect.objectContaining({ kind: 'changed', line: { before: 4, after: 4 }, value: { before: '23', after: '24' } }),
+      expect.objectContaining({ kind: 'changed', line: { before: 4, after: 4 }, value: { before: '제23조', after: '제24조' } }),
     ]);
     expect(r.items.numbers.changes[0].before).toContain('제23조');
     expect(r.items.numbers.changes[0].after).toContain('제24조');
@@ -97,17 +97,18 @@ describe('check_rewrite — 자기시험: 일부러 망친 윤문은 그 항목�
   it('수치를 지움·더함 → 빠짐·더해짐', () => {
     const del = run(BEFORE, broken('2026. 3. 2. 근로자', '근로자'));
     onlyDamaged(del, 'numbers');
-    expect(del.items.numbers.changes.map((c) => [c.kind, c.value?.before])).toEqual([['removed', '2026'], ['removed', '3'], ['removed', '2']]);
+    // 날짜는 한 덩이로 센다
+    expect(del.items.numbers.changes.map((c) => [c.kind, c.value?.before])).toEqual([['removed', '2026. 3. 2.']]);
     const add = run(BEFORE, broken('개선 계획을', '개선 계획 3건을'));
     onlyDamaged(add, 'numbers');
-    expect(add.items.numbers.changes).toEqual([expect.objectContaining({ kind: 'added', line: { before: null, after: 9 }, value: { after: '3' } })]);
+    expect(add.items.numbers.changes).toEqual([expect.objectContaining({ kind: 'added', line: { before: null, after: 9 }, value: { after: '3건' } })]);
   });
 
   it('같은 값이 두 번 나오던 것 하나를 바꿔도 잡는다(개수까지 센다)', () => {
     const b = '기한은 30일이다. 유예 기간도 30일이다.';
     const r = run(b, '기한은 30일이다. 유예 기간도 5일이다.');
     expect(r.items.numbers.status).toBe('훼손');
-    expect(r.items.numbers.changes[0]).toMatchObject({ kind: 'changed', value: { before: '30', after: '5' } });
+    expect(r.items.numbers.changes[0]).toMatchObject({ kind: 'changed', value: { before: '30일', after: '5일' } });
   });
 
   it('표기만 바꾼 수치(천 단위 쉼표·날짜 점·앞자리 0)는 같은 값, 만·억 환산은 하지 않는다', () => {
@@ -182,9 +183,10 @@ describe('check_rewrite — 자기시험: 일부러 망친 윤문은 그 항목�
     onlyDamaged(run(BEFORE, after, 'general'), 'modality');
   });
 
-  it('용어 목록에 없는 당위(제출해야 한다 → 제출하면 좋다) → 당위만 훼손', () => {
+  it('「제출해야 한다 → 제출하면 좋다」 → 당위 사라짐(legal 은 해야 = 하여야 용어도 훼손)', () => {
     const r = run(BEFORE, broken('제출해야 한다.', '제출하면 좋다.'));
-    onlyDamaged(r, 'modality');
+    onlyDamaged(r, 'modality', 'terms');
+    onlyDamaged(run(BEFORE, broken('제출해야 한다.', '제출하면 좋다.'), 'general'), 'modality');
     expect(r.items.modality.changes[0]).toMatchObject({ modality: '당위', line: { before: 9, after: 9 } });
   });
 
@@ -231,10 +233,12 @@ describe('check_rewrite — 자기시험: 일부러 망친 윤문은 그 항목�
     expect(r.items.terms.count).toMatchObject({ 근로자: { before: 1, after: 0 } });
   });
 
-  it('「아니하」는 활용형(아니한다·아니할·아니함·아니합니다)까지 센다 — 「아니한다 → 않는다」는 용어 훼손(legal)', () => {
-    for (const form of ['아니한다', '아니할 수 없다', '아니함', '아니합니다', '아니하였다']) {
+  it('「아니하」는 활용형(아니한다·아니함·아니합니다)까지 「않」과 한 용어 — 「아니한다 → 않는다」는 보존됨, 부정을 지우면 용어 훼손(legal)', () => {
+    for (const form of ['아니한다', '아니함', '아니합니다', '아니하였다']) {
       const r = run(`사용자는 이를 지급하지 ${form}.`, '사용자는 이를 지급하지 않는다.');
-      expect(r.items.terms.changes, form).toEqual([expect.objectContaining({ kind: 'removed', term: '아니하' })]);
+      expect(r.items.terms.status, form).toBe('보존됨');
+      const gone = run(`사용자는 이를 지급하지 ${form}.`, '사용자는 이를 지급한다.');
+      expect(gone.items.terms.changes, form).toEqual([expect.objectContaining({ kind: 'removed', term: '아니하' })]);
     }
   });
 
