@@ -7,7 +7,7 @@
 
 import { checkContract } from './engine';
 import { WAGE_MATH_TOLERANCE } from './normalize';
-import { probationTermUnderOneYear } from './rules/misc';
+import { probationTermUnderOneYear } from './rules/wage';
 import { fixedTermsMissing, requiredTermsMissing } from './rules/required_terms';
 import { minwageAssessment } from './rules/wage';
 import type { Contract, Finding, FindingSeverity, FindingStatus } from './types';
@@ -219,8 +219,10 @@ export function buildRow(contract: Contract, finding: Finding): AmendmentRow {
     clause = code === 'OT-RATE' ? '임금 구성항목표' : '—';
     current = currentText(contract, code);
     amendment =
-      code === 'MINWAGE-PROBATION' && finding.status === 'violation' && probationTermUnderOneYear(contract)
-        ? '계약기간이 1년 미만이라 수습 감액을 쓸 수 없음 — 감액 문구를 삭제하고 수습 중에도 최저임금 이상 전액 지급, 또는 계약기간을 1년 이상으로 정함(최저임금법 §5②)'
+      code === 'MINWAGE-PROBATION' && finding.status === 'violation'
+        ? probationTermUnderOneYear(contract)
+          ? '계약기간이 1년 미만이라 최저시급 90% 특례를 쓸 수 없음 — 감액 후에도 시간급이 최저시급 이상이 되게 감액률을 낮추거나 감액 문구를 삭제, 또는 계약기간을 1년 이상으로 정함(최저임금법 §5②)'
+          : '감액 후 시간급이 기준(1년 이상 계약·3개월 이내·단순노무 아님이면 최저시급의 90%, 그 밖은 100%) 이상이 되게 감액률을 낮추거나 임금을 인상(최저임금법 §5②·시행령 §3)'
         : (AMEND_LIBRARY[code] ?? '관련 규정 정비 검토');
   }
   return {

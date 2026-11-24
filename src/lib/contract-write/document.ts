@@ -5,7 +5,7 @@
 // 사업장 양식의 자동 종료 조항(매년 재계약 자동종료·불응 시 자동만료)은 넣지 않는다(HRMS 수원 건 재홍님 결정).
 
 import { monthlyHolidayWeekDrop, ROUNDING_UNIT, weeklySchedule, type DesignResult, type ItemKey } from './design';
-import { dailyWorkHours, leaveTerms, PROBATION_PCT, rateText, reducedMonthsOf, restDayTerm, type WriteForm } from './contract';
+import { dailyWorkHours, leaveTerms, PROBATION_PCT, probationIssue, rateText, reducedMonthsOf, restDayTerm, type WriteForm } from './contract';
 import { laborDayOffHours, laborDayOffPay } from './part';
 import { hoursText, wonText } from './text';
 
@@ -189,7 +189,11 @@ export function buildContractDocument(form: WriteForm, design: DesignResult): Co
     if (prob.reduced) {
       const reducedMonths = reducedMonthsOf(prob);
       periodLines.push(
-        `수습을 시작한 날부터 ${reducedMonths}개월 동안은 제5조 임금의 100분의 ${PROBATION_PCT}를 지급한다. 다만 시간급으로 환산한 금액이 최저임금법 제5조 제2항과 같은 법 시행령 제3조에 따른 금액(시간급 최저임금의 100분의 90) 이상이 되게 한다.`,
+        // 특례를 쓸 수 없는 계약(단순노무·1년 미만)은 감액 후에도 최저시급 이상이어야 한다(261124 P1)
+        `수습을 시작한 날부터 ${reducedMonths}개월 동안은 제5조 임금의 100분의 ${PROBATION_PCT}를 지급한다. ` +
+          (probationIssue(form)
+            ? '다만 시간급으로 환산한 금액이 시간급 최저임금 이상이 되게 한다(최저임금법 제6조 제1항).'
+            : '다만 시간급으로 환산한 금액이 최저임금법 제5조 제2항과 같은 법 시행령 제3조에 따른 금액(시간급 최저임금의 100분의 90) 이상이 되게 한다.'),
       );
     }
   }

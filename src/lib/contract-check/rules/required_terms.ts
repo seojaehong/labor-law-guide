@@ -5,6 +5,8 @@
 //   소정근로시간(start/end/days_per_week), 주휴일(weekly_rest),
 //   연차(annual_leave_clause), 취업장소·업무(job.location/duty).
 //   1개라도 누락 → violation (detail에 누락 항목 나열).
+//   261124 P1 — 1주 소정 15시간 미만이면 주휴일·연차, 상시 4명 이하(employee_count_5plus=false)면 연차는 해당 없음
+//   (근기법 §18③, 시행령 §7 별표1). 인원·소정시간 미상은 종전대로 본다. REQUIRED-TERMS-FIXED ④휴일·휴가도 같다.
 //
 // REQUIRED-TERMS-FIXED: employment_type이 fixed_term/part_time 계열일 때만.
 //   ①근로계약기간 ②근로시간·휴게 ③임금 구성·계산·지불 ④휴일·휴가
@@ -14,7 +16,7 @@
 //   행을 버린 표시(work_time.daily_schedules_dropped)가 있을 때만 「근로일별 시간 일부 미입력」 — 그것만이면 needs_data,
 //   다른 누락이 있으면 violation 에 덧붙인다(261102 K5 — JSON·사진 경로는 §17 위반 그대로).
 
-import { DAILY_MISMATCH_NOTE, FIXED_TERM_TYPES, PART_TIME_TYPES, dailyScheduleState } from '../normalize';
+import { DAILY_MISMATCH_NOTE, FIXED_TERM_TYPES, PART_TIME_TYPES, WEEKLY_HOLIDAY_MIN_HOURS, dailyScheduleState } from '../normalize';
 import type { Contract, Finding, Wage, WorkTime } from '../types';
 import { makeFinding, type RuleFn } from './index';
 
@@ -35,18 +37,37 @@ function wageMissing(wage: Wage): string[] {
   return missing;
 }
 
+/** 1주 소정근로시간이 15시간 미만으로 확인되면 true — 근기법 §55·§60 을 적용하지 않는다(§18③). 모르면 false */
+function under15(contract: Contract): boolean {
+  const scheduled = contract.work_time?.weekly_scheduled_hours;
+  return scheduled != null && scheduled > 0 && scheduled < WEEKLY_HOLIDAY_MIN_HOURS;
+}
+
+/** 주휴일·연차를 명시해야 하는가(261124 P1). 주 15시간 미만이면 둘 다 없음(근기법 §18③), 상시 4명 이하로 표시되면
+ * 연차(§60)는 적용하지 않음(시행령 §7 별표1 — §55①·§17 은 적용). 상시 인원 미상(null)은 5명 이상 전제 */
+export function holidayLeaveApplies(contract: Contract): { weeklyRest: boolean; annualLeave: boolean; note: string } {
+  if (under15(contract)) {
+    return { weeklyRest: false, annualLeave: false, note: '1주 소정 15시간 미만 — 주휴일·연차 해당 없음(근기법 §18③)' };
+  }
+  if (contract.workplace?.employee_count_5plus === false) {
+    return { weeklyRest: true, annualLeave: false, note: '상시 4명 이하 — 연차 해당 없음(근기법 시행령 §7 별표1)' };
+  }
+  return { weeklyRest: true, annualLeave: true, note: '' };
+}
+
 /** 근기법 §17 필수 명시사항 누락 라벨 리스트 (amendments 보완 문안도 재사용). */
 export function requiredTermsMissing(contract: Contract): string[] {
   const workTime = contract.work_time ?? {};
   const holidays = contract.holidays_leave ?? {};
   const job = contract.job ?? {};
+  const applies = holidayLeaveApplies(contract);
 
   const missing = wageMissing(contract.wage ?? {});
   if (!(workTime.start && workTime.end && workTime.days_per_week)) {
     missing.push('소정근로시간');
   }
-  if (!holidays.weekly_rest) missing.push('주휴일');
-  if (!holidays.annual_leave_clause) missing.push('연차유급휴가');
+  if (applies.weeklyRest && !holidays.weekly_rest) missing.push('주휴일');
+  if (applies.annualLeave && !holidays.annual_leave_clause) missing.push('연차유급휴가');
   if (!job.location) missing.push('취업장소');
   if (!job.duty) missing.push('종사업무');
   return missing;
@@ -59,6 +80,15 @@ export const ruleRequiredTerms: RuleFn = (contract) => {
       'REQUIRED-TERMS',
       'violation',
       '필수 명시사항 누락: ' + missing.map((m) => `${m} 미명시`).join(' · '),
+    );
+  }
+  const applies = holidayLeaveApplies(contract);
+  if (applies.note) {
+    const terms = applies.weeklyRest ? '소정근로시간, 주휴일' : '소정근로시간';
+    return makeFinding(
+      'REQUIRED-TERMS',
+      'ok',
+      `근기법 §17 필수 명시사항(임금 구성·계산·지급방법, ${terms}, 취업장소·업무) 모두 기재 — ${applies.note}`,
     );
   }
   return makeFinding(
@@ -86,7 +116,11 @@ export function fixedTermsMissing(contract: Contract): string[] {
   if (wageMissing(contract.wage ?? {}).length > 0) {
     missing.push('임금의 구성항목·계산방법·지불방법');
   }
-  if (!(holidays.weekly_rest && holidays.annual_leave_clause)) missing.push('휴일·휴가');
+  // 적용되지 않는 휴일·휴가(주 15시간 미만의 주휴·연차, 상시 4명 이하의 연차)는 적을 대상이 없다 — REQUIRED-TERMS 와 같은 판단
+  const applies = holidayLeaveApplies(contract);
+  if ((applies.weeklyRest && !holidays.weekly_rest) || (applies.annualLeave && !holidays.annual_leave_clause)) {
+    missing.push('휴일·휴가');
+  }
   if (!(job.location && job.duty)) missing.push('취업장소·종사업무');
   if (PART_TIME_TYPES.has(empType) && dailyScheduleState(workTime) !== 'ok' && !formDroppedRows(workTime)) {
     missing.push(DAILY_TERMS);

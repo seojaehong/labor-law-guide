@@ -183,10 +183,10 @@ export default function ContractWriteClient() {
         {s.probation === 'yes' && (
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
             <Field label="수습 개월 수"><Input label="수습 개월 수" value={s.probationMonths} onChange={(v) => patch({ probationMonths: v.replace(/[^\d]/g, '') })} /></Field>
-            <Field label="처음 3개월 임금 90%" hint="1년 이상 계약만 가능(최저임금법 제5조 제2항)">
+            <Field label="처음 3개월 임금 90%" hint="최저시급의 90% 특례는 1년 이상 계약만(최저임금법 제5조 제2항). 1년 미만은 감액해도 최저시급 이상이어야 합니다">
               <Choice options={YES_NO} value={s.probationReduced} onChange={(v) => patch({ probationReduced: v })} />
             </Field>
-            <Field label="단순노무 업무" hint="고시된 단순노무 직종은 감액할 수 없습니다">
+            <Field label="단순노무 업무" hint="고시된 단순노무 직종은 특례가 없어 감액해도 최저시급 이상이어야 합니다">
               <Choice options={YES_NO} value={s.simpleLabor} onChange={(v) => patch({ simpleLabor: v })} />
             </Field>
           </div>

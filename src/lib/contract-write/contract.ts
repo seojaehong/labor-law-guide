@@ -3,8 +3,7 @@
 
 import { checkContract } from '@/lib/contract-check/engine';
 import { dayWorkMinutes, MINWAGE_TABLE, normalize } from '@/lib/contract-check/normalize';
-import { atLeastOneYear } from '@/lib/contract-check/rules/misc';
-import { minwageAssessment } from '@/lib/contract-check/rules/wage';
+import { atLeastOneYear, minwageAssessmentForYear, ruleMinwageProbation } from '@/lib/contract-check/rules/wage';
 import type { Contract, Finding, WageItem, WageItemCode } from '@/lib/contract-check/types';
 
 import { designHours, designMonthlyWage, monthlyHolidayWeekDrop, ROUNDING_UNIT, weeklySchedule, WEEKS_PER_MONTH, type DesignResult, type ItemKey, type Rounding } from './design';
@@ -121,15 +120,28 @@ function holidayNote(form: WriteForm): string {
   return `${note}${over8}${dropped > 0 ? `(공휴일 주에 빠지는 1주 연장 ${dropped}H)` : ''}`;
 }
 
-/** 수습 감액을 쓸 수 없는 사유. 없으면 null. 1년 경계는 점검 규칙 MINWAGE-PROBATION 과 같은 atLeastOneYear 를 쓴다 */
+/** 수습 감액 특례(최저시급의 90%)를 쓸 수 없는 사유. 없으면 null. 1년 경계는 점검 규칙 MINWAGE-PROBATION 과 같은
+ * atLeastOneYear 를 쓴다. 특례를 못 써도 감액 후 임금이 최저시급 이상이면 감액할 수 있다(261124 P1 — designFromForm 이
+ * 감액 후 최저시급 미만일 때만 막는다) */
 export function probationIssue(form: WriteForm): string | null {
   const p = form.probation;
   if (!p?.reduced) return null;
-  if (p.simpleLabor) return '단순노무업무로 고시된 직종은 수습 중에도 최저임금을 감액할 수 없습니다(최저임금법 제5조 제2항 단서).';
+  if (p.simpleLabor) return '단순노무업무로 고시된 직종은 수습 감액 특례(최저시급의 90%)를 쓸 수 없습니다(최저임금법 제5조 제2항 단서).';
   if (form.endDate && !atLeastOneYear(form.startDate, form.endDate)) {
-    return '수습 감액은 1년 이상의 기간을 정한 계약에만 쓸 수 있습니다(최저임금법 제5조 제2항). 계약기간을 늘리거나 감액을 끄세요.';
+    return '수습 감액 특례(최저시급의 90%)는 1년 이상의 기간을 정한 계약에만 쓸 수 있습니다(최저임금법 제5조 제2항).';
   }
   return null;
+}
+
+/** 특례를 쓸 수 없는 계약(단순노무·1년 미만)에서 수습 감액 후 임금이 최저시급 아래면 그 이유. 점검 규칙 MINWAGE-PROBATION 으로
+ * 본다. 특례 계약(최저시급의 90%)은 막지 않는다 — 감액 전 임금이 최저시급 이상이면 90% 도 기준 이상이고, 아니면(또는 감액 기간이
+ * 다음 해로 넘어가 그 해 기준에 못 미치면) 점검 되먹임(MINWAGE·MINWAGE-PROBATION)이 손볼 것으로 알린다 */
+function probationBelowFloor(form: WriteForm, design: DesignResult): string | null {
+  const special = probationIssue(form);
+  if (!special) return null;
+  const [contract] = normalize([toContract(form, design)]);
+  if (ruleMinwageProbation(contract).status !== 'violation') return null;
+  return `${special} 100분의 ${PROBATION_PCT}로 감액하면 임금이 최저시급보다 낮아집니다. 임금을 올리거나 감액을 끄세요.`;
 }
 
 export const PROBATION_PCT = 90;
@@ -202,8 +214,13 @@ export function itemHoursOf(
 }
 
 export function designFromForm(form: WriteForm): DesignResult {
-  const issue = probationIssue(form);
+  const design = designOnly(form);
+  const issue = probationBelowFloor(form, design);
   if (issue) throw new Error(issue);
+  return design;
+}
+
+function designOnly(form: WriteForm): DesignResult {
   if (form.payType === 'hourly') {
     if (!(form.hourlyWage && form.hourlyWage > 0)) throw new Error('시간당 지급액을 넣어 주세요');
     return designHourlyWage({
@@ -264,10 +281,10 @@ function fixedTermText(detail: string | null | undefined): string {
 }
 
 /**
- * 계약 기간이 걸친 시작 다음 해부터의 최저시급 비교(PR #140 검토 8). 같은 계약을 그 해 1월 1일 시작으로 놓고 점검 규칙 MINWAGE 를 다시 돌린다.
+ * 계약 기간이 걸친 시작 다음 해부터의 최저시급 비교(PR #140 검토 8). 같은 계약을 그 해 최저시급과 비교한다(점검 규칙 MINWAGE 의 한 해 판정 minwageAssessmentForYear).
  * 기간의 정함이 없으면 표에 등록된 다음 해들과만 비교한다(끝이 없으므로 미등록 해는 적지 않는다).
  */
-function laterMinimumWage(form: WriteForm, raw: Contract): WrittenReview['minimumWageLater'] {
+function laterMinimumWage(form: WriteForm, contract: Contract): WrittenReview['minimumWageLater'] {
   const first = Number(form.startDate.slice(0, 4));
   const last = form.endDate ? Number(form.endDate.slice(0, 4)) : Math.max(first, ...Object.keys(MINWAGE_TABLE).map(Number));
   const out: WrittenReview['minimumWageLater'] = [];
@@ -278,8 +295,7 @@ function laterMinimumWage(form: WriteForm, raw: Contract): WrittenReview['minimu
       unregistered.push(y);
       continue;
     }
-    const [shifted] = normalize([{ ...raw, period: { ...raw.period, start_date: `${y}-01-01` } }]);
-    if (minwageAssessment(shifted).status === 'violation') {
+    if (minwageAssessmentForYear(contract, String(y)).status === 'violation') {
       out.push({
         text: `${y}년 최저시급 ${minimum.toLocaleString('ko-KR')}원보다 낮습니다 — 계약이 ${y}년까지 이어지므로 ${y}년 1월 1일부터는 임금을 올려 다시 정해야 합니다`,
         warn: true,
@@ -309,7 +325,9 @@ export function reviewWritten(form: WriteForm, design: DesignResult): WrittenRev
   const year = form.startDate.slice(0, 4);
   const minimum = MINWAGE_TABLE[year];
   const rate = `통상시급 ${rateText(design.rate)}원`;
-  const minwage = findings.find((f) => f.rule_code === 'MINWAGE');
+  // 이 줄은 시작 연도 판정으로 적는다 — 점검 규칙 MINWAGE 는 오늘까지 이어진 해도 보므로(261124) 그 판정을 시작 연도 문장에 쓰지 않는다
+  const startA = minwageAssessmentForYear(contract, year);
+  const minwage = { status: startA.status, detail: publicText(startA.detail) };
   let line: WrittenReview['minimumWage'];
   // 미달이면 시급을 소수 둘째 자리에서 버려 적는다 — 반올림하면 2,156,879 ÷ 209H 가 「10,320.00원 — 10,320원보다 낮습니다」가 된다(261122)
   const floored = Math.floor(design.rate * 100) / 100;
@@ -329,7 +347,7 @@ export function reviewWritten(form: WriteForm, design: DesignResult): WrittenRev
   else if (minwage?.status === 'violation') line = { text: apart(), warn: true };
   else line = { text: `${rate} — 최저임금: ${minwage?.detail ?? '판단하지 못했습니다'}`, warn: true };
   // 시작 연도부터 낮으면 다음 해도 낮다 — 같은 말을 되풀이하지 않는다
-  const later = minwage?.status === 'violation' ? [] : laterMinimumWage(form, raw);
+  const later = minwage.status === 'violation' ? [] : laterMinimumWage(form, contract);
   return { problems, minimumWage: line, minimumWageLater: later, notes: prepaysLeave(design) ? [LEAVE_PREPAID_NOTE] : [] };
 }
 
