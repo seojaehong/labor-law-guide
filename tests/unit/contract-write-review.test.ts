@@ -176,7 +176,11 @@ describe('검토 5 · 점검 규칙 MINWAGE-PROBATION', () => {
     employee: { name: '합성01', hire_date: '2026-03-01' },
     period: { start_date: '2026-03-01', indefinite: true, probation },
     work_time: {},
-    wage: {},
+    // 261124 P1 — 감액 후 임금을 최저임금과 비교한다. 2026 월 최저 2,156,880원의 90% = 9,288 × 209 — 특례 기준 딱 맞음, 100% 기준 미만
+    wage: {
+      pay_type: 'monthly',
+      items: [{ code: 'BASE', label: '기본급', amount: 2_156_880, basis_hours: 209, rate_multiplier: 1, basis_text: '통상시급 × 209시간' }],
+    },
     signatures: { written_date: '2026-03-01' },
   });
   const status = (c: Contract) => checkContract(normalize([c])[0]).find((f) => f.rule_code === 'MINWAGE-PROBATION')!;
@@ -188,7 +192,7 @@ describe('검토 5 · 점검 규칙 MINWAGE-PROBATION', () => {
     expect(f.detail).toContain('3개월');
   });
 
-  it('감액 기간이 3개월을 넘으면 위반', () => {
+  it('감액 기간이 3개월을 넘으면 최저시급 100% 기준 — 90% 감액 후 9,288원은 위반', () => {
     expect(status(contract({ applied: true, months: 6, reduced_months: 4, wage_rate_pct: 90 })).status).toBe('violation');
   });
 

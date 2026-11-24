@@ -13,6 +13,10 @@ import { normalize } from '@/lib/contract-check/normalize';
 import type { Contract, Finding, WageItem } from '@/lib/contract-check/types';
 import { INITIAL, toWriteForm } from '@/app/tools/contract-write/formState';
 import { checkWritten, designFromForm, reviewWritten, toContract, type WriteForm } from '@/lib/contract-write/contract';
+import { pinToday } from './_pin-today';
+
+// 최저임금 비교 연도가 오늘에 걸린다 — 날짜를 고정한다(261124 P1)
+pinToday();
 
 const MIN_2026 = (minwageJson as Record<string, number>)['2026'];
 const MONTHLY_2026 = MIN_2026 * 209;
@@ -154,11 +158,14 @@ describe('① 근로계약서 작성(design_contract_wage) — 최저임금 한 
 });
 
 describe('② 수습 감액 — 1년 이상 기간을 정한 계약에만(최저임금법 제5조제2항)', () => {
+  // 261124 P1 — 감액 후 임금을 최저임금과 비교한다. 감액 전 임금 = 2027년 월 최저(10,700 × 209 = 2,236,300원):
+  // 90% = 2,012,670원은 특례 기준(2026 9,288 · 2027 9,630 × 209) 이상, 100% 기준(2026 2,156,880원) 미만
+  const MONTHLY_2027 = (minwageJson as Record<string, number>)['2027'] * 209;
   const prob = (end: string | null) =>
     get(
       contract({
         employment_type: end ? 'fixed_term' : 'regular',
-        items: [monthlyBase(Math.ceil(MONTHLY_2026 * 0.9))],
+        items: [monthlyBase(MONTHLY_2027)],
         period: {
           end_date: end,
           indefinite: end == null,

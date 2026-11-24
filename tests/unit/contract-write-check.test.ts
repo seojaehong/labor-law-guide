@@ -4,6 +4,10 @@ import { describe, expect, it } from 'vitest';
 import { checkContract } from '@/lib/contract-check/engine';
 import { normalize } from '@/lib/contract-check/normalize';
 import { checkWritten, designFromForm, toContract, type WriteForm } from '@/lib/contract-write/contract';
+import { pinToday } from './_pin-today';
+
+// 최저임금 비교 연도가 오늘에 걸린다 — 날짜를 고정한다(261124 P1)
+pinToday();
 
 const UIJEONGBU: WriteForm = {
   workplaceName: '합성테스트 사업장',

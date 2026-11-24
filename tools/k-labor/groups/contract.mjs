@@ -62,8 +62,8 @@ const formShape = {
   }).optional().describe('월급제 — 계약서에 이미 정한 월 연장·휴일·연차 시간이 있으면 그 값을 쓴다(가산 반영 시간)'),
   probation: z.object({
     months: z.number().describe('수습 개월 수'),
-    reduced: z.boolean().optional().describe('처음 3개월 임금을 최저임금의 100분의 90 으로 정한다'),
-    simpleLabor: z.boolean().optional().describe('단순노무업무 고시 직종(감액할 수 없다)'),
+    reduced: z.boolean().optional().describe('처음 3개월 임금을 100분의 90 으로 정한다. 감액 후 시급 하한은 1년 이상 계약·단순노무 아님이면 최저시급의 90%(최저임금법 제5조 제2항), 그 밖에는 최저시급 100%(이때 감액 후 최저시급 미만이면 오류, 특례 계약의 미달은 review 에 나온다)'),
+    simpleLabor: z.boolean().optional().describe('단순노무업무 고시 직종(90% 특례 없음 — 감액해도 최저시급 이상이어야 한다)'),
   }).optional(),
   startDate: z.string().describe('계약 시작일 YYYY-MM-DD(최저임금 비교 연도도 이 날짜로 정한다)'),
   endDate: z.string().optional().describe('계약 종료일 YYYY-MM-DD. 비우면 기간의 정함이 없음'),
@@ -196,6 +196,15 @@ function dropRrnField(data) {
   return strip(data);
 }
 
+/** 되먹임 요약 한 줄 — 손볼 항목이 없어도 최저임금 줄(시작 연도·이어지는 해)에 경고가 있으면 「손볼 항목 없음」이라 하지 않는다
+ * (261124 P1 — 2026-12-01 시작 월 225만 원은 2027년 최저시급 미달인데 「손볼 항목이 없습니다」를 냈다) */
+export function reviewSummary(review) {
+  const warns = [review.minimumWage, ...review.minimumWageLater].filter((l) => l.warn).length;
+  if (review.problems.length) return `손볼 항목 ${review.problems.length}개${warns ? ` · 최저임금 확인 ${warns}건(minimumWage·minimumWageLater)` : ''}`;
+  if (warns) return `손볼 항목은 없지만 최저임금 확인이 ${warns}건 있습니다(minimumWage·minimumWageLater).`;
+  return '손볼 항목이 없습니다.';
+}
+
 export function registerContract(server) {
   // ── 임금 구성 설계(읽기 전용) ──
   server.registerTool(
@@ -217,9 +226,10 @@ export function registerContract(server) {
         ...designSummary(r.form, r.design),
         ...(r.netNote ? { netNote: r.netNote } : {}),
         minimumWage: r.review.minimumWage,
+        ...(r.review.minimumWageLater.length ? { minimumWageLater: r.review.minimumWageLater } : {}),
         review: {
           title: '근로계약서 점검 규칙으로 다시 본 결과',
-          summary: r.review.problems.length ? `손볼 항목 ${r.review.problems.length}개` : '손볼 항목이 없습니다.',
+          summary: reviewSummary(r.review),
           items: r.review.problems.map(reviewLine),
         },
         ...(r.paperMissing.length ? { contractFieldsMissing: r.paperMissing, contractFieldsNote: '계약서 파일(make_contract_files)을 만들려면 이 칸을 넣어 주세요.' } : {}),
@@ -343,7 +353,8 @@ export function registerContract(server) {
         total: r.design.total,
         ordinaryHourlyText: `${rateText(r.design.rate)}원`,
         minimumWage: r.review.minimumWage,
-        review: r.review.problems.length ? r.review.problems.map(reviewLine) : '손볼 항목이 없습니다.',
+        ...(r.review.minimumWageLater.length ? { minimumWageLater: r.review.minimumWageLater } : {}),
+        review: r.review.problems.length ? r.review.problems.map(reviewLine) : reviewSummary(r.review),
         check: '서명하기 전에 파일을 열어 사업장·근로자 정보와 금액을 확인하세요.',
       });
     },

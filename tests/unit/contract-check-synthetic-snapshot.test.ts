@@ -25,6 +25,10 @@ import { checkContract } from '@/lib/contract-check/engine';
 import { normalize } from '@/lib/contract-check/normalize';
 import type { Contract } from '@/lib/contract-check/types';
 import { type FormState, INITIAL, buildContract } from '@/app/tools/contract-check/formState';
+import { pinToday } from './_pin-today';
+
+// 최저임금 비교 연도가 오늘에 걸린다 — 날짜를 고정한다(261124 P1)
+pinToday();
 
 describe('합성 4건 — 전체 findings 기대값', () => {
   const cases = normalize(casesJson as unknown as Contract[]);
