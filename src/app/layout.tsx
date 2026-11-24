@@ -6,6 +6,9 @@ import GlassNav from "@/components/GlassNav";
 import ConnectorBanner from "@/components/ConnectorBanner";
 import SiteSurface from "@/components/SiteSurface";
 import "@/components/site-refactor.css";
+// Pretendard — 공식 dynamic-subset(unicode-range 92조각). 화면에 쓰인 글자의 조각만 받는다. 원본 2,010KB 단일 파일 대체(261124).
+// next 가 node_modules 의 woff2 를 _next/static/media 로 복사해 자체 호스팅한다(외부 CDN 없음). 라이선스 OFL = public/fonts/Pretendard-OFL.txt
+import "pretendard/dist/web/variable/pretendardvariable-dynamic-subset.css";
 import { SITE_URL, BRAND_NAME, BRAND_DESCRIPTION } from "@/lib/constants";
 import { CONTACT_EMAIL } from "@/lib/site-contact";
 import { DISMISSED_CLASS as BANNER_DISMISSED_CLASS, STORAGE_KEY as BANNER_STORAGE_KEY } from "@/lib/connector-banner";
