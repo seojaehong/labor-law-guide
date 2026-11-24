@@ -41,6 +41,11 @@ test('다른 서식으로 바꾸면 그 서식 칸이 나오고, 휴대폰 폭�
   await page.setViewportSize({ width: 390, height: 844 });
   await page.getByRole('button', { name: '배우자 출산전후휴가 고지서' }).click();
   await expect(page.getByLabel(/^1회차 시작일/)).toBeVisible();
+  // 2차 서식(261124)도 고를 수 있다
+  await page.getByRole('button', { name: '가족돌봄휴가 신청서' }).click();
+  await expect(page.getByLabel(/^돌봄 대상 가족 성명/)).toBeVisible();
+  await page.getByRole('button', { name: '육아기 근로시간 단축 신청서' }).click();
+  await expect(page.getByLabel(/^단축 후 주 근로시간/)).toBeVisible();
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
   expect(overflow).toBeLessThanOrEqual(0);
 });
