@@ -13,6 +13,13 @@ import type {
   SearchResponsePayload,
 } from '@/lib/search/types';
 import type { ReasonCategory } from '@/lib/types';
+import {
+  ADMIN_COLUMNS,
+  MOLAB_COLUMNS,
+  interleaveInterpretations,
+  toInterpretation,
+  type AdminInterpretationRow,
+} from '@/lib/search/interpretation-merge';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -499,31 +506,50 @@ async function runMolabSearch(
   limit = 5,
   reason: string = ''
 ): Promise<MolabInterpretation[]> {
-  const escaped = escapeIlike(query);
-
-  // 1순위: reason_category → keywords_matched 매칭
+  // 1순위: reason_category → keywords_matched 매칭.
+  // 두 표가 라벨 어휘를 일부만 공유하지만(실측 「부당해고」 계열 admin 120건 / molab 1,220건)
+  // 겹치는 만큼은 행정해석도 올라와야 한다.
   if (reason && REASON_TO_LAWGO_KEYWORDS[reason]) {
     const keywords = REASON_TO_LAWGO_KEYWORDS[reason];
-    const { data } = await supabase
-      .from('molab_interpretations')
-      .select('id, title, case_number, decision_date, inquiry_summary, answer_summary, keywords_matched')
-      .overlaps('keywords_matched', keywords)
-      .order('decision_date', { ascending: false, nullsFirst: false })
-      .limit(limit);
+    const [molabRes, adminRes] = await Promise.all([
+      supabase
+        .from('molab_interpretations')
+        .select(MOLAB_COLUMNS)
+        .overlaps('keywords_matched', keywords)
+        .order('decision_date', { ascending: false, nullsFirst: false })
+        .limit(limit),
+      supabase
+        .from('admin_interpretations')
+        .select(ADMIN_COLUMNS)
+        .overlaps('keywords_matched', keywords)
+        .order('decision_date', { ascending: false, nullsFirst: false })
+        .limit(limit),
+    ]);
 
-    if (data && data.length > 0) return data as MolabInterpretation[];
+    const merged = interleaveInterpretations(
+      (molabRes.data || []) as unknown as MolabInterpretation[],
+      ((adminRes.data || []) as unknown as AdminInterpretationRow[]).map(toInterpretation),
+      limit
+    );
+    if (merged.length > 0) return merged;
   }
 
-  // 2순위: 텍스트 검색
-  if (escaped) {
-    const { data } = await supabase
-      .from('molab_interpretations')
-      .select('id, title, case_number, decision_date, inquiry_summary, answer_summary, keywords_matched')
-      .or(`title.ilike.%${escaped}%,inquiry_summary.ilike.%${escaped}%,answer_summary.ilike.%${escaped}%`)
-      .order('decision_date', { ascending: false, nullsFirst: false })
-      .limit(limit);
+  // 2순위: 텍스트 검색.
+  // 종전엔 molab_interpretations 에 ilike '%q%' 하나였다 — 표 하나만 읽고(전체의 35%),
+  // 선행 와일드카드라 인덱스도 못 썼다. 이미 있는 함수 둘을 쓴다(새로 만들지 않는다):
+  //   search_admin_core  → admin_interpretations (search_tsv + 문서번호 numkey)
+  //   search_molab_only  → molab_interpretations (tsv + numkey + 제목 유사도)
+  if (query.trim()) {
+    const [adminRes, molabRes] = await Promise.all([
+      supabase.rpc('search_admin_core', { query, result_limit: limit, page_offset: 0 }),
+      supabase.rpc('search_molab_only', { query, result_limit: limit }),
+    ]);
 
-    return (data || []) as MolabInterpretation[];
+    return interleaveInterpretations(
+      ((adminRes.data || []) as AdminInterpretationRow[]).map(toInterpretation),
+      ((molabRes.data || []) as AdminInterpretationRow[]).map(toInterpretation),
+      limit
+    );
   }
 
   return [];
