@@ -57,6 +57,33 @@ describe('docs 묶음', () => {
     }
   });
 
+  it('orientation·tableLineSpacing — 입력 스키마에 있고, 가로 파일을 쓰며, 범위 밖 줄간격은 멈춘다(261124)', async () => {
+    // 필드 스키마를 그대로 쓴다(시험 쪽 zod 와 도구 쪽 zod 가 다른 사본일 수 있다)
+    type F = { safeParse: (v: unknown) => { success: boolean } };
+    const field = (k: string) => (tool.cfg.inputSchema as unknown as Record<string, F>)[k];
+    expect(field('orientation').safeParse('landscape').success).toBe(true);
+    expect(field('orientation').safeParse('sideways').success).toBe(false);
+    expect(field('features').safeParse({ table: { align: 'left' } }).success).toBe(true);
+    expect(field('features').safeParse({ table: { align: 'center' } }).success).toBe(false);
+    expect(field('tableLineSpacing').safeParse(180).success).toBe(true);
+    for (const v of [99, 251, 150.5]) expect(field('tableLineSpacing').safeParse(v).success).toBe(false);
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'md-hwpx-'));
+    try {
+      const md = '# 가상 가로 문서\n\n| 쟁점 | 주장 | 반론 | 검토 |\n|---|---|---|---|\n| 가 | 나 | 다 | 라 |\n';
+      const r = await call({ markdown: md, preset: 'internal', outDir: dir, orientation: 'landscape', tableLineSpacing: 180 });
+      expect(r.ok).toBe(true);
+      const z2 = await JSZip.loadAsync(fs.readFileSync(r.file.path));
+      expect(await z2.file('Contents/section0.xml')!.async('string')).toContain('landscape="NARROWLY" width="59528" height="84186"');
+      expect(await z2.file('Contents/header.xml')!.async('string')).toMatch(/<hh:paraPr id="27"[^>]*>[\s\S]*?value="180"/);
+      const bad = await call({ markdown: md, preset: 'internal', outDir: dir, fileBase: 'bad', tableLineSpacing: 300 });
+      expect(bad.ok).toBe(false);
+      expect(bad.error).toContain('tableLineSpacing');
+      expect(fs.existsSync(path.join(dir, 'bad.hwpx'))).toBe(false);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
   it('입력이 없거나 주민등록번호 모양이 있으면 멈춘다', async () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'md-hwpx-'));
     try {

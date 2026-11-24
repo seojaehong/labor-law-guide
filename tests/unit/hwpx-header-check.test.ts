@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { checkHeader } from '@/lib/md-hwpx/header-check';
 import { HEADER_XML } from '@/lib/contract-write/hwpx-header';
-import { mdSectionXml, parseMarkdown, presetHeader } from '@/lib/md-hwpx';
+import { mdDocXml, parseMarkdown, presetHeader } from '@/lib/md-hwpx';
 
 // S0 — header 불변식(편집기술사양 U3·U4·U5). 한글은 charPr·paraPr·borderFill 을 id 가 아니라 등장 순서로 읽는다.
 const mini = (chars: string, cnt = 2) =>
@@ -37,7 +37,9 @@ describe('checkHeader — S0 header 불변식', () => {
   it('엔진이 만든 section 은 범위 안 id 만 쓴다', () => {
     const md = '# 제목\n\n## 1. 개요\n\n- 항목 **굵게**\n\n| 가 | 나 |\n|---|---|\n| 1 | 2 |\n';
     for (const preset of ['internal', 'tribunal'] as const) {
-      expect(checkHeader(presetHeader(preset), mdSectionXml(parseMarkdown(md), { preset }))).toEqual([]);
+      // 261124 — 문서 첫 제목은 앞 간격 0 복제 문단을 쓴다. 복제는 mdDocXml 의 header 에 붙으므로 같은 호출의 header·section 으로 본다
+      const { header, section } = mdDocXml(parseMarkdown(md), { preset });
+      expect(checkHeader(header, section)).toEqual([]);
     }
   });
 });
