@@ -99,9 +99,14 @@ function addMonths(d: Date, n: number): Date {
  *   종료 2026-06-30 → 1차 2025-12-31, 바르게는 2026-01-01 — 하루 이른 촉구가 「일치」로 떴다).
  *   12-31 종료 기준 사례(7-01 시작, 10-31 기한)와 같은 원리를 모든 달에 적용한다.
  *   기한(「N개월 전까지」)은 이 날의 전날이다.
+ *   소멸일이 29~31일인데 대상 월에 그날이 없으면(예: 08-31 → 6개월 전 「02-31」) 말일로 줄이지 않고
+ *   다음 달 1일로 둔다 — 줄이면 시작이 앞당겨져 이른 촉구가 「일치」가 된다. 이렇게 하면 말일이 아닌
+ *   종료일은 종전 값과 같다(2027~2028 전 종료일 전수 대조). 이 역산 방식은 조문만으로 정해지지 않아 확인 필요로 둔다.
  */
 function monthsBeforeExpiry(end: Date, n: number): Date {
-  return addMonths(addDays(end, 1), -n);
+  const expiry = addDays(end, 1);
+  const shifted = addMonths(expiry, -n);
+  return shifted.getUTCDate() < expiry.getUTCDate() ? addDays(shifted, 1) : shifted;
 }
 
 /**

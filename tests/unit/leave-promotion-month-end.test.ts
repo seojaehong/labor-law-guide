@@ -46,6 +46,22 @@ describe('사용촉진 1년 미만(§61②) — 말일 종료', () => {
   }
 });
 
+// 소멸일(종료일 다음 날)이 29~31일인데 대상 월에 그날이 없으면 다음 달 1일로 둔다(앞당기지 않는다). 해석 확인 필요 — 종전 값과 같다.
+describe('말일이 아닌 28~30일 종료 — 종전 값 유지', () => {
+  it('1년 이상 종료 2027-08-30 → 1차 2027-03-01, 2차 기한 2027-06-30', () => {
+    const r = buildPromotionSchedule({ usagePeriodEnd: '2027-08-30', kind: 'annual-15plus' });
+    expect([r.windows[0].from, r.windows[2].to]).toEqual(['2027-03-01', '2027-06-30']);
+  });
+  it('1년 미만 종료 2027-03-30 → 9일분 2026-12-31, 2차 2027-02-28, 2일분 2027-03-01', () => {
+    const r = buildPromotionSchedule({ usagePeriodEnd: '2027-03-30', kind: 'monthly-under-1year' });
+    expect([r.windows[0].from, r.windows[1].to, r.windows[2].from]).toEqual(['2026-12-31', '2027-02-28', '2027-03-01']);
+  });
+  it('1년 미만 종료 2027-05-30 → 9일분 2027-03-01, 2차 2027-04-30, 2일분 2027-05-01', () => {
+    const r = buildPromotionSchedule({ usagePeriodEnd: '2027-05-30', kind: 'monthly-under-1year' });
+    expect([r.windows[0].from, r.windows[1].to, r.windows[2].from]).toEqual(['2027-03-01', '2027-04-30', '2027-05-01']);
+  });
+});
+
 describe('화면 검증 함수 — 이른 촉구는 일치가 아니다', () => {
   const at = (sent: string) =>
     checkedPromotionSchedule({ kind: 'annual-15plus', usagePeriodEnd: '2026-06-30', firstNoticeSentOn: sent }).windows[0].status;
