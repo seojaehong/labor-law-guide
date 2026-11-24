@@ -3,14 +3,24 @@
 // 서버 번들(dist/server.mjs, 약 18MB)은 다른 묶음의 무거운 의존성까지 읽어 뜨는 데 2초가 넘는다 →
 // 이 파일과 check·norms·common 만 묶은 dist/toego.mjs 가 같은 판정을 0.3초 안팎에 낸다.
 import { z } from 'zod';
-import { argsLookLikeRrn } from '../common.mjs';
+import { rrnLines } from '../common.mjs';
 import { checkProse, loadPackSet } from './check.mjs';
 import { checkNorms, NORM_CHECKS } from './norms.mjs';
 
 export const PROSE_RRN_STOP = '입력에 주민등록번호 모양의 숫자가 있어 멈췄습니다. 가린 뒤 다시 점검해 주세요.';
+const RRN_LINES_MAX = 50;
+
+/** 글에 주민번호 모양이 있으면 멈춤 응답(줄 번호만, 50줄까지), 없으면 null. 띄어쓰기 등 공개 규범도 함께 멈춘다 — 글을 받지 않는다 */
+export function rrnStop(text) {
+  const lines = rrnLines(text);
+  return lines.length ? { ok: false, error: PROSE_RRN_STOP, rrnLines: lines.slice(0, RRN_LINES_MAX) } : null;
+}
 
 // MCP 입력 검사와 같은 모양 — 도구(docs.mjs)도 이것을 inputSchema 로 쓴다
-export const TEXT_SCHEMA = z.string().min(1).refine((s) => s.length <= 400_000 || (s.length <= 800_000 && [...s].length <= 400_000), '40만 자까지 점검합니다');
+const TEXT_EMPTY = '빈 글';
+const TEXT_LONG = '40만 자 초과';
+export const TEXT_SCHEMA = z.string().min(1, TEXT_EMPTY)
+  .refine((s) => s.length <= 400_000 || (s.length <= 800_000 && [...s].length <= 400_000), TEXT_LONG);
 export const GENRE_SCHEMA = z.enum(['legal', 'consulting', 'lecture', 'general', 'official']);
 export const DETAIL_SCHEMA = z.enum(['brief', 'full']);
 export const NORM_CHECKS_SCHEMA = z.array(z.enum(NORM_CHECKS));
@@ -40,6 +50,7 @@ export function normsResult(a) {
   }
 }
 
+// 모르는 키는 받지 않는다(strict) — 「qoute」 같은 오타가 조용히 기본값으로 돌지 않게
 const TOEGO_INPUT = z.object({
   text: TEXT_SCHEMA,
   genre: GENRE_SCHEMA.optional(),
@@ -48,18 +59,24 @@ const TOEGO_INPUT = z.object({
     checks: NORM_CHECKS_SCHEMA.optional(),
     quote: z.boolean().optional(),
     warnOnly: z.boolean().optional(),
-  }).optional(),
-});
+  }).strict().optional(),
+}).strict();
 
 /**
  * 문체와 공개 규범을 한 번에. { ok, prose, norms } — ok 는 둘 다 ok 일 때만 참.
- * 입력이 틀리면 { ok:false, error:'INVALID_ARGS' }, 주민번호 모양이면 { ok:false, error: PROSE_RRN_STOP }(둘 다 돌지 않는다).
+ * 입력이 틀리면 { ok:false, error:'INVALID_ARGS', reason? }(reason = 빈 글 / 40만 자 초과),
+ * 주민번호 모양이면 { ok:false, error: PROSE_RRN_STOP, rrnLines }(둘 다 돌지 않는다).
+ * @returns {{ ok: boolean, error?: string, reason?: string, rrnLines?: number[], prose?: any, norms?: any }}
  */
 export function runToego(raw) {
   const p = TOEGO_INPUT.safeParse(raw);
-  if (!p.success) return { ok: false, error: 'INVALID_ARGS' };
+  if (!p.success) {
+    const why = p.error.issues.find((i) => i.path[0] === 'text' && (i.message === TEXT_EMPTY || i.message === TEXT_LONG));
+    return why ? { ok: false, error: 'INVALID_ARGS', reason: why.message } : { ok: false, error: 'INVALID_ARGS' };
+  }
   const a = p.data;
-  if (argsLookLikeRrn({ text: a.text })) return { ok: false, error: PROSE_RRN_STOP };
+  const stop = rrnStop(a.text);
+  if (stop) return stop;
   const prose = proseResult({ text: a.text, genre: a.genre, detail: a.detail });
   const norms = normsResult({ text: a.text, ...(a.norms ?? {}) });
   return { ok: Boolean(prose.ok && norms.ok), prose, norms };

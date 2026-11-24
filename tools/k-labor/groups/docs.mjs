@@ -12,7 +12,7 @@ import { mdHwpxSummary, mdToHwpx, parseMarkdown } from '@/lib/md-hwpx';
 import { fillCells, replaceText } from '@/lib/md-hwpx/postedit';
 import { mdToHwpxWithTemplate } from '@/lib/md-hwpx/template';
 import { argsLookLikeRrn, looksLikeRrn, text, writeNew } from '../lib/common.mjs';
-import { DETAIL_SCHEMA, GENRE_SCHEMA, NORM_CHECKS_SCHEMA, normsResult, PROSE_RRN_STOP, proseResult, TEXT_SCHEMA } from '../lib/prose/toego.mjs';
+import { DETAIL_SCHEMA, GENRE_SCHEMA, NORM_CHECKS_SCHEMA, normsResult, proseResult, rrnStop, TEXT_SCHEMA } from '../lib/prose/toego.mjs';
 import { capSkipped, decodeMarkdown, fillHangul, hangulKind, maskExcerpt, MAX_MARKDOWN_BYTES, patchHangul, patchVerdict, readHangul, sanitizeReason } from '../lib/hangul-kordoc.mjs';
 
 export const docsTools = ['make_hwpx_from_markdown', 'edit_hwpx_text', 'read_hwp_as_markdown', 'fill_hwp_form', 'patch_hwp_from_markdown', 'check_prose', 'check_norms'];
@@ -358,7 +358,7 @@ export function registerDocs(server) {
       description:
         '의견서·보고서·강의안 같은 업무 문서에서 비유·구어 표현, 번역투, AI 문체 상투어, 서식 위반을 줄·칸 단위로 찾는다. > 인용 줄과 [관련 판결] 줄은 원문이라 본문 규칙을 보지 않는다. 표 칸의 「」·“ ” 안은 원문으로 보고 가린다. ' +
         'A = 고칠 표현, B = 문맥을 보고 판단할 표현. 빈도·문장 길이·종결어미 반복 같은 알림은 notes 에 따로 준다. 걸린 곳이 많으면 hits 는 500건까지(A 먼저, 같은 등급은 앞의 것부터) 싣고 truncated 로 알린다(counts 는 전부 센 수). 규칙은 범용 팩(im-not-ai 유래)과 이 PC 의 PROSE_PACK_DIR 팩에서 읽는다. 읽지 못하거나 점검 중 멈춘 팩이 있으면 그 팩을 빼고 ok:false·incomplete:true 와 skipped(고정 코드)로 알린다. ' +
-        '공개 팩의 걸림에는 걸린 글자·고칠 말·규칙 이름이 붙는다. 비공개 팩은 위치·등급·짧은 사유만 주고(PROSE_ALLOW_FULL=1 인 PC 에서는 전부), full 을 달라고 했는데 줄였으면 withheld 로 알린다. 모델을 부르지 않고, 문서 글을 밖으로 보내지 않는다.',
+        '공개 팩의 걸림에는 걸린 글자·고칠 말·규칙 이름이 붙는다. 비공개 팩은 위치·등급·짧은 사유만 주고(PROSE_ALLOW_FULL=1 인 PC 에서는 전부), full 을 달라고 했는데 줄였으면 withheld 로 알린다. 주민등록번호 모양이 있으면 점검하지 않고 rrnLines(줄 번호만)로 알린다. 모델을 부르지 않고, 문서 글을 밖으로 보내지 않는다.',
       inputSchema: {
         text: TEXT_SCHEMA.describe('점검할 문서 글(md 또는 평문, 40만 자까지)'),
         genre: GENRE_SCHEMA.optional().describe('legal(기본: 의견서·조사보고서) / consulting / lecture / general(official 은 general 과 같다). 장르별 검사는 팩에 달려 있다'),
@@ -367,7 +367,9 @@ export function registerDocs(server) {
       annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
     },
     async (a) => {
-      if (argsLookLikeRrn({ text: a.text })) return fail(PROSE_RRN_STOP);
+      // 원문에서 찾는다(JSON 으로 감싸면 탭·줄바꿈 구분을 놓친다) — 멈추면 숫자 없이 줄 번호만
+      const stop = rrnStop(a.text);
+      if (stop) return text(stop);
       // 점검·오류 처리는 lib/prose/toego.mjs 한 곳(가벼운 실행 파일 dist/toego.mjs 와 같은 함수)
       return text(proseResult(a));
     },
@@ -379,20 +381,23 @@ export function registerDocs(server) {
     {
       title: '퇴고: 띄어쓰기·문장 부호·쉼표 점검(한글 맞춤법)',
       description:
-        '한글 맞춤법(문화체육관광부 고시 제2017-12호)의 제5장 띄어쓰기와 부록 「문장 부호」, 그리고 연결어미 뒤 쉼표(~하였고, ~경우,)를 줄 단위로 찾는다. ' +
-        'A = 규정이 명시한 것을 어긴 곳, B = 규정이 권하는 쪽과 다르거나 문맥을 봐야 하는 곳. 규정이 둘 다 허용하는 것(단위 명사·보조 용언 붙여 쓰기 등)은 보지 않는다. ' +
-        '# 제목·| 표·[관련 …] 줄과 > 인용 줄, 문장 안 “ ” 원문 인용은 보지 않는다(quote 를 켜면 인용도 본다). warnOnly 를 켜면 쉼표 걸림을 B 로 낸다(PDF 에서 뽑은 글처럼 인용 표시가 사라진 글). ' +
-        '검사마다 counts(전부 센 수)와 hits(500건까지, A 먼저, 넘으면 truncated)를 준다. 모델을 부르지 않고, 문서 글을 밖으로 보내지 않는다.',
+        '한글 맞춤법(문화체육관광부 고시 제2017-12호)의 제5장 띄어쓰기와 부록 「문장 부호」, 그리고 연결어미 뒤 쉼표(~하였고, ~경우, 꼴. 규정이 아니라 업무 문서 관행)를 줄 단위로 찾는다. ' +
+        'A = 규정(쉼표는 관행)이 명시한 것을 어긴 곳, B = 규정이 권하는 쪽과 다르거나 문맥을 봐야 하는 곳. 규정이 둘 다 허용하는 것(단위 명사·보조 용언 붙여 쓰기 등)은 보지 않는다. ' +
+        '보지 않는 줄은 검사마다 다르다. 띄어쓰기: # 제목·| 표·--- ·[관련 …]·[질의 …] 줄, > 인용 줄과 문장 안 “ ” 인용(quote 를 켜면 인용은 본다). 문장 부호: 같은 줄들과 따옴표 안 글자(quote 를 켜면 모두 본다). ' +
+        '쉼표: > 인용·# 제목·그림 줄과 “ ” ‘ ’ 「 」 " " 안(quote 와 상관없이 늘 뺀다). | 표 줄과 [관련 …] 줄은 본다. warnOnly 를 켜면 쉼표 걸림을 B 로 낸다(PDF 에서 뽑은 글처럼 인용 표시가 사라진 글). ' +
+        '검사마다 counts(전부 센 수)와 hits(500건까지, A 먼저, 넘으면 truncated)를 준다. 주민등록번호 모양이 있으면 점검하지 않고 rrnLines(줄 번호만)로 알린다. 모델을 부르지 않고, 문서 글을 밖으로 보내지 않는다.',
       inputSchema: {
         text: TEXT_SCHEMA.describe('점검할 문서 글(md 또는 평문, 40만 자까지)'),
         checks: NORM_CHECKS_SCHEMA.optional().describe('spacing(띄어쓰기) / punct(문장 부호) / comma(연결어미 뒤 쉼표). 비우면 셋 다'),
-        quote: z.boolean().optional().describe('켜면 > 인용 줄과 “ ” 원문 인용도 본다(띄어쓰기·문장 부호). 기본 끔'),
+        quote: z.boolean().optional().describe('켜면 > 인용 줄과 “ ” 원문 인용도 본다(띄어쓰기·문장 부호만. 쉼표는 늘 인용을 뺀다). 기본 끔'),
         warnOnly: z.boolean().optional().describe('켜면 쉼표 걸림을 B(경고)로 낸다. 기본 끔'),
       },
       annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
     },
     async (a) => {
-      if (argsLookLikeRrn({ text: a.text })) return fail(PROSE_RRN_STOP);
+      // 원문에서 찾는다(JSON 으로 감싸면 탭·줄바꿈 구분을 놓친다) — 멈추면 숫자 없이 줄 번호만
+      const stop = rrnStop(a.text);
+      if (stop) return text(stop);
       return text(normsResult(a));
     },
   );
