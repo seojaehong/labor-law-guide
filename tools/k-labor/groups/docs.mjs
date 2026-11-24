@@ -15,7 +15,7 @@ import { mdToHwpxWithTemplate } from '@/lib/md-hwpx/template';
 import { argsLookLikeRrn, looksLikeRrn, text, writeNew } from '../lib/common.mjs';
 import { DETAIL_SCHEMA, GENRE_SCHEMA, NORM_CHECKS_SCHEMA, normsResult, proseResult, rrnStop, TEXT_SCHEMA } from '../lib/prose/toego.mjs';
 import { capSkipped, decodeMarkdown, fillHangul, hangulKind, maskExcerpt, MAX_MARKDOWN_BYTES, patchHangul, patchVerdict, readHangul, sanitizeReason } from '../lib/hangul-kordoc.mjs';
-import { stampExhibitPdf } from '../lib/exhibit-stamp.mjs';
+import { StampStop, stampExhibitPdf } from '../lib/exhibit-stamp.mjs';
 import { fileURLToPath } from 'node:url';
 
 export const docsTools = ['make_hwpx_from_markdown', 'edit_hwpx_text', 'read_hwp_as_markdown', 'fill_hwp_form', 'patch_hwp_from_markdown', 'check_prose', 'check_norms', 'stamp_exhibit_pdf'];
@@ -174,13 +174,15 @@ export function registerDocs(server) {
   // 결과 글은 주민번호 모양을 가리므로(common.text) 마크다운 본문은 응답에 싣지 않고 파일로만 낸다 — 가린 글로 되쓰면 원본이 망가진다.
   // 원칙(G4 261123): 덜 된 것을 ok 로 내지 않는다. 파일은 쓰되 ok:false·incomplete:true 로 알린다.
   // 모든 파일 입출력은 핸들러 안 try 경계 안에서 한다 — 예외 글(경로 원문)이 응답에 실리지 않게(A10)
-  const readHangulFile = (p) => {
+  /** 입력 파일 읽기 — 확장자·존재·크기를 보고 바이트를 돌려준다(한글·PDF 공용) */
+  const readInput = (p, { ext, kind, max, maxLabel }) => {
     const src = String(p ?? '').trim();
-    if (!/\.hwpx?$/i.test(src)) return { error: 'hwp·hwpx 파일만 받습니다.' };
+    if (!ext.test(src)) return { error: `${kind} 파일만 받습니다.` };
     if (!fs.existsSync(src) || !fs.statSync(src).isFile()) return { error: `파일이 없습니다: ${src}` };
-    if (fs.statSync(src).size > MAX_HANGUL) return { error: '30MB 를 넘는 파일은 받지 않습니다.' };
+    if (fs.statSync(src).size > max) return { error: `${maxLabel} 를 넘는 파일은 받지 않습니다.` };
     return { src, bytes: new Uint8Array(fs.readFileSync(src)) };
   };
+  const readHangulFile = (p) => readInput(p, { ext: /\.hwpx?$/i, kind: 'hwp·hwpx', max: MAX_HANGUL, maxLabel: '30MB' });
   const checkOut = (src, out, exts) => {
     if (!out) return 'outFile 을 주세요.';
     if (!exts.some((e) => out.toLowerCase().endsWith(e))) return `outFile 은 ${exts.join('·')} 로 끝나야 합니다.`;
@@ -419,7 +421,8 @@ export function registerDocs(server) {
         '노동청·노동위원회·법원에 내는 서증 PDF 의 첫 장 상단 여백에 세로형 호증 표시(10×50mm 고무인 모양, 「사 제19호증」)를 그려 새 PDF 로 저장한다. 첫 장에만 찍고 나머지 쪽은 건드리지 않는다. ' +
         '위치는 대법원 전자민원센터 안내(첫 페이지 왼쪽 또는 오른쪽의 중간 상단부분)를 따라 기본 우측 상단(오른쪽 12mm·위 8mm), side 로 왼쪽. 쪽이 작아 도장이 쪽 높이의 25% 를 넘으면 줄인다. ' +
         'pad=always 면 첫 장을 지정한 쪽으로 34mm 넓혀 그 여백에 찍는다(PPT·캡처처럼 상단까지 내용이 찬 서증). 접두어는 제출처와 우리 쪽 지위에 맞게 고른다(법원 갑·을·병, 노동위원회 근·사, 가처분 소갑·소을). ' +
-        '글자는 글꼴을 넣지 않고 윤곽선으로 그려 파일이 거의 커지지 않는다. 본문과 겹치는지는 보지 않으므로(overlapChecked:false) 결과 첫 장 상단을 눈으로 확인한다. 첫 장이 돌아가 있거나 암호가 걸린 PDF 는 멈춘다. 이미 있는 파일은 덮어쓰지 않는다.',
+        '글자는 글꼴을 넣지 않고 윤곽선으로 그려 파일이 거의 커지지 않는다. 본문과 겹치는지는 보지 않으므로(overlapChecked:false) 결과 첫 장 상단을 눈으로 확인한다. pad=always 는 원본 내용을 원래 보이던 범위로 잘라 두어 숨겨 둔 영역이 새 여백에 드러나지 않는다. ' +
+        '첫 장이 돌아가 있거나, 암호가 걸렸거나, 전자서명이 들어 있거나(날인하면 서명이 깨진다), 확대 배율이 걸렸거나, 쪽이 작아 여백에 도장이 들어가지 않으면 멈춘다. 이미 있는 파일은 덮어쓰지 않는다.',
       inputSchema: {
         file: z.string().max(400).describe('서증 PDF 경로'),
         outFile: z.string().max(400).describe('저장할 PDF 경로(.pdf, 없는 파일, 입력과 다른 경로)'),
@@ -432,29 +435,25 @@ export function registerDocs(server) {
       },
       annotations: WRITES,
     },
-    async (a) => {
+    guard(async (a) => {
       if (argsLookLikeRrn(a)) return fail(RRN_STOP);
       if (a.sub != null && a.number == null) return fail('가지번호(sub)는 호증 번호(number)와 함께 주세요.');
-      const src = path.resolve(String(a.file).trim());
-      const out = path.resolve(String(a.outFile).trim());
-      if (!/\.pdf$/i.test(out)) return fail('outFile 은 .pdf 로 끝나야 합니다.');
-      if (src.toLowerCase() === out.toLowerCase()) return fail('입력과 같은 경로에는 저장하지 않습니다. outFile 을 바꿔 주세요.');
-      if (!fs.existsSync(src) || !fs.statSync(src).isFile()) return fail(`파일이 없습니다: ${src}`);
-      if (fs.statSync(src).size > MAX_PDF) return fail('100MB 를 넘는 PDF 는 받지 않습니다.');
-      if (fs.existsSync(out)) return fail(EXISTS_EDIT, { exists: out });
-      const input = new Uint8Array(fs.readFileSync(src));
-      if (String.fromCharCode(...input.slice(0, 5)) !== '%PDF-') return fail('PDF 파일이 아닙니다.');
+      const f = readInput(a.file, { ext: /\.pdf$/i, kind: 'PDF', max: MAX_PDF, maxLabel: '100MB' });
+      if (f.error) return fail(f.error);
+      const out = String(a.outFile ?? '').trim();
+      const bad = checkOut(f.src, out, ['.pdf']);
+      if (bad) return bad === EXISTS_EDIT ? fail(bad, { exists: out }) : fail(bad);
+      if (String.fromCharCode(...f.bytes.slice(0, 5)) !== '%PDF-') return fail('PDF 파일이 아닙니다.');
+      const fontBytes = new Uint8Array(fs.readFileSync(stampFontPath()));
       let r;
       try {
-        r = await stampExhibitPdf(input, new Uint8Array(fs.readFileSync(stampFontPath())), {
-          prefix: a.prefix ?? '사', number: a.number, sub: a.sub, side: a.side ?? 'right', pad: a.pad ?? 'never', color: a.color ?? 'red',
-        });
+        r = await stampExhibitPdf(f.bytes, fontBytes, a);
       } catch (e) {
-        const msg = e instanceof Error ? e.message : String(e);
-        return fail(/encrypt/i.test(msg) ? '암호가 걸린 PDF 입니다. 암호를 푼 PDF 로 다시 주세요.' : msg);
+        if (e instanceof StampStop) return fail(e.message);
+        return fail('PDF 를 읽지 못했습니다. 파일이 깨졌을 수 있으니 PDF 보기 프로그램에서 열어 다시 저장해 주세요.');
       }
-      fs.mkdirSync(path.dirname(out), { recursive: true });
-      if (!writeNew(out, r.bytes)) return fail(EXISTS_EDIT, { exists: out });
+      const w = writeOut(out, r.bytes);
+      if (!w.ok) return written(w, out);
       return text({
         ok: true,
         file: { path: out, bytes: r.bytes.length },
@@ -466,6 +465,6 @@ export function registerDocs(server) {
         overlapChecked: false,
         notice: '본문과 겹치는지는 보지 않았습니다. 결과 첫 장 상단을 눈으로 확인하고, 내용 위에 찍혔으면 side 를 바꾸거나 pad=always 로 다시 만들어 주세요. 증거 목록의 번호와 찍힌 번호도 맞춰 보세요.',
       });
-    },
+    }),
   );
 }
