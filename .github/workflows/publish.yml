@@ -41,7 +41,11 @@ jobs:
           test "$GITHUB_REF_NAME" = "k-labor-v$V"
           test "$S" = "$V"
 
-      - name: 설치
+      - name: 설치(저장소 루트 — 엔진 빌드가 src/ 의 jszip·pdf-lib·exceljs 를 함께 묶는다)
+        working-directory: .
+        run: npm ci
+
+      - name: 설치(k-labor)
         run: npm ci --omit=optional
 
       - name: 빌드
