@@ -414,8 +414,43 @@ const PARTICLES = ['', '은', '는', '이', '가', '을', '를', '의', '과', '
   '이나', '이며', '이고', '이다', '이라', '이란', '라는', '였다', '마다', '이랑', '들은', '들이', '들의',
   '에서는', '에서도', '으로서', '으로는', '으로도', '이라는', '이었다', '입니다'];
 const WORD = /(?<![가-힣A-Za-z0-9])[가-힣A-Za-z0-9]+/gu;
-// (이하 「X」) · (이하 X) · (이하 "X"라 한다) … — X 에 여는 괄호를 넣지 않는다(겹친 「(이하(이하…」가 제곱이 되지 않게)
-const DEF = /\([ \t]*이하[ \t]*[「『“"‘']?[ \t]*([^\s」』”"’'()]+?)[ \t]*[」』”"’']?[ \t]*(?:이?라고?[ \t]*(?:한다|함|칭한다|칭함|부른다)?|으?로[ \t]*(?:한다|칭한다)?)?[ \t]*\)/gu;
+// (이하 「X」) · (이하 X) · (이하 "X"라 한다) … — 머리 「(이하」만 식으로 찾고 나머지는 손으로 훑는다.
+// 한 식에 [ \t]* 를 선택 요소 사이로 잇달아 두면, 닫는 괄호 없는 긴 공백 덩어리에서 되짚기가 제곱·세제곱이 된다(261125 실측)
+const DEF_HEAD = /\([ \t]*이하/gu;
+const OPEN_QUOTE = new Set([...'「『“"‘\'']);
+const NAME_STOP = new Set([...'」』”"’\'()']);
+const TAIL_CH = new Set([...'이라고으로한다함칭부른']); // 「라 한다」「으로 칭한다」 꼴 꼬리에 쓰는 글자
+const TAIL_OK = /^(?:이?라고?|으?로)?(?:한다|함|칭한다|칭함|부른다)?$/u;
+const TAIL_VERB = /^(?:한다|함|칭한다|칭함|부른다)$/u;
+const NAME_TAIL = ['이라고', '라고', '이라', '라', '으로', '로']; // 따옴표 없는 「X라 한다」의 「라」
+const isBlank = (c) => c === ' ' || c === '\t';
+/** 「(이하」 뒤(from)가 정의 꼴이면 약칭, 아니면 null */
+function defAt(line, from) {
+  let i = from;
+  while (i < line.length && isBlank(line[i])) i++;
+  const quoted = OPEN_QUOTE.has(line[i]);
+  if (quoted) {
+    i++;
+    while (i < line.length && isBlank(line[i])) i++;
+  }
+  const a = i;
+  while (i < line.length && !WS.has(line[i]) && !NAME_STOP.has(line[i])) i++;
+  let name = line.slice(a, i);
+  if (!name) return null;
+  let tail = '';
+  for (; i < line.length && line[i] !== ')'; i++) {
+    const c = line[i];
+    if (isBlank(c) || CLOSE_QUOTE.has(c)) continue;
+    if (!TAIL_CH.has(c) || tail.length >= 8) return null;
+    tail += c;
+  }
+  if (i >= line.length || !TAIL_OK.test(tail)) return null;
+  if (!quoted && TAIL_VERB.test(tail)) {
+    const t = NAME_TAIL.find((x) => name.length > x.length && name.endsWith(x));
+    if (t) name = name.slice(0, name.length - t.length);
+  }
+  return name;
+}
 const ABBR_SKIP = ['>', '#', '<<', '!['];
 const ABBR_BASIS = '약칭 일관성(규정이 아니라 업무 문서 관행)';
 /** 목적격 조사 — 끝 글자에 받침이 있으면 「을」, 없으면 「를」(한글이 아니면 「을(를)」) */
@@ -465,10 +500,13 @@ function abbrev(lines) {
       const full = stemOf(w, (st) => st.startsWith('한국') && !!orgEnd(st.slice(2)));
       if (full && !names.has(full.slice(2))) names.set(full.slice(2), full);
     }
-    for (const m of execAll(DEF, ln)) {
+    for (const m of execAll(DEF_HEAD, ln)) {
+      const abbr = defAt(ln, m.index + m[0].length);
+      if (!abbr || defs.has(abbr)) continue;
       const full = nameBefore(ln, m.index);
-      if (!full || !orgEnd(full) || defs.has(m[1])) continue;
-      defs.set(m[1], { line: i + 1, col: cpLen(ln.slice(0, m.index)) + 1, full });
+      if (!full || !orgEnd(full)) continue;
+      // 칸은 줄마다 한 번 만든 표로 센다(정의·걸림마다 줄 처음부터 세면 걸림 수 × 줄 길이가 된다)
+      defs.set(abbr, { line: i + 1, col: colOf(ln, m.index), full });
     }
   });
   const watched = new Map();
@@ -493,7 +531,7 @@ function abbrev(lines) {
       let r;
       if (d.line === undefined) {
         r = { grade: 'B', reason: `「${d.full}」${eul(d.full)} 줄인 「${x}」${eul(x)} 정의 없이 썼다 — 정식 명칭을 쓰거나, 처음 나오는 곳에 「(이하 「${x}」)」를 둔다`, basis: ABBR_BASIS };
-      } else if (i + 1 < d.line || (i + 1 === d.line && cpLen(h.slice(0, m.index)) + 1 < d.col)) {
+      } else if (i + 1 < d.line || (i + 1 === d.line && colOf(h, m.index) < d.col)) {
         r = { grade: 'B', reason: `약칭 「${x}」${eul(x)} 정의한 곳(${d.line}행 「${d.full}(이하 「${x}」)」)보다 앞에서 썼다 — 정의를 앞으로 옮기거나 정식 명칭을 쓴다`, basis: ABBR_BASIS };
       } else continue;
       out.push(raw(i + 1, h, { index: m.index, 0: x }, r, 10, 10));

@@ -230,4 +230,20 @@ describe('check_norms listEnd·abbrev — 길이에 비례해 끝난다', () => 
     expect(listEnd(Array.from({ length: 60_000 }, (_, i) => (i % 6 ? '- 가상입니다.' : '- 가상')).join('\n')).counts.B).toBe(10_000);
     expect(performance.now() - t).toBeLessThan(10_000);
   });
+
+  it('긴 공백 덩어리·정의가 있는 긴 한 줄도 길이에 비례한다(정의 식 되짚기·같은 줄 칸 세기)', { timeout: 60_000 }, () => {
+    const time = (fn: () => void) => {
+      const t = performance.now();
+      fn();
+      return performance.now() - t;
+    };
+    expect(time(() => expect(abbrev(`(이하${' '.repeat(100_000)}`).counts.B).toBe(0))).toBeLessThan(1000);
+    expect(time(() => expect(abbrev(`한국가상공사(이하 가${' '.repeat(10_000)}나`).counts.B).toBe(0))).toBeLessThan(1000);
+    expect(time(() => expect(abbrev(`한국가상공사(이하 가라${'\t'.repeat(10_000)}나`).counts.B).toBe(0))).toBeLessThan(1000);
+    expect(time(() => expect(abbrev(`한국가상공사(이하 「가${' '.repeat(10_000)}」${' '.repeat(10_000)}나`).counts.B).toBe(0))).toBeLessThan(1000);
+    expect(time(() => expect(abbrev(`${'가상공사 '.repeat(20_000)}한국가상공사(이하 「가상공사」)`).counts.B).toBe(20_000))).toBeLessThan(1000);
+    expect(time(() => expect(abbrev(`${'가상공단(이하 「가공」) '.repeat(20_000)}`).counts.B).toBe(0))).toBeLessThan(1000);
+    expect(time(() => expect(listEnd(`-${' -'.repeat(50_000)} 가`).counts.B).toBe(0))).toBeLessThan(1000);
+    expect(time(() => expect(listEnd(`- ${' '.repeat(100_000)}가\n${' '.repeat(100_000)}-`).counts.B).toBe(0))).toBeLessThan(1000);
+  });
 });
