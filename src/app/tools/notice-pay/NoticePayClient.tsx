@@ -22,6 +22,8 @@ export default function NoticePayClient() {
   const [dismissal, setDismissal] = useState(today);
   const [noticed, setNoticed] = useState(false);
   const [notice, setNotice] = useState('');
+  const [partTime, setPartTime] = useState(false);
+  const [fullDays, setFullDays] = useState('5');
 
   const out = useMemo(() => {
     if (!hire) return { error: '입사일을 넣어 주세요.' };
@@ -29,13 +31,14 @@ export default function NoticePayClient() {
       return {
         r: calcNoticePay({
           unit, amount: num(amount), weeklyHours: num(weekly), dailyHours: num(daily),
-          hireDate: hire, dismissalDate: dismissal, noticeDate: noticed && notice ? notice : undefined,
+          hireDate: hire, dismissalDate: dismissal, noticed, noticeDate: noticed && notice ? notice : undefined,
+          partTime: partTime ? { fullTimeWeeklyDays: num(fullDays) } : undefined,
         }),
       };
     } catch (e) {
       return { error: (e as Error).message };
     }
-  }, [unit, amount, weekly, daily, hire, dismissal, noticed, notice]);
+  }, [unit, amount, weekly, daily, hire, dismissal, noticed, notice, partTime, fullDays]);
 
   return (
     <div className="space-y-4">
@@ -79,10 +82,23 @@ export default function NoticePayClient() {
           1일 소정근로시간
           <input inputMode="decimal" className={inputCls} value={daily} onChange={(e) => setDaily(e.target.value)} />
         </label>
-        {(unit === 'month' || unit === 'week') && (
+        <fieldset className={`${small} sm:col-span-2`} style={muted}>
+          <legend className="mb-1">1주 소정근로시간이 같은 일을 하는 통상 근로자보다 짧습니까(단시간 근로자)</legend>
+          <div className="flex flex-wrap gap-4">
+            <label className={choiceLabel}><input type="radio" name="parttime" checked={!partTime} onChange={() => setPartTime(false)} /> 아니다</label>
+            <label className={choiceLabel}><input type="radio" name="parttime" checked={partTime} onChange={() => setPartTime(true)} /> 그렇다</label>
+          </div>
+        </fieldset>
+        {(unit === 'month' || unit === 'week' || partTime) && (
           <label className={small} style={muted}>
             1주 소정근로시간
             <input inputMode="decimal" className={inputCls} value={weekly} onChange={(e) => setWeekly(e.target.value)} />
+          </label>
+        )}
+        {partTime && (
+          <label className={small} style={muted}>
+            통상 근로자의 1주 소정근로일 수
+            <input inputMode="numeric" className={inputCls} value={fullDays} onChange={(e) => setFullDays(e.target.value)} />
           </label>
         )}
       </section>
@@ -90,7 +106,7 @@ export default function NoticePayClient() {
       {'error' in out ? (
         <section className={card} aria-live="polite"><p className={small} style={ink}>{out.error}</p></section>
       ) : (
-        <ResultBlock view={noticePayView({ r: out.r!, dailyHours: num(daily), hire, dismissal })} />
+        <ResultBlock view={noticePayView({ r: out.r!, partTime, hire, dismissal })} />
       )}
 
       <FoldedDetail summary="수당을 주지 않아도 되는 경우">

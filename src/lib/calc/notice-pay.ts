@@ -17,6 +17,14 @@ export interface NoticePayInput {
   dismissalDate: string;
   /** 해고를 알린 날. 없으면 예고하지 않은 것 */
   noticeDate?: string;
+  /** 예고했는지. true 인데 noticeDate 가 비면 판정할 수 없어 멈춘다(빈 날짜를 「예고 없음」으로 읽지 않는다 — 261124 P2 #12) */
+  noticed?: boolean;
+  /**
+   * 단시간 근로자(근로기준법 제2조제1항제9호)면 넣는다. 1일 통상임금에 곱하는 1일 소정근로시간 =
+   * 4주 소정근로시간 ÷ 그 기간 통상 근로자의 총 소정근로일 수(시행령 제9조 별표2 제2호가목·나목) = 1주 소정 ÷ 통상 근로자 1주 소정근로일 수.
+   * 이때 weeklyHours 가 필요하고, dailyHours 는 일급을 시간급으로 바꿀 때만 쓴다(시행령 제6조제2항제2호).
+   */
+  partTime?: { fullTimeWeeklyDays?: number; fullTimeWeeklyHours?: number };
 }
 
 export interface NoticePayResult {
@@ -29,6 +37,8 @@ export interface NoticePayResult {
   dailyOrdinary: number;
   /** 30일분 — 원 미만 올림 */
   amount: number;
+  /** 1일 통상임금에 곱한 1일 소정근로시간 — 단시간이면 별표2 제2호나목 값, 아니면 넣은 값 */
+  appliedDailyHours: number;
 }
 
 const DAY = 86_400_000;
@@ -46,17 +56,36 @@ export function calcNoticePay(input: NoticePayInput): NoticePayResult {
   if (!(input.amount > 0) || !Number.isFinite(input.amount)) throw new Error('통상임금을 확인해 주세요');
 
   let noticeDays: number | null = null;
+  if ((input.noticed && !input.noticeDate) || input.noticeDate === '') {
+    throw new Error('해고를 알린 날을 넣어 주세요. 알리지 않았으면 「알리지 않았다」를 고릅니다');
+  }
+  if (input.noticed === false && input.noticeDate) {
+    throw new Error('「알리지 않았다」를 골랐는데 알린 날이 있습니다. 둘 중 하나를 고쳐 주세요');
+  }
   if (input.noticeDate) {
     const notice = parse(input.noticeDate, '예고일');
     if (notice > dismissal) throw new Error('예고일이 해고일보다 뒤입니다');
     noticeDays = Math.round((dismissal - notice) / DAY);
   }
 
-  const hours = unitHours(input.unit, input.weeklyHours, input.unit === 'day' ? input.dailyHours : undefined);
+  let appliedDailyHours = input.dailyHours;
+  let holidayHours: number | undefined;
+  if (input.partTime) {
+    const w = input.weeklyHours;
+    if (!(typeof w === 'number' && w > 0 && w <= 168)) throw new Error('단시간 근로자는 1주 소정근로시간을 넣어 주세요');
+    const wd = input.partTime.fullTimeWeeklyDays ?? 5;
+    if (!Number.isInteger(wd) || wd < 1 || wd > 7) throw new Error('통상 근로자의 1주 소정근로일 수를 확인해 주세요');
+    const fw = input.partTime.fullTimeWeeklyHours ?? 40;
+    if (!(fw > 0) || w >= fw) throw new Error('단시간 근로자는 1주 소정근로시간이 통상 근로자보다 짧아야 합니다');
+    appliedDailyHours = w / wd;
+    // 주휴 시간도 같은 식(별표2 제2호나목), 8시간까지 — 월급·주급의 시간급 분모에 들어간다
+    holidayHours = Math.min(w / wd, 8);
+  }
+  const hours = unitHours(input.unit, input.weeklyHours, input.unit === 'day' ? input.dailyHours : undefined, holidayHours);
   // 끝수 규칙(wage-rounding.ts) — 시간급·1일 통상임금은 끝수 그대로, 원 미만은 30일분 금액에서 한 번 올린다
   const hourly = hourlyOrdinaryWage(input.amount, hours);
-  const dailyOrdinary = dailyOrdinaryWage(input.amount, input.dailyHours, hours);
-  const amount = payableWon((input.amount * input.dailyHours * 30) / hours);
+  const dailyOrdinary = dailyOrdinaryWage(input.amount, appliedDailyHours, hours);
+  const amount = payableWon((input.amount * appliedDailyHours * 30) / hours);
 
   // 3개월이 차는 날 = 입사일 3개월 뒤 같은 날의 전날(9.1 입사 → 11.30).
   // 그 달에 같은 날이 없으면 그 달 말일(민법 §160③ — 11.30 입사 → 2.28, 1.31 입사 → 4.30)
@@ -66,5 +95,5 @@ export function calcNoticePay(input: NoticePayInput): NoticePayResult {
   const threeMonths = day > lastDay ? Date.UTC(y, m, lastDay) : Date.UTC(y, m, day) - DAY;
   const status = dismissal < threeMonths ? 'under3m' : noticeDays === null ? 'pay' : noticeDays >= 30 ? 'noticed' : 'short';
   const paid = status === 'pay' || status === 'short';
-  return { status, noticeDays, hourly, dailyOrdinary: paid ? dailyOrdinary : 0, amount: paid ? amount : 0 };
+  return { status, noticeDays, hourly, dailyOrdinary: paid ? dailyOrdinary : 0, amount: paid ? amount : 0, appliedDailyHours };
 }

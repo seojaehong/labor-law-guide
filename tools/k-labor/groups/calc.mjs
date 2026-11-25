@@ -269,7 +269,12 @@ export function registerCalc(server) {
         dailyHours: z.number().describe('1일 소정근로시간'),
         hireDate: z.string().describe('입사일 YYYY-MM-DD'),
         dismissalDate: z.string().describe('해고일(근로관계가 끝나는 날) YYYY-MM-DD'),
-        noticeDate: z.string().optional().describe('해고를 알린 날 YYYY-MM-DD(비우면 예고하지 않은 것)'),
+        noticeDate: z.string().optional().describe('해고를 알린 날 YYYY-MM-DD. noticed 를 주지 않고 이 값도 비우면 예고하지 않은 것으로 본다. 빈 문자열은 오류'),
+        noticed: z.boolean().optional().describe('해고를 예고했는가. true 인데 noticeDate 가 없거나, false 인데 noticeDate 가 있으면 판정할 수 없어 오류를 낸다'),
+        partTime: z.object({
+          fullTimeWeeklyDays: z.number().int().optional().describe('같은 일을 하는 통상 근로자의 1주 소정근로일 수(1~7, 기본 5)'),
+          fullTimeWeeklyHours: z.number().optional().describe('같은 일을 하는 통상 근로자의 1주 소정근로시간(기본 40)'),
+        }).optional().describe('단시간 근로자일 때 — 1일 소정근로시간 = 1주 소정근로시간 ÷ 통상 근로자 1주 소정근로일 수(근로기준법 시행령 별표 2 제2호나목). weeklyHours 가 필요하다'),
       },
       annotations: READ_ONLY,
     },
