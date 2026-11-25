@@ -315,6 +315,7 @@ export function registerCalc(server) {
           fullTimeWeeklyHours: z.number().describe('같은 일을 하는 통상 근로자의 1주 소정근로시간'),
           fullTimeDays: z.number().describe('통상 근로자라면 생겼을 연차일수(한 번에 생기는 일수, 25일 이하)'),
           usedHours: z.number().describe('이미 쓴 연차 시간'),
+          fullTimeWeeklyDays: z.number().int().optional().describe('같은 일을 하는 통상 근로자의 1주 소정근로일 수(1~7, 기본 5) — 주휴 시간 = 1주 소정근로시간 ÷ 이 값(8시간까지, 시행령 별표2 제2호나목). fullTimeDays(연차일수)와 다르다'),
         }).optional().describe('단시간 근로자일 때'),
         otherPaidHours: z.boolean().optional().describe('주휴 말고 소정근로시간 밖에 유급으로 정한 시간(토요일 유급 등)이 있다 — 월급·주급이면 계산하지 않는다'),
         promotion: z.enum(['none', 'claimed', 'unknown']).optional().describe('회사가 사용 촉진을 했다고 하는가(금액은 바뀌지 않는다)'),

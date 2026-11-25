@@ -28,6 +28,7 @@ export default function LeavePayClient() {
   const [daily, setDaily] = useState('8');
   const [fullWeekly, setFullWeekly] = useState('40');
   const [fullDays, setFullDays] = useState('15');
+  const [fullWeekDays, setFullWeekDays] = useState('5');
   const [usedHours, setUsedHours] = useState('0');
   const [average, setAverage] = useState(false);
   const [unit, setUnit] = useState<WageUnit>('month');
@@ -56,7 +57,7 @@ export default function LeavePayClient() {
           days: ledger
             ? { source: 'ledger', hireDate: hire, lastWorkDate: last, usedDays: num(usedDays) }
             : { source: 'unused', unusedDays: num(unused) },
-          partTime: partTime ? { fullTimeWeeklyHours: num(fullWeekly), fullTimeDays: num(fullDays), usedHours: num(usedHours) } : undefined,
+          partTime: partTime ? { fullTimeWeeklyHours: num(fullWeekly), fullTimeDays: num(fullDays), usedHours: num(usedHours), fullTimeWeeklyDays: num(fullWeekDays) } : undefined,
           otherPaidHours: otherPaid && (unit === 'month' || unit === 'week'),
           promotion,
           arisenBeforeTermination: timing === 'termination' && before !== 'unknown' ? before === 'yes' : undefined,
@@ -67,7 +68,7 @@ export default function LeavePayClient() {
     } catch (e) {
       return { error: (e as Error).message };
     }
-  }, [timing, fivePlus, weekly, daily, useAverage, avgDaily, unit, amount, ledger, hire, last, usedDays, unused, partTime, fullWeekly, fullDays, usedHours, otherPaid, promotion, before, paid, today]);
+  }, [timing, fivePlus, weekly, daily, useAverage, avgDaily, unit, amount, ledger, hire, last, usedDays, unused, partTime, fullWeekly, fullDays, fullWeekDays, usedHours, otherPaid, promotion, before, paid, today]);
 
   const r = 'r' in out ? out.r : undefined;
 
@@ -107,6 +108,12 @@ export default function LeavePayClient() {
           <label className={small} style={muted}>
             통상 근로자의 1주 소정근로시간
             <input inputMode="decimal" className={inputCls} value={fullWeekly} onChange={(e) => setFullWeekly(e.target.value)} />
+          </label>
+        )}
+        {partTime && (
+          <label className={small} style={muted}>
+            통상 근로자의 1주 소정근로일 수(주휴 시간을 나누는 날 수)
+            <input inputMode="numeric" className={inputCls} value={fullWeekDays} onChange={(e) => setFullWeekDays(e.target.value)} />
           </label>
         )}
       </section>
