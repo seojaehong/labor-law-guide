@@ -107,10 +107,12 @@ export const NEGATED_NOTE = '해당 문구가 부정문(…하지 않는다 등)
 const NEG = /(지않|지아니|아니한다|아니된다|수없|못한다|불허)/;
 const flat = (s: string) => norm(s).replace(/\s/g, '');
 const sentencesOf = (texts: string[]) => texts.flatMap((t) => t.split(/(?<=[.。])\s*/)).map(flat);
+/** 문장 s 에서 w 뒤에 부정이 붙었는가. 「…하지 아니할 수 있다」는 법이 허용한 예외 단서라 부정으로 보지 않는다 */
+const negTail = (s: string, w: string) => NEG.test(s.slice(s.indexOf(w) + w.length).replace(/지(아니할|않을)수있/g, ''));
 /** w 가 든 문장이 있고, 그 문장마다 w 뒤에 부정이 붙었는가 */
 const negAfter = (sentences: string[], w: string) => {
   const hit = sentences.filter((s) => s.includes(w));
-  return hit.length > 0 && hit.every((s) => NEG.test(s.slice(s.indexOf(w) + w.length)));
+  return hit.length > 0 && hit.every((s) => negTail(s, w));
 };
 
 /**
@@ -125,7 +127,7 @@ function negatedOk(rule: RuleSpec, paras: Para[]): boolean {
   return rule.ok.some((o) => {
     const w = flat(o);
     // 표준 문안에 w 뒤가 부정인 문장이 하나라도 있으면 부정형이 정상일 수 있다 — 보지 않는다
-    return negAfter(mine, w) && !std.some((s) => s.includes(w) && NEG.test(s.slice(s.indexOf(w) + w.length)));
+    return negAfter(mine, w) && !std.some((s) => s.includes(w) && negTail(s, w));
   });
 }
 
