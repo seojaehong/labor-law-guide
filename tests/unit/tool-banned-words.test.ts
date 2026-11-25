@@ -28,6 +28,10 @@ const ROOTS = [
   'src/content/duties-data.ts',
   'src/lib/nosa-council',
   'public/tools/severance.html',
+  // 취업규칙 점검·법령 개정 화면(261125 — 빠져 있어 「노무사」 6곳이 걸리지 않았다)
+  'src/app/laws',
+  // 사이트 공통 꼬리말
+  'src/app/layout.tsx',
 ];
 
 function files(p: string): string[] {
@@ -73,6 +77,14 @@ describe('bannedHits', () => {
   it('표방어와 단정어를 잡는다', () => {
     expect(bannedHits('노무사 상담을 권장합니다')).toEqual(['노무사', '상담']);
     expect(bannedHits('임금 체불입니다')).toEqual(['체불']);
+  });
+  it('맡아 처리한다는 말은 부정형도 잡는다', () => {
+    expect(bannedHits('세무대리·신고서 작성 대행이 아닙니다')).toEqual(['대행', '대리']);
+    expect(bannedHits('1년치 연차 대신 1개월마다')).toEqual(['대신']);
+  });
+  it('판결 원문과 법령 이름은 걸지 않는다', () => {
+    expect(bannedHits('제3자를 고용하여 업무를 대행케 하는 등')).toEqual([]);
+    expect(bannedHits('공인노무사법 시행령 별표 1의 적용 범위')).toEqual([]);
   });
 });
 

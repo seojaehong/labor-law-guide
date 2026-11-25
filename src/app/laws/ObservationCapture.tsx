@@ -63,7 +63,7 @@ function CaptureAttempt({ verdict, clauseIds, context, standardId, store, availa
   return <div>
     <label><input type="checkbox" checked={falsePositive} disabled={busy || attempted} onChange={e => setFalsePositive(e.target.checked)} /> 오탐 의심 표시</label>{' '}
     <button className="lr-btn lr-btn-sm" disabled={busy || state === '기록 저장 확인됨'} onClick={save}>관리자 검토기록 저장</button>
-    <p>원문·제목은 저장하지 않습니다. 규칙과 조항 번호·판정 정보만 기록합니다.</p>
+    <p>원문·제목은 저장하지 않습니다. 규칙과 조항 번호·점검 결과만 기록합니다.</p>
     <p role="status">{state}</p>
   </div>;
 }

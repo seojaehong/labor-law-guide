@@ -31,7 +31,7 @@ export default function DailyWorkerTaxPage() {
       basis={[...BASIS]}
       basisNote={
         <>
-          세무대리·신고서 작성 대행이 아닙니다.{' '}
+          원천징수와 신고는 회사가 직접 합니다.{' '}
           <a href={NTS.href} target="_blank" rel="noopener noreferrer" className="underline underline-offset-2">{NTS.text}</a>{NTS.after}{' '}
           <a href={HOMETAX.href} target="_blank" rel="noopener noreferrer" className="underline underline-offset-2">{HOMETAX.text}</a>{HOMETAX.after}{' '}
           일용근로자가 아니면 <Link href="/tools/take-home-pay" className="underline underline-offset-2">실수령액 계산기</Link>에서 간이세액표 소득세를 봅니다.

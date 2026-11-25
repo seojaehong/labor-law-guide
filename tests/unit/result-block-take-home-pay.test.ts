@@ -1,6 +1,6 @@
 // 실수령액 계산기 — 공용 결과 블록(result.ts) 이전을 고정한다(261124).
 // ① 답 문장·공제 항목 줄(이름·금액·근거)·공제 합계는 이전 직전(AnswerCard) 화면에서 뽑은 글자 그대로다.
-// ② 「세무대리·신고서 작성 대행이 아닙니다 …」와 홈택스 링크는 결과 블록 안에 글자 그대로 남는다(종전엔 카드 밖 한 줄).
+// ② 「원천징수와 신고는 회사가 직접 합니다 …」와 홈택스 링크는 결과 블록 안에 글자 그대로 남는다(종전엔 카드 밖 한 줄).
 // ③ 과세 급여 1,000만원 초과는 소득세를 계산하지 않는다 — 실수령액 금액 칸을 내지 않는다.
 // ④ 기준일은 rates.ts 의 from·checked(takeHomeRatesOn 이 읽는 열 개 키)와 간이세액표 개정일 상수에서만 나온다.
 import { existsSync, readFileSync } from 'node:fs';
@@ -130,7 +130,7 @@ describe('기준일 — rates.ts 의 from·checked 와 간이세액표 개정일
 describe('세무 위험 표지 — 결과 블록 안에 글자 그대로', () => {
   const src = readFileSync(CLIENT, 'utf8');
   it('고지 글자와 홈택스 주소는 바뀌지 않았다', () => {
-    expect(NOTICE).toBe('세무대리·신고서 작성 대행이 아닙니다. 입력한 숫자로 계산한 예상 금액입니다.');
+    expect(NOTICE).toBe('원천징수와 신고는 회사가 직접 합니다. 입력한 숫자로 계산한 예상 금액입니다.');
     expect(HOMETAX_URL).toBe('https://www.hometax.go.kr/');
     expect(HOMETAX_LINE).toBe('홈택스의 「근로소득 간이세액표」(매달 떼는 소득세)와 「연말정산 미리보기」(1년 치)로 한 번 더 볼 수 있습니다.');
   });

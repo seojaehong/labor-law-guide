@@ -187,7 +187,7 @@ describe('화면 — 두 카드 순서·이름, 세무 고지 그대로, 44px �
     expect(src.indexOf("'error' in out ?", part)).toBeLessThan(partEnd);
     for (const s of ['{NOTICE}', 'href={HOMETAX_URL}', '{HOMETAX_LINK.text}', '{HOMETAX_LINK.after}']) expect(notice).toContain(s);
     expect(notice).not.toMatch(/'r' in out|'error' in out/);
-    expect(NOTICE).toBe('세무대리·신고서 작성 대행이 아닙니다. 입력한 숫자로 계산한 예상 금액입니다.');
+    expect(NOTICE).toBe('원천징수와 신고는 회사가 직접 합니다. 입력한 숫자로 계산한 예상 금액입니다.');
     expect(HOMETAX_LINK.text).toBe('홈택스(첫 화면)');
   });
   it('결과 블록(잉크 반전 바탕) 안 children 은 muted·ink 를 쓰지 않는다', () => {

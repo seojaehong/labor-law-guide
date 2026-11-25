@@ -121,7 +121,7 @@ describe('세무 위험 표지 — 결과 블록 안에 글자 그대로', () =>
   it('고지 두 줄은 바뀌지 않았다', () => {
     expect(NOTICE).toEqual([
       '예상 금액입니다. 지급하는 곳이 실제로 뗀 금액과 대조합니다.',
-      '세무대리·신고서 작성 대행이 아닙니다. 지급명세서나 신고서를 만들지 않습니다.',
+      '원천징수와 신고는 회사가 직접 합니다. 지급명세서나 신고서를 만들지 않습니다.',
     ]);
     expect(HOMETAX.href).toBe('https://www.hometax.go.kr');
     expect(NTS.href).toBe('https://www.nts.go.kr/nts/cm/cntnts/cntntsView.do?cntntsId=7863');

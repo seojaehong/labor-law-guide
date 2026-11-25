@@ -66,7 +66,7 @@ export default function RetirementTaxClient() {
         <ResultBlock view={retirementTaxView({ r, hire, last, today })}>
           {/* 세무사법 고지 — 링크가 있어 글자 그대로 둔다(reference_tax_calculator_semusa_law) */}
           <p className={`${small} mt-3`} style={{ color: 'var(--rb-sub)' }}>
-            예상 금액입니다. 세무대리·신고서 작성 대행이 아닙니다.{' '}
+            예상 금액입니다. 원천징수와 신고는 회사가 직접 합니다.{' '}
             홈택스{' '}
             <a href={HOMETAX.href} target="_blank" rel="noopener noreferrer" className="underline underline-offset-2">{HOMETAX.name}</a>
             {HOMETAX.note}

@@ -1,5 +1,5 @@
 // 퇴직소득세 계산기 → 공용 결과 블록(261124). 숫자·문장은 261124 이전 화면에서 뽑은 글자 그대로다.
-// 세무사법 위험 표지(reference_tax_calculator_semusa_law): 「예상」 결과명·「세무대리·신고서 작성 대행이 아닙니다」·홈택스 모의계산 링크를 약하게 만들지 않는다.
+// 세무사법 위험 표지(reference_tax_calculator_semusa_law): 「예상」 결과명·「원천징수와 신고는 회사가 직접 합니다」·홈택스 모의계산 링크를 약하게 만들지 않는다.
 import { existsSync, readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 
@@ -67,9 +67,9 @@ describe('퇴직소득세 — 기준일은 코드의 세율표 확인일에서�
 
 describe('퇴직소득세 — 세무사법 고지는 그대로', () => {
   const client = readFileSync('src/app/tools/retirement-tax/RetirementTaxClient.tsx', 'utf8');
-  it('결과 블록 안(children)에 「예상 금액입니다. 세무대리·신고서 작성 대행이 아닙니다.」와 홈택스 모의계산 링크가 남는다', () => {
+  it('결과 블록 안(children)에 「예상 금액입니다. 원천징수와 신고는 회사가 직접 합니다.」와 홈택스 모의계산 링크가 남는다', () => {
     const block = client.slice(client.indexOf('<ResultBlock'), client.indexOf('</ResultBlock>'));
-    expect(block).toContain('예상 금액입니다. 세무대리·신고서 작성 대행이 아닙니다.');
+    expect(block).toContain('예상 금액입니다. 원천징수와 신고는 회사가 직접 합니다.');
     expect(block).toContain('href={HOMETAX.href}');
     expect(block).toContain('{HOMETAX.note}');
     expect(client).not.toContain('AnswerCard');

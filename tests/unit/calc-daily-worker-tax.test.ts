@@ -294,7 +294,7 @@ describe('공통 장치(261028) · 금지어', () => {
   });
 
   it('대행이 아니라는 안내와 「예상」', () => {
-    expect(NOTICE.join(' ')).toContain('세무대리·신고서 작성 대행이 아닙니다');
+    expect(NOTICE.join(' ')).toContain('원천징수와 신고는 회사가 직접 합니다');
     expect(NOTICE.join(' ')).toContain('예상');
   });
 

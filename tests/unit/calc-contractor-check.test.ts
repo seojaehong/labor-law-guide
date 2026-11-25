@@ -306,7 +306,7 @@ describe('화면 문장', () => {
 
   it('대행이 아니라는 안내와, 첫 화면으로 간다고 밝힌 홈택스 링크 문장', () => {
     const t = allCopy(checkItems({}), money(3_000_000)).join('\n');
-    expect(t).toContain('세무대리·신고서 작성 대행이 아닙니다');
+    expect(t).toContain('원천징수와 신고는 회사가 직접 합니다');
     expect(HOMETAX_LINK.text).toBe('홈택스(첫 화면)');
     expect(t).toContain(`${HOMETAX_LINK.text}${HOMETAX_LINK.after}`);
     expect(HOMETAX_LINK.after).toMatch(/메뉴를 찾아/);

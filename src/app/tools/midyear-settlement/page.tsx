@@ -40,7 +40,7 @@ export default function MidyearSettlementPage() {
       ]}
       basisNote={
         <>
-          세무대리·신고서 작성 대행이 아닙니다.{' '}
+          원천징수와 신고는 회사가 직접 합니다.{' '}
           <a href={HOMETAX_URL} target="_blank" rel="noopener noreferrer" className="underline underline-offset-2">{HOMETAX_LINK.text}</a>{HOMETAX_LINK.after}
         </>
       }

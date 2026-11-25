@@ -492,7 +492,7 @@ describe('화면 문장', () => {
   it('결과 문장에 대행 아님 고지와 「예상」이 늘 있다', () => {
     for (const o of all) {
       const lines = allCopy(o);
-      expect(lines.some((l) => l.includes('세무대리·신고서 작성 대행이 아닙니다'))).toBe(true);
+      expect(lines.some((l) => l.includes('원천징수와 신고는 회사가 직접 합니다'))).toBe(true);
       expect(headline(o)[0]).toContain('예상');
     }
   });

@@ -400,7 +400,7 @@ const FEATURES: Record<string, { path: string; journey: Journey; waitUntil?: 'lo
       await last.fill('2026-07-31');
       step('정확히 5년(기념일 전날 퇴사)', /280,000원.*28,000원.*5년\(60개월\)/, await answer(p));
       step('기준일 = 세율표 확인일(BASIC_TAX_RATES)', '소득세법 제55조 기본세율(2023년 이후 과세기간) 기준 · 확인 2026.10.29.', await answer(p));
-      step('세무사법 고지 유지', /예상 금액입니다\. 세무대리·신고서 작성 대행이 아닙니다\..*모의계산/, await answer(p));
+      step('세무사법 고지 유지', /예상 금액입니다\. 원천징수와 신고는 회사가 직접 합니다\..*모의계산/, await answer(p));
       await last.fill('2026-08-01');
       step('기념일 퇴사 = 6년', /216,000원.*21,600원.*6년\(61개월\)/, await answer(p));
       await pay.fill('2500000');
