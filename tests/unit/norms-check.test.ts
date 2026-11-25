@@ -134,6 +134,21 @@ describe('check_norms — 연결어미 뒤 쉼표', () => {
     expect(r.counts).toEqual({ A: 0, B: 6 });
   });
 
+  it('「피고」「보고」로 끝나도 동사 활용(살피고·살펴보고)이면 어미로 본다 — 명사(원고·피고·결과보고·부당해고)는 그대로 뺀다', () => {
+    const src = [
+      '회사는 사정을 살피고, 결론을 냈음.',
+      '자녀를 보살피고, 출근하였음.',
+      '자료를 살펴보고, 회신하였음.',
+      '경위를 알아보고, 보고하였음.',
+      '지난 일을 돌아보고, 정리하였음.',
+      '원고, 피고 모두 출석함.',
+      '결과보고, 중간보고를 받음.',
+      '부당해고, 정직이 문제됨.',
+    ].join('\n');
+    const r = checkNorms(src, { checks: ['comma'] }).comma;
+    expect(r.hits.map((h: { line: number }) => h.line)).toEqual([1, 2, 3, 4, 5]);
+  });
+
   it('줄은 \\n 으로만 나눈다(파이썬 split("\\n"))', () => {
     const r = checkNorms('검토하였고,\u2028그 결과를 알렸음', { checks: ['comma'] }).comma;
     expect(r.counts.A).toBe(0);

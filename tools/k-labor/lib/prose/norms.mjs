@@ -119,6 +119,15 @@ const COMMA_ENDS = ['고', '며', '으며', '이며', '하며', '으나', '이�
   '이상', '있어', '없어', '아니나', '기보다', '않아', '하되', '으되'];
 // 「경고, 견책」처럼 「고」로 끝나는 명사는 어미로 보지 않는다
 const COMMA_NOUN_GO = ['경고', '해고', '사고', '보고', '참고', '신고', '광고', '재고', '최고', '원고', '피고', '창고', '권고', '공고', '등고', '마감고', '잔고', '노고', '기고', '탈고'];
+// 위 명사와 끝이 같아도 동사 활용이면 어미다 — 「살피고」(살피다)·「살펴보고」「알아보고」(-아/-어 + 보다)
+const COMMA_VERB_GO = [
+  ['피고', ['살']],
+  ['보고', ['아', '어', '여', '해', '펴', '봐', '와', '워', '춰', '려', '켜', '져', '쳐', '혀', '겨', '셔', '돼', '줘']],
+];
+const isVerbGo = (w) => COMMA_VERB_GO.some(([noun, stems]) => {
+  if (!w.endsWith(noun) || w.length <= noun.length) return false;
+  return stems.includes(lastCp(w.slice(0, -noun.length)));
+});
 // 그림(![)·HTML 주석(<<)·참고 자료 표시 줄은 본문이 아니다
 const COMMA_SKIP = ['>', '#', '<<', '![', '[참고 매뉴얼]'];
 const COMMA_RULE = { reason: '연결어미 뒤 쉼표는 뺀다(쉼표가 꼭 필요한 곳이 아니면)', basis: '연결어미 뒤 쉼표' };
@@ -230,7 +239,7 @@ function comma(lines, warnOnly) {
       const w = m[1];
       const end = lastCp(w);
       if (!COMMA_ENDS.some((x) => w.endsWith(x)) || !compiled.hangulEnd.test(end)) continue;
-      if (COMMA_NOUN_GO.some((x) => w.endsWith(x)) || compiled.digitEnd.test(end)) continue;
+      if ((COMMA_NOUN_GO.some((x) => w.endsWith(x)) && !isVerbGo(w)) || compiled.digitEnd.test(end)) continue;
       out.push(raw(i + 1, h, m, r, 12, 10));
     }
   });
