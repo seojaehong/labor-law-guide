@@ -22,8 +22,8 @@ describe('퇴고 화면 글', () => {
     for (const w of ['AI가 썼', '사람이 썼', 'AI가 쓴', '사람이 쓴', '검증 완료', '검증된', '적중', '정확도', '%']) expect(all, w).not.toContain(w);
   });
 
-  it('아직 들어오지 않은 검사를 적지 않는다', () => {
-    for (const w of ['보존 검사', '보존 대조', 'check_rewrite', 'check_semantic', 'check_rhetoric']) expect(all, w).not.toContain(w);
+  it('비공개 규칙 파일이 있어야 도는 검사(의미범주·AI 수사)는 적지 않는다 — 공개 체험·npm 범용으로 돌지 않는다', () => {
+    for (const w of ['check_semantic', 'check_rhetoric']) expect(all, w).not.toContain(w);
   });
 
   it('예시 글에 주민등록번호 모양이 없다 — 체험 버튼이 멈춤 화면을 내지 않는다', () => {
