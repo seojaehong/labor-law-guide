@@ -169,7 +169,12 @@ function blankQuotes(line, pairs) {
 // 파이썬 str.splitlines 의 줄 나눔(CR 은 앞에서 LF 로 맞춘다)
 const SPLITLINES = /[\n\v\f\x1c-\x1e\x85\u2028\u2029]/;
 
+/** checks 를 비우면 도는 검사(종전 셋 — 발송 게이트·퇴고 체험 화면이 기대는 기본값) */
 export const NORM_CHECKS = ['spacing', 'punct', 'comma'];
+/** 문서 안 일관성(261125) — checks 에 이름을 적어야만 돈다 */
+export const NORM_OPT_CHECKS = ['listEnd', 'abbrev'];
+/** 받는 검사 이름 전부(입력 검사용) */
+export const NORM_CHECKS_ALL = [...NORM_CHECKS, ...NORM_OPT_CHECKS];
 export const NORM_CAP = 500;
 
 /** 따옴표 안을 「가」로 채운다(부호는 남긴다) — punct_check.strip_quoted 와 같다 */
@@ -246,6 +251,257 @@ function comma(lines, warnOnly) {
   return out;
 }
 
+// ── 문서 안 일관성(261125) — 목록 끝맺음(listEnd)·기관 약칭(abbrev). 맞춤법 규정이 아니라 업무 문서 관행이라 B(문맥 확인)만 낸다.
+// 줄 하나가 아니라 문서 구조를 보는 검사라 기본(NORM_CHECKS)에 넣지 않는다 — checks 에 이름을 적어야 돈다.
+// 줄은 \n 으로만 나눈다(쉼표 검사와 같다). ``` · ~~~ 코드 블록 안은 보지 않는다. quote·warnOnly 는 이 둘에 영향이 없다.
+const FENCE = /^[ \t]*(?:```|~~~)/u;
+const isHangul = (c) => c >= '가' && c <= '힣';
+
+// listEnd — 같은 목록에서 대부분 문장(~다.)으로 끝나는데 몇 항목만 서술어 없이(명사·괄호로) 끝나거나, 그 반대.
+// 항목 = 「- 」「* 」「1. 」「1) 」 줄(번호는 두 자리까지 — 「2026. 11. 25.」 같은 날짜 줄은 목록이 아니다).
+// 이어지는 줄(들여 쓴 줄, 빈 줄 없이 붙은 줄)은 앞 항목에 붙고, 판단은 항목 끝으로 한다. 하위 목록(더 들여 쓴 항목)은 따로 본다.
+// 표(|)·제목(#)·인용(>)·가로줄·HTML 줄은 목록을 끊는다. 빈 줄은 끊지 않는다(마크다운의 느슨한 목록).
+const LIST_ITEM = /^([ \t]*)([-*]|\d{1,2}[.)])[ \t]+(?=\S)/u;
+const LIST_BREAK = /^[ \t]*(?:[#|><]|(?:[-*_][ \t]*){3,}$)/u;
+const LIST_MIN = 3; // 항목이 이보다 적으면 다수를 말할 수 없다
+const END_TRIM = new Set([...'.。．!！?？…*_`~']); // 끝 마침표·강조 표시
+const OPEN_OF = { ')': '(', '）': '（', ']': '[' };
+const CLOSE_QUOTE = new Set([...'」』”’"\'']);
+// 「요」로 끝나는 명사 — 문장(~해요)이 아니다
+const YO_NOUN = ['필요', '중요', '주요', '개요', '수요', '소요', '강요', '긴요', '적요', '요요'];
+const LIST_BASIS = '목록 끝맺음(규정이 아니라 업무 문서 관행)';
+const indentOf = (ws) => {
+  let n = 0;
+  for (const c of ws) n += c === '\t' ? 4 - (n % 4) : 1;
+  return n;
+};
+
+/** 항목 끝맺음 — 'sent'(문장) / 'noun'(서술어 없음) / null(판단하지 않음: 빈 항목·쌍점으로 끝나는 머리 항목) */
+function endKind(text) {
+  let s = text;
+  for (;;) {
+    let b = s.length;
+    while (b > 0 && (WS.has(s[b - 1]) || END_TRIM.has(s[b - 1]))) b--;
+    s = s.slice(0, b);
+    // 끝 괄호는 덧붙인 말이다 — 짝이 맞으면 통째로 떼고 그 앞말로 판단한다(「…둡니다(…).」는 문장, 「…본문(…없습니다)」는 명사)
+    const close = s[b - 1];
+    const open = OPEN_OF[close];
+    if (!open) break;
+    let depth = 0;
+    let j = b - 1;
+    for (; j >= 0; j--) {
+      if (s[j] === close) depth++;
+      else if (s[j] === open && --depth === 0) break;
+    }
+    if (j < 0) break;
+    s = s.slice(0, j);
+  }
+  if (!s) return null;
+  const c = lastCp(s);
+  if (c === ':' || c === '：') return null;
+  if (CLOSE_QUOTE.has(c) || !isHangul(c)) return 'noun'; // 인용·숫자·기호로 끝나면 항목 자체의 서술어가 없다
+  // 종결 어미는 줄기에 붙는다 — 홀로 선 「다」(가·나·다 순번)는 문장이 아니다
+  if (!isHangul(s[s.length - 2] ?? '')) return 'noun';
+  if (c === '다' || c === '까' || c === '죠') return 'sent';
+  if (c === '요') return YO_NOUN.some((w) => s.endsWith(w)) ? 'noun' : 'sent';
+  return 'noun'; // 명사·명사형 종결(~함·~음·~임)
+}
+
+/** 줄 끝 낱말(위치·글자) — 정규식 되짚기 없이 뒤에서 센다 */
+function lastWord(s) {
+  let b = s.length;
+  while (b > 0 && WS.has(s[b - 1])) b--;
+  let a = b;
+  while (a > 0 && !WS.has(s[a - 1])) a--;
+  return { index: a, 0: s.slice(a, b) };
+}
+
+function judgeList(g, out) {
+  const judged = [];
+  for (const it of g.items) {
+    const k = endKind(it.parts.join(' '));
+    if (k) judged.push({ it, k });
+  }
+  const n = judged.length;
+  if (n < LIST_MIN) return;
+  let sent = 0;
+  for (const x of judged) if (x.k === 'sent') sent++;
+  const noun = n - sent;
+  const minor = Math.min(sent, noun);
+  if (!minor || minor * 3 > n) return; // 소수가 1/3 이하일 때만 — 다수가 분명해야 한다
+  const minorKind = sent < noun ? 'sent' : 'noun';
+  const r = minorKind === 'noun'
+    ? { grade: 'B', reason: `같은 목록 ${n}개 항목 중 ${sent}개는 문장(~다.)으로 끝나는데 이 항목은 서술어 없이 끝난다 — 끝맺음을 맞춘다`, basis: LIST_BASIS }
+    : { grade: 'B', reason: `같은 목록 ${n}개 항목 중 ${noun}개는 서술어 없이(명사·명사형으로) 끝나는데 이 항목은 문장으로 끝난다 — 끝맺음을 맞춘다`, basis: LIST_BASIS };
+  for (const x of judged) if (x.k === minorKind) out.push(raw(x.it.line, x.it.raw, lastWord(x.it.raw), r, 16, 0));
+}
+
+function listEnd(lines) {
+  const out = [];
+  const open = []; // 열린 목록(바깥 → 안): { indent, fam, items }
+  let cur = null; // 마지막 항목: { indent, parts, line, raw } — line·raw 는 항목의 끝 줄
+  let blank = false;
+  let fence = false;
+  const closeTo = (k) => {
+    while (open.length > k) judgeList(open.pop(), out);
+  };
+  const closeAll = () => {
+    closeTo(0);
+    cur = null;
+  };
+  lines.forEach((ln, i) => {
+    if (FENCE.test(ln)) {
+      fence = !fence;
+      closeAll();
+      blank = false;
+      return;
+    }
+    if (fence) return;
+    const s = strip(ln);
+    if (!s) {
+      blank = true;
+      return;
+    }
+    if (LIST_BREAK.test(ln)) {
+      closeAll();
+      blank = false;
+      return;
+    }
+    const m = LIST_ITEM.exec(ln);
+    if (m) {
+      const indent = indentOf(m[1]);
+      const fam = m[2].slice(-1); // - * . ) — 표시가 바뀌면 다른 목록
+      let k = open.length;
+      while (k > 0 && open[k - 1].indent > indent) k--;
+      closeTo(k);
+      let g = open[open.length - 1];
+      if (g && g.indent === indent && g.fam !== fam) {
+        closeTo(open.length - 1);
+        g = undefined;
+      }
+      if (!g || g.indent !== indent) {
+        g = { indent, fam, items: [] };
+        open.push(g);
+      }
+      cur = { indent, parts: [ln.slice(m[0].length)], line: i + 1, raw: ln };
+      g.items.push(cur);
+      blank = false;
+      return;
+    }
+    // 항목 밖 줄 — 빈 줄 없이 붙었거나(게으른 이어쓰기) 항목보다 들여 썼으면 앞 항목에 이어진다
+    if (cur && (!blank || indentOf(ln.slice(0, leadWs(ln))) > cur.indent)) {
+      cur.parts.push(s);
+      cur.line = i + 1;
+      cur.raw = ln;
+    } else closeAll();
+    blank = false;
+  });
+  closeAll();
+  // 하위 목록이 먼저 닫히므로 줄 차례로 맞춘다
+  return out.sort((a, b) => a.line - b.line || a.idx - b.idx);
+}
+
+// abbrev — 기관 약칭이 정의 없이 섞인 곳. 두 경우만 본다(과잉 걸림을 막으려고 좁게 둔다).
+//  ① 「한국」+X 꼴 정식 명칭(끝말 공사·공단·원·재단·협회 등)이 문서에 있는데, X 를 「한국」 없이 따로 썼고 「(이하 「X」)」 정의가 없다
+//  ② 기관명 뒤 「(이하 「X」)」·「(이하 X)」 정의가 있는데, 그보다 앞에서 X 를 썼다
+// X 는 낱말 첫머리에서 시작하고 뒤에 조사만 붙은 것만 본다 — 다른 정식 명칭 속 글자(「한국가나공사」 속 「가나공사」)·다른 낱말(「대한가나공사」)은 보지 않는다.
+// 끝말만 남은 약칭(「…평가원」을 「평가원」으로)·영문 약칭·법령 약칭은 보지 않는다.
+// 정식 명칭·정의는 모든 줄(제목·인용·표 포함)에서 모으고, 약칭은 쉼표 검사처럼 > 인용·# 제목·그림 줄과 따옴표(“ ” ‘ ’ 「 」 " ") 안을 빼고 찾는다(표 줄은 본다).
+const ORG_ENDS = ['공제회', '진흥회', '연합회', '위원회', '공사', '공단', '재단', '협회', '센터', '원'];
+// 정식 명칭·약칭 뒤에 붙는 조사 — 짧은 것부터(긴 몸말을 먼저 본다)
+const PARTICLES = ['', '은', '는', '이', '가', '을', '를', '의', '과', '와', '에', '도', '만', '로', '나', '며', '다', '인', '라', '란', '들',
+  '에서', '에게', '에는', '에도', '으로', '로서', '로는', '로도', '까지', '부터', '보다', '처럼', '과의', '와의', '과는', '와는', '과도', '와도',
+  '이나', '이며', '이고', '이다', '이라', '이란', '라는', '였다', '마다', '이랑', '들은', '들이', '들의',
+  '에서는', '에서도', '으로서', '으로는', '으로도', '이라는', '이었다', '입니다'];
+const WORD = /(?<![가-힣A-Za-z0-9])[가-힣A-Za-z0-9]+/gu;
+// (이하 「X」) · (이하 X) · (이하 "X"라 한다) … — X 에 여는 괄호를 넣지 않는다(겹친 「(이하(이하…」가 제곱이 되지 않게)
+const DEF = /\([ \t]*이하[ \t]*[「『“"‘']?[ \t]*([^\s」』”"’'()]+?)[ \t]*[」』”"’']?[ \t]*(?:이?라고?[ \t]*(?:한다|함|칭한다|칭함|부른다)?|으?로[ \t]*(?:한다|칭한다)?)?[ \t]*\)/gu;
+const ABBR_SKIP = ['>', '#', '<<', '!['];
+const ABBR_BASIS = '약칭 일관성(규정이 아니라 업무 문서 관행)';
+/** 목적격 조사 — 끝 글자에 받침이 있으면 「을」, 없으면 「를」(한글이 아니면 「을(를)」) */
+const eul = (w) => {
+  const c = lastCp(w);
+  return isHangul(c) ? ((c.charCodeAt(0) - 0xac00) % 28 ? '을' : '를') : '을(를)';
+};
+
+/** 기관 이름이면 끝말 — 끝말 앞에 한 글자(「원」은 세 글자) 이상 있어야 한다(「교원」「연구원」「공사」 같은 낱말을 기관으로 보지 않게) */
+function orgEnd(name) {
+  const e = ORG_ENDS.find((x) => name.endsWith(x));
+  if (!e) return null;
+  return cpLen(name) - cpLen(e) >= (e === '원' ? 3 : 1) ? e : null;
+}
+/** 낱말에서 끝 조사를 뗀 몸말 — 긴 몸말부터, cond 를 처음 만족하는 것 */
+function stemOf(word, cond) {
+  for (const p of PARTICLES) {
+    if (word.length > p.length && word.endsWith(p)) {
+      const stem = word.slice(0, word.length - p.length);
+      if (cond(stem)) return stem;
+    }
+  }
+  return null;
+}
+/** 정의 앞 기관명 — 「…한국가나공사(이하」의 「한국가나공사」(닫는 따옴표·공백은 건너뛴다) */
+function nameBefore(line, at) {
+  let b = at;
+  while (b > 0 && (WS.has(line[b - 1]) || CLOSE_QUOTE.has(line[b - 1]))) b--;
+  let a = b;
+  while (a > 0 && /[가-힣A-Za-z0-9]/u.test(line[a - 1])) a--;
+  return line.slice(a, b);
+}
+
+function abbrev(lines) {
+  const names = new Map(); // X → 정식 명칭(「한국」+X)
+  const defs = new Map(); // 약칭 → { line, col, full } (처음 정의)
+  let fence = false;
+  lines.forEach((ln, i) => {
+    if (FENCE.test(ln)) {
+      fence = !fence;
+      return;
+    }
+    if (fence) return;
+    for (const m of execAll(WORD, ln)) {
+      const w = m[0];
+      if (!w.startsWith('한국')) continue;
+      const full = stemOf(w, (st) => st.startsWith('한국') && !!orgEnd(st.slice(2)));
+      if (full && !names.has(full.slice(2))) names.set(full.slice(2), full);
+    }
+    for (const m of execAll(DEF, ln)) {
+      const full = nameBefore(ln, m.index);
+      if (!full || !orgEnd(full) || defs.has(m[1])) continue;
+      defs.set(m[1], { line: i + 1, col: cpLen(ln.slice(0, m.index)) + 1, full });
+    }
+  });
+  const watched = new Map();
+  for (const [x, full] of names) if (!defs.has(x)) watched.set(x, { full });
+  for (const [x, d] of defs) watched.set(x, d);
+  if (!watched.size) return [];
+
+  const out = [];
+  fence = false;
+  lines.forEach((ln, i) => {
+    if (FENCE.test(ln)) {
+      fence = !fence;
+      return;
+    }
+    const s = strip(ln);
+    if (fence || !s || ABBR_SKIP.some((p) => s.startsWith(p))) return;
+    const h = blankQuotes(ln, COMMA_QUOTES);
+    for (const m of execAll(WORD, h)) {
+      const x = stemOf(m[0], (st) => watched.has(st));
+      if (!x) continue;
+      const d = watched.get(x);
+      let r;
+      if (d.line === undefined) {
+        r = { grade: 'B', reason: `「${d.full}」${eul(d.full)} 줄인 「${x}」${eul(x)} 정의 없이 썼다 — 정식 명칭을 쓰거나, 처음 나오는 곳에 「(이하 「${x}」)」를 둔다`, basis: ABBR_BASIS };
+      } else if (i + 1 < d.line || (i + 1 === d.line && cpLen(h.slice(0, m.index)) + 1 < d.col)) {
+        r = { grade: 'B', reason: `약칭 「${x}」${eul(x)} 정의한 곳(${d.line}행 「${d.full}(이하 「${x}」)」)보다 앞에서 썼다 — 정의를 앞으로 옮기거나 정식 명칭을 쓴다`, basis: ABBR_BASIS };
+      } else continue;
+      out.push(raw(i + 1, h, { index: m.index, 0: x }, r, 10, 10));
+    }
+  });
+  return out;
+}
+
 /**
  * A 먼저(만든 차례), 남는 칸에 B — counts 는 전부. 상한 밖 걸림은 세기만 한다
  * @returns {{ counts: { A: number, B: number }, hits: any[], truncated?: boolean }}
@@ -273,8 +529,9 @@ function pack(all, cap) {
 
 /**
  * @param {string} text
- * @param {{ checks?: ('spacing'|'punct'|'comma')[], quote?: boolean, warnOnly?: boolean, cap?: number }} [o]
- *   quote — > 인용 줄과 “ ” 원문 인용도 본다(띄어쓰기·문장 부호. 쉼표는 늘 인용을 뺀다). warnOnly — 쉼표 걸림을 B 로(PDF·PPTX 추출본).
+ * @param {{ checks?: ('spacing'|'punct'|'comma'|'listEnd'|'abbrev')[], quote?: boolean, warnOnly?: boolean, cap?: number }} [o]
+ *   checks — 비우면 spacing·punct·comma. listEnd(목록 끝맺음)·abbrev(기관 약칭)는 적어야만 돈다.
+ *   quote — > 인용 줄과 “ ” 원문 인용도 본다(띄어쓰기·문장 부호. 쉼표·listEnd·abbrev 는 늘 인용을 뺀다). warnOnly — 쉼표 걸림을 B 로(PDF·PPTX 추출본).
  */
 export function checkNorms(text, o = {}) {
   const checks = o.checks?.length ? o.checks : NORM_CHECKS;
@@ -289,6 +546,11 @@ export function checkNorms(text, o = {}) {
       if (checks.includes('punct')) out.punct = pack(punct(lines, !!o.quote), cap);
     }
     if (checks.includes('comma')) out.comma = pack(comma(t.split('\n'), !!o.warnOnly), cap);
+    if (checks.includes('listEnd') || checks.includes('abbrev')) {
+      const lines = t.split('\n');
+      if (checks.includes('listEnd')) out.listEnd = pack(listEnd(lines), cap);
+      if (checks.includes('abbrev')) out.abbrev = pack(abbrev(lines), cap);
+    }
   } finally {
     colLine = null; // 마지막 줄을 붙잡아 두지 않는다
     colTable = null;

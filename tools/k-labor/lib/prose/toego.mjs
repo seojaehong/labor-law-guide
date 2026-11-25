@@ -6,7 +6,7 @@ import crypto from 'node:crypto';
 import { z } from 'zod';
 import { PROSE_RRN_STOP, RRN_LINES_MAX, rrnLines, stackOnly } from '../common.mjs';
 import { checkProse, foldGenre, HIT_CAP, loadPackSet } from './check.mjs';
-import { checkNorms, NORM_CHECKS } from './norms.mjs';
+import { checkNorms, NORM_CHECKS_ALL } from './norms.mjs';
 import { checkRhetoric, compileRhetoricPack, RHETORIC_TRACKS } from './rhetoric.mjs';
 import { checkSemantic, compileSemanticPack } from './semantic.mjs';
 
@@ -25,7 +25,7 @@ export const TEXT_SCHEMA = z.string().min(1, TEXT_EMPTY)
   .refine((s) => s.length <= 400_000 || (s.length <= 800_000 && [...s].length <= 400_000), TEXT_LONG);
 export const GENRE_SCHEMA = z.enum(['legal', 'consulting', 'lecture', 'general', 'official']);
 export const DETAIL_SCHEMA = z.enum(['brief', 'full']);
-export const NORM_CHECKS_SCHEMA = z.array(z.enum(NORM_CHECKS));
+export const NORM_CHECKS_SCHEMA = z.array(z.enum(NORM_CHECKS_ALL));
 // 의미범주 장르·AI 수사 트랙은 원 검사기처럼 아무 이름이나 받는다(의미범주는 팩에 허용 낱말이 없는 장르면 허용 없이, AI 수사는 모르는 트랙이면 legal)
 export const LABEL_SCHEMA = z.string().min(1).max(32);
 
