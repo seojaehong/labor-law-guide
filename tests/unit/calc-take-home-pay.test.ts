@@ -271,7 +271,8 @@ describe('요율은 날짜 축 — 없으면 계산하지 않는다', () => {
   });
 
   it('국민연금 상·하한 고시가 없는 날은 null — 다른 해 값으로 대신하지 않는다', () => {
-    expect(takeHomeRatesOn('2026-06-30')).toBeNull();
+    // 2025. 7.~2026. 6.분은 고시 제2025-24호로 채웠다(261125). 2027. 7.분 고시는 아직 없다
+    expect(takeHomeRatesOn('2026-06-30')?.npsCap).toBe(6_370_000);
     expect(takeHomeRatesOn('2027-07-01')).toBeNull();
   });
 

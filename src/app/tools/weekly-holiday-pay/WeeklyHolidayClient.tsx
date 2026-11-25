@@ -21,17 +21,27 @@ export default function WeeklyHolidayClient() {
   const [weekly, setWeekly] = useState('40');
   const [attended, setAttended] = useState(true);
   const [days, setDays] = useState('5');
+  // 퇴사 주 — none = 평상 주, before = 퇴사일이 주휴일 전, onOrAfter = 퇴사일이 주휴일이거나 그 뒤
+  const [exit, setExit] = useState<'none' | 'before' | 'onOrAfter'>('none');
 
   const out = useMemo(() => {
     // 시급은 10억원까지(실수령액 계산기와 같은 한도). 빈칸·0 은 계산하지 않고 알린다 — 계산식은 그대로다
     const bad = wonInputError('시급', wage, { required: true });
     if (bad) return { error: bad };
     try {
-      return { r: calcWeeklyHoliday({ hourlyWage: num(wage), weeklyHours: num(weekly), fullAttendance: attended, fullTimeDays: num(days) }) };
+      return {
+        r: calcWeeklyHoliday({
+          hourlyWage: num(wage),
+          weeklyHours: num(weekly),
+          fullAttendance: attended,
+          fullTimeDays: num(days),
+          ...(exit === 'none' ? {} : { endsBeforeRestDay: exit === 'before' }),
+        }),
+      };
     } catch (e) {
       return { error: (e as Error).message };
     }
-  }, [wage, weekly, attended, days]);
+  }, [wage, weekly, attended, days, exit]);
 
   const wageNote = defaultWageNote(minRate);
   return (
@@ -55,6 +65,17 @@ export default function WeeklyHolidayClient() {
             <label className={radioLabel}><input type="radio" checked={attended} onChange={() => setAttended(true)} /> 모두 나왔다</label>
             <label className={radioLabel}><input type="radio" checked={!attended} onChange={() => setAttended(false)} /> 빠진 날이 있다</label>
           </div>
+        </fieldset>
+        <fieldset className={`${small} sm:col-span-2`} style={muted} aria-describedby="whp-exit-note">
+          <legend className="mb-1">그 주에 퇴사합니까</legend>
+          <div className="flex flex-wrap gap-x-6">
+            <label className={radioLabel}><input type="radio" checked={exit === 'none'} onChange={() => setExit('none')} /> 퇴사하지 않는다</label>
+            <label className={radioLabel}><input type="radio" checked={exit === 'before'} onChange={() => setExit('before')} /> 퇴사일이 주휴일 전이다</label>
+            <label className={radioLabel}><input type="radio" checked={exit === 'onOrAfter'} onChange={() => setExit('onOrAfter')} /> 퇴사일이 주휴일이거나 그 뒤다</label>
+          </div>
+          <p id="whp-exit-note" className="mt-1 text-xs leading-relaxed">
+            퇴사일은 근로관계가 이어진 마지막 날(사직서·인사기록의 날짜)이고, 마지막으로 일한 날과 다를 수 있습니다. 금요일까지 일하고 퇴사일도 금요일이면 그 주 주휴가 없고, 퇴사일이 일요일(주휴일)이면 생깁니다.
+          </p>
         </fieldset>
       </section>
       }

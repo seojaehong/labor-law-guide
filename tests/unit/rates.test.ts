@@ -29,7 +29,8 @@ describe('rates — 값 고르기', () => {
   it('국민연금 기준소득월액 상·하한은 7월에 바뀐다', () => {
     expect(rateOn('npsIncomeFloor', '2026-07-01')?.value).toBe(410_000);
     expect(rateOn('npsIncomeCap', '2027-06-30')?.value).toBe(6_590_000);
-    expect(rateOn('npsIncomeCap', '2026-06-30')).toBeNull();
+    expect(rateOn('npsIncomeCap', '2026-06-30')?.value).toBe(6_370_000);
+    expect(rateOn('npsIncomeCap', '2025-06-30')).toBeNull();
   });
 
   it('건강·장기요양·고용보험 근로자 몫', () => {

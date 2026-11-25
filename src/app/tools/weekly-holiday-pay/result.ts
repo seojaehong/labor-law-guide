@@ -19,6 +19,9 @@ export function defaultWageNote(rate: Rate | null): string | null {
   return `기본값 ${won(rate.value)}은 ${rate.from.slice(0, 4)}년 최저임금입니다. 근거 ${rate.basis} · 확인 ${dotDate(rate.checked)}`;
 }
 
+/** 퇴사일이 주휴일 전 — 화면과 MCP(calc_weekly_holiday_pay)가 같은 문장을 쓴다 */
+export const ENDED_VERDICT = ['이번 주는 주휴수당이 없습니다.', '퇴사일이 그 주 주휴일 전이라 주휴일까지 근로관계가 이어지지 않습니다.'];
+
 const BASIS = [
   lawLink('근로기준법 제55조(휴일)', '근로기준법', '제55조'),
   lawLink('근로기준법 시행령 제30조(휴일)', '근로기준법 시행령', '제30조'),
@@ -54,6 +57,18 @@ export function weeklyHolidayView(a: {
       nextNote: '계약서에 적힌 시간과 실제로 일하는 시간이 계속 다르면, 출퇴근 기록으로 4주 평균 시간을 다시 세어 넣어 보세요. 15시간 이상이면 결과가 달라질 수 있습니다.',
       next: [
         { label: '근로계약서 점검', href: '/tools/contract-check' },
+        { label: '월급 대조(시급제 주휴)', href: '/tools/pay-check' },
+      ],
+    };
+  }
+  if (r.status === 'ended') {
+    return {
+      ...base,
+      verdict: ENDED_VERDICT,
+      amounts: [],
+      nextNote: '퇴사일이 사직서·인사기록에 적힌 근로관계 마지막 날인지 확인해 보세요. 마지막으로 일한 날이 금요일이어도 퇴사일이 주휴일(보통 일요일)이면 그 주 주휴수당이 생깁니다.',
+      next: [
+        { label: '급여 일할계산(퇴사한 달)', href: '/tools/pay-proration' },
         { label: '월급 대조(시급제 주휴)', href: '/tools/pay-check' },
       ],
     };

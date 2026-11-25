@@ -81,6 +81,11 @@ export function countOn(input: HeadcountInput, d: string): number {
 export function computeHeadcount(input: HeadcountInput, baseDate: string): HeadcountResult {
   let periodStart = minusOneMonth(baseDate);
   if (input.businessStart && input.businessStart > periodStart) periodStart = input.businessStart;
+  return countPeriod(input, baseDate, periodStart);
+}
+
+/** periodStart(포함)부터 baseDate 전날까지를 ①②로 산정한다 */
+function countPeriod(input: HeadcountInput, baseDate: string, periodStart: string): HeadcountResult {
   const periodEnd = addDays(baseDate, -1);
 
   const days: DayCount[] = [];
@@ -109,23 +114,40 @@ export function coverageTimeline(input: HeadcountInput, from: string, to: string
 
 /** ③ 연차 요건(1년 계속 5명 이상)을 채우는 기준일 구간 */
 export function annualLeaveTimeline(input: HeadcountInput, from: string, to: string): CoverageSpan[] {
-  // annualLeaveCoverage 와 같은 판단. 날짜 D 의 열두 달은 D, D-1개월, D-2개월… 이 기준일이라
-  // 앞 날짜들과 겹치므로 기준일마다 한 번만 센다.
+  // annualLeaveCoverage 와 같은 판단. 날짜마다 열두 달 경계(yearBounds)가 다르지만 같은 달 구간이
+  // 이웃 날짜와 겹치므로 구간마다 한 번만 센다.
   const monthly = { ...input, threshold: 5 as const, businessStart: undefined };
   const seen = new Map<string, boolean>();
-  const covered = (d: string) => {
-    let v = seen.get(d);
-    if (v === undefined) seen.set(d, (v = computeHeadcount(monthly, d).covered));
+  const covered = (start: string, base: string) => {
+    const key = `${start}|${base}`;
+    let v = seen.get(key);
+    if (v === undefined) seen.set(key, (v = countPeriod(monthly, base, start).covered));
     return v;
   };
   return spansWhere(from, to, (d) => {
-    let end = d;
-    for (let i = 0; i < 12; i++) {
-      if (!covered(end)) return false;
-      end = minusOneMonth(end);
-    }
-    return !input.businessStart || input.businessStart <= end;
+    const b = yearBounds(d);
+    if (input.businessStart && input.businessStart > b[0]) return false;
+    for (let i = 0; i < 12; i++) if (!covered(b[i], b[i + 1])) return false;
+    return true;
   });
+}
+
+/** 같은 날짜의 n개월 앞. 그 달에 그날이 없으면 그 달 말일 */
+function monthsBefore(d: string, n: number): string {
+  const [y, m, day] = d.split('-').map(Number);
+  const idx = y * 12 + (m - 1) - n;
+  const py = Math.floor(idx / 12);
+  const pm = (idx % 12) + 1;
+  const last = new Date(Date.UTC(py, pm, 0)).getUTCDate();
+  return `${py}-${String(pm).padStart(2, '0')}-${String(Math.min(day, last)).padStart(2, '0')}`;
+}
+
+/**
+ * 기준일 전 1년의 열세 경계 — [12개월 전, 11개월 전, …, 1개월 전, 기준일]. 모두 기준일에서 바로 센다.
+ * 한 달씩 거슬러 이어 세면 짧은 달에서 날짜가 잘린 채 다음 경계로 넘어가(3-31 → 2-28 → 1-28 …) 1년의 시작이 늦어진다(시행령 제7조의2 제3항 「발생일 전 1년」).
+ */
+function yearBounds(baseDate: string): string[] {
+  return Array.from({ length: 13 }, (_, i) => monthsBefore(baseDate, 12 - i));
 }
 
 /** minusOneMonth 의 반대. 다음 달에 그날이 없으면 그 달 말일 */
@@ -163,12 +185,11 @@ export interface AnnualLeaveResult {
  * 각 달을 ①②로 산정하고 12개 달이 모두 5명 이상이어야 해당한다.
  */
 export function annualLeaveCoverage(input: HeadcountInput, baseDate: string): AnnualLeaveResult {
+  const b = yearBounds(baseDate);
   const months: AnnualLeaveResult['months'] = [];
-  let end = baseDate;
   for (let i = 0; i < 12; i++) {
-    const r = computeHeadcount({ ...input, threshold: 5, businessStart: undefined }, end);
-    months.unshift({ periodStart: r.periodStart, periodEnd: r.periodEnd, average: r.average, covered: r.covered });
-    end = r.periodStart;
+    const r = countPeriod({ ...input, threshold: 5, businessStart: undefined }, b[i + 1], b[i]);
+    months.push({ periodStart: r.periodStart, periodEnd: r.periodEnd, average: r.average, covered: r.covered });
   }
   const started = !input.businessStart || input.businessStart <= months[0].periodStart;
   return { covered: started && months.every((m) => m.covered), months };

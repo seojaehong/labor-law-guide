@@ -141,8 +141,15 @@ export function withholdingTableTax(taxable: number, family: number): { row: rea
   return { row: [r[0], r[1]], tax };
 }
 
-/** date(YYYY-MM-DD)에 맞는 요율 묶음. 하나라도 없으면 null — 다른 해 값으로 대신하지 않는다 */
+/**
+ * 이 간이세액표를 쓰는 첫날. 소득세법 시행령 부칙 <제36129호, 2026. 2. 27.> 제1조제3호·제15조 —
+ * 「별표 2의 개정규정은 2026년 3월 1일 이후 원천징수하는 경우부터 적용한다」. 그 전 날짜의 표는 없다.
+ */
+export const WITHHOLDING_FROM = '2026-03-01';
+
+/** date(YYYY-MM-DD)에 맞는 요율 묶음. 하나라도 없거나 간이세액표 적용 전이면 null — 다른 해 값으로 대신하지 않는다 */
 export function takeHomeRatesOn(date: string): TakeHomeRates | null {
+  if (date < WITHHOLDING_FROM) return null;
   const v = {
     npsPerMillion: rateOn('npsEmployeePerMillion', date)?.value,
     npsFloor: rateOn('npsIncomeFloor', date)?.value,

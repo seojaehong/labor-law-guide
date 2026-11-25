@@ -311,6 +311,10 @@ if (tools.includes('calc_weekly_holiday_pay')) {
   check(`weekly_holiday 주 22.5시간 → 4.5시간 46,440원(${w.headline?.[0]})`, w.dailyHours === 4.5 && w.amount === 46_440);
   const u = await callTool('calc_weekly_holiday_pay', { hourlyWage: 10_320, weeklyHours: 14.5 });
   check('weekly_holiday 주 15시간 미만은 없음', u.status === 'under15' && u.amount === 0);
+  const fri = await callTool('calc_weekly_holiday_pay', { hourlyWage: 10_320, weeklyHours: 40, endsBeforeRestDay: true });
+  check(`weekly_holiday 퇴사일이 주휴일 전이면 없음(${fri.headline?.[1]})`, fri.status === 'ended' && fri.amount === 0);
+  const sun = await callTool('calc_weekly_holiday_pay', { hourlyWage: 10_320, weeklyHours: 40, endsBeforeRestDay: false });
+  check('weekly_holiday 퇴사일이 주휴일이면 82,560원', sun.status === 'paid' && sun.amount === 82_560);
 }
 if (tools.includes('count_regular_workers')) {
   // 4명 원래부터 + 계약직 1명 2026-11-02~11-30, 월~금
