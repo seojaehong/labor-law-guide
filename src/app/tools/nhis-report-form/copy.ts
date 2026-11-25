@@ -23,13 +23,13 @@ export const FIELD = {
   zip: '우편번호',
   name: '성명',
   rrn: '주민등록번호',
-  lastWorkDay: '마지막 근무일',
+  lastWorkDay: '마지막 근무일(사망이면 사망일)',
   acqDate: '자격취득일(입사일)',
   nhisLossCode: '건강보험 상실부호',
   nhisAcqCode: '건강보험 취득부호',
-  payCur: '올해 보수 총액(원)',
-  monthsCur: '올해 근무개월수',
-  payPrev: '전년도 보수 총액(원)',
+  payCur: '해당 연도(퇴직한 해) 보수 총액(원)',
+  monthsCur: '해당 연도 근무개월수',
+  payPrev: '전년도 보수 총액(원, 연말정산을 안 했을 때만)',
   monthsPrev: '전년도 근무개월수',
   monthlyPay: '월 보수액(원)',
   reason: '늦어진 이유',
@@ -41,18 +41,30 @@ export const LOSS_CODES = [
   { v: '02', label: '02 사망' },
   { v: '16', label: '16 취득취소' },
 ];
+// 별지 제6호서식(개정 2025. 12. 1.) 작성방법의 건강보험 자격취득부호 전부. 종전 자격에 따라 다르므로 미리 고르지 않는다(261125).
 export const ACQ_CODES = [
   { v: '00', label: '00 최초취득' },
+  { v: '04', label: '04 의료급여 수급권자등에서 제외' },
+  { v: '05', label: '05 직장가입자 변경' },
+  { v: '06', label: '06 직장피부양자 상실' },
+  { v: '07', label: '07 지역가입자에서 변경' },
+  { v: '10', label: '10 국가유공자 등 건강보험 적용 신청' },
   { v: '13', label: '13 기타' },
+  { v: '14', label: '14 거주불명 등록 후 재등록' },
+  { v: '29', label: '29 직장가입자 이중가입' },
+  { v: '30', label: '30 상실취소' },
 ];
+export const CODE_PICK = '골라 주세요';
 
 export const LEAD =
-  '공식 서식(국민건강보험법 시행규칙 별지 제6호·제8호)에 입력한 값을 채우고, 늦어진 이유를 적은 사업주확인서를 붙여 PDF 한 파일로 내려받습니다. 제출은 사업주가 EDI·팩스·방문으로 직접 합니다.';
+  '기한을 넘긴 건강보험 자격 취득·상실 신고에 쓰는 도구입니다. 공식 서식(국민건강보험법 시행규칙 별지 제6호·제8호)의 건강보험 칸만 채우고(국민연금·고용보험·산재보험 칸은 비워 둡니다), 늦어진 이유를 적은 사업주확인서를 붙여 PDF 한 파일로 내려받습니다. 제출은 사업주가 EDI·팩스·방문으로 직접 합니다.';
 
 export const PRIVACY =
   '주민등록번호를 포함한 입력값은 이 브라우저 안에서만 PDF 로 만들어지고 서버로 보내지 않습니다. 지사를 찾을 때는 사업장 주소나 사업자등록번호만 보냅니다.';
 
 export const LOSS_DATE_LINE = (d: string) => `상실일 ${d} (마지막 근무일 다음 날)`;
+export const LOSS_DAY_NOTE =
+  '마지막 근무일은 근로관계가 이어진 마지막 날입니다. 마지막 출근 뒤 연차·휴무가 이어졌다면 그 마지막 날을 넣습니다. 사망이면 사망한 날을 넣습니다.';
 
 export const BRANCH_LINE = {
   none: '주소로 건강보험 지사를 찾지 못했습니다. 지사 이름을 직접 적어 주세요.',
@@ -104,7 +116,7 @@ export function failLine(msg: string): string {
 export function allCopy(): string[] {
   return [
     ...Object.values(KIND_LABEL), ...Object.values(STEP), ...Object.values(FIELD),
-    ...LOSS_CODES.map(c => c.label), ...ACQ_CODES.map(c => c.label), LEAD, PRIVACY, LOSS_DATE_LINE('2026.06.01'),
+    ...LOSS_CODES.map(c => c.label), ...ACQ_CODES.map(c => c.label), LEAD, PRIVACY, LOSS_DATE_LINE('2026.06.01'), LOSS_DAY_NOTE, CODE_PICK,
     ...Object.values(BRANCH_LINE), ...Object.values(BRANCH_ERROR), BIZ_PICK, ACQ_NOTE, ATTACH_SIZE(520_000), ATTACH_SIZE(1_200_000),
     ...Object.values(CEO), INPUT_ERROR.number('월 보수액', 1), INPUT_ERROR.noName(1), INPUT_ERROR.ceo(1), INPUT_ERROR.stamp,
     REASON_COUNT(10), ...Object.values(BUTTON), CHECK_BEFORE, failLine('x'),

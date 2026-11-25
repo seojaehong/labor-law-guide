@@ -247,6 +247,10 @@ export function validate(input: PacketInput): string[] {
       for (const m of [l.monthsCur, l.monthsPrev]) {
         if (m !== undefined && m > 12) { p.push(`${who} 근무개월수는 12 이하로 적어 주세요`); break; }
       }
+      // 별지 제8호 작성방법 건강보험 2·3 — 해당 연도 보수 총액과 근무개월수는 한 쌍, 전년도는 연말정산을 안 했을 때만 한 쌍으로 적는다.
+      // 16 취득취소는 보수 정산 대상이 아니라 묻지 않는다(빈칸 PDF 방지, 261125)
+      if (l.nhisCode && l.nhisCode !== '16' && (l.payCur === undefined || l.monthsCur === undefined)) p.push(`${who} 해당 연도 보수 총액과 근무개월수를 적어 주세요`);
+      if ((l.payPrev === undefined) !== (l.monthsPrev === undefined)) p.push(`${who} 전년도 보수 총액과 근무개월수는 함께 적어 주세요(연말정산을 했다면 둘 다 비웁니다)`);
     } else {
       const a = x as AcqPerson;
       if (!parseYmd(a.acqDate)) p.push(`${who} 자격취득일을 확인해 주세요`);

@@ -173,9 +173,10 @@ const FEATURES: Record<string, { path: string; journey: Journey; waitUntil?: 'lo
       await p.getByLabel('대표자 성명').fill('홍대표');
       await p.getByLabel('성명 1').fill('김가상');
       await p.getByLabel('주민등록번호 1').fill(RRN);
-      await p.getByLabel('마지막 근무일 1').fill('2026-05-31');
+      await p.getByLabel('마지막 근무일(사망이면 사망일) 1').fill('2026-05-31');
       step('상실일 = 다음 날', '상실일 2026.06.01', await answer(p, '[data-loss-date]'));
-      await p.getByLabel('올해 보수 총액(원) 1').fill('12000000');
+      await p.getByLabel('해당 연도(퇴직한 해) 보수 총액(원) 1').fill('12000000');
+      await p.getByLabel('해당 연도 근무개월수 1').fill('5');
       await p.getByLabel('늦어진 이유').fill('퇴사 처리 과정에서 신고를 빠뜨렸습니다.');
       // 도장 — 512px 그림을 고르면 화면이 300px 로 줄여 싣는다(createImageBitmap → canvas)
       await p.getByLabel('도장 그림(PNG, 투명 배경)').setInputFiles(resolve(process.cwd(), 'public/icon-512.png'));
@@ -197,6 +198,8 @@ const FEATURES: Record<string, { path: string; journey: Journey; waitUntil?: 'lo
       await p.getByRole('button', { name: 'PDF 만들기' }).click();
       step('취득 — 대표자 여부 미선택은 막음', /대표자 여부를 골라/, await answer(p, '[data-result]'));
       await p.getByLabel('대표자 여부 1').selectOption('no');
+      // 취득부호는 미리 고르지 않는다(261125) — 고르지 않으면 「부호를 골라 주세요」로 막힌다
+      await p.getByLabel('건강보험 취득부호 1').selectOption('00');
       const [dl2] = await Promise.all([p.waitForEvent('download', { timeout: 60000 }), p.getByRole('button', { name: 'PDF 만들기' }).click()]);
       const buf2 = require('node:fs').readFileSync(await dl2.path());
       writeFileSync(resolve(OUT, `nhis-report-form-acq-${p.viewportSize()?.width}.pdf`), buf2);
@@ -221,7 +224,7 @@ const FEATURES: Record<string, { path: string; journey: Journey; waitUntil?: 'lo
       pop.on('request', (r: any) => popSent.push(`${r.url()} ${r.headers().referer ?? ''}`));
       await pop.waitForLoadState('load');
       await pop.locator('[data-loss-date]').waitFor({ timeout: 15000 });
-      step('새 탭 — 마지막 근무일 채움', '2026-05-31', await pop.getByLabel('마지막 근무일 1').inputValue());
+      step('새 탭 — 마지막 근무일 채움', '2026-05-31', await pop.getByLabel('마지막 근무일(사망이면 사망일) 1').inputValue());
       step('새 탭 — 상실일 = 다음 날', '상실일 2026.06.01', (await pop.locator('[data-loss-date]').innerText()).trim());
       step('새 탭 — 읽은 해시를 주소에서 지움', '/tools/nhis-report-form', new URL(pop.url()).pathname + new URL(pop.url()).search + new URL(pop.url()).hash);
       step('새 탭 — 날짜가 실린 요청·Referer 0건', '0', String(popSent.filter(s => s.includes('2026-05-31')).length));

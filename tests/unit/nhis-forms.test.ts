@@ -186,6 +186,20 @@ describe('입력 검사', () => {
     expect(validate({ ...lossInput, people: [{ ...leaver, payCur: NaN }] }).join()).toContain('숫자만');
     expect(validate({ ...lossInput, people: [{ ...leaver, monthsCur: 13 }] }).join()).toContain('12 이하');
   });
+  // 별지 제8호 작성방법 건강보험 2·3: 해당 연도 보수 총액과 그 근무개월수를 적고, 전년도는 연말정산을 안 했을 때만 적는다(261125)
+  it('퇴직·사망은 해당 연도 보수 총액·근무개월수가 비면 거부, 전년도는 둘 다 비거나 둘 다 채운다', () => {
+    const pay = (x: Partial<LossPerson>) => validate({ ...lossInput, people: [{ ...leaver, ...x }] }).join(' ');
+    expect(pay({ payCur: undefined, monthsCur: undefined })).toContain('해당 연도 보수 총액과 근무개월수');
+    expect(pay({ monthsCur: undefined })).toContain('해당 연도 보수 총액과 근무개월수');
+    expect(pay({ nhisCode: '02', payCur: undefined })).toContain('해당 연도 보수 총액과 근무개월수');
+    expect(pay({ payPrev: undefined })).toContain('전년도 보수 총액과 근무개월수');
+    // 통과 쪽 — 전년도 둘 다 비움(연말정산 함), 취득취소(16)는 보수 칸을 묻지 않는다
+    expect(pay({ payPrev: undefined, monthsPrev: undefined })).toBe('');
+    expect(pay({ nhisCode: '16', payCur: undefined, monthsCur: undefined, payPrev: undefined, monthsPrev: undefined })).toBe('');
+  });
+  it('취득부호를 고르지 않으면 거부', () => {
+    expect(validate({ ...acqInput, people: [{ ...joiner, nhisCode: '' }] }).join(' ')).toContain('부호를 골라');
+  });
 });
 
 describe('사업주확인서(지연사유)', () => {
