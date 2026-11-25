@@ -56,10 +56,8 @@ describe('도구 안내 페이지', () => {
   });
 
   // 묶음별 도구 수는 숫자로 박지 않고 패키지 소스(tools/k-labor)에서 끌어온다.
-  // 페이지는 npm 게시판 0.2.2 기준이다(저장소 HEAD 와 같다 — 게시 먼저, 병합 나중). 저장소에만 있고 아직 게시하지 않은 도구가 생기면 여기에 적는다.
-  const UNPUBLISHED: Record<string, string[]> = {
-    docs: ['read_hwp_as_markdown', 'fill_hwp_form', 'patch_hwp_from_markdown', 'check_prose', 'check_norms', 'check_semantic', 'check_rhetoric', 'check_rewrite'], // kordoc 한글 읽기·채우기·되쓰기 · 퇴고(261123~, 미게시)
-  };
+  // 페이지는 npm 게시판 0.3.0 기준이다(저장소 HEAD 와 같다 — 게시 먼저, 병합 나중). 저장소에만 있고 아직 게시하지 않은 도구가 생기면 여기에 적는다.
+  const UNPUBLISHED: Record<string, string[]> = {};
   const SOURCE: Record<string, string[]> = {
     nhis: nhisTools,
     popbill: popbillTools,
