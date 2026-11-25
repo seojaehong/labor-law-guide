@@ -106,7 +106,7 @@ export function councilView(f: Omit<CouncilFiles, 'skipped'>, today: string): Co
 
 export interface ViewFilter { types: readonly NodeType[]; from?: string; to?: string; onlyOpen?: boolean }
 
-/** 보일 노드 — 종류 · 기간(회의일, 그 기간 회의에서 다룬 안건만) · 미이행·기한 경과만(그 노드와 바로 이웃) */
+/** 보일 노드 — 종류 · 기간(회의일, 그 기간 회의에서 다룬 안건만) · 기한 경과만(그 노드와 바로 이웃) */
 export function visibleIds(v: CouncilView, f: ViewFilter): Set<string> {
   const byId = new Map(v.nodes.map((n) => [n.id, n]));
   const inPeriod = (d?: string) => !!d && (!f.from || d >= f.from) && (!f.to || d <= f.to);
@@ -124,7 +124,7 @@ export function visibleIds(v: CouncilView, f: ViewFilter): Set<string> {
     }));
   }
   if (f.onlyOpen) {
-    const open = v.nodes.filter((n) => n.late || (n.type === '이행' && n.status !== '종료')).map((n) => n.id);
+    const open = v.nodes.filter((n) => n.late).map((n) => n.id); // 기한 지난 것만 — 진행 중이라도 기한 전이면 뺀다(261125)
     const keep = new Set(open);
     for (const e of v.edges) {
       if (keep.has(e.from) && open.includes(e.from)) keep.add(e.to);
