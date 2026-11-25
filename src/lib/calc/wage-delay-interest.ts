@@ -16,6 +16,7 @@
 //         정기지급일 = 마지막 근무일이면 2호 의무가 상실일 0시, 곧 퇴직과 같은 때 생긴다. 「이후」가 같은 때를 포함한다고 보아 2호로 둔다(미확정 13).
 // 기준일이 토요일·공휴일이어도 미루지 않는다 — 이 계산기의 처리다(민법 §161을 적용한 판결·행정해석을 찾지 못했다).
 // §37③·시행령 §18 적용 제외는 「그 사유가 존속하는 기간」만 뺀다. 해당 여부는 법원이 정하므로 입력한 기간을 그대로 뺀다.
+//   사유는 항목마다 다를 수 있어 항목별 기간(item.exclusions)을 받고, 입력 전체의 exclusions 는 모든 항목에 공통으로 뺀다.
 // 이자 = 원금 × 이율 × 적용일수 ÷ 365.
 //   365 는 조문 숫자가 아니라 판결 계산 관행이다. 윤년에도 365(미확정).
 //   원 미만은 항목마다 버리고, 합계는 버린 값을 더한다 — 근로기준법령에 끝수 규정이 없어 화면에 보이는 항목 값의 합이 합계가 되게 했다(잠정).
@@ -37,13 +38,15 @@ export interface DelayItemInput {
   periodicPayDate?: string;
   /** 실제로 지급한 날. 아직 지급하지 않았으면 계산할 날 */
   paidDate: string;
+  /** 이 항목에만 있는 적용 제외 기간(§37③·시행령 §18), 양 끝 포함. 입력 전체의 exclusions 와 합쳐 뺀다 */
+  exclusions?: { from: string; to: string }[];
 }
 
 export interface WageDelayInput {
   /** 마지막 근무일(근로관계의 마지막 날 = 4대보험 상실일의 전날) 또는 사망일. 재직 중이면 비운다 */
   lastWorkDay?: string;
   items: DelayItemInput[];
-  /** 적용 제외 기간(§37③), 양 끝 포함 */
+  /** 모든 항목에 공통인 적용 제외 기간(§37③), 양 끝 포함. 일부 항목에만 사유가 있으면 항목의 exclusions 에 넣는다 */
   exclusions?: { from: string; to: string }[];
 }
 
@@ -113,14 +116,15 @@ function periodicBasis(due: number, paid: number, last: number | null, afterAct:
 export function calcWageDelayInterest(input: WageDelayInput): WageDelayResult {
   if (!input.items.length) throw new Error('항목을 하나 이상 넣어 주세요');
   const last = input.lastWorkDay ? parse(input.lastWorkDay, '마지막 근무일') : null;
-  const exclusions = merge(
-    (input.exclusions ?? []).map((e, i) => {
-      const a = parse(e.from, `적용 제외 기간 ${i + 1}의 시작일`);
-      const b = parse(e.to, `적용 제외 기간 ${i + 1}의 끝나는 날`);
-      if (b < a) throw new Error(`적용 제외 기간 ${i + 1}의 끝나는 날이 시작일보다 앞섭니다`);
+  /** 적용 제외 기간을 ms 쌍으로 — prefix 는 오류 문장 앞머리(항목별이면 「항목 n의 」) */
+  const ranges = (list: { from: string; to: string }[] | undefined, prefix = '') =>
+    (list ?? []).map((e, i) => {
+      const a = parse(e.from, `${prefix}적용 제외 기간 ${i + 1}의 시작일`);
+      const b = parse(e.to, `${prefix}적용 제외 기간 ${i + 1}의 끝나는 날`);
+      if (b < a) throw new Error(`${prefix}적용 제외 기간 ${i + 1}의 끝나는 날이 시작일보다 앞섭니다`);
       return [a, b] as [number, number];
-    }),
-  );
+    });
+  const common = ranges(input.exclusions);
   const actFrom = parse(PERIODIC_FROM, '시행일');
 
   const items = input.items.map((it, i): DelayItemResult => {
@@ -128,6 +132,8 @@ export function calcWageDelayInterest(input: WageDelayInput): WageDelayResult {
     if (it.amount <= 0) throw new Error(`${n}의 금액을 1원 이상으로 넣어 주세요`);
     if (!Number.isSafeInteger(it.amount)) throw new Error(`${n}의 금액은 원 단위(소수점 없이)로 넣어 주세요`);
     const paid = parse(it.paidDate, `${n}의 지급일`);
+    // 공통 기간 + 이 항목의 기간 — 사유는 항목마다 다를 수 있다(시행령 §18 3호 「전부 또는 일부」의 존부를 다투는 경우 등)
+    const exclusions = merge([...common, ...ranges(it.exclusions, `${n}의 `)]);
 
     /** 기준일에서 지급일까지 지연 일수·적용 제외·이자 */
     const accrue = (base: number) => {

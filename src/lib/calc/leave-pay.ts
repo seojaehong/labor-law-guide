@@ -54,7 +54,13 @@ export interface LeavePayInput {
   /** 통상 근로자의 남은 일수. 단시간이면 partTime 을 쓰고 이것은 보지 않는다 */
   days?: LeavePayDays;
   /** 단시간 근로자 — 같은 일을 하는 통상 근로자의 1주 소정근로시간, 통상 근로자라면 생겼을 연차일수, 이미 쓴 연차 시간 */
-  partTime?: { fullTimeWeeklyHours: number; fullTimeDays: number; usedHours: number };
+  partTime?: {
+    fullTimeWeeklyHours: number;
+    fullTimeDays: number;
+    usedHours: number;
+    /** 통상 근로자의 1주 소정근로일 수(기본 5) — 주휴 시간 분모(별표2 제2호나목). fullTimeDays(연차일수)와 다르다 */
+    fullTimeWeeklyDays?: number;
+  };
   /** 주휴 말고 소정근로시간 밖에 유급으로 정한 시간(토요일 유급 등)이 있다 — unitHours 가 넣지 않으므로 지원 범위 밖 */
   otherPaidHours?: boolean;
   /** 회사가 사용 촉진을 했다고 하는가. 금액은 바뀌지 않는다 */
@@ -95,6 +101,8 @@ export interface LeavePayResult {
   partTime: {
     fullTimeWeeklyHours: number;
     fullTimeDays: number;
+    /** 통상 근로자의 1주 소정근로일 수(넣지 않았으면 5) — 주휴 시간 분모 */
+    fullTimeWeeklyDays: number;
     /** 통상 연차일수 × (주 소정 ÷ 통상 주 소정) × 8, 올리기 전 */
     rawGrantHours: number;
     /** 1시간 미만은 1시간으로 본 연차 시간 */
@@ -164,8 +172,16 @@ export function calcLeavePay(input: LeavePayInput): LeavePayResult {
     if (!pos(rate.amount)) throw new Error('임금을 확인해 주세요');
     if (!pos(dailyHours) || dailyHours > 24) throw new Error('1일 소정근로시간을 확인해 주세요');
     // 주휴 — 통상 근로자는 1일 소정근로시간분(8시간까지). 주 6일 × 6시간이면 6시간이지 36 ÷ 5 = 7.2시간이 아니다.
-    //        단시간 근로자는 unitHours 기본값(1주 ÷ 5 = 4주 소정 ÷ 20일, 별표2 제2호나목)을 그대로 쓴다.
-    const holiday = input.partTime ? undefined : Math.min(dailyHours, 8);
+    //        단시간 근로자는 4주 소정 ÷ 통상 근로자의 4주 총 소정근로일 수(별표2 제2호나목) = 1주 ÷ 통상 근로자 1주 소정근로일 수,
+    //        8시간까지. 통상 근로자가 주 6일이면 ÷ 6(주 24시간 → 4시간). 넣지 않으면 5일(최저임금 계산기와 같은 기본값).
+    let holiday: number;
+    if (input.partTime) {
+      const wd = input.partTime.fullTimeWeeklyDays ?? 5;
+      if (!Number.isInteger(wd) || wd < 1 || wd > 7) throw new Error('통상근로자 소정근로일 수를 확인해 주세요');
+      holiday = Math.min(weeklyHours / wd, 8);
+    } else {
+      holiday = Math.min(dailyHours, 8);
+    }
     hours = unitHours(rate.unit, weeklyHours, rate.unit === 'day' ? dailyHours : undefined, holiday);
     weekPaidHours = rate.unit === 'week' || rate.unit === 'month' ? unitHours('week', weeklyHours, undefined, holiday) : null;
     hourly = rate.amount / hours;
@@ -188,7 +204,7 @@ export function calcLeavePay(input: LeavePayInput): LeavePayResult {
     const raw = snap((rate.amount * unusedHours) / hours!);
     return finish({
       ...base, hours, weekPaidHours, hourly, raw, amount: payableWon(raw),
-      partTime: { fullTimeWeeklyHours: fw, fullTimeDays: g, rawGrantHours, grantHours, usedHours, unusedHours },
+      partTime: { fullTimeWeeklyHours: fw, fullTimeDays: g, fullTimeWeeklyDays: input.partTime.fullTimeWeeklyDays ?? 5, rawGrantHours, grantHours, usedHours, unusedHours },
       rateSource: `입력한 ${UNIT_LABEL[rate.unit]} ${rate.amount.toLocaleString('ko-KR')}원의 시간급(시행령 제6조제2항)`,
     });
   }

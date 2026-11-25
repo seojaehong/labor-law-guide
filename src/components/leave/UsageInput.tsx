@@ -8,7 +8,7 @@ import {
   formatDays,
   HOURLY_LEAVE_CAUTION,
 } from "@/lib/leave/leave-usage";
-import type { UsageKind, UsageRecord } from "@/lib/leave/leave-usage";
+import { parseUsage } from "@/lib/leave/leave-usage-parse";
 import { StatusBadge } from "@/components/leave/LeaveUI";
 
 /**
@@ -23,44 +23,6 @@ const SAMPLE = `2026-03-04\t종일
 2026-04-17\t반차
 2026-05-22\t반반차
 2026-06-11\t시간차\t2`;
-
-const KIND_MAP: Record<string, UsageKind> = {
-  종일: "full",
-  연차: "full",
-  "1일": "full",
-  반차: "half",
-  반일: "half",
-  반반차: "quarter",
-  "반반": "quarter",
-  시간차: "hourly",
-  시간: "hourly",
-};
-
-function parseUsage(text: string): { records: UsageRecord[]; bad: string[] } {
-  const records: UsageRecord[] = [];
-  const bad: string[] = [];
-  for (const raw of text.split(/\r?\n/)) {
-    const line = raw.trim();
-    if (!line) continue;
-    const cols = line.split(/\t|,|\s{2,}/).map((c) => c.trim()).filter(Boolean);
-    if (cols.length < 2) {
-      bad.push(line);
-      continue;
-    }
-    const kind = KIND_MAP[cols[1]];
-    if (!kind) {
-      bad.push(line);
-      continue;
-    }
-    const hours = cols[2] !== undefined ? Number(cols[2].replace(/[^\d.]/g, "")) : undefined;
-    records.push({
-      date: cols[0],
-      kind,
-      hours: kind === "hourly" ? (Number.isFinite(hours) ? hours : undefined) : undefined,
-    });
-  }
-  return { records, bad };
-}
 
 export function UsageInput() {
   const [text, setText] = useState("");
