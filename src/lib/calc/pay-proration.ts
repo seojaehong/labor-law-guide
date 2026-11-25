@@ -472,6 +472,8 @@ export function calcAbsence(input: AbsenceInput): AbsenceResult {
     if (t < ps || t > pe) throw new Error('결근일은 그달 날짜만 넣어 주세요');
     if (!isWeekday(t)) throw new Error('결근일은 소정근로일(월~금)만 넣어 주세요');
     if (set.has(t)) throw new Error('쉬는 공휴일은 결근일로 넣지 않습니다');
+    // 5월 1일은 공휴일 칸에 넣지 않아도 유급휴일이다 — 결근이 성립하지 않는다(261125, isLaborDay 주석)
+    if (isLaborDay(t)) throw new Error('5월 1일(노동절)은 유급휴일이라 결근일로 넣지 않습니다');
     days.add(t);
   }
   if (days.size === 0 && late === 0) throw new Error('결근일이나 지각·조퇴 시간을 넣어 주세요');
