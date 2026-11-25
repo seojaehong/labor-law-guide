@@ -405,7 +405,8 @@ export function registerNosaRecords(server) {
       const r = compareCouncilRules(current, amended);
       if (!r.parsed.current.articles || !r.parsed.amended.articles) return fail('「제N조(제목)」 모양의 조문을 찾지 못했습니다. 조문 제목이 줄 처음에 오도록 두 규정을 넣어 주세요.', { parsed: r.parsed });
       const ruleName = (a.ruleName ?? '').trim() || undefined;
-      const council = !ruleName || /협의회/.test(ruleName);
+      // 협의회 제출 안내 — 이름을 안 주었거나, 이름이나 개정 규정 앞부분에 「노사협의회」가 있을 때만
+      const council = !ruleName || /노\s*사\s*협\s*의\s*회/.test(ruleName) || /노사\s*협의회의?\s*(?:설치|운영|구성)/.test(amended.slice(0, 3000));
       const meta = { workplaceName: (a.workplaceName ?? '').trim() || r.workplaceName, amendDate: (a.amendDate ?? '').trim() || undefined, ruleName };
       const kinds = Object.fromEntries(['개정', '신설', '삭제'].map((k) => [k, r.rows.filter((x) => x.kind === k).length]));
       const head = { rows: r.rows.length, kinds, places: r.rows.map((x) => `${x.where}(${x.kind})`), parsed: r.parsed, ...(council ? { submission: AMEND_SUBMISSION_NOTE } : {}) };
