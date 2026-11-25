@@ -19,19 +19,19 @@ export default async function ConfirmedPage({
     confirmed: {
       icon: CheckCircle2,
       color: '#16a34a',
-      title: '구독이 시작됐어요 🎉',
-      desc: '환영합니다! 곧 첫 환영 메일이 도착할 거예요. 안 보이면 스팸함을 확인해주세요.',
+      title: '구독이 시작됐습니다',
+      desc: '곧 첫 환영 메일이 도착합니다. 안 보이면 스팸함을 확인해 주세요.',
     },
     already: {
       icon: Mail,
       color: '#0ea5e9',
-      title: '이미 구독 중이에요',
+      title: '이미 구독 중입니다',
       desc: '같은 이메일로 이미 구독되어 있습니다. 메일이 안 오면 스팸함을 확인해주세요.',
     },
     error: {
       icon: AlertCircle,
       color: '#dc2626',
-      title: '확인할 수 없어요',
+      title: '확인할 수 없습니다',
       desc: message || '링크가 만료됐거나 잘못된 토큰입니다. 다시 가입을 시도해주세요.',
     },
   };

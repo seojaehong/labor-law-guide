@@ -65,7 +65,7 @@ export function registerCalc(server) {
     {
       title: '최저임금 비교',
       description:
-        '받는 임금을 시간급으로 바꿔 그해 시간급 최저임금과 비교한다(사이트 /tools/min-wage 와 같은 엔진). 월급 환산 시간 = (1주 소정근로시간 + 주휴 시간) × 365 ÷ 7 ÷ 12 반올림(주 40시간이면 209시간). ' +
+        '받는 임금을 시간급으로 바꿔 그해 시간급 최저임금과 비교한다(사이트 /tools/min-wage 와 같은 엔진). 월급 환산 시간 = (1주 소정근로시간 + 주휴 시간) × 365 ÷ 7 ÷ 12(반올림하면 시간이 늘어나는 경우만 반올림 — 주 40시간이면 208.57 → 209시간, 주 20시간이면 104.29시간 그대로). 주휴 시간 = 1주 소정근로시간 ÷ 같은 일 통상근로자의 1주 소정근로일 수(fullTimeDays, 기본 5), 8시간까지. 1주 40시간을 넘게 넣으면 warnings 로 알린다.' +
         'year 를 비우면 올해와 (고시가 있으면) 내년을 함께 본다. 정기상여금·현금 복리후생비(월급일 때)는 넣은 만큼 산입한다. 수습 90% 는 1년 이상 계약·수습 3개월 이내·단순노무 직종 아님을 모두 갖췄을 때만 쓴다.',
       inputSchema: {
         unit: UNIT.describe(UNIT_DESC),
@@ -74,6 +74,7 @@ export function registerCalc(server) {
         monthlyWelfareCash: z.number().optional().describe('월급일 때 현금으로 매월 주는 식비·교통비 등(원)'),
         weeklyHours: z.number().optional().describe('1주 소정근로시간(주급·월급일 때 필요)'),
         dailyHours: z.number().optional().describe('1일 소정근로시간(일급일 때 필요)'),
+        fullTimeDays: z.number().int().optional().describe('같은 일을 하는 통상근로자의 1주 소정근로일 수(주급·월급의 주휴 시간 분모, 기본 5)'),
         year: z.number().int().optional().describe('비교할 해(예: 2026). 비우면 올해와 내년'),
         probation: z.object({ oneYearContract: z.boolean(), withinThreeMonths: z.boolean(), simpleLabor: z.boolean() }).optional().describe('수습 감액 요건'),
       },
@@ -95,12 +96,14 @@ export function registerCalc(server) {
             year, minHourly: rate.value, notice: rate.basis,
             line: r.meets ? `${base} 이상입니다.` : `${base}보다 ${PER[a.unit]} ${won(r.shortfall)} 적습니다.`,
             ...r,
+            warnings: undefined, // 해마다 같은 입력 경고 — 아래 한 번만 낸다
           }];
         });
         if (!rows.length) return text({ ok: false, error: `${years.join('·')}년 최저임금 고시가 이 도구에 없습니다.` });
         return text({
           ok: true,
           rows,
+          warnings: checkMinWage({ ...a, minHourly: rows[0].minHourly }).warnings,
           fields: 'counted = 비교에 넣은 금액 · hours = 나눈 시간 수 · hourly = 시간급 환산 · applied = 적용한 시간급 최저임금 · required = 단위 기간 최저임금 · shortfall = 모자란 금액',
           basis: ['최저임금법 시행령 제5조제1항(시간급 환산)', '최저임금법 제6조제4항(산입 범위)', '최저임금법 제5조제2항·시행령 제3조(수습 90%)'],
           site: `${SITE}/tools/min-wage`,
@@ -312,6 +315,7 @@ export function registerCalc(server) {
           fullTimeWeeklyHours: z.number().describe('같은 일을 하는 통상 근로자의 1주 소정근로시간'),
           fullTimeDays: z.number().describe('통상 근로자라면 생겼을 연차일수(한 번에 생기는 일수, 25일 이하)'),
           usedHours: z.number().describe('이미 쓴 연차 시간'),
+          fullTimeWeeklyDays: z.number().int().optional().describe('같은 일을 하는 통상 근로자의 1주 소정근로일 수(1~7, 기본 5) — 주휴 시간 = 1주 소정근로시간 ÷ 이 값(8시간까지, 시행령 별표2 제2호나목). fullTimeDays(연차일수)와 다르다'),
         }).optional().describe('단시간 근로자일 때'),
         otherPaidHours: z.boolean().optional().describe('주휴 말고 소정근로시간 밖에 유급으로 정한 시간(토요일 유급 등)이 있다 — 월급·주급이면 계산하지 않는다'),
         promotion: z.enum(['none', 'claimed', 'unknown']).optional().describe('회사가 사용 촉진을 했다고 하는가(금액은 바뀌지 않는다)'),
@@ -346,13 +350,12 @@ export function registerCalc(server) {
         '퇴직금 = 1일 평균임금 × 30 × 재직일수 ÷ 365 를 계산한다(사이트 /tools/severance.html 과 같은 엔진). 평균임금 = 퇴직일(마지막 근무일 다음 날) 전 3개월 임금총액 + 1년 상여금·연차수당의 3/12, 그 기간 총일수로 나눈다. ' +
         '1일 평균임금은 소수 둘째 자리 올림, 퇴직금은 원 단위 반올림(고용노동부 퇴직금 계산기와 같은 끝수). 1일 통상임금을 넣으면 평균임금보다 높을 때 통상임금으로 계산한다. 계속근로 1년 요건만 보고, 1주 15시간 요건은 보지 않는다.',
       inputSchema: {
-        hireDate: z.string().describe('입사일 YYYY-MM-DD'),
+        hireDate: z.string().describe('입사일 YYYY-MM-DD. 퇴직금 중간정산을 받았으면 정산 기준일의 다음 날(근로자퇴직급여 보장법 제8조제2항 — 그때부터 새로 센다)'),
         lastWorkDate: z.string().describe('마지막 근무일 YYYY-MM-DD(퇴직일은 그 다음 날)'),
         wageTotal: z.number().min(0).describe('퇴직일 전 3개월 동안 받은 임금 총액(상여금·연차수당은 빼고, 원)'),
         annualBonus: z.number().min(0).optional().describe('퇴직 전 1년 동안 받은 상여금 총액(원) — 3/12을 더한다'),
         annualLeavePay: z.number().min(0).optional().describe('퇴직 전 1년 연차수당 중 평균임금에 넣는 금액(원) — 3/12을 더한다'),
-        dailyOrdinaryWage: z.number().min(0).optional().describe('1일 통상임금(원, 알면)'),
-        wageType: z.enum(['auto', 'average', 'ordinary']).optional().describe('auto = 평균임금과 통상임금 중 높은 쪽(기본) · average · ordinary'),
+        dailyOrdinaryWage: z.number().min(0).optional().describe('1일 통상임금(원, 알면) — 평균임금보다 높으면 이 값으로 계산한다(근로기준법 제2조제2항)'),
       },
       annotations: READ_ONLY,
     },
@@ -364,10 +367,10 @@ export function registerCalc(server) {
         const headline = r.eligible
           ? [`퇴직금은 ${won(r.amount)}입니다.`, formula]
           : ['계속근로 기간이 1년이 되지 않아 퇴직금 지급 대상이 아닙니다.', `퇴직일 ${r.retirementDate}까지 재직 ${r.serviceDays}일입니다(근로자퇴직급여 보장법 제4조제1항). 같은 식으로 세면 ${won(r.amount)}입니다.`];
-        if (r.eligible && r.applied === 'ordinary' && (a.wageType ?? 'auto') === 'auto') headline.push(`1일 평균임금 ${dec2(r.dailyAverage)}원이 1일 통상임금보다 낮아 통상임금으로 계산했습니다(근로기준법 제2조제2항).`);
+        if (r.eligible && r.applied === 'ordinary') headline.push(`1일 평균임금 ${dec2(r.dailyAverage)}원이 1일 통상임금보다 낮아 통상임금으로 계산했습니다(근로기준법 제2조제2항).`);
         return text({
           ok: true, headline, result: r,
-          notice: '1주 소정근로시간이 15시간 미만이면 퇴직금 지급 대상이 아닙니다(근로자퇴직급여 보장법 제4조제1항 단서). 이 계산은 그 요건을 따로 보지 않습니다. 퇴직소득세는 calc_retirement_tax 로 계산합니다.',
+          notice: '1주 소정근로시간이 15시간 미만이면 퇴직금 지급 대상이 아닙니다(근로자퇴직급여 보장법 제4조제1항 단서). 이 계산은 그 요건을 따로 보지 않습니다. 퇴직소득세는 calc_retirement_tax 로 계산합니다. 55세 전 퇴직이면 퇴직금은 IRP(개인형퇴직연금) 계정으로 옮겨 지급하는 것이 원칙이고(근로자퇴직급여 보장법 제9조제2항), 그때는 지급할 때 퇴직소득세를 떼지 않아 이전액이 퇴직금 전액입니다(소득세법 제146조제2항). calc_retirement_tax 의 받는 방법 기본값은 현금 수령이고, IRP 이전은 payout: irp 로 고릅니다.',
           basis: ['근로자퇴직급여 보장법 제8조제1항(30일분 이상의 평균임금 × 계속근로기간 1년)', '근로기준법 제2조제1항제6호(평균임금)·제2항(평균임금이 통상임금보다 적으면 통상임금)', '근로자퇴직급여 보장법 제4조제1항(계속근로기간 1년 이상)'],
           site: `${SITE}/tools/severance.html`,
         });
@@ -394,7 +397,7 @@ export function registerCalc(server) {
         monthlyHours: z.number().optional().describe('월급제: 월 소정근로시간(기본 209)'),
         dailyWage: z.number().optional().describe('일용직: 일급(원)'),
         dailyHours: z.number().optional().describe('일용직: 1일 근로시간(기본 8)'),
-        paidContinuously: z.boolean().optional().describe('일용직: 같은 사업장에서 계속 일해 왔다(기본 true). false = 하루만 일하고 끝난 경우라 가산하지 않는다'),
+        paidContinuously: z.boolean().optional().describe('일용직: 같은 사업장에서 계속 일해 왔다(기본 true). false = 하루만 일하고 끝난 경우라 휴일 가산은 보지 않고, 5명 이상이면 연장(1일 8시간 초과)·야간 가산만 계산한다'),
         hourlyWage: z.number().optional().describe('시급제: 시급(원)'),
         hourlyIncludesWeekly: z.boolean().optional().describe('시급제: 시급에 주휴수당이 들어 있다'),
         weeklyHours: z.number().optional().describe('시급제: 1주 소정근로시간'),
@@ -420,7 +423,9 @@ export function registerCalc(server) {
         const premium = r.total - r.regular_pay_equivalent;
         // 통상시급은 끝수 그대로 온다 — 소수 둘째 자리까지 보인다(사이트와 같은 표시)
         const hourly = `${(Math.round(r.base_hourly * 100) / 100).toLocaleString('ko-KR')}원`;
-        const parts = `통상시급 ${hourly} 기준 휴일근로 임금(1.0배) ${won(r.regular_pay_equivalent)}${premium > 0 ? ` + 가산분 ${won(premium)}` : '(가산 없음)'}`;
+        // 휴일근로로 보지 않는 경우(하루만 일한 일용직·주 15시간 미만의 관공서 공휴일) 엔진 첫 줄이 「근로 임금」이다
+        const baseLabel = r.breakdown[0]?.label.startsWith('근로 임금') ? '근로 임금' : '휴일근로 임금';
+        const parts = `통상시급 ${hourly} 기준 ${baseLabel}(1.0배) ${won(r.regular_pay_equivalent)}${premium > 0 ? ` + 가산분 ${won(premium)}` : '(가산 없음)'}`;
         const headline = r.already_in_monthly_pay
           ? [`${day}에 ${hoursText(common.worked_hours)} 일했을 때 월급 외에 더 줄 금액은 ${won(r.total)}입니다.`, r.paid_holiday_day.status === 'in_monthly_pay' ? `${parts}. 쉬어도 받는 유급휴일 1일분은 월급에 들어 있습니다.` : r.paid_holiday_day.note]
           : [`${day}에 ${hoursText(common.worked_hours)} 일한 대가는 ${won(r.total)}입니다.`, `${parts}.`, r.paid_holiday_day.note];

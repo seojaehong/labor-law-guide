@@ -19,19 +19,19 @@ export default async function UnsubscribedPage({
     done: {
       icon: CheckCircle2,
       color: '#16a34a',
-      title: '구독이 해지됐어요',
-      desc: '앞으로 더 이상 메일을 보내지 않을게요. 그동안 감사했습니다 🙏',
+      title: '구독이 해지됐습니다',
+      desc: '앞으로 메일을 보내지 않습니다. 그동안 받아 보셔서 감사합니다.',
     },
     already: {
       icon: Mail,
       color: '#6b7280',
-      title: '이미 해지된 상태예요',
+      title: '이미 해지된 상태입니다',
       desc: '추가로 처리할 것은 없습니다.',
     },
     error: {
       icon: AlertCircle,
       color: '#dc2626',
-      title: '해지할 수 없어요',
+      title: '해지할 수 없습니다',
       desc: message || '링크가 만료됐거나 잘못된 토큰입니다.',
     },
   };

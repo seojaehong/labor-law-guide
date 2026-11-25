@@ -3,12 +3,13 @@ import Script from "next/script";
 import "./globals.css";
 import "@/components/editorial-navigation.css";
 import GlassNav from "@/components/GlassNav";
-import ConnectorBanner from "@/components/ConnectorBanner";
 import SiteSurface from "@/components/SiteSurface";
 import "@/components/site-refactor.css";
+// Pretendard — 공식 dynamic-subset(unicode-range 92조각). 화면에 쓰인 글자의 조각만 받는다. 원본 2,010KB 단일 파일 대체(261124).
+// next 가 node_modules 의 woff2 를 _next/static/media 로 복사해 자체 호스팅한다(외부 CDN 없음). 라이선스 OFL = public/fonts/Pretendard-OFL.txt
+import "pretendard/dist/web/variable/pretendardvariable-dynamic-subset.css";
 import { SITE_URL, BRAND_NAME, BRAND_DESCRIPTION } from "@/lib/constants";
 import { CONTACT_EMAIL } from "@/lib/site-contact";
-import { DISMISSED_CLASS as BANNER_DISMISSED_CLASS, STORAGE_KEY as BANNER_STORAGE_KEY } from "@/lib/connector-banner";
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
@@ -93,13 +94,6 @@ export default function RootLayout({
             __html: `try{var s=localStorage.getItem('theme');if(s==='dark'||(!s&&matchMedia('(prefers-color-scheme: dark)').matches)){document.documentElement.classList.add('dark')}}catch(e){}`,
           }}
         />
-        {/* 261112 — 상단 안내 띠를 닫은 사람은 첫 페인트 전에 숨긴다. 서버는 띠를 그려 보내므로(CLS 방지)
-            이 스크립트가 없으면 닫은 사람에게 잠깐 보인다. 키·클래스는 src/lib/connector-banner.ts 와 같아야 한다. */}
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `try{if(localStorage.getItem('${BANNER_STORAGE_KEY}')==='1'){document.documentElement.classList.add('${BANNER_DISMISSED_CLASS}')}}catch(e){}`,
-          }}
-        />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         {/* §9 P6-1 브라우저 크롬 색 — 종전 #1d4ed8은 팔레트에 없는 제3의 파랑이었다.
             "크롬 색 = 페이지 최상단에 보이는 것"으로 맞춘다: 라이트는 glass 네비가 흰색으로 렌더되므로
@@ -175,7 +169,7 @@ export default function RootLayout({
           }}
         />
         <a className="editorial-skip-link" href="#site-main">본문 바로가기</a>
-        <ConnectorBanner />
+        {/* 261124 — 맨 위 Claude 연결 안내 띠를 걷었다(도구 우선). 그 안내는 상단 탭 「AI 연결」과 홈 「AI 연결」 지면이 맡는다. */}
         <GlassNav />
         <main id="site-main" tabIndex={-1}><SiteSurface>{children}</SiteSurface></main>
         <footer className="editorial-footer border-t py-10" style={{ borderColor: 'var(--color-border)' }}>

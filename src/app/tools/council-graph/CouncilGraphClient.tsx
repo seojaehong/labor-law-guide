@@ -3,7 +3,7 @@
 // 파일은 서버로 보내지 않는다. 자료·필터는 src/lib/nosa-council/graph-view.ts(시험됨), 여기서는 그리기와 화면만.
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ShieldCheck } from 'lucide-react';
-import { todayKst } from '@/lib/tool-kit';
+import { choiceLabel, todayKst } from '@/lib/tool-kit';
 import { councilView, NODE_COLORS, NODE_TYPES, parseCouncilFiles, visibleIds, type CouncilFiles, type CouncilView } from '@/lib/nosa-council/graph-view';
 import { sampleCouncilFiles } from '@/lib/nosa-council/graph-sample';
 import type { NodeType } from '@/lib/nosa-council/records';
@@ -128,7 +128,7 @@ export default function CouncilGraphClient() {
           <fieldset className="flex flex-wrap gap-x-4 gap-y-2 text-sm">
             <legend className="sr-only">보일 종류</legend>
             {NODE_TYPES.map((t) => (
-              <label key={t} className="inline-flex items-center gap-1.5">
+              <label key={t} className={choiceLabel}>
                 <input type="checkbox" checked={types.includes(t)} onChange={(e) => setTypes(e.target.checked ? [...types, t] : types.filter((x) => x !== t))} />
                 <span className="inline-block h-3 w-3 rounded-full" style={{ background: NODE_COLORS[t] }} aria-hidden />
                 {t} {view.counts[t]}
@@ -139,7 +139,7 @@ export default function CouncilGraphClient() {
             <label className="inline-flex items-center gap-1.5">회의 기간 <input type="date" aria-label="기간 시작" value={from} onChange={(e) => setFrom(e.target.value)} className="rounded border border-[var(--grey-300)] px-2 py-1" /></label>
             <span>~</span>
             <input type="date" aria-label="기간 끝" value={to} onChange={(e) => setTo(e.target.value)} className="rounded border border-[var(--grey-300)] px-2 py-1" />
-            <label className="inline-flex items-center gap-1.5"><input type="checkbox" checked={onlyOpen} onChange={(e) => setOnlyOpen(e.target.checked)} /> 기한 지난 이행·고충만</label>
+            <label className={choiceLabel}><input type="checkbox" checked={onlyOpen} onChange={(e) => setOnlyOpen(e.target.checked)} /> 기한 지난 이행·고충만</label>
           </div>
         </>
       )}

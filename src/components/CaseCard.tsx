@@ -14,7 +14,7 @@ export default function CaseCard({ caseNumber, court, summary }: Props) {
 
   return (
     <div className="my-4 rounded-xl border-l-4 bg-[var(--color-bg-surface)] p-5" style={{ borderLeftColor: 'var(--blue-500)', boxShadow: 'var(--shadow-sm)' }}>
-      <button onClick={() => setOpen(!open)} className="flex w-full items-center justify-between text-left">
+      <button onClick={() => setOpen(!open)} className="-my-[11px] flex min-h-[44px] w-full items-center justify-between text-left">
         <div className="flex items-center gap-2">
           <Gavel size={16} style={{ color: 'var(--blue-600)' }} />
           <span className="text-sm font-bold" style={{ color: 'var(--blue-700)' }}>판례</span>

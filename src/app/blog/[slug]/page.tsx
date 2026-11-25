@@ -18,6 +18,7 @@ import { extractFaqFromContent } from '@/lib/faq-extractor';
 import SubscribeForm from '@/components/SubscribeForm';
 import AuthorFooter from '@/components/AuthorFooter';
 import ReadingMarkdownLink from '@/components/ReadingMarkdownLink';
+import { themedProps } from '@/lib/blog-authored-style';
 import { getCurrentTopicPicks } from '@/lib/topic-picks';
 
 export const dynamicParams = true;
@@ -233,7 +234,7 @@ export default async function BlogArticlePage({
             {/* Back link */}
             <Link
               href="/blog"
-              className="mb-6 inline-flex items-center gap-1.5 text-[13px] transition-colors hover:opacity-70"
+              className="-mt-[11px] mb-[13px] inline-flex min-h-[44px] items-center gap-1.5 text-[13px] transition-colors hover:opacity-70"
               style={{ color: 'var(--color-text-secondary)' }}
             >
               <ArrowLeft size={14} />
@@ -334,6 +335,11 @@ export default async function BlogArticlePage({
                   blockquote: ({ children }) => <blockquote className="blog-blockquote">{children}</blockquote>,
                   hr: () => <hr className="blog-hr" />,
                   table: ({ children, ...props }) => <div className="reading-table-scroll" role="region" aria-label="본문 표" tabIndex={0}><table {...props}>{children}</table></div>,
+                  // 본문에 박힌 라이트용 고정 색(강조 상자·표 행·칸)을 테마 토큰으로 — 다크 대비 1.01:1(261124)
+                  div: (props) => <div {...themedProps('div', props)} />,
+                  tr: (props) => <tr {...themedProps('tr', props)} />,
+                  td: (props) => <td {...themedProps('td', props)} />,
+                  th: (props) => <th {...themedProps('th', props)} />,
                 }}
               >
                 {article.content}

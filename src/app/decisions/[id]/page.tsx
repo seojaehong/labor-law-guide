@@ -34,6 +34,7 @@ import VerbatimHolding from "@/components/decision-detail/VerbatimHolding";
 import { decisionExportPageUrl, exportAttrs, type ExportMeta } from "@/lib/decision-export";
 import { extractJudgmentPart, findReasonText, isLongHolding } from "@/lib/judgment-reason";
 import { publicSourceUrl } from "@/lib/public-source-url";
+import { screenSourceRow } from "@/lib/source-self-scrape";
 
 // 검증 전문 — 주문·이유·서명까지 들어 있는지 대조해 적재한 행(제공처 bigcase·local·ilabor).
 const VERIFIED_PARSE_VERSION = "local-verified-v1";
@@ -154,7 +155,8 @@ export async function generateMetadata({
     reasonLabel ? `유형 ${reasonLabel}` : "",
     result ? `판정 ${result}` : "",
     holding,
-    isCourtCase ? "판결문 원문 수록" : "",
+    // 원문 확보 여부를 메타 단계에서 알 수 없다(261123 자기 사이트 수집 오염 10,307행) — 원문 수록을 표방하지 않는다.
+    isCourtCase ? "법원 판결 · 출처 확인" : "",
   ].filter(Boolean);
   const description = (descParts.join(" · ") || "노동위원회 판정례 상세 정보 — 핵심쟁점·절차·판정결과 정리.").slice(0, 155);
 
@@ -297,6 +299,7 @@ export default async function DecisionPage({
   //     제목 중복이 심해 대량 색인하면 오히려 scaled content abuse 리스크다. → 계속 막는다.
   //
   // 오염된 bigcase 행은 아래 isPaywallText / isPyReprText 가드가 이미 걸러낸다.
+  // 우리 사이트를 긁어 원천처럼 저장된 행(recollect-v3, 2026-11-23 실측 10,307행)은 screenSourceRow 가 버린다.
   if (decisionSource === 'lawgo' && process.env.SHOW_LAWGO !== 'true') {
     notFound();
   }
@@ -511,7 +514,7 @@ export default async function DecisionPage({
 
     // 진짜 원본 본문 — decision_source_documents에 BigCase 26,498건이 raw 1,000자+ 보유.
     // nlrc_decisions의 holding_points는 AI 요약본이라 원본 노출 시 이걸 우선 사용.
-    const sourceColumns = "full_text_raw, full_text_clean, body_sections, completeness_flag, coverage_ratio, parse_version";
+    const sourceColumns = "source_url, full_text_raw, full_text_clean, body_sections, completeness_flag, coverage_ratio, parse_version";
     const [{ data: sourceDocs }, { data: verifiedDocs }] = await Promise.all([
       supabase
         .from("decision_source_documents")
@@ -535,7 +538,11 @@ export default async function DecisionPage({
     ]);
 
     // 검증 조회로 온 행 중 검증 조건을 다 갖춘 것만 쓴다 — 그 밖의 행은 종전 선택 규칙을 그대로 탄다.
-    const docs = [...(verifiedDocs ?? []).filter(isVerifiedSourceRow), ...(sourceDocs ?? [])];
+    // 우리 사이트를 긁어 원천처럼 저장한 행(recollect-v3, source_url = 우리 상세 페이지)은 버리고,
+    // 바깥 원천 본문 끝에 붙은 화면 글자는 걷는다 — 본문·이유 절·요지가 모두 이 docs 에서 나온다.
+    const docs = [...(verifiedDocs ?? []).filter(isVerifiedSourceRow), ...(sourceDocs ?? [])]
+      .map(screenSourceRow)
+      .filter((d): d is NonNullable<typeof d> => d !== null);
     // 진짜 판결문 선택 — clean 1000자+ 또는 raw 1000자+ 중 페이월/PyRepr 거부.
     // 우선순위: (1) Array.isArray(body_sections)인 row가 가장 깨끗 (dict는 ingestion 오류 흔적, 2,453건).
     // (2) clean이 PyRepr 형식인 row(2,774건)는 다음 row로 폴백 — coverage_ratio 무시.

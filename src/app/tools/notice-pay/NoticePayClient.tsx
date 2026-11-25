@@ -1,35 +1,21 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { calcNoticePay, type NoticePayInput, type NoticePayResult } from '@/lib/calc/notice-pay';
-import { dec2 } from '@/lib/calc/wage-rounding';
-import AnswerCard from '@/components/tool/AnswerCard';
+import { calcNoticePay, type NoticePayInput } from '@/lib/calc/notice-pay';
 import FoldedDetail from '@/components/tool/FoldedDetail';
-import { card, fmtDateWithYear, inputCls, ink, muted, small, todayKst } from '@/lib/tool-kit';
+import ResultBlock from '@/components/tool-result/ResultBlock';
+import { card, choiceLabel, inputCls, ink, monthlyMinWage, muted, small, todayKst } from '@/lib/tool-kit';
+import { noticePayView } from './result';
 
 type Unit = NoticePayInput['unit'];
 const UNIT_LABEL: Record<Unit, string> = { month: '월급', week: '주급', day: '일급', hour: '시급' };
 
-const won = (n: number) => `${n.toLocaleString('ko-KR')}원`;
 const num = (s: string) => Number(s.replace(/,/g, '').trim() || '0');
-
-function headline(r: NoticePayResult): string[] {
-  switch (r.status) {
-    case 'under3m':
-      return ['해고예고수당이 없습니다.', '계속 근로한 기간이 3개월이 되지 않았습니다.'];
-    case 'noticed':
-      return ['해고예고수당이 없습니다.', `해고일 ${r.noticeDays}일 전에 예고했습니다.`];
-    case 'short':
-      return [`해고예고수당은 ${won(r.amount)}입니다.`, `예고가 해고일 ${r.noticeDays}일 전이라 30일에 못 미쳐 30일분 전액입니다.`];
-    default:
-      return [`해고예고수당은 ${won(r.amount)}입니다.`, '30일 전에 예고하지 않았으면 30일분 통상임금입니다.'];
-  }
-}
 
 export default function NoticePayClient() {
   const today = todayKst();
   const [unit, setUnit] = useState<Unit>('month');
-  const [amount, setAmount] = useState('2156880');
+  const [amount, setAmount] = useState(String(monthlyMinWage(today) ?? ''));
   const [weekly, setWeekly] = useState('40');
   const [daily, setDaily] = useState('8');
   const [hire, setHire] = useState('');
@@ -63,10 +49,10 @@ export default function NoticePayClient() {
           <input type="date" className={inputCls} value={dismissal} onChange={(e) => setDismissal(e.target.value)} />
         </label>
         <fieldset className={`${small} sm:col-span-2`} style={muted}>
-          <legend className="mb-1">해고를 미리 알렸나요</legend>
+          <legend className="mb-1">해고를 미리 알렸습니까</legend>
           <div className="flex flex-wrap gap-4">
-            <label className="flex items-center gap-2"><input type="radio" name="notice" checked={!noticed} onChange={() => setNoticed(false)} /> 알리지 않았다</label>
-            <label className="flex items-center gap-2"><input type="radio" name="notice" checked={noticed} onChange={() => setNoticed(true)} /> 알렸다</label>
+            <label className={choiceLabel}><input type="radio" name="notice" checked={!noticed} onChange={() => setNoticed(false)} /> 알리지 않았다</label>
+            <label className={choiceLabel}><input type="radio" name="notice" checked={noticed} onChange={() => setNoticed(true)} /> 알렸다</label>
           </div>
         </fieldset>
         {noticed && (
@@ -76,10 +62,10 @@ export default function NoticePayClient() {
           </label>
         )}
         <fieldset className={`${small} sm:col-span-2`} style={muted}>
-          <legend className="mb-1">임금을 어떤 단위로 정했나요</legend>
+          <legend className="mb-1">임금을 어떤 단위로 정했습니까</legend>
           <div className="flex flex-wrap gap-4">
             {(Object.keys(UNIT_LABEL) as Unit[]).map((u) => (
-              <label key={u} className="flex items-center gap-2">
+              <label key={u} className={choiceLabel}>
                 <input type="radio" name="unit" checked={unit === u} onChange={() => setUnit(u)} /> {UNIT_LABEL[u]}
               </label>
             ))}
@@ -104,15 +90,7 @@ export default function NoticePayClient() {
       {'error' in out ? (
         <section className={card} aria-live="polite"><p className={small} style={ink}>{out.error}</p></section>
       ) : (
-        <AnswerCard lines={headline(out.r!)}>
-          {out.r!.amount > 0 && (
-            <p className={`${small} mt-3`} style={muted}>
-              1일 통상임금 {dec2(out.r!.dailyOrdinary)}원(시간당 {dec2(out.r!.hourly)}원 × {num(daily)}시간) × 30일. 시간급과 1일 통상임금은 끝수를 버리지 않고 곱하며, 원 미만은 마지막 금액에서 올립니다.
-              {out.r!.status === 'short' ? ' 예고를 했더라도 30일에 못 미치면 모자란 날만큼이 아니라 30일분 전액입니다.' : ''}
-            </p>
-          )}
-          {hire && dismissal && <p className={`${small} mt-2`} style={muted}>입사 {fmtDateWithYear(hire)} · 해고 {fmtDateWithYear(dismissal)}</p>}
-        </AnswerCard>
+        <ResultBlock view={noticePayView({ r: out.r!, dailyHours: num(daily), hire, dismissal })} />
       )}
 
       <FoldedDetail summary="수당을 주지 않아도 되는 경우">

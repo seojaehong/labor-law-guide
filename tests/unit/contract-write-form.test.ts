@@ -9,6 +9,10 @@ import { netToGross } from '@/lib/contract-write/net-gross';
 import { bannedHits } from '@/lib/tool-kit/banned';
 import { checkContract } from '@/lib/contract-check/engine';
 import { normalize } from '@/lib/contract-check/normalize';
+import { pinToday } from './_pin-today';
+
+// 최저임금 비교 연도가 오늘에 걸린다 — 날짜를 고정한다(261124 P1)
+pinToday();
 
 const MONTHLY: WriteForm = {
   workplaceName: '합성테스트 사업장',
@@ -120,11 +124,13 @@ describe('수습', () => {
     expect(findings.find((f) => f.rule_code === 'MINWAGE-PROBATION')).toBeUndefined();
   });
 
-  it('단순노무 업무는 감액할 수 없다', () => {
+  // 261124 P1 — 특례(최저시급의 90%)가 없는 계약은 감액 후 최저시급 미만일 때만 막는다. 이 표본(월 330만 원, 연장 포함)은
+  // 기본급 90% 가 최저시급 아래라 막힌다. 최저시급 이상으로 남는 감액은 contract-check-p1-261124.test.ts 가 본다
+  it('단순노무 업무는 특례가 없어 감액 후 최저시급 미만이면 막는다', () => {
     expect(() => designFromForm({ ...PROB, probation: { months: 3, reduced: true, simpleLabor: true } })).toThrow(/단순노무/);
   });
 
-  it('1년 미만 기간제는 감액할 수 없다(최저임금법 제5조 제2항)', () => {
+  it('1년 미만 기간제는 특례가 없어 감액 후 최저시급 미만이면 막는다(최저임금법 제5조 제2항)', () => {
     expect(() => designFromForm({ ...PROB, endDate: '2027-10-30' })).toThrow(/1년/);
     expect(() => designFromForm({ ...PROB, endDate: '2027-10-31' })).not.toThrow();
   });

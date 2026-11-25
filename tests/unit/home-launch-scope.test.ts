@@ -26,23 +26,52 @@ function renderHome(latestBlogArticles = articles) {
   }));
 }
 
-// #190(261112) — 「AI에 연결해서 쓰기」 지면이 홈 전면에 올라왔다. 링크는 /ai-tools 의 절뿐이다.
+// #190(261112) — 「AI 연결」 지면이 홈에 있다. 링크는 /ai-tools 와 그 카드뿐이다.
 // 261122 — SafeClaw 토큰 발급 화면(관리자 로그인) 직링크를 뺐다. 연결 안내는 /ai-tools#safeclaw 가 맡는다.
-const AI_LINKS = ['/ai-tools', '/ai-tools#list', '/ai-tools#calc', '/ai-tools#checks', '/ai-tools#work-rules',
-  '/ai-tools#sanjae-apply', '/ai-tools#safeclaw'];
+// 261124 — 도구 우선 재배치로 AI 지면을 줄였다(묶음 세부 링크 #list·#checks·#work-rules 는 /ai-tools 안에서 찾는다).
+const AI_LINKS = ['/ai-tools', '/ai-tools#calc', '/ai-tools#sanjae-apply', '/ai-tools#safeclaw'];
+// 261124 — 첫 화면 대표 도구 4개(재홍님 결정 「도구 먼저」). 퇴사 점검표는 /exit 이다.
+const REP_LINKS = ['/tools/severance.html', '/tools/weekly-holiday-pay', '/tools/notice-pay', '/exit'];
 
 describe('Home launch scope', () => {
-  it('promotes the approved four sections with an explicit law review status', () => {
+  it('links only to tools, the AI connection page and the latest writing', () => {
     const html = renderHome();
     const hrefs = [...html.matchAll(/\shref="([^"]+)"/g)].map(match => match[1]);
-    // #141(261103) — 첫 화면에 「상황별 계산·점검 도구」 지면을 올렸다: 도구 전체 보기, 묶음 이름 → /tools#묶음, 묶음별 대표 도구 바로가기.
+    // #141(261103) — 「상황별 도구」 지면: 도구 전체 보기, 묶음 이름 → /tools#묶음, 묶음별 대표 도구 바로가기.
     // 그 링크는 도구 묶음 등록부(tools-groups.ts)에서만 온다. 그 밖의 링크가 새로 올라오면 여전히 실패한다
     const toolLinks = ['/tools', ...TOOL_GROUPS.flatMap(g => [`/tools#${g.id}`, ...HOME_PICKS[g.id].map(p => p.href)])];
-    // 261112 — 노란봉투법 FAQ 섹션을 빼면서 그 아래 /contact 버튼도 빠졌다(문의는 상단 메뉴·푸터에 있다).
-    expect(new Set(hrefs.filter(href => !href.startsWith('/blog/')))).toEqual(new Set(['/blog', '/laws', '/tools/work-rules', '/decisions', ...AI_LINKS, ...toolLinks]));
-    expect(html).toContain('상황별 계산·점검 도구');
-    for (const label of ['글', '법령 개정', '취업규칙 점검', '판례·행정해석']) expect(html).toContain(label);
-    expect(html).toContain('법령 검수 전 자료입니다.');
+    // 261124 — 내비와 겹치던 「메뉴 안내」·「바로 읽기」 줄을 뺐다(글·법령 개정·판례는 상단 메뉴와 햄버거에 있다).
+    expect(new Set(hrefs.filter(href => !href.startsWith('/blog/')))).toEqual(new Set(['/blog', ...REP_LINKS, ...AI_LINKS, ...toolLinks]));
+    expect(html).not.toContain('메뉴 안내');
+    expect(html).not.toContain('바로 읽기');
+  });
+
+  // 261124 결정 순서 ①도구 → ②AI 연결 → ③정보. 검색은 도구 아래 한 줄이다.
+  it('orders the page tools first, then search, AI connection and information', () => {
+    const html = renderHome();
+    const at = (needle: string) => { const i = html.indexOf(needle); expect(i, needle).toBeGreaterThan(-1); return i; };
+    const h1 = at('<h1');
+    const reps = REP_LINKS.map(href => at(`href="${href}"`));
+    const groups = at('id="home-tools-heading"');
+    const search = at('role="search"');
+    const ai = at('id="home-ai-heading"');
+    const latest = at('id="latest-heading"');
+    expect(Math.max(h1, ...reps)).toBeLessThan(groups);
+    expect(groups).toBeLessThan(search);
+    expect(search).toBeLessThan(ai);
+    expect(ai).toBeLessThan(latest);
+  });
+
+  it('names the page by its tools, not as a legal AI service', () => {
+    const html = renderHome();
+    const h1 = html.match(/<h1[^>]*>(.*?)<\/h1>/)?.[1].replace(/<[^>]+>/g, '') ?? '';
+    expect(h1).toContain('계산·점검 도구');
+    expect(h1).not.toMatch(/AI|검색/);
+    const page = readFileSync('src/app/page.tsx', 'utf8');
+    const meta = page.slice(page.indexOf('export const metadata'), page.indexOf('async function getHomeStats'));
+    expect(meta).toMatch(/title:\s*\{\s*absolute:\s*'[^']*계산·점검 도구[^']*'/);
+    expect(meta).toMatch(/description:\s*'[^']*퇴직금[^']*'/);
+    expect(meta).not.toMatch(/노동법 AI|AI 질의응답|상담|자문/);
   });
 
   it('does not assert unverified human editing or promote AI and guide services', () => {
@@ -52,12 +81,14 @@ describe('Home launch scope', () => {
     expect(html).not.toContain('987,654');
   });
 
-  it('preserves the real lead and three supporting articles, including source dates', () => {
+  // 261124 — 정보는 맨 아래, 최신 글은 3건(대표 1 + 보조 2)으로 줄였다. 넷째 글은 그리지 않는다.
+  it('preserves the real lead and two supporting articles, including source dates', () => {
     const html = renderHome();
 
-    expect(html.match(/<article\b/g)).toHaveLength(4);
+    expect(html.match(/<article\b/g)).toHaveLength(3);
     expect(html.match(/class="editorial-lead-story"/g)).toHaveLength(1);
-    articles.forEach(article => {
+    expect(html).not.toContain(`href="/blog/${articles[3].slug}"`);
+    articles.slice(0, 3).forEach(article => {
       expect(html).toContain(`href="/blog/${article.slug}"`);
       expect(html).toContain(article.title);
       expect(html).toContain(`<time dateTime="${article.published_at}">${formatPublicationDate(article.published_at)}</time>`);
@@ -72,7 +103,9 @@ describe('Home launch scope', () => {
 
     expect(html).not.toContain('editorial-lead-story');
     expect(html).not.toContain('id="latest-heading"');
-    expect(html).toContain('href="/blog"');
+    // 261124 — 글이 없으면 「최신 글」 지면이 통째로 빠진다. 글 목록은 상단 탭 「글」에서 닿는다.
+    expect(html).toContain('id="home-tools-heading"');
+    expect(readFileSync('src/components/GlassNav.tsx', 'utf8')).toContain("href:'/blog'");
   });
 
   it('keeps the supplied counts and accessible GET search for decisions', () => {

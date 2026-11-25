@@ -167,6 +167,35 @@ export function serviceYears(hireDate: string, lastWorkDate: string): number {
   return Math.floor((serviceMonths(hireDate, lastWorkDate) + 11) / 12);
 }
 
+/** 퇴직금을 받는 방법 — IRP(개인형퇴직연금) 등 연금계좌로 이전 / 현금 수령 */
+export type RetirementPayout = 'irp' | 'cash';
+
+/** 이번 지급 때 떼는 세금. reason: irp = 연금계좌 이전이라 떼지 않음, small = 1천원 미만이라 떼지 않음 */
+export interface RetirementWithholding {
+  incomeTax: number;
+  localTax: number;
+  total: number;
+  reason: 'irp' | 'small' | null;
+}
+
+/** 소액 부징수 기준(원) — 원천징수세액이 이 금액 미만이면 징수하지 않는다(소득세법 §86 1호 → §127①7 퇴직소득) */
+export const SMALL_TAX_EXEMPT = 1_000;
+
+/**
+ * 산출한 세금(calcRetirementTax)에서 이번 지급 때 실제로 떼는 세금을 고른다. 산출 값은 바꾸지 않는다.
+ *   irp  — 연금계좌로 지급되면 연금외수령하기 전까지 원천징수하지 않는다(소득세법 §146② 1호).
+ *   cash — 소득세를 뗀다(§146①). 소득세가 1천원 미만이면 징수하지 않는다(§86 1호).
+ * 지방소득세는 「원천징수하는 소득세」의 10%를 소득세 원천징수와 동시에 특별징수한다(지방세법 §103의13①) — 떼는 소득세가 0이면 0.
+ *   지방소득세 자체의 소액 기준은 적용하지 않는다: §103의60(2천원 미만 징수면제)은 「고지서 1장당」 기준이라 특별징수 조항이 아니다.
+ * 소득세는 10원 미만을 버린 값이라 「1천원 미만」은 버리기 전 산출세액으로 봐도 같다(floor10(x) ≥ 1,000 ⇔ x ≥ 1,000).
+ */
+export function withholdingFor(r: { incomeTax: number; localTax: number }, payout: RetirementPayout): RetirementWithholding {
+  if (r.incomeTax <= 0) return { incomeTax: 0, localTax: 0, total: 0, reason: null };
+  if (payout === 'irp') return { incomeTax: 0, localTax: 0, total: 0, reason: 'irp' };
+  if (r.incomeTax < SMALL_TAX_EXEMPT) return { incomeTax: 0, localTax: 0, total: 0, reason: 'small' };
+  return { incomeTax: r.incomeTax, localTax: r.localTax, total: r.incomeTax + r.localTax, reason: null };
+}
+
 export function calcRetirementTax(input: RetirementTaxInput): RetirementTaxResult {
   const { pay, hireDate, lastWorkDate } = input;
   if (!Number.isSafeInteger(pay) || pay < 0 || pay > MAX_PAY) throw new Error('퇴직급여를 원 단위로 확인해 주세요');

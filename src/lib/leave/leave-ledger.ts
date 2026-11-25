@@ -121,9 +121,44 @@ export function buildHireDateLedger(
   return { entries, total: cumulative };
 }
 
+/**
+ * 1년차 연차(15일)가 이 날 이전에 생겼으면 구 근로기준법 제60조제3항이 적용된다 —
+ * 최초 1년의 근로에 대한 휴가는 1년 미만 월 연차를 포함해 15일이고, 이미 쓴 월 연차는 15일에서 뺀다.
+ *   법률 제15108호(공포 2017. 11. 28., 시행 2018. 5. 29.)가 제3항을 지웠고 적용례·경과조치는 두지 않았다.
+ *   법제처 18-0067(2018. 4. 24.): 2018. 5. 29.을 기준으로 근로한 기간이 1년 이상인 근로자에게는 구법 제3항이 적용된다
+ *     (1년이 되는 날 법률관계가 이미 확정됐으므로).
+ *   법제처 18-0404(2018. 8. 6.): 2018. 5. 30. 이후 근로기간이 1년이 되는 근로자는 1년차 11일·2년차 15일을 각각 받는다.
+ * 1년차 발생일 = 입사 1년이 끝난 다음 날(buildHireDateLedger 의 기념일, 대법원 2022다245419).
+ *   2017-05-29 입사 → 2018-05-29 발생: 그날을 기준으로 근로한 기간이 이미 1년(2017-05-29~2018-05-28)이라 구법.
+ *   2017-05-30 입사 → 2018-05-30 발생: 신법.
+ * (261124 src/lib/calc/leave-pay.ts 에서 옮겼다 — leave-pay 가 이 파일을 import 하므로 반대 방향은 순환이 된다)
+ */
+export const OLD_60_3_LAST_ACCRUAL = "2018-05-29";
+
+/**
+ * 법정 발생 원장 — 입사일·마지막 재직일만으로 정해진다. 화면 선택으로 늘거나 줄지 않는다.
+ *   · 근속 1년 미만: 월 단위 연차만(1년차 15일이 아직 없다 — 구법 시기여도 같다)
+ *   · 1년차 발생일 ≤ OLD_60_3_LAST_ACCRUAL: 첫해 월 연차는 1년차 15일에 포함(따로 더하지 않는다)
+ *   · 그 뒤: 첫해 월 연차(최대 11일) + 1년차 15일을 따로 센다(대법원 2021다227100)
+ * 연차수당 계산기(leave-pay)와 퇴직 연차 정산(settleOnTermination)이 같이 쓴다.
+ */
+export function buildStatutoryHireDateLedger(
+  hireDate: string,
+  endDate: string
+): LedgerResult & { firstYearMonthly: "separate" | "included-in-15" } {
+  const annual = buildHireDateLedger(hireDate, endDate);
+  const firstAccrual = annual.entries[0]?.accruedOn;
+  const includedIn15 = firstAccrual !== undefined && firstAccrual <= OLD_60_3_LAST_ACCRUAL;
+  const l = includedIn15 ? annual : buildHireDateLedger(hireDate, endDate, { includeFirstYearMonthly: true });
+  return { ...l, firstYearMonthly: includedIn15 ? "included-in-15" : "separate" };
+}
+
 export interface SettlementInput {
   hireDate: string;
-  /** 퇴사일 */
+  /**
+   * 마지막 재직일(상실일이 아니다). 상실일은 그 다음 날이다.
+   * 예: 2025-01-01 입사 — 마지막 재직일 2025-12-31 이면 발생 11일, 2026-01-01 이면 11 + 15 = 26일.
+   */
   endDate: string;
   /**
    * 회사가 회계연도 기준으로 **실제 부여한** 일수의 합계.
@@ -136,7 +171,14 @@ export interface SettlementInput {
   /** 이미 사용했거나 수당으로 지급한 일수의 합계. `undefined` = 미입력 */
   usedOrPaidTotal?: number;
   /**
-   * 1년 미만 월차(개월당 1일, 상한 11)를 **입사일 기준 누계에 포함**할지.
+   * ⚠ 261124 부터 **계산에 쓰지 않는다**(호출 호환을 위해 받기만 한다).
+   *   입사일 기준 누계는 법정 발생 원장(buildStatutoryHireDateLedger)으로 날짜만 보고 정한다.
+   *   종전에는 이 선택이 법정 발생분을 바꿨다 —
+   *     · 신법 시기 「제외」: 2025-01-01 입사·2026-01-01 마지막 재직의 첫해 11일이 사라졌다(발생 26 → 15).
+   *     · 구법 시기 「포함」: 2016-01-04 입사의 11일이 15일 안에 이미 있는데 또 더해졌다(170 → 181).
+   *   회계연도 부여 누계에 첫해 월 연차를 넣었는지는 사용자가 그 입력값에서 맞춘다.
+   *
+   * 아래는 종전 설명이다(기록용 — 지금 동작과 다르다. 「물어본다」·「확인 필요」 분기는 없어졌다).
    *
    * 최영우 교재 산정 예는 포함해서 비교한다 —
    *   "2024.7.1. 입사 → 2025.6.30. 퇴사: 입사일을 기준으로 하면 **11일**"
@@ -204,17 +246,10 @@ export interface SettlementResult {
 export function settleOnTermination(input: SettlementInput): SettlementResult {
   const { hasRecalcClause } = input;
 
-  // ── 근속 1년 미만인가. 여기서는 1년 미만 월차만 존재하므로 차감 논란이 없다.
-  const servedUnderOneYear = parse(input.endDate) < addYears(parse(input.hireDate), 1);
-
-  // ── 1년 미만 월차를 입사일 기준 누계에 넣을지
-  //    1년 미만 근속: 항상 넣는다(그것 말고는 발생한 것이 없다)
-  //    1년 이상 근속: 입력이 있어야 넣는다. 없으면 아래에서 「확인 필요」로 끝낸다.
-  const includeMonthly = servedUnderOneYear ? true : input.includeFirstYearMonthly === true;
-
-  const ledger = buildHireDateLedger(input.hireDate, input.endDate, {
-    includeFirstYearMonthly: includeMonthly,
-  });
+  // ── 입사일 기준 누계 = 법정 발생 원장. 첫해 월 연차는 날짜로만 정한다(구 제60조제3항 경계 포함).
+  //    ★ 261124 — includeFirstYearMonthly 선택이 법정 발생분을 늘리거나 없애던 것을 막는다.
+  //      연차수당 계산기(leave-pay)와 같은 함수다.
+  const ledger = buildStatutoryHireDateLedger(input.hireDate, input.endDate);
   const hireDateTotal = ledger.total;
 
   // ★ 2026-09-23 — 음수 입력이 정산을 부풀리던 것을 막는다.
@@ -245,21 +280,6 @@ export function settleOnTermination(input: SettlementInput): SettlementResult {
       verdict: "insufficient-input",
       ledger: ledger.entries,
       groundNote: `${missing} 가 입력되지 않았습니다. 빈 칸을 0 으로 보면 「한 번도 부여·사용하지 않았다」가 되어 실제보다 큰 정산액이 나옵니다. 값을 넣어 주세요(0 이라면 0 을 직접 입력).`,
-    };
-  }
-
-  if (!servedUnderOneYear && input.includeFirstYearMonthly === undefined) {
-    return {
-      hireDateTotal,
-      fiscalGrantedTotal,
-      guaranteedTotal: hireDateTotal,
-      favourable: "equal",
-      usedOrPaidTotal,
-      shortfallDays: NaN,
-      verdict: "insufficient-input",
-      ledger: ledger.entries,
-      groundNote:
-        "입사 후 1년 미만 기간에 월 단위로 발생한 연차(최대 11일)를 입사일 기준 누계에 포함할지 선택해 주세요. 회계연도로 부여한 누계에 그 일수가 들어가 있다면 포함해야 같은 기준으로 비교됩니다(최영우 『실무노동법』 산정 예 — 입사일 기준 11일 / 6일). 사용촉진 절차를 거쳐 이미 소멸한 경우에는 제외합니다.",
     };
   }
 
@@ -303,6 +323,11 @@ export function settleOnTermination(input: SettlementInput): SettlementResult {
         : hasRecalcClause
           ? "회계연도 부여분이 더 많지만, 취업규칙에 퇴직 시 입사일 기준 재산정 규정이 있어 입사일 기준으로 산정했습니다(최영우 산정 예). 실제 적용 가능 여부는 규정 문언과 관행을 확인해야 합니다."
           : "회계연도 부여분이 더 많고 재산정 규정이 없으므로 그대로 둡니다. 회계연도 운영이 근로자에게 불리하지 않습니다(근로기준과-5802).";
+  const firstYearNote =
+    ledger.firstYearMonthly === "included-in-15"
+      ? " 1년차 15일이 2018. 5. 29. 이전에 생겨 첫해 월 단위 연차는 그 15일에 포함해 셉니다(구 제60조제3항, 법제처 18-0067)."
+      : " 첫해 월 단위 연차(최대 11일)는 입사일 기준 누계에 따로 셉니다(제60조제2항). 회계연도 부여 누계에도 그 일수를 넣어야 같은 기준으로 비교됩니다.";
+  const promotionNote = " 사용촉진(제61조)으로 보상 의무가 없어진 일수는 이 계산에서 빼지 않으니 따로 확인해 주세요.";
 
   return {
     hireDateTotal,
@@ -313,6 +338,6 @@ export function settleOnTermination(input: SettlementInput): SettlementResult {
     shortfallDays,
     verdict: shortfallDays > 0 ? "shortfall" : "no-shortfall",
     ledger: ledger.entries,
-    groundNote,
+    groundNote: groundNote + firstYearNote + promotionNote,
   };
 }

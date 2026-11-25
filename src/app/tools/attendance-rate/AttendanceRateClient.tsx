@@ -2,12 +2,13 @@
 
 import { useMemo, useState } from 'react';
 import { calcAttendanceRate, CAUSE_IDS, CAUSES, monthlyLeaveDay, type AttendanceCause } from '@/lib/calc/attendance-rate';
-import AnswerCard from '@/components/tool/AnswerCard';
+import ResultBlock from '@/components/tool-result/ResultBlock';
 import FoldedDetail from '@/components/tool/FoldedDetail';
 import { card, inputCls, ink, muted, small } from '@/lib/tool-kit';
 import {
-  ACCRUAL_HINT, CAUSE_COPY, effectLines, formulaLines, GROUP_COPY, headline, monthLines, MONTH_RULES, OPEN_ITEMS, SCHEDULED_HINT, SCOPE_ITEMS,
+  ACCRUAL_HINT, CAUSE_COPY, formulaLines, GROUP_COPY, monthLines, MONTH_RULES, OPEN_ITEMS, SCHEDULED_HINT, SCOPE_ITEMS,
 } from './copy';
+import { attendanceRateNotes, attendanceRateView } from './result';
 
 const num = (s: string) => {
   const t = s.replace(/,/g, '').trim();
@@ -111,9 +112,9 @@ export default function AttendanceRateClient() {
       {!r ? (
         <section className={card} aria-live="polite"><p className={small} style={ink}>{'error' in out ? out.error : ''}</p></section>
       ) : (
-        <AnswerCard lines={headline(r)}>
-          {effectLines(r).map((l) => <p key={l} className={`${small} mt-3`} style={muted}>{l}</p>)}
-        </AnswerCard>
+        <ResultBlock view={attendanceRateView(r)}>
+          {attendanceRateNotes(r).map((l) => <p key={l} className={`${small} mt-3`}>{l}</p>)}
+        </ResultBlock>
       )}
 
       {showMonth && (

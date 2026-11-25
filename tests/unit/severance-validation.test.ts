@@ -51,15 +51,37 @@ describe('severance.html input validation', () => {
     expect(check({ autoCalcTax: false, retirementTax: '-1' }).field).toBe('retirementTax');
   });
 
-  it('keeps the ordinary-wage requirement', () => {
-    expect(check({ wageType: 'ordinary', dailyOrdinaryWage: '' }).field).toBe('dailyOrdinaryWage');
+  // 261124 도구 전수 검수(3모델 합의) — 강제 선택은 낮은 쪽을 적용했다. 칸을 없애고 늘 높은 쪽(근로기준법 §2②)
+  it('has no forced average/ordinary choice', () => {
+    expect(html).not.toContain('id="wageType"');
+    expect(script).not.toContain("getElementById('wageType')");
+    expect(check({ wageType: 'ordinary', dailyOrdinaryWage: '' })).toBeNull();
+  });
+
+  it('the MCP twin has no forced choice either and asks for the day after 중간정산 as hireDate', () => {
+    const calc = readFileSync(resolve('tools/k-labor/groups/calc.mjs'), 'utf8');
+    const from = calc.indexOf("    'calc_severance',");
+    const sev = calc.slice(from, calc.indexOf("    'calc_holiday_pay',", from));
+    expect(sev).toContain('inputSchema');
+    expect(sev).not.toContain('wageType');
+    expect(sev).toMatch(/hireDate: z\.string\(\)\.describe\('[^']*중간정산[^']*다음 날/);
+  });
+
+  // 261124 — 중간정산 금액만 빼면 전 근속을 최종 임금으로 다시 세어 과다(퇴직급여법 §8②: 정산 시점부터 새로 계산)
+  it('stops when a 중간정산 amount is entered and points to the day after settlement as the start date', () => {
+    const problem = check({ priorSeverance: '10,000,000' });
+    expect(problem.field).toBe('priorSeverance');
+    expect(problem.message).toMatch(/다음 날/);
+    expect(problem.message).toMatch(/입사일/);
+    expect(problem.message).toMatch(/제8조/);
+    expect(check({ priorSeverance: '0' })).toBeNull();
   });
 
   it('shows the message inline in a polite live region next to the 계산하기 button', () => {
     const area = html.match(/<p id="calcStatus"[^>]*>/)?.[0] ?? '';
     expect(area).toContain('aria-live="polite"');
     expect(html.indexOf('id="calcStatus"')).toBeLessThan(html.indexOf('onclick="onCalculate()"'));
-    expect(html.indexOf('id="calcStatus"')).toBeGreaterThan(html.indexOf('id="wageType"'));
+    expect(html.indexOf('id="calcStatus"')).toBeGreaterThan(html.indexOf('id="dailyOrdinaryWage"'));
     // onCalculate 는 검증을 거치고, 검증 실패를 토스트로만 알리지 않는다
     const body = script.slice(script.indexOf('function onCalculate()'), script.indexOf('function onCalculate()') + 1500);
     expect(body).toContain('validateWorkerInput(w)');
@@ -89,42 +111,21 @@ describe('severance.html head and retirement-date hint', () => {
   });
 });
 
-describe('severance.html saved data from before the 마지막 근무일 switch (v3)', () => {
-  it('moves the v3 retirement date back one day, drops non-dates, keeps the rest', () => {
-    const v3 = {
-      currentIndex: 1,
-      workers: [
-        { workerName: 'A', startDate: '2023-03-01', endDate: '2026-11-01', wage1: '3,000,000' },
-        { workerName: 'B', startDate: '2024-01-01', endDate: '2024-03-01' },
-        { workerName: 'C', startDate: '2024-01-01', endDate: '' },
-        { workerName: 'D', startDate: '2024-01-01', endDate: '2026-1' },
-      ],
-    };
-    const out = run(`migrateLegacyState(${JSON.stringify(v3)})`);
-    expect(out.workers.map((w: { endDate: string }) => w.endDate)).toEqual(['2026-10-31', '2024-02-29', '', '']);
-    expect(out.workers[0]).toMatchObject({ workerName: 'A', startDate: '2023-03-01', wage1: '3,000,000' });
-    expect(out.currentIndex).toBe(1);
-  });
-
-  it('reads v4 first and migrates v3 only once (the old key is removed after the move)', () => {
-    const load = script.slice(script.indexOf('function loadFromStorage()'), script.indexOf('function loadFromStorage()') + 1400);
-    expect(script).toContain("const STORAGE_KEY = 'severanceCalcData_v4'");
-    expect(script).toContain("const LEGACY_STORAGE_KEY = 'severanceCalcData_v3'");
-    expect(load.indexOf('getItem(STORAGE_KEY)')).toBeLessThan(load.indexOf('getItem(LEGACY_STORAGE_KEY)'));
-    expect(load).toContain('migrateLegacyState(JSON.parse(legacy))');
-    expect(load).toContain('removeItem(LEGACY_STORAGE_KEY)');
-  });
-
-  it('runs the migration end to end against a fake localStorage', () => {
+// 261124 결정 변경 — v3·v4 는 칸을 고칠 때마다 저절로 저장되던 값이라 [저장]으로 남긴 값과 구별할 수 없다.
+// 종전에는 v3 을 하루 빼서 v4 로 옮겼으나(261112), 이제 옛 값은 복원하지 않고 첫 로드 때 지운다. 자세한 시험은 severance-design-261124.test.ts.
+describe('severance.html saved data from before the [저장]-only switch (v3·v4)', () => {
+  it('does not restore or migrate unmarked v3·v4 values and removes them on load', () => {
     const v3 = JSON.stringify({ currentIndex: 0, workers: [{ startDate: '2023-03-01', endDate: '2026-11-01' }] });
+    const v4 = JSON.stringify({ currentIndex: 0, workers: [{ startDate: '2023-03-01', endDate: '2026-10-31' }] });
     const out = run(`(() => {
-      const store = { severanceCalcData_v3: ${JSON.stringify(v3)} };
+      const store = { severanceCalcData_v3: ${JSON.stringify(v3)}, severanceCalcData_v4: ${JSON.stringify(v4)} };
       globalThis.localStorage = { getItem: k => store[k] ?? null, setItem: (k, v) => { store[k] = String(v); }, removeItem: k => { delete store[k]; } };
-      const first = loadFromStorage() && state.workers[0].endDate;
-      const second = loadFromStorage() && state.workers[0].endDate;
-      return { first, second, keys: Object.keys(store) };
+      const restored = loadFromStorage();
+      return { restored, endDate: state.workers[0].endDate, keys: Object.keys(store) };
     })()`);
-    expect(out).toEqual({ first: '2026-10-31', second: '2026-10-31', keys: ['severanceCalcData_v4'] });
+    expect(out).toEqual({ restored: false, endDate: '', keys: [] });
+    expect(script).toContain("const STORAGE_KEY = 'severanceCalcData_v5'");
+    expect(script).not.toContain('migrateLegacyState');
   });
 });
 

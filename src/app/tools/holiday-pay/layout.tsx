@@ -54,7 +54,7 @@ const breadcrumbJsonLd = {
   '@type': 'BreadcrumbList',
   itemListElement: [
     { '@type': 'ListItem', position: 1, name: '홈', item: SITE_URL },
-    { '@type': 'ListItem', position: 2, name: '도구', item: `${SITE_URL}/tools/holiday-pay` },
+    { '@type': 'ListItem', position: 2, name: '도구', item: `${SITE_URL}/tools` },
     { '@type': 'ListItem', position: 3, name: '공휴일 수당 계산기' },
   ],
 };
@@ -62,13 +62,13 @@ const breadcrumbJsonLd = {
 export const metadata: Metadata = publicMetadata({
   title: '공휴일 수당 계산기 | 노동절·관공서 공휴일 | 일의 무늬',
   description:
-    '노동절(5/1)·관공서 공휴일에 일하면 얼마 더 받나? 5인 이상/미만 × 월급제·일용직·시급제(파트) 6분기 정확 계산. 시급에 주휴수당 포함 케이스까지 자동 분리. 카톡 공유 지원.',
+    '노동절(5/1)·관공서 공휴일에 일하면 얼마 더 받나? 5인 이상/미만 × 월급제·일용직·시급제(파트) 6가지 경우로 나눠 계산. 시급에 주휴수당 포함 케이스까지 자동 분리. 카톡 공유 지원.',
   keywords: ['공휴일 수당 계산기', '노동절 수당', '노동절 수당', '휴일근로 가산수당', '5인 미만', '시급 주휴수당'],
   alternates: { canonical: `${SITE_URL}/tools/holiday-pay` },
   openGraph: {
     title: '공휴일 수당 계산기 | 노동절·관공서 공휴일',
     description:
-      '5인 이상/미만 × 월급제·일용직·시급제(파트) 6분기 정확 계산. 시급 주휴수당 포함도 자동 분리. 카톡 공유 지원.',
+      '5인 이상/미만 × 월급제·일용직·시급제(파트) 6가지 경우로 나눠 계산. 시급 주휴수당 포함도 자동 분리. 카톡 공유 지원.',
     url: `${SITE_URL}/tools/holiday-pay`,
     type: 'website',
     locale: 'ko_KR',
@@ -78,7 +78,7 @@ export const metadata: Metadata = publicMetadata({
     card: 'summary_large_image',
     title: '공휴일 수당 계산기 | 노동절·관공서 공휴일',
     description:
-      '5인 이상/미만 × 월급제·일용직·시급제(파트) 6분기 정확 계산. 시급 주휴수당 포함 케이스까지 자동 분리.',
+      '5인 이상/미만 × 월급제·일용직·시급제(파트) 6가지 경우로 나눠 계산. 시급 주휴수당 포함 케이스까지 자동 분리.',
   },
 });
 

@@ -52,8 +52,7 @@ export function SettlementInput() {
   const [fiscalGranted, setFiscalGranted] = useState("");
   const [usedOrPaid, setUsedOrPaid] = useState("");
   const [clause, setClause] = useState<Clause>("unknown");
-  /** 1년 미만 월차(최대 11일)를 입사일 기준 누계에 포함할지 — 모르면 확정하지 않는다 */
-  const [monthly, setMonthly] = useState<Clause>("unknown");
+  // 첫해 월 단위 연차(최대 11일)는 묻지 않는다 — 엔진이 날짜로 정한다(구 제60조제3항 경계 2018-05-29, 261124).
 
   const ready = hireDate && endDate;
 
@@ -68,12 +67,11 @@ export function SettlementInput() {
         fiscalGrantedTotal: fiscalGranted.trim() === "" ? undefined : Number(fiscalGranted),
         usedOrPaidTotal: usedOrPaid.trim() === "" ? undefined : Number(usedOrPaid),
         hasRecalcClause: clause === "unknown" ? undefined : clause === "yes",
-        includeFirstYearMonthly: monthly === "unknown" ? undefined : monthly === "yes",
       });
     } catch (e) {
       return { error: e instanceof Error ? e.message : "계산할 수 없습니다" } as const;
     }
-  }, [ready, hireDate, endDate, fiscalGranted, usedOrPaid, clause, monthly]);
+  }, [ready, hireDate, endDate, fiscalGranted, usedOrPaid, clause]);
 
   const hasError = result && "error" in result;
   const r = result && !hasError ? result : null;
@@ -81,13 +79,13 @@ export function SettlementInput() {
   return (
     <section className="lv-input">
       <div className="lv-input__privacy">
-        🔒 입력한 내용은 <strong>브라우저 안에서만</strong> 계산됩니다 — 서버로 올라가지 않습니다. 
+        입력한 내용은 <strong>브라우저 안에서만</strong> 계산됩니다 — 서버로 올라가지 않습니다. 
       </div>
 
       {roster.length === 0 && (
         <p className="lv-roster__empty">
-          여러 명을 정산하신다면 <a href="/tools/leave">연차 일수 계산</a> 화면에서 엑셀을 한 번
-          올려두세요. 그러면 여기서 직원을 골라 입사일을 자동으로 채울 수 있습니다.
+          여러 명을 정산하신다면 <a href="/tools/leave">연차 일수 계산</a> 화면에 명단을 한 번
+          넣어 두세요. 그러면 같은 탭에서 직원을 골라 입사일을 자동으로 채울 수 있습니다.
         </p>
       )}
 
@@ -127,7 +125,7 @@ export function SettlementInput() {
           <input type="date" value={hireDate} onChange={(e) => setHireDate(e.target.value)} />
         </label>
         <label className="lv-input__field">
-          <span>퇴사일 (마지막 재직일)</span>
+          <span>퇴사일 (마지막 재직일 · 상실일 아님)</span>
           <input
             type="date"
             value={endDate}
@@ -159,36 +157,13 @@ export function SettlementInput() {
         </label>
       </div>
 
-      <fieldset className="lv-clause">
-        <legend>
-          입사 후 1년 미만 기간에 월 단위로 발생한 연차(최대 11일)를 입사일 기준 누계에
-          포함할까요?
-        </legend>
-        <div className="lv-clause__opts">
-          {(
-            [
-              ["unknown", "모르겠음 / 확인 필요"],
-              ["yes", "포함"],
-              ["no", "제외"],
-            ] as [Clause, string][]
-          ).map(([v, label]) => (
-            <label key={v} className={monthly === v ? "is-on" : undefined}>
-              <input
-                type="radio"
-                name="monthly"
-                checked={monthly === v}
-                onChange={() => setMonthly(v)}
-              />
-              {label}
-            </label>
-          ))}
-        </div>
-        <p className="lv-clause__hint">
-          회계연도로 부여한 누계에 이 일수가 들어가 있다면 <strong>포함</strong>해야 같은
-          기준으로 비교됩니다. 사용촉진(제61조)으로 이미 소멸했다면 제외합니다.
-          근속 1년 미만이면 이 선택과 무관하게 항상 포함합니다.
-        </p>
-      </fieldset>
+      <p className="lv-clause__hint">
+        입사 후 1년 미만 기간에 월 단위로 생긴 연차(최대 11일)는 날짜로 정해 입사일 기준
+        누계에 넣습니다. 1년차 15일이 2018. 5. 29. 이전에 생겼으면 그 15일에 포함해 세고(구
+        제60조제3항), 그 뒤면 따로 셉니다. 따로 세는 경우에는 회계연도로 부여한 누계와
+        사용·지급한 누계에도 그 일수를 넣어 입력해 주세요. 사용촉진(제61조)으로 보상 의무가 없어진 일수는 빼지 않으니
+        따로 확인해 주세요.
+      </p>
 
       <fieldset className="lv-clause">
         <legend>취업규칙에 「퇴직 시 입사일 기준으로 재산정한다」는 규정이 있습니까?</legend>

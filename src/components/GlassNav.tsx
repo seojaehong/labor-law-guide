@@ -6,10 +6,12 @@ import { usePathname } from 'next/navigation';
 import { Menu, X } from 'lucide-react';
 import ThemeToggle from './ThemeToggle';
 import { BRAND_NAME } from '@/lib/constants';
+// 261124 결정 순서 ①도구 → ②AI 연결 → ③정보. 「AI 연결」을 탭에 올리고 「법령 개정」을 햄버거로 내렸다
+// (모바일 탭 줄은 5칸 그대로 — site-refactor.css 의 repeat(5)). 법령 개정은 취업규칙 점검과 햄버거에서 닿는다.
 const NAV_ITEMS = [
   { href:'/tools', label:'계산·점검 도구' },
+  { href:'/ai-tools', label:'AI 연결' },
   { href:'/blog', label:'글' },
-  { href:'/laws', label:'법령 개정' },
   { href:'/tools/work-rules', label:'취업규칙 점검' },
   { href:'/decisions', label:'판례·행정해석' },
 ];
@@ -20,18 +22,14 @@ function active(href: string, pathname: string) {
   if (href === '/tools') return /^\/(tools|duties|hwp-editor)(\/|$)/.test(pathname) && !pathname.startsWith('/tools/work-rules');
   return pathname === href || pathname.startsWith(href + '/');
 }
-// 모바일 「추가 메뉴」 — 데스크톱 상단 메뉴와 푸터에서 닿는 큰 갈래를 한 곳에 모은다(261112).
-// 종전에는 도구·연차 둘·문의 네 줄뿐이라 AI 도구·FAQ·퇴사 점검표는 모바일에서 푸터까지 내려가야 했다.
+// 모바일 「추가 메뉴」 — 탭 줄(위 NAV_ITEMS 5칸)에 없는 갈래만 둔다(261124).
+// 종전 10줄 중 5줄이 늘 보이는 탭 줄과 겹쳤다. 햄버거는 768px 미만에서만 보인다.
 const DRAWER_ITEMS = [
-  { href:'/tools', label:'계산·점검 도구' },
-  { href:'/ai-tools', label:'AI 도구' },
-  { href:'/blog', label:'글' },
-  { href:'/decisions', label:'판례·행정해석' },
   { href:'/laws', label:'법령 개정' },
-  { href:'/tools/work-rules', label:'취업규칙 점검' },
-  { href:'/faq', label:'FAQ' },
-  { href:'/exit', label:'퇴사 한 번에' },
+  { href:'/exit', label:'퇴사 점검표' },
   { href:'/exit-employer', label:'직원 퇴사 처리' },
+  { href:'/tools/toego', label:'퇴고(문서 점검)' },
+  { href:'/faq', label:'FAQ' },
   { href:'/contact', label:'서비스 문의' },
 ];
 export default function GlassNav() {
@@ -60,7 +58,7 @@ export default function GlassNav() {
         <Image className="editorial-logo-dark" src="/brand/work-patterns-wordmark-original-dark.svg" width={141} height={40} alt={BRAND_NAME} priority />
       </Link>
       <div className="editorial-desktop-links">{links(false)}</div>
-      <div className="editorial-nav-controls"><ThemeToggle /><Link className="editorial-service-link editorial-desktop-service" href="/contact">서비스 문의</Link>
+      <div className="editorial-nav-controls"><ThemeToggle /><Link className="editorial-service-link editorial-desktop-service whitespace-nowrap" href="/contact">서비스 문의</Link>
         <button ref={trigger} className="editorial-menu-toggle" onClick={()=>setMobileOpen(!mobileOpen)} aria-expanded={mobileOpen} aria-controls="mobile-navigation" aria-label={mobileOpen?'추가 메뉴 닫기':'추가 메뉴 열기'}>{mobileOpen?<X size={20}/>:<Menu size={20}/>}</button>
       </div>
     </div>

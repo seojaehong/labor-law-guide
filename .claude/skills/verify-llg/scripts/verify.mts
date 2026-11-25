@@ -60,6 +60,43 @@ const THIRD_PARTY_FRAMES = [/^https:\/\/challenges\.cloudflare\.com\//];
 // 기능마다 경로와 사용자 동작. 기대값은 손으로 센 값이다(features/<id>.md 와 같다).
 // waitUntil 'load' = 헤드리스에서 networkidle 에 닿지 않는 화면(Turnstile 이 챌린지를 계속 돌린다). 그런 화면은 여정이 하이드레이션을 기다린다
 const FEATURES: Record<string, { path: string; journey: Journey; waitUntil?: 'load' | 'networkidle' }> = {
+  // 퇴고 체험 — 점검은 브라우저 안에서 돈다. 기대값은 엔진 걸림을 손으로 센 값(features/toego.md)
+  toego: {
+    path: '/tools/toego',
+    journey: async (p, step) => {
+      const MARK = '합성표지글';
+      const sent: string[] = [];
+      p.on('request', (r: { url(): string; postData(): string | null }) => sent.push(`${r.url()} ${r.postData() ?? ''}`));
+      const summary = p.locator('[data-toego-summary]');
+      await p.getByRole('button', { name: '예시: 보고서', exact: true }).click();
+      await summary.waitFor();
+      step('예시 보고서 요약', '반드시 교정 3곳 · 문맥 확인 6곳', await summary.innerText());
+      step('예시 보고서 → 문서 종류 컨설팅', 'true', String(await p.getByRole('button', { name: /^컨설팅/ }).getAttribute('aria-pressed')));
+      const mark = p.locator('[data-toego-original] mark').filter({ hasText: /^할수$/ }).first();
+      step('원문 표시 — 「할수」 반드시 교정', 'A', String(await mark.getAttribute('data-grade')));
+      step('걸린 곳 — 띄어쓰기 근거 조항', /제42항/, await p.locator('[data-toego-check="spacing"]').innerText());
+      step('걸린 곳 — 문체 출처', /im-not-ai/, await p.locator('[data-toego-check="prose"]').innerText());
+      // 직접 입력 — 점검하는 동안 요청 0, 어떤 요청에도 글이 실리지 않는다
+      await p.getByLabel('점검할 글', { exact: true }).fill(`${MARK} 문서를 검토할수 있다 .`);
+      const before = sent.length;
+      await p.getByRole('button', { name: '점검하기', exact: true }).click();
+      await summary.filter({ hasText: '반드시 교정 2곳' }).waitFor();
+      step('직접 입력 요약', '반드시 교정 2곳 · 문맥 확인 0곳', await summary.innerText());
+      step('점검하는 동안 네트워크 요청 수', /^0$/, String(sent.length - before));
+      // 주민등록번호 모양 — 점검하지 않고 엔진 문구로 멈춘다
+      await p.getByLabel('점검할 글', { exact: true }).fill(`첫 줄\n${MARK} 900101-1234567`);
+      await p.getByRole('button', { name: '점검하기', exact: true }).click();
+      const stop = p.locator('[data-toego-stop]');
+      await stop.waitFor();
+      step('주민등록번호 모양 멈춤', /주민등록번호 모양의 숫자가 있어 멈췄습니다[\s\S]*해당 줄: 2줄/, await stop.innerText());
+      // 40만 자 초과 — 엔진 사유 그대로 멈춘다
+      await p.getByLabel('점검할 글', { exact: true }).fill('가'.repeat(400_001));
+      await p.getByRole('button', { name: '점검하기', exact: true }).click();
+      await stop.filter({ hasText: '40만 자 초과' }).waitFor();
+      step('40만 자 초과 멈춤', '40만 자 초과 — 글을 나눠서 다시 점검해 주세요.', await stop.innerText());
+      step('글이 실린 요청 수', /^0$/, String(sent.filter((s) => s.includes(MARK) || s.includes(encodeURIComponent(MARK))).length));
+    },
+  },
   'council-graph': {
     path: '/tools/council-graph',
     journey: async (p, step) => {
@@ -197,11 +234,15 @@ const FEATURES: Record<string, { path: string; journey: Journey; waitUntil?: 'lo
     journey: async (p, step) => {
       const inputs = p.locator('input[inputmode]');
       step('기본 주 40시간', '82,560원', await answer(p));
+      step('기준일 = 최저임금 고시 확인일(rates.ts)', '2026년 최저임금(시간당 10,320원) 기준 · 확인 2026.10.28.', await answer(p));
       await inputs.nth(0).fill('10320');
       await inputs.nth(1).fill('22.5');
       step('주 22.5시간', '46,440원', await answer(p));
       await inputs.nth(1).fill('14');
       step('주 14시간(15시간 미만)', '주휴수당이 없습니다', await answer(p));
+      step('15시간 미만에도 다음 할 일', /계약서에 적힌 시간과 실제로 일하는 시간.*근로계약서 점검/, await answer(p));
+      await inputs.nth(1).fill('100');
+      step('주 100시간 — 경고, 계산은 그대로', /82,560원.*소정근로시간 한도 주 40시간/, await answer(p));
       await inputs.nth(1).fill('40');
       await p.getByLabel('빠진 날이 있다').check();
       step('결근한 주', '이번 주는 주휴수당이 없습니다', await answer(p));
@@ -212,8 +253,25 @@ const FEATURES: Record<string, { path: string; journey: Journey; waitUntil?: 'lo
     journey: async (p, step) => {
       const amt = p.locator('input[inputmode=numeric]').first();
       step('월 2,156,880 / 2026 이상 · 2027 부족', /2026년 최저임금\(시간당 10,320원\) 이상.*79,420원 적습니다/, await answer(p));
+      step('기준일 — 2026 고시', '2026년 최저임금(시간당 10,320원) 기준 · 확인 2026.10.28.', await answer(p));
+      step('기준일 — 2027 고시', '2027년 최저임금(시간당 10,700원) 기준 · 확인 2026.10.28.', await answer(p));
       await amt.fill('2156879');
       step('1원 모자람', '한 달 1원 적습니다', await answer(p));
+      // 261124 — 단시간 월 환산을 104로 내리지 않는다 · 주휴 분모 = 통상근로자 근무일 수 · 40시간 초과 경고
+      const weekly = p.getByLabel(/1주 소정근로시간/);
+      await amt.fill('1075000');
+      await weekly.fill('20');
+      step('주 20시간 월 1,075,000 — 104.29시간', '한 달 1,229원 적습니다', await answer(p));
+      await amt.fill('2600000');
+      await weekly.fill('52');
+      step('주 52시간 — 40시간 초과 경고', '소정근로시간이 될 수 없습니다', await answer(p));
+      await p.getByLabel('주급', { exact: true }).check();
+      await p.locator('input[inputmode=numeric]').first().fill('300000');
+      await weekly.fill('24');
+      await p.getByLabel(/통상근로자의 1주 근무일 수/).fill('4');
+      step('통상근로자 주 4일 — 주휴 6시간', '1주 9,600원 적습니다', await answer(p));
+      await p.getByLabel(/통상근로자의 1주 근무일 수/).fill('5');
+      step('통상근로자 주 5일 — 주휴 4.8시간', '2026년 최저임금(시간당 10,320원) 이상', await answer(p));
       await p.getByLabel('시급', { exact: true }).check();
       step('시급으로 바꾸면 월급 숫자를 가져오지 않는다(L-07)', '시급 금액을 넣어 주세요', await answer(p));
       await p.locator('input[inputmode=numeric]').first().fill('9288');
@@ -242,6 +300,7 @@ const FEATURES: Record<string, { path: string; journey: Journey; waitUntil?: 'lo
       await p.getByLabel('알리지 않았다').check();
       await d.nth(0).fill('2026-09-02');
       step('3개월 미만', '3개월이 되지 않았습니다', await answer(p));
+      step('3개월 미만에도 다음 할 일', /제27조.*퇴사 점검표/, await answer(p));
       await d.nth(0).fill('2025-11-30');
       await d.nth(1).fill('2026-02-28');
       step('11.30 입사 → 2.28 해고(그 달 말일에 3개월)', '2,476,800원', await answer(p));
@@ -286,6 +345,7 @@ const FEATURES: Record<string, { path: string; journey: Journey; waitUntil?: 'lo
       await form.locator('input[inputmode=numeric]').fill('3000000');
       await form.locator('input[inputmode=decimal]').first().fill('40');
       step('퇴직금 추정(정본 엔진)', '8,812,389원', await answer(p, 'section[aria-label="확인용 추정"]'));
+      step('기준일 = 법령 원문 확인일(CHECKED)', '법제처 현행 법령 원문 기준 · 확인 2026.10.21.', await answer(p, 'section[aria-label="확인용 추정"]'));
     },
   },
   'take-home-pay': {
@@ -339,12 +399,15 @@ const FEATURES: Record<string, { path: string; journey: Journey; waitUntil?: 'lo
       await hire.fill('2021-08-01');
       await last.fill('2026-07-31');
       step('정확히 5년(기념일 전날 퇴사)', /280,000원.*28,000원.*5년\(60개월\)/, await answer(p));
+      step('기준일 = 세율표 확인일(BASIC_TAX_RATES)', '소득세법 제55조 기본세율(2023년 이후 과세기간) 기준 · 확인 2026.10.29.', await answer(p));
+      step('세무사법 고지 유지', /예상 금액입니다\. 세무대리·신고서 작성 대행이 아닙니다\..*모의계산/, await answer(p));
       await last.fill('2026-08-01');
       step('기념일 퇴사 = 6년', /216,000원.*21,600원.*6년\(61개월\)/, await answer(p));
       await pay.fill('2500000');
       await hire.fill('2023-07-03');
       await last.fill('2026-07-02');
       step('퇴직급여 < 근속연수공제 = 0원', /0원입니다.*근속연수공제/, await answer(p));
+      step('0원에도 다음 할 일', /퇴직금 계산기로 금액을 다시 확인.*퇴직금 계산기.*퇴사 점검표/, await answer(p));
       await pay.fill('20000000');
       await hire.fill('2018-01-02');
       await last.fill('2022-12-31');
@@ -477,6 +540,7 @@ const FEATURES: Record<string, { path: string; journey: Journey; waitUntil?: 'lo
       await paid.fill('');
       await p.getByLabel('4명 이하', { exact: true }).check();
       step('상시 4명 이하 = 계산하지 않음(별표1)', /법정 연차수당을 계산하지 않습니다.*4명 이하/, await answer(p));
+      step('4명 이하 — 다음 할 일', '상시 근로자 수 계산기', await answer(p));
       await p.getByLabel('5명 이상', { exact: true }).check();
       await weekly.fill('14');
       step('주 14시간 = 계산하지 않음(§18③)', '15시간 미만', await answer(p));
@@ -602,6 +666,7 @@ const FEATURES: Record<string, { path: string; journey: Journey; waitUntil?: 'lo
       step('C13 불가항력 = 귀책사유 아님', /계산하지 않습니다.*귀책사유가 아니/, await answer(p));
       await p.getByLabel('노동위원회 승인을 받았다(부득이한 사유)', { exact: true }).check();
       step('C13 노동위 승인 = 승인 지급률, 별지 제4호서식', /승인된 지급률.*별지 제4호서식/, await answer(p));
+      step('멈춤 상태 줄', '계산하지 않음 · 이 계산기가 다루는 범위 밖입니다', await answer(p));
     },
   },
   'attendance-rate': {
@@ -645,6 +710,7 @@ const FEATURES: Record<string, { path: string; journey: Journey; waitUntil?: 'lo
       await union.fill('250');
       await absent.fill('');
       step('C11 노조 전임 1년 전부 → 생기지 않음', /생기지 않습니다/, await answer(p));
+      step('생기지 않음 — 다음 할 일', '연차휴가 계산기', await answer(p));
       await field('입사일').fill('2024-03-04');
       await union.fill('');
       await field('부당하다고 확정된 정직 등 징계 기간').fill('20');

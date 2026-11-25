@@ -187,7 +187,7 @@ export default function SanctionPage() {
       setMessages((prev) => {
         const existing = prev.find((m) => m.id === msgId);
         if (existing) {
-          return prev.map((m) => (m.id === msgId ? { ...m, content: streamedContent ? `${streamedContent}\n\n⚠️ ${message}` : message } : m));
+          return prev.map((m) => (m.id === msgId ? { ...m, content: streamedContent ? `${streamedContent}\n\n${message}` : message } : m));
         }
         return [...prev, { id: msgId, role: 'assistant' as const, content: message }];
       });
@@ -453,7 +453,7 @@ export default function SanctionPage() {
                   {msg.role === 'assistant' && msg.faqs && msg.faqs.length > 0 && (
                     <div className="rounded-xl border border-border/50 bg-muted/30 p-4 mt-3">
                       <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-foreground">
-                        <span>📚 관련 실무 해설</span>
+                        <span>관련 실무 해설</span>
                         <span className="text-xs font-normal text-muted-foreground">지식DB 매칭 자료</span>
                       </div>
                       <div className="space-y-2">

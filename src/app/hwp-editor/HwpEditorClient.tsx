@@ -105,7 +105,7 @@ export default function HwpEditorClient() {
         const v = await editor.exportHwpVerify();
         if (!v.recovered) throw new Error('hwp 로 저장한 결과를 다시 열지 못했습니다. hwpx 로 저장하세요');
         if (v.pageCountAfter !== v.pageCountBefore
-          && !window.confirm(`hwp 로 저장하면 쪽수가 ${v.pageCountBefore}쪽에서 ${v.pageCountAfter}쪽으로 달라집니다. 그래도 저장할까요?`)) return;
+          && !window.confirm(`hwp 로 저장하면 쪽수가 ${v.pageCountBefore}쪽에서 ${v.pageCountAfter}쪽으로 달라집니다. 그래도 저장하시겠습니까?`)) return;
         download(await editor.exportHwp(), fileName);
         setMsg({ kind: 'info', text: `${fileName} 을 내려받았습니다. ${HWP_WARNING}` });
       } else {

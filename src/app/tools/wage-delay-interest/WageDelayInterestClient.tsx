@@ -2,12 +2,14 @@
 
 import { useMemo, useState } from 'react';
 import { calcWageDelayInterest, type DelayKind, type WageDelayInput } from '@/lib/calc/wage-delay-interest';
-import AnswerCard from '@/components/tool/AnswerCard';
+import ResultBlock from '@/components/tool-result/ResultBlock';
 import FoldedDetail from '@/components/tool/FoldedDetail';
-import { card, fmtDate, inputCls, ink, muted, small, todayKst } from '@/lib/tool-kit';
-import { CONSEQUENCES, EXCLUSION_HINT, EXCLUSION_REASONS, FORMULA, headline, IN_SERVICE_HINT, itemLine, LAST_DAY_HINT, NOT_COVERED } from './copy';
+import { card, choiceLabel, inputCls, ink, muted, small, todayKst } from '@/lib/tool-kit';
+import { CONSEQUENCES, EXCLUSION_HINT, EXCLUSION_REASONS, FORMULA, IN_SERVICE_HINT, LAST_DAY_HINT, NOT_COVERED } from './copy';
+import { wageDelayView } from './result';
 
-interface Row { kind: DelayKind; amount: string; periodicPayDate: string; paidDate: string }
+/** excl — 적용 제외 사유가 이 항목에 있는가(항목이 둘 이상일 때만 고른다, 기본 있음) */
+interface Row { kind: DelayKind; amount: string; periodicPayDate: string; paidDate: string; excl: boolean }
 
 const num = (s: string) => Number(s.replace(/,/g, '').trim() || '0');
 // 재직 중이면 퇴직 때 정산하는 임금은 아직 없다 — 모든 항목을 정기지급일이 있는 임금으로 본다
@@ -17,7 +19,7 @@ export default function WageDelayInterestClient() {
   const today = todayKst();
   const [retired, setRetired] = useState(true);
   const [lastWorkDay, setLastWorkDay] = useState('');
-  const [rows, setRows] = useState<Row[]>([{ kind: 'retirement', amount: '', periodicPayDate: '', paidDate: today }]);
+  const [rows, setRows] = useState<Row[]>([{ kind: 'retirement', amount: '', periodicPayDate: '', paidDate: today, excl: true }]);
   const [hasExcl, setHasExcl] = useState(false);
   const [exFrom, setExFrom] = useState('');
   const [exTo, setExTo] = useState('');
@@ -32,6 +34,9 @@ export default function WageDelayInterestClient() {
       if (!r.paidDate) return { error: `항목 ${i + 1}의 지급한 날을 넣어 주세요.` };
     }
     if (hasExcl && (!exFrom || !exTo)) return { error: '적용 제외 기간의 시작일과 끝나는 날을 넣어 주세요.' };
+    // 항목이 하나면 고르는 칸이 없으므로 그 항목에 사유가 있는 것으로 본다
+    const exclOn = (r: Row) => rows.length === 1 || r.excl;
+    if (hasExcl && !rows.some(exclOn)) return { error: '적용 제외 사유가 있는 항목을 하나 이상 골라 주세요.' };
     try {
       const base: WageDelayInput = {
         lastWorkDay: retired ? lastWorkDay : undefined,
@@ -45,7 +50,9 @@ export default function WageDelayInterestClient() {
       const full = calcWageDelayInterest(base);
       // full 은 적용 제외 기간을 넣었을 때만 답 문장에 넘긴다 — 「빼지 않으면」 값과 「겹치지 않아 뺀 날이 없습니다」
       if (!hasExcl) return { r: full };
-      return { r: calcWageDelayInterest({ ...base, exclusions: [{ from: exFrom, to: exTo }] }), full };
+      // 적용 제외 기간은 사유가 있는 항목에만 뺀다(항목마다 사유가 다를 수 있다)
+      const ex = [{ from: exFrom, to: exTo }];
+      return { r: calcWageDelayInterest({ ...base, items: base.items.map((it, i) => (exclOn(rows[i]!) ? { ...it, exclusions: ex } : it)) }), full };
     } catch (e) {
       return { error: (e as Error).message };
     }
@@ -57,10 +64,10 @@ export default function WageDelayInterestClient() {
     <div className="space-y-4">
       <section className={`${card} grid gap-4 sm:grid-cols-2`}>
         <fieldset className={`${small} sm:col-span-2`} style={muted}>
-          <legend className="mb-1">지금 일하고 있나요</legend>
+          <legend className="mb-1">지금 일하고 있습니까?</legend>
           <div className="flex flex-wrap gap-4">
-            <label className="flex items-center gap-2"><input type="radio" name="retired" checked={retired} onChange={() => setRetired(true)} /> 퇴직했다(또는 사망)</label>
-            <label className="flex items-center gap-2"><input type="radio" name="retired" checked={!retired} onChange={() => setRetired(false)} /> 재직 중이다</label>
+            <label className={choiceLabel}><input type="radio" name="retired" checked={retired} onChange={() => setRetired(true)} /> 퇴직했다(또는 사망)</label>
+            <label className={choiceLabel}><input type="radio" name="retired" checked={!retired} onChange={() => setRetired(false)} /> 재직 중이다</label>
           </div>
         </fieldset>
         {retired ? (
@@ -88,12 +95,12 @@ export default function WageDelayInterestClient() {
           </div>
           {retired && (
             <fieldset className={`${small} sm:col-span-2`} style={muted}>
-              <legend className="mb-1">어떤 돈인가요</legend>
+              <legend className="mb-1">어떤 돈입니까?</legend>
               <div className="flex flex-wrap gap-4">
-                <label className="flex items-center gap-2">
+                <label className={choiceLabel}>
                   <input type="radio" name={`kind-${i}`} checked={row.kind === 'retirement'} onChange={() => set(i, { kind: 'retirement' })} /> 퇴직금(일시금)·퇴직 때 정산하는 임금
                 </label>
-                <label className="flex items-center gap-2">
+                <label className={choiceLabel}>
                   <input type="radio" name={`kind-${i}`} checked={row.kind === 'periodic'} onChange={() => set(i, { kind: 'periodic' })} /> 정기지급일이 정해진 임금(월급 등)
                 </label>
               </div>
@@ -119,14 +126,14 @@ export default function WageDelayInterestClient() {
         type="button"
         className={`${small} rounded-lg border border-[var(--color-border)] px-3 py-2`}
         style={ink}
-        onClick={() => setRows((rs) => [...rs, { kind: rs[rs.length - 1]?.kind ?? 'retirement', amount: '', periodicPayDate: '', paidDate: today }])}
+        onClick={() => setRows((rs) => [...rs, { kind: rs[rs.length - 1]?.kind ?? 'retirement', amount: '', periodicPayDate: '', paidDate: today, excl: true }])}
       >
         항목 더하기
       </button>
       <p className={small} style={muted}>일부만 늦게 지급했으면 지급한 금액과 날을 항목으로 나눠 넣습니다.</p>
 
       <section className={card}>
-        <label className={`${small} flex items-center gap-2`} style={ink}>
+        <label className={`${small} ${choiceLabel}`} style={ink}>
           <input type="checkbox" checked={hasExcl} onChange={(e) => setHasExcl(e.target.checked)} /> 적용 제외 사유가 있었던 기간을 뺀다
         </label>
         {hasExcl && (
@@ -143,6 +150,18 @@ export default function WageDelayInterestClient() {
               적용 제외 끝나는 날
               <input type="date" className={inputCls} value={exTo} onChange={(e) => setExTo(e.target.value)} />
             </label>
+            {rows.length > 1 && (
+              <fieldset className={`${small} sm:col-span-2`} style={muted}>
+                <legend className="mb-1">이 기간을 뺄 항목(사유가 있는 항목만)</legend>
+                <div className="flex flex-wrap gap-4">
+                  {rows.map((row, i) => (
+                    <label key={i} className={choiceLabel}>
+                      <input type="checkbox" checked={row.excl} onChange={(e) => set(i, { excl: e.target.checked })} /> 항목 {i + 1}
+                    </label>
+                  ))}
+                </div>
+              </fieldset>
+            )}
           </div>
         )}
       </section>
@@ -150,12 +169,7 @@ export default function WageDelayInterestClient() {
       {!r ? (
         <section className={card} aria-live="polite"><p className={small} style={ink}>{'error' in out ? out.error : ''}</p></section>
       ) : (
-        <AnswerCard lines={headline(r, 'full' in out ? out.full : undefined)}>
-          <ul className={`${small} mt-3 space-y-1`} style={muted}>
-            {r.items.map((it, i) => <li key={i}>{itemLine(it, i, today)}</li>)}
-          </ul>
-          {retired && lastWorkDay && <p className={`${small} mt-2`} style={muted}>마지막 근무일 {fmtDate(lastWorkDay, today)}</p>}
-        </AnswerCard>
+        <ResultBlock view={wageDelayView({ r, full: 'full' in out ? out.full : undefined, today, lastWorkDay: retired ? lastWorkDay : undefined })} />
       )}
 
       <FoldedDetail summary="계산 방법">

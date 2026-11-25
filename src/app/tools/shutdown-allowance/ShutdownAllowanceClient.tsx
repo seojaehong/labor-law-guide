@@ -4,17 +4,18 @@ import Link from 'next/link';
 import { useMemo, useState } from 'react';
 import BizNoLookup from '@/components/BizNoLookup';
 import { calcShutdownAllowance, calendarBreakdown, type ShutdownAllowanceInput, type WageUnit } from '@/lib/calc/shutdown-allowance';
-import AnswerCard from '@/components/tool/AnswerCard';
+import ResultBlock from '@/components/tool-result/ResultBlock';
 import FoldedDetail from '@/components/tool/FoldedDetail';
-import { card, inputCls, ink, muted, small } from '@/lib/tool-kit';
-import { BONUS_HINT, breakdownLine, DAYS_HINT, effectLines, EXCLUDE_HINT, formulaLines, headline, ORDINARY_HINT, PAID_HINT, SCOPE_ITEMS } from './copy';
+import { card, choiceLabel, inputCls, ink, muted, small } from '@/lib/tool-kit';
+import { BONUS_HINT, breakdownLine, DAYS_HINT, EXCLUDE_HINT, formulaLines, ORDINARY_HINT, PAID_HINT, SCOPE_ITEMS } from './copy';
+import { shutdownAllowanceNotes, shutdownAllowanceView } from './result';
 
 const UNIT_LABEL: Record<WageUnit, string> = { month: '월급', week: '주급', day: '일급', hour: '시급' };
 const num = (s: string) => Number(s.replace(/,/g, '').trim() || '0');
 
 function Radio({ name, checked, onChange, children }: { name: string; checked: boolean; onChange: () => void; children: string }) {
   return (
-    <label className="flex items-center gap-2">
+    <label className={choiceLabel}>
       <input type="radio" name={name} checked={checked} onChange={onChange} /> {children}
     </label>
   );
@@ -90,7 +91,7 @@ export default function ShutdownAllowanceClient() {
           </p>
         </fieldset>
         <fieldset className={`${small} sm:col-span-2`} style={muted}>
-          <legend className="mb-1">왜 쉬었나요</legend>
+          <legend className="mb-1">왜 쉬었습니까</legend>
           <div className="flex flex-col gap-2">
             <Radio name="cause" checked={cause === 'employer'} onChange={() => setCause('employer')}>회사 사정(경영 사정·작업 중단·대기발령 등)</Radio>
             <Radio name="cause" checked={cause === 'force-majeure'} onChange={() => setCause('force-majeure')}>천재지변 등 회사가 막을 수 없는 사유</Radio>
@@ -168,7 +169,7 @@ export default function ShutdownAllowanceClient() {
 
           <section className={`${card} grid gap-4 sm:grid-cols-2`} aria-label="통상임금">
             <fieldset className={`${small} sm:col-span-2`} style={muted}>
-              <legend className="mb-1">통상임금을 어떤 단위로 정했나요</legend>
+              <legend className="mb-1">통상임금을 어떤 단위로 정했습니까</legend>
               <div className="flex flex-wrap gap-4">
                 {(Object.keys(UNIT_LABEL) as WageUnit[]).map((u) => (
                   <Radio key={u} name="unit" checked={unit === u} onChange={() => setUnit(u)}>{UNIT_LABEL[u]}</Radio>
@@ -197,11 +198,11 @@ export default function ShutdownAllowanceClient() {
       {!r ? (
         <section className={card} aria-live="polite"><p className={small} style={ink}>{'error' in out ? out.error : ''}</p></section>
       ) : (
-        <AnswerCard lines={headline(r)}>
-          {effectLines(r).map((l) => (
-            <p key={l} className={`${small} mt-3`} style={muted}>{l}</p>
+        <ResultBlock view={shutdownAllowanceView(r)}>
+          {shutdownAllowanceNotes(r).map((l) => (
+            <p key={l} className={`${small} mt-3`}>{l}</p>
           ))}
-        </AnswerCard>
+        </ResultBlock>
       )}
 
       {r && (

@@ -188,6 +188,7 @@ export function calcHolidayPay(input: Input): Result {
   //   그날 일한 시간의 임금(1.0)과 가산(0.5/1.0)은 월급에 없어 따로 준다(제56조 제2항) — 일한 대가는 월급·시급·일급제가 같다.
   //   시급·일용제는 유급휴일 1일분이 임금에 없어 일한 대가와 별개로 준다(paid_holiday_day).
   let paid_day_hours: number | null = null;
+  let one_off_daily = false; // 하루만 일하고 끝난 일용직 — 휴일 가산을 보지 않는다
 
   if (input.worker_type === 'monthly') {
     const monthly_hours = input.monthly_hours || DEFAULT_MONTHLY_HOURS;
@@ -225,38 +226,13 @@ export function calcHolidayPay(input: Input): Result {
       `통상시급 = 일급 ${input.daily_wage.toLocaleString('ko-KR')}원 ÷ 1일 ${daily_hours}시간 = ${dec2(base_hourly)}원`
     );
     if (!input.paid_continuously) {
-      // 단발성 일용직 → 통상임금 산정 대상 아님 → 가산수당 없음 (일급만)
+      // 단발성 일용직 → 그날을 그 근로자의 휴일로 보지 않는다(휴일 가산 없음).
+      // 연장(1일 8시간 초과)·야간 가산은 휴일 여부와 별개라 5명 이상이면 아래에서 계산한다(제56조 제1항·제3항).
+      one_off_daily = true;
       warning =
-        '단발성 일용직(1일만 근로하고 종료)은 통상임금 산정 대상이 아니므로 가산수당이 발생하지 않습니다. ' +
-        '근로한 시간만큼 일당(또는 시급)을 받게 되며, 1.5배·2배 가산은 미적용입니다. ' +
-        '명칭과 관계없이 동일 사업장에서 지속적으로 근로(반복 호출)하는 경우에 한해 통상임금이 인정됩니다 (행정해석 근기 68207-2508).';
-      legal.push('행정해석 근기 68207-2508 — 일용직 통상임금 인정 요건');
-      // 가산수당 0 — 휴일근로 임금만 (1.0배)
-      const wage = lineAmount(rate, 1, input.worked_hours);
-      breakdown.push({
-        label: '일당 (가산 미적용)',
-        formula: `통상시급 ${dec2(base_hourly)}원 × ${input.worked_hours}시간`,
-        amount: wage,
-      });
-      const total_warn = breakdown.reduce((s, b) => s + b.amount, 0);
-      return {
-        total: total_warn,
-        regular_pay_equivalent: total_warn,
-        gross_holiday_pay: total_warn,
-        base_hourly,
-        ordinary_hourly_displayed,
-        breakdown,
-        notes,
-        legal_basis: legal,
-        warning,
-        already_in_monthly_pay: false,
-        paid_holiday_day: {
-          status: 'not_computed',
-          hours: null,
-          amount: null,
-          note: '하루만 일하고 끝난 일용직의 유급휴일 1일분은 근로관계에 따라 달라 이 계산에 넣지 않았습니다. 따로 확인하세요.',
-        },
-      };
+        '하루만 일하고 끝난 일용직은 그날을 그 근로자의 휴일로 보지 않아 휴일 가산(1.5배·2배)은 계산하지 않았습니다. ' +
+        '연장·야간 가산은 휴일 여부와 별개로 따로 계산했습니다(5명 이상 사업장: 1일 8시간을 넘은 시간 0.5배, 22시~6시 0.5배). ' +
+        '명칭과 관계없이 동일 사업장에서 지속적으로 근로(반복 호출)하는 경우에는 통상임금이 인정됩니다 (행정해석 근기 68207-2508).';
     } else {
       notes.push(
         '명칭과 관계없이 동일 사업장에서 지속적으로 근로 → 통상임금 인정 (행정해석 근기 68207-2508).'
@@ -292,7 +268,7 @@ export function calcHolidayPay(input: Input): Result {
 
   // ── 5인 미만 + 관공서 공휴일 케이스 ──
   if (input.site_size === 'small' && input.holiday_kind === 'public_holiday') {
-    warning =
+    warning = (warning ? `${warning} ` : '') +
       '⚠️ 5인 미만 사업장은 관공서 공휴일(빨간날) 유급휴일 의무가 없고, 휴일근로 가산수당(1.5배/2배) 의무도 없습니다. ' +
       '단, 근로계약·취업규칙·관행으로 약정한 경우에는 약정에 따라 지급해야 합니다.';
     legal.push('근로기준법 제11조·시행령 제7조 — 5인 미만 사업장은 제56조(가산수당) 적용 제외');
@@ -312,9 +288,40 @@ export function calcHolidayPay(input: Input): Result {
   // ── 휴일근로 임금/가산수당 계산 ──
   const apply_premium = input.site_size === 'large';
 
+  // 1주 15시간 미만은 제55조가 적용되지 않아(제18조 제3항) 관공서 공휴일이 그 근로자의 휴일이 아니다
+  //   → 휴일근로(제56조 제2항) 가산을 붙이지 않는다. 노동절은 노동절법 근거라 여기서 바꾸지 않았다(확인 필요).
+  const under15_public =
+    input.worker_type === 'hourly' &&
+    input.holiday_kind === 'public_holiday' &&
+    (input.weekly_hours || 0) > 0 &&
+    (input.weekly_hours || 0) < 15;
+  // 그날 일을 휴일근로로 보지 않는 경우 — 휴일 가산 대신 연장(1일 8시간 초과, 제50조 제2항·제56조 제1항)·야간(제56조 제3항)만 본다
+  const not_holiday_work = one_off_daily || under15_public;
+  if (under15_public) {
+    notes.push(
+      `1주 소정근로시간이 15시간 미만이면 관공서 공휴일 유급휴일(제55조)이 적용되지 않아(제18조 제3항) 그날 일은 휴일근로가 아닙니다. 휴일 가산은 붙이지 않고, ${apply_premium ? '1일 8시간을 넘은 시간과 야간(22시~6시)만 0.5배를 가산했습니다' : '4명 이하 사업장이라 가산하지 않았습니다'}.`
+    );
+    if (apply_premium) {
+      notes.push('소정근로시간을 넘겨 일한 시간의 가산(기간제 및 단시간근로자 보호 등에 관한 법률 제6조 제3항, 통상임금의 50%)은 이 계산에 넣지 않았습니다. 그날이 소정근로일이 아니었다면 따로 확인하세요.');
+    }
+    legal.push('근로기준법 제18조 제3항 — 1주 소정근로시간 15시간 미만 근로자에게는 제55조(휴일) 적용 제외');
+  }
+  if (not_holiday_work && apply_premium) {
+    legal.push('근로기준법 제50조 제2항·제56조 제1항 — 1일 8시간을 넘은 연장근로에 통상임금의 50% 가산');
+    legal.push('근로기준법 제56조 제3항 — 야간근로(22시~6시)에 통상임금의 50% 가산');
+  }
+
   // (A) 휴일근로분 임금 (1.0배) — 일한 시간의 임금. 월급제도 유급휴일이면 월급 외에 따로 준다
   //     4명 이하의 관공서 공휴일은 유급휴일이 아니어서 월급제는 그날 근로가 월급(소정근로)에 들어 있다
-  if (already_includes_holiday_pay && !paid_holiday) {
+  if (not_holiday_work) {
+    if (input.worked_hours > 0) {
+      breakdown.push({
+        label: '근로 임금 (1.0배)',
+        formula: `통상시급 ${dec2(base_hourly)}원 × ${input.worked_hours}시간`,
+        amount: lineAmount(rate, 1, input.worked_hours),
+      });
+    }
+  } else if (already_includes_holiday_pay && !paid_holiday) {
     breakdown.push({
       label: '휴일근로 임금 (1.0배)',
       formula: '유급휴일이 아닌 날의 근로 — 월급에 들어 있음',
@@ -330,8 +337,17 @@ export function calcHolidayPay(input: Input): Result {
   }
   const regular_pay_equivalent = breakdown.length > 0 ? breakdown[0].amount : 0;
 
+  // (B') 휴일근로가 아닌 날의 연장근로 가산수당 (1일 8시간 초과분 0.5배)
+  if (not_holiday_work && apply_premium && over8 > 0) {
+    breakdown.push({
+      label: '연장근로 가산수당 (0.5배, 1일 8시간 초과)',
+      formula: `통상시급 ${dec2(base_hourly)}원 × 0.5 × ${over8}시간`,
+      amount: lineAmount(rate, 0.5, over8),
+    });
+  }
+
   // (B) 휴일 8h 이내 가산수당 (0.5배)
-  if (apply_premium && within8 > 0) {
+  if (!not_holiday_work && apply_premium && within8 > 0) {
     const amt = lineAmount(rate, 0.5, within8);
     breakdown.push({
       label: '휴일 8시간 이내 가산수당 (0.5배)',
@@ -341,7 +357,7 @@ export function calcHolidayPay(input: Input): Result {
   }
 
   // (C) 휴일 8h 초과 가산수당 (1.0배)
-  if (apply_premium && over8 > 0) {
+  if (!not_holiday_work && apply_premium && over8 > 0) {
     const amt = lineAmount(rate, 1, over8);
     breakdown.push({
       label: '휴일 8시간 초과 가산수당 (1.0배)',
@@ -365,7 +381,14 @@ export function calcHolidayPay(input: Input): Result {
   const total = breakdown.reduce((s, b) => s + b.amount, 0);
 
   // ── 유급휴일 1일분 (일한 대가와 별개) ──
-  const paid_holiday_day = paidHolidayDay(input, paid_holiday, already_includes_holiday_pay, paid_day_hours, rate);
+  const paid_holiday_day: PaidHolidayDay = one_off_daily
+    ? {
+        status: 'not_computed',
+        hours: null,
+        amount: null,
+        note: '하루만 일하고 끝난 일용직의 유급휴일 1일분은 근로관계에 따라 달라 이 계산에 넣지 않았습니다. 따로 확인하세요.',
+      }
+    : paidHolidayDay(input, paid_holiday, already_includes_holiday_pay, paid_day_hours, rate);
   notes.push(paid_holiday_day.note);
   if (paid_holiday_day.status === 'separate') {
     legal.push('근로기준과-2156 — 시급·일급제는 유급휴일에 통상의 1일 근로를 제공하였을 때 지급해야 할 임금을 지급, 월급제는 월급으로 충족');

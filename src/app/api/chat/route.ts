@@ -399,7 +399,7 @@ export async function POST(req: NextRequest) {
 
           if (r1.toolCalls.length > 0) {
             controller.enqueue(
-              encoder.encode(`data: ${JSON.stringify({ content: '\n\n💡 노무 계산 중...' })}\n\n`)
+              encoder.encode(`data: ${JSON.stringify({ content: '\n\n노무 계산 중입니다.' })}\n\n`)
             );
             const round2Msgs: unknown[] = [...baseMsgs];
             round2Msgs.push({
@@ -459,7 +459,7 @@ export async function POST(req: NextRequest) {
               topFaqCount: topFaqIds.length,
             });
             const fallback =
-              '⚠️ 요약을 만들지 못했습니다. 위에 찾은 자료를 직접 확인하시거나 잠시 후 다시 시도해주세요.';
+              '요약을 만들지 못했습니다. 위에 찾은 자료를 직접 확인하시거나 잠시 후 다시 시도해 주세요.';
             controller.enqueue(
               encoder.encode(`data: ${JSON.stringify({ content: fallback })}\n\n`)
             );
@@ -517,7 +517,7 @@ export async function POST(req: NextRequest) {
           // 계산기 입력은 퇴직일이라 하루를 더해 넘긴다 — 링크로 연 금액이 챗봇 답과 같은지는 calc-seams 시험이 본다
           const sevLink = lastSeveranceArgs ? severanceCalculatorLink(lastSeveranceArgs) : null;
           if (sevLink) {
-            const link = `\n\n👉 [퇴직금 계산기에서 직접 확인 (퇴직소득세 포함)](${sevLink})`;
+            const link = `\n\n[퇴직금 계산기에서 직접 확인 (퇴직소득세 포함)](${sevLink})`;
             controller.enqueue(encoder.encode(`data: ${JSON.stringify({ content: link })}\n\n`));
           }
 
@@ -526,7 +526,7 @@ export async function POST(req: NextRequest) {
             const { hallucinated } = await verifyCitations(assembledAnswer);
             if (hallucinated.length > 0) {
               const warning =
-                '\n\n⚠️ **검증 경고**: 답변에 인용된 일부 법조항이 현재 시점에서 확인되지 않았습니다 (' +
+                '\n\n**검증 경고**: 답변에 인용된 일부 법조항이 현재 시점에서 확인되지 않았습니다 (' +
                 hallucinated.map((h) => `${h.law} 제${h.article}조`).join(', ') +
                 '). 정확한 조항은 법제처(law.go.kr)에서 재확인 권장합니다.';
               controller.enqueue(

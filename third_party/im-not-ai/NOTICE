@@ -1,0 +1,35 @@
+im-not-ai (humanize-korean)
+Copyright (c) 2026 epoko77-ai
+MIT License — see LICENSE in this folder.
+Source: https://github.com/epoko77-ai/im-not-ai at commit c07df14
+
+Used in: tools/k-labor/lib/prose/generic-pack.json
+  All 115 entries of skills/humanize-korean/references/lexicon.json (v1.3: 61 "change",
+  54 "conditional"). Each entry becomes one rule. The narrow "regex" and "regex_exclude"
+  fields are copied unchanged, except:
+  - L-05, L-54: the narrow regex drops "한" (L-05) and "작용" (L-54), as the upstream
+    v2.4.3 refinement did for regex_detect.
+  - L-08, L-54, INJ-03, INJ-09, INJ-29, INJ-30: the exclude list is the union of
+    "regex_exclude" and "regex_detect_exclude" (upstream negative examples in
+    test_detect_neg were otherwise matched by the narrow regex).
+  - L-04, L-17, L-24, L-51: a Hangul (L-24: Hangul or Latin) boundary lookbehind is
+    prepended to the alternative that starts with an unbounded character class, so
+    that long runs without spaces stay linear time. That prefix alone would miss a
+    match that starts right where the previous match ended inside such a run, so the
+    entry also carries the unchanged upstream regex as "resume", and the runner
+    retries it at exactly that position. The combined result equals the upstream regex.
+  - AST-44, L-32, L-78, L-79, L-87, INJ-08: the trailing boundary ("\s" or "[,\s]")
+    that the regex consumed is a lookahead instead. Matches start at the same positions
+    as the upstream regex; only the boundary character is left out of the match.
+  Headwords appear in the "fix" text. "skip_genres" is mapped to k-labor genres
+  (일반 → general, 보고서 → consulting; 논문 has no counterpart). The exclude window
+  (12 code points around each candidate) follows scripts/lexical_layer.py, but within
+  one line only. Grades (all B), the legal-genre keep/change decisions, reasons and
+  output policy are ours.
+
+Used in: tests/fixtures/prose/imnotai-lexicon-examples.json
+  The synthetic example sentences of the same 115 entries (test_positive,
+  test_negative, test_detect_neg), copied unchanged as test fixtures.
+
+No code from im-not-ai is copied; the rule runner (tools/k-labor/lib/prose/check.mjs) is new.
+The packaged npm release carries the same notice in tools/k-labor/THIRD_PARTY_NOTICES.md.

@@ -43,9 +43,22 @@ describe('md-hwpx 기본 출력 고정', () => {
     const items = parseMarkdown(GOLDEN_MD);
     expect({ [h]: sha(presetHeader(preset)), [s]: sha(mdSectionXml(items, { preset })) }).toEqual(EXPECT[preset]);
   });
+  // 261124 — 세로(portrait)를 지정해도 기본과 같은 구역
+  it.each(['internal', 'tribunal'] as const)('%s — orientation portrait = 기본', (preset) => {
+    const items = parseMarkdown(GOLDEN_MD);
+    expect(sha(mdSectionXml(items, { preset, orientation: 'portrait' }))).toBe(Object.values(EXPECT[preset])[1]);
+  });
 });
 
 const EXPECT: Record<string, Record<string, string>> = {
-  internal: { HDR_INTERNAL: '1749e0d22a548f39', SEC_INTERNAL: '6846e63d29696023' },
-  tribunal: { HDR_TRIBUNAL: 'acb2894f61fe0334', SEC_TRIBUNAL: 'f4d85ad1937fae3c' },
+  // 261123 SEC 갱신 — 쪽번호 꼬리말을 secPr subList 에서 첫 문단 <hp:ctrl><hp:footer> 로 옮겼다(한글이 종전 자리를 읽지 않음).
+  // header 는 그대로. 파이썬 쌍둥이(generate_hwpx.py)는 261120 동결이라 따라 고치지 않는다(/한글변환 §2-0)
+  // 261124 HDR·SEC 갱신 — 표 칸 문단 27~29 를 BREAK_WORD(어절 단위)·줄간격 150 으로(종전 KEEP_WORD·130). SEC 는 표 행 높이 추정만 바뀐다.
+  // 용지 방향(orientation) 추가는 기본 출력을 바꾸지 않았다(방향만 넣은 단계에서 종전 해시 그대로 통과).
+  // 커밋 d621904 에서는 tableLineSpacing 130 을 주면 261123 구역 해시 그대로였다(구역 차이 = 표 행 높이 추정뿐).
+  // 261124 2차 HDR·SEC 갱신 — 본문·제목 문단 20~26 도 BREAK_WORD, 제목 21~24 앞·뒤 간격(16/6·12/3·8/0·6/0pt),
+  // 꼬리말 전용 문단 30(종전 21 복제), 문서 첫 제목·쪽 나눔 제목은 앞 간격 0 복제(md-hwpx-heading-space)
+  // 261124 3차 SEC 갱신 — 표 아래 바깥 여백(outMargin bottom) 기본 0 → 850(표 바로 뒤 제목이 테두리에 붙던 실렌더)
+  internal: { HDR_INTERNAL: '3e410b6f267b5f35', SEC_INTERNAL: '260b64b48af85baf' },
+  tribunal: { HDR_TRIBUNAL: '0c55d9f41f743bde', SEC_TRIBUNAL: 'e5a54db53e41321f' },
 };

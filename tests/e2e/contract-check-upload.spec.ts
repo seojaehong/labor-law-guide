@@ -1,6 +1,9 @@
 // US-306: 사진 업로드 카드 렌더 + 501 폴백 안내 + (라우트 목) 폼 자동 채움·하이라이트.
 import { test, expect } from '@playwright/test';
 
+// 261124 — 업로드 카드는 실제 파일 게이트(NEXT_PUBLIC_REAL_FILE_INPUT=1, 빌드 시점)를 연 빌드에서만 보인다
+test.skip(process.env.NEXT_PUBLIC_REAL_FILE_INPUT !== '1', '실제 파일 게이트가 닫힌 빌드 — real-file-close-261124.test.ts 가 닫힌 상태를 본다');
+
 // 1x1 투명 PNG
 const PNG = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==',

@@ -21,11 +21,12 @@ import { StatusBadge } from "@/components/leave/LeaveUI";
 import { MAX_FILE_BYTES } from '@/lib/laws/doc-io';
 import { boundedLeaveArchive } from '@/lib/leave/leave-archive';
 import { CONTACT_EMAIL } from '@/lib/site-contact';
+import { REAL_FILE_INPUT } from '@/lib/real-file-gate';
 
 /**
  * 연차 대장 직접 입력 — **브라우저에서만 계산한다.**
  *
- * 🔒 서버로 아무것도 보내지 않는다.
+ * 서버로 아무것도 보내지 않는다.
  *    엑셀·이미지·PDF 를 서버에 올리면 고객사 직원정보가 외부로 나간다.
  *    붙여넣은 글자는 이 페이지를 벗어나지 않으며, 새로고침하면 사라진다.
  *
@@ -226,7 +227,7 @@ export function LeaveInput() {
   return (
     <section className="lv-input">
       <div className="lv-input__privacy">
-        🔒 붙여넣은 내용과 엑셀 파일은 <strong>브라우저 안에서만</strong> 처리됩니다 — 서버로 올라가지 않습니다. 
+        붙여넣은 내용과 엑셀 파일은 <strong>브라우저 안에서만</strong> 처리됩니다 — 서버로 올라가지 않습니다. 
       </div>
 
       <div className="lv-input__controls">
@@ -238,6 +239,8 @@ export function LeaveInput() {
             onChange={(e) => setAsOf(e.target.value || todayLocal())}
           />
         </label>
+        {/* 실제 대장 파일은 검토 전까지 닫는다 — @/lib/real-file-gate */}
+        {REAL_FILE_INPUT && (
         <label className="lv-input__btn lv-input__file">
           {reading ? "읽는 중…" : "엑셀 파일 열기"}
           <input
@@ -250,6 +253,7 @@ export function LeaveInput() {
             }}
           />
         </label>
+        )}
         <button
           type="button"
           className="lv-input__btn is-ghost"
@@ -267,7 +271,13 @@ export function LeaveInput() {
         )}
       </div>
 
-      {!text && !sheet && (
+      {!text && !sheet && !REAL_FILE_INPUT && (
+        <p className="lv-input__note">
+          「예시 채우기」로 계산 방식을 먼저 확인해 보세요. 실제 직원 대장 파일을 여는 기능은 개인정보 검토가 끝날 때까지 열지 않습니다.
+        </p>
+      )}
+
+      {!text && !sheet && REAL_FILE_INPUT && (
         <p className="lv-input__note">
           쓰시던 대장을 그대로 올리셔도 됩니다. <strong>열 이름이 달라도</strong> 어느 칸이
           이름·입사일인지 화면에서 지정하시면 됩니다. 대장이 없으시면{" "}
@@ -532,7 +542,7 @@ export function LeaveInput() {
             type="button"
             className="lv-linklike"
             onClick={() => {
-              if (confirm("계약 조건까지 지웁니다. 계속할까요?")) {
+              if (confirm("계약 조건까지 지웁니다. 계속하시겠습니까?")) {
                 const removed = removeMembers(ws, keptOutside.map(memberKey));
                 setRemoveFailed(!removed);
                 if (removed) setKeptOutside([]);
