@@ -100,3 +100,43 @@ describe('anchor — 조문을 고르는 말', () => {
     expect(v.where).toBeNull();
   });
 });
+
+// 2026-11-25 — 부정문. 키워드·ok 낱말이 다 있어도 「…허용하지 않는다」면 권리를 막는 조문이다(261124 검수 P3 #10).
+// 「문구 일치」로 두지 않고 미반영(부정문 — 원문 확인)으로 내린다. 판정 기준을 바꾼 게 아니라 낱말 대조의 오인만 막는다.
+describe('부정문 — ok 낱말 뒤에 부정이 붙으면 문구 일치로 두지 않는다', () => {
+  const all = (
+    JSON.parse(readFileSync(path.join(process.cwd(), 'public', 'data', 'laws', 'rules.json'), 'utf-8')) as { rules: RuleSpec[] }
+  ).rules;
+  const short = all.find((r) => r.topic === '단기 육아휴직(1주·2주) 신설')!;
+  const yes = '제48조(육아휴직)\n① 회사는 근로자가 육아휴직을 신청하면 1주 또는 2주 단위로도 허용한다.';
+  const no = '제48조(육아휴직)\n① 회사는 근로자가 육아휴직을 신청하더라도 1주 또는 2주 단위로는 허용하지 않는다.';
+  const other = '제30조(출장)\n① 출장 여비는 따로 정한다.';
+
+  it('긍정문은 반영됨, 부정문은 미반영·negated, 무관 조문은 누락', () => {
+    expect(judge(short, paragraphs(yes))).toMatchObject({ status: '반영됨' });
+    expect(judge(short, paragraphs(yes)).negated).toBeFalsy();
+    expect(judge(short, paragraphs(no))).toMatchObject({ status: '미반영', negated: true, where: '제48조(육아휴직)' });
+    expect(judge(short, paragraphs(other)).status).toBe('누락');
+  });
+
+  it('규칙마다 자기 표준 문안(clause)은 부정문으로 잡히지 않는다 — 단서 「그러하지 아니하다」 오인 방지', () => {
+    const flagged = all
+      .filter((r) => r.clause && r.ok.length)
+      .filter((r) => judge(r, paragraphs(r.clause.replace(/^제○조/gm, '제1조'))).negated)
+      .map((r) => r.topic);
+    expect(flagged).toEqual([]);
+  });
+});
+
+describe('부정문 — 표준 문안 자체가 부정형인 금지 조항은 그대로', () => {
+  const all = (
+    JSON.parse(readFileSync(path.join(process.cwd(), 'public', 'data', 'laws', 'rules.json'), 'utf-8')) as { rules: RuleSpec[] }
+  ).rules;
+  it('「불리한 처우를 하지 아니한다」는 문구 일치로 남는다', () => {
+    const r = all.find((x) => x.topic === '연차 분할 사용·불리한 처우 금지')!;
+    const text = '제25조(연차유급휴가)\n① 근로자가 연차를 나누어 청구하면 회사는 그에 따라 휴가를 준다.\n② 회사는 근로자가 연차를 사용한 것을 이유로 불리한 처우를 하지 아니한다.';
+    const v = judge(r, paragraphs(text));
+    expect(v.negated).toBeFalsy();
+    expect(v.status).toBe('반영됨');
+  });
+});

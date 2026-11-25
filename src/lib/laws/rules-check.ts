@@ -32,6 +32,8 @@ export interface Verdict {
   where: string | null;
   stale: string[];
   missing: string[];
+  /** ok 낱말은 다 있으나 그 낱말 뒤에 부정(…하지 않는다 등)이 붙은 문장 — 낱말 대조로는 반영 여부를 알 수 없다(2026-11-25) */
+  negated?: boolean;
 }
 
 const ART = /^\s*(제\s*\d+\s*조(?:\s*의\s*\d+)?)\s*(\([^)]*\)|【[^】]*】|\[[^\]]*\])?/;
@@ -92,7 +94,39 @@ export function judge(rule: RuleSpec, paras: Para[]): Verdict {
   }
   const b = best!;
   const effective = rule.requiredIfStale && b.stale.length ? { ...rule, required: true } : rule;
+  if (b.score === 0 && negatedOk(rule, paras.filter((p) => p.article === b.where))) {
+    return { rule: effective, status: '미반영', where: b.where, stale: [], missing: [], negated: true };
+  }
   return { rule: effective, status: b.score === 0 ? '반영됨' : '미반영', where: b.where, stale: b.stale, missing: b.missing };
+}
+
+/** 부정문으로 내린 항목 옆에 붙는 말(웹·MCP 같은 글) */
+export const NEGATED_NOTE = '해당 문구가 부정문(…하지 않는다 등)으로 보여 원문 확인이 필요합니다';
+
+// 부정 어미 — ok 낱말 **뒤** 같은 문장 안에서만 본다. 단서(「다만, … 그러하지 아니하다」)는 마침표로 갈려 다른 문장이다.
+const NEG = /(지않|지아니|아니한다|아니된다|수없|못한다|불허)/;
+const flat = (s: string) => norm(s).replace(/\s/g, '');
+const sentencesOf = (texts: string[]) => texts.flatMap((t) => t.split(/(?<=[.。])\s*/)).map(flat);
+/** w 가 든 문장이 있고, 그 문장마다 w 뒤에 부정이 붙었는가 */
+const negAfter = (sentences: string[], w: string) => {
+  const hit = sentences.filter((s) => s.includes(w));
+  return hit.length > 0 && hit.every((s) => NEG.test(s.slice(s.indexOf(w) + w.length)));
+};
+
+/**
+ * ok 낱말 뒤에 부정이 붙었는데 표준 문안(clause)의 같은 낱말 뒤에는 부정이 없는가.
+ * 「불리한 처우를 하지 아니한다」처럼 표준 문안 자체가 부정형인 금지 조항은 그대로 둔다.
+ * 규칙의 ok·keywords 자체가 부정을 품으면 보지 않는다.
+ */
+function negatedOk(rule: RuleSpec, paras: Para[]): boolean {
+  if (!rule.ok.length || [...rule.ok, ...rule.keywords].some((w) => NEG.test(flat(w)))) return false;
+  const mine = sentencesOf(paras.map((p) => p.text));
+  const std = sentencesOf([rule.clause ?? '']);
+  return rule.ok.some((o) => {
+    const w = flat(o);
+    // 표준 문안에 w 뒤가 부정인 문장이 하나라도 있으면 부정형이 정상일 수 있다 — 보지 않는다
+    return negAfter(mine, w) && !std.some((s) => s.includes(w) && NEG.test(s.slice(s.indexOf(w) + w.length)));
+  });
 }
 
 export function checkRules(text: string, rules: RuleSpec[]): Verdict[] {

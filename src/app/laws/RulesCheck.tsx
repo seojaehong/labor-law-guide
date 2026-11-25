@@ -10,7 +10,7 @@ import { useObservationAvailability, type ObservationAvailability } from './obse
 import { MATCHER_VERSION, RULE_VERSION } from '@/lib/laws/observation-version';
 import type { CaptureContext, Observation } from '@/lib/laws/observation-payload';
 import { CalendarClock, ClipboardCopy, FileDown, FileUp, ShieldCheck, X } from 'lucide-react';
-import { type Verdict } from '@/lib/laws/rules-check';
+import { NEGATED_NOTE, type Verdict } from '@/lib/laws/rules-check';
 import { periodCheck, splitArticles, STD_ASOF, type Art93Item, type PeriodItem, type StdArticle, type StdRule } from '@/lib/laws/standard-check';
 import { compareDocx, MAX_FILE_BYTES, kindOf, readDocText } from '@/lib/laws/doc-io';
 import {
@@ -481,6 +481,7 @@ function ItemCard({ it, captureContext, captureStore, observationAvailability, t
             <div key={v.rule.topic} className="lr-period-rule">
               <b>{v.rule.topic}</b>
               {v.stale.length > 0 && <> · 남은 옛 문구: {v.stale.map((s) => <del key={s}>{s}</del>)}</>}
+              {v.negated && <> · {NEGATED_NOTE}</>}
               <p>{v.rule.point}</p>
             </div>
           ))}

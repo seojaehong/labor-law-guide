@@ -15,6 +15,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { periodCheck, splitArticles, STD_ASOF } from '@/lib/laws/standard-check';
+import { NEGATED_NOTE } from '@/lib/laws/rules-check';
 import { ddayLabel, fmtDate, todayKST } from '@/lib/laws/format';
 import { compareDocx } from '@/lib/laws/doc-io';
 import { comparisonXlsx } from '@/lib/laws/comparison-xlsx';
@@ -273,7 +274,7 @@ function periodResult({ body, lastRevised, asOf, includeOk }) {
       ? {
           rules: it.verdicts
             .filter((v) => v.status !== '반영됨')
-            .map((v) => ({ topic: v.rule.topic, result: v.status, required: v.rule.required, effective: isoOf(v.rule.effective), oldWordsLeft: v.stale, point: v.rule.point })),
+            .map((v) => ({ topic: v.rule.topic, result: v.status, required: v.rule.required, effective: isoOf(v.rule.effective), oldWordsLeft: v.stale, ...(v.negated ? { note: NEGATED_NOTE } : {}), point: v.rule.point })),
           proposal: it.proposal,
           proposalSource: it.proposal ? (it.proposalFrom === '매핑' ? '바뀐 조문 원문 대조 문안' : `표준취업규칙 2026 문안(${fmtDate(STD_ASOF)} 이전 시행분 반영)`) : '자동 문안이 없습니다. 바뀐 조문의 전후 비교(link)를 보고 반영 여부를 정하세요.',
         }
