@@ -22,7 +22,7 @@ import { registerDocs, docsTools } from './groups/docs.mjs';
 import { registerForms, formsTools } from './groups/forms.mjs';
 import { registerLaw, lawTools } from './groups/law.mjs';
 
-const VERSION = '0.3.1';
+const VERSION = '0.3.2';
 
 // 새 도구 묶음은 여기에 한 줄 더한다.
 const GROUPS = {

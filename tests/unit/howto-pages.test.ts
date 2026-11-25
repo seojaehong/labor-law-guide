@@ -56,7 +56,7 @@ describe('도구 안내 페이지', () => {
   });
 
   // 묶음별 도구 수는 숫자로 박지 않고 패키지 소스(tools/k-labor)에서 끌어온다.
-  // 페이지는 npm 게시판 0.3.1 기준이다(저장소 HEAD 와 같다 — 게시 먼저, 병합 나중). 저장소에만 있고 아직 게시하지 않은 도구가 생기면 여기에 적는다.
+  // 페이지는 npm 게시판 0.3.2 기준이다(저장소 HEAD 와 같다 — 게시 먼저, 병합 나중). 저장소에만 있고 아직 게시하지 않은 도구가 생기면 여기에 적는다.
   const UNPUBLISHED: Record<string, string[]> = {};
   const SOURCE: Record<string, string[]> = {
     nhis: nhisTools,
