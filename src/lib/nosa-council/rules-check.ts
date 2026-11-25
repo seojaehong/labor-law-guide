@@ -76,6 +76,8 @@ export function normalizeLines(text: string): string {
 }
 
 const ART_RE = /^제\s*(\d+)\s*조(?:\s*의\s*(\d+))?\s*\(([^)]*)\)\s*(.*)$/;
+/** 줄 처음에 온 다른 조 인용(「제26조(…)에 의하여 …」) — 괄호 바로 뒤에 조사가 붙으면 조 머리가 아니라 본문이다 */
+const XREF_RE = /^제\s*\d+\s*조(?:\s*의\s*\d+)?\s*\([^)]*\)(?:에\s*(?:의하|의한|따라|따른|따르|정한|규정)|의\s*규정|에서\s*정)/;
 const CHAPTER_RE = /^제\s*\d+\s*장(\s|$)/;
 const ITEM_RE = /^(\d{1,2})\s*\.\s*(.*)$/;
 const isAddendumHead = (line: string) => /^부칙(\(|<|$)/.test(sq(line));
@@ -112,7 +114,7 @@ export function parseArticles(lines: string[], prefix: string): Article[] {
   for (const raw of lines) {
     const line = raw.trim();
     if (!line || CHAPTER_RE.test(line)) continue;
-    const a = ART_RE.exec(line);
+    const a = XREF_RE.test(line) ? null : ART_RE.exec(line);
     if (a) {
       cur = { no: Number(a[1]), sub: a[2] ? Number(a[2]) : undefined, title: sq(a[3]), head: line.slice(0, line.length - a[4].length).trim(), paras: [], prefix };
       para = null;

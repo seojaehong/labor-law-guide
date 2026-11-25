@@ -383,6 +383,7 @@ export function registerNosaRecords(server) {
         currentFile: z.string().max(400).optional().describe(`현행 협의회규정 파일 경로(${RULES_FILE_KINDS.join('·')}, 10MB 이하)`),
         amendedText: z.string().max(300_000).optional().describe('개정 협의회규정 전문(글). amendedFile 과 둘 중 하나'),
         amendedFile: z.string().max(400).optional().describe(`개정 협의회규정 파일 경로(${RULES_FILE_KINDS.join('·')}, 10MB 이하)`),
+        ruleName: z.string().max(60).optional().describe('규정 이름(제목). 예: 인사규정·취업규칙. 비우면 노사협의회규정. 협의회규정이 아니면 협의회 제출 안내를 싣지 않는다'),
         workplaceName: z.string().max(100).optional().describe('사업장명(제목). 비우면 본문의 「사업장명 :」 줄에서 찾는다'),
         amendDate: z.string().max(40).optional().describe('개정일(제목 아래에 적는다, 예: 2026. 12. 1.)'),
         outDir: z.string().describe('저장할 폴더(없으면 만든다)'),
@@ -403,12 +404,14 @@ export function registerNosaRecords(server) {
       if (looksLikeRrn(current) || looksLikeRrn(amended)) return fail(RRN_STOP);
       const r = compareCouncilRules(current, amended);
       if (!r.parsed.current.articles || !r.parsed.amended.articles) return fail('「제N조(제목)」 모양의 조문을 찾지 못했습니다. 조문 제목이 줄 처음에 오도록 두 규정을 넣어 주세요.', { parsed: r.parsed });
-      const meta = { workplaceName: (a.workplaceName ?? '').trim() || r.workplaceName, amendDate: (a.amendDate ?? '').trim() || undefined };
+      const ruleName = (a.ruleName ?? '').trim() || undefined;
+      const council = !ruleName || /협의회/.test(ruleName);
+      const meta = { workplaceName: (a.workplaceName ?? '').trim() || r.workplaceName, amendDate: (a.amendDate ?? '').trim() || undefined, ruleName };
       const kinds = Object.fromEntries(['개정', '신설', '삭제'].map((k) => [k, r.rows.filter((x) => x.kind === k).length]));
-      const head = { rows: r.rows.length, kinds, places: r.rows.map((x) => `${x.where}(${x.kind})`), parsed: r.parsed, submission: AMEND_SUBMISSION_NOTE };
+      const head = { rows: r.rows.length, kinds, places: r.rows.map((x) => `${x.where}(${x.kind})`), parsed: r.parsed, ...(council ? { submission: AMEND_SUBMISSION_NOTE } : {}) };
       if (!r.rows.length) return text({ ok: true, ...head, files: [], notice: '두 규정의 글자가 같아 대비표를 만들지 않았습니다.' });
       const want = new Set(a.formats?.length ? a.formats : ['docx', 'hwpx']);
-      const base = safeName((a.fileBase ?? '').trim() || '협의회규정');
+      const base = safeName((a.fileBase ?? '').trim() || (ruleName ?? '협의회규정'));
       const targets = ['docx', 'hwpx', 'xlsx'].filter((f) => want.has(f)).map((f) => ({ f, path: path.join(a.outDir, `${base}_신구조문대비표.${f}`) }));
       const exists = targets.filter((x) => fs.existsSync(x.path)).map((x) => x.path);
       if (exists.length) return fail('이미 있는 파일은 덮어쓰지 않습니다. fileBase 나 outDir 를 바꿔 주세요.', { exists });

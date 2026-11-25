@@ -259,8 +259,12 @@ function itemsInto(c: Collector, A: Item[], B: Item[]) {
 /** 조 하나 — 바뀐 것이 없으면 null */
 function articleCells(a: Article, b: Article): Cells | null {
   if (artText(a) === artText(b)) return null;
+  const pairs = align(a.paras, b.paras, (x, y) => pairScore(paraKey(x), paraKey(y), 0.35));
+  // 항 절반 이상이 짝을 못 지으면(조를 새로 씀) 항마다 <삭 제>·<신 설>을 섞지 않고 조 통째로 대비한다
+  const matched = pairs.filter(([i, j]) => i !== null && j !== null).length;
+  if (a.paras.length && b.paras.length && matched * 2 < Math.max(a.paras.length, b.paras.length)) return { old: wholeArticle(a), neu: wholeArticle(b) };
   const c = new Collector();
-  for (const [i, j] of align(a.paras, b.paras, (x, y) => pairScore(paraKey(x), paraKey(y), 0.35))) {
+  for (const [i, j] of pairs) {
     const p = i === null ? null : a.paras[i], q = j === null ? null : b.paras[j];
     if (p && q) {
       if (paraSame(p, q)) { c.keep(label(p), label(q)); continue; }
@@ -273,7 +277,9 @@ function articleCells(a: Article, b: Article): Cells | null {
   const [ho, hn] = markChanges(a.head, b.head);
   return { old: withHead(ho, cells.old), neu: withHead(hn, cells.neu) };
 }
-const withHead = (head: string, lines: string[]) => (lines.length ? [`${head} ${lines[0]}`, ...lines.slice(1)] : [head]);
+/** 조 머리 뒤에 첫 줄을 붙인다 — 첫 줄이 <삭 제>·<신 설> 표시면 조 전체 삭제·신설로 읽히므로 따로 둔다 */
+const withHead = (head: string, lines: string[]) =>
+  !lines.length ? [head] : lines[0] === NEW_MARK || lines[0] === DEL_MARK ? [head, ...lines] : [`${head} ${lines[0]}`, ...lines.slice(1)];
 const wholeArticle = (a: Article) => withHead(a.head, a.paras.flatMap((p) => [paraLine(p), ...p.items.map(itemLine)])).map(u);
 
 /** 줄 목록 대조 — collapse 면 안 바뀐 줄을 「(생략)」으로 묶고(첫 줄은 이름이라 그대로 둔다), 아니면 그대로 싣는다 */
@@ -345,7 +351,9 @@ export function compareCouncilRules(current: string, amended: string): RulesComp
   const cover = lineCells(A.cover, B.cover, false);
   if (cover) push('표지', '개정', cover);
 
-  for (const [i, j] of align(A.arts, B.arts, (x, y) => (x.no === y.no && x.title === y.title ? 3 : 0) + pairScore(artText(x), artText(y), 0.4))) {
+  // 같은 번호 가점은 제목이 비슷할 때만(띄어쓰기·조사만 바뀐 제목 포함). 번호만 같고 제목이 다르면 주지 않는다 — 조를 끼워 넣어 번호가 밀린 경우를 잘못 짝짓지 않게
+  const sameArticle = (x: Article, y: Article) => x.no === y.no && x.sub === y.sub && (x.title === y.title || similarity(x.title, y.title) >= 0.5);
+  for (const [i, j] of align(A.arts, B.arts, (x, y) => (sameArticle(x, y) ? 3 : 0) + pairScore(artText(x), artText(y), 0.4))) {
     const a = i === null ? null : A.arts[i], b = j === null ? null : B.arts[j];
     if (a && b) { const c = articleCells(a, b); if (c) push(where(b), '개정', c); }
     else if (b) push(where(b), '신설', { old: [NEW_MARK], neu: wholeArticle(b) });
@@ -378,9 +386,11 @@ export interface ComparisonMeta {
   workplaceName?: string;
   /** 개정일(예: 2026. 12. 1.) — 비우면 적지 않는다 */
   amendDate?: string;
+  /** 규정 이름(예: 인사규정) — 비우면 노사협의회규정 */
+  ruleName?: string;
 }
 
-export const comparisonTitle = (meta: ComparisonMeta) => `${meta.workplaceName ? `${meta.workplaceName} ` : ''}노사협의회규정 신·구조문대비표`;
+export const comparisonTitle = (meta: ComparisonMeta) => `${meta.workplaceName ? `${meta.workplaceName} ` : ''}${meta.ruleName?.trim() || '노사협의회규정'} 신·구조문대비표`;
 const introLines = (meta: ComparisonMeta) => [meta.amendDate ? `개정일: ${meta.amendDate}` : '', '밑줄은 바뀐 곳입니다. 안 바뀐 항·호는 현행 쪽 「(생략)」, 개정안 쪽 「(현행과 같음)」으로 줄였습니다.'].filter(Boolean);
 
 const mdCell = (s: string) => s.split('\n').map((l) => l.replace(/\|/g, '\\|').replace(//g, '<u>').replace(//g, '</u>')).join('<br>');

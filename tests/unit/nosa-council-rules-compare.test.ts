@@ -137,4 +137,70 @@ describe('make_council_rules_comparison 도구', () => {
     expect(out).toMatchObject({ ok: true, rows: 0, files: [] });
     expect(fs.existsSync(path.join(os.tmpdir(), 'nosa-compare-none'))).toBe(false);
   });
+
+  it('ruleName 을 주면 제목이 그 규정 이름이 되고, 협의회 제출 안내는 싣지 않는다', async () => {
+    const out = await call({ currentText: GEN_OLD, amendedText: GEN_NEW, ruleName: '인사규정', workplaceName: '가상상회', outDir: path.join(os.tmpdir(), `nosa-compare-rn-${Date.now()}`), formats: ['docx'] });
+    expect(out.ok).toBe(true);
+    expect(out.markdown.split('\n')[0]).toBe('# 가상상회 인사규정 신·구조문대비표');
+    expect(out.submission).toBeUndefined();
+    fs.rmSync(path.dirname(out.files[0].path), { recursive: true, force: true });
+  });
+});
+
+// 협의회규정 밖의 사내 규정(인사·취업 규정)을 고칠 때 — 가상 문안
+const GEN_OLD = [
+  '제1조(목적) 이 규정은 직원 인사에 관한 사항을 정한다.',
+  '제2조(대기기간 및 사후처리) ① 대기기간은 2개월로 하며 기간 안에 보직을 받지 못하면 자동으로 해고된다.',
+  '② 대기발령을 받으면 해고 예고를 한 것으로 본다.',
+  '제3조(정직) ① 정직자는 신분을 보유하나 직무에 종사하지 못한다.',
+  '② 무기한 정직은 6개월 안에 복직 명령이 없으면 면직한다.',
+  '③ 정직 기간에는 급여의 절반을 지급한다.',
+  '제4조(감경)',
+  '    제3조(정직)에 의하여 징계를 정할 때 공적이 있으면 감경할 수 있다.',
+  '제5조(보칙) 그 밖의 사항은 대표이사가 따로 정한다.',
+].join('\n');
+const GEN_NEW = GEN_OLD
+  .replace(/제2조\(대기기간 및 사후처리\)[\s\S]*?본다\./, '제2조(대기 기간과 사후 처리) ① 회사는 대기 기간이 끝나기 전에 재보직 여부를 인사위원회 심의로 결정한다.\n② 심의 결과 해고하는 경우에는 사유와 시기를 서면으로 알린다.')
+  .replace(/제3조\(정직\)[\s\S]*?지급한다\./, '제3조(정직) ① 정직 기간은 1개월 이상 3개월 이하로 한다.\n② 정직 중인 직원은 신분은 유지하되 직무에 종사하지 못한다.\n③ 정직 기간이 끝나면 복직한다.');
+
+describe('사내 규정 대비표 — 조 짝짓기', () => {
+  const r = compareCouncilRules(GEN_OLD, GEN_NEW);
+  const row = (where: string) => r.rows.find((x) => x.where === where);
+
+  it('줄 처음의 「제N조(…)에 의하여」 인용은 조 머리가 아니다', () => {
+    expect(r.parsed.current.articles).toBe(5);
+    const cited = compareCouncilRules(GEN_OLD, GEN_OLD.replace('에 의하여 징계를', '에 따라 징계를'));
+    expect(cited.rows.map((x) => `${x.where}:${x.kind}`)).toEqual(['제4조:개정']);
+  });
+
+  it('같은 번호에 제목이 조금 바뀐 조는 삭제+신설로 가르지 않고 개정 한 줄', () => {
+    expect(r.rows.filter((x) => x.where === '제2조').map((x) => x.kind)).toEqual(['개정']);
+  });
+
+  it('조를 끼워 넣어 번호가 밀린 조는 번호가 아니라 내용으로 짝짓는다', () => {
+    const ins = GEN_OLD.replace('제5조(보칙)', '제5조(교육) 회사는 연 1회 직무 교육을 한다.\n제6조(보칙)').replace(/^제4조\(감경\)/m, '제4조(감경)');
+    const x = compareCouncilRules(GEN_OLD, ins);
+    expect(x.rows.find((y) => y.where === '제5조')?.kind).toBe('신설');
+    expect(unmarkUnderline(x.rows.find((y) => y.where === '제6조')!.old)).toContain('제5조(보칙)');
+  });
+
+  it('항을 모두 새로 쓴 조는 항마다 <삭 제>·<신 설>을 섞지 않고 조 통째로 대비한다', () => {
+    const s = row('제2조')!;
+    expect(s.old).not.toContain(NEW_MARK);
+    expect(s.neu).not.toContain(DEL_MARK);
+    expect(unmarkUnderline(s.old)).toContain('자동으로 해고된다');
+    expect(unmarkUnderline(s.neu)).toContain('서면으로 알린다');
+  });
+
+  it('항 일부만 신설·삭제된 조도 <삭 제>·<신 설>이 조 머리에 붙지 않는다(조 전체 삭제로 읽힘)', () => {
+    const s = row('제3조')!;
+    expect(s.kind).toBe('개정');
+    for (const cell of [s.old, s.neu]) {
+      const first = unmarkUnderline(cell.split('\n')[0]);
+      expect(first).not.toContain(DEL_MARK);
+      expect(first).not.toContain(NEW_MARK);
+    }
+    expect(unmarkUnderline(s.old)).toContain('급여의 절반');
+    expect(unmarkUnderline(s.neu)).toContain('1개월 이상 3개월 이하');
+  });
 });
