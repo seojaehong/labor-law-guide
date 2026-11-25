@@ -340,27 +340,41 @@ describe('check_rewrite — 주민번호·오류·속도', () => {
     expect(r.items.numbers.truncated).toBe(true);
   });
 
-  it('40만 자 × 2(문장 일부만 바꿈·통째로 다름·긴 한 줄·닫히지 않는 따옴표)도 빨리 끝난다', { timeout: 60_000 }, () => {
+  // 261125 — 절대 시간(8초)만 보면 전체 시험 부하에서 28초까지 늘어 실패했다(따로 돌리면 통과).
+  // 그래서 같은 입력의 1/8 크기와 비교해 「늘어나는 꼴」을 본다. 부하는 두 측정에 함께 걸리고,
+  // 제곱으로 늘면 8배 입력에 64배가 걸려 상한(24배)에 걸린다. 8초 안이면 비율은 보지 않는다.
+  it('40만 자 × 2(문장 일부만 바꿈·통째로 다름·긴 한 줄·닫히지 않는 따옴표)도 빨리 끝난다', { timeout: 180_000 }, () => {
     const unit = `${BEFORE.split('\n').slice(2, 9).join(' ')}\n`;
-    const big = unit.repeat(Math.floor(400_000 / unit.length));
-    const edited = big.split('\n').map((l, i) => (i % 7 === 3 ? l.replace('제23조', '제24조') : l)).join('\n');
-    const cases: [string, string][] = [
-      [big, edited],
-      [PLAIN.join(' ').repeat(Math.floor(400_000 / PLAIN.join(' ').length)), OTHER.join(' ').repeat(Math.floor(400_000 / OTHER.join(' ').length))],
-      ['가나다라마바사'.repeat(57_000), `${'가나다라마바사'.repeat(28_000)}아${'가나다라마바사'.repeat(29_000)}`],
-      ['“가'.repeat(150_000), '“나'.repeat(150_000)],
+    const mkBig = (n: number) => unit.repeat(Math.floor(n / unit.length));
+    const mkEdited = (s: string) => s.split('\n').map((l, i) => (i % 7 === 3 ? l.replace('제23조', '제24조') : l)).join('\n');
+    const P = PLAIN.join(' ');
+    const O = OTHER.join(' ');
+    const S = '가나다라마바사';
+    // k = 크기 배율(1 = 40만 자 기준)
+    const cases: ((k: number) => [string, string])[] = [
+      (k) => { const b = mkBig(400_000 * k); return [b, mkEdited(b)]; },
+      (k) => [P.repeat(Math.floor((400_000 * k) / P.length)), O.repeat(Math.floor((400_000 * k) / O.length))],
+      (k) => [S.repeat(Math.floor(57_000 * k)), `${S.repeat(Math.floor(28_000 * k))}아${S.repeat(Math.floor(29_000 * k))}`],
+      (k) => ['“가'.repeat(150_000 * k), '“나'.repeat(150_000 * k)],
       // 바뀐 곳이 아주 많을 때 — 닫힌 인용 10만 줄 · 한 줄에 인용 문장 5.7만 · 판례 블록 3만 개가 전부 바뀜
-      ['“가”\n'.repeat(100_000), '“나”\n'.repeat(100_000)],
-      ['“가” 다. '.repeat(57_000), '“나” 다. '.repeat(57_000)],
-      ['[관련 판결] 가\n\n'.repeat(30_000), '[관련 판결] 나\n\n'.repeat(30_000)],
+      (k) => ['“가”\n'.repeat(100_000 * k), '“나”\n'.repeat(100_000 * k)],
+      (k) => ['“가” 다. '.repeat(57_000 * k), '“나” 다. '.repeat(57_000 * k)],
+      (k) => ['[관련 판결] 가\n\n'.repeat(30_000 * k), '[관련 판결] 나\n\n'.repeat(30_000 * k)],
     ];
-    for (const [b, a] of cases) {
+    const timed = (b: string, a: string) => {
       const t = performance.now();
       const r = run(b, a, 'general');
       expect(['보존됨', '훼손', '변경률 초과']).toContain(r.status);
-      expect(performance.now() - t).toBeLessThan(8000);
+      return performance.now() - t;
+    };
+    for (const mk of cases) {
+      const tBig = timed(...mk(1));
+      if (tBig < 8000) continue;
+      const tSmall = Math.max(timed(...mk(1 / 8)), 1);
+      expect(tBig / tSmall).toBeLessThan(24);
     }
-    expect(run(big, edited).items.numbers.status).toBe('훼손');
+    const big = mkBig(400_000);
+    expect(run(big, mkEdited(big)).items.numbers.status).toBe('훼손');
   });
 });
 
