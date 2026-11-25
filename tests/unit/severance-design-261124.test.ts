@@ -45,6 +45,15 @@ describe('계산 숫자 고정 — 합성 입력(입사 2021-01-04 · 마지막 
       totalCalcDays: 92,
     });
   });
+
+  // 261125 P3 #2 — 받는 방법 IRP 이전(선택)이면 세금은 산출하되 떼지 않는다(소득세법 §146②1). 기본값은 현금 수령(위 고정값)
+  it('IRP 이전을 고르면 이전액 = 퇴직금 전액', () => {
+    const { run } = fresh();
+    const r = run<Record<string, number>>(
+      `calculateSeverance({...createDefaultWorker(), startDate:'2021-01-04', endDate:'2025-12-31', wage1:'3,000,000', wage2:'3,000,000', wage3:'3,000,000', payout:'irp'})`,
+    );
+    expect(r).toMatchObject({ severancePay: 14_657_832, retirementTax: 151_780, localTax: 15_170, withheldTax: 0, netSeverance: 14_657_832 });
+  });
 });
 
 describe('개인정보는 [저장]을 눌렀을 때만 이 브라우저에 남긴다', () => {
