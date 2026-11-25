@@ -11,7 +11,7 @@ for version in ['before', 'after']:
     text = ''.join(p.get_text() for p in document)
     row = dict(version=version, pages=len(document), width=page.rect.width, height=page.rect.height,
                syntheticWorkerPresent='합성 근로자' in text,
-               netAmountPresent='실수령' in text,
+               netAmountPresent=('실수령' in text or 'IRP 이전액' in text),  # 261125 기본값 IRP 이전이면 「IRP 이전액」
                signaturePresent='사업주' in text)
     report.append(row)
     if version == 'after':

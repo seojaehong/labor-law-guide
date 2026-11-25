@@ -455,6 +455,15 @@ if (tools.includes('calc_retirement_tax')) {
   check(`retirement_tax T06 691,990 · 69,190(${t.headline?.[0]})`, t.ok && t.result?.years === 13 && t.result.incomeTax === 691_990 && t.result.localTax === 69_190 && !!t.hometax?.href);
   const z = await callNew('calc_retirement_tax', { pay: 2_500_000, hireDate: '2023-07-03', lastWorkDate: '2026-07-02' });
   check(`retirement_tax T10 공제 상한 → 0원(${z.headline?.[1]})`, z.ok && z.result?.incomeTax === 0 && z.result.serviceDeductionCapped === true);
+  // 261125 P3 — 받는 방법: 기본 현금 수령(뗀다), IRP 를 고르면 떼지 않음(§146②1), 현금 1천원 미만이면 떼지 않음(§86), 1,000원이면 뗀다
+  const irp = await callNew('calc_retirement_tax', { pay: 10_000_000, hireDate: '2025-11-01', lastWorkDate: '2026-10-31', payout: 'irp' });
+  check('retirement_tax IRP 이전 → 떼는 세금 0', irp.ok && irp.payout === 'irp' && irp.result?.incomeTax === 428_750 && irp.withholding?.total === 0 && irp.withholding.reason === 'irp');
+  const def = await callNew('calc_retirement_tax', { pay: 10_000_000, hireDate: '2025-11-01', lastWorkDate: '2026-10-31' });
+  check('retirement_tax 기본 현금 수령 → 471,620 뗀다', def.ok && def.payout === 'cash' && def.withholding?.total === 471_620);
+  const small = await callNew('calc_retirement_tax', { pay: 1_708_292, hireDate: '2025-11-01', lastWorkDate: '2026-10-31', payout: 'cash' });
+  check('retirement_tax 현금 999원 → 소액부징수 0 / 0', small.ok && small.result?.incomeTax === 990 && small.withholding?.total === 0 && small.withholding.reason === 'small');
+  const k1 = await callNew('calc_retirement_tax', { pay: 1_708_334, hireDate: '2025-11-01', lastWorkDate: '2026-10-31', payout: 'cash' });
+  check('retirement_tax 현금 1,000원 → 1,000 / 100', k1.ok && k1.withholding?.incomeTax === 1_000 && k1.withholding.localTax === 100);
   const old = await callNew('calc_retirement_tax', { pay: 20_000_000, hireDate: '2015-01-01', lastWorkDate: '2022-12-31' });
   check(`retirement_tax 2022년 퇴사는 계산하지 않음(${old.error?.slice(0, 30)}…)`, old.ok === false && /2023년/.test(old.error ?? ''));
 }
