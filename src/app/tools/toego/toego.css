@@ -1,0 +1,50 @@
+/* 퇴고 체험 — 원문 표시·걸림 목록. 색은 역할 토큰만(다크 자동). 색만으로 등급을 가르지 않는다 — 밑줄 모양(실선 A / 점선 B)과 배지 글자가 함께 간다. */
+
+.toego-genres { display: flex; flex-wrap: wrap; gap: 8px; }
+.toego-genre {
+  display: inline-flex; flex-direction: column; justify-content: center; min-height: 44px; padding: 6px 14px;
+  border: 1px solid var(--color-control-border, var(--color-border)); border-radius: 8px;
+  background: var(--color-bg-surface); color: var(--color-text-primary); text-align: left; cursor: pointer;
+}
+.toego-genre small { font-size: 12px; color: var(--grey-700); }
+.toego-genre[aria-pressed='true'] { border-color: var(--color-accent-ink); background: var(--color-accent-ink); color: var(--color-on-accent-ink); }
+.toego-genre[aria-pressed='true'] small { color: var(--color-on-accent-ink); }
+
+.toego-text {
+  display: block; width: 100%; min-height: 220px; padding: 12px; resize: vertical;
+  border: 1px solid var(--color-control-border, var(--color-border)); border-radius: 8px;
+  background: var(--color-bg-surface); color: var(--color-text-primary); font-size: 16px; line-height: 1.7;
+}
+
+.toego-original {
+  max-height: 28rem; overflow: auto; padding: 14px 16px; white-space: pre-wrap; overflow-wrap: anywhere; word-break: keep-all;
+  border: 1px solid var(--color-border); border-radius: 8px; background: var(--color-bg-surface); color: var(--color-text-primary);
+  font-size: 15px; line-height: 1.9;
+}
+.toego-original mark { color: inherit; border-radius: 2px; scroll-margin: 80px; }
+.toego-original mark[data-grade='A'] { background: var(--color-danger-bg); border-bottom: 2px solid var(--color-danger); }
+.toego-original mark[data-grade='B'] { background: var(--color-warn-bg); border-bottom: 2px dotted var(--color-warn); }
+.toego-original mark.is-focus { outline: 2px solid var(--color-accent); outline-offset: 1px; }
+
+.toego-badge { display: inline-block; padding: 1px 8px; border-radius: 6px; font-size: 12px; font-weight: 600; white-space: nowrap; }
+.toego-badge[data-grade='A'] { background: var(--color-danger-bg); color: var(--color-danger-ink); }
+.toego-badge[data-grade='B'] { background: var(--color-warn-bg); color: var(--color-warn-ink); }
+
+.toego-hits { list-style: none; margin: 0; padding: 0; }
+.toego-hits > li { padding: 10px 0; border-top: 1px solid var(--color-border); }
+.toego-hits > li:first-child { border-top: 0; }
+.toego-hit-head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
+.toego-hit-pos {
+  min-height: 32px; padding: 2px 8px; border: 1px solid var(--color-border); border-radius: 6px;
+  background: transparent; color: var(--grey-700); font-size: 12px; font-variant-numeric: tabular-nums; cursor: pointer;
+}
+.toego-piece { font-weight: 600; color: var(--color-text-primary); white-space: pre-wrap; overflow-wrap: anywhere; }
+
+.toego-code {
+  display: block; overflow-x: auto; padding: 12px 14px; border-radius: 8px; background: var(--grey-100); color: var(--color-text-primary);
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 13px; line-height: 1.6; white-space: pre;
+}
+
+.toego-ba { display: grid; gap: 12px; }
+@media (min-width: 768px) { .toego-ba { grid-template-columns: 1fr 1fr; } }
+.toego-ba pre { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; font: inherit; line-height: 1.8; }

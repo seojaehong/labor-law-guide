@@ -28,6 +28,7 @@ const DRAWER_ITEMS = [
   { href:'/laws', label:'법령 개정' },
   { href:'/exit', label:'퇴사 점검표' },
   { href:'/exit-employer', label:'직원 퇴사 처리' },
+  { href:'/tools/toego', label:'퇴고(문서 점검)' },
   { href:'/faq', label:'FAQ' },
   { href:'/contact', label:'서비스 문의' },
 ];

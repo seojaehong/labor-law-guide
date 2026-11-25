@@ -72,6 +72,7 @@ export const TOOL_INDEX: Record<string, ToolIndexEntry> = {
   '/tools/work-rules': { group: 'docs', glyph: 'book', summary: '취업규칙에서 법령 개정 항목 찾기' },
   '/tools/rules-review': { group: 'docs', glyph: 'files', summary: '규정 묶음끼리 인용·조문 번호 맞추기' },
   '/tools/council-graph': { group: 'docs', glyph: 'network', summary: '노사협의회 회의록·이행·고충을 그래프로' },
+  '/tools/toego': { group: 'docs', glyph: 'file-pen', summary: '보고서·공문의 상투어·띄어쓰기·문장 부호 찾기' },
 };
 
 /** 홈 첫 화면 「상황별 도구」 — 묶음마다 먼저 찾는 도구 2~3개와 짧은 이름 */
