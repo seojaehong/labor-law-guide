@@ -1,0 +1,64 @@
+# k-labor 게시 — npm 신뢰 게시(Trusted Publishing, OIDC) + MCP 레지스트리(GitHub OIDC).
+# 저장된 토큰이 없다. `k-labor-v<버전>` 태그를 푸시할 때만 돈다(master 병합으로는 게시하지 않는다).
+# ★ 파일 이름 `publish.yml` 은 npmjs.com k-labor 설정의 Trusted Publisher 에 등록된 값이다 — 바꾸면 게시가 막힌다.
+name: publish k-labor
+
+on:
+  push:
+    tags: ['k-labor-v*']
+
+permissions:
+  contents: read
+  id-token: write   # npm 신뢰 게시·출처 증명·MCP 레지스트리 OIDC 로그인
+
+concurrency:
+  group: publish-k-labor
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: tools/k-labor
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: npm 11 (신뢰 게시는 npm 11.5.1 이상)
+        run: npm install -g npm@11 && npm --version
+
+      - name: 태그와 package.json·server.json 버전이 같은지
+        run: |
+          V=$(node -p "require('./package.json').version")
+          S=$(node -p "require('./server.json').version")
+          echo "tag=$GITHUB_REF_NAME package=$V server=$S"
+          test "$GITHUB_REF_NAME" = "k-labor-v$V"
+          test "$S" = "$V"
+
+      - name: 설치
+        run: npm ci --omit=optional
+
+      - name: 빌드
+        run: node build.mjs
+
+      - name: smoke
+        run: node smoke.mjs
+
+      - name: npm 게시(신뢰 게시·출처 증명)
+        run: npm publish --provenance --access public
+
+      - name: MCP 레지스트리 등록
+        run: |
+          curl -fsSL "https://github.com/modelcontextprotocol/registry/releases/download/v1.8.16/mcp-publisher_linux_amd64.tar.gz" | tar xz mcp-publisher
+          ./mcp-publisher login github-oidc
+          for i in 1 2 3 4 5 6; do
+            ./mcp-publisher publish && exit 0
+            echo "npm 반영 대기 후 재시도 ($i)"; sleep 30
+          done
+          exit 1
