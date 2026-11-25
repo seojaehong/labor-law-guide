@@ -188,7 +188,7 @@ describe('severance.html 주 15시간·제외기간', () => {
     expect(under).toMatch(/15시간 미만이라 퇴직금 지급 대상이 아닙니다/);
     expect(under).not.toMatch(/14일째 되는 날까지 지급/);
     const blank = run(`resultBlockHtml(calculateSeverance(${w}}), ${w}})`);
-    expect(blank).toMatch(/지급 대상인지 판정하지 않았습니다/);
+    expect(blank).toMatch(/지급 대상인지는 따지지 않았습니다/);
     const ok = run(`resultBlockHtml(calculateSeverance(${w}, weeklyHours:'15'}), ${w}})`);
     expect(ok).not.toContain('result-eligibility');
     expect(ok).toMatch(/14일째 되는 날까지 지급/);

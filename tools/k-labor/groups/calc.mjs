@@ -377,7 +377,7 @@ export function registerCalc(server) {
           eligible: [`퇴직금은 ${won(r.amount)}입니다.`, formula],
           'under-1y': ['계속근로 기간이 1년이 되지 않아 퇴직금 지급 대상이 아닙니다.', `퇴직일 ${r.retirementDate}까지 재직 ${r.serviceDays}일입니다(근로자퇴직급여 보장법 제4조제1항). 같은 식으로 세면 ${won(r.amount)}입니다.`],
           'under-15h': ['4주 평균 1주 소정근로시간이 15시간 미만이라 퇴직금 지급 대상이 아닙니다.', `1주 ${a.weeklyHours}시간입니다(근로자퇴직급여 보장법 제4조제1항 단서). 같은 식으로 세면 ${won(r.amount)}입니다.`],
-          'hours-unknown': ['1주 소정근로시간을 몰라 지급 대상인지 판정하지 않았습니다.', `같은 식으로 세면 ${won(r.amount)}입니다.`],
+          'hours-unknown': ['1주 소정근로시간을 몰라 지급 대상인지는 따지지 않았습니다.', `같은 식으로 세면 ${won(r.amount)}입니다.`],
         }[r.status];
         if (r.eligible && r.applied === 'ordinary') headline.push(`1일 평균임금 ${dec2(r.dailyAverage)}원이 1일 통상임금보다 낮아 통상임금으로 계산했습니다(근로기준법 제2조제2항).`);
         if (r.excludedDays > 0) headline.push(`산정기간 ${r.periodDays}일 중 제외기간 ${r.excludedDays}일을 빼고 ${r.averageDays}일로 나눴습니다(근로기준법 시행령 제2조제1항).`);
