@@ -2,7 +2,7 @@
 //   make_hwpx_from_markdown  md → hwpx(프리셋 internal·tribunal). 변환 규칙은 src/lib/md-hwpx
 //   read_hwp_as_markdown · fill_hwp_form · patch_hwp_from_markdown  한글 읽기·서식 채우기·되쓰기(lib/hangul-kordoc.mjs, kordoc)
 //   check_prose  퇴고 문체 점검 — 규칙·검출식은 팩(JSON): lib/prose/generic-pack.json + env PROSE_PACK_DIR(261123)
-//   check_norms  퇴고 공개 규범 점검 — 한글 맞춤법 제5장 띄어쓰기·부록 문장 부호·연결어미 뒤 쉼표(lib/prose/norms.mjs, 261124)
+//   check_norms  퇴고 공개 규범 점검 — 한글 맞춤법 제5장 띄어쓰기·부록 문장 부호·연결어미 뒤 쉼표(lib/prose/norms.mjs, 261124) + 적어야 도는 문서 안 일관성(목록 끝맺음·기관 약칭, 261125)
 //   check_semantic · check_rhetoric  퇴고 의미범주·AI 수사 점검 — 식·낱말·규칙은 비공개 팩의 semantic·rhetoric 절에만 있다(261124)
 //   check_rewrite  퇴고 윤문 전후 보존 대조 — 수치·인용·[관련 …] 블록·법령 용어·당위/추측·대구 + 글자 변경률(lib/prose/preserve.mjs, 261124)
 // ★ 파일을 읽고 쓰므로 원격판(remote.mjs)에서 불러오지 않는다. stdio 판(server.mjs)으로만 켠다.
@@ -399,10 +399,11 @@ export function registerDocs(server) {
         'A = 규정(쉼표는 관행)이 명시한 것을 어긴 곳, B = 규정이 권하는 쪽과 다르거나 문맥을 봐야 하는 곳. 규정이 둘 다 허용하는 것(단위 명사·보조 용언 붙여 쓰기 등)은 보지 않는다. ' +
         '보지 않는 줄은 검사마다 다르다. 띄어쓰기: # 제목·| 표·--- ·[관련 …]·[질의 …] 줄, > 인용 줄과 문장 안 “ ” 인용(quote 를 켜면 인용은 본다). 문장 부호: 같은 줄들과 따옴표 안 글자(quote 를 켜면 모두 본다). ' +
         '쉼표: > 인용·# 제목·그림 줄과 “ ” ‘ ’ 「 」 " " 안(quote 와 상관없이 늘 뺀다). | 표 줄과 [관련 …] 줄은 본다. warnOnly 를 켜면 쉼표 걸림을 B 로 낸다(PDF 에서 뽑은 글처럼 인용 표시가 사라진 글). ' +
+        '문서 안 일관성 검사 둘은 checks 에 적어야만 돈다(B 만, 규정이 아니라 업무 문서 관행): listEnd = 같은 목록(- · * · 1. · 1) 줄, 항목 3개 이상)에서 대부분 문장(~다.)으로 끝나는데 몇 항목만 서술어 없이 끝나거나 그 반대(소수가 1/3 이하일 때만, 끝 괄호는 떼고 그 앞말로 판단), abbrev = 「한국」+X 꼴 기관 정식 명칭이 있는데 X 를 「(이하 「X」)」 정의 없이 쓴 곳과 기관 약칭을 정의보다 앞에서 쓴 곳(따옴표 안·> 인용·# 제목 줄은 빼고 표 줄은 본다). ' +
         '검사마다 counts(전부 센 수)와 hits(500건까지, A 먼저, 넘으면 truncated)를 준다. 주민등록번호 모양이 있으면 점검하지 않고 rrnLines(줄 번호만)로 알린다. 모델을 부르지 않고, 문서 글을 밖으로 보내지 않는다.',
       inputSchema: {
         text: TEXT_SCHEMA.describe('점검할 문서 글(md 또는 평문, 40만 자까지)'),
-        checks: NORM_CHECKS_SCHEMA.optional().describe('spacing(띄어쓰기) / punct(문장 부호) / comma(연결어미 뒤 쉼표). 비우면 셋 다'),
+        checks: NORM_CHECKS_SCHEMA.optional().describe('spacing(띄어쓰기) / punct(문장 부호) / comma(연결어미 뒤 쉼표) / listEnd(목록 끝맺음) / abbrev(기관 약칭). 비우면 앞의 셋(listEnd·abbrev 는 적어야 돈다)'),
         quote: z.boolean().optional().describe('켜면 > 인용 줄과 “ ” 원문 인용도 본다(띄어쓰기·문장 부호만. 쉼표는 늘 인용을 뺀다). 기본 끔'),
         warnOnly: z.boolean().optional().describe('켜면 쉼표 걸림을 B(경고)로 낸다. 기본 끔'),
       },
