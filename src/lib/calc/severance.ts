@@ -73,15 +73,34 @@ export interface SeveranceInput {
   annualLeavePay?: number;
   /** 넣으면 평균임금과 비교해 높은 쪽을 쓴다(근로기준법 §2②). 강제 선택은 두지 않는다(261124 — 낮은 쪽 적용 결함) */
   dailyOrdinaryWage?: number;
+  /** 4주 평균 1주 소정근로시간. 15시간 미만이면 지급 대상이 아니다(퇴직급여법 §4① 단서). 넣지 않으면 지급 대상이라고 판정하지 않는다 */
+  weeklyHours?: number;
+  /** 산정기간 중 근로기준법 시행령 §2①의 기간(수습·육아휴직 등) 일수 — 산정기간 일수에서 뺀다 */
+  excludedDays?: number;
+  /** 그 기간에 받은 임금 — wageTotal 에 들어 있는 금액이라 임금총액에서 뺀다 */
+  excludedWage?: number;
 }
+
+/** eligible = 1년 이상 + 주 15시간 이상. hours-unknown = 시간을 넣지 않아 판정하지 않음 */
+export type SeveranceStatus = 'eligible' | 'under-1y' | 'under-15h' | 'hours-unknown';
 
 export interface SeveranceResult {
   retirementDate: string;
   serviceDays: number;
-  /** 계속근로 1년 이상(퇴직급여법 §4①). 주 15시간 요건은 따로 본다 */
+  /** 계속근로 1년 이상(퇴직급여법 §4①) */
+  oneYear: boolean;
+  /** 4주 평균 주 15시간 이상(같은 항 단서). 시간을 넣지 않았으면 null */
+  hours15: boolean | null;
+  /** 지급 대상 — oneYear 이고 hours15 가 true 일 때만 true(시간을 모르면 false, 261124 P2 #13) */
   eligible: boolean;
+  status: SeveranceStatus;
   segments: Segment[];
+  /** 산정기간 달력 일수 */
   periodDays: number;
+  /** 뺀 제외기간 일수 */
+  excludedDays: number;
+  /** 1일 평균임금의 분모 = periodDays − excludedDays */
+  averageDays: number;
   bonusAdd: number;
   leaveAdd: number;
   /** 임금총액 + 가산(원 단위 아래 포함) */
@@ -98,14 +117,25 @@ export function calcSeverance(input: SeveranceInput): SeveranceResult {
   const serviceDays = diffDays(retirementDate, input.hireDate);
   if (serviceDays <= 0) throw new Error('마지막 근무일이 입사일보다 앞섭니다');
 
+  const w = input.weeklyHours;
+  if (w !== undefined && !(typeof w === 'number' && Number.isFinite(w) && w >= 0 && w <= 168)) throw new Error('1주 소정근로시간을 확인해 주세요');
+
   const segments = periodSegments(input.hireDate, retirementDate);
   const periodDays = segments.reduce((a, s) => a + s.days, 0);
+  // 제외기간(근로기준법 시행령 §2①) — 그 일수와 그 기간 임금을 산정기간·임금총액에서 뺀다
+  const excludedDays = input.excludedDays ?? 0;
+  const excludedWage = input.excludedWage ?? 0;
+  if (!Number.isInteger(excludedDays) || excludedDays < 0) throw new Error('제외기간 일수를 확인해 주세요');
+  if (!(Number.isFinite(excludedWage) && excludedWage >= 0) || excludedWage > input.wageTotal) throw new Error('제외기간에 받은 임금을 확인해 주세요(3개월 임금총액보다 클 수 없습니다)');
+  if (excludedDays === 0 && excludedWage > 0) throw new Error('제외기간 일수 없이 그 기간 임금만 넣었습니다');
+  if (excludedDays >= periodDays) throw new Error('평균임금 산정기간 전부가 제외기간입니다. 이때는 이 계산식으로 셀 수 없습니다');
+  const averageDays = periodDays - excludedDays;
   const bonus = input.annualBonus ?? 0;
   const leave = input.annualLeavePay ?? 0;
   // 12배 해 두면 3/12 가산도 정수로 남는다
-  const base12 = BigInt(Math.round(input.wageTotal)) * BigInt(12) + BigInt(Math.round(bonus)) * BigInt(3) + BigInt(Math.round(leave)) * BigInt(3);
+  const base12 = BigInt(Math.round(input.wageTotal - excludedWage)) * BigInt(12) + BigInt(Math.round(bonus)) * BigInt(3) + BigInt(Math.round(leave)) * BigInt(3);
   // 1일 평균임금(전) = 올림(임금총액 ÷ 일수, 소수 둘째 자리)
-  const den = BigInt(12) * BigInt(periodDays);
+  const den = BigInt(12) * BigInt(averageDays);
   const avgCents = (base12 * BigInt(100) + den - BigInt(1)) / den;
   const ordCents = BigInt(Math.round((input.dailyOrdinaryWage ?? 0) * 100));
   const applied: 'average' | 'ordinary' = ordCents > avgCents ? 'ordinary' : 'average';
@@ -116,12 +146,20 @@ export function calcSeverance(input: SeveranceInput): SeveranceResult {
   const amount = Number((num * BigInt(2) + BigInt(36_500)) / BigInt(73_000));
 
   const dailyAverage = Number(avgCents) / 100;
+  const oneYear = retirementDate >= oneYearDate(input.hireDate);
+  const hours15 = w === undefined ? null : w >= 15;
+  const status: SeveranceStatus = !oneYear ? 'under-1y' : hours15 === false ? 'under-15h' : hours15 === null ? 'hours-unknown' : 'eligible';
   return {
     retirementDate,
     serviceDays,
-    eligible: retirementDate >= oneYearDate(input.hireDate),
+    oneYear,
+    hours15,
+    eligible: status === 'eligible',
+    status,
     segments,
     periodDays,
+    excludedDays,
+    averageDays,
     bonusAdd: (bonus * 3) / 12,
     leaveAdd: (leave * 3) / 12,
     baseTotal: Number(base12) / 12,

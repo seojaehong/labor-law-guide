@@ -160,3 +160,37 @@ describe('severance.html theme follows the site rule', () => {
     expect(dark(null, true, true)).toBe(false);
   });
 });
+
+// 261124 검수 P2 #13 — 1주 소정근로시간(4주 평균)과 평균임금 제외기간(근로기준법 시행령 제2조제1항)
+describe('severance.html 주 15시간·제외기간', () => {
+  const w = `{...createDefaultWorker(), startDate:'2025-01-01', endDate:'2025-12-31', wage1:'6,200,000', wage2:'0', wage3:'0'`;
+  it('validates the new fields', () => {
+    expect(check({ weeklyHours: '' })).toBeNull();
+    expect(check({ weeklyHours: '14.5' })).toBeNull();
+    expect(check({ weeklyHours: 'abc' }).field).toBe('weeklyHours');
+    expect(check({ weeklyHours: '169' }).field).toBe('weeklyHours');
+    expect(check({ excludedDays: '1.5' }).field).toBe('excludedDays');
+    expect(check({ excludedDays: '92' }).message).toMatch(/전부/);
+    expect(check({ excludedDays: '0', excludedWage: '100' }).field).toBe('excludedDays');
+    expect(check({ excludedDays: '10', excludedWage: '9,000,000' }).field).toBe('excludedWage');
+  });
+  it('subtracts the excluded days: 6,200,000 ÷ (92 − 30) × 30 = 3,000,000 (2,021,739 without)', () => {
+    expect(run(`calculateSeverance(${w}}).severancePay`)).toBe(2_021_739);
+    const r = run(`calculateSeverance(${w}, excludedDays:'30', excludedWage:'0'})`);
+    expect(r.severancePay).toBe(3_000_000);
+    expect(r.averageDays).toBe(62);
+    const html = run(`resultBlockHtml(calculateSeverance(${w}, excludedDays:'30', weeklyHours:'40'}), ${w}})`);
+    expect(html).toContain('(92일 − 빼는 기간 30일)');
+    expect(html).not.toContain('result-eligibility');
+  });
+  it('says 지급 대상 아님 under 15 hours and 판정하지 않음 when blank', () => {
+    const under = run(`resultBlockHtml(calculateSeverance(${w}, weeklyHours:'14'}), ${w}})`);
+    expect(under).toMatch(/15시간 미만이라 퇴직금 지급 대상이 아닙니다/);
+    expect(under).not.toMatch(/14일째 되는 날까지 지급/);
+    const blank = run(`resultBlockHtml(calculateSeverance(${w}}), ${w}})`);
+    expect(blank).toMatch(/지급 대상인지 판정하지 않았습니다/);
+    const ok = run(`resultBlockHtml(calculateSeverance(${w}, weeklyHours:'15'}), ${w}})`);
+    expect(ok).not.toContain('result-eligibility');
+    expect(ok).toMatch(/14일째 되는 날까지 지급/);
+  });
+});

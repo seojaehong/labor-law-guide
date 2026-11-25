@@ -181,7 +181,7 @@ export function calcSeverance(input: {
     last_work_date: input.last_work_date,
     retirement_date: r.retirementDate,
     service_days: r.serviceDays,
-    eligible: r.eligible,
+    eligible: r.oneYear, // 챗봇 응답은 종전대로 1년 요건만(주 15시간은 이 경로에서 받지 않는다 — 261125 P2 #13 범위 밖)
     three_months_start: r.segments[0].from,
     total_days_3m: r.periodDays,
     wage_total: input.wages_3months.reduce((a, b) => a + b, 0),
@@ -196,7 +196,7 @@ export function calcSeverance(input: {
       '근로자퇴직급여 보장법 제8조 + 시행령 제3조 / ' +
       '퇴직금 = 1일평균임금 × 30 × 재직일수 ÷ 365 (고용노동부 퇴직금 계산기와 같은 끝수: 평균임금 소수 둘째 자리 올림, 퇴직금 원 단위 반올림) / ' +
       '평균임금 = 퇴직 직전 3개월 임금총액 / 총일수 (상여금·연차수당 가산) / 통상임금이 더 높으면 통상임금 사용' +
-      (r.eligible ? '' : ' / ★ 계속근로 1년 미만 — 퇴직급여법 제4조 제1항에 따라 퇴직금 지급 대상이 아니다(금액은 참고값)'),
+      (r.oneYear ? '' : ' / ★ 계속근로 1년 미만 — 퇴직급여법 제4조 제1항에 따라 퇴직금 지급 대상이 아니다(금액은 참고값)'),
   };
 
   if (input.include_tax) {

@@ -374,12 +374,15 @@ for (const t of (await c.listTools()).tools.filter((x) => MORE_TOOLS.includes(x.
 }
 if (tools.includes('calc_severance')) {
   // calc-severance.test.ts 「재직 3년(1,096일)」 — 1일 평균임금 97,826.09, 퇴직금 = 반올림(9,782,609전 × 30 × 1,096 ÷ 36,500)
-  const s = await callNew('calc_severance', { hireDate: '2023-01-01', lastWorkDate: '2025-12-31', wageTotal: 9_000_000 });
+  const s = await callNew('calc_severance', { hireDate: '2023-01-01', lastWorkDate: '2025-12-31', wageTotal: 9_000_000, weeklyHours: 40 });
+  // 261124 P2 #13 — 1년이 넘어도 주 14시간이면 지급 대상 아님
+  const h14 = await callNew('calc_severance', { hireDate: '2023-01-01', lastWorkDate: '2025-12-31', wageTotal: 9_000_000, weeklyHours: 14 });
+  check(`severance 주 14시간은 지급 대상 아님(${h14.headline?.[0]})`, h14.ok && h14.result?.eligible === false && h14.result?.status === 'under-15h');
   const want = Math.round((9_782_609 * 30 * 1096) / 36_500);
   check(`severance 3년 1,096일 · 97,826.09 → ${want}(${s.headline?.[0]})`, s.ok && s.result?.serviceDays === 1096 && s.result.dailyAverage === 97_826.09 && s.result.amount === want && s.result.eligible === true);
-  const short = await callNew('calc_severance', { hireDate: '2026-03-02', lastWorkDate: '2026-10-30', wageTotal: 7_500_000 });
+  const short = await callNew('calc_severance', { hireDate: '2026-03-02', lastWorkDate: '2026-10-30', wageTotal: 7_500_000, weeklyHours: 40 });
   check(`severance 1년 미만은 지급 대상 아님(${short.headline?.[0]})`, short.ok && short.result?.eligible === false && /1년/.test(short.headline?.[0] ?? ''));
-  const bad = await callNew('calc_severance', { hireDate: '2026-03-02', lastWorkDate: '2026-02-01', wageTotal: 7_500_000 });
+  const bad = await callNew('calc_severance', { hireDate: '2026-03-02', lastWorkDate: '2026-02-01', wageTotal: 7_500_000, weeklyHours: 40 });
   check(`severance 날짜 거꾸로면 오류(${bad.error})`, bad.ok === false && !!bad.error);
 }
 if (tools.includes('calc_holiday_pay')) {
