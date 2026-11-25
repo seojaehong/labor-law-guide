@@ -22,7 +22,10 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 const TOKEN = process.env.A2A_TOKEN || '';
-const PER_MIN = parseInt(process.env.A2A_RATE_PER_MIN || '20', 10);
+// 🔴 창은 **하루**다. `incr_rate_limit` 의 버킷이 `current_date` 라 분 단위가 아니다.
+//    처음에 A2A_RATE_PER_MIN=20 으로 적었는데 실측에서 6번째 호출이 막혀 드러났다 —
+//    이름이 「분당」인데 실제로는 「하루 20회」였다. 에이전트 연동에는 너무 좁다.
+const PER_DAY = parseInt(process.env.A2A_RATE_PER_DAY || '200', 10);
 const MAX_BODY = 20_000;
 const MAX_RESULTS = 5;
 
@@ -72,9 +75,10 @@ export async function POST(req: Request) {
   }
   const id = body.id ?? null;
 
-  // 분당 제한. 카운터가 죽으면 **닫는 쪽**으로 실패한다 — 공개면이라 fail-open 을 쓰지 않는다.
+  // IP 당 **하루** 제한. 카운터가 죽으면 **닫는 쪽**으로 실패한다 — 공개면이라 fail-open 을 쓰지 않는다.
+  // 키에 `a2a:` 를 붙여 챗 경로와 칸을 나눈다(표는 chat_rate_limit 를 같이 쓴다).
   const ipKey = hashIp(extractIp(req));
-  const rl = await incrRateLimit('ip', `a2a:${ipKey}`, PER_MIN);
+  const rl = await incrRateLimit('ip', `a2a:${ipKey}`, PER_DAY);
   if (rl.failed || !rl.allowed) {
     return rpcErr(id, -32070, rl.failed ? 'rate limiter unavailable' : 'rate limited', 429);
   }

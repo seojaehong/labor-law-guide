@@ -8,6 +8,14 @@ import { maskOut, shape } from '@/lib/a2a/shape';
 const src = readFileSync('src/app/api/a2a/route.ts', 'utf8');
 const card = JSON.parse(readFileSync('public/.well-known/agent-card.json', 'utf8'));
 
+/** 🔴 낱말 금지는 **코드에만** 걸어야 한다. 주석에 「분당이라 적었다가 틀렸다」처럼
+ *  경위를 남기면 그 설명이 시험에 걸려 벽지가 된다. 오늘 두 번 그렇게 틀렸다. */
+const code = src
+  .replace(/\/\*[\s\S]*?\*\//g, '')
+  .split('\n')
+  .filter((l) => !l.trim().startsWith('//'))
+  .join('\n');
+
 it('토큰이 비어 있으면 열지 않고 닫는다 — 빈 문자열 비교로 통과시키면 무인증 공개가 된다', () => {
   expect(src).toMatch(/if \(!TOKEN\) return rpcErr\(null, -32060, 'endpoint disabled', 503\)/);
   // 토큰 검사가 레이트리밋 **호출**보다 앞에 있어야 한다.
@@ -17,6 +25,14 @@ it('토큰이 비어 있으면 열지 않고 닫는다 — 빈 문자열 비교�
 
 it('레이트리밋 카운터가 죽으면 닫는 쪽으로 실패한다 (챗 경로의 fail-open 을 베끼지 않는다)', () => {
   expect(src).toContain('rl.failed || !rl.allowed');
+});
+
+it('한도 이름이 실제 창과 맞는다 — incr_rate_limit 의 버킷은 current_date(하루)다', () => {
+  // 🔴 처음에 A2A_RATE_PER_MIN 으로 적었다가 실측에서 6번째 호출이 막혀 드러났다.
+  //    DB 함수가 분 단위 창을 만들지 않으므로 「분당」이라는 이름은 거짓이 된다.
+  expect(code).toContain('A2A_RATE_PER_DAY');
+  expect(code).not.toContain('PER_MIN');
+  expect(code).not.toMatch(/분당/);
 });
 
 it('조회 전용 — 쓰기·발송 경로가 파일에 없다', () => {
