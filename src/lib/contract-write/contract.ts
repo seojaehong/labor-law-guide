@@ -274,6 +274,23 @@ export interface WrittenReview {
  */
 const LEAVE_PREPAID_NOTE = '미리 지급하는 연차수당이 실제 발생분보다 적을 수 있으니 연차 사용기간이 끝날 때와 퇴직할 때 차액을 확인하세요';
 
+/** 고용보험 적용 제외 기준이 보수 소득 기준으로 바뀌는 날(고용보험법 제10조, 2026. 3. 17. 개정 — public/data/laws/001761.json) */
+export const EMPLOYMENT_INSURANCE_INCOME_FROM = '2027-01-01';
+
+/**
+ * 사회보험 확인 안내(261124 P2 #16) — 1주 15시간 미만이면 계약서 제7조가 가입 여부를 정하지 않는 칸(국민연금·건강보험)과
+ * 2027. 1. 1. 뒤 고용보험 소득 기준(금액은 대통령령)을 「확인 필요」로 남긴다. 15시간 이상이면 없다.
+ */
+function socialInsuranceNote(form: WriteForm): string | null {
+  if (!isUnder15(form)) return null;
+  const employment = form.startDate >= EMPLOYMENT_INSURANCE_INCOME_FROM
+    ? ' 고용보험은 2027년 1월 1일부터 보수가 대통령령으로 정하는 소득 기준 미만이면 적용 제외입니다(고용보험법 제10조). 그 금액을 확인하세요.'
+    : ' 고용보험은 1주 15시간 미만이면 적용 제외이고, 3개월 이상 계속하여 근로를 제공하면 적용합니다(고용보험법 시행령 제3조).';
+  return '사회보험 가입 여부는 확인이 필요합니다 — 1주 소정근로시간이 15시간 미만이라 계약서 제7조에 일괄 가입으로 적지 않았습니다.'
+    + employment
+    + ' 국민연금·건강보험은 1개월 소정근로시간이 짧은 단시간 근로자를 가입 대상에서 빼는 기준이 있어, 이 화면은 가입 여부를 정하지 않았습니다.';
+}
+
 /** 기간제 2년 초과 — 점검 규칙은 사소한 위험(minor)으로 두지만, 작성 단계에서는 예외에 해당하는지 확인할 일이라 남긴다(PR #140 검토 3) */
 function fixedTermText(detail: string | null | undefined): string {
   const span = detail?.split(' — ')[0] ?? '계약기간 2년 초과';
@@ -351,7 +368,9 @@ export function reviewWritten(form: WriteForm, design: DesignResult): WrittenRev
   else line = { text: `${rate} — 최저임금: ${minwage?.detail ?? '판단하지 못했습니다'}`, warn: true };
   // 시작 연도부터 낮으면 다음 해도 낮다 — 같은 말을 되풀이하지 않는다
   const later = minwage.status === 'violation' ? [] : laterMinimumWage(form, contract);
-  return { problems, minimumWage: line, minimumWageLater: later, notes: prepaysLeave(design) ? [LEAVE_PREPAID_NOTE] : [] };
+  const insuranceNote = socialInsuranceNote(form);
+  const notes = [...(prepaysLeave(design) ? [LEAVE_PREPAID_NOTE] : []), ...(insuranceNote ? [insuranceNote] : [])];
+  return { problems, minimumWage: line, minimumWageLater: later, notes };
 }
 
 export function checkWritten(form: WriteForm, design: DesignResult): Finding[] {

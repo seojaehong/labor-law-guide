@@ -5,7 +5,7 @@
 // 사업장 양식의 자동 종료 조항(매년 재계약 자동종료·불응 시 자동만료)은 넣지 않는다(HRMS 수원 건 재홍님 결정).
 
 import { monthlyHolidayWeekDrop, ROUNDING_UNIT, weeklySchedule, type DesignResult, type ItemKey } from './design';
-import { dailyWorkHours, leaveTerms, PROBATION_PCT, probationIssue, rateText, reducedMonthsOf, restDayTerm, type WriteForm } from './contract';
+import { dailyWorkHours, EMPLOYMENT_INSURANCE_INCOME_FROM, leaveTerms, PROBATION_PCT, probationIssue, rateText, reducedMonthsOf, restDayTerm, type WriteForm } from './contract';
 import { laborDayOffHours, laborDayOffPay } from './part';
 import { hoursText, wonText } from './text';
 
@@ -171,6 +171,20 @@ function laborDayLine(fivePlus: boolean): string {
     : '다만 노동절(5월 1일)은 노동절 제정에 관한 법률에 따른 유급휴일로 하고, 그날 근무하면 유급휴일 임금과 별도로 근무한 시간의 임금을 지급한다.';
 }
 
+/**
+ * 제7조(사회보험) — 1주 15시간 미만이면 일괄 가입으로 적지 않는다(261124 P2 #16).
+ * 고용보험: 1주 15시간 미만은 적용 제외, 3개월 이상 계속 근로하면 적용(고용보험법 시행령 제3조, 2023. 6. 27. 개정).
+ *   2027. 1. 1.부터는 보수 소득 기준(금액은 대통령령) 또는 3개월 이상 계속 근로(같은 법 제10조제2항).
+ * 산재보험은 근로시간 기준이 없어 그대로 둔다. 국민연금·건강보험의 단시간 제외는 원문을 확인하지 못해 가입 여부를 정하지 않는다.
+ */
+export function socialInsuranceLines(startDate: string, under15: boolean): string[] {
+  if (!under15) return ['고용보험·산재보험·국민연금·건강보험에 가입한다.'];
+  const employment = startDate >= EMPLOYMENT_INSURANCE_INCOME_FROM
+    ? '고용보험은 보수가 고용보험법 제10조 제1항 제2호의 소득 기준 이상이거나 3개월 이상 계속하여 근로를 제공하면 가입한다.'
+    : '1주 소정근로시간이 15시간 미만이므로 3개월 이상 계속하여 근로를 제공하면 고용보험에 가입한다(고용보험법 시행령 제3조).';
+  return ['산재보험에 가입한다.', employment, '국민연금·건강보험은 관계 법령의 가입 기준에 따른다.'];
+}
+
 export function buildContractDocument(form: WriteForm, design: DesignResult): ContractDocument {
   const daily = dailyWorkHours(form);
   const scheduledDaily = Math.min(daily, 8);
@@ -284,7 +298,7 @@ export function buildContractDocument(form: WriteForm, design: DesignResult): Co
     { heading: '제4조(휴일)', lines: restLines },
     { heading: '제5조(임금)', lines: wageLines, table },
     { heading: '제6조(연차유급휴가)', lines: leaveLines },
-    { heading: '제7조(사회보험)', lines: ['고용보험·산재보험·국민연금·건강보험에 가입한다.'] },
+    { heading: '제7조(사회보험)', lines: socialInsuranceLines(form.startDate, under15) },
     { heading: '제8조(계약서 교부)', lines: ['사업주는 이 계약을 맺는 즉시 계약서 사본을 근로자에게 교부한다(근로기준법 제17조 제2항).'] },
     { heading: '제9조(그 밖의 사항)', lines: ['이 계약에 정하지 않은 사항은 근로기준법 등 관계 법령에 따른다.'] },
   ];
