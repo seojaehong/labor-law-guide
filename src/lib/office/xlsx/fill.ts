@@ -4,7 +4,7 @@
 // 보존 비교는 두 겹이다 — ①열어 본 모델(병합·수식·유효성·인쇄…) ②zip 부품·rels·extLst·x14 원문(package.ts).
 import JSZip from 'jszip';
 import { inspectOpened, openXlsx, sheetPaths, type InspectXlsxResult, type OpenedXlsx, type OpenFailCode } from './inspect';
-import { appendTailRows, checkPatchValue, clearFormulaValues, firstContentRow, formulaTexts, hideColumns, patchSheetCells, pushRows, readCellValue, readSharedStrings, rowCapacity, shiftRefRows } from './patch';
+import { appendTailRows, checkPatchValue, clearFormulaValues, clearSharedStrings, sharedStringRefs, firstContentRow, formulaTexts, hideColumns, patchSheetCells, pushRows, readCellValue, readSharedStrings, rowCapacity, shiftRefRows } from './patch';
 import { spreadsheetPrefix } from './ooxml';
 import { growRange, type PackageComparison } from './package';
 import { EXCEL_MAX_ROWS, colNumber, parseCellAddress, EXCEL_MAX_COLS } from './workload';
@@ -78,6 +78,8 @@ export interface FillXlsxResult {
   changedCells: { sheet: string; cell: string }[];
   preserved?: PreservedReport;
   fullCalcOnLoad: boolean;
+  /** sst 정리(§2-7)로 비운 <si> 수(성공 결과에서 늘 숫자, 비운 것 없으면 0) */
+  clearedSharedStrings?: number;
   /** overflow='error' 로 멈췄을 때 넘친 자료 행 수 */
   overflowRows?: number;
   warnings: string[];
@@ -235,6 +237,7 @@ async function patchFill(
 ): Promise<FillXlsxResult> {
   const issues: Warning[] = [];
   const changedCells: { sheet: string; cell: string }[] = [];
+  const sstCandidates = new Set<number>();
   const paths = sheetPaths(opened.parts);
   const sstPath = sharedStringsPath(opened.parts);
   const sstRaw = opened.raw.get(sstPath);
@@ -336,9 +339,26 @@ async function patchFill(
     if (!r.ok) return fail(`${sheet}: ${r.reason}`, { code: r.code, needsReview: true });
     for (const w of r.warnings) issues.push({ code: w.code, message: `${sheet}!${w.message}`, at: `${sheet}!${w.cell}` });
     for (const cell of r.changed) changedCells.push({ sheet, cell });
+    for (const n of r.replacedSst) sstCandidates.add(n);
     if (r.changed.length > 0) newParts.set(path, r.xml);
   }
   const cellsForCheck = all;
+
+  // sst 정리(§2-7) — 덮어쓴 칸이 가리키던 번호 가운데 이제 아무 칸도 안 가리키는 <si> 를 비운다
+  let clearedSharedStrings = 0;
+  if (sstCandidates.size > 0 && sstRaw) {
+    const skip = sstCleanupBlocker(opened, paths, rawText);
+    if (typeof skip === 'string') {
+      issues.push({ code: 'SST_CLEANUP_SKIPPED', message: `덮어쓴 옛 글을 공유 문자열(sharedStrings)에서 지우지 않았습니다: ${skip}` });
+    } else {
+      const unused = new Set([...sstCandidates].filter((n) => n < sst.length && !skip.has(n)));
+      const cs = clearSharedStrings(utf8NoStrip.decode(sstRaw), unused);
+      if (cs.cleared > 0) {
+        newParts.set(sstPath, cs.xml);
+        clearedSharedStrings = cs.cleared;
+      }
+    }
+  }
 
   // 열 숨김(§2-1) — <col> 쪼개기·<cols> 만들기, 이미 숨긴 열은 그대로
   for (const h of hidden) {
@@ -437,7 +457,28 @@ async function patchFill(
     issues.push({ code: 'PRESERVATION_LOSS', message: `보존 항목이 달라졌습니다: ${diff.join(', ')}` });
     if (strict) return fail(`엄격 모드: 보존 항목이 달라져 결과를 돌려주지 않습니다(${diff.join(', ')}).`, { code: 'PRESERVATION_LOSS', preserved, issues, warnings: issues.map((x) => x.message) });
   }
-  return { ok: true, bytes: out, changedCells, preserved, fullCalcOnLoad: fullCalc, warnings: issues.map((x) => x.message), issues };
+  return { ok: true, bytes: out, changedCells, preserved, fullCalcOnLoad: fullCalc, clearedSharedStrings, warnings: issues.map((x) => x.message), issues };
+}
+
+/**
+ * sst 정리(§2-7)를 막는 사유(글) 또는 살아 있는 참조 번호 전부.
+ * 변경 이력(revisions) 부품이 있거나, 시트 부품을 찾지·판독하지 못하거나, 번호가 손상이면 막는다.
+ * 숨김·매우 숨김 시트 포함 통합문서 관계의 모든 시트 + zip 안 xl/worksheets 부품 전부를 센다.
+ */
+function sstCleanupBlocker(opened: OpenedXlsx, paths: Map<string, string>, rawText: (path: string) => string): string | Set<number> {
+  const relsRaw = opened.parts.get('xl/_rels/workbook.xml.rels');
+  const rels = relsRaw ? utf8NoStrip.decode(relsRaw) : '';
+  if (/Type="[^"]*\/revisionHeaders"/.test(rels) || [...opened.parts.keys()].some((k) => k.startsWith('xl/revisions/'))) return '변경 이력(revisions)이 있는 통합문서입니다.';
+  const all = new Set<string>([...paths.values(), ...[...opened.parts.keys()].filter((k) => /^xl\/worksheets\/[^/]+\.xml$/.test(k))]);
+  const live = new Set<number>();
+  for (const path of all) {
+    if (/^xl\/(?:chartsheets|dialogsheets)\//.test(path)) continue; // 칸이 없는 시트
+    if (!opened.raw.get(path)) return '시트 부품을 찾지 못했습니다.';
+    const r = sharedStringRefs(rawText(path));
+    if (!r.ok) return `시트를 판독하지 못했습니다(${r.reason})`;
+    for (const n of r.refs) live.add(n);
+  }
+  return live;
 }
 
 /** 부품 경로 기준 상대 Target → zip 경로 */

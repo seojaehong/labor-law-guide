@@ -105,6 +105,7 @@ SafeClaw 실서식 12+1개 로컬 왕복(`safeclaw-risk-p1/artifacts/risk-ledger
 - 기본으로 켠다. 결과에 `clearedSharedStrings: n`. 후보가 없거나 비울 번호가 없으면 sst 부품은 바이트 그대로.
 - **보장 범위**: 「참조가 끊긴 sst 항목의 본문·런·발음 표기 제거」까지다. 같은 글이 정상 칸에 살아 있으면 그대로 둔다. 아래는 지우지 않고 결과 경고로 알린다 — `docProps`(작성자·마지막 저장자·`TitlesOfParts`), 썸네일, 차트·피벗·외부 연결 캐시, `t="str"` 수식 캐시, 도형 글·`textlink`, 머리글·바닥글, 메모.
 - **검증**: 정리기와 다른 독립 판독기로 입력에서 예상 후보·생존 참조·비울 수를 먼저 고정하고 출력과 대조. 생존 칸 값·서식 전부 동일. 원문 옛 글 검사는 압축 해제 + 숫자 문자 참조·`_xHHHH_` 풀기 + 런 이어 붙이기 뒤에 한다. 음성 대조: 아무것도 안 비우는 정리기는 실패해야 한다. 반례 6종 — 마지막 참조 둘 동시 제거, 숨김 시트의 같은 번호, 숫자로 교체, 기존 빈 `<si>`, 높은 번호의 생존 칸, rich run·`rPh`.
+- **조각 6b 반영(261127)**: `patch.ts` `patchSheetCells` 결과 `replacedSst`(후보)·`sharedStringRefs`(시트별 생존 참조, 번호 손상이면 판독 실패)·`clearSharedStrings`(번호·sst 머리 원문 그대로, 원래 빈 `<si>` 는 세지 않음), `fill.ts` `sstCleanupBlocker`(revisions 관계·`xl/revisions/` 부품·시트 부품 판독 실패면 `SST_CLEANUP_SKIPPED`; 통합문서 관계의 모든 시트 + zip 안 `xl/worksheets/*.xml` 전수). 결과 `clearedSharedStrings`(입구 `FillXlsxData` 도). 시험 = `office-xlsx-fill-sst.test.ts`(9).
 
 ## 3. 검증 — 「그대로」의 정의
 1. **토큰 동일**: 허용 변경 목록(§2-1) 밖의 부품은 바이트가 같고, 바꾼 부품은 허용 변경 밖의 토큰이 순서까지 같다.

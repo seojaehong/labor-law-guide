@@ -15,7 +15,8 @@ export interface PatchWarning {
   message: string;
 }
 export type SheetPatchResult =
-  | { ok: true; xml: string; changed: string[]; warnings: PatchWarning[] }
+  /** replacedSst = 바꾼 칸 가운데 쓰기 전 t="s" 였던 칸의 sst 번호(§2-7 정리 후보) */
+  | { ok: true; xml: string; changed: string[]; warnings: PatchWarning[]; replacedSst: number[] }
   | { ok: false; code: 'UNSUPPORTED_INPUT'; reason: string };
 
 const BOM = '﻿';
@@ -266,6 +267,7 @@ export function patchSheetCells(raw: string, edits: CellEdit[], sst: string[]): 
   const colStyle = colStyleOf(xml, P);
   const warnings: PatchWarning[] = [];
   const changed: string[] = [];
+  const replacedSst: number[] = [];
 
   // 같은 주소는 마지막 것만, 행·열 순서로
   const byAddr = new Map<string, CellEdit>();
@@ -302,6 +304,10 @@ export function patchSheetCells(raw: string, edits: CellEdit[], sst: string[]): 
     }
     const text = buildCell(p, e.cell, style, e.value);
     const tok: CellTok = { kind: 'item', text, r: e.cell, col: a.col, open: text, inner: '' };
+    if (existing && attrOf(existing.open, 't') === 's') {
+      const n = sstIndexOf(existing, P);
+      if (n !== null) replacedSst.push(n);
+    }
     if (existing) row.cells[row.cells.indexOf(existing)] = tok;
     else {
       const idx = row.cells.findIndex((c) => c.kind === 'item' && (c as CellTok).col > a.col);
@@ -312,8 +318,56 @@ export function patchSheetCells(raw: string, edits: CellEdit[], sst: string[]): 
     changed.push(e.cell);
   }
 
-  if (changed.length === 0) return { ok: true, xml: raw, changed, warnings };
-  return { ok: true, xml: serialize(t), changed, warnings };
+  if (changed.length === 0) return { ok: true, xml: raw, changed, warnings, replacedSst };
+  return { ok: true, xml: serialize(t), changed, warnings, replacedSst };
+}
+
+/** t="s" 칸의 sst 번호(음 아닌 정수가 아니면 null) */
+function sstIndexOf(c: CellTok, P: string): number | null {
+  const v = new RegExp(`<${P}v\\b[^>]*>([\\s\\S]*?)</${P}v>`).exec(c.inner)?.[1];
+  if (v === undefined || !/^\s*\d+\s*$/.test(v)) return null;
+  return Number(v);
+}
+
+/**
+ * sst 정리(§2-7) 판독 — 시트 하나의 t="s" 칸이 가리키는 sst 번호 전부.
+ * 판독하지 못하거나 번호가 손상(값 없음·정수 아님)이면 Unsupported — 정리를 건너뛴다.
+ */
+export function sharedStringRefs(raw: string): { ok: true; refs: number[] } | Unsupported {
+  const t = tokenizeSheet(raw);
+  if (!t.ok) return t;
+  const refs: number[] = [];
+  for (const row of rowItemsOf(t.rows)) {
+    for (const c of cellsOf(row)) {
+      if (attrOf(c.open, 't') !== 's') continue;
+      const n = sstIndexOf(c, t.P);
+      if (n === null) return { ok: false, code: 'UNSUPPORTED_INPUT', reason: `${c.r} 의 sst 번호를 읽지 못했습니다.` };
+      refs.push(n);
+    }
+  }
+  return { ok: true, refs };
+}
+
+/**
+ * sst 정리(§2-7) — 번호 목록의 <si> 자식(본문 t·런 r·rPh·phoneticPr)을 지워 <si><t/></si> 로 둔다.
+ * 번호는 당기지 않고 sst 머리(count·uniqueCount)는 원문 그대로. 원래 빈 <si> 는 바이트 그대로이고 세지 않는다.
+ * 비운 것이 없으면 원문을 그대로 돌린다.
+ */
+export function clearSharedStrings(raw: string, indexes: Set<number>): { xml: string; cleared: number } {
+  const pr = spreadsheetPrefix(raw.startsWith(BOM) ? raw.slice(1) : raw);
+  const p = pr.ok ? pr.prefix : '';
+  const P = esc(p);
+  let i = -1;
+  let cleared = 0;
+  const xml = raw.replace(new RegExp(`<${P}si\\b[^>]*?(?:/>|>([\\s\\S]*?)</${P}si>)`, 'g'), (whole, body: string | undefined) => {
+    i++;
+    if (!indexes.has(i)) return whole;
+    const texts = [...(body ?? '').matchAll(new RegExp(`<${P}t\\b[^>]*?(?:/>|>([\\s\\S]*?)</${P}t>)`, 'g'))].map((m) => m[1] ?? '');
+    if (texts.join('') === '') return whole;
+    cleared++;
+    return `<${p}si><${p}t/></${p}si>`;
+  });
+  return cleared > 0 ? { xml, cleared } : { xml: raw, cleared: 0 };
 }
 
 /** tmpl 행의 행 속성으로 새 <row>. withCells 면 tmpl 의 서식 있는 칸을 값 없이 복사한다 */

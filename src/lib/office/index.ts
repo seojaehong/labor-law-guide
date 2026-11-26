@@ -175,6 +175,8 @@ export interface FillXlsxData {
   changedCells: { sheet: string; cell: string }[];
   preserved: PreservedReport;
   fullCalcOnLoad: boolean;
+  /** 덮어쓴 옛 글을 지워 비운 공유 문자열(<si>) 수(§2-7) */
+  clearedSharedStrings?: number;
 }
 
 /** 원본 서식 그대로 지정 칸·표 행만 채운다. 결과 파일은 files[0] */
@@ -191,7 +193,7 @@ export function fillXlsxTemplate(bytes: Uint8Array, opts: FillXlsxOptions): Prom
     }
     return {
       ok: true,
-      data: { changedCells: r.changedCells, preserved: r.preserved!, fullCalcOnLoad: r.fullCalcOnLoad },
+      data: { changedCells: r.changedCells, preserved: r.preserved!, fullCalcOnLoad: r.fullCalcOnLoad, clearedSharedStrings: r.clearedSharedStrings },
       files: [file(opts.outName ?? 'filled.xlsx', XLSX_MIME, r.bytes)],
       warnings: r.issues,
       meta: meta('xlsx.fill'),

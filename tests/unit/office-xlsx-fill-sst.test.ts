@@ -1,6 +1,6 @@
 // 조각 6b(설계 v2.1 §2-7) — sst 정리: 덮어쓴 옛 글을 sharedStrings 에서 지운다.
 // 합성 자료만. 시트 셋: 평가표(보임·채우는 시트)·숨김(state="hidden")·매우숨김(state="veryHidden").
-// S6B-1 = 실패 시험 먼저. 구현 전 RED 를 확인했고 S6B-2 에서 skip 을 걷어 켠다.
+// S6B-1 = 실패 시험 먼저(RED 확인), S6B-2 에서 구현해 켰다.
 import { describe, it, expect } from 'vitest';
 import JSZip from 'jszip';
 import { fillXlsxTemplate, type FillXlsxResult } from '@/lib/office/xlsx/fill';
@@ -104,7 +104,7 @@ function sstTexts(xml: string): string[] {
 const remains = (sstXml: string, old: string) => sstTexts(sstXml).some((x) => x.includes(old));
 
 describe('sst 정리 — 덮어쓴 옛 글 지우기(§2-7)', () => {
-  it.skip('① 같은 번호를 가리키던 마지막 참조 두 칸을 한 요청에서 동시에 덮어쓰면 그 <si> 를 비운다', async () => {
+  it('① 같은 번호를 가리키던 마지막 참조 두 칸을 한 요청에서 동시에 덮어쓰면 그 <si> 를 비운다', async () => {
     const src = book({ si: [t('옛 글 갑'), t('머리')], rows1: `<row r="1">${s('A1', 1)}</row><row r="2">${s('B2', 0)}${s('C2', 0)}</row>` });
     const r = await fillXlsxTemplate(await zip(src), {
       cells: [
@@ -122,7 +122,7 @@ describe('sst 정리 — 덮어쓴 옛 글 지우기(§2-7)', () => {
     expect(a.get(S1)).toContain(s('A1', 1)); // 생존 칸은 그대로
   });
 
-  it.skip('② 숨김·매우 숨김 시트가 같은 번호를 가리키면 비우지 않는다', async () => {
+  it('② 숨김·매우 숨김 시트가 같은 번호를 가리키면 비우지 않는다', async () => {
     const src = book({
       si: [t('숨김이 쓰는 글'), t('매우 숨김이 쓰는 글')],
       rows1: `<row r="2">${s('B2', 0)}${s('C2', 1)}</row>`,
@@ -143,7 +143,7 @@ describe('sst 정리 — 덮어쓴 옛 글 지우기(§2-7)', () => {
     expect(a.get(S3)).toBe(src[S3]);
   });
 
-  it.skip('③ t="s" 칸을 숫자로 바꿔도 그 옛 번호는 후보다', async () => {
+  it('③ t="s" 칸을 숫자로 바꿔도 그 옛 번호는 후보다', async () => {
     const src = book({ si: [t('옛 글 을'), t('머리')], rows1: `<row r="1">${s('A1', 1)}</row><row r="2">${s('B2', 0)}</row>` });
     const r = await fillXlsxTemplate(await zip(src), { cells: [{ sheet: '평가표', cell: 'B2', value: 42 }] });
     expect(r.ok).toBe(true);
@@ -153,7 +153,7 @@ describe('sst 정리 — 덮어쓴 옛 글 지우기(§2-7)', () => {
     expect(a.get(S1)).toMatch(/<c r="B2"[^>]*><v>42<\/v><\/c>/);
   });
 
-  it.skip('④ 원래부터 빈 <si> 는 건드리지 않는다 — 후보여도 바이트 그대로', async () => {
+  it('④ 원래부터 빈 <si> 는 건드리지 않는다 — 후보여도 바이트 그대로', async () => {
     // 빈 <si> 는 엑셀이 쓰는 두 모양(<t></t>·<t/>) 모두
     const src = book({ si: ['<si><t></t></si>', '<si><t/></si>', t('머리')], rows1: `<row r="1">${s('A1', 2)}</row><row r="2">${s('B2', 0)}${s('C2', 1)}</row>` });
     const r = await fillXlsxTemplate(await zip(src), {
@@ -168,7 +168,7 @@ describe('sst 정리 — 덮어쓴 옛 글 지우기(§2-7)', () => {
     expect(cleared(r)).toBe(0);
   });
 
-  it.skip('⑤ 높은 번호의 생존 칸이 있어도 번호를 당기지 않는다(count·uniqueCount 그대로)', async () => {
+  it('⑤ 높은 번호의 생존 칸이 있어도 번호를 당기지 않는다(count·uniqueCount 그대로)', async () => {
     const src = book({
       si: [t('옛 글 병'), t('가운데'), t('머리'), t('높은 번호 생존')],
       count: 9,
@@ -187,7 +187,7 @@ describe('sst 정리 — 덮어쓴 옛 글 지우기(§2-7)', () => {
     expect(cleared(r)).toBe(1);
   });
 
-  it.skip('⑥ rich run·rPh 를 가진 <si> 는 자식을 전부 지워 <si><t/></si> 로 둔다', async () => {
+  it('⑥ rich run·rPh 를 가진 <si> 는 자식을 전부 지워 <si><t/></si> 로 둔다', async () => {
     const rich =
       '<si><r><rPr><b/><sz val="11"/></rPr><t xml:space="preserve">옛 </t></r><r><t>런 글</t></r>' +
       '<rPh sb="0" eb="1"><t>ヨミ</t></rPh><phoneticPr fontId="0" type="noConversion"/></si>';
@@ -201,7 +201,7 @@ describe('sst 정리 — 덮어쓴 옛 글 지우기(§2-7)', () => {
     expect(cleared(r)).toBe(1);
   });
 
-  it.skip('음성 대조 — 숫자 문자 참조·_xHHHH_·런으로 쪼갠 옛 글이 sst 에 남지 않는다(안 비우는 정리기는 실패)', async () => {
+  it('음성 대조 — 숫자 문자 참조·_xHHHH_·런으로 쪼갠 옛 글이 sst 에 남지 않는다(안 비우는 정리기는 실패)', async () => {
     // 「비밀글A」 = 런 두 개 + &#xAE00;(글) + _x0041_(A). 판독기가 이 글을 입력에서 찾아내야 단언이 의미가 있다
     const hidden = '<si><r><t>비밀</t></r><r><t>&#xAE00;_x0041_</t></r></si>';
     const src = book({ si: [hidden, t('머리')], rows1: `<row r="1">${s('A1', 1)}</row><row r="2">${s('B2', 0)}</row>` });
@@ -213,7 +213,7 @@ describe('sst 정리 — 덮어쓴 옛 글 지우기(§2-7)', () => {
     expect(sstTexts(sstOut)).toContain('머리'); // 생존 글은 남는다
   });
 
-  it.skip('결과 필드 — clearedSharedStrings 는 비운 <si> 수', async () => {
+  it('결과 필드 — clearedSharedStrings 는 비운 <si> 수', async () => {
     const src = book({
       si: [t('옛 하나'), t('옛 둘'), t('머리')],
       rows1: `<row r="1">${s('A1', 2)}</row><row r="2">${s('B2', 0)}${s('C2', 1)}</row>`,
@@ -228,7 +228,7 @@ describe('sst 정리 — 덮어쓴 옛 글 지우기(§2-7)', () => {
     expect(cleared(r)).toBe(2);
   });
 
-  it.skip('경고 — 변경 이력(revisions) 부품이 있으면 정리하지 않고 SST_CLEANUP_SKIPPED', async () => {
+  it('경고 — 변경 이력(revisions) 부품이 있으면 정리하지 않고 SST_CLEANUP_SKIPPED', async () => {
     const src = book({ si: [t('옛 글 정'), t('머리')], rows1: `<row r="1">${s('A1', 1)}</row><row r="2">${s('B2', 0)}</row>`, revisions: true });
     const r = await fillXlsxTemplate(await zip(src), { cells: [{ sheet: '평가표', cell: 'B2', value: '새 글' }] });
     expect(r.ok).toBe(true);
