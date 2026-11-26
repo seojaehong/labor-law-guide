@@ -91,6 +91,17 @@ describe('조문 안내 — 경계 양쪽', () => {
     expect(has(notes('infertility-leave', { ...base, days: `${d6},2027-01-10` }), /연간 6일/)).toBe(true);
     expect(notes('infertility-leave', { ...base, days: '1월 4일' }).problems.join()).toMatch(/읽지 못한/);
   });
+  it('난임치료휴가 안내에 11월 27일 유급 확대와 시행 전 사용일을 표시한다', () => {
+    const summary = findForm('infertility-leave')!.summary;
+    expect(summary).toContain('11월 27일부터 최초 4일 유급');
+    expect(summary).toContain('시행 전 사용일도 최초 4일에 포함');
+    const r = notes('infertility-leave', { ...P, appliedOn: '2026-11-24', days: '2026-11-26, 2026-11-27' });
+    expect(r.problems).toEqual([]);
+    const guidance = r.notes.find((n) => n.includes('법률 제21700호'));
+    expect(guidance).toContain('11월 26일까지는 최초 2일');
+    expect(guidance).toContain('11월 27일부터 사용한 난임치료휴가는 최초 4일이 유급');
+    expect(guidance).toContain('시행 전 이미 사용한 난임치료휴가도 최초 4일에 포함');
+  });
   it('허용 통지 — 신청일부터 14일', () => {
     const a = { company: '가나다상사', ceo: '박대표', employee: '김가나', appliedOn: '2026-12-01', kind: 'asis', start: '2027-01-04', end: '2027-07-03' };
     expect(has(notes('childcare-leave-approval', { ...a, notifiedOn: '2026-12-15' }), /14일 이내/)).toBe(false);
