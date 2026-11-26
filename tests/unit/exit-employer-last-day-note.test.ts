@@ -30,4 +30,10 @@ describe('퇴사 체크리스트 — 마지막 근무일 뜻', () => {
     const note2 = html.lastIndexOf(LAST_DAY_NOTE, button);
     expect(note2).toBeGreaterThan(at('건강보험 직장가입자 자격상실 신고'));
   });
+
+  it('날짜 칸 이름은 「마지막 근무일」만, 설명은 따로 읽힌다(label 안 설명문이 칸 이름에 붙지 않게)', () => {
+    const input = html.match(/<input type="date"[^>]*aria-describedby="ee-last-day-note"[^>]*>/)?.[0] ?? '';
+    expect(input).toContain('aria-labelledby="ee-last-day-k"');
+    expect(html).toMatch(/<span class="k" id="ee-last-day-k">마지막 근무일 <b>필수<\/b><\/span>/);
+  });
 });

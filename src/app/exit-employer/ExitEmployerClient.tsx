@@ -149,8 +149,8 @@ export default function ExitEmployerClient() {
         <section className="ee-form" aria-label="퇴사 정보 입력">
           <div className="ee-fields">
             <label className="ee-field">
-              <span className="k">마지막 근무일 <b>필수</b></span>
-              <input type="date" value={exit} onChange={e => { setExit(e.target.value); sync({ exit: e.target.value }); }} aria-describedby="ee-last-day-note" />
+              <span className="k" id="ee-last-day-k">마지막 근무일 <b>필수</b></span>
+              <input type="date" value={exit} onChange={e => { setExit(e.target.value); sync({ exit: e.target.value }); }} aria-labelledby="ee-last-day-k" aria-describedby="ee-last-day-note" />
               <span className="k" id="ee-last-day-note">{LAST_DAY_NOTE}</span>
             </label>
             <label className="ee-field">

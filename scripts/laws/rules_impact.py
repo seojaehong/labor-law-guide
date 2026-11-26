@@ -105,7 +105,8 @@ POSITIVE = re.compile(r"허용|인정|부여|사용|신청|승인|지급")
 SUB = re.compile(r"경우(?:에는|에도|라도)?|때(?!문)(?:에는|에도)?|더라도|[어아여해]도|(?<=[하되이으라시])면")
 COND = re.compile(r"경우|때(?!문)|불구하고")
 ITEM = re.compile(r"^(?:[①-⑳]|\d+[.)]|[가-하][.)]|제\s*\d+\s*조|[-·•※○□▪*])")
-TERMINAL = re.compile(r"(?:[.。:;)\]】]|다|함|음|임|됨|것)$")
+# 문장 중간에서 끊긴 줄 — 조사·연결 어미·쉼표로 끝난다. 명사로 끝난 줄(표 칸·개조식)은 잇지 않는다
+OPEN_END = re.compile(r"(?:[을를은는,]|에게|에서|으로|하고|하며|하여|하되|하면|거나|및|또는)$")
 
 
 def flat(s: str) -> str:
@@ -113,10 +114,10 @@ def flat(s: str) -> str:
 
 
 def clauses_of(lines: list[str]) -> list[str]:
-    """조문 줄들을 절로 나눈다. 서술어로 끝나지 않은 줄은 다음 줄과 잇는다. 괄호 안은 뺀다."""
+    """조문 줄들을 절로 나눈다. 문장 중간에서 끊긴 줄은 다음 줄과 잇는다. 괄호 안은 뺀다."""
     text = ""
     for i, l in enumerate(lines):
-        text += l if i == 0 else ("\n" if TERMINAL.search(lines[i - 1]) or ITEM.match(l) else " ") + l
+        text += l if i == 0 else (" " if OPEN_END.search(lines[i - 1]) and not ITEM.match(l) else "\n") + l
     for _ in range(2):
         text = re.sub(r"\([^()]*\)|（[^（）]*）", "", text)
     text = re.sub(r"(^|\s)안\s*(?=[함한됨된])", r"\1¬", text)
