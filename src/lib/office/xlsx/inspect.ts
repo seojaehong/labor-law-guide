@@ -2,6 +2,8 @@
 // 채우기 전후 보존 비교의 기준이 된다(병합·수식·조건부서식·유효성·인쇄설정·그림·이름정의).
 // 지원하지 않는 입력(.xls·깨진 zip·ExcelJS 가 못 여는 파일)은 예외 대신 needsReview 로 돌린다.
 import ExcelJS from 'exceljs';
+import JSZip from 'jszip';
+import { normalizeSpreadsheetParts } from './ooxml';
 import { DEFAULT_LIMITS, readZipGuarded, type Limits } from '../limits';
 import { scanXlsxWorkload, type Workload } from './workload';
 
@@ -125,7 +127,14 @@ function readValidations(sheetXml: string): XlsxValidation[] {
 }
 
 /** @internal */
-export type OpenedXlsx = { wb: ExcelJS.Workbook; parts: Map<string, Uint8Array>; workload: Workload };
+export type OpenedXlsx = {
+  wb: ExcelJS.Workbook;
+  /** 판독용 사본(접두·BOM 제거). 원문 정규식·지문은 이것으로 */
+  parts: Map<string, Uint8Array>;
+  /** 원본 부품 그대로(접두 유지). 칸 패치 출력은 이것을 바탕으로 */
+  raw: Map<string, Uint8Array>;
+  workload: Workload;
+};
 
 /**
  * 지원 형식 확인 후 xlsx 를 연다. 지원하지 않거나 열 수 없으면 { reason, code } 만 돌린다(예외 없음).
@@ -144,19 +153,28 @@ export async function openXlsx(bytes: Uint8Array, limits: Limits = DEFAULT_LIMIT
 
   const z = readZipGuarded(bytes, limits);
   if (!z.ok) return z.code === 'ZIP_TOO_LARGE' ? { reason: z.message, code: 'ZIP_TOO_LARGE' } : unsupported(`zip 을 열 수 없습니다: ${z.message}`);
-  const parts = z.parts;
-  if (!parts.has('xl/workbook.xml')) return unsupported('xl/workbook.xml 이 없습니다(xlsx 가 아님).');
-  if (parts.has('xl/vbaProject.bin')) return unsupported('매크로(xlsm)가 든 문서는 지원하지 않습니다.');
+  if (!z.parts.has('xl/workbook.xml')) return unsupported('xl/workbook.xml 이 없습니다(xlsx 가 아님).');
+  if (z.parts.has('xl/vbaProject.bin')) return unsupported('매크로(xlsm)가 든 문서는 지원하지 않습니다.');
+  // 판독은 접두·BOM 을 걷어 낸 사본으로 한다(§2-0). 원본은 raw 로 따로 돌린다.
+  const norm = normalizeSpreadsheetParts(z.parts);
+  if (!norm.ok) return unsupported(norm.reason);
+  const parts = norm.parts;
   const scan = scanXlsxWorkload(parts, limits.maxCells);
   if (!scan.ok) return scan.code === 'WORKLOAD_TOO_LARGE' ? { reason: scan.message, code: 'WORKLOAD_TOO_LARGE' } : unsupported(scan.message);
 
   const wb = new ExcelJS.Workbook();
   try {
-    await wb.xlsx.load(bytes as unknown as ExcelJS.Buffer);
+    let loadBytes: Uint8Array = bytes;
+    if (norm.changed.length > 0) {
+      const zip = await JSZip.loadAsync(bytes);
+      for (const name of norm.changed) zip.file(name, parts.get(name)!);
+      loadBytes = await zip.generateAsync({ type: 'uint8array' });
+    }
+    await wb.xlsx.load(loadBytes as unknown as ExcelJS.Buffer);
   } catch (e) {
     return unsupported(`ExcelJS 가 문서를 열지 못했습니다: ${(e as Error).message}`);
   }
-  return { wb, parts, workload: scan.workload };
+  return { wb, parts, raw: z.parts, workload: scan.workload };
 }
 
 export async function inspectXlsx(bytes: Uint8Array, limits: Limits = DEFAULT_LIMITS): Promise<InspectXlsxResult> {
