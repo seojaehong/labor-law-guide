@@ -99,7 +99,7 @@ describe('fill — ExcelJS 밖 부품 복구(drawing·printerSettings·시트 re
 
   it('칸만 채워도 부품·rels·Content_Types·시트 참조가 모두 되살아나고 allSame:true', async () => {
     const tpl = await gasLike();
-    const r = await fillXlsxTemplate(tpl, { cells: [{ sheet: '평가표', cell: 'B3', value: '합성' }] });
+    const r = await fillXlsxTemplate(tpl, { cells: [{ sheet: '평가표', cell: 'B3', value: '합성' }], hiddenColumns: [{ sheet: '평가표', columns: ['Z'] }] });
     expect(r.ok).toBe(true);
     const before = parts(tpl);
     const after = parts(r.bytes!);
@@ -156,15 +156,15 @@ describe('fill — ExcelJS 밖 부품 복구(drawing·printerSettings·시트 re
     expect(rowsAt).toEqual(['from0', 'to1', 'from10']);
   });
 
-  it('복구할 수 없으면(drawing 이 제 rels 를 가짐) PRESERVATION_LOSS, 엄격 모드면 실패', async () => {
+  it('(옛 경로·열 숨김) 복구할 수 없으면(drawing 이 제 rels 를 가짐) PRESERVATION_LOSS, 엄격 모드면 실패', async () => {
     const tpl = await gasLike({ drawingRels: true });
-    const r = await fillXlsxTemplate(tpl, { cells: [{ sheet: '평가표', cell: 'B3', value: '합성' }] });
+    const r = await fillXlsxTemplate(tpl, { cells: [{ sheet: '평가표', cell: 'B3', value: '합성' }], hiddenColumns: [{ sheet: '평가표', columns: ['Z'] }] });
     expect(r.ok).toBe(true);
     expect(r.preserved!.package.same).toBe(false);
     expect(r.preserved!.package.lost.join(' ')).toMatch(/drawing/);
     expect(r.preserved!.allSame).toBe(false);
     expect(r.issues.some((w) => w.code === 'PRESERVATION_LOSS')).toBe(true);
-    const s = await fillXlsxTemplate(tpl, { cells: [{ sheet: '평가표', cell: 'B3', value: '합성' }] }, DEFAULT_LIMITS, true);
+    const s = await fillXlsxTemplate(tpl, { cells: [{ sheet: '평가표', cell: 'B3', value: '합성' }], hiddenColumns: [{ sheet: '평가표', columns: ['Z'] }] }, DEFAULT_LIMITS, true);
     expect(s.ok).toBe(false);
     expect(s.code).toBe('PRESERVATION_LOSS');
   });

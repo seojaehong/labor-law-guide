@@ -87,7 +87,8 @@ const partText = (parts: Map<string, Uint8Array>, name: string): string | undefi
 };
 
 /** 시트 이름 → zip 안의 시트 XML 경로 */
-function sheetPaths(parts: Map<string, Uint8Array>): Map<string, string> {
+/** @internal */
+export function sheetPaths(parts: Map<string, Uint8Array>): Map<string, string> {
   const map = new Map<string, string>();
   const wbXml = partText(parts, 'xl/workbook.xml');
   const relXml = partText(parts, 'xl/_rels/workbook.xml.rels');

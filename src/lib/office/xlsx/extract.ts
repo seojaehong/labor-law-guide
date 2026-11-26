@@ -2,7 +2,8 @@
 // 머리행 아래 행을 셀 주소·원문값·수식·캐시값·병합 출처와 함께 돌린다.
 // 문자 값은 그대로 둔다(「높음 (6)」 을 숫자로 바꾸지 않는다 — 척도 보존).
 import ExcelJS from 'exceljs';
-import { openXlsx, type OpenFailCode } from './inspect';
+import { openXlsx, sheetPaths, type OpenFailCode } from './inspect';
+import { unescapeOoxmlText } from './patch';
 import { DEFAULT_LIMITS, type Limits } from '../limits';
 
 export type XlsxRaw = string | number | boolean | null;
@@ -60,9 +61,6 @@ function toRaw(v: unknown): XlsxRaw {
   return String(v);
 }
 
-function headerText(cell: ExcelJS.Cell): string {
-  return toRaw(cell.value) === null ? '' : String(toRaw(cell.value)).trim();
-}
 
 export async function extractXlsxRows(bytes: Uint8Array, opts: ExtractXlsxOptions = {}, limits: Limits = DEFAULT_LIMITS): Promise<ExtractXlsxResult> {
   const opened = await openXlsx(bytes, limits);
@@ -71,6 +69,19 @@ export async function extractXlsxRows(bytes: Uint8Array, opts: ExtractXlsxOption
 
   const ws = opts.sheet === undefined ? wb.worksheets[0] : wb.getWorksheet(opts.sheet);
   if (!ws) return fail(`시트를 찾을 수 없습니다: ${opts.sheet ?? '(첫 시트)'}`);
+  // ExcelJS 는 inlineStr 글의 _xHHHH_ 를 풀지 않는다(sst 글은 푼다) — 엑셀과 같게 읽으려고 inlineStr 칸만 푼다(설계 v2.1 §2-2)
+  const sheetPart = sheetPaths(opened.parts).get(ws.name);
+  const sheetXml = sheetPart ? new TextDecoder('utf-8').decode(opened.parts.get(sheetPart)) : '';
+  const inline = new Set<string>();
+  for (const m of sheetXml.matchAll(/<c\b([^>]*)>/g)) {
+    if (!/\st="inlineStr"/.test(m[1])) continue;
+    const r = /\sr="([^"]+)"/.exec(m[1])?.[1];
+    if (r) inline.add(r);
+  }
+  const val = (cell: ExcelJS.Cell): XlsxRaw => {
+    const v = toRaw(cell.value);
+    return typeof v === 'string' && inline.has(cell.address) ? unescapeOoxmlText(v) : v;
+  };
   const headerRow = opts.headerRow ?? 1;
   const maxRows = opts.maxRows ?? DEFAULT_MAX_ROWS;
   if (!Number.isInteger(headerRow) || headerRow < 1) return fail(`headerRow 가 올바르지 않습니다: ${headerRow}`);
@@ -91,7 +102,7 @@ export async function extractXlsxRows(bytes: Uint8Array, opts: ExtractXlsxOption
   for (let c = 1; c <= colCount; c++) {
     const cell = hRow.getCell(c);
     const letter = cell.address.replace(/\d+$/, '');
-    let name = cell.isMerged && cell.master.address !== cell.address ? '' : headerText(cell);
+    let name = cell.isMerged && cell.master.address !== cell.address ? '' : val(cell) === null ? '' : String(val(cell)).trim();
     if (!name) name = letter;
     if (seen.has(name)) {
       warnings.push(`머리 「${name}」 가 겹쳐 ${cell.address} 를 「${name}#${letter}」 로 씁니다.`);
@@ -114,7 +125,7 @@ export async function extractXlsxRows(bytes: Uint8Array, opts: ExtractXlsxOption
       const out: ExtractedCell = { cell: cell.address, raw: null };
       if (cell.isMerged && cell.master.address !== cell.address) {
         out.mergedFrom = cell.master.address;
-        out.raw = toRaw(cell.master.value);
+        out.raw = val(cell.master);
       } else if (cell.type === ExcelJS.ValueType.Formula) {
         hasOwnValue = true;
         out.formula = cell.formula;
@@ -126,7 +137,7 @@ export async function extractXlsxRows(bytes: Uint8Array, opts: ExtractXlsxOption
         }
         out.raw = out.cachedValue ?? null;
       } else {
-        out.raw = toRaw(cell.value);
+        out.raw = val(cell);
         if (out.raw !== null) hasOwnValue = true;
       }
       cells[headers[c - 1]] = out;

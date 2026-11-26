@@ -44,8 +44,18 @@ describe('G4-2 보존 비교 — ExcelJS 밖 부품', () => {
     });
   }
 
-  it('차트 부품·x14 드롭다운을 잃으면 allSame:false + PRESERVATION_LOSS', async () => {
+  it('칸만 쓰면(칸 패치, 설계 v2.1) 차트 부품·x14 드롭다운을 잃지 않는다', async () => {
     const r = await fillXlsxTemplate(await withExtras(), { cells: [{ sheet: '평가표', cell: 'B2', value: '합성' }] });
+    expect(r.ok).toBe(true);
+    expect(r.preserved!.package.same).toBe(true);
+    expect(r.preserved!.allSame).toBe(true);
+    expect(r.issues.some((w) => w.code === 'PRESERVATION_LOSS')).toBe(false);
+  });
+
+  // 옛 ExcelJS 경로(열 숨김·행 덧붙이기가 아직 이 경로) — 조각 5·6 에서 패치로 옮기면 이 두 시험은 「잃지 않음」으로 바뀐다
+  const LEGACY = { hiddenColumns: [{ sheet: '평가표', columns: ['Z'] }] };
+  it('(옛 경로) 차트 부품·x14 드롭다운을 잃으면 allSame:false + PRESERVATION_LOSS', async () => {
+    const r = await fillXlsxTemplate(await withExtras(), { cells: [{ sheet: '평가표', cell: 'B2', value: '합성' }], ...LEGACY });
     expect(r.ok).toBe(true);
     expect(r.bytes).toBeDefined();
     expect(r.preserved!.package.same).toBe(false);
@@ -55,8 +65,8 @@ describe('G4-2 보존 비교 — ExcelJS 밖 부품', () => {
     expect(r.issues.some((w) => w.code === 'PRESERVATION_LOSS')).toBe(true);
   });
 
-  it('엄격 모드면 손실 시 바이트 없이 실패', async () => {
-    const r = await fillXlsxTemplate(await withExtras(), { cells: [{ sheet: '평가표', cell: 'B2', value: '합성' }] }, DEFAULT_LIMITS, true);
+  it('(옛 경로) 엄격 모드면 손실 시 바이트 없이 실패', async () => {
+    const r = await fillXlsxTemplate(await withExtras(), { cells: [{ sheet: '평가표', cell: 'B2', value: '합성' }], ...LEGACY }, DEFAULT_LIMITS, true);
     expect(r.ok).toBe(false);
     expect(r.code).toBe('PRESERVATION_LOSS');
     expect(r.bytes).toBeUndefined();

@@ -3,7 +3,9 @@
 // ExcelJS 는 저장할 때 옛 수식 캐시(<v>)를 남기므로, 수식 셀 캐시를 지우고 fullCalcOnLoad 를 켠다.
 // 보존 비교는 두 겹이다 — ①ExcelJS 모델(병합·수식·유효성·인쇄…) ②ExcelJS 밖 zip 부품·rels·extLst·x14 원문(package.ts).
 import ExcelJS from 'exceljs';
-import { colLetter, inspectOpened, openXlsx, type InspectXlsxResult, type OpenFailCode } from './inspect';
+import JSZip from 'jszip';
+import { colLetter, inspectOpened, openXlsx, sheetPaths, type InspectXlsxResult, type OpenedXlsx, type OpenFailCode } from './inspect';
+import { checkPatchValue, patchSheetCells, readCellValue, readSharedStrings } from './patch';
 import { comparePackage, expectedPrintNames, growRange, packageFingerprint, restorePackage, type PackageComparison } from './package';
 import { EXCEL_MAX_ROWS, colNumber, parseCellAddress, EXCEL_MAX_COLS } from './workload';
 import { DEFAULT_LIMITS, readZipGuarded, type Limits } from '../limits';
@@ -276,6 +278,20 @@ export async function fillXlsxTemplate(bytes: Uint8Array, opts: FillXlsxOptions 
     if (bad.length) return fail(`숨길 열 문자가 올바르지 않습니다(XFD 까지): ${bad.join(', ')}`);
   }
 
+  // 값 검사(§2-2) — 제어 문자·서로게이트·32,767자·NaN 은 쓰기 전에 거절
+  for (const c of opts.cells ?? []) {
+    const why = checkPatchValue(c.value);
+    if (why) return fail(`${c.sheet}!${c.cell}: ${why}`);
+  }
+  for (const [i, rec] of (rows?.data ?? []).entries()) {
+    for (const v of Object.values(rec ?? {})) {
+      const why = v === undefined ? null : checkPatchValue(v);
+      if (why) return fail(`rows.data[${i}]: ${why}`);
+    }
+  }
+  // 칸만 쓰는 요청은 원본 zip 을 그대로 두고 바꿀 칸만 패치한다(설계 v2.1 조각 3). 행 덧붙이기·열 숨김은 조각 5·6 에서 옮긴다
+  if (!rows && hidden.length === 0) return patchFill(bytes, opened, before, opts.cells ?? [], limits, strict);
+
   let inserted = { count: 0, at: null as number | null };
   try {
     // 공유 수식을 먼저 풀어 둔다 — 주인 칸을 덮어써도 저장이 깨지지 않게
@@ -375,4 +391,85 @@ export async function fillXlsxTemplate(bytes: Uint8Array, opts: FillXlsxOptions 
     // 쓰기·저장 중 라이브러리 예외(공유 수식·깨진 모델 등) — 던지지 않고 구조화 실패로(G4 Act on 12)
     return fail(`채우는 중 오류가 났습니다: ${(e as Error).message}`, { code: 'WRITE_FAILED' });
   }
+}
+
+const utf8NoStrip = new TextDecoder('utf-8', { ignoreBOM: true });
+
+/** 통합문서 관계에서 sharedStrings 부품 경로를 찾는다(없으면 기본 자리) */
+function sharedStringsPath(parts: Map<string, Uint8Array>): string {
+  const rels = parts.get('xl/_rels/workbook.xml.rels');
+  const xml = rels ? utf8NoStrip.decode(rels) : '';
+  for (const m of xml.matchAll(/<Relationship\b[^>]*>/g)) {
+    if (!/Type="[^"]*\/sharedStrings"/.test(m[0])) continue;
+    const target = /Target="([^"]*)"/.exec(m[0])?.[1];
+    if (target) return target.startsWith('/') ? target.slice(1) : `xl/${target.replace(/^\.\//, '')}`;
+  }
+  return 'xl/sharedStrings.xml';
+}
+
+/**
+ * 칸 패치 경로(설계 v2.1 §2-1~2-4) — 원본 부품을 그대로 두고 바꿀 시트 XML 의 그 칸만 고친다.
+ * 수식 칸·병합 종속 칸은 쓰지 않고 경고. 바뀐 칸이 없으면 입력 바이트를 그대로 돌린다.
+ */
+async function patchFill(
+  bytes: Uint8Array,
+  opened: OpenedXlsx,
+  before: InspectXlsxResult,
+  cells: FillCell[],
+  limits: Limits,
+  strict: boolean,
+): Promise<FillXlsxResult> {
+  const issues: Warning[] = [];
+  const changedCells: { sheet: string; cell: string }[] = [];
+  const paths = sheetPaths(opened.parts);
+  const sstPath = sharedStringsPath(opened.parts);
+  const sstRaw = opened.raw.get(sstPath);
+  const sst = readSharedStrings(sstRaw ? utf8NoStrip.decode(sstRaw) : undefined);
+
+  const bySheet = new Map<string, FillCell[]>();
+  for (const c of cells) bySheet.set(c.sheet, [...(bySheet.get(c.sheet) ?? []), c]);
+  const newParts = new Map<string, string>();
+  for (const [sheet, list] of bySheet) {
+    const path = paths.get(sheet);
+    const raw = path ? opened.raw.get(path) : undefined;
+    if (!path || !raw) return fail(`시트 부품을 찾을 수 없습니다: ${sheet}`, { code: 'UNSUPPORTED_INPUT', needsReview: true });
+    const r = patchSheetCells(utf8NoStrip.decode(raw), list, sst);
+    if (!r.ok) return fail(`${sheet}: ${r.reason}`, { code: r.code, needsReview: true });
+    for (const w of r.warnings) issues.push({ code: w.code, message: `${sheet}!${w.message}`, at: `${sheet}!${w.cell}` });
+    for (const cell of r.changed) changedCells.push({ sheet, cell });
+    if (r.changed.length > 0) newParts.set(path, r.xml);
+  }
+
+  let out = bytes;
+  if (newParts.size > 0) {
+    const zip = await JSZip.loadAsync(bytes);
+    for (const [path, xml] of newParts) zip.file(path, new TextEncoder().encode(xml));
+    out = await zip.generateAsync({ type: 'uint8array', compression: 'DEFLATE' });
+  }
+  if (out.length > limits.maxOutputBytes) return fail(`결과가 ${limits.maxOutputBytes} 바이트를 넘습니다.`, { code: 'WRITE_FAILED' });
+
+  // 검증 §3 — 다시 열리는가, 쓴 칸이 요청 값인가, 쓴 칸 수 = 요청 − 건너뜀 − 같은 값
+  const reopenLimits = { ...limits, maxInputBytes: Math.max(limits.maxInputBytes, out.length), maxUnzippedBytes: Math.max(limits.maxUnzippedBytes, 4 * limits.maxUnzippedBytes), maxCells: Number.MAX_SAFE_INTEGER };
+  const reopened = await openXlsx(out, reopenLimits);
+  if ('reason' in reopened) return fail(`채운 파일을 다시 검사하지 못했습니다: ${reopened.reason}`, { code: 'WRITE_FAILED', needsReview: true });
+  const want = new Map(cells.map((c) => [`${c.sheet}!${c.cell}`, c.value] as const));
+  for (const { sheet, cell } of changedCells) {
+    const xml = newParts.get(paths.get(sheet)!)!;
+    const got = readCellValue(xml, cell, sst);
+    const expect = want.get(`${sheet}!${cell}`);
+    const norm = (v: unknown) => (typeof v === 'string' ? v.replace(/\r\n?/g, '\n') : v);
+    if (norm(got ?? null) !== norm(expect ?? null)) return fail(`쓴 칸을 다시 읽은 값이 다릅니다: ${sheet}!${cell}`, { code: 'WRITE_FAILED' });
+  }
+  const after = inspectOpened(reopened);
+  const printArea: Record<string, string | null> = {};
+  for (const s of before.sheets) printArea[s.name] = s.printArea ?? null;
+  const preserved = comparePreserved(before, after, { lost: [], same: true, restored: [] }, { count: 0, at: null }, { printArea });
+  if (!preserved.allSame) {
+    const diff = Object.entries(preserved)
+      .filter(([k, v]) => k !== 'allSame' && typeof v === 'object' && !v.same)
+      .map(([k]) => k);
+    issues.push({ code: 'PRESERVATION_LOSS', message: `보존 항목이 달라졌습니다: ${diff.join(', ')}` });
+    if (strict) return fail(`엄격 모드: 보존 항목이 달라져 결과를 돌려주지 않습니다(${diff.join(', ')}).`, { code: 'PRESERVATION_LOSS', preserved, issues, warnings: issues.map((x) => x.message) });
+  }
+  return { ok: true, bytes: out, changedCells, preserved, fullCalcOnLoad: false, warnings: issues.map((x) => x.message), issues };
 }
