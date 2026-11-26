@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { addDays, annualLeaveCoverage, annualLeaveTimeline, type HeadcountInput } from '@/lib/headcount';
 import { answerPlan, type Plan } from '@/lib/headcount-plan';
 import { rateOn } from '@/content/rates';
-import { calcTakeHomePay, takeHomeRatesOn } from '@/lib/calc/take-home-pay';
+import { WITHHOLDING_UNTIL, calcTakeHomePay, takeHomeRatesOn } from '@/lib/calc/take-home-pay';
 import { calcWeeklyHoliday } from '@/lib/calc/weekly-holiday';
 import { INITIAL, toWriteForm, type WriteState } from '@/app/tools/contract-write/formState';
 
@@ -128,6 +128,24 @@ describe('#9 계약작성 실수령 역산 — 계약 시작일 기준', () => {
       expect(r.error).toContain('월 임금 총액');
     });
   }
+});
+
+// ── G4 I5(261126) 간이세액표 재확인 기한 — 별표 2 에는 끝나는 날이 없어 다음 개정 시기(3. 1.) 전날까지만 쓴다 ──
+describe('G4 I5 간이세액표 재확인 기한', () => {
+  it('2027-02-28 까지는 요율 묶음이 있고 2027-03-01 부터는 null(옛 표로 조용히 계산하지 않는다)', () => {
+    expect(WITHHOLDING_UNTIL).toBe('2027-02-28');
+    expect(takeHomeRatesOn('2027-02-28')).not.toBeNull();
+    expect(takeHomeRatesOn('2027-03-01')).toBeNull();
+    expect(takeHomeRatesOn('2027-06-30')).toBeNull();
+  });
+
+  it('계약작성 실수령 역산도 2027-03-01 이후 시작이면 멈춘다(종전 2027-06-30 → 7,397,720원)', () => {
+    const late = toWriteForm({ ...NET, startDate: '2027-06-30' }, '2026-11-24');
+    expect(late.form).toBeNull();
+    expect(late.error).toContain('2027-06-30');
+    expect(late.error).toContain('월 임금 총액');
+    expect(toWriteForm({ ...NET, startDate: '2027-02-28' }, '2026-11-24').error).toBeUndefined();
+  });
 });
 
 // ── #4 주휴 금요일 퇴사 — 근로관계가 주휴일까지 이어지는지(퇴사일 = 재직 마지막 날) ──

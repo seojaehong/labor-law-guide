@@ -332,6 +332,10 @@ if (tools.includes('calc_take_home_pay')) {
   const r = t.result || {};
   const got = [r.nps, r.health, r.ltc, r.employment, r.tax?.incomeTax, r.tax?.localTax, r.takeHome];
   check(`take_home C01 300만·식대 20만 ${JSON.stringify(got)}`, JSON.stringify(got) === JSON.stringify([133_000, 100_660, 13_220, 25_200, 56_800, 5_680, 2_665_440]));
+  // 간이세액표 재확인 기한(2027-02-28) — 그날은 계산하고 다음 날은 멈춘다(G4 I5)
+  const last = await callTool('calc_take_home_pay', { pay: 3_000_000, date: '2027-02-28' });
+  const after = await callTool('calc_take_home_pay', { pay: 3_000_000, date: '2027-03-01' });
+  check(`take_home 2027-02-28 계산·2027-03-01 멈춤(${after.error})`, last.ok === true && after.ok === false && /2027-03-01/.test(after.error ?? ''));
 }
 if (tools.includes('calc_notice_pay')) {
   const n = await callTool('calc_notice_pay', { unit: 'month', amount: 2_156_880, weeklyHours: 40, dailyHours: 8, hireDate: '2025-01-02', dismissalDate: '2026-11-30' });
