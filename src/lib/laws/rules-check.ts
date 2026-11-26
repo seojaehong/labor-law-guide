@@ -102,32 +102,92 @@ export function judge(rule: RuleSpec, paras: Para[]): Verdict {
 
 /** 부정문으로 내린 항목 옆에 붙는 말(웹·MCP 같은 글) */
 export const NEGATED_NOTE = '해당 문구가 부정문(…하지 않는다 등)으로 보여 원문 확인이 필요합니다';
+/** 내보내기(docx·xlsx·표 복사) 칸에 붙이는 짧은 말 */
+export const NEGATED_SHORT = '부정문 — 원문 확인 필요';
 
-// 부정 어미 — ok 낱말 **뒤** 같은 문장 안에서만 본다. 단서(「다만, … 그러하지 아니하다」)는 마침표로 갈려 다른 문장이다.
-const NEG = /(지않|지아니|아니한다|아니된다|수없|못한다|불허)/;
+// ── 부정문(2026-11-25, G4 검수 2026-11-26 고침) ──
+// ok 낱말이 든 **절**의 끝 서술어만 본다. 문장 끝까지 보면 「허용하며, 이를 이유로 불리한 처우를 하지 아니한다」의
+// 뒤 절 부정이 ok 낱말에 걸려 반영된 조문이 미반영으로 떨어졌다(G4 I22 — merge-base 판은 반영됨).
+// 파이썬 쌍둥이 scripts/laws/rules_impact.py 가 같은 규칙을 쓴다 — 바꾸면 둘 다 바꾸고 laws-matcher-parity 를 돌린다.
 const flat = (s: string) => norm(s).replace(/\s/g, '');
-const sentencesOf = (texts: string[]) => texts.flatMap((t) => t.split(/(?<=[.。])\s*/)).map(flat);
-/** 문장 s 에서 w 뒤에 부정이 붙었는가. 「…하지 아니할 수 있다」는 법이 허용한 예외 단서라 부정으로 보지 않는다 */
-const negTail = (s: string, w: string) => NEG.test(s.slice(s.indexOf(w) + w.length).replace(/지(아니할|않을)수있/g, ''));
-/** w 가 든 문장이 있고, 그 문장마다 w 뒤에 부정이 붙었는가 */
-const negAfter = (sentences: string[], w: string) => {
-  const hit = sentences.filter((s) => s.includes(w));
-  return hit.length > 0 && hit.every((s) => negTail(s, w));
-};
+/** 문법 부정(어디서든)과 어휘 부정(절 끝 서술어 자리에서만: 불허·불가·금지·제외·「안 함」 — ¬ 은 띄어 쓴 「안」) */
+const NEG_TOKEN = /지않|지아니|수없|못하|못한|못함|아니[한함된됨]|¬[함한됨된]|불허|불가(?!피)|금지|제외/g;
+const LEXICAL = /^(?:불허|불가|금지|제외|¬)/;
+/** 부정 뜻의 말 — 여기에 붙은 부정은 보장 문구다(거부할 수 없다·불리한 처우를 하지 아니한다·차별을 금지한다) */
+const DOUBLE = /거부|거절|반려|불허|불리|불이익|차별|해고|징계|제한|방해|간섭|강요|박탈|감액|삭감|금지|성희롱|괴롭힘|폭행|폭언/g;
+const POSITIVE = /허용|인정|부여|사용|신청|승인|지급/;
+/** 조건·양보 연결 — 이 뒤가 그 절의 주 서술어다(「…신청하면 회사는 이를 거부할 수 없다」) */
+const SUB = /경우(?:에는|에도|라도)?|때(?!문)(?:에는|에도)?|더라도|[어아여해]도|(?<=[하되이으라시])면/g;
+/** 조건이 붙은 「…하지 아니할 수 있다」는 법정 예외 단서다(표준 제43조③) */
+const COND = /경우|때(?!문)|불구하고/;
+const ITEM = /^(?:[①-⑳]|\d+[.)]|[가-하][.)]|제\s*\d+\s*조|[-·•※○□▪*])/;
+const TERMINAL = /(?:[.。:;)\]】]|다|함|음|임|됨|것)$/;
+
+/** 조문 줄들을 절로 나눈다. 서술어로 끝나지 않은 줄은 다음 줄과 잇는다(줄바꿈 하나로 결론이 바뀌지 않게). 괄호 안은 뺀다 */
+function clausesOf(lines: string[]): string[] {
+  let text = '';
+  lines.forEach((l, i) => {
+    text += i === 0 ? l : (TERMINAL.test(lines[i - 1]) || ITEM.test(l) ? '\n' : ' ') + l;
+  });
+  for (let k = 0; k < 2; k++) text = text.replace(/\([^()]*\)|（[^（）]*）/g, '');
+  return text
+    .replace(/(^|\s)안\s*(?=[함한됨된])/g, '$1¬')
+    .split(/[.。;\n]|(?<=[며되고])\s*,|(?<=[하되이으]며)\s/)
+    .map(flat)
+    .filter(Boolean);
+}
+
+/** 관형형 부정(「사용하지 않은 기간」)은 뒤 이름씨를 꾸밀 뿐 서술어가 아니다. 「…않는 것으로 한다」는 서술어다 */
+function attributive(t: string, after: string): boolean {
+  let rest: string | null = null;
+  if (/[한된]$/.test(t)) rest = after.startsWith('다') ? null : after;
+  else {
+    const m = after.match(/^(?:[은는](?!다)|한(?!다)|하는|할)/);
+    if (m) rest = after.slice(m[0].length);
+  }
+  return rest !== null && !rest.startsWith('것');
+}
+
+/** 절 c 에서 w 에 걸린 서술어가 부정인가 */
+function clauseNegated(c: string, w: string): boolean {
+  const at = c.indexOf(w);
+  if (at < 0) return false;
+  const wEnd = at + w.length;
+  let from = wEnd;
+  for (const m of c.matchAll(SUB)) if (m.index! >= wEnd) from = Math.max(from, m.index! + m[0].length);
+  for (const m of c.matchAll(NEG_TOKEN)) {
+    const i = m.index!;
+    if (i < from) continue;
+    const t = m[0];
+    const after = c.slice(i + t.length);
+    if (LEXICAL.test(t)) {
+      if (!/^[가-힣]{0,3}$/.test(after)) continue; // 서술어 자리가 아니다(휴게시간을 제외하고 …)
+    } else if (/^지(?:않|아니)$/.test(t) && /^(?:을|할)수있/.test(after)) {
+      if (COND.test(c.slice(0, i))) continue; // 조건이 붙은 예외 단서
+    } else if (attributive(t, after)) continue;
+    let double = false;
+    for (const d of c.slice(from, i).matchAll(DOUBLE)) {
+      const gap = c.slice(from + d.index! + d[0].length, i);
+      if (gap.length <= 6 && !POSITIVE.test(gap)) double = true;
+    }
+    if (!double) return true;
+  }
+  return false;
+}
 
 /**
- * ok 낱말 뒤에 부정이 붙었는데 표준 문안(clause)의 같은 낱말 뒤에는 부정이 없는가.
+ * ok 낱말이 든 절마다 그 서술어가 부정인데 표준 문안(clause)의 같은 낱말은 부정이 아닌가.
  * 「불리한 처우를 하지 아니한다」처럼 표준 문안 자체가 부정형인 금지 조항은 그대로 둔다.
  * 규칙의 ok·keywords 자체가 부정을 품으면 보지 않는다.
  */
 function negatedOk(rule: RuleSpec, paras: Para[]): boolean {
-  if (!rule.ok.length || [...rule.ok, ...rule.keywords].some((w) => NEG.test(flat(w)))) return false;
-  const mine = sentencesOf(paras.map((p) => p.text));
-  const std = sentencesOf([rule.clause ?? '']);
+  if (!rule.ok.length || [...rule.ok, ...rule.keywords].some((w) => new RegExp(NEG_TOKEN.source).test(flat(w)))) return false;
+  const mine = clausesOf(paras.map((p) => p.text));
+  const std = clausesOf((rule.clause ?? '').split(/\r?\n/).map(norm).filter(Boolean));
   return rule.ok.some((o) => {
     const w = flat(o);
-    // 표준 문안에 w 뒤가 부정인 문장이 하나라도 있으면 부정형이 정상일 수 있다 — 보지 않는다
-    return negAfter(mine, w) && !std.some((s) => s.includes(w) && negTail(s, w));
+    const hit = mine.filter((c) => c.includes(w));
+    return hit.length > 0 && hit.every((c) => clauseNegated(c, w)) && !std.some((c) => clauseNegated(c, w));
   });
 }
 

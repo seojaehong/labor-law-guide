@@ -11,7 +11,7 @@ import { MATCHER_VERSION, RULE_VERSION } from '@/lib/laws/observation-version';
 import type { CaptureContext, Observation } from '@/lib/laws/observation-payload';
 import { CalendarClock, ClipboardCopy, FileDown, FileUp, ShieldCheck, X } from 'lucide-react';
 import { NEGATED_NOTE, type Verdict } from '@/lib/laws/rules-check';
-import { periodCheck, splitArticles, STD_ASOF, type Art93Item, type PeriodItem, type StdArticle, type StdRule } from '@/lib/laws/standard-check';
+import { exportArticle, exportStatus, periodCheck, splitArticles, STD_ASOF, type Art93Item, type PeriodItem, type StdArticle, type StdRule } from '@/lib/laws/standard-check';
 import { compareDocx, MAX_FILE_BYTES, kindOf, readDocText } from '@/lib/laws/doc-io';
 import {
   citation,
@@ -324,7 +324,7 @@ export function PeriodResults({ data, loadError, onRetry, text, from, to, source
   const unrecognized = !!text.trim() && !hasText;
   const period = `${fmtDate(from)} 다음 날 ~ ${fmtDate(to)}`;
 
-  const rows = open.map((it) => [`${it.std.no}(${it.std.title})`, mine(it) || (hasText ? '(해당 조문 없음)' : ''), proposal(it), basis(it).join('\n'), it.status]);
+  const rows = open.map((it) => [exportArticle(it), mine(it) || (hasText ? '(해당 조문 없음)' : ''), proposal(it), basis(it).join('\n'), exportStatus(it)]);
   const intro = [
     `점검 기간: ${period} 시행분 · 기준: 고용노동부 표준취업규칙(2026년 배포) 일반 근로자용, 국가법령정보센터(법제처) 원문`,
     hasText ? `점검 결과: 고칠 것·조문 추가 ${fixN}건${soonN ? ` · 시행 예정 ${soonN}건` : ''} / 전체 ${open.length}건` : '취업규칙 본문 없이 기간만으로 만든 문안 묶음입니다',
@@ -356,7 +356,7 @@ export function PeriodResults({ data, loadError, onRetry, text, from, to, source
     finally{exporting.current=false;}
   };
   const copyTable = async () => {
-    const t = compareTable(open.map((it) => ({ article: `${it.std.no}(${it.std.title})`, before: mine(it) || null, after: proposal(it) })), foot[0]);
+    const t = compareTable(open.map((it) => ({ article: exportArticle(it), before: mine(it) || null, after: proposal(it) })), foot[0]);
     if (await copyRich(t.text, t.html)) toast('신구대조표를 복사했습니다. 한글·엑셀에 붙이면 표로 들어갑니다');
   };
   const downloadPrep = () => {
@@ -407,11 +407,13 @@ export function PeriodResults({ data, loadError, onRetry, text, from, to, source
           )}
           {result.earlier.length > 0 && (
             <details className="lr-missing" open>
-              <summary>최종 개정일 이전에 시행됐는데 옛 문구가 남아 있는 개정 {result.earlier.length}건</summary>
+              <summary>최종 개정일 이전에 시행됐는데 옛 문구가 남았거나 부정문으로 적힌 개정 {result.earlier.length}건</summary>
               <ul>
                 {result.earlier.map(({ std: s, verdict: v }) => (
                   <li key={v.rule.lawId + v.rule.article + v.rule.topic}>
-                    <b>{v.rule.topic}</b> · {v.rule.law} {v.rule.article} {fmtDate(v.rule.effective)} 시행 · 현행 {v.where ?? s.title} · 남은 옛 문구: {v.stale.map((x) => <del key={x}>{x}</del>)}
+                    <b>{v.rule.topic}</b> · {v.rule.law} {v.rule.article} {fmtDate(v.rule.effective)} 시행 · 현행 {v.where ?? s.title}
+                    {v.stale.length > 0 && <> · 남은 옛 문구: {v.stale.map((x) => <del key={x}>{x}</del>)}</>}
+                    {v.negated && <> · {NEGATED_NOTE}</>}
                   </li>
                 ))}
               </ul>

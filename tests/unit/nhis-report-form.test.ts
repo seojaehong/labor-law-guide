@@ -2,7 +2,8 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { bannedHits } from '@/lib/tool-kit/banned';
-import { ACQ_CODES, allCopy, CODE_PICK, FIELD, LEAD, LOSS_DAY_NOTE, PRIVACY } from '@/app/tools/nhis-report-form/copy';
+import { ACQ_CODES, allCopy, CODE_PICK, FIELD, LEAD, LOSS_CODES, LOSS_DAY_NOTE, PRIVACY } from '@/app/tools/nhis-report-form/copy';
+import { ACQ_CODES_FORM6, LOSS_CODES_SUPPORTED } from '@/lib/nhis-forms/dates';
 import { TOOLS } from '@/content/tools-registry';
 
 describe('신고서 작성 화면 문장', () => {
@@ -28,6 +29,17 @@ describe('신고서 작성 화면 문장', () => {
   it('상실 날짜 칸은 사망일까지 밝히고 근로관계 기준을 안내한다', () => {
     expect(FIELD.lastWorkDay).toBe('마지막 근무일(사망이면 사망일)');
     expect(LOSS_DAY_NOTE).toContain('근로관계가 이어진 마지막 날');
+  });
+  // G4 261126 I25 — 화면 선택 목록과 엔진 검사(validate, MCP 공통)가 같은 부호 목록을 쓴다
+  it('화면 부호 목록 = 엔진이 받는 부호 목록', () => {
+    expect(LOSS_CODES.map(c => c.v)).toEqual([...LOSS_CODES_SUPPORTED]);
+    expect(ACQ_CODES.map(c => c.v)).toEqual([...ACQ_CODES_FORM6]);
+  });
+  // G4 261126 I28 — 퇴직 상실일 근거는 건보법 제9조제1항제3호(사용관계가 끝난 날의 다음 날), 사망은 제10조제1항제1호
+  it('상실일 근거 줄 — 퇴직 §9①3, 사망 §10①1', () => {
+    const page = readFileSync(path.join(process.cwd(), 'src/app/tools/nhis-report-form/page.tsx'), 'utf8');
+    expect(page).toMatch(/국민건강보험법 제9조제1항제3호[^']*사용관계가 끝난 날의 다음 날/);
+    expect(page).toMatch(/국민건강보험법 제10조제1항제1호[^']*사망한 날의 다음 날/);
   });
   it('늦은 신고용이고 건강보험 칸만 채운다고 첫 문단에 적는다', () => {
     expect(LEAD).toContain('기한을 넘긴');

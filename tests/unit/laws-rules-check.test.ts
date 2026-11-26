@@ -140,3 +140,41 @@ describe('부정문 — 표준 문안 자체가 부정형인 금지 조항은 �
     expect(v.status).toBe('반영됨');
   });
 });
+
+// 2026-11-26 G4 검수(I22·I23) — 부정은 ok 낱말이 든 절의 끝 서술어에서만 본다.
+// 이중부정·보장 문구(「거부할 수 없다」「불리한 처우를 하지 아니한다」)는 반영됨, 불가·금지·제외·안 함은 서술어 자리에서만 부정.
+describe('부정문 — 절 경계·이중부정·어휘 부정(G4 261126)', () => {
+  const all = (
+    JSON.parse(readFileSync(path.join(process.cwd(), 'public', 'data', 'laws', 'rules.json'), 'utf-8')) as { rules: RuleSpec[] }
+  ).rules;
+  const fx = JSON.parse(readFileSync(path.join(process.cwd(), 'tests', 'fixtures', 'laws', 'negation-sentences.json'), 'utf-8')) as {
+    topic: string; head: string; cases: { name: string; src: string; negated: boolean; text: string }[];
+  };
+  const rule = all.find((r) => r.topic === fx.topic)!;
+
+  for (const c of fx.cases) {
+    it(`${c.negated ? '부정' : '반영됨'} — ${c.name} (${c.src})`, () => {
+      const v = judge(rule, paragraphs(fx.head + c.text));
+      expect({ status: v.status, negated: !!v.negated }).toEqual(c.negated ? { status: '미반영', negated: true } : { status: '반영됨', negated: false });
+    });
+  }
+
+  // O11 기계 시험 — 표준 문안의 첫 「…한다.」를 「…한다며, 회사는 이를 거부할 수 없다.」로 바꿔도 부정으로 뒤집히지 않는다(종전 41건 중 20건)
+  it('표준 문안 + 「…며, 회사는 이를 거부할 수 없다」 꼬리 — 부정으로 뒤집히는 규칙 0', () => {
+    const flipped = all
+      .filter((r) => r.clause && r.ok.length)
+      .filter((r) => {
+        const base = r.clause.replace(/^제○조/gm, '제1조');
+        const tail = base.replace(/(한다|된다|있다)\./, '$1며, 회사는 이를 거부할 수 없다.');
+        return judge(r, paragraphs(base)).status === '반영됨' && judge(r, paragraphs(tail)).negated;
+      })
+      .map((r) => r.topic);
+    expect(flipped).toEqual([]);
+  });
+
+  it('조건이 붙은 법정 예외 단서(「…경우 … 허용하지 아니할 수 있다」)는 부정으로 보지 않는다 — 표준 제43조③', () => {
+    const r = all.find((x) => x.topic === '가족돌봄휴직·휴가 대상 가족에 조부모·손자녀 포함')!;
+    const text = '제43조(가족돌봄휴가)\n③ 1항에도 불구하고 조부모 또는 손자녀를 돌보기 위한 경우에는 신청한 사원 외에 조부모의 직계비속 또는 손자녀의 직계존속이 있는 경우 휴가를 허용하지 아니할 수 있다(다만, 조부모의 직계비속 또는 손자녀의 직계존속에게 질병, 노령, 장애 또는 미성년 등의 사유가 있어 신청한 사원이 돌봐야 하는 경우는 제외한다.)';
+    expect(judge(r, paragraphs(text)).negated).toBeFalsy();
+  });
+});

@@ -200,6 +200,31 @@ describe('입력 검사', () => {
   it('취득부호를 고르지 않으면 거부', () => {
     expect(validate({ ...acqInput, people: [{ ...joiner, nhisCode: '' }] }).join(' ')).toContain('부호를 골라');
   });
+  // G4 261126 I25 — 부호 제한이 화면 선택 목록에만 있어 MCP 명단 파일로는 04·10(상실일 = 신청일 당일)·99 가 통과했다.
+  // 상실 04·10 등 서식에 있지만 이 도구가 다루지 않는 부호와, 서식에 없는 부호를 다른 말로 거절한다.
+  it('상실부호는 01·02·16 만, 취득부호는 별지 제6호 10종만 받는다', () => {
+    const loss = (nhisCode: string) => validate({ ...lossInput, people: [{ ...leaver, nhisCode }] }).join(' ');
+    const acq = (nhisCode: string) => validate({ ...acqInput, people: [{ ...joiner, nhisCode }] }).join(' ');
+    for (const c of ['01', '02', '16']) expect(loss(c)).toBe('');
+    for (const c of ['04', '10', '13', '17', '19', '24', '25', '26', '58']) expect(loss(c)).toContain('01 퇴직·02 사망·16 취득취소만');
+    expect(loss('99')).toContain('별지 제8호서식에 없는 부호');
+    for (const c of ['00', '04', '05', '06', '07', '10', '13', '14', '29', '30']) expect(acq(c)).toBe('');
+    expect(acq('99')).toContain('별지 제6호서식에 없는 부호');
+    expect(acq('01')).toContain('별지 제6호서식에 없는 부호');
+  });
+  // G4 261126 I26 — 보수·개월 기본 모순. 근무개월수 상한은 마지막 근무일의 달(12월 31일 퇴직이면 상실일은 다음 해라도 12개월).
+  // 0원·0개월, 0원·N개월은 무급휴직 등으로 있을 수 있어 막지 않는다.
+  it('보수가 있는데 0개월, 근무개월수가 마지막 근무일의 달보다 크면 거부', () => {
+    const pay = (x: Partial<LossPerson>) => validate({ ...lossInput, people: [{ ...leaver, ...x }] }).join(' ');
+    expect(pay({ payCur: 1_000_000, monthsCur: 0 })).toContain('해당 연도 보수 총액이 있는데 근무개월수가 0');
+    expect(pay({ payPrev: 1_000_000, monthsPrev: 0 })).toContain('전년도 보수 총액이 있는데 근무개월수가 0');
+    expect(pay({ lastWorkDay: '2026-01-05', payCur: 300_000, monthsCur: 12 })).toContain('1 이하');
+    expect(pay({ lastWorkDay: '2026-05-31', monthsCur: 6 })).toContain('5 이하');
+    expect(pay({ lastWorkDay: '2026-01-05', payCur: 300_000, monthsCur: 1 })).toBe('');
+    expect(pay({ lastWorkDay: '2026-12-31', payCur: 30_000_000, monthsCur: 12 })).toBe('');
+    expect(pay({ payCur: 0, monthsCur: 0 })).toBe('');
+    expect(pay({ payCur: 0, monthsCur: 5 })).toBe('');
+  });
 });
 
 describe('사업주확인서(지연사유)', () => {

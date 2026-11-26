@@ -2,7 +2,7 @@
 // ① 내 조문을 표준 조문에 짝짓고 ② 기간 [최종 개정일, 기준일] 안에 시행되는 개정 중 그 표준 조문에 걸리는 것을 모은다.
 // 매핑(RuleSpec)이 있으면 짝지은 내 조문 안에서만 judge 한다 — 문서 전체를 키워드로 훑는 B(checkRules)와 다른 점이다.
 import type { LawEvent } from './format';
-import { anchored, judge, paragraphs, type RuleSpec, type Verdict } from './rules-check';
+import { anchored, judge, NEGATED_SHORT, paragraphs, type RuleSpec, type Verdict } from './rules-check';
 
 export interface StdLawRef {
   lawId: string | null;
@@ -173,6 +173,12 @@ export interface PeriodItem {
   proposalFrom: '매핑' | '표준취업규칙' | null;
 }
 
+/** 내보내기(docx·xlsx 점검 결과 칸) — 부정문으로 내린 규칙이 있으면 화면처럼 원문 확인 필요를 단다(G4 2026-11-26) */
+export const exportStatus = (it: PeriodItem) => (it.verdicts.some((v) => v.negated) ? `${it.status} · ${NEGATED_SHORT}` : it.status);
+/** 내보내기·표 복사의 조문 칸 — 표 복사에는 점검 결과 칸이 없어 조문 칸에 단다 */
+export const exportArticle = (it: PeriodItem) =>
+  `${it.std.no}(${it.std.title})${it.verdicts.some((v) => v.negated) ? ` · ${NEGATED_SHORT}` : ''}`;
+
 export interface PeriodResult {
   items: PeriodItem[];
   /** 짝이 없는 [필수] 표준 조문 — 본문을 넣었을 때만 */
@@ -263,7 +269,8 @@ export function periodCheck(opts: {
       const s = stdById.get((r.std ?? [])[0] ?? '');
       if (!s) continue;
       const v = verdictOf(r, matched.get(s.id) ?? []);
-      if (v.status !== '반영됨' && v.stale.length) earlier.push({ std: s, verdict: v });
+      // 부정문(negated)은 옛 문구가 없어도 넣는다 — 빼면 시행일 뒤로 기간을 잡을 때 부정문 판정이 통째로 사라진다(G4 I24)
+      if (v.status !== '반영됨' && (v.stale.length || v.negated)) earlier.push({ std: s, verdict: v });
     }
   }
 

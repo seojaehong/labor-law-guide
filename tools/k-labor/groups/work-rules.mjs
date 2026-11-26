@@ -303,8 +303,9 @@ function periodResult({ body, lastRevised, asOf, includeOk }) {
     ...(ok.length && !includeOk ? { okHidden: `문구가 일치한 ${ok.length}건은 뺐습니다(includeOk: true 로 볼 수 있습니다).` } : {}),
     earlier: result.earlier.map(({ std: s, verdict: v }) => ({
       topic: v.rule.topic, law: `${v.rule.law} ${v.rule.article}`, effective: isoOf(v.rule.effective), current: v.where ?? s.title, oldWordsLeft: v.stale,
+      ...(v.negated ? { note: NEGATED_NOTE } : {}),
     })),
-    ...(result.earlier.length ? { earlierNotice: '최종 개정일 이전에 시행됐는데 옛 문구가 남아 있는 개정입니다. 지난 개정 때 함께 고쳤어야 할 조문입니다.' } : {}),
+    ...(result.earlier.length ? { earlierNotice: '최종 개정일 이전에 시행됐는데 옛 문구가 남았거나 부정문으로 적힌 개정입니다. 지난 개정 때 함께 고쳤어야 할 조문입니다.' } : {}),
     missing93: result.missing93.map((i) => ({ no: `제${i.no}호`, label: i.label })),
     ...(result.missing93.length ? { missing93Notice: '근로기준법 제93조 필수 기재 사항 중 관련 낱말이 안 보이는 호입니다. 상시 10명 이상 사업장은 이 사항을 취업규칙에 적어 신고해야 합니다. 낱말로만 찾은 1차 점검이라 다른 표현으로 적혀 있으면 무시하세요.' } : {}),
     missingRequired: result.missingRequired.map((s) => ({ standard: `${s.no}(${s.title})`, law: s.laws.slice(0, 3).map((l) => `${l.law} ${l.article}`).join(', ') })),
