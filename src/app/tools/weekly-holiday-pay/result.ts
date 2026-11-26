@@ -1,7 +1,9 @@
 // 주휴수당 결과 블록의 글자 — 계산(calcWeeklyHoliday)은 건드리지 않고 받은 결과를 화면 문장으로만 바꾼다.
 import type { Rate } from '@/content/rates';
 import type { WeeklyHolidayResult } from '@/lib/calc/weekly-holiday';
-import { STATUS_ESTIMATE, dotDate, lawLink, minWageAsOf, won, type ResultView } from '@/components/tool-result/result-view';
+import { STATUS_ESTIMATE, STATUS_STOP, dotDate, lawLink, minWageAsOf, won, type ResultView } from '@/components/tool-result/result-view';
+
+export { STATUS_STOP };
 
 const hours = (n: number) => `${n.toLocaleString('ko-KR', { maximumFractionDigits: 2 })}시간`;
 
@@ -22,8 +24,11 @@ export function defaultWageNote(rate: Rate | null): string | null {
 /** 퇴사일이 그 주 7일째 전 — 화면과 MCP(calc_weekly_holiday_pay)가 같은 문장을 쓴다(G4 D1, 261126) */
 export const ENDED_VERDICT = ['이번 주는 주휴수당이 없습니다.', '퇴사일이 그 주(연속 7일)의 마지막 날 전이라 1주 동안 근로관계가 이어지지 않았습니다.'];
 
-/** 그 주 첫날보다 늦게 입사 — 화면과 MCP 가 같은 문장을 쓴다(G4 D1) */
-export const JOINED_VERDICT = ['이번 주는 주휴수당이 없습니다.', '그 주(연속 7일)의 첫날보다 늦게 입사해 1주 동안 근로관계가 이어지지 않았습니다.'];
+/** 그 주 첫날보다 늦게 입사 — 0원으로 단정하지 않고 금액 없이 멈춘다. 화면과 MCP 가 같은 문장을 쓴다(G4 E1, 261126) */
+export const JOINED_VERDICT = [
+  '이번 주 주휴수당은 금액을 내지 않습니다(확인 필요).',
+  '입사한 주의 주휴는 직접 다룬 행정해석을 찾지 못했습니다. 근로를 시작한 날부터 7일을 채우면 생긴다고 보는 해석(임금근로시간과-1743 취지)도 있어 금액을 내지 않습니다.',
+];
 
 /**
  * 0원(ended)의 근거 — 근로관계 존속 요건은 조문에 없어 법령 링크만으로는 판단 근거가 비었다(G4 I2·D1, 261126).
@@ -33,9 +38,12 @@ export const JOINED_VERDICT = ['이번 주는 주휴수당이 없습니다.', '�
 export const ENDED_BASIS =
   '근로관계가 1주 동안 이어져야 한다는 요건은 조문에 없습니다(시행령 제30조 제1항은 개근만 정합니다). 고용노동부는 「1주 7일의 마지막날(7일째가 되는 날)」에 사업장에 소속되어 있으면 1주간 근로관계가 유지된 것으로 보고(1350 답변, 2025. 9. 15.), 유급 주휴일을 「1주간의 근로관계가 존속하면서」 그 주 소정근로일을 개근한 경우에 준다고 봅니다(임금근로시간과-1743, 2021. 8. 5.).';
 
-/** 0원(joined)의 근거 — 입사 주를 직접 다룬 해석이 없어 이 계산기의 기준임을 밝힌다(G4 D1) */
+/**
+ * 확인 필요(joined-unclear)의 근거 — 회사가 정한 1주(제2조)로 보면 없고, 1743 의 기산 방식으로 보면 입사일부터 7일을 채우면
+ * 생길 수 있다(G4 E1). 「」 안은 법제처 DRF 법령해석 16858(임금근로시간과-1743) 회답 글자 그대로다(2026-11-26 조회).
+ */
 export const JOINED_BASIS =
-  '1주는 휴일을 포함한 7일입니다(근로기준법 제2조 제1항 제7호). 입사한 주를 직접 다룬 고용노동부 해석은 찾지 못해, 퇴사하는 주와 같이 그 7일 동안 근로관계가 이어져야 생기는 것으로 셉니다.';
+  '1주는 휴일을 포함한 7일입니다(근로기준법 제2조 제1항 제7호). 고용노동부는 일용근로자 사안에서 「유급 주휴일의 기산 시점은 해당 사업장에서 근로를 시작한이후에 특정 시점에서 과거 1주간의 주휴일 부여 요건이 충족하는지를 판단」하면 된다고 보았습니다(임금근로시간과-1743, 2021. 8. 5.).';
 
 /** 화면 선택(그 주 내내 재직했나) — 생기는 선택은 「7일 내내 재직」 하나뿐이라 같은 주에 입사·퇴사해도 새지 않는다 */
 export const WEEK_SPANS = ['whole', 'joined', 'before'] as const;
@@ -50,7 +58,7 @@ export function weekSpanInput(span: WeekSpan): { joinedMidWeek?: boolean; endsBe
 
 /** 화면 선택지 아래 설명 — 7일째 기준과 예시 */
 export const WEEK_NOTE =
-  '1주는 회사가 정한 연속 7일(보통 월~일)이고, 주휴일이 무슨 요일이든 그 주 첫날부터 마지막 날(7일째)까지 근로관계가 이어져야 생깁니다. 월~일 주에 금요일까지 일하고 퇴사일도 금요일이면 없고, 퇴사일이 일요일이면 생깁니다. 주휴일이 수요일이어도 목요일에 퇴사하면 없고, 수요일에 입사한 주도 없습니다.';
+  '1주는 회사가 정한 연속 7일(보통 월~일)이고, 퇴사하는 주는 주휴일이 무슨 요일이든 그 주 마지막 날(7일째)까지 근로관계가 이어져야 생깁니다. 월~일 주에 금요일까지 일하고 퇴사일도 금요일이면 없고, 퇴사일이 일요일이면 생깁니다. 주휴일이 수요일이어도 목요일에 퇴사하면 없습니다. 수요일처럼 그 주 첫날보다 늦게 입사한 주는 직접 다룬 행정해석이 없어 금액을 내지 않습니다.';
 
 /** 퇴사일의 뜻 — 화면의 퇴사 주 설명과 0원 안내가 같이 쓴다. 상실일(퇴직일)은 퇴사일 다음 날이다(pay-proration.ts 용어와 같다) */
 export const EXIT_DAY_DEFINITION =
@@ -61,7 +69,7 @@ const BASIS = [
   lawLink('근로기준법 시행령 제30조(휴일)', '근로기준법 시행령', '제30조'),
   lawLink('근로기준법 제18조(단시간근로자의 근로조건)', '근로기준법', '제18조'),
 ];
-/** 「1주」 = 휴일을 포함한 7일(제2조 제1항 제7호) — 입사·퇴사 주 0원에만 붙인다 */
+/** 「1주」 = 휴일을 포함한 7일(제2조 제1항 제7호) — 퇴사 주 0원·입사 주 확인 필요에만 붙인다 */
 const WEEK_LAW = lawLink('근로기준법 제2조(정의)', '근로기준법', '제2조');
 
 export function weeklyHolidayView(a: {
@@ -111,14 +119,16 @@ export function weeklyHolidayView(a: {
       ],
     };
   }
-  if (r.status === 'joined') {
+  if (r.status === 'joined-unclear') {
+    // 금액을 내지 않는 멈춤 — 「추정 금액」 띠가 아니라 멈춤 띠(G4 E1)
     return {
       ...base,
+      status: STATUS_STOP,
       verdict: JOINED_VERDICT,
       meta: [JOINED_BASIS],
       amounts: [],
       basis: [...BASIS, WEEK_LAW],
-      nextNote: '입사일이 그 주 첫날이면 7일 내내 재직한 것이라 「7일 내내 재직했다」를 고릅니다. 다음 주부터는 7일 내내 재직하고 소정근로일을 모두 나오면 생깁니다.',
+      nextNote: '근로계약·취업규칙과 노동부 해석을 확인하세요. 입사일이 그 주 첫날이었다면 「7일 내내 재직했다」를 골라 다시 계산해 보세요. 다음 주부터 7일 내내 재직하고 소정근로일을 모두 나오면 생깁니다.',
       next: [
         { label: '급여 일할계산(입사한 달)', href: '/tools/pay-proration' },
         { label: '월급 대조(시급제 주휴)', href: '/tools/pay-check' },

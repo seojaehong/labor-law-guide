@@ -8,8 +8,8 @@ import { WITHHOLDING_UNTIL, calcTakeHomePay, takeHomeRatesOn } from '@/lib/calc/
 import { calcWeeklyHoliday } from '@/lib/calc/weekly-holiday';
 import { INITIAL, toWriteForm, type WriteState } from '@/app/tools/contract-write/formState';
 import {
-  ENDED_BASIS, ENDED_VERDICT, EXIT_DAY_DEFINITION, JOINED_BASIS, JOINED_VERDICT, WEEK_NOTE, WEEK_SPANS, weekSpanInput, weeklyHolidayView,
-  type WeekSpan,
+  ENDED_BASIS, ENDED_VERDICT, EXIT_DAY_DEFINITION, JOINED_BASIS, JOINED_VERDICT, STATUS_STOP, WEEK_NOTE, WEEK_SPANS, weekSpanInput,
+  weeklyHolidayView, type WeekSpan,
 } from '@/app/tools/weekly-holiday-pay/result';
 import { bannedHits } from '@/lib/tool-kit/banned';
 import { readFileSync } from 'node:fs';
@@ -249,17 +249,17 @@ describe('#4 주휴 퇴사 주', () => {
   });
 });
 
-// ── G4 D1(261126 재홍님 결정) 1주(연속 7일)의 첫날부터 마지막 날(7일째)까지 근로관계가 이어져야 생긴다 ──
-// 주휴일 요일과 상관없다. 입사한 주도 같다(그 주 첫날보다 늦게 입사하면 0원).
+// ── G4 D1(261126 재홍님 결정) 퇴사 주 = 1주(연속 7일)의 마지막 날(7일째)까지 근로관계가 이어져야 생긴다 ──
+// 주휴일 요일과 상관없다. 입사 주는 E1(아래)로 바뀌었다 — 0원으로 단정하지 않고 금액 없이 「확인 필요」.
 // 근거: 고용노동부 1350 답변(2025. 9. 15.) 「1주 7일의 마지막날(7일째가 되는 날)…」, 임금근로시간과-1743 「1주간의 근로관계가 존속하면서」.
 describe('G4 D1 주휴 1주(연속 7일) 존속 기준', () => {
   const at = (weeklyHours: number, span: WeekSpan) =>
     calcWeeklyHoliday({ hourlyWage: 10_320, weeklyHours, fullAttendance: true, ...weekSpanInput(span) });
 
-  it('화면 선택 → 엔진 입력: 「7일 내내 재직」만 생기고 주중 입사·7일째 전 퇴사는 모두 0원', () => {
+  it('화면 선택 → 엔진 입력: 「7일 내내 재직」만 생기고, 7일째 전 퇴사는 0원, 주중 입사는 금액 없음(E1)', () => {
     expect(WEEK_SPANS.map((s) => [s, at(40, s).status, at(40, s).amount])).toEqual([
       ['whole', 'paid', 82_560],
-      ['joined', 'joined', 0],
+      ['joined', 'joined-unclear', null],
       ['before', 'ended', 0],
     ]);
   });
@@ -269,10 +269,10 @@ describe('G4 D1 주휴 1주(연속 7일) 존속 기준', () => {
     expect([r.status, r.amount]).toEqual(['ended', 0]);
   });
 
-  it('반례 2 — 수요일 입사·일요일 종료(같은 주): 주중 입사라 0원(종전 주 24시간 49,536원)', () => {
+  it('반례 2 — 수요일 입사·일요일 종료(같은 주): 종전 주 24시간 49,536원 → 금액 없음·확인 필요(E1)', () => {
     expect(at(24, 'whole').amount).toBe(49_536); // 종전 값 확인 — 10,320 × 24 ÷ 5
     const r = at(24, 'joined');
-    expect([r.status, r.amount]).toEqual(['joined', 0]);
+    expect([r.status, r.amount, r.monthly]).toEqual(['joined-unclear', null, null]);
   });
 
   it('7일째(일요일)까지 재직하고 퇴사하면 생긴다 — 8일째 근로가 예정되지 않아도', () => {
@@ -297,15 +297,6 @@ describe('G4 D1 주휴 1주(연속 7일) 존속 기준', () => {
     expect(v.basis.map((b) => b.label)).toContain('근로기준법 제2조(정의)');
   });
 
-  it('입사(joined) 화면 — 생기는 입력 문장으로 떨어지지 않고 입사 주 문장·근거 줄을 낸다', () => {
-    const v = view('joined', 24);
-    expect(v.verdict).toEqual(JOINED_VERDICT);
-    expect(v.amounts).toEqual([]);
-    expect(v.meta).toEqual([JOINED_BASIS]);
-    expect(JOINED_BASIS).not.toContain('1743'); // 1743 의 기산 시점(근로 시작 뒤 과거 1주)은 입사 주 0원을 뒷받침하지 않는다
-    expect(v.basis.map((b) => b.label)).toContain('근로기준법 제2조(정의)');
-  });
-
   it('화면 — 선택지 셋, 옛 「주휴일 전」 문구 없음, 설명은 7일째 기준과 금/일·수요일 예시', () => {
     const src = readFileSync('src/app/tools/weekly-holiday-pay/WeeklyHolidayClient.tsx', 'utf8');
     expect(src).toContain('weekSpanInput(');
@@ -314,9 +305,59 @@ describe('G4 D1 주휴 1주(연속 7일) 존속 기준', () => {
     expect(WEEK_NOTE).toContain('7일째');
     expect(WEEK_NOTE).toContain('수요일');
   });
+});
+
+// ── G4 E1(261126 재홍님 결정) 입사 주는 0원으로 단정하지 않는다 — 금액을 내지 않고 「확인 필요」로 멈춘다 ──
+// 입사 주를 직접 다룬 행정해석이 없고, 임금근로시간과-1743 은 근로를 시작한 뒤 어느 시점에서 과거 1주를 보라고 해
+// 「입사일부터 7일을 채우면 생긴다」로 읽힐 수 있다(일용근로자 사안). 퇴사 주(D1)는 그대로.
+describe('G4 E1 주휴 입사 주 — 금액 없이 확인 필요', () => {
+  const base = { hourlyWage: 10_320, weeklyHours: 40, fullAttendance: true };
+  const view = (input: Parameters<typeof calcWeeklyHoliday>[0]) =>
+    weeklyHolidayView({
+      r: calcWeeklyHoliday(input), hourlyWage: input.hourlyWage, weeklyHours: input.weeklyHours, fullTimeDays: 5,
+      minWage: rateOn('minWageHourly', '2026-11-26'),
+    });
+
+  it('반례 — 수요일 입사(주 40시간): 0원도 82,560원도 아닌 금액 없음·joined-unclear', () => {
+    const r = calcWeeklyHoliday({ ...base, joinedMidWeek: true });
+    expect([r.status, r.amount, r.monthly]).toEqual(['joined-unclear', null, null]);
+  });
+
+  it('0원이 확실한 쪽이 앞선다 — 15시간 미만, 같은 주에 7일째 전 퇴사, 결근은 입사 주여도 0원', () => {
+    expect(calcWeeklyHoliday({ ...base, weeklyHours: 14, joinedMidWeek: true }).status).toBe('under15');
+    // 수요일 입사·금요일 퇴사 — 어느 해석으로도 7일이 차지 않는다
+    expect(calcWeeklyHoliday({ ...base, joinedMidWeek: true, endsBeforeWeekEnd: true })).toMatchObject({ status: 'ended', amount: 0 });
+    expect(calcWeeklyHoliday({ ...base, joinedMidWeek: true, fullAttendance: false })).toMatchObject({ status: 'absent', amount: 0 });
+  });
+
+  it('화면 — 멈춤 상태 띠, 금액 칸 없음, 「확인 필요」 문장, 근거 줄 = 1743 원문 구절 + 제2조', () => {
+    const v = view({ ...base, joinedMidWeek: true });
+    expect(v.status).toBe(STATUS_STOP);
+    expect(v.amounts).toEqual([]);
+    expect(v.verdict).toEqual(JOINED_VERDICT);
+    const said = [...JOINED_VERDICT, v.nextNote ?? ''].join(' ');
+    expect(said).toContain('확인 필요');
+    expect(said).toContain('입사한 주의 주휴는 직접 다룬 행정해석을 찾지 못했습니다');
+    expect(said).toContain('근로를 시작한 날부터 7일을 채우면 생긴다고 보는 해석(임금근로시간과-1743 취지)');
+    expect(said).toContain('근로계약·취업규칙과 노동부 해석을 확인하세요');
+    expect(said).not.toMatch(/0원|없습니다\./); // 「없다」로 단정하지 않는다
+    expect(v.meta).toEqual([JOINED_BASIS]);
+    // 「」 안은 법제처 DRF 16858(임금근로시간과-1743) 회답 글자 그대로
+    expect(JOINED_BASIS).toContain('「유급 주휴일의 기산 시점은 해당 사업장에서 근로를 시작한이후에 특정 시점에서 과거 1주간의 주휴일 부여 요건이 충족하는지를 판단」');
+    expect(JOINED_BASIS).toContain('임금근로시간과-1743, 2021. 8. 5.');
+    expect(JOINED_BASIS).toContain('제2조 제1항 제7호');
+    expect(v.basis.map((b) => b.label)).toContain('근로기준법 제2조(정의)');
+  });
+
+  it('화면 설명도 입사 주를 「없다」로 말하지 않는다', () => {
+    expect(WEEK_NOTE).not.toContain('입사한 주도 없습니다');
+    expect(WEEK_NOTE).toContain('금액을 내지 않습니다');
+  });
 
   it('새 문장에 금지어가 없다', () => {
-    expect(bannedHits([...ENDED_VERDICT, ...JOINED_VERDICT, ENDED_BASIS, JOINED_BASIS, WEEK_NOTE, view('before').nextNote ?? '', view('joined').nextNote ?? ''].join(' '))).toEqual([]);
+    const v = view({ ...base, joinedMidWeek: true });
+    const ended = view({ ...base, endsBeforeWeekEnd: true });
+    expect(bannedHits([...ENDED_VERDICT, ...JOINED_VERDICT, ENDED_BASIS, JOINED_BASIS, WEEK_NOTE, ended.nextNote ?? '', v.nextNote ?? ''].join(' '))).toEqual([]);
   });
 });
 

@@ -319,9 +319,11 @@ if (tools.includes('calc_weekly_holiday_pay')) {
     /7일째가 되는 날/.test(fri.basisNote ?? '') && /임금근로시간과-1743/.test(fri.basisNote ?? '') && fri.basis?.some((b) => b.includes('제2조')));
   const sun = await callTool('calc_weekly_holiday_pay', { hourlyWage: 10_320, weeklyHours: 40, endsBeforeWeekEnd: false });
   check('weekly_holiday 퇴사일이 7일째(일요일)면 82,560원(근거 줄 없음)', sun.status === 'paid' && sun.amount === 82_560 && sun.basisNote === undefined);
-  // G4 D1 — 수요일 입사·일요일 종료(주 24시간): 종전 49,536원 → 0원
+  // G4 E1 — 수요일 입사(주 24시간): 종전 49,536원 → 0원으로 단정하지 않고 금액 없음·확인 필요
   const wed = await callTool('calc_weekly_holiday_pay', { hourlyWage: 10_320, weeklyHours: 24, joinedMidWeek: true });
-  check(`weekly_holiday 주중 입사면 없음(${wed.headline?.[1]})`, wed.status === 'joined' && wed.amount === 0 && /입사/.test(wed.headline?.[1] ?? '') && /제2조 제1항 제7호/.test(wed.basisNote ?? ''));
+  check(`weekly_holiday 주중 입사면 금액 없음·확인 필요(${wed.headline?.[0]})`,
+    wed.status === 'joined-unclear' && wed.amount === null && wed.monthly === null && /확인 필요/.test(wed.headline?.[0] ?? '')
+      && /1743/.test(wed.headline?.[1] ?? '') && /근로를 시작한이후에/.test(wed.basisNote ?? '') && /제2조 제1항 제7호/.test(wed.basisNote ?? ''));
 }
 if (tools.includes('count_regular_workers')) {
   // 4명 원래부터 + 계약직 1명 2026-11-02~11-30, 월~금

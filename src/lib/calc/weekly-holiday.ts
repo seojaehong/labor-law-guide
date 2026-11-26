@@ -15,8 +15,8 @@ export interface WeeklyHolidayInput {
   /** 같은 일을 하는 통상근로자의 1주 소정근로일 수. 기본 5 */
   fullTimeDays?: number;
   /**
-   * 입사한 주에만: 입사일이 그 주(회사가 정한 연속 7일)의 첫날보다 늦은가. true 면 1주 동안 근로관계가 이어지지 않아 없다.
-   * 비우면 그 주 첫날부터 재직한 것으로 본다.
+   * 입사한 주에만: 입사일이 그 주(회사가 정한 연속 7일)의 첫날보다 늦은가. true 면 금액을 내지 않고 'joined-unclear'
+   * (확인 필요)로 멈춘다 — 0원으로 단정하지 않는다(G4 E1). 비우면 그 주 첫날부터 재직한 것으로 본다.
    */
   joinedMidWeek?: boolean;
   /**
@@ -29,18 +29,20 @@ export interface WeeklyHolidayInput {
   endsBeforeWeekEnd?: boolean;
 }
 
-export interface WeeklyHolidayResult {
-  /**
-   * paid = 생긴다 · under15 = 주 15시간 미만 · joined = 그 주 첫날보다 늦게 입사 · ended = 7일째 전에 퇴사
-   * · absent = 개근하지 않음
-   */
-  status: 'paid' | 'under15' | 'joined' | 'ended' | 'absent';
-  dailyHours: number;
-  /** 1주 주휴수당 */
-  amount: number;
-  /** 한 달 평균(1주 금액 × 365 ÷ 7 ÷ 12) */
-  monthly: number;
-}
+/**
+ * paid = 생긴다 · under15 = 주 15시간 미만 · ended = 7일째 전에 퇴사 · absent = 개근하지 않음
+ * · joined-unclear = 그 주 첫날보다 늦게 입사 — 해석이 갈려 금액을 내지 않는다(amount·monthly = null)
+ */
+export type WeeklyHolidayResult =
+  | {
+    status: 'paid' | 'under15' | 'ended' | 'absent';
+    dailyHours: number;
+    /** 1주 주휴수당 */
+    amount: number;
+    /** 한 달 평균(1주 금액 × 365 ÷ 7 ÷ 12) */
+    monthly: number;
+  }
+  | { status: 'joined-unclear'; dailyHours: number; amount: null; monthly: null };
 
 export function calcWeeklyHoliday(input: WeeklyHolidayInput): WeeklyHolidayResult {
   const { hourlyWage, weeklyHours, fullAttendance } = input;
@@ -52,7 +54,7 @@ export function calcWeeklyHoliday(input: WeeklyHolidayInput): WeeklyHolidayResul
   const capped = weeklyHours >= days * 8;
   // 화면에 보이는 시간은 소수 둘째 자리까지, 금액은 나누기 전 값으로 센다(23 ÷ 6 = 3.83… 을 깎지 않는다)
   const dailyHours = capped ? 8 : Math.round((weeklyHours / days) * 100) / 100;
-  // 1주(연속 7일)의 첫날부터 마지막 날(7일째)까지 근로관계가 이어져야 생긴다 — 주휴일 요일과 상관없다(G4 D1, 261126 재홍님 결정).
+  // 퇴사 주는 1주(연속 7일)의 마지막 날(7일째)까지 근로관계가 이어져야 생긴다 — 주휴일 요일과 상관없다(G4 D1, 261126 재홍님 결정).
   // 존속 요건은 조문에 없다(§2①7 「1주」 = 휴일 포함 7일, 시행령 §30①은 개근 요건). 원문 확인한 근거:
   //   · 고용노동부 1350 답변(2025. 9. 15., 문답 페이지 1000299736 — 문답 셋이 한 페이지에 있다) 「1주 7일의 마지막날(7일째가
   //     되는 날)에 … 사업장에 소속되어 있는 경우에는 1주간 근로관계가 유지된 것」, 같은 페이지의 2025. 7. 3. 답변 「1주를 초과한 날
@@ -60,13 +62,15 @@ export function calcWeeklyHoliday(input: WeeklyHolidayInput): WeeklyHolidayResul
   //   · 임금근로시간과-1743(2021. 8. 5., DRF 16858) 「1주간의 근로관계가 존속하면서」
   //   · 근로기준정책과-6551(2015. 12. 7., DRF 22546)은 1주 개근 뒤 퇴사하면 「발생하는 것으로 보기 어렵다」고 해 0원 쪽으로만
   //     같은 방향이다. 글자대로면 7일째까지 재직하고 나간 경우도 0원이라 1350 답변과 어긋나 화면 근거에는 넣지 않았다.
-  // 입사 주: 그 주 첫날보다 늦게 입사하면 1주 동안 이어지지 않아 없다(D1). 입사 주를 직접 다룬 해석은 찾지 못했다 —
-  //   1743 의 기산 시점(근로 시작 뒤 어느 시점에서 과거 1주)은 일용근로자 사안이라 이 규칙의 근거로 쓰지 않는다.
+  // 입사 주(G4 E1, 261126 재홍님 결정): 0원으로 단정하지 않고 금액 없이 멈춘다. 입사 주를 직접 다룬 해석은 찾지 못했고,
+  //   1743 은 「기산 시점은 … 근로를 시작한이후에 특정 시점에서 과거 1주간」을 보라고 해(일용근로자 사안) 입사일부터 7일을
+  //   채우면 생긴다고 읽힐 수 있다. 다만 15시간 미만·같은 주 7일째 전 퇴사·결근은 어느 해석으로도 0원이라 먼저 본다.
   const status =
     weeklyHours < 15 ? 'under15'
-      : input.joinedMidWeek ? 'joined'
-        : input.endsBeforeWeekEnd ? 'ended'
-          : fullAttendance ? 'paid' : 'absent';
+      : input.endsBeforeWeekEnd ? 'ended'
+        : !fullAttendance ? 'absent'
+          : input.joinedMidWeek ? 'joined-unclear' : 'paid';
+  if (status === 'joined-unclear') return { status, dailyHours, amount: null, monthly: null };
   if (status !== 'paid') return { status, dailyHours, amount: 0, monthly: 0 };
 
   const amount = payableWon(capped ? hourlyWage * 8 : (hourlyWage * weeklyHours) / days);
