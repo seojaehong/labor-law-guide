@@ -16,6 +16,7 @@ export interface WeeklyHolidayInput {
   fullTimeDays?: number;
   /**
    * 퇴사하는 주에 근로관계가 그 주 주휴일 전에 끝나는가. 퇴사일 = 근로관계가 이어진 마지막 날(마지막 근무일이 아니다).
+   * 인사기록·4대보험의 상실일(퇴직일)은 그다음 날이다 — 그 날짜를 퇴사일로 쓰면 하루가 밀린다.
    * 금요일까지 일하고 퇴사일도 금요일이면 true(주휴 없음), 금요일까지 일하고 퇴사일이 일요일(주휴일)이면 false.
    * 비우면 평상 주로 본다.
    */
@@ -42,7 +43,8 @@ export function calcWeeklyHoliday(input: WeeklyHolidayInput): WeeklyHolidayResul
   const capped = weeklyHours >= days * 8;
   // 화면에 보이는 시간은 소수 둘째 자리까지, 금액은 나누기 전 값으로 센다(23 ÷ 6 = 3.83… 을 깎지 않는다)
   const dailyHours = capped ? 8 : Math.round((weeklyHours / days) * 100) / 100;
-  // 주휴일은 근로관계가 그날까지 이어질 때 생긴다 — 그 전에 끝나면 개근해도 없다(시행령 §30①, 고용노동부 행정해석)
+  // 주휴일은 근로관계가 그날까지 이어질 때 생긴다 — 그 전에 끝나면 개근해도 없다. 존속 요건은 조문에 없다(시행령 §30①은
+  // 개근 요건). 원문 확인한 해석 = 임금근로시간과-1743(2021. 8. 5.) 「1주간의 근로관계가 존속하면서」(result.ts ENDED_BASIS)
   const status = weeklyHours < 15 ? 'under15' : input.endsBeforeRestDay ? 'ended' : fullAttendance ? 'paid' : 'absent';
   if (status !== 'paid') return { status, dailyHours, amount: 0, monthly: 0 };
 

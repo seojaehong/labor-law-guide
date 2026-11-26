@@ -7,6 +7,9 @@ import { rateOn } from '@/content/rates';
 import { WITHHOLDING_UNTIL, calcTakeHomePay, takeHomeRatesOn } from '@/lib/calc/take-home-pay';
 import { calcWeeklyHoliday } from '@/lib/calc/weekly-holiday';
 import { INITIAL, toWriteForm, type WriteState } from '@/app/tools/contract-write/formState';
+import { ENDED_BASIS, EXIT_DAY_DEFINITION, weeklyHolidayView } from '@/app/tools/weekly-holiday-pay/result';
+import { bannedHits } from '@/lib/tool-kit/banned';
+import { readFileSync } from 'node:fs';
 
 // ── #8 상시인원 월말 개업 — 시행령 제7조의2 제3항 「발생일 전 1년 동안 계속하여」 ──
 const ALL = [0, 1, 2, 3, 4, 5, 6];
@@ -240,5 +243,42 @@ describe('#4 주휴 퇴사 주', () => {
   });
   it('15시간 미만이면 퇴사 여부와 상관없이 under15', () => {
     expect(calcWeeklyHoliday({ ...base, weeklyHours: 14, endsBeforeRestDay: true }).status).toBe('under15');
+  });
+});
+
+// ── G4 I2(261126) 퇴사 주 — 0원(ended)의 근거 줄과 퇴사일 뜻(상실일은 그다음 날) ──
+// 존속 요건은 조문에 없다(시행령 제30조 제1항은 개근만). 원문 확인한 해석 = 임금근로시간과-1743(2021. 8. 5., 법제처 DRF 16858).
+describe('G4 I2 퇴사 주 근거·퇴사일 설명', () => {
+  const view = (endsBeforeRestDay?: boolean) =>
+    weeklyHolidayView({
+      r: calcWeeklyHoliday({ hourlyWage: 10_320, weeklyHours: 40, fullAttendance: true, endsBeforeRestDay }),
+      hourlyWage: 10_320, weeklyHours: 40, fullTimeDays: 5, minWage: rateOn('minWageHourly', '2026-11-26'),
+    });
+
+  it('ended 화면에 존속 요건의 근거를 밝힌다 — 조문에 없음, 임금근로시간과-1743 원문 구절', () => {
+    expect(view(true).meta).toEqual([ENDED_BASIS]);
+    expect(ENDED_BASIS).toContain('시행령 제30조 제1항은 개근');
+    expect(ENDED_BASIS).toContain('「1주간의 근로관계가 존속하면서」');
+    expect(ENDED_BASIS).toContain('임금근로시간과-1743, 2021. 8. 5.');
+  });
+
+  it('평상 주(paid)에는 퇴사 주 근거 줄을 붙이지 않는다', () => {
+    expect(view(false).meta ?? []).not.toContain(ENDED_BASIS);
+    expect(view().meta ?? []).not.toContain(ENDED_BASIS);
+  });
+
+  it('퇴사일 = 근로관계가 이어진 마지막 날, 인사기록·4대보험의 상실일(퇴직일)은 그다음 날 — 화면 설명과 0원 안내가 같은 뜻', () => {
+    expect(EXIT_DAY_DEFINITION).toContain('근로관계가 이어진 마지막 날');
+    expect(EXIT_DAY_DEFINITION).toContain('상실일(퇴직일)은 그다음 날');
+    expect(EXIT_DAY_DEFINITION).not.toContain('인사기록의 날짜');
+    const next = view(true).nextNote ?? '';
+    expect(next).toContain('상실일(퇴직일)은 그다음 날');
+    expect(next).not.toContain('사직서·인사기록에 적힌');
+    // 화면 라디오 아래 설명이 같은 상수를 쓴다
+    expect(readFileSync('src/app/tools/weekly-holiday-pay/WeeklyHolidayClient.tsx', 'utf8')).toContain('{EXIT_DAY_DEFINITION}');
+  });
+
+  it('새 문장에 금지어가 없다', () => {
+    expect(bannedHits([ENDED_BASIS, EXIT_DAY_DEFINITION, view(true).nextNote ?? ''].join(' '))).toEqual([]);
   });
 });

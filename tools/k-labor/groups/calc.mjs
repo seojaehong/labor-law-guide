@@ -5,7 +5,7 @@ import { z } from 'zod';
 import { rateOn } from '@/content/rates';
 import { checkMinWage } from '@/lib/calc/min-wage';
 import { calcWeeklyHoliday } from '@/lib/calc/weekly-holiday';
-import { ENDED_VERDICT as WHP_ENDED } from '@/app/tools/weekly-holiday-pay/result';
+import { ENDED_BASIS as WHP_ENDED_BASIS, ENDED_VERDICT as WHP_ENDED } from '@/app/tools/weekly-holiday-pay/result';
 import { calcTakeHomePay, takeHomeRatesOn } from '@/lib/calc/take-home-pay';
 import { WITHHOLDING_REVISION } from '@/lib/calc/wage-withholding-2026-02-27';
 import { calcNoticePay } from '@/lib/calc/notice-pay';
@@ -118,13 +118,13 @@ export function registerCalc(server) {
     {
       title: '주휴수당 계산',
       description:
-        '1주 주휴수당과 한 달 평균을 계산한다(사이트 /tools/weekly-holiday-pay 와 같은 엔진). 주휴수당 = 시급 × 1일 소정근로시간, 1일 소정근로시간 = 1주 소정근로시간 ÷ 통상근로자 1주 소정근로일 수(보통 5일, 8시간까지). 주 15시간 미만이면 없고, 그 주 소정근로일을 개근해야 생긴다. 퇴사하는 주는 퇴사일(근로관계 마지막 날, 마지막 근무일이 아니다)이 그 주 주휴일 전이면 없다.',
+        '1주 주휴수당과 한 달 평균을 계산한다(사이트 /tools/weekly-holiday-pay 와 같은 엔진). 주휴수당 = 시급 × 1일 소정근로시간, 1일 소정근로시간 = 1주 소정근로시간 ÷ 통상근로자 1주 소정근로일 수(보통 5일, 8시간까지). 주 15시간 미만이면 없고, 그 주 소정근로일을 개근해야 생긴다. 퇴사하는 주는 퇴사일(근로관계 마지막 날, 마지막 근무일이 아니다. 인사기록·4대보험의 상실일(퇴직일)은 그다음 날)이 그 주 주휴일 전이면 없다.',
       inputSchema: {
         hourlyWage: z.number().describe('시급(원)'),
         weeklyHours: z.number().describe('1주 소정근로시간(4주 평균, 연장근로 제외)'),
         fullAttendance: z.boolean().optional().describe('그 주 소정근로일을 모두 나왔나(기본 true)'),
         fullTimeDays: z.number().int().optional().describe('같은 일을 하는 통상근로자의 1주 소정근로일 수(기본 5)'),
-        endsBeforeRestDay: z.boolean().optional().describe('퇴사하는 주에만: 퇴사일(근로관계가 이어진 마지막 날 — 마지막 근무일이 아니다)이 그 주 주휴일 전이면 true(금요일까지 일하고 금요일 퇴사), 주휴일이거나 그 뒤면 false(금요일까지 일하고 일요일 퇴사). 평상 주는 비운다'),
+        endsBeforeRestDay: z.boolean().optional().describe('퇴사하는 주에만: 퇴사일(근로관계가 이어진 마지막 날 — 마지막 근무일이 아니고, 인사기록·4대보험의 상실일(퇴직일)은 그다음 날이라 그 날짜도 아니다)이 그 주 주휴일 전이면 true(금요일까지 일하고 금요일 퇴사), 주휴일이거나 그 뒤면 false(금요일까지 일하고 일요일 퇴사). 평상 주는 비운다'),
       },
       annotations: READ_ONLY,
     },
@@ -136,9 +136,14 @@ export function registerCalc(server) {
             : r.status === 'ended' ? WHP_ENDED
             : r.status === 'absent' ? ['이번 주는 주휴수당이 없습니다.', '그 주 소정근로일을 모두 나와야 생깁니다.']
               : [`1주 주휴수당은 ${won(r.amount)}입니다.`, `시급 ${won(a.hourlyWage)} × 1일 소정근로시간 ${hoursText(r.dailyHours)}, 한 달 평균 ${won(r.monthly)}(× 365 ÷ 7 ÷ 12)`];
+        const ended = r.status === 'ended';
         return text({
           ok: true, headline, ...r,
-          basis: ['근로기준법 제55조제1항(유급휴일)', '근로기준법 시행령 별표2 제2호나목(1일 소정근로시간)', '근로기준법 제18조제3항(주 15시간 미만)', '근로기준법 시행령 제30조제1항(개근)'],
+          ...(ended ? { basisNote: WHP_ENDED_BASIS } : {}),
+          basis: [
+            '근로기준법 제55조제1항(유급휴일)', '근로기준법 시행령 별표2 제2호나목(1일 소정근로시간)', '근로기준법 제18조제3항(주 15시간 미만)', '근로기준법 시행령 제30조제1항(개근)',
+            ...(ended ? ['고용노동부 임금근로시간과-1743(2021. 8. 5.) — 1주간 근로관계 존속(조문에는 없음)'] : []),
+          ],
           site: `${SITE}/tools/weekly-holiday-pay`,
         });
       }),

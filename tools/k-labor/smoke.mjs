@@ -313,8 +313,11 @@ if (tools.includes('calc_weekly_holiday_pay')) {
   check('weekly_holiday 주 15시간 미만은 없음', u.status === 'under15' && u.amount === 0);
   const fri = await callTool('calc_weekly_holiday_pay', { hourlyWage: 10_320, weeklyHours: 40, endsBeforeRestDay: true });
   check(`weekly_holiday 퇴사일이 주휴일 전이면 없음(${fri.headline?.[1]})`, fri.status === 'ended' && fri.amount === 0);
+  // G4 I2 — 0원의 근거(존속 요건은 조문에 없음, 임금근로시간과-1743)를 웹과 같은 문장으로 싣는다
+  check(`weekly_holiday 퇴사 주 근거 1743(${fri.basisNote})`,
+    /임금근로시간과-1743/.test(fri.basisNote ?? '') && fri.basis?.some((b) => b.includes('1743')));
   const sun = await callTool('calc_weekly_holiday_pay', { hourlyWage: 10_320, weeklyHours: 40, endsBeforeRestDay: false });
-  check('weekly_holiday 퇴사일이 주휴일이면 82,560원', sun.status === 'paid' && sun.amount === 82_560);
+  check('weekly_holiday 퇴사일이 주휴일이면 82,560원(퇴사 주 근거 줄 없음)', sun.status === 'paid' && sun.amount === 82_560 && sun.basisNote === undefined);
 }
 if (tools.includes('count_regular_workers')) {
   // 4명 원래부터 + 계약직 1명 2026-11-02~11-30, 월~금

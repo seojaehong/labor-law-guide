@@ -7,7 +7,7 @@ import FoldedDetail from '@/components/tool/FoldedDetail';
 import ToolSplit from '@/components/tool/ToolSplit';
 import ResultBlock from '@/components/tool-result/ResultBlock';
 import { card, inputCls, ink, muted, small, todayKst, wonInputError } from '@/lib/tool-kit';
-import { defaultWageNote, weeklyHolidayView } from './result';
+import { EXIT_DAY_DEFINITION, defaultWageNote, weeklyHolidayView } from './result';
 
 const num = (s: string) => Number(s.replace(/,/g, '').trim());
 
@@ -74,7 +74,7 @@ export default function WeeklyHolidayClient() {
             <label className={radioLabel}><input type="radio" checked={exit === 'onOrAfter'} onChange={() => setExit('onOrAfter')} /> 퇴사일이 주휴일이거나 그 뒤다</label>
           </div>
           <p id="whp-exit-note" className="mt-1 text-xs leading-relaxed">
-            퇴사일은 근로관계가 이어진 마지막 날(사직서·인사기록의 날짜)이고, 마지막으로 일한 날과 다를 수 있습니다. 금요일까지 일하고 퇴사일도 금요일이면 그 주 주휴가 없고, 퇴사일이 일요일(주휴일)이면 생깁니다.
+            {EXIT_DAY_DEFINITION} 금요일까지 일하고 퇴사일도 금요일이면 그 주 주휴가 없고, 퇴사일이 일요일(주휴일)이면 생깁니다.
           </p>
         </fieldset>
       </section>
