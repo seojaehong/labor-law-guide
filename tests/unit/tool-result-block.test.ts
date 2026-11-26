@@ -51,7 +51,9 @@ const allText = (v: ResultView) => [
 function hrefExists(href: string): boolean {
   if (href.startsWith('#')) return true;
   if (TOOLS.some((t) => t.href === href)) return true;
-  if (href.endsWith('.html')) return existsSync(`public${href}`);
+  // 계산기 링크는 ?weeklyHours=·&hoursChanged= 를 실을 수 있다(261126 G4 I16·E3) — 경로만 본다
+  const path = href.split(/[?#]/)[0];
+  if (path.endsWith('.html')) return existsSync(`public${path}`);
   return existsSync(`src/app${href}/page.tsx`);
 }
 
@@ -187,6 +189,9 @@ describe('공통 — 링크·금지어', () => {
     weekly(12_000, 20).v, weekly(12_000, 14).v, weekly(12_000, 40, false).v, weekly(9_000, 100).v,
     exitView(),
     exitResultView({ check: severanceCheck('2026-03-02', '2026-11-30', 10), sev: null, lv: estimateLeavePay(1_000_000, 10, 3), ent: null, unusedLeaveDays: 3 }),
+    // 주 시간을 실은 계산기 링크(I16)와 「시간이 바뀐 적」 멈춤(E3) — src/app/exit 는 금지어 검사 ROOTS 밖이라 여기서 본다
+    exitResultView({ check: severanceCheck('2023-03-02', '2026-11-30', 40), sev: estimateSeverance('2023-03-02', '2026-11-30', 3_000_000), lv: null, ent: null, weeklyHours: 40 }),
+    exitResultView({ check: severanceCheck('2023-03-02', '2026-11-30', 40), sev: null, lv: estimateLeavePay(3_000_000, 40, 5), ent: null, unusedLeaveDays: 5, weeklyHours: 40, hoursChanged: true }),
   ];
   it('다음 할 일은 1~2개이고 실제로 있는 경로다', () => {
     for (const v of views) {

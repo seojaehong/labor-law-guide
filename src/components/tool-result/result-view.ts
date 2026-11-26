@@ -48,6 +48,14 @@ export const STATUS_STOP = '계산하지 않음 · 이 계산기가 다루는 �
 
 export const won = (n: number) => `${n.toLocaleString('ko-KR')}원`;
 
+/**
+ * 정적 html 계산기(public/tools/*.html) 링크인가 — ?·# 뒤는 떼고 본다.
+ * /tools/severance.html?weeklyHours=40&hoursChanged=1 도 Next <Link> 가 아니라 <a> 로 연다(261126 E3).
+ */
+export function isStaticHtmlHref(href: string): boolean {
+  return href.split(/[?#]/)[0].endsWith('.html');
+}
+
 /** '2026-10-28' → '2026.10.28.' (exit-worker-data CHECKED 와 같은 모양) */
 export function dotDate(ymd: string): string {
   const [y, m, d] = ymd.split('-');

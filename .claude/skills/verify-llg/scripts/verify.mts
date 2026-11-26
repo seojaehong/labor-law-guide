@@ -349,6 +349,14 @@ const FEATURES: Record<string, { path: string; journey: Journey; waitUntil?: 'lo
       await form.locator('input[inputmode=decimal]').first().fill('40');
       step('퇴직금 추정(정본 엔진)', '8,812,389원', await answer(p, 'section[aria-label="확인용 추정"]'));
       step('기준일 = 법령 원문 확인일(CHECKED)', '법제처 현행 법령 원문 기준 · 확인 2026.10.21.', await answer(p, 'section[aria-label="확인용 추정"]'));
+      // 261126 재홍님 결정 E3 — 「시간이 바뀐 적」을 켜면 퇴직금은 엔진 문장으로 멈추고, 계산기 링크에 hoursChanged=1 을 싣는다
+      const changed = form.getByLabel(/15시간 이상과 미만 사이에서 바뀐 적이 있다/);
+      await changed.check();
+      step('시간이 바뀐 적 — 퇴직금 계산하지 않음', /4주 단위로 나눠.*퇴직연금복지과-5254.*퇴직금 추정 계산하지 않음/, await answer(p, 'section[aria-label="확인용 추정"]'));
+      const calcLink = p.locator('section[aria-label="확인용 추정"] a', { hasText: '퇴직금 계산기 열기' }).first();
+      step('계산기 링크에 hoursChanged=1', '/tools/severance.html?weeklyHours=40&hoursChanged=1', String(await calcLink.getAttribute('href')));
+      await changed.uncheck();
+      step('끄면 다시 추정', '8,812,389원', await answer(p, 'section[aria-label="확인용 추정"]'));
     },
   },
   'take-home-pay': {
