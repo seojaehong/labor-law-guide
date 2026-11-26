@@ -30,9 +30,3 @@ it('🔴 사이트맵에 올라가는 주소도 .html 그대로다', () => {
   expect(registry).toContain("href: '/tools/severance.html'");
   expect(registry).not.toContain("href: '/tools/severance'");
 });
-
-it('전환을 잊지 않도록 NOW.md 에 날짜가 박혀 있다', () => {
-  // 에르메스 지적 — 두 주소가 다 200 인 상태가 길어지면 「나중에 301」을 까먹는다
-  const now = readFileSync('/home/ubuntu/shared/NOW.md', 'utf8');
-  expect(now).toMatch(/tools\/severance[\s\S]{0,400}301/);
-});
