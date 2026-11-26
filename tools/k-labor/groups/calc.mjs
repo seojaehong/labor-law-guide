@@ -153,8 +153,10 @@ export function registerCalc(server) {
         return text({
           ok: true, headline, ...r,
           ...(span ? { basisNote: span } : {}),
-          // 입사 주 — 무엇을 확인할지(웹 nextNote 와 같은 문장, G4 R4)
-          ...(r.status === 'joined-unclear' ? { checkNote: WHP_JOINED_NEXT } : {}),
+          // 입사 주 — 무엇을 확인할지(웹 nextNote 와 같은 공통 문장, G4 R4). 다시 계산하는 방법만 입력 이름으로
+          ...(r.status === 'joined-unclear'
+            ? { checkNote: `${WHP_JOINED_NEXT} 입사일이 그 주 첫날이었다면 joinedMidWeek 를 비우고 다시 계산합니다.` }
+            : {}),
           basis: [
             '근로기준법 제55조제1항(유급휴일)', '근로기준법 시행령 별표2 제2호나목(1일 소정근로시간)', '근로기준법 제18조제3항(주 15시간 미만)', '근로기준법 시행령 제30조제1항(개근)',
             ...(span ? ['근로기준법 제2조제1항제7호(1주 = 휴일을 포함한 7일)'] : []),

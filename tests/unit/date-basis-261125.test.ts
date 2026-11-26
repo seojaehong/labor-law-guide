@@ -3,13 +3,13 @@
 import { describe, expect, it } from 'vitest';
 import { addDays, annualLeaveCoverage, annualLeaveTimeline, computeHeadcount, type HeadcountInput } from '@/lib/headcount';
 import { answerPlan, explainLeave, type Plan } from '@/lib/headcount-plan';
-import { LEAVE_MONTHS_NOTE, leaveMonthLine } from '@/app/tools/headcount/copy';
+import { LEAVE_MONTHS_NOTE, leaveMonthLine, leaveMonthsHead } from '@/app/tools/headcount/copy';
 import { rateOn } from '@/content/rates';
 import { WITHHOLDING_UNTIL, calcTakeHomePay, takeHomeRatesOn } from '@/lib/calc/take-home-pay';
 import { calcWeeklyHoliday } from '@/lib/calc/weekly-holiday';
 import { INITIAL, toWriteForm, type WriteState } from '@/app/tools/contract-write/formState';
 import {
-  ENDED_BASIS, ENDED_VERDICT, EXIT_DAY_DEFINITION, JOINED_BASIS, JOINED_VERDICT, STATUS_STOP, WEEK_NOTE, WEEK_SPANS, weekSpanInput,
+  ENDED_BASIS, ENDED_VERDICT, EXIT_DAY_DEFINITION, JOINED_BASIS, JOINED_NEXT, JOINED_VERDICT, STATUS_STOP, WEEK_NOTE, WEEK_SPANS, weekSpanInput,
   weeklyHolidayView, type WeekSpan,
 } from '@/app/tools/weekly-holiday-pay/result';
 import { bannedHits } from '@/lib/tool-kit/banned';
@@ -457,6 +457,12 @@ describe('G4 R2 #297 반영', () => {
     expect(next).toContain('근로계약·취업규칙과 노동부 해석을 확인하세요');
     expect(bannedHits(next)).toEqual([]);
     expect(whpMcp()).toContain('JOINED_NEXT');
+    // 종전 안내의 마지막 문장은 그대로 둔다(보강이지 교체가 아니다)
+    expect(next).toContain('다음 주부터 7일 내내 재직하고 소정근로일을 모두 나오면 생깁니다.');
+    // 화면 꼬리(체크)와 MCP 꼬리(입력 이름)는 따로 — 공통 문장에 「체크」가 없다
+    expect(next).toContain('입사 체크를 풀고');
+    expect(JOINED_NEXT).not.toContain('체크');
+    expect(whpMcp()).toContain('joinedMidWeek 를 비우고');
   });
 
   it('R5 「상실일(퇴직일)」 괄호 없음 — 4대보험 서식은 퇴직일과 상실일을 나눠 적는다', () => {
@@ -503,7 +509,18 @@ describe('G4 R2 #297 반영', () => {
     expect(c).toContain('leaveMonthLine(');
     // 「그 날짜를 넣으면 같은 구간」은 가장 이른 달에 맞지 않아 쓰지 않는다
     expect(LEAVE_MONTHS_NOTE).not.toContain('같은 구간이 나옵니다');
-    expect(bannedHits([LEAVE_MONTHS_NOTE, line].join(' '))).toEqual([]);
+    expect(bannedHits([LEAVE_MONTHS_NOTE, line, leaveMonthsHead(leave)].join(' '))).toEqual([]);
+    expect(leaveMonthsHead(leave)).toContain('연차 적용');
+  });
+
+  it('R8 사업 시작일이 가장 이른 달 첫날보다 늦으면 열두 달이 모두 5인 이상이어도 제목이 「적용 안 함」 — 연차 판단과 같은 결론', () => {
+    const late: Plan = { ...lateFive, site: { ...lateFive.site, businessStart: '2026-02-03' }, crews: [{ id: 'c1', count: 5, from: '2026-02-03', days: 'site', kind: 'regular' }] };
+    const leave = explainLeave(late, '2027-01-31');
+    expect([leave.months.every((m) => m.covered), leave.covered]).toEqual([true, false]);
+    const head = leaveMonthsHead(leave);
+    expect(head).toContain('사업 시작일');
+    expect(head).toContain('적용 안 함');
+    expect(head).not.toMatch(/이날 연차 적용(?! 안)/);
   });
 
   it('R9 MCP 옛 입력 endsBeforeRestDay 는 조용히 버리지 않고 거절한다', () => {

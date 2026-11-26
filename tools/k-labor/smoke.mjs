@@ -334,7 +334,8 @@ if (tools.includes('calc_weekly_holiday_pay')) {
       && /1743/.test(wed.headline?.[1] ?? '') && /근로를 시작한이후에/.test(wed.basisNote ?? '') && /제2조 제1항 제7호/.test(wed.basisNote ?? ''));
   // G4 R4 — 무엇을 확인할지(1350 답변의 사후 정산·법적 효력 없음)를 웹 nextNote 와 같은 문장으로
   check('weekly_holiday 주중 입사 확인 안내(checkNote) — 1350 사후 정산·법적 효력 없음',
-    /이후에 이를 정산하여/.test(wed.checkNote ?? '') && /법적 효력이 있는 해석이 아닙니다/.test(wed.checkNote ?? ''));
+    /이후에 이를 정산하여/.test(wed.checkNote ?? '') && /법적 효력이 있는 해석이 아닙니다/.test(wed.checkNote ?? '')
+      && /joinedMidWeek 를 비우고/.test(wed.checkNote ?? '') && !/체크/.test(wed.checkNote ?? ''));
 }
 if (tools.includes('count_regular_workers')) {
   // 4명 원래부터 + 계약직 1명 2026-11-02~11-30, 월~금
@@ -362,7 +363,13 @@ if (tools.includes('count_regular_workers')) {
   const m0 = lv.annualLeaveMonths?.months?.[0];
   check(`headcount 연차 첫 달 = 연차가 쓴 구간(${m0?.line})`,
     lv.annualLeaveMonths?.months?.length === 12 && m0?.periodStart === '2026-01-31' && m0.periodEnd === '2026-02-27'
-      && m0.operatingDays === 28 && m0.belowDays === 13 && m0.covered === true);
+      && m0.operatingDays === 28 && m0.belowDays === 13 && m0.covered === true && /이날 연차 적용$/.test(lv.annualLeaveMonths.head ?? ''));
+  // G4 R8 — 사업 시작일이 가장 이른 달 첫날(01-31)보다 늦으면(02-03) 열두 달이 모두 5인 이상이어도 그날 연차는 적용 안 함
+  const lb = await callTool('count_regular_workers', {
+    openDays: [0, 1, 2, 3, 4, 5, 6], businessStart: '2026-02-03', today: '2026-12-01', baseDate: '2027-01-31', crews: [{ count: 5, from: '2026-02-03' }],
+  });
+  check(`headcount 연차 열두 달 모두 5인 이상·사업 시작일 늦음 → 적용 안 함(${lb.annualLeaveMonths?.head})`,
+    lb.annualLeaveMonths?.months?.every((m) => m.covered) && lb.annualLeaveMonths.covered === false && /사업 시작일/.test(lb.annualLeaveMonths.head ?? ''));
 }
 if (tools.includes('calc_take_home_pay')) {
   const t = await callTool('calc_take_home_pay', { pay: 3_000_000, meal: 200_000, date: '2026-10-28' });

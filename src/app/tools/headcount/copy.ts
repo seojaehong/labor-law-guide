@@ -114,9 +114,16 @@ export function crewLabel(c: Crew | undefined): string {
 export const LEAVE_MONTHS_NOTE =
   '연차(제3항)는 연차를 볼 날과 그날에서 1~11개월 앞선 같은 날짜(그 달에 그날이 없으면 말일), 모두 열두 날마다 센 1개월이 전부 5명 이상일 때 생깁니다. 아래 「연차의 열두 달」은 확인할 날을 연차를 볼 날로 놓고 연차 판단에 쓴 구간을 그대로 보입니다. 가장 이른 달은 1년 밖의 날을 빼고 세어 같은 날짜의 1개월 계산보다 며칠 짧을 수 있습니다.';
 
-/** 「연차의 열두 달」 제목 — 그 날을 연차를 볼 날로 놓았을 때 몇 달이 5명 이상인가 */
+/**
+ * 「연차의 열두 달」 제목 — 그 날을 연차를 볼 날로 놓았을 때 몇 달을 5인 이상으로 보고, 그래서 그날 연차가 적용되는가.
+ * 사업 시작일이 가장 이른 달 첫날보다 늦으면 열두 달이 모두 5인 이상이어도 적용 안 함(lib/headcount.ts annualLeaveCoverage) —
+ * 결론을 제목에 같이 적어 연차 판단과 어긋나 보이지 않게 한다(G4 R8)
+ */
 export function leaveMonthsHead(r: AnnualLeaveResult): string {
-  return `연차의 열두 달 — 12개월 가운데 ${r.months.filter((m) => m.covered).length}개월을 5인 이상으로 봅니다`;
+  const n = r.months.filter((m) => m.covered).length;
+  const verdict = r.covered ? '이날 연차 적용'
+    : n === r.months.length ? '사업 시작일이 가장 이른 달 첫날보다 늦어 이날 연차 적용 안 함' : '이날 연차 적용 안 함';
+  return `연차의 열두 달 — 12개월 가운데 ${n}개월을 5인 이상으로 봅니다 · ${verdict}`;
 }
 
 /**
