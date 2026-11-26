@@ -274,6 +274,8 @@ describe('G4 I2 퇴사 주 근거·퇴사일 설명', () => {
     const next = view(true).nextNote ?? '';
     expect(next).toContain('상실일(퇴직일)은 그다음 날');
     expect(next).not.toContain('사직서·인사기록에 적힌');
+    // 주휴 화면·MCP 에는 날짜 칸이 없다(라디오·참거짓) — 「넣은 날짜」류로 말하지 않는다
+    expect(`${EXIT_DAY_DEFINITION} ${next}`).not.toMatch(/넣은 날짜|넣으면/);
     // 화면 라디오 아래 설명이 같은 상수를 쓴다
     expect(readFileSync('src/app/tools/weekly-holiday-pay/WeeklyHolidayClient.tsx', 'utf8')).toContain('{EXIT_DAY_DEFINITION}');
   });
