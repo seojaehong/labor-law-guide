@@ -35,7 +35,8 @@ export function severanceCalculatorLink(a: Record<string, unknown>): string | nu
   const leave = severanceLeavePay(a);
   if (leave > 0) params.set('annualLeave', String(leave));
   // 1주 소정근로시간(4주 평균) — 계산기가 주 15시간 지급 요건을 보게 한다. 없으면 계산기는 「따지지 않았습니다」(261126 G4 I16)
-  if (typeof a.weekly_hours === 'number' && Number.isFinite(a.weekly_hours) && a.weekly_hours > 0) params.set('weeklyHours', String(a.weekly_hours));
+  // 0 도 싣는다 — 챗봇은 0 을 under-15h 로 답하므로 계산기도 같은 입력으로 연다. 엔진이 받는 0~168 만(261127 G4 R20)
+  if (typeof a.weekly_hours === 'number' && Number.isFinite(a.weekly_hours) && a.weekly_hours >= 0 && a.weekly_hours <= 168) params.set('weeklyHours', String(a.weekly_hours));
   // 빼는 기간·시간 변경 — 챗봇 답과 계산기가 같은 입력으로 세게 한다(261126 D2·D3)
   if (typeof a.excluded_days === 'number' && Number.isInteger(a.excluded_days) && a.excluded_days > 0) {
     params.set('excludedDays', String(a.excluded_days));

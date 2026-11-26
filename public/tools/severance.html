@@ -669,7 +669,7 @@
                 </div>
                 <div class="field field-check">
                     <label class="check-label"><input type="checkbox" id="hoursChanged" aria-describedby="hoursChangedHint"> 재직 중 1주 소정근로시간이 15시간 이상과 미만 사이에서 바뀐 적이 있다</label>
-                    <p id="hoursChangedHint" class="field-hint">있으면 계산하지 않습니다. 재직기간을 4주 단위로 나눠 4주 평균 1주 소정근로시간이 15시간 미만인 4주는 계속근로기간에서 빼야 해서, 시간 한 값으로 세는 이 계산기로는 지급 대상과 금액이 모두 틀릴 수 있습니다.</p>
+                    <p id="hoursChangedHint" class="field-hint">있으면 계산하지 않습니다. 재직기간을 퇴직일부터 거슬러 4주 단위로 나눠 4주 평균 1주 소정근로시간이 15시간 미만인 4주는 계속근로기간에서 빼야 해서, 시간 한 값으로 세는 이 계산기로는 지급 대상과 금액이 모두 틀릴 수 있습니다.</p>
                 </div>
             </div>
             <div class="derived-grid">
@@ -755,7 +755,7 @@
                     <input type="text" id="excludedWage" class="money-input" inputmode="numeric" autocomplete="off" placeholder="받지 않았으면 0">
                 </div>
             </div>
-            <p id="excludedHint" class="field-hint">퇴직 전 3개월 안에 다음 기간이 있으면 그 일수를 넣습니다. 수습을 시작한 날부터 3개월 이내의 기간, 회사 사정으로 쉰 기간, 출산전후휴가·유산·사산 휴가, 업무상 부상·질병 요양, 육아휴직, 쟁의행위 기간, 병역·예비군·민방위 의무로 쉬거나 일하지 못한 기간(그 기간에 임금을 받았으면 빼지 않습니다), 업무 외 부상·질병 등으로 회사 승인을 받아 쉰 기간(근로기준법 시행령 제2조 제1항), 육아기 근로시간 단축 기간(남녀고용평등과 일·가정 양립 지원에 관한 법률 제19조의3 제4항). 그 기간에 받은 임금이 위 월급여에 들어 있으면 그 금액을 넣고, 받지 않았으면 0을 넣습니다. 두 값을 산정기간 일수와 임금 총액에서 뺍니다.</p>
+            <p id="excludedHint" class="field-hint">퇴직 전 3개월 안에 다음 기간이 있으면 그 일수를 넣습니다. 수습을 시작한 날부터 3개월 이내의 기간, 회사 사정으로 쉰 기간, 출산전후휴가·유산·사산 휴가, 업무상 부상·질병 요양, 육아휴직, 쟁의행위 기간, 병역·예비군·민방위 의무로 쉬거나 일하지 못한 기간(그 기간에 임금을 받았으면 빼지 않습니다), 업무 외 부상·질병 등으로 회사 승인을 받아 쉰 기간(근로기준법 시행령 제2조 제1항), 육아기 근로시간 단축 기간(남녀고용평등과 일·가정 양립 지원에 관한 법률 제19조의3 제4항), 가족돌봄 등을 위한 근로시간 단축 기간(남녀고용평등과 일·가정 양립 지원에 관한 법률 제22조의4 제4항). 그 기간에 받은 임금이 위 월급여에 들어 있으면 그 금액을 넣고, 받지 않았으면 0을 넣습니다. 두 값을 산정기간 일수와 임금 총액에서 뺍니다.</p>
             <p id="wageTypeHint" class="field-hint">근로기준법 제2조 제2항: 평균임금이 그 근로자의 통상임금보다 적으면 그 통상임금액을 평균임금으로 합니다. 1일 통상임금을 넣으면 둘 중 높은 쪽으로 계산합니다. 중간정산을 받았으면 입사일 칸에 정산 기준일의 다음 날을 넣고 중간정산 칸은 0으로 둡니다.</p>
         </details>
 
@@ -867,9 +867,13 @@ const SeveranceEngine = (() => {
         const d = new Date(parse(hireDate, '입사일'));
         return ymd(Date.UTC(d.getUTCFullYear() + 1, d.getUTCMonth(), d.getUTCDate()));
     }
-    /** hoursChanged 일 때 웹·MCP·챗봇이 같은 글로 멈춘다. 고용노동부 퇴직연금복지과-5254(2019. 12. 9.) — 2025. 12. 4. 고객상담센터 회신이 인용 */
+    /**
+     * hoursChanged 일 때 웹·MCP·챗봇·/exit 가 같은 글로 멈춘다(MCP·챗봇 인자 설명도 이 상수를 싣는다).
+     * 고용노동부 퇴직연금복지과-5254(2019. 12. 9.) — 2025. 12. 4. 고객상담센터 회신이 인용. 4주는 퇴직일부터 거슬러 나눈다
+     * (같은 회신 「마지막 근무일로부터 역산하여 4주 단위로」 · 근로기준정책과-4361(2015. 9. 10.)·-3818(2021. 11. 25.) 「퇴직일 기준으로 4주 단위씩 역산」, 261127 G4 R16)
+     */
     const HOURS_CHANGED_MESSAGE = '1주 소정근로시간이 15시간 이상과 미만 사이에서 바뀐 적이 있으면 이 계산기로 계산하지 않습니다. ' +
-        '재직기간을 4주 단위로 나눠 4주 평균 1주 소정근로시간이 15시간 미만인 4주는 계속근로기간에서 뺍니다(고용노동부 퇴직연금복지과-5254, 2019. 12. 9. 회신 취지).';
+        '재직기간을 퇴직일부터 거슬러 4주 단위로 나눠 4주 평균 1주 소정근로시간이 15시간 미만인 4주는 계속근로기간에서 뺍니다(고용노동부 퇴직연금복지과-5254, 2019. 12. 9. 회신 취지).';
     function calcSeverance(input) {
         var _a, _b, _c, _d, _e;
         parse(input.hireDate, '입사일');
@@ -884,7 +888,7 @@ const SeveranceEngine = (() => {
             throw new Error(HOURS_CHANGED_MESSAGE);
         const segments = periodSegments(input.hireDate, retirementDate);
         const periodDays = segments.reduce((a, s) => a + s.days, 0);
-        // 제외기간(근로기준법 시행령 §2① · 남녀고용평등법 §19의3④) — 그 일수와 그 기간 임금을 산정기간·임금총액에서 뺀다
+        // 제외기간(근로기준법 시행령 §2① · 남녀고용평등법 §19의3④·§22의4④) — 그 일수와 그 기간 임금을 산정기간·임금총액에서 뺀다
         const excludedDays = (_a = input.excludedDays) !== null && _a !== void 0 ? _a : 0;
         const excludedWage = (_b = input.excludedWage) !== null && _b !== void 0 ? _b : 0;
         if (!Number.isInteger(excludedDays) || excludedDays < 0)
@@ -895,8 +899,8 @@ const SeveranceEngine = (() => {
             throw new Error('제외기간 일수 없이 그 기간 임금만 넣었습니다');
         if (excludedDays >= periodDays)
             throw new Error('평균임금 산정기간 전부가 제외기간입니다. 이때는 이 계산식으로 셀 수 없습니다');
-        // 261126 G4 I8 — 일수만 넣고 임금을 비우면 0 으로 보지 않는다(분모만 줄어 평균임금이 부푼다)
-        if (excludedDays > 0 && input.excludedWage === undefined)
+        // 261126 G4 I8 — 일수만 넣고 임금을 비우면 0 으로 보지 않는다(분모만 줄어 평균임금이 부푼다). JSON 의 null 도 빈칸이다(261127 R11)
+        if (excludedDays > 0 && input.excludedWage == null)
             throw new Error('제외기간에 받은 임금을 넣어 주세요. 그 기간에 받은 임금이 없으면 0을 넣습니다');
         // 261126 G4 I15 — 남은 기간 임금이 0 이 되는 입력은 멈춘다
         if (excludedDays > 0 && excludedWage > 0 && excludedWage === input.wageTotal)
@@ -1155,6 +1159,9 @@ const TAX_RATES = RetirementTaxEngine.BASIC_TAX_RATES[RetirementTaxEngine.BASIC_
    v4·v3 은 칸을 고칠 때마다 저절로 저장되던 값이라 표식이 없다 — 복원하지 않고 첫 로드 때 지운다(loadFromStorage) */
 const STORAGE_KEY = 'severanceCalcData_v5';
 const OLD_STORAGE_KEYS = ['severanceCalcData_v4', 'severanceCalcData_v3'];
+/* 저장 형식 — 2(261127~)부터 「그 기간에 받은 임금」 빈칸과 0 을 가른다. 표시가 없는 v5 저장본은 그 칸 기본값이 '0' 이던 때라
+   '0' 을 빈칸으로 읽는다(그대로 두면 빼는 기간 일수만 넣은 저장본이 I8 전처럼 계산된다, 261127 G4 R15). 저장값은 지우지 않는다 */
+const STORAGE_FORMAT = 2;
 const MAX_WORKERS = 4;
 
 /* ================================================================
@@ -1897,12 +1904,9 @@ function setupMoneyInputs() {
         });
         input.addEventListener('focus', function () {
             if (!isMoneyText(this.value)) return;
-            const val = parseMoney(this.value);
-            if (val === 0) {
-                this.value = '';
-            } else {
-                this.value = String(val);
-            }
+            /* 0 을 지우지 않는다 — 「그 기간에 받은 임금」은 빈칸(멈춤)과 0(받지 않음)이 다른 입력이다(261127 G4 R14).
+               빈칸은 빈칸 그대로, 값은 쉼표만 떼고 선택해 두어 바로 고쳐 쓸 수 있다 */
+            if (this.value.trim() !== '') this.value = String(parseMoney(this.value));
             this.select();
         });
     });
@@ -2224,7 +2228,7 @@ function resultBlockHtml(result, w) {
             ${eligibility === 'under-15h'
                 ? `<p>지급 대상이 아니면 지급 기한도 없습니다. 근무시간이 기간에 따라 바뀌었으면 4주 평균을 기간별로 다시 봅니다.</p>`
                 : underOneYear
-                ? `<p>계속근로기간이 1년 미만이면 퇴직금 지급 대상이 아닐 수 있습니다(근로자퇴직급여 보장법 제4조제1항). 위 금액은 입력값으로 계산만 한 것입니다.</p>`
+                ? `<p>계속근로기간이 1년 미만이라 퇴직금 지급 대상이 아닙니다(근로자퇴직급여 보장법 제4조제1항 단서). 위 금액은 입력값으로 계산만 한 것입니다.</p>`
                 : `<p>퇴직금은 마지막 근무일에서 14일째 되는 날까지 지급합니다(근로자퇴직급여 보장법 제9조제1항). 이 입력이면 ${dotDate(addDaysUTC(w.endDate, 14))}까지입니다. 당사자가 합의하면 지급 기일을 연장할 수 있습니다.</p>`}
             <ul>
                 <li><a href="/tools/wage-delay-interest">기한 안에 받지 못했을 때 — 지연이자(연 20%) 계산</a></li>
@@ -2303,7 +2307,8 @@ function onCalculate() {
     if (problem) return;
     const days = dateDiffDays(w.startDate, retirementDateOf(w.endDate));
     if (isUnderOneYear(w.startDate, w.endDate)) {
-        if (!confirm(`재직일수가 ${days}일로 1년 미만입니다.\n퇴직금 지급 대상이 아닐 수 있습니다.\n계속 계산하시겠습니까?`)) return;
+        /* 상태줄·산정서와 같은 말로 단정한다(261127 G4 R18 — 전에는 「아닐 수 있습니다」) */
+        if (!confirm(`재직일수가 ${days}일로 1년 미만입니다.\n퇴직금 지급 대상이 아닙니다.\n계속 계산하시겠습니까?`)) return;
     }
 
     const result = calculateSeverance(w);
@@ -2539,7 +2544,7 @@ function saveToStorage() {
             workers: state.workers.map(w => ({ ...w, result: null })),
         };
         const savedAt = new Date().toISOString();
-        localStorage.setItem(STORAGE_KEY, JSON.stringify({ savedAt, state: snapshot }));
+        localStorage.setItem(STORAGE_KEY, JSON.stringify({ savedAt, format: STORAGE_FORMAT, state: snapshot }));
         storedAt = savedAt;
         return true;
     } catch (e) {
@@ -2568,6 +2573,23 @@ function lastWorkDateFromQuery(get) {
     return Number.isNaN(parseDateOnlyUTC(end).getTime()) ? '' : addDaysUTC(end, -1);
 }
 
+/* 링크로 넘겨받는 입력 칸 이름 — init 의 쿼리 적용과 같은 목록. 하나라도 주소에 있으면 링크로 연 것이다 */
+const LINK_INPUT_KEYS = [
+    'startDate', 'start', 'workerName', 'name', 'businessName', 'biz', 'ownerName', 'owner', 'birthDate', 'birth',
+    'lastWorkDate', 'last', 'endDate', 'end',
+    'wage1', 'wage2', 'wage3', 'wage4', 'w1', 'w2', 'w3', 'w4',
+    'bonusTotal', 'annualLeave', 'priorSeverance', 'dailyOrdinaryWage', 'excludedWage', 'weeklyHours', 'excludedDays', 'hoursChanged',
+];
+
+/**
+ * 링크(챗봇 답·/exit 등)로 열었는가. 그러면 [저장]으로 남긴 값을 복원하지 않고 기본값에 주소 값만 넣는다 — 전에는 복원한 뒤
+ * 주소에 있는 칸만 덮어 앞 사람의 빼는 기간·임금·「시간이 바뀐 적」 체크를 이어받았다(261127 G4 R13). 저장값은 지우지 않는다.
+ * params = URLSearchParams(has 만 쓴다)
+ */
+function openedFromLink(params) {
+    return LINK_INPUT_KEYS.some(k => params.has(k));
+}
+
 /** [저장]으로 남긴 값만 복원한다. 표식 없는 옛 값은 지운다. 복원했으면 true */
 function loadFromStorage() {
     try {
@@ -2575,9 +2597,14 @@ function loadFromStorage() {
         const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null');
         const s = saved && saved.state;
         if (saved && typeof saved.savedAt === 'string' && s && Array.isArray(s.workers) && s.workers.length > 0) {
+            const legacyZeroWage = !(Number(saved.format) >= 2);
             state = {
                 currentIndex: Math.min(Math.max(Number(s.currentIndex) || 0, 0), s.workers.length - 1),
-                workers: s.workers.slice(0, MAX_WORKERS).map(w => ({ ...createDefaultWorker(), ...(w && typeof w === 'object' ? w : {}), result: null })),
+                workers: s.workers.slice(0, MAX_WORKERS).map(w => {
+                    const worker = { ...createDefaultWorker(), ...(w && typeof w === 'object' ? w : {}), result: null };
+                    if (legacyZeroWage && String(worker.excludedWage).trim() === '0') worker.excludedWage = '';
+                    return worker;
+                }),
             };
             state.currentIndex = Math.min(state.currentIndex, state.workers.length - 1);
             storedAt = saved.savedAt;
@@ -2605,8 +2632,9 @@ function showSavedNotice() {
    ================================================================ */
 
 function init() {
-    /* [저장]으로 남긴 값만 복원한다. 계산 결과는 저장하지 않으므로 다시 계산해야 결과가 나온다 */
-    loadFromStorage();
+    const params = new URLSearchParams(window.location.search);
+    /* [저장]으로 남긴 값만 복원한다 — 링크로 열었으면 복원하지 않는다(R13). 계산 결과는 저장하지 않으므로 다시 계산해야 결과가 나온다 */
+    if (!openedFromLink(params)) loadFromStorage();
     loadFormFromState();
     renderTabs();
     updateDateInfo();
@@ -2651,7 +2679,6 @@ function init() {
 
     /* URL 쿼리 파라미터 → 자동 입력 + 자동 계산 (챗봇 답변 링크 등에서 활용) */
     try {
-        const params = new URLSearchParams(window.location.search);
         const setVal = (id, v) => {
             const el = document.getElementById(id);
             if (el && v != null && v !== '') el.value = v;

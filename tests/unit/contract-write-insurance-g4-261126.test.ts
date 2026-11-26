@@ -70,7 +70,7 @@ describe('I11 — 1개월 미만 계약(일용근로자)은 1주 15시간 미만
     expect(lines).toMatch(/일용근로자이므로 고용보험에 가입한다\(고용보험법 제10조 제2항 제1호\)/);
   });
   it('1주 15시간 이상 1개월 미만도 고용보험에 가입한다(3개월 조건을 붙이지 않는다)', () => {
-    // 국민연금·건강보험의 1개월 미만 근로자 제외 기준은 이 PR 에서 보지 않았다 — 고용보험 부분만 확인한다
+    // 고용보험 부분만 확인한다. 국민연금·건강보험을 단정하지 않는 것은 261127 G4 R10(contract-write-insurance-r2-261127.test.ts)
     const lines = clause7({ ...AT15, endDate: '2026-11-17' }).join(' ');
     expect(lines).toMatch(/고용보험/);
     expect(lines).not.toContain(THREE_MONTHS);

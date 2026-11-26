@@ -133,6 +133,33 @@ export function calcRetirementTax(severance_pay: number, hire_date: string, last
   };
 }
 
+/**
+ * calc_severance 인자 형 검사(261127 G4 R12) — /api/tools/calc 와 챗봇은 JSON 인자를 그대로 받으므로 형이 틀리면 멈춘다.
+ * 종전에는 hours_changed:"true"(문자열)를 「바뀐 적 없음」으로 보고 계산했다.
+ * 선택 인자의 null 은 넣지 않은 것으로 본다 — excluded_days 가 있으면 excluded_wage:null 은 빈칸이라 엔진이 멈춘다(R11).
+ */
+const SEVERANCE_NUMBER_ARGS = ['annual_bonus', 'annual_leave_pay', 'unused_annual_leave_days', 'annual_leave_daily_wage', 'ordinary_daily_wage', 'weekly_hours', 'excluded_days', 'excluded_wage'] as const;
+const SEVERANCE_BOOLEAN_ARGS = ['include_tax', 'hours_changed'] as const;
+
+function checkSeveranceArgs(a: Record<string, unknown>): void {
+  const bad = (name: string, want: string): never => {
+    throw new Error(`calc_severance 인자 형식이 맞지 않습니다 — ${name}: ${want}`);
+  };
+  if (typeof a.hire_date !== 'string') bad('hire_date', 'YYYY-MM-DD 글자');
+  if (typeof a.last_work_date !== 'string') bad('last_work_date', 'YYYY-MM-DD 글자');
+  const w = a.wages_3months;
+  if (!Array.isArray(w) || w.length !== 3 || !w.every((x) => typeof x === 'number' && Number.isFinite(x) && x >= 0)) bad('wages_3months', '0 이상 숫자 3개');
+  for (const k of SEVERANCE_NUMBER_ARGS) {
+    const v = a[k];
+    if (v != null && !(typeof v === 'number' && Number.isFinite(v))) bad(k, '숫자');
+  }
+  if (a.excluded_days != null && !Number.isInteger(a.excluded_days)) bad('excluded_days', '0 이상 정수');
+  for (const k of SEVERANCE_BOOLEAN_ARGS) {
+    const v = a[k];
+    if (v != null && typeof v !== 'boolean') bad(k, 'true 또는 false(따옴표 없이)');
+  }
+}
+
 export function calcSeverance(input: {
   hire_date: string; // YYYY-MM-DD
   last_work_date: string;
@@ -153,6 +180,7 @@ export function calcSeverance(input: {
   /** 재직 중 1주 소정근로시간이 15시간 이상·미만 사이에서 바뀐 적 — true 면 계산하지 않는다(엔진이 멈춘다) */
   hours_changed?: boolean;
 }) {
+  checkSeveranceArgs(input as unknown as Record<string, unknown>);
   // 정본 엔진(src/lib/calc/severance.ts) — /tools/severance.html·/exit·MCP 와 같은 값·같은 지급 대상(261126 재홍님 결정 D2)
   const r = severanceEngine({
     hireDate: input.hire_date,
@@ -161,10 +189,10 @@ export function calcSeverance(input: {
     annualBonus: input.annual_bonus || 0,
     annualLeavePay: severanceLeavePay(input),
     dailyOrdinaryWage: input.ordinary_daily_wage || 0,
-    weeklyHours: input.weekly_hours,
-    excludedDays: input.excluded_days,
-    excludedWage: input.excluded_wage,
-    hoursChanged: input.hours_changed,
+    weeklyHours: input.weekly_hours ?? undefined,
+    excludedDays: input.excluded_days ?? undefined,
+    excludedWage: input.excluded_wage ?? undefined,
+    hoursChanged: input.hours_changed ?? undefined,
   });
   const severance_pay = r.amount;
 

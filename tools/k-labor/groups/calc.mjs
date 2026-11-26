@@ -14,7 +14,7 @@ import { todayKst } from '@/lib/tool-kit';
 import { headline as hcHeadline, whyLines as hcWhy, leaveLines as hcLeave, tenLine as hcTen, basisLine as hcBasis } from '@/app/tools/headcount/copy';
 import { headline as thHeadline, items as thItems, formulaLines as thFormula, NOTICE as TH_NOTICE } from '@/app/tools/take-home-pay/copy';
 import { headline as lpHeadline, formulaLines as lpFormula, effectLines as lpEffect } from '@/app/tools/leave-pay/copy';
-import { calcSeverance } from '@/lib/calc/severance';
+import { calcSeverance, HOURS_CHANGED_MESSAGE } from '@/lib/calc/severance';
 import { calcHolidayPay } from '@/lib/holiday-pay';
 import { calcProration, calcAbsence } from '@/lib/calc/pay-proration';
 import {
@@ -364,7 +364,7 @@ export function registerCalc(server) {
       description:
         '퇴직금 = 1일 평균임금 × 30 × 재직일수 ÷ 365 를 계산한다(사이트 /tools/severance.html 과 같은 엔진). 평균임금 = 퇴직일(마지막 근무일 다음 날) 전 3개월 임금총액 + 1년 상여금·연차수당의 3/12, 그 기간 총일수로 나눈다. ' +
         '1일 평균임금은 소수 둘째 자리 올림, 퇴직금은 원 단위 반올림(고용노동부 퇴직금 계산기와 같은 끝수). 1일 통상임금을 넣으면 평균임금보다 높을 때 통상임금으로 계산한다. 지급 대상은 계속근로 1년 이상과 4주 평균 1주 소정근로시간 15시간 이상을 함께 본다(근로자퇴직급여 보장법 제4조제1항). ' +
-        '산정기간에 평균임금에서 빼는 기간(근로기준법 시행령 제2조제1항의 수습·육아휴직 등, 남녀고용평등법 제19조의3제4항의 육아기 근로시간 단축 기간)이 있으면 excludedDays·excludedWage 로 그 일수와 그 기간 임금을 뺀다. ' +
+        '산정기간에 평균임금에서 빼는 기간(근로기준법 시행령 제2조제1항의 수습·육아휴직 등, 남녀고용평등법 제19조의3제4항의 육아기 근로시간 단축 기간·제22조의4제4항의 가족돌봄 등을 위한 근로시간 단축 기간)이 있으면 excludedDays·excludedWage 로 그 일수와 그 기간 임금을 뺀다. ' +
         '1주 소정근로시간이 15시간 이상과 미만 사이에서 바뀐 적이 있으면 hoursChanged 로 알린다 — 그때는 계산하지 않는다.',
       inputSchema: {
         hireDate: z.string().describe('입사일 YYYY-MM-DD. 퇴직금 중간정산을 받았으면 정산 기준일의 다음 날(근로자퇴직급여 보장법 제8조제2항 — 그때부터 새로 센다)'),
@@ -374,9 +374,9 @@ export function registerCalc(server) {
         annualLeavePay: z.number().min(0).optional().describe('퇴직 전 1년 연차수당 중 평균임금에 넣는 금액(원) — 3/12을 더한다'),
         dailyOrdinaryWage: z.number().min(0).optional().describe('1일 통상임금(원, 알면) — 평균임금보다 높으면 이 값으로 계산한다(근로기준법 제2조제2항)'),
         weeklyHours: z.number().min(0).max(168).describe('4주 평균 1주 소정근로시간 — 15시간 미만이면 지급 대상이 아니다(근로자퇴직급여 보장법 제4조제1항 단서)'),
-        excludedDays: z.number().int().min(0).optional().describe('산정기간 중 평균임금에서 빼는 기간의 일수 — 산정기간 일수에서 뺀다. 근로기준법 시행령 제2조제1항: 수습을 시작한 날부터 3개월 이내의 기간·사용자 귀책 휴업·출산전후휴가와 유산·사산 휴가·업무상 요양·육아휴직·쟁의행위·병역 등 의무 이행 기간(그 기간에 임금을 받았으면 빼지 않는다, 제7호 단서)·사용자 승인 휴업. 남녀고용평등법 제19조의3제4항: 육아기 근로시간 단축 기간'),
+        excludedDays: z.number().int().min(0).optional().describe('산정기간 중 평균임금에서 빼는 기간의 일수 — 산정기간 일수에서 뺀다. 근로기준법 시행령 제2조제1항: 수습을 시작한 날부터 3개월 이내의 기간·사용자 귀책 휴업·출산전후휴가와 유산·사산 휴가·업무상 요양·육아휴직·쟁의행위·병역 등 의무 이행 기간(그 기간에 임금을 받았으면 빼지 않는다, 제7호 단서)·사용자 승인 휴업. 남녀고용평등법 제19조의3제4항: 육아기 근로시간 단축 기간. 남녀고용평등법 제22조의4제4항: 가족돌봄 등을 위한 근로시간 단축 기간'),
         excludedWage: z.number().min(0).optional().describe('그 제외기간에 받은 임금(원) — wageTotal 에 들어 있는 금액이라 임금총액에서 뺀다. excludedDays 가 0보다 크면 반드시 넣는다(받지 않았으면 0). 비우면 오류, 임금총액과 같으면(남은 기간 임금 0) 오류'),
-        hoursChanged: z.boolean().optional().describe('재직 중 1주 소정근로시간이 15시간 이상과 미만 사이에서 바뀐 적이 있으면 true — 계산하지 않고 오류로 이유를 돌려준다. 4주 단위로 나눠 4주 평균 15시간 미만인 4주는 계속근로기간에서 빼야 해서 weeklyHours 한 값으로 셀 수 없다(고용노동부 퇴직연금복지과-5254 회신 취지)'),
+        hoursChanged: z.boolean().optional().describe('재직 중 1주 소정근로시간이 15시간 이상과 미만 사이에서 바뀐 적이 있으면 true — 계산하지 않고 오류로 이 글을 돌려준다(weeklyHours 한 값으로 셀 수 없다): ' + HOURS_CHANGED_MESSAGE),
       },
       annotations: READ_ONLY,
     },

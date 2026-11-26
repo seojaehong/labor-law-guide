@@ -77,7 +77,7 @@ export interface SeveranceInput {
   weeklyHours?: number;
   /**
    * 산정기간 중 평균임금에서 빼는 기간의 일수 — 근로기준법 시행령 §2①(수습을 시작한 날부터 3개월 이내·육아휴직 등)과
-   * 남녀고용평등법 §19의3④(육아기 근로시간 단축 기간). 산정기간 일수에서 뺀다
+   * 남녀고용평등법 §19의3④(육아기 근로시간 단축 기간)·§22의4④(가족돌봄 등을 위한 근로시간 단축 기간). 산정기간 일수에서 뺀다
    */
   excludedDays?: number;
   /**
@@ -92,10 +92,14 @@ export interface SeveranceInput {
   hoursChanged?: boolean;
 }
 
-/** hoursChanged 일 때 웹·MCP·챗봇이 같은 글로 멈춘다. 고용노동부 퇴직연금복지과-5254(2019. 12. 9.) — 2025. 12. 4. 고객상담센터 회신이 인용 */
+/**
+ * hoursChanged 일 때 웹·MCP·챗봇·/exit 가 같은 글로 멈춘다(MCP·챗봇 인자 설명도 이 상수를 싣는다).
+ * 고용노동부 퇴직연금복지과-5254(2019. 12. 9.) — 2025. 12. 4. 고객상담센터 회신이 인용. 4주는 퇴직일부터 거슬러 나눈다
+ * (같은 회신 「마지막 근무일로부터 역산하여 4주 단위로」 · 근로기준정책과-4361(2015. 9. 10.)·-3818(2021. 11. 25.) 「퇴직일 기준으로 4주 단위씩 역산」, 261127 G4 R16)
+ */
 export const HOURS_CHANGED_MESSAGE =
   '1주 소정근로시간이 15시간 이상과 미만 사이에서 바뀐 적이 있으면 이 계산기로 계산하지 않습니다. ' +
-  '재직기간을 4주 단위로 나눠 4주 평균 1주 소정근로시간이 15시간 미만인 4주는 계속근로기간에서 뺍니다(고용노동부 퇴직연금복지과-5254, 2019. 12. 9. 회신 취지).';
+  '재직기간을 퇴직일부터 거슬러 4주 단위로 나눠 4주 평균 1주 소정근로시간이 15시간 미만인 4주는 계속근로기간에서 뺍니다(고용노동부 퇴직연금복지과-5254, 2019. 12. 9. 회신 취지).';
 
 /** eligible = 1년 이상 + 주 15시간 이상. hours-unknown = 시간을 넣지 않아 판정하지 않음 */
 export type SeveranceStatus = 'eligible' | 'under-1y' | 'under-15h' | 'hours-unknown';
@@ -139,15 +143,15 @@ export function calcSeverance(input: SeveranceInput): SeveranceResult {
 
   const segments = periodSegments(input.hireDate, retirementDate);
   const periodDays = segments.reduce((a, s) => a + s.days, 0);
-  // 제외기간(근로기준법 시행령 §2① · 남녀고용평등법 §19의3④) — 그 일수와 그 기간 임금을 산정기간·임금총액에서 뺀다
+  // 제외기간(근로기준법 시행령 §2① · 남녀고용평등법 §19의3④·§22의4④) — 그 일수와 그 기간 임금을 산정기간·임금총액에서 뺀다
   const excludedDays = input.excludedDays ?? 0;
   const excludedWage = input.excludedWage ?? 0;
   if (!Number.isInteger(excludedDays) || excludedDays < 0) throw new Error('제외기간 일수를 확인해 주세요');
   if (!(Number.isFinite(excludedWage) && excludedWage >= 0) || excludedWage > input.wageTotal) throw new Error('제외기간에 받은 임금을 확인해 주세요(3개월 임금총액보다 클 수 없습니다)');
   if (excludedDays === 0 && excludedWage > 0) throw new Error('제외기간 일수 없이 그 기간 임금만 넣었습니다');
   if (excludedDays >= periodDays) throw new Error('평균임금 산정기간 전부가 제외기간입니다. 이때는 이 계산식으로 셀 수 없습니다');
-  // 261126 G4 I8 — 일수만 넣고 임금을 비우면 0 으로 보지 않는다(분모만 줄어 평균임금이 부푼다)
-  if (excludedDays > 0 && input.excludedWage === undefined) throw new Error('제외기간에 받은 임금을 넣어 주세요. 그 기간에 받은 임금이 없으면 0을 넣습니다');
+  // 261126 G4 I8 — 일수만 넣고 임금을 비우면 0 으로 보지 않는다(분모만 줄어 평균임금이 부푼다). JSON 의 null 도 빈칸이다(261127 R11)
+  if (excludedDays > 0 && input.excludedWage == null) throw new Error('제외기간에 받은 임금을 넣어 주세요. 그 기간에 받은 임금이 없으면 0을 넣습니다');
   // 261126 G4 I15 — 남은 기간 임금이 0 이 되는 입력은 멈춘다
   if (excludedDays > 0 && excludedWage > 0 && excludedWage === input.wageTotal) throw new Error('제외기간에 받은 임금이 3개월 임금총액과 같아 남은 기간 임금이 0원이 됩니다. 입력을 확인해 주세요');
   const averageDays = periodDays - excludedDays;

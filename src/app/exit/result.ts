@@ -33,7 +33,8 @@ export function exitResultView(a: {
   const hoursChanged = a.hoursChanged === true;
   const sev = hoursChanged ? null : a.sev;
   const params: string[] = [];
-  if (typeof weeklyHours === 'number' && Number.isFinite(weeklyHours) && weeklyHours > 0) params.push(`weeklyHours=${weeklyHours}`);
+  // 0~168 이면 0 도 싣는다 — 챗봇 링크와 같은 규칙(261127 G4 R20)
+  if (typeof weeklyHours === 'number' && Number.isFinite(weeklyHours) && weeklyHours >= 0 && weeklyHours <= 168) params.push(`weeklyHours=${weeklyHours}`);
   if (hoursChanged) params.push('hoursChanged=1');
   const calculatorHref = `/tools/severance.html${params.length ? `?${params.join('&')}` : ''}`;
   // 시간이 바뀐 적이 있으면 「4주 평균 주 15시간 이상·미만」은 멈춘 까닭과 어긋나므로 쓰지 않는다
@@ -68,7 +69,8 @@ export function exitResultView(a: {
     basis: BASIS,
     asOf: [`법제처 현행 법령 원문 기준 · 확인 ${CHECKED}`],
     caveat: '입력한 월 급여 × 3 을 3개월 임금으로 놓은 세전 금액입니다. 상여금·평균임금에서 빼는 기간·통상임금 비교는 넣지 않았습니다.',
-    nextNote: check.eligible || hoursChanged
+    // 시간이 바뀐 적이 있어도 1년 미만이면 퇴직금이 없는 것이 확정이라 14일 안내는 남긴다(261127 G4 R19)
+    nextNote: check.eligible || (hoursChanged && check.oneYear)
       ? undefined
       : '퇴직금이 없어도 마지막 달 임금 등 남은 금품은 퇴직일부터 14일 안에 받아야 합니다(근로기준법 제36조). 아래 날짜순 점검표에서 날짜를 확인해 보세요.',
     next: hoursChanged

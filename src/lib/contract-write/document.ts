@@ -177,23 +177,28 @@ function laborDayLine(fivePlus: boolean): string {
  *   1개월 미만 계약은 일용근로자라 시간과 상관없이 적용(같은 조 제2항제2호, 261126 G4 I11).
  *   2027. 1. 1.부터는 보수 소득 기준(금액은 대통령령) 또는 3개월 이상 계속 근로(같은 법 제10조제2항) — 그날 이후 시작하는
  *   계약은 15시간 이상이어도 가입을 단정하지 않고, 그날을 넘는 15시간 미만 계약은 한 줄을 더한다(261126 G4 I12).
+ *   같은 날부터 둘 이상의 사업에 동시에 고용되어 보수를 합산 신청한 근로자도 적용한다(같은 항 제3호) — 그 조건 한 줄(261127 G4 R21).
  *   갈래는 contract.ts employmentInsuranceCase.
  * 산재보험은 근로시간 기준이 없어 그대로 둔다. 국민연금·건강보험의 단시간 제외는 원문을 확인하지 못해 가입 여부를 정하지 않는다.
+ * 1개월 미만 계약(daily)은 1주 시간과 상관없이 국민연금·건강보험을 단정하지 않는다 — 국민건강보험법 제6조제2항제1호(고용 기간이
+ *   1개월 미만인 일용근로자)·국민연금법 시행령 제2조제1호(1개월 미만의 기한을 정하여 근로를 제공하는 사람)가 가입 대상에서 뺀다(261127 G4 R10).
  */
 export function socialInsuranceLines(form: Pick<WriteForm, 'startDate' | 'endDate'>, under15: boolean): string[] {
   const kind = employmentInsuranceCase(form, under15);
   const pensionHealth = '국민연금·건강보험은 관계 법령의 가입 기준에 따른다.';
   const income = '고용보험은 보수가 고용보험법 제10조 제1항 제2호의 소득 기준 이상이거나 3개월 이상 계속하여 근로를 제공하면 가입한다.';
-  if (kind === 'income') return under15 ? ['산재보험에 가입한다.', income, pensionHealth] : ['산재보험·국민연금·건강보험에 가입한다.', income];
-  if (!under15) return ['고용보험·산재보험·국민연금·건강보험에 가입한다.'];
+  const multi = '이 사업의 보수가 소득 기준에 못 미쳐도 둘 이상의 사업에 동시에 고용되어 같은 기간 보수를 합한 금액이 소득 기준 이상이고 보수 합산을 신청하면 고용보험에 가입한다(고용보험법 제10조 제2항 제3호).';
+  // 1개월 미만은 1주 시간보다 먼저 본다 — 15시간 이상이어도 국민연금·건강보험은 단정하지 않는다(R10)
   if (kind === 'daily') {
     const daily = form.startDate >= EMPLOYMENT_INSURANCE_INCOME_FROM
       ? '1개월 미만 동안 고용되는 일용근로자이므로 고용보험에 가입한다(고용보험법 제10조 제2항 제1호).'
       : '1개월 미만 동안 고용되는 일용근로자이므로 1주 소정근로시간과 상관없이 고용보험에 가입한다(고용보험법 시행령 제3조 제2항 제2호).';
     return ['산재보험에 가입한다.', daily, pensionHealth];
   }
+  if (kind === 'income') return under15 ? ['산재보험에 가입한다.', income, multi, pensionHealth] : ['산재보험·국민연금·건강보험에 가입한다.', income, multi];
+  if (!under15) return ['고용보험·산재보험·국민연금·건강보험에 가입한다.'];
   const lines = ['산재보험에 가입한다.', '1주 소정근로시간이 15시간 미만이므로 3개월 이상 계속하여 근로를 제공하면 고용보험에 가입한다(고용보험법 시행령 제3조).'];
-  if (kind === 'hours-crossing') lines.push('2027년 1월 1일부터는 3개월이 되지 않았더라도 보수가 고용보험법 제10조 제1항 제2호의 소득 기준 이상이면 가입한다.');
+  if (kind === 'hours-crossing') lines.push('2027년 1월 1일부터는 3개월이 되지 않았더라도 보수가 고용보험법 제10조 제1항 제2호의 소득 기준 이상이면 가입한다.', `2027년 1월 1일부터는 ${multi}`);
   return [...lines, pensionHealth];
 }
 

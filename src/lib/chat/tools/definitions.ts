@@ -1,4 +1,6 @@
 // LLM 도구 스키마 (OpenAI tools format)
+import { HOURS_CHANGED_MESSAGE } from '@/lib/calc/severance';
+
 export const TOOLS = [
   {
     type: 'function' as const,
@@ -31,7 +33,7 @@ export const TOOLS = [
           },
           excluded_days: {
             type: 'integer',
-            description: '직전 3개월 중 평균임금 산정기간에서 빼는 기간의 일수 — 수습을 시작한 날부터 3개월 이내·사용자 귀책 휴업·출산전후휴가·업무상 요양·육아휴직·쟁의행위·병역 등(임금을 받았으면 빼지 않음)·승인 휴업(근로기준법 시행령 제2조제1항), 육아기 근로시간 단축 기간(남녀고용평등법 제19조의3제4항)',
+            description: '직전 3개월 중 평균임금 산정기간에서 빼는 기간의 일수 — 수습을 시작한 날부터 3개월 이내·사용자 귀책 휴업·출산전후휴가·업무상 요양·육아휴직·쟁의행위·병역 등(임금을 받았으면 빼지 않음)·승인 휴업(근로기준법 시행령 제2조제1항), 육아기 근로시간 단축 기간(남녀고용평등법 제19조의3제4항), 가족돌봄 등을 위한 근로시간 단축 기간(남녀고용평등법 제22조의4제4항)',
           },
           excluded_wage: {
             type: 'integer',
@@ -39,7 +41,8 @@ export const TOOLS = [
           },
           hours_changed: {
             type: 'boolean',
-            description: '재직 중 1주 소정근로시간이 15시간 이상과 미만 사이에서 바뀐 적이 있으면 true. 그러면 계산하지 않는다',
+            // 멈출 때 돌려주는 글과 같은 엔진 상수(261127 G4 R16 — 4주는 퇴직일부터 거슬러 나눈다)
+            description: `재직 중 1주 소정근로시간이 15시간 이상과 미만 사이에서 바뀐 적이 있으면 true. 그러면 계산하지 않고 이 글을 error 로 돌려준다: ${HOURS_CHANGED_MESSAGE}`,
           },
         },
         required: ['hire_date', 'last_work_date', 'wages_3months'],

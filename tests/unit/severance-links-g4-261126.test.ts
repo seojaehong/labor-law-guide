@@ -25,8 +25,9 @@ describe('챗봇 계산기 링크', () => {
   it('4주 평균 소수(17.5)도 그대로 싣는다', () => {
     expect(new URL(severanceCalculatorLink({ ...ARGS, weekly_hours: 17.5 })!).searchParams.get('weeklyHours')).toBe('17.5');
   });
-  it('없거나 숫자가 아니거나 0 이하면 싣지 않는다(종전 링크 그대로)', () => {
-    for (const w of [undefined, '40', 0, -3, Number.NaN]) {
+  // 261127 G4 R20 — 0 은 싣는다(챗봇 답 under-15h 와 같은 입력). 기대값은 severance-r2-261127.test.ts
+  it('없거나 숫자가 아니거나 0~168 밖이면 싣지 않는다(종전 링크 그대로)', () => {
+    for (const w of [undefined, '40', -3, 169, Number.NaN]) {
       expect(new URL(severanceCalculatorLink({ ...ARGS, weekly_hours: w })!).searchParams.has('weeklyHours')).toBe(false);
     }
   });

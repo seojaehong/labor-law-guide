@@ -108,10 +108,11 @@ test('계산 뒤 입력을 두 글자 고쳐도 「결과를 지웠습니다」 
   await expect(page.locator('#resultArea')).toBeHidden();
 });
 
-test('1년 미만이면 지급 기한을 단정하지 않고 대상이 아닐 수 있다고 적는다', async ({ page }) => {
+// 261127 G4 R18 — 1년 미만은 상태줄·산정서와 같이 단정한다(전에는 「아닐 수 있습니다」)
+test('1년 미만이면 지급 기한을 적지 않고 지급 대상이 아니라고 적는다', async ({ page }) => {
   await calc(page, '2025-06-01', '2025-12-31');
   const next = page.locator('.result-next');
-  await expect(next).toContainText('1년 미만이면 퇴직금 지급 대상이 아닐 수 있습니다');
+  await expect(next).toContainText('계속근로기간이 1년 미만이라 퇴직금 지급 대상이 아닙니다(근로자퇴직급여 보장법 제4조제1항 단서)');
   await expect(next).not.toContainText('14일째');
 });
 
@@ -248,4 +249,60 @@ test('주 14시간이면 상태줄·산정서에 지급 대상이 아니라고 �
   await expect(sheet).toContainText('15시간 미만이라 퇴직금 지급 대상이 아닙니다');
   await expect(sheet).toContainText('참고 계산액(지급 대상 아님)');
   await expect(sheet).not.toContainText('실수령 퇴직금');
+});
+
+// 261127 G4 R13 — 링크로 열면 저장된 앞 사람 값(빼는 기간·임금·시간 변경 체크)을 이어받지 않는다. 저장본은 지우지 않는다
+test('링크로 열면 저장본 대신 기본값과 주소 값만 쓰고, 저장본은 그대로 남는다', async ({ page }) => {
+  await page.goto(PATH);
+  await page.locator('#startDate').fill('2024-01-01');
+  await page.locator('#endDate').fill('2025-12-31');
+  for (const i of [1, 2, 3]) await page.locator(`#wage${i}`).fill('3000000');
+  await page.locator('#weeklyHours').fill('40');
+  const fold = page.locator('#extraWages');
+  if (!(await fold.evaluate((d) => (d as HTMLDetailsElement).open))) await fold.locator('summary').click();
+  await page.locator('#excludedDays').fill('60');
+  await page.locator('#excludedWage').fill('0');
+  await page.locator('#hoursChanged').check();
+  await page.getByRole('button', { name: '저장', exact: true }).click();
+  await expect(page.locator('#actionStatus')).toContainText('저장했습니다');
+
+  await page.goto(`${PATH}?start=2023-01-01&end=2026-01-01&w1=3000000&w2=3000000&w3=3000000&run=1`);
+  await expect(page.locator('#resultArea .result-block .result-amount')).toContainText('8,812,389');
+  // 기본값 — 빼는 기간 0일·그 기간 임금 빈칸(앞 사람의 60일·0원이 아니다)
+  await expect(page.locator('#excludedDays')).toHaveValue('0');
+  await expect(page.locator('#excludedWage')).toHaveValue('');
+  await expect(page.locator('#hoursChanged')).not.toBeChecked();
+  await expect(page.locator('#weeklyHours')).toHaveValue('');
+
+  await page.goto(PATH);
+  await expect(page.locator('#excludedDays')).toHaveValue('60');
+  await expect(page.locator('#hoursChanged')).toBeChecked();
+});
+
+// 261127 G4 R14 — 금액 칸에 들어갔다 나와도 0 을 지우지 않는다(「그 기간에 받은 임금」은 빈칸과 0 이 다른 입력)
+test('링크로 받은 빼는 기간 임금 0 은 칸을 지나가도 0 으로 남아 계산된다', async ({ page }) => {
+  await page.goto(`${PATH}?start=2025-01-01&end=2026-01-01&w1=6200000&excludedDays=30&excludedWage=0`);
+  const wage = page.locator('#excludedWage');
+  await expect(wage).toHaveValue('0');
+  await wage.focus();
+  await expect(wage).toHaveValue('0');
+  await page.keyboard.press('Tab');
+  await expect(wage).toHaveValue('0');
+  await page.getByRole('button', { name: '계산하기' }).click();
+  await expect(page.locator('#resultArea .result-block .result-amount')).toContainText('3,000,000');
+});
+
+// 261127 G4 R15 — 빼는 기간 임금 기본값이 0 이던 때의 저장본은 그 0 을 빈칸으로 읽는다(I8 우회 방지)
+test('옛 저장본의 빼는 기간 임금 0 은 빈칸으로 복원되어 계산 전에 멈춘다', async ({ page }) => {
+  await page.goto(PATH);
+  await page.evaluate(() => localStorage.setItem('severanceCalcData_v5', JSON.stringify({
+    savedAt: '2026-11-01T00:00:00.000Z',
+    state: { currentIndex: 0, workers: [{ startDate: '2025-01-01', endDate: '2025-12-31', wage1: '6,200,000', excludedDays: '30', excludedWage: '0' }] },
+  })));
+  await page.reload();
+  await expect(page.locator('#excludedDays')).toHaveValue('30');
+  await expect(page.locator('#excludedWage')).toHaveValue('');
+  await page.getByRole('button', { name: '계산하기' }).click();
+  await expect(page.locator('#calcStatus')).toContainText('받지 않았으면 0을 넣습니다');
+  await expect(page.locator('#resultArea .result-block')).toHaveCount(0);
 });
