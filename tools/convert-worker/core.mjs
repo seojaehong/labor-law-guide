@@ -8,6 +8,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { runJob } from './jobs.mjs';
+import { repairExternalLinks, warningsHeader } from './xlsx-links.mjs';
 
 // 입력 확장자 → 허용 출력. hwpx 는 LibreOffice 가 읽지 못해 받지 않는다.
 // hwp 는 LibreOffice 의 옛 HWP 필터(HWP 97 이전 형식)만 읽는다 — 요즘 HWP 5.x 는 CONVERT_FAILED 로 끝난다.
@@ -273,8 +274,21 @@ export async function convert(config, { bytes, ext, to }) {
     if (config.maxOutputBytes && st.size > config.maxOutputBytes) {
       return errorResponse('OUTPUT_TOO_LARGE', `output ${st.size} bytes exceeds ${config.maxOutputBytes}`);
     }
-    const out = await readFile(outPath);
-    return { status: 200, headers: { 'content-type': CONTENT_TYPES[to] }, body: out };
+    let out = await readFile(outPath);
+    let warnings = [];
+    if (to === 'xlsx') {
+      // 깨진 외부 연결 정리 — 실패해도 변환은 살린다(원본 바이트 + 경고)
+      try {
+        const r = await repairExternalLinks(out);
+        out = Buffer.from(r.bytes);
+        warnings = r.warnings;
+      } catch {
+        warnings = [{ code: 'EXTERNAL_LINKS_CHECK_FAILED', count: 1 }];
+      }
+    }
+    const headers = { 'content-type': CONTENT_TYPES[to] };
+    if (warnings.length) headers['x-convert-warnings'] = warningsHeader(warnings);
+    return { status: 200, headers, body: out, warnings };
   } catch (e) {
     return errorResponse('INTERNAL', e?.code || 'unexpected error');
   } finally {

@@ -10,6 +10,7 @@
     "test": "node --test \"test/*.test.mjs\""
   },
   "dependencies": {
-    "aws-lambda-ric": "4.0.2"
+    "aws-lambda-ric": "4.0.2",
+    "jszip": "^3.10.1"
   }
 }

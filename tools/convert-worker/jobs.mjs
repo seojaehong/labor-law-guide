@@ -221,7 +221,7 @@ export async function runJob(config, body) {
       const to = String(job.args.to).toLowerCase();
       const r = await convert({ ...config, maxInputBytes: config.jobMaxInputBytes, maxOutputBytes: config.jobMaxOutputBytes }, { bytes: Buffer.from(input), ext: from, to });
       if (r.status !== 200) return { ...r, stats };
-      result = { data: { from, to }, warnings: [], file: { bytes: new Uint8Array(r.body), mime: CONTENT_TYPES[to] } };
+      result = { data: { from, to }, warnings: r.warnings ?? [], file: { bytes: new Uint8Array(r.body), mime: CONTENT_TYPES[to] } };
     } else {
       const r = await runOfficeOp(config, job.op, input, job.args, deadline);
       if (!r.ok) {

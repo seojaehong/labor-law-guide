@@ -31,7 +31,7 @@ ENV HOME=/tmp \
 
 WORKDIR /app
 COPY --from=ric /app/node_modules ./node_modules
-COPY package.json core.mjs jobs.mjs office-thread.mjs server.mjs lambda.mjs docker-entrypoint.sh ./
+COPY package.json core.mjs jobs.mjs xlsx-links.mjs office-thread.mjs server.mjs lambda.mjs docker-entrypoint.sh ./
 # /jobs 의 office op 는 k-labor/office 묶음(/app/office/index.mjs 또는 K_LABOR_OFFICE_MODULE)이 있어야 돈다.
 # 묶음은 이 빌드 컨텍스트 밖(tools/k-labor/dist/office)이라 지금은 이미지에 없다 → office op 는 503 MISCONFIGURED.
 # 넣으려면 빌드 전에 office/ 로 복사하고 아래에 `COPY office ./office` 를 더하거나, 마운트 + K_LABOR_OFFICE_MODULE(미실측).

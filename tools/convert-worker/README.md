@@ -194,6 +194,10 @@ docker run --rm -p 8080:8080 -e MODE=http -e CONVERT_TOKEN=x \
 - KOSHA 90703 의 한 시트는 원본에 **같은 병합 범위가 두 번** 적혀 있다(17개, 고유 16개). LibreOffice 는 하나로 합쳐 16개로 낸다. 잃은 병합은 없다.
 - 왕복 xls 크기가 원본과 다르다(예: 526KB → 304KB, 1.4MB → 2.1MB). 시트·병합·그림 수는 같았지만 셀 서식 하나하나를 대조하지는 않았다.
 
+### 깨진 외부 연결 정리 (xlsx 출력)
+
+LibreOffice 는 .xls 의 외부 연결을 xlsx 로 옮기면서 시트 이름을 `….xls].xls]…` 처럼 망가뜨린다. 엑셀은 시트 이름에 `[ ] : \ / ? *` 를 허용하지 않아 이런 파일을 열지 못한다. 그래서 출력이 xlsx 이면 `xlsx-links.mjs` 의 `repairExternalLinks` 가 **이름이 깨진 외부 연결만** 지운다(workbook.xml 의 externalReference, workbook.xml.rels 관계, `[Content_Types].xml` Override, `xl/externalLinks/` 부품과 그 rels). 정상 외부 연결은 그대로 둔다. 수식·이름 정의가 `[n]`(externalReferences 안 순서)으로 그 연결을 가리키거나, 지우면 뒤에서 참조되는 연결의 번호가 당겨지는 경우에는 지우지 않고 경고만 낸다. 바꿀 것이 없으면 산출물 바이트는 그대로다. 경고는 코드와 개수만 싣는다. `/convert` 는 응답 헤더 `x-convert-warnings: EXTERNAL_LINKS_REMOVED=2`, `/jobs` op=convert 는 `warnings: [{code, count}]` 로 낸다(`EXTERNAL_LINKS_REMOVED` · `EXTERNAL_LINKS_KEPT_REFERENCED` · `EXTERNAL_LINKS_CHECK_FAILED` — 판독 실패면 원본 그대로).
+
 ## Lambda 컨테이너로 배포 (ap-northeast-2) — 절차만
 
 > 이 저장소 작업에서는 배포하지 않았다. 아래는 사람이 할 순서다.
