@@ -145,7 +145,7 @@ export default function ExitClient() {
 
         {ready && check && (
           <div className="ex-result">
-            <ResultBlock label="확인용 추정" view={exitResultView({ check, sev, lv, ent, unusedLeaveDays: input.unusedLeaveDays })} />
+            <ResultBlock label="확인용 추정" view={exitResultView({ check, sev, lv, ent, unusedLeaveDays: input.unusedLeaveDays, weeklyHours: input.weeklyHours })} />
           </div>
         )}
 

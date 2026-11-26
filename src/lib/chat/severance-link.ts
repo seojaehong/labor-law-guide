@@ -34,6 +34,8 @@ export function severanceCalculatorLink(a: Record<string, unknown>): string | nu
   if (typeof a.annual_bonus === 'number' && a.annual_bonus > 0) params.set('bonusTotal', String(a.annual_bonus));
   const leave = severanceLeavePay(a);
   if (leave > 0) params.set('annualLeave', String(leave));
+  // 1주 소정근로시간(4주 평균) — 계산기가 주 15시간 지급 요건을 보게 한다. 없으면 계산기는 「따지지 않았습니다」(261126 G4 I16)
+  if (typeof a.weekly_hours === 'number' && Number.isFinite(a.weekly_hours) && a.weekly_hours > 0) params.set('weeklyHours', String(a.weekly_hours));
   if (!params.has('start') || !params.has('end')) return null;
   params.set('run', '1');
   return `https://yellowenvelope.kr/tools/severance.html?${params.toString()}`;

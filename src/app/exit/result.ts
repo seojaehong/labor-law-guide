@@ -20,8 +20,13 @@ export function exitResultView(a: {
   lv: LeaveEstimate | null;
   ent: EntitlementResult | null;
   unusedLeaveDays?: number;
+  /** 입력한 1주 소정근로시간 — 계산기 링크에 실어 계산기도 주 15시간 요건을 보게 한다(261126 G4 I16) */
+  weeklyHours?: number;
 }): ResultView {
-  const { check, sev, lv, ent, unusedLeaveDays } = a;
+  const { check, sev, lv, ent, unusedLeaveDays, weeklyHours } = a;
+  const calculatorHref = typeof weeklyHours === 'number' && Number.isFinite(weeklyHours) && weeklyHours > 0
+    ? `/tools/severance.html?weeklyHours=${weeklyHours}`
+    : '/tools/severance.html';
   const meta = [`재직 ${check.serviceDays.toLocaleString('ko-KR')}일 · 계속근로 1년 ${check.oneYear ? '이상' : '미만'} · 4주 평균 주 15시간 ${check.hours15 ? '이상' : '미만'}`];
   if (!check.oneYear) meta.push('입사일 1년 뒤 같은 날 이후에 퇴직일(마지막 근무일 다음 날)이 와야 1년 이상입니다.');
 
@@ -56,7 +61,7 @@ export function exitResultView(a: {
       : '퇴직금이 없어도 마지막 달 임금 등 남은 금품은 퇴직일부터 14일 안에 받아야 합니다(근로기준법 제36조). 아래 날짜순 점검표에서 날짜를 확인해 보세요.',
     next: check.eligible
       ? [
-        { label: '퇴직금 계산기로 자세히 계산', href: '/tools/severance.html' },
+        { label: '퇴직금 계산기로 자세히 계산', href: calculatorHref },
         { label: '추정치의 한계', href: '#limits' },
       ]
       : [
