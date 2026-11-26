@@ -141,30 +141,19 @@ describe('fill — ExcelJS 밖 부품 복구(drawing·printerSettings·시트 re
     expect(printAreaText(parts(r.bytes!))).toBe('&apos;평가표&apos;!$A$1:$F$8');
   });
 
-  it('아래에 도형 고정점이 있으면 조각 5 에선 덧붙이지 않고 OVERFLOW(조각 5b 닫힌 밀기에서 다시 GREEN)', async () => {
+  it('아래에 도형 고정점이 있으면 닫힌 밀기(5b): 인쇄영역 끝만 늘리고 $ 표기 유지, 아래 고정점만 2행 내림', async () => {
     const r = await fillXlsxTemplate(await gasLike(), {
       rows: { sheet: '평가표', startRow: 3, columns: COLS, data: rowsOf(7), overflow: 'insertRows' },
     });
-    expect(r.ok).toBe(false);
-    expect(r.code).toBe('OVERFLOW');
-    expect(r.reason).toMatch(/그림·도형/);
-  });
-
-  it.todo('조각 5b — 닫힌 밀기: 끝 행만 늘리고 $ 표기 유지, 아래 고정점만 2행 내림');
-
-  it.skip('(옛 밀기 단언 — 조각 5b 에서 새 단언으로) 행을 넣으면 끝 행만 늘리고 $ 표기는 지킨다', async () => {
-    const r = await fillXlsxTemplate(await gasLike(), {
-      rows: { sheet: '평가표', startRow: 3, columns: COLS, data: rowsOf(7), overflow: 'insertRows' },
-    });
+    expect(r.reason).toBeUndefined();
     expect(r.ok).toBe(true);
-    expect(r.preserved!.insertedRows).toEqual({ count: 2, at: 8, same: false });
-    expect(printAreaText(parts(r.bytes!))).toBe('&apos;평가표&apos;!$A$1:$F$10');
-    expect(r.preserved!.printArea.after['평가표']).toBe('A1:F10');
-    expect(r.preserved!.printArea.same).toBe(true);
+    expect(r.preserved!.insertedRows).toMatchObject({ count: 2, at: 8 });
+    expect(printAreaText(parts(r.bytes!))).toMatch(/\$A\$1:\$F\$10$/);
     expect(r.preserved!.package.same).toBe(true);
     // 넣은 자리(8행) 위 고정점은 그대로, 아래(0부터 8 = 9행) 는 2행 내려간다
     const rowsAt = [...txt(parts(r.bytes!), 'xl/drawings/drawing1.xml').matchAll(/<xdr:(from|to)>[\s\S]*?<xdr:row>(\d+)/g)].map((m) => `${m[1]}${m[2]}`);
     expect(rowsAt).toEqual(['from0', 'to1', 'from10']);
+    expect(r.issues.map((i) => i.code)).toContain('ROWS_PUSHED');
   });
 
   it('(옛 경로·열 숨김) 복구할 수 없으면(drawing 이 제 rels 를 가짐) PRESERVATION_LOSS, 엄격 모드면 실패', async () => {

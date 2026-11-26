@@ -127,7 +127,8 @@ describe('꼬리 덧붙이기(§2-5) — 밀지 않는다', () => {
     // 5행째부터 1행 모자람 — 덧붙이기는 막히고(6행에 값), 수식 없는 서식이라 닫힌 밀기(§2-5b)로 바닥글을 1행 내린다
     const r = await fillXlsxTemplate(await zip(book({ rows: empty(2) + empty(3) + footer })), { rows: rowsOf(5) });
     expect(r.ok).toBe(true);
-    expect(r.preserved!.insertedRows).toMatchObject({ count: 1, at: 4 });
+    // 미는 자리 = 바닥글 앞 빈 자리(4·5) 끝 다음 = 6행
+    expect(r.preserved!.insertedRows).toMatchObject({ count: 1, at: 6 });
     expect(codes(r)).toContain('ROWS_PUSHED');
     expect((await unzip(r.bytes!)).get(SHEET)).toMatch(/<c r="A7" t="inlineStr"><is><t>작성자 서명/);
     const e = await fillXlsxTemplate(await zip(book({ rows: empty(2) + empty(3) + footer })), { rows: rowsOf(5, 'error') });

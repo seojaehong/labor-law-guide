@@ -358,10 +358,14 @@ export function rowCapacity(raw: string, startRow: number, cols: number[]): numb
   const ref = byR.get(startRow);
   if (!ref) return 0;
   const want = sig(ref);
+  // 묶인 열이 병합에 덮인 칸(병합 첫 칸이 아님)이면 쓸 수 없으므로 빈 자리가 아니다 — 바닥글 병합(S09 B20:L20)
+  const merges = mergeRanges(t.xml, t.P);
+  const covered = (r: number) => cols.some((col) => merges.some((g) => g.r1 <= r && r <= g.r2 && g.c1 <= col && col <= g.c2 && !(g.r1 === r && g.c1 === col)));
   let n = 0;
   for (let r = startRow; ; r++) {
     const row = byR.get(r);
     if (!row || sig(row) !== want) break;
+    if (covered(r)) break;
     if (cellsOf(row).some((c) => cols.includes(c.col) && hasContent(c, t.P))) break;
     n++;
   }

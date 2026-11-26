@@ -477,20 +477,27 @@ async function patchFill(
     const blockedBy = extra > 0 && (rows.overflow ?? 'error') !== 'error' ? otherPartBlocker(opened, path, at) : null;
     const ap = extra > 0 && (rows.overflow ?? 'error') !== 'error' && !blockedBy ? appendTailRows(rawText(path), at, extra) : null;
     // 닫힌 밀기(§2-5b) — 덧붙이기가 시트 안 「놓인 것」 때문에 막혔고, 시트 밖 고정점은 아래에 없을 때만
+    // 도형 고정점만 막았다면 밀기에서 고정점을 함께 내린다(메모·VML 은 여전히 막는다)
     let pushReason: string | null = null;
-    if (short > 0 && ap && !ap.ok && !blockedBy) {
+    const pushable = short > 0 && (rows.overflow ?? 'error') !== 'error' && (blockedBy ? !otherPartBlocker(opened, path, at, true) : ap !== null && !ap.ok);
+    if (pushable) {
+      // 미는 자리 = 벽 앞 빈 자리 끝(at + free). 그 위 빈 자리는 제자리로 쓴다
+      const pAt = at + free;
       const wbWhy = pushWorkbookBlocker(opened, paths);
-      const ps = wbWhy ? null : pushRows(rawText(path), at, short, rows.sheet);
-      if (ps && ps.ok) {
-        const wbXml = shiftWorkbookNames(opened, rows.sheet, at, short);
+      const ps = wbWhy ? null : pushRows(rawText(path), pAt, short, rows.sheet);
+      const dr = ps && ps.ok ? pushDrawings(opened, path, pAt, short) : null;
+      if (ps && ps.ok && dr && !dr.ok) pushReason = dr.blocked;
+      else if (ps && ps.ok && dr && dr.ok) {
+        const wbXml = shiftWorkbookNames(opened, rows.sheet, pAt, short);
         newParts.set(path, ps.xml);
+        for (const [dp, dx] of dr.parts) newParts.set(dp, dx);
         if (wbXml) newParts.set('xl/workbook.xml', wbXml);
-        inserted = { count: short, at };
-        const mv = (r: number) => (r >= at ? r + short : r);
+        inserted = { count: short, at: pAt };
+        const mv = (r: number) => (r >= pAt ? r + short : r);
         const sheetBefore = before.sheets.find((s) => s.name === rows.sheet)!;
         mergesAfter[rows.sheet] = [...sheetBefore.merges.map((m) => shiftRefRows(m, mv)), ...ps.addedMerges];
-        pushedSheet = { sheet: rows.sheet, at, n: short };
-        issues.push({ code: 'ROWS_PUSHED', message: `${rows.sheet}: 빈 행이 모자라 ${at}행 아래 내용(바닥글 등)을 ${short}행 내리고 그 자리에 위 자료 행 서식으로 새 행을 만들었습니다.`, at: `${rows.sheet}!${at}` });
+        pushedSheet = { sheet: rows.sheet, at: pAt, n: short };
+        issues.push({ code: 'ROWS_PUSHED', message: `${rows.sheet}: 빈 행이 모자라 ${pAt}행 아래 내용(바닥글 등)을 ${short}행 내리고 그 자리에 위 자료 행 서식으로 새 행을 만들었습니다.`, at: `${rows.sheet}!${pAt}` });
       } else {
         pushReason = wbWhy ?? (ps && !ps.ok ? ('blocked' in ps ? ps.blocked : ps.reason) : null);
       }
@@ -565,6 +572,15 @@ async function patchFill(
     printArea[s.name] = pa && grow && grow.sheet === s.name && newParts.has('xl/workbook.xml') ? (growRange(pa, grow.at, grow.count) ?? pa) : pa;
     if (pa && pushedSheet && pushedSheet.sheet === s.name) printArea[s.name] = pa.split(',').map((x) => shiftNameArea(x, pushedSheet!.at, pushedSheet!.n)).join(',');
   }
+  // 쓴 자료 행이 (늘린 뒤의) 인쇄영역 밖이면 경고 — 제자리 쓰기도 포함(실서식 S09 at=21)
+  if (rows && rows.data.length > 0 && !issues.some((i) => i.code === 'PRINT_AREA_NOT_EXTENDED')) {
+    const pa = printArea[rows.sheet];
+    const last = rows.startRow + rows.data.length - 1;
+    const ends = pa ? pa.split(',').map((x) => Number(/(\d+)$/.exec(x)?.[1] ?? NaN)).filter(Number.isFinite) : [];
+    if (ends.length > 0 && last > Math.max(...ends)) {
+      issues.push({ code: 'PRINT_AREA_NOT_EXTENDED', message: `${rows.sheet}: 쓴 자료 행(${last}행까지)이 인쇄영역(${pa}) 밖이라 인쇄되지 않을 수 있습니다. 엑셀에서 인쇄영역을 확인하세요.`, at: `${rows.sheet}!${last}` });
+    }
+  }
   const printTitles: Record<string, string | null> = {};
   for (const s of before.sheets) {
     const pt = s.printTitles ?? null;
@@ -602,18 +618,10 @@ function resolveTarget(fromPart: string, target: string): string {
  * 시트 밖 부품에서 at 아래에 놓인 것 — 그림·도형 고정점(0 기반 from/row ≥ at−1)·메모(ref 행 ≥ at)·VML 메모 고정점.
  * 하나라도 있으면 사유, 없으면 null.
  */
-function otherPartBlocker(opened: OpenedXlsx, sheetPath: string, at: number): string | null {
-  const relsPath = sheetPath.replace(/([^/]+)$/, '_rels/$1.rels');
-  const rels = opened.parts.get(relsPath);
-  if (!rels) return null;
-  for (const m of utf8NoStrip.decode(rels).matchAll(/<Relationship\b[^>]*>/g)) {
-    const type = /Type="([^"]*)"/.exec(m[0])?.[1] ?? '';
-    const target = /Target="([^"]*)"/.exec(m[0])?.[1];
-    if (!target || /TargetMode="External"/.test(m[0])) continue;
-    const part = opened.parts.get(resolveTarget(sheetPath, target));
-    if (!part) continue;
-    const xml = utf8NoStrip.decode(part);
+function otherPartBlocker(opened: OpenedXlsx, sheetPath: string, at: number, ignoreDrawing = false): string | null {
+  for (const { type, xml } of sheetRelParts(opened, sheetPath)) {
     if (/\/drawing$/.test(type)) {
+      if (ignoreDrawing) continue;
       for (const a of xml.matchAll(/<(?:\w+:)?from>[\s\S]*?<(?:\w+:)?row>(\d+)</g)) if (Number(a[1]) >= at - 1) return '그림·도형이 아래에 있습니다';
     } else if (/\/comments$/.test(type)) {
       for (const c of xml.matchAll(/<(?:\w+:)?comment\b[^>]*\sref="([A-Z]+)(\d+)"/g)) if (Number(c[2]) >= at) return '메모가 아래에 있습니다';
@@ -622,6 +630,72 @@ function otherPartBlocker(opened: OpenedXlsx, sheetPath: string, at: number): st
     }
   }
   return null;
+}
+
+/** 시트 rels 가 가리키는 내부 부품(종류·zip 경로·원문) */
+function sheetRelParts(opened: OpenedXlsx, sheetPath: string): { type: string; path: string; xml: string }[] {
+  const rels = opened.parts.get(sheetPath.replace(/([^/]+)$/, '_rels/$1.rels'));
+  if (!rels) return [];
+  const out: { type: string; path: string; xml: string }[] = [];
+  for (const m of utf8NoStrip.decode(rels).matchAll(/<Relationship\b[^>]*>/g)) {
+    const type = /Type="([^"]*)"/.exec(m[0])?.[1] ?? '';
+    const target = /Target="([^"]*)"/.exec(m[0])?.[1];
+    if (!target || /TargetMode="External"/.test(m[0])) continue;
+    const path = resolveTarget(sheetPath, target);
+    const part = opened.raw.get(path) ?? opened.parts.get(path);
+    if (part) out.push({ type, path, xml: utf8NoStrip.decode(part) });
+  }
+  return out;
+}
+
+const ANCHOR_RE = /<((?:[\w.-]+:)?)(twoCellAnchor|oneCellAnchor)\b([^>]*)>([\s\S]*?)<\/\1\2>/g;
+/**
+ * 닫힌 밀기(§2-5b)의 도형 고정점 — 윗변 행(0 기반 from/row) ≥ at−1 인 고정점만 from·to 행을 +n.
+ * 오프셋 EMU·a:xfrm 은 그대로(엑셀 실측으로 제자리). 허용 = twoCellAnchor(editAs 생략·twoCell·oneCell)·oneCellAnchor,
+ * 내용물 sp·pic·cxnSp. absoluteAnchor·AlternateContent·grpSp·graphicFrame·textlink·도형 하이퍼링크·걸침·at 아래 absolute 는 거부.
+ * 밀 고정점이 없는 부품은 결과에 넣지 않는다(바이트 그대로).
+ */
+function pushDrawings(opened: OpenedXlsx, sheetPath: string, at: number, n: number): { ok: true; parts: Map<string, string> } | { ok: false; blocked: string } {
+  const parts = new Map<string, string>();
+  const edge = at - 1;
+  for (const { type, path, xml } of sheetRelParts(opened, sheetPath)) {
+    if (!/\/drawing$/.test(type)) continue;
+    const bad = /<(?:[\w.-]+:)?(absoluteAnchor|AlternateContent|grpSp|graphicFrame|contentPart)\b/.exec(xml);
+    if (bad) return { ok: false, blocked: `밀 수 없는 도형(${bad[1]})이 있습니다` };
+    if (/\stextlink="[^"]+"/.test(xml)) return { ok: false, blocked: '셀에 이어진 도형 글(textlink)이 있습니다' };
+    if (/<(?:[\w.-]+:)?hlink(?:Click|Hover)\b/.test(xml)) return { ok: false, blocked: '도형·그림에 하이퍼링크가 있습니다' };
+    let moved = false;
+    let blocked: string | null = null;
+    const out = xml.replace(ANCHOR_RE, (whole, p: string, kind: string, attrs: string, inner: string) => {
+      if (blocked) return whole;
+      const rowOf = (tag: string) => {
+        const m = new RegExp(`<${p}${tag}>[\\s\\S]*?<${p}row>(\\d+)</${p}row>`).exec(inner);
+        return m ? Number(m[1]) : null;
+      };
+      const from = rowOf('from');
+      const to = kind === 'twoCellAnchor' ? rowOf('to') : from;
+      if (from === null || to === null) {
+        blocked = '도형 고정점 모양을 읽지 못했습니다';
+        return whole;
+      }
+      const editAs = /\seditAs="([^"]*)"/.exec(attrs)?.[1];
+      if (from < edge && to >= edge) {
+        blocked = `${at}행을 걸치는 도형이 있습니다`;
+        return whole;
+      }
+      if (from < edge) return whole;
+      if (editAs === 'absolute') {
+        blocked = `${at}행 아래에 셀과 함께 움직이지 않는(absolute) 도형이 있습니다`;
+        return whole;
+      }
+      moved = true;
+      const body = inner.replace(new RegExp(`(<${p}(?:from|to)>[\\s\\S]*?<${p}row>)(\\d+)(</${p}row>)`, 'g'), (_m, a: string, r: string, b: string) => `${a}${Number(r) + n}${b}`);
+      return whole.slice(0, whole.length - inner.length - `</${p}${kind}>`.length) + body + `</${p}${kind}>`;
+    });
+    if (blocked) return { ok: false, blocked };
+    if (moved) parts.set(path, out);
+  }
+  return { ok: true, parts };
 }
 
 /**

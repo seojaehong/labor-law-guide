@@ -45,3 +45,54 @@ describe.skipIf(files.length === 0)('실서식', () => {
     });
   }
 });
+
+// 닫힌 밀기(§2-5b) 실서식 합격 조건 — 파일 이름이 S09.xlsx·S11.xlsx 일 때만(설계 v2.1 §2-5b 「검증 추가」)
+const has = (n: string) => files.includes(n);
+const anchorRows = (xml: string) =>
+  [...xml.matchAll(/<(?:\w+:)?(?:twoCellAnchor|oneCellAnchor)\b[\s\S]*?<(?:\w+:)?from>[\s\S]*?<(?:\w+:)?row>(\d+)</g)].map((m) => Number(m[1]));
+const dec = new TextDecoder();
+
+describe.skipIf(!has('S11.xlsx'))('실서식 S11 — 도형 고정점 밀기', () => {
+  it('at=7 한 행: 고정점 714 이동 / 216 고정, 다른 drawing 바이트 동일, 보존 allSame', async () => {
+    const input = new Uint8Array(readFileSync(join(dir!, 'S11.xlsx')));
+    const r = await fillXlsxTemplate(input, {
+      rows: { sheet: '3-3 위험성평가(1)', startRow: 7, columns: { G: 'g' }, data: [{ g: '합성 시험' }], overflow: 'insertRows' },
+    });
+    expect(r.reason).toBeUndefined();
+    expect(r.ok).toBe(true);
+    expect(r.issues.map((i) => i.code)).toContain('ROWS_PUSHED');
+    expect(r.preserved!.allSame).toBe(true);
+    const before = await unzip(input);
+    const after = await unzip(r.bytes!);
+    const drawings = [...before.keys()].filter((k) => /^xl\/drawings\/drawing\d+\.xml$/.test(k));
+    const changed = drawings.filter((k) => !same(before.get(k), after.get(k)));
+    expect(changed).toHaveLength(1);
+    const a = anchorRows(dec.decode(before.get(changed[0])));
+    const b = anchorRows(dec.decode(after.get(changed[0])));
+    expect(b).toHaveLength(a.length);
+    const moved = a.filter((x, i) => b[i] === x + 1).length;
+    const fixed = a.filter((x, i) => b[i] === x).length;
+    expect({ moved, fixed }).toEqual({ moved: 714, fixed: 216 });
+  });
+});
+
+describe.skipIf(!has('S09.xlsx'))('실서식 S09 — 바닥글 밀기', () => {
+  const run = async (at: number) =>
+    fillXlsxTemplate(new Uint8Array(readFileSync(join(dir!, 'S09.xlsx'))), {
+      rows: { sheet: '체크리스트 위험성평가', startRow: at, columns: { D: 'd' }, data: [{ d: '합성 시험' }], overflow: 'insertRows' },
+    });
+  it('at=20: 바닥글을 21행으로 밀고 인쇄영역 끝을 늘린다', async () => {
+    const r = await run(20);
+    expect(r.reason).toBeUndefined();
+    expect(r.ok).toBe(true);
+    expect(r.issues.map((i) => i.code)).toContain('ROWS_PUSHED');
+    expect(r.preserved!.printArea.after['체크리스트 위험성평가']).toBe('B2:L20');
+    expect(r.preserved!.allSame).toBe(true);
+  });
+  it('at=21: 바닥글 아래 덧붙이고 인쇄영역 밖이라 경고', async () => {
+    const r = await run(21);
+    expect(r.reason).toBeUndefined();
+    expect(r.ok).toBe(true);
+    expect(r.issues.map((i) => i.code)).toContain("PRINT_AREA_NOT_EXTENDED");
+  });
+});
