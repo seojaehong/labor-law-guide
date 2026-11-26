@@ -1,6 +1,9 @@
 // 최저임금 확인 — 받는 임금을 시간급으로 바꿔 그해 시간급 최저임금과 비교한다.
 // 환산(최저임금법 시행령 §5①): 일급 ÷ 1일 소정근로시간 · 주급 ÷ (1주 소정근로시간 + 주휴 시간)
-//   · 월급 ÷ (1주 소정근로시간 + 주휴 시간) × 365 ÷ 7 ÷ 12. 월 시간은 고시의 209시간처럼 반올림한다.
+//   · 월급 ÷ (1주 소정근로시간 + 주휴 시간) × 365 ÷ 7 ÷ 12. 시행령에는 반올림이 없다.
+//   판정(checkMinWage)은 반올림이 시간을 줄일 때(주 20시간 104.29 → 104) 반올림하지 않은 시간으로 하고,
+//   늘릴 때(주 40시간 208.57 → 209, 고시 월 환산액 2,156,880원과 같은 값)만 반올림한 시간을 쓴다 — 반올림 때문에 미달이 충족으로 바뀌지 않게(261124).
+// 주휴 시간(근로기준법 §55①, 시행령 별표2 제2호나목) = 1주 소정근로시간 ÷ 같은 일 통상근로자의 1주 소정근로일 수(기본 5), 8시간까지.
 // 산입(최저임금법 §6④): 매월 1회 이상 정기 지급하는 임금. 정기상여금·현금 복리후생비의 공제 비율은
 //   부칙 <법률 제15666호, 2018. 6. 12.> 제2조로 2024년부터 100분의 0 — 전액 산입. 현물은 빼고(§6④3가),
 //   연장·야간·휴일 가산처럼 소정근로 밖의 대가도 뺀다(§6④1). 무엇을 넣을지는 화면에서 고른다.
@@ -17,6 +20,8 @@ export interface MinWageInput {
   monthlyWelfareCash?: number;
   weeklyHours?: number;
   dailyHours?: number;
+  /** 같은 일을 하는 통상근로자의 1주 소정근로일 수(주휴 시간의 분모, 기본 5) — 주휴수당 계산기와 같은 값 */
+  fullTimeDays?: number;
   /** 그해 시간급 최저임금(rates.ts) */
   minHourly: number;
   probation?: { oneYearContract: boolean; withinThreeMonths: boolean; simpleLabor: boolean };
@@ -25,7 +30,7 @@ export interface MinWageInput {
 export interface MinWageResult {
   /** 비교에 넣은 금액(단위 기간) */
   counted: number;
-  /** 나눈 시간 수(시급이면 1) */
+  /** 나눈 시간 수(시급이면 1). 월급은 판정에 쓴 시간이라 소수일 수 있다(주 20시간 104.2857…) */
   hours: number;
   /** 시간급 환산(소수 둘째 자리까지) */
   hourly: number;
@@ -36,6 +41,16 @@ export interface MinWageResult {
   meets: boolean;
   /** 모자란 금액(단위 기간) */
   shortfall: number;
+  /** 입력을 다시 볼 일(계산은 넣은 값으로 했다) — 웹·MCP 가 같은 문장을 보여 준다 */
+  warnings: string[];
+}
+
+/** 소정근로시간 한도(근로기준법 §50①) — 넘는 시간은 연장근로라 소정근로시간이 될 수 없다 */
+const WEEKLY_HOURS_LIMIT = 40;
+
+function weeklyHoursWarning(weeklyHours: number): string {
+  const h = weeklyHours.toLocaleString('ko-KR', { maximumFractionDigits: 2 });
+  return `1주 ${h}시간은 소정근로시간 한도 주 40시간(상시 5명 이상 사업장, 근로기준법 제50조)을 넘습니다. 40시간을 넘는 시간은 연장근로라 소정근로시간이 될 수 없습니다. 연장근로를 뺀 시간을 넣어 주세요. 계산은 넣은 값으로 했습니다.`;
 }
 
 const bad = (n: number | undefined) => n === undefined || !Number.isFinite(n) || n <= 0;
@@ -73,11 +88,21 @@ export function checkMinWage(input: MinWageInput): MinWageResult {
   if (!(input.amount >= 0) || !Number.isFinite(input.amount)) throw new Error('금액을 확인해 주세요');
   if (bad(minHourly)) throw new Error('최저임금 기준이 없습니다');
 
-  const hours = unitHours(unit, input.weeklyHours, input.dailyHours);
+  const weekly = unit === 'week' || unit === 'month' ? input.weeklyHours : undefined;
+  // 근무일 수는 주급·월급에서만 쓴다 — 시급·일급이면 보지 않는다(화면에 칸이 없다)
+  const days = weekly !== undefined ? input.fullTimeDays ?? 5 : 5;
+  if (!Number.isInteger(days) || days < 1 || days > 7) throw new Error('통상근로자 소정근로일 수를 확인해 주세요');
+  // 주휴 시간 = 1주 소정 ÷ 통상근로자 1주 소정근로일 수, 8시간까지(별표2 제2호나목) — 반올림하지 않은 값
+  const holidayHours = weekly !== undefined && !bad(weekly) ? Math.min(weekly / days, 8) : undefined;
+  const rounded = unitHours(unit, input.weeklyHours, input.dailyHours, holidayHours);
+  // 월급: 반올림이 시간을 줄이면(관대해지면) 반올림하지 않은 시간으로 판정한다
+  const exact = unit === 'month' ? (unitHours('week', input.weeklyHours, undefined, holidayHours) * 365) / 84 : rounded;
+  const hours = Math.max(rounded, exact);
   const counted = input.amount + (unit === 'month' ? (input.monthlyBonus ?? 0) + (input.monthlyWelfareCash ?? 0) : 0);
   const p = input.probation;
   const applied = p && p.oneYearContract && p.withinThreeMonths && !p.simpleLabor ? Math.round(minHourly * 0.9) : minHourly;
-  const required = Math.round(applied * hours);
+  // 원 미만은 올린다 — 1,076,228.57원이 필요하면 1,076,228원은 모자란다(부동소수 오차는 1e-6 안에서 무시)
+  const required = Math.ceil(applied * hours - 1e-6);
   return {
     counted,
     hours,
@@ -86,5 +111,6 @@ export function checkMinWage(input: MinWageInput): MinWageResult {
     required,
     meets: counted >= required,
     shortfall: Math.max(required - counted, 0),
+    warnings: weekly !== undefined && weekly > WEEKLY_HOURS_LIMIT ? [weeklyHoursWarning(weekly)] : [],
   };
 }

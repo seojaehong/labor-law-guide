@@ -60,6 +60,43 @@ const THIRD_PARTY_FRAMES = [/^https:\/\/challenges\.cloudflare\.com\//];
 // 기능마다 경로와 사용자 동작. 기대값은 손으로 센 값이다(features/<id>.md 와 같다).
 // waitUntil 'load' = 헤드리스에서 networkidle 에 닿지 않는 화면(Turnstile 이 챌린지를 계속 돌린다). 그런 화면은 여정이 하이드레이션을 기다린다
 const FEATURES: Record<string, { path: string; journey: Journey; waitUntil?: 'load' | 'networkidle' }> = {
+  // 퇴고 체험 — 점검은 브라우저 안에서 돈다. 기대값은 엔진 걸림을 손으로 센 값(features/toego.md)
+  toego: {
+    path: '/tools/toego',
+    journey: async (p, step) => {
+      const MARK = '합성표지글';
+      const sent: string[] = [];
+      p.on('request', (r: { url(): string; postData(): string | null }) => sent.push(`${r.url()} ${r.postData() ?? ''}`));
+      const summary = p.locator('[data-toego-summary]');
+      await p.getByRole('button', { name: '예시: 보고서', exact: true }).click();
+      await summary.waitFor();
+      step('예시 보고서 요약', '반드시 교정 3곳 · 문맥 확인 6곳', await summary.innerText());
+      step('예시 보고서 → 문서 종류 컨설팅', 'true', String(await p.getByRole('button', { name: /^컨설팅/ }).getAttribute('aria-pressed')));
+      const mark = p.locator('[data-toego-original] mark').filter({ hasText: /^할수$/ }).first();
+      step('원문 표시 — 「할수」 반드시 교정', 'A', String(await mark.getAttribute('data-grade')));
+      step('걸린 곳 — 띄어쓰기 근거 조항', /제42항/, await p.locator('[data-toego-check="spacing"]').innerText());
+      step('걸린 곳 — 문체 출처', /im-not-ai/, await p.locator('[data-toego-check="prose"]').innerText());
+      // 직접 입력 — 점검하는 동안 요청 0, 어떤 요청에도 글이 실리지 않는다
+      await p.getByLabel('점검할 글', { exact: true }).fill(`${MARK} 문서를 검토할수 있다 .`);
+      const before = sent.length;
+      await p.getByRole('button', { name: '점검하기', exact: true }).click();
+      await summary.filter({ hasText: '반드시 교정 2곳' }).waitFor();
+      step('직접 입력 요약', '반드시 교정 2곳 · 문맥 확인 0곳', await summary.innerText());
+      step('점검하는 동안 네트워크 요청 수', /^0$/, String(sent.length - before));
+      // 주민등록번호 모양 — 점검하지 않고 엔진 문구로 멈춘다
+      await p.getByLabel('점검할 글', { exact: true }).fill(`첫 줄\n${MARK} 900101-1234567`);
+      await p.getByRole('button', { name: '점검하기', exact: true }).click();
+      const stop = p.locator('[data-toego-stop]');
+      await stop.waitFor();
+      step('주민등록번호 모양 멈춤', /주민등록번호 모양의 숫자가 있어 멈췄습니다[\s\S]*해당 줄: 2줄/, await stop.innerText());
+      // 40만 자 초과 — 엔진 사유 그대로 멈춘다
+      await p.getByLabel('점검할 글', { exact: true }).fill('가'.repeat(400_001));
+      await p.getByRole('button', { name: '점검하기', exact: true }).click();
+      await stop.filter({ hasText: '40만 자 초과' }).waitFor();
+      step('40만 자 초과 멈춤', '40만 자 초과 — 글을 나눠서 다시 점검해 주세요.', await stop.innerText());
+      step('글이 실린 요청 수', /^0$/, String(sent.filter((s) => s.includes(MARK) || s.includes(encodeURIComponent(MARK))).length));
+    },
+  },
   'council-graph': {
     path: '/tools/council-graph',
     journey: async (p, step) => {
@@ -220,6 +257,21 @@ const FEATURES: Record<string, { path: string; journey: Journey; waitUntil?: 'lo
       step('기준일 — 2027 고시', '2027년 최저임금(시간당 10,700원) 기준 · 확인 2026.10.28.', await answer(p));
       await amt.fill('2156879');
       step('1원 모자람', '한 달 1원 적습니다', await answer(p));
+      // 261124 — 단시간 월 환산을 104로 내리지 않는다 · 주휴 분모 = 통상근로자 근무일 수 · 40시간 초과 경고
+      const weekly = p.getByLabel(/1주 소정근로시간/);
+      await amt.fill('1075000');
+      await weekly.fill('20');
+      step('주 20시간 월 1,075,000 — 104.29시간', '한 달 1,229원 적습니다', await answer(p));
+      await amt.fill('2600000');
+      await weekly.fill('52');
+      step('주 52시간 — 40시간 초과 경고', '소정근로시간이 될 수 없습니다', await answer(p));
+      await p.getByLabel('주급', { exact: true }).check();
+      await p.locator('input[inputmode=numeric]').first().fill('300000');
+      await weekly.fill('24');
+      await p.getByLabel(/통상근로자의 1주 근무일 수/).fill('4');
+      step('통상근로자 주 4일 — 주휴 6시간', '1주 9,600원 적습니다', await answer(p));
+      await p.getByLabel(/통상근로자의 1주 근무일 수/).fill('5');
+      step('통상근로자 주 5일 — 주휴 4.8시간', '2026년 최저임금(시간당 10,320원) 이상', await answer(p));
       await p.getByLabel('시급', { exact: true }).check();
       step('시급으로 바꾸면 월급 숫자를 가져오지 않는다(L-07)', '시급 금액을 넣어 주세요', await answer(p));
       await p.locator('input[inputmode=numeric]').first().fill('9288');

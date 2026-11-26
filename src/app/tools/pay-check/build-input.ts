@@ -45,6 +45,9 @@ const PERIOD: FieldDef[] = [
   { key: 'pay_period_end', label: '급여기간 마지막 날', hint: '명세서에 적힌 기간', kind: 'date' },
 ];
 
+/** 결근 공제·주휴는 급여기간으로 대조를 멈추지 않는다. 최저임금 시간급 비교(guarded-check.ts)에만 쓴다. */
+const PERIOD_FOR_MIN_WAGE: FieldDef[] = PERIOD.map((f) => ({ ...f, hint: '최저임금 시간급 비교에 씀 · 모르면 비워 두세요' }));
+
 /** 예외마다 먼저 묻는 사실과 명세서 금액. 계산 기준에 딸린 칸(POLICY_FIELDS)은 기준을 고른 뒤에 붙는다. */
 export const FACT_FIELDS: Record<Scenario, FieldDef[]> = {
   MID_JOIN: [
@@ -69,6 +72,7 @@ export const FACT_FIELDS: Record<Scenario, FieldDef[]> = {
     { key: 'payslip_amount', label: '명세서의 퇴사월 기본급', kind: 'number', unit: '원' },
   ],
   ABSENCE_DEDUCTION: [
+    ...PERIOD_FOR_MIN_WAGE,
     { key: 'unpaid_absence_hours', label: '무급 결근시간', kind: 'number', unit: '시간' },
     { key: 'payslip_absence_deduction', label: '명세서 결근 공제액', hint: '−로 찍혀 있어도 그대로', kind: 'number', unit: '원' },
     {
@@ -89,6 +93,7 @@ export const FACT_FIELDS: Record<Scenario, FieldDef[]> = {
     },
   ],
   HOURLY_WEEKLY_HOLIDAY: [
+    ...PERIOD_FOR_MIN_WAGE,
     { key: 'four_week_scheduled_hours', label: '평균 기간의 약정 소정근로시간 합계', hint: '보통 4주 · 근로한 기간이 4주 미만이면 그 기간 · 계약서에 적힌 시간', kind: 'number', unit: '시간' },
     { key: 'averaging_weeks', label: '평균을 낸 주수', hint: '보통 4 · 근로한 기간이 4주 미만이면 그 주수(예: 2)', kind: 'number', unit: '주' },
     { key: 'temporary_actual_hours_in_one_week', label: '대타로 실제 일한 그 주의 시간', hint: '대타가 있었을 때만', kind: 'number', unit: '시간' },

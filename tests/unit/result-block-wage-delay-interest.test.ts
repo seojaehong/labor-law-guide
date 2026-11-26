@@ -126,9 +126,9 @@ describe('화면 — 공용 블록·44px 선택지', () => {
     expect(src).toContain('지금 일하고 있습니까?');
     expect(src).toContain('어떤 돈입니까?');
   });
-  it('라디오·체크 라벨 5개가 모두 choiceLabel', () => {
+  it('라디오·체크 라벨 6개(항목별 적용 제외 체크 포함, P3 #5)가 모두 choiceLabel', () => {
     const labels = [...src.matchAll(/<label[^>]*>\s*<input type="(?:radio|checkbox)"/g)].map((m) => m[0]);
-    expect(labels.length).toBe(5);
+    expect(labels.length).toBe(6);
     for (const l of labels) expect(l).toContain('choiceLabel');
   });
 });

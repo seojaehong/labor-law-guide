@@ -20,7 +20,7 @@ const call = async (a: object) => JSON.parse((await tool.handler(a)).content[0].
 
 describe('docs 묶음', () => {
   it('도구 이름·설명·입력 설명에 금지어와 em dash 가 없다', () => {
-    expect(tools.map((t) => t.name)).toEqual(['make_hwpx_from_markdown', 'edit_hwpx_text', 'read_hwp_as_markdown', 'fill_hwp_form', 'patch_hwp_from_markdown', 'check_prose', 'check_norms', 'stamp_exhibit_pdf']);
+    expect(tools.map((t) => t.name)).toEqual(['make_hwpx_from_markdown', 'edit_hwpx_text', 'read_hwp_as_markdown', 'fill_hwp_form', 'patch_hwp_from_markdown', 'check_prose', 'check_norms', 'check_semantic', 'check_rhetoric', 'check_rewrite', 'stamp_exhibit_pdf']);
     for (const t of tools) {
       const schema = Object.values(t.cfg.inputSchema ?? {}).map((v) => v.description ?? '').join('\n');
       const all = `${t.cfg.title}\n${t.cfg.description}\n${schema}`;
@@ -52,6 +52,33 @@ describe('docs 묶음', () => {
       expect(t.ok).toBe(true);
       expect((await call({ markdown: '# x', preset: 'internal', outDir: dir, templateFile: path.join(dir, '없음.hwpx') })).error).toContain('양식');
       expect((await call({ markdown: '# y', preset: 'internal', outDir: dir, templateFile: r.file.path, templateSamples: { body: '없는샘플' } })).error).toContain('샘플');
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('orientation·tableLineSpacing — 입력 스키마에 있고, 가로 파일을 쓰며, 범위 밖 줄간격은 멈춘다(261124)', async () => {
+    // 필드 스키마를 그대로 쓴다(시험 쪽 zod 와 도구 쪽 zod 가 다른 사본일 수 있다)
+    type F = { safeParse: (v: unknown) => { success: boolean } };
+    const field = (k: string) => (tool.cfg.inputSchema as unknown as Record<string, F>)[k];
+    expect(field('orientation').safeParse('landscape').success).toBe(true);
+    expect(field('orientation').safeParse('sideways').success).toBe(false);
+    expect(field('features').safeParse({ table: { align: 'left' } }).success).toBe(true);
+    expect(field('features').safeParse({ table: { align: 'center' } }).success).toBe(false);
+    expect(field('tableLineSpacing').safeParse(180).success).toBe(true);
+    for (const v of [99, 251, 150.5]) expect(field('tableLineSpacing').safeParse(v).success).toBe(false);
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'md-hwpx-'));
+    try {
+      const md = '# 가상 가로 문서\n\n| 쟁점 | 주장 | 반론 | 검토 |\n|---|---|---|---|\n| 가 | 나 | 다 | 라 |\n';
+      const r = await call({ markdown: md, preset: 'internal', outDir: dir, orientation: 'landscape', tableLineSpacing: 180 });
+      expect(r.ok).toBe(true);
+      const z2 = await JSZip.loadAsync(fs.readFileSync(r.file.path));
+      expect(await z2.file('Contents/section0.xml')!.async('string')).toContain('landscape="NARROWLY" width="59528" height="84186"');
+      expect(await z2.file('Contents/header.xml')!.async('string')).toMatch(/<hh:paraPr id="27"[^>]*>[\s\S]*?value="180"/);
+      const bad = await call({ markdown: md, preset: 'internal', outDir: dir, fileBase: 'bad', tableLineSpacing: 300 });
+      expect(bad.ok).toBe(false);
+      expect(bad.error).toContain('tableLineSpacing');
+      expect(fs.existsSync(path.join(dir, 'bad.hwpx'))).toBe(false);
     } finally {
       fs.rmSync(dir, { recursive: true, force: true });
     }

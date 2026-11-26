@@ -14,6 +14,10 @@ import { amendmentMap } from '@/lib/contract-check/present';
 import { checkContract } from '@/lib/contract-check/engine';
 import { normalize } from '@/lib/contract-check/normalize';
 import type { Contract, Finding, WageItem } from '@/lib/contract-check/types';
+import { pinToday } from './_pin-today';
+
+// 최저임금 비교 연도가 오늘에 걸린다 — 날짜를 고정한다(261124 P1)
+pinToday();
 
 const clone = <T,>(v: T): T => JSON.parse(JSON.stringify(v)) as T;
 const raw = (id: string) =>

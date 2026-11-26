@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { calcHolidayPay, validateHolidayHours } from '@/lib/holiday-pay';
 
@@ -89,6 +91,78 @@ describe('P1 — 시급·일용제의 유급휴일 1일분은 일한 대가와 �
   it('4명 이하 노동절 안내가 「근무 시 100% 추가가 원칙」이라며 1일분을 말없이 빼지 않는다', () => {
     const r = calcHolidayPay({ worker_type: 'hourly', site_size: 'small', holiday_kind: 'labor_day', hourly_wage: 12_000, weekly_hours: 40, worked_hours: 8 });
     expect(r.notes.join(' ')).not.toContain('근무 시 통상임금 100% 추가 지급이 원칙');
+  });
+});
+
+// 261124 검수 P1 — 휴일 가산을 보지 않는 경우에도 연장·야간 가산(근로기준법 제56조 제1항·제3항)은 따로 계산한다
+describe('P1(261124) — 하루만 일하고 끝난 일용직도 5명 이상이면 연장·야간 가산을 계산한다', () => {
+  // 통상시급 = 160,000 ÷ 8 = 20,000
+  const oneOff = { worker_type: 'daily', holiday_kind: 'public_holiday', daily_wage: 160_000, daily_hours: 8, worked_hours: 10, night_hours: 2, paid_continuously: false } as const;
+
+  it('5명 이상 · 10시간 중 야간 2시간 → 200,000 + 연장 20,000 + 야간 20,000 = 240,000', () => {
+    const r = calcHolidayPay({ ...oneOff, site_size: 'large' });
+    expect(r.breakdown.map((b) => b.amount)).toEqual([200_000, 20_000, 20_000]);
+    expect(r.total).toBe(240_000);
+    expect(r.regular_pay_equivalent).toBe(200_000);
+    expect(r.breakdown.some((b) => b.label.includes('휴일'))).toBe(false);
+    expect(r.paid_holiday_day.status).toBe('not_computed');
+  });
+
+  it('4명 이하 · 같은 조건 → 가산 없이 200,000', () => {
+    const r = calcHolidayPay({ ...oneOff, site_size: 'small' });
+    expect(r.total).toBe(200_000);
+    expect(r.breakdown).toHaveLength(1);
+  });
+
+  it('5명 이상 · 8시간 이내·야간 없음 → 가산 없이 160,000', () => {
+    const r = calcHolidayPay({ ...oneOff, site_size: 'large', worked_hours: 8, night_hours: 0 });
+    expect(r.total).toBe(160_000);
+  });
+
+  it('경고는 「가산이 발생하지 않는다」고 단정하지 않고 휴일 가산만 보지 않았다고 알린다', () => {
+    const r = calcHolidayPay({ ...oneOff, site_size: 'large' });
+    expect(r.warning).toBeTruthy();
+    expect(r.warning).not.toContain('가산수당이 발생하지 않습니다');
+    expect(r.warning).not.toContain('미적용입니다');
+    expect(r.warning).toContain('휴일 가산');
+    expect(r.warning).toContain('연장·야간');
+  });
+});
+
+describe('P1(261124) — 주 15시간 미만은 관공서 공휴일이 유급휴일이 아니므로 휴일 가산도 붙이지 않는다(제18조 제3항)', () => {
+  it('5명 이상 · 주 10시간 · 4시간 근로 → 48,000 (휴일 가산 없음)', () => {
+    const r = calcHolidayPay({ worker_type: 'hourly', site_size: 'large', holiday_kind: 'public_holiday', hourly_wage: 12_000, weekly_hours: 10, worked_hours: 4 });
+    expect(r.paid_holiday_day.status).toBe('not_paid_holiday');
+    expect(r.total).toBe(48_000);
+    expect(r.breakdown.some((b) => b.label.includes('휴일'))).toBe(false);
+  });
+
+  it('5명 이상 · 주 10시간 · 10시간 중 야간 2시간 → 120,000 + 연장 12,000 + 야간 12,000 = 144,000', () => {
+    const r = calcHolidayPay({ worker_type: 'hourly', site_size: 'large', holiday_kind: 'public_holiday', hourly_wage: 12_000, weekly_hours: 10, worked_hours: 10, night_hours: 2 });
+    expect(r.breakdown.map((b) => b.amount)).toEqual([120_000, 12_000, 12_000]);
+    expect(r.total).toBe(144_000);
+  });
+
+  it('주 15시간 이상이면 그대로 휴일 가산 → 4시간 72,000', () => {
+    const r = calcHolidayPay({ worker_type: 'hourly', site_size: 'large', holiday_kind: 'public_holiday', hourly_wage: 12_000, weekly_hours: 15, worked_hours: 4 });
+    expect(r.total).toBe(72_000);
+    expect(r.paid_holiday_day.status).toBe('separate');
+  });
+
+  it('노동절은 이번에 바꾸지 않았다(15시간 미만 적용 여부 확인 필요) — 휴일 가산 그대로 4시간 72,000', () => {
+    const r = calcHolidayPay({ worker_type: 'hourly', site_size: 'large', holiday_kind: 'labor_day', hourly_wage: 12_000, weekly_hours: 10, worked_hours: 4 });
+    expect(r.total).toBe(72_000);
+  });
+});
+
+describe('P1(261124) — 화면 문구', () => {
+  const read = (p: string) => readFileSync(resolve(process.cwd(), p), 'utf8');
+  it('「정확」을 내세우지 않고, 뒤로가기는 /tools 로 간다', () => {
+    const page = read('src/app/tools/holiday-pay/page.tsx');
+    const layout = read('src/app/tools/holiday-pay/layout.tsx');
+    expect(page + layout).not.toMatch(/정확/);
+    expect(page).toContain('href="/tools"');
+    expect(page).not.toContain('← 블로그');
   });
 });
 

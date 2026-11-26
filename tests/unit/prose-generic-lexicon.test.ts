@@ -1,0 +1,229 @@
+// 퇴고 범용 팩 — im-not-ai lexicon v1.3 전 115항목 흡수(장르 판정·좁힌 식·물러서기).
+// 예문은 상류가 만든 합성 문장만 쓴다(tests/fixtures/prose/imnotai-lexicon-examples.json, MIT). 실제 사건 글·비공개 팩 규칙 없음.
+import { describe, expect, it } from 'vitest';
+import { checkProse, compilePack, GENERIC_PACK, GENRES, validatePack } from '../../tools/k-labor/lib/prose/check.mjs';
+import { proseResult } from '../../tools/k-labor/lib/prose/toego.mjs';
+import EX from '../fixtures/prose/imnotai-lexicon-examples.json';
+
+type Rule = { id: string; src: string; re: string; resume?: string; exclude?: string; grade: string; reason: string; fix: string; genres?: string[]; skipGenres?: string[] };
+const RULES = GENERIC_PACK.rules as Rule[];
+const ENTRIES = EX.entries as Record<string, { tier: string; skip: string[]; pos: string[]; neg: string[] }>;
+// 법률 트랙(legal·official)에서 둔다 — 판정표 toego_lexicon_keep_change_261124
+const LEGAL_KEEP = ['L-34', 'INJ-07', 'X-01', 'X-12', 'X-16'];
+const one = (r: Rule) => ({ ...GENERIC_PACK, rules: [r] });
+const runsIn = (r: Rule) => (r.genres ?? GENRES).find((g) => !(r.skipGenres ?? []).includes(g))!;
+const B = (s: string, r: Rule, genre: string) => checkProse(s, { packs: [one(r)], genre }).counts.B;
+
+describe('범용 팩 모양', () => {
+  it('상류 115항목을 하나씩 — 전부 B, 규칙 id 는 gen-<상류 id>, 팩 검증·컴파일 오류 0', () => {
+    expect(RULES).toHaveLength(115);
+    expect(new Set(RULES.map((r) => r.src))).toEqual(new Set(Object.keys(ENTRIES)));
+    for (const r of RULES) {
+      expect(r.id).toBe(`gen-${r.src}`);
+      expect(r.grade).toBe('B');
+      expect(r.fix).toContain(`im-not-ai ${r.src}`);
+    }
+    expect(validatePack(GENERIC_PACK)).toEqual([]);
+    expect(compilePack(GENERIC_PACK).errors).toBeUndefined();
+    expect(GENERIC_PACK.yield).toBe(true);
+  });
+
+  it('장르 — 상류가 「일반」을 건너뛰면 general, 「보고서」를 건너뛰면 consulting 을 빼고, 판정표 keep 은 legal·official 을 끈다', () => {
+    for (const r of RULES) {
+      const skip = ENTRIES[r.src].skip;
+      const want = GENRES.filter((g) => !(g === 'general' && skip.includes('일반')) && !(g === 'consulting' && skip.includes('보고서')));
+      expect(r.genres ?? GENRES, r.src).toEqual(want);
+      expect(r.skipGenres, r.src).toEqual(LEGAL_KEEP.includes(r.src) ? ['legal', 'official'] : undefined);
+    }
+  });
+
+  it('조건부(conditional) 항목은 사유에 「문맥 판단」을 단다', () => {
+    for (const r of RULES) expect(r.reason.includes('문맥 판단'), r.src).toBe(ENTRIES[r.src].tier !== 'change');
+  });
+});
+
+describe('상류 예문 — 양성은 걸리고 음성은 안 걸린다', () => {
+  it.each(RULES.map((r) => [r.src, r] as const))('%s', (_id, r) => {
+    const g = runsIn(r);
+    for (const s of ENTRIES[r.src].pos) expect(B(s, r, g), s).toBeGreaterThan(0);
+    for (const s of ENTRIES[r.src].neg) expect(B(s, r, g), s).toBe(0);
+  });
+
+  it('keep 항목은 legal·official 에서 양성 예문도 걸리지 않고, general 이 켜진 항목은 general 에서는 걸린다', () => {
+    for (const id of LEGAL_KEEP) {
+      const r = RULES.find((x) => x.src === id)!;
+      for (const s of ENTRIES[id].pos) {
+        expect(B(s, r, 'legal'), id).toBe(0);
+        expect(B(s, r, 'official'), id).toBe(0);
+        if ((r.genres ?? GENRES).includes('general')) expect(B(s, r, 'general'), id).toBeGreaterThan(0);
+      }
+    }
+  });
+
+  it('keep 이 아닌 항목은 official 판정이 general 과 같다(양성·음성 예문 전부)', () => {
+    for (const r of RULES.filter((x) => !LEGAL_KEEP.includes(x.src))) {
+      for (const s of [...ENTRIES[r.src].pos, ...ENTRIES[r.src].neg]) expect(B(s, r, 'official'), `${r.src} ${s}`).toBe(B(s, r, 'general'));
+    }
+  });
+});
+
+describe('skipGenres — 부른 장르 이름(official)과 접은 장르 둘 다로 끈다', () => {
+  const p = (skipGenres?: string[], genres?: string[]) => ({ pack: 's', rules: [{ id: 's-1', re: '모래성', grade: 'A', reason: 'x', skipGenres, genres }] });
+  const A = (pack: object, genre: string) => checkProse('모래성', { packs: [pack], genre }).counts.A;
+
+  it('official 만 끄면 general 은 돈다 · general 을 끄면 official 도 꺼진다 · 없으면 official = general(기존)', () => {
+    expect([A(p(['official']), 'official'), A(p(['official']), 'general'), A(p(['official']), 'legal')]).toEqual([0, 1, 1]);
+    expect([A(p(['general']), 'official'), A(p(['general']), 'general')]).toEqual([0, 0]);
+    expect([A(p(), 'official'), A(p(undefined, ['general']), 'official'), A(p(undefined, ['legal']), 'official')]).toEqual([1, 1, 0]);
+  });
+
+  it('도구 경로(proseResult)도 official 을 그대로 넘긴다 — 응답 genre 는 종전처럼 general, requestedGenre 는 부른 이름', () => {
+    const keep = process.env.PROSE_PACK_DIR;
+    delete process.env.PROSE_PACK_DIR;
+    try {
+      const s = ENTRIES['L-34'].pos[0];
+      expect(proseResult({ text: s, genre: 'official' })).toMatchObject({ ok: true, genre: 'general', requestedGenre: 'official', counts: { B: 0 } });
+      expect(proseResult({ text: s })).toMatchObject({ genre: 'legal', requestedGenre: 'legal' });
+      expect(proseResult({ text: s, genre: 'lecture' })).toMatchObject({ genre: 'lecture', requestedGenre: 'lecture' });
+      // 응답의 requestedGenre 로 다시 부르면 같은 결과
+      const o = proseResult({ text: s, genre: 'official' });
+      const again = proseResult({ text: s, genre: (o as { requestedGenre: 'official' }).requestedGenre });
+      expect('counts' in again && again.counts).toEqual('counts' in o && o.counts);
+      const g = proseResult({ text: s, genre: 'general' });
+      expect('counts' in g && g.counts.B).toBeGreaterThan(0);
+    } finally {
+      if (keep !== undefined) process.env.PROSE_PACK_DIR = keep;
+    }
+  });
+
+  it('장르 이름·다른 이름만 받는다', () => {
+    expect(validatePack(p(['official', 'legal']))).toEqual([]);
+    expect(validatePack(p(['blog']))).toEqual([{ id: 's-1', code: 'RULE_SKIP_GENRES' }]);
+    expect(validatePack(p('official' as never))).toEqual([{ id: 's-1', code: 'RULE_SKIP_GENRES' }]);
+  });
+});
+
+describe('고친 식 — 상류 좁은 식에서 바꾼 곳', () => {
+  const rule = (id: string) => RULES.find((x) => x.src === id)!;
+  it('L-05 「한 축」, L-54 「~로 작용하다」는 상류 v2.4.3 정밀화처럼 뺀다', () => {
+    expect(B('그는 팀의 한 축이 될 선수다.', rule('L-05'), 'legal')).toBe(0);
+    expect(B('이 사정은 불리한 정상으로 작용한다.', rule('L-54'), 'legal')).toBe(0);
+    expect(B('이 제도는 사실상 진입 장벽으로 기능한다.', rule('L-54'), 'legal')).toBe(1);
+  });
+
+  it('앞에 경계를 붙인 식(L-04·L-17·L-24·L-51)은 상류 식과 같은 자리를 잡는다', () => {
+    const toks = ['가', '나', ' ', '하는', ' 자리다', '그 자리에서 ', '갈린다', '렌즈로 ', '보면', '새로운', 'AI', '와 ', '과 ', '법의 ', '교차점에서', 'AI와 ', '법의 교차점에서','사례는 ', '이는 ', '필요성을 ', '강조한다', '.', 'ab'];
+    let seed = 7;
+    const rnd = () => ((seed = (Math.imul(seed, 1103515245) + 12345) & 0x7fffffff) % toks.length);
+    for (const id of ['L-04', 'L-17', 'L-24', 'L-51']) {
+      const r = rule(id);
+      expect(r.resume, id).toBeTruthy();
+      const raw = { ...r, re: r.resume!, resume: undefined };
+      let seen = 0;
+      for (let k = 0; k < 2000; k++) {
+        const s = Array.from({ length: 6 + (k % 20) }, () => toks[rnd()]).join('');
+        const cols = (x: Rule) => checkProse(s, { packs: [one(x)], genre: 'lecture' }).hits.map((h) => h.col);
+        const want = cols(raw);
+        expect(cols(r), `${id} ${s}`).toEqual(want);
+        seen += want.length;
+      }
+      // 맞는 글이 실제로 나와야 같다는 확인이 뜻이 있다
+      expect(seen, id).toBeGreaterThan(5);
+    }
+  });
+
+  it('뒤 경계를 앞보기로 바꾼 식(AST-44·L-32·L-78·L-79·L-87·INJ-08)은 경계를 먹던 상류 식과 같은 칸에서 걸린다', () => {
+    const TAIL = /\(\?=(\\s|\[,\\s\])\)$/;
+    let seed = 11;
+    for (const id of ['AST-44', 'L-32', 'L-78', 'L-79', 'L-87', 'INJ-08']) {
+      const r = rule(id);
+      expect(r.re, id).toMatch(TAIL);
+      const eat = { ...r, re: r.re.replace(TAIL, '$1') };
+      const toks = [...new Set(ENTRIES[id].pos.join(' ').split(/\s+/)), ...ENTRIES[id].pos, ' ', ' ', ',', '. ', '는', '도', '가', '\t'];
+      const rnd = () => ((seed = (Math.imul(seed, 1103515245) + 12345) & 0x7fffffff) % toks.length);
+      let seen = 0;
+      for (let k = 0; k < 1500; k++) {
+        const s = Array.from({ length: 4 + (k % 12) }, () => toks[rnd()]).join(k % 3 ? ' ' : '');
+        const cols = (x: Rule) => checkProse(s, { packs: [one(x)], genre: 'lecture', detail: 'full' }).hits.map((h) => h.col);
+        const want = cols(eat);
+        expect(cols(r), `${id} ${s}`).toEqual(want);
+        seen += want.length;
+      }
+      expect(seen, id).toBeGreaterThan(5);
+    }
+  });
+
+  it('긴 한 줄(띄어쓰기 없는 한글·한글 영문 섞임)에서 선형', () => {
+    const N = 400_000;
+    for (const s of ['가나다라마바사아자차'.repeat(N / 10), 'abcde가나다라마'.repeat(N / 10)]) {
+      const t0 = performance.now();
+      checkProse(s, { packs: [GENERIC_PACK], genre: 'lecture' });
+      expect(performance.now() - t0).toBeLessThan(3000);
+    }
+  });
+});
+
+describe('물러서기(yield) — 같은 자리를 다른 팩이 잡으면 범용 팩 걸림은 싣지도 세지도 않는다', () => {
+  // 다른 팩 걸림 하나가 범용 걸림을 감싸거나(시작 칸 포함) 같은 칸에서 시작할 때만 물러선다
+  const OTHER = { pack: 'other', rules: [{ id: 'o-1', re: '결과를 가르는 것은', grade: 'A', reason: 'x', fix: 'y' }] };
+  const text = '결과를 가르는 것은 시간이다.\n결과를 가르는 것은 시간이다.\n이 대목은 길다.';
+  const other = (re: string, grade = 'B') => ({ pack: 'other', rules: [{ id: 'o-1', re, grade, reason: 'x' }] });
+  const run = (s: string, ...packs: object[]) => checkProse(s, { packs: [GENERIC_PACK, ...packs], genre: 'lecture', detail: 'full' }).hits.map((h) => h.rule);
+
+  it('겹침 모양 — 감쌈·같은 시작이면 빼고, 일부만 겹치거나 다른 팩이 범용 걸림 안에 있으면 둘 다 남긴다', () => {
+    const s = '결과를 가르는 것은 시간이다.';
+    // 범용 L-12 = 「를 가르는 것은」
+    expect(run(s)).toEqual(['gen-L-12']);
+    expect(run(s, other('를 가르는'))).toEqual(['o-1']); // 같은 시작
+    expect(run(s, other('과를 가르는 것은 시'))).toEqual(['o-1']); // 감쌈
+    expect(run(s, other('가르는')).sort()).toEqual(['gen-L-12', 'o-1']); // 범용 걸림 안
+    expect(run(s, other('것은 시간')).sort()).toEqual(['gen-L-12', 'o-1']); // 일부만(실제 글자)
+    // 다른 팩 걸림 둘이 이어서 덮어도 하나가 감싸지 않으면 남긴다
+    expect(run(s, { pack: 'other', rules: [{ id: 'o-1', re: '과를 가르', grade: 'B', reason: 'x' }, { id: 'o-2', re: '르는 것은 시', grade: 'B', reason: 'x' }] }).sort()).toEqual(['gen-L-12', 'o-1', 'o-2']);
+  });
+
+  it('긴 다른 팩 걸림 하나가 범용 걸림 둘을 감싸면 둘 다 뺀다(감쌈 규칙 그대로 — 알려 둔 동작)', () => {
+    const s = '이 대목은 결과를 가르는 것은 시간이다.';
+    expect(run(s).sort()).toEqual(['gen-INJ-02', 'gen-L-12']);
+    expect(run(s, other('대목은 결과를 가르는 것은'))).toEqual(['o-1']);
+  });
+
+  it('경계 글자(공백·쉼표)를 걸림에 넣지 않는다 — 상류 양성 예문에서 범용 걸림의 앞뒤 글자', () => {
+    for (const r of RULES) {
+      for (const s of ENTRIES[r.src].pos) {
+        for (const h of checkProse(s, { packs: [one(r)], genre: runsIn(r), detail: 'full' }).hits) expect(h.word, `${r.src} ${s}`).not.toMatch(/^[\s,]|[\s,]$/);
+      }
+    }
+  });
+
+  it('경계 공백 한 칸만 겹치면 둘 다 남긴다(L-78 뒤 공백을 다른 팩이 잡음)', () => {
+    const s = '궁극적으로 Z는 남는다.';
+    expect(run(s)).toEqual(['gen-L-78']);
+    expect(run(s, other('\\sZ')).sort()).toEqual(['gen-L-78', 'o-1']);
+  });
+
+  it('겹치면 범용 걸림을 빼고, 겹치지 않는 범용 걸림은 남긴다(다른 팩 걸림은 그대로)', () => {
+    const r = checkProse(text, { packs: [GENERIC_PACK, OTHER], detail: 'full' });
+    expect(r.counts).toEqual({ A: 2, B: 1 });
+    expect(r.hits.map((h) => [h.line, h.rule])).toEqual([[1, 'o-1'], [2, 'o-1'], [3, 'gen-INJ-02']]);
+  });
+
+  it('비공개 팩(위치만 내는 팩)과 겹쳐도 같다', () => {
+    const r = checkProse(text, { packs: [GENERIC_PACK, { ...OTHER, private: true }], allowFull: false });
+    expect(r.counts).toEqual({ A: 2, B: 1 });
+  });
+
+  it('다른 팩이 없거나 다른 팩도 물러서는 팩이면 줄이지 않는다', () => {
+    expect(checkProse(text, { packs: [GENERIC_PACK] }).counts).toEqual({ A: 0, B: 3 });
+    expect(checkProse(text, { packs: [GENERIC_PACK, { ...OTHER, yield: true }] }).counts).toEqual({ A: 2, B: 3 });
+  });
+
+  it('다른 팩이 그 장르에서 돌지 않으면(걸림이 없으면) 줄이지 않는다', () => {
+    const legalOnly = { pack: 'other', rules: [{ id: 'o-1', re: '가르는', grade: 'A', reason: 'x', genres: ['legal'] }] };
+    expect(checkProse(text, { packs: [GENERIC_PACK, legalOnly], genre: 'lecture' }).counts).toEqual({ A: 0, B: 3 });
+  });
+
+  it('yield 는 참·거짓만 받는다', () => {
+    expect(validatePack({ pack: 'p', yield: 'yes', rules: [] })).toEqual([{ code: 'PACK_YIELD' }]);
+  });
+});

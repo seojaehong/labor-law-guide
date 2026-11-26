@@ -29,6 +29,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // 퇴고 체험 브라우저 묶음 — 엔진에서 자동 생성(scripts/build-toego-browser.mjs)
+    "src/lib/toego/engine.bundle.mjs",
   ]),
 ]);
 

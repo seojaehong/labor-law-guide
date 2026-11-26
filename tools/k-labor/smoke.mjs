@@ -178,6 +178,12 @@ const ANN = {
   check_prose: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
   // 퇴고 공개 규범 점검(띄어쓰기·문장 부호·쉼표) — 읽기 전용
   check_norms: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+  // 퇴고 의미범주·AI 수사 점검(비공개 팩) — 읽기 전용
+  check_semantic: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+  check_rhetoric: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+  // 퇴고 윤문 전후 보존 대조 — 읽기 전용
+  check_rewrite: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+  // 호증 날인 — 새 PDF 를 쓴다(덮어쓰지 않음)
   stamp_exhibit_pdf: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
   // kordoc 한글 읽기·채우기·되쓰기 — 결과를 새 파일로 쓴다(덮어쓰지 않음)
   ...Object.fromEntries(['read_hwp_as_markdown', 'fill_hwp_form', 'patch_hwp_from_markdown']
@@ -198,7 +204,7 @@ const ANN = {
 }
 // 이 판에서 더한 도구 8개 + 사이트 도구 7개(groups/more) — 「대신·대행·대리」도 함께 막는다
 const NOSA_TOOLS = ['assess_labor_council', 'check_council_meeting', 'make_labor_council_forms', 'make_council_meeting_docs', 'make_council_election_docs', 'check_council_rules', 'record_council_history', 'export_council_vault', 'import_council_minutes', 'make_council_rules_comparison'];
-const NEW_TOOLS = ['calc_severance', 'calc_holiday_pay', 'calc_pay_proration', 'calc_shutdown_allowance', 'calc_annual_leave', 'settle_leave_on_exit', 'calc_retirement_tax', 'list_employer_duties', ...MORE_TOOLS, ...NOSA_TOOLS, 'make_hwpx_from_markdown', 'edit_hwpx_text', 'read_hwp_as_markdown', 'fill_hwp_form', 'patch_hwp_from_markdown', 'check_prose', 'check_norms', 'stamp_exhibit_pdf', 'list_hr_forms', 'check_hr_form', 'make_hr_form'];
+const NEW_TOOLS = ['calc_severance', 'calc_holiday_pay', 'calc_pay_proration', 'calc_shutdown_allowance', 'calc_annual_leave', 'settle_leave_on_exit', 'calc_retirement_tax', 'list_employer_duties', ...MORE_TOOLS, ...NOSA_TOOLS, 'make_hwpx_from_markdown', 'edit_hwpx_text', 'read_hwp_as_markdown', 'fill_hwp_form', 'patch_hwp_from_markdown', 'check_prose', 'check_norms', 'check_semantic', 'check_rhetoric', 'check_rewrite', 'stamp_exhibit_pdf', 'list_hr_forms', 'check_hr_form', 'make_hr_form'];
 const NEW_WORDS = [...WORDS, '대신', '대행', '대리'];
 const bannedNew = (s) => (banned ? banned.bannedHits(s, NEW_WORDS) : []);
 for (const n of NEW_TOOLS) check(`${n}: 도구 목록에 있음`, tools.includes(n));
@@ -440,7 +446,8 @@ if (tools.includes('settle_leave_on_exit')) {
   const miss = await callNew('settle_leave_on_exit', { hireDate: '2004-08-01', endDate: '2009-09-30' });
   check('settle 빈 칸은 0으로 보지 않음', miss.ok && miss.result?.verdict === 'insufficient-input');
   const monthly = await callNew('settle_leave_on_exit', { hireDate: '2004-08-01', endDate: '2009-09-30', fiscalGrantedTotal: 69, usedOrPaidTotal: 53 });
-  check('settle 1년 이상이면 월차 포함 여부를 묻는다', monthly.ok && monthly.result?.verdict === 'insufficient-input' && /월/.test(monthly.result.groundNote ?? ''));
+  // 261124 — 첫해 월 단위 연차는 묻지 않고 날짜로 정한다(2005-08-01 발생 = 구 제60조제3항 → 15일에 포함, 79 그대로)
+  check('settle 첫해 월 연차는 날짜로 정한다(구법 79 − 53 = 26일)', monthly.ok && monthly.result?.hireDateTotal === 79 && monthly.result.shortfallDays === 26 && /제60조제3항/.test(monthly.result.groundNote ?? ''));
   const badDate = await callNew('settle_leave_on_exit', { hireDate: '2004-8-1', endDate: '2009-09-30', fiscalGrantedTotal: 69, usedOrPaidTotal: 53 });
   check(`settle 날짜 형식 오류(${badDate.error})`, badDate.ok === false);
 }
@@ -450,6 +457,15 @@ if (tools.includes('calc_retirement_tax')) {
   check(`retirement_tax T06 691,990 · 69,190(${t.headline?.[0]})`, t.ok && t.result?.years === 13 && t.result.incomeTax === 691_990 && t.result.localTax === 69_190 && !!t.hometax?.href);
   const z = await callNew('calc_retirement_tax', { pay: 2_500_000, hireDate: '2023-07-03', lastWorkDate: '2026-07-02' });
   check(`retirement_tax T10 공제 상한 → 0원(${z.headline?.[1]})`, z.ok && z.result?.incomeTax === 0 && z.result.serviceDeductionCapped === true);
+  // 261125 P3 — 받는 방법: 기본 현금 수령(뗀다), IRP 를 고르면 떼지 않음(§146②1), 현금 1천원 미만이면 떼지 않음(§86), 1,000원이면 뗀다
+  const irp = await callNew('calc_retirement_tax', { pay: 10_000_000, hireDate: '2025-11-01', lastWorkDate: '2026-10-31', payout: 'irp' });
+  check('retirement_tax IRP 이전 → 떼는 세금 0', irp.ok && irp.payout === 'irp' && irp.result?.incomeTax === 428_750 && irp.withholding?.total === 0 && irp.withholding.reason === 'irp');
+  const def = await callNew('calc_retirement_tax', { pay: 10_000_000, hireDate: '2025-11-01', lastWorkDate: '2026-10-31' });
+  check('retirement_tax 기본 현금 수령 → 471,620 뗀다', def.ok && def.payout === 'cash' && def.withholding?.total === 471_620);
+  const small = await callNew('calc_retirement_tax', { pay: 1_708_292, hireDate: '2025-11-01', lastWorkDate: '2026-10-31', payout: 'cash' });
+  check('retirement_tax 현금 999원 → 소액부징수 0 / 0', small.ok && small.result?.incomeTax === 990 && small.withholding?.total === 0 && small.withholding.reason === 'small');
+  const k1 = await callNew('calc_retirement_tax', { pay: 1_708_334, hireDate: '2025-11-01', lastWorkDate: '2026-10-31', payout: 'cash' });
+  check('retirement_tax 현금 1,000원 → 1,000 / 100', k1.ok && k1.withholding?.incomeTax === 1_000 && k1.withholding.localTax === 100);
   const old = await callNew('calc_retirement_tax', { pay: 20_000_000, hireDate: '2015-01-01', lastWorkDate: '2022-12-31' });
   check(`retirement_tax 2022년 퇴사는 계산하지 않음(${old.error?.slice(0, 30)}…)`, old.ok === false && /2023년/.test(old.error ?? ''));
 }
@@ -584,6 +600,11 @@ if (tools.includes('make_hwpx_from_markdown')) {
   const MDF = '# 가상 선택값 문서\n\n○ 기호 문단에 **문장 안 강조**가 있다.\n\n> [관련 판결] 대법원 2020. 1. 1. 선고 2019다1 판결\n> 인용 문장\n\n| 구분 | 1분기 | 2분기 |\n|--|----|----|\n| 합계 | 300 | < |\n';
   const mf = await callNew('make_hwpx_from_markdown', { markdown: MDF, preset: 'internal', outDir: dir, features: { indent: true, underline: true, quote: true, table: { width: 'fit', style: 'threeLine', merge: true, float: true } } });
   check(`docs 선택값 전부 켬 ${mf.file?.bytes}B (남은 기호 ${mf.leftovers?.length})`, mf.ok && fs.existsSync(mf.file.path) && mf.leftovers?.length === 0);
+  // 가로 용지·표 칸 줄간격(261124) — 가로 파일을 쓰고, 범위 밖 줄간격은 스키마에서 멈춘다
+  const ml = await callNew('make_hwpx_from_markdown', { markdown: '# 가상 가로 문서\n\n| 쟁점 | 주장 | 반론 | 검토 |\n|---|---|---|---|\n| 가 | 나 | 다 | 라 |\n', preset: 'internal', outDir: dir, orientation: 'landscape', tableLineSpacing: 180 });
+  check(`docs 가로 용지 ${ml.file?.bytes}B`, ml.ok && fs.existsSync(ml.file.path));
+  const mlBad = await c.callTool({ name: 'make_hwpx_from_markdown', arguments: { markdown: '# 가상 줄간격', preset: 'internal', outDir: dir, tableLineSpacing: 300 } }).catch((e) => ({ isError: true, e }));
+  check('docs 표 칸 줄간격 범위 밖은 거절', mlBad.isError === true && !fs.existsSync(path.join(dir, '가상 줄간격.hwpx')));
   // 글자만 고치기 — 새 파일, 원본 그대로, 0번이면 멈춤
   const before = fs.readFileSync(mh.file.path);
   const ed = await callNew('edit_hwpx_text', { file: mh.file.path, edits: [{ old: '가상상사', new: '가상상회' }], fills: [{ table: 0, row: 1, col: 1, text: '2,100,000' }] });
@@ -593,6 +614,9 @@ if (tools.includes('make_hwpx_from_markdown')) {
   // 양식 모드 — 앞서 만든 파일을 양식으로 다시 쓴다
   const tm = await callNew('make_hwpx_from_markdown', { markdown: '# 가상 양식본\n\n양식 모양으로 채운 본문.', preset: 'internal', outDir: dir, templateFile: mh.file.path });
   check(`docs 양식 모드 ${tm.file?.bytes}B`, tm.ok && fs.existsSync(tm.file.path));
+  // 양식 모드 표 역할(261124) — 앞서 만든 파일의 표 칸 글자를 샘플로
+  const tc = await callNew('make_hwpx_from_markdown', { markdown: '# 가상 표 양식본\n\n| 가 | 나 |\n|---|---|\n| 1 | 2 |', preset: 'internal', outDir: dir, templateFile: mh.file.path, templateSamples: { cell: '2,000,000', cellHead: '구분' } });
+  check(`docs 양식 모드 표 역할 ${tc.file?.bytes}B`, tc.ok && fs.existsSync(tc.file.path));
   // 퇴고 — 범용 팩만으로도 돈다. 공개 팩은 기본으로 걸린 글자까지, brief 응답에는 걸린 글자·고칠 말이 없다
   const pr = await callNew('check_prose', { text: '가상 보고서입니다. 결과를 가르는 것은 시간입니다.', genre: 'general' });
   check(`check_prose 범용 팩 B ${pr.counts?.B}`, pr.ok && pr.counts?.B === 1 && 'word' in (pr.hits?.[0] ?? {}) && !pr.skipped && !pr.incomplete);
@@ -600,6 +624,14 @@ if (tools.includes('make_hwpx_from_markdown')) {
   check('check_prose brief 는 위치만', pb.ok && pb.counts?.B === 1 && !('fix' in (pb.hits?.[0] ?? {})) && !('word' in (pb.hits?.[0] ?? {})));
   const nm = await callNew('check_norms', { text: '가상 회사는 이를 검토하였고, 도급인이 할수 있는 조치임 .' });
   check(`check_norms 띄어쓰기 A ${nm.spacing?.counts?.A} · 문장 부호 A ${nm.punct?.counts?.A} · 쉼표 A ${nm.comma?.counts?.A}`, nm.ok && nm.spacing?.counts?.A === 1 && nm.punct?.counts?.A === 1 && nm.comma?.counts?.A === 1);
+  // 의미범주·AI 수사는 비공개 팩에만 규칙이 있다 — 이 시험은 PROSE_PACK_DIR 을 지우고 돌므로 둘 다 「불완전」이어야 한다(조용히 통과 금지)
+  for (const [name, extra] of [['check_semantic', {}], ['check_rhetoric', { track: 'blog' }]]) {
+    const r = await callNew(name, { text: '가상 보고서입니다.', ...extra });
+    check(`${name} 비공개 팩 없음 → 불완전(${r.code})`, r.ok === false && r.incomplete === true && r.code === 'NO_PRIVATE_PACK' && !('hits' in r));
+  }
+  // 퇴고 보존 대조 — 「하여야 한다 → 하면 좋다」는 당위 훼손, 수치는 그대로라 보존됨
+  const rw = await callNew('check_rewrite', { before: '가상 회사는 2026. 3. 2. 까지 서면으로 통지하여야 한다.', after: '가상 회사는 2026. 3. 2. 까지 서면으로 통지하면 좋다.', genre: 'general' });
+  check(`check_rewrite 당위 사라짐 → ${rw.status} · 수치 ${rw.items?.numbers?.status}`, rw.ok && rw.status === '훼손' && rw.items?.modality?.status === '훼손' && rw.items?.numbers?.status === '보존됨');
   // 호증 날인 — 합성 PDF(pdf-lib 빈 쪽 2장) 첫 장에 「사 제7호증」. 설치본에서 글꼴 자산(dist/assets)을 찾는지
   {
     const { PDFDocument } = await import('pdf-lib');
@@ -1065,7 +1097,9 @@ if (!/\.cmd$/i.test(target)) {
   const [v1 = '', v2 = ''] = v.stdout.trim().split(/\r?\n/);
   const KEYS = ['builtAt', 'commit', 'dirty', 'kLaborLockfileSha256', 'lockfileSha256', 'node', 'serverSha256', 'toegoSha256', 'version'];
   check('build-info.json 이 server.mjs 옆에 있고 칸이 9개', !!info && JSON.stringify(Object.keys(info).sort()) === JSON.stringify(KEYS));
-  // 퇴고 가벼운 실행 파일 — 해시가 build-info 와 같고, MCP check_prose·check_norms 와 같은 판정을 낸다
+  // 퇴고 가벼운 실행 파일 — 해시가 build-info 와 같고, MCP check_prose·check_norms·check_semantic·check_rhetoric 와 같은 판정을 낸다.
+  // 의미범주·AI 수사는 키를 줄 때만 돈다. 이 시험에는 비공개 팩이 없으므로 키를 주면 불완전 → ok:false → 종료 코드 1,
+  // 키를 주지 않으면 문체·공개 규범만 보고 종료 코드 0 이 맞다
   const toego = path.join(path.dirname(target), 'toego.mjs');
   check('build-info toegoSha256 = 지금 toego.mjs 의 sha256', fs.existsSync(toego) && info?.toegoSha256 === sha(fs.readFileSync(toego)));
   {
@@ -1073,13 +1107,24 @@ if (!/\.cmd$/i.test(target)) {
     const doc = '가상 회사는 이를 검토하였고, 도급인이 할수 있는 조치임 .\n결과를 가르는 것은 시간입니다.';
     const f = path.join(dir, 'a.json');
     fs.writeFileSync(f, JSON.stringify({ text: doc, genre: 'general' }));
+    const t0 = spawnSync(process.execPath, [toego, f], { encoding: 'utf8' });
+    let t0r = null;
+    try { t0r = JSON.parse(t0.stdout); } catch { /* 아래 FAIL */ }
+    check(`toego.mjs — 의미범주·AI 수사 키가 없으면 문체·공개 규범만(rc ${t0.status})`, t0.status === 0 && !!t0r && t0r.ok === true
+      && !('semantic' in t0r) && !('rhetoric' in t0r));
+    fs.writeFileSync(f, JSON.stringify({ text: doc, genre: 'general', semantic: { genre: 'general' }, rhetoric: {} }));
     const t = spawnSync(process.execPath, [toego, f], { encoding: 'utf8' });
     let tr = null;
     try { tr = JSON.parse(t.stdout); } catch { /* 아래 FAIL */ }
     const viaProse = await callNew('check_prose', { text: doc, genre: 'general' });
     const viaNorms = await callNew('check_norms', { text: doc });
+    const viaSem = await callNew('check_semantic', { text: doc, genre: 'general' });
+    const viaRh = await callNew('check_rhetoric', { text: doc });
     const noRef = (o) => JSON.stringify(o, (k, val) => (k === 'ref' ? undefined : val));
-    check(`toego.mjs = MCP check_prose·check_norms (rc ${t.status})`, t.status === 0 && !!tr && noRef(tr.prose) === noRef(viaProse) && JSON.stringify(tr.norms) === JSON.stringify(viaNorms));
+    check(`toego.mjs = MCP check_prose·check_norms·check_semantic·check_rhetoric (rc ${t.status})`, t.status === 1 && !!tr && tr.ok === false
+      && noRef(tr.prose) === noRef(viaProse) && JSON.stringify(tr.norms) === JSON.stringify(viaNorms)
+      && JSON.stringify(tr.semantic) === JSON.stringify(viaSem) && JSON.stringify(tr.rhetoric) === JSON.stringify(viaRh)
+      && tr.semantic?.code === 'NO_PRIVATE_PACK' && tr.rhetoric?.code === 'NO_PRIVATE_PACK');
     fs.writeFileSync(f, JSON.stringify({ text: '가상 900101-1234567' }));
     const s = spawnSync(process.execPath, [toego, f], { encoding: 'utf8' });
     check('toego.mjs — 주민번호 모양이면 멈추고 종료 코드 1, 숫자를 되풀이하지 않음', s.status === 1 && /주민등록번호/.test(s.stdout) && !s.stdout.includes('1234567'));

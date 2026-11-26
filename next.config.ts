@@ -35,6 +35,14 @@ const nextConfig: NextConfig = {
     return [
       // 도구 안내 — public/howto/<도구>/index.html 을 /howto/<도구> 로 연다(261119). 디자인은 public/howto/howto.css 하나를 함께 쓴다
       { source: '/howto/:slug', destination: '/howto/:slug/index.html' },
+      // 🔴 퇴직금 계산기만 공개 주소가 `.html` 로 남아 있다(도구 29개 중 유일). #303
+      //    클린 URL 을 **별칭으로만** 살린다 — 301 도, canonical 변경도 하지 않는다.
+      //    이유: 이 페이지가 네이버 검색 수요 1위(「퇴직금계산기」 월 263,300회)이고
+      //    `shared/NOW.md` 가 「이미 색인된 글의 URL 변경」을 금지한다. 색인 신호는 `.html` 에 둔다.
+      //    정적 파일의 canonical·og:url 이 `.html` 을 가리키므로 이 주소로 들어와도
+      //    색인은 `.html` 로 합산된다(2026-11-26 파일·라이브 양쪽 확인).
+      //    ⏳ 301 전환은 NOW.md 에 날짜를 박아 뒀다 — 잊으면 두 주소가 영구 공존한다.
+      { source: '/tools/severance', destination: '/tools/severance.html' },
       { source: '/sitemap_index.xml', destination: '/sitemap.xml' },
       { source: '/wp-sitemap.xml', destination: '/sitemap.xml' },
       { source: '/mcp/server-card.json', destination: '/.well-known/mcp/server-card.json' },

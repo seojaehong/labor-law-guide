@@ -21,7 +21,7 @@ export function register(server) {
         '기준일 — 퇴직 때 정산하는 임금·퇴직금 일시금(제1호)은 마지막 근무일(사망이면 사망일) + 14일, 재직 중 임금(제2호)은 정기지급일. ' +
         '2025. 10. 22.까지의 정기지급일 임금은 재직 중에는 붙지 않고(법률 제20520호 부칙 제2조), 퇴직할 때까지 받지 못했으면 제1호로 센다. 2호 이자가 생긴 뒤 퇴직하면 정기지급일 그대로(제37조 제2항). ' +
         '지연이자 = 금액 × 20/100 × (기준일 다음 날부터 지급일까지 일수 − 적용 제외 일수) ÷ 365, 항목마다 원 미만 버림, 합계는 항목 값의 합. 기준일이 토요일·공휴일이어도 미루지 않는다. ' +
-        '적용 제외 기간(제37조 제3항·시행령 제18조)은 넣은 기간을 빼기만 하고 사유 해당 여부는 가리지 않는다. ' +
+        '적용 제외 기간(제37조 제3항·시행령 제18조)은 넣은 기간을 빼기만 하고 사유 해당 여부는 가리지 않는다. 사유가 일부 항목에만 있으면 그 항목의 exclusions 에 넣는다(바깥 exclusions 는 모든 항목 공통). ' +
         '민법·상법 지연손해금, 퇴직연금 부담금 지연이자, 재직 중 중간정산, 1개월을 넘는 기간으로 산정하는 상여금의 재직 중 기준일, 일부 지급 때의 충당 순서는 다루지 않는다.',
       inputSchema: {
         lastWorkDay: z
@@ -37,6 +37,15 @@ export function register(server) {
               amount: z.number().int().describe('늦게 지급한(또는 아직 지급하지 않은) 금액(원, 1원 이상)'),
               periodicPayDate: z.string().optional().describe(`periodic 일 때 취업규칙·계약에서 정한 정기지급일 ${DATE}`),
               paidDate: z.string().describe(`실제로 지급한 날 ${DATE}. 아직 지급하지 않았으면 계산할 날`),
+              exclusions: z
+                .array(
+                  z.object({
+                    from: z.string().describe(`적용 제외 시작일 ${DATE}`),
+                    to: z.string().describe(`적용 제외 끝나는 날 ${DATE}(그날 포함)`),
+                  }),
+                )
+                .optional()
+                .describe('이 항목에만 적용 제외 사유가 있을 때 그 기간. 모든 항목에 공통이면 바깥 exclusions 에 넣는다'),
             }),
           )
           .min(1)
@@ -49,17 +58,20 @@ export function register(server) {
             }),
           )
           .optional()
-          .describe('적용 제외 사유(근로기준법 제37조 제3항·시행령 제18조)가 이어진 기간. 겹치면 한 번만 뺀다. 없으면 비운다'),
+          .describe('모든 항목에 공통인 적용 제외 사유(근로기준법 제37조 제3항·시행령 제18조)가 이어진 기간. 일부 항목에만 사유가 있으면 그 항목의 exclusions 에 넣는다. 겹치면 한 번만 뺀다. 없으면 비운다'),
       },
       annotations: READ_ONLY,
     },
     async (a) => {
       try {
-        const base = { lastWorkDay: a.lastWorkDay || undefined, items: a.items };
-        const hasExcl = Array.isArray(a.exclusions) && a.exclusions.length > 0;
-        // 화면과 같이 — 적용 제외 기간을 넣었을 때만 「빼지 않으면」 값을 함께 낸다
-        const full = hasExcl ? calcWageDelayInterest(base) : undefined;
-        const r = hasExcl ? calcWageDelayInterest({ ...base, exclusions: a.exclusions }) : calcWageDelayInterest(base);
+        const lastWorkDay = a.lastWorkDay || undefined;
+        const has = (l) => Array.isArray(l) && l.length > 0;
+        const hasExcl = has(a.exclusions) || a.items.some((it) => has(it.exclusions));
+        // 화면과 같이 — 적용 제외 기간(공통·항목별)을 넣었을 때만 「빼지 않으면」 값을 함께 낸다. 그 값은 항목별 기간도 뺀다
+        const full = hasExcl
+          ? calcWageDelayInterest({ lastWorkDay, items: a.items.map(({ kind, amount, periodicPayDate, paidDate }) => ({ kind, amount, periodicPayDate, paidDate })) })
+          : undefined;
+        const r = calcWageDelayInterest({ lastWorkDay, items: a.items, ...(has(a.exclusions) ? { exclusions: a.exclusions } : {}) });
         const today = todayKst();
         return text({
           ok: true,

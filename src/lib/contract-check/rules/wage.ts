@@ -41,6 +41,13 @@
 //     법리 E 와 같은 함수). 근로시간을 모르거나 야간근로가 있거나 그 여부를 모르면, 총액이 산입 제외 항목(OT_*·NIGHT·
 //     HOLIDAY_EXTRA·ANNUAL_LEAVE) 합계 이하이거나, 식대·상여 합이 (총액 − 산입 제외 합) 이상이면(남는 기본 임금이 없음,
 //     K4·F5) needs_data — 「시간당 0」을 내지 않는다.
+//   비교 연도(261124 P1) — 시작 연도부터 오늘(KST)과 종료일 가운데 이른 날의 연도까지 해마다(minwageAssessment →
+//     minwageAssessmentForYear). 미달인 해가 있으면 위반(그 해를 밝힘), 미달 없이 표에 없는 해가 있으면 확인 필요.
+// MINWAGE-PROBATION(engine 이 misc 순서 자리에서 돌린다): 감액 문구 있으나 applied=false/null → minor risk (문구 정리 권고).
+//   감액 기간 = reduced_months(있으면) 또는 months(근로계약서 작성은 수습 6개월 중 처음 3개월, PR #140 검토 5).
+//   261124 P1 — 감액 후 임금(산입 임금 × wage_rate_pct%)을 감액 기간이 걸친 해마다 MINWAGE 와 같은 계산으로 비교한다.
+//   기준 = 1년 이상(또는 기간의 정함 없는) 계약·감액 3개월 이내·단순노무 아님이면 최저시급의 90%(최저임금법 §5②·시행령 §3),
+//   그 밖(단순노무·1년 미만·3개월 초과)은 100%. 기준 미달 violation, 이상 ok(감액 자체는 막지 않는다), 비교 못 하면 needs_data
 // WAGE-MATH: item.amount ≟ 통상시급 × basis_hours × (rate_multiplier or 1.0) ±10원. BASE 는 통상시급의 출처라 보지 않는다.
 // OT-RATE: OT_* 항목 rate_multiplier 미표기 → risk
 // OT-COVER: OT_* basis_hours 합 ≥ weekly_overtime_hours × 4.345 × 1.5. 상시 5명 미만은 가산 없이 × 1.0(시행령 §7 별표1, 261103)
@@ -601,8 +608,80 @@ function rateHours(wb: WageBasis): number | null {
   return wb.from === 'basis' ? wb.basisHours : null;
 }
 
-/** MINWAGE 판정과 수정 방향 — 규칙과 수정안(amendments.ts)이 같은 계산을 쓴다. */
-export function minwageAssessment(contract: Contract): MinwageAssessment {
+/** 오늘 날짜(KST, YYYY-MM-DD). toISOString 은 UTC 라 9시간을 더한다 */
+export function todayKst(): string {
+  return new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 10);
+}
+
+/** 최저시급 표에 없는 해 — 사용자에게 보이는 문장(개발용 파일 이름을 적지 않는다) */
+const unregisteredText = (years: string[]) =>
+  `${years.join('·')}년 최저시급은 이 도구에 아직 없어 비교하지 못함 — 그 해 고시액으로 확인 필요`;
+
+/**
+ * MINWAGE 판정과 수정 방향 — 규칙과 수정안(amendments.ts)이 같은 계산을 쓴다(261124 P1).
+ * 계약 시작 연도부터 오늘(KST)과 종료일 가운데 이른 날의 연도까지 해마다 그 해 최저시급과 비교한다. 계약이 이어지는 동안
+ * 최저시급이 오르면 그 해부터 미달일 수 있다(2025-01-02 시작 시급 10,030원 → 2026년 10,320원 미달). 시작일이 오늘보다 뒤면
+ * 시작 연도만 본다 — 다음 해 비교는 근로계약서 작성이 따로 알린다(contract-write laterMinimumWage).
+ * 미달인 해가 하나라도 있으면 위반(그 해를 밝힌다), 미달은 없고 표에 없는 해가 있으면 확인 필요.
+ */
+export function minwageAssessment(contract: Contract, today: string = todayKst()): MinwageAssessment {
+  const start = contract.period?.start_date;
+  const pre = minwagePrecheck(contract);
+  if (pre || !start) return pre ?? { status: 'needs_data', detail: '계약 시작일 미기재', amendment: '' };
+  const first = Number(start.slice(0, 4));
+  const end = contract.period?.end_date;
+  const until = end && end < today ? end : today;
+  const last = Math.max(first, Number(until.slice(0, 4)) || first);
+  const unregistered: string[] = [];
+  const results: Array<{ year: string; a: MinwageAssessment }> = [];
+  for (let y = first; y <= last; y += 1) {
+    const year = String(y);
+    if (MINWAGE_TABLE[year] === undefined) unregistered.push(year);
+    else results.push({ year, a: minwageAssessmentForYear(contract, year) });
+  }
+  const failed = results.filter((r) => r.a.status === 'violation');
+  if (failed.length > 0) {
+    // 시작 연도만 미달이면 그 판정 그대로. 여러 해면 그 해들을 밝히고, 수정 방향은 가장 높은 해 최저시급에 맞춘다
+    const top = failed[failed.length - 1];
+    if (failed.length === 1 && failed[0].year === String(first)) return failed[0].a;
+    const fromStart = failed[0].year === String(first);
+    return withYears(fromStart ? failed[0].a : top.a, failed, fromStart, top.a.amendment);
+  }
+  const startResult = results.find((r) => r.year === String(first))?.a;
+  // 시작 연도는 충족인데 이어지는 해가 확인 필요·리스크(식대·상여를 넣어야만 충족 등)면 그 해 판정을 낸다 — 「모두 충족」이라 하지 않는다
+  const laterOpen = results.find((r) => r.year !== String(first) && meets(r.a) !== true);
+  if (startResult && meets(startResult) === true && laterOpen) {
+    return { ...laterOpen.a, detail: `계약이 ${laterOpen.year}년까지 이어짐 — ${laterOpen.a.detail}` };
+  }
+  if (unregistered.length > 0) {
+    const note = unregisteredText(unregistered);
+    if (startResult && startResult.status !== 'ok') return { ...startResult, detail: `${startResult.detail} / ${note}` };
+    return { status: 'needs_data', detail: startResult ? `${startResult.detail} / ${note}` : note, amendment: '' };
+  }
+  if (!startResult) return { status: 'needs_data', detail: unregisteredText([String(first)]), amendment: '' };
+  if (results.length > 1 && startResult.status === 'ok') {
+    const span = `${results[0].year}~${results[results.length - 1].year}`;
+    return { ...startResult, detail: `${startResult.detail} (계약이 이어진 ${span}년 최저시급 모두 충족)` };
+  }
+  return startResult;
+}
+
+/** 이어지는 해의 미달 — 어느 해부터 미달인지 밝힌다 */
+function withYears(
+  a: MinwageAssessment,
+  failed: Array<{ year: string }>,
+  fromStart: boolean,
+  amendment: string,
+): MinwageAssessment {
+  const years = failed.map((f) => f.year).join('·');
+  const lead = fromStart
+    ? `${years}년 최저시급 모두 미달 — `
+    : `계약이 ${failed[0].year}년까지 이어져 ${years}년 최저시급 미달 — `;
+  return { status: 'violation', detail: `${lead}${a.detail}`, amendment, ...(a.severity ? { severity: a.severity } : {}) };
+}
+
+/** 연도와 관계없이 판정할 수 없는 입력 — 기본급(또는 포괄 총액)·시작일 */
+function minwagePrecheck(contract: Contract): MinwageAssessment | null {
   const start = contract.period?.start_date;
   const items = contract.wage?.items ?? [];
   const base = items.find((i) => i.code === 'BASE');
@@ -610,10 +689,21 @@ export function minwageAssessment(contract: Contract): MinwageAssessment {
   if (!start || (!base?.amount && !inclusiveTotal)) {
     return { status: 'needs_data', detail: '기본급(또는 포괄 총액) 또는 계약 시작일 미기재', amendment: '' };
   }
-  const year = start.slice(0, 4);
-  const minimum = MINWAGE_TABLE[year];
+  return null;
+}
+
+/**
+ * 한 해의 최저시급과 비교한 MINWAGE 판정. minimum 을 주면 그 금액을 그 해 기준으로 쓴다(수습 감액 — 최저시급의 90%,
+ * MINWAGE-PROBATION). 표에 없는 해는 확인 필요. 근로계약서 작성의 다음 해 비교(laterMinimumWage)도 이 함수를 쓴다.
+ */
+export function minwageAssessmentForYear(contract: Contract, year: string, minimumOverride?: number): MinwageAssessment {
+  const pre = minwagePrecheck(contract);
+  if (pre) return pre;
+  const items = contract.wage?.items ?? [];
+  const base = items.find((i) => i.code === 'BASE');
+  const minimum = minimumOverride ?? MINWAGE_TABLE[year];
   if (minimum === undefined) {
-    return { status: 'needs_data', detail: `${year}년 최저시급 미등록 — minwage_table.json 갱신 필요`, amendment: '' };
+    return { status: 'needs_data', detail: unregisteredText([year]), amendment: '' };
   }
   // 시급제는 A·B — 포괄이고 연장·야간·휴일 항목이 있어도 같다(그 수당의 충분성은 OT-COVER 몫).
   // 형태·시급·출처는 normalize.wageBasis 하나에서 온다(사진 추출 매핑과 같은 함수).
@@ -807,6 +897,160 @@ export const ruleHolidayCover: RuleFn = (contract) => {
     `HOLIDAY_EXTRA 환산 ${agreed}H < 필요 ${required}H` + ` (${basis}) — 부족 ${round1(required - agreed)}H`,
   );
 };
+
+/** 시작일부터 종료일까지가 1년 이상인지(종료일 = 시작일 + 1년 − 1일이면 1년). 수습 감액 요건(최저임금법 §5② 「1년 이상의
+ * 기간을 정하여 근로계약을 체결」)을 점검 규칙(MINWAGE-PROBATION)과 근로계약서 작성(contract-write probationIssue)이 같이 쓴다 */
+export function atLeastOneYear(start: string, end: string): boolean {
+  const [y, m, d] = start.split('-').map(Number);
+  const oneYearLast = new Date(Date.UTC(y + 1, m - 1, d - 1)).toISOString().slice(0, 10);
+  return end >= oneYearLast;
+}
+
+/** 1년 미만 기간을 정한 계약인가 — 수습 감액 대상이 아니다(최저임금법 §5②, 261122 원격 점검 P1). 시작·종료일이 다 있고
+ * 기간의 정함이 없다고 표시되지 않았을 때만 true. 종료일이 없는 기간제는 기간을 알 수 없어 false(종전대로) */
+export function probationTermUnderOneYear(contract: Contract): boolean {
+  const start = contract.period?.start_date;
+  const end = contract.period?.end_date;
+  // 날짜가 YYYY-MM-DD 가 아니면(검사를 거치지 않은 입력) 기간을 셀 수 없다 — 던지지 않고 보지 않는다
+  const iso = /^\d{4}-\d{2}-\d{2}$/;
+  if (!start || !end || !iso.test(start) || !iso.test(end)) return false;
+  return contract.period?.indefinite !== true && !atLeastOneYear(start, end);
+}
+
+export const ruleMinwageProbation: RuleFn = (contract) => {
+  const prob = contract.period?.probation ?? {};
+  const pct = prob.wage_rate_pct;
+  if (pct == null || pct >= 100) {
+    return makeFinding('MINWAGE-PROBATION', 'ok', '수습 감액 문구 없음');
+  }
+  if (!prob.applied) {
+    return makeFinding(
+      'MINWAGE-PROBATION',
+      'risk',
+      `수습 ${pct}% 감액 문구 잔존하나 실제 적용 없음(applied=${prob.applied}) — ` +
+        "재작성 시 '해당사항 없음' 통일 권고",
+      'minor',
+    );
+  }
+  // 감액 기간을 따로 적었으면(근로계약서 작성 — 수습 6개월 중 처음 3개월) 그 기간으로 본다. 없으면 수습 기간 전체
+  const reducedMonths = prob.reduced_months ?? prob.months ?? 0;
+  const floor = probationFloor(contract, reducedMonths);
+  const period =
+    prob.reduced_months != null && (prob.months ?? 0) > prob.reduced_months
+      ? `수습 ${prob.months}개월 중 처음 ${prob.reduced_months}개월 ${pct}% 감액`
+      : `수습 ${pct}% 감액`;
+  const a = reducedWageAssessment(contract, pct, reducedMonths, floor.pct);
+  if (a.status === 'violation') {
+    return makeFinding('MINWAGE-PROBATION', 'violation', `${period} 후 임금이 기준 미달 — ${floor.reason}. ${a.detail}`);
+  }
+  if (a.status === 'needs_data') {
+    return makeFinding(
+      'MINWAGE-PROBATION',
+      'needs_data',
+      `${period} — 감액 후 임금을 최저임금과 비교하지 못함(${a.detail}). ${floor.reason}`,
+    );
+  }
+  // 수습(감액) 기간을 적지 않았으면 3개월 이내인지 모른다 — 90% 로는 충족, 100% 로는 미달이면 기간을 물어야 한다
+  if (floor.pct === 90 && prob.reduced_months == null && prob.months == null) {
+    const full = reducedWageAssessment(contract, pct, 3, 100);
+    if (full.status === 'violation') {
+      return makeFinding(
+        'MINWAGE-PROBATION',
+        'needs_data',
+        `${period} — 수습 기간 미기재. 3개월 이내면 최저시급의 90% 이상이라 충족, 3개월을 넘으면 최저시급 100% 미달(최저임금법 §5②). ${full.detail}`,
+      );
+    }
+  }
+  return makeFinding('MINWAGE-PROBATION', 'ok', `${period} 후에도 기준 이상 — ${floor.reason}. ${a.detail}`);
+};
+
+/** 수습 감액 후 임금이 넘어야 하는 최저시급 비율(최저임금법 §5②·시행령 §3, 261124 P1).
+ * 1년 이상(또는 기간의 정함 없는) 계약·감액 3개월 이내·단순노무 아님 → 90, 그 밖 → 100(감액 자체는 막지 않는다 — 최저임금
+ * 이상이면 된다) */
+function probationFloor(contract: Contract, reducedMonths: number): { pct: 90 | 100; reason: string } {
+  const prob = contract.period?.probation ?? {};
+  if (prob.simple_labor_job) {
+    return { pct: 100, reason: '단순노무업무 고시 직종은 수습 감액 특례를 쓸 수 없어 최저시급 100%가 기준(최저임금법 §5② 단서)' };
+  }
+  if (probationTermUnderOneYear(contract)) {
+    return {
+      pct: 100,
+      reason:
+        `계약기간 ${contract.period?.start_date}~${contract.period?.end_date} 은 1년 미만이라 수습 감액 특례를 쓸 수 없어` +
+        ' 최저시급 100%가 기준(최저임금법 §5②)',
+    };
+  }
+  if (reducedMonths > 3) {
+    return {
+      pct: 100,
+      reason: `감액 기간 ${reducedMonths}개월 — 특례는 수습 시작일부터 3개월 이내만이라 최저시급 100%가 기준(최저임금법 §5②)`,
+    };
+  }
+  return { pct: 90, reason: '1년 이상 계약·3개월 이내 감액이라 최저시급의 90%가 기준(최저임금법 §5②, 시행령 §3)' };
+}
+
+/** YYYY-MM-DD 에 개월을 더한 날의 전날 — 수습 감액 기간의 마지막 날 */
+function lastDayAfterMonths(start: string, months: number): string {
+  const [y, m, d] = start.split('-').map(Number);
+  return new Date(Date.UTC(y, m - 1 + months, d - 1)).toISOString().slice(0, 10);
+}
+
+/** 감액 후 임금(산입 임금 × pct%)을 감액 기간이 걸친 해마다 그 해 최저시급 × floor% 와 비교한다. MINWAGE 와 같은 계산
+ * (minwageAssessmentForYear)이라 시급제·단시간·식대 산입이 그대로 따른다 */
+function reducedWageAssessment(contract: Contract, pct: number, reducedMonths: number, floor: 90 | 100): MinwageAssessment {
+  const start = contract.period?.start_date;
+  if (!start || !/^\d{4}-\d{2}-\d{2}$/.test(start)) {
+    return { status: 'needs_data', detail: '계약 시작일 미기재', amendment: '' };
+  }
+  const r = pct / 100;
+  const wage = contract.wage ?? {};
+  const scaled: Contract = {
+    ...contract,
+    wage: {
+      ...wage,
+      items: (wage.items ?? []).map((i) => ({ ...i, amount: i.amount * r })),
+      monthly_total: wage.monthly_total != null ? wage.monthly_total * r : wage.monthly_total,
+      ordinary_hourly_rate: wage.ordinary_hourly_rate != null ? wage.ordinary_hourly_rate * r : wage.ordinary_hourly_rate,
+    },
+  };
+  const first = Number(start.slice(0, 4));
+  const last = Number(lastDayAfterMonths(start, Math.max(reducedMonths, 1)).slice(0, 4));
+  const ok: string[] = [];
+  const unregistered: string[] = [];
+  let pending: MinwageAssessment | null = null;
+  for (let y = first; y <= last; y += 1) {
+    const year = String(y);
+    const minimum = MINWAGE_TABLE[year];
+    if (minimum === undefined) {
+      unregistered.push(year);
+      continue;
+    }
+    const a = minwageAssessmentForYear(scaled, year, floor === 100 ? minimum : (minimum * floor) / 100);
+    // 90% 기준이면 문장의 「(YYYY년 )최저시급 9,288」을 수습 기준으로 바꿔 적는다 — 주휴 포함 시급 문장은 연도 없이 「기준액 = 최저시급 …」이다
+    const reducedText = fmtWon((minimum * floor) / 100).slice(0, -1);
+    const label =
+      floor === 100
+        ? a.detail
+        : a.detail.replace(
+            new RegExp(`(?:${year}년 )?최저시급 ${reducedText}`, 'g'),
+            `${year}년 수습 최저시급(${fmtWon(minimum)}의 90%) ${reducedText}`,
+          );
+    if (a.status === 'violation') return { ...a, detail: label };
+    if (a.status === 'ok' || (a.status === 'risk' && a.severity === 'minor')) ok.push(label);
+    else pending ??= { ...a, detail: label };
+  }
+  if (pending) return { status: 'needs_data', detail: pending.detail, amendment: '' };
+  if (unregistered.length > 0) {
+    return {
+      status: 'needs_data',
+      detail: `${unregistered.join('·')}년 최저시급은 이 도구에 아직 없어 비교하지 못함 — 그 해 고시액으로 확인 필요`,
+      amendment: '',
+    };
+  }
+  return { status: 'ok', detail: ok.join(' / '), amendment: '' };
+}
+
+const fmtWon = (n: number) => `${n.toLocaleString('ko-KR')}원`;
 
 export const WAGE_RULES: RuleFn[] = [
   ruleMinwage,

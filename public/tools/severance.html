@@ -609,9 +609,10 @@
 
         <h3>2. 해당할 때만 입력</h3>
         <ol>
-            <li><b>1년분 상여금 총액</b>, <b>연월차수당</b>, 이미 받은 <b>퇴직금 중간정산</b>이 있으면 입력합니다.</li>
+            <li><b>1년분 상여금 총액</b>, <b>연월차수당</b>이 있으면 입력합니다.</li>
+            <li><b>퇴직금 중간정산</b>을 받았으면 입사일 칸에 <b>중간정산 기준일의 다음 날</b>을 넣습니다. 퇴직금은 그날부터 새로 셉니다(근로자퇴직급여 보장법 제8조 제2항).</li>
             <li><b>퇴직소득세</b>는 자동 계산합니다. 직접 입력하려면 「자동」 체크를 해제합니다.</li>
-            <li><b>1일 통상임금</b>을 알면 입력합니다. 「자동」이면 근로기준법 제2조 제2항에 따라 평균임금이 통상임금보다 적을 때 통상임금을 적용합니다.</li>
+            <li><b>1일 통상임금</b>을 알면 입력합니다. 근로기준법 제2조 제2항에 따라 평균임금이 통상임금보다 적을 때 통상임금을 적용합니다.</li>
         </ol>
 
         <h3>3. 산정서로 인쇄할 때 입력</h3>
@@ -695,6 +696,14 @@
                 </div>
                 <p class="wage-total">합계 <strong><span id="wageTotal">0</span>원</strong> · 산정기간 <span id="totalDaysText">-</span></p>
             </fieldset>
+            <div class="field">
+                <label for="payout">받는 방법</label>
+                <select id="payout">
+                    <option value="cash" selected>현금 수령</option>
+                    <option value="irp">IRP(개인형퇴직연금) 이전</option>
+                </select>
+                <p class="field-hint">55세 전 퇴직이면 퇴직금은 IRP 계정으로 옮겨 지급하는 것이 원칙입니다(근로자퇴직급여 보장법 제9조 제2항). IRP로 옮기면 지급할 때 퇴직소득세를 떼지 않고, 연금계좌에서 나중에 받을 때 과세합니다(소득세법 제146조 제2항). IRP로 옮기면 「IRP 이전」을 고릅니다. 55세 이후 퇴직 등은 옮기지 않고 현금으로 받을 수 있습니다(근로자퇴직급여 보장법 시행령 제3조의2 제1항).</p>
+            </div>
         </section>
 
         <details class="card optional-box" id="extraWages">
@@ -723,16 +732,8 @@
                     <label for="dailyOrdinaryWage">1일 통상임금</label>
                     <input type="text" id="dailyOrdinaryWage" class="money-input" inputmode="decimal" autocomplete="off" placeholder="미입력 시 평균임금만 적용">
                 </div>
-                <div class="field">
-                    <label for="wageType">적용임금 선택</label>
-                    <select id="wageType" aria-describedby="wageTypeHint">
-                        <option value="auto">자동 (근로기준법 제2조 제2항)</option>
-                        <option value="average">평균임금으로 계산</option>
-                        <option value="ordinary">통상임금으로 계산</option>
-                    </select>
-                </div>
             </div>
-            <p id="wageTypeHint" class="field-hint">근로기준법 제2조 제2항: 평균임금이 그 근로자의 통상임금보다 적으면 그 통상임금액을 평균임금으로 합니다. 「자동」이면 평균임금 &lt; 통상임금일 때 통상임금을 적용합니다.</p>
+            <p id="wageTypeHint" class="field-hint">근로기준법 제2조 제2항: 평균임금이 그 근로자의 통상임금보다 적으면 그 통상임금액을 평균임금으로 합니다. 1일 통상임금을 넣으면 둘 중 높은 쪽으로 계산합니다. 중간정산을 받았으면 입사일 칸에 정산 기준일의 다음 날을 넣고 중간정산 칸은 0으로 둡니다.</p>
         </details>
 
         <details class="card optional-box" id="personalInfo">
@@ -844,7 +845,7 @@ const SeveranceEngine = (() => {
         return ymd(Date.UTC(d.getUTCFullYear() + 1, d.getUTCMonth(), d.getUTCDate()));
     }
     function calcSeverance(input) {
-        var _a, _b, _c, _d;
+        var _a, _b, _c;
         parse(input.hireDate, '입사일');
         const retirementDate = addDays(input.lastWorkDate, 1);
         const serviceDays = diffDays(retirementDate, input.hireDate);
@@ -860,8 +861,7 @@ const SeveranceEngine = (() => {
         const den = BigInt(12) * BigInt(periodDays);
         const avgCents = (base12 * BigInt(100) + den - BigInt(1)) / den;
         const ordCents = BigInt(Math.round(((_c = input.dailyOrdinaryWage) !== null && _c !== void 0 ? _c : 0) * 100));
-        const wageType = (_d = input.wageType) !== null && _d !== void 0 ? _d : 'auto';
-        const applied = ordCents > BigInt(0) && (wageType === 'ordinary' || (wageType === 'auto' && ordCents > avgCents)) ? 'ordinary' : 'average';
+        const applied = ordCents > avgCents ? 'ordinary' : 'average';
         const cents = applied === 'ordinary' ? ordCents : avgCents;
         // 퇴직금 = 반올림(1일 임금 × 30 × 재직일수 ÷ 365)
         const num = cents * BigInt(30) * BigInt(serviceDays);
@@ -1006,6 +1006,25 @@ const RetirementTaxEngine = (() => {
     function serviceYears(hireDate, lastWorkDate) {
         return Math.floor((serviceMonths(hireDate, lastWorkDate) + 11) / 12);
     }
+    /** 소액 부징수 기준(원) — 원천징수세액이 이 금액 미만이면 징수하지 않는다(소득세법 §86 1호 → §127①7 퇴직소득) */
+    const SMALL_TAX_EXEMPT = 1000;
+    /**
+     * 산출한 세금(calcRetirementTax)에서 이번 지급 때 실제로 떼는 세금을 고른다. 산출 값은 바꾸지 않는다.
+     *   irp  — 연금계좌로 지급되면 연금외수령하기 전까지 원천징수하지 않는다(소득세법 §146② 1호).
+     *   cash — 소득세를 뗀다(§146①). 소득세가 1천원 미만이면 징수하지 않는다(§86 1호).
+     * 지방소득세는 「원천징수하는 소득세」의 10%를 소득세 원천징수와 동시에 특별징수한다(지방세법 §103의13①) — 떼는 소득세가 0이면 0.
+     *   지방소득세 자체의 소액 기준은 적용하지 않는다: §103의60(2천원 미만 징수면제)은 「고지서 1장당」 기준이라 특별징수 조항이 아니다.
+     * 소득세는 10원 미만을 버린 값이라 「1천원 미만」은 버리기 전 산출세액으로 봐도 같다(floor10(x) ≥ 1,000 ⇔ x ≥ 1,000).
+     */
+    function withholdingFor(r, payout) {
+        if (r.incomeTax <= 0)
+            return { incomeTax: 0, localTax: 0, total: 0, reason: null };
+        if (payout === 'irp')
+            return { incomeTax: 0, localTax: 0, total: 0, reason: 'irp' };
+        if (r.incomeTax < SMALL_TAX_EXEMPT)
+            return { incomeTax: 0, localTax: 0, total: 0, reason: 'small' };
+        return { incomeTax: r.incomeTax, localTax: r.localTax, total: r.incomeTax + r.localTax, reason: null };
+    }
     function calcRetirementTax(input) {
         const { pay, hireDate, lastWorkDate } = input;
         if (!Number.isSafeInteger(pay) || pay < 0 || pay > MAX_PAY)
@@ -1060,7 +1079,7 @@ const RetirementTaxEngine = (() => {
             brackets: { service: [sBase, sPer, sFrom], converted: [cBase, cPct, cFrom], rate: [rBase, rPct, rFrom] },
         };
     }
-    return { calcRetirementTax, serviceYears, serviceMonths, RETIREMENT_TAX_FROM, BASIC_TAX_RATES };
+    return { calcRetirementTax, serviceYears, serviceMonths, RETIREMENT_TAX_FROM, BASIC_TAX_RATES, withholdingFor, SMALL_TAX_EXEMPT };
 })();
 /* @@retirement-tax-engine:end */
 
@@ -1103,7 +1122,8 @@ function createDefaultWorker() {
         autoCalcTax: true,
         retirementTax: '0',
         dailyOrdinaryWage: '',
-        wageType: 'auto',
+        /* 받는 방법 — 기본은 현금 수령(기존 계산기 동작, 261125 결정). IRP 이전을 고르면 떼는 세금 0 */
+        payout: 'cash',
         result: null
     };
 }
@@ -1234,8 +1254,9 @@ function validateWorkerInput(w) {
     let wageSum = 0;
     for (let i = 1; i <= periodCount; i++) wageSum += parseMoney(w[`wage${i}`]);
     if (wageSum <= 0) return { field: 'wage1', message: '월급여를 1개 구간 이상 입력해 주세요.' };
-    if (w.wageType === 'ordinary' && parseMoney(w.dailyOrdinaryWage) <= 0) {
-        return { field: 'dailyOrdinaryWage', message: '통상임금으로 계산하려면 1일 통상임금을 입력해 주세요.' };
+    /* 261124 — 중간정산 금액만 빼면 전 근속을 마지막 임금으로 다시 세어 많게 나온다. 정산 다음 날부터 새로 센다 */
+    if (parseMoney(w.priorSeverance) > 0) {
+        return { field: 'priorSeverance', message: '중간정산을 받았으면 퇴직금은 정산 기준일의 다음 날부터 새로 셉니다(근로자퇴직급여 보장법 제8조 제2항). 입사일 칸에 그 다음 날을 넣고 이 칸은 0으로 두세요.' };
     }
     return null;
 }
@@ -1328,8 +1349,7 @@ function calculateSeverance(data) {
         wageTotal: wageSum,
         annualBonus: bonus,
         annualLeavePay: annual,
-        dailyOrdinaryWage,
-        wageType: data.wageType || 'auto'
+        dailyOrdinaryWage
     });
     const total3Month = engine.baseTotal;
     const avgWage = engine.dailyAverage;
@@ -1361,7 +1381,12 @@ function calculateSeverance(data) {
     }
 
     const totalTax = retirementTax + localTax;
-    const totalDeduction = totalTax + priorSev;
+    /* 이번 지급 때 떼는 세금 — IRP 이전이면 떼지 않고(소득세법 제146조 제2항), 현금이면 1천원 미만은 떼지 않는다(같은 법 제86조).
+       retirementTax·localTax 는 산출한 세금 그대로 둔다(현금으로 받을 때의 세금, 화면에 함께 보인다) */
+    const payout = data.payout === 'irp' ? 'irp' : 'cash';
+    const withholding = RetirementTaxEngine.withholdingFor({ incomeTax: retirementTax, localTax }, payout);
+    const withheldTax = withholding.total;
+    const totalDeduction = withheldTax + priorSev;
     const netSeverance = severancePay - totalDeduction;
 
     return {
@@ -1391,6 +1416,9 @@ function calculateSeverance(data) {
         retirementTax,
         localTax,
         totalTax,
+        payout,
+        withheldTax,
+        withholdingReason: withholding.reason,
         netSeverance,
         /* 세금 상세 */
         taxResult,
@@ -1534,7 +1562,7 @@ function workerInputSignature(w) {
     const moneyFields = new Set(['wage1', 'wage2', 'wage3', 'wage4', 'bonusTotal', 'annualLeave', 'priorSeverance', 'retirementTax', 'dailyOrdinaryWage']);
     return JSON.stringify(['startDate', 'endDate',
         'wage1', 'wage2', 'wage3', 'wage4', 'bonusTotal', 'annualLeave', 'priorSeverance',
-        'autoCalcTax', 'retirementTax', 'dailyOrdinaryWage', 'wageType'].map(key => key === 'retirementTax' && w.autoCalcTax ? 0 : moneyFields.has(key) ? parseMoney(w[key]) : w[key]));
+        'autoCalcTax', 'retirementTax', 'dailyOrdinaryWage', 'payout'].map(key => key === 'retirementTax' && w.autoCalcTax ? 0 : moneyFields.has(key) ? parseMoney(w[key]) : w[key]));
 }
 function invalidateResult(w) {
     const hadResult = !!w.result;
@@ -1571,7 +1599,7 @@ function saveFormToState() {
     w.autoCalcTax = document.getElementById('autoCalcTax').checked;
     w.retirementTax = document.getElementById('retirementTax').value;
     w.dailyOrdinaryWage = document.getElementById('dailyOrdinaryWage').value;
-    w.wageType = document.getElementById('wageType').value;
+    w.payout = document.getElementById('payout').value === 'irp' ? 'irp' : 'cash';
     if (previous !== workerInputSignature(w)) invalidateResult(w);
 }
 
@@ -1594,7 +1622,7 @@ function loadFormFromState() {
     document.getElementById('retirementTax').value = w.retirementTax;
     document.getElementById('retirementTax').readOnly = w.autoCalcTax;
     document.getElementById('dailyOrdinaryWage').value = w.dailyOrdinaryWage || '';
-    document.getElementById('wageType').value = w.wageType || 'auto';
+    document.getElementById('payout').value = w.payout === 'irp' ? 'irp' : 'cash';
     updateWageTotal();
 }
 
@@ -1770,6 +1798,18 @@ function setupMoneyInputs() {
    10. UI — 산정서 결과 렌더링
    ================================================================ */
 
+/** 남는 금액의 이름 — 받는 방법(IRP 이전 / 현금 수령)과 세금 계산 여부에 따라 */
+function netLabelOf(result) {
+    if (result.taxNotice) return '퇴직소득세 반영 전 금액';
+    return result.payout === 'irp' ? 'IRP 이전액' : '세금을 뺀 실수령 추정';
+}
+/** 산출한 세금을 이번 지급 때 떼지 않는 까닭 — 없으면 '' */
+function withholdingNoteOf(result) {
+    if (result.withholdingReason === 'irp') return 'IRP로 옮기면 지급할 때 떼지 않습니다(소득세법 제146조 제2항). 연금계좌에서 나중에 받을 때 과세합니다.';
+    if (result.withholdingReason === 'small') return '퇴직소득세가 1천원 미만이라 떼지 않습니다(소득세법 제86조). 지방소득세도 함께 떼지 않습니다(지방세법 제103조의13 제1항).';
+    return '';
+}
+
 /** 산정서 html — 서명란이 있는 인쇄용 문서. 화면에서는 결과 블록 아래 「산정서 보기·인쇄」 접힘 안에 둔다 */
 function statementHtml(result, w) {
     const p = result.periods;
@@ -1779,12 +1819,15 @@ function statementHtml(result, w) {
 
     const formatDate = (d) => `${d.getUTCFullYear()}. ${String(d.getUTCMonth()+1).padStart(2,'0')}. ${String(d.getUTCDate()).padStart(2,'0')}.`;
 
-    const totalDeduction = result.retirementTax + result.localTax + result.priorSev;
+    /* 공제액 = 이번 지급 때 떼는 세금 + 중간정산. IRP 이전·1천원 미만이면 세금은 산출만 하고 떼지 않는다 */
+    const totalDeduction = result.withheldTax + result.priorSev;
     /* 퇴직소득세를 계산하지 않은 경우(2022. 12. 31. 이전 퇴사 등) — 0원으로 보이지 않고 이유를 적는다 */
     const noTax = !!result.taxNotice;
-    const netLabel = noTax ? '퇴직소득세 반영 전 금액' : '실수령 퇴직금';
+    const netLabel = noTax ? '퇴직소득세 반영 전 금액' : result.payout === 'irp' ? 'IRP 이전액' : '실수령 퇴직금';
     const deductionLabel = noTax ? '공제액 합계(퇴직소득세 제외)' : '공제액 합계';
-    const taxCell = (v) => noTax ? '계산하지 않음' : `${formatMoney(v)}원`;
+    const notWithheld = !!result.withholdingReason;
+    const taxCell = (v) => noTax ? '계산하지 않음' : notWithheld ? `0원(산출 ${formatMoney(v)}원, 떼지 않음)` : `${formatMoney(v)}원`;
+    const withholdingNote = withholdingNoteOf(result);
 
     /* 동적 구간 수에 따른 산정서 테이블 생성 */
     const periodCount = p.length;
@@ -1927,6 +1970,10 @@ function statementHtml(result, w) {
             <tr>
                 <td colspan="4" class="left" style="font-size:12px;color:var(--text-light)">${esc(result.taxNotice)}</td>
             </tr>` : ''}
+            ${withholdingNote ? `
+            <tr>
+                <td colspan="4" class="left" style="font-size:12px;color:var(--text-light)">${esc(withholdingNote)}</td>
+            </tr>` : ''}
             <tr>
                 <th>퇴직금 중간정산</th>
                 <td colspan="3" class="right">${formatMoney(result.priorSev)}원</td>
@@ -1984,11 +2031,14 @@ function resultBlockHtml(result, w) {
     if (noTax) {
         sub.push(['퇴직소득세', '계산하지 않음']);
     } else {
-        sub.push(['퇴직소득세', `${formatMoney(result.retirementTax)}원`]);
-        sub.push(['지방소득세', `${formatMoney(result.localTax)}원`]);
+        /* 산출한 세금은 받는 방법과 상관없이 보여 준다 — 현금으로 받으면 이만큼 뗀다(55세 이후 퇴직 등) */
+        sub.push(['퇴직소득세(현금 수령 시)', `${formatMoney(result.retirementTax)}원`]);
+        sub.push(['지방소득세(현금 수령 시)', `${formatMoney(result.localTax)}원`]);
+        sub.push(['지급할 때 떼는 세금', `${formatMoney(result.withheldTax)}원`]);
     }
     if (result.priorSev > 0) sub.push(['퇴직금 중간정산', `${formatMoney(result.priorSev)}원`]);
-    sub.push([noTax ? '퇴직소득세 반영 전 금액' : '세금을 뺀 실수령 추정', `${formatMoney(result.netSeverance)}원`]);
+    sub.push([netLabelOf(result), `${formatMoney(result.netSeverance)}원`]);
+    const withholdingNote = noTax ? '' : withholdingNoteOf(result);
     const asof = noTax
         ? `${year}년 퇴사 기준 · 퇴직소득세는 계산하지 않았습니다`
         : manualTax
@@ -2002,7 +2052,7 @@ function resultBlockHtml(result, w) {
         <p class="result-formula-key">1일 ${ordinary ? '통상임금' : '평균임금'} × 30 × 재직일수 ÷ 365 · 1일 평균임금 = 3개월 임금 총액 ${formatMoney(result.total3Month)}원 ÷ ${result.totalCalcDays}일${ordinary ? ' · 평균임금이 통상임금보다 적어 통상임금을 적용' : ''}</p>
         <p class="result-basis">근거 · 근로자퇴직급여 보장법 제8조제1항(퇴직금) · 근로기준법 제2조제1항제6호${ordinary ? '·제2항' : ''}(평균임금) · 소득세법 제48조·제55조(퇴직소득세)</p>
         <p class="result-asof">${asof}</p>
-        <p class="result-caption">입력한 값으로 계산한 확인용 추정입니다. 실제 지급액은 회사의 임금 자료와 퇴직급여 제도(퇴직연금 등)에 따라 달라질 수 있어 산정 자료와 함께 확인합니다.${noTax ? ' ' + esc(result.taxNotice) : ''}</p>
+        <p class="result-caption">입력한 값으로 계산한 확인용 추정입니다. 실제 지급액은 회사의 임금 자료와 퇴직급여 제도(퇴직연금 등)에 따라 달라질 수 있어 산정 자료와 함께 확인합니다.${noTax ? ' ' + esc(result.taxNotice) : ''}${withholdingNote ? ' ' + esc(withholdingNote) : ''}</p>
         <section class="result-next" aria-labelledby="resultNextTitle">
             <h3 id="resultNextTitle">다음 할 일</h3>
             ${underOneYear
@@ -2038,7 +2088,7 @@ function renderResult(result, opts = {}) {
     area.style.display = 'block';
     setResultStatus(result.taxNotice
         ? `계산했습니다. 퇴직금은 ${formatMoney(result.severancePay)}원이고, 퇴직소득세는 계산하지 않았습니다.`
-        : `계산했습니다. 퇴직금은 ${formatMoney(result.severancePay)}원, 세금을 뺀 실수령 추정은 ${formatMoney(result.netSeverance)}원입니다.`);
+        : `계산했습니다. 퇴직금은 ${formatMoney(result.severancePay)}원, ${netLabelOf(result)}은 ${formatMoney(result.netSeverance)}원입니다.`);
     if (!opts.quiet) {
         const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
         document.getElementById('resultStatus').scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' });
@@ -2067,7 +2117,7 @@ function openStatement() {
 function openFoldsWithValues() {
     const w = state.workers[state.currentIndex];
     const extra = ['bonusTotal', 'annualLeave', 'priorSeverance', 'dailyOrdinaryWage'].some(k => parseMoney(document.getElementById(k).value) > 0)
-        || !document.getElementById('autoCalcTax').checked || document.getElementById('wageType').value !== 'auto';
+        || !document.getElementById('autoCalcTax').checked;
     if (extra) document.getElementById('extraWages').open = true;
     if (['businessName', 'ownerName', 'workerName', 'birthDate'].some(id => document.getElementById(id).value)) document.getElementById('personalInfo').open = true;
 }
@@ -2467,11 +2517,6 @@ function init() {
         for (const k of ['bonusTotal', 'annualLeave', 'priorSeverance', 'dailyOrdinaryWage']) {
             const v = params.get(k);
             if (v != null) { setMoney(k, v); any = true; }
-        }
-        const wageType = params.get('wageType');
-        if (wageType) {
-            const sel = document.getElementById('wageType');
-            if (sel) sel.value = wageType;
         }
         // autocalc=1 또는 ?run=1 — 입력 후 자동 계산
         if (any) openFoldsWithValues();

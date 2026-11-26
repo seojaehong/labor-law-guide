@@ -48,7 +48,8 @@ export type UsageIssueCode =
   | "unit-not-allowed"
   | "hours-missing"
   | "hours-not-multiple"
-  | "hours-exceed-day";
+  | "hours-exceed-day"
+  | "hours-not-positive";
 
 export interface UsageIssue {
   index: number;
@@ -94,7 +95,10 @@ export function summarizeUsage(
     hourly: { count: 0, days: 0 },
   };
   const issues: UsageIssue[] = [];
-  let totalDays = 0;
+  /** 종일·반차·반반차 일수(0.25 단위라 더해도 오차가 없다) */
+  let fixedDays = 0;
+  /** 시간차 시간 합계 — 일로는 끝에서 한 번만 바꾼다 */
+  let hourlyHours = 0;
 
   records.forEach((r, index) => {
     let days = 0;
@@ -138,6 +142,14 @@ export function summarizeUsage(
           code: "hours-missing",
           message: "시간차인데 사용 시간이 없습니다 — 환산할 수 없습니다",
         });
+      } else if (r.hours <= 0) {
+        // 음수·0 시간은 부호를 지워 받지 않는다 — 행 오류로 돌리고 사용일에 넣지 않는다
+        issues.push({
+          index,
+          date: r.date,
+          code: "hours-not-positive",
+          message: `사용 시간 ${r.hours}시간은 0보다 커야 합니다 — 환산하지 않았습니다`,
+        });
       } else {
         if (r.hours > policy.hoursPerDay) {
           issues.push({
@@ -156,14 +168,21 @@ export function summarizeUsage(
             message: `${inc}시간 단위로만 쓸 수 있는데 ${r.hours}시간으로 기록됐습니다`,
           });
         }
-        days = r.hours / policy.hoursPerDay;
+        hourlyHours += r.hours;
       }
     }
 
     byKind[r.kind].count += 1;
-    byKind[r.kind].days = round2(byKind[r.kind].days + days);
-    totalDays = round2(totalDays + days);
+    byKind[r.kind].days += days;
+    fixedDays += days;
   });
+
+  // 시간차는 시간을 모두 더한 뒤 한 번만 일로 바꾸고, 반올림도 끝에서 한 번만 한다.
+  // 기록마다 0.125 → 0.13 으로 올려 더하면 1시간 × 8회가 1.04일이 된다(261124 검수 P3 #6).
+  const hourlyDays = hourlyHours / policy.hoursPerDay;
+  byKind.hourly.days = round2(hourlyDays);
+  for (const k of ["full", "half", "quarter"] as const) byKind[k].days = round2(byKind[k].days);
+  const totalDays = round2(fixedDays + hourlyDays);
 
   return {
     totalDays,

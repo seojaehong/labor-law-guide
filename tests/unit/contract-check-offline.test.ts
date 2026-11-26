@@ -20,6 +20,10 @@ import { bannedHits } from '@/lib/tool-kit/banned';
 import type { Contract, Finding } from '@/lib/contract-check/types';
 
 import { DEFAULT_OUT, build, buildInfo, parseOut } from '../../scripts/build-contract-check-offline.mjs';
+import { pinToday } from './_pin-today';
+
+// 최저임금 비교 연도가 오늘에 걸린다 — 날짜를 고정한다(261124 P1)
+pinToday();
 
 interface OfflineResult {
   contract_id: string;

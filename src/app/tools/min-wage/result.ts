@@ -31,6 +31,7 @@ export function minWageView(rows: MinWageRow[], unit: Unit): ResultView {
   return {
     status: STATUS_COMPARE,
     verdict: rows.map(({ year, rate, r }) => lineFor(year, rate.value, unit, r)),
+    ...(first.warnings.length ? { warnings: first.warnings } : {}),
     amounts: [{ label: '시간당 환산', value: won(first.hourly) }],
     formula: unit === 'hour'
       ? `넣은 시급 ${won(first.counted)}을 그대로 비교했습니다.`

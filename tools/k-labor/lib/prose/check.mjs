@@ -1,5 +1,6 @@
 // 퇴고 — 문서 문체 점검(결정론). 규칙·검출식·기준값은 코드가 아니라 「팩」(JSON)에 있다.
-//   · 범용 팩 = 이 폴더 generic-pack.json(im-not-ai lexicon 유래, MIT — THIRD_PARTY_NOTICES.md)
+//   · 범용 팩 = 이 폴더 generic-pack.json(im-not-ai lexicon 유래, MIT — THIRD_PARTY_NOTICES.md). yield: true —
+//     같은 줄에서 다른 팩의 걸림 하나가 범용 걸림을 감싸거나 같은 칸에서 시작하면 범용 걸림은 싣지도 세지도 않는다
 //   · 그 밖의 팩 = env PROSE_PACK_DIR(절대 경로)의 *.json. 저장소에 두지 않는 팩은 이 길로만 읽는다.
 // ★ 출력 정책 — 공개 팩은 걸린 글자·고칠 말·규칙 id 까지(full) 낸다. 비공개 팩(private: true, 그리고 PROSE_PACK_DIR 에서 읽은
 //   팩 중 private: false 라고 적지 않은 것)은 줄·칸·길이·등급·짧은 사유·응답별 참조값만(brief) 내고,
@@ -18,6 +19,8 @@ export const GENERIC_PACK = GENERIC;
 export const GENRES = ['legal', 'consulting', 'lecture', 'general'];
 // 다른 이름으로 부르는 장르(공문 = general)
 export const GENRE_ALIAS = { official: 'general' };
+/** 부른 장르 이름 → 검사 장르(다른 이름을 접는다). 응답 genre 도 이것 하나로 계산한다 */
+export const foldGenre = (g) => GENRE_ALIAS[g] ?? g;
 export const HIT_CAP = 500;
 // 후보 앞뒤 몇 글자(코드포인트) 안에서 제외어를 찾는가 — im-not-ai lexical_layer.py EXCLUDE_WINDOW 와 같다(단 줄 안에서만)
 export const EXCLUDE_WINDOW = 12;
@@ -191,9 +194,17 @@ const unsupported = () => { throw new Error('unsupported'); };
  *   · \A \Z · \a \UXXXXXXXX · 글자 묶음 밖 홀로 선 { } ] · {,n} · (?P<이름> · 문장부호 이스케이프(\  \- \# …)
  *   · (?P=이름) — 늘 지나가는 이름 묶음(맨 바깥·둘러보기 밖·0번 반복 없음, 맨 바깥에 | 없음, 되참조보다 앞에서 닫힘)일 때만 \k<이름>
  *   받지 않는 것: \w \W \b \B(유니코드 뜻이 다르다) · 숫자 되참조(\1)·\k · 그 밖의 (?P=) · \N{} · 인라인 플래그 (?i) (?s:) · (?#) ·
- *   글자 묶음 안의 \S 와 \s·\d·\D 를 끝으로 하는 범위 · 알 수 없는 영문자 이스케이프
+ *   글자 묶음 안의 \S 와 \s·\d·\D 를 끝으로 하는 범위 · 알 수 없는 영문자 이스케이프 ·
+ *   뒤돌아보기 안에서 되풀이되는 잡는 묶음(파이썬은 앞에서부터, JS 는 뒤에서부터 잡아 남는 값이 다르다)
+ *   word: true 이면 묶음 밖 \b \B 를 받는다 — 낱말 글자는 PY_WORD(파이썬 3.13 의 \w). \B 는 빈 글에서 맞지 않는다(3.13)
+ *   ^ $ \A \Z 는 JS 의 ^ $(m 플래그 없이)로 옮긴다 — 뒤돌아보기 꼴은 서로게이트 쌍 가운데서도 맞아 파이썬에 없는 자리가 생긴다
  */
-export function toJsSource(src, { multiline = false } = {}) {
+// 파이썬 3.13(유니코드 15.1) str 패턴의 \w = str.isalnum() 또는 _. Node 의 \p{L}\p{N} 에서 유니코드 16·17 에 새로 배정된 글자를 뺀다
+// (261124 실측 — 뺀 뒤 글자 수 138,558 이 파이썬과 같다. Node 유니코드 판이 오르면 pyre 시험이 알린다)
+const WORD_NEW = '\\u{88F}\\u{C5C}\\u{CDC}\\u{1C89}-\\u{1C8A}\\u{A7CB}-\\u{A7CF}\\u{A7D2}\\u{A7D4}\\u{A7DA}-\\u{A7DC}\\u{A7F1}\\u{105C0}-\\u{105F3}\\u{10940}-\\u{10959}\\u{10D40}-\\u{10D65}\\u{10D6F}-\\u{10D85}\\u{10EC2}-\\u{10EC7}\\u{11380}-\\u{11389}\\u{1138B}\\u{1138E}\\u{11390}-\\u{113B5}\\u{113B7}\\u{113D1}\\u{113D3}\\u{116D0}-\\u{116E3}\\u{11BC0}-\\u{11BE0}\\u{11BF0}-\\u{11BF9}\\u{11DB0}-\\u{11DDB}\\u{11DE0}-\\u{11DE9}\\u{13460}-\\u{143FA}\\u{16100}-\\u{1611D}\\u{16130}-\\u{16139}\\u{16D40}-\\u{16D6C}\\u{16D70}-\\u{16D79}\\u{16EA0}-\\u{16EB8}\\u{16EBB}-\\u{16ED3}\\u{16FF2}-\\u{16FF6}\\u{187F8}-\\u{187FF}\\u{18CFF}\\u{18D09}-\\u{18D1E}\\u{18D80}-\\u{18DF2}\\u{1CCF0}-\\u{1CCF9}\\u{1E5D0}-\\u{1E5ED}\\u{1E5F0}-\\u{1E5FA}\\u{1E6C0}-\\u{1E6DE}\\u{1E6E0}-\\u{1E6E2}\\u{1E6E4}-\\u{1E6E5}\\u{1E6E7}-\\u{1E6ED}\\u{1E6F0}-\\u{1E6F4}\\u{1E6FE}-\\u{1E6FF}\\u{2B73A}-\\u{2B73F}\\u{2CEA2}-\\u{2CEAD}\\u{323B0}-\\u{33479}';
+export const PY_WORD = `(?:(?![${WORD_NEW}])[\\p{L}\\p{N}_])`;
+const WORD = PY_WORD;
+export function toJsSource(src, { multiline = false, word = false } = {}) {
   let out = '';
   let cls = false;
   let clsFirst = -1; // 글자 묶음 첫 원소의 src 위치
@@ -213,6 +224,12 @@ export function toJsSource(src, { multiline = false } = {}) {
       const n = src[i + 1];
       i++;
       if (n === undefined) unsupported();
+      if (word && !cls && (n === 'b' || n === 'B')) {
+        out += n === 'b'
+          ? `(?:(?<=${WORD})(?!${WORD})|(?<!${WORD})(?=${WORD}))`
+          : `(?:(?<=${WORD})(?=${WORD})|(?<!${WORD})(?!${WORD})(?:(?<=[\\s\\S])|(?=[\\s\\S])))`;
+        continue;
+      }
       if ('wWbBkN'.includes(n) || /[1-9]/.test(n)) unsupported();
       if (n === '0' && /[0-7]/.test(src[i + 1] ?? '')) unsupported();
       if (n === 's') {
@@ -241,7 +258,7 @@ export function toJsSource(src, { multiline = false } = {}) {
         } else out += `[^${ND}]`;
       } else if (n === 'A' || n === 'Z') {
         if (cls) unsupported();
-        out += n === 'A' ? '(?<![\\s\\S])' : '(?![\\s\\S])';
+        out += n === 'A' ? '^' : '$';
       } else if (n === 'a') out += '\\x07';
       else if (n === 'U') {
         const h = src.slice(i + 1, i + 9);
@@ -296,7 +313,11 @@ export function toJsSource(src, { multiline = false } = {}) {
       const look = /^(?:=|!|<=|<!)/.test(rest);
       const inLook = look || stack.some((x) => x.look);
       const nm = /^P<([A-Za-z_][A-Za-z0-9_]*)>/.exec(rest);
-      stack.push({ name: nm?.[1], look: inLook, depth: stack.length });
+      // 잡는 묶음이면 둘레 묶음 모두 「안에 잡는 묶음이 있다」(뒤돌아보기 안의 되풀이 검사용)
+      const cap = src[i + 1] !== '?' || !!nm;
+      if (cap) for (const x of stack) x.cap = true;
+      const lb = /^(?:<=|<!)/.test(rest);
+      stack.push({ name: nm?.[1], look: inLook, depth: stack.length, lb, inLb: stack.some((x) => x.lb || x.inLb), cap });
       if (nm) {
         named.set(nm[1], { sure: false, closed: false });
         out += `(?<${nm[1]}>`;
@@ -308,6 +329,7 @@ export function toJsSource(src, { multiline = false } = {}) {
     }
     if (c === ')') {
       const g = stack.pop();
+      if (g?.inLb && g.cap && /^[?*+{]/.test(src.slice(i + 1))) unsupported();
       if (g?.name) {
         // 늘 지나가는 묶음 = 맨 바깥(다른 묶음 안이 아님)·둘러보기 밖·0번 반복을 허락하는 수량자가 뒤에 없음
         const optional = /^(?:[?*]|\{0*(?:,\d*)?\}|\{,\d*\})/.test(src.slice(i + 1));
@@ -325,8 +347,8 @@ export function toJsSource(src, { multiline = false } = {}) {
     }
     if (c === '}' || c === ']') out += `\\${c}`;
     else if (c === '.') out += '[^\\n]';
-    else if (c === '^') out += multiline ? '(?<![^\\n])' : '(?<![\\s\\S])';
-    else if (c === '$') out += multiline ? '(?![^\\n])' : '(?=\\n?(?![\\s\\S]))';
+    else if (c === '^') out += multiline ? '(?<=^|\\n)' : '^';
+    else if (c === '$') out += multiline ? '(?=\\n|$)' : '(?=\\n?$)';
     else out += c;
   }
   // 되참조는 앞에서 이미 닫힌, 늘 지나가는 이름 묶음만(맨 바깥에 | 가 있으면 어느 묶음도 늘 지나가지 않는다)
@@ -414,6 +436,7 @@ export function validatePack(pack) {
   if (!pack || typeof pack !== 'object' || Array.isArray(pack)) return [{ code: 'PACK_NOT_OBJECT' }];
   if (!isStr(pack.pack)) bad('PACK_NAME');
   if (pack.private !== undefined && typeof pack.private !== 'boolean') bad('PACK_PRIVATE');
+  if (pack.yield !== undefined && typeof pack.yield !== 'boolean') bad('PACK_YIELD');
   if (!(pack.version === undefined || typeof pack.version === 'string' || isNum(pack.version))) bad('PACK_VERSION');
   if (pack.rules !== undefined && !Array.isArray(pack.rules)) bad('RULES_NOT_ARRAY');
   // 규칙 id 는 rules·density 를 통틀어 하나뿐이어야 한다(brief 참조값이 겹치지 않게)
@@ -436,6 +459,8 @@ export function validatePack(pack) {
     if (r.exclude !== undefined && !isStr(r.exclude)) bad('RULE_EXCLUDE', id);
     if (r.resume !== undefined && !(isStr(r.resume) && r.scope === undefined)) bad('RULE_RESUME', id);
     if (!isGenres(r.genres)) bad('RULE_GENRES', id);
+    // 끌 장르 — 장르 이름과 다른 이름(official)을 받는다
+    if (r.skipGenres !== undefined && !(Array.isArray(r.skipGenres) && r.skipGenres.every((x) => GENRES.includes(x) || Object.keys(GENRE_ALIAS).includes(x)))) bad('RULE_SKIP_GENRES', id);
   }
   if (pack.freq !== undefined) {
     const f = pack.freq;
@@ -498,6 +523,7 @@ export function compilePack(pack) {
     pack: pack.pack,
     version: pack.version,
     private: pack.private,
+    yield: pack.yield,
     table: pack.table,
     freq: pack.freq,
     checks: ck,
@@ -511,6 +537,7 @@ export function compilePack(pack) {
       target: r.target,
       once: r.once,
       genres: r.genres,
+      skipGenres: r.skipGenres,
       rx: re(r.re, r.id, { multiline: (r.flags ?? '').includes('m'), global: !r.once, nonEmpty: true }),
       ex: r.exclude ? re(r.exclude, r.id) : null,
       // 앞 경계를 붙여 빠르게 만든 식이 「바로 앞 일치가 끝난 자리」에서 놓치는 일치를 원래 식으로 그 자리에서만 다시 본다
@@ -699,7 +726,10 @@ const byPos = (a, b) => a.n - b.n || a.col - b.col || a.ord - b.ord;
 export function checkProse(text, o = {}) {
   const set = o.packs ? { packs: o.packs, skipped: [] } : loadPackSet();
   const skipped = [...(o.skipped ?? []), ...set.skipped];
-  const genre = GENRE_ALIAS[o.genre] ?? o.genre ?? 'legal';
+  const raw = o.genre ?? 'legal';
+  const genre = foldGenre(raw);
+  // 규칙의 skipGenres 는 부른 이름(official 등)과 접은 장르 둘 다로 본다 — official 을 따로 끌 수 있게
+  const runs = (r) => inGenre(r, genre) && !(r.skipGenres && (r.skipGenres.includes(raw) || r.skipGenres.includes(genre)));
   const allowFull = o.allowFull ?? process.env.PROSE_ALLOW_FULL === '1';
   const cap = o.cap ?? HIT_CAP;
   const P = [];
@@ -762,12 +792,49 @@ export function checkProse(text, o = {}) {
     if (arr.length >= 2 * cap) { arr.sort(byPos); arr.length = cap; }
   };
 
+  // 물러서는 팩(yield: true — 범용 팩) — 같은 줄에서 다른 팩의 걸림 하나가 그 걸림을 감싸거나 같은 칸에서 시작하면
+  // 싣지도 세지도 않는다. 일부만 겹치거나(경계 공백 한 칸 등) 다른 팩 걸림이 그 안에 들어 있으면 둘 다 남긴다.
+  // 같은 자리를 두 팩이 잡으면 한 번만 보이게 하려는 것이다(어느 규칙과 겹치는지는 팩 밖에 적지 않는다)
+  const yieldOn = P.some((p) => p.yield) && P.some((p) => !p.yield);
+
   lines.forEach((line, i) => {
     if (!line) return;
     const n = i + 1;
     const t = strip(line);
     let ctx;
     const ctxOf = () => (ctx ??= cpHead(t, 58));
+    const held = [];
+    const taken = [];
+    const emit = (p, r, word, col) => {
+      if (!yieldOn) return push(p, r, n, word, col, ctxOf);
+      if (p.yield) return held.push([p, r, word, col]);
+      taken.push([col, col + cpLen(word)]);
+      return push(p, r, n, word, col, ctxOf);
+    };
+    const flush = () => {
+      if (!held.length) return;
+      // 다른 팩 걸림을 시작 칸 순으로 — 앞에서부터 끝 칸 최댓값을 쌓아 두고 걸림마다 이분 탐색.
+      // 걸림 하나가 감싸야 한다(이어 붙은 둘이 함께 덮는 것은 감쌈이 아니다)
+      taken.sort((a, b) => a[0] - b[0]);
+      const reach = [];
+      for (const [, b] of taken) reach.push(Math.max(b, reach.length ? reach[reach.length - 1] : 0));
+      for (const [p, r, word, col] of held) {
+        if (p.dead) continue;
+        const end = col + cpLen(word);
+        // 시작 칸이 col 이하인 마지막 다른 팩 걸림
+        let lo = 0;
+        let hi = taken.length;
+        while (lo < hi) {
+          const mid = (lo + hi) >> 1;
+          if (taken[mid][0] <= col) lo = mid + 1;
+          else hi = mid;
+        }
+        const k = lo - 1;
+        const same = k >= 0 && taken[k][0] === col;
+        const inside = k >= 0 && reach[k] >= end;
+        if (!same && !inside) push(p, r, n, word, col, ctxOf);
+      }
+    };
     if (startsWithAny(t, QUOTE_PREFIXES)) {
       const lead = leadWs(line);
       const lineCol = colMapper(line);
@@ -775,7 +842,7 @@ export function checkProse(text, o = {}) {
         if (p.dead) continue;
         try {
           for (const r of p.rules) {
-            if (r.scope !== 'quote' || !inGenre(r, genre)) continue;
+            if (r.scope !== 'quote' || !runs(r)) continue;
             const trim = r.target === 'trim';
             const s = trim ? t : line;
             const col = (idx) => (trim ? lineCol(idx + lead) : lineCol(idx));
@@ -785,7 +852,7 @@ export function checkProse(text, o = {}) {
                 const w = s.slice(cpBack(s, m.index, EXCLUDE_WINDOW), cpFwd(s, m.index + m[0].length, EXCLUDE_WINDOW));
                 if (r.ex.test(w)) return;
               }
-              push(p, r, n, m[0], col(m.index), ctxOf);
+              emit(p, r, m[0], col(m.index));
             };
             if (r.once) {
               const m = r.rx.exec(s);
@@ -796,6 +863,7 @@ export function checkProse(text, o = {}) {
           kill(p);
         }
       }
+      flush();
       return;
     }
     const inTable = t.startsWith('|');
@@ -808,7 +876,7 @@ export function checkProse(text, o = {}) {
         const none = p.anyRx && probe.length <= MERGE_MAX_LINE ? !p.anyRx.test(probe) : false;
         let col;
         for (const r of none ? p.loneRules : p.bodyRules) {
-          if (!inGenre(r, genre) || skip.includes(r.grade)) continue;
+          if (!runs(r) || skip.includes(r.grade)) continue;
           scan(probe, r, (m) => {
             if (!m[0]) { flag(p, 'RULE_EMPTY_MATCH'); return; }
             if (r.ex) {
@@ -816,13 +884,14 @@ export function checkProse(text, o = {}) {
               if (r.ex.test(w)) return;
             }
             col ??= colMapper(probe);
-            push(p, r, n, m[0], col(m.index), ctxOf);
+            emit(p, r, m[0], col(m.index));
           });
         }
       } catch {
         kill(p);
       }
     }
+    flush();
   });
 
   // ── 알림(빈도·밀도·발언 인용·제목·문장) — 검출식·기준값은 팩에서 읽는다
@@ -930,3 +999,6 @@ export function checkProse(text, o = {}) {
   if (shown.length) out.packs = shown.map((p) => `${p.pack}@${p.version ?? ''}`);
   return out;
 }
+
+// 의미범주·AI 수사(pyre.mjs)가 같은 파이썬 공백·코드포인트 도움 함수를 쓴다
+export { WS_CLASS, isWs, strip, lstrip, cpLen, cpHead, cpBack, cpFwd };

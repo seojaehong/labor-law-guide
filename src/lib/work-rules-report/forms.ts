@@ -237,7 +237,7 @@ export function comparisonForm(input: ReportInput): FormDoc {
     blocks: [
       { kind: 'title', text: '취업규칙 신·구 조문 대비표' },
       { kind: 'text', text: `사업장명: ${w.name}    작성일: ${dateKo(input.writtenDate)}${input.effectiveDate ? `    시행 예정일: ${dateKo(isoDate(input.effectiveDate)!)}` : ''}`, size: 'small', gapAfter: 6 },
-      { kind: 'table', widths: [15, 34, 34, 17], headerRows: 1, size: 'small', rows },
+      { kind: 'table', widths: [15, 34, 34, 17], headerRows: 1, size: 'small', split: true, rows },
       ...(qs.length
         ? [
             { kind: 'space', pt: 10 } as FormBlock,
@@ -298,7 +298,7 @@ export function opinionForm(input: ReportInput): FormDoc {
       { kind: 'text', text: `근로자 ${n}명 중 과반수는 ${Math.floor(n / 2) + 1}명 이상입니다. 의견란에는 찬성·반대 또는 의견을 적습니다.`, size: 'small', gapAfter: 6 },
       { kind: 'table', widths: [16, 84], minRowHeight: 80, rows: [[h('근로자 의견\n(모은 의견)'), v(writeIn(4))]] },
       { kind: 'space', pt: 8 },
-      { kind: 'table', widths: [8, 22, 20, 30, 20], headerRows: 1, minRowHeight: 22, size: 'small', rows: signRows('의견(찬성·반대·기타)', n) },
+      { kind: 'table', widths: [8, 22, 20, 30, 20], headerRows: 1, minRowHeight: 22, size: 'small', split: true, rows: signRows('의견(찬성·반대·기타)', n) },
       { kind: 'space', pt: 8 },
       { kind: 'text', text: `${w.name}  대표 ${w.ownerName} 귀하` },
     );
@@ -335,7 +335,7 @@ export function consentForm(input: ReportInput): FormDoc {
     blocks.push(
       { kind: 'text', text: '아래 근로자는 위 취업규칙 변경 내용(근로자에게 불리한 변경을 포함합니다)을 알려 받고, 「근로기준법」 제94조 제1항 단서에 따라 동의 여부를 밝힙니다.', gapAfter: 4 },
       { kind: 'text', text: `근로자 ${n}명 중 과반수는 ${Math.floor(n / 2) + 1}명 이상입니다. 동의 여부란에는 동의 또는 부동의를 적습니다.`, size: 'small', gapAfter: 6 },
-      { kind: 'table', widths: [8, 22, 20, 30, 20], headerRows: 1, minRowHeight: 22, size: 'small', rows: signRows('동의 여부(동의·부동의)', n) },
+      { kind: 'table', widths: [8, 22, 20, 30, 20], headerRows: 1, minRowHeight: 22, size: 'small', split: true, rows: signRows('동의 여부(동의·부동의)', n) },
       { kind: 'space', pt: 8 },
       { kind: 'text', text: `${w.name}  대표 ${w.ownerName} 귀하` },
     );

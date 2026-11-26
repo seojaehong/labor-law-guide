@@ -84,6 +84,21 @@ describe('취업규칙 신고 서류 — 문서', () => {
     expect(xml).toContain('⑳ 새 조문');
   });
 
+  it('한글 파일의 대비표·서명 명단 표는 쪽을 넘어 나뉜다(글자처럼 취급하면 쪽 아래로 잘린다)', async () => {
+    // 조문이 길면 대비표가 여러 쪽이 되고, 서명 명단은 근로자 수만큼 행이 는다
+    const long = '가'.repeat(900);
+    const d = reportDocs({ ...INPUT, workplace: { ...INPUT.workplace, workers: 60, male: 30, female: 30 }, changes: [...INPUT.changes!, { article: '제60조(긴 조문)', before: long, after: long }] });
+    for (const doc of [d.comparison!, d.opinion, d.consent!]) {
+      const xml = await (await JSZip.loadAsync(await formHwpx([doc]))).file('Contents/section0.xml')!.async('string');
+      const tables = [...xml.matchAll(/<hp:tbl\b[\s\S]*?<hp:pos treatAsChar="(\d)"/g)].map((m) => m[1]);
+      const rowCounts = [...xml.matchAll(/<hp:tbl\b[^>]*rowCnt="(\d+)"/g)].map((m) => Number(m[1]));
+      // 머리 한 줄 + 여러 행인 표(대비표·서명 명단)는 나뉘어야 한다
+      const big = rowCounts.map((n, i) => ({ n, asChar: tables[i] })).filter((t) => t.n > 5);
+      expect(big.length, doc.title).toBeGreaterThan(0);
+      expect(big.every((t) => t.asChar === '0'), doc.title).toBe(true);
+    }
+  });
+
   it('근거 법령 원문은 대비표 아래에 싣고 비고에서 번호로 가리킨다', () => {
     const changes = [{ ...INPUT.changes![0], lawQuote: { heading: '가상법 제1조 — 2026. 1. 1. 시행 판', text: '제1조(목적) ① 가상 원문이다.' } }, INPUT.changes![1]];
     const input = { ...INPUT, changes };

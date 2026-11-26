@@ -2,7 +2,9 @@
 //   make_hwpx_from_markdown  md → hwpx(프리셋 internal·tribunal). 변환 규칙은 src/lib/md-hwpx
 //   read_hwp_as_markdown · fill_hwp_form · patch_hwp_from_markdown  한글 읽기·서식 채우기·되쓰기(lib/hangul-kordoc.mjs, kordoc)
 //   check_prose  퇴고 문체 점검 — 규칙·검출식은 팩(JSON): lib/prose/generic-pack.json + env PROSE_PACK_DIR(261123)
-//   check_norms  퇴고 공개 규범 점검 — 한글 맞춤법 제5장 띄어쓰기·부록 문장 부호·연결어미 뒤 쉼표(lib/prose/norms.mjs, 261124)
+//   check_norms  퇴고 공개 규범 점검 — 한글 맞춤법 제5장 띄어쓰기·부록 문장 부호·연결어미 뒤 쉼표(lib/prose/norms.mjs, 261124) + 적어야 도는 문서 안 일관성(목록 끝맺음·기관 약칭, 261125)
+//   check_semantic · check_rhetoric  퇴고 의미범주·AI 수사 점검 — 식·낱말·규칙은 비공개 팩의 semantic·rhetoric 절에만 있다(261124)
+//   check_rewrite  퇴고 윤문 전후 보존 대조 — 수치·인용·[관련 …] 블록·법령 용어·당위/추측·대구 + 글자 변경률(lib/prose/preserve.mjs, 261124)
 //   stamp_exhibit_pdf  제출 서증 PDF 첫 장 상단에 호증 표시(세로형 10×50mm) 날인(lib/exhibit-stamp.mjs, 261124)
 // ★ 파일을 읽고 쓰므로 원격판(remote.mjs)에서 불러오지 않는다. stdio 판(server.mjs)으로만 켠다.
 // ★ 공개 문구 금지어 + 포괄·대신·대행·대리·지도를 이 묶음의 글(설명·결과)에 쓰지 않는다.
@@ -13,12 +15,13 @@ import { mdHwpxSummary, mdToHwpx, parseMarkdown } from '@/lib/md-hwpx';
 import { fillCells, replaceText } from '@/lib/md-hwpx/postedit';
 import { mdToHwpxWithTemplate } from '@/lib/md-hwpx/template';
 import { argsLookLikeRrn, looksLikeRrn, text, writeNew } from '../lib/common.mjs';
-import { DETAIL_SCHEMA, GENRE_SCHEMA, NORM_CHECKS_SCHEMA, normsResult, proseResult, rrnStop, TEXT_SCHEMA } from '../lib/prose/toego.mjs';
+import { DETAIL_SCHEMA, GENRE_SCHEMA, LABEL_SCHEMA, NORM_CHECKS_SCHEMA, normsResult, proseResult, rhetoricResult, rrnStop, semanticResult, TEXT_SCHEMA } from '../lib/prose/toego.mjs';
 import { capSkipped, decodeMarkdown, fillHangul, hangulKind, maskExcerpt, MAX_MARKDOWN_BYTES, patchHangul, patchVerdict, readHangul, sanitizeReason } from '../lib/hangul-kordoc.mjs';
+import { rewriteResult, rewriteRrnStop } from '../lib/prose/preserve.mjs';
 import { StampStop, stampExhibitPdf } from '../lib/exhibit-stamp.mjs';
 import { fileURLToPath } from 'node:url';
 
-export const docsTools = ['make_hwpx_from_markdown', 'edit_hwpx_text', 'read_hwp_as_markdown', 'fill_hwp_form', 'patch_hwp_from_markdown', 'check_prose', 'check_norms', 'stamp_exhibit_pdf'];
+export const docsTools = ['make_hwpx_from_markdown', 'edit_hwpx_text', 'read_hwp_as_markdown', 'fill_hwp_form', 'patch_hwp_from_markdown', 'check_prose', 'check_norms', 'check_semantic', 'check_rhetoric', 'check_rewrite', 'stamp_exhibit_pdf'];
 
 // 호증 도장 글자 윤곽 — 사이트·contract 묶음과 같은 나눔고딕(OFL). 글꼴은 PDF 에 넣지 않고 윤곽선만 그린다
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -45,7 +48,7 @@ export function registerDocs(server) {
       title: '마크다운을 한글(hwpx) 파일로 만들기(로컬 전용)',
       description:
         '마크다운 원고(의견서·답변서·검토 메모·양식집·보고서)를 한글 파일로 만든다. # ~ #### 제목(## 은 앞에 □, Ⅰ~Ⅹ 로 시작하면 쪽을 나눔), 본문 **굵게**, 판례 번호(「대법원 … 선고 … 판결」) 자동 굵게, 목록, 표(첫 행 = 머리행 음영·반복, 열 폭 자동, :---: 가운데·---: 오른쪽, 칸 안 <br> 줄바꿈, 7열 이상은 작은 글자, 긴 표는 쪽을 넘긴다), ' +
-        '끝 15줄 안의 날짜만 있는 줄부터 서명부(오른쪽 정렬), 아래 가운데 쪽번호를 넣는다. 기본으로는 병합 칸·밑줄·인용 블록·그림·링크를 만들지 않는다(결과 leftovers 에 남은 기호로 알린다). features 를 켜면 기호 내어쓰기·강조 밑줄·인용 블록·그림·표 선택값(떠 있는 표·열 폭·삼선표·가로·세로 병합)을 쓴다. ' +
+        '끝 15줄 안의 날짜만 있는 줄부터 서명부(오른쪽 정렬), 아래 가운데 쪽번호를 넣는다. 표 칸은 어절 단위로 줄을 나누고 줄간격 150%(tableLineSpacing 으로 조정), orientation landscape 면 A4 가로.기본으로는 병합 칸·밑줄·인용 블록·그림·링크를 만들지 않는다(결과 leftovers 에 남은 기호로 알린다). features 를 켜면 기호 내어쓰기·강조 밑줄·인용 블록·그림·표 선택값(떠 있는 표·열 폭·삼선표·가로·세로 병합)을 쓴다. ' +
         'preset = internal(내부 문서: 행간 160%·여백 20mm) / tribunal(법원·위원회 제출: 행간 200%·위 45·아래 30·좌우 20mm). 기관 서식이 따로 있으면 그 서식을 따른다. 이미 있는 파일은 덮어쓰지 않는다.',
       inputSchema: {
         markdown: z.string().max(1_000_000).optional().describe('마크다운 원고(글). markdownFile 과 둘 중 하나'),
@@ -55,11 +58,21 @@ export function registerDocs(server) {
         fileBase: z.string().max(120).optional().describe('파일 이름(확장자 빼고). 비우면 첫 # 제목, 그것도 없으면 md 파일 이름'),
         pageBreak: z.boolean().optional().describe('Ⅰ~Ⅹ 로 시작하는 ## 앞에서 쪽을 나눈다(기본 true)'),
         footer: z.boolean().optional().describe('아래 가운데 「- N -」 쪽번호(기본 true)'),
+        orientation: z.enum(['portrait', 'landscape']).optional().describe('용지 방향: portrait A4 세로(기본) / landscape A4 가로(열이 많은 표). 표 폭·배치도 가로 본문 폭을 따른다. templateFile 을 주면 양식의 쪽 설정이 우선'),
+        tableLineSpacing: z.number().int().min(100).max(250).optional().describe('표 칸 줄간격(%), 100~250. 기본 150. 삼선표는 110% 그대로'),
         templateFile: z.string().max(400).optional().describe('기관·고객 양식 hwpx 경로. 주면 양식의 글자·문단 모양과 쪽 설정을 그대로 쓰고 본문만 새로 채운다(양식 미리보기 그림은 옮기지 않음)'),
         templateSamples: z
-          .object({ body: z.string().max(200).optional(), h1: z.string().max(200).optional(), h2: z.string().max(200).optional(), h3: z.string().max(200).optional(), h4: z.string().max(200).optional() })
+          .object({
+            body: z.string().max(200).optional(),
+            h1: z.string().max(200).optional(),
+            h2: z.string().max(200).optional(),
+            h3: z.string().max(200).optional(),
+            h4: z.string().max(200).optional(),
+            cell: z.string().max(200).optional().describe('표 본문 칸 글자. 주면 표 칸 문단·글자를 그 모양으로(가운데·오른쪽 정렬 칸은 정렬만 바꾼 복제, 칸 안 굵게는 굵게만 더한 복제)'),
+            cellHead: z.string().max(200).optional().describe('표 머리행 칸 글자. 주면 머리행 칸 문단·글자를 그 모양으로(안 주면 cell 의 가운데·굵게 복제)'),
+          })
           .optional()
-          .describe('양식 안에서 역할별 모양을 찾을 글자(그 글자가 든 문단의 모양을 쓴다). body 를 비우면 양식에서 가장 많이 쓴 본문 모양'),
+          .describe('양식 안에서 역할별 모양을 찾을 글자(그 글자가 든 문단의 모양을 쓴다). body 를 비우면 양식에서 가장 많이 쓴 본문 모양. 표 칸 줄간격은 tableLineSpacing 을 주면 그 값, 아니면 양식 값이고 칸은 어절 단위로 줄을 나눈다. 칸 테두리·머리행 음영은 엔진 것 그대로'),
         features: z
           .object({
             indent: z.boolean().optional().describe('기호 문단 내어쓰기·공백 들여쓰기 없앰'),
@@ -71,6 +84,7 @@ export function registerDocs(server) {
                 float: z.boolean().optional().describe('떠 있는 표(아래 여백 8.5mm)'),
                 pageBreak: z.enum(['CELL', 'TABLE']).optional().describe('쪽 나눔 단위(기본 CELL)'),
                 width: z.enum(['fit']).optional().describe('열 폭: 짧은 열 먼저·최장 낱말 하한·구분행 대시 비율'),
+                align: z.enum(['left', 'justify']).optional().describe('표 본문 칸 정렬: left = 왼쪽(양식 칸 문단 복제·정렬만 변경), 기본 = 종전. 가운데·오른쪽 칸·머리행은 그대로'),
                 style: z.enum(['threeLine']).optional().describe('삼선표'),
                 merge: z.boolean().optional().describe('가로 병합: 칸 내용이 < 하나면 왼쪽 칸과 합침'),
                 vmerge: z.boolean().optional().describe('세로 병합: 칸 내용이 ^ 하나면 위 칸과 합침(머리행 제외)'),
@@ -108,7 +122,7 @@ export function registerDocs(server) {
       }
       let bytes;
       try {
-        const o = { preset: a.preset, pageBreak: a.pageBreak, footer: a.footer, features: a.features, images };
+        const o = { preset: a.preset, pageBreak: a.pageBreak, footer: a.footer, features: a.features, images, orientation: a.orientation, tableLineSpacing: a.tableLineSpacing };
         if (a.templateFile) {
           const tp = String(a.templateFile).trim();
           if (!/\.hwpx$/i.test(tp) || !fs.existsSync(tp) || !fs.statSync(tp).isFile()) return fail(`양식 hwpx 파일이 없습니다: ${tp}`);
@@ -372,7 +386,7 @@ export function registerDocs(server) {
         '공개 팩의 걸림에는 걸린 글자·고칠 말·규칙 이름이 붙는다. 비공개 팩은 위치·등급·짧은 사유만 주고(PROSE_ALLOW_FULL=1 인 PC 에서는 전부), full 을 달라고 했는데 줄였으면 withheld 로 알린다. 주민등록번호 모양이 있으면 점검하지 않고 rrnLines(줄 번호만)로 알린다. 모델을 부르지 않고, 문서 글을 밖으로 보내지 않는다.',
       inputSchema: {
         text: TEXT_SCHEMA.describe('점검할 문서 글(md 또는 평문, 40만 자까지)'),
-        genre: GENRE_SCHEMA.optional().describe('legal(기본: 의견서·조사보고서) / consulting / lecture / general(official 은 general 과 같다). 장르별 검사는 팩에 달려 있다'),
+        genre: GENRE_SCHEMA.optional().describe('legal(기본: 의견서·조사보고서) / consulting / lecture / general / official(general 규칙으로 돌되 범용 팩의 법률 트랙 keep 5항목은 legal 처럼 꺼진다. 응답 genre 는 general, requestedGenre 는 official). 장르별 검사는 팩에 달려 있다'),
         detail: DETAIL_SCHEMA.optional().describe('비우면 공개 팩은 전부·비공개 팩은 위치만 / brief 모든 팩을 위치·등급·짧은 사유만 / full 비공개 팩도 전부(이 PC 가 허용할 때만)'),
       },
       annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
@@ -396,10 +410,11 @@ export function registerDocs(server) {
         'A = 규정(쉼표는 관행)이 명시한 것을 어긴 곳, B = 규정이 권하는 쪽과 다르거나 문맥을 봐야 하는 곳. 규정이 둘 다 허용하는 것(단위 명사·보조 용언 붙여 쓰기 등)은 보지 않는다. ' +
         '보지 않는 줄은 검사마다 다르다. 띄어쓰기: # 제목·| 표·--- ·[관련 …]·[질의 …] 줄, > 인용 줄과 문장 안 “ ” 인용(quote 를 켜면 인용은 본다). 문장 부호: 같은 줄들과 따옴표 안 글자(quote 를 켜면 모두 본다). ' +
         '쉼표: > 인용·# 제목·그림 줄과 “ ” ‘ ’ 「 」 " " 안(quote 와 상관없이 늘 뺀다). | 표 줄과 [관련 …] 줄은 본다. warnOnly 를 켜면 쉼표 걸림을 B 로 낸다(PDF 에서 뽑은 글처럼 인용 표시가 사라진 글). ' +
+        '문서 안 일관성 검사 둘은 checks 에 적어야만 돈다(B 만, 규정이 아니라 업무 문서 관행): listEnd = 같은 목록(- · * · 1. · 1) 줄, 항목 3개 이상)에서 대부분 문장(~다.)으로 끝나는데 몇 항목만 서술어 없이 끝나거나 그 반대(소수가 1/3 이하일 때만, 끝 괄호는 떼고 그 앞말로 판단), abbrev = 「한국」+X 꼴 기관 정식 명칭이 있는데 X 를 「(이하 「X」)」 정의 없이 쓴 곳과 기관 약칭을 정의보다 앞에서 쓴 곳(따옴표 안·> 인용·# 제목 줄은 빼고 표 줄은 본다). ' +
         '검사마다 counts(전부 센 수)와 hits(500건까지, A 먼저, 넘으면 truncated)를 준다. 주민등록번호 모양이 있으면 점검하지 않고 rrnLines(줄 번호만)로 알린다. 모델을 부르지 않고, 문서 글을 밖으로 보내지 않는다.',
       inputSchema: {
         text: TEXT_SCHEMA.describe('점검할 문서 글(md 또는 평문, 40만 자까지)'),
-        checks: NORM_CHECKS_SCHEMA.optional().describe('spacing(띄어쓰기) / punct(문장 부호) / comma(연결어미 뒤 쉼표). 비우면 셋 다'),
+        checks: NORM_CHECKS_SCHEMA.optional().describe('spacing(띄어쓰기) / punct(문장 부호) / comma(연결어미 뒤 쉼표) / listEnd(목록 끝맺음) / abbrev(기관 약칭). 비우면 앞의 셋(listEnd·abbrev 는 적어야 돈다)'),
         quote: z.boolean().optional().describe('켜면 > 인용 줄과 “ ” 원문 인용도 본다(띄어쓰기·문장 부호만. 쉼표는 늘 인용을 뺀다). 기본 끔'),
         warnOnly: z.boolean().optional().describe('켜면 쉼표 걸림을 B(경고)로 낸다. 기본 끔'),
       },
@@ -410,6 +425,85 @@ export function registerDocs(server) {
       const stop = rrnStop(a.text);
       if (stop) return text(stop);
       return text(normsResult(a));
+    },
+  );
+
+  // ── 퇴고 — 의미범주·AI 수사 점검(결정론). 식·낱말·규칙은 비공개 팩(PROSE_PACK_DIR)의 semantic·rhetoric 절에만 있다
+  const PRIVATE_ONLY =
+    '규칙은 이 PC 의 PROSE_PACK_DIR 비공개 팩에서만 읽는다. 그 팩이 없거나 읽지 못하면 점검하지 않고 ok:false·incomplete:true 와 code(고정 코드)로 알린다. ' +
+    '걸림은 위치·참조값만 주고(PROSE_ALLOW_FULL=1 인 PC 에서는 걸린 조각까지), full 을 달라고 했는데 줄였으면 withheld 로 알린다. hits 는 500건까지 싣고 넘으면 truncated. ' +
+    '주민등록번호 모양이 있으면 점검하지 않고 rrnLines(줄 번호만)로 알린다. 모델을 부르지 않고, 문서 글을 밖으로 보내지 않는다.';
+  server.registerTool(
+    'check_semantic',
+    {
+      title: '퇴고: 의미범주 점검',
+      description:
+        '추상 개념을 사물·몸짓처럼 쓰는 비유 표현을 줄 단위로 찾는다. 팩이 정한 건너뛸 줄과 가릴 구간 안은 보지 않는다. ' +
+        PRIVATE_ONLY,
+      inputSchema: {
+        text: TEXT_SCHEMA.describe('점검할 문서 글(md 또는 평문, 40만 자까지)'),
+        genre: LABEL_SCHEMA.optional().describe('장르 이름(기본 legal). 팩에 그 장르의 허용 낱말이 있으면 그 낱말은 걸지 않는다'),
+        detail: DETAIL_SCHEMA.optional().describe('brief 위치·참조값만 / full 걸린 조각까지(이 PC 가 허용할 때만)'),
+      },
+      annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+    },
+    async (a) => {
+      const stop = rrnStop(a.text);
+      if (stop) return text(stop);
+      return text(semanticResult(a));
+    },
+  );
+  server.registerTool(
+    'check_rhetoric',
+    {
+      title: '퇴고: AI 수사 점검',
+      description:
+        '생성형 모델 글에 잦은 수사 틀을 문장 단위로 찾는다. 줄로 갈린 문장은 이어 보고, 인용부호 안은 가린다. ' +
+        'A = 고칠 수사, B = 문맥을 보고 판단할 수사. 등급은 트랙(legal·blog·consult·lecture)마다 다르다. counts 는 전부 센 수다. ' +
+        PRIVATE_ONLY,
+      inputSchema: {
+        text: TEXT_SCHEMA.describe('점검할 문서 글(md 또는 평문, 40만 자까지)'),
+        track: LABEL_SCHEMA.optional().describe('legal(기본) / blog / consult / lecture. 그 밖의 이름은 legal 로 보고 부른 이름을 requestedTrack 에 남긴다'),
+        detail: DETAIL_SCHEMA.optional().describe('brief 위치·등급·참조값만 / full 걸린 조각·고칠 방향까지(이 PC 가 허용할 때만)'),
+      },
+      annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+    },
+    async (a) => {
+      const stop = rrnStop(a.text);
+      if (stop) return text(stop);
+      return text(rhetoricResult({ text: a.text, track: a.track, detail: a.detail })); // 화면은 500건 상한(게이트만 allA)
+    },
+  );
+  // ── 퇴고 — 윤문 뒤 보존 대조(결정론). 대조 규칙은 공개(lib/prose/preserve.mjs, im-not-ai 발상 + [관련 …] 블록·법령 용어)
+  server.registerTool(
+    'check_rewrite',
+    {
+      title: '퇴고: 윤문 전후 보존 대조',
+      description:
+        '윤문 전 글(before)과 윤문한 글(after)을 견주어, 윤문이 바꾸면 안 되는 것이 바뀌었는지 줄 단위로 찾는다. 항목은 일곱이다. ' +
+        '같은 문장은 통째로 맞추고, 바뀐 곳은 문장끼리 짝을 지어 짝 문장 안에서 견준다(글 전체 개수로 상쇄하지 않는다). ' +
+        '수치(부호·값·만억·단위·이상이하 같은 비교어를 한 덩이로, 날짜와 조·항·호는 한 덩이로 센다. 짝 문장 안 차례가 바뀌어도 훼손. 전각 숫자·천 단위 쉼표·날짜 표기는 같은 값, 만·억 환산은 하지 않는다. 문장 머리 번호 1) · ① 같은 목록 꼴은 세지 않는다) · ' +
+        '인용(“ ” 「 」 『 』 ‘ ’ 〈 〉 《 》, 짝이 맞는 곧은 따옴표, 머리줄 없는 > 줄 전체 안 글자. 부호만 걷어내도 훼손) · 판례 블록([관련 판결]·[관련 판례] 같은 [관련 …] 머리줄과 이어지는 > 줄, > 줄이 없으면 빈 줄 건너 원문 줄. check_citations 와 같은 범위이고 글자 그대로, 블록끼리 자리를 바꿔도 훼손. 블록으로 못 읽은 [관련 … 줄은 unrecognized 로 알리고, [관련 판결: … 처럼 판례 종류 이름이 붙은 줄은 빈 줄 앞까지 글자 그대로 견준다) · ' +
+        '법령 용어(근로자·사용자·해고·징계·정당한 이유 같은 작은 공개 목록, legal 이면 하여야·할 수 있·아니하 도. 어간으로 센다. 당사자·징계 수위의 자리 맞바꿈도 훼손) · ' +
+        '당위·추측 표현(~하여야 한다·~아니 된다 / ~로 보인다·~보기 어렵다 / ~바람직하다 같은 표현이 짝 문장에서 사라졌거나 생겼는지, 다른 절로 옮겨 붙었는지) · ' +
+        '부정 표현(않·못·아니·없·부당·무효 같은 부정이 짝 문장에서 생겼거나 사라졌는지. 아니한다와 않는다는 같다) · ' +
+        '대구(~가 아니라 같은 꼴이 5개 이상에서 0개가 되었거나 두 항이 맞바뀌었는지). 판례 블록 안 글은 블록 항목만 본다. ' +
+        '항목마다 status(보존됨 또는 훼손)·count 와 changes(무엇이 어떻게: kind·줄·전후 짧은 글, 100건까지, 넘으면 truncated)를 준다. ' +
+        '글자 변경률(같은 문장은 통째로 맞추고 바뀐 문단 안은 글자 최장 공통 부분으로 셈, 공백 덩어리는 한 칸)이 30% 이상이면 경고, 50% 이상이면 중단으로 changeRate.level 에 싣는다. 계산 예산을 넘은 문단은 짝 문장끼리 센 일치로 실제보다 높게(보수적으로) 셈하고 approximate 로 알린다. ' +
+        '맨 위 status 는 하나다: 변경률 50% 이상이면 변경률 초과, 아니면 훼손 항목이 있으면 훼손, 아니면 30% 이상이면 변경률 초과, 아니면 보존됨. ' +
+        '보존됨은 코드가 본 항목이 같다는 표시일 뿐 글 뜻 전체가 같다는 뜻이 아니다. 주민등록번호 모양이 있으면 대조하지 않고 rrnLines(before·after 줄 번호만)로 알린다. 모델을 부르지 않고, 문서 글을 밖으로 보내지 않는다.',
+      inputSchema: {
+        before: TEXT_SCHEMA.describe('윤문 전 글(md 또는 평문, 40만 자까지)'),
+        after: TEXT_SCHEMA.describe('윤문한 글(md 또는 평문, 40만 자까지)'),
+        genre: GENRE_SCHEMA.optional().describe('legal(기본: 의견서·조사보고서, 법령 문장 꼴 하여야·할 수 있·아니하 도 용어로 본다) / consulting / lecture / general / official'),
+      },
+      annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+    },
+    async (a) => {
+      // 원문에서 찾는다(JSON 으로 감싸면 탭·줄바꿈 구분을 놓친다) — 멈추면 숫자 없이 줄 번호만
+      const stop = rewriteRrnStop(a.before, a.after);
+      if (stop) return text(stop);
+      return text(rewriteResult(a));
     },
   );
 

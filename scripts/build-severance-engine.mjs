@@ -18,7 +18,7 @@ export const BLOCKS = [
     id: 'retirement-tax-engine',
     engine: resolve(root, 'src/lib/calc/retirement-tax.ts'),
     name: 'RetirementTaxEngine',
-    exports: ['calcRetirementTax', 'serviceYears', 'serviceMonths', 'RETIREMENT_TAX_FROM', 'BASIC_TAX_RATES'],
+    exports: ['calcRetirementTax', 'serviceYears', 'serviceMonths', 'RETIREMENT_TAX_FROM', 'BASIC_TAX_RATES', 'withholdingFor', 'SMALL_TAX_EXEMPT'],
   },
 ];
 

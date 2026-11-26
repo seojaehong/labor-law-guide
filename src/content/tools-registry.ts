@@ -33,7 +33,7 @@ export const TOOLS: ToolEntry[] = [
     sitemap: { lastModified: '2026-10-28', changeFrequency: 'monthly', priority: 0.9 } },
   { href: '/tools/notice-pay', title: '해고예고수당 계산기', desc: '입사일·해고일·미리 알린 날과 임금을 넣으면 해고예고수당이 있는지와 금액을 보여줍니다. 1일 통상임금 × 30일, 계속 근로 3개월 미만은 제외합니다.', badge: '브라우저 계산', icon: 'calculator',
     sitemap: { lastModified: '2026-10-28', changeFrequency: 'monthly', priority: 0.85 } },
-  { href: '/tools/leave', title: '연차휴가 계산기', desc: '입사일 기준 발생일수를 계산하고 대장과 대조합니다. 엑셀·붙여넣기 입력과 결과 내려받기를 지원합니다.', badge: '브라우저 계산', icon: 'calculator',
+  { href: '/tools/leave', title: '연차휴가 계산기', desc: '입사일 기준 발생일수를 계산하고 대장과 대조합니다. 명단 붙여넣기 입력과 결과 내려받기를 지원합니다.', badge: '브라우저 계산', icon: 'calculator',
     sitemap: { lastModified: '2026-09-01', changeFrequency: 'monthly', priority: 0.85 } },
   // 연차 도구의 하위 둘은 제목과 쓰임이 따로다 — 묶어서 /tools/leave 하나로만 올리면 그 말로 찾는 사람이 못 온다.
   { href: '/tools/leave/advanced', title: '연차 사용촉진', desc: '1년 이상·미만 연차의 촉구·통보 기간을 구분해 확인합니다. 실제 기록과 날짜만 대조합니다. 절차를 제대로 밟았는지는 다루지 않습니다.', badge: '일정 대조', icon: 'file-check',
@@ -52,6 +52,8 @@ export const TOOLS: ToolEntry[] = [
     sitemap: { lastModified: '2026-10-25', changeFrequency: 'monthly', priority: 0.8 } },
   { href: '/tools/council-graph', title: '노사협의회 회의록 그래프', desc: '노사협의회 기록 폴더(회의록·이행 기록·고충 대장)를 열면 회의·안건·이월·이행·고충이 어떻게 이어지는지 그래프로 보여줍니다. 기한이 지난 이행과 고충만 골라 볼 수 있습니다. 파일은 브라우저 안에서만 읽습니다.', badge: '브라우저 처리', icon: 'file-check',
     sitemap: { lastModified: '2026-11-10', changeFrequency: 'monthly', priority: 0.7 } },
+  { href: '/tools/toego', title: '퇴고 — 업무 문서 문체·맞춤법 점검', desc: '의견서·보고서·강의안·공문을 붙여 넣으면 문체 상투어(im-not-ai 공개 사전), 띄어쓰기·문장 부호(한글 맞춤법), 연결어미 뒤 쉼표를 줄과 칸 단위로 찾아 원문에 표시합니다. 점검은 브라우저 안에서만 돌고 글은 서버로 보내지 않습니다.', badge: '브라우저 점검', icon: 'file-check',
+    sitemap: { lastModified: '2026-11-24', changeFrequency: 'monthly', priority: 0.8 } },
   { href: '/tools/contract-check', title: '근로계약서 점검', desc: '계약서 내용을 폼에 입력하면 필수 명시사항·최저임금·위약금 등 25개 항목을 점검하고, 확인이 필요한 항목과 근거 조문을 정리합니다. 입력한 내용은 저장되지 않습니다.', badge: '참고 도구', icon: 'file-check',
     sitemap: { lastModified: '2026-07-31', changeFrequency: 'monthly', priority: 0.9 } },
   { href: '/tools/contract-write', title: '근로계약서 작성', desc: '월급(총액·실수령액)이나 시급과 근무형태를 넣으면 기본급·주휴·연장·야간·휴일·연차 항목별 시간과 금액을 나누고, 근로계약서 점검 규칙으로 다시 확인한 뒤 엑셀·한글·PDF로 내려받습니다. 입력한 내용은 브라우저 밖으로 나가지 않습니다.', badge: '브라우저 작성', icon: 'file-check',

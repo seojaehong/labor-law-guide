@@ -71,9 +71,8 @@ export interface SeveranceInput {
   annualBonus?: number;
   /** 퇴직 전 1년 연차수당 중 평균임금에 넣는 금액 */
   annualLeavePay?: number;
+  /** 넣으면 평균임금과 비교해 높은 쪽을 쓴다(근로기준법 §2②). 강제 선택은 두지 않는다(261124 — 낮은 쪽 적용 결함) */
   dailyOrdinaryWage?: number;
-  /** auto = 법대로 높은 쪽. average·ordinary 는 사용자가 고른 경우 */
-  wageType?: 'auto' | 'average' | 'ordinary';
 }
 
 export interface SeveranceResult {
@@ -109,9 +108,7 @@ export function calcSeverance(input: SeveranceInput): SeveranceResult {
   const den = BigInt(12) * BigInt(periodDays);
   const avgCents = (base12 * BigInt(100) + den - BigInt(1)) / den;
   const ordCents = BigInt(Math.round((input.dailyOrdinaryWage ?? 0) * 100));
-  const wageType = input.wageType ?? 'auto';
-  const applied: 'average' | 'ordinary' =
-    ordCents > BigInt(0) && (wageType === 'ordinary' || (wageType === 'auto' && ordCents > avgCents)) ? 'ordinary' : 'average';
+  const applied: 'average' | 'ordinary' = ordCents > avgCents ? 'ordinary' : 'average';
   const cents = applied === 'ordinary' ? ordCents : avgCents;
 
   // 퇴직금 = 반올림(1일 임금 × 30 × 재직일수 ÷ 365)
