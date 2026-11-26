@@ -272,9 +272,9 @@ export function registerCalc(server) {
         noticeDate: z.string().optional().describe('해고를 알린 날 YYYY-MM-DD. noticed 를 주지 않고 이 값도 비우면 예고하지 않은 것으로 본다. 빈 문자열은 오류'),
         noticed: z.boolean().optional().describe('해고를 예고했는가. true 인데 noticeDate 가 없거나, false 인데 noticeDate 가 있으면 판정할 수 없어 오류를 낸다'),
         partTime: z.object({
-          fullTimeWeeklyDays: z.number().int().optional().describe('같은 일을 하는 통상 근로자의 1주 소정근로일 수(1~7, 기본 5)'),
+          fullTimeWeeklyDays: z.number().optional().describe('같은 일을 하는 통상 근로자의 1주 소정근로일 수(1~7, 기본 5). 4주 평균이라 소수도 받는다 — 4주 교대 5·4·5·4일이면 4.5'),
           fullTimeWeeklyHours: z.number().optional().describe('같은 일을 하는 통상 근로자의 1주 소정근로시간(기본 40)'),
-        }).optional().describe('단시간 근로자일 때 — 1일 소정근로시간 = 1주 소정근로시간 ÷ 통상 근로자 1주 소정근로일 수(근로기준법 시행령 별표 2 제2호나목). weeklyHours 가 필요하다'),
+        }).optional().describe('단시간 근로자일 때 — 1일 소정근로시간 = 1주 소정근로시간 ÷ 통상 근로자 1주 소정근로일 수(근로기준법 시행령 별표 2 제2호나목). weeklyHours 가 필요하다. 빼면 단시간이 아닌 것으로 보고 dailyHours 그대로 계산하며, weeklyHours 가 40시간보다 짧으면 notice 로 알린다'),
       },
       annotations: READ_ONLY,
     },
@@ -287,8 +287,18 @@ export function registerCalc(server) {
           short: [`해고예고수당은 ${won(r.amount)}입니다.`, `예고가 해고일 ${r.noticeDays}일 전이라 30일에 못 미쳐 30일분 전액입니다.`],
           pay: [`해고예고수당은 ${won(r.amount)}입니다.`, '30일 전에 예고하지 않았으면 30일분 통상임금입니다.'],
         }[r.status];
+        // 261126 G4 I6 — partTime 을 빼면 단시간 산식을 쓰지 않는다. 주 소정이 40시간보다 짧거나 주 시간을 모르면 알린다(금액은 그대로)
+        const paid = r.status === 'pay' || r.status === 'short';
+        let notice;
+        if (paid && r.partTimeCheck) {
+          headline.push(`1주 소정근로시간 ${a.weeklyHours}시간이 40시간보다 짧습니다. 단시간 근로자이면 partTime 을 넣어 다시 계산합니다 — 지금은 1일 ${a.dailyHours}시간으로 계산했습니다.`);
+          notice = '같은 일을 하는 통상 근로자보다 1주 소정근로시간이 짧은 단시간 근로자(근로기준법 제2조제1항제9호)는 1일 소정근로시간을 1주 소정근로시간 ÷ 통상 근로자 1주 소정근로일 수로 셉니다(시행령 별표 2 제2호나목). partTime 을 넣으면 그 식으로 계산합니다.';
+        } else if (paid && !a.partTime && a.weeklyHours === undefined) {
+          notice = '1주 소정근로시간을 넣지 않아 단시간 근로자인지 보지 않았습니다. 단시간 근로자이면 weeklyHours 와 partTime 을 넣어야 1일 소정근로시간을 시행령 별표 2 제2호나목으로 셉니다.';
+        }
         return text({
           ok: true, headline, ...r, hourly: Math.round(r.hourly * 100) / 100, dailyOrdinary: Math.round(r.dailyOrdinary * 100) / 100,
+          ...(notice ? { notice } : {}),
           basis: ['근로기준법 제26조(해고의 예고)', '근로기준법 시행령 제6조제2항·제3항(통상임금 시간급·1일 통상임금)', '근로기준법 제26조 단서 제1호(계속 근로 3개월 미만)'],
           site: `${SITE}/tools/notice-pay`,
         });

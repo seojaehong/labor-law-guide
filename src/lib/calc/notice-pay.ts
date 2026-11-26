@@ -23,9 +23,13 @@ export interface NoticePayInput {
    * 단시간 근로자(근로기준법 제2조제1항제9호)면 넣는다. 1일 통상임금에 곱하는 1일 소정근로시간 =
    * 4주 소정근로시간 ÷ 그 기간 통상 근로자의 총 소정근로일 수(시행령 제9조 별표2 제2호가목·나목) = 1주 소정 ÷ 통상 근로자 1주 소정근로일 수.
    * 이때 weeklyHours 가 필요하고, dailyHours 는 일급을 시간급으로 바꿀 때만 쓴다(시행령 제6조제2항제2호).
+   * fullTimeWeeklyDays 는 4주 평균이라 소수도 받는다 — 4주 교대 5·4·5·4일이면 18 ÷ 4 = 4.5(261126 G4 I13).
    */
   partTime?: { fullTimeWeeklyDays?: number; fullTimeWeeklyHours?: number };
 }
+
+/** 단시간 산식을 쓰지 않을 때 견주는 통상 근로자 1주 소정근로시간 — 법정 기준(근로기준법 제50조제1항) */
+const FULL_TIME_WEEKLY_HOURS = 40;
 
 export interface NoticePayResult {
   /** pay = 예고 없음 · short = 30일 안 되게 예고 · noticed = 30일 전에 예고 · under3m = 계속 근로 3개월 미만 */
@@ -39,6 +43,11 @@ export interface NoticePayResult {
   amount: number;
   /** 1일 통상임금에 곱한 1일 소정근로시간 — 단시간이면 별표2 제2호나목 값, 아니면 넣은 값 */
   appliedDailyHours: number;
+  /**
+   * 단시간 산식(partTime)을 쓰지 않았는데 1주 소정근로시간이 40시간보다 짧다 — 단시간 근로자인지 다시 볼 입력이다.
+   * 금액은 넣은 1일 시간 그대로 계산하고, 화면·MCP 가 이 값으로 알린다(261126 G4 I6)
+   */
+  partTimeCheck: boolean;
 }
 
 const DAY = 86_400_000;
@@ -74,8 +83,8 @@ export function calcNoticePay(input: NoticePayInput): NoticePayResult {
     const w = input.weeklyHours;
     if (!(typeof w === 'number' && w > 0 && w <= 168)) throw new Error('단시간 근로자는 1주 소정근로시간을 넣어 주세요');
     const wd = input.partTime.fullTimeWeeklyDays ?? 5;
-    if (!Number.isInteger(wd) || wd < 1 || wd > 7) throw new Error('통상 근로자의 1주 소정근로일 수를 확인해 주세요');
-    const fw = input.partTime.fullTimeWeeklyHours ?? 40;
+    if (!(Number.isFinite(wd) && wd >= 1 && wd <= 7)) throw new Error('통상 근로자의 1주 소정근로일 수를 확인해 주세요(1~7, 4주 평균이면 소수 가능)');
+    const fw = input.partTime.fullTimeWeeklyHours ?? FULL_TIME_WEEKLY_HOURS;
     if (!(fw > 0) || w >= fw) throw new Error('단시간 근로자는 1주 소정근로시간이 통상 근로자보다 짧아야 합니다');
     appliedDailyHours = w / wd;
     // 주휴 시간도 같은 식(별표2 제2호나목), 8시간까지 — 월급·주급의 시간급 분모에 들어간다
@@ -95,5 +104,7 @@ export function calcNoticePay(input: NoticePayInput): NoticePayResult {
   const threeMonths = day > lastDay ? Date.UTC(y, m, lastDay) : Date.UTC(y, m, day) - DAY;
   const status = dismissal < threeMonths ? 'under3m' : noticeDays === null ? 'pay' : noticeDays >= 30 ? 'noticed' : 'short';
   const paid = status === 'pay' || status === 'short';
-  return { status, noticeDays, hourly, dailyOrdinary: paid ? dailyOrdinary : 0, amount: paid ? amount : 0, appliedDailyHours };
+  const w = input.weeklyHours;
+  const partTimeCheck = !input.partTime && typeof w === 'number' && w > 0 && w < FULL_TIME_WEEKLY_HOURS;
+  return { status, noticeDays, hourly, dailyOrdinary: paid ? dailyOrdinary : 0, amount: paid ? amount : 0, appliedDailyHours, partTimeCheck };
 }

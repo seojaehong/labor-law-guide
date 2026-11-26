@@ -291,6 +291,9 @@ const FEATURES: Record<string, { path: string; journey: Journey; waitUntil?: 'lo
       step('입사일 없음', '입사일을 넣어 주세요', await answer(p));
       await d.nth(0).fill('2025-01-02');
       await d.nth(1).fill('2026-11-30');
+      // 261126 G4 I6 — 단시간 질문은 미리 고르지 않는다
+      step('단시간 질문 미선택', '단시간 근로자인지 골라 주세요', await answer(p));
+      await p.getByLabel('아니다', { exact: true }).check();
       step('예고 없음', '2,476,800원', await answer(p));
       await p.getByLabel('알렸다', { exact: true }).check();
       await p.locator('input[type=date]').nth(2).fill('2026-11-01');

@@ -22,15 +22,19 @@ export default function NoticePayClient() {
   const [dismissal, setDismissal] = useState(today);
   const [noticed, setNoticed] = useState(false);
   const [notice, setNotice] = useState('');
-  const [partTime, setPartTime] = useState(false);
+  // 단시간 근로자인지는 미리 고르지 않는다 — 기본값 「아니다」면 주 24시간 근로자도 1일 8시간으로 계산됐다(261126 G4 I6)
+  const [partTime, setPartTime] = useState<boolean | null>(null);
   const [fullDays, setFullDays] = useState('5');
+  // 1주 소정근로시간 칸은 월급·주급이거나 단시간일 때만 보인다 — 숨은 칸 값은 넘기지 않는다
+  const weeklyShown = unit === 'month' || unit === 'week' || partTime === true;
 
   const out = useMemo(() => {
     if (!hire) return { error: '입사일을 넣어 주세요.' };
+    if (partTime === null) return { error: '단시간 근로자인지 골라 주세요. 1주 소정근로시간이 같은 일을 하는 통상 근로자보다 짧으면 1일 소정근로시간을 다르게 셉니다.' };
     try {
       return {
         r: calcNoticePay({
-          unit, amount: num(amount), weeklyHours: num(weekly), dailyHours: num(daily),
+          unit, amount: num(amount), weeklyHours: weeklyShown ? num(weekly) : undefined, dailyHours: num(daily),
           hireDate: hire, dismissalDate: dismissal, noticed, noticeDate: noticed && notice ? notice : undefined,
           partTime: partTime ? { fullTimeWeeklyDays: num(fullDays) } : undefined,
         }),
@@ -38,7 +42,7 @@ export default function NoticePayClient() {
     } catch (e) {
       return { error: (e as Error).message };
     }
-  }, [unit, amount, weekly, daily, hire, dismissal, noticed, notice, partTime, fullDays]);
+  }, [unit, amount, weekly, daily, hire, dismissal, noticed, notice, partTime, fullDays, weeklyShown]);
 
   return (
     <div className="space-y-4">
@@ -85,20 +89,20 @@ export default function NoticePayClient() {
         <fieldset className={`${small} sm:col-span-2`} style={muted}>
           <legend className="mb-1">1주 소정근로시간이 같은 일을 하는 통상 근로자보다 짧습니까(단시간 근로자)</legend>
           <div className="flex flex-wrap gap-4">
-            <label className={choiceLabel}><input type="radio" name="parttime" checked={!partTime} onChange={() => setPartTime(false)} /> 아니다</label>
-            <label className={choiceLabel}><input type="radio" name="parttime" checked={partTime} onChange={() => setPartTime(true)} /> 그렇다</label>
+            <label className={choiceLabel}><input type="radio" name="parttime" checked={partTime === false} onChange={() => setPartTime(false)} /> 아니다</label>
+            <label className={choiceLabel}><input type="radio" name="parttime" checked={partTime === true} onChange={() => setPartTime(true)} /> 그렇다</label>
           </div>
         </fieldset>
-        {(unit === 'month' || unit === 'week' || partTime) && (
+        {weeklyShown && (
           <label className={small} style={muted}>
             1주 소정근로시간
             <input inputMode="decimal" className={inputCls} value={weekly} onChange={(e) => setWeekly(e.target.value)} />
           </label>
         )}
-        {partTime && (
+        {partTime === true && (
           <label className={small} style={muted}>
-            통상 근로자의 1주 소정근로일 수
-            <input inputMode="numeric" className={inputCls} value={fullDays} onChange={(e) => setFullDays(e.target.value)} />
+            통상 근로자의 1주 소정근로일 수(4주 평균 — 5·4·5·4일이면 4.5)
+            <input inputMode="decimal" className={inputCls} value={fullDays} onChange={(e) => setFullDays(e.target.value)} />
           </label>
         )}
       </section>
@@ -106,7 +110,7 @@ export default function NoticePayClient() {
       {'error' in out ? (
         <section className={card} aria-live="polite"><p className={small} style={ink}>{out.error}</p></section>
       ) : (
-        <ResultBlock view={noticePayView({ r: out.r!, partTime, hire, dismissal })} />
+        <ResultBlock view={noticePayView({ r: out.r!, partTime: partTime === true, hire, dismissal })} />
       )}
 
       <FoldedDetail summary="수당을 주지 않아도 되는 경우">

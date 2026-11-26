@@ -334,6 +334,11 @@ if (tools.includes('calc_notice_pay')) {
   check(`notice_pay 월급 2,156,880 → 2,476,800(${n.headline?.[0]})`, n.status === 'pay' && n.amount === 2_476_800);
   const sh = await callTool('calc_notice_pay', { unit: 'hour', amount: 10_320, dailyHours: 8, hireDate: '2025-01-02', dismissalDate: '2026-11-30', noticeDate: '2026-11-01' });
   check('notice_pay 29일 전 예고는 30일분 전액', sh.status === 'short' && sh.noticeDays === 29 && sh.amount === 2_476_800);
+  // 261126 G4 I6·I13 — partTime 을 빼고 주 24시간이면 알림(금액 그대로), 통상 근로자 4주 평균 4.5일은 소수로 받는다
+  const pt = await callTool('calc_notice_pay', { unit: 'month', amount: 1_200_000, weeklyHours: 24, dailyHours: 8, hireDate: '2025-01-02', dismissalDate: '2026-11-30' });
+  check(`notice_pay partTime 없이 주 24시간은 알림(${pt.headline?.[2]})`, pt.amount === 2_304_000 && pt.partTimeCheck === true && /40시간보다 짧/.test(pt.headline?.join(' ') ?? ''));
+  const rot = await callTool('calc_notice_pay', { unit: 'hour', amount: 12_000, weeklyHours: 24, dailyHours: 8, hireDate: '2025-01-02', dismissalDate: '2026-11-30', partTime: { fullTimeWeeklyDays: 4.5 } });
+  check(`notice_pay 통상 근로자 4.5일(5·4·5·4) → 1,920,000(${rot.amount ?? rot.error})`, rot.amount === 1_920_000);
 }
 if (tools.includes('calc_leave_pay')) {
   const l = await callTool('calc_leave_pay', {
