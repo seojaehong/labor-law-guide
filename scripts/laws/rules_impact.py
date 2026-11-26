@@ -104,7 +104,13 @@ DOUBLE = re.compile(r"거부|거절|반려|불허|불리|불이익|차별|해고
 POSITIVE = re.compile(r"허용|인정|부여|사용|신청|승인|지급")
 SUB = re.compile(r"경우(?:에는|에도|라도)?|때(?!문)(?:에는|에도)?|더라도|[어아여해]도|(?<=[하되이으라시])면")
 COND = re.compile(r"경우|때(?!문)|불구하고")
-ITEM = re.compile(r"^(?:[①-⑳]|\d+[.)]|[가-하][.)]|제\s*\d+\s*조|[-·•※○□▪*])")
+# 조건이 붙어도 「이유 없이」 거부할 수 있으면 예외 단서가 아니라 재량 거부다(G4 R2 R23)
+NO_REASON = re.compile(r"(?:이유|사유)없이")
+# 「…하지 않을 수 없다」 — 이중부정(해야 한다)
+MUST = re.compile(r"(?:을|할)수(?:밖에)?없")
+# 어휘 부정 뒤 서술어 자리 — 짧은 끝(한다·함·된다) 또는 「…하기로 한다」「…하는 것으로 한다」
+LEX_END = re.compile(r"(?:[가-힣]{0,3}|[하되](?:기로|는것으로)[가-힣]{0,3})")
+ITEM =re.compile(r"^(?:[①-⑳]|\d+[.)]|[가-하][.)]|제\s*\d+\s*조|[-·•※○□▪*])")
 # 문장 중간에서 끊긴 줄 — 조사·연결 어미·쉼표로 끝난다. 명사로 끝난 줄(표 칸·개조식)은 잇지 않는다
 OPEN_END = re.compile(r"(?:[을를은는,]|에게|에서|으로|하고|하며|하여|하되|하면|거나|및|또는)$")
 
@@ -121,7 +127,8 @@ def clauses_of(lines: list[str]) -> list[str]:
     for _ in range(2):
         text = re.sub(r"\([^()]*\)|（[^（）]*）", "", text)
     text = re.sub(r"(^|\s)안\s*(?=[함한됨된])", r"\1¬", text)
-    parts = re.split(r"[.。;\n]|(?<=[며되고])\s*,|(?<=[하되이으]며)\s", text)
+    # 쉼표 없는 「…하고 」「…하되 」「…되고 」「…있고 」도 절 경계다. 부사로 쓰는 「제외하고」「불구하고」는 끊지 않는다(G4 R2 R22)
+    parts = re.split(r"[.。;\n]|(?<=[며되고])\s*,|(?<=[하되이으]며)\s|(?<!제외하고)(?<!불구하고)(?<=[하되있]고|하되)\s", text)
     return [c for c in (flat(p) for p in parts) if c]
 
 
@@ -145,16 +152,21 @@ def clause_negated(c: str, w: str) -> bool:
     for m in SUB.finditer(c):
         if m.start() >= w_end:
             start = max(start, m.end())
+    skip = -1
     for m in NEG_TOKEN.finditer(c):
         i, t = m.start(), m.group(0)
-        if i < start:
+        if i < start or i < skip:
             continue
         after = c[m.end():]
+        must = MUST.match(after)
         if LEXICAL.match(t):
-            if not re.fullmatch(r"[가-힣]{0,3}", after):
+            if not LEX_END.fullmatch(after):
                 continue
+        elif re.fullmatch(r"지(?:않|아니)", t) and must:
+            skip = m.end() + must.end()  # 「…하지 않을 수 없다」 — 뒤 「수없」까지 한 쌍으로 건너뛴다
+            continue
         elif re.fullmatch(r"지(?:않|아니)", t) and re.match(r"(?:을|할)수있", after):
-            if COND.search(c[:i]):
+            if COND.search(c[:i]) and not NO_REASON.search(c[:i]):
                 continue
         elif attributive(t, after):
             continue

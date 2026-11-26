@@ -11,7 +11,7 @@ import { MATCHER_VERSION, RULE_VERSION } from '@/lib/laws/observation-version';
 import type { CaptureContext, Observation } from '@/lib/laws/observation-payload';
 import { CalendarClock, ClipboardCopy, FileDown, FileUp, ShieldCheck, X } from 'lucide-react';
 import { NEGATED_NOTE, type Verdict } from '@/lib/laws/rules-check';
-import { exportArticle, exportStatus, periodCheck, splitArticles, STD_ASOF, type Art93Item, type PeriodItem, type StdArticle, type StdRule } from '@/lib/laws/standard-check';
+import { exportArticle, exportItems, exportStatus, periodCheck, splitArticles, STD_ASOF, type Art93Item, type PeriodItem, type StdArticle, type StdRule } from '@/lib/laws/standard-check';
 import { compareDocx, MAX_FILE_BYTES, kindOf, readDocText } from '@/lib/laws/doc-io';
 import {
   citation,
@@ -324,10 +324,13 @@ export function PeriodResults({ data, loadError, onRetry, text, from, to, source
   const unrecognized = !!text.trim() && !hasText;
   const period = `${fmtDate(from)} 다음 날 ~ ${fmtDate(to)}`;
 
-  const rows = open.map((it) => [exportArticle(it), mine(it) || (hasText ? '(해당 조문 없음)' : ''), proposal(it), basis(it).join('\n'), exportStatus(it)]);
+  // 내보내기 행 — 화면 항목에 「이전 시행」 목록의 부정문을 더한다(G4 R2 R25). 그것뿐이어도 버튼이 켜진다
+  const exported = result ? exportItems(result) : [];
+  const earlierN = exported.length - open.length;
+  const rows = exported.map((it) => [exportArticle(it), mine(it) || (hasText ? '(해당 조문 없음)' : ''), proposal(it), basis(it).join('\n'), exportStatus(it)]);
   const intro = [
     `점검 기간: ${period} 시행분 · 기준: 고용노동부 표준취업규칙(2026년 배포) 일반 근로자용, 국가법령정보센터(법제처) 원문`,
-    hasText ? `점검 결과: 고칠 것·조문 추가 ${fixN}건${soonN ? ` · 시행 예정 ${soonN}건` : ''} / 전체 ${open.length}건` : '취업규칙 본문 없이 기간만으로 만든 문안 묶음입니다',
+    hasText ? `점검 결과: 고칠 것·조문 추가 ${fixN}건${soonN ? ` · 시행 예정 ${soonN}건` : ''}${earlierN ? ` · 최종 개정일 이전 시행분 중 부정문 ${earlierN}건` : ''} / 전체 ${exported.length}건` : '취업규칙 본문 없이 기간만으로 만든 문안 묶음입니다',
   ];
   const foot = [
     '1차 자동 점검입니다. 표준취업규칙 2026(고용노동부)과 법제처 원문을 기준으로 하며 전문가 검수 전입니다.',
@@ -356,7 +359,7 @@ export function PeriodResults({ data, loadError, onRetry, text, from, to, source
     finally{exporting.current=false;}
   };
   const copyTable = async () => {
-    const t = compareTable(open.map((it) => ({ article: exportArticle(it), before: mine(it) || null, after: proposal(it) })), foot[0]);
+    const t = compareTable(exported.map((it) => ({ article: exportArticle(it), before: mine(it) || null, after: proposal(it) })), foot[0]);
     if (await copyRich(t.text, t.html)) toast('신구대조표를 복사했습니다. 한글·엑셀에 붙이면 표로 들어갑니다');
   };
   const downloadPrep = () => {
@@ -385,9 +388,9 @@ export function PeriodResults({ data, loadError, onRetry, text, from, to, source
           </div>
           <div className="lr-check-actions">
             <button className="lr-btn lr-btn-ghost lr-btn-sm" onClick={onFresh}>새 점검 실행</button>
-            <button className="lr-btn lr-btn-sm" onClick={downloadDocx} disabled={!open.length}><FileDown size={14} /> 신구대조표 docx</button>
-            <button className="lr-btn lr-btn-ghost lr-btn-sm" onClick={downloadXlsx} disabled={!open.length}>엑셀</button>
-            <button className="lr-btn lr-btn-ghost lr-btn-sm" onClick={copyTable} disabled={!open.length}><ClipboardCopy size={14} /> 표 복사</button>
+            <button className="lr-btn lr-btn-sm" onClick={downloadDocx} disabled={!exported.length}><FileDown size={14} /> 신구대조표 docx</button>
+            <button className="lr-btn lr-btn-ghost lr-btn-sm" onClick={downloadXlsx} disabled={!exported.length}>엑셀</button>
+            <button className="lr-btn lr-btn-ghost lr-btn-sm" onClick={copyTable} disabled={!exported.length}><ClipboardCopy size={14} /> 표 복사</button>
             {open.some((i) => i.verdicts.length) && (
               <button className="lr-btn lr-btn-ghost lr-btn-sm" onClick={downloadPrep} title="시행일에서 거꾸로 세운 개정안 작성·의견 청취·변경 신고 일정">
                 <CalendarClock size={14} /> 대응 일정

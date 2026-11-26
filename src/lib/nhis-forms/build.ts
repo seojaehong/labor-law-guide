@@ -241,10 +241,11 @@ export function validate(input: PacketInput): string[] {
     // 부호 제한이 화면 선택 목록에만 있으면 MCP 명단 파일로 04·10(상실일 = 신청일 당일)·99 가 통과한다(G4 I25)
     else if (input.kind === 'loss' && !(LOSS_CODES_SUPPORTED as readonly string[]).includes(x.nhisCode)) {
       p.push((LOSS_CODES_FORM8 as readonly string[]).includes(x.nhisCode)
-        ? `${who} 상실부호 ${x.nhisCode}는 이 도구에서 만들 수 없습니다. 01 퇴직·02 사망·16 취득취소만 다룹니다(다른 부호는 상실일을 정하는 날이 다릅니다)`
-        : `${who} 상실부호 ${x.nhisCode}는 별지 제8호서식에 없는 부호입니다. 01 퇴직·02 사망·16 취득취소 중에서 고르세요`);
+        // 부호 뒤에 조사를 붙이지 않는다 — 「10는」처럼 받침에 따라 틀린다(G4 R2 R30)
+        ? `${who} 상실부호 ${x.nhisCode} — 이 도구에서 만들 수 없습니다. 01 퇴직·02 사망·16 취득취소만 다룹니다(다른 부호는 상실일을 정하는 날이 다릅니다)`
+        : `${who} 상실부호 ${x.nhisCode} — 별지 제8호서식에 없는 부호입니다. 01 퇴직·02 사망·16 취득취소 중에서 고르세요`);
     } else if (input.kind === 'acq' && !(ACQ_CODES_FORM6 as readonly string[]).includes(x.nhisCode)) {
-      p.push(`${who} 취득부호 ${x.nhisCode}는 별지 제6호서식에 없는 부호입니다. ${ACQ_CODES_FORM6.join('·')} 중에서 고르세요`);
+      p.push(`${who} 취득부호 ${x.nhisCode} — 별지 제6호서식에 없는 부호입니다. ${ACQ_CODES_FORM6.join('·')} 중에서 고르세요`);
     }
     if (input.kind === 'loss') {
       const l = x as LossPerson;

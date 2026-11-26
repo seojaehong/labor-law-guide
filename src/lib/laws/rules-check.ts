@@ -120,6 +120,12 @@ const POSITIVE = /허용|인정|부여|사용|신청|승인|지급/;
 const SUB = /경우(?:에는|에도|라도)?|때(?!문)(?:에는|에도)?|더라도|[어아여해]도|(?<=[하되이으라시])면/g;
 /** 조건이 붙은 「…하지 아니할 수 있다」는 법정 예외 단서다(표준 제43조③) */
 const COND = /경우|때(?!문)|불구하고/;
+/** 조건이 붙어도 「이유 없이」 거부할 수 있으면 예외 단서가 아니라 재량 거부다(G4 R2 R23) */
+const NO_REASON = /(?:이유|사유)없이/;
+/** 「…하지 않을 수 없다」 — 이중부정(해야 한다) */
+const MUST = /^(?:을|할)수(?:밖에)?없/;
+/** 어휘 부정 뒤 서술어 자리 — 짧은 끝(한다·함·된다) 또는 「…하기로 한다」「…하는 것으로 한다」 */
+const LEX_END = /^(?:[가-힣]{0,3}|[하되](?:기로|는것으로)[가-힣]{0,3})$/;
 const ITEM = /^(?:[①-⑳]|\d+[.)]|[가-하][.)]|제\s*\d+\s*조|[-·•※○□▪*])/;
 /** 문장 중간에서 끊긴 줄 — 목적·주제 조사, 연결 어미, 쉼표로 끝난다. 명사로 끝난 줄(표 칸·개조식)은 잇지 않는다 */
 const OPEN_END = /(?:[을를은는,]|에게|에서|으로|하고|하며|하여|하되|하면|거나|및|또는)$/;
@@ -133,7 +139,9 @@ function clausesOf(lines: string[]): string[] {
   for (let k = 0; k < 2; k++) text = text.replace(/\([^()]*\)|（[^（）]*）/g, '');
   return text
     .replace(/(^|\s)안\s*(?=[함한됨된])/g, '$1¬')
-    .split(/[.。;\n]|(?<=[며되고])\s*,|(?<=[하되이으]며)\s/)
+    // 쉼표 없는 「…하고 」「…하되 」(같은 연결 어미 「되고 」「있고 」)도 절 경계다(G4 R2 R22).
+    // 부사로 쓰는 「제외하고」「불구하고」는 끊지 않는다. 파이썬 re 와 같은 고정 폭 lookbehind 로 쓴다.
+    .split(/[.。;\n]|(?<=[며되고])\s*,|(?<=[하되이으]며)\s|(?<!제외하고)(?<!불구하고)(?<=[하되있]고|하되)\s/)
     .map(flat)
     .filter(Boolean);
 }
@@ -156,15 +164,19 @@ function clauseNegated(c: string, w: string): boolean {
   const wEnd = at + w.length;
   let from = wEnd;
   for (const m of c.matchAll(SUB)) if (m.index! >= wEnd) from = Math.max(from, m.index! + m[0].length);
+  let skip = -1;
   for (const m of c.matchAll(NEG_TOKEN)) {
     const i = m.index!;
-    if (i < from) continue;
+    if (i < from || i < skip) continue;
     const t = m[0];
     const after = c.slice(i + t.length);
     if (LEXICAL.test(t)) {
-      if (!/^[가-힣]{0,3}$/.test(after)) continue; // 서술어 자리가 아니다(휴게시간을 제외하고 …)
+      if (!LEX_END.test(after)) continue; // 서술어 자리가 아니다(휴게시간을 제외하고 …)
+    } else if (/^지(?:않|아니)$/.test(t) && MUST.test(after)) {
+      skip = i + t.length + after.match(MUST)![0].length; // 「…하지 않을 수 없다」 — 뒤 「수없」까지 한 쌍으로 건너뛴다
+      continue;
     } else if (/^지(?:않|아니)$/.test(t) && /^(?:을|할)수있/.test(after)) {
-      if (COND.test(c.slice(0, i))) continue; // 조건이 붙은 예외 단서
+      if (COND.test(c.slice(0, i)) && !NO_REASON.test(c.slice(0, i))) continue; // 조건이 붙은 예외 단서
     } else if (attributive(t, after)) continue;
     let double = false;
     for (const d of c.slice(from, i).matchAll(DOUBLE)) {

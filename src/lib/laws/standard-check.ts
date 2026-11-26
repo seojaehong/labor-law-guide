@@ -179,6 +179,28 @@ export const exportStatus = (it: PeriodItem) => (it.verdicts.some((v) => v.negat
 export const exportArticle = (it: PeriodItem) =>
   `${it.std.no}(${it.std.title})${it.verdicts.some((v) => v.negated) ? ` · ${NEGATED_SHORT}` : ''}`;
 
+/**
+ * 내보내기(docx·xlsx·표 복사) 행 — 화면의 반영 안 된 항목에 「이전 시행」 목록의 부정문 판정을 더한다(G4 R2 R25).
+ * 이전 시행 부정문은 기간 밖이라 items 에 없다. 빼면 화면에서 본 지적이 내보내기에서 사라지고, 그것뿐이면 버튼이 꺼진다.
+ * 같은 표준 조문 행이 있으면 그 행에 합친다. result 의 객체는 화면 카드·건수가 같이 쓰므로 고치지 않고 복사본을 돌려준다.
+ * 옛 문구(stale)만 남은 이전 시행 항목은 넣지 않는다(종전과 같음).
+ */
+export function exportItems(r: PeriodResult): PeriodItem[] {
+  const out = r.items.filter((i) => i.status !== '반영됨').map((i) => ({ ...i, verdicts: [...i.verdicts] }));
+  for (const { std, verdict } of r.earlier) {
+    if (!verdict.negated) continue;
+    let it = out.find((i) => i.std.id === std.id);
+    if (!it) {
+      it = { std, user: r.matched.get(std.id) ?? [], events: [], verdicts: [], status: '고칠 것', proposal: null, proposalFrom: null };
+      out.push(it);
+    }
+    it.verdicts.push(verdict);
+    const c = verdict.rule.clause;
+    if (c && !it.proposal?.includes(c)) [it.proposal, it.proposalFrom] = [it.proposal ? `${it.proposal}\n\n${c}` : c, it.proposalFrom ?? '매핑'];
+  }
+  return out;
+}
+
 export interface PeriodResult {
   items: PeriodItem[];
   /** 짝이 없는 [필수] 표준 조문 — 본문을 넣었을 때만 */

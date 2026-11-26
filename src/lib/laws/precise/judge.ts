@@ -30,6 +30,8 @@ export interface RuleHit {
   lawArticle: string;
   effective: string; // YYYYMMDD
   status: '반영됨' | '미반영' | '누락';
+  /** 부정문으로 내린 미반영(rules-check Verdict.negated) — 출력 행에 원문 확인 필요를 단다(G4 R2 R26) */
+  negated?: boolean;
 }
 
 export interface Usage {

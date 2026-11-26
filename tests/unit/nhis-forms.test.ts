@@ -212,6 +212,16 @@ describe('입력 검사', () => {
     expect(acq('99')).toContain('별지 제6호서식에 없는 부호');
     expect(acq('01')).toContain('별지 제6호서식에 없는 부호');
   });
+  // G4 R2(261127) R30 — 부호 뒤에 조사를 붙이면 「10는」처럼 받침에 따라 틀린다. 조사 없는 틀로 쓴다.
+  it('부호 거절 문구는 부호 뒤에 조사를 붙이지 않는다', () => {
+    const loss = (nhisCode: string) => validate({ ...lossInput, people: [{ ...leaver, nhisCode }] }).join(' ');
+    const acq = (nhisCode: string) => validate({ ...acqInput, people: [{ ...joiner, nhisCode }] }).join(' ');
+    expect(loss('10')).toContain('1번째 사람 상실부호 10 — 이 도구에서 만들 수 없습니다');
+    expect(loss('99')).toContain('1번째 사람 상실부호 99 — 별지 제8호서식에 없는 부호입니다');
+    expect(acq('99')).toContain('1번째 사람 취득부호 99 — 별지 제6호서식에 없는 부호입니다');
+    for (const c of ['04', '10', '13', '17', '26', '58', '99']) expect(loss(c)).not.toMatch(/부호 \d+[은는이가]/);
+    for (const c of ['01', '99']) expect(acq(c)).not.toMatch(/부호 \d+[은는이가]/);
+  });
   // G4 261126 I26 — 보수·개월 기본 모순. 근무개월수 상한은 마지막 근무일의 달(12월 31일 퇴직이면 상실일은 다음 해라도 12개월).
   // 0원·0개월, 0원·N개월은 무급휴직 등으로 있을 수 있어 막지 않는다.
   it('보수가 있는데 0개월, 근무개월수가 마지막 근무일의 달보다 크면 거부', () => {

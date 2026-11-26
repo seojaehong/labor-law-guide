@@ -4,8 +4,9 @@ import { describe, expect, it } from 'vitest';
 import { pairArticles, splitArticles } from '@/lib/laws/precise/articles';
 import { extractQuantities, quantityDrops } from '@/lib/laws/precise/quantities';
 import { anthropicAsk, BATCH_RUNS, BATCH_SCHEMA, BATCH_SIZE, chunks, groupCount, judgeAll, merge, NO_BASELINE, type Finding } from '@/lib/laws/precise/judge';
-import { clean, disadvantageOf, precisePipeline, rowsForStore } from '@/lib/laws/precise/pipeline';
+import { clean, disadvantageOf, mapRules, precisePipeline, rowsForStore } from '@/lib/laws/precise/pipeline';
 import { BATCH_SYSTEM } from '@/lib/laws/precise/prompts';
+import { NEGATED_NOTE } from '@/lib/laws/rules-check';
 
 // 기준 구현 scripts/work_rules_c 의 시험(test_articles·test_quantities·test_review_fixes·test_batch_judge)과 같은 사례
 
@@ -253,6 +254,28 @@ describe('파이프라인', () => {
     const r = await precisePipeline({ rules: '제1조(목적) 목적', since: '20230101' }, [spec], { ask: ask([f('제1조')]), runs: 1 });
     const row = r.rows.find((x) => x.조문 === '신설 필요')!;
     expect(row['근거·시행일']).toBe('남녀고용평등법 제18조의2 (2025.02.23. 시행)');
+  });
+
+  // G4 R2(261127) R26 — 정밀 점검 경로가 RuleHit 를 만들 때 negated 를 버려 부정문 미반영이 「원문 확인 필요」 없이 나갔다
+  // 모델에 보내는 판단 입력(관련 법령 기준)은 기준 구현 work_rules_c/triage.py 와 같게 두고 바꾸지 않는다.
+  it('부정문으로 내린 법령 기준은 negated 로 넘어가 출력 행 운영 메모에 원문 확인 필요가 붙는다', async () => {
+    const spec = { lawId: '000130', law: '남녀고용평등법', article: '제18조의2', effective: '20250223', topic: '배우자 출산휴가 20일',
+      art93: '8', required: true, keywords: ['배우자'], ok: ['20일'], stale: ['10일'], point: '',
+      clause: '제○조(배우자 출산휴가) ① 회사는 배우자 출산 시 20일의 휴가를 준다.', mst: null };
+    const neg = '제31조(배우자 출산휴가) ① 회사는 배우자 출산 시 20일의 휴가를 주지 않는다.';
+    expect(mapRules(splitArticles(neg), '20230101', [spec]).get('제31조')).toEqual([
+      { topic: '배우자 출산휴가 20일', lawArticle: '남녀고용평등법 제18조의2', effective: '20250223', status: '미반영', negated: true },
+    ]);
+    const seen: unknown[] = [];
+    const run = async (rules: string) => precisePipeline({ rules, since: '20230101' }, [spec], {
+      ask: async (b) => { seen.push(...JSON.parse(b).조문들.flatMap((x: { '관련 법령 기준': unknown[] }) => x['관련 법령 기준'])); return [f('제31조')]; }, runs: 1,
+    });
+    const r = await run(neg);
+    expect(r.rows.find((x) => x.조문 === '제31조')!['운영 메모']).toContain(`배우자 출산휴가 20일: ${NEGATED_NOTE}`);
+    // 부정문이 아닌 미반영에는 붙지 않는다
+    const plain = await run('제31조(배우자 출산휴가) ① 회사는 배우자 출산 시 10일의 휴가를 준다.');
+    expect(plain.rows.find((x) => x.조문 === '제31조')!['운영 메모']).not.toContain(NEGATED_NOTE);
+    expect(seen).toEqual([0, 1].map(() => ({ 항목: '배우자 출산휴가 20일', 상태: '미반영', 시행일: '2025-02-23' })));
   });
 
   it('보관 동의가 없어도 저장 행에 비교 불가 표시는 남는다', () => {
