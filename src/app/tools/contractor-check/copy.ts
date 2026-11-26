@@ -1,11 +1,15 @@
 // 3.3% 계약 점검의 문장은 모두 여기서 만든다. 시험이 allCopy() 전부를 금지어로 훑는다.
-// 세액 계산 도구 공통 장치(261028) — 금액은 「예상」으로만 말하고, 대행이 아니라고 늘 적고, 연락을 권하지 않는다.
+// 세액 계산 도구 공통 장치(261028) — 금액은 「예상」으로만 말하고, 참고용 계산이라고 늘 적고, 연락을 권하지 않는다.
 // 점검 쪽은 점수·개수·확률을 내지 않고 「근로자입니다/아닙니다」로 맺지 않는다.
 import type { ItemCheck, MoneyResult, QuestionId } from '@/lib/calc/contractor-check';
 import { SOURCES } from '@/lib/calc/contractor-check';
-import { formulaLines as wageFormulaLines, HOMETAX_URL, NOTICE, won } from '../take-home-pay/copy';
+import { formulaLines as wageFormulaLines, HOMETAX_URL, won } from '../take-home-pay/copy';
 
-export { HOMETAX_URL, NOTICE };
+export { HOMETAX_URL };
+
+/** 결과 고지(D4 261126). 3.3%는 1년 소득을 본인이 확정신고에서 다시 계산한다 — 아래 MONEY_NOTES 첫 줄과 같은 말.
+ *  실수령액 계산기의 「원천징수와 신고는 회사(원천징수의무자)가 합니다」는 이 화면에 쓰지 않는다 */
+export const NOTICE = '참고용 계산이며, 1년 소득은 다음 해 5월 종합소득세 확정신고에서 본인이 다시 계산합니다.';
 
 // ── ① 근로자성 요소 대조 ──
 

@@ -1,7 +1,8 @@
 // 일용근로소득 원천징수 계산기의 문장은 모두 여기서 만든다. 시험(tests/unit/calc-daily-worker-tax.test.ts)이 allCopy 전부를 금지어로 훑는다.
-// 세액 계산 도구 공통 장치(261028) — 결과는 「예상」으로만 말하고, 대행이 아니라고 늘 적고, 결과 화면에서 따로 찾아오라고 권하지 않는다. 도구 이름·소개의 금지 낱말은 시험이 막는다.
+// 세액 계산 도구 공통 장치(261028) — 결과는 「예상」으로만 말하고, 참고용 계산·원천징수의무자 고지(D4 261126)를 늘 적고, 결과 화면에서 따로 찾아오라고 권하지 않는다. 도구 이름·소개의 금지 낱말은 시험이 막는다.
 // 끝수 순서(날마다 원 미만을 먼저 버리는지)는 원문으로 닫히지 않았다 — 값이 갈리면 두 값을 함께 말하고 확인하지 못했다고 밝힌다.
 import { DAILY_WORKER_RULE as RULE, type DailyWorkerTaxResult, type Frac, type PaymentResult } from '@/lib/calc/daily-worker-tax';
+import { WITHHOLDING_NOTICE } from '@/lib/tool-kit/tax-notice';
 
 export const won = (n: number) => `${n.toLocaleString('ko-KR')}원`;
 
@@ -48,7 +49,7 @@ export const INPUT_GUIDE = [
 /** 결과 아래 늘 붙는 고지 */
 export const NOTICE = [
   '예상 금액입니다. 지급하는 곳이 실제로 뗀 금액과 대조합니다.',
-  '원천징수와 신고는 회사가 직접 합니다. 지급명세서나 신고서를 만들지 않습니다.',
+  `${WITHHOLDING_NOTICE} 지급명세서나 신고서를 만들지 않습니다.`,
 ];
 
 /** 국세청 일용근로소득 안내 — 리서치에서 원문을 연 주소 */

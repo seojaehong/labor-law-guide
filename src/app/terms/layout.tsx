@@ -4,7 +4,7 @@ import { SITE_URL } from '@/lib/constants';
 
 export const metadata: Metadata = publicMetadata({
   title: '이용약관',
-  description: '일의 무늬 서비스 이용약관. 본 사이트는 법령·판례 정보를 제공하며, 이용자의 권리·의무와 책임 한도, 분쟁 처리 기준을 안내합니다.',
+  description: '일의 무늬 서비스 이용약관. 본 사이트의 내용은 일반 정보 제공 목적의 참고 정보이며, 약관은 이용자의 권리·의무와 책임 한도, 분쟁 처리 기준을 안내합니다.',
   alternates: { canonical: `${SITE_URL}/terms` },
   robots: { index: true, follow: true },
 });

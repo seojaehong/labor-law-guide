@@ -1,7 +1,8 @@
 // 퇴직소득세 결과 블록의 글자 — 계산(calcRetirementTax)은 그대로 두고 받은 값을 문장으로만 바꾼다(261124).
 // 판정 문장은 copy.ts 의 headline 을 그대로 쓴다(retirement-tax-copy 시험이 고정).
 // 기준일: 세율표(BASIC_TAX_RATES, 퇴사한 해의 과세기간 표)의 확인일만 쓴다. 공제표 확인일은 lib 밖으로 나오지 않아 싣지 않는다.
-// 세무사법 고지(「예상 금액」·세무대리 아님·홈택스 모의계산)는 링크가 있어 Client 의 ResultBlock children 으로 글자 그대로 둔다.
+// 세금 도구 고지(D4 261126 — 참고용 계산·원천징수와 신고는 원천징수의무자인 회사·홈택스 모의계산)는 링크가 있어
+// Client 의 ResultBlock children 으로 둔다. 문구는 src/lib/tool-kit/tax-notice.ts 의 WITHHOLDING_NOTICE.
 import { SMALL_TAX_EXEMPT, basicTaxRatesFor, type RetirementTaxResult } from '@/lib/calc/retirement-tax';
 import { fmtDate } from '@/lib/tool-kit';
 import { STATUS_ESTIMATE, dotDate, lawLink, won, type ResultView } from '@/components/tool-result/result-view';

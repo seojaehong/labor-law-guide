@@ -205,13 +205,17 @@ const NOSA_TOOLS = ['assess_labor_council', 'check_council_meeting', 'make_labor
 const NEW_TOOLS = ['calc_severance', 'calc_holiday_pay', 'calc_pay_proration', 'calc_shutdown_allowance', 'calc_annual_leave', 'settle_leave_on_exit', 'calc_retirement_tax', 'list_employer_duties', ...MORE_TOOLS, ...NOSA_TOOLS, 'make_hwpx_from_markdown', 'edit_hwpx_text', 'read_hwp_as_markdown', 'fill_hwp_form', 'patch_hwp_from_markdown', 'check_prose', 'check_norms', 'check_semantic', 'check_rhetoric', 'check_rewrite', 'list_hr_forms', 'check_hr_form', 'make_hr_form'];
 const NEW_WORDS = [...WORDS, '대신', '대행', '대리'];
 const bannedNew = (s) => (banned ? banned.bannedHits(s, NEW_WORDS) : []);
+// 공식 서식 칸 이름(「대리인」 등, banned.FORM_FIELD_NAMES)을 그대로 받거나 찍는 도구 — 칸 이름만 걸지 않는다(D5 261126)
+const FORM_TOOLS = ['make_work_rules_report_forms'];
+const bannedForm = (s, words) => (banned ? banned.bannedHitsInForm(s, words) : []);
 for (const n of NEW_TOOLS) check(`${n}: 도구 목록에 있음`, tools.includes(n));
 for (const t of (await c.listTools()).tools.filter((x) => ANN[x.name])) {
   const a = t.annotations || {};
   const same = Object.entries(ANN[t.name]).every(([k, v]) => a[k] === v);
   console.log(`  ${t.name} | ${t.title} | ro=${a.readOnlyHint} destr=${a.destructiveHint} idem=${a.idempotentHint} open=${a.openWorldHint}`);
   check(`${t.name}: title·annotations`, !!t.title && same);
-  const h = (NEW_TOOLS.includes(t.name) ? bannedNew : bannedIn)(`${t.title} ${t.description} ${JSON.stringify(t.inputSchema)}`);
+  const desc = `${t.title} ${t.description} ${JSON.stringify(t.inputSchema)}`;
+  const h = FORM_TOOLS.includes(t.name) ? bannedForm(desc, NEW_TOOLS.includes(t.name) ? NEW_WORDS : WORDS) : (NEW_TOOLS.includes(t.name) ? bannedNew : bannedIn)(desc);
   check(`${t.name}: 이름·설명·입력 설명 금지어 없음${h.length ? ` (${h.join(',')})` : ''}`, h.length === 0);
 }
 
@@ -930,7 +934,8 @@ if (tools.includes('make_work_rules_report_forms')) {
       check(`report_forms 대비표 아래 근거 법령 원문(법제처 2026. 12. 8. 시행 판 제60조 제1항 글자 그대로: ${want60.slice(0, 20)}…)·비고에서 가리킴`,
         /근거 법령 원문\(법제처 국가법령정보에서 받은 글자 그대로\)/.test(cmp) && /근로기준법 제60조 — 2026\. 12\. 8\. 시행 판/.test(cmp) && cmp.includes(want60) && cmp.includes('근거 법령 원문 1 참조'));
     }
-    const hits = bannedIn(Object.values(docText).join('\n'));
+    // 신고서 서명란 칸 이름 「대리인」(별지 제15호서식)만 걸지 않는다 — 칸 밖의 「대리」는 그대로 잡는다(D5 261126)
+    const hits = bannedForm(Object.values(docText).join('\n'), WORDS);
     check(`report_forms 서류 글자 금지어 없음${hits.length ? ` (${hits.join(',')})` : ''}`, hits.length === 0);
   }
   console.log(`  report_forms 폴더: ${outDir}`);

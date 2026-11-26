@@ -304,9 +304,10 @@ describe('화면 문장', () => {
     expect(h).toContain('2,626,700원');
   });
 
-  it('대행이 아니라는 안내와, 첫 화면으로 간다고 밝힌 홈택스 링크 문장', () => {
+  it('1년 소득은 본인이 확정신고에서 다시 계산한다는 고지(D4 261126)와, 첫 화면으로 간다고 밝힌 홈택스 링크 문장', () => {
     const t = allCopy(checkItems({}), money(3_000_000)).join('\n');
-    expect(t).toContain('원천징수와 신고는 회사가 직접 합니다');
+    expect(t).toContain('참고용 계산이며, 1년 소득은 다음 해 5월 종합소득세 확정신고에서 본인이 다시 계산합니다.');
+    expect(t).not.toContain('원천징수와 신고는 회사');
     expect(HOMETAX_LINK.text).toBe('홈택스(첫 화면)');
     expect(t).toContain(`${HOMETAX_LINK.text}${HOMETAX_LINK.after}`);
     expect(HOMETAX_LINK.after).toMatch(/메뉴를 찾아/);

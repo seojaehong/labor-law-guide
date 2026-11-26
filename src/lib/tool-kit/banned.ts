@@ -25,3 +25,16 @@ export function bannedHits(text: string, words: readonly string[] = [...SERVICE_
   for (const p of Object.keys(ALLOWED_PHRASES)) t = t.split(p).join(' ');
   return words.filter((w) => t.includes(w));
 }
+
+/** 공식 서식의 칸 이름 — 서식 글자 그대로 옮겨야 한다(D5 261126).
+ *  ALLOWED_PHRASES 에 넣지 않는다: 사이트 문장에서 「대리인」은 계속 막고, 서식 글자와 그 칸을 받는 MCP 입력 설명만 bannedHitsInForm 으로 본다 */
+export const FORM_FIELD_NAMES: Record<string, string> = {
+  대리인: '취업규칙 신고서·변경신고서(근로기준법 시행규칙 별지 제15호서식) 서명란 칸 이름',
+};
+
+/** 서식 글자용 bannedHits — 서식 칸 이름을 먼저 지운다. 칸 이름 밖의 「대리」(「대리합니다」 등)는 그대로 잡는다 */
+export function bannedHitsInForm(text: string, words?: readonly string[]): string[] {
+  let t = text;
+  for (const p of Object.keys(FORM_FIELD_NAMES)) t = t.split(p).join(' ');
+  return bannedHits(t, words);
+}

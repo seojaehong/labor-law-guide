@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { bannedHits } from '@/lib/tool-kit/banned';
+import { ALLOWED_PHRASES, bannedHits, bannedHitsInForm } from '@/lib/tool-kit/banned';
 import { registerNosa } from '../../tools/k-labor/groups/nosa.mjs';
 import { registerNosaRecords } from '../../tools/k-labor/groups/nosa-records.mjs';
 
@@ -85,6 +85,15 @@ describe('bannedHits', () => {
   it('판결 원문과 법령 이름은 걸지 않는다', () => {
     expect(bannedHits('제3자를 고용하여 업무를 대행케 하는 등')).toEqual([]);
     expect(bannedHits('공인노무사법 시행령 별표 1의 적용 범위')).toEqual([]);
+  });
+  // D5(261126) — 취업규칙 신고서 서식 칸 이름 「대리인」은 서식 글자와 그 칸을 받는 MCP 입력 설명에서만 걸지 않는다
+  it('서식 칸 이름 「대리인」은 서식 글자에서만 허용하고, 사이트 문장의 「대리」는 계속 막는다', () => {
+    expect(bannedHitsInForm('대리인                (서명 또는 인)')).toEqual([]);
+    expect(bannedHitsInForm('{"agent":{"description":"대리인(선택)"}}')).toEqual([]);
+    expect(bannedHitsInForm('대리인이 대신 신고합니다')).toEqual(['대신']);
+    expect(bannedHitsInForm('신고를 대리합니다')).toEqual(['대리']);
+    expect(bannedHits('대리인                (서명 또는 인)')).toEqual(['대리']);
+    expect(Object.keys(ALLOWED_PHRASES).filter((p) => p.includes('대리'))).toEqual([]);
   });
 });
 

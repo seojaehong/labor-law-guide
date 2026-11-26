@@ -5,6 +5,7 @@ import { SITE_URL } from '@/lib/constants';
 import ToolShell from '@/components/tool/ToolShell';
 import DailyWorkerTaxClient from './DailyWorkerTaxClient';
 import { BASIS, HOMETAX, NTS } from './copy';
+import { WITHHOLDING_NOTICE } from '@/lib/tool-kit/tax-notice';
 
 // 이름·소개 금지어(261028 공통 장치)는 tests/unit/calc-daily-worker-tax.test.ts 가 막는다.
 export const metadata: Metadata = publicMetadata({
@@ -31,7 +32,7 @@ export default function DailyWorkerTaxPage() {
       basis={[...BASIS]}
       basisNote={
         <>
-          원천징수와 신고는 회사가 직접 합니다.{' '}
+          {WITHHOLDING_NOTICE}{' '}
           <a href={NTS.href} target="_blank" rel="noopener noreferrer" className="underline underline-offset-2">{NTS.text}</a>{NTS.after}{' '}
           <a href={HOMETAX.href} target="_blank" rel="noopener noreferrer" className="underline underline-offset-2">{HOMETAX.text}</a>{HOMETAX.after}{' '}
           일용근로자가 아니면 <Link href="/tools/take-home-pay" className="underline underline-offset-2">실수령액 계산기</Link>에서 간이세액표 소득세를 봅니다.

@@ -5,6 +5,7 @@ import { calcRetirementTax } from '@/lib/calc/retirement-tax';
 import FoldedDetail from '@/components/tool/FoldedDetail';
 import ResultBlock from '@/components/tool-result/ResultBlock';
 import { card, inputCls, ink, muted, small, todayKst } from '@/lib/tool-kit';
+import { WITHHOLDING_NOTICE } from '@/lib/tool-kit/tax-notice';
 import { CONSEQUENCES, HIRE_LABEL, HIRE_NOTE, HOMETAX, NOT_COVERED } from './copy';
 import { retirementTaxView } from './result';
 
@@ -64,9 +65,9 @@ export default function RetirementTaxClient() {
         <section className={card} aria-live="polite"><p className={small} style={ink}>{'error' in out ? out.error : ''}</p></section>
       ) : (
         <ResultBlock view={retirementTaxView({ r, hire, last, today })}>
-          {/* 세무사법 고지 — 링크가 있어 글자 그대로 둔다(reference_tax_calculator_semusa_law) */}
+          {/* 세금 도구 고지(D4 261126) — 참고용 계산·원천징수의무자(회사)·홈택스 모의계산. 링크가 있어 결과 블록 children 으로 둔다 */}
           <p className={`${small} mt-3`} style={{ color: 'var(--rb-sub)' }}>
-            예상 금액입니다. 원천징수와 신고는 회사가 직접 합니다.{' '}
+            {WITHHOLDING_NOTICE}{' '}
             홈택스{' '}
             <a href={HOMETAX.href} target="_blank" rel="noopener noreferrer" className="underline underline-offset-2">{HOMETAX.name}</a>
             {HOMETAX.note}

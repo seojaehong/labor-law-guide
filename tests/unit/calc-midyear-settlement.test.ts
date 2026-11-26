@@ -489,10 +489,10 @@ describe('화면 문장', () => {
     expect(s).toContain('대조하지 못했습니다');
   });
 
-  it('결과 문장에 대행 아님 고지와 「예상」이 늘 있다', () => {
+  it('결과 문장에 원천징수의무자(회사) 고지(D4 261126)와 「예상」이 늘 있다', () => {
     for (const o of all) {
       const lines = allCopy(o);
-      expect(lines.some((l) => l.includes('원천징수와 신고는 회사가 직접 합니다'))).toBe(true);
+      expect(lines.some((l) => l.includes('참고용 계산이며, 원천징수와 신고는 회사(원천징수의무자)가 합니다.'))).toBe(true);
       expect(headline(o)[0]).toContain('예상');
     }
   });

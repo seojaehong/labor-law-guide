@@ -175,7 +175,7 @@ describe('화면 — 두 카드 순서·이름, 세무 고지 그대로, 44px �
     const check = src.slice(src.indexOf('label={CHECK_LABEL}'), src.indexOf('</ResultBlock>'));
     for (const s of ['itemSentence(i)', 'answerLabel(i)', 'itemTag(i)', 'i.question.element']) expect(check).toContain(s);
   });
-  it('금액 카드 안에 표·MONEY_NOTES, 세무대리 아님 고지·홈택스 링크는 카드 밖에서 입력 오류일 때도 보인다(접지 않는다)', () => {
+  it('금액 카드 안에 표·MONEY_NOTES, 확정신고 고지·홈택스 링크는 카드 밖에서 입력 오류일 때도 보인다(접지 않는다)', () => {
     const start = src.indexOf('label={MONEY_LABEL}');
     const moneyBlock = src.slice(start, src.indexOf('</ResultBlock>', start));
     for (const s of ['moneyRows(out.r!)', 'MONEY_NOTES']) expect(moneyBlock).toContain(s);
@@ -187,7 +187,7 @@ describe('화면 — 두 카드 순서·이름, 세무 고지 그대로, 44px �
     expect(src.indexOf("'error' in out ?", part)).toBeLessThan(partEnd);
     for (const s of ['{NOTICE}', 'href={HOMETAX_URL}', '{HOMETAX_LINK.text}', '{HOMETAX_LINK.after}']) expect(notice).toContain(s);
     expect(notice).not.toMatch(/'r' in out|'error' in out/);
-    expect(NOTICE).toBe('원천징수와 신고는 회사가 직접 합니다. 입력한 숫자로 계산한 예상 금액입니다.');
+    expect(NOTICE).toBe('참고용 계산이며, 1년 소득은 다음 해 5월 종합소득세 확정신고에서 본인이 다시 계산합니다.');
     expect(HOMETAX_LINK.text).toBe('홈택스(첫 화면)');
   });
   it('결과 블록(잉크 반전 바탕) 안 children 은 muted·ink 를 쓰지 않는다', () => {

@@ -224,7 +224,7 @@ export default function RootLayout({
           </div>
           <div className="layout-wide layout-wide--chrome text-center">
             <p className="text-sm" style={{ color: 'var(--grey-700)' }}>
-              © 2026 {BRAND_NAME}. 본 사이트는 법령·판례 정보를 제공합니다. 개별 사안은 원문과 사실관계를 확인해 정하세요.
+              © 2026 {BRAND_NAME}. 본 사이트의 내용은 일반 정보 제공 목적의 참고 정보입니다. 개별 사안은 원문과 사실관계를 확인해 정하세요.
             </p>
             <p className="mt-1 text-xs" style={{ color: 'var(--grey-700)' }}>
               {/* §6.8 — 산문 링크는 상시 밑줄 + --color-accent-ink. 이 푸터는 전 라우트에 뜨므로

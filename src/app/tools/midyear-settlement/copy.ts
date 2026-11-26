@@ -1,6 +1,7 @@
 // 중도퇴사 연말정산 계산기의 문장은 모두 여기서 만든다. 시험이 이 함수들의 출력 전부를 금지어로 훑는다.
-// 세액 계산 도구 공통 장치(261028) — 결과는 「예상」으로만 말하고, 대행이 아니라고 늘 적고, 연락을 권하지 않는다.
+// 세액 계산 도구 공통 장치(261028) — 결과는 「예상」으로만 말하고, 참고용 계산·원천징수의무자 고지(D4 261126)를 늘 적고, 연락을 권하지 않는다.
 import type { MidyearDetail, MidyearInput, MidyearOutcome, MidyearPath } from '@/lib/calc/midyear-settlement';
+import { WITHHOLDING_NOTICE } from '@/lib/tool-kit/tax-notice';
 
 const won = (n: number) => `${n.toLocaleString('ko-KR')}원`;
 export const signed = (n: number) => (n > 0 ? `+${won(n)}` : n < 0 ? `−${won(-n)}` : '0원');
@@ -64,7 +65,7 @@ export const SCOPE_STOP = [
 /** 결과 아래 늘 붙는 고지 */
 export const NOTICE = [
   '예상 금액입니다. 회사가 실제로 적용한 공제에 따라 달라질 수 있습니다.',
-  '원천징수와 신고는 회사가 직접 합니다. 원천징수영수증이나 신고서를 만들지 않습니다.',
+  `${WITHHOLDING_NOTICE} 원천징수영수증이나 신고서를 만들지 않습니다.`,
 ];
 
 // 연말정산 모의계산 화면의 고정 주소는 확인하지 못했다 — 첫 화면으로 간다는 것을 글자로 밝힌다(PR #112 검토 3·13)
