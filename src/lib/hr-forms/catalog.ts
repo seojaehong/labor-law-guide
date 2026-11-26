@@ -253,7 +253,7 @@ const infertility: HrForm = {
   id: 'infertility-leave',
   title: '난임치료휴가 신청서',
   writer: 'employee',
-  summary: '인공수정·체외수정 등 난임치료를 받기 위한 휴가(연간 6일 이내, 현행 최초 2일 유급) 신청서.',
+  summary: '인공수정·체외수정 등 난임치료를 받기 위한 휴가(연간 6일 이내, 2026년 11월 26일까지 최초 2일, 11월 27일부터 최초 4일 유급. 시행 전 사용일도 최초 4일에 포함) 신청서.',
   basis: [`${LAW} 제18조의3`, '같은 법 시행령 제9조의3'],
   fields: [
     ...PERSON,
@@ -276,7 +276,7 @@ const infertility: HrForm = {
     const perYear = new Map<number, number>();
     for (const d of ok) perYear.set(d.getUTCFullYear(), (perYear.get(d.getUTCFullYear()) ?? 0) + 1);
     for (const [y, n] of perYear) if (n > 6) notes.push(`${y}년 사용 예정일이 ${n}일입니다. 법 제18조의3제1항은 연간 6일 이내로 정합니다.`);
-    notes.push('최초 2일은 유급입니다(법 제18조의3제1항, 2026.11.21. 현행 원문 기준).');
+    notes.push('2026년 11월 26일까지는 최초 2일, 2026년 11월 27일부터 사용한 난임치료휴가는 최초 4일이 유급입니다. 시행 전 이미 사용한 난임치료휴가도 최초 4일에 포함합니다(법 제18조의3제1항, 법률 제21700호 부칙 제2조).');
     notes.push('사업주는 난임치료를 받을 사실을 증명하는 서류를 요구할 수 있습니다(시행령 제9조의3제2항).');
     const md = doc(
       '난임치료휴가 신청서',
