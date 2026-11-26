@@ -314,9 +314,17 @@ if (tools.includes('calc_weekly_holiday_pay')) {
   // G4 D1 — 그 주(연속 7일) 7일째 전 퇴사(월~일 주 금요일, 또는 수요일 주휴·목요일 퇴사)는 0원
   const fri = await callTool('calc_weekly_holiday_pay', { hourlyWage: 10_320, weeklyHours: 40, endsBeforeWeekEnd: true });
   check(`weekly_holiday 퇴사일이 7일째 전이면 없음(${fri.headline?.[1]})`, fri.status === 'ended' && fri.amount === 0);
-  // G4 I2·D1 — 0원의 근거(존속 요건은 조문에 없음, 1350 답변·임금근로시간과-1743)를 웹과 같은 문장으로 싣는다
-  check(`weekly_holiday 퇴사 주 근거 1350·1743(${fri.basisNote})`,
-    /7일째가 되는 날/.test(fri.basisNote ?? '') && /임금근로시간과-1743/.test(fri.basisNote ?? '') && fri.basis?.some((b) => b.includes('제2조')));
+  // G4 I2·D1·R1 — 0원의 근거(존속 요건은 조문에 없음, 첫 근거 임금근로시간과-1736 · 보조 1350 답변)를 웹과 같은 문장으로 싣는다
+  check(`weekly_holiday 퇴사 주 근거 1736 먼저·1350 보조(${fri.basis?.find((b) => b.includes('1736'))})`,
+    /최소한 1주 동안의 근로관계 존속을 전제로/.test(fri.basisNote ?? '') && /임금근로시간과-1736/.test(fri.basisNote ?? '') && /7일째가 되는 날/.test(fri.basisNote ?? '')
+      && !/1743/.test(fri.basisNote ?? '') && fri.basis?.some((b) => b.includes('제2조'))
+      && fri.basis.findIndex((b) => b.includes('1736')) < fri.basis.findIndex((b) => b.includes('1350')));
+  // G4 R7 — 같은 주에 입사·퇴사(둘 다 true)는 퇴사가 앞서 0원(웹 체크 둘과 같은 답)
+  const both = await callTool('calc_weekly_holiday_pay', { hourlyWage: 10_320, weeklyHours: 40, joinedMidWeek: true, endsBeforeWeekEnd: true });
+  check('weekly_holiday 같은 주 입사·7일째 전 퇴사는 0원(ended)', both.status === 'ended' && both.amount === 0);
+  // G4 R9 — 옛 입력 endsBeforeRestDay 는 조용히 버려 82,560원을 내지 않고 거절한다
+  const legacy = await callTool('calc_weekly_holiday_pay', { hourlyWage: 10_320, weeklyHours: 40, endsBeforeRestDay: true });
+  check(`weekly_holiday 옛 입력 endsBeforeRestDay 거절(${legacy.error})`, legacy.ok === false && /endsBeforeWeekEnd/.test(legacy.error ?? '') && legacy.amount === undefined);
   const sun = await callTool('calc_weekly_holiday_pay', { hourlyWage: 10_320, weeklyHours: 40, endsBeforeWeekEnd: false });
   check('weekly_holiday 퇴사일이 7일째(일요일)면 82,560원(근거 줄 없음)', sun.status === 'paid' && sun.amount === 82_560 && sun.basisNote === undefined);
   // G4 E1 — 수요일 입사(주 24시간): 종전 49,536원 → 0원으로 단정하지 않고 금액 없음·확인 필요
@@ -324,6 +332,9 @@ if (tools.includes('calc_weekly_holiday_pay')) {
   check(`weekly_holiday 주중 입사면 금액 없음·확인 필요(${wed.headline?.[0]})`,
     wed.status === 'joined-unclear' && wed.amount === null && wed.monthly === null && /확인 필요/.test(wed.headline?.[0] ?? '')
       && /1743/.test(wed.headline?.[1] ?? '') && /근로를 시작한이후에/.test(wed.basisNote ?? '') && /제2조 제1항 제7호/.test(wed.basisNote ?? ''));
+  // G4 R4 — 무엇을 확인할지(1350 답변의 사후 정산·법적 효력 없음)를 웹 nextNote 와 같은 문장으로
+  check('weekly_holiday 주중 입사 확인 안내(checkNote) — 1350 사후 정산·법적 효력 없음',
+    /이후에 이를 정산하여/.test(wed.checkNote ?? '') && /법적 효력이 있는 해석이 아닙니다/.test(wed.checkNote ?? ''));
 }
 if (tools.includes('count_regular_workers')) {
   // 4명 원래부터 + 계약직 1명 2026-11-02~11-30, 월~금
@@ -344,6 +355,14 @@ if (tools.includes('count_regular_workers')) {
   check(`headcount 2-28 근거 1-28~2-27·미달 16/31, 연차 3-31 적용 아님(${gl[0]})`,
     g.baseDate?.periodStart === '2026-01-28' && g.baseDate.belowDays === 16 && g.baseDate.operatingDays === 31 && g.baseDate.covered === false
     && gl.length > 0 && !gl.some((l) => l.includes('3월 31일(화)')));
+  // G4 R8 — 연차 가장 이른 달: 2026-02-13부터 매일 5명, 연차를 볼 날 2027-01-31 → 첫 달 01-31~02-27(28일 중 미달 13일 → 5명 이상)
+  const lv = await callTool('count_regular_workers', {
+    openDays: [0, 1, 2, 3, 4, 5, 6], today: '2026-12-01', baseDate: '2027-01-31', crews: [{ count: 5, from: '2026-02-13' }],
+  });
+  const m0 = lv.annualLeaveMonths?.months?.[0];
+  check(`headcount 연차 첫 달 = 연차가 쓴 구간(${m0?.line})`,
+    lv.annualLeaveMonths?.months?.length === 12 && m0?.periodStart === '2026-01-31' && m0.periodEnd === '2026-02-27'
+      && m0.operatingDays === 28 && m0.belowDays === 13 && m0.covered === true);
 }
 if (tools.includes('calc_take_home_pay')) {
   const t = await callTool('calc_take_home_pay', { pay: 3_000_000, meal: 200_000, date: '2026-10-28' });

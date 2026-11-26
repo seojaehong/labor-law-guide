@@ -11,7 +11,7 @@ import { EXIT_DAY_DEFINITION, WEEK_NOTE, defaultWageNote, weekSpanInput, weeklyH
 
 const num = (s: string) => Number(s.replace(/,/g, '').trim());
 
-// 라디오 — 글자 줄(약 21px)만 눌리던 것을 44px 로 키운다(261124)
+// 라디오·체크 — 글자 줄(약 21px)만 눌리던 것을 44px 로 키운다(261124)
 const radioLabel = 'flex min-h-[44px] cursor-pointer items-center gap-2';
 
 export default function WeeklyHolidayClient() {
@@ -21,8 +21,9 @@ export default function WeeklyHolidayClient() {
   const [weekly, setWeekly] = useState('40');
   const [attended, setAttended] = useState(true);
   const [days, setDays] = useState('5');
-  // 그 주(연속 7일) 내내 재직했나 — whole = 7일 내내, joined = 주중 입사, before = 7일째 전 퇴사(G4 D1, 261126)
-  const [span, setSpan] = useState<WeekSpan>('whole');
+  // 그 주(연속 7일) 중간에 입사했나 · 7일째 전에 퇴사했나 — 둘 다 고를 수 있다(G4 D1·R7). 둘 다 안 고르면 7일 내내 재직
+  const [span, setSpanState] = useState<WeekSpan>({ joined: false, endsBefore: false });
+  const toggle = (k: keyof WeekSpan) => setSpanState((s) => ({ ...s, [k]: !s[k] }));
 
   const out = useMemo(() => {
     // 시급은 10억원까지(실수령액 계산기와 같은 한도). 빈칸·0 은 계산하지 않고 알린다 — 계산식은 그대로다
@@ -67,11 +68,10 @@ export default function WeeklyHolidayClient() {
           </div>
         </fieldset>
         <fieldset className={`${small} sm:col-span-2`} style={muted} aria-describedby="whp-exit-note">
-          <legend className="mb-1">그 주(연속 7일) 내내 재직했습니까</legend>
+          <legend className="mb-1">그 주(연속 7일) 중간에 입사하거나 퇴사했습니까(해당하는 것 모두 · 7일 내내 재직했으면 비움)</legend>
           <div className="flex flex-wrap gap-x-6">
-            <label className={radioLabel}><input type="radio" checked={span === 'whole'} onChange={() => setSpan('whole')} /> 7일 내내 재직했다(퇴사일이 7일째이거나 그 뒤 포함)</label>
-            <label className={radioLabel}><input type="radio" checked={span === 'joined'} onChange={() => setSpan('joined')} /> 그 주 첫날보다 늦게 입사했다</label>
-            <label className={radioLabel}><input type="radio" checked={span === 'before'} onChange={() => setSpan('before')} /> 퇴사일이 그 주 마지막 날(7일째) 전이다</label>
+            <label className={radioLabel}><input type="checkbox" checked={span.joined} onChange={() => toggle('joined')} /> 그 주 첫날보다 늦게 입사했다</label>
+            <label className={radioLabel}><input type="checkbox" checked={span.endsBefore} onChange={() => toggle('endsBefore')} /> 퇴사일이 그 주 마지막 날(7일째) 전이다</label>
           </div>
           <p id="whp-exit-note" className="mt-1 text-xs leading-relaxed">
             {WEEK_NOTE} {EXIT_DAY_DEFINITION}

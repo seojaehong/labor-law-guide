@@ -6,6 +6,7 @@ import {
   defaultPlan,
   editPlan,
   explainDate,
+  explainLeave,
   nextMonthRange,
   type Crew,
   type PlanEdit,
@@ -15,7 +16,7 @@ import BizNoLookup from '@/components/BizNoLookup';
 import FoldedDetail from '@/components/tool/FoldedDetail';
 import ResultBlock from '@/components/tool-result/ResultBlock';
 import { card, choiceLabel, fmtDate, inputCls, ink, muted, small, todayKst } from '@/lib/tool-kit';
-import { CHANGES, LEAVE_MONTHS_NOTE, basisLine, countInputError, crewLabel, leaveLines, noteLine, tenLine } from './copy';
+import { CHANGES, LEAVE_MONTHS_NOTE, basisLine, countInputError, crewLabel, leaveLines, leaveMonthLine, leaveMonthsHead, noteLine, tenLine } from './copy';
 import { headcountView } from './result';
 
 /** 결과 블록(잉크 반전 바탕) 안 보조 글자 — muted 는 바탕과 겹친다 */
@@ -139,6 +140,8 @@ export default function HeadcountClient() {
   const [picked, setPicked] = useState<string | null>(null);
   const inspectDate = picked ?? firstStart;
   const inspect = useMemo(() => explainDate(plan, inspectDate), [plan, inspectDate]);
+  // 그 날을 연차를 볼 날로 놓은 열두 달 — 연차 판단이 실제로 센 구간 그대로(G4 R8)
+  const leaveAt = useMemo(() => explainLeave(plan, inspectDate), [plan, inspectDate]);
   const ten = tenLine(answer, today);
 
   return (
@@ -234,6 +237,12 @@ export default function HeadcountClient() {
               <span key={d.date} className="tabular-nums" style={d.count < 5 ? muted : ink}>{d.date.slice(5)} {d.count}명</span>
             ))}
           </div>
+          <p className="mt-2 text-sm font-semibold" style={ink}>{leaveMonthsHead(leaveAt)}</p>
+          <ul className="space-y-0.5 text-sm">
+            {leaveAt.months.map((m) => (
+              <li key={m.periodEnd} className="tabular-nums" style={m.covered ? ink : muted}>{leaveMonthLine(m)}</li>
+            ))}
+          </ul>
       </FoldedDetail>
     </div>
   );

@@ -189,7 +189,8 @@ function spansWhere(from: string, to: string, holds: (d: string) => boolean): Co
 
 export interface AnnualLeaveResult {
   covered: boolean;
-  months: { periodStart: string; periodEnd: string; average: number; covered: boolean }[];
+  /** 달마다 실제로 센 구간과 그 값 — 근거 보기가 이 값을 그대로 그린다(첫 달은 날짜별 산정보다 짧을 수 있다, G4 R8) */
+  months: { periodStart: string; periodEnd: string; average: number; operatingDays: number; belowDays: number; covered: boolean }[];
 }
 
 /**
@@ -200,7 +201,9 @@ export function annualLeaveCoverage(input: HeadcountInput, baseDate: string): An
   const monthly = { ...input, threshold: 5 as const, businessStart: undefined };
   const months: AnnualLeaveResult['months'] = leaveMonths(baseDate).map(({ start, base }) => {
     const r = countPeriod(monthly, base, start);
-    return { periodStart: r.periodStart, periodEnd: r.periodEnd, average: r.average, covered: r.covered };
+    return {
+      periodStart: r.periodStart, periodEnd: r.periodEnd, average: r.average, operatingDays: r.operatingDays, belowDays: r.belowDays, covered: r.covered,
+    };
   });
   const started = !input.businessStart || input.businessStart <= months[0].periodStart;
   return { covered: started && months.every((m) => m.covered), months };

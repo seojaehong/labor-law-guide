@@ -2,7 +2,8 @@
 // 값은 모두 합성이다.
 import { describe, expect, it } from 'vitest';
 import { addDays, annualLeaveCoverage, annualLeaveTimeline, computeHeadcount, type HeadcountInput } from '@/lib/headcount';
-import { answerPlan, type Plan } from '@/lib/headcount-plan';
+import { answerPlan, explainLeave, type Plan } from '@/lib/headcount-plan';
+import { LEAVE_MONTHS_NOTE, leaveMonthLine } from '@/app/tools/headcount/copy';
 import { rateOn } from '@/content/rates';
 import { WITHHOLDING_UNTIL, calcTakeHomePay, takeHomeRatesOn } from '@/lib/calc/take-home-pay';
 import { calcWeeklyHoliday } from '@/lib/calc/weekly-holiday';
@@ -251,32 +252,37 @@ describe('#4 주휴 퇴사 주', () => {
 
 // ── G4 D1(261126 재홍님 결정) 퇴사 주 = 1주(연속 7일)의 마지막 날(7일째)까지 근로관계가 이어져야 생긴다 ──
 // 주휴일 요일과 상관없다. 입사 주는 E1(아래)로 바뀌었다 — 0원으로 단정하지 않고 금액 없이 「확인 필요」.
-// 근거: 고용노동부 1350 답변(2025. 9. 15.) 「1주 7일의 마지막날(7일째가 되는 날)…」, 임금근로시간과-1743 「1주간의 근로관계가 존속하면서」.
+// 근거: 임금근로시간과-1736(2021. 8. 4.) 「최소한 1주 동안의 근로관계 존속을 전제로 한다고 봄이 타당」(첫 근거, G4 R1),
+// 고용노동부 1350 답변(2025. 9. 15.) 「1주 7일의 마지막날(7일째가 되는 날)…」(보조).
 describe('G4 D1 주휴 1주(연속 7일) 존속 기준', () => {
+  const NONE: WeekSpan = { joined: false, endsBefore: false };
+  const JOINED: WeekSpan = { joined: true, endsBefore: false };
+  const BEFORE: WeekSpan = { joined: false, endsBefore: true };
   const at = (weeklyHours: number, span: WeekSpan) =>
     calcWeeklyHoliday({ hourlyWage: 10_320, weeklyHours, fullAttendance: true, ...weekSpanInput(span) });
 
-  it('화면 선택 → 엔진 입력: 「7일 내내 재직」만 생기고, 7일째 전 퇴사는 0원, 주중 입사는 금액 없음(E1)', () => {
-    expect(WEEK_SPANS.map((s) => [s, at(40, s).status, at(40, s).amount])).toEqual([
-      ['whole', 'paid', 82_560],
-      ['joined', 'joined-unclear', null],
-      ['before', 'ended', 0],
+  it('화면 체크 → 엔진 입력: 둘 다 안 고르면 생기고, 7일째 전 퇴사는 0원, 주중 입사는 금액 없음(E1), 둘 다면 0원(R7)', () => {
+    expect(WEEK_SPANS.map((s) => [s.joined, s.endsBefore, at(40, s).status, at(40, s).amount])).toEqual([
+      [false, false, 'paid', 82_560],
+      [true, false, 'joined-unclear', null],
+      [false, true, 'ended', 0],
+      [true, true, 'ended', 0],
     ]);
   });
 
   it('반례 1 — 월~일 주, 수요일 주휴, 목요일 퇴사: 7일째(일요일) 전이라 0원(종전 「주휴일이거나 그 뒤」로 82,560원)', () => {
-    const r = at(40, 'before');
+    const r = at(40, BEFORE);
     expect([r.status, r.amount]).toEqual(['ended', 0]);
   });
 
   it('반례 2 — 수요일 입사·일요일 종료(같은 주): 종전 주 24시간 49,536원 → 금액 없음·확인 필요(E1)', () => {
-    expect(at(24, 'whole').amount).toBe(49_536); // 종전 값 확인 — 10,320 × 24 ÷ 5
-    const r = at(24, 'joined');
+    expect(at(24, NONE).amount).toBe(49_536); // 종전 값 확인 — 10,320 × 24 ÷ 5
+    const r = at(24, JOINED);
     expect([r.status, r.amount, r.monthly]).toEqual(['joined-unclear', null, null]);
   });
 
   it('7일째(일요일)까지 재직하고 퇴사하면 생긴다 — 8일째 근로가 예정되지 않아도', () => {
-    expect(at(40, 'whole').amount).toBe(82_560);
+    expect(at(40, NONE).amount).toBe(82_560);
   });
 
   const view = (span: WeekSpan, weeklyHours = 40) =>
@@ -284,20 +290,19 @@ describe('G4 D1 주휴 1주(연속 7일) 존속 기준', () => {
       r: at(weeklyHours, span), hourlyWage: 10_320, weeklyHours, fullTimeDays: 5, minWage: rateOn('minWageHourly', '2026-11-26'),
     });
 
-  it('퇴사(ended) 화면 — 7일째 기준 문장, 근거 줄(1350 · 1743 원문 구절), 1주 정의 조문 링크', () => {
-    const v = view('before');
+  it('퇴사(ended) 화면 — 7일째 기준 문장, 근거 줄(1736 첫 근거 · 1350 보조), 1주 정의 조문 링크', () => {
+    const v = view(BEFORE);
     expect(v.verdict).toEqual(ENDED_VERDICT);
     expect(ENDED_VERDICT.join(' ')).toContain('7일');
     expect(ENDED_VERDICT.join(' ')).not.toContain('주휴일 전');
     expect(v.amounts).toEqual([]);
     expect(v.meta).toEqual([ENDED_BASIS]);
     expect(ENDED_BASIS).toContain('「1주 7일의 마지막날(7일째가 되는 날)」');
-    expect(ENDED_BASIS).toContain('「1주간의 근로관계가 존속하면서」');
     expect(ENDED_BASIS).not.toContain('6551');
     expect(v.basis.map((b) => b.label)).toContain('근로기준법 제2조(정의)');
   });
 
-  it('화면 — 선택지 셋, 옛 「주휴일 전」 문구 없음, 설명은 7일째 기준과 금/일·수요일 예시', () => {
+  it('화면 — 입사·퇴사 체크 둘, 옛 「주휴일 전」 문구 없음, 설명은 7일째 기준과 금/일·수요일 예시', () => {
     const src = readFileSync('src/app/tools/weekly-holiday-pay/WeeklyHolidayClient.tsx', 'utf8');
     expect(src).toContain('weekSpanInput(');
     expect(src).toContain('{WEEK_NOTE}');
@@ -308,7 +313,7 @@ describe('G4 D1 주휴 1주(연속 7일) 존속 기준', () => {
 });
 
 // ── G4 E1(261126 재홍님 결정) 입사 주는 0원으로 단정하지 않는다 — 금액을 내지 않고 「확인 필요」로 멈춘다 ──
-// 입사 주를 직접 다룬 행정해석이 없고, 임금근로시간과-1743 은 근로를 시작한 뒤 어느 시점에서 과거 1주를 보라고 해
+// 입사 주를 직접 다룬 행정해석을 찾지 못했고, 임금근로시간과-1743 은 근로를 시작한 뒤 어느 시점에서 과거 1주를 보라고 해
 // 「입사일부터 7일을 채우면 생긴다」로 읽힐 수 있다(일용근로자 사안). 퇴사 주(D1)는 그대로.
 describe('G4 E1 주휴 입사 주 — 금액 없이 확인 필요', () => {
   const base = { hourlyWage: 10_320, weeklyHours: 40, fullAttendance: true };
@@ -362,7 +367,8 @@ describe('G4 E1 주휴 입사 주 — 금액 없이 확인 필요', () => {
 });
 
 // ── G4 I2(261126) 퇴사 주 — 0원(ended)의 근거 줄과 퇴사일 뜻(상실일은 그다음 날) ──
-// 존속 요건은 조문에 없다(시행령 제30조 제1항은 개근만). 원문 확인한 해석 = 임금근로시간과-1743(2021. 8. 5., 법제처 DRF 16858).
+// 존속 요건은 조문에 없다(시행령 제30조 제1항은 개근만). 원문 확인한 해석 = 임금근로시간과-1736(2021. 8. 4., 고용노동부 정책자료
+// bbs_seq=20210802167 첨부 — G4 R1 에서 1743 을 바꿨다).
 describe('G4 I2 퇴사 주 근거·퇴사일 설명', () => {
   const view = (endsBeforeWeekEnd?: boolean) =>
     weeklyHolidayView({
@@ -370,11 +376,10 @@ describe('G4 I2 퇴사 주 근거·퇴사일 설명', () => {
       hourlyWage: 10_320, weeklyHours: 40, fullTimeDays: 5, minWage: rateOn('minWageHourly', '2026-11-26'),
     });
 
-  it('ended 화면에 존속 요건의 근거를 밝힌다 — 조문에 없음, 임금근로시간과-1743 원문 구절', () => {
+  it('ended 화면에 존속 요건의 근거를 밝힌다 — 조문에 없음, 임금근로시간과-1736 원문 구절(G4 R1)', () => {
     expect(view(true).meta).toEqual([ENDED_BASIS]);
     expect(ENDED_BASIS).toContain('시행령 제30조 제1항은 개근');
-    expect(ENDED_BASIS).toContain('「1주간의 근로관계가 존속하면서」');
-    expect(ENDED_BASIS).toContain('임금근로시간과-1743, 2021. 8. 5.');
+    expect(ENDED_BASIS).toContain('임금근로시간과-1736, 2021. 8. 4.');
   });
 
   it('평상 주(paid)에는 퇴사 주 근거 줄을 붙이지 않는다', () => {
@@ -382,12 +387,12 @@ describe('G4 I2 퇴사 주 근거·퇴사일 설명', () => {
     expect(view().meta ?? []).not.toContain(ENDED_BASIS);
   });
 
-  it('퇴사일 = 근로관계가 이어진 마지막 날, 인사기록·4대보험의 상실일(퇴직일)은 그다음 날 — 화면 설명과 0원 안내가 같은 뜻', () => {
+  it('퇴사일 = 근로관계가 이어진 마지막 날, 인사기록·4대보험의 상실일은 그다음 날 — 화면 설명과 0원 안내가 같은 뜻', () => {
     expect(EXIT_DAY_DEFINITION).toContain('근로관계가 이어진 마지막 날');
-    expect(EXIT_DAY_DEFINITION).toContain('상실일(퇴직일)은 그다음 날');
+    expect(EXIT_DAY_DEFINITION).toContain('상실일은 그다음 날');
     expect(EXIT_DAY_DEFINITION).not.toContain('인사기록의 날짜');
     const next = view(true).nextNote ?? '';
-    expect(next).toContain('상실일(퇴직일)은 그다음 날');
+    expect(next).toContain('상실일은 그다음 날');
     expect(next).not.toContain('사직서·인사기록에 적힌');
     // 주휴 화면·MCP 에는 날짜 칸이 없다(라디오·참거짓) — 「넣은 날짜」류로 말하지 않는다
     expect(`${EXIT_DAY_DEFINITION} ${next}`).not.toMatch(/넣은 날짜|넣으면/);
@@ -397,5 +402,113 @@ describe('G4 I2 퇴사 주 근거·퇴사일 설명', () => {
 
   it('새 문장에 금지어가 없다', () => {
     expect(bannedHits([ENDED_BASIS, EXIT_DAY_DEFINITION, view(true).nextNote ?? ''].join(' '))).toEqual([]);
+  });
+});
+
+// ── G4 2차(R1~R9, 261127) — 판정표 G4_판정표_R2_261127.md #297 ──
+describe('G4 R2 #297 반영', () => {
+  const src = (p: string) => readFileSync(p, 'utf8');
+  const whpMcp = () => {
+    const s = src('tools/k-labor/groups/calc.mjs');
+    const from = s.indexOf("title: '주휴수당 계산'");
+    expect(from).toBeGreaterThan(0);
+    return s.slice(from, s.indexOf('// ── 상시 근로자 수', from));
+  };
+  const base = { hourlyWage: 10_320, weeklyHours: 40, fullAttendance: true };
+  const view = (input: Parameters<typeof calcWeeklyHoliday>[0]) =>
+    weeklyHolidayView({
+      r: calcWeeklyHoliday(input), hourlyWage: input.hourlyWage, weeklyHours: input.weeklyHours, fullTimeDays: 5,
+      minWage: rateOn('minWageHourly', '2026-11-26'),
+    });
+
+  it('R1 퇴사 주 첫 근거 = 임금근로시간과-1736(고용노동부 정책자료 첨부 원문 구절), 1350 은 보조 — 일할계산과 같은 번호', () => {
+    // 「」 안 = 고용노동부 정책자료(bbs_seq=20210802167) 첨부 「주휴수당 및 연차휴가 산정 관련 행정해석 변경(8.4.) 안내」 글자 그대로
+    expect(ENDED_BASIS).toContain('「최소한 1주 동안의 근로관계 존속을 전제로 한다고 봄이 타당」');
+    expect(ENDED_BASIS).toContain('「법령상 그 다음주까지 근로관계가 유지되어야 한다는 내용은 없으며」');
+    expect(ENDED_BASIS.indexOf('1736')).toBeLessThan(ENDED_BASIS.indexOf('1350'));
+    expect(whpMcp()).toMatch(/임금근로시간과-1736\(2021\. 8\. 4\.\)/);
+    const pp = src('src/app/tools/pay-proration/copy.ts');
+    expect(pp).not.toContain('언론 보도');
+    expect(pp).toContain('임금근로시간과-1736, 2021. 8. 4.');
+  });
+
+  it('R2 엔진 주석 — 1350 은 실시간 상담 목록, 6551 은 1736 으로 폐기된 종전 해석', () => {
+    const s = src('src/lib/calc/weekly-holiday.ts');
+    expect(s).not.toContain('문답 셋');
+    expect(s).toContain('실시간 상담 목록');
+    expect(s).toMatch(/6551[^]*?폐기/);
+  });
+
+  it('R3 입사 주 문구는 「찾지 못해」로 통일 — 「없어/없고」 단정 없음(화면 설명·MCP)', () => {
+    expect(WEEK_NOTE).toContain('찾지 못해');
+    expect(WEEK_NOTE).not.toMatch(/행정해석이 없/);
+    expect(whpMcp()).not.toMatch(/행정해석이 없/);
+  });
+
+  it('R4 입사 주 확인 안내 — 1350 답변(첫 지정 주휴일·입사일 기준 사후 정산)과 법적 효력 없음, 금액 보류는 그대로', () => {
+    const v = view({ ...base, joinedMidWeek: true });
+    expect([v.status, v.amounts]).toEqual([STATUS_STOP, []]);
+    const next = v.nextNote ?? '';
+    // 「」 안 = 1350 실시간 상담 2026. 5. 29.·9. 7. 답변 글자 그대로(id=1000236183)
+    expect(next).toContain('「입사일을 기준으로 1주일에 평균 1회 이상의 주휴일을 부여하지 않았다면 이후에 이를 정산하여 추가로 유급 휴일을 부여하여야 할 것」');
+    expect(next).toContain('「입사 후 1주간(7일)을 채우지 못하였으므로 이를 무급으로 부여하더라도 법 위반이라고 할 수는 없으며」');
+    expect(next).toContain('2026. 5. 29.');
+    expect(next).toContain('법적 효력이 있는 해석이 아닙니다');
+    expect(next).toContain('근로계약·취업규칙과 노동부 해석을 확인하세요');
+    expect(bannedHits(next)).toEqual([]);
+    expect(whpMcp()).toContain('JOINED_NEXT');
+  });
+
+  it('R5 「상실일(퇴직일)」 괄호 없음 — 4대보험 서식은 퇴직일과 상실일을 나눠 적는다', () => {
+    for (const s of [EXIT_DAY_DEFINITION, view({ ...base, endsBeforeWeekEnd: true }).nextNote ?? '', whpMcp(), src('src/lib/calc/weekly-holiday.ts'),
+      src('.claude/skills/verify-llg/features/weekly-holiday-pay.md')]) {
+      expect(s).not.toContain('상실일(퇴직일)');
+    }
+  });
+
+  it('R6 「마지막 근무일이 아니다」 → 「마지막으로 출근한 날이 아니다」(#299 의 「마지막 근무일 = 근로관계 마지막 날」과 부딪히지 않게)', () => {
+    expect(EXIT_DAY_DEFINITION).toContain('마지막으로 출근한 날');
+    expect(whpMcp()).toContain('마지막으로 출근한 날이 아니다');
+    for (const s of [EXIT_DAY_DEFINITION, view({ ...base, endsBeforeWeekEnd: true }).nextNote ?? '', whpMcp(), src('src/lib/calc/weekly-holiday.ts')]) {
+      expect(s).not.toContain('마지막 근무일');
+    }
+  });
+
+  it('R7 웹은 입사·퇴사를 둘 다 고를 수 있다 — 수요일 입사·금요일 종료는 MCP 와 같은 0원(ended)', () => {
+    const c = src('src/app/tools/weekly-holiday-pay/WeeklyHolidayClient.tsx');
+    expect((c.match(/<input type="checkbox"/g) ?? []).length).toBe(2);
+    expect(c).not.toMatch(/setSpan\(/);
+    const both = calcWeeklyHoliday({ ...base, ...weekSpanInput({ joined: true, endsBefore: true }) });
+    expect([both.status, both.amount]).toEqual(['ended', 0]);
+    expect(calcWeeklyHoliday({ ...base, joinedMidWeek: true, endsBeforeWeekEnd: true })).toMatchObject({ status: 'ended', amount: 0 });
+  });
+
+  // R8 — astra A3 재현: 매일 영업, 2026-02-13부터 5명(그 전 0명), 연차를 볼 날 2027-01-31
+  const lateFive: Plan = {
+    site: { openDays: ALL, closedDates: [] },
+    crews: [{ id: 'c1', count: 5, from: '2026-02-13', days: 'site', kind: 'regular' }],
+  };
+  it('R8 연차 가장 이른 달 — 근거 보기가 연차가 실제 쓴 구간(01-31~02-27, 28일)을 그대로 보인다', () => {
+    const leave = explainLeave(lateFive, '2027-01-31');
+    const first = leave.months[0];
+    expect([first.periodStart, first.periodEnd, first.operatingDays, first.belowDays, first.covered]).toEqual(['2026-01-31', '2026-02-27', 28, 13, true]);
+    expect(leave.months).toHaveLength(12);
+    const line = leaveMonthLine(first);
+    expect(line).toContain('2026-01-31 ~ 2026-02-27');
+    expect(line).toContain('가동 28일');
+    expect(line).toContain('5명 미만 13일');
+    // 화면 근거 보기가 열두 달을 그대로 그린다
+    const c = src('src/app/tools/headcount/HeadcountClient.tsx');
+    expect(c).toContain('explainLeave(');
+    expect(c).toContain('leaveMonthLine(');
+    // 「그 날짜를 넣으면 같은 구간」은 가장 이른 달에 맞지 않아 쓰지 않는다
+    expect(LEAVE_MONTHS_NOTE).not.toContain('같은 구간이 나옵니다');
+    expect(bannedHits([LEAVE_MONTHS_NOTE, line].join(' '))).toEqual([]);
+  });
+
+  it('R9 MCP 옛 입력 endsBeforeRestDay 는 조용히 버리지 않고 거절한다', () => {
+    const m = whpMcp();
+    expect(m).toContain('endsBeforeRestDay');
+    expect(m).toMatch(/endsBeforeRestDay[^]*?throw new Error/);
   });
 });
