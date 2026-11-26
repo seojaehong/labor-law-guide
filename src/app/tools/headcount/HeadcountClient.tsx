@@ -15,7 +15,7 @@ import BizNoLookup from '@/components/BizNoLookup';
 import FoldedDetail from '@/components/tool/FoldedDetail';
 import ResultBlock from '@/components/tool-result/ResultBlock';
 import { card, choiceLabel, fmtDate, inputCls, ink, muted, small, todayKst } from '@/lib/tool-kit';
-import { CHANGES, basisLine, countInputError, crewLabel, leaveLines, noteLine, tenLine } from './copy';
+import { CHANGES, LEAVE_MONTHS_NOTE, basisLine, countInputError, crewLabel, leaveLines, noteLine, tenLine } from './copy';
 import { headcountView } from './result';
 
 /** 결과 블록(잉크 반전 바탕) 안 보조 글자 — muted 는 바탕과 겹친다 */
@@ -213,6 +213,7 @@ export default function HeadcountClient() {
             확인할 날(수당·해고 등 법을 적용할 일이 생긴 날)
             <input type="date" className={inputCls} value={inspectDate} onChange={(e) => setPicked(e.target.value || null)} />
           </label>
+          <p className="text-xs leading-relaxed" style={muted}>{LEAVE_MONTHS_NOTE}</p>
           <p className="text-base font-semibold" style={ink}>
             {fmtDate(inspect.baseDate, today)} — {inspect.covered ? '5인 이상으로 봅니다' : '5인 이상으로 보지 않습니다'}
           </p>

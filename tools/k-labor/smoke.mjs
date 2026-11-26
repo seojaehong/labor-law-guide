@@ -326,6 +326,15 @@ if (tools.includes('count_regular_workers')) {
   check(`headcount 5인 이상 2026-11-17~12-15(${h.headline?.[0]})`, h.fivePlus?.kind === 'spans' && s?.from === '2026-11-17' && s?.to === '2026-12-15');
   check(`headcount 기준일 근거 rule2-1·가동일 21·미달 10(${h.baseDate?.line})`, h.baseDate?.basis === 'rule2-1' && h.baseDate.operatingDays === 21 && h.baseDate.belowDays === 10);
   check('headcount 연차 없음·10명 기간 없음', h.annualLeave?.kind === 'none' && h.tenPlus?.spans?.length === 0);
+  // G4 I3 — 연차 2월 달 = 2026-02-28 날짜별 산정(1-28~2-27, 미달 16/31). 2025-03-31 개업, 다섯째 1-28~2-12 부재
+  const g = await callTool('count_regular_workers', {
+    openDays: [0, 1, 2, 3, 4, 5, 6], businessStart: '2025-03-31', today: '2026-03-01', baseDate: '2026-02-28',
+    crews: [{ count: 4, from: '2025-03-31' }, { count: 1, from: '2025-03-31', to: '2026-01-27' }, { count: 1, from: '2026-02-13' }],
+  });
+  const gl = g.annualLeave?.lines ?? [];
+  check(`headcount 2-28 근거 1-28~2-27·미달 16/31, 연차 3-31 적용 아님(${gl[0]})`,
+    g.baseDate?.periodStart === '2026-01-28' && g.baseDate.belowDays === 16 && g.baseDate.operatingDays === 31 && g.baseDate.covered === false
+    && gl.length > 0 && !gl.some((l) => l.includes('3월 31일(화)')));
 }
 if (tools.includes('calc_take_home_pay')) {
   const t = await callTool('calc_take_home_pay', { pay: 3_000_000, meal: 200_000, date: '2026-10-28' });

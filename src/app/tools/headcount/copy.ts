@@ -105,6 +105,10 @@ export function crewLabel(c: Crew | undefined): string {
   return c.from || c.to ? '기간을 정해 쓰는 사람' : '지금 일하는 직원';
 }
 
+/** 「날짜별 계산 보기」 안내 — 연차 판단의 열두 달이 이 계산과 같은 구간임을 알린다(G4 I3, 261126). lib/headcount.ts leaveMonths */
+export const LEAVE_MONTHS_NOTE =
+  '연차(제3항)는 연차를 볼 날과 그날에서 1~11개월 앞선 같은 날짜(그 달에 그날이 없으면 말일), 모두 열두 날마다 센 1개월이 전부 5명 이상일 때 생깁니다. 그 날짜를 여기 넣으면 연차 판단에 쓴 것과 같은 구간이 나옵니다. 가장 이른 달만 1년 밖의 날을 빼고 셉니다.';
+
 /** 날짜별 계산 근거 문장 */
 export function basisLine(r: HeadcountResult): string {
   if (r.operatingDays === 0) return '그 전 1개월에 가동일이 없습니다. 문 여는 요일과 쉬는 날을 확인합니다.';
@@ -125,5 +129,6 @@ export function allCopy(a: PlanAnswer, plan: Plan, today: string): string[] {
     ...plan.crews.map(crewLabel),
     ...CHANGES.map((c) => `${c.title} ${c.basis}`),
     inspect ? basisLine(inspect) : '',
+    LEAVE_MONTHS_NOTE,
   ].filter(Boolean);
 }

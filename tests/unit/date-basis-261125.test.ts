@@ -1,7 +1,7 @@
 // 261124 도구 검수 「① 날짜 기준」 묶음(P3 #8·#9·#4, P2 #17) — 날짜를 무엇 기준으로 잡느냐의 결함.
 // 값은 모두 합성이다.
 import { describe, expect, it } from 'vitest';
-import { addDays, annualLeaveCoverage, annualLeaveTimeline, type HeadcountInput } from '@/lib/headcount';
+import { addDays, annualLeaveCoverage, annualLeaveTimeline, computeHeadcount, type HeadcountInput } from '@/lib/headcount';
 import { answerPlan, type Plan } from '@/lib/headcount-plan';
 import { rateOn } from '@/content/rates';
 import { WITHHOLDING_UNTIL, calcTakeHomePay, takeHomeRatesOn } from '@/lib/calc/take-home-pay';
@@ -31,13 +31,20 @@ describe('#8 연차 상시인원 — 1주년 당일에 직전 1년을 채운다'
     });
   }
 
-  it('열두 달이 빈틈없이 이어진다(2026-03-31 기준: 3-31, 4-30, …, 2-28 경계)', () => {
+  // G4 I3(261126)로 기대값을 바꿨다 — 종전 「3-31, 4-30, …, 1-31, 2-28 시작·겹침 없음」. 이제 각 달은 그 달 기준일
+  // (4-30, 5-31, …, 2-28, 3-31)의 1개월 산정 구간이라 짧은 달 뒤에서 앞 달과 겹친다. 빈틈은 여전히 없다.
+  it('열두 달이 빈틈없이 1년을 덮는다(2026-03-31 기준 — 각 달 = 그 달 기준일의 1개월 산정, 겹침 허용)', () => {
     const r = annualLeaveCoverage(shop('2025-03-31'), '2026-03-31');
     expect(r.months.map((m) => m.periodStart)).toEqual([
-      '2025-03-31', '2025-04-30', '2025-05-31', '2025-06-30', '2025-07-31', '2025-08-31',
-      '2025-09-30', '2025-10-31', '2025-11-30', '2025-12-31', '2026-01-31', '2026-02-28',
+      '2025-03-31', '2025-04-30', '2025-05-30', '2025-06-30', '2025-07-31', '2025-08-30',
+      '2025-09-30', '2025-10-30', '2025-11-30', '2025-12-31', '2026-01-28', '2026-02-28',
     ]);
-    for (let i = 1; i < 12; i++) expect(addDays(r.months[i - 1].periodEnd, 1)).toBe(r.months[i].periodStart);
+    expect(r.months[0].periodStart).toBe('2025-03-31');
+    expect(r.months.at(-1)!.periodEnd).toBe('2026-03-30');
+    for (let i = 1; i < 12; i++) {
+      expect(r.months[i].periodStart <= addDays(r.months[i - 1].periodEnd, 1)).toBe(true);
+      expect(r.months[i].periodEnd > r.months[i - 1].periodEnd).toBe(true);
+    }
   });
 
   it('한 달이라도 5명 미만이면 해당하지 않는다', () => {
@@ -54,6 +61,75 @@ describe('#8 연차 상시인원 — 1주년 당일에 직전 1년을 채운다'
       expect(spans).toEqual([{ from: day, to: addDays(day, 40) }]);
     });
   }
+});
+
+// ── G4 I3(261126) 연차 월별 판정의 각 달 = 그 달 기준일의 날짜별 1개월 산정(「날짜별 계산 보기」와 같은 구간) ──
+// 시행령 제7조의2 제3항 「제1항 및 제2항에 따라 월 단위로」 — 달마다 ①의 「그날 전 1개월」 구간을 쓴다.
+describe('G4 I3 연차 월 경계 = 날짜별 1개월 산정', () => {
+  // astra A14 재현: 2025-03-31 개업, 매일 4명 + 다섯째는 2026-01-28~02-12 부재
+  const gap = (): HeadcountInput => {
+    const input = shop('2025-03-31');
+    input.workers[4] = { ...input.workers[4], end: '2026-01-27' };
+    input.workers.push({ name: 'F', start: '2026-02-13', workWeekdays: ALL, kind: 'regular' });
+    return input;
+  };
+
+  it('2026-02-28 날짜별 산정 — 1-28~2-27, 5명 미만 16일/31일 → 5인 이상으로 보지 않음', () => {
+    const r = computeHeadcount(gap(), '2026-02-28');
+    expect([r.periodStart, r.periodEnd, r.belowDays, r.operatingDays, r.covered]).toEqual(['2026-01-28', '2026-02-27', 16, 31, false]);
+  });
+
+  it('2026-03-31 연차 판정의 2월 달도 같은 구간·같은 결론 → 연차 해당 안 함(종전 1-31~2-27, 13일/28일로 해당)', () => {
+    const r = annualLeaveCoverage(gap(), '2026-03-31');
+    const feb = r.months.find((m) => m.periodEnd === '2026-02-27')!;
+    expect([feb.periodStart, feb.covered]).toEqual(['2026-01-28', false]);
+    expect(r.covered).toBe(false);
+    // 화면·MCP 경로(answerPlan)도 2026-03-31 을 연차 적용일로 넣지 않는다
+    const leave = answerPlan({
+      site: { openDays: ALL, closedDates: [], businessStart: '2025-03-31' },
+      crews: [
+        { id: 'c1', count: 4, from: '2025-03-31', days: 'site', kind: 'regular' },
+        { id: 'c2', count: 1, from: '2025-03-31', to: '2026-01-27', days: 'site', kind: 'regular' },
+        { id: 'c3', count: 1, from: '2026-02-13', days: 'site', kind: 'regular' },
+      ],
+    }, '2026-03-01').leave;
+    const on = (d: string) =>
+      leave.kind === 'always' || (leave.kind === 'from' && d >= leave.date) || (leave.kind === 'spans' && leave.spans.some((s) => s.from <= d && d <= s.to));
+    expect(on('2026-03-31')).toBe(false);
+  });
+
+  for (const base of ['2026-03-31', '2026-01-31', '2026-05-31', '2026-03-30', '2026-03-15', '2028-02-29', '2027-02-28']) {
+    it(`${base} 연차 판정 — 둘째~열두째 달은 그 달 기준일(끝 다음 날)의 날짜별 산정과 구간·평균·결론이 같다`, () => {
+      const input = { ...gap(), businessStart: undefined };
+      const r = annualLeaveCoverage(input, base);
+      for (const m of r.months.slice(1)) {
+        const one = computeHeadcount(input, addDays(m.periodEnd, 1));
+        expect([m.periodStart, m.periodEnd, m.average, m.covered]).toEqual([one.periodStart, one.periodEnd, one.average, one.covered]);
+      }
+    });
+  }
+
+  it('첫 달만 1년 밖으로 나가지 않게 기준일 12개월 전에서 자른다 — 그 달은 날짜별 산정보다 짧을 수 있다', () => {
+    const input = { ...gap(), businessStart: undefined };
+    // 2026-01-31 기준: 첫 달 기준일 2025-02-28 의 날짜별 산정은 2025-01-28~, 연차 첫 달은 2025-01-31~
+    const r = annualLeaveCoverage(input, '2026-01-31');
+    expect([r.months[0].periodStart, r.months[0].periodEnd]).toEqual(['2025-01-31', '2025-02-27']);
+    expect(computeHeadcount(input, '2025-02-28').periodStart).toBe('2025-01-28');
+  });
+
+  it('타임라인도 같은 달 구간으로 판단한다 — 날짜마다 annualLeaveCoverage 와 같다', () => {
+    const input = gap();
+    const from = '2026-03-25';
+    const to = '2026-05-10';
+    const slow: { from: string; to: string }[] = [];
+    for (let d = from; d <= to; d = addDays(d, 1)) {
+      if (!annualLeaveCoverage(input, d).covered) continue;
+      const last = slow.at(-1);
+      if (last && addDays(last.to, 1) === d) last.to = d;
+      else slow.push({ from: d, to: d });
+    }
+    expect(annualLeaveTimeline(input, from, to)).toEqual(slow);
+  });
 });
 
 describe('#8 화면·MCP 경로(answerPlan) — 연차 적용 시작일 = 개업 1주년', () => {
