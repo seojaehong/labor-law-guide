@@ -214,6 +214,25 @@ test('빼는 기간 일수만 넣고 임금 칸을 비우면 멈추고, 0 을 �
   await expect(page.locator('#resultArea .result-block .result-amount')).toContainText('3,000,000');
 });
 
+// 261126 재홍님 결정 D3 — 1주 소정근로시간이 15시간 이상·미만 사이에서 바뀐 적 있으면 계산하지 않는다
+test('「시간이 바뀐 적이 있다」를 켜면 계산하지 않고 4주 단위 안내를 낸다', async ({ page }) => {
+  await page.goto(PATH);
+  await page.locator('#startDate').fill('2025-01-01');
+  await page.locator('#endDate').fill('2026-02-24');
+  await page.locator('#wage1').fill('3000000');
+  await page.locator('#weeklyHours').fill('20');
+  await page.locator('#hoursChanged').check();
+  await page.getByRole('button', { name: '계산하기' }).click();
+  await expect(page.locator('#calcStatus')).toContainText('4주 단위로 나눠');
+  await expect(page.locator('#calcStatus')).toContainText('퇴직연금복지과-5254');
+  await expect(page.locator('#resultArea .result-block')).toHaveCount(0);
+  await page.locator('#hoursChanged').uncheck();
+  await page.getByRole('button', { name: '계산하기' }).click();
+  await expect(page.locator('#resultArea .result-block .result-amount')).toBeVisible();
+  const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+  expect(overflow).toBeLessThanOrEqual(0);
+});
+
 // 261126 G4 I10 — 주 15시간 미만이면 상태줄과 인쇄 산정서도 지급 대상이 아니라고 적는다
 test('주 14시간이면 상태줄·산정서에 지급 대상이 아니라고 적고 금액을 참고 계산액으로 둔다', async ({ page }) => {
   await page.goto(PATH);

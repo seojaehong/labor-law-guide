@@ -1,6 +1,6 @@
 // 261126 G4 검수(PR #298) I16(O7·A2) — 계산기가 ?weeklyHours= 를 받게 됐는데 계산기로 넘기는 형제 링크(/exit·챗봇)가
 // 그 값을 싣지 않아, 넘어간 계산기는 늘 「지급 대상인지는 따지지 않았습니다」(hours-unknown)였다.
-// 챗봇 calc_severance 응답 모양(eligible = 1년만)은 D2 결정 전이라 그대로 둔다 — weekly_hours 는 링크에만 쓴다.
+// (갱신 261126 재홍님 결정 D2) weekly_hours 는 이제 챗봇 계산(status·eligible)에도 쓰인다 — tests/unit/severance-d2d3-261126.test.ts.
 import { describe, expect, it, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -37,9 +37,11 @@ describe('챗봇 계산기 링크', () => {
     expect(props.weekly_hours?.description).toMatch(/계산기 링크/);
     expect((fn.parameters as unknown as { required: string[] }).required).not.toContain('weekly_hours');
   });
-  it('calc_severance 응답 모양은 그대로다(weekly_hours 를 넣어도 같은 값)', () => {
-    const withHours: Parameters<typeof calcSeverance>[0] & { weekly_hours: number } = { ...ARGS, weekly_hours: 12 };
-    expect(calcSeverance(withHours)).toEqual(calcSeverance(ARGS));
+  it('weekly_hours 는 금액을 바꾸지 않고 지급 대상만 가른다(261126 D2)', () => {
+    const withHours = calcSeverance({ ...ARGS, weekly_hours: 12 });
+    const without = calcSeverance(ARGS);
+    expect(withHours.severance_pay).toBe(without.severance_pay);
+    expect([withHours.status, without.status]).toEqual(['under-15h', 'hours-unknown']);
   });
 });
 

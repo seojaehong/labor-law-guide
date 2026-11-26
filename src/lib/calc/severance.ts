@@ -85,7 +85,17 @@ export interface SeveranceInput {
    * excludedDays 가 0보다 크면 반드시 넣는다(받지 않았으면 0). 비우면 분모만 줄어 평균임금이 부풀므로 멈춘다(261126 G4 I8)
    */
   excludedWage?: number;
+  /**
+   * 재직 중 1주 소정근로시간이 15시간 이상과 미만 사이에서 바뀐 적이 있다 — 계속근로기간을 4주 단위로 나눠야 해서
+   * 시간 한 값으로 세는 이 식으로는 지급 대상·금액이 모두 틀릴 수 있다. true 면 멈춘다(261126 재홍님 결정 D3, 정밀 계산은 후속)
+   */
+  hoursChanged?: boolean;
 }
+
+/** hoursChanged 일 때 웹·MCP·챗봇이 같은 글로 멈춘다. 고용노동부 퇴직연금복지과-5254(2019. 12. 9.) — 2025. 12. 4. 고객상담센터 회신이 인용 */
+export const HOURS_CHANGED_MESSAGE =
+  '1주 소정근로시간이 15시간 이상과 미만 사이에서 바뀐 적이 있으면 이 계산기로 계산하지 않습니다. ' +
+  '재직기간을 4주 단위로 나눠 4주 평균 1주 소정근로시간이 15시간 미만인 4주는 계속근로기간에서 뺍니다(고용노동부 퇴직연금복지과-5254, 2019. 12. 9. 회신 취지).';
 
 /** eligible = 1년 이상 + 주 15시간 이상. hours-unknown = 시간을 넣지 않아 판정하지 않음 */
 export type SeveranceStatus = 'eligible' | 'under-1y' | 'under-15h' | 'hours-unknown';
@@ -125,6 +135,7 @@ export function calcSeverance(input: SeveranceInput): SeveranceResult {
 
   const w = input.weeklyHours;
   if (w !== undefined && !(typeof w === 'number' && Number.isFinite(w) && w >= 0 && w <= 168)) throw new Error('1주 소정근로시간을 확인해 주세요');
+  if (input.hoursChanged === true) throw new Error(HOURS_CHANGED_MESSAGE);
 
   const segments = periodSegments(input.hireDate, retirementDate);
   const periodDays = segments.reduce((a, s) => a + s.days, 0);

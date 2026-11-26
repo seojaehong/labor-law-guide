@@ -145,8 +145,15 @@ export function calcSeverance(input: {
   annual_leave_daily_wage?: number;
   ordinary_daily_wage?: number;
   include_tax?: boolean; // true 시 퇴직소득세 함께 계산
+  /** 4주 평균 1주 소정근로시간 — 없으면 지급 대상인지 따지지 않는다(status hours-unknown, eligible false) */
+  weekly_hours?: number;
+  /** 평균임금 산정기간에서 빼는 기간의 일수와 그 기간 임금(근로기준법 시행령 제2조제1항 등). 일수가 있으면 임금도 넣는다(없으면 0) */
+  excluded_days?: number;
+  excluded_wage?: number;
+  /** 재직 중 1주 소정근로시간이 15시간 이상·미만 사이에서 바뀐 적 — true 면 계산하지 않는다(엔진이 멈춘다) */
+  hours_changed?: boolean;
 }) {
-  // 정본 엔진(src/lib/calc/severance.ts) — /tools/severance.html·/exit 와 같은 값을 낸다
+  // 정본 엔진(src/lib/calc/severance.ts) — /tools/severance.html·/exit·MCP 와 같은 값·같은 지급 대상(261126 재홍님 결정 D2)
   const r = severanceEngine({
     hireDate: input.hire_date,
     lastWorkDate: input.last_work_date,
@@ -154,6 +161,10 @@ export function calcSeverance(input: {
     annualBonus: input.annual_bonus || 0,
     annualLeavePay: severanceLeavePay(input),
     dailyOrdinaryWage: input.ordinary_daily_wage || 0,
+    weeklyHours: input.weekly_hours,
+    excludedDays: input.excluded_days,
+    excludedWage: input.excluded_wage,
+    hoursChanged: input.hours_changed,
   });
   const severance_pay = r.amount;
 
@@ -163,8 +174,14 @@ export function calcSeverance(input: {
     retirement_date: string;
     service_days: number;
     eligible: boolean;
+    status: typeof r.status;
+    one_year: boolean;
+    hours_15: boolean | null;
     three_months_start: string;
     total_days_3m: number;
+    excluded_days?: number;
+    excluded_wage?: number;
+    average_days?: number;
     wage_total: number;
     bonus_addition: number;
     annual_leave_addition: number;
@@ -181,9 +198,14 @@ export function calcSeverance(input: {
     last_work_date: input.last_work_date,
     retirement_date: r.retirementDate,
     service_days: r.serviceDays,
-    eligible: r.oneYear, // 챗봇 응답은 종전대로 1년 요건만(주 15시간은 이 경로에서 받지 않는다 — 261125 P2 #13 범위 밖)
+    // 지급 대상 = 1년 그리고 4주 평균 주 15시간(웹 엔진과 같은 뜻). 1년 여부는 one_year 로 따로 둔다(261126 D2 — 종전 eligible = 1년만)
+    eligible: r.eligible,
+    status: r.status,
+    one_year: r.oneYear,
+    hours_15: r.hours15,
     three_months_start: r.segments[0].from,
     total_days_3m: r.periodDays,
+    ...(r.excludedDays > 0 ? { excluded_days: r.excludedDays, excluded_wage: input.excluded_wage ?? 0, average_days: r.averageDays } : {}),
     wage_total: input.wages_3months.reduce((a, b) => a + b, 0),
     bonus_addition: r.bonusAdd,
     annual_leave_addition: r.leaveAdd,
@@ -196,7 +218,15 @@ export function calcSeverance(input: {
       '근로자퇴직급여 보장법 제8조 + 시행령 제3조 / ' +
       '퇴직금 = 1일평균임금 × 30 × 재직일수 ÷ 365 (고용노동부 퇴직금 계산기와 같은 끝수: 평균임금 소수 둘째 자리 올림, 퇴직금 원 단위 반올림) / ' +
       '평균임금 = 퇴직 직전 3개월 임금총액 / 총일수 (상여금·연차수당 가산) / 통상임금이 더 높으면 통상임금 사용' +
-      (r.oneYear ? '' : ' / ★ 계속근로 1년 미만 — 퇴직급여법 제4조 제1항에 따라 퇴직금 지급 대상이 아니다(금액은 참고값)'),
+      (r.excludedDays > 0
+        ? ` / 제외기간 ${r.excludedDays}일과 그 기간 임금 ${(input.excluded_wage ?? 0).toLocaleString('ko-KR')}원을 산정기간·임금총액에서 뺐다(근로기준법 시행령 제2조 제1항 등)`
+        : '') +
+      {
+        eligible: '',
+        'under-1y': ' / ★ 계속근로 1년 미만 — 퇴직급여법 제4조 제1항에 따라 퇴직금 지급 대상이 아니다(금액은 참고값)',
+        'under-15h': ` / ★ 4주 평균 1주 소정근로시간 ${input.weekly_hours}시간 — 15시간 미만이라 퇴직급여법 제4조 제1항 단서에 따라 퇴직금 지급 대상이 아니다(금액은 참고값)`,
+        'hours-unknown': ' / ★ 판정 보류 — 1주 소정근로시간을 알려 주세요. 4주 평균 1주 소정근로시간이 15시간 이상이어야 지급 대상이다(퇴직급여법 제4조 제1항 단서)',
+      }[r.status],
   };
 
   if (input.include_tax) {

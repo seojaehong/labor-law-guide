@@ -399,6 +399,9 @@ if (tools.includes('calc_severance')) {
   check(`severance 제외 30일·임금 0 → 3,000,000(${exZero.result?.amount})`, exZero.ok && exZero.result?.amount === 3_000_000);
   const exAll = await callNew('calc_severance', { hireDate: '2025-01-01', lastWorkDate: '2025-12-31', wageTotal: 6_200_000, weeklyHours: 40, excludedDays: 30, excludedWage: 6_200_000 });
   check(`severance 제외임금 = 임금총액이면 오류(${exAll.error})`, exAll.ok === false && /남은 기간/.test(exAll.error ?? ''));
+  // 261126 D3 — 1주 소정근로시간이 15시간 이상·미만 사이에서 바뀐 적 있으면 계산하지 않는다
+  const changed = await callNew('calc_severance', { hireDate: '2025-01-01', lastWorkDate: '2026-02-24', wageTotal: 8_400_000, weeklyHours: 20, hoursChanged: true });
+  check(`severance 시간 바뀐 적 있음 → 오류(${changed.error?.slice(0, 40)}…)`, changed.ok === false && /4주 단위/.test(changed.error ?? '') && /퇴직연금복지과-5254/.test(changed.error ?? ''));
 }
 if (tools.includes('calc_holiday_pay')) {
   // 엔진 식 — 월급 2,090,000 ÷ 209 = 통상시급 10,000. 월급 외에 휴일근로 1.0배 + 가산 0.5배: 10,000 × 1.5 × 8 = 120,000

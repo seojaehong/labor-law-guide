@@ -36,6 +36,12 @@ export function severanceCalculatorLink(a: Record<string, unknown>): string | nu
   if (leave > 0) params.set('annualLeave', String(leave));
   // 1주 소정근로시간(4주 평균) — 계산기가 주 15시간 지급 요건을 보게 한다. 없으면 계산기는 「따지지 않았습니다」(261126 G4 I16)
   if (typeof a.weekly_hours === 'number' && Number.isFinite(a.weekly_hours) && a.weekly_hours > 0) params.set('weeklyHours', String(a.weekly_hours));
+  // 빼는 기간·시간 변경 — 챗봇 답과 계산기가 같은 입력으로 세게 한다(261126 D2·D3)
+  if (typeof a.excluded_days === 'number' && Number.isInteger(a.excluded_days) && a.excluded_days > 0) {
+    params.set('excludedDays', String(a.excluded_days));
+    if (typeof a.excluded_wage === 'number' && Number.isFinite(a.excluded_wage) && a.excluded_wage >= 0) params.set('excludedWage', String(a.excluded_wage));
+  }
+  if (a.hours_changed === true) params.set('hoursChanged', '1');
   if (!params.has('start') || !params.has('end')) return null;
   params.set('run', '1');
   return `https://yellowenvelope.kr/tools/severance.html?${params.toString()}`;
