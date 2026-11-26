@@ -99,7 +99,8 @@ describe('R13 — 링크로 열면 저장본을 복원하지 않는다', () => {
     expect(run(`openedFromLink({ has: (k) => ${JSON.stringify(keys)}.includes(k) })`)).toBe(expected);
   });
   it('init 은 링크로 열었을 때 loadFromStorage 를 부르지 않는다', () => {
-    expect(script).toMatch(/if \(!openedFromLink\(params\)\) loadFromStorage\(\);/);
+    // 링크로 열어도 표식 없는 옛 자동 저장값(v4·v3) 지우기는 건너뛰지 않는다
+    expect(script).toMatch(/if \(openedFromLink\(params\)\) removeOldStorage\(\);\s*else loadFromStorage\(\);/);
   });
 });
 

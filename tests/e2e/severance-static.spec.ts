@@ -279,6 +279,25 @@ test('링크로 열면 저장본 대신 기본값과 주소 값만 쓰고, 저�
   await expect(page.locator('#hoursChanged')).toBeChecked();
 });
 
+// 261127 G4 R20 받는 쪽 — 챗봇·/exit 가 싣는 weeklyHours=0 을 「따지지 않음」이 아니라 15시간 미만으로 읽는다
+test('링크의 주 시간 0 은 15시간 미만 비대상으로 계산된다', async ({ page }) => {
+  await page.goto(`${PATH}?start=2023-01-01&end=2026-01-01&w1=3000000&w2=3000000&w3=3000000&weeklyHours=0&run=1`);
+  await expect(page.locator('#weeklyHours')).toHaveValue('0');
+  const status = page.locator('#resultStatus');
+  await expect(status).toContainText('계산했습니다');
+  await expect(status).toContainText('지급 대상이 아닙니다');
+  await expect(page.locator('#statementBox')).toContainText('0시간으로 15시간 미만이라 퇴직금 지급 대상이 아닙니다');
+});
+
+// 261127 G4 R13 — 링크로 열어 복원을 건너뛰어도 표식 없는 옛 자동 저장값은 지운다
+test('링크로 열어도 옛 자동 저장값(v4)은 지운다', async ({ page }) => {
+  await page.goto(PATH);
+  await page.evaluate(() => localStorage.setItem('severanceCalcData_v4', JSON.stringify({ currentIndex: 0, workers: [{ workerName: '가상근로자' }] })));
+  await page.goto(`${PATH}?weeklyHours=40`);
+  await expect(page.locator('#weeklyHours')).toHaveValue('40');
+  expect(await page.evaluate(() => localStorage.getItem('severanceCalcData_v4'))).toBeNull();
+});
+
 // 261127 G4 R14 — 금액 칸에 들어갔다 나와도 0 을 지우지 않는다(「그 기간에 받은 임금」은 빈칸과 0 이 다른 입력)
 test('링크로 받은 빼는 기간 임금 0 은 칸을 지나가도 0 으로 남아 계산된다', async ({ page }) => {
   await page.goto(`${PATH}?start=2025-01-01&end=2026-01-01&w1=6200000&excludedDays=30&excludedWage=0`);

@@ -870,7 +870,8 @@ const SeveranceEngine = (() => {
     /**
      * hoursChanged 일 때 웹·MCP·챗봇·/exit 가 같은 글로 멈춘다(MCP·챗봇 인자 설명도 이 상수를 싣는다).
      * 고용노동부 퇴직연금복지과-5254(2019. 12. 9.) — 2025. 12. 4. 고객상담센터 회신이 인용. 4주는 퇴직일부터 거슬러 나눈다
-     * (같은 회신 「마지막 근무일로부터 역산하여 4주 단위로」 · 근로기준정책과-4361(2015. 9. 10.)·-3818(2021. 11. 25.) 「퇴직일 기준으로 4주 단위씩 역산」, 261127 G4 R16)
+     * (5254 를 옮긴 고용노동부 빠른인터넷상담 답변 「마지막 근무일로부터 역산하여 4주 단위로」 · 근로기준정책과-4361(2015. 9. 10.) 「퇴직일을 기준으로 이전 4주 단위씩 역산하여」
+     *  · 근로기준정책과-3818(2021. 11. 25.) 「퇴직일 기준으로 4주 단위씩 역산하여」 — 2차 검수 fable_r2 A7 이 원문 대조, 261127 G4 R16)
      */
     const HOURS_CHANGED_MESSAGE = '1주 소정근로시간이 15시간 이상과 미만 사이에서 바뀐 적이 있으면 이 계산기로 계산하지 않습니다. ' +
         '재직기간을 퇴직일부터 거슬러 4주 단위로 나눠 4주 평균 1주 소정근로시간이 15시간 미만인 4주는 계속근로기간에서 뺍니다(고용노동부 퇴직연금복지과-5254, 2019. 12. 9. 회신 취지).';
@@ -2591,9 +2592,16 @@ function openedFromLink(params) {
 }
 
 /** [저장]으로 남긴 값만 복원한다. 표식 없는 옛 값은 지운다. 복원했으면 true */
-function loadFromStorage() {
+/** 표식 없는 옛 자동 저장값(v4·v3)을 지운다 — 링크로 열어 복원을 건너뛸 때도 지운다(261127 R13) */
+function removeOldStorage() {
     try {
         for (const key of OLD_STORAGE_KEYS) localStorage.removeItem(key);
+    } catch (e) { /* 저장소를 못 쓰면 그대로 둔다 */ }
+}
+
+function loadFromStorage() {
+    removeOldStorage();
+    try {
         const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null');
         const s = saved && saved.state;
         if (saved && typeof saved.savedAt === 'string' && s && Array.isArray(s.workers) && s.workers.length > 0) {
@@ -2634,7 +2642,8 @@ function showSavedNotice() {
 function init() {
     const params = new URLSearchParams(window.location.search);
     /* [저장]으로 남긴 값만 복원한다 — 링크로 열었으면 복원하지 않는다(R13). 계산 결과는 저장하지 않으므로 다시 계산해야 결과가 나온다 */
-    if (!openedFromLink(params)) loadFromStorage();
+    if (openedFromLink(params)) removeOldStorage();
+    else loadFromStorage();
     loadFormFromState();
     renderTabs();
     updateDateInfo();
