@@ -52,24 +52,20 @@ describe('G4-2 보존 비교 — ExcelJS 밖 부품', () => {
     expect(r.issues.some((w) => w.code === 'PRESERVATION_LOSS')).toBe(false);
   });
 
-  // 옛 ExcelJS 경로(열 숨김·행 덧붙이기가 아직 이 경로) — 조각 5·6 에서 패치로 옮기면 이 두 시험은 「잃지 않음」으로 바뀐다
-  const LEGACY = { hiddenColumns: [{ sheet: '평가표', columns: ['Z'] }] };
-  it('(옛 경로) 차트 부품·x14 드롭다운을 잃으면 allSame:false + PRESERVATION_LOSS', async () => {
-    const r = await fillXlsxTemplate(await withExtras(), { cells: [{ sheet: '평가표', cell: 'B2', value: '합성' }], ...LEGACY });
+  // 조각 6 — 열 숨김도 칸 패치 경로라(옛 ExcelJS 통째 저장 없음) 차트·x14 드롭다운을 잃지 않는다. 엄격 모드도 통과
+  const HIDE = { hiddenColumns: [{ sheet: '평가표', columns: ['Z'] }] };
+  it('열 숨김 요청도 차트 부품·x14 드롭다운을 잃지 않는다(allSame, 손실 경고 없음)', async () => {
+    const r = await fillXlsxTemplate(await withExtras(), { cells: [{ sheet: '평가표', cell: 'B2', value: '합성' }], ...HIDE });
     expect(r.ok).toBe(true);
-    expect(r.bytes).toBeDefined();
-    expect(r.preserved!.package.same).toBe(false);
-    expect(r.preserved!.package.lost.join(' ')).toMatch(/chart/);
-    expect(r.preserved!.package.lost.join(' ')).toMatch(/x14DataValidations|extLst/);
-    expect(r.preserved!.allSame).toBe(false);
-    expect(r.issues.some((w) => w.code === 'PRESERVATION_LOSS')).toBe(true);
+    expect(r.preserved!.package.same).toBe(true);
+    expect(r.preserved!.allSame).toBe(true);
+    expect(r.issues.some((w) => w.code === 'PRESERVATION_LOSS')).toBe(false);
   });
 
-  it('(옛 경로) 엄격 모드면 손실 시 바이트 없이 실패', async () => {
-    const r = await fillXlsxTemplate(await withExtras(), { cells: [{ sheet: '평가표', cell: 'B2', value: '합성' }], ...LEGACY }, DEFAULT_LIMITS, true);
-    expect(r.ok).toBe(false);
-    expect(r.code).toBe('PRESERVATION_LOSS');
-    expect(r.bytes).toBeUndefined();
+  it('열 숨김 요청을 엄격 모드로 해도 바이트를 돌려준다', async () => {
+    const r = await fillXlsxTemplate(await withExtras(), { cells: [{ sheet: '평가표', cell: 'B2', value: '합성' }], ...HIDE }, DEFAULT_LIMITS, true);
+    expect(r.ok).toBe(true);
+    expect(r.bytes).toBeDefined();
   });
 
   it('잃은 것이 없으면 package.same:true', async () => {
@@ -172,22 +168,6 @@ describe('G4-6 insertRows 정직 보고', () => {
     expect(r.reason).toMatch(/빈 행을 더 만들어/);
   });
 
-  it.skip('(옛 밀기 단언 — 설계 v2.1 에서 폐기) 행을 넣으면 insertedRows·allSame:false', async () => {
-    const r = await fillXlsxTemplate(await sumTemplate(), {
-      rows: { sheet: '표', startRow: 2, columns: { A: 'n', B: 'v' }, data: [1, 2, 3, 4, 5].map((n) => ({ n, v: n })), overflow: 'insertRows' },
-    });
-    expect(r.ok).toBe(true);
-    expect(r.preserved!.insertedRows).toEqual({ count: 2, at: 5, same: false });
-    expect(r.preserved!.allSame).toBe(false);
-    const w = r.issues.find((x) => x.code === 'ROWS_INSERTED')!;
-    expect(w.message).toMatch(/수식·데이터 유효성은 없습니다/);
-    expect(w.message).toMatch(/늘어나지 않았습니다/);
-    const after = await inspectXlsx(r.bytes!);
-    expect(after.sheets[0].merges).toEqual(['A8:B8']);
-    expect(after.sheets[0].printArea).toBe('A1:B8');
-    const ex = await extractXlsxRows(r.bytes!);
-    expect(ex.rows.find((x) => x.cells['번호'].raw === '결재')?.rowNumber).toBe(8);
-  });
 });
 
 describe('G4-7 rows 경로 병합 종속 칸', () => {

@@ -66,21 +66,17 @@ describe('k-labor/office — Result 모양', () => {
     expect(work.ok ? '' : work.code).toBe('WORKLOAD_TOO_LARGE');
   });
 
-  it('PRESERVATION_LOSS 는 경고 + 바이트, strict 면 실패(옛 ExcelJS 경로 — 열 숨김이 있는 요청)', async () => {
+  it('열 숨김 요청도 칸 패치 경로라 주인 없는 차트 부품을 잃지 않는다 — 손실 경고 없음, strict 도 성공(조각 6)', async () => {
     const zip = await JSZip.loadAsync(await book());
     zip.file('xl/charts/chart1.xml', '<c:chartSpace xmlns:c="http://schemas.openxmlformats.org/drawingml/2006/chart"/>');
     const tpl = await zip.generateAsync({ type: 'uint8array', compression: 'DEFLATE' });
     const cells = [{ sheet: '평가표', cell: 'B2', value: '합성' }];
-    const legacy = { hiddenColumns: [{ sheet: '평가표', columns: ['Z'] }] };
-    const loose = shapeOk(await fillXlsxTemplate(tpl, { ...L, cells, ...legacy }));
-    expect(loose.warnings.find((w) => w.code === 'PRESERVATION_LOSS')).toBeTruthy();
-    expect(loose.files![0].bytes.length).toBeGreaterThan(0);
-    expect(loose.data.preserved.allSame).toBe(false);
-    const strict = await fillXlsxTemplate(tpl, { ...L, cells, ...legacy, strict: true });
-    expect(strict.ok).toBe(false);
-    if (strict.ok) return;
-    expect(strict.code).toBe('PRESERVATION_LOSS');
-    expect((strict as { files?: unknown }).files).toBeUndefined();
+    const hide = { hiddenColumns: [{ sheet: '평가표', columns: ['Z'] }] };
+    const loose = shapeOk(await fillXlsxTemplate(tpl, { ...L, cells, ...hide }));
+    expect(loose.warnings.find((w) => w.code === 'PRESERVATION_LOSS')).toBeFalsy();
+    expect(loose.data.preserved.allSame).toBe(true);
+    const strict = await fillXlsxTemplate(tpl, { ...L, cells, ...hide, strict: true });
+    expect(strict.ok).toBe(true);
   });
 
   it('경고는 {code,message,at?} — 병합 종속 칸 경고에 at 이 있다', async () => {

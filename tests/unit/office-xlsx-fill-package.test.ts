@@ -156,17 +156,16 @@ describe('fill — ExcelJS 밖 부품 복구(drawing·printerSettings·시트 re
     expect(r.issues.map((i) => i.code)).toContain('ROWS_PUSHED');
   });
 
-  it('(옛 경로·열 숨김) 복구할 수 없으면(drawing 이 제 rels 를 가짐) PRESERVATION_LOSS, 엄격 모드면 실패', async () => {
+  it('열 숨김 요청도 제 rels 를 가진 drawing 을 그대로 둔다(조각 6 — 옛 경로의 복구 불가 손실이 없다)', async () => {
     const tpl = await gasLike({ drawingRels: true });
-    const r = await fillXlsxTemplate(tpl, { cells: [{ sheet: '평가표', cell: 'B3', value: '합성' }], hiddenColumns: [{ sheet: '평가표', columns: ['Z'] }] });
+    const req = { cells: [{ sheet: '평가표', cell: 'B3', value: '합성' }], hiddenColumns: [{ sheet: '평가표', columns: ['Z'] }] };
+    const r = await fillXlsxTemplate(tpl, req);
     expect(r.ok).toBe(true);
-    expect(r.preserved!.package.same).toBe(false);
-    expect(r.preserved!.package.lost.join(' ')).toMatch(/drawing/);
-    expect(r.preserved!.allSame).toBe(false);
-    expect(r.issues.some((w) => w.code === 'PRESERVATION_LOSS')).toBe(true);
-    const s = await fillXlsxTemplate(tpl, { cells: [{ sheet: '평가표', cell: 'B3', value: '합성' }], hiddenColumns: [{ sheet: '평가표', columns: ['Z'] }] }, DEFAULT_LIMITS, true);
-    expect(s.ok).toBe(false);
-    expect(s.code).toBe('PRESERVATION_LOSS');
+    expect(r.preserved!.package.same).toBe(true);
+    expect(r.preserved!.allSame).toBe(true);
+    expect(txt(parts(r.bytes!), 'xl/drawings/_rels/drawing1.xml.rels')).toBe(txt(parts(tpl), 'xl/drawings/_rels/drawing1.xml.rels'));
+    const s = await fillXlsxTemplate(tpl, req, DEFAULT_LIMITS, true);
+    expect(s.ok).toBe(true);
   });
 });
 

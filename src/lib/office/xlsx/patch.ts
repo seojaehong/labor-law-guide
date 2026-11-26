@@ -598,3 +598,84 @@ export function readCellValue(raw: string, addr: string, sst: string[]): PatchVa
   const openTag = m[0].slice(0, m[0].indexOf('>') + 1);
   return currentValue({ kind: 'item', text: m[0], r: addr, col: colNumber(addr.replace(/\d+$/, '')), open: openTag, inner: m[3] ?? '' }, p, sst);
 }
+
+/**
+ * 열 숨김(§2-1, 조각 6) — <cols> 안에서 대상 열을 덮는 <col> 를 앞·한 열·뒤로 쪼개 그 열에 hidden="1".
+ * 덮는 <col> 가 없으면 한 열짜리 <col hidden="1"/> 를 순서 자리에 넣고, <cols> 가 없으면 sheetData 바로 앞에 만든다.
+ * 이미 숨긴 열은 그대로. 손대지 않은 <col> 는 원문 그대로.
+ */
+export function hideColumns(raw: string, cols: number[]): { ok: true; xml: string; changed: boolean } | Unsupported {
+  const hasBom = raw.startsWith(BOM);
+  const xml = hasBom ? raw.slice(1) : raw;
+  const pr = spreadsheetPrefix(xml);
+  if (!pr.ok) return { ok: false, code: 'UNSUPPORTED_INPUT', reason: pr.reason };
+  const p = pr.prefix;
+  const P = esc(p);
+  const sd = new RegExp(`<${P}sheetData\\b`).exec(xml);
+  if (!sd) return { ok: false, code: 'UNSUPPORTED_INPUT', reason: '시트에 sheetData 가 없습니다.' };
+  const head = xml.slice(0, sd.index);
+  const block = new RegExp(`<${P}cols\\b[^>]*?(?:/>|>([\\s\\S]*?)</${P}cols>)`).exec(head);
+  type Item = { min: number; max: number; attrs: string; text: string };
+  const items: Item[] = [];
+  for (const m of (block?.[1] ?? '').matchAll(new RegExp(`<${P}col\\b([^>]*?)(?:/>|>\\s*</${P}col>)`, 'g'))) {
+    const min = Number(attrOf(m[0], 'min'));
+    const max = Number(attrOf(m[0], 'max'));
+    if (!Number.isInteger(min) || !Number.isInteger(max)) return { ok: false, code: 'UNSUPPORTED_INPUT', reason: '<col> 의 min·max 를 읽지 못했습니다.' };
+    items.push({ min, max, attrs: m[1].replace(/\s(?:min|max)="[^"]*"/g, ''), text: m[0] });
+  }
+  const tag = (min: number, max: number, attrs: string) => `<${p}col min="${min}" max="${max}"${attrs}/>`;
+  const hiddenAttrs = (attrs: string) => (/\shidden="/.test(attrs) ? attrs.replace(/\shidden="[^"]*"/, ' hidden="1"') : `${attrs} hidden="1"`);
+  let changed = false;
+  for (const c of [...new Set(cols)].sort((a, b) => a - b)) {
+    const i = items.findIndex((x) => x.min <= c && c <= x.max);
+    if (i >= 0) {
+      const it = items[i];
+      if (/\shidden="(?:1|true)"/.test(it.attrs)) continue;
+      const parts: Item[] = [];
+      if (it.min < c) parts.push({ min: it.min, max: c - 1, attrs: it.attrs, text: tag(it.min, c - 1, it.attrs) });
+      const ha = hiddenAttrs(it.attrs);
+      parts.push({ min: c, max: c, attrs: ha, text: tag(c, c, ha) });
+      if (c < it.max) parts.push({ min: c + 1, max: it.max, attrs: it.attrs, text: tag(c + 1, it.max, it.attrs) });
+      items.splice(i, 1, ...parts);
+    } else {
+      const at = items.findIndex((x) => x.min > c);
+      const n = { min: c, max: c, attrs: ' hidden="1"', text: tag(c, c, ' hidden="1"') };
+      if (at < 0) items.push(n);
+      else items.splice(at, 0, n);
+    }
+    changed = true;
+  }
+  if (!changed) return { ok: true, xml: raw, changed: false };
+  const inner = items.map((x) => x.text).join('');
+  let out: string;
+  if (block) {
+    const openTag = /^<[^>]*?(?=\/?>)/.exec(block[0])![0];
+    out = xml.slice(0, block.index) + `${openTag}>${inner}</${p}cols>` + xml.slice(block.index + block[0].length);
+  } else {
+    out = xml.slice(0, sd.index) + `<${p}cols>${inner}</${p}cols>` + xml.slice(sd.index);
+  }
+  return { ok: true, xml: (hasBom ? BOM : '') + out, changed: true };
+}
+
+/** 수식 칸(<f> 가 있는 <c>)의 캐시 <v> 를 지운다(§2-6 좁힌 C). 지운 칸 수를 돌려준다 */
+export function clearFormulaValues(raw: string): { xml: string; cleared: number } {
+  const pr = spreadsheetPrefix(raw.startsWith(BOM) ? raw.slice(1) : raw);
+  const P = esc(pr.ok ? pr.prefix : '');
+  let cleared = 0;
+  // 자기닫힘 <c/> 는 여는 태그로 잡지 않는다(뒤 칸까지 삼키지 않게)
+  const xml = raw.replace(new RegExp(`(<${P}c\\b[^>]*?(?<!/)>)([\\s\\S]*?)(</${P}c>)`, 'g'), (whole, open: string, inner: string, close: string) => {
+    if (!new RegExp(`<${P}f[\\s>/]`).test(inner)) return whole;
+    const next = inner.replace(new RegExp(`<${P}v\\s*/>|<${P}v>[\\s\\S]*?</${P}v>`), '');
+    if (next === inner) return whole;
+    cleared++;
+    return open + next + close;
+  });
+  return { xml, cleared };
+}
+
+/** 시트 안 수식 본문(<f>…</f>) 전부 */
+export function formulaTexts(raw: string): string[] {
+  const pr = spreadsheetPrefix(raw.startsWith(BOM) ? raw.slice(1) : raw);
+  const P = esc(pr.ok ? pr.prefix : '');
+  return [...raw.matchAll(new RegExp(`<${P}f\\b[^>]*>([\\s\\S]*?)</${P}f>`, 'g'))].map((m) => m[1]);
+}

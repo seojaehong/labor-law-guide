@@ -96,6 +96,7 @@ SafeClaw 실서식 12+1개 로컬 왕복(`safeclaw-risk-p1/artifacts/risk-ledger
 - 지운 칸이 있을 때만 `fullCalcOnLoad="1"`을 켠다.
 - 이유: A(캐시 유지)는 재계산 없는 보기 도구에서 낡은 위험성 값을 보여 주고, 우리 extract(`extract.ts:118-127`)가 그 낡은 캐시를 경고 없이 다시 읽어 원장으로 옮긴다. 빈칸은 눈에 띄지만 낡은 숫자는 판단을 그르친다.
 - B(직접 계산)는 후속으로 둔다. 엑셀 계산값과 대조하는 시험 없이 넣지 않는다.
+- **조각 6 반영(261126)**: `patch.ts` `hideColumns`·`clearFormulaValues`·`formulaTexts`, `fill.ts` `setFullCalcOnLoad`. 바뀐 칸이 없으면(같은 값만) 캐시도 calcPr 도 그대로. calcPr 가 없으면 CT_Workbook 순서 자리(oleSize·…·extLst 앞)에 만든다. 「이름정의」 판정에서 인쇄영역·인쇄제목·필터 이름과 `#REF!` 이름은 뺀다. 열 숨김은 `<col>` 를 앞·한 열·뒤로 쪼개고(속성 그대로), 없으면 한 열짜리 `<col hidden="1"/>`, `<cols>` 가 없으면 sheetData 앞에 만든다. 이로써 **모든 요청이 칸 패치 경로**이고 옛 ExcelJS 통째 저장 경로와 도우미 4개는 지웠다 — 「열 숨김 요청이면 차트·x14 드롭다운·drawing rels 를 잃는다」던 시험 4건은 「잃지 않음」으로 뒤집혔다. 시험 = `office-xlsx-fill-calc-hide.test.ts`(12).
 
 ### 2-7. sst 정리 — 덮어쓴 옛 글 지우기 (261126 재홍님 「정리기능 넣어주되」, 2차 검수 반영 v2.1)
 - **후보** = 쓰기 전에 `t="s"`였던 모든 변경 칸의 sst 번호(글·숫자·날짜·빈칸 어느 것으로 바꿨든).

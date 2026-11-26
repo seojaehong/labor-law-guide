@@ -101,10 +101,16 @@ describe.each([
     const before = await unzip(input);
     const after = await unzip(r.bytes!);
     expect([...after.keys()].sort()).toEqual([...before.keys()].sort());
-    for (const [name, data] of before) if (name !== SHEET) expect(same(data, after.get(name)), name).toBe(true);
+    // 허용 변경(§2-1·§2-6): 그 시트 + 수식이 있으면 workbook.xml 의 calcPr fullCalcOnLoad 하나
+    for (const [name, data] of before) if (name !== SHEET && name !== 'xl/workbook.xml') expect(same(data, after.get(name)), name).toBe(true);
+    const calcOn = (s: string) => s.replace(/\sfullCalcOnLoad="1"/, '');
+    expect(calcOn(dec.decode(after.get('xl/workbook.xml')))).toBe(dec.decode(before.get('xl/workbook.xml')));
+    expect(r.fullCalcOnLoad).toBe(true);
     const sb = dec.decode(before.get(SHEET));
     const sa = dec.decode(after.get(SHEET));
-    expect(withoutCell(sa, 'B2')).toBe(withoutCell(sb, 'B2'));
+    // 수식 칸 캐시(<v>)는 좁힌 C 로 지워진다 — 그 밖 토큰은 같아야 한다
+    const noV = (s: string) => s.replace(/(<(?:x:)?f\b[^>]*?(?:\/>|>[^<]*<\/(?:x:)?f>))<(?:x:)?v>[^<]*<\/(?:x:)?v>/g, '$1');
+    expect(withoutCell(sa, 'B2')).toBe(withoutCell(noV(sb), 'B2'));
     const b2 = cellXml(sa, 'B2');
     expect(b2).toContain('s="1"');
     expect(b2).toContain('t="inlineStr"');
@@ -195,8 +201,5 @@ describe('글 쓰기 규칙(§2-2)', () => {
 
 // 다음 조각의 반례(지금은 자리만) — 조각 5·5b·6·6b 에서 RED 로 바꾼다
 describe('후속 조각 자리', () => {
-  it.todo('조각 5: 꼬리 덧붙이기 — dimension·인쇄영역 끝 행, 같은 행 가로 병합 복사');
-  it.todo('조각 5b: 닫힌 밀기 — 바닥글 행·도형 고정점·rowBreaks(id ≥ at−1)·인쇄 이름, 엑셀 COM 오라클 대조');
-  it.todo('조각 6: 열 숨김(<col> 쪼개기·<cols> 새로 만들기), 좁힌 C 캐시 지움과 fullCalcOnLoad 조건부');
   it.todo('조각 6b: sst 정리 반례 6종(마지막 참조 둘·숨김 시트·숫자 교체·기존 빈 <si>·높은 번호 생존·rich run/rPh)');
 });
