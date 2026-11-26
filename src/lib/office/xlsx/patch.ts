@@ -390,31 +390,147 @@ const AFTER_MERGE = ['phoneticPr', 'conditionalFormatting', 'dataValidations', '
  * 새 행은 at 위 마지막 자료 행의 행 속성·칸 서식·가로 병합을 복사한다. dimension 끝 행을 늘린다.
  * 그림 고정점·메모는 다른 부품이라 호출자가 따로 본다.
  */
-export function appendTailRows(raw: string, at: number, count: number): AppendResult {
+export function appendTailRows(raw: string, at: number, count: number, opts: { afterPush?: boolean } = {}): AppendResult {
   const t = tokenizeSheet(raw);
   if (!t.ok) return t;
-  const { xml, p, P, rows } = t;
+  const { xml, P, rows } = t;
+  const items = rowItemsOf(rows);
+  const warnings: string[] = [];
+  if (!opts.afterPush) {
+    const blocked = belowBlocker(t, at);
+    if (blocked.blocked) return { ok: false, blocked: blocked.blocked };
+    warnings.push(...blocked.warnings);
+  }
+  const merges = mergeRanges(xml, P);
+  const tmpl = [...items].reverse().find((r) => r.r < at && cellsOf(r).length > 0);
+  if (!tmpl) return { ok: false, blocked: '복사할 자료 행이 없습니다' };
+  return insertTemplateRows(t, at, count, tmpl, merges, warnings);
+}
+
+function belowBlocker(t: Tokenized, at: number): { blocked?: string; warnings: string[] } {
+  const { xml, P, rows } = t;
   const items = rowItemsOf(rows);
   const warnings: string[] = [];
   const filled = items.find((r) => r.r >= at && cellsOf(r).some((c) => hasContent(c, P)));
-  if (filled) return { ok: false, blocked: `${filled.r}행에 값·수식이 있습니다` };
+  if (filled) return { blocked: `${filled.r}행에 값·수식이 있습니다`, warnings };
   const merges = mergeRanges(xml, P);
   const below = merges.find((g) => g.r2 >= at);
-  if (below) return { ok: false, blocked: `${at}행 아래에 걸친 병합이 있습니다` };
+  if (below) return { blocked: `${at}행 아래에 걸친 병합이 있습니다`, warnings };
   for (const m of xml.matchAll(new RegExp(`<${P}brk\\b[^>]*\\sid="(\\d+)"`, 'g'))) {
-    if (Number(m[1]) >= at - 1 && new RegExp(`<${P}rowBreaks\\b`).test(xml)) return { ok: false, blocked: '아래에 쪽 나눔이 있습니다' };
+    if (Number(m[1]) >= at - 1 && new RegExp(`<${P}rowBreaks\\b`).test(xml)) return { blocked: '아래에 쪽 나눔이 있습니다', warnings };
   }
   for (const m of xml.matchAll(new RegExp(`<${P}(dataValidation|conditionalFormatting|hyperlink)\\b[^>]*\\s(?:sqref|ref)="([^"]+)"`, 'g'))) {
     for (const ref of m[2].trim().split(/\s+/)) {
       const g = parseRange(ref);
       if (!g) continue;
-      if (g.r1 >= at) return { ok: false, blocked: `${at}행 아래에서 시작하는 ${m[1]} 범위(${ref})가 있습니다` };
+      if (g.r1 >= at) return { blocked: `${at}행 아래에서 시작하는 ${m[1]} 범위(${ref})가 있습니다`, warnings };
       if (g.r2 >= at) warnings.push(`${m[1]} 범위 ${ref} 가 새 행에도 걸립니다.`);
     }
+  }
+  return { warnings };
+}
+
+/** 이음매: A1 주소·범위의 행 끝점을 옮긴다. startRule/endRule 이 끝점마다 옮길지 정한다 */
+export function shiftRefRows(ref: string, move: (row: number, which: 'start' | 'end' | 'single') => number): string {
+  const m = /^(\$?[A-Z]*\$?)(\d+)(?::(\$?[A-Z]*\$?)(\d+))?$/.exec(ref);
+  if (!m) return ref;
+  if (m[3] === undefined) return `${m[1]}${move(Number(m[2]), 'single')}`;
+  return `${m[1]}${move(Number(m[2]), 'start')}:${m[3]}${move(Number(m[4]), 'end')}`;
+}
+
+const PUSH_ALLOWED = new Set([
+  'worksheet', 'sheetPr', 'tabColor', 'outlinePr', 'pageSetUpPr', 'dimension', 'sheetViews', 'sheetView', 'selection', 'pane',
+  'sheetFormatPr', 'cols', 'col', 'sheetData', 'mergeCells', 'mergeCell', 'hyperlinks', 'hyperlink', 'printOptions', 'pageMargins',
+  'pageSetup', 'headerFooter', 'oddHeader', 'oddFooter', 'evenHeader', 'evenFooter', 'firstHeader', 'firstFooter', 'rowBreaks',
+  'colBreaks', 'brk', 'drawing', 'legacyDrawingHF', 'protectedRanges', 'protectedRange', 'ignoredErrors', 'ignoredError',
+  'cellWatches', 'cellWatch', 'phoneticPr', 'sheetProtection',
+]);
+const MAX_ROW = 1_048_576;
+const A1_LOCATION = /^(?:(?:'(?:[^']|'')+'|[^'!\s]+)!)?\$?[A-Z]{1,3}\$?\d+(?::\$?[A-Z]{1,3}\$?\d+)?$/;
+
+/**
+ * 닫힌 밀기(§2-5b) — at 이상의 행과 그 행을 가리키는 시트 안 주소를 n 행 내리고, at..at+n−1 에 위 자료 행 서식으로 새 행을 만든다.
+ * 허용 목록 밖 원소·수식·걸치는 병합·틀 고정 경계·단순 A1 이 아닌 내부 링크가 있으면 blocked.
+ * 시트 밖(통합문서 이름·다른 시트 수식·도형 고정점)은 호출자가 본다.
+ */
+export function pushRows(raw: string, at: number, n: number, sheetName: string): AppendResult {
+  const t = tokenizeSheet(raw);
+  if (!t.ok) return t;
+  const { xml, p, P, rows } = t;
+  const outside = t.head + t.tail;
+  for (const m of outside.matchAll(/<([\w.-]+:)?([\w.-]+)[\s/>]/g)) {
+    if ((m[1] ?? '') !== p || !PUSH_ALLOWED.has(m[2])) return { ok: false, blocked: `밀 수 없는 원소가 있습니다(${m[1] ?? ''}${m[2]})` };
+  }
+  if (new RegExp(`<${P}f[\\s>/]`).test(t.body)) return { ok: false, blocked: '수식이 있습니다' };
+  const items = rowItemsOf(rows);
+  if (items.some((r) => r.r >= at && r.r + n > MAX_ROW)) return { ok: false, blocked: '밀면 마지막 행을 넘습니다' };
+  const merges = mergeRanges(xml, P);
+  if (merges.some((g) => g.r1 < at && g.r2 >= at)) return { ok: false, blocked: `${at}행을 걸치는 병합이 있습니다` };
+  const pane = new RegExp(`<${P}pane\\b[^>]*>`).exec(outside)?.[0];
+  if (pane) {
+    const ys = Number(attrOf(pane, 'ySplit') ?? 0);
+    if (ys > 0 && ys + 1 >= at) return { ok: false, blocked: '틀 고정 경계가 밀리는 자리에 걸칩니다' };
+  }
+  for (const m of outside.matchAll(new RegExp(`<${P}hyperlink\\b[^>]*>`, 'g'))) {
+    const loc = attrOf(m[0], 'location');
+    if (loc !== undefined && !A1_LOCATION.test(loc.replace(/&apos;/g, "'"))) return { ok: false, blocked: `내부 링크 주소(${loc})를 옮길 수 없습니다` };
   }
   const tmpl = [...items].reverse().find((r) => r.r < at && cellsOf(r).length > 0);
   if (!tmpl) return { ok: false, blocked: '복사할 자료 행이 없습니다' };
 
+  // 1) 행·칸 주소
+  for (const r of items) {
+    if (r.r < at) continue;
+    const nr = r.r + n;
+    const shiftOpen = (tag: string) => tag.replace(/(\sr=")([A-Z]*)(\d+)(")/, (_a, x: string, col: string, _d: string, y: string) => `${x}${col}${nr}${y}`);
+    r.text = r.text.replace(new RegExp(`<${P}(?:row|c)\\b[^>]*>`, 'g'), shiftOpen);
+    r.open = shiftOpen(r.open);
+    for (const c of cellsOf(r)) {
+      c.r = c.r.replace(/\d+$/, String(nr));
+      c.text = shiftOpen(c.text);
+      c.open = shiftOpen(c.open);
+    }
+    r.r = nr;
+  }
+  // 2) 시트 안 주소 — 끝점마다 at 이상이면 +n
+  const mv = (row: number) => (row >= at ? row + n : row);
+  const shiftList = (v: string) => v.trim().split(/\s+/).map((x) => shiftRefRows(x, mv)).join(' ');
+  const attr = (text: string, tag: string, name: string, f: (v: string) => string) =>
+    text.replace(new RegExp(`<${P}${tag}\\b[^>]*>`, 'g'), (el) => el.replace(new RegExp(`(\\s${name}=")([^"]*)(")`), (_a, x: string, v: string, y: string) => `${x}${f(v)}${y}`));
+  const sameSheetLoc = (v: string) => {
+    const raw2 = v.replace(/&apos;/g, "'");
+    const bang = raw2.lastIndexOf('!');
+    const sheetPart = bang >= 0 ? raw2.slice(0, bang).replace(/^'|'$/g, '').replace(/''/g, "'") : sheetName;
+    if (sheetPart !== sheetName) return v;
+    return bang >= 0 ? v.slice(0, v.lastIndexOf('!') + 1) + shiftRefRows(raw2.slice(bang + 1), mv) : shiftRefRows(v, mv);
+  };
+  let { head, tail } = t;
+  for (const part of ['head', 'tail'] as const) {
+    let s = part === 'head' ? head : tail;
+    s = attr(s, 'dimension', 'ref', (v) => shiftRefRows(v, mv));
+    s = attr(s, 'selection', 'activeCell', (v) => shiftRefRows(v, mv));
+    s = attr(s, 'selection', 'sqref', shiftList);
+    s = attr(s, 'pane', 'topLeftCell', (v) => shiftRefRows(v, mv));
+    s = attr(s, 'mergeCell', 'ref', (v) => shiftRefRows(v, mv));
+    s = attr(s, 'hyperlink', 'ref', (v) => shiftRefRows(v, mv));
+    s = attr(s, 'hyperlink', 'location', sameSheetLoc);
+    s = attr(s, 'protectedRange', 'sqref', shiftList);
+    s = attr(s, 'ignoredError', 'sqref', shiftList);
+    s = attr(s, 'cellWatch', 'r', (v) => shiftRefRows(v, mv));
+    // 쪽 나눔(0 기반 id) — rowBreaks 안의 brk 만
+    s = s.replace(new RegExp(`<${P}rowBreaks\\b[\\s\\S]*?</${P}rowBreaks>`), (block) =>
+      block.replace(new RegExp(`(<${P}brk\\b[^>]*\\sid=")(\\d+)(")`, 'g'), (_a, x: string, id: string, y: string) => `${x}${Number(id) >= at - 1 ? Number(id) + n : Number(id)}${y}`),
+    );
+    if (part === 'head') head = s;
+    else tail = s;
+  }
+  const pushed: Tokenized = { ...t, head, tail };
+  return insertTemplateRows(pushed, at, n, tmpl, merges.map((g) => ({ ...g, r1: mv(g.r1), r2: mv(g.r2) })), []);
+}
+
+function insertTemplateRows(t: Tokenized, at: number, count: number, tmpl: RowTok, merges: Range[], warnings: string[]): AppendResult {
+  const { p, P, rows } = t;
+  const items = rowItemsOf(rows);
   for (let k = 0; k < count; k++) {
     const r = at + k;
     if (items.some((x) => x.r === r)) continue; // 빈 <row> 는 그대로 쓴다

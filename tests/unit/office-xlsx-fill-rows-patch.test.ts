@@ -124,18 +124,23 @@ describe('꼬리 덧붙이기(§2-5) — 밀지 않는다', () => {
     const ok = await fillXlsxTemplate(await zip(book({ rows: empty(2) + empty(3) + footer })), { rows: rowsOf(4) });
     expect(ok.ok).toBe(true);
     expect(ok.preserved!.insertedRows.count).toBe(0);
+    // 5행째부터 1행 모자람 — 덧붙이기는 막히고(6행에 값), 수식 없는 서식이라 닫힌 밀기(§2-5b)로 바닥글을 1행 내린다
     const r = await fillXlsxTemplate(await zip(book({ rows: empty(2) + empty(3) + footer })), { rows: rowsOf(5) });
-    expect(r.ok).toBe(false);
-    expect(r.code).toBe('OVERFLOW');
-    expect(r.overflowRows).toBe(1);
-    expect(r.reason).toMatch(/6행에 값/);
+    expect(r.ok).toBe(true);
+    expect(r.preserved!.insertedRows).toMatchObject({ count: 1, at: 4 });
+    expect(codes(r)).toContain('ROWS_PUSHED');
+    expect((await unzip(r.bytes!)).get(SHEET)).toMatch(/<c r="A7" t="inlineStr"><is><t>작성자 서명/);
+    const e = await fillXlsxTemplate(await zip(book({ rows: empty(2) + empty(3) + footer })), { rows: rowsOf(5, 'error') });
+    expect(e.code).toBe('OVERFLOW');
+    expect(e.overflowRows).toBe(1);
   });
 
-  it('인쇄영역 끝에서 넘치는데 아래에 병합이 있으면 덧붙이지 않고 OVERFLOW', async () => {
+  it('인쇄영역 끝에서 넘치는데 아래에 병합이 있으면 덧붙이지 않고 밀기로 병합을 내린다', async () => {
     const r = await fillXlsxTemplate(await zip(book({ rows: empty(2), merges: ['A8:D8'], printArea: "'평가표'!$A$1:$D$2" })), { rows: rowsOf(2) });
-    expect(r.code).toBe('OVERFLOW');
-    expect(r.overflowRows).toBe(1);
-    expect(r.reason).toMatch(/병합/);
+    expect(r.ok).toBe(true);
+    expect(codes(r)).toContain('ROWS_PUSHED');
+    expect((await unzip(r.bytes!)).get(SHEET)).toContain('<mergeCell ref="A9:D9"/>');
+    expect(r.preserved!.allSame).toBe(true);
     // 병합이 없으면 같은 자리에 덧붙인다
     const ok = await fillXlsxTemplate(await zip(book({ rows: empty(2), printArea: "'평가표'!$A$1:$D$2" })), { rows: rowsOf(2) });
     expect(ok.preserved!.insertedRows).toMatchObject({ count: 1, at: 3 });
