@@ -76,6 +76,13 @@ export function normalizeLines(text: string): string {
 }
 
 const ART_RE = /^제\s*(\d+)\s*조(?:\s*의\s*(\d+))?\s*\(([^)]*)\)\s*(.*)$/;
+/** 줄 처음에 온 다른 조 인용(「제26조(…)에 의하여 …」) — 괄호 바로 뒤에 조사가 붙으면 조 머리가 아니라 본문이다 */
+const XREF_ONE = String.raw`제\s*\d+\s*조(?:\s*의\s*\d+)?\s*\([^()]*\)(?:\s*제\s*\d+\s*항)?(?:\s*제\s*\d+\s*호)?`;
+const XREF_RE = new RegExp(
+  String.raw`^${XREF_ONE}(?:\s*(?:및|또는|과|와|,|·)\s*${XREF_ONE})*\s*(?:에\s*(?:의|따|정한|규정|도\s*불구|해당|준하)|의\s*규정|에서\s*(?:정|규정)|[을를]\s*(?:준용|위반)|부터)`,
+);
+/** 조 머리 줄 — 인용 줄은 빼고 */
+const isArtHead = (line: string) => ART_RE.test(line) && !XREF_RE.test(line);
 const CHAPTER_RE = /^제\s*\d+\s*장(\s|$)/;
 const ITEM_RE = /^(\d{1,2})\s*\.\s*(.*)$/;
 const isAddendumHead = (line: string) => /^부칙(\(|<|$)/.test(sq(line));
@@ -93,7 +100,8 @@ export function parseArticles(lines: string[], prefix: string): Article[] {
     item = null;
     cur!.paras.push(para);
   };
-  const glue = (before: string, line: string) => (!/\s$/.test(prevRaw) && /[가-힣]$/.test(before) && /^[가-힣]/.test(line) ? '' : ' ');
+  // 줄바꿈에 끊긴 낱말은 붙이고, 줄 처음에 온 다른 조 인용(새 어절)은 띄운다
+  const glue = (before: string, line: string) => (!XREF_RE.test(line) && !/\s$/.test(prevRaw) && /[가-힣]$/.test(before) && /^[가-힣]/.test(line) ? '' : ' ');
   const addText = (raw: string) => {
     const line = raw.trim();
     if (!line || !cur) return;
@@ -112,7 +120,8 @@ export function parseArticles(lines: string[], prefix: string): Article[] {
   for (const raw of lines) {
     const line = raw.trim();
     if (!line || CHAPTER_RE.test(line)) continue;
-    const a = ART_RE.exec(line);
+    // 첫 조 앞(부칙 첫 줄·장 제목 바로 뒤)의 인용 줄은 붙일 조가 없어 버려지므로 예전처럼 조 머리로 둔다
+    const a: RegExpExecArray | null = isArtHead(line) || (!cur && ART_RE.test(line)) ? ART_RE.exec(line) : null;
     if (a) {
       cur = { no: Number(a[1]), sub: a[2] ? Number(a[2]) : undefined, title: sq(a[3]), head: line.slice(0, line.length - a[4].length).trim(), paras: [], prefix };
       para = null;
@@ -184,13 +193,13 @@ export function splitRules(lines: string[]): RulesParts {
   let body = bodyLines;
   let tail = tailLines;
   if (addIdx < 0) {
-    const t = bodyLines.findIndex((l, i) => i > 0 && isFormsHead(l) && bodyLines.slice(0, i).some((x) => ART_RE.test(x.trim())));
+    const t = bodyLines.findIndex((l, i) => i > 0 && isFormsHead(l) && bodyLines.slice(0, i).some((x) => isArtHead(x.trim())));
     if (t >= 0) {
       body = bodyLines.slice(0, t);
       tail = bodyLines.slice(t);
     }
   }
-  const first = body.findIndex((l) => ART_RE.test(l.trim()) || CHAPTER_RE.test(l.trim()));
+  const first = body.findIndex((l) => isArtHead(l.trim()) || CHAPTER_RE.test(l.trim()));
   const addenda: RulesParts['addenda'] = [];
   if (addIdx >= 0) {
     addenda.push({ head: lines[addIdx].trim(), lines: [] });
