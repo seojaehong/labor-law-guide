@@ -744,10 +744,10 @@
                 </div>
                 <div class="field">
                     <label for="excludedWage">그 기간에 받은 임금</label>
-                    <input type="text" id="excludedWage" class="money-input" inputmode="numeric" autocomplete="off" placeholder="0" value="0">
+                    <input type="text" id="excludedWage" class="money-input" inputmode="numeric" autocomplete="off" placeholder="받지 않았으면 0">
                 </div>
             </div>
-            <p id="excludedHint" class="field-hint">퇴직 전 3개월 안에 수습 기간, 회사 사정으로 쉰 기간, 출산전후휴가, 업무상 부상·질병 요양, 육아휴직, 쟁의행위 기간 등(근로기준법 시행령 제2조 제1항 각 호)이 있으면 그 일수를 넣습니다. 그 기간에 받은 임금이 위 월급여에 들어 있으면 그 금액도 넣습니다. 두 값을 산정기간 일수와 임금 총액에서 뺍니다.</p>
+            <p id="excludedHint" class="field-hint">퇴직 전 3개월 안에 다음 기간이 있으면 그 일수를 넣습니다. 수습을 시작한 날부터 3개월 이내의 기간, 회사 사정으로 쉰 기간, 출산전후휴가·유산·사산 휴가, 업무상 부상·질병 요양, 육아휴직, 쟁의행위 기간, 병역·예비군·민방위 의무로 쉬거나 일하지 못한 기간(그 기간에 임금을 받았으면 빼지 않습니다), 업무 외 부상·질병 등으로 회사 승인을 받아 쉰 기간(근로기준법 시행령 제2조 제1항), 육아기 근로시간 단축 기간(남녀고용평등과 일·가정 양립 지원에 관한 법률 제19조의3 제4항). 그 기간에 받은 임금이 위 월급여에 들어 있으면 그 금액을 넣고, 받지 않았으면 0을 넣습니다. 두 값을 산정기간 일수와 임금 총액에서 뺍니다.</p>
             <p id="wageTypeHint" class="field-hint">근로기준법 제2조 제2항: 평균임금이 그 근로자의 통상임금보다 적으면 그 통상임금액을 평균임금으로 합니다. 1일 통상임금을 넣으면 둘 중 높은 쪽으로 계산합니다. 중간정산을 받았으면 입사일 칸에 정산 기준일의 다음 날을 넣고 중간정산 칸은 0으로 둡니다.</p>
         </details>
 
@@ -871,7 +871,7 @@ const SeveranceEngine = (() => {
             throw new Error('1주 소정근로시간을 확인해 주세요');
         const segments = periodSegments(input.hireDate, retirementDate);
         const periodDays = segments.reduce((a, s) => a + s.days, 0);
-        // 제외기간(근로기준법 시행령 §2①) — 그 일수와 그 기간 임금을 산정기간·임금총액에서 뺀다
+        // 제외기간(근로기준법 시행령 §2① · 남녀고용평등법 §19의3④) — 그 일수와 그 기간 임금을 산정기간·임금총액에서 뺀다
         const excludedDays = (_a = input.excludedDays) !== null && _a !== void 0 ? _a : 0;
         const excludedWage = (_b = input.excludedWage) !== null && _b !== void 0 ? _b : 0;
         if (!Number.isInteger(excludedDays) || excludedDays < 0)
@@ -882,6 +882,12 @@ const SeveranceEngine = (() => {
             throw new Error('제외기간 일수 없이 그 기간 임금만 넣었습니다');
         if (excludedDays >= periodDays)
             throw new Error('평균임금 산정기간 전부가 제외기간입니다. 이때는 이 계산식으로 셀 수 없습니다');
+        // 261126 G4 I8 — 일수만 넣고 임금을 비우면 0 으로 보지 않는다(분모만 줄어 평균임금이 부푼다)
+        if (excludedDays > 0 && input.excludedWage === undefined)
+            throw new Error('제외기간에 받은 임금을 넣어 주세요. 그 기간에 받은 임금이 없으면 0을 넣습니다');
+        // 261126 G4 I15 — 남은 기간 임금이 0 이 되는 입력은 멈춘다
+        if (excludedDays > 0 && excludedWage > 0 && excludedWage === input.wageTotal)
+            throw new Error('제외기간에 받은 임금이 3개월 임금총액과 같아 남은 기간 임금이 0원이 됩니다. 입력을 확인해 주세요');
         const averageDays = periodDays - excludedDays;
         const bonus = (_c = input.annualBonus) !== null && _c !== void 0 ? _c : 0;
         const leave = (_d = input.annualLeavePay) !== null && _d !== void 0 ? _d : 0;
@@ -1162,9 +1168,10 @@ function createDefaultWorker() {
         dailyOrdinaryWage: '',
         /* 4주 평균 1주 소정근로시간 — 비우면 지급 대상 판정을 하지 않는다(261124 P2 #13) */
         weeklyHours: '',
-        /* 평균임금 제외기간(근로기준법 시행령 제2조 제1항) 일수와 그 기간 임금 */
+        /* 평균임금 제외기간(근로기준법 시행령 제2조 제1항 등) 일수와 그 기간 임금.
+           임금은 빈칸으로 둔다 — 일수를 넣었으면 받은 임금(없으면 0)을 직접 넣게 한다(261126 G4 I8) */
         excludedDays: '0',
-        excludedWage: '0',
+        excludedWage: '',
         /* 받는 방법 — 기본은 현금 수령(기존 계산기 동작, 261125 결정). IRP 이전을 고르면 떼는 세금 0 */
         payout: 'cash',
         result: null
@@ -1312,6 +1319,14 @@ function validateWorkerInput(w) {
     const exWage = parseMoney(w.excludedWage);
     if (exWage > 0 && exDays === 0) return { field: 'excludedDays', message: '그 기간에 받은 임금을 넣었으면 빼는 기간의 일수도 넣어 주세요.' };
     if (exWage > wageSum) return { field: 'excludedWage', message: '그 기간에 받은 임금이 3개월 월급여 합계보다 큽니다.' };
+    /* 261126 G4 I8 — 일수를 넣었으면 그 기간 임금을 빈칸으로 두지 않는다(0 으로 보면 분모만 줄어 평균임금이 부푼다) */
+    if (exDays > 0 && String(w.excludedWage ?? '').trim() === '') {
+        return { field: 'excludedWage', message: '빼는 기간에 받은 임금을 넣어 주세요. 그 기간에 받지 않았으면 0을 넣습니다.' };
+    }
+    /* 261126 G4 I15 — 남은 기간 임금이 0 이 되는 입력 */
+    if (exDays > 0 && exWage > 0 && exWage === wageSum) {
+        return { field: 'excludedWage', message: '그 기간에 받은 임금이 3개월 월급여 합계와 같아 남은 기간 임금이 0원이 됩니다. 입력을 확인해 주세요.' };
+    }
     /* 261124 — 중간정산 금액만 빼면 전 근속을 마지막 임금으로 다시 세어 많게 나온다. 정산 다음 날부터 새로 센다 */
     if (parseMoney(w.priorSeverance) > 0) {
         return { field: 'priorSeverance', message: '중간정산을 받았으면 퇴직금은 정산 기준일의 다음 날부터 새로 셉니다(근로자퇴직급여 보장법 제8조 제2항). 입사일 칸에 그 다음 날을 넣고 이 칸은 0으로 두세요.' };
@@ -1411,7 +1426,8 @@ function calculateSeverance(data) {
         /* 비우면 넘기지 않는다 — 엔진이 지급 대상 판정을 하지 않는다(hours-unknown) */
         weeklyHours: String(data.weeklyHours ?? '').trim() === '' ? undefined : Number(data.weeklyHours),
         excludedDays: Number(String(data.excludedDays ?? '').trim() || 0),
-        excludedWage: parseMoney(data.excludedWage)
+        /* 빈칸은 0 으로 넘기지 않는다 — 일수가 있으면 엔진이 멈춘다(261126 G4 I8) */
+        excludedWage: String(data.excludedWage ?? '').trim() === '' ? undefined : parseMoney(data.excludedWage)
     });
     const total3Month = engine.baseTotal;
     const avgWage = engine.dailyAverage;
@@ -1696,7 +1712,7 @@ function loadFormFromState() {
     document.getElementById('payout').value = w.payout === 'irp' ? 'irp' : 'cash';
     document.getElementById('weeklyHours').value = w.weeklyHours || '';
     document.getElementById('excludedDays').value = w.excludedDays || '0';
-    document.getElementById('excludedWage').value = w.excludedWage || '0';
+    document.getElementById('excludedWage').value = w.excludedWage ?? '';
     updateWageTotal();
 }
 
@@ -1884,9 +1900,44 @@ function withholdingNoteOf(result) {
     return '';
 }
 
+/**
+ * 지급 요건 — 계속근로 1년 미만과 4주 평균 주 15시간 미만은 둘 다 근로자퇴직급여 보장법 제4조제1항 단서다(261124 P2 #13).
+ * 저장해 둔 옛 결과에는 eligibility 가 없어 날짜로 다시 본다(w 가 없으면 날짜를 보지 않는다)
+ */
+function eligibilityOf(result, w) {
+    if (result.eligibility) return result.eligibility;
+    return w && isUnderOneYear(w.startDate, w.endDate) ? 'under-1y' : 'hours-unknown';
+}
+
+/** 지급 대상이 아니거나 따지지 않았을 때 산정서·상태줄에 싣는 문장. 지급 대상이면 '' (261126 G4 I10) */
+function eligibilityTextOf(eligibility, result) {
+    return {
+        'under-1y': '계속근로기간이 1년 미만이라 퇴직금 지급 대상이 아닙니다(근로자퇴직급여 보장법 제4조제1항 단서).',
+        'under-15h': `4주 평균 1주 소정근로시간이 ${result.weeklyHours}시간으로 15시간 미만이라 퇴직금 지급 대상이 아닙니다(근로자퇴직급여 보장법 제4조제1항 단서).`,
+        'hours-unknown': '1주 소정근로시간을 넣지 않아 지급 대상인지는 따지지 않았습니다. 4주 평균 1주 소정근로시간이 15시간 이상이어야 지급 대상입니다(근로자퇴직급여 보장법 제4조제1항 단서).',
+    }[eligibility] || '';
+}
+
+/** 결과 상태줄(aria-live) 글 — 지급 대상이 아니면 금액을 지급액처럼 읽지 않게 한다(261126 G4 I10) */
+function resultStatusText(result, w) {
+    const eligibility = eligibilityOf(result, w);
+    const why = eligibilityTextOf(eligibility, result);
+    if (eligibility === 'under-1y' || eligibility === 'under-15h') {
+        return `계산했습니다. ${why} 같은 식으로 계산한 금액은 ${formatMoney(result.severancePay)}원입니다.`;
+    }
+    const base = result.taxNotice
+        ? `계산했습니다. 퇴직금은 ${formatMoney(result.severancePay)}원이고, 퇴직소득세는 계산하지 않았습니다.`
+        : `계산했습니다. 퇴직금은 ${formatMoney(result.severancePay)}원, ${netLabelOf(result)}은 ${formatMoney(result.netSeverance)}원입니다.`;
+    return why ? `${base} ${why}` : base;
+}
+
 /** 산정서 html — 서명란이 있는 인쇄용 문서. 화면에서는 결과 블록 아래 「산정서 보기·인쇄」 접힘 안에 둔다 */
 function statementHtml(result, w) {
     const p = result.periods;
+    /* 지급 요건 — 인쇄하면 결과 블록이 숨으므로 산정서에도 싣는다. 비대상이면 금액 칸을 지급액처럼 적지 않는다(261126 G4 I10) */
+    const eligibility = eligibilityOf(result, w);
+    const notPayable = eligibility === 'under-1y' || eligibility === 'under-15h';
+    const eligibilityText = eligibilityTextOf(eligibility, result);
     const lastWorkDate = parseDateOnlyUTC(w.endDate);
     const retireDate = parseDateOnlyUTC(retirementDateOf(w.endDate));
     const startDate = parseDateOnlyUTC(w.startDate);
@@ -1897,7 +1948,7 @@ function statementHtml(result, w) {
     const totalDeduction = result.withheldTax + result.priorSev;
     /* 퇴직소득세를 계산하지 않은 경우(2022. 12. 31. 이전 퇴사 등) — 0원으로 보이지 않고 이유를 적는다 */
     const noTax = !!result.taxNotice;
-    const netLabel = noTax ? '퇴직소득세 반영 전 금액' : result.payout === 'irp' ? 'IRP 이전액' : '실수령 퇴직금';
+    const netLabel = notPayable ? '참고 계산액(지급 대상 아님)' : noTax ? '퇴직소득세 반영 전 금액' : result.payout === 'irp' ? 'IRP 이전액' : '실수령 퇴직금';
     const deductionLabel = noTax ? '공제액 합계(퇴직소득세 제외)' : '공제액 합계';
     const notWithheld = !!result.withholdingReason;
     const taxCell = (v) => noTax ? '계산하지 않음' : notWithheld ? `0원(산출 ${formatMoney(v)}원, 떼지 않음)` : `${formatMoney(v)}원`;
@@ -1931,6 +1982,7 @@ function statementHtml(result, w) {
             <span class="stmt-brand">일의 무늬 · 산정서</span>
             <h2>평균임금 및 퇴직금 산정서</h2>
         </div>
+        ${eligibilityText ? `<p class="stmt-eligibility">${esc(eligibilityText)}${notPayable ? ' 아래 금액은 같은 식으로 계산만 한 참고 금액입니다.' : ''}</p>` : ''}
         <section class="stmt-summary" aria-label="퇴직금 요약">
             <div class="stmt-summary-label">${netLabel}</div>
             <div class="stmt-amount">${formatMoney(result.netSeverance)}<span>원</span></div>
@@ -1981,7 +2033,7 @@ function statementHtml(result, w) {
             ${result.excludedDays > 0 ? `
             <tr>
                 <td class="label-cell">빼는 기간</td>
-                <td colspan="${bonusColSpan}" class="right">${result.excludedDays}일(근로기준법 시행령 제2조 제1항) · 그 기간 임금</td>
+                <td colspan="${bonusColSpan}" class="right">${result.excludedDays}일(근로기준법 시행령 제2조 제1항 등) · 그 기간 임금</td>
                 <td colspan="${bonusRestSpan}" class="right">− ${formatMoney(result.excludedWage)}</td>
             </tr>` : ''}
             <tr>
@@ -2106,8 +2158,8 @@ function resultBlockHtml(result, w) {
     const year = w.endDate.slice(0, 4);
     const manualTax = !result.autoCalcTax;
     const underOneYear = isUnderOneYear(w.startDate, w.endDate);
-    /* 지급 요건 — 1년(제4조제1항 본문)과 4주 평균 주 15시간(같은 항 단서)을 따로 본다(261124 P2 #13) */
-    const eligibility = result.eligibility || (underOneYear ? 'under-1y' : 'hours-unknown');
+    /* 지급 요건 — 1년 미만과 4주 평균 주 15시간 미만(둘 다 제4조제1항 단서)을 따로 본다(261124 P2 #13). 1년 미만은 아래 「다음 할 일」이 말한다 */
+    const eligibility = eligibilityOf(result, w);
     const eligibilityNote = {
         'under-15h': `4주 평균 1주 소정근로시간이 ${result.weeklyHours}시간으로 15시간 미만이라 퇴직금 지급 대상이 아닙니다(근로자퇴직급여 보장법 제4조제1항 단서). 위 금액은 같은 식으로 계산만 한 것입니다.`,
         'hours-unknown': '1주 소정근로시간을 넣지 않아 지급 대상인지는 따지지 않았습니다. 4주 평균 1주 소정근로시간이 15시간 이상이어야 지급 대상입니다(근로자퇴직급여 보장법 제4조제1항 단서).',
@@ -2139,7 +2191,7 @@ function resultBlockHtml(result, w) {
         ${eligibilityNote ? `<p class="result-eligibility">${esc(eligibilityNote)}</p>` : ''}
         <dl class="result-sub">${sub.map(([k, v]) => `<div><dt>${k}</dt><dd>${v}</dd></div>`).join('')}</dl>
         <p class="result-formula">${applied} × 30 × ${formatMoney(result.serviceDays)}일 ÷ 365 = ${formatMoney(result.severancePay)}원</p>
-        <p class="result-formula-key">1일 ${ordinary ? '통상임금' : '평균임금'} × 30 × 재직일수 ÷ 365 · 1일 평균임금 = 3개월 임금 총액 ${formatMoney(result.total3Month)}원 ÷ ${averageDaysText}${result.excludedDays > 0 ? ' · 빼는 기간과 그 기간 임금은 근로기준법 시행령 제2조제1항' : ''}${ordinary ? ' · 평균임금이 통상임금보다 적어 통상임금을 적용' : ''}</p>
+        <p class="result-formula-key">1일 ${ordinary ? '통상임금' : '평균임금'} × 30 × 재직일수 ÷ 365 · 1일 평균임금 = 3개월 임금 총액 ${formatMoney(result.total3Month)}원 ÷ ${averageDaysText}${result.excludedDays > 0 ? ' · 빼는 기간과 그 기간 임금은 근로기준법 시행령 제2조제1항 등' : ''}${ordinary ? ' · 평균임금이 통상임금보다 적어 통상임금을 적용' : ''}</p>
         <p class="result-basis">근거 · 근로자퇴직급여 보장법 제8조제1항(퇴직금) · 근로기준법 제2조제1항제6호${ordinary ? '·제2항' : ''}(평균임금) · 소득세법 제48조·제55조(퇴직소득세)</p>
         <p class="result-asof">${asof}</p>
         <p class="result-caption">입력한 값으로 계산한 확인용 추정입니다. 실제 지급액은 회사의 임금 자료와 퇴직급여 제도(퇴직연금 등)에 따라 달라질 수 있어 산정 자료와 함께 확인합니다.${noTax ? ' ' + esc(result.taxNotice) : ''}${withholdingNote ? ' ' + esc(withholdingNote) : ''}</p>
@@ -2178,9 +2230,7 @@ function renderResult(result, opts = {}) {
         </details>`;
     decorateStatement(area);
     area.style.display = 'block';
-    setResultStatus(result.taxNotice
-        ? `계산했습니다. 퇴직금은 ${formatMoney(result.severancePay)}원이고, 퇴직소득세는 계산하지 않았습니다.`
-        : `계산했습니다. 퇴직금은 ${formatMoney(result.severancePay)}원, ${netLabelOf(result)}은 ${formatMoney(result.netSeverance)}원입니다.`);
+    setResultStatus(resultStatusText(result, w));
     if (!opts.quiet) {
         const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
         document.getElementById('resultStatus').scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' });

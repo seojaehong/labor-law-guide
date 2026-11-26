@@ -389,6 +389,13 @@ if (tools.includes('calc_severance')) {
   check(`severance 1년 미만은 지급 대상 아님(${short.headline?.[0]})`, short.ok && short.result?.eligible === false && /1년/.test(short.headline?.[0] ?? ''));
   const bad = await callNew('calc_severance', { hireDate: '2026-03-02', lastWorkDate: '2026-02-01', wageTotal: 7_500_000, weeklyHours: 40 });
   check(`severance 날짜 거꾸로면 오류(${bad.error})`, bad.ok === false && !!bad.error);
+  // 261126 G4 I8·I15 — 제외 일수만 넣고 그 기간 임금을 비우면 오류, 0 을 넣으면 계산, 임금총액과 같으면 오류
+  const exNoWage = await callNew('calc_severance', { hireDate: '2025-01-01', lastWorkDate: '2025-12-31', wageTotal: 6_200_000, weeklyHours: 40, excludedDays: 30 });
+  check(`severance 제외 일수만 넣으면 오류(${exNoWage.error})`, exNoWage.ok === false && /그 기간에 받은 임금/.test(exNoWage.error ?? ''));
+  const exZero = await callNew('calc_severance', { hireDate: '2025-01-01', lastWorkDate: '2025-12-31', wageTotal: 6_200_000, weeklyHours: 40, excludedDays: 30, excludedWage: 0 });
+  check(`severance 제외 30일·임금 0 → 3,000,000(${exZero.result?.amount})`, exZero.ok && exZero.result?.amount === 3_000_000);
+  const exAll = await callNew('calc_severance', { hireDate: '2025-01-01', lastWorkDate: '2025-12-31', wageTotal: 6_200_000, weeklyHours: 40, excludedDays: 30, excludedWage: 6_200_000 });
+  check(`severance 제외임금 = 임금총액이면 오류(${exAll.error})`, exAll.ok === false && /남은 기간/.test(exAll.error ?? ''));
 }
 if (tools.includes('calc_holiday_pay')) {
   // 엔진 식 — 월급 2,090,000 ÷ 209 = 통상시급 10,000. 월급 외에 휴일근로 1.0배 + 가산 0.5배: 10,000 × 1.5 × 8 = 120,000

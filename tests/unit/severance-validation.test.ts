@@ -179,7 +179,8 @@ describe('severance.html 주 15시간·제외기간', () => {
     const r = run(`calculateSeverance(${w}, excludedDays:'30', excludedWage:'0'})`);
     expect(r.severancePay).toBe(3_000_000);
     expect(r.averageDays).toBe(62);
-    const html = run(`resultBlockHtml(calculateSeverance(${w}, excludedDays:'30', weeklyHours:'40'}), ${w}})`);
+    // 261126 G4 I8 — 일수를 넣으면 그 기간 임금(없으면 0)도 직접 넣는다
+    const html = run(`resultBlockHtml(calculateSeverance(${w}, excludedDays:'30', excludedWage:'0', weeklyHours:'40'}), ${w}})`);
     expect(html).toContain('(92일 − 빼는 기간 30일)');
     expect(html).not.toContain('result-eligibility');
   });

@@ -75,9 +75,15 @@ export interface SeveranceInput {
   dailyOrdinaryWage?: number;
   /** 4주 평균 1주 소정근로시간. 15시간 미만이면 지급 대상이 아니다(퇴직급여법 §4① 단서). 넣지 않으면 지급 대상이라고 판정하지 않는다 */
   weeklyHours?: number;
-  /** 산정기간 중 근로기준법 시행령 §2①의 기간(수습·육아휴직 등) 일수 — 산정기간 일수에서 뺀다 */
+  /**
+   * 산정기간 중 평균임금에서 빼는 기간의 일수 — 근로기준법 시행령 §2①(수습을 시작한 날부터 3개월 이내·육아휴직 등)과
+   * 남녀고용평등법 §19의3④(육아기 근로시간 단축 기간). 산정기간 일수에서 뺀다
+   */
   excludedDays?: number;
-  /** 그 기간에 받은 임금 — wageTotal 에 들어 있는 금액이라 임금총액에서 뺀다 */
+  /**
+   * 그 기간에 받은 임금 — wageTotal 에 들어 있는 금액이라 임금총액에서 뺀다.
+   * excludedDays 가 0보다 크면 반드시 넣는다(받지 않았으면 0). 비우면 분모만 줄어 평균임금이 부풀므로 멈춘다(261126 G4 I8)
+   */
   excludedWage?: number;
 }
 
@@ -122,13 +128,17 @@ export function calcSeverance(input: SeveranceInput): SeveranceResult {
 
   const segments = periodSegments(input.hireDate, retirementDate);
   const periodDays = segments.reduce((a, s) => a + s.days, 0);
-  // 제외기간(근로기준법 시행령 §2①) — 그 일수와 그 기간 임금을 산정기간·임금총액에서 뺀다
+  // 제외기간(근로기준법 시행령 §2① · 남녀고용평등법 §19의3④) — 그 일수와 그 기간 임금을 산정기간·임금총액에서 뺀다
   const excludedDays = input.excludedDays ?? 0;
   const excludedWage = input.excludedWage ?? 0;
   if (!Number.isInteger(excludedDays) || excludedDays < 0) throw new Error('제외기간 일수를 확인해 주세요');
   if (!(Number.isFinite(excludedWage) && excludedWage >= 0) || excludedWage > input.wageTotal) throw new Error('제외기간에 받은 임금을 확인해 주세요(3개월 임금총액보다 클 수 없습니다)');
   if (excludedDays === 0 && excludedWage > 0) throw new Error('제외기간 일수 없이 그 기간 임금만 넣었습니다');
   if (excludedDays >= periodDays) throw new Error('평균임금 산정기간 전부가 제외기간입니다. 이때는 이 계산식으로 셀 수 없습니다');
+  // 261126 G4 I8 — 일수만 넣고 임금을 비우면 0 으로 보지 않는다(분모만 줄어 평균임금이 부푼다)
+  if (excludedDays > 0 && input.excludedWage === undefined) throw new Error('제외기간에 받은 임금을 넣어 주세요. 그 기간에 받은 임금이 없으면 0을 넣습니다');
+  // 261126 G4 I15 — 남은 기간 임금이 0 이 되는 입력은 멈춘다
+  if (excludedDays > 0 && excludedWage > 0 && excludedWage === input.wageTotal) throw new Error('제외기간에 받은 임금이 3개월 임금총액과 같아 남은 기간 임금이 0원이 됩니다. 입력을 확인해 주세요');
   const averageDays = periodDays - excludedDays;
   const bonus = input.annualBonus ?? 0;
   const leave = input.annualLeavePay ?? 0;
