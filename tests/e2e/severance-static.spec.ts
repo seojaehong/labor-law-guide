@@ -193,3 +193,40 @@ test('다크 화면 포커스 링은 2px 이고 바탕과 3:1 이상이다, 입�
   });
   expect(await ratio(field.border, field.around)).toBeGreaterThanOrEqual(3);
 });
+
+// 261126 G4 I8 — 빼는 기간 일수만 넣고 그 기간 임금을 비우면 계산하지 않는다. 0 을 넣으면 3,000,000원
+test('빼는 기간 일수만 넣고 임금 칸을 비우면 멈추고, 0 을 넣으면 계산한다', async ({ page }) => {
+  await page.goto(PATH);
+  await page.locator('#startDate').fill('2025-01-01');
+  await page.locator('#endDate').fill('2025-12-31');
+  await page.locator('#wage1').fill('6200000');
+  await page.locator('#weeklyHours').fill('40');
+  const fold = page.locator('#extraWages');
+  if (!(await fold.evaluate((d) => (d as HTMLDetailsElement).open))) await fold.locator('summary').click();
+  await page.locator('#excludedDays').fill('30');
+  await expect(page.locator('#excludedWage')).toHaveValue('');
+  await page.getByRole('button', { name: '계산하기' }).click();
+  await expect(page.locator('#calcStatus')).toContainText('받지 않았으면 0을 넣습니다');
+  await expect(page.locator('#excludedWage')).toHaveAttribute('aria-invalid', 'true');
+  await expect(page.locator('#resultArea .result-block')).toHaveCount(0);
+  await page.locator('#excludedWage').fill('0');
+  await page.getByRole('button', { name: '계산하기' }).click();
+  await expect(page.locator('#resultArea .result-block .result-amount')).toContainText('3,000,000');
+});
+
+// 261126 G4 I10 — 주 15시간 미만이면 상태줄과 인쇄 산정서도 지급 대상이 아니라고 적는다
+test('주 14시간이면 상태줄·산정서에 지급 대상이 아니라고 적고 금액을 참고 계산액으로 둔다', async ({ page }) => {
+  await page.goto(PATH);
+  await page.locator('#startDate').fill('2025-01-01');
+  await page.locator('#endDate').fill('2025-12-31');
+  await page.locator('#wage1').fill('9200000');
+  await page.locator('#weeklyHours').fill('14');
+  await page.getByRole('button', { name: '계산하기' }).click();
+  const status = page.locator('#resultStatus');
+  await expect(status).toContainText('계산했습니다');
+  await expect(status).toContainText('지급 대상이 아닙니다');
+  const sheet = page.locator('#statementBox');
+  await expect(sheet).toContainText('15시간 미만이라 퇴직금 지급 대상이 아닙니다');
+  await expect(sheet).toContainText('참고 계산액(지급 대상 아님)');
+  await expect(sheet).not.toContainText('실수령 퇴직금');
+});

@@ -51,6 +51,10 @@ describe('I8 — 제외 일수가 있으면 그 기간 임금을 비워 두지 �
     expect(check({ excludedDays: '30', excludedWage: '0' })).toBeNull();
     expect(check({ excludedDays: '0' })).toBeNull();
   });
+  it('웹: 임금 칸을 0 에서 빈칸으로 바꾸면 입력이 바뀐 것으로 본다(앞 결과를 그대로 두지 않는다)', () => {
+    const same = run(`(() => { const w = {...createDefaultWorker(), excludedDays:'30'}; return workerInputSignature({...w, excludedWage:'0'}) === workerInputSignature({...w, excludedWage:''}); })()`);
+    expect(same).toBe(false);
+  });
   it('웹: 검증을 거치지 않고 계산해도 엔진이 멈춘다(빈칸을 0 으로 넘기지 않는다)', () => {
     const msg = run(`(() => { try { calculateSeverance({...createDefaultWorker(), startDate:'2023-01-01', endDate:'2025-12-31', wage1:'9,000,000', wage2:'0', wage3:'0', excludedDays:'60'}); return 'calculated'; } catch (e) { return e.message; } })()`);
     expect(msg).toMatch(/그 기간에 받은 임금/);
@@ -89,6 +93,9 @@ describe('I10 — 인쇄 산정서와 상태줄에도 지급 대상 여부를 �
     expect(s).toMatch(/제4조제1항 단서/);
     expect(s).not.toContain('실수령 퇴직금');
     expect(s).toContain('참고 계산액');
+    // 요약 칸도 「퇴직금 3,000,000원」 한 줄로 지급액처럼 읽히지 않게
+    expect(s).not.toContain('<dt>퇴직금</dt>');
+    expect(s).toContain('<dt>퇴직금 계산액(참고)</dt>');
   });
   it('1년 미만: 산정서에 「1년 미만이라 지급 대상이 아닙니다」', () => {
     const s = statement(`startDate:'2025-01-02', weeklyHours:'40'`);

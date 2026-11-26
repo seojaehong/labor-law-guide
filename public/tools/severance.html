@@ -1646,7 +1646,10 @@ function workerInputSignature(w) {
     const moneyFields = new Set(['wage1', 'wage2', 'wage3', 'wage4', 'bonusTotal', 'annualLeave', 'priorSeverance', 'retirementTax', 'dailyOrdinaryWage', 'excludedWage']);
     return JSON.stringify(['startDate', 'endDate',
         'wage1', 'wage2', 'wage3', 'wage4', 'bonusTotal', 'annualLeave', 'priorSeverance',
-        'autoCalcTax', 'retirementTax', 'dailyOrdinaryWage', 'payout', 'weeklyHours', 'excludedDays', 'excludedWage'].map(key => key === 'retirementTax' && w.autoCalcTax ? 0 : moneyFields.has(key) ? parseMoney(w[key]) : w[key]));
+        'autoCalcTax', 'retirementTax', 'dailyOrdinaryWage', 'payout', 'weeklyHours', 'excludedDays', 'excludedWage'].map(key => key === 'retirementTax' && w.autoCalcTax ? 0
+            /* 빼는 기간 임금은 빈칸과 0 이 다른 입력이다(빈칸이면 계산하지 않는다, 261126 G4 I8) */
+            : key === 'excludedWage' && String(w.excludedWage ?? '').trim() === '' ? ''
+            : moneyFields.has(key) ? parseMoney(w[key]) : w[key]));
 }
 function invalidateResult(w) {
     const hadResult = !!w.result;
@@ -1987,7 +1990,7 @@ function statementHtml(result, w) {
             <div class="stmt-summary-label">${netLabel}</div>
             <div class="stmt-amount">${formatMoney(result.netSeverance)}<span>원</span></div>
             <dl class="stmt-summary-details">
-                <div><dt>퇴직금</dt><dd>${formatMoney(result.severancePay)}원</dd></div>
+                <div><dt>${notPayable ? '퇴직금 계산액(참고)' : '퇴직금'}</dt><dd>${formatMoney(result.severancePay)}원</dd></div>
                 <div><dt>${deductionLabel}</dt><dd>${formatMoney(totalDeduction)}원</dd></div>
             </dl>
         </section>
