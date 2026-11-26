@@ -152,21 +152,32 @@ function buildCell(p: string, addr: string, s: string | undefined, v: PatchValue
   return `<${p}c r="${addr}"${sa} t="inlineStr"><${p}is><${p}t${space}>${encodeText(text)}</${p}t></${p}is></${p}c>`;
 }
 
+
 const ROW_COPY_ATTRS = ['ht', 'customHeight', 's', 'customFormat'];
 
-/**
- * 시트 XML 하나에 칸 편집을 적용한다. 원문(raw, 접두·BOM 그대로)을 받아 원문을 돌린다.
- * 수식 칸·공유/배열 수식 범위 안 칸·병합 종속 칸은 쓰지 않고 경고, 지금 값과 같으면 쓰지 않는다.
- */
-export function patchSheetCells(raw: string, edits: CellEdit[], sst: string[]): SheetPatchResult {
+type Tokenized = {
+  ok: true;
+  hasBom: boolean;
+  xml: string;
+  p: string;
+  P: string;
+  /** sheetData 여는 태그까지(자기닫힘이면 여는 태그로 바꾼 것) */
+  head: string;
+  /** </sheetData> 부터 끝까지 */
+  tail: string;
+  body: string;
+  rows: (Seg | RowTok)[];
+};
+type Unsupported = { ok: false; code: 'UNSUPPORTED_INPUT'; reason: string };
+
+/** 시트 원문을 sheetData 앞·행 조각들·뒤로 나눈다. sheetData 는 한 번만 토큰화한다(§2-0) */
+function tokenizeSheet(raw: string): Tokenized | Unsupported {
   const hasBom = raw.startsWith(BOM);
   const xml = hasBom ? raw.slice(1) : raw;
   const pr = spreadsheetPrefix(xml);
   if (!pr.ok) return { ok: false, code: 'UNSUPPORTED_INPUT', reason: pr.reason };
   const p = pr.prefix;
   const P = esc(p);
-
-  // sheetData 본문
   const open = new RegExp(`<${P}sheetData\\b[^>]*?(/?)>`).exec(xml);
   if (!open) return { ok: false, code: 'UNSUPPORTED_INPUT', reason: '시트에 sheetData 가 없습니다.' };
   const bodyStart = open.index + open[0].length;
@@ -189,7 +200,8 @@ export function patchSheetCells(raw: string, edits: CellEdit[], sst: string[]): 
   const cellRe = () => new RegExp(`<${P}c\\b([^>]*?)(/>|>([\\s\\S]*?)</${P}c>)`, 'g');
   const rows = split<RowTok>(body, rowRe, (m) => {
     const selfClose = m[2] === '/>';
-    const rAttr = attrOf(selfClose ? m[0] : m[0].slice(0, m[0].indexOf('>') + 1), 'r');
+    const rowOpen = selfClose ? m[0] : m[0].slice(0, m[0].indexOf('>') + 1);
+    const rAttr = attrOf(rowOpen, 'r');
     if (!rAttr && !bad) bad = 'r 이 생략된 <row> 는 지원하지 않습니다.';
     const cells = selfClose
       ? []
@@ -200,30 +212,58 @@ export function patchSheetCells(raw: string, edits: CellEdit[], sst: string[]): 
           const openTag = c[0].slice(0, c[0].indexOf('>') + 1);
           return { kind: 'item', text: c[0], r, col: a?.col ?? 0, open: openTag, inner: c[3] ?? '' };
         });
-    const rowOpen = selfClose ? m[0] : m[0].slice(0, m[0].indexOf('>') + 1);
     return { kind: 'item', text: m[0], r: Number(rAttr), open: rowOpen, selfClose, cells, dirty: false };
   });
   if (bad) return { ok: false, code: 'UNSUPPORTED_INPUT', reason: bad };
+  return { ok: true, hasBom, xml, p, P, head, tail, body, rows };
+}
 
-  // 수식 범위·병합
-  const formulaRanges: Range[] = [];
-  for (const m of body.matchAll(new RegExp(`<${P}f\\b[^>]*\\sref="([^"]+)"`, 'g'))) {
-    const g = parseRange(m[1]);
-    if (g) formulaRanges.push(g);
-  }
-  const merges: Range[] = [];
+function serialize(t: Pick<Tokenized, 'hasBom' | 'p' | 'head' | 'tail' | 'rows'>): string {
+  const rowText = (r: RowTok) => {
+    if (!r.dirty) return r.text;
+    const openTag = r.selfClose ? r.open.replace(/\s*\/>$/, '>') : r.open;
+    return `${openTag}${r.cells.map((c) => c.text).join('')}</${t.p}row>`;
+  };
+  return (t.hasBom ? BOM : '') + t.head + t.rows.map((s) => (s.kind === 'item' ? rowText(s as RowTok) : s.text)).join('') + t.tail;
+}
+
+const rowItemsOf = (rows: (Seg | RowTok)[]) => rows.filter((s): s is RowTok => s.kind === 'item');
+const cellsOf = (row: RowTok) => row.cells.filter((c): c is CellTok => c.kind === 'item');
+const hasContent = (c: CellTok, P: string) => new RegExp(`<${P}(?:v|is|f)\\b`).test(c.inner);
+
+function mergeRanges(xml: string, P: string): Range[] {
+  const out: Range[] = [];
   for (const m of xml.matchAll(new RegExp(`<${P}mergeCell\\b[^>]*\\sref="([^"]+)"`, 'g'))) {
     const g = parseRange(m[1]);
-    if (g) merges.push(g);
+    if (g) out.push(g);
   }
+  return out;
+}
+
+function colStyleOf(xml: string, P: string): (col: number) => string | undefined {
   const colStyles: { min: number; max: number; style: string }[] = [];
   for (const m of xml.matchAll(new RegExp(`<${P}col\\b[^>]*>`, 'g'))) {
     const style = attrOf(m[0], 'style');
     if (style !== undefined) colStyles.push({ min: Number(attrOf(m[0], 'min')), max: Number(attrOf(m[0], 'max')), style });
   }
-  const colStyle = (col: number) => colStyles.find((c) => col >= c.min && col <= c.max)?.style;
+  return (col) => colStyles.find((c) => col >= c.min && col <= c.max)?.style;
+}
 
-  const rowItems = () => rows.filter((s): s is RowTok => s.kind === 'item');
+/**
+ * 시트 XML 하나에 칸 편집을 적용한다. 원문(raw, 접두·BOM 그대로)을 받아 원문을 돌린다.
+ * 수식 칸·공유/배열 수식 범위 안 칸·병합 종속 칸은 쓰지 않고 경고, 지금 값과 같으면 쓰지 않는다.
+ */
+export function patchSheetCells(raw: string, edits: CellEdit[], sst: string[]): SheetPatchResult {
+  const t = tokenizeSheet(raw);
+  if (!t.ok) return t;
+  const { xml, p, P, body, rows } = t;
+  const formulaRanges: Range[] = [];
+  for (const m of body.matchAll(new RegExp(`<${P}f\\b[^>]*\\sref="([^"]+)"`, 'g'))) {
+    const g = parseRange(m[1]);
+    if (g) formulaRanges.push(g);
+  }
+  const merges = mergeRanges(xml, P);
+  const colStyle = colStyleOf(xml, P);
   const warnings: PatchWarning[] = [];
   const changed: string[] = [];
 
@@ -240,8 +280,8 @@ export function patchSheetCells(raw: string, edits: CellEdit[], sst: string[]): 
       warnings.push({ code: 'MERGED_CELL_SKIPPED', cell: e.cell, message: `${e.cell} 는 병합 칸의 일부라 쓰지 않았습니다.` });
       continue;
     }
-    let row = rowItems().find((r) => r.r === a.row);
-    const existing = row?.cells.find((c): c is CellTok => c.kind === 'item' && (c as CellTok).col === a.col);
+    let row = rowItemsOf(rows).find((r) => r.r === a.row);
+    const existing = row ? cellsOf(row).find((c) => c.col === a.col) : undefined;
     if ((existing && new RegExp(`<${P}f\\b`).test(existing.inner)) || formulaRanges.some((g) => inRange(g, a.row, a.col))) {
       warnings.push({ code: 'FORMULA_CELL_SKIPPED', cell: e.cell, message: `${e.cell} 는 수식 칸이라 쓰지 않았습니다.` });
       continue;
@@ -252,15 +292,11 @@ export function patchSheetCells(raw: string, edits: CellEdit[], sst: string[]): 
     let style = existing ? attrOf(existing.open, 's') : undefined;
     if (!row) {
       // 없는 행 — 위쪽에서 칸이 있는 마지막 행의 행 속성·같은 열 칸 서식을 복사한다(§2-4)
-      const tmpl = [...rowItems()].reverse().find((r) => r.r < a.row && r.cells.some((c) => c.kind === 'item'));
-      const attrs = tmpl ? ROW_COPY_ATTRS.map((k) => [k, attrOf(tmpl.open, k)] as const).filter(([, v]) => v !== undefined) : [];
-      const openTag = `<${p}row r="${a.row}"${attrs.map(([k, v]) => ` ${k}="${v}"`).join('')}>`;
-      const tmplCell = tmpl?.cells.find((c): c is CellTok => c.kind === 'item' && (c as CellTok).col === a.col);
+      const tmpl = [...rowItemsOf(rows)].reverse().find((r) => r.r < a.row && cellsOf(r).length > 0);
+      row = newRowFrom(p, a.row, tmpl, false);
+      const tmplCell = tmpl ? cellsOf(tmpl).find((c) => c.col === a.col) : undefined;
       style = tmplCell ? attrOf(tmplCell.open, 's') : colStyle(a.col);
-      row = { kind: 'item', text: '', r: a.row, open: openTag, selfClose: false, cells: [], dirty: true };
-      const idx = rows.findIndex((s) => s.kind === 'item' && (s as RowTok).r > a.row);
-      if (idx < 0) rows.push(row);
-      else rows.splice(idx, 0, row);
+      insertRow(rows, row);
     } else if (!existing) {
       style = attrOf(row.open, 'customFormat') === '1' ? attrOf(row.open, 's') : colStyle(a.col);
     }
@@ -277,13 +313,158 @@ export function patchSheetCells(raw: string, edits: CellEdit[], sst: string[]): 
   }
 
   if (changed.length === 0) return { ok: true, xml: raw, changed, warnings };
-  const rowText = (r: RowTok) => {
-    if (!r.dirty) return r.text;
-    const openTag = r.selfClose ? r.open.replace(/\s*\/>$/, '>') : r.open;
-    return `${openTag}${r.cells.map((c) => c.text).join('')}</${p}row>`;
-  };
-  const out = head + rows.map((s) => (s.kind === 'item' ? rowText(s as RowTok) : s.text)).join('') + tail;
-  return { ok: true, xml: (hasBom ? BOM : '') + out, changed, warnings };
+  return { ok: true, xml: serialize(t), changed, warnings };
+}
+
+/** tmpl 행의 행 속성으로 새 <row>. withCells 면 tmpl 의 서식 있는 칸을 값 없이 복사한다 */
+function newRowFrom(p: string, r: number, tmpl: RowTok | undefined, withCells: boolean): RowTok {
+  const attrs = tmpl ? ROW_COPY_ATTRS.map((k) => [k, attrOf(tmpl.open, k)] as const).filter(([, v]) => v !== undefined) : [];
+  const open = `<${p}row r="${r}"${attrs.map(([k, v]) => ` ${k}="${v}"`).join('')}>`;
+  const cells: CellTok[] = [];
+  if (withCells && tmpl) {
+    for (const c of cellsOf(tmpl)) {
+      const s = attrOf(c.open, 's');
+      if (s === undefined) continue;
+      const addr = `${c.r.replace(/\d+$/, '')}${r}`;
+      const text = `<${p}c r="${addr}" s="${s}"/>`;
+      cells.push({ kind: 'item', text, r: addr, col: c.col, open: text, inner: '' });
+    }
+  }
+  return { kind: 'item', text: '', r, open, selfClose: false, cells, dirty: true };
+}
+
+function insertRow(rows: (Seg | RowTok)[], row: RowTok): void {
+  const idx = rows.findIndex((s) => s.kind === 'item' && (s as RowTok).r > row.r);
+  if (idx < 0) rows.push(row);
+  else rows.splice(idx, 0, row);
+}
+
+/**
+ * 용량(§2-4) — startRow 부터 「XML 에 실제로 있고, 행·칸 서식 서명이 startRow 와 같고, 묶인 열이 빈」 행이 몇 줄 이어지나.
+ * XML 에 없는 행은 세지 않는다(S04 44행 오산의 원인).
+ */
+export function rowCapacity(raw: string, startRow: number, cols: number[]): number | Unsupported {
+  const t = tokenizeSheet(raw);
+  if (!t.ok) return t;
+  const byR = new Map(rowItemsOf(t.rows).map((r) => [r.r, r]));
+  const sig = (row: RowTok) =>
+    JSON.stringify([
+      ...['s', 'ht', 'customFormat', 'customHeight'].map((k) => attrOf(row.open, k) ?? ''),
+      ...cols.map((col) => {
+        const c = cellsOf(row).find((x) => x.col === col);
+        return c ? (attrOf(c.open, 's') ?? '') : '';
+      }),
+    ]);
+  const ref = byR.get(startRow);
+  if (!ref) return 0;
+  const want = sig(ref);
+  let n = 0;
+  for (let r = startRow; ; r++) {
+    const row = byR.get(r);
+    if (!row || sig(row) !== want) break;
+    if (cellsOf(row).some((c) => cols.includes(c.col) && hasContent(c, t.P))) break;
+    n++;
+  }
+  return n;
+}
+
+/** from 행 이상에서 값·수식 칸이 있는 첫 행(없으면 null) — overflow:'error' 의 「벽」 계산용 */
+export function firstContentRow(raw: string, from: number): number | null | Unsupported {
+  const t = tokenizeSheet(raw);
+  if (!t.ok) return t;
+  const hit = rowItemsOf(t.rows).find((r) => r.r >= from && cellsOf(r).some((c) => hasContent(c, t.P)));
+  return hit ? hit.r : null;
+}
+
+export type AppendResult =
+  | { ok: true; xml: string; addedMerges: string[]; warnings: string[] }
+  | { ok: false; blocked: string }
+  | Unsupported;
+
+/** 시트 원문에서 tail(sheetData 뒤) 안의 자식 원소 순서상 mergeCells 가 들어갈 자리 앞 원소들 */
+const AFTER_MERGE = ['phoneticPr', 'conditionalFormatting', 'dataValidations', 'hyperlinks', 'printOptions', 'pageMargins', 'pageSetup', 'headerFooter', 'rowBreaks', 'colBreaks', 'customProperties', 'cellWatches', 'ignoredErrors', 'smartTags', 'drawing', 'legacyDrawing', 'legacyDrawingHF', 'picture', 'oleObjects', 'controls', 'webPublishItems', 'tableParts', 'extLst'];
+
+/**
+ * 꼬리 덧붙이기(§2-5) — at 행부터 count 행을 새로 만든다. 아무것도 밀지 않는다.
+ * at 아래에 놓인 것(값·수식 칸, 병합, 쪽 나눔, 그 아래에서 시작하는 유효성·조건부서식·링크)이 있으면 blocked.
+ * 새 행은 at 위 마지막 자료 행의 행 속성·칸 서식·가로 병합을 복사한다. dimension 끝 행을 늘린다.
+ * 그림 고정점·메모는 다른 부품이라 호출자가 따로 본다.
+ */
+export function appendTailRows(raw: string, at: number, count: number): AppendResult {
+  const t = tokenizeSheet(raw);
+  if (!t.ok) return t;
+  const { xml, p, P, rows } = t;
+  const items = rowItemsOf(rows);
+  const warnings: string[] = [];
+  const filled = items.find((r) => r.r >= at && cellsOf(r).some((c) => hasContent(c, P)));
+  if (filled) return { ok: false, blocked: `${filled.r}행에 값·수식이 있습니다` };
+  const merges = mergeRanges(xml, P);
+  const below = merges.find((g) => g.r2 >= at);
+  if (below) return { ok: false, blocked: `${at}행 아래에 걸친 병합이 있습니다` };
+  for (const m of xml.matchAll(new RegExp(`<${P}brk\\b[^>]*\\sid="(\\d+)"`, 'g'))) {
+    if (Number(m[1]) >= at - 1 && new RegExp(`<${P}rowBreaks\\b`).test(xml)) return { ok: false, blocked: '아래에 쪽 나눔이 있습니다' };
+  }
+  for (const m of xml.matchAll(new RegExp(`<${P}(dataValidation|conditionalFormatting|hyperlink)\\b[^>]*\\s(?:sqref|ref)="([^"]+)"`, 'g'))) {
+    for (const ref of m[2].trim().split(/\s+/)) {
+      const g = parseRange(ref);
+      if (!g) continue;
+      if (g.r1 >= at) return { ok: false, blocked: `${at}행 아래에서 시작하는 ${m[1]} 범위(${ref})가 있습니다` };
+      if (g.r2 >= at) warnings.push(`${m[1]} 범위 ${ref} 가 새 행에도 걸립니다.`);
+    }
+  }
+  const tmpl = [...items].reverse().find((r) => r.r < at && cellsOf(r).length > 0);
+  if (!tmpl) return { ok: false, blocked: '복사할 자료 행이 없습니다' };
+
+  for (let k = 0; k < count; k++) {
+    const r = at + k;
+    if (items.some((x) => x.r === r)) continue; // 빈 <row> 는 그대로 쓴다
+    insertRow(rows, newRowFrom(p, r, tmpl, true));
+  }
+
+  // 가로 병합 복사
+  const addedMerges: string[] = [];
+  for (const g of merges.filter((x) => x.r1 === tmpl.r && x.r2 === tmpl.r)) {
+    for (let k = 0; k < count; k++) {
+      const r = at + k;
+      addedMerges.push(`${colLetterOf(g.c1)}${r}:${colLetterOf(g.c2)}${r}`);
+    }
+  }
+  let { head, tail } = t;
+  if (addedMerges.length) {
+    const tags = addedMerges.map((ref) => `<${p}mergeCell ref="${ref}"/>`).join('');
+    const mc = new RegExp(`<${P}mergeCells\\b([^>]*)>`).exec(tail);
+    if (mc) {
+      const closeAt = tail.indexOf(`</${p}mergeCells>`, mc.index);
+      const n = (Number(attrOf(mc[0], 'count') ?? merges.length) || merges.length) + addedMerges.length;
+      const open = /\scount="/.test(mc[0]) ? mc[0].replace(/\scount="\d*"/, ` count="${n}"`) : mc[0];
+      tail = tail.slice(0, mc.index) + open + tail.slice(mc.index + mc[0].length, closeAt) + tags + tail.slice(closeAt);
+    } else {
+      const block = `<${p}mergeCells count="${addedMerges.length}">${tags}</${p}mergeCells>`;
+      const afterSheetData = `</${p}sheetData>`.length;
+      let pos = -1;
+      for (const name of AFTER_MERGE) {
+        const i = tail.search(new RegExp(`<${P}${name}\\b`));
+        if (i >= 0 && (pos < 0 || i < pos)) pos = i;
+      }
+      if (pos < 0) pos = tail.lastIndexOf('</');
+      if (pos < afterSheetData) pos = afterSheetData;
+      tail = tail.slice(0, pos) + block + tail.slice(pos);
+    }
+  }
+  // dimension 끝 행
+  const last = at + count - 1;
+  head = head.replace(new RegExp(`(<${P}dimension\\b[^>]*\\sref=")([^"]+)(")`), (all, a: string, ref: string, b: string) => {
+    const m = /^(\$?[A-Z]+\$?\d+:\$?[A-Z]+\$?)(\d+)$/.exec(ref);
+    if (!m || Number(m[2]) >= last) return all;
+    return `${a}${m[1]}${last}${b}`;
+  });
+  return { ok: true, xml: serialize({ ...t, head, tail }), addedMerges, warnings };
+}
+
+function colLetterOf(n: number): string {
+  let s = '';
+  for (let x = n; x > 0; x = Math.floor((x - 1) / 26)) s = String.fromCharCode(65 + ((x - 1) % 26)) + s;
+  return s;
 }
 
 /** 패치 결과 검증용 — 시트 원문에서 칸 하나의 값을 읽는다 */

@@ -5,7 +5,8 @@
 import ExcelJS from 'exceljs';
 import JSZip from 'jszip';
 import { colLetter, inspectOpened, openXlsx, sheetPaths, type InspectXlsxResult, type OpenedXlsx, type OpenFailCode } from './inspect';
-import { checkPatchValue, patchSheetCells, readCellValue, readSharedStrings } from './patch';
+import { appendTailRows, checkPatchValue, firstContentRow, patchSheetCells, readCellValue, readSharedStrings, rowCapacity } from './patch';
+import { spreadsheetPrefix } from './ooxml';
 import { comparePackage, expectedPrintNames, growRange, packageFingerprint, restorePackage, type PackageComparison } from './package';
 import { EXCEL_MAX_ROWS, colNumber, parseCellAddress, EXCEL_MAX_COLS } from './workload';
 import { DEFAULT_LIMITS, readZipGuarded, type Limits } from '../limits';
@@ -120,13 +121,18 @@ export function comparePreserved(
   after: InspectXlsxResult,
   pkg: Pick<PackageComparison, 'lost' | 'same'> & { restored?: string[] } = { lost: [], same: true },
   inserted: { count: number; at: number | null } = { count: 0, at: null },
-  expected: { printArea?: Record<string, string | null>; hiddenColumns?: FillHiddenColumns[] } = {},
+  expected: { printArea?: Record<string, string | null>; hiddenColumns?: FillHiddenColumns[]; merges?: Record<string, string[]>; insertedIntended?: boolean } = {},
 ): PreservedReport {
   const names = (r: InspectXlsxResult) => r.definedNames.map((d) => `${d.name}=${d.ranges.join(',')}`).sort();
   const dnBefore = { '': names(before) };
   const dnAfter = { '': names(after) };
   const report: Omit<PreservedReport, 'allSame'> = {
-    merges: item(before, after, (s) => [...s.merges].sort()),
+    merges: (() => {
+      const it = item(before, after, (s) => [...s.merges].sort());
+      if (!expected.merges) return it;
+      const want = perSheet(before, (s) => [...s.merges, ...(expected.merges![s.name] ?? [])].sort());
+      return { ...it, same: JSON.stringify(it.after) === JSON.stringify(want) };
+    })(),
     formulaCells: item(before, after, (s) => s.formulaCells),
     conditionalRules: item(before, after, (s) => s.conditionalRules),
     validations: item(before, after, (s) => s.validations.map((v) => v.range).sort()),
@@ -140,7 +146,7 @@ export function comparePreserved(
     images: item(before, after, (s) => s.images),
     definedNames: { before: dnBefore, after: dnAfter, same: JSON.stringify(dnBefore) === JSON.stringify(dnAfter) },
     package: { lost: pkg.lost, restored: pkg.restored ?? [], same: pkg.same },
-    insertedRows: { ...inserted, same: inserted.count === 0 },
+    insertedRows: { ...inserted, same: inserted.count === 0 || expected.insertedIntended === true },
     hiddenColumns: { applied: expected.hiddenColumns ?? [], same: true },
   };
   const allSame = Object.values(report).every((x) => x.same);
@@ -290,7 +296,7 @@ export async function fillXlsxTemplate(bytes: Uint8Array, opts: FillXlsxOptions 
     }
   }
   // 칸만 쓰는 요청은 원본 zip 을 그대로 두고 바꿀 칸만 패치한다(설계 v2.1 조각 3). 행 덧붙이기·열 숨김은 조각 5·6 에서 옮긴다
-  if (!rows && hidden.length === 0) return patchFill(bytes, opened, before, opts.cells ?? [], limits, strict);
+  if (hidden.length === 0) return patchFill(bytes, opened, before, opts.cells ?? [], rows ?? null, limits, strict);
 
   let inserted = { count: 0, at: null as number | null };
   try {
@@ -416,6 +422,7 @@ async function patchFill(
   opened: OpenedXlsx,
   before: InspectXlsxResult,
   cells: FillCell[],
+  rows: FillRows | null,
   limits: Limits,
   strict: boolean,
 ): Promise<FillXlsxResult> {
@@ -425,20 +432,78 @@ async function patchFill(
   const sstPath = sharedStringsPath(opened.parts);
   const sstRaw = opened.raw.get(sstPath);
   const sst = readSharedStrings(sstRaw ? utf8NoStrip.decode(sstRaw) : undefined);
+  const newParts = new Map<string, string>();
+  const rawText = (path: string) => newParts.get(path) ?? utf8NoStrip.decode(opened.raw.get(path)!);
+
+  // 행 자료 — 용량(§2-4) 안은 제자리, 넘치면 꼬리 덧붙이기(§2-5, 밀지 않음)
+  const all: FillCell[] = [...cells];
+  let inserted = { count: 0, at: null as number | null };
+  const addedMerges: Record<string, string[]> = {};
+  let grow: { sheet: string; at: number; count: number } | null = null;
+  if (rows) {
+    const path = paths.get(rows.sheet);
+    if (!path || !opened.raw.get(path)) return fail(`시트 부품을 찾을 수 없습니다: ${rows.sheet}`, { code: 'UNSUPPORTED_INPUT', needsReview: true });
+    const cols = Object.keys(rows.columns).map(colNumber);
+    const cap = rowCapacity(rawText(path), rows.startRow, cols);
+    if (typeof cap !== 'number') return fail(`${rows.sheet}: ${cap.reason}`, { code: cap.code, needsReview: true });
+    const extra = rows.data.length - cap;
+    // 벽 앞 빈 자리 — 인쇄영역 끝·값 있는 첫 행 앞까지. 거기 쓰는 것은 아무것도 움직이지 않는다(G4-11)
+    const at = rows.startRow + cap;
+    let free = 0;
+    if (extra > 0) {
+      const pa = before.sheets.find((s) => s.name === rows.sheet)?.printArea;
+      const wallEnd = pa ? Number(/(\d+)$/.exec(pa)?.[1] ?? NaN) : NaN;
+      const content = firstContentRow(rawText(path), at);
+      if (typeof content === 'object' && content !== null) return fail(`${rows.sheet}: ${content.reason}`, { code: content.code, needsReview: true });
+      // 병합은 벽이 아니다 — 제자리 쓰기는 아무것도 움직이지 않고, 종속 칸은 칸 패치가 건너뛰며 경고한다(G4-7)
+      free = Math.min(Number.isFinite(wallEnd) ? Math.max(0, wallEnd - at + 1) : Infinity, content === null ? Infinity : content - at);
+    }
+    const short = Math.max(0, extra - free);
+    // 'error' 는 벽 앞 빈 자리만, 'insertRows' 는 꼬리 덧붙이기 → 막히면 벽 앞 빈 자리로 충분한지 → 아니면 OVERFLOW
+    const blockedBy = extra > 0 && (rows.overflow ?? 'error') !== 'error' ? otherPartBlocker(opened, path, at) : null;
+    const ap = extra > 0 && (rows.overflow ?? 'error') !== 'error' && !blockedBy ? appendTailRows(rawText(path), at, extra) : null;
+    if (short > 0 && !(ap && ap.ok)) {
+      const why = blockedBy ?? (ap && !ap.ok ? ('blocked' in ap ? ap.blocked : ap.reason) : null);
+      const msg = why
+        ? `자료 ${rows.data.length}행이 빈 행 ${cap + free}행보다 ${short}행 많고, ${at}행 아래에 덧붙일 수 없습니다(${why}). 서식에 빈 행을 더 만들어 다시 올려 주세요.`
+        : `자료 ${rows.data.length}행이 템플릿 빈 행 ${cap + free}행보다 ${short}행 많습니다.`;
+      return fail(msg, { code: 'OVERFLOW', overflowRows: short });
+    }
+    if (ap && ap.ok) {
+      newParts.set(path, ap.xml);
+      inserted = { count: extra, at };
+      addedMerges[rows.sheet] = ap.addedMerges;
+      grow = { sheet: rows.sheet, at, count: extra };
+      for (const w of ap.warnings) issues.push({ code: 'RANGE_COVERS_NEW_ROWS', message: `${rows.sheet}: ${w}`, at: `${rows.sheet}!${at}` });
+      issues.push({ code: 'ROWS_APPENDED', message: `${rows.sheet}: 빈 행 ${cap}행이 모자라 ${at}행부터 ${extra}행을 덧붙였습니다(위 자료 행 서식 복사, 아래 내용은 움직이지 않음).`, at: `${rows.sheet}!${at}` });
+    }
+    rows.data.forEach((rec, i) => {
+      for (const [col, key] of Object.entries(rows.columns)) {
+        const v = rec[key];
+        if (v !== undefined) all.push({ sheet: rows.sheet, cell: `${col}${rows.startRow + i}`, value: v });
+      }
+    });
+  }
+
+  // 인쇄영역 — 끝 행이 at−1 이면 늘리고, 아니면 경고
+  if (grow) {
+    const g = growPrintArea(opened, grow.sheet, grow.at, grow.count);
+    if (g.xml) newParts.set('xl/workbook.xml', g.xml);
+    if (g.warn) issues.push({ code: 'PRINT_AREA_NOT_EXTENDED', message: `${grow.sheet}: ${g.warn}`, at: `${grow.sheet}!${grow.at}` });
+  }
 
   const bySheet = new Map<string, FillCell[]>();
-  for (const c of cells) bySheet.set(c.sheet, [...(bySheet.get(c.sheet) ?? []), c]);
-  const newParts = new Map<string, string>();
+  for (const c of all) bySheet.set(c.sheet, [...(bySheet.get(c.sheet) ?? []), c]);
   for (const [sheet, list] of bySheet) {
     const path = paths.get(sheet);
-    const raw = path ? opened.raw.get(path) : undefined;
-    if (!path || !raw) return fail(`시트 부품을 찾을 수 없습니다: ${sheet}`, { code: 'UNSUPPORTED_INPUT', needsReview: true });
-    const r = patchSheetCells(utf8NoStrip.decode(raw), list, sst);
+    if (!path || !opened.raw.get(path)) return fail(`시트 부품을 찾을 수 없습니다: ${sheet}`, { code: 'UNSUPPORTED_INPUT', needsReview: true });
+    const r = patchSheetCells(rawText(path), list, sst);
     if (!r.ok) return fail(`${sheet}: ${r.reason}`, { code: r.code, needsReview: true });
     for (const w of r.warnings) issues.push({ code: w.code, message: `${sheet}!${w.message}`, at: `${sheet}!${w.cell}` });
     for (const cell of r.changed) changedCells.push({ sheet, cell });
     if (r.changed.length > 0) newParts.set(path, r.xml);
   }
+  const cellsForCheck = all;
 
   let out = bytes;
   if (newParts.size > 0) {
@@ -452,7 +517,7 @@ async function patchFill(
   const reopenLimits = { ...limits, maxInputBytes: Math.max(limits.maxInputBytes, out.length), maxUnzippedBytes: Math.max(limits.maxUnzippedBytes, 4 * limits.maxUnzippedBytes), maxCells: Number.MAX_SAFE_INTEGER };
   const reopened = await openXlsx(out, reopenLimits);
   if ('reason' in reopened) return fail(`채운 파일을 다시 검사하지 못했습니다: ${reopened.reason}`, { code: 'WRITE_FAILED', needsReview: true });
-  const want = new Map(cells.map((c) => [`${c.sheet}!${c.cell}`, c.value] as const));
+  const want = new Map(cellsForCheck.map((c) => [`${c.sheet}!${c.cell}`, c.value] as const));
   for (const { sheet, cell } of changedCells) {
     const xml = newParts.get(paths.get(sheet)!)!;
     const got = readCellValue(xml, cell, sst);
@@ -462,8 +527,11 @@ async function patchFill(
   }
   const after = inspectOpened(reopened);
   const printArea: Record<string, string | null> = {};
-  for (const s of before.sheets) printArea[s.name] = s.printArea ?? null;
-  const preserved = comparePreserved(before, after, { lost: [], same: true, restored: [] }, { count: 0, at: null }, { printArea });
+  for (const s of before.sheets) {
+    const pa = s.printArea ?? null;
+    printArea[s.name] = pa && grow && grow.sheet === s.name && newParts.has('xl/workbook.xml') ? (growRange(pa, grow.at, grow.count) ?? pa) : pa;
+  }
+  const preserved = comparePreserved(before, after, { lost: [], same: true, restored: [] }, inserted, { printArea, merges: addedMerges, insertedIntended: true });
   if (!preserved.allSame) {
     const diff = Object.entries(preserved)
       .filter(([k, v]) => k !== 'allSame' && typeof v === 'object' && !v.same)
@@ -472,4 +540,72 @@ async function patchFill(
     if (strict) return fail(`엄격 모드: 보존 항목이 달라져 결과를 돌려주지 않습니다(${diff.join(', ')}).`, { code: 'PRESERVATION_LOSS', preserved, issues, warnings: issues.map((x) => x.message) });
   }
   return { ok: true, bytes: out, changedCells, preserved, fullCalcOnLoad: false, warnings: issues.map((x) => x.message), issues };
+}
+
+/** 부품 경로 기준 상대 Target → zip 경로 */
+function resolveTarget(fromPart: string, target: string): string {
+  if (target.startsWith('/')) return target.slice(1);
+  const base = fromPart.split('/').slice(0, -1);
+  for (const seg of target.split('/')) {
+    if (seg === '..') base.pop();
+    else if (seg !== '.') base.push(seg);
+  }
+  return base.join('/');
+}
+
+/**
+ * 시트 밖 부품에서 at 아래에 놓인 것 — 그림·도형 고정점(0 기반 from/row ≥ at−1)·메모(ref 행 ≥ at)·VML 메모 고정점.
+ * 하나라도 있으면 사유, 없으면 null.
+ */
+function otherPartBlocker(opened: OpenedXlsx, sheetPath: string, at: number): string | null {
+  const relsPath = sheetPath.replace(/([^/]+)$/, '_rels/$1.rels');
+  const rels = opened.parts.get(relsPath);
+  if (!rels) return null;
+  for (const m of utf8NoStrip.decode(rels).matchAll(/<Relationship\b[^>]*>/g)) {
+    const type = /Type="([^"]*)"/.exec(m[0])?.[1] ?? '';
+    const target = /Target="([^"]*)"/.exec(m[0])?.[1];
+    if (!target || /TargetMode="External"/.test(m[0])) continue;
+    const part = opened.parts.get(resolveTarget(sheetPath, target));
+    if (!part) continue;
+    const xml = utf8NoStrip.decode(part);
+    if (/\/drawing$/.test(type)) {
+      for (const a of xml.matchAll(/<(?:\w+:)?from>[\s\S]*?<(?:\w+:)?row>(\d+)</g)) if (Number(a[1]) >= at - 1) return '그림·도형이 아래에 있습니다';
+    } else if (/\/comments$/.test(type)) {
+      for (const c of xml.matchAll(/<(?:\w+:)?comment\b[^>]*\sref="([A-Z]+)(\d+)"/g)) if (Number(c[2]) >= at) return '메모가 아래에 있습니다';
+    } else if (/\/vmlDrawing$/.test(type)) {
+      for (const r of xml.matchAll(/<x:Row>(\d+)<\/x:Row>/g)) if (Number(r[1]) >= at - 1) return '메모·컨트롤 고정점이 아래에 있습니다';
+    }
+  }
+  return null;
+}
+
+/**
+ * 인쇄영역(_xlnm.Print_Area, 그 시트의 localSheetId) 끝 행이 at−1 인 한 범위면 끝을 at+count−1 로 늘린 workbook.xml 원문.
+ * 원본 접두·BOM·$ 표기를 그대로 둔다. 인쇄영역이 없으면 아무것도 안 한다.
+ */
+function growPrintArea(opened: OpenedXlsx, sheet: string, at: number, count: number): { xml?: string; warn?: string } {
+  const raw = opened.raw.get('xl/workbook.xml');
+  if (!raw) return {};
+  const text = utf8NoStrip.decode(raw);
+  const body = text.startsWith('\uFEFF') ? text.slice(1) : text;
+  const pr = spreadsheetPrefix(body);
+  const P = (pr.ok ? pr.prefix : '').replace(/[.]/g, '[.]');
+  const sheetNames = [...body.matchAll(new RegExp(`<${P}sheet[\\s/][^>]*?name="([^"]*)"`, 'g'))].map((m) => m[1].replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&lt;/g, '<').replace(/&gt;/g, '>'));
+  const idx = sheetNames.indexOf(sheet);
+  if (idx < 0) return {};
+  const re = new RegExp(
+    `(<${P}definedName[\\s][^>]*name="_xlnm[.]Print_Area"[^>]*localSheetId="${idx}"[^>]*>)([^<]*)(</${P}definedName>)` +
+      `|(<${P}definedName[\\s][^>]*localSheetId="${idx}"[^>]*name="_xlnm[.]Print_Area"[^>]*>)([^<]*)(</${P}definedName>)`,
+  );
+  const m = re.exec(text);
+  if (!m) return {};
+  const open = m[1] ?? m[4];
+  const ref = m[2] ?? m[5];
+  const close = m[3] ?? m[6];
+  if (ref.includes(',')) return { warn: '인쇄영역이 여러 범위라 늘리지 않았습니다. 엑셀에서 확인하세요.' };
+  const e = /^(.*:\$?[A-Z]+\$?)(\d+)$/.exec(ref);
+  if (!e) return { warn: '인쇄영역 모양을 읽지 못해 늘리지 않았습니다.' };
+  if (Number(e[2]) !== at - 1) return { warn: `인쇄영역 끝(${e[2]}행)이 자료 끝과 이어지지 않아 늘리지 않았습니다 — 덧붙인 ${at}~${at + count - 1}행이 인쇄되지 않을 수 있습니다.` };
+  const next = `${open}${e[1]}${at + count - 1}${close}`;
+  return { xml: text.slice(0, m.index) + next + text.slice(m.index + m[0].length) };
 }

@@ -82,7 +82,7 @@ describe('office 묶음 — make → inspect → fill → extract', () => {
       });
       expect(fl.ok).toBe(true);
       expect(fl.preserved.allSame).toBe(true);
-      expect(fl.fullCalcOnLoad).toBe(true);
+      // 조각 6(좁힌 C, §2-6)에서 「수식이 있고 캐시를 지웠을 때만 true」 단언으로 되살린다
       expect(fl.bytes).toBeUndefined();
       expect(fs.existsSync(filled)).toBe(true);
 

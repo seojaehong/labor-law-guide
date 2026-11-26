@@ -141,7 +141,18 @@ describe('fill — ExcelJS 밖 부품 복구(drawing·printerSettings·시트 re
     expect(printAreaText(parts(r.bytes!))).toBe('&apos;평가표&apos;!$A$1:$F$8');
   });
 
-  it('행을 넣으면 끝 행만 늘리고 $ 표기는 지킨다 — printArea 는 기대값과 같아 same:true', async () => {
+  it('아래에 도형 고정점이 있으면 조각 5 에선 덧붙이지 않고 OVERFLOW(조각 5b 닫힌 밀기에서 다시 GREEN)', async () => {
+    const r = await fillXlsxTemplate(await gasLike(), {
+      rows: { sheet: '평가표', startRow: 3, columns: COLS, data: rowsOf(7), overflow: 'insertRows' },
+    });
+    expect(r.ok).toBe(false);
+    expect(r.code).toBe('OVERFLOW');
+    expect(r.reason).toMatch(/그림·도형/);
+  });
+
+  it.todo('조각 5b — 닫힌 밀기: 끝 행만 늘리고 $ 표기 유지, 아래 고정점만 2행 내림');
+
+  it.skip('(옛 밀기 단언 — 조각 5b 에서 새 단언으로) 행을 넣으면 끝 행만 늘리고 $ 표기는 지킨다', async () => {
     const r = await fillXlsxTemplate(await gasLike(), {
       rows: { sheet: '평가표', startRow: 3, columns: COLS, data: rowsOf(7), overflow: 'insertRows' },
     });

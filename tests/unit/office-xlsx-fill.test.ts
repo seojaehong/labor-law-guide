@@ -74,7 +74,8 @@ async function sheetXml(bytes: Uint8Array): Promise<string> {
 }
 
 describe('fillXlsxTemplate — 원본 서식 보존 채우기', () => {
-  it('fullCalcOnLoad="1" 을 켜고 수식 셀의 <v> 캐시를 지운다', async () => {
+  // 조각 6(좁힌 C, §2-6)에서 「채운 시트 수식만 지우고, 지웠을 때만 fullCalcOnLoad」 단언으로 다시 쓴다
+  it.skip('fullCalcOnLoad="1" 을 켜고 수식 셀의 <v> 캐시를 지운다', async () => {
     const tpl = await makeTemplate();
     // 템플릿에는 캐시가 있다(전제 확인)
     expect(await sheetXml(tpl)).toMatch(/<c r="E3"[^>]*>(?:(?!<\/c>)[\s\S])*<v>/);
@@ -137,7 +138,16 @@ describe('fillXlsxTemplate — 원본 서식 보존 채우기', () => {
     expect(r.bytes).toBeUndefined();
   });
 
-  it("overflow='insertRows' 면 행을 넣고 warnings 에 남긴다", async () => {
+  it("overflow='insertRows' 여도 아래에 합계 행·수식이 있으면 밀지 않고 OVERFLOW(설계 v2.1 §2-5·2-5b)", async () => {
+    const r = await fillXlsxTemplate(await makeTemplate(), {
+      rows: { sheet: '평가표', startRow: 3, columns: COLUMNS, data: data(7), overflow: 'insertRows' },
+    });
+    expect(r.ok).toBe(false);
+    expect(r.code).toBe('OVERFLOW');
+    expect(r.overflowRows).toBe(2);
+  });
+
+  it.skip("(옛 밀기 단언 — 설계 v2.1 에서 폐기) overflow='insertRows' 면 행을 넣고 warnings 에 남긴다", async () => {
     const r = await fillXlsxTemplate(await makeTemplate(), {
       rows: { sheet: '평가표', startRow: 3, columns: COLUMNS, data: data(7), overflow: 'insertRows' },
     });

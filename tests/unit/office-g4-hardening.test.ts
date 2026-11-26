@@ -160,7 +160,19 @@ async function sumTemplate(): Promise<Uint8Array> {
 }
 
 describe('G4-6 insertRows 정직 보고', () => {
-  it('행을 넣으면 insertedRows·allSame:false, 병합은 함께 내리고 인쇄영역을 늘리며 경고가 사실대로다', async () => {
+  // 설계 v2.1 §2-5·2-5b — 밀기 없음. 수식(<f>)이 있는 통합문서는 닫힌 밀기도 거부 → OVERFLOW + 초과 행 수
+  it('아래에 수식·바닥글이 놓인 서식은 밀지 않고 OVERFLOW + 초과 행 수, 바이트 없음', async () => {
+    const r = await fillXlsxTemplate(await sumTemplate(), {
+      rows: { sheet: '표', startRow: 2, columns: { A: 'n', B: 'v' }, data: [1, 2, 3, 4, 5].map((n) => ({ n, v: n })), overflow: 'insertRows' },
+    });
+    expect(r.ok).toBe(false);
+    expect(r.code).toBe('OVERFLOW');
+    expect(r.overflowRows).toBe(2);
+    expect(r.bytes).toBeUndefined();
+    expect(r.reason).toMatch(/빈 행을 더 만들어/);
+  });
+
+  it.skip('(옛 밀기 단언 — 설계 v2.1 에서 폐기) 행을 넣으면 insertedRows·allSame:false', async () => {
     const r = await fillXlsxTemplate(await sumTemplate(), {
       rows: { sheet: '표', startRow: 2, columns: { A: 'n', B: 'v' }, data: [1, 2, 3, 4, 5].map((n) => ({ n, v: n })), overflow: 'insertRows' },
     });
