@@ -104,10 +104,11 @@ DOUBLE = re.compile(r"거부|거절|반려|불허|불리|불이익|차별|해고
 POSITIVE = re.compile(r"허용|인정|부여|사용|신청|승인|지급")
 SUB = re.compile(r"경우(?:에는|에도|라도)?|때(?!문)(?:에는|에도)?|더라도|[어아여해]도|(?<=[하되이으라시])면")
 COND = re.compile(r"경우|때(?!문)|불구하고")
-# 조건이 붙어도 「이유 없이」 거부할 수 있으면 예외 단서가 아니라 재량 거부다(G4 R2 R23)
+# 조건 뒤 서술어 구간에 「이유 없이」가 있으면 예외 단서가 아니라 재량 거부다(G4 R2 R23).
+# 조건 앞의 「정당한 사유 없이 … 신청한 경우」는 근로자 행위를 꾸미는 말이라 보지 않는다
 NO_REASON = re.compile(r"(?:이유|사유)없이")
-# 「…하지 않을 수 없다」 — 이중부정(해야 한다)
-MUST = re.compile(r"(?:을|할)수(?:밖에)?없")
+# 「…하지 않을 수 없다」 — 이중부정(해야 한다). 「않을 수밖에 없다」는 부정이라 넣지 않는다
+MUST = re.compile(r"(?:을|할)수없")
 # 어휘 부정 뒤 서술어 자리 — 짧은 끝(한다·함·된다) 또는 「…하기로 한다」「…하는 것으로 한다」
 LEX_END = re.compile(r"(?:[가-힣]{0,3}|[하되](?:기로|는것으로)[가-힣]{0,3})")
 ITEM =re.compile(r"^(?:[①-⑳]|\d+[.)]|[가-하][.)]|제\s*\d+\s*조|[-·•※○□▪*])")
@@ -166,7 +167,7 @@ def clause_negated(c: str, w: str) -> bool:
             skip = m.end() + must.end()  # 「…하지 않을 수 없다」 — 뒤 「수없」까지 한 쌍으로 건너뛴다
             continue
         elif re.fullmatch(r"지(?:않|아니)", t) and re.match(r"(?:을|할)수있", after):
-            if COND.search(c[:i]) and not NO_REASON.search(c[:i]):
+            if COND.search(c[:i]) and not NO_REASON.search(c[start:i]):
                 continue
         elif attributive(t, after):
             continue

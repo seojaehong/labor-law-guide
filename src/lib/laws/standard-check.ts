@@ -187,12 +187,18 @@ export const exportArticle = (it: PeriodItem) =>
  */
 export function exportItems(r: PeriodResult): PeriodItem[] {
   const out = r.items.filter((i) => i.status !== '반영됨').map((i) => ({ ...i, verdicts: [...i.verdicts] }));
+  // 현행 칸은 판정이 실제로 본 내 조문이다 — 표준 조문 짝(matched)에 없고 제목·anchor 로 찾은 조문일 수 있다(화면 「현행 {where}」와 같게)
+  const judged = (where: string | null) => (where ? r.user.filter((u) => paragraphs(u.text)[0]?.article === where) : []);
   for (const { std, verdict } of r.earlier) {
     if (!verdict.negated) continue;
+    const own = judged(verdict.where);
     let it = out.find((i) => i.std.id === std.id);
     if (!it) {
-      it = { std, user: r.matched.get(std.id) ?? [], events: [], verdicts: [], status: '고칠 것', proposal: null, proposalFrom: null };
+      it = { std, user: own.length ? own : r.matched.get(std.id) ?? [], events: [], verdicts: [], status: '고칠 것', proposal: null, proposalFrom: null };
       out.push(it);
+    } else {
+      const add = own.filter((u) => !it!.user.some((x) => x.text === u.text));
+      if (add.length) it.user = [...it.user, ...add];
     }
     it.verdicts.push(verdict);
     const c = verdict.rule.clause;
@@ -210,6 +216,8 @@ export interface PeriodResult {
   /** 최종 개정일 이전에 시행된 필수 개정 중 반영 안 된 것(옛 문구가 실제로 남은 조문이 있을 때만) */
   earlier: { std: StdArticle; verdict: Verdict }[];
   matched: Map<string, UserArticle[]>;
+  /** 본문에서 나눈 내 조문 전체 — 내보내기가 이전 시행 판정의 현행 조문을 찾는다(G4 R2 R25) */
+  user: UserArticle[];
 }
 
 const RANK: Record<ItemStatus, number> = { '고칠 것': 0, '조문 추가': 1, '시행 예정': 2, '법령 확인': 3, 선택: 4, 반영됨: 5 };
@@ -320,5 +328,5 @@ export function periodCheck(opts: {
   );
   const present = matchArticles(user, std, { weak: true });
   const missingRequired = hasText ? std.filter((s) => s.kind === '필수' && !present.has(s.id)) : [];
-  return { items, missingRequired, missing93: hasText ? missingArt93(text, opts.art93 ?? []) : [], earlier, matched };
+  return { items, missingRequired, missing93: hasText ? missingArt93(text, opts.art93 ?? []) : [], earlier, matched, user };
 }
