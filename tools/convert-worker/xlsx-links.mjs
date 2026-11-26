@@ -36,7 +36,7 @@ async function referencedIndexes(zip) {
 
 /**
  * @param {Uint8Array} bytes xlsx
- * @returns {Promise<{bytes: Uint8Array, removed: number, warnings: {code: string, count: number}[]}>}
+ * @returns {Promise<{bytes: Uint8Array, removed: number, warnings: {code: string, message: string, count: number}[]}>}
  */
 export async function repairExternalLinks(bytes) {
   const same = { bytes, removed: 0, warnings: [] };
@@ -70,7 +70,7 @@ export async function repairExternalLinks(bytes) {
   const drop = links.filter((l, i) => l.broken && i + 1 > lastUsed);
   const kept = links.filter((l) => l.broken).length - drop.length;
   const warnings = [];
-  if (kept) warnings.push({ code: 'EXTERNAL_LINKS_KEPT_REFERENCED', count: kept });
+  if (kept) warnings.push(linkWarning('EXTERNAL_LINKS_KEPT_REFERENCED', kept));
   if (!drop.length) return { bytes, removed: 0, warnings };
 
   let ct = (await zip.file('[Content_Types].xml')?.async('string')) ?? null;
@@ -86,12 +86,23 @@ export async function repairExternalLinks(bytes) {
   zip.file('xl/workbook.xml', wb);
   zip.file('xl/_rels/workbook.xml.rels', rels);
   if (ct !== null) zip.file('[Content_Types].xml', ct);
-  warnings.unshift({ code: 'EXTERNAL_LINKS_REMOVED', count: drop.length });
+  warnings.unshift(linkWarning('EXTERNAL_LINKS_REMOVED', drop.length));
   const out = await zip.generateAsync({ type: 'uint8array', compression: 'DEFLATE' });
   return { bytes: out, removed: drop.length, warnings };
 }
 
-/** 응답 헤더용 — `EXTERNAL_LINKS_REMOVED=2,EXTERNAL_LINKS_KEPT_REFERENCED=1` */
+const MESSAGES = {
+  EXTERNAL_LINKS_REMOVED: 'removed external links with broken sheet names',
+  EXTERNAL_LINKS_KEPT_REFERENCED: 'kept broken external links referenced by formulas or names',
+  EXTERNAL_LINKS_CHECK_FAILED: 'could not inspect external links; output left as converted',
+};
+
+/** office 엔진 Warning 모양({code, message}) + 개수. 이름·경로·내용은 싣지 않는다 */
+export function linkWarning(code, count) {
+  return { code, message: `${MESSAGES[code]} (${count})`, count };
+}
+
+/** 응답 헤더용 —`EXTERNAL_LINKS_REMOVED=2,EXTERNAL_LINKS_KEPT_REFERENCED=1` */
 export function warningsHeader(warnings) {
   return warnings.map((w) => `${w.code}=${w.count}`).join(',');
 }

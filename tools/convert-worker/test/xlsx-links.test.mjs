@@ -41,6 +41,8 @@ async function makeXlsx({ links = [], formula, definedName } = {}) {
   return z.generateAsync({ type: 'uint8array', compression: 'DEFLATE' });
 }
 
+const codes = (ws) => ws.map(({ code, count }) => ({ code, count }));
+
 async function parts(bytes) {
   const z = await JSZip.loadAsync(bytes);
   const read = async (n) => (await z.file(n)?.async('string')) ?? null;
@@ -52,7 +54,10 @@ describe('repairExternalLinks — 깨진 외부 연결 정리', () => {
     const src = await makeXlsx({ links: [{ names: BROKEN }, { names: GOOD }, { names: BROKEN }] });
     const r = await repairExternalLinks(src);
     assert.equal(r.removed, 2);
-    assert.deepEqual(r.warnings, [{ code: 'EXTERNAL_LINKS_REMOVED', count: 2 }]);
+    assert.deepEqual(codes(r.warnings), [{ code: 'EXTERNAL_LINKS_REMOVED', count: 2 }]);
+    // office 엔진 Warning 모양({code, message}) 을 따른다
+    assert.equal(typeof r.warnings[0].message, 'string');
+    assert.ok(r.warnings[0].message.length > 0);
     const p = await parts(r.bytes);
     // 정상 연결(rId3 → externalLink2)만 남는다
     assert.deepEqual([...p.wb.matchAll(/<externalReference r:id="([^"]+)"\/>/g)].map((m) => m[1]), ['rId3']);
@@ -80,7 +85,7 @@ describe('repairExternalLinks — 깨진 외부 연결 정리', () => {
     const src = await makeXlsx({ links: [{ names: GOOD }, { names: BROKEN }], formula: "'[2]시트1'!A1+1" });
     const r = await repairExternalLinks(src);
     assert.equal(r.removed, 0);
-    assert.deepEqual(r.warnings, [{ code: 'EXTERNAL_LINKS_KEPT_REFERENCED', count: 1 }]);
+    assert.deepEqual(codes(r.warnings), [{ code: 'EXTERNAL_LINKS_KEPT_REFERENCED', count: 1 }]);
     assert.equal(r.bytes, src);
   });
 
@@ -88,7 +93,7 @@ describe('repairExternalLinks — 깨진 외부 연결 정리', () => {
     const src = await makeXlsx({ links: [{ names: BROKEN }], definedName: '[1]!합성' });
     const r = await repairExternalLinks(src);
     assert.equal(r.removed, 0);
-    assert.deepEqual(r.warnings, [{ code: 'EXTERNAL_LINKS_KEPT_REFERENCED', count: 1 }]);
+    assert.deepEqual(codes(r.warnings), [{ code: 'EXTERNAL_LINKS_KEPT_REFERENCED', count: 1 }]);
     assert.equal(r.bytes, src);
   });
 
@@ -96,7 +101,7 @@ describe('repairExternalLinks — 깨진 외부 연결 정리', () => {
     const src = await makeXlsx({ links: [{ names: BROKEN }, { names: GOOD }], formula: '[2]시트1!A1' });
     const r = await repairExternalLinks(src);
     assert.equal(r.removed, 0);
-    assert.deepEqual(r.warnings, [{ code: 'EXTERNAL_LINKS_KEPT_REFERENCED', count: 1 }]);
+    assert.deepEqual(codes(r.warnings), [{ code: 'EXTERNAL_LINKS_KEPT_REFERENCED', count: 1 }]);
     assert.equal(r.bytes, src);
   });
 

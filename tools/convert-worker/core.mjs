@@ -8,7 +8,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { runJob } from './jobs.mjs';
-import { repairExternalLinks, warningsHeader } from './xlsx-links.mjs';
+import { linkWarning, repairExternalLinks, warningsHeader } from './xlsx-links.mjs';
 
 // 입력 확장자 → 허용 출력. hwpx 는 LibreOffice 가 읽지 못해 받지 않는다.
 // hwp 는 LibreOffice 의 옛 HWP 필터(HWP 97 이전 형식)만 읽는다 — 요즘 HWP 5.x 는 CONVERT_FAILED 로 끝난다.
@@ -283,7 +283,7 @@ export async function convert(config, { bytes, ext, to }) {
         out = Buffer.from(r.bytes);
         warnings = r.warnings;
       } catch {
-        warnings = [{ code: 'EXTERNAL_LINKS_CHECK_FAILED', count: 1 }];
+        warnings = [linkWarning('EXTERNAL_LINKS_CHECK_FAILED', 1)];
       }
     }
     const headers = { 'content-type': CONTENT_TYPES[to] };
