@@ -5,6 +5,7 @@ import { checkContract } from '@/lib/contract-check/engine';
 import { dayWorkMinutes, MINWAGE_TABLE, normalize } from '@/lib/contract-check/normalize';
 import { atLeastOneYear, minwageAssessmentForYear, ruleMinwageProbation } from '@/lib/contract-check/rules/wage';
 import type { Contract, Finding, WageItem, WageItemCode } from '@/lib/contract-check/types';
+import { parseYmd, periodLastDay } from '@/lib/hr-forms/dates';
 
 import { designHours, designMonthlyWage, monthlyHolidayWeekDrop, ROUNDING_UNIT, weeklySchedule, WEEKS_PER_MONTH, type DesignResult, type ItemKey, type Rounding } from './design';
 import { designHourlyWage, hourlyDesignHours } from './part';
@@ -278,14 +279,49 @@ const LEAVE_PREPAID_NOTE = '미리 지급하는 연차수당이 실제 발생분
 export const EMPLOYMENT_INSURANCE_INCOME_FROM = '2027-01-01';
 
 /**
- * 사회보험 확인 안내(261124 P2 #16) — 1주 15시간 미만이면 계약서 제7조가 가입 여부를 정하지 않는 칸(국민연금·건강보험)과
- * 2027. 1. 1. 뒤 고용보험 소득 기준(금액은 대통령령)을 「확인 필요」로 남긴다. 15시간 이상이면 없다.
+ * 계약서 제7조 고용보험 문구를 고르는 갈래(261126 G4 I11·I12).
+ * - daily: 계약기간이 1개월 미만 — 1개월 미만 동안 고용되는 일용근로자(고용보험법 제2조제6호)라 1주 시간·소득과 상관없이 적용
+ *   (시행령 제3조제2항제2호 · 2027. 1. 1.부터 법 제10조제2항제1호). 1개월은 민법 제160조로 센다(hr-forms periodLastDay).
+ * - income: 2027. 1. 1. 이후 시작 — 보수가 대통령령으로 정하는 소득 기준 미만이면 적용 제외(법 제10조제1항제2호, 부칙 제1조).
+ *   그 금액을 이 화면이 반영하지 않으므로 가입을 단정하지 않는다.
+ * - hours-crossing: 2027 전에 시작한 1주 15시간 미만 계약이 2027. 1. 1.에도 이어짐(기간 없음 포함) — 그날부터 소득 기준이 붙는다.
+ * - hours: 그 밖. 2027 전에 시작한 15시간 이상은 이미 취득한 자격을 처음 이직할 때까지 유지한다(부칙 제2조).
+ */
+export type EmploymentInsuranceCase = 'daily' | 'income' | 'hours-crossing' | 'hours';
+
+export function employmentInsuranceCase(form: Pick<WriteForm, 'startDate' | 'endDate'>, under15: boolean): EmploymentInsuranceCase {
+  const start = parseYmd(form.startDate);
+  const end = form.endDate ? parseYmd(form.endDate) : null;
+  if (start && end && end < periodLastDay(start, 1)) return 'daily';
+  if (form.startDate >= EMPLOYMENT_INSURANCE_INCOME_FROM) return 'income';
+  if (under15 && (!form.endDate || form.endDate >= EMPLOYMENT_INSURANCE_INCOME_FROM)) return 'hours-crossing';
+  return 'hours';
+}
+
+const HOURS_NOTE = ' 고용보험은 1주 15시간 미만이면 적용 제외이고, 3개월 이상 계속하여 근로를 제공하면 적용합니다(고용보험법 시행령 제3조).';
+const INCOME_RULE = '고용보험법 제10조(2026. 3. 17. 개정, 부칙 제1조에 따라 2027년 1월 1일 시행)는 보수가 대통령령으로 정하는 소득 기준 미만인 근로자를 적용에서 빼고, 3개월 이상 계속하여 근로를 제공하면 적용합니다.';
+const INCOME_CHECK = ' 그 금액은 이 화면이 반영하지 않았으니 확인하세요.';
+
+/**
+ * 사회보험 확인 안내(261124 P2 #16 · 261126 G4 I11·I12) — 계약서 제7조가 가입 여부를 정하지 않은 칸을 「확인 필요」로 남긴다.
+ * 1주 15시간 미만이면 국민연금·건강보험과 고용보험 기준을, 2027. 1. 1. 이후 시작이면 고용보험 소득 기준을 알린다. 둘 다 아니면 없다.
  */
 function socialInsuranceNote(form: WriteForm): string | null {
-  if (!isUnder15(form)) return null;
-  const employment = form.startDate >= EMPLOYMENT_INSURANCE_INCOME_FROM
-    ? ' 고용보험은 2027년 1월 1일부터 보수가 대통령령으로 정하는 소득 기준 미만이면 적용 제외입니다(고용보험법 제10조). 그 금액을 확인하세요.'
-    : ' 고용보험은 1주 15시간 미만이면 적용 제외이고, 3개월 이상 계속하여 근로를 제공하면 적용합니다(고용보험법 시행령 제3조).';
+  const under15 = isUnder15(form);
+  const kind = employmentInsuranceCase(form, under15);
+  if (!under15) {
+    if (kind !== 'income') return null;
+    return '사회보험 가입 여부는 확인이 필요합니다 — 2027년 1월 1일 이후 시작하는 계약이라 계약서 제7조에 고용보험 가입을 단정하지 않았습니다. '
+      + INCOME_RULE + INCOME_CHECK;
+  }
+  const employment = {
+    daily: form.startDate >= EMPLOYMENT_INSURANCE_INCOME_FROM
+      ? ' 고용보험은 1개월 미만 동안 고용되는 일용근로자(고용보험법 제2조 제6호)라 보수의 소득 기준과 상관없이 적용합니다(같은 법 제10조 제2항 제1호).'
+      : ' 고용보험은 1개월 미만 동안 고용되는 일용근로자(고용보험법 제2조 제6호)라 1주 15시간 미만이어도 적용합니다(같은 법 시행령 제3조 제2항 제2호).',
+    income: ' ' + INCOME_RULE + INCOME_CHECK,
+    'hours-crossing': HOURS_NOTE + ' 다만 2027년 1월 1일부터는 3개월이 되지 않았더라도 보수가 대통령령으로 정하는 소득 기준 이상이면 적용합니다(같은 법 제10조, 2026. 3. 17. 개정 법률 부칙 제1조).' + INCOME_CHECK,
+    hours: HOURS_NOTE,
+  }[kind];
   return '사회보험 가입 여부는 확인이 필요합니다 — 1주 소정근로시간이 15시간 미만이라 계약서 제7조에 일괄 가입으로 적지 않았습니다.'
     + employment
     + ' 국민연금·건강보험은 1개월 소정근로시간이 짧은 단시간 근로자를 가입 대상에서 빼는 기준이 있어, 이 화면은 가입 여부를 정하지 않았습니다.';

@@ -238,6 +238,9 @@ if (tools.includes('design_contract_wage')) {
   check(`design 실수령액 역산(${net.total} · ${net.netNote?.slice(0, 30)}…)`, net.ok && net.total > 2_300_000 && !!net.netNote);
   const part = await callTool('design_contract_wage', { payType: 'hourly', hourlyWage: 11_000, workDays: ['토', '일'], start: '10:00', end: '18:00', breakMinutes: 60, weeklyRestDay: '월', startDate: '2026-11-01' });
   check(`design 파트(하루 ${part.total}, 한 달 예상 ${part.monthlyEstimate})`, part.ok && part.total === 88_000 && part.period.startsWith('하루'));
+  // 261126 G4 I11 — 1개월 미만 계약(일용근로자)은 1주 15시간 미만이어도 고용보험 적용 안내
+  const daily = await callTool('design_contract_wage', { payType: 'hourly', hourlyWage: 11_000, workDays: ['토', '일'], start: '10:00', end: '18:00', breakMinutes: 60, weeklyRestDay: '월', startDate: '2026-11-01', endDate: '2026-11-14' });
+  check('design 1개월 미만 계약 → 고용보험 일용근로자 안내', daily.ok && (daily.notes || []).some((n) => n.includes('일용근로자')));
 }
 if (tools.includes('make_contract_files')) {
   const outDir = path.join(tmp, 'contract');

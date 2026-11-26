@@ -5,7 +5,7 @@
 // 사업장 양식의 자동 종료 조항(매년 재계약 자동종료·불응 시 자동만료)은 넣지 않는다(HRMS 수원 건 재홍님 결정).
 
 import { monthlyHolidayWeekDrop, ROUNDING_UNIT, weeklySchedule, type DesignResult, type ItemKey } from './design';
-import { dailyWorkHours, EMPLOYMENT_INSURANCE_INCOME_FROM, leaveTerms, PROBATION_PCT, probationIssue, rateText, reducedMonthsOf, restDayTerm, type WriteForm } from './contract';
+import { dailyWorkHours, EMPLOYMENT_INSURANCE_INCOME_FROM, employmentInsuranceCase, leaveTerms, PROBATION_PCT, probationIssue, rateText, reducedMonthsOf, restDayTerm, type WriteForm } from './contract';
 import { laborDayOffHours, laborDayOffPay } from './part';
 import { hoursText, wonText } from './text';
 
@@ -174,15 +174,27 @@ function laborDayLine(fivePlus: boolean): string {
 /**
  * 제7조(사회보험) — 1주 15시간 미만이면 일괄 가입으로 적지 않는다(261124 P2 #16).
  * 고용보험: 1주 15시간 미만은 적용 제외, 3개월 이상 계속 근로하면 적용(고용보험법 시행령 제3조, 2023. 6. 27. 개정).
- *   2027. 1. 1.부터는 보수 소득 기준(금액은 대통령령) 또는 3개월 이상 계속 근로(같은 법 제10조제2항).
+ *   1개월 미만 계약은 일용근로자라 시간과 상관없이 적용(같은 조 제2항제2호, 261126 G4 I11).
+ *   2027. 1. 1.부터는 보수 소득 기준(금액은 대통령령) 또는 3개월 이상 계속 근로(같은 법 제10조제2항) — 그날 이후 시작하는
+ *   계약은 15시간 이상이어도 가입을 단정하지 않고, 그날을 넘는 15시간 미만 계약은 한 줄을 더한다(261126 G4 I12).
+ *   갈래는 contract.ts employmentInsuranceCase.
  * 산재보험은 근로시간 기준이 없어 그대로 둔다. 국민연금·건강보험의 단시간 제외는 원문을 확인하지 못해 가입 여부를 정하지 않는다.
  */
-export function socialInsuranceLines(startDate: string, under15: boolean): string[] {
+export function socialInsuranceLines(form: Pick<WriteForm, 'startDate' | 'endDate'>, under15: boolean): string[] {
+  const kind = employmentInsuranceCase(form, under15);
+  const pensionHealth = '국민연금·건강보험은 관계 법령의 가입 기준에 따른다.';
+  const income = '고용보험은 보수가 고용보험법 제10조 제1항 제2호의 소득 기준 이상이거나 3개월 이상 계속하여 근로를 제공하면 가입한다.';
+  if (kind === 'income') return under15 ? ['산재보험에 가입한다.', income, pensionHealth] : ['산재보험·국민연금·건강보험에 가입한다.', income];
   if (!under15) return ['고용보험·산재보험·국민연금·건강보험에 가입한다.'];
-  const employment = startDate >= EMPLOYMENT_INSURANCE_INCOME_FROM
-    ? '고용보험은 보수가 고용보험법 제10조 제1항 제2호의 소득 기준 이상이거나 3개월 이상 계속하여 근로를 제공하면 가입한다.'
-    : '1주 소정근로시간이 15시간 미만이므로 3개월 이상 계속하여 근로를 제공하면 고용보험에 가입한다(고용보험법 시행령 제3조).';
-  return ['산재보험에 가입한다.', employment, '국민연금·건강보험은 관계 법령의 가입 기준에 따른다.'];
+  if (kind === 'daily') {
+    const daily = form.startDate >= EMPLOYMENT_INSURANCE_INCOME_FROM
+      ? '1개월 미만 동안 고용되는 일용근로자이므로 고용보험에 가입한다(고용보험법 제10조 제2항 제1호).'
+      : '1개월 미만 동안 고용되는 일용근로자이므로 1주 소정근로시간과 상관없이 고용보험에 가입한다(고용보험법 시행령 제3조 제2항 제2호).';
+    return ['산재보험에 가입한다.', daily, pensionHealth];
+  }
+  const lines = ['산재보험에 가입한다.', '1주 소정근로시간이 15시간 미만이므로 3개월 이상 계속하여 근로를 제공하면 고용보험에 가입한다(고용보험법 시행령 제3조).'];
+  if (kind === 'hours-crossing') lines.push('2027년 1월 1일부터는 3개월이 되지 않았더라도 보수가 고용보험법 제10조 제1항 제2호의 소득 기준 이상이면 가입한다.');
+  return [...lines, pensionHealth];
 }
 
 export function buildContractDocument(form: WriteForm, design: DesignResult): ContractDocument {
@@ -298,7 +310,7 @@ export function buildContractDocument(form: WriteForm, design: DesignResult): Co
     { heading: '제4조(휴일)', lines: restLines },
     { heading: '제5조(임금)', lines: wageLines, table },
     { heading: '제6조(연차유급휴가)', lines: leaveLines },
-    { heading: '제7조(사회보험)', lines: socialInsuranceLines(form.startDate, under15) },
+    { heading: '제7조(사회보험)', lines: socialInsuranceLines(form, under15) },
     { heading: '제8조(계약서 교부)', lines: ['사업주는 이 계약을 맺는 즉시 계약서 사본을 근로자에게 교부한다(근로기준법 제17조 제2항).'] },
     { heading: '제9조(그 밖의 사항)', lines: ['이 계약에 정하지 않은 사항은 근로기준법 등 관계 법령에 따른다.'] },
   ];
