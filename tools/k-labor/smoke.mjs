@@ -311,13 +311,17 @@ if (tools.includes('calc_weekly_holiday_pay')) {
   check(`weekly_holiday 주 22.5시간 → 4.5시간 46,440원(${w.headline?.[0]})`, w.dailyHours === 4.5 && w.amount === 46_440);
   const u = await callTool('calc_weekly_holiday_pay', { hourlyWage: 10_320, weeklyHours: 14.5 });
   check('weekly_holiday 주 15시간 미만은 없음', u.status === 'under15' && u.amount === 0);
-  const fri = await callTool('calc_weekly_holiday_pay', { hourlyWage: 10_320, weeklyHours: 40, endsBeforeRestDay: true });
-  check(`weekly_holiday 퇴사일이 주휴일 전이면 없음(${fri.headline?.[1]})`, fri.status === 'ended' && fri.amount === 0);
-  // G4 I2 — 0원의 근거(존속 요건은 조문에 없음, 임금근로시간과-1743)를 웹과 같은 문장으로 싣는다
-  check(`weekly_holiday 퇴사 주 근거 1743(${fri.basisNote})`,
-    /임금근로시간과-1743/.test(fri.basisNote ?? '') && fri.basis?.some((b) => b.includes('1743')));
-  const sun = await callTool('calc_weekly_holiday_pay', { hourlyWage: 10_320, weeklyHours: 40, endsBeforeRestDay: false });
-  check('weekly_holiday 퇴사일이 주휴일이면 82,560원(퇴사 주 근거 줄 없음)', sun.status === 'paid' && sun.amount === 82_560 && sun.basisNote === undefined);
+  // G4 D1 — 그 주(연속 7일) 7일째 전 퇴사(월~일 주 금요일, 또는 수요일 주휴·목요일 퇴사)는 0원
+  const fri = await callTool('calc_weekly_holiday_pay', { hourlyWage: 10_320, weeklyHours: 40, endsBeforeWeekEnd: true });
+  check(`weekly_holiday 퇴사일이 7일째 전이면 없음(${fri.headline?.[1]})`, fri.status === 'ended' && fri.amount === 0);
+  // G4 I2·D1 — 0원의 근거(존속 요건은 조문에 없음, 1350 답변·임금근로시간과-1743)를 웹과 같은 문장으로 싣는다
+  check(`weekly_holiday 퇴사 주 근거 1350·1743(${fri.basisNote})`,
+    /7일째가 되는 날/.test(fri.basisNote ?? '') && /임금근로시간과-1743/.test(fri.basisNote ?? '') && fri.basis?.some((b) => b.includes('제2조')));
+  const sun = await callTool('calc_weekly_holiday_pay', { hourlyWage: 10_320, weeklyHours: 40, endsBeforeWeekEnd: false });
+  check('weekly_holiday 퇴사일이 7일째(일요일)면 82,560원(근거 줄 없음)', sun.status === 'paid' && sun.amount === 82_560 && sun.basisNote === undefined);
+  // G4 D1 — 수요일 입사·일요일 종료(주 24시간): 종전 49,536원 → 0원
+  const wed = await callTool('calc_weekly_holiday_pay', { hourlyWage: 10_320, weeklyHours: 24, joinedMidWeek: true });
+  check(`weekly_holiday 주중 입사면 없음(${wed.headline?.[1]})`, wed.status === 'joined' && wed.amount === 0 && /입사/.test(wed.headline?.[1] ?? '') && /제2조 제1항 제7호/.test(wed.basisNote ?? ''));
 }
 if (tools.includes('count_regular_workers')) {
   // 4명 원래부터 + 계약직 1명 2026-11-02~11-30, 월~금

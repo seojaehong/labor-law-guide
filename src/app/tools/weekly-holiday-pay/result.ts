@@ -19,15 +19,38 @@ export function defaultWageNote(rate: Rate | null): string | null {
   return `기본값 ${won(rate.value)}은 ${rate.from.slice(0, 4)}년 최저임금입니다. 근거 ${rate.basis} · 확인 ${dotDate(rate.checked)}`;
 }
 
-/** 퇴사일이 주휴일 전 — 화면과 MCP(calc_weekly_holiday_pay)가 같은 문장을 쓴다 */
-export const ENDED_VERDICT = ['이번 주는 주휴수당이 없습니다.', '퇴사일이 그 주 주휴일 전이라 주휴일까지 근로관계가 이어지지 않습니다.'];
+/** 퇴사일이 그 주 7일째 전 — 화면과 MCP(calc_weekly_holiday_pay)가 같은 문장을 쓴다(G4 D1, 261126) */
+export const ENDED_VERDICT = ['이번 주는 주휴수당이 없습니다.', '퇴사일이 그 주(연속 7일)의 마지막 날 전이라 1주 동안 근로관계가 이어지지 않았습니다.'];
+
+/** 그 주 첫날보다 늦게 입사 — 화면과 MCP 가 같은 문장을 쓴다(G4 D1) */
+export const JOINED_VERDICT = ['이번 주는 주휴수당이 없습니다.', '그 주(연속 7일)의 첫날보다 늦게 입사해 1주 동안 근로관계가 이어지지 않았습니다.'];
 
 /**
- * 0원(ended)의 근거 — 근로관계 존속 요건은 조문에 없어 아래 법령 링크(BASIS)만으로는 판단 근거가 비었다(G4 I2, 261126).
- * 인용 구절은 법제처 DRF 법령해석 16858(임금근로시간과-1743, 2021. 8. 5.) 회답의 글자 그대로다(2026-11-26 조회).
+ * 0원(ended)의 근거 — 근로관계 존속 요건은 조문에 없어 법령 링크만으로는 판단 근거가 비었다(G4 I2·D1, 261126).
+ * 「」 안은 원문 글자 그대로다(2026-11-26 조회): 고용노동부 1350 문답 1000299736 의 2025. 9. 15. 답변,
+ * 법제처 DRF 법령해석 16858(임금근로시간과-1743) 회답. 근로기준정책과-6551 은 넣지 않는다(lib/calc/weekly-holiday.ts 주석).
  */
 export const ENDED_BASIS =
-  '근로관계가 이어져야 한다는 요건은 조문에 없습니다. 시행령 제30조 제1항은 개근만 정하고, 고용노동부는 유급 주휴일을 「1주간의 근로관계가 존속하면서」 그 주 소정근로일을 개근한 경우에 준다고 봅니다(임금근로시간과-1743, 2021. 8. 5.).';
+  '근로관계가 1주 동안 이어져야 한다는 요건은 조문에 없습니다(시행령 제30조 제1항은 개근만 정합니다). 고용노동부는 「1주 7일의 마지막날(7일째가 되는 날)」에 사업장에 소속되어 있으면 1주간 근로관계가 유지된 것으로 보고(1350 답변, 2025. 9. 15.), 유급 주휴일을 「1주간의 근로관계가 존속하면서」 그 주 소정근로일을 개근한 경우에 준다고 봅니다(임금근로시간과-1743, 2021. 8. 5.).';
+
+/** 0원(joined)의 근거 — 입사 주를 직접 다룬 해석이 없어 이 계산기의 기준임을 밝힌다(G4 D1) */
+export const JOINED_BASIS =
+  '1주는 휴일을 포함한 7일입니다(근로기준법 제2조 제1항 제7호). 입사한 주를 직접 다룬 고용노동부 해석은 찾지 못해, 퇴사하는 주와 같이 그 7일 동안 근로관계가 이어져야 생기는 것으로 셉니다.';
+
+/** 화면 선택(그 주 내내 재직했나) — 생기는 선택은 「7일 내내 재직」 하나뿐이라 같은 주에 입사·퇴사해도 새지 않는다 */
+export const WEEK_SPANS = ['whole', 'joined', 'before'] as const;
+export type WeekSpan = (typeof WEEK_SPANS)[number];
+
+/** 화면 선택 → 엔진 입력 */
+export function weekSpanInput(span: WeekSpan): { joinedMidWeek?: boolean; endsBeforeWeekEnd?: boolean } {
+  if (span === 'joined') return { joinedMidWeek: true };
+  if (span === 'before') return { endsBeforeWeekEnd: true };
+  return {};
+}
+
+/** 화면 선택지 아래 설명 — 7일째 기준과 예시 */
+export const WEEK_NOTE =
+  '1주는 회사가 정한 연속 7일(보통 월~일)이고, 주휴일이 무슨 요일이든 그 주 첫날부터 마지막 날(7일째)까지 근로관계가 이어져야 생깁니다. 월~일 주에 금요일까지 일하고 퇴사일도 금요일이면 없고, 퇴사일이 일요일이면 생깁니다. 주휴일이 수요일이어도 목요일에 퇴사하면 없고, 수요일에 입사한 주도 없습니다.';
 
 /** 퇴사일의 뜻 — 화면의 퇴사 주 설명과 0원 안내가 같이 쓴다. 상실일(퇴직일)은 퇴사일 다음 날이다(pay-proration.ts 용어와 같다) */
 export const EXIT_DAY_DEFINITION =
@@ -38,6 +61,8 @@ const BASIS = [
   lawLink('근로기준법 시행령 제30조(휴일)', '근로기준법 시행령', '제30조'),
   lawLink('근로기준법 제18조(단시간근로자의 근로조건)', '근로기준법', '제18조'),
 ];
+/** 「1주」 = 휴일을 포함한 7일(제2조 제1항 제7호) — 입사·퇴사 주 0원에만 붙인다 */
+const WEEK_LAW = lawLink('근로기준법 제2조(정의)', '근로기준법', '제2조');
 
 export function weeklyHolidayView(a: {
   r: WeeklyHolidayResult;
@@ -78,9 +103,24 @@ export function weeklyHolidayView(a: {
       verdict: ENDED_VERDICT,
       meta: [ENDED_BASIS],
       amounts: [],
-      nextNote: '퇴사일을 근로관계가 이어진 마지막 날로 보고 골랐는지 확인해 보세요. 인사기록·4대보험에 적는 상실일(퇴직일)은 그다음 날이라, 상실일의 전날이 퇴사일입니다. 마지막으로 일한 날이 금요일이어도 퇴사일이 주휴일(보통 일요일)이면 그 주 주휴수당이 생깁니다.',
+      basis: [...BASIS, WEEK_LAW],
+      nextNote: '퇴사일을 근로관계가 이어진 마지막 날로 보고 골랐는지 확인해 보세요. 인사기록·4대보험에 적는 상실일(퇴직일)은 그다음 날이라, 상실일의 전날이 퇴사일입니다. 마지막으로 일한 날이 금요일이어도 퇴사일이 그 주 마지막 날(월~일 주라면 일요일)이면 그 주 주휴수당이 생깁니다.',
       next: [
         { label: '급여 일할계산(퇴사한 달)', href: '/tools/pay-proration' },
+        { label: '월급 대조(시급제 주휴)', href: '/tools/pay-check' },
+      ],
+    };
+  }
+  if (r.status === 'joined') {
+    return {
+      ...base,
+      verdict: JOINED_VERDICT,
+      meta: [JOINED_BASIS],
+      amounts: [],
+      basis: [...BASIS, WEEK_LAW],
+      nextNote: '입사일이 그 주 첫날이면 7일 내내 재직한 것이라 「7일 내내 재직했다」를 고릅니다. 다음 주부터는 7일 내내 재직하고 소정근로일을 모두 나오면 생깁니다.',
+      next: [
+        { label: '급여 일할계산(입사한 달)', href: '/tools/pay-proration' },
         { label: '월급 대조(시급제 주휴)', href: '/tools/pay-check' },
       ],
     };

@@ -7,7 +7,7 @@ import FoldedDetail from '@/components/tool/FoldedDetail';
 import ToolSplit from '@/components/tool/ToolSplit';
 import ResultBlock from '@/components/tool-result/ResultBlock';
 import { card, inputCls, ink, muted, small, todayKst, wonInputError } from '@/lib/tool-kit';
-import { EXIT_DAY_DEFINITION, defaultWageNote, weeklyHolidayView } from './result';
+import { EXIT_DAY_DEFINITION, WEEK_NOTE, defaultWageNote, weekSpanInput, weeklyHolidayView, type WeekSpan } from './result';
 
 const num = (s: string) => Number(s.replace(/,/g, '').trim());
 
@@ -21,8 +21,8 @@ export default function WeeklyHolidayClient() {
   const [weekly, setWeekly] = useState('40');
   const [attended, setAttended] = useState(true);
   const [days, setDays] = useState('5');
-  // 퇴사 주 — none = 평상 주, before = 퇴사일이 주휴일 전, onOrAfter = 퇴사일이 주휴일이거나 그 뒤
-  const [exit, setExit] = useState<'none' | 'before' | 'onOrAfter'>('none');
+  // 그 주(연속 7일) 내내 재직했나 — whole = 7일 내내, joined = 주중 입사, before = 7일째 전 퇴사(G4 D1, 261126)
+  const [span, setSpan] = useState<WeekSpan>('whole');
 
   const out = useMemo(() => {
     // 시급은 10억원까지(실수령액 계산기와 같은 한도). 빈칸·0 은 계산하지 않고 알린다 — 계산식은 그대로다
@@ -35,13 +35,13 @@ export default function WeeklyHolidayClient() {
           weeklyHours: num(weekly),
           fullAttendance: attended,
           fullTimeDays: num(days),
-          ...(exit === 'none' ? {} : { endsBeforeRestDay: exit === 'before' }),
+          ...weekSpanInput(span),
         }),
       };
     } catch (e) {
       return { error: (e as Error).message };
     }
-  }, [wage, weekly, attended, days, exit]);
+  }, [wage, weekly, attended, days, span]);
 
   const wageNote = defaultWageNote(minRate);
   return (
@@ -67,14 +67,14 @@ export default function WeeklyHolidayClient() {
           </div>
         </fieldset>
         <fieldset className={`${small} sm:col-span-2`} style={muted} aria-describedby="whp-exit-note">
-          <legend className="mb-1">그 주에 퇴사합니까</legend>
+          <legend className="mb-1">그 주(연속 7일) 내내 재직했습니까</legend>
           <div className="flex flex-wrap gap-x-6">
-            <label className={radioLabel}><input type="radio" checked={exit === 'none'} onChange={() => setExit('none')} /> 퇴사하지 않는다</label>
-            <label className={radioLabel}><input type="radio" checked={exit === 'before'} onChange={() => setExit('before')} /> 퇴사일이 주휴일 전이다</label>
-            <label className={radioLabel}><input type="radio" checked={exit === 'onOrAfter'} onChange={() => setExit('onOrAfter')} /> 퇴사일이 주휴일이거나 그 뒤다</label>
+            <label className={radioLabel}><input type="radio" checked={span === 'whole'} onChange={() => setSpan('whole')} /> 7일 내내 재직했다(퇴사일이 7일째이거나 그 뒤 포함)</label>
+            <label className={radioLabel}><input type="radio" checked={span === 'joined'} onChange={() => setSpan('joined')} /> 그 주 첫날보다 늦게 입사했다</label>
+            <label className={radioLabel}><input type="radio" checked={span === 'before'} onChange={() => setSpan('before')} /> 퇴사일이 그 주 마지막 날(7일째) 전이다</label>
           </div>
           <p id="whp-exit-note" className="mt-1 text-xs leading-relaxed">
-            {EXIT_DAY_DEFINITION} 금요일까지 일하고 퇴사일도 금요일이면 그 주 주휴가 없고, 퇴사일이 일요일(주휴일)이면 생깁니다.
+            {WEEK_NOTE} {EXIT_DAY_DEFINITION}
           </p>
         </fieldset>
       </section>

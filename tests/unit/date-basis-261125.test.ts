@@ -7,7 +7,10 @@ import { rateOn } from '@/content/rates';
 import { WITHHOLDING_UNTIL, calcTakeHomePay, takeHomeRatesOn } from '@/lib/calc/take-home-pay';
 import { calcWeeklyHoliday } from '@/lib/calc/weekly-holiday';
 import { INITIAL, toWriteForm, type WriteState } from '@/app/tools/contract-write/formState';
-import { ENDED_BASIS, EXIT_DAY_DEFINITION, weeklyHolidayView } from '@/app/tools/weekly-holiday-pay/result';
+import {
+  ENDED_BASIS, ENDED_VERDICT, EXIT_DAY_DEFINITION, JOINED_BASIS, JOINED_VERDICT, WEEK_NOTE, WEEK_SPANS, weekSpanInput, weeklyHolidayView,
+  type WeekSpan,
+} from '@/app/tools/weekly-holiday-pay/result';
 import { bannedHits } from '@/lib/tool-kit/banned';
 import { readFileSync } from 'node:fs';
 
@@ -227,31 +230,102 @@ describe('G4 I5 간이세액표 재확인 기한', () => {
   });
 });
 
-// ── #4 주휴 금요일 퇴사 — 근로관계가 주휴일까지 이어지는지(퇴사일 = 재직 마지막 날) ──
+// ── #4 주휴 퇴사 주 — G4 D1(261126)로 기준을 바꿨다: 「퇴사일이 주휴일 전인가」 → 「그 주(연속 7일) 7일째 전인가」 ──
 describe('#4 주휴 퇴사 주', () => {
   const base = { hourlyWage: 10_320, weeklyHours: 40, fullAttendance: true };
-  it('주휴일 전에 근로관계가 끝나면(금요일 퇴사일) 0원', () => {
-    const r = calcWeeklyHoliday({ ...base, endsBeforeRestDay: true });
+  it('그 주 7일째 전에 근로관계가 끝나면(월~일 주, 금요일 퇴사일) 0원', () => {
+    const r = calcWeeklyHoliday({ ...base, endsBeforeWeekEnd: true });
     expect(r.status).toBe('ended');
     expect(r.amount).toBe(0);
   });
-  it('주휴일까지 이어지면(퇴사일 일요일) 82,560원', () => {
-    expect(calcWeeklyHoliday({ ...base, endsBeforeRestDay: false }).amount).toBe(82_560);
+  it('7일째까지 이어지면(퇴사일 일요일) 82,560원', () => {
+    expect(calcWeeklyHoliday({ ...base, endsBeforeWeekEnd: false }).amount).toBe(82_560);
   });
   it('묻지 않으면 평상 주 — 82,560원', () => {
     expect(calcWeeklyHoliday(base).amount).toBe(82_560);
   });
   it('15시간 미만이면 퇴사 여부와 상관없이 under15', () => {
-    expect(calcWeeklyHoliday({ ...base, weeklyHours: 14, endsBeforeRestDay: true }).status).toBe('under15');
+    expect(calcWeeklyHoliday({ ...base, weeklyHours: 14, endsBeforeWeekEnd: true }).status).toBe('under15');
+  });
+});
+
+// ── G4 D1(261126 재홍님 결정) 1주(연속 7일)의 첫날부터 마지막 날(7일째)까지 근로관계가 이어져야 생긴다 ──
+// 주휴일 요일과 상관없다. 입사한 주도 같다(그 주 첫날보다 늦게 입사하면 0원).
+// 근거: 고용노동부 1350 답변(2025. 9. 15.) 「1주 7일의 마지막날(7일째가 되는 날)…」, 임금근로시간과-1743 「1주간의 근로관계가 존속하면서」.
+describe('G4 D1 주휴 1주(연속 7일) 존속 기준', () => {
+  const at = (weeklyHours: number, span: WeekSpan) =>
+    calcWeeklyHoliday({ hourlyWage: 10_320, weeklyHours, fullAttendance: true, ...weekSpanInput(span) });
+
+  it('화면 선택 → 엔진 입력: 「7일 내내 재직」만 생기고 주중 입사·7일째 전 퇴사는 모두 0원', () => {
+    expect(WEEK_SPANS.map((s) => [s, at(40, s).status, at(40, s).amount])).toEqual([
+      ['whole', 'paid', 82_560],
+      ['joined', 'joined', 0],
+      ['before', 'ended', 0],
+    ]);
+  });
+
+  it('반례 1 — 월~일 주, 수요일 주휴, 목요일 퇴사: 7일째(일요일) 전이라 0원(종전 「주휴일이거나 그 뒤」로 82,560원)', () => {
+    const r = at(40, 'before');
+    expect([r.status, r.amount]).toEqual(['ended', 0]);
+  });
+
+  it('반례 2 — 수요일 입사·일요일 종료(같은 주): 주중 입사라 0원(종전 주 24시간 49,536원)', () => {
+    expect(at(24, 'whole').amount).toBe(49_536); // 종전 값 확인 — 10,320 × 24 ÷ 5
+    const r = at(24, 'joined');
+    expect([r.status, r.amount]).toEqual(['joined', 0]);
+  });
+
+  it('7일째(일요일)까지 재직하고 퇴사하면 생긴다 — 8일째 근로가 예정되지 않아도', () => {
+    expect(at(40, 'whole').amount).toBe(82_560);
+  });
+
+  const view = (span: WeekSpan, weeklyHours = 40) =>
+    weeklyHolidayView({
+      r: at(weeklyHours, span), hourlyWage: 10_320, weeklyHours, fullTimeDays: 5, minWage: rateOn('minWageHourly', '2026-11-26'),
+    });
+
+  it('퇴사(ended) 화면 — 7일째 기준 문장, 근거 줄(1350 · 1743 원문 구절), 1주 정의 조문 링크', () => {
+    const v = view('before');
+    expect(v.verdict).toEqual(ENDED_VERDICT);
+    expect(ENDED_VERDICT.join(' ')).toContain('7일');
+    expect(ENDED_VERDICT.join(' ')).not.toContain('주휴일 전');
+    expect(v.amounts).toEqual([]);
+    expect(v.meta).toEqual([ENDED_BASIS]);
+    expect(ENDED_BASIS).toContain('「1주 7일의 마지막날(7일째가 되는 날)」');
+    expect(ENDED_BASIS).toContain('「1주간의 근로관계가 존속하면서」');
+    expect(ENDED_BASIS).not.toContain('6551');
+    expect(v.basis.map((b) => b.label)).toContain('근로기준법 제2조(정의)');
+  });
+
+  it('입사(joined) 화면 — 생기는 입력 문장으로 떨어지지 않고 입사 주 문장·근거 줄을 낸다', () => {
+    const v = view('joined', 24);
+    expect(v.verdict).toEqual(JOINED_VERDICT);
+    expect(v.amounts).toEqual([]);
+    expect(v.meta).toEqual([JOINED_BASIS]);
+    expect(JOINED_BASIS).not.toContain('1743'); // 1743 의 기산 시점(근로 시작 뒤 과거 1주)은 입사 주 0원을 뒷받침하지 않는다
+    expect(v.basis.map((b) => b.label)).toContain('근로기준법 제2조(정의)');
+  });
+
+  it('화면 — 선택지 셋, 옛 「주휴일 전」 문구 없음, 설명은 7일째 기준과 금/일·수요일 예시', () => {
+    const src = readFileSync('src/app/tools/weekly-holiday-pay/WeeklyHolidayClient.tsx', 'utf8');
+    expect(src).toContain('weekSpanInput(');
+    expect(src).toContain('{WEEK_NOTE}');
+    expect(src).not.toMatch(/주휴일 전|주휴일이거나|endsBeforeRestDay/);
+    expect(WEEK_NOTE).toContain('7일째');
+    expect(WEEK_NOTE).toContain('수요일');
+  });
+
+  it('새 문장에 금지어가 없다', () => {
+    expect(bannedHits([...ENDED_VERDICT, ...JOINED_VERDICT, ENDED_BASIS, JOINED_BASIS, WEEK_NOTE, view('before').nextNote ?? '', view('joined').nextNote ?? ''].join(' '))).toEqual([]);
   });
 });
 
 // ── G4 I2(261126) 퇴사 주 — 0원(ended)의 근거 줄과 퇴사일 뜻(상실일은 그다음 날) ──
 // 존속 요건은 조문에 없다(시행령 제30조 제1항은 개근만). 원문 확인한 해석 = 임금근로시간과-1743(2021. 8. 5., 법제처 DRF 16858).
 describe('G4 I2 퇴사 주 근거·퇴사일 설명', () => {
-  const view = (endsBeforeRestDay?: boolean) =>
+  const view = (endsBeforeWeekEnd?: boolean) =>
     weeklyHolidayView({
-      r: calcWeeklyHoliday({ hourlyWage: 10_320, weeklyHours: 40, fullAttendance: true, endsBeforeRestDay }),
+      r: calcWeeklyHoliday({ hourlyWage: 10_320, weeklyHours: 40, fullAttendance: true, endsBeforeWeekEnd }),
       hourlyWage: 10_320, weeklyHours: 40, fullTimeDays: 5, minWage: rateOn('minWageHourly', '2026-11-26'),
     });
 
