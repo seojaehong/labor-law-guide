@@ -6,6 +6,8 @@ import { officeTools } from '../../tools/k-labor/groups/office.mjs';
 export const UNPUBLISHED: Record<string, string[]> = {
   office: [...officeTools],
   docs: ['stamp_exhibit_pdf'], // 호증 날인(261124), 미게시
+  calc: ['calc_childcare_reduction_pay'], // 육아기 근로시간 단축 급여·장려금(261127), 미게시
+  law: ['get_law_articles'], // 조문 원문 여러 개(261127), 미게시
 };
 
 export const unpublishedNames = (): string[] => Object.values(UNPUBLISHED).flat();

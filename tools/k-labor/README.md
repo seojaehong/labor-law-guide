@@ -106,6 +106,7 @@ npx -y k-labor call check_min_wage args.json --groups calc
 | `calc` | `calc_wage_delay_interest` | 늦게 준 임금·퇴직금의 지연이자(연 20%) — 퇴직 정산분은 마지막 근무일 + 14일, 재직 중 임금은 정기지급일부터 |
 | `calc` | `check_contractor` | 3.3% 계약(도급·프리랜서)이 근로자에 가까운지 — 질문 8개의 답으로 요소별 정리 |
 | `calc` | `check_monthly_pay` | 월급 대조 — 중도입사·중도퇴사·결근 공제·시급제 주휴가 있는 달의 월급을 다시 계산해 받은 금액과 나란히(이름·주민등록번호는 받지 않음) |
+| `calc` | `calc_childcare_reduction_pay` | 육아기 근로시간 단축 급여(앞 10시간분 월 통상임금 100%·나머지 80%, 곱하기 전 상한·하한, 1개월 미만 일할, 지급대상 기간이 속한 날의 판) + 사업주 출산육아기 고용안정장려금(단축 지원금·처음 허용 추가분·업무분담 지원금)과 신청 시기. 요건은 충족·미충족·확인 필요로 나누고, 빠진 사실은 `needs`. 회사가 주는 단축 후 임금은 계산하지 않음 |
 | `leave` | `calc_annual_leave` | 입사일 기준 연차 발생일수(1년 미만 월 1일·15일·2년마다 1일, 최대 25일) |
 | `leave` | `settle_leave_on_exit` | 퇴직 때 연차 재정산 — 입사일 기준 누계와 회계연도 부여 누계 중 유리한 쪽에서 쓴 일수를 뺀 일수 |
 | `leave` | `calc_attendance_rate` | 출근율 — 연차 발생 요건(1년 80% 이상)을 출근으로 보는 날·빼는 날을 나눠 계산 |
@@ -153,6 +154,7 @@ npx -y k-labor call check_min_wage args.json --groups calc
 | `law` | `search_precedents` / `get_precedent` | 판례 검색(낱말·사건번호·법원) · 판시사항·판결요지·참조조문·참조판례·전문 |
 | `law` | `search_interpretations` / `get_interpretation` | 법령해석 검색·본문 — `source: moel` 고용노동부 법령해석(기본) · `moleg` 법제처 법령해석례 |
 | `law` | `check_citations` | 판례 인용 대조 — 문서의 `[관련 판결]` 블록마다 인용 조각이 그 판결 전문에 글자 그대로 있는지(공백·따옴표·문장부호 무시, 「(중략)」·「…」 조각별). 전문은 붙여 넣은 `bodies` 먼저, 없으면 법제처(사건번호만 보냄 — 대법원은 대부분 있고 하급심은 대부분 없음). 일치·근사(0.85 이상)·불일치·전문 못 찾음(판결이 없다는 뜻 아님)·다른 법원 판결만 있음·요약(대조 제외). 모델을 부르지 않는다 |
+| `law` | `get_law_articles` | 법령 하나의 조문 여러 개를 그날(`asOf`) 시행 중인 판에서 원문 그대로 — 법령은 이름·약칭·법령 ID, 판 본문은 한 번만 받는다. 판 번호·시행일·공포번호·판 화면 주소·조회 시각을 붙이고, 그 판에 없는 조문은 `missing` |
 | `nosa` | `make_council_meeting_docs` | **로컬 전용(파일 쓰기).** 회의 하나의 서류를 `kind` 로 골라 PDF·hwpx 로 — notice(소집 통보서·공고, 통보가 개최일 − 8일보다 늦으면 만들지 않음) · materials(회의자료: 안건 목록·보고사항 4칸·안건별 배경·현황·노사 제안·쟁점·요청 결정·전분기 이행 점검표) · minutes(별지 제3호서식 칸 7개 그대로 + 참석위원 서명 칸, 상세 회의록, 같은 이름의 `.json` 구조화 원본 — 안건 ID·구분·법조문 분류·제안 측·결과·이월) · resolution(의결사항 공지). 정족수·의결 문장은 `check_council_meeting` 과 같은 계산으로 넣고, 안건 설명·발언 요지는 입력만 싣습니다. 서명 칸은 비워 둡니다. 덮어쓰지 않습니다 |
 
 ### 묶음 고르기
@@ -245,7 +247,7 @@ claude mcp add --scope user k-labor -e LAW_OC=내OC -- npx -y k-labor mcp --grou
 법제처 국가법령정보 Open API(DRF)에서 법령 검색·별표서식·조문 연혁·판례·법령해석을 그때그때 받습니다. 도구 구성과 요청 대상은 [korean-law-mcp](https://github.com/chrisryugj/korean-law-mcp)(MIT) v2.1.6 을 참고해 노무 실무에 쓰는 7개만 골랐습니다 — 고지는 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
 - **OC 는 `LAW_OC` 로만** 받습니다(도구 인자로 받지 않음). 없으면 도구가 부르지 않고 `LAW_OC` 를 넣으라고 알립니다.
-- 조문 원문과 두 시점 비교는 `work-rules` 묶음의 `get_law_article`·`compare_law_versions` 가 맡습니다(이 묶음은 다시 만들지 않음 — 법제처 신구조문대비도 넣지 않음). `law` 만 켜면 조문 원문을 볼 수 없습니다. 함께 쓰려면 `--groups work-rules,law`.
+- 조문 원문 여러 개를 한 시점으로 받는 것은 이 묶음의 `get_law_articles` 입니다(2026. 11. 27. 추가 — 종전에는 이 묶음에 조문 원문 도구를 두지 않았습니다). 한 조문 보기 `get_law_article` 과 두 시점 비교 `compare_law_versions` 는 `work-rules` 묶음에 있습니다(법제처 신구조문대비는 넣지 않음). 함께 쓰려면 `--groups work-rules,law`.
 - 법제처 응답의 상세 주소에는 OC 가 들어 있어 옮기지 않습니다. 돌려주는 주소는 OC 가 없는 법제처 화면(`lsInfoP.do`·`precInfoP.do`)과 별표·서식 파일(`flDownload.do`)뿐입니다.
 - 판례·해석·조문 글자는 법제처 응답 그대로이고 `<br/>` 줄바꿈과 영문 태그만 정리합니다. 판례 전문은 기본 3만 자에서 자르고 `truncated` 로 알립니다.
 - **원격(HTTP)판에 싣지 않습니다.** 법제처가 등록 IP 와 이용자별 OC 로만 받아, 서버 쪽 OC 를 어떻게 둘지 정하기 전까지 로컬 전용입니다.

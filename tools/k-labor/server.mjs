@@ -30,7 +30,7 @@ const GROUPS = {
   nhis: { register: registerNhis, tools: nhisTools, about: '건강보험 관할 지사 찾기 · 자격취득·상실 신고서 PDF' },
   popbill: { register: registerPopbill, tools: popbillTools, about: '내 팝빌 계정으로 팩스·문자 보내기 · 결과 조회' },
   contract: { register: registerContract, tools: contractTools, about: '근로계약서 임금 구성 설계 · 점검 · xlsx·hwpx·pdf 만들기(파일은 로컬 전용)' },
-  calc: { register: registerCalc, tools: calcTools, about: '최저임금 · 주휴수당 · 상시 근로자 수 · 실수령액 · 해고예고수당 · 연차수당 · 퇴직금 · 공휴일 근로 수당 · 급여 일할 · 휴업수당 계산 · 통상임금 점검 · 임금 체불 지연이자 · 근로자성 점검 · 월급 대조' },
+  calc: { register: registerCalc, tools: calcTools, about: '최저임금 · 주휴수당 · 상시 근로자 수 · 실수령액 · 해고예고수당 · 연차수당 · 퇴직금 · 공휴일 근로 수당 · 급여 일할 · 휴업수당 계산 · 통상임금 점검 · 임금 체불 지연이자 · 근로자성 점검 · 월급 대조 · 육아기 근로시간 단축 급여·사업주 장려금' },
   leave: { register: registerLeave, tools: leaveTools, about: '연차 발생일수 · 퇴직 때 연차 재정산(입사일 기준 대 회계연도 기준) · 출근율(1년 80%)' },
   tax: { register: registerTax, tools: taxTools, about: '퇴직소득세 · 지방소득세 · 중도퇴사자 연말정산 · 일용근로자 원천세 계산' },
   duties: { register: registerDuties, tools: dutiesTools, about: '사업장 규모별 사업주 의무 · 의무교육 · 위반 시 제재(묶은 자료)' },
@@ -42,7 +42,7 @@ const GROUPS = {
   docs: { register: registerDocs, tools: docsTools, about: '마크다운 원고 → 한글(hwpx) 파일(프리셋 internal·tribunal) · hwpx 글자만 고치기 · 한글(hwp·hwpx) 읽기·서식 채우기·고친 마크다운 되쓰기(kordoc, 파일은 로컬 전용) · 퇴고 문체 점검(규칙 팩) · 퇴고 공개 규범 점검(띄어쓰기·문장 부호·연결어미 뒤 쉼표) · 퇴고 윤문 전후 보존 대조' },
   office: { register: registerOffice, tools: officeTools, about: '엑셀(xlsx) 서식 구조 보기 · 칸 주소 붙은 행 읽기 · 원본 서식 그대로 채우기 · 사양(JSON)으로 서식 만들기(파일은 로컬 전용)' },
   // 법령 조회 묶음(law)은 원격판에 싣지 않는다 — 법제처가 등록 IP·이용자별 OC 로만 받아, 서버 OC 관리 방식을 정하기 전까지 로컬 전용
-  law: { register: registerLaw, tools: lawTools, about: '법제처 실시간(LAW_OC) — 법령 검색 · 별표·서식 목록과 파일 주소 · 조문 개정 연혁 · 판례 검색·본문 · 법령해석(고용노동부·법제처) 검색·본문' },
+  law: { register: registerLaw, tools: lawTools, about: '법제처 실시간(LAW_OC) — 법령 검색 · 조문 원문 여러 개(한 시점) · 별표·서식 목록과 파일 주소 · 조문 개정 연혁 · 판례 검색·본문 · 법령해석(고용노동부·법제처) 검색·본문' },
 };
 const ALIAS = { fax: 'popbill', sms: 'popbill', rules: 'work-rules', 'work_rules': 'work-rules', council: 'nosa', laws: 'law' };
 

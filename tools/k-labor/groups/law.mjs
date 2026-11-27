@@ -1,4 +1,4 @@
-/*! law 묶음 — 법제처 국가법령정보 Open API(DRF) 조회 도구 7개 + 판례 인용 대조 1개.
+/*! law 묶음 — 법제처 국가법령정보 Open API(DRF) 조회 도구 8개 + 판례 인용 대조 1개.
  * 도구 구성(법령 검색·별표서식·조문 연혁·판례·법령해석례)은 korean-law-mcp v2.1.6 을 참고해 노무 실무에 쓰는 것만 골랐다.
  *   korean-law-mcp — MIT License, Copyright (c) 2025 Chris — https://github.com/chrisryugj/korean-law-mcp
  *   (전문은 tools/k-labor/THIRD_PARTY_NOTICES.md)
@@ -11,14 +11,19 @@
 //   search_interpretations 법령해석 검색(고용노동부·법제처) lawSearch.do  target=moelCgmExpc · expc
 //   get_interpretation     법령해석 본문                   lawService.do target=moelCgmExpc · expc
 //   check_citations        판례 인용 대조(글자 대조)       lib/cite-check.mjs — 법제처에는 사건번호만 보낸다(261123)
-// 조문 원문·두 시점 비교는 work-rules 묶음의 get_law_article·compare_law_versions 가 맡는다(여기서 다시 만들지 않는다 — 법제처 신구조문대비 oldAndNew 도 그래서 뺐다).
+//   get_law_articles       조문 원문 여러 개(한 시점)       lawSearch.do target=eflaw → lawService.do target=eflaw(판 본문 1번)
+// 조문 원문 — 261127 바꾼 결정: 종전에는 「조문 원문은 work-rules 의 get_law_article 이 맡는다(여기서 다시 만들지 않는다)」였다.
+//   검토 문서에서 여러 법령의 여러 조문을 한 시점으로 받아야 해서 get_law_articles 를 여기 둔다(법령명·약칭·법령 ID, 판 본문은 한 번만 받는다).
+//   한 조문 보기 get_law_article 과 두 시점 비교 compare_law_versions 는 work-rules 묶음에 그대로 둔다. 법제처 신구조문대비 oldAndNew 는 계속 뺀다.
 // ★ OC 는 env LAW_OC 로만 받는다(lib/law-drf.mjs lawOc). 도구 인자로 받지 않는다.
 // ★ 원격판(remote.mjs)에 싣지 않는다 — 법제처는 등록한 IP 만 받고 OC 가 이용자마다 달라, 원격판은 서버 OC 관리 방식을 정한 뒤에 연다.
 // ★ 공개 문구 금지어(src/lib/tool-kit/banned.ts)와 포괄·대신·대행·대리는 이 묶음이 쓰는 글(설명·안내)에 쓰지 않는다.
 //   판례·해석·법령 원문은 고치지 않고 그대로 싣는다 — 그런 칸은 LAW_OPEN_TEXT_FIELDS(smoke 가 금지어 시험에서 뺀다).
 import { z } from 'zod';
-import { argsLookLikeRrn, text } from '../lib/common.mjs';
-import { articleKey, DrfError, normName, versionLink } from '../lib/law-drf.mjs';
+import { argsLookLikeRrn, rrnLines, text } from '../lib/common.mjs';
+import {
+  articleKey, articles as lawArticles, DRF_SOURCE, DrfError, fetchLaw, findArticle, getJson, lawInfo, normName, searchAll, versionAt, versionLink,
+} from '../lib/law-drf.mjs';
 import {
   OPEN_SOURCE, INTERP, joCode, precLink,
   searchLaws, searchPrecedents, fetchPrecedent, searchInterps, fetchInterp, searchAnnexes, fetchArticleHistory,
@@ -28,7 +33,7 @@ import { checkCitations, drfFetchBody, NOT_FOUND_NOTE, parseCitationBlocks, VERD
 export const lawTools = [
   'search_laws', 'list_law_forms', 'get_article_history',
   'search_precedents', 'get_precedent', 'search_interpretations', 'get_interpretation',
-  'check_citations',
+  'check_citations', 'get_law_articles',
 ];
 
 const READ_ONLY_LIVE = { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true };
@@ -62,7 +67,7 @@ export function registerLaw(server) {
       title: '법령 검색(법제처 실시간)',
       description:
         '법령 이름(또는 본문 낱말)으로 현행 법령·시행령·시행규칙을 법제처 국가법령정보 Open API 에서 찾는다(env LAW_OC 필요). ' +
-        '법령ID·판 번호(MST)·공포일·시행일·소관 부처를 준다. 조문 원문은 get_law_article(work-rules 묶음), 조문 연혁은 get_article_history, 별표·서식은 list_law_forms 로 이어 본다.',
+        '법령ID·판 번호(MST)·공포일·시행일·소관 부처를 준다. 조문 원문은 get_law_articles(여러 조문·한 시점) 또는 get_law_article(work-rules 묶음), 조문 연혁은 get_article_history, 별표·서식은 list_law_forms 로 이어 본다.',
       inputSchema: {
         query: z.string().min(1).max(100).describe('법령 이름 낱말(예: 근로기준법, 최저임금, 산업안전보건법 시행규칙)'),
         inText: z.boolean().optional().describe('true 면 법령 본문에서 찾는다(기본 false = 법령 이름)'),
@@ -331,6 +336,113 @@ export function registerLaw(server) {
           rows: r.rows,
           ...(r.counts[VERDICT.NOT_FOUND] ? { notice: NOT_FOUND_NOTE } : {}),
           source: src(),
+        });
+      } catch (err) {
+        return fail(errMsg(err));
+      }
+    },
+  );
+
+  // ── 9. 조문 원문 여러 개(한 시점) ──
+  server.registerTool(
+    'get_law_articles',
+    {
+      title: '조문 원문 여러 개(법제처 실시간)',
+      description:
+        '법령 하나의 조문 여러 개를 그날(asOf, 기본 오늘) 시행 중인 판에서 법제처 국가법령정보 Open API 로 받는다(env LAW_OC 필요). 판 본문은 한 번만 받아 조문을 고른다. ' +
+        '법령은 이름·약칭(예: 남녀고용평등법) 또는 법령 ID(6자리)로 찾는다. 조문 글자는 법제처 응답에서 옮기고 항·호의 줄바꿈·들여쓰기만 읽기용으로 정리한다(조문참고자료 제외). 판 목록과 받은 본문의 법령 ID·시행일·공포번호를 대조해 맞을 때만 판 번호·시행일·공포번호·판 화면 주소와 조회 시각을 붙인다. 그 판에 없는 조문은 missing 에 모은다. ' +
+        '조문 하나를 묶은 법령 범위에서 보는 것은 get_law_article, 두 시점 사이 바뀐 글자는 compare_law_versions(둘 다 work-rules 묶음), 조문의 개정 이력은 get_article_history 로 본다.',
+      inputSchema: {
+        law: z.string().min(1).max(100).optional().describe('법령 이름 또는 약칭(예: 고용보험법 시행령, 남녀고용평등법). lawId 를 주면 비워도 된다'),
+        lawId: z.string().regex(/^\d{6}$/).optional().describe('법령 ID 6자리(search_laws 의 lawId, 예: 001872)'),
+        articles: z.array(z.string().min(1).max(20)).min(1).max(30).describe('조문 목록 — 예: ["제19조의2", "제73조의2", "60조", "별표 1"]'),
+        asOf: z.string().optional().describe('이날 시행 중인 판(YYYY-MM-DD). 비우면 오늘(KST). 시행 예정일을 넣으면 시행 예정 판을 본다'),
+      },
+      annotations: READ_ONLY_LIVE,
+    },
+    async (a) => {
+      // JSON 으로 감싸 보면 글 안의 탭·줄바꿈이 「	」 글자로 바뀌어 그 사이로 나눈 번호를 놓친다 — 외부로 나가는 글자는 원문으로도 본다
+      if (argsLookLikeRrn(a) || [a.law, ...(a.articles ?? [])].some((s) => rrnLines(s).length)) return fail(RRN_STOP);
+      const name = a.law?.trim() || '';
+      if (!name && !a.lawId) return fail('law(법령 이름·약칭)나 lawId(법령 ID) 중 하나를 주세요.');
+      const keys = [];
+      const bad = [];
+      for (const s of a.articles) {
+        const k = articleKey(s);
+        if (!k) bad.push(s);
+        else if (!keys.includes(k)) keys.push(k);
+      }
+      if (bad.length) return fail(`조문을 읽지 못했습니다: ${bad.join(', ')} — 「제60조」「제76조의2」「별표 1」처럼 적어 주세요.`);
+      const day = a.asOf ?? (process.env.LLG_TODAY || new Date(Date.now() + 9 * 3_600_000).toISOString().slice(0, 10));
+      const t = /^\d{4}-\d{2}-\d{2}$/.test(day) ? Date.parse(`${day}T00:00:00Z`) : NaN;
+      if (!Number.isFinite(t) || new Date(t).toISOString().slice(0, 10) !== day) return fail('asOf 는 YYYY-MM-DD 로 적어 주세요.');
+      const ymd = day.replace(/-/g, '');
+      try {
+        // 법령 ID·공식 이름 — 이름이면 현행 법령 목록(약칭 포함)에서, ID 만이면 현행 본문의 기본정보에서
+        let lawId = a.lawId ?? null;
+        let official = '';
+        if (name) {
+          const { hit, candidates } = await resolveLaw(name);
+          if (!hit) return text({ ok: false, error: NOT_FOUND_LAW, candidates });
+          if (lawId && hit.lawId !== lawId) return fail(`law(${hit.law}, 법령 ID ${hit.lawId})와 lawId(${lawId})가 서로 다른 법령입니다.`);
+          lawId = hit.lawId;
+          official = hit.law;
+        } else {
+          const j = await getJson('lawService.do', { target: 'eflaw', ID: lawId }, { timeoutMs: 40_000 });
+          official = lawInfo(j?.법령).law;
+          if (!official) return fail(`법령 ID ${lawId}의 법령을 법제처에서 찾지 못했습니다.`);
+        }
+        const shift = `${Number(ymd.slice(0, 4)) - 3}${ymd.slice(4)}`;
+        const { rows: all, complete } = await searchAll({ query: official }, { stopBefore: shift, maxPages: 5 });
+        const rows = all.filter((x) => x.lawId === lawId);
+        const v = versionAt(rows, ymd);
+        if (!v) {
+          return text({
+            ok: false,
+            error: complete
+              ? `${day}에 시행 중인 ${official} 판을 찾지 못했습니다.`
+              : `${day}에 시행 중인 ${official} 판을 찾지 못했습니다. 법제처 판 목록을 5쪽까지만 읽어 그 뒤에 있을 수 있습니다(목록 미완료).`,
+            law: official, lawId, searchComplete: complete,
+          });
+        }
+        const iso = (d) => (d && /^\d{8}$/.test(d) ? `${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6, 8)}` : d ?? null);
+        const version = {
+          mst: v.mst, effective: iso(v.effective), promulgated: iso(v.promulgated), promulgationNo: v.promulgationNo, revision: v.revision, status: v.status,
+          link: versionLink(v.mst, v.effective),
+        };
+        const body = await fetchLaw(v.mst, v.effective);
+        // 목록에서 고른 판과 받은 본문이 같은 판인지 대조한다 — 다르면 출처를 붙이지 않는다
+        const bi = lawInfo(body);
+        // 본문에 식별정보가 없으면 판을 증명하지 못하므로 실패로 본다. 공포번호는 앞자리 0(예: 00436)을 무시하고 숫자로 비교한다
+        const num = (x) => (x == null || x === '' ? null : Number(x));
+        const off = [
+          !bi.lawId || String(bi.lawId) !== String(lawId) ? `법령 ID ${bi.lawId ?? '없음'}≠${lawId}` : null,
+          !bi.effective || String(bi.effective) !== String(v.effective) ? `시행일 ${bi.effective ?? '없음'}≠${v.effective}` : null,
+          v.promulgationNo && num(bi.promulgationNo) !== num(v.promulgationNo) ? `공포번호 ${bi.promulgationNo ?? '없음'}≠${v.promulgationNo}` : null,
+        ].filter(Boolean);
+        if (off.length) return fail(`법제처 판 목록과 받은 본문의 판이 맞지 않습니다(${off.join(', ')}). 출처를 확정하지 못해 원문을 내지 않습니다.`);
+        const arts = lawArticles(body);
+        const found = [];
+        const missing = [];
+        for (const k of keys) {
+          const art = findArticle(arts, k);
+          if (art) found.push({ article: art.article, articleTitle: art.title, articleText: art.text });
+          else missing.push(k);
+        }
+        const law = lawInfo(body).law || v.law || official;
+        const retrievedAt = `${nowKst()} KST`;
+        if (!found.length) return text({ ok: false, error: `이 판(${version.effective} 시행)에 ${missing.join(', ')}이(가) 없습니다.`, law, lawId, version });
+        return text({
+          ok: true,
+          law,
+          lawId,
+          asOf: day,
+          version,
+          articles: found,
+          missing,
+          ...(missing.length ? { notice: `이 판(${version.effective} 시행)에 없는 조문: ${missing.join(', ')}. 조문 번호를 확인하거나 asOf 를 바꿔 보세요.` } : {}),
+          retrievedAt,
+          source: `${DRF_SOURCE} — ${retrievedAt} 조회. 조문 글자는 법제처 응답에서 옮겼고 항·호의 줄바꿈·들여쓰기만 읽기용으로 정리했습니다. 조문참고자료(「[본조신설 …]」 등)는 싣지 않습니다.`,
         });
       } catch (err) {
         return fail(errMsg(err));

@@ -20,6 +20,7 @@ export const LAW_OPEN_TEXT_FIELDS = [
   'question', 'answer', 'reason', 'relatedLaws', 'agency', 'asker', 'candidates', 'ministry', 'revision', 'changeReason',
   'kind', 'label', 'caseNo',
   'piece', 'near', // check_citations — 사용자 인용 조각·판결 원문 근접 구간(261123)
+  'articleTitle', 'articleText', // get_law_articles — 조문 제목·원문(261127)
 ];
 
 // ── 글자 다듬기 ─────────────────────────────

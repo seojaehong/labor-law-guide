@@ -23,7 +23,7 @@ const drfFix = fileURLToPath(new URL('../../tests/fixtures/laws/drf/', import.me
 const hasDrfFix = fs.existsSync(drfFix);
 const DRF_LAW_FILES = { '285279-20261208': 'law-285279-20261208.json', '285279-20270101': 'law-285279-20270101.json', '900001-20270101': 'law-285279-20270101.json' };
 const drfCalls = [];
-const LAW_TARGETS = new Set(['law', 'licbyl', 'lsJoHstInf', 'prec', 'moelCgmExpc', 'expc']);
+const LAW_TARGETS = new Set(['law', 'licbyl', 'lsJoHstInf', 'prec', 'moelCgmExpc', 'expc', 'eflaw']); // eflaw = get_law_articles(판 목록·판 본문)
 const mockDrf = http.createServer((req, res) => {
   const u = new URL(req.url, 'http://mock');
   const p = Object.fromEntries(u.searchParams);
@@ -137,8 +137,8 @@ const callTool = async (name, args) => {
   return JSON.parse(t);
 };
 
-// 사이트 도구 7개 — 도구마다 smoke-more/<이름>.mjs 가 엔진 단위 시험의 기대값으로 부른다(callNew·check)
-const MORE_TOOLS = ['calc_midyear_settlement', 'calc_daily_worker_tax', 'check_ordinary_wage', 'calc_wage_delay_interest', 'calc_attendance_rate', 'check_contractor', 'check_monthly_pay'];
+// 사이트 도구 8개 — 도구마다 smoke-more/<이름>.mjs 가 엔진 단위 시험의 기대값으로 부른다(callNew·check)
+const MORE_TOOLS = ['calc_midyear_settlement', 'calc_daily_worker_tax', 'check_ordinary_wage', 'calc_wage_delay_interest', 'calc_attendance_rate', 'check_contractor', 'check_monthly_pay', 'calc_childcare_reduction_pay'];
 const ANN = {
   design_contract_wage: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
   check_contract: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
@@ -208,7 +208,7 @@ const ANN = {
   extract_pptx_bytes: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
   make_meeting_pptx_bytes: { readOnlyHint: true, destructiveHint: false, idempotentHint: false, openWorldHint: false },
   // law 묶음 — 읽기 전용, 법제처(외부)를 부른다
-  ...Object.fromEntries(['search_laws', 'list_law_forms', 'get_article_history', 'search_precedents', 'get_precedent', 'search_interpretations', 'get_interpretation', 'check_citations']
+  ...Object.fromEntries(['search_laws', 'list_law_forms', 'get_article_history', 'search_precedents', 'get_precedent', 'search_interpretations', 'get_interpretation', 'check_citations', 'get_law_articles']
     .map((n) => [n, { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true }])),
 };
 // 커넥터 디렉터리 심사 — 빠진 도구 없이 전부 title 과 네 칸이 있다
@@ -456,7 +456,7 @@ if (tools.includes('calc_daily_worker_tax')) {
   try { parsed = JSON.parse(raw); } catch { /* 깨진 JSON */ }
   check('13자리 금액 응답이 올바른 JSON(주민번호 가림이 숫자를 바꾸지 않음)', parsed !== null && !raw.includes('******'));
 }
-// 새 도구 7개는 설명·입력 설명에도 금지어(대신·대행·대리·포괄 포함)가 없다
+// 새 도구 8개는 설명·입력 설명에도 금지어(대신·대행·대리·포괄 포함)가 없다
 for (const t of (await c.listTools()).tools.filter((x) => MORE_TOOLS.includes(x.name))) {
   const h = banned ? banned.bannedHits(JSON.stringify([t.title, t.description, t.inputSchema]), [...NEW_WORDS, '포괄']) : [];
   check(`${t.name}: 설명 금지어 없음${h.length ? ` (${h.join(',')})` : ''}`, h.length === 0);
@@ -1157,6 +1157,11 @@ if (tools.includes('search_laws') && hasDrfFix) {
   check(`get_interpretation 법제처(${gi.caseNo})`, gi.ok && gi.caseNo === '07-0039' && gi.reason?.length > 0);
   const cc = await callLaw('check_citations', { text: '> [관련 판결] 대법원 2024. 12. 19. 선고 2023다216777 판결\n> 근로기준법 시행령 제6조 제1항은 통상임금을 "근로자에게 정기적이고 일률적으로 소정근로 또는 총근로' });
   check(`check_citations 법제처 전문 대조(${cc.rows?.[0]?.verdict})`, cc.ok && cc.rows?.[0]?.verdict === '일치' && cc.rows[0].source === '법제처');
+  const la = await callLaw('get_law_articles', { law: '근로기준법', articles: ['제60조', '제54조', '제999조'], asOf: '2026-12-31' });
+  check(`get_law_articles 여러 조문·판 본문 1번(${la.articles?.map((x) => x.article).join(',')} · 없음 ${la.missing?.join(',')} · 판 ${la.version?.effective})`,
+    la.ok && la.articles?.[0]?.articleText?.startsWith('제60조(연차 유급휴가)') && la.articles?.[1]?.article === '제54조' && la.missing?.[0] === '제999조' && la.version?.link?.startsWith('https://www.law.go.kr/lsInfoP.do') && /KST$/.test(la.retrievedAt ?? ''));
+  const laNo = await callLaw('get_law_articles', { law: '가상법', articles: ['제1조'] });
+  check('get_law_articles 못 찾은 법령은 이름 목록과 함께 오류', laNo.ok === false && Array.isArray(laNo.candidates));
   const rrn = await callLaw('search_precedents', { query: '900101-1234568' });
   const sent = drfCalls.slice(before);
   check('law 주민번호 모양 입력은 멈춤', rrn.ok === false && !sent.some((x) => (x.query ?? '').includes('900101')));
@@ -1187,6 +1192,8 @@ if (tools.includes('search_laws') && hasDrfFix) {
     check(`실제 법제처 — 고용보험법 시행규칙 별표·서식 ${f5.total ?? f5.error}건(100개 넘는 목록을 쪽 넘겨 모음)`, f5.ok && f5.total > 100 && !f5.incomplete && f5.forms.every((x) => x.file?.includes('flDownload.do')));
     const i5 = await callLaw('search_interpretations', { query: '연차 사용촉진', display: 3 }, c5);
     check(`실제 법제처 — 고용노동부 해석 ${i5.total ?? i5.error}건`, i5.ok && i5.total > 0);
+    const a5 = await callLaw('get_law_articles', { law: '남녀고용평등법', articles: ['제19조의2', '제19조의3'] }, c5);
+    check(`실제 법제처 — 약칭 「남녀고용평등법」 조문 2개(${a5.law ?? a5.error} ${a5.version?.effective ?? ''})`, a5.ok && a5.articles?.length === 2 && a5.articles[0].articleText.startsWith('제19조의2(육아기 근로시간 단축)'));
     await c5.close();
   }
 }

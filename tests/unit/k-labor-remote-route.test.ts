@@ -75,7 +75,7 @@ describe('원격 k-labor 라우트', () => {
     expect(status).toBe(200);
     const names = json.result.tools.map((t: { name: string }) => t.name).sort();
     expect(names).toEqual([...REMOTE_TOOLS].sort());
-    expect(names).toHaveLength(32);
+    expect(names).toHaveLength(32); // 261127 calc_childcare_reduction_pay 는 게시 전까지 원격 제외(calcRemoteHeld)
     expect(headers.get('content-type')).toContain('application/json');
     expect(headers.get('cache-control')).toBe('no-store');
   });
