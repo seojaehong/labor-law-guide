@@ -10,6 +10,7 @@ import {
   parseAnnexSearch, parseArticleHistory, parseInterp, parseInterpSearch, parseLawSearch, parsePrec, parsePrecSearch,
 } from '../../tools/k-labor/lib/law-open.mjs';
 import { registerLaw, lawTools } from '../../tools/k-labor/groups/law.mjs';
+import { searchVersionAt } from '../../tools/k-labor/lib/law-drf.mjs';
 import { nhisTools } from '../../tools/k-labor/groups/nhis.mjs';
 import { popbillTools } from '../../tools/k-labor/groups/popbill.mjs';
 import { contractTools } from '../../tools/k-labor/groups/contract.mjs';
@@ -17,7 +18,7 @@ import { calcTools } from '../../tools/k-labor/groups/calc.mjs';
 import { leaveTools } from '../../tools/k-labor/groups/leave.mjs';
 import { taxTools } from '../../tools/k-labor/groups/tax.mjs';
 import { dutiesTools } from '../../tools/k-labor/groups/duties.mjs';
-import { workRulesTools } from '../../tools/k-labor/groups/work-rules.mjs';
+import { registerWorkRules, workRulesTools } from '../../tools/k-labor/groups/work-rules.mjs';
 import { nosaTools } from '../../tools/k-labor/groups/nosa.mjs';
 import { nosaRecordsTools } from '../../tools/k-labor/groups/nosa-records.mjs';
 import { docsTools } from '../../tools/k-labor/groups/docs.mjs';
@@ -113,6 +114,8 @@ function fakeServer() {
 const calls: Record<string, string>[] = [];
 let mismatch900001 = false;
 let noInfo900001 = false;
+// 법령 ID 경로가 받는 현행 본문 — 기본은 시행 예정 판(900001)과 같은 본문이라 다시 받지 않아도 된다
+let idBody = '../drf/law-900001-20270101.json';
 function routeFixture(u: URL): unknown {
   const p = Object.fromEntries(u.searchParams);
   calls.push(p);
@@ -128,14 +131,14 @@ function routeFixture(u: URL): unknown {
     // get_law_articles — 시행일 판 목록·판 본문(tests/fixtures/laws/drf). 900001 은 smoke 와 같이 2027. 1. 1. 본문을 쓴다
     case 'eflaw': {
       if (!svc) return (p.query ?? '').includes('근로기준법') ? fix('../drf/search-lsa.json') : { LawSearch: { totalCnt: '0' } };
-      if (p.ID) return p.ID === '001872' ? fix('../drf/law-285279-20270101.json') : {};
-      const files: Record<string, string> = { '285279-20261208': 'law-285279-20261208.json', '285279-20270101': 'law-285279-20270101.json', '900001-20270101': 'law-285279-20270101.json' };
+      if (p.ID) return p.ID === '001872' ? fix(idBody) : {};
+      const files: Record<string, string> = { '285279-20261208': 'law-285279-20261208.json', '285279-20270101': 'law-285279-20270101.json', '900001-20270101': 'law-900001-20270101.json' };
       const m = files[`${p.MST}-${p.efYd}`];
       if (!m) return {};
       const b = fix(`../drf/${m}`);
-      // 합성 판 900001 은 목록 줄(공포 2026. 10. 30. 제99999호)과 본문 기본정보를 맞춘다 — mismatch900001 이면 일부러 어긋난 본문을 준다
+      // 합성 판 900001 본문은 목록 줄(공포 2026. 10. 30. 제99999호)과 기본정보가 맞다 — mismatch900001 이면 일부러 어긋난 공포번호, noInfo900001 이면 기본정보를 뺀다
       if (p.MST === '900001' && noInfo900001) return { ...b, 법령: { ...b.법령, 기본정보: undefined } };
-      if (p.MST === '900001' && !mismatch900001) return { ...b, 법령: { ...b.법령, 기본정보: { ...b.법령.기본정보, 공포번호: '99999', 공포일자: '20261030' } } };
+      if (p.MST === '900001' && mismatch900001) return { ...b, 법령: { ...b.법령, 기본정보: { ...b.법령.기본정보, 공포번호: '21533' } } };
       return b;
     }
     default: return { LawSearch: { totalCnt: '0' } };
@@ -221,12 +224,63 @@ describe('law 도구', () => {
     expect(r.law).toBe('근로기준법');
     expect(r.version.mst).toBe('900001');
     expect(r.articles[0].article).toBe('제44조의4');
+    // 법령 ID 로 받은 현행 본문이 고른 판과 같으면 그 본문을 다시 쓴다(본문 수신 1번, interrogate 후속 ⑤)
+    expect(calls.filter((c) => c.target === 'eflaw' && (c.MST || c.ID)).length).toBe(1);
+  });
+
+  it('get_law_articles — 법령 ID 로 받은 현행 본문이 고른 판과 다르면 그 판 본문을 따로 받는다', async () => {
+    idBody = '../drf/law-285279-20261208.json';
+    try {
+      const r = await run('get_law_articles', { lawId: '001872', articles: ['제44조의4'], asOf: '2027-01-01' });
+      expect(r.ok).toBe(true);
+      expect(r.version.mst).toBe('900001');
+      expect(calls.filter((c) => c.target === 'eflaw' && c.MST === '900001').length).toBe(1);
+    } finally {
+      idBody = '../drf/law-900001-20270101.json';
+    }
+  });
+
+  it('get_law_article·compare_law_versions 도 받은 본문의 판을 목록과 대조한다(interrogate 후속 ③)', async () => {
+    const s = fakeServer();
+    registerWorkRules(s);
+    const call = async (name: string, a: Record<string, unknown>) => JSON.parse((await s.tools.find((t) => t.name === name)!.handler(a)).content[0].text);
+    const ok = await call('get_law_article', { law: '근로기준법', article: '제44조의4', date: '2027-01-01' });
+    expect(ok.ok).toBe(true);
+    mismatch900001 = true;
+    try {
+      const g = await call('get_law_article', { law: '근로기준법', article: '제44조의4', date: '2027-01-01' });
+      expect(g.ok).toBe(false);
+      expect(g.error).toMatch(/공포번호 21533≠99999/);
+      const cv = await call('compare_law_versions', { law: '근로기준법', dateA: '2026-12-08', dateB: '2027-01-01' });
+      expect(cv.ok).toBe(false);
+      expect(cv.error).toMatch(/판이 맞지 않습니다/);
+    } finally {
+      mismatch900001 = false;
+    }
+  });
+
+  it('searchVersionAt — 공포일로 일찍 멈춘 목록에서 판을 못 찾으면 끝까지 다시 읽는다(interrogate 후속 ④)', async () => {
+    // 1쪽 = 다른 법령 100줄(전부 기준일 3년 전보다 오래 공포), 2쪽 = 찾는 법령의 오래된 판. 멈춤 조건만 믿으면 「판 없음·목록 완료」가 된다
+    const other = Array.from({ length: 100 }, (_, k) => ({ 법령ID: '009999', 법령일련번호: String(100000 + k), 법령명한글: '근로기준법 관련 다른 법령', 공포일자: '20200101', 공포번호: '1', 시행일자: '20200101' }));
+    const mine = { 법령ID: '001872', 법령일련번호: '111111', 법령명한글: '근로기준법', 공포일자: '20190101', 공포번호: '7', 시행일자: '20190701' };
+    const pages: string[] = [];
+    vi.stubGlobal('fetch', async (input: string | URL) => {
+      const u = new URL(String(input));
+      pages.push(u.searchParams.get('page') ?? '');
+      const page = Number(u.searchParams.get('page'));
+      const body = { LawSearch: { totalCnt: '101', page: String(page), law: page === 1 ? other : [mine] } };
+      return new Response(JSON.stringify(body), { status: 200, headers: { 'content-type': 'application/json' } });
+    });
+    const r = await searchVersionAt({ query: '근로기준법' }, (x) => x.lawId === '001872', '20261231', { stopBefore: '20231231' });
+    expect(r.version?.mst).toBe('111111');
+    expect(r.complete).toBe(true);
+    expect(pages).toEqual(['1', '1', '2']);
   });
 
   it('get_law_articles — 목록에서 고른 판과 받은 본문의 공포번호가 다르면 원문을 내지 않는다(interrogate 261127 #11)', async () => {
     mismatch900001 = true;
     try {
-      const r = await run('get_law_articles', { lawId: '001872', articles: ['제44조의4'], asOf: '2027-01-01' });
+      const r = await run('get_law_articles', { law: '근로기준법', articles: ['제44조의4'], asOf: '2027-01-01' });
       expect(r.ok).toBe(false);
       expect(r.error).toMatch(/공포번호 21533≠99999/);
     } finally {
@@ -237,7 +291,7 @@ describe('law 도구', () => {
   it('get_law_articles — 본문에 기본정보(판 식별정보)가 없으면 판을 증명하지 못해 원문을 내지 않는다(interrogate 2차)', async () => {
     noInfo900001 = true;
     try {
-      const r = await run('get_law_articles', { lawId: '001872', articles: ['제44조의4'], asOf: '2027-01-01' });
+      const r = await run('get_law_articles', { law: '근로기준법', articles: ['제44조의4'], asOf: '2027-01-01' });
       expect(r.ok).toBe(false);
       expect(r.error).toMatch(/법령 ID 없음/);
     } finally {

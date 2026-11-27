@@ -21,7 +21,7 @@ const REAL_OC = process.env.LAW_OC || null;
 const MOCK_OC = 'synthetic-smoke-oc';
 const drfFix = fileURLToPath(new URL('../../tests/fixtures/laws/drf/', import.meta.url));
 const hasDrfFix = fs.existsSync(drfFix);
-const DRF_LAW_FILES = { '285279-20261208': 'law-285279-20261208.json', '285279-20270101': 'law-285279-20270101.json', '900001-20270101': 'law-285279-20270101.json' };
+const DRF_LAW_FILES = { '285279-20261208': 'law-285279-20261208.json', '285279-20270101': 'law-285279-20270101.json', '900001-20270101': 'law-900001-20270101.json' };
 const drfCalls = [];
 const LAW_TARGETS = new Set(['law', 'licbyl', 'lsJoHstInf', 'prec', 'moelCgmExpc', 'expc', 'eflaw']); // eflaw = get_law_articles(판 목록·판 본문)
 const mockDrf = http.createServer((req, res) => {

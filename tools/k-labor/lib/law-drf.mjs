@@ -121,20 +121,22 @@ export async function searchPage(params, opts) {
 /**
  * 판 목록을 공포일 내림차순으로 넘기며 모은다.
  * stopBefore(YYYYMMDD) 를 주면 한 쪽이 통째로 그보다 오래 공포됐을 때 멈춘다(maxPages 까지).
+ * stopped = 'stopBefore'(공포일로 일찍 멈춤) · 'maxPages'(쪽 수 한도, complete=false) · null(끝까지 읽음).
  */
 export async function searchAll(params, { stopBefore = null, maxPages = 5, ...opts } = {}) {
   const rows = [];
   let total = 0;
   let complete = true;
+  let stopped = null;
   for (let page = 1; ; page++) {
     const r = await searchPage({ ...params, page }, opts);
     total = r.total;
     rows.push(...r.rows);
     if (!r.rows.length || page * 100 >= total) break;
-    if (stopBefore && r.rows.every((x) => (x.promulgated ?? '') < stopBefore)) break;
-    if (page >= maxPages) { complete = false; break; }
+    if (stopBefore && r.rows.every((x) => (x.promulgated ?? '') < stopBefore)) { stopped = 'stopBefore'; break; }
+    if (page >= maxPages) { complete = false; stopped = 'maxPages'; break; }
   }
-  return { total, rows: uniqVersions(rows), complete };
+  return { total, rows: uniqVersions(rows), complete, stopped };
 }
 
 /** ymd 에 시행 중인 판 — 시행일이 ymd 이하인 판 중 시행일이 가장 늦은 것, 같으면 나중 공포(diff_law_versions.py 와 같다) */
@@ -147,6 +149,27 @@ export function versionAt(rows, ymd) {
 /** 가장 늦은 시행일 판(시행 예정 포함) */
 export const latestVersion = (rows) => versionAt(rows, '99991231');
 
+/**
+ * 판 목록에서 keep 을 통과한 줄 중 ymd 에 시행 중인 판.
+ * stopBefore 로 일찍 멈춘 목록에서 판을 못 찾으면, 시행 중인 판이 그보다 오래 공포됐을 수 있으므로 멈춤 없이 다시 읽는다(maxPages 까지).
+ * 일찍 멈춘 목록에서 찾은 판은 그대로 쓴다 — 공포에서 시행까지 3년 넘게 걸린 판은 따로 보지 않는다.
+ * @param {Record<string, string>} params
+ * @param {(row: ReturnType<typeof versionRow>) => boolean} keep
+ * @param {string} ymd
+ * @param {{ stopBefore?: string | null, maxPages?: number } & Record<string, unknown>} [options]
+ */
+export async function searchVersionAt(params, keep, ymd, { stopBefore = null, maxPages = 5, ...opts } = {}) {
+  let r = await searchAll(params, { stopBefore, maxPages, ...opts });
+  let rows = r.rows.filter(keep);
+  let version = versionAt(rows, ymd);
+  if (!version && r.stopped === 'stopBefore') {
+    r = await searchAll(params, { maxPages, ...opts });
+    rows = r.rows.filter(keep);
+    version = versionAt(rows, ymd);
+  }
+  return { version, rows, all: r.rows, complete: r.complete };
+}
+
 // ── 본문(lawService.do?target=eflaw) ───────────────────
 
 /** 판 전문. ID+efYd 는 빈 {} 를 줘서(2026-10-04 실측) MST+efYd 로만 받는다 */
@@ -155,6 +178,28 @@ export async function fetchLaw(mst, efYd, opts) {
   const j = await getJson('lawService.do', { target: 'eflaw', MST: mst, efYd }, { timeoutMs: 40_000, ...opts });
   const law = j?.법령;
   if (!law || !law.조문) throw new DrfError('empty', '법제처가 이 판의 본문을 주지 않았습니다.');
+  return law;
+}
+
+/**
+ * 받은 본문이 목록에서 고른 판(v)과 같은 판인지 — 어긋난 칸 목록(빈 배열이면 같다).
+ * 법령 ID·시행일이 본문에 없으면 판을 증명하지 못하므로 어긋남으로 본다. 공포번호는 앞자리 0(예: 00436)을 무시하고 숫자로 비교한다.
+ */
+export function versionMismatch(law, v) {
+  const bi = lawInfo(law);
+  const num = (x) => (x == null || x === '' ? null : Number(x));
+  return [
+    !bi.lawId || String(bi.lawId) !== String(v.lawId) ? `법령 ID ${bi.lawId ?? '없음'}≠${v.lawId}` : null,
+    !bi.effective || String(bi.effective) !== String(v.effective) ? `시행일 ${bi.effective ?? '없음'}≠${v.effective}` : null,
+    v.promulgationNo && num(bi.promulgationNo) !== num(v.promulgationNo) ? `공포번호 ${bi.promulgationNo ?? '없음'}≠${v.promulgationNo}` : null,
+  ].filter(Boolean);
+}
+
+/** 목록에서 고른 판의 본문 — 받은 본문이 그 판이 아니면 출처를 붙일 수 없으므로 오류(code 'mismatch') */
+export async function fetchLawVerified(v, opts) {
+  const law = await fetchLaw(v.mst, v.effective, opts);
+  const off = versionMismatch(law, v);
+  if (off.length) throw new DrfError('mismatch', `법제처 판 목록과 받은 본문의 판이 맞지 않습니다(${off.join(', ')}). 출처를 확정하지 못해 원문을 내지 않습니다.`);
   return law;
 }
 

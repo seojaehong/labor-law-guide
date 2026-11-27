@@ -22,7 +22,7 @@
 import { z } from 'zod';
 import { argsLookLikeRrn, rrnLines, text } from '../lib/common.mjs';
 import {
-  articleKey, articles as lawArticles, DRF_SOURCE, DrfError, fetchLaw, findArticle, getJson, lawInfo, normName, searchAll, versionAt, versionLink,
+  articleKey, articles as lawArticles, DRF_SOURCE, DrfError, fetchLawVerified, findArticle, getJson, lawInfo, normName, searchVersionAt, versionLink, versionMismatch,
 } from '../lib/law-drf.mjs';
 import {
   OPEN_SOURCE, INTERP, joCode, precLink,
@@ -381,6 +381,7 @@ export function registerLaw(server) {
         // 법령 ID·공식 이름 — 이름이면 현행 법령 목록(약칭 포함)에서, ID 만이면 현행 본문의 기본정보에서
         let lawId = a.lawId ?? null;
         let official = '';
+        let idLaw = null; // 법령 ID 로 받은 현행 본문 — 고른 판과 같으면 다시 받지 않는다
         if (name) {
           const { hit, candidates } = await resolveLaw(name);
           if (!hit) return text({ ok: false, error: NOT_FOUND_LAW, candidates });
@@ -389,13 +390,12 @@ export function registerLaw(server) {
           official = hit.law;
         } else {
           const j = await getJson('lawService.do', { target: 'eflaw', ID: lawId }, { timeoutMs: 40_000 });
-          official = lawInfo(j?.법령).law;
+          idLaw = j?.법령 ?? null;
+          official = lawInfo(idLaw).law;
           if (!official) return fail(`법령 ID ${lawId}의 법령을 법제처에서 찾지 못했습니다.`);
         }
         const shift = `${Number(ymd.slice(0, 4)) - 3}${ymd.slice(4)}`;
-        const { rows: all, complete } = await searchAll({ query: official }, { stopBefore: shift, maxPages: 5 });
-        const rows = all.filter((x) => x.lawId === lawId);
-        const v = versionAt(rows, ymd);
+        const { version: v, complete } = await searchVersionAt({ query: official }, (x) => x.lawId === lawId, ymd, { stopBefore: shift, maxPages: 5 });
         if (!v) {
           return text({
             ok: false,
@@ -410,17 +410,8 @@ export function registerLaw(server) {
           mst: v.mst, effective: iso(v.effective), promulgated: iso(v.promulgated), promulgationNo: v.promulgationNo, revision: v.revision, status: v.status,
           link: versionLink(v.mst, v.effective),
         };
-        const body = await fetchLaw(v.mst, v.effective);
-        // 목록에서 고른 판과 받은 본문이 같은 판인지 대조한다 — 다르면 출처를 붙이지 않는다
-        const bi = lawInfo(body);
-        // 본문에 식별정보가 없으면 판을 증명하지 못하므로 실패로 본다. 공포번호는 앞자리 0(예: 00436)을 무시하고 숫자로 비교한다
-        const num = (x) => (x == null || x === '' ? null : Number(x));
-        const off = [
-          !bi.lawId || String(bi.lawId) !== String(lawId) ? `법령 ID ${bi.lawId ?? '없음'}≠${lawId}` : null,
-          !bi.effective || String(bi.effective) !== String(v.effective) ? `시행일 ${bi.effective ?? '없음'}≠${v.effective}` : null,
-          v.promulgationNo && num(bi.promulgationNo) !== num(v.promulgationNo) ? `공포번호 ${bi.promulgationNo ?? '없음'}≠${v.promulgationNo}` : null,
-        ].filter(Boolean);
-        if (off.length) return fail(`법제처 판 목록과 받은 본문의 판이 맞지 않습니다(${off.join(', ')}). 출처를 확정하지 못해 원문을 내지 않습니다.`);
+        // 목록에서 고른 판과 받은 본문이 같은 판인지 대조한다(fetchLawVerified) — 다르면 출처를 붙이지 않는다
+        const body = idLaw?.조문 && !versionMismatch(idLaw, v).length ? idLaw : await fetchLawVerified(v);
         const arts = lawArticles(body);
         const found = [];
         const missing = [];
