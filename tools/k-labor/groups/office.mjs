@@ -1,5 +1,5 @@
 // 오피스 묶음 — xlsx 서식 검사·행 추출·원본 서식 그대로 채우기·사양(JSON)으로 만들기 + 회의 pptx 만들기·읽기.
-//   inspect_xlsx · extract_xlsx_rows · fill_xlsx_template · make_xlsx_from_spec · make_meeting_pptx · extract_pptx (+ 원격 …_bytes)
+//   inspect_xlsx · extract_xlsx_rows · fill_xlsx_template · make_xlsx_from_spec · make_meeting_pptx · extract_pptx · make_tbm_pptx (+ 원격 …_bytes)
 // 엔진 = src/lib/office(바이트 입출력 순수 함수). 이 파일만 경로를 읽고 쓴다.
 // ★ stdio 판(server.mjs)은 파일 경로로 받는다. 결과 파일은 writeNew(덮어쓰지 않음).
 // ★ 공개 문구 금지어 + 포괄·대신·대행·대리·지도를 이 묶음의 글(설명·결과)에 쓰지 않는다.
@@ -7,7 +7,7 @@ import { z } from 'zod';
 import fs from 'node:fs';
 import path from 'node:path';
 // 엔진은 라이브러리 입구(k-labor/office) 하나로만 부른다 — SafeClaw·작업자와 같은 함수·같은 Result
-import { DEFAULT_LIMITS, extractPptx, extractXlsxRows, fillXlsxTemplate, inspectXlsx, makeMeetingPptx, makeXlsxFromSpec } from '@/lib/office';
+import { DEFAULT_LIMITS, extractPptx, extractXlsxRows, fillXlsxTemplate, inspectXlsx, makeMeetingPptx, makeTbmPptx, makeXlsxFromSpec } from '@/lib/office';
 import {
   MAX_MCP_BODY_BYTES,
   REMOTE_OFFICE_LIMITS,
@@ -18,9 +18,9 @@ import {
 import { argsLookLikeRrn, text, writeNew } from '../lib/common.mjs';
 
 /** 파일 경로 입출력 — 이 PC 에서만 */
-export const officeLocalOnly = ['inspect_xlsx', 'extract_xlsx_rows', 'fill_xlsx_template', 'make_xlsx_from_spec', 'make_meeting_pptx', 'extract_pptx'];
+export const officeLocalOnly = ['inspect_xlsx', 'extract_xlsx_rows', 'fill_xlsx_template', 'make_xlsx_from_spec', 'make_meeting_pptx', 'extract_pptx', 'make_tbm_pptx'];
 /** base64 입출력 — fs 없음, 원격판(remote.mjs)에 싣는다 */
-export const officeRemoteSafe = ['inspect_xlsx_bytes', 'extract_xlsx_rows_bytes', 'fill_xlsx_template_bytes', 'make_xlsx_from_spec_bytes', 'make_meeting_pptx_bytes', 'extract_pptx_bytes'];
+export const officeRemoteSafe = ['inspect_xlsx_bytes', 'extract_xlsx_rows_bytes', 'fill_xlsx_template_bytes', 'make_xlsx_from_spec_bytes', 'make_meeting_pptx_bytes', 'extract_pptx_bytes', 'make_tbm_pptx_bytes'];
 export const officeTools = [...officeLocalOnly, ...officeRemoteSafe];
 
 const READS = { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false };
@@ -119,6 +119,30 @@ const MEETING_DESC =
   '회의 스냅숏(JSON)으로 위험성평가 회의 덱(pptx, 기본 A4 가로)을 만든다. kind pre = 회의 전 검토안(표지·개요·한눈 요약·전회 이행 현황·조치 전후·신규 후보·근로자 의견·회차 대비 변화·결정 필요 사항·근거), ' +
   'final = 회의 후 확정본(표지·참석·확정 결정·조치 계획·보류·우수 사례·다음 회차 이월·근거). 장마다 상태 배지(초안/확정 vN)와 notes 의 근거 anchor 목록을 넣는다. ' +
   '결과에 장 목록(slides)·글자 수로 추정한 넘침 후보(overflowEstimates)·확정본 이월 목록(carryOver, 다음 회차 prior 로 그대로 쓰는 모양)을 돌려준다. 넘침 정밀 확인은 PowerPoint 에서 한다.';
+
+// TBM 카드 스냅숏 — 엔진(makeTbmPptx)이 내용을 검사하므로 여기서는 모양과 크기만 본다
+const tbmSnapshotSchema = z
+  .object({
+    site: z.string().max(200),
+    workDate: z.string().max(40),
+    basisDate: z.string().max(40),
+    cycle: z.string().max(200).optional(),
+    revision: z.string().max(100).optional(),
+    tasks: z.array(z.object({ id: z.string().max(100), process: z.string().max(300), place: z.string().max(300).optional(), hazards: z.array(item).max(200), questions: z.array(z.string().max(300)).max(10).optional() }).passthrough()).max(100),
+    anchors: items(5000),
+  })
+  .passthrough()
+  .describe('TBM 스냅숏(사업장·작업일·기준일 + 작업별 위험요인·대책·확인 질문 + 근거 anchor)');
+const tbmOpts = {
+  maxHazards: z.number().int().min(1).max(3).optional().describe('장당 위험 개수(1~3, 기본 3)'),
+  signatureRows: z.number().int().min(1).max(20).optional().describe('서명란 행 수(1~20, 기본 8)'),
+  fontFace: z.string().max(60).optional().describe('글꼴'),
+  layout: z.enum(['A4', '16:9']).optional().describe('판형(기본 A4 가로)'),
+};
+const runTbm = (snapshot, a, ctx) => makeTbmPptx(snapshot, { ...ctx, maxHazards: a.maxHazards, signatureRows: a.signatureRows, fontFace: a.fontFace, layout: a.layout });
+const TBM_DESC =
+  'TBM 스냅숏(JSON)으로 작업 전 안전점검(TBM) 카드 덱(pptx, 기본 A4 가로)을 만든다. 작업마다 한 장 — 오늘 조심할 위험 3개 이내(허용 불가 → 조건부 → 신규·변경 → 중대재해 우려 순)·대책·확인 질문·빈 서명란. ' +
+  '문장은 입력 원문 그대로 싣고, 확인 질문이 없으면 빈 줄로 둔다. 결과에 장 목록(slides)·작업별로 실은 것과 뺀 것(picks)·글자 수로 추정한 넘침 후보(overflowEstimates)를 돌려준다.';
 
 /** 입력 파일을 읽는다. 오류면 문자열 */
 function readInput(file) {
@@ -268,6 +292,26 @@ export function registerOffice(server) {
         photos.push({ itemId: p.itemId, side: p.side, mime, data: Buffer.from(f.bytes).toString('base64') });
       }
       const r = await runMeeting({ ...a.snapshot, photos }, a, LOCAL);
+      if (!r.ok) return text(toTool(r));
+      const out = r.files[0];
+      if (!save(o.out, out.bytes)) return fail(EXISTS, { exists: o.out });
+      return text({ ...toTool(r), file: { path: o.out, bytes: out.size, sha256: out.sha256 } });
+    },
+  );
+
+  server.registerTool(
+    'make_tbm_pptx',
+    {
+      title: 'TBM 카드 덱(pptx) 만들기(로컬 전용)',
+      description: `${TBM_DESC} 이미 있는 파일은 덮어쓰지 않는다.`,
+      inputSchema: { snapshot: tbmSnapshotSchema, ...tbmOpts, outFile: z.string().max(400).describe('저장할 새 pptx 파일 경로') },
+      annotations: WRITES,
+    },
+    async (a) => {
+      if (argsLookLikeRrn({ snapshot: a.snapshot })) return fail(RRN_STOP);
+      const o = checkOut(a.outFile, undefined, '.pptx');
+      if (typeof o === 'string') return fail(o, o === EXISTS ? { exists: String(a.outFile).trim() } : {});
+      const r = await runTbm(a.snapshot, a, LOCAL);
       if (!r.ok) return text(toTool(r));
       const out = r.files[0];
       if (!save(o.out, out.bytes)) return fail(EXISTS, { exists: o.out });
@@ -430,6 +474,20 @@ function registerOfficeRemote(server) {
       if (argsLookLikeRrn({ snapshot: a.snapshot })) return fail(RRN_STOP);
       if ((a.snapshot?.photos ?? []).some((p) => p.file && !p.data)) return fail('원격판은 사진 경로(file)를 받지 않습니다. data(base64)로 주세요.');
       return text(remoteOut(await runMeeting(a.snapshot, a, REMOTE)));
+    },
+  );
+
+  server.registerTool(
+    'make_tbm_pptx_bytes',
+    {
+      title: 'TBM 카드 덱(pptx) 만들기(base64)',
+      description: `${TBM_DESC} 결과 pptx 를 base64 로 돌려주고 서버에 파일을 남기지 않는다. 결과는 ${REMOTE_OUT} 까지.`,
+      inputSchema: { snapshot: tbmSnapshotSchema, ...tbmOpts },
+      annotations: REMOTE_MAKE,
+    },
+    async (a) => {
+      if (argsLookLikeRrn({ snapshot: a.snapshot })) return fail(RRN_STOP);
+      return text(remoteOut(await runTbm(a.snapshot, a, REMOTE)));
     },
   );
 

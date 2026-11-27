@@ -207,6 +207,8 @@ const ANN = {
   make_meeting_pptx: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
   extract_pptx_bytes: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
   make_meeting_pptx_bytes: { readOnlyHint: true, destructiveHint: false, idempotentHint: false, openWorldHint: false },
+  make_tbm_pptx: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
+  make_tbm_pptx_bytes: { readOnlyHint: true, destructiveHint: false, idempotentHint: false, openWorldHint: false },
   // law 묶음 — 읽기 전용, 법제처(외부)를 부른다
   ...Object.fromEntries(['search_laws', 'list_law_forms', 'get_article_history', 'search_precedents', 'get_precedent', 'search_interpretations', 'get_interpretation', 'check_citations']
     .map((n) => [n, { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true }])),
@@ -219,7 +221,7 @@ const ANN = {
 }
 // 이 판에서 더한 도구 8개 + 사이트 도구 7개(groups/more) — 「대신·대행·대리」도 함께 막는다
 const NOSA_TOOLS = ['assess_labor_council', 'check_council_meeting', 'make_labor_council_forms', 'make_council_meeting_docs', 'make_council_election_docs', 'check_council_rules', 'record_council_history', 'export_council_vault', 'import_council_minutes', 'make_council_rules_comparison'];
-const NEW_TOOLS = ['calc_severance', 'calc_holiday_pay', 'calc_pay_proration', 'calc_shutdown_allowance', 'calc_annual_leave', 'settle_leave_on_exit', 'calc_retirement_tax', 'list_employer_duties', ...MORE_TOOLS, ...NOSA_TOOLS, 'make_hwpx_from_markdown', 'stamp_exhibit_pdf', 'edit_hwpx_text', 'read_hwp_as_markdown', 'fill_hwp_form', 'patch_hwp_from_markdown', 'check_prose', 'check_norms', 'check_semantic', 'check_rhetoric', 'check_rewrite', 'list_hr_forms', 'check_hr_form', 'make_hr_form', 'inspect_xlsx', 'extract_xlsx_rows', 'fill_xlsx_template', 'make_xlsx_from_spec', 'inspect_xlsx_bytes', 'extract_xlsx_rows_bytes', 'fill_xlsx_template_bytes', 'make_xlsx_from_spec_bytes', 'make_meeting_pptx', 'extract_pptx', 'make_meeting_pptx_bytes', 'extract_pptx_bytes'];
+const NEW_TOOLS = ['calc_severance', 'calc_holiday_pay', 'calc_pay_proration', 'calc_shutdown_allowance', 'calc_annual_leave', 'settle_leave_on_exit', 'calc_retirement_tax', 'list_employer_duties', ...MORE_TOOLS, ...NOSA_TOOLS, 'make_hwpx_from_markdown', 'stamp_exhibit_pdf', 'edit_hwpx_text', 'read_hwp_as_markdown', 'fill_hwp_form', 'patch_hwp_from_markdown', 'check_prose', 'check_norms', 'check_semantic', 'check_rhetoric', 'check_rewrite', 'list_hr_forms', 'check_hr_form', 'make_hr_form', 'inspect_xlsx', 'extract_xlsx_rows', 'fill_xlsx_template', 'make_xlsx_from_spec', 'inspect_xlsx_bytes', 'extract_xlsx_rows_bytes', 'fill_xlsx_template_bytes', 'make_xlsx_from_spec_bytes', 'make_meeting_pptx', 'extract_pptx', 'make_meeting_pptx_bytes', 'extract_pptx_bytes', 'make_tbm_pptx', 'make_tbm_pptx_bytes'];
 const NEW_WORDS = [...WORDS, '대신', '대행', '대리'];
 const bannedNew = (s) => (banned ? banned.bannedHits(s, NEW_WORDS) : []);
 // 공식 서식 칸 이름(「대리인」 등, banned.FORM_FIELD_NAMES)을 그대로 받거나 찍는 도구 — 칸 이름만 걸지 않는다(D5 261126)
@@ -778,6 +780,19 @@ if (tools.includes('make_meeting_pptx')) {
   check(`office 회의 덱 ${mp.slides?.length}장 ${mp.file?.bytes}B`, mp.ok && fs.existsSync(out) && mp.slides?.[0]?.code === 'P1');
   const xp = mp.ok ? await callNew('extract_pptx', { file: out }) : {};
   check('office 회의 덱 읽기 — 배지 초안', xp.ok && xp.slides?.[0]?.shapes?.some((s) => s.name === 'badge' && s.text === '초안'));
+}
+
+// ── office TBM pptx ── 합성 스냅숏 → 작업별 카드(make) → 장별 읽기(extract)
+if (tools.includes('make_tbm_pptx')) {
+  const out = path.join(tmp, 'office', '가상 TBM.pptx');
+  const TBM = {
+    site: '가상 사업장', workDate: '2026-12-02', basisDate: '2026-12-01',
+    tasks: [{ id: 'T-1', process: '가상 작업', hazards: [{ id: 'H-1', situation: '가상 위험', measures: ['가상 대책'], acceptability: 'unacceptable' }], questions: ['가상 질문'] }],
+  };
+  const tp = await callNew('make_tbm_pptx', { snapshot: TBM, outFile: out });
+  check(`office TBM 카드 ${tp.slides?.length}장 ${tp.file?.bytes}B`, tp.ok && fs.existsSync(out) && tp.slides?.[0]?.code === 'T1' && tp.picks?.[0]?.shown?.[0] === 'H-1');
+  const xt = tp.ok ? await callNew('extract_pptx', { file: out }) : {};
+  check('office TBM 카드 읽기 — 위험 원문', xt.ok && JSON.stringify(xt.slides?.[0] ?? {}).includes('가상 위험'));
 }
 
 // ── forms 묶음 ── 합성 값 → 서식 hwpx(동시 호출 · 같은 이름 거절 · 주민번호 모양 거절)

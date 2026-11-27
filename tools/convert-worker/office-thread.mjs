@@ -21,6 +21,8 @@ async function run() {
       return office.makeMeetingPptx(args.snapshot, { ...ctx, kind: args.kind, fontFace: args.fontFace, layout: args.layout });
     case 'pptx.extract':
       return office.extractPptx(input, ctx);
+    case 'pptx.tbm':
+      return office.makeTbmPptx(args.snapshot, { ...ctx, maxHazards: args.maxHazards, signatureRows: args.signatureRows, fontFace: args.fontFace, layout: args.layout });
     default:
       return { ok: false, code: 'BAD_REQUEST', message: `unknown op ${op}`, warnings: [] };
   }

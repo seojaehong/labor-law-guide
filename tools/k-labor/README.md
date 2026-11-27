@@ -145,6 +145,7 @@ npx -y k-labor call check_min_wage args.json --groups calc
 | `office` | `fill_xlsx_template` / `fill_xlsx_template_bytes` | 원본 서식 그대로 지정 칸·행만 채우기 — 수식 캐시를 지우고 열 때 다시 계산하게 함, 채우기 전후 보존 비교(`preserved`) |
 | `office` | `make_xlsx_from_spec` / `make_xlsx_from_spec_bytes` | 사양(JSON)으로 서식 만들기 — 시트·열·머리행·병합·유효성 목록·틀고정·A4 가로 인쇄 |
 | `office` | `make_meeting_pptx` / `make_meeting_pptx_bytes` | 회의 스냅숏(JSON) → 위험성평가 회의 덱(pptx, A4 가로) — 회의 전 검토안 / 회의 후 확정본, 장마다 상태 배지·notes 근거 목록 |
+| `office` | `make_tbm_pptx` / `make_tbm_pptx_bytes` | TBM 스냅숏(JSON) → 작업 전 안전점검(TBM) 카드 덱(pptx, A4 가로) — 작업마다 한 장, 위험 3개 이내·대책·확인 질문(입력 원문)·빈 서명란, 실은 것·뺀 것(picks) |
 | `office` | `extract_pptx` / `extract_pptx_bytes` | pptx 의 장별 도형 글자·표·notes 읽기 |
 | `docs` | `stamp_exhibit_pdf` | **로컬 전용(파일 쓰기).** 제출 서증 PDF 첫 장 상단 여백에 세로형 호증 표시(10×50mm, 「사 제19호증」·「소갑 제9호증의 1」·번호 빈칸)를 그려 새 PDF 로. 첫 장에만, 기본 우측 상단(오른쪽 12mm·위 8mm, 대법원 전자민원센터 안내), `side` 로 왼쪽, 쪽 높이 25% 를 넘으면 줄임. `pad: always` 면 첫 장을 34mm 넓혀 그 여백에 찍음. 글자는 글꼴을 넣지 않고 윤곽선으로 그림(파일이 거의 안 커짐). 본문과 겹치는지는 보지 않음(`overlapChecked:false`, 첫 장을 눈으로 확인). 돌아간 첫 장·암호 PDF 는 멈춤. 덮어쓰지 않음 |
 | `law` | `search_laws` | 법령 이름(또는 본문 낱말)으로 현행 법령 찾기 — 법령ID·판 번호·공포일·시행일·법제처 화면 주소(법제처 Open API) |
@@ -263,8 +264,8 @@ claude mcp add --scope user k-labor -e LAW_OC=내OC -- npx -y k-labor mcp --grou
 
 | 판 | 도구 | 입출력 |
 |---|---|---|
-| 로컬 전용(stdio) | `inspect_xlsx` · `extract_xlsx_rows` · `fill_xlsx_template` · `make_xlsx_from_spec` · `make_meeting_pptx` · `extract_pptx` | 파일 경로. 입력 파일 20MB 까지. 결과 파일은 **이미 있으면 쓰지 않습니다**(덮어쓰기 금지, 원본 경로에도 쓰지 않음) |
-| 원격(HTTP)판에도 실림 | `inspect_xlsx_bytes` · `extract_xlsx_rows_bytes` · `fill_xlsx_template_bytes` · `make_xlsx_from_spec_bytes` · `make_meeting_pptx_bytes` · `extract_pptx_bytes` | base64. 서버에 파일을 남기지 않습니다 |
+| 로컬 전용(stdio) | `inspect_xlsx` · `extract_xlsx_rows` · `fill_xlsx_template` · `make_xlsx_from_spec` · `make_meeting_pptx` · `extract_pptx` · `make_tbm_pptx` | 파일 경로. 입력 파일 20MB 까지. 결과 파일은 **이미 있으면 쓰지 않습니다**(덮어쓰기 금지, 원본 경로에도 쓰지 않음) |
+| 원격(HTTP)판에도 실림 | `inspect_xlsx_bytes` · `extract_xlsx_rows_bytes` · `fill_xlsx_template_bytes` · `make_xlsx_from_spec_bytes` · `make_meeting_pptx_bytes` · `extract_pptx_bytes` · `make_tbm_pptx_bytes` | base64. 서버에 파일을 남기지 않습니다 |
 
 - **크기 상한(base64 판)** — 입력은 디코드한 뒤 5MB, zip 을 푼 합계 50MB(zip 폭탄 방어), 결과도 5MB. 넘으면 `INPUT_TOO_LARGE`·`ZIP_TOO_LARGE`·`OUTPUT_TOO_LARGE` 코드로 돌려줍니다. 공개 원격 주소는 요청 본문 자체가 이보다 작게 막혀 있습니다.
 - **`needsReview: true`** — 이 엔진이 열지 않은 파일이라는 뜻입니다. 예외로 끝내지 않고 `reason` 을 붙여 돌려주며, 채우기 도구는 이런 입력이면 아무것도 쓰지 않습니다. 사람이 엑셀에서 열어 보고 `.xlsx` 로 다시 저장해 넣어 주세요.
