@@ -10,6 +10,7 @@ import { inspectXlsx as engineInspect, type InspectXlsxResult } from './xlsx/ins
 import { extractXlsxRows as engineExtract, type ExtractXlsxResult } from './xlsx/extract';
 import { fillXlsxTemplate as engineFill, type FillCell, type FillHiddenColumns, type FillRows, type PreservedReport } from './xlsx/fill';
 import { makeXlsxFromSpec as engineMake, type XlsxSpec } from './xlsx/make';
+import { makeTbmPptx as engineTbm, type TbmOptions, type TbmPick, type TbmSlideInfo, type TbmSnapshot } from './pptx/tbm';
 import { makeMeetingPptx as engineMeeting, type MeetingChange, type MeetingOptions, type MeetingSlideInfo, type MeetingSnapshot, type OverflowEstimate, type PriorItem } from './pptx/meeting';
 import { extractPptx as engineExtractPptx, type PptxSlide } from './pptx/extract';
 
@@ -39,6 +40,7 @@ export type {
   MeetingStatus,
 } from './pptx/meeting';
 export type { PptxSlide, PptxShape } from './pptx/extract';
+export type { TbmSnapshot, TbmTask, TbmHazard, TbmAcceptability, TbmOptions, TbmSlideInfo, TbmPick } from './pptx/tbm';
 
 /** 실패 코드 — 열린 유니언(새 코드가 생겨도 받는 쪽 타입이 깨지지 않는다) */
 export type ErrorCode =
@@ -84,7 +86,7 @@ export interface OfficeContext {
   limits: Limits;
 }
 
-export const OFFICE_OPS = ['xlsx.inspect', 'xlsx.extract', 'xlsx.fill', 'xlsx.make', 'pptx.meeting', 'pptx.extract'] as const;
+export const OFFICE_OPS = ['xlsx.inspect', 'xlsx.extract', 'xlsx.fill', 'xlsx.make', 'pptx.meeting', 'pptx.extract', 'pptx.tbm'] as const;
 export type OfficeOp = (typeof OFFICE_OPS)[number];
 
 declare const __K_LABOR_OFFICE_ENGINE__: EngineInfo | undefined;
@@ -236,6 +238,25 @@ export function makeMeetingPptx(snapshot: MeetingSnapshot, opts: MeetingPptxOpti
     if (r.changes) data.changes = r.changes;
     if (r.carryOver) data.carryOver = r.carryOver;
     return { ok: true, data, files: [file(opts.outName ?? 'meeting.pptx', PPTX_MIME, r.bytes)], warnings: notices(r.warnings), meta: meta('pptx.meeting') };
+  });
+}
+
+export interface TbmPptxOptions extends OfficeContext, TbmOptions {
+  outName?: string;
+}
+export interface TbmPptxData {
+  slides: TbmSlideInfo[];
+  picks: TbmPick[];
+  overflowEstimates: OverflowEstimate[];
+}
+
+/** TBM 스냅숏 → 작업별 TBM 카드 덱(전파 덱). 결과 파일은 files[0] */
+export function makeTbmPptx(snapshot: TbmSnapshot, opts: TbmPptxOptions): Promise<Result<TbmPptxData>> {
+  return run('pptx.tbm', opts, null, async () => {
+    const r = await engineTbm(snapshot, { maxHazards: opts.maxHazards, signatureRows: opts.signatureRows, fontFace: opts.fontFace, layout: opts.layout });
+    if (!r.ok || !r.bytes) return failure('pptx.tbm', 'INVALID_ARGS', (r.errors ?? ['덱을 만들지 못했습니다.']).join(' / '), { errors: r.errors ?? [] }, notices(r.warnings));
+    const data: TbmPptxData = { slides: r.slides, picks: r.picks, overflowEstimates: r.overflowEstimates };
+    return { ok: true, data, files: [file(opts.outName ?? 'tbm.pptx', PPTX_MIME, r.bytes)], warnings: notices(r.warnings), meta: meta('pptx.tbm') };
   });
 }
 

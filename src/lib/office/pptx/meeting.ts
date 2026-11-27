@@ -301,13 +301,13 @@ type Slide = ReturnType<PptxGenJS['addSlide']>;
 type Cell = { text: string; options?: Record<string, unknown> };
 
 /** 글자 폭 단위: 한글·전각 1, ASCII 0.55 */
-function textUnits(s: string): number {
+export function textUnits(s: string): number {
   let u = 0;
   for (const ch of s) u += ch.charCodeAt(0) < 128 ? 0.55 : 1;
   return u;
 }
 
-function capacityOf(widthIn: number, fontPt: number, maxLines: number): number {
+export function capacityOf(widthIn: number, fontPt: number, maxLines: number): number {
   const perLine = Math.max(1, Math.floor(((widthIn - 0.1) * 72) / fontPt));
   return perLine * maxLines;
 }
