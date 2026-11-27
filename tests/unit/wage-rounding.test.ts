@@ -47,7 +47,7 @@ describe('도우미', () => {
 });
 
 describe('네 계산기가 같은 1일 통상임금을 쓴다 — 월 3,000,000원 · 209시간 · 1일 8시간', () => {
-  const notice = calcNoticePay({ unit: 'month', amount: 3_000_000, weeklyHours: 40, dailyHours: 8, hireDate: '2025-01-02', dismissalDate: '2026-11-30' });
+  const notice = calcNoticePay({ unit: 'month', amount: 3_000_000, weeklyHours: 40, dailyHours: 8, hireDate: '2025-01-02', dismissalDate: '2026-11-30', noticed: false });
   const leaveInput: LeavePayInput = {
     timing: 'employed', fivePlus: true, weeklyHours: 40, dailyHours: 8,
     rate: { basis: 'ordinary-wage', unit: 'month', amount: 3_000_000 },
@@ -105,7 +105,7 @@ describe('네 계산기가 같은 1일 통상임금을 쓴다 — 월 3,000,000�
 
 describe('정수로 떨어지는 경우는 바뀌지 않는다 — 월 2,090,000원 ÷ 209 = 시간급 10,000원', () => {
   it('해고예고 2,400,000 · 연차 5일 400,000 · 휴업 단서 800,000 · 공휴일 가산 40,000', () => {
-    expect(calcNoticePay({ unit: 'month', amount: 2_090_000, weeklyHours: 40, dailyHours: 8, hireDate: '2025-01-02', dismissalDate: '2026-11-30' }).amount).toBe(2_400_000);
+    expect(calcNoticePay({ unit: 'month', amount: 2_090_000, weeklyHours: 40, dailyHours: 8, hireDate: '2025-01-02', dismissalDate: '2026-11-30', noticed: false }).amount).toBe(2_400_000);
     expect(estimateLeavePay(2_090_000, 40, 5).amount).toBe(400_000);
     const s = calcShutdownAllowance({ fivePlus: true, cause: 'employer', average: { source: 'direct', daily: 200_000 }, ordinary: { unit: 'month', amount: 2_090_000, weeklyHours: 40, dailyHours: 8 }, days: 10 });
     expect([s.dailyOrdinary, s.proviso]).toEqual([80_000, 800_000]);
@@ -141,7 +141,7 @@ describe('공휴일 수당 — 일용·시급(주휴 포함) 경로', () => {
 
 describe('1일 7.5시간 — 시간 소수도 끝수 그대로', () => {
   it('월 3,000,000 · 주 37.5시간(기준 196시간) · 1일 7.5시간 → 1일 114,795.92 · 30일 3,443,877.55 → 3,443,878', () => {
-    const r = calcNoticePay({ unit: 'month', amount: 3_000_000, weeklyHours: 37.5, dailyHours: 7.5, hireDate: '2025-01-02', dismissalDate: '2026-11-30' });
+    const r = calcNoticePay({ unit: 'month', amount: 3_000_000, weeklyHours: 37.5, dailyHours: 7.5, hireDate: '2025-01-02', dismissalDate: '2026-11-30', noticed: false });
     expect(r.dailyOrdinary).toBeCloseTo(22_500_000 / 196, 6);
     expect(r.amount).toBe(3_443_878);
     expect(r.amount).not.toBe(114_796 * 30); // 1일 통상임금을 원 단위로 반올림한 뒤 곱하던 값

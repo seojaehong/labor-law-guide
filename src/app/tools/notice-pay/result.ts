@@ -39,6 +39,10 @@ export function noticePayView(a: { r: NoticePayResult; partTime?: boolean; hire:
       ],
     };
   }
+  // 화면은 예고 여부를 늘 고르게 해 여기 오지 않는다 — 엔진 형식상 막아 둔다(261127 needs)
+  if (r.status === 'needs-input' || r.amount === null) {
+    return { ...base, verdict: ['해고예고수당은 금액을 내지 않습니다.', r.needs[0]?.question ?? '해고를 미리 알렸는지 골라 주세요.'], amounts: [], next: [] };
+  }
   return {
     ...base,
     verdict: r.status === 'short'

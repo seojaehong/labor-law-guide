@@ -12,7 +12,7 @@ import { registerCalc } from '../../tools/k-labor/groups/calc.mjs';
 //     4주 합계 ÷ 4 = 4.5 를 받는다. 시급 12,000 · 본인 4주 96시간 · 통상 근로자 18일 → 12,000 × 96 ÷ 18 × 30 = 1,920,000.
 // 값은 모두 합성.
 
-const base = { hireDate: '2025-01-02', dismissalDate: '2026-11-30', dailyHours: 8 };
+const base = { hireDate: '2025-01-02', dismissalDate: '2026-11-30', dailyHours: 8, noticed: false };
 
 type Handler = (a: Record<string, unknown>) => Promise<{ content: { text: string }[] }>;
 function mcp(): Handler {

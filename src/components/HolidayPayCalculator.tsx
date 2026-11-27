@@ -205,6 +205,11 @@ export default function HolidayPayCalculator() {
         alert('시급을 입력해주세요.');
         return;
       }
+      // 261127 needs — 빈칸을 0 으로 보면 15시간 미만 검사(휴일 가산 여부)를 건너뛰고 1.5배가 나간다
+      if (wkh <= 0 && (holidayKind === 'public_holiday' || hourlyIncludesWeekly)) {
+        alert('1주 소정근로시간을 입력해주세요. 15시간 미만이면 관공서 공휴일 휴일 가산이 붙지 않고, 시급에 주휴가 들어 있으면 이 시간으로 기본시급을 나눕니다.');
+        return;
+      }
       r = calcHolidayPay({
         worker_type: 'hourly',
         site_size: siteSize,

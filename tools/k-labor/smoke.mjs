@@ -411,15 +411,18 @@ if (tools.includes('calc_take_home_pay')) {
   check(`take_home 2027-02-28 계산·2027-03-01 멈춤(${after.error})`, last.ok === true && after.ok === false && /2027-03-01/.test(after.error ?? ''));
 }
 if (tools.includes('calc_notice_pay')) {
-  const n = await callTool('calc_notice_pay', { unit: 'month', amount: 2_156_880, weeklyHours: 40, dailyHours: 8, hireDate: '2025-01-02', dismissalDate: '2026-11-30' });
+  const n = await callTool('calc_notice_pay', { unit: 'month', amount: 2_156_880, weeklyHours: 40, dailyHours: 8, hireDate: '2025-01-02', dismissalDate: '2026-11-30', noticed: false });
   check(`notice_pay 월급 2,156,880 → 2,476,800(${n.headline?.[0]})`, n.status === 'pay' && n.amount === 2_476_800);
   const sh = await callTool('calc_notice_pay', { unit: 'hour', amount: 10_320, dailyHours: 8, hireDate: '2025-01-02', dismissalDate: '2026-11-30', noticeDate: '2026-11-01' });
   check('notice_pay 29일 전 예고는 30일분 전액', sh.status === 'short' && sh.noticeDays === 29 && sh.amount === 2_476_800);
   // 261126 G4 I6·I13 — partTime 을 빼고 주 24시간이면 알림(금액 그대로), 통상 근로자 4주 평균 4.5일은 소수로 받는다
-  const pt = await callTool('calc_notice_pay', { unit: 'month', amount: 1_200_000, weeklyHours: 24, dailyHours: 8, hireDate: '2025-01-02', dismissalDate: '2026-11-30' });
+  const pt = await callTool('calc_notice_pay', { unit: 'month', amount: 1_200_000, weeklyHours: 24, dailyHours: 8, hireDate: '2025-01-02', dismissalDate: '2026-11-30', noticed: false });
   check(`notice_pay partTime 없이 주 24시간은 알림(${pt.headline?.[2]})`, pt.amount === 2_304_000 && pt.partTimeCheck === true && /40시간보다 짧/.test(pt.headline?.join(' ') ?? ''));
-  const rot = await callTool('calc_notice_pay', { unit: 'hour', amount: 12_000, weeklyHours: 24, dailyHours: 8, hireDate: '2025-01-02', dismissalDate: '2026-11-30', partTime: { fullTimeWeeklyDays: 4.5 } });
+  const rot = await callTool('calc_notice_pay', { unit: 'hour', amount: 12_000, weeklyHours: 24, dailyHours: 8, hireDate: '2025-01-02', dismissalDate: '2026-11-30', partTime: { fullTimeWeeklyDays: 4.5 }, noticed: false });
   check(`notice_pay 통상 근로자 4.5일(5·4·5·4) → 1,920,000(${rot.amount ?? rot.error})`, rot.amount === 1_920_000);
+  // 261127 needs — 예고 여부를 비우면 「예고 안 함」(30일분)으로 보지 않고 묻는다
+  const nn = await callTool('calc_notice_pay', { unit: 'month', amount: 2_156_880, weeklyHours: 40, dailyHours: 8, hireDate: '2025-01-02', dismissalDate: '2026-11-30' });
+  check(`notice_pay 예고 여부 없음 → needs noticed, 금액 없음(${nn.status})`, nn.status === 'needs-input' && nn.amount === null && nn.needs?.[0]?.key === 'noticed');
 }
 if (tools.includes('calc_leave_pay')) {
   const l = await callTool('calc_leave_pay', {
@@ -495,6 +498,9 @@ if (tools.includes('calc_holiday_pay')) {
   check('holiday_pay 4명 이하 관공서 공휴일은 가산 없음·안내', small.ok && small.result?.total === 0 && !!small.result.warning);
   const zero = await callNew('calc_holiday_pay', { workerType: 'daily', fivePlus: true, holidayKind: 'public_holiday', dailyWage: 0, workedHours: 8 });
   check(`holiday_pay 일급 0이면 오류(${zero.error})`, zero.ok === false && /일급/.test(zero.error ?? ''));
+  // 261127 needs — 시급제 관공서 공휴일에 주 시간을 비우면 금액 없이 묻는다(종전 || 0 은 15시간 검사를 건너뛰고 1.5배)
+  const need = await callNew('calc_holiday_pay', { workerType: 'hourly', fivePlus: true, holidayKind: 'public_holiday', hourlyWage: 12_000, workedHours: 8 });
+  check(`holiday_pay 시급제 공휴일 주 시간 없음 → needs weeklyHours, 금액 없음(${need.status})`, need.ok && need.status === 'needs-input' && need.result?.total === null && need.needs?.[0]?.key === 'weeklyHours');
 }
 if (tools.includes('calc_pay_proration')) {
   // calc-pay-proration.test.ts C1 — 2026-03 월급 2,508,000, 3/16 입사, 5명 이상

@@ -20,7 +20,7 @@ import { headline as hcHeadline, whyLines as hcWhy, leaveLines as hcLeave, tenLi
 import { headline as thHeadline, items as thItems, formulaLines as thFormula, NOTICE as TH_NOTICE } from '@/app/tools/take-home-pay/copy';
 import { headline as lpHeadline, formulaLines as lpFormula, effectLines as lpEffect } from '@/app/tools/leave-pay/copy';
 import { calcSeverance, HOURS_CHANGED_MESSAGE, WEEKLY_HOURS_NEED } from '@/lib/calc/severance';
-import { calcHolidayPay } from '@/lib/holiday-pay';
+import { calcHolidayPayChecked } from '@/lib/holiday-pay';
 import { calcProration, calcAbsence } from '@/lib/calc/pay-proration';
 import {
   headline as ppHeadline, effectLines as ppEffect, methodLines as ppMethods, formulaLines as ppFormula, referenceLines as ppReference,
@@ -312,7 +312,7 @@ export function registerCalc(server) {
         dailyHours: z.number().describe('1일 소정근로시간'),
         hireDate: z.string().describe('입사일 YYYY-MM-DD'),
         dismissalDate: z.string().describe('해고일(근로관계가 끝나는 날) YYYY-MM-DD'),
-        noticeDate: z.string().optional().describe('해고를 알린 날 YYYY-MM-DD. noticed 를 주지 않고 이 값도 비우면 예고하지 않은 것으로 본다. 빈 문자열은 오류'),
+        noticeDate: z.string().optional().describe('해고를 알린 날 YYYY-MM-DD. noticed 를 주지 않고 이 값도 비우면 금액 없이 needs 로 묻는다(종전에는 예고하지 않은 것으로 봤다). 알리지 않았으면 noticed false 를 넣는다. 빈 문자열은 오류'),
         noticed: z.boolean().optional().describe('해고를 예고했는가. true 인데 noticeDate 가 없거나, false 인데 noticeDate 가 있으면 계산할 수 없어 오류를 낸다'),
         partTime: z.object({
           fullTimeWeeklyDays: z.number().optional().describe('같은 일을 하는 통상 근로자의 1주 소정근로일 수(1~7, 기본 5). 4주 평균이라 소수도 받는다 — 4주 교대 5·4·5·4일이면 4.5'),
@@ -329,6 +329,8 @@ export function registerCalc(server) {
           noticed: ['해고예고수당이 없습니다.', `해고일 ${r.noticeDays}일 전에 예고했습니다.`],
           short: [`해고예고수당은 ${won(r.amount)}입니다.`, `예고가 해고일 ${r.noticeDays}일 전이라 30일에 못 미쳐 30일분 전액입니다.`],
           pay: [`해고예고수당은 ${won(r.amount)}입니다.`, '30일 전에 예고하지 않았으면 30일분 통상임금입니다.'],
+          // 261127 — 예고 여부를 비우면 「예고 안 함」으로 보지 않는다(종전에는 30일분을 냈다)
+          'needs-input': ['해고예고수당은 금액을 내지 않습니다.', '금액을 정하려면 needs 의 사실(해고를 미리 알렸는지)을 알아야 합니다.'],
         }[r.status];
         // 261126 G4 I6 — partTime 을 빼면 단시간 산식을 쓰지 않는다. 주 소정이 40시간보다 짧거나 주 시간을 모르면 알린다(금액은 그대로)
         const paid = r.status === 'pay' || r.status === 'short';
@@ -454,6 +456,8 @@ export function registerCalc(server) {
 
   // ── 공휴일 근로 수당 ──
   const HOLIDAY_KIND = { labor_day: '노동절(5월 1일)', public_holiday: '관공서 공휴일' };
+  // 엔진 입력 이름 → MCP 입력 이름(needs·assumptions 의 key 는 호출한 AI 가 다시 넣을 이름이어야 한다)
+  const HOLIDAY_KEY = { weekly_hours: 'weeklyHours', paid_continuously: 'paidContinuously', monthly_hours: 'monthlyHours', daily_hours: 'dailyHours' };
   server.registerTool(
     'calc_holiday_pay',
     {
@@ -461,7 +465,8 @@ export function registerCalc(server) {
       description:
         '노동절(5월 1일)·관공서 공휴일에 일했을 때 더 주는 임금을 계산한다(사이트 /tools/holiday-pay 와 같은 엔진). 상시 5명 이상이면 휴일근로 8시간까지 1.5배·8시간 넘는 부분 2배, 야간(22시~6시) 0.5배 가산. ' +
         'total 은 그날 일한 대가(휴일근로 임금 1.0배 + 가산)로 월급·일용·시급제가 같다 — 월급제는 월급 외에 더 줄 금액이다(월급에 들어 있는 것은 쉬어도 받는 유급휴일 1일분). ' +
-        '일용·시급제의 유급휴일 1일분은 total 과 따로 result.paid_holiday_day 에 받는 조건과 함께 낸다. 4명 이하 사업장은 가산하지 않고, 관공서 공휴일은 유급휴일 의무도 없다(노동절은 규모와 상관없이 유급휴일). 야간 시간은 일한 시간을 넘을 수 없다.',
+        '일용·시급제의 유급휴일 1일분은 total 과 따로 result.paid_holiday_day 에 받는 조건과 함께 낸다. 4명 이하 사업장은 가산하지 않고, 관공서 공휴일은 유급휴일 의무도 없다(노동절은 규모와 상관없이 유급휴일). 야간 시간은 일한 시간을 넘을 수 없다. ' +
+        '사용자가 말한 값만 넣는다 — 시급제 관공서 공휴일(또는 시급에 주휴 포함)의 weeklyHours, 일용직의 paidContinuously 를 비우면 금액을 내지 않고(status needs-input, result.total null) needs 에 물을 질문이 온다. needs 의 question 을 사용자에게 묻고 답을 넣어 다시 부른다. 넣지 않아 기본값을 쓴 것(월 209시간·1일 8시간)은 assumptions 에 온다.',
       inputSchema: {
         workerType: z.enum(['monthly', 'daily', 'hourly']).describe('monthly = 월급제 · daily = 일용직(일급) · hourly = 시급제'),
         fivePlus: z.boolean().describe('상시 근로자 5명 이상'),
@@ -472,10 +477,10 @@ export function registerCalc(server) {
         monthlyHours: z.number().optional().describe('월급제: 월 소정근로시간(기본 209)'),
         dailyWage: z.number().optional().describe('일용직: 일급(원)'),
         dailyHours: z.number().optional().describe('일용직: 1일 근로시간(기본 8)'),
-        paidContinuously: z.boolean().optional().describe('일용직: 같은 사업장에서 계속 일해 왔다(기본 true). false = 하루만 일하고 끝난 경우라 휴일 가산은 보지 않고, 5명 이상이면 연장(1일 8시간 초과)·야간 가산만 계산한다'),
+        paidContinuously: z.boolean().optional().describe('일용직: 같은 사업장에서 계속 일해 왔다. 비우면 금액 없이 needs 로 묻는다(종전 기본 true 는 없앴다). false = 하루만 일하고 끝난 경우라 휴일 가산은 보지 않고, 5명 이상이면 연장(1일 8시간 초과)·야간 가산만 계산한다'),
         hourlyWage: z.number().optional().describe('시급제: 시급(원)'),
         hourlyIncludesWeekly: z.boolean().optional().describe('시급제: 시급에 주휴수당이 들어 있다'),
-        weeklyHours: z.number().optional().describe('시급제: 1주 소정근로시간'),
+        weeklyHours: z.number().optional().describe('시급제: 1주 소정근로시간(4주 평균, 연장근로 제외). 관공서 공휴일이거나 시급에 주휴가 들어 있으면 비울 때 금액 없이 needs 로 묻는다'),
       },
       annotations: READ_ONLY,
     },
@@ -485,16 +490,29 @@ export function registerCalc(server) {
         let input;
         if (a.workerType === 'monthly') {
           if (!(a.monthlyPay > 0)) throw new Error('월 통상임금 항목 합계를 입력해주세요.');
-          input = { ...common, worker_type: 'monthly', monthly_pay: a.monthlyPay, monthly_hours: a.monthlyHours || 209 };
+          input = { ...common, worker_type: 'monthly', monthly_pay: a.monthlyPay, monthly_hours: a.monthlyHours };
         } else if (a.workerType === 'daily') {
           if (!(a.dailyWage > 0)) throw new Error('일급을 입력해주세요.');
-          input = { ...common, worker_type: 'daily', daily_wage: a.dailyWage, daily_hours: a.dailyHours || 8, paid_continuously: a.paidContinuously ?? true };
+          // 261127 — 계속 근로 여부를 비우면 계속 근로로 보지 않는다(종전 ?? true). 엔진이 needs 로 돌려준다
+          input = { ...common, worker_type: 'daily', daily_wage: a.dailyWage, daily_hours: a.dailyHours, paid_continuously: a.paidContinuously };
         } else {
           if (!(a.hourlyWage > 0)) throw new Error('시급을 입력해주세요.');
-          input = { ...common, worker_type: 'hourly', hourly_wage: a.hourlyWage, hourly_includes_weekly: !!a.hourlyIncludesWeekly, weekly_hours: a.weeklyHours || 0 };
+          // 261127 — 주 시간을 비우면 0 으로 보지 않는다(종전 || 0 은 15시간 미만 검사를 건너뛰었다)
+          input = { ...common, worker_type: 'hourly', hourly_wage: a.hourlyWage, hourly_includes_weekly: !!a.hourlyIncludesWeekly, weekly_hours: a.weeklyHours };
         }
-        const r = calcHolidayPay(input);
+        const checked = calcHolidayPayChecked(input);
+        const needs = checked.needs.map((n) => ({ ...n, key: HOLIDAY_KEY[n.key] ?? n.key }));
+        const assumptions = checked.assumptions.map((x) => ({ ...x, key: HOLIDAY_KEY[x.key] ?? x.key }));
         const day = HOLIDAY_KIND[a.holidayKind];
+        if (checked.status === 'needs-input') {
+          return text({
+            ok: true, status: 'needs-input', needs, assumptions,
+            headline: [`${day}에 일한 대가는 금액을 내지 않습니다.`, '금액을 정하려면 needs 의 사실을 알아야 합니다.'],
+            result: { total: null },
+            site: `${SITE}/tools/holiday-pay`,
+          });
+        }
+        const { status: _s, needs: _n, assumptions: _x, ...r } = checked;
         const premium = r.total - r.regular_pay_equivalent;
         // 통상시급은 끝수 그대로 온다 — 소수 둘째 자리까지 보인다(사이트와 같은 표시)
         const hourly = `${(Math.round(r.base_hourly * 100) / 100).toLocaleString('ko-KR')}원`;
@@ -505,7 +523,7 @@ export function registerCalc(server) {
           ? [`${day}에 ${hoursText(common.worked_hours)} 일했을 때 월급 외에 더 줄 금액은 ${won(r.total)}입니다.`, r.paid_holiday_day.status === 'in_monthly_pay' ? `${parts}. 쉬어도 받는 유급휴일 1일분은 월급에 들어 있습니다.` : r.paid_holiday_day.note]
           : [`${day}에 ${hoursText(common.worked_hours)} 일한 대가는 ${won(r.total)}입니다.`, `${parts}.`, r.paid_holiday_day.note];
         return text({
-          ok: true, headline, result: { ...r, base_hourly: Math.round(r.base_hourly * 100) / 100 },
+          ok: true, status: 'ok', needs, assumptions, headline, result: { ...r, base_hourly: Math.round(r.base_hourly * 100) / 100 },
           basis: r.legal_basis,
           site: `${SITE}/tools/holiday-pay`,
         });
