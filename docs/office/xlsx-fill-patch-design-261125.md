@@ -1,0 +1,139 @@
+# xlsx 채우기 재설계 — 「원본 zip 그대로, 바꿀 칸만 패치」 (설계안 v2.1, 2026-11-26 — 2차 3각 검수 반영)
+
+v1은 3각 검수(페이블·오푸스·아스트라)에서 세 자리 모두 「증명하지 못한다」 판정을 받았다. 판정표는 `C:/Users/iceam/dev/_reviews/261125_xlsx_patch_design/G4_판정표.md`에 있고, v2는 그 Act on 항목을 반영한 판이다.
+
+## 0. 왜 — 진단 (v1에서 교정)
+SafeClaw 실서식 12+1개 로컬 왕복(`safeclaw-risk-p1/artifacts/risk-ledger-local/real10-261125e/00_결과표.md`)에서 끝까지 간 것은 **8건**이다. E2E 기준으로 다 맞은 것은 S01 1건인데, 그것도 엔진 판정은 `allSame:false`였다.
+
+| 증상 | 원인 (검수 재현으로 확정) |
+|---|---|
+| 안전집 3종 열기 실패 | 부품 XML이 모두 `x:` 접두 네임스페이스(`<x:workbook>`, `<x:c>`)다. ExcelJS는 `workbook`이라는 이름만 받는다. 절대경로 rels는 이미 읽는다(v1 진단은 틀렸다) |
+| 바인딩 밖 칸 값 변화(S02 54칸, S03 1칸) | sst 글의 `_x000D_`를 ExcelJS가 날 CR로 다시 써서 생긴다. 수식 캐시와는 무관하다(v1 진단은 틀렸다) |
+| S11·S12 값 차이 | SafeClaw 비교기가 `&#10;` 같은 숫자 문자 참조를 풀지 않는다(비교기 결함) |
+| S04 44행 | 넘침이 아니라 용량 오산이다. XML에 없는 44행을 빈 서식 행으로 셌다 |
+| A3·M3 서식, 인쇄 설정, calcChain, rowBreaks 소실 | ExcelJS 통째 다시 쓰기 |
+
+## 1. 지금 구조 (G1)
+| 단계 | 파일:줄 | 하는 일 |
+|---|---|---|
+| 열기 | `src/lib/office/xlsx/inspect.ts:136` `openXlsx` | zip 상한 → ExcelJS `load` + 원본 부품 Map. inspect·extract·fill이 함께 쓴다 |
+| 채우기 | `fill.ts:245` | ExcelJS 모델에 쓰기, `clearFormulaCaches`(149), `insertRowsKeepingMerges`(219), 열 숨김, 유효성 복원 |
+| 저장 | `fill.ts:339` | `writeBuffer()` — 모든 부품을 다시 쓴다 |
+| 땜질 | `package.ts:293` `restorePackage` | 잃은 부품을 되살린다 |
+| 검증 | `fill.ts:349~372` | `comparePreserved` + `comparePackage`, strict |
+| 원문 판독 | `package.ts:80·144·202`, `inspect.ts:98·111`, `workload.ts:70·78·87` | 정규식이 접두를 모른다 |
+
+## 2. 새 구조
+
+### 2-0. 바탕: 접두를 아는 원문 판독기 하나
+- 부품마다 루트에서 SpreadsheetML 주 네임스페이스에 묶인 접두(없음 또는 `x:` 등)를 읽는다. 읽기·패치·검사가 모두 이 판독기를 쓴다. 지금의 원문 정규식은 모두 이것으로 바꾼다.
+- `sheetData`는 한 번만 토큰화한다(행 위치 색인). 편집은 정렬해서 뒤에서부터 한 번에 적용한다. 칸마다 시트 전체를 훑지 않는다.
+- 열 비교는 번호로 한다(`AA` > `B`).
+- 거절(UNSUPPORTED_INPUT): Strict OOXML 네임스페이스, UTF-8이 아닌 부품, `r`이 생략된 `<row>`·`<c>`.
+- ExcelJS는 **2차 판독용 사본**(접두 제거·BOM 제거)으로만 연다. 출력 zip은 원본 접두 그대로 둔다.
+
+### 2-1. 허용 변경 목록 (연산별 — 이것 밖은 바이트 또는 토큰 동일)
+| 연산 | 바뀌는 곳 |
+|---|---|
+| 칸 쓰기 | 대상 `<c>` 하나. `s`는 유지하고 `t`·`cm`·`vm`·`ph`·`<f>`·`<v>`·`<is>`는 다시 만든다 |
+| 없는 행에 쓰기 | 새 `<row>` 하나(§2-4 서식 출처) |
+| 꼬리 덧붙이기 | 새 `<row>`들, `<dimension ref>`, 인쇄영역 `definedName`의 끝 행, 같은 행 안 가로 병합 복사 |
+| 열 숨김 | `<cols>` 안 `<col>`(걸치면 쪼갬). `<cols>`가 없으면 `<sheetData>` 바로 앞에 만든다 |
+| 캐시 지움(§2-6) | 해당 수식 칸의 `<v>`, `workbook.xml` `calcPr`(없으면 정해진 자리에 같은 접두로 새로 넣음) |
+| 닫힌 밀기(§2-5b) | §2-5b 「미는 것」 목록의 속성만 |
+| sst 정리(§2-7) | `sharedStrings.xml`에서 어느 칸도 가리키지 않게 된 `<si>`의 자식(본문·런·`rPh`)만 비움. 번호·`count`·`uniqueCount`는 그대로 |
+| 안 바꾸는 것 | calcChain, styles, rels, `[Content_Types].xml`, `spans`(그대로 둔다 — 힌트 속성). drawing·sst는 위 두 연산일 때만 |
+
+새 요소는 그 부품의 접두로 쓴다. `x14ac:dyDescent` 같은 확장 속성은 선언이 있는 부품에서 윗 행의 것을 복사할 때만 쓴다.
+
+### 2-2. 글 쓰기 규칙
+- 문자열은 `t="inlineStr"` + `<is><t>…</t></is>`로 쓴다. 앞뒤 공백이 있을 때만 `xml:space="preserve"`를 붙인다.
+- CRLF는 LF로 맞춘다. LF는 날 글자로, CR은 `&#13;`로 쓴다.
+- 그 밖의 C0 제어문자, U+FFFE/FFFF, 짝 없는 서로게이트는 거절한다(INVALID_ARGS).
+- 사용자 글 안의 `_xHHHH_`는 `_x005F_xHHHH_`로 이스케이프한다. k-labor extract도 inlineStr의 `_xHHHH_`를 풀도록 바꿔 엑셀과 같게 읽는다.
+- 32,767자 초과, NaN·Infinity는 거절한다.
+- **값이 같으면 쓰지 않는다**(기존 칸을 지금 값과 비교). 서식 있는 글(rich run)이 ID 재전송 때마다 사라지는 것을 막는다.
+
+### 2-3. 수식 칸은 쓰지 않는다
+- 대상 칸이 `<f>`를 가졌거나, 공유·배열 수식의 `ref` 범위 안에 있으면 쓰지 않고 `FORMULA_CELL_SKIPPED` 경고를 낸다(`cells`·`rows` 둘 다). 병합 종속 칸과 같은 급이다.
+- 판정은 원문 `<f>`·`ref`·`<mergeCell>`으로 한다(ExcelJS 모델 아님).
+- 결과: calcChain을 손댈 일이 없다.
+
+### 2-4. 용량과 없는 행
+- 빈 행 용량은 「`<row>`가 실제로 있고, 칸 서식 서명(행 `s`·`ht`·칸 `s` 열)이 첫 자료 행과 같으며, 묶인 열이 비어 있는 행」만 센다.
+- 쓸 행이 XML에 없으면 새 `<row>`를 만들고, 마지막 자료 행의 행 속성(`ht`·`customHeight`·`s`·`customFormat`)과 칸 `s`를 복사한다(값과 `<f>`는 빼고).
+
+### 2-5. 넘칠 때 — 꼬리 덧붙이기만, 밀기는 하지 않는다
+- 덧붙이는 자리 `at`부터 아래에 **놓여 있는 것**이 하나도 없을 때만 덧붙인다. 놓여 있는 것 = 값·수식 칸, 병합, 그림·도형·VML 고정점, 메모, 쪽 나눔, 그 범위에서 시작하는 유효성·조건부서식 범위와 이름정의. 빈 `<row>`만 있으면 그 행을 쓴다.
+- 위에서 시작해 아래로 뻗은 범위는 아무것도 움직이지 않으므로 막지 않는다. 대신 그 규칙이 새 행에 걸린다는 것을 경고에 적는다.
+- 인쇄영역 끝 행이 `at - 1`이면 새 끝 행까지 늘린다. 그렇지 않으면(S09처럼 인쇄영역 밖) 경고에 적는다.
+- 하나라도 걸리면 §2-5b(닫힌 밀기)를 시도한다. 그것도 안 되면 `OVERFLOW` + 초과 행 수를 낸다. SafeClaw는 「서식에 빈 행을 더 만들어 다시 올려 주세요」로 안내한다.
+- 실측 대입: S01·S02·S03·S05·S12 = 덧붙이기, S04 = §2-4로 해결, S09(바닥글)·S11(도형 고정점) = §2-5b.
+
+### 2-5b. 닫힌 밀기 — 허용 목록 안에서만 (261126 재홍님 「9·11 우리가 처리」, 2차 검수 반영 v2.1)
+- 근거: 오푸스 A1안 + 페이블·오푸스 엑셀 COM 실측(`G4_판정표_2차.md`). 열거로는 목록이 닫히지 않으므로 **기본 거부**로 뒤집는다: 아래 「허용 요소」 밖의 요소·확장이 통합문서 어디에든 있으면 밀지 않고 OVERFLOW.
+- **허용 요소(그 밖은 OVERFLOW)**
+  - 시트: `sheetPr`(행 주소 속성 없음), `dimension`, `sheetViews`(아래 밀기 규칙), `sheetFormatPr`, `cols`, `sheetData`, `mergeCells`, `hyperlinks`, `printOptions`, `pageMargins`, `pageSetup`, `headerFooter`, `rowBreaks`, `colBreaks`(행 범위 없는 것), `drawing`, `legacyDrawingHF`, `protectedRanges`, `ignoredErrors`, `cellWatches`, `phoneticPr`, `sheetProtection`, 행과 무관함이 확인된 `extLst` 항목(경로 메타데이터·스타일 선언).
+  - 통합문서: 인쇄영역·인쇄제목 이름, **본문 전체가 정확히 `#REF!`인 이름**(바이트 그대로 보존 — S11의 변환 찌꺼기 91개), 외부 링크 부품(관계·구조만 확인하고 그대로).
+  - drawing: `twoCellAnchor`(`editAs` 생략·`twoCell`·`oneCell`)과 `oneCellAnchor`, 내용물은 `sp`·`pic`·`cxnSp`. `textlink`·그림 하이퍼링크·카메라 그림·`grpSp`·`mc:AlternateContent`는 거부.
+- **허용 목록 안이어도 거부(OVERFLOW)**: 어느 시트에든 `<f>`, 조건부서식·유효성 전부(첫 판), `at`을 걸치는 병합, 윗변이 `at`보다 위인데 아래 끝이 `at` 이상인 고정점(걸침), `at` 아래의 `editAs="absolute"`, 틀 고정 `pane@ySplit` 경계가 `at` 이상, 내부 하이퍼링크 `location`이 단순 A1이 아닌 것, 밀어서 1,048,576행을 넘는 것.
+- **미는 것(n = 넣는 행 수)**
+  - `at` 이상 `<row r>`·`<c r>`, `<mergeCell>`, `<hyperlink ref>`와 같은 시트 단순 A1 `location`, `protectedRange@sqref`, `ignoredError@sqref`, `cellWatch@r`, `selection@activeCell/sqref`, `sheetView/pane@topLeftCell`(아래쪽만), `dimension` 양 끝.
+  - `rowBreaks/brk@id ≥ at−1`(0 기반 — 엑셀 실측).
+  - 인쇄영역·인쇄제목: 영역마다 양 끝을 따로 — 양 끝이 `at` 이상이면 둘 다 +n, 끝만 `at−1` 이상이면 끝만 +n. 다중 영역 각각.
+  - 고정점: 윗변 행(0 기반 `from/row`) ≥ `at−1`인 것만 `from/row`·`to/row`에 +n(오프셋 EMU·`a:xfrm` 그대로 — 엑셀 실측으로 제자리 확인).
+  - 새 행 서식은 §2-4와 같다(마지막 자료 행 복사 + 그 행의 가로 병합 복사).
+- **`at` 산정은 호출자 몫이다**: S09는 SafeClaw가 바닥글(20행)을 자료 행으로 세어 `at=21`을 보낸다(`writeback.ts:233`). 자료 끝 = 「자료 행 서식 서명이 같은 마지막 행」으로 고친다(형제 산출물). **조각 7 반영(261127)**: SafeClaw `sheet-binding.ts` `dataEndRowOf` — 서식 서명 대신 작업자가 이미 주는 병합 목록으로, 끝에 붙은 행 중 자료 첫 행에 없는 가로 병합을 가진 행을 뺀다(S09 20 → 19). 시험 `tests/risk-v0-sheet-binding.test.ts` 「자료 끝 — 끝의 바닥글」 5건. 엔진은 덧붙인 행이 인쇄영역 밖이면 `PRINT_AREA_NOT_EXTENDED` 경고를 낸다.
+- **검증 추가(엑셀 오라클)**: 합성 반례마다 엑셀 COM으로 같은 자리에 「행 삽입」한 파일을 만들어 우리 결과와 대조한다 — 모든 셀 주소·병합·링크·쪽 나눔·인쇄 이름, 도형별 `Top/Left/Height/Width/Placement`. 음성 대조: 고정점 하나·`selection` 하나를 일부러 안 민 출력은 검사가 실패해야 한다. 실서식 합격 조건 — S11 = 714 이동 / 216 고정 / 다른 drawing 6개 바이트 동일, S09 = `at=20`(값·병합·링크가 21행으로, 인쇄영역 늘어남)과 `at=21`(경고) 둘 다.
+- 조건을 못 넘는 서식은 OVERFLOW로 남기고, 다음 후보는 「별지 시트」다. 걸치는 CF·DV의 끝 늘리기(아스트라안)도 후속.
+- **오라클 결과(261126, `scripts/office/excel-oracle.py` · `tests/unit/office-xlsx-excel-oracle.test.ts`)**: 합성(바닥글·병합·링크·쪽 나눔·인쇄영역·도형 3) 같음, 음성 대조(고정점 하나 안 밂) 다름, S11 도형 930 같음, S09 같음. **의도된 차이 2가지**는 오라클이 엑셀 쪽에 같은 규칙을 적용한 뒤 비교한다 — ① 엑셀은 같은 시트 내부 링크 위치 글을 옮기지 않는다(우리는 옮겨 링크가 바닥글을 계속 가리킴) ② 엑셀은 끝 행이 정확히 `at−1`인 인쇄영역을 늘리지 않는다(우리는 새 행이 인쇄되도록 늘림).
+- 함께 고친 것: 밀기 자리 = 벽 앞 빈 자리 끝(`at + free`), 묶인 열이 병합에 덮인 행은 용량에서 뺌(S09 20행 바닥글 B20:L20), 쓴 자료 행이 인쇄영역 밖이면 제자리 쓰기도 `PRINT_AREA_NOT_EXTENDED`(S09 `at=21`).
+- **새 발견(후속, 조각 7)**: S11(.xls 변환본)은 외부 연결 2개의 시트 이름이 `.xls].xls]…`로 깨져 **엑셀이 원본부터 열지 못한다.** 옛 ExcelJS 통째 저장은 외부 연결을 버려서 우연히 열렸고, 칸 패치는 원본을 지키므로 결과도 열리지 않는다. 통합문서 안 `[n]` 참조는 0개다. 고칠 자리는 변환 단계(`tools/convert-worker`)의 정리(깨진 외부 연결 제거 + 경고)로 본다. 엔진 오라클은 양쪽에서 외부 연결을 뺀 사본으로 S11을 대조한다.
+
+### 2-6. 수식 캐시 — 좁힌 C
+- 수식이 없는 통합문서: 아무것도 하지 않는다(`workbook.xml` 바이트 그대로).
+- 수식이 있으면, 바뀐 시트를 참조할 수 있는 수식의 `<v>`만 지운다. 범위 = 채운 시트의 수식 전부 + 그 시트 이름이 본문에 든 다른 시트 수식. 이름정의·INDIRECT·OFFSET·구조적 참조가 하나라도 있으면 통합문서의 수식 캐시를 전부 지운다(지금과 같은 동작).
+- 지운 칸이 있을 때만 `fullCalcOnLoad="1"`을 켠다.
+- 이유: A(캐시 유지)는 재계산 없는 보기 도구에서 낡은 위험성 값을 보여 주고, 우리 extract(`extract.ts:118-127`)가 그 낡은 캐시를 경고 없이 다시 읽어 원장으로 옮긴다. 빈칸은 눈에 띄지만 낡은 숫자는 판단을 그르친다.
+- B(직접 계산)는 후속으로 둔다. 엑셀 계산값과 대조하는 시험 없이 넣지 않는다.
+- **조각 6 반영(261126)**: `patch.ts` `hideColumns`·`clearFormulaValues`·`formulaTexts`, `fill.ts` `setFullCalcOnLoad`. 바뀐 칸이 없으면(같은 값만) 캐시도 calcPr 도 그대로. calcPr 가 없으면 CT_Workbook 순서 자리(oleSize·…·extLst 앞)에 만든다. 「이름정의」 판정에서 인쇄영역·인쇄제목·필터 이름과 `#REF!` 이름은 뺀다. 열 숨김은 `<col>` 를 앞·한 열·뒤로 쪼개고(속성 그대로), 없으면 한 열짜리 `<col hidden="1"/>`, `<cols>` 가 없으면 sheetData 앞에 만든다. 이로써 **모든 요청이 칸 패치 경로**이고 옛 ExcelJS 통째 저장 경로와 도우미 4개는 지웠다 — 「열 숨김 요청이면 차트·x14 드롭다운·drawing rels 를 잃는다」던 시험 4건은 「잃지 않음」으로 뒤집혔다. 시험 = `office-xlsx-fill-calc-hide.test.ts`(12).
+
+### 2-7. sst 정리 — 덮어쓴 옛 글 지우기 (261126 재홍님 「정리기능 넣어주되」, 2차 검수 반영 v2.1)
+- **후보** = 쓰기 전에 `t="s"`였던 모든 변경 칸의 sst 번호(글·숫자·날짜·빈칸 어느 것으로 바꿨든).
+- 모든 시트(숨김·매우 숨김 포함)의 `t="s"` 칸을 관계를 따라 전수로 세고, 후보 가운데 **아무 칸도 가리키지 않는 번호**만 `<si>`의 자식(본문 `t`·런 `r`·`rPh`)을 지워 `<si><t/></si>`로 둔다. 번호는 당기지 않고 `count`·`uniqueCount`도 그대로 둔다 — 엑셀이 빈 슬롯 중복·카운터 불일치를 복구 없이 연다(오푸스·페이블 실측, 2:1 결정).
+- 판독하지 못한 셀 부품·손상된 번호가 있거나 변경 이력(`revisions`) 부품이 있으면 정리하지 않고 `SST_CLEANUP_SKIPPED` 경고.
+- 기본으로 켠다. 결과에 `clearedSharedStrings: n`. 후보가 없거나 비울 번호가 없으면 sst 부품은 바이트 그대로.
+- **보장 범위**: 「참조가 끊긴 sst 항목의 본문·런·발음 표기 제거」까지다. 같은 글이 정상 칸에 살아 있으면 그대로 둔다. 아래는 지우지 않고 결과 경고로 알린다 — `docProps`(작성자·마지막 저장자·`TitlesOfParts`), 썸네일, 차트·피벗·외부 연결 캐시, `t="str"` 수식 캐시, 도형 글·`textlink`, 머리글·바닥글, 메모.
+- **검증**: 정리기와 다른 독립 판독기로 입력에서 예상 후보·생존 참조·비울 수를 먼저 고정하고 출력과 대조. 생존 칸 값·서식 전부 동일. 원문 옛 글 검사는 압축 해제 + 숫자 문자 참조·`_xHHHH_` 풀기 + 런 이어 붙이기 뒤에 한다. 음성 대조: 아무것도 안 비우는 정리기는 실패해야 한다. 반례 6종 — 마지막 참조 둘 동시 제거, 숨김 시트의 같은 번호, 숫자로 교체, 기존 빈 `<si>`, 높은 번호의 생존 칸, rich run·`rPh`.
+- **조각 6b 반영(261127)**: `patch.ts` `patchSheetCells` 결과 `replacedSst`(후보)·`sharedStringRefs`(시트별 생존 참조, 번호 손상이면 판독 실패)·`clearSharedStrings`(번호·sst 머리 원문 그대로, 원래 빈 `<si>` 는 세지 않음), `fill.ts` `sstCleanupBlocker`(revisions 관계·`xl/revisions/` 부품·시트 부품 판독 실패면 `SST_CLEANUP_SKIPPED`; 통합문서 관계의 모든 시트 + zip 안 `xl/worksheets/*.xml` 전수). 결과 `clearedSharedStrings`(입구 `FillXlsxData` 도). 시험 = `office-xlsx-fill-sst.test.ts`(9).
+
+## 3. 검증 — 「그대로」의 정의
+1. **토큰 동일**: 허용 변경 목록(§2-1) 밖의 부품은 바이트가 같고, 바꾼 부품은 허용 변경 밖의 토큰이 순서까지 같다.
+2. **바뀐 부품 유효성**: well-formed + 자식 순서(XSD Transitional).
+3. **대상 값 대조**: 독립 판독기로 결과를 다시 읽어 요청 값·자료형·서식 `s`·숨김 상태를 대조한다. `쓴 칸 수 = 요청 칸 수 − 경고로 건너뛴 칸 수`를 단언한다(아무것도 안 쓰고 통과하는 것을 막음).
+4. **멱등**: 같은 입력으로 두 번 채우면 바이트가 같다. 결과를 빈 요청으로 다시 채우면 바뀌는 것이 없다.
+5. **엑셀로 열기**(로컬 윈도, 실서식): COM으로 열어 복구 대화가 뜨지 않는지 본다. ExcelJS 재열기는 이 부류를 못 본다(주인 잃은 공유 수식도 정상으로 연다).
+6. strict는 「허용 변경 밖 손실」에만 걸린다. 의도된 변경(덧붙인 행·숨긴 열)은 결과에 따로 보고하고 strict를 깨지 않는다.
+7. 범위 밖: .xls 입력(변환 사본 대비라 원본 대비 보존은 증명 불가), 한글.
+
+## 4. 바뀌는 것 (v1 §2-6 교정)
+- 공개 API 모양은 유지한다. 새 경고 코드 `FORMULA_CELL_SKIPPED`, `OVERFLOW`의 뜻(밀기 없음), `fullCalcOnLoad` 결과값(조건부)이 바뀐다.
+- `openXlsx`(inspect·extract 공용)가 2차 판독 사본으로 연다. extract는 inlineStr `_xHHHH_`를 푼다.
+- 다시 써야 하는 시험: `office-xlsx-fill.test.ts:77-97`(모든 캐시 삭제 단언), `office-xlsx-fill-package.test.ts:100-137`(되살리기 단언). 조각 2에서 바꿀 단언 목록을 먼저 적는다.
+- 형제 산출물: `tools/k-labor/dist/office`, `tools/convert-worker`, SafeClaw `office-contract.ts:254-283`(계약 타입 사본), `writeback.ts`(수식·병합 충돌 판정과 한 쌍, `startRow` 자료 끝 산정 — 바닥글 제외, §2-5b), `ledger-service.ts:1128-1129`(`intendedCells`에 `rows` 추가), `compare-xlsx.mjs`(접두·`_xHHHH_`·숫자 문자 참조 풀기), `e2e.mjs:245-249`(인쇄영역이 늘 는다는 기대), README 도구 설명.
+
+## 5. 조각 순서 (G3 — 실패 시험 먼저)
+0. 작업자 인자 떠 두기: SafeClaw가 보내는 `cells`·`rows`·숨김 열을 서식별 JSON으로 남긴다(지금 `result.json`엔 없다).
+1. 접두 인식 판독기(§2-0) + 원문 정규식 교체 + SafeClaw 비교기 수정(접두·`decode`·`intendedCells`). 이것이 없으면 이후 시험이 공허하게 통과한다.
+2. 회귀 묶음 RED: 저장소에는 합성 반례만 둔다(`x:` 접두, `_x000D_`, 끝까지 가는 `<col>`, rowBreaks, calcChain, 공유·배열 수식, 없는 행, 자기닫힘 `<row/>`, 메모·VML, 바닥글 행, 금지 문자). 실서식은 `KLABOR_PRIVATE_XLSX_DIR`로만 돌린다(공개 KOGAS도 `docProps` 작성자 값이 있다).
+3. 칸 패치 + 글 쓰기 규칙 + 수식 칸 거절 → S06~S08 열림, 넘침 없는 칸 쓰기 GREEN.
+4. 용량 규칙·없는 행 생성 → S04 GREEN.
+5. 꼬리 덧붙이기 + 인쇄영역·dimension → S01·S02·S03·S05·S12 GREEN.
+5b. 닫힌 밀기(§2-5b) → S09·S11 GREEN. 수식 있는 통합문서 합성 반례는 OVERFLOW 유지 확인.
+6. 열 숨김·캐시(좁힌 C)·calcPr.
+6b. sst 정리(§2-7) — 옛 글 합성 반례 RED 먼저.
+7. SafeClaw 로컬 왕복 12개 재실행 + 엑셀 COM 열기.
+
+## 6. 열린 질문 (재홍님) — 261126 답: 1 = 정리 기능 넣음(§2-7), 2 = OVERFLOW 대신 우리가 처리(§2-5b)
+1. 덮어쓴 옛 글이 `sharedStrings.xml`에 남는다(엑셀에선 안 보이고 압축을 풀면 보인다). v2는 sst를 건드리지 않는다. 덮어쓰는 칸은 대부분 원래 빈 칸이라 실제 피해는 작지만, 실명 등을 지우는 용도로 쓰이면 남는다. 정리 기능(쓰이지 않는 sst 항목 비우기)을 후속으로 둘지.
+2. S09·S11처럼 바닥글·도형이 표 바로 아래 있는 서식은 OVERFLOW로 돌려 사용자가 빈 행을 만들어 다시 올리게 한다. 이 불편을 v1에서 감수할지.

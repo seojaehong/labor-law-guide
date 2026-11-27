@@ -1,8 +1,24 @@
 // 공개 HTTP 요청은 SDK/schema 검증 전에 바이트·중첩·요소 수를 제한한다.
+import type { Limits } from '@/lib/office/limits';
 export const MAX_MCP_BODY_BYTES = 64 * 1024;
 export const MAX_MCP_JSON_DEPTH = 32;
 export const MAX_MCP_JSON_ELEMENTS = 2000;
 export const MAX_MCP_TOOL_ELEMENTS = 1000;
+
+// ── 원격 오피스 도구 정책(G4 Act on 1) — 이 파일이 단일 출처다.
+// 원격 공개 입구(무인증)는 고객 파일 처리 대상이 아니다. 합성 표본·작은 서식 맛보기용이고, 고객 파일은 SafeClaw 작업자(서명 URL) 경로로 간다.
+// 그래서 파일 바이트 상한은 본문 상한(64KB)에서 JSON-RPC 껍데기 몫을 빼고 base64 를 되돌린 값으로 계산한다.
+export const REMOTE_OFFICE_ENVELOPE_BYTES = 4 * 1024;
+export const REMOTE_OFFICE_MAX_BASE64_CHARS = MAX_MCP_BODY_BYTES - REMOTE_OFFICE_ENVELOPE_BYTES;
+export const REMOTE_OFFICE_MAX_INPUT_BYTES = Math.floor(REMOTE_OFFICE_MAX_BASE64_CHARS / 4) * 3;
+export const REMOTE_OFFICE_MAX_OUTPUT_BYTES = 5 * 1024 * 1024;
+export const REMOTE_OFFICE_LIMITS: Readonly<Limits> = Object.freeze({
+  maxInputBytes: REMOTE_OFFICE_MAX_INPUT_BYTES,
+  maxUnzippedBytes: 5 * 1024 * 1024,
+  maxZipEntries: 500,
+  maxCells: 200_000,
+  maxOutputBytes: REMOTE_OFFICE_MAX_OUTPUT_BYTES,
+});
 
 export const MCP_RATE_LIMIT_PER_MINUTE = 60;
 const MCP_RATE_WINDOW_MS = 60_000;

@@ -17,6 +17,8 @@ import { nosaRecordsTools } from '../../tools/k-labor/groups/nosa-records.mjs';
 import { formsTools } from '../../tools/k-labor/groups/forms.mjs';
 import { docsTools } from '../../tools/k-labor/groups/docs.mjs';
 import { lawTools } from '../../tools/k-labor/groups/law.mjs';
+import { officeTools } from '../../tools/k-labor/groups/office.mjs';
+import { UNPUBLISHED, unpublishedNames } from './k-labor-unpublished';
 
 // /howto/* — 도구 안내 정적 페이지(261119). 두 페이지가 공통 디자인(howto.css·howto.js)을 함께 쓴다.
 const PAGES = ['gov-login', 'k-labor'];
@@ -56,10 +58,7 @@ describe('도구 안내 페이지', () => {
   });
 
   // 묶음별 도구 수는 숫자로 박지 않고 패키지 소스(tools/k-labor)에서 끌어온다.
-  // 페이지는 npm 게시판 0.3.2 기준이다(저장소 HEAD 와 같다 — 게시 먼저, 병합 나중). 저장소에만 있고 아직 게시하지 않은 도구가 생기면 여기에 적는다.
-  const UNPUBLISHED: Record<string, string[]> = {
-    docs: ['stamp_exhibit_pdf'], // 호증 날인(261124), 미게시
-  };
+  // 페이지는 npm 게시판 0.3.2 기준이다(게시 먼저, 병합 나중). 저장소에만 있고 아직 게시하지 않은 도구는 k-labor-unpublished.ts 에 적는다.
   const SOURCE: Record<string, string[]> = {
     nhis: nhisTools,
     popbill: popbillTools,
@@ -72,8 +71,12 @@ describe('도구 안내 페이지', () => {
     nosa: [...nosaTools, ...nosaRecordsTools],
     forms: formsTools,
     docs: docsTools,
+    office: officeTools,
     law: lawTools,
   };
+  // 게시한 도구가 하나라도 있는 묶음만 페이지에 실린다. 원격 수도 게시판 기준.
+  const publishedGroups = () => serverGroups().filter((g) => (SOURCE[g] ?? []).some((t) => !(UNPUBLISHED[g] ?? []).includes(t)));
+  const publishedRemote = () => REMOTE_TOOLS.filter((t) => !unpublishedNames().includes(t));
   const keys = () =>
     [...read('k-labor').matchAll(/data-g="([\w-]+)" data-n="(\d+)" data-r="(\d+)"/g)].map(([, g, n, r]) => ({ g, n: Number(n), r: Number(r) }));
 
@@ -86,7 +89,7 @@ describe('도구 안내 페이지', () => {
 
   it('k-labor 묶음 키는 패키지 GROUPS 와 같은 순서·이름이다', () => {
     expect(serverGroups().length).toBeGreaterThan(0);
-    expect(keys().map((k) => k.g)).toEqual(serverGroups());
+    expect(keys().map((k) => k.g)).toEqual(publishedGroups());
     expect(Object.keys(SOURCE)).toEqual(serverGroups());
   });
 
@@ -94,7 +97,7 @@ describe('도구 안내 페이지', () => {
     for (const [g, names] of Object.entries(UNPUBLISHED)) for (const t of names) expect(SOURCE[g], `${g}/${t}`).toContain(t);
   });
 
-  it.each(Object.keys(SOURCE))('k-labor %s — data-n·data-r·「도구 N개」가 패키지 소스와 맞는다', (g) => {
+  it.each(Object.keys(SOURCE).filter((g) => publishedGroups().includes(g)))('k-labor %s — data-n·data-r·「도구 N개」가 패키지 소스와 맞는다', (g) => {
     const html = read('k-labor');
     const key = keys().find((k) => k.g === g)!;
     const published = SOURCE[g].filter((t) => !(UNPUBLISHED[g] ?? []).includes(t));
@@ -110,7 +113,7 @@ describe('도구 안내 페이지', () => {
     const r = keys().reduce((s, k) => s + k.r, 0);
     expect(html).toContain(`<b>${n}개</b><span>${keys().length}개 묶음`);
     expect(html).toContain(`<b>${r}개</b>`);
-    expect(r).toBe(REMOTE_TOOLS.length);
+    expect(r).toBe(publishedRemote().length);
     expect(r).toBe(AI_PACKAGES.find((p) => p.id === 'k-labor')!.remoteTools);
   });
 
@@ -119,13 +122,13 @@ describe('도구 안내 페이지', () => {
     const said = [...t.matchAll(/(?:<dd>|도구 |계산·점검 도구 )(\d+)개(?: —|가 붙|만)/g)].map((m) => Number(m[1]));
     const dd = [...read('k-labor').matchAll(/<dd>(\d+)개 —/g)].map((m) => Number(m[1]));
     expect([...said, ...dd].length).toBeGreaterThanOrEqual(3);
-    for (const n of [...said, ...dd]) expect(n).toBe(REMOTE_TOOLS.length);
+    for (const n of [...said, ...dd]) expect(n).toBe(publishedRemote().length);
   });
 
   it('k-labor 「묶음 이름」 안내에 모든 묶음이 있다', () => {
     const html = read('k-labor');
     const qa = /묶음 이름은 ([\s\S]*?)입니다\./.exec(html)![1];
-    for (const g of serverGroups()) expect(qa, g).toContain(`<code>${g}</code>`);
+    for (const g of publishedGroups()) expect(qa, g).toContain(`<code>${g}</code>`);
   });
 
   it('next.config 가 /howto/:slug 를 정적 index.html 로 열고 /howto 는 도구 모음으로 보낸다', () => {

@@ -8,6 +8,7 @@ import { registerTax, taxRemoteSafe } from './groups/tax.mjs';
 import { registerDuties, dutiesRemoteSafe } from './groups/duties.mjs';
 import { registerNosa, nosaRemoteSafe } from './groups/nosa.mjs';
 import { registerForms, formsRemoteSafe } from './groups/forms.mjs';
+import { registerOffice, officeRemoteSafe } from './groups/office.mjs';
 
 const GROUPS = [
   [registerContract, contractRemoteSafe],
@@ -17,6 +18,7 @@ const GROUPS = [
   [registerDuties, dutiesRemoteSafe],
   [registerNosa, nosaRemoteSafe],
   [registerForms, formsRemoteSafe],
+  [registerOffice, officeRemoteSafe],
 ];
 
 export const REMOTE_TOOLS = GROUPS.flatMap(([, names]) => names);

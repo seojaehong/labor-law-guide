@@ -21,6 +21,7 @@ import { registerNosaRecords, nosaRecordsTools } from './groups/nosa-records.mjs
 import { registerDocs, docsTools } from './groups/docs.mjs';
 import { registerForms, formsTools } from './groups/forms.mjs';
 import { registerLaw, lawTools } from './groups/law.mjs';
+import { registerOffice, officeTools } from './groups/office.mjs';
 
 const VERSION = '0.3.2';
 
@@ -39,6 +40,7 @@ const GROUPS = {
   // 문서 묶음(docs)도 파일을 쓰므로 원격판에 싣지 않는다
   forms: { register: registerForms, tools: formsTools, about: '모성보호·일가정 양립 서식 7종(법정 서식 출산전후휴가ㆍ육아휴직 통합 신청서, 육아휴직·단기 육아휴직·배우자 출산전후휴가·난임치료휴가 신청서, 육아휴직 허용·단기 육아휴직 시기변경 통지서) 칸 검사·한글(hwpx) 파일(파일은 로컬 전용)' },
   docs: { register: registerDocs, tools: docsTools, about: '마크다운 원고 → 한글(hwpx) 파일(프리셋 internal·tribunal) · hwpx 글자만 고치기 · 한글(hwp·hwpx) 읽기·서식 채우기·고친 마크다운 되쓰기(kordoc, 파일은 로컬 전용) · 퇴고 문체 점검(규칙 팩) · 퇴고 공개 규범 점검(띄어쓰기·문장 부호·연결어미 뒤 쉼표) · 퇴고 윤문 전후 보존 대조' },
+  office: { register: registerOffice, tools: officeTools, about: '엑셀(xlsx) 서식 구조 보기 · 칸 주소 붙은 행 읽기 · 원본 서식 그대로 채우기 · 사양(JSON)으로 서식 만들기(파일은 로컬 전용)' },
   // 법령 조회 묶음(law)은 원격판에 싣지 않는다 — 법제처가 등록 IP·이용자별 OC 로만 받아, 서버 OC 관리 방식을 정하기 전까지 로컬 전용
   law: { register: registerLaw, tools: lawTools, about: '법제처 실시간(LAW_OC) — 법령 검색 · 별표·서식 목록과 파일 주소 · 조문 개정 연혁 · 판례 검색·본문 · 법령해석(고용노동부·법제처) 검색·본문' },
 };

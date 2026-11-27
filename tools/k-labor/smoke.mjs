@@ -192,6 +192,21 @@ const ANN = {
   list_hr_forms: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
   check_hr_form: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
   make_hr_form: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
+  // office 묶음 — 보기·읽기는 읽기 전용, 채우기·만들기는 새 파일 쓰기
+  inspect_xlsx: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+  extract_xlsx_rows: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+  fill_xlsx_template: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
+  make_xlsx_from_spec: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
+  // office 원격판(base64) — 파일을 남기지 않으므로 전부 읽기 전용
+  inspect_xlsx_bytes: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+  extract_xlsx_rows_bytes: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+  fill_xlsx_template_bytes: { readOnlyHint: true, destructiveHint: false, idempotentHint: false, openWorldHint: false },
+  make_xlsx_from_spec_bytes: { readOnlyHint: true, destructiveHint: false, idempotentHint: false, openWorldHint: false },
+  // office 회의 pptx — 읽기는 읽기 전용, 만들기는 새 파일(원격판은 바이트만 돌려줌)
+  extract_pptx: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+  make_meeting_pptx: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
+  extract_pptx_bytes: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+  make_meeting_pptx_bytes: { readOnlyHint: true, destructiveHint: false, idempotentHint: false, openWorldHint: false },
   // law 묶음 — 읽기 전용, 법제처(외부)를 부른다
   ...Object.fromEntries(['search_laws', 'list_law_forms', 'get_article_history', 'search_precedents', 'get_precedent', 'search_interpretations', 'get_interpretation', 'check_citations']
     .map((n) => [n, { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true }])),
@@ -204,7 +219,7 @@ const ANN = {
 }
 // 이 판에서 더한 도구 8개 + 사이트 도구 7개(groups/more) — 「대신·대행·대리」도 함께 막는다
 const NOSA_TOOLS = ['assess_labor_council', 'check_council_meeting', 'make_labor_council_forms', 'make_council_meeting_docs', 'make_council_election_docs', 'check_council_rules', 'record_council_history', 'export_council_vault', 'import_council_minutes', 'make_council_rules_comparison'];
-const NEW_TOOLS = ['calc_severance', 'calc_holiday_pay', 'calc_pay_proration', 'calc_shutdown_allowance', 'calc_annual_leave', 'settle_leave_on_exit', 'calc_retirement_tax', 'list_employer_duties', ...MORE_TOOLS, ...NOSA_TOOLS, 'make_hwpx_from_markdown', 'edit_hwpx_text', 'read_hwp_as_markdown', 'fill_hwp_form', 'patch_hwp_from_markdown', 'check_prose', 'check_norms', 'check_semantic', 'check_rhetoric', 'check_rewrite', 'stamp_exhibit_pdf', 'list_hr_forms', 'check_hr_form', 'make_hr_form'];
+const NEW_TOOLS = ['calc_severance', 'calc_holiday_pay', 'calc_pay_proration', 'calc_shutdown_allowance', 'calc_annual_leave', 'settle_leave_on_exit', 'calc_retirement_tax', 'list_employer_duties', ...MORE_TOOLS, ...NOSA_TOOLS, 'make_hwpx_from_markdown', 'stamp_exhibit_pdf', 'edit_hwpx_text', 'read_hwp_as_markdown', 'fill_hwp_form', 'patch_hwp_from_markdown', 'check_prose', 'check_norms', 'check_semantic', 'check_rhetoric', 'check_rewrite', 'list_hr_forms', 'check_hr_form', 'make_hr_form', 'inspect_xlsx', 'extract_xlsx_rows', 'fill_xlsx_template', 'make_xlsx_from_spec', 'inspect_xlsx_bytes', 'extract_xlsx_rows_bytes', 'fill_xlsx_template_bytes', 'make_xlsx_from_spec_bytes', 'make_meeting_pptx', 'extract_pptx', 'make_meeting_pptx_bytes', 'extract_pptx_bytes'];
 const NEW_WORDS = [...WORDS, '대신', '대행', '대리'];
 const bannedNew = (s) => (banned ? banned.bannedHits(s, NEW_WORDS) : []);
 // 공식 서식 칸 이름(「대리인」 등, banned.FORM_FIELD_NAMES)을 그대로 받거나 찍는 도구 — 칸 이름만 걸지 않는다(D5 261126)
@@ -733,6 +748,38 @@ if (tools.includes('make_hwpx_from_markdown')) {
   }
 }
 
+// ── office 묶음 ── 합성 사양 → xlsx(make) → 구조 보기(inspect) · 같은 이름 거절
+if (tools.includes('make_xlsx_from_spec')) {
+  const out = path.join(tmp, 'office', '가상 서식.xlsx');
+  const SPEC = { sheets: [{ name: '가상표', title: '가상 표', columns: [{ key: 'id', header: '번호' }, { key: 'grade', header: '등급' }], validations: [{ range: 'B3:B10', list: ['낮음', '높음'] }], freeze: 'A3', print: { orientation: 'landscape', paper: 'A4', fitToWidth: 1, printTitlesRows: '2:2' } }] };
+  const mk = await callNew('make_xlsx_from_spec', { spec: SPEC, outFile: out });
+  check(`office 사양 → xlsx ${mk.file?.bytes}B`, mk.ok && fs.existsSync(out) && fs.readFileSync(out).subarray(0, 2).toString('latin1') === 'PK');
+  const ins = await callNew('inspect_xlsx', { file: out });
+  const sh = ins.sheets?.[0];
+  check(`office 구조 보기 — ${sh?.name} · ${sh?.orientation} · 유효성 ${sh?.validations?.length}`, ins.ok && sh?.name === '가상표' && sh.orientation === 'landscape' && sh.validations?.length === 1);
+  const again = await callNew('make_xlsx_from_spec', { spec: SPEC, outFile: out });
+  check('office 같은 이름은 덮어쓰지 않음', again.ok === false);
+  // 원격판(base64) — 같은 사양을 바이트로 만들고 바이트로 검사
+  const mb = await callNew('make_xlsx_from_spec_bytes', { spec: SPEC });
+  const ib = mb.ok ? await callNew('inspect_xlsx_bytes', { base64: mb.base64 }) : {};
+  check(`office base64 만들기 → 구조 보기 ${mb.outputBytes}B`, mb.ok && ib.ok && ib.sheets?.[0]?.name === '가상표');
+}
+
+// ── office 회의 pptx ── 합성 스냅숏 → 검토안 덱(make) → 장별 읽기(extract)
+if (tools.includes('make_meeting_pptx')) {
+  const out = path.join(tmp, 'office', '가상 회의.pptx');
+  const SNAP = {
+    kind: 'pre', site: '가상 사업장', cycle: '가상 1회차', basisDate: '2026-11-20', status: { label: '초안' }, scaleId: 's1', scaleName: '가상 척도',
+    prior: [{ id: 'R-01', hazard: '가상 위험요인', status: '완료', scaleId: 's1', anchors: ['A-1'] }],
+    hazards: [{ id: 'R-01', situation: '상황', cause: '원인', consequence: '결과', anchors: ['A-1'] }],
+    anchors: [{ id: 'A-1', source: '가상 평가표', location: '1행' }],
+  };
+  const mp = await callNew('make_meeting_pptx', { snapshot: SNAP, outFile: out });
+  check(`office 회의 덱 ${mp.slides?.length}장 ${mp.file?.bytes}B`, mp.ok && fs.existsSync(out) && mp.slides?.[0]?.code === 'P1');
+  const xp = mp.ok ? await callNew('extract_pptx', { file: out }) : {};
+  check('office 회의 덱 읽기 — 배지 초안', xp.ok && xp.slides?.[0]?.shapes?.some((s) => s.name === 'badge' && s.text === '초안'));
+}
+
 // ── forms 묶음 ── 합성 값 → 서식 hwpx(동시 호출 · 같은 이름 거절 · 주민번호 모양 거절)
 if (tools.includes('make_hr_form')) {
   const lf = await callNew('list_hr_forms', {});
@@ -1173,8 +1220,8 @@ if (!/\.cmd$/i.test(target)) {
   } catch { /* 없음 */ }
   const v = spawnSync(process.execPath, [target, '--version'], { encoding: 'utf8' });
   const [v1 = '', v2 = ''] = v.stdout.trim().split(/\r?\n/);
-  const KEYS = ['builtAt', 'commit', 'dirty', 'kLaborLockfileSha256', 'lockfileSha256', 'node', 'serverSha256', 'toegoSha256', 'version'];
-  check('build-info.json 이 server.mjs 옆에 있고 칸이 9개', !!info && JSON.stringify(Object.keys(info).sort()) === JSON.stringify(KEYS));
+  const KEYS = ['builtAt', 'commit', 'dirty', 'kLaborLockfileSha256', 'lockfileSha256', 'node', 'officeSha256', 'serverSha256', 'toegoSha256', 'version'];
+  check('build-info.json 이 server.mjs 옆에 있고 칸이 10개(officeSha256·toegoSha256 포함)', !!info && JSON.stringify(Object.keys(info).sort()) === JSON.stringify(KEYS));
   // 퇴고 가벼운 실행 파일 — 해시가 build-info 와 같고, MCP check_prose·check_norms·check_semantic·check_rhetoric 와 같은 판정을 낸다.
   // 의미범주·AI 수사는 키를 줄 때만 돈다. 이 시험에는 비공개 팩이 없으므로 키를 주면 불완전 → ok:false → 종료 코드 1,
   // 키를 주지 않으면 문체·공개 규범만 보고 종료 코드 0 이 맞다
@@ -1212,6 +1259,7 @@ if (!/\.cmd$/i.test(target)) {
   check(`build-info version(${info?.version}) = --version 첫 줄(${v1}) · node(${info?.node}) · builtAt(${info?.builtAt})`,
     info?.version === v1 && /^\d+\.\d+\.\d+$/.test(v1) && /^v\d+\./.test(info?.node ?? '') && !Number.isNaN(Date.parse(info?.builtAt ?? '')));
   check('build-info serverSha256 = 지금 server.mjs 의 sha256', info?.serverSha256 === sha(fs.readFileSync(target)));
+  check('build-info officeSha256 = 지금 dist/office/index.mjs 의 sha256', info?.officeSha256 === sha(fs.readFileSync(path.join(path.dirname(target), 'office', 'index.mjs'))));
   check(`build-info 모양 — lockfileSha256(${String(info?.lockfileSha256).slice(0, 12)}) · commit(${String(info?.commit).slice(0, 12)}) · dirty(${info?.dirty})`,
     /^[0-9a-f]{64}$/.test(info?.lockfileSha256 ?? '') && (info?.commit === null || /^[0-9a-f]{40}$/.test(info?.commit ?? '')) && (info?.dirty === null || typeof info?.dirty === 'boolean') && /^[0-9a-f]{64}$/.test(info?.kLaborLockfileSha256 ?? ''));
   check('--version 첫 줄 = 맨 버전, 둘째 줄 = 커밋·server 해시 앞 12자·빌드 시각', v.status === 0 && !!info && v2.includes(info.serverSha256.slice(0, 12)) && v2.includes(info.builtAt)

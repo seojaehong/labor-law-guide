@@ -5,6 +5,7 @@ import { renderToString } from 'react-dom/server';
 import { bannedHits } from '@/lib/tool-kit/banned';
 import { REMOTE_CONNECTORS } from '@/content/ai-tools';
 import { REMOTE_TOOLS } from '../../tools/k-labor/remote.mjs';
+import { unpublishedNames } from './k-labor-unpublished';
 import ConnectGuide from '@/app/ai-tools/ConnectGuide';
 import AiToolsPage from '@/app/ai-tools/page';
 
@@ -27,7 +28,8 @@ describe('Claude 앱에 연결하기 절', () => {
   });
 
   it('k-labor 도구 수는 원격 등록 목록과 같다', () => {
-    expect(REMOTE_CONNECTORS[0].remoteTools).toBe(REMOTE_TOOLS.length);
+    // 안내는 게시판 기준 — 아직 게시하지 않은 도구(k-labor-unpublished.ts)는 빼고 센다
+    expect(REMOTE_CONNECTORS[0].remoteTools).toBe(REMOTE_TOOLS.filter((t) => !unpublishedNames().includes(t)).length);
   });
 
   it('3단계 안내와 서버 전송 고지를 싣는다', () => {
