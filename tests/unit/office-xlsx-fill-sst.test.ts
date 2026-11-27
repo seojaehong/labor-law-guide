@@ -237,3 +237,47 @@ describe('sst 정리 — 덮어쓴 옛 글 지우기(§2-7)', () => {
     expect(cleared(r)).toBe(0);
   });
 });
+
+// 3각 검수 1차(261127) 반례 — 판정표 #14·15·16
+describe('3각 검수 1차 — sst 정리 반례', () => {
+  it("작은따옴표 t='s' 칸의 참조도 센다 — 숨김 시트가 가리키는 글은 비우지 않는다", async () => {
+    const src = book({ si: [t('공유')], rows1: `<row r="2">${s('B2', 0)}</row>`, rows2: `<row r="1"><c r="A1" t='s'><v>0</v></c></row>` });
+    const r = await fillXlsxTemplate(await zip(src), { cells: [{ sheet: '평가표', cell: 'B2', value: 5 }] });
+    expect(r.ok).toBe(true);
+    expect(cleared(r)).toBe(0);
+    expect((await unzip(r.bytes!)).get(SST)).toContain('공유');
+  });
+
+  it('sst 에 주석이 있으면 번호를 믿지 않고 정리를 건너뛴다(살아 있는 글 보존)', async () => {
+    const src = book({ si: ['<!-- <si><t>표지</t></si> -->', t('LIVE'), t('OLD')], rows1: `<row r="2">${s('A2', 0)}${s('B2', 1)}</row>` });
+    const r = await fillXlsxTemplate(await zip(src), { cells: [{ sheet: '평가표', cell: 'B2', value: 5 }] });
+    expect(r.ok).toBe(true);
+    expect((await unzip(r.bytes!)).get(SST)).toContain('<si><t>LIVE</t></si>');
+    expect(r.issues.map((x) => x.code)).toContain('SST_CLEANUP_SKIPPED');
+  });
+
+  it('sst 에 CDATA 가 있으면 정리를 건너뛴다', async () => {
+    const src = book({ si: ['<si><t><![CDATA[옛 글]]></t></si>'], rows1: `<row r="2">${s('B2', 0)}</row>` });
+    const r = await fillXlsxTemplate(await zip(src), { cells: [{ sheet: '평가표', cell: 'B2', value: 5 }] });
+    expect(r.ok).toBe(true);
+    expect((await unzip(r.bytes!)).get(SST)).toContain('<![CDATA[옛 글]]>');
+    expect(cleared(r)).toBe(0);
+  });
+
+  it('비운 글이 다른 부품(머리글)에 남으면 개수만 담은 경고를 낸다', async () => {
+    const src = book({ si: [t('합성옛값')], rows1: `<row r="2">${s('B2', 0)}</row>` });
+    src[S1] = src[S1].replace('</worksheet>', '<headerFooter><oddHeader>합성옛값</oddHeader></headerFooter></worksheet>');
+    const r = await fillXlsxTemplate(await zip(src), { cells: [{ sheet: '평가표', cell: 'B2', value: 5 }] });
+    expect(cleared(r)).toBe(1);
+    const w = r.issues.find((x) => x.code === 'SST_TEXT_REMAINS');
+    expect(w).toBeDefined();
+    expect(w!.message).not.toContain('합성옛값');
+  });
+
+  it('남은 곳이 없으면 그 경고는 없다(음성 대조)', async () => {
+    const src = book({ si: [t('합성옛값')], rows1: `<row r="2">${s('B2', 0)}</row>` });
+    const r = await fillXlsxTemplate(await zip(src), { cells: [{ sheet: '평가표', cell: 'B2', value: 5 }] });
+    expect(cleared(r)).toBe(1);
+    expect(r.issues.map((x) => x.code)).not.toContain('SST_TEXT_REMAINS');
+  });
+});

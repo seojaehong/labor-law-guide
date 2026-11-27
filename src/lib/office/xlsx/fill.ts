@@ -1,12 +1,12 @@
 // XLSX 템플릿 채우기 — 바이트 입력 → 바이트 출력, fs·네트워크 없음.
 // 고객 원본에 지정 셀·행만 채우고 나머지 서식은 그대로 둔다.
 // 원본 zip 은 그대로 두고 바꿀 시트 XML 의 그 칸만 고친다(설계 v2.1). 수식 캐시는 바뀐 칸이 있고 수식이 있을 때만 좁혀 지우고 그때만 fullCalcOnLoad.
-// 보존 비교는 두 겹이다 — ①열어 본 모델(병합·수식·유효성·인쇄…) ②zip 부품·rels·extLst·x14 원문(package.ts).
+// 보존 비교는 두 겹이다 — ①열어 본 모델(병합·수식·유효성·인쇄…) ②zip 부품·rels·extLst·x14 원문(package.ts comparePackage).
 import JSZip from 'jszip';
 import { inspectOpened, openXlsx, sheetPaths, type InspectXlsxResult, type OpenedXlsx, type OpenFailCode } from './inspect';
 import { appendTailRows, checkPatchValue, clearFormulaValues, clearSharedStrings, sharedStringRefs, firstContentRow, formulaTexts, hideColumns, patchSheetCells, pushRows, readCellValue, readSharedStrings, rowCapacity, shiftRefRows } from './patch';
 import { spreadsheetPrefix } from './ooxml';
-import { growRange, type PackageComparison } from './package';
+import { comparePackage, growRange, packageFingerprint, type PackageComparison } from './package';
 import { EXCEL_MAX_ROWS, colNumber, parseCellAddress, EXCEL_MAX_COLS } from './workload';
 import { DEFAULT_LIMITS, type Limits } from '../limits';
 import type { Warning } from '../types';
@@ -64,8 +64,8 @@ export interface PreservedReport {
   package: { lost: string[]; restored: string[]; same: boolean };
   /** insertRows 로 넣은 행(없으면 0). 넣었으면 same:false */
   insertedRows: { count: number; at: number | null; same: boolean };
-  /** hiddenColumns 로 숨긴 열 — 의도한 변경이라 늘 same:true */
-  hiddenColumns: { applied: FillHiddenColumns[]; same: true };
+  /** hiddenColumns 로 숨긴 열 — 의도한 변경. same = 다시 연 파일에서 요청 열이 실제로 숨겨졌나 */
+  hiddenColumns: { applied: FillHiddenColumns[]; same: boolean };
   allSame: boolean;
 }
 
@@ -122,6 +122,8 @@ export function comparePreserved(
     printArea?: Record<string, string | null>;
     printTitles?: Record<string, string | null>;
     hiddenColumns?: FillHiddenColumns[];
+    /** 다시 연 파일에서 요청 열이 실제로 숨겨졌나(주지 않으면 확인 안 함) */
+    hiddenColumnsOk?: boolean;
     /** 시트별 덧붙인 병합(before 에 더해진다) */
     merges?: Record<string, string[]>;
     /** 시트별 기대 병합 전체(밀기 — before 를 대신한다) */
@@ -156,7 +158,7 @@ export function comparePreserved(
     definedNames: { before: dnBefore, after: dnAfter, same: JSON.stringify(dnBefore) === JSON.stringify(dnAfter) },
     package: { lost: pkg.lost, restored: pkg.restored ?? [], same: pkg.same },
     insertedRows: { ...inserted, same: inserted.count === 0 || expected.insertedIntended === true },
-    hiddenColumns: { applied: expected.hiddenColumns ?? [], same: true },
+    hiddenColumns: { applied: expected.hiddenColumns ?? [], same: expected.hiddenColumnsOk ?? true },
   };
   const allSame = Object.values(report).every((x) => x.same);
   return { ...report, allSame };
@@ -208,6 +210,17 @@ export async function fillXlsxTemplate(bytes: Uint8Array, opts: FillXlsxOptions 
 }
 
 const utf8NoStrip = new TextDecoder('utf-8', { ignoreBOM: true });
+/** XML 원문 글 → 글(개체·숫자 문자 참조) */
+const unescapeXml = (s: string) =>
+  s
+    .replace(/&#x([0-9a-fA-F]+);/g, (_m, h: string) => String.fromCodePoint(parseInt(h, 16)))
+    .replace(/&#(\d+);/g, (_m, d: string) => String.fromCodePoint(Number(d)))
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'")
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&amp;/g, '&');
+const escapeXmlText = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
 /** 통합문서 관계에서 sharedStrings 부품 경로를 찾는다(없으면 기본 자리) */
 function sharedStringsPath(parts: Map<string, Uint8Array>): string {
@@ -347,15 +360,25 @@ async function patchFill(
   // sst 정리(§2-7) — 덮어쓴 칸이 가리키던 번호 가운데 이제 아무 칸도 안 가리키는 <si> 를 비운다
   let clearedSharedStrings = 0;
   if (sstCandidates.size > 0 && sstRaw) {
-    const skip = sstCleanupBlocker(opened, paths, rawText);
+    const sstText = utf8NoStrip.decode(sstRaw);
+    // 주석·CDATA 가 있으면 <si> 번호 세기를 믿을 수 없다
+    const skip = /<!--|<!\[CDATA\[/.test(sstText) ? '공유 문자열에 주석·CDATA 가 있습니다.' : sstCleanupBlocker(opened, paths, rawText);
     if (typeof skip === 'string') {
       issues.push({ code: 'SST_CLEANUP_SKIPPED', message: `덮어쓴 옛 글을 공유 문자열(sharedStrings)에서 지우지 않았습니다: ${skip}` });
     } else {
       const unused = new Set([...sstCandidates].filter((n) => n < sst.length && !skip.has(n)));
-      const cs = clearSharedStrings(utf8NoStrip.decode(sstRaw), unused);
+      const cs = clearSharedStrings(sstText, unused);
       if (cs.cleared > 0) {
         newParts.set(sstPath, cs.xml);
         clearedSharedStrings = cs.cleared;
+        // §2-7 — 비운 글이 sst 밖 부품(머리글·메모·차트 캐시·문서 속성·다른 칸)에 남았으면 개수만 알린다
+        const gone = [...unused].map((n) => sst[n] ?? '').filter((x) => x.trim().length >= 2);
+        const others = [...opened.raw.keys()].filter((k) => k !== sstPath && /\.(?:xml|vml)$/i.test(k));
+        const remains = gone.filter((x) => {
+          const needle = escapeXmlText(x);
+          return others.some((k) => (newParts.get(k) ?? rawText(k)).includes(needle));
+        }).length;
+        if (remains > 0) issues.push({ code: 'SST_TEXT_REMAINS', message: `공유 문자열에서 지운 옛 글 ${remains}개가 다른 부품(머리글·메모·차트 등)에 남아 있습니다. 공유 전에 엑셀에서 확인하세요.` });
       }
     }
   }
@@ -372,22 +395,37 @@ async function patchFill(
   // 수식 캐시 좁힌 C(§2-6) — 바뀐 칸이 있고 수식이 있을 때만. 지운 칸이 있을 때만 fullCalcOnLoad
   let fullCalc = false;
   if (changedCells.length > 0) {
-    const changedSheets = new Set(changedCells.map((c) => c.sheet));
-    const texts = new Map([...paths].map(([name, path]) => [name, formulaTexts(rawText(path))] as const));
+    // 수식 본문은 XML 원문이라 엔티티를 풀고, 시트 이름은 엑셀처럼 대소문자를 가리지 않는다
+    const texts = new Map([...paths].map(([name, path]) => [name, formulaTexts(rawText(path)).map((f) => unescapeXml(f).toLowerCase())] as const));
     if ([...texts.values()].some((t) => t.length > 0)) {
       const wbRaw = newParts.get('xl/workbook.xml') ?? utf8NoStrip.decode(opened.raw.get('xl/workbook.xml')!);
       const userNames = [...wbRaw.matchAll(/<(?:[\w.-]+:)?definedName\b([^>]*)>([^<]*)</g)].some(
         (m) => !/name="_xlnm[.](?:Print_Area|Print_Titles|_FilterDatabase)"/.test(m[1]) && m[2].trim() !== '#REF!',
       );
-      const dynamic = [...texts.values()].flat().some((f) => /\b(?:INDIRECT|OFFSET)\s*\(|\[/i.test(f));
+      // 3차원 참조(시트1:시트3!)는 가운데 시트를 이름으로 적지 않으므로 전부 지운다
+      const dynamic = [...texts.values()].flat().some((f) => /\b(?:indirect|offset)\s*\(|\[|:'?[^'!:()",=+\-*/&^<>\s]+'?!/u.test(f));
       const everything = userNames || dynamic;
-      const mentions = (f: string) =>
-        [...changedSheets].some((s) => f.includes(`'${s.replace(/'/g, "''")}'!`) || (/^[\p{L}\p{N}_.]+$/u.test(s) && new RegExp(`(^|[^\\p{L}\\p{N}_.'])${s.replace(/[.]/g, '\\.')}!`, 'u').test(f)));
+      const mentionsAny = (f: string, sheets: Set<string>) =>
+        [...sheets].some((name) => {
+          const s = name.toLowerCase();
+          return f.includes(`'${s.replace(/'/g, "''")}'!`) || (/^[\p{L}\p{N}_.]+$/u.test(s) && new RegExp(`(^|[^\\p{L}\\p{N}_.'])${s.replace(/[.]/g, '\\.')}!`, 'u').test(f));
+        });
+      // 바뀐 시트를 가리키는 시트도 「바뀐」 것으로 보고 더 늘지 않을 때까지 넓힌다(건너 참조 C→B→A)
+      const dirty = new Set(changedCells.map((c) => c.sheet));
+      for (let grew = true; grew; ) {
+        grew = false;
+        for (const [name, t] of texts) {
+          if (!dirty.has(name) && t.some((f) => mentionsAny(f, dirty))) {
+            dirty.add(name);
+            grew = true;
+          }
+        }
+      }
       let cleared = 0;
       for (const [name, path] of paths) {
         const t = texts.get(name) ?? [];
         if (t.length === 0) continue;
-        if (!everything && !changedSheets.has(name) && !t.some(mentions)) continue;
+        if (!everything && !dirty.has(name)) continue;
         const cf = clearFormulaValues(rawText(path));
         if (cf.cleared > 0) {
           newParts.set(path, cf.xml);
@@ -442,13 +480,26 @@ async function patchFill(
     const pt = s.printTitles ?? null;
     printTitles[s.name] = pt && pushedSheet && pushedSheet.sheet === s.name ? pt.split(',').map((x) => shiftNameArea(x, pushedSheet!.at, pushedSheet!.n)).join(',') : pt;
   }
-  const preserved = comparePreserved(before, after, { lost: [], same: true, restored: [] }, inserted, {
+  // 보존 둘째 겹 — zip 부품·rels·extLst·x14·인쇄 이름 원문. 인쇄 이름은 행을 넣은 시트만 다시 연 쪽 값을 기대값으로(첫째 겹 printArea 가 그 값을 따로 견준다)
+  const fpBefore = packageFingerprint(opened.parts);
+  const fpAfter = packageFingerprint(reopened.parts);
+  const expectedPrint = { ...fpBefore.printNames };
+  const movedSheet = pushedSheet?.sheet ?? (grow && newParts.has('xl/workbook.xml') ? grow.sheet : null);
+  if (movedSheet) for (const k of Object.keys(expectedPrint)) if (k.endsWith(`@${movedSheet}`)) expectedPrint[k] = fpAfter.printNames[k] ?? expectedPrint[k];
+  const pkg = comparePackage(fpBefore, fpAfter, expectedPrint);
+  // 숨김 열 — 요청한 열이 다시 연 파일에서 실제로 숨겨졌나
+  const hiddenOk = hidden.every((h) => {
+    const ws = reopened.wb.getWorksheet(h.sheet);
+    return !!ws && h.columns.every((c) => ws.getColumn(colNumber(c)).hidden === true);
+  });
+  const preserved = comparePreserved(before, after, { lost: pkg.lost, same: pkg.same, restored: [] }, inserted, {
     printArea,
     printTitles: pushedSheet ? printTitles : undefined,
     merges: addedMerges,
     mergesAfter,
     insertedIntended: true,
     hiddenColumns: hidden,
+    hiddenColumnsOk: hiddenOk,
   });
   if (!preserved.allSame) {
     const diff = Object.entries(preserved)
@@ -585,17 +636,28 @@ function setFullCalcOnLoad(text: string): string {
   const P = p.replace(/[.]/g, '[.]');
   const cp = new RegExp(`<${P}calcPr\\b[^>]*?(/?)>`).exec(text);
   if (cp) {
-    const tag = /\sfullCalcOnLoad="[^"]*"/.test(cp[0])
-      ? cp[0].replace(/\sfullCalcOnLoad="[^"]*"/, ' fullCalcOnLoad="1"')
-      : cp[0].replace(/\s*(\/?)>$/, (_m, s: string) => ` fullCalcOnLoad="1"${s}>`);
+    const attr = /\sfullCalcOnLoad\s*=\s*(?:"[^"]*"|'[^']*')/;
+    const tag = attr.test(cp[0]) ? cp[0].replace(attr, ' fullCalcOnLoad="1"') : cp[0].replace(/\s*(\/?)>$/, (_m, s: string) => ` fullCalcOnLoad="1"${s}>`);
     return text.slice(0, cp.index) + tag + text.slice(cp.index + cp[0].length);
   }
-  let at = text.lastIndexOf(`</${p}workbook>`);
-  for (const name of AFTER_CALCPR) {
-    const m = new RegExp(`<${P}${name}[\\s/>]`).exec(text);
-    if (m && m.index < at) at = m.index;
-  }
+  const top = firstTopLevel(text, AFTER_CALCPR);
+  const at = top >= 0 ? top : text.lastIndexOf(`</${p}workbook>`);
   return `${text.slice(0, at)}<${p}calcPr fullCalcOnLoad="1"/>${text.slice(at)}`;
+}
+
+/** 루트 바로 아래(깊이 1) 원소 가운데 이름(접두 뺀)이 names 에 드는 첫 여는 태그 위치. 없으면 -1 */
+function firstTopLevel(text: string, names: readonly string[]): number {
+  let depth = 0;
+  for (const m of text.matchAll(/<!--[\s\S]*?-->|<\?[\s\S]*?\?>|<!\[CDATA\[[\s\S]*?\]\]>|<(\/?)(?:[\w.-]+:)?([\w.-]+)\b[^>]*?(\/?)>/g)) {
+    if (m[2] === undefined) continue;
+    if (m[1]) {
+      depth--;
+      continue;
+    }
+    if (depth === 1 && names.includes(m[2])) return m.index;
+    if (!m[3]) depth++;
+  }
+  return -1;
 }
 
 /**

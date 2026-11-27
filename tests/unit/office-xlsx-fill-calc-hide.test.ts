@@ -159,3 +159,96 @@ describe('수식 캐시 — 좁힌 C(§2-6)', () => {
     expect((await unzip(r.bytes!)).get(WB)).toMatch(/<calcPr fullCalcOnLoad="1"\/><\/workbook>/);
   });
 });
+
+// 3각 검수 1차(261127) 반례 — 판정표 C:/Users/iceam/dev/_reviews/261127_pr300_s6_s7/G4_판정표.md #6~10·13·14·19
+describe('3각 검수 1차 — 수식 캐시·calcPr·열 숨김 반례', () => {
+  const plain = `<row r="1"><c r="A1" t="inlineStr"><is><t>번호</t></is></c></row><row r="2"><c r="A2"/><c r="B2"/></row>`;
+  const other = (ref: string) => `<row r="1"><c r="A1"><f>${ref}</f><v>7</v></c></row>`;
+  const withF = plain.replace('<c r="B2"/>', '<c r="B2"/><c r="C2"><f>LEN(B2)</f><v>0</v></c>');
+  /** 시트 이름을 바꾼 통합문서(workbook.xml 의 이름만, 엔티티 그대로 넣는다) */
+  const renamed = (files: Record<string, string>, from: string, to: string) => ({ ...files, [WB]: files[WB].replace(`name="${from}"`, `name="${to}"`) });
+  /** 셋째 시트 「끝」을 덧붙인다 */
+  const S3 = 'xl/worksheets/sheet3.xml';
+  const withThird = (files: Record<string, string>, rows3: string) => ({
+    ...files,
+    '[Content_Types].xml': files['[Content_Types].xml'].replace('</Types>', `<Override PartName="/${S3}" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/></Types>`),
+    [WB]: files[WB].replace('</sheets>', '<sheet name="끝" sheetId="3" r:id="rId9"/></sheets>'),
+    'xl/_rels/workbook.xml.rels': files['xl/_rels/workbook.xml.rels'].replace('</Relationships>', `<Relationship Id="rId9" Type="${R}/worksheet" Target="worksheets/sheet3.xml"/></Relationships>`),
+    [S3]: files[S2].replace(/<sheetData>[\s\S]*<\/sheetData>/, `<sheetData>${rows3}</sheetData>`),
+  });
+  const hideB = { ...write, hiddenColumns: [{ sheet: '평가표', columns: ['B'] }] };
+
+  it('주석 속 <f> 를 수식으로 보지 않는다 — 수식 없는 칸의 값은 그대로', async () => {
+    const rows2 = `<row r="1"><c r="A1"><f>평가표!B2</f><v>7</v></c><c r="C1"><!-- <f>0</f> --><v>42</v></c></row>`;
+    const r = await fillXlsxTemplate(await zip(book({ rows1: plain, rows2 })), write);
+    const s2 = (await unzip(r.bytes!)).get(S2)!;
+    expect(s2).toContain('<v>42</v>');
+    expect(s2).not.toContain('<v>7</v>');
+  });
+
+  it('공백이 붙은 <v > 캐시도 지운다', async () => {
+    const r = await fillXlsxTemplate(await zip(book({ rows1: plain, rows2: `<row r="1"><c r="A1"><f>평가표!B2</f><v >7</v></c></row>` })), write);
+    expect((await unzip(r.bytes!)).get(S2)).not.toMatch(/<v\s*>7</);
+  });
+
+  it('자기닫힘 <f/> 만 있는 시트도 수식 시트로 본다', async () => {
+    const rows1 = plain.replace('<c r="B2"/>', '<c r="B2"/><c r="C2"><f t="dataTable" ref="C2:C3" r1="B2"/><v>18</v></c>');
+    const r = await fillXlsxTemplate(await zip(book({ rows1 })), write);
+    expect(r.fullCalcOnLoad).toBe(true);
+    expect((await unzip(r.bytes!)).get(S1)).not.toContain('<v>18</v>');
+  });
+
+  it('시트 이름 엔티티(R&D)와 대소문자 다른 참조(data!)도 그 시트를 가리키는 것으로 본다', async () => {
+    for (const [name, ref, plainName] of [['R&amp;D', `'R&amp;D'!B2`, 'R&D'], ['Data', 'data!B2', 'Data']] as const) {
+      const files = renamed(book({ rows1: plain, rows2: other(ref) }), '평가표', name);
+      const r = await fillXlsxTemplate(await zip(files), { cells: [{ sheet: plainName, cell: 'B2', value: '합성' }] });
+      expect(r.ok).toBe(true);
+      expect((await unzip(r.bytes!)).get(S2)).not.toContain('<v>7</v>');
+    }
+  });
+
+  it('건너 참조(평가표 → 요약 → 끝)의 끝 시트 캐시도 지운다', async () => {
+    const files = withThird(book({ rows1: plain, rows2: other('평가표!B2') }), `<row r="1"><c r="A1"><f>요약!A1</f><v>5</v></c></row>`);
+    const r = await fillXlsxTemplate(await zip(files), write);
+    expect((await unzip(r.bytes!)).get(S3)).not.toContain('<v>5</v>');
+  });
+
+  it('3차원 참조(평가표:요약!)의 첫 시트를 바꿔도 그 수식 캐시를 지운다', async () => {
+    const files = withThird(book({ rows1: plain }), `<row r="1"><c r="A1"><f>SUM(평가표:요약!B2)</f><v>5</v></c></row>`);
+    const r = await fillXlsxTemplate(await zip(files), write); // 범위의 첫 시트(평가표:)를 바꾼다
+    expect((await unzip(r.bytes!)).get(S3)).not.toContain('<v>5</v>');
+  });
+
+  it('calcPr 가 없을 때 workbookView 안 extLst 가 아니라 통합문서 바로 아래에 넣는다', async () => {
+    const files = book({ rows1: withF, calcPr: '' });
+    files[WB] = files[WB].replace('<sheets>', '<bookViews><workbookView><extLst/></workbookView></bookViews><sheets>');
+    const r = await fillXlsxTemplate(await zip(files), write);
+    const wb = (await unzip(r.bytes!)).get(WB)!;
+    expect(wb).toContain('<workbookView><extLst/></workbookView>');
+    expect(wb).toMatch(/<\/sheets><calcPr fullCalcOnLoad="1"\/><\/workbook>/);
+  });
+
+  it('작은따옴표 속성 fullCalcOnLoad 를 두 번 쓰지 않는다', async () => {
+    const r = await fillXlsxTemplate(await zip(book({ rows1: withF, calcPr: `<calcPr calcId="1" fullCalcOnLoad='0'/>` })), write);
+    expect(r.ok).toBe(true);
+    const wb = (await unzip(r.bytes!)).get(WB)!;
+    expect(wb.match(/fullCalcOnLoad/g)).toHaveLength(1);
+    expect(wb).toContain('fullCalcOnLoad="1"');
+  });
+
+  it('= 앞뒤 공백 속성(<col min = "1">)을 두 번 쓰지 않고 나머지 열 폭을 지킨다', async () => {
+    const r = await fillXlsxTemplate(await zip(book({ rows1: plain, cols1: '<cols><col min = "1" max="3" width="10" customWidth="1"/></cols>' })), hideB);
+    expect(r.ok).toBe(true);
+    const s1 = (await unzip(r.bytes!)).get(S1)!;
+    expect(s1).toContain('<col min="1" max="1" width="10" customWidth="1"/>');
+    expect(s1).toContain('<col min="2" max="2" width="10" customWidth="1" hidden="1"/>');
+    expect(s1).toContain('<col min="3" max="3" width="10" customWidth="1"/>');
+  });
+
+  it('<col> 안에 내용이 있거나 <cols> 가 둘이면 조용히 망치지 않고 거절한다', async () => {
+    for (const cols1 of ['<cols><col min="1" max="3" width="10" customWidth="1"><!--note--></col></cols>', '<cols><col min="1" max="1" width="9"/></cols><cols><col min="2" max="2" width="9" hidden="0"/></cols>']) {
+      const r = await fillXlsxTemplate(await zip(book({ rows1: plain, cols1 })), hideB);
+      expect(r.ok).toBe(false);
+    }
+  });
+});

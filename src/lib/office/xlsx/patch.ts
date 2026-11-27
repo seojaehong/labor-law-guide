@@ -64,7 +64,13 @@ export function readSharedStrings(xml: string | undefined): string[] {
   return [...body.matchAll(new RegExp(`<${P}si\\b[^>]*?(?:/>|>([\\s\\S]*?)</${P}si>)`, 'g'))].map((m) => richText(m[1] ?? '', p));
 }
 
-const attrOf = (tag: string, name: string) => new RegExp(`\\s${esc(name)}\\s*=\\s*"([^"]*)"`).exec(tag)?.[1];
+/** 속성값 — 큰따옴표·작은따옴표, = 앞뒤 공백 모두(XML 1.0 이 허용하는 모양) */
+const attrOf = (tag: string, name: string) => {
+  const m = new RegExp(`\\s${esc(name)}\\s*=\\s*(?:"([^"]*)"|'([^']*)')`).exec(tag);
+  return m ? (m[1] ?? m[2]) : undefined;
+};
+/** 속성 하나(앞 공백 포함)를 찾는 정규식 원문 — 교체·삭제용 */
+const attrRe = (name: string) => `\\s${esc(name)}\\s*=\\s*(?:"[^"]*"|'[^']*')`;
 
 interface Seg {
   /** 원문 조각(바꾸지 않으면 그대로 이어 붙인다) */
@@ -668,23 +674,32 @@ export function hideColumns(raw: string, cols: number[]): { ok: true; xml: strin
   const sd = new RegExp(`<${P}sheetData\\b`).exec(xml);
   if (!sd) return { ok: false, code: 'UNSUPPORTED_INPUT', reason: '시트에 sheetData 가 없습니다.' };
   const head = xml.slice(0, sd.index);
+  const unsupported = (reason: string): Unsupported => ({ ok: false, code: 'UNSUPPORTED_INPUT', reason });
+  // 다시 짜는 <cols> 가 원문을 다 담는지 확신할 수 없는 모양은 조용히 망치지 않고 거절한다
+  if ((head.match(new RegExp(`<${P}cols\\b`, 'g')) ?? []).length > 1) return unsupported('<cols> 가 둘 이상입니다.');
   const block = new RegExp(`<${P}cols\\b[^>]*?(?:/>|>([\\s\\S]*?)</${P}cols>)`).exec(head);
   type Item = { min: number; max: number; attrs: string; text: string };
   const items: Item[] = [];
-  for (const m of (block?.[1] ?? '').matchAll(new RegExp(`<${P}col\\b([^>]*?)(?:/>|>\\s*</${P}col>)`, 'g'))) {
+  const body = block?.[1] ?? '';
+  if (/<!--|<!\[CDATA\[/.test(body)) return unsupported('<cols> 안에 주석·CDATA 가 있습니다.');
+  for (const m of body.matchAll(new RegExp(`<${P}col\\b([^>]*?)(?:/>|>([\\s\\S]*?)</${P}col>)`, 'g'))) {
+    if ((m[2] ?? '').trim() !== '') return unsupported('<col> 안에 내용이 있습니다.');
     const min = Number(attrOf(m[0], 'min'));
     const max = Number(attrOf(m[0], 'max'));
-    if (!Number.isInteger(min) || !Number.isInteger(max)) return { ok: false, code: 'UNSUPPORTED_INPUT', reason: '<col> 의 min·max 를 읽지 못했습니다.' };
-    items.push({ min, max, attrs: m[1].replace(/\s(?:min|max)="[^"]*"/g, ''), text: m[0] });
+    if (!Number.isInteger(min) || !Number.isInteger(max)) return unsupported('<col> 의 min·max 를 읽지 못했습니다.');
+    if (items.length > 0 && min <= items[items.length - 1].max) return unsupported('<col> 이 겹치거나 순서가 어긋납니다.');
+    items.push({ min, max, attrs: m[1].replace(new RegExp(`${attrRe('min')}|${attrRe('max')}`, 'g'), ''), text: m[0] });
   }
+  if ((body.match(new RegExp(`<${P}col\\b`, 'g')) ?? []).length !== items.length) return unsupported('<col> 을 다 읽지 못했습니다.');
   const tag = (min: number, max: number, attrs: string) => `<${p}col min="${min}" max="${max}"${attrs}/>`;
-  const hiddenAttrs = (attrs: string) => (/\shidden="/.test(attrs) ? attrs.replace(/\shidden="[^"]*"/, ' hidden="1"') : `${attrs} hidden="1"`);
+  const hiddenRe = new RegExp(attrRe('hidden'));
+  const hiddenAttrs = (attrs: string) => (hiddenRe.test(attrs) ? attrs.replace(hiddenRe, ' hidden="1"') : `${attrs} hidden="1"`);
   let changed = false;
   for (const c of [...new Set(cols)].sort((a, b) => a - b)) {
     const i = items.findIndex((x) => x.min <= c && c <= x.max);
     if (i >= 0) {
       const it = items[i];
-      if (/\shidden="(?:1|true)"/.test(it.attrs)) continue;
+      if (['1', 'true'].includes(attrOf(it.attrs, 'hidden') ?? '')) continue;
       const parts: Item[] = [];
       if (it.min < c) parts.push({ min: it.min, max: c - 1, attrs: it.attrs, text: tag(it.min, c - 1, it.attrs) });
       const ha = hiddenAttrs(it.attrs);
@@ -718,8 +733,10 @@ export function clearFormulaValues(raw: string): { xml: string; cleared: number 
   let cleared = 0;
   // 자기닫힘 <c/> 는 여는 태그로 잡지 않는다(뒤 칸까지 삼키지 않게)
   const xml = raw.replace(new RegExp(`(<${P}c\\b[^>]*?(?<!/)>)([\\s\\S]*?)(</${P}c>)`, 'g'), (whole, open: string, inner: string, close: string) => {
-    if (!new RegExp(`<${P}f[\\s>/]`).test(inner)) return whole;
-    const next = inner.replace(new RegExp(`<${P}v\\s*/>|<${P}v>[\\s\\S]*?</${P}v>`), '');
+    // 주석·CDATA 가 든 칸은 판정을 믿을 수 없어 건드리지 않는다(주석 속 <f> 로 일반 칸 값을 지우지 않게)
+    if (/<!--|<!\[CDATA\[/.test(inner)) return whole;
+    if (!new RegExp(`<${P}f\\b`).test(inner)) return whole;
+    const next = inner.replace(new RegExp(`<${P}v\\b[^>]*?/>|<${P}v\\b[^>]*>[\\s\\S]*?</${P}v>`), '');
     if (next === inner) return whole;
     cleared++;
     return open + next + close;
@@ -727,9 +744,10 @@ export function clearFormulaValues(raw: string): { xml: string; cleared: number 
   return { xml, cleared };
 }
 
-/** 시트 안 수식 본문(<f>…</f>) 전부 */
+/** 시트 안 수식 본문(<f>…</f>) 전부 — 자기닫힘 <f/>(공유 수식 딸린 칸·데이터 표)는 빈 글로 센다. 주석은 뺀다 */
 export function formulaTexts(raw: string): string[] {
   const pr = spreadsheetPrefix(raw.startsWith(BOM) ? raw.slice(1) : raw);
   const P = esc(pr.ok ? pr.prefix : '');
-  return [...raw.matchAll(new RegExp(`<${P}f\\b[^>]*>([\\s\\S]*?)</${P}f>`, 'g'))].map((m) => m[1]);
+  const body = raw.replace(/<!--[\s\S]*?-->/g, '');
+  return [...body.matchAll(new RegExp(`<${P}f\\b[^>]*?(?:/>|>([\\s\\S]*?)</${P}f>)`, 'g'))].map((m) => m[1] ?? '');
 }
