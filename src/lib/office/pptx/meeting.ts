@@ -295,7 +295,6 @@ const FONT_PT = T.typeScale.table;
 const NONE = { type: 'none' as const };
 const INNER = { type: 'solid' as const, pt: T.table.innerLinePt, color: T.colors.line };
 const RULE = { type: 'solid' as const, pt: T.table.ruleLinePt, color: T.colors.primary };
-const BORDER = INNER;
 const HEAD_FILL = { color: T.table.headerFill };
 
 type Slide = ReturnType<PptxGenJS['addSlide']>;
@@ -404,7 +403,9 @@ export async function makeMeetingPptx(
     pptx.defineLayout({ name: 'A4_LANDSCAPE', width: W, height: H });
     pptx.layout = 'A4_LANDSCAPE';
   }
-  const contentW = W - 0.6;
+  // 좌우 여백 0.45in — 머리·꼬리·표가 같은 세로 기준선에 선다
+  const X0 = 0.45;
+  const contentW = W - X0 * 2;
 
   const slides: MeetingSlideInfo[] = [];
   const overflow: OverflowEstimate[] = [];
@@ -432,7 +433,7 @@ export async function makeMeetingPptx(
     } else {
       slide.addText(`${code}  ·  ${snapshot.cycle}`, { x: 0.45, y: 0.28, w: W - 2.6, h: 0.28, fontFace, fontSize: T.typeScale.kicker, bold: true, color: T.colors.accent, charSpacing: 0.5 });
       slide.addText(label, { objectName: 'title', x: 0.45, y: 0.55, w: W - 2.6, h: 0.55, fontFace, fontSize: T.typeScale.title, bold: true, color: T.colors.primary });
-      if (lead) slide.addText(lead, { objectName: 'lead', x: 0.45, y: 1.08, w: W - 0.9, h: 0.36, fontFace, fontSize: T.typeScale.lead, color: T.colors.muted });
+      if (lead) slide.addText(lead, { objectName: 'lead', x: 0.45, y: 1.08, w: W - 0.9, h: 0.36, fontFace, fontSize: T.typeScale.lead, color: T.colors.muted, valign: 'top' });
     }
     slide.addText(badge, {
       objectName: 'badge', x: W - 1.65, y: 0.32, w: 1.2, h: 0.34, fontFace, fontSize: T.typeScale.kicker, bold: true, align: 'center', valign: 'middle',
@@ -473,6 +474,17 @@ export async function makeMeetingPptx(
   };
   const head = (labels: string[]): Cell[] => labels.map((t) => ({ text: t, options: { bold: true, fill: HEAD_FILL, color: T.colors.primary, align: 'center' } }));
   const c = (t: string | number | undefined | null): Cell => ({ text: t === undefined || t === null || t === '' ? '-' : String(t) });
+  /** 상태 칸 — 색은 뜻에만: 완료 초록 · 미완료·기한초과 빨강 · 재조치 주황 */
+  const statusColor = (st?: string) => (st === '완료' ? T.colors.positive : st === '미완료' || st === '기한초과' ? T.colors.negative : st === '재조치' ? T.colors.caution : T.colors.text);
+  const sc = (st?: string): Cell => ({ text: st || '-', options: { bold: !!st, color: statusColor(st), align: 'center' } });
+  /** 열 폭 비율을 본문 폭에 맞춰 늘린다 */
+  const fit = (ratio: number[]) => {
+    const sum = ratio.reduce((a, b) => a + b, 0);
+    return ratio.map((r) => (r / sum) * contentW);
+  };
+  /** 빈 장 안내 — 표 대신 옅은 띠 한 줄 */
+  const emptyNote = (slide: Slide, text: string, y = 1.75) =>
+    slide.addText(text, { x: X0, y, w: contentW, h: 0.7, fontFace, fontSize: T.typeScale.body, color: T.colors.muted, align: 'center', valign: 'middle', fill: { color: T.colors.band } });
 
   // P1 표지
   if (pre) {
@@ -505,17 +517,35 @@ export async function makeMeetingPptx(
 
   // P2 회의 개요
   if (pre) {
+    // 카탈로그 2 목차형 — 왼쪽 큰 번호 의제 목록, 오른쪽 참석 예정 표 + 안전 사례 상자
     const { slide } = newSlide('P2', 'P2 회의 개요', []);
     const agenda = snapshot.agenda?.length
       ? snapshot.agenda
       : ['전회 조치 이행 확인', '신규·변경 위험요인 검토', '근로자 의견 검토', '결정 필요 사항'];
-    slide.addText(['의제', ...agenda.map((a, i) => `${i + 1}. ${a}`)].join('\n'), { x: 0.3, y: 1.2, w: 5.2, h: 3.2, fontFace, fontSize: 12, valign: 'top' });
+    const leftW = contentW * 0.55;
+    const rowH = Math.min(0.8, (H - 2.6) / Math.max(agenda.length, 1));
+    slide.addText('의제', { x: X0, y: 1.3, w: leftW, h: 0.35, fontFace, fontSize: T.typeScale.h2, bold: true, color: T.colors.primary });
+    agenda.forEach((a, i) => {
+      const y = 1.8 + i * rowH;
+      slide.addText(String(i + 1).padStart(2, '0'), { x: X0, y, w: 0.8, h: rowH - 0.1, fontFace, fontSize: 26, bold: true, color: T.colors.accent, valign: 'middle' });
+      slide.addText(a, { x: X0 + 0.9, y, w: leftW - 1.0, h: rowH - 0.1, fontFace, fontSize: T.typeScale.h2, color: T.colors.text, valign: 'middle' });
+      slide.addShape(pptx.ShapeType.line, { x: X0, y: y + rowH - 0.05, w: leftW - 0.2, h: 0, line: { color: T.colors.line, width: 0.5 } });
+    });
+    const rx = X0 + leftW + 0.3;
+    const rw = contentW - leftW - 0.3;
+    slide.addText('참석 예정', { x: rx, y: 1.3, w: rw, h: 0.35, fontFace, fontSize: T.typeScale.h2, bold: true, color: T.colors.primary });
     const planned = snapshot.attendees?.planned ?? [];
     const rows: Cell[][] = [head(['역할', '참석 예정자'])];
     for (const a of planned) rows.push([c(a.role), c(a.name)]);
     if (!planned.length) rows.push([c('참석 예정자 미입력'), c('')]);
-    slide.addTable(rows as never, { x: 5.8, y: 1.2, w: W - 6.1, colW: [2.4, W - 8.5], fontFace, fontSize: FONT_PT, border: BORDER });
-    slide.addText(`안전 사례: ${snapshot.safetyCase ?? '(선택 — 비워 둠)'}`, { x: 0.3, y: 4.8, w: contentW, h: 1.2, fontFace, fontSize: 11, valign: 'top' });
+    slide.addTable(lineTable(rows) as never, { x: rx, y: 1.8, w: rw, colW: [rw * 0.45, rw * 0.55], fontFace, fontSize: FONT_PT, valign: 'middle' });
+    const caseY = H - 2.3;
+    slide.addShape(pptx.ShapeType.rect, { x: rx, y: caseY, w: rw, h: 1.55, fill: { color: T.colors.band }, line: { color: T.colors.band, width: 0 } });
+    slide.addShape(pptx.ShapeType.rect, { x: rx, y: caseY, w: 0.06, h: 1.55, fill: { color: T.colors.accent }, line: { color: T.colors.accent, width: 0 } });
+    slide.addText([
+      { text: '안전 사례\n', options: { bold: true, color: T.colors.primary, fontSize: T.typeScale.body } },
+      { text: snapshot.safetyCase ?? '(선택 — 비워 둠)', options: { color: snapshot.safetyCase ? T.colors.text : T.colors.muted, fontSize: T.typeScale.body } },
+    ], { x: rx + 0.2, y: caseY + 0.1, w: rw - 0.3, h: 1.35, fontFace, valign: 'top' });
   }
 
   // P3 한눈 요약
@@ -571,7 +601,7 @@ export async function makeMeetingPptx(
 
   // P4 전회 이행 현황(6행씩)
   if (pre) {
-    const colW = [0.6, 2.0, 0.45, 0.45, 0.8, 1.6, 1.0, 0.95, 0.7, 1.5, 1.0];
+    const colW = fit([0.6, 2.0, 0.45, 0.45, 0.8, 1.6, 1.0, 0.95, 0.7, 1.5, 1.0]);
     const pages: PriorItem[][] = [];
     for (let i = 0; i < snapshot.prior.length; i += P4_ROWS_PER_SLIDE) pages.push(snapshot.prior.slice(i, i + P4_ROWS_PER_SLIDE));
     if (!pages.length) pages.push([]);
@@ -580,7 +610,7 @@ export async function makeMeetingPptx(
       const { slide, no } = newSlide('P4', title, uniq(items.map((p) => p.anchors)));
       const rows: Cell[][] = [head(['ID', '위험요인', '빈도', '강도', '등급', '전회 대책', '1차 조치자', '기한', '상태', '조치결과', '2차 확인자'])];
       for (const p of items) {
-        rows.push([c(p.id), c(p.hazard), c(p.frequency), c(p.severity), c(p.grade), c(p.measure), c(p.owner), c(p.due), c(p.status), c(p.result), c(p.verifier)]);
+        rows.push([c(p.id), c(p.hazard), c(p.frequency), c(p.severity), c(p.grade), c(p.measure), c(p.owner), c(p.due), sc(p.status), c(p.result), c(p.verifier)]);
         check(no, 'P4', p.id, 'hazard', p.hazard, colW[1], 4);
         check(no, 'P4', p.id, 'measure', p.measure, colW[5], 4);
         check(no, 'P4', p.id, 'result', p.result, colW[9], 4);
@@ -593,29 +623,38 @@ export async function makeMeetingPptx(
   // P5 조치 전·후(완료 항목당 1장)
   if (pre) {
     const done = snapshot.prior.filter((p) => p.status === '완료');
-    if (!done.length) newSlide('P5', 'P5 조치 전·후 — 해당 항목 없음', []);
+    if (!done.length) emptyNote(newSlide('P5', 'P5 조치 전·후 — 해당 항목 없음', []).slide, '전회 조치 중 완료된 항목이 없어 전·후 비교 장이 없습니다');
     for (const p of done) {
-      const { slide, no } = newSlide('P5', `P5 조치 전·후 — ${p.id}`, uniq([p.anchors]));
-      slide.addText(`${p.id}  ${p.hazard}`, { x: 0.3, y: 1.05, w: contentW, h: 0.5, fontFace, fontSize: 11, bold: true });
-      check(no, 'P5', p.id, 'hazard', p.hazard, contentW, 2, 11);
-      const boxW = (contentW - 0.3) / 2;
+      // 카탈로그 6 As-Is/To-Be — 왼쪽 회색 머리 「조치 전」, 오른쪽 남색 머리 「조치 후」, 가운데 화살표
+      const { slide, no } = newSlide('P5', `P5 조치 전·후 — ${p.id}`, uniq([p.anchors]), `${p.id}  ${p.hazard}`);
+      check(no, 'P5', p.id, 'hazard', p.hazard, contentW, 1, T.typeScale.lead);
+      const gapX = 0.5;
+      const boxW = (contentW - gapX) / 2;
+      const photoY = 2.05;
+      const photoH = H - 4.6;
       (['before', 'after'] as const).forEach((side, i) => {
-        const x = 0.3 + i * (boxW + 0.3);
-        slide.addText(side === 'before' ? '조치 전' : '조치 후', { x, y: 1.6, w: boxW, h: 0.3, fontFace, fontSize: 10, bold: true, align: 'center' });
+        const x = X0 + i * (boxW + gapX);
+        const headFill = side === 'before' ? T.colors.line : T.colors.primary;
+        slide.addText(side === 'before' ? '조치 전' : '조치 후', { x, y: 1.6, w: boxW, h: 0.4, fontFace, fontSize: T.typeScale.body, bold: true, align: 'center', valign: 'middle', color: side === 'before' ? T.colors.primary : T.colors.bg, fill: { color: headFill } });
         const photo = snapshot.photos.find((ph) => ph.itemId === p.id && ph.side === side);
         if (photo) {
-          slide.addImage({ data: `${photo.mime ?? 'image/png'};base64,${photo.data}`, x, y: 1.95, w: boxW, h: 3.4 });
+          slide.addImage({ data: `${photo.mime ?? 'image/png'};base64,${photo.data}`, x, y: photoY, w: boxW, h: photoH, sizing: { type: 'contain', w: boxW, h: photoH } });
         } else {
-          slide.addText('사진 없음', { x, y: 1.95, w: boxW, h: 3.4, fontFace, fontSize: 14, align: 'center', valign: 'middle', color: '888888', fill: { color: 'F2F2F2' }, line: { color: 'BBBBBB', width: 0.75 } });
+          slide.addText('사진 없음', { x, y: photoY, w: boxW, h: photoH, fontFace, fontSize: T.typeScale.h2, align: 'center', valign: 'middle', color: T.colors.muted, fill: { color: T.colors.band }, line: { color: T.colors.line, width: 0.5, dashType: 'dash' } });
         }
       });
-      slide.addText(`법조: ${p.legal ?? '-'}`, { x: 0.3, y: 5.5, w: contentW, h: 0.35, fontFace, fontSize: 10, fill: { color: 'FFF4D6' } });
+      slide.addText('▶', { x: X0 + boxW, y: photoY + photoH / 2 - 0.25, w: gapX, h: 0.5, fontFace, fontSize: 18, color: T.colors.accent, align: 'center', valign: 'middle' });
+      const legalY = photoY + photoH + 0.15;
+      slide.addText([
+        { text: '법조  ', options: { bold: true, color: T.colors.caution } },
+        { text: p.legal ?? '-', options: { color: T.colors.text } },
+      ], { x: X0, y: legalY, w: contentW, h: 0.32, fontFace, fontSize: T.typeScale.body, valign: 'middle' });
       const rows: Cell[][] = [
         head(['조치 결과', '효과', '잔여 위험', '확인']),
         [c(p.result), c(p.effect), c(p.residual), c(p.verifier)],
       ];
-      const colW = [contentW * 0.4, contentW * 0.2, contentW * 0.2, contentW * 0.2];
-      table(slide, rows, colW, 6.0);
+      const colW = fit([2, 1, 1, 1]);
+      table(slide, rows, colW, legalY + 0.42);
       check(no, 'P5', p.id, 'result', p.result, colW[0], 3);
     }
   }
@@ -628,25 +667,40 @@ export async function makeMeetingPptx(
     if (!pages.length) pages.push([]);
     pages.forEach((items, pi) => {
       const { slide, no } = newSlide('P6', pi === 0 ? 'P6 신규·변경 후보' : 'P6 신규·변경 후보 (계속)', uniq(items.map((h) => h.anchors)));
-      if (!items.length) slide.addText('신규·변경 후보 없음', { x: 0.3, y: 1.2, w: contentW, h: 0.5, fontFace, fontSize: 12 });
-      const cw = (contentW - 0.3) / 2;
-      const ch = 3.0;
+      if (!items.length) emptyNote(slide, '이번 회차 신규·변경 위험요인 후보가 없습니다');
+      // 카드 2×2 — 머리 띠(신규/변경 칩 · 위험성 칩) + 제목(상황) + 라벨·값 본문. ID 는 카드 아래 작은 글씨(긴 UUID 가 제목을 차지하지 않게)
+      const gapC = 0.3;
+      const cw = (contentW - gapC) / 2;
+      const top = 1.2;
+      const ch = (H - 0.75 - top - gapC) / 2;
       items.forEach((h, i) => {
-        const x = 0.3 + (i % 2) * (cw + 0.3);
-        const y = 1.15 + Math.floor(i / 2) * (ch + 0.2);
+        const x = X0 + (i % 2) * (cw + gapC);
+        const y = top + Math.floor(i / 2) * (ch + gapC);
         const m = h.measures ?? {};
-        const body = [
-          `${h.id} [${h.kind === 'new' ? '신규' : '변경'}] 출처: ${h.sourceType ?? '-'}${h.tags?.length ? ` · ${h.tags.join('·')}` : ''}`,
-          `상황: ${h.situation}`,
-          `원인: ${h.cause ?? '-'}`,
-          `결과: ${h.consequence ?? '-'}`,
-          `빈도 ${h.frequency ?? '-'} · 강도 ${h.severity ?? '-'} · 등급 ${h.grade ?? '-'}`,
-          `대책(기술): ${m.technical ?? '-'}`,
-          `대책(교육): ${m.education ?? '-'}`,
-          `대책(관리): ${m.management ?? '-'}`,
-        ].join('\n');
-        slide.addText(body, { x, y, w: cw, h: ch, fontFace, fontSize: FONT_PT, valign: 'top', line: { color: 'BBBBBB', width: 0.75 } });
-        for (const f of ['situation', 'cause', 'consequence'] as const) check(no, 'P6', h.id, f, h[f], cw, 2);
+        const isNew = h.kind === 'new';
+        const kindColor = isNew ? T.colors.accent : T.colors.caution;
+        slide.addShape(pptx.ShapeType.rect, { x, y, w: cw, h: ch, fill: { color: T.colors.bg }, line: { color: T.colors.line, width: 0.75 } });
+        slide.addShape(pptx.ShapeType.rect, { x, y, w: 0.07, h: ch, fill: { color: kindColor }, line: { color: kindColor, width: 0 } });
+        slide.addText(isNew ? '신규' : '변경', { x: x + 0.25, y: y + 0.15, w: 0.65, h: 0.28, fontFace, fontSize: T.typeScale.kicker, bold: true, align: 'center', valign: 'middle', color: T.colors.bg, fill: { color: kindColor } });
+        const r = risk(h.frequency, h.severity);
+        slide.addText(`빈도 ${h.frequency ?? '-'} × 강도 ${h.severity ?? '-'} = ${r ?? '-'}  ·  ${h.grade ?? '-'}`, { x: x + 1.0, y: y + 0.15, w: cw - 1.2, h: 0.28, fontFace, fontSize: T.typeScale.kicker, bold: true, color: T.colors.primary, valign: 'middle' });
+        slide.addText(h.situation, { x: x + 0.25, y: y + 0.5, w: cw - 0.45, h: 0.5, fontFace, fontSize: T.typeScale.h2 - 1, bold: true, color: T.colors.primary, valign: 'top' });
+        const lab = (k: string, v?: string) => [
+          { text: `${k}  `, options: { bold: true, color: T.colors.muted } },
+          { text: `${v || '-'}\n`, options: { color: T.colors.text } },
+        ];
+        slide.addText(
+          [
+            ...lab('원인', h.cause),
+            ...lab('결과', h.consequence),
+            ...lab('대책·기술', m.technical),
+            ...lab('대책·교육', m.education),
+            ...lab('대책·관리', m.management),
+          ],
+          { x: x + 0.25, y: y + 1.0, w: cw - 0.45, h: ch - 1.35, fontFace, fontSize: FONT_PT, valign: 'top', lineSpacingMultiple: 1.15 },
+        );
+        slide.addText(`${h.id}  ·  출처 ${h.sourceType ?? '-'}${h.tags?.length ? `  ·  ${h.tags.join('·')}` : ''}`, { x: x + 0.25, y: y + ch - 0.33, w: cw - 0.45, h: 0.25, fontFace, fontSize: T.typeScale.caption, color: T.colors.muted, valign: 'middle' });
+        for (const f of ['situation', 'cause', 'consequence'] as const) check(no, 'P6', h.id, f, h[f], cw - 0.45, 2);
       });
     });
   }
@@ -688,7 +742,9 @@ export async function makeMeetingPptx(
         anchors: [p.anchors, cur?.anchors],
         cells: [
           c(p.id), c(p.hazard), c(pr !== null ? `${pr} (${p.grade ?? '-'})` : p.grade), c(cr !== null ? `${cr} (${cur?.grade ?? '-'})` : cur?.grade),
-          c(typeof delta === 'number' ? (delta > 0 ? `+${delta}` : String(delta)) : delta),
+          typeof delta === 'number'
+            ? { text: delta > 0 ? `▲ +${delta}` : delta < 0 ? `▼ ${delta}` : '0', options: { bold: delta !== 0, align: 'center', color: delta > 0 ? T.colors.negative : delta < 0 ? T.colors.positive : T.colors.muted } }
+            : { text: delta, options: { align: 'center', color: T.colors.muted } },
           c(p.scaleId === snapshot.scaleId ? snapshot.scaleName : `전회 ${p.scaleId ?? '미상'}`),
         ],
       });
@@ -714,7 +770,8 @@ export async function makeMeetingPptx(
       const { slide, no } = newSlide('P9', pi === 0 ? 'P9 결정 필요 사항' : 'P9 결정 필요 사항 (계속)', anchors);
       const rows: Cell[][] = [head(['ID', '질문', '대상 ID', '선택지', '결정'])];
       for (const q of items) {
-        rows.push([c(q.id), c(q.question), c((q.targetIds ?? []).join(', ')), c((q.options ?? []).join(' / ')), { text: '' }]);
+        // 결정 칸은 회의에서 적는 자리 — 옅은 채움으로 기입란임을 보인다
+        rows.push([c(q.id), c(q.question), c((q.targetIds ?? []).join(', ')), c((q.options ?? []).join(' / ')), { text: '', options: { fill: { color: T.colors.band } } }]);
         check(no, 'P9', q.id, 'question', q.question, colW[1], 3);
       }
       if (!items.length) rows.push([c('결정 필요 사항 없음'), c(''), c(''), c(''), { text: '' }]);
@@ -767,35 +824,52 @@ export async function makeMeetingPptx(
 
     // F1 표지
     {
-      const { slide } = newSlide('F1', 'F1 표지', []);
-      slide.addText('위험성평가 회의 후 확정본', { x: 0.6, y: 1.6, w: W - 1.2, h: 0.8, fontFace, fontSize: 28, bold: true, color: '1F2A44' });
-      const lines = [
-        `사업장: ${snapshot.site}`,
-        `회차: ${snapshot.cycle}`,
-        `실제 회의일: ${snapshot.actualMeetingDate ?? '-'}`,
-        `데이터 기준일: ${snapshot.basisDate}`,
-        `확정 버전: ${badge}`,
-        `다음 적용기간: ${snapshot.nextPeriod ?? '-'}`,
-        `작성자: ${snapshot.author ?? '-'}`,
+      // 카탈로그 1 표지 — P1 과 같은 틀, 오른쪽 패널에 회차·확정 버전·다음 적용기간
+      const { slide } = newSlide('F1', 'F1 표지', [], undefined, '회의 후 확정본');
+      const panelX = coverPanelX;
+      slide.addText([
+        { text: '회차\n', options: { fontSize: T.typeScale.kicker, color: 'A6C4EE', bold: true } },
+        { text: `${snapshot.cycle}\n\n`, options: { fontSize: T.typeScale.h2 + 4, color: T.colors.bg, bold: true } },
+        { text: '확정 버전\n', options: { fontSize: T.typeScale.kicker, color: 'A6C4EE', bold: true } },
+        { text: `${badge}\n\n`, options: { fontSize: T.typeScale.h2 + 4, color: T.colors.bg, bold: true } },
+        { text: '다음 적용기간\n', options: { fontSize: T.typeScale.kicker, color: 'A6C4EE', bold: true } },
+        { text: snapshot.nextPeriod ?? '-', options: { fontSize: T.typeScale.h2, color: T.colors.bg, bold: true } },
+      ], { x: panelX + 0.45, y: H * 0.3, w: W - panelX - 0.9, h: 3.2, fontFace, valign: 'top' });
+      slide.addText('위험성평가 회의', { x: 0.7, y: 1.9, w: panelX - 1.2, h: 0.4, fontFace, fontSize: T.typeScale.h2, bold: true, color: T.colors.accent });
+      slide.addShape(pptx.ShapeType.line, { x: 0.7, y: 3.45, w: 1.0, h: 0, line: { color: T.colors.accent, width: 2 } });
+      const meta: [string, string][] = [
+        ['사업장', snapshot.site],
+        ['실제 회의일', snapshot.actualMeetingDate ?? '-'],
+        ['데이터 기준일', snapshot.basisDate],
+        ['작성자', snapshot.author ?? '-'],
       ];
-      slide.addText(lines.join('\n'), { x: 0.6, y: 2.7, w: W - 1.2, h: 3.6, fontFace, fontSize: 14, valign: 'top' });
+      slide.addText(
+        meta.flatMap(([k, v]) => [
+          { text: `${k}   `, options: { color: T.colors.muted, fontSize: T.typeScale.body } },
+          { text: `${v}\n`, options: { color: T.colors.text, fontSize: T.typeScale.body + 1, bold: true } },
+        ]),
+        { x: 0.7, y: 3.7, w: panelX - 1.2, h: 2.4, fontFace, valign: 'top', lineSpacingMultiple: 1.5 },
+      );
     }
 
     // F2 참석(예정 vs 실제)
     {
       const { slide } = newSlide('F2', 'F2 참석', []);
       const isRep = (a: MeetingAttendee) => a.workerRepresentative ?? a.role.includes('근로자대표');
-      const half = (contentW - 0.3) / 2;
+      // 2단 비교 — 예정 / 실제 표, 아래 근로자대표 참여 결론 바(참여 = 초록, 불참 = 빨강)
+      const gapF = 0.4;
+      const half = (contentW - gapF) / 2;
       (['planned', 'actual'] as const).forEach((k, i) => {
         const list = snapshot.attendees?.[k] ?? [];
         const label = k === 'planned' ? '참석 예정' : '실제 참석';
         const rows: Cell[][] = [head(['역할', label])];
         for (const a of list) rows.push([c(a.role), c(a.name)]);
         if (!list.length) rows.push([c(`${label} 미입력`), c('')]);
-        slide.addTable(rows as never, { x: 0.3 + i * (half + 0.3), y: 1.2, w: half, colW: [half * 0.5, half * 0.5], fontFace, fontSize: FONT_PT, border: BORDER });
+        slide.addTable(lineTable(rows) as never, { x: X0 + i * (half + gapF), y: 1.3, w: half, colW: [half * 0.45, half * 0.55], fontFace, fontSize: FONT_PT, valign: 'middle' });
       });
       const repActual = (snapshot.attendees?.actual ?? []).some(isRep);
-      slide.addText(`근로자대표 참여: ${repActual ? '예' : '아니오'}`, { x: 0.3, y: H - 1.2, w: contentW, h: 0.4, fontFace, fontSize: 12, bold: true, fill: { color: repActual ? 'E2F0D9' : 'FBE5D6' } });
+      const repColor = repActual ? T.colors.positive : T.colors.negative;
+      slide.addText(`근로자대표 참여: ${repActual ? '예' : '아니오'}`, { x: X0, y: H - 1.35, w: contentW, h: 0.55, fontFace, fontSize: T.typeScale.body + 1, bold: true, color: T.colors.bg, fill: { color: repColor }, valign: 'middle', inset: 0.25 });
     }
 
     // F3 확정 결정
@@ -941,7 +1015,7 @@ export async function makeMeetingPptx(
       const { slide } = newSlide('F8', pi === 0 ? 'F8 근거·버전' : 'F8 근거·버전 (계속)', items.map((a) => a.id));
       slide.addText(
         `확정 버전 ${badge} · revision ${snapshot.revision ?? '-'} · template ${MEETING_TEMPLATE_VERSION} · 척도 ${snapshot.scaleName}(${snapshot.scaleId})`,
-        { x: 0.3, y: 1.1, w: contentW, h: 0.35, fontFace, fontSize: 10 },
+        { x: X0, y: 1.15, w: contentW, h: 0.32, fontFace, fontSize: T.typeScale.body, color: T.colors.muted },
       );
       const rows: Cell[][] = [head(['근거 ID', '출처', '위치'])];
       for (const a of items) rows.push([c(a.id), c(a.source), c(a.location)]);
