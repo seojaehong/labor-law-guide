@@ -2,7 +2,7 @@
 // ① 내 조문을 표준 조문에 짝짓고 ② 기간 [최종 개정일, 기준일] 안에 시행되는 개정 중 그 표준 조문에 걸리는 것을 모은다.
 // 매핑(RuleSpec)이 있으면 짝지은 내 조문 안에서만 judge 한다 — 문서 전체를 키워드로 훑는 B(checkRules)와 다른 점이다.
 import type { LawEvent } from './format';
-import { anchored, judge, paragraphs, type RuleSpec, type Verdict } from './rules-check';
+import { anchored, judge, NEGATED_SHORT, paragraphs, type RuleSpec, type Verdict } from './rules-check';
 
 export interface StdLawRef {
   lawId: string | null;
@@ -173,6 +173,40 @@ export interface PeriodItem {
   proposalFrom: '매핑' | '표준취업규칙' | null;
 }
 
+/** 내보내기(docx·xlsx 점검 결과 칸) — 부정문으로 내린 규칙이 있으면 화면처럼 원문 확인 필요를 단다(G4 2026-11-26) */
+export const exportStatus = (it: PeriodItem) => (it.verdicts.some((v) => v.negated) ? `${it.status} · ${NEGATED_SHORT}` : it.status);
+/** 내보내기·표 복사의 조문 칸 — 표 복사에는 점검 결과 칸이 없어 조문 칸에 단다 */
+export const exportArticle = (it: PeriodItem) =>
+  `${it.std.no}(${it.std.title})${it.verdicts.some((v) => v.negated) ? ` · ${NEGATED_SHORT}` : ''}`;
+
+/**
+ * 내보내기(docx·xlsx·표 복사) 행 — 화면의 반영 안 된 항목에 「이전 시행」 목록의 부정문 판정을 더한다(G4 R2 R25).
+ * 이전 시행 부정문은 기간 밖이라 items 에 없다. 빼면 화면에서 본 지적이 내보내기에서 사라지고, 그것뿐이면 버튼이 꺼진다.
+ * 같은 표준 조문 행이 있으면 그 행에 합친다. result 의 객체는 화면 카드·건수가 같이 쓰므로 고치지 않고 복사본을 돌려준다.
+ * 옛 문구(stale)만 남은 이전 시행 항목은 넣지 않는다(종전과 같음).
+ */
+export function exportItems(r: PeriodResult): PeriodItem[] {
+  const out = r.items.filter((i) => i.status !== '반영됨').map((i) => ({ ...i, verdicts: [...i.verdicts] }));
+  // 현행 칸은 판정이 실제로 본 내 조문이다 — 표준 조문 짝(matched)에 없고 제목·anchor 로 찾은 조문일 수 있다(화면 「현행 {where}」와 같게)
+  const judged = (where: string | null) => (where ? r.user.filter((u) => paragraphs(u.text)[0]?.article === where) : []);
+  for (const { std, verdict } of r.earlier) {
+    if (!verdict.negated) continue;
+    const own = judged(verdict.where);
+    let it = out.find((i) => i.std.id === std.id);
+    if (!it) {
+      it = { std, user: own.length ? own : r.matched.get(std.id) ?? [], events: [], verdicts: [], status: '고칠 것', proposal: null, proposalFrom: null };
+      out.push(it);
+    } else {
+      const add = own.filter((u) => !it!.user.some((x) => x.text === u.text));
+      if (add.length) it.user = [...it.user, ...add];
+    }
+    it.verdicts.push(verdict);
+    const c = verdict.rule.clause;
+    if (c && !it.proposal?.includes(c)) [it.proposal, it.proposalFrom] = [it.proposal ? `${it.proposal}\n\n${c}` : c, it.proposalFrom ?? '매핑'];
+  }
+  return out;
+}
+
 export interface PeriodResult {
   items: PeriodItem[];
   /** 짝이 없는 [필수] 표준 조문 — 본문을 넣었을 때만 */
@@ -182,6 +216,8 @@ export interface PeriodResult {
   /** 최종 개정일 이전에 시행된 필수 개정 중 반영 안 된 것(옛 문구가 실제로 남은 조문이 있을 때만) */
   earlier: { std: StdArticle; verdict: Verdict }[];
   matched: Map<string, UserArticle[]>;
+  /** 본문에서 나눈 내 조문 전체 — 내보내기가 이전 시행 판정의 현행 조문을 찾는다(G4 R2 R25) */
+  user: UserArticle[];
 }
 
 const RANK: Record<ItemStatus, number> = { '고칠 것': 0, '조문 추가': 1, '시행 예정': 2, '법령 확인': 3, 선택: 4, 반영됨: 5 };
@@ -263,7 +299,8 @@ export function periodCheck(opts: {
       const s = stdById.get((r.std ?? [])[0] ?? '');
       if (!s) continue;
       const v = verdictOf(r, matched.get(s.id) ?? []);
-      if (v.status !== '반영됨' && v.stale.length) earlier.push({ std: s, verdict: v });
+      // 부정문(negated)은 옛 문구가 없어도 넣는다 — 빼면 시행일 뒤로 기간을 잡을 때 부정문 판정이 통째로 사라진다(G4 I24)
+      if (v.status !== '반영됨' && (v.stale.length || v.negated)) earlier.push({ std: s, verdict: v });
     }
   }
 
@@ -291,5 +328,5 @@ export function periodCheck(opts: {
   );
   const present = matchArticles(user, std, { weak: true });
   const missingRequired = hasText ? std.filter((s) => s.kind === '필수' && !present.has(s.id)) : [];
-  return { items, missingRequired, missing93: hasText ? missingArt93(text, opts.art93 ?? []) : [], earlier, matched };
+  return { items, missingRequired, missing93: hasText ? missingArt93(text, opts.art93 ?? []) : [], earlier, matched, user };
 }

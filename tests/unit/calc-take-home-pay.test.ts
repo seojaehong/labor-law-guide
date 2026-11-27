@@ -356,8 +356,8 @@ describe('화면 문장', () => {
     expect(headline(calc({ pay: 10_000_001 })).join(' ')).toContain('소득세를 계산하지 않습니다');
   });
 
-  it('세무대리·신고서 작성 대행이 아니라는 안내와 홈택스', () => {
-    expect(NOTICE).toContain('세무대리·신고서 작성 대행이 아닙니다');
+  it('원천징수의무자(회사) 고지(D4 261126)와 홈택스', () => {
+    expect(NOTICE).toContain('참고용 계산이며, 원천징수와 신고는 회사(원천징수의무자)가 합니다.');
     expect(allCopy(results[0], RATES).join('\n')).toContain('홈택스');
     // 홈택스 화면에서 확인하지 않은 메뉴 경로(「A → B → C」)를 단정하지 않는다
     expect(HOMETAX_LINE).not.toMatch(/→/);

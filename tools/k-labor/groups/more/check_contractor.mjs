@@ -1,11 +1,11 @@
 // 3.3% 계약 점검 — 사이트 엔진(src/lib/calc/contractor-check)과 화면 문구(src/app/tools/contractor-check/copy)를 그대로 불러 쓴다.
 // 질문 8개의 답과 월 보수만 받는다. 파일·네트워크·주민등록번호를 다루지 않는다 — 원격판에 그대로 실을 수 있다.
 // 사이트 문구 가운데 금지어(banned.ts 두 벌 + 대신·대행·대리·포괄)를 품은 문장은 응답에 싣지 않는다
-// (Q4 질문·보기 글자, 판결 첫 문단 원문, 「세무대리·신고서 작성 대행이 아닙니다」 안내).
+// (Q4 글자·세금 고지는 261125 에 사이트에서 바꿔 썼다. 판결 원문은 banned.ts 허용 구절에 든 문장만 남는다).
 import { z } from 'zod';
 import { checkItems, compareTakeHome, SOURCES } from '@/lib/calc/contractor-check';
 import {
-  AFTER_LEAD, AFTER_RECOGNITION, CHECK_HEADLINE, CHECK_NOTES, HOMETAX_LINK, HOMETAX_URL, INPUT_GUIDE, MONEY_NOTES, OUT_OF_SCOPE,
+  AFTER_LEAD, AFTER_RECOGNITION, CHECK_HEADLINE, CHECK_NOTES, HOMETAX_LINK, HOMETAX_URL, INPUT_GUIDE, MONEY_NOTES, NOTICE, OUT_OF_SCOPE,
   answerLabel, formulaLines, itemSentence, itemTag, moneyHeadline, moneyRows,
 } from '@/app/tools/contractor-check/copy';
 import { bannedHits, RESULT_BANNED, SERVICE_BANNED } from '@/lib/tool-kit/banned';
@@ -138,6 +138,8 @@ export function register(server) {
           afterRecognition: { lead: clean(AFTER_LEAD), items: cleanAll(AFTER_RECOGNITION) },
           inputGuide: cleanAll(INPUT_GUIDE),
           notCovered: cleanAll(OUT_OF_SCOPE),
+          // 3.3% 고지(F2 261127) — 화면과 같은 상수(A15: 종전 MCP 응답엔 이 고지가 없었다)
+          notice: clean(NOTICE),
           hometax: { href: HOMETAX_URL, note: clean(`${HOMETAX_LINK.text}${HOMETAX_LINK.after}`) },
           basis: BASIS,
           site: SITE,

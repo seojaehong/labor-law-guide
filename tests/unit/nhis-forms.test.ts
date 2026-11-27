@@ -186,6 +186,55 @@ describe('입력 검사', () => {
     expect(validate({ ...lossInput, people: [{ ...leaver, payCur: NaN }] }).join()).toContain('숫자만');
     expect(validate({ ...lossInput, people: [{ ...leaver, monthsCur: 13 }] }).join()).toContain('12 이하');
   });
+  // 별지 제8호 작성방법 건강보험 2·3: 해당 연도 보수 총액과 그 근무개월수를 적고, 전년도는 연말정산을 안 했을 때만 적는다(261125)
+  it('퇴직·사망은 해당 연도 보수 총액·근무개월수가 비면 거부, 전년도는 둘 다 비거나 둘 다 채운다', () => {
+    const pay = (x: Partial<LossPerson>) => validate({ ...lossInput, people: [{ ...leaver, ...x }] }).join(' ');
+    expect(pay({ payCur: undefined, monthsCur: undefined })).toContain('해당 연도 보수 총액과 근무개월수');
+    expect(pay({ monthsCur: undefined })).toContain('해당 연도 보수 총액과 근무개월수');
+    expect(pay({ nhisCode: '02', payCur: undefined })).toContain('해당 연도 보수 총액과 근무개월수');
+    expect(pay({ payPrev: undefined })).toContain('전년도 보수 총액과 근무개월수');
+    // 통과 쪽 — 전년도 둘 다 비움(연말정산 함), 취득취소(16)는 보수 칸을 묻지 않는다
+    expect(pay({ payPrev: undefined, monthsPrev: undefined })).toBe('');
+    expect(pay({ nhisCode: '16', payCur: undefined, monthsCur: undefined, payPrev: undefined, monthsPrev: undefined })).toBe('');
+  });
+  it('취득부호를 고르지 않으면 거부', () => {
+    expect(validate({ ...acqInput, people: [{ ...joiner, nhisCode: '' }] }).join(' ')).toContain('부호를 골라');
+  });
+  // G4 261126 I25 — 부호 제한이 화면 선택 목록에만 있어 MCP 명단 파일로는 04·10(상실일 = 신청일 당일)·99 가 통과했다.
+  // 상실 04·10 등 서식에 있지만 이 도구가 다루지 않는 부호와, 서식에 없는 부호를 다른 말로 거절한다.
+  it('상실부호는 01·02·16 만, 취득부호는 별지 제6호 10종만 받는다', () => {
+    const loss = (nhisCode: string) => validate({ ...lossInput, people: [{ ...leaver, nhisCode }] }).join(' ');
+    const acq = (nhisCode: string) => validate({ ...acqInput, people: [{ ...joiner, nhisCode }] }).join(' ');
+    for (const c of ['01', '02', '16']) expect(loss(c)).toBe('');
+    for (const c of ['04', '10', '13', '17', '19', '24', '25', '26', '58']) expect(loss(c)).toContain('01 퇴직·02 사망·16 취득취소만');
+    expect(loss('99')).toContain('별지 제8호서식에 없는 부호');
+    for (const c of ['00', '04', '05', '06', '07', '10', '13', '14', '29', '30']) expect(acq(c)).toBe('');
+    expect(acq('99')).toContain('별지 제6호서식에 없는 부호');
+    expect(acq('01')).toContain('별지 제6호서식에 없는 부호');
+  });
+  // G4 R2(261127) R30 — 부호 뒤에 조사를 붙이면 「10는」처럼 받침에 따라 틀린다. 조사 없는 틀로 쓴다.
+  it('부호 거절 문구는 부호 뒤에 조사를 붙이지 않는다', () => {
+    const loss = (nhisCode: string) => validate({ ...lossInput, people: [{ ...leaver, nhisCode }] }).join(' ');
+    const acq = (nhisCode: string) => validate({ ...acqInput, people: [{ ...joiner, nhisCode }] }).join(' ');
+    expect(loss('10')).toContain('1번째 사람 상실부호 10 — 이 도구에서 만들 수 없습니다');
+    expect(loss('99')).toContain('1번째 사람 상실부호 99 — 별지 제8호서식에 없는 부호입니다');
+    expect(acq('99')).toContain('1번째 사람 취득부호 99 — 별지 제6호서식에 없는 부호입니다');
+    for (const c of ['04', '10', '13', '17', '26', '58', '99']) expect(loss(c)).not.toMatch(/부호 \d+[은는이가]/);
+    for (const c of ['01', '99']) expect(acq(c)).not.toMatch(/부호 \d+[은는이가]/);
+  });
+  // G4 261126 I26 — 보수·개월 기본 모순. 근무개월수 상한은 마지막 근무일의 달(12월 31일 퇴직이면 상실일은 다음 해라도 12개월).
+  // 0원·0개월, 0원·N개월은 무급휴직 등으로 있을 수 있어 막지 않는다.
+  it('보수가 있는데 0개월, 근무개월수가 마지막 근무일의 달보다 크면 거부', () => {
+    const pay = (x: Partial<LossPerson>) => validate({ ...lossInput, people: [{ ...leaver, ...x }] }).join(' ');
+    expect(pay({ payCur: 1_000_000, monthsCur: 0 })).toContain('해당 연도 보수 총액이 있는데 근무개월수가 0');
+    expect(pay({ payPrev: 1_000_000, monthsPrev: 0 })).toContain('전년도 보수 총액이 있는데 근무개월수가 0');
+    expect(pay({ lastWorkDay: '2026-01-05', payCur: 300_000, monthsCur: 12 })).toContain('1 이하');
+    expect(pay({ lastWorkDay: '2026-05-31', monthsCur: 6 })).toContain('5 이하');
+    expect(pay({ lastWorkDay: '2026-01-05', payCur: 300_000, monthsCur: 1 })).toBe('');
+    expect(pay({ lastWorkDay: '2026-12-31', payCur: 30_000_000, monthsCur: 12 })).toBe('');
+    expect(pay({ payCur: 0, monthsCur: 0 })).toBe('');
+    expect(pay({ payCur: 0, monthsCur: 5 })).toBe('');
+  });
 });
 
 describe('사업주확인서(지연사유)', () => {

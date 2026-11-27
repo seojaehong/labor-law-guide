@@ -1,5 +1,5 @@
 // 일용근로소득 원천징수 결과 블록의 글자 — 계산(calcDailyWorkerTax)과 답 문장(copy.ts headline·paymentLine)은 그대로 두고 블록 칸에 나눠 담는다.
-// 세무 계산기라 「예상」을 금액 이름에도 붙이고, 대행 아님 고지·국세청·홈택스 링크는 화면(Notice)이 블록 안에 글자 그대로 싣는다.
+// 세무 계산기라 「예상」을 금액 이름에도 붙이고, 원천징수의무자 고지(D4 261126)·국세청·홈택스 링크는 화면(Notice)이 블록 안에 글자 그대로 싣는다.
 // 끝수 순서가 갈리면(r.differs) 두 값을 금액 칸 둘로 같은 무게로 낸다 — 어느 순서인지 원문으로 닫히지 않았다(copy.ts ROUNDING_NOTE).
 // 기준일: DAILY_WORKER_RULE 의 from(적용 소득의 첫날)·checked(조문 확인일)에서만 만든다.
 import { DAILY_WORKER_RULE as RULE, type DailyWorkerTaxResult } from '@/lib/calc/daily-worker-tax';

@@ -293,8 +293,8 @@ describe('공통 장치(261028) · 금지어', () => {
     expect(every.flatMap((l) => bannedHits(l).map((h) => `${h} | ${l}`))).toEqual([]);
   });
 
-  it('대행이 아니라는 안내와 「예상」', () => {
-    expect(NOTICE.join(' ')).toContain('세무대리·신고서 작성 대행이 아닙니다');
+  it('원천징수의무자(회사) 고지(D4 261126)와 「예상」', () => {
+    expect(NOTICE.join(' ')).toContain('참고용 계산이며, 원천징수와 신고는 회사(원천징수의무자)가 합니다.');
     expect(NOTICE.join(' ')).toContain('예상');
   });
 

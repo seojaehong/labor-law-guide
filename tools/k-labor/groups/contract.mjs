@@ -42,7 +42,7 @@ const ITEM_KEYS = Object.keys(ITEM_LABEL);
 const formShape = {
   payType: z.enum(['monthly', 'hourly']).optional().describe('monthly(기본) = 월 임금 총액을 항목으로 나눈다 · hourly = 시급·일급 파트, 시간당 지급액 × 휴게 포함 출근~퇴근 시간(하루 지급액)을 나눈다'),
   monthlyTotal: z.number().optional().describe('월급제 — 월 임금 총액(세전, 원)'),
-  netPay: z.number().optional().describe('월급제에서 총액 대신 월 실수령액(원)으로 넣을 때. 4대보험 근로자 몫·간이세액표 소득세·지방소득세를 빼고 이 금액 이상이 되는 가장 작은 총액을 찾는다(비과세 없음)'),
+  netPay: z.number().optional().describe('월급제에서 총액 말고 월 실수령액(원)으로 넣을 때. 4대보험 근로자 몫·간이세액표 소득세·지방소득세를 빼고 이 금액 이상이 되는 가장 작은 총액을 찾는다(비과세 없음)'),
   family: z.number().optional().describe('netPay 를 쓸 때 공제대상가족 수(본인 포함, 기본 1)'),
   hourlyWage: z.number().optional().describe('hourly — 시간당 지급액(원)'),
   absentWeekHoliday: z.enum(['deduct', 'keep']).optional().describe('hourly — 결근한 주에 미리 준 주휴수당을 공제한다(deduct, 기본) / 공제하지 않는다(keep)'),
@@ -251,7 +251,7 @@ export function registerContract(server) {
         'contract 에 계약 객체 1건이나 그 목록을 넣는다. 주요 칸: workplace{name,employee_count_5plus} · employee{name,hire_date,is_minor,employment_type} · period{start_date,end_date,indefinite,probation{applied,months,wage_rate_pct,simple_labor_job}} · job{location,duty} · ' +
         'work_time{days_per_week,start,end,breaks[{minutes}],daily_schedules[{day,start,end}],night_work} · wage{monthly_total,pay_type(hourly|monthly),items[{code,label,amount,basis_hours,rate_multiplier,basis_text,includes_weekly_holiday}],payday,payment_method} · ' +
         'holidays_leave{weekly_rest,weekly_rest_day_specified,annual_leave_clause} · signatures{written_date,employer_signed,employee_signed,copy_delivered_confirmed}. 모르는 값은 null. ' +
-        '항목 code: BASE·WEEKLY_HOLIDAY·OT_WEEKDAY·OT_WEEKEND·ANNUAL_LEAVE·HOLIDAY_EXTRA·NIGHT·MEAL·BONUS·OTHER. terms:\'legal\' 이면 규칙 이름·설명·조문·수정 문안을 사이트 화면 문구로 바꾸지 않고 법률 용어 그대로 낸다(기본은 화면 문구).결과 findings[] 마다 code(규칙 코드, 예: MINWAGE·WH-52CAP)·severity(critical·major·minor·info)를 함께 준다 — 받는 쪽이 이름 대신 코드로 묶는다. 계약마다 derived(정규화가 읽은 통상시급·임금 형태 hourly/monthly/unknown·1주 소정/실근로/연장 시간·고용형태)도 준다 — 계약서를 다시 쓰는 쪽은 통상시급을 다시 셈하지 말고 이 값을 쓴다. contract 를 비우면 빈 양식을 돌려준다. 주민등록번호는 받지 않는다.',
+        '항목 code: BASE·WEEKLY_HOLIDAY·OT_WEEKDAY·OT_WEEKEND·ANNUAL_LEAVE·HOLIDAY_EXTRA·NIGHT·MEAL·BONUS·OTHER. terms:\'legal\' 이면 규칙 이름·설명·조문·수정 문안을 사이트 화면 문구로 바꾸지 않고 법률 용어 그대로 낸다(기본은 화면 문구).결과 findings[] 마다 code(규칙 코드, 예: MINWAGE·WH-52CAP)·severity(critical·major·minor·info)를 함께 준다 — 받는 쪽이 이름 말고 코드로 묶는다. 계약마다 derived(정규화가 읽은 통상시급·임금 형태 hourly/monthly/unknown·1주 소정/실근로/연장 시간·고용형태)도 준다 — 계약서를 다시 쓰는 쪽은 통상시급을 다시 셈하지 말고 이 값을 쓴다. contract 를 비우면 빈 양식을 돌려준다. 주민등록번호는 받지 않는다.',
       inputSchema: {
         contract: z.union([z.record(z.string(), z.unknown()), z.array(z.record(z.string(), z.unknown()))]).optional().describe('계약 객체 1건 또는 목록(비우면 빈 양식을 돌려준다)'),
         terms: z.enum(['public', 'legal']).optional().describe('용어. public(기본) = 사이트 화면 문구로 바꿔 쓴다. legal = 점검 규칙의 법률 용어를 바꾸지 않고 그대로 낸다(전문가 검토 보고서용). 점검 결과·코드는 같다'),

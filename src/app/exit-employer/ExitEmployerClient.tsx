@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { ChevronDown } from 'lucide-react';
 import { TIERS, type TierMin } from '@/content/duties-data';
 import {
-  CHECKED, DATE_RULES, PHASES, REASONS, REASON_NOTES, SOURCES, STEPS,
+  CHECKED, DATE_RULES, LAST_DAY_NOTE, PHASES, REASONS, REASON_NOTES, SOURCES, STEPS,
   type ExitStep, type ReasonId,
 } from '@/content/exit-employer-data';
 import { computeExitDates, fmtIso, fmtKo, isWeekend, parseYmd, servedMonths, type ExitDates } from './exit-dates';
@@ -149,8 +149,9 @@ export default function ExitEmployerClient() {
         <section className="ee-form" aria-label="퇴사 정보 입력">
           <div className="ee-fields">
             <label className="ee-field">
-              <span className="k">마지막 근무일 <b>필수</b></span>
-              <input type="date" value={exit} onChange={e => { setExit(e.target.value); sync({ exit: e.target.value }); }} />
+              <span className="k" id="ee-last-day-k">마지막 근무일 <b>필수</b></span>
+              <input type="date" value={exit} onChange={e => { setExit(e.target.value); sync({ exit: e.target.value }); }} aria-labelledby="ee-last-day-k" aria-describedby="ee-last-day-note" />
+              <span className="k" id="ee-last-day-note">{LAST_DAY_NOTE}</span>
             </label>
             <label className="ee-field">
               <span className="k">입사일 <em>선택</em></span>
@@ -251,6 +252,7 @@ export default function ExitEmployerClient() {
                       <div className="ee-detail">
                         <p className="ee-what">{s.what}</p>
                         {note && <div className="ee-how">{note}</div>}
+                        {s.tool?.passLastDay && <p className="ee-how">{LAST_DAY_NOTE}</p>}
                         {s.tool && (
                           // 새 탭으로 연다 — 이 화면의 체크 표시가 남고, 링크 미리 받기도 없다.
                           // noreferrer: 이 화면 주소(?exit=날짜)가 새 탭 요청의 Referer·분석 스크립트로 따라가지 않게 한다

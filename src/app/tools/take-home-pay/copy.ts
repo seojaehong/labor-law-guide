@@ -1,5 +1,6 @@
 // 실수령액 계산기의 문장은 모두 여기서 만든다. 시험이 allCopy() 전부를 금지어로 훑는다.
 import type { TakeHomeRates, TakeHomeResult } from '@/lib/calc/take-home-pay';
+import { WITHHOLDING_NOTICE } from '@/lib/tool-kit/tax-notice';
 
 export const won = (n: number) => `${n.toLocaleString('ko-KR')}원`;
 /** 100만분의 n → 「4.75%」 */
@@ -8,7 +9,7 @@ const thousand = (n: number) => `${(n / 1000).toLocaleString('ko-KR')}천원`;
 /** a ÷ b 를 백분율 소수 넷째 자리까지(표시만, 계산에는 쓰지 않는다) */
 const ratioPct = (a: number, b: number) => `${((a / b) * 100).toLocaleString('ko-KR', { maximumFractionDigits: 4 })}%`;
 
-export const NOTICE = '세무대리·신고서 작성 대행이 아닙니다. 입력한 숫자로 계산한 예상 금액입니다.';
+export const NOTICE = `${WITHHOLDING_NOTICE} 입력한 숫자로 계산한 예상 금액입니다.`;
 export const HOMETAX_URL = 'https://www.hometax.go.kr/';
 // 메뉴 경로는 홈택스 화면에서 확인하지 못해 적지 않는다(공개 안내가 「세금신고 → 원천세 신고」와 「조회·발급 → 기타조회」로 갈린다)
 export const HOMETAX_LINE = '홈택스의 「근로소득 간이세액표」(매달 떼는 소득세)와 「연말정산 미리보기」(1년 치)로 한 번 더 볼 수 있습니다.';

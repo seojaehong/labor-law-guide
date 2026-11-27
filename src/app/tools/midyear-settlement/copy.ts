@@ -1,6 +1,7 @@
 // 중도퇴사 연말정산 계산기의 문장은 모두 여기서 만든다. 시험이 이 함수들의 출력 전부를 금지어로 훑는다.
-// 세액 계산 도구 공통 장치(261028) — 결과는 「예상」으로만 말하고, 대행이 아니라고 늘 적고, 연락을 권하지 않는다.
+// 세액 계산 도구 공통 장치(261028) — 결과는 「예상」으로만 말하고, 참고용 계산·원천징수의무자 고지(D4 261126)를 늘 적고, 연락을 권하지 않는다.
 import type { MidyearDetail, MidyearInput, MidyearOutcome, MidyearPath } from '@/lib/calc/midyear-settlement';
+import { WITHHOLDING_NOTICE } from '@/lib/tool-kit/tax-notice';
 
 const won = (n: number) => `${n.toLocaleString('ko-KR')}원`;
 export const signed = (n: number) => (n > 0 ? `+${won(n)}` : n < 0 ? `−${won(-n)}` : '0원');
@@ -53,7 +54,7 @@ export const SCOPE_ITEMS = [
   '보장성보험료·의료비·교육비·기부금·월세·연금계좌 세액공제를 신청했다',
   '올해 혼인신고를 해 혼인세액공제(50만원)를 신청했다',
   '일용근로자이거나 비거주자이거나, 외국인 단일세율을 적용받는다',
-  '회사가 세금을 대신 내주는 세후 금액으로 계약했다',
+  '회사가 세금을 내주기로 하고 세후 금액으로 계약했다',
 ];
 
 export const SCOPE_STOP = [
@@ -64,7 +65,7 @@ export const SCOPE_STOP = [
 /** 결과 아래 늘 붙는 고지 */
 export const NOTICE = [
   '예상 금액입니다. 회사가 실제로 적용한 공제에 따라 달라질 수 있습니다.',
-  '세무대리·신고서 작성 대행이 아닙니다. 원천징수영수증이나 신고서를 만들지 않습니다.',
+  `${WITHHOLDING_NOTICE} 원천징수영수증이나 신고서를 만들지 않습니다.`,
 ];
 
 // 연말정산 모의계산 화면의 고정 주소는 확인하지 못했다 — 첫 화면으로 간다는 것을 글자로 밝힌다(PR #112 검토 3·13)
@@ -110,7 +111,7 @@ export function headline(o: MidyearOutcome): string[] {
       '어느 쪽인지는 근로자가 건강·장기요양·고용보험료 소득공제를 신청했는지로 정해집니다(소득세법 제52조 제8항, 제59조의4 제9항 제1호).',
     ];
   }
-  if (o.reason === 'year') return [`${o.year}년 기준은 이 도구에 아직 넣지 않았습니다.`, '다른 해 기준으로 대신 계산하지 않습니다.'];
+  if (o.reason === 'year') return [`${o.year}년 기준은 이 도구에 아직 넣지 않았습니다.`, '다른 해 기준으로 계산하지 않습니다.'];
   return [`총급여(받은 급여 − 비과세) ${won(o.gross)}은 1억 2천만원 이상이라 이 도구가 계산하지 않습니다.`, '고정형은 총급여 1억 2천만원 미만까지만 계산합니다.'];
 }
 

@@ -60,7 +60,7 @@ export const QUESTIONS: readonly Question[] = [
   { id: 'Q1', text: '회사가 업무 내용을 정하고, 일하는 동안 지휘·감독을 하나요?', element: '업무 내용 지정, 업무 수행 과정의 지휘·감독', yesLabel: '예', noLabel: '아니요', yesIsWorker: true, light: false, split: false },
   { id: 'Q2', text: '회사가 근무시간과 근무장소를 정하고, 그에 매여 일하나요?', element: '근무시간·근무장소 지정과 구속', yesLabel: '예', noLabel: '아니요', yesIsWorker: true, light: false, split: false },
   { id: 'Q3', text: '일에 쓰는 비품·원자재·작업도구를 본인이 갖추나요?', element: '비품·원자재·작업도구 소유(독립하여 자신의 계산으로 사업을 하는지)', yesLabel: '예, 본인이 갖춘다', noLabel: '아니요, 회사 것을 쓴다', yesIsWorker: false, light: false, split: false },
-  { id: 'Q4', text: '다른 사람을 써서 내 일을 대신하게 할 수 있나요?', element: '제3자를 고용해 업무를 대행하게 할 수 있는지', yesLabel: '예, 대신하게 할 수 있다', noLabel: '아니요, 본인이 해야 한다', yesIsWorker: false, light: false, split: false },
+  { id: 'Q4', text: '다른 사람을 고용해 내 일을 맡길 수 있나요?', element: '제3자를 고용해 업무를 맡길 수 있는지', yesLabel: '예, 다른 사람에게 맡길 수 있다', noLabel: '아니요, 본인이 해야 한다', yesIsWorker: false, light: false, split: false },
   { id: 'Q5', text: '보수가 일한 시간·일수 자체의 대가로 정해지나요?', element: '보수가 근로 자체의 대가인지', yesLabel: '예, 시간·일수로 정해진다', noLabel: '아니요, 성과·매출·이윤에 따라 달라진다', yesIsWorker: true, light: false, split: true },
   { id: 'Q6', text: '기본급이나 고정급이 정해져 있나요?', element: '기본급·고정급', yesLabel: '예', noLabel: '아니요', yesIsWorker: true, light: true, split: false },
   { id: 'Q7', text: '보수에서 근로소득세를 떼거나, 4대보험에 직장가입자로 들어 있나요?', element: '근로소득세 원천징수, 사회보장제도에서 근로자로 인정받는지', yesLabel: '예', noLabel: '아니요, 3.3%를 떼고 직장가입이 없다', yesIsWorker: true, light: true, split: false },

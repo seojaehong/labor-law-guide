@@ -14,15 +14,11 @@ export const name = 'calc_attendance_rate';
 const SITE = 'https://yellowenvelope.kr/tools/attendance-rate';
 const READ_ONLY = { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false };
 
-// 응답에 싣지 않는 말 — 사이트 금지어 + 「대신·대행·대리·포괄」. 사이트 문구에 들어 있으면 아래 바꿔 쓴 문장으로 갈음하고,
-// 바꿔 쓴 문장이 없을 때만 뺀다(copy.ts 전수 확인 — 금지어가 든 화면 문장은 monthly 의 한 줄뿐).
+// 응답에 싣지 않는 말 — 사이트 금지어 + 「대신·대행·대리·포괄」. 금지어가 든 문장은 뺀다.
+// (monthly 의 「1년치 연차 대신 …」 줄은 261125 에 사이트 copy.ts 에서 바꿔 써서 이제 그대로 나간다)
 const WORDS = [...SERVICE_BANNED, ...RESULT_BANNED, '대신', '대행', '대리', '포괄'];
-const REWORD = {
-  '1년치 연차 대신 1개월 개근할 때마다 1일이 생깁니다(근로기준법 제60조제2항).':
-    '1년치 연차는 생기지 않고, 1개월 개근할 때마다 1일이 생깁니다(근로기준법 제60조제2항).',
-};
 const isClean = (l) => bannedHits(l, WORDS).length === 0;
-const clean = (lines) => lines.map((l) => (isClean(l) ? l : REWORD[l] ?? null)).filter((l) => l !== null && isClean(l));
+const clean = (lines) => lines.filter(isClean);
 
 const GROUP_TAG = { deemed: '출근한 것으로 보는 날', excluded: '소정근로일수에서 빼는 날', absent: '결근으로 세는 날' };
 

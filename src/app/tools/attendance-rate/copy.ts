@@ -100,7 +100,7 @@ function single(o: AttendanceOutcome, base: number): string[] {
     case 'monthly':
       return [
         `출근율은 ${pct}%로 80%에 못 미칩니다.`,
-        '1년치 연차 대신 1개월 개근할 때마다 1일이 생깁니다(근로기준법 제60조제2항).',
+        '1년치 연차는 생기지 않고, 1개월 개근할 때마다 1일이 생깁니다(근로기준법 제60조제2항).',
         ...(o.realRate ? [`빼는 날을 뺀 출근율도 ${fmtPct(o.realRate)}%로 80%에 못 미쳐 비례로 주지 않습니다.`] : []),
       ];
     default:

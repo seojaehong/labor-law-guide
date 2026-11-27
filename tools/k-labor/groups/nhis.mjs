@@ -56,7 +56,7 @@ export function registerNhis(server) {
       title: '건강보험 자격취득·상실 신고서 PDF 만들기',
       // PDF 를 outPath 에 쓴다. 있는 파일은 덮어쓰지 않는다(make_contract_files 와 같다)
       annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
-      description: '건강보험 자격상실(별지 8호)·자격취득(별지 6호) 신고서 + 지연 사유 사업주확인서를 사이트와 같은 서식으로 PDF 한 파일로 만든다. 주민번호가 모델 대화에 실리지 않도록 사람 명단은 peopleFile(JSON 배열 경로)로만 받는다 — 도구가 그 파일을 직접 읽는다. loss 사람 = {name,rrn,lastWorkDay(YYYY-MM-DD),nhisCode("01" 등),payCur?,monthsCur?,payPrev?,monthsPrev?}, acq 사람 = {name,rrn,acqDate,monthlyPay,nhisCode("00" 등),ceo}.',
+      description: '건강보험 자격상실(별지 8호)·자격취득(별지 6호) 신고서 + 지연 사유 사업주확인서를 사이트와 같은 서식으로 PDF 한 파일로 만든다. 주민번호가 모델 대화에 실리지 않도록 사람 명단은 peopleFile(JSON 배열 경로)로만 받는다 — 도구가 그 파일을 직접 읽는다. loss 사람 = {name,rrn,lastWorkDay(근로관계가 이어진 마지막 날, 사망이면 사망일 YYYY-MM-DD),nhisCode("01" 퇴직·"02" 사망·"16" 취득취소 — 그 밖의 부호는 상실일 기준이 달라 거절),payCur,monthsCur(01·02 는 둘 다 필수, 보수가 있으면 1 이상·마지막 근무일의 달 이하),payPrev?,monthsPrev?(연말정산을 안 했을 때만 둘 다)}, acq 사람 = {name,rrn,acqDate,monthlyPay,nhisCode(별지 제6호 취득부호 00·04·05·06·07·10·13·14·29·30 중 종전 자격에 맞는 것, 그 밖은 거절),ceo}.',
       inputSchema: {
         kind: z.enum(['loss', 'acq']),
         biz: bizSchema,

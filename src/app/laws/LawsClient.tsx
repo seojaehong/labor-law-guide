@@ -279,7 +279,7 @@ export default function LawsClient({ index }: { index: LawIndex }) {
           <div className="lr-eyebrow">법령 개정 · 노동관계법령 {index.lawCount}개 법률과 하위법령 {index.subCount}개 · 법제처 원문 기준 · {index.generated} 갱신</div>
           <h1 className="lr-h1">노동관계법령 개정 현황</h1>
           <p className="lr-lead">시행 예정 개정 <b>{upcoming.length}건</b>의 시행일, 개정 내용과 관련 조문을 확인합니다. 취업규칙 관련 항목은 별도로 점검할 수 있습니다.</p>
-          <p className="lr-review-note">법령 검수 전 · 개정 제목과 취업규칙 문안은 원문 대조와 공인노무사 검토가 필요합니다.</p>
+          <p className="lr-review-note">법령 검수 전 · 개정 제목과 취업규칙 문안은 원문 대조와 전문가 검토가 필요합니다.</p>
           <div className="lr-hero-cta"><a className="lr-btn" href={listHref} onClick={returnToList}>개정 목록 보기</a></div>
         </header>
 
@@ -463,7 +463,7 @@ export default function LawsClient({ index }: { index: LawIndex }) {
         <footer className="lr-foot">
           <div>
             대상: {index.scopeNote}. 원문은 {index.source}에서 받은 자료이며, 시행일마다 전문을 직전 판과 조문 단위로 비교합니다.
-            {' '}개정이유는 법제처가 제공한 문장입니다. 날짜별 한 줄 제목과 취업규칙 반영 문안은 AI가 바뀐 조문 원문과 대조해 작성했고, 공인노무사 검수 전입니다.
+            {' '}개정이유는 법제처가 제공한 문장입니다. 날짜별 한 줄 제목과 취업규칙 반영 문안은 AI가 바뀐 조문 원문과 대조해 작성했고, 전문가 검수 전입니다.
           </div>
           <div style={{ marginTop: 6 }}>
             법적 효력은 관보와 <a href="https://www.law.go.kr" target="_blank" rel="noreferrer">국가법령정보센터</a> 원문을 따릅니다.

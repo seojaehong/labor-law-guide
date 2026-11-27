@@ -15,6 +15,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { periodCheck, splitArticles, STD_ASOF } from '@/lib/laws/standard-check';
+import { NEGATED_NOTE } from '@/lib/laws/rules-check';
 import { ddayLabel, fmtDate, todayKST } from '@/lib/laws/format';
 import { compareDocx } from '@/lib/laws/doc-io';
 import { comparisonXlsx } from '@/lib/laws/comparison-xlsx';
@@ -273,7 +274,7 @@ function periodResult({ body, lastRevised, asOf, includeOk }) {
       ? {
           rules: it.verdicts
             .filter((v) => v.status !== '반영됨')
-            .map((v) => ({ topic: v.rule.topic, result: v.status, required: v.rule.required, effective: isoOf(v.rule.effective), oldWordsLeft: v.stale, point: v.rule.point })),
+            .map((v) => ({ topic: v.rule.topic, result: v.status, required: v.rule.required, effective: isoOf(v.rule.effective), oldWordsLeft: v.stale, ...(v.negated ? { note: NEGATED_NOTE } : {}), point: v.rule.point })),
           proposal: it.proposal,
           proposalSource: it.proposal ? (it.proposalFrom === '매핑' ? '바뀐 조문 원문 대조 문안' : `표준취업규칙 2026 문안(${fmtDate(STD_ASOF)} 이전 시행분 반영)`) : '자동 문안이 없습니다. 바뀐 조문의 전후 비교(link)를 보고 반영 여부를 정하세요.',
         }
@@ -302,8 +303,9 @@ function periodResult({ body, lastRevised, asOf, includeOk }) {
     ...(ok.length && !includeOk ? { okHidden: `문구가 일치한 ${ok.length}건은 뺐습니다(includeOk: true 로 볼 수 있습니다).` } : {}),
     earlier: result.earlier.map(({ std: s, verdict: v }) => ({
       topic: v.rule.topic, law: `${v.rule.law} ${v.rule.article}`, effective: isoOf(v.rule.effective), current: v.where ?? s.title, oldWordsLeft: v.stale,
+      ...(v.negated ? { note: NEGATED_NOTE } : {}),
     })),
-    ...(result.earlier.length ? { earlierNotice: '최종 개정일 이전에 시행됐는데 옛 문구가 남아 있는 개정입니다. 지난 개정 때 함께 고쳤어야 할 조문입니다.' } : {}),
+    ...(result.earlier.length ? { earlierNotice: '최종 개정일 이전에 시행됐는데 옛 문구가 남았거나 부정문으로 적힌 개정입니다. 지난 개정 때 함께 고쳤어야 할 조문입니다.' } : {}),
     missing93: result.missing93.map((i) => ({ no: `제${i.no}호`, label: i.label })),
     ...(result.missing93.length ? { missing93Notice: '근로기준법 제93조 필수 기재 사항 중 관련 낱말이 안 보이는 호입니다. 상시 10명 이상 사업장은 이 사항을 취업규칙에 적어 신고해야 합니다. 낱말로만 찾은 1차 점검이라 다른 표현으로 적혀 있으면 무시하세요.' } : {}),
     missingRequired: result.missingRequired.map((s) => ({ standard: `${s.no}(${s.title})`, law: s.laws.slice(0, 3).map((l) => `${l.law} ${l.article}`).join(', ') })),

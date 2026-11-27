@@ -1,7 +1,7 @@
 // 중도퇴사자 연말정산(고정형) — 사이트 정본 엔진(src/lib/calc/midyear-settlement)과 계산기 문구(src/app/tools/midyear-settlement/copy)를 그대로 불러 쓴다.
 // 금액과 퇴사한 해만 받는다. 파일·네트워크·주민등록번호를 건드리지 않는다 — 원격판에 그대로 실을 수 있다.
 // 화면 문구 가운데 금지어(SERVICE_BANNED·RESULT_BANNED·대신·대행·대리·포괄)를 품은 문장은 응답에 싣지 않는다(줄이 아니라 문장 단위)
-//   (예: NOTICE 의 「세무대리·신고서 작성 대행이 아닙니다」, SCOPE_ITEMS 의 세후 계약 줄, 기준 없는 해 headline 둘째 줄).
+//   (261125 사이트 문구에서 NOTICE 고지·세후 계약 줄·기준 없는 해 둘째 줄의 「대신·대행·대리」를 바꿔 써서 지금은 걸리는 문장이 없다).
 import { z } from 'zod';
 import { calcMidyear, defaultYear } from '@/lib/calc/midyear-settlement';
 import {
@@ -17,7 +17,7 @@ const READ_ONLY = { readOnlyHint: true, destructiveHint: false, idempotentHint: 
 const SITE = 'https://yellowenvelope.kr/tools/midyear-settlement';
 const WORDS = [...SERVICE_BANNED, ...RESULT_BANNED, '대신', '대행', '대리', '포괄'];
 /** 줄을 문장(. ? ! 뒤 공백)으로 나눠 금지어를 품은 문장만 빼고, 남은 문장이 없는 줄은 뺀다
- *  (NOTICE 둘째 줄은 앞 문장만 빠지고 「원천징수영수증이나 신고서를 만들지 않습니다.」가 남는다) */
+ *  (NOTICE 둘째 줄은 261125 문구 교체로 금지어가 없어 통째로 남는다) */
 const clean = (lines) =>
   lines
     .map((l) => l.split(/(?<=[.?!])\s+/).filter((s) => bannedHits(s, WORDS).length === 0).join(' ').trim())
