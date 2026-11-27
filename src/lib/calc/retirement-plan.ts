@@ -212,7 +212,9 @@ export function simulate(employees: Employee[], scenario: Scenario, opts: SimOpt
       row.note = '정년 도달일이 입사일보다 앞섭니다 — 명단을 확인하세요';
     } else {
       row.serviceYears = Math.round((r.serviceDays / 365) * 10) / 10;
-      row.severance = r.eligible ? r.amount : 0;
+      // 🔴 amount 는 null 일 수 있다 — 정본 엔진이 물을 사실(needs)이 남으면 금액을 내지 않는다.
+      //    여기서는 전일제(weeklyHours)를 넘기므로 needs 가 비지만, 엔진이 바뀌어도 조용히 NaN 이 되지 않게 받는다
+      row.severance = (r.eligible ? r.amount : 0) ?? 0;
       if (!r.eligible) row.note = r.status === 'under-1y' ? '정년까지 1년 미만 — 퇴직금 대상이 아닙니다' : undefined;
     }
     if (scenario.rehire && scenario.rehire.years > 0) {
@@ -221,7 +223,7 @@ export function simulate(employees: Employee[], scenario: Scenario, opts: SimOpt
       row.rehireLastWorkDate = end;
       const rPay = Math.round((e.annualPay * scenario.rehire.payRate) / 100);
       const r2 = estimate(start, end, rPay, weeklyHours);
-      row.rehireSeverance = r2 && r2.eligible ? r2.amount : 0;
+      row.rehireSeverance = (r2 && r2.eligible ? r2.amount : 0) ?? 0;
     }
     people.push(row);
   }
