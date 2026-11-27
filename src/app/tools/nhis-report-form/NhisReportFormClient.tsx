@@ -8,13 +8,13 @@ import { readPrefill } from '@/lib/nhis-forms/prefill';
 import type { AcqPerson, LossPerson, PacketInput } from '@/lib/nhis-forms/build';
 import {
   ACQ_CODES, ACQ_NOTE, BIZ_PICK, ATTACH_SIZE, BRANCH_ERROR, BRANCH_LINE, BUTTON, CEO, CHECK_BEFORE, FIELD, INPUT_ERROR, KIND_LABEL,
-  LOSS_CODES, LOSS_DATE_LINE, PRIVACY, REASON_COUNT, REASON_MAX, STEP, failLine,
+  CODE_PICK, LOSS_CODES, LOSS_DATE_LINE, LOSS_DAY_NOTE, PRIVACY, REASON_COUNT, REASON_MAX, STEP, failLine,
 } from './copy';
 
 type Kind = 'loss' | 'acq';
 type Ceo = '' | 'yes' | 'no';
 interface P { name: string; rrn: string; date: string; code: string; payCur: string; monthsCur: string; payPrev: string; monthsPrev: string; monthly: string; ceo: Ceo }
-const blank = (k: Kind): P => ({ name: '', rrn: '', date: '', code: k === 'loss' ? '01' : '00', payCur: '', monthsCur: '', payPrev: '', monthsPrev: '', monthly: '', ceo: '' });
+const blank = (k: Kind): P => ({ name: '', rrn: '', date: '', code: k === 'loss' ? '01' : '', payCur: '', monthsCur: '', payPrev: '', monthsPrev: '', monthly: '', ceo: '' });
 const touched = (p: P) => [p.name, p.rrn, p.date, p.payCur, p.monthsCur, p.payPrev, p.monthsPrev, p.monthly].some(s => s.trim()) || p.ceo !== '';
 
 const small: React.CSSProperties = { fontSize: 13, lineHeight: 1.6, color: 'var(--grey-700)' };
@@ -226,7 +226,7 @@ export default function NhisReportFormClient() {
 
       <section style={card}>
         <h2 style={h}>{STEP.people}</h2>
-        {kind === 'acq' ? <p style={{ ...small, marginBottom: 8 }}>{ACQ_NOTE}</p> : null}
+        {kind === 'acq' ? <p style={{ ...small, marginBottom: 8 }}>{ACQ_NOTE}</p> : <p style={{ ...small, marginBottom: 8 }}>{LOSS_DAY_NOTE}</p>}
         {people.map((p, i) => (
           <div key={i} style={{ borderTop: i ? '1px solid var(--color-border)' : undefined, paddingTop: i ? 10 : 0, marginTop: i ? 10 : 0 }} data-person={i + 1}>
             <div style={grid}>
@@ -237,6 +237,7 @@ export default function NhisReportFormClient() {
               </Field>
               <Field label={kind === 'loss' ? FIELD.nhisLossCode : FIELD.nhisAcqCode}>
                 <select aria-label={`${kind === 'loss' ? FIELD.nhisLossCode : FIELD.nhisAcqCode} ${i + 1}`} style={inp} value={p.code} onChange={e => setP(i, { code: e.target.value })}>
+                  {kind === 'acq' ? <option value="">{CODE_PICK}</option> : null}
                   {(kind === 'loss' ? LOSS_CODES : ACQ_CODES).map(c => <option key={c.v} value={c.v}>{c.label}</option>)}
                 </select>
               </Field>

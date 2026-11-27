@@ -201,7 +201,8 @@ function viaEngine(id: PolicyId, c: Confirmed, r: RoundingRule | null | undefine
  * - 평일: 소정근로일 8시간, 쉬는 공휴일이면 공휴일 8시간(5명 이상 유급 — 근로기준법 §55②, 4명 이하는 별표1로 적용 제외).
  *   넣은 공휴일이 5월 1일이면 노동절 8시간 — 별도 법률의 유급휴일이라 별표1의 §55② 적용 제외와 상관없이 유급(근로개선정책과-1113).
  * - 일요일(주휴일): 그 주 월~일 내내 근로관계가 있고 소정근로일을 개근하면 8시간(시행령 §30①, 임금근로시간과-1736 — 퇴사 주는
- *   일요일까지 근로관계가 이어져야 생긴다). 입사가 그 주 월요일보다 늦으면 첫 주 주휴는 정해진 해석을 찾지 못해 firstWeekOpen 에 둔다.
+ *   일요일까지 근로관계가 이어져야 생긴다. 법제처 DB 에는 없고 고용노동부 정책자료 bbs_seq=20210802167 첨부 안내문으로 확인 261127,
+ *   주휴 계산기 weekly-holiday.ts 와 같은 근거). 입사가 그 주 월요일보다 늦으면 첫 주 주휴는 정해진 해석을 찾지 못해 firstWeekOpen 에 둔다.
  *   다만 입사일부터 그 일요일까지 소정근로일이 하나도 없으면(토·일 입사 등) 개근할 소정근로일이 없어 어느 해석으로도 생기지 않는다(§30①).
  * - 이 계산에서는 그 기간 소정근로일을 모두 근무한 것으로 본다(결근은 calcAbsence).
  */
@@ -472,6 +473,8 @@ export function calcAbsence(input: AbsenceInput): AbsenceResult {
     if (t < ps || t > pe) throw new Error('결근일은 그달 날짜만 넣어 주세요');
     if (!isWeekday(t)) throw new Error('결근일은 소정근로일(월~금)만 넣어 주세요');
     if (set.has(t)) throw new Error('쉬는 공휴일은 결근일로 넣지 않습니다');
+    // 5월 1일은 공휴일 칸에 넣지 않아도 유급휴일이다 — 결근이 성립하지 않는다(261125, isLaborDay 주석)
+    if (isLaborDay(t)) throw new Error('5월 1일(노동절)은 유급휴일이라 결근일로 넣지 않습니다');
     days.add(t);
   }
   if (days.size === 0 && late === 0) throw new Error('결근일이나 지각·조퇴 시간을 넣어 주세요');

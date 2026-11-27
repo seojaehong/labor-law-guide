@@ -106,11 +106,6 @@ export interface ParsedForm {
   error?: string;
 }
 
-/** 실수령액 역산에 쓸 요율 날짜 — 계약 시작일의 요율이 없으면 오늘 */
-function ratesDate(startDate: string, today: string): string {
-  return takeHomeRatesOn(startDate) ? startDate : today;
-}
-
 /** 글 칸 — 제어문자를 지우고 ㈜ 를 (주) 로, 앞뒤 빈칸을 뗀다(한글·엑셀·PDF 가 깨지지 않게) */
 const t = cleanInput;
 
@@ -197,10 +192,18 @@ export function toWriteForm(s: WriteState, today = todayKst()): ParsedForm {
   let monthlyTotal = hourly ? undefined : (num(s.monthlyTotal) ?? undefined);
   let netNote: string | undefined;
   if (!hourly && net) {
+    // 역산은 계약 시작일의 요율로만 한다. 그날 요율이 없으면 오늘 값으로 바꾸지 않고 멈춘다(연금 상·하한은 해마다 7월에 바뀐다)
+    if (!takeHomeRatesOn(s.startDate)) {
+      return {
+        form: null,
+        missing: [],
+        error: `계약 시작일 ${s.startDate} 기준 보험료율·간이세액표가 없어 실수령액으로 역산할 수 없습니다. 월 임금 총액으로 넣어 주세요.`,
+      };
+    }
     try {
-      const r = netToGross(Math.round(num(s.netPay)!), { family: Math.round(num(s.family)!), date: ratesDate(s.startDate, today) });
+      const r = netToGross(Math.round(num(s.netPay)!), { family: Math.round(num(s.family)!), date: s.startDate });
       monthlyTotal = r.gross;
-      netNote = `실수령액 ${r.takeHome.toLocaleString('ko-KR')}원이 되는 월 임금 총액 ${r.gross.toLocaleString('ko-KR')}원(4대보험 근로자 몫·소득세·지방소득세 ${r.deduction.toLocaleString('ko-KR')}원, 비과세 없음·공제대상가족 ${num(s.family)}명 기준)`;
+      netNote = `실수령액 ${r.takeHome.toLocaleString('ko-KR')}원이 되는 월 임금 총액 ${r.gross.toLocaleString('ko-KR')}원(4대보험 근로자 몫·소득세·지방소득세 ${r.deduction.toLocaleString('ko-KR')}원, 비과세 없음·공제대상가족 ${num(s.family)}명·계약 시작일 ${s.startDate} 요율 기준)`;
     } catch (e) {
       return { form: null, missing: [], error: e instanceof Error ? e.message : String(e) };
     }

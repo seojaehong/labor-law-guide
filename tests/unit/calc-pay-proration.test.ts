@@ -339,6 +339,14 @@ describe('M 최저임금 이음새 — 월급 원금을 checkMinWage 로 대조,
     expect(y27.minWage).toMatchObject({ year: 2027, minHourly: 10_700, check: { required: 2_236_300 } });
   });
 
+  // 5월 1일(노동절)은 공휴일 칸에 안 넣어도 유급휴일이라 결근이 성립하지 않는다(261124 검수 P3 #3 — 192,000원 공제가 나왔다)
+  it('5월 1일은 공휴일 칸이 비어도 결근일로 받지 않는다(5명 이상·미만 모두), 다른 5월 평일은 받는다', () => {
+    for (const fivePlus of [true, false]) {
+      expect(() => calcAbsence({ month: '2026-05', monthlyPay: BASE, fivePlus, absences: ['2026-05-01'] })).toThrow('노동절');
+    }
+    expect(calcAbsence({ month: '2026-05', monthlyPay: BASE, fivePlus: true, absences: ['2026-05-04'] }).rows.length).toBeGreaterThan(0);
+  });
+
   it('고시가 없는 해는 다른 해 값으로 대신하지 않는다', () => {
     expect(calcProration({ month: '2025-03', monthlyPay: BASE, start: '2025-03-17', fivePlus: true }).minWage).toBeNull();
     expect(calcAbsence({ month: '2025-11', monthlyPay: BASE, fivePlus: true, absences: ['2025-11-18'] }).minWage).toBeNull();

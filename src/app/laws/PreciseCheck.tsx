@@ -171,12 +171,12 @@ export default function PreciseCheck({ mainText, since, toast, archived = false,
     const blob = await comparisonXlsx({
       title: '취업규칙 AI 정밀 점검 대조표',
       intro: [
-        `점검 시작일 ${s.since.replace(/^(\d{4})(\d{2})(\d{2})$/, '$1-$2-$3')} 이후 시행 법령 기준 · AI 대조 초안(노무사 검수 전)`,
+        `점검 시작일 ${s.since.replace(/^(\d{4})(\d{2})(\d{2})$/, '$1-$2-$3')} 이후 시행 법령 기준 · AI 대조 초안(전문가 검수 전)`,
         `점검 대상: ${s.name}${s.old ? ' · 종전 규칙과 대조' : ' · 종전 규칙 미제공(불이익변경 비교 불가)'}${s.headcount ? ` · 상시 근로자 ${s.headcount}명` : ''}`,
         ...(s.focus ? [`점검 요청: ${s.focus}`] : []),
       ],
       head: [...head], rows: res.rows.map((x) => head.map((h) => x[h])), widths: [14, 40, 40, 36, 24, 12, 14, 30, 40],
-      foot: ['AI 대조 결과는 노무사 검수 전 초안입니다. 불이익변경 여부와 최종 문안은 노무사 검토를 거쳐 정하세요.'],
+      foot: ['AI 대조 결과는 전문가 검수 전 초안입니다. 불이익변경 여부와 최종 문안은 전문가 검토를 거쳐 정하세요.'],
     });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob); a.download = '취업규칙_AI정밀점검.xlsx'; a.click();
@@ -334,8 +334,8 @@ export default function PreciseCheck({ mainText, since, toast, archived = false,
             </details>
           )}
           <p className="lr-check-note">
-            AI 대조 결과는 노무사 검수 전 초안입니다. 조문마다 「맞음·틀림·애매」를 눌러 주시면 점검 기준을 고치는 데 씁니다.{' '}
-            <Link href="/contact">노무사 검토 신청</Link>
+            AI 대조 결과는 전문가 검수 전 초안입니다. 조문마다 「맞음·틀림·애매」를 눌러 주시면 점검 기준을 고치는 데 씁니다.{' '}
+            <Link href="/contact">검토 요청 보내기</Link>
           </p>
         </div>
       )}

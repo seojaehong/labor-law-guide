@@ -139,7 +139,7 @@ export default function PayProrationClient() {
         <label className={`${small} sm:col-span-2`} style={muted}>
           그달 평일 중 쉬는 공휴일(날짜를 쉼표로)
           <input className={inputCls} value={holidays} placeholder="예: 16, 17, 18" onChange={(e) => setHolidays(e.target.value)} />
-          <span className="mt-1 block">관공서 공휴일·대체공휴일처럼 쉬는 평일입니다. 이 도구는 달력에서 공휴일을 찾지 않고 넣은 날만 셉니다.</span>
+          <span className="mt-1 block">관공서 공휴일·대체공휴일처럼 쉬는 평일입니다. 이 도구는 달력에서 공휴일을 찾지 않고 넣은 날만 셉니다. 다만 5월 1일(노동절)은 넣지 않아도 결근일로 받지 않습니다.</span>
         </label>
         {mode === 'prorate' ? (
           <>

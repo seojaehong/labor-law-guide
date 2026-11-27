@@ -183,6 +183,8 @@ const ANN = {
   check_rhetoric: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
   // 퇴고 윤문 전후 보존 대조 — 읽기 전용
   check_rewrite: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+  // 호증 날인 — 새 PDF 를 쓴다(덮어쓰지 않음)
+  stamp_exhibit_pdf: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
   // kordoc 한글 읽기·채우기·되쓰기 — 결과를 새 파일로 쓴다(덮어쓰지 않음)
   ...Object.fromEntries(['read_hwp_as_markdown', 'fill_hwp_form', 'patch_hwp_from_markdown']
     .map((n) => [n, { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false }])),
@@ -217,16 +219,20 @@ const ANN = {
 }
 // 이 판에서 더한 도구 8개 + 사이트 도구 7개(groups/more) — 「대신·대행·대리」도 함께 막는다
 const NOSA_TOOLS = ['assess_labor_council', 'check_council_meeting', 'make_labor_council_forms', 'make_council_meeting_docs', 'make_council_election_docs', 'check_council_rules', 'record_council_history', 'export_council_vault', 'import_council_minutes', 'make_council_rules_comparison'];
-const NEW_TOOLS = ['calc_severance', 'calc_holiday_pay', 'calc_pay_proration', 'calc_shutdown_allowance', 'calc_annual_leave', 'settle_leave_on_exit', 'calc_retirement_tax', 'list_employer_duties', ...MORE_TOOLS, ...NOSA_TOOLS, 'make_hwpx_from_markdown', 'edit_hwpx_text', 'read_hwp_as_markdown', 'fill_hwp_form', 'patch_hwp_from_markdown', 'check_prose', 'check_norms', 'check_semantic', 'check_rhetoric', 'check_rewrite', 'list_hr_forms', 'check_hr_form', 'make_hr_form', 'inspect_xlsx', 'extract_xlsx_rows', 'fill_xlsx_template', 'make_xlsx_from_spec', 'inspect_xlsx_bytes', 'extract_xlsx_rows_bytes', 'fill_xlsx_template_bytes', 'make_xlsx_from_spec_bytes', 'make_meeting_pptx', 'extract_pptx', 'make_meeting_pptx_bytes', 'extract_pptx_bytes'];
+const NEW_TOOLS = ['calc_severance', 'calc_holiday_pay', 'calc_pay_proration', 'calc_shutdown_allowance', 'calc_annual_leave', 'settle_leave_on_exit', 'calc_retirement_tax', 'list_employer_duties', ...MORE_TOOLS, ...NOSA_TOOLS, 'make_hwpx_from_markdown', 'stamp_exhibit_pdf', 'edit_hwpx_text', 'read_hwp_as_markdown', 'fill_hwp_form', 'patch_hwp_from_markdown', 'check_prose', 'check_norms', 'check_semantic', 'check_rhetoric', 'check_rewrite', 'list_hr_forms', 'check_hr_form', 'make_hr_form', 'inspect_xlsx', 'extract_xlsx_rows', 'fill_xlsx_template', 'make_xlsx_from_spec', 'inspect_xlsx_bytes', 'extract_xlsx_rows_bytes', 'fill_xlsx_template_bytes', 'make_xlsx_from_spec_bytes', 'make_meeting_pptx', 'extract_pptx', 'make_meeting_pptx_bytes', 'extract_pptx_bytes'];
 const NEW_WORDS = [...WORDS, '대신', '대행', '대리'];
 const bannedNew = (s) => (banned ? banned.bannedHits(s, NEW_WORDS) : []);
+// 공식 서식 칸 이름(「대리인」 등, banned.FORM_FIELD_NAMES)을 그대로 받거나 찍는 도구 — 칸 이름만 걸지 않는다(D5 261126)
+const FORM_TOOLS = ['make_work_rules_report_forms'];
+const bannedForm = (s, words) => (banned ? banned.bannedHitsInForm(s, words) : []);
 for (const n of NEW_TOOLS) check(`${n}: 도구 목록에 있음`, tools.includes(n));
 for (const t of (await c.listTools()).tools.filter((x) => ANN[x.name])) {
   const a = t.annotations || {};
   const same = Object.entries(ANN[t.name]).every(([k, v]) => a[k] === v);
   console.log(`  ${t.name} | ${t.title} | ro=${a.readOnlyHint} destr=${a.destructiveHint} idem=${a.idempotentHint} open=${a.openWorldHint}`);
   check(`${t.name}: title·annotations`, !!t.title && same);
-  const h = (NEW_TOOLS.includes(t.name) ? bannedNew : bannedIn)(`${t.title} ${t.description} ${JSON.stringify(t.inputSchema)}`);
+  const desc = `${t.title} ${t.description} ${JSON.stringify(t.inputSchema)}`;
+  const h = FORM_TOOLS.includes(t.name) ? bannedForm(desc, NEW_TOOLS.includes(t.name) ? NEW_WORDS : WORDS) : (NEW_TOOLS.includes(t.name) ? bannedNew : bannedIn)(desc);
   check(`${t.name}: 이름·설명·입력 설명 금지어 없음${h.length ? ` (${h.join(',')})` : ''}`, h.length === 0);
 }
 
@@ -253,6 +259,9 @@ if (tools.includes('design_contract_wage')) {
   check(`design 실수령액 역산(${net.total} · ${net.netNote?.slice(0, 30)}…)`, net.ok && net.total > 2_300_000 && !!net.netNote);
   const part = await callTool('design_contract_wage', { payType: 'hourly', hourlyWage: 11_000, workDays: ['토', '일'], start: '10:00', end: '18:00', breakMinutes: 60, weeklyRestDay: '월', startDate: '2026-11-01' });
   check(`design 파트(하루 ${part.total}, 한 달 예상 ${part.monthlyEstimate})`, part.ok && part.total === 88_000 && part.period.startsWith('하루'));
+  // 261126 G4 I11 — 1개월 미만 계약(일용근로자)은 1주 15시간 미만이어도 고용보험 적용 안내
+  const daily = await callTool('design_contract_wage', { payType: 'hourly', hourlyWage: 11_000, workDays: ['토', '일'], start: '10:00', end: '18:00', breakMinutes: 60, weeklyRestDay: '월', startDate: '2026-11-01', endDate: '2026-11-14' });
+  check('design 1개월 미만 계약 → 고용보험 일용근로자 안내', daily.ok && (daily.notes || []).some((n) => n.includes('일용근로자')));
 }
 if (tools.includes('make_contract_files')) {
   const outDir = path.join(tmp, 'contract');
@@ -326,6 +335,31 @@ if (tools.includes('calc_weekly_holiday_pay')) {
   check(`weekly_holiday 주 22.5시간 → 4.5시간 46,440원(${w.headline?.[0]})`, w.dailyHours === 4.5 && w.amount === 46_440);
   const u = await callTool('calc_weekly_holiday_pay', { hourlyWage: 10_320, weeklyHours: 14.5 });
   check('weekly_holiday 주 15시간 미만은 없음', u.status === 'under15' && u.amount === 0);
+  // G4 D1 — 그 주(연속 7일) 7일째 전 퇴사(월~일 주 금요일, 또는 수요일 주휴·목요일 퇴사)는 0원
+  const fri = await callTool('calc_weekly_holiday_pay', { hourlyWage: 10_320, weeklyHours: 40, endsBeforeWeekEnd: true });
+  check(`weekly_holiday 퇴사일이 7일째 전이면 없음(${fri.headline?.[1]})`, fri.status === 'ended' && fri.amount === 0);
+  // G4 I2·D1·R1 — 0원의 근거(존속 요건은 조문에 없음, 첫 근거 임금근로시간과-1736 · 보조 1350 답변)를 웹과 같은 문장으로 싣는다
+  check(`weekly_holiday 퇴사 주 근거 1736 먼저·1350 보조(${fri.basis?.find((b) => b.includes('1736'))})`,
+    /최소한 1주 동안의 근로관계 존속을 전제로/.test(fri.basisNote ?? '') && /임금근로시간과-1736/.test(fri.basisNote ?? '') && /7일째가 되는 날/.test(fri.basisNote ?? '')
+      && !/1743/.test(fri.basisNote ?? '') && fri.basis?.some((b) => b.includes('제2조'))
+      && fri.basis.findIndex((b) => b.includes('1736')) < fri.basis.findIndex((b) => b.includes('1350')));
+  // G4 R7 — 같은 주에 입사·퇴사(둘 다 true)는 퇴사가 앞서 0원(웹 체크 둘과 같은 답)
+  const both = await callTool('calc_weekly_holiday_pay', { hourlyWage: 10_320, weeklyHours: 40, joinedMidWeek: true, endsBeforeWeekEnd: true });
+  check('weekly_holiday 같은 주 입사·7일째 전 퇴사는 0원(ended)', both.status === 'ended' && both.amount === 0);
+  // G4 R9 — 옛 입력 endsBeforeRestDay 는 조용히 버려 82,560원을 내지 않고 거절한다
+  const legacy = await callTool('calc_weekly_holiday_pay', { hourlyWage: 10_320, weeklyHours: 40, endsBeforeRestDay: true });
+  check(`weekly_holiday 옛 입력 endsBeforeRestDay 거절(${legacy.error})`, legacy.ok === false && /endsBeforeWeekEnd/.test(legacy.error ?? '') && legacy.amount === undefined);
+  const sun = await callTool('calc_weekly_holiday_pay', { hourlyWage: 10_320, weeklyHours: 40, endsBeforeWeekEnd: false });
+  check('weekly_holiday 퇴사일이 7일째(일요일)면 82,560원(근거 줄 없음)', sun.status === 'paid' && sun.amount === 82_560 && sun.basisNote === undefined);
+  // G4 E1 — 수요일 입사(주 24시간): 종전 49,536원 → 0원으로 단정하지 않고 금액 없음·확인 필요
+  const wed = await callTool('calc_weekly_holiday_pay', { hourlyWage: 10_320, weeklyHours: 24, joinedMidWeek: true });
+  check(`weekly_holiday 주중 입사면 금액 없음·확인 필요(${wed.headline?.[0]})`,
+    wed.status === 'joined-unclear' && wed.amount === null && wed.monthly === null && /확인 필요/.test(wed.headline?.[0] ?? '')
+      && /1743/.test(wed.headline?.[1] ?? '') && /근로를 시작한이후에/.test(wed.basisNote ?? '') && /제2조 제1항 제7호/.test(wed.basisNote ?? ''));
+  // G4 R4 — 무엇을 확인할지(1350 답변의 사후 정산·법적 효력 없음)를 웹 nextNote 와 같은 문장으로
+  check('weekly_holiday 주중 입사 확인 안내(checkNote) — 1350 사후 정산·법적 효력 없음',
+    /이후에 이를 정산하여/.test(wed.checkNote ?? '') && /법적 효력이 있는 해석이 아닙니다/.test(wed.checkNote ?? '')
+      && /joinedMidWeek 를 비우고/.test(wed.checkNote ?? '') && !/체크/.test(wed.checkNote ?? ''));
 }
 if (tools.includes('count_regular_workers')) {
   // 4명 원래부터 + 계약직 1명 2026-11-02~11-30, 월~금
@@ -337,18 +371,50 @@ if (tools.includes('count_regular_workers')) {
   check(`headcount 5인 이상 2026-11-17~12-15(${h.headline?.[0]})`, h.fivePlus?.kind === 'spans' && s?.from === '2026-11-17' && s?.to === '2026-12-15');
   check(`headcount 기준일 근거 rule2-1·가동일 21·미달 10(${h.baseDate?.line})`, h.baseDate?.basis === 'rule2-1' && h.baseDate.operatingDays === 21 && h.baseDate.belowDays === 10);
   check('headcount 연차 없음·10명 기간 없음', h.annualLeave?.kind === 'none' && h.tenPlus?.spans?.length === 0);
+  // G4 I3 — 연차 2월 달 = 2026-02-28 날짜별 산정(1-28~2-27, 미달 16/31). 2025-03-31 개업, 다섯째 1-28~2-12 부재
+  const g = await callTool('count_regular_workers', {
+    openDays: [0, 1, 2, 3, 4, 5, 6], businessStart: '2025-03-31', today: '2026-03-01', baseDate: '2026-02-28',
+    crews: [{ count: 4, from: '2025-03-31' }, { count: 1, from: '2025-03-31', to: '2026-01-27' }, { count: 1, from: '2026-02-13' }],
+  });
+  const gl = g.annualLeave?.lines ?? [];
+  check(`headcount 2-28 근거 1-28~2-27·미달 16/31, 연차 3-31 적용 아님(${gl[0]})`,
+    g.baseDate?.periodStart === '2026-01-28' && g.baseDate.belowDays === 16 && g.baseDate.operatingDays === 31 && g.baseDate.covered === false
+    && gl.length > 0 && !gl.some((l) => l.includes('3월 31일(화)')));
+  // G4 R8 — 연차 가장 이른 달: 2026-02-13부터 매일 5명, 연차를 볼 날 2027-01-31 → 첫 달 01-31~02-27(28일 중 미달 13일 → 5명 이상)
+  const lv = await callTool('count_regular_workers', {
+    openDays: [0, 1, 2, 3, 4, 5, 6], today: '2026-12-01', baseDate: '2027-01-31', crews: [{ count: 5, from: '2026-02-13' }],
+  });
+  const m0 = lv.annualLeaveMonths?.months?.[0];
+  check(`headcount 연차 첫 달 = 연차가 쓴 구간(${m0?.line})`,
+    lv.annualLeaveMonths?.months?.length === 12 && m0?.periodStart === '2026-01-31' && m0.periodEnd === '2026-02-27'
+      && m0.operatingDays === 28 && m0.belowDays === 13 && m0.covered === true && /이날 연차 적용$/.test(lv.annualLeaveMonths.head ?? ''));
+  // G4 R8 — 사업 시작일이 가장 이른 달 첫날(01-31)보다 늦으면(02-03) 열두 달이 모두 5인 이상이어도 그날 연차는 적용 안 함
+  const lb = await callTool('count_regular_workers', {
+    openDays: [0, 1, 2, 3, 4, 5, 6], businessStart: '2026-02-03', today: '2026-12-01', baseDate: '2027-01-31', crews: [{ count: 5, from: '2026-02-03' }],
+  });
+  check(`headcount 연차 열두 달 모두 5인 이상·사업 시작일 늦음 → 적용 안 함(${lb.annualLeaveMonths?.head})`,
+    lb.annualLeaveMonths?.months?.every((m) => m.covered) && lb.annualLeaveMonths.covered === false && /사업 시작일/.test(lb.annualLeaveMonths.head ?? ''));
 }
 if (tools.includes('calc_take_home_pay')) {
   const t = await callTool('calc_take_home_pay', { pay: 3_000_000, meal: 200_000, date: '2026-10-28' });
   const r = t.result || {};
   const got = [r.nps, r.health, r.ltc, r.employment, r.tax?.incomeTax, r.tax?.localTax, r.takeHome];
   check(`take_home C01 300만·식대 20만 ${JSON.stringify(got)}`, JSON.stringify(got) === JSON.stringify([133_000, 100_660, 13_220, 25_200, 56_800, 5_680, 2_665_440]));
+  // 간이세액표 재확인 기한(2027-02-28) — 그날은 계산하고 다음 날은 멈춘다(G4 I5)
+  const last = await callTool('calc_take_home_pay', { pay: 3_000_000, date: '2027-02-28' });
+  const after = await callTool('calc_take_home_pay', { pay: 3_000_000, date: '2027-03-01' });
+  check(`take_home 2027-02-28 계산·2027-03-01 멈춤(${after.error})`, last.ok === true && after.ok === false && /2027-03-01/.test(after.error ?? ''));
 }
 if (tools.includes('calc_notice_pay')) {
   const n = await callTool('calc_notice_pay', { unit: 'month', amount: 2_156_880, weeklyHours: 40, dailyHours: 8, hireDate: '2025-01-02', dismissalDate: '2026-11-30' });
   check(`notice_pay 월급 2,156,880 → 2,476,800(${n.headline?.[0]})`, n.status === 'pay' && n.amount === 2_476_800);
   const sh = await callTool('calc_notice_pay', { unit: 'hour', amount: 10_320, dailyHours: 8, hireDate: '2025-01-02', dismissalDate: '2026-11-30', noticeDate: '2026-11-01' });
   check('notice_pay 29일 전 예고는 30일분 전액', sh.status === 'short' && sh.noticeDays === 29 && sh.amount === 2_476_800);
+  // 261126 G4 I6·I13 — partTime 을 빼고 주 24시간이면 알림(금액 그대로), 통상 근로자 4주 평균 4.5일은 소수로 받는다
+  const pt = await callTool('calc_notice_pay', { unit: 'month', amount: 1_200_000, weeklyHours: 24, dailyHours: 8, hireDate: '2025-01-02', dismissalDate: '2026-11-30' });
+  check(`notice_pay partTime 없이 주 24시간은 알림(${pt.headline?.[2]})`, pt.amount === 2_304_000 && pt.partTimeCheck === true && /40시간보다 짧/.test(pt.headline?.join(' ') ?? ''));
+  const rot = await callTool('calc_notice_pay', { unit: 'hour', amount: 12_000, weeklyHours: 24, dailyHours: 8, hireDate: '2025-01-02', dismissalDate: '2026-11-30', partTime: { fullTimeWeeklyDays: 4.5 } });
+  check(`notice_pay 통상 근로자 4.5일(5·4·5·4) → 1,920,000(${rot.amount ?? rot.error})`, rot.amount === 1_920_000);
 }
 if (tools.includes('calc_leave_pay')) {
   const l = await callTool('calc_leave_pay', {
@@ -389,13 +455,26 @@ for (const t of (await c.listTools()).tools.filter((x) => MORE_TOOLS.includes(x.
 }
 if (tools.includes('calc_severance')) {
   // calc-severance.test.ts 「재직 3년(1,096일)」 — 1일 평균임금 97,826.09, 퇴직금 = 반올림(9,782,609전 × 30 × 1,096 ÷ 36,500)
-  const s = await callNew('calc_severance', { hireDate: '2023-01-01', lastWorkDate: '2025-12-31', wageTotal: 9_000_000 });
+  const s = await callNew('calc_severance', { hireDate: '2023-01-01', lastWorkDate: '2025-12-31', wageTotal: 9_000_000, weeklyHours: 40 });
+  // 261124 P2 #13 — 1년이 넘어도 주 14시간이면 지급 대상 아님
+  const h14 = await callNew('calc_severance', { hireDate: '2023-01-01', lastWorkDate: '2025-12-31', wageTotal: 9_000_000, weeklyHours: 14 });
+  check(`severance 주 14시간은 지급 대상 아님(${h14.headline?.[0]})`, h14.ok && h14.result?.eligible === false && h14.result?.status === 'under-15h');
   const want = Math.round((9_782_609 * 30 * 1096) / 36_500);
   check(`severance 3년 1,096일 · 97,826.09 → ${want}(${s.headline?.[0]})`, s.ok && s.result?.serviceDays === 1096 && s.result.dailyAverage === 97_826.09 && s.result.amount === want && s.result.eligible === true);
-  const short = await callNew('calc_severance', { hireDate: '2026-03-02', lastWorkDate: '2026-10-30', wageTotal: 7_500_000 });
+  const short = await callNew('calc_severance', { hireDate: '2026-03-02', lastWorkDate: '2026-10-30', wageTotal: 7_500_000, weeklyHours: 40 });
   check(`severance 1년 미만은 지급 대상 아님(${short.headline?.[0]})`, short.ok && short.result?.eligible === false && /1년/.test(short.headline?.[0] ?? ''));
-  const bad = await callNew('calc_severance', { hireDate: '2026-03-02', lastWorkDate: '2026-02-01', wageTotal: 7_500_000 });
+  const bad = await callNew('calc_severance', { hireDate: '2026-03-02', lastWorkDate: '2026-02-01', wageTotal: 7_500_000, weeklyHours: 40 });
   check(`severance 날짜 거꾸로면 오류(${bad.error})`, bad.ok === false && !!bad.error);
+  // 261126 G4 I8·I15 — 제외 일수만 넣고 그 기간 임금을 비우면 오류, 0 을 넣으면 계산, 임금총액과 같으면 오류
+  const exNoWage = await callNew('calc_severance', { hireDate: '2025-01-01', lastWorkDate: '2025-12-31', wageTotal: 6_200_000, weeklyHours: 40, excludedDays: 30 });
+  check(`severance 제외 일수만 넣으면 오류(${exNoWage.error})`, exNoWage.ok === false && /그 기간에 받은 임금/.test(exNoWage.error ?? ''));
+  const exZero = await callNew('calc_severance', { hireDate: '2025-01-01', lastWorkDate: '2025-12-31', wageTotal: 6_200_000, weeklyHours: 40, excludedDays: 30, excludedWage: 0 });
+  check(`severance 제외 30일·임금 0 → 3,000,000(${exZero.result?.amount})`, exZero.ok && exZero.result?.amount === 3_000_000);
+  const exAll = await callNew('calc_severance', { hireDate: '2025-01-01', lastWorkDate: '2025-12-31', wageTotal: 6_200_000, weeklyHours: 40, excludedDays: 30, excludedWage: 6_200_000 });
+  check(`severance 제외임금 = 임금총액이면 오류(${exAll.error})`, exAll.ok === false && /남은 기간/.test(exAll.error ?? ''));
+  // 261126 D3 — 1주 소정근로시간이 15시간 이상·미만 사이에서 바뀐 적 있으면 계산하지 않는다
+  const changed = await callNew('calc_severance', { hireDate: '2025-01-01', lastWorkDate: '2026-02-24', wageTotal: 8_400_000, weeklyHours: 20, hoursChanged: true });
+  check(`severance 시간 바뀐 적 있음 → 오류(${changed.error?.slice(0, 40)}…)`, changed.ok === false && /4주 단위/.test(changed.error ?? '') && /퇴직연금복지과-5254/.test(changed.error ?? ''));
 }
 if (tools.includes('calc_holiday_pay')) {
   // 엔진 식 — 월급 2,090,000 ÷ 209 = 통상시급 10,000. 월급 외에 휴일근로 1.0배 + 가산 0.5배: 10,000 × 1.5 × 8 = 120,000
@@ -645,6 +724,17 @@ if (tools.includes('make_hwpx_from_markdown')) {
   // 퇴고 보존 대조 — 「하여야 한다 → 하면 좋다」는 당위 훼손, 수치는 그대로라 보존됨
   const rw = await callNew('check_rewrite', { before: '가상 회사는 2026. 3. 2. 까지 서면으로 통지하여야 한다.', after: '가상 회사는 2026. 3. 2. 까지 서면으로 통지하면 좋다.', genre: 'general' });
   check(`check_rewrite 당위 사라짐 → ${rw.status} · 수치 ${rw.items?.numbers?.status}`, rw.ok && rw.status === '훼손' && rw.items?.modality?.status === '훼손' && rw.items?.numbers?.status === '보존됨');
+  // 호증 날인 — 합성 PDF(pdf-lib 빈 쪽 2장) 첫 장에 「사 제7호증」. 설치본에서 글꼴 자산(dist/assets)을 찾는지
+  {
+    const { PDFDocument } = await import('pdf-lib');
+    const sp = await PDFDocument.create();
+    sp.addPage([595.28, 841.89]);
+    sp.addPage([595.28, 841.89]);
+    const src = path.join(dir, 'exhibit-in.pdf');
+    fs.writeFileSync(src, await sp.save());
+    const st = await callNew('stamp_exhibit_pdf', { file: src, outFile: path.join(dir, 'exhibit-out.pdf'), prefix: '사', number: 7 });
+    check(`stamp_exhibit_pdf ${st.label} ${st.file?.bytes}B`, st.ok && st.label === '사 제7호증' && st.pages === 2 && st.overlapChecked === false && fs.existsSync(st.file.path));
+  }
   // kordoc — 앞서 만든 hwpx 를 읽고(md), 표 칸을 채워 .hwp(CFB)로, keep 원고 한 낱말을 고쳐 되쓴다(설치본에서 kordoc·@rhwp/core 가 풀리는지)
   if (tools.includes('read_hwp_as_markdown')) {
     const rd = await callNew('read_hwp_as_markdown', { file: mh.file.path, outFile: path.join(dir, 'read.md'), layout: 'keep' });
@@ -977,7 +1067,8 @@ if (tools.includes('make_work_rules_report_forms')) {
       check(`report_forms 대비표 아래 근거 법령 원문(법제처 2026. 12. 8. 시행 판 제60조 제1항 글자 그대로: ${want60.slice(0, 20)}…)·비고에서 가리킴`,
         /근거 법령 원문\(법제처 국가법령정보에서 받은 글자 그대로\)/.test(cmp) && /근로기준법 제60조 — 2026\. 12\. 8\. 시행 판/.test(cmp) && cmp.includes(want60) && cmp.includes('근거 법령 원문 1 참조'));
     }
-    const hits = bannedIn(Object.values(docText).join('\n'));
+    // 신고서 서명란 칸 이름 「대리인」(별지 제15호서식)만 걸지 않는다 — 칸 밖의 「대리」는 그대로 잡는다(D5 261126)
+    const hits = bannedForm(Object.values(docText).join('\n'), WORDS);
     check(`report_forms 서류 글자 금지어 없음${hits.length ? ` (${hits.join(',')})` : ''}`, hits.length === 0);
   }
   console.log(`  report_forms 폴더: ${outDir}`);

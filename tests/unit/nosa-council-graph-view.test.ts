@@ -78,6 +78,14 @@ describe('필터 — 종류 · 기간 · 미이행만', () => {
     expect(hang.map((n) => n.id)).toEqual([]);
     expect(ids.has('근참법 제20조제1항제7호')).toBe(true);
   });
+  // 「기한 지난 이행·고충만」인데 기한이 아직 안 온 진행 중 이행이 섞였다(261124 검수 P3 #13). 상단 「기한 경과」 수와 같아야 한다
+  it('기한 지난 것만 — 진행 중이라도 기한 전이면 빠진다', () => {
+    const n = (id: string, late: boolean) => ({ id, type: '이행' as const, label: id, degree: 1, size: 1, status: '진행', late });
+    const mini = { nodes: [n('A-1 이행', true), n('A-2 이행', false)], edges: [], unconfirmed: [], counts: v.counts };
+    const ids = visibleIds(mini, { types: NODE_TYPES, onlyOpen: true });
+    expect([...ids]).toEqual(['A-1 이행']);
+    expect(mini.nodes.filter((x) => x.late).length).toBe(ids.size);
+  });
   it('미이행만 — 기한 경과 노드와 바로 이웃만', () => {
     const ids = visibleIds(v, { types: NODE_TYPES, onlyOpen: true });
     expect(ids.has('A-20260903-02 이행')).toBe(true);

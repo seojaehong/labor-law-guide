@@ -146,6 +146,7 @@ npx -y k-labor call check_min_wage args.json --groups calc
 | `office` | `make_xlsx_from_spec` / `make_xlsx_from_spec_bytes` | 사양(JSON)으로 서식 만들기 — 시트·열·머리행·병합·유효성 목록·틀고정·A4 가로 인쇄 |
 | `office` | `make_meeting_pptx` / `make_meeting_pptx_bytes` | 회의 스냅숏(JSON) → 위험성평가 회의 덱(pptx, A4 가로) — 회의 전 검토안 / 회의 후 확정본, 장마다 상태 배지·notes 근거 목록 |
 | `office` | `extract_pptx` / `extract_pptx_bytes` | pptx 의 장별 도형 글자·표·notes 읽기 |
+| `docs` | `stamp_exhibit_pdf` | **로컬 전용(파일 쓰기).** 제출 서증 PDF 첫 장 상단 여백에 세로형 호증 표시(10×50mm, 「사 제19호증」·「소갑 제9호증의 1」·번호 빈칸)를 그려 새 PDF 로. 첫 장에만, 기본 우측 상단(오른쪽 12mm·위 8mm, 대법원 전자민원센터 안내), `side` 로 왼쪽, 쪽 높이 25% 를 넘으면 줄임. `pad: always` 면 첫 장을 34mm 넓혀 그 여백에 찍음. 글자는 글꼴을 넣지 않고 윤곽선으로 그림(파일이 거의 안 커짐). 본문과 겹치는지는 보지 않음(`overlapChecked:false`, 첫 장을 눈으로 확인). 돌아간 첫 장·암호 PDF 는 멈춤. 덮어쓰지 않음 |
 | `law` | `search_laws` | 법령 이름(또는 본문 낱말)으로 현행 법령 찾기 — 법령ID·판 번호·공포일·시행일·법제처 화면 주소(법제처 Open API) |
 | `law` | `list_law_forms` | 법령 하나의 별표·별지 서식 목록 — 「별지 제8호서식」 표기·제목·공포일과 내려받을 파일 주소(한글·PDF) |
 | `law` | `get_article_history` | 조문 하나가 바뀐 판들(제정·조문변경, 공포일·시행일·판 번호, 시행 예정 판 포함) |

@@ -1,4 +1,6 @@
 import { execFileSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { judge, paragraphs, type RuleSpec } from '@/lib/laws/rules-check';
 import { periodCheck, type StdArticle, type StdRule } from '@/lib/laws/standard-check';
@@ -11,15 +13,32 @@ const scenarios = [
   {name:'bracket title and spacing preserve the same article',text:'제 2 조【육아 휴직】\n휴직을 신청하면 1주 또는 2주를 허용한다.',status:'반영됨',where:'제2조【육아 휴직】'},
   {name:'square title preserves the same article',text:'제2조[육아휴직]\n휴직을 신청하면 1주 또는 2주를 허용한다.',status:'반영됨',where:'제2조[육아휴직]'},
 ];
-function python(text:string, r:RuleSpec) {
-  const code = `import importlib.util,json,sys\nspec=importlib.util.spec_from_file_location('impact','scripts/laws/rules_impact.py')\nm=importlib.util.module_from_spec(spec);spec.loader.exec_module(m)\nx=json.load(sys.stdin);v=m.judge(x['rule'],m.paragraphs(x['text']))\nprint(json.dumps({k:v.get(k) for k in ['status','where','missing']}))`;
-  return JSON.parse(execFileSync('python3',['-X','utf8','-c',code],{input:JSON.stringify({rule:r,text}),encoding:'utf8'}));
+type Py = {status:string;where:string|null;missing:string[];negated:boolean};
+/** 여러 본문을 한 번의 파이썬 호출로 판정한다(규칙 하나) */
+function pythonAll(texts:string[], r:RuleSpec):Py[] {
+  const code = `import importlib.util,json,sys\nspec=importlib.util.spec_from_file_location('impact','scripts/laws/rules_impact.py')\nm=importlib.util.module_from_spec(spec);spec.loader.exec_module(m)\nx=json.load(sys.stdin)\nout=[]\nfor t in x['texts']:\n  v=m.judge(x['rule'],m.paragraphs(t))\n  out.append({'status':v.get('status'),'where':v.get('where'),'missing':v.get('missing'),'negated':bool(v.get('negated'))})\nprint(json.dumps(out))`;
+  return JSON.parse(execFileSync('python3',['-X','utf8','-c',code],{input:JSON.stringify({rule:r,texts}),encoding:'utf8'}));
 }
+const python = (text:string, r:RuleSpec) => pythonAll([text], r)[0];
+const tsOf = (v:ReturnType<typeof judge>):Py => ({status:v.status,where:v.where,missing:v.missing,negated:!!v.negated});
 describe('synthetic Python/TypeScript technical parity',()=>{
   for(const x of scenarios) it(x.name,()=>{
     const ts=judge(rule,paragraphs(x.text));
     expect(ts).toMatchObject({status:x.status,where:x.where});
-    expect(python(x.text,rule)).toEqual({status:ts.status,where:ts.where,missing:ts.missing});
+    expect(python(x.text,rule)).toEqual(tsOf(ts));
+  });
+  // G4 261126 I24 — 부정문 판정도 파이썬 쌍둥이(rules_impact.py → /노동법개정반영·work_rules_c)가 같게 낸다
+  it('부정문 시나리오 — 리뷰어 재현 문장 전부 TS·파이썬 같은 판정', () => {
+    const fx = JSON.parse(readFileSync(path.join(process.cwd(), 'tests', 'fixtures', 'laws', 'negation-sentences.json'), 'utf-8')) as {
+      topic: string; head: string; cases: { name: string; negated: boolean; text: string }[];
+    };
+    const all = (JSON.parse(readFileSync(path.join(process.cwd(), 'public', 'data', 'laws', 'rules.json'), 'utf-8')) as { rules: RuleSpec[] }).rules;
+    const r = all.find((x) => x.topic === fx.topic)!;
+    const texts = fx.cases.map((c) => fx.head + c.text);
+    const py = pythonAll(texts, r);
+    const rows = fx.cases.map((c, i) => ({ name: c.name, ts: tsOf(judge(r, paragraphs(texts[i]))), py: py[i], want: c.negated }));
+    expect(rows.filter((x) => JSON.stringify(x.ts) !== JSON.stringify(x.py)).map((x) => x.name)).toEqual([]);
+    expect(rows.filter((x) => x.ts.negated !== x.want).map((x) => x.name)).toEqual([]);
   });
   it('normalizes middle-dot variants identically without adding legal synonyms',()=>{
     const r={...rule,anchor:['육아ㆍ휴직'],keywords:['육아ㆍ휴직']};

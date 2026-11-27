@@ -18,7 +18,7 @@ const BACKSCAN = 30_000;
 
 export function netToGross(net: number, opts: { family: number; children?: number; date: string }): NetToGrossResult {
   const rates = takeHomeRatesOn(opts.date);
-  if (!rates) throw new Error(`${opts.date} 기준 보험료율이 없어 계산할 수 없습니다`);
+  if (!rates) throw new Error(`${opts.date} 기준 보험료율·간이세액표가 없어 계산할 수 없습니다`);
   if (!Number.isInteger(net) || net <= 0) throw new Error('실수령액을 원 단위로 넣어 주세요');
   const take = (pay: number): number | null => {
     try {

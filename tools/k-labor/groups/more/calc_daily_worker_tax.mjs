@@ -14,7 +14,7 @@ const SITE = 'https://yellowenvelope.kr/tools/daily-worker-tax';
 const READ_ONLY = { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false };
 
 // 사이트 문구 가운데 금지어(banned.ts 두 벌 + 대신·대행·대리·포괄)가 든 문장은 응답에 싣지 않는다
-// (NOTICE 둘째 줄 「세무대리·신고서 작성 대행이 아닙니다」가 여기 걸린다).
+// (261125 사이트 문구에서 「대행이 아닙니다」 고지를 바꿔 써서 지금은 걸리는 문장이 없다 — 거르기는 안전장치로 둔다).
 const WORDS = [...SERVICE_BANNED, ...RESULT_BANNED, '대신', '대행', '대리', '포괄'];
 const clean = (lines) => lines.filter((l) => bannedHits(l, WORDS).length === 0);
 

@@ -4,6 +4,7 @@
 판정: scripts/laws/work_rules_map.json 의 개정 항목마다
   반영됨 — keywords 문단이 있고 ok 문구가 모두 있다
   미반영 — keywords 문단이 있는데 stale 문구가 남았거나 ok 문구가 빠졌다
+           (ok 문구가 다 있어도 그 문구가 든 절의 서술어가 부정이면 negated — 원문 확인 필요)
   누락   — keywords 문단이 없다(새 조문을 넣어야 한다)
 출력: 표(stdout) + --json 이면 판정 JSON(변경지시 초안 재료). 문안 확정·anchor 선정은 사람이 한다.
 
@@ -85,9 +86,138 @@ def judge(rule: dict, paras: list[dict]) -> dict:
                 "paragraphs": [p["text"] for p in paras if p["article"] == a][:6] if a else [h["text"] for h in hits][:6]}
         if best is None or score < best["score"]:
             best = cand
+    if best["score"] == 0 and negated_ok(rule, [p for p in paras if p["article"] == best["where"]]):
+        return {"status": "미반영", "where": best["where"], "stale": [], "missing": [], "negated": True,
+                "paragraphs": best["paragraphs"]}
     status = "반영됨" if best["score"] == 0 else "미반영"
     return {"status": status, "where": best["where"], "stale": best["stale"], "missing": best["missing"],
             "paragraphs": best["paragraphs"]}
+
+
+# ── 부정문 — src/lib/laws/rules-check.ts 의 clausesOf·clauseNegated·negatedOk 와 같은 규칙(G4 2026-11-26) ──
+# ok 낱말이 든 절의 끝 서술어만 본다. 이중부정(거부할 수 없다)·관형절(사용하지 않은 기간)·조건 붙은 예외 단서는 부정이 아니다.
+# 바꾸면 TS 도 바꾸고 tests/unit/laws-matcher-parity.test.ts 를 돌린다.
+NEGATED_NOTE = "해당 문구가 부정문(…하지 않는다 등)으로 보여 원문 확인이 필요합니다"
+NEG_TOKEN = re.compile(r"지않|지아니|수없|못하|못한|못함|아니[한함된됨]|¬[함한됨된]|불허|불가(?!피)|금지|제외")
+LEXICAL = re.compile(r"^(?:불허|불가|금지|제외|¬)")
+DOUBLE = re.compile(r"거부|거절|반려|불허|불리|불이익|차별|해고|징계|제한|방해|간섭|강요|박탈|감액|삭감|금지|성희롱|괴롭힘|폭행|폭언")
+POSITIVE = re.compile(r"허용|인정|부여|사용|신청|승인|지급")
+SUB = re.compile(r"경우(?:에는|에도|라도)?|때(?!문)(?:에는|에도)?|더라도|[어아여해]도|(?<=[하되이으라시])면")
+COND = re.compile(r"경우|때(?!문)|불구하고")
+# 조건 뒤 서술어 구간에 「이유 없이」가 있으면 예외 단서가 아니라 재량 거부다(G4 R2 R23).
+# 조건 앞의 「정당한 사유 없이 … 신청한 경우」는 근로자 행위를 꾸미는 말이라 보지 않는다
+NO_REASON = re.compile(r"(?:이유|사유)없이")
+# 「…하지 않을 수 없다」 — 이중부정(해야 한다). 「않을 수밖에 없다」는 부정이라 넣지 않는다
+MUST = re.compile(r"(?:을|할)수없")
+# 어휘 부정 뒤 서술어 자리 — 짧은 끝(한다·함·된다) 또는 「…하기로 한다」「…하는 것으로 한다」
+LEX_END = re.compile(r"(?:[가-힣]{0,3}|[하되](?:기로|는것으로)[가-힣]{0,3})")
+ITEM =re.compile(r"^(?:[①-⑳]|\d+[.)]|[가-하][.)]|제\s*\d+\s*조|[-·•※○□▪*])")
+# 문장 중간에서 끊긴 줄 — 조사·연결 어미·쉼표로 끝난다. 명사로 끝난 줄(표 칸·개조식)은 잇지 않는다
+OPEN_END = re.compile(r"(?:[을를은는,]|에게|에서|으로|하고|하며|하여|하되|하면|거나|및|또는)$")
+
+
+def flat(s: str) -> str:
+    return re.sub(r"\s", "", norm(s))
+
+
+# 넓게 읽기(F3) — 「의」「로」로 끝난 줄, 다음 줄이 「않…」「아니…」「못…」으로 시작하는 줄도 잇는다(두 읽기가 갈릴 때만 원문 확인)
+OPEN_END_WIDE = re.compile(r"(?:의|로)$")
+NEG_START = re.compile(r"^(?:않|아니|못)")
+# 쉼표 없는 「…하고 」「…하되 」「…되고 」「…있고 」 절 경계(G4 R2 R22). 부사로 쓰는 「제외하고」「불구하고」는 끊지 않는다
+GO = r"(?<!제외하고)(?<!불구하고)(?<=[하되있]고|하되)\s"
+# 끊지 않고 읽을 때 그 자리에 남기는 표지
+SEAM = "‖"
+
+
+def clauses_of(lines: list[str], wide: bool = False, seam: bool = False) -> list[str]:
+    """조문 줄들을 절로 나눈다. 문장 중간에서 끊긴 줄은 다음 줄과 잇는다. 괄호 안은 뺀다.
+    wide = 넓게 이어 읽기, seam = 「하고·하되·되고·있고」에서 끊지 않고 표지만 남기기(F3 다른 읽기)"""
+    text = ""
+    for i, l in enumerate(lines):
+        if i == 0:
+            text = l
+            continue
+        prev = lines[i - 1]
+        join = not ITEM.match(l) and (OPEN_END.search(prev) or (wide and (OPEN_END_WIDE.search(prev) or NEG_START.match(l))))
+        text += (" " if join else "\n") + l
+    for _ in range(2):
+        text = re.sub(r"\([^()]*\)|（[^（）]*）", "", text)
+    text = re.sub(r"(^|\s)안\s*(?=[함한됨된])", r"\1¬", text)
+    if seam:
+        text = re.sub(GO, SEAM, text)
+    base = r"[.。;\n]|(?<=[며되고])\s*,|(?<=[하되이으]며)\s"
+    parts = re.split(base if seam else base + "|" + GO, text)
+    return [c for c in (flat(p) for p in parts) if c]
+
+
+def attributive(t: str, after: str) -> bool:
+    rest = None
+    if re.search(r"[한된]$", t):
+        rest = None if after.startswith("다") else after
+    else:
+        m = re.match(r"(?:[은는](?!다)|한(?!다)|하는|할)", after)
+        if m:
+            rest = after[m.end():]
+    return rest is not None and not rest.startswith("것")
+
+
+def clause_negated(c: str, w: str) -> bool:
+    at = c.find(w)
+    if at < 0:
+        return False
+    w_end = at + len(w)
+    start = w_end
+    for m in SUB.finditer(c):
+        if m.start() >= w_end:
+            start = max(start, m.end())
+    skip = -1
+    for m in NEG_TOKEN.finditer(c):
+        i, t = m.start(), m.group(0)
+        if i < start or i < skip:
+            continue
+        after = c[m.end():]
+        must = MUST.match(after)
+        if LEXICAL.match(t):
+            if not LEX_END.fullmatch(after):
+                continue
+        elif re.fullmatch(r"지(?:않|아니)", t) and must:
+            skip = m.end() + must.end()  # 「…하지 않을 수 없다」 — 뒤 「수없」까지 한 쌍으로 건너뛴다
+            continue
+        elif re.fullmatch(r"지(?:않|아니)", t) and re.match(r"(?:을|할)수있", after):
+            if COND.search(c[:i]) and not NO_REASON.search(c[start:i]):
+                continue
+        elif attributive(t, after):
+            continue
+        # 끊지 않은 「하고·하되」 뒤 절의 부정은 그 서술어가 허용·인정·사용 같은 말일 때만 앞 절 낱말에 건다
+        seam_at = c.rfind(SEAM, 0, i)
+        if seam_at >= w_end and not POSITIVE.search(c[seam_at + 1:i]):
+            continue
+        double = False
+        for d in DOUBLE.finditer(c, start, i):
+            gap = c[d.end():i]
+            if len(gap) <= 6 and not POSITIVE.search(gap):
+                double = True
+        if not double:
+            return True
+    return False
+
+
+def negated_ok(rule: dict, paras: list[dict]) -> bool:
+    """ok 낱말이 든 절마다 서술어가 부정인데 표준 문안(clause)의 같은 낱말은 부정이 아닌가.
+    F3 — 넓게 이어 읽기·「하고」에서 끊지 않기의 네 읽기 가운데 하나라도 부정이면 원문 확인 필요(같은 값)."""
+    if not rule["ok"] or any(NEG_TOKEN.search(flat(w)) for w in rule["ok"] + rule["keywords"]):
+        return False
+    lines = [p["text"] for p in paras]
+    std_lines = [norm(l) for l in (rule.get("clause") or "").splitlines() if norm(l)]
+    for wide, seam in ((False, False), (True, False), (False, True), (True, True)):
+        mine = clauses_of(lines, wide, seam)
+        std = clauses_of(std_lines, wide, seam)
+        for o in rule["ok"]:
+            w = flat(o)
+            hit = [c for c in mine if w in c]
+            if hit and all(clause_negated(c, w) for c in hit) and not any(clause_negated(c, w) for c in std):
+                return True
+    return False
 
 
 def main():
@@ -129,6 +259,8 @@ def main():
                 print(f"      남은 옛 문구: {', '.join(j['stale'])}")
             if j.get("missing"):
                 print(f"      빠진 문구: {', '.join(j['missing'])}")
+            if j.get("negated"):
+                print(f"      {NEGATED_NOTE}")
             if j["status"] == "누락":
                 print("      → 새 조문을 넣는다(insert_after). 자리는 관련 조문 바로 뒤, 없으면 같은 장 끝")
 

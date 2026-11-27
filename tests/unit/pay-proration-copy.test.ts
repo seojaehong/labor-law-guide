@@ -108,8 +108,9 @@ describe('급여 일할 — 답 문장', () => {
     expect(headline(calcProration(C1), 'FULL')[1]).not.toMatch(/28199/);
   });
 
-  it('퇴사 주 주휴 문서번호는 2차 출처라고 밝힌다', () => {
-    expect(text(effectLines(calcProration(C3A), 'HOUR_ACTUAL'))).toMatch(/임금근로시간과-1736.*문서번호는 언론 보도 기준/);
+  it('퇴사 주 주휴 문서번호 — 고용노동부 정책자료 원문으로 확인해 「언론 보도 기준」 단서를 뗐다(G4 R1, 261127)', () => {
+    expect(text(effectLines(calcProration(C3A), 'HOUR_ACTUAL'))).toMatch(/임금근로시간과-1736, 2021\. 8\. 4\./);
+    expect(text(effectLines(calcProration(C3A), 'HOUR_ACTUAL'))).not.toMatch(/언론 보도/);
   });
 
   it('그달 내내 재직이면 일할하지 않는 달', () => {

@@ -32,6 +32,8 @@ export interface Verdict {
   where: string | null;
   stale: string[];
   missing: string[];
+  /** ok 낱말은 다 있으나 그 낱말 뒤에 부정(…하지 않는다 등)이 붙은 문장 — 낱말 대조로는 반영 여부를 알 수 없다(2026-11-25) */
+  negated?: boolean;
 }
 
 const ART = /^\s*(제\s*\d+\s*조(?:\s*의\s*\d+)?)\s*(\([^)]*\)|【[^】]*】|\[[^\]]*\])?/;
@@ -92,7 +94,137 @@ export function judge(rule: RuleSpec, paras: Para[]): Verdict {
   }
   const b = best!;
   const effective = rule.requiredIfStale && b.stale.length ? { ...rule, required: true } : rule;
+  if (b.score === 0 && negatedOk(rule, paras.filter((p) => p.article === b.where))) {
+    return { rule: effective, status: '미반영', where: b.where, stale: [], missing: [], negated: true };
+  }
   return { rule: effective, status: b.score === 0 ? '반영됨' : '미반영', where: b.where, stale: b.stale, missing: b.missing };
+}
+
+/** 부정문으로 내린 항목 옆에 붙는 말(웹·MCP 같은 글) */
+export const NEGATED_NOTE = '해당 문구가 부정문(…하지 않는다 등)으로 보여 원문 확인이 필요합니다';
+/** 내보내기(docx·xlsx·표 복사) 칸에 붙이는 짧은 말 */
+export const NEGATED_SHORT = '부정문 — 원문 확인 필요';
+
+// ── 부정문(2026-11-25, G4 검수 2026-11-26 고침) ──
+// ok 낱말이 든 **절**의 끝 서술어만 본다. 문장 끝까지 보면 「허용하며, 이를 이유로 불리한 처우를 하지 아니한다」의
+// 뒤 절 부정이 ok 낱말에 걸려 반영된 조문이 미반영으로 떨어졌다(G4 I22 — merge-base 판은 반영됨).
+// 파이썬 쌍둥이 scripts/laws/rules_impact.py 가 같은 규칙을 쓴다 — 바꾸면 둘 다 바꾸고 laws-matcher-parity 를 돌린다.
+const flat = (s: string) => norm(s).replace(/\s/g, '');
+/** 문법 부정(어디서든)과 어휘 부정(절 끝 서술어 자리에서만: 불허·불가·금지·제외·「안 함」 — ¬ 은 띄어 쓴 「안」) */
+const NEG_TOKEN = /지않|지아니|수없|못하|못한|못함|아니[한함된됨]|¬[함한됨된]|불허|불가(?!피)|금지|제외/g;
+const LEXICAL = /^(?:불허|불가|금지|제외|¬)/;
+/** 부정 뜻의 말 — 여기에 붙은 부정은 보장 문구다(거부할 수 없다·불리한 처우를 하지 아니한다·차별을 금지한다) */
+const DOUBLE = /거부|거절|반려|불허|불리|불이익|차별|해고|징계|제한|방해|간섭|강요|박탈|감액|삭감|금지|성희롱|괴롭힘|폭행|폭언/g;
+const POSITIVE = /허용|인정|부여|사용|신청|승인|지급/;
+/** 조건·양보 연결 — 이 뒤가 그 절의 주 서술어다(「…신청하면 회사는 이를 거부할 수 없다」) */
+const SUB = /경우(?:에는|에도|라도)?|때(?!문)(?:에는|에도)?|더라도|[어아여해]도|(?<=[하되이으라시])면/g;
+/** 조건이 붙은 「…하지 아니할 수 있다」는 법정 예외 단서다(표준 제43조③) */
+const COND = /경우|때(?!문)|불구하고/;
+/** 조건 뒤 서술어 구간에 「이유 없이」가 있으면 예외 단서가 아니라 재량 거부다(G4 R2 R23).
+ *  조건 앞의 「정당한 사유 없이 … 신청한 경우」는 근로자 행위를 꾸미는 말이라 보지 않는다 */
+const NO_REASON = /(?:이유|사유)없이/;
+/** 「…하지 않을 수 없다」 — 이중부정(해야 한다). 「않을 수밖에 없다」는 부정이라 넣지 않는다 */
+const MUST = /^(?:을|할)수없/;
+/** 어휘 부정 뒤 서술어 자리 — 짧은 끝(한다·함·된다) 또는 「…하기로 한다」「…하는 것으로 한다」 */
+const LEX_END = /^(?:[가-힣]{0,3}|[하되](?:기로|는것으로)[가-힣]{0,3})$/;
+const ITEM = /^(?:[①-⑳]|\d+[.)]|[가-하][.)]|제\s*\d+\s*조|[-·•※○□▪*])/;
+/** 문장 중간에서 끊긴 줄 — 목적·주제 조사, 연결 어미, 쉼표로 끝난다. 명사로 끝난 줄(표 칸·개조식)은 잇지 않는다 */
+const OPEN_END = /(?:[을를은는,]|에게|에서|으로|하고|하며|하여|하되|하면|거나|및|또는)$/;
+/** 넓게 읽기(F3) — 「의」「로」로 끝난 줄, 다음 줄이 「않…」「아니…」「못…」으로 시작하는 줄도 잇는다.
+ *  「협의」「근로」 같은 표 칸 이름씨와 모양이 같아 기본 읽기에는 넣지 않고, 두 읽기의 판정이 갈릴 때만 원문 확인으로 보낸다 */
+const OPEN_END_WIDE = /(?:의|로)$/;
+const NEG_START = /^(?:않|아니|못)/;
+/** 쉼표 없는 「…하고 」「…하되 」「…되고 」「…있고 」 절 경계(G4 R2 R22). 부사로 쓰는 「제외하고」「불구하고」는 끊지 않는다 */
+const GO = /(?<!제외하고)(?<!불구하고)(?<=[하되있]고|하되)\s/g;
+/** 끊지 않고 읽을 때 그 자리에 남기는 표지 — 뒤 절의 부정을 앞 절 낱말에 걸지 판단한다 */
+const SEAM = '‖';
+
+/** 조문 줄들을 절로 나눈다. 문장 중간에서 끊긴 줄은 다음 줄과 잇는다(줄바꿈 하나로 결론이 바뀌지 않게). 괄호 안은 뺀다.
+ *  wide = 넓게 이어 읽기, seam = 「하고·하되·되고·있고」에서 끊지 않고 표지만 남기기(F3 다른 읽기) */
+function clausesOf(lines: string[], wide = false, seam = false): string[] {
+  let text = '';
+  lines.forEach((l, i) => {
+    const prev = lines[i - 1];
+    const join = i > 0 && !ITEM.test(l) && (OPEN_END.test(prev) || (wide && (OPEN_END_WIDE.test(prev) || NEG_START.test(l))));
+    text += i === 0 ? l : (join ? ' ' : '\n') + l;
+  });
+  for (let k = 0; k < 2; k++) text = text.replace(/\([^()]*\)|（[^（）]*）/g, '');
+  text = text.replace(/(^|\s)안\s*(?=[함한됨된])/g, '$1¬');
+  if (seam) text = text.replace(GO, SEAM);
+  return text
+    // 파이썬 re 와 같은 고정 폭 lookbehind 로 쓴다
+    .split(seam ? /[.。;\n]|(?<=[며되고])\s*,|(?<=[하되이으]며)\s/ : new RegExp(`[.。;\\n]|(?<=[며되고])\\s*,|(?<=[하되이으]며)\\s|${GO.source}`))
+    .map(flat)
+    .filter(Boolean);
+}
+
+/** 관형형 부정(「사용하지 않은 기간」)은 뒤 이름씨를 꾸밀 뿐 서술어가 아니다. 「…않는 것으로 한다」는 서술어다 */
+function attributive(t: string, after: string): boolean {
+  let rest: string | null = null;
+  if (/[한된]$/.test(t)) rest = after.startsWith('다') ? null : after;
+  else {
+    const m = after.match(/^(?:[은는](?!다)|한(?!다)|하는|할)/);
+    if (m) rest = after.slice(m[0].length);
+  }
+  return rest !== null && !rest.startsWith('것');
+}
+
+/** 절 c 에서 w 에 걸린 서술어가 부정인가 */
+function clauseNegated(c: string, w: string): boolean {
+  const at = c.indexOf(w);
+  if (at < 0) return false;
+  const wEnd = at + w.length;
+  let from = wEnd;
+  for (const m of c.matchAll(SUB)) if (m.index! >= wEnd) from = Math.max(from, m.index! + m[0].length);
+  let skip = -1;
+  for (const m of c.matchAll(NEG_TOKEN)) {
+    const i = m.index!;
+    if (i < from || i < skip) continue;
+    const t = m[0];
+    const after = c.slice(i + t.length);
+    if (LEXICAL.test(t)) {
+      if (!LEX_END.test(after)) continue; // 서술어 자리가 아니다(휴게시간을 제외하고 …)
+    } else if (/^지(?:않|아니)$/.test(t) && MUST.test(after)) {
+      skip = i + t.length + after.match(MUST)![0].length; // 「…하지 않을 수 없다」 — 뒤 「수없」까지 한 쌍으로 건너뛴다
+      continue;
+    } else if (/^지(?:않|아니)$/.test(t) && /^(?:을|할)수있/.test(after)) {
+      if (COND.test(c.slice(0, i)) && !NO_REASON.test(c.slice(from, i))) continue; // 조건이 붙은 예외 단서
+    } else if (attributive(t, after)) continue;
+    // 끊지 않은 「하고·하되」 뒤 절의 부정은 그 서술어가 허용·인정·사용 같은 말일 때만 앞 절 낱말에 건다
+    // (「신청서를 제출하고 회사는 허용하지 아니한다」 ○ / 「허용하고 그 기간은 근속기간에 포함하지 아니한다」 ×)
+    const seamAt = c.lastIndexOf(SEAM, i);
+    if (seamAt >= wEnd && !POSITIVE.test(c.slice(seamAt + 1, i))) continue;
+    let double = false;
+    for (const d of c.slice(from, i).matchAll(DOUBLE)) {
+      const gap = c.slice(from + d.index! + d[0].length, i);
+      if (gap.length <= 6 && !POSITIVE.test(gap)) double = true;
+    }
+    if (!double) return true;
+  }
+  return false;
+}
+
+/**
+ * ok 낱말이 든 절마다 그 서술어가 부정인데 표준 문안(clause)의 같은 낱말은 부정이 아닌가.
+ * 「불리한 처우를 하지 아니한다」처럼 표준 문안 자체가 부정형인 금지 조항은 그대로 둔다.
+ * 규칙의 ok·keywords 자체가 부정을 품으면 보지 않는다.
+ * F3(261127 재홍님 결정) — 줄을 넓게 이어 읽느냐, 「하고·하되·되고·있고」에서 끊느냐에 따라 판정이 갈리면
+ * 어느 한 읽기라도 부정이면 같은 값(미반영·negated = 원문 확인 필요)으로 낸다. 표준 문안도 같은 읽기로 본다.
+ */
+const READINGS: [boolean, boolean][] = [[false, false], [true, false], [false, true], [true, true]];
+function negatedOk(rule: RuleSpec, paras: Para[]): boolean {
+  if (!rule.ok.length || [...rule.ok, ...rule.keywords].some((w) => new RegExp(NEG_TOKEN.source).test(flat(w)))) return false;
+  const lines = paras.map((p) => p.text);
+  const stdLines = (rule.clause ?? '').split(/\r?\n/).map(norm).filter(Boolean);
+  return READINGS.some(([wide, seam]) => {
+    const mine = clausesOf(lines, wide, seam);
+    const std = clausesOf(stdLines, wide, seam);
+    return rule.ok.some((o) => {
+      const w = flat(o);
+      const hit = mine.filter((c) => c.includes(w));
+      return hit.length > 0 && hit.every((c) => clauseNegated(c, w)) && !std.some((c) => clauseNegated(c, w));
+    });
+  });
 }
 
 export function checkRules(text: string, rules: RuleSpec[]): Verdict[] {

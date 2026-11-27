@@ -271,7 +271,8 @@ describe('요율은 날짜 축 — 없으면 계산하지 않는다', () => {
   });
 
   it('국민연금 상·하한 고시가 없는 날은 null — 다른 해 값으로 대신하지 않는다', () => {
-    expect(takeHomeRatesOn('2026-06-30')).toBeNull();
+    // 2025. 7.~2026. 6.분은 고시 제2025-24호로 채웠다(261125). 2027. 7.분 고시는 아직 없다
+    expect(takeHomeRatesOn('2026-06-30')?.npsCap).toBe(6_370_000);
     expect(takeHomeRatesOn('2027-07-01')).toBeNull();
   });
 
@@ -355,8 +356,8 @@ describe('화면 문장', () => {
     expect(headline(calc({ pay: 10_000_001 })).join(' ')).toContain('소득세를 계산하지 않습니다');
   });
 
-  it('세무대리·신고서 작성 대행이 아니라는 안내와 홈택스', () => {
-    expect(NOTICE).toContain('세무대리·신고서 작성 대행이 아닙니다');
+  it('원천징수의무자(회사) 고지(D4 261126)와 홈택스', () => {
+    expect(NOTICE).toContain('참고용 계산이며, 원천징수와 신고는 회사(원천징수의무자)가 합니다.');
     expect(allCopy(results[0], RATES).join('\n')).toContain('홈택스');
     // 홈택스 화면에서 확인하지 않은 메뉴 경로(「A → B → C」)를 단정하지 않는다
     expect(HOMETAX_LINE).not.toMatch(/→/);

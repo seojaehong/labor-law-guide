@@ -1,9 +1,14 @@
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import JSZip from 'jszip';
 import type { LawEvent } from '@/lib/laws/format';
-import { checkRules } from '@/lib/laws/rules-check';
+import { checkRules, NEGATED_SHORT } from '@/lib/laws/rules-check';
 import {
   eventsInPeriod,
+  exportArticle,
+  exportItems,
+  exportStatus,
   matchArticles,
   periodCheck,
   splitArticles,
@@ -223,5 +228,75 @@ describe('명칭 변경·제93조', () => {
     ];
     const res = periodCheck({ text: '제1조(목적) 가족수당은 지급하지 아니한다.', std: STD, events: [], rules: [], from: '20250101', to: '20261005', art93: items });
     expect(res.missing93.map((i) => i.no)).toEqual(['9의2']);
+  });
+});
+
+// G4 261126 I24 — 부정문으로 내린 판정이 「이전 시행」 목록과 내보내기(docx·xlsx·표 복사)까지 간다.
+// 옛 문구(stale)가 없어 이전 시행 목록에서 떨어지고, 내보내기에는 「원문 확인 필요」가 빠져 「미반영」이 「고칠 것」처럼만 보였다.
+describe('부정문 — 이전 시행 목록·내보내기까지 전달', () => {
+  const r = rule({ topic: '배우자 출산휴가 20일', stale: [], ok: ['20일'], clause: '제○조(배우자 출산휴가) ① 회사는 배우자 출산 시 20일의 휴가를 준다.' });
+  const text = '제31조(배우자 출산휴가) ① 회사는 배우자 출산 시 20일의 휴가를 주지 않는다.';
+
+  it('기간 안이면 항목에, 시행이 기간 앞이면 이전 시행 목록에 negated 로 남는다', () => {
+    const inside = periodCheck({ text, std: STD, events: EVENTS, rules: [r], from: '20250101', to: '20261005' });
+    expect(inside.items.find((i) => i.std.id === '제45조')?.verdicts[0]).toMatchObject({ status: '미반영', negated: true });
+    const after = periodCheck({ text, std: STD, events: EVENTS, rules: [r], from: '20250901', to: '20261005' });
+    expect(after.earlier.map((e) => [e.std.id, e.verdict.negated])).toEqual([['제45조', true]]);
+  });
+
+  it('내보내기 점검 결과 칸·표 복사 조문 칸에 원문 확인 필요를 붙인다', () => {
+    const it0 = periodCheck({ text, std: STD, events: EVENTS, rules: [r], from: '20250101', to: '20261005' }).items.find((i) => i.std.id === '제45조')!;
+    expect(exportStatus(it0)).toBe(`${it0.status} · ${NEGATED_SHORT}`);
+    expect(exportArticle(it0)).toBe(`제45조(배우자 출산휴가) · ${NEGATED_SHORT}`);
+    const plain = periodCheck({ text: MY, std: STD, events: EVENTS, rules: RULES, from: '20250101', to: '20261005' }).items.find((i) => i.std.id === '제45조')!;
+    expect(exportStatus(plain)).toBe(plain.status);
+    expect(exportArticle(plain)).toBe('제45조(배우자 출산휴가)');
+  });
+
+  it('화면 내보내기(docx·xlsx 행, 표 복사)가 이 두 함수를 쓴다', () => {
+    const src = readFileSync(path.join(process.cwd(), 'src', 'app', 'laws', 'RulesCheck.tsx'), 'utf8');
+    expect(src).toMatch(/const rows = exported\.map\(\(it\) => \[exportArticle\(it\),[^\n]*exportStatus\(it\)\]\)/);
+    expect(src).toMatch(/compareTable\(exported\.map\(\(it\) => \(\{ article: exportArticle\(it\)/);
+  });
+
+  // G4 R2(261127) R25 — 이전 시행 목록에서만 나온 부정문은 items 에 없어 docx·xlsx·표 복사에서 빠지고, 그것뿐이면 버튼이 꺼졌다.
+  it('이전 시행 목록에서만 나온 부정문도 내보내기 행이 된다', () => {
+    const after = periodCheck({ text, std: STD, events: EVENTS, rules: [r], from: '20250901', to: '20261005' });
+    expect(after.items.filter((i) => i.std.id === '제45조' && i.status !== '반영됨')).toEqual([]);
+    const ex = exportItems(after).filter((i) => i.std.id === '제45조');
+    expect(ex).toHaveLength(1);
+    expect(exportArticle(ex[0])).toBe(`제45조(배우자 출산휴가) · ${NEGATED_SHORT}`);
+    expect(exportStatus(ex[0])).toBe(`고칠 것 · ${NEGATED_SHORT}`);
+    expect(ex[0].user.map((u) => u.no)).toEqual(['제31조']);
+    expect(ex[0].proposal).toBe(r.clause);
+    // 기간 안 판정이면 items 에 이미 있어 한 번만 나온다
+    const inside = periodCheck({ text, std: STD, events: EVENTS, rules: [r], from: '20250101', to: '20261005' });
+    expect(exportItems(inside).filter((i) => i.std.id === '제45조')).toHaveLength(1);
+  });
+
+  it('같은 조문이 기간 안 항목에도 있으면 이전 시행 부정문을 그 행에 합친다', () => {
+    const r2 = rule({ article: '제19조', effective: '20260101', topic: '배우자 출산휴가 분할', ok: ['분할'], stale: [], std: ['제45조'], clause: '분할 문안' });
+    const res = periodCheck({ text, std: STD, events: EVENTS, rules: [r, r2], from: '20250901', to: '20261005' });
+    const ex = exportItems(res).filter((i) => i.std.id === '제45조');
+    expect(ex).toHaveLength(1);
+    expect(ex[0].verdicts.map((v) => [v.rule.topic, !!v.negated])).toEqual([['배우자 출산휴가 분할', false], ['배우자 출산휴가 20일', true]]);
+    expect(exportStatus(ex[0])).toContain(NEGATED_SHORT);
+    // 화면 결과(items)는 그대로다 — 카드·건수가 같은 객체를 쓴다
+    expect(res.items.find((i) => i.std.id === '제45조')!.verdicts).toHaveLength(1);
+  });
+
+  it('같은 조문이 기간 안에서는 반영됨이어도 이전 시행 부정문은 내보내기 행이 된다', () => {
+    const r3 = rule({ article: '제19조', effective: '20260101', topic: '배우자 출산휴가 신청', ok: ['출산휴가'], stale: [], std: ['제45조'], clause: '신청 문안' });
+    const res = periodCheck({ text, std: STD, events: EVENTS, rules: [r, r3], from: '20250901', to: '20261005' });
+    expect(res.items.find((i) => i.std.id === '제45조')!.status).toBe('반영됨');
+    const ex = exportItems(res).filter((i) => i.std.id === '제45조');
+    expect(ex.map((i) => [i.status, i.verdicts.map((v) => v.rule.topic)])).toEqual([['고칠 것', ['배우자 출산휴가 20일']]]);
+  });
+
+  it('화면 docx·xlsx·표 복사 버튼은 내보낼 행(exported)이 있으면 켜진다', () => {
+    const src = readFileSync(path.join(process.cwd(), 'src', 'app', 'laws', 'RulesCheck.tsx'), 'utf8');
+    expect(src).toMatch(/const exported = result \? exportItems\(result\) : \[\]/);
+    expect(src.match(/disabled=\{!exported\.length\}/g)).toHaveLength(3);
+    expect(src).not.toMatch(/disabled=\{!open\.length\}/);
   });
 });

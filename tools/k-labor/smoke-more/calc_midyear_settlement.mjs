@@ -54,8 +54,9 @@ export default async function (callNew, check) {
   // 근거 목록은 화면(page.tsx) basis 그대로 — 마지막 줄 귀속 기준·조문 확인일까지
   check(`midyear basis 마지막 줄 = 귀속 기준·조문 확인일(${s2.basis?.at(-1)})`, s2.basis?.at(-1) === '2026년 귀속 기준, 조문 확인 2026. 10. 29.');
 
-  // 금지어 거르기는 문장 단위 — NOTICE 둘째 줄의 금지어 없는 뒷문장은 남는다(계산한 경우·멈춘 경우 모두)
-  const keep = '원천징수영수증이나 신고서를 만들지 않습니다.';
+  // 금지어 거르기는 문장 단위 — NOTICE 둘째 줄(금지어 없음, 261125 문구 교체)이 통째로 남는다(계산한 경우·멈춘 경우 모두)
+  // D4(261126) 원천징수의무자 고지 — src/lib/tool-kit/tax-notice.ts WITHHOLDING_NOTICE
+  const keep = '참고용 계산이며, 원천징수와 신고는 회사(원천징수의무자)가 합니다. 원천징수영수증이나 신고서를 만들지 않습니다.';
   check(`midyear notice 에 「${keep}」 남음`, s2.notice?.includes(keep) === true && stop.notice?.includes(keep) === true && s2.notice?.length === 2);
 
   // 설명의 지방소득세 식에 10원 미만 0 쪽 버림(엔진 settleLocalTax = trunc10). 설치본처럼 소스가 없으면 건너뛴다

@@ -41,6 +41,14 @@
 .ex-field:focus-within { box-shadow: inset 0 0 0 2px var(--ex-link); }
 .ex-field:has(input[aria-invalid='true']) { box-shadow: inset 0 0 0 2px var(--ex-warn-deep); }
 .ex-err { grid-column: 1 / -1; font-size: 14px; color: var(--ex-warn-deep); }
+/* 「시간이 바뀐 적」 체크 — 한 줄을 다 쓰고 누를 곳 44px(261126 E3). .ex-field input 의 width:100% 를 받지 않게 따로 둔다 */
+.ex-check {
+  grid-column: 1 / -1; display: flex; align-items: center; gap: 8px; min-height: 44px; cursor: pointer;
+  padding: 0 12px; background: var(--ex-canvas); box-shadow: var(--ex-shadow-1); border-radius: 8px;
+  font-size: 14px; line-height: 1.5; color: var(--ex-body);
+}
+.ex-check input { flex: none; margin: 0; accent-color: var(--ex-link); }
+.ex-check:focus-within { box-shadow: inset 0 0 0 2px var(--ex-link); }
 @media (max-width: 900px) { .ex-form { grid-template-columns: repeat(2, minmax(0, 1fr)); } .ex-form .ex-field:first-child { grid-column: 1 / -1; } }
 
 /* ── 확인용 추정 — 공용 결과 블록(src/components/tool-result/ResultBlock) ── */

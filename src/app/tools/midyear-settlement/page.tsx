@@ -4,6 +4,7 @@ import { SITE_URL } from '@/lib/constants';
 import ToolShell from '@/components/tool/ToolShell';
 import MidyearSettlementClient from './MidyearSettlementClient';
 import { HOMETAX_LINK, HOMETAX_URL } from './copy';
+import { WITHHOLDING_NOTICE } from '@/lib/tool-kit/tax-notice';
 
 // 이름·소개 금지어(261028 공통 장치)는 tests/unit/calc-midyear-settlement.test.ts 가 막는다.
 export const metadata: Metadata = publicMetadata({
@@ -40,7 +41,7 @@ export default function MidyearSettlementPage() {
       ]}
       basisNote={
         <>
-          세무대리·신고서 작성 대행이 아닙니다.{' '}
+          {WITHHOLDING_NOTICE}{' '}
           <a href={HOMETAX_URL} target="_blank" rel="noopener noreferrer" className="underline underline-offset-2">{HOMETAX_LINK.text}</a>{HOMETAX_LINK.after}
         </>
       }

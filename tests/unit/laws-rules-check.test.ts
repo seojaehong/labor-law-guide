@@ -100,3 +100,99 @@ describe('anchor — 조문을 고르는 말', () => {
     expect(v.where).toBeNull();
   });
 });
+
+// 2026-11-25 — 부정문. 키워드·ok 낱말이 다 있어도 「…허용하지 않는다」면 권리를 막는 조문이다(261124 검수 P3 #10).
+// 「문구 일치」로 두지 않고 미반영(부정문 — 원문 확인)으로 내린다. 판정 기준을 바꾼 게 아니라 낱말 대조의 오인만 막는다.
+describe('부정문 — ok 낱말 뒤에 부정이 붙으면 문구 일치로 두지 않는다', () => {
+  const all = (
+    JSON.parse(readFileSync(path.join(process.cwd(), 'public', 'data', 'laws', 'rules.json'), 'utf-8')) as { rules: RuleSpec[] }
+  ).rules;
+  const short = all.find((r) => r.topic === '단기 육아휴직(1주·2주) 신설')!;
+  const yes = '제48조(육아휴직)\n① 회사는 근로자가 육아휴직을 신청하면 1주 또는 2주 단위로도 허용한다.';
+  const no = '제48조(육아휴직)\n① 회사는 근로자가 육아휴직을 신청하더라도 1주 또는 2주 단위로는 허용하지 않는다.';
+  const other = '제30조(출장)\n① 출장 여비는 따로 정한다.';
+
+  it('긍정문은 반영됨, 부정문은 미반영·negated, 무관 조문은 누락', () => {
+    expect(judge(short, paragraphs(yes))).toMatchObject({ status: '반영됨' });
+    expect(judge(short, paragraphs(yes)).negated).toBeFalsy();
+    expect(judge(short, paragraphs(no))).toMatchObject({ status: '미반영', negated: true, where: '제48조(육아휴직)' });
+    expect(judge(short, paragraphs(other)).status).toBe('누락');
+  });
+
+  it('규칙마다 자기 표준 문안(clause)은 부정문으로 잡히지 않는다 — 단서 「그러하지 아니하다」 오인 방지', () => {
+    const flagged = all
+      .filter((r) => r.clause && r.ok.length)
+      .filter((r) => judge(r, paragraphs(r.clause.replace(/^제○조/gm, '제1조'))).negated)
+      .map((r) => r.topic);
+    expect(flagged).toEqual([]);
+  });
+});
+
+describe('부정문 — 표준 문안 자체가 부정형인 금지 조항은 그대로', () => {
+  const all = (
+    JSON.parse(readFileSync(path.join(process.cwd(), 'public', 'data', 'laws', 'rules.json'), 'utf-8')) as { rules: RuleSpec[] }
+  ).rules;
+  it('「불리한 처우를 하지 아니한다」는 문구 일치로 남는다', () => {
+    const r = all.find((x) => x.topic === '연차 분할 사용·불리한 처우 금지')!;
+    const text = '제25조(연차유급휴가)\n① 근로자가 연차를 나누어 청구하면 회사는 그에 따라 휴가를 준다.\n② 회사는 근로자가 연차를 사용한 것을 이유로 불리한 처우를 하지 아니한다.';
+    const v = judge(r, paragraphs(text));
+    expect(v.negated).toBeFalsy();
+    expect(v.status).toBe('반영됨');
+  });
+});
+
+// 2026-11-26 G4 검수(I22·I23) — 부정은 ok 낱말이 든 절의 끝 서술어에서만 본다.
+// 이중부정·보장 문구(「거부할 수 없다」「불리한 처우를 하지 아니한다」)는 반영됨, 불가·금지·제외·안 함은 서술어 자리에서만 부정.
+describe('부정문 — 절 경계·이중부정·어휘 부정(G4 261126)', () => {
+  const all = (
+    JSON.parse(readFileSync(path.join(process.cwd(), 'public', 'data', 'laws', 'rules.json'), 'utf-8')) as { rules: RuleSpec[] }
+  ).rules;
+  const fx = JSON.parse(readFileSync(path.join(process.cwd(), 'tests', 'fixtures', 'laws', 'negation-sentences.json'), 'utf-8')) as {
+    topic: string; head: string; cases: { name: string; src: string; negated: boolean; text: string }[];
+  };
+  const rule = all.find((r) => r.topic === fx.topic)!;
+
+  for (const c of fx.cases) {
+    it(`${c.negated ? '부정' : '반영됨'} — ${c.name} (${c.src})`, () => {
+      const v = judge(rule, paragraphs(fx.head + c.text));
+      expect({ status: v.status, negated: !!v.negated }).toEqual(c.negated ? { status: '미반영', negated: true } : { status: '반영됨', negated: false });
+    });
+  }
+
+  // O11 기계 시험 — 표준 문안의 첫 「…한다.」를 「…한다며, 회사는 이를 거부할 수 없다.」로 바꿔도 부정으로 뒤집히지 않는다(종전 41건 중 20건)
+  it('표준 문안 + 「…며, 회사는 이를 거부할 수 없다」 꼬리 — 부정으로 뒤집히는 규칙 0', () => {
+    const flipped = all
+      .filter((r) => r.clause && r.ok.length)
+      .filter((r) => {
+        const base = r.clause.replace(/^제○조/gm, '제1조');
+        const tail = base.replace(/(한다|된다|있다)\./, '$1며, 회사는 이를 거부할 수 없다.');
+        return judge(r, paragraphs(base)).status === '반영됨' && judge(r, paragraphs(tail)).negated;
+      })
+      .map((r) => r.topic);
+    expect(flipped).toEqual([]);
+  });
+
+  // G4 R2(261127) R22 — 쉼표 없는 「…하고 」「…하되 」도 절 경계다. 오푸스 r2 기계 시험(꼬리는 합성): 표준 문안 반영됨 41건의
+  // 첫 「…한다.」(된다·있다 포함)를 아래 꼬리로 바꾸면 종전 16건·16건이 부정으로 뒤집혔다.
+  // 어간을 살린 꼴(「…되고 」「…있고 」)도 같은 연결 어미라 함께 본다.
+  const STEM: Record<string, string> = { 한: '하', 된: '되', 있: '있' };
+  it.each([
+    ['하고 그 기간은 근속기간에 포함하지 아니한다.', () => '하고 그 기간은 근속기간에 포함하지 아니한다.'],
+    ['하되 부득이한 경우에는 그러하지 아니하다.', () => '하되 부득이한 경우에는 그러하지 아니하다.'],
+    ['(어간)고 그 기간은 근속기간에 포함하지 아니한다.', (s: string) => `${STEM[s]}고 그 기간은 근속기간에 포함하지 아니한다.`],
+  ])('표준 문안 + 쉼표 없는 「…%s」 꼬리 — 부정으로 뒤집히는 규칙 0', (label, tail) => {
+    expect(label).toBeTruthy();
+    const base = all.filter((r) => r.clause && r.ok.length).filter((r) => judge(r, paragraphs(r.clause.replace(/^제○조/gm, '제1조'))).status === '반영됨');
+    expect(base.length).toBeGreaterThanOrEqual(41); // 261127 기준 41건 — 규칙이 늘면 같이 는다
+    const flipped = base
+      .filter((r) => judge(r, paragraphs(r.clause.replace(/^제○조/gm, '제1조').replace(/(한|된|있)다\./, (...g: string[]) => tail(g[1])))).negated)
+      .map((r) => r.topic);
+    expect(flipped).toEqual([]);
+  });
+
+  it('조건이 붙은 법정 예외 단서(「…경우 … 허용하지 아니할 수 있다」)는 부정으로 보지 않는다 — 표준 제43조③', () => {
+    const r = all.find((x) => x.topic === '가족돌봄휴직·휴가 대상 가족에 조부모·손자녀 포함')!;
+    const text = '제43조(가족돌봄휴가)\n③ 1항에도 불구하고 조부모 또는 손자녀를 돌보기 위한 경우에는 신청한 사원 외에 조부모의 직계비속 또는 손자녀의 직계존속이 있는 경우 휴가를 허용하지 아니할 수 있다(다만, 조부모의 직계비속 또는 손자녀의 직계존속에게 질병, 노령, 장애 또는 미성년 등의 사유가 있어 신청한 사원이 돌봐야 하는 경우는 제외한다.)';
+    expect(judge(r, paragraphs(text)).negated).toBeFalsy();
+  });
+});

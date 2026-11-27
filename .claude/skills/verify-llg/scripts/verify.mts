@@ -173,9 +173,10 @@ const FEATURES: Record<string, { path: string; journey: Journey; waitUntil?: 'lo
       await p.getByLabel('대표자 성명').fill('홍대표');
       await p.getByLabel('성명 1').fill('김가상');
       await p.getByLabel('주민등록번호 1').fill(RRN);
-      await p.getByLabel('마지막 근무일 1').fill('2026-05-31');
+      await p.getByLabel('마지막 근무일(사망이면 사망일) 1').fill('2026-05-31');
       step('상실일 = 다음 날', '상실일 2026.06.01', await answer(p, '[data-loss-date]'));
-      await p.getByLabel('올해 보수 총액(원) 1').fill('12000000');
+      await p.getByLabel('해당 연도(퇴직한 해) 보수 총액(원) 1').fill('12000000');
+      await p.getByLabel('해당 연도 근무개월수 1').fill('5');
       await p.getByLabel('늦어진 이유').fill('퇴사 처리 과정에서 신고를 빠뜨렸습니다.');
       // 도장 — 512px 그림을 고르면 화면이 300px 로 줄여 싣는다(createImageBitmap → canvas)
       await p.getByLabel('도장 그림(PNG, 투명 배경)').setInputFiles(resolve(process.cwd(), 'public/icon-512.png'));
@@ -197,6 +198,8 @@ const FEATURES: Record<string, { path: string; journey: Journey; waitUntil?: 'lo
       await p.getByRole('button', { name: 'PDF 만들기' }).click();
       step('취득 — 대표자 여부 미선택은 막음', /대표자 여부를 골라/, await answer(p, '[data-result]'));
       await p.getByLabel('대표자 여부 1').selectOption('no');
+      // 취득부호는 미리 고르지 않는다(261125) — 고르지 않으면 「부호를 골라 주세요」로 막힌다
+      await p.getByLabel('건강보험 취득부호 1').selectOption('00');
       const [dl2] = await Promise.all([p.waitForEvent('download', { timeout: 60000 }), p.getByRole('button', { name: 'PDF 만들기' }).click()]);
       const buf2 = require('node:fs').readFileSync(await dl2.path());
       writeFileSync(resolve(OUT, `nhis-report-form-acq-${p.viewportSize()?.width}.pdf`), buf2);
@@ -221,7 +224,7 @@ const FEATURES: Record<string, { path: string; journey: Journey; waitUntil?: 'lo
       pop.on('request', (r: any) => popSent.push(`${r.url()} ${r.headers().referer ?? ''}`));
       await pop.waitForLoadState('load');
       await pop.locator('[data-loss-date]').waitFor({ timeout: 15000 });
-      step('새 탭 — 마지막 근무일 채움', '2026-05-31', await pop.getByLabel('마지막 근무일 1').inputValue());
+      step('새 탭 — 마지막 근무일 채움', '2026-05-31', await pop.getByLabel('마지막 근무일(사망이면 사망일) 1').inputValue());
       step('새 탭 — 상실일 = 다음 날', '상실일 2026.06.01', (await pop.locator('[data-loss-date]').innerText()).trim());
       step('새 탭 — 읽은 해시를 주소에서 지움', '/tools/nhis-report-form', new URL(pop.url()).pathname + new URL(pop.url()).search + new URL(pop.url()).hash);
       step('새 탭 — 날짜가 실린 요청·Referer 0건', '0', String(popSent.filter(s => s.includes('2026-05-31')).length));
@@ -291,6 +294,9 @@ const FEATURES: Record<string, { path: string; journey: Journey; waitUntil?: 'lo
       step('입사일 없음', '입사일을 넣어 주세요', await answer(p));
       await d.nth(0).fill('2025-01-02');
       await d.nth(1).fill('2026-11-30');
+      // 261126 G4 I6 — 단시간 질문은 미리 고르지 않는다
+      step('단시간 질문 미선택', '단시간 근로자인지 골라 주세요', await answer(p));
+      await p.getByLabel('아니다', { exact: true }).check();
       step('예고 없음', '2,476,800원', await answer(p));
       await p.getByLabel('알렸다', { exact: true }).check();
       await p.locator('input[type=date]').nth(2).fill('2026-11-01');
@@ -346,6 +352,14 @@ const FEATURES: Record<string, { path: string; journey: Journey; waitUntil?: 'lo
       await form.locator('input[inputmode=decimal]').first().fill('40');
       step('퇴직금 추정(정본 엔진)', '8,812,389원', await answer(p, 'section[aria-label="확인용 추정"]'));
       step('기준일 = 법령 원문 확인일(CHECKED)', '법제처 현행 법령 원문 기준 · 확인 2026.10.21.', await answer(p, 'section[aria-label="확인용 추정"]'));
+      // 261126 재홍님 결정 E3 — 「시간이 바뀐 적」을 켜면 퇴직금은 엔진 문장으로 멈추고, 계산기 링크에 hoursChanged=1 을 싣는다
+      const changed = form.getByLabel(/15시간 이상과 미만 사이에서 바뀐 적이 있다/);
+      await changed.check();
+      step('시간이 바뀐 적 — 퇴직금 계산하지 않음', /4주 단위로 나눠.*퇴직연금복지과-5254.*퇴직금 추정 계산하지 않음/, await answer(p, 'section[aria-label="확인용 추정"]'));
+      const calcLink = p.locator('section[aria-label="확인용 추정"] a', { hasText: '퇴직금 계산기 열기' }).first();
+      step('계산기 링크에 hoursChanged=1', '/tools/severance.html?weeklyHours=40&hoursChanged=1', String(await calcLink.getAttribute('href')));
+      await changed.uncheck();
+      step('끄면 다시 추정', '8,812,389원', await answer(p, 'section[aria-label="확인용 추정"]'));
     },
   },
   'take-home-pay': {
@@ -400,7 +414,7 @@ const FEATURES: Record<string, { path: string; journey: Journey; waitUntil?: 'lo
       await last.fill('2026-07-31');
       step('정확히 5년(기념일 전날 퇴사)', /280,000원.*28,000원.*5년\(60개월\)/, await answer(p));
       step('기준일 = 세율표 확인일(BASIC_TAX_RATES)', '소득세법 제55조 기본세율(2023년 이후 과세기간) 기준 · 확인 2026.10.29.', await answer(p));
-      step('세무사법 고지 유지', /예상 금액입니다\. 세무대리·신고서 작성 대행이 아닙니다\..*모의계산/, await answer(p));
+      step('퇴직소득세 고지(F1 261127)', /참고용 계산이며, 퇴직금을 현금으로 받으면 회사가 원천징수합니다\. IRP로 옮기면 나중에 연금계좌에서 찾을 때 금융회사가 뗍니다\..*모의계산/, await answer(p));
       await last.fill('2026-08-01');
       step('기념일 퇴사 = 6년', /216,000원.*21,600원.*6년\(61개월\)/, await answer(p));
       await pay.fill('2500000');

@@ -51,7 +51,7 @@ describe('퇴직금', () => {
     expect(r.applied).toBe('average');
     expect(r.dailyAverage).toBe(97_826.09); // 9,000,000 ÷ 92 = 97,826.086… → 올림
     expect(r.amount).toBe(moel(ceilCents(9_000_000, 92), 1096));
-    expect(r.eligible).toBe(true);
+    expect(r.oneYear).toBe(true);
   });
 
   it('상여·연차수당은 3/12 를 더한다', () => {
@@ -80,13 +80,13 @@ describe('퇴직금', () => {
   });
 
   it('1년 경계 — 꼭 1년이면 대상, 하루 모자라면 아님', () => {
-    expect(calcSeverance({ ...base, hireDate: '2025-03-01', lastWorkDate: '2026-02-28' }).eligible).toBe(true);
-    expect(calcSeverance({ ...base, hireDate: '2025-03-01', lastWorkDate: '2026-02-27' }).eligible).toBe(false);
+    expect(calcSeverance({ ...base, hireDate: '2025-03-01', lastWorkDate: '2026-02-28' }).oneYear).toBe(true);
+    expect(calcSeverance({ ...base, hireDate: '2025-03-01', lastWorkDate: '2026-02-27' }).oneYear).toBe(false);
   });
 
   it('2월 29일 입사 — 1년은 다음 해 2월 28일에 찬다', () => {
-    expect(calcSeverance({ ...base, hireDate: '2024-02-29', lastWorkDate: '2025-02-28' }).eligible).toBe(true);
-    expect(calcSeverance({ ...base, hireDate: '2024-02-29', lastWorkDate: '2025-02-27' }).eligible).toBe(false);
+    expect(calcSeverance({ ...base, hireDate: '2024-02-29', lastWorkDate: '2025-02-28' }).oneYear).toBe(true);
+    expect(calcSeverance({ ...base, hireDate: '2024-02-29', lastWorkDate: '2025-02-27' }).oneYear).toBe(false);
   });
 
   it('없는 날짜·거꾸로 된 날짜는 오류', () => {

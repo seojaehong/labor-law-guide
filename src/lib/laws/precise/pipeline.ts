@@ -1,6 +1,6 @@
 // 정밀 점검 파이프라인 — 조문 분할·짝짓기 → 수치 하락·법령 기준(결정적) → 묶음 판단(모델) → 대조표(comparison.v1).
 // 기준 구현은 scripts/work_rules_c/run.py(pipeline, 묶음 판단 경로)와 report.py 다.
-import { checkRules, type RuleSpec } from '../rules-check';
+import { checkRules, NEGATED_NOTE, type RuleSpec } from '../rules-check';
 import { duplicated, pairArticles, splitArticles, type ArticlePair } from './articles';
 import { DISADVANTAGES, forceEscalate, judgeAll, NO_BASELINE, type Ask, type Finding, type RuleHit } from './judge';
 import { quantityDrops, type Drop } from './quantities';
@@ -29,7 +29,7 @@ export function mapRules(articles: { no: string; title: string; body: string }[]
   for (const v of checkRules(text, live)) {
     const key = v.where ? (v.where.match(/제\d+조(?:의\d+)?/)?.[0] ?? v.where) : NEW_BUCKET;
     const lawArticle = v.rule.law ? `${v.rule.law} ${v.rule.article}` : v.rule.article; // 「제11조」만으로는 어느 법인지 모른다
-    const hit: RuleHit = { topic: v.rule.topic, lawArticle, effective: v.rule.effective, status: v.status };
+    const hit: RuleHit = { topic: v.rule.topic, lawArticle, effective: v.rule.effective, status: v.status, ...(v.negated ? { negated: true } : {}) };
     out.set(key, [...(out.get(key) ?? []), hit]);
   }
   return out;
@@ -85,7 +85,7 @@ export async function precisePipeline(input: PreciseInput, ruleSpecs: RuleSpec[]
   }
   for (const h of hits.get(NEW_BUCKET) ?? []) {
     rows.push({ 조문: '신설 필요', 현행: '', 개정안: '', '개정 사유': h.topic, '근거·시행일': basisOf([h]),
-      불이익변경: hasOld ? '해당 없음' : NO_BASELINE, '점검 결과': '추가 확인', '운영 메모': '', '제안 문안': '' });
+      불이익변경: hasOld ? '해당 없음' : NO_BASELINE, '점검 결과': '추가 확인', '운영 메모': h.negated ? NEGATED_NOTE : '', '제안 문안': '' });
   }
   return { rows, articles: pairs.length, flagged: rows.length };
 }
@@ -105,6 +105,7 @@ function row(p: ArticlePair, d: Drop[], h: RuleHit[], j: Finding | null, dup: bo
   const disadvantage = disadvantageOf(j, hard, hasOld);
   const memo = j?.ops_note ? [clean(j.ops_note)] : [];
   if (d.length) memo.push('수치 하락: ' + d.map((x) => `${x.oldMax}${x.unit} → ${x.newMax}${x.unit}`).join(', '));
+  for (const x of h.filter((x) => x.negated)) memo.push(`${x.topic}: ${NEGATED_NOTE}`);
   if (dup) memo.push('조문 번호 중복 — 같은 번호의 조문이 둘 이상이다');
   if (p.status === '삭제') memo.push('조문 삭제');
   else if (p.oldNo && p.oldNo !== p.no) memo.push(`종전 ${p.oldNo}에서 옮김`);

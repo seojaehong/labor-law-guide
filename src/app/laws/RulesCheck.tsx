@@ -10,8 +10,8 @@ import { useObservationAvailability, type ObservationAvailability } from './obse
 import { MATCHER_VERSION, RULE_VERSION } from '@/lib/laws/observation-version';
 import type { CaptureContext, Observation } from '@/lib/laws/observation-payload';
 import { CalendarClock, ClipboardCopy, FileDown, FileUp, ShieldCheck, X } from 'lucide-react';
-import { type Verdict } from '@/lib/laws/rules-check';
-import { periodCheck, splitArticles, STD_ASOF, type Art93Item, type PeriodItem, type StdArticle, type StdRule } from '@/lib/laws/standard-check';
+import { NEGATED_NOTE, type Verdict } from '@/lib/laws/rules-check';
+import { exportArticle, exportItems, exportStatus, periodCheck, splitArticles, STD_ASOF, type Art93Item, type PeriodItem, type StdArticle, type StdRule } from '@/lib/laws/standard-check';
 import { compareDocx, MAX_FILE_BYTES, kindOf, readDocText } from '@/lib/laws/doc-io';
 import {
   citation,
@@ -234,14 +234,14 @@ export default function RulesCheck({ onClose, toast }: { onClose: () => void; to
               ref={ref}
               value={text}
               onChange={(e) => setText(e.target.value)}
-            placeholder={'취업규칙 본문을 붙여넣거나 hwp·hwpx·docx·pdf 파일을 올리세요.\n비워 두면 이 기간 개정의 바꿀 문안만 모아 드립니다.\n조문 머리(제○조(…))가 줄 머리에 있으면 표준취업규칙 조문과 짝지어 판정합니다.\nPDF에서 복사한 본문은 글자 순서가 섞여 판정이 틀릴 수 있습니다. 한글·워드 원본을 권합니다.'}
+            placeholder={'취업규칙 본문을 붙여넣거나 hwp·hwpx·docx·pdf 파일을 올리세요.\n비워 두면 이 기간 개정의 바꿀 문안만 모아 드립니다.\n조문 머리(제○조(…))가 줄 머리에 있으면 표준취업규칙 조문과 짝지어 대조합니다.\nPDF에서 복사한 본문은 글자 순서가 섞여 대조가 틀릴 수 있습니다. 한글·워드 원본을 권합니다.'}
               aria-label="취업규칙 본문"
             />
             {fileError && <p className="lr-file-error" role="alert">파일을 읽지 못했습니다: {fileError}</p>}
             <div className="lr-check-meta">
               <ShieldCheck size={14} /> {PRECISE_ENABLED
                 ? '기본 점검은 이 브라우저 안에서만 합니다. 아래 「정밀 점검」을 실행할 때만 본문 전체가 외부 AI 제공사로 전송됩니다.'
-                : '본문과 파일은 이 브라우저 안에서만 읽고 판정합니다. 서버로 보내지 않습니다.'}
+                : '본문과 파일은 이 브라우저 안에서만 읽고 대조합니다. 서버로 보내지 않습니다.'}
               <span className="sp" />
               <input ref={fileRef} type="file" accept=".hwpx,.docx,.hwp,.pdf" hidden onChange={(e) => onFile(e.target.files?.[0])} />
             <button className="lr-btn lr-btn-ghost lr-btn-sm" onClick={() => fileRef.current?.click()} disabled={busy}><FileUp size={14} /> {busy ? '읽는 중…' : 'hwp·hwpx·docx·pdf 올리기'}</button>
@@ -324,13 +324,16 @@ export function PeriodResults({ data, loadError, onRetry, text, from, to, source
   const unrecognized = !!text.trim() && !hasText;
   const period = `${fmtDate(from)} 다음 날 ~ ${fmtDate(to)}`;
 
-  const rows = open.map((it) => [`${it.std.no}(${it.std.title})`, mine(it) || (hasText ? '(해당 조문 없음)' : ''), proposal(it), basis(it).join('\n'), it.status]);
+  // 내보내기 행 — 화면 항목에 「이전 시행」 목록의 부정문을 더한다(G4 R2 R25). 그것뿐이어도 버튼이 켜진다
+  const exported = result ? exportItems(result) : [];
+  const earlierN = exported.length - open.length;
+  const rows = exported.map((it) => [exportArticle(it), mine(it) || (hasText ? '(해당 조문 없음)' : ''), proposal(it), basis(it).join('\n'), exportStatus(it)]);
   const intro = [
     `점검 기간: ${period} 시행분 · 기준: 고용노동부 표준취업규칙(2026년 배포) 일반 근로자용, 국가법령정보센터(법제처) 원문`,
-    hasText ? `판정: 고칠 것·조문 추가 ${fixN}건${soonN ? ` · 시행 예정 ${soonN}건` : ''} / 전체 ${open.length}건` : '취업규칙 본문 없이 기간만으로 만든 문안 묶음입니다',
+    hasText ? `점검 결과: 고칠 것·조문 추가 ${fixN}건${soonN ? ` · 시행 예정 ${soonN}건` : ''}${earlierN ? ` · 최종 개정일 이전 시행분 중 부정문 ${earlierN}건` : ''} / 전체 ${exported.length}건` : '취업규칙 본문 없이 기간만으로 만든 문안 묶음입니다',
   ];
   const foot = [
-    '1차 자동 점검입니다. 표준취업규칙 2026(고용노동부)과 법제처 원문을 기준으로 하며 공인노무사 검수 전입니다.',
+    '1차 자동 점검입니다. 표준취업규칙 2026(고용노동부)과 법제처 원문을 기준으로 하며 전문가 검수 전입니다.',
     '개정안 작성 → 근로자 과반수 의견 청취(불이익 변경은 동의) → 관할 지방고용노동관서 변경 신고 순서로 진행하세요.',
   ];
   const fileStem = `취업규칙_신구대조_${from}-${to}`;
@@ -338,7 +341,7 @@ export function PeriodResults({ data, loadError, onRetry, text, from, to, source
   const downloadDocx = async () => {
     if(exporting.current)return;exporting.current=true;const expected=currentRun.current;
     try {
-      const blob = await compareDocx({ title: '취업규칙 신구대조표', intro, head: ['표준 조문', '현행(내 취업규칙)', '개정안', '근거', '판정'], widths: [1700, 4300, 4300, 3200, 1200], rows, foot });
+      const blob = await compareDocx({ title: '취업규칙 신구대조표', intro, head: ['표준 조문', '현행(내 취업규칙)', '개정안', '근거', '점검 결과'], widths: [1700, 4300, 4300, 3200, 1200], rows, foot });
       if(expected!==currentRun.current){toast('본문 또는 검사기간이 바뀌어 이전 결과의 다운로드를 취소했습니다.');return;}
       download(`${fileStem}.docx`, blob, blob.type);
       toast(`신구대조표 ${rows.length}건을 docx 로 받았습니다(한글에서 열립니다)`);
@@ -349,14 +352,14 @@ export function PeriodResults({ data, loadError, onRetry, text, from, to, source
     if(exporting.current)return;exporting.current=true;const expected=currentRun.current;
     try {
       const {comparisonXlsx}=await import('@/lib/laws/comparison-xlsx');
-      const blob=await comparisonXlsx({title:'취업규칙 신구대조표',intro,head:['표준 조문','현행(내 취업규칙)','개정안','근거','판정'],rows,widths:[20,52,52,38,16],foot});
+      const blob=await comparisonXlsx({title:'취업규칙 신구대조표',intro,head:['표준 조문','현행(내 취업규칙)','개정안','근거','점검 결과'],rows,widths:[20,52,52,38,16],foot});
       if(expected!==currentRun.current){toast('본문 또는 검사기간이 바뀌어 이전 결과의 다운로드를 취소했습니다.');return;}
       download(`${fileStem}.xlsx`,blob,blob.type);
     }catch{toast('신구대조표를 만들지 못했습니다. 입력과 결과를 보존했습니다.');}
     finally{exporting.current=false;}
   };
   const copyTable = async () => {
-    const t = compareTable(open.map((it) => ({ article: `${it.std.no}(${it.std.title})`, before: mine(it) || null, after: proposal(it) })), foot[0]);
+    const t = compareTable(exported.map((it) => ({ article: exportArticle(it), before: mine(it) || null, after: proposal(it) })), foot[0]);
     if (await copyRich(t.text, t.html)) toast('신구대조표를 복사했습니다. 한글·엑셀에 붙이면 표로 들어갑니다');
   };
   const downloadPrep = () => {
@@ -372,7 +375,7 @@ export function PeriodResults({ data, loadError, onRetry, text, from, to, source
   return (
     <>
       {loadError && <div className="lr-check-empty" role="alert">점검 자료를 불러오지 못했습니다. 입력은 유지됩니다.<button className="lr-btn" onClick={onRetry}>다시 시도</button></div>}
-      {unrecognized && <p role="alert">조문을 인식하지 못했습니다. 제1조(제목)처럼 조문 번호가 줄 처음에 오도록 입력하세요. 현재 본문은 판정하지 않습니다.</p>}
+      {unrecognized && <p role="alert">조문을 인식하지 못했습니다. 제1조(제목)처럼 조문 번호가 줄 처음에 오도록 입력하세요. 현재 본문은 대조하지 않습니다.</p>}
       {!loadError && !unrecognized && !result && <div className="lr-check-empty">{data ? '기준일이 최종 개정일보다 뒤여야 합니다.' : '개정 자료를 불러오는 중…'}</div>}
       {result && (
         <>
@@ -385,9 +388,9 @@ export function PeriodResults({ data, loadError, onRetry, text, from, to, source
           </div>
           <div className="lr-check-actions">
             <button className="lr-btn lr-btn-ghost lr-btn-sm" onClick={onFresh}>새 점검 실행</button>
-            <button className="lr-btn lr-btn-sm" onClick={downloadDocx} disabled={!open.length}><FileDown size={14} /> 신구대조표 docx</button>
-            <button className="lr-btn lr-btn-ghost lr-btn-sm" onClick={downloadXlsx} disabled={!open.length}>엑셀</button>
-            <button className="lr-btn lr-btn-ghost lr-btn-sm" onClick={copyTable} disabled={!open.length}><ClipboardCopy size={14} /> 표 복사</button>
+            <button className="lr-btn lr-btn-sm" onClick={downloadDocx} disabled={!exported.length}><FileDown size={14} /> 신구대조표 docx</button>
+            <button className="lr-btn lr-btn-ghost lr-btn-sm" onClick={downloadXlsx} disabled={!exported.length}>엑셀</button>
+            <button className="lr-btn lr-btn-ghost lr-btn-sm" onClick={copyTable} disabled={!exported.length}><ClipboardCopy size={14} /> 표 복사</button>
             {open.some((i) => i.verdicts.length) && (
               <button className="lr-btn lr-btn-ghost lr-btn-sm" onClick={downloadPrep} title="시행일에서 거꾸로 세운 개정안 작성·의견 청취·변경 신고 일정">
                 <CalendarClock size={14} /> 대응 일정
@@ -407,11 +410,13 @@ export function PeriodResults({ data, loadError, onRetry, text, from, to, source
           )}
           {result.earlier.length > 0 && (
             <details className="lr-missing" open>
-              <summary>최종 개정일 이전에 시행됐는데 옛 문구가 남아 있는 개정 {result.earlier.length}건</summary>
+              <summary>최종 개정일 이전에 시행됐는데 옛 문구가 남았거나 부정문으로 적힌 개정 {result.earlier.length}건</summary>
               <ul>
                 {result.earlier.map(({ std: s, verdict: v }) => (
                   <li key={v.rule.lawId + v.rule.article + v.rule.topic}>
-                    <b>{v.rule.topic}</b> · {v.rule.law} {v.rule.article} {fmtDate(v.rule.effective)} 시행 · 현행 {v.where ?? s.title} · 남은 옛 문구: {v.stale.map((x) => <del key={x}>{x}</del>)}
+                    <b>{v.rule.topic}</b> · {v.rule.law} {v.rule.article} {fmtDate(v.rule.effective)} 시행 · 현행 {v.where ?? s.title}
+                    {v.stale.length > 0 && <> · 남은 옛 문구: {v.stale.map((x) => <del key={x}>{x}</del>)}</>}
+                    {v.negated && <> · {NEGATED_NOTE}</>}
                   </li>
                 ))}
               </ul>
@@ -443,8 +448,8 @@ export function PeriodResults({ data, loadError, onRetry, text, from, to, source
           {hasText && source && <HwpApply key={`${source.name}:${source.bytes.byteLength}`} source={source} items={result.items} enabled={canApplyText(source, text)} floorNote={FLOOR_NOTE} toast={toast} />}
           {hasText && !source && open.some((i) => i.proposal) && <p className="lr-check-note">hwp·hwpx 파일을 올리면 바꿀 문안 제안을 그 파일에 넣은 새 파일을 받을 수 있습니다.</p>}
           <p className="lr-check-note">
-            문구 일치는 키워드 대조 결과이며 법률 검수 완료를 뜻하지 않습니다. 표준취업규칙 2026(고용노동부, 2026. 2. 배포)과 법제처 원문을 기준으로 하며 공인노무사 검수 전입니다.
-            표준 조문과 법령의 연결은 자동 추출본이라 빠진 연결이 있을 수 있습니다.{' '}<Link href="/contact">노무사 검토 요청</Link>
+            문구 일치는 키워드 대조 결과이며 법률 검수 완료를 뜻하지 않습니다. 표준취업규칙 2026(고용노동부, 2026. 2. 배포)과 법제처 원문을 기준으로 하며 전문가 검수 전입니다.
+            표준 조문과 법령의 연결은 자동 추출본이라 빠진 연결이 있을 수 있습니다.{' '}<Link href="/contact">검토 요청 보내기</Link>
           </p>
         </>
       )}
@@ -481,6 +486,7 @@ function ItemCard({ it, captureContext, captureStore, observationAvailability, t
             <div key={v.rule.topic} className="lr-period-rule">
               <b>{v.rule.topic}</b>
               {v.stale.length > 0 && <> · 남은 옛 문구: {v.stale.map((s) => <del key={s}>{s}</del>)}</>}
+              {v.negated && <> · {NEGATED_NOTE}</>}
               <p>{v.rule.point}</p>
             </div>
           ))}

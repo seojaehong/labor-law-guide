@@ -105,7 +105,10 @@ describe('검토 7 · 연차 선지급 정산', () => {
     expect(notes(PART)).toEqual([LEAVE_NOTE]);
     expect(notes({ ...MONTHLY, overrides: { leaveHours: 0 } })).toEqual([]);
     expect(notes({ ...MONTHLY, employeeCount5plus: false })).toEqual([]);
-    expect(notes(PART_UNDER15)).toEqual([]);
+    // 1주 15시간 미만은 연차 안내가 없고 사회보험 확인 안내만 있다(261124 P2 #16 — contract-write-insurance-261125.test.ts)
+    expect(notes(PART_UNDER15).filter((n) => n === LEAVE_NOTE)).toEqual([]);
+    expect(notes(PART_UNDER15)).toHaveLength(1);
+    expect(notes(PART_UNDER15)[0]).toMatch(/^사회보험 가입 여부는 확인이 필요합니다/);
   });
 
   it('ANNUAL-LEAVE 는 손볼 것에 올리지 않는다(계약서가 정산을 적었으므로 기존대로 「손볼 항목 없음」)', () => {

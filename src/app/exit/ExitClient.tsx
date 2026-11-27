@@ -32,6 +32,8 @@ export default function ExitClient() {
   const [wage, setWage] = useState('');
   const [hours, setHours] = useState('40');
   const [leave, setLeave] = useState('');
+  // 재직 중 주 15시간 이상·미만이 바뀐 적 — 켜면 퇴직금은 엔진 문장으로 멈춘다(261126 재홍님 결정 E3). 주소에는 남기지 않는다
+  const [hoursChanged, setHoursChanged] = useState(false);
   const [toast, setToast] = useState('');
 
   // ?last=YYYY-MM-DD 로 공유한 주소를 그대로 연다 — 급여·입사일은 주소에 남기지 않는다
@@ -67,7 +69,7 @@ export default function ExitClient() {
   const dates = useMemo(() => (lastOk ? Object.fromEntries(milestones(lastDay).map(m => [m.key, m.date])) : {}), [lastDay, lastOk]);
 
   const check = ready ? severanceCheck(hireDate, lastDay, input.weeklyHours) : null;
-  const sev = ready && check?.eligible ? estimateSeverance(hireDate, lastDay, input.monthlyWage) : null;
+  const sev = ready && check?.eligible && !hoursChanged ? estimateSeverance(hireDate, lastDay, input.monthlyWage) : null;
   const lv = ready && input.unusedLeaveDays !== undefined ? estimateLeavePay(input.monthlyWage, input.weeklyHours, input.unusedLeaveDays) : null;
   const ent = ready ? (() => { try { return calculateEntitlement({ hireDate, asOf: lastDay }); } catch { return null; } })() : null;
 
@@ -136,6 +138,10 @@ export default function ExitClient() {
             <span className="k">남은 연차 일수(선택)</span>
             <input inputMode="decimal" placeholder="회사에 확인한 일수" value={leave} onChange={e => setLeave(e.target.value)} aria-invalid={!!leave && err('leave')} />
           </label>
+          <label className="ex-check">
+            <input type="checkbox" checked={hoursChanged} onChange={e => setHoursChanged(e.target.checked)} />
+            <span>재직 중 1주 소정근로시간이 15시간 이상과 미만 사이에서 바뀐 적이 있다</span>
+          </label>
           {touched && err('order') && <p className="ex-err" role="alert">마지막 근무일이 입사일보다 빠릅니다.</p>}
           {/* 칸이 틀려 「확인용 추정」 카드가 빠질 때 말없이 사라지지 않게 까닭을 남긴다(261112) */}
           {estimateBlockers(errs, { wage, hours, leave }).map(line => (
@@ -145,7 +151,7 @@ export default function ExitClient() {
 
         {ready && check && (
           <div className="ex-result">
-            <ResultBlock label="확인용 추정" view={exitResultView({ check, sev, lv, ent, unusedLeaveDays: input.unusedLeaveDays })} />
+            <ResultBlock label="확인용 추정" view={exitResultView({ check, sev, lv, ent, unusedLeaveDays: input.unusedLeaveDays, weeklyHours: input.weeklyHours, hoursChanged })} />
           </div>
         )}
 

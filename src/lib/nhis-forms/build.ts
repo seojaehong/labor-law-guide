@@ -6,7 +6,7 @@
 import fontkit from '@pdf-lib/fontkit';
 import { PDFDocument } from 'pdf-lib';
 import { fillForm, type FillReport, type FormMap, type Slot } from './overlay';
-import { EDI_LIMIT_BYTES, MAX_PEOPLE, dotted, lossDateOf, parseYmd, todayKst, ymdParts } from './dates';
+import { ACQ_CODES_FORM6, EDI_LIMIT_BYTES, LOSS_CODES_FORM8, LOSS_CODES_SUPPORTED, MAX_PEOPLE, dotted, lossDateOf, parseYmd, todayKst, ymdParts } from './dates';
 import lossMap from './maps/NHIS_8_LOSS.json';
 import acqMap from './maps/NHIS_6_ACQ.json';
 
@@ -238,14 +238,35 @@ export function validate(input: PacketInput): string[] {
     if (!x.name.trim()) p.push(`${who} 성명을 적어 주세요`);
     if (!/^\d{13}$/.test(digits(x.rrn))) p.push(`${who} 주민등록번호 13자리를 확인해 주세요`);
     if (!x.nhisCode) p.push(`${who} 부호를 골라 주세요`);
+    // 부호 제한이 화면 선택 목록에만 있으면 MCP 명단 파일로 04·10(상실일 = 신청일 당일)·99 가 통과한다(G4 I25)
+    else if (input.kind === 'loss' && !(LOSS_CODES_SUPPORTED as readonly string[]).includes(x.nhisCode)) {
+      p.push((LOSS_CODES_FORM8 as readonly string[]).includes(x.nhisCode)
+        // 부호 뒤에 조사를 붙이지 않는다 — 「10는」처럼 받침에 따라 틀린다(G4 R2 R30)
+        ? `${who} 상실부호 ${x.nhisCode} — 이 도구에서 만들 수 없습니다. 01 퇴직·02 사망·16 취득취소만 다룹니다(다른 부호는 상실일을 정하는 날이 다릅니다)`
+        : `${who} 상실부호 ${x.nhisCode} — 별지 제8호서식에 없는 부호입니다. 01 퇴직·02 사망·16 취득취소 중에서 고르세요`);
+    } else if (input.kind === 'acq' && !(ACQ_CODES_FORM6 as readonly string[]).includes(x.nhisCode)) {
+      p.push(`${who} 취득부호 ${x.nhisCode} — 별지 제6호서식에 없는 부호입니다. ${ACQ_CODES_FORM6.join('·')} 중에서 고르세요`);
+    }
     if (input.kind === 'loss') {
       const l = x as LossPerson;
-      if (!parseYmd(l.lastWorkDay)) p.push(`${who} 마지막 근무일을 확인해 주세요`);
+      const last = parseYmd(l.lastWorkDay);
+      if (!last) p.push(`${who} 마지막 근무일을 확인해 주세요`);
       for (const v of [l.payCur, l.monthsCur, l.payPrev, l.monthsPrev]) {
         if (v !== undefined && !(Number.isInteger(v) && v >= 0)) { p.push(`${who} 보수 총액·근무개월수에는 숫자만 적어 주세요`); break; }
       }
       for (const m of [l.monthsCur, l.monthsPrev]) {
         if (m !== undefined && m > 12) { p.push(`${who} 근무개월수는 12 이하로 적어 주세요`); break; }
+      }
+      // 별지 제8호 작성방법 건강보험 2·3 — 해당 연도 보수 총액과 근무개월수는 한 쌍, 전년도는 연말정산을 안 했을 때만 한 쌍으로 적는다.
+      // 16 취득취소는 보수 정산 대상이 아니라 묻지 않는다(빈칸 PDF 방지, 261125)
+      if (l.nhisCode && l.nhisCode !== '16' && (l.payCur === undefined || l.monthsCur === undefined)) p.push(`${who} 해당 연도 보수 총액과 근무개월수를 적어 주세요`);
+      if ((l.payPrev === undefined) !== (l.monthsPrev === undefined)) p.push(`${who} 전년도 보수 총액과 근무개월수는 함께 적어 주세요(연말정산을 했다면 둘 다 비웁니다)`);
+      // 기본 모순(G4 I26). 0원·0개월, 0원·N개월은 무급휴직 등으로 있을 수 있어 막지 않는다.
+      // 해당 연도 근무개월수 상한 = 마지막 근무일의 달(12월 31일 퇴직은 상실일이 다음 해라도 12개월)
+      if ((l.payCur ?? 0) > 0 && l.monthsCur === 0) p.push(`${who} 해당 연도 보수 총액이 있는데 근무개월수가 0입니다`);
+      if ((l.payPrev ?? 0) > 0 && l.monthsPrev === 0) p.push(`${who} 전년도 보수 총액이 있는데 근무개월수가 0입니다`);
+      if (last && l.monthsCur !== undefined && l.monthsCur <= 12 && l.monthsCur > last[1]) {
+        p.push(`${who} 해당 연도 근무개월수는 마지막 근무일이 든 달(${last[1]}월)까지라 ${last[1]} 이하로 적어 주세요`);
       }
     } else {
       const a = x as AcqPerson;
