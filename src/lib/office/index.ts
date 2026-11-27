@@ -39,6 +39,23 @@ export type {
   MeetingStatus,
 } from './pptx/meeting';
 export type { PptxSlide, PptxShape } from './pptx/extract';
+// 덱 테마 계약 — 순수 함수라 결과 틀(run) 밖에서 바로 내보낸다
+export { getDeckTheme, DECK_RULES, DECK_KINDS, COLOR_ROLES } from './pptx/theme/index';
+export type {
+  DeckKind,
+  DeckTheme,
+  DeckThemeOptions,
+  DeckThemeOverride,
+  DeckFonts,
+  DeckTypeScale,
+  DeckRulesData,
+  TitleStyle,
+  TypeProfile,
+  TableStyle,
+  TableStyleName,
+  PaperName,
+  ColorRole,
+} from './pptx/theme/index';
 
 /** 실패 코드 — 열린 유니언(새 코드가 생겨도 받는 쪽 타입이 깨지지 않는다) */
 export type ErrorCode =

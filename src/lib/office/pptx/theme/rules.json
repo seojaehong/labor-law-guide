@@ -1,0 +1,349 @@
+{
+ "version": "261126b",
+ "note": "엔진 덱 규칙 정본. deckkit(claude-setup) rules.json 261126b 에서 고객·법인 이름과 출처 설명을 뺀 판이다. 고객 테마는 엔진에 두지 않고 호출자가 getDeckTheme(kind, { theme }) 로 넣는다.",
+ "lint_rules": {
+  "default": true
+ },
+ "papers": {
+  "16:9": {
+   "w_in": 13.3333,
+   "h_in": 7.5,
+   "label": "와이드 16:9(960×540pt)",
+   "default": true
+  },
+  "A4": {
+   "w_in": 10.8333,
+   "h_in": 7.5,
+   "label": "PowerPoint 「A4 용지」 슬라이드 프리셋(780×540pt, 가로세로비 1.444) — 실물 297×210mm 아님"
+  },
+  "_note": "명세 \"paper\" 로 고른다(대소문자 무시, 비우면 16:9). 세로 A4 는 두지 않는다 — 세로 A4 실물은 전부 문서형(의견서·보고서)이라 hwpx 쪽(templates.json deferred_doc_templates)이고, 장 모듈이 전부 가로 배치라 세로에서는 다시 설계해야 한다"
+ },
+ "deck_kinds": {
+  "proposal": {
+   "label": "제안서",
+   "title_style": "label"
+  },
+  "report": {
+   "label": "보고",
+   "title_style": "label_lead"
+  },
+  "analysis": {
+   "label": "분석(단일 쟁점·판결)",
+   "title_style": "label_lead"
+  },
+  "briefing": {
+   "label": "세미나·이슈 브리핑",
+   "title_style": "label_lead"
+  },
+  "diagnosis": {
+   "label": "진단(findings)",
+   "title_style": "action"
+  },
+  "lecture": {
+   "label": "강의",
+   "title_style": "action"
+  }
+ },
+ "default_profile": "reading",
+ "profiles": {
+  "presentation": {
+   "label": "발표형",
+   "min": {
+    "title": 28,
+    "body": 16,
+    "chart": 14,
+    "table": 10,
+    "note": 8
+   },
+   "target": {
+    "title": 28,
+    "body": 16
+   },
+   "how": "제목·본문 하한은 덱의 역할별 대표(최빈) 크기에 건다. 차트 레이블은 차트마다 가장 작은 글자에, 표(칸 글)·출처·쪽번호·각주는 런마다 건다."
+  },
+  "reading": {
+   "label": "읽기·배포형(A4 포함)",
+   "min": {
+    "title": 20,
+    "body": 10,
+    "chart": null,
+    "table": 10,
+    "note": 8
+   },
+   "target": {
+    "title": 28,
+    "body": [
+     11,
+     14
+    ]
+   },
+   "how": "출처·쪽번호·각주는 8까지 허용, 표 본문은 10."
+  }
+ },
+ "small_roles": {
+  "roles": [
+   "footnote",
+   "note",
+   "pagenum",
+   "footer"
+  ],
+  "label": "출처·쪽번호·각주"
+ },
+ "title_styles": {
+  "label": {
+   "label": "라벨형(명사구)",
+   "check": null
+  },
+  "label_lead": {
+   "label": "라벨 + 요점 2단",
+   "check": "lead",
+   "separators": [
+    " : ",
+    " - ",
+    " – ",
+    "：",
+    ": "
+   ],
+   "label_min_chars": 2,
+   "lead_min_chars": 8,
+   "lead_min_width": 0.5,
+   "lead_max_gap_in": 0.8
+  },
+  "action": {
+   "label": "요점 문장(액션 타이틀)",
+   "check": "noun",
+   "rule": "끝이 서술 어미가 아니고 안에 절을 만드는 조사도 없으면 명사구로 본다 → B",
+   "predicate_endings": [
+    "다",
+    "요",
+    "임",
+    "함",
+    "음",
+    "됨",
+    "짐",
+    "필요",
+    "인가",
+    "는가",
+    "은가",
+    "까",
+    "?"
+   ],
+   "clause_particles": [
+    "은",
+    "는",
+    "을",
+    "를",
+    "이",
+    "에서",
+    "으로",
+    "에게",
+    "보다",
+    "부터",
+    "까지"
+   ],
+   "strip_trailing": " .。!…:;,)]」』\"'”’"
+  }
+ },
+ "line_spacing": {
+  "auto": true,
+  "multiline_body": {
+   "default": 1.2,
+   "min": 1.15,
+   "max": 1.35
+  },
+  "single": {
+   "min": 1.0,
+   "max": 1.12,
+   "applies_to": "제목·표 칸·한 줄 라벨 — 현행 유지(정본 모양을 바꾸지 않는다)"
+  },
+  "lint_est_lines": 1.2,
+  "lint_how": "본문 역할 글 상자의 문단 중 줄바꿈(a:br)이 있거나 추정 줄 수(한글 0.9em) ≥ lint_est_lines 인 것만 본다. 표 칸(맞붙은 사각형 격자 위 글·위아래 가로선에 맞붙은 행 글)은 뺀다"
+ },
+ "tables": {
+  "default_style": "line",
+  "styles": {
+   "line": {
+    "label": "가는 선(새 덱 기본)",
+    "body_fill": null,
+    "stripes": false,
+    "head_fill": "band2",
+    "head_text": "primary",
+    "inner_pt": 0.5,
+    "head_rule_pt": 1.25,
+    "bottom_pt": 1.25,
+    "inner_color": "line",
+    "rule_color": "primary",
+    "inner_vertical": false,
+    "outer_vertical": false
+   },
+   "report": {
+    "label": "보고서형(선 유지)",
+    "body_fill": null,
+    "stripes": false,
+    "head_fill": "band2",
+    "head_text": "primary",
+    "inner_pt": 0.5,
+    "head_rule_pt": 1.25,
+    "bottom_pt": 1.25,
+    "inner_color": "line",
+    "rule_color": "primary",
+    "inner_vertical": true,
+    "outer_vertical": false
+   },
+   "dark_head": {
+    "label": "짙은 단색 머리행 + 줄무늬 없음",
+    "body_fill": null,
+    "stripes": false,
+    "head_fill": "primary",
+    "head_text": "paper",
+    "inner_pt": 0.25,
+    "head_rule_pt": null,
+    "bottom_pt": 1.0,
+    "inner_color": "line",
+    "rule_color": "primary",
+    "inner_vertical": false,
+    "outer_vertical": false
+   },
+   "navy_striped": {
+    "label": "짙은 머리행 + 줄무늬(칸마다 사각형 0.5pt 테두리)",
+    "body_fill": "paper",
+    "stripes": true,
+    "stripe_fill": "band",
+    "head_fill": "primary",
+    "head_text": "paper",
+    "inner_pt": 0.5,
+    "head_rule_pt": null,
+    "bottom_pt": 0.5,
+    "inner_color": "line",
+    "rule_color": "line",
+    "inner_vertical": true,
+    "outer_vertical": true,
+    "legacy": true
+   }
+  },
+  "lint": {
+   "line": {
+    "inner_pt": [
+     0.25,
+     0.75
+    ],
+    "head_rule_pt": [
+     1.0,
+     1.5
+    ],
+    "bottom_pt": [
+     1.0,
+     1.5
+    ],
+    "outer_vertical": false,
+    "body_fill": false
+   },
+   "report": {
+    "inner_pt": [
+     0.25,
+     0.75
+    ],
+    "head_rule_pt": [
+     1.0,
+     1.5
+    ],
+    "bottom_pt": [
+     1.0,
+     1.5
+    ],
+    "outer_vertical": false,
+    "body_fill": false
+   },
+   "invisible": [
+    "FFFFFF",
+    "bg1",
+    "lt1"
+   ],
+   "dark_head": {
+    "inner_pt": [
+     0.25,
+     0.75
+    ],
+    "head_rule_pt": null,
+    "bottom_pt": [
+     1.0,
+     1.5
+    ],
+    "outer_vertical": false,
+    "body_fill": false
+   }
+  }
+ },
+ "citations": {
+  "formal": "{court} {y}. {m}. {d}. 선고 {case} {kind}",
+  "normalize": true,
+  "example": "대법원 2019. 8. 22. 선고 2016다48785 판결",
+  "court_alias": {
+   "대법": "대법원",
+   "대법원": "대법원",
+   "헌재": "헌법재판소",
+   "서울고법": "서울고등법원",
+   "서울중앙지법": "서울중앙지방법원",
+   "서울행법": "서울행정법원"
+  },
+  "decision_infixes": [
+   "헌바",
+   "헌마",
+   "헌가",
+   "헌라",
+   "마",
+   "카",
+   "그",
+   "스"
+  ],
+  "abbrev_re": "(?P<court>대법원|대법|헌재|서울고법|서울중앙지법|서울행법|[가-힣]{2,8}법원)\\s*(?P<case>\\d{2,4}\\s?[가-힣]{1,3}\\s?\\d{1,7})\\s*[,，]\\s*(?P<y>\\d{4})\\s*\\.\\s*(?P<m>\\d{1,2})\\s*\\.\\s*(?P<d>\\d{1,2})\\.?"
+ },
+ "grades": {
+  "L12p": "B",
+  "L13": "B",
+  "L14": "B",
+  "L15": "B",
+  "L16": "B"
+ },
+ "default_theme": {
+  "name": "default",
+  "colors": {
+   "primary": "14213D",
+   "accent": "3F6CC4",
+   "accent2": "5685D9",
+   "deep": "30559C",
+   "light": "C9DCF5",
+   "on_dark": "A6C4EE",
+   "ink": "222222",
+   "body": "363636",
+   "muted": "5A5A5A",
+   "muted2": "767676",
+   "subtle": "ABABAB",
+   "line": "C4CDD8",
+   "band": "F1F5FA",
+   "band2": "F3F7FC",
+   "band3": "E4ECF7",
+   "faint": "E6EAF0",
+   "paper": "FFFFFF",
+   "danger": "C0392B"
+  },
+  "fonts": {
+   "latin": "Pretendard",
+   "eastAsia": "Pretendard",
+   "heavy": "Pretendard ExtraBold",
+   "mono": "Pretendard",
+   "fallback": []
+  },
+  "type_scale": {
+   "kicker": 10.0,
+   "title": 26.0,
+   "subtitle": 12.5,
+   "h2": 15.0,
+   "h3": 12.5,
+   "body": 11.0,
+   "small": 10.0,
+   "caption": 9.5,
+   "footer": 9.0
+  }
+ }
+}
