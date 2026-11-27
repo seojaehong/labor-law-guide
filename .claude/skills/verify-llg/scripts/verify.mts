@@ -403,7 +403,7 @@ const FEATURES: Record<string, { path: string; journey: Journey; waitUntil?: 'lo
       await last.fill('2026-07-31');
       step('정확히 5년(기념일 전날 퇴사)', /280,000원.*28,000원.*5년\(60개월\)/, await answer(p));
       step('기준일 = 세율표 확인일(BASIC_TAX_RATES)', '소득세법 제55조 기본세율(2023년 이후 과세기간) 기준 · 확인 2026.10.29.', await answer(p));
-      step('원천징수의무자 고지(D4 261126)', /참고용 계산이며, 원천징수와 신고는 회사\(원천징수의무자\)가 합니다\..*모의계산/, await answer(p));
+      step('퇴직소득세 고지(F1 261127)', /참고용 계산이며, 퇴직금을 현금으로 받으면 회사가 원천징수합니다\. IRP로 옮기면 나중에 연금계좌에서 찾을 때 금융회사가 뗍니다\..*모의계산/, await answer(p));
       await last.fill('2026-08-01');
       step('기념일 퇴사 = 6년', /216,000원.*21,600원.*6년\(61개월\)/, await answer(p));
       await pay.fill('2500000');

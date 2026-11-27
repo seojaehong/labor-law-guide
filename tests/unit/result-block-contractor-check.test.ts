@@ -187,7 +187,7 @@ describe('화면 — 두 카드 순서·이름, 세무 고지 그대로, 44px �
     expect(src.indexOf("'error' in out ?", part)).toBeLessThan(partEnd);
     for (const s of ['{NOTICE}', 'href={HOMETAX_URL}', '{HOMETAX_LINK.text}', '{HOMETAX_LINK.after}']) expect(notice).toContain(s);
     expect(notice).not.toMatch(/'r' in out|'error' in out/);
-    expect(NOTICE).toBe('참고용 계산이며, 1년 소득은 다음 해 5월 종합소득세 확정신고에서 본인이 다시 계산합니다.');
+    expect(NOTICE).toBe('참고용 계산이며, 1년 소득은 대개 다음 해 5월 종합소득세 확정신고에서 본인이 다시 계산합니다(연말정산 대상 사업소득은 예외).');
     expect(HOMETAX_LINK.text).toBe('홈택스(첫 화면)');
   });
   it('결과 블록(잉크 반전 바탕) 안 children 은 muted·ink 를 쓰지 않는다', () => {

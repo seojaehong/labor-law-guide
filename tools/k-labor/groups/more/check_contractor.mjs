@@ -5,7 +5,7 @@
 import { z } from 'zod';
 import { checkItems, compareTakeHome, SOURCES } from '@/lib/calc/contractor-check';
 import {
-  AFTER_LEAD, AFTER_RECOGNITION, CHECK_HEADLINE, CHECK_NOTES, HOMETAX_LINK, HOMETAX_URL, INPUT_GUIDE, MONEY_NOTES, OUT_OF_SCOPE,
+  AFTER_LEAD, AFTER_RECOGNITION, CHECK_HEADLINE, CHECK_NOTES, HOMETAX_LINK, HOMETAX_URL, INPUT_GUIDE, MONEY_NOTES, NOTICE, OUT_OF_SCOPE,
   answerLabel, formulaLines, itemSentence, itemTag, moneyHeadline, moneyRows,
 } from '@/app/tools/contractor-check/copy';
 import { bannedHits, RESULT_BANNED, SERVICE_BANNED } from '@/lib/tool-kit/banned';
@@ -138,6 +138,8 @@ export function register(server) {
           afterRecognition: { lead: clean(AFTER_LEAD), items: cleanAll(AFTER_RECOGNITION) },
           inputGuide: cleanAll(INPUT_GUIDE),
           notCovered: cleanAll(OUT_OF_SCOPE),
+          // 3.3% 고지(F2 261127) — 화면과 같은 상수(A15: 종전 MCP 응답엔 이 고지가 없었다)
+          notice: clean(NOTICE),
           hometax: { href: HOMETAX_URL, note: clean(`${HOMETAX_LINK.text}${HOMETAX_LINK.after}`) },
           basis: BASIS,
           site: SITE,

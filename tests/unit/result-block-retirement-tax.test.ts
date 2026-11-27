@@ -65,11 +65,11 @@ describe('퇴직소득세 — 기준일은 코드의 세율표 확인일에서�
   });
 });
 
-describe('퇴직소득세 — 원천징수의무자 고지(D4 261126)', () => {
+describe('퇴직소득세 — 퇴직소득세 전용 고지(D4 261126 → F1 261127)', () => {
   const client = readFileSync('src/app/tools/retirement-tax/RetirementTaxClient.tsx', 'utf8');
-  it('결과 블록 안(children)에 「참고용 계산이며, 원천징수와 신고는 회사(원천징수의무자)가 합니다.」(WITHHOLDING_NOTICE)와 홈택스 모의계산 링크가 남는다', () => {
+  it('결과 블록 안(children)에 「참고용 계산이며, 퇴직금을 현금으로 받으면 회사가 원천징수합니다. IRP로 옮기면 …」(RETIREMENT_TAX_NOTICE)와 홈택스 모의계산 링크가 남는다', () => {
     const block = client.slice(client.indexOf('<ResultBlock'), client.indexOf('</ResultBlock>'));
-    expect(block).toContain('{WITHHOLDING_NOTICE}');
+    expect(block).toContain('{RETIREMENT_TAX_NOTICE}');
     expect(block).not.toContain('회사가 직접 합니다');
     expect(block).toContain('href={HOMETAX.href}');
     expect(block).toContain('{HOMETAX.note}');

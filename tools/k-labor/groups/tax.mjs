@@ -3,6 +3,7 @@
 import { z } from 'zod';
 import { calcRetirementTax, withholdingFor } from '@/lib/calc/retirement-tax';
 import { headline, CONSEQUENCES, NOT_COVERED, HIRE_NOTE, HOMETAX } from '@/app/tools/retirement-tax/copy';
+import { RETIREMENT_TAX_NOTICE } from '@/lib/tool-kit/tax-notice';
 import { text } from '../lib/common.mjs';
 // 중도퇴사자 연말정산(/tools/midyear-settlement)·일용근로자 원천세(/tools/daily-worker-tax) — 도구마다 한 파일(groups/more)
 import * as midyear from './more/calc_midyear_settlement.mjs';
@@ -48,6 +49,8 @@ export function registerTax(server) {
           consequences: CONSEQUENCES,
           hireNote: HIRE_NOTE,
           notCovered: NOT_COVERED,
+          // 퇴직소득세 고지(F1 261127) — 웹 결과 블록과 같은 상수(R27: 종전 MCP 응답엔 고지가 없었다)
+          notice: RETIREMENT_TAX_NOTICE,
           hometax: { href: HOMETAX.href, name: HOMETAX.name, note: `홈택스 ${HOMETAX.name}${HOMETAX.note}` },
           basis: ['소득세법 제48조(퇴직소득공제)·제55조제2항(퇴직소득 산출세액)', '소득세법 제146조(퇴직소득 원천징수)', '소득세법 제86조(소액 부징수)', '지방세법 제103조의13제1항(지방소득세)', '국고금관리법 제47조제1항(10원 미만 버림)'],
           site: `${SITE}/tools/retirement-tax`,

@@ -120,16 +120,33 @@ def flat(s: str) -> str:
     return re.sub(r"\s", "", norm(s))
 
 
-def clauses_of(lines: list[str]) -> list[str]:
-    """조문 줄들을 절로 나눈다. 문장 중간에서 끊긴 줄은 다음 줄과 잇는다. 괄호 안은 뺀다."""
+# 넓게 읽기(F3) — 「의」「로」로 끝난 줄, 다음 줄이 「않…」「아니…」「못…」으로 시작하는 줄도 잇는다(두 읽기가 갈릴 때만 원문 확인)
+OPEN_END_WIDE = re.compile(r"(?:의|로)$")
+NEG_START = re.compile(r"^(?:않|아니|못)")
+# 쉼표 없는 「…하고 」「…하되 」「…되고 」「…있고 」 절 경계(G4 R2 R22). 부사로 쓰는 「제외하고」「불구하고」는 끊지 않는다
+GO = r"(?<!제외하고)(?<!불구하고)(?<=[하되있]고|하되)\s"
+# 끊지 않고 읽을 때 그 자리에 남기는 표지
+SEAM = "‖"
+
+
+def clauses_of(lines: list[str], wide: bool = False, seam: bool = False) -> list[str]:
+    """조문 줄들을 절로 나눈다. 문장 중간에서 끊긴 줄은 다음 줄과 잇는다. 괄호 안은 뺀다.
+    wide = 넓게 이어 읽기, seam = 「하고·하되·되고·있고」에서 끊지 않고 표지만 남기기(F3 다른 읽기)"""
     text = ""
     for i, l in enumerate(lines):
-        text += l if i == 0 else (" " if OPEN_END.search(lines[i - 1]) and not ITEM.match(l) else "\n") + l
+        if i == 0:
+            text = l
+            continue
+        prev = lines[i - 1]
+        join = not ITEM.match(l) and (OPEN_END.search(prev) or (wide and (OPEN_END_WIDE.search(prev) or NEG_START.match(l))))
+        text += (" " if join else "\n") + l
     for _ in range(2):
         text = re.sub(r"\([^()]*\)|（[^（）]*）", "", text)
     text = re.sub(r"(^|\s)안\s*(?=[함한됨된])", r"\1¬", text)
-    # 쉼표 없는 「…하고 」「…하되 」「…되고 」「…있고 」도 절 경계다. 부사로 쓰는 「제외하고」「불구하고」는 끊지 않는다(G4 R2 R22)
-    parts = re.split(r"[.。;\n]|(?<=[며되고])\s*,|(?<=[하되이으]며)\s|(?<!제외하고)(?<!불구하고)(?<=[하되있]고|하되)\s", text)
+    if seam:
+        text = re.sub(GO, SEAM, text)
+    base = r"[.。;\n]|(?<=[며되고])\s*,|(?<=[하되이으]며)\s"
+    parts = re.split(base if seam else base + "|" + GO, text)
     return [c for c in (flat(p) for p in parts) if c]
 
 
@@ -171,6 +188,10 @@ def clause_negated(c: str, w: str) -> bool:
                 continue
         elif attributive(t, after):
             continue
+        # 끊지 않은 「하고·하되」 뒤 절의 부정은 그 서술어가 허용·인정·사용 같은 말일 때만 앞 절 낱말에 건다
+        seam_at = c.rfind(SEAM, 0, i)
+        if seam_at >= w_end and not POSITIVE.search(c[seam_at + 1:i]):
+            continue
         double = False
         for d in DOUBLE.finditer(c, start, i):
             gap = c[d.end():i]
@@ -182,16 +203,20 @@ def clause_negated(c: str, w: str) -> bool:
 
 
 def negated_ok(rule: dict, paras: list[dict]) -> bool:
-    """ok 낱말이 든 절마다 서술어가 부정인데 표준 문안(clause)의 같은 낱말은 부정이 아닌가."""
+    """ok 낱말이 든 절마다 서술어가 부정인데 표준 문안(clause)의 같은 낱말은 부정이 아닌가.
+    F3 — 넓게 이어 읽기·「하고」에서 끊지 않기의 네 읽기 가운데 하나라도 부정이면 원문 확인 필요(같은 값)."""
     if not rule["ok"] or any(NEG_TOKEN.search(flat(w)) for w in rule["ok"] + rule["keywords"]):
         return False
-    mine = clauses_of([p["text"] for p in paras])
-    std = clauses_of([norm(l) for l in (rule.get("clause") or "").splitlines() if norm(l)])
-    for o in rule["ok"]:
-        w = flat(o)
-        hit = [c for c in mine if w in c]
-        if hit and all(clause_negated(c, w) for c in hit) and not any(clause_negated(c, w) for c in std):
-            return True
+    lines = [p["text"] for p in paras]
+    std_lines = [norm(l) for l in (rule.get("clause") or "").splitlines() if norm(l)]
+    for wide, seam in ((False, False), (True, False), (False, True), (True, True)):
+        mine = clauses_of(lines, wide, seam)
+        std = clauses_of(std_lines, wide, seam)
+        for o in rule["ok"]:
+            w = flat(o)
+            hit = [c for c in mine if w in c]
+            if hit and all(clause_negated(c, w) for c in hit) and not any(clause_negated(c, w) for c in std):
+                return True
     return False
 
 

@@ -130,19 +130,30 @@ const LEX_END = /^(?:[가-힣]{0,3}|[하되](?:기로|는것으로)[가-힣]{0,3
 const ITEM = /^(?:[①-⑳]|\d+[.)]|[가-하][.)]|제\s*\d+\s*조|[-·•※○□▪*])/;
 /** 문장 중간에서 끊긴 줄 — 목적·주제 조사, 연결 어미, 쉼표로 끝난다. 명사로 끝난 줄(표 칸·개조식)은 잇지 않는다 */
 const OPEN_END = /(?:[을를은는,]|에게|에서|으로|하고|하며|하여|하되|하면|거나|및|또는)$/;
+/** 넓게 읽기(F3) — 「의」「로」로 끝난 줄, 다음 줄이 「않…」「아니…」「못…」으로 시작하는 줄도 잇는다.
+ *  「협의」「근로」 같은 표 칸 이름씨와 모양이 같아 기본 읽기에는 넣지 않고, 두 읽기의 판정이 갈릴 때만 원문 확인으로 보낸다 */
+const OPEN_END_WIDE = /(?:의|로)$/;
+const NEG_START = /^(?:않|아니|못)/;
+/** 쉼표 없는 「…하고 」「…하되 」「…되고 」「…있고 」 절 경계(G4 R2 R22). 부사로 쓰는 「제외하고」「불구하고」는 끊지 않는다 */
+const GO = /(?<!제외하고)(?<!불구하고)(?<=[하되있]고|하되)\s/g;
+/** 끊지 않고 읽을 때 그 자리에 남기는 표지 — 뒤 절의 부정을 앞 절 낱말에 걸지 판단한다 */
+const SEAM = '‖';
 
-/** 조문 줄들을 절로 나눈다. 문장 중간에서 끊긴 줄은 다음 줄과 잇는다(줄바꿈 하나로 결론이 바뀌지 않게). 괄호 안은 뺀다 */
-function clausesOf(lines: string[]): string[] {
+/** 조문 줄들을 절로 나눈다. 문장 중간에서 끊긴 줄은 다음 줄과 잇는다(줄바꿈 하나로 결론이 바뀌지 않게). 괄호 안은 뺀다.
+ *  wide = 넓게 이어 읽기, seam = 「하고·하되·되고·있고」에서 끊지 않고 표지만 남기기(F3 다른 읽기) */
+function clausesOf(lines: string[], wide = false, seam = false): string[] {
   let text = '';
   lines.forEach((l, i) => {
-    text += i === 0 ? l : (OPEN_END.test(lines[i - 1]) && !ITEM.test(l) ? ' ' : '\n') + l;
+    const prev = lines[i - 1];
+    const join = i > 0 && !ITEM.test(l) && (OPEN_END.test(prev) || (wide && (OPEN_END_WIDE.test(prev) || NEG_START.test(l))));
+    text += i === 0 ? l : (join ? ' ' : '\n') + l;
   });
   for (let k = 0; k < 2; k++) text = text.replace(/\([^()]*\)|（[^（）]*）/g, '');
+  text = text.replace(/(^|\s)안\s*(?=[함한됨된])/g, '$1¬');
+  if (seam) text = text.replace(GO, SEAM);
   return text
-    .replace(/(^|\s)안\s*(?=[함한됨된])/g, '$1¬')
-    // 쉼표 없는 「…하고 」「…하되 」(같은 연결 어미 「되고 」「있고 」)도 절 경계다(G4 R2 R22).
-    // 부사로 쓰는 「제외하고」「불구하고」는 끊지 않는다. 파이썬 re 와 같은 고정 폭 lookbehind 로 쓴다.
-    .split(/[.。;\n]|(?<=[며되고])\s*,|(?<=[하되이으]며)\s|(?<!제외하고)(?<!불구하고)(?<=[하되있]고|하되)\s/)
+    // 파이썬 re 와 같은 고정 폭 lookbehind 로 쓴다
+    .split(seam ? /[.。;\n]|(?<=[며되고])\s*,|(?<=[하되이으]며)\s/ : new RegExp(`[.。;\\n]|(?<=[며되고])\\s*,|(?<=[하되이으]며)\\s|${GO.source}`))
     .map(flat)
     .filter(Boolean);
 }
@@ -179,6 +190,10 @@ function clauseNegated(c: string, w: string): boolean {
     } else if (/^지(?:않|아니)$/.test(t) && /^(?:을|할)수있/.test(after)) {
       if (COND.test(c.slice(0, i)) && !NO_REASON.test(c.slice(from, i))) continue; // 조건이 붙은 예외 단서
     } else if (attributive(t, after)) continue;
+    // 끊지 않은 「하고·하되」 뒤 절의 부정은 그 서술어가 허용·인정·사용 같은 말일 때만 앞 절 낱말에 건다
+    // (「신청서를 제출하고 회사는 허용하지 아니한다」 ○ / 「허용하고 그 기간은 근속기간에 포함하지 아니한다」 ×)
+    const seamAt = c.lastIndexOf(SEAM, i);
+    if (seamAt >= wEnd && !POSITIVE.test(c.slice(seamAt + 1, i))) continue;
     let double = false;
     for (const d of c.slice(from, i).matchAll(DOUBLE)) {
       const gap = c.slice(from + d.index! + d[0].length, i);
@@ -193,15 +208,22 @@ function clauseNegated(c: string, w: string): boolean {
  * ok 낱말이 든 절마다 그 서술어가 부정인데 표준 문안(clause)의 같은 낱말은 부정이 아닌가.
  * 「불리한 처우를 하지 아니한다」처럼 표준 문안 자체가 부정형인 금지 조항은 그대로 둔다.
  * 규칙의 ok·keywords 자체가 부정을 품으면 보지 않는다.
+ * F3(261127 재홍님 결정) — 줄을 넓게 이어 읽느냐, 「하고·하되·되고·있고」에서 끊느냐에 따라 판정이 갈리면
+ * 어느 한 읽기라도 부정이면 같은 값(미반영·negated = 원문 확인 필요)으로 낸다. 표준 문안도 같은 읽기로 본다.
  */
+const READINGS: [boolean, boolean][] = [[false, false], [true, false], [false, true], [true, true]];
 function negatedOk(rule: RuleSpec, paras: Para[]): boolean {
   if (!rule.ok.length || [...rule.ok, ...rule.keywords].some((w) => new RegExp(NEG_TOKEN.source).test(flat(w)))) return false;
-  const mine = clausesOf(paras.map((p) => p.text));
-  const std = clausesOf((rule.clause ?? '').split(/\r?\n/).map(norm).filter(Boolean));
-  return rule.ok.some((o) => {
-    const w = flat(o);
-    const hit = mine.filter((c) => c.includes(w));
-    return hit.length > 0 && hit.every((c) => clauseNegated(c, w)) && !std.some((c) => clauseNegated(c, w));
+  const lines = paras.map((p) => p.text);
+  const stdLines = (rule.clause ?? '').split(/\r?\n/).map(norm).filter(Boolean);
+  return READINGS.some(([wide, seam]) => {
+    const mine = clausesOf(lines, wide, seam);
+    const std = clausesOf(stdLines, wide, seam);
+    return rule.ok.some((o) => {
+      const w = flat(o);
+      const hit = mine.filter((c) => c.includes(w));
+      return hit.length > 0 && hit.every((c) => clauseNegated(c, w)) && !std.some((c) => clauseNegated(c, w));
+    });
   });
 }
 
