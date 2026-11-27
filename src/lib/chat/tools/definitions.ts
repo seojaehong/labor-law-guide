@@ -9,7 +9,7 @@ export const TOOLS = [
       description:
         '퇴직금 계산 (1일 평균임금 × 30 × 재직일수 ÷ 365, 고용노동부 퇴직금 계산기와 같은 끝수). 사용자가 입사일·퇴사일·직전 3개월 임금을 알려준 경우 호출. 추측 X. include_tax=true로 호출하면 퇴직소득세까지 동시 산출. ' +
         'eligible(지급 대상)은 계속근로 1년 이상(one_year) 그리고 4주 평균 1주 소정근로시간 15시간 이상일 때만 true 다(근로자퇴직급여 보장법 제4조제1항). ' +
-        'weekly_hours 를 넣지 않으면 status=hours-unknown·eligible=false 로 돌려주므로, 지급 대상을 말하기 전에 사용자에게 1주 소정근로시간을 묻는다. ' +
+        'weekly_hours 를 넣지 않으면 status=hours-unknown·eligible=false·severance_pay=null 이고 needs 에 물을 질문이 온다 — 금액을 말하지 말고 needs 의 question 을 사용자에게 묻는다. ' +
         '1주 소정근로시간이 15시간 이상과 미만 사이에서 바뀐 적이 있으면 hours_changed=true — 계산하지 않고 4주 단위로 세야 하는 이유를 error 로 돌려준다.',
       parameters: {
         type: 'object',
@@ -29,7 +29,7 @@ export const TOOLS = [
           include_tax: { type: 'boolean', description: '퇴직소득세까지 함께 계산 (기본 false). 마지막 근무일이 2022-12-31 이전이면 종전 공제표·세율 대상이라 tax 없이 legal_basis 에 이유만 적는다' },
           weekly_hours: {
             type: 'number',
-            description: '4주 평균 1주 소정근로시간(시간). 사용자가 말한 경우에만 넣는다. 15시간 미만이면 지급 대상이 아니다(status=under-15h). 넣지 않으면 지급 대상인지 따지지 않는다(status=hours-unknown). 답 끝 계산기 링크에도 실린다',
+            description: '4주 평균 1주 소정근로시간(시간). 사용자가 말한 경우에만 넣는다. 15시간 미만이면 지급 대상이 아니다(status=under-15h). 넣지 않으면 금액을 내지 않는다(status=hours-unknown, severance_pay=null, needs). 답 끝 계산기 링크에도 실린다',
           },
           excluded_days: {
             type: 'integer',
@@ -58,7 +58,7 @@ export const TOOLS = [
         type: 'object',
         properties: {
           monthly_fixed_pay: { type: 'integer', description: '매월 정기·일률 임금 합계 (원)' },
-          monthly_hours: { type: 'integer', description: '월 소정근로시간 (기본 209)' },
+          monthly_hours: { type: 'integer', description: '월 소정근로시간. 넣지 않으면 209(주 40시간)로 보고 결과 assumptions 에 적는다 — 답에 그 가정을 함께 말한다' },
         },
         required: ['monthly_fixed_pay'],
       },
@@ -74,7 +74,7 @@ export const TOOLS = [
         properties: {
           ordinary_hourly: { type: 'number', description: '통상시급 (원, 끝수 그대로 — calc_ordinary_wage 의 ordinary_hourly 를 반올림하지 말고 넘긴다)' },
           monthly_fixed_pay: { type: 'integer', description: '월 통상임금 (원). 주면 통상시급 대신 이것으로 계산한다' },
-          monthly_hours: { type: 'integer', description: '월 소정근로시간 (기본 209). monthly_fixed_pay 와 함께 쓴다' },
+          monthly_hours: { type: 'integer', description: '월 소정근로시간. monthly_fixed_pay 와 함께 쓴다. 넣지 않으면 209 로 보고 결과 assumptions 에 적는다' },
           overtime_hours: { type: 'number', description: '연장근로 시간' },
           night_hours: { type: 'number', description: '야간근로 시간 (22:00~06:00)' },
           holiday_hours_within_8: { type: 'number', description: '휴일 8h 이내' },
@@ -95,7 +95,7 @@ export const TOOLS = [
           base_pay: { type: 'integer', description: '기본급 (원)' },
           fixed_allowances: { type: 'integer', description: '매월 고정 지급 수당 합계' },
           year: { type: 'integer', description: '연도 (기본 올해). 최저임금 고시가 없는 해는 오류' },
-          weekly_hours: { type: 'number', description: '1주 소정근로시간 (기본 40). 주휴·월 환산은 시행령 제5조 제1항대로 센다' },
+          weekly_hours: { type: 'number', description: '1주 소정근로시간. 사용자가 말한 경우에만 넣는다 — 넣지 않으면 비교하지 않고(ok=null) needs 에 물을 질문이 온다. 주휴·월 환산은 시행령 제5조 제1항대로 센다' },
         },
         required: ['base_pay'],
       },

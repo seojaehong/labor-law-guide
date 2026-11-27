@@ -81,32 +81,32 @@ describe('퇴직금 계산기(정적 html) — 받는 방법', () => {
   });
 
   it('IRP 이전 — 세금은 산출해 보여 주되 떼지 않아 이전액 = 퇴직금 전액', () => {
-    const r = run<Record<string, unknown>>(`calculateSeverance({...createDefaultWorker(), ${base}, payout:'irp'})`);
+    const r = run<Record<string, unknown>>(`calculateSeverance({...createDefaultWorker(), weeklyHours:'40', ${base}, payout:'irp'})`);
     expect(r).toMatchObject({ payout: 'irp', severancePay: 14_657_832, retirementTax: 151_780, localTax: 15_170, withheldTax: 0, netSeverance: 14_657_832 });
   });
 
   it('현금 수령 — 세금을 떼고 준다', () => {
-    const r = run<Record<string, unknown>>(`calculateSeverance({...createDefaultWorker(), ${base}})`);
+    const r = run<Record<string, unknown>>(`calculateSeverance({...createDefaultWorker(), weeklyHours:'40', ${base}})`);
     expect(r).toMatchObject({ payout: 'cash', retirementTax: 151_780, localTax: 15_170, withheldTax: 166_950, netSeverance: 14_490_882 });
   });
 
   it('현금 수령 · 세금 1천원 미만 — 떼지 않는다(§86)', () => {
-    const r = run<Record<string, unknown>>(`calculateSeverance({...createDefaultWorker(), startDate:'2025-11-01', endDate:'2026-10-31', wage1:'5200000', payout:'cash'})`);
+    const r = run<Record<string, unknown>>(`calculateSeverance({...createDefaultWorker(), weeklyHours:'40', startDate:'2025-11-01', endDate:'2026-10-31', wage1:'5200000', payout:'cash'})`);
     expect(r).toMatchObject({ severancePay: 1_695_652, retirementTax: 690, localTax: 60, withheldTax: 0, withholdingReason: 'small', netSeverance: 1_695_652 });
   });
 
   it('받는 방법을 바꾸면 앞 결과를 지운다(입력 서명에 들어간다)', () => {
-    const a = run<string>(`workerInputSignature({...createDefaultWorker(), ${base}})`);
-    const b = run<string>(`workerInputSignature({...createDefaultWorker(), ${base}, payout:'irp'})`);
+    const a = run<string>(`workerInputSignature({...createDefaultWorker(), weeklyHours:'40', ${base}})`);
+    const b = run<string>(`workerInputSignature({...createDefaultWorker(), weeklyHours:'40', ${base}, payout:'irp'})`);
     expect(a).not.toBe(b);
   });
 
   it('예전 저장값(받는 방법 없음)은 기본값 현금 수령으로 채운다', () => {
-    expect(run<string>(`({...createDefaultWorker(), ...{ startDate:'2021-01-04' }}).payout`)).toBe('cash');
+    expect(run<string>(`({...createDefaultWorker(), weeklyHours:'40', ...{ startDate:'2021-01-04' }}).payout`)).toBe('cash');
   });
 
   it('IRP 결과 블록 — 「IRP 이전액」으로 적고, 나중에 과세 안내', () => {
-    const w = `{...createDefaultWorker(), ${base}, payout:'irp'}`;
+    const w = `{...createDefaultWorker(), weeklyHours:'40', ${base}, payout:'irp'}`;
     const block = run<string>(`resultBlockHtml(calculateSeverance(${w}), ${w})`);
     expect(block).toContain('IRP 이전액');
     expect(block).toContain('연금계좌에서 나중에 받을 때 과세');
@@ -114,7 +114,7 @@ describe('퇴직금 계산기(정적 html) — 받는 방법', () => {
   });
 
   it('현금 · 1천원 미만 결과 블록 — 「1천원 미만이라 떼지 않습니다(소득세법 제86조)」', () => {
-    const w = `{...createDefaultWorker(), startDate:'2025-11-01', endDate:'2026-10-31', wage1:'5200000'}`;
+    const w = `{...createDefaultWorker(), weeklyHours:'40', startDate:'2025-11-01', endDate:'2026-10-31', wage1:'5200000'}`;
     const block = run<string>(`resultBlockHtml(calculateSeverance(${w}), ${w})`);
     expect(block).toContain('1천원 미만이라 떼지 않습니다(소득세법 제86조)');
   });

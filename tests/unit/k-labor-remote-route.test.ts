@@ -17,6 +17,7 @@ import { REMOTE_TOOLS } from '../../tools/k-labor/remote.mjs';
 const URL_ = 'https://example.test/api/mcp/mcp';
 const HEAD = { 'content-type': 'application/json', accept: 'application/json, text/event-stream' };
 const list = { jsonrpc: '2.0', id: 1, method: 'tools/list' };
+const PLAIN_WEEK = { fullAttendance: true, joinedMidWeek: false, endsBeforeWeekEnd: false };
 function req(body: string, headers: HeadersInit = HEAD) {
   return new Request(URL_, { method: 'POST', headers, body });
 }
@@ -80,7 +81,8 @@ describe('원격 k-labor 라우트', () => {
   });
 
   it('주휴수당의 정확한 계산값과 요청 ID를 보존한다', async () => {
-    const { status, json } = await call('calc_weekly_holiday_pay', { hourlyWage: 10320, weeklyHours: 40 });
+    // 261127 — 평상 주(개근·입사 주 아님·퇴사 주 아님)를 말해야 금액이 나온다. 비우면 needs-input
+    const { status, json } = await call('calc_weekly_holiday_pay', { hourlyWage: 10320, weeklyHours: 40, ...PLAIN_WEEK });
     expect(status).toBe(200);
     expect(json.id).toBe(2);
     expect(json.result.isError).not.toBe(true);
@@ -216,7 +218,7 @@ describe('원격 k-labor 라우트', () => {
 
   it('동시 요청 결과와 ID를 섞지 않는다', async () => {
     const results = await Promise.all([10000, 20000, 30000].map((hourlyWage, i) =>
-      call('calc_weekly_holiday_pay', { hourlyWage, weeklyHours: 40 }, 10 + i)));
+      call('calc_weekly_holiday_pay', { hourlyWage, weeklyHours: 40, ...PLAIN_WEEK }, 10 + i)));
     results.forEach(({ json }, i) => {
       expect(json.id).toBe(10 + i);
       expect(json.result.content[0].text).toContain(((i + 1) * 80000).toLocaleString('en-US'));
@@ -261,7 +263,7 @@ describe('원격 k-labor 라우트', () => {
     try {
       await client.connect(transport);
       expect((await client.listTools()).tools).toHaveLength(32);
-      const result = await client.callTool({ name: 'calc_weekly_holiday_pay', arguments: { hourlyWage: 10320, weeklyHours: 40 } });
+      const result = await client.callTool({ name: 'calc_weekly_holiday_pay', arguments: { hourlyWage: 10320, weeklyHours: 40, ...PLAIN_WEEK } });
       expect(result.isError).not.toBe(true);
       expect(JSON.stringify(result.content)).toContain('82,560');
     } finally {

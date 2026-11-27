@@ -61,7 +61,8 @@ const bad = (n: number | undefined) => n === undefined || !Number.isFinite(n) ||
  * holidayHours 를 주면 그 시간을 쓴다(주 6일제 통상 근로자처럼 1일 소정이 1주 ÷ 5와 다른 경우).
  */
 function weekHours(weeklyHours: number, holidayHours?: number): number {
-  const h = calcWeeklyHoliday({ hourlyWage: 1, weeklyHours, fullAttendance: true });
+  // 평상 주(개근·입사 주 아님·퇴사 주 아님)의 주휴 시간을 본다 — 셋을 다 넣는다. 비우면 엔진이 needs-input 으로 멈춰 주휴가 0이 된다(261127)
+  const h = calcWeeklyHoliday({ hourlyWage: 1, weeklyHours, fullAttendance: true, joinedMidWeek: false, endsBeforeWeekEnd: false });
   return weeklyHours + (h.status === 'paid' ? (holidayHours ?? Math.min(weeklyHours / 5, 8)) : 0);
 }
 

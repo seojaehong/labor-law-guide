@@ -22,7 +22,7 @@ function run(expression: string) {
   return JSON.parse(execFileSync(process.execPath, ['-'], { input: program, encoding: 'utf8' }));
 }
 const check = (patch: Record<string, unknown>) =>
-  run(`validateWorkerInput({...createDefaultWorker(), startDate:'2023-01-01', endDate:'2025-12-31', wage1:'3,000,000', ...${JSON.stringify(patch)}})`);
+  run(`validateWorkerInput({...createDefaultWorker(), weeklyHours:'40', startDate:'2023-01-01', endDate:'2025-12-31', wage1:'3,000,000', ...${JSON.stringify(patch)}})`);
 
 type Handler = (a: Record<string, unknown>) => Promise<{ content: { text: string }[] }>;
 function mcp(): Handler {
@@ -52,11 +52,11 @@ describe('I8 — 제외 일수가 있으면 그 기간 임금을 비워 두지 �
     expect(check({ excludedDays: '0' })).toBeNull();
   });
   it('웹: 임금 칸을 0 에서 빈칸으로 바꾸면 입력이 바뀐 것으로 본다(앞 결과를 그대로 두지 않는다)', () => {
-    const same = run(`(() => { const w = {...createDefaultWorker(), excludedDays:'30'}; return workerInputSignature({...w, excludedWage:'0'}) === workerInputSignature({...w, excludedWage:''}); })()`);
+    const same = run(`(() => { const w = {...createDefaultWorker(), weeklyHours:'40', excludedDays:'30'}; return workerInputSignature({...w, excludedWage:'0'}) === workerInputSignature({...w, excludedWage:''}); })()`);
     expect(same).toBe(false);
   });
   it('웹: 검증을 거치지 않고 계산해도 엔진이 멈춘다(빈칸을 0 으로 넘기지 않는다)', () => {
-    const msg = run(`(() => { try { calculateSeverance({...createDefaultWorker(), startDate:'2023-01-01', endDate:'2025-12-31', wage1:'9,000,000', wage2:'0', wage3:'0', excludedDays:'60'}); return 'calculated'; } catch (e) { return e.message; } })()`);
+    const msg = run(`(() => { try { calculateSeverance({...createDefaultWorker(), weeklyHours:'40', startDate:'2023-01-01', endDate:'2025-12-31', wage1:'9,000,000', wage2:'0', wage3:'0', excludedDays:'60'}); return 'calculated'; } catch (e) { return e.message; } })()`);
     expect(msg).toMatch(/그 기간에 받은 임금/);
   });
   it('MCP: excludedDays 만 넣으면 오류', async () => {
@@ -83,7 +83,7 @@ describe('I15 — 제외임금이 임금총액과 같으면 멈춘다', () => {
 
 describe('I10 — 인쇄 산정서와 상태줄에도 지급 대상 여부를 싣는다', () => {
   // A3 재현: 2025년 내내 주 14시간, 3개월 9,200,000, 세금 직접 0
-  const W = `{...createDefaultWorker(), startDate:'2025-01-01', endDate:'2025-12-31', wage1:'9,200,000', wage2:'0', wage3:'0', autoCalcTax:false, retirementTax:'0'`;
+  const W = `{...createDefaultWorker(), weeklyHours:'40', startDate:'2025-01-01', endDate:'2025-12-31', wage1:'9,200,000', wage2:'0', wage3:'0', autoCalcTax:false, retirementTax:'0'`;
   const statement = (patch: string) => run(`(() => { const w = ${W}, ${patch}}; return statementHtml(calculateSeverance(w), w); })()`) as string;
   const status = (patch: string) => run(`(() => { const w = ${W}, ${patch}}; return resultStatusText(calculateSeverance(w), w); })()`) as string;
 
@@ -102,9 +102,10 @@ describe('I10 — 인쇄 산정서와 상태줄에도 지급 대상 여부를 �
     expect(s).toMatch(/1년 미만이라 퇴직금 지급 대상이 아닙니다/);
     expect(s).not.toContain('실수령 퇴직금');
   });
-  it('시간을 비우면 산정서에 「지급 대상인지는 따지지 않았습니다」', () => {
-    const s = statement(`weeklyHours:''`);
-    expect(s).toMatch(/지급 대상인지는 따지지 않았습니다/);
+  // 261127 needs — 종전 「시간을 비우면 산정서에 따지지 않았다고 적고 금액은 낸다」를 뒤집었다. 금액도 산정서도 내지 않는다
+  it('시간을 비우면 산정서를 만들지 않는다 — 계산이 질문으로 멈춘다', () => {
+    const msg = run(`(() => { try { const w = ${W}, weeklyHours:''}; return statementHtml(calculateSeverance(w), w); } catch (e) { return 'stop:' + e.message; } })()`);
+    expect(msg).toMatch(/^stop:.*1주 근로시간이 몇 시간인가요/);
   });
   it('주 15시간·1년 이상이면 산정서는 종전 그대로(실수령 퇴직금, 알림 없음)', () => {
     const s = statement(`weeklyHours:'15'`);
@@ -116,7 +117,6 @@ describe('I10 — 인쇄 산정서와 상태줄에도 지급 대상 여부를 �
     expect(under).toMatch(/^계산했습니다\./);
     expect(under).toMatch(/지급 대상이 아닙니다/);
     expect(under).not.toMatch(/실수령/);
-    expect(status(`weeklyHours:''`)).toMatch(/지급 대상인지는 따지지 않았습니다/);
     expect(status(`weeklyHours:'40'`)).toBe('계산했습니다. 퇴직금은 3,000,000원, 세금을 뺀 실수령 추정은 3,000,000원입니다.');
     expect(script).toContain('setResultStatus(resultStatusText(result, w))');
   });

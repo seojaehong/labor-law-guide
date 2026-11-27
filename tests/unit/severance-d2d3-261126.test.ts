@@ -35,11 +35,13 @@ describe('D2 — 챗봇·API calc_severance 지급 대상', () => {
     expect(r).toMatchObject({ eligible: false, status: 'under-15h', one_year: true, hours_15: false });
     expect(r.legal_basis).toMatch(/15시간 미만/);
   });
-  it('시간을 받지 않으면 hours-unknown·eligible false, 근거에 「판정 보류 — 1주 소정근로시간을 알려 주세요」', () => {
+  // 261127 needs — 종전 「판정 보류 + 금액 8,812,389원」을 뒤집었다. 금액을 내지 않고 needs 로 묻는다. 「판정 보류」는 금지어라 쓰지 않는다
+  it('시간을 받지 않으면 hours-unknown·eligible false, 금액 null, needs = weekly_hours', () => {
     const r = chat(BASE);
-    expect(r).toMatchObject({ eligible: false, status: 'hours-unknown', one_year: true, hours_15: null });
-    expect(r.legal_basis).toContain('판정 보류 — 1주 소정근로시간을 알려 주세요');
-    expect(r.severance_pay).toBe(8_812_389);
+    expect(r).toMatchObject({ eligible: false, status: 'hours-unknown', one_year: true, hours_15: null, severance_pay: null });
+    expect(r.needs.map((n: { key: string }) => n.key)).toEqual(['weekly_hours']);
+    expect(r.legal_basis).toContain('1주 소정근로시간을 몰라 금액을 내지 않았다');
+    expect(r.legal_basis).not.toContain('판정 보류');
   });
   it('1년 미만은 시간과 상관없이 under-1y, one_year false', () => {
     const r = chat({ hire_date: '2026-01-01', last_work_date: '2026-06-30', wages_3months: [3_000_000, 3_000_000, 3_000_000], weekly_hours: 40 });

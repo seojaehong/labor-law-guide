@@ -322,6 +322,10 @@ const FEATURES: Record<string, { path: string; journey: Journey; waitUntil?: 'lo
       step('퇴직일(산정사유발생일) = 마지막 근무일 다음 날', '2026-01-01', await p.inputValue('#retireDate'));
       await p.fill('#wage1', '9000000');
       await p.dispatchEvent('#wage1', 'input');
+      // 261127 needs — 1주 소정근로시간을 비우면 금액 없이 묻는다(1년 이상 재직). 넣으면 종전 금액
+      await p.click('button.btn-primary:has-text("계산하기")');
+      step('주 시간 비움 → 금액 없이 질문(엔진 needs)', /1주 근로시간이 몇 시간인가요.*금액을 내지 않습니다/, (await p.textContent('#calcStatus')) ?? '');
+      await p.fill('#weeklyHours', '40');
       await p.click('button.btn-primary:has-text("계산하기")');
       await p.waitForSelector('#resultArea:visible');
       step('퇴직금 계산기(고용노동부 계산기 값)', '97,826.09 × 30 × 1,096일 ÷ 365 = 8,812,389원', await answer(p, '#resultArea'));
@@ -332,13 +336,16 @@ const FEATURES: Record<string, { path: string; journey: Journey; waitUntil?: 'lo
       const periods = await p.evaluate(() => [1, 2, 3].map((i) => document.getElementById('periodText' + i)?.textContent).join(' '));
       step('5.30 마지막 근무(5.31 퇴직) → 3.1부터', '3.1~3.31 4.1~4.30 5.1~5.30', periods);
       // /exit 와 같은 사람 — 입사 2023-03-01 · 마지막 근무일 2026-10-31 · 월 300만 → 1,341일 · 10,782,311원(/exit 운영 실측값)
-      await p.goto(`${BASE}/tools/severance.html?start=2023-03-01&last=2026-10-31&w1=3000000&w2=3000000&w3=3000000&run=1`, { waitUntil: 'networkidle' });
+      await p.goto(`${BASE}/tools/severance.html?start=2023-03-01&last=2026-10-31&w1=3000000&w2=3000000&w3=3000000&weeklyHours=40&run=1`, { waitUntil: 'networkidle' });
       await p.waitForSelector('#resultArea:visible');
       step('?last= 마지막 근무일 = /exit 와 같은 퇴직금', /× 30 × 1,341일 ÷ 365 = 10,782,311원/, await answer(p, '#resultArea'));
       // 챗봇 답 끝 링크(src/lib/chat/severance-link.ts)와 같은 모양 — end = 퇴직일(마지막 근무일 다음 날), 계산기가 하루 뺀다. ?run=1 자동 계산
+      // 챗봇이 주 시간을 받지 않았으면 링크에 weeklyHours 가 없다 — 계산기도 금액 없이 묻는다(261127 needs, 챗봇 답도 severance_pay null)
       await p.goto(`${BASE}/tools/severance.html?start=2023-01-01&end=2026-01-01&w1=3000000&w2=3000000&w3=3000000&run=1`, { waitUntil: 'networkidle' });
-      await p.waitForSelector('#resultArea:visible');
       step('옛 ?end= 링크 → 마지막 근무일 칸 2025-12-31', '2025-12-31', await p.inputValue('#endDate'));
+      step('주 시간 없는 챗봇 링크 → 금액 없이 질문', /1주 근로시간이 몇 시간인가요/, (await p.textContent('#calcStatus')) ?? '');
+      await p.goto(`${BASE}/tools/severance.html?start=2023-01-01&end=2026-01-01&w1=3000000&w2=3000000&w3=3000000&weeklyHours=40&run=1`, { waitUntil: 'networkidle' });
+      await p.waitForSelector('#resultArea:visible');
       step('챗봇 링크로 연 계산기 = 챗봇 답', /8,812,389원/, await answer(p, '#resultArea'));
     },
   },
@@ -747,7 +754,7 @@ const FEATURES: Record<string, { path: string; journey: Journey; waitUntil?: 'lo
       const money = () => answer(p, '[data-part="money"] section[aria-live]');
       // 보기 글자가 입력 뒤에 와서 getByLabel 정규식(/^예/)은 앞 공백 때문에 못 찾는다 — radio 이름으로 고른다
       const pick = async (q: RegExp, option: RegExp) => p.getByRole('group', { name: q }).getByRole('radio', { name: option }).check();
-      const Q = [/^회사가 업무 내용을/, /^회사가 근무시간과/, /^일에 쓰는 비품/, /^다른 사람을 써서/, /^보수가 일한 시간/, /^기본급이나 고정급/, /^보수에서 근로소득세를/, /^회사 취업규칙/];
+      const Q = [/^회사가 업무 내용을/, /^회사가 근무시간과/, /^일에 쓰는 비품/, /^다른 사람을 고용해/, /^보수가 일한 시간/, /^기본급이나 고정급/, /^보수에서 근로소득세를/, /^회사 취업규칙/];
       step('답 없음 = 확인이 필요합니다', '확인이 필요합니다', await check());
       step('M1 300만 — 나란히', /3\.3%로 떼면 2,901,000원, 근로소득으로 떼면 2,626,700원/, await money());
       // P3 — 2004다29736 사실관계형: Q1·Q2 예, Q3·Q4 아니요, Q5 시간·일수, Q6~Q8 아니요(고정급 없음·3.3%·취업규칙 미적용)
@@ -989,9 +996,16 @@ async function api(step: (n: string, e: string | RegExp, g: string) => void) {
   const r = await fetch(`${BASE}/api/tools/calc`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ tool: 'calc_severance', args: { hire_date: '2023-01-01', last_work_date: '2025-12-31', wages_3months: [3000000, 3000000, 3000000] } }),
+    body: JSON.stringify({ tool: 'calc_severance', args: { hire_date: '2023-01-01', last_work_date: '2025-12-31', wages_3months: [3000000, 3000000, 3000000], weekly_hours: 40 } }),
   }).then((x) => x.json());
   step('챗봇 계산 API 퇴직금', '8812389', String(r?.result?.severance_pay));
+  // 261127 needs — 주 시간 없이 부르면 금액 null·needs 에 물을 질문
+  const n = await fetch(`${BASE}/api/tools/calc`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ tool: 'calc_severance', args: { hire_date: '2023-01-01', last_work_date: '2025-12-31', wages_3months: [3000000, 3000000, 3000000] } }),
+  }).then((x) => x.json());
+  step('챗봇 계산 API 주 시간 없음 → 금액 null·needs', 'null weekly_hours', `${n?.result?.severance_pay} ${n?.result?.needs?.[0]?.key}`);
 }
 
 async function drive(id: string) {

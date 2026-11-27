@@ -72,27 +72,28 @@ const SEV_BASIS =
   '근로자퇴직급여 보장법 제8조 + 시행령 제3조 / 퇴직금 = 1일평균임금 × 30 × 재직일수 ÷ 365 (고용노동부 퇴직금 계산기와 같은 끝수: 평균임금 소수 둘째 자리 올림, 퇴직금 원 단위 반올림) / 평균임금 = 퇴직 직전 3개월 임금총액 / 총일수 (상여금·연차수당 가산) / 통상임금이 더 높으면 통상임금 사용';
 
 // 261126 재홍님 결정 D2 — eligible 이 웹 엔진과 같은 뜻(1년 그리고 주 15시간)이 되고 status·one_year·hours_15 가 붙었다.
-// 시간을 넣지 않은 이 호출은 hours-unknown 이라 eligible false, 근거 끝에 「판정 보류」 한 줄. 금액·세액은 그대로다.
-const HOURS_UNKNOWN_NOTE = ' / ★ 판정 보류 — 1주 소정근로시간을 알려 주세요. 4주 평균 1주 소정근로시간이 15시간 이상이어야 지급 대상이다(퇴직급여법 제4조 제1항 단서)';
+// 261127 needs — 시간을 넣지 않으면 금액·세액을 내지 않는다(severance-d2d3·engine-needs 시험). 그래서 이 스냅숏은 주 40시간으로 본다.
+// 금액·세액은 종전 스냅숏 그대로다. needs·assumptions 두 키가 severance_pay 뒤에 붙었다.
 
 describe('응답 모양 — 챗봇·/api/tools/calc 의 calc_severance(include_tax)', () => {
-  it('S1 3년 · 8,812,389원 — 키 순서와 값(261126 D2 갱신: status·one_year·hours_15, 시간 없으면 eligible false)', () => {
-    const r = chat.calcSeverance({ hire_date: '2023-01-01', last_work_date: '2025-12-31', wages_3months: [3_000_000, 3_000_000, 3_000_000], include_tax: true });
+  it('S1 3년 · 8,812,389원 — 키 순서와 값(261127 갱신: 주 40시간 → eligible, needs·assumptions 빈 배열)', () => {
+    const r = chat.calcSeverance({ hire_date: '2023-01-01', last_work_date: '2025-12-31', wages_3months: [3_000_000, 3_000_000, 3_000_000], weekly_hours: 40, include_tax: true });
     expect(Object.keys(r)).toEqual([
       'hire_date', 'last_work_date', 'retirement_date', 'service_days', 'eligible', 'status', 'one_year', 'hours_15', 'three_months_start', 'total_days_3m', 'wage_total',
       'bonus_addition', 'annual_leave_addition', 'avg_wage_base', 'daily_avg_wage', 'applied_daily_wage', 'wage_type', 'severance_pay',
-      'legal_basis', 'tax', 'net_severance',
+      'needs', 'assumptions', 'legal_basis', 'tax', 'net_severance',
     ]);
     expect(Object.keys(r.tax!)).toEqual([
       'severance_pay', 'service_years', 'svc_deduction', 'after_deduction', 'converted_wage', 'cw_deduction', 'tax_base',
       'converted_tax', 'income_tax', 'local_tax', 'total_tax', 'legal_basis',
     ]);
     expect(r).toEqual({
-      hire_date: '2023-01-01', last_work_date: '2025-12-31', retirement_date: '2026-01-01', service_days: 1096, eligible: false,
-      status: 'hours-unknown', one_year: true, hours_15: null,
+      hire_date: '2023-01-01', last_work_date: '2025-12-31', retirement_date: '2026-01-01', service_days: 1096, eligible: true,
+      status: 'eligible', one_year: true, hours_15: true,
       three_months_start: '2025-10-01', total_days_3m: 92, wage_total: 9_000_000, bonus_addition: 0, annual_leave_addition: 0,
       avg_wage_base: 9_000_000, daily_avg_wage: 97826.09, applied_daily_wage: 97826.09, wage_type: '평균임금', severance_pay: 8_812_389,
-      legal_basis: SEV_BASIS + HOURS_UNKNOWN_NOTE,
+      needs: [], assumptions: [],
+      legal_basis: SEV_BASIS,
       tax: {
         severance_pay: 8_812_389, service_years: 3, svc_deduction: 3_000_000, after_deduction: 5_812_389, converted_wage: 23_249_556,
         cw_deduction: 17_149_733, tax_base: 6_099_823, converted_tax: 365_989, income_tax: 91_490, local_tax: 9_140, total_tax: 100_630,
@@ -103,7 +104,7 @@ describe('응답 모양 — 챗봇·/api/tools/calc 의 calc_severance(include_t
   });
 
   it('S2 §48② 상한 — svc_deduction 은 예전처럼 표 값 3,000,000(상한 적용값 아님), after_deduction 0', () => {
-    const r = chat.calcSeverance({ hire_date: '2023-07-03', last_work_date: '2026-07-02', wages_3months: [700_000, 700_000, 700_000], include_tax: true });
+    const r = chat.calcSeverance({ hire_date: '2023-07-03', last_work_date: '2026-07-02', wages_3months: [700_000, 700_000, 700_000], weekly_hours: 40, include_tax: true });
     expect(r.severance_pay).toBe(2_078_820);
     expect(r.tax).toEqual({
       severance_pay: 2_078_820, service_years: 3, svc_deduction: 3_000_000, after_deduction: 0, converted_wage: 0, cw_deduction: 0,
@@ -113,7 +114,7 @@ describe('응답 모양 — 챗봇·/api/tools/calc 의 calc_severance(include_t
   });
 
   it('S3 17년 · 상여 가산 — 128,928,086원', () => {
-    const r = chat.calcSeverance({ hire_date: '2010-01-04', last_work_date: '2026-10-27', wages_3months: [7_000_000, 7_000_000, 7_000_000], annual_bonus: 10_000_000, include_tax: true });
+    const r = chat.calcSeverance({ hire_date: '2010-01-04', last_work_date: '2026-10-27', wages_3months: [7_000_000, 7_000_000, 7_000_000], annual_bonus: 10_000_000, weekly_hours: 40, include_tax: true });
     expect(r.tax).toEqual({
       severance_pay: 128_928_086, service_years: 17, svc_deduction: 32_500_000, after_deduction: 96_428_086, converted_wage: 68_066_884,
       cw_deduction: 44_040_130, tax_base: 24_026_754, converted_tax: 2_344_013, income_tax: 3_320_680, local_tax: 332_060, total_tax: 3_652_740,
@@ -130,7 +131,7 @@ describe('응답 모양 그대로 — 계산기 calculateSeverance', () => {
   };
 
   it('H1 입사 2023-01-01 · 마지막 근무일 2025-12-31(퇴직일 2026-01-01) · 9,000,000원', () => {
-    const r = run<Record<string, unknown>>(`calculateSeverance({...createDefaultWorker(),startDate:'2023-01-01',endDate:'2025-12-31',wage1:'9000000'})`);
+    const r = run<Record<string, unknown>>(`calculateSeverance({...createDefaultWorker(),weeklyHours:'40',startDate:'2023-01-01',endDate:'2025-12-31',wage1:'9000000'})`);
     expect(r).toMatchObject({ serviceDays: 1096, serviceYears: 3, severancePay: 8_812_389, priorSev: 0, retirementTax: 91_490, localTax: 9_140, totalTax: 100_630, netSeverance: 8_711_759 });
     expect(r.taxResult).toEqual(H1_TAX);
   });
@@ -138,7 +139,7 @@ describe('응답 모양 그대로 — 계산기 calculateSeverance', () => {
   // 조건 4 — 중간정산 칸은 지급액에서만 뺀다. 세금은 전체 퇴직금으로 센다(예전 동작 그대로)
   it('H3 중간정산 5,000,000원 — 세액은 퇴직금 전액으로, 실수령에서만 뺀다', () => {
     const r = run<{ severancePay: number; priorSev: number; retirementTax: number; localTax: number; netSeverance: number; taxResult: HtmlTax }>(
-      `calculateSeverance({...createDefaultWorker(),startDate:'2010-01-04',endDate:'2026-10-27',wage1:'21000000',bonusTotal:'10000000',priorSeverance:'5000000'})`,
+      `calculateSeverance({...createDefaultWorker(),weeklyHours:'40',startDate:'2010-01-04',endDate:'2026-10-27',wage1:'21000000',bonusTotal:'10000000',priorSeverance:'5000000'})`,
     );
     expect(r.severancePay).toBe(128_928_086);
     expect(r.priorSev).toBe(5_000_000);
@@ -217,7 +218,7 @@ describe('근속연수 — 계산기 calcServiceYears(입사, 마지막 근무�
       const h = Date.parse(`${hire}T00:00:00Z`);
       for (let k = 300; k <= 1500; k += 7) {
         const last = iso(h + k * DAY);
-        const r = chat.calcSeverance({ hire_date: hire, last_work_date: last, wages_3months: [3_000_000, 3_000_000, 3_000_000], include_tax: true });
+        const r = chat.calcSeverance({ hire_date: hire, last_work_date: last, wages_3months: [3_000_000, 3_000_000, 3_000_000], weekly_hours: 40, include_tax: true });
         if (r.tax?.service_years !== ntsYears(hire, last) && bad.length < 10) bad.push(`${hire}~${last} chat=${r.tax?.service_years}`);
       }
     }
@@ -294,7 +295,7 @@ describe('2023. 1. 1. 이전 퇴사 — 세액을 내지 않고 이유를 적는
   it('P1 계산기 — 마지막 근무일 2022-12-31(퇴직일 2023-01-01)이면 세액 칸 대신 이유, 퇴직금은 그대로(예전엔 603,990원을 조용히 냈다)', () => {
     expect(htmlTax(50_000_000, '2012-01-02', '2022-12-31')).toEqual({ skipped: expect.stringMatching(/부칙 제13조·제14조/) });
     const r = run<{ severancePay: number; taxResult: unknown; retirementTax: number; localTax: number; netSeverance: number; taxNotice: string }>(
-      `calculateSeverance({...createDefaultWorker(),startDate:'2012-01-02',endDate:'2022-12-31',wage1:'15000000'})`,
+      `calculateSeverance({...createDefaultWorker(),weeklyHours:'40',startDate:'2012-01-02',endDate:'2022-12-31',wage1:'15000000'})`,
     );
     expect(r.severancePay).toBe(53_831_150);
     expect(r.taxResult).toBeNull();
@@ -307,7 +308,7 @@ describe('2023. 1. 1. 이전 퇴사 — 세액을 내지 않고 이유를 적는
 
   it('T9 경계 — 계산기 마지막 근무일 2023-01-01(퇴직일 2023-01-02)은 계산한다', () => {
     const r = run<{ taxResult: HtmlTax | null; taxNotice: string }>(
-      `calculateSeverance({...createDefaultWorker(),startDate:'2018-01-02',endDate:'2023-01-01',wage1:'15000000'})`,
+      `calculateSeverance({...createDefaultWorker(),weeklyHours:'40',startDate:'2018-01-02',endDate:'2023-01-01',wage1:'15000000'})`,
     );
     expect(r.taxResult).not.toBeNull();
     expect(r.taxNotice).toBe('');
@@ -315,13 +316,13 @@ describe('2023. 1. 1. 이전 퇴사 — 세액을 내지 않고 이유를 적는
 
   it('자동 계산을 끄고 넣은 세액은 2022년 퇴사도 그대로 쓴다(직접 입력 경로)', () => {
     const r = run<{ retirementTax: number; localTax: number; taxNotice: string }>(
-      `calculateSeverance({...createDefaultWorker(),startDate:'2012-01-02',endDate:'2022-12-31',wage1:'15000000',autoCalcTax:false,retirementTax:'1,281,990'})`,
+      `calculateSeverance({...createDefaultWorker(),weeklyHours:'40',startDate:'2012-01-02',endDate:'2022-12-31',wage1:'15000000',autoCalcTax:false,retirementTax:'1,281,990'})`,
     );
     expect([r.retirementTax, r.localTax, r.taxNotice]).toEqual([1_281_990, 128_190, '']);
   });
 
   it('P1 챗봇 — tax·net_severance 없이 퇴직금을 내고 legal_basis 에 이유를 붙인다', () => {
-    const r = chat.calcSeverance({ hire_date: '2012-01-02', last_work_date: '2022-12-31', wages_3months: [5_000_000, 5_000_000, 5_000_000], include_tax: true });
+    const r = chat.calcSeverance({ hire_date: '2012-01-02', last_work_date: '2022-12-31', wages_3months: [5_000_000, 5_000_000, 5_000_000], weekly_hours: 40, include_tax: true });
     expect(r.severance_pay).toBe(53_831_150);
     expect(r).not.toHaveProperty('tax');
     expect(r).not.toHaveProperty('net_severance');
@@ -331,7 +332,7 @@ describe('2023. 1. 1. 이전 퇴사 — 세액을 내지 않고 이유를 적는
   });
 
   it('P2 챗봇 도구·공개 API 도 오류가 아니라 퇴직금을 돌려준다', async () => {
-    const args = { hire_date: '2017-07-01', last_work_date: '2022-06-30', wages_3months: [3_000_000, 3_000_000, 3_000_000], include_tax: true };
+    const args = { hire_date: '2017-07-01', last_work_date: '2022-06-30', wages_3months: [3_000_000, 3_000_000, 3_000_000], weekly_hours: 40, include_tax: true };
     const t = (await executeTool('calc_severance', args)) as { error?: string; severance_pay?: number; tax?: unknown };
     expect(t.error).toBeUndefined();
     expect(t.severance_pay).toBeGreaterThan(0);

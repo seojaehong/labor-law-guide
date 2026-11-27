@@ -17,7 +17,7 @@ function evaluate(tz: string, expression: string) {
   const program = `const vm = require('node:vm'); const context = vm.createContext({document:{addEventListener(){}}}); vm.runInContext(${JSON.stringify(script)}, context); console.log(JSON.stringify(vm.runInContext(${JSON.stringify(expression)}, context)));`;
   return JSON.parse(execFileSync(process.execPath, ['-'], { input: program, env: { ...process.env, TZ: tz }, encoding: 'utf8' }));
 }
-const expression = `${JSON.stringify(dates)}.map(([startDate,endDate])=>({retire:retirementDateOf(endDate),days:dateDiffDays(startDate,retirementDateOf(endDate)),years:calcServiceYears(startDate,endDate),periods:calc3MonthPeriod(endDate),result:calculateSeverance({...createDefaultWorker(),startDate,endDate,wage1:'3000000',wage2:'3000000',wage3:'3000000'})}))`;
+const expression = `${JSON.stringify(dates)}.map(([startDate,endDate])=>({retire:retirementDateOf(endDate),days:dateDiffDays(startDate,retirementDateOf(endDate)),years:calcServiceYears(startDate,endDate),periods:calc3MonthPeriod(endDate),result:calculateSeverance({...createDefaultWorker(),weeklyHours:'40',startDate,endDate,wage1:'3000000',wage2:'3000000',wage3:'3000000'})}))`;
 
 describe('date-only retirement calendar', () => {
   const expected = evaluate('Asia/Seoul', expression);
@@ -32,8 +32,8 @@ describe('date-only retirement calendar', () => {
   });
   it('rejects impossible dates instead of silently rolling into next month', () => {
     expect(evaluate('America/Los_Angeles', `['2026-02-30','2025-02-29','2026-13-01','2026-1-01',''].map(value=>Number.isNaN(parseDateOnlyUTC(value).getTime()))`)).toEqual([true,true,true,true,true]);
-    expect(evaluate('UTC', `calculateSeverance({...createDefaultWorker(),startDate:'2026-02-30',endDate:'2026-12-31'})`)).toBeNull();
-    expect(evaluate('UTC', `calculateSeverance({...createDefaultWorker(),startDate:'2026-01-01',endDate:'2026-02-30'})`)).toBeNull();
+    expect(evaluate('UTC', `calculateSeverance({...createDefaultWorker(),weeklyHours:'40',startDate:'2026-02-30',endDate:'2026-12-31'})`)).toBeNull();
+    expect(evaluate('UTC', `calculateSeverance({...createDefaultWorker(),weeklyHours:'40',startDate:'2026-01-01',endDate:'2026-02-30'})`)).toBeNull();
   });
   it('formats report dates using the same UTC calendar', () => {
     expect(script).toContain('const startDate = parseDateOnlyUTC(w.startDate)');

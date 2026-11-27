@@ -28,6 +28,7 @@ describe('챗봇 → 퇴직금 계산기 링크', () => {
     wages_3months: [3_000_000, 3_000_000, 3_000_000] as [number, number, number],
     annual_bonus: 1_200_000,
     annual_leave_pay: 400_000,
+    weekly_hours: 40, // 261127 — 시간이 없으면 양쪽 다 금액을 내지 않는다. 링크에 weeklyHours 로 실린다
   };
 
   it('링크로 연 계산기가 챗봇 답과 같은 금액을 낸다(링크 end = 퇴직일, 칸 = 마지막 근무일)', () => {
@@ -38,7 +39,7 @@ describe('챗봇 → 퇴직금 계산기 링크', () => {
     const last = run<string>(`lastWorkDateFromQuery(k => (${query})[k] ?? null)`);
     expect(last).toBe(args.last_work_date);
     const r = run<{ severancePay: number }>(
-      `calculateSeverance({...createDefaultWorker(),startDate:'${p.get('start')}',endDate:'${last}',wage1:'${p.get('w1')}',wage2:'${p.get('w2')}',wage3:'${p.get('w3')}',bonusTotal:'${p.get('bonusTotal')}',annualLeave:'${p.get('annualLeave') ?? 0}'})`,
+      `calculateSeverance({...createDefaultWorker(),startDate:'${p.get('start')}',endDate:'${last}',wage1:'${p.get('w1')}',wage2:'${p.get('w2')}',wage3:'${p.get('w3')}',bonusTotal:'${p.get('bonusTotal')}',annualLeave:'${p.get('annualLeave') ?? 0}',weeklyHours:'${p.get('weeklyHours')}'})`,
     );
     expect(r.severancePay).toBe(calcSeverance(args).severance_pay);
   });
@@ -61,7 +62,7 @@ describe('챗봇 → 퇴직금 계산기 링크', () => {
 
 describe('챗봇 최저임금 — rates.ts 와 정본 엔진', () => {
   it('2027년은 10,700원으로 본다', () => {
-    const r = chatMinWage({ base_pay: 2_200_000, year: 2027 });
+    const r = chatMinWage({ base_pay: 2_200_000, year: 2027, weekly_hours: 40 });
     expect(r.min_hourly).toBe(10_700);
     expect(r.ok).toBe(false);
     expect(r.shortfall).toBe(36_300);
@@ -117,7 +118,7 @@ describe('퇴직소득세', () => {
   });
 
   it('근속연수는 챗봇과 계산기가 같은 날까지 센다', () => {
-    const r = calcSeverance({ hire_date: '2023-01-01', last_work_date: '2026-01-01', wages_3months: [3_000_000, 3_000_000, 3_000_000], include_tax: true });
+    const r = calcSeverance({ hire_date: '2023-01-01', last_work_date: '2026-01-01', wages_3months: [3_000_000, 3_000_000, 3_000_000], weekly_hours: 40, include_tax: true });
     expect(r.tax!.service_years).toBe(run<number>(`calcServiceYears('2023-01-01','2026-01-02')`));
     expect(r.tax!.service_years).toBe(4);
   });

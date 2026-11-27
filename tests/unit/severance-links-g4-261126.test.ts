@@ -38,10 +38,14 @@ describe('챗봇 계산기 링크', () => {
     expect(props.weekly_hours?.description).toMatch(/계산기 링크/);
     expect((fn.parameters as unknown as { required: string[] }).required).not.toContain('weekly_hours');
   });
-  it('weekly_hours 는 금액을 바꾸지 않고 지급 대상만 가른다(261126 D2)', () => {
+  // 261127 needs — 시간이 없으면 금액을 내지 않는다(종전 261126 D2: 금액은 같고 지급 대상만 갈랐다)
+  it('weekly_hours 가 있으면 금액(15시간 미만은 참고값), 없으면 금액 null·needs', () => {
     const withHours = calcSeverance({ ...ARGS, weekly_hours: 12 });
+    const full = calcSeverance({ ...ARGS, weekly_hours: 40 });
     const without = calcSeverance(ARGS);
-    expect(withHours.severance_pay).toBe(without.severance_pay);
+    expect(withHours.severance_pay).toBe(full.severance_pay);
+    expect(without.severance_pay).toBeNull();
+    expect(without.needs.map((n) => n.key)).toEqual(['weekly_hours']);
     expect([withHours.status, without.status]).toEqual(['under-15h', 'hours-unknown']);
   });
 });
@@ -50,7 +54,7 @@ describe('/exit 계산기 링크', () => {
   const hire = '2023-03-02';
   const last = '2026-11-30';
   const view = (weeklyHours?: number) =>
-    exitResultView({ check: severanceCheck(hire, last, weeklyHours ?? 40), sev: estimateSeverance(hire, last, 3_000_000), lv: null, ent: null, weeklyHours });
+    exitResultView({ check: severanceCheck(hire, last, weeklyHours ?? 40), sev: estimateSeverance(hire, last, 3_000_000, weeklyHours ?? 40), lv: null, ent: null, weeklyHours });
   it('주 시간을 넣었으면 「퇴직금 계산기로 자세히 계산」 링크에 weeklyHours 를 싣는다', () => {
     const link = view(30).next.find((n) => n.label === '퇴직금 계산기로 자세히 계산')!;
     expect(link.href).toBe('/tools/severance.html?weeklyHours=30');

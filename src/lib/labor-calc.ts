@@ -3,6 +3,7 @@
 // 산식 정확성: 실제 매장 급여 처리에 사용 중인 검증된 코드와 동일
 
 import { calcSeverance as severanceEngine } from './calc/severance';
+import type { Assumption, Need } from './calc/needs';
 import { calcRetirementTax as retirementTaxEngine } from './calc/retirement-tax';
 import { checkMinWage as minWageEngine } from './calc/min-wage';
 import { rateOn } from '@/content/rates';
@@ -15,6 +16,24 @@ import { dailyOrdinaryWage, dec2, hourlyOrdinaryWage, payableWon } from './calc/
 // 고시가 없는 해는 다른 해 값으로 대신하지 않고 오류를 낸다.
 const DEFAULT_MONTHLY_HOURS = 209; // 주40h + 주휴8h = 월 209h
 
+// 261127 — 공통 형식(./calc/needs.ts). 최저임금의 주 시간은 이상·미달을 뒤집으므로 needs, 통상임금의 월 209시간은 금액만 바꾸므로 assumptions
+const MIN_WAGE_HOURS_NEED: Need = {
+  key: 'weekly_hours',
+  question: '근로계약서에 적힌 1주 근로시간이 몇 시간인가요? 연장근로는 빼고 알려 주세요.',
+  why: '월급을 최저임금과 비교할 때는 (1주 소정근로시간 + 주휴 시간) × 365 ÷ 7 ÷ 12 시간으로 나눕니다(최저임금법 시행령 제5조제1항). 시간이 달라지면 이상·미달이 바뀌므로 이 시간을 알기 전에는 비교하지 않습니다.',
+};
+const monthlyHoursAssumption = (): Assumption => ({
+  key: 'monthly_hours',
+  value: DEFAULT_MONTHLY_HOURS,
+  note: '월 소정근로시간을 넣지 않아 주 40시간(주휴 포함 월 209시간)으로 보았습니다. 1주 근로시간이 40시간보다 짧거나 길면 시간급이 달라지니 월 소정근로시간을 넣어 다시 계산합니다.',
+});
+/** 월 소정근로시간 — 넣지 않으면 209(assumptions 에 적는다). 0 이하는 오류(종전 `|| 209` 는 0 도 209 로 바꿨다) */
+function monthlyHoursOf(v: number | undefined): number {
+  if (v == null) return DEFAULT_MONTHLY_HOURS;
+  if (!(Number.isFinite(v) && v > 0)) throw new Error('월 소정근로시간을 확인해 주세요');
+  return v;
+}
+
 export function checkMinWage(input: {
   base_pay: number;
   fixed_allowances?: number;
@@ -24,9 +43,26 @@ export function checkMinWage(input: {
   const year = input.year || Number(todayKst().slice(0, 4));
   const rate = rateOn('minWageHourly', `${year}-01-01`);
   if (!rate) throw new Error(`${year}년 최저임금 고시를 찾지 못했습니다. 고시된 해만 계산합니다.`);
-  const weekly_hours = input.weekly_hours || 40;
-  const r = minWageEngine({ unit: 'month', amount: input.base_pay + (input.fixed_allowances || 0), weeklyHours: weekly_hours, minHourly: rate.value });
   const won = (n: number) => n.toLocaleString('ko-KR');
+  const assumptions: Assumption[] = input.year ? [] : [{ key: 'year', value: year, note: `해를 넣지 않아 올해(${year}년) 최저임금과 비교했습니다.` }];
+  // 주 시간을 모르면 비교하지 않는다 — 종전에는 주 40시간으로 채워 「한 달 ○원 적음」을 단정했다(261127)
+  if (input.weekly_hours == null) {
+    return {
+      ok: null,
+      actual: input.base_pay + (input.fixed_allowances || 0),
+      min_monthly: null,
+      min_hourly: rate.value,
+      monthly_hours: null,
+      actual_hourly: null,
+      shortfall: null,
+      needs: [MIN_WAGE_HOURS_NEED],
+      assumptions,
+      message: `1주 소정근로시간을 알아야 ${year}년 최저임금과 비교할 수 있습니다. 월 환산 시간이 이 시간으로 정해집니다.`,
+      legal_basis: `최저임금법 제5조·제6조, 시행령 제5조 제1항 / ${rate.basis} 시간급 ${won(rate.value)}원`,
+    };
+  }
+  const weekly_hours = input.weekly_hours;
+  const r = minWageEngine({ unit: 'month', amount: input.base_pay + (input.fixed_allowances || 0), weeklyHours: weekly_hours, minHourly: rate.value });
   return {
     ok: r.meets,
     actual: r.counted,
@@ -35,6 +71,8 @@ export function checkMinWage(input: {
     monthly_hours: r.hours,
     actual_hourly: r.hourly,
     shortfall: r.shortfall,
+    needs: [] as Need[],
+    assumptions,
     message: r.meets
       ? `${year}년 최저임금 이상 (시간당 ${won(r.hourly)}원 ≥ ${won(rate.value)}원)`
       : `${year}년 최저임금보다 한 달 ${won(r.shortfall)}원 적음 (시간당 ${won(r.hourly)}원 < ${won(rate.value)}원)`,
@@ -45,9 +83,10 @@ export function checkMinWage(input: {
 // ────────────── 2. 통상임금 ──────────────
 export function calcOrdinaryWage(input: {
   monthly_fixed_pay: number; // 매월 정기·일률 지급 임금 (기본급 + 고정수당)
-  monthly_hours?: number; // 월 통상근로시간 (기본 209)
+  monthly_hours?: number; // 월 통상근로시간 (넣지 않으면 209 — assumptions 에 적는다)
 }) {
-  const monthly_hours = input.monthly_hours || DEFAULT_MONTHLY_HOURS;
+  const monthly_hours = monthlyHoursOf(input.monthly_hours);
+  const assumptions: Assumption[] = input.monthly_hours == null ? [monthlyHoursAssumption()] : [];
   const ordinary_monthly = input.monthly_fixed_pay;
   // 261113 — 끝수 규칙(src/lib/calc/wage-rounding.ts): 시간급·1일 통상임금은 버리지 않고 끝수 그대로 둔다.
   // 예전에는 시급을 원 단위로 버려(14,354원) 수당이 정확값보다 적게 나왔다.
@@ -59,6 +98,8 @@ export function calcOrdinaryWage(input: {
     ordinary_daily,
     ordinary_hourly_text: dec2(ordinary_hourly),
     ordinary_daily_text: dec2(ordinary_daily),
+    needs: [] as Need[],
+    assumptions,
     rounding: '시간급·1일 통상임금은 끝수를 버리지 않는다. 수당은 마지막 금액에서 원 미만을 올린다. calc_overtime 에는 ordinary_hourly 를 끝수 그대로 넘기거나 monthly_fixed_pay 를 넘긴다.',
     legal_basis:
       '근로기준법 시행령 제6조 / 통상임금 = 정기·일률·고정 임금 / 월 소정근로시간(209h, 주40h+주휴) / ' +
@@ -79,10 +120,12 @@ export function calcOvertime(input: {
 }) {
   // 261113 — 끝수 규칙(src/lib/calc/wage-rounding.ts): 원 미만은 수당마다 마지막 금액에서 한 번 올린다.
   const monthly = input.monthly_fixed_pay;
-  const hours = input.monthly_hours || DEFAULT_MONTHLY_HOURS;
+  const hours = monthlyHoursOf(input.monthly_hours);
   if (!(monthly && monthly > 0) && !(input.ordinary_hourly && input.ordinary_hourly > 0)) {
     throw new Error('통상시급(ordinary_hourly) 또는 월 통상임금(monthly_fixed_pay)이 필요합니다.');
   }
+  // 월 통상임금으로 셀 때만 209 를 쓴다 — 통상시급을 받으면 월 시간은 쓰지 않는다
+  const assumptions: Assumption[] = monthly && monthly > 0 && input.monthly_hours == null ? [monthlyHoursAssumption()] : [];
   const pay = (rate: number, h: number | undefined) =>
     payableWon(monthly && monthly > 0 ? (monthly * rate * (h || 0)) / hours : (input.ordinary_hourly as number) * rate * (h || 0));
   const overtime_pay = pay(1.5, input.overtime_hours);
@@ -96,6 +139,8 @@ export function calcOvertime(input: {
     holiday_pay_within_8: holiday_pay_normal,
     holiday_pay_over_8: holiday_pay_extra,
     total,
+    needs: [] as Need[],
+    assumptions,
     legal_basis:
       '근로기준법 제56조 / 연장: 통상임금×1.5 / 야간(22~06시): 가산 0.5 (총 1.5) / ' +
       '휴일 8h 이내: 1.5 / 휴일 8h 초과: 2.0',
@@ -194,7 +239,9 @@ export function calcSeverance(input: {
     excludedWage: input.excluded_wage ?? undefined,
     hoursChanged: input.hours_changed ?? undefined,
   });
+  // needs 가 남으면(hours-unknown) null — 세금·실수령도 내지 않는다(261127). 챗봇 인자 이름으로 key 를 바꿔 싣는다
   const severance_pay = r.amount;
+  const needs: Need[] = r.needs.map((n) => (n.key === 'weeklyHours' ? { ...n, key: 'weekly_hours' } : n));
 
   const result: {
     hire_date: string;
@@ -217,7 +264,9 @@ export function calcSeverance(input: {
     daily_avg_wage: number;
     applied_daily_wage: number;
     wage_type: string;
-    severance_pay: number;
+    severance_pay: number | null;
+    needs: Need[];
+    assumptions: Assumption[];
     legal_basis: string;
     tax?: ReturnType<typeof calcRetirementTax>;
     net_severance?: number;
@@ -242,6 +291,8 @@ export function calcSeverance(input: {
     applied_daily_wage: r.dailyApplied,
     wage_type: r.applied === 'ordinary' ? '통상임금' : '평균임금',
     severance_pay,
+    needs,
+    assumptions: [],
     legal_basis:
       '근로자퇴직급여 보장법 제8조 + 시행령 제3조 / ' +
       '퇴직금 = 1일평균임금 × 30 × 재직일수 ÷ 365 (고용노동부 퇴직금 계산기와 같은 끝수: 평균임금 소수 둘째 자리 올림, 퇴직금 원 단위 반올림) / ' +
@@ -253,11 +304,11 @@ export function calcSeverance(input: {
         eligible: '',
         'under-1y': ' / ★ 계속근로 1년 미만 — 퇴직급여법 제4조 제1항에 따라 퇴직금 지급 대상이 아니다(금액은 참고값)',
         'under-15h': ` / ★ 4주 평균 1주 소정근로시간 ${input.weekly_hours}시간 — 15시간 미만이라 퇴직급여법 제4조 제1항 단서에 따라 퇴직금 지급 대상이 아니다(금액은 참고값)`,
-        'hours-unknown': ' / ★ 판정 보류 — 1주 소정근로시간을 알려 주세요. 4주 평균 1주 소정근로시간이 15시간 이상이어야 지급 대상이다(퇴직급여법 제4조 제1항 단서)',
+        'hours-unknown': ' / ★ 1주 소정근로시간을 몰라 금액을 내지 않았다 — 4주 평균 1주 소정근로시간이 15시간 이상이어야 지급 대상이다(퇴직급여법 제4조 제1항 단서). needs 의 질문으로 시간을 확인한다',
       }[r.status],
   };
 
-  if (input.include_tax) {
+  if (input.include_tax && severance_pay !== null) {
     // 퇴직소득세 엔진은 마지막 근무일을 퇴사일로 받는다(국세청 프로그램 「퇴사일」). 계산기는 퇴직일에서 하루 빼서 같은 날을 넘긴다
     try {
       const tax = calcRetirementTax(severance_pay, input.hire_date, input.last_work_date);

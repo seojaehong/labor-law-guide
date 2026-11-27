@@ -27,7 +27,8 @@ const MIN_2026 = rateOn('minWageHourly', '2026-11-24')!;
 const MIN_2027 = rateOn('minWageHourly', '2027-01-01')!;
 
 function weekly(hourlyWage: number, weeklyHours: number, fullAttendance = true) {
-  const r = calcWeeklyHoliday({ hourlyWage, weeklyHours, fullAttendance, fullTimeDays: 5 });
+  // 화면은 입사·퇴사 체크를 늘 false/true 로 넘긴다(weekSpanInput) — 평상 주
+  const r = calcWeeklyHoliday({ hourlyWage, weeklyHours, fullAttendance, fullTimeDays: 5, joinedMidWeek: false, endsBeforeWeekEnd: false });
   return { r, v: weeklyHolidayView({ r, hourlyWage, weeklyHours, fullTimeDays: 5, minWage: MIN_2026 }) };
 }
 
@@ -36,7 +37,7 @@ function exitView() {
   const hire = '2023-03-02';
   const last = '2026-11-30';
   const check = severanceCheck(hire, last, 40);
-  const sev = estimateSeverance(hire, last, 3_000_000);
+  const sev = estimateSeverance(hire, last, 3_000_000, 40);
   const lv = estimateLeavePay(3_000_000, 40, 5);
   const ent = calculateEntitlement({ hireDate: hire, asOf: last });
   return exitResultView({ check, sev, lv, ent, unusedLeaveDays: 5 });
@@ -190,7 +191,7 @@ describe('공통 — 링크·금지어', () => {
     exitView(),
     exitResultView({ check: severanceCheck('2026-03-02', '2026-11-30', 10), sev: null, lv: estimateLeavePay(1_000_000, 10, 3), ent: null, unusedLeaveDays: 3 }),
     // 주 시간을 실은 계산기 링크(I16)와 「시간이 바뀐 적」 멈춤(E3) — src/app/exit 는 금지어 검사 ROOTS 밖이라 여기서 본다
-    exitResultView({ check: severanceCheck('2023-03-02', '2026-11-30', 40), sev: estimateSeverance('2023-03-02', '2026-11-30', 3_000_000), lv: null, ent: null, weeklyHours: 40 }),
+    exitResultView({ check: severanceCheck('2023-03-02', '2026-11-30', 40), sev: estimateSeverance('2023-03-02', '2026-11-30', 3_000_000, 40), lv: null, ent: null, weeklyHours: 40 }),
     exitResultView({ check: severanceCheck('2023-03-02', '2026-11-30', 40), sev: null, lv: estimateLeavePay(3_000_000, 40, 5), ent: null, unusedLeaveDays: 5, weeklyHours: 40, hoursChanged: true }),
   ];
   it('다음 할 일은 1~2개이고 실제로 있는 경로다', () => {

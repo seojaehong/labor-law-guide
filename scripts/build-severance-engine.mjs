@@ -13,7 +13,7 @@ export const HTML = resolve(root, 'public/tools/severance.html');
 
 /** 주입 블록 — html 안에서 이 순서로 놓인다. exports = 전역 객체가 내놓는 이름 */
 export const BLOCKS = [
-  { id: 'severance-engine', engine: resolve(root, 'src/lib/calc/severance.ts'), name: 'SeveranceEngine', exports: ['calcSeverance', 'periodSegments', 'oneYearDate', 'HOURS_CHANGED_MESSAGE'] },
+  { id: 'severance-engine', engine: resolve(root, 'src/lib/calc/severance.ts'), name: 'SeveranceEngine', exports: ['calcSeverance', 'periodSegments', 'oneYearDate', 'HOURS_CHANGED_MESSAGE', 'WEEKLY_HOURS_NEED'] },
   {
     id: 'retirement-tax-engine',
     engine: resolve(root, 'src/lib/calc/retirement-tax.ts'),

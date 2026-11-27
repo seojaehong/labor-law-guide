@@ -71,9 +71,12 @@ export const WEEK_SPANS: readonly WeekSpan[] = [
   { joined: true, endsBefore: true },
 ];
 
-/** 화면 체크 → 엔진 입력 */
-export function weekSpanInput(span: WeekSpan): { joinedMidWeek?: boolean; endsBeforeWeekEnd?: boolean } {
-  return { ...(span.joined ? { joinedMidWeek: true } : {}), ...(span.endsBefore ? { endsBeforeWeekEnd: true } : {}) };
+/**
+ * 화면 체크 → 엔진 입력. 체크를 풀어 둔 것도 「아니요」라는 답이라 false 로 넘긴다 —
+ * 엔진은 비운 입력을 needs 로 묻고 금액을 내지 않는다(261127). 화면은 체크가 보여서 비운 칸이 생기지 않는다.
+ */
+export function weekSpanInput(span: WeekSpan): { joinedMidWeek: boolean; endsBeforeWeekEnd: boolean } {
+  return { joinedMidWeek: span.joined, endsBeforeWeekEnd: span.endsBefore };
 }
 
 /** 화면 체크 아래 설명 — 7일째 기준과 예시 */
@@ -137,6 +140,16 @@ export function weeklyHolidayView(a: {
         { label: '급여 일할계산(퇴사한 달)', href: '/tools/pay-proration' },
         { label: '월급 대조(시급제 주휴)', href: '/tools/pay-check' },
       ],
+    };
+  }
+  if (r.status === 'needs-input') {
+    // 화면은 개근·입사·퇴사 체크를 늘 넘겨 여기에 오지 않는다. 오면 금액 없이 무엇을 알아야 하는지만 보인다(261127)
+    return {
+      ...base,
+      status: STATUS_STOP,
+      verdict: ['이번 주 주휴수당은 금액을 내지 않습니다.', ...r.needs.map((n) => n.question)],
+      amounts: [],
+      next: [{ label: '월급 대조(시급제 주휴)', href: '/tools/pay-check' }],
     };
   }
   if (r.status === 'joined-unclear') {

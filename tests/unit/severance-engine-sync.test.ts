@@ -42,25 +42,25 @@ describe('퇴직금 엔진 — 한 벌', () => {
   });
 
   it.each(MOEL)('고용노동부 계산기와 같다 — %s ~ %s', (hire, last, total, bonus, leave, ord, expected) => {
-    expect(calcSeverance({ hireDate: hire, lastWorkDate: last, wageTotal: total, annualBonus: bonus, annualLeavePay: leave, dailyOrdinaryWage: ord }).amount).toBe(expected);
+    expect(calcSeverance({ hireDate: hire, lastWorkDate: last, wageTotal: total, annualBonus: bonus, annualLeavePay: leave, dailyOrdinaryWage: ord, weeklyHours: 40 }).amount).toBe(expected);
     // html 도 마지막 근무일을 받는다(퇴직일은 화면이 하루 더해 셈). 임금은 달마다 나눠 받는다 — 합계만 같으면 된다
     const retire = calcSeverance({ hireDate: hire, lastWorkDate: last, wageTotal: 1 }).retirementDate;
     const r = run<{ severancePay: number; retireDate: string }>(
-      `calculateSeverance({...createDefaultWorker(),startDate:'${hire}',endDate:'${last}',wage1:'${total}',bonusTotal:'${bonus}',annualLeave:'${leave}',dailyOrdinaryWage:'${ord || ''}'})`,
+      `calculateSeverance({...createDefaultWorker(),weeklyHours:'40',startDate:'${hire}',endDate:'${last}',wage1:'${total}',bonusTotal:'${bonus}',annualLeave:'${leave}',dailyOrdinaryWage:'${ord || ''}'})`,
     );
     expect(r.severancePay).toBe(expected);
     expect(r.retireDate).toBe(retire);
   });
 
   it('/exit 추정도 같은 엔진이다', () => {
-    expect(estimateSeverance('2023-01-01', '2025-12-31', 3_000_000).amount).toBe(8_812_389);
+    expect(estimateSeverance('2023-01-01', '2025-12-31', 3_000_000, 40).amount).toBe(8_812_389);
   });
 
   // 261112 운영 실측 — 같은 사람을 /exit 는 1,341일 10,782,311원, 계산기는 10.31 을 산정사유발생일로 받아 1,340일 10,774,271원을 냈다
   it('입사 2023-03-01 · 마지막 근무일 2026-10-31 · 월 3,000,000원 — 계산기 = /exit (1,341일 · 10,782,311원)', () => {
-    const exit = estimateSeverance('2023-03-01', '2026-10-31', 3_000_000);
+    const exit = estimateSeverance('2023-03-01', '2026-10-31', 3_000_000, 40);
     const r = run<{ serviceDays: number; severancePay: number; retireDate: string; periods: { periodText: string }[] }>(
-      `calculateSeverance({...createDefaultWorker(),startDate:'2023-03-01',endDate:'2026-10-31',wage1:'3000000',wage2:'3000000',wage3:'3000000'})`,
+      `calculateSeverance({...createDefaultWorker(),weeklyHours:'40',startDate:'2023-03-01',endDate:'2026-10-31',wage1:'3000000',wage2:'3000000',wage3:'3000000'})`,
     );
     expect(exit.amount).toBe(10_782_311);
     expect([r.serviceDays, r.severancePay, r.retireDate]).toEqual([1_341, 10_782_311, '2026-11-01']);
