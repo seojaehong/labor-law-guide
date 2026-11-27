@@ -5,6 +5,14 @@
 // 예고했지만 30일이 안 된 경우도 30일분 전액이다 — 모자란 날만큼으로 줄이지 않는다(30일 예고는 강행규정. 근기1451-20718, 1984.10.12 — 「미경과 일수분만」설을 받지 않고 「통상임금의 30일분 이상」).
 import { unitHours, type MinWageInput } from './min-wage';
 import { dailyOrdinaryWage, hourlyOrdinaryWage, payableWon } from './wage-rounding';
+import type { Assumption, Need } from './needs';
+
+/** 예고 여부를 비웠을 때 물을 사실(공통 형식 ./needs.ts, 261127) — 종전 MCP 는 둘 다 비우면 「예고 안 함」으로 보고 30일분을 냈다 */
+export const NOTICE_NEED: Need = {
+  key: 'noticed',
+  question: '해고일 전에 해고한다는 사실을 근로자에게 알렸나요? 알렸다면 알린 날짜가 언제인가요?',
+  why: '해고일 30일 전에 알렸으면 해고예고수당이 없고, 알리지 않았거나 30일이 안 되게 알렸으면 30일분 통상임금을 줍니다(근로기준법 제26조).',
+};
 
 export interface NoticePayInput {
   unit: MinWageInput['unit'];
@@ -32,15 +40,20 @@ export interface NoticePayInput {
 const FULL_TIME_WEEKLY_HOURS = 40;
 
 export interface NoticePayResult {
-  /** pay = 예고 없음 · short = 30일 안 되게 예고 · noticed = 30일 전에 예고 · under3m = 계속 근로 3개월 미만 */
-  status: 'pay' | 'short' | 'noticed' | 'under3m';
+  /**
+   * pay = 예고 없음 · short = 30일 안 되게 예고 · noticed = 30일 전에 예고 · under3m = 계속 근로 3개월 미만
+   * · needs-input = 예고했는지 넣지 않음(noticed·noticeDate 둘 다 없음) — 금액 null, needs 에 물을 사실(261127)
+   */
+  status: 'pay' | 'short' | 'noticed' | 'under3m' | 'needs-input';
+  needs: Need[];
+  assumptions: Assumption[];
   noticeDays: number | null;
   /** 시간급 통상임금 — 끝수 그대로 */
   hourly: number;
   /** 1일 통상임금 — 끝수 그대로(화면은 소수 둘째 자리까지) */
   dailyOrdinary: number;
-  /** 30일분 — 원 미만 올림 */
-  amount: number;
+  /** 30일분 — 원 미만 올림. needs-input 이면 null */
+  amount: number | null;
   /** 1일 통상임금에 곱한 1일 소정근로시간 — 단시간이면 별표2 제2호나목 값, 아니면 넣은 값 */
   appliedDailyHours: number;
   /**
@@ -102,9 +115,15 @@ export function calcNoticePay(input: NoticePayInput): NoticePayResult {
   const y = d.getUTCFullYear(), m = d.getUTCMonth() + 3, day = d.getUTCDate();
   const lastDay = new Date(Date.UTC(y, m + 1, 0)).getUTCDate();
   const threeMonths = day > lastDay ? Date.UTC(y, m, lastDay) : Date.UTC(y, m, day) - DAY;
-  const status = dismissal < threeMonths ? 'under3m' : noticeDays === null ? 'pay' : noticeDays >= 30 ? 'noticed' : 'short';
+  // 3개월 미만은 예고 여부와 상관없이 대상이 아니라 묻지 않는다. 그 밖에 예고 여부·날짜가 둘 다 없으면 「예고 안 함」으로 보지 않는다
+  const unknownNotice = input.noticed === undefined && !input.noticeDate;
+  const status = dismissal < threeMonths ? 'under3m' : unknownNotice ? 'needs-input' : noticeDays === null ? 'pay' : noticeDays >= 30 ? 'noticed' : 'short';
   const paid = status === 'pay' || status === 'short';
   const w = input.weeklyHours;
   const partTimeCheck = !input.partTime && typeof w === 'number' && w > 0 && w < FULL_TIME_WEEKLY_HOURS;
-  return { status, noticeDays, hourly, dailyOrdinary: paid ? dailyOrdinary : 0, amount: paid ? amount : 0, appliedDailyHours, partTimeCheck };
+  const needs = status === 'needs-input' ? [NOTICE_NEED] : [];
+  return {
+    status, needs, assumptions: [], noticeDays, hourly, dailyOrdinary: paid ? dailyOrdinary : 0,
+    amount: status === 'needs-input' ? null : paid ? amount : 0, appliedDailyHours, partTimeCheck,
+  };
 }

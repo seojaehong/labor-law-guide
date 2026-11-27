@@ -5,7 +5,7 @@ import { calcNoticePay } from '@/lib/calc/notice-pay';
 // 1일 통상임금 = 시간급 × 1일 소정근로시간(시행령 §6③). 계속 근로 3개월 미만이면 적용하지 않는다(§26 단서 1호).
 // 기대값은 손으로 곱한 것이다.
 
-const base = { hireDate: '2025-01-02', dismissalDate: '2026-11-30', dailyHours: 8 };
+const base = { hireDate: '2025-01-02', dismissalDate: '2026-11-30', dailyHours: 8, noticed: false };
 
 describe('해고예고수당', () => {
   it('예고 없이 — 시급 10,320 × 8시간 × 30일 = 2,476,800', () => {
@@ -24,8 +24,8 @@ describe('해고예고수당', () => {
   });
 
   it('30일 전에 예고했으면 없다 — 30일 경계 양쪽', () => {
-    expect(calcNoticePay({ ...base, unit: 'hour', amount: 10_320, noticeDate: '2026-10-31' }).status).toBe('noticed'); // 30일 전
-    const short = calcNoticePay({ ...base, unit: 'hour', amount: 10_320, noticeDate: '2026-11-01' }); // 29일 전
+    expect(calcNoticePay({ ...base, unit: 'hour', amount: 10_320, noticed: true, noticeDate: '2026-10-31' }).status).toBe('noticed'); // 30일 전
+    const short = calcNoticePay({ ...base, unit: 'hour', amount: 10_320, noticed: true, noticeDate: '2026-11-01' }); // 29일 전
     expect(short.status).toBe('short');
     expect(short.noticeDays).toBe(29);
     expect(short.amount).toBe(2_476_800);
@@ -41,7 +41,7 @@ describe('해고예고수당', () => {
   it('잘못된 날짜·입력은 오류', () => {
     expect(() => calcNoticePay({ ...base, hireDate: '2026-02-30', unit: 'hour', amount: 10_320 })).toThrow();
     expect(() => calcNoticePay({ ...base, dismissalDate: '2024-12-31', unit: 'hour', amount: 10_320 })).toThrow();
-    expect(() => calcNoticePay({ ...base, noticeDate: '2026-12-01', unit: 'hour', amount: 10_320 })).toThrow();
+    expect(() => calcNoticePay({ ...base, noticed: true, noticeDate: '2026-12-01', unit: 'hour', amount: 10_320 })).toThrow();
     expect(() => calcNoticePay({ ...base, dailyHours: 0, unit: 'hour', amount: 10_320 })).toThrow();
   });
 
@@ -58,9 +58,10 @@ describe('해고예고수당', () => {
     it('「알리지 않았다」인데 날짜가 있으면 모순이라 멈춘다', () => {
       expect(() => calcNoticePay({ ...q, noticed: false, noticeDate: '2026-10-01' })).toThrow(/알리지 않았다/);
     });
-    it('예고하지 않았다(noticed: false·생략)는 그대로 30일분', () => {
+    // 261127 needs — 종전에는 생략도 「예고 안 함」(30일분)이었다. 이제 생략은 금액 없이 되묻는다
+    it('예고하지 않았다(noticed: false)는 그대로 30일분, 생략은 needs-input', () => {
       expect(calcNoticePay({ ...q, noticed: false }).amount).toBe(2_880_000);
-      expect(calcNoticePay(q).amount).toBe(2_880_000);
+      expect(calcNoticePay(q)).toMatchObject({ status: 'needs-input', amount: null });
     });
     it('날짜가 있으면 그대로 판정 — 10.1 = 30일 전 없음, 10.2 = 29일 전 30일분', () => {
       expect(calcNoticePay({ ...q, noticed: true, noticeDate: '2026-10-01' }).status).toBe('noticed');

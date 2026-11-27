@@ -11,6 +11,7 @@
 // 끝수: 통상시급은 버리지 않고, 원 미만은 각 지급 항목에서 올린다(src/lib/calc/wage-rounding.ts, 261112).
 
 import { dec2, payableWon } from './calc/wage-rounding';
+import type { Assumption, Need } from './calc/needs';
 
 export type SiteSize = 'large' | 'small';
 // large: 5인 이상 (가산수당 의무)
@@ -44,7 +45,8 @@ export interface DailyInput {
   daily_hours?: number;         // 1일 근로시간 (기본 8h)
   worked_hours: number;         // 공휴일에 실제 근무한 시간
   night_hours?: number;
-  paid_continuously: boolean;   // 명칭과 관계없이 지속적으로 동일 사업장에 근로 → 통상임금 인정
+  /** 명칭과 관계없이 지속적으로 동일 사업장에 근로 → 통상임금 인정. 비우면 calcHolidayPayChecked 가 needs 로 묻는다(261127) */
+  paid_continuously?: boolean;
 }
 
 export interface HourlyInput {
@@ -156,6 +158,50 @@ function premiumRate(worked_hours: number): { within8: number; over8: number } {
     within8: Math.min(worked_hours, 8),
     over8: Math.max(worked_hours - 8, 0),
   };
+}
+
+// ────────────── 빠진 사실·가정한 값 (공통 형식 ./calc/needs.ts, 261127) ──────────────
+
+/** 비운 입력마다 물을 사실 — key 는 엔진 입력 이름(MCP 는 자기 입력 이름으로 바꿔 낸다). 평가가 아니라 관찰할 수 있는 사실을 묻는다 */
+export const HOLIDAY_PAY_NEEDS: Record<'weekly_hours' | 'paid_continuously', Need> = {
+  weekly_hours: {
+    key: 'weekly_hours',
+    question: '근로계약서나 근무표에 적힌 1주 근로시간(연장근로 제외, 4주 평균)이 몇 시간인가요?',
+    why: '1주 소정근로시간이 15시간 미만이면 관공서 공휴일이 유급휴일이 아니어서 휴일 가산(1.5배)이 붙지 않습니다(근로기준법 제18조 제3항·제55조). 시급에 주휴수당이 들어 있으면 이 시간으로 기본시급을 나눕니다.',
+  },
+  paid_continuously: {
+    key: 'paid_continuously',
+    question: '이 일용직은 같은 사업장에서 계속(반복해서) 일해 왔나요, 아니면 그날 하루만 일하고 끝났나요?',
+    why: '하루만 일하고 끝났으면 그날을 그 근로자의 휴일로 보지 않아 휴일 가산(1.5배)을 붙이지 않습니다. 계속 일해 왔으면 휴일 가산을 붙입니다(행정해석 근기 68207-2508).',
+  },
+};
+
+export type CheckedResult =
+  | ({ status: 'ok'; needs: Need[]; assumptions: Assumption[] } & Result)
+  | { status: 'needs-input'; total: null; needs: Need[]; assumptions: Assumption[] };
+
+/**
+ * needs 를 먼저 보고 계산한다 — needs 가 남으면 금액을 내지 않는다(total null).
+ *  · 시급제 관공서 공휴일: 1주 소정근로시간이 없으면 15시간 미만 검사(휴일 가산 여부)를 할 수 없다
+ *  · 시급제 + 시급에 주휴 포함: 1주 소정근로시간이 없으면 기본시급을 정할 수 없다
+ *  · 일용직: 계속 근로 여부가 없으면 휴일 가산 여부를 정할 수 없다(종전 MCP 는 비우면 계속 근로로 봤다)
+ * 노동절 시급제는 15시간 기준이 그날 근로 대가를 바꾸지 않아 묻지 않는다(유급휴일 1일분만 계산하지 않음 — paid_holiday_day).
+ * 월 소정근로시간(209)·1일 근로시간(8) 기본값은 금액만 바꿔 assumptions 로 둔다.
+ */
+export function calcHolidayPayChecked(input: Input): CheckedResult {
+  const needs: Need[] = [];
+  const assumptions: Assumption[] = [];
+  if (input.worker_type === 'hourly') {
+    const known = (input.weekly_hours ?? 0) > 0;
+    if (!known && (input.holiday_kind === 'public_holiday' || input.hourly_includes_weekly)) needs.push(HOLIDAY_PAY_NEEDS.weekly_hours);
+  } else if (input.worker_type === 'daily') {
+    if (input.paid_continuously === undefined) needs.push(HOLIDAY_PAY_NEEDS.paid_continuously);
+    if (!(input.daily_hours && input.daily_hours > 0)) assumptions.push({ key: 'daily_hours', value: DEFAULT_DAILY_HOURS, note: '1일 근로시간을 넣지 않아 8시간으로 보고 통상시급(일급 ÷ 8)을 셌습니다.' });
+  } else if (!(input.monthly_hours && input.monthly_hours > 0)) {
+    assumptions.push({ key: 'monthly_hours', value: DEFAULT_MONTHLY_HOURS, note: '월 소정근로시간을 넣지 않아 209시간(주 40시간 월급제)으로 보고 통상시급을 셌습니다.' });
+  }
+  if (needs.length) return { status: 'needs-input', total: null, needs, assumptions };
+  return { status: 'ok', needs, assumptions, ...calcHolidayPay(input) };
 }
 
 // ────────────── 메인 계산 ──────────────

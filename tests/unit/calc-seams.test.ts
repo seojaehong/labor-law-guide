@@ -86,7 +86,7 @@ describe('챗봇 도구 오류는 답변을 죽이지 않는다', () => {
 });
 
 describe('해고예고 3개월 경계 — 같은 날이 없으면 그 달 말일(민법 §160③)', () => {
-  const base = { unit: 'month' as const, amount: 2_156_880, weeklyHours: 40, dailyHours: 8 };
+  const base = { unit: 'month' as const, amount: 2_156_880, weeklyHours: 40, dailyHours: 8, noticed: false };
   it.each([
     ['2025-11-30', '2026-02-28'],
     ['2026-01-31', '2026-04-30'],
@@ -101,7 +101,7 @@ describe('해고예고 3개월 경계 — 같은 날이 없으면 그 달 말일
   });
 
   it('1일 통상임금은 끝수 그대로 곱하고 원 미만은 30일분에서 올린다 — 2,500,000 × 8 × 30 ÷ 209 = 2,870,813.40 → 2,870,814', () => {
-    const r = calcNoticePay({ unit: 'month', amount: 2_500_000, weeklyHours: 40, dailyHours: 8, hireDate: '2025-01-02', dismissalDate: '2026-11-30' });
+    const r = calcNoticePay({ unit: 'month', amount: 2_500_000, weeklyHours: 40, dailyHours: 8, hireDate: '2025-01-02', dismissalDate: '2026-11-30', noticed: false });
     expect(r.dailyOrdinary).toBeCloseTo(95_693.779904, 5);
     expect(r.amount).toBe(2_870_814);
     expect(r.amount).toBeLessThan(95_694 * 30); // 1일 통상임금을 원 단위로 반올림한 뒤 곱하던 값(2,870,820)보다 정확한 값에 가깝다

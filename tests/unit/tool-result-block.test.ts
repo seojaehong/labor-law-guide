@@ -122,7 +122,7 @@ describe('기준일 — 코드의 실제 값에서만', () => {
     expect(exitView().asOf).toEqual([`법제처 현행 법령 원문 기준 · 확인 ${CHECKED}`]);
   });
   it('해고예고수당은 근거 데이터가 없어 기준일을 비운다', () => {
-    const r = calcNoticePay({ unit: 'month', amount: 2_156_880, weeklyHours: 40, dailyHours: 8, hireDate: '2025-01-02', dismissalDate: '2026-11-30' });
+    const r = calcNoticePay({ unit: 'month', amount: 2_156_880, weeklyHours: 40, dailyHours: 8, hireDate: '2025-01-02', dismissalDate: '2026-11-30', noticed: false });
     expect(noticePayView({ r, hire: '2025-01-02', dismissal: '2026-11-30' }).asOf).toEqual([]);
   });
 });
@@ -158,13 +158,13 @@ describe('/exit 결과 블록 — 숫자 고정(261124 이전 화면 실측)', (
 
 describe('해고예고수당·최저임금 결과 블록 — 숫자 고정', () => {
   it('해고예고수당 2,476,800원(예고 없음)', () => {
-    const r = calcNoticePay({ unit: 'month', amount: 2_156_880, weeklyHours: 40, dailyHours: 8, hireDate: '2025-01-02', dismissalDate: '2026-11-30' });
+    const r = calcNoticePay({ unit: 'month', amount: 2_156_880, weeklyHours: 40, dailyHours: 8, hireDate: '2025-01-02', dismissalDate: '2026-11-30', noticed: false });
     const v = noticePayView({ r, hire: '2025-01-02', dismissal: '2026-11-30' });
     expect(v.amounts[0].value).toBe('2,476,800원');
     expect(v.formula).toContain('1일 통상임금 82,560원(시간당 10,320원 × 8시간) × 30일');
   });
   it('해고예고수당 3개월 미만: 없음 + 다음 할 일', () => {
-    const r = calcNoticePay({ unit: 'month', amount: 2_156_880, weeklyHours: 40, dailyHours: 8, hireDate: '2026-09-02', dismissalDate: '2026-11-30' });
+    const r = calcNoticePay({ unit: 'month', amount: 2_156_880, weeklyHours: 40, dailyHours: 8, hireDate: '2026-09-02', dismissalDate: '2026-11-30', noticed: false });
     const v = noticePayView({ r, hire: '2026-09-02', dismissal: '2026-11-30' });
     expect(v.verdict).toEqual(['해고예고수당이 없습니다.', '계속 근로한 기간이 3개월이 되지 않았습니다.']);
     expect(v.nextNote).toMatch(/제27조/);
