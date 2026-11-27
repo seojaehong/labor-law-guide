@@ -1,11 +1,16 @@
 // LLM 도구 스키마 (OpenAI tools format)
+import { HOURS_CHANGED_MESSAGE } from '@/lib/calc/severance';
+
 export const TOOLS = [
   {
     type: 'function' as const,
     function: {
       name: 'calc_severance',
       description:
-        '퇴직금 계산 (1일 평균임금 × 30 × 재직일수 ÷ 365, 고용노동부 퇴직금 계산기와 같은 끝수. 계속근로 1년 미만이면 eligible=false). 사용자가 입사일·퇴사일·직전 3개월 임금을 알려준 경우 호출. 추측 X. include_tax=true로 호출하면 퇴직소득세까지 동시 산출.',
+        '퇴직금 계산 (1일 평균임금 × 30 × 재직일수 ÷ 365, 고용노동부 퇴직금 계산기와 같은 끝수). 사용자가 입사일·퇴사일·직전 3개월 임금을 알려준 경우 호출. 추측 X. include_tax=true로 호출하면 퇴직소득세까지 동시 산출. ' +
+        'eligible(지급 대상)은 계속근로 1년 이상(one_year) 그리고 4주 평균 1주 소정근로시간 15시간 이상일 때만 true 다(근로자퇴직급여 보장법 제4조제1항). ' +
+        'weekly_hours 를 넣지 않으면 status=hours-unknown·eligible=false 로 돌려주므로, 지급 대상을 말하기 전에 사용자에게 1주 소정근로시간을 묻는다. ' +
+        '1주 소정근로시간이 15시간 이상과 미만 사이에서 바뀐 적이 있으면 hours_changed=true — 계산하지 않고 4주 단위로 세야 하는 이유를 error 로 돌려준다.',
       parameters: {
         type: 'object',
         properties: {
@@ -22,6 +27,23 @@ export const TOOLS = [
             description: '퇴직 전 1년 동안 지급받은 연차수당 총액(원). 퇴직하면서 정산받는 미사용 연차수당은 넣지 않는다',
           },
           include_tax: { type: 'boolean', description: '퇴직소득세까지 함께 계산 (기본 false). 마지막 근무일이 2022-12-31 이전이면 종전 공제표·세율 대상이라 tax 없이 legal_basis 에 이유만 적는다' },
+          weekly_hours: {
+            type: 'number',
+            description: '4주 평균 1주 소정근로시간(시간). 사용자가 말한 경우에만 넣는다. 15시간 미만이면 지급 대상이 아니다(status=under-15h). 넣지 않으면 지급 대상인지 따지지 않는다(status=hours-unknown). 답 끝 계산기 링크에도 실린다',
+          },
+          excluded_days: {
+            type: 'integer',
+            description: '직전 3개월 중 평균임금 산정기간에서 빼는 기간의 일수 — 수습을 시작한 날부터 3개월 이내·사용자 귀책 휴업·출산전후휴가·업무상 요양·육아휴직·쟁의행위·병역 등(임금을 받았으면 빼지 않음)·승인 휴업(근로기준법 시행령 제2조제1항), 육아기 근로시간 단축 기간(남녀고용평등법 제19조의3제4항), 가족돌봄 등을 위한 근로시간 단축 기간(남녀고용평등법 제22조의4제4항)',
+          },
+          excluded_wage: {
+            type: 'integer',
+            description: '그 빼는 기간에 받은 임금(원) — wages_3months 에 들어 있는 금액. excluded_days 를 넣으면 반드시 넣는다(받지 않았으면 0)',
+          },
+          hours_changed: {
+            type: 'boolean',
+            // 멈출 때 돌려주는 글과 같은 엔진 상수(261127 G4 R16 — 4주는 퇴직일부터 거슬러 나눈다)
+            description: `재직 중 1주 소정근로시간이 15시간 이상과 미만 사이에서 바뀐 적이 있으면 true. 그러면 계산하지 않고 이 글을 error 로 돌려준다: ${HOURS_CHANGED_MESSAGE}`,
+          },
         },
         required: ['hire_date', 'last_work_date', 'wages_3months'],
       },

@@ -71,11 +71,15 @@ function expectSame(pay: number, hire: string, last: string) {
 const SEV_BASIS =
   '근로자퇴직급여 보장법 제8조 + 시행령 제3조 / 퇴직금 = 1일평균임금 × 30 × 재직일수 ÷ 365 (고용노동부 퇴직금 계산기와 같은 끝수: 평균임금 소수 둘째 자리 올림, 퇴직금 원 단위 반올림) / 평균임금 = 퇴직 직전 3개월 임금총액 / 총일수 (상여금·연차수당 가산) / 통상임금이 더 높으면 통상임금 사용';
 
-describe('응답 모양 그대로 — 챗봇·/api/tools/calc 의 calc_severance(include_tax)', () => {
-  it('S1 3년 · 8,812,389원 — 키 순서와 값이 바꾸기 전과 같다', () => {
+// 261126 재홍님 결정 D2 — eligible 이 웹 엔진과 같은 뜻(1년 그리고 주 15시간)이 되고 status·one_year·hours_15 가 붙었다.
+// 시간을 넣지 않은 이 호출은 hours-unknown 이라 eligible false, 근거 끝에 「판정 보류」 한 줄. 금액·세액은 그대로다.
+const HOURS_UNKNOWN_NOTE = ' / ★ 판정 보류 — 1주 소정근로시간을 알려 주세요. 4주 평균 1주 소정근로시간이 15시간 이상이어야 지급 대상이다(퇴직급여법 제4조 제1항 단서)';
+
+describe('응답 모양 — 챗봇·/api/tools/calc 의 calc_severance(include_tax)', () => {
+  it('S1 3년 · 8,812,389원 — 키 순서와 값(261126 D2 갱신: status·one_year·hours_15, 시간 없으면 eligible false)', () => {
     const r = chat.calcSeverance({ hire_date: '2023-01-01', last_work_date: '2025-12-31', wages_3months: [3_000_000, 3_000_000, 3_000_000], include_tax: true });
     expect(Object.keys(r)).toEqual([
-      'hire_date', 'last_work_date', 'retirement_date', 'service_days', 'eligible', 'three_months_start', 'total_days_3m', 'wage_total',
+      'hire_date', 'last_work_date', 'retirement_date', 'service_days', 'eligible', 'status', 'one_year', 'hours_15', 'three_months_start', 'total_days_3m', 'wage_total',
       'bonus_addition', 'annual_leave_addition', 'avg_wage_base', 'daily_avg_wage', 'applied_daily_wage', 'wage_type', 'severance_pay',
       'legal_basis', 'tax', 'net_severance',
     ]);
@@ -84,10 +88,11 @@ describe('응답 모양 그대로 — 챗봇·/api/tools/calc 의 calc_severance
       'converted_tax', 'income_tax', 'local_tax', 'total_tax', 'legal_basis',
     ]);
     expect(r).toEqual({
-      hire_date: '2023-01-01', last_work_date: '2025-12-31', retirement_date: '2026-01-01', service_days: 1096, eligible: true,
+      hire_date: '2023-01-01', last_work_date: '2025-12-31', retirement_date: '2026-01-01', service_days: 1096, eligible: false,
+      status: 'hours-unknown', one_year: true, hours_15: null,
       three_months_start: '2025-10-01', total_days_3m: 92, wage_total: 9_000_000, bonus_addition: 0, annual_leave_addition: 0,
       avg_wage_base: 9_000_000, daily_avg_wage: 97826.09, applied_daily_wage: 97826.09, wage_type: '평균임금', severance_pay: 8_812_389,
-      legal_basis: SEV_BASIS,
+      legal_basis: SEV_BASIS + HOURS_UNKNOWN_NOTE,
       tax: {
         severance_pay: 8_812_389, service_years: 3, svc_deduction: 3_000_000, after_deduction: 5_812_389, converted_wage: 23_249_556,
         cw_deduction: 17_149_733, tax_base: 6_099_823, converted_tax: 365_989, income_tax: 91_490, local_tax: 9_140, total_tax: 100_630,

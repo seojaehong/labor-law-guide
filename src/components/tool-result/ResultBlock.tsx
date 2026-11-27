@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 import s from './ResultBlock.module.css';
-import type { ResultView } from './result-view';
+import { isStaticHtmlHref, type ResultView } from './result-view';
 
 // 계산기 공용 결과 블록(261124) — /exit 「확인용 추정」 띠를 기준으로 모든 Next 계산기의 결과를 같은 순서·무게로 보여준다.
 // 상태 → 판정 → 금액(tabular) → 산식 → 주의 → 근거 조문 → 기준일·확인일 → 한계 → 다음 할 일.
@@ -61,7 +61,7 @@ export default function ResultBlock({ view, label = '계산 결과', children }:
       {next.length > 0 && (
         <nav className={s.next} aria-label="다음 할 일">
           {next.map((n, i) => (
-            n.href.startsWith('/') && !n.href.endsWith('.html')
+            n.href.startsWith('/') && !isStaticHtmlHref(n.href)
               ? <Link key={`${i}-${n.href}`} href={n.href} className={i === 0 ? s.nextPrimary : s.nextGhost}>{n.label}</Link>
               : <a key={`${i}-${n.href}`} href={n.href} className={i === 0 ? s.nextPrimary : s.nextGhost}>{n.label}</a>
           ))}

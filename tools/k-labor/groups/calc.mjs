@@ -19,7 +19,7 @@ import { headline as hcHeadline, whyLines as hcWhy, leaveLines as hcLeave, tenLi
   leaveMonthsHead as hcLeaveHead, leaveMonthLine as hcLeaveMonth } from '@/app/tools/headcount/copy';
 import { headline as thHeadline, items as thItems, formulaLines as thFormula, NOTICE as TH_NOTICE } from '@/app/tools/take-home-pay/copy';
 import { headline as lpHeadline, formulaLines as lpFormula, effectLines as lpEffect } from '@/app/tools/leave-pay/copy';
-import { calcSeverance } from '@/lib/calc/severance';
+import { calcSeverance, HOURS_CHANGED_MESSAGE } from '@/lib/calc/severance';
 import { calcHolidayPay } from '@/lib/holiday-pay';
 import { calcProration, calcAbsence } from '@/lib/calc/pay-proration';
 import {
@@ -309,7 +309,12 @@ export function registerCalc(server) {
         dailyHours: z.number().describe('1일 소정근로시간'),
         hireDate: z.string().describe('입사일 YYYY-MM-DD'),
         dismissalDate: z.string().describe('해고일(근로관계가 끝나는 날) YYYY-MM-DD'),
-        noticeDate: z.string().optional().describe('해고를 알린 날 YYYY-MM-DD(비우면 예고하지 않은 것)'),
+        noticeDate: z.string().optional().describe('해고를 알린 날 YYYY-MM-DD. noticed 를 주지 않고 이 값도 비우면 예고하지 않은 것으로 본다. 빈 문자열은 오류'),
+        noticed: z.boolean().optional().describe('해고를 예고했는가. true 인데 noticeDate 가 없거나, false 인데 noticeDate 가 있으면 계산할 수 없어 오류를 낸다'),
+        partTime: z.object({
+          fullTimeWeeklyDays: z.number().optional().describe('같은 일을 하는 통상 근로자의 1주 소정근로일 수(1~7, 기본 5). 4주 평균이라 소수도 받는다 — 4주 교대 5·4·5·4일이면 4.5'),
+          fullTimeWeeklyHours: z.number().optional().describe('같은 일을 하는 통상 근로자의 1주 소정근로시간(기본 40)'),
+        }).optional().describe('단시간 근로자일 때 — 1일 소정근로시간 = 1주 소정근로시간 ÷ 통상 근로자 1주 소정근로일 수(근로기준법 시행령 별표 2 제2호나목). weeklyHours 가 필요하다. 빼면 단시간이 아닌 것으로 보고 dailyHours 그대로 계산하며, weeklyHours 가 40시간보다 짧으면 notice 로 알린다'),
       },
       annotations: READ_ONLY,
     },
@@ -322,8 +327,18 @@ export function registerCalc(server) {
           short: [`해고예고수당은 ${won(r.amount)}입니다.`, `예고가 해고일 ${r.noticeDays}일 전이라 30일에 못 미쳐 30일분 전액입니다.`],
           pay: [`해고예고수당은 ${won(r.amount)}입니다.`, '30일 전에 예고하지 않았으면 30일분 통상임금입니다.'],
         }[r.status];
+        // 261126 G4 I6 — partTime 을 빼면 단시간 산식을 쓰지 않는다. 주 소정이 40시간보다 짧거나 주 시간을 모르면 알린다(금액은 그대로)
+        const paid = r.status === 'pay' || r.status === 'short';
+        let notice;
+        if (paid && r.partTimeCheck) {
+          headline.push(`1주 소정근로시간 ${a.weeklyHours}시간이 40시간보다 짧습니다. 단시간 근로자이면 partTime 을 넣어 다시 계산합니다 — 지금은 1일 ${a.dailyHours}시간으로 계산했습니다.`);
+          notice = '같은 일을 하는 통상 근로자보다 1주 소정근로시간이 짧은 단시간 근로자(근로기준법 제2조제1항제9호)는 1일 소정근로시간을 1주 소정근로시간 ÷ 통상 근로자 1주 소정근로일 수로 셉니다(시행령 별표 2 제2호나목). partTime 을 넣으면 그 식으로 계산합니다.';
+        } else if (paid && !a.partTime && a.weeklyHours === undefined) {
+          notice = '1주 소정근로시간을 넣지 않아 단시간 근로자인지 보지 않았습니다. 단시간 근로자이면 weeklyHours 와 partTime 을 넣어야 1일 소정근로시간을 시행령 별표 2 제2호나목으로 셉니다.';
+        }
         return text({
           ok: true, headline, ...r, hourly: Math.round(r.hourly * 100) / 100, dailyOrdinary: Math.round(r.dailyOrdinary * 100) / 100,
+          ...(notice ? { notice } : {}),
           basis: ['근로기준법 제26조(해고의 예고)', '근로기준법 시행령 제6조제2항·제3항(통상임금 시간급·1일 통상임금)', '근로기준법 제26조 단서 제1호(계속 근로 3개월 미만)'],
           site: `${SITE}/tools/notice-pay`,
         });
@@ -388,7 +403,9 @@ export function registerCalc(server) {
       title: '퇴직금 계산',
       description:
         '퇴직금 = 1일 평균임금 × 30 × 재직일수 ÷ 365 를 계산한다(사이트 /tools/severance.html 과 같은 엔진). 평균임금 = 퇴직일(마지막 근무일 다음 날) 전 3개월 임금총액 + 1년 상여금·연차수당의 3/12, 그 기간 총일수로 나눈다. ' +
-        '1일 평균임금은 소수 둘째 자리 올림, 퇴직금은 원 단위 반올림(고용노동부 퇴직금 계산기와 같은 끝수). 1일 통상임금을 넣으면 평균임금보다 높을 때 통상임금으로 계산한다. 계속근로 1년 요건만 보고, 1주 15시간 요건은 보지 않는다.',
+        '1일 평균임금은 소수 둘째 자리 올림, 퇴직금은 원 단위 반올림(고용노동부 퇴직금 계산기와 같은 끝수). 1일 통상임금을 넣으면 평균임금보다 높을 때 통상임금으로 계산한다. 지급 대상은 계속근로 1년 이상과 4주 평균 1주 소정근로시간 15시간 이상을 함께 본다(근로자퇴직급여 보장법 제4조제1항). ' +
+        '산정기간에 평균임금에서 빼는 기간(근로기준법 시행령 제2조제1항의 수습·육아휴직 등, 남녀고용평등법 제19조의3제4항의 육아기 근로시간 단축 기간·제22조의4제4항의 가족돌봄 등을 위한 근로시간 단축 기간)이 있으면 excludedDays·excludedWage 로 그 일수와 그 기간 임금을 뺀다. ' +
+        '1주 소정근로시간이 15시간 이상과 미만 사이에서 바뀐 적이 있으면 hoursChanged 로 알린다 — 그때는 계산하지 않는다.',
       inputSchema: {
         hireDate: z.string().describe('입사일 YYYY-MM-DD. 퇴직금 중간정산을 받았으면 정산 기준일의 다음 날(근로자퇴직급여 보장법 제8조제2항 — 그때부터 새로 센다)'),
         lastWorkDate: z.string().describe('마지막 근무일 YYYY-MM-DD(퇴직일은 그 다음 날)'),
@@ -396,6 +413,10 @@ export function registerCalc(server) {
         annualBonus: z.number().min(0).optional().describe('퇴직 전 1년 동안 받은 상여금 총액(원) — 3/12을 더한다'),
         annualLeavePay: z.number().min(0).optional().describe('퇴직 전 1년 연차수당 중 평균임금에 넣는 금액(원) — 3/12을 더한다'),
         dailyOrdinaryWage: z.number().min(0).optional().describe('1일 통상임금(원, 알면) — 평균임금보다 높으면 이 값으로 계산한다(근로기준법 제2조제2항)'),
+        weeklyHours: z.number().min(0).max(168).describe('4주 평균 1주 소정근로시간 — 15시간 미만이면 지급 대상이 아니다(근로자퇴직급여 보장법 제4조제1항 단서)'),
+        excludedDays: z.number().int().min(0).optional().describe('산정기간 중 평균임금에서 빼는 기간의 일수 — 산정기간 일수에서 뺀다. 근로기준법 시행령 제2조제1항: 수습을 시작한 날부터 3개월 이내의 기간·사용자 귀책 휴업·출산전후휴가와 유산·사산 휴가·업무상 요양·육아휴직·쟁의행위·병역 등 의무 이행 기간(그 기간에 임금을 받았으면 빼지 않는다, 제7호 단서)·사용자 승인 휴업. 남녀고용평등법 제19조의3제4항: 육아기 근로시간 단축 기간. 남녀고용평등법 제22조의4제4항: 가족돌봄 등을 위한 근로시간 단축 기간'),
+        excludedWage: z.number().min(0).optional().describe('그 제외기간에 받은 임금(원) — wageTotal 에 들어 있는 금액이라 임금총액에서 뺀다. excludedDays 가 0보다 크면 반드시 넣는다(받지 않았으면 0). 비우면 오류, 임금총액과 같으면(남은 기간 임금 0) 오류'),
+        hoursChanged: z.boolean().optional().describe('재직 중 1주 소정근로시간이 15시간 이상과 미만 사이에서 바뀐 적이 있으면 true — 계산하지 않고 오류로 이 글을 돌려준다(weeklyHours 한 값으로 셀 수 없다): ' + HOURS_CHANGED_MESSAGE),
       },
       annotations: READ_ONLY,
     },
@@ -404,14 +425,18 @@ export function registerCalc(server) {
         const r = calcSeverance(a);
         const kind = r.applied === 'ordinary' ? '통상임금' : '평균임금';
         const formula = `1일 ${kind} ${dec2(r.dailyApplied)}원 × 30 × 재직 ${r.serviceDays.toLocaleString('ko-KR')}일 ÷ 365`;
-        const headline = r.eligible
-          ? [`퇴직금은 ${won(r.amount)}입니다.`, formula]
-          : ['계속근로 기간이 1년이 되지 않아 퇴직금 지급 대상이 아닙니다.', `퇴직일 ${r.retirementDate}까지 재직 ${r.serviceDays}일입니다(근로자퇴직급여 보장법 제4조제1항). 같은 식으로 세면 ${won(r.amount)}입니다.`];
+        const headline = {
+          eligible: [`퇴직금은 ${won(r.amount)}입니다.`, formula],
+          'under-1y': ['계속근로 기간이 1년이 되지 않아 퇴직금 지급 대상이 아닙니다.', `퇴직일 ${r.retirementDate}까지 재직 ${r.serviceDays}일입니다(근로자퇴직급여 보장법 제4조제1항). 같은 식으로 세면 ${won(r.amount)}입니다.`],
+          'under-15h': ['4주 평균 1주 소정근로시간이 15시간 미만이라 퇴직금 지급 대상이 아닙니다.', `1주 ${a.weeklyHours}시간입니다(근로자퇴직급여 보장법 제4조제1항 단서). 같은 식으로 세면 ${won(r.amount)}입니다.`],
+          'hours-unknown': ['1주 소정근로시간을 몰라 지급 대상인지는 따지지 않았습니다.', `같은 식으로 세면 ${won(r.amount)}입니다.`],
+        }[r.status];
         if (r.eligible && r.applied === 'ordinary') headline.push(`1일 평균임금 ${dec2(r.dailyAverage)}원이 1일 통상임금보다 낮아 통상임금으로 계산했습니다(근로기준법 제2조제2항).`);
+        if (r.excludedDays > 0) headline.push(`산정기간 ${r.periodDays}일 중 제외기간 ${r.excludedDays}일을 빼고 ${r.averageDays}일로 나눴습니다(근로기준법 시행령 제2조제1항 등).`);
         return text({
           ok: true, headline, result: r,
-          notice: '1주 소정근로시간이 15시간 미만이면 퇴직금 지급 대상이 아닙니다(근로자퇴직급여 보장법 제4조제1항 단서). 이 계산은 그 요건을 따로 보지 않습니다. 퇴직소득세는 calc_retirement_tax 로 계산합니다. 55세 전 퇴직이면 퇴직금은 IRP(개인형퇴직연금) 계정으로 옮겨 지급하는 것이 원칙이고(근로자퇴직급여 보장법 제9조제2항), 그때는 지급할 때 퇴직소득세를 떼지 않아 이전액이 퇴직금 전액입니다(소득세법 제146조제2항). calc_retirement_tax 의 받는 방법 기본값은 현금 수령이고, IRP 이전은 payout: irp 로 고릅니다.',
-          basis: ['근로자퇴직급여 보장법 제8조제1항(30일분 이상의 평균임금 × 계속근로기간 1년)', '근로기준법 제2조제1항제6호(평균임금)·제2항(평균임금이 통상임금보다 적으면 통상임금)', '근로자퇴직급여 보장법 제4조제1항(계속근로기간 1년 이상)'],
+          notice: '1주 소정근로시간이 15시간 이상과 미만 사이에서 바뀐 적이 있으면 hoursChanged: true 로 다시 부릅니다 — 이 계산은 시간 한 값으로 셉니다. 퇴직소득세는 calc_retirement_tax 로 계산합니다. 55세 전 퇴직이면 퇴직금은 IRP(개인형퇴직연금) 계정으로 옮겨 지급하는 것이 원칙이고(근로자퇴직급여 보장법 제9조제2항), 그때는 지급할 때 퇴직소득세를 떼지 않아 이전액이 퇴직금 전액입니다(소득세법 제146조제2항). calc_retirement_tax 의 받는 방법 기본값은 현금 수령이고, IRP 이전은 payout: irp 로 고릅니다.',
+          basis: ['근로자퇴직급여 보장법 제8조제1항(30일분 이상의 평균임금 × 계속근로기간 1년)', '근로기준법 제2조제1항제6호(평균임금)·제2항(평균임금이 통상임금보다 적으면 통상임금)', '근로자퇴직급여 보장법 제4조제1항(계속근로기간 1년 이상·4주 평균 1주 15시간 이상)', '근로기준법 시행령 제2조제1항(평균임금 산정기간에서 빼는 기간)'],
           site: `${SITE}/tools/severance.html`,
         });
       }),

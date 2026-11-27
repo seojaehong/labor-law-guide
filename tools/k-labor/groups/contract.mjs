@@ -232,6 +232,8 @@ export function registerContract(server) {
           summary: reviewSummary(r.review),
           items: r.review.problems.map(reviewLine),
         },
+        // 계약 뒤 확인할 안내(사이트 화면과 같은 줄 — 연차수당 선지급 정산·사회보험 확인 필요, 261124 P2 #16)
+        ...(r.review.notes.length ? { notes: r.review.notes } : {}),
         ...(r.paperMissing.length ? { contractFieldsMissing: r.paperMissing, contractFieldsNote: '계약서 파일(make_contract_files)을 만들려면 이 칸을 넣어 주세요.' } : {}),
         note: '연장·휴일 시간은 근무형태로 미리 정한 월 예정 시간입니다. 실제 근로가 이를 넘으면 넘는 시간의 수당을 따로 지급해야 합니다.',
         site: `${SITE}/tools/contract-write`,
@@ -355,6 +357,7 @@ export function registerContract(server) {
         minimumWage: r.review.minimumWage,
         ...(r.review.minimumWageLater.length ? { minimumWageLater: r.review.minimumWageLater } : {}),
         review: r.review.problems.length ? r.review.problems.map(reviewLine) : reviewSummary(r.review),
+        ...(r.review.notes.length ? { notes: r.review.notes } : {}),
         check: '서명하기 전에 파일을 열어 사업장·근로자 정보와 금액을 확인하세요.',
       });
     },

@@ -73,15 +73,55 @@ export interface SeveranceInput {
   annualLeavePay?: number;
   /** 넣으면 평균임금과 비교해 높은 쪽을 쓴다(근로기준법 §2②). 강제 선택은 두지 않는다(261124 — 낮은 쪽 적용 결함) */
   dailyOrdinaryWage?: number;
+  /** 4주 평균 1주 소정근로시간. 15시간 미만이면 지급 대상이 아니다(퇴직급여법 §4① 단서). 넣지 않으면 지급 대상이라고 판정하지 않는다 */
+  weeklyHours?: number;
+  /**
+   * 산정기간 중 평균임금에서 빼는 기간의 일수 — 근로기준법 시행령 §2①(수습을 시작한 날부터 3개월 이내·육아휴직 등)과
+   * 남녀고용평등법 §19의3④(육아기 근로시간 단축 기간)·§22의4④(가족돌봄 등을 위한 근로시간 단축 기간). 산정기간 일수에서 뺀다
+   */
+  excludedDays?: number;
+  /**
+   * 그 기간에 받은 임금 — wageTotal 에 들어 있는 금액이라 임금총액에서 뺀다.
+   * excludedDays 가 0보다 크면 반드시 넣는다(받지 않았으면 0). 비우면 분모만 줄어 평균임금이 부풀므로 멈춘다(261126 G4 I8)
+   */
+  excludedWage?: number;
+  /**
+   * 재직 중 1주 소정근로시간이 15시간 이상과 미만 사이에서 바뀐 적이 있다 — 계속근로기간을 4주 단위로 나눠야 해서
+   * 시간 한 값으로 세는 이 식으로는 지급 대상·금액이 모두 틀릴 수 있다. true 면 멈춘다(261126 재홍님 결정 D3, 정밀 계산은 후속)
+   */
+  hoursChanged?: boolean;
 }
+
+/**
+ * hoursChanged 일 때 웹·MCP·챗봇·/exit 가 같은 글로 멈춘다(MCP·챗봇 인자 설명도 이 상수를 싣는다).
+ * 고용노동부 퇴직연금복지과-5254(2019. 12. 9.) — 2025. 12. 4. 고객상담센터 회신이 인용. 4주는 퇴직일부터 거슬러 나눈다
+ * (5254 를 옮긴 고용노동부 빠른인터넷상담 답변 「마지막 근무일로부터 역산하여 4주 단위로」 · 근로기준정책과-4361(2015. 9. 10.) 「퇴직일을 기준으로 이전 4주 단위씩 역산하여」
+ *  · 근로기준정책과-3818(2021. 11. 25.) 「퇴직일 기준으로 4주 단위씩 역산하여」 — 2차 검수 fable_r2 A7 이 원문 대조, 261127 G4 R16)
+ */
+export const HOURS_CHANGED_MESSAGE =
+  '1주 소정근로시간이 15시간 이상과 미만 사이에서 바뀐 적이 있으면 이 계산기로 계산하지 않습니다. ' +
+  '재직기간을 퇴직일부터 거슬러 4주 단위로 나눠 4주 평균 1주 소정근로시간이 15시간 미만인 4주는 계속근로기간에서 뺍니다(고용노동부 퇴직연금복지과-5254, 2019. 12. 9. 회신 취지).';
+
+/** eligible = 1년 이상 + 주 15시간 이상. hours-unknown = 시간을 넣지 않아 판정하지 않음 */
+export type SeveranceStatus = 'eligible' | 'under-1y' | 'under-15h' | 'hours-unknown';
 
 export interface SeveranceResult {
   retirementDate: string;
   serviceDays: number;
-  /** 계속근로 1년 이상(퇴직급여법 §4①). 주 15시간 요건은 따로 본다 */
+  /** 계속근로 1년 이상(퇴직급여법 §4①) */
+  oneYear: boolean;
+  /** 4주 평균 주 15시간 이상(같은 항 단서). 시간을 넣지 않았으면 null */
+  hours15: boolean | null;
+  /** 지급 대상 — oneYear 이고 hours15 가 true 일 때만 true(시간을 모르면 false, 261124 P2 #13) */
   eligible: boolean;
+  status: SeveranceStatus;
   segments: Segment[];
+  /** 산정기간 달력 일수 */
   periodDays: number;
+  /** 뺀 제외기간 일수 */
+  excludedDays: number;
+  /** 1일 평균임금의 분모 = periodDays − excludedDays */
+  averageDays: number;
   bonusAdd: number;
   leaveAdd: number;
   /** 임금총액 + 가산(원 단위 아래 포함) */
@@ -98,14 +138,30 @@ export function calcSeverance(input: SeveranceInput): SeveranceResult {
   const serviceDays = diffDays(retirementDate, input.hireDate);
   if (serviceDays <= 0) throw new Error('마지막 근무일이 입사일보다 앞섭니다');
 
+  const w = input.weeklyHours;
+  if (w !== undefined && !(typeof w === 'number' && Number.isFinite(w) && w >= 0 && w <= 168)) throw new Error('1주 소정근로시간을 확인해 주세요');
+  if (input.hoursChanged === true) throw new Error(HOURS_CHANGED_MESSAGE);
+
   const segments = periodSegments(input.hireDate, retirementDate);
   const periodDays = segments.reduce((a, s) => a + s.days, 0);
+  // 제외기간(근로기준법 시행령 §2① · 남녀고용평등법 §19의3④·§22의4④) — 그 일수와 그 기간 임금을 산정기간·임금총액에서 뺀다
+  const excludedDays = input.excludedDays ?? 0;
+  const excludedWage = input.excludedWage ?? 0;
+  if (!Number.isInteger(excludedDays) || excludedDays < 0) throw new Error('제외기간 일수를 확인해 주세요');
+  if (!(Number.isFinite(excludedWage) && excludedWage >= 0) || excludedWage > input.wageTotal) throw new Error('제외기간에 받은 임금을 확인해 주세요(3개월 임금총액보다 클 수 없습니다)');
+  if (excludedDays === 0 && excludedWage > 0) throw new Error('제외기간 일수 없이 그 기간 임금만 넣었습니다');
+  if (excludedDays >= periodDays) throw new Error('평균임금 산정기간 전부가 제외기간입니다. 이때는 이 계산식으로 셀 수 없습니다');
+  // 261126 G4 I8 — 일수만 넣고 임금을 비우면 0 으로 보지 않는다(분모만 줄어 평균임금이 부푼다). JSON 의 null 도 빈칸이다(261127 R11)
+  if (excludedDays > 0 && input.excludedWage == null) throw new Error('제외기간에 받은 임금을 넣어 주세요. 그 기간에 받은 임금이 없으면 0을 넣습니다');
+  // 261126 G4 I15 — 남은 기간 임금이 0 이 되는 입력은 멈춘다
+  if (excludedDays > 0 && excludedWage > 0 && excludedWage === input.wageTotal) throw new Error('제외기간에 받은 임금이 3개월 임금총액과 같아 남은 기간 임금이 0원이 됩니다. 입력을 확인해 주세요');
+  const averageDays = periodDays - excludedDays;
   const bonus = input.annualBonus ?? 0;
   const leave = input.annualLeavePay ?? 0;
   // 12배 해 두면 3/12 가산도 정수로 남는다
-  const base12 = BigInt(Math.round(input.wageTotal)) * BigInt(12) + BigInt(Math.round(bonus)) * BigInt(3) + BigInt(Math.round(leave)) * BigInt(3);
+  const base12 = BigInt(Math.round(input.wageTotal - excludedWage)) * BigInt(12) + BigInt(Math.round(bonus)) * BigInt(3) + BigInt(Math.round(leave)) * BigInt(3);
   // 1일 평균임금(전) = 올림(임금총액 ÷ 일수, 소수 둘째 자리)
-  const den = BigInt(12) * BigInt(periodDays);
+  const den = BigInt(12) * BigInt(averageDays);
   const avgCents = (base12 * BigInt(100) + den - BigInt(1)) / den;
   const ordCents = BigInt(Math.round((input.dailyOrdinaryWage ?? 0) * 100));
   const applied: 'average' | 'ordinary' = ordCents > avgCents ? 'ordinary' : 'average';
@@ -116,12 +172,20 @@ export function calcSeverance(input: SeveranceInput): SeveranceResult {
   const amount = Number((num * BigInt(2) + BigInt(36_500)) / BigInt(73_000));
 
   const dailyAverage = Number(avgCents) / 100;
+  const oneYear = retirementDate >= oneYearDate(input.hireDate);
+  const hours15 = w === undefined ? null : w >= 15;
+  const status: SeveranceStatus = !oneYear ? 'under-1y' : hours15 === false ? 'under-15h' : hours15 === null ? 'hours-unknown' : 'eligible';
   return {
     retirementDate,
     serviceDays,
-    eligible: retirementDate >= oneYearDate(input.hireDate),
+    oneYear,
+    hours15,
+    eligible: status === 'eligible',
+    status,
     segments,
     periodDays,
+    excludedDays,
+    averageDays,
     bonusAdd: (bonus * 3) / 12,
     leaveAdd: (leave * 3) / 12,
     baseTotal: Number(base12) / 12,

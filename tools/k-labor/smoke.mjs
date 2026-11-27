@@ -240,6 +240,9 @@ if (tools.includes('design_contract_wage')) {
   check(`design 실수령액 역산(${net.total} · ${net.netNote?.slice(0, 30)}…)`, net.ok && net.total > 2_300_000 && !!net.netNote);
   const part = await callTool('design_contract_wage', { payType: 'hourly', hourlyWage: 11_000, workDays: ['토', '일'], start: '10:00', end: '18:00', breakMinutes: 60, weeklyRestDay: '월', startDate: '2026-11-01' });
   check(`design 파트(하루 ${part.total}, 한 달 예상 ${part.monthlyEstimate})`, part.ok && part.total === 88_000 && part.period.startsWith('하루'));
+  // 261126 G4 I11 — 1개월 미만 계약(일용근로자)은 1주 15시간 미만이어도 고용보험 적용 안내
+  const daily = await callTool('design_contract_wage', { payType: 'hourly', hourlyWage: 11_000, workDays: ['토', '일'], start: '10:00', end: '18:00', breakMinutes: 60, weeklyRestDay: '월', startDate: '2026-11-01', endDate: '2026-11-14' });
+  check('design 1개월 미만 계약 → 고용보험 일용근로자 안내', daily.ok && (daily.notes || []).some((n) => n.includes('일용근로자')));
 }
 if (tools.includes('make_contract_files')) {
   const outDir = path.join(tmp, 'contract');
@@ -388,6 +391,11 @@ if (tools.includes('calc_notice_pay')) {
   check(`notice_pay 월급 2,156,880 → 2,476,800(${n.headline?.[0]})`, n.status === 'pay' && n.amount === 2_476_800);
   const sh = await callTool('calc_notice_pay', { unit: 'hour', amount: 10_320, dailyHours: 8, hireDate: '2025-01-02', dismissalDate: '2026-11-30', noticeDate: '2026-11-01' });
   check('notice_pay 29일 전 예고는 30일분 전액', sh.status === 'short' && sh.noticeDays === 29 && sh.amount === 2_476_800);
+  // 261126 G4 I6·I13 — partTime 을 빼고 주 24시간이면 알림(금액 그대로), 통상 근로자 4주 평균 4.5일은 소수로 받는다
+  const pt = await callTool('calc_notice_pay', { unit: 'month', amount: 1_200_000, weeklyHours: 24, dailyHours: 8, hireDate: '2025-01-02', dismissalDate: '2026-11-30' });
+  check(`notice_pay partTime 없이 주 24시간은 알림(${pt.headline?.[2]})`, pt.amount === 2_304_000 && pt.partTimeCheck === true && /40시간보다 짧/.test(pt.headline?.join(' ') ?? ''));
+  const rot = await callTool('calc_notice_pay', { unit: 'hour', amount: 12_000, weeklyHours: 24, dailyHours: 8, hireDate: '2025-01-02', dismissalDate: '2026-11-30', partTime: { fullTimeWeeklyDays: 4.5 } });
+  check(`notice_pay 통상 근로자 4.5일(5·4·5·4) → 1,920,000(${rot.amount ?? rot.error})`, rot.amount === 1_920_000);
 }
 if (tools.includes('calc_leave_pay')) {
   const l = await callTool('calc_leave_pay', {
@@ -428,13 +436,26 @@ for (const t of (await c.listTools()).tools.filter((x) => MORE_TOOLS.includes(x.
 }
 if (tools.includes('calc_severance')) {
   // calc-severance.test.ts 「재직 3년(1,096일)」 — 1일 평균임금 97,826.09, 퇴직금 = 반올림(9,782,609전 × 30 × 1,096 ÷ 36,500)
-  const s = await callNew('calc_severance', { hireDate: '2023-01-01', lastWorkDate: '2025-12-31', wageTotal: 9_000_000 });
+  const s = await callNew('calc_severance', { hireDate: '2023-01-01', lastWorkDate: '2025-12-31', wageTotal: 9_000_000, weeklyHours: 40 });
+  // 261124 P2 #13 — 1년이 넘어도 주 14시간이면 지급 대상 아님
+  const h14 = await callNew('calc_severance', { hireDate: '2023-01-01', lastWorkDate: '2025-12-31', wageTotal: 9_000_000, weeklyHours: 14 });
+  check(`severance 주 14시간은 지급 대상 아님(${h14.headline?.[0]})`, h14.ok && h14.result?.eligible === false && h14.result?.status === 'under-15h');
   const want = Math.round((9_782_609 * 30 * 1096) / 36_500);
   check(`severance 3년 1,096일 · 97,826.09 → ${want}(${s.headline?.[0]})`, s.ok && s.result?.serviceDays === 1096 && s.result.dailyAverage === 97_826.09 && s.result.amount === want && s.result.eligible === true);
-  const short = await callNew('calc_severance', { hireDate: '2026-03-02', lastWorkDate: '2026-10-30', wageTotal: 7_500_000 });
+  const short = await callNew('calc_severance', { hireDate: '2026-03-02', lastWorkDate: '2026-10-30', wageTotal: 7_500_000, weeklyHours: 40 });
   check(`severance 1년 미만은 지급 대상 아님(${short.headline?.[0]})`, short.ok && short.result?.eligible === false && /1년/.test(short.headline?.[0] ?? ''));
-  const bad = await callNew('calc_severance', { hireDate: '2026-03-02', lastWorkDate: '2026-02-01', wageTotal: 7_500_000 });
+  const bad = await callNew('calc_severance', { hireDate: '2026-03-02', lastWorkDate: '2026-02-01', wageTotal: 7_500_000, weeklyHours: 40 });
   check(`severance 날짜 거꾸로면 오류(${bad.error})`, bad.ok === false && !!bad.error);
+  // 261126 G4 I8·I15 — 제외 일수만 넣고 그 기간 임금을 비우면 오류, 0 을 넣으면 계산, 임금총액과 같으면 오류
+  const exNoWage = await callNew('calc_severance', { hireDate: '2025-01-01', lastWorkDate: '2025-12-31', wageTotal: 6_200_000, weeklyHours: 40, excludedDays: 30 });
+  check(`severance 제외 일수만 넣으면 오류(${exNoWage.error})`, exNoWage.ok === false && /그 기간에 받은 임금/.test(exNoWage.error ?? ''));
+  const exZero = await callNew('calc_severance', { hireDate: '2025-01-01', lastWorkDate: '2025-12-31', wageTotal: 6_200_000, weeklyHours: 40, excludedDays: 30, excludedWage: 0 });
+  check(`severance 제외 30일·임금 0 → 3,000,000(${exZero.result?.amount})`, exZero.ok && exZero.result?.amount === 3_000_000);
+  const exAll = await callNew('calc_severance', { hireDate: '2025-01-01', lastWorkDate: '2025-12-31', wageTotal: 6_200_000, weeklyHours: 40, excludedDays: 30, excludedWage: 6_200_000 });
+  check(`severance 제외임금 = 임금총액이면 오류(${exAll.error})`, exAll.ok === false && /남은 기간/.test(exAll.error ?? ''));
+  // 261126 D3 — 1주 소정근로시간이 15시간 이상·미만 사이에서 바뀐 적 있으면 계산하지 않는다
+  const changed = await callNew('calc_severance', { hireDate: '2025-01-01', lastWorkDate: '2026-02-24', wageTotal: 8_400_000, weeklyHours: 20, hoursChanged: true });
+  check(`severance 시간 바뀐 적 있음 → 오류(${changed.error?.slice(0, 40)}…)`, changed.ok === false && /4주 단위/.test(changed.error ?? '') && /퇴직연금복지과-5254/.test(changed.error ?? ''));
 }
 if (tools.includes('calc_holiday_pay')) {
   // 엔진 식 — 월급 2,090,000 ÷ 209 = 통상시급 10,000. 월급 외에 휴일근로 1.0배 + 가산 0.5배: 10,000 × 1.5 × 8 = 120,000
