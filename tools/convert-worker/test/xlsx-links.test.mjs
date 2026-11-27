@@ -134,3 +134,82 @@ describe('repairExternalLinks — 깨진 외부 연결 정리', () => {
     assert.equal(warningsHeader(r.warnings), 'EXTERNAL_LINKS_REMOVED=1,EXTERNAL_LINKS_KEPT_REFERENCED=1');
   });
 });
+
+// 3각 검수 1차(261127) 반례 — 판정표 #22·24
+async function tweak(bytes, fn) {
+  const z = await JSZip.loadAsync(bytes);
+  await fn(z);
+  return z.generateAsync({ type: 'uint8array', compression: 'DEFLATE' });
+}
+const editPart = async (z, name, f) => z.file(name, f(await z.file(name).async('string')));
+
+describe('repairExternalLinks — 3각 검수 1차 반례', () => {
+  // 연결 순서 [깨짐, 정상, 정상] — 어디선가 [2] 를 쓰면 첫 깨진 연결을 지우면 안 된다(번호가 당겨져 [2] 가 셋째를 가리킴)
+  const three = () => makeXlsx({ links: [{ names: BROKEN }, { names: GOOD }, { names: GOOD }] });
+
+  test('표의 계산 열 수식([2])도 참조로 센다', async () => {
+    const src = await tweak(await three(), (z) => z.file('xl/tables/table1.xml', `<table ${NS} id="1" name="T" ref="A1:A2"><tableColumns count="1"><tableColumn id="1" name="c"><calculatedColumnFormula>'[2]시트1'!A1</calculatedColumnFormula></tableColumn></tableColumns></table>`));
+    const r = await repairExternalLinks(src);
+    assert.equal(r.removed, 0);
+  });
+
+  test('숫자 문자 참조(&#91;2&#93;)로 적힌 수식도 참조로 센다', async () => {
+    const r = await repairExternalLinks(await makeXlsx({ links: [{ names: BROKEN }, { names: GOOD }, { names: GOOD }], formula: '&#91;2&#93;시트1!A1' }));
+    assert.equal(r.removed, 0);
+  });
+
+  test('조건부서식 cfvo val·도형 textlink 속성 속 [2] 도 참조로 센다', async () => {
+    for (const extra of [
+      ['xl/worksheets/sheet1.xml', (s) => s.replace('</worksheet>', `<conditionalFormatting sqref="A1"><cfRule type="dataBar" priority="1"><dataBar><cfvo type="formula" val="'[2]시트1'!A1"/><cfvo type="max"/><color rgb="FF000000"/></dataBar></cfRule></conditionalFormatting></worksheet>`)],
+      ['xl/drawings/drawing1.xml', () => `<xdr:wsDr xmlns:xdr="http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing"><xdr:sp textlink="[2]시트1!$A$1"/></xdr:wsDr>`],
+    ]) {
+      const src = await tweak(await three(), async (z) => (z.file(extra[0]) ? editPart(z, extra[0], extra[1]) : z.file(extra[0], extra[1]())));
+      const r = await repairExternalLinks(src);
+      assert.equal(r.removed, 0, extra[0]);
+    }
+  });
+
+  test('서식(styles.xml)의 셀 스타일 이름 「쉼표 [0]」·「[2]」 는 참조가 아니다(실서식 S11 오탐)', async () => {
+    const src = await tweak(await makeXlsx({ links: [{ names: BROKEN }, { names: BROKEN }] }), (z) => z.file('xl/styles.xml', `<styleSheet ${NS}><cellStyles count="2"><cellStyle name="쉼표 [0]" xfId="0" builtinId="6"/><cellStyle name="합성 [2]" xfId="0"/></cellStyles></styleSheet>`));
+    const r = await repairExternalLinks(src);
+    assert.equal(r.removed, 2);
+  });
+
+  test('글 칸(<t>)의 [2] 는 참조가 아니다', async () => {
+    const src = await tweak(await makeXlsx({ links: [{ names: BROKEN }] }), (z) => editPart(z, 'xl/worksheets/sheet1.xml', (s) => s.replace('<c r="A1"><v>1</v></c>', '<c r="A1" t="inlineStr"><is><t>항목 [1]</t></is></c>')));
+    const r = await repairExternalLinks(src);
+    assert.equal(r.removed, 1);
+  });
+
+  test('externalReference 안에 주석이 있어도 참조·관계·부품을 함께 지운다', async () => {
+    const src = await tweak(await makeXlsx({ links: [{ names: BROKEN }] }), (z) => editPart(z, 'xl/workbook.xml', (s) => s.replace('<externalReference r:id="rId2"/>', '<externalReference r:id="rId2"><!--memo--></externalReference>')));
+    const r = await repairExternalLinks(src);
+    assert.equal(r.removed, 1);
+    const p = await parts(r.bytes);
+    assert.doesNotMatch(p.wb, /externalReference/);
+    assert.doesNotMatch(p.rels, /rId2/);
+    assert.equal(p.names.filter((n) => n.startsWith('xl/externalLinks/')).length, 0);
+  });
+
+  test('접두 붙은 Override(p:Override)·작은따옴표 r:id 도 함께 지운다', async () => {
+    let src = await makeXlsx({ links: [{ names: BROKEN }] });
+    src = await tweak(src, async (z) => {
+      await editPart(z, '[Content_Types].xml', (s) => s.replace('<Types xmlns=', '<p:Types xmlns:p=').replace('</Types>', '</p:Types>').replace(/<(Default|Override)\b/g, '<p:$1'));
+      await editPart(z, 'xl/workbook.xml', (s) => s.replace('<externalReference r:id="rId2"/>', "<externalReference r:id='rId2'/>"));
+    });
+    const r = await repairExternalLinks(src);
+    assert.equal(r.removed, 1);
+    const p = await parts(r.bytes);
+    assert.doesNotMatch(p.ct, /externalLink1/);
+    assert.doesNotMatch(p.wb, /externalReference/);
+  });
+
+  test('세 곳 중 하나라도 지우지 못하면 원본을 두고 경고만 낸다', async () => {
+    // 관계 Id 를 대문자 속성으로 바꿔 관계를 찾지 못하게 — 부품만 지워지는 반쪽 상태를 만들지 않는다
+    const src = await tweak(await makeXlsx({ links: [{ names: BROKEN }] }), (z) => editPart(z, 'xl/workbook.xml', (s) => s.replace('<externalReference r:id="rId2"/>', '<externalReference r:id="rId2"/><externalReference r:id="rId2"/>')));
+    const r = await repairExternalLinks(src);
+    assert.equal(r.bytes, src);
+    assert.equal(r.removed, 0);
+    assert.ok(r.warnings.some((w) => w.code === 'EXTERNAL_LINKS_CHECK_FAILED'));
+  });
+});
