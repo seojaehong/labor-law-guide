@@ -110,6 +110,8 @@ export interface ChildcareReductionInput {
   childEligible?: boolean;
   /** 단축 기간 중 출산전후휴가와 겹친 일수(없으면 0) — 30일을 셀 때 뺀다 */
   maternityOverlapDays?: number;
+  /** 같은 자녀로 앞서 쓴 육아기 근로시간 단축 일수(처음이면 0) — 1년 한도는 나눠 쓴 기간의 합이다 */
+  priorUseDays?: number;
   /** 우선지원대상기업 */
   priorityFirm?: boolean;
   /** 육아기 근로시간 단축을 한 번도 허용하지 않은 사업장이 처음 허용했고 이 근로자가 첫~세 번째 허용 사례다 */
@@ -200,6 +202,8 @@ export interface ChildcareReductionResult {
       total: number | null;
       firstHalf: number | null;
       rest: number | null;
+      /** 사업주 금액을 내지 않은 이유(확인한 고시보다 앞선 개시 등). 없으면 null */
+      withheld: string | null;
       rule: ReductionSubsidyRule;
       eligibility: EligibilityCheck[];
       apply: { firstFrom: string | null; until: string | null; restFrom: string | null; restUntil: string | null; note: string };
@@ -233,6 +237,7 @@ function periodEnd(s: string, n: number): string {
   const last = daysIn(y, m);
   return day > last ? iso(Date.UTC(y, m, last)) : iso(Date.UTC(y, m, day) - DAY);
 }
+const dotDate = (s: string) => s.replace(/^(\d{4})-0?(\d{1,2})-0?(\d{1,2})$/, '$1. $2. $3.');
 const nextMonthFirst = (s: string) => {
   const d = new Date(`${s}T00:00:00Z`);
   return iso(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 1));
@@ -303,6 +308,8 @@ export function calcChildcareReduction(input: ChildcareReductionInput): Childcar
   }
   const overlap = input.maternityOverlapDays;
   if (overlap !== undefined && !(Number.isInteger(overlap) && overlap >= 0)) throw new Error('출산전후휴가와 겹친 일수를 0 이상 정수로 넣어 주세요');
+  const prior = input.priorUseDays;
+  if (prior !== undefined && !(Number.isInteger(prior) && prior >= 0)) throw new Error('같은 자녀로 앞서 쓴 단축 일수를 0 이상 정수로 넣어 주세요');
   if (input.monthlyReportedPay !== undefined && !(Number.isFinite(input.monthlyReportedPay) && input.monthlyReportedPay >= 0)) throw new Error('월평균 보수를 확인해 주세요');
   const ws = input.workSharing;
   if (ws) {
@@ -324,9 +331,10 @@ export function calcChildcareReduction(input: ChildcareReductionInput): Childcar
     value: subsidyRule.from,
     note: `사업주 장려금은 ${subsidyRule.source} 금액으로 셉니다. 고시는 매년 정하는 금액이라(고용보험법 시행령 제29조제3항) 그 뒤 고시가 바뀌면 달라집니다.`,
   });
-  if (startDate !== undefined && startDate < subsidyRule.from) {
-    assumptions.push({ key: 'subsidyRuleBefore', value: subsidyRule.from, note: `개시일이 ${subsidyRule.from} 전이지만 그 전 고시 금액은 확인하지 않아 같은 금액으로 셉니다.` });
-  }
+  // 확인한 고시보다 앞서 개시하면 사업주 금액을 내지 않는다(급여 상한이 확인 안 된 판을 거절하는 것과 같은 기준)
+  const withheld = startDate !== undefined && startDate < subsidyRule.from
+    ? `개시일이 ${dotDate(subsidyRule.from)} 전이라 사업주 금액을 내지 않습니다. 그 전에 시행된 고시 금액을 확인하지 않았습니다.`
+    : null;
 
   // ── 요건(근로자) — 넣지 않은 사실은 확인 필요 ──
   const thirtyDays = (): EligibilityCheck => {
@@ -382,10 +390,14 @@ export function calcChildcareReduction(input: ChildcareReductionInput): Childcar
       t30,
       (() => {
         const basis = '남녀고용평등법 제19조의2제4항';
-        if (!endDate) return chk('periodLimit', '기간 1년 이내(쓰지 않은 육아휴직 기간의 두 배 가산)', 'check', '종료일을 넣으면 기간을 봅니다.', basis);
-        return endDate <= periodEnd(s, 12)
-          ? chk('periodLimit', '기간 1년 이내(쓰지 않은 육아휴직 기간의 두 배 가산)', 'met', '1년 이내입니다.', basis)
-          : chk('periodLimit', '기간 1년 이내(쓰지 않은 육아휴직 기간의 두 배 가산)', 'check', '1년을 넘습니다. 쓰지 않은 육아휴직 기간이 있으면 그 두 배까지 늘어나므로 그 기간을 확인합니다.', basis);
+        const label = '기간 1년 이내(나눠 쓴 기간 합산, 쓰지 않은 육아휴직 기간의 두 배 가산)';
+        if (!endDate) return chk('periodLimit', label, 'check', '종료일을 넣으면 기간을 봅니다.', basis);
+        // 1년은 같은 자녀로 나눠 쓴 기간의 합이다(제19조의4제2항) — 앞서 쓴 일수를 더해 본다
+        const used = spanDays(s, endDate) + (prior ?? 0);
+        const year = spanDays(s, periodEnd(s, 12));
+        if (used > year) return chk('periodLimit', label, 'check', `앞서 쓴 기간을 더해 ${used}일로 1년(${year}일)을 넘습니다. 쓰지 않은 육아휴직 기간이 있으면 그 두 배까지 늘어나므로 그 기간을 확인합니다.`, basis);
+        if (prior === undefined) return chk('periodLimit', label, 'check', `이번 기간은 ${used}일로 1년 이내입니다. 같은 자녀로 앞서 쓴 단축 기간이 있으면 더해 봅니다(넣지 않았습니다).`, basis);
+        return chk('periodLimit', label, 'met', `앞서 쓴 기간을 더해 ${used}일로 1년 이내입니다.`, basis);
       })(),
       (() => {
         const basis = '남녀고용평등법 제19조의4제2항';
@@ -437,7 +449,7 @@ export function calcChildcareReduction(input: ChildcareReductionInput): Childcar
   let base: number | null = null;
   let bonus: number | null = null;
   // 근로자 쪽 사실(개시일·시간)이 빠졌으면 사업주 금액도 내지 않는다 — 개시일 없이는 고시 판·신청일을, 시간 없이는 업무분담 요건을 정할 수 없다
-  const employerReady = !employerNeeds.length && !needs.length;
+  const employerReady = !employerNeeds.length && !needs.length && withheld === null;
   if (employerReady) {
     base = hardUnmet ? 0 : subsidyRule.monthly;
     bonus = hardUnmet || !input.firstTimeGrant ? 0 : subsidyRule.firstGrantBonus;
@@ -485,6 +497,7 @@ export function calcChildcareReduction(input: ChildcareReductionInput): Childcar
       needs: employerNeeds,
       subsidy: {
         monthly: monthlySubsidy,
+        withheld,
         base,
         bonus,
         total,

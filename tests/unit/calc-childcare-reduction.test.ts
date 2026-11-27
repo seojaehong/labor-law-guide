@@ -149,7 +149,7 @@ describe('요건 확인 — 확인 못 한 것을 충족으로 숨기지 않는�
     expect(st('thirtyDays')).toBe('check'); // 종료일이 없다
     expect(r.worker!.verdict).toBe('check');
 
-    const all = calcChildcareReduction({ ...BASE, endDate: '2027-12-20', insuredDays180: true, childEligible: true, maternityOverlapDays: 0 });
+    const all = calcChildcareReduction({ ...BASE, endDate: '2027-12-20', insuredDays180: true, childEligible: true, maternityOverlapDays: 0, priorUseDays: 0 });
     expect(all.worker!.eligibility.every((c) => c.status === 'met')).toBe(true);
     expect(all.worker!.verdict).toBe('eligible');
 
@@ -165,6 +165,14 @@ describe('요건 확인 — 확인 못 한 것을 충족으로 숨기지 않는�
   it('1년을 넘는 기간은 확인 필요(쓰지 않은 육아휴직 기간의 두 배까지 늘어난다)', () => {
     const r = calcChildcareReduction({ ...BASE, endDate: '2028-06-20' });
     expect(r.worker!.eligibility.find((c) => c.key === 'periodLimit')!.status).toBe('check');
+  });
+
+  it('1년은 나눠 쓴 기간의 합 — 앞서 쓴 일수를 넣지 않으면 확인 필요, 0 이면 충족, 합이 넘으면 확인 필요(제19조의2제4항·제19조의4제2항)', () => {
+    const st = (prior?: number) => calcChildcareReduction({ ...BASE, endDate: '2027-06-20', priorUseDays: prior }).worker!.eligibility.find((c) => c.key === 'periodLimit')!.status;
+    expect(st(undefined)).toBe('check');
+    expect(st(0)).toBe('met');
+    expect(st(200)).toBe('check'); // 182일 + 200일 > 1년
+    expect(() => calcChildcareReduction({ ...BASE, priorUseDays: -1 })).toThrow(/앞서 쓴/);
   });
 });
 
@@ -188,6 +196,15 @@ describe('사업주 — 출산육아기 고용안정장려금(고시 별표 5)',
     expect(r.needs.map((n) => n.key)).toEqual(['startDate']);
     expect(r.employer.subsidy.monthly).toBeNull();
     expect(r.employer.workSharing!.monthly).toBeNull();
+  });
+
+  it('개시일이 2026. 7. 1.(확인한 고시) 전이면 사업주 금액을 내지 않고 이유를 단다 — 급여 상한과 같은 기준', () => {
+    const r = calcChildcareReduction({ ...BASE, startDate: '2026-03-02', priorityFirm: true, workSharing: { paidMonthly: 300_000 } });
+    expect(r.worker!.monthly).toBe(865_000);
+    expect(r.employer.subsidy.monthly).toBeNull();
+    expect(r.employer.subsidy.withheld).toMatch(/2026\. 7\. 1\./);
+    expect(r.employer.workSharing!.monthly).toBeNull();
+    expect(calcChildcareReduction({ ...BASE, priorityFirm: true }).employer.subsidy.withheld).toBeNull();
   });
 
   it('상한·하한은 확인한 날의 판 기준이라고 assumptions 로 알린다', () => {
@@ -254,6 +271,8 @@ describe('MCP calc_childcare_reduction_pay', () => {
     expect(r.headline.join(' ')).toContain('865,000원');
     expect(r.headline.join(' ')).toContain('급여 신청 2027. 1. 21.부터');
     expect(r.headline.join(' ')).toContain('장려금 신청 2027. 1. 1.부터 3개월마다');
+    // 확인 못 한 사업주 요건도 헤드라인에 드러낸다(충족으로 숨기지 않는다)
+    expect(r.headline.join(' ')).toContain('사업주 요건 — 미충족 0건 · 확인 필요 7건');
     expect(Array.isArray(r.assumptions)).toBe(true);
     expect(r.wageNote).toMatch(/임금 구성/);
   });

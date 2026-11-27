@@ -39,15 +39,17 @@ function headline(r) {
     lines.push(`근로자 요건 — ${w.verdict === 'eligible' ? '넣은 사실로 모두 충족' : `미충족 ${unmet}건 · 확인 필요 ${check}건`}.`);
     lines.push(`급여 신청 ${dot(w.apply.from)}부터${w.apply.until ? ` ${dot(w.apply.until)}까지` : ' — 끝난 날 이후 12개월 이내'}.`);
   }
+  const tally = (list) => `미충족 ${list.filter((c) => c.status === 'unmet').length}건 · 확인 필요 ${list.filter((c) => c.status === 'check').length}건`;
   const s = r.employer.subsidy;
   if (s.monthly === null) {
-    lines.push(r.employer.needs.length ? '사업주 장려금은 우선지원대상기업인지 알려 주면 셉니다(employer.needs 참고).' : '사업주 장려금도 위 사실을 넣으면 셉니다.');
+    lines.push(s.withheld ?? (r.employer.needs.length ? '사업주 장려금은 우선지원대상기업인지 알려 주면 셉니다(employer.needs 참고).' : '사업주 장려금도 위 사실을 넣으면 셉니다.'));
   } else {
     lines.push(`사업주 육아기 근로시간 단축 지원금 월 ${won(s.monthly)}${s.bonus ? `(기본 ${won(s.base)} + 최초 허용 ${won(s.bonus)})` : ''}${s.total !== null ? ` · 기간 합계 ${won(s.total)}(절반 ${won(s.firstHalf)}은 3개월마다, 나머지 ${won(s.rest)}은 끝난 뒤 6개월 계속 고용 후)` : ''}.`);
+    lines.push(`사업주 요건 — ${tally(s.eligibility)}.`);
     if (s.monthly > 0 && s.apply.firstFrom) lines.push(`장려금 신청 ${dot(s.apply.firstFrom)}부터 3개월마다${s.apply.restFrom ? ` · 나머지 50%는 ${dot(s.apply.restFrom)}부터` : ''}.`);
   }
   const ws = r.employer.workSharing;
-  if (ws && ws.monthly !== null) lines.push(`업무분담 지원금 월 ${won(ws.monthly)}${ws.monthly === 0 ? '(요건 미충족)' : ''}.`);
+  if (ws && ws.monthly !== null) lines.push(`업무분담 지원금 월 ${won(ws.monthly)} — 요건 ${tally(ws.eligibility)}.`);
   return lines;
 }
 
@@ -71,6 +73,7 @@ export function register(server) {
         insuredDays180: z.boolean().optional().describe('개시일 전 고용보험 피보험 단위기간 합산 180일 이상이면 true'),
         childEligible: z.boolean().optional().describe('대상 자녀가 만 12세 이하 또는 초등학교 6학년 이하이면 true'),
         maternityOverlapDays: z.number().int().optional().describe('단축 기간 중 출산전후휴가와 겹친 일수(없으면 0)'),
+        priorUseDays: z.number().int().optional().describe('같은 자녀로 앞서 쓴 육아기 근로시간 단축 일수(처음이면 0). 1년 한도는 나눠 쓴 기간의 합이다'),
         priorityFirm: z.boolean().optional().describe('회사가 우선지원대상기업이면 true(고용보험법 시행령 제12조). 비우면 사업주 금액을 내지 않는다'),
         firstTimeGrant: z.boolean().optional().describe('육아기 근로시간 단축을 한 번도 허용하지 않던 사업장이 처음 허용했고 이 근로자가 첫~세 번째 허용 사례면 true'),
         ownerRelative: z.boolean().optional().describe('근로자가 사업주(법인은 대표이사)의 배우자·직계 존비속이면 true'),
