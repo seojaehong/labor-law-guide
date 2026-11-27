@@ -257,9 +257,9 @@ describe('사업주 — 출산육아기 고용안정장려금(고시 별표 5)',
 });
 
 describe('MCP calc_childcare_reduction_pay', () => {
-  it('calc 묶음에 있고 원격판에도 싣는다(이름·주민번호를 받지 않는 계산)', () => {
+  it('calc 묶음에 있고, npm 게시 전까지 원격판에는 싣지 않는다(261127 결정 — calcRemoteHeld)', () => {
     expect(calcTools).toContain(TOOL);
-    expect(calcRemoteSafe).toContain(TOOL);
+    expect(calcRemoteSafe).not.toContain(TOOL);
   });
 
   it('합성 예 — 근로자 월 865,000원, 사업주 월 400,000원, needs 최상위', async () => {

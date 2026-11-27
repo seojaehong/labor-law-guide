@@ -42,8 +42,10 @@ export const calcTools = [
   'calc_severance', 'calc_holiday_pay', 'calc_pay_proration', 'calc_shutdown_allowance',
   ...MORE.map((m) => m.name),
 ];
-/** 원격(HTTP)판에 실어도 되는 도구 — 전부 */
-export const calcRemoteSafe = [...calcTools];
+/** npm 게시 전까지 원격판에 싣지 않는 도구 — 게시(0.3.3)할 때 이 목록에서 지운다(261127 결정: 병합만으로 원격 MCP 에 먼저 실리지 않게) */
+export const calcRemoteHeld = ['calc_childcare_reduction_pay'];
+/** 원격(HTTP)판에 실어도 되는 도구 — 게시 보류분을 뺀 전부 */
+export const calcRemoteSafe = calcTools.filter((n) => !calcRemoteHeld.includes(n));
 
 const SITE = 'https://yellowenvelope.kr';
 const READ_ONLY = { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false };
