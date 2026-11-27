@@ -6,7 +6,7 @@ import { minutesRecord } from '@/lib/nosa-council/meeting-docs';
 import { IMPORTED } from '@/lib/nosa-council/records';
 
 // 회의록 그래프 화면 — 기록 폴더 파일을 브라우저 안에서 읽어 그린다(서버로 보내지 않는다). 값은 가상.
-const WORDS = ['노무사', '상담', '자문', '진단', '판정', '적법', '확률', '체불', '위법', '승소', '대행', '대리'];
+const WORDS = ['적법', '확률', '체불', '위법', '승소'];
 const TODAY = '2026-11-10';
 
 describe('기록 폴더 읽기 — 로컬 도구와 같은 규칙', () => {

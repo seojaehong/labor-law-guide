@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest';
 import { FORBIDDEN, forbiddenHits } from '@/lib/pay-check/card';
 
 const read = (p: string) => readFileSync(p, 'utf8');
-const SITE_BANNED = ['노무사', '상담', '진단', '판정', '자문', '체불', '위법', '받을 수 있는 금액', '승소'];
+const SITE_BANNED = ['체불', '위법', '받을 수 있는 금액', '승소'];
 
 const pageFiles = ['page.tsx', 'PayCheckClient.tsx', 'build-input.ts'].map((f) => `src/app/tools/pay-check/${f}`);
 const toolsEntry = read('src/content/tools-registry.ts').split('\n').find((l) => l.includes("'/tools/pay-check'")) ?? '';

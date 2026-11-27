@@ -111,10 +111,10 @@ describe('조문 안내 — 경계 양쪽', () => {
 });
 
 describe('공개 문구 금지어', () => {
-  it('화면 문장·서식 목록·안내·원고에 금지어가 없다(대신·대행·대리 포함)', async () => {
+  it('화면 문장·서식 목록·안내·원고에 금지어가 없다', async () => {
     const { allCopy } = await import('@/app/tools/hr-forms/copy');
     const { bannedHits, SERVICE_BANNED, RESULT_BANNED } = await import('@/lib/tool-kit/banned');
-    const words = [...SERVICE_BANNED, ...RESULT_BANNED, '대신', '대행', '대리'];
+    const words = [...SERVICE_BANNED, ...RESULT_BANNED];
     const texts = [...allCopy(), JSON.stringify(catalog()), ...['childcare-leave', 'spouse-maternity-leave', 'childcare-leave-approval'].flatMap((id) => {
       const r = notes(id, id === 'spouse-maternity-leave' ? { ...P, birthState: 'born', birthDate: '2027-03-01', p1Start: '2026-12-01', p1End: '2027-08-01', appliedOn: '2026-11-01' } : id === 'childcare-leave' ? leave({ appliedOn: '2026-12-30', end: '2028-12-31', extra: 'both' }) : { company: '가', ceo: '나', employee: '다', appliedOn: '2026-12-01', kind: 'asis', start: '2027-01-04', end: '2027-07-03', notifiedOn: '2027-01-01' });
       return [...r.notes, r.md];

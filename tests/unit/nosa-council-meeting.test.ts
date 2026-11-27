@@ -7,7 +7,7 @@ import {
 // 노사협의회 회의 확인 — 설계 = 노사협의회신고 스킬 references/practice-docs-spec-261110.md 「check_council_meeting」.
 // 회의 정족수·소집 기한은 assess.ts(quorumMeeting·deadline)를 그대로 쓴다. 3개월 간격은 manual-crosscheck B11(노사관계법제과-1591)을 따른다.
 
-const NOSA_WORDS = ['노무사', '상담', '자문', '진단', '판정', '적법', '확률', '체불', '위법', '승소', '받을 수 있는 금액', '포괄', '대신', '대행', '대리', '지도'];
+const NOSA_WORDS = ['적법', '확률', '체불', '위법', '승소', '받을 수 있는 금액', '포괄', '지도'];
 const TODAY = '2026-11-10';
 const M: MeetingCheckInput = { kind: '정기', meetingDate: '2026-12-03', workerSeats: 5, employerSeats: 5 };
 

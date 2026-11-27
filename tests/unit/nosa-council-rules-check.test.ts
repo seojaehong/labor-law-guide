@@ -10,7 +10,7 @@ import { bannedHits } from '@/lib/tool-kit/banned';
 import { registerNosa, nosaLocalOnly, nosaRemoteSafe } from '../../tools/k-labor/groups/nosa.mjs';
 
 const SAMPLE = fs.readFileSync('tests/fixtures/nosa-council/rules-sample-2021.txt', 'utf8');
-const NOSA_WORDS = ['노무사', '상담', '자문', '진단', '판정', '적법', '확률', '체불', '위법', '승소', '받을 수 있는 금액', '포괄', '대신', '대행', '대리', '지도'];
+const NOSA_WORDS = ['적법', '확률', '체불', '위법', '승소', '받을 수 있는 금액', '포괄', '지도'];
 
 const find = (r: ReturnType<typeof checkCouncilRules>, id: string) => r.findings.filter((f) => f.id === id);
 

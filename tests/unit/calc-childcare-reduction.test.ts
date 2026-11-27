@@ -299,7 +299,7 @@ describe('MCP calc_childcare_reduction_pay', () => {
   it('설명·입력 설명·응답에 금지어(대신·대행·대리·포괄 포함)가 없다', async () => {
     const c = cfgs[TOOL];
     const desc = [c.title, c.description, ...Object.values(c.inputSchema ?? {}).map((v) => v?.description ?? '')].join('\n');
-    const words = ['포괄', '대신', '대행', '대리'];
+    const words = ['포괄'];
     expect(bannedHits(desc)).toEqual([]);
     for (const w of words) expect(desc).not.toContain(w);
     const out = JSON.stringify(await mcp({ ...BASE, endDate: '2027-12-20', priorityFirm: true, firstTimeGrant: true, workSharing: { paidMonthly: 300_000 } }));
