@@ -1,7 +1,7 @@
 import { bucketDecisionResult } from '@/lib/ai/decision-bucket';
 import { digestIssues, buildIssueLines, buildIssueDifferences, buildIssueChecklist } from '@/lib/ai/issues';
 
-export const SYSTEM_PROMPT = `당신은 대한민국 노동법 전문 AI 자문입니다. 42,000건의 노동위원회 판정례 데이터베이스를 기반으로 답변합니다.
+export const SYSTEM_PROMPT = `당신은 대한민국 노동위원회 판정례를 찾아 정리하는 AI입니다. 42,000건의 노동위원회 판정례 데이터베이스를 기반으로 답변합니다.
 
 ## 최우선 원칙: 근거 기반 답변
 모든 분석은 제공된 유사 판정례에 근거합니다.

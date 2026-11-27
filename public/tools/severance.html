@@ -665,7 +665,7 @@
                 <div class="field">
                     <label for="weeklyHours">1주 소정근로시간(4주 평균)</label>
                     <input type="text" id="weeklyHours" inputmode="decimal" autocomplete="off" placeholder="예: 40" aria-describedby="weeklyHoursHint">
-                    <p id="weeklyHoursHint" class="field-hint">4주를 평균해 1주 소정근로시간이 15시간 미만이면 퇴직금 지급 대상이 아닙니다(근로자퇴직급여 보장법 제4조 제1항). 비워 두면 지급 대상인지는 따지지 않고 금액만 계산합니다.</p>
+                    <p id="weeklyHoursHint" class="field-hint">4주를 평균해 1주 소정근로시간이 15시간 미만이면 퇴직금 지급 대상이 아닙니다(근로자퇴직급여 보장법 제4조 제1항). 비워 두면 금액을 내지 않습니다(계속근로 1년 미만이면 시간과 상관없이 지급 대상이 아니라 묻지 않습니다).</p>
                 </div>
                 <div class="field field-check">
                     <label class="check-label"><input type="checkbox" id="hoursChanged" aria-describedby="hoursChangedHint"> 재직 중 1주 소정근로시간이 15시간 이상과 미만 사이에서 바뀐 적이 있다</label>
@@ -816,13 +816,6 @@
 
 /* @@severance-engine:start — scripts/build-severance-engine.mjs 가 만든다. 손으로 고치지 않는다 */
 const SeveranceEngine = (() => {
-    // 퇴직금 정본 엔진 — 사이트의 퇴직금 계산은 모두 이것을 쓴다(/tools/severance.html 은 생성 스크립트로 안에 넣는다).
-    // 식 = 1일 평균임금 × 30 × 재직일수 ÷ 365 (퇴직급여법 §8①)
-    //   평균임금 = 퇴직일 전 3개월 임금총액(+ 상여·연차수당 3/12) ÷ 그 기간 총일수 (근로기준법 §2①6)
-    //   평균임금이 통상임금보다 낮으면 통상임금 (같은 조 ②)
-    // 끝수는 고용노동부 퇴직금 계산기와 같게 — 1일 평균임금은 소수 둘째 자리까지 올림, 퇴직금은 원 단위 반올림.
-    // 계산은 정수(BigInt, 1일 임금은 전 단위)로 한다. 날짜는 YYYY-MM-DD, 모두 UTC 달력으로 센다.
-    // ⚠ 이 파일은 import 없이 홀로 선다 — html 안에 그대로 옮겨 넣기 때문이다.
     const DAY = 86400000;
     function parse(s, what) {
         const ok = /^\d{4}-\d{2}-\d{2}$/.test(s || '');
@@ -875,6 +868,15 @@ const SeveranceEngine = (() => {
      */
     const HOURS_CHANGED_MESSAGE = '1주 소정근로시간이 15시간 이상과 미만 사이에서 바뀐 적이 있으면 이 계산기로 계산하지 않습니다. ' +
         '재직기간을 퇴직일부터 거슬러 4주 단위로 나눠 4주 평균 1주 소정근로시간이 15시간 미만인 4주는 계속근로기간에서 뺍니다(고용노동부 퇴직연금복지과-5254, 2019. 12. 9. 회신 취지).';
+    /**
+     * 1주 소정근로시간을 넣지 않았을 때 물을 사실(공통 형식 needs, ./needs.ts). 웹·MCP·챗봇이 같은 글을 쓴다(챗봇은 key 만 weekly_hours).
+     * 1년 이상 재직이면 이 시간이 지급 대상 여부를 바꾸므로 금액을 내지 않는다(261127 — 종전에는 「따지지 않았다」며 금액을 함께 냈다)
+     */
+    const WEEKLY_HOURS_NEED = {
+        key: 'weeklyHours',
+        question: '근로계약서나 근무표에 적힌 1주 근로시간이 몇 시간인가요? 주마다 다르면 퇴직 전 4주를 평균한 시간을 알려 주세요.',
+        why: '4주 평균 1주 소정근로시간이 15시간 미만이면 퇴직금 지급 대상이 아닙니다(근로자퇴직급여 보장법 제4조제1항 단서). 이 시간을 알기 전에는 금액을 내지 않습니다.',
+    };
     function calcSeverance(input) {
         var _a, _b, _c, _d, _e;
         parse(input.hireDate, '입사일');
@@ -924,6 +926,7 @@ const SeveranceEngine = (() => {
         const oneYear = retirementDate >= oneYearDate(input.hireDate);
         const hours15 = w === undefined ? null : w >= 15;
         const status = !oneYear ? 'under-1y' : hours15 === false ? 'under-15h' : hours15 === null ? 'hours-unknown' : 'eligible';
+        const needs = status === 'hours-unknown' ? [WEEKLY_HOURS_NEED] : [];
         return {
             retirementDate,
             serviceDays,
@@ -941,10 +944,11 @@ const SeveranceEngine = (() => {
             dailyAverage,
             applied,
             dailyApplied: Number(cents) / 100,
-            amount,
+            amount: needs.length ? null : amount,
+            needs,
         };
     }
-    return { calcSeverance, periodSegments, oneYearDate, HOURS_CHANGED_MESSAGE };
+    return { calcSeverance, periodSegments, oneYearDate, HOURS_CHANGED_MESSAGE, WEEKLY_HOURS_NEED };
 })();
 /* @@severance-engine:end */
 /* @@retirement-tax-engine:start — scripts/build-severance-engine.mjs 가 만든다. 손으로 고치지 않는다 */
@@ -1332,6 +1336,8 @@ function validateWorkerInput(w) {
     if (weekly && !(/^\d+(\.\d+)?$/.test(weekly) && Number(weekly) <= 168)) {
         return { field: 'weeklyHours', message: '「1주 소정근로시간」 칸에는 0~168 사이 숫자만 넣을 수 있습니다(예: 40).' };
     }
+    /* 261127 — 비우면 금액을 내지 않고 엔진 needs 의 질문으로 묻는다(종전에는 「따지지 않았다」며 금액을 냈다). 1년 미만은 시간과 상관없이 대상이 아니라 묻지 않는다 */
+    if (!weekly && !isUnderOneYear(w.startDate, w.endDate)) return { field: 'weeklyHours', message: weeklyHoursNeedMessage() };
     /* 261126 D3 — 15시간 이상·미만 사이에서 시간이 바뀐 적 있으면 계산하지 않는다(정밀 계산은 후속) */
     if (w.hoursChanged === true) return { field: 'hoursChanged', message: SeveranceEngine.HOURS_CHANGED_MESSAGE };
     const exText = String(w.excludedDays ?? '').trim();
@@ -1357,6 +1363,12 @@ function validateWorkerInput(w) {
         return { field: 'priorSeverance', message: '중간정산을 받았으면 퇴직금은 정산 기준일의 다음 날부터 새로 셉니다(근로자퇴직급여 보장법 제8조 제2항). 입사일 칸에 그 다음 날을 넣고 이 칸은 0으로 두세요.' };
     }
     return null;
+}
+
+/** 1주 소정근로시간을 비웠을 때 칸 아래에 싣는 글 — 엔진 needs(WEEKLY_HOURS_NEED)와 같은 질문·까닭(MCP·챗봇과 같은 글) */
+function weeklyHoursNeedMessage() {
+    const n = SeveranceEngine.WEEKLY_HOURS_NEED;
+    return `${n.question} ${n.why}`;
 }
 
 /**
@@ -1459,6 +1471,8 @@ function calculateSeverance(data) {
     const avgWage = engine.dailyAverage;
     const appliedWage = engine.dailyApplied;
     const wageTypeApplied = engine.applied;
+    /* 엔진이 needs 를 남기면(1주 소정근로시간 모름) 금액을 내지 않는다 — 검증을 거치지 않고 불러도 멈춘다(261127) */
+    if (engine.amount === null) throw new Error(weeklyHoursNeedMessage());
     const severancePay = engine.amount;
 
     const priorSev = parseMoney(data.priorSeverance);

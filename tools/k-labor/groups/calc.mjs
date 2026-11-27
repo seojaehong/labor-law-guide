@@ -19,7 +19,7 @@ import { headline as hcHeadline, whyLines as hcWhy, leaveLines as hcLeave, tenLi
   leaveMonthsHead as hcLeaveHead, leaveMonthLine as hcLeaveMonth } from '@/app/tools/headcount/copy';
 import { headline as thHeadline, items as thItems, formulaLines as thFormula, NOTICE as TH_NOTICE } from '@/app/tools/take-home-pay/copy';
 import { headline as lpHeadline, formulaLines as lpFormula, effectLines as lpEffect } from '@/app/tools/leave-pay/copy';
-import { calcSeverance, HOURS_CHANGED_MESSAGE } from '@/lib/calc/severance';
+import { calcSeverance, HOURS_CHANGED_MESSAGE, WEEKLY_HOURS_NEED } from '@/lib/calc/severance';
 import { calcHolidayPay } from '@/lib/holiday-pay';
 import { calcProration, calcAbsence } from '@/lib/calc/pay-proration';
 import {
@@ -122,14 +122,15 @@ export function registerCalc(server) {
     {
       title: '주휴수당 계산',
       description:
-        '1주 주휴수당과 한 달 평균을 계산한다(사이트 /tools/weekly-holiday-pay 와 같은 엔진). 주휴수당 = 시급 × 1일 소정근로시간, 1일 소정근로시간 = 1주 소정근로시간 ÷ 통상근로자 1주 소정근로일 수(보통 5일, 8시간까지). 주 15시간 미만이면 없고, 그 주 소정근로일을 개근해야 생긴다. 퇴사하는 주는 1주(회사가 정한 연속 7일)의 마지막 날(7일째)까지 근로관계가 이어져야 생기므로(주휴일 요일과 상관없음), 퇴사일(근로관계 마지막 날, 마지막으로 출근한 날이 아니다. 인사기록·4대보험의 상실일은 그다음 날)이 7일째 전이면 없다(임금근로시간과-1736(2021. 8. 4.)). 그 주 첫날보다 늦게 입사한 주는 직접 다룬 행정해석을 찾지 못했고 입사일부터 7일을 채우면 생긴다고 보는 해석(임금근로시간과-1743 취지)도 있어 금액을 내지 않는다(status joined-unclear, amount null — 확인 필요, checkNote 에 확인할 것). 같은 주에 입사·퇴사했으면 둘 다 true 로 넣는다(7일째 전 퇴사가 앞서 0원).',
+        '1주 주휴수당과 한 달 평균을 계산한다(사이트 /tools/weekly-holiday-pay 와 같은 엔진). 주휴수당 = 시급 × 1일 소정근로시간, 1일 소정근로시간 = 1주 소정근로시간 ÷ 통상근로자 1주 소정근로일 수(보통 5일, 8시간까지). 주 15시간 미만이면 없고, 그 주 소정근로일을 개근해야 생긴다. 퇴사하는 주는 1주(회사가 정한 연속 7일)의 마지막 날(7일째)까지 근로관계가 이어져야 생기므로(주휴일 요일과 상관없음), 퇴사일(근로관계 마지막 날, 마지막으로 출근한 날이 아니다. 인사기록·4대보험의 상실일은 그다음 날)이 7일째 전이면 없다(임금근로시간과-1736(2021. 8. 4.)). 그 주 첫날보다 늦게 입사한 주는 직접 다룬 행정해석을 찾지 못했고 입사일부터 7일을 채우면 생긴다고 보는 해석(임금근로시간과-1743 취지)도 있어 금액을 내지 않는다(status joined-unclear, amount null — 확인 필요, checkNote 에 확인할 것). 같은 주에 입사·퇴사했으면 둘 다 true 로 넣는다(7일째 전 퇴사가 앞서 0원). ' +
+        'fullAttendance·joinedMidWeek·endsBeforeWeekEnd 는 사용자가 말한 값만 넣는다 — 평상 주면 joinedMidWeek·endsBeforeWeekEnd 를 false 로 넣는다. 비우면 금액을 내지 않고(status needs-input, amount null) needs 에 물을 질문이 온다(15시간 미만·7일째 전 퇴사·결근처럼 어느 답이든 0원이면 묻지 않는다). needs 의 question 을 사용자에게 묻고 답을 넣어 다시 부른다.',
       inputSchema: {
         hourlyWage: z.number().describe('시급(원)'),
         weeklyHours: z.number().describe('1주 소정근로시간(4주 평균, 연장근로 제외)'),
-        fullAttendance: z.boolean().optional().describe('그 주 소정근로일을 모두 나왔나(기본 true)'),
+        fullAttendance: z.boolean().optional().describe('그 주 소정근로일을 모두 나왔나. 비우면 금액 없이 needs 로 묻는다(종전 기본 true 는 없앴다)'),
         fullTimeDays: z.number().int().optional().describe('같은 일을 하는 통상근로자의 1주 소정근로일 수(기본 5)'),
-        joinedMidWeek: z.boolean().optional().describe('입사한 주에만: 입사일이 그 주(연속 7일)의 첫날보다 늦으면 true(예: 월~일 주에 수요일 입사). true 면 금액을 내지 않고 확인 필요(joined-unclear)로 멈춘다 — 0원이 아니다. 그 주 첫날 입사·평상 주는 비운다'),
-        endsBeforeWeekEnd: z.boolean().optional().describe('퇴사하는 주에만: 퇴사일(근로관계가 이어진 마지막 날 — 마지막으로 출근한 날이 아니고, 인사기록·4대보험의 상실일은 그다음 날이라 그 날짜도 아니다)이 그 주(연속 7일)의 마지막 날(7일째) 전이면 true(월~일 주에 금요일 퇴사, 주휴일이 수요일이어도 목요일 퇴사면 true), 7일째이거나 그 뒤면 false(일요일 퇴사). 평상 주는 비운다'),
+        joinedMidWeek: z.boolean().optional().describe('입사한 주에만: 입사일이 그 주(연속 7일)의 첫날보다 늦으면 true(예: 월~일 주에 수요일 입사). true 면 금액을 내지 않고 확인 필요(joined-unclear)로 멈춘다 — 0원이 아니다. 그 주 첫날 입사·평상 주는 false. 비우면 금액 없이 needs 로 묻는다'),
+        endsBeforeWeekEnd: z.boolean().optional().describe('퇴사하는 주에만: 퇴사일(근로관계가 이어진 마지막 날 — 마지막으로 출근한 날이 아니고, 인사기록·4대보험의 상실일은 그다음 날이라 그 날짜도 아니다)이 그 주(연속 7일)의 마지막 날(7일째) 전이면 true(월~일 주에 금요일 퇴사, 주휴일이 수요일이어도 목요일 퇴사면 true), 7일째이거나 그 뒤면 false(일요일 퇴사). 퇴사하는 주가 아닌 평상 주도 false. 비우면 금액 없이 needs 로 묻는다'),
         // G4 R9(261127) — 옛 입력(주휴일 전 퇴사)을 스키마가 조용히 버리면 평상 주로 계산돼 금액이 나간다. 받아서 거절한다
         endsBeforeRestDay: z.unknown().optional().describe('없어진 입력 — 넣으면 계산하지 않고 거절한다. 퇴사하는 주는 endsBeforeWeekEnd 로 넣는다'),
       },
@@ -141,9 +142,11 @@ export function registerCalc(server) {
         if (endsBeforeRestDay !== undefined) {
           throw new Error('endsBeforeRestDay(퇴사일이 주휴일 전인가)는 없어진 입력입니다. 퇴사일이 그 주(연속 7일)의 마지막 날(7일째) 전인지 endsBeforeWeekEnd(true/false)로 다시 넣어 주세요.');
         }
-        const r = calcWeeklyHoliday({ ...input, fullAttendance: input.fullAttendance ?? true });
+        // 261127 — 개근을 비우면 개근으로 보지 않는다(종전 ?? true). 엔진이 비운 사실을 needs 로 돌려준다
+        const r = calcWeeklyHoliday(input);
         const headline =
           r.status === 'under15' ? [`1주 ${hoursText(a.weeklyHours)}이면 주휴수당이 없습니다.`, '4주를 평균한 1주 소정근로시간이 15시간 미만입니다.']
+            : r.status === 'needs-input' ? ['이번 주 주휴수당은 금액을 내지 않습니다.', '금액을 정하려면 needs 의 사실을 알아야 합니다.']
             : r.status === 'joined-unclear' ? WHP_JOINED
             : r.status === 'ended' ? WHP_ENDED
             : r.status === 'absent' ? ['이번 주는 주휴수당이 없습니다.', '그 주 소정근로일을 모두 나와야 생깁니다.']
@@ -155,7 +158,7 @@ export function registerCalc(server) {
           ...(span ? { basisNote: span } : {}),
           // 입사 주 — 무엇을 확인할지(웹 nextNote 와 같은 공통 문장, G4 R4). 다시 계산하는 방법만 입력 이름으로
           ...(r.status === 'joined-unclear'
-            ? { checkNote: `${WHP_JOINED_NEXT} 입사일이 그 주 첫날이었다면 joinedMidWeek 를 비우고 다시 계산합니다.` }
+            ? { checkNote: `${WHP_JOINED_NEXT} 입사일이 그 주 첫날이었다면 joinedMidWeek 를 false 로 넣어 다시 계산합니다.` }
             : {}),
           basis: [
             '근로기준법 제55조제1항(유급휴일)', '근로기준법 시행령 별표2 제2호나목(1일 소정근로시간)', '근로기준법 제18조제3항(주 15시간 미만)', '근로기준법 시행령 제30조제1항(개근)',
@@ -375,7 +378,7 @@ export function registerCalc(server) {
         otherPaidHours: z.boolean().optional().describe('주휴 말고 소정근로시간 밖에 유급으로 정한 시간(토요일 유급 등)이 있다 — 월급·주급이면 계산하지 않는다'),
         promotion: z.enum(['none', 'claimed', 'unknown']).optional().describe('회사가 사용 촉진을 했다고 하는가(금액은 바뀌지 않는다)'),
         arisenBeforeTermination: z.boolean().optional().describe('퇴직: 퇴직 전에 이미 지급 사유가 생겨 있던 수당인가(퇴직금 평균임금 산입 표시)'),
-        alreadyPaid: z.number().optional().describe('회사가 지급했거나 지급하려는 금액(대조용)'),
+        alreadyPaid: z.number().optional().describe('회사가 연차수당으로 지급했거나 지급하려는 금액(대조용). 급여명세서에 연차수당으로 따로 적힌 금액이 있으면 그 합계를 넣는다. 모르거나 구분되지 않으면 비운다 — 0 은 회사가 지급한 돈이 없을 때만 넣는다. 결과 difference 는 넣은 두 금액을 뺀 값이고 회사가 더 줄 돈을 정한 것이 아니다(같은 연차 일수·같은 기간의 돈인지는 보지 않는다)'),
         asOf: z.string().optional().describe('기준일 YYYY-MM-DD(기본 오늘, 조문 번호 표시)'),
       },
       annotations: READ_ONLY,
@@ -389,6 +392,7 @@ export function registerCalc(server) {
           formula: lpFormula(r),
           effect: lpEffect(r),
           result: r,
+          needs: r.needs, assumptions: r.assumptions,
           basis: [`근로기준법 ${r.payArticle}(통상임금 또는 평균임금 지급)`, '근로기준법 시행령 제6조(통상임금)', '대법원 2005. 5. 27. 선고 2003다48549 판결(근로관계가 끝나도 수당 청구권은 남는다)'],
           site: `${SITE}/tools/leave-pay`,
         });
@@ -429,12 +433,15 @@ export function registerCalc(server) {
           eligible: [`퇴직금은 ${won(r.amount)}입니다.`, formula],
           'under-1y': ['계속근로 기간이 1년이 되지 않아 퇴직금 지급 대상이 아닙니다.', `퇴직일 ${r.retirementDate}까지 재직 ${r.serviceDays}일입니다(근로자퇴직급여 보장법 제4조제1항). 같은 식으로 세면 ${won(r.amount)}입니다.`],
           'under-15h': ['4주 평균 1주 소정근로시간이 15시간 미만이라 퇴직금 지급 대상이 아닙니다.', `1주 ${a.weeklyHours}시간입니다(근로자퇴직급여 보장법 제4조제1항 단서). 같은 식으로 세면 ${won(r.amount)}입니다.`],
-          'hours-unknown': ['1주 소정근로시간을 몰라 지급 대상인지는 따지지 않았습니다.', `같은 식으로 세면 ${won(r.amount)}입니다.`],
+          // 261127 — needs 가 남으면 「같은 식으로 세면」 금액도 내지 않는다(호출한 AI 가 뒤 문장만 옮기면 개별 금액이 된다). 스키마상 weeklyHours 는 필수라 방어용
+          'hours-unknown': ['1주 소정근로시간을 몰라 금액을 내지 않습니다.', WEEKLY_HOURS_NEED.why],
         }[r.status];
         if (r.eligible && r.applied === 'ordinary') headline.push(`1일 평균임금 ${dec2(r.dailyAverage)}원이 1일 통상임금보다 낮아 통상임금으로 계산했습니다(근로기준법 제2조제2항).`);
         if (r.excludedDays > 0) headline.push(`산정기간 ${r.periodDays}일 중 제외기간 ${r.excludedDays}일을 빼고 ${r.averageDays}일로 나눴습니다(근로기준법 시행령 제2조제1항 등).`);
         return text({
           ok: true, headline, result: r,
+          // 공통 형식(src/lib/calc/needs.ts) — needs 가 있으면 result.amount 는 null 이고 needs 의 question 을 사용자에게 묻는다
+          needs: r.needs, assumptions: [],
           notice: '1주 소정근로시간이 15시간 이상과 미만 사이에서 바뀐 적이 있으면 hoursChanged: true 로 다시 부릅니다 — 이 계산은 시간 한 값으로 셉니다. 퇴직소득세는 calc_retirement_tax 로 계산합니다. 55세 전 퇴직이면 퇴직금은 IRP(개인형퇴직연금) 계정으로 옮겨 지급하는 것이 원칙이고(근로자퇴직급여 보장법 제9조제2항), 그때는 지급할 때 퇴직소득세를 떼지 않아 이전액이 퇴직금 전액입니다(소득세법 제146조제2항). calc_retirement_tax 의 받는 방법 기본값은 현금 수령이고, IRP 이전은 payout: irp 로 고릅니다.',
           basis: ['근로자퇴직급여 보장법 제8조제1항(30일분 이상의 평균임금 × 계속근로기간 1년)', '근로기준법 제2조제1항제6호(평균임금)·제2항(평균임금이 통상임금보다 적으면 통상임금)', '근로자퇴직급여 보장법 제4조제1항(계속근로기간 1년 이상·4주 평균 1주 15시간 이상)', '근로기준법 시행령 제2조제1항(평균임금 산정기간에서 빼는 기간)'],
           site: `${SITE}/tools/severance.html`,

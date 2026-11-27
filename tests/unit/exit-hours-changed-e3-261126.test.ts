@@ -15,7 +15,7 @@ function view(o: { hire?: string; weeklyHours?: number; hoursChanged?: boolean }
   return exitResultView({
     check: severanceCheck(hire, LAST, o.weeklyHours ?? 40),
     // 부르는 쪽이 금액을 넘겨도 체크가 켜져 있으면 쓰지 않아야 한다
-    sev: estimateSeverance(hire, LAST, 3_000_000),
+    sev: estimateSeverance(hire, LAST, 3_000_000, 40),
     lv: estimateLeavePay(3_000_000, 40, 5),
     ent: null,
     unusedLeaveDays: 5,
@@ -40,7 +40,7 @@ describe('E3 — /exit 「시간이 바뀐 적」을 켜면 퇴직금은 엔진 
 
   it('퇴직금 칸은 금액 없이 「계산하지 않음」 — 넘겨받은 추정 금액도 쓰지 않는다', () => {
     const v = view({ weeklyHours: 40, hoursChanged: true });
-    const sev = estimateSeverance(HIRE, LAST, 3_000_000);
+    const sev = estimateSeverance(HIRE, LAST, 3_000_000, 40);
     expect(v.amounts[0]).toEqual({ label: '퇴직금 추정', value: '계산하지 않음' });
     expect(allText(v)).not.toContain(Math.round(sev.amount).toLocaleString('ko-KR'));
     expect(allText(v)).not.toMatch(/요건에 해당/);

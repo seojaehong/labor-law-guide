@@ -69,7 +69,7 @@ export default function ExitClient() {
   const dates = useMemo(() => (lastOk ? Object.fromEntries(milestones(lastDay).map(m => [m.key, m.date])) : {}), [lastDay, lastOk]);
 
   const check = ready ? severanceCheck(hireDate, lastDay, input.weeklyHours) : null;
-  const sev = ready && check?.eligible && !hoursChanged ? estimateSeverance(hireDate, lastDay, input.monthlyWage) : null;
+  const sev = ready && check?.eligible && !hoursChanged ? estimateSeverance(hireDate, lastDay, input.monthlyWage, input.weeklyHours) : null;
   const lv = ready && input.unusedLeaveDays !== undefined ? estimateLeavePay(input.monthlyWage, input.weeklyHours, input.unusedLeaveDays) : null;
   const ent = ready ? (() => { try { return calculateEntitlement({ hireDate, asOf: lastDay }); } catch { return null; } })() : null;
 

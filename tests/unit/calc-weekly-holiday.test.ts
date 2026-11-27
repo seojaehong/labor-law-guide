@@ -5,7 +5,8 @@ import { calcWeeklyHoliday } from '@/lib/calc/weekly-holiday';
 // 주 15시간 미만은 주휴 없음(근로기준법 §18③), 그 주 소정근로일을 개근해야 생긴다(시행령 §30①).
 // 기대값은 손으로 곱한 것이다.
 
-const base = { hourlyWage: 10_320, fullAttendance: true };
+// 평상 주 — 입사 주·퇴사 주가 아니라고 말한다(261127: 비우면 needs-input 으로 금액을 내지 않는다)
+const base = { hourlyWage: 10_320, fullAttendance: true, joinedMidWeek: false, endsBeforeWeekEnd: false };
 
 describe('주휴수당', () => {
   it('주 40시간 — 하루 8시간분', () => {
@@ -48,9 +49,9 @@ describe('주휴수당', () => {
   });
 
   it('1주 금액은 원 미만 올림(사이트 끝수 규칙) — 시급 10,321 × 4.5 = 46,444.5 → 46,445, 10,321 × 23 ÷ 5 = 47,476.6 → 47,477', () => {
-    expect(calcWeeklyHoliday({ hourlyWage: 10_321, weeklyHours: 22.5, fullAttendance: true }).amount).toBe(46_445);
-    expect(calcWeeklyHoliday({ hourlyWage: 10_321, weeklyHours: 23, fullAttendance: true }).amount).toBe(47_477);
-    expect(calcWeeklyHoliday({ hourlyWage: 10_322, weeklyHours: 23, fullAttendance: true }).amount).toBe(47_482); // 47,481.2 — 반올림이면 47,481
+    expect(calcWeeklyHoliday({ ...base, hourlyWage: 10_321, weeklyHours: 22.5 }).amount).toBe(46_445);
+    expect(calcWeeklyHoliday({ ...base, hourlyWage: 10_321, weeklyHours: 23 }).amount).toBe(47_477);
+    expect(calcWeeklyHoliday({ ...base, hourlyWage: 10_322, weeklyHours: 23 }).amount).toBe(47_482); // 47,481.2 — 반올림이면 47,481
   });
 
   it('나누어떨어지지 않으면 나누기 전 값으로 센다 — 23시간 ÷ 6일 × 10,320 = 39,560', () => {

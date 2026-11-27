@@ -33,7 +33,7 @@ describe('계산 숫자 고정 — 합성 입력(입사 2021-01-04 · 마지막 
   it('평균임금·퇴직금·퇴직소득세가 바꾸기 전과 같다', () => {
     const { run } = fresh();
     const r = run<Record<string, number>>(
-      `calculateSeverance({...createDefaultWorker(), startDate:'2021-01-04', endDate:'2025-12-31', wage1:'3,000,000', wage2:'3,000,000', wage3:'3,000,000'})`,
+      `calculateSeverance({...createDefaultWorker(), weeklyHours:'40', startDate:'2021-01-04', endDate:'2025-12-31', wage1:'3,000,000', wage2:'3,000,000', wage3:'3,000,000'})`,
     );
     expect(r).toMatchObject({
       avgWage: 97826.09,
@@ -50,7 +50,7 @@ describe('계산 숫자 고정 — 합성 입력(입사 2021-01-04 · 마지막 
   it('IRP 이전을 고르면 이전액 = 퇴직금 전액', () => {
     const { run } = fresh();
     const r = run<Record<string, number>>(
-      `calculateSeverance({...createDefaultWorker(), startDate:'2021-01-04', endDate:'2025-12-31', wage1:'3,000,000', wage2:'3,000,000', wage3:'3,000,000', payout:'irp'})`,
+      `calculateSeverance({...createDefaultWorker(), weeklyHours:'40', startDate:'2021-01-04', endDate:'2025-12-31', wage1:'3,000,000', wage2:'3,000,000', wage3:'3,000,000', payout:'irp'})`,
     );
     expect(r).toMatchObject({ severancePay: 14_657_832, retirementTax: 151_780, localTax: 15_170, withheldTax: 0, netSeverance: 14_657_832 });
   });
@@ -102,7 +102,7 @@ describe('개인정보는 [저장]을 눌렀을 때만 이 브라우저에 남�
 
   it('인적사항을 고쳐도 계산 결과를 지우지 않는다(인쇄용 칸이 계산 뒤에 채워진다)', () => {
     const { run } = fresh();
-    const base = `{...createDefaultWorker(), startDate:'2021-01-04', endDate:'2025-12-31', wage1:'3,000,000'}`;
+    const base = `{...createDefaultWorker(), weeklyHours:'40', startDate:'2021-01-04', endDate:'2025-12-31', wage1:'3,000,000'}`;
     expect(run<string>(`workerInputSignature(${base})`)).toBe(
       run<string>(`workerInputSignature({...${base}, workerName:'가상근로자', businessName:'가상상사', ownerName:'가상대표', birthDate:'1990-01-01'})`),
     );

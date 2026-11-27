@@ -22,12 +22,24 @@ export function partTimeUseHint(dailyHours: number): string {
 export const LEDGER_HINT =
   '마지막 재직일은 마지막으로 일한 날입니다. 1년 근로가 끝난 다음 날(다음 해의 입사일과 같은 날짜)에도 재직하면 15일이 더 생기므로, 하루 차이로 일수가 달라집니다. 1년차 15일이 2018. 5. 29. 이전에 생겼으면 1년 미만 월 연차는 그 15일에 포함됩니다(구 근로기준법 제60조제3항).';
 
+/**
+ * 회사 지급액과의 대조 — 넣은 두 금액의 산술 차이로만 말한다(261127). 회사가 더 줄 돈으로 읽히지 않게 무엇을 보지 않았는지 붙인다.
+ * 빈칸(null)은 대조하지 않고, 0원은 「지급한 돈이 없다」는 뜻일 때만 맞는 비교라고 함께 말한다.
+ */
+const DIFFERENCE_SCOPE = '이 차이는 넣은 두 금액을 뺀 값입니다. 회사 지급액이 같은 연차 일수·같은 기간의 돈인지는 보지 않았습니다.';
 function differenceLine(r: LeavePayResult): string[] {
   if (r.difference === null || r.alreadyPaid === null) return [];
-  if (r.difference === 0) return ['회사 지급액과 같습니다.'];
-  return r.difference > 0
-    ? [`계산한 금액이 회사 지급액 ${won(r.alreadyPaid)}보다 ${won(r.difference)} 많습니다.`]
-    : [`회사 지급액 ${won(r.alreadyPaid)}이 ${won(-r.difference)} 많습니다.`];
+  const zero = r.alreadyPaid === 0
+    ? ['회사 지급액을 0원으로 넣었습니다. 회사가 이 연차수당으로 지급한 돈이 없을 때만 맞는 비교입니다. 급여에 연차수당이 들어 있다고 하면 급여명세서에 연차수당으로 적힌 금액을 넣습니다.']
+    : [];
+  if (r.difference === 0) return ['회사 지급액과 같습니다.', ...zero];
+  return [
+    r.difference > 0
+      ? `계산한 금액이 회사 지급액 ${won(r.alreadyPaid)}보다 ${won(r.difference)} 많습니다.`
+      : `회사 지급액 ${won(r.alreadyPaid)}이 ${won(-r.difference)} 많습니다.`,
+    ...zero,
+    DIFFERENCE_SCOPE,
+  ];
 }
 
 /** 답 — 맨 위 굵은 문장들 */

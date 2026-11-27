@@ -233,7 +233,7 @@ describe('G4 I5 간이세액표 재확인 기한', () => {
 
 // ── #4 주휴 퇴사 주 — G4 D1(261126)로 기준을 바꿨다: 「퇴사일이 주휴일 전인가」 → 「그 주(연속 7일) 7일째 전인가」 ──
 describe('#4 주휴 퇴사 주', () => {
-  const base = { hourlyWage: 10_320, weeklyHours: 40, fullAttendance: true };
+  const base = { hourlyWage: 10_320, weeklyHours: 40, fullAttendance: true, joinedMidWeek: false };
   it('그 주 7일째 전에 근로관계가 끝나면(월~일 주, 금요일 퇴사일) 0원', () => {
     const r = calcWeeklyHoliday({ ...base, endsBeforeWeekEnd: true });
     expect(r.status).toBe('ended');
@@ -242,8 +242,11 @@ describe('#4 주휴 퇴사 주', () => {
   it('7일째까지 이어지면(퇴사일 일요일) 82,560원', () => {
     expect(calcWeeklyHoliday({ ...base, endsBeforeWeekEnd: false }).amount).toBe(82_560);
   });
-  it('묻지 않으면 평상 주 — 82,560원', () => {
-    expect(calcWeeklyHoliday(base).amount).toBe(82_560);
+  // 261127 needs — 종전 「묻지 않으면 평상 주 82,560원」을 뒤집었다. 퇴사 주인지 모르면 금액을 내지 않고 묻는다
+  it('묻지 않으면 금액 없이 needs — 퇴사 주인지 묻는다', () => {
+    const r = calcWeeklyHoliday(base);
+    expect([r.status, r.amount]).toEqual(['needs-input', null]);
+    expect(r.needs.map((n) => n.key)).toEqual(['endsBeforeWeekEnd']);
   });
   it('15시간 미만이면 퇴사 여부와 상관없이 under15', () => {
     expect(calcWeeklyHoliday({ ...base, weeklyHours: 14, endsBeforeWeekEnd: true }).status).toBe('under15');
@@ -316,7 +319,8 @@ describe('G4 D1 주휴 1주(연속 7일) 존속 기준', () => {
 // 입사 주를 직접 다룬 행정해석을 찾지 못했고, 임금근로시간과-1743 은 근로를 시작한 뒤 어느 시점에서 과거 1주를 보라고 해
 // 「입사일부터 7일을 채우면 생긴다」로 읽힐 수 있다(일용근로자 사안). 퇴사 주(D1)는 그대로.
 describe('G4 E1 주휴 입사 주 — 금액 없이 확인 필요', () => {
-  const base = { hourlyWage: 10_320, weeklyHours: 40, fullAttendance: true };
+  // 퇴사 주가 아니라고 말한다 — 비우면 needs-input(261127)이 joined-unclear 보다 먼저다
+  const base = { hourlyWage: 10_320, weeklyHours: 40, fullAttendance: true, endsBeforeWeekEnd: false };
   const view = (input: Parameters<typeof calcWeeklyHoliday>[0]) =>
     weeklyHolidayView({
       r: calcWeeklyHoliday(input), hourlyWage: input.hourlyWage, weeklyHours: input.weeklyHours, fullTimeDays: 5,
@@ -414,7 +418,7 @@ describe('G4 R2 #297 반영', () => {
     expect(from).toBeGreaterThan(0);
     return s.slice(from, s.indexOf('// ── 상시 근로자 수', from));
   };
-  const base = { hourlyWage: 10_320, weeklyHours: 40, fullAttendance: true };
+  const base = { hourlyWage: 10_320, weeklyHours: 40, fullAttendance: true, endsBeforeWeekEnd: false };
   const view = (input: Parameters<typeof calcWeeklyHoliday>[0]) =>
     weeklyHolidayView({
       r: calcWeeklyHoliday(input), hourlyWage: input.hourlyWage, weeklyHours: input.weeklyHours, fullTimeDays: 5,
@@ -462,7 +466,8 @@ describe('G4 R2 #297 반영', () => {
     // 화면 꼬리(체크)와 MCP 꼬리(입력 이름)는 따로 — 공통 문장에 「체크」가 없다
     expect(next).toContain('입사 체크를 풀고');
     expect(JOINED_NEXT).not.toContain('체크');
-    expect(whpMcp()).toContain('joinedMidWeek 를 비우고');
+    // 261127 — 비우면 needs 로 묻는다. 다시 계산하는 방법은 false 로 넣기
+    expect(whpMcp()).toContain('joinedMidWeek 를 false 로 넣어');
   });
 
   it('R5 「상실일(퇴직일)」 괄호 없음 — 4대보험 서식은 퇴직일과 상실일을 나눠 적는다', () => {

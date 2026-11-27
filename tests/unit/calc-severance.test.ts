@@ -4,7 +4,8 @@ import { calcSeverance, periodSegments } from '@/lib/calc/severance';
 // 퇴직금 정본 엔진. 식 = 1일 평균임금 × 30 × 재직일수 ÷ 365 (퇴직급여법 §8①, 근로기준법 §2①6·②).
 // 날짜·일수 기대값은 달력으로 손으로 센 것이다. 금액 기대값은 그 일수로 적은 식을 그대로 나눈 것이다.
 
-const base = { wageTotal: 9_000_000 };
+// 1주 소정근로시간을 넣는다 — 261127 부터 비우면 금액을 내지 않는다(needs)
+const base = { wageTotal: 9_000_000, weeklyHours: 40 };
 
 /** 고용노동부 계산기 끝수 — 1일 평균임금 소수 둘째 자리 올림(전 단위), 퇴직금 원 단위 반올림 */
 const moel = (dailyCents: number, serviceDays: number) => Math.round((dailyCents * 30 * serviceDays) / 36_500);
@@ -62,19 +63,19 @@ describe('퇴직금', () => {
   });
 
   it('평균임금이 통상임금보다 낮으면 통상임금으로 — 양쪽', () => {
-    const low = calcSeverance({ hireDate: '2023-01-01', lastWorkDate: '2025-12-31', wageTotal: 6_000_000, dailyOrdinaryWage: 80_000 });
+    const low = calcSeverance({ hireDate: '2023-01-01', lastWorkDate: '2025-12-31', wageTotal: 6_000_000, dailyOrdinaryWage: 80_000, weeklyHours: 40 });
     expect(low.applied).toBe('ordinary');
     expect(low.amount).toBe(moel(8_000_000, 1096));
-    const high = calcSeverance({ hireDate: '2023-01-01', lastWorkDate: '2025-12-31', wageTotal: 9_000_000, dailyOrdinaryWage: 80_000 });
+    const high = calcSeverance({ hireDate: '2023-01-01', lastWorkDate: '2025-12-31', wageTotal: 9_000_000, dailyOrdinaryWage: 80_000, weeklyHours: 40 });
     expect(high.applied).toBe('average');
   });
 
   // 261124 도구 전수 검수(3모델 합의) — 「통상임금으로 계산」 강제 선택이 낮은 쪽을 적용했다. 법정 금액은 늘 높은 쪽이다(근로기준법 §2②)
   it('예전 강제 선택 값(wageType)이 와도 높은 쪽만 쓴다 — 양쪽', () => {
-    const forcedLow = calcSeverance({ hireDate: '2021-01-01', lastWorkDate: '2025-12-31', wageTotal: 9_000_000, dailyOrdinaryWage: 80_000, wageType: 'ordinary' } as never);
+    const forcedLow = calcSeverance({ hireDate: '2021-01-01', lastWorkDate: '2025-12-31', wageTotal: 9_000_000, dailyOrdinaryWage: 80_000, weeklyHours: 40, wageType: 'ordinary' } as never);
     expect(forcedLow.applied).toBe('average');
     expect(forcedLow.amount).toBe(14_681_954);
-    const forcedAvg = calcSeverance({ hireDate: '2021-01-01', lastWorkDate: '2025-12-31', wageTotal: 9_000_000, dailyOrdinaryWage: 120_000, wageType: 'average' } as never);
+    const forcedAvg = calcSeverance({ hireDate: '2021-01-01', lastWorkDate: '2025-12-31', wageTotal: 9_000_000, dailyOrdinaryWage: 120_000, weeklyHours: 40, wageType: 'average' } as never);
     expect(forcedAvg.applied).toBe('ordinary');
     expect(forcedAvg.amount).toBe(moel(12_000_000, 1826));
   });
@@ -95,7 +96,7 @@ describe('퇴직금', () => {
   });
 
   it('큰 금액도 원 단위까지 맞다(부동소수 오차 없음)', () => {
-    const r = calcSeverance({ hireDate: '1996-03-04', lastWorkDate: '2026-10-27', wageTotal: 45_678_901, annualBonus: 23_456_789 });
+    const r = calcSeverance({ hireDate: '1996-03-04', lastWorkDate: '2026-10-27', wageTotal: 45_678_901, annualBonus: 23_456_789, weeklyHours: 40 });
     const base12 = BigInt(45_678_901 * 12 + 23_456_789 * 3);
     const den = BigInt(12) * BigInt(r.periodDays);
     const cents = (base12 * BigInt(100) + den - BigInt(1)) / den;

@@ -13,7 +13,7 @@ function run(expression: string) {
   return JSON.parse(execFileSync(process.execPath, ['-'], { input: program, encoding: 'utf8' }));
 }
 const check = (patch: Record<string, unknown>) =>
-  run(`validateWorkerInput({...createDefaultWorker(), startDate:'2023-01-01', endDate:'2025-12-31', wage1:'3,000,000', ...${JSON.stringify(patch)}})`);
+  run(`validateWorkerInput({...createDefaultWorker(), weeklyHours:'40', startDate:'2023-01-01', endDate:'2025-12-31', wage1:'3,000,000', ...${JSON.stringify(patch)}})`);
 
 describe('severance.html input validation', () => {
   it('accepts a normal input (commas allowed)', () => {
@@ -163,9 +163,11 @@ describe('severance.html theme follows the site rule', () => {
 
 // 261124 검수 P2 #13 — 1주 소정근로시간(4주 평균)과 평균임금 제외기간(근로기준법 시행령 제2조제1항)
 describe('severance.html 주 15시간·제외기간', () => {
-  const w = `{...createDefaultWorker(), startDate:'2025-01-01', endDate:'2025-12-31', wage1:'6,200,000', wage2:'0', wage3:'0'`;
+  const w = `{...createDefaultWorker(), weeklyHours:'40', startDate:'2025-01-01', endDate:'2025-12-31', wage1:'6,200,000', wage2:'0', wage3:'0'`;
   it('validates the new fields', () => {
-    expect(check({ weeklyHours: '' })).toBeNull();
+    // 261127 needs — 1년 이상인데 비우면 그 칸에서 엔진의 질문으로 멈춘다(종전: 비워도 통과, 금액만 계산)
+    expect(check({ weeklyHours: '' })).toMatchObject({ field: 'weeklyHours', message: expect.stringMatching(/1주 근로시간이 몇 시간인가요/) });
+    expect(check({ weeklyHours: '', startDate: '2025-06-01' })).toBeNull(); // 1년 미만은 시간과 상관없이 대상이 아니라 묻지 않는다
     expect(check({ weeklyHours: '14.5' })).toBeNull();
     expect(check({ weeklyHours: 'abc' }).field).toBe('weeklyHours');
     expect(check({ weeklyHours: '169' }).field).toBe('weeklyHours');
@@ -188,8 +190,9 @@ describe('severance.html 주 15시간·제외기간', () => {
     const under = run(`resultBlockHtml(calculateSeverance(${w}, weeklyHours:'14'}), ${w}})`);
     expect(under).toMatch(/15시간 미만이라 퇴직금 지급 대상이 아닙니다/);
     expect(under).not.toMatch(/14일째 되는 날까지 지급/);
-    const blank = run(`resultBlockHtml(calculateSeverance(${w}}), ${w}})`);
-    expect(blank).toMatch(/지급 대상인지는 따지지 않았습니다/);
+    // 261127 needs — 비우면 금액을 내지 않는다. 검증을 건너뛰고 불러도 계산이 멈춘다
+    const blank = run(`(() => { try { calculateSeverance(${w}, weeklyHours:''}); return 'calculated'; } catch (e) { return e.message; } })()`);
+    expect(blank).toMatch(/1주 근로시간이 몇 시간인가요.*금액을 내지 않습니다/);
     const ok = run(`resultBlockHtml(calculateSeverance(${w}, weeklyHours:'15'}), ${w}})`);
     expect(ok).not.toContain('result-eligibility');
     expect(ok).toMatch(/14일째 되는 날까지 지급/);

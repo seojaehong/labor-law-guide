@@ -331,8 +331,13 @@ if (tools.includes('check_min_wage')) {
   check(`min_wage 2027 79,420원 모자람(${m27.rows?.[0]?.line})`, m27.rows?.[0]?.required === 2_236_300 && m27.rows[0].shortfall === 79_420);
 }
 if (tools.includes('calc_weekly_holiday_pay')) {
-  const w = await callTool('calc_weekly_holiday_pay', { hourlyWage: 10_320, weeklyHours: 22.5 });
+  // 261127 — 평상 주는 개근·입사 주·퇴사 주를 말해야 금액이 나온다. 비우면 needs-input·금액 null·needs 3개
+  const PLAIN = { fullAttendance: true, joinedMidWeek: false, endsBeforeWeekEnd: false };
+  const w = await callTool('calc_weekly_holiday_pay', { hourlyWage: 10_320, weeklyHours: 22.5, ...PLAIN });
   check(`weekly_holiday 주 22.5시간 → 4.5시간 46,440원(${w.headline?.[0]})`, w.dailyHours === 4.5 && w.amount === 46_440);
+  const n = await callTool('calc_weekly_holiday_pay', { hourlyWage: 10_320, weeklyHours: 22.5 });
+  check(`weekly_holiday 개근·입사·퇴사 주를 비우면 금액 없음·needs(${n.needs?.map((x) => x.key).join(',')})`,
+    n.status === 'needs-input' && n.amount === null && n.needs?.length === 3 && !/\d원/.test((n.headline ?? []).join(' ')));
   const u = await callTool('calc_weekly_holiday_pay', { hourlyWage: 10_320, weeklyHours: 14.5 });
   check('weekly_holiday 주 15시간 미만은 없음', u.status === 'under15' && u.amount === 0);
   // G4 D1 — 그 주(연속 7일) 7일째 전 퇴사(월~일 주 금요일, 또는 수요일 주휴·목요일 퇴사)는 0원
@@ -349,17 +354,17 @@ if (tools.includes('calc_weekly_holiday_pay')) {
   // G4 R9 — 옛 입력 endsBeforeRestDay 는 조용히 버려 82,560원을 내지 않고 거절한다
   const legacy = await callTool('calc_weekly_holiday_pay', { hourlyWage: 10_320, weeklyHours: 40, endsBeforeRestDay: true });
   check(`weekly_holiday 옛 입력 endsBeforeRestDay 거절(${legacy.error})`, legacy.ok === false && /endsBeforeWeekEnd/.test(legacy.error ?? '') && legacy.amount === undefined);
-  const sun = await callTool('calc_weekly_holiday_pay', { hourlyWage: 10_320, weeklyHours: 40, endsBeforeWeekEnd: false });
+  const sun = await callTool('calc_weekly_holiday_pay', { hourlyWage: 10_320, weeklyHours: 40, ...PLAIN, endsBeforeWeekEnd: false });
   check('weekly_holiday 퇴사일이 7일째(일요일)면 82,560원(근거 줄 없음)', sun.status === 'paid' && sun.amount === 82_560 && sun.basisNote === undefined);
   // G4 E1 — 수요일 입사(주 24시간): 종전 49,536원 → 0원으로 단정하지 않고 금액 없음·확인 필요
-  const wed = await callTool('calc_weekly_holiday_pay', { hourlyWage: 10_320, weeklyHours: 24, joinedMidWeek: true });
+  const wed = await callTool('calc_weekly_holiday_pay', { hourlyWage: 10_320, weeklyHours: 24, ...PLAIN, joinedMidWeek: true });
   check(`weekly_holiday 주중 입사면 금액 없음·확인 필요(${wed.headline?.[0]})`,
     wed.status === 'joined-unclear' && wed.amount === null && wed.monthly === null && /확인 필요/.test(wed.headline?.[0] ?? '')
       && /1743/.test(wed.headline?.[1] ?? '') && /근로를 시작한이후에/.test(wed.basisNote ?? '') && /제2조 제1항 제7호/.test(wed.basisNote ?? ''));
   // G4 R4 — 무엇을 확인할지(1350 답변의 사후 정산·법적 효력 없음)를 웹 nextNote 와 같은 문장으로
   check('weekly_holiday 주중 입사 확인 안내(checkNote) — 1350 사후 정산·법적 효력 없음',
     /이후에 이를 정산하여/.test(wed.checkNote ?? '') && /법적 효력이 있는 해석이 아닙니다/.test(wed.checkNote ?? '')
-      && /joinedMidWeek 를 비우고/.test(wed.checkNote ?? '') && !/체크/.test(wed.checkNote ?? ''));
+      && /joinedMidWeek 를 false 로/.test(wed.checkNote ?? '') && !/체크/.test(wed.checkNote ?? ''));
 }
 if (tools.includes('count_regular_workers')) {
   // 4명 원래부터 + 계약직 1명 2026-11-02~11-30, 월~금

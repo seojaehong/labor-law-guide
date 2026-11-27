@@ -14,6 +14,7 @@ import { unitHours, type MinWageInput } from './min-wage';
 import { calculateAllowance } from '../leave/leave-allowance';
 import { dailyOrdinaryWage, payableWon, snapWon as snap } from './wage-rounding';
 import { buildStatutoryHireDateLedger, OLD_60_3_LAST_ACCRUAL, type LedgerEntry } from '../leave/leave-ledger';
+import type { Assumption, Need } from './needs';
 
 export type WageUnit = MinWageInput['unit'];
 
@@ -67,7 +68,10 @@ export interface LeavePayInput {
   promotion?: 'none' | 'claimed' | 'unknown';
   /** 퇴직: 퇴직 전에 이미 지급 사유가 생겨 있던 수당인가(퇴직금 평균임금 산입 표시용) */
   arisenBeforeTermination?: boolean;
-  /** 회사가 지급했거나 지급하려는 금액 — 대조용 */
+  /**
+   * 회사가 지급했거나 지급하려는 금액 — 대조용. 모르면 비운다(차이 null). 0 은 「지급한 돈이 없다」는 뜻일 때만 넣는다.
+   * 총액(amount)은 이 값과 상관없어 비워도 needs 가 아니다(261127)
+   */
   alreadyPaid?: number;
   /** 기준일(YYYY-MM-DD) — 조문 번호 표시 */
   asOf: string;
@@ -115,8 +119,15 @@ export interface LeavePayResult {
   amount: number | null;
   rateSource: string;
   alreadyPaid: number | null;
-  /** 계산한 금액 − 회사 지급액 */
+  /**
+   * 계산한 금액 − 넣은 회사 지급액(산술 차이). 회사가 더 줄 돈을 정한 값이 아니다 — 지급액이 같은 연차 일수·같은 기간의 돈인지는 보지 않는다.
+   * 회사 지급액을 비우면 null
+   */
   difference: number | null;
+  /** 결론을 바꾸는데 입력에 없는 사실(./needs.ts). 지금 이 도구에는 없다 — 필수 칸이 비면 오류로 멈춘다 */
+  needs: Need[];
+  /** 넣지 않아 기본값을 쓴 것 — 단시간 근로자의 통상근로자 1주 소정근로일 수 5일 */
+  assumptions: Assumption[];
   /** 퇴직: 퇴직금 평균임금에 넣는가 — excluded = 퇴직으로 비로소 생김 · three-twelfths = 퇴직 전 이미 생김 · null = 모름/재직 중 */
   averageWage: 'excluded' | 'three-twelfths' | null;
   promotion: NonNullable<LeavePayInput['promotion']>;
@@ -142,6 +153,10 @@ export function calcLeavePay(input: LeavePayInput): LeavePayResult {
     dailyHours, weeklyHours, hours: null, weekPaidHours: null, hourly: null, dailyRate: null, unusedDays: null,
     ledger: null, partTime: null, raw: null, amount: null, rateSource: '', alreadyPaid: null, difference: null,
     averageWage: null, promotion: input.promotion ?? 'unknown', payArticle: payArticle(checkDate(input.asOf, '기준일')),
+    needs: [],
+    assumptions: input.partTime && input.partTime.fullTimeWeeklyDays === undefined
+      ? [{ key: 'partTime.fullTimeWeeklyDays', value: 5, note: '같은 일을 하는 통상근로자의 1주 소정근로일 수를 5일로 보고 주휴 시간을 셌습니다. 6일이면 시간급이 달라집니다.' }]
+      : [],
   };
 
   // 적용 제외 — 금액을 내지 않는다. 임금 칸이 비어 있어도 오류로 막지 않는다.

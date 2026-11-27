@@ -79,7 +79,7 @@ describe('퇴직금 요건', () => {
 
 describe('확인용 추정치', () => {
   it('퇴직금 = 3개월 임금 ÷ 총일수 × 30 × 재직일수 ÷ 365', () => {
-    const e = estimateSeverance('2025-01-01', '2025-12-31', 3_000_000);
+    const e = estimateSeverance('2025-01-01', '2025-12-31', 3_000_000, 40);
     expect(e.periodStart).toBe('2025-10-01');
     expect(e.periodDays).toBe(92);
     // 고용노동부 계산기 끝수 — 1일 평균임금 97,826.09(올림) × 30 × 365 / 365 = 2,934,782.7 → 반올림
@@ -87,19 +87,19 @@ describe('확인용 추정치', () => {
   });
 
   it('2월이 낀 3개월은 총일수가 줄어든다', () => {
-    const e = estimateSeverance('2020-03-01', '2026-03-31', 3_000_000);
+    const e = estimateSeverance('2020-03-01', '2026-03-31', 3_000_000, 40);
     expect(e.periodStart).toBe('2026-01-01');
     expect(e.periodDays).toBe(90);
   });
 
   it('3개월 전 같은 날이 없으면 그 달 말일부터 — 퇴직일 7/31 → 4/30', () => {
-    const e = estimateSeverance('2020-03-01', '2026-07-30', 3_000_000);
+    const e = estimateSeverance('2020-03-01', '2026-07-30', 3_000_000, 40);
     expect(e.periodStart).toBe('2026-04-30');
     expect(e.periodDays).toBe(92);
   });
 
   it('2월에 같은 날이 없으면 3월 1일부터 — 퇴직일 5/31, 고용노동부 계산기와 같다', () => {
-    const e = estimateSeverance('2020-03-01', '2026-05-30', 3_000_000);
+    const e = estimateSeverance('2020-03-01', '2026-05-30', 3_000_000, 40);
     expect(e.periodStart).toBe('2026-03-01');
     expect(e.periodDays).toBe(91);
   });

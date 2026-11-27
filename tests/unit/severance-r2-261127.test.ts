@@ -105,7 +105,7 @@ describe('R13 — 링크로 열면 저장본을 복원하지 않는다', () => {
 });
 
 describe('R15 — 옛 저장본의 기본값 0 은 빈칸으로 읽는다', () => {
-  const worker = { startDate: '2023-01-01', endDate: '2025-12-31', wage1: '3,000,000', excludedDays: '60', excludedWage: '0' };
+  const worker = { startDate: '2023-01-01', endDate: '2025-12-31', wage1: '3,000,000', weeklyHours: '40', excludedDays: '60', excludedWage: '0' };
   const legacy = { severanceCalcData_v5: JSON.stringify({ savedAt: '2026-11-01T00:00:00.000Z', state: { currentIndex: 0, workers: [worker] } }) };
   it('형식 표시가 없는 저장본(빼는 기간 임금 기본값이 0 이던 때) → 빈칸, 그래서 계산 전에 멈춘다', () => {
     expect(run(`(loadFromStorage(), state.workers[0].excludedWage)`, legacy)).toBe('');
@@ -167,7 +167,7 @@ describe('R18 — 1년 미만은 한 화면에서 같은 말(단정)', () => {
 });
 
 describe('R19 — /exit 시간 변경 체크를 켜도 1년 미만이면 14일 안내를 남긴다', () => {
-  const view = (hire: string) => exitResultView({ check: severanceCheck(hire, '2026-11-30', 40), sev: estimateSeverance(hire, '2026-11-30', 3_000_000), lv: null, ent: null, weeklyHours: 40, hoursChanged: true });
+  const view = (hire: string) => exitResultView({ check: severanceCheck(hire, '2026-11-30', 40), sev: estimateSeverance(hire, '2026-11-30', 3_000_000, 40), lv: null, ent: null, weeklyHours: 40, hoursChanged: true });
   it('1년 미만(2026-06-01 입사) → 멈춤 문장 + 「14일 안에」', () => {
     const v = view('2026-06-01');
     expect(v.verdict[0]).toBe(HOURS_CHANGED_MESSAGE);

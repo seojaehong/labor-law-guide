@@ -4,7 +4,8 @@
 //   평균임금이 통상임금보다 낮으면 통상임금 (같은 조 ②)
 // 끝수는 고용노동부 퇴직금 계산기와 같게 — 1일 평균임금은 소수 둘째 자리까지 올림, 퇴직금은 원 단위 반올림.
 // 계산은 정수(BigInt, 1일 임금은 전 단위)로 한다. 날짜는 YYYY-MM-DD, 모두 UTC 달력으로 센다.
-// ⚠ 이 파일은 import 없이 홀로 선다 — html 안에 그대로 옮겨 넣기 때문이다.
+// ⚠ 이 파일은 import 없이 홀로 선다 — html 안에 그대로 옮겨 넣기 때문이다(형만 가져오는 import type 은 옮길 때 지워진다).
+import type { Need } from './needs';
 
 const DAY = 86_400_000;
 
@@ -102,7 +103,17 @@ export const HOURS_CHANGED_MESSAGE =
   '1주 소정근로시간이 15시간 이상과 미만 사이에서 바뀐 적이 있으면 이 계산기로 계산하지 않습니다. ' +
   '재직기간을 퇴직일부터 거슬러 4주 단위로 나눠 4주 평균 1주 소정근로시간이 15시간 미만인 4주는 계속근로기간에서 뺍니다(고용노동부 퇴직연금복지과-5254, 2019. 12. 9. 회신 취지).';
 
-/** eligible = 1년 이상 + 주 15시간 이상. hours-unknown = 시간을 넣지 않아 판정하지 않음 */
+/**
+ * 1주 소정근로시간을 넣지 않았을 때 물을 사실(공통 형식 needs, ./needs.ts). 웹·MCP·챗봇이 같은 글을 쓴다(챗봇은 key 만 weekly_hours).
+ * 1년 이상 재직이면 이 시간이 지급 대상 여부를 바꾸므로 금액을 내지 않는다(261127 — 종전에는 「따지지 않았다」며 금액을 함께 냈다)
+ */
+export const WEEKLY_HOURS_NEED: Need = {
+  key: 'weeklyHours',
+  question: '근로계약서나 근무표에 적힌 1주 근로시간이 몇 시간인가요? 주마다 다르면 퇴직 전 4주를 평균한 시간을 알려 주세요.',
+  why: '4주 평균 1주 소정근로시간이 15시간 미만이면 퇴직금 지급 대상이 아닙니다(근로자퇴직급여 보장법 제4조제1항 단서). 이 시간을 알기 전에는 금액을 내지 않습니다.',
+};
+
+/** eligible = 1년 이상 + 주 15시간 이상. hours-unknown = 시간을 넣지 않아 지급 대상인지 정하지 않음 — 금액 null, needs 에 물을 사실 */
 export type SeveranceStatus = 'eligible' | 'under-1y' | 'under-15h' | 'hours-unknown';
 
 export interface SeveranceResult {
@@ -129,7 +140,10 @@ export interface SeveranceResult {
   dailyAverage: number;
   applied: 'average' | 'ordinary';
   dailyApplied: number;
-  amount: number;
+  /** 퇴직금. needs 가 남으면(hours-unknown) null — 「같은 식으로 세면」 금액도 내지 않는다. under-1y·under-15h 는 참고 금액 */
+  amount: number | null;
+  /** 결론을 바꾸는데 입력에 없는 사실(./needs.ts). 지금은 hours-unknown 일 때 1주 소정근로시간 하나 */
+  needs: Need[];
 }
 
 export function calcSeverance(input: SeveranceInput): SeveranceResult {
@@ -175,6 +189,7 @@ export function calcSeverance(input: SeveranceInput): SeveranceResult {
   const oneYear = retirementDate >= oneYearDate(input.hireDate);
   const hours15 = w === undefined ? null : w >= 15;
   const status: SeveranceStatus = !oneYear ? 'under-1y' : hours15 === false ? 'under-15h' : hours15 === null ? 'hours-unknown' : 'eligible';
+  const needs = status === 'hours-unknown' ? [WEEKLY_HOURS_NEED] : [];
   return {
     retirementDate,
     serviceDays,
@@ -192,6 +207,7 @@ export function calcSeverance(input: SeveranceInput): SeveranceResult {
     dailyAverage,
     applied,
     dailyApplied: Number(cents) / 100,
-    amount,
+    amount: needs.length ? null : amount,
+    needs,
   };
 }

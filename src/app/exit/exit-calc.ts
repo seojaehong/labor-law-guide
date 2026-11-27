@@ -145,9 +145,11 @@ export interface SeveranceEstimate {
 /**
  * 퇴직금 확인용 추정 — 월 급여 × 3 을 3개월 임금총액으로 놓고 정본 엔진(src/lib/calc/severance.ts)으로 센다.
  * 1일 평균임금 × 30 × 재직일수 / 365. 상여·연차수당 가산, 평균임금 제외 기간, 통상임금 비교(§2②)는 넣지 않는다.
+ * 1주 소정근로시간을 넘긴다 — 엔진은 시간을 모르면 금액을 내지 않는다(261127 needs). 화면은 지급 대상(severanceCheck)일 때만 부른다.
  */
-export function estimateSeverance(hireDate: string, lastDay: string, monthlyWage: number): SeveranceEstimate {
-  const r = calcSeverance({ hireDate, lastWorkDate: lastDay, wageTotal: monthlyWage * 3 });
+export function estimateSeverance(hireDate: string, lastDay: string, monthlyWage: number, weeklyHours: number): SeveranceEstimate {
+  const r = calcSeverance({ hireDate, lastWorkDate: lastDay, wageTotal: monthlyWage * 3, weeklyHours });
+  if (r.amount === null) throw new Error('1주 소정근로시간을 확인해 주세요');
   return { periodStart: r.segments[0]?.from ?? r.retirementDate, periodDays: r.periodDays, wageTotal: monthlyWage * 3, dailyAverage: r.dailyAverage, amount: r.amount };
 }
 
