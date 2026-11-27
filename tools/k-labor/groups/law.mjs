@@ -392,16 +392,32 @@ export function registerLaw(server) {
           if (!official) return fail(`법령 ID ${lawId}의 법령을 법제처에서 찾지 못했습니다.`);
         }
         const shift = `${Number(ymd.slice(0, 4)) - 3}${ymd.slice(4)}`;
-        const { rows: all } = await searchAll({ query: official }, { stopBefore: shift, maxPages: 5 });
+        const { rows: all, complete } = await searchAll({ query: official }, { stopBefore: shift, maxPages: 5 });
         const rows = all.filter((x) => x.lawId === lawId);
         const v = versionAt(rows, ymd);
-        if (!v) return text({ ok: false, error: `${day}에 시행 중인 ${official} 판을 찾지 못했습니다.`, law: official, lawId });
+        if (!v) {
+          return text({
+            ok: false,
+            error: complete
+              ? `${day}에 시행 중인 ${official} 판을 찾지 못했습니다.`
+              : `${day}에 시행 중인 ${official} 판을 찾지 못했습니다. 법제처 판 목록을 5쪽까지만 읽어 그 뒤에 있을 수 있습니다(목록 미완료).`,
+            law: official, lawId, searchComplete: complete,
+          });
+        }
         const iso = (d) => (d && /^\d{8}$/.test(d) ? `${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6, 8)}` : d ?? null);
         const version = {
           mst: v.mst, effective: iso(v.effective), promulgated: iso(v.promulgated), promulgationNo: v.promulgationNo, revision: v.revision, status: v.status,
           link: versionLink(v.mst, v.effective),
         };
         const body = await fetchLaw(v.mst, v.effective);
+        // 목록에서 고른 판과 받은 본문이 같은 판인지 대조한다 — 다르면 출처를 붙이지 않는다
+        const bi = lawInfo(body);
+        const off = [
+          bi.lawId && String(bi.lawId) !== String(lawId) ? `법령 ID ${bi.lawId}≠${lawId}` : null,
+          bi.effective && String(bi.effective) !== String(v.effective) ? `시행일 ${bi.effective}≠${v.effective}` : null,
+          bi.promulgationNo && v.promulgationNo && String(bi.promulgationNo) !== String(v.promulgationNo) ? `공포번호 ${bi.promulgationNo}≠${v.promulgationNo}` : null,
+        ].filter(Boolean);
+        if (off.length) return fail(`법제처 판 목록과 받은 본문의 판이 맞지 않습니다(${off.join(', ')}). 출처를 확정하지 못해 원문을 내지 않습니다.`);
         const arts = lawArticles(body);
         const found = [];
         const missing = [];
@@ -423,7 +439,7 @@ export function registerLaw(server) {
           missing,
           ...(missing.length ? { notice: `이 판(${version.effective} 시행)에 없는 조문: ${missing.join(', ')}. 조문 번호를 확인하거나 asOf 를 바꿔 보세요.` } : {}),
           retrievedAt,
-          source: `${DRF_SOURCE} — ${retrievedAt} 조회. 글자는 법제처 응답 그대로입니다.`,
+          source: `${DRF_SOURCE} — ${retrievedAt} 조회. 조문 글자는 법제처 응답에서 옮겼고 항·호의 줄바꿈·들여쓰기만 읽기용으로 정리했습니다. 조문참고자료(「[본조신설 …]」 등)는 싣지 않습니다.`,
         });
       } catch (err) {
         return fail(errMsg(err));

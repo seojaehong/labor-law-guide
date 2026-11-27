@@ -111,6 +111,7 @@ function fakeServer() {
 }
 
 const calls: Record<string, string>[] = [];
+let mismatch900001 = false;
 function routeFixture(u: URL): unknown {
   const p = Object.fromEntries(u.searchParams);
   calls.push(p);
@@ -129,7 +130,11 @@ function routeFixture(u: URL): unknown {
       if (p.ID) return p.ID === '001872' ? fix('../drf/law-285279-20270101.json') : {};
       const files: Record<string, string> = { '285279-20261208': 'law-285279-20261208.json', '285279-20270101': 'law-285279-20270101.json', '900001-20270101': 'law-285279-20270101.json' };
       const m = files[`${p.MST}-${p.efYd}`];
-      return m ? fix(`../drf/${m}`) : {};
+      if (!m) return {};
+      const b = fix(`../drf/${m}`);
+      // 합성 판 900001 은 목록 줄(공포 2026. 10. 30. 제99999호)과 본문 기본정보를 맞춘다 — mismatch900001 이면 일부러 어긋난 본문을 준다
+      if (p.MST === '900001' && !mismatch900001) return { ...b, 법령: { ...b.법령, 기본정보: { ...b.법령.기본정보, 공포번호: '99999', 공포일자: '20261030' } } };
+      return b;
     }
     default: return { LawSearch: { totalCnt: '0' } };
   }
@@ -203,7 +208,7 @@ describe('law 도구', () => {
     expect(r.articles[0].articleTitle).toBe('연차 유급휴가');
     expect(r.missing).toEqual(['제999조']);
     expect(r.retrievedAt).toMatch(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2} KST$/);
-    expect(r.source).toMatch(/법제처 응답 그대로/);
+    expect(r.source).toMatch(/법제처 응답에서 옮겼고.*읽기용으로 정리/);
     // 본문은 한 번만 받는다
     expect(calls.filter((c) => c.target === 'eflaw' && c.MST).length).toBe(1);
   });
@@ -214,6 +219,17 @@ describe('law 도구', () => {
     expect(r.law).toBe('근로기준법');
     expect(r.version.mst).toBe('900001');
     expect(r.articles[0].article).toBe('제44조의4');
+  });
+
+  it('get_law_articles — 목록에서 고른 판과 받은 본문의 공포번호가 다르면 원문을 내지 않는다(interrogate 261127 #11)', async () => {
+    mismatch900001 = true;
+    try {
+      const r = await run('get_law_articles', { lawId: '001872', articles: ['제44조의4'], asOf: '2027-01-01' });
+      expect(r.ok).toBe(false);
+      expect(r.error).toMatch(/공포번호 21533≠99999/);
+    } finally {
+      mismatch900001 = false;
+    }
   });
 
   it('get_law_articles — 거절: 법령 없음·조문 꼴·전부 없음·주민번호 모양·못 찾은 법령', async () => {
