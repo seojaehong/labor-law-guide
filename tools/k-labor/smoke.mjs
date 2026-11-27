@@ -183,6 +183,8 @@ const ANN = {
   check_rhetoric: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
   // 퇴고 윤문 전후 보존 대조 — 읽기 전용
   check_rewrite: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+  // 호증 날인 — 새 PDF 를 쓴다(덮어쓰지 않음)
+  stamp_exhibit_pdf: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
   // kordoc 한글 읽기·채우기·되쓰기 — 결과를 새 파일로 쓴다(덮어쓰지 않음)
   ...Object.fromEntries(['read_hwp_as_markdown', 'fill_hwp_form', 'patch_hwp_from_markdown']
     .map((n) => [n, { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false }])),
@@ -202,7 +204,7 @@ const ANN = {
 }
 // 이 판에서 더한 도구 8개 + 사이트 도구 7개(groups/more) — 「대신·대행·대리」도 함께 막는다
 const NOSA_TOOLS = ['assess_labor_council', 'check_council_meeting', 'make_labor_council_forms', 'make_council_meeting_docs', 'make_council_election_docs', 'check_council_rules', 'record_council_history', 'export_council_vault', 'import_council_minutes', 'make_council_rules_comparison'];
-const NEW_TOOLS = ['calc_severance', 'calc_holiday_pay', 'calc_pay_proration', 'calc_shutdown_allowance', 'calc_annual_leave', 'settle_leave_on_exit', 'calc_retirement_tax', 'list_employer_duties', ...MORE_TOOLS, ...NOSA_TOOLS, 'make_hwpx_from_markdown', 'edit_hwpx_text', 'read_hwp_as_markdown', 'fill_hwp_form', 'patch_hwp_from_markdown', 'check_prose', 'check_norms', 'check_semantic', 'check_rhetoric', 'check_rewrite', 'list_hr_forms', 'check_hr_form', 'make_hr_form'];
+const NEW_TOOLS = ['calc_severance', 'calc_holiday_pay', 'calc_pay_proration', 'calc_shutdown_allowance', 'calc_annual_leave', 'settle_leave_on_exit', 'calc_retirement_tax', 'list_employer_duties', ...MORE_TOOLS, ...NOSA_TOOLS, 'make_hwpx_from_markdown', 'edit_hwpx_text', 'read_hwp_as_markdown', 'fill_hwp_form', 'patch_hwp_from_markdown', 'check_prose', 'check_norms', 'check_semantic', 'check_rhetoric', 'check_rewrite', 'stamp_exhibit_pdf', 'list_hr_forms', 'check_hr_form', 'make_hr_form'];
 const NEW_WORDS = [...WORDS, '대신', '대행', '대리'];
 const bannedNew = (s) => (banned ? banned.bannedHits(s, NEW_WORDS) : []);
 for (const n of NEW_TOOLS) check(`${n}: 도구 목록에 있음`, tools.includes(n));
@@ -630,6 +632,17 @@ if (tools.includes('make_hwpx_from_markdown')) {
   // 퇴고 보존 대조 — 「하여야 한다 → 하면 좋다」는 당위 훼손, 수치는 그대로라 보존됨
   const rw = await callNew('check_rewrite', { before: '가상 회사는 2026. 3. 2. 까지 서면으로 통지하여야 한다.', after: '가상 회사는 2026. 3. 2. 까지 서면으로 통지하면 좋다.', genre: 'general' });
   check(`check_rewrite 당위 사라짐 → ${rw.status} · 수치 ${rw.items?.numbers?.status}`, rw.ok && rw.status === '훼손' && rw.items?.modality?.status === '훼손' && rw.items?.numbers?.status === '보존됨');
+  // 호증 날인 — 합성 PDF(pdf-lib 빈 쪽 2장) 첫 장에 「사 제7호증」. 설치본에서 글꼴 자산(dist/assets)을 찾는지
+  {
+    const { PDFDocument } = await import('pdf-lib');
+    const sp = await PDFDocument.create();
+    sp.addPage([595.28, 841.89]);
+    sp.addPage([595.28, 841.89]);
+    const src = path.join(dir, 'exhibit-in.pdf');
+    fs.writeFileSync(src, await sp.save());
+    const st = await callNew('stamp_exhibit_pdf', { file: src, outFile: path.join(dir, 'exhibit-out.pdf'), prefix: '사', number: 7 });
+    check(`stamp_exhibit_pdf ${st.label} ${st.file?.bytes}B`, st.ok && st.label === '사 제7호증' && st.pages === 2 && st.overlapChecked === false && fs.existsSync(st.file.path));
+  }
   // kordoc — 앞서 만든 hwpx 를 읽고(md), 표 칸을 채워 .hwp(CFB)로, keep 원고 한 낱말을 고쳐 되쓴다(설치본에서 kordoc·@rhwp/core 가 풀리는지)
   if (tools.includes('read_hwp_as_markdown')) {
     const rd = await callNew('read_hwp_as_markdown', { file: mh.file.path, outFile: path.join(dir, 'read.md'), layout: 'keep' });
