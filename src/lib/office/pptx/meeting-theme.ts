@@ -1,10 +1,20 @@
-// 회의 덱 디자인 값 — 임시 상수. deckkit(claude-setup edf0736) rules.json·theme.py 기본 테마에서 옮겼다.
-// 필드 이름은 엔진 테마 모듈(src/lib/office/pptx/theme, onedrive-f5 이관 중)의 DeckTheme 가안에 맞췄다 —
-// 그 모듈이 들어오면 MEETING_THEME 를 getDeckTheme('report') 로 바꿔 끼운다.
+// 회의 덱(회의 전·후·TBM·전파본·교육 교안) 디자인 값.
+// ★ 값의 정본은 테마 모듈 rules.json 이다 — getDeckTheme('report')(report 덱 · reading 프로필 · 표 line)에서 읽는다.
+// ★ 단, 덱 겉모습을 바꾸지 않으려고 rules.json 과 값이 다르거나 대응 칸이 없는 것은 아래 「회의 덱 고유값」에 그대로 둔다.
+//   rules.json 쪽으로 맞출지는 사람이 덱을 보고 정한다(바꾸면 색·크기가 달라진다).
+//   - negative B5473A  ↔ rules danger C0392B (다름)
+//   - positive 2E7D5B · caution B7791F (rules 에 대응 역할 없음)
+//   - title 22 ↔ rules type_scale.title 26 (다름)
+//   - lead 12 ↔ rules subtitle 12.5 (다름) · h2 14 ↔ rules h2 15 (다름)
+//   - caption 8 = rules reading 하한 note 8 (목표 크기 caption 9.5 와는 다름) · table 10 = rules reading 하한 table 10
+//   - kpi 54 · cover 34 (rules 에 대응 칸 없음)
+//   - fonts.fallback '맑은 고딕' ↔ rules fallback [] (다름)
+import { getDeckTheme } from './theme/index';
+import type { TitleStyle } from './theme/index';
 
-export type TitleStyle = 'label' | 'label_lead' | 'action';
+export type { TitleStyle };
 
-export interface DeckTheme {
+export interface MeetingTheme {
   colors: {
     primary: string; // 제목·표 머리 선·다크 패널
     accent: string; // 강조 하나
@@ -27,23 +37,51 @@ export interface DeckTheme {
   lineSpacing: number;
 }
 
-export const MEETING_THEME: DeckTheme = {
+const T = getDeckTheme('report', { profile: 'reading', table: 'line' });
+
+/** 회의 덱 고유값 — rules.json 과 다르거나 대응 칸이 없는 것(위 머리 주석 참조) */
+const MEETING_OWN = {
+  colors: { negative: 'B5473A', positive: '2E7D5B', caution: 'B7791F' },
+  typeScale: { title: 22, lead: 12, h2: 14, caption: 8, kpi: 54, cover: 34 },
+  fallbackFont: '맑은 고딕',
+} as const;
+
+if (T.table.style !== 'line' || T.table.headRulePt === null) {
+  throw new Error('회의 덱 표는 rules.json line 표(머리행 아래 선 있음)를 전제로 한다');
+}
+
+export const MEETING_THEME: MeetingTheme = {
   colors: {
-    primary: '14213D',
-    accent: '3F6CC4',
-    negative: 'B5473A',
-    positive: '2E7D5B',
-    caution: 'B7791F',
-    text: '363636',
-    muted: '5A5A5A',
-    line: 'C4CDD8',
-    band: 'F1F5FA',
-    bg: 'FFFFFF',
+    primary: T.colors.primary,
+    accent: T.colors.accent,
+    negative: MEETING_OWN.colors.negative,
+    positive: MEETING_OWN.colors.positive,
+    caution: MEETING_OWN.colors.caution,
+    text: T.colors.body,
+    muted: T.colors.muted,
+    line: T.colors.line,
+    band: T.colors.band,
+    bg: T.colors.paper,
   },
-  typeScale: { kicker: 10, title: 22, lead: 12, h2: 14, body: 11, table: 10, caption: 8, kpi: 54, cover: 34 },
-  table: { style: 'line', innerLinePt: 0.5, ruleLinePt: 1.25, headerFill: 'F3F7FC' },
+  typeScale: {
+    kicker: T.typeScale.kicker,
+    title: MEETING_OWN.typeScale.title,
+    lead: MEETING_OWN.typeScale.lead,
+    h2: MEETING_OWN.typeScale.h2,
+    body: T.typeScale.body,
+    table: T.minimums.table,
+    caption: MEETING_OWN.typeScale.caption,
+    kpi: MEETING_OWN.typeScale.kpi,
+    cover: MEETING_OWN.typeScale.cover,
+  },
+  table: {
+    style: 'line',
+    innerLinePt: T.table.innerPt,
+    ruleLinePt: T.table.headRulePt,
+    headerFill: T.colors[T.table.headFill],
+  },
   // report 덱 = 「라벨 : 요점」 2단(rules.json deck_kinds.report)
-  titleStyle: 'label_lead',
-  fonts: { latin: 'Pretendard', eastAsia: 'Pretendard', fallback: '맑은 고딕' },
-  lineSpacing: 1.2,
+  titleStyle: T.titleStyle,
+  fonts: { latin: T.fonts.latin, eastAsia: T.fonts.eastAsia, fallback: MEETING_OWN.fallbackFont },
+  lineSpacing: T.lineSpacing.multiline.default,
 };
