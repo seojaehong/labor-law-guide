@@ -420,7 +420,7 @@ export function registerCalc(server) {
         // 🔴 선택 입력이어야 한다. #298 에서 필수가 되며 기존 3필드 호출(hireDate·lastWorkDate·wageTotal)이
         //    핸들러에 닿기도 전에 거절됐다(#307). 엔진은 시간을 모르면 `hours-unknown` 으로 돌려주도록
         //    설계돼 있다(src/lib/calc/severance.ts: hours15 === null). 필수로 두면 그 분기가 영원히 안 쓰인다.
-        weeklyHours: z.number().min(0).max(168).optional().describe('4주 평균 1주 소정근로시간 — 15시간 미만이면 지급 대상이 아니다(근로자퇴직급여 보장법 제4조제1항 단서). 비우면 지급 대상인지 따지지 않고 참고 계산액만 돌려준다(status=hours-unknown) — 미입력을 대상·비대상으로 단정하지 않는다'),
+        weeklyHours: z.number().min(0).max(168).optional().describe('4주 평균 1주 소정근로시간 — 15시간 미만이면 지급 대상이 아니다(근로자퇴직급여 보장법 제4조제1항 단서). 비우면 지급 대상인지 따지지 않고 금액도 내지 않는다(status=hours-unknown, amount null) — needs 의 question 을 사용자에게 묻고 답을 넣어 다시 부른다. 미입력을 대상·비대상으로 단정하지 않는다'),
         excludedDays: z.number().int().min(0).optional().describe('산정기간 중 평균임금에서 빼는 기간의 일수 — 산정기간 일수에서 뺀다. 근로기준법 시행령 제2조제1항: 수습을 시작한 날부터 3개월 이내의 기간·사용자 귀책 휴업·출산전후휴가와 유산·사산 휴가·업무상 요양·육아휴직·쟁의행위·병역 등 의무 이행 기간(그 기간에 임금을 받았으면 빼지 않는다, 제7호 단서)·사용자 승인 휴업. 남녀고용평등법 제19조의3제4항: 육아기 근로시간 단축 기간. 남녀고용평등법 제22조의4제4항: 가족돌봄 등을 위한 근로시간 단축 기간'),
         excludedWage: z.number().min(0).optional().describe('그 제외기간에 받은 임금(원) — wageTotal 에 들어 있는 금액이라 임금총액에서 뺀다. excludedDays 가 0보다 크면 반드시 넣는다(받지 않았으면 0). 비우면 오류, 임금총액과 같으면(남은 기간 임금 0) 오류'),
         hoursChanged: z.boolean().optional().describe('재직 중 1주 소정근로시간이 15시간 이상과 미만 사이에서 바뀐 적이 있으면 true — 계산하지 않고 오류로 이 글을 돌려준다(weeklyHours 한 값으로 셀 수 없다): ' + HOURS_CHANGED_MESSAGE),
@@ -436,7 +436,7 @@ export function registerCalc(server) {
           eligible: [`퇴직금은 ${won(r.amount)}입니다.`, formula],
           'under-1y': ['계속근로 기간이 1년이 되지 않아 퇴직금 지급 대상이 아닙니다.', `퇴직일 ${r.retirementDate}까지 재직 ${r.serviceDays}일입니다(근로자퇴직급여 보장법 제4조제1항). 같은 식으로 세면 ${won(r.amount)}입니다.`],
           'under-15h': ['4주 평균 1주 소정근로시간이 15시간 미만이라 퇴직금 지급 대상이 아닙니다.', `1주 ${a.weeklyHours}시간입니다(근로자퇴직급여 보장법 제4조제1항 단서). 같은 식으로 세면 ${won(r.amount)}입니다.`],
-          // 261127 — needs 가 남으면 「같은 식으로 세면」 금액도 내지 않는다(호출한 AI 가 뒤 문장만 옮기면 개별 금액이 된다). 스키마상 weeklyHours 는 필수라 방어용
+          // 261127 — needs 가 남으면 「같은 식으로 세면」 금액도 내지 않는다(호출한 AI 가 뒤 문장만 옮기면 개별 금액이 된다). #308 로 weeklyHours 가 선택 입력이라 이 분기에 실제로 닿는다
           'hours-unknown': ['1주 소정근로시간을 몰라 금액을 내지 않습니다.', WEEKLY_HOURS_NEED.why],
         }[r.status];
         if (r.eligible && r.applied === 'ordinary') headline.push(`1일 평균임금 ${dec2(r.dailyAverage)}원이 1일 통상임금보다 낮아 통상임금으로 계산했습니다(근로기준법 제2조제2항).`);
