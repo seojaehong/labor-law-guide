@@ -11,13 +11,14 @@ import {
   coverageTimeline,
   minusOneMonth,
   plusOneMonth,
+  type AnnualLeaveResult,
   type CoverageSpan,
   type HeadcountInput,
   type HeadcountResult,
   type WorkerKind,
 } from './headcount';
 
-export type { HeadcountResult, WorkerKind };
+export type { AnnualLeaveResult, HeadcountResult, WorkerKind };
 
 export interface Site {
   /** 문을 여는 요일(0=일 … 6=토) */
@@ -254,4 +255,12 @@ function lastCovered(spans: CoveredSpan[], windowTo: string): string {
 /** 날짜 하나의 1개월 산정(①②) — 근거 보기용 */
 export function explainDate(plan: Plan, date: string): HeadcountResult {
   return computeHeadcount(toInput(plan), date);
+}
+
+/**
+ * 그 날짜를 연차 기준일로 볼 때의 열두 달(③) — 근거 보기용. 연차 판단이 실제로 쓴 구간을 그대로 돌려준다.
+ * 가장 이른 달은 기준일 12개월 전에서 잘려 같은 날짜의 explainDate 구간보다 짧을 수 있다(G4 R8, 261127).
+ */
+export function explainLeave(plan: Plan, date: string): AnnualLeaveResult {
+  return annualLeaveCoverage(toInput(plan), date);
 }

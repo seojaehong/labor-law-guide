@@ -226,8 +226,9 @@ describe('적용 — 네 계산기가 공용 블록을 쓴다', () => {
   });
   it('주휴수당 라디오 라벨은 44px 히트 영역', () => {
     const src = readFileSync('src/app/tools/weekly-holiday-pay/WeeklyHolidayClient.tsx', 'utf8');
-    const radios = src.match(/<label[^>]*>\s*<input type="radio"/g) ?? [];
-    expect(radios.length).toBe(2);
+    // 개근 라디오 2 + 입사·퇴사 체크 2(261125 퇴사 주 라디오 3 → 261126 G4 D1 → 261127 G4 R7 둘 다 고를 수 있는 체크)
+    const radios = src.match(/<label[^>]*>\s*<input type="(radio|checkbox)"/g) ?? [];
+    expect(radios.length).toBe(4);
     expect(src).toMatch(/const radioLabel = '[^']*min-h-\[44px\]/);
     for (const r of radios) expect(r).toMatch(/className=\{radioLabel\}/);
   });

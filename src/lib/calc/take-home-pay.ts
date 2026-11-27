@@ -141,8 +141,24 @@ export function withholdingTableTax(taxable: number, family: number): { row: rea
   return { row: [r[0], r[1]], tax };
 }
 
-/** date(YYYY-MM-DD)에 맞는 요율 묶음. 하나라도 없으면 null — 다른 해 값으로 대신하지 않는다 */
+/**
+ * 이 간이세액표를 쓰는 첫날. 소득세법 시행령 부칙 <제36129호, 2026. 2. 27.> 제1조제3호·제15조 —
+ * 「별표 2의 개정규정은 2026년 3월 1일 이후 원천징수하는 경우부터 적용한다」. 그 전 날짜의 표는 없다.
+ */
+export const WITHHOLDING_FROM = '2026-03-01';
+
+/**
+ * 이 간이세액표를 쓰는 마지막 날(재확인 기한). 법이 정한 끝나는 날이 아니다 — 별표 2 에는 적용 기간이 없다.
+ * 이 표도 2026. 2. 27. 시행령 개정으로 2026. 3. 1. 원천징수분부터 바뀌었다(부칙 <제36129호> 제15조). 다음 개정이 같은 때
+ * 시행되면 옛 표로 조용히 계산하게 되므로 그 전날까지만 쓰고, 뒤 날짜는 null 로 멈춘다(G4 I5, 261126).
+ * 다음 개정 여부를 원문으로 확인하면 새 표를 넣거나 이 날짜를 늘린다. rates.test 의 60일 경보에는 넣지 않았다 —
+ * 개정은 2월 말에 공포돼 60일 전에 확인할 수 없다(건강보험 상·하한 고시와 같은 사정).
+ */
+export const WITHHOLDING_UNTIL = '2027-02-28';
+
+/** date(YYYY-MM-DD)에 맞는 요율 묶음. 하나라도 없거나 간이세액표 적용 기간 밖이면 null — 다른 해 값으로 대신하지 않는다 */
 export function takeHomeRatesOn(date: string): TakeHomeRates | null {
+  if (date < WITHHOLDING_FROM || date > WITHHOLDING_UNTIL) return null;
   const v = {
     npsPerMillion: rateOn('npsEmployeePerMillion', date)?.value,
     npsFloor: rateOn('npsIncomeFloor', date)?.value,

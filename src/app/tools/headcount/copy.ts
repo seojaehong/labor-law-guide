@@ -1,7 +1,9 @@
 // 상시 근로자 수 계산기의 문장은 모두 여기서 만든다. 시험이 이 함수들의 출력 전부를 금지어로 훑는다.
 import { DUTIES } from '@/content/duties-data';
 import { fmtDate } from '@/lib/tool-kit';
-import type { Crew, CoveredSpan, HeadcountResult, Note, Plan, PlanAnswer } from '@/lib/headcount-plan';
+import {
+  explainLeave, type AnnualLeaveResult, type Crew, type CoveredSpan, type HeadcountResult, type Note, type Plan, type PlanAnswer,
+} from '@/lib/headcount-plan';
 
 
 export { fmtDate };
@@ -105,6 +107,33 @@ export function crewLabel(c: Crew | undefined): string {
   return c.from || c.to ? '기간을 정해 쓰는 사람' : '지금 일하는 직원';
 }
 
+/**
+ * 「날짜별 계산 보기」 안내 — 연차 판단의 열두 달을 아래에 그대로 보인다(G4 I3 261126 → R8 261127). lib/headcount.ts leaveMonths.
+ * 가장 이른 달은 1년 밖을 잘라 같은 날짜의 1개월 계산과 구간이 다르다 — 「같은 구간이 나온다」고 쓰지 않는다.
+ */
+export const LEAVE_MONTHS_NOTE =
+  '연차(제3항)는 연차를 볼 날과 그날에서 1~11개월 앞선 같은 날짜(그 달에 그날이 없으면 말일), 모두 열두 날마다 센 1개월이 전부 5명 이상일 때 생깁니다. 아래 「연차의 열두 달」은 확인할 날을 연차를 볼 날로 놓고 연차 판단에 쓴 구간을 그대로 보입니다. 가장 이른 달은 1년 밖의 날을 빼고 세어 같은 날짜의 1개월 계산보다 며칠 짧을 수 있습니다.';
+
+/**
+ * 「연차의 열두 달」 제목 — 그 날을 연차를 볼 날로 놓았을 때 몇 달을 5인 이상으로 보고, 그래서 그날 연차가 적용되는가.
+ * 사업 시작일이 가장 이른 달 첫날보다 늦으면 열두 달이 모두 5인 이상이어도 적용 안 함(lib/headcount.ts annualLeaveCoverage) —
+ * 결론을 제목에 같이 적어 연차 판단과 어긋나 보이지 않게 한다(G4 R8)
+ */
+export function leaveMonthsHead(r: AnnualLeaveResult): string {
+  const n = r.months.filter((m) => m.covered).length;
+  const verdict = r.covered ? '이날 연차 적용'
+    : n === r.months.length ? '사업 시작일이 가장 이른 달 첫날보다 늦어 이날 연차 적용 안 함' : '이날 연차 적용 안 함';
+  return `연차의 열두 달 — 12개월 가운데 ${n}개월을 5인 이상으로 봅니다 · ${verdict}`;
+}
+
+/**
+ * 연차의 열두 달 한 줄 — 연차 판단이 실제로 센 구간과 값(G4 R8). 평균이 5명 미만이어도 5명 미만인 날이 가동일의 절반 미만이면
+ * 5인 이상으로 보므로(제2항 제1호) 「5명 이상」이 아니라 「5인 이상으로 봄」으로 쓴다
+ */
+export function leaveMonthLine(m: AnnualLeaveResult['months'][number]): string {
+  return `${m.periodStart} ~ ${m.periodEnd} · 가동 ${m.operatingDays}일 · 5명 미만 ${m.belowDays}일 · 평균 ${avg(m.average)}명 — ${m.covered ? '5인 이상으로 봄' : '5인 이상으로 보지 않음'}`;
+}
+
 /** 날짜별 계산 근거 문장 */
 export function basisLine(r: HeadcountResult): string {
   if (r.operatingDays === 0) return '그 전 1개월에 가동일이 없습니다. 문 여는 요일과 쉬는 날을 확인합니다.';
@@ -125,5 +154,8 @@ export function allCopy(a: PlanAnswer, plan: Plan, today: string): string[] {
     ...plan.crews.map(crewLabel),
     ...CHANGES.map((c) => `${c.title} ${c.basis}`),
     inspect ? basisLine(inspect) : '',
+    LEAVE_MONTHS_NOTE,
+    leaveMonthsHead(explainLeave(plan, inspect?.baseDate ?? today)),
+    ...explainLeave(plan, inspect?.baseDate ?? today).months.map(leaveMonthLine),
   ].filter(Boolean);
 }

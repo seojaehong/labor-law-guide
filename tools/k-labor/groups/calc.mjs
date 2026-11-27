@@ -5,13 +5,18 @@ import { z } from 'zod';
 import { rateOn } from '@/content/rates';
 import { checkMinWage } from '@/lib/calc/min-wage';
 import { calcWeeklyHoliday } from '@/lib/calc/weekly-holiday';
+import {
+  ENDED_BASIS as WHP_ENDED_BASIS, ENDED_VERDICT as WHP_ENDED, JOINED_BASIS as WHP_JOINED_BASIS, JOINED_NEXT as WHP_JOINED_NEXT,
+  JOINED_VERDICT as WHP_JOINED,
+} from '@/app/tools/weekly-holiday-pay/result';
 import { calcTakeHomePay, takeHomeRatesOn } from '@/lib/calc/take-home-pay';
 import { WITHHOLDING_REVISION } from '@/lib/calc/wage-withholding-2026-02-27';
 import { calcNoticePay } from '@/lib/calc/notice-pay';
 import { calcLeavePay } from '@/lib/calc/leave-pay';
-import { answerPlan, explainDate, parseIsoDate } from '@/lib/headcount-plan';
+import { answerPlan, explainDate, explainLeave, parseIsoDate } from '@/lib/headcount-plan';
 import { todayKst } from '@/lib/tool-kit';
-import { headline as hcHeadline, whyLines as hcWhy, leaveLines as hcLeave, tenLine as hcTen, basisLine as hcBasis } from '@/app/tools/headcount/copy';
+import { headline as hcHeadline, whyLines as hcWhy, leaveLines as hcLeave, tenLine as hcTen, basisLine as hcBasis,
+  leaveMonthsHead as hcLeaveHead, leaveMonthLine as hcLeaveMonth } from '@/app/tools/headcount/copy';
 import { headline as thHeadline, items as thItems, formulaLines as thFormula, NOTICE as TH_NOTICE } from '@/app/tools/take-home-pay/copy';
 import { headline as lpHeadline, formulaLines as lpFormula, effectLines as lpEffect } from '@/app/tools/leave-pay/copy';
 import { calcSeverance } from '@/lib/calc/severance';
@@ -117,25 +122,51 @@ export function registerCalc(server) {
     {
       title: '주휴수당 계산',
       description:
-        '1주 주휴수당과 한 달 평균을 계산한다(사이트 /tools/weekly-holiday-pay 와 같은 엔진). 주휴수당 = 시급 × 1일 소정근로시간, 1일 소정근로시간 = 1주 소정근로시간 ÷ 통상근로자 1주 소정근로일 수(보통 5일, 8시간까지). 주 15시간 미만이면 없고, 그 주 소정근로일을 개근해야 생긴다.',
+        '1주 주휴수당과 한 달 평균을 계산한다(사이트 /tools/weekly-holiday-pay 와 같은 엔진). 주휴수당 = 시급 × 1일 소정근로시간, 1일 소정근로시간 = 1주 소정근로시간 ÷ 통상근로자 1주 소정근로일 수(보통 5일, 8시간까지). 주 15시간 미만이면 없고, 그 주 소정근로일을 개근해야 생긴다. 퇴사하는 주는 1주(회사가 정한 연속 7일)의 마지막 날(7일째)까지 근로관계가 이어져야 생기므로(주휴일 요일과 상관없음), 퇴사일(근로관계 마지막 날, 마지막으로 출근한 날이 아니다. 인사기록·4대보험의 상실일은 그다음 날)이 7일째 전이면 없다(임금근로시간과-1736(2021. 8. 4.)). 그 주 첫날보다 늦게 입사한 주는 직접 다룬 행정해석을 찾지 못했고 입사일부터 7일을 채우면 생긴다고 보는 해석(임금근로시간과-1743 취지)도 있어 금액을 내지 않는다(status joined-unclear, amount null — 확인 필요, checkNote 에 확인할 것). 같은 주에 입사·퇴사했으면 둘 다 true 로 넣는다(7일째 전 퇴사가 앞서 0원).',
       inputSchema: {
         hourlyWage: z.number().describe('시급(원)'),
         weeklyHours: z.number().describe('1주 소정근로시간(4주 평균, 연장근로 제외)'),
         fullAttendance: z.boolean().optional().describe('그 주 소정근로일을 모두 나왔나(기본 true)'),
         fullTimeDays: z.number().int().optional().describe('같은 일을 하는 통상근로자의 1주 소정근로일 수(기본 5)'),
+        joinedMidWeek: z.boolean().optional().describe('입사한 주에만: 입사일이 그 주(연속 7일)의 첫날보다 늦으면 true(예: 월~일 주에 수요일 입사). true 면 금액을 내지 않고 확인 필요(joined-unclear)로 멈춘다 — 0원이 아니다. 그 주 첫날 입사·평상 주는 비운다'),
+        endsBeforeWeekEnd: z.boolean().optional().describe('퇴사하는 주에만: 퇴사일(근로관계가 이어진 마지막 날 — 마지막으로 출근한 날이 아니고, 인사기록·4대보험의 상실일은 그다음 날이라 그 날짜도 아니다)이 그 주(연속 7일)의 마지막 날(7일째) 전이면 true(월~일 주에 금요일 퇴사, 주휴일이 수요일이어도 목요일 퇴사면 true), 7일째이거나 그 뒤면 false(일요일 퇴사). 평상 주는 비운다'),
+        // G4 R9(261127) — 옛 입력(주휴일 전 퇴사)을 스키마가 조용히 버리면 평상 주로 계산돼 금액이 나간다. 받아서 거절한다
+        endsBeforeRestDay: z.unknown().optional().describe('없어진 입력 — 넣으면 계산하지 않고 거절한다. 퇴사하는 주는 endsBeforeWeekEnd 로 넣는다'),
       },
       annotations: READ_ONLY,
     },
     async (a) =>
       run(() => {
-        const r = calcWeeklyHoliday({ ...a, fullAttendance: a.fullAttendance ?? true });
+        const { endsBeforeRestDay, ...input } = a;
+        if (endsBeforeRestDay !== undefined) {
+          throw new Error('endsBeforeRestDay(퇴사일이 주휴일 전인가)는 없어진 입력입니다. 퇴사일이 그 주(연속 7일)의 마지막 날(7일째) 전인지 endsBeforeWeekEnd(true/false)로 다시 넣어 주세요.');
+        }
+        const r = calcWeeklyHoliday({ ...input, fullAttendance: input.fullAttendance ?? true });
         const headline =
           r.status === 'under15' ? [`1주 ${hoursText(a.weeklyHours)}이면 주휴수당이 없습니다.`, '4주를 평균한 1주 소정근로시간이 15시간 미만입니다.']
+            : r.status === 'joined-unclear' ? WHP_JOINED
+            : r.status === 'ended' ? WHP_ENDED
             : r.status === 'absent' ? ['이번 주는 주휴수당이 없습니다.', '그 주 소정근로일을 모두 나와야 생깁니다.']
               : [`1주 주휴수당은 ${won(r.amount)}입니다.`, `시급 ${won(a.hourlyWage)} × 1일 소정근로시간 ${hoursText(r.dailyHours)}, 한 달 평균 ${won(r.monthly)}(× 365 ÷ 7 ÷ 12)`];
+        // 퇴사 주 0원·입사 주 확인 필요 — 웹과 같은 근거 문장(G4 I2·D1·E1)
+        const span = r.status === 'ended' ? WHP_ENDED_BASIS : r.status === 'joined-unclear' ? WHP_JOINED_BASIS : null;
         return text({
           ok: true, headline, ...r,
-          basis: ['근로기준법 제55조제1항(유급휴일)', '근로기준법 시행령 별표2 제2호나목(1일 소정근로시간)', '근로기준법 제18조제3항(주 15시간 미만)', '근로기준법 시행령 제30조제1항(개근)'],
+          ...(span ? { basisNote: span } : {}),
+          // 입사 주 — 무엇을 확인할지(웹 nextNote 와 같은 공통 문장, G4 R4). 다시 계산하는 방법만 입력 이름으로
+          ...(r.status === 'joined-unclear'
+            ? { checkNote: `${WHP_JOINED_NEXT} 입사일이 그 주 첫날이었다면 joinedMidWeek 를 비우고 다시 계산합니다.` }
+            : {}),
+          basis: [
+            '근로기준법 제55조제1항(유급휴일)', '근로기준법 시행령 별표2 제2호나목(1일 소정근로시간)', '근로기준법 제18조제3항(주 15시간 미만)', '근로기준법 시행령 제30조제1항(개근)',
+            ...(span ? ['근로기준법 제2조제1항제7호(1주 = 휴일을 포함한 7일)'] : []),
+            ...(r.status === 'ended'
+              ? ['고용노동부 임금근로시간과-1736(2021. 8. 4.) — 1주 동안의 근로관계 존속을 전제(조문에는 없음)', '고용노동부 1350 답변(2025. 9. 15.) — 1주 7일째에 소속되어 있으면 1주간 근로관계 유지']
+              : []),
+            ...(r.status === 'joined-unclear'
+              ? ['고용노동부 임금근로시간과-1743(2021. 8. 5.) — 기산 시점은 근로를 시작한 뒤 어느 시점에서 과거 1주(일용근로자 사안)']
+              : []),
+          ],
           site: `${SITE}/tools/weekly-holiday-pay`,
         });
       }),
@@ -149,7 +180,8 @@ export function registerCalc(server) {
       title: '상시 근로자 수 계산',
       description:
         '사업장이 상시 5명 이상(근로기준법 시행령 제7조의2)으로 보는 기간을 계산한다(사이트 /tools/headcount 와 같은 엔진). 기준일마다 그 전 1개월의 가동일 연인원 ÷ 가동일 수로 평균을 내고, 5명 미만인 날이 가동일의 절반에 이르는지로 정한다. ' +
-        '「N명이 이 기간·이 요일에 일한다」는 묶음(crews)으로 넣는다. 날짜를 넣지 않은 묶음은 1년 넘게 일해 온 것으로 본다. 결과에 10명 이상 기간(취업규칙 제93조)과 1년 이상 근속자 연차(제60조제1항) 적용 여부도 붙는다. baseDate 를 주면 그날의 1개월 산정 근거도 돌려준다.',
+        '「N명이 이 기간·이 요일에 일한다」는 묶음(crews)으로 넣는다. 날짜를 넣지 않은 묶음은 1년 넘게 일해 온 것으로 본다. 결과에 10명 이상 기간(취업규칙 제93조)과 1년 이상 근속자 연차(제60조제1항) 적용 여부도 붙는다. baseDate 를 주면 그날의 1개월 산정 근거도 돌려준다. ' +
+        '연차는 연차를 볼 날과 그날에서 1~11개월 앞선 같은 날짜(그 달에 없으면 말일) 열두 날마다 센 1개월이 모두 5명 이상일 때다 — baseDate 를 주면 그날을 연차를 볼 날로 놓은 열두 달(annualLeaveMonths: 연차 판단이 실제로 센 구간·가동일·5명 미만인 날)도 돌려준다. 가장 이른 달은 1년 밖의 날을 빼고 세어 같은 날짜의 1개월 산정(baseDate)보다 짧을 수 있다.',
       inputSchema: {
         openDays: z.array(z.number().int().min(0).max(6)).optional().describe('문을 여는 요일(0=일 … 6=토, 기본 월~금 [1,2,3,4,5])'),
         closedDates: z.array(z.string()).optional().describe('문을 여는 요일 중 쉰 날(YYYY-MM-DD). 비우면 공휴일도 연 날로 센다'),
@@ -162,7 +194,7 @@ export function registerCalc(server) {
           kind: z.enum(['regular', 'dispatched', 'family']).optional().describe('regular = 통상·기간제·단시간 등(기본) · dispatched = 파견(세지 않음) · family = 동거친족'),
         })).min(1).describe('같은 기간·같은 요일·같은 구분으로 일하는 N명 묶음 목록'),
         today: ISO.optional().describe('살펴보기 시작할 날(기본 오늘, KST)'),
-        baseDate: ISO.optional().describe('이날의 1개월 산정 근거를 따로 볼 때'),
+        baseDate: ISO.optional().describe('이날의 1개월 산정 근거와, 이날을 연차를 볼 날로 놓은 열두 달(annualLeaveMonths)을 따로 볼 때'),
       },
       annotations: READ_ONLY,
     },
@@ -194,10 +226,17 @@ export function registerCalc(server) {
           }
           : { kind: ans.five.kind };
         let explain;
+        let leaveMonths;
         if (a.baseDate) {
           const r = explainDate(plan, a.baseDate);
           const { days: _days, ...rest } = r;
           explain = { ...rest, average: Math.round(r.average * 100) / 100, line: hcBasis(r) };
+          // 그날을 연차를 볼 날로 놓은 열두 달 — 연차 판단이 실제로 센 구간 그대로(G4 R8, 웹 「연차의 열두 달」과 같은 문장)
+          const lv = explainLeave(plan, a.baseDate);
+          leaveMonths = {
+            covered: lv.covered, head: hcLeaveHead(lv),
+            months: lv.months.map((m) => ({ ...m, average: Math.round(m.average * 100) / 100, line: hcLeaveMonth(m) })),
+          };
         }
         return text({
           ok: true,
@@ -209,6 +248,7 @@ export function registerCalc(server) {
           annualLeave: { kind: ans.leave.kind, lines: hcLeave(ans, today) },
           notes,
           ...(explain ? { baseDate: explain } : {}),
+          ...(leaveMonths ? { annualLeaveMonths: leaveMonths } : {}),
           basis: ['근로기준법 시행령 제7조의2(상시 사용하는 근로자 수의 산정)'],
           site: `${SITE}/tools/headcount`,
         });
@@ -239,7 +279,7 @@ export function registerCalc(server) {
       run(() => {
         const on = date ?? todayKst();
         const rates = takeHomeRatesOn(on);
-        if (!rates) return text({ ok: false, error: `${on} 기준 보험료율이 없어 계산할 수 없습니다.` });
+        if (!rates) return text({ ok: false, error: `${on} 기준 보험료율·간이세액표가 없어 계산할 수 없습니다.` });
         const r = calcTakeHomePay({ ...input, family: input.family ?? 1 }, rates);
         const rateKeys = ['npsEmployeePerMillion', 'healthEmployeePerMillion', 'ltcToHealthPerMillion', 'employmentEmployeePerMillion', 'mealNonTaxMonthly'];
         return text({
