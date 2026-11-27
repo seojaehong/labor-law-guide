@@ -206,7 +206,9 @@ describe('사업주 — 출산육아기 고용안정장려금(고시 별표 5)',
     expect(r.worker!.monthly).toBe(865_000);
     expect(r.employer.subsidy.monthly).toBeNull();
     expect(r.employer.subsidy.withheld).toMatch(/2026\. 7\. 1\./);
-    expect(r.employer.workSharing!.monthly).toBeNull();
+    // 업무분담지원금은 지원한 기간 기준(고시 부칙 2026. 1. 1. 제3조제8항) — 월액은 확인한 고시 금액, 그 전 기간이 섞여 합계는 내지 않는다
+    expect(r.employer.workSharing).toMatchObject({ monthly: 200_000, total: null });
+    expect(r.assumptions.map((x) => x.key)).toContain('workSharingBeforeRule');
     expect(calcChildcareReduction({ ...BASE, priorityFirm: true }).employer.subsidy.withheld).toBeNull();
   });
 
@@ -518,5 +520,34 @@ describe('2차 검토 — 업무분담 지원금', () => {
     const keys = r.assumptions.map((x) => x.key);
     expect(keys).toContain('workSharingEnd');
     expect(keys).toContain('workSharingOtherSupport');
+  });
+});
+
+describe('후속 — 고시 판 적용 기준·업무분담자 제외 사유(interrogate 2차 Consider)', () => {
+  const WS = { ...BASE, endDate: '2027-12-20', priorityFirm: true, maternityOverlapDays: 0, priorUseDays: 0, childEligible: true, currentlyInsured: true };
+
+  it('업무분담지원금은 지원한 기간 기준 — 단축이 확인한 고시보다 먼저 시작했어도 그 고시 시행 뒤 기간은 센다(고시 부칙 2026. 1. 1. 제3조제8항)', () => {
+    const r = calcChildcareReduction({ ...WS, startDate: '2026-05-01', endDate: '2026-12-31', workSharing: { paidMonthly: 300_000, startDate: '2026-07-01', endDate: '2026-09-30', otherSupportMonthly: 0 } });
+    // 단축 지원금은 허용(개시)한 때 기준이라 확인 안 된 판 — 내지 않는다
+    expect(r.employer.subsidy.monthly).toBeNull();
+    expect(r.employer.subsidy.withheld).toMatch(/2026\. 7\. 1\./);
+    // 업무분담은 2026. 7. 1. 이후 기간이라 센다
+    expect(r.employer.workSharing).toMatchObject({ monthly: 200_000, total: 600_000 });
+  });
+
+  it('업무분담 기간 일부가 확인한 고시보다 앞서면 그 부분 금액을 몰라 합계를 내지 않는다', () => {
+    const r = calcChildcareReduction({ ...WS, startDate: '2026-05-01', endDate: '2026-12-31', workSharing: { paidMonthly: 300_000, startDate: '2026-05-01', endDate: '2026-09-30', otherSupportMonthly: 0 } });
+    expect(r.employer.workSharing).toMatchObject({ monthly: 200_000, total: null });
+    expect(r.assumptions.find((x) => x.key === 'workSharingBeforeRule')?.note).toMatch(/2026\. 7\. 1\./);
+  });
+
+  it('업무분담자 본인이 고시 제16조 제외 근로자이면 미충족, 넣지 않으면 확인 필요(제16조제4호 단서 — 업무분담 동료근로자도 지원 대상 근로자)', () => {
+    const ex = calcChildcareReduction({ ...WS, workSharing: { paidMonthly: 300_000, sharerExcluded: true } });
+    expect(ex.employer.workSharing!.eligibility.find((c) => c.key === 'sharerExcluded')!.status).toBe('unmet');
+    expect(ex.employer.workSharing!.monthly).toBe(0);
+    const unk = calcChildcareReduction({ ...WS, workSharing: { paidMonthly: 300_000 } });
+    expect(unk.employer.workSharing!.eligibility.find((c) => c.key === 'sharerExcluded')!.status).toBe('check');
+    const ok = calcChildcareReduction({ ...WS, workSharing: { paidMonthly: 300_000, sharerExcluded: false } });
+    expect(ok.employer.workSharing!.eligibility.find((c) => c.key === 'sharerExcluded')!.status).toBe('met');
   });
 });

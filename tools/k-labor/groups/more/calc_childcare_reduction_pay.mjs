@@ -99,6 +99,7 @@ export function register(server) {
             otherSupport: z.boolean().optional().describe('업무분담자가 다른 근로시간 단축·대체인력 지원금의 지원 대상이면 true'),
             otherSupportMonthly: z.number().optional().describe('같은 업무분담 지정·대체인력으로 사업주가 매월 받은 다른 지원금(원) — 뺀다'),
             endDate: z.string().optional().describe(`업무분담을 끝낸 날 ${DATE}(비우면 단축 종료일)`),
+            sharerExcluded: z.boolean().optional().describe('업무분담자 본인이 사업주 배우자·직계 존비속이거나 고용보험 미가입이거나 신고 월평균 보수가 기준 미만이면 true(고시 제16조)'),
           })
           .optional()
           .describe('업무분담자를 지정해 금전을 지원했을 때만'),
