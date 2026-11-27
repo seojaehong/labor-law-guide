@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import {
   ageInEffect, reachDate, resolveRetirement, simulate,
-  CURRENT_STEPS, PROPOSED_STEPS, type Employee, type Scenario,
+  CURRENT_STEPS, PROPOSED_STEPS, NO_GROUP, type Employee, type Scenario,
 } from '@/lib/calc/retirement-plan';
 import { calcSeverance, periodSegments } from '@/lib/calc/severance';
 
@@ -160,5 +160,52 @@ describe('개인정보 — 받지 않으면 샐 수 없다 (#311 §3)', () => {
 
   it('생년은 연월까지만 받는다 — 형식 검사가 YYYY-MM 이다', () => {
     expect(code).toMatch(/\\d\{4\}\)-\(\\d\{2\}\)\$/);
+  });
+});
+
+describe('직군별 집계 — 「생산직만 몇 명 빠진다」가 전체 인원보다 중요하다', () => {
+  const crew: Employee[] = [
+    { id: 'P1', birthYM: '1969-06', hireDate: '2005-03-01', annualPay: 60_000_000, group: '생산' },
+    { id: 'P2', birthYM: '1969-09', hireDate: '2006-03-01', annualPay: 50_000_000, group: '생산' },
+    { id: 'S1', birthYM: '1972-03', hireDate: '2010-03-01', annualPay: 70_000_000, group: '사무' },
+    { id: 'X1', birthYM: '1975-01', hireDate: '2012-03-01', annualPay: 40_000_000 },
+  ];
+  const opt = { boundary: 'monthEnd' as const, fromYear: 2027, toYear: 2040 };
+
+  it('직군 목록은 명단에 나온 순서를 지키고 미지정은 따로 묶는다', () => {
+    const r = simulate(crew, CUR, opt);
+    expect(r.groups).toEqual(['생산', '사무', NO_GROUP]);
+  });
+
+  it('같은 해에 생산직 2명이 빠지는 것이 직군 칸에서 보인다', () => {
+    const r = simulate(crew, CUR, opt);
+    const y29 = r.years.find((x) => x.year === 2029)!;
+    expect(y29.retiring).toBe(2);
+    expect(y29.byGroup['생산'].retiring).toBe(2);
+    expect(y29.byGroup['사무'].retiring).toBe(0);
+  });
+
+  it('직군 합이 전체와 어긋나지 않는다 — 모든 해에서', () => {
+    for (const sc of [CUR, PRO]) {
+      const r = simulate(crew, sc, opt);
+      for (const y of r.years) {
+        const g = Object.values(y.byGroup);
+        expect(g.reduce((a, x) => a + x.retiring, 0)).toBe(y.retiring);
+        expect(g.reduce((a, x) => a + x.headcount, 0)).toBe(y.headcount);
+        expect(g.reduce((a, x) => a + x.severancePaid, 0)).toBe(y.severancePaid);
+        // 인건비는 직군별로 따로 반올림하므로 합이 1원 단위로 어긋날 수 있다
+        expect(Math.abs(g.reduce((a, x) => a + x.payroll, 0) - y.payroll)).toBeLessThanOrEqual(g.length);
+      }
+    }
+  });
+
+  it('재고용 퇴직금도 직군 칸에 들어간다', () => {
+    const re: Scenario = { key: 're', label: '재고용', steps: CURRENT_STEPS, rehire: { years: 1, payRate: 70 } };
+    const r = simulate(crew, re, opt);
+    const y30 = r.years.find((x) => x.year === 2030)!;
+    expect(y30.byGroup['생산'].severancePaid).toBeGreaterThan(0);
+    expect(y30.byGroup['생산'].severancePaid).toBe(
+      (r.people[0].rehireSeverance ?? 0) + (r.people[1].rehireSeverance ?? 0),
+    );
   });
 });

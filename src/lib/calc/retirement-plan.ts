@@ -134,10 +134,27 @@ export interface YearRow {
   payroll: number;
   /** 그 해 퇴직금 지급액 추정 */
   severancePaid: number;
+  /**
+   * 직군별로 나눈 같은 수치. 「생산직만 2033년에 3명 빠진다」가 회사엔 전체 인원보다 중요하다.
+   * 직군을 넣지 않은 사람은 NO_GROUP 으로 묶인다.
+   */
+  byGroup: Record<string, GroupRow>;
 }
+
+export interface GroupRow {
+  retiring: number;
+  headcount: number;
+  payroll: number;
+  severancePaid: number;
+}
+
+/** 직군을 넣지 않은 사람을 묶는 이름 */
+export const NO_GROUP = '(직군 없음)';
 
 export interface SimResult {
   scenario: string;
+  /** 명단에 나온 직군 — 입력 순서를 지킨다. 직군이 하나뿐이면 화면에서 안 쪼갠다 */
+  groups: string[];
   years: YearRow[];
   people: PersonRow[];
   totals: { payroll: number; severancePaid: number; retiring: number };
@@ -209,6 +226,13 @@ export function simulate(employees: Employee[], scenario: Scenario, opts: SimOpt
     people.push(row);
   }
 
+  // 직군은 명단에 나온 순서를 지킨다 — 화면 열 순서가 입력과 같아야 읽기 쉽다
+  const groups: string[] = [];
+  for (const e of employees) {
+    const g = e.group || NO_GROUP;
+    if (!groups.includes(g)) groups.push(g);
+  }
+
   const years: YearRow[] = [];
   for (let y = opts.fromYear; y <= opts.toYear; y++) {
     const jan = `${y}-01-01`;
@@ -218,29 +242,44 @@ export function simulate(employees: Employee[], scenario: Scenario, opts: SimOpt
     let headcount = 0;
     let payroll = 0;
     let severancePaid = 0;
+    const byGroup: Record<string, GroupRow> = {};
+    for (const g of groups) byGroup[g] = { retiring: 0, headcount: 0, payroll: 0, severancePaid: 0 };
     for (let i = 0; i < people.length; i++) {
       const p = people[i];
       const e = employees[i];
-      if (p.retireYear === y) retiring++;
+      const g = byGroup[e.group || NO_GROUP];
+      if (p.retireYear === y) { retiring++; g.retiring++; }
       // 정년까지의 재직
       const d1 = overlapDays(e.hireDate, p.lastWorkDate, jan, dec);
-      if (d1 > 0) payroll += (e.annualPay * rate * d1) / yd;
-      if (p.retireYear === y) severancePaid += p.severance;
+      if (d1 > 0) { const v = (e.annualPay * rate * d1) / yd; payroll += v; g.payroll += v; }
+      if (p.retireYear === y) { severancePaid += p.severance; g.severancePaid += p.severance; }
       let lastDay = p.lastWorkDate;
       // 재고용 기간
       if (p.rehireLastWorkDate) {
         const d2 = overlapDays(addDays(p.lastWorkDate, 1), p.rehireLastWorkDate, jan, dec);
-        if (d2 > 0 && scenario.rehire) payroll += (e.annualPay * (scenario.rehire.payRate / 100) * rate * d2) / yd;
-        if (Number(p.rehireLastWorkDate.slice(0, 4)) === y) severancePaid += p.rehireSeverance ?? 0;
+        if (d2 > 0 && scenario.rehire) {
+          const v = (e.annualPay * (scenario.rehire.payRate / 100) * rate * d2) / yd;
+          payroll += v;
+          g.payroll += v;
+        }
+        if (Number(p.rehireLastWorkDate.slice(0, 4)) === y) {
+          severancePaid += p.rehireSeverance ?? 0;
+          g.severancePaid += p.rehireSeverance ?? 0;
+        }
         lastDay = p.rehireLastWorkDate;
       }
-      if (e.hireDate <= dec && lastDay >= dec) headcount++;
+      if (e.hireDate <= dec && lastDay >= dec) { headcount++; g.headcount++; }
     }
-    years.push({ year: y, retiring, headcount, payroll: Math.round(payroll), severancePaid: Math.round(severancePaid) });
+    for (const g of Object.keys(byGroup)) {
+      byGroup[g].payroll = Math.round(byGroup[g].payroll);
+      byGroup[g].severancePaid = Math.round(byGroup[g].severancePaid);
+    }
+    years.push({ year: y, retiring, headcount, payroll: Math.round(payroll), severancePaid: Math.round(severancePaid), byGroup });
   }
 
   return {
     scenario: scenario.key,
+    groups,
     years,
     people,
     totals: {

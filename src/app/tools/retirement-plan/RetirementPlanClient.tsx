@@ -4,7 +4,7 @@
 //    명단은 브라우저 메모리에만 있고 새로고침하면 사라진다. 그렇게 화면에도 적는다.
 import { useMemo, useState } from 'react';
 import {
-  simulate, CURRENT_STEPS, PROPOSED_STEPS,
+  simulate, CURRENT_STEPS, PROPOSED_STEPS, NO_GROUP,
   type AgeStep, type Boundary, type Scenario, type SimResult,
 } from '@/lib/calc/retirement-plan';
 import { parseRoster, EXAMPLE_ROSTER } from '@/lib/calc/roster-parse';
@@ -49,7 +49,7 @@ export default function RetirementPlanClient() {
   const [onRehire, setOnRehire] = useState(false);
   const [rehireYears, setRehireYears] = useState('1');
   const [rehirePay, setRehirePay] = useState('70');
-  const [tab, setTab] = useState<'year' | 'person'>('year');
+  const [tab, setTab] = useState<'year' | 'group' | 'person'>('year');
 
   const parsed = useMemo(() => parseRoster(text), [text]);
   const employerRate = useRate ? Number(rate) : undefined;
@@ -245,7 +245,7 @@ export default function RetirementPlanClient() {
           <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
             <h2 className="text-base font-semibold" style={ink}>③ 결과</h2>
             <div className="flex gap-1">
-              {([['year', '연도별'], ['person', '개인별']] as ['year' | 'person', string][]).map(([v, l]) => (
+              {(([['year', '연도별'], ...(base.r.groups.length > 1 ? [['group', '직군별'] as const] : []), ['person', '개인별']] as ['year' | 'group' | 'person', string][])).map(([v, l]) => (
                 <button key={v} type="button" aria-pressed={tab === v} className="min-h-[44px] rounded-md border px-3 text-sm font-semibold" style={chip(tab === v)} onClick={() => setTab(v)}>
                   {l}
                 </button>
@@ -273,7 +273,50 @@ export default function RetirementPlanClient() {
             ))}
           </div>
 
-          {tab === 'year' ? (
+          {tab === 'group' ? (
+            <div className="mt-4 overflow-x-auto">
+              <table className="w-full min-w-[640px] text-sm">
+                <caption className="sr-only">직군별 정년 도달 인원</caption>
+                <thead>
+                  <tr>
+                    <th scope="col" className="py-2 text-left" style={muted}>연도</th>
+                    {base.r.groups.map((g) => (
+                      <th key={g} scope="col" className="py-2 text-left" style={muted}>{g}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {base.r.years.map((y, i) => {
+                    const any = results.some((x) => x.r.years[i].retiring > 0);
+                    if (!any) return null;
+                    return (
+                      <tr key={y.year} className="border-t" style={{ borderColor: 'var(--color-border)' }}>
+                        <th scope="row" className="py-2 text-left font-semibold tabular-nums" style={ink}>{y.year}</th>
+                        {base.r.groups.map((g) => (
+                          <td key={g} className="py-2 align-top tabular-nums">
+                            {results.map((x) => {
+                              const row = x.r.years[i].byGroup[g];
+                              if (!row || !row.retiring) return null;
+                              return (
+                                <div key={x.s.key} style={ink}>
+                                  <span style={muted}>{x.s.label}</span> {row.retiring}명
+                                  {row.severancePaid ? <span style={muted}> · {brief(row.severancePaid)}원</span> : null}
+                                </div>
+                              );
+                            })}
+                          </td>
+                        ))}
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+              <p className={`${small} mt-2`} style={muted}>
+                정년 도달자가 있는 해만 보여줍니다. 직군을 넣지 않은 사람은 「{NO_GROUP}」으로 묶입니다.
+                한 직군에서 같은 해에 여럿이 빠지면 그 자리를 어떻게 메울지가 전체 인원보다 먼저 걸립니다.
+              </p>
+            </div>
+          ) : tab === 'year' ? (
             <div className="mt-4 overflow-x-auto">
               <table className="w-full min-w-[640px] text-sm">
                 <caption className="sr-only">연도별 정년 도달 인원과 인건비</caption>
