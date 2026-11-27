@@ -34,8 +34,9 @@ import * as ordinaryWage from './more/check_ordinary_wage.mjs';
 import * as wageDelay from './more/calc_wage_delay_interest.mjs';
 import * as contractor from './more/check_contractor.mjs';
 import * as monthlyPay from './more/check_monthly_pay.mjs';
+import * as childcareReduction from './more/calc_childcare_reduction_pay.mjs';
 
-const MORE = [ordinaryWage, wageDelay, contractor, monthlyPay];
+const MORE = [ordinaryWage, wageDelay, contractor, monthlyPay, childcareReduction];
 export const calcTools = [
   'check_min_wage', 'calc_weekly_holiday_pay', 'count_regular_workers', 'calc_take_home_pay', 'calc_notice_pay', 'calc_leave_pay',
   'calc_severance', 'calc_holiday_pay', 'calc_pay_proration', 'calc_shutdown_allowance',

@@ -123,6 +123,14 @@ function routeFixture(u: URL): unknown {
     case 'prec': return svc ? (p.ID === '608505' ? fix('prec-608505.json') : fix('not-found.json')) : fix('prec-search.json');
     case 'moelCgmExpc': return svc ? fix('moel-15234.json') : fix('moel-search.json');
     case 'expc': return svc ? fix('expc-325381.json') : fix('expc-search.json');
+    // get_law_articles — 시행일 판 목록·판 본문(tests/fixtures/laws/drf). 900001 은 smoke 와 같이 2027. 1. 1. 본문을 쓴다
+    case 'eflaw': {
+      if (!svc) return (p.query ?? '').includes('근로기준법') ? fix('../drf/search-lsa.json') : { LawSearch: { totalCnt: '0' } };
+      if (p.ID) return p.ID === '001872' ? fix('../drf/law-285279-20270101.json') : {};
+      const files: Record<string, string> = { '285279-20261208': 'law-285279-20261208.json', '285279-20270101': 'law-285279-20270101.json', '900001-20270101': 'law-285279-20270101.json' };
+      const m = files[`${p.MST}-${p.efYd}`];
+      return m ? fix(`../drf/${m}`) : {};
+    }
     default: return { LawSearch: { totalCnt: '0' } };
   }
 }
@@ -184,10 +192,52 @@ describe('law 도구', () => {
     expect(none.ok).toBe(false);
   });
 
-  it('등록 이름 = lawTools 8개, 전부 읽기 전용·외부 조회 표시, 원격판에 없음', () => {
+  it('get_law_articles — 여러 조문을 판 본문 한 번으로, 원문 그대로·판 화면 주소·조회 시각, 없는 조문은 missing', async () => {
+    const r = await run('get_law_articles', { law: '근로기준법', articles: ['제60조', '54', '제43조의6', '제999조'], asOf: '2026-12-10' });
+    expect(r.ok).toBe(true);
+    expect(r).toMatchObject({ law: '근로기준법', lawId: '001872', asOf: '2026-12-10' });
+    expect(r.version).toMatchObject({ mst: '285279', effective: '2026-12-08', promulgationNo: '21533' });
+    expect(r.version.link).toBe('https://www.law.go.kr/lsInfoP.do?lsiSeq=285279&efYd=20261208');
+    expect(r.articles.map((x: { article: string }) => x.article)).toEqual(['제60조', '제54조', '제43조의6']);
+    expect(r.articles[0].articleText.startsWith('제60조(연차 유급휴가)')).toBe(true);
+    expect(r.articles[0].articleTitle).toBe('연차 유급휴가');
+    expect(r.missing).toEqual(['제999조']);
+    expect(r.retrievedAt).toMatch(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2} KST$/);
+    expect(r.source).toMatch(/법제처 응답 그대로/);
+    // 본문은 한 번만 받는다
+    expect(calls.filter((c) => c.target === 'eflaw' && c.MST).length).toBe(1);
+  });
+
+  it('get_law_articles — 법령 ID 만으로, 시행 예정 판의 신설 조문', async () => {
+    const r = await run('get_law_articles', { lawId: '001872', articles: ['제44조의4'], asOf: '2027-01-01' });
+    expect(r.ok).toBe(true);
+    expect(r.law).toBe('근로기준법');
+    expect(r.version.mst).toBe('900001');
+    expect(r.articles[0].article).toBe('제44조의4');
+  });
+
+  it('get_law_articles — 거절: 법령 없음·조문 꼴·전부 없음·주민번호 모양·못 찾은 법령', async () => {
+    expect((await run('get_law_articles', { articles: ['제60조'] })).ok).toBe(false);
+    const bad = await run('get_law_articles', { law: '근로기준법', articles: ['제60조', '연차'] });
+    expect(bad.ok).toBe(false);
+    expect(bad.error).toMatch(/연차/);
+    const none = await run('get_law_articles', { law: '근로기준법', articles: ['제999조'], asOf: '2026-12-10' });
+    expect(none.ok).toBe(false);
+    expect(none.version?.effective).toBe('2026-12-08');
+    calls.length = 0;
+    const rrn = await run('get_law_articles', { law: '900101-1234568', articles: ['제1조'] });
+    expect(rrn.ok).toBe(false);
+    expect(calls.length).toBe(0);
+    const unknown = await run('get_law_articles', { law: '가상법', articles: ['제1조'] });
+    expect(unknown.ok).toBe(false);
+    expect(Array.isArray(unknown.candidates)).toBe(true);
+    expect((await run('get_law_articles', { law: '근로기준법', articles: ['제60조'], asOf: '2026-13-01' })).ok).toBe(false);
+  });
+
+  it('등록 이름 = lawTools 9개, 전부 읽기 전용·외부 조회 표시, 원격판에 없음', () => {
     const t = reg();
     expect(t.map((x) => x.name)).toEqual(lawTools);
-    expect(lawTools.length).toBe(8);
+    expect(lawTools.length).toBe(9);
     for (const x of t) expect(x.cfg.annotations).toMatchObject({ readOnlyHint: true, openWorldHint: true });
     for (const n of lawTools) expect(REMOTE_TOOLS).not.toContain(n);
   });
