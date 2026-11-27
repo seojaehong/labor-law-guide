@@ -29,8 +29,8 @@ import subordinateJson from '../../../scripts/laws/subordinate_laws.json';
 import { looksLikeRrn, text, writeNew } from '../lib/common.mjs';
 import { readRulesFile } from '../lib/rules-file.mjs';
 import {
-  DRF_SOURCE, DrfError, articles as lawArticles, compareArticles, fetchLaw, findArticle, articleKey, latestVersion, lawInfo, normName,
-  searchAll, versionAt, versionLink,
+  DRF_SOURCE, DrfError, articles as lawArticles, compareArticles, fetchLawVerified, findArticle, articleKey, latestVersion, lawInfo, normName,
+  searchAll, searchVersionAt, versionAt, versionLink,
 } from '../lib/law-drf.mjs';
 
 export const workRulesTools = ['list_law_revisions', 'get_law_article', 'compare_law_versions', 'check_work_rules_revisions', 'check_work_rules_file', 'make_work_rules_report_forms'];
@@ -130,11 +130,12 @@ function lawTarget(input) {
 }
 
 /** 법령 하나의 판 목록 — 이름으로 찾아(법제처 목록은 시행령·시행규칙이 섞인다) 그 법령 줄만 남긴다 */
-async function lawRows(target, stopBefore) {
-  const r = await searchAll({ query: target.name }, { stopBefore, maxPages: 5 });
+async function lawRows(target, date) {
   const want = normName(target.name);
-  const rows = r.rows.filter((x) => (target.lawId ? x.lawId === target.lawId : normName(x.law) === want || (x.short && normName(x.short) === want)));
-  return { rows, all: r.rows };
+  const keep = (x) => (target.lawId ? x.lawId === target.lawId : normName(x.law) === want || (x.short && normName(x.short) === want));
+  // 기준일 3년 전 공포분에서 멈추되, 그날 시행 중인 판이 없으면 끝까지 다시 읽는다(searchVersionAt)
+  const { rows, all } = await searchVersionAt({ query: target.name }, keep, date, { stopBefore: shiftYears(date, -3), maxPages: 5 });
+  return { rows, all };
 }
 
 const verOut = (v) => ({
@@ -145,13 +146,13 @@ const verOut = (v) => ({
 async function articleAt(lawIn, articleIn, date) {
   const target = lawTarget(lawIn);
   if (!target.name) return { ok: false, error: '법령명(law)을 넣어 주세요.' };
-  const { rows, all } = await lawRows(target, shiftYears(date, -3));
+  const { rows, all } = await lawRows(target, date);
   if (!rows.length) {
     return { ok: false, error: '그 이름의 법령을 법제처에서 찾지 못했습니다. 아래 이름 중 하나를 그대로 넣어 주세요.', candidates: [...new Set(all.map((r) => r.law))].slice(0, 10) };
   }
   const v = versionAt(rows, date);
   if (!v) return { ok: false, error: `${isoOf(date)}에 시행 중인 판을 찾지 못했습니다.`, law: rows[0].law };
-  const law = await fetchLaw(v.mst, v.effective);
+  const law = await fetchLawVerified(v);
   const info = lawInfo(law);
   const art = findArticle(lawArticles(law), articleIn);
   if (!art) return { ok: false, error: `이 판(${isoOf(v.effective)} 시행)에 ${articleKey(articleIn)}이(가) 없습니다.`, law: info.law || v.law, version: verOut(v) };
@@ -488,7 +489,7 @@ export function registerWorkRules(server) {
       if (a.article && !articleKey(a.article)) return fail('article 은 「제60조」「제76조의2」「별표 1」처럼 적어 주세요.');
       try {
         const target = lawTarget(a.law);
-        const { rows, all } = await lawRows(target, shiftYears(A, -3));
+        const { rows, all } = await lawRows(target, A);
         if (!rows.length) return text({ ok: false, error: '그 이름의 법령을 법제처에서 찾지 못했습니다. 아래 이름 중 하나를 그대로 넣어 주세요.', candidates: [...new Set(all.map((r) => r.law))].slice(0, 10) });
         const vA = versionAt(rows, A);
         const vB = B ? versionAt(rows, B) : latestVersion(rows);
@@ -499,7 +500,7 @@ export function registerWorkRules(server) {
           .map(verOut);
         const head = { ok: true, law: vA.law, lawId: vA.lawId, from: verOut(vA), to: verOut(vB), between };
         if (vA.mst === vB.mst && vA.effective === vB.effective) return text({ ...head, counts: { 신설: 0, 개정: 0, 삭제: 0 }, changes: [], notice: '두 날짜에 시행 중인 판이 같습니다.' });
-        const [la, lb] = [await fetchLaw(vA.mst, vA.effective), await fetchLaw(vB.mst, vB.effective)];
+        const [la, lb] = [await fetchLawVerified(vA), await fetchLawVerified(vB)];
         let changes = compareArticles(lawArticles(la), lawArticles(lb));
         if (a.article) changes = changes.filter((c) => c.article === articleKey(a.article));
         const limit = a.limit ?? 30;
