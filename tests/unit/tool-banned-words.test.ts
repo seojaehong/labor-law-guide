@@ -72,33 +72,31 @@ describe('도구 화면 금지어', () => {
 
 describe('bannedHits', () => {
   it('허용 구절은 걸지 않는다', () => {
-    expect(bannedHits('전자문서로 줍니다. 고충상담 절차')).toEqual([]);
+    expect(bannedHits('상위법령에 맞춥니다')).toEqual([]);
   });
-  it('표방어와 단정어를 잡는다', () => {
-    expect(bannedHits('노무사 상담을 권장합니다')).toEqual(['노무사', '상담']);
+  it('과장어와 단정어를 잡는다', () => {
+    expect(bannedHits('적법할 확률이 높습니다')).toEqual(['적법', '확률']);
     expect(bannedHits('임금 체불입니다')).toEqual(['체불']);
   });
-  it('맡아 처리한다는 말은 부정형도 잡는다', () => {
-    expect(bannedHits('세무대리·신고서 작성 대행이 아닙니다')).toEqual(['대행', '대리']);
-    expect(bannedHits('1년치 연차 대신 1개월마다')).toEqual(['대신']);
+  // 261127 재홍님 결정 — 일의무늬는 노무 자동화 업무를 모두 하는 사이트. 직무를 나타내는 말은 막지 않는다
+  it('노무사·상담·자문·대행 같은 말은 막지 않는다', () => {
+    expect(bannedHits('노무사가 확인하고 신고를 대행합니다. 자문·상담·진단·판정·대리·대신')).toEqual([]);
   });
   it('판결 원문과 법령 이름은 걸지 않는다', () => {
     expect(bannedHits('제3자를 고용하여 업무를 대행케 하는 등')).toEqual([]);
     expect(bannedHits('공인노무사법 시행령 별표 1의 적용 범위')).toEqual([]);
   });
   // D5(261126) — 취업규칙 신고서 서식 칸 이름 「대리인」은 서식 글자와 그 칸을 받는 MCP 입력 설명에서만 걸지 않는다
-  it('서식 칸 이름 「대리인」은 서식 글자에서만 허용하고, 사이트 문장의 「대리」는 계속 막는다', () => {
+  it('서식 칸 이름 「대리인」은 서식 글자에서 걸지 않고, 남은 금지어는 잡는다', () => {
     expect(bannedHitsInForm('대리인                (서명 또는 인)')).toEqual([]);
     expect(bannedHitsInForm('{"agent":{"description":"대리인(선택)"}}')).toEqual([]);
-    expect(bannedHitsInForm('대리인이 대신 신고합니다')).toEqual(['대신']);
-    expect(bannedHitsInForm('신고를 대리합니다')).toEqual(['대리']);
-    expect(bannedHits('대리인                (서명 또는 인)')).toEqual(['대리']);
+    expect(bannedHitsInForm('대리인이 신고하며 적법합니다')).toEqual(['적법']);
     expect(Object.keys(ALLOWED_PHRASES).filter((p) => p.includes('대리'))).toEqual([]);
   });
 });
 
-// nosa 묶음(노사협의회) — 도구 이름·설명·입력 설명과 결과 글자. 새 묶음이라 포괄·대신·대행·대리·지도도 함께 막는다.
-const NOSA_WORDS = ['노무사', '상담', '자문', '진단', '판정', '적법', '확률', '체불', '위법', '승소', '받을 수 있는 금액', '포괄', '대신', '대행', '대리', '지도'];
+// nosa 묶음(노사협의회) — 도구 이름·설명·입력 설명과 결과 글자. 새 묶음이라 포괄·지도도 함께 막는다.
+const NOSA_WORDS = ['적법', '확률', '체불', '위법', '승소', '받을 수 있는 금액', '포괄', '지도'];
 type NosaReg = { name: string; cfg: { title?: string; description?: string; inputSchema?: Record<string, { description?: string }> }; handler: (a: object) => Promise<{ content: { text: string }[] }> };
 
 describe('nosa 묶음 금지어', () => {

@@ -3,7 +3,7 @@
 import fs from 'node:fs';import assert from 'node:assert/strict';import {chromium} from '@playwright/test';
 const base=process.env.VISUAL_BASE_URL || 'http://127.0.0.1:3126',out='docs/design-visuals/pay-check-basis';fs.mkdirSync(out,{recursive:true});
 const browser=await chromium.launch({headless:true,executablePath:process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE});const checks=[];
-const FORBIDDEN=['확률','적중률','노무사','적법','BASIS_NOT_DOCUMENTED','WEEKLY_HOLIDAY_NOT_DESIGNATED','FACT_MISSING','NEEDS_CONFIRMATION'];
+const FORBIDDEN=['확률','적중률','적법','BASIS_NOT_DOCUMENTED','WEEKLY_HOLIDAY_NOT_DESIGNATED','FACT_MISSING','NEEDS_CONFIRMATION'];
 const VALUES={'평균 기간의 약정 소정근로시간 합계':'60','평균을 낸 주수':'4','급여기간 첫날':'2026-04-01','급여기간 마지막 날':'2026-04-30','명세서 주휴 금액':'33000','확정 시급':'11000','같은 기간 통상 근로자의 소정근로일수':'20','명세서 주휴 항목이 몇 주분인지':'1'};
 async function run(width,{designated,documented}){
   const ctx=await browser.newContext({viewport:{width,height:844}});const page=await ctx.newPage();const errors=[];

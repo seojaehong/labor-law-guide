@@ -9,7 +9,7 @@ import { councilRulesDoc, rulesErrors, RULES_SOURCE, type RulesInput } from '@/l
 // 협의회규정 견본 — 정본 = 노사협의회신고 스킬 references/council-rules-template-261110.md §2(매뉴얼 [부록 1] 개정판).
 // 기대값의 조문 글자는 그 견본에서 그대로 옮겼다. R1~R12 = 같은 파일 §1 변경표.
 
-const NOSA_WORDS = ['노무사', '상담', '자문', '진단', '판정', '적법', '확률', '체불', '위법', '승소', '받을 수 있는 금액', '포괄', '대신', '대행', '대리', '지도'];
+const NOSA_WORDS = ['적법', '확률', '체불', '위법', '승소', '받을 수 있는 금액', '포괄', '지도'];
 const REASON = '사무직·기술직·기능직 사업장이 따로 있다';
 
 const BASE: RulesInput = { workplaceName: '가상상사', majorityUnion: false };

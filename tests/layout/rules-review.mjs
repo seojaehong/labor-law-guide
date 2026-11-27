@@ -5,7 +5,7 @@ import fs from 'node:fs';import path from 'node:path';import assert from 'node:a
 import JSZip from 'jszip';import ExcelJS from 'exceljs';
 const base=process.env.VISUAL_BASE_URL || 'http://127.0.0.1:3127',out='docs/design-visuals/rules-review';fs.mkdirSync(out,{recursive:true});
 const browser=await chromium.launch({headless:true,executablePath:process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE});const checks=[];
-const FORBIDDEN=['진단','자문','판정','노무사','적법','위반입니다','확률','undefined','NaN'];
+const FORBIDDEN=['적법','위반입니다','확률','undefined','NaN'];
 const overflow=page=>page.evaluate(()=>document.documentElement.scrollWidth-document.documentElement.clientWidth);
 const open=async(width)=>{const ctx=await browser.newContext({viewport:{width,height:900},acceptDownloads:true});const page=await ctx.newPage();const errors=[];
   page.on('console',m=>{if(m.type()==='error'&&!(m.location().url||'').includes('challenges.cloudflare.com'))errors.push(m.text());});page.on('pageerror',e=>errors.push(String(e)));
@@ -72,7 +72,6 @@ const docx=await JSZip.loadAsync(fs.readFileSync(await save(page,d2)));const xml
 const plain=xml.replace(/<w:br\/>/g,'\n').replace(/<[^>]+>/g,'');
 assert(plain.includes('신·구조문대비표'));assert(plain.includes('&lt;개정 2026. 3. 1.&gt;')||plain.includes('<개정 2026. 3. 1.>'),'개정 표시 없음');
 assert(plain.includes('이 규정은 2026년 3월 1일부터 시행한다.'));assert(plain.includes('사유 미기재'),'사유 없는 보류 표시 없음');assert(plain.includes('인사팀과 협의'),'조율 결과 없음');assert(plain.includes('총장이 따로 정할 수 있다')&&plain.includes('위원회 운영 보완'),'직접 고친 조문이 대비표에 없음');
-for(const w of ['진단','자문','판정','노무사'])assert(!plain.includes(w),'결재 묶음 금지어: '+w);
 checks.push('신·구조문대비표 docx — 개정 표시·부칙 시행일·사유 미기재 보류·조율 결과·직접 고친 조문 실림, 금지어 0');
 const [d3]=await Promise.all([page.waitForEvent('download'),page.locator('.rr-out',{hasText:'정비 검토표'}).getByRole('button').click()]);
 const rb=new ExcelJS.Workbook();await rb.xlsx.readFile(await save(page,d3));assert.equal(rb.getWorksheet('정비 검토표').rowCount-1,total+1,'검토표 행 수가 항목 수와 다름');checks.push(`정비 검토표 xlsx ${total+1}행 = 항목 수(직접 고친 조문 포함)`);

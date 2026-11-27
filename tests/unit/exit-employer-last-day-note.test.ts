@@ -15,7 +15,6 @@ describe('퇴사 체크리스트 — 마지막 근무일 뜻', () => {
     expect(LAST_DAY_NOTE).toContain('근로관계가 이어진 마지막 날');
     expect(LAST_DAY_NOTE).toContain('마지막 출근');
     expect(bannedHits(LAST_DAY_NOTE)).toEqual([]);
-    expect(bannedHits(LAST_DAY_NOTE, ['대신', '대행', '대리', '노무사', '판정'])).toEqual([]);
   });
 
   it('날짜 칸 바로 아래와 건보 신고서 버튼 앞에 같은 설명이 있다', () => {

@@ -10,7 +10,7 @@ import { MM, BAND_MM, paddedBox, planStamp, stampLayout, stampRect } from '../..
 import { registerDocs } from '../../tools/k-labor/groups/docs.mjs';
 
 process.env.LLG_ROOT = process.cwd(); // 도장 글꼴을 저장소 public/fonts 에서 읽는다
-const WORDS = ['노무사', '상담', '자문', '진단', '판정', '적법', '확률', '체불', '위법', '승소', '받을 수 있는 금액', '포괄', '대신', '대행', '대리', '지도'];
+const WORDS = ['적법', '확률', '체불', '위법', '승소', '받을 수 있는 금액', '포괄', '지도'];
 type Reg = { name: string; cfg: { title?: string; description?: string; inputSchema?: Record<string, { description?: string }> }; handler: (a: object) => Promise<{ content: { text: string }[] }> };
 const tools: Reg[] = [];
 registerDocs({ registerTool: (name: string, cfg: Reg['cfg'], handler: Reg['handler']) => tools.push({ name, cfg, handler }) });

@@ -10,7 +10,7 @@ import { noticeDoc } from '@/lib/nosa-council/forms';
 // 찬반투표의 당선 기준은 참고자료에 없어 도구가 정하지 않는다(찬성·반대 수만 적는다).
 
 const FONT = new Uint8Array(readFileSync('public/fonts/NanumGothic-Regular.ttf'));
-const WORDS = ['노무사', '상담', '자문', '진단', '판정', '적법', '확률', '체불', '위법', '승소', '받을 수 있는 금액', '포괄', '대신', '대행', '대리', '지도'];
+const WORDS = ['적법', '확률', '체불', '위법', '승소', '받을 수 있는 금액', '포괄', '지도'];
 const all = (d: FormDoc) => formLines(d).join('\n');
 const doc = (r: ReturnType<typeof electionDocs>, id: string) => r.made.find((d) => d.id === id)!.doc;
 

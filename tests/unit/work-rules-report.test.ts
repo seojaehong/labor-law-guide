@@ -72,7 +72,7 @@ describe('취업규칙 신고 서류 — 문서', () => {
     expect(all).toContain('■ 근로기준법 시행규칙 [별지 제15호서식] <개정 2021. 4. 5.>');
     expect(all).toMatch(/\[ {2}\] 신고서\s+\[√\] 변경신고서/);
     expect(all).toContain('2026년 10월 20일');
-    expect(bannedHits(all, ['노무사', '상담', '자문', '진단', '판정', '적법', '확률', '체불', '위법', '승소', '포괄'])).toEqual([]);
+    expect(bannedHits(all, ['적법', '확률', '체불', '위법', '승소', '포괄'])).toEqual([]);
   });
 
   it('한글 파일은 서식 문구와 ①·⑳ 를 글자 그대로 싣는다', async () => {
