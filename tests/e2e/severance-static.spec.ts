@@ -59,6 +59,7 @@ test('결과 블록 — 금액 → 산식 → 근거 → 기준 → 면책 → �
   await page.locator('#startDate').fill('2021-01-04');
   await page.locator('#endDate').fill('2025-12-31');
   for (const i of [1, 2, 3]) await page.locator(`#wage${i}`).fill('3000000');
+  await page.locator('#weeklyHours').fill('40');
   await page.getByRole('button', { name: '계산하기' }).click();
   const status = page.locator('#resultStatus');
   await expect(status).toHaveAttribute('aria-live', 'polite');
@@ -95,6 +96,7 @@ async function calc(page: Page, start: string, last: string) {
   await page.locator('#startDate').fill(start);
   await page.locator('#endDate').fill(last);
   for (const i of [1, 2, 3]) await page.locator(`#wage${i}`).fill('3000000');
+  await page.locator('#weeklyHours').fill('40');
   await page.getByRole('button', { name: '계산하기' }).click();
   await expect(page.locator('#resultStatus')).toContainText('계산했습니다');
 }
@@ -139,6 +141,7 @@ test('「자동」을 끄고 세액을 직접 넣으면 세율표 확인일을 �
   await page.locator('#startDate').fill('2021-01-04');
   await page.locator('#endDate').fill('2025-12-31');
   for (const i of [1, 2, 3]) await page.locator(`#wage${i}`).fill('3000000');
+  await page.locator('#weeklyHours').fill('40');
   await page.getByRole('button', { name: '계산하기' }).click();
   await expect(page.locator('.result-asof')).toContainText('직접 입력한 값');
   await expect(page.locator('.result-asof')).not.toContainText('확인일');
@@ -165,6 +168,7 @@ for (const theme of ['light', 'dark'] as const) {
     await page.locator('#endDate').blur();
     await expect(page.locator('#wage4')).toBeVisible();
     for (const i of [1, 2, 3, 4]) await page.locator(`#wage${i}`).fill('3000000');
+    await page.locator('#weeklyHours').fill('40');
     await page.getByRole('button', { name: '계산하기' }).click();
     await expect(page.locator('#resultStatus')).toContainText('계산했습니다');
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
@@ -257,7 +261,7 @@ test('링크로 열면 저장본 대신 기본값과 주소 값만 쓰고, 저�
   await page.locator('#startDate').fill('2024-01-01');
   await page.locator('#endDate').fill('2025-12-31');
   for (const i of [1, 2, 3]) await page.locator(`#wage${i}`).fill('3000000');
-  await page.locator('#weeklyHours').fill('40');
+  await page.locator('#weeklyHours').fill('35');
   const fold = page.locator('#extraWages');
   if (!(await fold.evaluate((d) => (d as HTMLDetailsElement).open))) await fold.locator('summary').click();
   await page.locator('#excludedDays').fill('60');
@@ -266,13 +270,13 @@ test('링크로 열면 저장본 대신 기본값과 주소 값만 쓰고, 저�
   await page.getByRole('button', { name: '저장', exact: true }).click();
   await expect(page.locator('#actionStatus')).toContainText('저장했습니다');
 
-  await page.goto(`${PATH}?start=2023-01-01&end=2026-01-01&w1=3000000&w2=3000000&w3=3000000&run=1`);
+  await page.goto(`${PATH}?start=2023-01-01&end=2026-01-01&w1=3000000&w2=3000000&w3=3000000&weeklyHours=40&run=1`);
   await expect(page.locator('#resultArea .result-block .result-amount')).toContainText('8,812,389');
   // 기본값 — 빼는 기간 0일·그 기간 임금 빈칸(앞 사람의 60일·0원이 아니다)
   await expect(page.locator('#excludedDays')).toHaveValue('0');
   await expect(page.locator('#excludedWage')).toHaveValue('');
   await expect(page.locator('#hoursChanged')).not.toBeChecked();
-  await expect(page.locator('#weeklyHours')).toHaveValue('');
+  await expect(page.locator('#weeklyHours')).toHaveValue('40');
 
   await page.goto(PATH);
   await expect(page.locator('#excludedDays')).toHaveValue('60');
@@ -300,7 +304,7 @@ test('링크로 열어도 옛 자동 저장값(v4)은 지운다', async ({ page 
 
 // 261127 G4 R14 — 금액 칸에 들어갔다 나와도 0 을 지우지 않는다(「그 기간에 받은 임금」은 빈칸과 0 이 다른 입력)
 test('링크로 받은 빼는 기간 임금 0 은 칸을 지나가도 0 으로 남아 계산된다', async ({ page }) => {
-  await page.goto(`${PATH}?start=2025-01-01&end=2026-01-01&w1=6200000&excludedDays=30&excludedWage=0`);
+  await page.goto(`${PATH}?start=2025-01-01&end=2026-01-01&w1=6200000&excludedDays=30&excludedWage=0&weeklyHours=40`);
   const wage = page.locator('#excludedWage');
   await expect(wage).toHaveValue('0');
   await wage.focus();
@@ -316,7 +320,7 @@ test('옛 저장본의 빼는 기간 임금 0 은 빈칸으로 복원되어 계�
   await page.goto(PATH);
   await page.evaluate(() => localStorage.setItem('severanceCalcData_v5', JSON.stringify({
     savedAt: '2026-11-01T00:00:00.000Z',
-    state: { currentIndex: 0, workers: [{ startDate: '2025-01-01', endDate: '2025-12-31', wage1: '6,200,000', excludedDays: '30', excludedWage: '0' }] },
+    state: { currentIndex: 0, workers: [{ startDate: '2025-01-01', endDate: '2025-12-31', wage1: '6,200,000', weeklyHours: '40', excludedDays: '30', excludedWage: '0' }] },
   })));
   await page.reload();
   await expect(page.locator('#excludedDays')).toHaveValue('30');
