@@ -2,6 +2,7 @@
 // 사양 = .ralph/spec-office-v0.md §3·§4. 판형 기본 A4 가로(29.7×21.0cm).
 // 넘침 정밀 판정은 엔진 밖(PowerPoint 검수)이다 — 여기서는 칸 글자 수로 추정만 한다.
 import PptxGenJS from 'pptxgenjs';
+import { MEETING_THEME } from './meeting-theme';
 
 export const MEETING_TEMPLATE_VERSION = 'meeting-v0';
 
@@ -288,9 +289,14 @@ function checkTypes(s: unknown): string[] {
   }
   return errors.slice(0, 50);
 }
-const FONT_PT = 9;
-const BORDER = { type: 'solid' as const, pt: 0.5, color: '999999' };
-const HEAD_FILL = { color: 'E7ECF3' };
+const T = MEETING_THEME;
+// 표 본문 하한 10pt(rules.json profiles.reading.min.table)
+const FONT_PT = T.typeScale.table;
+const NONE = { type: 'none' as const };
+const INNER = { type: 'solid' as const, pt: T.table.innerLinePt, color: T.colors.line };
+const RULE = { type: 'solid' as const, pt: T.table.ruleLinePt, color: T.colors.primary };
+const BORDER = INNER;
+const HEAD_FILL = { color: T.table.headerFill };
 
 type Slide = ReturnType<PptxGenJS['addSlide']>;
 type Cell = { text: string; options?: Record<string, unknown> };
@@ -367,7 +373,7 @@ export async function makeMeetingPptx(
   const errors = validate(snapshot, kind);
   if (errors.length) return { ok: false, slides: [], overflowEstimates: [], warnings: [], errors };
 
-  const fontFace = opts.fontFace ?? '맑은 고딕';
+  const fontFace = opts.fontFace ?? T.fonts.eastAsia;
   const pre = kind === 'pre';
   const warnings: string[] = [];
   const anchorMap = new Map(snapshot.anchors.map((a) => [a.id, a]));
@@ -410,16 +416,38 @@ export async function makeMeetingPptx(
     if (textUnits(text) > capacity) overflow.push({ slide: no, code, ref, field, chars: text.length, capacity });
   };
 
-  const newSlide = (code: string, title: string, anchors: string[]): { slide: Slide; no: number } => {
+  const confirmed = snapshot.status.label === '확정';
+  /** 머리 = 키커(장 번호·회차) + 제목(라벨) + 요점 줄(선택) · 오른쪽 위 상태 배지 · 꼬리 = 가는 선 + 사업장·기준일·쪽 */
+  const coverPanelX = W * 0.66;
+  const newSlide = (code: string, title: string, anchors: string[], lead?: string, cover?: string): { slide: Slide; no: number } => {
     const slide = pptx.addSlide();
     const no = slides.length + 1;
     slides.push({ no, code, title, anchors });
-    slide.addText(`${code}  ${title.replace(/^[PF]\d+\s*/, '')}`, { objectName: 'title', x: 0.3, y: 0.2, w: W - 2.2, h: 0.5, fontFace, fontSize: 18, bold: true, color: '1F2A44' });
-    slide.addText(badge, { objectName: 'badge', x: W - 1.7, y: 0.22, w: 1.4, h: 0.4, fontFace, fontSize: 12, bold: true, align: 'center', color: 'FFFFFF', fill: { color: 'C0504D' } });
-    slide.addText(`${snapshot.site} · ${snapshot.cycle}`, { x: 0.3, y: 0.7, w: W - 0.6, h: 0.3, fontFace, fontSize: 10, color: '555555' });
+    slide.background = { color: T.colors.bg };
+    const label = title.replace(/^[PF]\d+\s*/, '');
+    if (cover) {
+      // 카탈로그 1 표지 — 오른쪽 1/3 남색 패널을 먼저 깔고(배지가 그 위에 온다), 큰 제목이 title 도형
+      slide.addShape(pptx.ShapeType.rect, { x: coverPanelX, y: 0, w: W - coverPanelX, h: H, fill: { color: T.colors.primary }, line: { color: T.colors.primary, width: 0 } });
+      slide.addText(cover, { objectName: 'title', x: 0.7, y: 2.3, w: coverPanelX - 1.2, h: 0.9, fontFace, fontSize: T.typeScale.cover, bold: true, color: T.colors.primary });
+    } else {
+      slide.addText(`${code}  ·  ${snapshot.cycle}`, { x: 0.45, y: 0.28, w: W - 2.6, h: 0.28, fontFace, fontSize: T.typeScale.kicker, bold: true, color: T.colors.accent, charSpacing: 0.5 });
+      slide.addText(label, { objectName: 'title', x: 0.45, y: 0.55, w: W - 2.6, h: 0.55, fontFace, fontSize: T.typeScale.title, bold: true, color: T.colors.primary });
+      if (lead) slide.addText(lead, { objectName: 'lead', x: 0.45, y: 1.08, w: W - 0.9, h: 0.36, fontFace, fontSize: T.typeScale.lead, color: T.colors.muted });
+    }
+    slide.addText(badge, {
+      objectName: 'badge', x: W - 1.65, y: 0.32, w: 1.2, h: 0.34, fontFace, fontSize: T.typeScale.kicker, bold: true, align: 'center', valign: 'middle',
+      color: confirmed ? T.colors.bg : T.colors.caution,
+      fill: { color: confirmed ? T.colors.positive : T.colors.bg },
+      line: { color: confirmed ? T.colors.positive : T.colors.caution, width: 1 },
+      rectRadius: 0.17, shape: pptx.ShapeType.roundRect,
+    });
+    // 표지는 꼬리를 흰 영역(패널 왼쪽)에만 둔다 — 선이 남색 패널을 가로지르지 않게
+    const footW = (cover ? coverPanelX - 0.45 : W - 0.45) - 0.45;
+    slide.addShape(pptx.ShapeType.line, { x: 0.45, y: H - 0.5, w: footW, h: 0, line: { color: T.colors.line, width: 0.5 } });
+    slide.addText(`${snapshot.site}  ·  위험성평가 회의`, { x: 0.45, y: H - 0.46, w: footW / 2, h: 0.28, fontFace, fontSize: T.typeScale.caption, color: T.colors.muted });
     slide.addText(
-      `데이터 기준 ${snapshot.basisDate} · revision ${snapshot.revision ?? '-'} · template ${MEETING_TEMPLATE_VERSION} · ${no}쪽`,
-      { x: 0.3, y: H - 0.45, w: W - 0.6, h: 0.3, fontFace, fontSize: 8, color: '777777' },
+      `데이터 기준 ${snapshot.basisDate} · ${snapshot.revision ?? '-'} · ${MEETING_TEMPLATE_VERSION}   ${no}`,
+      { x: 0.45 + footW / 2, y: H - 0.46, w: footW / 2, h: 0.28, fontFace, fontSize: T.typeScale.caption, color: T.colors.muted, align: 'right' },
     );
     const notes = anchors.length
       ? ['근거 anchor:', ...anchors.map((a) => {
@@ -431,26 +459,48 @@ export async function makeMeetingPptx(
     return { slide, no };
   };
 
+  /** 가는 선 표(rules.json tables.styles.line) — 머리행 옅은 채움 + 아래 굵은 선, 안쪽 가로선만, 세로선 없음, 맨 아래 굵은 선 */
+  const lineTable = (rows: Cell[][]): Cell[][] =>
+    rows.map((row, ri) =>
+      row.map((cell) => {
+        const top = ri === 0 ? RULE : ri === 1 ? RULE : INNER;
+        const bottom = ri === 0 || ri === rows.length - 1 ? RULE : INNER;
+        return { ...cell, options: { color: T.colors.text, margin: [3, 5, 3, 5], ...cell.options, border: [top, NONE, bottom, NONE] } };
+      }),
+    );
   const table = (slide: Slide, rows: Cell[][], colW: number[], y: number) => {
-    slide.addTable(rows as never, { x: 0.3, y, w: colW.reduce((a, b) => a + b, 0), colW, fontFace, fontSize: FONT_PT, border: BORDER, valign: 'middle' });
+    slide.addTable(lineTable(rows) as never, { x: 0.45, y, w: colW.reduce((a, b) => a + b, 0), colW, fontFace, fontSize: FONT_PT, valign: 'middle' });
   };
-  const head = (labels: string[]): Cell[] => labels.map((t) => ({ text: t, options: { bold: true, fill: HEAD_FILL, align: 'center' } }));
+  const head = (labels: string[]): Cell[] => labels.map((t) => ({ text: t, options: { bold: true, fill: HEAD_FILL, color: T.colors.primary, align: 'center' } }));
   const c = (t: string | number | undefined | null): Cell => ({ text: t === undefined || t === null || t === '' ? '-' : String(t) });
 
   // P1 표지
   if (pre) {
-    const { slide } = newSlide('P1', 'P1 표지', []);
-    slide.addText('위험성평가 회의 전 검토안', { x: 0.6, y: 1.6, w: W - 1.2, h: 0.8, fontFace, fontSize: 28, bold: true, color: '1F2A44' });
-    const lines = [
-      `사업장: ${snapshot.site}`,
-      `회차: ${snapshot.cycle}`,
-      `회의 예정일: ${snapshot.meetingDate ?? '-'}`,
-      `데이터 기준일: ${snapshot.basisDate}`,
-      `적용기간: ${snapshot.period ?? '-'}`,
-      `작성자: ${snapshot.author ?? '-'}`,
-      `상태: ${badge}`,
+    // 카탈로그 1 표지 — 왼쪽 제목·메타, 오른쪽 1/3 남색 패널(회차·상태)
+    const { slide } = newSlide('P1', 'P1 표지', [], undefined, '회의 전 검토안');
+    const panelX = coverPanelX;
+    slide.addText([
+      { text: '회차\n', options: { fontSize: T.typeScale.kicker, color: 'A6C4EE', bold: true } },
+      { text: `${snapshot.cycle}\n\n`, options: { fontSize: T.typeScale.h2 + 4, color: T.colors.bg, bold: true } },
+      { text: '상태\n', options: { fontSize: T.typeScale.kicker, color: 'A6C4EE', bold: true } },
+      { text: badge, options: { fontSize: T.typeScale.h2 + 4, color: T.colors.bg, bold: true } },
+    ], { x: panelX + 0.45, y: H * 0.38, w: W - panelX - 0.9, h: 2.4, fontFace, valign: 'top' });
+    slide.addText('위험성평가 회의', { x: 0.7, y: 1.9, w: panelX - 1.2, h: 0.4, fontFace, fontSize: T.typeScale.h2, bold: true, color: T.colors.accent });
+    slide.addShape(pptx.ShapeType.line, { x: 0.7, y: 3.45, w: 1.0, h: 0, line: { color: T.colors.accent, width: 2 } });
+    const meta: [string, string][] = [
+      ['사업장', snapshot.site],
+      ['회의 예정일', snapshot.meetingDate ?? '-'],
+      ['데이터 기준일', snapshot.basisDate],
+      ['적용기간', snapshot.period ?? '-'],
+      ['작성자', snapshot.author ?? '-'],
     ];
-    slide.addText(lines.join('\n'), { x: 0.6, y: 2.7, w: W - 1.2, h: 3.6, fontFace, fontSize: 14, valign: 'top' });
+    slide.addText(
+      meta.flatMap(([k, v]) => [
+        { text: `${k}   `, options: { color: T.colors.muted, fontSize: T.typeScale.body } },
+        { text: `${v}\n`, options: { color: T.colors.text, fontSize: T.typeScale.body + 1, bold: true } },
+      ]),
+      { x: 0.7, y: 3.7, w: panelX - 1.2, h: 2.4, fontFace, valign: 'top', lineSpacingMultiple: 1.5 },
+    );
   }
 
   // P2 회의 개요
@@ -473,19 +523,50 @@ export async function makeMeetingPptx(
     const count = (st: string) => snapshot.prior.filter((p) => p.status === st).length;
     const candidates = snapshot.hazards.filter((h) => h.kind === 'new' || h.kind === 'changed').length;
     const unchanged = snapshot.hazards.filter((h) => h.kind === 'unchanged').length;
-    const { slide } = newSlide('P3', 'P3 한눈 요약', uniq([...snapshot.prior.map((p) => p.anchors), ...snapshot.hazards.map((h) => h.anchors)]));
-    const rows: Cell[][] = [
-      head(['항목', '값']),
-      [c('전회 조치 — 완료'), c(count('완료'))],
-      [c('전회 조치 — 미완료'), c(count('미완료'))],
-      [c('전회 조치 — 기한초과'), c(count('기한초과'))],
-      [c('전회 조치 — 재조치'), c(count('재조치'))],
-      [c('신규·변경 후보 수'), c(candidates)],
-      [c('결정 필요 수'), c(snapshot.questions.length)],
-      [c('척도'), c(snapshot.scaleName)],
-      [c('변동 없음'), c(`${unchanged}건`)],
+    // 카탈로그 5 KPI 큰 숫자 3개 — 전회 조치(C) · 신규·변경 후보(P) · 결정 필요(A). 강조는 한 곳: 못 끝낸 전회 조치가 있으면 그 카드
+    const total = snapshot.prior.length;
+    const done = count('완료');
+    const open = total - done;
+    const questions = snapshot.questions.length;
+    const lead = `전회 조치 ${total}건 중 ${done}건 완료 · 신규·변경 후보 ${candidates}건 · 결정 필요 ${questions}건`;
+    const { slide } = newSlide('P3', 'P3 한눈 요약', uniq([...snapshot.prior.map((p) => p.anchors), ...snapshot.hazards.map((h) => h.anchors)]), lead);
+    const gap = 0.3;
+    const cardW = (W - 0.9 - gap * 2) / 3;
+    const cardY = 1.75;
+    const cardH = 4.0;
+    const cards: { kicker: string; big: string; unit: string; note: string; hot: boolean }[] = [
+      {
+        kicker: '확인 · 전회 조치',
+        big: total ? `${done}/${total}` : '0',
+        unit: total ? '완료' : '건',
+        note: total ? `미완료 ${count('미완료')} · 기한초과 ${count('기한초과')} · 재조치 ${count('재조치')}` : '전회 항목 없음',
+        hot: open > 0,
+      },
+      { kicker: '평가 · 신규·변경 후보', big: String(candidates), unit: '건', note: `변동 없음 ${unchanged}건`, hot: false },
+      { kicker: '개선 · 결정 필요', big: String(questions), unit: '건', note: questions ? '이번 회의에서 정할 것' : '정할 것 없음', hot: false },
     ];
-    table(slide, rows, [4, 4], 1.2);
+    cards.forEach((k, i) => {
+      const x = 0.45 + i * (cardW + gap);
+      const edge = k.hot ? T.colors.negative : T.colors.line;
+      slide.addShape(pptx.ShapeType.rect, { x, y: cardY, w: cardW, h: cardH, fill: { color: k.hot ? 'FBF1EF' : T.colors.bg }, line: { color: edge, width: k.hot ? 1.5 : 0.75 } });
+      slide.addShape(pptx.ShapeType.rect, { x, y: cardY, w: cardW, h: 0.08, fill: { color: k.hot ? T.colors.negative : T.colors.primary }, line: { color: k.hot ? T.colors.negative : T.colors.primary, width: 0 } });
+      slide.addText(k.kicker, { x: x + 0.3, y: cardY + 0.3, w: cardW - 0.6, h: 0.35, fontFace, fontSize: T.typeScale.body, bold: true, color: T.colors.muted });
+      slide.addText([
+        { text: k.big, options: { fontSize: T.typeScale.kpi, bold: true, color: k.hot ? T.colors.negative : T.colors.primary } },
+        { text: ` ${k.unit}`, options: { fontSize: T.typeScale.h2, bold: true, color: T.colors.muted } },
+      ], { x: x + 0.3, y: cardY + 0.8, w: cardW - 0.6, h: 1.8, fontFace, valign: 'middle' });
+      slide.addShape(pptx.ShapeType.line, { x: x + 0.3, y: cardY + 2.85, w: cardW - 0.6, h: 0, line: { color: T.colors.line, width: 0.5 } });
+      slide.addText(k.note, { x: x + 0.3, y: cardY + 3.0, w: cardW - 0.6, h: 0.7, fontFace, fontSize: T.typeScale.body, color: T.colors.text, valign: 'top' });
+    });
+    // 결론 바 — 척도와 비교 기준
+    slide.addText(
+      [
+        { text: '척도  ', options: { bold: true, color: 'A6C4EE' } },
+        { text: `${snapshot.scaleName}`, options: { bold: true, color: T.colors.bg } },
+        { text: '     회차 대비 증감은 같은 척도일 때만 비교합니다', options: { color: T.colors.bg } },
+      ],
+      { x: 0.45, y: cardY + cardH + 0.35, w: W - 0.9, h: 0.6, fontFace, fontSize: T.typeScale.body, fill: { color: T.colors.primary }, valign: 'middle', inset: 0.25 },
+    );
   }
 
   // P4 전회 이행 현황(6행씩)

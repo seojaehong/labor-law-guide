@@ -292,9 +292,9 @@ describe('extractPptx — 장별 글자·표·notes', () => {
     expect(x.ok).toBe(true);
     expect(x.slides.map((s) => s.no)).toEqual(r.slides.map((s) => s.no));
     const p1 = x.slides[0];
-    const texts = p1.shapes.map((s) => s.text ?? '');
-    expect(texts.some((t) => t.includes('P1') && t.includes('표지'))).toBe(true);
-    expect(p1.shapes.find((s) => s.name === 'title')?.text).toContain('표지');
+    // 표지(카탈로그 1)는 장 번호 머리 없이 큰 제목이 title 도형이다 — 장 목록 제목은 그대로 「P1 표지」
+    expect(r.slides[0].title).toBe('P1 표지');
+    expect(p1.shapes.find((s) => s.name === 'title')?.text).toBe('회의 전 검토안');
     expect(p1.shapes.find((s) => s.name === 'badge')?.text).toBe('초안');
     expect(p1.notes).toContain('근거 anchor');
     // 장마다 notes 에 그 장 anchors
