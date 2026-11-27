@@ -2,13 +2,15 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import {
   ageInEffect, reachDate, resolveRetirement, simulate,
-  CURRENT_STEPS, PROPOSED_STEPS, NO_GROUP, type Employee, type Scenario,
+  CURRENT_STEPS, PROPOSED_STEPS, NO_GROUP, PAY_BASIS_NEED, WEEKLY_HOURS_NEED,
+  type Employee, type Scenario,
 } from '@/lib/calc/retirement-plan';
 import { calcSeverance, periodSegments } from '@/lib/calc/severance';
 
 const CUR: Scenario = { key: 'cur', label: '현행 60세', steps: CURRENT_STEPS };
 const PRO: Scenario = { key: 'pro', label: '단계적 연장안', steps: PROPOSED_STEPS };
-const OPT = { boundary: 'monthEnd' as const, fromYear: 2027, toYear: 2040 };
+// 🔴 payBasis·allFullTime 을 채운다 — 안 채우면 금액이 null 이다(그게 맞는 동작이고, 아래 needs 절에서 따로 시험한다)
+const OPT = { boundary: 'monthEnd' as const, fromYear: 2027, toYear: 2040, payBasis: 'total' as const, allFullTime: true };
 
 describe('정년 표', () => {
   it('현행은 어느 해든 60세다', () => {
@@ -99,13 +101,14 @@ describe('연도별 집계', () => {
     const y29 = r.years.find((x) => x.year === 2029)!;
     expect(y29.retiring).toBe(1);
     expect(y29.severancePaid).toBe(r.people[0].severance);
+    expect(y29.severancePaid).not.toBeNull();
     expect(r.years.find((x) => x.year === 2030)!.retiring).toBe(0);
   });
 
   it('인건비는 재직 일수에 비례한다 — 퇴직한 해는 1년분이 아니다', () => {
     const r = simulate([emp], CUR, OPT);
-    const full = r.years.find((x) => x.year === 2028)!.payroll;
-    const part = r.years.find((x) => x.year === 2029)!.payroll;
+    const full = r.years.find((x) => x.year === 2028)!.payroll!;
+    const part = r.years.find((x) => x.year === 2029)!.payroll!;
     expect(full).toBe(60_000_000);
     expect(part).toBeLessThan(full);
     expect(part).toBeGreaterThan(0);
@@ -119,12 +122,12 @@ describe('연도별 집계', () => {
     expect(pro.people[0].retireYear).toBe(2030);
     expect(pro.years.find((x) => x.year === 2030)!.severancePaid).toBeGreaterThan(0);
     expect(cur.years.find((x) => x.year === 2030)!.severancePaid).toBe(0);
-    expect(pro.totals.payroll).toBeGreaterThan(cur.totals.payroll);
+    expect(pro.totals.payroll!).toBeGreaterThan(cur.totals.payroll!);
   });
 
   it('4대보험 사용자부담 요율을 켜면 인건비가 그만큼 오른다', () => {
-    const base = simulate([emp], CUR, OPT).years.find((x) => x.year === 2028)!.payroll;
-    const with11 = simulate([emp], CUR, { ...OPT, employerRate: 11 }).years.find((x) => x.year === 2028)!.payroll;
+    const base = simulate([emp], CUR, OPT).years.find((x) => x.year === 2028)!.payroll!;
+    const with11 = simulate([emp], CUR, { ...OPT, employerRate: 11 }).years.find((x) => x.year === 2028)!.payroll!;
     expect(with11).toBe(Math.round(base * 1.11));
   });
 
@@ -170,7 +173,7 @@ describe('직군별 집계 — 「생산직만 몇 명 빠진다」가 전체 �
     { id: 'S1', birthYM: '1972-03', hireDate: '2010-03-01', annualPay: 70_000_000, group: '사무' },
     { id: 'X1', birthYM: '1975-01', hireDate: '2012-03-01', annualPay: 40_000_000 },
   ];
-  const opt = { boundary: 'monthEnd' as const, fromYear: 2027, toYear: 2040 };
+  const opt = { boundary: 'monthEnd' as const, fromYear: 2027, toYear: 2040, payBasis: 'total' as const, allFullTime: true };
 
   it('직군 목록은 명단에 나온 순서를 지키고 미지정은 따로 묶는다', () => {
     const r = simulate(crew, CUR, opt);
@@ -192,9 +195,9 @@ describe('직군별 집계 — 「생산직만 몇 명 빠진다」가 전체 �
         const g = Object.values(y.byGroup);
         expect(g.reduce((a, x) => a + x.retiring, 0)).toBe(y.retiring);
         expect(g.reduce((a, x) => a + x.headcount, 0)).toBe(y.headcount);
-        expect(g.reduce((a, x) => a + x.severancePaid, 0)).toBe(y.severancePaid);
+        expect(g.reduce((a, x) => a + (x.severancePaid ?? 0), 0)).toBe(y.severancePaid);
         // 인건비는 직군별로 따로 반올림하므로 합이 1원 단위로 어긋날 수 있다
-        expect(Math.abs(g.reduce((a, x) => a + x.payroll, 0) - y.payroll)).toBeLessThanOrEqual(g.length);
+        expect(Math.abs(g.reduce((a, x) => a + (x.payroll ?? 0), 0) - (y.payroll ?? 0))).toBeLessThanOrEqual(g.length);
       }
     }
   });
@@ -207,5 +210,96 @@ describe('직군별 집계 — 「생산직만 몇 명 빠진다」가 전체 �
     expect(y30.byGroup['생산'].severancePaid).toBe(
       (r.people[0].rehireSeverance ?? 0) + (r.people[1].rehireSeverance ?? 0),
     );
+  });
+});
+
+describe('needs — 결론을 바꾸는 사실을 모르면 금액을 내지 않는다 (261127)', () => {
+  const emp: Employee = { id: 'A1', birthYM: '1969-06', hireDate: '2005-03-01', annualPay: 60_000_000, group: '생산' };
+  const bare = { boundary: 'monthEnd' as const, fromYear: 2027, toYear: 2040 };
+
+  it('둘 다 안 답하면 needs 가 2개다', () => {
+    const r = simulate([emp], CUR, bare);
+    expect(r.needs.map((n) => n.key)).toEqual([PAY_BASIS_NEED.key, WEEKLY_HOURS_NEED.key]);
+  });
+
+  it('🔴 금액은 전부 null 이다 — 0 으로 보이면 안 된다', () => {
+    const r = simulate([emp], CUR, bare);
+    expect(r.totals.payroll).toBeNull();
+    expect(r.totals.severancePaid).toBeNull();
+    expect(r.people[0].severance).toBeNull();
+    for (const y of r.years) {
+      expect(y.payroll).toBeNull();
+      expect(y.severancePaid).toBeNull();
+      for (const g of Object.values(y.byGroup)) {
+        expect(g.payroll).toBeNull();
+        expect(g.severancePaid).toBeNull();
+      }
+    }
+  });
+
+  it('인원 구조는 그대로 낸다 — 연봉과 무관하게 참이기 때문이다', () => {
+    const r = simulate([emp], CUR, bare);
+    expect(r.totals.retiring).toBe(1);
+    expect(r.years.find((x) => x.year === 2029)!.retiring).toBe(1);
+    expect(r.years.find((x) => x.year === 2029)!.byGroup['생산'].retiring).toBe(1);
+    expect(r.people[0].retireAge).toBe(60);
+    expect(r.people[0].lastWorkDate).toBe('2029-06-30');
+    expect(r.people[0].serviceYears).toBeGreaterThan(0);
+  });
+
+  it('하나만 답해도 금액이 안 나온다', () => {
+    expect(simulate([emp], CUR, { ...bare, payBasis: 'total' }).totals.payroll).toBeNull();
+    expect(simulate([emp], CUR, { ...bare, allFullTime: true }).totals.payroll).toBeNull();
+  });
+
+  it('15시간 미만인 사람이 있다고 답하면(false) 여전히 금액을 내지 않는다 — 명단에서 빼야 한다', () => {
+    const r = simulate([emp], CUR, { ...bare, payBasis: 'total', allFullTime: false });
+    expect(r.needs.map((n) => n.key)).toEqual([WEEKLY_HOURS_NEED.key]);
+    expect(r.totals.payroll).toBeNull();
+  });
+
+  it('둘 다 답하면 금액이 나오고 needs 가 빈다', () => {
+    const r = simulate([emp], CUR, { ...bare, payBasis: 'total', allFullTime: true });
+    expect(r.needs).toHaveLength(0);
+    expect(r.totals.payroll).toBeGreaterThan(0);
+    expect(r.people[0].severance).toBeGreaterThan(0);
+  });
+
+  it('question 은 평가가 아니라 관찰할 수 있는 사실을 묻는다', () => {
+    for (const n of [PAY_BASIS_NEED, WEEKLY_HOURS_NEED]) {
+      expect(n.question).toMatch(/\?$/);
+      expect(n.question).not.toMatch(/대상인가요|해당하나요|가능한가요/);
+      expect(n.why).toMatch(/법|조/); // 왜 결론이 갈리는지 근거를 댄다
+    }
+  });
+});
+
+describe('assumptions — 가정은 숨기지 않고 함께 낸다', () => {
+  const emp: Employee = { id: 'A1', birthYM: '1969-06', hireDate: '2005-03-01', annualPay: 60_000_000 };
+
+  it('승급 0%·대체채용 없음·통상임금 비교 안 함·정년 도달일 기준을 always 싣는다', () => {
+    const r = simulate([emp], CUR, OPT);
+    const keys = r.assumptions.map((a) => a.key);
+    for (const k of ['payRaise', 'replacementHire', 'ordinaryWageCompare', 'retirementBoundary']) {
+      expect(keys).toContain(k);
+    }
+    for (const a of r.assumptions) expect(a.note.length).toBeGreaterThan(10);
+  });
+
+  it('4대보험 요율을 주면 그 가정이 사라진다', () => {
+    expect(simulate([emp], CUR, OPT).assumptions.map((a) => a.key)).toContain('employerRate');
+    expect(simulate([emp], CUR, { ...OPT, employerRate: 11 }).assumptions.map((a) => a.key)).not.toContain('employerRate');
+  });
+
+  it('기본급만이라고 답하면 과소 추정임을 가정으로 알린다', () => {
+    const r = simulate([emp], CUR, { ...OPT, payBasis: 'base' });
+    expect(r.needs).toHaveLength(0);
+    const a = r.assumptions.find((x) => x.key === 'payBasis')!;
+    expect(a.note).toMatch(/작게 나옵니다/);
+  });
+
+  it('정년 도달일 기준이 고른 값으로 찍힌다', () => {
+    expect(simulate([emp], CUR, OPT).assumptions.find((a) => a.key === 'retirementBoundary')!.value).toBe('생월 말일');
+    expect(simulate([emp], CUR, { ...OPT, boundary: 'yearEnd' }).assumptions.find((a) => a.key === 'retirementBoundary')!.value).toBe('그 해 말일');
   });
 });

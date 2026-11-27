@@ -7,6 +7,43 @@
 //    생년은 **연월까지만** 받는다(#311 §3). 받지 않으면 샐 수 없다.
 import { calcSeverance, periodSegments, type SeveranceResult } from './severance';
 
+/**
+ * 계산 도구 공통 형식 — 빠진 사실(needs)·가정한 값(assumptions).
+ * 🔴 #314 가 master 에 들어오면 `import type { Need, Assumption } from './needs'` 로 바꾼다.
+ *    모양을 그쪽과 **같게** 맞춰 두었다(구조적 호환이라 바꿀 때 고칠 곳이 없다).
+ *    자체 형식을 만들면 안 된다 — 외부 AI 가 자연어로 되묻게 하려면 형식이 하나여야 한다(261127 재홍님 목표).
+ */
+export interface Need {
+  key: string;
+  question: string;
+  why: string;
+}
+export interface Assumption {
+  key: string;
+  value: string | number | boolean;
+  note: string;
+}
+
+/** 명단의 연봉 칸이 무엇인지 — 이게 정해지지 않으면 금액을 내지 않는다 */
+export type PayBasis = 'total' | 'base';
+
+/**
+ * 🔴 가장 큰 구멍이었다 — 연봉 칸이 무엇을 포함하는지 묻지 않아서, 기본급만 넣은 사람과
+ * 총액을 넣은 사람이 같은 칸에 넣고 다른 답을 받았다. 가정이 아니라 **입력이 모호한 것**이라 needs 다.
+ */
+export const PAY_BASIS_NEED: Need = {
+  key: 'payBasis',
+  question: '명단의 연봉 칸에 넣은 금액은 상여금과 고정수당을 포함한 연간 임금총액인가요, 기본급만인가요?',
+  why: '퇴직금은 평균임금으로 계산하고 평균임금에는 상여금(연간 지급액의 3/12)과 고정수당이 들어갑니다(근로기준법 제2조제1항제6호). 기본급만 넣으면 퇴직금과 인건비가 실제보다 작게 나옵니다.',
+};
+
+/** 전일제인지 묻는다. 종전에는 주 40시간을 조용히 박아 넣었다 — 지급 대상 여부를 바꾸는 값이라 needs 가 맞다 */
+export const WEEKLY_HOURS_NEED: Need = {
+  key: 'allFullTime',
+  question: '명단에 있는 사람들의 1주 소정근로시간이 근로계약서상 모두 15시간 이상인가요?',
+  why: '4주 평균 1주 소정근로시간이 15시간 미만이면 퇴직금 지급 대상이 아닙니다(근로자퇴직급여 보장법 제4조제1항 단서). 15시간 미만인 사람이 섞여 있으면 그 사람은 이 도구로 계산하지 않습니다.',
+};
+
 /** 그 연도부터 적용되는 정년 나이. fromYear 는 「그 해부터」다 */
 export interface AgeStep {
   fromYear: number;
@@ -99,8 +136,13 @@ export interface SimOptions {
   toYear: number;
   /** 4대보험 사용자부담 요율(%). 주지 않으면 연봉 그대로 본다 */
   employerRate?: number;
-  /** 4주 평균 1주 소정근로시간. 기본 40 — 전일제 가정이다 */
-  weeklyHours?: number;
+  /**
+   * 명단의 연봉 칸이 무엇인가. **주지 않으면 금액을 내지 않는다**(needs).
+   * 인원 구조(정년 도달 연도·인원)는 연봉과 무관하게 참이므로 그대로 낸다.
+   */
+  payBasis?: PayBasis;
+  /** 전원 1주 15시간 이상인가. **주지 않으면 금액을 내지 않는다**(needs) */
+  allFullTime?: boolean;
 }
 
 export interface PersonRow {
@@ -114,12 +156,12 @@ export interface PersonRow {
   lastWorkDate: string;
   retireYear: number;
   serviceYears: number;
-  /** 정년 시점 퇴직금 추정액. 1년 미만이면 0 */
-  severance: number;
+  /** 정년 시점 퇴직금 추정액. 1년 미만이면 0. **needs 가 남으면 null** — 금액을 내지 않는다 */
+  severance: number | null;
   /** 재고용 마지막 근무일 — 재고용 시나리오에서만 */
   rehireLastWorkDate?: string;
-  /** 재고용 기간에 대한 퇴직금 추정액. 재고용이 1년 미만이면 0 */
-  rehireSeverance?: number;
+  /** 재고용 기간에 대한 퇴직금 추정액. 재고용이 1년 미만이면 0. needs 가 남으면 null */
+  rehireSeverance?: number | null;
   /** 퇴직금 추정이 불가능한 사유 */
   note?: string;
 }
@@ -130,10 +172,10 @@ export interface YearRow {
   retiring: number;
   /** 그 해 말에 남아 있는 인원(재고용 포함) */
   headcount: number;
-  /** 그 해 인건비(일수 비례. employerRate 를 주면 얹는다) */
-  payroll: number;
-  /** 그 해 퇴직금 지급액 추정 */
-  severancePaid: number;
+  /** 그 해 인건비(일수 비례. employerRate 를 주면 얹는다). **needs 가 남으면 null** */
+  payroll: number | null;
+  /** 그 해 퇴직금 지급액 추정. **needs 가 남으면 null** */
+  severancePaid: number | null;
   /**
    * 직군별로 나눈 같은 수치. 「생산직만 2033년에 3명 빠진다」가 회사엔 전체 인원보다 중요하다.
    * 직군을 넣지 않은 사람은 NO_GROUP 으로 묶인다.
@@ -144,8 +186,8 @@ export interface YearRow {
 export interface GroupRow {
   retiring: number;
   headcount: number;
-  payroll: number;
-  severancePaid: number;
+  payroll: number | null;
+  severancePaid: number | null;
 }
 
 /** 직군을 넣지 않은 사람을 묶는 이름 */
@@ -157,7 +199,14 @@ export interface SimResult {
   groups: string[];
   years: YearRow[];
   people: PersonRow[];
-  totals: { payroll: number; severancePaid: number; retiring: number };
+  totals: { payroll: number | null; severancePaid: number | null; retiring: number };
+  /**
+   * 결론을 바꾸는데 입력에 없는 사실. 하나라도 남으면 금액이 전부 null 이다.
+   * 인원 구조(정년 도달 연도·인원·개인별 정년)는 그대로 낸다 — 연봉과 무관하게 참이기 때문이다.
+   */
+  needs: Need[];
+  /** 우리가 가정한 값. 결론(정년·대상 여부)은 그대로이고 금액만 달라질 수 있는 것 — 접어 두지 말고 숫자 옆에 드러낸다 */
+  assumptions: Assumption[];
 }
 
 const DAY = 86_400_000;
@@ -189,7 +238,36 @@ function estimate(hireDate: string, lastWorkDate: string, annualPay: number, wee
 }
 
 export function simulate(employees: Employee[], scenario: Scenario, opts: SimOptions): SimResult {
-  const weeklyHours = opts.weeklyHours ?? 40;
+  // 🔴 결론(금액)을 바꾸는데 입력에 없는 사실 — 종전에는 조용히 기본값을 박았다(주 40시간, 연봉 = 총액)
+  const needs: Need[] = [];
+  if (!opts.payBasis) needs.push(PAY_BASIS_NEED);
+  if (opts.allFullTime !== true) needs.push(WEEKLY_HOURS_NEED);
+  /** needs 가 비어야 금액을 낸다. 인원 구조는 needs 와 무관하게 낸다 */
+  const money = needs.length === 0;
+
+  // 가정한 값 — 접어 두지 말고 숫자 옆에 드러낸다
+  const assumptions: Assumption[] = [
+    { key: 'payRaise', value: 0,
+      note: '임금 인상·승급을 넣지 않았습니다. 지금 연봉이 그대로 간다고 보고 계산했으므로, 정년이 밀리는 만큼 인건비는 실제보다 작게 나옵니다.' },
+    { key: 'replacementHire', value: false,
+      note: '정년으로 빠진 자리를 새로 채우지 않는다고 보고 계산했습니다. 신입으로 채우면 인건비가 내려가므로 연장안이 실제보다 불리하게 보입니다.' },
+    { key: 'ordinaryWageCompare', value: false,
+      note: '평균임금과 통상임금을 비교하지 않았습니다(근로기준법 제2조제2항 — 평균임금이 통상임금보다 낮으면 통상임금으로 계산합니다). 마지막 3개월에 받은 임금이 평소보다 적었던 사람은 퇴직금이 실제보다 작게 나옵니다.' },
+    { key: 'retirementBoundary', value: opts.boundary === 'yearEnd' ? '그 해 말일' : '생월 말일',
+      note: '정년 도달일을 그렇게 보았습니다. 취업규칙이 생일 기준이면 며칠 차이가 납니다 — 생년월일을 받지 않으므로 생일 당일은 고를 수 없습니다.' },
+  ];
+  if (opts.employerRate === undefined) {
+    assumptions.push({ key: 'employerRate', value: 0,
+      note: '4대보험 사용자부담분을 얹지 않았습니다. 연봉만 센 금액입니다.' });
+  }
+  if (opts.payBasis === 'base') {
+    assumptions.push({ key: 'payBasis', value: 'base',
+      note: '연봉 칸을 기본급으로 보고 계산했습니다. 상여금과 고정수당이 빠져 퇴직금과 인건비가 실제보다 작게 나옵니다.' });
+  }
+
+  // needs 가 남으면 이 값들은 버려지므로(금액 null) 계산 편의상 전일제로 센다.
+  // 🔴 종전처럼 「조용한 기본값」이 아니다 — 답이 없으면 결과가 나가지 않는다
+  const weeklyHours = 40;
   const rate = 1 + (opts.employerRate ?? 0) / 100;
   const people: PersonRow[] = [];
 
@@ -244,17 +322,18 @@ export function simulate(employees: Employee[], scenario: Scenario, opts: SimOpt
     let headcount = 0;
     let payroll = 0;
     let severancePaid = 0;
-    const byGroup: Record<string, GroupRow> = {};
-    for (const g of groups) byGroup[g] = { retiring: 0, headcount: 0, payroll: 0, severancePaid: 0 };
+    type Acc = { retiring: number; headcount: number; payroll: number; severancePaid: number };
+    const acc: Record<string, Acc> = {};
+    for (const g of groups) acc[g] = { retiring: 0, headcount: 0, payroll: 0, severancePaid: 0 };
     for (let i = 0; i < people.length; i++) {
       const p = people[i];
       const e = employees[i];
-      const g = byGroup[e.group || NO_GROUP];
+      const g = acc[e.group || NO_GROUP];
       if (p.retireYear === y) { retiring++; g.retiring++; }
       // 정년까지의 재직
       const d1 = overlapDays(e.hireDate, p.lastWorkDate, jan, dec);
       if (d1 > 0) { const v = (e.annualPay * rate * d1) / yd; payroll += v; g.payroll += v; }
-      if (p.retireYear === y) { severancePaid += p.severance; g.severancePaid += p.severance; }
+      if (p.retireYear === y) { severancePaid += p.severance ?? 0; g.severancePaid += p.severance ?? 0; }
       let lastDay = p.lastWorkDate;
       // 재고용 기간
       if (p.rehireLastWorkDate) {
@@ -272,11 +351,30 @@ export function simulate(employees: Employee[], scenario: Scenario, opts: SimOpt
       }
       if (e.hireDate <= dec && lastDay >= dec) { headcount++; g.headcount++; }
     }
-    for (const g of Object.keys(byGroup)) {
-      byGroup[g].payroll = Math.round(byGroup[g].payroll);
-      byGroup[g].severancePaid = Math.round(byGroup[g].severancePaid);
+    const byGroup: Record<string, GroupRow> = {};
+    for (const k of Object.keys(acc)) {
+      const a = acc[k];
+      byGroup[k] = {
+        retiring: a.retiring,
+        headcount: a.headcount,
+        payroll: money ? Math.round(a.payroll) : null,
+        severancePaid: money ? Math.round(a.severancePaid) : null,
+      };
     }
-    years.push({ year: y, retiring, headcount, payroll: Math.round(payroll), severancePaid: Math.round(severancePaid), byGroup });
+    years.push({
+      year: y, retiring, headcount,
+      payroll: money ? Math.round(payroll) : null,
+      severancePaid: money ? Math.round(severancePaid) : null,
+      byGroup,
+    });
+  }
+
+  // needs 가 남으면 개인별 금액도 내지 않는다 — 인원 구조(정년·마지막 근무일·근속)는 그대로 둔다
+  if (!money) {
+    for (const p of people) {
+      p.severance = null;
+      if (p.rehireLastWorkDate) p.rehireSeverance = null;
+    }
   }
 
   return {
@@ -285,9 +383,11 @@ export function simulate(employees: Employee[], scenario: Scenario, opts: SimOpt
     years,
     people,
     totals: {
-      payroll: years.reduce((a, r) => a + r.payroll, 0),
-      severancePaid: years.reduce((a, r) => a + r.severancePaid, 0),
+      payroll: money ? years.reduce((a, r) => a + (r.payroll ?? 0), 0) : null,
+      severancePaid: money ? years.reduce((a, r) => a + (r.severancePaid ?? 0), 0) : null,
       retiring: years.reduce((a, r) => a + r.retiring, 0),
     },
+    needs,
+    assumptions,
   };
 }

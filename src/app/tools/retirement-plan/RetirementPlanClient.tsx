@@ -5,6 +5,7 @@
 import { useMemo, useState } from 'react';
 import {
   simulate, CURRENT_STEPS, PROPOSED_STEPS, NO_GROUP,
+  type PayBasis,
   type AgeStep, type Boundary, type Scenario, type SimResult,
 } from '@/lib/calc/retirement-plan';
 import { parseRoster, EXAMPLE_ROSTER } from '@/lib/calc/roster-parse';
@@ -18,6 +19,9 @@ function brief(n: number): string {
   if (n >= 10_000) return `${Math.round(n / 10_000).toLocaleString('ko-KR')}만`;
   return won(n);
 }
+
+/** 금액은 needs 가 남으면 null 이다 — 「0원」으로 보이게 하면 안 된다 */
+const money = (n: number | null) => (n === null ? '—' : `${brief(n)}원`);
 
 const chip = (on: boolean) =>
   on
@@ -50,6 +54,9 @@ export default function RetirementPlanClient() {
   const [rehireYears, setRehireYears] = useState('1');
   const [rehirePay, setRehirePay] = useState('70');
   const [tab, setTab] = useState<'year' | 'group' | 'person'>('year');
+  // 🔴 기본값을 두지 않는다 — 고르지 않으면 금액을 내지 않는다
+  const [payBasis, setPayBasis] = useState<PayBasis | ''>('');
+  const [allFullTime, setAllFullTime] = useState<'' | 'yes' | 'no'>('');
 
   const parsed = useMemo(() => parseRoster(text), [text]);
   const employerRate = useRate ? Number(rate) : undefined;
@@ -77,17 +84,21 @@ export default function RetirementPlanClient() {
     const out: { s: Scenario; r: SimResult }[] = [];
     for (const s of scenarios) {
       try {
-        out.push({ s, r: simulate(parsed.rows, s, { boundary, fromYear: span.from, toYear: span.to, employerRate }) });
+        out.push({ s, r: simulate(parsed.rows, s, {
+          boundary, fromYear: span.from, toYear: span.to, employerRate,
+          payBasis: payBasis || undefined,
+          allFullTime: allFullTime === 'yes' ? true : allFullTime === 'no' ? false : undefined,
+        }) });
       } catch {
         // 연도 표가 잘못되면 그 시나리오만 뺀다 — 나머지는 계속 보여준다
       }
     }
     return out;
-  }, [parsed.rows, scenarios, boundary, span, employerRate]);
+  }, [parsed.rows, scenarios, boundary, span, employerRate, payBasis, allFullTime]);
 
   const base = results.find((x) => x.s.key === 'cur');
   const maxRetiring = Math.max(1, ...results.flatMap((x) => x.r.years.map((y) => y.retiring)));
-  const maxPayroll = Math.max(1, ...results.flatMap((x) => x.r.years.map((y) => y.payroll)));
+  const maxPayroll = Math.max(1, ...results.flatMap((x) => x.r.years.map((y) => y.payroll ?? 0)));
 
   const csv = useMemo(() => {
     if (!results.length) return '';
@@ -97,7 +108,7 @@ export default function RetirementPlanClient() {
       const e = parsed.rows[i];
       const ps = results.map((x) => x.r.people[i]);
       lines.push([e.id, e.group ?? '', e.birthYM, e.hireDate,
-        ...ps.map((p) => p.retireAge), ...ps.map((p) => p.lastWorkDate), ...ps.map((p) => p.severance)].join(','));
+        ...ps.map((p) => p.retireAge), ...ps.map((p) => p.lastWorkDate), ...ps.map((p) => p.severance ?? '')].join(','));
     }
     return lines.join('\n');
   }, [results, parsed.rows]);
@@ -157,6 +168,43 @@ export default function RetirementPlanClient() {
           정년연장은 <strong>입법 전 안</strong>입니다. 그래서 연도 표를 고정하지 않고 여기서 고쳐 쓰게 두었습니다.
           안이 바뀌면 숫자만 고치면 됩니다.
         </p>
+
+        {/* 🔴 금액을 바꾸는 사실 — 답하기 전에는 금액을 내지 않는다 */}
+        <div className="mt-4 space-y-4 rounded-md border p-3" style={{ borderColor: 'var(--color-text-primary)' }}>
+          <div className="space-y-2">
+            <p className="text-sm font-semibold" style={ink}>
+              명단의 연봉 칸에 넣은 금액은 무엇인가요?
+            </p>
+            <div className="flex flex-wrap gap-1">
+              {([['total', '연간 임금총액 (상여·고정수당 포함)'], ['base', '기본급만']] as [PayBasis, string][]).map(([v, l]) => (
+                <button key={v} type="button" aria-pressed={payBasis === v} className="min-h-[44px] rounded-md border px-3 text-sm font-semibold" style={chip(payBasis === v)} onClick={() => setPayBasis(v)}>
+                  {l}
+                </button>
+              ))}
+            </div>
+            <p className={small} style={muted}>
+              퇴직금은 평균임금으로 계산하고 평균임금에는 상여금(연간 지급액의 3/12)과 고정수당이 들어갑니다(근로기준법 제2조제1항제6호).
+              기본급만 넣으면 퇴직금과 인건비가 실제보다 작게 나옵니다.
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <p className="text-sm font-semibold" style={ink}>
+              명단에 있는 사람들의 1주 소정근로시간이 근로계약서상 모두 15시간 이상인가요?
+            </p>
+            <div className="flex flex-wrap gap-1">
+              {([['yes', '모두 15시간 이상'], ['no', '15시간 미만인 사람이 있다']] as ['yes' | 'no', string][]).map(([v, l]) => (
+                <button key={v} type="button" aria-pressed={allFullTime === v} className="min-h-[44px] rounded-md border px-3 text-sm font-semibold" style={chip(allFullTime === v)} onClick={() => setAllFullTime(v)}>
+                  {l}
+                </button>
+              ))}
+            </div>
+            <p className={small} style={muted}>
+              4주 평균 1주 소정근로시간이 15시간 미만이면 퇴직금 지급 대상이 아닙니다(근로자퇴직급여 보장법 제4조제1항 단서).
+              {allFullTime === 'no' ? ' 15시간 미만인 사람은 명단에서 빼고 따로 보셔야 합니다 — 이 도구는 그 사람의 금액을 내지 않습니다.' : ''}
+            </p>
+          </div>
+        </div>
 
         <div className="mt-4 space-y-2">
           <p className="text-sm font-semibold" style={ink}>정년 도달일을 언제로 보나</p>
@@ -253,24 +301,63 @@ export default function RetirementPlanClient() {
             </div>
           </div>
 
+          {base.r.needs.length ? (
+            <div className="mb-4 rounded-md border p-3" style={{ borderColor: 'var(--color-text-primary)' }}>
+              <p className="text-sm font-semibold" style={ink}>
+                금액은 내지 않습니다 — 아래 {base.r.needs.length}가지를 알아야 금액이 갈립니다.
+              </p>
+              <ul className="mt-2 space-y-2">
+                {base.r.needs.map((n) => (
+                  <li key={n.key} className="text-sm" style={ink}>
+                    <strong>{n.question}</strong>
+                    <span className="block" style={muted}>{n.why}</span>
+                  </li>
+                ))}
+              </ul>
+              <p className={`${small} mt-2`} style={muted}>
+                위 ② 가정에서 답하면 금액이 나옵니다. 정년 도달 연도와 인원은 연봉과 무관하게 정해지므로 아래에 그대로 보여줍니다.
+              </p>
+            </div>
+          ) : null}
+
           <div className="grid gap-3 sm:grid-cols-3">
-            {results.map((x) => (
-              <div key={x.s.key} className="rounded-md border p-3" style={{ borderColor: 'var(--color-border)' }}>
-                <p className="text-sm font-semibold" style={ink}>{x.s.label}</p>
-                <p className="mt-1 text-sm tabular-nums" style={muted}>
-                  기간 인건비 <strong style={ink}>{brief(x.r.totals.payroll)}원</strong>
-                </p>
-                <p className="text-sm tabular-nums" style={muted}>
-                  퇴직금 <strong style={ink}>{brief(x.r.totals.severancePaid)}원</strong>
-                </p>
-                {x.s.key !== 'cur' ? (
+            {results.map((x) => {
+              const t = x.r.totals;
+              const b = base.r.totals;
+              const diff =
+                t.payroll !== null && t.severancePaid !== null && b.payroll !== null && b.severancePaid !== null
+                  ? t.payroll + t.severancePaid - b.payroll - b.severancePaid
+                  : null;
+              return (
+                <div key={x.s.key} className="rounded-md border p-3" style={{ borderColor: 'var(--color-border)' }}>
+                  <p className="text-sm font-semibold" style={ink}>{x.s.label}</p>
                   <p className="mt-1 text-sm tabular-nums" style={muted}>
-                    현행과 차이 {x.r.totals.payroll + x.r.totals.severancePaid >= base.r.totals.payroll + base.r.totals.severancePaid ? '+' : '−'}
-                    {brief(Math.abs(x.r.totals.payroll + x.r.totals.severancePaid - base.r.totals.payroll - base.r.totals.severancePaid))}원
+                    정년 도달 <strong style={ink}>{t.retiring}명</strong>
                   </p>
-                ) : null}
-              </div>
-            ))}
+                  <p className="text-sm tabular-nums" style={muted}>
+                    기간 인건비 <strong style={ink}>{money(t.payroll)}</strong>
+                  </p>
+                  <p className="text-sm tabular-nums" style={muted}>
+                    퇴직금 <strong style={ink}>{money(t.severancePaid)}</strong>
+                  </p>
+                  {x.s.key !== 'cur' && diff !== null ? (
+                    <p className="mt-1 text-sm tabular-nums" style={muted}>
+                      현행과 차이 {diff >= 0 ? '+' : '−'}{brief(Math.abs(diff))}원
+                    </p>
+                  ) : null}
+                </div>
+              );
+            })}
+          </div>
+
+          {/* 🔴 가정은 접지 않는다 — 접힌 단서는 안 읽히고, 안 읽힌 단서는 없는 것과 같다 */}
+          <div className="mt-4 rounded-md border p-3" style={{ borderColor: 'var(--color-border)' }}>
+            <p className="text-sm font-semibold" style={ink}>이 숫자가 가정한 것 {base.r.assumptions.length}가지</p>
+            <ul className="mt-1 space-y-1">
+              {base.r.assumptions.map((a) => (
+                <li key={a.key} className={small} style={muted}>· {a.note}</li>
+              ))}
+            </ul>
           </div>
 
           {tab === 'group' ? (
@@ -339,7 +426,9 @@ export default function RetirementPlanClient() {
                             <div className="tabular-nums" style={ink}>
                               {row.retiring ? `정년 ${row.retiring}명 · ` : ''}재직 {row.headcount}명
                             </div>
-                            <Bar value={row.payroll} max={maxPayroll} label={`${brief(row.payroll)}원`} />
+                            {row.payroll !== null ? (
+                              <Bar value={row.payroll} max={maxPayroll} label={`${brief(row.payroll)}원`} />
+                            ) : null}
                             {row.severancePaid ? (
                               <div className="mt-1 text-xs tabular-nums" style={muted}>퇴직금 {brief(row.severancePaid)}원</div>
                             ) : null}
@@ -382,8 +471,8 @@ export default function RetirementPlanClient() {
                           <td key={x.s.key} className="py-2 align-top tabular-nums" style={ink}>
                             <div>{p.retireAge}세 · {p.lastWorkDate}</div>
                             <div className="text-xs" style={muted}>
-                              근속 {p.serviceYears}년 · 퇴직금 {brief(p.severance)}원
-                              {p.rehireLastWorkDate ? ` → 재고용 ${p.rehireLastWorkDate}까지, 퇴직금 ${brief(p.rehireSeverance ?? 0)}원` : ''}
+                              근속 {p.serviceYears}년 · 퇴직금 {money(p.severance)}
+                              {p.rehireLastWorkDate ? ` → 재고용 ${p.rehireLastWorkDate}까지, 퇴직금 ${money(p.rehireSeverance ?? null)}` : ''}
                             </div>
                             {p.note ? <div className="text-xs" style={muted}>{p.note}</div> : null}
                           </td>
@@ -400,7 +489,7 @@ export default function RetirementPlanClient() {
             </div>
           )}
 
-          <FoldedDetail summary="이 숫자를 어떻게 읽나">
+          <FoldedDetail summary="계산 방식 — 왜 이렇게 세나">
             <ul className={`${small} space-y-2`} style={muted}>
               <li>
                 <strong style={ink}>퇴직금은 추정입니다.</strong> 연봉을 평균임금 산정기간에 비례해 나눈 값으로 계산했습니다.
@@ -416,8 +505,6 @@ export default function RetirementPlanClient() {
               <li>
                 <strong style={ink}>재고용은 퇴직금이 두 번 날 수 있습니다.</strong> 정년에 한 번, 재고용 기간이 1년 이상이면 그 기간에 대해 또 한 번입니다.
               </li>
-              <li>전일제(주 15시간 이상)를 전제로 계산했습니다. 단시간 근로자가 섞여 있으면 그 사람은 따로 보셔야 합니다.</li>
-              <li>임금 인상·승급은 넣지 않았습니다. 지금 연봉이 그대로 간다고 보고 계산한 값입니다.</li>
             </ul>
           </FoldedDetail>
         </section>
