@@ -165,6 +165,13 @@ describe('POST /jobs — 서명 URL 방식', () => {
     assert.equal(mk.json.data.slides.length, 7);
   });
 
+  test('pptx.education — 교안 스냅숏 → 5장(사례 없음)', { skip: noOffice }, async () => {
+    const snapshot = { site: '합성', basisDate: '2026-11-23', educationDate: '2026-12-01', course: 'hire', hazards: [{ id: 'H-1', situation: '합성 위험', measures: ['합성 대책'] }] };
+    const mk = await job(w.url, { op: 'pptx.education', outputUrl: `${st.base}/obj/out/ed.pptx`, args: { snapshot } });
+    assert.equal(mk.status, 200, JSON.stringify(mk.json));
+    assert.equal(mk.json.data.slides.length, 5);
+  });
+
   test('office op 실패는 Result 코드 그대로(UNSUPPORTED_INPUT 422), PUT 하지 않는다', { skip: noOffice }, async () => {
     st.objects.set('/obj/in/not.xlsx', Buffer.from('plain text'));
     const before = st.hits.length;

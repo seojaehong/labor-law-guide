@@ -19,6 +19,7 @@ export const JOB_OPS = Object.freeze({
   'pptx.extract': { input: true, output: false },
   'pptx.tbm': { input: false, output: true },
   'pptx.broadcast': { input: false, output: true },
+  'pptx.education': { input: false, output: true },
 });
 
 // office 라이브러리 실패 코드 → HTTP. 나머지는 core 의 STATUS 표

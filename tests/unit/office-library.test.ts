@@ -111,7 +111,7 @@ describe('k-labor/office — Result 모양', () => {
 
   it('출처는 {name,version,commit,dirty}, op 목록은 고정 이름(별칭 없음)', () => {
     expect(Object.keys(ENGINE).sort()).toEqual(['commit', 'dirty', 'name', 'version']);
-    expect(OFFICE_OPS).toEqual(['xlsx.inspect', 'xlsx.extract', 'xlsx.fill', 'xlsx.make', 'pptx.meeting', 'pptx.extract', 'pptx.tbm', 'pptx.broadcast']);
+    expect(OFFICE_OPS).toEqual(['xlsx.inspect', 'xlsx.extract', 'xlsx.fill', 'xlsx.make', 'pptx.meeting', 'pptx.extract', 'pptx.tbm', 'pptx.broadcast', 'pptx.education']);
     expect(Object.keys(office).filter((k) => /alias/i.test(k))).toEqual([]);
   });
 });

@@ -211,6 +211,8 @@ const ANN = {
   make_tbm_pptx_bytes: { readOnlyHint: true, destructiveHint: false, idempotentHint: false, openWorldHint: false },
   make_broadcast_pptx: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
   make_broadcast_pptx_bytes: { readOnlyHint: true, destructiveHint: false, idempotentHint: false, openWorldHint: false },
+  make_education_pptx: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
+  make_education_pptx_bytes: { readOnlyHint: true, destructiveHint: false, idempotentHint: false, openWorldHint: false },
   // law 묶음 — 읽기 전용, 법제처(외부)를 부른다
   ...Object.fromEntries(['search_laws', 'list_law_forms', 'get_article_history', 'search_precedents', 'get_precedent', 'search_interpretations', 'get_interpretation', 'check_citations']
     .map((n) => [n, { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true }])),
@@ -223,7 +225,7 @@ const ANN = {
 }
 // 이 판에서 더한 도구 8개 + 사이트 도구 7개(groups/more) — 「대신·대행·대리」도 함께 막는다
 const NOSA_TOOLS = ['assess_labor_council', 'check_council_meeting', 'make_labor_council_forms', 'make_council_meeting_docs', 'make_council_election_docs', 'check_council_rules', 'record_council_history', 'export_council_vault', 'import_council_minutes', 'make_council_rules_comparison'];
-const NEW_TOOLS = ['calc_severance', 'calc_holiday_pay', 'calc_pay_proration', 'calc_shutdown_allowance', 'calc_annual_leave', 'settle_leave_on_exit', 'calc_retirement_tax', 'list_employer_duties', ...MORE_TOOLS, ...NOSA_TOOLS, 'make_hwpx_from_markdown', 'stamp_exhibit_pdf', 'edit_hwpx_text', 'read_hwp_as_markdown', 'fill_hwp_form', 'patch_hwp_from_markdown', 'check_prose', 'check_norms', 'check_semantic', 'check_rhetoric', 'check_rewrite', 'list_hr_forms', 'check_hr_form', 'make_hr_form', 'inspect_xlsx', 'extract_xlsx_rows', 'fill_xlsx_template', 'make_xlsx_from_spec', 'inspect_xlsx_bytes', 'extract_xlsx_rows_bytes', 'fill_xlsx_template_bytes', 'make_xlsx_from_spec_bytes', 'make_meeting_pptx', 'extract_pptx', 'make_meeting_pptx_bytes', 'extract_pptx_bytes', 'make_tbm_pptx', 'make_tbm_pptx_bytes', 'make_broadcast_pptx', 'make_broadcast_pptx_bytes'];
+const NEW_TOOLS = ['calc_severance', 'calc_holiday_pay', 'calc_pay_proration', 'calc_shutdown_allowance', 'calc_annual_leave', 'settle_leave_on_exit', 'calc_retirement_tax', 'list_employer_duties', ...MORE_TOOLS, ...NOSA_TOOLS, 'make_hwpx_from_markdown', 'stamp_exhibit_pdf', 'edit_hwpx_text', 'read_hwp_as_markdown', 'fill_hwp_form', 'patch_hwp_from_markdown', 'check_prose', 'check_norms', 'check_semantic', 'check_rhetoric', 'check_rewrite', 'list_hr_forms', 'check_hr_form', 'make_hr_form', 'inspect_xlsx', 'extract_xlsx_rows', 'fill_xlsx_template', 'make_xlsx_from_spec', 'inspect_xlsx_bytes', 'extract_xlsx_rows_bytes', 'fill_xlsx_template_bytes', 'make_xlsx_from_spec_bytes', 'make_meeting_pptx', 'extract_pptx', 'make_meeting_pptx_bytes', 'extract_pptx_bytes', 'make_tbm_pptx', 'make_tbm_pptx_bytes', 'make_broadcast_pptx', 'make_broadcast_pptx_bytes', 'make_education_pptx', 'make_education_pptx_bytes'];
 const NEW_WORDS = [...WORDS, '대신', '대행', '대리'];
 const bannedNew = (s) => (banned ? banned.bannedHits(s, NEW_WORDS) : []);
 // 공식 서식 칸 이름(「대리인」 등, banned.FORM_FIELD_NAMES)을 그대로 받거나 찍는 도구 — 칸 이름만 걸지 않는다(D5 261126)
@@ -810,6 +812,14 @@ if (tools.includes('make_broadcast_pptx')) {
   check(`office 전파본 ${bp.slides?.length}장 ${bp.file?.bytes}B`, bp.ok && fs.existsSync(out) && bp.slides?.[0]?.code === 'B1' && bp.slides?.length === 7);
   const bd = await callNew('make_broadcast_pptx', { snapshot: { ...FIN, status: { label: '초안' } }, outFile: path.join(tmp, 'office', '가상 전파본 초안.pptx') });
   check('office 전파본 — 초안은 만들지 않음', bd.ok === false);
+}
+
+// ── office 교안 ── 합성 위험요인 → 교안(make), 사례 없으면 E4 없음
+if (tools.includes('make_education_pptx')) {
+  const out = path.join(tmp, 'office', '가상 교안.pptx');
+  const ED = { site: '가상 사업장', basisDate: '2026-11-20', educationDate: '2026-12-01', course: 'regular', hazards: [{ id: 'H-1', situation: '가상 위험', measures: ['가상 대책'], acceptability: 'unacceptable', consequence: '넘어짐' }] };
+  const ep = await callNew('make_education_pptx', { snapshot: ED, outFile: out });
+  check(`office 교안 ${ep.slides?.length}장 ${ep.file?.bytes}B`, ep.ok && fs.existsSync(out) && ep.slides?.map((x) => x.code).join(',') === 'E1,E2,E3,E5,E6');
 }
 
 // ── forms 묶음 ── 합성 값 → 서식 hwpx(동시 호출 · 같은 이름 거절 · 주민번호 모양 거절)

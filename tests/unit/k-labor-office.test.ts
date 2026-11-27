@@ -162,8 +162,8 @@ describe('office 묶음 — 입력 오류', () => {
 describe('office 원격판 — base64 입출력', () => {
   const b64 = (u: Uint8Array) => Buffer.from(u).toString('base64');
 
-  it('officeRemoteSafe 8개가 등록되고 title·readOnlyHint true', () => {
-    expect([...officeRemoteSafe].sort()).toEqual(['extract_pptx_bytes', 'extract_xlsx_rows_bytes', 'fill_xlsx_template_bytes', 'inspect_xlsx_bytes', 'make_broadcast_pptx_bytes', 'make_meeting_pptx_bytes', 'make_tbm_pptx_bytes', 'make_xlsx_from_spec_bytes']);
+  it('officeRemoteSafe 9개가 등록되고 title·readOnlyHint true', () => {
+    expect([...officeRemoteSafe].sort()).toEqual(['extract_pptx_bytes', 'extract_xlsx_rows_bytes', 'fill_xlsx_template_bytes', 'inspect_xlsx_bytes', 'make_broadcast_pptx_bytes', 'make_education_pptx_bytes', 'make_meeting_pptx_bytes', 'make_tbm_pptx_bytes', 'make_xlsx_from_spec_bytes']);
     for (const n of officeRemoteSafe) {
       expect(tools.has(n), n).toBe(true);
       expect(cfgs.get(n)!.title, n).toBeTruthy();
@@ -326,6 +326,16 @@ describe('office 묶음 — 회의 PPTX', () => {
     const draft = await call('make_broadcast_pptx_bytes', { snapshot: { ...MEETING, status: { label: '초안' } } });
     expect(draft.ok).toBe(false);
     expect(cfgs.get('make_broadcast_pptx')!.annotations!.readOnlyHint).toBe(false);
+  });
+
+  it('원격 make_education_pptx_bytes — 정기교육 교안, 입력 오류는 ok false', async () => {
+    const ED = { site: '합성', basisDate: '2026-11-20', educationDate: '2026-12-01', course: 'regular', hazards: [{ id: 'H-1', situation: '합성 위험', measures: ['합성 대책'] }], quiz: [{ question: '합성 질문' }] };
+    const mk = await call('make_education_pptx_bytes', { snapshot: ED });
+    expect(mk.ok).toBe(true);
+    expect(mk.slides.map((s: { code: string }) => s.code)).toEqual(['E1', 'E2', 'E3', 'E5', 'E6']);
+    const bad = await call('make_education_pptx_bytes', { snapshot: { ...ED, hazards: [] } });
+    expect(bad.ok).toBe(false);
+    expect(cfgs.get('make_education_pptx')!.annotations!.readOnlyHint).toBe(false);
   });
 
   it('원격 make_meeting_pptx_bytes → extract_pptx_bytes', async () => {

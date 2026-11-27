@@ -138,7 +138,8 @@ function rank(h: TbmHazard, i: number): number[] {
   return [acc, fresh, serious, risk, i];
 }
 
-function pick(hazards: TbmHazard[], n: number): { shown: TbmHazard[]; omitted: TbmHazard[] } {
+/** 고르는 순서대로 n 개 + 나머지. 교안(education)도 같은 순서를 쓴다 */
+export function pick(hazards: TbmHazard[], n: number): { shown: TbmHazard[]; omitted: TbmHazard[] } {
   const order = hazards
     .map((h, i) => ({ h, k: rank(h, i) }))
     .sort((a, b) => {

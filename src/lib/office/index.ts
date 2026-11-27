@@ -11,6 +11,7 @@ import { extractXlsxRows as engineExtract, type ExtractXlsxResult } from './xlsx
 import { fillXlsxTemplate as engineFill, type FillCell, type FillHiddenColumns, type FillRows, type PreservedReport } from './xlsx/fill';
 import { makeXlsxFromSpec as engineMake, type XlsxSpec } from './xlsx/make';
 import { makeBroadcastPptx as engineBroadcast, type BroadcastOptions, type BroadcastSlideInfo, type OpinionResult } from './pptx/broadcast';
+import { makeEducationPptx as engineEducation, type EducationOptions, type EducationSlideInfo, type EducationSnapshot, type EducationSummary } from './pptx/education';
 import { makeTbmPptx as engineTbm, type TbmOptions, type TbmPick, type TbmSlideInfo, type TbmSnapshot } from './pptx/tbm';
 import { makeMeetingPptx as engineMeeting, type MeetingChange, type MeetingOptions, type MeetingSlideInfo, type MeetingSnapshot, type OverflowEstimate, type PriorItem } from './pptx/meeting';
 import { extractPptx as engineExtractPptx, type PptxSlide } from './pptx/extract';
@@ -42,6 +43,7 @@ export type {
 } from './pptx/meeting';
 export type { PptxSlide, PptxShape } from './pptx/extract';
 export type { BroadcastOptions, BroadcastSlideInfo, OpinionResult } from './pptx/broadcast';
+export type { EducationCase, EducationCourse, EducationOptions, EducationQuiz, EducationSlideInfo, EducationSnapshot, EducationSummary } from './pptx/education';
 export type { TbmSnapshot, TbmTask, TbmHazard, TbmAcceptability, TbmOptions, TbmSlideInfo, TbmPick } from './pptx/tbm';
 
 /** 실패 코드 — 열린 유니언(새 코드가 생겨도 받는 쪽 타입이 깨지지 않는다) */
@@ -88,7 +90,7 @@ export interface OfficeContext {
   limits: Limits;
 }
 
-export const OFFICE_OPS = ['xlsx.inspect', 'xlsx.extract', 'xlsx.fill', 'xlsx.make', 'pptx.meeting', 'pptx.extract', 'pptx.tbm', 'pptx.broadcast'] as const;
+export const OFFICE_OPS = ['xlsx.inspect', 'xlsx.extract', 'xlsx.fill', 'xlsx.make', 'pptx.meeting', 'pptx.extract', 'pptx.tbm', 'pptx.broadcast', 'pptx.education'] as const;
 export type OfficeOp = (typeof OFFICE_OPS)[number];
 
 declare const __K_LABOR_OFFICE_ENGINE__: EngineInfo | undefined;
@@ -278,6 +280,27 @@ export function makeBroadcastPptx(snapshot: MeetingSnapshot, opts: BroadcastPptx
     if (!r.ok || !r.bytes) return failure('pptx.broadcast', 'INVALID_ARGS', (r.errors ?? ['덱을 만들지 못했습니다.']).join(' / '), { errors: r.errors ?? [] }, notices(r.warnings));
     const data: BroadcastPptxData = { slides: r.slides, opinionResults: r.opinionResults, overflowEstimates: r.overflowEstimates };
     return { ok: true, data, files: [file(opts.outName ?? 'broadcast.pptx', PPTX_MIME, r.bytes)], warnings: notices(r.warnings), meta: meta('pptx.broadcast') };
+  });
+}
+
+export interface EducationPptxOptions extends OfficeContext, EducationOptions {
+  outName?: string;
+}
+export interface EducationPptxData {
+  slides: EducationSlideInfo[];
+  summary?: EducationSummary;
+  shown: string[];
+  omitted: string[];
+  overflowEstimates: OverflowEstimate[];
+}
+
+/** 위험성평가 결과 → 안전보건교육 교안(규칙 별표 5 제1호 가목·다목). 결과 파일은 files[0] */
+export function makeEducationPptx(snapshot: EducationSnapshot, opts: EducationPptxOptions): Promise<Result<EducationPptxData>> {
+  return run('pptx.education', opts, null, async () => {
+    const r = await engineEducation(snapshot, { topN: opts.topN, signatureRows: opts.signatureRows, fontFace: opts.fontFace, layout: opts.layout });
+    if (!r.ok || !r.bytes) return failure('pptx.education', 'INVALID_ARGS', (r.errors ?? ['덱을 만들지 못했습니다.']).join(' / '), { errors: r.errors ?? [] }, notices(r.warnings));
+    const data: EducationPptxData = { slides: r.slides, summary: r.summary, shown: r.shown, omitted: r.omitted, overflowEstimates: r.overflowEstimates };
+    return { ok: true, data, files: [file(opts.outName ?? 'education.pptx', PPTX_MIME, r.bytes)], warnings: notices(r.warnings), meta: meta('pptx.education') };
   });
 }
 
