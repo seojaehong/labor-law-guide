@@ -64,6 +64,29 @@ describe('office/pptx/theme — deckkit 와 같은 값', () => {
   it('잘못된 색 hex 는 던진다', () => {
     expect(() => getDeckTheme('report', { theme: { colors: { primary: '#14213D' } } })).toThrow();
   });
+
+  it('발표형 프로필의 목표 크기는 자기 하한보다 작지 않다(profiles.presentation.target)', () => {
+    const t = getDeckTheme('lecture', { profile: 'presentation' });
+    expect(t.typeScale.title).toBe(DECK_RULES.profiles.presentation.target.title);
+    expect(t.typeScale.body).toBe(DECK_RULES.profiles.presentation.target.body);
+    expect(t.typeScale.title).toBeGreaterThanOrEqual(t.minimums.title);
+    expect(t.typeScale.body).toBeGreaterThanOrEqual(t.minimums.body);
+    // 나머지 크기는 기본 테마 그대로, 호출자가 준 크기는 그대로 쓴다
+    expect(t.typeScale.h2).toBe(FX.default_theme.type_scale.h2);
+    expect(getDeckTheme('lecture', { profile: 'presentation', theme: { typeScale: { title: 32 } } }).typeScale.title).toBe(32);
+  });
+
+  it('글꼴 오버라이드: 모르는 키·잘못된 값 타입은 던진다', () => {
+    const bad = (fonts: unknown) => () => getDeckTheme('report', { theme: { fonts: fonts as never } });
+    expect(bad({ colour: 'x' })).toThrow();
+    expect(bad({ latin: 123 })).toThrow();
+    expect(bad({ latin: '' })).toThrow();
+    expect(bad({ fallback: 'Arial' })).toThrow();
+    expect(bad({ fallback: ['Arial', 1] })).toThrow();
+    const t = getDeckTheme('report', { theme: { fonts: { title: '나눔고딕', fallback: ['맑은 고딕', 'Arial'] } } });
+    expect(t.fonts.title).toBe('나눔고딕');
+    expect(t.fonts.fallback).toEqual(['맑은 고딕', 'Arial']);
+  });
 });
 
 describe('office/pptx/theme — 공개 저장소 정화', () => {

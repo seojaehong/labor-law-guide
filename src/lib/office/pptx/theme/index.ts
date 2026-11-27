@@ -137,6 +137,8 @@ function deepFreeze<T>(o: T): T {
 export const DECK_RULES: Readonly<DeckRulesData> = deepFreeze(RULES_JSON as unknown as DeckRulesData);
 
 const HEX = /^[0-9A-F]{6}$/;
+/** fallback 을 뺀 글꼴 이름 칸 */
+const FONT_KEYS = Object.freeze(['latin', 'eastAsia', 'title', 'bold', 'heavy', 'mono'] as const);
 
 function pick<K extends string>(what: string, name: string | undefined, table: Record<string, unknown>, dflt: K): K {
   const k = (name ?? dflt) as K;
@@ -190,16 +192,32 @@ export function getDeckTheme(kind: DeckKind, opts: DeckThemeOptions = {}): DeckT
   const fonts: DeckFonts = { ...(base.fonts as DeckFonts), fallback: [...base.fonts.fallback] };
   for (const [key, v] of Object.entries(over.fonts ?? {})) {
     if (v === undefined) continue;
-    (fonts as unknown as Record<string, unknown>)[key] = Array.isArray(v) ? [...v] : v;
+    if (key === 'fallback') {
+      if (!Array.isArray(v) || !v.every((x) => typeof x === 'string' && x.length > 0)) {
+        throw new Error(`글꼴 fallback 은 글꼴 이름 배열: ${JSON.stringify(v)}`);
+      }
+      fonts.fallback = [...v];
+      continue;
+    }
+    if (!(FONT_KEYS as readonly string[]).includes(key)) throw new Error(`글꼴 칸이 아닙니다: ${key}`);
+    if (typeof v !== 'string' || v.length === 0) throw new Error(`글꼴 이름은 빈 칸 아닌 문자열: ${key}=${String(v)}`);
+    (fonts as unknown as Record<string, string>)[key] = v;
   }
+  const prof = R.profiles[profile];
   const typeScale: DeckTypeScale = { ...(base.type_scale as DeckTypeScale) };
+  // 기본 크기가 프로필 하한보다 작으면 프로필 목표 크기(범위면 아래 끝)로 올린다 — 그대로 쓴 덱이 자기 하한 검사에 걸리지 않게.
+  for (const role of ['title', 'body'] as const) {
+    if (typeScale[role] < prof.min[role]) {
+      const tg = prof.target[role];
+      typeScale[role] = Math.max(Array.isArray(tg) ? tg[0] : tg, prof.min[role]);
+    }
+  }
   for (const [key, v] of Object.entries(over.typeScale ?? {})) {
     if (v === undefined) continue;
     if (!(key in typeScale) || typeof v !== 'number' || !(v > 0)) throw new Error(`크기 값이 잘못됐습니다: ${key}=${String(v)}`);
     (typeScale as unknown as Record<string, number>)[key] = v;
   }
 
-  const prof = R.profiles[profile];
   const ls = R.line_spacing;
   return {
     name: over.name ?? base.name,
