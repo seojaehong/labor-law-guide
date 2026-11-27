@@ -15,6 +15,8 @@ const MAT = (o: O = {}) => ({ ...P, multiple: 'single', premature: 'no', birthSt
 const PREG = (o: O = {}) => ({ ...P, dueDate: '2027-08-01', pregWeeks: '10', risk: 'none', start: '2027-01-11', end: '2027-01-29', workStart: '10:00', workEnd: '16:00', again: 'first', appliedOn: '2027-01-08', ...o }); // 3일 전
 const CHR = (o: O = {}) => ({ ...P, childName: '김다라', childBirth: '2020-05-01', start: '2027-02-01', end: '2027-07-31', weeklyBefore: '40', weeklyAfter: '30', workStart: '10:00', workEnd: '17:00', appliedOn: '2027-01-02', ...o }); // 30일 전
 const FCL = (o: O = {}) => ({ ...P, familyName: '김부모', familyBirth: '1955-06-01', relation: 'parent', cause: 'illness', causeDetail: '수술 뒤 회복 간병', start: '2027-03-02', end: '2027-03-31', appliedOn: '2027-01-31', ...o }); // 30일 전·30일
+// 근로조건 서면 — 사업주가 쓴다(근로자 = employee). 기본급은 24/40 비례, 식대는 그대로
+const CHT = (o: O = {}) => ({ company: '가나다상사', ceo: '박대표', employee: '김가나', childName: '김다라', childBirth: '2020-05-01', start: '2027-02-01', end: '2027-07-31', weeklyBefore: '40', weeklyAfter: '24', workStart: '10:00', workEnd: '16:00', breakTime: '12:00~13:00', usedBefore: '없음', pay1Name: '기본급', pay1Before: '3,000,000', pay1After: '1,800,000', pay2Name: '식대', pay2Before: '200,000', pay2After: '200,000', signedOn: '2027-01-20', ...o });
 const FCV = (o: O = {}) => ({ ...P, familyName: '김다라', familyBirth: '2020-05-01', relation: 'child', cause: 'childcare', days: '2027-03-02,2027-03-03', appliedOn: '2027-03-01', ...o });
 
 describe('날짜 도우미', () => {
@@ -30,11 +32,11 @@ describe('날짜 도우미', () => {
 });
 
 describe('서식 목록', () => {
-  it('12종, id 가 겹치지 않는다', () => {
+  it('13종, id 가 겹치지 않는다', () => {
     const ids = catalog().map((f) => f.id);
     expect(ids).toEqual([
       'childcare-leave', 'short-childcare-leave', 'spouse-maternity-leave', 'infertility-leave', 'childcare-leave-approval', 'short-leave-reschedule', 'integrated-leave-application',
-      'maternity-leave', 'pregnancy-hours-reduction', 'childcare-hours-reduction', 'family-care-leave', 'family-care-vacation',
+      'maternity-leave', 'pregnancy-hours-reduction', 'childcare-hours-reduction', 'childcare-hours-terms', 'family-care-leave', 'family-care-vacation',
     ]);
     expect(new Set(ids).size).toBe(ids.length);
   });
@@ -134,6 +136,7 @@ describe('공개 문구 금지어', () => {
       notes('maternity-leave', MAT({ multiple: 'multiple', premature: 'yes', split: 'age40', splitDetail: '2027-01-04 ~ 2027-01-15', end: '2027-06-30' })),
       notes('pregnancy-hours-reduction', PREG({ pregWeeks: '20', appliedOn: '2027-01-11' })),
       notes('childcare-hours-reduction', CHR({ weeklyAfter: '10', end: '2028-12-31', appliedOn: '2027-01-30' })),
+      notes('childcare-hours-terms', CHT({ weeklyAfter: '10', pay1After: '100,000' })),
       notes('family-care-leave', FCL({ relation: 'grandparent', start: '2027-02-01', end: '2027-06-30', appliedOn: '2027-01-31' })),
       notes('family-care-vacation', FCV({ relation: 'grandchild', days: Array.from({ length: 11 }, (_, i) => `2027-03-${String(i + 2).padStart(2, '0')}`).join(',') })),
     ].flatMap((r) => [...r.notes, r.md])];
@@ -154,6 +157,7 @@ describe('한글(hwpx) 만들기', () => {
       'maternity-leave': MAT(),
       'pregnancy-hours-reduction': PREG(),
       'childcare-hours-reduction': CHR(),
+      'childcare-hours-terms': CHT(),
       'family-care-leave': FCL(),
       'family-care-vacation': FCV(),
     };
@@ -426,5 +430,31 @@ describe('가족돌봄휴가 신청서 — 남녀고용평등법 제22조의2제
     expect(hasNote(notes('family-care-vacation', FCV({ relation: 'grandchild' })), /제16조의3제2항/)).toBe(true);
     expect(hasNote(notes('family-care-vacation', FCV()), /제16조의3제2항/)).toBe(false);
     expect(hasNote(notes('family-care-vacation', FCV()), /가족돌봄휴직 기간에 포함/)).toBe(true);
+  });
+});
+
+describe('육아기 근로시간 단축 근로조건 서면 — 남녀고용평등법 제19조의3', () => {
+  it('비례액(월 3,000,000 × 24/40 = 1,800,000)보다 적을 때만 제19조의3제1항 안내 — 경계 양쪽', () => {
+    expect(hasNote(notes('childcare-hours-terms', CHT()), /비례/)).toBe(false);
+    expect(hasNote(notes('childcare-hours-terms', CHT({ pay1After: '1,799,990' })), /1,800,000원.*제19조의3제1항/)).toBe(true);
+    // 비례를 적용하지 않는 항목(단축 후 = 단축 전)은 안내 없음
+    expect(hasNote(notes('childcare-hours-terms', CHT({ pay2After: '200,000' })), /식대/)).toBe(false);
+  });
+  it('단축 후 주 근로시간 15~35시간(제19조의2제3항)', () => {
+    expect(hasNote(notes('childcare-hours-terms', CHT({ weeklyAfter: '35' })), /15시간 이상/)).toBe(false);
+    expect(hasNote(notes('childcare-hours-terms', CHT({ weeklyAfter: '36', pay1After: '2,700,000' })), /36시간.*15시간 이상/)).toBe(true);
+  });
+  it('금액은 숫자·쉼표만, 금액을 적으면 항목 이름도', () => {
+    expect(notes('childcare-hours-terms', CHT({ pay1Before: '삼백만' })).problems.join()).toMatch(/금액/);
+    expect(notes('childcare-hours-terms', CHT({ pay3Before: '100,000' })).problems.join()).toMatch(/항목 이름/);
+  });
+  it('원고에 임금 줄·두 사람 서명·연장근로·평균임금 안내가 들어간다', () => {
+    const r = notes('childcare-hours-terms', CHT());
+    expect(r.md).toContain('기본급: 단축 전 3,000,000원 → 단축 후 1,800,000원');
+    expect(r.md).toContain('식대: 단축 전 200,000원 → 단축 후 200,000원');
+    expect(r.md).toMatch(/근로자\s+김가나\s+\(서명 또는 인\)/);
+    expect(r.md).toMatch(/가나다상사 대표\s+박대표\s+\(서명 또는 인\)/);
+    expect(hasNote(r, /주 12시간.*제19조의3제3항/)).toBe(true);
+    expect(hasNote(r, /평균임금.*제19조의3제4항/)).toBe(true);
   });
 });

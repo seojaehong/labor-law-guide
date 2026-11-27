@@ -7,6 +7,7 @@
  *   근로기준법(2026.10.8 시행) 제74조제1항·제2항·제4항·제7항·제8항, 같은 법 시행령(2025.10.23 시행) 제43조제1항·제43조의2,
  *   같은 법 시행규칙 제12조의2·제12조의3
  *   남녀고용평등법(2026.9.18 시행) 제19조의2·제19조의3·제19조의4제2항·제22조의2, 같은 법 시행령(2026.9.18 시행) 제15조·제15조의2·제16조의2·제16조의3
+ * 3차(조회 2026-11-28): 남녀고용평등법 제19조의2제3항·제6항·제19조의3(근로조건 서면)
  * ★ 주민등록번호 칸은 두지 않는다(생년월일만). ★ 안내 문구는 조문을 옮겨 적을 뿐 결론을 내리지 않는다.
  */
 import { addDays, addMonths, diffDays, fmtDate, leadPhrase, parseYmd, periodLastDay, spanDays } from './dates';
@@ -692,6 +693,100 @@ const childcareHours: HrForm = {
   },
 };
 
+// ── 10-2. 육아기 근로시간 단축 근로조건 서면(법 제19조의3제2항) ── 법정 서식 없음, 사업주·근로자가 함께 서명
+const PAY_SLOTS = [1, 2, 3];
+const AMOUNT = /^\d{1,3}(,\d{3})*$|^\d+$/;
+const won = (n: number) => `${n.toLocaleString('ko-KR')}원`;
+const childcareTerms: HrForm = {
+  id: 'childcare-hours-terms',
+  title: '육아기 근로시간 단축 근로조건 서면',
+  writer: 'employer',
+  summary: '육아기 근로시간 단축을 하는 근로자의 단축 기간 중 근로조건(단축 후 근로시간·근무 시각·업무·임금·연차 사용 시간대)을 사업주와 근로자가 서면으로 정하는 문서.',
+  basis: [`${LAW} 제19조의2제3항·제6항·제19조의3`],
+  fields: [
+    { key: 'employee', label: '근로자 성명', type: 'text', required: true, max: 40 },
+    { key: 'childName', label: '대상 자녀 성명', type: 'text', required: true, max: 40 },
+    { key: 'childBirth', label: '자녀 생년월일', type: 'date', required: true },
+    { key: 'start', label: '단축 시작일', type: 'date', required: true },
+    { key: 'end', label: '단축 종료일', type: 'date', required: true },
+    { key: 'weeklyBefore', label: '단축 전 주 소정근로시간', type: 'text', required: true, help: '숫자만. 예: 40', max: 4 },
+    { key: 'weeklyAfter', label: '단축 후 주 근로시간', type: 'text', required: true, help: '숫자만. 예: 24', max: 4 },
+    ...WORK_TIME,
+    { key: 'breakTime', label: '단축 근무 중 휴게시간', type: 'text', help: '예: 12:00~13:00', max: 40 },
+    { key: 'schedule', label: '요일별 근무 방식', type: 'multiline', help: '요일마다 다르면 적습니다. 예: 월·수·금 근무', max: 300 },
+    { key: 'usedBefore', label: '같은 자녀로 이미 쓴 단축 기간', type: 'text', help: '없으면 「없음」', max: 80 },
+    { key: 'dutyBefore', label: '단축 전 업무', type: 'multiline', max: 300 },
+    { key: 'dutyAfter', label: '단축 후 업무', type: 'multiline', max: 300 },
+    ...PAY_SLOTS.flatMap((i): FormField[] => [
+      { key: `pay${i}Name`, label: `임금 항목 ${i} 이름`, type: 'text', help: i === 1 ? '예: 기본급' : '예: 직책수당', max: 30 },
+      { key: `pay${i}Before`, label: `임금 항목 ${i} 단축 전 월액`, type: 'text', help: '숫자만. 예: 3,000,000', max: 15 },
+      { key: `pay${i}After`, label: `임금 항목 ${i} 단축 후 월액`, type: 'text', help: '숫자만', max: 15 },
+    ]),
+    { key: 'leaveFull', label: '연차 1일 사용 시간대', type: 'text', help: '예: 10:00~16:00', max: 60 },
+    { key: 'leaveHalf', label: '반차 사용 시간대', type: 'text', max: 60 },
+    { key: 'insurance', label: '4대보험 신고 처리', type: 'multiline', help: '노사가 정한 신고 방법을 적습니다', max: 300 },
+    { key: 'signedOn', label: '작성일', type: 'date', required: true },
+    COMPANY,
+    { key: 'ceo', label: '대표자 성명', type: 'text', required: true, max: 40 },
+  ],
+  compose(v) {
+    const problems: string[] = [];
+    const notes: string[] = [];
+    const p = period(v, 'start', 'end', problems, '단축 기간');
+    workHours(v, problems);
+    for (const [k, lab] of [['weeklyBefore', '단축 전 주 소정근로시간'], ['weeklyAfter', '단축 후 주 근로시간']] as const)
+      if (get(v, k) && !HOURS.test(get(v, k))) problems.push(`「${lab}」은(는) 숫자로만 적어 주세요(소수는 한 자리).`);
+    const hb = HOURS.test(get(v, 'weeklyBefore')) ? Number(get(v, 'weeklyBefore')) : null;
+    const ha = HOURS.test(get(v, 'weeklyAfter')) ? Number(get(v, 'weeklyAfter')) : null;
+    if (ha !== null && (ha < 15 || ha > 35))
+      notes.push(`단축 후 주 근로시간이 ${ha}시간입니다. 법 제19조의2제3항은 단축 후 근로시간이 주당 15시간 이상이어야 하고 35시간을 넘어서는 아니 된다고 정합니다.`);
+    const payRows: [string, string][] = [];
+    for (const i of PAY_SLOTS) {
+      const name = get(v, `pay${i}Name`);
+      const raw = [get(v, `pay${i}Before`), get(v, `pay${i}After`)];
+      const bad = raw.some((s) => s && !AMOUNT.test(s));
+      if (bad) problems.push(`임금 항목 ${i}의 금액은 숫자와 쉼표로만 적어 주세요.`);
+      if (!name && raw.some(Boolean)) problems.push(`임금 항목 ${i}의 금액을 적었으면 항목 이름도 적어 주세요.`);
+      if (!name || bad) continue;
+      const [b, a] = raw.map((s) => (s ? Number(s.replace(/,/g, '')) : null));
+      payRows.push([name, `단축 전 ${b !== null ? won(b) : ''} → 단축 후 ${a !== null ? won(a) : ''}`]);
+      // 비례액 = 단축 전 월액 × 단축 후 시간 ÷ 단축 전 시간(원 미만 버림). 그보다 적을 때만 조문을 옮긴다 — 결론은 내리지 않는다
+      if (b !== null && a !== null && hb && ha !== null) {
+        const prop = Math.floor((b * ha) / hb);
+        if (a < prop)
+          notes.push(`${name}의 단축 후 월액(${won(a)})이 근로시간 비례액(${won(prop)} = ${won(b)} × ${ha}/${hb})보다 적습니다. 법 제19조의3제1항은 근로시간에 비례하여 적용하는 경우 외에는 육아기 근로시간 단축을 이유로 근로조건을 불리하게 하여서는 아니 된다고 정합니다.`);
+      }
+    }
+    notes.push('단축 후 근로시간을 포함한 근로조건은 사업주와 근로자가 서면으로 정합니다(법 제19조의3제2항).');
+    notes.push('단축된 근로시간 외에 연장근로를 요구할 수 없고, 근로자가 명시적으로 청구하면 주 12시간 이내에서 연장근로를 시킬 수 있습니다(법 제19조의3제3항).');
+    notes.push('평균임금을 산정할 때 육아기 근로시간 단축 기간은 산정기간에서 뺍니다(법 제19조의3제4항).');
+    notes.push('단축 기간이 끝나면 단축 전과 같은 업무 또는 같은 수준의 임금을 지급하는 직무에 복귀시켜야 합니다(법 제19조의2제6항).');
+    const md = doc(
+      '육아기 근로시간 단축 근로조건 서면',
+      table([
+        ['근로자', get(v, 'employee')],
+        ['대상 자녀', `${get(v, 'childName')} (${D(v, 'childBirth')} 생)`],
+        ['단축 기간', periodText(p, v, 'start', 'end')],
+        ['같은 자녀로 이미 쓴 단축 기간', get(v, 'usedBefore')],
+        ['주 근로시간', `단축 전 ${get(v, 'weeklyBefore')}시간 → 단축 후 ${get(v, 'weeklyAfter')}시간`],
+        ['단축 중 근무 시각', `${get(v, 'workStart')} ~ ${get(v, 'workEnd')}`],
+        ['단축 중 휴게시간', get(v, 'breakTime')],
+        ['요일별 근무 방식', get(v, 'schedule')],
+        ['단축 전 업무', get(v, 'dutyBefore')],
+        ['단축 후 업무', get(v, 'dutyAfter')],
+        ...payRows.map(([n, t]): [string, string] => ['임금', `${n}: ${t}`]),
+        ['연차 1일 사용 시간대', get(v, 'leaveFull')],
+        ['반차 사용 시간대', get(v, 'leaveHalf')],
+        ['4대보험 신고 처리', get(v, 'insurance')],
+      ]),
+      '위 근로조건은 위 단축 기간에만 적용하고, 단축 기간이 끝나면 종전 근로계약의 근로조건을 적용한다.',
+      `${LAW} 제19조의3제2항에 따라 위와 같이 육아기 근로시간 단축 기간의 근로조건을 서면으로 정합니다.`,
+      [D(v, 'signedOn'), '', `근로자  ${get(v, 'employee')}  (서명 또는 인)`, '', `사업주  ${get(v, 'company')} 대표  ${get(v, 'ceo')}  (서명 또는 인)`],
+    );
+    return { md, problems, notes };
+  },
+};
+
 // ── 11·12. 가족돌봄휴직·가족돌봄휴가 신청서 ────────────
 const RELATION: Choice[] = [
   { value: 'grandparent', label: '조부모' },
@@ -804,4 +899,4 @@ const familyVacation: HrForm = {
   },
 };
 
-export const HR_FORMS: HrForm[] = [childcare, shortChildcare, spouseLeave, infertility, approval, reschedule, integrated, maternity, pregnancyHours, childcareHours, familyLeave, familyVacation];
+export const HR_FORMS: HrForm[] = [childcare, shortChildcare, spouseLeave, infertility, approval, reschedule, integrated, maternity, pregnancyHours, childcareHours, childcareTerms, familyLeave, familyVacation];
