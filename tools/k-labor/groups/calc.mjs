@@ -417,7 +417,10 @@ export function registerCalc(server) {
         annualBonus: z.number().min(0).optional().describe('퇴직 전 1년 동안 받은 상여금 총액(원) — 3/12을 더한다'),
         annualLeavePay: z.number().min(0).optional().describe('퇴직 전 1년 연차수당 중 평균임금에 넣는 금액(원) — 3/12을 더한다'),
         dailyOrdinaryWage: z.number().min(0).optional().describe('1일 통상임금(원, 알면) — 평균임금보다 높으면 이 값으로 계산한다(근로기준법 제2조제2항)'),
-        weeklyHours: z.number().min(0).max(168).describe('4주 평균 1주 소정근로시간 — 15시간 미만이면 지급 대상이 아니다(근로자퇴직급여 보장법 제4조제1항 단서)'),
+        // 🔴 선택 입력이어야 한다. #298 에서 필수가 되며 기존 3필드 호출(hireDate·lastWorkDate·wageTotal)이
+        //    핸들러에 닿기도 전에 거절됐다(#307). 엔진은 시간을 모르면 `hours-unknown` 으로 돌려주도록
+        //    설계돼 있다(src/lib/calc/severance.ts: hours15 === null). 필수로 두면 그 분기가 영원히 안 쓰인다.
+        weeklyHours: z.number().min(0).max(168).optional().describe('4주 평균 1주 소정근로시간 — 15시간 미만이면 지급 대상이 아니다(근로자퇴직급여 보장법 제4조제1항 단서). 비우면 지급 대상인지 따지지 않고 참고 계산액만 돌려준다(status=hours-unknown) — 미입력을 대상·비대상으로 단정하지 않는다'),
         excludedDays: z.number().int().min(0).optional().describe('산정기간 중 평균임금에서 빼는 기간의 일수 — 산정기간 일수에서 뺀다. 근로기준법 시행령 제2조제1항: 수습을 시작한 날부터 3개월 이내의 기간·사용자 귀책 휴업·출산전후휴가와 유산·사산 휴가·업무상 요양·육아휴직·쟁의행위·병역 등 의무 이행 기간(그 기간에 임금을 받았으면 빼지 않는다, 제7호 단서)·사용자 승인 휴업. 남녀고용평등법 제19조의3제4항: 육아기 근로시간 단축 기간. 남녀고용평등법 제22조의4제4항: 가족돌봄 등을 위한 근로시간 단축 기간'),
         excludedWage: z.number().min(0).optional().describe('그 제외기간에 받은 임금(원) — wageTotal 에 들어 있는 금액이라 임금총액에서 뺀다. excludedDays 가 0보다 크면 반드시 넣는다(받지 않았으면 0). 비우면 오류, 임금총액과 같으면(남은 기간 임금 0) 오류'),
         hoursChanged: z.boolean().optional().describe('재직 중 1주 소정근로시간이 15시간 이상과 미만 사이에서 바뀐 적이 있으면 true — 계산하지 않고 오류로 이 글을 돌려준다(weeklyHours 한 값으로 셀 수 없다): ' + HOURS_CHANGED_MESSAGE),
