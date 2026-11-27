@@ -62,7 +62,7 @@ export const TOOL_INDEX: Record<string, ToolIndexEntry> = {
   '/tools/leave/settlement': { group: 'exit', glyph: 'arrows', summary: '퇴사할 때 회계연도 연차를 다시 맞추기' },
   '/tools/wage-delay-interest': { group: 'exit', glyph: 'timer', summary: '늦게 준 임금·퇴직금의 연 20% 이자' },
 
-  '/tools/hr-forms': { group: 'leave', glyph: 'clipboard', summary: '출산전후휴가ㆍ육아휴직 통합 신청서·난임 신청서 한글 파일' },
+  '/tools/hr-forms': { group: 'leave', glyph: 'clipboard', summary: '출산전후휴가·육아휴직·근로시간 단축·가족돌봄 신청서 한글 파일' },
 
   '/tools/branch-directory': { group: 'insurance', glyph: 'phone', summary: '관할 공단 지사와 담당 전화번호' },
   '/tools/nhis-report-form': { group: 'insurance', glyph: 'clipboard', summary: '늦은 건강보험 취득·상실 신고서 PDF' },
