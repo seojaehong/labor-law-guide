@@ -350,6 +350,13 @@ function validate(s: MeetingSnapshot, kind: string): string[] {
   return errors;
 }
 
+/** 회의 스냅숏 검사(모양 + 내용). 같은 스냅숏을 받는 다른 덱(전파본)이 회의 덱과 같은 기준으로 거른다 */
+export function meetingSnapshotErrors(s: unknown, kind: 'pre' | 'final'): string[] {
+  const typeErrors = checkTypes(s);
+  if (typeErrors.length) return typeErrors;
+  return validate(s as MeetingSnapshot, kind);
+}
+
 function uniq(list: (string[] | undefined)[]): string[] {
   const out: string[] = [];
   for (const l of list) for (const a of l ?? []) if (!out.includes(a)) out.push(a);

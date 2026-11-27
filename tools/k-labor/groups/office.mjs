@@ -1,5 +1,5 @@
 // 오피스 묶음 — xlsx 서식 검사·행 추출·원본 서식 그대로 채우기·사양(JSON)으로 만들기 + 회의 pptx 만들기·읽기.
-//   inspect_xlsx · extract_xlsx_rows · fill_xlsx_template · make_xlsx_from_spec · make_meeting_pptx · extract_pptx · make_tbm_pptx (+ 원격 …_bytes)
+//   inspect_xlsx · extract_xlsx_rows · fill_xlsx_template · make_xlsx_from_spec · make_meeting_pptx · extract_pptx · make_tbm_pptx · make_broadcast_pptx (+ 원격 …_bytes)
 // 엔진 = src/lib/office(바이트 입출력 순수 함수). 이 파일만 경로를 읽고 쓴다.
 // ★ stdio 판(server.mjs)은 파일 경로로 받는다. 결과 파일은 writeNew(덮어쓰지 않음).
 // ★ 공개 문구 금지어 + 포괄·대신·대행·대리·지도를 이 묶음의 글(설명·결과)에 쓰지 않는다.
@@ -7,7 +7,7 @@ import { z } from 'zod';
 import fs from 'node:fs';
 import path from 'node:path';
 // 엔진은 라이브러리 입구(k-labor/office) 하나로만 부른다 — SafeClaw·작업자와 같은 함수·같은 Result
-import { DEFAULT_LIMITS, extractPptx, extractXlsxRows, fillXlsxTemplate, inspectXlsx, makeMeetingPptx, makeTbmPptx, makeXlsxFromSpec } from '@/lib/office';
+import { DEFAULT_LIMITS, extractPptx, extractXlsxRows, fillXlsxTemplate, inspectXlsx, makeBroadcastPptx, makeMeetingPptx, makeTbmPptx, makeXlsxFromSpec } from '@/lib/office';
 import {
   MAX_MCP_BODY_BYTES,
   REMOTE_OFFICE_LIMITS,
@@ -18,9 +18,9 @@ import {
 import { argsLookLikeRrn, text, writeNew } from '../lib/common.mjs';
 
 /** 파일 경로 입출력 — 이 PC 에서만 */
-export const officeLocalOnly = ['inspect_xlsx', 'extract_xlsx_rows', 'fill_xlsx_template', 'make_xlsx_from_spec', 'make_meeting_pptx', 'extract_pptx', 'make_tbm_pptx'];
+export const officeLocalOnly = ['inspect_xlsx', 'extract_xlsx_rows', 'fill_xlsx_template', 'make_xlsx_from_spec', 'make_meeting_pptx', 'extract_pptx', 'make_tbm_pptx', 'make_broadcast_pptx'];
 /** base64 입출력 — fs 없음, 원격판(remote.mjs)에 싣는다 */
-export const officeRemoteSafe = ['inspect_xlsx_bytes', 'extract_xlsx_rows_bytes', 'fill_xlsx_template_bytes', 'make_xlsx_from_spec_bytes', 'make_meeting_pptx_bytes', 'extract_pptx_bytes', 'make_tbm_pptx_bytes'];
+export const officeRemoteSafe = ['inspect_xlsx_bytes', 'extract_xlsx_rows_bytes', 'fill_xlsx_template_bytes', 'make_xlsx_from_spec_bytes', 'make_meeting_pptx_bytes', 'extract_pptx_bytes', 'make_tbm_pptx_bytes', 'make_broadcast_pptx_bytes'];
 export const officeTools = [...officeLocalOnly, ...officeRemoteSafe];
 
 const READS = { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false };
@@ -143,6 +143,17 @@ const runTbm = (snapshot, a, ctx) => makeTbmPptx(snapshot, { ...ctx, maxHazards:
 const TBM_DESC =
   'TBM 스냅숏(JSON)으로 작업 전 안전점검(TBM) 카드 덱(pptx, 기본 A4 가로)을 만든다. 작업마다 한 장 — 오늘 조심할 위험 3개 이내(허용 불가 → 조건부 → 신규·변경 → 중대재해 우려 순)·대책·확인 질문·빈 서명란. ' +
   '문장은 입력 원문 그대로 싣고, 확인 질문이 없으면 빈 줄로 둔다. 결과에 장 목록(slides)·작업별로 실은 것과 뺀 것(picks)·글자 수로 추정한 넘침 후보(overflowEstimates)를 돌려준다.';
+
+const broadcastOpts = {
+  signatureRows: z.number().int().min(1).max(30).optional().describe('공유 확인 서명란 행 수(1~30, 기본 12)'),
+  fontFace: z.string().max(60).optional().describe('글꼴'),
+  layout: z.enum(['A4', '16:9']).optional().describe('판형(기본 A4 가로)'),
+};
+const runBroadcast = (snapshot, a, ctx) => makeBroadcastPptx(snapshot, { ...ctx, signatureRows: a.signatureRows, fontFace: a.fontFace, layout: a.layout });
+const BROADCAST_DESC =
+  '확정된 회의 스냅숏(make_meeting_pptx 확정본과 같은 입력, status 확정)으로 근로자에게 전하는 회의 결과 전파본(pptx, 기본 A4 가로)을 만든다. ' +
+  '한눈 요약 · 새로 생기거나 바뀐 위험 · 이번에 정한 대책(담당·기한) · 근로자 의견 처리 결과 · 지난 대책 이행 결과 · 다음으로 미룬 것 · 빈 공유 확인 서명란. ' +
+  '문장은 스냅숏 원문 그대로 싣고 초안은 만들지 않는다. 결과에 장 목록(slides)·의견별 처리 결과(opinionResults)·넘침 후보(overflowEstimates)를 돌려준다.';
 
 /** 입력 파일을 읽는다. 오류면 문자열 */
 function readInput(file) {
@@ -320,6 +331,26 @@ export function registerOffice(server) {
   );
 
   server.registerTool(
+    'make_broadcast_pptx',
+    {
+      title: '회의 결과 전파본(pptx) 만들기(로컬 전용)',
+      description: `${BROADCAST_DESC} 이미 있는 파일은 덮어쓰지 않는다.`,
+      inputSchema: { snapshot: snapshotSchema, ...broadcastOpts, outFile: z.string().max(400).describe('저장할 새 pptx 파일 경로') },
+      annotations: WRITES,
+    },
+    async (a) => {
+      if (argsLookLikeRrn({ snapshot: a.snapshot })) return fail(RRN_STOP);
+      const o = checkOut(a.outFile, undefined, '.pptx');
+      if (typeof o === 'string') return fail(o, o === EXISTS ? { exists: String(a.outFile).trim() } : {});
+      const r = await runBroadcast(a.snapshot, a, LOCAL);
+      if (!r.ok) return text(toTool(r));
+      const out = r.files[0];
+      if (!save(o.out, out.bytes)) return fail(EXISTS, { exists: o.out });
+      return text({ ...toTool(r), file: { path: o.out, bytes: out.size, sha256: out.sha256 } });
+    },
+  );
+
+  server.registerTool(
     'extract_pptx',
     {
       title: '파워포인트(pptx) 장별 글자·표·notes 읽기(로컬 전용)',
@@ -488,6 +519,20 @@ function registerOfficeRemote(server) {
     async (a) => {
       if (argsLookLikeRrn({ snapshot: a.snapshot })) return fail(RRN_STOP);
       return text(remoteOut(await runTbm(a.snapshot, a, REMOTE)));
+    },
+  );
+
+  server.registerTool(
+    'make_broadcast_pptx_bytes',
+    {
+      title: '회의 결과 전파본(pptx) 만들기(base64)',
+      description: `${BROADCAST_DESC} 사진은 쓰지 않는다. 결과 pptx 를 base64 로 돌려주고 서버에 파일을 남기지 않는다. 결과는 ${REMOTE_OUT} 까지.`,
+      inputSchema: { snapshot: snapshotSchema, ...broadcastOpts },
+      annotations: REMOTE_MAKE,
+    },
+    async (a) => {
+      if (argsLookLikeRrn({ snapshot: a.snapshot })) return fail(RRN_STOP);
+      return text(remoteOut(await runBroadcast(a.snapshot, a, REMOTE)));
     },
   );
 

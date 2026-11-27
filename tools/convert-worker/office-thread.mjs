@@ -21,6 +21,8 @@ async function run() {
       return office.makeMeetingPptx(args.snapshot, { ...ctx, kind: args.kind, fontFace: args.fontFace, layout: args.layout });
     case 'pptx.extract':
       return office.extractPptx(input, ctx);
+    case 'pptx.broadcast':
+      return office.makeBroadcastPptx(args.snapshot, { ...ctx, signatureRows: args.signatureRows, fontFace: args.fontFace, layout: args.layout });
     case 'pptx.tbm':
       return office.makeTbmPptx(args.snapshot, { ...ctx, maxHazards: args.maxHazards, signatureRows: args.signatureRows, fontFace: args.fontFace, layout: args.layout });
     default:

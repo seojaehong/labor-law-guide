@@ -10,6 +10,7 @@ import { inspectXlsx as engineInspect, type InspectXlsxResult } from './xlsx/ins
 import { extractXlsxRows as engineExtract, type ExtractXlsxResult } from './xlsx/extract';
 import { fillXlsxTemplate as engineFill, type FillCell, type FillHiddenColumns, type FillRows, type PreservedReport } from './xlsx/fill';
 import { makeXlsxFromSpec as engineMake, type XlsxSpec } from './xlsx/make';
+import { makeBroadcastPptx as engineBroadcast, type BroadcastOptions, type BroadcastSlideInfo, type OpinionResult } from './pptx/broadcast';
 import { makeTbmPptx as engineTbm, type TbmOptions, type TbmPick, type TbmSlideInfo, type TbmSnapshot } from './pptx/tbm';
 import { makeMeetingPptx as engineMeeting, type MeetingChange, type MeetingOptions, type MeetingSlideInfo, type MeetingSnapshot, type OverflowEstimate, type PriorItem } from './pptx/meeting';
 import { extractPptx as engineExtractPptx, type PptxSlide } from './pptx/extract';
@@ -40,6 +41,7 @@ export type {
   MeetingStatus,
 } from './pptx/meeting';
 export type { PptxSlide, PptxShape } from './pptx/extract';
+export type { BroadcastOptions, BroadcastSlideInfo, OpinionResult } from './pptx/broadcast';
 export type { TbmSnapshot, TbmTask, TbmHazard, TbmAcceptability, TbmOptions, TbmSlideInfo, TbmPick } from './pptx/tbm';
 
 /** 실패 코드 — 열린 유니언(새 코드가 생겨도 받는 쪽 타입이 깨지지 않는다) */
@@ -86,7 +88,7 @@ export interface OfficeContext {
   limits: Limits;
 }
 
-export const OFFICE_OPS = ['xlsx.inspect', 'xlsx.extract', 'xlsx.fill', 'xlsx.make', 'pptx.meeting', 'pptx.extract', 'pptx.tbm'] as const;
+export const OFFICE_OPS = ['xlsx.inspect', 'xlsx.extract', 'xlsx.fill', 'xlsx.make', 'pptx.meeting', 'pptx.extract', 'pptx.tbm', 'pptx.broadcast'] as const;
 export type OfficeOp = (typeof OFFICE_OPS)[number];
 
 declare const __K_LABOR_OFFICE_ENGINE__: EngineInfo | undefined;
@@ -257,6 +259,25 @@ export function makeTbmPptx(snapshot: TbmSnapshot, opts: TbmPptxOptions): Promis
     if (!r.ok || !r.bytes) return failure('pptx.tbm', 'INVALID_ARGS', (r.errors ?? ['덱을 만들지 못했습니다.']).join(' / '), { errors: r.errors ?? [] }, notices(r.warnings));
     const data: TbmPptxData = { slides: r.slides, picks: r.picks, overflowEstimates: r.overflowEstimates };
     return { ok: true, data, files: [file(opts.outName ?? 'tbm.pptx', PPTX_MIME, r.bytes)], warnings: notices(r.warnings), meta: meta('pptx.tbm') };
+  });
+}
+
+export interface BroadcastPptxOptions extends OfficeContext, BroadcastOptions {
+  outName?: string;
+}
+export interface BroadcastPptxData {
+  slides: BroadcastSlideInfo[];
+  opinionResults: OpinionResult[];
+  overflowEstimates: OverflowEstimate[];
+}
+
+/** 확정 회의 스냅숏 → 회의 결과 전파본(근로자 공유 덱). 결과 파일은 files[0] */
+export function makeBroadcastPptx(snapshot: MeetingSnapshot, opts: BroadcastPptxOptions): Promise<Result<BroadcastPptxData>> {
+  return run('pptx.broadcast', opts, null, async () => {
+    const r = await engineBroadcast(snapshot, { signatureRows: opts.signatureRows, fontFace: opts.fontFace, layout: opts.layout });
+    if (!r.ok || !r.bytes) return failure('pptx.broadcast', 'INVALID_ARGS', (r.errors ?? ['덱을 만들지 못했습니다.']).join(' / '), { errors: r.errors ?? [] }, notices(r.warnings));
+    const data: BroadcastPptxData = { slides: r.slides, opinionResults: r.opinionResults, overflowEstimates: r.overflowEstimates };
+    return { ok: true, data, files: [file(opts.outName ?? 'broadcast.pptx', PPTX_MIME, r.bytes)], warnings: notices(r.warnings), meta: meta('pptx.broadcast') };
   });
 }
 
