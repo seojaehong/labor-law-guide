@@ -112,6 +112,7 @@ function fakeServer() {
 
 const calls: Record<string, string>[] = [];
 let mismatch900001 = false;
+let noInfo900001 = false;
 function routeFixture(u: URL): unknown {
   const p = Object.fromEntries(u.searchParams);
   calls.push(p);
@@ -133,6 +134,7 @@ function routeFixture(u: URL): unknown {
       if (!m) return {};
       const b = fix(`../drf/${m}`);
       // 합성 판 900001 은 목록 줄(공포 2026. 10. 30. 제99999호)과 본문 기본정보를 맞춘다 — mismatch900001 이면 일부러 어긋난 본문을 준다
+      if (p.MST === '900001' && noInfo900001) return { ...b, 법령: { ...b.법령, 기본정보: undefined } };
       if (p.MST === '900001' && !mismatch900001) return { ...b, 법령: { ...b.법령, 기본정보: { ...b.법령.기본정보, 공포번호: '99999', 공포일자: '20261030' } } };
       return b;
     }
@@ -230,6 +232,23 @@ describe('law 도구', () => {
     } finally {
       mismatch900001 = false;
     }
+  });
+
+  it('get_law_articles — 본문에 기본정보(판 식별정보)가 없으면 판을 증명하지 못해 원문을 내지 않는다(interrogate 2차)', async () => {
+    noInfo900001 = true;
+    try {
+      const r = await run('get_law_articles', { lawId: '001872', articles: ['제44조의4'], asOf: '2027-01-01' });
+      expect(r.ok).toBe(false);
+      expect(r.error).toMatch(/법령 ID 없음/);
+    } finally {
+      noInfo900001 = false;
+    }
+  });
+
+  it('get_law_articles — 탭으로 나눈 주민번호 모양도 외부로 보내기 전에 막는다(interrogate 2차)', async () => {
+    const r = await run('get_law_articles', { law: '900101	1234567', articles: ['제1조'] });
+    expect(r.ok).toBe(false);
+    expect(calls.length).toBe(0);
   });
 
   it('get_law_articles — 거절: 법령 없음·조문 꼴·전부 없음·주민번호 모양·못 찾은 법령', async () => {

@@ -54,8 +54,8 @@ describe('육아기 근로시간 단축 급여 — 두 구간', () => {
 
   it('단축 전 소정근로시간이 40시간보다 짧아도 그 시간을 분모로 쓴다 — 35→20시간', () => {
     const r = calcChildcareReduction({ ...BASE, weeklyHoursBefore: 35, weeklyHoursAfter: 20 });
-    // 2,500,000 × 10/35 + 1,600,000 × 5/35 = 714,285.71 + 228,571.43 = 942,857.14 → 원 미만 버림
-    expect(r.worker!.monthly).toBe(942_857);
+    // 2,500,000 × 10/35 + 1,600,000 × 5/35 = 714,285.71 + 228,571.43 = 942,857.14 → 10원 미만 버림(업무편람 281쪽 「원 단위 절사」)
+    expect(r.worker!.monthly).toBe(942_850);
     expect(r.assumptions.map((x) => x.key)).toContain('rounding');
   });
 });
@@ -80,11 +80,12 @@ describe('기준일별 상한 — 지급대상 기간이 속한 판(부칙: 시�
     const s = r.worker!.schedule!;
     expect(s.periods.map((p) => [p.from, p.to, p.amount])).toEqual([
       ['2025-11-10', '2025-12-09', 775_000],
-      ['2025-12-10', '2026-01-09', 775_000],
+      // 시행일에 걸친 기간은 시행일 앞뒤 일수를 그 기간 일수로 나눠 각 판 월액을 곱하고 10원 미만을 버린다(업무편람 281쪽 사례)
+      // 775,000 × 22/31 + 865,000 × 9/31 = 550,000 + 251,129.03 = 801,129 → 801,120
+      ['2025-12-10', '2026-01-09', 801_120],
       ['2026-01-10', '2026-02-09', 865_000],
     ]);
-    // 시행일에 걸친 기간(12/10~1/9)은 앞뒤 상한을 나누는 방식을 확인하지 못해 기간 합계를 확정하지 않는다(interrogate 261127 #5)
-    expect(s.total).toBeNull();
+    expect(s.total).toBe(2_441_120);
     expect(s.periods[1].crossesRuleChange).toBe(true);
     expect(r.assumptions.map((x) => x.key)).toContain('ruleChangeInsidePeriod');
   });
@@ -160,7 +161,7 @@ describe('요건 확인 — 확인 못 한 것을 충족으로 숨기지 않는�
   });
 
   it('30일 이상 — 출산전후휴가와 겹친 날은 빼고 센다', () => {
-    const r = calcChildcareReduction({ ...BASE, startDate: '2027-03-01', endDate: '2027-04-09', maternityOverlapDays: 15 });
+    const r = calcChildcareReduction({ ...BASE, startDate: '2027-03-01', endDate: '2027-04-09', maternityOverlapDays: 15, priorUseDays: 0 });
     expect(r.worker!.eligibility.find((c) => c.key === 'thirtyDays')!.status).toBe('unmet'); // 40일 − 15일 = 25일
   });
 
@@ -331,7 +332,7 @@ describe('지급액(payable) — 시행령 제104조의4 감액과 수급 판정
   });
 
   it('30일 미만 단축이면 지급액 0', () => {
-    const r = calcChildcareReduction({ ...BASE, startDate: '2026-07-01', endDate: '2026-07-07', maternityOverlapDays: 0 });
+    const r = calcChildcareReduction({ ...BASE, startDate: '2026-07-01', endDate: '2026-07-07', maternityOverlapDays: 0, priorUseDays: 0 });
     expect(r.worker!.verdict).toBe('not-eligible');
     expect(r.worker!.payable.monthly).toBe(0);
     expect(r.worker!.payable.total).toBe(0);
@@ -339,11 +340,22 @@ describe('지급액(payable) — 시행령 제104조의4 감액과 수급 판정
 });
 
 describe('법정 한도 — 기간·출산전후휴가', () => {
-  it('앞서 쓴 기간을 더해 3년을 넘으면 미충족(쓰지 않은 육아휴직 두 배를 더해도 최대 3년)', () => {
+  it('앞서 쓴 기간을 더해 3년을 넘으면 3년까지만 센다 — 넘는 기간만 빼고 한도 안 기간은 지급(업무편람 「초과하는 기간은 지급하지 않음」)', () => {
     const r = calcChildcareReduction({ ...BASE, startDate: '2026-07-01', endDate: '2030-06-30', priorUseDays: 0, priorityFirm: true });
-    expect(r.worker!.eligibility.find((c) => c.key === 'periodLimit')!.status).toBe('unmet');
-    expect(r.worker!.payable.total).toBe(0);
-    expect(r.employer.subsidy.monthly).toBe(0);
+    expect(r.worker!.eligibility.find((c) => c.key === 'periodLimit')!.status).toBe('check');
+    expect(r.worker!.verdict).not.toBe('not-eligible');
+    const s = r.worker!.schedule!;
+    expect(s.periods.at(-1)!.to).toBe('2029-06-30');
+    expect(s.total).toBe(36 * 865_000);
+    expect(r.employer.subsidy.monthly).toBe(300_000);
+    expect(r.employer.subsidy.total).toBe(36 * 300_000);
+    expect(r.assumptions.map((x) => x.key)).toContain('periodCapped');
+  });
+
+  it('한도가 96일 남았으면 96일까지만 센다(앞서 1,000일 사용)', () => {
+    const r = calcChildcareReduction({ ...BASE, endDate: '2027-06-20', priorUseDays: 1000 });
+    expect(r.worker!.schedule!.periods.at(-1)!.to).toBe('2027-03-26');
+    expect(r.worker!.verdict).not.toBe('not-eligible');
   });
 
   it('출산전후휴가와 겹친 날이 있으면 기간 합계·신청 마감을 확정하지 않는다(단축은 휴가 개시 전날 끝난 것으로 본다 — 시행령 제15조의3제4항)', () => {
@@ -365,7 +377,7 @@ describe('법정 한도 — 기간·출산전후휴가', () => {
 });
 
 describe('사업주 요건 — 업무분담·피보험자', () => {
-  const ONE_MONTH = { ...BASE, startDate: '2026-07-01', endDate: '2026-07-31', priorityFirm: true, maternityOverlapDays: 0, workSharing: { paidMonthly: 300_000 } };
+  const ONE_MONTH = { ...BASE, startDate: '2026-07-01', endDate: '2026-07-31', priorityFirm: true, maternityOverlapDays: 0, priorUseDays: 0, workSharing: { paidMonthly: 300_000 } };
 
   it('30일 미만 단축이면 업무분담 지원금도 0', () => {
     const r = calcChildcareReduction({ ...ONE_MONTH, endDate: '2026-07-07' });
@@ -399,5 +411,112 @@ describe('사업주 요건 — 업무분담·피보험자', () => {
     expect(a.employer.subsidy.eligibility.find((c) => c.key === 'insured')!.status).toBe('check');
     const b = calcChildcareReduction({ ...ONE_MONTH, insuredDays180: false, currentlyInsured: true });
     expect(b.employer.subsidy.eligibility.find((c) => c.key === 'insured')!.status).toBe('met');
+  });
+});
+
+// ── interrogate 2차(261127, 페이블·오푸스·아스트라) 반영 ──
+describe('2차 검토 — 기간 한도·피보험자·감액 기준·끝수', () => {
+  it('2025. 2. 23. 전 개시분도 1년을 넘으면 미충족이 아니라 확인 필요(종전 법도 쓰지 않은 육아휴직 기간 가산)', () => {
+    const r = calcChildcareReduction({ ...BASE, startDate: '2024-09-01', endDate: '2025-12-31', priorUseDays: 0, insuredDays180: true, maternityOverlapDays: 0 });
+    expect(r.worker!.eligibility.find((c) => c.key === 'periodLimit')!.status).toBe('check');
+    expect(r.worker!.verdict).not.toBe('not-eligible');
+  });
+
+  it('단축 당시 피보험자가 아니면 근로자 급여·업무분담 지원금도 0', () => {
+    const r = calcChildcareReduction({ ...BASE, endDate: '2027-12-20', priorityFirm: true, maternityOverlapDays: 0, priorUseDays: 0, childEligible: true, currentlyInsured: false, workSharing: { paidMonthly: 300_000 } });
+    expect(r.worker!.verdict).toBe('not-eligible');
+    expect(r.worker!.payable.monthly).toBe(0);
+    expect(r.employer.subsidy.monthly).toBe(0);
+    expect(r.employer.workSharing!.monthly).toBe(0);
+    expect(r.employer.workSharing!.eligibility.map((c) => c.key)).toContain('insured');
+  });
+
+  it('감액 기준은 단축 시작일 직전 월의 통상임금(시행령 제104조의4제1호) — 직전 월 380만·개시 400만·회사 300만 → 감액 65,000', () => {
+    const r = calcChildcareReduction({ ...BASE, startDate: '2027-01-01', employerPaidMonthly: 3_000_000, wageBeforeStartMonth: 3_800_000 });
+    expect(r.worker!.payable).toMatchObject({ deduction: 65_000, monthly: 800_000 });
+    const d = calcChildcareReduction({ ...BASE, employerPaidMonthly: 3_000_000 });
+    expect(d.assumptions.map((x) => x.key)).toContain('deductionBaseWage');
+  });
+
+  it('업무편람 281쪽 사례 — 250만·40→25시간, 2024. 12. 21.~2025. 1. 20.(31일) → 719,750원', () => {
+    const r = calcChildcareReduction({ monthlyOrdinaryWage: 2_500_000, weeklyHoursBefore: 40, weeklyHoursAfter: 25, startDate: '2024-12-21', endDate: '2025-01-20' });
+    const s = r.worker!.schedule!;
+    expect(s.periods.map((p) => p.amount)).toEqual([719_750]);
+    expect(s.total).toBe(719_750);
+  });
+
+  it('1개월 미만 기간은 10원 미만을 버린다 — 865,000 × 7/30 = 201,833 → 201,830', () => {
+    const r = calcChildcareReduction({ ...BASE, startDate: '2027-03-01', endDate: '2027-04-07' });
+    expect(r.worker!.schedule!.periods[1].amount).toBe(201_830);
+  });
+
+  it('상한이 바뀌는 판이 뒤에 있으면 판별 지급액을 따로 낸다', () => {
+    const r = calcChildcareReduction({ ...BASE, startDate: '2025-11-10', endDate: '2026-06-30', employerPaidMonthly: 3_200_000 });
+    expect(r.worker!.payable.byRule.map((x) => [x.from, x.monthly, x.payable])).toEqual([
+      ['2025-01-01', 775_000, 775_000],
+      ['2026-01-01', 865_000, 800_000],
+    ]);
+  });
+
+  it('출산전후휴가와 겹치면 기간별 금액도 내지 않는다', () => {
+    const r = calcChildcareReduction({ ...BASE, startDate: '2026-07-01', endDate: '2026-08-31', maternityOverlapDays: 31 });
+    expect(r.worker!.schedule!.periods.every((p) => p.amount === null)).toBe(true);
+  });
+
+  it('겹친 일수가 기간보다 길거나 기간이 10년을 넘으면 입력 오류', () => {
+    expect(() => calcChildcareReduction({ ...BASE, startDate: '2026-07-01', endDate: '2026-07-10', maternityOverlapDays: 15 })).toThrow(/겹친/);
+    expect(() => calcChildcareReduction({ ...BASE, startDate: '2026-07-01', endDate: '2040-06-30' })).toThrow(/10년/);
+  });
+
+  it('이번 기간이 30일 미만이어도 앞서 나눠 쓴 기간이 있거나 모르면 확인 필요, 처음(0일)이면 미충족', () => {
+    const a = calcChildcareReduction({ ...BASE, startDate: '2027-02-01', endDate: '2027-02-28', priorUseDays: 31, maternityOverlapDays: 0 });
+    expect(a.worker!.eligibility.find((c) => c.key === 'thirtyDays')!.status).toBe('check');
+    const b = calcChildcareReduction({ ...BASE, startDate: '2027-02-01', endDate: '2027-02-28', priorUseDays: 0, maternityOverlapDays: 0 });
+    expect(b.worker!.eligibility.find((c) => c.key === 'thirtyDays')!.status).toBe('unmet');
+  });
+
+  it('잔여 50% 신청 — 근로자 자기 사정으로 6개월 전에 이직하면 이직 다음 날부터 12개월(시행규칙 제51조제2항제1호나목 단서)', () => {
+    const r = calcChildcareReduction({ ...BASE, endDate: '2027-12-20', priorityFirm: true });
+    expect(r.employer.subsidy.apply.note).toMatch(/이직한 날의 다음 날부터 12개월/);
+  });
+
+  it('근로자 통상임금이 빠져도 사업주 단축 지원금은 센다 — 개시일·우선지원 여부면 된다', () => {
+    const r = calcChildcareReduction({ weeklyHoursBefore: 40, weeklyHoursAfter: 24, startDate: '2026-12-21', endDate: '2027-12-20', priorityFirm: true, firstTimeGrant: true });
+    expect(r.status).toBe('needs-input');
+    expect(r.employer.subsidy.monthly).toBe(400_000);
+    const n = calcChildcareReduction({ monthlyOrdinaryWage: 4_000_000, priorityFirm: true });
+    expect(n.employer.needs.map((x) => x.key)).toContain('startDate');
+  });
+});
+
+describe('2차 검토 — 업무분담 지원금', () => {
+  const WS = { ...BASE, endDate: '2027-12-20', priorityFirm: true, maternityOverlapDays: 0, priorUseDays: 0, childEligible: true, currentlyInsured: true };
+
+  it('업무분담 종료일까지만 센다 — 한 달이면 200,000', () => {
+    const r = calcChildcareReduction({ ...WS, workSharing: { paidMonthly: 300_000, endDate: '2027-01-20' } });
+    expect(r.employer.workSharing!.total).toBe(200_000);
+  });
+
+  it('업무분담 시작일이 단축 종료일 뒤면 미충족·0', () => {
+    const r = calcChildcareReduction({ ...WS, workSharing: { paidMonthly: 300_000, startDate: '2028-03-01' } });
+    expect(r.employer.workSharing!.monthly).toBe(0);
+    expect(r.employer.workSharing!.eligibility.find((c) => c.key === 'withinReduction')!.status).toBe('unmet');
+  });
+
+  it('신청 마감(종료일부터 12개월)을 낸다', () => {
+    const r = calcChildcareReduction({ ...WS, workSharing: { paidMonthly: 300_000 } });
+    expect(r.employer.workSharing!.apply.until).toBe('2028-12-20');
+  });
+
+  it('다른 지원금은 고시 금액에서 먼저 빼고, 지급한 금액을 넘지 않게 — 지급 15만·다른 5만 → 15만(시행령 제29조제5항)', () => {
+    const r = calcChildcareReduction({ ...WS, workSharing: { paidMonthly: 150_000, otherSupportMonthly: 50_000 } });
+    expect(r.employer.workSharing!.monthly).toBe(150_000);
+  });
+
+  it('종료일·다른 지원금을 비우면 assumptions 로 알린다', () => {
+    const r = calcChildcareReduction({ ...WS, workSharing: { paidMonthly: 300_000 } });
+    const keys = r.assumptions.map((x) => x.key);
+    expect(keys).toContain('workSharingEnd');
+    expect(keys).toContain('workSharingOtherSupport');
   });
 });

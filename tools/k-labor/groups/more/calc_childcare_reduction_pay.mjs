@@ -1,5 +1,5 @@
 // 육아기 근로시간 단축 급여 + 사업주 출산육아기 고용안정장려금 — 정본 엔진(src/lib/calc/childcare-reduction)을 그대로 불러 쓴다.
-// 금액·시간·날짜와 예/아니오 사실만 받는다. 파일·네트워크를 건드리지 않는다 — 원격판에 그대로 실을 수 있다.
+// 금액·시간·날짜와 예/아니오 사실만 받는다. 파일·네트워크를 건드리지 않는다. 원격판에는 npm 게시(0.3.3) 전까지 싣지 않는다(calc.mjs calcRemoteHeld).
 // 사이트 화면은 아직 없다(261127 — 엔진·도구만 먼저).
 import { z } from 'zod';
 import { calcChildcareReduction } from '@/lib/calc/childcare-reduction';
@@ -40,6 +40,7 @@ function headline(r) {
       lines.push(p.monthly === null
         ? '실제 지급액은 회사가 단축 중 주는 금액과 합해 통상임금을 넘으면 그만큼 줄어듭니다(시행령 제104조의4) — employerPaidMonthly 를 넣으면 셉니다.'
         : `감액 반영 지급액 월 ${won(p.monthly)}(감액 ${won(p.deduction)}).`);
+      if (p.byRule.length > 1) lines.push(`상한이 바뀌는 판이 있어 판마다 다릅니다 — ${p.byRule.map((x) => `${dot(x.from)} 시행분 산식 ${won(x.monthly)}${x.payable === null ? '' : `·지급 ${won(x.payable)}`}`).join(' · ')}.`);
       if (w.schedule) lines.push(w.schedule.total === null ? '기간 합계는 내지 않았습니다(assumptions 참고).' : `단축 기간 산식 합계 ${won(w.schedule.total)}(${w.schedule.periods.length}개 기간, 감액 전).`);
     }
     const check = w.eligibility.filter((c) => c.status === 'check').length;
@@ -89,13 +90,15 @@ export function register(server) {
         employerExcluded: z.boolean().optional().describe('공공기관·지방공기업·제외 업종 등 장려금 지원 제외 사업주(고시 제17조)이면 true'),
         monthlyReportedPay: z.number().optional().describe('사업주가 신고한 근로자의 월평균 보수(원)'),
         employerPaidMonthly: z.number().optional().describe('단축 기간 중 회사가 매월 주는 임금과 단축을 이유로 주는 금품의 합계(원). 넣으면 급여 감액(시행령 제104조의4)을 반영한 지급액을 낸다'),
-        currentlyInsured: z.boolean().optional().describe('근로자가 지금 이 사업장의 고용보험 피보험자이면 true(장려금 요건, 개시 전 180일 이력과 별개)'),
+        currentlyInsured: z.boolean().optional().describe('근로자가 단축 당시 이 사업장의 고용보험 피보험자이면 true(급여·장려금 요건, 개시 전 180일 이력과 별개)'),
+        wageBeforeStartMonth: z.number().optional().describe('단축 시작일 직전 월을 기준으로 한 월 통상임금(원) — 감액 비교 기준(시행령 제104조의4). 비우면 monthlyOrdinaryWage 로 본다'),
         workSharing: z
           .object({
             paidMonthly: z.number().describe('업무분담자에게 업무분담을 사유로 매월 지급한 금액(원)'),
             startDate: z.string().optional().describe(`업무분담 시작일 ${DATE}(비우면 단축 개시일)`),
             otherSupport: z.boolean().optional().describe('업무분담자가 다른 근로시간 단축·대체인력 지원금의 지원 대상이면 true'),
             otherSupportMonthly: z.number().optional().describe('같은 업무분담 지정·대체인력으로 사업주가 매월 받은 다른 지원금(원) — 뺀다'),
+            endDate: z.string().optional().describe(`업무분담을 끝낸 날 ${DATE}(비우면 단축 종료일)`),
           })
           .optional()
           .describe('업무분담자를 지정해 금전을 지원했을 때만'),

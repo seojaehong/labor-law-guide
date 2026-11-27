@@ -20,7 +20,7 @@
 // ★ 공개 문구 금지어(src/lib/tool-kit/banned.ts)와 포괄·대신·대행·대리는 이 묶음이 쓰는 글(설명·안내)에 쓰지 않는다.
 //   판례·해석·법령 원문은 고치지 않고 그대로 싣는다 — 그런 칸은 LAW_OPEN_TEXT_FIELDS(smoke 가 금지어 시험에서 뺀다).
 import { z } from 'zod';
-import { argsLookLikeRrn, text } from '../lib/common.mjs';
+import { argsLookLikeRrn, rrnLines, text } from '../lib/common.mjs';
 import {
   articleKey, articles as lawArticles, DRF_SOURCE, DrfError, fetchLaw, findArticle, getJson, lawInfo, normName, searchAll, versionAt, versionLink,
 } from '../lib/law-drf.mjs';
@@ -350,7 +350,7 @@ export function registerLaw(server) {
       title: '조문 원문 여러 개(법제처 실시간)',
       description:
         '법령 하나의 조문 여러 개를 그날(asOf, 기본 오늘) 시행 중인 판에서 법제처 국가법령정보 Open API 로 받는다(env LAW_OC 필요). 판 본문은 한 번만 받아 조문을 고른다. ' +
-        '법령은 이름·약칭(예: 남녀고용평등법) 또는 법령 ID(6자리)로 찾는다. 글자는 법제처 응답 그대로 싣고, 판 번호·시행일·공포번호·판 화면 주소와 조회 시각을 붙인다. 그 판에 없는 조문은 missing 에 모은다. ' +
+        '법령은 이름·약칭(예: 남녀고용평등법) 또는 법령 ID(6자리)로 찾는다. 조문 글자는 법제처 응답에서 옮기고 항·호의 줄바꿈·들여쓰기만 읽기용으로 정리한다(조문참고자료 제외). 판 목록과 받은 본문의 법령 ID·시행일·공포번호를 대조해 맞을 때만 판 번호·시행일·공포번호·판 화면 주소와 조회 시각을 붙인다. 그 판에 없는 조문은 missing 에 모은다. ' +
         '조문 하나를 묶은 법령 범위에서 보는 것은 get_law_article, 두 시점 사이 바뀐 글자는 compare_law_versions(둘 다 work-rules 묶음), 조문의 개정 이력은 get_article_history 로 본다.',
       inputSchema: {
         law: z.string().min(1).max(100).optional().describe('법령 이름 또는 약칭(예: 고용보험법 시행령, 남녀고용평등법). lawId 를 주면 비워도 된다'),
@@ -361,7 +361,8 @@ export function registerLaw(server) {
       annotations: READ_ONLY_LIVE,
     },
     async (a) => {
-      if (argsLookLikeRrn(a)) return fail(RRN_STOP);
+      // JSON 으로 감싸 보면 글 안의 탭·줄바꿈이 「	」 글자로 바뀌어 그 사이로 나눈 번호를 놓친다 — 외부로 나가는 글자는 원문으로도 본다
+      if (argsLookLikeRrn(a) || [a.law, ...(a.articles ?? [])].some((s) => rrnLines(s).length)) return fail(RRN_STOP);
       const name = a.law?.trim() || '';
       if (!name && !a.lawId) return fail('law(법령 이름·약칭)나 lawId(법령 ID) 중 하나를 주세요.');
       const keys = [];
@@ -412,10 +413,12 @@ export function registerLaw(server) {
         const body = await fetchLaw(v.mst, v.effective);
         // 목록에서 고른 판과 받은 본문이 같은 판인지 대조한다 — 다르면 출처를 붙이지 않는다
         const bi = lawInfo(body);
+        // 본문에 식별정보가 없으면 판을 증명하지 못하므로 실패로 본다. 공포번호는 앞자리 0(예: 00436)을 무시하고 숫자로 비교한다
+        const num = (x) => (x == null || x === '' ? null : Number(x));
         const off = [
-          bi.lawId && String(bi.lawId) !== String(lawId) ? `법령 ID ${bi.lawId}≠${lawId}` : null,
-          bi.effective && String(bi.effective) !== String(v.effective) ? `시행일 ${bi.effective}≠${v.effective}` : null,
-          bi.promulgationNo && v.promulgationNo && String(bi.promulgationNo) !== String(v.promulgationNo) ? `공포번호 ${bi.promulgationNo}≠${v.promulgationNo}` : null,
+          !bi.lawId || String(bi.lawId) !== String(lawId) ? `법령 ID ${bi.lawId ?? '없음'}≠${lawId}` : null,
+          !bi.effective || String(bi.effective) !== String(v.effective) ? `시행일 ${bi.effective ?? '없음'}≠${v.effective}` : null,
+          v.promulgationNo && num(bi.promulgationNo) !== num(v.promulgationNo) ? `공포번호 ${bi.promulgationNo ?? '없음'}≠${v.promulgationNo}` : null,
         ].filter(Boolean);
         if (off.length) return fail(`법제처 판 목록과 받은 본문의 판이 맞지 않습니다(${off.join(', ')}). 출처를 확정하지 못해 원문을 내지 않습니다.`);
         const arts = lawArticles(body);
