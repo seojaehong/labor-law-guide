@@ -37,6 +37,7 @@
 //   · 출근 간주 조항은 법률 제21784호(2027. 6. 10. 시행)로 §60⑦이 된다 — 화면은 「2027. 6. 10.부터 제7항」을 함께 적는다.
 import { calculateEntitlement } from '../leave/annual-leave';
 import { OLD_60_3_LAST_ACCRUAL } from './leave-pay';
+import type { Assumption, Need } from './needs';
 
 export type AttendanceClass = 'deemed' | 'excluded' | 'absent';
 
@@ -190,6 +191,28 @@ export function calcAttendanceRate(input: AttendanceRateInput): AttendanceRateRe
     alt: disputed.length ? outcome(S, alt, ent.days) : null,
     disputed,
   };
+}
+
+/** 원인별 일수를 하나도 넣지 않았을 때 물을 사실(공통 형식 ./needs.ts, 261128) — 종전 MCP 는 모두 출근한 것으로 봤다 */
+export const DAYS_NEED: Need = {
+  key: 'days',
+  question: '그 1년 동안 결근한 날, 출근한 것으로 보는 날(업무상 부상·질병 휴업, 출산전후휴가, 육아휴직 등), 소정근로일수에서 빼는 날(회사와 합의한 휴직, 정당한 쟁의행위 등)이 각각 며칠인가요? 없으면 결근 0일이라고 알려 주세요.',
+  why: '연차휴가는 1년간 80% 이상 출근해야 15일이 생기고, 못 미치면 1개월 개근마다 1일만 생깁니다(근로기준법 제60조제1항·제2항). 넣지 않은 날을 모두 출근으로 세면 80%를 채운 것으로 나옵니다.',
+};
+
+export type AttendanceRateChecked =
+  | { status: 'needs-input'; needs: Need[]; assumptions: Assumption[]; serviceYears: number; baseDays: null; primary: null; alt: null; disputed: [] }
+  | (AttendanceRateResult & { needs: []; assumptions: Assumption[] });
+
+/**
+ * 일수를 조용히 「전부 출근」으로 정하지 않는 판 — MCP 가 쓴다. 웹은 원인별 칸이 다 보이는 화면이라 calcAttendanceRate 를 그대로 쓴다.
+ * 결근 0 처럼 한 칸이라도 넣으면 종전 계산 그대로다. 1년 미만은 일수와 상관없어 묻지 않는다.
+ */
+export function calcAttendanceRateChecked(input: AttendanceRateInput): AttendanceRateChecked {
+  const r = calcAttendanceRate(input);
+  const entered = Object.values(input.days ?? {}).some((v) => v !== undefined);
+  if (r.status === 'under1y' || entered) return { ...r, needs: [], assumptions: [] };
+  return { status: 'needs-input', needs: [DAYS_NEED], assumptions: [], serviceYears: r.serviceYears, baseDays: null, primary: null, alt: null, disputed: [] };
 }
 
 export interface MonthInput {

@@ -44,13 +44,14 @@ describe('#5 지연이자 — 적용 제외 기간을 항목별로', () => {
   });
 
   it('MCP — 항목별 제외 4,000원, 빼지 않으면 8,000원', async () => {
-    const o = await call({ items: [{ ...item, exclusions: ex }, item] });
+    // 261128 — 재직 중이라고 넣는다(비우면 needs 로 묻는다)
+    const o = await call({ employed: true, items: [{ ...item, exclusions: ex }, item] });
     expect(o.ok).toBe(true);
     expect(o.result.total).toBe(4_000);
     expect(o.totalWithoutExclusions).toBe(8_000);
   });
   it('MCP — 제외 없음 8,000원, 「빼지 않으면」 값은 내지 않는다', async () => {
-    const o = await call({ items: [item, item] });
+    const o = await call({ employed: true, items: [item, item] });
     expect(o.result.total).toBe(8_000);
     expect(o.totalWithoutExclusions).toBeUndefined();
   });
