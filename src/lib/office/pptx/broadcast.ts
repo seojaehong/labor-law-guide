@@ -12,7 +12,7 @@ import { drawB1, drawB3Page, type ActionItem, type TextCheck } from './design/pa
 import { b3PageLayout } from './design/b3-geometry';
 import { koSlide } from './design/lang';
 import { drawListEmpty, drawSign, type ListRow, type ListSpec } from './design/lists';
-import { listPages, roomPxOf } from './design/deck';
+import { listPages, roomPxOf, statusTone } from './design/deck';
 
 export const BROADCAST_TEMPLATE_VERSION = 'broadcast-v0';
 
@@ -353,14 +353,13 @@ export async function makeBroadcastPptx(snapshot: MeetingSnapshot, opts: Broadca
   });
 
   // B5 지난 조치 이행 결과(규칙 제37조의3 2호)
-  const statusColor = (st: string): 'positive' | 'negative' | 'caution' | 'ink' => (st === '완료' ? 'positive' : st === '미완료' || st === '기한초과' ? 'negative' : st === '재조치' ? 'caution' : 'ink');
   if (D && S)
     designList(
       'B5',
       '지난번 대책은 어떻게 됐나',
       undefined,
       { code: 'B5', cols: [{ key: 'hazard', caption: '위험', ratio: 4.4, dot: true }, { key: 'status', caption: '상태', ratio: 1.2, status: true }, { key: 'result', caption: '조치 결과', ratio: 3.6 }] },
-      s.prior.map((p) => ({ id: p.id, cells: [{ text: p.hazard || '-', bold: true }, { text: p.status || '-', bold: true, color: statusColor(p.status) }, { text: p.result || '-' }] })),
+      s.prior.map((p) => ({ id: p.id, cells: [{ text: p.hazard || '-', bold: true }, { text: p.status || '-', bold: true, color: statusTone(p.status) }, { text: p.result || '-' }] })),
       '지난 회차에서 넘어온 조치 없음',
     );
   else paginate(s.prior, ROWS.B5).forEach((page, pi, all) => {

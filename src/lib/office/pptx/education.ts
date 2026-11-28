@@ -11,7 +11,7 @@ import { drawHead, summaryHeadline, type HeadlinePart } from './design/head';
 import { drawB1, type Kpi } from './design/parts';
 import { koSlide } from './design/lang';
 import { drawSign, type ListRow, type ListSpec } from './design/lists';
-import { checkCallout, drawCallout, listPages, pickLayout, recordChecks, roomPxOf, type Kit, type Page } from './design/deck';
+import { checkCallout, drawCallout, listPages, pagedTitle, pickLayout, recordChecks, roomPxOf, type Kit, type Page } from './design/deck';
 import { LINE_H, wrapLines } from './design/b3-geometry';
 
 export const EDUCATION_TEMPLATE_VERSION = 'education-v0';
@@ -362,7 +362,7 @@ async function makeEducationDesign(s: EducationSnapshot, opts: EducationOptions,
     });
     return { slide, no, box };
   };
-  const titled = (t: string, pi: number, n: number) => `${t}${n > 1 ? ` (${pi + 1}/${n})` : ''}`;
+  const titled = pagedTitle;
   const summary = summarize(s.hazards);
   const { shown, omitted } = pick(s.hazards, topN);
   const ink2 = D.tokens.colors.ink2;

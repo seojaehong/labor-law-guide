@@ -125,6 +125,12 @@ export function checkCallout(kit: Kit, no: number, code: string, ref: string, fi
 }
 
 export type Tone ='ink' | 'ink2' | 'positive' | 'caution' | 'negative' | 'accentText';
+
+/** 이행 상태 글자색 — 완료 positive · 미완료·기한초과 negative · 재조치 caution · 그 밖 ink(전파·회의 덱 공용) */
+export const statusTone = (st?: string): 'positive' | 'negative' | 'caution' | 'ink' => (st === '완료' ? 'positive' : st === '미완료' || st === '기한초과' ? 'negative' : st === '재조치' ? 'caution' : 'ink');
+
+/** 여러 장으로 나뉜 목록 제목 — 2장 이상이면 「제목 (n/m)」(회의·교안 덱 공용) */
+export const pagedTitle = (t: string, pi: number, n: number) => (n > 1 ? `${t} (${pi + 1}/${n})` : t);
 export interface CalloutPart {
   text: string;
   bold?: boolean;

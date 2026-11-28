@@ -10,7 +10,7 @@ import { koSlide } from './design/lang';
 import { drawList, drawListEmpty, fitKeepCols, listLayout, type ListRow, type ListSpec } from './design/lists';
 import { drawB1, type Kpi } from './design/parts';
 import { LINE_H, wrapLines } from './design/b3-geometry';
-import { calloutHeight, checkCallout, drawCallout, listPages, pickLayout, recordChecks, type Kit, type Page } from './design/deck';
+import { calloutHeight, checkCallout, drawCallout, listPages, pagedTitle, pickLayout, recordChecks, statusTone, type Kit, type Page } from './design/deck';
 
 export const MEETING_TEMPLATE_VERSION = 'meeting-v0';
 
@@ -1082,7 +1082,7 @@ async function makeMeetingDesign(
   const SAFE = 12;
   const badgeTone = snapshot.status.label === '확정' ? ('positive' as const) : ('caution' as const);
   const v = (t: string | number | undefined | null) => (t === undefined || t === null || t === '' ? '-' : String(t));
-  const titled = (t: string, pi: number, n: number) => (n > 1 ? `${t} (${pi + 1}/${n})` : t);
+  const titled = pagedTitle;
   const notesOf = (anchors: string[]) =>
     anchors.length
       ? ['근거 anchor:', ...anchors.map((a) => {
@@ -1133,7 +1133,6 @@ async function makeMeetingDesign(
   const col = (key: string, caption: string, ratio: number, more: { status?: boolean; dot?: boolean; keep?: boolean } = {}) => ({ key, caption, ratio, ...more });
   /** 낱말 가운데서 끊지 않는 칸(ID·날짜·상태·조치자·확인자) — 칸 폭을 낱말에 맞춰 넓힌다 */
   const K = { keep: true };
-  const statusTone = (st?: string): DesignColorKey => (st === '완료' ? 'positive' : st === '미완료' || st === '기한초과' ? 'negative' : st === '재조치' ? 'caution' : 'ink');
   const roomOf = (p: Page) => (p.box.bottom - p.box.top) / S.k;
   const cover = (code: string, title: string, rows: [string, string][]) => {
     const p = page(code, title, [], `${snapshot.site}  ·  위험성평가 회의`);
