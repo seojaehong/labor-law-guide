@@ -1078,6 +1078,8 @@ async function makeMeetingDesign(
   const slides: MeetingSlideInfo[] = [];
   const overflow: OverflowEstimate[] = [];
   const badge = badgeText(snapshot.status);
+  /** 장 나누기 여유(px) — PowerPoint 가 표 행을 추정보다 조금 높게 그린다(COM 실측 최대 4pt) */
+  const SAFE = 12;
   const badgeTone = snapshot.status.label === '확정' ? ('positive' as const) : ('caution' as const);
   const v = (t: string | number | undefined | null) => (t === undefined || t === null || t === '' ? '-' : String(t));
   const titled = (t: string, pi: number, n: number) => (n > 1 ? `${t} (${pi + 1}/${n})` : t);
@@ -1119,7 +1121,7 @@ async function makeMeetingDesign(
       overflow,
       warnings,
       offsetPx: o.offsetPx,
-      roomPx: bodyRoomFor(D, S, { title: `${title} (9/9)`, lead: o.lead, grow: true }),
+      roomPx: bodyRoomFor(D, S, { title: `${title} (9/9)`, lead: o.lead, grow: true }) - SAFE,
       newPage: (pi, n, rows) => {
         const p = page(code, titled(title, pi, n), uniq(rows.flatMap((r) => am.get(r.id) ?? [])), o.lead);
         o.after?.(p);
@@ -1165,27 +1167,43 @@ async function makeMeetingDesign(
     ]);
 
     // P2 회의 개요 — 왼쪽 의제 목록, 오른쪽 참석 예정 목록 + 안전 사례 상자
+    // 의제가 길면 장을 나눈다. 안전 사례 상자가 참석 목록 아래 들지 않으면 이어지는 장에 본문 폭으로
     {
-      const p = page('P2', '회의 개요', []);
       const gap = 48;
       const lw = BW * 0.55;
       const rx = X + lw + gap;
       const rw = BW - lw - gap;
       const agenda = snapshot.agenda?.length ? snapshot.agenda : ['전회 조치 이행 확인', '신규·변경 위험요인 검토', '근로자 의견 검토', '결정 필요 사항'];
-      areaList(
-        p,
-        { code: 'P2', area: { x: X, w: lw }, cols: [col('no', '순서', 1), col('agenda', '의제', 6)] },
-        agenda.map((a, i) => ({ id: `agenda[${i}]`, cells: [{ text: String(i + 1).padStart(2, '0'), bold: true, color: 'accentText' }, { text: a, bold: true }] })),
-        '',
-      );
-      const h = areaList(p, { code: 'P2', area: { x: rx, w: rw }, cols: [col('role', '역할', 1), col('name', '참석 예정자', 1.2)] }, attendeeRows(snapshot.attendees?.planned ?? [], 'planned'), '참석 예정자 미입력');
-      const y = p.box.top / S.k + h + 32;
       const parts = [
         { text: '안전 사례', bold: true, breakLine: true },
         { text: snapshot.safetyCase ?? '(선택 — 비워 둠)', tone: snapshot.safetyCase ? ('ink' as const) : ('ink2' as const) },
       ];
-      const ch = drawCallout({ ...kit, slide: p.slide }, { x: rx, y, w: rw }, parts);
-      checkCallout(kit, p.no, 'P2', 'safetyCase', 'safetyCase', snapshot.safetyCase ?? '', rw, h + 32 + ch, roomOf(p), overflow, warnings);
+      let safetyLater = false;
+      list(
+        'P2',
+        '회의 개요',
+        { area: { x: X, w: lw }, cols: [col('no', '순서', 1), col('agenda', '의제', 6)] },
+        agenda.map((a, i) => ({ anchors: [], row: { id: `agenda[${i}]`, cells: [{ text: String(i + 1).padStart(2, '0'), bold: true, color: 'accentText' }, { text: a, bold: true }] } })),
+        8,
+        '',
+        {
+          after: (p) => {
+            if (slides.filter((x) => x.code === 'P2').length > 1) return;
+            const h = areaList(p, { code: 'P2', area: { x: rx, w: rw }, cols: [col('role', '역할', 1), col('name', '참석 예정자', 1.2)] }, attendeeRows(snapshot.attendees?.planned ?? [], 'planned'), '참석 예정자 미입력');
+            const ch = calloutHeight(kit, rw, parts);
+            if (h + 32 + ch > roomOf(p) - SAFE) {
+              safetyLater = true;
+              return;
+            }
+            drawCallout({ ...kit, slide: p.slide }, { x: rx, y: p.box.top / S.k + h + 32, w: rw }, parts);
+          },
+        },
+      );
+      if (safetyLater) {
+        const p = page('P2', '회의 개요 — 안전 사례', []);
+        const ch = drawCallout({ ...kit, slide: p.slide }, { x: X, y: p.box.top / S.k, w: BW }, parts);
+        checkCallout(kit, p.no, 'P2', 'safetyCase', 'safetyCase', snapshot.safetyCase ?? '', BW, ch, roomOf(p), overflow, warnings);
+      }
     }
 
     // P3 한눈 요약 — 요약 수 부품(B1). 강조는 한 곳: 못 끝낸 전회 조치가 있으면 그 수
@@ -1200,7 +1218,7 @@ async function makeMeetingDesign(
       const lead = `전회 조치 ${total}건 중 ${done}건 완료 · 신규·변경 후보 ${candidates}건 · 결정 필요 ${questions}건`;
       const p = page('P3', '한눈 요약', uniq([...snapshot.prior.map((x) => x.anchors), ...snapshot.hazards.map((h) => h.anchors)]), lead);
       const kpis: Kpi[] = [
-        { key: 'prior', label: total ? '확인 · 전회 조치 완료' : '확인 · 전회 조치', value: total ? `${done}/${total}` : '0', risk: open > 0 },
+        { key: 'prior', label: total ? `확인 · 전회 조치 ${total}건 중 완료` : '확인 · 전회 조치', value: String(done), risk: open > 0 },
         { key: 'candidates', label: '평가 · 신규·변경 후보', value: String(candidates), risk: false },
         { key: 'questions', label: questions ? '개선 · 이번 회의에서 정할 것' : '개선 · 정할 것 없음', value: String(questions), risk: false },
       ];
@@ -1431,7 +1449,7 @@ async function makeMeetingDesign(
     list(
       'F7',
       '다음 회차로 넘길 목록',
-      { cols: [col('id', 'ID', 0.8), col('hazard', '위험요인', 3.2, { dot: true }), col('measure', '대책·비고', 3.4), col('due', '기한', 1.0), col('status', '상태', 1.0, { status: true }), col('scaleId', '척도', 1.2)] },
+      { cols: [col('id', 'ID', 1.2), col('hazard', '위험요인', 3.0, { dot: true }), col('measure', '대책·비고', 3.2), col('due', '기한', 1.0), col('status', '상태', 1.0, { status: true }), col('scaleId', '척도', 1.2)] },
       carryOver.map((x) => ({ anchors: [x.anchors], row: { id: x.id, cells: [{ text: x.id }, { text: x.hazard, bold: true }, { text: v(x.measure ?? x.result) }, { text: v(x.due) }, { text: v(x.status), bold: true, color: statusTone(x.status) }, { text: x.scaleId ?? '미상' }] } })),
       10,
       '이월 항목 없음',

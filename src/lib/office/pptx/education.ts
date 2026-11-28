@@ -11,7 +11,8 @@ import { drawHead } from './design/head';
 import { drawB1, type Kpi } from './design/parts';
 import { koSlide } from './design/lang';
 import { drawSign, type ListRow, type ListSpec } from './design/lists';
-import { calloutHeight, checkCallout, drawCallout, listPages, pickLayout, recordChecks, roomPxOf, type Kit, type Page } from './design/deck';
+import { checkCallout, drawCallout, listPages, pickLayout, recordChecks, roomPxOf, type Kit, type Page } from './design/deck';
+import { LINE_H, wrapLines } from './design/b3-geometry';
 
 export const EDUCATION_TEMPLATE_VERSION = 'education-v0';
 
@@ -376,7 +377,8 @@ async function makeEducationDesign(s: EducationSnapshot, opts: EducationOptions,
     ];
     const h = drawCallout({ ...kit, slide: p.slide }, { x: X, y: top, w: BW }, parts);
     const order = '순서: 결과 요약 → 주요 위험과 대책 → 사고 사례 → 확인 문제 → 교육 확인 서명';
-    const oh = calloutHeight(kit, BW + 80, [{ text: order }], D.tokens.type.note) - 52;
+    const note = D.tokens.type.note;
+    const oh = wrapLines(order, capacityOf(S.x(BW), S.pt(note), 1)) * note * LINE_H + 12;
     p.slide.addText(order, { x: S.x(X), y: S.y(top + h + 32), w: S.x(BW), h: S.y(oh), fontFace, fontSize: S.pt(D.tokens.type.note), color: ink2, valign: 'top', margin: 0 });
   }
 

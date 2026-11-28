@@ -325,7 +325,7 @@ export function designsFor(snapshot: unknown, a?: DeckKind | readonly DesignId[]
     const prior = arr<{ status?: string; id: string }>(o.prior);
     const hazards = arr<{ kind?: string }>(o.hazards);
     const done = prior.filter((p) => p.status === '완료');
-    values = [prior.length ? `${done.length}/${prior.length}` : '0', String(hazards.filter((h) => h.kind === 'new' || h.kind === 'changed').length), String(arr(o.questions).length)];
+    values = [String(done.length), String(hazards.filter((h) => h.kind === 'new' || h.kind === 'changed').length), String(arr(o.questions).length)];
     titles = done.map((p) => `조치 전·후 — ${p.id}`);
   } else if (kind === 'education') {
     const hz = arr<{ acceptability?: string }>(o.hazards);
