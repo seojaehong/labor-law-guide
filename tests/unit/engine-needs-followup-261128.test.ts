@@ -81,9 +81,6 @@ describe('통상임금 점검 — 판정을 뒤집는 빈칸만 되묻는다', (
     expect(r.needs[0].question).toContain('정기상여금');
     expect(bannedHits(needText(r.needs))).toEqual([]);
   });
-  it('엔진: 새 기준 기간이고 근무시간의 대가에 「예」면 재직 조건이 판정을 바꾸지 않아 묻지 않는다', () => {
-    expect(ordinaryWageNeeds({ date: '2025-06-01', items: [BONUS] }, '2026-11-28').needs).toEqual([]);
-  });
   it('엔진: 기준일을 비웠고 두 기준의 판정이 갈리면 기준일을 묻는다, 같으면 오늘로 두고 assumptions', () => {
     const split = ordinaryWageNeeds({ items: [{ ...BONUS, employedOnPayday: true }] }, '2026-11-28');
     expect(split.needs.map((n) => n.key)).toEqual(['date']);
@@ -91,6 +88,18 @@ describe('통상임금 점검 — 판정을 뒤집는 빈칸만 되묻는다', (
     expect(same.needs).toEqual([]);
     expect(same.assumptions.map((x) => x.key)).toEqual(['date']);
     expect(same.date).toBe('2026-11-28');
+  });
+  it('엔진: 기준일이 없고 빈칸이 종전 기준에서만 판정을 바꾸면 기준일만 묻는다(항목 칸은 묻지 않고, 「판정이 같다」 가정도 없다)', () => {
+    const base = { kind: 'base' as const, name: '기본급', amount: 3_000_000, timesPerYear: 12 as const, regular: 'yes' as const, uniform: 'yes' as const, forWork: 'yes' as const };
+    const r = ordinaryWageNeeds({ items: [base] }, '2026-11-28');
+    expect(r.needs.map((n) => n.key)).toEqual(['date']);
+    expect(r.assumptions).toEqual([]);
+  });
+  it('엔진: 기준일이 새 기준이면 종전 기준에서만 판정을 바꾸는 빈칸은 묻지 않고 assumptions 로 드러낸다', () => {
+    const r = ordinaryWageNeeds({ date: '2025-06-01', items: [BONUS] }, '2026-11-28');
+    expect(r.needs).toEqual([]);
+    expect(r.assumptions.map((x) => x.key)).toEqual(['items[0].employedOnPayday']);
+    expect(r.assumptions[0].note).toContain('종전 기준');
   });
   it('엔진: 성과급 최저 보장액·가족수당 기본금액을 비우면 묻고, 0 을 넣으면 묻지 않는다', () => {
     const perf = { kind: 'performance' as const, name: '성과급', amount: 2_000_000, timesPerYear: 1 as const, regular: 'yes' as const, uniform: 'yes' as const, forWork: 'yes' as const, performanceYear: 'current' as const, employedOnPayday: false };

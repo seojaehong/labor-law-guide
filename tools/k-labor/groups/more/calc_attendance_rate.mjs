@@ -67,16 +67,8 @@ export function register(server) {
       try {
         // 261128 — 일수를 하나도 넣지 않으면 모두 출근으로 보지 않는다(종전 days ?? {}). 엔진이 needs 로 돌려준다
         const checked = calcAttendanceRateChecked({ hireDate: a.hireDate, accrualDate: a.accrualDate, scheduledDays: a.scheduledDays, days: a.days });
-        if (checked.status === 'needs-input') {
-          return text({
-            ok: true, status: 'needs-input', needs: checked.needs, assumptions: checked.assumptions,
-            headline: ['출근율과 연차 일수를 내지 않습니다.', '정하려면 needs 의 사실(결근·출근 간주·빼는 날의 일수)을 알아야 합니다.'],
-            result: { serviceYears: checked.serviceYears, primary: null, alt: null },
-            site: SITE,
-          });
-        }
-        const { needs, assumptions, ...r } = checked;
         // 한 달 개근은 따로 계산한다 — month 칸이 잘못돼도 연간 결과는 그대로 내고 month 에만 오류를 단다(화면 AttendanceRateClient 와 같음).
+        // 연간 일수와 상관없어 needs-input 이어도 낸다
         let month = null;
         if (a.month) {
           try {
@@ -86,6 +78,16 @@ export function register(server) {
             month = { error: e instanceof Error ? e.message : String(e) };
           }
         }
+        if (checked.status === 'needs-input') {
+          return text({
+            ok: true, status: 'needs-input', needs: checked.needs, assumptions: checked.assumptions,
+            headline: ['출근율과 연차 일수를 내지 않습니다.', '정하려면 needs 의 사실(결근·출근 간주·빼는 날의 일수)을 알아야 합니다.'],
+            result: { serviceYears: checked.serviceYears, primary: null, alt: null },
+            ...(month ? { month, monthRules: clean(MONTH_RULES) } : {}),
+            site: SITE,
+          });
+        }
+        const { needs, assumptions, ...r } = checked;
         const entered = CAUSE_IDS.filter((c) => (a.days?.[c] ?? 0) > 0).map((c) => ({
           cause: c,
           label: CAUSE_COPY[c].label,
