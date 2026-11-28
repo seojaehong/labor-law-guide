@@ -79,8 +79,8 @@ export function drawB1(c: Ctx, kpis: Kpi[]): PartResult {
   if (slot.part === 'kpi-hero-list') {
     const [hero, ...rest] = kpis;
     const heroPt = value(hero, HERO_BOX.wPx, t.hero, HERO_BOX.minPx);
-    slide.addText(hero.value, { objectName: 'part:kpi-hero', x: s.x(slot.x), y: s.y(slot.y), w: s.x(HERO_BOX.wPx), h: s.y(t.hero * 1.12), fontFace, fontSize: heroPt, color: hero.risk && hero.value !== '0' ? C('risk') : C('ink'), valign: 'middle', margin: 0 });
-    slide.addText(hero.label, { x: s.x(slot.x), y: s.y(slot.y + t.hero * 1.12 + 8), w: s.x(HERO_BOX.wPx), h: s.y(48), fontFace, fontSize: s.pt(t.label), color: C('ink'), margin: 0 });
+    slide.addText(hero.value, { objectName: 'part:kpi-hero', x: s.x(slot.x), y: s.y(slot.y - t.hero * 0.04), w: s.x(HERO_BOX.wPx), h: s.y(t.hero * 1.2), fontFace, fontSize: heroPt, color: hero.risk && hero.value !== '0' ? C('risk') : C('ink'), valign: 'middle', margin: 0 });
+    slide.addText(hero.label, { x: s.x(slot.x), y: s.y(slot.y + t.hero * 1.16 + 8), w: s.x(HERO_BOX.wPx), h: s.y(48), fontFace, fontSize: s.pt(t.label), color: C('ink'), margin: 0 });
     const lx = 1000;
     const lw = slot.x + slot.w - lx;
     const rowH = 124;
@@ -103,7 +103,7 @@ export function drawB1(c: Ctx, kpis: Kpi[]): PartResult {
       slide.addShape(pptx.ShapeType.rect, { objectName: 'part:tile-grid', x: s.x(x), y: s.y(y), w: s.x(tw), h: s.y(th), fill: { color: fill }, line: { color: C('ink'), width: s.pt(d.tokens.lines.heavy) } });
       slide.addText(k.label, { x: s.x(x + 40), y: s.y(y + 28), w: s.x(tw - 80), h: s.y(100), fontFace, fontSize: s.pt(t.label), bold: true, color: C('ink'), valign: 'top', margin: 0 });
       r.checks.push({ ref: k.key, field: 'label', text: k.label, wIn: s.x(tw - 80), pt: s.pt(t.label), lines: 2 });
-      const vh = slot.valuePx * 1.15;
+      const vh = slot.valuePx * 1.2; // 한 줄 높이(1.2) — 아래 맞춤이라 글 자리는 그대로, 칸만 글 높이만큼
       slide.addText(k.value, { x: s.x(x + 40), y: s.y(y + th - 20 - vh), w: s.x(slot.valueBoxW), h: s.y(vh), fontFace, fontSize: value(k, slot.valueBoxW, slot.valuePx, slot.valueMinPx), bold: true, color: C('ink'), valign: 'bottom', margin: 0 });
     });
     note(slot.noteY, 60, t.note, C('ink'), true);

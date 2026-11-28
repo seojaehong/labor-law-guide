@@ -108,6 +108,24 @@ describe('(g) app 색은 남의 색표 값을 그대로 쓰지 않는다', () =>
   });
 });
 
+// PowerPoint COM 실측(261128): 한 줄 글의 실제 높이 = 1.2 × 글자 크기. 요약 수 칸이 그보다 낮으면 글이 칸 밖으로 나온다
+describe('요약 장(B1) 큰 숫자·app 두 줄 문장 칸 높이 ≥ 글 높이', () => {
+  for (const id of DESIGN_IDS)
+    it(`${id}`, async () => {
+      const r = await makeBroadcastPptx(statusSnap(), { design: id });
+      const [xml] = await slideXmls(r.bytes!);
+      for (const m of xml.matchAll(/<p:sp>([\s\S]*?)<\/p:sp>/g)) {
+        const sp = m[1];
+        const text = [...sp.matchAll(/<a:t>([^<]*)<\/a:t>/g)].map((t) => t[1]).join('');
+        const sz = Math.max(0, ...[...sp.matchAll(/ sz="(\d+)"/g)].map((t) => Number(t[1]) / 100));
+        const h = Number(sp.match(/<a:ext cx="\d+" cy="(\d+)"/)?.[1] ?? 0) / 12700;
+        const spc = Number(sp.match(/<a:spcPct val="(\d+)"/)?.[1] ?? 100000) / 100000;
+        const lines = Math.max(1, (sp.match(/<a:p>/g) ?? []).length); // 문단(breakLine) 수
+        if (/^\d+(\/\d+)?$/.test(text) || sp.includes('name="title"')) expect(h + 0.5, `${id} 「${text}」 ${sz}pt`).toBeGreaterThanOrEqual(lines * 1.2 * sz * spc);
+      }
+    });
+});
+
 // 나머지 장 부품 — 프리셋마다 대책 장(B3) 문법을 따른 목록·서명란 부품 이름(objectName)
 const FAMILY: Record<DesignId, string> = { quiet: 'hairline', field: 'rowcard', app: 'chipcard', report: 'grid', story: 'storycard' };
 

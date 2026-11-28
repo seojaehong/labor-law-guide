@@ -9,7 +9,7 @@
     "titleY": 200, "titleH": 90, "titleMinPx": 40, "titleColor": "ink",
     "leadY": 296, "leadH": 44,
     "bodyTop": 320, "bodyTopWithLead": 360,
-    "headlineY": 236, "headlineH": 240
+    "headlineY": 236, "headlineH": 256
   },
   "foot": { "y": 996, "h": 36, "rule": false, "rulePx": 0, "color": "ink2" },
   "tokens": {
