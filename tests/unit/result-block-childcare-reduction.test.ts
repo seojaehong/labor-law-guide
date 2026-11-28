@@ -112,11 +112,14 @@ describe('요건 — 충족·미충족·확인 필요를 그대로', () => {
     expect(worker.rows.find((c) => c.key === 'insured180')!.statusLabel).toBe('확인 필요');
     expect(worker.rows.find((c) => c.key === 'childAge')!.statusLabel).toBe('확인 필요');
   });
-  it('180일이 안 된다고 넣으면 미충족, 판정 문장이 바뀐다', () => {
+  it('180일이 안 된다고 넣으면 미충족 — 첫 줄은 지급액 0원(엔진 payable), 산식 금액은 둘째 줄', () => {
     const { r, v } = show({ ...FULL, insuredDays180: false });
     expect(r.worker!.verdict).toBe('not-eligible');
+    expect(r.worker!.payable.monthly).toBe(0);
     expect(checkGroups(r)[0].rows.find((c) => c.key === 'insured180')!.statusLabel).toBe('미충족');
-    expect(v.verdict.join(' ')).toMatch(/미충족/);
+    expect(v.verdict[0]).toBe('미충족으로 넣은 요건이 있어 단축급여 지급액은 0원으로 셉니다.');
+    expect(v.verdict[1]).toContain(won(r.worker!.monthly));
+    expect(v.amounts.map((a) => a.label).join(' ')).not.toMatch(/회사 지급액을 반영한/);
   });
   it('신청 기간 줄은 엔진 날짜를 쓰고, 근로자 본인이 신청한다고 적는다', () => {
     const r = calcChildcareReduction(FULL);
@@ -147,8 +150,31 @@ describe('입력 바꾸기 — 비우면 undefined(모름), 0 으로 채우지 �
   });
 });
 
+// 엔진의 다른 갈래 문장 — 확인한 고시(2026. 7. 1.)보다 앞선 개시(사업주 금액 보류), 상한이 바뀌는 날(2026. 1. 1.)에 걸친 기간
+const WITHHELD: ChildcareReductionInput = { ...FULL, startDate: '2026-03-01', endDate: '2026-08-31' };
+const CROSSING: ChildcareReductionInput = { ...FULL, startDate: '2025-12-15', endDate: '2026-02-14' };
+
+describe('다른 갈래', () => {
+  it('2026. 7. 1. 전 개시 — 사업주 금액 없음, 엔진 보류 문장을 주의로', () => {
+    const { r, v } = show(WITHHELD);
+    expect(r.employer.subsidy.withheld).toBeTruthy();
+    expect(v.warnings).toContain(r.employer.subsidy.withheld);
+    expect(v.amounts.some((a) => a.label.includes('장려금'))).toBe(false);
+  });
+  it('상한이 바뀌는 날에 걸친 기간 — 표 금액은 엔진 기간 금액', () => {
+    const r = calcChildcareReduction(CROSSING);
+    expect(r.worker!.schedule!.periods.some((p) => p.crossesRuleChange)).toBe(true);
+    const rows = scheduleRows(r);
+    r.worker!.schedule!.periods.forEach((p, i) => expect(rows[i].amount).toBe(p.amount === null ? '—' : won(p.amount)));
+    expect(rows.some((x) => x.note.includes('상한이 바뀌는 날'))).toBe(true);
+  });
+});
+
 describe('공통 — 링크·근거·금지어', () => {
-  const all = [BASE, FULL, NO_WAGE, { ...FULL, insuredDays180: false }, { ...BASE, endDate: undefined }].map(show);
+  const all = [BASE, FULL, NO_WAGE, { ...FULL, insuredDays180: false }, { ...BASE, endDate: undefined }, WITHHELD, CROSSING].map(show);
+  it('화면 글자에 코드 이름(camelCase)이 없다 — 엔진 문장 중 입력 이름을 품은 것은 그리지 않는다', () => {
+    for (const { t } of all) expect(t).not.toMatch(/[a-z]+[A-Z][A-Za-z]*/);
+  });
   it('다음 할 일은 1~2개, 실제 경로', () => {
     for (const { v } of all) {
       expect(v.next.length).toBeGreaterThanOrEqual(1);

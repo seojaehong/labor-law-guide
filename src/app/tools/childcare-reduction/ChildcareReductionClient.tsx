@@ -6,7 +6,7 @@ import ResultBlock from '@/components/tool-result/ResultBlock';
 import FoldedDetail from '@/components/tool/FoldedDetail';
 import { card, choiceLabel, inputCls, ink, muted, small } from '@/lib/tool-kit';
 import {
-  EMPTY_FORM, applyLines, checkGroups, childcareReductionView, formulaLines, mergedNeeds, scheduleRows, toEngineInput,
+  EMPTY_FORM, applyLines, checkGroups, childcareReductionView, formulaLines, isPlain, mergedNeeds, scheduleRows, shownAssumptions, toEngineInput,
   type FormState, type YesNo,
 } from './result';
 
@@ -144,14 +144,14 @@ export default function ChildcareReductionClient() {
               </table>
             </div>
           )}
-          <p className={small} style={muted}>{r.worker.payable.note}</p>
+          {isPlain(r.worker.payable.note) && <p className={small} style={muted}>{r.worker.payable.note}</p>}
         </FoldedDetail>
       )}
 
-      {r && r.assumptions.length > 0 && (
+      {r && shownAssumptions(r).length > 0 && (
         <FoldedDetail summary="계산에 둔 전제">
           <ul className={`${small} list-disc space-y-1 pl-5`} style={muted}>
-            {r.assumptions.map((a) => <li key={a.key}>{a.note}</li>)}
+            {shownAssumptions(r).map((a) => <li key={a.key}>{a.note}</li>)}
           </ul>
         </FoldedDetail>
       )}

@@ -82,17 +82,23 @@ export function childcareReductionView(r: ChildcareReductionResult): ResultView 
   const warnings: string[] = [];
 
   if (w) {
-    verdict.push(`육아기 근로시간 단축 급여는 한 달 ${won(w.monthly)}입니다.`);
-    if (w.verdict === 'not-eligible') verdict.push('미충족으로 넣은 요건이 있어 지급액은 0원으로 셉니다. 아래 요건 목록을 확인합니다.');
-    else if (w.verdict === 'check') verdict.push('확인 필요로 남은 요건을 갖춘다는 전제의 금액입니다.');
+    const unmet = w.verdict === 'not-eligible';
+    if (unmet) {
+      // 엔진 지급액(payable)은 미충족이면 0 이다 — 산식 금액을 답처럼 맨 위에 두지 않는다
+      verdict.push('미충족으로 넣은 요건이 있어 단축급여 지급액은 0원으로 셉니다.');
+      verdict.push(`요건을 갖춘다면 산식 금액은 한 달 ${won(w.monthly)}입니다. 아래 요건 목록을 확인합니다.`);
+    } else {
+      verdict.push(`육아기 근로시간 단축 급여는 한 달 ${won(w.monthly)}입니다.`);
+      if (w.verdict === 'check') verdict.push('확인 필요로 남은 요건을 갖춘다는 전제의 금액입니다.');
+    }
     verdict.push('이 급여는 근로자 본인이 신청합니다(고용보험법 제73조의2제2항).');
     amounts.push({
-      label: '단축급여 월액(감액 전)',
+      label: unmet ? '산식 월액(요건을 갖춘다면, 감액 전)' : '단축급여 월액(감액 전)',
       value: won(w.monthly),
       note: [`앞 ${w.firstHours}시간분 ${dec(w.firstPart)}원 + 나머지 ${w.restHours}시간분 ${dec(w.restPart)}원(10원 미만 버림)`],
     });
-    if (w.schedule && w.schedule.total !== null) amounts.push({ label: '단축 기간 합계(감액 전)', value: won(w.schedule.total) });
-    if (w.payable.monthly !== null) {
+    if (w.schedule && w.schedule.total !== null) amounts.push({ label: unmet ? '산식 기간 합계(요건을 갖춘다면, 감액 전)' : '단축 기간 합계(감액 전)', value: won(w.schedule.total) });
+    if (w.payable.monthly !== null && !unmet) {
       amounts.push({
         label: '회사 지급액을 반영한 월 지급액',
         value: won(w.payable.monthly),
@@ -138,6 +144,18 @@ export function childcareReductionView(r: ChildcareReductionResult): ResultView 
   };
 }
 
+/**
+ * 엔진 문장 중 입력 이름(wageBeforeStartMonth·restFrom 같은 코드 낱말)을 품은 것은 화면에 그리지 않는다 —
+ * 이 화면에 그런 칸이 없고, 사용자에게 코드 이름을 보이지 않는다. 엔진 문장은 고치지 않는다(엔진 쪽 과제로 남김).
+ */
+export const isPlain = (s: string) => !/[a-z]+[A-Z][A-Za-z]*/.test(s);
+const pushPlain = (out: string[], s: string) => { if (isPlain(s)) out.push(s); };
+
+/** 「계산에 둔 전제」에 보일 엔진 assumptions — 코드 낱말을 품은 문장은 뺀다 */
+export function shownAssumptions(r: ChildcareReductionResult) {
+  return r.assumptions.filter((a) => isPlain(a.note));
+}
+
 /** 근로자·사업주 needs 를 합친다(같은 질문은 한 번) */
 export function mergedNeeds(r: ChildcareReductionResult): Need[] {
   const out: Need[] = [];
@@ -163,17 +181,17 @@ export function applyLines(r: ChildcareReductionResult): string[] {
   const out: string[] = [];
   if (r.worker) {
     out.push(`단축급여 신청(근로자 본인이 신청): ${range(r.worker.apply.from, r.worker.apply.until)}`);
-    out.push(r.worker.apply.note);
+    pushPlain(out, r.worker.apply.note);
   }
   const a = r.employer.subsidy.apply;
   if (r.employer.subsidy.monthly !== null) {
     out.push(`사업주 장려금 신청(사업주가 신청): 절반 ${range(a.firstFrom, a.until)}${a.restFrom ? `, 나머지 ${range(a.restFrom, a.restUntil)}` : ''}`);
-    out.push(a.note);
+    pushPlain(out, a.note);
   }
   const ws = r.employer.workSharing;
   if (ws && ws.monthly !== null) {
     out.push(`업무분담 지원금 신청(사업주가 신청): ${range(ws.apply.firstFrom, ws.apply.until)}`);
-    out.push(ws.apply.note);
+    pushPlain(out, ws.apply.note);
   }
   return out;
 }
@@ -212,9 +230,9 @@ export function allCopy(r: ChildcareReductionResult): string[] {
     ...(needs.length ? ['더 알려 주면 계산하는 것', ...needs.flatMap((n) => [n.question, n.why])] : []),
     ...checkGroups(r).flatMap((g) => [g.title, ...g.rows.flatMap((c) => [c.label, c.statusLabel, c.note])]),
     ...applyLines(r),
-    ...(r.worker ? [r.worker.payable.note] : []),
+    ...(r.worker && isPlain(r.worker.payable.note) ? [r.worker.payable.note] : []),
     ...formulaLines(r),
     ...scheduleRows(r).flatMap((x) => [x.period, x.days, x.monthly, x.amount, x.note]),
-    ...r.assumptions.map((a) => a.note),
+    ...shownAssumptions(r).map((a) => a.note),
   ];
 }
