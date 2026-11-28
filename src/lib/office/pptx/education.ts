@@ -7,7 +7,7 @@ import { MEETING_THEME } from './meeting-theme';
 import { capacityOf, textUnits, type OverflowEstimate } from './meeting';
 import { pick, type TbmHazard } from './tbm';
 import { DESIGN_IDS, getDeckDesign, isDesignId, type DeckDesign, type DesignId } from './design/index';
-import { drawHead } from './design/head';
+import { drawHead, summaryHeadline, type HeadlinePart } from './design/head';
 import { drawB1, type Kpi } from './design/parts';
 import { koSlide } from './design/lang';
 import { drawSign, type ListRow, type ListSpec } from './design/lists';
@@ -345,7 +345,7 @@ async function makeEducationDesign(s: EducationSnapshot, opts: EducationOptions,
   const X = D.head.left;
   const BW = D.head.right - D.head.left;
   const meta = `안전보건교육 · ${course.label} · 위험성평가  ·  ${s.educationDate}`;
-  const page = (code: string, title: string, lead?: string): Page => {
+  const page = (code: string, title: string, lead?: string, headline?: HeadlinePart[]): Page => {
     const slide = koSlide(pptx.addSlide());
     const no = slides.length + 1;
     slides.push({ no, code, title });
@@ -354,6 +354,7 @@ async function makeEducationDesign(s: EducationSnapshot, opts: EducationOptions,
       meta,
       title,
       lead,
+      headline,
       fontFace,
       grow: true,
       footLeft: `${s.site}  ·  위험성평가 교육`,
@@ -384,7 +385,9 @@ async function makeEducationDesign(s: EducationSnapshot, opts: EducationOptions,
 
   // E2 결과 요약 — 허용 여부별 개수(요약 수 부품) · 재해 유형 상위는 다음 장 목록
   {
-    const p = page('E2', '평가 결과 한눈에', `평가한 위험요인 ${summary.total}건`);
+    // app — 제목 자리에 두 줄 요약 문장(이 장의 허용 불가 수 · 없으면 평가한 수). 문장이 요점 줄을 대신한다
+    const headline = summaryHeadline(D, S, summary.unacceptable ? [{ text: '평가한 위험요인 중', breakLine: true }, { text: `허용 불가 ${summary.unacceptable}건`, accent: true }, { text: '을 먼저 줄여요' }] : [{ text: '평가한 위험요인', breakLine: true }, { text: `${summary.total}건`, accent: true }, { text: '을 함께 살펴봐요' }]);
+    const p = page('E2', '평가 결과 한눈에', headline ? undefined : `평가한 위험요인 ${summary.total}건`, headline);
     const kpis: Kpi[] = [
       { key: 'unacceptable', label: '허용 불가 — 바로 줄여야 할 위험', value: String(summary.unacceptable), risk: true },
       { key: 'conditional', label: '조건부 — 대책을 지키면 작업 가능', value: String(summary.conditional), risk: false },

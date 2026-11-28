@@ -5,7 +5,7 @@ import PptxGenJS from 'pptxgenjs';
 import { MEETING_THEME } from './meeting-theme';
 import { capacityOf, textUnits } from './text-units';
 import { DESIGN_IDS, getDeckDesign, isDesignId, type DeckDesign, type DesignColorKey, type DesignId } from './design/index';
-import { bodyRoomFor, color, drawHead } from './design/head';
+import { bodyRoomFor, color, drawHead, summaryHeadline, type HeadlinePart } from './design/head';
 import { koSlide } from './design/lang';
 import { drawList, drawListEmpty, fitKeepCols, listLayout, type ListRow, type ListSpec } from './design/lists';
 import { drawB1, type Kpi } from './design/parts';
@@ -1090,7 +1090,7 @@ async function makeMeetingDesign(
           return `- ${a}${m ? ` — ${[m.source, m.location].filter(Boolean).join(' ')}` : ''}`;
         })].join('\n')
       : '근거 anchor: 없음';
-  const page = (code: string, title: string, anchors: string[], lead?: string): Page => {
+  const page = (code: string, title: string, anchors: string[], lead?: string, headline?: HeadlinePart[]): Page => {
     const slide = koSlide(pptx.addSlide());
     const no = slides.length + 1;
     slides.push({ no, code, title: `${code} ${title}`, anchors });
@@ -1099,6 +1099,7 @@ async function makeMeetingDesign(
       meta: `${code}  ·  위험성평가 회의  ·  ${snapshot.cycle}`,
       title,
       lead,
+      headline,
       fontFace,
       grow: true,
       badge: { text: badge, tone: badgeTone },
@@ -1218,7 +1219,9 @@ async function makeMeetingDesign(
       const open = total - done;
       const questions = snapshot.questions.length;
       const lead = `전회 조치 ${total}건 중 ${done}건 완료 · 신규·변경 후보 ${candidates}건 · 결정 필요 ${questions}건`;
-      const p = page('P3', '한눈 요약', uniq([...snapshot.prior.map((x) => x.anchors), ...snapshot.hazards.map((h) => h.anchors)]), lead);
+      // app — 제목 자리에 두 줄 요약 문장(이 장의 「정할 것」 수). 문장이 요점 줄을 대신한다(같은 수가 요약 칸에 있다)
+      const headline = summaryHeadline(D, S, questions ? [{ text: '이번 회의에서', breakLine: true }, { text: `정할 것 ${questions}건`, accent: true }, { text: '이 있어요' }] : [{ text: '이번 회의에서', breakLine: true }, { text: '새로 정할 것', accent: true }, { text: '은 없어요' }]);
+      const p = page('P3', '한눈 요약', uniq([...snapshot.prior.map((x) => x.anchors), ...snapshot.hazards.map((h) => h.anchors)]), headline ? undefined : lead, headline);
       const kpis: Kpi[] = [
         { key: 'prior', label: total ? `확인 · 전회 조치 ${total}건 중 완료` : '확인 · 전회 조치', value: String(done), risk: open > 0 },
         { key: 'candidates', label: '평가 · 신규·변경 후보', value: String(candidates), risk: false },

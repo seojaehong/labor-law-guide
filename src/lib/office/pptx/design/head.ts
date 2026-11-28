@@ -45,6 +45,24 @@ export interface HeadArgs {
   badge?: { text: string; tone: 'positive' | 'caution' };
 }
 
+export type HeadlinePart = { text: string; accent?: boolean; breakLine?: boolean };
+
+/**
+ * 요약 장 두 줄 요약 문장 — 이 프리셋에 문장 자리(headlineY)가 있고 줄마다 96px 한 줄에 들 때만 돌려준다.
+ * 아니면 undefined(제목 그대로). 요약 수 부품(B1)이 chip-grid 인 프리셋(app)만 문장 자리가 있다.
+ */
+export function summaryHeadline(d: DeckDesign, s: DesignScale, parts: HeadlinePart[]): HeadlinePart[] | undefined {
+  if (d.head.headlineY === undefined || d.slots.B1.part !== 'chip-grid') return undefined;
+  const lines = [''];
+  for (const p of parts) {
+    lines[lines.length - 1] += p.text;
+    if (p.breakLine) lines.push('');
+  }
+  const per = capacityOf(s.x(d.head.right - d.head.left), s.pt(96), 1);
+  if (lines.length > 2 || lines.some((l) => textUnits(l) > per)) return undefined;
+  return parts;
+}
+
 /** 머리줄 배지 폭(px) — 글 폭 + 안쪽 여백 */
 export function badgeWidthPx(d: DeckDesign, text: string): number {
   return textUnits(text) * d.tokens.type.meta + 56;
