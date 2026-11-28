@@ -73,7 +73,7 @@ content-type: application/json
 | `pptx.meeting` | — | 필요 | `{snapshot, kind?, fontFace?, layout?}` — 위험성평가 회의 덱 | k-labor/office |
 | `pptx.extract` | 필요 | — | — | k-labor/office |
 | `pptx.tbm` | — | 필요 | `{snapshot, maxHazards?, signatureRows?, fontFace?, layout?}` — 작업 전 안전점검(TBM) 카드 덱 | k-labor/office |
-| `pptx.broadcast` | — | 필요 | `{snapshot(확정 회의 스냅숏), signatureRows?, fontFace?, layout?}` — 회의 결과 전파본 | k-labor/office |
+| `pptx.broadcast` | — | 필요 | `{snapshot(확정 회의 스냅숏), signatureRows?, fontFace?, layout?, design?(quiet·field·app·report·story)}` — 회의 결과 전파본 | k-labor/office |
 | `pptx.education` | — | 필요 | `{snapshot(교안 스냅숏), topN?, signatureRows?, fontFace?, layout?}` — 위험성평가 교육 교안(규칙 별표 5 제1호 가목·다목) | k-labor/office |
 
 성공 응답(200):

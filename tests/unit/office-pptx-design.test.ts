@@ -145,6 +145,8 @@ describe('프리셋별 B1·B3 부품', () => {
         expect(b3).not.toContain(PART_MARK[other].b3);
       }
       if (PART_MARK[id].head) for (const x of xml) expect(names(x)).toContain(PART_MARK[id].head);
+      // 표 칸 여백이 인치로 읽혀 칸이 무너지지 않았는지(여백 1in 미만) — pptxgenjs 는 위 여백이 1 미만이면 인치로 읽는다
+      for (const x of [xml[0], xml[2]]) for (const m of x.matchAll(/mar[LR]="(\d+)"/g)) expect(Number(m[1])).toBeLessThan(914400);
       // 내용은 스냅숏 원문 그대로
       const all = xml.join('\n');
       for (const m of ['통로 조명 교체', '사다리 상단 고정 장치 설치·2인 1조 작업', '후방 경보기 월 1회 작동 점검', '2026-12-20', '1/2']) expect(all).toContain(m);

@@ -24,7 +24,7 @@ async function run() {
     case 'pptx.education':
       return office.makeEducationPptx(args.snapshot, { ...ctx, topN: args.topN, signatureRows: args.signatureRows, fontFace: args.fontFace, layout: args.layout });
     case 'pptx.broadcast':
-      return office.makeBroadcastPptx(args.snapshot, { ...ctx, signatureRows: args.signatureRows, fontFace: args.fontFace, layout: args.layout });
+      return office.makeBroadcastPptx(args.snapshot, { ...ctx, signatureRows: args.signatureRows, fontFace: args.fontFace, layout: args.layout, design: args.design });
     case 'pptx.tbm':
       return office.makeTbmPptx(args.snapshot, { ...ctx, maxHazards: args.maxHazards, signatureRows: args.signatureRows, fontFace: args.fontFace, layout: args.layout });
     default:
