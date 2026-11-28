@@ -130,6 +130,49 @@ describe('요건 — 충족·미충족·확인 필요를 그대로', () => {
   });
 });
 
+describe('사업주 첫 신청일 안내', () => {
+  const august = { ...FULL, startDate: '2026-08-10', endDate: '2026-12-31' };
+
+  it('사업주 두 지원금에서 첫 달 기준일을 숨기고 정기 신청 안내와 기존 마감일은 유지한다', () => {
+    const r = calcChildcareReduction(august);
+    const lines = applyLines(r);
+    const grant = lines.find((l) => l.startsWith('사업주 장려금 신청'))!;
+    const sharing = lines.find((l) => l.startsWith('업무분담 지원금 신청'))!;
+    expect(grant).toContain('3개월분씩');
+    expect(sharing).toContain('3개월분씩');
+    expect(grant).toContain('고용24');
+    expect(sharing).toContain('고용24');
+    expect(grant).toContain('마감 2027.12.31.');
+    expect(sharing).toContain('마감 2027.12.31.');
+    expect(lines.join(' ')).toContain('나머지 2027.07.01.부터 2028.06.30.까지');
+    expect(lines.join(' ')).not.toContain('2026.09.01.');
+    expect(lines[0]).toContain('2026.09.10.부터');
+  });
+
+  it('업무분담 시작일이 따로 있어도 그 다음 달 1일을 첫 접수일로 표시하지 않는다', () => {
+    const r = calcChildcareReduction({ ...august, workSharing: { paidMonthly: 200_000, startDate: '2026-09-15' } });
+    const sharing = applyLines(r).find((l) => l.startsWith('업무분담 지원금 신청'))!;
+    expect(sharing).toContain('고용24');
+    expect(sharing).not.toContain('2026.10.01.');
+  });
+
+  it('종료일을 모르면 마감일과 나머지 신청일을 만들지 않고, 없는 지원은 표시하지 않는다', () => {
+    const r = calcChildcareReduction({ ...august, endDate: undefined, workSharing: undefined });
+    const grant = applyLines(r).find((l) => l.startsWith('사업주 장려금 신청'))!;
+    expect(grant).toContain('고용24');
+    expect(grant).not.toMatch(/마감|나머지|2026\.09\.01\./);
+    expect(applyLines(r).join(' ')).not.toContain('업무분담 지원금 신청');
+  });
+
+  it('출산전후휴가와 겹치면 실제 종료일을 확인할 때까지 사업주 마감일을 표시하지 않는다', () => {
+    const r = calcChildcareReduction({ ...august, maternityOverlapDays: 7 });
+    const lines = applyLines(r).filter((l) => /^(사업주 장려금|업무분담 지원금) 신청/.test(l));
+    expect(lines).toHaveLength(2);
+    expect(lines.every((line) => line.includes('고용24'))).toBe(true);
+    expect(lines.join(' ')).not.toMatch(/마감|나머지|2026\.09\.01\./);
+  });
+});
+
 describe('입력 바꾸기 — 비우면 undefined(모름), 0 으로 채우지 않는다', () => {
   it('빈 폼은 숫자·예/아니오가 전부 undefined', () => {
     const i = toEngineInput(EMPTY_FORM);
