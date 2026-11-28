@@ -1008,6 +1008,28 @@ const FEATURES: Record<string, { path: string; journey: Journey; waitUntil?: 'lo
       step('A6·B 지각 8시간 — 정했으면 96,000 / 없으면 0 · 192,000 공제 = 초과 96,000 · 1회 한도(한 번이라면)', /정했으면 그 시간분 96,000원, 정한 것이 없으면 0원.*96,000원 많습니다.*한 번의 감급이라면 1회 한도 40,891\.3원보다 큽니다.*법무811-21010 처럼/, await answer(p));
     },
   },
+  // 육아기 근로시간 단축 — 기대값 출처 = tests/unit/calc-childcare-reduction.test.ts(상한 걸림 865,000 · 고시 금액 30만+10만)
+  'childcare-reduction': {
+    path: '/tools/childcare-reduction',
+    journey: async (p, step) => {
+      const yes = (legend: RegExp, choice: string) => p.getByRole('group', { name: legend }).getByLabel(choice, { exact: true }).check();
+      step('빈 화면 — 금액 대신 더 알려 줄 사실', /더 알려 주면 계산하는 것.*월 통상임금/, await answer(p));
+      await p.getByLabel(/^월 통상임금/).fill('3000000');
+      await p.getByLabel('단축 전 1주 소정근로시간', { exact: true }).fill('40');
+      await p.getByLabel('단축 후 1주 소정근로시간', { exact: true }).fill('24');
+      await p.getByLabel('단축 시작일', { exact: true }).fill('2027-02-01');
+      step('상한 걸림 300만·40→24 = 625,000 + 240,000(§104의2②)', '한 달 865,000원', await answer(p));
+      await p.getByLabel(/^단축 종료일/).fill('2027-07-31');
+      step('6개월 합계 5,190,000 · 신청 기간', /5,190,000원.*2027\.03\.01\.부터 2028\.07\.31\.까지/, await answer(p));
+      await yes(/우선지원대상기업입니까/, '예');
+      await yes(/첫~세 번째 사례입니까/, '예');
+      step('사업주 장려금 30만 + 10만 = 40만 × 6 = 240만(고시 별표 5 제2호)', /사업주 장려금 월액 400,000원.*2,400,000원/, await answer(p));
+      await yes(/180일 이상입니까/, '아니오');
+      step('180일 아니오 → 미충족', '미충족', await answer(p));
+      await p.getByLabel('단축 후 1주 소정근로시간', { exact: true }).fill('10');
+      step('단축 후 10시간 → 범위 오류(남녀고용평등법 §19의2③)', '15시간 이상 35시간 이하', await answer(p));
+    },
+  },
 };
 
 async function api(step: (n: string, e: string | RegExp, g: string) => void) {
