@@ -149,19 +149,37 @@ const FEATURES: Record<string, { path: string; journey: Journey; waitUntil?: 'lo
       const RRN = '900101-1000000';
       const sent: string[] = [];
       p.on('request', (r: any) => sent.push(`${r.method()} ${r.url()} ${r.postData() ?? ''}`));
-      // 사업자번호 → 공개 사업장 목록(여럿) → 고르면 주소·명칭이 채워진다(삼성전자 공개 번호)
+      // 사업자번호 → 공개 사업장 목록(여럿) → 고르면 주소·명칭이 채워진다.
+      // 사업자번호 → 주소 한 단계만 공공데이터(근복)를 거친다. 그 단계는 합성 응답으로 바꿔 끼운다 — 인원 확인 여정과 같은 방식.
+      // 261127~28 근복 API 504(SERVICETIMEOUT)로 이 기능 전체가 멈췄다. 고른 뒤의 주소 → 지사 찾기는 실제 서버로 간다
       await p.getByLabel('사업자등록번호').fill('123');
       await p.getByRole('button', { name: '사업자번호로 찾기' }).click();
       await p.getByText('사업자등록번호 10자리를 확인해 주세요.').waitFor({ timeout: 15000 });
       step('사업자번호 자릿수 틀림 안내', /10자리를 확인/, await answer(p, '[data-step=branch]'));
-      await p.getByLabel('사업자등록번호').fill('124-81-00998');
-      await p.getByRole('button', { name: '사업자번호로 찾기' }).click();
-      await p.locator('[data-biz-pick] button').first().waitFor({ timeout: 30000 });
-      await p.locator('[data-biz-pick] button').first().click();
-      await p.waitForFunction(() => (document.querySelector('[data-branch-name]') as HTMLInputElement | null)?.value, null, { timeout: 30000 });
-      // 공개 사업장 목록의 순서는 공단 자료를 따라 바뀐다(261104 첫 줄이 수원 → 천안). 어느 사업장이든 시·군·구 주소가 채워지면 된다
-      step('사업자번호 → 주소 채움', /^[가-힣]+ [가-힣]+[시군구] /, await p.getByLabel('사업장 주소').inputValue());
-      step('사업자번호 → 명칭 채움', /삼성전자/, await p.getByLabel('사업장 명칭').inputValue());
+      const bizPattern = '**/api/tools/branch-directory?bizNo=*';
+      let bizReply: object = { ok: false, reason: 'upstream' };
+      await p.route(bizPattern, async (route: any) => { await route.fulfill({ json: bizReply }); });
+      try {
+        // 공단 조회 실패 → 직접 적으라는 안내(화면이 멈추지 않는다)
+        await p.getByLabel('사업자등록번호').fill('124-81-00998');
+        await p.getByRole('button', { name: '사업자번호로 찾기' }).click();
+        await p.getByText(/오류가 났습니다/).waitFor({ timeout: 15000 });
+        step('공단 조회 실패 → 직접 적기 안내', /직접 적어 주세요/, await answer(p, '[data-step=branch]'));
+        bizReply = { ok: true, pick: [
+          { name: '합성상사 본점', address: '충청북도 청주시 상당구 상당로81번길 63 (서문동)' },
+          { name: '합성상사 지점', address: '서울특별시 영등포구 여의공원로 101' },
+        ] };
+        await p.getByRole('button', { name: '사업자번호로 찾기' }).click();
+        await p.locator('[data-biz-pick] button').first().waitFor({ timeout: 15000 });
+        step('사업장 여럿 → 고를 목록', '2', String(await p.locator('[data-biz-pick] button').count()));
+        await p.locator('[data-biz-pick] button').first().click();
+        await p.waitForFunction(() => (document.querySelector('[data-branch-name]') as HTMLInputElement | null)?.value, null, { timeout: 30000 });
+      } finally {
+        await p.unroute(bizPattern);
+      }
+      step('사업자번호 → 주소 채움', /^충청북도 청주시 상당구 /, await p.getByLabel('사업장 주소').inputValue());
+      step('사업자번호 → 명칭 채움', '합성상사 본점', await p.getByLabel('사업장 명칭').inputValue());
+      step('고른 주소 → 건보 지사(실제 서버)', '청주동부지사', await p.locator('[data-branch-name]').inputValue());
       await p.getByLabel('사업장 명칭').fill('');
       await p.getByLabel('사업장 주소').fill('충청북도 청주시 상당구 상당로81번길 63 (서문동)');
       await p.locator('[data-branch-name]').fill('');

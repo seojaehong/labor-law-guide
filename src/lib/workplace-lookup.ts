@@ -80,21 +80,39 @@ function mergeRows(rows: InsuranceRow[]): Workplace[] {
   }));
 }
 
+// 공단 쪽이 응답 없이 붙잡고 있으면(261128 504 SERVICETIMEOUT) 화면이 31초를 기다렸다.
+// 이 시간에서 끊고 upstream 으로 돌려 화면이 바로 「직접 적어 주세요」로 넘어가게 한다.
+export const UPSTREAM_TIMEOUT_MS = 8_000;
+
 export async function fetchWorkplaces(
   bizNo: string,
   key: string,
-  fetchImpl: (url: string) => Promise<Response> = (url) => fetch(url, { cache: 'no-store' }),
+  fetchImpl: (url: string, signal?: AbortSignal) => Promise<Response> = (url, signal) => fetch(url, { cache: 'no-store', signal }),
+  timeoutMs: number = UPSTREAM_TIMEOUT_MS,
 ): Promise<LookupResult> {
   if (!key) return { ok: false, reason: 'no-key' };
   const url = `${API_URL}?serviceKey=${encodeURIComponent(key)}&pageNo=1&numOfRows=50&v_saeopjaDrno=${bizNo}`;
-  let xml: string;
+  const ctrl = new AbortController();
+  const timedOut = new Promise<never>((_, reject) => {
+    ctrl.signal.addEventListener('abort', () => reject(new Error('timeout')));
+  });
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+  let xml: string | null;
   try {
-    const res = await fetchImpl(url);
-    if (!res.ok) return { ok: false, reason: 'upstream' };
-    xml = await res.text();
+    // 본문 받기까지 한 시간 제한 안에 둔다
+    xml = await Promise.race([
+      (async () => {
+        const res = await fetchImpl(url, ctrl.signal);
+        return res.ok ? await res.text() : null;
+      })(),
+      timedOut,
+    ]);
   } catch {
     return { ok: false, reason: 'upstream' };
+  } finally {
+    clearTimeout(timer);
   }
+  if (xml === null) return { ok: false, reason: 'upstream' };
   const parsed = parseWorkplaceXml(xml);
   if (!parsed.ok) return parsed;
   if (parsed.rows.length === 0) return { ok: false, reason: 'none' };
