@@ -164,18 +164,18 @@ describe('나머지 장(B2·B4~B7)도 프리셋 부품 배치', () => {
       }
     });
 
-  it('프리셋 판에서 한 행만으로도 본문 높이를 넘으면 원문 그대로 싣고 warnings·overflowEstimates 에 남긴다', async () => {
+  it('프리셋 판에서 한 행만으로도 본문 높이를 넘으면 낱말 경계에서 이어지는 장으로 나눠 싣고(이으면 원문) warnings 에 남긴다', async () => {
     const s = finalSnapshotForDesign();
     const huge = '작업 전 사다리 상단 고정 장치를 설치하고 두 사람이 한 조로 작업한다 '.repeat(30);
     s.opinions = [{ id: 'O-9', from: '근로자(역할)', text: huge, relatedIds: [] }];
     for (const id of DESIGN_IDS) {
       const r = await makeBroadcastPptx(s, { design: id });
-      expect((await slideXmls(r.bytes!)).join('\n')).toContain(huge.trim());
-      expect(r.warnings.join(' '), id).toContain('B4');
-      const over = r.overflowEstimates.filter((o) => o.code === 'B4' && o.ref === 'O-9');
-      // 넘치는 칸(의견 원문)만 — 짧은 결과 칸은 후보가 아니다. field 는 기본 출력과 같은 이름(text)
-      expect(over.map((o) => o.field), id).toEqual(['text']);
-      expect(over[0].chars, id).toBeGreaterThan(over[0].capacity);
+      const xs = await slideXmls(r.bytes!);
+      const b4 = r.slides.filter((x) => x.code === 'B4');
+      expect(b4.length, id).toBeGreaterThan(1);
+      const frags = b4.flatMap((x) => [...xs[x.no - 1].matchAll(/<a:t>([^<]*)<\/a:t>/g)].map((m) => m[1].trim()).filter((t) => t.length > 20 && huge.includes(t)));
+      expect(frags.join(' '), id).toBe(huge.trim());
+      expect(r.warnings.join(' '), id).toMatch(/B4\([a-z]+\): O-9 한 행의 글이 본문 높이를 넘어 \d+행으로 나눠/);
     }
   });
 });

@@ -4,7 +4,7 @@ import type { DeckPptx, DeckSlide } from './slide-types';
 import { designScale, type DeckDesign, type DesignColorKey, type DesignScale } from './index';
 import { color, type HeadBox } from './head';
 import { LINE_H, wrapLines } from './b3-geometry';
-import { drawList, drawListEmpty, fitKeepCols, listCapacity, listFamily, planList, type ListRow, type ListSpec } from './lists';
+import { drawList, drawListEmpty, fitKeepCols, listCapacity, listFamily, planList, splitTallRow, type ListRow, type ListSpec } from './lists';
 import { capacityOf, textUnits } from '../text-units';
 import type { OverflowEstimate } from '../meeting';
 
@@ -70,7 +70,13 @@ export function listPages(a: ListPagesArgs): Page[] {
   const spec = fit.spec;
   if (fit.short.length) a.warnings.push(`${code}(${kit.d.id}): ${fit.short.map((x) => `${x.key} 칸 낱말(${Math.ceil(x.need)}자)이 한 줄(${x.perLine}자)에 들지 않는다`).join('·')} — 칸이 많아 넓힐 폭이 없다, 원문 그대로 실었다`);
   const room = a.roomPx - (a.offsetPx ?? 0);
-  const plan = planList(kit.d, kit.s, spec, a.rows, room, a.cap);
+  // 한 행만으로 본문 높이를 넘는 행 — 낱말 경계에서 이어지는 행으로 나눠 다음 장에(글은 그대로, 이으면 원문)
+  const rows = a.rows.flatMap((r) => {
+    const parts = splitTallRow(kit.d, kit.s, spec, r, room);
+    if (parts.length > 1) a.warnings.push(`${code}(${kit.d.id}): ${r.id} 한 행의 글이 본문 높이를 넘어 ${parts.length}행으로 나눠 이어지는 장에 실었다`);
+    return parts;
+  });
+  const plan = planList(kit.d, kit.s, spec, rows, room, a.cap);
   return plan.pages.map((page, pi, all) => {
     const p = a.newPage(pi, all.length, page);
     const box = a.offsetPx ? { ...p.box, top: p.box.top + kit.s.y(a.offsetPx) } : p.box;

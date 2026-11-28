@@ -8,7 +8,7 @@
 import type { DeckPptx, DeckSlide } from './slide-types';
 import type { DeckDesign, DesignColorKey, DesignScale } from './index';
 import { color, type HeadBox } from './head';
-import { LINE_H, linesOf } from './b3-geometry';
+import { LINE_H, linesOf, wrapLines } from './b3-geometry';
 import { capacityOf, textUnits } from '../text-units';
 
 export type ListFamily = 'hairline' | 'grid' | 'rowcard' | 'chipcard' | 'storycard';
@@ -241,6 +241,57 @@ export function fitKeepCols(d: DeckDesign, s: DesignScale, spec: ListSpec, rows:
     short.push({ key: col.key, need: units, perLine: capacityOf(s.x(out[i] - colOverhead(m, spec, i)), s.pt(m.px), 1) });
   });
   return { spec: { ...spec, cols: spec.cols.map((col, i) => ({ ...col, ratio: out[i] })) }, short };
+}
+
+/** 글을 앞에서부터 perLine 글자 줄 maxLines 줄에 드는 만큼 — 띄어쓰기·줄바꿈 경계에서(낱말 하나가 한 줄보다 길면 글자 경계) */
+function takeLines(text: string, perLine: number, maxLines: number): [string, string] {
+  const parts = text.split(/(\s+)/);
+  let head = '';
+  for (let i = 0; i < parts.length; i++) {
+    const cand = head + parts[i];
+    if (wrapLines(cand.trimEnd(), perLine) <= maxLines) {
+      head = cand;
+      continue;
+    }
+    if (!head.trim()) {
+      // 낱말 하나가 칸보다 길다 — 글자 경계에서
+      let cut = '';
+      for (const ch of parts[i]) {
+        if (wrapLines(cut + ch, perLine) > maxLines) break;
+        cut += ch;
+      }
+      cut = cut || [...parts[i]][0];
+      return [cut, parts[i].slice(cut.length) + parts.slice(i + 1).join('')];
+    }
+    return [head.trimEnd(), parts.slice(i).join('').trimStart()];
+  }
+  return [head.trimEnd(), ''];
+}
+
+/**
+ * 한 행만으로 본문 높이(roomPx)를 넘는 행 — 칸마다 글을 본문 높이에 드는 줄 수만큼씩 잘라(낱말 경계) 여러 행으로 나눈다.
+ * 나눈 행은 같은 id 이고(근거 anchor 그대로), 다 실은 칸은 빈 글이다. 이으면 원문 — 말줄임 없음. 나눌 수 없으면 [row] 그대로.
+ */
+export function splitTallRow(d: DeckDesign, s: DesignScale, spec: ListSpec, row: ListRow, roomPx: number): ListRow[] {
+  if (listLayout(d, s, spec, [row]).total <= roomPx) return [row];
+  const m = metrics(d, spec);
+  const L = listLayout(d, s, spec, [row]);
+  const per = spec.cols.map((_, i) => capacityOf(s.x(L.textW[i]), s.pt(m.px), 1));
+  for (let maxLines = Math.max(1, Math.floor(roomPx / (LINE_H * m.px))); maxLines >= 1; maxLines--) {
+    const out: ListRow[] = [];
+    let rest = row.cells.map((c) => c.text);
+    while (rest.some((t) => t)) {
+      const cells = row.cells.map((c, i) => {
+        const [h, r] = takeLines(rest[i], per[i], maxLines);
+        rest[i] = r;
+        return { ...c, text: h };
+      });
+      out.push({ id: row.id, cells });
+      if (out.length > 200) break;
+    }
+    if (out.every((r) => listLayout(d, s, spec, [r]).total <= roomPx)) return out;
+  }
+  return [row];
 }
 
 /**
