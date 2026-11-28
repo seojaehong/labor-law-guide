@@ -1,7 +1,7 @@
 // 출근율(연차 80%) — 사이트 엔진(src/lib/calc/attendance-rate)과 문구 모듈(src/app/tools/attendance-rate/copy)을 그대로 불러 쓴다.
 // 날짜와 날 수만 받는다. 파일·네트워크를 건드리지 않고 주민등록번호를 받지 않는다 — 원격판에 그대로 실을 수 있다.
 import { z } from 'zod';
-import { calcAttendanceRate, monthlyLeaveDay, CAUSE_IDS, CAUSES } from '@/lib/calc/attendance-rate';
+import { calcAttendanceRateChecked, monthlyLeaveDay, CAUSE_IDS, CAUSES } from '@/lib/calc/attendance-rate';
 import {
   headline, effectLines, formulaLines, monthLines, fmtPct, fmtDays,
   CAUSE_COPY, GROUP_COPY, MONTH_RULES, OPEN_ITEMS, SCOPE_ITEMS, SCHEDULED_HINT, ACCRUAL_HINT,
@@ -42,7 +42,8 @@ export function register(server) {
       title: '출근율(연차 80%)',
       description:
         '입사일·연차가 생기는 날·그 1년의 소정근로일수와 원인별 일수(출근한 것으로 보는 날·소정근로일수에서 빼는 날·결근)로 연차휴가가 생기는 출근율 80%를 채웠는지와 생기는 일수를 계산한다(사이트 /tools/attendance-rate 와 같은 엔진, 근로기준법 제60조). ' +
-        '소정근로일수 S = 출근 A + 출근 간주 D + 빼는 날 X + 결근 B(넣지 않은 날은 출근으로 센다). 출근율 = (A+D) ÷ S. ' +
+        '소정근로일수 S = 출근 A + 출근 간주 D + 빼는 날 X + 결근 B(원인별 칸에 넣지 않은 날은 출근으로 센다). 출근율 = (A+D) ÷ S. ' +
+        '사용자가 말한 값만 넣는다 — days 를 비우거나 한 칸도 넣지 않으면(1년 미만 제외) 출근율을 내지 않고(status needs-input) needs 에 물을 질문이 온다. 결근이 없다고 하면 absence 0 을 넣는다. ' +
         '(A+D)/S 가 80% 이상(5×(A+D) ≥ 4×S)이면 기본일수 전부(근속 가산 포함, 25일 한도). 80%에 못 미치고 빼는 날을 뺀 (A+D)/(S−X) 가 80% 이상이면 기본일수 × (S−X) ÷ S(끝수 처리 없음, 대법원 2015다66052). 그 밖이면 1개월 개근할 때마다 1일(제60조제2항). S 전부가 빼는 날이면 생기지 않는다. ' +
         '부당하다고 확정된 정직·회사 사정 휴업은 해석이 갈려 출근한 것으로 본 값을 나란히 낸다. month 를 넣으면 그 달 개근 여부(1일)도 본다. ' +
         '1년 소정근로일수를 달력에서 세는 일, 쟁의행위·징계가 정당한지, 단시간 근로자 시간 비례, 회계연도 첫해 비례, 연차수당 금액, 연차가 생기는 날이 2012. 8. 2. 전인 연차(1년 이상이면 2013. 8. 2. 전), 입사 1년이 되는 날이 2018. 5. 29. 이전인 연차는 다루지 않는다.',
@@ -50,7 +51,7 @@ export function register(server) {
         hireDate: z.string().describe('입사일 YYYY-MM-DD'),
         accrualDate: z.string().describe(`연차가 생기는 날 YYYY-MM-DD. ${ACCRUAL_HINT}`),
         scheduledDays: z.number().describe(`그 1년의 소정근로일수(1~366 정수). ${SCHEDULED_HINT}`),
-        days: z.object(daysShape).optional().describe('원인별 일수(0 이상 정수). 여기에 넣지 않은 소정근로일은 출근한 날로 센다. 합이 소정근로일수를 넘으면 안 된다'),
+        days: z.object(daysShape).optional().describe('원인별 일수(0 이상 정수). 사용자가 말한 일수만 넣는다 — 비우면 needs 로 묻는다(종전에는 전부 출근으로 봤다), 결근이 없으면 absence 0. 한 칸이라도 넣으면 나머지 소정근로일은 출근한 날로 센다. 합이 소정근로일수를 넘으면 안 된다'),
         month: z
           .object({
             scheduled: z.number().describe('그 달 소정근로일수(1~31)'),
@@ -64,8 +65,10 @@ export function register(server) {
     },
     async (a) => {
       try {
-        const r = calcAttendanceRate({ hireDate: a.hireDate, accrualDate: a.accrualDate, scheduledDays: a.scheduledDays, days: a.days ?? {} });
+        // 261128 — 일수를 하나도 넣지 않으면 모두 출근으로 보지 않는다(종전 days ?? {}). 엔진이 needs 로 돌려준다
+        const checked = calcAttendanceRateChecked({ hireDate: a.hireDate, accrualDate: a.accrualDate, scheduledDays: a.scheduledDays, days: a.days });
         // 한 달 개근은 따로 계산한다 — month 칸이 잘못돼도 연간 결과는 그대로 내고 month 에만 오류를 단다(화면 AttendanceRateClient 와 같음).
+        // 연간 일수와 상관없어 needs-input 이어도 낸다
         let month = null;
         if (a.month) {
           try {
@@ -75,6 +78,16 @@ export function register(server) {
             month = { error: e instanceof Error ? e.message : String(e) };
           }
         }
+        if (checked.status === 'needs-input') {
+          return text({
+            ok: true, status: 'needs-input', needs: checked.needs, assumptions: checked.assumptions,
+            headline: ['출근율과 연차 일수를 내지 않습니다.', '정하려면 needs 의 사실(결근·출근 간주·빼는 날의 일수)을 알아야 합니다.'],
+            result: { serviceYears: checked.serviceYears, primary: null, alt: null },
+            ...(month ? { month, monthRules: clean(MONTH_RULES) } : {}),
+            site: SITE,
+          });
+        }
+        const { needs, assumptions, ...r } = checked;
         const entered = CAUSE_IDS.filter((c) => (a.days?.[c] ?? 0) > 0).map((c) => ({
           cause: c,
           label: CAUSE_COPY[c].label,
@@ -84,6 +97,9 @@ export function register(server) {
         }));
         return text({
           ok: true,
+          status: 'ok',
+          needs,
+          assumptions,
           headline: clean(headline(r)),
           effect: clean(effectLines(r)),
           formula: clean(formulaLines(r)),

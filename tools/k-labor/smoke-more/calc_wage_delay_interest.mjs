@@ -13,7 +13,7 @@ export default async function (callNew, check) {
   check(`wage_delay D 2호 periodic-kept 110,136원(${d.headline?.[0]})`, d.ok && d0?.basis === '2호' && d0.reason === 'periodic-kept' && d0.baseDate === '2026-05-25' && d0.delayDays === 67 && d0.interest === 110_136);
 
   // 시험 E1(113행) — 부칙 §2: 정기지급일 2025. 9. 25. · 재직 중 → 붙지 않음 0원
-  const e1 = await callNew(N, { items: [{ kind: 'periodic', amount: 3_000_000, periodicPayDate: '2025-09-25', paidDate: '2025-11-25' }] });
+  const e1 = await callNew(N, { employed: true, items: [{ kind: 'periodic', amount: 3_000_000, periodicPayDate: '2025-09-25', paidDate: '2025-11-25' }] });
   check(`wage_delay E1 시행 전 정기지급일 재직 중 0원(${e1.headline?.[0]})`, e1.ok && e1.result?.items?.[0]?.basis === 'none' && e1.result.items[0].reason === 'before-act' && e1.result.total === 0);
 
   // 시험 F(181·190행) — 적용 제외 2.15~9.30: 228일 빼고 92일 1,008,219원, 빼지 않으면 3,506,849원
@@ -32,9 +32,12 @@ export default async function (callNew, check) {
   });
   check(`wage_delay G 여러 건 합계 305,805원(${g.headline?.[0]})`, g.ok && JSON.stringify(g.result?.items?.map((i) => i.interest)) === '[44985,30684,230136]' && g.result.total === 305_805);
 
-  // 시험 「입력 오류」(253행) — 퇴직 금품인데 마지막 근무일이 없으면 오류
+  // 시험 「입력 오류」(253행) — 퇴직 금품인데 마지막 근무일이 없으면 금액 없이 마지막 근무일을 묻는다(261128 needs, 종전 오류)
   const bad = await callNew(N, { items: [{ kind: 'retirement', amount: 1_000_000, paidDate: '2026-06-30' }] });
-  check(`wage_delay 마지막 근무일 없으면 오류(${bad.error})`, bad.ok === false && /마지막 근무일/.test(bad.error ?? ''));
+  check(`wage_delay 마지막 근무일 없으면 needs(${bad.status})`, bad.ok === true && bad.status === 'needs-input' && bad.result?.total === null && bad.needs?.[0]?.key === 'lastWorkDay');
+  // 재직 여부도 마지막 근무일도 없으면 재직 여부부터 묻는다
+  const unk = await callNew(N, { items: [{ kind: 'periodic', amount: 3_000_000, periodicPayDate: '2026-05-25', paidDate: '2026-07-31' }] });
+  check(`wage_delay 재직 여부 없으면 needs(${unk.status})`, unk.ok === true && unk.status === 'needs-input' && unk.needs?.[0]?.key === 'employed');
 
   // 시험 268행 — 0원은 「1원 이상」
   const zero = await callNew(N, { lastWorkDay: '2026-03-31', items: [{ kind: 'retirement', amount: 0, paidDate: '2026-06-30' }] });

@@ -1,7 +1,7 @@
 // 임금 지연이자 — 사이트 정본 엔진(src/lib/calc/wage-delay-interest)과 계산기 문구(src/app/tools/wage-delay-interest/copy)를 그대로 불러 쓴다.
 // 금액과 날짜만 받는다. 파일·네트워크를 건드리지 않는다 — 원격판에 그대로 실을 수 있다.
 import { z } from 'zod';
-import { calcWageDelayInterest } from '@/lib/calc/wage-delay-interest';
+import { calcWageDelayInterest, calcWageDelayInterestChecked } from '@/lib/calc/wage-delay-interest';
 import { BASIS, CONSEQUENCES, EXCLUSION_REASONS, FORMULA, NOT_COVERED, headline, itemLine } from '@/app/tools/wage-delay-interest/copy';
 import { todayKst } from '@/lib/tool-kit';
 import { text } from '../../lib/common.mjs';
@@ -22,12 +22,17 @@ export function register(server) {
         '2025. 10. 22.까지의 정기지급일 임금은 재직 중에는 붙지 않고(법률 제20520호 부칙 제2조), 퇴직할 때까지 받지 못했으면 제1호로 센다. 2호 이자가 생긴 뒤 퇴직하면 정기지급일 그대로(제37조 제2항). ' +
         '지연이자 = 금액 × 20/100 × (기준일 다음 날부터 지급일까지 일수 − 적용 제외 일수) ÷ 365, 항목마다 원 미만 버림, 합계는 항목 값의 합. 기준일이 토요일·공휴일이어도 미루지 않는다. ' +
         '적용 제외 기간(제37조 제3항·시행령 제18조)은 넣은 기간을 빼기만 하고 사유 해당 여부는 가리지 않는다. 사유가 일부 항목에만 있으면 그 항목의 exclusions 에 넣는다(바깥 exclusions 는 모든 항목 공통). ' +
-        '민법·상법 지연손해금, 퇴직연금 부담금 지연이자, 재직 중 중간정산, 1개월을 넘는 기간으로 산정하는 상여금의 재직 중 기준일, 일부 지급 때의 충당 순서는 다루지 않는다.',
+        '민법·상법 지연손해금, 퇴직연금 부담금 지연이자, 재직 중 중간정산, 1개월을 넘는 기간으로 산정하는 상여금의 재직 중 기준일, 일부 지급 때의 충당 순서는 다루지 않는다. ' +
+        '사용자가 말한 값만 넣는다 — 재직 여부(employed)와 마지막 근무일을 둘 다 비우면 금액을 내지 않고(status needs-input, result.total null) needs 에 물을 질문이 온다. needs 의 question 을 사용자에게 묻고 답을 넣어 다시 부른다.',
       inputSchema: {
+        employed: z
+          .boolean()
+          .optional()
+          .describe('사용자가 말한 값만 넣는다. true = 지금도 재직 중(lastWorkDay 는 비운다) · false = 퇴직(lastWorkDay 필요). 재직 여부도 lastWorkDay 도 비우면 금액 없이 needs 로 묻는다(종전에는 재직 중으로 봤다)'),
         lastWorkDay: z
           .string()
           .optional()
-          .describe(`마지막 근무일(근로관계의 마지막 날 = 4대보험 상실일의 전날) 또는 사망일 ${DATE}. 재직 중이면 비운다`),
+          .describe(`마지막 근무일(근로관계의 마지막 날 = 4대보험 상실일의 전날) 또는 사망일 ${DATE}. 퇴직했으면 넣는다(넣으면 employed 는 비워도 된다)`),
         items: z
           .array(
             z.object({
@@ -67,14 +72,27 @@ export function register(server) {
         const lastWorkDay = a.lastWorkDay || undefined;
         const has = (l) => Array.isArray(l) && l.length > 0;
         const hasExcl = has(a.exclusions) || a.items.some((it) => has(it.exclusions));
+        // 261128 — 재직 여부를 비우면 재직 중으로 보지 않는다. 엔진이 needs 로 돌려준다
+        const checked = calcWageDelayInterestChecked({ employed: a.employed, lastWorkDay, items: a.items, ...(has(a.exclusions) ? { exclusions: a.exclusions } : {}) });
+        if (checked.status === 'needs-input') {
+          return text({
+            ok: true, status: 'needs-input', needs: checked.needs, assumptions: checked.assumptions,
+            headline: ['임금 지연이자는 금액을 내지 않습니다.', '금액을 정하려면 needs 의 사실(재직 중인지, 퇴직했다면 마지막 근무일)을 알아야 합니다.'],
+            result: { items: [], total: null },
+            site: 'https://yellowenvelope.kr/tools/wage-delay-interest',
+          });
+        }
+        const { status: _s, needs, assumptions, ...r } = checked;
         // 화면과 같이 — 적용 제외 기간(공통·항목별)을 넣었을 때만 「빼지 않으면」 값을 함께 낸다. 그 값은 항목별 기간도 뺀다
         const full = hasExcl
           ? calcWageDelayInterest({ lastWorkDay, items: a.items.map(({ kind, amount, periodicPayDate, paidDate }) => ({ kind, amount, periodicPayDate, paidDate })) })
           : undefined;
-        const r = calcWageDelayInterest({ lastWorkDay, items: a.items, ...(has(a.exclusions) ? { exclusions: a.exclusions } : {}) });
         const today = todayKst();
         return text({
           ok: true,
+          status: 'ok',
+          needs,
+          assumptions,
           headline: headline(r, full),
           result: r,
           ...(full ? { totalWithoutExclusions: full.total } : {}),

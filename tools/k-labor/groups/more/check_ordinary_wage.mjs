@@ -4,7 +4,7 @@
 import { z } from 'zod';
 import {
   AGREED_WAGE_NOTICE, KIND_LABEL, OLD_ERA_NOTICE, RIGHT_TO_PAY_NOTICE, ROUNDING_NOTE, UNIT_HOURS_NOTE,
-  checkItem, directionSentence, eraLabel, eraOn, hourlyText, itemNotes, sumIncluded, summaryLines,
+  checkItem, directionSentence, eraLabel, hourlyText, itemNotes, ordinaryWageNeeds, sumIncluded, summaryLines,
 } from '@/lib/calc/ordinary-wage-check';
 import { SOURCES } from '@/lib/calc/ordinary-wage-sources';
 import { todayKst } from '@/lib/tool-kit';
@@ -41,7 +41,7 @@ const ITEM = z.object({
   regular: ANSWER.default('unknown').describe('정해진 주기: 매달 또는 정해진 주기마다 지급하도록 정해져 있나 — yes(예)·no(아니오)·unknown(모름)'),
   uniform: ANSWER.default('unknown').describe('지급 대상: 모두에게, 또는 직무·자격·근속기간처럼 일의 가치와 관련된 조건을 갖춘 사람 모두에게 주나. 부양가족 수·장애 여부처럼 일과 무관한 조건이면 no'),
   forWork: ANSWER.default('unknown').describe('근무시간의 대가: 정해진 근무시간을 빠짐없이 일하면 그 대가로 받나. 실적 평가·무사고·추가 근무 같은 요건이면 no. 재직·근무일수·출근율 조건만 있으면 yes(조건은 아래 칸에). 성과급은 보지 않는다'),
-  employedOnPayday: z.boolean().optional().describe('지급일에 재직 중이어야 받는다'),
+  employedOnPayday: z.boolean().optional().describe('지급일에 재직 중이어야 받는다. 사용자가 말한 값만 넣는다 — 비우면 판정이 달라질 때 needs 로 묻는다(조건이 없으면 false)'),
   workDays: z.object({
     required: z.number().int().describe('조건 일수'),
     scheduled: z.number().int().describe('그 기간의 소정근로일수(2개월마다 따지면 2개월분)'),
@@ -50,9 +50,9 @@ const ITEM = z.object({
   proRataOnLeave: z.boolean().optional().describe('지급일 전에 퇴직해도 그때까지 근무일수에 비례해 지급한다(지급일 재직 조건이 있을 때만, 2024. 12. 18.까지 제공분에만 영향)'),
   proRataOnShortDays: z.boolean().optional().describe('정한 일수·출근율을 못 채워도 일한 날만큼 일할해 지급한다(근무일수·출근율 조건이 있을 때만, 2024. 12. 18.까지 제공분에만 영향)'),
   leaveOrDisciplineOnly: z.boolean().optional().describe('휴직자·복직자·징계 대상자에게는 주지 않는다는 규정이 있다'),
-  minimum: z.number().optional().describe('성과급만 — 평가와 무관하게 최소로 보장된 1회 금액(원, 없으면 0)'),
+  minimum: z.number().optional().describe('성과급만 — 평가와 무관하게 최소로 보장된 1회 금액(원). 사용자가 말한 값만 넣는다 — 비우면 needs 로 묻는다, 보장액이 없다고 하면 0'),
   performanceYear: z.enum(['current', 'previous', 'unknown']).optional().describe('성과급만 — current(점검 기준일이 속한 해의 실적분, 지급이 다음 해여도)·previous(전년도 실적분, 지급 시기만 기준일이 속한 해)·unknown(모름)'),
-  baseForAll: z.number().optional().describe('가족수당만 — 부양가족과 상관없이 모두에게 주는 1회 기본금액(원, 없으면 0)'),
+  baseForAll: z.number().optional().describe('가족수당만 — 부양가족과 상관없이 모두에게 주는 1회 기본금액(원). 사용자가 말한 값만 넣는다 — 비우면 needs 로 묻는다, 없다고 하면 0'),
 });
 
 /** 화면 toItem 과 같다 — 법정수당은 조건 칸을 숨기고, 종류에 맞지 않는 칸은 엔진에 넘기지 않는다 */
@@ -60,7 +60,8 @@ function toItem(r) {
   const cond = r.kind !== 'statutory';
   const days = cond && r.workDays ? r.workDays : undefined;
   const rate = cond && r.attendanceRate !== undefined ? r.attendanceRate : undefined;
-  const payday = cond && Boolean(r.employedOnPayday);
+  // 261128 — 재직 조건·최저 보장액·기본금액은 비운 그대로(undefined) 넘긴다. 판정을 뒤집으면 ordinaryWageNeeds 가 묻는다(엔진은 undefined 를 아니오·0 으로 센다)
+  const payday = cond ? r.employedOnPayday : false;
   return {
     kind: r.kind,
     name: r.name || KIND_LABEL[r.kind],
@@ -72,12 +73,12 @@ function toItem(r) {
     employedOnPayday: payday,
     workDays: days,
     attendanceRate: rate,
-    proRataOnLeave: payday && Boolean(r.proRataOnLeave),
+    proRataOnLeave: Boolean(payday) && Boolean(r.proRataOnLeave),
     proRataOnShortDays: Boolean(days || rate !== undefined) && Boolean(r.proRataOnShortDays),
     leaveOrDisciplineOnly: cond && Boolean(r.leaveOrDisciplineOnly),
-    minimum: r.kind === 'performance' ? (r.minimum ?? 0) : undefined,
+    minimum: r.kind === 'performance' ? r.minimum : undefined,
     performanceYear: r.kind === 'performance' ? (r.performanceYear ?? 'unknown') : undefined,
-    baseForAll: r.kind === 'family' ? (r.baseForAll ?? 0) : undefined,
+    baseForAll: r.kind === 'family' ? r.baseForAll : undefined,
   };
 }
 
@@ -89,10 +90,11 @@ export function register(server) {
       description:
         '임금 항목마다 세 요소(정해진 주기·지급 대상·근무시간의 대가)와 붙어 있는 조건(지급일 재직·근무일수·출근율)을 받아, 통상임금에 들어가는 쪽 / 빠지는 쪽 / 입력만으로 가리기 어려움(보류) 중 어느 쪽으로 볼 요소가 있는지와 근거 판결 원문을 낸다(사이트 /tools/ordinary-wage-check 와 같은 엔진). ' +
         '기준은 연장근로 등을 제공한 날로 가른다 — 2024. 12. 19.부터 새 기준(대법원 2020다247190 전원합의체, 고정성 제외), 2024. 12. 18.까지 종전 기준(2012다89399, 고정성). 두 기준 결과를 함께 보인다. ' +
+        '판정(들어감·빠짐·보류)을 뒤집는 빈칸(기준일·지급일 재직 조건·성과급 최저 보장액·가족수당 기본금액)이 있으면 판정과 시간급을 내지 않고(status needs-input) needs 에 물을 질문이 온다. 금액만 바꾸는 빈칸(지급 횟수·월 기준시간)은 assumptions 에 온다. ' +
         '시간급(참고) = 들어가는 쪽 항목의 1년 금액 합 ÷ 12 ÷ 월 기준시간(시행령 제6조 제2항 제4·5·7호), 소수 셋째 자리에서 반올림. 성과급은 평가와 무관한 최소 보장분만, 가족수당은 모두에게 주는 기본금액만 더하고, 전년도 실적분 성과급과 주휴수당 같은 법정수당은 합계에 넣지 않는다. ' +
         '결과는 규정 원문과 운용 실태에 따라 달라질 수 있는 점검이며 단정하지 않는다. 연장·야간·휴일근로수당 금액은 계산하지 않고, 병행사건(새 기준 소급) 여부는 가리지 않는다.',
       inputSchema: {
-        date: z.string().optional().describe('연장근로 등을 제공한 날(점검 기준일) YYYY-MM-DD. 비우면 오늘(KST)'),
+        date: z.string().optional().describe('연장근로 등을 제공한 날(점검 기준일) YYYY-MM-DD. 비우면 두 기준 판정이 같을 때만 오늘(KST)로 보고(assumptions), 갈리면 needs 로 묻는다'),
         unitHours: z.number().optional().describe('월 기준시간(소수 둘째 자리까지, 744 이하). 비우면 209 — 주 40시간 + 주휴 8시간을 365일로 셈해 반올림한 값'),
         items: z.array(ITEM).min(1).describe('임금 항목 목록'),
       },
@@ -100,8 +102,31 @@ export function register(server) {
     },
     async (a) => {
       try {
-        const date = a.date || todayKst();
-        const era = eraOn(date);
+        // 261128 — 판정을 뒤집는 빈칸(기준일·지급일 재직 조건·성과급 최저 보장액·가족수당 기본금액)은 needs 로 묻는다.
+        // 칸 오류가 난 항목은 빼고 본다(그 항목은 아래 결과의 error 로 알린다)
+        const today = todayKst();
+        const rows = a.items.map((row) => {
+          try { return row.kind !== 'statutory' && row.workDays && row.attendanceRate !== undefined ? null : toItem(row); } catch { return null; }
+        });
+        const asked = ordinaryWageNeeds({ date: a.date || undefined, items: rows.filter(Boolean) }, today);
+        // 항목 번호는 넣은 순서 그대로 — 빠진 항목이 있으면 엔진이 매긴 번호를 원래 번호로 되돌린다
+        const idx = rows.flatMap((r, k) => (r ? [k] : []));
+        const needs = asked.needs.map((n) => ({ ...n, key: n.key.replace(/^items\[(\d+)\]/, (_, j) => `items[${idx[Number(j)]}]`) }));
+        const assumptions = [
+          ...asked.assumptions,
+          ...a.items.flatMap((row, k) => (row.timesPerYear === undefined ? [{ key: `items[${k}].timesPerYear`, value: DEFAULT_TIMES[row.kind] ?? 12, note: `지급 횟수를 넣지 않아 종류별 기본값 연 ${DEFAULT_TIMES[row.kind] ?? 12}회로 봤습니다.` }] : [])),
+          ...(a.unitHours === undefined ? [{ key: 'unitHours', value: 209, note: '월 기준시간을 넣지 않아 209시간(주 40시간 + 주휴 8시간)으로 봤습니다.' }] : []),
+        ];
+        if (needs.length) {
+          return text({
+            ok: true, status: 'needs-input', needs, assumptions,
+            headline: ['통상임금 판정과 시간급을 내지 않습니다.', '판정을 정하려면 needs 의 사실을 알아야 합니다.'],
+            result: { date: a.date || null, current: null, newEra: null, oldEra: null },
+            site: SITE,
+          });
+        }
+        const date = asked.date;
+        const era = asked.era;
         const other = era === 'old' ? 'new' : 'old';
         const h = a.unitHours ?? 209;
 
@@ -153,6 +178,9 @@ export function register(server) {
 
         return text({
           ok: true,
+          status: 'ok',
+          needs: [],
+          assumptions,
           headline: summaryLines(era, checks, cur.hourly, invalid),
           result: { date, era, eraLabel: eraLabel(era), unitHours: h, current: cur, newEra: neu, oldEra: old, invalid },
           compare: `${eraLabel('new')} ${hourlyText(neu)} · ${eraLabel('old')} ${hourlyText(old)}`,

@@ -23,6 +23,7 @@
 //   정수 계산: 금액 × 이율(100만분의 n) × 일수가 2^53 을 넘을 수 있어 BigInt 로 곱하고 나눈다. 양수 BigInt 나눗셈은 버림이다.
 // 날짜는 YYYY-MM-DD, UTC 달력으로 센다.
 import { rateOn, type Rate } from '@/content/rates';
+import type { Assumption, Need } from './needs';
 
 export type DelayKind = 'retirement' | 'periodic';
 /** retirement = 1호 · periodic = 2호(재직 중 지급 또는 재직 중) · periodic-kept = 2호(이자가 생긴 뒤 퇴직, §37②) · periodic-after-retire = 정기지급일이 퇴직 뒤라 1호
@@ -184,4 +185,39 @@ export function calcWageDelayInterest(input: WageDelayInput): WageDelayResult {
   });
 
   return { items, total: items.reduce((s, x) => s + x.interest, 0) };
+}
+
+/** 재직 여부를 비웠을 때 물을 사실(공통 형식 ./needs.ts, 261128) — 종전 MCP 는 마지막 근무일을 비우면 재직 중으로 봤다 */
+export const EMPLOYED_NEED: Need = {
+  key: 'employed',
+  question: '근로자가 지금도 그 회사에 다니고 있나요? 퇴직했다면(또는 사망했다면) 마지막으로 근무한 날이 언제인가요?',
+  why: '퇴직했으면 퇴직 때 정산하는 임금·퇴직금과 정기지급일이 퇴직 뒤인 임금은 마지막 근무일 + 14일부터, 재직 중이면 정기지급일 다음 날부터 지연이자가 붙습니다(근로기준법 제37조제1항). 2025. 10. 22.까지의 정기지급일 임금은 재직 중이면 붙지 않습니다.',
+};
+/** 퇴직했는데 마지막 근무일이 없을 때 */
+export const LAST_WORK_DAY_NEED: Need = {
+  key: 'lastWorkDay',
+  question: '마지막으로 근무한 날(사망이면 사망일)이 언제인가요? 4대보험 상실일의 전날입니다.',
+  why: '퇴직 때 정산하는 임금·퇴직금의 지연이자는 마지막 근무일 + 14일 다음 날부터 붙습니다(근로기준법 제37조제1항제1호).',
+};
+
+export type WageDelayCheckedInput = WageDelayInput & {
+  /** true = 재직 중 · false = 퇴직(마지막 근무일 필요). 마지막 근무일을 넣으면 비워도 된다 */
+  employed?: boolean;
+};
+export type WageDelayChecked =
+  | { status: 'needs-input'; needs: Need[]; assumptions: Assumption[]; items: []; total: null }
+  | (WageDelayResult & { status: 'ok'; needs: []; assumptions: Assumption[] });
+
+/** 재직 여부를 조용히 정하지 않는 판 — MCP 가 쓴다. 웹은 재직·퇴직 선택지가 늘 값이 있어 calcWageDelayInterest 를 그대로 쓴다 */
+export function calcWageDelayInterestChecked(input: WageDelayCheckedInput): WageDelayChecked {
+  const { employed, ...rest } = input;
+  const hasRetirementItem = rest.items.some((it) => it.kind === 'retirement');
+  if (employed === true && rest.lastWorkDay) throw new Error('재직 중이면 마지막 근무일을 비워 주세요');
+  if (employed === true && hasRetirementItem) throw new Error('재직 중이면 퇴직 때 정산하는 임금·퇴직금 항목이 없습니다 — 정기지급일이 있는 임금으로 넣어 주세요');
+  if (!rest.lastWorkDay && employed !== true) {
+    // 퇴직 때 정산 항목이 있거나 퇴직했다고 답했으면 날짜만, 아니면 재직 여부부터 묻는다
+    const need = employed === false || hasRetirementItem ? LAST_WORK_DAY_NEED : EMPLOYED_NEED;
+    return { status: 'needs-input', needs: [need], assumptions: [], items: [], total: null };
+  }
+  return { status: 'ok', needs: [], assumptions: [], ...calcWageDelayInterest(rest) };
 }

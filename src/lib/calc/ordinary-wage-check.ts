@@ -10,6 +10,7 @@
 //   (시행령에 숫자 없음. 최저임금 고시·min-wage.ts unitHours 는 같은 식을 정수로 반올림한 209, 지침 예시 208.56).
 import type { SourceId } from './ordinary-wage-sources';
 import { SOURCES } from './ordinary-wage-sources';
+import type { Assumption, Need } from './needs';
 
 export type Answer = 'yes' | 'no' | 'unknown';
 export type Era = 'new' | 'old';
@@ -465,4 +466,111 @@ export function allCopy(): string[] {
   lines.push(hourlyText({ hourly: 1234.5, count: 1 }), hourlyText({ hourly: 0, count: 0 }));
   for (const s of Object.values(SOURCES)) lines.push(s.cite, ...(s.quote ? [s.quote] : []), ...(s.note ? [s.note] : []));
   return [...new Set(lines)];
+}
+
+// ── 빈칸이 판정을 뒤집을 때만 묻기(공통 형식 ./needs.ts, 261128 재홍님 결정) ──
+// 고정 목록을 두지 않고, 비운 칸을 양쪽 값으로 넣어 checkItem 을 돌려 판정(들어감·빠짐·보류, 일부 여부)이 달라질 때만 needs 로 보낸다.
+// 실측(261128, 종류 12 × 기준 2 × 답 27) — 지급일 재직 조건·성과급 최저 보장액·가족수당 기본금액은 뒤집고, 지급 횟수·휴직 제한은 금액만 바꾼다.
+// 웹은 체크 칸이 늘 값이 있어(빈칸 = 아니오) 이 함수를 쓰지 않는다. MCP 가 쓴다.
+
+export interface OrdinaryNeedsInput {
+  /** 점검 기준일(연장근로 등을 제공한 날). 비우면 today */
+  date?: string;
+  /** employedOnPayday·minimum·baseForAll 이 undefined 면 「비운 칸」으로 본다 */
+  items: WageItem[];
+}
+export interface OrdinaryNeeds {
+  needs: Need[];
+  assumptions: Assumption[];
+  date: string;
+  era: Era;
+}
+
+const verdict = (c: ItemCheck) => `${c.direction}/${c.partial}`;
+const flips = (a: WageItem, b: WageItem, eras: Era[]) => {
+  try {
+    return eras.some((e) => verdict(checkItem(a, e)) !== verdict(checkItem(b, e)));
+  } catch {
+    return false; // 칸 오류는 항목 결과의 error 로 따로 알린다
+  }
+};
+/** 일부 금액(최저 보장액·기본금액)을 넣었다고 볼 때의 시험값 — 1회 지급액의 절반(1원 이상) */
+const someOf = (amount: number) => Math.max(1, Math.floor(amount / 2));
+
+export const DATE_NEED: Need = {
+  key: 'date',
+  question: '점검하려는 연장근로·야간근로·휴일근로를 한 날이 언제인가요? 2024년 12월 18일까지인지, 12월 19일 이후인지에 따라 판단 기준이 다릅니다.',
+  why: '대법원 2024. 12. 19. 선고 2020다247190 전원합의체 판결로 고정성 요건이 빠졌고, 새 기준은 그날 이후 제공한 근로부터 적용합니다. 이 항목들은 두 기준의 판정이 갈립니다.',
+};
+
+/** 비운 칸 하나 — 아니오·0 으로 본 항목(off)과 그렇다고 본 항목(on), 물을 말 */
+interface Blank { key: string; off: WageItem; on: WageItem; need: Need }
+
+function blanksOf(i: WageItem, k: number): Blank[] {
+  if (i.kind === 'statutory') return [];
+  const label = `「${i.name}」`;
+  const out: Blank[] = [];
+  if (i.employedOnPayday === undefined) {
+    out.push({
+      key: `items[${k}].employedOnPayday`, off: { ...i, employedOnPayday: false }, on: { ...i, employedOnPayday: true },
+      need: {
+        key: `items[${k}].employedOnPayday`,
+        question: `${label}은 지급일에 재직 중인 사람에게만 주나요? 지급일 전에 퇴직하면 받지 못하는지 알려 주세요.`,
+        why: '2024. 12. 18.까지 제공한 근로는 지급일 재직 조건이 붙으면 고정성이 없어 통상임금에서 빠졌고(대법원 2013. 12. 18. 선고 2012다89399 전원합의체 판결), 그 뒤로는 그 조건만으로 빠지지 않습니다(2020다247190).',
+      },
+    });
+  }
+  if (i.kind === 'performance' && i.minimum === undefined && i.amount > 0) {
+    out.push({
+      key: `items[${k}].minimum`, off: { ...i, minimum: 0 }, on: { ...i, minimum: someOf(i.amount) },
+      need: {
+        key: `items[${k}].minimum`,
+        question: `${label}에 평가 결과와 상관없이 최소로 보장된 금액이 있나요? 있으면 1회 얼마인지, 없으면 0원이라고 알려 주세요.`,
+        why: '근무실적에 따라 주는 성과급은 통상임금이 아니지만, 평가와 무관하게 보장된 최소 금액은 소정근로의 대가로 통상임금에 들어갑니다(2020다247190).',
+      },
+    });
+  }
+  if (i.kind === 'family' && i.baseForAll === undefined && i.amount > 0) {
+    out.push({
+      key: `items[${k}].baseForAll`, off: { ...i, baseForAll: 0 }, on: { ...i, baseForAll: someOf(i.amount) },
+      need: {
+        key: `items[${k}].baseForAll`,
+        question: `${label} 중에 부양가족과 상관없이 모두에게 주는 기본금액이 있나요? 있으면 1회 얼마인지, 없으면 0원이라고 알려 주세요.`,
+        why: '부양가족 수에 따라 주는 가족수당은 통상임금이 아니지만, 모든 근로자에게 주는 기본금액은 통상임금에 들어갑니다(2012다89399).',
+      },
+    });
+  }
+  return out;
+}
+
+const ERA_NAME: Record<Era, string> = { new: '새 기준(2024. 12. 19. 이후 제공분)', old: '종전 기준(2024. 12. 18.까지 제공분)' };
+
+/**
+ * 판정을 뒤집는 빈칸만 묻는다.
+ * · 기준일이 없을 때 — 넣은 값으로 두 기준 판정이 갈리거나, 빈칸이 종전 기준에서만 판정을 바꾸면 기준일 하나만 묻는다
+ *   (어느 기준인지 모르는 채로 항목 칸을 묻지 않는다). 아니면 오늘 기준으로 보고 assumptions 에 적는다.
+ * · 기준을 정한 뒤 — 그 기준에서 판정을 바꾸는 빈칸은 needs, 다른 기준에서만 바꾸는 빈칸은 assumptions(비교 값이 그 칸을 아니오·0 으로 셌다)
+ */
+export function ordinaryWageNeeds(input: OrdinaryNeedsInput, today: string): OrdinaryNeeds {
+  const date = input.date || today;
+  const era = eraOn(date);
+  const other: Era = era === 'old' ? 'new' : 'old';
+  const blanks = input.items.flatMap((i, k) => blanksOf(i, k));
+  if (!input.date) {
+    // 넣은 값만으로 두 기준의 판정이 갈리는 항목이 있다
+    const split = input.items.some((i) => {
+      try { return verdict(checkItem(i, 'new')) !== verdict(checkItem(i, 'old')); } catch { return false; }
+    });
+    const otherOnly = blanks.some((b) => flips(b.off, b.on, [other]) && !flips(b.off, b.on, [era]));
+    if (split || otherOnly) return { needs: [DATE_NEED], assumptions: [], date, era };
+  }
+  const needs: Need[] = [];
+  const assumptions: Assumption[] = input.date ? [] : [{ key: 'date', value: today, note: `점검 기준일을 넣지 않아 오늘(${ERA_NAME[era]})로 봤습니다. 넣은 항목은 두 기준의 판정이 같습니다.` }];
+  for (const b of blanks) {
+    if (flips(b.off, b.on, [era])) needs.push(b.need);
+    else if (flips(b.off, b.on, [other])) {
+      assumptions.push({ key: b.key, value: b.key.endsWith('employedOnPayday') ? false : 0, note: `${ERA_NAME[other]} 비교 값은 이 칸을 비운 채(아니오·0원) 계산했습니다. 그 기준에서는 이 칸이 판정을 바꿉니다.` });
+    }
+  }
+  return { needs, assumptions, date, era };
 }
