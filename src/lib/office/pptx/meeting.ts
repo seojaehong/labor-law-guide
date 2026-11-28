@@ -722,19 +722,9 @@ export async function makeMeetingPptx(
   // P8 회차 대비 변화 — 같은 척도 ID 일 때만 증감
   const changes: MeetingChange[] = [];
   if (pre) {
-    const hz = new Map(snapshot.hazards.map((h) => [h.id, h]));
     const colW = [0.8, 3.6, 1.6, 1.6, 1.6, contentW - 9.2];
     const rowsAll: { cells: Cell[]; anchors: (string[] | undefined)[]; p: PriorItem }[] = [];
-    const items = snapshot.prior;
-    for (const p of items) {
-      const cur = hz.get(p.hazardId ?? p.id);
-      const pr = risk(p.frequency, p.severity);
-      const cr = cur ? risk(cur.frequency, cur.severity) : null;
-      let delta: MeetingChange['delta'];
-      if (p.scaleId !== snapshot.scaleId) delta = '비교 안 함';
-      else if (!cur) delta = '현재 평가 없음';
-      else if (pr === null || cr === null) delta = '산정 불가';
-      else delta = cr - pr;
+    for (const { p, cur, pr, cr, delta } of priorChanges(snapshot)) {
       changes.push({ id: p.id, priorRisk: pr, currentRisk: cr, delta });
       rowsAll.push({
         p,
@@ -810,16 +800,7 @@ export async function makeMeetingPptx(
     const decisions = snapshot.decisions ?? [];
     const deferred = snapshot.deferred ?? [];
     const best = snapshot.bestPractices ?? [];
-    // 기한 오름차순(기한 없는 행은 끝, 같은 기한은 입력 순서)
-    const actions = (snapshot.actions ?? [])
-      .map((a, i) => ({ a, i }))
-      .sort((x, y) => {
-        if (!x.a.due && !y.a.due) return x.i - y.i;
-        if (!x.a.due) return 1;
-        if (!y.a.due) return -1;
-        return x.a.due < y.a.due ? -1 : x.a.due > y.a.due ? 1 : x.i - y.i;
-      })
-      .map((x) => x.a);
+    const actions = actionsByDue(snapshot);
 
     // F1 표지
     {
@@ -937,65 +918,8 @@ export async function makeMeetingPptx(
     }
 
     // F7 다음 회차로 넘길 목록 — prior[] 와 같은 키
-    const carry: PriorItem[] = [];
+    const carry: PriorItem[] = carryOverOf(snapshot, actions, warnings);
     {
-      // 척도는 지어내지 않는다(G4 Act on 5) — 이번 회차에 평가한 위험요인이면 이번 척도, 전회 항목이면 전회에 적힌 척도,
-      // 그 밖(척도 미상)이면 scaleId 를 비워 두어 다음 회차 P8 이 「비교 안 함」 으로 처리하게 한다
-      const scoreOf = (id: string) => {
-        const h = hzMap.get(id);
-        if (h) return { frequency: h.frequency, severity: h.severity, grade: h.grade, scaleId: snapshot.scaleId };
-        const p = prMap.get(id);
-        if (p) {
-          if (!p.scaleId && (p.frequency !== undefined || p.severity !== undefined || p.grade !== undefined)) {
-            warnings.push(`F7 이월 ${id}: 전회 척도가 적혀 있지 않아 척도를 비워 둡니다(다음 회차 증감 비교 안 함).`);
-          }
-          return { frequency: p.frequency, severity: p.severity, grade: p.grade, scaleId: p.scaleId };
-        }
-        return {};
-      };
-      // 같은 위험요인에 조치가 여러 건이면 모두 넘긴다(G4 Act on 13) — 둘째부터 id 에 「#n」 을 붙이고 hazardId 에 원래 ID 를 둔다
-      const seen = new Map<string, number>();
-      const push = (item: PriorItem) => {
-        const base = item.id;
-        const n = (seen.get(base) ?? 0) + 1;
-        seen.set(base, n);
-        if (n > 1) {
-          let id = `${base}#${n}`;
-          for (let k = n; carry.some((x) => x.id === id); k++) id = `${base}#${k + 1}`;
-          item = { ...item, id, hazardId: base };
-          warnings.push(`F7 이월 ${base}: 같은 위험요인의 이월이 여러 건이라 ${id} 로 넘깁니다.`);
-        }
-        if (!item.hazard) {
-          warnings.push(`F7 이월 ${item.id}: 위험요인 글이 없다`);
-          item.hazard = '(위험요인 미기재)';
-        }
-        carry.push(compact(item));
-      };
-      for (const a of actions) {
-        const tid = a.targetId ?? a.id;
-        push({
-          id: tid,
-          hazard: hazardOf(tid, a.hazard) ?? '',
-          ...scoreOf(tid),
-          measure: a.measure,
-          owner: a.owner,
-          due: a.due,
-          status: '미완료',
-          verifier: a.verifier,
-          anchors: uniq([a.anchors, refAnchors(tid)]),
-        });
-      }
-      for (const d of deferred) {
-        push({
-          id: d.id,
-          hazard: hazardOf(d.id, d.hazard) ?? '',
-          ...scoreOf(d.id),
-          due: d.reevaluateBy,
-          status: '미완료',
-          result: `보류 — ${d.reason}`,
-          anchors: uniq([d.anchors, refAnchors(d.id)]),
-        });
-      }
       const colW = [0.8, 3.2, contentW - 7.2, 1.0, 1.0, 1.2];
       paginate(carry, ROWS_PER_SLIDE.F7).forEach((items, pi) => {
         const { slide, no } = newSlide('F7', pi === 0 ? 'F7 다음 회차로 넘길 목록' : 'F7 다음 회차로 넘길 목록 (계속)', uniq(items.map((p) => p.anchors)));
@@ -1024,6 +948,103 @@ export async function makeMeetingPptx(
 
     return carry;
   }
+}
+
+/** P8 회차 대비 변화 — 같은 척도 ID 일 때만 증감. 기본 출력·프리셋 판이 같이 쓴다 */
+export function priorChanges(snapshot: MeetingSnapshot): { p: PriorItem; cur?: HazardItem; pr: number | null; cr: number | null; delta: MeetingChange['delta'] }[] {
+  const hz = new Map(snapshot.hazards.map((h) => [h.id, h]));
+  return snapshot.prior.map((p) => {
+    const cur = hz.get(p.hazardId ?? p.id);
+    const pr = risk(p.frequency, p.severity);
+    const cr = cur ? risk(cur.frequency, cur.severity) : null;
+    let delta: MeetingChange['delta'];
+    if (p.scaleId !== snapshot.scaleId) delta = '비교 안 함';
+    else if (!cur) delta = '현재 평가 없음';
+    else if (pr === null || cr === null) delta = '산정 불가';
+    else delta = cr - pr;
+    return { p, cur, pr, cr, delta };
+  });
+}
+
+/** 기한 오름차순(기한 없는 행은 끝, 같은 기한은 입력 순서) — F4·F7 과 프리셋 판이 같이 쓴다 */
+export function actionsByDue(snapshot: MeetingSnapshot): MeetingAction[] {
+  return (snapshot.actions ?? [])
+    .map((a, i) => ({ a, i }))
+    .sort((x, y) => {
+      if (!x.a.due && !y.a.due) return x.i - y.i;
+      if (!x.a.due) return 1;
+      if (!y.a.due) return -1;
+      return x.a.due < y.a.due ? -1 : x.a.due > y.a.due ? 1 : x.i - y.i;
+    })
+    .map((x) => x.a);
+}
+
+/** F7 다음 회차로 넘길 목록(prior[] 와 같은 키) — 그리기와 따로 계산해 기본 출력·프리셋 판이 같은 값을 돌려준다 */
+export function carryOverOf(snapshot: MeetingSnapshot, actions: MeetingAction[], warnings: string[]): PriorItem[] {
+  const hzMap = new Map(snapshot.hazards.map((h) => [h.id, h]));
+  const prMap = new Map(snapshot.prior.map((p) => [p.id, p]));
+  const refAnchors = (id: string) => uniq([prMap.get(id)?.anchors, hzMap.get(id)?.anchors]);
+  const hazardOf = (id: string, given?: string) => given ?? hzMap.get(id)?.situation ?? prMap.get(id)?.hazard;
+  const deferred = snapshot.deferred ?? [];
+  const carry: PriorItem[] = [];
+    // 척도는 지어내지 않는다(G4 Act on 5) — 이번 회차에 평가한 위험요인이면 이번 척도, 전회 항목이면 전회에 적힌 척도,
+    // 그 밖(척도 미상)이면 scaleId 를 비워 두어 다음 회차 P8 이 「비교 안 함」 으로 처리하게 한다
+    const scoreOf = (id: string) => {
+      const h = hzMap.get(id);
+      if (h) return { frequency: h.frequency, severity: h.severity, grade: h.grade, scaleId: snapshot.scaleId };
+      const p = prMap.get(id);
+      if (p) {
+        if (!p.scaleId && (p.frequency !== undefined || p.severity !== undefined || p.grade !== undefined)) {
+          warnings.push(`F7 이월 ${id}: 전회 척도가 적혀 있지 않아 척도를 비워 둡니다(다음 회차 증감 비교 안 함).`);
+        }
+        return { frequency: p.frequency, severity: p.severity, grade: p.grade, scaleId: p.scaleId };
+      }
+      return {};
+    };
+    // 같은 위험요인에 조치가 여러 건이면 모두 넘긴다(G4 Act on 13) — 둘째부터 id 에 「#n」 을 붙이고 hazardId 에 원래 ID 를 둔다
+    const seen = new Map<string, number>();
+    const push = (item: PriorItem) => {
+      const base = item.id;
+      const n = (seen.get(base) ?? 0) + 1;
+      seen.set(base, n);
+      if (n > 1) {
+        let id = `${base}#${n}`;
+        for (let k = n; carry.some((x) => x.id === id); k++) id = `${base}#${k + 1}`;
+        item = { ...item, id, hazardId: base };
+        warnings.push(`F7 이월 ${base}: 같은 위험요인의 이월이 여러 건이라 ${id} 로 넘깁니다.`);
+      }
+      if (!item.hazard) {
+        warnings.push(`F7 이월 ${item.id}: 위험요인 글이 없다`);
+        item.hazard = '(위험요인 미기재)';
+      }
+      carry.push(compact(item));
+    };
+    for (const a of actions) {
+      const tid = a.targetId ?? a.id;
+      push({
+        id: tid,
+        hazard: hazardOf(tid, a.hazard) ?? '',
+        ...scoreOf(tid),
+        measure: a.measure,
+        owner: a.owner,
+        due: a.due,
+        status: '미완료',
+        verifier: a.verifier,
+        anchors: uniq([a.anchors, refAnchors(tid)]),
+      });
+    }
+    for (const d of deferred) {
+      push({
+        id: d.id,
+        hazard: hazardOf(d.id, d.hazard) ?? '',
+        ...scoreOf(d.id),
+        due: d.reevaluateBy,
+        status: '미완료',
+        result: `보류 — ${d.reason}`,
+        anchors: uniq([d.anchors, refAnchors(d.id)]),
+      });
+    }
+  return carry;
 }
 
 /** 값이 undefined 인 키를 뺀다(이월 목록을 prior[] 입력으로 깔끔하게) */
