@@ -1326,7 +1326,7 @@ async function makeMeetingDesign(
     list(
       'P7',
       '근로자 의견',
-      { cols: [col('id', 'ID', 0.8), col('from', '의견자', 2.0), col('text', '의견', 5.0), col('relatedIds', '관련 ID', 1.8)] },
+      { cols: [col('id', 'ID', 1.0), col('from', '의견자', 2.0), col('text', '의견', 5.0), col('relatedIds', '관련 ID', 1.8)] },
       snapshot.opinions.map((o) => ({ anchors: [o.anchors], row: { id: o.id, cells: [{ text: o.id }, { text: o.from, bold: true }, { text: o.text }, { text: v((o.relatedIds ?? []).join(', ')) }] } })),
       8,
       '의견 없음',
@@ -1354,14 +1354,14 @@ async function makeMeetingDesign(
         },
       };
     });
-    list('P8', '회차 대비 변화', { cols: [col('id', 'ID', 0.8), col('hazard', '위험요인', 3.6, { dot: true }), col('priorRisk', '전회 위험도', 1.6), col('currentRisk', '현재 위험도', 1.6), col('delta', '증감', 1.4, { status: true }), col('scale', '척도', 1.8)] }, items, 10, '비교 항목 없음');
+    list('P8', '회차 대비 변화', { cols: [col('id', 'ID', 1.0), col('hazard', '위험요인', 3.6, { dot: true }), col('priorRisk', '전회 위험도', 1.6), col('currentRisk', '현재 위험도', 1.6), col('delta', '증감', 1.4, { status: true }), col('scale', '척도', 2.2)] }, items, 10, '비교 항목 없음');
 
     // P9 결정 필요 사항 — 결정 칸은 회의에서 적는 빈칸
     const refMap = new Map<string, string[] | undefined>([...snapshot.prior.map((x) => [x.id, x.anchors] as [string, string[] | undefined]), ...snapshot.hazards.map((h) => [h.id, h.anchors] as [string, string[] | undefined])]);
     list(
       'P9',
       '결정 필요 사항',
-      { cols: [col('id', 'ID', 0.8), col('question', '질문', 4.0), col('targetIds', '대상 ID', 1.6), col('options', '선택지', 2.4), col('decision', '결정(회의에서 적는다)', 2.5)] },
+      { cols: [col('id', 'ID', 1.0), col('question', '질문', 4.0), col('targetIds', '대상 ID', 1.6), col('options', '선택지', 2.4), col('decision', '결정(회의에서 적는다)', 2.5)] },
       snapshot.questions.map((q) => ({
         anchors: [q.anchors, ...(q.targetIds ?? []).map((t) => refMap.get(t))],
         row: { id: q.id, cells: [{ text: q.id }, { text: q.question, bold: true }, { text: v((q.targetIds ?? []).join(', ')) }, { text: v((q.options ?? []).join(' / ')) }, { text: '' }] },
@@ -1412,7 +1412,7 @@ async function makeMeetingDesign(
     list(
       'F3',
       '확정 결정',
-      { cols: [col('id', 'ID', 0.8), col('questionId', '질문 ID', 1.0), col('targetIds', '대상 ID', 1.6), col('decision', '결정', 4.0), col('reason', '사유', 4.0)] },
+      { cols: [col('id', 'ID', 1.0), col('questionId', '질문 ID', 1.0), col('targetIds', '대상 ID', 1.6), col('decision', '결정', 4.0), col('reason', '사유', 4.0)] },
       (snapshot.decisions ?? []).map((d) => ({ anchors: [d.anchors, ...(d.targetIds ?? []).map(refAnchors)], row: { id: d.id, cells: [{ text: d.id }, { text: v(d.questionId) }, { text: v((d.targetIds ?? []).join(', ')) }, { text: d.decision, bold: true }, { text: v(d.reason) }] } })),
       8,
       '확정 결정 없음',
@@ -1422,7 +1422,7 @@ async function makeMeetingDesign(
     list(
       'F4',
       '조치 계획',
-      { dense: true, cols: [col('id', 'ID', 0.8), col('targetId', '대상 ID', 0.9), col('hazard', '위험요인', 2.4, { dot: true }), col('measure', '대책', 3.2), col('owner', '1차 조치자', 1.6), col('due', '기한', 1.0), col('verifier', '2차 확인자', 1.8)] },
+      { dense: true, cols: [col('id', 'ID', 1.0), col('targetId', '대상 ID', 0.9), col('hazard', '위험요인', 2.4, { dot: true }), col('measure', '대책', 3.2), col('owner', '1차 조치자', 1.6), col('due', '기한', 1.0), col('verifier', '2차 확인자', 1.8)] },
       actions.map((a) => {
         const tid = a.targetId ?? a.id;
         return { anchors: [a.anchors, refAnchors(tid)], row: { id: a.id, cells: [{ text: a.id }, { text: tid }, { text: v(hazardOf(tid, a.hazard)), bold: true }, { text: a.measure }, { text: v(a.owner) }, { text: v(a.due) }, { text: v(a.verifier) }] } };
@@ -1435,7 +1435,7 @@ async function makeMeetingDesign(
     list(
       'F5',
       '보류·재평가',
-      { cols: [col('id', 'ID', 0.8), col('hazard', '위험요인', 3.6, { dot: true }), col('reason', '보류 사유', 4.0), col('reevaluateBy', '재평가 기한', 1.8)] },
+      { cols: [col('id', 'ID', 1.0), col('hazard', '위험요인', 3.6, { dot: true }), col('reason', '보류 사유', 4.0), col('reevaluateBy', '재평가 기한', 1.8)] },
       (snapshot.deferred ?? []).map((d) => ({ anchors: [d.anchors, refAnchors(d.id)], row: { id: d.id, cells: [{ text: d.id }, { text: v(hazardOf(d.id, d.hazard)), bold: true }, { text: d.reason }, { text: v(d.reevaluateBy) }] } })),
       8,
       '보류 항목 없음',
@@ -1444,7 +1444,7 @@ async function makeMeetingDesign(
     // F6 우수 사례(선택 — 없으면 장을 만들지 않는다)
     const best = snapshot.bestPractices ?? [];
     if (best.length)
-      list('F6', '우수 사례', { cols: [col('id', 'ID', 0.8), col('title', '사례', 2.8), col('text', '내용', 6.4)] }, best.map((b) => ({ anchors: [b.anchors], row: { id: b.id, cells: [{ text: b.id }, { text: b.title, bold: true }, { text: b.text }] } })), 6, '');
+      list('F6', '우수 사례', { cols: [col('id', 'ID', 1.0), col('title', '사례', 2.8), col('text', '내용', 6.4)] }, best.map((b) => ({ anchors: [b.anchors], row: { id: b.id, cells: [{ text: b.id }, { text: b.title, bold: true }, { text: b.text }] } })), 6, '');
 
     // F7 다음 회차로 넘길 목록 — 값은 기본 출력과 같은 함수
     carryOver = carryOverOf(snapshot, actions, warnings);
