@@ -165,6 +165,16 @@ describe('POST /jobs — 서명 URL 방식', () => {
     assert.equal(mk.json.data.slides.length, 7);
   });
 
+  test('pptx.broadcast — design 을 넘기면 프리셋 부품·16:9 로 만든다', { skip: noOffice }, async () => {
+    const snapshot = { kind: 'final', site: '합성', cycle: '2회차', basisDate: '2026-11-23', status: { label: '확정', version: 1 }, scaleId: 's', scaleName: '합성 척도', prior: [], hazards: [], photos: [], opinions: [], questions: [], anchors: [] };
+    const mk = await job(w.url, { op: 'pptx.broadcast', outputUrl: `${st.base}/obj/out/bc-field.pptx`, args: { snapshot, design: 'field' } });
+    assert.equal(mk.status, 200, JSON.stringify(mk.json));
+    const { default: JSZip } = await import('jszip');
+    const zip = await JSZip.loadAsync(st.objects.get('/obj/out/bc-field.pptx'));
+    assert.match(await zip.file('ppt/presentation.xml').async('string'), /<p:sldSz cx="12192000" cy="6858000"/);
+    assert.match(await zip.file('ppt/slides/slide1.xml').async('string'), /name="part:tile-grid"/);
+  });
+
   test('pptx.education — 교안 스냅숏 → 5장(사례 없음)', { skip: noOffice }, async () => {
     const snapshot = { site: '합성', basisDate: '2026-11-23', educationDate: '2026-12-01', course: 'hire', hazards: [{ id: 'H-1', situation: '합성 위험', measures: ['합성 대책'] }] };
     const mk = await job(w.url, { op: 'pptx.education', outputUrl: `${st.base}/obj/out/ed.pptx`, args: { snapshot } });

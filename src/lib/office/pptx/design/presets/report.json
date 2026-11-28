@@ -16,13 +16,14 @@
     "colors": {
       "bg": "FFFFFF", "surface": "F3F5F9", "band": "E8ECF3",
       "ink": "1F2328", "ink2": "4A5466", "line": "C4CDD8", "rule": "1B2A4A",
-      "accent": "1B2A4A", "accentText": "1B2A4A", "onAccent": "FFFFFF", "risk": "B3261E"
+      "accent": "1B2A4A", "accentText": "1B2A4A", "onAccent": "FFFFFF", "risk": "B3261E",
+      "positive": "236B4A", "caution": "7A5200", "negative": "B3261E"
     },
     "type": { "meta": 22, "title": 56, "label": 30, "body": 30, "table": 26, "num": 72, "hero": 72, "note": 30 },
     "lines": { "hair": 1, "rule": 2, "heavy": 3 },
     "radius": { "card": 0 }
   },
-  "textPairs": [["ink", "bg"], ["ink2", "bg"], ["accentText", "bg"], ["accentText", "band"], ["accentText", "surface"], ["onAccent", "accent"], ["ink", "band"]],
+  "textPairs": [["ink", "bg"], ["ink2", "bg"], ["accentText", "bg"], ["accentText", "band"], ["accentText", "surface"], ["onAccent", "accent"], ["ink", "band"], ["positive", "bg"], ["caution", "bg"], ["negative", "bg"]],
   "slots": {
     "B1": {
       "part": "summary-table",

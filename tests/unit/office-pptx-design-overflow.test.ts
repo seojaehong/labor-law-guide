@@ -124,19 +124,19 @@ async function b3Slides(bytes: Uint8Array, nos: number[]): Promise<string[]> {
 
 const TOL = 2; // pt
 
-async function checkLayout(id: DesignId, snap: MeetingSnapshot, layout: '16:9' | 'A4') {
-  const r = await makeBroadcastPptx(snap, { design: id, layout });
+async function checkLayout(id: DesignId, snap: MeetingSnapshot, layout: '16:9' | 'A4', codes: string[] = ['B3'], extra: { signatureRows?: number } = {}) {
+  const r = await makeBroadcastPptx(snap, { design: id, layout, ...extra });
   expect(r.ok, (r.errors ?? []).join()).toBe(true);
   const d = getDeckDesign(id);
   const S = layout === '16:9' ? designScale(13.333, 7.5) : designScale(11.69, 8.27);
   const footTop = (S.H - S.y(1080 - d.foot.y)) * 72;
   const slideH = S.H * 72;
-  const nos = r.slides.filter((s) => s.code === 'B3').map((s) => s.no);
+  const nos = r.slides.filter((s) => codes.includes(s.code)).map((s) => s.no);
   const xmls = await b3Slides(r.bytes!, nos);
   const where = (no: number) => `${id} ${layout} ${no}장`;
   const all = xmls.join('\n');
   // 원문 그대로(말줄임 없음)
-  for (const a of snap.actions ?? []) expect(all, `${id} ${a.id}`).toContain(a.measure);
+  if (codes.includes('B3')) for (const a of snap.actions ?? []) expect(all, `${id} ${a.id}`).toContain(a.measure);
   expect(all).not.toMatch(/…|\.\.\./);
   xmls.forEach((xml, i) => {
     const { texts, cards } = shapes(xml);
@@ -181,6 +181,50 @@ describe('긴 글도 칸·카드·바닥줄 안(대책 장)', () => {
       it(`${id} ${layout} — 대책 80자 20건`, async () => {
         const r = await checkLayout(id, longSnap({ measure: LONG80, n: 20 }), layout);
         expect(r.slides.filter((s) => s.code === 'B3').length).toBeGreaterThan(1);
+      });
+    }
+});
+
+// 나머지 장(B2·B4~B7) — 위험·원인·의견·조치 결과·미룬 이유가 길어도 칸·카드·바닥줄 안, 글끼리 안 겹침(조각 2-가)
+const REST = ['B2', 'B4', 'B5', 'B6', 'B7'];
+function restSnap(o: { text?: string; n?: number } = {}): MeetingSnapshot {
+  const s = finalSnapshotForDesign();
+  const n = o.n ?? 3;
+  const t = (i: number, what: string) => (o.text ? `${i} ${what} ${o.text}` : `${what} ${i}`);
+  const statuses = ['완료', '미완료', '재조치', '기한초과'];
+  s.hazards = Array.from({ length: n }, (_, i) => ({ id: `N-${i + 1}`, situation: t(i + 1, '위험'), cause: t(i + 1, '원인'), consequence: '넘어짐', kind: i % 2 ? ('changed' as const) : ('new' as const), grade: '높음 (6)' }));
+  s.opinions = Array.from({ length: n }, (_, i) => ({ id: `O-${i + 1}`, from: '근로자(역할)', text: t(i + 1, '의견'), relatedIds: [i % 2 ? 'X-9' : 'N-1'] }));
+  s.questions = [{ id: 'Q-1', question: 'N-1 반영 여부', targetIds: ['N-1'] }];
+  s.decisions = [{ id: 'D-1', questionId: 'Q-1', targetIds: ['N-1'], decision: o.text ? `반영 ${o.text}` : '반영', reason: '근로자 의견 다수' }];
+  s.prior = Array.from({ length: n }, (_, i) => ({ id: `R-${i + 1}`, hazard: t(i + 1, '전회 위험'), status: statuses[i % 4], ...(i % 4 === 1 ? {} : { result: t(i + 1, '조치 결과') }) }));
+  s.deferred = Array.from({ length: n }, (_, i) => ({ id: `R-${100 + i}`, hazard: t(i + 1, '미룬 위험'), reason: t(i + 1, '미룬 이유'), reevaluateBy: '2027-03-31' }));
+  return s;
+}
+const restTexts = (s: MeetingSnapshot) => [...s.hazards.map((h) => h.situation), ...s.opinions.map((x) => x.text), ...s.prior.map((p) => p.hazard), ...(s.deferred ?? []).map((d) => d.reason)];
+
+describe('긴 글도 칸·카드·바닥줄 안(나머지 장 B2·B4~B7)', () => {
+  for (const id of DESIGN_IDS)
+    for (const layout of ['16:9', 'A4'] as const) {
+      it(`${id} ${layout} — 짧은 글 3건씩`, async () => {
+        await checkLayout(id, restSnap(), layout, REST);
+      });
+      it(`${id} ${layout} — 80자(띄어쓰기 있음·없음) 3건씩, 원문 그대로`, async () => {
+        for (const text of [LONG80, SOLID80]) {
+          const snap = restSnap({ text });
+          const r = await checkLayout(id, snap, layout, REST);
+          const zip = await JSZip.loadAsync(r.bytes!);
+          const all = (await Promise.all(Object.keys(zip.files).filter((x) => /slides\/slide\d+\.xml$/.test(x)).map((x) => zip.file(x)!.async('string')))).join('\n');
+          for (const x of restTexts(snap)) expect(all, `${id} 「${x.slice(0, 12)}」`).toContain(x);
+        }
+      });
+      it(`${id} ${layout} — 80자 12건씩은 여러 장으로 나뉜다`, async () => {
+        const r = await checkLayout(id, restSnap({ text: LONG80, n: 12 }), layout, REST);
+        for (const code of ['B2', 'B4', 'B5', 'B6']) expect(r.slides.filter((x) => x.code === code).length, `${id} ${code}`).toBeGreaterThan(1);
+      });
+      it(`${id} ${layout} — 목록이 비면 「없음」 한 줄, 서명란 30행·1행`, async () => {
+        const empty = { ...restSnap({ n: 0 }), deferred: [] };
+        await checkLayout(id, empty, layout, REST, { signatureRows: 30 });
+        await checkLayout(id, restSnap(), layout, ['B7'], { signatureRows: 1 });
       });
     }
 });

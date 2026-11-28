@@ -7,9 +7,11 @@ import PptxGenJS from 'pptxgenjs';
 import { MEETING_THEME } from './meeting-theme';
 import { capacityOf, meetingSnapshotErrors, textUnits, type MeetingSnapshot, type OverflowEstimate } from './meeting';
 import { DESIGN_IDS, broadcastKpis, designScale, getDeckDesign, isDesignId, type DeckDesign, type DesignId, type DesignScale } from './design/index';
-import { color as designColor, drawHead, type HeadBox } from './design/head';
+import { drawHead, type HeadBox } from './design/head';
 import { drawB1, drawB3Page, type ActionItem, type TextCheck } from './design/parts';
 import { b3PageLayout } from './design/b3-geometry';
+import { koSlide } from './design/lang';
+import { drawList, drawListEmpty, drawSign, planList, type ListRow, type ListSpec } from './design/lists';
 
 export const BROADCAST_TEMPLATE_VERSION = 'broadcast-v0';
 
@@ -136,12 +138,9 @@ export async function makeBroadcastPptx(snapshot: MeetingSnapshot, opts: Broadca
   const contentW = D && S ? S.x(D.head.right - D.head.left) : W - X0 * 2;
   const slides: BroadcastSlideInfo[] = [];
   const overflow: OverflowEstimate[] = [];
-  // 프리셋을 고르면 색·글자는 프리셋 토큰에서(의미색 negative·positive·caution 은 그대로 둔다)
-  const DC = (k: Parameters<typeof designColor>[1]) => designColor(D!, k);
-  const P = D
-    ? { headFill: DC('band'), headText: DC('ink'), text: DC('ink'), muted: DC('ink2'), line: DC('line'), rule: DC('rule'), accent: DC('accentText'), band: DC('surface') }
-    : { headFill: T.table.headerFill, headText: T.colors.primary, text: T.colors.text, muted: T.colors.muted, line: T.colors.line, rule: T.colors.primary, accent: T.colors.accent, band: T.colors.band };
-  const BODY = D && S ? S.pt(D.tokens.type.table) : T.typeScale.body + 2; // 근로자가 읽는 글 — 회의 덱 표보다 크게
+  // 기본 출력(먹색) 표 색·글자. 프리셋 판은 장마다 design/ 부품이 프리셋 토큰으로 그린다
+  const P = { headFill: T.table.headerFill, headText: T.colors.primary, text: T.colors.text, muted: T.colors.muted, line: T.colors.line, rule: T.colors.primary, accent: T.colors.accent, band: T.colors.band };
+  const BODY = T.typeScale.body + 2; // 근로자가 읽는 글 — 회의 덱 표보다 크게
   const NONE = { type: 'none' as const };
   const INNER = { type: 'solid' as const, pt: T.table.innerLinePt, color: P.line };
   const RULE = { type: 'solid' as const, pt: T.table.ruleLinePt, color: P.rule };
@@ -152,7 +151,9 @@ export async function makeBroadcastPptx(snapshot: MeetingSnapshot, opts: Broadca
   const defaultBox: HeadBox = { left: X0, right: X0 + contentW, top: 1.6, bottom: H - 0.6, titleShrunk: false, titleFits: true };
 
   const newSlide = (code: string, title: string, lead?: string, extra: { metaSuffix?: string; headline?: { text: string; accent?: boolean; breakLine?: boolean }[] } = {}) => {
-    const slide = pptx.addSlide();
+    const added = pptx.addSlide();
+    // 프리셋 판은 전 장 글 언어 ko-KR(낱말 사이 줄바꿈). 기본 출력은 그대로
+    const slide = D ? koSlide(added) : added;
     const no = slides.length + 1;
     slides.push({ no, code, title });
     if (D && S) {
@@ -174,14 +175,6 @@ export async function makeBroadcastPptx(snapshot: MeetingSnapshot, opts: Broadca
   const fit = (ratio: number[]) => {
     const sum = ratio.reduce((a, b) => a + b, 0);
     return ratio.map((r) => (r / sum) * contentW);
-  };
-  // 프리셋은 제목 영역 높이가 달라 한 장 행 수를 남은 높이로 다시 잰다(두 줄 행 기준). 기본 출력은 고정 행 수 그대로
-  const rowsOf = (code: keyof typeof ROWS, lead: boolean) => {
-    if (!D || !S) return ROWS[code];
-    const top = S.y(lead ? D.head.bodyTopWithLead : D.head.bodyTop);
-    const bottom = H - S.y(1080 - D.foot.y) - S.y((D.foot.rule ? D.foot.rulePx + 8 : 0) + 16);
-    const rowIn = (BODY * 1.2 * 2 + 8) / 72;
-    return Math.max(2, Math.min(ROWS[code], Math.floor((bottom - top) / rowIn) - 1));
   };
   const c = (v: string | number | undefined | null) => ({ text: v === undefined || v === null || v === '' ? '-' : String(v) });
   const head = (labels: string[]) => labels.map((t) => ({ text: t, options: { bold: true, fill: { color: P.headFill }, color: P.headText, align: 'center' } }));
@@ -211,8 +204,6 @@ export async function makeBroadcastPptx(snapshot: MeetingSnapshot, opts: Broadca
     // 넘침 1단계(축약 표시) — 글은 자르지 않고 어느 칸이 넘치는지만 알린다
     if (over.length && D) warnings.push(`${code}(${D.id}) ${no}장: ${over.join('·')} 글이 칸보다 길다 — 원문은 그대로 실었으니 입력에서 줄여 주세요`);
   };
-  // 프리셋 판에서 본문 시작 y
-  const bodyY = (box: HeadBox, fallback: number) => (D ? box.top : fallback);
 
   const changed = s.hazards.filter((h) => h.kind === 'new' || h.kind === 'changed');
   const actions = s.actions ?? [];
@@ -250,15 +241,52 @@ export async function makeBroadcastPptx(snapshot: MeetingSnapshot, opts: Broadca
     slide.addText('자세한 내용은 다음 장부터 이어집니다. 궁금한 점은 관리감독자에게 물어 주세요.', { x: X0, y: 5.0, w: contentW, h: 0.4, fontFace, fontSize: BODY, color: T.colors.text });
   }
 
+  // 프리셋 판 목록 장(B2·B4·B5·B6) — 프리셋 부품(listFamily)으로, 칸은 글 줄 수만큼 늘리고 본문 높이로 장을 나눈다
+  const designList = (code: keyof typeof ROWS, title: string, lead: string | undefined, spec: ListSpec, rows: ListRow[], emptyText: string) => {
+    const D_ = D!;
+    const S_ = S!;
+    const roomPx = (H - S_.y(1080 - D_.foot.y) - S_.y((D_.foot.rule ? D_.foot.rulePx + 8 : 0) + 16) - S_.y(lead ? D_.head.bodyTopWithLead : D_.head.bodyTop)) / S_.k;
+    const plan = planList(D_, S_, spec, rows, roomPx, ROWS[code]);
+    plan.pages.forEach((page, pi, all) => {
+      const { slide, no, box } = newSlide(code, `${title}${all.length > 1 ? ` (${pi + 1}/${all.length})` : ''}`, lead);
+      const ctx = { pptx, slide, d: D_, s: S_, fontFace };
+      if (!page.length) return drawListEmpty(ctx, box, emptyText);
+      const L = drawList(ctx, box, spec, page);
+      // 한 행만으로도 본문 높이를 넘는 장 — 원문 그대로 싣고 넘침 후보로 남긴다
+      for (const r of page.filter((x) => plan.overPage.includes(x.id))) {
+        const ri = page.indexOf(r);
+        r.cells.forEach((cell, ci) => overflow.push({ slide: no, code, ref: r.id, field: spec.cols[ci].caption, chars: cell.text.length, capacity: capacityOf(S_.x(L.textW[ci]), S_.pt(L.px), L.rows[ri].lines[ci]) }));
+        warnings.push(`${code}(${D_.id}) ${no}장: ${r.id} 한 행의 글만으로도 본문 높이를 넘는다 — 원문 그대로 실었으니 입력에서 줄여 주세요`);
+      }
+    });
+  };
+
   // B2 새로 생기거나 바뀐 위험
-  paginate(changed, rowsOf('B2', false)).forEach((page, pi, all) => {
-    const { slide, no, box } = newSlide('B2', `새로 생기거나 바뀐 위험${all.length > 1 ? ` (${pi + 1}/${all.length})` : ''}`);
-    if (!page.length) return emptyNote(slide, '이번 회차에 새로 생기거나 바뀐 위험요인 없음', bodyY(box, 1.75));
+  if (D && S)
+    designList(
+      'B2',
+      '새로 생기거나 바뀐 위험',
+      undefined,
+      { code: 'B2', stripe: true, cols: [{ caption: '구분', ratio: 0.9, status: true }, { caption: '위험', ratio: 4.2, dot: true }, { caption: '원인 → 결과', ratio: 2.6 }, { caption: '위험성', ratio: 1.5 }] },
+      changed.map((h) => ({
+        id: h.id,
+        cells: [
+          { text: h.kind === 'new' ? '신규' : '변경', bold: true, color: h.kind === 'new' ? 'accentText' : 'caution' },
+          { text: h.situation || '-', bold: true },
+          { text: [h.cause, h.consequence].filter(Boolean).join(' → ') || '-' },
+          { text: h.grade || '-' },
+        ],
+      })),
+      '이번 회차에 새로 생기거나 바뀐 위험요인 없음',
+    );
+  else paginate(changed, ROWS.B2).forEach((page, pi, all) => {
+    const { slide, no } = newSlide('B2', `새로 생기거나 바뀐 위험${all.length > 1 ? ` (${pi + 1}/${all.length})` : ''}`);
+    if (!page.length) return emptyNote(slide, '이번 회차에 새로 생기거나 바뀐 위험요인 없음', 1.75);
     const w = fit([0.9, 4.2, 2.6, 1.5]);
     table(slide, [head(['구분', '위험', '원인 → 결과', '위험성']), ...page.map((h) => [
       { text: h.kind === 'new' ? '신규' : '변경', options: { bold: true, align: 'center', color: h.kind === 'new' ? P.accent : T.colors.caution } },
       c(h.situation), c([h.cause, h.consequence].filter(Boolean).join(' → ')), c(h.grade),
-    ])], w, bodyY(box, 1.6));
+    ])], w, 1.6);
     page.forEach((h) => check(no, 'B2', h.id, 'situation', h.situation, w[1], 2));
   });
 
@@ -277,18 +305,18 @@ export async function makeBroadcastPptx(snapshot: MeetingSnapshot, opts: Broadca
     const plan = planDesignB3(items, slot.maxItems, slot.shrunkMaxItems, (page, more, shrunk) => b3PageLayout(D, S, page, { shrunk, more: more ? 1 : 0 }).total <= roomPx);
     plan.pages.forEach((page, pi, all) => {
       const { slide, no, box } = newSlide('B3', `이번에 정한 대책${all.length > 1 ? ` (${pi + 1}/${all.length})` : ''}`, B3_LEAD);
-      if (!page.items.length) return emptyNote(slide, '이번 회의에서 새로 정한 대책 없음', box.top);
+      if (!page.items.length) return drawListEmpty({ pptx, slide, d: D, s: S, fontFace }, box, '이번 회의에서 새로 정한 대책 없음');
       const r = drawB3Page({ pptx, slide, d: D, s: S, fontFace }, box, page.items, { shrunk: plan.shrunk, more: page.more, accentFirst: pi === 0 });
       if (r.grown?.length) warnings.push(`B3(${D.id}) ${no}장: ${r.grown.join('·')} 글이 시안 줄 수보다 길다 — 행·카드 높이를 글 줄 수만큼 잡았다(원문 그대로)`);
       if (r.overPage) warnings.push(`B3(${D.id}) ${no}장: 대책 한 건의 글만으로도 본문 높이를 넘는다 — 입력에서 줄여 주세요`);
       checkParts(no, 'B3', r.checks);
     });
     if (plan.shrunk) {
-      const cap = Math.max(2, slot.shrunkMaxItems);
       const first = plan.pages[0];
+      // 실제 첫 장에 실은 건수 — 「외 N건」 칸을 두면 cap-1, 높이로 더 줄 수도 있다
       const why = items.length > slot.maxItems ? `한 장 ${slot.maxItems}건 한도를 넘어` : '글이 길어 한 장 높이에 다 들지 않아';
       warnings.push(
-        `B3(${D.id}): 대책 ${items.length}건 — ${why} 한 번 축소(한 장 ${cap}건)` +
+        `B3(${D.id}): 대책 ${items.length}건 — ${why} 한 번 축소(한 장 ${first.items.length}건)` +
           (plan.pages.length > 1 ? `, ${first.more ? `「외 ${first.more}건」 표기 후 ` : ''}다음 장으로 이어 ${plan.pages.length}장` : ''),
       );
     }
@@ -304,49 +332,83 @@ export async function makeBroadcastPptx(snapshot: MeetingSnapshot, opts: Broadca
 
   // B4 근로자 의견 반영 결과
   const opinionById = new Map(s.opinions.map((o) => [o.id, o]));
-  paginate(opinionResults, rowsOf('B4', false)).forEach((page, pi, all) => {
-    const { slide, no, box } = newSlide('B4', `여러분 의견은 이렇게 처리했습니다${all.length > 1 ? ` (${pi + 1}/${all.length})` : ''}`);
-    if (!page.length) return emptyNote(slide, '이번 회차에 받은 근로자 의견 없음', bodyY(box, 1.75));
+  if (D && S)
+    designList(
+      'B4',
+      '여러분 의견은 이렇게 처리했습니다',
+      undefined,
+      { code: 'B4', cols: [{ caption: '의견', ratio: 5.2 }, { caption: '결과', ratio: 3.5 }] },
+      opinionResults.map((r) => ({
+        id: r.opinionId,
+        cells: [{ text: opinionById.get(r.opinionId)?.text || '-' }, { text: r.result, bold: r.decisionIds.length > 0, color: r.decisionIds.length ? 'positive' : 'ink2' }],
+      })),
+      '이번 회차에 받은 근로자 의견 없음',
+    );
+  else paginate(opinionResults, ROWS.B4).forEach((page, pi, all) => {
+    const { slide, no } = newSlide('B4', `여러분 의견은 이렇게 처리했습니다${all.length > 1 ? ` (${pi + 1}/${all.length})` : ''}`);
+    if (!page.length) return emptyNote(slide, '이번 회차에 받은 근로자 의견 없음', 1.75);
     const w = fit([5.2, 3.5]);
     table(slide, [head(['의견', '결과']), ...page.map((r) => [
       c(opinionById.get(r.opinionId)?.text),
       { text: r.result, options: { bold: r.decisionIds.length > 0, color: r.decisionIds.length ? T.colors.positive : P.muted } },
-    ])], w, bodyY(box, 1.6));
+    ])], w, 1.6);
     page.forEach((r) => check(no, 'B4', r.opinionId, 'text', opinionById.get(r.opinionId)?.text, w[0], 2));
   });
 
   // B5 지난 조치 이행 결과(규칙 제37조의3 2호)
-  paginate(s.prior, rowsOf('B5', false)).forEach((page, pi, all) => {
-    const { slide, box } = newSlide('B5', `지난번 대책은 어떻게 됐나${all.length > 1 ? ` (${pi + 1}/${all.length})` : ''}`);
-    if (!page.length) return emptyNote(slide, '지난 회차에서 넘어온 조치 없음', bodyY(box, 1.75));
+  const statusColor = (st: string): 'positive' | 'negative' | 'caution' | 'ink' => (st === '완료' ? 'positive' : st === '미완료' || st === '기한초과' ? 'negative' : st === '재조치' ? 'caution' : 'ink');
+  if (D && S)
+    designList(
+      'B5',
+      '지난번 대책은 어떻게 됐나',
+      undefined,
+      { code: 'B5', cols: [{ caption: '위험', ratio: 4.4, dot: true }, { caption: '상태', ratio: 1.2, status: true }, { caption: '조치 결과', ratio: 3.6 }] },
+      s.prior.map((p) => ({ id: p.id, cells: [{ text: p.hazard || '-', bold: true }, { text: p.status || '-', bold: true, color: statusColor(p.status) }, { text: p.result || '-' }] })),
+      '지난 회차에서 넘어온 조치 없음',
+    );
+  else paginate(s.prior, ROWS.B5).forEach((page, pi, all) => {
+    const { slide } = newSlide('B5', `지난번 대책은 어떻게 됐나${all.length > 1 ? ` (${pi + 1}/${all.length})` : ''}`);
+    if (!page.length) return emptyNote(slide, '지난 회차에서 넘어온 조치 없음', 1.75);
     const color = (st: string) => (st === '완료' ? T.colors.positive : st === '미완료' || st === '기한초과' ? T.colors.negative : st === '재조치' ? T.colors.caution : P.text);
-    table(slide, [head(['위험', '상태', '조치 결과']), ...page.map((p) => [c(p.hazard), { text: p.status || '-', options: { bold: true, align: 'center', color: color(p.status) } }, c(p.result)])], fit([4.4, 1.2, 3.6]), bodyY(box, 1.6));
+    table(slide, [head(['위험', '상태', '조치 결과']), ...page.map((p) => [c(p.hazard), { text: p.status || '-', options: { bold: true, align: 'center', color: color(p.status) } }, c(p.result)])], fit([4.4, 1.2, 3.6]), 1.6);
   });
 
   // B6 다음으로 미룬 것
-  paginate(deferred, rowsOf('B6', true)).forEach((page, pi, all) => {
-    const { slide, box } = newSlide('B6', `다음으로 미룬 것${all.length > 1 ? ` (${pi + 1}/${all.length})` : ''}`, '미룬 동안에도 위험은 남아 있습니다. 작업 전에 한 번 더 확인해 주세요.');
-    if (!page.length) return emptyNote(slide, '다음 회차로 미룬 것 없음', bodyY(box, 1.75));
-    table(slide, [head(['위험', '미룬 이유', '다시 볼 날']), ...page.map((d) => [c(d.hazard ?? situationOf.get(d.id) ?? priorOf.get(d.id) ?? d.id), c(d.reason), c(d.reevaluateBy)])], fit([3.8, 3.8, 1.4]), bodyY(box, 1.6));
+  const B6_LEAD = '미룬 동안에도 위험은 남아 있습니다. 작업 전에 한 번 더 확인해 주세요.';
+  if (D && S)
+    designList(
+      'B6',
+      '다음으로 미룬 것',
+      B6_LEAD,
+      { code: 'B6', cols: [{ caption: '위험', ratio: 3.8, dot: true }, { caption: '미룬 이유', ratio: 3.8 }, { caption: '다시 볼 날', ratio: 1.4 }] },
+      deferred.map((d) => ({ id: d.id, cells: [{ text: d.hazard ?? situationOf.get(d.id) ?? priorOf.get(d.id) ?? d.id, bold: true }, { text: d.reason || '-' }, { text: d.reevaluateBy || '-' }] })),
+      '다음 회차로 미룬 것 없음',
+    );
+  else paginate(deferred, ROWS.B6).forEach((page, pi, all) => {
+    const { slide } = newSlide('B6', `다음으로 미룬 것${all.length > 1 ? ` (${pi + 1}/${all.length})` : ''}`, B6_LEAD);
+    if (!page.length) return emptyNote(slide, '다음 회차로 미룬 것 없음', 1.75);
+    table(slide, [head(['위험', '미룬 이유', '다시 볼 날']), ...page.map((d) => [c(d.hazard ?? situationOf.get(d.id) ?? priorOf.get(d.id) ?? d.id), c(d.reason), c(d.reevaluateBy)])], fit([3.8, 3.8, 1.4]), 1.6);
   });
 
   // B7 공유 확인 서명(빈칸)
-  {
-    const { slide, box } = newSlide('B7', '공유 확인', '위 내용을 듣거나 읽었으면 서명해 주세요. 새로 오셨거나 작업이 바뀐 분은 작업 전에 확인합니다.');
+  const B7_LEAD = '위 내용을 듣거나 읽었으면 서명해 주세요. 새로 오셨거나 작업이 바뀐 분은 작업 전에 확인합니다.';
+  if (D && S) {
+    const { slide, no, box } = newSlide('B7', '공유 확인', B7_LEAD);
+    const r = drawSign({ pptx, slide, d: D, s: S, fontFace }, box, signatureRows);
+    if (r.shrunk) warnings.push(`B7(${D.id}) ${no}장: 서명란 ${signatureRows}행이 본문 높이에 들도록 글자를 ${r.pt}pt 로 줄였다`);
+  } else {
+    const { slide } = newSlide('B7', '공유 확인', B7_LEAD);
     const half = Math.ceil(signatureRows / 2);
-    const base = [0.6, 2.0, 1.5, 1.2];
-    // 프리셋 판은 좌우 여백이 달라 두 표가 본문 폭 안에 들도록 비례로 줄인다
-    const shrink = D ? Math.min(1, (contentW - 0.4) / (2 * base.reduce((a, b) => a + b, 0))) : 1;
-    const colW = D ? base.map((w) => w * shrink) : base;
+    const colW = [0.6, 2.0, 1.5, 1.2];
     const tw = colW.reduce((a, b) => a + b, 0);
-    const top = D ? box.top : 1.7;
+    const top = 1.7;
     for (let part = 0; part < 2; part++) {
       const start = part * half;
       const n = Math.min(half, signatureRows - start);
       if (n <= 0) break;
       const rows = [head(['번호', '소속·역할', '날짜', '서명']), ...Array.from({ length: n }, (_, i) => [{ text: String(start + i + 1), options: { align: 'center' } }, { text: '' }, { text: '' }, { text: '' }])];
       const styled = rows.map((row, ri) => row.map((cell) => ({ ...cell, options: { color: P.text, margin: [2, 5, 2, 5], ...(cell as { options?: object }).options, border: [ri <= 1 ? RULE : INNER, NONE, ri === 0 || ri === rows.length - 1 ? RULE : INNER, NONE] } })));
-      const rowH = D ? Math.min(0.42, (box.bottom - top) / (half + 1)) : Math.min(0.42, (H - 0.95 - 1.7) / (half + 1));
+      const rowH = Math.min(0.42, (H - 0.95 - 1.7) / (half + 1));
       slide.addTable(styled as never, { x: X0 + part * (tw + 0.4), y: top, w: tw, colW, rowH, fontFace, fontSize: T.typeScale.table, valign: 'middle' });
     }
   }

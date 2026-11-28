@@ -21,7 +21,8 @@ export type B3Part = 'hairline-table' | 'row-cards' | 'checklist-cards' | 'repor
 export type OverflowStep = 'abbreviate' | 'shrink-once' | 'more-count' | 'next-slide';
 export const OVERFLOW_ORDER: readonly OverflowStep[] = Object.freeze(['abbreviate', 'shrink-once', 'more-count', 'next-slide']);
 
-export const COLOR_KEYS = ['bg', 'surface', 'band', 'ink', 'ink2', 'line', 'rule', 'accent', 'accentText', 'onAccent', 'risk'] as const;
+// positive·caution·negative = 상태 글자색(완료·변경/재조치·미완료). 프리셋 바탕에서 대비 4.5:1 을 넘는 값(회의 덱 의미색은 프리셋 바탕에서 모자란다)
+export const COLOR_KEYS = ['bg', 'surface', 'band', 'ink', 'ink2', 'line', 'rule', 'accent', 'accentText', 'onAccent', 'risk', 'positive', 'caution', 'negative'] as const;
 export type DesignColorKey = (typeof COLOR_KEYS)[number] | 'headBand' | 'onHeadBand';
 
 /** 좌표·크기는 모두 1920×1080 시안 px */
@@ -211,11 +212,15 @@ export function contrastRatio(a: string, b: string): number {
   return (x + 0.05) / (y + 0.05);
 }
 
-/** 폭이 고정된 글자 칸 — 요약 수(「1/2」)와 기한(YYYY-MM-DD). capacityOf 로 한 줄 폭을 잰다 */
+/** quiet 히어로(첫 요약 수) 칸 — 폭 600px · 보통 크기 tokens.type.hero · 한 번 줄일 때 하한 200px(c1 시안) */
+export const HERO_BOX = Object.freeze({ wPx: 600, minPx: 200 });
+
+/** 폭이 고정된 글자 칸 — 요약 수(「1/2」)와 기한(YYYY-MM-DD). capacityOf 로 한 줄 폭을 잰다. hero 는 kpi-hero-list 일 때만 */
 export function fixedTextBoxes(d: DeckDesign, s: DesignScale) {
   return {
     kpiValue: { wIn: s.x(d.slots.B1.valueBoxW), pt: s.pt(d.slots.B1.valuePx) },
     date: { wIn: s.x(d.slots.B3.dateBoxW), pt: s.pt(d.slots.B3.datePx) },
+    hero: d.slots.B1.part === 'kpi-hero-list' ? { wIn: s.x(HERO_BOX.wPx), pt: s.pt(d.tokens.type.hero) } : null,
   };
 }
 
@@ -279,8 +284,12 @@ export function designsFor(snapshot: MeetingSnapshot, ids: readonly DesignId[] =
     const lacking = actions.filter((a) => d.slots.B3.needs.some((k) => !String((a as unknown as Record<string, unknown>)[k] ?? '').trim()));
     if (lacking.length) why.push(`대책 ${lacking.map((a) => a.id).join('·')} 에 ${d.slots.B3.needs.join('·')} 중 빈 값이 있어 이 배치를 채울 수 없음`);
     const kpis = broadcastKpis(s, 0, opinions.length).map((k) => (k.key === 'opinions' ? { ...k, value: `${opinions.length}/${opinions.length}` } : k));
-    const box = fixedTextBoxes(d, scale).kpiValue;
-    const wide = kpis.filter((k) => capacityOf(box.wIn, box.pt, 1) < textUnits(k.value));
+    const boxes = fixedTextBoxes(d, scale);
+    // 첫 요약 수는 히어로 칸(quiet)에, 나머지는 숫자 칸에 — 그리기(parts.drawB1)와 같은 칸
+    const wide = kpis.filter((k, i) => {
+      const box = i === 0 && boxes.hero ? boxes.hero : boxes.kpiValue;
+      return capacityOf(box.wIn, box.pt, 1) < textUnits(k.value);
+    });
     if (wide.length) why.push(`요약 수 ${wide.map((k) => `「${k.value}」`).join('·')} 가 이 디자인의 숫자 칸에 보통 크기로 한 줄에 들지 않음`);
     const long = b3LongFields(d, scale, texts);
     if (long.length) why.push(`대책 장 글이 시안 칸보다 길다 — ${long.map((x) => `${x.id} ${FIELD_LABEL[x.field]} ${x.need}줄(칸 ${x.lines}줄)`).join('·')} — 칸을 늘리거나 다음 장으로 나눔`);

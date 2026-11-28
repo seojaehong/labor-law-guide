@@ -15,13 +15,14 @@
     "colors": {
       "bg": "F7F7F5", "surface": "F7F7F5", "band": "F7F7F5",
       "ink": "1A1A1A", "ink2": "5A5A5A", "line": "D6D6D2", "rule": "1A1A1A",
-      "accent": "1A1A1A", "accentText": "1A1A1A", "onAccent": "F7F7F5", "risk": "C0152F"
+      "accent": "1A1A1A", "accentText": "1A1A1A", "onAccent": "F7F7F5", "risk": "C0152F",
+      "positive": "236B4A", "caution": "8A5A00", "negative": "C0152F"
     },
     "type": { "meta": 26, "title": 64, "label": 32, "body": 32, "table": 26, "num": 96, "hero": 320, "note": 26 },
     "lines": { "hair": 1, "rule": 2, "heavy": 2 },
     "radius": { "card": 0 }
   },
-  "textPairs": [["ink", "bg"], ["ink2", "bg"], ["risk", "bg"], ["ink", "band"], ["onAccent", "accent"]],
+  "textPairs": [["ink", "bg"], ["ink2", "bg"], ["risk", "bg"], ["ink", "band"], ["onAccent", "accent"], ["positive", "bg"], ["caution", "bg"], ["negative", "bg"]],
   "slots": {
     "B1": {
       "part": "kpi-hero-list",

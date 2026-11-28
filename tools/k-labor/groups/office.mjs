@@ -151,11 +151,11 @@ const broadcastOpts = {
   design: z
     .enum([...DESIGN_IDS])
     .optional()
-    .describe('디자인 프리셋 — quiet(고요)·field(현장 게시판)·app(앱 카드)·report(공문 보고서형)·story(전후 흐름). 요약·대책 장의 배치와 전 장의 제목 영역·색이 바뀐다. 미지정이면 기본 먹색'),
+    .describe('디자인 프리셋 — quiet(고요)·field(현장 게시판)·app(앱 카드)·report(공문 보고서형)·story(전후 흐름). 전 장의 제목 영역·색·부품 배치가 바뀌고 판형 기본이 16:9 가 된다. 미지정이면 기본 먹색 A4'),
 };
 const runBroadcast = (snapshot, a, ctx) => makeBroadcastPptx(snapshot, { ...ctx, signatureRows: a.signatureRows, fontFace: a.fontFace, layout: a.layout, design: a.design });
 const BROADCAST_DESC =
-  '확정된 회의 스냅숏(make_meeting_pptx 확정본과 같은 입력, status 확정)으로 근로자에게 전하는 회의 결과 전파본(pptx, 기본 A4 가로)을 만든다. ' +
+  '확정된 회의 스냅숏(make_meeting_pptx 확정본과 같은 입력, status 확정)으로 근로자에게 전하는 회의 결과 전파본(pptx, 기본 A4 가로 — design 프리셋을 주고 layout 을 안 주면 16:9)을 만든다. ' +
   '한눈 요약 · 새로 생기거나 바뀐 위험 · 이번에 정한 대책(담당·기한) · 근로자 의견 처리 결과 · 지난 대책 이행 결과 · 다음으로 미룬 것 · 빈 공유 확인 서명란. ' +
   '문장은 스냅숏 원문 그대로 싣고 초안은 만들지 않는다. 결과에 장 목록(slides)·의견별 처리 결과(opinionResults)·넘침 후보(overflowEstimates)를 돌려준다.';
 

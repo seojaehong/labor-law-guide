@@ -4,10 +4,10 @@
 // 부품마다 고유 도형 이름(objectName 'part:…')을 단다 — 시험과 PowerPoint 선택 창에서 부품을 찾는 표시.
 // 글은 입력 원문 그대로. 말줄임 없음 — 넘치면 한 번만 줄이고, 그래도 넘치면 넘침 후보로 돌려준다.
 import type { DeckPptx, DeckSlide } from './slide-types';
-import { shrinkToFit, type DeckDesign, type DesignScale } from './index';
+import { HERO_BOX, shrinkToFit, type DeckDesign, type DesignScale } from './index';
 import { color, type HeadBox } from './head';
-import { b3PageLayout, STORY_GAP } from './b3-geometry';
-import { capacityOf, textUnits } from '../meeting';
+import { b3PageLayout, STORY_GAP, wrapLines } from './b3-geometry';
+import { capacityOf } from '../meeting';
 
 type Slide = DeckSlide;
 
@@ -78,9 +78,9 @@ export function drawB1(c: Ctx, kpis: Kpi[]): PartResult {
 
   if (slot.part === 'kpi-hero-list') {
     const [hero, ...rest] = kpis;
-    const heroPt = value(hero, 600, t.hero, 200);
-    slide.addText(hero.value, { objectName: 'part:kpi-hero', x: s.x(slot.x), y: s.y(slot.y), w: s.x(600), h: s.y(t.hero * 1.12), fontFace, fontSize: heroPt, color: hero.risk && hero.value !== '0' ? C('risk') : C('ink'), valign: 'middle', margin: 0 });
-    slide.addText(hero.label, { x: s.x(slot.x), y: s.y(slot.y + t.hero * 1.12 + 8), w: s.x(600), h: s.y(48), fontFace, fontSize: s.pt(t.label), color: C('ink'), margin: 0 });
+    const heroPt = value(hero, HERO_BOX.wPx, t.hero, HERO_BOX.minPx);
+    slide.addText(hero.value, { objectName: 'part:kpi-hero', x: s.x(slot.x), y: s.y(slot.y), w: s.x(HERO_BOX.wPx), h: s.y(t.hero * 1.12), fontFace, fontSize: heroPt, color: hero.risk && hero.value !== '0' ? C('risk') : C('ink'), valign: 'middle', margin: 0 });
+    slide.addText(hero.label, { x: s.x(slot.x), y: s.y(slot.y + t.hero * 1.12 + 8), w: s.x(HERO_BOX.wPx), h: s.y(48), fontFace, fontSize: s.pt(t.label), color: C('ink'), margin: 0 });
     const lx = 1000;
     const lw = slot.x + slot.w - lx;
     const rowH = 124;
@@ -172,7 +172,7 @@ export function drawB1(c: Ctx, kpis: Kpi[]): PartResult {
       const lx = x + numW + numGap;
       const lw = x + w - lx;
       if (k.risk) {
-        const lines = Math.max(1, Math.ceil(textUnits(k.label) / capacityOf(s.x(lw), s.pt(t.body), 1)));
+        const lines = wrapLines(k.label, capacityOf(s.x(lw), s.pt(t.body), 1)); // ko-KR 낱말 줄바꿈 줄 수
         const gy = y + (rowH - (22 + 10 + lines * 1.3 * t.body)) / 2;
         slide.addShape(pptx.ShapeType.triangle, { objectName: 'part:risk-mark', x: s.x(lx), y: s.y(gy), w: s.x(24), h: s.y(22), fill: { color: C('surface') }, line: { color: C('risk'), width: Math.max(0.75, s.pt(2.2)) } });
         slide.addText('!', { x: s.x(lx), y: s.y(gy + 5), w: s.x(24), h: s.y(17), fontFace, fontSize: Math.max(6, s.pt(14)), bold: true, color: C('risk'), align: 'center', valign: 'middle', margin: 0 });

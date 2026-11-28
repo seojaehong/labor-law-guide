@@ -17,13 +17,14 @@
       "bg": "FFFFFF", "surface": "FFFFFF", "band": "FFFFFF",
       "ink": "111111", "ink2": "3D3D3D", "line": "111111", "rule": "111111",
       "accent": "FFD400", "accentText": "111111", "onAccent": "111111", "risk": "111111",
+      "positive": "1E6B45", "caution": "7A5200", "negative": "B3261E",
       "headBand": "111111", "onHeadBand": "FFFFFF"
     },
     "type": { "meta": 28, "title": 88, "label": 40, "body": 32, "table": 26, "num": 168, "hero": 168, "note": 32 },
     "lines": { "hair": 3, "rule": 6, "heavy": 8 },
     "radius": { "card": 0 }
   },
-  "textPairs": [["ink", "bg"], ["ink2", "bg"], ["onAccent", "accent"], ["onHeadBand", "headBand"], ["accentText", "bg"]],
+  "textPairs": [["ink", "bg"], ["ink2", "bg"], ["onAccent", "accent"], ["onHeadBand", "headBand"], ["accentText", "bg"], ["positive", "bg"], ["caution", "bg"], ["negative", "bg"]],
   "slots": {
     "B1": {
       "part": "tile-grid",

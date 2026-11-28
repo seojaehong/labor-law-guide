@@ -15,13 +15,14 @@
     "colors": {
       "bg": "F7F6F3", "surface": "FFFFFF", "band": "FFFFFF",
       "ink": "1A1F24", "ink2": "4D565F", "line": "D3D7DB", "rule": "1A1F24",
-      "accent": "0B7A75", "accentText": "0B7A75", "onAccent": "FFFFFF", "risk": "B23A2A"
+      "accent": "0B7A75", "accentText": "0B7A75", "onAccent": "FFFFFF", "risk": "B23A2A",
+      "positive": "236B4A", "caution": "8A5A00", "negative": "B23A2A"
     },
     "type": { "meta": 22, "title": 60, "label": 30, "body": 30, "table": 26, "num": 96, "hero": 96, "note": 30 },
     "lines": { "hair": 1, "rule": 2, "heavy": 2 },
     "radius": { "card": 20 }
   },
-  "textPairs": [["ink", "bg"], ["ink2", "bg"], ["ink", "surface"], ["ink2", "surface"], ["accentText", "bg"], ["accentText", "surface"], ["onAccent", "accent"]],
+  "textPairs": [["ink", "bg"], ["ink2", "bg"], ["ink", "surface"], ["ink2", "surface"], ["accentText", "bg"], ["accentText", "surface"], ["onAccent", "accent"], ["positive", "bg"], ["caution", "bg"], ["negative", "bg"], ["positive", "surface"], ["caution", "surface"], ["negative", "surface"]],
   "slots": {
     "B1": {
       "part": "before-after",

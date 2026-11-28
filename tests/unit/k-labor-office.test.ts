@@ -332,6 +332,13 @@ describe('office 묶음 — 회의 PPTX', () => {
     expect(await zip.file('ppt/slides/slide1.xml')!.async('string')).toContain('name="part:summary-table"');
   });
 
+  it('전파본 도구 설명은 design 을 주면 16:9 임을 말한다(「기본 A4 가로」만 말하지 않음)', () => {
+    for (const n of ['make_broadcast_pptx', 'make_broadcast_pptx_bytes']) {
+      const d = (cfgs.get(n) as { description: string }).description;
+      expect(d, n).toMatch(/design[^.]*16:9/);
+    }
+  });
+
   it('원격 make_education_pptx_bytes — 정기교육 교안, 입력 오류는 ok false', async () => {
     const ED = { site: '합성', basisDate: '2026-11-20', educationDate: '2026-12-01', course: 'regular', hazards: [{ id: 'H-1', situation: '합성 위험', measures: ['합성 대책'] }], quiz: [{ question: '합성 질문' }] };
     const mk = await call('make_education_pptx_bytes', { snapshot: ED });
