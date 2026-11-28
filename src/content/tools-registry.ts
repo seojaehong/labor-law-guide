@@ -82,6 +82,8 @@ export const TOOLS: ToolEntry[] = [
     sitemap: { lastModified: '2026-10-29', changeFrequency: 'monthly', priority: 0.8 } },
   { href: '/tools/shutdown-allowance', title: '휴업수당 계산기', desc: '회사 사정으로 쉰 기간의 휴업수당을 계산합니다. 휴업 전 3개월 임금으로 1일 평균임금을 구해 70% × 휴업일수로 셈하고, 평균임금 70%가 통상임금보다 많으면 통상임금 기준 금액도 나란히 보여줍니다. 일부 시간만 쉰 날(시행령 제26조), 상시 4명 이하, 노동위원회 승인도 구분합니다.', badge: '브라우저 계산', icon: 'calculator',
     sitemap: { lastModified: '2026-10-29', changeFrequency: 'monthly', priority: 0.8 } },
+  { href: '/tools/childcare-reduction', title: '육아기 근로시간 단축 급여·장려금 계산기', desc: '월 통상임금과 단축 전·후 1주 소정근로시간, 단축 기간을 넣으면 고용보험 육아기 근로시간 단축 급여 월액과 기간 합계를 계산합니다. 줄어든 시간 중 10시간까지와 나머지 시간의 상한·하한, 회사 지급액에 따른 감액, 우선지원대상기업 사업주 장려금과 업무분담 지원금도 함께 보고, 넣지 않은 요건은 확인 필요로 남깁니다.', badge: '브라우저 계산', icon: 'calculator',
+    sitemap: { lastModified: '2026-11-28', changeFrequency: 'monthly', priority: 0.8 } },
   { href: '/tools/attendance-rate', title: '출근율 계산기', desc: '1년 소정근로일수와 출근으로 보는 날·소정근로일수에서 빼는 날·결근을 넣으면 연차휴가가 생기는 출근율 80%를 채웠는지 계산합니다. 80%에 못 미쳐도 빼는 날을 뺀 출근율이 80% 이상이면 비례 일수를, 아니면 1개월 개근마다 1일을 보여주고, 해석이 갈리는 기간은 두 값을 나란히 냅니다.', badge: '브라우저 계산', icon: 'calculator',
     sitemap: { lastModified: '2026-10-29', changeFrequency: 'monthly', priority: 0.8 } },
   { href: '/tools/contractor-check', title: '3.3% 계약 점검', desc: '프리랜서(사업소득 3.3%)로 계약했더라도 실제로 일한 모습을 대법원 2004다29736 판결의 근로자성 기준(업무 지시·근무시간과 장소·비품·제3자 고용·보수의 성격 등)과 항목마다 대조합니다. 같은 보수를 3.3%로 뗄 때와 근로소득으로 뗄 때의 예상 실수령도 나란히 보여줍니다.', badge: '참고 점검', icon: 'file-check',

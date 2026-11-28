@@ -40,6 +40,7 @@ H1 제목, 사용자 입장 한 문단, 그다음 H2 넷을 이 순서로: `Sub-
 - [연차수당 계산기](./leave-pay.md) — `/tools/leave-pay`
 - [일용근로소득 원천징수 계산기](./daily-worker-tax.md) — `/tools/daily-worker-tax`
 - [휴업수당 계산기](./shutdown-allowance.md) — `/tools/shutdown-allowance`
+- [육아기 근로시간 단축 급여·장려금 계산기](./childcare-reduction.md) — `/tools/childcare-reduction`
 - [출근율 계산기](./attendance-rate.md) — `/tools/attendance-rate`
 - [3.3% 계약 점검](./contractor-check.md) — `/tools/contractor-check`
 - [근로계약서 점검](./contract-check.md) — `/tools/contract-check`

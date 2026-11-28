@@ -52,6 +52,7 @@ export const TOOL_INDEX: Record<string, ToolIndexEntry> = {
   '/tools/attendance-rate': { group: 'leave', glyph: 'percent', summary: '연차가 생기는 출근율 80%를 채웠는지' },
   '/tools/holiday-pay': { group: 'leave', glyph: 'sun', summary: '공휴일·노동절에 일하면 더 줄 돈' },
   '/tools/leave-pay': { group: 'leave', glyph: 'coins', summary: '쓰지 못한 연차를 돈으로 받을 때' },
+  '/tools/childcare-reduction': { group: 'leave', glyph: 'timer', summary: '육아기 단축 근무 중 급여와 사업주 장려금' },
 
   '/exit': { group: 'exit', glyph: 'door-open', summary: '그만두는 사람이 챙길 기한을 날짜순으로' },
   '/exit-employer': { group: 'exit', glyph: 'clipboard-check', summary: '직원이 그만둘 때 회사가 할 일과 기한' },
