@@ -392,7 +392,15 @@ export async function makeBroadcastPptx(snapshot: MeetingSnapshot, opts: Broadca
   if (D && S) {
     const { slide, no, box } = newSlide('B7', '공유 확인', B7_LEAD);
     const r = drawSign({ pptx, slide, d: D, s: S, fontFace }, box, signatureRows);
-    if (r.shrunk) warnings.push(`B7(${D.id}) ${no}장: 서명란 ${signatureRows}행이 본문 높이에 들도록 글자를 ${r.pt}pt 로 줄였다`);
+    if (r.shrunk) warnings.push(`B7(${D.id}) ${no}장: 서명란 ${r.drawn}행이 본문 높이에 들도록 글자를 ${r.pt}pt 로 줄였다`);
+    // 다 들지 않으면 남은 행은 이어지는 장에(번호 이어서)
+    if (r.rest > 0) warnings.push(`B7(${D.id}) ${no}장: 서명란 ${signatureRows}행 중 ${r.drawn}행만 본문 높이에 들어 ${r.rest}행은 이어지는 장에 실었다`);
+    for (let next = r.drawn + 1, rest = r.rest; rest > 0; ) {
+      const q = newSlide('B7', '공유 확인(이어서)', B7_LEAD);
+      const rr = drawSign({ pptx, slide: q.slide, d: D, s: S, fontFace }, q.box, rest, { startNo: next });
+      next += rr.drawn;
+      rest = rr.rest;
+    }
   } else {
     const { slide } = newSlide('B7', '공유 확인', B7_LEAD);
     const half = Math.ceil(signatureRows / 2);

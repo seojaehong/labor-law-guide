@@ -483,7 +483,15 @@ async function makeEducationDesign(s: EducationSnapshot, opts: EducationOptions,
   {
     const p = page('E6', '교육 확인 서명부', `${course.label} · ${s.educationDate} · 교육 시간과 교육자는 사업장 기록 서식에 적는다`);
     const r = drawSign({ ...kit, slide: p.slide }, p.box, signatureRows);
-    if (r.shrunk) warnings.push(`E6(${D.id}) ${p.no}장: 서명부 ${signatureRows}행이 본문 높이에 들도록 글자를 ${r.pt}pt 로 줄였다`);
+    if (r.shrunk) warnings.push(`E6(${D.id}) ${p.no}장: 서명부 ${r.drawn}행이 본문 높이에 들도록 글자를 ${r.pt}pt 로 줄였다`);
+    // 다 들지 않으면 남은 행은 이어지는 장에(번호 이어서)
+    if (r.rest > 0) warnings.push(`E6(${D.id}) ${p.no}장: 서명부 ${signatureRows}행 중 ${r.drawn}행만 본문 높이에 들어 ${r.rest}행은 이어지는 장에 실었다`);
+    for (let next = r.drawn + 1, rest = r.rest; rest > 0; ) {
+      const q = page('E6', '교육 확인 서명부(이어서)', `${course.label} · ${s.educationDate} · 교육 시간과 교육자는 사업장 기록 서식에 적는다`);
+      const rr = drawSign({ ...kit, slide: q.slide }, q.box, rest, { startNo: next });
+      next += rr.drawn;
+      rest = rr.rest;
+    }
   }
 
   const out = await pptx.write({ outputType: 'arraybuffer' });

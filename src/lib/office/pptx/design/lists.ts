@@ -410,7 +410,7 @@ export function drawListEmpty(c: Ctx, box: HeadBox, text: string, area?: { x: nu
 /**
  * B7 공유 확인 서명란(빈칸) — 두 표를 나란히. 표 문법은 프리셋별:
  * hairline 가는선 · grid 남색 머리 띠+굵은 바깥선 · rowcard 굵은 검정 격자+노랑 머리 · chipcard 회색 머리·가는 가로선 · storycard 흰 칸·가는 격자.
- * 행이 많으면 글자를 줄여 본문 높이에 맞춘다(하한 8pt) — 줄였으면 그 크기(pt)를 돌려준다.
+ * 행이 많으면 글자를 줄여 본문 높이에 맞춘다(하한 8pt) — 줄였으면 그 크기(pt)를 돌려준다. 8pt 로도 들지 않는 행은 rest 로 돌려준다.
  */
 export interface SignOptions {
   /** 본문 일부 폭(px). 없으면 제목 영역 좌우 끝 */
@@ -421,9 +421,18 @@ export interface SignOptions {
   ratios?: number[];
   /** 표 개수 — 2 면 둘로 나눠 나란히(기본), 1 이면 한 표 */
   tables?: 1 | 2;
+  /** 첫 행 번호(이어지는 장). 기본 1 */
+  startNo?: number;
 }
 
-export function drawSign(c: Ctx, box: HeadBox, signatureRows: number, o: SignOptions = {}): { pt: number; shrunk: boolean } {
+/** 8pt 글 한 줄 칸의 최소 높이(in) — PowerPoint 는 칸을 이보다 낮게 그리지 않는다(줄높이 1.2 + 위아래 여백 2pt+2pt) */
+const SIGN_MIN_ROW_IN = (8 * LINE_H + 4) / 72;
+
+/**
+ * 서명란 — 본문 높이에 드는 행까지만 그리고, 남은 행 수(rest)를 돌려준다(부르는 쪽이 이어지는 장에 startNo 로 다시 부른다).
+ * 다 들면 rest = 0 이고 그리는 모양은 전과 같다.
+ */
+export function drawSign(c: Ctx, box: HeadBox, wanted: number, o: SignOptions = {}): { pt: number; shrunk: boolean; drawn: number; rest: number } {
   const { d, s, slide, fontFace } = c;
   const C = (k: DesignColorKey) => color(d, k);
   const fam = listFamily(d);
@@ -431,6 +440,10 @@ export function drawSign(c: Ctx, box: HeadBox, signatureRows: number, o: SignOpt
   const W = o.area?.w ?? d.head.right - d.head.left;
   const gapX = 56;
   const tables = o.tables ?? 2;
+  const first = o.startNo ?? 1;
+  // 한 표에 드는 행 수(머리 행 제외) — 8pt 한 줄 칸 높이로
+  const perTable = Math.max(1, Math.floor((box.bottom - box.top) / SIGN_MIN_ROW_IN) - 1);
+  const signatureRows = Math.min(wanted, perTable * tables);
   const half = Math.ceil(signatureRows / tables);
   const headers = o.headers ?? ['번호', '소속·역할', '날짜', '서명'];
   const base = o.ratios ?? [0.9, 2.0, 1.5, 1.1]; // 번호 칸은 「번호」·두 자리 수가 한 줄에 들 만큼
@@ -469,7 +482,7 @@ export function drawSign(c: Ctx, box: HeadBox, signatureRows: number, o: SignOpt
       options: { bold: style.headBold, color: C(style.headColor as DesignColorKey), align: 'center', ...(style.headFill ? { fill: { color: C(style.headFill as DesignColorKey) } } : {}), border: cellBorder(0, ci, total), margin: [2, 5, 2, 5] },
     }));
     const body = Array.from({ length: n }, (_, i) =>
-      [String(start + i + 1), ...headers.slice(1).map(() => '')].map((t, ci) => ({
+      [String(first + start + i), ...headers.slice(1).map(() => '')].map((t, ci) => ({
         text: t,
         options: { color: C('ink'), align: ci === 0 ? 'center' : 'left', ...(fam === 'storycard' ? { fill: { color: C('surface') } } : {}), border: cellBorder(i + 1, ci, total), margin: [2, 5, 2, 5] },
       })),
@@ -486,5 +499,5 @@ export function drawSign(c: Ctx, box: HeadBox, signatureRows: number, o: SignOpt
       valign: 'middle',
     });
   }
-  return { pt, shrunk: pt < want };
+  return { pt, shrunk: pt < want, drawn: signatureRows, rest: wanted - signatureRows };
 }

@@ -377,8 +377,8 @@ async function makeTbmDesign(snapshot: TbmSnapshot, opts: TbmOptions, D: DeckDes
     if ((task.questions?.length ?? 0) > 2) warnings.push(`${task.id}: 확인 질문은 앞 2개만 싣는다`);
     const title = tbmTitle(task);
     const lead = `오늘 이 작업에서 조심할 것 ${shown.length}가지${omitted.length ? `  ·  외 ${omitted.length}건 — 위험성평가표에서 확인` : ''}`;
-    const page = (pi: number, n: number): Page => {
-      const t = `${title}${n > 1 ? ` (${pi + 1}/${n})` : ''}`;
+    const page = (pi: number, n: number, override?: string): Page => {
+      const t = override ?? `${title}${n > 1 ? ` (${pi + 1}/${n})` : ''}`;
       const slide = koSlide(pptx.addSlide());
       const no = slides.length + 1;
       slides.push({ no, code, taskId: task.id, title: t, anchors });
@@ -395,7 +395,7 @@ async function makeTbmDesign(snapshot: TbmSnapshot, opts: TbmOptions, D: DeckDes
       roomPx: bodyRoomFor(D, S, { title: `${title} (9/9)`, lead, grow: true }),
       spec: { ...TBM_DESIGN_SPEC, code, area: { x: X, w: leftW } },
       rows: tbmDesignRows(shown),
-      newPage: page,
+      newPage: (pi, n) => page(pi, n),
     });
     // 오른쪽 — 확인 질문(입력 원문, 없으면 빈 줄) + 확인 서명(빈칸). 첫 장에만
     const p = pages[0];
@@ -413,8 +413,19 @@ async function makeTbmDesign(snapshot: TbmSnapshot, opts: TbmOptions, D: DeckDes
     const labelH = D.tokens.type.label * 1.3;
     p.slide.addText('확인 서명', { x: S.x(rx), y: S.y(labelY), w: S.x(rw), h: S.y(labelH), fontFace, fontSize: S.pt(D.tokens.type.label), bold: true, color: D.tokens.colors.ink, valign: 'middle', margin: 0 });
     const signTop = labelY + labelH + 12;
-    const r = drawSign(ctx, { ...p.box, top: S.y(signTop) }, signatureRows, { area: { x: rx, w: rw }, headers: ['번호', '소속·역할', '서명'], ratios: [0.9, 2.1, 2.0], tables: 1 });
-    if (r.shrunk) warnings.push(`${code}(${D.id}) ${p.no}장: 서명란 ${signatureRows}행이 본문 높이에 들도록 글자를 ${r.pt}pt 로 줄였다`);
+    const signOpts = { headers: ['번호', '소속·역할', '서명'], ratios: [0.9, 2.1, 2.0] };
+    const r = drawSign(ctx, { ...p.box, top: S.y(signTop) }, signatureRows, { ...signOpts, area: { x: rx, w: rw }, tables: 1 });
+    if (r.shrunk) warnings.push(`${code}(${D.id}) ${p.no}장: 서명란 ${r.drawn}행이 본문 높이에 들도록 글자를 ${r.pt}pt 로 줄였다`);
+    // 본문 높이에 다 들지 않으면 남은 행은 이어지는 장(본문 전체 폭, 두 표)에 — 번호는 이어서
+    let next = r.drawn + 1;
+    let rest = r.rest;
+    if (rest > 0) warnings.push(`${code}(${D.id}) ${p.no}장: 서명란 ${signatureRows}행 중 ${r.drawn}행만 본문 높이에 들어 ${rest}행은 이어지는 장에 실었다`);
+    while (rest > 0) {
+      const q = page(0, 1, `${title} — 확인 서명(이어서)`);
+      const rr = drawSign({ ...kit, slide: q.slide }, q.box, rest, { ...signOpts, startNo: next });
+      next += rr.drawn;
+      rest = rr.rest;
+    }
   });
 
   const out = await pptx.write({ outputType: 'arraybuffer' });
