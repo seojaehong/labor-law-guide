@@ -46,6 +46,9 @@ test('다른 서식으로 바꾸면 그 서식 칸이 나오고, 휴대폰 폭�
   await expect(page.getByLabel(/^돌봄 대상 가족 성명/)).toBeVisible();
   await page.getByRole('button', { name: '육아기 근로시간 단축 신청서' }).click();
   await expect(page.getByLabel(/^단축 후 주 근로시간/)).toBeVisible();
+  // 3차(261128) — 근로조건 서면
+  await page.getByRole('button', { name: '육아기 근로시간 단축 근로조건 서면' }).click();
+  await expect(page.getByLabel(/^임금 항목 1 단축 후 월액/)).toBeVisible();
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
   expect(overflow).toBeLessThanOrEqual(0);
 });
