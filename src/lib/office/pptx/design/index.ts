@@ -9,6 +9,7 @@ import APP from './presets/app.json';
 import REPORT from './presets/report.json';
 import STORY from './presets/story.json';
 import { capacityOf, textUnits, type MeetingSnapshot } from '../meeting';
+import { b3LongFields } from './b3-geometry';
 
 export const DESIGN_IDS = Object.freeze(['quiet', 'field', 'app', 'report', 'story'] as const);
 export type DesignId = (typeof DESIGN_IDS)[number];
@@ -254,7 +255,7 @@ export interface DesignFit {
 }
 
 /**
- * 프리셋마다 이 스냅숏을 「넘침 처리 없이」 담을 수 있는지.
+ * 프리셋마다 이 스냅숏을 「넘침 처리 없이」 담을 수 있는지 — 대책 건수 · needs 빈 값 · 요약 수 폭 · 대책 장 글 길이(위험·대책·담당 줄 수, 그리기와 같은 b3-geometry 로 잰다).
  * ok=false 여도 makeBroadcastPptx 는 만든다 — 넘침 순서(축약 표시 → 한 번만 축소 → 「외 N건」 → 다음 장)로 처리하고 warnings 에 적는다.
  * 고르기 화면은 ok=false 디자인을 빼거나 이유와 함께 흐리게 둔다.
  */
@@ -263,6 +264,13 @@ export function designsFor(snapshot: MeetingSnapshot, ids: readonly DesignId[] =
   const actions = Array.isArray(s.actions) ? s.actions : [];
   const opinions = Array.isArray(s.opinions) ? s.opinions : [];
   const scale = designScale(13.333, 7.5);
+  // 대책 장에 실을 글 — 전파 덱과 같이 대상 위험 원문을 찾는다
+  const situation = new Map((Array.isArray(s.hazards) ? s.hazards : []).map((h) => [h.id, h.situation]));
+  const prior = new Map((Array.isArray(s.prior) ? s.prior : []).map((p) => [p.id, p.hazard]));
+  const texts = actions.map((a) => {
+    const target = a.targetId ?? a.id;
+    return { id: a.id, risk: a.hazard ?? situation.get(target) ?? prior.get(target) ?? target ?? '-', measure: a.measure || '-', owner: a.owner || '-', due: a.due || '-' };
+  });
   return ids.map((id) => {
     const d = PRESETS[id];
     const why: string[] = [];
@@ -274,9 +282,13 @@ export function designsFor(snapshot: MeetingSnapshot, ids: readonly DesignId[] =
     const box = fixedTextBoxes(d, scale).kpiValue;
     const wide = kpis.filter((k) => capacityOf(box.wIn, box.pt, 1) < textUnits(k.value));
     if (wide.length) why.push(`요약 수 ${wide.map((k) => `「${k.value}」`).join('·')} 가 이 디자인의 숫자 칸에 보통 크기로 한 줄에 들지 않음`);
+    const long = b3LongFields(d, scale, texts);
+    if (long.length) why.push(`대책 장 글이 시안 칸보다 길다 — ${long.map((x) => `${x.id} ${FIELD_LABEL[x.field]} ${x.need}줄(칸 ${x.lines}줄)`).join('·')} — 칸을 늘리거나 다음 장으로 나눔`);
     return { id, ok: why.length === 0, reason: why.join('; ') };
   });
 }
+
+const FIELD_LABEL = { risk: '위험', measure: '대책', owner: '담당' } as const;
 
 // 프리셋 파일이 형식을 어기면 불러올 때 바로 멈춘다(잘못된 배치로 덱을 만들지 않게)
 for (const id of DESIGN_IDS) {

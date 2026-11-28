@@ -9,6 +9,7 @@ import { capacityOf, meetingSnapshotErrors, textUnits, type MeetingSnapshot, typ
 import { DESIGN_IDS, broadcastKpis, designScale, getDeckDesign, isDesignId, type DeckDesign, type DesignId, type DesignScale } from './design/index';
 import { color as designColor, drawHead, type HeadBox } from './design/head';
 import { drawB1, drawB3Page, type ActionItem, type TextCheck } from './design/parts';
+import { b3PageLayout } from './design/b3-geometry';
 
 export const BROADCAST_TEMPLATE_VERSION = 'broadcast-v0';
 
@@ -70,21 +71,38 @@ export function opinionResultsOf(s: MeetingSnapshot): OpinionResult[] {
 }
 
 /**
- * 대책 목록을 장으로 나눈다 — 넘침 순서: 한 장 한도(maxItems) 안이면 그대로 → 넘으면 한 번만 축소(shrunkMaxItems)
+ * 대책 목록을 장으로 나눈다 — 넘침 순서: 한 장 한도(maxItems) 안이고 높이도 들면 그대로 → 아니면 한 번만 축소(shrunkMaxItems)
  * → 그래도 넘으면 장마다 「외 N건」 칸을 두고 다음 장으로. 말줄임 없음(모든 대책이 어느 장엔가 실린다).
+ * fits(장, 「외 N건」 칸 있음, 축소) — 늘린 칸 높이까지 넣어 그 장이 본문 높이에 드는지. 없으면 건수로만 나눈다.
+ * 한 건만으로도 높이를 넘으면 그 한 건을 한 장에 싣는다(넘침 후보로 남는다).
  */
-export function planDesignB3<T>(items: T[], maxItems: number, shrunkMaxItems: number): { shrunk: boolean; pages: { items: T[]; more: number }[] } {
-  if (items.length <= maxItems) return { shrunk: false, pages: [{ items, more: 0 }] };
+export function planDesignB3<T>(
+  items: T[],
+  maxItems: number,
+  shrunkMaxItems: number,
+  fits: (page: T[], more: boolean, shrunk: boolean) => boolean = () => true,
+): { shrunk: boolean; byHeight: boolean; pages: { items: T[]; more: number }[] } {
+  if (items.length <= maxItems && fits(items, false, false)) return { shrunk: false, byHeight: false, pages: [{ items, more: 0 }] };
   const cap = Math.max(2, shrunkMaxItems);
   const pages: { items: T[]; more: number }[] = [];
+  let byHeight = items.length <= maxItems;
   let rest = items;
-  while (rest.length > cap) {
-    const page = rest.slice(0, cap - 1);
-    rest = rest.slice(cap - 1);
-    pages.push({ items: page, more: rest.length });
+  while (rest.length) {
+    if (rest.length <= cap && fits(rest, false, true)) {
+      pages.push({ items: rest, more: 0 });
+      break;
+    }
+    if (rest.length === 1) {
+      pages.push({ items: rest, more: 0 });
+      break;
+    }
+    let k = Math.min(cap - 1, rest.length - 1);
+    if (rest.length <= cap || !fits(rest.slice(0, k), true, true)) byHeight = true;
+    while (k > 1 && !fits(rest.slice(0, k), true, true)) k--;
+    pages.push({ items: rest.slice(0, k), more: rest.length - k });
+    rest = rest.slice(k);
   }
-  pages.push({ items: rest, more: 0 });
-  return { shrunk: true, pages };
+  return { shrunk: true, byHeight, pages };
 }
 
 export async function makeBroadcastPptx(snapshot: MeetingSnapshot, opts: BroadcastOptions = {}): Promise<BroadcastPptxResult> {
@@ -254,18 +272,23 @@ export async function makeBroadcastPptx(snapshot: MeetingSnapshot, opts: Broadca
     const slot = D.slots.B3;
     let items: ActionItem[] = actions.map((a) => ({ id: a.id, risk: hazardOf(a) || '-', measure: a.measure || '-', owner: a.owner || '-', due: a.due || '-' }));
     if (slot.part === 'deadline-timeline') items = [...items].sort((x, y) => (x.due === '-' ? 1 : y.due === '-' ? -1 : x.due < y.due ? -1 : x.due > y.due ? 1 : 0));
-    const plan = planDesignB3(items, slot.maxItems, slot.shrunkMaxItems);
+    // 본문 높이(px) — 늘린 칸까지 넣어 한 장에 드는지 잰다
+    const roomPx = (H - S.y(1080 - D.foot.y) - S.y((D.foot.rule ? D.foot.rulePx + 8 : 0) + 16) - S.y(D.head.bodyTopWithLead)) / S.k;
+    const plan = planDesignB3(items, slot.maxItems, slot.shrunkMaxItems, (page, more, shrunk) => b3PageLayout(D, S, page, { shrunk, more: more ? 1 : 0 }).total <= roomPx);
     plan.pages.forEach((page, pi, all) => {
       const { slide, no, box } = newSlide('B3', `이번에 정한 대책${all.length > 1 ? ` (${pi + 1}/${all.length})` : ''}`, B3_LEAD);
       if (!page.items.length) return emptyNote(slide, '이번 회의에서 새로 정한 대책 없음', box.top);
       const r = drawB3Page({ pptx, slide, d: D, s: S, fontFace }, box, page.items, { shrunk: plan.shrunk, more: page.more, accentFirst: pi === 0 });
+      if (r.grown?.length) warnings.push(`B3(${D.id}) ${no}장: ${r.grown.join('·')} 글이 시안 줄 수보다 길어 칸을 늘렸다(원문 그대로)`);
+      if (r.overPage) warnings.push(`B3(${D.id}) ${no}장: 대책 한 건의 글만으로도 본문 높이를 넘는다 — 입력에서 줄여 주세요`);
       checkParts(no, 'B3', r.checks);
     });
     if (plan.shrunk) {
       const cap = Math.max(2, slot.shrunkMaxItems);
       const first = plan.pages[0];
+      const why = items.length > slot.maxItems ? `한 장 ${slot.maxItems}건 한도를 넘어` : '글이 길어 한 장 높이에 다 들지 않아';
       warnings.push(
-        `B3(${D.id}): 대책 ${items.length}건 — 한 장 ${slot.maxItems}건 한도를 넘어 한 번 축소(한 장 ${cap}건)` +
+        `B3(${D.id}): 대책 ${items.length}건 — ${why} 한 번 축소(한 장 ${cap}건)` +
           (plan.pages.length > 1 ? `, 「외 ${first.more}건」 표기 후 다음 장으로 이어 ${plan.pages.length}장` : ''),
       );
     }

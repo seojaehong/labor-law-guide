@@ -6,6 +6,7 @@
 import type { DeckPptx, DeckSlide } from './slide-types';
 import { shrinkToFit, type DeckDesign, type DesignScale } from './index';
 import { color, type HeadBox } from './head';
+import { b3PageLayout } from './b3-geometry';
 
 type Slide = DeckSlide;
 
@@ -35,6 +36,10 @@ export interface PartResult {
   checks: TextCheck[];
   /** 한 번 줄인 칸(경고용) */
   shrunk: string[];
+  /** 글이 시안 줄 수보다 길어 칸을 늘린 대책 번호(B3) */
+  grown?: string[];
+  /** 늘린 칸까지 합쳐 한 장 본문 높이를 넘었으면 true(B3 — 한 건만으로도 넘는 경우) */
+  overPage?: boolean;
 }
 
 interface Ctx {
@@ -195,9 +200,12 @@ export function drawB1(c: Ctx, kpis: Kpi[]): PartResult {
 
 // ── B3 ──────────────────────────────────────────────────────────────────────
 
-/** 한 장 분량의 대책을 그린다. more > 0 이면 마지막에 「외 N건 — 다음 장에 이어집니다」 */
+/**
+ * 한 장 분량의 대책을 그린다. more > 0 이면 마지막에 「외 N건 — 다음 장에 이어집니다」.
+ * 칸 높이는 b3PageLayout 에서 — 글이 시안 줄 수를 넘으면 표 행·카드를 늘린다(그때 grown 에 대책 번호).
+ */
 export function drawB3Page(c: Ctx, box: HeadBox, items: ActionItem[], opt: { shrunk: boolean; more: number; accentFirst?: boolean }): PartResult {
-  const r: PartResult = { checks: [], shrunk: [] };
+  const r: PartResult = { checks: [], shrunk: [], grown: [] };
   const { d, s, pptx, slide, fontFace } = c;
   const slot = d.slots.B3;
   const C = (k: Parameters<typeof color>[1]) => color(d, k);
@@ -206,7 +214,14 @@ export function drawB3Page(c: Ctx, box: HeadBox, items: ActionItem[], opt: { shr
   const px = opt.shrunk ? slot.textPxShrunk : slot.textPx;
   const datePx = opt.shrunk ? Math.min(slot.datePx, slot.textPxShrunk) : slot.datePx;
   const top = box.top / s.k; // px
-  const check = (a: ActionItem, field: keyof ActionItem, wPx: number, pt: number, lines: number) => r.checks.push({ ref: a.id, field, text: a[field], wIn: s.x(wPx), pt, lines });
+  const L = b3PageLayout(d, s, items, { shrunk: opt.shrunk, more: opt.more });
+  if (top + L.total > box.bottom / s.k + 0.5) r.overPage = true;
+  items.forEach((a, i) => {
+    const f = Object.values(L.items[i].fields);
+    if (f.some((x) => x.need > x.lines)) r.grown!.push(a.id);
+    // 칸은 필요한 줄 수만큼 잡았다 — 넘침 점검은 그 줄 수로(한 장 높이를 넘는 것은 overPage 로 따로 알린다)
+    for (const x of f) r.checks.push({ ref: a.id, field: x.field, text: x.text, wIn: s.x(x.wPx), pt: s.pt(x.px), lines: Math.max(x.lines, x.need) });
+  });
 
   if (slot.part === 'hairline-table' || slot.part === 'report-grid') {
     const report = slot.part === 'report-grid';
@@ -249,12 +264,7 @@ export function drawB3Page(c: Ctx, box: HeadBox, items: ActionItem[], opt: { shr
     const headH = report ? 76 : 60;
     slide.addTable([headCells, ...body, ...more] as never, {
       objectName: report ? 'part:report-grid' : 'part:hairline-table',
-      x: s.x(slot.x), y: box.top, w: s.x(slot.w), colW, rowH: [s.y(headH), ...body.map(() => s.y(itemH)), ...more.map(() => s.y(Math.min(itemH, 88)))], fontFace, valign: 'middle',
-    });
-    items.forEach((a) => {
-      check(a, 'risk', slot.cols[0] - 2 * (padX / s.pt(1)) - (report ? 0 : 30), s.pt(px), 2);
-      check(a, 'measure', slot.measureW, s.pt(px), slot.measureMaxLines);
-      check(a, 'owner', slot.cols[2] - 2 * (padX / s.pt(1)), s.pt(px), 1);
+      x: s.x(slot.x), y: box.top, w: s.x(slot.w), colW, rowH: [s.y(headH), ...L.items.map((it) => s.y(it.h)), ...more.map(() => s.y(L.moreH))], fontFace, valign: 'middle',
     });
   } else if (slot.part === 'row-cards') {
     // 범례 칩(이 장의 유일한 노랑 면) → 행 카드: 위험 → 대책 → 누가·언제
@@ -263,102 +273,99 @@ export function drawB3Page(c: Ctx, box: HeadBox, items: ActionItem[], opt: { shr
     slide.addText(legend, { x: s.x(slot.x + 24), y: s.y(top), w: s.x(472), h: s.y(58), fontFace, fontSize: s.pt(32), bold: true, color: C('onAccent'), valign: 'middle', margin: 0 });
     const gap = slot.gap ?? 24;
     const [cs, cr, ca, cm, , co] = slot.cols;
-    const cards = [...items.map((a) => ({ a })), ...(opt.more ? [{ a: null as ActionItem | null }] : [])];
-    cards.forEach(({ a }, i) => {
-      const y = top + 76 + i * (itemH + gap);
+    const cards = [...items.map((a, i) => ({ a, g: L.items[i] })), ...(opt.more ? [{ a: null as ActionItem | null, g: null }] : [])];
+    let y = top + 76;
+    cards.forEach(({ a, g }) => {
       const x = slot.x;
-      slide.addShape(pptx.ShapeType.rect, { objectName: 'part:row-cards', x: s.x(x), y: s.y(y), w: s.x(slot.w), h: s.y(itemH), fill: { color: C('bg') }, line: { color: C('ink'), width: s.pt(d.tokens.lines.rule) } });
-      if (!a) {
-        slide.addText(moreText(opt.more), { x: s.x(x + 40), y: s.y(y), w: s.x(slot.w - 80), h: s.y(itemH), fontFace, fontSize: s.pt(px), bold: true, color: C('ink'), valign: 'middle', margin: 0 });
+      const h = g ? g.h : L.moreH;
+      const cy = y;
+      y += h + gap;
+      slide.addShape(pptx.ShapeType.rect, { objectName: 'part:row-cards', x: s.x(x), y: s.y(cy), w: s.x(slot.w), h: s.y(h), fill: { color: C('bg') }, line: { color: C('ink'), width: s.pt(d.tokens.lines.rule) } });
+      if (!a || !g) {
+        slide.addText(moreText(opt.more), { x: s.x(x + 40), y: s.y(cy), w: s.x(slot.w - 80), h: s.y(h), fontFace, fontSize: s.pt(px), bold: true, color: C('ink'), valign: 'middle', margin: 0 });
         return;
       }
       // 위험 줄무늬 — 무늬 채우기가 없어 검정·노랑 띠를 번갈아 쌓는다(의미 표시라 강조 셈에서 뺀다)
       const bands = 6;
       for (let b = 0; b < bands; b++) {
         const fill = b % 2 ? C('ink') : C('accent');
-        slide.addShape(pptx.ShapeType.rect, { objectName: b === 0 ? 'part:hazard-stripe' : undefined, x: s.x(x), y: s.y(y + (b * itemH) / bands), w: s.x(cs), h: s.y(itemH / bands), fill: { color: fill }, line: noLine(fill) });
+        slide.addShape(pptx.ShapeType.rect, { objectName: b === 0 ? 'part:hazard-stripe' : undefined, x: s.x(x), y: s.y(cy + (b * h) / bands), w: s.x(cs), h: s.y(h / bands), fill: { color: fill }, line: noLine(fill) });
       }
       const capY = opt.shrunk ? 10 : 18;
       const valY = opt.shrunk ? 40 : 54;
-      const cap = (text: string, cx: number, w: number) => slide.addText(text, { x: s.x(cx), y: s.y(y + capY), w: s.x(w), h: s.y(30), fontFace, fontSize: s.pt(28), color: C('ink2'), margin: 0 });
-      const val = (text: string, cx: number, w: number, size: number, bold = true) =>
-        slide.addText(text, { x: s.x(cx), y: s.y(y + valY), w: s.x(w), h: s.y(itemH - valY - 10), fontFace, fontSize: s.pt(size), bold, color: C('ink'), valign: 'top', margin: 0, lineSpacingMultiple: 1.05 });
+      const cap = (text: string, cx: number, w: number) => slide.addText(text, { x: s.x(cx), y: s.y(cy + capY), w: s.x(w), h: s.y(30), fontFace, fontSize: s.pt(28), color: C('ink2'), margin: 0 });
+      const val = (text: string, cx: number, w: number, vh: number) =>
+        slide.addText(text, { x: s.x(cx), y: s.y(cy + valY), w: s.x(w), h: s.y(vh), fontFace, fontSize: s.pt(px), bold: true, color: C('ink'), valign: 'top', margin: 0, lineSpacingMultiple: 1.05 });
       const xr = x + cs + 28;
       cap('위험', xr, cr - 56);
-      val(a.risk, xr, cr - 56, px);
-      check(a, 'risk', cr - 56, s.pt(px), 2);
+      val(a.risk, xr, cr - 56, g.riskH);
       const xa = x + cs + cr + ca + 28;
       cap('대책', xa, cm - 56);
-      val(a.measure, xa, cm - 56, px);
-      check(a, 'measure', cm - 56, s.pt(px), slot.measureMaxLines);
-      for (const ax of [x + cs + cr, x + cs + cr + ca + cm]) slide.addText('→', { x: s.x(ax), y: s.y(y), w: s.x(ca), h: s.y(itemH), fontFace, fontSize: s.pt(44), bold: true, color: C('ink'), align: 'center', valign: 'middle', margin: 0 });
+      val(a.measure, xa, cm - 56, g.measureH);
+      for (const ax of [x + cs + cr, x + cs + cr + ca + cm]) slide.addText('→', { x: s.x(ax), y: s.y(cy), w: s.x(ca), h: s.y(h), fontFace, fontSize: s.pt(44), bold: true, color: C('ink'), align: 'center', valign: 'middle', margin: 0 });
       const xo = x + slot.w - co + 28;
-      slide.addText(a.owner, { x: s.x(xo), y: s.y(y + capY), w: s.x(co - 56), h: s.y(40), fontFace, fontSize: s.pt(opt.shrunk ? 28 : 32), bold: true, color: C('ink'), margin: 0 });
-      check(a, 'owner', co - 56, s.pt(opt.shrunk ? 28 : 32), 1);
-      slide.addText(a.due, { x: s.x(xo), y: s.y(y + valY), w: s.x(slot.dateBoxW), h: s.y(datePx * 1.3), fontFace, fontSize: s.pt(datePx), bold: true, color: C('ink'), margin: 0 });
-      for (const lx of [x + cs + cr, x + slot.w - co]) slide.addShape(pptx.ShapeType.line, { x: s.x(lx), y: s.y(y), w: 0, h: s.y(itemH), line: { color: C('ink'), width: s.pt(d.tokens.lines.hair) } });
+      slide.addText(a.owner, { x: s.x(xo), y: s.y(cy + capY), w: s.x(co - 56), h: s.y(g.ownerH), fontFace, fontSize: s.pt(opt.shrunk ? 28 : 32), bold: true, color: C('ink'), margin: 0 });
+      slide.addText(a.due, { x: s.x(xo), y: s.y(cy + g.subY), w: s.x(slot.dateBoxW), h: s.y(datePx * 1.3), fontFace, fontSize: s.pt(datePx), bold: true, color: C('ink'), margin: 0 });
+      for (const lx of [x + cs + cr, x + slot.w - co]) slide.addShape(pptx.ShapeType.line, { x: s.x(lx), y: s.y(cy), w: 0, h: s.y(h), line: { color: C('ink'), width: s.pt(d.tokens.lines.hair) } });
     });
   } else if (slot.part === 'checklist-cards') {
     const gap = slot.gap ?? 24;
     const [cc, cm, co, cd] = slot.cols;
-    const cards = [...items.map((a) => ({ a })), ...(opt.more ? [{ a: null as ActionItem | null }] : [])];
-    cards.forEach(({ a }, i) => {
-      const y = top + i * (itemH + gap);
+    const cards = [...items.map((a, i) => ({ a, g: L.items[i] })), ...(opt.more ? [{ a: null as ActionItem | null, g: null }] : [])];
+    let y = top;
+    cards.forEach(({ a, g }) => {
       const x = slot.x;
-      slide.addShape(pptx.ShapeType.roundRect, { objectName: 'part:checklist-cards', x: s.x(x), y: s.y(y), w: s.x(slot.w), h: s.y(itemH), rectRadius: s.y(Math.min(d.tokens.radius.card, itemH / 2)), fill: { color: C('surface') }, line: noLine(C('surface')) });
-      if (!a) {
-        slide.addText(moreText(opt.more), { x: s.x(x + 40), y: s.y(y), w: s.x(slot.w - 80), h: s.y(itemH), fontFace, fontSize: s.pt(px), bold: true, color: C('ink2'), valign: 'middle', margin: 0 });
+      const h = g ? g.h : L.moreH;
+      const cy = y;
+      y += h + gap;
+      slide.addShape(pptx.ShapeType.roundRect, { objectName: 'part:checklist-cards', x: s.x(x), y: s.y(cy), w: s.x(slot.w), h: s.y(h), rectRadius: s.y(Math.min(d.tokens.radius.card, itemH / 2)), fill: { color: C('surface') }, line: noLine(C('surface')) });
+      if (!a || !g) {
+        slide.addText(moreText(opt.more), { x: s.x(x + 40), y: s.y(cy), w: s.x(slot.w - 80), h: s.y(h), fontFace, fontSize: s.pt(px), bold: true, color: C('ink2'), valign: 'middle', margin: 0 });
         return;
       }
-      slide.addShape(pptx.ShapeType.ellipse, { x: s.x(x + 40), y: s.y(y + (itemH - cc) / 2), w: s.x(cc), h: s.y(cc), fill: { color: C('bg') }, line: { color: C('line'), width: s.pt(3) } });
-      slide.addText('✓', { x: s.x(x + 40), y: s.y(y + (itemH - cc) / 2), w: s.x(cc), h: s.y(cc), fontFace, fontSize: s.pt(30), color: C('ink2'), align: 'center', valign: 'middle', margin: 0 });
+      slide.addShape(pptx.ShapeType.ellipse, { x: s.x(x + 40), y: s.y(cy + (h - cc) / 2), w: s.x(cc), h: s.y(cc), fill: { color: C('bg') }, line: { color: C('line'), width: s.pt(3) } });
+      slide.addText('✓', { x: s.x(x + 40), y: s.y(cy + (h - cc) / 2), w: s.x(cc), h: s.y(cc), fontFace, fontSize: s.pt(30), color: C('ink2'), align: 'center', valign: 'middle', margin: 0 });
       const tx = x + 40 + cc + 32;
-      slide.addShape(pptx.ShapeType.ellipse, { x: s.x(tx), y: s.y(y + 34), w: s.x(10), h: s.y(10), fill: { color: C('risk') }, line: noLine(C('risk')) });
-      slide.addText(a.risk, { x: s.x(tx + 20), y: s.y(y + 20), w: s.x(cm - 20), h: s.y(38), fontFace, fontSize: s.pt(26), color: C('ink2'), valign: 'middle', margin: 0 });
-      check(a, 'risk', cm - 20, s.pt(26), 1);
-      const my = opt.shrunk ? 54 : 60;
-      slide.addText(a.measure, { x: s.x(tx), y: s.y(y + my), w: s.x(cm), h: s.y(itemH - my - 8), fontFace, fontSize: s.pt(px), bold: true, color: C('ink'), valign: 'top', margin: 0 });
-      check(a, 'measure', cm, s.pt(px), slot.measureMaxLines);
-      const badge = (text: string, bx: number, w: number, bold: boolean) => {
-        slide.addShape(pptx.ShapeType.roundRect, { x: s.x(bx), y: s.y(y + (itemH - 72) / 2), w: s.x(w), h: s.y(72), rectRadius: s.y(20), fill: { color: C('bg') }, line: noLine(C('bg')) });
-        slide.addText(text, { x: s.x(bx + 20), y: s.y(y + (itemH - 72) / 2), w: s.x(w - 40), h: s.y(72), fontFace, fontSize: s.pt(26), bold, color: C('ink'), valign: 'middle', margin: 0 });
+      slide.addShape(pptx.ShapeType.ellipse, { x: s.x(tx), y: s.y(cy + 34), w: s.x(10), h: s.y(10), fill: { color: C('risk') }, line: noLine(C('risk')) });
+      slide.addText(a.risk, { x: s.x(tx + 20), y: s.y(cy + 20), w: s.x(cm - 20), h: s.y(g.riskH), fontFace, fontSize: s.pt(26), color: C('ink2'), valign: g.riskH > 38 ? 'top' : 'middle', margin: 0 });
+      slide.addText(a.measure, { x: s.x(tx), y: s.y(cy + g.subY), w: s.x(cm), h: s.y(g.measureH), fontFace, fontSize: s.pt(px), bold: true, color: C('ink'), valign: 'top', margin: 0 });
+      const badge = (text: string, bx: number, w: number, bh: number, bold: boolean) => {
+        slide.addShape(pptx.ShapeType.roundRect, { x: s.x(bx), y: s.y(cy + (h - bh) / 2), w: s.x(w), h: s.y(bh), rectRadius: s.y(20), fill: { color: C('bg') }, line: noLine(C('bg')) });
+        slide.addText(text, { x: s.x(bx + 20), y: s.y(cy + (h - bh) / 2), w: s.x(w - 40), h: s.y(bh), fontFace, fontSize: s.pt(26), bold, color: C('ink'), valign: 'middle', margin: 0 });
       };
       const xd = x + slot.w - 40 - cd;
       const xo = xd - 16 - co;
-      badge(`담당  ${a.owner}`, xo, co, false);
-      check({ ...a, owner: `담당  ${a.owner}` }, 'owner', co - 40, s.pt(26), 1);
-      badge(`기한  ${a.due}`, xd, cd, true);
+      badge(`담당  ${a.owner}`, xo, co, g.ownerH, false);
+      badge(`기한  ${a.due}`, xd, cd, 72, true);
     });
   } else {
-    // deadline-timeline — 기한 순 카드 + 가로 축 · 가장 먼저 오는 기한 하나만 청록
+    // deadline-timeline — 기한 순 카드 + 가로 축 · 가장 먼저 오는 기한 하나만 청록 · 카드는 이 장 카드 수로 본문 폭을 나눈다
     const gap = slot.gap ?? 48;
-    const k = opt.shrunk ? slot.shrunkMaxItems : slot.maxItems;
-    const cw = (slot.w - (k - 1) * gap) / k;
-    const axisY = top + itemH + 72;
+    const cw = L.cardW;
+    const cardH = L.items[0]?.h ?? itemH;
+    const axisY = top + cardH + 72;
     slide.addShape(pptx.ShapeType.line, { objectName: 'part:deadline-timeline', x: s.x(slot.x), y: s.y(axisY), w: s.x(slot.w), h: 0, line: { color: C('ink'), width: s.pt(2) } });
-    const cards = [...items.map((a) => ({ a })), ...(opt.more ? [{ a: null as ActionItem | null }] : [])];
-    cards.forEach(({ a }, i) => {
+    const cards = [...items.map((a, i) => ({ a, g: L.items[i] })), ...(opt.more ? [{ a: null as ActionItem | null, g: null }] : [])];
+    cards.forEach(({ a, g }, i) => {
       const x = slot.x + i * (cw + gap);
-      slide.addShape(pptx.ShapeType.roundRect, { x: s.x(x), y: s.y(top), w: s.x(cw), h: s.y(itemH), rectRadius: s.y(d.tokens.radius.card), fill: { color: C('surface') }, line: { color: C('line'), width: Math.max(0.5, s.pt(1)) } });
+      slide.addShape(pptx.ShapeType.roundRect, { x: s.x(x), y: s.y(top), w: s.x(cw), h: s.y(cardH), rectRadius: s.y(d.tokens.radius.card), fill: { color: C('surface') }, line: { color: C('line'), width: Math.max(0.5, s.pt(1)) } });
       const iw = cw - 72;
-      if (!a) {
-        slide.addText(moreText(opt.more), { x: s.x(x + 36), y: s.y(top), w: s.x(iw), h: s.y(itemH), fontFace, fontSize: s.pt(px), bold: true, color: C('ink2'), valign: 'middle', margin: 0 });
+      if (!a || !g) {
+        slide.addText(moreText(opt.more), { x: s.x(x + 36), y: s.y(top), w: s.x(iw), h: s.y(cardH), fontFace, fontSize: s.pt(px), bold: true, color: C('ink2'), valign: 'middle', margin: 0 });
         return;
       }
       const lab = (text: string, y: number) => slide.addText(text, { x: s.x(x + 36), y: s.y(y), w: s.x(iw), h: s.y(30), fontFace, fontSize: s.pt(22), bold: true, color: C('ink2'), margin: 0 });
       lab('위험', top + 28);
-      slide.addText(a.risk, { x: s.x(x + 36), y: s.y(top + 58), w: s.x(iw), h: s.y(px * 2.7), fontFace, fontSize: s.pt(px), color: C('ink'), valign: 'top', margin: 0 });
-      check(a, 'risk', iw, s.pt(px), 2);
-      const my = top + 58 + px * 2.7 + 14;
+      slide.addText(a.risk, { x: s.x(x + 36), y: s.y(top + 58), w: s.x(iw), h: s.y(g.riskH), fontFace, fontSize: s.pt(px), color: C('ink'), valign: 'top', margin: 0 });
+      const my = top + 58 + g.riskH + 14;
       slide.addShape(pptx.ShapeType.line, { x: s.x(x + 36), y: s.y(my), w: s.x(iw), h: 0, line: { color: C('line'), width: Math.max(0.5, s.pt(1)) } });
       lab('대책', my + 14);
-      slide.addText(a.measure, { x: s.x(x + 36), y: s.y(my + 44), w: s.x(iw), h: s.y(px * 4), fontFace, fontSize: s.pt(px), bold: true, color: C('ink'), valign: 'top', margin: 0 });
-      check(a, 'measure', iw, s.pt(px), slot.measureMaxLines);
-      lab('담당', top + itemH - 92);
-      slide.addText(a.owner, { x: s.x(x + 36), y: s.y(top + itemH - 62), w: s.x(iw), h: s.y(40), fontFace, fontSize: s.pt(px), color: C('ink'), margin: 0 });
-      check(a, 'owner', iw, s.pt(px), 1);
+      slide.addText(a.measure, { x: s.x(x + 36), y: s.y(my + 44), w: s.x(iw), h: s.y(g.measureH), fontFace, fontSize: s.pt(px), bold: true, color: C('ink'), valign: 'top', margin: 0 });
+      const oy = top + cardH - 22 - g.ownerH;
+      lab('담당', oy - 30);
+      slide.addText(a.owner, { x: s.x(x + 36), y: s.y(oy), w: s.x(iw), h: s.y(g.ownerH), fontFace, fontSize: s.pt(px), color: C('ink'), margin: 0 });
       const cx = x + cw / 2;
-      slide.addShape(pptx.ShapeType.line, { x: s.x(cx), y: s.y(top + itemH), w: 0, h: s.y(72), line: { color: C('ink2'), width: Math.max(0.5, s.pt(1)) } });
+      slide.addShape(pptx.ShapeType.line, { x: s.x(cx), y: s.y(top + cardH), w: 0, h: s.y(72), line: { color: C('ink2'), width: Math.max(0.5, s.pt(1)) } });
       const first = !!opt.accentFirst && i === 0;
       slide.addShape(pptx.ShapeType.ellipse, { x: s.x(cx - 19), y: s.y(axisY - 19), w: s.x(38), h: s.y(38), fill: { color: first ? C('accent') : C('bg') }, line: { color: first ? C('accent') : C('ink'), width: s.pt(3) } });
       slide.addText(a.due, { x: s.x(x), y: s.y(axisY + 30), w: s.x(cw), h: s.y(44), fontFace, fontSize: s.pt(datePx), bold: true, color: first ? C('accentText') : C('ink'), align: 'center', margin: 0 });
