@@ -256,7 +256,7 @@ export interface MeetingPptxData {
 /** 회의 스냅숏 → 위험성평가 회의 덱(pre = 회의 전 검토안, final = 회의 후 확정본). 결과 파일은 files[0] */
 export function makeMeetingPptx(snapshot: MeetingSnapshot, opts: MeetingPptxOptions): Promise<Result<MeetingPptxData>> {
   return run('pptx.meeting', opts, null, async () => {
-    const r = await engineMeeting(snapshot, { kind: opts.kind, fontFace: opts.fontFace, layout: opts.layout });
+    const r = await engineMeeting(snapshot, { kind: opts.kind, fontFace: opts.fontFace, layout: opts.layout, design: opts.design });
     if (!r.ok || !r.bytes) return failure('pptx.meeting', 'INVALID_ARGS', (r.errors ?? ['덱을 만들지 못했습니다.']).join(' / '), { errors: r.errors ?? [] }, notices(r.warnings));
     const data: MeetingPptxData = { slides: r.slides, overflowEstimates: r.overflowEstimates };
     if (r.changes) data.changes = r.changes;
@@ -277,7 +277,7 @@ export interface TbmPptxData {
 /** TBM 스냅숏 → 작업별 TBM 카드 덱(전파 덱). 결과 파일은 files[0] */
 export function makeTbmPptx(snapshot: TbmSnapshot, opts: TbmPptxOptions): Promise<Result<TbmPptxData>> {
   return run('pptx.tbm', opts, null, async () => {
-    const r = await engineTbm(snapshot, { maxHazards: opts.maxHazards, signatureRows: opts.signatureRows, fontFace: opts.fontFace, layout: opts.layout });
+    const r = await engineTbm(snapshot, { maxHazards: opts.maxHazards, signatureRows: opts.signatureRows, fontFace: opts.fontFace, layout: opts.layout, design: opts.design });
     if (!r.ok || !r.bytes) return failure('pptx.tbm', 'INVALID_ARGS', (r.errors ?? ['덱을 만들지 못했습니다.']).join(' / '), { errors: r.errors ?? [] }, notices(r.warnings));
     const data: TbmPptxData = { slides: r.slides, picks: r.picks, overflowEstimates: r.overflowEstimates };
     return { ok: true, data, files: [file(opts.outName ?? 'tbm.pptx', PPTX_MIME, r.bytes)], warnings: notices(r.warnings), meta: meta('pptx.tbm') };
@@ -317,7 +317,7 @@ export interface EducationPptxData {
 /** 위험성평가 결과 → 안전보건교육 교안(규칙 별표 5 제1호 가목·다목). 결과 파일은 files[0] */
 export function makeEducationPptx(snapshot: EducationSnapshot, opts: EducationPptxOptions): Promise<Result<EducationPptxData>> {
   return run('pptx.education', opts, null, async () => {
-    const r = await engineEducation(snapshot, { topN: opts.topN, signatureRows: opts.signatureRows, fontFace: opts.fontFace, layout: opts.layout });
+    const r = await engineEducation(snapshot, { topN: opts.topN, signatureRows: opts.signatureRows, fontFace: opts.fontFace, layout: opts.layout, design: opts.design });
     if (!r.ok || !r.bytes) return failure('pptx.education', 'INVALID_ARGS', (r.errors ?? ['덱을 만들지 못했습니다.']).join(' / '), { errors: r.errors ?? [] }, notices(r.warnings));
     const data: EducationPptxData = { slides: r.slides, summary: r.summary, shown: r.shown, omitted: r.omitted, overflowEstimates: r.overflowEstimates };
     return { ok: true, data, files: [file(opts.outName ?? 'education.pptx', PPTX_MIME, r.bytes)], warnings: notices(r.warnings), meta: meta('pptx.education') };

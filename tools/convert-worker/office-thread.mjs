@@ -18,15 +18,15 @@ async function run() {
     case 'xlsx.make':
       return office.makeXlsxFromSpec(args.spec, ctx);
     case 'pptx.meeting':
-      return office.makeMeetingPptx(args.snapshot, { ...ctx, kind: args.kind, fontFace: args.fontFace, layout: args.layout });
+      return office.makeMeetingPptx(args.snapshot, { ...ctx, kind: args.kind, fontFace: args.fontFace, layout: args.layout, design: args.design });
     case 'pptx.extract':
       return office.extractPptx(input, ctx);
     case 'pptx.education':
-      return office.makeEducationPptx(args.snapshot, { ...ctx, topN: args.topN, signatureRows: args.signatureRows, fontFace: args.fontFace, layout: args.layout });
+      return office.makeEducationPptx(args.snapshot, { ...ctx, topN: args.topN, signatureRows: args.signatureRows, fontFace: args.fontFace, layout: args.layout, design: args.design });
     case 'pptx.broadcast':
       return office.makeBroadcastPptx(args.snapshot, { ...ctx, signatureRows: args.signatureRows, fontFace: args.fontFace, layout: args.layout, design: args.design });
     case 'pptx.tbm':
-      return office.makeTbmPptx(args.snapshot, { ...ctx, maxHazards: args.maxHazards, signatureRows: args.signatureRows, fontFace: args.fontFace, layout: args.layout });
+      return office.makeTbmPptx(args.snapshot, { ...ctx, maxHazards: args.maxHazards, signatureRows: args.signatureRows, fontFace: args.fontFace, layout: args.layout, design: args.design });
     default:
       return { ok: false, code: 'BAD_REQUEST', message: `unknown op ${op}`, warnings: [] };
   }

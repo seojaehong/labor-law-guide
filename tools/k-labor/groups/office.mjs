@@ -98,10 +98,16 @@ const snapshotSchema = z
   })
   .passthrough()
   .describe('회의 스냅숏(사업장·회차·기준일·상태·척도·전회 항목·위험요인·사진·의견·결정 질문·근거 anchor 등)');
+/** 디자인 프리셋(전파·회의·TBM·교안 덱 공용) */
+const designOpt = z
+  .enum([...DESIGN_IDS])
+  .optional()
+  .describe('디자인 프리셋 — quiet(고요)·field(현장 게시판)·app(앱 카드)·report(공문 보고서형)·story(전후 흐름). 전 장의 제목 영역·색·부품 배치가 바뀌고 판형 기본이 16:9 가 된다. 미지정이면 기본 먹색 A4');
 const meetingOpts = {
   kind: z.enum(['pre', 'final']).optional().describe("pre = 회의 전 검토안(P1~P10), final = 회의 후 확정본(F1~F8). 비우면 snapshot.kind, 없으면 pre"),
   fontFace: z.string().max(60).optional().describe('글꼴(기본 맑은 고딕)'),
-  layout: z.enum(['A4', '16:9']).optional().describe('판형(기본 A4 가로)'),
+  layout: z.enum(['A4', '16:9']).optional().describe('판형(기본 A4 가로, design 을 고르면 기본 16:9)'),
+  design: designOpt,
 };
 /** 로컬(stdio) 판 한도 — 라이브러리 기본값 */
 const LOCAL = { limits: DEFAULT_LIMITS };
@@ -114,9 +120,9 @@ export function toTool(r) {
 }
 
 /** 덱 만들기(라이브러리). 빈 배열 채우기는 엔진이 한다 */
-const runMeeting = (snapshot, a, ctx) => makeMeetingPptx(snapshot, { ...ctx, kind: a.kind, fontFace: a.fontFace, layout: a.layout });
+const runMeeting = (snapshot, a, ctx) => makeMeetingPptx(snapshot, { ...ctx, kind: a.kind, fontFace: a.fontFace, layout: a.layout, design: a.design });
 const MEETING_DESC =
-  '회의 스냅숏(JSON)으로 위험성평가 회의 덱(pptx, 기본 A4 가로)을 만든다. kind pre = 회의 전 검토안(표지·개요·한눈 요약·전회 이행 현황·조치 전후·신규 후보·근로자 의견·회차 대비 변화·결정 필요 사항·근거), ' +
+  '회의 스냅숏(JSON)으로 위험성평가 회의 덱(pptx, 기본 A4 가로 — design 프리셋을 주고 layout 을 안 주면 16:9)을 만든다. kind pre = 회의 전 검토안(표지·개요·한눈 요약·전회 이행 현황·조치 전후·신규 후보·근로자 의견·회차 대비 변화·결정 필요 사항·근거), ' +
   'final = 회의 후 확정본(표지·참석·확정 결정·조치 계획·보류·우수 사례·다음 회차 이월·근거). 장마다 상태 배지(초안/확정 vN)와 notes 의 근거 anchor 목록을 넣는다. ' +
   '결과에 장 목록(slides)·글자 수로 추정한 넘침 후보(overflowEstimates)·확정본 이월 목록(carryOver, 다음 회차 prior 로 그대로 쓰는 모양)을 돌려준다. 넘침 정밀 확인은 PowerPoint 에서 한다.';
 
@@ -137,11 +143,12 @@ const tbmOpts = {
   maxHazards: z.number().int().min(1).max(3).optional().describe('장당 위험 개수(1~3, 기본 3)'),
   signatureRows: z.number().int().min(1).max(20).optional().describe('서명란 행 수(1~20, 기본 8)'),
   fontFace: z.string().max(60).optional().describe('글꼴'),
-  layout: z.enum(['A4', '16:9']).optional().describe('판형(기본 A4 가로)'),
+  layout: z.enum(['A4', '16:9']).optional().describe('판형(기본 A4 가로, design 을 고르면 기본 16:9)'),
+  design: designOpt,
 };
-const runTbm = (snapshot, a, ctx) => makeTbmPptx(snapshot, { ...ctx, maxHazards: a.maxHazards, signatureRows: a.signatureRows, fontFace: a.fontFace, layout: a.layout });
+const runTbm = (snapshot, a, ctx) => makeTbmPptx(snapshot, { ...ctx, maxHazards: a.maxHazards, signatureRows: a.signatureRows, fontFace: a.fontFace, layout: a.layout, design: a.design });
 const TBM_DESC =
-  'TBM 스냅숏(JSON)으로 작업 전 안전점검(TBM) 카드 덱(pptx, 기본 A4 가로)을 만든다. 작업마다 한 장 — 오늘 조심할 위험 3개 이내(허용 불가 → 조건부 → 신규·변경 → 중대재해 우려 순)·대책·확인 질문·빈 서명란. ' +
+  'TBM 스냅숏(JSON)으로 작업 전 안전점검(TBM) 카드 덱(pptx, 기본 A4 가로 — design 프리셋을 주고 layout 을 안 주면 16:9)을 만든다. 작업마다 한 장 — 오늘 조심할 위험 3개 이내(허용 불가 → 조건부 → 신규·변경 → 중대재해 우려 순)·대책·확인 질문·빈 서명란. ' +
   '문장은 입력 원문 그대로 싣고, 확인 질문이 없으면 빈 줄로 둔다. 결과에 장 목록(slides)·작업별로 실은 것과 뺀 것(picks)·글자 수로 추정한 넘침 후보(overflowEstimates)를 돌려준다.';
 
 const broadcastOpts = {
@@ -177,11 +184,12 @@ const educationOpts = {
   topN: z.number().int().min(1).max(12).optional().describe('주요 위험 장에 싣는 개수(1~12, 기본 6)'),
   signatureRows: z.number().int().min(1).max(30).optional().describe('교육 확인 서명부 행 수(1~30, 기본 16)'),
   fontFace: z.string().max(60).optional().describe('글꼴'),
-  layout: z.enum(['A4', '16:9']).optional().describe('판형(기본 A4 가로)'),
+  layout: z.enum(['A4', '16:9']).optional().describe('판형(기본 A4 가로, design 을 고르면 기본 16:9)'),
+  design: designOpt,
 };
-const runEducation = (snapshot, a, ctx) => makeEducationPptx(snapshot, { ...ctx, topN: a.topN, signatureRows: a.signatureRows, fontFace: a.fontFace, layout: a.layout });
+const runEducation = (snapshot, a, ctx) => makeEducationPptx(snapshot, { ...ctx, topN: a.topN, signatureRows: a.signatureRows, fontFace: a.fontFace, layout: a.layout, design: a.design });
 const EDUCATION_DESC =
-  '위험성평가 결과(위험요인 목록)로 근로자 안전보건교육 교안(pptx, 기본 A4 가로)을 만든다 — 산업안전보건법 시행규칙 별표 5 제1호 가목(정기교육)·다목(채용 시·작업내용 변경 시 교육)의 「위험성 평가에 관한 사항」. ' +
+  '위험성평가 결과(위험요인 목록)로 근로자 안전보건교육 교안(pptx, 기본 A4 가로 — design 프리셋을 주고 layout 을 안 주면 16:9)을 만든다 — 산업안전보건법 시행규칙 별표 5 제1호 가목(정기교육)·다목(채용 시·작업내용 변경 시 교육)의 「위험성 평가에 관한 사항」. ' +
   '표지(교육 종류·근거) · 결과 요약(허용 여부별 개수·재해 유형 상위) · 꼭 알아야 할 위험과 대책(TBM 과 같은 순서로 topN) · 사고 사례(입력한 것만, 출처 표시) · 확인 문제(답은 노트에만, 없으면 빈 줄) · 빈 교육 확인 서명부. ' +
   '문장은 입력 원문 그대로 싣는다. 결과에 장 목록(slides)·요약(summary)·실은 것과 뺀 것(shown·omitted)·넘침 후보(overflowEstimates)를 돌려준다.';
 

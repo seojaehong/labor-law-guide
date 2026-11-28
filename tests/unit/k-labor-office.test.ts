@@ -332,6 +332,33 @@ describe('office 묶음 — 회의 PPTX', () => {
     expect(await zip.file('ppt/slides/slide1.xml')!.async('string')).toContain('name="part:summary-table"');
   });
 
+  it('원격 회의·TBM·교안 bytes 도구 — design 을 넘기면 프리셋 머리(field 왼쪽 띠)·16:9, 없는 이름은 입력 오류', async () => {
+    const TBM = { site: '합성', workDate: '2026-12-02', basisDate: '2026-12-01', tasks: [{ id: 'T-1', process: '합성 작업', hazards: [{ id: 'H-1', situation: '합성 위험', measures: ['대책'] }] }] };
+    const ED = { site: '합성', basisDate: '2026-11-20', educationDate: '2026-12-01', course: 'regular', hazards: [{ id: 'H-1', situation: '합성 위험', measures: ['합성 대책'] }] };
+    const FIN = { ...MEETING, kind: 'final', status: { label: '확정', version: 1 } };
+    for (const [tool, snapshot, extra] of [
+      ['make_meeting_pptx_bytes', MEETING, { kind: 'pre' }],
+      ['make_meeting_pptx_bytes', FIN, { kind: 'final' }],
+      ['make_tbm_pptx_bytes', TBM, {}],
+      ['make_education_pptx_bytes', ED, {}],
+    ] as const) {
+      const r = await call(tool, { snapshot, ...extra, design: 'field' });
+      expect(r.ok, `${tool} ${JSON.stringify(r).slice(0, 300)}`).toBe(true);
+      const zip = await JSZip.loadAsync(Buffer.from(r.base64, 'base64'));
+      expect(await zip.file('ppt/presentation.xml')!.async('string'), tool).toMatch(/<p:sldSz cx="12192000" cy="6858000"/);
+      expect(await zip.file('ppt/slides/slide1.xml')!.async('string'), tool).toContain('name="head:left-band"');
+      const bad = await call(tool, { snapshot, ...extra, design: 'neon' });
+      expect(bad.ok, tool).toBe(false);
+    }
+  });
+
+  it('회의·TBM·교안 도구 설명도 design 을 주면 16:9 임을 말한다', () => {
+    for (const n of ['make_meeting_pptx', 'make_meeting_pptx_bytes', 'make_tbm_pptx', 'make_tbm_pptx_bytes', 'make_education_pptx', 'make_education_pptx_bytes']) {
+      const d = (cfgs.get(n) as { description: string }).description;
+      expect(d, n).toMatch(/design[^.]*16:9/);
+    }
+  });
+
   it('전파본 도구 설명은 design 을 주면 16:9 임을 말한다(「기본 A4 가로」만 말하지 않음)', () => {
     for (const n of ['make_broadcast_pptx', 'make_broadcast_pptx_bytes']) {
       const d = (cfgs.get(n) as { description: string }).description;
