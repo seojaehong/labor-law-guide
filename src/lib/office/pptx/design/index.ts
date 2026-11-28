@@ -8,7 +8,8 @@ import FIELD from './presets/field.json';
 import APP from './presets/app.json';
 import REPORT from './presets/report.json';
 import STORY from './presets/story.json';
-import { capacityOf, textUnits, type MeetingSnapshot } from '../meeting';
+import { capacityOf, textUnits } from '../text-units';
+import type { MeetingSnapshot } from '../meeting';
 import { b3LongFields } from './b3-geometry';
 
 export const DESIGN_IDS = Object.freeze(['quiet', 'field', 'app', 'report', 'story'] as const);

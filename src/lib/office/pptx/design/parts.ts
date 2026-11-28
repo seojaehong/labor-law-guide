@@ -7,7 +7,7 @@ import type { DeckPptx, DeckSlide } from './slide-types';
 import { HERO_BOX, shrinkToFit, type DeckDesign, type DesignScale } from './index';
 import { color, type HeadBox } from './head';
 import { b3PageLayout, STORY_GAP, wrapLines } from './b3-geometry';
-import { capacityOf } from '../meeting';
+import { capacityOf } from '../text-units';
 
 type Slide = DeckSlide;
 
@@ -60,7 +60,22 @@ function noLine(c: string) {
 
 // ── B1 ──────────────────────────────────────────────────────────────────────
 
-export function drawB1(c: Ctx, kpis: Kpi[]): PartResult {
+export interface B1Options {
+  /** 요약 아래 한 줄 안내. 기본 = 전파 덱 안내 */
+  note?: string;
+  /** 강조 면(타일·요약표 막대)을 줄 요약 key. 기본 actions */
+  accentKey?: string;
+  /** story 전후 블록에서 점선 위·보조색으로 둘 key. 기본 deferred */
+  mutedKey?: string;
+  /** story 전후 블록 이름. 기본 「바뀐 것」→「정한 것」 */
+  flowLabels?: [string, string];
+}
+
+export function drawB1(c: Ctx, kpis: Kpi[], o: B1Options = {}): PartResult {
+  const NOTE = o.note ?? NOTE_B1;
+  const accentKey = o.accentKey ?? 'actions';
+  const mutedKey = o.mutedKey ?? 'deferred';
+  const [flowA, flowB] = o.flowLabels ?? ['바뀐 것', '정한 것'];
   const r: PartResult = { checks: [], shrunk: [] };
   const { d, s } = c;
   const slot = d.slots.B1;
@@ -73,8 +88,11 @@ export function drawB1(c: Ctx, kpis: Kpi[]): PartResult {
     return f.pt;
   };
   const { pptx, slide, fontFace } = c;
-  const note = (y: number, h: number, px: number, col: string, bold = false) =>
-    slide.addText(NOTE_B1, { x: s.x(slot.x), y: s.y(y), w: s.x(slot.w), h: s.y(h), fontFace, fontSize: s.pt(px), color: col, bold, valign: 'middle', margin: 0 });
+  const note = (y: number, h: number, px: number, col: string, bold = false) => {
+    if (!NOTE) return;
+    r.checks.push({ ref: 'note', field: 'note', text: NOTE, wIn: s.x(slot.w), pt: s.pt(px), lines: Math.max(1, Math.floor(h / (px * 1.2))) });
+    slide.addText(NOTE, { x: s.x(slot.x), y: s.y(y), w: s.x(slot.w), h: s.y(h), fontFace, fontSize: s.pt(px), color: col, bold, valign: 'middle', margin: 0 });
+  };
 
   if (slot.part === 'kpi-hero-list') {
     const [hero, ...rest] = kpis;
@@ -99,7 +117,7 @@ export function drawB1(c: Ctx, kpis: Kpi[]): PartResult {
     kpis.forEach((k, i) => {
       const x = slot.x + (i % 2) * (tw + gap);
       const y = slot.y + Math.floor(i / 2) * (th + gap);
-      const fill = k.key === 'actions' ? C('accent') : C('bg'); // 강조 면은 한 장에 한 곳
+      const fill = k.key === accentKey ? C('accent') : C('bg'); // 강조 면은 한 장에 한 곳
       slide.addShape(pptx.ShapeType.rect, { objectName: 'part:tile-grid', x: s.x(x), y: s.y(y), w: s.x(tw), h: s.y(th), fill: { color: fill }, line: { color: C('ink'), width: s.pt(d.tokens.lines.heavy) } });
       slide.addText(k.label, { x: s.x(x + 40), y: s.y(y + 28), w: s.x(tw - 80), h: s.y(100), fontFace, fontSize: s.pt(t.label), bold: true, color: C('ink'), valign: 'top', margin: 0 });
       r.checks.push({ ref: k.key, field: 'label', text: k.label, wIn: s.x(tw - 80), pt: s.pt(t.label), lines: 2 });
@@ -140,7 +158,7 @@ export function drawB1(c: Ctx, kpis: Kpi[]): PartResult {
       ],
       ...kpis.map((k, i) => {
         const last = i === kpis.length - 1;
-        const key = k.key === 'actions';
+        const key = k.key === accentKey;
         const fill = key ? { fill: { color: C('surface') } } : {};
         return [
           { text: k.label, options: { fontSize: s.pt(t.label), color: C('ink'), bold: key, ...fill, border: [inner, inner, last ? outer : inner, outer], margin: [4, pad, 4, k.risk ? pad + s.pt(28) : pad] } },
@@ -152,10 +170,11 @@ export function drawB1(c: Ctx, kpis: Kpi[]): PartResult {
     kpis.forEach((k, i) => {
       const y = slot.y + 72 + i * 112;
       if (k.risk) slide.addShape(pptx.ShapeType.rect, { x: s.x(slot.x + 36), y: s.y(y + 49), w: s.x(14), h: s.y(14), fill: { color: C('risk') }, line: noLine(C('risk')) });
-      if (k.key === 'actions') slide.addShape(pptx.ShapeType.rect, { objectName: 'part:key-bar', x: s.x(slot.x + slot.w - numW), y: s.y(y), w: s.x(8), h: s.y(112), fill: { color: C('accent') }, line: noLine(C('accent')) });
+      if (k.key === accentKey) slide.addShape(pptx.ShapeType.rect, { objectName: 'part:key-bar', x: s.x(slot.x + slot.w - numW), y: s.y(y), w: s.x(8), h: s.y(112), fill: { color: C('accent') }, line: noLine(C('accent')) });
     });
-    slide.addShape(pptx.ShapeType.rect, { x: s.x(slot.x), y: s.y(slot.noteY), w: s.x(slot.w), h: s.y(100), fill: { color: C('bg') }, line: { color: C('accent'), width: Math.max(0.5, s.pt(1)) } });
-    slide.addText(NOTE_B1, { x: s.x(slot.x + 40), y: s.y(slot.noteY), w: s.x(slot.w - 80), h: s.y(100), fontFace, fontSize: s.pt(t.note), color: C('ink'), valign: 'middle', margin: 0 });
+    if (NOTE) slide.addShape(pptx.ShapeType.rect, { x: s.x(slot.x), y: s.y(slot.noteY), w: s.x(slot.w), h: s.y(100), fill: { color: C('bg') }, line: { color: C('accent'), width: Math.max(0.5, s.pt(1)) } });
+    if (NOTE) r.checks.push({ ref: 'note', field: 'note', text: NOTE, wIn: s.x(slot.w - 80), pt: s.pt(t.note), lines: 2 });
+    if (NOTE) slide.addText(NOTE, { x: s.x(slot.x + 40), y: s.y(slot.noteY), w: s.x(slot.w - 80), h: s.y(100), fontFace, fontSize: s.pt(t.note), color: C('ink'), valign: 'middle', margin: 0 });
   } else {
     // before-after — 왼쪽 「바뀐 것」 → 화살표 → 오른쪽 「정한 것」(마지막 「다음으로 미룬 것」은 점선 위·보조색)
     const [before, ...after] = kpis;
@@ -181,7 +200,7 @@ export function drawB1(c: Ctx, kpis: Kpi[]): PartResult {
       r.checks.push({ ref: k.key, field: 'label', text: k.label, wIn: s.x(lw), pt: s.pt(t.body), lines: 2 });
     };
     block(slot.x, by, bw, bh);
-    label('바뀐 것', slot.x + 40, by + 24, bw - 80);
+    label(flowA, slot.x + 40, by + 24, bw - 80);
     row(before, slot.x + 40, by + 60, bw - 80, false, 120, 32);
     const ax = slot.x + bw + 32;
     slide.addShape(pptx.ShapeType.line, { x: s.x(ax), y: s.y(slot.y + slot.h / 2), w: s.x(96), h: 0, line: { color: C('ink2'), width: Math.max(1, s.pt(3)), endArrowType: 'triangle' } });
@@ -191,10 +210,10 @@ export function drawB1(c: Ctx, kpis: Kpi[]): PartResult {
     const fy = slot.y + (slot.h - fh) / 2;
     block(fx, fy, fw, fh);
     slide.addShape(pptx.ShapeType.rect, { x: s.x(fx), y: s.y(fy + 12), w: s.x(8), h: s.y(fh - 24), fill: { color: C('accent') }, line: noLine(C('accent')) });
-    label('정한 것', fx + 48, fy + 24, fw - 96);
+    label(flowB, fx + 48, fy + 24, fw - 96);
     after.forEach((k, i) => {
       const y = fy + 60 + i * rowH;
-      const deferred = k.key === 'deferred';
+      const deferred = k.key === mutedKey;
       if (i > 0) slide.addShape(pptx.ShapeType.line, { x: s.x(fx + 48), y: s.y(y), w: s.x(fw - 96), h: 0, line: deferred ? { color: C('ink2'), width: Math.max(0.75, s.pt(1.5)), dashType: 'sysDash' } : { color: C('line'), width: Math.max(0.5, s.pt(1)) } });
       row(k, fx + 48, y, fw - 96, deferred);
     });

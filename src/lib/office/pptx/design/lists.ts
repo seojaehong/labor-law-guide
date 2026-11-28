@@ -9,7 +9,7 @@ import type { DeckPptx, DeckSlide } from './slide-types';
 import type { DeckDesign, DesignColorKey, DesignScale } from './index';
 import { color, type HeadBox } from './head';
 import { LINE_H, linesOf } from './b3-geometry';
-import { capacityOf, textUnits } from '../meeting';
+import { capacityOf, textUnits } from '../text-units';
 
 export type ListFamily = 'hairline' | 'grid' | 'rowcard' | 'chipcard' | 'storycard';
 
@@ -52,6 +52,12 @@ export interface ListSpec {
   cols: ListCol[];
   /** field 행 카드 왼쪽 위험 줄무늬(B2) */
   stripe?: boolean;
+  /** 본문 일부 폭에만 그릴 때 왼쪽 x·폭(px). 없으면 제목 영역 좌우 끝 그대로 */
+  area?: { x: number; w: number };
+  /** 칸이 많은 회의 표(전회 이행 11칸 등) — 표 글자 크기(tokens.type.table)·좁은 여백. 칸·순서는 그대로 */
+  dense?: boolean;
+  /** field 범례 칩 글. 없으면 칸 이름을 「 · 」로 잇는다. 본문 폭에 한 줄로 들지 않으면 범례를 그리지 않는다 */
+  legend?: string;
 }
 
 interface Ctx {
@@ -62,11 +68,42 @@ interface Ctx {
   fontFace: string;
 }
 
+const LEGEND_PX = 28;
+/** field 범례 글 — 본문 폭에 한 줄로 들 때만(아니면 빈 문자열 = 범례 없음) */
+function legendOf(spec: ListSpec, W: number): string {
+  const text = spec.legend ?? spec.cols.map((col) => col.caption).join(' · ');
+  return textUnits(text) * LEGEND_PX + 64 <= W ? text : '';
+}
+
 /** 부품별 치수(px) */
-function metrics(d: DeckDesign) {
+function metrics(d: DeckDesign, spec?: ListSpec) {
+  const base = metricsBase(d, spec?.area?.w ?? d.head.right - d.head.left);
+  if (base.fam === 'rowcard' && spec && !legendOf(spec, base.W)) base.legendH = 0;
+  if (!spec?.dense) return base;
+  // 칸이 많은 표 — 표 글자 크기·좁은 여백·작은 최소 행 높이(칸·순서는 그대로)
+  const px = d.tokens.type.table;
+  const capPx = Math.min(base.capPx, 22);
+  const isTable = base.fam === 'hairline' || base.fam === 'grid';
+  return {
+    ...base,
+    px,
+    capPx: isTable ? Math.min(base.capPx, 24) : capPx,
+    headH: isTable ? 52 : base.headH,
+    minRow: isTable ? 56 : 84,
+    padX: isTable ? 8 : 0,
+    padT: isTable ? 0 : 12,
+    padB: isTable ? 0 : 14,
+    padL: isTable ? 0 : Math.min(base.padL, 24),
+    padR: isTable ? 0 : Math.min(base.padR, 24),
+    colGap: isTable ? 0 : 16,
+    gap: isTable ? 0 : Math.min(base.gap, 14),
+    capGap: isTable ? 0 : 4,
+  };
+}
+
+function metricsBase(d: DeckDesign, W: number) {
   const fam = listFamily(d);
   const t = d.tokens.type;
-  const W = d.head.right - d.head.left;
   switch (fam) {
     case 'hairline':
       return { fam, W, px: t.body, capPx: t.meta, headH: 60, minRow: 96, padX: 12, padT: 0, padB: 0, padL: 0, padR: 0, colGap: 0, gap: 0, legendH: 0, capGap: 0 };
@@ -112,7 +149,7 @@ export interface ListLayout {
 
 /** 한 행만으로 본문 높이를 넘을 때 — 칸마다 본문 높이에 드는 줄 수로 잰 담을 수 있는 글자 수(넘침 후보 판정) */
 export function listCapacity(d: DeckDesign, s: DesignScale, spec: ListSpec, row: ListRow, roomPx: number): { key: string; text: string; capacity: number }[] {
-  const m = metrics(d);
+  const m = metrics(d, spec);
   const L = listLayout(d, s, spec, [row]);
   const isTable = m.fam === 'hairline' || m.fam === 'grid';
   const avail = roomPx - L.headH - (isTable ? 8 / (s.k * 72) : m.padT + m.capPx * LINE_H + m.capGap + m.padB);
@@ -122,7 +159,7 @@ export function listCapacity(d: DeckDesign, s: DesignScale, spec: ListSpec, row:
 
 /** 한 장 분량의 칸 폭·행 높이 */
 export function listLayout(d: DeckDesign, s: DesignScale, spec: ListSpec, rows: ListRow[]): ListLayout {
-  const m = metrics(d);
+  const m = metrics(d, spec);
   const sum = spec.cols.reduce((a, c) => a + c.ratio, 0);
   const lead = m.fam === 'rowcard' && spec.stripe ? STRIPE_W : 0;
   const inner = m.W - m.padL - m.padR - lead - (spec.cols.length - 1) * m.colGap;
@@ -174,9 +211,9 @@ const noLine = (c: string) => ({ color: c, width: 0 });
 export function drawList(c: Ctx, box: HeadBox, spec: ListSpec, rows: ListRow[]): ListLayout {
   const { d, s, pptx, slide, fontFace } = c;
   const C = (k: DesignColorKey) => color(d, k);
-  const m = metrics(d);
+  const m = metrics(d, spec);
   const L = listLayout(d, s, spec, rows);
-  const X = d.head.left;
+  const X = spec.area?.x ?? d.head.left;
   const top = box.top / s.k;
   const hairW = Math.max(0.5, s.pt(d.tokens.lines.hair));
 
@@ -228,12 +265,12 @@ export function drawList(c: Ctx, box: HeadBox, spec: ListSpec, rows: ListRow[]):
   }
 
   let y = top;
-  if (m.fam === 'rowcard') {
+  const legend = m.fam === 'rowcard' ? legendOf(spec, m.W) : '';
+  if (legend) {
     // 범례 칩 — 이 장의 유일한 노랑 면(위험 줄무늬 제외)
-    const legend = spec.cols.map((col) => col.caption).join(' · ');
     const lw = Math.min(m.W, legend.length * 30 + 64);
     slide.addShape(pptx.ShapeType.rect, { x: s.x(X), y: s.y(y), w: s.x(lw), h: s.y(58), fill: { color: C('accent') }, line: noLine(C('accent')) });
-    slide.addText(legend, { x: s.x(X + 24), y: s.y(y), w: s.x(lw - 48), h: s.y(58), fontFace, fontSize: s.pt(28), bold: true, color: C('onAccent'), valign: 'middle', margin: 0 });
+    slide.addText(legend, { x: s.x(X + 24), y: s.y(y), w: s.x(lw - 48), h: s.y(58), fontFace, fontSize: s.pt(LEGEND_PX), bold: true, color: C('onAccent'), valign: 'middle', margin: 0 });
     y += m.legendH;
   }
   rows.forEach((r, ri) => {
@@ -291,12 +328,12 @@ export function drawList(c: Ctx, box: HeadBox, spec: ListSpec, rows: ListRow[]):
 }
 
 /** 목록이 비었을 때 한 줄 안내 — 프리셋 면 문법으로 */
-export function drawListEmpty(c: Ctx, box: HeadBox, text: string): void {
+export function drawListEmpty(c: Ctx, box: HeadBox, text: string, area?: { x: number; w: number }): void {
   const { d, s, pptx, slide, fontFace } = c;
   const C = (k: DesignColorKey) => color(d, k);
   const fam = listFamily(d);
-  const X = d.head.left;
-  const W = d.head.right - d.head.left;
+  const X = area?.x ?? d.head.left;
+  const W = area?.w ?? d.head.right - d.head.left;
   const h = 120;
   const y = box.top / s.k;
   const shape = { objectName: `part:empty-${fam}`, x: s.x(X), y: s.y(y), w: s.x(W), h: s.y(h) };
@@ -317,17 +354,30 @@ export function drawListEmpty(c: Ctx, box: HeadBox, text: string): void {
  * hairline 가는선 · grid 남색 머리 띠+굵은 바깥선 · rowcard 굵은 검정 격자+노랑 머리 · chipcard 회색 머리·가는 가로선 · storycard 흰 칸·가는 격자.
  * 행이 많으면 글자를 줄여 본문 높이에 맞춘다(하한 8pt) — 줄였으면 그 크기(pt)를 돌려준다.
  */
-export function drawSign(c: Ctx, box: HeadBox, signatureRows: number): { pt: number; shrunk: boolean } {
+export interface SignOptions {
+  /** 본문 일부 폭(px). 없으면 제목 영역 좌우 끝 */
+  area?: { x: number; w: number };
+  /** 칸 이름(첫 칸은 번호). 기본 번호·소속·역할·날짜·서명 */
+  headers?: string[];
+  /** 칸 폭 비율. 기본 0.9·2.0·1.5·1.1 */
+  ratios?: number[];
+  /** 표 개수 — 2 면 둘로 나눠 나란히(기본), 1 이면 한 표 */
+  tables?: 1 | 2;
+}
+
+export function drawSign(c: Ctx, box: HeadBox, signatureRows: number, o: SignOptions = {}): { pt: number; shrunk: boolean } {
   const { d, s, slide, fontFace } = c;
   const C = (k: DesignColorKey) => color(d, k);
   const fam = listFamily(d);
-  const X = d.head.left;
-  const W = d.head.right - d.head.left;
+  const X = o.area?.x ?? d.head.left;
+  const W = o.area?.w ?? d.head.right - d.head.left;
   const gapX = 56;
-  const half = Math.ceil(signatureRows / 2);
-  const base = [0.9, 2.0, 1.5, 1.1]; // 번호 칸은 「번호」·두 자리 수가 한 줄에 들 만큼
+  const tables = o.tables ?? 2;
+  const half = Math.ceil(signatureRows / tables);
+  const headers = o.headers ?? ['번호', '소속·역할', '날짜', '서명'];
+  const base = o.ratios ?? [0.9, 2.0, 1.5, 1.1]; // 번호 칸은 「번호」·두 자리 수가 한 줄에 들 만큼
   const sum = base.reduce((a, b) => a + b, 0);
-  const tw = (W - gapX) / 2;
+  const tw = tables === 2 ? (W - gapX) / 2 : W;
   const colW = base.map((w) => s.x((w / sum) * tw));
   const room = box.bottom - box.top; // in
   const rowH = Math.min(s.y(96), room / (half + 1));
@@ -344,11 +394,11 @@ export function drawSign(c: Ctx, box: HeadBox, signatureRows: number): { pt: num
     chipcard: { headFill: 'surface', headColor: 'ink2', headBold: true, top: NONE, mid: NONE, inner: ln('line', 1), bottom: ln('line', 1), side: NONE, outer: NONE },
     storycard: { headFill: 'surface', headColor: 'ink2', headBold: true, top: ln('line', 1), mid: ln('ink', 2), inner: ln('line', 1), bottom: ln('line', 1), side: ln('line', 1), outer: ln('line', 1) },
   }[fam];
-  for (let part = 0; part < 2; part++) {
+  for (let part = 0; part < tables; part++) {
     const start = part * half;
     const n = Math.min(half, signatureRows - start);
     if (n <= 0) break;
-    const lastCol = 3;
+    const lastCol = headers.length - 1;
     const cellBorder = (ri: number, ci: number, rows: number) => [
       ri === 0 ? style.top : ri === 1 ? style.mid : style.inner,
       ci === lastCol ? style.outer : style.side,
@@ -356,12 +406,12 @@ export function drawSign(c: Ctx, box: HeadBox, signatureRows: number): { pt: num
       ci === 0 ? style.outer : style.side,
     ];
     const total = n + 1;
-    const head = ['번호', '소속·역할', '날짜', '서명'].map((t, ci) => ({
+    const head = headers.map((t, ci) => ({
       text: t,
       options: { bold: style.headBold, color: C(style.headColor as DesignColorKey), align: 'center', ...(style.headFill ? { fill: { color: C(style.headFill as DesignColorKey) } } : {}), border: cellBorder(0, ci, total), margin: [2, 5, 2, 5] },
     }));
     const body = Array.from({ length: n }, (_, i) =>
-      [String(start + i + 1), '', '', ''].map((t, ci) => ({
+      [String(start + i + 1), ...headers.slice(1).map(() => '')].map((t, ci) => ({
         text: t,
         options: { color: C('ink'), align: ci === 0 ? 'center' : 'left', ...(fam === 'storycard' ? { fill: { color: C('surface') } } : {}), border: cellBorder(i + 1, ci, total), margin: [2, 5, 2, 5] },
       })),

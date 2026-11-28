@@ -2,7 +2,7 @@
 // 글이 시안 줄 수를 넘으면 칸(표 행·카드)을 늘리고, 늘린 높이로 한 장에 몇 건 싣는지 정한다(말줄임 없음).
 // 줄 수 = capacityOf(한 줄 글자 수 추정, 보수적) · 줄 높이 = 1.2 × 글자 크기(× 줄간격). 261128 PowerPoint 실측(BoundHeight)과 맞춘 값.
 // 좌표는 1920×1080 시안 px. fs·네트워크 없음.
-import { capacityOf, textUnits } from '../meeting';
+import { capacityOf, textUnits } from '../text-units';
 import type { DeckDesign, DesignScale } from './index';
 
 export const LINE_H = 1.2;

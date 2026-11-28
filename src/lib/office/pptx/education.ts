@@ -6,6 +6,12 @@ import PptxGenJS from 'pptxgenjs';
 import { MEETING_THEME } from './meeting-theme';
 import { capacityOf, textUnits, type OverflowEstimate } from './meeting';
 import { pick, type TbmHazard } from './tbm';
+import { DESIGN_IDS, getDeckDesign, isDesignId, type DeckDesign, type DesignId } from './design/index';
+import { drawHead } from './design/head';
+import { drawB1, type Kpi } from './design/parts';
+import { koSlide } from './design/lang';
+import { drawSign, type ListRow, type ListSpec } from './design/lists';
+import { calloutHeight, checkCallout, drawCallout, listPages, pickLayout, recordChecks, roomPxOf, type Kit, type Page } from './design/deck';
 
 export const EDUCATION_TEMPLATE_VERSION = 'education-v0';
 
@@ -42,7 +48,10 @@ export interface EducationOptions {
   /** 교육 확인 서명부 행 수 1~30. 기본 16 */
   signatureRows?: number;
   fontFace?: string;
+  /** 판형. 기본 A4 가로 — 단 design 을 고르고 판형을 주지 않으면 16:9 */
   layout?: 'A4' | '16:9';
+  /** 디자인 프리셋. 미지정이면 지금 출력 그대로 */
+  design?: DesignId;
 }
 
 export interface EducationSlideInfo {
@@ -138,7 +147,9 @@ export function summarize(hazards: TbmHazard[]): EducationSummary {
 
 export async function makeEducationPptx(snapshot: EducationSnapshot, opts: EducationOptions = {}): Promise<EducationPptxResult> {
   const errors = validate(snapshot, opts);
+  if (opts.design !== undefined && !isDesignId(opts.design)) errors.push(`design 은 ${DESIGN_IDS.join('·')} 중 하나(받은 값 ${String(opts.design)})`);
   if (errors.length) return { ok: false, slides: [], shown: [], omitted: [], overflowEstimates: [], warnings: [], errors };
+  if (opts.design) return makeEducationDesign(snapshot, opts, getDeckDesign(opts.design));
 
   const s = snapshot;
   const topN = opts.topN ?? 6;
@@ -315,4 +326,164 @@ export async function makeEducationPptx(snapshot: EducationSnapshot, opts: Educa
     overflowEstimates: overflow,
     warnings,
   };
+}
+
+// ───── 프리셋 판(design) — 전 장 프리셋 부품 배치 · 글 언어 ko-KR · 장 순서·내용은 기본 출력과 같다 ─────
+// E1 안내 상자 · E2 요약 수 부품(drawB1) + 재해 유형 목록 · E3 목록 · E4 사례 상자 · E5 문제 목록(답은 노트) · E6 서명란.
+async function makeEducationDesign(s: EducationSnapshot, opts: EducationOptions, D: DeckDesign): Promise<EducationPptxResult> {
+  const topN = opts.topN ?? 6;
+  const signatureRows = opts.signatureRows ?? 16;
+  const fontFace = opts.fontFace ?? T.fonts.eastAsia;
+  const course = COURSE[s.course];
+  const warnings: string[] = [];
+  const overflow: OverflowEstimate[] = [];
+  const slides: EducationSlideInfo[] = [];
+  const pptx = new PptxGenJS();
+  const { S } = pickLayout(pptx, opts.layout, true);
+  const kit: Kit = { pptx, d: D, s: S, fontFace };
+  const X = D.head.left;
+  const BW = D.head.right - D.head.left;
+  const meta = `안전보건교육 · ${course.label} · 위험성평가  ·  ${s.educationDate}`;
+  const page = (code: string, title: string, lead?: string): Page => {
+    const slide = koSlide(pptx.addSlide());
+    const no = slides.length + 1;
+    slides.push({ no, code, title });
+    const box = drawHead(pptx, slide, D, S, {
+      no,
+      meta,
+      title,
+      lead,
+      fontFace,
+      grow: true,
+      footLeft: `${s.site}  ·  위험성평가 교육`,
+      footRight: `데이터 기준 ${s.basisDate}${s.cycle ? ` · ${s.cycle}` : ''} · ${EDUCATION_TEMPLATE_VERSION}   ${no}`,
+    });
+    return { slide, no, box };
+  };
+  const titled = (t: string, pi: number, n: number) => `${t}${n > 1 ? ` (${pi + 1}/${n})` : ''}`;
+  const summary = summarize(s.hazards);
+  const { shown, omitted } = pick(s.hazards, topN);
+  const ink2 = D.tokens.colors.ink2;
+
+  // E1 표지 — 교육 종류·근거
+  {
+    const p = page('E1', '우리 사업장 위험성평가 결과', `${s.site} · ${course.label} · ${s.educationDate}`);
+    const top = p.box.top / S.k;
+    const parts = [
+      { text: '이 교육은', tone: 'ink2' as const, breakLine: true },
+      { text: course.basis, bold: true, breakLine: true },
+      { text: '에 따라 우리 사업장 위험성평가 결과를 함께 확인하는 시간입니다.' },
+    ];
+    const h = drawCallout({ ...kit, slide: p.slide }, { x: X, y: top, w: BW }, parts);
+    const order = '순서: 결과 요약 → 주요 위험과 대책 → 사고 사례 → 확인 문제 → 교육 확인 서명';
+    const oh = calloutHeight(kit, BW + 80, [{ text: order }], D.tokens.type.note) - 52;
+    p.slide.addText(order, { x: S.x(X), y: S.y(top + h + 32), w: S.x(BW), h: S.y(oh), fontFace, fontSize: S.pt(D.tokens.type.note), color: ink2, valign: 'top', margin: 0 });
+  }
+
+  // E2 결과 요약 — 허용 여부별 개수(요약 수 부품) · 재해 유형 상위는 다음 장 목록
+  {
+    const p = page('E2', '평가 결과 한눈에', `평가한 위험요인 ${summary.total}건`);
+    const kpis: Kpi[] = [
+      { key: 'unacceptable', label: '허용 불가 — 바로 줄여야 할 위험', value: String(summary.unacceptable), risk: true },
+      { key: 'conditional', label: '조건부 — 대책을 지키면 작업 가능', value: String(summary.conditional), risk: false },
+      { key: 'acceptable', label: '허용 — 지금 대책 유지', value: String(summary.acceptable), risk: false },
+      ...(summary.unknown ? [{ key: 'unknown', label: '허용 여부 판정 전', value: String(summary.unknown), risk: false }] : []),
+    ];
+    const r = drawB1({ ...kit, slide: p.slide }, kpis, {
+      note: summary.byConsequence.length ? '많이 나온 재해 유형은 다음 장에서 이어 봅니다.' : '',
+      accentKey: 'unacceptable',
+      mutedKey: 'unknown',
+      flowLabels: ['바로 줄일 위험', '대책으로 관리하는 위험'],
+    });
+    if (r.shrunk.length) warnings.push(`E2(${D.id}): 한 번 축소 — ${r.shrunk.join(', ')}`);
+    recordChecks(p.no, 'E2', D.id, r.checks, overflow, warnings);
+  }
+  const top5 = summary.byConsequence.slice(0, 5);
+  if (top5.length)
+    listPages({
+      kit,
+      code: 'E2',
+      cap: 5,
+      emptyText: '',
+      overflow,
+      warnings,
+      roomPx: roomPxOf(D, S, false),
+      spec: { code: 'E2', cols: [{ key: 'consequence', caption: '많이 나온 재해 유형', ratio: 4 }, { key: 'count', caption: '위험요인 수', ratio: 1 }] },
+      rows: top5.map(([k, v]) => ({ id: k, cells: [{ text: k, bold: true }, { text: `${v}건` }] })),
+      newPage: (pi, n) => page('E2', titled('많이 나온 재해 유형', pi, n)),
+    });
+
+  // E3 주요 위험과 대책 — TBM 과 같은 고르는 순서
+  {
+    const lead = omitted.length ? `위험이 큰 순서로 ${shown.length}건 — 나머지 ${omitted.length}건은 위험성평가표에서 확인` : undefined;
+    const tone = (a?: string): 'negative' | 'caution' | 'positive' | 'ink2' => (a === 'unacceptable' ? 'negative' : a === 'conditional' ? 'caution' : a === 'acceptable' ? 'positive' : 'ink2');
+    const spec: ListSpec = {
+      code: 'E3',
+      cols: [
+        { key: 'acceptability', caption: '허용 여부', ratio: 1.1, status: true },
+        { key: 'situation', caption: '위험', ratio: 3.6, dot: true },
+        { key: 'consequence', caption: '재해 유형', ratio: 1.2 },
+        { key: 'measures', caption: '대책', ratio: 3.6 },
+      ],
+    };
+    const rows: ListRow[] = shown.map((h) => ({
+      id: h.id,
+      cells: [
+        { text: h.acceptability ? ACC_LABEL[h.acceptability] : '-', bold: true, color: tone(h.acceptability) },
+        { text: h.situation, bold: true },
+        { text: h.consequence || '-' },
+        { text: h.measures.length ? h.measures.join(' / ') : '-' },
+      ],
+    }));
+    listPages({ kit, code: 'E3', spec, rows, cap: 12, emptyText: '', overflow, warnings, roomPx: roomPxOf(D, S, !!lead), newPage: (pi, n) => page('E3', titled('꼭 알아야 할 위험과 대책', pi, n), lead) });
+  }
+
+  // E4 사고 사례 — 입력이 준 것만, 출처 표시
+  const cases = s.cases ?? [];
+  if (!cases.length) warnings.push('사례가 없어 E4 를 뺐다(사례는 지어 쓰지 않음 — 재해 사례집 등 출처가 있는 것을 넣는다)');
+  cases.slice(0, 2).forEach((c, i, all) => {
+    const p = page('E4', `이런 사고가 있었습니다${all.length > 1 ? ` (${i + 1}/${all.length})` : ''}`, c.accidentType ? `재해 유형: ${c.accidentType}` : undefined);
+    const top = p.box.top / S.k;
+    const h = drawCallout({ ...kit, slide: p.slide }, { x: X, y: top, w: BW }, [{ text: c.title, bold: true, breakLine: true }, { text: c.text }]);
+    const src = `출처: ${c.source?.trim() || '미기재'}`;
+    const sh = D.tokens.type.note * 1.2 + 4;
+    p.slide.addText(src, { x: S.x(X), y: S.y(top + h + 20), w: S.x(BW), h: S.y(sh), fontFace, fontSize: S.pt(D.tokens.type.note), color: ink2, valign: 'top', margin: 0 });
+    checkCallout(kit, p.no, 'E4', c.id, 'text', c.text, BW, h + 20 + sh, (p.box.bottom - p.box.top) / S.k, overflow, warnings);
+  });
+  if (cases.length > 2) warnings.push(`사례 ${cases.length}건 중 2건만 실었다`);
+
+  // E5 확인 문제 — 입력 원문, 없으면 빈 줄 · 답은 발표자 노트에만
+  {
+    const quiz = (s.quiz ?? []).slice(0, 5);
+    if (!quiz.length) warnings.push('확인 문제가 없어 빈 줄로 두었다(지어 쓰지 않음)');
+    const qs = quiz.length ? quiz.map((q) => q.question) : ['', '', ''];
+    const rows: ListRow[] = qs.map((q, i) => ({ id: `quiz[${i}]`, cells: [{ text: q ? `${i + 1}. ${q}` : `${i + 1}.`, bold: true }, { text: '' }] }));
+    const lead = '교육 내용을 이해했는지 함께 확인합니다.';
+    const pages = listPages({
+      kit,
+      code: 'E5',
+      cap: 5,
+      emptyText: '',
+      overflow,
+      warnings,
+      roomPx: roomPxOf(D, S, true),
+      spec: { code: 'E5', cols: [{ key: 'question', caption: '문제', ratio: 6 }, { key: 'answer', caption: '답 적는 칸', ratio: 3 }] },
+      rows,
+      newPage: (pi, n) => page('E5', titled('확인 문제', pi, n), lead),
+    });
+    if (quiz.length) {
+      const notes = quiz.map((q, i) => `${i + 1}. ${q.answer?.trim() || '(답 미기재)'}`).join('\n');
+      for (const pg of pages) (pg.slide as unknown as { addNotes(t: string): void }).addNotes(`답(입력 원문)\n${notes}`);
+    }
+  }
+
+  // E6 교육 확인 서명부(빈칸)
+  {
+    const p = page('E6', '교육 확인 서명부', `${course.label} · ${s.educationDate} · 교육 시간과 교육자는 사업장 기록 서식에 적는다`);
+    const r = drawSign({ ...kit, slide: p.slide }, p.box, signatureRows);
+    if (r.shrunk) warnings.push(`E6(${D.id}) ${p.no}장: 서명부 ${signatureRows}행이 본문 높이에 들도록 글자를 ${r.pt}pt 로 줄였다`);
+  }
+
+  const out = await pptx.write({ outputType: 'arraybuffer' });
+  return { ok: true, bytes: new Uint8Array(out as ArrayBuffer), slides, summary, shown: shown.map((h) => h.id), omitted: omitted.map((h) => h.id), overflowEstimates: overflow, warnings };
 }

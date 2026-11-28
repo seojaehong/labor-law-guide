@@ -3,6 +3,7 @@
 // 넘침 정밀 판정은 엔진 밖(PowerPoint 검수)이다 — 여기서는 칸 글자 수로 추정만 한다.
 import PptxGenJS from 'pptxgenjs';
 import { MEETING_THEME } from './meeting-theme';
+import { capacityOf, textUnits } from './text-units';
 
 export const MEETING_TEMPLATE_VERSION = 'meeting-v0';
 
@@ -300,17 +301,8 @@ const HEAD_FILL = { color: T.table.headerFill };
 type Slide = ReturnType<PptxGenJS['addSlide']>;
 type Cell = { text: string; options?: Record<string, unknown> };
 
-/** 글자 폭 단위: 한글·전각 1, ASCII 0.55 */
-export function textUnits(s: string): number {
-  let u = 0;
-  for (const ch of s) u += ch.charCodeAt(0) < 128 ? 0.55 : 1;
-  return u;
-}
-
-export function capacityOf(widthIn: number, fontPt: number, maxLines: number): number {
-  const perLine = Math.max(1, Math.floor(((widthIn - 0.1) * 72) / fontPt));
-  return perLine * maxLines;
-}
+// 글자 폭 추정은 잎 모듈(text-units)에 — 여기서 다시 내보내 기존 가져오기를 그대로 둔다
+export { textUnits, capacityOf };
 
 function badgeText(status: MeetingStatus): string {
   return status.label === '확정' ? `확정 v${status.version}` : '초안';

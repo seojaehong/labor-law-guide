@@ -11,7 +11,8 @@ import { drawHead, type HeadBox } from './design/head';
 import { drawB1, drawB3Page, type ActionItem, type TextCheck } from './design/parts';
 import { b3PageLayout } from './design/b3-geometry';
 import { koSlide } from './design/lang';
-import { drawList, drawListEmpty, drawSign, listCapacity, planList, type ListRow, type ListSpec } from './design/lists';
+import { drawListEmpty, drawSign, type ListRow, type ListSpec } from './design/lists';
+import { listPages, roomPxOf } from './design/deck';
 
 export const BROADCAST_TEMPLATE_VERSION = 'broadcast-v0';
 
@@ -243,20 +244,17 @@ export async function makeBroadcastPptx(snapshot: MeetingSnapshot, opts: Broadca
 
   // 프리셋 판 목록 장(B2·B4·B5·B6) — 프리셋 부품(listFamily)으로, 칸은 글 줄 수만큼 늘리고 본문 높이로 장을 나눈다
   const designList = (code: keyof typeof ROWS, title: string, lead: string | undefined, spec: ListSpec, rows: ListRow[], emptyText: string) => {
-    const D_ = D!;
-    const S_ = S!;
-    const roomPx = (H - S_.y(1080 - D_.foot.y) - S_.y((D_.foot.rule ? D_.foot.rulePx + 8 : 0) + 16) - S_.y(lead ? D_.head.bodyTopWithLead : D_.head.bodyTop)) / S_.k;
-    const plan = planList(D_, S_, spec, rows, roomPx, ROWS[code]);
-    plan.pages.forEach((page, pi, all) => {
-      const { slide, no, box } = newSlide(code, `${title}${all.length > 1 ? ` (${pi + 1}/${all.length})` : ''}`, lead);
-      const ctx = { pptx, slide, d: D_, s: S_, fontFace };
-      if (!page.length) return drawListEmpty(ctx, box, emptyText);
-      drawList(ctx, box, spec, page);
-      // 한 행만으로도 본문 높이를 넘는 장 — 원문 그대로 싣고, 본문 높이에 들지 않는 칸만 넘침 후보로 남긴다
-      for (const r of page.filter((x) => plan.overPage.includes(x.id))) {
-        for (const k of listCapacity(D_, S_, spec, r, roomPx)) if (textUnits(k.text) > k.capacity) overflow.push({ slide: no, code, ref: r.id, field: k.key, chars: k.text.length, capacity: k.capacity });
-        warnings.push(`${code}(${D_.id}) ${no}장: ${r.id} 한 행의 글만으로도 본문 높이를 넘는다 — 원문 그대로 실었으니 입력에서 줄여 주세요`);
-      }
+    listPages({
+      kit: { pptx, d: D!, s: S!, fontFace },
+      code,
+      spec,
+      rows,
+      cap: ROWS[code],
+      emptyText,
+      roomPx: roomPxOf(D!, S!, !!lead),
+      newPage: (pi, n) => newSlide(code, `${title}${n > 1 ? ` (${pi + 1}/${n})` : ''}`, lead),
+      overflow,
+      warnings,
     });
   };
 
