@@ -190,7 +190,7 @@ export function drawB1(c: Ctx, kpis: Kpi[]): PartResult {
     after.forEach((k, i) => {
       const y = fy + 60 + i * rowH;
       const deferred = k.key === 'deferred';
-      if (i > 0) slide.addShape(pptx.ShapeType.line, { x: s.x(fx + 48), y: s.y(y), w: s.x(fw - 96), h: 0, line: deferred ? { color: C('ink2'), width: Math.max(0.75, s.pt(1.5)), dashType: 'dash' } : { color: C('line'), width: Math.max(0.5, s.pt(1)) } });
+      if (i > 0) slide.addShape(pptx.ShapeType.line, { x: s.x(fx + 48), y: s.y(y), w: s.x(fw - 96), h: 0, line: deferred ? { color: C('ink2'), width: Math.max(0.5, s.pt(1)), dashType: 'sysDot' } : { color: C('line'), width: Math.max(0.5, s.pt(1)) } });
       row(k, fx + 48, y, fw - 96, deferred);
     });
     note(slot.noteY, 48, t.note, C('ink2'));
@@ -207,6 +207,8 @@ export function drawB1(c: Ctx, kpis: Kpi[]): PartResult {
 export function drawB3Page(c: Ctx, box: HeadBox, items: ActionItem[], opt: { shrunk: boolean; more: number; accentFirst?: boolean }): PartResult {
   const r: PartResult = { checks: [], shrunk: [], grown: [] };
   const { d, s, pptx, slide, fontFace } = c;
+  // 글 언어 ko-KR — PowerPoint 는 언어가 en-US 면 한글을 낱자 사이에서도 끊는다(「설 / 치」). ko-KR 이면 낱말 사이에서 끊는다(261128 COM 실측)
+  const KO = 'ko-KR';
   const slot = d.slots.B3;
   const C = (k: Parameters<typeof color>[1]) => color(d, k);
   const t = d.tokens.type;
@@ -244,11 +246,12 @@ export function drawB3Page(c: Ctx, box: HeadBox, items: ActionItem[], opt: { shr
         ...(report ? { fill: { color: C('band') } } : {}),
         border: [report ? heavy : NONE, sideOf(ci)[0], rule, sideOf(ci)[1]],
         margin: [4, padX, 4, padX],
+        lang: KO,
       },
     }));
     const body = items.map((a, i) => {
       const ri = i + 1;
-      const base = (ci: number) => ({ fontSize: s.pt(px), color: C('ink'), border: [hair, sideOf(ci)[0], bottomOf(ri), sideOf(ci)[1]], margin: [4, padX, 4, padX] });
+      const base = (ci: number) => ({ fontSize: s.pt(px), color: C('ink'), border: [hair, sideOf(ci)[0], bottomOf(ri), sideOf(ci)[1]], margin: [4, padX, 4, padX], lang: KO });
       return [
         report
           ? { text: a.risk, options: { ...base(0), bold: true } }
@@ -259,18 +262,18 @@ export function drawB3Page(c: Ctx, box: HeadBox, items: ActionItem[], opt: { shr
       ];
     });
     const more = opt.more
-      ? [[{ text: moreText(opt.more), options: { colspan: 4, fontSize: s.pt(px), bold: true, color: C('ink2'), border: [hair, NONE, heavy, NONE], margin: [4, padX, 4, padX] } }]]
+      ? [[{ text: moreText(opt.more), options: { colspan: 4, fontSize: s.pt(px), bold: true, color: C('ink2'), border: [hair, NONE, heavy, NONE], margin: [4, padX, 4, padX], lang: KO } }]]
       : [];
     const headH = report ? 76 : 60;
     slide.addTable([headCells, ...body, ...more] as never, {
       objectName: report ? 'part:report-grid' : 'part:hairline-table',
-      x: s.x(slot.x), y: box.top, w: s.x(slot.w), colW, rowH: [s.y(headH), ...L.items.map((it) => s.y(it.h)), ...more.map(() => s.y(L.moreH))], fontFace, valign: 'middle',
+      x: s.x(slot.x), y: box.top, w: s.x(slot.w), colW, rowH: [s.y(headH), ...L.items.map((it) => s.y(it.h)), ...more.map(() => s.y(L.moreH))], fontFace, lang: KO, valign: 'middle',
     });
   } else if (slot.part === 'row-cards') {
     // 범례 칩(이 장의 유일한 노랑 면) → 행 카드: 위험 → 대책 → 누가·언제
     const legend = '위험 → 대책 → 누가 · 언제';
     slide.addShape(pptx.ShapeType.rect, { x: s.x(slot.x), y: s.y(top), w: s.x(520), h: s.y(58), fill: { color: C('accent') }, line: noLine(C('accent')) });
-    slide.addText(legend, { x: s.x(slot.x + 24), y: s.y(top), w: s.x(472), h: s.y(58), fontFace, fontSize: s.pt(32), bold: true, color: C('onAccent'), valign: 'middle', margin: 0 });
+    slide.addText(legend, { x: s.x(slot.x + 24), y: s.y(top), w: s.x(472), h: s.y(58), fontFace, lang: KO, fontSize: s.pt(32), bold: true, color: C('onAccent'), valign: 'middle', margin: 0 });
     const gap = slot.gap ?? 24;
     const [cs, cr, ca, cm, , co] = slot.cols;
     const cards = [...items.map((a, i) => ({ a, g: L.items[i] })), ...(opt.more ? [{ a: null as ActionItem | null, g: null }] : [])];
@@ -282,7 +285,7 @@ export function drawB3Page(c: Ctx, box: HeadBox, items: ActionItem[], opt: { shr
       y += h + gap;
       slide.addShape(pptx.ShapeType.rect, { objectName: 'part:row-cards', x: s.x(x), y: s.y(cy), w: s.x(slot.w), h: s.y(h), fill: { color: C('bg') }, line: { color: C('ink'), width: s.pt(d.tokens.lines.rule) } });
       if (!a || !g) {
-        slide.addText(moreText(opt.more), { x: s.x(x + 40), y: s.y(cy), w: s.x(slot.w - 80), h: s.y(h), fontFace, fontSize: s.pt(px), bold: true, color: C('ink'), valign: 'middle', margin: 0 });
+        slide.addText(moreText(opt.more), { x: s.x(x + 40), y: s.y(cy), w: s.x(slot.w - 80), h: s.y(h), fontFace, lang: KO, fontSize: s.pt(px), bold: true, color: C('ink'), valign: 'middle', margin: 0 });
         return;
       }
       // 위험 줄무늬 — 무늬 채우기가 없어 검정·노랑 띠를 번갈아 쌓는다(의미 표시라 강조 셈에서 뺀다)
@@ -293,19 +296,19 @@ export function drawB3Page(c: Ctx, box: HeadBox, items: ActionItem[], opt: { shr
       }
       const capY = opt.shrunk ? 10 : 18;
       const valY = opt.shrunk ? 40 : 54;
-      const cap = (text: string, cx: number, w: number) => slide.addText(text, { x: s.x(cx), y: s.y(cy + capY), w: s.x(w), h: s.y(30), fontFace, fontSize: s.pt(28), color: C('ink2'), margin: 0 });
+      const cap = (text: string, cx: number, w: number) => slide.addText(text, { x: s.x(cx), y: s.y(cy + capY), w: s.x(w), h: s.y(30), fontFace, lang: KO, fontSize: s.pt(28), color: C('ink2'), margin: 0 });
       const val = (text: string, cx: number, w: number, vh: number) =>
-        slide.addText(text, { x: s.x(cx), y: s.y(cy + valY), w: s.x(w), h: s.y(vh), fontFace, fontSize: s.pt(px), bold: true, color: C('ink'), valign: 'top', margin: 0, lineSpacingMultiple: 1.05 });
+        slide.addText(text, { x: s.x(cx), y: s.y(cy + valY), w: s.x(w), h: s.y(vh), fontFace, lang: KO, fontSize: s.pt(px), bold: true, color: C('ink'), valign: 'top', margin: 0, lineSpacingMultiple: 1.05 });
       const xr = x + cs + 28;
       cap('위험', xr, cr - 56);
       val(a.risk, xr, cr - 56, g.riskH);
       const xa = x + cs + cr + ca + 28;
       cap('대책', xa, cm - 56);
       val(a.measure, xa, cm - 56, g.measureH);
-      for (const ax of [x + cs + cr, x + cs + cr + ca + cm]) slide.addText('→', { x: s.x(ax), y: s.y(cy), w: s.x(ca), h: s.y(h), fontFace, fontSize: s.pt(44), bold: true, color: C('ink'), align: 'center', valign: 'middle', margin: 0 });
+      for (const ax of [x + cs + cr, x + cs + cr + ca + cm]) slide.addText('→', { x: s.x(ax), y: s.y(cy), w: s.x(ca), h: s.y(h), fontFace, lang: KO, fontSize: s.pt(44), bold: true, color: C('ink'), align: 'center', valign: 'middle', margin: 0 });
       const xo = x + slot.w - co + 28;
-      slide.addText(a.owner, { x: s.x(xo), y: s.y(cy + capY), w: s.x(co - 56), h: s.y(g.ownerH), fontFace, fontSize: s.pt(opt.shrunk ? 28 : 32), bold: true, color: C('ink'), margin: 0 });
-      slide.addText(a.due, { x: s.x(xo), y: s.y(cy + g.subY), w: s.x(slot.dateBoxW), h: s.y(datePx * 1.3), fontFace, fontSize: s.pt(datePx), bold: true, color: C('ink'), margin: 0 });
+      slide.addText(a.owner, { x: s.x(xo), y: s.y(cy + capY), w: s.x(co - 56), h: s.y(g.ownerH), fontFace, lang: KO, fontSize: s.pt(opt.shrunk ? 28 : 32), bold: true, color: C('ink'), margin: 0 });
+      slide.addText(a.due, { x: s.x(xo), y: s.y(cy + g.subY), w: s.x(slot.dateBoxW), h: s.y(datePx * 1.3), fontFace, lang: KO, fontSize: s.pt(datePx), bold: true, color: C('ink'), margin: 0 });
       for (const lx of [x + cs + cr, x + slot.w - co]) slide.addShape(pptx.ShapeType.line, { x: s.x(lx), y: s.y(cy), w: 0, h: s.y(h), line: { color: C('ink'), width: s.pt(d.tokens.lines.hair) } });
     });
   } else if (slot.part === 'checklist-cards') {
@@ -320,18 +323,18 @@ export function drawB3Page(c: Ctx, box: HeadBox, items: ActionItem[], opt: { shr
       y += h + gap;
       slide.addShape(pptx.ShapeType.roundRect, { objectName: 'part:checklist-cards', x: s.x(x), y: s.y(cy), w: s.x(slot.w), h: s.y(h), rectRadius: s.y(Math.min(d.tokens.radius.card, itemH / 2)), fill: { color: C('surface') }, line: noLine(C('surface')) });
       if (!a || !g) {
-        slide.addText(moreText(opt.more), { x: s.x(x + 40), y: s.y(cy), w: s.x(slot.w - 80), h: s.y(h), fontFace, fontSize: s.pt(px), bold: true, color: C('ink2'), valign: 'middle', margin: 0 });
+        slide.addText(moreText(opt.more), { x: s.x(x + 40), y: s.y(cy), w: s.x(slot.w - 80), h: s.y(h), fontFace, lang: KO, fontSize: s.pt(px), bold: true, color: C('ink2'), valign: 'middle', margin: 0 });
         return;
       }
       slide.addShape(pptx.ShapeType.ellipse, { x: s.x(x + 40), y: s.y(cy + (h - cc) / 2), w: s.x(cc), h: s.y(cc), fill: { color: C('bg') }, line: { color: C('line'), width: s.pt(3) } });
-      slide.addText('✓', { x: s.x(x + 40), y: s.y(cy + (h - cc) / 2), w: s.x(cc), h: s.y(cc), fontFace, fontSize: s.pt(30), color: C('ink2'), align: 'center', valign: 'middle', margin: 0 });
+      slide.addText('✓', { x: s.x(x + 40), y: s.y(cy + (h - cc) / 2), w: s.x(cc), h: s.y(cc), fontFace, lang: KO, fontSize: s.pt(30), color: C('ink2'), align: 'center', valign: 'middle', margin: 0 });
       const tx = x + 40 + cc + 32;
       slide.addShape(pptx.ShapeType.ellipse, { x: s.x(tx), y: s.y(cy + 34), w: s.x(10), h: s.y(10), fill: { color: C('risk') }, line: noLine(C('risk')) });
-      slide.addText(a.risk, { x: s.x(tx + 20), y: s.y(cy + 20), w: s.x(cm - 20), h: s.y(g.riskH), fontFace, fontSize: s.pt(26), color: C('ink2'), valign: g.riskH > 38 ? 'top' : 'middle', margin: 0 });
-      slide.addText(a.measure, { x: s.x(tx), y: s.y(cy + g.subY), w: s.x(cm), h: s.y(g.measureH), fontFace, fontSize: s.pt(px), bold: true, color: C('ink'), valign: 'top', margin: 0 });
+      slide.addText(a.risk, { x: s.x(tx + 20), y: s.y(cy + 20), w: s.x(cm - 20), h: s.y(g.riskH), fontFace, lang: KO, fontSize: s.pt(26), color: C('ink2'), valign: g.riskH > 38 ? 'top' : 'middle', margin: 0 });
+      slide.addText(a.measure, { x: s.x(tx), y: s.y(cy + g.subY), w: s.x(cm), h: s.y(g.measureH), fontFace, lang: KO, fontSize: s.pt(px), bold: true, color: C('ink'), valign: 'top', margin: 0 });
       const badge = (text: string, bx: number, w: number, bh: number, bold: boolean) => {
         slide.addShape(pptx.ShapeType.roundRect, { x: s.x(bx), y: s.y(cy + (h - bh) / 2), w: s.x(w), h: s.y(bh), rectRadius: s.y(20), fill: { color: C('bg') }, line: noLine(C('bg')) });
-        slide.addText(text, { x: s.x(bx + 20), y: s.y(cy + (h - bh) / 2), w: s.x(w - 40), h: s.y(bh), fontFace, fontSize: s.pt(26), bold, color: C('ink'), valign: 'middle', margin: 0 });
+        slide.addText(text, { x: s.x(bx + 20), y: s.y(cy + (h - bh) / 2), w: s.x(w - 40), h: s.y(bh), fontFace, lang: KO, fontSize: s.pt(26), bold, color: C('ink'), valign: 'middle', margin: 0 });
       };
       const xd = x + slot.w - 40 - cd;
       const xo = xd - 16 - co;
@@ -351,24 +354,24 @@ export function drawB3Page(c: Ctx, box: HeadBox, items: ActionItem[], opt: { shr
       slide.addShape(pptx.ShapeType.roundRect, { x: s.x(x), y: s.y(top), w: s.x(cw), h: s.y(cardH), rectRadius: s.y(d.tokens.radius.card), fill: { color: C('surface') }, line: { color: C('line'), width: Math.max(0.5, s.pt(1)) } });
       const iw = cw - 72;
       if (!a || !g) {
-        slide.addText(moreText(opt.more), { x: s.x(x + 36), y: s.y(top), w: s.x(iw), h: s.y(cardH), fontFace, fontSize: s.pt(px), bold: true, color: C('ink2'), valign: 'middle', margin: 0 });
+        slide.addText(moreText(opt.more), { x: s.x(x + 36), y: s.y(top), w: s.x(iw), h: s.y(cardH), fontFace, lang: KO, fontSize: s.pt(px), bold: true, color: C('ink2'), valign: 'middle', margin: 0 });
         return;
       }
-      const lab = (text: string, y: number) => slide.addText(text, { x: s.x(x + 36), y: s.y(y), w: s.x(iw), h: s.y(30), fontFace, fontSize: s.pt(22), bold: true, color: C('ink2'), margin: 0 });
+      const lab = (text: string, y: number) => slide.addText(text, { x: s.x(x + 36), y: s.y(y), w: s.x(iw), h: s.y(30), fontFace, lang: KO, fontSize: s.pt(22), bold: true, color: C('ink2'), margin: 0 });
       lab('위험', top + 28);
-      slide.addText(a.risk, { x: s.x(x + 36), y: s.y(top + 58), w: s.x(iw), h: s.y(g.riskH), fontFace, fontSize: s.pt(px), color: C('ink'), valign: 'top', margin: 0 });
+      slide.addText(a.risk, { x: s.x(x + 36), y: s.y(top + 58), w: s.x(iw), h: s.y(g.riskH), fontFace, lang: KO, fontSize: s.pt(px), color: C('ink'), valign: 'top', margin: 0 });
       const my = top + 58 + g.riskH + 14;
       slide.addShape(pptx.ShapeType.line, { x: s.x(x + 36), y: s.y(my), w: s.x(iw), h: 0, line: { color: C('line'), width: Math.max(0.5, s.pt(1)) } });
       lab('대책', my + 14);
-      slide.addText(a.measure, { x: s.x(x + 36), y: s.y(my + 44), w: s.x(iw), h: s.y(g.measureH), fontFace, fontSize: s.pt(px), bold: true, color: C('ink'), valign: 'top', margin: 0 });
+      slide.addText(a.measure, { x: s.x(x + 36), y: s.y(my + 44), w: s.x(iw), h: s.y(g.measureH), fontFace, lang: KO, fontSize: s.pt(px), bold: true, color: C('ink'), valign: 'top', margin: 0 });
       const oy = top + cardH - 22 - g.ownerH;
       lab('담당', oy - 30);
-      slide.addText(a.owner, { x: s.x(x + 36), y: s.y(oy), w: s.x(iw), h: s.y(g.ownerH), fontFace, fontSize: s.pt(px), color: C('ink'), margin: 0 });
+      slide.addText(a.owner, { x: s.x(x + 36), y: s.y(oy), w: s.x(iw), h: s.y(g.ownerH), fontFace, lang: KO, fontSize: s.pt(px), color: C('ink'), margin: 0 });
       const cx = x + cw / 2;
       slide.addShape(pptx.ShapeType.line, { x: s.x(cx), y: s.y(top + cardH), w: 0, h: s.y(72), line: { color: C('ink2'), width: Math.max(0.5, s.pt(1)) } });
       const first = !!opt.accentFirst && i === 0;
       slide.addShape(pptx.ShapeType.ellipse, { x: s.x(cx - 19), y: s.y(axisY - 19), w: s.x(38), h: s.y(38), fill: { color: first ? C('accent') : C('bg') }, line: { color: first ? C('accent') : C('ink'), width: s.pt(3) } });
-      slide.addText(a.due, { x: s.x(x), y: s.y(axisY + 30), w: s.x(cw), h: s.y(44), fontFace, fontSize: s.pt(datePx), bold: true, color: first ? C('accentText') : C('ink'), align: 'center', margin: 0 });
+      slide.addText(a.due, { x: s.x(x), y: s.y(axisY + 30), w: s.x(cw), h: s.y(44), fontFace, lang: KO, fontSize: s.pt(datePx), bold: true, color: first ? C('accentText') : C('ink'), align: 'center', margin: 0 });
     });
   }
   return r;

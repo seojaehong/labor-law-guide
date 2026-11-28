@@ -99,7 +99,9 @@ export function planDesignB3<T>(
     let k = Math.min(cap - 1, rest.length - 1);
     if (rest.length <= cap || !fits(rest.slice(0, k), true, true)) byHeight = true;
     while (k > 1 && !fits(rest.slice(0, k), true, true)) k--;
-    pages.push({ items: rest.slice(0, k), more: rest.length - k });
+    // 한 건에 「외 N건」 칸까지는 안 들면 그 칸을 빼고 한 건만 싣는다(장 제목의 (n/m) 으로 이어짐을 알린다)
+    const more = k === 1 && !fits(rest.slice(0, 1), true, true) ? 0 : rest.length - k;
+    pages.push({ items: rest.slice(0, k), more });
     rest = rest.slice(k);
   }
   return { shrunk: true, byHeight, pages };
@@ -289,7 +291,7 @@ export async function makeBroadcastPptx(snapshot: MeetingSnapshot, opts: Broadca
       const why = items.length > slot.maxItems ? `한 장 ${slot.maxItems}건 한도를 넘어` : '글이 길어 한 장 높이에 다 들지 않아';
       warnings.push(
         `B3(${D.id}): 대책 ${items.length}건 — ${why} 한 번 축소(한 장 ${cap}건)` +
-          (plan.pages.length > 1 ? `, 「외 ${first.more}건」 표기 후 다음 장으로 이어 ${plan.pages.length}장` : ''),
+          (plan.pages.length > 1 ? `, ${first.more ? `「외 ${first.more}건」 표기 후 ` : ''}다음 장으로 이어 ${plan.pages.length}장` : ''),
       );
     }
   } else {

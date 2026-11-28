@@ -29,9 +29,37 @@ export interface FieldFit {
   need: number;
 }
 
+/**
+ * 낱말 단위 줄바꿈(ko-KR) 줄 수 — 띄어쓰기에서만 끊고, 한 줄보다 긴 낱말은 새 줄에서 시작해 낱자로 끊는다.
+ * PowerPoint 실측(261128): 「1 가나다…(띄어쓰기 없는 80자)」는 「1」만 첫 줄에 두고 긴 낱말을 다음 줄로 넘긴다.
+ */
+export function wrapLines(text: string, perLine: number): number {
+  let total = 0;
+  for (const para of text.split('\n')) {
+    let lines = 1;
+    let cur = 0;
+    for (const w of para.split(' ')) {
+      const wu = textUnits(w);
+      const sp = cur > 0 ? textUnits(' ') : 0;
+      if (cur + sp + wu <= perLine) cur += sp + wu;
+      else if (wu <= perLine) {
+        lines++;
+        cur = wu;
+      } else {
+        if (cur > 0) lines++;
+        const extra = Math.ceil(wu / perLine) - 1;
+        lines += extra;
+        cur = wu - extra * perLine;
+      }
+    }
+    total += lines;
+  }
+  return Math.max(1, total);
+}
+
 export function linesOf(text: string, wPx: number, px: number, s: DesignScale): number {
   if (!text) return 1;
-  return Math.max(1, Math.ceil(textUnits(text) / capacityOf(s.x(wPx), s.pt(px), 1)));
+  return wrapLines(text, capacityOf(s.x(wPx), s.pt(px), 1));
 }
 
 /** 표 칸 위아래 여백 4pt+4pt 를 px 로 */

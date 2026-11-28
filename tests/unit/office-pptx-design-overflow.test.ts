@@ -38,6 +38,24 @@ interface TextShape extends Box { name: string; text: string; ext: number; top: 
 
 const num = (s: string, re: RegExp) => Number(s.match(re)?.[1] ?? NaN);
 
+/** 낱말 단위 줄바꿈 줄 수(ko-KR PowerPoint) — 긴 낱말은 새 줄에서 시작해 낱자로 끊긴다 */
+function keepAllLines(t: string, per: number): number {
+  let lines = 1;
+  let cur = 0;
+  for (const w of t.split(' ')) {
+    const u = textUnits(w);
+    const need = cur ? cur + 0.55 + u : u;
+    if (need <= per) cur = need;
+    else if (u <= per) [lines, cur] = [lines + 1, u];
+    else {
+      const chunks = Math.ceil(u / per);
+      lines += (cur ? 1 : 0) + chunks - 1;
+      cur = u - (chunks - 1) * per;
+    }
+  }
+  return lines;
+}
+
 /** 문단마다 줄 수를 세 그려질 높이(pt) */
 function textHeight(body: string, wIn: number): { text: string; h: number } {
   let h = 0;
@@ -48,7 +66,7 @@ function textHeight(body: string, wIn: number): { text: string; h: number } {
     const pt = Math.max(...sizes, 0);
     if (!t || !pt) continue;
     const spc = num(p, /<a:spcPct val="(\d+)"/) / 100000 || 1;
-    const lines = Math.ceil(textUnits(t) / capacityOf(wIn, pt, 1));
+    const lines = keepAllLines(t, capacityOf(wIn, pt, 1));
     h += lines * 1.2 * pt * spc;
     texts.push(t);
   }
@@ -193,5 +211,35 @@ describe('story 기한 타임라인은 카드가 본문 폭을 채운다', () =>
     const cards = shapes(xml).cards.filter((c) => c.h > 150);
     expect(cards.length).toBe(3);
     expect(Math.max(...cards.map((c) => c.x + c.w))).toBeCloseTo(right, 0);
+  });
+});
+
+describe('한글은 낱말 사이에서 끊는다(대책 장)', () => {
+  // PowerPoint 는 글 언어가 en-US 면 한글을 낱자 사이에서도 끊는다(「설 / 치」) — 261128 COM 실측, ko-KR 이면 낱말 사이
+  for (const id of DESIGN_IDS)
+    it(`${id} — 대책 장 글은 ko-KR`, async () => {
+      const r = await makeBroadcastPptx(finalSnapshotForDesign(), { design: id });
+      const no = r.slides.find((s) => s.code === 'B3')!.no;
+      const [xml] = await b3Slides(r.bytes!, [no]);
+      const runs = [...xml.matchAll(/<a:rPr lang="([^"]+)"[^>]*>(?:(?!<\/a:r>)[\s\S])*?<a:t>([^<]*)<\/a:t>/g)].filter((m) => /[가-힣]/.test(m[2]));
+      const body = runs.filter((m) => /사다리 상단 고정|통로 조명 교체|시설 담당/.test(m[2]));
+      expect(body.length).toBeGreaterThan(0);
+      for (const m of body) expect(m[1], m[2]).toBe('ko-KR');
+    });
+  it('프리셋을 안 고르면 ko-KR 을 넣지 않는다(기본 출력 그대로)', async () => {
+    const r = await makeBroadcastPptx(finalSnapshotForDesign());
+    const zip = await JSZip.loadAsync(r.bytes!);
+    for (const n of Object.keys(zip.files).filter((x) => /^ppt\/slides\/slide\d+\.xml$/.test(x))) expect(await zip.file(n)!.async('string')).not.toContain('ko-KR');
+  });
+});
+
+describe('story 요약 장(B1) 「다음으로 미룬 것」 구분선은 가는 점선', () => {
+  it('sysDot · 1px 굵기', async () => {
+    const r = await makeBroadcastPptx(finalSnapshotForDesign(), { design: 'story' });
+    const [xml] = await b3Slides(r.bytes!, [1]);
+    const dashed = [...xml.matchAll(/<a:ln w="(\d+)"[^>]*>(?:(?!<\/a:ln>)[\s\S])*?<a:prstDash val="(\w+)"/g)].filter((m) => m[2] !== 'solid');
+    expect(dashed.length).toBe(1);
+    expect(dashed[0][2]).toBe('sysDot');
+    expect(Number(dashed[0][1]) / 12700).toBeLessThanOrEqual(0.75);
   });
 });
