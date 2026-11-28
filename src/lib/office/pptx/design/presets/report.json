@@ -1,0 +1,43 @@
+{
+  "id": "report",
+  "name": "공문 보고서형",
+  "source": "c4-report (261128 시안)",
+  "head": {
+    "shape": "ribbon",
+    "left": 96, "right": 1824,
+    "metaY": 12, "metaH": 40,
+    "titleY": 112, "titleH": 100, "titleMinPx": 40, "titleColor": "accent", "titleSerif": true,
+    "leadY": 232, "leadH": 44,
+    "bodyTop": 288, "bodyTopWithLead": 300,
+    "ribbonH": 64
+  },
+  "foot": { "y": 1004, "h": 36, "rule": true, "rulePx": 1, "color": "ink2" },
+  "tokens": {
+    "colors": {
+      "bg": "FFFFFF", "surface": "F3F5F9", "band": "E8ECF3",
+      "ink": "1F2328", "ink2": "4A5466", "line": "C4CDD8", "rule": "1B2A4A",
+      "accent": "1B2A4A", "accentText": "1B2A4A", "onAccent": "FFFFFF", "risk": "B3261E"
+    },
+    "type": { "meta": 22, "title": 56, "label": 30, "body": 30, "table": 26, "num": 72, "hero": 72, "note": 30 },
+    "lines": { "hair": 1, "rule": 2, "heavy": 3 },
+    "radius": { "card": 0 }
+  },
+  "textPairs": [["ink", "bg"], ["ink2", "bg"], ["accentText", "bg"], ["accentText", "band"], ["accentText", "surface"], ["onAccent", "accent"], ["ink", "band"]],
+  "slots": {
+    "B1": {
+      "part": "summary-table",
+      "x": 96, "y": 288, "w": 1728, "h": 520, "minW": 1200, "minH": 520, "maxItems": 6,
+      "needs": ["count:changed", "count:actions", "ratio:opinions", "count:deferred"],
+      "valueBoxW": 288, "valuePx": 72, "valueMinPx": 56, "noteY": 872
+    },
+    "B3": {
+      "part": "report-grid",
+      "x": 96, "w": 1728, "minW": 1500, "minH": 604, "maxItems": 3, "shrunkMaxItems": 4,
+      "needs": ["measure", "owner", "due"],
+      "itemH": 176, "itemHShrunk": 128, "textPx": 30, "textPxShrunk": 26,
+      "cols": [380, 728, 330, 290], "measureW": 656, "measureMaxLines": 2,
+      "dateBoxW": 218, "datePx": 30
+    }
+  },
+  "overflowOrder": ["abbreviate", "shrink-once", "more-count", "next-slide"]
+}

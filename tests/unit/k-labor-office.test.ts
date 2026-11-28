@@ -326,6 +326,10 @@ describe('office 묶음 — 회의 PPTX', () => {
     const draft = await call('make_broadcast_pptx_bytes', { snapshot: { ...MEETING, status: { label: '초안' } } });
     expect(draft.ok).toBe(false);
     expect(cfgs.get('make_broadcast_pptx')!.annotations!.readOnlyHint).toBe(false);
+    const designed = await call('make_broadcast_pptx_bytes', { snapshot: FIN, design: 'report' });
+    expect(designed.ok).toBe(true);
+    const zip = await JSZip.loadAsync(Buffer.from(designed.base64, 'base64'));
+    expect(await zip.file('ppt/slides/slide1.xml')!.async('string')).toContain('name="part:summary-table"');
   });
 
   it('원격 make_education_pptx_bytes — 정기교육 교안, 입력 오류는 ok false', async () => {

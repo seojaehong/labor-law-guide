@@ -1,0 +1,43 @@
+{
+  "id": "app",
+  "name": "앱 카드",
+  "source": "c3-app (261128 시안)",
+  "head": {
+    "shape": "pill-meta",
+    "left": 120, "right": 1800,
+    "metaY": 96, "metaH": 56,
+    "titleY": 200, "titleH": 90, "titleMinPx": 40, "titleColor": "ink",
+    "leadY": 296, "leadH": 44,
+    "bodyTop": 320, "bodyTopWithLead": 360,
+    "headlineY": 236, "headlineH": 240
+  },
+  "foot": { "y": 996, "h": 36, "rule": false, "rulePx": 0, "color": "ink2" },
+  "tokens": {
+    "colors": {
+      "bg": "FFFFFF", "surface": "F2F4F6", "band": "F2F4F6",
+      "ink": "191F28", "ink2": "4E5968", "line": "D1D6DB", "rule": "191F28",
+      "accent": "1B64DA", "accentText": "1B64DA", "onAccent": "FFFFFF", "risk": "E5484D"
+    },
+    "type": { "meta": 26, "title": 64, "label": 30, "body": 30, "table": 26, "num": 64, "hero": 96, "note": 30 },
+    "lines": { "hair": 1, "rule": 2, "heavy": 3 },
+    "radius": { "card": 36 }
+  },
+  "textPairs": [["ink", "bg"], ["ink2", "bg"], ["ink2", "surface"], ["ink", "surface"], ["accentText", "bg"], ["onAccent", "accent"]],
+  "slots": {
+    "B1": {
+      "part": "chip-grid",
+      "x": 120, "y": 558, "w": 1680, "h": 268, "minW": 1280, "minH": 240, "maxItems": 4,
+      "needs": ["count:changed", "count:actions", "ratio:opinions", "count:deferred"],
+      "valueBoxW": 220, "valuePx": 64, "valueMinPx": 52, "noteY": 900
+    },
+    "B3": {
+      "part": "checklist-cards",
+      "x": 120, "w": 1680, "minW": 1680, "minH": 184, "maxItems": 3, "shrunkMaxItems": 4,
+      "needs": ["measure", "owner", "due"],
+      "itemH": 160, "itemHShrunk": 128, "gap": 24, "textPx": 40, "textPxShrunk": 33,
+      "cols": [72, 776, 380, 300], "measureW": 776, "measureMaxLines": 2,
+      "dateBoxW": 260, "datePx": 26
+    }
+  },
+  "overflowOrder": ["abbreviate", "shrink-once", "more-count", "next-slide"]
+}

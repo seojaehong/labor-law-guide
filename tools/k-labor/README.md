@@ -146,7 +146,7 @@ npx -y k-labor call check_min_wage args.json --groups calc
 | `office` | `make_xlsx_from_spec` / `make_xlsx_from_spec_bytes` | 사양(JSON)으로 서식 만들기 — 시트·열·머리행·병합·유효성 목록·틀고정·A4 가로 인쇄 |
 | `office` | `make_meeting_pptx` / `make_meeting_pptx_bytes` | 회의 스냅숏(JSON) → 위험성평가 회의 덱(pptx, A4 가로) — 회의 전 검토안 / 회의 후 확정본, 장마다 상태 배지·notes 근거 목록 |
 | `office` | `make_tbm_pptx` / `make_tbm_pptx_bytes` | TBM 스냅숏(JSON) → 작업 전 안전점검(TBM) 카드 덱(pptx, A4 가로) — 작업마다 한 장, 위험 3개 이내·대책·확인 질문(입력 원문)·빈 서명란, 실은 것·뺀 것(picks) |
-| `office` | `make_broadcast_pptx` / `make_broadcast_pptx_bytes` | 확정 회의 스냅숏 → 회의 결과 전파본(pptx, A4 가로) — 바뀐 위험·정한 대책(담당·기한)·의견 처리 결과·지난 대책 이행 결과·미룬 것·빈 공유 확인 서명란, 초안은 만들지 않음 |
+| `office` | `make_broadcast_pptx` / `make_broadcast_pptx_bytes` | 확정 회의 스냅숏 → 회의 결과 전파본(pptx, A4 가로) — 바뀐 위험·정한 대책(담당·기한)·의견 처리 결과·지난 대책 이행 결과·미룬 것·빈 공유 확인 서명란, 초안은 만들지 않음. `design`(quiet·field·app·report·story)을 주면 요약·대책 장이 그 디자인 부품 배치로 바뀌고(기본 16:9), 담을 수 없는 분량은 축소 → 「외 N건」 → 다음 장 순으로 나누어 warnings 에 적음 |
 | `office` | `make_education_pptx` / `make_education_pptx_bytes` | 위험성평가 결과 → 안전보건교육 교안(pptx, A4 가로, 규칙 별표 5 제1호 가목·다목) — 결과 요약·주요 위험과 대책·사고 사례(출처 표시)·확인 문제(답은 노트)·빈 교육 확인 서명부 |
 | `office` | `extract_pptx` / `extract_pptx_bytes` | pptx 의 장별 도형 글자·표·notes 읽기 |
 | `docs` | `stamp_exhibit_pdf` | **로컬 전용(파일 쓰기).** 제출 서증 PDF 첫 장 상단 여백에 세로형 호증 표시(10×50mm, 「사 제19호증」·「소갑 제9호증의 1」·번호 빈칸)를 그려 새 PDF 로. 첫 장에만, 기본 우측 상단(오른쪽 12mm·위 8mm, 대법원 전자민원센터 안내), `side` 로 왼쪽, 쪽 높이 25% 를 넘으면 줄임. `pad: always` 면 첫 장을 34mm 넓혀 그 여백에 찍음. 글자는 글꼴을 넣지 않고 윤곽선으로 그림(파일이 거의 안 커짐). 본문과 겹치는지는 보지 않음(`overlapChecked:false`, 첫 장을 눈으로 확인). 돌아간 첫 장·암호 PDF 는 멈춤. 덮어쓰지 않음 |

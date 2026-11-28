@@ -1,0 +1,42 @@
+{
+  "id": "story",
+  "name": "전후 흐름",
+  "source": "c5-story (261128 시안)",
+  "head": {
+    "shape": "capsule",
+    "left": 120, "right": 1800,
+    "metaY": 72, "metaH": 48,
+    "titleY": 140, "titleH": 80, "titleMinPx": 40, "titleColor": "ink",
+    "leadY": 226, "leadH": 44,
+    "bodyTop": 290, "bodyTopWithLead": 290
+  },
+  "foot": { "y": 996, "h": 36, "rule": true, "rulePx": 1, "color": "ink2" },
+  "tokens": {
+    "colors": {
+      "bg": "F7F6F3", "surface": "FFFFFF", "band": "FFFFFF",
+      "ink": "1A1F24", "ink2": "4D565F", "line": "D3D7DB", "rule": "1A1F24",
+      "accent": "0B7A75", "accentText": "0B7A75", "onAccent": "FFFFFF", "risk": "B23A2A"
+    },
+    "type": { "meta": 22, "title": 60, "label": 30, "body": 30, "table": 26, "num": 96, "hero": 96, "note": 30 },
+    "lines": { "hair": 1, "rule": 2, "heavy": 2 },
+    "radius": { "card": 20 }
+  },
+  "textPairs": [["ink", "bg"], ["ink2", "bg"], ["ink", "surface"], ["ink2", "surface"], ["accentText", "bg"], ["accentText", "surface"], ["onAccent", "accent"]],
+  "slots": {
+    "B1": {
+      "part": "before-after",
+      "x": 120, "y": 300, "w": 1680, "h": 560, "minW": 1440, "minH": 480, "maxItems": 5,
+      "needs": ["count:changed", "count:actions", "ratio:opinions", "count:deferred"],
+      "valueBoxW": 240, "valuePx": 96, "valueMinPx": 80, "noteY": 900
+    },
+    "B3": {
+      "part": "deadline-timeline",
+      "x": 120, "w": 1680, "minW": 1500, "minH": 560, "maxItems": 4, "shrunkMaxItems": 5,
+      "needs": ["measure", "owner", "due"],
+      "itemH": 420, "itemHShrunk": 420, "gap": 48, "textPx": 30, "textPxShrunk": 26,
+      "cols": [], "measureW": 312, "measureMaxLines": 3,
+      "dateBoxW": 312, "datePx": 30
+    }
+  },
+  "overflowOrder": ["abbreviate", "shrink-once", "more-count", "next-slide"]
+}

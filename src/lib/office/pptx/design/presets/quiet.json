@@ -1,0 +1,42 @@
+{
+  "id": "quiet",
+  "name": "고요",
+  "source": "c1-quiet (261128 시안)",
+  "head": {
+    "shape": "plain",
+    "left": 160, "right": 1760,
+    "metaY": 88, "metaH": 36,
+    "titleY": 140, "titleH": 90, "titleMinPx": 40, "titleColor": "ink",
+    "leadY": 244, "leadH": 44,
+    "bodyTop": 330, "bodyTopWithLead": 330
+  },
+  "foot": { "y": 972, "h": 36, "rule": false, "rulePx": 0, "color": "ink2" },
+  "tokens": {
+    "colors": {
+      "bg": "F7F7F5", "surface": "F7F7F5", "band": "F7F7F5",
+      "ink": "1A1A1A", "ink2": "5A5A5A", "line": "D6D6D2", "rule": "1A1A1A",
+      "accent": "1A1A1A", "accentText": "1A1A1A", "onAccent": "F7F7F5", "risk": "C0152F"
+    },
+    "type": { "meta": 26, "title": 64, "label": 32, "body": 32, "table": 26, "num": 96, "hero": 320, "note": 26 },
+    "lines": { "hair": 1, "rule": 2, "heavy": 2 },
+    "radius": { "card": 0 }
+  },
+  "textPairs": [["ink", "bg"], ["ink2", "bg"], ["risk", "bg"], ["ink", "band"], ["onAccent", "accent"]],
+  "slots": {
+    "B1": {
+      "part": "kpi-hero-list",
+      "x": 160, "y": 330, "w": 1600, "h": 520, "minW": 1200, "minH": 420, "maxItems": 4,
+      "needs": ["count:changed", "count:actions", "ratio:opinions", "count:deferred"],
+      "valueBoxW": 260, "valuePx": 96, "valueMinPx": 72, "noteY": 898
+    },
+    "B3": {
+      "part": "hairline-table",
+      "x": 160, "w": 1600, "minW": 1600, "minH": 420, "maxItems": 5, "shrunkMaxItems": 6,
+      "needs": ["measure", "owner", "due"],
+      "itemH": 112, "itemHShrunk": 92, "textPx": 32, "textPxShrunk": 28,
+      "cols": [330, 730, 300, 240], "measureW": 706, "measureMaxLines": 2,
+      "dateBoxW": 228, "datePx": 32
+    }
+  },
+  "overflowOrder": ["abbreviate", "shrink-once", "more-count", "next-slide"]
+}

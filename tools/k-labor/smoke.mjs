@@ -812,6 +812,8 @@ if (tools.includes('make_broadcast_pptx')) {
   check(`office 전파본 ${bp.slides?.length}장 ${bp.file?.bytes}B`, bp.ok && fs.existsSync(out) && bp.slides?.[0]?.code === 'B1' && bp.slides?.length === 7);
   const bd = await callNew('make_broadcast_pptx', { snapshot: { ...FIN, status: { label: '초안' } }, outFile: path.join(tmp, 'office', '가상 전파본 초안.pptx') });
   check('office 전파본 — 초안은 만들지 않음', bd.ok === false);
+  const bdz = await callNew('make_broadcast_pptx', { snapshot: FIN, design: 'field', outFile: path.join(tmp, 'office', '가상 전파본 field.pptx') });
+  check(`office 전파본 design=field ${bdz.slides?.length}장`, bdz.ok && bdz.slides?.length === 7);
 }
 
 // ── office 교안 ── 합성 위험요인 → 교안(make), 사례 없으면 E4 없음

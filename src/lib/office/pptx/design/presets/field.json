@@ -1,0 +1,45 @@
+{
+  "id": "field",
+  "name": "현장 게시판",
+  "source": "c2-field (261128 시안)",
+  "head": {
+    "shape": "left-band",
+    "left": 280, "right": 1840,
+    "metaY": 56, "metaH": 44,
+    "titleY": 104, "titleH": 110, "titleMinPx": 40, "titleColor": "ink",
+    "leadY": 222, "leadH": 44,
+    "bodyTop": 250, "bodyTopWithLead": 280,
+    "bandW": 200, "bandNumberPx": 88, "bandNumberY": 96
+  },
+  "foot": { "y": 996, "h": 40, "rule": true, "rulePx": 6, "color": "ink2" },
+  "tokens": {
+    "colors": {
+      "bg": "FFFFFF", "surface": "FFFFFF", "band": "FFFFFF",
+      "ink": "111111", "ink2": "3D3D3D", "line": "111111", "rule": "111111",
+      "accent": "FFD400", "accentText": "111111", "onAccent": "111111", "risk": "111111",
+      "headBand": "111111", "onHeadBand": "FFFFFF"
+    },
+    "type": { "meta": 28, "title": 88, "label": 40, "body": 32, "table": 26, "num": 168, "hero": 168, "note": 32 },
+    "lines": { "hair": 3, "rule": 6, "heavy": 8 },
+    "radius": { "card": 0 }
+  },
+  "textPairs": [["ink", "bg"], ["ink2", "bg"], ["onAccent", "accent"], ["onHeadBand", "headBand"], ["accentText", "bg"]],
+  "slots": {
+    "B1": {
+      "part": "tile-grid",
+      "x": 280, "y": 268, "w": 1560, "h": 620, "minW": 1360, "minH": 540, "maxItems": 4,
+      "needs": ["count:changed", "count:actions", "ratio:opinions", "count:deferred"],
+      "valueBoxW": 686, "valuePx": 168, "valueMinPx": 136, "noteY": 916
+    },
+    "B3": {
+      "part": "row-cards",
+      "x": 280, "w": 1560, "minW": 1400, "minH": 552, "maxItems": 3, "shrunkMaxItems": 4,
+      "needs": ["measure", "owner", "due"],
+      "itemH": 184, "itemHShrunk": 132, "gap": 24, "textPx": 44, "textPxShrunk": 36,
+      "cols": [24, 380, 64, 628, 64, 400], "measureW": 572, "measureMaxLines": 2,
+      "dateBoxW": 344, "datePx": 44
+    }
+  },
+  "overflowOrder": ["abbreviate", "shrink-once", "more-count", "next-slide"],
+  "unverified": ["위험 줄무늬는 pptxgenjs 에 무늬 채우기가 없어 검정·노랑 띠를 번갈아 쌓아 흉내 냈다", "흑백 인쇄 실측 안 함"]
+}

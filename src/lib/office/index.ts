@@ -45,6 +45,9 @@ export type { PptxSlide, PptxShape } from './pptx/extract';
 export type { BroadcastOptions, BroadcastSlideInfo, OpinionResult } from './pptx/broadcast';
 export type { EducationCase, EducationCourse, EducationOptions, EducationQuiz, EducationSlideInfo, EducationSnapshot, EducationSummary } from './pptx/education';
 export type { TbmSnapshot, TbmTask, TbmHazard, TbmAcceptability, TbmOptions, TbmSlideInfo, TbmPick } from './pptx/tbm';
+// 덱 디자인 프리셋(quiet·field·app·report·story) — 프리셋 데이터와 「이 스냅숏을 담을 수 있나」 거르기
+export { DESIGN_IDS, getDeckDesign, designsFor, designErrors, contrastRatio } from './pptx/design/index';
+export type { DesignId, DeckDesign, DesignFit } from './pptx/design/index';
 // 덱 테마 계약 — 순수 함수라 결과 틀(run) 밖에서 바로 내보낸다
 export { getDeckTheme, DECK_RULES, DECK_KINDS, COLOR_ROLES } from './pptx/theme/index';
 export type {
@@ -293,7 +296,7 @@ export interface BroadcastPptxData {
 /** 확정 회의 스냅숏 → 회의 결과 전파본(근로자 공유 덱). 결과 파일은 files[0] */
 export function makeBroadcastPptx(snapshot: MeetingSnapshot, opts: BroadcastPptxOptions): Promise<Result<BroadcastPptxData>> {
   return run('pptx.broadcast', opts, null, async () => {
-    const r = await engineBroadcast(snapshot, { signatureRows: opts.signatureRows, fontFace: opts.fontFace, layout: opts.layout });
+    const r = await engineBroadcast(snapshot, { signatureRows: opts.signatureRows, fontFace: opts.fontFace, layout: opts.layout, design: opts.design });
     if (!r.ok || !r.bytes) return failure('pptx.broadcast', 'INVALID_ARGS', (r.errors ?? ['덱을 만들지 못했습니다.']).join(' / '), { errors: r.errors ?? [] }, notices(r.warnings));
     const data: BroadcastPptxData = { slides: r.slides, opinionResults: r.opinionResults, overflowEstimates: r.overflowEstimates };
     return { ok: true, data, files: [file(opts.outName ?? 'broadcast.pptx', PPTX_MIME, r.bytes)], warnings: notices(r.warnings), meta: meta('pptx.broadcast') };
