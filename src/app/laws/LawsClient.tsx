@@ -539,7 +539,7 @@ function EventCard({
             <strong>{e.short}</strong>
             {e.level !== '법률' && <span className="lr-badge lvl" title={e.lawKind}>{e.level === '시행령' && !e.short.endsWith('시행령') ? e.lawKind : e.level === '시행규칙' && !e.short.endsWith('시행규칙') ? e.lawKind : e.level}</span>}
             {e.kinds.map((k) => <span key={k} className="lr-badge">{k}</span>)}
-            {e.scope && <span className="lr-badge" title="공인노무사법 시행령 별표 1의 적용 범위">{e.scope}</span>}
+            {e.scope && <span className="lr-badge" title="수집 범위(공인노무사법 시행령 별표 1·별표 1의2 등)">{e.scope}</span>}
             {e.rules.length > 0 && <span className="lr-badge rule">취업규칙 반영 {e.rules.length}</span>}
           </div>
           <div className="lr-title">{headlineOf(e)}</div>

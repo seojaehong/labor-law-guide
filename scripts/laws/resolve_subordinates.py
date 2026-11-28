@@ -91,7 +91,7 @@ def main():
         print(f"  ✓ {t['no']:>2} {t['name']} — 하위법령 {len(uniq)}: {', '.join(f['name'] for f in uniq.values())}")
         time.sleep(0.3)
     OUT.write_text(json.dumps({
-        "_source": "법제처 법령체계도(lsStmd) — 공인노무사법 시행령 [별표 1] 제39호 「하위법령」",
+        "_source": "법제처 법령체계도(lsStmd) — 공인노무사법 시행령 [별표 1] 제39호·[별표 1의2] 제6호 「하위법령」 + labor_laws.json 의 별표 밖 법률",
         "_generated": time.strftime("%Y-%m-%d"),
         "missing_parents": missing,
         "subordinates": sorted(subs.values(), key=lambda s: (s["parentNo"], s["name"])),
