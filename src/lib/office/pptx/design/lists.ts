@@ -279,7 +279,7 @@ export function splitTallRow(d: DeckDesign, s: DesignScale, spec: ListSpec, row:
   const per = spec.cols.map((_, i) => capacityOf(s.x(L.textW[i]), s.pt(m.px), 1));
   for (let maxLines = Math.max(1, Math.floor(roomPx / (LINE_H * m.px))); maxLines >= 1; maxLines--) {
     const out: ListRow[] = [];
-    let rest = row.cells.map((c) => c.text);
+    const rest = row.cells.map((c) => c.text);
     while (rest.some((t) => t)) {
       const cells = row.cells.map((c, i) => {
         const [h, r] = takeLines(rest[i], per[i], maxLines);
