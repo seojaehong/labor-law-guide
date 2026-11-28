@@ -1,13 +1,15 @@
 // check_ordinary_wage 스모크 — 기대값은 tests/unit/calc-ordinary-wage-check.test.ts 그대로. 입력은 전부 합성 값이다.
 const YES = { regular: 'yes', uniform: 'yes', forWork: 'yes' };
 // 시험 B1 묶음(441~455행) — 기본급 250만 · 직무 20만 · 근속 5만 · 격월 재직조건부 상여 250만 · 성과급 최소 10만 · 부양가족 차등 가족수당
+// 261128 — 판정을 뒤집는 빈칸은 needs 로 묻는다. 재직 조건이 없는 항목은 false, 가족수당 기본금액이 없으면 0 을 명시한다(기대값은 그대로)
+const NO_PAYDAY = { employedOnPayday: false };
 const B1 = [
-  { kind: 'base', name: '기본급', amount: 2_500_000, timesPerYear: 12, ...YES },
-  { kind: 'allowance', name: '직무수당', amount: 200_000, timesPerYear: 12, ...YES },
-  { kind: 'tenure', name: '근속수당', amount: 50_000, timesPerYear: 12, ...YES },
+  { kind: 'base', name: '기본급', amount: 2_500_000, timesPerYear: 12, ...YES, ...NO_PAYDAY },
+  { kind: 'allowance', name: '직무수당', amount: 200_000, timesPerYear: 12, ...YES, ...NO_PAYDAY },
+  { kind: 'tenure', name: '근속수당', amount: 50_000, timesPerYear: 12, ...YES, ...NO_PAYDAY },
   { kind: 'bonus', name: '정기상여금', amount: 2_500_000, timesPerYear: 6, ...YES, employedOnPayday: true },
-  { kind: 'performance', name: '성과급', amount: 300_000, timesPerYear: 12, ...YES, forWork: 'no', minimum: 100_000, performanceYear: 'current' },
-  { kind: 'family', name: '가족수당', amount: 60_000, timesPerYear: 12, ...YES, uniform: 'no' },
+  { kind: 'performance', name: '성과급', amount: 300_000, timesPerYear: 12, ...YES, forWork: 'no', minimum: 100_000, performanceYear: 'current', ...NO_PAYDAY },
+  { kind: 'family', name: '가족수당', amount: 60_000, timesPerYear: 12, ...YES, uniform: 'no', baseForAll: 0, ...NO_PAYDAY },
 ];
 const near = (a, b) => typeof a === 'number' && Math.abs(a - b) < 0.005;
 
@@ -41,4 +43,8 @@ export default async function (callNew, check) {
   const neg = await callNew('check_ordinary_wage', { date: '2025-01-01', items: [B1[0], { ...B1[1], amount: -1 }] });
   check(`ordinary_wage 음수 금액 항목만 오류, 나머지는 합계(${neg.items?.[1]?.error})`,
     neg.ok && neg.result?.invalid === 1 && /금액/.test(neg.items?.[1]?.error ?? '') && neg.result.current.annual === 30_000_000);
+  // 261128 needs — 종전 기준 기간에 재직 조건을 비운 상여금은 묻고 시간급을 내지 않는다
+  const { employedOnPayday: _p, ...bonusBlank } = B1[3];
+  const ask = await callNew('check_ordinary_wage', { date: '2024-06-01', items: [bonusBlank] });
+  check(`ordinary_wage 재직 조건 빈칸 needs(${ask.status})`, ask.ok && ask.status === 'needs-input' && ask.result?.current === null && ask.needs?.[0]?.key === 'items[0].employedOnPayday');
 }

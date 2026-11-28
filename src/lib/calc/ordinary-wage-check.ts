@@ -10,6 +10,7 @@
 //   (시행령에 숫자 없음. 최저임금 고시·min-wage.ts unitHours 는 같은 식을 정수로 반올림한 209, 지침 예시 208.56).
 import type { SourceId } from './ordinary-wage-sources';
 import { SOURCES } from './ordinary-wage-sources';
+import type { Assumption, Need } from './needs';
 
 export type Answer = 'yes' | 'no' | 'unknown';
 export type Era = 'new' | 'old';
@@ -465,4 +466,82 @@ export function allCopy(): string[] {
   lines.push(hourlyText({ hourly: 1234.5, count: 1 }), hourlyText({ hourly: 0, count: 0 }));
   for (const s of Object.values(SOURCES)) lines.push(s.cite, ...(s.quote ? [s.quote] : []), ...(s.note ? [s.note] : []));
   return [...new Set(lines)];
+}
+
+// ── 빈칸이 판정을 뒤집을 때만 묻기(공통 형식 ./needs.ts, 261128 재홍님 결정) ──
+// 고정 목록을 두지 않고, 비운 칸을 양쪽 값으로 넣어 checkItem 을 돌려 판정(들어감·빠짐·보류, 일부 여부)이 달라질 때만 needs 로 보낸다.
+// 실측(261128, 종류 12 × 기준 2 × 답 27) — 지급일 재직 조건·성과급 최저 보장액·가족수당 기본금액은 뒤집고, 지급 횟수·휴직 제한은 금액만 바꾼다.
+// 웹은 체크 칸이 늘 값이 있어(빈칸 = 아니오) 이 함수를 쓰지 않는다. MCP 가 쓴다.
+
+export interface OrdinaryNeedsInput {
+  /** 점검 기준일(연장근로 등을 제공한 날). 비우면 today */
+  date?: string;
+  /** employedOnPayday·minimum·baseForAll 이 undefined 면 「비운 칸」으로 본다 */
+  items: WageItem[];
+}
+export interface OrdinaryNeeds {
+  needs: Need[];
+  assumptions: Assumption[];
+  date: string;
+  era: Era;
+}
+
+const verdict = (c: ItemCheck) => `${c.direction}/${c.partial}`;
+const flips = (a: WageItem, b: WageItem, eras: Era[]) => {
+  try {
+    return eras.some((e) => verdict(checkItem(a, e)) !== verdict(checkItem(b, e)));
+  } catch {
+    return false; // 칸 오류는 항목 결과의 error 로 따로 알린다
+  }
+};
+/** 일부 금액(최저 보장액·기본금액)을 넣었다고 볼 때의 시험값 — 1회 지급액의 절반(1원 이상) */
+const someOf = (amount: number) => Math.max(1, Math.floor(amount / 2));
+
+export const DATE_NEED: Need = {
+  key: 'date',
+  question: '점검하려는 연장근로·야간근로·휴일근로를 한 날이 언제인가요? 2024년 12월 18일까지인지, 12월 19일 이후인지에 따라 판단 기준이 다릅니다.',
+  why: '대법원 2024. 12. 19. 선고 2020다247190 전원합의체 판결로 고정성 요건이 빠졌고, 새 기준은 그날 이후 제공한 근로부터 적용합니다. 이 항목들은 두 기준의 판정이 갈립니다.',
+};
+
+export function ordinaryWageNeeds(input: OrdinaryNeedsInput, today: string): OrdinaryNeeds {
+  const needs: Need[] = [];
+  const assumptions: Assumption[] = [];
+  const date = input.date || today;
+  const era = eraOn(date);
+  if (!input.date) {
+    // 두 기준의 판정이 갈리는 항목이 하나라도 있으면 기준일이 결론을 바꾼다
+    const split = input.items.some((i) => {
+      try { return verdict(checkItem(i, 'new')) !== verdict(checkItem(i, 'old')); } catch { return false; }
+    });
+    if (split) needs.push(DATE_NEED);
+    else assumptions.push({ key: 'date', value: today, note: '점검 기준일을 넣지 않아 오늘로 봤습니다. 넣은 항목은 새 기준·종전 기준 판정이 같습니다.' });
+  }
+  // 기준일을 모르면 두 기준 어느 쪽에서든 뒤집는 칸을 묻는다(답에 따라 두 기준이 갈릴 수 있다 — 그때는 다음 호출에서 기준일을 묻는다)
+  const eras: Era[] = input.date ? [era] : ['new', 'old'];
+  input.items.forEach((i, k) => {
+    if (i.kind === 'statutory') return;
+    const label = `「${i.name}」`;
+    if (i.employedOnPayday === undefined && flips({ ...i, employedOnPayday: false }, { ...i, employedOnPayday: true }, eras)) {
+      needs.push({
+        key: `items[${k}].employedOnPayday`,
+        question: `${label}은 지급일에 재직 중인 사람에게만 주나요? 지급일 전에 퇴직하면 받지 못하는지 알려 주세요.`,
+        why: '2024. 12. 18.까지 제공한 근로는 지급일 재직 조건이 붙으면 고정성이 없어 통상임금에서 빠졌고(대법원 2013. 12. 18. 선고 2012다89399 전원합의체 판결), 그 뒤로는 그 조건만으로 빠지지 않습니다(2020다247190).',
+      });
+    }
+    if (i.kind === 'performance' && i.minimum === undefined && i.amount > 0 && flips({ ...i, minimum: 0 }, { ...i, minimum: someOf(i.amount) }, eras)) {
+      needs.push({
+        key: `items[${k}].minimum`,
+        question: `${label}에 평가 결과와 상관없이 최소로 보장된 금액이 있나요? 있으면 1회 얼마인지, 없으면 0원이라고 알려 주세요.`,
+        why: '근무실적에 따라 주는 성과급은 통상임금이 아니지만, 평가와 무관하게 보장된 최소 금액은 소정근로의 대가로 통상임금에 들어갑니다(2020다247190).',
+      });
+    }
+    if (i.kind === 'family' && i.baseForAll === undefined && i.amount > 0 && flips({ ...i, baseForAll: 0 }, { ...i, baseForAll: someOf(i.amount) }, eras)) {
+      needs.push({
+        key: `items[${k}].baseForAll`,
+        question: `${label} 중에 부양가족과 상관없이 모두에게 주는 기본금액이 있나요? 있으면 1회 얼마인지, 없으면 0원이라고 알려 주세요.`,
+        why: '부양가족 수에 따라 주는 가족수당은 통상임금이 아니지만, 모든 근로자에게 주는 기본금액은 통상임금에 들어갑니다(2012다89399).',
+      });
+    }
+  });
+  return { needs, assumptions, date, era };
 }

@@ -8,12 +8,15 @@ import { bannedHits } from '@/lib/tool-kit/banned';
 import type { Need } from '@/lib/calc/needs';
 import * as delayTool from '../../tools/k-labor/groups/more/calc_wage_delay_interest.mjs';
 import * as attendanceTool from '../../tools/k-labor/groups/more/calc_attendance_rate.mjs';
+import * as ordinaryTool from '../../tools/k-labor/groups/more/check_ordinary_wage.mjs';
+import { ordinaryWageNeeds } from '@/lib/calc/ordinary-wage-check';
 
 type Handler = (a: Record<string, unknown>) => Promise<{ content: { text: string }[] }>;
 const hs: Record<string, Handler> = {};
 const fake = { registerTool: (n: string, _c: unknown, h: Handler) => { hs[n] = h; } };
 delayTool.register(fake);
 attendanceTool.register(fake);
+ordinaryTool.register(fake);
 const mcp = async (name: string, a: Record<string, unknown>) => JSON.parse((await hs[name](a)).content[0].text);
 const needText = (ns: Need[]) => ns.flatMap((n) => [n.question, n.why]).join(' ');
 
@@ -64,6 +67,46 @@ describe('임금 지연이자 — 재직 여부를 비우면 재직 중으로 �
     expect(asked.needs.map((n: Need) => n.key)).toEqual(['employed']);
     const ok = await mcp('calc_wage_delay_interest', { employed: true, items: [PERIODIC] });
     expect(ok).toMatchObject({ ok: true, status: 'ok', result: { total: calcWageDelayInterest({ items: [PERIODIC] }).total } });
+  });
+});
+
+// ── 2. 통상임금 점검 ──
+// 빈칸을 양쪽 값으로 넣어 보고 판정(들어감·빠짐·보류, 일부 여부)이 달라질 때만 묻는다(261128 재홍님 결정). 금액만 바뀌는 칸은 assumptions
+const BONUS = { kind: 'bonus' as const, name: '정기상여금', amount: 1_000_000, timesPerYear: 6 as const, regular: 'yes' as const, uniform: 'yes' as const, forWork: 'yes' as const };
+
+describe('통상임금 점검 — 판정을 뒤집는 빈칸만 되묻는다', () => {
+  it('엔진: 종전 기준 기간에 지급일 재직 조건을 비우면 그 항목에 묻는다(들어감 ↔ 빠짐)', () => {
+    const r = ordinaryWageNeeds({ date: '2024-06-01', items: [BONUS] }, '2026-11-28');
+    expect(r.needs.map((n) => n.key)).toEqual(['items[0].employedOnPayday']);
+    expect(r.needs[0].question).toContain('정기상여금');
+    expect(bannedHits(needText(r.needs))).toEqual([]);
+  });
+  it('엔진: 새 기준 기간이고 근무시간의 대가에 「예」면 재직 조건이 판정을 바꾸지 않아 묻지 않는다', () => {
+    expect(ordinaryWageNeeds({ date: '2025-06-01', items: [BONUS] }, '2026-11-28').needs).toEqual([]);
+  });
+  it('엔진: 기준일을 비웠고 두 기준의 판정이 갈리면 기준일을 묻는다, 같으면 오늘로 두고 assumptions', () => {
+    const split = ordinaryWageNeeds({ items: [{ ...BONUS, employedOnPayday: true }] }, '2026-11-28');
+    expect(split.needs.map((n) => n.key)).toEqual(['date']);
+    const same = ordinaryWageNeeds({ items: [{ ...BONUS, employedOnPayday: false }] }, '2026-11-28');
+    expect(same.needs).toEqual([]);
+    expect(same.assumptions.map((x) => x.key)).toEqual(['date']);
+    expect(same.date).toBe('2026-11-28');
+  });
+  it('엔진: 성과급 최저 보장액·가족수당 기본금액을 비우면 묻고, 0 을 넣으면 묻지 않는다', () => {
+    const perf = { kind: 'performance' as const, name: '성과급', amount: 2_000_000, timesPerYear: 1 as const, regular: 'yes' as const, uniform: 'yes' as const, forWork: 'yes' as const, performanceYear: 'current' as const, employedOnPayday: false };
+    const fam = { kind: 'family' as const, name: '가족수당', amount: 100_000, timesPerYear: 12 as const, regular: 'yes' as const, uniform: 'no' as const, forWork: 'yes' as const, employedOnPayday: false };
+    const asked = ordinaryWageNeeds({ date: '2025-06-01', items: [perf, fam] }, '2026-11-28');
+    expect(asked.needs.map((n) => n.key)).toEqual(['items[0].minimum', 'items[1].baseForAll']);
+    expect(ordinaryWageNeeds({ date: '2025-06-01', items: [{ ...perf, minimum: 0 }, { ...fam, baseForAll: 0 }] }, '2026-11-28').needs).toEqual([]);
+  });
+  it('MCP: 판정을 뒤집는 빈칸이 있으면 needs-input(시간급 null), 다 넣으면 종전 응답 + 지급 횟수·월 기준시간은 assumptions', async () => {
+    const asked = await mcp('check_ordinary_wage', { date: '2024-06-01', items: [{ ...BONUS, timesPerYear: undefined }] });
+    expect(asked).toMatchObject({ ok: true, status: 'needs-input', result: { current: null, newEra: null, oldEra: null } });
+    expect(asked.needs.map((n: Need) => n.key)).toEqual(['items[0].employedOnPayday']);
+    const ok = await mcp('check_ordinary_wage', { date: '2024-06-01', items: [{ ...BONUS, timesPerYear: undefined, employedOnPayday: false }] });
+    expect(ok).toMatchObject({ ok: true, status: 'ok', needs: [] });
+    expect(ok.items[0].direction).toBe('in');
+    expect(ok.assumptions.map((x: { key: string }) => x.key).sort()).toEqual(['items[0].timesPerYear', 'unitHours']);
   });
 });
 

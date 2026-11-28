@@ -44,10 +44,10 @@
 | 실수령액 | 웹·MCP | aboveTable | 비과세·자녀 0 · 비율 100 · 가족 1 · 날짜 오늘 | 금액만 | 후속(assumptions 만) |
 | 퇴직소득세 | MCP | 2023년 전 퇴사 = 오류 | `payout ?? cash` | 원천징수 여부 | 후속 |
 | 중도퇴사 정산 | 웹·MCP | out | 금액칸 0 · 직전 간이세액 0 · 해 올해 | 해: 판정도 | 후속 |
-| 출근율 | 웹·MCP | under1y·none·monthly | `days ?? {}` → 넣지 않은 날은 출근 | **판정도** | 후속 |
-| 임금체불 지연이자 | 웹·MCP | basis none | `lastWorkDay` 비움 → 재직 중 | **판정도**(1호/2호/0) | 후속 |
+| 출근율 | 웹·MCP | under1y·none·monthly | `days ?? {}` → 넣지 않은 날은 출근 | **판정도** | ✅ 후속 PR(261128) — MCP `calcAttendanceRateChecked`, days 없음·빈 묶음 → needs `days` |
+| 임금체불 지연이자 | 웹·MCP | basis none | `lastWorkDay` 비움 → 재직 중 | **판정도**(1호/2호/0) | ✅ 후속 PR(261128) — MCP `employed` 입력 + `calcWageDelayInterestChecked`, needs `employed`·`lastWorkDay` |
 | 근로자성 점검 | 웹·MCP | unknown·notComputed | 답 없음 → unknown(안전) · 식대 0 · 가족 1 | 금액만 | 후속(낮음) |
-| 통상임금 점검 | 웹·MCP | unclear | `minimum ?? 0` · `employedOnPayday` 없음 → 조건 없음 · 날짜 오늘 → 기준 선택 · 209 | **판정도** | 후속 |
+| 통상임금 점검 | 웹·MCP | unclear | `minimum ?? 0` · `employedOnPayday` 없음 → 조건 없음 · 날짜 오늘 → 기준 선택 · 209 | **판정도** | ✅ 후속 PR(261128) — MCP `ordinaryWageNeeds`(빈칸을 양쪽 값으로 돌려 판정이 바뀔 때만 needs), 횟수·209 → assumptions |
 | 공휴일 근로수당 | 웹·MCP | not_computed 등 | 209·8 · **`weekly_hours || 0` → 15시간 검사 건너뜀** · MCP `paidContinuously ?? true` | **판정도** | 후속(우선) |
 | 상시근로자 수 | 웹·MCP | none/spans | `openDays ?? 월~금`(메모 없음) · 나머지는 메모로 드러남 | 판정도(5인) | 후속 |
 | 퇴직 연차 정산 | MCP | insufficient-input | `asOf ?? 오늘` | 안전 | 후속(형식만) |
@@ -59,10 +59,10 @@
 결론을 바꿀 수 있는 순서:
 
 1. ✅(교정 261127 후속 PR) 공휴일 근로수당 — `calcHolidayPayChecked`. 시급제 관공서 공휴일(또는 시급에 주휴 포함)에 주 시간 없음 → needs `weekly_hours`, 일용직 계속 근로 여부 없음 → needs `paid_continuously`, 월 209·1일 8 → assumptions. 웹은 시급제 주 시간 빈칸을 알림으로 막는다.
-2. 통상임금 점검 — 기준일 `date || 오늘`(새·종전 기준 선택), `employedOnPayday` 없음 → 재직조건 없음, `minimum ?? 0`. 🔴 **설계 결정 필요** — 항목별 체크 칸이 많아 어떤 빈칸을 되묻고 어떤 빈칸을 「해당 없음」으로 볼지 정해야 한다.
+2. ✅(261128 후속 PR, 재홍님 결정 「뒤집는 것만 되묻기」) 통상임금 점검 — `ordinaryWageNeeds`. 고정 목록 없이 비운 칸을 양쪽 값으로 넣어 checkItem 판정(방향·일부)이 바뀔 때만 needs: 기준일(두 기준 판정이 갈릴 때만, 같으면 오늘 assumptions)·`items[n].employedOnPayday`·성과급 `minimum`·가족수당 `baseForAll`. 실측(종류 12 × 기준 2 × 답 27) — 지급 횟수·휴직 제한은 판정을 안 바꿔 assumptions(횟수·209). 웹은 체크 칸이 늘 값이 있어 그대로.
 3. ✅(교정 261127 후속 PR) 해고예고수당 — `noticed`·`noticeDate` 둘 다 없으면 `needs-input`(needs `noticed`, 금액 null). 3개월 미만은 묻지 않는다. 웹은 라디오라 늘 값이 있다. **바꾼 결정** — 261124 P2 #12 의 「생략 = 예고 안 함」을 뒤집음.
-4. 임금체불 지연이자 — 마지막 근무일 비움 → 재직 중. 🔴 **설계 결정 필요** — 「비우면 재직 중」이 입력 계약이라 needs 로 바꾸려면 재직 여부 입력을 새로 둬야 한다(웹 화면 포함).
-5. 출근율 — 넣지 않은 결근을 출근으로 봄. 🔴 **설계 결정 필요** — 달력 입력이 「표시한 날만 결근」 구조라, 기간 전체를 확인했다는 표시를 따로 받을지 정해야 한다.
+4. ✅(261128 후속 PR, 재홍님 결정 「재직 여부 칸 추가」) 임금체불 지연이자 — MCP `employed` 입력. 재직 여부도 마지막 근무일도 없으면 needs `employed`, 퇴직(또는 퇴직 때 정산 항목)인데 날짜 없음 → needs `lastWorkDay`(종전 오류). 웹은 재직·퇴직 라디오가 늘 값이 있어 그대로. **바꾼 결정** — 「비우면 재직 중」 입력 계약을 MCP 에서 폐기.
+5. ✅(261128 후속 PR, 재홍님 결정 「일수 미입력이면 되묻기」) 출근율 — `calcAttendanceRateChecked`. days 가 없거나 한 칸도 없으면 needs `days`(결근 0 을 넣으면 종전 계산), 1년 미만은 묻지 않음. 웹은 원인별 칸이 다 보여 그대로.
 6. 상시근로자 수 — `openDays ?? 월~금`(메모 없음). 퇴직소득세 `payout ?? cash`.
 7. 휴업수당 — 제외일수가 있는데 제외임금 빈칸을 0 으로(퇴직금 I8 과 같은 규칙으로 맞출지).
 8. 웹·MCP 최저임금 — 해·상여·복리 기본값을 assumptions 로.
