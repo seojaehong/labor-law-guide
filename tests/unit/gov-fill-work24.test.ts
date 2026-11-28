@@ -6,6 +6,22 @@ import { ALLOWED_IDS, WORK24_CHILDCARE_REDUCTION as T, childcareReductionFillPla
 const SPEC = { start: '2026-11-02', end: '2027-04-30', weeklyBefore: '40', weeklyAfter: '24', ordinaryWage: '3,000,000', monthlyHours: '209' };
 const TODAY = '2026-11-28';
 
+describe('웹스토어 묶음', () => {
+  it('개발용 localhost 를 빼고, 운영 두 주소와 고용24 화면만 남긴다', async () => {
+    const { storeManifest, storeBackground } = await import('../../scripts/pack-work24-fill.mjs');
+    const m = JSON.parse(storeManifest(fs.readFileSync('extensions/work24-fill/manifest.json', 'utf8')));
+    const all = m.content_scripts.flatMap((c: { matches: string[] }) => c.matches);
+    expect(all.join()).not.toMatch(/localhost/);
+    expect(all).toContain('https://yellowenvelope.kr/tools/childcare-reduction*');
+    expect(all).toContain('https://www.work24.go.kr/ei/b/b/1500/openHPEIBB1500M06.do*');
+    expect(m.permissions).toEqual(['storage']);
+    expect(m.icons['128']).toBe('icons/icon128.png');
+    const bg = storeBackground(fs.readFileSync('extensions/work24-fill/background.js', 'utf8'));
+    expect(bg).not.toMatch(/localhost/);
+    expect(bg).toContain("'https://www.yellowenvelope.kr']");
+  });
+});
+
 describe('고용24에 넣기 안내 문구', () => {
   it('금지어·느낌표 없음, 대신 신청·제출한다는 말 없음', async () => {
     const { HANDOFF_COPY } = await import('@/app/tools/childcare-reduction/Work24Handoff');

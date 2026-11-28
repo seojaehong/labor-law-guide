@@ -17,7 +17,7 @@ export default function PrivacyPage() {
   return (
     <main className="layout-reading">
       <h1 className="t-h2" style={{ color: 'var(--color-text-primary)' }}>개인정보처리방침</h1>
-      <p className="mt-4 text-sm text-gray-600">시행일: 2026-11-09</p>
+      <p className="mt-4 text-sm text-gray-600">시행일: 2026-11-28</p>
 
       <div className="mt-8 space-y-4 text-sm leading-7 text-gray-800">
         <p>
@@ -118,6 +118,13 @@ export default function PrivacyPage() {
           브라우저의 사이트 데이터 삭제로 지울 수 있습니다. AI 질문의 세션 ID는 브라우저에 남고 질문할 때 서버로
           보냅니다.
         </p>
+        <p id="extension">
+          크롬 확장 &lsquo;일의 무늬 — 고용24 확인서 채우기&rsquo;는 육아기 근로시간 단축 계산 화면에서 이용자가
+          보내기를 누른 값(단축 기간, 단축 전후 주 소정근로시간, 통상임금, 월 소정근로시간)만 받아, 브라우저를 닫으면
+          사라지는 확장 저장소에 최대 30분 동안 둡니다. 고용24 확인서 화면이 한 번 가져가면 바로 지웁니다. 이 값은
+          서버나 다른 곳으로 보내지 않고, 확장은 주민등록번호·비밀번호·첨부 칸을 읽거나 채우지 않으며 고용24에서
+          저장·신청 버튼을 누르지 않습니다.
+        </p>
         <p>
           이용 통계에 Google Analytics 쿠키를 씁니다. 브라우저 설정에서 쿠키를 막거나 Google의 차단 부가 기능을
           쓰면 수집되지 않으며, 사이트 이용에는 지장이 없습니다.
@@ -148,7 +155,7 @@ export default function PrivacyPage() {
         </p>
 
         <h2 className={h2}>9. 변경</h2>
-        <p>이 방침을 바꾸면 시행일과 함께 이 화면에 알립니다. 이전 방침: 2026-04-20.</p>
+        <p>이 방침을 바꾸면 시행일과 함께 이 화면에 알립니다. 이전 방침: 2026-04-20, 2026-11-09.</p>
       </div>
     </main>
   );
