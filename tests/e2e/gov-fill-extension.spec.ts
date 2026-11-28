@@ -33,9 +33,22 @@ test('확장: 사이트에서 보낸 7칸 계획이 고용24 확인서 칸에 �
     await page.getByLabel(/^산정기준 단위기간의 월 소정근로시간/).fill('209');
     await page.getByRole('button', { name: '확장으로 보내기' }).click();
     await expect(page.getByText(/보냈습니다/)).toBeVisible();
+    // 웹스토어 스크린샷(1280×800) — STORE_SHOTS=1 일 때만
+    const shots = !!process.env.STORE_SHOTS;
+    if (shots) {
+      fs.mkdirSync('artifacts/store', { recursive: true });
+      await page.setViewportSize({ width: 1280, height: 800 });
+      await page.getByRole('button', { name: '확장으로 보내기' }).scrollIntoViewIfNeeded();
+      await page.screenshot({ path: 'artifacts/store/1-site.png' });
+    }
 
     const w = await ctx.newPage();
     await w.goto(W24);
+    if (shots) {
+      await w.setViewportSize({ width: 1280, height: 800 });
+      await w.getByRole('button', { name: '칸에 넣기' }).waitFor();
+      await w.screenshot({ path: 'artifacts/store/2-panel.png' });
+    }
     await w.getByRole('button', { name: '칸에 넣기' }).click();
     await expect(w.getByText(/넣었습니다/)).toBeVisible();
     expect(await w.inputValue('#layoffAlwncPdBeginDe')).toBe('2026-01-05');
