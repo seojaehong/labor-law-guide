@@ -1,0 +1,20 @@
+{
+  "manifest_version": 3,
+  "name": "일의 무늬 — 고용24 확인서 채우기",
+  "version": "0.1.0",
+  "description": "일의 무늬에서 계산한 값을 고용24 육아기 근로시간 단축 확인서 칸에 넣습니다. 저장·신청은 사용자가 직접 누릅니다.",
+  "permissions": ["storage"],
+  "background": { "service_worker": "background.js" },
+  "content_scripts": [
+    {
+      "matches": ["https://yellowenvelope.kr/tools/childcare-reduction*", "https://www.yellowenvelope.kr/tools/childcare-reduction*", "http://localhost:3123/tools/childcare-reduction*"],
+      "js": ["site.js"],
+      "run_at": "document_start"
+    },
+    {
+      "matches": ["https://www.work24.go.kr/ei/b/b/1500/openHPEIBB1500M06.do*"],
+      "js": ["fill.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}
