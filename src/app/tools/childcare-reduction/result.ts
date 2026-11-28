@@ -176,7 +176,10 @@ export function checkGroups(r: ChildcareReductionResult): CheckGroup[] {
 const range = (from: string | null, until: string | null) =>
   from ? `${dotDate(from)}부터 ${until ? `${dotDate(until)}까지` : '(종료일을 넣으면 마감일을 셉니다)'}` : '단축 시작일을 넣으면 셉니다';
 
-/** 신청 기간 줄 — 엔진 apply 날짜와 문장 */
+const filingDeadline = (until: string | null) => until ? ` (마감 ${dotDate(until)})` : '';
+const VERIFY_FIRST_FILING = '첫 접수일과 단축 종료 후 미신청분 접수 시점은 고용24에서 확인합니다.';
+
+/** 근로자 신청 기간은 그대로 표시한다. 사업주의 firstFrom은 첫 접수일로 쓰지 않는다. */
 export function applyLines(r: ChildcareReductionResult): string[] {
   const out: string[] = [];
   if (r.worker) {
@@ -185,13 +188,14 @@ export function applyLines(r: ChildcareReductionResult): string[] {
   }
   const a = r.employer.subsidy.apply;
   if (r.employer.subsidy.monthly !== null) {
-    out.push(`사업주 장려금 신청(사업주가 신청): 절반 ${range(a.firstFrom, a.until)}${a.restFrom ? `, 나머지 ${range(a.restFrom, a.restUntil)}` : ''}`);
-    pushPlain(out, a.note);
+    out.push(`사업주 장려금 신청(사업주가 신청): 정기 신청분(절반)은 3개월분씩 신청${filingDeadline(a.until)}. ${VERIFY_FIRST_FILING}`);
+    if (a.restFrom) {
+      out.push(`단축 종료 후 6개월 이상 계속 고용한 경우 나머지 ${range(a.restFrom, a.restUntil)} 신청. 근로자 사정으로 먼저 이직한 경우의 신청 기간은 고용24에서 확인합니다.`);
+    }
   }
   const ws = r.employer.workSharing;
   if (ws && ws.monthly !== null) {
-    out.push(`업무분담 지원금 신청(사업주가 신청): ${range(ws.apply.firstFrom, ws.apply.until)}`);
-    pushPlain(out, ws.apply.note);
+    out.push(`업무분담 지원금 신청(사업주가 신청): 정기 신청은 3개월분씩${filingDeadline(ws.apply.until)}. ${VERIFY_FIRST_FILING}`);
   }
   return out;
 }

@@ -60,3 +60,19 @@ test('칸을 채우면 원 단위 금액이 나오고, 휴대폰 폭에서 계�
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
   expect(overflow).toBeLessThanOrEqual(0);
 });
+
+test('사업주 첫 신청일을 단정하지 않고 근로자 신청일을 유지한다', async ({ page }) => {
+  await page.getByLabel(/^월 통상임금/).fill('3000000');
+  await page.getByLabel('단축 전 1주 소정근로시간', { exact: true }).fill('40');
+  await page.getByLabel('단축 후 1주 소정근로시간', { exact: true }).fill('24');
+  await page.getByLabel('단축 시작일', { exact: true }).fill('2026-08-10');
+  await page.getByLabel(/^단축 종료일/).fill('2026-12-31');
+  await page.getByRole('group', { name: /우선지원대상기업입니까/ }).getByLabel('예', { exact: true }).check();
+  await page.getByText('업무분담 지원금(사업주, 넣을 때만)', { exact: true }).click();
+  await page.getByLabel(/업무분담자에게 업무분담을 이유로 매월 지급한 금액/).fill('200000');
+  const block = result(page);
+  await expect(block.getByText(/^사업주 장려금 신청/)).toContainText('고용24');
+  await expect(block.getByText(/^업무분담 지원금 신청/)).toContainText('고용24');
+  await expect(block.getByText(/^단축급여 신청/)).toContainText('2026.09.10.');
+  await expect(block).not.toContainText('2026.09.01.');
+});
