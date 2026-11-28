@@ -4,6 +4,7 @@ import {
   normalizeBizNo,
   parseWorkplaceXml,
   tierFor,
+  UPSTREAM_TIMEOUT_MS,
 } from '@/lib/workplace-lookup';
 import { allCopy } from '@/components/biz-no-lookup-copy';
 import { bannedHits } from '@/lib/tool-kit/banned';
@@ -90,6 +91,28 @@ describe('fetchWorkplaces', () => {
   it('네트워크·HTTP 오류는 upstream', async () => {
     expect(await fetchWorkplaces('1018100001', 'K', async () => new Response('', { status: 500 }))).toEqual({ ok: false, reason: 'upstream' });
     expect(await fetchWorkplaces('1018100001', 'K', async () => { throw new Error('x'); })).toEqual({ ok: false, reason: 'upstream' });
+  });
+
+  // 261128 — 공단 쪽이 응답 없이 붙잡고 있으면(504 SERVICETIMEOUT) 운영 화면이 31초를 기다린 뒤 실패했다
+  it('공단이 답하지 않으면 시간 제한에서 끊고 upstream, 요청도 취소한다', async () => {
+    let aborted = false;
+    const hang = (_url: string, signal?: AbortSignal) => new Promise<Response>(() => {
+      signal?.addEventListener('abort', () => { aborted = true; });
+    });
+    const t0 = Date.now();
+    expect(await fetchWorkplaces('1018100001', 'K', hang, 50)).toEqual({ ok: false, reason: 'upstream' });
+    expect(Date.now() - t0).toBeLessThan(1000);
+    expect(aborted).toBe(true);
+  });
+
+  it('본문을 받다가 멈춰도 시간 제한에서 끊는다', async () => {
+    const slowBody = async () => ({ ok: true, text: () => new Promise<string>(() => {}) }) as unknown as Response;
+    expect(await fetchWorkplaces('1018100001', 'K', slowBody, 50)).toEqual({ ok: false, reason: 'upstream' });
+  });
+
+  it('기본 시간 제한은 화면이 기다릴 만한 길이다(10초 이하)', () => {
+    expect(UPSTREAM_TIMEOUT_MS).toBeGreaterThan(0);
+    expect(UPSTREAM_TIMEOUT_MS).toBeLessThanOrEqual(10_000);
   });
 });
 
