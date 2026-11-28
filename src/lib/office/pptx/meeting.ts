@@ -7,7 +7,7 @@ import { capacityOf, textUnits } from './text-units';
 import { DESIGN_IDS, getDeckDesign, isDesignId, type DeckDesign, type DesignColorKey, type DesignId } from './design/index';
 import { bodyRoomFor, color, drawHead } from './design/head';
 import { koSlide } from './design/lang';
-import { drawList, drawListEmpty, listLayout, type ListRow, type ListSpec } from './design/lists';
+import { drawList, drawListEmpty, fitKeepCols, listLayout, type ListRow, type ListSpec } from './design/lists';
 import { drawB1, type Kpi } from './design/parts';
 import { LINE_H, wrapLines } from './design/b3-geometry';
 import { calloutHeight, checkCallout, drawCallout, listPages, pickLayout, recordChecks, type Kit, type Page } from './design/deck';
@@ -1129,7 +1129,9 @@ async function makeMeetingDesign(
       },
     });
   };
-  const col = (key: string, caption: string, ratio: number, more: { status?: boolean; dot?: boolean } = {}) => ({ key, caption, ratio, ...more });
+  const col = (key: string, caption: string, ratio: number, more: { status?: boolean; dot?: boolean; keep?: boolean } = {}) => ({ key, caption, ratio, ...more });
+  /** 낱말 가운데서 끊지 않는 칸(ID·날짜·상태·조치자·확인자) — 칸 폭을 낱말에 맞춰 넓힌다 */
+  const K = { keep: true };
   const statusTone = (st?: string): DesignColorKey => (st === '완료' ? 'positive' : st === '미완료' || st === '기한초과' ? 'negative' : st === '재조치' ? 'caution' : 'ink');
   const roomOf = (p: Page) => (p.box.bottom - p.box.top) / S.k;
   const cover = (code: string, title: string, rows: [string, string][]) => {
@@ -1148,7 +1150,7 @@ async function makeMeetingDesign(
       drawListEmpty(ctx, p.box, emptyText, spec.area);
       return 120;
     }
-    const L = drawList(ctx, p.box, spec, rows);
+    const L = drawList(ctx, p.box, fitKeepCols(D, S, spec, rows).spec, rows);
     if (L.total > roomOf(p)) warnings.push(`${spec.code}(${D.id}) ${p.no}장: 목록이 본문 높이를 넘는다 — 원문 그대로 실었으니 입력에서 줄여 주세요`);
     return L.total;
   };
@@ -1189,7 +1191,7 @@ async function makeMeetingDesign(
         {
           after: (p) => {
             if (slides.filter((x) => x.code === 'P2').length > 1) return;
-            const h = areaList(p, { code: 'P2', area: { x: rx, w: rw }, cols: [col('role', '역할', 1), col('name', '참석 예정자', 1.2)] }, attendeeRows(snapshot.attendees?.planned ?? [], 'planned'), '참석 예정자 미입력');
+            const h = areaList(p, { code: 'P2', area: { x: rx, w: rw }, cols: [col('role', '역할', 1, K), col('name', '참석 예정자', 1.2, K)] }, attendeeRows(snapshot.attendees?.planned ?? [], 'planned'), '참석 예정자 미입력');
             const ch = calloutHeight(kit, rw, parts);
             if (h + 32 + ch > roomOf(p) - SAFE) {
               safetyLater = true;
@@ -1234,7 +1236,7 @@ async function makeMeetingDesign(
       '전회 이행 현황',
       {
         dense: true,
-        cols: [col('id', 'ID', 0.6), col('hazard', '위험요인', 2.0, { dot: true }), col('frequency', '빈도', 0.45), col('severity', '강도', 0.45), col('grade', '등급', 0.8), col('measure', '전회 대책', 1.6), col('owner', '1차 조치자', 1.0), col('due', '기한', 0.95), col('status', '상태', 0.7, { status: true }), col('result', '조치결과', 1.5), col('verifier', '2차 확인자', 1.0)],
+        cols: [col('id', 'ID', 0.6, K), col('hazard', '위험요인', 2.0, { dot: true }), col('frequency', '빈도', 0.45, K), col('severity', '강도', 0.45, K), col('grade', '등급', 0.8, K), col('measure', '전회 대책', 1.6), col('owner', '1차 조치자', 1.0, K), col('due', '기한', 0.95, K), col('status', '상태', 0.7, { status: true, keep: true }), col('result', '조치결과', 1.5), col('verifier', '2차 확인자', 1.0, K)],
       },
       snapshot.prior.map((x) => ({
         anchors: [x.anchors],
@@ -1400,7 +1402,7 @@ async function makeMeetingDesign(
       const half = (BW - gap) / 2;
       const hs = (['planned', 'actual'] as const).map((k, i) => {
         const label = k === 'planned' ? '참석 예정' : '실제 참석';
-        return areaList(p, { code: 'F2', area: { x: X + i * (half + gap), w: half }, cols: [col('role', '역할', 1), col('name', label, 1.2)] }, attendeeRows(snapshot.attendees?.[k] ?? [], k), `${label} 미입력`);
+        return areaList(p, { code: 'F2', area: { x: X + i * (half + gap), w: half }, cols: [col('role', '역할', 1, K), col('name', label, 1.2, K)] }, attendeeRows(snapshot.attendees?.[k] ?? [], k), `${label} 미입력`);
       });
       const isRep = (a: MeetingAttendee) => a.workerRepresentative ?? a.role.includes('근로자대표');
       const rep = (snapshot.attendees?.actual ?? []).some(isRep);
@@ -1422,7 +1424,7 @@ async function makeMeetingDesign(
     list(
       'F4',
       '조치 계획',
-      { dense: true, cols: [col('id', 'ID', 1.0), col('targetId', '대상 ID', 0.9), col('hazard', '위험요인', 2.4, { dot: true }), col('measure', '대책', 3.2), col('owner', '1차 조치자', 1.6), col('due', '기한', 1.0), col('verifier', '2차 확인자', 1.8)] },
+      { dense: true, cols: [col('id', 'ID', 1.0, K), col('targetId', '대상 ID', 0.9, K), col('hazard', '위험요인', 2.4, { dot: true }), col('measure', '대책', 3.2), col('owner', '1차 조치자', 1.6, K), col('due', '기한', 1.0, K), col('verifier', '2차 확인자', 1.8, K)] },
       actions.map((a) => {
         const tid = a.targetId ?? a.id;
         return { anchors: [a.anchors, refAnchors(tid)], row: { id: a.id, cells: [{ text: a.id }, { text: tid }, { text: v(hazardOf(tid, a.hazard)), bold: true }, { text: a.measure }, { text: v(a.owner) }, { text: v(a.due) }, { text: v(a.verifier) }] } };
@@ -1435,7 +1437,7 @@ async function makeMeetingDesign(
     list(
       'F5',
       '보류·재평가',
-      { cols: [col('id', 'ID', 1.0), col('hazard', '위험요인', 3.6, { dot: true }), col('reason', '보류 사유', 4.0), col('reevaluateBy', '재평가 기한', 1.8)] },
+      { cols: [col('id', 'ID', 1.0, K), col('hazard', '위험요인', 3.6, { dot: true }), col('reason', '보류 사유', 4.0), col('reevaluateBy', '재평가 기한', 1.8, K)] },
       (snapshot.deferred ?? []).map((d) => ({ anchors: [d.anchors, refAnchors(d.id)], row: { id: d.id, cells: [{ text: d.id }, { text: v(hazardOf(d.id, d.hazard)), bold: true }, { text: d.reason }, { text: v(d.reevaluateBy) }] } })),
       8,
       '보류 항목 없음',
@@ -1451,7 +1453,7 @@ async function makeMeetingDesign(
     list(
       'F7',
       '다음 회차로 넘길 목록',
-      { cols: [col('id', 'ID', 1.2), col('hazard', '위험요인', 3.0, { dot: true }), col('measure', '대책·비고', 3.2), col('due', '기한', 1.0), col('status', '상태', 1.0, { status: true }), col('scaleId', '척도', 1.2)] },
+      { cols: [col('id', 'ID', 1.2, K), col('hazard', '위험요인', 3.0, { dot: true }), col('measure', '대책·비고', 3.2), col('due', '기한', 1.0, K), col('status', '상태', 1.0, { status: true, keep: true }), col('scaleId', '척도', 1.2, K)] },
       carryOver.map((x) => ({ anchors: [x.anchors], row: { id: x.id, cells: [{ text: x.id }, { text: x.hazard, bold: true }, { text: v(x.measure ?? x.result) }, { text: v(x.due) }, { text: v(x.status), bold: true, color: statusTone(x.status) }, { text: x.scaleId ?? '미상' }] } })),
       10,
       '이월 항목 없음',

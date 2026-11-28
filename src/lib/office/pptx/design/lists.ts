@@ -37,6 +37,11 @@ export interface ListCol {
   status?: boolean;
   /** 위험 점(app) — 위험 칸 라벨 앞 */
   dot?: boolean;
+  /**
+   * 낱말 가운데서 끊지 않는 칸(날짜·상태·ID·구분·확인자) — 띄어쓰기로 나눈 가장 긴 낱말이 한 줄에 들도록
+   * 이 칸을 넓히고 그만큼 다른 칸(글이 긴 칸)에서 덜어 온다(fitKeepCols). 글은 그대로다
+   */
+  keep?: boolean;
 }
 export interface ListCell {
   text: string;
@@ -183,6 +188,54 @@ export function listLayout(d: DeckDesign, s: DesignScale, spec: ListSpec, rows: 
   const headH = isTable ? m.headH : m.legendH;
   const total = headH + lay.reduce((t, r) => t + r.h, 0) + Math.max(0, lay.length - 1) * m.gap;
   return { colW, colX, textW, px: m.px, capPx: m.capPx, headH, rows: lay, gap: m.gap, total };
+}
+
+/** 칸 폭에서 글 칸 폭을 뺀 여백(px) — listLayout 의 textW 와 같은 식 */
+function colOverhead(m: ReturnType<typeof metrics>, spec: ListSpec, i: number): number {
+  const isTable = m.fam === 'hairline' || m.fam === 'grid';
+  if (isTable) return 2 * m.padX;
+  if (spec.cols[i].status && m.fam !== 'rowcard') return 2 * PILL_PAD_X;
+  return spec.cols[i].dot && m.fam === 'chipcard' ? 20 : 0;
+}
+
+/** 낱말 하나(units)가 capacityOf 로 한 줄에 드는 가장 좁은 글 폭(px) — capacityOf 의 0.1in 여유 포함 */
+function keepWidthPx(s: DesignScale, units: number, px: number): number {
+  return ((Math.ceil(units - 1e-9) * s.pt(px)) / 72 + 0.1) / s.k + 1;
+}
+
+/**
+ * 낱말 가운데서 끊지 않는 칸(keep) 폭 맞추기 — 목록 전체 행(장 나누기 전)으로 한 번 재서 모든 장이 같은 칸 폭을 쓴다.
+ * 모자란 폭은 다른 칸에서 덜어 온다 — keep 이 아닌 칸은 원래 폭의 절반까지, keep 칸은 제 낱말 폭을 넘는 만큼만. 그래도 모자라면 short 로 알린다.
+ * 돌려준 spec 의 ratio 는 px 폭 그대로다(listLayout 은 비율 합으로 나누므로 같은 폭이 나온다).
+ */
+export function fitKeepCols(d: DeckDesign, s: DesignScale, spec: ListSpec, rows: ListRow[]): { spec: ListSpec; short: { key: string; need: number; perLine: number }[] } {
+  if (!spec.cols.some((c) => c.keep) || !rows.length) return { spec, short: [] };
+  const m = metrics(d, spec);
+  const L = listLayout(d, s, spec, rows.slice(0, 1));
+  const w = [...L.colW];
+  const longest = (t: string) => Math.max(0, ...t.split(/\s+/).filter(Boolean).map(textUnits));
+  const need = spec.cols.map((col, i) => {
+    if (!col.keep) return 0;
+    const body = Math.max(...rows.map((r) => longest(r.cells[i]?.text ?? '')));
+    const cap = longest(col.caption);
+    return Math.max(keepWidthPx(s, body, m.px), cap ? keepWidthPx(s, cap, m.capPx) : 0) + colOverhead(m, spec, i);
+  });
+  const deficit = need.reduce((t, n, i) => t + Math.max(0, n - w[i]), 0);
+  if (deficit <= 0) return { spec, short: [] };
+  // 덜어 줄 폭 — keep 이 아닌 칸은 절반까지, keep 칸은 제 낱말 폭을 넘는 만큼만
+  const give = spec.cols.map((col, i) => (col.keep ? Math.max(0, w[i] - need[i]) : w[i] / 2));
+  const pool = give.reduce((a, b) => a + b, 0);
+  const taken = Math.min(deficit, pool);
+  const ratio = pool > 0 ? taken / pool : 0;
+  const share = deficit > 0 ? taken / deficit : 0;
+  const out = w.map((x, i) => x + Math.max(0, need[i] - x) * share - give[i] * ratio);
+  const short: { key: string; need: number; perLine: number }[] = [];
+  spec.cols.forEach((col, i) => {
+    if (!col.keep || out[i] + 0.5 >= need[i]) return;
+    const units = Math.max(...rows.map((r) => longest(r.cells[i]?.text ?? '')));
+    short.push({ key: col.key, need: units, perLine: capacityOf(s.x(out[i] - colOverhead(m, spec, i)), s.pt(m.px), 1) });
+  });
+  return { spec: { ...spec, cols: spec.cols.map((col, i) => ({ ...col, ratio: out[i] })) }, short };
 }
 
 /**

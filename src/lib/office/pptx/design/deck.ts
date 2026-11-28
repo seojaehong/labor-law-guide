@@ -4,7 +4,7 @@ import type { DeckPptx, DeckSlide } from './slide-types';
 import { designScale, type DeckDesign, type DesignColorKey, type DesignScale } from './index';
 import { color, type HeadBox } from './head';
 import { LINE_H, wrapLines } from './b3-geometry';
-import { drawList, drawListEmpty, listCapacity, listFamily, planList, type ListRow, type ListSpec } from './lists';
+import { drawList, drawListEmpty, fitKeepCols, listCapacity, listFamily, planList, type ListRow, type ListSpec } from './lists';
 import { capacityOf, textUnits } from '../text-units';
 import type { OverflowEstimate } from '../meeting';
 
@@ -64,7 +64,11 @@ export interface ListPagesArgs {
  * 한 행만으로 본문 높이를 넘으면 원문 그대로 싣고, 본문 높이에 들지 않는 칸만 넘침 후보로 남긴다.
  */
 export function listPages(a: ListPagesArgs): Page[] {
-  const { kit, code, spec } = a;
+  const { kit, code } = a;
+  // 낱말 가운데서 끊지 않는 칸(keep) — 목록 전체로 한 번 칸 폭을 맞춰 모든 장이 같은 폭을 쓴다
+  const fit = fitKeepCols(kit.d, kit.s, a.spec, a.rows);
+  const spec = fit.spec;
+  if (fit.short.length) a.warnings.push(`${code}(${kit.d.id}): ${fit.short.map((x) => `${x.key} 칸 낱말(${Math.ceil(x.need)}자)이 한 줄(${x.perLine}자)에 들지 않는다`).join('·')} — 칸이 많아 넓힐 폭이 없다, 원문 그대로 실었다`);
   const room = a.roomPx - (a.offsetPx ?? 0);
   const plan = planList(kit.d, kit.s, spec, a.rows, room, a.cap);
   return plan.pages.map((page, pi, all) => {

@@ -305,7 +305,7 @@ export async function makeTbmPptx(snapshot: TbmSnapshot, opts: TbmOptions = {}):
 export const TBM_DESIGN_SPEC: Omit<ListSpec, 'area'> = {
   code: 'T',
   cols: [
-    { key: 'flags', caption: '구분', ratio: 1.3, status: true },
+    { key: 'flags', caption: '구분', ratio: 1.3, status: true, keep: true },
     { key: 'situation', caption: '위험', ratio: 2.6, dot: true },
     { key: 'cause', caption: '원인 → 결과', ratio: 1.9 },
     { key: 'measures', caption: '대책', ratio: 2.6 },
