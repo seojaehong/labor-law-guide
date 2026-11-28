@@ -50,7 +50,7 @@ export interface ListPagesArgs {
   cap: number;
   emptyText: string;
   /** 장 하나를 연다(제목에 (n/m) 를 붙이는 것은 부르는 쪽) */
-  newPage: (pageIndex: number, pageCount: number) => Page;
+  newPage: (pageIndex: number, pageCount: number, rows: ListRow[]) => Page;
   /** 본문 높이(px). 없으면 newPage 와 같은 머리(lead 여부)로 잰 roomPxOf */
   roomPx: number;
   overflow: OverflowEstimate[];
@@ -68,7 +68,7 @@ export function listPages(a: ListPagesArgs): Page[] {
   const room = a.roomPx - (a.offsetPx ?? 0);
   const plan = planList(kit.d, kit.s, spec, a.rows, room, a.cap);
   return plan.pages.map((page, pi, all) => {
-    const p = a.newPage(pi, all.length);
+    const p = a.newPage(pi, all.length, page);
     const box = a.offsetPx ? { ...p.box, top: p.box.top + kit.s.y(a.offsetPx) } : p.box;
     const ctx = { ...kit, slide: p.slide };
     if (!page.length) {
