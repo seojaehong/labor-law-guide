@@ -81,11 +81,10 @@ export function planDesignB3<T>(
   maxItems: number,
   shrunkMaxItems: number,
   fits: (page: T[], more: boolean, shrunk: boolean) => boolean = () => true,
-): { shrunk: boolean; byHeight: boolean; pages: { items: T[]; more: number }[] } {
-  if (items.length <= maxItems && fits(items, false, false)) return { shrunk: false, byHeight: false, pages: [{ items, more: 0 }] };
+): { shrunk: boolean; pages: { items: T[]; more: number }[] } {
+  if (items.length <= maxItems && fits(items, false, false)) return { shrunk: false, pages: [{ items, more: 0 }] };
   const cap = Math.max(2, shrunkMaxItems);
   const pages: { items: T[]; more: number }[] = [];
-  let byHeight = items.length <= maxItems;
   let rest = items;
   while (rest.length) {
     if (rest.length <= cap && fits(rest, false, true)) {
@@ -97,14 +96,13 @@ export function planDesignB3<T>(
       break;
     }
     let k = Math.min(cap - 1, rest.length - 1);
-    if (rest.length <= cap || !fits(rest.slice(0, k), true, true)) byHeight = true;
     while (k > 1 && !fits(rest.slice(0, k), true, true)) k--;
     // 한 건에 「외 N건」 칸까지는 안 들면 그 칸을 빼고 한 건만 싣는다(장 제목의 (n/m) 으로 이어짐을 알린다)
     const more = k === 1 && !fits(rest.slice(0, 1), true, true) ? 0 : rest.length - k;
     pages.push({ items: rest.slice(0, k), more });
     rest = rest.slice(k);
   }
-  return { shrunk: true, byHeight, pages };
+  return { shrunk: true, pages };
 }
 
 export async function makeBroadcastPptx(snapshot: MeetingSnapshot, opts: BroadcastOptions = {}): Promise<BroadcastPptxResult> {
@@ -281,7 +279,7 @@ export async function makeBroadcastPptx(snapshot: MeetingSnapshot, opts: Broadca
       const { slide, no, box } = newSlide('B3', `이번에 정한 대책${all.length > 1 ? ` (${pi + 1}/${all.length})` : ''}`, B3_LEAD);
       if (!page.items.length) return emptyNote(slide, '이번 회의에서 새로 정한 대책 없음', box.top);
       const r = drawB3Page({ pptx, slide, d: D, s: S, fontFace }, box, page.items, { shrunk: plan.shrunk, more: page.more, accentFirst: pi === 0 });
-      if (r.grown?.length) warnings.push(`B3(${D.id}) ${no}장: ${r.grown.join('·')} 글이 시안 줄 수보다 길어 칸을 늘렸다(원문 그대로)`);
+      if (r.grown?.length) warnings.push(`B3(${D.id}) ${no}장: ${r.grown.join('·')} 글이 시안 줄 수보다 길다 — 행·카드 높이를 글 줄 수만큼 잡았다(원문 그대로)`);
       if (r.overPage) warnings.push(`B3(${D.id}) ${no}장: 대책 한 건의 글만으로도 본문 높이를 넘는다 — 입력에서 줄여 주세요`);
       checkParts(no, 'B3', r.checks);
     });

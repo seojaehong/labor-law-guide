@@ -97,6 +97,10 @@ export function b3Fields(d: DeckDesign, s: DesignScale, a: B3Text, o: Opt): Fiel
   return [f('risk', a.risk, iw, px, 2), f('measure', a.measure, iw, px, slot.measureMaxLines), f('owner', a.owner, iw, px, 1)];
 }
 
+/** story 카드 안 줄높이·칸 사이(시안 c5-story: line-height 1.3 · gap 22px) */
+export const STORY_LINE = 1.3;
+export const STORY_GAP = 22;
+
 /** story 카드 폭(px) — 이 장 카드 수로 본문 폭을 나눈다 */
 export function storyCardW(d: DeckDesign, count: number): number {
   const slot = d.slots.B3;
@@ -196,10 +200,11 @@ export function b3PageLayout(d: DeckDesign, s: DesignScale, items: B3Text[], o: 
   const cardW = storyCardW(d, count);
   const per = items.map((a) => {
     const fields = fitsOf(a);
-    const riskH = Math.max(px * 2.7, lh(fields.risk));
-    const measureH = Math.max(px * 4, lh(fields.measure));
+    // 시안(c5 .card gap 22 · .field.act padding-top 22 · 줄높이 1.3) — 위험 칸은 글 줄 수만큼, 그 아래 22px 에 구분선
+    const riskH = fields.risk.need * STORY_LINE * px;
+    const measureH = Math.max(px * 4, fields.measure.need * STORY_LINE * px);
     const ownerH = Math.max(40, lh(fields.owner));
-    const measureEnd = 58 + riskH + 14 + 44 + measureH;
+    const measureEnd = 58 + riskH + STORY_GAP + STORY_GAP + 34 + measureH;
     const need = measureEnd + 10 + 30 + ownerH + 22;
     return { need, fields, riskH, measureH, ownerH };
   });

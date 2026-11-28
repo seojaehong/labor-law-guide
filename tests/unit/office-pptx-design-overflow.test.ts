@@ -3,7 +3,7 @@
 // quiet 표는 PowerPoint 가 행을 늘려 바닥줄을 덮었다. designsFor 는 그래도 ok=true 였다.
 // 판정: 슬라이드 XML 에서 글 상자마다 「줄 수 × 1.2 × 글자 크기(× 줄간격)」로 그려질 높이를 잡고
 //   ① 바닥줄 위에서 끝나는지 ② 다른 글과 겹치지 않는지 ③ 담긴 카드 안에서 끝나는지 ④ 표는 행 합이 바닥줄 위인지 본다.
-// 줄 수는 capacityOf(보수적 — PowerPoint 실측보다 줄을 많이 센다)로 잰다.
+// 줄 수는 낱말 단위 줄바꿈(ko-KR — 긴 낱말은 새 줄에서 시작) × capacityOf 한 줄 글자 수로 잰다. PowerPoint COM 실측(261128)과 맞춘 추정이다.
 import { describe, expect, it } from 'vitest';
 import JSZip from 'jszip';
 import { makeBroadcastPptx } from '../../src/lib/office/pptx/broadcast';
@@ -233,13 +233,79 @@ describe('한글은 낱말 사이에서 끊는다(대책 장)', () => {
   });
 });
 
-describe('story 요약 장(B1) 「다음으로 미룬 것」 구분선은 가는 점선', () => {
-  it('sysDot · 1px 굵기', async () => {
+// story 시안(c5-story.html, 261128 채택) 대조 — 값은 시안 CSS 에서
+describe('story 시안 대조', () => {
+  const S = designScale(13.333, 7.5);
+  const px = (emu: number) => emu / 12700 / 72 / S.k;
+  const spOf = (xml: string) =>
+    [...xml.matchAll(/<p:sp>([\s\S]*?)<\/p:sp>/g)].map((m) => {
+      const sp = m[1];
+      return {
+        prst: sp.match(/prst="(\w+)"/)?.[1] ?? '',
+        name: sp.match(/name="([^"]*)"/)?.[1] ?? '',
+        text: [...sp.matchAll(/<a:t>([^<]*)<\/a:t>/g)].map((t) => t[1]).join(''),
+        x: px(num(sp, /<a:off x="(-?\d+)"/)),
+        y: px(num(sp, /<a:off x="-?\d+" y="(-?\d+)"/)),
+        w: px(num(sp, /<a:ext cx="(\d+)"/)),
+        h: px(num(sp, /<a:ext cx="\d+" cy="(\d+)"/)),
+      };
+    });
+
+  it('B1 「다음으로 미룬 것」 구분선 = 시안 1.5px dashed(짧은 점선 sysDash · 0.75pt)', async () => {
     const r = await makeBroadcastPptx(finalSnapshotForDesign(), { design: 'story' });
     const [xml] = await b3Slides(r.bytes!, [1]);
     const dashed = [...xml.matchAll(/<a:ln w="(\d+)"[^>]*>(?:(?!<\/a:ln>)[\s\S])*?<a:prstDash val="(\w+)"/g)].filter((m) => m[2] !== 'solid');
     expect(dashed.length).toBe(1);
-    expect(dashed[0][2]).toBe('sysDot');
+    expect(dashed[0][2]).toBe('sysDash');
     expect(Number(dashed[0][1]) / 12700).toBeLessThanOrEqual(0.75);
   });
+
+  it('B1 「바뀐 것」 — 위험 표시는 라벨 위, 숫자 칸 120px(라벨 폭 352px 이상, 시안 .before .kpi)', async () => {
+    const r = await makeBroadcastPptx(finalSnapshotForDesign(), { design: 'story' });
+    const [xml] = await b3Slides(r.bytes!, [1]);
+    const sps = spOf(xml);
+    const label = sps.find((x) => x.text === '새로 생기거나 바뀐 위험')!;
+    const mark = sps.find((x) => x.prst === 'triangle')!;
+    expect(label.w).toBeGreaterThanOrEqual(340);
+    expect(mark.y + mark.h).toBeLessThanOrEqual(label.y + 1);
+    expect(Math.abs(mark.x - label.x)).toBeLessThan(2);
+  });
+
+  it('B3 — 위험 글 바로 아래 구분선(한 줄 위험이면 위험 칸 1줄 높이 + 22px, 시안 .card gap)', async () => {
+    const r = await makeBroadcastPptx(finalSnapshotForDesign(), { design: 'story' });
+    const no = r.slides.find((s) => s.code === 'B3')!.no;
+    const [xml] = await b3Slides(r.bytes!, [no]);
+    const top = getDeckDesign('story').head.bodyTopWithLead;
+    const lines = [...xml.matchAll(/<p:cxnSp>([\s\S]*?)<\/p:cxnSp>|<p:sp>((?:(?!<\/p:sp>)[\s\S])*?prst="line"[\s\S]*?)<\/p:sp>/g)]
+      .map((m) => m[1] ?? m[2])
+      .map((sp) => ({ y: px(num(sp, /<a:off x="-?\d+" y="(-?\d+)"/)), h: px(num(sp, /<a:ext cx="\d+" cy="(\d+)"/)), w: px(num(sp, /<a:ext cx="(\d+)"/)) }))
+      .filter((l) => l.h < 1 && l.w > 300 && l.w < 600);
+    expect(lines.length).toBe(3);
+    for (const l of lines) expect(l.y).toBeCloseTo(top + 58 + 30 * 1.3 + 22, 0);
+  });
+
+  it('머리 캡슐 폭은 글 길이(textUnits)로 — 숫자·띄어쓰기를 한 글자 폭으로 세지 않는다', async () => {
+    const r = await makeBroadcastPptx(finalSnapshotForDesign(), { design: 'story' });
+    const [xml] = await b3Slides(r.bytes!, [1]);
+    const sps = spOf(xml);
+    const cap = sps.find((x) => x.name === 'head:capsule')!;
+    const meta = sps.find((x) => x.text.startsWith('위험성평가 회의 결과 안내'))!;
+    const u = textUnits(meta.text);
+    expect(cap.w).toBeLessThanOrEqual(u * 22 + 120);
+    expect(cap.w).toBeGreaterThanOrEqual(u * 22 + 60);
+  });
+});
+
+describe('한 건만으로도 본문 높이를 넘으면', () => {
+  for (const id of DESIGN_IDS)
+    it(`${id} — 원문 그대로 싣고 warnings 와 overflowEstimates 에 남긴다`, async () => {
+      const huge = LONG80.repeat(8);
+      const r = await makeBroadcastPptx(longSnap({ measure: huge, n: 1 }), { design: id });
+      expect(r.ok).toBe(true);
+      const no = r.slides.find((s) => s.code === 'B3')!.no;
+      const [xml] = await b3Slides(r.bytes!, [no]);
+      expect(xml).toContain(`1 ${huge}`);
+      expect(r.warnings.join(' ')).toContain('본문 높이를 넘는다');
+      expect(r.overflowEstimates.some((o) => o.code === 'B3' && o.ref === 'AC-1' && o.field === 'measure')).toBe(true);
+    });
 });

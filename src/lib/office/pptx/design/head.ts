@@ -6,6 +6,7 @@
 //   capsule    테두리 캡슐 라벨 + 굵은 제목(story)
 // 고르면 본문 시작 y·좌우 끝이 다시 계산된다(HeadBox).
 import type { DeckPptx, DeckSlide } from './slide-types';
+import { textUnits } from '../meeting';
 import { fitHeadTitle, type DeckDesign, type DesignColorKey, type DesignScale } from './index';
 
 type Slide = DeckSlide;
@@ -67,7 +68,8 @@ export function drawHead(pptx: DeckPptx, slide: Slide, d: DeckDesign, s: DesignS
     slide.addShape(pptx.ShapeType.rect, { objectName: 'head:double-rule', x: L, y: s.y(ry), w: R - L, h: s.y(3), fill: { color: C('accent') }, line: { color: C('accent'), width: 0 } });
     slide.addShape(pptx.ShapeType.rect, { x: L, y: s.y(ry + 7), w: R - L, h: s.y(1), fill: { color: C('accent') }, line: { color: C('accent'), width: 0 } });
   } else if (h.shape === 'capsule') {
-    const w = Math.min(R - L, s.x(a.meta.length * t.meta * 0.92 + 72));
+    // 폭 = 글 폭(textUnits — 숫자·띄어쓰기는 반 글자) + 점·안쪽 여백. 글자 수 × 한 글자 폭으로 재면 시안보다 넓어진다
+    const w = Math.min(R - L, s.x(textUnits(a.meta) * t.meta + 90));
     slide.addShape(pptx.ShapeType.roundRect, { objectName: 'head:capsule', x: L, y: s.y(h.metaY), w, h: s.y(h.metaH), rectRadius: s.y(h.metaH / 2), fill: { color: C('bg') }, line: { color: C('ink'), width: Math.max(0.75, s.pt(1.5)) } });
     slide.addShape(pptx.ShapeType.ellipse, { x: L + s.x(22), y: s.y(h.metaY + h.metaH / 2 - 4), w: s.x(8), h: s.y(8), fill: { color: C('ink') }, line: { color: C('ink'), width: 0 } });
     slide.addText(a.meta, { ...metaOpts, x: L + s.x(42), y: s.y(h.metaY), w: w - s.x(60), h: s.y(h.metaH), bold: true, color: C('ink') });

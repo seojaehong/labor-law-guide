@@ -6,7 +6,8 @@
 import type { DeckPptx, DeckSlide } from './slide-types';
 import { shrinkToFit, type DeckDesign, type DesignScale } from './index';
 import { color, type HeadBox } from './head';
-import { b3PageLayout } from './b3-geometry';
+import { b3PageLayout, STORY_GAP } from './b3-geometry';
+import { capacityOf, textUnits } from '../meeting';
 
 type Slide = DeckSlide;
 
@@ -165,19 +166,23 @@ export function drawB1(c: Ctx, kpis: Kpi[]): PartResult {
     const block = (x: number, y: number, w: number, h: number) =>
       slide.addShape(pptx.ShapeType.roundRect, { objectName: 'part:before-after', x: s.x(x), y: s.y(y), w: s.x(w), h: s.y(h), rectRadius: s.y(24), fill: { color: C('surface') }, line: { color: C('line'), width: Math.max(0.5, s.pt(1)) } });
     const label = (text: string, x: number, y: number, w: number) => slide.addText(text, { x: s.x(x), y: s.y(y), w: s.x(w), h: s.y(40), fontFace, fontSize: s.pt(t.meta), bold: true, color: C('ink2'), margin: 0 });
-    const row = (k: Kpi, x: number, y: number, w: number, muted: boolean) => {
-      slide.addText(k.value, { x: s.x(x), y: s.y(y), w: s.x(slot.valueBoxW), h: s.y(rowH), fontFace, fontSize: value(k, slot.valueBoxW, slot.valuePx, slot.valueMinPx), bold: true, color: muted ? C('ink2') : C('ink'), valign: 'middle', margin: 0 });
-      let lx = x + slot.valueBoxW + 16;
+    // 시안(c5 .before .kpi) — 「바뀐 것」은 숫자 칸 120px·간격 32px, 위험 표시(⚠)는 라벨 위에 쌓는다
+    const row = (k: Kpi, x: number, y: number, w: number, muted: boolean, numW = slot.valueBoxW, numGap = 16) => {
+      slide.addText(k.value, { x: s.x(x), y: s.y(y), w: s.x(numW), h: s.y(rowH), fontFace, fontSize: value(k, numW, slot.valuePx, slot.valueMinPx), bold: true, color: muted ? C('ink2') : C('ink'), valign: 'middle', margin: 0 });
+      const lx = x + numW + numGap;
+      const lw = x + w - lx;
       if (k.risk) {
-        slide.addShape(pptx.ShapeType.triangle, { x: s.x(lx), y: s.y(y + rowH / 2 - 11), w: s.x(24), h: s.y(22), fill: { color: C('risk') }, line: noLine(C('risk')) });
-        lx += 36;
-      }
-      slide.addText(k.label, { x: s.x(lx), y: s.y(y), w: s.x(x + w - lx), h: s.y(rowH), fontFace, fontSize: s.pt(t.body), color: muted ? C('ink2') : C('ink'), valign: 'middle', margin: 0 });
-      r.checks.push({ ref: k.key, field: 'label', text: k.label, wIn: s.x(x + w - lx), pt: s.pt(t.body), lines: 2 });
+        const lines = Math.max(1, Math.ceil(textUnits(k.label) / capacityOf(s.x(lw), s.pt(t.body), 1)));
+        const gy = y + (rowH - (22 + 10 + lines * 1.3 * t.body)) / 2;
+        slide.addShape(pptx.ShapeType.triangle, { objectName: 'part:risk-mark', x: s.x(lx), y: s.y(gy), w: s.x(24), h: s.y(22), fill: { color: C('surface') }, line: { color: C('risk'), width: Math.max(0.75, s.pt(2.2)) } });
+        slide.addText('!', { x: s.x(lx), y: s.y(gy + 5), w: s.x(24), h: s.y(17), fontFace, fontSize: Math.max(6, s.pt(14)), bold: true, color: C('risk'), align: 'center', valign: 'middle', margin: 0 });
+        slide.addText(k.label, { x: s.x(lx), y: s.y(gy + 32), w: s.x(lw), h: s.y(lines * 1.3 * t.body), fontFace, fontSize: s.pt(t.body), color: muted ? C('ink2') : C('ink'), valign: 'top', margin: 0 });
+      } else slide.addText(k.label, { x: s.x(lx), y: s.y(y), w: s.x(lw), h: s.y(rowH), fontFace, fontSize: s.pt(t.body), color: muted ? C('ink2') : C('ink'), valign: 'middle', margin: 0 });
+      r.checks.push({ ref: k.key, field: 'label', text: k.label, wIn: s.x(lw), pt: s.pt(t.body), lines: 2 });
     };
     block(slot.x, by, bw, bh);
     label('바뀐 것', slot.x + 40, by + 24, bw - 80);
-    row(before, slot.x + 40, by + 60, bw - 80, false);
+    row(before, slot.x + 40, by + 60, bw - 80, false, 120, 32);
     const ax = slot.x + bw + 32;
     slide.addShape(pptx.ShapeType.line, { x: s.x(ax), y: s.y(slot.y + slot.h / 2), w: s.x(96), h: 0, line: { color: C('ink2'), width: Math.max(1, s.pt(3)), endArrowType: 'triangle' } });
     const fx = ax + 96 + 32;
@@ -190,7 +195,7 @@ export function drawB1(c: Ctx, kpis: Kpi[]): PartResult {
     after.forEach((k, i) => {
       const y = fy + 60 + i * rowH;
       const deferred = k.key === 'deferred';
-      if (i > 0) slide.addShape(pptx.ShapeType.line, { x: s.x(fx + 48), y: s.y(y), w: s.x(fw - 96), h: 0, line: deferred ? { color: C('ink2'), width: Math.max(0.5, s.pt(1)), dashType: 'sysDot' } : { color: C('line'), width: Math.max(0.5, s.pt(1)) } });
+      if (i > 0) slide.addShape(pptx.ShapeType.line, { x: s.x(fx + 48), y: s.y(y), w: s.x(fw - 96), h: 0, line: deferred ? { color: C('ink2'), width: Math.max(0.75, s.pt(1.5)), dashType: 'sysDash' } : { color: C('line'), width: Math.max(0.5, s.pt(1)) } });
       row(k, fx + 48, y, fw - 96, deferred);
     });
     note(slot.noteY, 48, t.note, C('ink2'));
@@ -221,8 +226,8 @@ export function drawB3Page(c: Ctx, box: HeadBox, items: ActionItem[], opt: { shr
   items.forEach((a, i) => {
     const f = Object.values(L.items[i].fields);
     if (f.some((x) => x.need > x.lines)) r.grown!.push(a.id);
-    // 칸은 필요한 줄 수만큼 잡았다 — 넘침 점검은 그 줄 수로(한 장 높이를 넘는 것은 overPage 로 따로 알린다)
-    for (const x of f) r.checks.push({ ref: a.id, field: x.field, text: x.text, wIn: s.x(x.wPx), pt: s.pt(x.px), lines: Math.max(x.lines, x.need) });
+    // 칸은 필요한 줄 수만큼 잡았다 — 넘침 점검은 그 줄 수로. 한 장 높이를 넘는 장(overPage)은 시안 줄 수로 재 넘침 후보(overflowEstimates)에 남긴다
+    for (const x of f) r.checks.push({ ref: a.id, field: x.field, text: x.text, wIn: s.x(x.wPx), pt: s.pt(x.px), lines: r.overPage ? x.lines : Math.max(x.lines, x.need) });
   });
 
   if (slot.part === 'hairline-table' || slot.part === 'report-grid') {
@@ -360,10 +365,10 @@ export function drawB3Page(c: Ctx, box: HeadBox, items: ActionItem[], opt: { shr
       const lab = (text: string, y: number) => slide.addText(text, { x: s.x(x + 36), y: s.y(y), w: s.x(iw), h: s.y(30), fontFace, lang: KO, fontSize: s.pt(22), bold: true, color: C('ink2'), margin: 0 });
       lab('위험', top + 28);
       slide.addText(a.risk, { x: s.x(x + 36), y: s.y(top + 58), w: s.x(iw), h: s.y(g.riskH), fontFace, lang: KO, fontSize: s.pt(px), color: C('ink'), valign: 'top', margin: 0 });
-      const my = top + 58 + g.riskH + 14;
+      const my = top + 58 + g.riskH + STORY_GAP;
       slide.addShape(pptx.ShapeType.line, { x: s.x(x + 36), y: s.y(my), w: s.x(iw), h: 0, line: { color: C('line'), width: Math.max(0.5, s.pt(1)) } });
-      lab('대책', my + 14);
-      slide.addText(a.measure, { x: s.x(x + 36), y: s.y(my + 44), w: s.x(iw), h: s.y(g.measureH), fontFace, lang: KO, fontSize: s.pt(px), bold: true, color: C('ink'), valign: 'top', margin: 0 });
+      lab('대책', my + STORY_GAP);
+      slide.addText(a.measure, { x: s.x(x + 36), y: s.y(my + STORY_GAP + 34), w: s.x(iw), h: s.y(g.measureH), fontFace, lang: KO, fontSize: s.pt(px), bold: true, color: C('ink'), valign: 'top', margin: 0 });
       const oy = top + cardH - 22 - g.ownerH;
       lab('담당', oy - 30);
       slide.addText(a.owner, { x: s.x(x + 36), y: s.y(oy), w: s.x(iw), h: s.y(g.ownerH), fontFace, lang: KO, fontSize: s.pt(px), color: C('ink'), margin: 0 });
