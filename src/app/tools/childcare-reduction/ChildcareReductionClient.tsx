@@ -9,6 +9,7 @@ import {
   EMPTY_FORM, applyLines, checkGroups, childcareReductionView, formulaLines, isPlain, mergedNeeds, scheduleRows, shownAssumptions, toEngineInput,
   type FormState, type YesNo,
 } from './result';
+import Work24Handoff, { HANDOFF_COPY } from './Work24Handoff';
 
 /** 예 · 아니오 · 모름 — 모름이면 엔진에 넘기지 않아 「확인 필요」로 남는다 */
 function YesNoField({ legend, name, value, onChange, hint }: { legend: string; name: string; value: YesNo; onChange: (v: YesNo) => void; hint?: string }) {
@@ -155,6 +156,10 @@ export default function ChildcareReductionClient() {
           </ul>
         </FoldedDetail>
       )}
+
+      <FoldedDetail summary={HANDOFF_COPY.summary}>
+        <Work24Handoff f={f} />
+      </FoldedDetail>
     </div>
   );
 }
