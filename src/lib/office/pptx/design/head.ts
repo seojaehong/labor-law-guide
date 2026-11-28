@@ -54,6 +54,34 @@ export function color(d: DeckDesign, k: DesignColorKey): string {
   return (d.tokens.colors as Record<string, string>)[k] ?? d.tokens.colors.ink;
 }
 
+/** grow 머리에서 늘린 제목·요점 줄 높이(px) — 그리기(drawHead)와 장 나누기(bodyRoomFor)가 같이 쓴다 */
+export function headGrowth(d: DeckDesign, s: DesignScale, a: { title: string; lead?: string; grow?: boolean; headline?: unknown }): { titleExtra: number; titleLines: number; leadExtra: number } {
+  let titleExtra = 0;
+  let titleLines = 1;
+  let leadExtra = 0;
+  if (!a.grow) return { titleExtra, titleLines, leadExtra };
+  if (!a.headline) {
+    const f = fitHeadTitle(d, s, a.title);
+    if (!f.fits) {
+      const px = f.pt / (s.k * 72);
+      titleLines = wrapLines(a.title, capacityOf(f.wIn, f.pt, 1));
+      titleExtra = Math.max(0, titleLines * px * LINE_H - d.head.titleH);
+    }
+  }
+  if (a.lead) {
+    const lines = wrapLines(a.lead, capacityOf(s.x(d.head.right - d.head.left), s.pt(d.tokens.type.note), 1));
+    leadExtra = Math.max(0, lines * d.tokens.type.note * LINE_H - d.head.leadH);
+  }
+  return { titleExtra, titleLines, leadExtra };
+}
+
+/** 이 머리(제목·요점 줄) 아래 본문 높이(px) — 바닥줄 위까지 */
+export function bodyRoomFor(d: DeckDesign, s: DesignScale, a: { title: string; lead?: string; grow?: boolean }): number {
+  const g = headGrowth(d, s, a);
+  const top = (a.lead ? d.head.bodyTopWithLead : d.head.bodyTop) + g.titleExtra + g.leadExtra;
+  return (s.H - s.y(1080 - d.foot.y) - s.y((d.foot.rule ? d.foot.rulePx + 8 : 0) + 16)) / s.k - top;
+}
+
 export function drawHead(pptx: DeckPptx, slide: Slide, d: DeckDesign, s: DesignScale, a: HeadArgs): HeadBox {
   const h = d.head;
   const t = d.tokens.type;
@@ -66,17 +94,7 @@ export function drawHead(pptx: DeckPptx, slide: Slide, d: DeckDesign, s: DesignS
   const fontFace = a.fontFace;
   slide.background = { color: C('bg') };
   const metaOpts = { fontFace, fontSize: s.pt(t.meta), color: C('ink2'), valign: 'middle' as const, margin: 0, fit: 'none' as const };
-  // 늘린 제목·요점 줄 높이(px) — grow 일 때만
-  let titleExtra = 0;
-  let titleLines = 1;
-  if (a.grow && !a.headline) {
-    const f = fitHeadTitle(d, s, a.title);
-    if (!f.fits) {
-      const px = f.pt / (s.k * 72);
-      titleLines = wrapLines(a.title, capacityOf(f.wIn, f.pt, 1));
-      titleExtra = Math.max(0, titleLines * px * LINE_H - h.titleH);
-    }
-  }
+  const { titleExtra, titleLines, leadExtra } = headGrowth(d, s, a);
 
   if (h.shape === 'left-band') {
     slide.addShape(pptx.ShapeType.rect, { objectName: 'head:left-band', x: 0, y: 0, w: s.x(h.bandW!), h: s.H, fill: { color: C('headBand') }, line: { color: C('headBand'), width: 0 } });
@@ -120,12 +138,7 @@ export function drawHead(pptx: DeckPptx, slide: Slide, d: DeckDesign, s: DesignS
       slide.addText(a.title, { objectName: 'title', x: L, y: s.y(h.titleY), w: R - L, h: s.y(h.titleH + titleExtra), fontFace: titleFace, fontSize: f.pt, bold: true, color: C(h.titleColor), valign: 'top', margin: 0, fit: 'none' });
     else slide.addText(a.title, { objectName: 'title', x: L, y: s.y(h.titleY), w: R - L, h: s.y(h.titleH), fontFace: titleFace, fontSize: f.pt, bold: true, color: C(h.titleColor), valign: 'middle', margin: 0, fit: 'none' });
   }
-  let leadExtra = 0;
   if (a.lead) {
-    if (a.grow) {
-      const lines = wrapLines(a.lead, capacityOf(R - L, s.pt(t.note), 1));
-      leadExtra = Math.max(0, lines * t.note * LINE_H - h.leadH);
-    }
     slide.addText(a.lead, { x: L, y: s.y(h.leadY + titleExtra), w: R - L, h: s.y(h.leadH + leadExtra), fontFace, fontSize: s.pt(t.note), color: C('ink2'), valign: leadExtra ? 'top' : 'middle', margin: 0 });
   }
   if (a.badge) {

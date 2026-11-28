@@ -3,7 +3,13 @@
 // 문장은 입력 원문 그대로 싣는다(지어 쓰지 않음). 실명 칸 없음 — 서명란은 빈칸. fs·네트워크 없음.
 import PptxGenJS from 'pptxgenjs';
 import { MEETING_THEME } from './meeting-theme';
-import { capacityOf, textUnits, type MeetingAnchor, type OverflowEstimate } from './meeting';
+import { capacityOf, textUnits } from './text-units';
+import type { MeetingAnchor, OverflowEstimate } from './meeting';
+import { DESIGN_IDS, getDeckDesign, isDesignId, type DeckDesign, type DesignId } from './design/index';
+import { bodyRoomFor, drawHead } from './design/head';
+import { koSlide } from './design/lang';
+import { drawSign, type ListRow, type ListSpec } from './design/lists';
+import { checkCallout, drawCallout, listPages, pickLayout, type Kit, type Page } from './design/deck';
 
 export const TBM_TEMPLATE_VERSION = 'tbm-v0';
 
@@ -51,7 +57,10 @@ export interface TbmOptions {
   /** 서명란 행 수 1~20. 기본 8 */
   signatureRows?: number;
   fontFace?: string;
+  /** 판형. 기본 A4 가로 — 단 design 을 고르고 판형을 주지 않으면 16:9 */
   layout?: 'A4' | '16:9';
+  /** 디자인 프리셋. 미지정이면 지금 출력 그대로 */
+  design?: DesignId;
 }
 
 export interface TbmSlideInfo {
@@ -152,7 +161,9 @@ export function pick(hazards: TbmHazard[], n: number): { shown: TbmHazard[]; omi
 
 export async function makeTbmPptx(snapshot: TbmSnapshot, opts: TbmOptions = {}): Promise<TbmPptxResult> {
   const errors = validate(snapshot, opts);
+  if (opts.design !== undefined && !isDesignId(opts.design)) errors.push(`design 은 ${DESIGN_IDS.join('·')} 중 하나(받은 값 ${String(opts.design)})`);
   if (errors.length) return { ok: false, slides: [], picks: [], overflowEstimates: [], warnings: [], errors };
+  if (opts.design) return makeTbmDesign(snapshot, opts, getDeckDesign(opts.design));
 
   const maxHazards = opts.maxHazards ?? 3;
   const signatureRows = opts.signatureRows ?? 8;
@@ -284,6 +295,126 @@ export async function makeTbmPptx(snapshot: TbmSnapshot, opts: TbmOptions = {}):
           })].join('\n')
         : '근거 anchor: 없음',
     );
+  });
+
+  const out = await pptx.write({ outputType: 'arraybuffer' });
+  return { ok: true, bytes: new Uint8Array(out as ArrayBuffer), slides, picks, overflowEstimates: overflow, warnings };
+}
+
+/** 프리셋 판 TBM 위험 목록 칸 — 그리기와 designsFor 가 같이 쓴다 */
+export const TBM_DESIGN_SPEC: Omit<ListSpec, 'area'> = {
+  code: 'T',
+  cols: [
+    { key: 'flags', caption: '구분', ratio: 1.3, status: true },
+    { key: 'situation', caption: '위험', ratio: 2.6, dot: true },
+    { key: 'cause', caption: '원인 → 결과', ratio: 1.9 },
+    { key: 'measures', caption: '대책', ratio: 2.6 },
+  ],
+  stripe: true,
+};
+/** 왼쪽 위험 목록 폭 비율 · 오른쪽 칸 사이 간격(px) */
+export const TBM_LEFT = 0.6;
+export const TBM_GAP = 48;
+
+export function tbmDesignRows(shown: TbmHazard[]): ListRow[] {
+  return shown.map((h, k) => {
+    const chips = [
+      h.acceptability && h.acceptability !== 'acceptable' ? ACC_LABEL[h.acceptability] : '',
+      h.kind === 'new' ? '신규' : h.kind === 'changed' ? '변경' : '',
+      h.seriousConcern ? '중대재해 우려' : '',
+    ].filter(Boolean);
+    const tone = h.acceptability === 'unacceptable' ? 'negative' : h.acceptability === 'conditional' ? 'caution' : 'ink2';
+    return {
+      id: h.id,
+      cells: [
+        { text: [String(k + 1), ...chips].join(' · '), bold: true, color: tone },
+        { text: h.situation, bold: true },
+        { text: [h.cause, h.consequence].filter(Boolean).join(' → ') || '-' },
+        { text: h.measures.length ? h.measures.join('  /  ') : '-' },
+      ],
+    };
+  });
+}
+
+/** 작업 장 제목 — 기본 출력과 같다 */
+export const tbmTitle = (task: TbmTask) => (task.place ? `${task.process}  ·  ${task.place}` : task.process);
+
+// ───── 프리셋 판(design) — 작업마다 한 장(글이 길면 이어지는 장) · 왼쪽 위험 목록 · 오른쪽 확인 질문 + 서명란 ─────
+// 고르는 순서·싣는 글·확인 질문 2개·노트(근거 anchor)는 기본 출력과 같다. 글 언어 ko-KR.
+async function makeTbmDesign(snapshot: TbmSnapshot, opts: TbmOptions, D: DeckDesign): Promise<TbmPptxResult> {
+  const maxHazards = opts.maxHazards ?? 3;
+  const signatureRows = opts.signatureRows ?? 8;
+  const fontFace = opts.fontFace ?? T.fonts.eastAsia;
+  const warnings: string[] = [];
+  const overflow: OverflowEstimate[] = [];
+  const slides: TbmSlideInfo[] = [];
+  const picks: TbmPick[] = [];
+  const anchorMap = new Map((snapshot.anchors ?? []).map((a) => [a.id, a]));
+  const pptx = new PptxGenJS();
+  const { S } = pickLayout(pptx, opts.layout, true);
+  const kit: Kit = { pptx, d: D, s: S, fontFace };
+  const X = D.head.left;
+  const BW = D.head.right - D.head.left;
+  const leftW = BW * TBM_LEFT;
+  const rx = X + leftW + TBM_GAP;
+  const rw = BW - leftW - TBM_GAP;
+  const meta = `작업 전 안전점검(TBM)  ·  ${snapshot.workDate}${snapshot.cycle ? `  ·  ${snapshot.cycle}` : ''}`;
+  const notesOf = (anchors: string[]) =>
+    anchors.length
+      ? ['근거 anchor:', ...anchors.map((a) => {
+          const m = anchorMap.get(a);
+          return `- ${a}${m ? ` — ${[m.source, m.location].filter(Boolean).join(' ')}` : ''}`;
+        })].join('\n')
+      : '근거 anchor: 없음';
+
+  snapshot.tasks.forEach((task, ti) => {
+    const code = `T${ti + 1}`;
+    const { shown, omitted } = pick(task.hazards, maxHazards);
+    picks.push({ taskId: task.id, shown: shown.map((h) => h.id), omitted: omitted.map((h) => h.id) });
+    const anchors = [...new Set(shown.flatMap((h) => h.anchors ?? []))];
+    for (const a of anchors) if (!anchorMap.has(a)) warnings.push(`anchors 에 없는 근거 id: ${a}`);
+    if (!task.questions?.length) warnings.push(`${task.id}: 확인 질문이 없어 빈 줄로 둔다(지어 쓰지 않음)`);
+    if ((task.questions?.length ?? 0) > 2) warnings.push(`${task.id}: 확인 질문은 앞 2개만 싣는다`);
+    const title = tbmTitle(task);
+    const lead = `오늘 이 작업에서 조심할 것 ${shown.length}가지${omitted.length ? `  ·  외 ${omitted.length}건 — 위험성평가표에서 확인` : ''}`;
+    const page = (pi: number, n: number): Page => {
+      const t = `${title}${n > 1 ? ` (${pi + 1}/${n})` : ''}`;
+      const slide = koSlide(pptx.addSlide());
+      const no = slides.length + 1;
+      slides.push({ no, code, taskId: task.id, title: t, anchors });
+      const box = drawHead(pptx, slide, D, S, {
+        no, meta, title: t, lead, fontFace, grow: true,
+        footLeft: `${snapshot.site}  ·  작업 전 안전점검(TBM)`,
+        footRight: `데이터 기준 ${snapshot.basisDate}${snapshot.revision ? ` · ${snapshot.revision}` : ''} · ${TBM_TEMPLATE_VERSION}   ${no}`,
+      });
+      (slide as unknown as { addNotes(t: string): void }).addNotes(notesOf(anchors));
+      return { slide, no, box };
+    };
+    const pages = listPages({
+      kit, code, cap: maxHazards, emptyText: '', overflow, warnings,
+      roomPx: bodyRoomFor(D, S, { title: `${title} (9/9)`, lead, grow: true }),
+      spec: { ...TBM_DESIGN_SPEC, code, area: { x: X, w: leftW } },
+      rows: tbmDesignRows(shown),
+      newPage: page,
+    });
+    // 오른쪽 — 확인 질문(입력 원문, 없으면 빈 줄) + 확인 서명(빈칸). 첫 장에만
+    const p = pages[0];
+    const ctx = { ...kit, slide: p.slide };
+    const top = p.box.top / S.k;
+    const qs = task.questions?.length ? task.questions.slice(0, 2) : ['', ''];
+    const qParts = [
+      { text: '확인 질문', bold: true, breakLine: true },
+      ...qs.map((q, i) => ({ text: `${i + 1}. ${q || '______________________'}`, tone: q ? ('ink' as const) : ('ink2' as const), breakLine: i < qs.length - 1 })),
+    ];
+    const qh = drawCallout(ctx, { x: rx, y: top, w: rw }, qParts);
+    const room = (p.box.bottom - p.box.top) / S.k;
+    checkCallout(kit, p.no, code, task.id, 'questions', qs.join(' '), rw, qh, room, overflow, warnings);
+    const labelY = top + qh + 28;
+    const labelH = D.tokens.type.label * 1.3;
+    p.slide.addText('확인 서명', { x: S.x(rx), y: S.y(labelY), w: S.x(rw), h: S.y(labelH), fontFace, fontSize: S.pt(D.tokens.type.label), bold: true, color: D.tokens.colors.ink, valign: 'middle', margin: 0 });
+    const signTop = labelY + labelH + 12;
+    const r = drawSign(ctx, { ...p.box, top: S.y(signTop) }, signatureRows, { area: { x: rx, w: rw }, headers: ['번호', '소속·역할', '서명'], ratios: [0.9, 2.1, 2.0], tables: 1 });
+    if (r.shrunk) warnings.push(`${code}(${D.id}) ${p.no}장: 서명란 ${signatureRows}행이 본문 높이에 들도록 글자를 ${r.pt}pt 로 줄였다`);
   });
 
   const out = await pptx.write({ outputType: 'arraybuffer' });
