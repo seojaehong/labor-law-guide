@@ -85,6 +85,8 @@ const STRIPE_W = 24;
 /** 상태 알약·캡슐 안쪽 여백(px) */
 const PILL_PAD_X = 20;
 const PILL_PAD_Y = 12;
+/** 알약을 이만큼 올려 알약 안 글이 옆 칸 값과 거의 같은 줄에 오게(칸 높이는 알약 여백까지 잡아 둔다) */
+const PILL_LIFT = 8;
 
 export interface ListRowLayout {
   h: number;
@@ -278,8 +280,8 @@ export function drawList(c: Ctx, box: HeadBox, spec: ListSpec, rows: ListRow[]):
         const pw = iw + 2 * PILL_PAD_X;
         const ph = th + 2 * PILL_PAD_Y;
         const pill = m.fam === 'chipcard' ? { fill: { color: C('bg') }, line: noLine(C('bg')) } : { fill: { color: C('surface') }, line: { color: C('ink2'), width: Math.max(0.75, s.pt(1.5)) } };
-        slide.addShape(pptx.ShapeType.roundRect, { objectName: 'part:status', x: s.x(x0), y: s.y(valY), w: s.x(pw), h: s.y(ph), rectRadius: s.y(Math.min(ph / 2, 28)), ...pill });
-        slide.addText(cell.text, { x: s.x(x0 + PILL_PAD_X), y: s.y(valY + PILL_PAD_Y), w: s.x(iw), h: s.y(th), fontFace, fontSize: s.pt(m.px), bold: true, color: textColor, valign: 'top', margin: 0 });
+        slide.addShape(pptx.ShapeType.roundRect, { objectName: 'part:status', x: s.x(x0), y: s.y(valY - PILL_LIFT), w: s.x(pw), h: s.y(ph), rectRadius: s.y(Math.min(ph / 2, 28)), ...pill });
+        slide.addText(cell.text, { x: s.x(x0 + PILL_PAD_X), y: s.y(valY - PILL_LIFT + PILL_PAD_Y), w: s.x(iw), h: s.y(th), fontFace, fontSize: s.pt(m.px), bold: true, color: textColor, valign: 'top', margin: 0 });
         return;
       }
       slide.addText(cell.text, { x: s.x(cx), y: s.y(valY), w: s.x(L.textW[ci]), h: s.y(th), fontFace, fontSize: s.pt(m.px), bold: m.fam === 'rowcard' || !!cell.bold, color: textColor, valign: 'top', margin: 0 });
