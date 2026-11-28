@@ -301,18 +301,20 @@ function broadcastFits(snapshot: MeetingSnapshot, ids: readonly DesignId[]): Des
 }
 
 
-/** 프리셋을 고를 수 있는 덱 종류 */
-export const DECK_KINDS = ['broadcast', 'meeting-pre', 'meeting-final', 'tbm', 'education'] as const;
-export type DeckKind = (typeof DECK_KINDS)[number];
+/** 프리셋을 고를 수 있는 덱 종류(designsFor 둘째 인자) — 테마의 DECK_KINDS(proposal·report …)와 다른 목록이라 이름을 따로 둔다 */
+export const DESIGN_DECK_KINDS = ['broadcast', 'meeting-pre', 'meeting-final', 'tbm', 'education'] as const;
+export type DesignDeckKind = (typeof DESIGN_DECK_KINDS)[number];
 
 /**
  * 덱 종류별 프리셋 담기 판정. 둘째 인자가 덱 종류(문자열)면 그 덱 기준, 배열이거나 없으면 전파 덱 기준(기존 호출 그대로).
  * ok=false 여도 덱은 만든다 — 제목은 줄 수만큼 머리 칸을 늘리고, 목록은 장을 나누며, 이유는 warnings 에도 남는다.
  */
 export function designsFor(snapshot: MeetingSnapshot, ids?: readonly DesignId[]): DesignFit[];
-export function designsFor(snapshot: MeetingSnapshot | TbmSnapshot | EducationSnapshot, kind: DeckKind, ids?: readonly DesignId[]): DesignFit[];
-export function designsFor(snapshot: unknown, a?: DeckKind | readonly DesignId[], b?: readonly DesignId[]): DesignFit[] {
-  const kind: DeckKind = typeof a === 'string' ? a : 'broadcast';
+export function designsFor(snapshot: MeetingSnapshot | TbmSnapshot | EducationSnapshot, kind: DesignDeckKind, ids?: readonly DesignId[]): DesignFit[];
+export function designsFor(snapshot: unknown, a?: DesignDeckKind | readonly DesignId[], b?: readonly DesignId[]): DesignFit[] {
+  // 없는 덱 종류(테마 종류 'report'·오타·옛 자리에 넣은 프리셋 이름)는 조용히 ok 를 내지 않는다
+  if (typeof a === 'string' && !(DESIGN_DECK_KINDS as readonly string[]).includes(a)) throw new TypeError(`designsFor: 알 수 없는 덱 종류 「${a}」 — ${DESIGN_DECK_KINDS.join('·')} 중 하나`);
+  const kind: DesignDeckKind = typeof a === 'string' ? a : 'broadcast';
   const ids = (typeof a === 'string' ? b : a) ?? DESIGN_IDS;
   if (kind === 'broadcast') return broadcastFits(snapshot as MeetingSnapshot, ids);
   const scale = designScale(13.333, 7.5);

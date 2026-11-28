@@ -185,3 +185,17 @@ describe('designsFor — 덱 종류를 받는다', () => {
     expect(designsFor(e, 'education').every((x) => x.ok)).toBe(true);
   });
 });
+
+describe('designsFor 덱 종류 — 공개 이름 · 없는 종류는 오류', () => {
+  it('라이브러리 입구에서 DESIGN_DECK_KINDS · DesignDeckKind 로 이름이 겹치지 않게 내보낸다', async () => {
+    const lib = await import('@/lib/office');
+    expect([...lib.DESIGN_DECK_KINDS]).toEqual(['broadcast', 'meeting-pre', 'meeting-final', 'tbm', 'education']);
+    // 테마 DECK_KINDS(proposal·report …)는 그대로
+    expect(lib.DECK_KINDS).not.toContain('meeting-pre');
+    const k: import('@/lib/office').DesignDeckKind = 'tbm';
+    expect(lib.designsFor(tbm(), k).length).toBe(DESIGN_IDS.length);
+  });
+  it('없는 덱 종류(테마 종류·오타·프리셋 이름)는 조용히 ok 를 내지 않고 오류', () => {
+    for (const bad of ['report', 'meeting', 'quiet']) expect(() => designsFor(meetingPre(), bad as never), bad).toThrow(/덱 종류/);
+  });
+});

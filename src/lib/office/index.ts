@@ -46,8 +46,8 @@ export type { BroadcastOptions, BroadcastSlideInfo, OpinionResult } from './pptx
 export type { EducationCase, EducationCourse, EducationOptions, EducationQuiz, EducationSlideInfo, EducationSnapshot, EducationSummary } from './pptx/education';
 export type { TbmSnapshot, TbmTask, TbmHazard, TbmAcceptability, TbmOptions, TbmSlideInfo, TbmPick } from './pptx/tbm';
 // 덱 디자인 프리셋(quiet·field·app·report·story) — 프리셋 데이터와 「이 스냅숏을 담을 수 있나」 거르기
-export { DESIGN_IDS, getDeckDesign, designsFor, designErrors, contrastRatio } from './pptx/design/index';
-export type { DesignId, DeckDesign, DesignFit } from './pptx/design/index';
+export { DESIGN_IDS, DESIGN_DECK_KINDS, getDeckDesign, designsFor, designErrors, contrastRatio } from './pptx/design/index';
+export type { DesignId, DesignDeckKind, DeckDesign, DesignFit } from './pptx/design/index';
 // 덱 테마 계약 — 순수 함수라 결과 틀(run) 밖에서 바로 내보낸다
 export { getDeckTheme, DECK_RULES, DECK_KINDS, COLOR_ROLES } from './pptx/theme/index';
 export type {
