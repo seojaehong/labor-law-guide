@@ -10,6 +10,8 @@ import REPORT from './presets/report.json';
 import STORY from './presets/story.json';
 import { capacityOf, textUnits } from '../text-units';
 import type { MeetingSnapshot } from '../meeting';
+import type { TbmSnapshot } from '../tbm';
+import type { EducationSnapshot } from '../education';
 import { b3LongFields } from './b3-geometry';
 
 export const DESIGN_IDS = Object.freeze(['quiet', 'field', 'app', 'report', 'story'] as const);
@@ -265,7 +267,7 @@ export interface DesignFit {
  * ok=false 여도 makeBroadcastPptx 는 만든다 — 넘침 순서(축약 표시 → 한 번만 축소 → 「외 N건」 → 다음 장)로 처리하고 warnings 에 적는다.
  * 고르기 화면은 ok=false 디자인을 빼거나 이유와 함께 흐리게 둔다.
  */
-export function designsFor(snapshot: MeetingSnapshot, ids: readonly DesignId[] = DESIGN_IDS): DesignFit[] {
+function broadcastFits(snapshot: MeetingSnapshot, ids: readonly DesignId[]): DesignFit[] {
   const s = snapshot ?? ({} as MeetingSnapshot);
   const actions = Array.isArray(s.actions) ? s.actions : [];
   const opinions = Array.isArray(s.opinions) ? s.opinions : [];
@@ -294,6 +296,56 @@ export function designsFor(snapshot: MeetingSnapshot, ids: readonly DesignId[] =
     if (wide.length) why.push(`요약 수 ${wide.map((k) => `「${k.value}」`).join('·')} 가 이 디자인의 숫자 칸에 보통 크기로 한 줄에 들지 않음`);
     const long = b3LongFields(d, scale, texts);
     if (long.length) why.push(`대책 장 글이 시안 칸보다 길다 — ${long.map((x) => `${x.id} ${FIELD_LABEL[x.field]} ${x.need}줄(칸 ${x.lines}줄)`).join('·')} — 칸을 늘리거나 다음 장으로 나눔`);
+    return { id, ok: why.length === 0, reason: why.join('; ') };
+  });
+}
+
+
+/** 프리셋을 고를 수 있는 덱 종류 */
+export const DECK_KINDS = ['broadcast', 'meeting-pre', 'meeting-final', 'tbm', 'education'] as const;
+export type DeckKind = (typeof DECK_KINDS)[number];
+
+/**
+ * 덱 종류별 프리셋 담기 판정. 둘째 인자가 덱 종류(문자열)면 그 덱 기준, 배열이거나 없으면 전파 덱 기준(기존 호출 그대로).
+ * ok=false 여도 덱은 만든다 — 제목은 줄 수만큼 머리 칸을 늘리고, 목록은 장을 나누며, 이유는 warnings 에도 남는다.
+ */
+export function designsFor(snapshot: MeetingSnapshot, ids?: readonly DesignId[]): DesignFit[];
+export function designsFor(snapshot: MeetingSnapshot | TbmSnapshot | EducationSnapshot, kind: DeckKind, ids?: readonly DesignId[]): DesignFit[];
+export function designsFor(snapshot: unknown, a?: DeckKind | readonly DesignId[], b?: readonly DesignId[]): DesignFit[] {
+  const kind: DeckKind = typeof a === 'string' ? a : 'broadcast';
+  const ids = (typeof a === 'string' ? b : a) ?? DESIGN_IDS;
+  if (kind === 'broadcast') return broadcastFits(snapshot as MeetingSnapshot, ids);
+  const scale = designScale(13.333, 7.5);
+  const arr = <T,>(x: unknown): T[] => (Array.isArray(x) ? (x as T[]) : []);
+  const o = (snapshot ?? {}) as Record<string, unknown>;
+  // 덱마다 요약 수(B1 숫자 칸) · 입력 원문이 들어가는 제목
+  let values: string[] = [];
+  let titles: string[] = [];
+  if (kind === 'meeting-pre') {
+    const prior = arr<{ status?: string; id: string }>(o.prior);
+    const hazards = arr<{ kind?: string }>(o.hazards);
+    const done = prior.filter((p) => p.status === '완료');
+    values = [prior.length ? `${done.length}/${prior.length}` : '0', String(hazards.filter((h) => h.kind === 'new' || h.kind === 'changed').length), String(arr(o.questions).length)];
+    titles = done.map((p) => `조치 전·후 — ${p.id}`);
+  } else if (kind === 'education') {
+    const hz = arr<{ acceptability?: string }>(o.hazards);
+    const n = (k?: string) => String(hz.filter((h) => h.acceptability === k).length);
+    values = [n('unacceptable'), n('conditional'), n('acceptable'), ...(hz.some((h) => !h.acceptability) ? [n(undefined)] : [])];
+  } else if (kind === 'tbm') {
+    // 작업 장 제목 = 작업 이름 · 장소(그리기 tbm.tbmTitle 과 같은 글)
+    titles = arr<{ process: string; place?: string }>(o.tasks).map((t) => (t.place ? `${t.process}  ·  ${t.place}` : t.process));
+  }
+  return ids.map((id) => {
+    const d = PRESETS[id];
+    const why: string[] = [];
+    const boxes = fixedTextBoxes(d, scale);
+    const wide = values.filter((v, i) => {
+      const box = i === 0 && boxes.hero ? boxes.hero : boxes.kpiValue;
+      return capacityOf(box.wIn, box.pt, 1) < textUnits(v);
+    });
+    if (wide.length) why.push(`요약 수 ${wide.map((v) => `「${v}」`).join('·')} 가 이 디자인의 숫자 칸에 보통 크기로 한 줄에 들지 않음`);
+    const longT = titles.filter((t) => !fitHeadTitle(d, scale, t).fits);
+    if (longT.length) why.push(`제목 ${longT.map((t) => `「${t}」`).join('·')} 이 한 번 줄여도 한 줄에 들지 않음 — 머리 칸을 줄 수만큼 늘림`);
     return { id, ok: why.length === 0, reason: why.join('; ') };
   });
 }

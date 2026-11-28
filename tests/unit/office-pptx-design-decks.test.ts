@@ -39,49 +39,49 @@ interface DeckCase {
 
 const DECKS: Record<string, DeckCase> = {
   education: {
-    make: (o) => makeEducationPptx(education(), o) as Promise<R>,
+    make: (o) => makeEducationPptx(education(), o) as unknown as Promise<R>,
     codes: 'E1,E2,E3,E4,E5,E6',
     must: ['별표 5 제1호 다목', '지게차 부딪힘', '유도자 배치 / 후방 경보기', '합성 사례 본문 후진하던', '출처: 합성 출처', '지게차 후진 때 누가 유도하나요?', '허용 불가', '조건부', '많이 나온 재해 유형'],
     notes: ['답(입력 원문)', '유도자', '(답 미기재)'],
     same: ['summary', 'shown', 'omitted'],
   },
   educationBare: {
-    make: (o) => makeEducationPptx(educationBare(), o) as Promise<R>,
+    make: (o) => makeEducationPptx(educationBare(), o) as unknown as Promise<R>,
     codes: 'E1,E2,E3,E5,E6',
     must: ['별표 5 제1호 가목', '1.', '교육 확인 서명부'],
     notes: [],
     same: ['summary', 'shown', 'omitted'],
   },
   tbm: {
-    make: (o) => makeTbmPptx(tbm(), o) as Promise<R>,
+    make: (o) => makeTbmPptx(tbm(), o) as unknown as Promise<R>,
     codes: 'T1,T2',
     must: ['지게차 하역', '1동 하역장', '후진 중 보행자 접촉', '후방 시야 가림 → 부딪힘', '후방 경보기 작동 확인  /  유도자 배치', '오늘 유도자는 어디에 서나요?', '경보기 소리를 들었나요?', '허용 불가', '중대재해 우려', '외 1건', '확인 서명'],
     notes: ['근거 anchor:', 'A-1 — 합성 평가표 시트1!B5', '근거 anchor: 없음'],
     same: ['picks'],
   },
   pre: {
-    make: (o) => makeMeetingPptx(meetingPre(), { ...o, kind: 'pre' }) as Promise<R>,
+    make: (o) => makeMeetingPptx(meetingPre(), { ...o, kind: 'pre' }) as unknown as Promise<R>,
     codes: 'P1,P2,P3,P4,P5,P6,P7,P8,P9,P10',
     must: ['회의 전 검토안', '전회 조치 이행 확인', '반장(역할)', '하역장 후진 접촉', '빈도×강도 3×3', '합성 위험요인 8', '조치 결과 1', '산업안전보건기준에 관한 규칙 제21조', '사진 없음', '야간 통로 어두움', '의견 9 통로 조명이 어둡다', '비교 안 함', 'N-01 을 이번 회차에 반영할지', '반영 / 보류', 'A-X-6', '초안'],
     notes: ['근거 anchor:', 'A-R-01 — 합성 평가표 시트1!B5'],
     same: ['changes'],
   },
   preEmpty: {
-    make: (o) => makeMeetingPptx(meetingPreEmpty(), { ...o, kind: 'pre' }) as Promise<R>,
+    make: (o) => makeMeetingPptx(meetingPreEmpty(), { ...o, kind: 'pre' }) as unknown as Promise<R>,
     codes: 'P1,P2,P3,P4,P5,P6,P7,P8,P9,P10',
     must: ['전회 항목 없음', '해당 항목 없음', '의견 없음', '근거 없음', '참석 예정자 미입력'],
     notes: ['근거 anchor: 없음'],
     same: ['changes'],
   },
   final: {
-    make: (o) => makeMeetingPptx(meetingFinal(), { ...o, kind: 'final' }) as Promise<R>,
+    make: (o) => makeMeetingPptx(meetingFinal(), { ...o, kind: 'final' }) as unknown as Promise<R>,
     codes: 'F1,F2,F3,F4,F5,F6,F7,F8',
     must: ['회의 후 확정본', '확정 v2', '근로자대표 참여: 예', '결정 9 반영', '대책 6 통로 조명 교체', '사다리 상단 고정 장치 설치·2인 1조 작업', '설비 교체 예정', '유도자 배치', 'N-01#2', 'A-13', 'template meeting-v0'],
     notes: ['근거 anchor:', 'A-2 — 합성 평가표 시트1!C4'],
     same: ['carryOver'],
   },
   finalEmpty: {
-    make: (o) => makeMeetingPptx(meetingFinalEmpty(), { ...o, kind: 'final' }) as Promise<R>,
+    make: (o) => makeMeetingPptx(meetingFinalEmpty(), { ...o, kind: 'final' }) as unknown as Promise<R>,
     codes: 'F1,F2,F3,F4,F5,F7,F8',
     must: ['확정 결정 없음', '조치 계획 없음', '보류 항목 없음', '이월 항목 없음', '근로자대표 참여: 아니오'],
     notes: [],
@@ -147,7 +147,7 @@ describe('회의·TBM·교안 덱 — design 프리셋', () => {
         [() => makeMeetingPptx(meetingPre(true), { kind: 'pre', design: id }), '낱말24'],
         [() => makeMeetingPptx(meetingFinal(true), { kind: 'final', design: id }), '낱말24'],
       ] as const) {
-        const r = (await make()) as R;
+        const r = (await make()) as unknown as R;
         expect(r.ok, `${id} ${(r.errors ?? []).join()}`).toBe(true);
         const all = (await parts(r.bytes!)).slides.map(texts).join('\n');
         expect(all).toContain(word);
