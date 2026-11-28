@@ -172,7 +172,10 @@ describe('나머지 장(B2·B4~B7)도 프리셋 부품 배치', () => {
       const r = await makeBroadcastPptx(s, { design: id });
       expect((await slideXmls(r.bytes!)).join('\n')).toContain(huge.trim());
       expect(r.warnings.join(' '), id).toContain('B4');
-      expect(r.overflowEstimates.some((o) => o.code === 'B4' && o.ref === 'O-9'), id).toBe(true);
+      const over = r.overflowEstimates.filter((o) => o.code === 'B4' && o.ref === 'O-9');
+      // 넘치는 칸(의견 원문)만 — 짧은 결과 칸은 후보가 아니다. field 는 기본 출력과 같은 이름(text)
+      expect(over.map((o) => o.field), id).toEqual(['text']);
+      expect(over[0].chars, id).toBeGreaterThan(over[0].capacity);
     }
   });
 });

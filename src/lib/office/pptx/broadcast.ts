@@ -11,7 +11,7 @@ import { drawHead, type HeadBox } from './design/head';
 import { drawB1, drawB3Page, type ActionItem, type TextCheck } from './design/parts';
 import { b3PageLayout } from './design/b3-geometry';
 import { koSlide } from './design/lang';
-import { drawList, drawListEmpty, drawSign, planList, type ListRow, type ListSpec } from './design/lists';
+import { drawList, drawListEmpty, drawSign, listCapacity, planList, type ListRow, type ListSpec } from './design/lists';
 
 export const BROADCAST_TEMPLATE_VERSION = 'broadcast-v0';
 
@@ -251,11 +251,10 @@ export async function makeBroadcastPptx(snapshot: MeetingSnapshot, opts: Broadca
       const { slide, no, box } = newSlide(code, `${title}${all.length > 1 ? ` (${pi + 1}/${all.length})` : ''}`, lead);
       const ctx = { pptx, slide, d: D_, s: S_, fontFace };
       if (!page.length) return drawListEmpty(ctx, box, emptyText);
-      const L = drawList(ctx, box, spec, page);
-      // 한 행만으로도 본문 높이를 넘는 장 — 원문 그대로 싣고 넘침 후보로 남긴다
+      drawList(ctx, box, spec, page);
+      // 한 행만으로도 본문 높이를 넘는 장 — 원문 그대로 싣고, 본문 높이에 들지 않는 칸만 넘침 후보로 남긴다
       for (const r of page.filter((x) => plan.overPage.includes(x.id))) {
-        const ri = page.indexOf(r);
-        r.cells.forEach((cell, ci) => overflow.push({ slide: no, code, ref: r.id, field: spec.cols[ci].caption, chars: cell.text.length, capacity: capacityOf(S_.x(L.textW[ci]), S_.pt(L.px), L.rows[ri].lines[ci]) }));
+        for (const k of listCapacity(D_, S_, spec, r, roomPx)) if (textUnits(k.text) > k.capacity) overflow.push({ slide: no, code, ref: r.id, field: k.key, chars: k.text.length, capacity: k.capacity });
         warnings.push(`${code}(${D_.id}) ${no}장: ${r.id} 한 행의 글만으로도 본문 높이를 넘는다 — 원문 그대로 실었으니 입력에서 줄여 주세요`);
       }
     });
@@ -267,7 +266,7 @@ export async function makeBroadcastPptx(snapshot: MeetingSnapshot, opts: Broadca
       'B2',
       '새로 생기거나 바뀐 위험',
       undefined,
-      { code: 'B2', stripe: true, cols: [{ caption: '구분', ratio: 0.9, status: true }, { caption: '위험', ratio: 4.2, dot: true }, { caption: '원인 → 결과', ratio: 2.6 }, { caption: '위험성', ratio: 1.5 }] },
+      { code: 'B2', stripe: true, cols: [{ key: 'kind', caption: '구분', ratio: 0.9, status: true }, { key: 'situation', caption: '위험', ratio: 4.2, dot: true }, { key: 'cause', caption: '원인 → 결과', ratio: 2.6 }, { key: 'grade', caption: '위험성', ratio: 1.5 }] },
       changed.map((h) => ({
         id: h.id,
         cells: [
@@ -337,7 +336,7 @@ export async function makeBroadcastPptx(snapshot: MeetingSnapshot, opts: Broadca
       'B4',
       '여러분 의견은 이렇게 처리했습니다',
       undefined,
-      { code: 'B4', cols: [{ caption: '의견', ratio: 5.2 }, { caption: '결과', ratio: 3.5 }] },
+      { code: 'B4', cols: [{ key: 'text', caption: '의견', ratio: 5.2 }, { key: 'result', caption: '결과', ratio: 3.5 }] },
       opinionResults.map((r) => ({
         id: r.opinionId,
         cells: [{ text: opinionById.get(r.opinionId)?.text || '-' }, { text: r.result, bold: r.decisionIds.length > 0, color: r.decisionIds.length ? 'positive' : 'ink2' }],
@@ -362,7 +361,7 @@ export async function makeBroadcastPptx(snapshot: MeetingSnapshot, opts: Broadca
       'B5',
       '지난번 대책은 어떻게 됐나',
       undefined,
-      { code: 'B5', cols: [{ caption: '위험', ratio: 4.4, dot: true }, { caption: '상태', ratio: 1.2, status: true }, { caption: '조치 결과', ratio: 3.6 }] },
+      { code: 'B5', cols: [{ key: 'hazard', caption: '위험', ratio: 4.4, dot: true }, { key: 'status', caption: '상태', ratio: 1.2, status: true }, { key: 'result', caption: '조치 결과', ratio: 3.6 }] },
       s.prior.map((p) => ({ id: p.id, cells: [{ text: p.hazard || '-', bold: true }, { text: p.status || '-', bold: true, color: statusColor(p.status) }, { text: p.result || '-' }] })),
       '지난 회차에서 넘어온 조치 없음',
     );
@@ -380,7 +379,7 @@ export async function makeBroadcastPptx(snapshot: MeetingSnapshot, opts: Broadca
       'B6',
       '다음으로 미룬 것',
       B6_LEAD,
-      { code: 'B6', cols: [{ caption: '위험', ratio: 3.8, dot: true }, { caption: '미룬 이유', ratio: 3.8 }, { caption: '다시 볼 날', ratio: 1.4 }] },
+      { code: 'B6', cols: [{ key: 'hazard', caption: '위험', ratio: 3.8, dot: true }, { key: 'reason', caption: '미룬 이유', ratio: 3.8 }, { key: 'reevaluateBy', caption: '다시 볼 날', ratio: 1.4 }] },
       deferred.map((d) => ({ id: d.id, cells: [{ text: d.hazard ?? situationOf.get(d.id) ?? priorOf.get(d.id) ?? d.id, bold: true }, { text: d.reason || '-' }, { text: d.reevaluateBy || '-' }] })),
       '다음 회차로 미룬 것 없음',
     );

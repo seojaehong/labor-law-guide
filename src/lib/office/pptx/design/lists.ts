@@ -9,7 +9,7 @@ import type { DeckPptx, DeckSlide } from './slide-types';
 import type { DeckDesign, DesignColorKey, DesignScale } from './index';
 import { color, type HeadBox } from './head';
 import { LINE_H, linesOf } from './b3-geometry';
-import { textUnits } from '../meeting';
+import { capacityOf, textUnits } from '../meeting';
 
 export type ListFamily = 'hairline' | 'grid' | 'rowcard' | 'chipcard' | 'storycard';
 
@@ -29,6 +29,8 @@ export function listFamily(d: DeckDesign): ListFamily {
 }
 
 export interface ListCol {
+  /** 스냅숏 필드 이름 — 넘침 후보(overflowEstimates)의 field 로 쓴다(기본 출력과 같은 이름) */
+  key: string;
   caption: string;
   ratio: number;
   /** 상태 칸(신규·변경, 완료·미완료 …) — 카드 부품은 알약·테두리 캡슐로 */
@@ -104,6 +106,16 @@ export interface ListLayout {
   gap: number;
   /** 본문 시작에서 마지막 요소 끝까지(px) */
   total: number;
+}
+
+/** 한 행만으로 본문 높이를 넘을 때 — 칸마다 본문 높이에 드는 줄 수로 잰 담을 수 있는 글자 수(넘침 후보 판정) */
+export function listCapacity(d: DeckDesign, s: DesignScale, spec: ListSpec, row: ListRow, roomPx: number): { key: string; text: string; capacity: number }[] {
+  const m = metrics(d);
+  const L = listLayout(d, s, spec, [row]);
+  const isTable = m.fam === 'hairline' || m.fam === 'grid';
+  const avail = roomPx - L.headH - (isTable ? 8 / (s.k * 72) : m.padT + m.capPx * LINE_H + m.capGap + m.padB);
+  const lines = Math.max(1, Math.floor(avail / (LINE_H * m.px)));
+  return spec.cols.map((col, ci) => ({ key: col.key, text: row.cells[ci].text, capacity: capacityOf(s.x(L.textW[ci]), s.pt(m.px), lines) }));
 }
 
 /** 한 장 분량의 칸 폭·행 높이 */
