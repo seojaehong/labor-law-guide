@@ -1263,7 +1263,9 @@ async function makeMeetingDesign(
         const legal = `법조  ${it.legal ?? '-'}`;
         const legalH = wrapLines(legal, capacityOf(S.x(BW), S.pt(body), 1)) * body * LINE_H + 8;
         const labelH = D.tokens.type.label * 1.6;
-        const photoH = Math.max(160, roomOf(p) - labelH - 12 - 28 - legalH - 28 - listH);
+        // 조치 결과 목록이 사진 아래 들지 않으면(사진 최소 160px) 결과 목록은 이어지는 장으로
+        const split = labelH + 12 + 160 + 28 + legalH + 28 + listH > roomOf(p) - SAFE;
+        const photoH = Math.max(160, roomOf(p) - SAFE - labelH - 12 - 28 - legalH - (split ? 0 : 28 + listH));
         const gap = 72;
         const bw = (BW - gap) / 2;
         const py = top + labelH + 12;
@@ -1286,8 +1288,8 @@ async function makeMeetingDesign(
           ],
           { x: S.x(X), y: S.y(ly), w: S.x(BW), h: S.y(legalH), fontFace, fontSize: S.pt(body), valign: 'top', margin: 0 },
         );
-        drawList(ctx, { ...p.box, top: S.y(ly + legalH + 28) }, rspec, rrows);
-        if (labelH + 12 + photoH + 28 + legalH + 28 + listH > roomOf(p)) warnings.push(`P5(${D.id}) ${p.no}장: ${it.id} 조치 결과 글이 길어 사진 칸이 최소 높이로 줄었고 본문 높이를 넘는다 — 원문 그대로 실었으니 입력에서 줄여 주세요`);
+        if (!split) drawList(ctx, { ...p.box, top: S.y(ly + legalH + 28) }, rspec, rrows);
+        else list('P5', `조치 전·후 — ${it.id} 조치 결과`, rspec, [{ anchors: [it.anchors], row: rrows[0] }], 1, '');
       }
     }
 
