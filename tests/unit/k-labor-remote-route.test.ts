@@ -80,6 +80,29 @@ describe('원격 k-labor 라우트', () => {
     expect(headers.get('cache-control')).toBe('no-store');
   });
 
+  it('지연이자 원격 목록과 재호출: 사실을 비우면 묻고, 확인된 입력만으로 계산한다', async () => {
+    const { json } = await rpc(list);
+    const name = 'calc_wage_delay_interest';
+    const tool = json.result.tools.find((t: { name: string }) => t.name === name);
+    expect(tool.inputSchema.properties.employed.type).toBe('boolean');
+    expect(tool.inputSchema.required).not.toContain('employed');
+    const items = [{ kind: 'periodic', amount: 3_000_000, periodicPayDate: '2025-11-25', paidDate: '2025-12-03' }];
+    const read = async (args: object) => {
+      const { status, json } = await call(name, { items, ...args });
+      expect(status).toBe(200);
+      expect(json.result.isError).not.toBe(true);
+      return JSON.parse(json.result.content[0].text);
+    };
+    const unknown = await read({});
+    expect(unknown).toMatchObject({ status: 'needs-input', result: { total: null }, needs: [{ key: 'employed' }] });
+    expect(unknown.headline.join(' ')).toContain('도구 목록을 새로');
+    expect(await read({ employed: true })).toMatchObject({ status: 'ok', result: { total: 13_150 } });
+    const missingDay = await read({ employed: false });
+    expect(missingDay).toMatchObject({ status: 'needs-input', result: { total: null }, needs: [{ key: 'lastWorkDay' }] });
+    expect(missingDay.headline.join(' ')).toContain('lastWorkDay');
+    expect(await read({ lastWorkDay: '2025-12-01' })).toMatchObject({ status: 'ok', result: { total: 13_150 } });
+  });
+
   it('주휴수당의 정확한 계산값과 요청 ID를 보존한다', async () => {
     // 261127 — 평상 주(개근·입사 주 아님·퇴사 주 아님)를 말해야 금액이 나온다. 비우면 needs-input
     const { status, json } = await call('calc_weekly_holiday_pay', { hourlyWage: 10320, weeklyHours: 40, ...PLAIN_WEEK });

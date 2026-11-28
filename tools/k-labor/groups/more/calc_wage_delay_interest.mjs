@@ -1,5 +1,5 @@
 // 임금 지연이자 — 사이트 정본 엔진(src/lib/calc/wage-delay-interest)과 계산기 문구(src/app/tools/wage-delay-interest/copy)를 그대로 불러 쓴다.
-// 금액과 날짜만 받는다. 파일·네트워크를 건드리지 않는다 — 원격판에 그대로 실을 수 있다.
+// 금액·날짜·재직 여부만 받는다. 파일·네트워크를 건드리지 않는다 — 원격판에 그대로 실을 수 있다.
 import { z } from 'zod';
 import { calcWageDelayInterest, calcWageDelayInterestChecked } from '@/lib/calc/wage-delay-interest';
 import { BASIS, CONSEQUENCES, EXCLUSION_REASONS, FORMULA, NOT_COVERED, headline, itemLine } from '@/app/tools/wage-delay-interest/copy';
@@ -23,7 +23,7 @@ export function register(server) {
         '지연이자 = 금액 × 20/100 × (기준일 다음 날부터 지급일까지 일수 − 적용 제외 일수) ÷ 365, 항목마다 원 미만 버림, 합계는 항목 값의 합. 기준일이 토요일·공휴일이어도 미루지 않는다. ' +
         '적용 제외 기간(제37조 제3항·시행령 제18조)은 넣은 기간을 빼기만 하고 사유 해당 여부는 가리지 않는다. 사유가 일부 항목에만 있으면 그 항목의 exclusions 에 넣는다(바깥 exclusions 는 모든 항목 공통). ' +
         '민법·상법 지연손해금, 퇴직연금 부담금 지연이자, 재직 중 중간정산, 1개월을 넘는 기간으로 산정하는 상여금의 재직 중 기준일, 일부 지급 때의 충당 순서는 다루지 않는다. ' +
-        '사용자가 말한 값만 넣는다 — 재직 여부(employed)와 마지막 근무일을 둘 다 비우면 금액을 내지 않고(status needs-input, result.total null) needs 에 물을 질문이 온다. needs 의 question 을 사용자에게 묻고 답을 넣어 다시 부른다.',
+        '사용자가 말한 값만 넣는다 — 재직 여부(employed)와 마지막 근무일을 둘 다 비우면 금액을 내지 않고(status needs-input, result.total null) needs 에 물을 질문이 온다. needs 의 question 을 사용자에게 묻고, 재직 확인 시 employed: true 또는 퇴직 확인 시 lastWorkDay 를 기존 항목과 함께 넣어 다시 부른다. employed 가 도구 입력에 없으면 도구 목록을 새로 불러온다.',
       inputSchema: {
         employed: z
           .boolean()
@@ -77,7 +77,12 @@ export function register(server) {
         if (checked.status === 'needs-input') {
           return text({
             ok: true, status: 'needs-input', needs: checked.needs, assumptions: checked.assumptions,
-            headline: ['임금 지연이자는 금액을 내지 않습니다.', '금액을 정하려면 needs 의 사실(재직 중인지, 퇴직했다면 마지막 근무일)을 알아야 합니다.'],
+            headline: [
+              '임금 지연이자는 금액을 내지 않습니다.',
+              checked.needs.some((need) => need.key === 'employed')
+                ? '재직 중이라고 확인되면 기존 항목에 employed: true를 더해 다시 호출하세요. 도구 입력에 employed가 없으면 도구 목록을 새로 불러오세요. 퇴직했다면 마지막 근무일을 확인하세요.'
+                : '마지막 근무일을 확인한 뒤 기존 항목에 lastWorkDay를 더해 다시 호출하세요.',
+            ],
             result: { items: [], total: null },
             site: 'https://yellowenvelope.kr/tools/wage-delay-interest',
           });
